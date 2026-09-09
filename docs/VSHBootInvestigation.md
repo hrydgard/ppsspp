@@ -68,25 +68,50 @@ changing repeats byte-identically, and a live menu does not.
 
 ## Which firmware versions work
 
-6.61 and **6.60**. `FirmwareVersionSupportsVSH()` (`Core/Util/PSARUnpack.cpp`) is the gate the UI
-uses, and it lists exactly those two.
+**5.01 through 6.61**, all of them. `FirmwareVersionSupportsVSH()`
+(`Core/Util/PSARUnpack.cpp`) is the gate the UI uses.
 
-6.60 needed no new offsets: it ships byte-identical builds of both modules the boot patches touch.
-Disassembling 6.60's and 6.61's `paf.prx` and `vshmain.prx` with `--re-module` and diffing gives
-zero differences across all 6338 + 669 functions - same size, same gp, same entry points, only the
-CRC (which covers the encrypted file, signature included) differs. A 6.60 boot reaches the same
-9-thread steady state at 6 emulated seconds and renders an interactive XMB.
+Checked one release at a time against every version that ships on a UMD - 5.01, 5.02, 5.03, 5.50,
+5.55, 6.00, 6.10, 6.20, 6.30, 6.31, 6.35, 6.37, 6.39, 6.60 - plus the download-only 6.61. Each
+reaches an interactive XMB; 6.00 was confirmed by rendering a GE dump off the running shell, which
+is the same picture 6.60 gives.
 
-6.61 is not on any UMD - it was a download-only update - so a firmware installed from a game disc
-tops out at 6.60. That is the case the 6.60 support exists for.
+**4.05 and below** still die on a `SIGSEGV at 00000000` inside `vsh_module` itself. Different
+problem, not an offset to move.
 
-Everything below that stops short, measured on 6.00, 6.20, 6.30, 6.31, 6.35, 6.37 and 6.39 (there
-is no released version between 6.39 and 6.60). They get past module loading and start
-`ScePafThread`, then stall in `sceVshBridge_Driver` on repeated unresolved `SysMemForKernel`
-imports without ever starting a `ScePafJob`. That is a fresh investigation, not a matter of moving
-an offset.
+5.55 was briefly the odd one out: none of its `flash0:/kd` decrypted, because its modules are
+tagged `0x4C941AF0`/`0x4C941BF0` and those two were the only entries of JPCSP's PRX tag table we
+were missing. The shell came up anyway - vshmain and paf are user modules - but with not a single
+driver behind it. Both keys are in `PrxDecrypter.cpp` now.
 
-### Making the two patches version-safe
+### What it took to get below 6.60
+
+Two things, both the same shape: **Sony renumbered the kernel `*_driver` NIDs between firmware
+versions**, so a function PPSSPP HLEs under the 6.6x NID is a stranger on an older build - and
+the import then lands in the *real* firmware module instead, which is where the trouble starts.
+
+- **`sceRtc_driver` `sceRtcSetAlarmTick`** is `0xE09880CF` on 6.60/6.61, `0x54B9C589` on
+  6.31-6.39, `0x68AED59A` on 6.00-6.20 and `0xADAF231F` on 5.03-5.55. Without the HLE the VSH's
+  alarm call ran the real `rtc.prx`, which called on into `syscon.prx` and blocked forever on a
+  `SceSysconSync` semaphore. That was the whole "stalls in sceVshBridge_Driver" symptom: every
+  thread parked, `idle0` running, and a fourth `SceSysconSync` waiter that a healthy boot doesn't
+  have.
+- **`sceHprm_driver` `sceHprmReadLatch`** is `0xE9B776BE` on 6.60/6.61, `0xA3A87975` on 6.31-6.39,
+  `0x5FC5E53B` on 6.00-6.20 and `0x605DEA7A` on 5.03-5.55. The VSH calls it once a frame, so
+  before this an older firmware's boot log was ~20000 lines of one unresolved import.
+
+**How to map a NID between versions.** Disassemble the same module from both firmwares with
+`--re-module` and match by address: the builds move code around a little, but each of these
+functions is also exported from the plain user-mode library under a NID that never changed
+(`sceRtc/0x7D1FBED3`, `sceHprm/0x40D2F9F0`), so anchor on that export's address in each build and
+read off the `*_driver` NID sitting at the same place. That is mechanical, and it is how all eight
+NIDs above were found.
+
+Expect more of these as other paths get exercised - `sceVshBridge`, `sceDisplay_driver`,
+`sceImpose_driver` and `sceCtrl_driver` all have version-specific NIDs that are currently
+unresolved on every version, 6.61 included, and the boot survives them.
+
+### Making the two module patches version-safe
 
 Both patches used to be hardcoded offsets from the module base, applied to any module of the right
 name. That is fine for the version they were derived from and quietly wrong for every other one.
@@ -102,11 +127,12 @@ name. That is fine for the version they were derived from and quietly wrong for 
   rodata, so there is no gp anchor for it; instead the patch only fires when the word at
   `+0x455C4` is the `0x3F666666` it was derived from. On 6.39 that word is a different float, and
   on 6.20/6.00 it is ASCII string data (`5f746c75`, `776f6461`) - the old unconditional write was
-  corrupting a string table on those.
+  corrupting a string table on those. Only 6.60/6.61 need the patch at all; every older version
+  reaches the XMB without it.
 
 Getting the paf patch right on its own turned an immediate `SIGSEGV at 0000000c` inside
 `scePaf_Module` (a null pool base plus a field offset) into a clean stall for every 6.0x-6.3x
-version, which is what moved the blocker to `sceVshBridge_Driver`.
+version, which is what moved the blocker on to the rtc NID above.
 
 ### Kernel modules with per-model builds
 

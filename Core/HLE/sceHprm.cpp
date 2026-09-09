@@ -91,6 +91,15 @@ const HLEFunction sceHprm_driver[] =
 	// Purpose unknown - JPCSP names it after its NID too, and returns 0. Present so the VSH's
 	// one startup call resolves instead of trapping.
 	{0XDC895B2B, &WrapU_V<sceHprm_driver_DC895B2B>, "sceHprm_driver_DC895B2B", 'x', ""},
+	// Older firmwares number these two differently. Same functions - matched by address against
+	// the same module's user-mode sceHprm exports (sceHprmReadLatch is sceHprm/0x40D2F9F0 in
+	// every build). The VSH calls ReadLatch once a frame, so without these an older firmware's
+	// XMB spends the whole boot trapping on an unresolved import.
+	// NOTE: new entries go at the end - the syscall opcode in a savestate is an index into this array.
+	{0XA3A87975, &WrapU_U<sceHprmReadLatch>, "sceHprmReadLatch", 'x', "x"},  // 6.31 - 6.39
+	{0X5FC5E53B, &WrapU_U<sceHprmReadLatch>, "sceHprmReadLatch", 'x', "x"},  // 6.00 - 6.20
+	{0X748FC3C8, &WrapU_V<sceHprm_driver_DC895B2B>, "sceHprm_driver_DC895B2B", 'x', ""},  // 6.31 - 6.39
+	{0X605DEA7A, &WrapU_U<sceHprmReadLatch>, "sceHprmReadLatch", 'x', "x"},  // 5.03 - 5.55
 };
 
 void Register_sceHprm_driver()

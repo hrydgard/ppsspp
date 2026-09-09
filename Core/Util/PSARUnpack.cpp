@@ -1160,11 +1160,33 @@ bool EraseInstalledFirmware(const Path &nandRoot, std::string *error) {
 }
 
 bool FirmwareVersionSupportsVSH(std::string_view version) {
-	// See the module patches in sceKernelModule.cpp - they're offsets into paf.prx and
-	// vshmain.prx, so they only hold for versions those two modules are unchanged in. 6.60 and
-	// 6.61 ship byte-identical builds of both (all 6338 + 669 functions disassemble the same),
-	// and both boot to an interactive XMB.
-	return version == "6.61" || version == "6.60";
+	// Every firmware from 5.01 up boots to an interactive XMB, checked one release at a time
+	// against every version that ships on a disc (5.01, 5.02, 5.03, 5.50, 5.55, 6.00, 6.10,
+	// 6.20, 6.30, 6.31, 6.35, 6.37, 6.39, 6.60) plus the download-only 6.61. 4.05 and below
+	// still die on a null write inside vsh_module - a separate problem, not an offset to move.
+	//
+	// "6.61" -> 661. Sony always writes the minor part with two digits, but don't rely on it:
+	// a single-digit one is a tens value ("5.5" is 5.50, not 5.05).
+	const size_t dot = version.find('.');
+	if (dot == std::string_view::npos || dot == 0 || dot + 1 >= version.size()) {
+		return false;
+	}
+	int numeric = 0;
+	for (size_t i = 0; i < version.size(); i++) {
+		if (i == dot) {
+			continue;
+		}
+		if (version[i] < '0' || version[i] > '9') {
+			return false;
+		}
+		numeric = numeric * 10 + (version[i] - '0');
+	}
+	if (version.size() - dot == 2) {  // One digit after the dot.
+		numeric *= 10;
+	} else if (version.size() - dot != 3) {
+		return false;
+	}
+	return numeric >= 501;
 }
 
 std::string BundledUpdateInfo::Describe() const {

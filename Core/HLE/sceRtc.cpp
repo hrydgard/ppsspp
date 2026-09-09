@@ -1154,14 +1154,25 @@ void Register_sceRtc()
 	RegisterHLEModule("sceRtc", ARRAY_SIZE(sceRtc), sceRtc);
 }
 
-// sceRtc_driver is the kernel-only alias some firmware-660+ modules (e.g. the VSH's
+// sceRtc_driver is the kernel-only alias some firmware modules (e.g. the VSH's
 // sceVshBridge_Driver) import from instead of plain sceRtc - same underlying functions,
 // just also exported under a second, kernel-suffixed module name. Confirmed by cross-
 // checking jpcsp's sceRtc.java, which registers 0xE09880CF as an alternate NID on the exact
 // same sceRtcSetAlarmTick() method (JPCSP doesn't distinguish import module names the way
 // PPSSPP's HLE dispatch does, but the NID->function mapping is the same either way).
+//
+// Sony renumbered the kernel NIDs across firmware versions, so the same function has three of
+// them. All three are the export at rtc.prx+0xB28, which every one of these builds also
+// exports as the user-mode sceRtc/0x7D1FBED3 (sceRtcSetAlarmTick) - that's how they line up.
+// Covering the older two matters for the VSH: without the HLE, sceVshBridge_Driver's alarm
+// call lands in the real rtc.prx, which goes on into syscon.prx and blocks forever on a
+// SceSysconSync semaphore that never gets signalled.
 const HLEFunction sceRtc_driver[] = {
 	{0XE09880CF, &WrapI_UU<sceRtcSetAlarmTick>,            "sceRtcSetAlarmTick",             'i', "xx" },
+	// NOTE: new entries go at the end - the syscall opcode in a savestate is an index into this array.
+	{0X54B9C589, &WrapI_UU<sceRtcSetAlarmTick>,            "sceRtcSetAlarmTick",             'i', "xx" },  // 6.31 - 6.39
+	{0X68AED59A, &WrapI_UU<sceRtcSetAlarmTick>,            "sceRtcSetAlarmTick",             'i', "xx" },  // 6.00 - 6.20
+	{0XADAF231F, &WrapI_UU<sceRtcSetAlarmTick>,            "sceRtcSetAlarmTick",             'i', "xx" },  // 5.03 - 5.55
 };
 
 void Register_sceRtc_driver()
