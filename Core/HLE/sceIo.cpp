@@ -871,9 +871,12 @@ void ConvertTmToPspDateTime(ScePspDateTime& date_out, const tm& date_in, int mic
 	date_out.microsecond = microSeconds;
 }
 
-static void __IoGetStat(SceIoStat *stat, const PSPFileInfo &info) {
-	memset(stat, 0xfe, sizeof(SceIoStat));
-
+// isFAT is whether the file lives on a FAT volume (the memory stick), which changes both the
+// permissions reported and whether st_private means anything.
+static void __IoGetStat(SceIoStat *stat, const PSPFileInfo &info, bool isFAT) {
+	// Deliberately no memset: pspautotests io/stat poisons the struct and shows a real PSP writes
+	// only as far as the timestamps - the six st_private words come back exactly as the caller
+	// left them. Clearing the whole struct would destroy 24 bytes the kernel never touches.
 	int type, attr;
 	if (info.type & FILETYPE_DIRECTORY) {
 		type = SCE_STM_FDIR;
@@ -883,13 +886,26 @@ static void __IoGetStat(SceIoStat *stat, const PSPFileInfo &info) {
 		attr = TYPE_FILE;
 	}
 
-	stat->st_mode = type | info.access;
-	stat->st_attr = attr;
+	if (isFAT) {
+		// FAT has no permissions of its own, so everything reads back as 0777 - including the
+		// execute bits, which is what Beats needed (issue #14812). Clearing the write bits is
+		// the read-only attribute, and that shows up in st_attr too.
+		const bool readOnly = (info.access & 0222) == 0;
+		stat->st_mode = type | (readOnly ? 0555 : 0777);
+		stat->st_attr = attr | (readOnly ? 0x01 : 0x00);
+	} else {
+		stat->st_mode = type | info.access;
+		stat->st_attr = attr;
+	}
 	stat->st_size = info.size;
 	ConvertTmToPspDateTime(stat->st_a_time, info.atime, info.atimeUs);
 	ConvertTmToPspDateTime(stat->st_c_time, info.ctime, info.ctimeUs);
 	ConvertTmToPspDateTime(stat->st_m_time, info.mtime, info.mtimeUs);
-	stat->st_private[0] = info.startSector;
+	// st_private[0] carries the LBN on a UMD, which games read to build disc0:/sce_lbn paths -
+	// see umd/raw_access. On the memory stick a real PSP leaves it alone entirely.
+	if (!isFAT) {
+		stat->st_private[0] = info.startSector;
+	}
 }
 
 static void __IoSchedAsync(FileNode *f, int fd, int usec) {
@@ -911,11 +927,25 @@ static u32 sceIoGetstat(const char *filename, u32 addr) {
 	// TODO: Improve timing (although this seems normally slow..)
 	int usec = 1000;
 
+	// A real PSP refuses to stat the root of a volume - io/stat records sceIoGetstat("ms0:/")
+	// coming back as an invalid argument rather than describing the directory.
+	const char *colon = strchr(filename, ':');
+	if (colon != nullptr) {
+		const char *rest = colon + 1;
+		while (*rest == '/') {
+			++rest;
+		}
+		if (*rest == '\0') {
+			return hleDelayResult(hleLogWarning(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "volume root"), "io getstat", usec);
+		}
+	}
+
+	const bool isFAT = pspFileSystem.FlagsFromFilename(filename) & FileSystemFlags::SIMULATE_FAT32;
 	auto stat = PSPPointer<SceIoStat>::Create(addr);
 	PSPFileInfo info = pspFileSystem.GetFileInfo(filename);
 	if (info.exists) {
 		if (stat.IsValid()) {
-			__IoGetStat(stat, info);
+			__IoGetStat(stat, info, isFAT);
 			stat.NotifyWrite("IoGetstat");
 			return hleDelayResult(hleLogDebug(Log::sceIo, 0, "sector = %08x", info.startSector), "io getstat", usec);
 		} else {
@@ -931,12 +961,26 @@ static u32 sceIoChstat(const char *filename, u32 iostatptr, u32 changebits) {
 	if (!iostat.IsValid())
 		return hleReportError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad address");
 
-	ERROR_LOG(Log::sceIo, "UNIMPL sceIoChstat(%s, %08x, %08x)", filename, iostatptr, changebits);
-	if (changebits & SCE_CST_MODE)
-		ERROR_LOG_REPORT(Log::sceIo, "sceIoChstat: change mode to %03o requested", iostat->st_mode);
+	// On a FAT volume the write bits in st_mode and the 0x01 bit in st_attr are two views of the
+	// same read-only flag: io/stat/readonly records that setting either one produces both, and
+	// that it's reversible. Anything else in the struct is still ignored.
+	bool haveWritable = false;
+	bool writable = false;
+	if (changebits & SCE_CST_MODE) {
+		writable = (iostat->st_mode & 0222) != 0;
+		haveWritable = true;
+	}
 	if (changebits & SCE_CST_ATTR) {
-		// These are pretty much all of the reported calls: https://report.ppsspp.org/logs/kind/1115
-		ERROR_LOG_REPORT(Log::sceIo, "sceIoChstat: change attr to %04x requested", iostat->st_attr);
+		// The attribute wins if both were asked for, since it names the flag directly.
+		writable = (iostat->st_attr & 0x01) == 0;
+		haveWritable = true;
+	}
+	if (haveWritable) {
+		if (!pspFileSystem.SetFileWritable(filename, writable)) {
+			// Nothing to be done on a host that can't express it - Android content URIs, or a
+			// read-only filesystem. Hardware would have succeeded, so don't fail the call.
+			WARN_LOG(Log::sceIo, "sceIoChstat: could not make %s %s", filename, writable ? "writable" : "read-only");
+		}
 	}
 	if (changebits & SCE_CST_SIZE)
 		ERROR_LOG(Log::sceIo, "sceIoChstat: change size requested");
@@ -2533,17 +2577,15 @@ static u32 sceIoDread(int id, u32 dirent_addr) {
 		}
 
 		PSPFileInfo &info = dir->listing[dir->index];
-		__IoGetStat(&entry->d_stat, info);
+		const bool isFATDir = pspFileSystem.FlagsFromFilename(dir->name) & FileSystemFlags::SIMULATE_FAT32;
+		__IoGetStat(&entry->d_stat, info, isFATDir);
 
 		strncpy(entry->d_name, info.name.c_str(), 256);
 		entry->d_name[255] = '\0';
 
-		bool isFAT = pspFileSystem.FlagsFromFilename(dir->name) & FileSystemFlags::SIMULATE_FAT32;
 		// Only write d_private for memory stick
-		if (isFAT) {
+		if (isFATDir) {
 			const std::string &shortName = dir->ShortName(dir->index);
-			// All files look like they're executable on FAT. This is required for Beats, see issue #14812
-			entry->d_stat.st_mode |= 0111;
 			// write d_private for supporting Custom BGM
 			// ref JPCSP https://code.google.com/p/jpcsp/source/detail?r=3468
 			if (Memory::IsValidAddress(entry->d_private)){

@@ -85,6 +85,7 @@ public:
 	bool RmDir(const std::string &dirname) override;
 	int  RenameFile(const std::string &from, const std::string &to) override;
 	bool RemoveFile(const std::string &filename) override;
+	bool SetFileWritable(const std::string &filename, bool writable) override;
 	FileSystemFlags Flags() const override { return flags; }
 	u64 FreeDiskSpace(const std::string &path) override;
 

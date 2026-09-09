@@ -157,6 +157,9 @@ public:
 	virtual bool     RmDir(const std::string &dirname) = 0;
 	virtual int      RenameFile(const std::string &from, const std::string &to) = 0;
 	virtual bool     RemoveFile(const std::string &filename) = 0;
+	// Sets or clears the FAT read-only attribute, as sceIoChstat does. Defaults to "can't", which
+	// is right for read-only filesystems and for hosts that can't express it.
+	virtual bool     SetFileWritable(const std::string &filename, bool writable) { return false; }
 	virtual int      Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) = 0;
 	virtual PSPDevType DevType(u32 handle) = 0;
 	virtual FileSystemFlags Flags() const = 0;

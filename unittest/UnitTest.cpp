@@ -2914,13 +2914,28 @@ bool TestFatShortNames() {
 		return shortNames;
 	};
 
-	// Names that already fit 8.3 are only uppercased, and the navigation entries are left alone.
+	// A name that is already valid uppercase 8.3 is kept as-is, and the navigation entries are
+	// left alone. "readme.md" is not: its extension is lowercase, which a PSP can't record, so it
+	// gets a counter - see the case block below.
 	std::vector<std::string> plain = shortNamesFor({".", "..", "TEST.TXT", "readme.md", "WIPEOUT"});
 	EXPECT_EQ_STR(plain[0], std::string("."));
 	EXPECT_EQ_STR(plain[1], std::string(".."));
 	EXPECT_EQ_STR(plain[2], std::string("TEST.TXT"));
-	EXPECT_EQ_STR(plain[3], std::string("README.MD"));
+	EXPECT_EQ_STR(plain[3], std::string("README~1.MD"));
 	EXPECT_EQ_STR(plain[4], std::string("WIPEOUT"));
+
+	// Capitalisation, as recorded off a real PSP by pspautotests io/shortname. FAT keeps a
+	// lowercase flag for the base and another for the extension, but the PSP only honours the
+	// base one - so a lowercase base survives on its own and a lowercase extension never does.
+	std::vector<std::string> cased = shortNamesFor({"shrt", "readme.txt", "UPPER.TXT", "MiXeD.txt"});
+	// All lowercase, no extension: representable, so no counter.
+	EXPECT_EQ_STR(cased[0], std::string("SHRT"));
+	// Lowercase extension: not representable.
+	EXPECT_EQ_STR(cased[1], std::string("README~1.TXT"));
+	// Already uppercase throughout.
+	EXPECT_EQ_STR(cased[2], std::string("UPPER.TXT"));
+	// Mixed case in the base.
+	EXPECT_EQ_STR(cased[3], std::string("MIXED~1.TXT"));
 
 	// Long names get truncated to six characters plus a counter, which keeps counting past ~4.
 	std::vector<std::string> many = shortNamesFor({
@@ -2945,8 +2960,22 @@ bool TestFatShortNames() {
 	std::vector<std::string> odd = shortNamesFor({"my song.mp3", "a+b.mp3", "no_ext", ".hidden"});
 	EXPECT_EQ_STR(odd[0], std::string("MYSONG~1.MP3"));
 	EXPECT_EQ_STR(odd[1], std::string("A_B~1.MP3"));
+	// All lowercase with no extension, so this one keeps its name.
 	EXPECT_EQ_STR(odd[2], std::string("NO_EXT"));
 	EXPECT_EQ_STR(odd[3], std::string("HIDDEN~1"));
+
+	// The rest of what io/shortname records, so the whole recorded set is pinned here and not
+	// only in a test that needs a PSP to re-run.
+	std::vector<std::string> hw = shortNamesFor({
+		"a.b.c.txt", "noextensionhere", "sp ace.txt", "+plus[brack].txt",
+		"toolongextension.mpeg", "LongDirectoryName",
+	});
+	EXPECT_EQ_STR(hw[0], std::string("ABC~1.TXT"));
+	EXPECT_EQ_STR(hw[1], std::string("NOEXTE~1"));
+	EXPECT_EQ_STR(hw[2], std::string("SPACE~1.TXT"));
+	EXPECT_EQ_STR(hw[3], std::string("_PLUS_~1.TXT"));
+	EXPECT_EQ_STR(hw[4], std::string("TOOLON~1.MPE"));
+	EXPECT_EQ_STR(hw[5], std::string("LONGDI~1"));
 
 	// Two long names sharing a six character stem must not collide.
 	std::vector<std::string> collide = shortNamesFor({"longname-one.txt", "longname-two.txt"});
