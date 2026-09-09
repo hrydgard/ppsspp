@@ -99,6 +99,15 @@ struct CommandLineOptions {
 	// A .ppsym file of already-known names to apply before dumping, so the disassembly comes
 	// out readable. Module-relative, same format the emulator saves.
 	std::optional<std::string> reSyms;
+	// Headless: analyze --re-module as a flat code image loaded at this address instead of as a
+	// PRX. The decrypted ME images are raw MIPS with no ELF around them; the address they were
+	// linked for is recoverable from their own jal targets.
+	std::optional<std::string> reRawBase;
+	// Headless: decrypt one encrypted PSP file (a tagged PRX, or an ME image from
+	// flash0:/kd/resource) to --re-decrypt-out and exit. Nothing is loaded or run.
+	std::optional<std::string> reDecrypt;
+	// Where the plaintext goes. Defaults to "decrypted.bin".
+	std::optional<std::string> reDecryptOut;
 
 	std::optional<int> memReadAction;
 	std::optional<int> memWriteAction;

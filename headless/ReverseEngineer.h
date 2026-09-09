@@ -19,6 +19,8 @@
 
 #include <string>
 
+#include "Common/CommonTypes.h"
+
 struct ReverseEngineerOptions {
 	// PRX/ELF to load. A host path, or a PSP path like "flash0:/kd/libmp3.prx" (resolved
 	// against the configured NAND directory).
@@ -29,9 +31,18 @@ struct ReverseEngineerOptions {
 	std::string funcFilter;
 	// Optional .syms file applied before dumping, so names show up in every caller.
 	std::string symsFile;
+	// If non-zero, modulePath is a flat code image rather than a PRX: it's copied to this
+	// address and scanned directly, with no loader, no relocation and no imports/exports.
+	u32 rawBase = 0;
 	bool verbose = false;
 };
 
 // Loads a module standalone (no game), analyzes it, and writes a report. Returns a process
 // exit code.
 int RunReverseEngineer(const ReverseEngineerOptions &opts);
+
+// Decrypts one encrypted PSP file and writes the plaintext, without loading anything.
+// Handles any container pspDecryptPRX() knows a tag for - including the ME images in
+// flash0:/kd/resource, which are ordinary tagged containers with the signature blanked, so the
+// normal module loader won't touch them. Returns a process exit code.
+int RunDecryptFile(const std::string &inPath, const std::string &outPath);
