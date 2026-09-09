@@ -780,6 +780,27 @@ struct PRXType9
 };
 static_assert(sizeof(PRXType9) == 0x150, "inconsistent size of PRX Type 9");
 
+// KIRK CMD1 writes the header plus data_offset plus data_size (rounded up to 16) bytes into
+// outbuf, and all three of those come out of the header we just decrypted rather than from the
+// caller. The SHA1 check above doesn't bound them - it only covers the header, so it passes just
+// as happily for a block that's been cut short as for a whole one. A caller that has to guess how
+// long a block is (the PSAR walker does: an updater doesn't record the length of its second
+// block, so it tries the sizes real updaters use) then hands us a size that's too small and KIRK
+// runs off the end of the buffer. That showed up as an intermittent crash unpacking any official
+// updater, since whether the overrun lands on an unmapped page depends on the heap layout.
+static bool KirkOutputFits(u32 headerSize, u32 dataOffset, u32 dataSize, u32 size) {
+	const u64 alignedDataSize = ((u64)dataSize + 15) & ~(u64)15;
+	return (u64)headerSize + (u64)dataOffset + alignedDataSize <= (u64)size;
+}
+
+static bool KirkOutputFits(const KIRK_CMD1_HEADER *header, u32 size) {
+	return KirkOutputFits(sizeof(KIRK_CMD1_HEADER), header->data_offset, header->data_size, size);
+}
+
+static bool KirkOutputFits(const KIRK_CMD1_ECDSA_HEADER *header, u32 size) {
+	return KirkOutputFits(sizeof(KIRK_CMD1_ECDSA_HEADER), header->data_offset, header->data_size, size);
+}
+
 static int pspDecryptType0(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 size) {
 	DEBUG_LOG(Log::Loader, "Decrypting tag %02X", (u32)*(u32_le *)&inbuf[0xD0]);
 	const auto decryptSize = *(s32_le*)&inbuf[0xB0];
@@ -829,6 +850,11 @@ static int pspDecryptType0(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 siz
 	memcpy(header, type0.kirkBlock, sizeof(KIRK_CMD1_HEADER));
 	memcpy(reinterpret_cast<u8*>(header)+sizeof(KIRK_CMD1_HEADER), type0.prxHeader, sizeof(type0.prxHeader));
 	decryptKirkHeaderType0(reinterpret_cast<u8*>(header), type0.kirkBlock, xorbuf, pti->code);
+
+	if (!KirkOutputFits(header, size))
+	{
+		return -5;
+	}
 
 	if (kirk_sceUtilsBufferCopyWithRange(kirk, outbuf, size, reinterpret_cast<u8*>(header), size - offset, KIRK_CMD_DECRYPT_PRIVATE) != 0)
 	{
@@ -884,6 +910,11 @@ static int pspDecryptType1(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 siz
 	memcpy(header, type1.kirkBlock, sizeof(KIRK_CMD1_HEADER));
 	memcpy(reinterpret_cast<u8*>(header)+sizeof(KIRK_CMD1_HEADER), type1.prxHeader, sizeof(type1.prxHeader));
 	decryptKirkHeaderType0(reinterpret_cast<u8*>(header), type1.kirkBlock, xorbuf, pti->code);
+
+	if (!KirkOutputFits(header, size))
+	{
+		return -5;
+	}
 
 	if (kirk_sceUtilsBufferCopyWithRange(kirk, outbuf, size, reinterpret_cast<u8*>(header), size - offset, KIRK_CMD_DECRYPT_PRIVATE) != 0)
 	{
@@ -948,6 +979,11 @@ static int pspDecryptType2(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 siz
 	memcpy(reinterpret_cast<u8*>(header)+sizeof(KIRK_CMD1_HEADER), type2.prxHeader, sizeof(type2.prxHeader));
 	decryptKirkHeader(reinterpret_cast<u8*>(header), type2.kirkHeader, xorbuf.cbegin()+0x10, pti->code);
 	header->mode = 1;
+
+	if (!KirkOutputFits(header, size))
+	{
+		return -5;
+	}
 
 	if (kirk_sceUtilsBufferCopyWithRange(kirk, outbuf, size, reinterpret_cast<u8*>(header), size - offset, KIRK_CMD_DECRYPT_PRIVATE) != 0)
 	{
@@ -1017,6 +1053,11 @@ static int pspDecryptType5(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 siz
 	decryptKirkHeader(reinterpret_cast<u8*>(header), type5.kirkHeader, xorbuf.cbegin()+0x10, pti->code);
 	header->mode = 1;
 
+	if (!KirkOutputFits(header, size))
+	{
+		return -5;
+	}
+
 	if (kirk_sceUtilsBufferCopyWithRange(kirk, outbuf, size, reinterpret_cast<u8*>(header), size - offset, KIRK_CMD_DECRYPT_PRIVATE) != 0)
 	{
 		return -4;
@@ -1083,6 +1124,11 @@ static int pspDecryptType6(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 siz
 	decryptKirkHeader(reinterpret_cast<u8*>(header), type6.kirkHeader, xorbuf.cbegin()+0x10, pti->code);
 	header->mode = 1;
 	header->ecdsa_hash = 1;
+
+	if (!KirkOutputFits(header, size))
+	{
+		return -5;
+	}
 
 	if (kirk_sceUtilsBufferCopyWithRange(kirk, outbuf, size, reinterpret_cast<u8*>(header), size - offset, KIRK_CMD_DECRYPT_PRIVATE) != 0)
 	{
@@ -1155,6 +1201,11 @@ static int pspDecryptType9(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 siz
 	// verified separately, so KIRK is not asked to hash-check this block. JPCSP's equivalent
 	// branch only writes the mode word and zeroes the rest of that region.
 	header->ecdsa_hash = 0;
+
+	if (!KirkOutputFits(header, size))
+	{
+		return -5;
+	}
 
 	if (kirk_sceUtilsBufferCopyWithRange(kirk, outbuf, size, reinterpret_cast<u8*>(header), size - offset, KIRK_CMD_DECRYPT_PRIVATE) != 0)
 	{
