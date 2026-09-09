@@ -70,8 +70,7 @@ private:
 
 	std::string memstickDisplay_;
 
-	// Global settings handlers
-	void OnChangeBackground(UI::EventParams &e);
+		// Global settings handlers
 	void OnRestoreDefaultSettings(UI::EventParams &e);
 	void OnRenderingBackend(UI::EventParams &e);
 	void OnRenderingDevice(UI::EventParams &e);
@@ -83,7 +82,6 @@ private:
 	void OnMemoryStickMyDoc(UI::EventParams &e);
 	void OnMemoryStickOther(UI::EventParams &e);
 #endif
-	void OnImmersiveModeChange(UI::EventParams &e);
 	void OnSustainedPerformanceModeChange(UI::EventParams &e);
 
 	void TriggerRestartOrDo(std::function<void()> callback);

@@ -67,6 +67,9 @@
     <ClCompile Include="..\..\UI\GameSettingsScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\UI\UISettingsScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\UI\GPUDriverTestScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
@@ -214,6 +217,9 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="..\..\UI\GameSettingsScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\UISettingsScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="..\..\UI\GPUDriverTestScreen.h">

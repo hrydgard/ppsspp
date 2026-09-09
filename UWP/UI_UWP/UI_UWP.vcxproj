@@ -106,6 +106,7 @@
     <ClInclude Include="..\..\UI\GamepadEmu.h" />
     <ClInclude Include="..\..\UI\GameScreen.h" />
     <ClInclude Include="..\..\UI\GameSettingsScreen.h" />
+    <ClInclude Include="..\..\UI\UISettingsScreen.h" />
     <ClInclude Include="..\..\UI\GPUDriverTestScreen.h" />
     <ClInclude Include="..\..\UI\ImDebugger\ImConsole.h" />
     <ClInclude Include="..\..\UI\ImDebugger\ImDebugger.h" />
@@ -166,6 +167,7 @@
     <ClCompile Include="..\..\UI\GamepadEmu.cpp" />
     <ClCompile Include="..\..\UI\GameScreen.cpp" />
     <ClCompile Include="..\..\UI\GameSettingsScreen.cpp" />
+    <ClCompile Include="..\..\UI\UISettingsScreen.cpp" />
     <ClCompile Include="..\..\UI\GPUDriverTestScreen.cpp" />
     <ClCompile Include="..\..\UI\ImDebugger\ImConsole.cpp" />
     <ClCompile Include="..\..\UI\ImDebugger\ImDebugger.cpp" />

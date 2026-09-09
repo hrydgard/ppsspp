@@ -12,8 +12,44 @@
 #include "UI/MiscViews.h"
 #include "UI/GameInfoCache.h"
 #include "Common/UI/PopupScreens.h"
+#include "Common/System/OSD.h"
 #include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "GPU/Common/PresentationCommon.h"
+#include "UI/BackgroundAudio.h"
+
+AudioFileChooser::AudioFileChooser(RequesterToken token, std::string *value, std::string_view title, UI::UISound sound, UI::LayoutParams *layoutParams) : UI::LinearLayout(ORIENT_HORIZONTAL, layoutParams), sound_(sound) {
+	using namespace UI;
+	SetSpacing(2.0f);
+	if (!layoutParams) {
+		layoutParams_->width = FILL_PARENT;
+		layoutParams_->height = ITEM_HEIGHT;
+	}
+	Add(new Choice(ImageID("I_PLAY"), new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT)))->OnClick.Add([this](UI::EventParams &) {
+		float achievementVolume = Volume100ToMultiplier(g_Config.iAchievementVolume);
+		g_BackgroundAudio.SFX().Play(sound_, achievementVolume);
+	});
+	Add(new FileChooserChoice(token, value, title, BrowseFileType::SOUND_EFFECT, new LinearLayoutParams(1.0f)))->OnChange.Add([sound, value](UI::EventParams &e) {
+		std::string path = e.s;
+		Sample *sample = Sample::Load(path);
+		if (sample) {
+			g_BackgroundAudio.SFX().UpdateSample(sound, sample);
+		} else {
+			auto au = GetI18NCategory(I18NCat::AUDIO);
+			g_OSD.Show(OSDType::MESSAGE_ERROR, au->T("Audio file format not supported. Must be WAV or MP3."));
+			value->clear();
+		}
+	});
+	Choice *trash = new Choice(ImageID("I_TRASHCAN"), new LinearLayoutParams(ITEM_HEIGHT, ITEM_HEIGHT));
+	trash->OnClick.Add([sound, value](UI::EventParams &) {
+		g_BackgroundAudio.SFX().UpdateSample(sound, nullptr);
+		value->clear();
+	});
+	Add(trash);
+	trash->SetEnabledFunc([value]() {
+		return !value->empty();
+	});
+}
 
 TextWithImage::TextWithImage(ImageID imageID, std::string_view text, UI::LinearLayoutParams *layoutParams) : UI::LinearLayout(ORIENT_HORIZONTAL, layoutParams) {
 	using namespace UI;

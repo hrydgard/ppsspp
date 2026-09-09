@@ -829,6 +829,13 @@ static const ConfigSetting soundSettings[] = {
 	ConfigSetting("UIVolume", SETTING(g_Config, iUIVolume), 75, CfgFlag::DEFAULT),
 	ConfigSetting("GamePreviewVolume", SETTING(g_Config, iGamePreviewVolume), &DefaultGamePreviewVolume, CfgFlag::DEFAULT),
 
+	// Customizations
+	ConfigSetting("UISelectAudioFile", SETTING(g_Config, sUISelectAudioFile), "", CfgFlag::DEFAULT),
+	ConfigSetting("UIConfirmAudioFile", SETTING(g_Config, sUIConfirmAudioFile), "", CfgFlag::DEFAULT),
+	ConfigSetting("UIBackAudioFile", SETTING(g_Config, sUIBackAudioFile), "", CfgFlag::DEFAULT),
+	ConfigSetting("UIToggleOnAudioFile", SETTING(g_Config, sUIToggleOnAudioFile), "", CfgFlag::DEFAULT),
+	ConfigSetting("UIToggleOffAudioFile", SETTING(g_Config, sUIToggleOffAudioFile), "", CfgFlag::DEFAULT),
+
 	ConfigSetting("AudioDevice", SETTING(g_Config, sAudioDevice), "", CfgFlag::DEFAULT),
 	ConfigSetting("AutoAudioDevice", SETTING(g_Config, bAutoSwitchAudioDevice), true, CfgFlag::DEFAULT),
 	ConfigSetting("AudioMixWithOthers", SETTING(g_Config, bAudioMixWithOthers), &DefaultAudioMixWithOthers, CfgFlag::DEFAULT),
