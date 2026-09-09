@@ -77,6 +77,8 @@ private:
 	u64 fileSize_ = 0;
 	bool overwrites_ = false;
 	bool allowRun_ = false;
+	// What's in the NAND right now, for overwrite warnings.
+	InstalledFirmwareInfo installed_;
 
 	std::shared_ptr<InstallState> state_;
 	bool reportedDone_ = false;

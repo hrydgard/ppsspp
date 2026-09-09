@@ -141,6 +141,9 @@ bool ReadBundledUpdateInfo(IFileSystem *fs, std::string_view pathPrefix, Bundled
 // decryption needed, so it's cheap enough to check every disc with. Empty if there's no updater.
 std::string ReadUpdaterVersion(const Path &filename);
 
+// Pulls the version out of an updater's SFO title: "PSP(tm) Update ver 3.95" -> "3.95".
+std::string VersionFromUpdaterTitle(std::string_view title);
+
 // What's actually in the NAND directory right now. That can be anything from a handful of fonts
 // we pulled off a game disc to a full firmware unpacked from an updater, so this reports what's
 // there rather than assuming one or the other.
@@ -158,9 +161,10 @@ struct InstalledFirmwareInfo {
 	u64 totalSize = 0;
 };
 
-// Walks the NAND directory (the one holding flash0/flash1). A full firmware is only a few
-// hundred files, so this is cheap, but it does read the whole tree.
-void ReadInstalledFirmwareInfo(const Path &nandRoot, InstalledFirmwareInfo *info);
+// Walks the NAND directory (the one holding flash0/flash1). Pass countFiles = false when
+// fileCount and totalSize aren't wanted: those are the only fields that need the whole tree read,
+// and a full firmware is a few hundred files, which isn't free on a phone's storage.
+void ReadInstalledFirmwareInfo(const Path &nandRoot, InstalledFirmwareInfo *info, bool countFiles = true);
 
 // Wipes what's in the NAND directory: flash0, flash1 and ipl. Two firmwares can't be merged -
 // files a newer one dropped would linger and still get loaded - so an install starts from empty.

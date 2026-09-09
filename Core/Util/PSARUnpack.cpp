@@ -908,7 +908,7 @@ static const char *UPDATE_PSAR_SUFFIX = "PSP_GAME/SYSDIR/UPDATE/DATA.BIN";
 static const char *UPDATE_SFO_SUFFIX = "PSP_GAME/SYSDIR/UPDATE/PARAM.SFO";
 
 // A disc updater's PARAM.SFO titles itself "PSP(tm) Update ver 3.95"; we want the number.
-static std::string VersionFromUpdaterTitle(std::string_view title) {
+std::string VersionFromUpdaterTitle(std::string_view title) {
 	const size_t space = title.rfind(' ');
 	if (space != std::string_view::npos) {
 		return std::string(title.substr(space + 1));
@@ -1068,6 +1068,13 @@ static bool ScanDirRecursive(const Path &dir, int *fileCount, u64 *totalSize) {
 	return true;
 }
 
+// Whether a directory holds anything at all, without walking into it. flash0's contents are always
+// in subdirectories (font/, kd/, vsh/, ...), so one listing settles "is anything installed".
+static bool DirHasEntries(const Path &dir) {
+	std::vector<File::FileInfo> files;
+	return File::GetFilesInDir(dir, &files) && !files.empty();
+}
+
 static int CountFilesInDir(const Path &dir) {
 	std::vector<File::FileInfo> files;
 	if (!File::GetFilesInDir(dir, &files)) {
@@ -1122,14 +1129,19 @@ static void ParseVersionTxt(std::string_view contents, InstalledFirmwareInfo *in
 	}
 }
 
-void ReadInstalledFirmwareInfo(const Path &nandRoot, InstalledFirmwareInfo *info) {
+void ReadInstalledFirmwareInfo(const Path &nandRoot, InstalledFirmwareInfo *info, bool countFiles) {
 	*info = InstalledFirmwareInfo{};
 
 	const Path flash0 = nandRoot / "flash0";
-	for (const char *dir : { "flash0", "flash1", "ipl" }) {
-		ScanDirRecursive(nandRoot / dir, &info->fileCount, &info->totalSize);
+	if (countFiles) {
+		for (const char *dir : { "flash0", "flash1", "ipl" }) {
+			ScanDirRecursive(nandRoot / dir, &info->fileCount, &info->totalSize);
+		}
+		info->anythingInstalled = info->fileCount > 0;
+	} else {
+		// Cheap equivalent: an install always has files under flash0, so one listing settles it.
+		info->anythingInstalled = DirHasEntries(flash0);
 	}
-	info->anythingInstalled = info->fileCount > 0;
 	if (!info->anythingInstalled) {
 		return;
 	}

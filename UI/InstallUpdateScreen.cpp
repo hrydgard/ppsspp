@@ -46,7 +46,8 @@ InstallUpdateScreen::InstallUpdateScreen(const Path &path, std::string_view titl
 		fileSize_ = fileInfo.size;
 	}
 	// There's no practical way to merge two firmwares, so an install replaces whatever is there.
-	overwrites_ = File::Exists(destination_ / "flash0");
+	ReadInstalledFirmwareInfo(destination_, &installed_, false);
+	overwrites_ = installed_.anythingInstalled;
 }
 
 std::string_view InstallUpdateScreen::GetTitle() const {
@@ -81,8 +82,18 @@ void InstallUpdateScreen::CreateDialogViews(UI::ViewGroup *parent) {
 	container->Add(new TextView(GetFriendlyPath(destination_)))->SetAlign(FLAG_WRAP_TEXT);
 
 	if (overwrites_) {
+		// The title is whatever the updater's SFO says, so only trust the tail of it if it came
+		// out looking like a version number rather than the last word of some other sentence.
+		std::string newVersion = VersionFromUpdaterTitle(title_);
+		if (newVersion.find('.') == std::string::npos || newVersion[0] < '0' || newVersion[0] > '9') {
+			newVersion.clear();
+		}
+		const std::string_view unknown = "N/A";
 		container->Add(new NoticeView(NoticeLevel::WARN, di->T("Confirm Overwrite"),
-			iz->T("The firmware already installed will be erased first")));
+			ApplySafeSubstitutions(
+				iz->T("ReplaceFirmware", "Firmware %1 is installed. It will be erased and replaced with %2."),
+				installed_.version.empty() ? unknown : std::string_view(installed_.version),
+				newVersion.empty() ? unknown : std::string_view(newVersion))));
 	}
 
 	container->Add(new Spacer(12.0f));
