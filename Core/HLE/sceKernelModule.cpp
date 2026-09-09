@@ -2773,7 +2773,9 @@ struct GetModuleIdByAddressArg
 // needs the callee's gp in place. libmp4.prx uses it on the three callbacks it is given.
 // Named after what it does; the official name isn't known.
 static u32 sceKernelGetModuleGPByAddress(u32 addr, u32 gpPtr) {
-	if (!Memory::IsValidAddress(gpPtr)) {
+	// Four bytes get written, so check for four - IsValidAddress would pass on the last three
+	// bytes of a region.
+	if (!Memory::IsValidRange(gpPtr, 4)) {
 		return hleLogError(Log::sceModule, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "bad gp pointer");
 	}
 
