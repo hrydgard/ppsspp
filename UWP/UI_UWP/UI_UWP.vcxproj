@@ -115,6 +115,7 @@
     <ClInclude Include="..\..\UI\ImDebugger\ImMemView.h" />
     <ClInclude Include="..\..\UI\ImDebugger\ImStructViewer.h" />
     <ClInclude Include="..\..\UI\InstallPkgScreen.h" />
+    <ClInclude Include="..\..\UI\FirmwareScreen.h" />
     <ClInclude Include="..\..\UI\InstallUpdateScreen.h" />
     <ClInclude Include="..\..\UI\InstallZipScreen.h" />
     <ClInclude Include="..\..\UI\JitCompareScreen.h" />
@@ -175,6 +176,7 @@
     <ClCompile Include="..\..\UI\ImDebugger\ImMemView.cpp" />
     <ClCompile Include="..\..\UI\ImDebugger\ImStructViewer.cpp" />
     <ClCompile Include="..\..\UI\InstallPkgScreen.cpp" />
+    <ClCompile Include="..\..\UI\FirmwareScreen.cpp" />
     <ClCompile Include="..\..\UI\InstallUpdateScreen.cpp" />
     <ClCompile Include="..\..\UI\InstallZipScreen.cpp" />
     <ClCompile Include="..\..\UI\JitCompareScreen.cpp" />

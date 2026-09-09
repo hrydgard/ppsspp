@@ -39,7 +39,9 @@
 class InstallUpdateScreen : public UISimpleBaseDialogScreen {
 public:
 	// title is the updater's SFO title, which already carries the version ("PSP Update ver 6.61").
-	InstallUpdateScreen(const Path &path, std::string_view title);
+	// allowRun offers to boot the updater instead of unpacking it - which makes sense when the
+	// user picked the updater to launch it, but not when they came here to install a firmware.
+	InstallUpdateScreen(const Path &path, std::string_view title, bool allowRun);
 
 	void CreateDialogViews(UI::ViewGroup *parent) override;
 	void update() override;
@@ -70,6 +72,7 @@ private:
 	std::string title_;
 	u64 fileSize_ = 0;
 	bool overwrites_ = false;
+	bool allowRun_ = false;
 
 	std::shared_ptr<InstallState> state_;
 	bool reportedDone_ = false;

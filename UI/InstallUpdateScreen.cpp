@@ -36,8 +36,8 @@
 #include "UI/MiscViews.h"
 #include "UI/EmuScreen.h"
 
-InstallUpdateScreen::InstallUpdateScreen(const Path &path, std::string_view title)
-	: UISimpleBaseDialogScreen(Path(), SimpleDialogFlags::ContentsCanScroll), path_(path), title_(title) {
+InstallUpdateScreen::InstallUpdateScreen(const Path &path, std::string_view title, bool allowRun)
+	: UISimpleBaseDialogScreen(Path(), SimpleDialogFlags::ContentsCanScroll), path_(path), title_(title), allowRun_(allowRun) {
 	destination_ = GetSysDirectory(DIRECTORY_NAND);
 
 	File::FileInfo fileInfo;
@@ -80,7 +80,8 @@ void InstallUpdateScreen::CreateDialogViews(UI::ViewGroup *parent) {
 	container->Add(new TextView(GetFriendlyPath(destination_)))->SetAlign(FLAG_WRAP_TEXT);
 
 	if (overwrites_) {
-		container->Add(new NoticeView(NoticeLevel::WARN, di->T("Confirm Overwrite"), ""));
+		container->Add(new NoticeView(NoticeLevel::WARN, di->T("Confirm Overwrite"),
+			iz->T("The firmware already installed will be erased first")));
 	}
 
 	container->Add(new Spacer(12.0f));
@@ -90,10 +91,12 @@ void InstallUpdateScreen::CreateDialogViews(UI::ViewGroup *parent) {
 		StartInstall();
 	});
 
-	Choice *runChoice = container->Add(new Choice(dev->T("Run"), ImageID("I_PLAY")));
-	runChoice->OnClick.Add([this](UI::EventParams &e) {
-		screenManager()->switchScreen(new EmuScreen(path_));
-	});
+	if (allowRun_) {
+		Choice *runChoice = container->Add(new Choice(dev->T("Run"), ImageID("I_PLAY")));
+		runChoice->OnClick.Add([this](UI::EventParams &e) {
+			screenManager()->switchScreen(new EmuScreen(path_));
+		});
+	}
 
 	progressBar_ = container->Add(new ProgressBar());
 	progressBar_->SetVisibility(V_GONE);
@@ -125,6 +128,13 @@ void InstallUpdateScreen::StartInstall() {
 		options.progress = [state](float progress) {
 			state->progress = progress;
 		};
+		// Two firmwares can't be merged - a file the new one doesn't have would linger and still
+		// get loaded - so start from an empty NAND.
+		if (!EraseInstalledFirmware(destination, &state->error)) {
+			state->success = false;
+			state->done = true;
+			return;
+		}
 		state->success = UnpackUpdater(path, destination, options, &state->stats, &state->error);
 		if (state->success && state->stats.written == 0) {
 			// Nothing came out, so the archive had no file list for the model we asked for -
