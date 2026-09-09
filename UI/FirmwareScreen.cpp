@@ -82,11 +82,21 @@ void FirmwareScreen::CreateContentViews(UI::ViewGroup *parent) {
 			sy->T("Some system files are present, but not a complete firmware")));
 	}
 
+	// Without any kernel modules there's no firmware here to speak of - it's the fonts we pulled
+	// off a game's disc, and rows reading "Kernel modules: 0 / XMB: No" say nothing useful.
+	const bool fullFirmware = info_.kernelModuleCount > 0;
+
 	content->Add(new ItemHeader(sy->T("Contents")));
 	content->Add(new InfoItem(sy->T("Fonts"), info_.fontCount));
-	content->Add(new InfoItem(sy->T("Kernel modules"), info_.kernelModuleCount));
-	content->Add(new InfoItem(sy->T("XMB (VSH)"), info_.hasVsh ? di->T("Yes") : di->T("No")));
-	content->Add(new InfoItem(sy->T("Files"), info_.fileCount));
+	if (fullFirmware) {
+		content->Add(new InfoItem(sy->T("Kernel modules"), info_.kernelModuleCount));
+	}
+	if (fullFirmware || info_.hasVsh) {
+		content->Add(new InfoItem(sy->T("XMB (VSH)"), info_.hasVsh ? di->T("Yes") : di->T("No")));
+	}
+	if (fullFirmware) {
+		content->Add(new InfoItem(sy->T("Files"), info_.fileCount));
+	}
 	content->Add(new InfoItem(st->T("Size"), NiceSizeFormat(info_.totalSize)));
 
 	content->Add(new ItemHeader(iz->T("Install into folder")));
