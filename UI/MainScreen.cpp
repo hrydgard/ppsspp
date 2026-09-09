@@ -101,7 +101,7 @@ static void LaunchFile(ScreenManager *screenManager, Screen *currentScreen, cons
 				std::string title = info->GetTitle();  // includes the version.
 				// The unpacker wants the PBP itself, not the folder it happens to sit in.
 				const Path pbpPath = info->fileType == IdentifiedFileType::PSP_PBP ? path : path / "EBOOT.PBP";
-				screenManager->push(new InstallUpdateScreen(pbpPath, title));
+				screenManager->push(new InstallUpdateScreen(pbpPath, title, true));
 				return;
 			}
 			break;

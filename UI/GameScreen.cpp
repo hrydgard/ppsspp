@@ -51,6 +51,7 @@
 #include "UI/GameScreen.h"
 #include "UI/GameSettingsScreen.h"
 #include "UI/GameInfoCache.h"
+#include "UI/InstallUpdateScreen.h"
 #include "UI/BaseScreens.h"
 #include "UI/MiscScreens.h"
 #include "UI/MainScreen.h"
@@ -656,6 +657,17 @@ void GameScreen::CreateContextMenu(UI::ViewGroup *parent) {
 	if (!inGame_ && hasInstalledUpdate_) {
 		Choice *btnDeleteUpdate = parent->Add(new Choice(ga->T("Delete Game Update"), ImageID("I_TRASHCAN")));
 		btnDeleteUpdate->OnClick.Handle(this, &GameScreen::OnDeleteGameUpdate);
+	}
+
+	// Most discs carry a firmware updater, and the firmware inside it is what our flash0 wants.
+	// Not while a game is running, though - installing wipes the NAND the running game has mounted.
+	if (!inGame_ && (knownFlags_ & GameInfoFlags::BUNDLED_UPDATE_INFO) && info_->bundledUpdate.present) {
+		auto iz = GetI18NCategory(I18NCat::INSTALLZIP);
+		Choice *btnInstallFirmware = parent->Add(new Choice(iz->T("Install PSP firmware update"), ImageID("I_FOLDER_UPLOAD")));
+		const BundledUpdateInfo update = info_->bundledUpdate;
+		btnInstallFirmware->OnClick.Add([this, update](UI::EventParams &e) {
+			screenManager()->push(new InstallUpdateScreen(gamePath_, update.title, false, update.archiveSize));
+		});
 	}
 
 	// Don't want to be able to delete the game while it's running.

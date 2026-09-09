@@ -80,6 +80,7 @@
     <ClCompile Include="TouchControlLayoutScreen.cpp" />
     <ClCompile Include="TouchControlVisibilityScreen.cpp" />
     <ClCompile Include="InstallPkgScreen.cpp" />
+    <ClCompile Include="FirmwareScreen.cpp" />
     <ClCompile Include="InstallUpdateScreen.cpp" />
     <ClCompile Include="InstallZipScreen.cpp" />
     <ClCompile Include="Theme.cpp" />
@@ -139,6 +140,7 @@
     <ClInclude Include="TouchControlLayoutScreen.h" />
     <ClInclude Include="TouchControlVisibilityScreen.h" />
     <ClInclude Include="InstallPkgScreen.h" />
+    <ClInclude Include="FirmwareScreen.h" />
     <ClInclude Include="InstallUpdateScreen.h" />
     <ClInclude Include="InstallZipScreen.h" />
     <ClInclude Include="Theme.h" />

@@ -33,13 +33,19 @@
 #include "UI/BaseScreens.h"
 #include "UI/SimpleDialogScreen.h"
 
-// An official PSP firmware updater (a PSP/GAME/UPDATE/EBOOT.PBP, or the folder holding one).
-// Running it isn't going to get anyone anywhere, but the firmware inside it is exactly what the
-// emulated flash0/flash1 want, so offer to unpack it into the NAND directory instead.
+// An official PSP firmware updater: a PSP/GAME/UPDATE/EBOOT.PBP (or the folder holding one), or
+// a game disc, most of which carry one at PSP_GAME/SYSDIR/UPDATE/DATA.BIN. Running an updater
+// isn't going to get anyone anywhere, but the firmware inside it is exactly what the emulated
+// flash0/flash1 want, so offer to unpack it into the NAND directory instead.
 class InstallUpdateScreen : public UISimpleBaseDialogScreen {
 public:
 	// title is the updater's SFO title, which already carries the version ("PSP Update ver 6.61").
-	InstallUpdateScreen(const Path &path, std::string_view title);
+	// allowRun offers to boot the updater instead of unpacking it - which makes sense when the
+	// user picked the updater to launch it, but not when they came here to install a firmware.
+	// archiveSize is how big the firmware itself is; pass it for a disc, where the size of the
+	// file we were handed is the game's and says nothing about what's being installed. Zero means
+	// "the file is the updater", which is the PBP case.
+	InstallUpdateScreen(const Path &path, std::string_view title, bool allowRun, u64 archiveSize = 0);
 
 	void CreateDialogViews(UI::ViewGroup *parent) override;
 	void update() override;
@@ -70,6 +76,7 @@ private:
 	std::string title_;
 	u64 fileSize_ = 0;
 	bool overwrites_ = false;
+	bool allowRun_ = false;
 
 	std::shared_ptr<InstallState> state_;
 	bool reportedDone_ = false;

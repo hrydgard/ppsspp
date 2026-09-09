@@ -22,6 +22,7 @@
 
 #include "zlib.h"
 
+#include "Common/File/DirListing.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/Path.h"
 #include "Common/Log.h"
@@ -1047,6 +1048,148 @@ static bool ReadUpdaterPSAR(const Path &filename, std::vector<u8> *psar, std::st
 	delete loader;
 	*error = filename.ToString() + " isn't an updater, a PSAR or a disc with one on it";
 	return false;
+}
+
+// Adds up everything under a directory. Returns false if the directory isn't there at all, which
+// is how the caller tells "no firmware" from "an empty one".
+static bool ScanDirRecursive(const Path &dir, int *fileCount, u64 *totalSize) {
+	std::vector<File::FileInfo> files;
+	if (!File::GetFilesInDir(dir, &files)) {
+		return false;
+	}
+	for (const File::FileInfo &file : files) {
+		if (file.isDirectory) {
+			ScanDirRecursive(file.fullName, fileCount, totalSize);
+		} else {
+			(*fileCount)++;
+			*totalSize += file.size;
+		}
+	}
+	return true;
+}
+
+static int CountFilesInDir(const Path &dir) {
+	std::vector<File::FileInfo> files;
+	if (!File::GetFilesInDir(dir, &files)) {
+		return 0;
+	}
+	int count = 0;
+	for (const File::FileInfo &file : files) {
+		if (!file.isDirectory) {
+			count++;
+		}
+	}
+	return count;
+}
+
+// flash0:/vsh/etc/version.txt, as the firmware itself writes it:
+//   release:6.60:
+//   build:5455,0,3,1,0:builder@vsh-build6
+//   system:57716@release_660,0x06060010:
+//   vsh:p6616@release_660,v58533@release_660,20110727:
+//   target:1:WorldWide
+// The date at the end of the vsh line is the only date in there, and the target line's last
+// field is the region the firmware was built for.
+static void ParseVersionTxt(std::string_view contents, InstalledFirmwareInfo *info) {
+	std::vector<std::string_view> lines;
+	SplitString(contents, '\n', lines);
+	for (std::string_view line : lines) {
+		line = StripSpaces(line);
+		if (startsWith(line, "release:")) {
+			std::string_view rest = line.substr(strlen("release:"));
+			const size_t colon = rest.find(':');
+			info->version = std::string(colon == std::string_view::npos ? rest : rest.substr(0, colon));
+		} else if (startsWith(line, "vsh:")) {
+			// The build date is the last comma-separated field, e.g. "...,20110727:".
+			std::string_view rest = line.substr(strlen("vsh:"));
+			if (!rest.empty() && rest.back() == ':') {
+				rest = rest.substr(0, rest.size() - 1);
+			}
+			const size_t comma = rest.rfind(',');
+			if (comma != std::string_view::npos) {
+				const std::string_view date = rest.substr(comma + 1);
+				if (date.size() == 8 && std::all_of(date.begin(), date.end(), [](char c) { return c >= '0' && c <= '9'; })) {
+					info->buildDate = StringFromFormat("%.*s-%.*s-%.*s",
+						4, date.data(), 2, date.data() + 4, 2, date.data() + 6);
+				}
+			}
+		} else if (startsWith(line, "target:")) {
+			const size_t colon = line.rfind(':');
+			if (colon != std::string_view::npos && colon + 1 < line.size()) {
+				info->target = std::string(line.substr(colon + 1));
+			}
+		}
+	}
+}
+
+void ReadInstalledFirmwareInfo(const Path &nandRoot, InstalledFirmwareInfo *info) {
+	*info = InstalledFirmwareInfo{};
+
+	const Path flash0 = nandRoot / "flash0";
+	for (const char *dir : { "flash0", "flash1", "ipl" }) {
+		ScanDirRecursive(nandRoot / dir, &info->fileCount, &info->totalSize);
+	}
+	info->anythingInstalled = info->fileCount > 0;
+	if (!info->anythingInstalled) {
+		return;
+	}
+
+	info->fontCount = CountFilesInDir(flash0 / "font");
+	info->kernelModuleCount = CountFilesInDir(flash0 / "kd");
+	info->hasVsh = File::Exists(flash0 / "vsh/module/vshmain.prx");
+
+	std::string versionTxt;
+	if (File::ReadTextFileToString(flash0 / "vsh/etc/version.txt", &versionTxt)) {
+		ParseVersionTxt(versionTxt, info);
+	}
+}
+
+bool EraseInstalledFirmware(const Path &nandRoot, std::string *error) {
+	bool success = true;
+	for (const char *dir : { "flash0", "flash1", "ipl" }) {
+		const Path path = nandRoot / dir;
+		if (File::Exists(path) && !File::DeleteDirRecursively(path)) {
+			ERROR_LOG(Log::Loader, "Failed to erase %s", path.c_str());
+			if (error) {
+				*error = "Couldn't erase " + path.ToString();
+			}
+			success = false;
+		}
+	}
+	return success;
+}
+
+bool FirmwareVersionSupportsVSH(std::string_view version) {
+	// Every firmware boots to an interactive XMB, checked one release at a time against all 39
+	// versions that ship on a disc - 1.50 through 6.60 - plus the download-only 6.61. So the
+	// only question left is whether this is a firmware at all: a fonts-only NAND has no version
+	// and nothing to boot.
+	//
+	// The lower bound is a sanity check rather than a real limit. 1.50 is the oldest firmware
+	// there is, so anything below it isn't a version string we wrote.
+	//
+	// "6.61" -> 661. Sony always writes the minor part with two digits, but don't rely on it:
+	// a single-digit one is a tens value ("5.5" is 5.50, not 5.05).
+	const size_t dot = version.find('.');
+	if (dot == std::string_view::npos || dot == 0 || dot + 1 >= version.size()) {
+		return false;
+	}
+	int numeric = 0;
+	for (size_t i = 0; i < version.size(); i++) {
+		if (i == dot) {
+			continue;
+		}
+		if (version[i] < '0' || version[i] > '9') {
+			return false;
+		}
+		numeric = numeric * 10 + (version[i] - '0');
+	}
+	if (version.size() - dot == 2) {  // One digit after the dot.
+		numeric *= 10;
+	} else if (version.size() - dot != 3) {
+		return false;
+	}
+	return numeric >= 150;
 }
 
 std::string BundledUpdateInfo::Describe() const {

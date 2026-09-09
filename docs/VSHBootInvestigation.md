@@ -66,6 +66,118 @@ checking what is actually on screen means running the app build. From headless, 
 the per-frame display list signature (see the red error screen section): a screen that is finished
 changing repeats byte-identically, and a live menu does not.
 
+## Which firmware versions work
+
+**All of them - 1.50 through 6.61.** `FirmwareVersionSupportsVSH()` (`Core/Util/PSARUnpack.cpp`)
+is the gate the UI uses, and it now only asks whether a firmware is installed at all.
+
+Checked one release at a time against every one of the 39 versions that ships on a UMD - 1.50,
+1.52, 2.00, 2.50, 2.60, 2.71, 2.80, 2.81, 2.82, 3.03, 3.11, 3.30, 3.40, 3.50, 3.51, 3.52, 3.71,
+3.72, 3.73, 3.80, 3.90, 3.95, 3.96, 4.01, 4.05, 5.01, 5.02, 5.03, 5.50, 5.55, 6.00, 6.10, 6.20,
+6.30, 6.31, 6.35, 6.37, 6.39, 6.60 - plus the download-only 6.61. 1.50 and 6.00 were also
+confirmed by rendering a GE dump off the running shell; both give the same interactive XMB 6.60
+does.
+
+### Sony renumbered the kernel NIDs, and that is what blocked everything below 6.60
+
+Not offsets - NIDs. A function PPSSPP HLEs under its 6.6x `*_driver` NID is unrecognized on an
+older build, so the import resolves to the **real firmware module** instead, and the real module
+goes places the emulator can't follow.
+
+| Function | 6.60/6.61 | 6.31-6.39 | 6.00-6.20 | 5.03-5.55 | 3.95-4.05 | 3.72-3.90 | 3.71 | 1.50-3.51 |
+|---|---|---|---|---|---|---|---|---|
+| `sceRtc_driver` `sceRtcSetAlarmTick` | `E09880CF` | `54B9C589` | `68AED59A` | `ADAF231F` | `55AC1C23` | `827BCB3F` | `329E8E3A` | `7D1FBED3` |
+| `sceHprm_driver` `sceHprmReadLatch` | `E9B776BE` | `A3A87975` | `5FC5E53B` | `605DEA7A` | `A6E8D4F0` | `8C728076` | `F0AA1FB9` | `40D2F9F0` |
+
+The rtc one is the interesting failure. Without the HLE, the VSH's alarm call ran the real
+`rtc.prx`, which called on into `syscon.prx` and blocked forever on a `SceSysconSync` semaphore.
+The symptom was a boot where every thread was parked and `idle0` was running, and the tell was a
+**fourth** `SceSysconSync` waiter that a healthy boot doesn't have (there are three, one each for
+sceSYSCON_Driver, sceRTC_Service and SceWlanMac - that's their normal idle state).
+`hle.backtrace thread=<SCE_VSH_GRAPHICS>` named the whole chain: vsh_module -> vshbridge -> rtc ->
+syscon -> wait. The hprm one is only a performance bug, but a loud one: the VSH reads the latch
+once a frame, so an older firmware's 12-second boot logged ~20000 lines of the same import.
+
+Two more of the same shape, for 1.50-2.xx: `sceImpose_driver` exports `sceImposeGetParam` as
+`0x531C9778` and `sceImposeChanges` as `0xB415FC59` there, with no user-mode alias. Changes runs
+once a frame too. And `ModuleMgrForKernel` numbers `sceKernelLoadModuleVSH` `0xA4370E7C` on 1.x -
+that's how the VSH loads its own plugins, so unresolved it got module id 0 back and the
+`sceKernelStartModule` after it failed, exactly the way `0xD5DDAB1F` did on 6.61 before it was
+implemented.
+
+**How to map a NID between versions.** Disassemble the same module from both firmwares with
+`--re-module` and match by address. Don't compare raw addresses - the builds move code - anchor on
+the plain user-mode export whose NID never changed (`sceRtc/0x7D1FBED3` for SetAlarmTick,
+`sceHprm/0x40D2F9F0` for ReadLatch) and read off the `*_driver` NID at the same address. Below
+3.95 `sceRtcSetAlarmTick` isn't in the user-mode library at all, so anchor on a neighbour instead:
+it is the driver export immediately below `sceRtcIsAlarmed`. Where even that fails, match the
+function body - that is how the two impose calls and the 1.x LoadModuleVSH were identified.
+
+`sceRtcIsAlarmed` also had to be implemented (it returns 0, as in JPCSP). Left as a null entry it
+returned `SCE_KERNEL_ERROR_LIBRARY_NOT_YET_LINKED`, and the 3.0x-3.5x VSH read that as "ask the
+hardware instead" and went back to blocking on syscon.
+
+### The scePaf heap pool, and where it lives
+
+scePaf's allocator wants a pool base already written into one of its BSS slots. The module that
+owns the allocator does fill that slot in itself, from its own module_start - but that start
+thread hasn't been scheduled yet when vshmain makes its first allocation, so the pointer is still
+null and the shell writes through it. Real hardware's kernel bootstrap starts these modules one at
+a time and waits; `LoadAndStartVshKernelModules()` can't, so it pre-fills the slot instead.
+
+Which module owns it moved. **Up to 4.05 the allocator is a separate `flash0:/vsh/module/heaparea1.prx`**,
+which paf imports as `scePafHeaparea` and cannot allocate a byte without; from 5.01 it is compiled
+into paf.prx and heaparea1 is gone. Loading heaparea1 when it's present was the missing piece for
+every 3.x and 4.x version - without it `scePafHeaparea_ACCE25B2` was an unresolved import, paf
+built a heap out of an uninitialized stack pair, and vshmain died storing the null the allocator
+handed back.
+
+Either way the slot is the second of the two pool pointers that module's init fills in with
+`sceKernelTryAllocateFpl`, and either way its offset from the module base moves with every build
+while its offset from gp does not:
+
+| Module | gp - slot | Checked against |
+|---|---|---|
+| `paf.prx` | `0x7E88` | 6.00, 6.20, 6.31, 6.37, 6.39, 6.60, 6.61 (base-relative 0x18CCD8..0x18D728) |
+| `heaparea1.prx` | `0x7FCC` | 3.95, 4.05 |
+
+To re-find it in a build not listed: disassemble the module, find the one function that calls
+`sceKernelTotalMemSize`, and read the address handed to the **second** of its two
+`sceKernelTryAllocateFpl` calls as `a1`. The shape is identical in both modules - TotalMemSize, a
+`> 0x2400000` test picking 0xA00000/0xC50000 pool sizes over the compiled-in defaults, then two
+`sceKernelCreateFpl` + `sceKernelTryAllocateFpl` pairs writing to adjacent slots.
+
+### 1.50 declares no module attributes
+
+`g_runningVSH` was set from `PSP_MODULE_VSH_MODE` in the module's attribute word. 1.50's
+vshmain.prx has attribute `0000` - Sony only started setting the flag in 1.52 - so the entire VSH
+bootstrap was skipped and the shell ran with none of its support modules loaded. The check also
+accepts the module *name* `vsh_module` now.
+
+### The vsh_module alarm-category patch only 6.6x needs
+
+That offset is in rodata, so there is no gp anchor for it; instead the patch only fires when the
+word at `+0x455C4` is the `0x3F666666` it was derived from. On 6.39 that word is a different
+float, and on 6.20/6.00 it is ASCII string data (`5f746c75`, `776f6461`) - the old unconditional
+write was corrupting a string table on those. Every version below 6.60 reaches the XMB without the
+patch, which is itself a hint that whatever precondition makes that scan safe on real hardware was
+lost somewhere between 6.39 and 6.60.
+
+### Kernel modules with per-model builds
+
+`LoadAndStartVshKernelModules()` asked for `memlmd_01g.prx`, `loadexec_01g.prx` and
+`wlanfirm_01g.prx` by name. A firmware unpacked for one model ships only that model's build, and
+PPSSPP's own updater unpack defaults to 02g, so all three failed to load. `ResolveVshModelModule()`
+now substitutes the emulated model's suffix when that file exists, falling back to `_01g` for a
+dump unpacked with model `any` (which has every model's). Firmwares older than about 3.60 predate
+the PSP-2000 and have no per-model split at all, so they are unaffected.
+
+### 5.55 needed two PRX keys
+
+Its `flash0:/kd` modules are tagged `0x4C941AF0`/`0x4C941BF0`, and those two were the only entries
+of JPCSP's PRX tag table PPSSPP was missing. The shell came up anyway - vshmain and paf are user
+modules - but with not a single driver behind it.
+
 ## The red error screen
 
 What is known, all measured from a 40-emulated-second `--vsh` boot:

@@ -262,6 +262,15 @@ const HLEFunction sceImpose_driver[] = {
 	{0XBB12F974, &WrapI_I<sceImposeSetStatus>,             "sceImposeSetStatus",            'i', "i" },
 	// The 6.60 name for the same call the user-mode module exports as 0x8C943191.
 	{0X5557F4E2, &WrapU_UU<sceImposeGetBatteryIconStatus>, "sceImposeGetBatteryIconStatus", 'x', "xx"},
+	// The 1.50 - 2.xx NIDs for the same two calls - impose.prx of that era exports them to kernel
+	// mode only, with no user-mode alias to match them against, so these were identified from the
+	// function bodies: GetParam is the same dispatch on a0 returning 0x8000xxxx for a bad index,
+	// and Changes is the same read-and-clear of one word in the impose context (at +0x84 there,
+	// +0xBC by 6.60). The VSH calls Changes once a frame, so unresolved they were most of the
+	// boot log on those versions.
+	// NOTE: new entries go at the end - the syscall opcode in a savestate is an index into this array.
+	{0X531C9778, &WrapI_I<sceImposeGetParam>,             "sceImposeGetParam",             'i', "i" },
+	{0XB415FC59, &WrapI_V<sceImposeChanges>,              "sceImposeChanges",              'i', ""  },
 };
 
 void Register_sceImpose_driver() {

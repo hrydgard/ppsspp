@@ -50,6 +50,7 @@
 #include "UI/DevScreens.h"
 #include "UI/DeveloperToolsScreen.h"
 #include "UI/DisplayLayoutScreen.h"
+#include "UI/FirmwareScreen.h"
 #include "UI/RemoteISOScreen.h"
 #include "UI/SavedataScreen.h"
 #include "UI/SystemInfoScreen.h"
@@ -1137,6 +1138,9 @@ void GameSettingsScreen::CreateToolsSettings(UI::ViewGroup *tools) {
 	});
 	tools->Add(new Choice(ri->T("Remote disc streaming")))->OnClick.Add([=](UI::EventParams &) {
 		screenManager()->push(new RemoteISOScreen(gamePath_));
+	});
+	tools->Add(new Choice(sy->T("PSP Firmware")))->OnClick.Add([=](UI::EventParams &) {
+		screenManager()->push(new FirmwareScreen(gamePath_));
 	});
 }
 

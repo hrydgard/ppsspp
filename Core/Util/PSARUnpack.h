@@ -141,6 +141,35 @@ bool ReadBundledUpdateInfo(IFileSystem *fs, std::string_view pathPrefix, Bundled
 // decryption needed, so it's cheap enough to check every disc with. Empty if there's no updater.
 std::string ReadUpdaterVersion(const Path &filename);
 
+// What's actually in the NAND directory right now. That can be anything from a handful of fonts
+// we pulled off a game disc to a full firmware unpacked from an updater, so this reports what's
+// there rather than assuming one or the other.
+struct InstalledFirmwareInfo {
+	bool anythingInstalled = false;  // flash0/flash1 exist and hold at least one file.
+	// From flash0:/vsh/etc/version.txt, which only a full firmware install has. Empty if all
+	// that's there is a partial install like the fonts.
+	std::string version;             // "6.60"
+	std::string buildDate;           // "2011-07-27". Empty if the file doesn't spell one out.
+	std::string target;              // "WorldWide"
+	bool hasVsh = false;             // flash0:/vsh/module/vshmain.prx - what launching the XMB needs.
+	int fontCount = 0;               // Files in flash0:/font, which is all sceFont wants.
+	int kernelModuleCount = 0;       // Files in flash0:/kd, which is what --disable-hle wants.
+	int fileCount = 0;
+	u64 totalSize = 0;
+};
+
+// Walks the NAND directory (the one holding flash0/flash1). A full firmware is only a few
+// hundred files, so this is cheap, but it does read the whole tree.
+void ReadInstalledFirmwareInfo(const Path &nandRoot, InstalledFirmwareInfo *info);
+
+// Wipes what's in the NAND directory: flash0, flash1 and ipl. Two firmwares can't be merged -
+// files a newer one dropped would linger and still get loaded - so an install starts from empty.
+bool EraseInstalledFirmware(const Path &nandRoot, std::string *error);
+
+// The firmware versions we can actually boot the VSH (XMB) on. Every other version loads, but
+// the module patches it needs are version-specific, so it won't get anywhere.
+bool FirmwareVersionSupportsVSH(std::string_view version);
+
 // The same three, for the disc mounted as disc0: - i.e. the game that's running. These read
 // through the mounted filesystem instead of opening the image a second time, which also means
 // they work for the shapes that aren't an image at all, like a folder-based "disc".
