@@ -56,6 +56,7 @@
 #include "UI/TouchControlLayoutScreen.h"
 #include "UI/TouchControlVisibilityScreen.h"
 #include "UI/TiltAnalogSettingsScreen.h"
+#include "UI/UISettingsScreen.h"
 #include "UI/MemStickScreen.h"
 #include "UI/Theme.h"
 #include "UI/RetroAchievementScreens.h"
@@ -1144,9 +1145,9 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	using namespace UI;
 
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
+	auto ui = GetI18NCategory(I18NCat::UISETTINGS);
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto vr = GetI18NCategory(I18NCat::VR);
-	auto th = GetI18NCategory(I18NCat::THEMES);
 	auto psps = GetI18NCategory(I18NCat::PSPSETTINGS);  // TODO: Should move more into this section.
 
 	systemSettings->Add(new ItemHeader(sy->T("UI")));
@@ -1167,6 +1168,10 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 		if (e.v)
 			langScreen->SetPopupOrigin(e.v);
 		screenManager()->push(langScreen);
+	});
+
+	systemSettings->Add(new Choice(ui->T("UI settings")))->OnClick.Add([this](UI::EventParams &) {
+		screenManager()->push(new UISettingsScreen(gamePath_));
 	});
 
 #if PPSSPP_PLATFORM(IOS)
@@ -1219,38 +1224,6 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	}
 
 	systemSettings->Add(new CheckBox(&g_Config.bTransparentBackground, sy->T("Transparent UI background")));
-
-	// Shared with achievements.
-	static const char *positions[] = { "None", "Bottom Left", "Bottom Center", "Bottom Right", "Top Left", "Top Center", "Top Right", "Center Left", "Center Right" };
-
-	systemSettings->Add(new PopupMultiChoice(&g_Config.iNotificationPos, sy->T("Notification screen position"), positions, -1, ARRAY_SIZE(positions), I18NCat::DIALOG, screenManager()));
-
-	static const char *backgroundAnimations[] = { "No animation", "Floating symbols", "Recent games", "Waves", "Moving background", "Bouncing icon", "Colored floating symbols" };
-	systemSettings->Add(new PopupMultiChoice(&g_Config.iBackgroundAnimation, sy->T("UI background animation"), backgroundAnimations, 0, ARRAY_SIZE(backgroundAnimations), I18NCat::SYSTEM, screenManager()));
-
-	PopupMultiChoiceDynamic *theme = systemSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sThemeName, sy->T("Theme"), GetThemeInfoNames(), I18NCat::THEMES, screenManager()));
-	theme->OnChoice.Add([](EventParams &e) {
-		UpdateTheme();
-		// Reset the tint/saturation if the theme changed.
-		if (e.b) {
-			g_Config.fUITint = 0.0f;
-			g_Config.fUISaturation = 1.0f;
-		}
-	});
-
-	Draw::DrawContext *draw = screenManager()->getDrawContext();
-
-	if (!draw->GetBugs().Has(Draw::Bugs::RASPBERRY_SHADER_COMP_HANG)) {
-		// We use shaders without tint capability on hardware with this driver bug.
-		PopupSliderChoiceFloat *tint = new PopupSliderChoiceFloat(&g_Config.fUITint, 0.0f, 1.0f, 0.0f, sy->T("Color tint"), 0.01f, screenManager());
-		tint->SetHasDropShadow(false);
-		tint->SetLiveUpdate(true);
-		systemSettings->Add(tint);
-		PopupSliderChoiceFloat *saturation = new PopupSliderChoiceFloat(&g_Config.fUISaturation, 0.0f, 2.0f, 1.0f, sy->T("Color saturation"), 0.01f, screenManager());
-		saturation->SetHasDropShadow(false);
-		saturation->SetLiveUpdate(true);
-		systemSettings->Add(saturation);
-	}
 
 	systemSettings->Add(new ItemHeader(sy->T("PSP Memory Stick")));
 

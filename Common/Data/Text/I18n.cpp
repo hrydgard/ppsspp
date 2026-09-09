@@ -39,6 +39,7 @@ static const char * const g_categoryNames[(size_t)I18NCat::CATEGORY_COUNT] = {
 	"TextureShaders",
 	"Themes",
 	"UI Elements",
+	"UISettings",
 	"VR",
 	"Achievements",
 	"PSPSettings",
