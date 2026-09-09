@@ -287,6 +287,12 @@ void SasReverb::ProcessReverb(int16_t *output, const int16_t *input, size_t inpu
 		memset(output, 0, inputSize * 4 * sizeof(int16_t));
 		return;
 	} else {
+		// The ME's reverb return is (evol * out) >> 11, not >> 12. Our caller passes
+		// leftVol << 3 to pair with the >> 15 below, which is one bit short of that.
+		// The "off" path above is deliberately left alone: it really is >> 12, because the
+		// hardware runs a separate full-rate loop when no reverb is selected.
+		volLeft <<= 1;
+		volRight <<= 1;
 		volLeft *= reverbVolumeMultiplier;
 		volRight *= reverbVolumeMultiplier;
 	}
@@ -301,8 +307,13 @@ void SasReverb::ProcessReverb(int16_t *output, const int16_t *input, size_t inpu
 	// Or we could actually template the whole thing with the parameters as template arguments, as the presets are fixed.
 	for (size_t i = 0; i < inputSize; i++) {
 		// Dividing by two here is an incorrect hack. Some multiplication factor is needed to prevent the reverb from getting too loud, though.
-		int16_t LeftInput = input[i * 2] >> 1;
-		int16_t RightInput = input[i * 2 + 1] >> 1;
+		// The ME feeds the reverb at a quarter of the mix level, not a half: its send
+		// accumulator reaches sample<<9 at full voice volume, and the reverb input is
+		// accumulator * 0x20 >> 16, i.e. sample >> 2. This used to be >> 1, which drove the
+		// reverb 6dB hot - inaudible on its own, since the return above was 6dB quiet by
+		// exactly the same factor, but it changed how hard the feedback path clipped.
+		int16_t LeftInput = input[i * 2] >> 2;
+		int16_t RightInput = input[i * 2 + 1] >> 2;
 
 		int16_t Lin = LeftInput; //  (d.vLIN * LeftInput) >> 15;
 		int16_t Rin = RightInput; // (d.vRIN * RightInput) >> 15;

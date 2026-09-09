@@ -1815,6 +1815,9 @@ void DrawSasAudio(ImConfig &cfg) {
 	}
 
 	ImGui::Checkbox("Mute", __SasGetGlobalMuteFlag());
+	if (ImGui::SliderInt("Reverb", &g_Config.iReverbVolume, 0, 200)) {
+		g_Config.DoNotSaveSetting(&g_Config.iReverbVolume);
+	}
 	ImGui::SameLine();
 	ImGui::Checkbox("Show all voices", &cfg.sasShowAllVoices);
 
