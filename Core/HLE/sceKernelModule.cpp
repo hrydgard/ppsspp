@@ -50,6 +50,7 @@
 #include "Core/ELF/PrxDecrypter.h"
 #include "Core/HLE/scePspNpDrm_user.h"
 #include "Core/Util/KL4E.h"
+#include "Core/Util/PSARUnpack.h"
 #include "Core/FileSystems/FileSystem.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/Util/BlockAllocator.h"
@@ -1176,6 +1177,28 @@ static void LoadAndStartVshKernelModule(const char *path, SceKernelSMOption *smo
 	}
 }
 
+// Some of the kernel's drivers have a per-model build (memlmd, loadexec, wlanfirm, ...), and a
+// firmware installed for one model ships only that model's - so asking for "_01g" unconditionally
+// fails on, say, an 02g install, which is what PPSSPP's own updater unpack produces by default.
+// Swap in the model we're emulating when the path names a model and that file is actually there.
+static std::string ResolveVshModelModule(const char *path) {
+	std::string_view name(path);
+	const size_t model = name.find("_01g.prx");
+	if (model == std::string_view::npos) {
+		return std::string(path);
+	}
+	const int generation = (int)EmulatedModelGeneration();
+	if (generation == 1) {
+		return std::string(path);
+	}
+	std::string candidate = StringFromFormat("%.*s_%02dg.prx", (int)model, path, generation);
+	if (pspFileSystem.GetFileInfo(candidate).exists) {
+		return candidate;
+	}
+	// A dump unpacked for every model has the 01g one too, so this isn't necessarily a failure.
+	return std::string(path);
+}
+
 static void LoadAndStartVshKernelModules() {
 	// These 11 are small, simple kernel drivers (a few KB to ~100KB of code each) that don't
 	// declare their own smaller module_start_thread_stacksize, so __KernelStartModule's
@@ -1202,7 +1225,7 @@ static void LoadAndStartVshKernelModules() {
 	smallStackOption.stacksize = 0x40000;
 	*/
 	for (const char *path : vshSmallKernelModulePaths) {
-		LoadAndStartVshKernelModule(path, nullptr);
+		LoadAndStartVshKernelModule(ResolveVshModelModule(path).c_str(), nullptr);
 	}
 
 	static const char *const vshUiKernelModulePaths[] = {
@@ -1545,9 +1568,6 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	strncpy(module->nm.name, modinfo->name, ARRAY_SIZE(module->nm.name));
 
 	if (equals(module->nm.name, "scePaf_Module")) {
-		// NOTE: This hackery is likely firmware-version-specific, so will need tweaking for
-		// other firmware versions than 6.61.
-		//
 		// scePaf's own heap allocator expects a real memory-pool base address to already be
 		// patched into this BSS slot before any of its code runs. Real hardware's loader (or
 		// an early kernel init step) apparently does this - checked all 27 of scePaf's
@@ -1556,10 +1576,16 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		// bump-allocator get used directly as absolute pointers, crashing almost immediately
 		// when a client module (e.g. vsh_module) makes its first heap allocation.
 		// See docs/VSHBootInvestigation.md for the full investigation.
-		const u32 scePafHeapArenaOffset = 0x18D728;  // Offset from module base to the BSS pointer slot.
+		//
+		// The slot is the second of the two pool pointers scePaf's own init fills in with
+		// sceKernelTryAllocateFpl. Its offset from the module base moves with every build, but
+		// it sits at a fixed distance below gp in all of them - checked against the paf.prx of
+		// 6.00, 6.20, 6.31, 6.37, 6.39, 6.60 and 6.61, where the base-relative offset ranges
+		// over 0x18CCD8..0x18D728 and gp - slot is 0x7E88 every time.
+		const u32 scePafHeapArenaGpOffset = 0x7E88;
 		u32 scePafHeapArenaSize = 0x00850000;  // Matches scePaf's own compiled-in default heap size.
 		u32 arenaAddr = userMemory.Alloc(scePafHeapArenaSize, false, "scePafHeapArena");
-		u32 patchAddr = module->memoryBlockAddr + scePafHeapArenaOffset;
+		u32 patchAddr = module->nm.gp_value - scePafHeapArenaGpOffset;
 		if (arenaAddr != (u32)-1 && Memory::IsValid4AlignedAddress(patchAddr)) {
 			Memory::WriteUnchecked_U32(arenaAddr, patchAddr);
 		} else {
@@ -1587,12 +1613,23 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		// would look like (the scan's own code already handles count<=0 as "nothing to do"
 		// for category 0 the same way). This is a narrow, targeted patch of one 4-byte value
 		// vsh_module itself never properly initializes, not a general vsh_module patch.
+		//
+		// Unlike the scePaf patch above, this offset is into rodata rather than at a fixed
+		// distance from gp, and it moves with the build - so check that what's there is the
+		// value we identified before overwriting it, rather than writing blind into a firmware
+		// we haven't looked at. 6.60 and 6.61 ship byte-identical builds of vshmain.prx and
+		// both have the same float here; anything else is a version this patch wasn't derived
+		// from, and those don't reach an XMB for other reasons anyway.
 		const u32 vshAlarmCategory1CountOffset = 0x455C4;  // Offset from module base.
+		const u32 vshAlarmCategory1CountExpected = 0x3F666666;  // Leftover 0.9f from a float array.
 		u32 patchAddr = module->memoryBlockAddr + vshAlarmCategory1CountOffset;
-		if (Memory::IsValid4AlignedAddress(patchAddr)) {
-			Memory::WriteUnchecked_U32(0, patchAddr);
-		} else {
+		if (!Memory::IsValid4AlignedAddress(patchAddr)) {
 			WARN_LOG(Log::sceModule, "Failed to patch vsh_module alarm category 1 count");
+		} else if (Memory::ReadUnchecked_U32(patchAddr) != vshAlarmCategory1CountExpected) {
+			WARN_LOG(Log::sceModule, "vsh_module isn't the build the alarm-category patch was derived from (%08x at +%x), leaving it alone",
+				Memory::ReadUnchecked_U32(patchAddr), vshAlarmCategory1CountOffset);
+		} else {
+			Memory::WriteUnchecked_U32(0, patchAddr);
 		}
 	}
 

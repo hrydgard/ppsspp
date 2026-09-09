@@ -66,6 +66,56 @@ checking what is actually on screen means running the app build. From headless, 
 the per-frame display list signature (see the red error screen section): a screen that is finished
 changing repeats byte-identically, and a live menu does not.
 
+## Which firmware versions work
+
+6.61 and **6.60**. `FirmwareVersionSupportsVSH()` (`Core/Util/PSARUnpack.cpp`) is the gate the UI
+uses, and it lists exactly those two.
+
+6.60 needed no new offsets: it ships byte-identical builds of both modules the boot patches touch.
+Disassembling 6.60's and 6.61's `paf.prx` and `vshmain.prx` with `--re-module` and diffing gives
+zero differences across all 6338 + 669 functions - same size, same gp, same entry points, only the
+CRC (which covers the encrypted file, signature included) differs. A 6.60 boot reaches the same
+9-thread steady state at 6 emulated seconds and renders an interactive XMB.
+
+6.61 is not on any UMD - it was a download-only update - so a firmware installed from a game disc
+tops out at 6.60. That is the case the 6.60 support exists for.
+
+Everything below that stops short, measured on 6.00, 6.20, 6.30, 6.31, 6.35, 6.37 and 6.39 (there
+is no released version between 6.39 and 6.60). They get past module loading and start
+`ScePafThread`, then stall in `sceVshBridge_Driver` on repeated unresolved `SysMemForKernel`
+imports without ever starting a `ScePafJob`. That is a fresh investigation, not a matter of moving
+an offset.
+
+### Making the two patches version-safe
+
+Both patches used to be hardcoded offsets from the module base, applied to any module of the right
+name. That is fine for the version they were derived from and quietly wrong for every other one.
+
+- **The scePaf heap arena slot is now found via gp**, not the module base. Its base-relative offset
+  moves with every build (0x18CCD8 on 6.00 through 0x18D728 on 6.60/6.61), but it sits at
+  `gp - 0x7E88` in all of them - checked against 6.00, 6.20, 6.31, 6.37, 6.39, 6.60 and 6.61. The
+  slot is the second of the two pool pointers scePaf's own init fills in with
+  `sceKernelTryAllocateFpl`, which is how to re-find it in a build not listed here: disassemble
+  `paf.prx`, find the one function that calls `sceKernelTotalMemSize`, and read the address handed
+  to the second `sceKernelTryAllocateFpl` as `a1`.
+- **The vsh_module alarm-category patch now checks what it is overwriting.** That offset is in
+  rodata, so there is no gp anchor for it; instead the patch only fires when the word at
+  `+0x455C4` is the `0x3F666666` it was derived from. On 6.39 that word is a different float, and
+  on 6.20/6.00 it is ASCII string data (`5f746c75`, `776f6461`) - the old unconditional write was
+  corrupting a string table on those.
+
+Getting the paf patch right on its own turned an immediate `SIGSEGV at 0000000c` inside
+`scePaf_Module` (a null pool base plus a field offset) into a clean stall for every 6.0x-6.3x
+version, which is what moved the blocker to `sceVshBridge_Driver`.
+
+### Kernel modules with per-model builds
+
+`LoadAndStartVshKernelModules()` asked for `memlmd_01g.prx`, `loadexec_01g.prx` and
+`wlanfirm_01g.prx` by name. A firmware unpacked for one model ships only that model's build, and
+PPSSPP's own updater unpack defaults to 02g, so all three failed to load. `ResolveVshModelModule()`
+now substitutes the emulated model's suffix when that file exists, falling back to `_01g` for a
+dump unpacked with model `any` (which has every model's).
+
 ## The red error screen
 
 What is known, all measured from a 40-emulated-second `--vsh` boot:

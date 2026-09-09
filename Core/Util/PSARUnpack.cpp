@@ -1160,8 +1160,11 @@ bool EraseInstalledFirmware(const Path &nandRoot, std::string *error) {
 }
 
 bool FirmwareVersionSupportsVSH(std::string_view version) {
-	// See the module patches in sceKernelModule.cpp - they're tied to 6.61's exact offsets.
-	return version == "6.61";
+	// See the module patches in sceKernelModule.cpp - they're offsets into paf.prx and
+	// vshmain.prx, so they only hold for versions those two modules are unchanged in. 6.60 and
+	// 6.61 ship byte-identical builds of both (all 6338 + 669 functions disassemble the same),
+	// and both boot to an interactive XMB.
+	return version == "6.61" || version == "6.60";
 }
 
 std::string BundledUpdateInfo::Describe() const {
