@@ -319,20 +319,33 @@ int RunDecryptFile(const std::string &inPath, const std::string &outPath) {
 		fprintf(stderr, "re-decrypt: couldn't read %s\n", in.c_str());
 		return 1;
 	}
-	if (data.size() < 0x150) {
-		fprintf(stderr, "re-decrypt: %s is too small to hold a header (%d bytes)\n", in.c_str(), (int)data.size());
-		return 1;
-	}
+	std::vector<u8> out;
+	int outSize;
 
-	const u32 tag = *(const u32_le *)(data.data() + 0xD0);
-	printf("re-decrypt: %s, %d bytes, tag %08X\n", in.c_str(), (int)data.size(), tag);
+	bool inputIsKL3E = false;
+	if (IsKL4EMagic((const u8 *)data.data(), data.size(), &inputIsKL3E)) {
+		// Already-decrypted input, e.g. the second stream this tool splits out of an ME image.
+		// Nothing to decrypt; fall straight through to the decompressor below.
+		printf("re-decrypt: %s, %d bytes, no header - already a plain compressed stream\n",
+			in.c_str(), (int)data.size());
+		out.assign(data.begin(), data.end());
+		outSize = (int)data.size();
+	} else {
+		if (data.size() < 0x150) {
+			fprintf(stderr, "re-decrypt: %s is too small to hold a header (%d bytes)\n", in.c_str(), (int)data.size());
+			return 1;
+		}
 
-	// Decrypts in place on the PSP too, but keep the input around so a failure leaves it readable.
-	std::vector<u8> out(data.size());
-	int outSize = pspDecryptPRX((const u8 *)data.data(), out.data(), (u32)data.size());
-	if (outSize <= 0) {
-		fprintf(stderr, "re-decrypt: no key for tag %08X, or the data didn't decrypt (%d)\n", tag, outSize);
-		return 1;
+		const u32 tag = *(const u32_le *)(data.data() + 0xD0);
+		printf("re-decrypt: %s, %d bytes, tag %08X\n", in.c_str(), (int)data.size(), tag);
+
+		// Decrypts in place on the PSP too, but keep the input around so a failure leaves it readable.
+		out.resize(data.size());
+		outSize = pspDecryptPRX((const u8 *)data.data(), out.data(), (u32)data.size());
+		if (outSize <= 0) {
+			fprintf(stderr, "re-decrypt: no key for tag %08X, or the data didn't decrypt (%d)\n", tag, outSize);
+			return 1;
+		}
 	}
 
 	// The plaintext is usually still compressed - the ME images are KL4E. Unpack it here rather
@@ -343,7 +356,22 @@ int RunDecryptFile(const std::string &inPath, const std::string &outPath) {
 		// just give the decompressor plenty of room and go by what it returns.
 		const int maxOut = std::max(16 * 1024 * 1024, outSize * 16);
 		std::vector<u8> unpacked(maxOut);
-		const int unpackedSize = DecompressKL4E(unpacked.data(), maxOut, out.data() + 4, (size_t)outSize - 4, nullptr, isKL3E);
+		const u8 *streamEnd = nullptr;
+		const int unpackedSize = DecompressKL4E(unpacked.data(), maxOut, out.data() + 4, (size_t)outSize - 4, &streamEnd, isKL3E);
+		if (streamEnd) {
+			// An ME image is two streams back to back: the code, then a second blob the image
+			// expects to find after itself. Write the remainder out so it can be looked at.
+			const int consumed = (int)(streamEnd - out.data());
+			const int leftover = outSize - consumed;
+			printf("re-decrypt: %s stream consumed %d of %d bytes (%d left over)\n",
+				isKL3E ? "KL3E" : "KL4E", consumed, outSize, leftover);
+			if (leftover > 0) {
+				const Path tailFile(outPath + ".tail");
+				if (File::WriteDataToFile(false, out.data() + consumed, leftover, tailFile)) {
+					printf("re-decrypt: wrote the %d leftover bytes to %s\n", leftover, tailFile.c_str());
+				}
+			}
+		}
 		if (unpackedSize < 0) {
 			fprintf(stderr, "re-decrypt: %s decompression failed (%d)\n", isKL3E ? "KL3E" : "KL4E", unpackedSize);
 			return 1;
