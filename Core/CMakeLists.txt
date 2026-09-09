@@ -197,9 +197,7 @@ if(NOT LIBRETRO)
 		Debugger/WebSocket/LogBroadcaster.h
 		Debugger/WebSocket/LogConfigSubscriber.cpp
 		Debugger/WebSocket/LogConfigSubscriber.h
-		Debugger/WebSocket/MIPSTracerSubscriber.cpp
 		Debugger/WebSocket/MemoryInfoSubscriber.cpp
-		Debugger/WebSocket/MIPSTracerSubscriber.h
 		Debugger/WebSocket/MemoryInfoSubscriber.h
 		Debugger/WebSocket/MemorySubscriber.cpp
 		Debugger/WebSocket/MemorySubscriber.h

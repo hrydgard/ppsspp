@@ -66,7 +66,6 @@
 #include "Core/Debugger/WebSocket/HLESubscriber.h"
 #include "Core/Debugger/WebSocket/InputSubscriber.h"
 #include "Core/Debugger/WebSocket/LogConfigSubscriber.h"
-#include "Core/Debugger/WebSocket/MIPSTracerSubscriber.h"
 #include "Core/Debugger/WebSocket/MemoryInfoSubscriber.h"
 #include "Core/Debugger/WebSocket/MemorySubscriber.h"
 #include "Core/Debugger/WebSocket/ReplaySubscriber.h"
@@ -87,7 +86,6 @@ static const std::vector<SubscriberInit> subscribers({
 	&WebSocketHLEInit,
 	&WebSocketInputInit,
 	&WebSocketLogConfigInit,
-	&WebSocketMIPSTracerInit,
 	&WebSocketMemoryInfoInit,
 	&WebSocketMemoryInit,
 	&WebSocketReplayInit,
