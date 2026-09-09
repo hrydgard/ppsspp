@@ -329,7 +329,6 @@ void RegisterAllModules() {
 	Register_sceChkreg();
 	Register_sceVshBridge();
 	Register_sceResmgr();
-
 	Register_sceVideocodec();
 
 	// add new modules here.

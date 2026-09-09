@@ -155,6 +155,13 @@ bool AvcDecoder::Decode(const u8 *data, int size) {
 	}
 #endif
 
+	// Everything downstream indexes the three planes as 8-bit 4:2:0, which is all the PSP's
+	// encoder produced. Anything else would be read as if it were, so say so and drop the frame
+	// rather than converting garbage.
+	if (frame_->format != AV_PIX_FMT_YUV420P && frame_->format != AV_PIX_FMT_YUVJ420P) {
+		WARN_LOG(Log::ME, "AvcDecoder: unexpected pixel format %d, ignoring the frame", frame_->format);
+		return false;
+	}
 	width_ = frame_->width;
 	height_ = frame_->height;
 	haveFrame_ = width_ > 0 && height_ > 0;
