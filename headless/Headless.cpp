@@ -378,17 +378,23 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 
 	bool passed = true;
 	const double startTime = time_now_d();
-	const double startEmulatedTime = CoreTiming::GetGlobalTimeUs() / 1000000.0;
 	// Emulated time is what you want for "has the game had long enough" - a heavy scene runs many
 	// times slower than real time and a near-idle one much faster, so a wall-clock budget says
 	// something quite different depending on what's on screen. Wall-clock is what stops a hang from
 	// hanging the machine. Either, both or neither may be set.
 	const double wallDeadline = startTime + opt.timeoutWall;
-	const double emulatedDeadline = startEmulatedTime + opt.timeoutEmulated;
 	// Late enough that the game is past booting, early enough to leave the run some time after -
 	// against whichever limit is actually set, and the earlier of the two if both are.
 	const double wallSaveStateAt = startTime + opt.timeoutWall * 0.7;
-	const double emulatedSaveStateAt = startEmulatedTime + opt.timeoutEmulated * 0.7;
+	// Emulated time is accumulated rather than measured from a fixed start, because loading a
+	// savestate sets the emulated clock to whatever it read when the state was written, which can
+	// be a long way either side of where this run is. One iteration of the loop below advances the
+	// clock by 0.1 seconds of emulated time at most, plus whatever an idle skip jumps to the next
+	// scheduled event - bounded in practice by vblank, so tens of milliseconds. A step of a whole
+	// second is therefore the clock being moved rather than time passing, and doesn't count.
+	const double emulatedStepLimit = 1.0;
+	double emulatedElapsed = 0.0;
+	double lastEmulatedTime = CoreTiming::GetGlobalTimeUs() / 1000000.0;
 	coreState = coreParameter.startBreak ? CORE_STEPPING_CPU : CORE_RUNNING_CPU;
 	while (coreState == CORE_RUNNING_CPU || coreState == CORE_STEPPING_CPU) {
 		// Savestate loads/saves are queued and applied here, same as EmuScreen::render does in the
@@ -396,7 +402,13 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 		SaveState::Process();
 
 		const double emulatedNow = CoreTiming::GetGlobalTimeUs() / 1000000.0;
-		if (!g_stateToSave.empty() && (time_now_d() > wallSaveStateAt || emulatedNow > emulatedSaveStateAt)) {
+		const double emulatedStep = emulatedNow - lastEmulatedTime;
+		lastEmulatedTime = emulatedNow;
+		if (emulatedStep > 0.0 && emulatedStep < emulatedStepLimit) {
+			emulatedElapsed += emulatedStep;
+		}
+
+		if (!g_stateToSave.empty() && (time_now_d() > wallSaveStateAt || emulatedElapsed > opt.timeoutEmulated * 0.7)) {
 			const std::string filename = g_stateToSave;
 			g_stateToSave.clear();
 			SaveState::Save(Path(filename), -1, [](SaveState::Status status, std::string_view message, std::string_view) {
@@ -431,7 +443,7 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 		// The debugger exemption is only for the wall-clock limit: sitting at a native breakpoint
 		// burns real seconds but no emulated ones, so the emulated limit can't misfire that way.
 		const bool wallTimedOut = time_now_d() > wallDeadline && !debugger;
-		const bool emulatedTimedOut = CoreTiming::GetGlobalTimeUs() / 1000000.0 > emulatedDeadline;
+		const bool emulatedTimedOut = emulatedElapsed > opt.timeoutEmulated;
 		if (wallTimedOut || emulatedTimedOut) {
 			// Don't compare, print the output at least up to this point, and bail.
 			if (!opt.bench) {
