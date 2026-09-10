@@ -168,11 +168,37 @@ void ReadInstalledFirmwareInfo(const Path &nandRoot, InstalledFirmwareInfo *info
 
 // Wipes what's in the NAND directory: flash0, flash1 and ipl. Two firmwares can't be merged -
 // files a newer one dropped would linger and still get loaded - so an install starts from empty.
+// Deliberately leaves an install's staging directory alone: InstallFirmware() calls this with a
+// finished firmware sitting in there, waiting to be moved into the space this just cleared.
 bool EraseInstalledFirmware(const Path &nandRoot, std::string *error);
+
+// "6.61" -> 661. Sony writes the minor part with two digits, but a single-digit one is still a
+// tens value, so "5.5" is 550 and not 505. Returns 0 if it isn't a version string at all, which
+// makes the result safe to compare with: an unknown version is older than every real one.
+int FirmwareVersionToInt(std::string_view version);
 
 // The firmware versions we can actually boot the VSH (XMB) on. Every other version loads, but
 // the module patches it needs are version-specific, so it won't get anywhere.
 bool FirmwareVersionSupportsVSH(std::string_view version);
+
+// Installs a firmware into the NAND directory. Two firmwares can't be merged - a file the new one
+// doesn't have would linger and still get loaded - so this replaces rather than overlays.
+//
+// The unpack goes to a staging directory inside the NAND root first, and what's installed is only
+// erased once the new firmware is complete on disk, so a failure of any kind leaves the existing
+// one untouched. The cost is needing room for both at once. "Complete" is strict: a single entry
+// that didn't unpack fails the whole install, because a firmware with holes in it still looks
+// installed and would never be replaced.
+//
+// updater is an updater EBOOT.PBP, a disc image, or the folder holding one; pass an empty path to
+// install from the disc mounted as disc0:, i.e. the running game's own disc.
+bool InstallFirmware(const Path &updater, const Path &nandRoot, const PSARUnpackOptions &options, PSARUnpackStats *stats, std::string *error);
+
+// Called while a game boots, with its disc mounted as disc0:. Most UMDs carry a firmware updater,
+// and having a real firmware is what the LLE modules want - so if the disc's is newer than what's
+// installed, or nothing identifiable is installed at all, unpack it. Shows progress on the OSD.
+// Does nothing unless g_Config.bAutoUpgradeFirmware is set. Returns true if it installed one.
+bool AutoInstallFirmwareFromDisc();
 
 // The same three, for the disc mounted as disc0: - i.e. the game that's running. These read
 // through the mounted filesystem instead of opening the image a second time, which also means

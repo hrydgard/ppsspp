@@ -132,6 +132,9 @@ void FirmwareScreen::CreateSettingsViews(UI::ViewGroup *parent) {
 		install->SetEnabled(!gameRunning);
 	}
 
+	parent->Add(new CheckBox(&g_Config.bAutoUpgradeFirmware, sy->T("Install or upgrade firmware from game discs"),
+		sy->T("AutoUpgradeFirmwareDesc", "Most game discs carry a firmware updater. Install it when there's no firmware yet, or when the disc's is newer.")));
+
 	if (info_.anythingInstalled) {
 		Choice *erase = parent->Add(new Choice(sy->T("Erase firmware"), ImageID("I_TRASHCAN")));
 		erase->OnClick.Add([this](UI::EventParams &) {

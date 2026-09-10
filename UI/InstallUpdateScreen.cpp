@@ -143,30 +143,12 @@ void InstallUpdateScreen::StartInstall() {
 	PSARUnpackOptions options;
 	options.model = EmulatedModelGeneration();
 
-	INFO_LOG(Log::Loader, "Unpacking the updater %s into %s (model %s)", path_.c_str(),
-		destination_.c_str(), PSPModelGenerationToString(options.model));
-
 	g_threadManager.EnqueueTask(new IndependentTask(TaskType::IO_BLOCKING, TaskPriority::NORMAL,
 		[state = state_, path = path_, destination = destination_, options]() mutable {
 		options.progress = [state](float progress) {
 			state->progress = progress;
 		};
-		// Two firmwares can't be merged - a file the new one doesn't have would linger and still
-		// get loaded - so start from an empty NAND.
-		if (!EraseInstalledFirmware(destination, &state->error)) {
-			state->success = false;
-			state->done = true;
-			return;
-		}
-		state->success = UnpackUpdater(path, destination, options, &state->stats, &state->error);
-		if (state->success && state->stats.written == 0) {
-			// Nothing came out, so the archive had no file list for the model we asked for -
-			// old firmwares predate the later models. Not something to call a success.
-			state->success = false;
-			if (state->error.empty()) {
-				state->error = "The updater has no firmware for this PSP model";
-			}
-		}
+		state->success = InstallFirmware(path, destination, options, &state->stats, &state->error);
 		// Everything above is published by this store - see the atomic in InstallState.
 		state->done = true;
 	}));
