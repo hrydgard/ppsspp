@@ -55,6 +55,9 @@ u32 __AudioEnqueueBlocking(AudioChannel &chan, u32 samplePtr, int leftVol, int r
 u32 __AudioSRCEnqueueBlocking(AudioSRCChannel &chan, u32 samplePtr, int vol);
 // Hands the SRC channel a completion that the next caller can consume without waiting.
 void __AudioSRCSignal(AudioSRCChannel &chan);
+// What one SRC/Output2 output call costs, in cycles, before it does anything - see the comment
+// on the definition.
+int __AudioSRCCallCycles(const AudioSRCChannel &chan);
 
 // Wake everyone parked on the SRC channel with the given error. Mixer channels need no
 // equivalent: releasing one while a thread waits on it is refused outright.

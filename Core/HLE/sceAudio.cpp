@@ -381,7 +381,7 @@ static u32 sceAudioOutput2OutputBlocking(u32 vol, u32 dataPtr) {
 		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_INVALID_VOLUME, "invalid volume");
 	}
 
-	hleEatCycles(10000);
+	hleEatCycles(__AudioSRCCallCycles(g_audioSRC));
 	// A busy channel is an ordinary answer here that a game is expected to poll on, not a
 	// fault, so this stays at debug like the mixer channels rather than filling the error log.
 	return hleLogDebug(Log::sceAudio, __AudioSRCEnqueueBlocking(g_audioSRC, dataPtr, vol));
@@ -493,7 +493,7 @@ static u32 sceAudioSRCOutputBlocking(u32 vol, u32 buf) {
 		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_INVALID_VOLUME, "invalid volume");
 	}
 
-	hleEatCycles(10000);
+	hleEatCycles(__AudioSRCCallCycles(g_audioSRC));
 	return hleLogDebug(Log::sceAudio, __AudioSRCEnqueueBlocking(g_audioSRC, buf, vol));
 }
 

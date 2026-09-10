@@ -246,6 +246,9 @@ static void __AudioStartMixerDMA() {
 	if (audioMixing) {
 		return;
 	}
+	// A mixer output is cheap - well under 10us - except for this one, which brings the DMA and
+	// the codec up and costs over 100us on hardware.
+	hleEatCycles(25000);
 	CoreTiming::UnscheduleEvent(eventAudioUpdate, 0);
 	audioMixingInSyscall = true;
 	__AudioUpdate();
@@ -340,6 +343,14 @@ static bool __AudioChannelFinished(AudioChannel &chan) {
 
 	__KernelResumeThreadFromWait(threadID, __AudioEnqueue(chan, chan.waitingAddress, chan.waitingLeftVolume, chan.waitingRightVolume));
 	return true;
+}
+
+// Measured on hardware with tests/audio/blocking/overhead. Every SRC output ends up querying
+// the codec, which costs upwards of 100us, whether it armed a buffer, found the channel
+// unreserved, or did nothing at all. The one shortcut is a channel with both descriptors
+// already armed, which lands in the 30-100us range instead.
+int __AudioSRCCallCycles(const AudioSRCChannel &chan) {
+	return chan.Full() ? 10000 : 25000;
 }
 
 u32 __AudioSRCEnqueueBlocking(AudioSRCChannel &chan, u32 samplePtr, int vol) {
