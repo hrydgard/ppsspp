@@ -127,6 +127,10 @@ bool CreateEmptyFile(const Path &filename);
 // don't tell the whole story (Windows ACLs, read-only mounts, ...).
 bool IsDirectoryWritable(const Path &path);
 
+// Set or clear a file's read-only-ness, which is what a FAT read-only attribute maps onto.
+// Returns false where the platform can't express it - notably Android content URIs.
+bool SetFileWritable(const Path &filename, bool writable);
+
 // Opens ini file (cheats, texture replacements etc.)
 // TODO: Belongs in System or something.
 bool OpenFileInEditor(const Path &fileName);

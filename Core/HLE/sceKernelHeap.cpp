@@ -46,18 +46,33 @@ struct KernelHeap : public KernelObject {
 };
 
 static int sceKernelCreateHeap(int partitionId, int size, int flags, const char *Name) {
-	u32 allocSize = (size + 3) & ~3;
+	// Everything below is recorded by pspautotests sysmem/kernel/heap, which is the first test
+	// this API has ever had - these used to be guesses.
+	//
+	// Only partitions 1-6 exist, and anything else is ILLEGAL_PARTITION rather than the
+	// ILLEGAL_ARGUMENT this used to return. Note the test can't cover partition 5: creating a
+	// heap in the volatile partition takes a real PSP down hard enough to need a reboot.
+	if (partitionId < 1 || partitionId > 6)
+		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_PARTITION, "invalid partition %d", partitionId);
 
 	BlockAllocator *allocator = BlockAllocatorFromID(partitionId);
-	// TODO: Validate error code.
 	if (!allocator)
-		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid partition");
+		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_PARTITION, "invalid partition %d", partitionId);
 
-	// TODO: This should probably actually use flags?  Name?
+	// A zero or negative size is refused outright, before anything is allocated.
+	if (size <= 0)
+		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_HEAPBLOCK_ALLOC_FAILED, "invalid size %d", size);
+	// A name is required, unlike most of the kernel object constructors.
+	if (!Name)
+		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ERROR, "invalid name");
+
+	u32 allocSize = (size + 3) & ~3;
+
+	// flags really is ignored - the test sweeps -1, 0, 1, 2, 3, 4, 0x100 and 0x1000 and every
+	// one of them creates a heap.
 	u32 addr = allocator->Alloc(allocSize, g_fromBottom, StringFromFormat("KernelHeap/%s", Name).c_str());
 	if (addr == (u32)-1) {
-		// TODO: Validate error code.
-		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_NO_MEMORY, "fFailed to allocate %d bytes of memory", size);
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_NO_MEMORY, "failed to allocate %d bytes of memory", size);
 	}
 
 	KernelHeap *heap = new KernelHeap();
@@ -65,7 +80,7 @@ static int sceKernelCreateHeap(int partitionId, int size, int flags, const char 
 
 	heap->partitionId = partitionId;
 	heap->flags = flags;
-	heap->name = Name ? Name : "";  // Not sure if this needs validation.
+	heap->name = Name;
 	heap->size = allocSize;
 	heap->address = addr;
 	heap->alloc.Init(heap->address + 128, heap->size - 128, true);
@@ -152,12 +167,16 @@ static int sceKernelAllocHeapMemoryWithOption(int heapId, u32 memSize, u32 param
 	if (paramsPtr != 0) {
 		if (!Memory::IsValid4AlignedRange(paramsPtr, 8))
 			return hleLogError(Log::sceKernel, 0, "invalid paramsPtr");
-		u32 size = Memory::ReadUnchecked_U32(paramsPtr);  // size of the params struct
-		if (size < 8)
-			return hleLogError(Log::sceKernel, 0, "invalid param size");
-		if (size > 8)
-			WARN_LOG(Log::HLE, "sceKernelAllocHeapMemoryWithOption(): unexpected param size %d", size);
+		// The size field is not validated at all - sysmem/kernel/heap sweeps 0, 4, 8, 12 and
+		// 0x100 through here and every one of them allocates. Only the alignment matters.
 		grain = Memory::ReadUnchecked_U32(paramsPtr + 4);
+		// And it has to be a power of two from 4 to 0x80. 0 means "no preference", 1 and 2 are
+		// refused just as firmly as 0x100 and up.
+		if (grain == 0) {
+			grain = 4;
+		} else if (grain < 4 || grain > 0x80 || (grain & (grain - 1)) != 0) {
+			return hleLogWarning(Log::sceKernel, 0, "invalid alignment %d", grain);
+		}
 	}
 	// There's 8 bytes at the end of every block, reserved.
 	memSize += 8;

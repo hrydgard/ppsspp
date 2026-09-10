@@ -622,7 +622,10 @@ void __KernelMsgPipeDoState(PointerWrap &p)
 int sceKernelCreateMsgPipe(const char *name, int partition, u32 attr, u32 size, u32 optionsPtr) {
 	if (!name)
 		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_NO_MEMORY, "invalid name");
-	if (partition < 1 || partition > 9 || partition == 7)
+	// Only partitions 1-6 exist. sysmem/partitions and its kernel-mode twin record 7 and up
+	// coming back ILLEGAL_ARGUMENT from both privilege levels; what privilege changes is the
+	// permission check below, not the range.
+	if (partition < 1 || partition > 6)
 		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid partition %d", partition);
 
 	BlockAllocator *allocator = BlockAllocatorFromID(partition);

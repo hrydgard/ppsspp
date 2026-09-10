@@ -103,6 +103,30 @@ static std::string CleanShortNamePart(std::string_view part, size_t maxLen, bool
 	return out;
 }
 
+// Whether the name's capitalisation survives without a long-name entry. FAT keeps one flag for
+// the base and one for the extension, but the PSP only honours the base one - so a lowercase
+// extension forces a long name entry, and with it a ~1 suffix, while a lowercase base alone
+// doesn't. That's why hardware gives "shrt" -> SHRT but "readme.txt" -> README~1.TXT.
+static bool ShortNameCaseSurvives(std::string_view base, std::string_view ext) {
+	bool lower = false, upper = false;
+	for (char c : base) {
+		if (c >= 'a' && c <= 'z') {
+			lower = true;
+		} else if (c >= 'A' && c <= 'Z') {
+			upper = true;
+		}
+	}
+	if (lower && upper) {
+		return false;
+	}
+	for (char c : ext) {
+		if (c >= 'a' && c <= 'z') {
+			return false;
+		}
+	}
+	return true;
+}
+
 void GenerateFatShortNames(const std::vector<PSPFileInfo> &listing, std::vector<std::string> *shortNames) {
 	shortNames->clear();
 	shortNames->reserve(listing.size());
@@ -125,6 +149,10 @@ void GenerateFatShortNames(const std::vector<PSPFileInfo> &listing, std::vector<
 			baseIn = std::string_view(info.name).substr(0, dot);
 			extIn = std::string_view(info.name).substr(dot + 1);
 		} else if (dot == 0) {
+			lossy = true;
+		}
+
+		if (!ShortNameCaseSurvives(baseIn, extIn)) {
 			lossy = true;
 		}
 

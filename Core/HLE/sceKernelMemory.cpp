@@ -525,7 +525,10 @@ static void __KernelSortFplThreads(FPL *fpl)
 int sceKernelCreateFpl(const char *name, u32 mpid, u32 attr, u32 blockSize, u32 numBlocks, u32 optPtr) {
 	if (!name)
 		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_NO_MEMORY, "invalid name");
-	if (mpid < 1 || mpid > 9 || mpid == 7)
+	// Only partitions 1-6 exist. sysmem/partitions and its kernel-mode twin record 7 and up
+	// coming back ILLEGAL_ARGUMENT from both privilege levels; what privilege changes is the
+	// permission check below, not the range.
+	if (mpid < 1 || mpid > 6)
 		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid partition %d", mpid);
 
 	BlockAllocator *allocator = BlockAllocatorFromID(mpid);
@@ -882,8 +885,14 @@ int sceKernelAllocPartitionMemory(int partition, const char *name, int type, u32
 		if ((addr & (addr - 1)) != 0 || addr == 0)
 			return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ALIGNMENT_SIZE, "invalid alignment %x", addr);
 	}
-	if (partition < 1 || partition > 9 || partition == 7)
-		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid partition %x", partition);
+	// SysMemUserForUser and SysMemForKernel both land here, and sysmem/partitions shows they
+	// report an out-of-range partition differently - ILLEGAL_ARGUMENT from the user entry point,
+	// ILLEGAL_PARTITION from the kernel one. hleIsKernelMode() is exactly "came in through the
+	// kernel NID", which is the distinction being made.
+	if (partition < 1 || partition > 6) {
+		const u32 error = hleIsKernelMode() ? SCE_KERNEL_ERROR_ILLEGAL_PARTITION : SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
+		return hleLogWarning(Log::sceKernel, error, "invalid partition %x", partition);
+	}
 
 	BlockAllocator *allocator = BlockAllocatorFromID(partition);
 	if (allocator == nullptr)
@@ -1311,7 +1320,10 @@ static void __KernelSortVplThreads(VPL *vpl)
 SceUID sceKernelCreateVpl(const char *name, int partition, u32 attr, u32 vplSize, u32 optPtr) {
 	if (!name)
 		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ERROR, "invalid name");
-	if (partition < 1 || partition > 9 || partition == 7)
+	// Only partitions 1-6 exist. sysmem/partitions and its kernel-mode twin record 7 and up
+	// coming back ILLEGAL_ARGUMENT from both privilege levels; what privilege changes is the
+	// permission check below, not the range.
+	if (partition < 1 || partition > 6)
 		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid partition %d", partition);
 
 	BlockAllocator *allocator = BlockAllocatorFromID(partition);

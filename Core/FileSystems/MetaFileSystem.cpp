@@ -507,6 +507,19 @@ int MetaFileSystem::RenameFile(const std::string &from, const std::string &to)
 	}
 }
 
+bool MetaFileSystem::SetFileWritable(const std::string &filename, bool writable)
+{
+	std::lock_guard<std::recursive_mutex> guard(lock);
+	std::string of;
+	IFileSystem *system;
+	int error = MapFilePath(filename, &of, &system);
+	if (error == 0) {
+		return system->SetFileWritable(of, writable);
+	} else {
+		return false;
+	}
+}
+
 bool MetaFileSystem::RemoveFile(const std::string &filename)
 {
 	std::lock_guard<std::recursive_mutex> guard(lock);
