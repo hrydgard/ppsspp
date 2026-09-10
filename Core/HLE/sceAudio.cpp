@@ -44,8 +44,9 @@ struct AudioChannelWaitInfo {
 	int numSamples;
 };
 
-// The extra channel is for SRC/Output2/Vaudio.
-AudioChannel g_audioChans[PSP_AUDIO_CHANNEL_MAX + 1];
+AudioChannel g_audioChans[PSP_AUDIO_CHANNEL_MAX];
+// sceAudioOutput2, sceAudioSRC and sceVaudio are three names for this one channel.
+AudioSRCChannel g_audioSRC;
 
 void AudioChannel::DoState(PointerWrap &p) {
 	auto s = p.Section("AudioChannel", 1, 4);
@@ -65,17 +66,6 @@ void AudioChannel::DoState(PointerWrap &p) {
 		Do(p, waitingAddress);
 		Do(p, waitingLeftVolume);
 		Do(p, waitingRightVolume);
-		Do(p, srcBufferCount);
-		for (AudioPendingBuffer &buf : srcBuffers) {
-			Do(p, buf.address);
-			Do(p, buf.samples);
-		}
-		Do(p, srcPlayedSamples);
-		Do(p, srcFrac);
-		Do(p, srcCompletion);
-		Do(p, srcWaitingThreads);
-		Do(p, defaultRoutingMode);
-		Do(p, defaultRoutingVolMode);
 		return;
 	}
 
@@ -86,6 +76,8 @@ void AudioChannel::DoState(PointerWrap &p) {
 	std::vector<AudioChannelWaitInfo> oldWaitingThreads;
 	Do(p, oldWaitingThreads);
 	if (s >= 2) {
+		// These are globals rather than per-channel; the old format just happened to write
+		// them out once per channel.
 		Do(p, defaultRoutingMode);
 		Do(p, defaultRoutingVolMode);
 	}
@@ -98,15 +90,9 @@ void AudioChannel::DoState(PointerWrap &p) {
 	}
 
 	if (p.mode == p.MODE_READ) {
-		sampleAddress = 0;
-		remainingSamples = 0;
-		waitingThread = 0;
-		waitingAddress = 0;
-		srcBufferCount = 0;
-		srcPlayedSamples = 0;
-		srcFrac = 0;
-		srcCompletion = false;
-		srcWaitingThreads.clear();
+		const u32 oldSampleCount = sampleCount;
+		clear();
+		sampleCount = oldSampleCount;
 		// The threads that were parked in a blocking output call are still parked, and
 		// nothing is going to wake them now, so hand them their buffer back.
 		for (const AudioChannelWaitInfo &waitInfo : oldWaitingThreads) {
@@ -116,11 +102,6 @@ void AudioChannel::DoState(PointerWrap &p) {
 			}
 		}
 	}
-}
-
-void AudioChannel::reset() {
-	__AudioWakeThreads(*this, SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED);
-	clear();
 }
 
 void AudioChannel::clear() {
@@ -135,11 +116,58 @@ void AudioChannel::clear() {
 	waitingAddress = 0;
 	waitingLeftVolume = 0;
 	waitingRightVolume = 0;
-	srcBufferCount = 0;
-	srcPlayedSamples = 0;
-	srcFrac = 0;
-	srcCompletion = false;
-	srcWaitingThreads.clear();
+}
+
+void AudioSRCChannel::DoState(PointerWrap &p) {
+	auto s = p.Section("AudioSRCChannel", 1);
+	if (!s)
+		return;
+
+	Do(p, reserved);
+	Do(p, sampleCount);
+	Do(p, leftVolume);
+	Do(p, rightVolume);
+	Do(p, format);
+	Do(p, bufferCount);
+	for (AudioPendingBuffer &buf : buffers) {
+		Do(p, buf.address);
+		Do(p, buf.samples);
+	}
+	Do(p, playedSamples);
+	Do(p, frac);
+	Do(p, completion);
+	Do(p, waitingThreads);
+}
+
+void __AudioRoutingDoState(PointerWrap &p) {
+	auto s = p.Section("sceAudioRouting", 1);
+	if (!s)
+		return;
+
+	Do(p, defaultRoutingMode);
+	Do(p, defaultRoutingVolMode);
+}
+
+void AudioSRCChannel::reset() {
+	__AudioWakeThreads(*this, SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED);
+	clear();
+}
+
+void AudioSRCChannel::clear() {
+	reserved = false;
+	leftVolume = 0;
+	rightVolume = 0;
+	format = 0;
+	sampleCount = 0;
+	bufferCount = 0;
+	playedSamples = 0;
+	frac = 0;
+	completion = false;
+	waitingThreads.clear();
+	for (AudioPendingBuffer &buf : buffers) {
+		buf.address = 0;
+		buf.samples = 0;
+	}
 }
 
 // The blocking output calls do not queue callers up. Each channel holds one buffer and at most
@@ -330,7 +358,7 @@ static u32 sceAudioEnd() {
 }
 
 static u32 sceAudioOutput2Reserve(u32 sampleCount) {
-	auto &chan = g_audioChans[PSP_AUDIO_CHANNEL_OUTPUT2];
+	auto &chan = g_audioSRC;
 	// This seems to ignore the MSB, for some reason.
 	sampleCount &= 0x7FFFFFFF;
 	if (sampleCount < 17 || sampleCount > 4111) {
@@ -354,10 +382,9 @@ static u32 sceAudioOutput2OutputBlocking(u32 vol, u32 dataPtr) {
 	}
 
 	hleEatCycles(10000);
-	u32 result = __AudioSRCEnqueueBlocking(g_audioChans[PSP_AUDIO_CHANNEL_OUTPUT2], dataPtr, vol);
-	if ((int)result < 0)
-		return hleLogError(Log::sceAudio, result);
-	return hleLogDebug(Log::sceAudio, result);
+	// A busy channel is an ordinary answer here that a game is expected to poll on, not a
+	// fault, so this stays at debug like the mixer channels rather than filling the error log.
+	return hleLogDebug(Log::sceAudio, __AudioSRCEnqueueBlocking(g_audioSRC, dataPtr, vol));
 }
 
 static u32 sceAudioOutput2ChangeLength(u32 sampleCount) {
@@ -366,7 +393,7 @@ static u32 sceAudioOutput2ChangeLength(u32 sampleCount) {
 	if (sampleCount - 17 >= 0xFFF) {
 		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_OUTPUT_SAMPLE_DATA_SIZE_NOT_ALIGNED, "invalid sample count");
 	}
-	auto &chan = g_audioChans[PSP_AUDIO_CHANNEL_OUTPUT2];
+	auto &chan = g_audioSRC;
 	if (!chan.reserved) {
 		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED, "channel not reserved");
 	}
@@ -377,20 +404,20 @@ static u32 sceAudioOutput2ChangeLength(u32 sampleCount) {
 }
 
 static u32 sceAudioOutput2GetRestSample() {
-	auto &chan = g_audioChans[PSP_AUDIO_CHANNEL_OUTPUT2];
+	auto &chan = g_audioSRC;
 	if (!chan.reserved) {
 		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED, "channel not reserved");
 	}
 	// Counts armed DMA descriptors, in units of the current length - so it reports two
 	// buffers' worth while both are in flight.
-	return hleLogDebug(Log::sceAudio, chan.srcBufferCount * chan.sampleCount);
+	return hleLogDebug(Log::sceAudio, chan.bufferCount * chan.sampleCount);
 }
 
 static u32 sceAudioOutput2Release() {
-	auto &chan = g_audioChans[PSP_AUDIO_CHANNEL_OUTPUT2];
+	auto &chan = g_audioSRC;
 	if (!chan.reserved)
 		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED, "channel not reserved");
-	if (chan.srcBufferCount != 0)
+	if (chan.bufferCount != 0)
 		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_CHANNEL_ALREADY_RESERVED, "output busy");
 
 	chan.reset();
@@ -424,7 +451,7 @@ bool SRCFrequencyAllowed(int freq) {
 }
 
 static u32 sceAudioSRCChReserve(u32 sampleCount, u32 freq, u32 format) {
-	auto &chan = g_audioChans[PSP_AUDIO_CHANNEL_SRC];
+	auto &chan = g_audioSRC;
 	// This seems to ignore the MSB, for some reason.
 	sampleCount &= 0x7FFFFFFF;
 	if (format == 4) {
@@ -449,10 +476,10 @@ static u32 sceAudioSRCChReserve(u32 sampleCount, u32 freq, u32 format) {
 }
 
 static u32 sceAudioSRCChRelease() {
-	auto &chan = g_audioChans[PSP_AUDIO_CHANNEL_SRC];
+	auto &chan = g_audioSRC;
 	if (!chan.reserved)
 		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED, "channel not reserved");
-	if (chan.srcBufferCount != 0)
+	if (chan.bufferCount != 0)
 		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_CHANNEL_ALREADY_RESERVED, "output busy");
 
 	chan.reset();
@@ -467,10 +494,7 @@ static u32 sceAudioSRCOutputBlocking(u32 vol, u32 buf) {
 	}
 
 	hleEatCycles(10000);
-	u32 result = __AudioSRCEnqueueBlocking(g_audioChans[PSP_AUDIO_CHANNEL_SRC], buf, vol);
-	if ((int)result < 0)
-		return hleLogError(Log::sceAudio, result);
-	return hleLogDebug(Log::sceAudio, result);
+	return hleLogDebug(Log::sceAudio, __AudioSRCEnqueueBlocking(g_audioSRC, buf, vol));
 }
 
 static int sceAudioInputBlocking(u32 maxSamples, u32 sampleRate, u32 bufAddr) {

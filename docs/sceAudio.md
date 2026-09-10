@@ -10,7 +10,9 @@ Output2/SRC channel holds two, and a caller who finds no room is told
 
 ## Two different pieces of hardware
 
-`sceAudio` presents nine channels, but they are not the same thing underneath.
+`sceAudio` presents nine channels, but they are not the same thing underneath, which is why the
+emulator keeps them in two different structures rather than one array of nine: `AudioChannel`
+for the eight the mixer walks, and a single `AudioSRCChannel` for the ninth.
 
 **Channels 0-7** go through a software mixer running as a kernel thread. Every time the audio
 DMA finishes a block, that thread wakes, takes up to 64 samples from each channel that has a
@@ -150,7 +152,8 @@ whatever the output is currently running at - which is how 44100 and 0 get throu
 
 ## Savestates
 
-`AudioChannel` is at section version 4. Anything older stored a ring of already-mixed samples,
-which cannot be turned back into a buffer pointer and a position, so loading one drops the
-pending audio and wakes any parked threads. That costs a fraction of a second of silence on
-load and nothing else.
+`AudioChannel` is at section version 4 and the SRC channel has a section of its own. Anything
+older stored a ring of already-mixed samples, which cannot be turned back into a buffer pointer
+and a position, so loading one drops the pending audio and wakes any parked threads. That costs
+a fraction of a second of silence on load and nothing else. Older states also carry the SRC
+channel as a ninth entry in the channel array, which is read and discarded.

@@ -1630,58 +1630,76 @@ void DrawAudioChannels(ImConfig &cfg, ImControl &control) {
 
 		ImGui::TableHeadersRow();
 
-		// vaudio / output2 uses channel 8.
-		for (int i = 0; i < PSP_AUDIO_CHANNEL_MAX + 1; i++) {
-			if (!g_audioChans[i].reserved) {
+		static const auto formatName = [](u32 format) {
+			switch (format) {
+			case PSP_AUDIO_FORMAT_STEREO: return "Stereo";
+			case PSP_AUDIO_FORMAT_MONO: return "Mono";
+			default: return "UNK";
+			}
+		};
+		static const auto threadName = [](SceUID threadID) -> const char * {
+			KernelObject *thread = kernelObjects.GetFast<KernelObject>(threadID);
+			return thread ? thread->GetName() : nullptr;
+		};
+
+		for (int i = 0; i < (int)PSP_AUDIO_CHANNEL_MAX; i++) {
+			const AudioChannel &chan = g_audioChans[i];
+			if (!chan.reserved) {
 				continue;
 			}
 			ImGui::TableNextRow();
 			ImGui::TableNextColumn();
 			ImGui::PushID(i);
-			if (i == 8) {
-				ImGui::TextUnformatted("audio2");
-			} else {
-				ImGui::Text("%d", i);
-			}
+			ImGui::Text("%d", i);
 			ImGui::TableNextColumn();
 			ImGui::Checkbox("", &g_audioChans[i].mute);
 			ImGui::TableNextColumn();
 			char id[2]{};
 			id[0] = i + 1;
-			ImClickableValue(id, g_audioChans[i].sampleAddress, control, ImCmd::SHOW_IN_MEMORY_VIEWER);
+			ImClickableValue(id, chan.sampleAddress, control, ImCmd::SHOW_IN_MEMORY_VIEWER);
 			ImGui::TableNextColumn();
-			ImGui::Text("%08x", g_audioChans[i].sampleCount);
+			ImGui::Text("%08x", chan.sampleCount);
 			ImGui::TableNextColumn();
-			ImGui::Text("%d | %d", g_audioChans[i].leftVolume, g_audioChans[i].rightVolume);
+			ImGui::Text("%d | %d", chan.leftVolume, chan.rightVolume);
 			ImGui::TableNextColumn();
-			switch (g_audioChans[i].format) {
-			case PSP_AUDIO_FORMAT_STEREO:
-				ImGui::TextUnformatted("Stereo");
-				break;
-			case PSP_AUDIO_FORMAT_MONO:
-				ImGui::TextUnformatted("Mono");
-				break;
-			default:
-				ImGui::TextUnformatted("UNK: %04x");
-				break;
-			}
+			ImGui::TextUnformatted(formatName(chan.format));
 			ImGui::TableNextColumn();
-			// At most one thread can be parked on a mixer channel; the SRC channel keeps its
-			// own list instead.
-			SceUID waiting[3];
-			int waitingCount = 0;
-			if (g_audioChans[i].waitingThread != 0) {
-				waiting[waitingCount++] = g_audioChans[i].waitingThread;
-			}
-			for (SceUID t : g_audioChans[i].srcWaitingThreads) {
-				if (waitingCount < ARRAY_SIZE(waiting)) {
-					waiting[waitingCount++] = t;
+			// Only one thread can ever be parked on a mixer channel.
+			if (chan.waitingThread != 0) {
+				const char *name = threadName(chan.waitingThread);
+				if (name) {
+					ImGui::TextUnformatted(name);
 				}
 			}
-			for (int w = 0; w < waitingCount; w++) {
-				KernelObject *thread = kernelObjects.GetFast<KernelObject>(waiting[w]);
-				if (thread) {
-					ImGui::TextUnformatted(thread->GetName());
+			ImGui::PopID();
+		}
+
+		// Output2, SRC and Vaudio all mean this one, which holds two buffers rather than one
+		// and can have more than one thread waiting on it.
+		if (g_audioSRC.reserved) {
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+			ImGui::PushID("src");
+			ImGui::TextUnformatted("audio2");
+			ImGui::TableNextColumn();
+			ImGui::Checkbox("", &g_audioSRC.mute);
+			ImGui::TableNextColumn();
+			if (g_audioSRC.bufferCount > 0) {
+				ImClickableValue("src", g_audioSRC.buffers[0].address, control, ImCmd::SHOW_IN_MEMORY_VIEWER);
+			} else {
+				ImGui::TextUnformatted("-");
+			}
+			ImGui::TableNextColumn();
+			ImGui::Text("%08x (%d queued)", g_audioSRC.sampleCount, g_audioSRC.bufferCount);
+			ImGui::TableNextColumn();
+			ImGui::Text("%d | %d", g_audioSRC.leftVolume, g_audioSRC.rightVolume);
+			ImGui::TableNextColumn();
+			ImGui::TextUnformatted(formatName(g_audioSRC.format));
+			ImGui::TableNextColumn();
+			for (SceUID threadID : g_audioSRC.waitingThreads) {
+				const char *name = threadName(threadID);
+				if (name) {
+					ImGui::TextUnformatted(name);
 				}
 			}
 			ImGui::PopID();

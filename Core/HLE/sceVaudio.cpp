@@ -64,17 +64,17 @@ static u32 sceVaudioChReserve(int sampleCount, int freq, int format) {
 		return SCE_KERNEL_ERROR_BUSY;
 	}
 	// We still have to check the channel also, which gives a different error.
-	if (g_audioChans[PSP_AUDIO_CHANNEL_VAUDIO].reserved) {
+	if (g_audioSRC.reserved) {
 		ERROR_LOG(Log::sceAudio, "sceVaudioChReserve(%i, %i, %i) - channel already reserved", sampleCount, freq, format);
 		return SCE_ERROR_AUDIO_CHANNEL_ALREADY_RESERVED;
 	}
 	DEBUG_LOG(Log::sceAudio, "sceVaudioChReserve(%i, %i, %i)", sampleCount, freq, format);
-	g_audioChans[PSP_AUDIO_CHANNEL_VAUDIO].clear();
-	g_audioChans[PSP_AUDIO_CHANNEL_VAUDIO].reserved = true;
-	g_audioChans[PSP_AUDIO_CHANNEL_VAUDIO].sampleCount = sampleCount;
-	g_audioChans[PSP_AUDIO_CHANNEL_VAUDIO].format = format == 2 ? PSP_AUDIO_FORMAT_STEREO : PSP_AUDIO_FORMAT_MONO;
-	g_audioChans[PSP_AUDIO_CHANNEL_VAUDIO].leftVolume = 0;
-	g_audioChans[PSP_AUDIO_CHANNEL_VAUDIO].rightVolume = 0;
+	g_audioSRC.clear();
+	g_audioSRC.reserved = true;
+	g_audioSRC.sampleCount = sampleCount;
+	g_audioSRC.format = format == 2 ? PSP_AUDIO_FORMAT_STEREO : PSP_AUDIO_FORMAT_MONO;
+	g_audioSRC.leftVolume = 0;
+	g_audioSRC.rightVolume = 0;
 	vaudioReserved = true;
 	__AudioSetSRCFrequency(freq);
 	return 0;
@@ -82,10 +82,10 @@ static u32 sceVaudioChReserve(int sampleCount, int freq, int format) {
 
 static u32 sceVaudioChRelease() {
 	DEBUG_LOG(Log::sceAudio, "sceVaudioChRelease(...)");
-	if (!g_audioChans[PSP_AUDIO_CHANNEL_VAUDIO].reserved) {
+	if (!g_audioSRC.reserved) {
 		return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
 	} else {
-		g_audioChans[PSP_AUDIO_CHANNEL_VAUDIO].reset();
+		g_audioSRC.reset();
 		vaudioReserved = false;
 		return 0;
 	}
@@ -94,7 +94,7 @@ static u32 sceVaudioChRelease() {
 static u32 sceVaudioOutputBlocking(int vol, u32 buffer) {
 	DEBUG_LOG(Log::sceAudio, "sceVaudioOutputBlocking(%i, %08x)", vol, buffer);
 	// Shares the SRC channel, so it also shares the two-buffer depth and the busy return.
-	return __AudioSRCEnqueueBlocking(g_audioChans[PSP_AUDIO_CHANNEL_VAUDIO], buffer, vol);
+	return __AudioSRCEnqueueBlocking(g_audioSRC, buffer, vol);
 }
 
 static u32 sceVaudioSetEffectType(int effectType, int vol) {

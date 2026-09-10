@@ -52,12 +52,13 @@ u32 __AudioEnqueueBlocking(AudioChannel &chan, u32 samplePtr, int leftVol, int r
 // Channel 8 - Output2, SRC and Vaudio all share it. Two buffers fit; a third caller gets
 // SCE_ERROR_AUDIO_CHANNEL_BUSY without waiting. A successful call waits for one buffer to
 // finish before returning, except when nothing was playing to begin with.
-u32 __AudioSRCEnqueueBlocking(AudioChannel &chan, u32 samplePtr, int vol);
+u32 __AudioSRCEnqueueBlocking(AudioSRCChannel &chan, u32 samplePtr, int vol);
 // Hands the SRC channel a completion that the next caller can consume without waiting.
-void __AudioSRCSignal(AudioChannel &chan);
+void __AudioSRCSignal(AudioSRCChannel &chan);
 
-// Wakes whoever is parked on the channel with the given error, and forgets their buffer.
-void __AudioWakeThreads(AudioChannel &chan, int result);
+// Wake everyone parked on the SRC channel with the given error. Mixer channels need no
+// equivalent: releasing one while a thread waits on it is refused outright.
+void __AudioWakeThreads(AudioSRCChannel &chan, int result);
 
 void __AudioCPUMHzChange();
 
