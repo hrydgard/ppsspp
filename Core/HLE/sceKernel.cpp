@@ -45,6 +45,7 @@
 #include "sceAtrac.h"
 #include "sceAudio.h"
 #include "sceAudiocodec.h"
+#include "sceMpegbase.h"
 #include "sceVideocodec.h"
 #include "sceCcc.h"
 #include "sceCtrl.h"
@@ -287,6 +288,7 @@ void __KernelDoState(PointerWrap &p)
 		__JpegDoState(p);
 		__Mp3DoState(p);
 		__MpegDoState(p);
+		__MpegBaseDoState(p);
 		__VideocodecDoState(p);
 		__NetDoState(p);
 		__NetAdhocDoState(p);

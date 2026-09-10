@@ -23,6 +23,9 @@
 #include <map>
 #include <vector>
 
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeMap.h"
 #include "Common/Swap.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
@@ -45,6 +48,20 @@ void __MpegBaseInit() {
 	g_pesPackets.clear();
 	g_mpegBaseBufferWidth = 512;
 	g_mpegBasePixelMode = GE_CMODE_32BIT_ABGR8888;
+}
+
+void __MpegBaseDoState(PointerWrap &p) {
+	auto s = p.Section("sceMpegbase", 0, 1);
+	if (!s) {
+		return;
+	}
+	// The pixel mode decides both the colour packing and the bytes per pixel of the output, and a
+	// game sets it once per movie rather than per frame - so without it here, a state resumed
+	// mid-movie converted at the default until the next sceMpegBaseCscInit, which may never come.
+	Do(p, g_mpegBaseBufferWidth);
+	Do(p, g_mpegBasePixelMode);
+	// A state can land between the copy and the decode that consumes it.
+	Do(p, g_pesPackets);
 }
 
 // p pointing to a SceMpegLLI structure consists of video frame blocks.

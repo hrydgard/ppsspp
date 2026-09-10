@@ -21,10 +21,14 @@
 
 #include "Common/CommonTypes.h"
 
+class PointerWrap;
+
 void Register_sceMpegbase();
 
 // Called per boot, from __MpegInit.
 void __MpegBaseInit();
+
+void __MpegBaseDoState(PointerWrap &p);
 
 // Takes the PES payload sceMpegBasePESpacketCopy gathered for a given destination. On hardware that
 // copy lands in Media Engine memory, which sceVideocodec would then read back; we keep it here
