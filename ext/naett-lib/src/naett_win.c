@@ -111,6 +111,13 @@ static void CALLBACK
 callback(HINTERNET request, DWORD_PTR context, DWORD status, LPVOID statusInformation, DWORD statusInfoLength) {
     InternalResponse* res = (InternalResponse*)context;
 
+    // PPSSPP: once we've reported the request as complete the caller is free to close it, so
+    // don't start any more I/O against it - anything still in flight would be writing into a
+    // response that's being freed.
+    if (res->complete) {
+        return;
+    }
+
     switch (status) {
         case WINHTTP_CALLBACK_STATUS_HEADERS_AVAILABLE: {
             // PPSSPP: the sizing call only fills in bufSize when it fails with
@@ -177,9 +184,17 @@ callback(HINTERNET request, DWORD_PTR context, DWORD status, LPVOID statusInform
             size_t bytesRead = statusInfoLength;
 
             InternalRequest* req = res->request;
+            if (req == NULL) {
+                return;
+            }
             if (req->options.bodyWriter(res->buffer, (int)bytesRead, req->options.bodyWriterData) != bytesRead) {
+                // PPSSPP: the writer failed the request - it couldn't grow, or the caller is
+                // cancelling. Upstream marked it complete and then queued another read anyway,
+                // which both kept the transfer running and left WinHTTP writing into a response
+                // the caller was by then free to close.
                 res->code = naettReadError;
                 res->complete = 1;
+                break;
             }
             res->totalBytesRead += (int)bytesRead;
             // PPSSPP: bytesLeft is unsigned, so a read longer than announced used to wrap it

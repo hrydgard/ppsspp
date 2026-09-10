@@ -297,7 +297,14 @@ static void* processRequest(void* data) {
             break;
         } else if (bytesRead > 0) {
             (*env)->GetByteArrayRegion(env, buffer, 0, bytesRead, (jbyte*) byteBuffer);
-            req->options.bodyWriter(byteBuffer, bytesRead, req->options.bodyWriterData);
+            // PPSSPP: a short write from the body writer fails the request - it's how a caller
+            // aborts, and how the default writer reports that it couldn't grow. Upstream ignored
+            // it, so the body was silently truncated and still reported as a success.
+            int written = req->options.bodyWriter(byteBuffer, bytesRead, req->options.bodyWriterData);
+            if (written != bytesRead) {
+                res->code = naettReadError;
+                goto finally;
+            }
             res->totalBytesRead += bytesRead;
         }
     } while (!res->closeRequested);

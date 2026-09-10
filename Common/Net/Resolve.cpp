@@ -31,7 +31,6 @@ extern JavaVM *gJvm;
 
 namespace net {
 
-static bool g_naettInitialized;
 static bool g_wsaInitialized;
 
 void Init() {
@@ -44,19 +43,18 @@ void Init() {
 		g_wsaInitialized = true;
 	}
 #endif
-	if (!g_naettInitialized) {
+	// naett ignores repeat calls the same way WSAStartup does, so there's nothing to track here
+	// either. HTTPSAvailable is cheap to ask twice - on Linux it's a cached dlopen result.
 #ifndef HTTPS_NOT_AVAILABLE
 #if PPSSPP_PLATFORM(ANDROID)
-		_assert_(gJvm != nullptr);
-		naettInit(gJvm);
+	_assert_(gJvm != nullptr);
+	naettInit(gJvm);
 #else
-		if (HTTPSAvailable()) {
-			naettInit(NULL);
-		}
-#endif
-#endif
-		g_naettInitialized = true;
+	if (HTTPSAvailable()) {
+		naettInit(NULL);
 	}
+#endif
+#endif
 }
 
 bool HTTPSAvailable() {

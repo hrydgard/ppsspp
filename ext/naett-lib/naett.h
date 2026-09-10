@@ -17,6 +17,10 @@ typedef void* naettInitData;
 /**
  * @brief Global init method.
  * Call to initialize the library.
+ *
+ * PPSSPP: calling this more than once is fine - everything after the first call does nothing,
+ * including the platform setup, so the init data from the first call is the one that sticks.
+ * Not thread safe; call it during startup, before anything else can reach the library.
  */
 void naettInit(naettInitData initThing);
 
@@ -41,6 +45,11 @@ naettOption* naettBody(const char* body, int size);
 // Sets a request body reader.
 naettOption* naettBodyReader(naettReadFunc reader, void* userData);
 // Sets a response body writer.
+//
+// PPSSPP: the writer is handed each chunk as it arrives, on whichever thread the backend runs
+// its transfer on, and must return the number of bytes it took. Returning anything else fails
+// the request with naettReadError and stops the transfer - which is both how the default writer
+// reports that it couldn't grow its buffer, and how a caller cancels one in progress.
 naettOption* naettBodyWriter(naettWriteFunc writer, void* userData);
 // Sets connection timeout in milliseconds.
 naettOption* naettTimeout(int milliSeconds);
