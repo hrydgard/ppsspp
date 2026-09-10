@@ -61,6 +61,7 @@
 #include "Core/Util/PkgUnpack.h"
 #include "headless/ReverseEngineer.h"
 #include "Core/WebServer.h"
+#include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceUtility.h"
 #include "Core/SaveState.h"
 #include "GPU/GPUCommon.h"
@@ -79,6 +80,7 @@ static Path g_comparisonScreenshot;
 static Path g_screenshotSavePath;
 static Path g_screenshotDiffPath;
 static bool g_screenshotSaveKeepAlpha = false;
+static bool g_screenshotSaved = false;
 static double g_maxScreenshotError = 0.0;
 static bool g_screenshotFailed = false;
 static std::string g_debugOutputBuffer;
@@ -207,6 +209,7 @@ void SendDebugScreenshot(const DebugScreenshotDesc &desc) {
 	if (!g_screenshotSavePath.empty()) {
 		ScreenshotComparer saver(pixels, FRAME_STRIDE, FRAME_WIDTH, FRAME_HEIGHT);
 		bool saved = g_screenshotSavePath.GetFileExtension() == ".png" ? saver.SaveActualPNG(g_screenshotSavePath, g_screenshotSaveKeepAlpha) : saver.SaveActualBitmap(g_screenshotSavePath);
+		g_screenshotSaved = g_screenshotSaved || saved;
 		if (saved)
 			SendAndCollectOutput("Screenshot saved to: " + g_screenshotSavePath.ToVisualString() + "\n");
 	}
@@ -404,6 +407,15 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 		}
 
 		draw->EndFrame();
+	}
+
+	if (!g_screenshotSavePath.empty() && !g_screenshotSaved) {
+		DebugScreenshotDesc desc;
+		PSPPointer<u8> topaddr;
+		__DisplayGetFramebuf(&topaddr, &desc.stride, &desc.format, 0);
+		desc.data = &topaddr[0];
+		desc.height = 272;
+		SendDebugScreenshot(desc);
 	}
 
 	PSP_Shutdown(true);
