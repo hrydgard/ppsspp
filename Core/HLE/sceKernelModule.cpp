@@ -1180,22 +1180,36 @@ static void LoadAndStartVshKernelModule(const char *path, SceKernelSMOption *smo
 // Some of the kernel's drivers have a per-model build (memlmd, loadexec, wlanfirm, ...), and a
 // firmware installed for one model ships only that model's - so asking for "_01g" unconditionally
 // fails on, say, an 02g install, which is what PPSSPP's own updater unpack produces by default.
-// Swap in the model we're emulating when the path names a model and that file is actually there.
+// The naming also changed over time: firmwares older than about 3.50 predate the PSP-2000 and have
+// no split at all (plain memlmd.prx, loadexec.prx), and their wlan firmware is named after the
+// chip revision instead (wlanfirm_magpie.prx is the one that became wlanfirm_01g.prx). Try the
+// emulated model, then the model in the path, then those older spellings, and take whichever is
+// actually there.
 static std::string ResolveVshModelModule(const char *path) {
 	std::string_view name(path);
 	const size_t model = name.find("_01g.prx");
 	if (model == std::string_view::npos) {
 		return std::string(path);
 	}
+	const std::string_view stem = name.substr(0, model);
+
+	std::vector<std::string> candidates;
 	const int generation = (int)EmulatedModelGeneration();
-	if (generation == 1) {
-		return std::string(path);
+	if (generation != 1) {
+		candidates.push_back(StringFromFormat("%.*s_%02dg.prx", (int)stem.size(), stem.data(), generation));
 	}
-	std::string candidate = StringFromFormat("%.*s_%02dg.prx", (int)model, path, generation);
-	if (pspFileSystem.GetFileInfo(candidate).exists) {
-		return candidate;
+	candidates.push_back(std::string(path));
+	if (endsWith(stem, "wlanfirm")) {
+		candidates.push_back(std::string(stem) + "_magpie.prx");
 	}
-	// A dump unpacked for every model has the 01g one too, so this isn't necessarily a failure.
+	candidates.push_back(std::string(stem) + ".prx");
+
+	for (const std::string &candidate : candidates) {
+		if (pspFileSystem.GetFileInfo(candidate).exists) {
+			return candidate;
+		}
+	}
+	// Nothing matched - hand back the original so the loader reports it by the name we asked for.
 	return std::string(path);
 }
 
@@ -1225,7 +1239,14 @@ static void LoadAndStartVshKernelModules() {
 	smallStackOption.stacksize = 0x40000;
 	*/
 	for (const char *path : vshSmallKernelModulePaths) {
-		LoadAndStartVshKernelModule(ResolveVshModelModule(path).c_str(), nullptr);
+		const std::string resolved = ResolveVshModelModule(path);
+		if (!pspFileSystem.GetFileInfo(resolved).exists) {
+			// Older firmwares don't have all of these - lowio.prx only appears around 3.52 - and a
+			// driver that isn't in the dump isn't a failure to report.
+			INFO_LOG(Log::sceModule, "LoadAndStartVshKernelModules: %s isn't in this firmware, skipping", resolved.c_str());
+			continue;
+		}
+		LoadAndStartVshKernelModule(resolved.c_str(), nullptr);
 	}
 
 	// Firmwares up to about 4.05 keep scePaf's heap allocator in a module of its own, which paf
