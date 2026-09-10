@@ -330,6 +330,34 @@ static u32 sceAudioChangeChannelConfig(u32 chan, u32 format) {
 	return hleLogDebug(Log::sceAudio, 0);
 }
 
+// Plays one buffer on a channel without reserving it, so the channel frees itself once the
+// buffer runs out. The checks are looser than sceAudioChReserve's - any positive sample count
+// goes, aligned or not - and stricter on volume, where a negative one is an error rather than
+// meaning "leave it alone".
+static u32 sceAudioOneshotOutput(int chan, int sampleCount, int format, int leftvol, int rightvol, u32 samplePtr) {
+	if ((u32)leftvol > 0xFFFF || (u32)rightvol > 0xFFFF) {
+		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_INVALID_VOLUME, "invalid volume");
+	}
+	if (chan < 0) {
+		chan = GetFreeChannel();
+		if (chan < 0) {
+			return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_NO_CHANNELS_AVAILABLE, "no channels remaining");
+		}
+	} else if (chan >= (int)PSP_AUDIO_CHANNEL_MAX || g_audioChans[chan].reserved) {
+		// A reserved channel is refused with the same error as one that doesn't exist.
+		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_INVALID_CHANNEL, "bad channel %d", chan);
+	}
+	if (sampleCount <= 0) {
+		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_OUTPUT_SAMPLE_DATA_SIZE_NOT_ALIGNED, "invalid sample count");
+	}
+	if (format != PSP_AUDIO_FORMAT_MONO && format != PSP_AUDIO_FORMAT_STEREO) {
+		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_INVALID_FORMAT, "invalid format");
+	}
+
+	__AudioEnqueueOneshot(g_audioChans[chan], samplePtr, sampleCount, format, leftvol, rightvol);
+	return hleLogDebug(Log::sceAudio, chan);
+}
+
 static u32 sceAudioChangeChannelVolume(u32 chan, int leftvol, int rightvol) {
 	if (leftvol > 0xFFFF || rightvol > 0xFFFF) {
 		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_INVALID_VOLUME, "invalid chan %d volume %d %d", chan, leftvol, rightvol);
@@ -595,8 +623,9 @@ const HLEFunction sceAudio[] =
 	{0X5C37C0AE, &WrapU_V<sceAudioSRCChRelease>,            "sceAudioSRCChRelease",          'x', ""    },
 	{0XE0727056, &WrapU_UU<sceAudioSRCOutputBlocking>,      "sceAudioSRCOutputBlocking",     'x', "xx"  },
 
-	// Never seen these used
-	{0X41EFADE7, nullptr,                                   "sceAudioOneshotOutput",         '?', ""    },
+	{0X41EFADE7, &WrapU_IIIIIU<sceAudioOneshotOutput>,      "sceAudioOneshotOutput",         'x', "iiiiix"},
+
+	// Never seen this used
 	{0XB61595C0, nullptr,                                   "sceAudioLoopbackTest",          '?', ""    },
 
 	// Microphone interface

@@ -150,6 +150,18 @@ checks is observable.
 Accepted SRC frequencies are 8000, 11025, 12000, 16000, 22050, 24000, 32000 and 48000, plus
 whatever the output is currently running at - which is how 44100 and 0 get through.
 
+## sceAudioOneshotOutput
+
+The odd one out: it plays a single buffer on a channel it never reserves. The channel stays
+free as far as everything else is concerned, so `sceAudioChRelease` on it answers `80260008`,
+and it returns to the pool by itself once the buffer runs out. It returns the channel number,
+takes any positive sample count - alignment and the 0xFFC0 ceiling do not apply - and unlike
+the other outputs a negative volume is an error rather than "leave it alone". There is no busy
+check either: a second one-shot while the first is playing just replaces it.
+
+No game is known to call it. It is implemented because the behavior turned out to be simple
+once traced, not because anything needed it.
+
 ## sceVaudio is a third shape
 
 `sceVaudio` reserves the same channel as Output2 and SRC, but its own release is not the same

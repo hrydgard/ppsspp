@@ -45,6 +45,9 @@ void __AudioSetSRCFrequency(int freq);
 // count, or SCE_ERROR_AUDIO_CHANNEL_BUSY when a buffer is already in flight. A negative
 // volume means "leave it alone".
 u32 __AudioEnqueue(AudioChannel &chan, u32 samplePtr, int leftVol, int rightVol);
+// sceAudioOneshotOutput's variant: hands over a buffer without a reservation, so it carries its
+// own sample count and format and never reports busy.
+void __AudioEnqueueOneshot(AudioChannel &chan, u32 samplePtr, u32 sampleCount, u32 format, int leftVol, int rightVol);
 // Same, but parks the calling thread until the channel frees up. Only one thread can be
 // parked; a second one gets SCE_ERROR_AUDIO_CHANNEL_BUSY straight back.
 u32 __AudioEnqueueBlocking(AudioChannel &chan, u32 samplePtr, int leftVol, int rightVol);

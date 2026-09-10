@@ -298,6 +298,22 @@ u32 __AudioEnqueue(AudioChannel &chan, u32 samplePtr, int leftVol, int rightVol)
 	return chan.sampleCount;
 }
 
+void __AudioEnqueueOneshot(AudioChannel &chan, u32 samplePtr, u32 sampleCount, u32 format, int leftVol, int rightVol) {
+	// No reservation and no busy check - handing a channel a second one while the first is
+	// still playing simply replaces it. sampleCount deliberately stays zero on the channel,
+	// which is what lets it go back to being free once the buffer runs out.
+	chan.format = format;
+	chan.leftVolume = leftVol;
+	chan.rightVolume = rightVol;
+	chan.remainingSamples = sampleCount;
+
+	const bool startsDMA = samplePtr != 0 && !__AudioAnyChannelPlaying();
+	chan.sampleAddress = samplePtr;
+	if (startsDMA) {
+		__AudioStartMixerDMA();
+	}
+}
+
 u32 __AudioEnqueueBlocking(AudioChannel &chan, u32 samplePtr, int leftVol, int rightVol) {
 	u32 result = __AudioEnqueue(chan, samplePtr, leftVol, rightVol);
 	if (result != SCE_ERROR_AUDIO_CHANNEL_BUSY) {
@@ -508,6 +524,8 @@ static bool __AudioMixSRC(AudioSRCChannel &chan) {
 	// Zero means "whatever the output is running at", so no conversion.
 	const int inRate = srcFrequency != 0 ? srcFrequency : mixFrequency;
 	const u32 ratio = (u32)(((u64)(u32)inRate << 16) / (u32)mixFrequency);
+	// At the output rate the fraction never moves off zero, so there is nothing to interpolate.
+	const bool resampling = ratio != 0x10000;
 	const bool mono = chan.format == PSP_AUDIO_FORMAT_MONO;
 	const u32 stride = mono ? 2 : 4;
 	const int leftVol = chan.leftVolume;
@@ -523,16 +541,26 @@ static bool __AudioMixSRC(AudioSRCChannel &chan) {
 
 		const AudioPendingBuffer &buf = chan.buffers[0];
 		const u32 addr = buf.address + chan.playedSamples * stride;
-		// Interpolating against the following sample matters when a game reserved 22050Hz
-		// or similar; at the native rate the fraction is always zero and this reduces to a
-		// plain copy.
-		const u32 avail = std::min(buf.samples - chan.playedSamples, 2u);
-		if (!chan.mute && Memory::IsValidRange(addr, avail * stride)) {
+		if (!chan.mute && Memory::IsValidRange(addr, stride)) {
 			const s16_le *src = (const s16_le *)Memory::GetPointerUnchecked(addr);
 			const int l0 = src[0];
 			const int r0 = mono ? l0 : src[1];
-			const int l1 = avail > 1 ? (int)src[stride / 2] : l0;
-			const int r1 = avail > 1 ? (mono ? l1 : (int)src[stride / 2 + 1]) : r0;
+			int l1 = l0;
+			int r1 = r0;
+			if (resampling) {
+				// Interpolate against the sample after this one. At the end of a buffer that
+				// is the start of the next, since the codec reads the two descriptors as one
+				// unbroken stream - holding the last sample instead would tick at every join.
+				u32 nextAddr = addr + stride;
+				if (chan.playedSamples + 1 >= buf.samples) {
+					nextAddr = chan.bufferCount > 1 ? chan.buffers[1].address : 0;
+				}
+				if (nextAddr != 0 && Memory::IsValidRange(nextAddr, stride)) {
+					const s16_le *next = (const s16_le *)Memory::GetPointerUnchecked(nextAddr);
+					l1 = next[0];
+					r1 = mono ? l1 : next[1];
+				}
+			}
 			// 15 bits of fraction, not 16 - a full 16 would overflow the product against a
 			// full-scale difference.
 			const int frac = (int)(chan.frac >> 1);
