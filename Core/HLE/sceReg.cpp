@@ -38,6 +38,9 @@ struct OpenCategory {
 };
 
 static int g_openRegistryMode;
+// How many sceRegOpenRegistry calls are outstanding - the same reference count registry.prx keeps
+// in its per-registry object. See sceRegCloseRegistry.
+static int g_openRegistryCount;
 static int g_handleGen;  // TODO: The real PSP seems to use memory addresses. Probably it's doing allocations, which we don't really want to do unless we can match them exactly.
 static std::map<int, OpenCategory> g_openCategories;
 
@@ -959,6 +962,7 @@ enum RegOpenMode {
 
 void __RegInit() {
 	g_openRegistryMode = 0;
+	g_openRegistryCount = 0;
 	g_handleGen = 1337;
 	g_openCategories.clear();
 }
@@ -1003,11 +1007,17 @@ static const KeyValue *LookupCategory(std::string_view path, int *count) {
 }
 
 void __RegDoState(PointerWrap &p) {
-	auto s = p.Section("sceReg", 0, 1);
+	auto s = p.Section("sceReg", 0, 2);
 	if (!s)
 		return;
 	Do(p, g_openRegistryMode);
 	Do(p, g_openCategories);
+	if (s >= 2) {
+		Do(p, g_openRegistryCount);
+	} else {
+		// Old states didn't track this. Anything with a category open had the registry open too.
+		g_openRegistryCount = g_openCategories.empty() ? 0 : 1;
+	}
 }
 
 // Registry level (it seems only /system can exist, so kinda pointless)
@@ -1017,6 +1027,7 @@ int sceRegOpenRegistry(u32 regParamAddr, int mode, u32 regHandleAddr) {
 		Memory::WriteUnchecked_U32(0, regHandleAddr);
 	}
 	g_openRegistryMode = mode;
+	g_openRegistryCount++;
 
 	if (g_openRegistryMode != REG_OPEN_READONLY) {
 		WARN_LOG(Log::HLE, "sceRegOpenRegistry: Opening registry in non-readonly mode. This is not yet supported (we'll simply emulate it as read-only anyway).");
@@ -1029,7 +1040,20 @@ int sceRegCloseRegistry(int regHandle) {
 	if (regHandle != 0) {
 		return hleLogError(Log::sceReg, SCE_REG_ERROR_REGISTRY_NOT_FOUND);
 	}
-	g_openCategories.clear();
+	// registry.prx keeps one object per open registry in a list and hands back its index in that
+	// list, which is why the system registry is always handle 0 - and the object carries a
+	// reference count that repeated opens bump. sceRegCloseRegistry there walks the list to the
+	// handle, and if that count is non-zero it just decrements it and returns; only the last close
+	// tears the object down. Do the same rather than dropping every open category on the first
+	// close, which would take down ones another opener still owns. The VSH's alarm scan does
+	// exactly that: it holds /CONFIG/ALARM open, then opens and closes the registry again once per
+	// alarm slot, and used to find its own category gone by the end.
+	if (g_openRegistryCount > 0) {
+		g_openRegistryCount--;
+	}
+	if (g_openRegistryCount == 0) {
+		g_openCategories.clear();
+	}
 	return hleLogInfo(Log::sceReg, 0);
 }
 
