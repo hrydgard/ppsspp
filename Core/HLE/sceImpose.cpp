@@ -292,6 +292,7 @@ const HLEFunction sceImpose_driver[] = {
 	{0X8434B075, &WrapI_I<sceImposeSetStatus>,            "sceImposeSetStatus",            'i', "i" },
 	{0X01EF0650, &WrapI_I<sceImposeSetStatus>,            "sceImposeSetStatus",            'i', "i" },
 	{0X2462EFE4, &WrapI_I<sceImposeSetStatus>,            "sceImposeSetStatus",            'i', "i" },
+	{0XC10C3D39, &WrapI_I<sceImposeSetStatus>,            "sceImposeSetStatus",            'i', "i" },
 };
 
 void Register_sceImpose_driver() {

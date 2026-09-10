@@ -214,6 +214,7 @@ const HLEFunction SysMemForKernel[] = {
 	{ 0x4823B9D9, &WrapI_V<sceKernelGetModel>,                     "sceKernelGetModel",                  'i', "",      HLE_KERNEL_SYSCALL },
 	{ 0x864EBFD7, &WrapI_V<sceKernelGetModel>,                     "sceKernelGetModel",                  'i', "",      HLE_KERNEL_SYSCALL },
 	{ 0x458A70B5, &WrapI_V<sceKernelGetModel>,                     "sceKernelGetModel",                  'i', "",      HLE_KERNEL_SYSCALL },
+	{ 0xA3B0B6BC, &WrapI_V<sceKernelGetModel>,                     "sceKernelGetModel",                  'i', "",      HLE_KERNEL_SYSCALL },
 };
 
 void Register_SysMemForKernel() {
