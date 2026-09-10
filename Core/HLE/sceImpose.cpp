@@ -166,6 +166,11 @@ enum : u32 {
 	PSP_IMPOSE_BACKLIGHT_OFF_INTERVAL = 0x200,
 	PSP_IMPOSE_SOUND_REDUCTION        = 0x400,
 	// Named after their own values, as in JPCSP - real meanings unknown.
+	// 40000000 is a real setting in every impose.prx from 1.50 to 5.55: their sceImposeGetParam
+	// dispatches on it and returns a field of the impose context that also gates the backlight
+	// brightness answer. Rejecting it froze 3.11 - the shell read the error back, blanked the
+	// display with sceDisplaySetFrameBuf(0, 0, 0) and never turned it on again.
+	PSP_IMPOSE_40000000               = 0x40000000,
 	PSP_IMPOSE_20000000               = 0x20000000,
 	PSP_IMPOSE_80000001               = 0x80000001,
 	PSP_IMPOSE_80000002               = 0x80000002,
@@ -204,6 +209,7 @@ static int sceImposeGetParam(int param) {
 	case PSP_IMPOSE_DATE_FORMAT:
 	case PSP_IMPOSE_LANGUAGE:
 	case PSP_IMPOSE_00000100:
+	case PSP_IMPOSE_40000000:
 	case PSP_IMPOSE_20000000:
 	case PSP_IMPOSE_80000001:
 	case PSP_IMPOSE_80000002:
