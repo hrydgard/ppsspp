@@ -3196,6 +3196,10 @@ const HLEFunction ModuleMgrForKernel[] = {
 	// module id 0 back and the sceKernelStartModule after it failed with UNKNOWN_MODULE.
 	// NOTE: new entries go at the end - the syscall opcode in a savestate is an index into this array.
 	{0xA4370E7C, &WrapU_CUU<sceKernelLoadModuleVSH>,                    "sceKernelLoadModuleVSH",                  'x', "sxx",   HLE_KERNEL_SYSCALL },
+	// And the 5.x NID for it, confirmed the same way: in 5.50's modulemgr.prx this NID has the
+	// identical callee set to 6.61's 0xD5DDAB1F. Without it 5.50's vshbridge couldn't load the
+	// XMB plugins (opening_plugin, impose_plugin, ...) and the VSH stopped at a black screen.
+	{0xCCDE84A8, &WrapU_CUU<sceKernelLoadModuleVSH>,                    "sceKernelLoadModuleVSH",                  'x', "sxx",   HLE_KERNEL_SYSCALL },
 };
 
 void Register_ModuleMgrForUser() {

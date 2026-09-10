@@ -202,6 +202,12 @@ const HLEFunction SysMemForKernel[] = {
 	{ 0XEB7A74DB, &WrapI_IUU<sceKernelAllocHeapMemoryWithOption>,  "sceKernelAllocHeapMemoryWithOption", 'i', "ixp" ,  HLE_KERNEL_SYSCALL },
 	{ 0x6373995d, &WrapI_V<sceKernelGetModel>,                     "sceKernelGetModel",                  'i', "",      HLE_KERNEL_SYSCALL},  // 220
 	{ 0x07C586A1, &WrapI_V<sceKernelGetModel>,                     "sceKernelGetModel",                  'i', "",      HLE_KERNEL_SYSCALL },  // 220
+	// The 5.xx NID for the same call. vshbridge wraps it in a user-level check and re-exports it,
+	// and 6.61's vshbridge wraps sceKernelGetModel with an identical body - that pairing is how
+	// this NID was identified. Unresolved, the 5.50 VSH read a garbage model number and went
+	// looking for PSP-3000 resources on a dump that is a 1000.
+	// NOTE: new entries go at the end - the syscall opcode in a savestate is an index into this array.
+	{ 0xDA07DC6E, &WrapI_V<sceKernelGetModel>,                     "sceKernelGetModel",                  'i', "",      HLE_KERNEL_SYSCALL },
 };
 
 void Register_SysMemForKernel() {

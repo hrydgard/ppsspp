@@ -271,6 +271,16 @@ const HLEFunction sceImpose_driver[] = {
 	// NOTE: new entries go at the end - the syscall opcode in a savestate is an index into this array.
 	{0X531C9778, &WrapI_I<sceImposeGetParam>,             "sceImposeGetParam",             'i', "i" },
 	{0XB415FC59, &WrapI_V<sceImposeChanges>,              "sceImposeChanges",              'i', ""  },
+	// And the 5.xx NIDs for four of them, identified the same way against 6.61's impose_02g.prx:
+	// each body is instruction-for-instruction the same, differing only in the offset of the field
+	// it touches in the impose context (Changes reads-and-clears +0xB4 here where 6.61 uses +0xBC,
+	// SetStatus works on +0x9C where 6.61 uses +0xA4). They sit in the same order at almost the
+	// same addresses in both modules. Unresolved, GetParam and Changes were most of the 5.50 VSH
+	// boot log, since it calls them every frame.
+	{0XC860DB52, &WrapI_I<sceImposeSetStatus>,            "sceImposeSetStatus",            'i', "i" },
+	{0X4B02F047, &WrapI_I<sceImposeGetParam>,             "sceImposeGetParam",             'i', "i" },
+	{0XD1E9019F, &WrapI_II<sceImposeSetParam>,            "sceImposeSetParam",             'i', "ii"},
+	{0X0BBCA0BF, &WrapI_V<sceImposeChanges>,              "sceImposeChanges",              'i', ""  },
 };
 
 void Register_sceImpose_driver() {
