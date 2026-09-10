@@ -136,7 +136,7 @@ void FirmwareScreen::CreateSettingsViews(UI::ViewGroup *parent) {
 		sy->T("AutoUpgradeFirmwareDesc", "Most game discs carry a firmware updater. Install it when there's no firmware yet, or when the disc's is newer.")));
 
 	if (info_.anythingInstalled) {
-		Choice *erase = parent->Add(new Choice(sy->T("Erase firmware"), ImageID("I_TRASHCAN")));
+		Choice *erase = parent->Add(new Choice(sy->T("Uninstall firmware"), ImageID("I_TRASHCAN")));
 		erase->OnClick.Add([this](UI::EventParams &) {
 			AskToErase();
 		});
@@ -180,7 +180,7 @@ void FirmwareScreen::AskToErase() {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 
 	std::string question(sy->T("EraseFirmwareConfirm", "This deletes everything in the NAND folder, including the fonts."));
-	screenManager()->push(new UI::MessagePopupScreen(sy->T("Erase firmware"), question, di->T("Delete"), di->T("Cancel"),
+	screenManager()->push(new UI::MessagePopupScreen(sy->T("Uninstall firmware"), question, di->T("Delete"), di->T("Cancel"),
 		[this](bool erase) {
 		if (!erase) {
 			return;
