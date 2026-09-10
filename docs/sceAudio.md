@@ -150,6 +150,35 @@ checks is observable.
 Accepted SRC frequencies are 8000, 11025, 12000, 16000, 22050, 24000, 32000 and 48000, plus
 whatever the output is currently running at - which is how 44100 and 0 get through.
 
+## sceVaudio is a third shape
+
+`sceVaudio` reserves the same channel as Output2 and SRC, but its own release is not the same
+call. It hands the channel a null pointer first - the drain idiom above - and only then does the
+ordinary SRC release. So it blocks for one buffer and returns 0 where the other two would refuse
+with `80268002`, and whatever was playing is played out rather than cut off. It also ignores its
+own reservation flag and releases whatever holds the SRC channel, which is why
+`tests/audio/sceaudio/reserve` gets away with what it calls the "wrong release".
+
+`sceVaudioChReserve` marks vaudio reserved *before* delegating and does not undo that when the
+delegate fails, so a caller that got `80268002` because Output2 held the channel is told
+`80000021` next time round until a release clears it.
+
+## What a call costs
+
+Worth knowing because a game whose losing thread retries in a loop feels it directly.
+`tests/audio/blocking/overhead` measures it in buckets:
+
+| call | cost |
+|---|---|
+| Output2/SRC output, both descriptors already armed | 30-100us |
+| Output2/SRC output, any other outcome, including an unreserved channel | over 100us |
+| mixer output that is refused, blocking or not | under 10us |
+| mixer output that starts the DMA | over 100us |
+
+Every SRC output ends up querying the codec, which is the slow part; only the refused case gets
+out before it. Mixer channels are the other way round - cheap unless the call is the one that
+brings the DMA up.
+
 ## Savestates
 
 `AudioChannel` is at section version 4 and the SRC channel has a section of its own. Anything
