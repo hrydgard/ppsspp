@@ -90,9 +90,16 @@ void AudioChannel::DoState(PointerWrap &p) {
 	}
 
 	if (p.mode == p.MODE_READ) {
-		const u32 oldSampleCount = sampleCount;
-		clear();
-		sampleCount = oldSampleCount;
+		// Only the play position is dropped. reserved, sampleCount, the volumes and the format
+		// were all just read out of the state and are still good - clearing those as well
+		// leaves every channel unreserved, and the game's next output fails with
+		// SCE_ERROR_AUDIO_CHANNEL_NOT_INIT.
+		sampleAddress = 0;
+		remainingSamples = 0;
+		waitingThread = 0;
+		waitingAddress = 0;
+		waitingLeftVolume = 0;
+		waitingRightVolume = 0;
 		// The threads that were parked in a blocking output call are still parked, and
 		// nothing is going to wake them now, so hand them their buffer back.
 		for (const AudioChannelWaitInfo &waitInfo : oldWaitingThreads) {

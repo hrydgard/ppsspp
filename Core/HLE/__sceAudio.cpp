@@ -146,8 +146,7 @@ void __AudioDoState(PointerWrap &p) {
 	}
 
 	// Before v3 the SRC channel was a ninth entry in this array rather than its own thing, so
-	// older states carry one extra record here. Its contents are the old sample-ring format
-	// that can't be converted anyway, so it gets read into a throwaway and dropped.
+	// older states carry one extra record here.
 	int chanCount = ARRAY_SIZE(g_audioChans);
 	Do(p, chanCount);
 	const int expected = s >= 3 ? (int)ARRAY_SIZE(g_audioChans) : (int)ARRAY_SIZE(g_audioChans) + 1;
@@ -161,19 +160,28 @@ void __AudioDoState(PointerWrap &p) {
 			g_audioChans[i].index = i;
 			g_audioChans[i].DoState(p);
 		} else {
-			AudioChannel discarded;
-			discarded.index = i;
-			discarded.DoState(p);
+			// The ninth entry is the SRC channel in its old shape. Its queued audio is the old
+			// sample-ring format and can't be converted, but what reserve agreed on carries
+			// over - throwing that away is what leaves Output2 unreserved after the load.
+			AudioChannel old;
+			old.index = i;
+			old.DoState(p);
+			if (p.mode == p.MODE_READ) {
+				g_audioSRC.clear();
+				g_audioSRC.reserved = old.reserved;
+				g_audioSRC.sampleCount = old.sampleCount;
+				g_audioSRC.leftVolume = old.leftVolume;
+				g_audioSRC.rightVolume = old.rightVolume;
+				g_audioSRC.format = old.format;
+			}
 		}
 	}
 
 	if (s >= 3) {
 		g_audioSRC.DoState(p);
 		__AudioRoutingDoState(p);
-	} else if (p.mode == p.MODE_READ) {
-		// The old format read the routing modes back once per channel, above.
-		g_audioSRC.clear();
 	}
+	// For older states the routing modes were read back once per channel, above.
 
 	__AudioCPUMHzChange();
 }
