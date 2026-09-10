@@ -131,17 +131,16 @@ void __AudioDoState(PointerWrap &p) {
 		mixFrequency = 44100;
 	}
 
-	if (s >= 2) {
-		// TODO: Next time we bump, get rid of this. It's kinda useless.
-		auto s = p.Section("resampler", 1);
-		if (p.mode == p.MODE_READ) {
-			System_AudioClear();
-		}
-	} else {
-		// Only to preserve the previous file format. Might cause a slight audio glitch on upgrades?
+	// Version 1 kept the whole mixed output queue here, and version 2 replaced it with an empty
+	// "resampler" section that never held anything. Version 3 drops that too. Either way the
+	// contents go in the bin: the backend is cleared and the game refills it within a block.
+	if (s == 2) {
+		auto resampler = p.Section("resampler", 1);
+	} else if (s < 2) {
 		FixedSizeQueue<s16, 512 * 16> outAudioQueue;
 		outAudioQueue.DoState(p);
-
+	}
+	if (p.mode == p.MODE_READ) {
 		System_AudioClear();
 	}
 
@@ -484,8 +483,15 @@ void __AudioSetSRCFrequency(int freq) {
 
 // Mixes one block from a mixer channel, reading straight out of the game's buffer.
 static bool __AudioMixChannel(AudioChannel &chan) {
-	if (chan.sampleAddress == 0 || chan.remainingSamples == 0) {
+	if (chan.sampleAddress == 0) {
+		// Idle, or holding the remaining count from a null-pointer output.
 		return false;
+	}
+	if (chan.remainingSamples == 0) {
+		// Can't happen from the API, since a channel is never reserved for zero samples, but a
+		// savestate could say otherwise - and left alone the channel would read as busy for
+		// ever, which is silence the game can't recover from.
+		return __AudioChannelFinished(chan);
 	}
 
 	const u32 count = std::min(chan.remainingSamples, (u32)hwBlockSize);

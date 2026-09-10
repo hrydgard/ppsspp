@@ -136,6 +136,13 @@ void AudioSRCChannel::DoState(PointerWrap &p) {
 	Do(p, rightVolume);
 	Do(p, format);
 	Do(p, bufferCount);
+	if (bufferCount < 0 || bufferCount > (int)ARRAY_SIZE(buffers)) {
+		// Guarded because the enqueue indexes buffers[] with this, so a negative one would be
+		// a write outside the struct.
+		ERROR_LOG(Log::sceAudio, "Savestate failure: %d buffers on the SRC channel.", bufferCount);
+		p.SetError(p.ERROR_FAILURE);
+		return;
+	}
 	for (AudioPendingBuffer &buf : buffers) {
 		Do(p, buf.address);
 		Do(p, buf.samples);
