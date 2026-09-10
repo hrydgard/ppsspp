@@ -92,7 +92,10 @@ static void NotifyLoadStatusAvcodec(int state, u32 loadAddr, u32 totalSize) {
 static SceUID g_mp4RealModules[2] = { 0, 0 };
 
 static void NotifyLoadStatusMp4(int state, u32 loadAddr, u32 totalSize) {
-	if (!((DisableHLEFlags)g_Config.iDisableHLE & DisableHLEFlags::sceMp4)) {
+	// The effective flags, not the raw setting: those also account for a firmware dump that isn't
+	// there or is too old to have sceMp4 (which is the whole point of CheckDisableHLEAvailability),
+	// for the compat flags.
+	if (!(GetEffectiveDisableHLEFlags() & DisableHLEFlags::sceMp4)) {
 		return;
 	}
 
@@ -122,9 +125,6 @@ static void NotifyLoadStatusMp4(int state, u32 loadAddr, u32 totalSize) {
 			g_mp4RealModules[i] = id;
 			INFO_LOG(Log::sceUtility, "Loaded the real %s", paths[i]);
 		}
-	} else if (state == -1) {
-		g_mp4RealModules[0] = 0;
-		g_mp4RealModules[1] = 0;
 	}
 }
 
