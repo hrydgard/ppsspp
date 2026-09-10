@@ -2471,7 +2471,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 	if (ImGui::BeginMainMenuBar()) {
 		if (ImGui::BeginMenu("File")) {
 			if (ImGui::MenuItem("Load")) {
-				System_BrowseForFile(reqToken_, "Load", BrowseFileType::SAVE_STATE, [this](std::string_view responseString, int) {
+				System_BrowseForFile(reqToken_, "Load", BrowseFileType::SAVE_STATE, [](std::string_view responseString, int) {
 					Path path(responseString);
 					System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, path.ToString());
 				});
@@ -2506,12 +2506,12 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 				}
 				ImGui::Separator();
 				if (ImGui::MenuItem("Load state from file...")) {
-					System_BrowseForFile(reqToken_, "Load", BrowseFileType::SAVE_STATE, [this](std::string_view fn, int) {
+					System_BrowseForFile(reqToken_, "Load", BrowseFileType::SAVE_STATE, [](std::string_view fn, int) {
 						SaveState::Load(Path(fn), -1, ShowMessageAfterSaveStateAction);
 					});
 				}
 				if (ImGui::MenuItem("Save state to file...")) {
-					System_BrowseForFile(reqToken_, "Save", BrowseFileType::SAVE_STATE, [this](std::string_view fn, int) {
+					System_BrowseForFile(reqToken_, "Save", BrowseFileType::SAVE_STATE, [](std::string_view fn, int) {
 						SaveState::Save(Path(fn), -1, ShowMessageAfterSaveStateAction);
 					});
 				}
