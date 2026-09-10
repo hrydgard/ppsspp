@@ -61,7 +61,6 @@
 #include "Core/Util/PkgUnpack.h"
 #include "headless/ReverseEngineer.h"
 #include "Core/WebServer.h"
-#include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceUtility.h"
 #include "Core/SaveState.h"
 #include "GPU/GPUCommon.h"
@@ -305,6 +304,9 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 	// Kinda ugly, trying to guesstimate the test name from filename...
 	currentTestName = GetTestName(coreParameter.fileToStart);
 	g_screenshotFailed = false;
+	// Per test, so a test that emits one of its own doesn't stop the next one getting the end-of-run
+	// capture below.
+	g_screenshotSaved = false;
 
 	std::string output;
 	if (opt.compare || opt.bench) {
@@ -410,12 +412,9 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 	}
 
 	if (!g_screenshotSavePath.empty() && !g_screenshotSaved) {
-		DebugScreenshotDesc desc;
-		PSPPointer<u8> topaddr;
-		__DisplayGetFramebuf(&topaddr, &desc.stride, &desc.format, 0);
-		desc.data = &topaddr[0];
-		desc.height = 272;
-		SendDebugScreenshot(desc);
+		// SendDebugScreenshot ignores the descriptor and reads the display framebuffer from the GPU
+		// itself, so there's nothing to fill in here.
+		SendDebugScreenshot(DebugScreenshotDesc{});
 	}
 
 	PSP_Shutdown(true);

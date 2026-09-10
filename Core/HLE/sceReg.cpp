@@ -971,6 +971,7 @@ void __RegInit() {
 
 void __RegShutdown() {
 	g_openCategories.clear();
+	g_openRegistryCount = 0;
 }
 
 static const KeyValue *LookupCategory(std::string_view path, int *count) {
