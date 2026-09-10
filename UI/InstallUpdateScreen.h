@@ -1,4 +1,4 @@
-// Copyright (c) 2026- PPSSPP Project.
+// Copyright (c) 2012- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -37,7 +37,7 @@
 // a game disc, most of which carry one at PSP_GAME/SYSDIR/UPDATE/DATA.BIN. Running an updater
 // isn't going to get anyone anywhere, but the firmware inside it is exactly what the emulated
 // flash0/flash1 want, so offer to unpack it into the NAND directory instead.
-class InstallUpdateScreen : public UISimpleBaseDialogScreen {
+class InstallUpdateScreen : public UITwoPaneBaseDialogScreen {
 public:
 	// title is the updater's SFO title, which already carries the version ("PSP Update ver 6.61").
 	// allowRun offers to boot the updater instead of unpacking it - which makes sense when the
@@ -47,7 +47,8 @@ public:
 	// "the file is the updater", which is the PBP case.
 	InstallUpdateScreen(const Path &path, std::string_view title, bool allowRun, u64 archiveSize = 0);
 
-	void CreateDialogViews(UI::ViewGroup *parent) override;
+	void CreateSettingsViews(UI::ViewGroup *parent) override;
+	void CreateContentViews(UI::ViewGroup *parent) override;
 	void update() override;
 	bool key(const KeyInput &key) override;
 
@@ -77,6 +78,8 @@ private:
 	u64 fileSize_ = 0;
 	bool overwrites_ = false;
 	bool allowRun_ = false;
+	// What's in the NAND right now, for overwrite warnings.
+	InstalledFirmwareInfo installed_;
 
 	std::shared_ptr<InstallState> state_;
 	bool reportedDone_ = false;

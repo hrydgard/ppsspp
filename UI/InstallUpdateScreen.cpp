@@ -1,4 +1,4 @@
-// Copyright (c) 2026- PPSSPP Project.
+// Copyright (c) 2012- PPSSPP Project.
 
 // This program is free software: you can redistribute it and/or modify
 // it under the terms of the GNU General Public License as published by
@@ -37,7 +37,8 @@
 #include "UI/EmuScreen.h"
 
 InstallUpdateScreen::InstallUpdateScreen(const Path &path, std::string_view title, bool allowRun, u64 archiveSize)
-	: UISimpleBaseDialogScreen(Path(), SimpleDialogFlags::ContentsCanScroll), path_(path), title_(title), allowRun_(allowRun) {
+	: UITwoPaneBaseDialogScreen(Path(), TwoPaneFlags::SettingsToTheRight | TwoPaneFlags::ContentsCanScroll),
+	path_(path), title_(title), allowRun_(allowRun) {
 	destination_ = GetSysDirectory(DIRECTORY_NAND);
 
 	fileSize_ = archiveSize;
@@ -46,7 +47,8 @@ InstallUpdateScreen::InstallUpdateScreen(const Path &path, std::string_view titl
 		fileSize_ = fileInfo.size;
 	}
 	// There's no practical way to merge two firmwares, so an install replaces whatever is there.
-	overwrites_ = File::Exists(destination_ / "flash0");
+	ReadInstalledFirmwareInfo(destination_, &installed_, false);
+	overwrites_ = installed_.anythingInstalled;
 }
 
 std::string_view InstallUpdateScreen::GetTitle() const {
@@ -54,13 +56,12 @@ std::string_view InstallUpdateScreen::GetTitle() const {
 	return iz->T("PSP firmware update");
 }
 
-void InstallUpdateScreen::CreateDialogViews(UI::ViewGroup *parent) {
+void InstallUpdateScreen::CreateContentViews(UI::ViewGroup *parent) {
 	using namespace UI;
 
 	auto di = GetI18NCategory(I18NCat::DIALOG);
 	auto iz = GetI18NCategory(I18NCat::INSTALLZIP);
 	auto st = GetI18NCategory(I18NCat::STORE);  // Borrow "Size" from here, like GameScreen does.
-	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 
 	LinearLayout *container = parent->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(600, WRAP_CONTENT, 0.0f, UI::Gravity::G_HCENTER, Margins(10))));
 
@@ -80,13 +81,34 @@ void InstallUpdateScreen::CreateDialogViews(UI::ViewGroup *parent) {
 	container->Add(new TextView(iz->T("Install into folder")));
 	container->Add(new TextView(GetFriendlyPath(destination_)))->SetAlign(FLAG_WRAP_TEXT);
 
-	if (overwrites_) {
-		container->Add(new NoticeView(NoticeLevel::WARN, di->T("Confirm Overwrite"),
-			iz->T("The firmware already installed will be erased first")));
+	// Show a warning in cases where the existing firmware seems valid (and not just fonts-only for example).
+	if (overwrites_ && !installed_.version.empty()) {
+		std::string newVersion = VersionFromUpdaterTitle(title_);
+		if (newVersion.find('.') == std::string::npos || newVersion[0] < '0' || newVersion[0] > '9') {
+			newVersion.clear();
+		}
+
+		if (newVersion != installed_.version) {
+			const std::string_view unknown = "N/A";
+			container->Add(new NoticeView(NoticeLevel::WARN, di->T("Confirm Overwrite"),
+				ApplySafeSubstitutions(
+					iz->T("ReplaceFirmware", "Firmware %1 is installed. It will be erased and replaced with %2."),
+					installed_.version.empty() ? unknown : std::string_view(installed_.version),
+					newVersion.empty() ? unknown : std::string_view(newVersion))));
+		}
 	}
 
+	// leave space at the bottom so settings pane can contain actions and progress
 	container->Add(new Spacer(12.0f));
+}
 
+void InstallUpdateScreen::CreateSettingsViews(UI::ViewGroup *parent) {
+	using namespace UI;
+
+	auto iz = GetI18NCategory(I18NCat::INSTALLZIP);
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
+
+	LinearLayout *container = parent->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 0.0f, UI::Gravity::G_HCENTER, Margins(10))));
 	installChoice_ = container->Add(new Choice(iz->T("Install"), ImageID("I_FOLDER_UPLOAD")));
 	installChoice_->OnClick.Add([this](UI::EventParams &e) {
 		StartInstall();
@@ -121,30 +143,12 @@ void InstallUpdateScreen::StartInstall() {
 	PSARUnpackOptions options;
 	options.model = EmulatedModelGeneration();
 
-	INFO_LOG(Log::Loader, "Unpacking the updater %s into %s (model %s)", path_.c_str(),
-		destination_.c_str(), PSPModelGenerationToString(options.model));
-
 	g_threadManager.EnqueueTask(new IndependentTask(TaskType::IO_BLOCKING, TaskPriority::NORMAL,
 		[state = state_, path = path_, destination = destination_, options]() mutable {
 		options.progress = [state](float progress) {
 			state->progress = progress;
 		};
-		// Two firmwares can't be merged - a file the new one doesn't have would linger and still
-		// get loaded - so start from an empty NAND.
-		if (!EraseInstalledFirmware(destination, &state->error)) {
-			state->success = false;
-			state->done = true;
-			return;
-		}
-		state->success = UnpackUpdater(path, destination, options, &state->stats, &state->error);
-		if (state->success && state->stats.written == 0) {
-			// Nothing came out, so the archive had no file list for the model we asked for -
-			// old firmwares predate the later models. Not something to call a success.
-			state->success = false;
-			if (state->error.empty()) {
-				state->error = "The updater has no firmware for this PSP model";
-			}
-		}
+		state->success = InstallFirmware(path, destination, options, &state->stats, &state->error);
 		// Everything above is published by this store - see the atomic in InstallState.
 		state->done = true;
 	}));
@@ -190,11 +194,11 @@ bool InstallUpdateScreen::key(const KeyInput &key) {
 	if (state_ && !state_->done) {
 		return false;
 	}
-	return UISimpleBaseDialogScreen::key(key);
+	return UITwoPaneBaseDialogScreen::key(key);
 }
 
 void InstallUpdateScreen::update() {
-	UISimpleBaseDialogScreen::update();
+	UITwoPaneBaseDialogScreen::update();
 
 	if (!state_) {
 		return;

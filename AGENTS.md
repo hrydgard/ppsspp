@@ -294,3 +294,6 @@ private:
 
 But generally follow the surrounding style. Braces are preferred on the same line. Braces are always used even when they could be omitted due the inner part being just a single line.
 
+We've been inconsistent with copyright notices, but for new files, have the year at 2012, and add the "This program is free software..." as in other files.
+
+`// Copyright (c) 2012- PPSSPP Project.`

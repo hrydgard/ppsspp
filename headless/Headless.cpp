@@ -768,6 +768,9 @@ int main(int argc, const char* argv[]) {
 	g_Config.sMACAddress = "12:34:56:78:9A:BC";
 	g_Config.iFirmwareVersion = PSP_DEFAULT_FIRMWARE;
 	g_Config.iPSPModel = PSP_MODEL_SLIM;
+	// Booting an ISO shouldn't rewrite the NAND out from under a test run - and the tests want
+	// whatever firmware is installed to stay put. Install one with --unpack-updater instead.
+	g_Config.bAutoUpgradeFirmware = false;
 	g_Config.iGameVolume = VOLUMEHI_FULL;
 	g_Config.iReverbVolume = VOLUMEHI_FULL;
 	g_Config.internalDataDirectory.clear();

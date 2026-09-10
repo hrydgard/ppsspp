@@ -1715,14 +1715,14 @@ static int sceNetApctlDelInternalHandler(u32 handlerID) {
 	return NetApctl_DelHandler(handlerID);
 }
 
-static int sceNetApctl_A7BB73DF(u32 handlerPtr, u32 handlerArg) {
+static int sceNetApctlAddInternal03Handler(u32 handlerPtr, u32 handlerArg) {
 	ERROR_LOG(Log::sceNet, "UNIMPL %s(%08x, %08x)", __FUNCTION__, handlerPtr, handlerArg);
 	// This seems to be a 3rd kind of handler
 	// Simple forward, don't need to use hleCall
 	return sceNetApctlAddHandler(handlerPtr, handlerArg);
 }
 
-static int sceNetApctl_6F5D2981(u32 handlerID) {
+static int sceNetApctlDelInternal03Handler(u32 handlerID) {
 	ERROR_LOG(Log::sceNet, "UNIMPL %s(%i)", __FUNCTION__, handlerID);
 	// This seems to be a 3rd kind of handler
 	// Simple forward, don't need to use hleCall
@@ -1819,8 +1819,8 @@ const HLEFunction sceNetApctl[] = {
 	{0X6BDDCB8C, &WrapI_UU<sceNetApctlGetBSSDescIDListUser>,    "sceNetApctlGetBSSDescIDListUser", 'i', "xx"   },
 	{0X7CFAB990, &WrapI_UU<sceNetApctlAddInternalHandler>,      "sceNetApctlAddInternalHandler",   'i', "xx"   },
 	{0XE11BAFAB, &WrapI_U<sceNetApctlDelInternalHandler>,       "sceNetApctlDelInternalHandler",   'i', "x"    },
-	{0XA7BB73DF, &WrapI_UU<sceNetApctl_A7BB73DF>,               "sceNetApctl_A7BB73DF",            'i', "xx"   },
-	{0X6F5D2981, &WrapI_U<sceNetApctl_6F5D2981>,                "sceNetApctl_6F5D2981",            'i', "x"    },
+	{0XA7BB73DF, &WrapI_UU<sceNetApctlAddInternal03Handler>,    "sceNetApctlAddInternal03Handler", 'i', "xx"   },
+	{0X6F5D2981, &WrapI_U<sceNetApctlDelInternal03Handler>,     "sceNetApctlDelInternal03Handler", 'i', "x"    },
 	{0X69745F0A, &WrapI_I<sceNetApctl_lib2_69745F0A>,           "sceNetApctl_lib2_69745F0A",       'i', "i"    },
 	{0X4C19731F, &WrapI_IU<sceNetApctl_lib2_4C19731F>,          "sceNetApctl_lib2_4C19731F",       'i', "ix"   },
 	{0XB3CF6849, &WrapI_V<sceNetApctlScan>,                     "sceNetApctlScan",                 'i', ""     },

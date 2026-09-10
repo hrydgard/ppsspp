@@ -141,6 +141,9 @@ bool ReadBundledUpdateInfo(IFileSystem *fs, std::string_view pathPrefix, Bundled
 // decryption needed, so it's cheap enough to check every disc with. Empty if there's no updater.
 std::string ReadUpdaterVersion(const Path &filename);
 
+// Pulls the version out of an updater's SFO title: "PSP(tm) Update ver 3.95" -> "3.95".
+std::string VersionFromUpdaterTitle(std::string_view title);
+
 // What's actually in the NAND directory right now. That can be anything from a handful of fonts
 // we pulled off a game disc to a full firmware unpacked from an updater, so this reports what's
 // there rather than assuming one or the other.
@@ -158,17 +161,44 @@ struct InstalledFirmwareInfo {
 	u64 totalSize = 0;
 };
 
-// Walks the NAND directory (the one holding flash0/flash1). A full firmware is only a few
-// hundred files, so this is cheap, but it does read the whole tree.
-void ReadInstalledFirmwareInfo(const Path &nandRoot, InstalledFirmwareInfo *info);
+// Walks the NAND directory (the one holding flash0/flash1). Pass countFiles = false when
+// fileCount and totalSize aren't wanted: those are the only fields that need the whole tree read,
+// and a full firmware is a few hundred files, which isn't free on a phone's storage.
+void ReadInstalledFirmwareInfo(const Path &nandRoot, InstalledFirmwareInfo *info, bool countFiles = true);
 
 // Wipes what's in the NAND directory: flash0, flash1 and ipl. Two firmwares can't be merged -
 // files a newer one dropped would linger and still get loaded - so an install starts from empty.
+// Deliberately leaves an install's staging directory alone: InstallFirmware() calls this with a
+// finished firmware sitting in there, waiting to be moved into the space this just cleared.
 bool EraseInstalledFirmware(const Path &nandRoot, std::string *error);
+
+// "6.61" -> 661. Sony writes the minor part with two digits, but a single-digit one is still a
+// tens value, so "5.5" is 550 and not 505. Returns 0 if it isn't a version string at all, which
+// makes the result safe to compare with: an unknown version is older than every real one.
+int FirmwareVersionToInt(std::string_view version);
 
 // The firmware versions we can actually boot the VSH (XMB) on. Every other version loads, but
 // the module patches it needs are version-specific, so it won't get anywhere.
 bool FirmwareVersionSupportsVSH(std::string_view version);
+
+// Installs a firmware into the NAND directory. Two firmwares can't be merged - a file the new one
+// doesn't have would linger and still get loaded - so this replaces rather than overlays.
+//
+// The unpack goes to a staging directory inside the NAND root first, and what's installed is only
+// erased once the new firmware is complete on disk, so a failure of any kind leaves the existing
+// one untouched. The cost is needing room for both at once. "Complete" is strict: a single entry
+// that didn't unpack fails the whole install, because a firmware with holes in it still looks
+// installed and would never be replaced.
+//
+// updater is an updater EBOOT.PBP, a disc image, or the folder holding one; pass an empty path to
+// install from the disc mounted as disc0:, i.e. the running game's own disc.
+bool InstallFirmware(const Path &updater, const Path &nandRoot, const PSARUnpackOptions &options, PSARUnpackStats *stats, std::string *error);
+
+// Called while a game boots, with its disc mounted as disc0:. Most UMDs carry a firmware updater,
+// and having a real firmware is what the LLE modules want - so if the disc's is newer than what's
+// installed, or nothing identifiable is installed at all, unpack it. Shows progress on the OSD.
+// Does nothing unless g_Config.bAutoUpgradeFirmware is set. Returns true if it installed one.
+bool AutoInstallFirmwareFromDisc();
 
 // The same three, for the disc mounted as disc0: - i.e. the game that's running. These read
 // through the mounted filesystem instead of opening the image a second time, which also means
