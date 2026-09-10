@@ -3211,19 +3211,12 @@ const HLEFunction ModuleMgrForKernel[] = {
 	{0xD675EBB8, &WrapU_UUU<sceKernelSelfStopUnloadModule>,             "sceKernelSelfStopUnloadModule",           'x', "xxx",   HLE_KERNEL_SYSCALL },
 	{0xD5DDAB1F, &WrapU_CUU<sceKernelLoadModuleVSH>,                    "sceKernelLoadModuleVSH",                  'x', "sxx",   HLE_KERNEL_SYSCALL },
 	{0xD86DD11B, &WrapU_C<sceKernelSearchModuleByName>,                 "sceKernelSearchModuleByName",             'x', "s",     HLE_KERNEL_SYSCALL },
-	// The 1.x NID for sceKernelLoadModuleVSH - same function, matched by its callee set in
-	// modulemgr.prx (sceKernelIsIntrContext, sceIoOpen/Ioctl/Close, sceKernelGetUserLevel).
-	// This is how the VSH loads its own plugins, so leaving it unresolved meant vshmain got
-	// module id 0 back and the sceKernelStartModule after it failed with UNKNOWN_MODULE.
-	// NOTE: new entries go at the end - the syscall opcode in a savestate is an index into this array.
+	// The 1.x NID for sceKernelLoadModuleVSH - same function.
+	// This is how the VSH loads its own plugins.
 	{0xA4370E7C, &WrapU_CUU<sceKernelLoadModuleVSH>,                    "sceKernelLoadModuleVSH",                  'x', "sxx",   HLE_KERNEL_SYSCALL },
-	// And the 5.x NID for it, confirmed the same way: in 5.50's modulemgr.prx this NID has the
-	// identical callee set to 6.61's 0xD5DDAB1F. Without it 5.50's vshbridge couldn't load the
-	// XMB plugins (opening_plugin, impose_plugin, ...) and the VSH stopped at a black screen.
+	// And the 5.x NID for it.
 	{0xCCDE84A8, &WrapU_CUU<sceKernelLoadModuleVSH>,                    "sceKernelLoadModuleVSH",                  'x', "sxx",   HLE_KERNEL_SYSCALL },
-	// And the four remaining NIDs it has worn, all matched by the same callee set: 3.80 and 3.90
-	// share one, 3.95 and 4.05 another, 6.00 and 6.20 another, 6.31 and 6.39 the last. Each of
-	// those shells loaded no plugins at all and sat on a black screen until its NID was here.
+	// And the four remaining NIDs it has had.
 	{0xFE586962, &WrapU_CUU<sceKernelLoadModuleVSH>,                    "sceKernelLoadModuleVSH",                  'x', "sxx",   HLE_KERNEL_SYSCALL },
 	{0x329C89DB, &WrapU_CUU<sceKernelLoadModuleVSH>,                    "sceKernelLoadModuleVSH",                  'x', "sxx",   HLE_KERNEL_SYSCALL },
 	{0x8909A807, &WrapU_CUU<sceKernelLoadModuleVSH>,                    "sceKernelLoadModuleVSH",                  'x', "sxx",   HLE_KERNEL_SYSCALL },

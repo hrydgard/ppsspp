@@ -165,13 +165,9 @@ enum : u32 {
 	PSP_IMPOSE_00000100               = 0x100,
 	PSP_IMPOSE_BACKLIGHT_OFF_INTERVAL = 0x200,
 	PSP_IMPOSE_SOUND_REDUCTION        = 0x400,
-	// Named after their own values, as in JPCSP - real meanings unknown.
-	// 40000000 is a real setting in every impose.prx from 1.50 to 5.55: their sceImposeGetParam
-	// dispatches on it and returns a field of the impose context that also gates the backlight
-	// brightness answer. Rejecting it froze 3.11 - the shell read the error back, blanked the
-	// display with sceDisplaySetFrameBuf(0, 0, 0) and never turned it on again.
-	PSP_IMPOSE_40000000               = 0x40000000,
+	// Real meanings of the below are unknown.
 	PSP_IMPOSE_20000000               = 0x20000000,
+	PSP_IMPOSE_40000000               = 0x40000000,
 	PSP_IMPOSE_80000001               = 0x80000001,
 	PSP_IMPOSE_80000002               = 0x80000002,
 	PSP_IMPOSE_80000003               = 0x80000003,
@@ -270,19 +266,10 @@ const HLEFunction sceImpose_driver[] = {
 	{0X5557F4E2, &WrapU_UU<sceImposeGetBatteryIconStatus>, "sceImposeGetBatteryIconStatus", 'x', "xx"},
 	// The 1.50 - 2.xx NIDs for the same two calls - impose.prx of that era exports them to kernel
 	// mode only, with no user-mode alias to match them against, so these were identified from the
-	// function bodies: GetParam is the same dispatch on a0 returning 0x8000xxxx for a bad index,
-	// and Changes is the same read-and-clear of one word in the impose context (at +0x84 there,
-	// +0xBC by 6.60). The VSH calls Changes once a frame, so unresolved they were most of the
-	// boot log on those versions.
-	// NOTE: new entries go at the end - the syscall opcode in a savestate is an index into this array.
+	// function bodies.
 	{0X531C9778, &WrapI_I<sceImposeGetParam>,             "sceImposeGetParam",             'i', "i" },
 	{0XB415FC59, &WrapI_V<sceImposeChanges>,              "sceImposeChanges",              'i', ""  },
-	// And the 5.xx NIDs for four of them, identified the same way against 6.61's impose_02g.prx:
-	// each body is instruction-for-instruction the same, differing only in the offset of the field
-	// it touches in the impose context (Changes reads-and-clears +0xB4 here where 6.61 uses +0xBC,
-	// SetStatus works on +0x9C where 6.61 uses +0xA4). They sit in the same order at almost the
-	// same addresses in both modules. Unresolved, GetParam and Changes were most of the 5.50 VSH
-	// boot log, since it calls them every frame.
+	// And the 5.xx NIDs for four of them, identified by code.
 	{0XC860DB52, &WrapI_I<sceImposeSetStatus>,            "sceImposeSetStatus",            'i', "i" },
 	{0X4B02F047, &WrapI_I<sceImposeGetParam>,             "sceImposeGetParam",             'i', "i" },
 	{0XD1E9019F, &WrapI_II<sceImposeSetParam>,            "sceImposeSetParam",             'i', "ii"},

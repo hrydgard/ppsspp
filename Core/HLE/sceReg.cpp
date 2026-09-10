@@ -38,8 +38,7 @@ struct OpenCategory {
 };
 
 static int g_openRegistryMode;
-// How many sceRegOpenRegistry calls are outstanding - the same reference count registry.prx keeps
-// in its per-registry object. See sceRegCloseRegistry.
+// How many sceRegOpenRegistry calls are outstanding. It really is refcounted.
 static int g_openRegistryCount;
 static int g_handleGen;  // TODO: The real PSP seems to use memory addresses. Probably it's doing allocations, which we don't really want to do unless we can match them exactly.
 static std::map<int, OpenCategory> g_openCategories;
@@ -944,11 +943,7 @@ static const KeyValue tree_CONFIG[] = {
 static const KeyValue tree_REGISTRY[] = {
 	// A real 6.6x PSP has 0x66 here, which is what this tree was dumped from - but the VSH treats a
 	// category_version higher than the schema it knows as a corrupt registry and offers to reset your
-	// settings instead of booting, which is where 1.50 through 5.50 stopped. The check is
-	// one-directional: an older version is always accepted and no firmware tried to migrate anything,
-	// so report the oldest rather than the one we dumped. Measured on --vsh boots, the ceiling drops
-	// with the firmware - 5.50 takes up to 0x58, 5.03 rejects 0x55, 1.50 rejects 0x10 - while 1 gets
-	// every version from 1.50 to 6.61 to an interactive XMB.
+	// settings instead of booting. So we go very low.
 	{ "category_version", ValueType::INT, "", 1 },
 };
 
@@ -1047,14 +1042,6 @@ int sceRegCloseRegistry(int regHandle) {
 	if (regHandle != 0) {
 		return hleLogError(Log::sceReg, SCE_REG_ERROR_REGISTRY_NOT_FOUND);
 	}
-	// registry.prx keeps one object per open registry in a list and hands back its index in that
-	// list, which is why the system registry is always handle 0 - and the object carries a
-	// reference count that repeated opens bump. sceRegCloseRegistry there walks the list to the
-	// handle, and if that count is non-zero it just decrements it and returns; only the last close
-	// tears the object down. Do the same rather than dropping every open category on the first
-	// close, which would take down ones another opener still owns. The VSH's alarm scan does
-	// exactly that: it holds /CONFIG/ALARM open, then opens and closes the registry again once per
-	// alarm slot, and used to find its own category gone by the end.
 	if (g_openRegistryCount > 0) {
 		g_openRegistryCount--;
 	}
