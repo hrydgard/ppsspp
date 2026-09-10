@@ -281,6 +281,11 @@ const HLEFunction sceImpose_driver[] = {
 	{0X4B02F047, &WrapI_I<sceImposeGetParam>,             "sceImposeGetParam",             'i', "i" },
 	{0XD1E9019F, &WrapI_II<sceImposeSetParam>,            "sceImposeSetParam",             'i', "ii"},
 	{0X0BBCA0BF, &WrapI_V<sceImposeChanges>,              "sceImposeChanges",              'i', ""  },
+	// sceImposeSetStatus again, for 3.95/4.05, 6.00/6.20 and 6.31/6.39 - identical bodies, and the
+	// only sceImpose_driver import those shells call.
+	{0X8434B075, &WrapI_I<sceImposeSetStatus>,            "sceImposeSetStatus",            'i', "i" },
+	{0X01EF0650, &WrapI_I<sceImposeSetStatus>,            "sceImposeSetStatus",            'i', "i" },
+	{0X2462EFE4, &WrapI_I<sceImposeSetStatus>,            "sceImposeSetStatus",            'i', "i" },
 };
 
 void Register_sceImpose_driver() {

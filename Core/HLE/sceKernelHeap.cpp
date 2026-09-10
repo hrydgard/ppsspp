@@ -208,6 +208,12 @@ const HLEFunction SysMemForKernel[] = {
 	// looking for PSP-3000 resources on a dump that is a 1000.
 	// NOTE: new entries go at the end - the syscall opcode in a savestate is an index into this array.
 	{ 0xDA07DC6E, &WrapI_V<sceKernelGetModel>,                     "sceKernelGetModel",                  'i', "",      HLE_KERNEL_SYSCALL },
+	// 3.95/4.05, 6.00/6.20 and 6.31/6.39 each use another NID again. Same identification: in every
+	// one of those firmwares vshbridge wraps it in the identical user-level check 6.61 wraps
+	// sceKernelGetModel in, and it is the only SysMemForKernel import their shells actually call.
+	{ 0x4823B9D9, &WrapI_V<sceKernelGetModel>,                     "sceKernelGetModel",                  'i', "",      HLE_KERNEL_SYSCALL },
+	{ 0x864EBFD7, &WrapI_V<sceKernelGetModel>,                     "sceKernelGetModel",                  'i', "",      HLE_KERNEL_SYSCALL },
+	{ 0x458A70B5, &WrapI_V<sceKernelGetModel>,                     "sceKernelGetModel",                  'i', "",      HLE_KERNEL_SYSCALL },
 };
 
 void Register_SysMemForKernel() {
