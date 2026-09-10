@@ -158,7 +158,12 @@ struct CommandLineOptions {
 	std::optional<bool> compare;
 	std::optional<bool> bench;
 	std::optional<bool> verbose;
-	std::optional<double> timeout;
+	// Two independent limits on a headless run, either or both may be set - whichever is reached
+	// first stops it. Wall-clock is what CI wants (a test that hangs must not hang the machine);
+	// emulated is what you want when the question is "has the game had long enough", since a
+	// heavy scene can run tens of times slower than real time and a near-idle one much faster.
+	std::optional<double> timeoutWall;
+	std::optional<double> timeoutEmulated;
 	std::optional<bool> printEqualLines;
 
 	std::optional<std::string> screenshotFilename;

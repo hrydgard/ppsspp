@@ -45,7 +45,7 @@ Make sure Python is available. On Windows the Microsoft Store alias may interfer
 ### Direct headless invocation
 
 ```
-Windows/x64/Debug/PPSSPPHeadless.exe --root pspautotests/tests/../ --compare --timeout=5 --graphics=software pspautotests/tests/audio/atrac/addstreamdata.prx
+Windows/x64/Debug/PPSSPPHeadless.exe --root pspautotests/tests/../ --compare --timeout-wall=5 --graphics=software pspautotests/tests/audio/atrac/addstreamdata.prx
 ```
 
 Instead of a single PRX, you can pass a directory (e.g. `pspautotests/tests/threads/mbx/...`) to run all tests under it, recursively.
@@ -53,7 +53,8 @@ Instead of a single PRX, you can pass a directory (e.g. `pspautotests/tests/thre
 **Key flags:**
 - `--root` — points to the directory above `tests/` so the headless can find the expected directory layout.
 - `--compare` — enables output comparison against `.expected` files.
-- `--timeout=N` — seconds per test before killing it (default 5).
+- `--timeout-wall=N` — real seconds per test before killing it (default 5). `--timeout-emulated=N` is the
+  same idea in emulated time, and both can be set at once. `--timeout` is the old name for `--timeout-wall`.
 - `--graphics=software` — uses software GPU backend (required for headless; no real GPU available).
 
 ### What you'll see
@@ -138,7 +139,7 @@ returns. Don't go hunting for a wrong value; there isn't one.
 - The diff output compares the full text output line-by-line. To see PPSSPP's raw output
   without the diff overlay, omit `--compare`:
   ```
-  Windows/x64/Debug/PPSSPPHeadless.exe --root pspautotests/tests/../ --timeout=5 --graphics=software path/to/test.prx
+  Windows/x64/Debug/PPSSPPHeadless.exe --root pspautotests/tests/../ --timeout-wall=5 --graphics=software path/to/test.prx
   ```
   There's another trick too, --print-equal-lines, which prints matching lines with a '=' prefix, so you can see the full output with context.
 - Tests can show contradictory expected outputs at first glance. For example, the mbx/send
