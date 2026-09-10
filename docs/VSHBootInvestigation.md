@@ -68,29 +68,30 @@ changing repeats byte-identically, and a live menu does not.
 
 ## Which firmware versions work
 
-An earlier pass through this concluded "all of them", but what it measured was that the shell
-*renders* - which several versions do while showing nothing but the wallpaper, or a full-screen
-error. Re-measured by booting each installed firmware with `--vsh --graphics=software
---screenshot-save` and looking at the picture, an interactive XMB now comes up on **1.50, 1.52,
-3.30, 3.40, 3.50, 3.51, 3.52, 3.95, 4.05, 5.03, 5.50, 5.55, 6.00, 6.20, 6.31, 6.39, 6.60 and
-6.61**.
+**All 40 of them.** Every version that ships on a UMD - 1.50, 1.52, 2.00, 2.50, 2.60, 2.71, 2.80,
+2.81, 2.82, 3.03, 3.11, 3.30, 3.40, 3.50, 3.51, 3.52, 3.71, 3.72, 3.73, 3.80, 3.90, 3.95, 3.96,
+4.01, 4.05, 5.01, 5.02, 5.03, 5.50, 5.55, 6.00, 6.10, 6.20, 6.30, 6.31, 6.35, 6.37, 6.39, 6.60 -
+plus the download-only 6.61, reaches an interactive XMB with no error on screen.
 
-Still not there: **2.00, 2.60, 2.71 and 3.03** draw the wallpaper and the clock but never any menu
-items, and **3.11** never gets as far as its first `sceDisplaySetFrameBuf` and leaves uninitialised
-VRAM on screen. Those are open.
+An earlier pass through this also concluded "all of them", but what it measured was that the shell
+*renders*, and several versions did that while showing nothing but the wallpaper or a full-screen
+error. The check now is a picture: boot with `--vsh --graphics=software --screenshot-save` and look
+at it. Two things about that:
 
-Note `--timeout` is wall-clock seconds, not emulated ones, and a shell that draws a full XMB runs
-far slower than one stuck on a flat background - so a version that looks "stuck on the wallpaper"
-at a short timeout may just need longer. 120 seconds is comfortable for all of them.
+- **`--timeout` is wall-clock seconds, not emulated ones.** A shell drawing a full XMB runs far
+  slower than one stuck on a flat background, so a short timeout makes a working version look
+  stuck. 120 seconds is comfortable for all of them.
+- **Judge by the image, not the file size** - though the failure modes do have recognisable sizes,
+  and none of them is subtle.
 
 ### What was in the way, in the order it was found
 
-Four distinct causes, each of which stopped a whole band of versions:
+Five distinct causes, each of which stopped a whole band of versions:
 
-- **`sceKernelLoadModuleVSH` under a NID we didn't have.** This is how the shell loads its own
-  plugins, so without it nothing drawable ever loads and the screen stays black. It has five NIDs
-  across the range. Same story for `sceKernelGetModel` (six) and `sceImposeSetStatus` (four); an
-  unresolved GetModel meant the shell read a garbage model number and went looking for PSP-3000
+- **Three kernel calls under NIDs we didn't have.** `sceKernelLoadModuleVSH` is how the shell loads
+  its own plugins, so without it nothing drawable ever loads and the screen stays black; it has six
+  NIDs across the range. Same story for `sceKernelGetModel` (seven) and `sceImposeSetStatus` (five).
+  An unresolved GetModel meant the shell read a garbage model number and went looking for PSP-3000
   resources on a dump that has none.
 
   Finding them is mechanical, and worth writing down because it generalises. For each firmware,
@@ -98,25 +99,33 @@ Four distinct causes, each of which stopped a whole band of versions:
   6.61: `sceKernelLoadModuleVSH` is the `modulemgr.prx` export whose callees are
   `sceKernelIsIntrContext`, `sceIoOpen`/`Ioctl`/`Close` and `sceKernelGetUserLevel`;
   `sceKernelGetModel` is whatever `vshbridge.prx` wraps in a `sceKernelGetUserLevel() < 4` check
-  and re-exports. Cross-check the candidate against the boot log: the one that matters is the
-  import the shell actually calls, which the "Unknown syscall (run)" lines name.
+  and re-exports. Several exports share that shape, so cross-check against the boot log: the one
+  that matters is the import the shell actually calls, which the "Unknown syscall (run)" lines name.
 
 - **Missing `sceResmgr` keys.** `flash0:/vsh/etc/index_XXg.dat` is the index of what the XMB shows
   and is encrypted; a shell whose key is missing loads every resource successfully and still has
   nothing to put in the menu, so it gives up with the red error screen. Each generation has its own
-  tag, one per PSP model from 5.03 on and a single unsuffixed `index.dat` before that.
+  tag, one per PSP model from 5.03 on and a single unsuffixed `index.dat` before that. 1.50 through
+  2.50 don't use it at all.
 
   The keys are in each firmware's own `mesg_led*.prx`, in a table of 24-byte entries - 4-byte tag,
   16-byte key, 4 bytes of padding. Search the decrypted module for the tag as a little-endian word
   and read the next 16 bytes. **Validate the hit before believing it**: locate a tag that
-  `PrxDecrypter.cpp` already has a key for and check that it matches byte for byte. Extracting the
-  6.6x triple this way reproduces `keys_9DC14891_1/2/3` exactly, which is what established the
-  layout in the first place. Don't try to walk the table blind - guessing the grid alignment
-  produces plausible-looking garbage out of ordinary MIPS code.
+  `PrxDecrypter.cpp` already has a key for and check it matches byte for byte. Extracting the 6.6x
+  triple this way reproduces `keys_9DC14891_1/2/3` exactly, which is what established the layout in
+  the first place. Don't try to walk the table blind - guessing the grid alignment produces
+  plausible-looking garbage out of ordinary MIPS code, and the 2.5x-era table isn't on that grid
+  at all.
 
-- **`category_version` in the registry.** Our `sceReg` serves a compiled-in snapshot of a 6.6x
-  PSP's registry, `/REGISTRY/category_version` included. Every shell checks it and treats a version
-  higher than the schema it knows as a corrupt registry, offering to reset your settings instead of
+- **`sceImposeGetParam(0x40000000)`.** A real setting in every `impose.prx` from 1.50 to 5.55, which
+  we rejected as not a parameter at all. 3.11's shell read the error back, blanked the display with
+  `sceDisplaySetFrameBuf(0, 0, 0)` and never turned it on again - so the screen kept whatever
+  uninitialised VRAM held while a perfectly healthy frame loop ran behind it. 2.00, 3.03 and 3.11
+  all turned on this one value.
+
+- **`category_version` in the registry.** Our `sceReg` serves a compiled-in snapshot of a 6.6x PSP's
+  registry, `/REGISTRY/category_version` included. Every shell checks it and treats a version higher
+  than the schema it knows as a corrupt registry, offering to reset your settings instead of
   booting - which is what 1.50 through 5.50 did. The check is one-directional, older is always
   accepted, and nothing tried to migrate anything, so we report 1.
 
