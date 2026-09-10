@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <memory>
+
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Data/Collections/FixedSizeQueue.h"
@@ -36,15 +38,17 @@ const int AUDIO_ROUTING_SPEAKER_ON = 1;
 int defaultRoutingMode = AUDIO_ROUTING_SPEAKER_ON;
 int defaultRoutingVolMode = AUDIO_ROUTING_SPEAKER_ON;
 
-// TODO: These are way oversized and together consume 4MB of memory.
-extern FixedSizeQueue<s16, 32768 * 8> chanSampleQueues[PSP_AUDIO_CHANNEL_MAX + 1];
+// Only still here to read savestates written before the channels held buffer pointers.
+struct AudioChannelWaitInfo {
+	SceUID threadID;
+	int numSamples;
+};
 
 // The extra channel is for SRC/Output2/Vaudio.
 AudioChannel g_audioChans[PSP_AUDIO_CHANNEL_MAX + 1];
 
-void AudioChannel::DoState(PointerWrap &p)
-{
-	auto s = p.Section("AudioChannel", 1, 3);
+void AudioChannel::DoState(PointerWrap &p) {
+	auto s = p.Section("AudioChannel", 1, 4);
 	if (!s)
 		return;
 
@@ -54,81 +58,115 @@ void AudioChannel::DoState(PointerWrap &p)
 	Do(p, leftVolume);
 	Do(p, rightVolume);
 	Do(p, format);
-	Do(p, waitingThreads);
+
+	if (s >= 4) {
+		Do(p, remainingSamples);
+		Do(p, waitingThread);
+		Do(p, waitingAddress);
+		Do(p, waitingLeftVolume);
+		Do(p, waitingRightVolume);
+		Do(p, srcBufferCount);
+		for (AudioPendingBuffer &buf : srcBuffers) {
+			Do(p, buf.address);
+			Do(p, buf.samples);
+		}
+		Do(p, srcPlayedSamples);
+		Do(p, srcFrac);
+		Do(p, srcCompletion);
+		Do(p, srcWaitingThreads);
+		Do(p, defaultRoutingMode);
+		Do(p, defaultRoutingVolMode);
+		return;
+	}
+
+	// Everything below is the old format, from when the emulator copied each buffer into a
+	// ring of samples at enqueue time instead of playing out of the game's memory. There is
+	// no way to turn that back into a buffer pointer and a position, so the pending audio is
+	// dropped - a fraction of a second of silence on load, and then the game carries on.
+	std::vector<AudioChannelWaitInfo> oldWaitingThreads;
+	Do(p, oldWaitingThreads);
 	if (s >= 2) {
 		Do(p, defaultRoutingMode);
 		Do(p, defaultRoutingVolMode);
 	}
+
+	auto oldQueue = std::make_unique<FixedSizeQueue<s16, 32768 * 8>>();
 	if (s >= 3) {
-		// v3: compact queue form — only the live samples, not the whole 512KB
-		// fixed storage per channel. Cuts ~4.6MB of dead bytes from every
-		// savestate. Old savestates (s < 3) still load through the
-		// full-storage path below.
-		chanSampleQueues[index].DoStateCompact(p);
+		oldQueue->DoStateCompact(p);
 	} else {
-		chanSampleQueues[index].DoState(p);
+		oldQueue->DoState(p);
+	}
+
+	if (p.mode == p.MODE_READ) {
+		sampleAddress = 0;
+		remainingSamples = 0;
+		waitingThread = 0;
+		waitingAddress = 0;
+		srcBufferCount = 0;
+		srcPlayedSamples = 0;
+		srcFrac = 0;
+		srcCompletion = false;
+		srcWaitingThreads.clear();
+		// The threads that were parked in a blocking output call are still parked, and
+		// nothing is going to wake them now, so hand them their buffer back.
+		for (const AudioChannelWaitInfo &waitInfo : oldWaitingThreads) {
+			u32 error;
+			if (__KernelGetWaitID(waitInfo.threadID, WAITTYPE_AUDIOCHANNEL, error) != 0) {
+				__KernelResumeThreadFromWait(waitInfo.threadID, sampleCount);
+			}
+		}
 	}
 }
 
-void AudioChannel::reset()
-{
+void AudioChannel::reset() {
 	__AudioWakeThreads(*this, SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED);
 	clear();
 }
 
-void AudioChannel::clear()
-{
+void AudioChannel::clear() {
 	reserved = false;
 	leftVolume = 0;
 	rightVolume = 0;
 	format = 0;
-	sampleAddress = 0;
 	sampleCount = 0;
-	chanSampleQueues[index].clear();
-	waitingThreads.clear();
+	sampleAddress = 0;
+	remainingSamples = 0;
+	waitingThread = 0;
+	waitingAddress = 0;
+	waitingLeftVolume = 0;
+	waitingRightVolume = 0;
+	srcBufferCount = 0;
+	srcPlayedSamples = 0;
+	srcFrac = 0;
+	srcCompletion = false;
+	srcWaitingThreads.clear();
 }
 
-// Enqueues the buffer pointed to on the channel. If channel buffer queue is full (2 items?) will block until it isn't.
-// For solid audio output we'll need a queue length of 2 buffers at least.
+// The blocking output calls do not queue callers up. Each channel holds one buffer and at most
+// one parked thread; the SRC channel holds two buffers and no parked-thread slot at all. A
+// caller that finds no room is told SCE_ERROR_AUDIO_CHANNEL_BUSY and expected to come back
+// later. See docs/sceAudio.md.
 
-// Not sure about the range of volume, I often see 0x800 so that might be either
-// max or 50%?
 static u32 sceAudioOutputBlocking(u32 chan, int vol, u32 samplePtr) {
 	if (vol > 0xFFFF) {
 		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_INVALID_VOLUME, "invalid volume");
 	} else if (chan >= PSP_AUDIO_CHANNEL_MAX) {
 		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_INVALID_CHANNEL, "bad channel");
-	} else if (!g_audioChans[chan].reserved) {
-		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_CHANNEL_NOT_INIT, "channel not reserved");
 	}
 
-	if (vol >= 0) {
-		g_audioChans[chan].leftVolume = vol;
-		g_audioChans[chan].rightVolume = vol;
-	}
-	g_audioChans[chan].sampleAddress = samplePtr;
-	return hleLogDebug(Log::sceAudio, __AudioEnqueue(g_audioChans[chan], chan, true));
+	return hleLogDebug(Log::sceAudio, __AudioEnqueueBlocking(g_audioChans[chan], samplePtr, vol, vol));
 }
 
 static u32 sceAudioOutputPannedBlocking(u32 chan, int leftvol, int rightvol, u32 samplePtr) {
-	// For some reason, this is the only one that checks for negative.
-	if (leftvol > 0xFFFF || rightvol > 0xFFFF || leftvol < 0 || rightvol < 0) {
+	// This one ORs the two volumes together before comparing, so unlike the others a negative
+	// volume fails instead of meaning "leave it alone".
+	if ((u32)(leftvol | rightvol) > 0xFFFF) {
 		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_INVALID_VOLUME, "invalid volume");
 	} else if (chan >= PSP_AUDIO_CHANNEL_MAX) {
 		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_INVALID_CHANNEL, "bad channel");
-	} else if (!g_audioChans[chan].reserved) {
-		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_CHANNEL_NOT_INIT, "channel not reserved");
 	}
 
-	if (leftvol >= 0) {
-		g_audioChans[chan].leftVolume = leftvol;
-	}
-	if (rightvol >= 0) {
-		g_audioChans[chan].rightVolume = rightvol;
-	}
-	g_audioChans[chan].sampleAddress = samplePtr;
-	u32 result = __AudioEnqueue(g_audioChans[chan], chan, true);
-	return hleLogDebug(Log::sceAudio, result);
+	return hleLogDebug(Log::sceAudio, __AudioEnqueueBlocking(g_audioChans[chan], samplePtr, leftvol, rightvol));
 }
 
 static u32 sceAudioOutput(u32 chan, int vol, u32 samplePtr) {
@@ -136,17 +174,9 @@ static u32 sceAudioOutput(u32 chan, int vol, u32 samplePtr) {
 		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_INVALID_VOLUME, "invalid volume");
 	} else if (chan >= PSP_AUDIO_CHANNEL_MAX) {
 		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_INVALID_CHANNEL, "bad channel");
-	} else if (!g_audioChans[chan].reserved)	{
-		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_CHANNEL_NOT_INIT, "channel not reserved");
 	}
 
-	if (vol >= 0) {
-		g_audioChans[chan].leftVolume = vol;
-		g_audioChans[chan].rightVolume = vol;
-	}
-	g_audioChans[chan].sampleAddress = samplePtr;
-	u32 result = __AudioEnqueue(g_audioChans[chan], chan, false);
-	return hleLogDebug(Log::sceAudio, result);
+	return hleLogDebug(Log::sceAudio, __AudioEnqueue(g_audioChans[chan], samplePtr, vol, vol));
 }
 
 static u32 sceAudioOutputPanned(u32 chan, int leftvol, int rightvol, u32 samplePtr) {
@@ -154,43 +184,44 @@ static u32 sceAudioOutputPanned(u32 chan, int leftvol, int rightvol, u32 sampleP
 		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_INVALID_VOLUME, "invalid volume");
 	} else if (chan >= PSP_AUDIO_CHANNEL_MAX) {
 		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_INVALID_CHANNEL, "bad channel");
-	} else if (!g_audioChans[chan].reserved) {
-		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_CHANNEL_NOT_INIT, "channel not reserved");
-	} else {
-		if (leftvol >= 0) {
-			g_audioChans[chan].leftVolume = leftvol;
-		}
-		if (rightvol >= 0) {
-			g_audioChans[chan].rightVolume = rightvol;
-		}
-		g_audioChans[chan].sampleAddress = samplePtr;
-		u32 result = __AudioEnqueue(g_audioChans[chan], chan, false);
-		return hleLogDebug(Log::sceAudio, result);
 	}
+
+	return hleLogDebug(Log::sceAudio, __AudioEnqueue(g_audioChans[chan], samplePtr, leftvol, rightvol));
 }
 
+// A thread parked in a blocking output call counts as a whole extra buffer, on top of whatever
+// is left of the one playing.
 static int sceAudioGetChannelRestLen(u32 chan) {
 	if (chan >= PSP_AUDIO_CHANNEL_MAX) {
 		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_INVALID_CHANNEL, "bad channel");
 	}
-	int remainingSamples = (int)chanSampleQueues[chan].size() / 2;
-	return hleLogVerbose(Log::sceAudio, remainingSamples);
+	const AudioChannel &c = g_audioChans[chan];
+	int rest = (int)c.remainingSamples;
+	if (c.waitingThread != 0) {
+		rest += (int)c.sampleCount;
+	}
+	return hleLogVerbose(Log::sceAudio, rest);
 }
 
 static int sceAudioGetChannelRestLength(u32 chan) {
 	if (chan >= PSP_AUDIO_CHANNEL_MAX) {
 		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_INVALID_CHANNEL, "bad channel");
 	}
-	int remainingSamples = (int)chanSampleQueues[chan].size() / 2;
-	return hleLogVerbose(Log::sceAudio, remainingSamples);
+	// Unlike its sibling this one checks that a buffer is really playing first, so after an
+	// output with a null pointer the two disagree.
+	const AudioChannel &c = g_audioChans[chan];
+	int rest = c.sampleAddress != 0 ? (int)c.remainingSamples : 0;
+	if (c.waitingThread != 0) {
+		rest += (int)c.sampleCount;
+	}
+	return hleLogVerbose(Log::sceAudio, rest);
 }
 
 static int GetFreeChannel() {
-	// Changed this to allow channel 0. Fixes the startup sound in VSH. TODO: Why did we not allow channel 0 before?
-	// The counter has to be signed: as a u32 the i >= 0 condition is always true, so with every
-	// channel reserved it wrapped past zero and ran off the array instead of giving up.
+	// The search runs downwards from 7, and a channel only counts as free once it has both
+	// been released and finished playing whatever it still held.
 	for (int i = PSP_AUDIO_CHANNEL_MAX - 1; i >= 0; --i) {
-		if (!g_audioChans[i].reserved)
+		if (g_audioChans[i].sampleCount == 0 && g_audioChans[i].sampleAddress == 0)
 			return i;
 	}
 	return -1;
@@ -206,14 +237,14 @@ static u32 sceAudioChReserve(int chan, u32 sampleCount, u32 format) {
 	if ((u32)chan >= PSP_AUDIO_CHANNEL_MAX)	{
 		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_INVALID_CHANNEL, "bad channel %d", chan);
 	}
+	if (g_audioChans[chan].reserved) {
+		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_INVALID_CHANNEL, "reserve channel failed");
+	}
 	if ((sampleCount & 63) != 0 || sampleCount == 0 || sampleCount > PSP_AUDIO_SAMPLE_MAX) {
 		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_OUTPUT_SAMPLE_DATA_SIZE_NOT_ALIGNED, "invalid sample count (not aligned)");
 	}
 	if (format != PSP_AUDIO_FORMAT_MONO && format != PSP_AUDIO_FORMAT_STEREO) {
 		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_INVALID_FORMAT, "invalid format");
-	}
-	if (g_audioChans[chan].reserved) {
-		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_INVALID_CHANNEL, "reserve channel failed");
 	}
 
 	g_audioChans[chan].sampleCount = sampleCount;
@@ -228,24 +259,30 @@ static u32 sceAudioChRelease(u32 chan) {
 	if (chan >= PSP_AUDIO_CHANNEL_MAX) {
 		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_INVALID_CHANNEL, "bad channel %d", chan);
 	} else if (!g_audioChans[chan].reserved) {
-		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_CHANNEL_NOT_INIT, "channel %d not reserved", chan);
+		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED, "channel %d not reserved", chan);
+	} else if (g_audioChans[chan].waitingThread != 0) {
+		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_CHANNEL_BUSY, "channel %d has a thread waiting", chan);
 	}
 
-	// TODO: Does this error if busy?
-	g_audioChans[chan].reset();
+	// Only the reservation goes away. A buffer already handed over keeps playing to the end,
+	// and the channel stays unavailable to sceAudioChReserve(-1) until it does.
 	g_audioChans[chan].reserved = false;
+	g_audioChans[chan].sampleCount = 0;
 	return hleLogDebug(Log::sceAudio, 0);
 }
 
 static u32 sceAudioSetChannelDataLen(u32 chan, u32 len) {
 	if (chan >= PSP_AUDIO_CHANNEL_MAX) {
 		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_INVALID_CHANNEL, "bad channel %d", chan);
-	} else if (!g_audioChans[chan].reserved)	{
-		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_CHANNEL_NOT_INIT, "channel %d not reserved", chan);
 	} else if ((len & 63) != 0 || len == 0 || len > PSP_AUDIO_SAMPLE_MAX) {
+		// Checked before the reservation, unlike most of the others.
 		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_OUTPUT_SAMPLE_DATA_SIZE_NOT_ALIGNED, "invalid sample count");
+	} else if (g_audioChans[chan].waitingThread != 0) {
+		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_CHANNEL_BUSY, "channel %d has a thread waiting", chan);
+	} else if (!g_audioChans[chan].reserved) {
+		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_CHANNEL_NOT_INIT, "channel %d not reserved", chan);
 	}
-	
+
 	g_audioChans[chan].sampleCount = len;
 	return hleLogDebug(Log::sceAudio, 0);
 }
@@ -253,25 +290,32 @@ static u32 sceAudioSetChannelDataLen(u32 chan, u32 len) {
 static u32 sceAudioChangeChannelConfig(u32 chan, u32 format) {
 	if (chan >= PSP_AUDIO_CHANNEL_MAX) {
 		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_INVALID_CHANNEL, "invalid channel number %d", chan);
+	} else if (g_audioChans[chan].waitingThread != 0 || g_audioChans[chan].sampleAddress != 0) {
+		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_CHANNEL_BUSY, "channel %d busy", chan);
 	} else if (!g_audioChans[chan].reserved) {
 		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED, "channel %d not reserved", chan);
+	} else if (format != PSP_AUDIO_FORMAT_MONO && format != PSP_AUDIO_FORMAT_STEREO) {
+		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_INVALID_FORMAT, "invalid format");
 	}
 
 	g_audioChans[chan].format = format;
 	return hleLogDebug(Log::sceAudio, 0);
 }
 
-static u32 sceAudioChangeChannelVolume(u32 chan, u32 leftvol, u32 rightvol) {
+static u32 sceAudioChangeChannelVolume(u32 chan, int leftvol, int rightvol) {
 	if (leftvol > 0xFFFF || rightvol > 0xFFFF) {
 		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_INVALID_VOLUME, "invalid chan %d volume %d %d", chan, leftvol, rightvol);
 	} else if (chan >= PSP_AUDIO_CHANNEL_MAX) {
 		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_INVALID_CHANNEL, "invalid channel %d", chan);
-	} else if (!g_audioChans[chan].reserved)	{
-		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED, "channel %d not reserved", chan);
 	}
 
-	g_audioChans[chan].leftVolume = leftvol;
-	g_audioChans[chan].rightVolume = rightvol;
+	// There is no reservation check here, and a negative volume means "leave that side alone".
+	if (leftvol >= 0) {
+		g_audioChans[chan].leftVolume = leftvol;
+	}
+	if (rightvol >= 0) {
+		g_audioChans[chan].rightVolume = rightvol;
+	}
 	return hleLogDebug(Log::sceAudio, 0);
 }
 
@@ -295,6 +339,7 @@ static u32 sceAudioOutput2Reserve(u32 sampleCount) {
 		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_CHANNEL_ALREADY_RESERVED, "channel already reserved");
 	}
 
+	chan.clear();
 	chan.sampleCount = sampleCount;
 	chan.format = PSP_AUDIO_FORMAT_STEREO;
 	chan.reserved = true;
@@ -308,27 +353,25 @@ static u32 sceAudioOutput2OutputBlocking(u32 vol, u32 dataPtr) {
 		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_INVALID_VOLUME, "invalid volume");
 	}
 
-	auto &chan = g_audioChans[PSP_AUDIO_CHANNEL_OUTPUT2];
-	if (!chan.reserved) {
-		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED, "channel not reserved");
-	}
-
-	chan.leftVolume = vol;
-	chan.rightVolume = vol;
-	chan.sampleAddress = dataPtr;
-
 	hleEatCycles(10000);
-	int result = __AudioEnqueue(chan, PSP_AUDIO_CHANNEL_OUTPUT2, true);
-	if (result < 0)
+	u32 result = __AudioSRCEnqueueBlocking(g_audioChans[PSP_AUDIO_CHANNEL_OUTPUT2], dataPtr, vol);
+	if ((int)result < 0)
 		return hleLogError(Log::sceAudio, result);
 	return hleLogDebug(Log::sceAudio, result);
 }
 
 static u32 sceAudioOutput2ChangeLength(u32 sampleCount) {
+	// The length is range-checked before the channel is, and 4111 is the same ceiling the
+	// reserve takes.
+	if (sampleCount - 17 >= 0xFFF) {
+		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_OUTPUT_SAMPLE_DATA_SIZE_NOT_ALIGNED, "invalid sample count");
+	}
 	auto &chan = g_audioChans[PSP_AUDIO_CHANNEL_OUTPUT2];
 	if (!chan.reserved) {
 		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED, "channel not reserved");
 	}
+	// Buffers already handed over keep their original length; only what is reported and what
+	// is accepted from here on changes.
 	chan.sampleCount = sampleCount;
 	return hleLogDebug(Log::sceAudio, 0);
 }
@@ -338,23 +381,20 @@ static u32 sceAudioOutput2GetRestSample() {
 	if (!chan.reserved) {
 		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED, "channel not reserved");
 	}
-	u32 size = (u32)chanSampleQueues[PSP_AUDIO_CHANNEL_OUTPUT2].size() / 2;
-	if (size > chan.sampleCount) {
-		// If ChangeLength reduces the size, it still gets output but this return is clamped.
-		size = chan.sampleCount;
-	}
-	return hleLogDebug(Log::sceAudio, size);
+	// Counts armed DMA descriptors, in units of the current length - so it reports two
+	// buffers' worth while both are in flight.
+	return hleLogDebug(Log::sceAudio, chan.srcBufferCount * chan.sampleCount);
 }
 
 static u32 sceAudioOutput2Release() {
 	auto &chan = g_audioChans[PSP_AUDIO_CHANNEL_OUTPUT2];
 	if (!chan.reserved)
 		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED, "channel not reserved");
-	if (!chanSampleQueues[PSP_AUDIO_CHANNEL_OUTPUT2].empty())
+	if (chan.srcBufferCount != 0)
 		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_CHANNEL_ALREADY_RESERVED, "output busy");
 
 	chan.reset();
-	chan.reserved = false;
+	__AudioSRCSignal(chan);
 	return hleLogDebug(Log::sceAudio, 0);
 }
 
@@ -399,6 +439,7 @@ static u32 sceAudioSRCChReserve(u32 sampleCount, u32 freq, u32 format) {
 		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_CHANNEL_ALREADY_RESERVED, "channel already reserved");
 	}
 
+	chan.clear();
 	chan.reserved = true;
 	chan.sampleCount = sampleCount;
 	chan.format = format == 2 ? PSP_AUDIO_FORMAT_STEREO : PSP_AUDIO_FORMAT_MONO;
@@ -411,11 +452,12 @@ static u32 sceAudioSRCChRelease() {
 	auto &chan = g_audioChans[PSP_AUDIO_CHANNEL_SRC];
 	if (!chan.reserved)
 		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED, "channel not reserved");
-	if (!chanSampleQueues[PSP_AUDIO_CHANNEL_SRC].empty())
+	if (chan.srcBufferCount != 0)
 		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_CHANNEL_ALREADY_RESERVED, "output busy");
 
 	chan.reset();
-	chan.reserved = false;
+	// Releasing signals a completion, which the next caller after a fresh reserve consumes.
+	__AudioSRCSignal(chan);
 	return hleLogDebug(Log::sceAudio, 0);
 }
 
@@ -424,18 +466,9 @@ static u32 sceAudioSRCOutputBlocking(u32 vol, u32 buf) {
 		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_INVALID_VOLUME, "invalid volume");
 	}
 
-	auto &chan = g_audioChans[PSP_AUDIO_CHANNEL_SRC];
-	if (!chan.reserved) {
-		return hleLogError(Log::sceAudio, SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED, "channel not reserved");
-	}
-
-	chan.leftVolume = vol;
-	chan.rightVolume = vol;
-	chan.sampleAddress = buf;
-
 	hleEatCycles(10000);
-	int result = __AudioEnqueue(chan, PSP_AUDIO_CHANNEL_SRC, true);
-	if (result < 0)
+	u32 result = __AudioSRCEnqueueBlocking(g_audioChans[PSP_AUDIO_CHANNEL_SRC], buf, vol);
+	if ((int)result < 0)
 		return hleLogError(Log::sceAudio, result);
 	return hleLogDebug(Log::sceAudio, result);
 }
@@ -531,7 +564,7 @@ const HLEFunction sceAudio[] =
 	{0XB011922F, &WrapI_U<sceAudioGetChannelRestLength>,    "sceAudioGetChannelRestLength",  'i', "i"   },
 	{0XCB2E439E, &WrapU_UU<sceAudioSetChannelDataLen>,      "sceAudioSetChannelDataLen",     'x', "ii"  },
 	{0X95FD0C2D, &WrapU_UU<sceAudioChangeChannelConfig>,    "sceAudioChangeChannelConfig",   'x', "ii"  },
-	{0XB7E1D8E7, &WrapU_UUU<sceAudioChangeChannelVolume>,   "sceAudioChangeChannelVolume",   'x', "ixx" },
+	{0XB7E1D8E7, &WrapU_UII<sceAudioChangeChannelVolume>,   "sceAudioChangeChannelVolume",   'x', "ixx" },
 
 	// Like Output2, but with ability to do sample rate conversion.
 	{0X38553111, &WrapU_UUU<sceAudioSRCChReserve>,          "sceAudioSRCChReserve",          'x', "iii" },

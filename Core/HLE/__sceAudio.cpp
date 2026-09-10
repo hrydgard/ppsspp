@@ -47,10 +47,6 @@
 // atomic locks are used on the lock. TODO: make this lock-free
 std::atomic_flag atomicLock_;
 
-// We copy samples as they are written into this simple ring buffer.
-// Might try something more efficient later.
-FixedSizeQueue<s16, 32768 * 8> chanSampleQueues[PSP_AUDIO_CHANNEL_MAX + 1];
-
 int eventAudioUpdate = -1;
 
 // TODO: This is now useless and should be removed. Just scared of breaking states.
@@ -71,11 +67,6 @@ static s16 *clampedMixBuffer;
 WaveFileWriter g_wave_writer;
 static bool m_logAudio;
 #endif
-
-// High and low watermarks, basically.  For perfect emulation, the correct values are 0 and 1, respectively.
-// TODO: Tweak. Hm, there aren't actually even used currently...
-static int chanQueueMaxSizeFactor;
-static int chanQueueMinSizeFactor;
 
 static void hleAudioUpdate(u64 userdata, int cyclesLate) {
 	// Schedule the next cycle first.  __AudioUpdate() may consume cycles.
@@ -99,9 +90,6 @@ void __AudioInit() {
 	System_AudioResetStatCounters();
 	mixFrequency = 44100;
 	srcFrequency = 0;
-
-	chanQueueMaxSizeFactor = 2;
-	chanQueueMinSizeFactor = 1;
 
 	__AudioCPUMHzChange();
 
@@ -188,132 +176,234 @@ void __AudioShutdown() {
 #endif
 }
 
-u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking) {
-	u32 ret = chan.sampleCount;
+// The audio driver never copies a buffer on the way in. It stores the pointer, and its mixer
+// thread reads 64 samples straight out of the game's memory every DMA block, walking
+// sampleAddress forward until the buffer is spent. Everything below follows that shape; see
+// docs/sceAudio.md for the behavior this is modelled on.
 
-	if (chan.sampleAddress == 0) {
-		// For some reason, multichannel audio lies and returns the sample count here.
-		if (chanNum == PSP_AUDIO_CHANNEL_SRC || chanNum == PSP_AUDIO_CHANNEL_OUTPUT2) {
-			ret = 0;
-		}
-	}
-
-	// If there's anything on the queue at all, it should be busy, but we try to be a bit lax.
-	//if (chanSampleQueues[chanNum].size() > chan.sampleCount * 2 * chanQueueMaxSizeFactor || chan.sampleAddress == 0) {
-	if (chanSampleQueues[chanNum].size() > 0) {
-		if (blocking) {
-			// TODO: Regular multichannel audio seems to block for 64 samples less?  Or enqueue the first 64 sync?
-			int blockSamples = (int)chanSampleQueues[chanNum].size() / 2 / chanQueueMinSizeFactor;
-
-			if (__KernelIsDispatchEnabled()) {
-				AudioChannelWaitInfo waitInfo = {__KernelGetCurThread(), blockSamples};
-				chan.waitingThreads.push_back(waitInfo);
-				// Also remember the value to return in the waitValue.
-				__KernelWaitCurThread(WAITTYPE_AUDIOCHANNEL, (SceUID)chanNum + 1, ret, 0, false, "blocking audio");
-			} else {
-				// TODO: Maybe we shouldn't take this audio after all?
-				ret = SCE_KERNEL_ERROR_CAN_NOT_WAIT;
-			}
-
-			// Fall through to the sample queueing, don't want to lose the samples even though
-			// we're getting full.  The PSP would enqueue after blocking.
-		} else {
-			// Non-blocking doesn't even enqueue, but it's not commonly used.
-			return SCE_ERROR_AUDIO_CHANNEL_BUSY;
-		}
-	}
-
-	if (chan.sampleAddress == 0) {
-		return ret;
-	}
-
-	// NOTE: The below is WRONG! See issue #20095.
-	//
-	// What we should be queueing here is just the sampleAddress and sampleCount. Then when dequeuing is when we should
-	// read the actual data.
-
-	int leftVol = chan.leftVolume;
-	int rightVol = chan.rightVolume;
-
-	if (leftVol == (1 << 15) && rightVol == (1 << 15) && chan.format == PSP_AUDIO_FORMAT_STEREO && IS_LITTLE_ENDIAN) {
-		// TODO: Add mono->stereo conversion to this path.
-
-		// Good news: the volume (1 << 15), specifically, doesn't affect the values at all.
-		// We can just do a direct memory copy.
-		const u32 totalSamples = chan.sampleCount * (chan.format == PSP_AUDIO_FORMAT_STEREO ? 2 : 1);
-		s16 *buf1 = 0, *buf2 = 0;
-		size_t sz1, sz2;
-		chanSampleQueues[chanNum].pushPointers(totalSamples, &buf1, &sz1, &buf2, &sz2);
-
-		if (Memory::IsValidAddress(chan.sampleAddress + (totalSamples - 1) * sizeof(s16_le))) {
-			Memory::Memcpy(buf1, chan.sampleAddress, (u32)sz1 * sizeof(s16));
-			if (buf2)
-				Memory::Memcpy(buf2, chan.sampleAddress + (u32)sz1 * sizeof(s16), (u32)sz2 * sizeof(s16));
-		}
-	} else {
-		// Remember that maximum volume allowed is 0xFFFFF so left shift is no issue.
-		// This way we can optimally shift by 16.
-		leftVol <<=1;
-		rightVol <<=1;
-
-		if (chan.format == PSP_AUDIO_FORMAT_STEREO) {
-			const u32 totalSamples = chan.sampleCount * 2;
-
-			s16_le *sampleData = (s16_le *) Memory::GetPointerOrException(chan.sampleAddress);
-
-			// Walking a pointer for speed.  But let's make sure we wouldn't trip on an invalid ptr.
-			if (Memory::IsValidAddress(chan.sampleAddress + (totalSamples - 1) * sizeof(s16_le))) {
-				s16 *buf1 = 0, *buf2 = 0;
-				size_t sz1, sz2;
-				chanSampleQueues[chanNum].pushPointers(totalSamples, &buf1, &sz1, &buf2, &sz2);
-				AdjustVolumeBlock(buf1, sampleData, sz1, leftVol, rightVol);
-				if (buf2) {
-					AdjustVolumeBlock(buf2, sampleData + sz1, sz2, leftVol, rightVol);
-				}
-			}
-		} else if (chan.format == PSP_AUDIO_FORMAT_MONO) {
-			// Rare, so unoptimized. Expands to stereo.
-			if (Memory::IsValidRange(chan.sampleAddress, chan.sampleCount * sizeof(s16))) {
-				for (u32 i = 0; i < chan.sampleCount; i++) {
-					s16 sample = (s16)Memory::ReadUnchecked_U16(chan.sampleAddress + 2 * i);
-					chanSampleQueues[chanNum].push(ApplySampleVolume(sample, leftVol));
-					chanSampleQueues[chanNum].push(ApplySampleVolume(sample, rightVol));
-				}
-			}
-		}
-	}
-	return ret;
+// Unity gain on the PSP is 0x8000. Accumulate at full width and clamp once at the end, the way
+// the driver's 32-bit mix accumulator does, rather than clamping each channel separately.
+// 64-bit because the SRC channel accepts volumes up to 0xFFFFF, which overflows a 32-bit
+// product against a full-scale sample.
+static inline int ApplyChannelVolume(int sample, int vol) {
+	return (int)(((s64)sample * vol) >> 15);
 }
 
-void __AudioWakeThreads(AudioChannel &chan, int result, int step) {
-	u32 error;
-	bool wokeThreads = false;
-	for (size_t w = 0; w < chan.waitingThreads.size(); ++w) {
-		AudioChannelWaitInfo &waitInfo = chan.waitingThreads[w];
-		waitInfo.numSamples -= step;
+// Set while __AudioUpdate is running, so a buffer accepted from inside it - the retry a parked
+// thread gets when its predecessor finishes - doesn't try to start the DMA again.
+static bool audioMixing;
 
-		// If it's done (there will still be samples on queue) and actually still waiting, wake it up.
-		u32 waitID = __KernelGetWaitID(waitInfo.threadID, WAITTYPE_AUDIOCHANNEL, error);
-		if (waitInfo.numSamples <= 0 && waitID != 0) {
-			// DEBUG_LOG(Log::sceAudio, "Woke thread %i for some buffer filling", waitingThread);
-			u32 ret = result == 0 ? __KernelGetWaitValue(waitInfo.threadID, error) : SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
-			__KernelResumeThreadFromWait(waitInfo.threadID, ret);
-			wokeThreads = true;
-
-			chan.waitingThreads.erase(chan.waitingThreads.begin() + w--);
+// Only channels 0-7. The SRC channel is on its own DMA that the mixer never touches, so the
+// two start independently of each other.
+static bool __AudioAnyChannelPlaying() {
+	for (u32 i = 0; i < PSP_AUDIO_CHANNEL_MAX; i++) {
+		if (g_audioChans[i].sampleAddress != 0) {
+			return true;
 		}
-		// This means the thread stopped waiting, so stop trying to wake it.
-		else if (waitID == 0)
-			chan.waitingThreads.erase(chan.waitingThreads.begin() + w--);
+	}
+	return false;
+}
+
+// The driver starts the mixer's DMA the moment the first buffer arrives, and its mixer thread -
+// which outranks whoever called - immediately fills a block from it. So the first 64 samples
+// are gone before the output call has returned, and a channel reserved for exactly 64 samples
+// is free again right away. Re-phasing the mix event to the buffer's arrival reproduces that
+// and costs nothing: the interval, and so the sample rate, is unchanged.
+static void __AudioStartMixerDMA() {
+	if (audioMixing) {
+		return;
+	}
+	CoreTiming::UnscheduleEvent(eventAudioUpdate, 0);
+	__AudioUpdate();
+	CoreTiming::ScheduleEvent(audioIntervalCycles, eventAudioUpdate, 0);
+}
+
+// The SRC channel's DMA also starts when its first buffer arrives, but it feeds the codec
+// directly rather than going through the mixer, so nothing is read early - only the phase moves.
+// Without this the buffer would retire somewhere in the next 1.5ms depending on where the mix
+// event happened to be, and a game polling sceAudioOutput2GetRestSample would see a different
+// answer every run. Only safe to do while no mixer channel is playing, since the two share one
+// event here and the mixer's phase is the one that has samples riding on it.
+static void __AudioStartSRCDMA() {
+	if (audioMixing || __AudioAnyChannelPlaying()) {
+		return;
+	}
+	CoreTiming::UnscheduleEvent(eventAudioUpdate, 0);
+	CoreTiming::ScheduleEvent(audioIntervalCycles, eventAudioUpdate, 0);
+}
+
+u32 __AudioEnqueue(AudioChannel &chan, u32 samplePtr, int leftVol, int rightVol) {
+	if (!chan.reserved) {
+		return SCE_ERROR_AUDIO_CHANNEL_NOT_INIT;
+	}
+	// One buffer slot per channel, with no queue behind it.
+	if (chan.sampleAddress != 0) {
+		return SCE_ERROR_AUDIO_CHANNEL_BUSY;
 	}
 
-	if (wokeThreads) {
-		__KernelReSchedule("audio drain");
+	chan.remainingSamples = chan.sampleCount;
+	if (leftVol >= 0) {
+		chan.leftVolume = leftVol;
 	}
+	if (rightVol >= 0) {
+		chan.rightVolume = rightVol;
+	}
+	// A null pointer is accepted and leaves the channel idle, but still counts as a buffer's
+	// worth of remaining samples - which is the one case where the two rest-length calls
+	// disagree with each other.
+	const bool wasIdle = !__AudioAnyChannelPlaying();
+	chan.sampleAddress = samplePtr;
+	if (samplePtr != 0 && wasIdle) {
+		__AudioStartMixerDMA();
+	}
+	return chan.sampleCount;
+}
+
+u32 __AudioEnqueueBlocking(AudioChannel &chan, u32 samplePtr, int leftVol, int rightVol) {
+	u32 result = __AudioEnqueue(chan, samplePtr, leftVol, rightVol);
+	if (result != SCE_ERROR_AUDIO_CHANNEL_BUSY) {
+		return result;
+	}
+
+	// The driver keeps a single "a thread is waiting" flag per channel, so the second thread
+	// to arrive is turned away rather than lining up behind the first. A game that runs a
+	// movie thread and a sound-effect thread over one channel depends on being told this -
+	// blocking it instead makes the two take turns and halves the movie's audio rate.
+	if (chan.waitingThread != 0) {
+		return SCE_ERROR_AUDIO_CHANNEL_BUSY;
+	}
+	if (!__KernelIsDispatchEnabled()) {
+		return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+	}
+
+	chan.waitingThread = __KernelGetCurThread();
+	chan.waitingAddress = samplePtr;
+	chan.waitingLeftVolume = leftVol;
+	chan.waitingRightVolume = rightVol;
+	// __AudioChannelFinished retries the enqueue and supplies the real return value.
+	__KernelWaitCurThread(WAITTYPE_AUDIOCHANNEL, (SceUID)chan.index + 1, chan.sampleCount, 0, false, "blocking audio");
+	return chan.sampleCount;
+}
+
+// The buffer ran out - the driver's mixer would set this channel's bit in its event flag here.
+static bool __AudioChannelFinished(AudioChannel &chan) {
+	chan.sampleAddress = 0;
+	chan.remainingSamples = 0;
+	if (chan.waitingThread == 0) {
+		return false;
+	}
+
+	const SceUID threadID = chan.waitingThread;
+	chan.waitingThread = 0;
+
+	u32 error;
+	if (__KernelGetWaitID(threadID, WAITTYPE_AUDIOCHANNEL, error) == 0) {
+		// It stopped waiting on its own - deleted, or the wait was cancelled.
+		return false;
+	}
+
+	__KernelResumeThreadFromWait(threadID, __AudioEnqueue(chan, chan.waitingAddress, chan.waitingLeftVolume, chan.waitingRightVolume));
+	return true;
+}
+
+u32 __AudioSRCEnqueueBlocking(AudioChannel &chan, u32 samplePtr, int vol) {
+	if (!chan.reserved) {
+		return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
+	}
+	// Two DMA descriptors, so two buffers fit. The third caller is refused outright - unlike
+	// the mixer channels it does not even get the chance to wait for a slot.
+	if (chan.SRCFull()) {
+		return SCE_ERROR_AUDIO_CHANNEL_BUSY;
+	}
+
+	if (vol >= 0) {
+		chan.leftVolume = vol;
+		chan.rightVolume = vol;
+	}
+
+	u32 result = 0;
+	if (samplePtr != 0) {
+		if (chan.srcBufferCount == 0) {
+			// Starting the DMA signals a completion by itself, which is why the first
+			// output after an idle stretch returns without blocking.
+			chan.srcCompletion = true;
+			chan.srcPlayedSamples = 0;
+			chan.srcFrac = 0;
+		}
+		const bool wasIdle = chan.srcBufferCount == 0;
+		chan.srcBuffers[chan.srcBufferCount].address = samplePtr;
+		chan.srcBuffers[chan.srcBufferCount].samples = chan.sampleCount;
+		chan.srcBufferCount++;
+		result = chan.sampleCount;
+		if (wasIdle) {
+			__AudioStartSRCDMA();
+		}
+	} else if (chan.srcBufferCount == 0) {
+		// Nothing playing and nothing handed over, so there is no completion to wait for.
+		return 0;
+	}
+
+	if (chan.srcCompletion) {
+		chan.srcCompletion = false;
+		return result;
+	}
+	if (!__KernelIsDispatchEnabled()) {
+		return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+	}
+
+	chan.srcWaitingThreads.push_back(__KernelGetCurThread());
+	__KernelWaitCurThread(WAITTYPE_AUDIOCHANNEL, (SceUID)chan.index + 1, result, 0, false, "blocking audio");
+	return result;
+}
+
+void __AudioSRCSignal(AudioChannel &chan) {
+	chan.srcCompletion = true;
+}
+
+// One of the two SRC buffers finished playing.
+static bool __AudioSRCCompleted(AudioChannel &chan) {
+	if (chan.srcWaitingThreads.empty()) {
+		// Nobody is listening, so the completion sits there for the next caller to consume.
+		chan.srcCompletion = true;
+		return false;
+	}
+
+	const SceUID threadID = chan.srcWaitingThreads.front();
+	chan.srcWaitingThreads.erase(chan.srcWaitingThreads.begin());
+
+	u32 error;
+	if (__KernelGetWaitID(threadID, WAITTYPE_AUDIOCHANNEL, error) == 0) {
+		return false;
+	}
+	__KernelResumeThreadFromWait(threadID, __KernelGetWaitValue(threadID, error));
+	return true;
 }
 
 void __AudioWakeThreads(AudioChannel &chan, int result) {
-	__AudioWakeThreads(chan, result, 0x7FFFFFFF);
+	bool woke = false;
+
+	if (chan.waitingThread != 0) {
+		const SceUID threadID = chan.waitingThread;
+		chan.waitingThread = 0;
+		u32 error;
+		if (__KernelGetWaitID(threadID, WAITTYPE_AUDIOCHANNEL, error) != 0) {
+			__KernelResumeThreadFromWait(threadID, result);
+			woke = true;
+		}
+	}
+
+	for (SceUID threadID : chan.srcWaitingThreads) {
+		u32 error;
+		if (__KernelGetWaitID(threadID, WAITTYPE_AUDIOCHANNEL, error) != 0) {
+			__KernelResumeThreadFromWait(threadID, result);
+			woke = true;
+		}
+	}
+	chan.srcWaitingThreads.clear();
+
+	if (woke) {
+		__KernelReSchedule("audio drain");
+	}
 }
 
 void __AudioSetOutputFrequency(int freq) {
@@ -329,101 +419,125 @@ void __AudioSetSRCFrequency(int freq) {
 	srcFrequency = freq;
 }
 
+// Mixes one block from a mixer channel, reading straight out of the game's buffer.
+static bool __AudioMixChannel(AudioChannel &chan) {
+	if (chan.sampleAddress == 0 || chan.remainingSamples == 0) {
+		return false;
+	}
+
+	const u32 count = std::min(chan.remainingSamples, (u32)hwBlockSize);
+	const bool mono = chan.format == PSP_AUDIO_FORMAT_MONO;
+	const u32 stride = mono ? 2 : 4;
+
+	// The samples are consumed either way; muting only drops them on the floor.
+	if (!chan.mute && Memory::IsValidRange(chan.sampleAddress, count * stride)) {
+		const s16_le *src = (const s16_le *)Memory::GetPointerUnchecked(chan.sampleAddress);
+		const int leftVol = chan.leftVolume;
+		const int rightVol = chan.rightVolume;
+		if (mono) {
+			// A mono channel reads the same sample into both sides, which is how the
+			// hardware expands it - there is no separate mono path in the mixer.
+			for (u32 s = 0; s < count; s++) {
+				const s16 sample = src[s];
+				mixBuffer[s * 2] += ApplyChannelVolume(sample, leftVol);
+				mixBuffer[s * 2 + 1] += ApplyChannelVolume(sample, rightVol);
+			}
+		} else {
+			for (u32 s = 0; s < count; s++) {
+				mixBuffer[s * 2] += ApplyChannelVolume(src[s * 2], leftVol);
+				mixBuffer[s * 2 + 1] += ApplyChannelVolume(src[s * 2 + 1], rightVol);
+			}
+		}
+	}
+
+	chan.sampleAddress += count * stride;
+	chan.remainingSamples -= count;
+	if (chan.remainingSamples == 0) {
+		return __AudioChannelFinished(chan);
+	}
+	return false;
+}
+
+// Channel 8 never reaches the mixer on hardware - the DMA feeds the codec directly and the
+// codec resamples. Model that as a read straight through the pending buffers at the ratio
+// between the reserved frequency and the output rate.
+static bool __AudioMixSRC(AudioChannel &chan) {
+	if (chan.srcBufferCount == 0) {
+		return false;
+	}
+
+	// Zero means "whatever the output is running at", so no conversion.
+	const int inRate = srcFrequency != 0 ? srcFrequency : mixFrequency;
+	const u32 ratio = (u32)(((u64)(u32)inRate << 16) / (u32)mixFrequency);
+	const bool mono = chan.format == PSP_AUDIO_FORMAT_MONO;
+	const u32 stride = mono ? 2 : 4;
+	const int leftVol = chan.leftVolume;
+	const int rightVol = chan.rightVolume;
+
+	bool woke = false;
+	for (int out = 0; out < hwBlockSize; out++) {
+		if (chan.srcBufferCount == 0) {
+			// Underrun. The rest of the block stays silent, like a descriptor the game
+			// never got around to arming.
+			break;
+		}
+
+		const AudioPendingBuffer &buf = chan.srcBuffers[0];
+		const u32 addr = buf.address + chan.srcPlayedSamples * stride;
+		// Interpolating against the following sample matters when a game reserved 22050Hz
+		// or similar; at the native rate the fraction is always zero and this reduces to a
+		// plain copy.
+		const u32 avail = std::min(buf.samples - chan.srcPlayedSamples, 2u);
+		if (!chan.mute && Memory::IsValidRange(addr, avail * stride)) {
+			const s16_le *src = (const s16_le *)Memory::GetPointerUnchecked(addr);
+			const int l0 = src[0];
+			const int r0 = mono ? l0 : src[1];
+			const int l1 = avail > 1 ? (int)src[stride / 2] : l0;
+			const int r1 = avail > 1 ? (mono ? l1 : (int)src[stride / 2 + 1]) : r0;
+			// 15 bits of fraction, not 16 - a full 16 would overflow the product against a
+			// full-scale difference.
+			const int frac = (int)(chan.srcFrac >> 1);
+			mixBuffer[out * 2] += ApplyChannelVolume(l0 + (((l1 - l0) * frac) >> 15), leftVol);
+			mixBuffer[out * 2 + 1] += ApplyChannelVolume(r0 + (((r1 - r0) * frac) >> 15), rightVol);
+		}
+
+		chan.srcFrac += ratio;
+		u32 step = chan.srcFrac >> 16;
+		chan.srcFrac &= 0xFFFF;
+		while (step > 0 && chan.srcBufferCount > 0) {
+			const u32 take = std::min(step, chan.srcBuffers[0].samples - chan.srcPlayedSamples);
+			chan.srcPlayedSamples += take;
+			step -= take;
+			if (chan.srcPlayedSamples >= chan.srcBuffers[0].samples) {
+				chan.srcBuffers[0] = chan.srcBuffers[1];
+				chan.srcBufferCount--;
+				chan.srcPlayedSamples = 0;
+				woke |= __AudioSRCCompleted(chan);
+			}
+		}
+	}
+	return woke;
+}
+
 // Mix samples from the various audio channels into a single sample queue, managed by the backend implementation.
 void __AudioUpdate(bool resetRecording) {
 	// AUDIO throttle doesn't really work on the PSP since the mixing intervals are so closely tied
 	// to the CPU. Much better to throttle the frame rate on frame display and just throw away audio
 	// if the buffer somehow gets full.
-	bool firstChannel = true;
-	const int16_t srcBufferSize = hwBlockSize * 2;
-	int16_t srcBuffer[srcBufferSize];
+	memset(mixBuffer, 0, hwBlockSize * 2 * sizeof(s32));
 
-	for (u32 i = 0; i < PSP_AUDIO_CHANNEL_MAX + 1; i++)	{
-		if (!g_audioChans[i].reserved) {
-			continue;
-		}
-
-		__AudioWakeThreads(g_audioChans[i], 0, hwBlockSize);
-
-		if (!chanSampleQueues[i].size()) {
-			continue;
-		}
-
-		bool needsResample = i == PSP_AUDIO_CHANNEL_SRC && srcFrequency != 0 && srcFrequency != mixFrequency;
-		size_t sz = needsResample ? (srcBufferSize * srcFrequency) / mixFrequency : srcBufferSize;
-		if (sz > chanSampleQueues[i].size()) {
-			ERROR_LOG(Log::sceAudio, "Channel %i buffer underrun at %i of %i", i, (int)chanSampleQueues[i].size() / 2, (int)sz / 2);
-		}
-
-		const s16 *buf1 = 0, *buf2 = 0;
-		size_t sz1, sz2;
-
-		chanSampleQueues[i].popPointers(sz, &buf1, &sz1, &buf2, &sz2);
-
-		// We do this check as the very last thing before mixing, to maximize compatibility.
-		if (g_audioChans[i].mute) {
-			continue;
-		}
-
-		if (needsResample) {
-			auto read = [&](size_t i) {
-				if (i < sz1)
-					return buf1[i];
-				if (i < sz1 + sz2)
-					return buf2[i - sz1];
-				if (buf2)
-					return buf2[sz2 - 1];
-				return buf1[sz1 - 1];
-			};
-
-			// TODO: This is terrible, since it's doing it by small chunk and discarding frac.
-			const uint32_t ratio = (uint32_t)(65536.0 * srcFrequency / (double)mixFrequency);
-			uint32_t frac = 0;
-			size_t readIndex = 0;
-			for (size_t outIndex = 0; readIndex < sz && outIndex < srcBufferSize; outIndex += 2) {
-				size_t readIndex2 = readIndex + 2;
-				int16_t l1 = read(readIndex);
-				int16_t r1 = read(readIndex + 1);
-				int16_t l2 = read(readIndex2);
-				int16_t r2 = read(readIndex2 + 1);
-				int sampleL = ((l1 << 16) + (l2 - l1) * (uint16_t)frac) >> 16;
-				int sampleR = ((r1 << 16) + (r2 - r1) * (uint16_t)frac) >> 16;
-				srcBuffer[outIndex] = sampleL;
-				srcBuffer[outIndex + 1] = sampleR;
-				frac += ratio;
-				readIndex += 2 * (uint16_t)(frac >> 16);
-				frac &= 0xffff;
-			}
-
-			buf1 = srcBuffer;
-			sz1 = srcBufferSize;
-			buf2 = nullptr;
-			sz2 = 0;
-		}
-
-		if (firstChannel) {
-			for (size_t s = 0; s < sz1; s++)
-				mixBuffer[s] = buf1[s];
-			if (buf2) {
-				for (size_t s = 0; s < sz2; s++)
-					mixBuffer[s + sz1] = buf2[s];
-			}
-			firstChannel = false;
-		} else {
-			// Surprisingly hard to SIMD efficiently on SSE2 due to lack of 16-to-32-bit sign extension. NEON should be straight-forward though, and SSE4.1 can do it nicely.
-			// Actually, the cmple/pack trick should work fine...
-			for (size_t s = 0; s < sz1; s++)
-				mixBuffer[s] += buf1[s];
-			if (buf2) {
-				for (size_t s = 0; s < sz2; s++)
-					mixBuffer[s + sz1] += buf2[s];
-			}
-		}
+	audioMixing = true;
+	bool woke = false;
+	for (u32 i = 0; i < PSP_AUDIO_CHANNEL_MAX; i++) {
+		// Deliberately not gated on `reserved`: sceAudioChRelease only clears the
+		// reservation, and a buffer already in flight keeps playing out.
+		woke |= __AudioMixChannel(g_audioChans[i]);
 	}
+	woke |= __AudioMixSRC(g_audioChans[PSP_AUDIO_CHANNEL_SRC]);
+	audioMixing = false;
 
-	if (firstChannel) {
-		// Nothing was written above, let's memset.
-		memset(mixBuffer, 0, hwBlockSize * 2 * sizeof(s32));
+	if (woke) {
+		__KernelReSchedule("audio drain");
 	}
 
 	if (g_Config.bEnableSound) {

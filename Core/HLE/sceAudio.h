@@ -17,7 +17,7 @@
 
 #pragma once
 
-#include <queue>
+#include <vector>
 
 #include "CommonTypes.h"
 #include "sceKernel.h"
@@ -33,18 +33,21 @@ const int PSP_AUDIO_CHANNEL_SRC = 8;
 const int PSP_AUDIO_CHANNEL_OUTPUT2 = 8;
 const int PSP_AUDIO_CHANNEL_VAUDIO = 8;
 
-struct AudioChannelWaitInfo {
-	SceUID threadID;
-	int numSamples;
+// One buffer handed over and not yet fully played.
+struct AudioPendingBuffer {
+	u32 address;
+	u32 samples;
 };
 
+// Mirrors the 16-byte channel struct the audio driver keeps, plus the two DMA descriptors it
+// uses for the SRC/Output2 channel. See docs/sceAudio.md for how the hardware behaves; the
+// short version is that it plays out of the game's own memory rather than taking a copy, and
+// that it holds one buffer per mixer channel and two for SRC.
 struct AudioChannel {
 	int index = 0;
 	bool reserved = false;
 
-	// last sample address
-	u32 sampleAddress = 0;
-	u32 sampleCount = 0;  // Number of samples written in each OutputBlocking
+	u32 sampleCount = 0;  // Buffer size agreed at reserve time.
 	u32 leftVolume = 0;
 	u32 rightVolume = 0;
 	u32 format = 0;
@@ -52,12 +55,40 @@ struct AudioChannel {
 	// For the debugger only. Not saved.
 	bool mute = false;
 
-	std::vector<AudioChannelWaitInfo> waitingThreads;
+	// Channels 0-7. sampleAddress walks forward as the mixer consumes the buffer and drops
+	// back to zero when remainingSamples runs out. An output with a null pointer sets
+	// remainingSamples but leaves sampleAddress at zero, which is the one case where the two
+	// rest-length calls disagree.
+	u32 sampleAddress = 0;
+	u32 remainingSamples = 0;
+
+	// Only one thread can be parked in a blocking output call on a channel. A second one is
+	// told the channel is busy rather than queueing up behind the first. These remember what
+	// it wanted to hand over, so the enqueue can be retried when the buffer finishes.
+	SceUID waitingThread = 0;
+	u32 waitingAddress = 0;
+	int waitingLeftVolume = 0;
+	int waitingRightVolume = 0;
+
+	// Channel 8 (Output2/SRC/Vaudio) instead has two DMA descriptors, so two buffers can be
+	// in flight at once and the third caller is turned away.
+	AudioPendingBuffer srcBuffers[2]{};
+	int srcBufferCount = 0;
+	u32 srcPlayedSamples = 0;  // Consumed from srcBuffers[0].
+	u32 srcFrac = 0;           // 16.16 position between two input samples, for resampling.
+	// The driver signals a finished buffer with an event flag bit, so one completion can sit
+	// there unclaimed - which is why the first output after an idle period doesn't block.
+	bool srcCompletion = false;
+	std::vector<SceUID> srcWaitingThreads;
 
 	void DoState(PointerWrap &p);
 
 	void reset();
 	void clear();
+
+	bool SRCFull() const {
+		return srcBufferCount >= (int)ARRAY_SIZE(srcBuffers);
+	}
 };
 
 // The extra channel is for SRC/Output2/Vaudio (who all share, apparently.)

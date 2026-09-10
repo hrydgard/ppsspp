@@ -1666,10 +1666,22 @@ void DrawAudioChannels(ImConfig &cfg, ImControl &control) {
 				break;
 			}
 			ImGui::TableNextColumn();
-			for (auto t : g_audioChans[i].waitingThreads) {
-				KernelObject *thread = kernelObjects.GetFast<KernelObject>(t.threadID);
+			// At most one thread can be parked on a mixer channel; the SRC channel keeps its
+			// own list instead.
+			SceUID waiting[3];
+			int waitingCount = 0;
+			if (g_audioChans[i].waitingThread != 0) {
+				waiting[waitingCount++] = g_audioChans[i].waitingThread;
+			}
+			for (SceUID t : g_audioChans[i].srcWaitingThreads) {
+				if (waitingCount < ARRAY_SIZE(waiting)) {
+					waiting[waitingCount++] = t;
+				}
+			}
+			for (int w = 0; w < waitingCount; w++) {
+				KernelObject *thread = kernelObjects.GetFast<KernelObject>(waiting[w]);
 				if (thread) {
-					ImGui::Text("%s: %d", thread->GetName(), t.numSamples);
+					ImGui::TextUnformatted(thread->GetName());
 				}
 			}
 			ImGui::PopID();

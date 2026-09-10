@@ -41,9 +41,22 @@ void __AudioShutdown();
 void __AudioSetOutputFrequency(int freq);
 void __AudioSetSRCFrequency(int freq);
 
-// May return SCE_ERROR_AUDIO_CHANNEL_BUSY if buffer too large
-u32 __AudioEnqueue(AudioChannel &chan, int chanNum, bool blocking);
-void __AudioWakeThreads(AudioChannel &chan, int result, int step);
+// The driver's single enqueue point for channels 0-7. Returns the channel's reserved sample
+// count, or SCE_ERROR_AUDIO_CHANNEL_BUSY when a buffer is already in flight. A negative
+// volume means "leave it alone".
+u32 __AudioEnqueue(AudioChannel &chan, u32 samplePtr, int leftVol, int rightVol);
+// Same, but parks the calling thread until the channel frees up. Only one thread can be
+// parked; a second one gets SCE_ERROR_AUDIO_CHANNEL_BUSY straight back.
+u32 __AudioEnqueueBlocking(AudioChannel &chan, u32 samplePtr, int leftVol, int rightVol);
+
+// Channel 8 - Output2, SRC and Vaudio all share it. Two buffers fit; a third caller gets
+// SCE_ERROR_AUDIO_CHANNEL_BUSY without waiting. A successful call waits for one buffer to
+// finish before returning, except when nothing was playing to begin with.
+u32 __AudioSRCEnqueueBlocking(AudioChannel &chan, u32 samplePtr, int vol);
+// Hands the SRC channel a completion that the next caller can consume without waiting.
+void __AudioSRCSignal(AudioChannel &chan);
+
+// Wakes whoever is parked on the channel with the given error, and forgets their buffer.
 void __AudioWakeThreads(AudioChannel &chan, int result);
 
 void __AudioCPUMHzChange();

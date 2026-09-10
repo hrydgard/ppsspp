@@ -69,6 +69,7 @@ static u32 sceVaudioChReserve(int sampleCount, int freq, int format) {
 		return SCE_ERROR_AUDIO_CHANNEL_ALREADY_RESERVED;
 	}
 	DEBUG_LOG(Log::sceAudio, "sceVaudioChReserve(%i, %i, %i)", sampleCount, freq, format);
+	g_audioChans[PSP_AUDIO_CHANNEL_VAUDIO].clear();
 	g_audioChans[PSP_AUDIO_CHANNEL_VAUDIO].reserved = true;
 	g_audioChans[PSP_AUDIO_CHANNEL_VAUDIO].sampleCount = sampleCount;
 	g_audioChans[PSP_AUDIO_CHANNEL_VAUDIO].format = format == 2 ? PSP_AUDIO_FORMAT_STEREO : PSP_AUDIO_FORMAT_MONO;
@@ -85,7 +86,6 @@ static u32 sceVaudioChRelease() {
 		return SCE_ERROR_AUDIO_CHANNEL_NOT_RESERVED;
 	} else {
 		g_audioChans[PSP_AUDIO_CHANNEL_VAUDIO].reset();
-		g_audioChans[PSP_AUDIO_CHANNEL_VAUDIO].reserved = false;
 		vaudioReserved = false;
 		return 0;
 	}
@@ -93,11 +93,8 @@ static u32 sceVaudioChRelease() {
 
 static u32 sceVaudioOutputBlocking(int vol, u32 buffer) {
 	DEBUG_LOG(Log::sceAudio, "sceVaudioOutputBlocking(%i, %08x)", vol, buffer);
-	g_audioChans[PSP_AUDIO_CHANNEL_VAUDIO].leftVolume = vol;
-	g_audioChans[PSP_AUDIO_CHANNEL_VAUDIO].rightVolume = vol;
-	// TODO: This may be wrong, not sure if's in a different format?
-	g_audioChans[PSP_AUDIO_CHANNEL_VAUDIO].sampleAddress = buffer;
-	return __AudioEnqueue(g_audioChans[PSP_AUDIO_CHANNEL_VAUDIO], PSP_AUDIO_CHANNEL_VAUDIO, true);
+	// Shares the SRC channel, so it also shares the two-buffer depth and the busy return.
+	return __AudioSRCEnqueueBlocking(g_audioChans[PSP_AUDIO_CHANNEL_VAUDIO], buffer, vol);
 }
 
 static u32 sceVaudioSetEffectType(int effectType, int vol) {
