@@ -942,7 +942,14 @@ static const KeyValue tree_CONFIG[] = {
 
 // Dump of /REGISTRY
 static const KeyValue tree_REGISTRY[] = {
-	{ "category_version", ValueType::INT, "", (int)0x66 },  // decimal: 102
+	// A real 6.6x PSP has 0x66 here, which is what this tree was dumped from - but the VSH treats a
+	// category_version higher than the schema it knows as a corrupt registry and offers to reset your
+	// settings instead of booting, which is where 1.50 through 5.50 stopped. The check is
+	// one-directional: an older version is always accepted and no firmware tried to migrate anything,
+	// so report the oldest rather than the one we dumped. Measured on --vsh boots, the ceiling drops
+	// with the firmware - 5.50 takes up to 0x58, 5.03 rejects 0x55, 1.50 rejects 0x10 - while 1 gets
+	// every version from 1.50 to 6.61 to an interactive XMB.
+	{ "category_version", ValueType::INT, "", 1 },
 };
 
 // There might be more categories.
