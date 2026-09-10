@@ -194,6 +194,7 @@ static const CommandLineParam g_autoParams[] = {
 	{POFF(appendConfig), CmdParamType::String, "appendconfig", '\0', "Merge config FILE into the current configuration"},
 	{POFF(root), CmdParamType::String, "root", 'r', "Mount directory as the root of host0:/."},
 	{POFF(memStick), CmdParamType::String, "memstick", '\0', "Memory stick root directory (contains PSP/GAME etc)"},
+	{POFF(nand), CmdParamType::String, "nand", '\0', "Root NAND directory, one level above flash0 (default: the memstick's PSP/NAND)"},
 	{POFF(stateToLoad), CmdParamType::String, "state", '\0', "Load state from specified file"},
 	{POFF(stateToSave), CmdParamType::String, "save-state", '\0', "Save a state to FILE partway through the run", CmdLineMode::Headless},
 	{POFF(compare), CmdParamType::Bool, "compare", 'c', "Enable comparison mode", CmdLineMode::Headless},

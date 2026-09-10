@@ -165,8 +165,9 @@ enum : u32 {
 	PSP_IMPOSE_00000100               = 0x100,
 	PSP_IMPOSE_BACKLIGHT_OFF_INTERVAL = 0x200,
 	PSP_IMPOSE_SOUND_REDUCTION        = 0x400,
-	// Named after their own values, as in JPCSP - real meanings unknown.
+	// Real meanings of the below are unknown.
 	PSP_IMPOSE_20000000               = 0x20000000,
+	PSP_IMPOSE_40000000               = 0x40000000,
 	PSP_IMPOSE_80000001               = 0x80000001,
 	PSP_IMPOSE_80000002               = 0x80000002,
 	PSP_IMPOSE_80000003               = 0x80000003,
@@ -204,6 +205,7 @@ static int sceImposeGetParam(int param) {
 	case PSP_IMPOSE_DATE_FORMAT:
 	case PSP_IMPOSE_LANGUAGE:
 	case PSP_IMPOSE_00000100:
+	case PSP_IMPOSE_40000000:
 	case PSP_IMPOSE_20000000:
 	case PSP_IMPOSE_80000001:
 	case PSP_IMPOSE_80000002:
@@ -264,13 +266,20 @@ const HLEFunction sceImpose_driver[] = {
 	{0X5557F4E2, &WrapU_UU<sceImposeGetBatteryIconStatus>, "sceImposeGetBatteryIconStatus", 'x', "xx"},
 	// The 1.50 - 2.xx NIDs for the same two calls - impose.prx of that era exports them to kernel
 	// mode only, with no user-mode alias to match them against, so these were identified from the
-	// function bodies: GetParam is the same dispatch on a0 returning 0x8000xxxx for a bad index,
-	// and Changes is the same read-and-clear of one word in the impose context (at +0x84 there,
-	// +0xBC by 6.60). The VSH calls Changes once a frame, so unresolved they were most of the
-	// boot log on those versions.
-	// NOTE: new entries go at the end - the syscall opcode in a savestate is an index into this array.
+	// function bodies.
 	{0X531C9778, &WrapI_I<sceImposeGetParam>,             "sceImposeGetParam",             'i', "i" },
 	{0XB415FC59, &WrapI_V<sceImposeChanges>,              "sceImposeChanges",              'i', ""  },
+	// And the 5.xx NIDs for four of them, identified by code.
+	{0XC860DB52, &WrapI_I<sceImposeSetStatus>,            "sceImposeSetStatus",            'i', "i" },
+	{0X4B02F047, &WrapI_I<sceImposeGetParam>,             "sceImposeGetParam",             'i', "i" },
+	{0XD1E9019F, &WrapI_II<sceImposeSetParam>,            "sceImposeSetParam",             'i', "ii"},
+	{0X0BBCA0BF, &WrapI_V<sceImposeChanges>,              "sceImposeChanges",              'i', ""  },
+	// sceImposeSetStatus again, for 3.95/4.05, 6.00/6.20 and 6.31/6.39 - identical bodies, and the
+	// only sceImpose_driver import those shells call.
+	{0X8434B075, &WrapI_I<sceImposeSetStatus>,            "sceImposeSetStatus",            'i', "i" },
+	{0X01EF0650, &WrapI_I<sceImposeSetStatus>,            "sceImposeSetStatus",            'i', "i" },
+	{0X2462EFE4, &WrapI_I<sceImposeSetStatus>,            "sceImposeSetStatus",            'i', "i" },
+	{0XC10C3D39, &WrapI_I<sceImposeSetStatus>,            "sceImposeSetStatus",            'i', "i" },
 };
 
 void Register_sceImpose_driver() {

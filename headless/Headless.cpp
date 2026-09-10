@@ -79,6 +79,7 @@ static Path g_comparisonScreenshot;
 static Path g_screenshotSavePath;
 static Path g_screenshotDiffPath;
 static bool g_screenshotSaveKeepAlpha = false;
+static bool g_screenshotSaved = false;
 static double g_maxScreenshotError = 0.0;
 static bool g_screenshotFailed = false;
 static std::string g_debugOutputBuffer;
@@ -207,6 +208,7 @@ void SendDebugScreenshot(const DebugScreenshotDesc &desc) {
 	if (!g_screenshotSavePath.empty()) {
 		ScreenshotComparer saver(pixels, FRAME_STRIDE, FRAME_WIDTH, FRAME_HEIGHT);
 		bool saved = g_screenshotSavePath.GetFileExtension() == ".png" ? saver.SaveActualPNG(g_screenshotSavePath, g_screenshotSaveKeepAlpha) : saver.SaveActualBitmap(g_screenshotSavePath);
+		g_screenshotSaved = g_screenshotSaved || saved;
 		if (saved)
 			SendAndCollectOutput("Screenshot saved to: " + g_screenshotSavePath.ToVisualString() + "\n");
 	}
@@ -302,6 +304,9 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 	// Kinda ugly, trying to guesstimate the test name from filename...
 	currentTestName = GetTestName(coreParameter.fileToStart);
 	g_screenshotFailed = false;
+	// Per test, so a test that emits one of its own doesn't stop the next one getting the end-of-run
+	// capture below.
+	g_screenshotSaved = false;
 
 	std::string output;
 	if (opt.compare || opt.bench) {
@@ -404,6 +409,12 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 		}
 
 		draw->EndFrame();
+	}
+
+	if (!g_screenshotSavePath.empty() && !g_screenshotSaved) {
+		// SendDebugScreenshot ignores the descriptor and reads the display framebuffer from the GPU
+		// itself, so there's nothing to fill in here.
+		SendDebugScreenshot(DebugScreenshotDesc{});
 	}
 
 	PSP_Shutdown(true);

@@ -202,6 +202,13 @@ const HLEFunction SysMemForKernel[] = {
 	{ 0XEB7A74DB, &WrapI_IUU<sceKernelAllocHeapMemoryWithOption>,  "sceKernelAllocHeapMemoryWithOption", 'i', "ixp" ,  HLE_KERNEL_SYSCALL },
 	{ 0x6373995d, &WrapI_V<sceKernelGetModel>,                     "sceKernelGetModel",                  'i', "",      HLE_KERNEL_SYSCALL},  // 220
 	{ 0x07C586A1, &WrapI_V<sceKernelGetModel>,                     "sceKernelGetModel",                  'i', "",      HLE_KERNEL_SYSCALL },  // 220
+	// The 5.xx NID for the same call.
+	{ 0xDA07DC6E, &WrapI_V<sceKernelGetModel>,                     "sceKernelGetModel",                  'i', "",      HLE_KERNEL_SYSCALL },
+	// 3.95/4.05, 6.00/6.20 and 6.31/6.39 each use another NID again.
+	{ 0x4823B9D9, &WrapI_V<sceKernelGetModel>,                     "sceKernelGetModel",                  'i', "",      HLE_KERNEL_SYSCALL },
+	{ 0x864EBFD7, &WrapI_V<sceKernelGetModel>,                     "sceKernelGetModel",                  'i', "",      HLE_KERNEL_SYSCALL },
+	{ 0x458A70B5, &WrapI_V<sceKernelGetModel>,                     "sceKernelGetModel",                  'i', "",      HLE_KERNEL_SYSCALL },
+	{ 0xA3B0B6BC, &WrapI_V<sceKernelGetModel>,                     "sceKernelGetModel",                  'i', "",      HLE_KERNEL_SYSCALL },
 };
 
 void Register_SysMemForKernel() {
