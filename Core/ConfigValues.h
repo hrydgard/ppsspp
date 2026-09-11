@@ -166,7 +166,18 @@ enum class DisableHLEFlags : int {
 	sceCcc = (1 << 7),  // character conversion library.
 	// Swaps in flash0:/kd/libmp4.prx and mp4msv.prx, which then decode through our sceAudiocodec.
 	sceMp4 = (1 << 8),
-	Count = 9,
+	// Small leaf libraries games carry on the disc themselves - see AlwaysDisableHLEFlags. None of
+	// them is in any firmware dump, so the game's own copy is the only one there is, and none
+	// imports anything we don't already have.
+	sceDeflt = (1 << 9),
+	sceAdler = (1 << 10),
+	sceMd5 = (1 << 11),
+	sceSha256 = (1 << 12),
+	sceMt19937 = (1 << 13),
+	sceSfmt19937 = (1 << 14),
+	sceHeap = (1 << 15),
+	sceParseUri = (1 << 16),
+	Count = 17,
 	// TODO: Some of the networking libraries may be interesting candidates, like HTTP.
 };
 ENUM_CLASS_BITOPS(DisableHLEFlags);

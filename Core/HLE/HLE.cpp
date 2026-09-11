@@ -43,6 +43,8 @@
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceKernelModule.h"
+#include "Core/HLE/sceFont.h"
+#include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/HLE/HLE.h"
 
 enum {
@@ -141,8 +143,6 @@ static const HLEModuleMeta g_moduleMeta[] = {
 	{"sceNetAdhocctl_Library"},
 	{"sceNetIfhandle_Service"},
 	{"sceSsl_Module"},
-	{"sceDEFLATE_Library"},
-	{"sceMD5_Library"},
 	{"sceMemab"},  // Underlying AdHoc crypto library
 	{"sceAvcodec_driver"},
 	{"sceAudiocodec_Driver"},
@@ -160,7 +160,17 @@ static const HLEModuleMeta g_moduleMeta[] = {
 	{"sceMp4_library", "sceMp4", DisableHLEFlags::sceMp4},
 	{"mp4msv_module", "mp4msv", DisableHLEFlags::sceMp4},
 	{"SceParseHTTPheader_Library", "sceParseHttp", DisableHLEFlags::sceParseHttp},
-	{"SceParseURI_Library"},
+	{"SceParseURI_Library", "sceParseUri", DisableHLEFlags::sceParseUri},
+	// Leaf libraries games carry on the disc. Module names and export library names read off the
+	// copies on real discs with --re-module disc0:/...; all but sceHeap import nothing at all, and
+	// sceHeap only Kernel_Library and ThreadManForUser.
+	{"sceDEFLATE_Library", "sceDeflt", DisableHLEFlags::sceDeflt},
+	{"sceADLER32_Library", "sceAdler", DisableHLEFlags::sceAdler},
+	{"sceMD5_Library", "sceMd5", DisableHLEFlags::sceMd5},
+	{"sceSHA256_Library", "sceSha256", DisableHLEFlags::sceSha256},
+	{"sceMT19937_Library", "sceMt19937", DisableHLEFlags::sceMt19937},
+	{"sceSfmt19937_Library", "sceSfmt19937", DisableHLEFlags::sceSfmt19937},
+	{"sceHeap_Library", "sceHeap", DisableHLEFlags::sceHeap},
 	// Guessing these names
 	{"sceJpeg", "sceJpeg"},
 	{"sceJpeg_library", "sceJpeg"},
@@ -200,7 +210,25 @@ DisableHLEFlags AlwaysDisableHLEFlags() {
 	//
 	// PSMF testing issue: #20200
 	// sceCcc is simply a character conversion library, zero deps. If available we just load it.
-	return DisableHLEFlags::scePsmf | DisableHLEFlags::scePsmfPlayer | DisableHLEFlags::sceCcc;
+	// sceDeflt is zip format decompression.
+	// sceSmft19937 and sceMt19937 are random number generation.
+	// sceAdler, sceSha256, sceMd5 are hashes.
+	// sceHeap is a memory allocator wrapper.
+	//
+	// All these are found in game discs, and are basically dependency-less libraries that we
+	// can just run as-is, no need for HLE. Games always ship these if they use them.
+	//
+	// sceFont is the odd one out: the module is on the disc like the others, but it reads its fonts
+	// from flash0:/font, so it is only usable with a firmware dump installed - see
+	// CheckDisableHLEAvailability, which puts the HLE back when those fonts aren't there.
+	//
+	// sceParseUri and sceParseHttp are not here - those two are also in the firmware, and
+	// sceUtility can load them (modules 0x103 and 0x104), so unlike the rest a game may import them
+	// without carrying a copy.
+	return DisableHLEFlags::scePsmf | DisableHLEFlags::scePsmfPlayer | DisableHLEFlags::sceCcc |
+		DisableHLEFlags::sceDeflt | DisableHLEFlags::sceAdler | DisableHLEFlags::sceMd5 |
+		DisableHLEFlags::sceSha256 | DisableHLEFlags::sceMt19937 | DisableHLEFlags::sceSfmt19937 |
+		DisableHLEFlags::sceHeap | DisableHLEFlags::sceFont;
 }
 
 // Which modules we're HLE-ing is part of the machine's state, not a live setting: it's decided
@@ -314,9 +342,22 @@ static void hleDelayResultFinish(u64 userdata, int cycleslate) {
 static void CheckDisableHLEAvailability() {
 	g_unavailableDisableFlags = (DisableHLEFlags)0;
 
+	// The real libfont.prx a disc ships reads its fonts from flash0:/font and has nothing to fall
+	// back on, so without them it would render nothing at all. Our HLE does have a fallback - the
+	// fonts in assets - so keep it when the NAND set isn't there. Same question the HLE font loader
+	// asks itself, so the same answer: "the fonts this game's firmware would have had", not every
+	// font we know of, since an older game's firmware never had the later ones.
+	if (AlwaysDisableHLEFlags() & DisableHLEFlags::sceFont) {
+		if (!NandFontsComplete()) {
+			g_unavailableDisableFlags |= DisableHLEFlags::sceFont;
+			INFO_LOG(Log::HLE, "flash0:/font doesn't have this firmware's fonts - using the HLE sceFont rather than the disc's.");
+		}
+	}
+
 	if ((DisableHLEFlags)g_Config.iDisableHLE & DisableHLEFlags::sceMp4) {
 		const Path kd = g_Config.nandRootDirectory / "flash0" / "kd";
-		if (!File::Exists(kd / "libmp4.prx") || !File::Exists(kd / "mp4msv.prx")) {
+		if (!pspFileSystem.GetFileInfo("flash0:/kd/libmp4.prx").exists ||
+			!pspFileSystem.GetFileInfo("flash0:/kd/mp4msv.prx").exists) {
 			g_unavailableDisableFlags |= DisableHLEFlags::sceMp4;
 			ERROR_LOG(Log::HLE, "Asked to run the real sceMp4, but %s doesn't have libmp4.prx and "
 				"mp4msv.prx - keeping the HLE.", kd.c_str());
