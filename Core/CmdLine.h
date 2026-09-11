@@ -88,6 +88,10 @@ struct CommandLineOptions {
 	// (the default) to take whatever file list names each file first.
 	std::optional<std::string> unpackUpdaterModel;
 	std::optional<std::string> unpackUpdaterFilter;
+	// Headless: install the firmware bundled on the disc being booted into a scratch NAND, and
+	// boot against that. Lets a run exercise the paths that need real firmware modules without
+	// having to install one first.
+	std::optional<bool> firmwareFromDisc;
 
 	// Bitmask of DisableHLEFlags: run the real firmware module instead of our HLE for those
 	// libraries. Needs a firmware dump under the NAND directory.
