@@ -886,6 +886,10 @@ int main(int argc, const char* argv[]) {
 	if (cmdLineOptions.reModule.has_value()) {
 		ReverseEngineerOptions reOptions;
 		reOptions.modulePath = cmdLineOptions.reModule.value();
+		// A "disc0:" module path reads out of the disc image given as the positional argument.
+		if (!cmdLineOptions.bootFilenames.empty()) {
+			reOptions.discPath = cmdLineOptions.bootFilenames[0];
+		}
 		reOptions.outDir = cmdLineOptions.reOut.value_or("re-out");
 		reOptions.funcFilter = cmdLineOptions.reFunc.value_or("");
 		reOptions.symsFile = cmdLineOptions.reSyms.value_or("");

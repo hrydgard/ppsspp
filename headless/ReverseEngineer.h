@@ -22,9 +22,13 @@
 #include "Common/CommonTypes.h"
 
 struct ReverseEngineerOptions {
-	// PRX/ELF to load. A host path, or a PSP path like "flash0:/kd/libmp3.prx" (resolved
-	// against the configured NAND directory).
+	// PRX/ELF to load. A host path; a PSP path like "flash0:/kd/libmp3.prx", resolved against the
+	// configured NAND directory; or "disc0:/PSP_GAME/USRDIR/MODULES/LIBDEFLT.PRX", read out of the
+	// disc image named as the positional argument. The last is how you look at the copy of a
+	// library a game ships rather than the firmware's.
 	std::string modulePath;
+	// The disc image a "disc0:" modulePath is read from.
+	std::string discPath;
 	// Where to write the report. Created if missing.
 	std::string outDir;
 	// If set, only this function is disassembled (by name, or "0x08801234").
