@@ -7,6 +7,7 @@
 #include "Common/StringUtils.h"
 #include "Common/Log.h"
 
+#include "Common/System/System.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/KeyMap.h"
 #include "Core/ControlMapper.h"
@@ -615,7 +616,40 @@ bool ControlMapper::Key(const KeyInput &key) {
 	KeyMap::LockMappings();
 	bool retval = UpdatePSPState(mapping, now);
 	KeyMap::UnlockMappings();
+
+	if (g_Config.bControllerButtonRumble) {
+		UpdateButtonRumble(key);
+	}
+
 	return retval;
+}
+
+// Rumbles the pad for as long as a button is held. Note that we count the buttons held
+// per pad - otherwise releasing one of two held buttons would cut the rumble short.
+void ControlMapper::UpdateButtonRumble(const KeyInput &key) {
+	int padIndex;
+	if (key.deviceId >= DEVICE_ID_PAD_0 && key.deviceId <= DEVICE_ID_PAD_9) {
+		padIndex = (int)key.deviceId - DEVICE_ID_PAD_0;
+	} else if (key.deviceId >= DEVICE_ID_XINPUT_0 && key.deviceId <= DEVICE_ID_XINPUT_3) {
+		padIndex = (int)key.deviceId - DEVICE_ID_XINPUT_0;
+	} else {
+		return;
+	}
+
+	// The D-pad gets tapped constantly when navigating, which just feels noisy.
+	if (key.keyCode == NKCODE_UNKNOWN || (key.keyCode >= NKCODE_DPAD_UP && key.keyCode <= NKCODE_DPAD_RIGHT)) {
+		return;
+	}
+
+	if (key.flags & KeyInputFlags::DOWN) {
+		if (buttonsHeld_[padIndex]++ == 0) {
+			System_ControllerRumbleStart(padIndex);
+		}
+	} else if (key.flags & KeyInputFlags::UP) {
+		if (buttonsHeld_[padIndex] > 0 && --buttonsHeld_[padIndex] == 0) {
+			System_ControllerRumbleStop(padIndex);
+		}
+	}
 }
 
 void ControlMapper::ToggleSwapAxes() {
