@@ -288,13 +288,18 @@ void CwCheatScreen::CreateContentViews(UI::ViewGroup *parent) {
 
 	rightColumn->Add(new ItemHeader(cw->T("Cheats")));
 
+	ComputeCheatLayout();
+
 	bool prevIsTitle = false;
 	View *prev = nullptr;
 	for (size_t i = 0; i < fileInfo_.size(); ++i) {
+		const CheatLayout &layout = layout_[i];
+		// Folders indent what's inside them.
+		const float indent = 24.0f * layout.depth;
 		std::string_view text;
 		if (fileInfo_[i].IsTitle(&text)) {
 			// Title.
-			TextView *titleView = rightColumn->Add(new TextView(text, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, UI::Margins(8, 8, 8, 0))));
+			TextView *titleView = rightColumn->Add(new TextView(text, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, UI::Margins(8 + (int)indent, 8, 8, 0))));
 			titleView->SetTextSize(UI::TextSize::Big);
 			titleView->SetAlwaysVisibleInSearch(true);
 			prevIsTitle = true;
@@ -302,17 +307,81 @@ void CwCheatScreen::CreateContentViews(UI::ViewGroup *parent) {
 		} else if (fileInfo_[i].IsPostComment(&text)) {
 			rightColumn->Add(new SettingHint(text, prev));
 			prevIsTitle = false;
+		} else if (layout.isFolder) {
+			// A folder from the structure codes. Same look as a title, so the two kinds of
+			// grouping in the wild don't end up looking unrelated.
+			TextView *folderView = rightColumn->Add(new TextView(fileInfo_[i].name, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, UI::Margins(8 + (int)indent, 8, 8, 0))));
+			folderView->SetTextSize(UI::TextSize::Big);
+			folderView->SetAlwaysVisibleInSearch(true);
+			prevIsTitle = true;
+			prev = nullptr;
+		} else if (layout.isComment) {
+			// Comments aren't cheats you can turn on, they're just text.
+			rightColumn->Add(new TextView(fileInfo_[i].name, new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT, UI::Margins(8 + (int)indent, 4, 8, 0))));
+			prevIsTitle = false;
+			prev = nullptr;
 		} else {
 			// Regular cheat code.
 			if (!prevIsTitle) {
 				rightColumn->Add(new Spacer(8.0f));
 			}
-			CheckBox *checkBox = rightColumn->Add(new CheckBox(&fileInfo_[i].enabled, fileInfo_[i].name));
+			CheckBox *checkBox = rightColumn->Add(new CheckBox(&fileInfo_[i].enabled, fileInfo_[i].name, "", new LinearLayoutParams(UI::Margins((int)indent, 0, 0, 0))));
 			checkBox->OnClick.Add([=](UI::EventParams &) {
 				OnCheckBox((int)i);
 			});
 			prev = checkBox;
 			prevIsTitle = false;
+		}
+	}
+}
+
+void CwCheatScreen::ComputeCheatLayout() {
+	layout_.assign(fileInfo_.size(), CheatLayout());
+
+	// A folder or comment claims the entries that follow it, so keep a stack of the ones we're
+	// still inside. Every entry counts against all the groups enclosing it, nesting included.
+	struct OpenGroup {
+		CheatStructure structure;
+		int remaining;
+		int index;
+	};
+	std::vector<OpenGroup> groups;
+
+	for (size_t i = 0; i < fileInfo_.size(); ++i) {
+		while (!groups.empty() && groups.back().remaining <= 0) {
+			groups.pop_back();
+		}
+
+		CheatLayout &layout = layout_[i];
+		for (const auto &group : groups) {
+			if (group.structure == CheatStructure::Comment) {
+				layout.isComment = true;
+			} else {
+				layout.depth++;
+				if (group.structure == CheatStructure::SingleSelectFolder) {
+					layout.singleSelectParent = group.index;
+				}
+			}
+		}
+		for (auto &group : groups) {
+			group.remaining--;
+		}
+
+		switch (fileInfo_[i].structure) {
+		case CheatStructure::Comment:
+			layout.isComment = true;
+			break;
+		case CheatStructure::SingleSelectFolder:
+		case CheatStructure::MultiSelectFolder:
+			// A folder nested in a comment is just more comment text.
+			layout.isFolder = !layout.isComment;
+			break;
+		case CheatStructure::None:
+			break;
+		}
+
+		if (fileInfo_[i].structure != CheatStructure::None && fileInfo_[i].subItems > 0) {
+			groups.push_back(OpenGroup{fileInfo_[i].structure, fileInfo_[i].subItems, (int)i});
 		}
 	}
 }
@@ -553,6 +622,25 @@ bool CwCheatScreen::ImportCheats(const Path &cheatFile, int *cheatsFound) {
 }
 
 void CwCheatScreen::OnCheckBox(int index) {
+	// In a single select folder, turning one on turns the others off.
+	const int parent = index >= 0 && index < (int)layout_.size() ? layout_[index].singleSelectParent : -1;
+	if (parent != -1 && fileInfo_[index].enabled) {
+		bool changedOthers = false;
+		for (size_t i = 0; i < fileInfo_.size(); ++i) {
+			if ((int)i != index && layout_[i].singleSelectParent == parent && fileInfo_[i].enabled) {
+				fileInfo_[i].enabled = false;
+				changedOthers = true;
+			}
+		}
+		if (changedOthers) {
+			if (!RebuildCheatFile(INDEX_ALL)) {
+				RecreateViews();
+			}
+			RecreateViews();
+			return;
+		}
+	}
+
 	if (!RebuildCheatFile(index)) {
 		// TODO: Report error.  Let's reload the file, presumably it changed.
 		RecreateViews();

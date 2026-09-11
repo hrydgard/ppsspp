@@ -33,10 +33,21 @@ struct CheatCode {
 	std::vector<CheatLine> lines;
 };
 
+// Organizational codes from PSPAR/TempAR (the _M 0xCF00000n lines). These carry no memory
+// operations - they just group the entries that follow them in the list.
+enum class CheatStructure {
+	None,
+	Comment,
+	SingleSelectFolder,
+	MultiSelectFolder,
+};
+
 struct CheatFileInfo {
 	int lineNum;
 	std::string name;
 	bool enabled;
+	CheatStructure structure = CheatStructure::None;
+	int subItems = 0;  // How many of the entries that follow belong to this folder or comment.
 
 	bool IsTitle(std::string_view *title) const {
 		return DetectCheatTitle(name, title);

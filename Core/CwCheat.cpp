@@ -101,6 +101,9 @@ void CheatFileParser::Flush() {
 		cheats_.push_back(CheatCode{lastCheatInfo_.name, pendingLines_});
 		FlushCheatInfo();
 		pendingLines_.clear();
+	} else if (lastCheatInfo_.structure != CheatStructure::None) {
+		// Folders and comments have no cheat lines of their own, but still belong in the list.
+		FlushCheatInfo();
 	}
 }
 
@@ -172,10 +175,26 @@ void CheatFileParser::ParseLine(const std::string &line, int lineNumber) {
 		ParseDataLine(line.substr(2), lineNumber);
 		return;
 
-	case 'M':
-		// TempAR data line.
+	case 'M': {
+		// TempAR/PSPAR data line. We don't run these, but the folder and comment codes only
+		// organize the list, so those we can honor. See the "Folder/Comment Codes" section of
+		// https://github.com/raing3/psp-cheat-documentation/blob/master/cheat-devices/pspar.md
+		u32 part1 = 0, part2 = 0;
+		if (sscanf(line.c_str() + 2, "%x %x", &part1, &part2) == 2 && (part1 & 0xFFFFFFF0) == 0xCF000000) {
+			switch (part1 & 0xF) {
+			case 0: lastCheatInfo_.structure = CheatStructure::SingleSelectFolder; break;
+			case 1: lastCheatInfo_.structure = CheatStructure::Comment; break;
+			case 2: lastCheatInfo_.structure = CheatStructure::MultiSelectFolder; break;
+			default:
+				AddError("unknown folder/comment code", lineNumber);
+				return;
+			}
+			lastCheatInfo_.subItems = (int)part2;
+			return;
+		}
 		AddError("TempAR codes not supported", lineNumber);
 		return;
+	}
 
 	default:
 		AddError("unknown line type", lineNumber);
