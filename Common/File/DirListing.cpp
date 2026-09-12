@@ -35,12 +35,12 @@
 #define stat64 stat
 #endif
 
-#ifdef HAVE_LIBNX
+#if PPSSPP_PLATFORM(SWITCH)
 // Far from optimal, but I guess it works...
 #define fseeko fseek
 #define ftello ftell
 #define fileno
-#endif // HAVE_LIBNX
+#endif // PPSSPP_PLATFORM(SWITCH)
 
 // NOTE: There's another one in FileUtil.cpp.
 #ifdef _WIN32

@@ -10,11 +10,17 @@
 #include <GLES2/gl2ext.h>
 #define GL_BGRA_EXT 0x80E1
 #else // OpenGL
+#if PPSSPP_PLATFORM(SWITCH)
+// libnx has no GLEW. GLSwitch.h declares the same entry points and they get
+// resolved through eglGetProcAddress instead - see LibretroGLContext.
+#include "Common/GPU/OpenGL/GLSwitch.h"
+#else
 #include "GL/glew.h"
 #if defined(__APPLE__)
 #include <OpenGL/gl.h>
 #else
 #include <GL/gl.h>
+#endif
 #endif
 #endif
 

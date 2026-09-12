@@ -47,7 +47,13 @@
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/HLE/HLE.h"
 
-enum {
+#if PPSSPP_PLATFORM(SWITCH)
+// Defined in Misc.cpp
+extern size_t strnlen(const char *s, size_t maxlen);
+#endif // PPSSPP_PLATFORM(SWITCH)
+
+enum
+{
 	// Do nothing after the syscall.
 	HLE_AFTER_NOTHING           = 0x00,
 	// Reschedule immediately after the syscall.
