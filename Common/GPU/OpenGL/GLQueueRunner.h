@@ -214,6 +214,7 @@ enum class GLRInitStepType : uint8_t {
 	CREATE_FRAMEBUFFER,
 
 	TEXTURE_IMAGE,
+	TEXTURE_SUBIMAGE,
 	TEXTURE_FINALIZE,
 	BUFFER_SUBDATA,
 };
@@ -266,6 +267,17 @@ struct GLRInitStep {
 			bool linearFilter;
 			uint8_t *data;  // owned, delete[]-d
 		} texture_image;
+		struct {
+			GLRTexture *texture;
+			Draw::DataFormat format;
+			int level;
+			uint16_t x;
+			uint16_t y;
+			uint16_t width;
+			uint16_t height;
+			GLRAllocType allocType;
+			uint8_t *data;  // owned, delete[]-d
+		} texture_subimage;
 		struct {
 			GLRTexture *texture;
 			int loadedLevels;

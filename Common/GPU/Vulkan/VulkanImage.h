@@ -36,6 +36,8 @@ public:
 	// Can also be used to copy individual levels of a 3D texture.
 	// If possible, will just add to the batch instead of submitting a copy.
 	void CopyBufferToMipLevel(VkCommandBuffer cmd, TextureCopyBatch *copyBatch, int mip, int mipWidth, int mipHeight, int depthLayer, VkBuffer buffer, uint32_t offset, size_t rowLength);  // rowLength is in pixels
+	// Same, but only covers a rectangle of the mip level instead of all of it.
+	void CopyBufferToMipLevelRegion(VkCommandBuffer cmd, TextureCopyBatch *copyBatch, int mip, int x, int y, int w, int h, int depthLayer, VkBuffer buffer, uint32_t offset, size_t rowLength);  // rowLength is in pixels
 	void FinishCopyBatch(VkCommandBuffer cmd, TextureCopyBatch *copyBatch);
 
 	void GenerateMips(VkCommandBuffer cmd, int firstMipToGenerate, bool fromCompute);
