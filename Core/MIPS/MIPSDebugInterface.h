@@ -61,8 +61,10 @@ public:
 	void PrintRegValue(int cat, int index, char *out, size_t outSize) const override {
 		switch (cat) {
 		case 0: snprintf(out, outSize, "%08X", cpu->r[index]); break;
-		case 1: snprintf(out, outSize, "%f", cpu->f[index]); break;
-		case 2: snprintf(out, outSize, "%f", cpu->v[voffset[index]]); break;
+		// %g rather than %f - the register list column is narrow, and a truncated %f of a large
+		// value ("100000000" for 1e20) is worse than no value at all.
+		case 1: snprintf(out, outSize, "%g", cpu->f[index]); break;
+		case 2: snprintf(out, outSize, "%g", cpu->v[voffset[index]]); break;
 		}
 	}
 
