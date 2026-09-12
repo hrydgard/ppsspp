@@ -252,6 +252,10 @@ void __KernelReturnFromModuleFunc();
 // up, which shifts every address in it and invalidates cheats and achievements, and outright
 // fails for a game like Tekken 6 whose EBOOT must load at a fixed low address.
 SceUID KernelLoadModule(const std::string &filename, std::string *error_string, bool fromTop = false);
+
+// Whether a real (non-HLE-stub) module calling itself this is loaded. Lets a caller tell whether a
+// library is already provided before bringing in another copy of it.
+bool KernelModuleIsLoaded(std::string_view name);
 int __KernelStartModule(SceUID moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, SceKernelSMOption *smoption, bool *needsWait);
 u32 __KernelStopUnloadSelfModuleWithOrWithoutStatus(u32 exitCode, u32 argSize, u32 argp, u32 statusAddr, u32 optionAddr, bool WithStatus);
 u32 sceKernelFindModuleByUID(u32 uid);
