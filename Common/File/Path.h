@@ -86,7 +86,13 @@ public:
 
 	// File extension manipulation.
 	Path WithExtraExtension(std::string_view ext) const;
-	Path WithReplacedExtension(const std::string &oldExtension, const std::string &newExtension) const;
+	// Swaps one known extension for another, e.g. ".ppst" -> ".jpg". Returns false and leaves *out
+	// alone if the path doesn't actually end in oldExtension. That case has to be handled: this
+	// used to return the path unchanged, so a caller that guessed the extension wrong quietly
+	// carried on with the original file - and "delete the screenshot next to this savestate" then
+	// means "delete the savestate".
+	[[nodiscard]] bool WithReplacedExtension(const std::string &oldExtension, const std::string &newExtension, Path *out) const;
+	// Replaces whatever extension is there, so there's nothing to fail on.
 	Path WithReplacedExtension(const std::string &newExtension) const;
 
 	std::string GetFilename() const;  // Really, GetLastComponent. Could be a file or directory. Includes the extension.

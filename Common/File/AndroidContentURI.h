@@ -32,7 +32,8 @@ public:
 	AndroidContentURI WithRootFilePath(const std::string &filePath);
 	AndroidContentURI WithComponent(std::string_view filePath);
 	AndroidContentURI WithExtraExtension(std::string_view extension);  // The ext string contains the dot.
-	AndroidContentURI WithReplacedExtension(const std::string &oldExtension, const std::string &newExtension) const;
+	// False, leaving *out alone, if the file doesn't end in oldExtension. See Path's version.
+	[[nodiscard]] bool WithReplacedExtension(const std::string &oldExtension, const std::string &newExtension, AndroidContentURI *out) const;
 	AndroidContentURI WithReplacedExtension(const std::string &newExtension) const;
 
 	bool CanNavigateUp() const;
