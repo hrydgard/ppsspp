@@ -154,7 +154,7 @@ enum class RestoreSettingsBits : int {
 };
 ENUM_CLASS_BITOPS(RestoreSettingsBits);
 
-// Modules that are candidates for disabling HLE of.
+// Modules that are candidates for disabling HLE of, and just running the modules directly.
 enum class DisableHLEFlags : int {
 	sceFont = (1 << 0),
 	sceAtrac = (1 << 1),
@@ -167,8 +167,7 @@ enum class DisableHLEFlags : int {
 	// Swaps in flash0:/kd/libmp4.prx and mp4msv.prx, which then decode through our sceAudiocodec.
 	sceMp4 = (1 << 8),
 	// Small leaf libraries games carry on the disc themselves - see AlwaysDisableHLEFlags. None of
-	// them is in any firmware dump, so the game's own copy is the only one there is, and none
-	// imports anything we don't already have.
+	// them is provided in any firmware version.
 	sceDeflt = (1 << 9),
 	sceAdler = (1 << 10),
 	sceMd5 = (1 << 11),

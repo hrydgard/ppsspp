@@ -161,15 +161,14 @@ static const HLEModuleMeta g_moduleMeta[] = {
 	{"mp4msv_module", "mp4msv", DisableHLEFlags::sceMp4},
 	{"SceParseHTTPheader_Library", "sceParseHttp", DisableHLEFlags::sceParseHttp},
 	{"SceParseURI_Library", "sceParseUri", DisableHLEFlags::sceParseUri},
-	// Leaf libraries games carry on the disc. Module names and export library names read off the
-	// copies on real discs with --re-module disc0:/...; all but sceHeap import nothing at all, and
-	// sceHeap only Kernel_Library and ThreadManForUser.
+	// Dependency-free libraries games carry on the disc (never loaded from firmware).
 	{"sceDEFLATE_Library", "sceDeflt", DisableHLEFlags::sceDeflt},
 	{"sceADLER32_Library", "sceAdler", DisableHLEFlags::sceAdler},
 	{"sceMD5_Library", "sceMd5", DisableHLEFlags::sceMd5},
 	{"sceSHA256_Library", "sceSha256", DisableHLEFlags::sceSha256},
 	{"sceMT19937_Library", "sceMt19937", DisableHLEFlags::sceMt19937},
 	{"sceSfmt19937_Library", "sceSfmt19937", DisableHLEFlags::sceSfmt19937},
+	// sceHeap imports only Kernel_Library and ThreadManForUser.
 	{"sceHeap_Library", "sceHeap", DisableHLEFlags::sceHeap},
 	// Guessing these names
 	{"sceJpeg", "sceJpeg"},
@@ -342,11 +341,8 @@ static void hleDelayResultFinish(u64 userdata, int cycleslate) {
 static void CheckDisableHLEAvailability() {
 	g_unavailableDisableFlags = (DisableHLEFlags)0;
 
-	// The real libfont.prx a disc ships reads its fonts from flash0:/font and has nothing to fall
-	// back on, so without them it would render nothing at all. Our HLE does have a fallback - the
-	// fonts in assets - so keep it when the NAND set isn't there. Same question the HLE font loader
-	// asks itself, so the same answer: "the fonts this game's firmware would have had", not every
-	// font we know of, since an older game's firmware never had the later ones.
+	// libfont.prx/sceFont is shipped on game discs but reads its fonts from flash0:/font and has
+	// nothing to fall back on, so the fonts are required.
 	if (AlwaysDisableHLEFlags() & DisableHLEFlags::sceFont) {
 		if (!NandFontsComplete()) {
 			g_unavailableDisableFlags |= DisableHLEFlags::sceFont;
@@ -444,7 +440,6 @@ const HLEModule *GetHLEModuleByIndex(int index) {
 	return &moduleDB[index];
 }
 
-// TODO: Do something faster.
 const HLEModule *GetHLEModuleByName(std::string_view name) {
 	for (auto &module : moduleDB) {
 		if (name == module.name) {
@@ -454,7 +449,6 @@ const HLEModule *GetHLEModuleByName(std::string_view name) {
 	return nullptr;
 }
 
-// TODO: Do something faster.
 const HLEFunction *GetHLEFuncByName(const HLEModule *module, std::string_view name) {
 	for (int i = 0; i < module->numFunctions; i++) {
 		auto &func = module->funcTable[i];

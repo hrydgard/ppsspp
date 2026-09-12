@@ -292,9 +292,8 @@ static GraphicsContext *CreateGraphicsContext(GPUCore gpuCore, std::string **dev
 // Whether what we're booting is homebrew rather than a retail disc. The two want opposite
 // defaults for the graduated HLE modules - see where this is used.
 //
-// By extension, not by content: this runs before the loaders are up, and Identify_File can't even
-// see the file yet. pspautotests is .prx, with .elf as its fallback, and that is the whole set we
-// need to tell apart from a disc.
+// This runs before the loaders are up, and Identify_File can't even see the file yet.
+// pspautotests is .prx, with .elf as its fallback.
 static bool BootTargetIsHomebrewExecutable(const std::string &filename) {
 	const std::string ext = Path(filename).GetFileExtension();
 	return ext == ".prx" || ext == ".elf";
@@ -792,26 +791,17 @@ int main(int argc, const char* argv[]) {
 	// overrides above, so a matching command line flag always wins.
 	cmdLineOptions.ApplyToConfig();
 
-	// pspautotests is homebrew PRXes that ship none of the user libraries a retail disc carries, so
-	// the graduated modules (scePsmfPlayer and friends) would have nothing real to run and every
-	// test that touches them would fail on unresolved imports. Force those back to HLE.
-	//
-	// A disc is the opposite case: it brings its own copies and the app runs them for real, so
-	// headless has to as well or it isn't testing what ships. An explicit --disable-hle always
-	// wins, in either case, since the caller is saying they have what's needed.
-	// From the resolved list, not the command line: a test batch arrives as "@-" and is expanded
-	// above, and that is not a disc however it is spelled. A batch is always homebrew; a game run
-	// is exactly one disc. A --vsh run has no file at all and keeps the homebrew treatment, since
-	// the shell's own libraries come from the firmware rather than from a disc.
+	// pspautotests is plain homebrew PRXes so do not ship user libraries that a retail disc may carry. 
+	// So we must use HLE, unless we install firmware.
+	// A disc brings its own copies and the app runs them for real, so
+	// headless has to as well or it isn't testing what ships.
 	const bool bootIsDisc = testFilenames.size() == 1 &&
 		!BootTargetIsHomebrewExecutable(testFilenames[0]);
 	if (!bootIsDisc) {
 		g_Config.iForceEnableHLE = 0xFFFFFFFF & ~g_Config.iDisableHLE;
 	}
 
-
-
-	// This looks contradictory to the above. But, this preserves the old test behavior which apparently ran the JIT for the CPU
+	// This looks contradictory to above checks. But, this preserves the old test behavior which apparently ran the JIT for the CPU
 	// but ended up running software vertex decoding due to the setting in g_Config. Yeah, it's a mess.
 	CPUCore cpuCore = CPUCore::JIT;
 	if (cmdLineOptions.cpuCore.has_value()) {
@@ -900,9 +890,8 @@ int main(int argc, const char* argv[]) {
 	g_Config.nandRootDirectory = GetSysDirectory(DIRECTORY_NAND);
 	coreParameter.nandRoot = g_Config.nandRootDirectory;
 
-	// Most discs carry the firmware they shipped with, which is the right version to run this game
-	// against and saves installing one by hand. Unpacked per disc and kept, so a second run of the
-	// same game reuses it - these are ~25MB each.
+	// Most discs carry the firmware they shipped with - this option installs it, if one
+	// isn't already installed. TODO: Check version here.
 	if (cmdLineOptions.firmwareFromDisc.value_or(false)) {
 		if (!bootIsDisc) {
 			fprintf(stderr, "--firmware-from-disc only applies when booting a disc\n");
@@ -928,6 +917,7 @@ int main(int argc, const char* argv[]) {
 		g_Config.nandRootDirectory = nand;
 		coreParameter.nandRoot = nand;
 	}
+
 	// Placed here rather than with the other early-exit subcommands above, because resolving a
 	// "flash0:/kd/foo.prx" module path needs nandRootDirectory, which is only settled just above.
 	if (cmdLineOptions.reDecrypt.has_value()) {
