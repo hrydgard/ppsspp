@@ -79,10 +79,10 @@ static const u32 MPEG_MEMSIZE_0105 = 0x10000;     // 64k.
 static const int MPEG_AVC_DECODE_SUCCESS = 1;     // Internal value.
 static const int MPEG_WARMUP_FRAMES = 1;
 
-static const int atracDecodeDelayMs = 3000;
+static int atracDecodeDelayMs = 3000;
 static const int avcFirstDelayMs = 3600;
-static const int avcCscDelayMs = 4000;
-static const int avcDecodeDelayMs = 5400;         // Varies between 4700 and 6000.
+static int avcCscDelayMs = 4000;
+static int avcDecodeDelayMs = 5400;         // Varies between 4700 and 6000.
 static const int avcEmptyDelayMs = 320;
 static const int mpegDecodeErrorDelayMs = 100;
 static const int mpegTimestampPerSecond = 90000;  // How many MPEG Timestamp units in a second.
@@ -422,6 +422,11 @@ static u32 sceMpegInit() {
 		//return SCE_MPEG_ERROR_ALREADY_INIT;
 	} else {
 		INFO_LOG(Log::Mpeg, "sceMpegInit(), mpegLibVersion 0x%0x, mpegLibcrc %x", mpegLibVersion, mpegLibCrc);
+	}
+	if (PSP_CoreParameter().compat.flags().MpegSmallDelay) {
+		atracDecodeDelayMs = 100;		
+		avcCscDelayMs = 100;
+		avcDecodeDelayMs = 100;
 	}
 	isMpegInit = true;
 	return hleDelayResult(hleNoLog(0), "mpeg init", 750);
