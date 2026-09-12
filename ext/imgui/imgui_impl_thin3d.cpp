@@ -312,6 +312,8 @@ bool ImGui_ImplThin3d_Init(Draw::DrawContext *draw,
 	// g_fixedFont = io.Fonts->AddFontDefault();
 	ImGui::GetStyle().ScaleAllSizes(1.0f / g_display.dpi_scale_x);
 	ImGui::GetStyle().Colors[ImGuiCol_Border] = ImColor(IM_COL32(0x2A, 0x2F, 0x3B, 0xFF));
+	// Enhanced selection color.
+	ImGui::GetStyle().Colors[ImGuiCol_TextSelectedBg] = ImColor(IM_COL32(0x42, 0x96, 0xFA, 0xB0));
 
 	IMGUI_CHECKVERSION();
 	IM_ASSERT(io.BackendRendererUserData == nullptr && "Already initialized a renderer backend!");
