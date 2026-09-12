@@ -637,7 +637,9 @@
     <ClCompile Include="HLE\sceKernelThread.cpp" />
     <ClCompile Include="HLE\sceKernelTime.cpp" />
     <ClCompile Include="HLE\sceKernelVTimer.cpp" />
+    <ClCompile Include="HLE\sceVideocodec.cpp" />
     <ClCompile Include="HLE\sceMpeg.cpp" />
+    <ClCompile Include="HLE\sceMpegbase.cpp" />
     <ClCompile Include="HLE\sceNet.cpp" />
     <ClCompile Include="HLE\sceNet_lib.cpp" />
     <ClCompile Include="HLE\NetAdhocCommon.cpp" />
@@ -671,6 +673,7 @@
     <ClCompile Include="HLE\sceVaudio.cpp" />
     <ClCompile Include="HLE\sceVshBridge.cpp" />
     <ClCompile Include="HLE\__sceAudio.cpp" />
+    <ClCompile Include="HW\AvcDecoder.cpp" />
     <ClCompile Include="HW\MediaEngine.cpp" />
     <ClCompile Include="HW\MemoryStick.cpp" />
     <ClCompile Include="HW\MpegDemux.cpp" />
@@ -1150,7 +1153,9 @@
     <ClInclude Include="HLE\sceKernelSemaphore.h" />
     <ClInclude Include="HLE\sceKernelThread.h" />
     <ClInclude Include="HLE\sceKernelTime.h" />
+    <ClInclude Include="HLE\sceVideocodec.h" />
     <ClInclude Include="HLE\sceMpeg.h" />
+    <ClInclude Include="HLE\sceMpegbase.h" />
     <ClInclude Include="HLE\sceNet.h" />
     <ClInclude Include="HLE\sceNet_lib.h" />
     <ClInclude Include="HLE\NetAdhocCommon.h" />
@@ -1187,6 +1192,7 @@
     <ClInclude Include="HLE\ThreadQueueList.h" />
     <ClInclude Include="HLE\__sceAudio.h" />
     <ClInclude Include="HW\BufferQueue.h" />
+    <ClInclude Include="HW\AvcDecoder.h" />
     <ClInclude Include="HW\MediaEngine.h" />
     <ClInclude Include="HW\MpegDemux.h" />
     <ClInclude Include="HW\SasAudio.h" />

@@ -23,8 +23,10 @@
 #include "Common/Serialize/SerializeMap.h"
 #include "Common/Swap.h"
 #include "Core/HLE/sceMpeg.h"
+#include "Core/HLE/sceMpegbase.h"
 #include "Core/HLE/sceKernelModule.h"
 #include "Core/HLE/sceKernelThread.h"
+#include "Core/Config.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/ErrorCodes.h"
@@ -121,13 +123,10 @@ static AVPixelFormat pmp_want_pix_fmt;
 
 #endif
 
-struct SceMpegLLI
-{
-	u32 pSrc;
-	u32 pDst;
-	u32 Next;
-	int iSize;
-};
+void MpegSetPmpVideoSource(u32 addr, int blocks) {
+	pmp_videoSource = addr;
+	pmp_nBlocks = blocks;
+}
 
 void SceMpegAu::read(u32 addr) {
 	Memory::Memcpy(this, addr, sizeof(*this), "SceMpegAu");
@@ -350,6 +349,16 @@ private:
 };
 
 void __MpegInit() {
+	// We used to load flash0's mpeg.prx here, before the game module, on the theory that a game
+	// calling sceMpegInit without asking sceUtility for the AV module first would otherwise find
+	// nothing to resolve against. In practice a game either ships its own sceMpeg_library on the
+	// disc (Death Jr., Pursuit Force) or asks sceUtility (Thrillville), and both of those paths
+	// arrive in time on their own - while loading it here costs 33KB at the top of user memory
+	// for nothing. Stacks allocate from the top, so that pushed Pursuit Force's main thread stack
+	// down by exactly that much and left the largest free block just under the 256KB it wanted,
+	// which failed the boot outright. If a game turns up that really does need it early, make the
+	// load conditional on the game not providing its own rather than bringing this back.
+	__MpegBaseInit();
 	isMpegInit = false;
 	mpegLibVersion = 0x010A;
 	streamIdGen = 1;
@@ -2320,39 +2329,3 @@ void Register_sceMpeg()
 {
 	RegisterHLEModule("sceMpeg", ARRAY_SIZE(sceMpeg), sceMpeg);
 }
-
-// This function is currently only been used for PMP videos
-// p pointing to a SceMpegLLI structure consists of video frame blocks.
-static u32 sceMpegBasePESpacketCopy(u32 p)
-{
-	pmp_videoSource = p;
-	pmp_nBlocks = 0;
-
-	auto lli = PSPPointer<SceMpegLLI>::Create(p);
-	while (lli.IsValid()) {
-		pmp_nBlocks++;
-		// lli.Next ==0 for last block
-		if (lli->Next == 0){
-			break;
-		}
-		++lli;
-	}
-
-	DEBUG_LOG(Log::Mpeg, "sceMpegBasePESpacketCopy(%08x), received %d block(s)", pmp_videoSource, pmp_nBlocks);
-	return 0;
-}
-
-const HLEFunction sceMpegbase[] =
-{
-	{0XBEA18F91, &WrapU_U<sceMpegBasePESpacketCopy>,           "sceMpegBasePESpacketCopy",           'x', "x"      },
-	{0X492B5E4B, nullptr,                                      "sceMpegBaseCscInit",                 '?', ""       },
-	{0X0530BE4E, nullptr,                                      "sceMpegbase_0530BE4E",               '?', ""       },
-	{0X91929A21, nullptr,                                      "sceMpegBaseCscAvc",                  '?', ""       },
-	{0X304882E1, nullptr,                                      "sceMpegBaseCscAvcRange",             '?', ""       },
-	{0X7AC0321A, nullptr,                                      "sceMpegBaseYCrCbCopy",               '?', ""       }
-};
-
-void Register_sceMpegbase()
-{
-	RegisterHLEModule("sceMpegbase", ARRAY_SIZE(sceMpegbase), sceMpegbase);
-};

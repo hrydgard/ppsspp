@@ -45,6 +45,8 @@
 #include "sceAtrac.h"
 #include "sceAudio.h"
 #include "sceAudiocodec.h"
+#include "sceMpegbase.h"
+#include "sceVideocodec.h"
 #include "sceCcc.h"
 #include "sceCtrl.h"
 #include "sceDisplay.h"
@@ -158,6 +160,7 @@ void __KernelInit()
 	__HeapInit();
 	__DmacInit();
 	__AudioCodecInit();
+	__VideocodecInit();
 	__VideoPmpInit();
 	__UsbGpsInit();
 	__UsbCamInit();
@@ -197,6 +200,7 @@ void __KernelShutdown()
 	__UsbGpsShutdown();
 
 	__AudioCodecShutdown();
+	__VideocodecShutdown();
 	__VideoPmpShutdown();
 	__AACShutdown();
 	__NetAdhocShutdown();
@@ -284,6 +288,8 @@ void __KernelDoState(PointerWrap &p)
 		__JpegDoState(p);
 		__Mp3DoState(p);
 		__MpegDoState(p);
+		__MpegBaseDoState(p);
+		__VideocodecDoState(p);
 		__NetDoState(p);
 		__NetAdhocDoState(p);
 		__PowerDoState(p);

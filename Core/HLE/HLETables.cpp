@@ -57,6 +57,7 @@
 #include "sceNetAdhocMatching.h"
 #include "sceNp.h"
 #include "sceMpeg.h"
+#include "sceMpegbase.h"
 #include "sceOpenPSID.h"
 #include "sceResmgr.h"
 #include "sceP3da.h"
@@ -90,6 +91,7 @@
 #include "sceNetResolver.h"
 // #include "sceNp2.h"
 #include "sceNet_lib.h"
+#include "sceVideocodec.h"
 
 static const HLEFunction FakeSysCalls[] = {
 	{NID_THREADRETURN, __KernelReturnFromThread, "__KernelReturnFromThread", 'x', ""},
@@ -327,6 +329,7 @@ void RegisterAllModules() {
 	Register_sceChkreg();
 	Register_sceVshBridge();
 	Register_sceResmgr();
+	Register_sceVideocodec();
 
 	// add new modules here.
 

@@ -494,8 +494,12 @@ add_library(Core STATIC
 	HLE/sceKernelTime.h
 	HLE/sceKernelVTimer.cpp
 	HLE/sceKernelVTimer.h
+	HLE/sceVideocodec.cpp
+	HLE/sceVideocodec.h
 	HLE/sceMpeg.cpp
 	HLE/sceMpeg.h
+	HLE/sceMpegbase.cpp
+	HLE/sceMpegbase.h
 	HLE/sceNet.cpp
 	HLE/sceNet.h
 	HLE/sceNet_lib.cpp
@@ -595,6 +599,8 @@ add_library(Core STATIC
 	HW/Display.h
 	HW/GpioMMIO.cpp
 	HW/GpioMMIO.h
+	HW/AvcDecoder.cpp
+	HW/AvcDecoder.h
 	HW/MediaEngine.cpp
 	HW/MediaEngine.h
 	HW/MpegDemux.cpp

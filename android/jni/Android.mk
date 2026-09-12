@@ -614,6 +614,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HW/GpioMMIO.cpp \
   $(SRC)/Core/HW/MemoryStick.cpp \
   $(SRC)/Core/HW/MpegDemux.cpp.arm \
+  $(SRC)/Core/HW/AvcDecoder.cpp.arm \
   $(SRC)/Core/HW/MediaEngine.cpp.arm \
   $(SRC)/Core/HW/SasAudio.cpp.arm \
   $(SRC)/Core/HW/SasReverb.cpp.arm \
@@ -741,7 +742,9 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HLE/sceKernelThread.cpp.arm \
   $(SRC)/Core/HLE/sceKernelTime.cpp \
   $(SRC)/Core/HLE/sceKernelVTimer.cpp \
+  $(SRC)/Core/HLE/sceVideocodec.cpp \
   $(SRC)/Core/HLE/sceMpeg.cpp \
+  $(SRC)/Core/HLE/sceMpegbase.cpp \
   $(SRC)/Core/HLE/sceMd5.cpp \
   $(SRC)/Core/HLE/sceMp4.cpp \
   $(SRC)/Core/HLE/sceAac.cpp \
