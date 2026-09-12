@@ -74,7 +74,16 @@ namespace SaveState {
 	int GetOldestSlot(std::string_view gamePrefix);
 	
 	std::string GetSlotDateAsString(std::string_view gamePrefix, int slot);
+
+	std::string GetSlotCustomName(std::string_view gamePrefix, int slot);
 	Path GenerateSaveSlotPath(std::string_view gamePrefix, int slot, const char *extension);
+	void SetSlotCustomName(std::string_view gamePrefix, int slot, std::string_view newName);
+
+	// The files that sit beside a savestate and mean nothing without it: its screenshot, and the
+	// slot's custom name if it was given one. Anything deleting a .ppst from outside DeleteSlot -
+	// the savestate browser does exactly that - has to take these along, or they stay in the
+	// savestate folder for good. Returns nothing for a path that isn't a savestate.
+	std::vector<Path> GetCompanionFilePaths(const Path &statePath);
 
 	std::string GetTitle(const Path &filename);
 

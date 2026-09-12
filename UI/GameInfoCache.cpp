@@ -170,9 +170,11 @@ bool GameInfo::Delete() {
 			const Path &ppstPath = filePath_;
 			INFO_LOG(Log::System, "Deleting file %s", ppstPath.c_str());
 			MoveFileToTrashOrDelete(ppstPath);
-			Path screenshotPath;
-			if (filePath_.WithReplacedExtension(".ppst", ".jpg", &screenshotPath) && File::Exists(screenshotPath)) {
-				MoveFileToTrashOrDelete(screenshotPath);
+			// The screenshot and the slot's custom name are no use without the state itself.
+			for (const Path &companion : SaveState::GetCompanionFilePaths(ppstPath)) {
+				if (File::Exists(companion)) {
+					MoveFileToTrashOrDelete(companion);
+				}
 			}
 			return true;
 		}
