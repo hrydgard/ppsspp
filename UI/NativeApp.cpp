@@ -375,8 +375,8 @@ void runImDebugger(Draw::DrawContext *draw) {
 				{node->Pos.x + node->Size.x, node->Pos.y + node->Size.y},
 				IM_COL32(255, 255, 255, 90),
 				0.f,
-				ImDrawFlags_None,
-				1.f
+				1.f,
+				ImDrawFlags_None
 			);
 		}
 		imDebugger_->Frame(currentDebugMIPS, gpu, draw);

@@ -33,11 +33,16 @@ struct RegisteredTexture {
 
 struct BackendData {
 	Draw::SamplerState *fontSampler = nullptr;
-	Draw::Texture *fontImage = nullptr;
 	Draw::Pipeline *pipelines[(int)ImGuiPipeline::Count]{};
 	std::vector<RegisteredTexture> tempTextures;
+	// Textures imgui asked us to create (since 1.92 the font atlas is one of these, and there can
+	// be more than one as it grows). Indexed by ImTextureID - 1, so entries can go null on destroy
+	// without shifting the rest. Slots are reused.
+	std::vector<Draw::Texture *> imguiTextures;
 };
 
+// ImTextureID layout: 0 is ImTextureID_Invalid, 1..TEX_ID_OFFSET-1 index imguiTextures, and
+// TEX_ID_OFFSET and up index the per-frame tempTextures.
 #define TEX_ID_OFFSET 256
 
 // Backend data stored in io.BackendRendererUserData to allow support for multiple Dear ImGui contexts
@@ -45,6 +50,78 @@ struct BackendData {
 // FIXME: multi-context support is not tested and probably dysfunctional in this backend.
 static BackendData *ImGui_ImplThin3d_GetBackendData() {
 	return ImGui::GetCurrentContext() ? (BackendData *)ImGui::GetIO().BackendRendererUserData : nullptr;
+}
+
+// Since 1.92 imgui owns its textures (the font atlas, and any more it needs as glyphs get
+// rasterized on demand) and asks the backend to create, refresh and destroy them. thin3d can only
+// replace a whole mip level, not a sub-rectangle, so an update re-uploads everything - which is
+// fine, since these only change when a new glyph shows up.
+static void ImGui_ImplThin3d_UpdateTexture(Draw::DrawContext *draw, ImTextureData *tex) {
+	BackendData *bd = ImGui_ImplThin3d_GetBackendData();
+
+	switch (tex->Status) {
+	case ImTextureStatus_WantCreate:
+	{
+		_dbg_assert_(tex->Format == ImTextureFormat_RGBA32 && tex->BytesPerPixel == 4);
+
+		Draw::TextureDesc desc{};
+		desc.width = tex->Width;
+		desc.height = tex->Height;
+		desc.mipLevels = 1;
+		desc.format = Draw::DataFormat::R8G8B8A8_UNORM;
+		desc.type = Draw::TextureType::LINEAR2D;
+		desc.swizzle = Draw::TextureSwizzle::DEFAULT;
+		desc.depth = 1;
+		desc.tag = "imgui-texture";
+		desc.initData.push_back((const uint8_t *)tex->GetPixels());
+		Draw::Texture *created = draw->CreateTexture(desc);
+		if (!created) {
+			ERROR_LOG(Log::System, "imgui: failed to create a %dx%d texture", tex->Width, tex->Height);
+			return;
+		}
+
+		// Reuse a slot freed by an earlier destroy, so a long session doesn't grow the vector.
+		size_t index = 0;
+		while (index < bd->imguiTextures.size() && bd->imguiTextures[index]) {
+			index++;
+		}
+		if (index == bd->imguiTextures.size()) {
+			bd->imguiTextures.push_back(created);
+		} else {
+			bd->imguiTextures[index] = created;
+		}
+		_dbg_assert_(index + 1 < TEX_ID_OFFSET);
+
+		tex->SetTexID((ImTextureID)(index + 1));
+		tex->SetStatus(ImTextureStatus_OK);
+		break;
+	}
+	case ImTextureStatus_WantUpdates:
+	{
+		const size_t index = (size_t)tex->GetTexID() - 1;
+		if (index >= bd->imguiTextures.size() || !bd->imguiTextures[index]) {
+			ERROR_LOG(Log::System, "imgui: asked to update texture %d, which we don't have", (int)tex->GetTexID());
+			return;
+		}
+		const uint8_t *data = (const uint8_t *)tex->GetPixels();
+		draw->UpdateTextureLevels(bd->imguiTextures[index], &data, nullptr, 1);
+		tex->SetStatus(ImTextureStatus_OK);
+		break;
+	}
+	case ImTextureStatus_WantDestroy:
+	{
+		const size_t index = (size_t)tex->GetTexID() - 1;
+		if (index < bd->imguiTextures.size() && bd->imguiTextures[index]) {
+			bd->imguiTextures[index]->Release();
+			bd->imguiTextures[index] = nullptr;
+		}
+		tex->SetTexID(ImTextureID_Invalid);
+		tex->SetStatus(ImTextureStatus_Destroyed);
+		break;
+	}
+	default:
+		break;
+	}
 }
 
 // Render function
@@ -61,6 +138,16 @@ void ImGui_ImplThin3d_RenderDrawData(ImDrawData* draw_data, Draw::DrawContext *d
 	}
 
 	BackendData* bd = ImGui_ImplThin3d_GetBackendData();
+
+	// Create/refresh/destroy whatever imgui needs before we start referring to the textures.
+	if (draw_data->Textures != nullptr) {
+		for (ImTextureData *tex : *draw_data->Textures) {
+			if (tex->Status != ImTextureStatus_OK) {
+				ImGui_ImplThin3d_UpdateTexture(draw, tex);
+			}
+		}
+	}
+
 	draw->BindSamplerStates(0, 1, &bd->fontSampler);
 
 	// Setup viewport
@@ -96,7 +183,7 @@ void ImGui_ImplThin3d_RenderDrawData(ImDrawData* draw_data, Draw::DrawContext *d
 	Draw::Aspect boundAspect = Draw::Aspect::COLOR_BIT;
 
 	// Render command lists
-	for (int n = 0; n < draw_data->CmdListsCount; n++) {
+	for (int n = 0; n < draw_data->CmdLists.Size; n++) {
 		const ImDrawList* cmd_list = draw_data->CmdLists[n];
 		draws.clear();
 		for (int cmd_i = 0; cmd_i < cmd_list->CmdBuffer.Size; cmd_i++) {
@@ -105,15 +192,22 @@ void ImGui_ImplThin3d_RenderDrawData(ImDrawData* draw_data, Draw::DrawContext *d
 			_dbg_assert_(pcmd->UserCallback == nullptr);
 
 			// Update the texture pointers.
-			if (!pcmd->TextureId) {
-				// Default
-				boundTexture = bd->fontImage;
+			const ImTextureID texId = pcmd->GetTexID();
+			if (texId < TEX_ID_OFFSET) {
+				// One of imgui's own textures - the font atlas, most of the time.
+				const size_t index = (size_t)texId - 1;
+				if (texId == ImTextureID_Invalid || index >= bd->imguiTextures.size() || !bd->imguiTextures[index]) {
+					WARN_LOG(Log::System, "Missing imgui texture %d", (int)texId);
+					continue;
+				}
+				boundTexture = bd->imguiTextures[index];
 				boundNativeTexture = nullptr;
 				boundFBAsTexture = nullptr;
+				boundAspect = Draw::Aspect::COLOR_BIT;
 				boundPipeline = bd->pipelines[0];
 				boundSampler = bd->fontSampler;
 			} else {
-				size_t index = (size_t)pcmd->TextureId - TEX_ID_OFFSET;
+				size_t index = (size_t)texId - TEX_ID_OFFSET;
 				if (index >= bd->tempTextures.size()) {
 					WARN_LOG(Log::System, "Missing temp texture %d (out of %d)", (int)index, (int)bd->tempTextures.size());
 					continue;
@@ -245,40 +339,27 @@ bool ImGui_ImplThin3d_CreateDeviceObjects(Draw::DrawContext *draw) {
 		rasterNoCull->Release();
 	}
 
-	if (!bd->fontImage) {
-		ImGuiIO& io = ImGui::GetIO();
-		BackendData* bd = ImGui_ImplThin3d_GetBackendData();
-
-		unsigned char* pixels;
-		int width, height;
-		io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height);
-		size_t upload_size = width * height * 4 * sizeof(char);
-
-		Draw::TextureDesc desc{};
-		desc.width = width;
-		desc.height = height;
-		desc.mipLevels = 1;
-		desc.format = Draw::DataFormat::R8G8B8A8_UNORM;
-		desc.type = Draw::TextureType::LINEAR2D;
-		desc.swizzle = Draw::TextureSwizzle::DEFAULT;
-		desc.depth = 1;
-		desc.tag = "imgui-font";
-		desc.initData.push_back((const uint8_t *)pixels);
-		bd->fontImage = draw->CreateTexture(desc);
-		io.Fonts->SetTexID(0);
-	}
-
+	// The font atlas isn't built here any more - since 1.92 imgui hands us its textures through
+	// ImGui_ImplThin3d_UpdateTexture as it needs them.
 	return true;
 }
 
 void ImGui_ImplThin3d_DestroyDeviceObjects() {
-	ImGuiIO& io = ImGui::GetIO();
 	BackendData* bd = ImGui_ImplThin3d_GetBackendData();
-	if (bd->fontImage) {
-		bd->fontImage->Release();
-		bd->fontImage = nullptr;
-		io.Fonts->SetTexID(0);
+	// Hand imgui's textures back. Setting the status to Destroyed lets it ask for them again if
+	// the backend comes back up, which is what happens on a device loss or a backend switch.
+	for (ImTextureData *tex : ImGui::GetPlatformIO().Textures) {
+		if (tex->RefCount == 1) {
+			const size_t index = (size_t)tex->GetTexID() - 1;
+			if (tex->GetTexID() != ImTextureID_Invalid && index < bd->imguiTextures.size() && bd->imguiTextures[index]) {
+				bd->imguiTextures[index]->Release();
+				bd->imguiTextures[index] = nullptr;
+			}
+			tex->SetTexID(ImTextureID_Invalid);
+			tex->SetStatus(ImTextureStatus_Destroyed);
+		}
 	}
+	bd->imguiTextures.clear();
 	for (int i = 0; i < ARRAY_SIZE(bd->pipelines); i++) {
 		if (bd->pipelines[i]) {
 			bd->pipelines[i]->Release();
@@ -323,12 +404,15 @@ bool ImGui_ImplThin3d_Init(Draw::DrawContext *draw,
 	io.BackendRendererUserData = (void*)bd;
 	io.BackendRendererName = "imgui_impl_thin3d";
 	io.BackendFlags |= ImGuiBackendFlags_RendererHasVtxOffset;  // We can honor the ImDrawCmd::VtxOffset field, allowing for large meshes.
+	io.BackendFlags |= ImGuiBackendFlags_RendererHasTextures;   // We create/update/destroy imgui's textures on request - see ImGui_ImplThin3d_UpdateTexture.
 	ImGui_ImplThin3d_CreateDeviceObjects(draw);
 	return true;
 }
 
 void ImGui_PushFixedFont() {
-	ImGui::PushFont(g_fixedFont);
+	// LegacySize is the size the font was added at, which is what PushFont used before 1.92 made
+	// the size an explicit parameter.
+	ImGui::PushFont(g_fixedFont, g_fixedFont->LegacySize);
 }
 
 void ImGui_PopFont() {
