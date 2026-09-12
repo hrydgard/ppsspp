@@ -2236,7 +2236,15 @@ static bool TestPath() {
 	EXPECT_EQ_INT((Path("") / "/etc/passwd").empty(), false);
 
 	EXPECT_EQ_STR(Path("foo.bar/hello").GetFileExtension(), std::string());
-	EXPECT_EQ_STR(Path("foo.bar/hello.txt").WithReplacedExtension(".txt", ".html").ToString(), std::string("foo.bar/hello.html"));
+	Path replaced("unset");
+	EXPECT_EQ_INT(Path("foo.bar/hello.txt").WithReplacedExtension(".txt", ".html", &replaced), true);
+	EXPECT_EQ_STR(replaced.ToString(), std::string("foo.bar/hello.html"));
+	// The extension has to actually be there. This used to hand back "foo.bar/hello.txt", so a
+	// caller asking for the .html next to it would have been pointed at the .txt itself.
+	EXPECT_EQ_INT(Path("foo.bar/hello.txt").WithReplacedExtension(".png", ".html", &replaced), false);
+	EXPECT_EQ_STR(replaced.ToString(), std::string("foo.bar/hello.html"));  // Untouched by the failure.
+	// Only the trailing extension counts - a dot earlier in the name isn't one.
+	EXPECT_EQ_INT(Path("foo.txt/hello").WithReplacedExtension(".txt", ".html", &replaced), false);
 
 	EXPECT_EQ_STR(Path("C:\\Yo").NavigateUp().ToString(), std::string("C:"));
 #if PPSSPP_PLATFORM(WINDOWS)

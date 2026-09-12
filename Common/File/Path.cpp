@@ -119,20 +119,25 @@ Path Path::WithExtraExtension(std::string_view ext) const {
 	return Path(path_ + std::string(ext));
 }
 
-Path Path::WithReplacedExtension(const std::string &oldExtension, const std::string &newExtension) const {
-	if (type_ == PathType::CONTENT_URI) {
-		AndroidContentURI uri(path_);
-		return Path(uri.WithReplacedExtension(oldExtension, newExtension).ToString());
-	}
-
+bool Path::WithReplacedExtension(const std::string &oldExtension, const std::string &newExtension, Path *out) const {
 	_dbg_assert_(!oldExtension.empty() && oldExtension[0] == '.');
 	_dbg_assert_(!newExtension.empty() && newExtension[0] == '.');
-	if (endsWithNoCase(path_, oldExtension)) {
-		std::string newPath = path_.substr(0, path_.size() - oldExtension.size());
-		return Path(newPath + newExtension);
-	} else {
-		return Path(*this);
+
+	if (type_ == PathType::CONTENT_URI) {
+		AndroidContentURI uri(path_);
+		AndroidContentURI replaced;
+		if (!uri.WithReplacedExtension(oldExtension, newExtension, &replaced)) {
+			return false;
+		}
+		*out = Path(replaced.ToString());
+		return true;
 	}
+
+	if (!endsWithNoCase(path_, oldExtension)) {
+		return false;
+	}
+	*out = Path(path_.substr(0, path_.size() - oldExtension.size()) + newExtension);
+	return true;
 }
 
 Path Path::WithReplacedExtension(const std::string &newExtension) const {
