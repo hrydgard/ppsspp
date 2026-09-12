@@ -175,19 +175,16 @@ static bool ReadTiledYCbCr(const u32 *buffers, int width, int height,
 	const int width2 = width >> 1;
 	const int height2 = height >> 1;
 
-	// buffer0/2 take the odd band out when the width isn't a multiple of 32.
-	const int lumaSizeLeft = ((width + 16) >> 5) * (height >> 1) * 16;
-	const int lumaSizeRight = (width >> 5) * (height >> 1) * 16;
-	const int chromaSizeLeft = lumaSizeLeft >> 1;
-	const int chromaSizeRight = lumaSizeRight >> 1;
+	int sizes[8];
+	VideocodecFrameBufferLayout(width, height, sizes, nullptr);
+	const int *ySize = sizes;
+	const int *cSize = sizes + 4;
 
-	const u8 *y[4] = {};
-	const u8 *c[4] = {};
-	const int ySize[4] = { lumaSizeLeft, lumaSizeRight, lumaSizeLeft, lumaSizeRight };
-	const int cSize[4] = { chromaSizeLeft, chromaSizeLeft, chromaSizeRight, chromaSizeRight };
 	// These are addresses in the Media Engine's memory, not in PSP RAM, so they resolve through
 	// sceVideocodec rather than through Memory::. A descriptor that was never filled in holds
 	// small integers instead, and those simply aren't in the ME's range.
+	const u8 *y[4] = {};
+	const u8 *c[4] = {};
 	for (int i = 0; i < 4; i++) {
 		if (ySize[i] > 0) {
 			y[i] = VideocodecMEPointer(buffers[i], ySize[i]);

@@ -340,13 +340,13 @@ static void hleDelayResultFinish(u64 userdata, int cycleslate) {
 // Which files need to be present for a disable-hle-flag to be honoured.
 //
 // Two shapes end up here. sceMp4 because libmp4.prx and mp4msv.prx are firmware libraries no game
-// ships, so without a dump there is nothing to run at all. sceFont because the module is on the
+// ships, so without firmware there is nothing to run at all. sceFont because the module is on the
 // disc like any other but reads its fonts from flash0:/font with nothing to fall back on. Either
 // way the HLE is the only thing that can serve, so the flag comes off.
 //
 // sceMpeg, sceMp3 and sceAtrac are deliberately not here: plenty of discs carry their own copy
 // (Death Jr. has MPEG.PRX and LIBATRAC3PLUS.PRX under PSP_GAME/USRDIR/MODULES), and dropping the
-// flag for want of a dump would replace a perfectly good disc module with our HLE. Those check for
+// flag for want of firmware would replace a perfectly good disc module with our HLE. Those check for
 // a real module at the point they would load one, and warn there if neither source has it.
 static void CheckDisableHLEAvailability() {
 	g_unavailableDisableFlags = (DisableHLEFlags)0;

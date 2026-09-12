@@ -35,9 +35,9 @@
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceVideocodec.h"
+#include "Core/Util/BlockAllocator.h"
 #include "Core/HLE/sceMpeg.h"
 #include "Core/HLE/sceMpegbase.h"
-#include "Core/Util/BlockAllocator.h"
 #include "Core/HW/AvcDecoder.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
@@ -173,9 +173,6 @@ void __VideocodecInit() {
 
 void __VideocodecShutdown() {
 	ClearContexts(true);
-	g_meRam.clear();
-	g_meRam.shrink_to_fit();
-	g_meAlloc.Shutdown();
 }
 
 void __VideocodecDoState(PointerWrap &p) {
@@ -197,12 +194,12 @@ void __VideocodecDoState(PointerWrap &p) {
 			Do(p, addr);
 			Do(p, ctx.type);
 			Do(p, ctx.frameCount);
-			Do(p, ctx.edram);
 			Do(p, ctx.frameBuffers);
 			Do(p, ctx.frameBuffersSize);
 			Do(p, ctx.frameBufferWidth);
 			Do(p, ctx.frameBufferHeight);
-			g_videocodecCtxs[addr] = ctx;
+			Do(p, ctx.edram);
+			g_videocodecCtxs[addr] = std::move(ctx);
 		}
 	} else {
 		for (auto &[addr, ctx] : g_videocodecCtxs) {
@@ -210,11 +207,11 @@ void __VideocodecDoState(PointerWrap &p) {
 			Do(p, a);
 			Do(p, ctx.type);
 			Do(p, ctx.frameCount);
-			Do(p, ctx.edram);
 			Do(p, ctx.frameBuffers);
 			Do(p, ctx.frameBuffersSize);
 			Do(p, ctx.frameBufferWidth);
 			Do(p, ctx.frameBufferHeight);
+			Do(p, ctx.edram);
 		}
 	}
 
@@ -224,21 +221,33 @@ void __VideocodecDoState(PointerWrap &p) {
 	g_meAlloc.DoState(p);
 }
 
+u32 VideocodecFrameBufferLayout(int width, int height, int sizes[8], u32 offsets[8]) {
+	// buffer0/2 take the odd band out when the width isn't a multiple of 32.
+	const int lumaLeft = ((width + 16) >> 5) * (height >> 1) * 16;
+	const int lumaRight = (width >> 5) * (height >> 1) * 16;
+	const int local[8] = {
+		lumaLeft, lumaRight, lumaLeft, lumaRight,
+		lumaLeft >> 1, lumaLeft >> 1, lumaRight >> 1, lumaRight >> 1,
+	};
+	u32 total = 0;
+	for (int i = 0; i < 8; i++) {
+		if (sizes) {
+			sizes[i] = local[i];
+		}
+		if (offsets) {
+			offsets[i] = total;
+		}
+		total += (local[i] + 63) & ~63;
+	}
+	return total;
+}
+
 // The descriptor mpeg.prx passes in is empty: on hardware the ME owns the frame buffers, and
 // reports where it put them. So allocate them here and fill the descriptor in the shape
 // sceMpegBaseCscAvc expects - dimensions in macroblocks, then the eight buffer addresses.
 static bool PublishFrameBuffers(VideocodecCtx &vctx, u32 structAddr, int width, int height, u32 buffers[8]) {
-	const int lumaLeft = ((width + 16) >> 5) * (height >> 1) * 16;
-	const int lumaRight = (width >> 5) * (height >> 1) * 16;
-	const int sizes[8] = {
-		lumaLeft, lumaRight, lumaLeft, lumaRight,
-		lumaLeft >> 1, lumaLeft >> 1, lumaRight >> 1, lumaRight >> 1,
-	};
-
-	u32 total = 0;
-	for (int i = 0; i < 8; i++) {
-		total += (sizes[i] + 63) & ~63;
-	}
+	u32 offsets[8];
+	const u32 total = VideocodecFrameBufferLayout(width, height, nullptr, offsets);
 	if (total == 0) {
 		return false;
 	}
@@ -263,10 +272,8 @@ static bool PublishFrameBuffers(VideocodecCtx &vctx, u32 structAddr, int width, 
 			total, vctx.frameBuffers, width, height);
 	}
 
-	u32 addr = vctx.frameBuffers;
 	for (int i = 0; i < 8; i++) {
-		buffers[i] = addr;
-		addr += (sizes[i] + 63) & ~63;
+		buffers[i] = vctx.frameBuffers + offsets[i];
 	}
 
 	if (!Memory::IsValidRange(structAddr, 48)) {
@@ -288,6 +295,7 @@ void VideocodecGetCtxInfo(std::vector<VideocodecCtxInfo> *infos) {
 		info.type = ctx.type;
 		info.hasDecoder = ctx.decoder != nullptr;
 		info.frameCount = ctx.frameCount;
+		// Hardware keeps the token in the context struct, so that's where we read it back from too.
 		info.edramToken = ctx.edram;
 		info.edramSize = ctx.edram ? g_meAlloc.GetBlockSizeFromAddress(ctx.edram) : 0;
 		info.frameBuffers = ctx.frameBuffers;
@@ -310,17 +318,10 @@ bool VideocodecGetFrameBuffers(u32 firstBuffer, u32 buffers[8]) {
 	if (!found) {
 		return false;
 	}
-	const int width = found->frameBufferWidth, height = found->frameBufferHeight;
-	const int lumaLeft = ((width + 16) >> 5) * (height >> 1) * 16;
-	const int lumaRight = (width >> 5) * (height >> 1) * 16;
-	const int sizes[8] = {
-		lumaLeft, lumaRight, lumaLeft, lumaRight,
-		lumaLeft >> 1, lumaLeft >> 1, lumaRight >> 1, lumaRight >> 1,
-	};
-	u32 addr = found->frameBuffers;
+	u32 offsets[8];
+	VideocodecFrameBufferLayout(found->frameBufferWidth, found->frameBufferHeight, nullptr, offsets);
 	for (int i = 0; i < 8; i++) {
-		buffers[i] = addr;
-		addr += (sizes[i] + 63) & ~63;
+		buffers[i] = found->frameBuffers + offsets[i];
 	}
 	return true;
 }
@@ -343,10 +344,10 @@ static void WriteTiledYCbCr(const u32 *buffers, const AvcDecoder &dec, int width
 		return;
 	}
 
-	const int lumaSizeLeft = ((width + 16) >> 5) * (height >> 1) * 16;
-	const int lumaSizeRight = (width >> 5) * (height >> 1) * 16;
-	const int ySize[4] = { lumaSizeLeft, lumaSizeRight, lumaSizeLeft, lumaSizeRight };
-	const int cSize[4] = { lumaSizeLeft >> 1, lumaSizeLeft >> 1, lumaSizeRight >> 1, lumaSizeRight >> 1 };
+	int sizes[8];
+	VideocodecFrameBufferLayout(width, height, sizes, nullptr);
+	const int *ySize = sizes;
+	const int *cSize = sizes + 4;
 
 	for (int b = 0; b < 4; b++) {
 		if (ySize[b] <= 0) {
@@ -421,8 +422,7 @@ static int sceVideocodecInit(u32 ctxAddr, int type) {
 	return hleLogInfo(Log::ME, 0, "type %d", type);
 }
 
-// See g_meRam for why this doesn't come out of the game's memory. The firmware keeps the block in
-// the caller's context and nowhere else, so we do too - see ppsspp-re, modules/sceVideocodec.
+// See g_meRam for why this doesn't come out of the game's memory.
 static int sceVideocodecGetEDRAM(u32 ctxAddr, int type) {
 	if (!Memory::IsValidRange(ctxAddr, 96)) {
 		return hleLogError(Log::ME, -1, "bad context pointer");
@@ -527,12 +527,14 @@ static int sceVideocodecDecode(u32 ctxAddr, int type) {
 	// Only the type 1 path fills the descriptor in. For type 0 the YCbCr descriptor sits just
 	// 0x40 bytes after this one - mpeg.prx allocates them adjacently - so writing the type 1
 	// fields here scribbles over the buffer addresses the colour conversion is about to read.
+	// For type 0 the frame isn't announced until the buffers holding it have been published -
+	// see below. Saying "one image decoded" and then failing to allocate would have mpeg.prx
+	// convert from whatever the descriptor pointed at last.
+	bool published = false;
 	if (type == 0) {
 		out32(8, width);
 		out32(12, height);
 		out32(28, 1);
-		out32(32, gotFrame ? 1 : 0);   // images decoded - mpeg.prx won't convert without this
-		out32(36, gotFrame ? 0 : 1);
 	} else {
 		out32(OUT_DATA, auAddr);
 		out32(OUT_SIZE, auSize);
@@ -555,6 +557,7 @@ static int sceVideocodecDecode(u32 ctxAddr, int type) {
 				u32 buffers[8];
 				if (PublishFrameBuffers(vctx, yuvStructAddr, width, height, buffers)) {
 					WriteTiledYCbCr(buffers, *vctx.decoder, width, height);
+					published = true;
 				}
 			} else {
 				WARN_LOG(Log::ME, "sceVideocodecDecode: type 0 without a usable buffer list");
@@ -566,6 +569,11 @@ static int sceVideocodecDecode(u32 ctxAddr, int type) {
 			out32(OUT_WIDTH_CR, width / 2);
 			out32(OUT_WIDTH_CB, width / 2);
 		}
+	}
+
+	if (type == 0) {
+		out32(32, published ? 1 : 0);   // images decoded - mpeg.prx won't convert without this
+		out32(36, published ? 0 : 1);
 	}
 
 	return hleLogDebug(Log::ME, 0, "type %d, %d bytes -> %s %dx%d",

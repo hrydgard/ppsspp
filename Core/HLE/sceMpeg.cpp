@@ -2329,5 +2329,3 @@ void Register_sceMpeg()
 {
 	RegisterHLEModule("sceMpeg", ARRAY_SIZE(sceMpeg), sceMpeg);
 }
-
-// This function is currently only been used for PMP videos
