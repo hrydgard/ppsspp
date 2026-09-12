@@ -66,7 +66,9 @@ constexpr int SCREENSHOT_FAILURE_RETRIES = 6;
 static const char * const STATE_EXTENSION = "ppst";
 static const char * const UNDO_STATE_EXTENSION = "undo.ppst";
 static const char * const UNDO_SCREENSHOT_EXTENSION = "undo.jpg";
-static const char * const NAME_EXTENSION = "txt";
+// Namespaced the way UNDO_STATE_EXTENSION is, so a stray "<prefix>_<slot>.txt" someone happened to
+// leave in the savestate folder isn't mistaken for a slot's name.
+static const char * const NAME_EXTENSION = "name.txt";
 
 static const char * const LOAD_UNDO_NAME = "load_undo.ppst";
 
@@ -708,14 +710,29 @@ int g_screenshotFailures;
 	}
 
 	std::string GetSlotCustomName(std::string_view gamePrefix, int slot) {
+		// Most slots don't have a name file, and this gets called for every slot each time the
+		// pause screen builds its views - so consult the listing before touching the disk.
+		if (!SaveStateFileExists(gamePrefix, slot, NAME_EXTENSION)) {
+			return std::string();
+		}
 		Path path = GenerateSaveSlotPath(gamePrefix, slot, NAME_EXTENSION);
-		std::string result = "";
+		std::string result;
 		File::ReadBinaryFileToString(path, &result);
 		return result;
 	}
 
 	void SetSlotCustomName(std::string_view gamePrefix, int slot, std::string_view new_name){
-		File::WriteStringToFile(true, new_name, GenerateSaveSlotPath(gamePrefix, slot, NAME_EXTENSION));
+		const Path path = GenerateSaveSlotPath(gamePrefix, slot, NAME_EXTENSION);
+		if (new_name.empty()) {
+			// Clearing the name. Leaving an empty file behind would work, but it'd stay in the
+			// savestate folder for good - a slot with no name shouldn't have a name file.
+			DeleteIfExists(path);
+		} else {
+			File::WriteStringToFile(true, new_name, path);
+		}
+		// What we just wrote (or removed) isn't reflected in the listing GetSlotCustomName reads,
+		// so without this the change wouldn't show up until something else happened to rescan.
+		Rescan(gamePrefix);
 	}
 
 	std::vector<Operation> Flush() {
