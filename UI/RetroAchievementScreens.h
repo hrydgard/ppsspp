@@ -6,6 +6,7 @@
 #include "Common/UI/View.h"
 #include "Common/UI/UIScreen.h"
 #include "Common/UI/ViewGroup.h"
+#include "Core/Config.h"
 #include "Core/RetroAchievements.h"
 #include "UI/BaseScreens.h"
 #include "UI/TabbedDialogScreen.h"
@@ -34,7 +35,8 @@ private:
 // Lets you manage your account, and shows some achievement stats and stuff.
 class RetroAchievementsSettingsScreen : public UITabbedBaseDialogScreen {
 public:
-	RetroAchievementsSettingsScreen(const Path &gamePath) : UITabbedBaseDialogScreen(gamePath) {}
+	RetroAchievementsSettingsScreen(const Path &gamePath)
+		: UITabbedBaseDialogScreen(gamePath, &g_Config.iRetroAchievementsSettingsCurrentTab) {}
 	~RetroAchievementsSettingsScreen();
 	const char *tag() const override { return "RetroAchievementsSettingsScreen"; }
 

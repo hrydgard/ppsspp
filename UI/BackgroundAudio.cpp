@@ -636,17 +636,42 @@ void SoundEffectMixer::Init() {
 }
 
 void SoundEffectMixer::LoadSamplesOnThread() {
-	LoadDefaultSample(UI::UISound::BACK);
-	LoadDefaultSample(UI::UISound::SELECT);
-	LoadDefaultSample(UI::UISound::CONFIRM);
-	LoadDefaultSample(UI::UISound::TOGGLE_ON);
-	LoadDefaultSample(UI::UISound::TOGGLE_OFF);
+	if (!g_Config.sUIBackAudioFile.empty()) {
+		UpdateSample(UI::UISound::BACK, Sample::Load(g_Config.sUIBackAudioFile));
+	} else {
+		LoadDefaultSample(UI::UISound::BACK);
+	}
+
+	if (!g_Config.sUISelectAudioFile.empty()) {
+		UpdateSample(UI::UISound::SELECT, Sample::Load(g_Config.sUISelectAudioFile));
+	} else {
+		LoadDefaultSample(UI::UISound::SELECT);
+	}
+
+	if (!g_Config.sUIConfirmAudioFile.empty()) {
+		UpdateSample(UI::UISound::CONFIRM, Sample::Load(g_Config.sUIConfirmAudioFile));
+	} else {
+		LoadDefaultSample(UI::UISound::CONFIRM);
+	}
+
+	if (!g_Config.sUIToggleOnAudioFile.empty()) {
+		UpdateSample(UI::UISound::TOGGLE_ON, Sample::Load(g_Config.sUIToggleOnAudioFile));
+	} else {
+		LoadDefaultSample(UI::UISound::TOGGLE_ON);
+	}
+
+	if (!g_Config.sUIToggleOffAudioFile.empty()) {
+		UpdateSample(UI::UISound::TOGGLE_OFF, Sample::Load(g_Config.sUIToggleOffAudioFile));
+	} else {
+		LoadDefaultSample(UI::UISound::TOGGLE_OFF);
+	}
 
 	if (!g_Config.sAchievementsUnlockAudioFile.empty()) {
 		UpdateSample(UI::UISound::ACHIEVEMENT_UNLOCKED, Sample::Load(g_Config.sAchievementsUnlockAudioFile));
 	} else {
 		LoadDefaultSample(UI::UISound::ACHIEVEMENT_UNLOCKED);
 	}
+
 	if (!g_Config.sAchievementsLeaderboardSubmitAudioFile.empty()) {
 		UpdateSample(UI::UISound::LEADERBOARD_SUBMITTED, Sample::Load(g_Config.sAchievementsLeaderboardSubmitAudioFile));
 	} else {
