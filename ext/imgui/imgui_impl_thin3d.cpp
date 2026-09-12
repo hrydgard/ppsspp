@@ -53,9 +53,9 @@ static BackendData *ImGui_ImplThin3d_GetBackendData() {
 }
 
 // Since 1.92 imgui owns its textures (the font atlas, and any more it needs as glyphs get
-// rasterized on demand) and asks the backend to create, refresh and destroy them. thin3d can only
-// replace a whole mip level, not a sub-rectangle, so an update re-uploads everything - which is
-// fine, since these only change when a new glyph shows up.
+// rasterized on demand) and asks the backend to create, refresh and destroy them. An update comes
+// with a list of dirty rectangles, which we hand to thin3d as sub-rectangle uploads so a single new
+// glyph doesn't cost a re-upload of the whole atlas.
 static void ImGui_ImplThin3d_UpdateTexture(Draw::DrawContext *draw, ImTextureData *tex) {
 	BackendData *bd = ImGui_ImplThin3d_GetBackendData();
 
@@ -103,8 +103,21 @@ static void ImGui_ImplThin3d_UpdateTexture(Draw::DrawContext *draw, ImTextureDat
 			ERROR_LOG(Log::System, "imgui: asked to update texture %d, which we don't have", (int)tex->GetTexID());
 			return;
 		}
-		const uint8_t *data = (const uint8_t *)tex->GetPixels();
-		draw->UpdateTextureLevels(bd->imguiTextures[index], &data, nullptr, 1);
+		std::vector<Draw::TextureRegionUpdate> regions;
+		regions.reserve(tex->Updates.Size);
+		for (const ImTextureRect &rect : tex->Updates) {
+			Draw::TextureRegionUpdate region;
+			region.x = rect.x;
+			region.y = rect.y;
+			region.w = rect.w;
+			region.h = rect.h;
+			region.data = (const uint8_t *)tex->GetPixelsAt(rect.x, rect.y);
+			region.byteStride = tex->GetPitch();
+			regions.push_back(region);
+		}
+		if (!regions.empty()) {
+			draw->UpdateTextureRegions(bd->imguiTextures[index], 0, regions.data(), (int)regions.size());
+		}
 		tex->SetStatus(ImTextureStatus_OK);
 		break;
 	}

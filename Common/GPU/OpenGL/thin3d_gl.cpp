@@ -377,6 +377,7 @@ public:
 
 	void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) override;
 	void UpdateTextureLevels(Texture *texture, const uint8_t **data, TextureCallback initDataCallback, int numLevels) override;
+	void UpdateTextureRegions(Texture *texture, int level, const TextureRegionUpdate *regions, int numRegions) override;
 
 	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, Aspect aspects, const char *tag) override;
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, Aspect aspects, FBBlitFilter filter, const char *tag) override;
@@ -860,6 +861,7 @@ public:
 	}
 
 	void UpdateTextureLevels(GLRenderManager *render, const uint8_t *const *data, int numLevels, TextureCallback initDataCallback);
+	void UpdateTextureRegions(GLRenderManager *render, int level, const TextureRegionUpdate *regions, int numRegions);
 
 private:
 	void SetImageData(int x, int y, int z, int width, int height, int depth, int level, int stride, const uint8_t *data, TextureCallback initDataCallback);
@@ -918,6 +920,23 @@ void OpenGLTexture::UpdateTextureLevels(GLRenderManager *render, const uint8_t *
 		generatedMips_ = true;
 	}
 	render->FinalizeTexture(tex_, mipLevels_, genMips);
+}
+
+void OpenGLTexture::UpdateTextureRegions(GLRenderManager *render, int level, const TextureRegionUpdate *regions, int numRegions) {
+	const int pixelSize = (int)DataFormatSizeInBytes(format_);
+	for (int i = 0; i < numRegions; i++) {
+		const TextureRegionUpdate &region = regions[i];
+		_dbg_assert_(region.w > 0 && region.h > 0);
+		const int srcStride = region.byteStride ? region.byteStride : region.w * pixelSize;
+		const int dstStride = region.w * pixelSize;
+		// glTexSubImage2D could take the stride through GL_UNPACK_ROW_LENGTH, but that's not in GLES2,
+		// and the queue runner owns the data anyway, so just pack it here.
+		uint8_t *texData = new uint8_t[(size_t)dstStride * region.h];
+		for (int y = 0; y < region.h; y++) {
+			memcpy(texData + (size_t)dstStride * y, region.data + (size_t)srcStride * y, dstStride);
+		}
+		render->TextureSubImageInit(tex_, level, region.x, region.y, region.w, region.h, format_, texData);
+	}
 }
 
 OpenGLTexture::~OpenGLTexture() {
@@ -1043,6 +1062,11 @@ Texture *OpenGLContext::CreateTexture(const TextureDesc &desc) {
 void OpenGLContext::UpdateTextureLevels(Texture *texture, const uint8_t **data, TextureCallback initDataCallback, int numLevels) {
 	OpenGLTexture *tex = (OpenGLTexture *)texture;
 	tex->UpdateTextureLevels(&renderManager_, data, numLevels, initDataCallback);
+}
+
+void OpenGLContext::UpdateTextureRegions(Texture *texture, int level, const TextureRegionUpdate *regions, int numRegions) {
+	OpenGLTexture *tex = (OpenGLTexture *)texture;
+	tex->UpdateTextureRegions(&renderManager_, level, regions, numRegions);
 }
 
 DepthStencilState *OpenGLContext::CreateDepthStencilState(const DepthStencilStateDesc &desc) {
