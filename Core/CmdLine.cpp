@@ -212,6 +212,7 @@ static const CommandLineParam g_autoParams[] = {
 	{POFF(unpackUpdater), CmdParamType::String, "unpack-updater", '\0', "Unpack the firmware in an updater EBOOT.PBP into DIR and exit", CmdLineMode::Headless},
 	{POFF(unpackUpdaterModel), CmdParamType::String, "unpack-updater-model", '\0', "PSP model to unpack for (01g..12g, default any)", CmdLineMode::Headless},
 	{POFF(unpackUpdaterFilter), CmdParamType::String, "unpack-updater-filter", '\0', "Only unpack entries under this path, e.g. flash0:/font/", CmdLineMode::Headless},
+	{POFF(firmwareFromDisc), CmdParamType::Bool, "firmware-from-disc", '\0', "Install the firmware bundled on the booted disc and use it for this run", CmdLineMode::Headless},
 	{POFF(installPkg), CmdParamType::String, "install-pkg", '\0', "Install the game update in a .pkg into DIR and exit", CmdLineMode::Headless},
 	{POFF(reModule), CmdParamType::String, "re-module", '\0', "Load one PRX standalone and write a reverse-engineering report, then exit", CmdLineMode::Headless},
 	{POFF(reOut), CmdParamType::String, "re-out", '\0', "Directory for --re-module output (default: re-out)", CmdLineMode::Headless},

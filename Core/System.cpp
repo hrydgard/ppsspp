@@ -506,9 +506,6 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 
 	DisplayHWInit();
 
-	// Init all the HLE modules
-	HLEInit();
-
 	// TODO: Put this somewhere better?
 	if (!g_CoreParameter.mountIso.empty()) {
 		g_CoreParameter.mountIsoLoader = ConstructFileLoader(g_CoreParameter.mountIso);
@@ -520,6 +517,13 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 	AutoInstallFirmwareFromDisc();
 
 	MountFileSystems();
+
+	// Init all the HLE modules. After the mount, and after the firmware install above, so that the
+	// checks in HLEInit deciding whether a library can run its real module instead of our HLE can
+	// ask the PSP filesystem the way everything else does - and see a firmware this very boot just
+	// installed off the disc. Nothing between CoreTiming::Init above and here touches HLE, and the
+	// kernel and the game's modules both come later, in the switch below.
+	HLEInit();
 
 	// Game-specific settings are load from for example Load_PSP_ISO (which calls g_Config.LoadGameConfig).
 	// We can't do things that depend on these before the below switch. So for example, the adjustment of the GPU core

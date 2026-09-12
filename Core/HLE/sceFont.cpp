@@ -907,7 +907,7 @@ static int GameFirmwareVersion() {
 //
 // One directory listing rather than a stat per font, since on Android's scoped storage the
 // individual checks are slow.
-static bool NandFontsComplete() {
+bool NandFontsComplete() {
 	const int firmware = GameFirmwareVersion();
 
 	std::string_view fontDir(g_nandFontPath);
