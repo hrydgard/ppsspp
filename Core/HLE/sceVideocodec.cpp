@@ -280,6 +280,24 @@ static bool PublishFrameBuffers(VideocodecCtx &vctx, u32 structAddr, int width, 
 	return true;
 }
 
+void VideocodecGetCtxInfo(std::vector<VideocodecCtxInfo> *infos) {
+	infos->clear();
+	for (const auto &[addr, ctx] : g_videocodecCtxs) {
+		VideocodecCtxInfo info;
+		info.ctxAddr = addr;
+		info.type = ctx.type;
+		info.hasDecoder = ctx.decoder != nullptr;
+		info.frameCount = ctx.frameCount;
+		info.edramToken = ctx.edram;
+		info.edramSize = ctx.edram ? g_meAlloc.GetBlockSizeFromAddress(ctx.edram) : 0;
+		info.frameBuffers = ctx.frameBuffers;
+		info.frameBuffersSize = ctx.frameBuffersSize;
+		info.width = ctx.frameBufferWidth;
+		info.height = ctx.frameBufferHeight;
+		infos->push_back(info);
+	}
+}
+
 bool VideocodecGetFrameBuffers(u32 firstBuffer, u32 buffers[8]) {
 	// sceMpegbase only has the first of the eight addresses, so find whose allocation it is.
 	const VideocodecCtx *found = nullptr;
