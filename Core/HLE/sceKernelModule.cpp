@@ -2026,6 +2026,21 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	return module;
 }
 
+bool KernelModuleIsLoaded(std::string_view name) {
+	u32 error;
+	for (SceUID moduleId : loadedModules) {
+		PSPModule *module = kernelObjects.Get<PSPModule>(moduleId, error);
+		// A fake module is our own HLE stand-in, which isn't the real library being asked about.
+		if (!module || module->isFake) {
+			continue;
+		}
+		if (equals(name, module->nm.name)) {
+			return true;
+		}
+	}
+	return false;
+}
+
 SceUID KernelLoadModule(const std::string &filename, std::string *error_string, bool fromTop) {
 	std::vector<uint8_t> buffer;
 	if (pspFileSystem.ReadEntireFile(filename, buffer) < 0)

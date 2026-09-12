@@ -25,6 +25,10 @@
 #include "Common/Serialize/SerializeMap.h"
 #include "Common/Serialize/SerializeSet.h"
 #include "Common/File/VFS/VFS.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/StringUtils.h"
+#include "Common/System/OSD.h"
+#include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
 #include "Core/HLE/HLE.h"
@@ -81,62 +85,105 @@ static const int atrac3PlusModuleDeps[] = {0x0300, 0};
 static const int mpegBaseModuleDeps[] = {0x0300, 0};
 static const int mp4ModuleDeps[] = {0x0300, 0};
 
+// Loading the firmware's module for a library we've been told not to HLE.
+//
+// This is the path for a game that brings no copy of its own. One that does loads it directly and
+// never comes here: a third of the checked games ship an AV library, and of the twelve seen doing both,
+// not one asked sceUtility for a library it had already loaded - only for the ones it hadn't
+// brought. Toca Race Driver ships LIBMP3.PRX and asks for 0x300 to 0x303.
+//
+// So the module-list check below is a guard rather than the normal path, and it costs nothing:
+// asking the list rather than remembering what we loaded means this needs no state of its own. It
+// is right after a savestate load, across games, and if a game unloads a library and asks again.
+struct FirmwareModule {
+	const char *path;        // in the firmware
+	const char *moduleName;  // what the module calls itself once loaded
+};
+
+static void LoadFirmwareModules(const char *library, const FirmwareModule *modules, size_t count) {
+	for (size_t i = 0; i < count; i++) {
+		if (KernelModuleIsLoaded(modules[i].moduleName)) {
+			DEBUG_LOG(Log::sceUtility, "%s is already loaded - not loading %s on top of it",
+				modules[i].moduleName, modules[i].path);
+			continue;
+		}
+		if (!pspFileSystem.GetFileInfo(modules[i].path).exists) {
+			// Nothing to fall back to: the game's imports were resolved against the real module
+			// when it loaded, so putting our HLE back now is not an option.
+			ERROR_LOG(Log::sceUtility, "%s HLE is disabled, but %s isn't in the firmware and the "
+				"game didn't bring its own - it will get unresolved imports", library, modules[i].path);
+			auto sy = GetI18NCategory(I18NCat::SYSTEM);
+			// Keyed per library, so a game that asks for the module again replaces the message
+			// rather than stacking another copy of it, and two missing libraries still both show.
+			char osdId[64];
+			snprintf(osdId, sizeof(osdId), "hle_no_module_%s", library);
+			g_OSD.Show(OSDType::MESSAGE_WARNING, ApplySafeSubstitutions(
+				sy->T("%1 needs a firmware installed to run without HLE. Install one, or re-enable HLE for it."),
+				library), 6.0f, osdId);
+			return;
+		}
+		std::string error;
+		SceUID id = KernelLoadModule(modules[i].path, &error, false);
+		if (id < 0) {
+			ERROR_LOG(Log::sceUtility, "Couldn't load %s: %s", modules[i].path, error.c_str());
+			return;
+		}
+		const int result = __KernelStartModule(id, 0, 0, 0, nullptr, nullptr);
+		if (result < 0) {
+			ERROR_LOG(Log::sceUtility, "Failed to start %s (%08x)", modules[i].path, result);
+			return;
+		}
+		INFO_LOG(Log::sceUtility, "Loaded the real %s", modules[i].path);
+	}
+}
+
+// libmp3.prx imports nothing but the kernel and sceAudiocodec, which we have.
+static void NotifyLoadStatusMp3(int state, u32 loadAddr, u32 totalSize) {
+	// The effective flags, not the raw setting: those also account for the compat flags, for a
+	// firmware dump that isn't there, and for the boundary a savestate restored - resolving
+	// imports one way and loading modules the other is how a game ends up with neither.
+	if (state != 1 || !(GetEffectiveDisableHLEFlags() & DisableHLEFlags::sceMp3)) {
+		return;
+	}
+	static const FirmwareModule modules[] = {
+		{ "flash0:/kd/libmp3.prx", "sceMp3_Library" },
+	};
+	LoadFirmwareModules("sceMp3", modules, ARRAY_SIZE(modules));
+}
+
 static void NotifyLoadStatusAvcodec(int state, u32 loadAddr, u32 totalSize) {
 	JpegNotifyLoadStatus(state);
 }
 
 // The MP4 libraries are a good candidate for running the real thing: libmp4.prx needs only two
 // functions from sceAudiocodec (Init and Decode) plus ordinary kernel calls, and mp4msv.prx - the
-// 41 functions libmp4 leans on - imports nothing at all. So with a firmware dump present, the pair
-// can be loaded for real and left to decode through our sceAudiocodec HLE.
-static SceUID g_mp4RealModules[2] = { 0, 0 };
-
+// 41 functions libmp4 leans on - imports nothing at all.
 static void NotifyLoadStatusMp4(int state, u32 loadAddr, u32 totalSize) {
-	// The effective flags, not the raw setting: those also account for a firmware dump that isn't
-	// there or is too old to have sceMp4 (which is the whole point of CheckDisableHLEAvailability),
-	// for the compat flags.
-	if (!(GetEffectiveDisableHLEFlags() & DisableHLEFlags::sceMp4)) {
+	if (state != 1 || !(GetEffectiveDisableHLEFlags() & DisableHLEFlags::sceMp4)) {
 		return;
 	}
-
-	if (state == 1) {
-		// mp4msv first - libmp4 imports from it, and an import can only resolve to a module that
-		// is already loaded.
-		static const char *const paths[2] = {
-			"flash0:/kd/mp4msv.prx",
-			"flash0:/kd/libmp4.prx",
-		};
-		for (int i = 0; i < 2; i++) {
-			if (g_mp4RealModules[i]) {
-				continue;
-			}
-			std::string error;
-			SceUID id = KernelLoadModule(paths[i], &error, true);
-			if (id < 0) {
-				ERROR_LOG(Log::sceUtility, "sceMp4 HLE is disabled, but %s wouldn't load (%s) - "
-					"the game will get unresolved imports", paths[i], error.c_str());
-				return;
-			}
-			int result = __KernelStartModule(id, 0, 0, 0, nullptr, nullptr);
-			if (result < 0) {
-				ERROR_LOG(Log::sceUtility, "Failed to start %s (%08x)", paths[i], result);
-				return;
-			}
-			g_mp4RealModules[i] = id;
-			INFO_LOG(Log::sceUtility, "Loaded the real %s", paths[i]);
-		}
-	}
+	// mp4msv first - libmp4 imports from it, and an import can only resolve to a module that is
+	// already loaded.
+	static const FirmwareModule modules[] = {
+		{ "flash0:/kd/mp4msv.prx", "mp4msv_module" },
+		{ "flash0:/kd/libmp4.prx", "sceMp4_library" },
+	};
+	LoadFirmwareModules("sceMp4", modules, ARRAY_SIZE(modules));
 }
 
 static void NotifyLoadStatusAtrac(int state, u32 loadAddr, u32 totalSize) {
 	if (state == 1) {
-		// If HLE of sceAtrac is disabled, things will break!
-		// For now we do angry logging and a debug assert.
-		if ((DisableHLEFlags)g_Config.iDisableHLE & DisableHLEFlags::sceAtrac) {
-			ERROR_LOG(Log::ME, "sceAtrac HLE is disabled, and the game tries to load sceAtrac from firmware - this won't work!");
-			_dbg_assert_(false);
-
-			// Actually, if the user has an F0 (psardumper) dump, we could go look for the file there.
+		// The effective flags, for the same reason the loads above use them.
+		if (GetEffectiveDisableHLEFlags() & DisableHLEFlags::sceAtrac) {
+			// libatrac3plus.prx imports only Kernel_Library and sceAudiocodec, both of which we
+			// have, so the real module runs against our HLE the same way libmp3.prx does. Nothing
+			// below applies once it does: the atrac contexts then live in that module's own bss,
+			// not in the block we hand out here, and the game's calls go to it rather than to us.
+			static const FirmwareModule modules[] = {
+				{ "flash0:/kd/libatrac3plus.prx", "sceATRAC3plus_Library" },
+			};
+			LoadFirmwareModules("sceAtrac", modules, ARRAY_SIZE(modules));
+			return;
 		}
 
 		// We try to imitate a recent version of the prx.
@@ -146,8 +193,19 @@ static void NotifyLoadStatusAtrac(int state, u32 loadAddr, u32 totalSize) {
 		_dbg_assert_(bssSize <= totalSize);
 		__AtracNotifyLoadModule(version, 0, loadAddr, bssSize);
 	} else if (state == -1) {
-		// Unload.
+		// Unload. Harmless when the firmware's module took over - there was no load to undo.
 		__AtracNotifyUnloadModule();
+	}
+}
+
+// Which library each AV utility module provides, for the ones a real module can take over when
+// HLE is disabled for it. See LoadModuleInternal.
+static DisableHLEFlags UtilityModuleLibraryFlag(u32 module) {
+	switch (module) {
+	case 0x302: return DisableHLEFlags::sceAtrac;    // av_atrac3plus
+	case 0x304: return DisableHLEFlags::sceMp3;      // av_mp3
+	case 0x308: return DisableHLEFlags::sceMp4;      // av_mp4
+	default: return (DisableHLEFlags)0;
 	}
 }
 
@@ -178,7 +236,7 @@ static const ModuleLoadInfo moduleLoadInfo[] = {
 	// Changing this breaks some bad cheats though..
 	ModuleLoadInfo(0x302, 0x00008000, "av_atrac3plus", atrac3PlusModuleDeps, &NotifyLoadStatusAtrac),
 	ModuleLoadInfo(0x303, 0x0000c000, "av_mpegbase", mpegBaseModuleDeps),
-	ModuleLoadInfo(0x304, 0x00004000, "av_mp3"),
+	ModuleLoadInfo(0x304, 0x00004000, "av_mp3", &NotifyLoadStatusMp3),
 	ModuleLoadInfo(0x305, 0x0000a300, "av_vaudio"),
 	ModuleLoadInfo(0x306, 0x00004000, "av_aac"),
 	ModuleLoadInfo(0x307, 0x00000000, "av_g729"),
@@ -364,9 +422,6 @@ void __UtilityInit() {
 	DeactivateDialog();
 	SavedataParam::Init();
 	currentlyLoadedModules.clear();
-	// Vital to reset these between games, otherwise we might think they're already loaded.
-	g_mp4RealModules[0] = 0;
-	g_mp4RealModules[1] = 0;
 	volatileUnlockEvent = CoreTiming::RegisterEvent("UtilityVolatileUnlock", UtilityVolatileUnlock);
 
 	ResetSecondsSinceLastGameSave();
@@ -719,10 +774,15 @@ static int LoadModuleInternal(u32 module, bool av) {
 	}
 
 	u32 allocSize = info->size;
+	const DisableHLEFlags libraryFlag = UtilityModuleLibraryFlag(module);
+	if (libraryFlag != (DisableHLEFlags)0 && (GetEffectiveDisableHLEFlags() & libraryFlag)) {
+		allocSize = 0;
+	}
+
 	u32 address = 0;
-	char name[128];
-	snprintf(name, sizeof(name), "UtilityModule/%3x_%s", module, info->name);
 	if (allocSize != 0) {
+		char name[128];
+		snprintf(name, sizeof(name), "UtilityModule/%3x_%s", module, info->name);
 		address = userMemory.Alloc(allocSize, false, name);
 	}
 	currentlyLoadedModules[module] = address;
