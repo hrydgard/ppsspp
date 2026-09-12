@@ -735,6 +735,21 @@ int g_screenshotFailures;
 		Rescan(gamePrefix);
 	}
 
+	std::vector<Path> GetCompanionFilePaths(const Path &statePath) {
+		const std::string stateExtension = std::string(".") + STATE_EXTENSION;
+		// A path that isn't a savestate yields nothing, which WithReplacedExtension now tells us
+		// rather than handing back the path itself. An undo state does work, and correctly:
+		// "x.undo.ppst" maps onto "x.undo.jpg".
+		std::vector<Path> paths;
+		for (const char *extension : { SCREENSHOT_EXTENSION, NAME_EXTENSION }) {
+			Path companion;
+			if (statePath.WithReplacedExtension(stateExtension, std::string(".") + extension, &companion)) {
+				paths.push_back(companion);
+			}
+		}
+		return paths;
+	}
+
 	std::vector<Operation> Flush() {
 		std::lock_guard<std::mutex> guard(mutex);
 		std::vector<Operation> copy = g_pendingOperations;
