@@ -614,6 +614,17 @@ bool InputMappingToPspButton(const InputMapping &mapping, std::vector<int> *pspB
 	return found;
 }
 
+void GetAllComboMappingsNoLock(std::vector<MultiInputMapping> *combos) {
+	combos->clear();
+	for (const auto &iter : g_controllerMap) {
+		for (const auto &mapping : iter.second) {
+			if (mapping.mappings.size() > 1) {
+				combos->push_back(mapping);
+			}
+		}
+	}
+}
+
 // This is the main workhorse of the ControlMapper.
 bool InputMappingsFromPspButtonNoLock(int btn, std::vector<MultiInputMapping> *mappings, bool ignoreMouse) {
 	auto iter = g_controllerMap.find(btn);
