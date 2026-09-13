@@ -1149,6 +1149,7 @@ const GestureControlConfig &GestureGamepad::GetZone() {
 }
 
 GestureGamepad::~GestureGamepad() {
+	ReleaseHeldSwipeKeys();
 	if (dragPointerId_ != -1) {
 		g_activeGesturePointers.erase(dragPointerId_);
 	}
@@ -1163,6 +1164,24 @@ GestureGamepad::~GestureGamepad() {
 // lookup.
 static bool ValidGestureKeyConfig(int config) {
 	return config > 0 && (size_t)config <= ARRAY_SIZE(GestureKey::keyList);
+}
+
+// Swipe directions stay held until the finger lifts, so if we go away while one is held - the
+// touch controls get rebuilt when settings change, for instance - we have to let go ourselves.
+void GestureGamepad::ReleaseHeldSwipeKeys() {
+	const GestureControlConfig &zone = GetZone();
+	const struct { int config; bool *released; } keys[] = {
+		{ zone.iSwipeRight, &swipeRightReleased_ },
+		{ zone.iSwipeLeft, &swipeLeftReleased_ },
+		{ zone.iSwipeUp, &swipeUpReleased_ },
+		{ zone.iSwipeDown, &swipeDownReleased_ },
+	};
+	for (const auto &key : keys) {
+		if (!*key.released && ValidGestureKeyConfig(key.config)) {
+			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[key.config - 1], KeyInputFlags::UP);
+		}
+		*key.released = true;
+	}
 }
 
 bool GestureGamepad::Touch(const TouchInput &input) {
@@ -1277,11 +1296,16 @@ void GestureGamepad::Update() {
 		return;
 	}
 
+	// Once a direction has been swiped, keep it held as long as the finger stays down, instead of
+	// letting go the moment the finger stops moving - otherwise you can't hold a direction without
+	// sliding around forever. Swiping the opposite way still releases it, as does lifting the finger.
+	const bool stillTouching = dragPointerId_ != -1;
+
 	if (ValidGestureKeyConfig(GetZone().iSwipeRight)) {
 		if (dx > th) {
 			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[GetZone().iSwipeRight - 1], KeyInputFlags::DOWN);
 			swipeRightReleased_ = false;
-		} else if (!swipeRightReleased_) {
+		} else if (!swipeRightReleased_ && (!stillTouching || dx < -th)) {
 			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[GetZone().iSwipeRight -1], KeyInputFlags::UP);
 			swipeRightReleased_ = true;
 		}
@@ -1290,7 +1314,7 @@ void GestureGamepad::Update() {
 		if (dx < -th) {
 			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[GetZone().iSwipeLeft - 1], KeyInputFlags::DOWN);
 			swipeLeftReleased_ = false;
-		} else if (!swipeLeftReleased_) {
+		} else if (!swipeLeftReleased_ && (!stillTouching || dx > th)) {
 			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[GetZone().iSwipeLeft - 1], KeyInputFlags::UP);
 			swipeLeftReleased_ = true;
 		}
@@ -1299,7 +1323,7 @@ void GestureGamepad::Update() {
 		if (dy < -th) {
 			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[GetZone().iSwipeUp - 1], KeyInputFlags::DOWN);
 			swipeUpReleased_ = false;
-		} else if (!swipeUpReleased_) {
+		} else if (!swipeUpReleased_ && (!stillTouching || dy > th)) {
 			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[GetZone().iSwipeUp - 1], KeyInputFlags::UP);
 			swipeUpReleased_ = true;
 		}
@@ -1308,7 +1332,7 @@ void GestureGamepad::Update() {
 		if (dy > th) {
 			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[GetZone().iSwipeDown - 1], KeyInputFlags::DOWN);
 			swipeDownReleased_ = false;
-		} else if (!swipeDownReleased_) {
+		} else if (!swipeDownReleased_ && (!stillTouching || dy < -th)) {
 			controlMapper_->PSPKey(DEVICE_ID_TOUCH, GestureKey::keyList[GetZone().iSwipeDown - 1], KeyInputFlags::UP);
 			swipeDownReleased_ = true;
 		}
