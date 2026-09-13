@@ -75,7 +75,9 @@ public:
 		flags_ |= flag;
 	}
 
-	void Cancel() { cancelled_ = true; }
+	// Virtual so a backend can act on it. The HTTPS one has to tell naett, which is what actually
+	// stops a transfer in progress - see HTTPSRequest::Cancel.
+	virtual void Cancel() { cancelled_ = true; }
 	bool IsCancelled() const { return cancelled_; }
 
 	// If not downloading to a file, access this to get the result.
