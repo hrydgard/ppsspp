@@ -17,5 +17,13 @@
 
 #pragma once
 
+#include "Common/CommonTypes.h"
+
+class PointerWrap;
+
+void __Mp4Init();
+void __Mp4DoState(PointerWrap &p);
+void __Mp4Shutdown();
+
 void Register_sceMp4();
 void Register_mp4msv();
