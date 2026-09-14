@@ -649,7 +649,7 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, GLFrameData &f
 					}
 				}
 				break;
-			case GLRStepType::CALLBACK:
+			case GLRStepType::NATIVE_CALLBACK:
 				if (step.callback.fn) {
 					delete step.callback.fn;
 				}
@@ -724,7 +724,7 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, GLFrameData &f
 			break;
 		case GLRStepType::RENDER_SKIP:
 			break;
-		case GLRStepType::CALLBACK:
+		case GLRStepType::NATIVE_CALLBACK:
 			PerformCallback(step, keepSteps);
 			break;
 		default:
@@ -740,7 +740,7 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, GLFrameData &f
 			frameData.profile.passesString += StepToString(step);
 		}
 		if (!keepSteps) {
-			if (step.stepType == GLRStepType::CALLBACK && step.callback.fn) {
+			if (step.stepType == GLRStepType::NATIVE_CALLBACK && step.callback.fn) {
 				delete step.callback.fn;
 			}
 			delete steps[i];
@@ -801,7 +801,7 @@ void GLQueueRunner::RestoreBaselineStateAfterCallback() {
 	// Binds the default FBO and sets both binding caches to it, so a later fbo_bind_fb_target
 	// for a real framebuffer sees a mismatch and rebinds.
 	fbo_unbind();
-	// The CALLBACK step presumes VAO support; attribute-enable state is only restored via the global VAO rebind.
+	// The NATIVE_CALLBACK step presumes VAO support; attribute-enable state is only restored via the global VAO rebind.
 	if (gl_extensions.ARB_vertex_array_object) {
 		glBindVertexArray(globalVAO_);
 	}
@@ -1930,8 +1930,8 @@ std::string GLQueueRunner::StepToString(const GLRStep &step) const {
 	case GLRStepType::RENDER_SKIP:
 		snprintf(buffer, sizeof(buffer), "(RENDER_SKIP) %s\n", step.tag);
 		break;
-	case GLRStepType::CALLBACK:
-		snprintf(buffer, sizeof(buffer), "CALLBACK %s\n", step.tag);
+	case GLRStepType::NATIVE_CALLBACK:
+		snprintf(buffer, sizeof(buffer), "NATIVE_CALLBACK %s\n", step.tag);
 		break;
 	default:
 		buffer[0] = 0;

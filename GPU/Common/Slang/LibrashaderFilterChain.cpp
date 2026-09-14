@@ -171,7 +171,7 @@ bool LibrashaderFilterChain::EnsureOutput(int w, int h) {
 		output_ = nullptr;
 	}
 	outputW_ = outputH_ = 0;
-	// Plain RGBA8, no MSAA, single layer: the CALLBACK step only transitions dst->color.
+	// Plain RGBA8, no MSAA, single layer: the NATIVE_CALLBACK step only transitions dst->color.
 	Draw::FramebufferDesc desc{};
 	desc.width = w;
 	desc.height = h;

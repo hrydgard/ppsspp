@@ -1551,7 +1551,7 @@ void VulkanRenderManager::RunNativeCallback(VKRFramebuffer *src, VKRFramebuffer 
 
 	EndCurRenderStep();
 
-	VKRStep *step = new VKRStep{ VKRStepType::CALLBACK };
+	VKRStep *step = new VKRStep{ VKRStepType::NATIVE_CALLBACK };
 	step->callback.src = src;
 	step->callback.dst = dst;
 	step->callback.fn = new VKRNativeCallbackFn(std::move(fn));

@@ -282,7 +282,7 @@ enum class GLRStepType : uint8_t {
 	READBACK,
 	READBACK_IMAGE,
 	RENDER_SKIP,
-	CALLBACK,
+	NATIVE_CALLBACK,
 };
 
 enum class GLRRenderPassAction {

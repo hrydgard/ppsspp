@@ -276,8 +276,8 @@ void VulkanQueueRunner::PreprocessSteps(std::vector<VKRStep *> &steps) {
 					// rendered to. However this should be rare.
 					// TODO: This should never happen when we check numReads now.
 					break;
-				} else if (steps[i]->stepType == VKRStepType::CALLBACK) {
-					// CALLBACK acts as an opaque barrier; can't convert to RENDER_SKIP across it.
+				} else if (steps[i]->stepType == VKRStepType::NATIVE_CALLBACK) {
+					// NATIVE_CALLBACK acts as an opaque barrier; can't convert to RENDER_SKIP across it.
 					break;
 				}
 			}
@@ -384,7 +384,7 @@ void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, int curFrame, Fr
 		case VKRStepType::READBACK_IMAGE:
 			PerformReadbackImage(step, cmd);
 			break;
-		case VKRStepType::CALLBACK:
+		case VKRStepType::NATIVE_CALLBACK:
 			PerformCallback(step, cmd, curFrame);
 			break;
 		case VKRStepType::RENDER_SKIP:
@@ -409,7 +409,7 @@ void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, int curFrame, Fr
 	if (!keepSteps) {
 		for (auto step : steps) {
 			// Clean up heap-allocated callback fn if it wasn't already run (PerformCallback nulls it after delete).
-			if (step->stepType == VKRStepType::CALLBACK && step->callback.fn) {
+			if (step->stepType == VKRStepType::NATIVE_CALLBACK && step->callback.fn) {
 				delete step->callback.fn;
 			}
 			delete step;
@@ -455,7 +455,7 @@ void VulkanQueueRunner::ApplyMGSHack(std::vector<VKRStep *> &steps) {
 				if (steps[j]->copy.dst != steps[i]->copy.dst)
 					last = j - 1;
 				break;
-			case VKRStepType::CALLBACK:
+			case VKRStepType::NATIVE_CALLBACK:
 				last = j - 1;  // Opaque barrier: never reorder across it.
 				break;
 			default:
@@ -767,8 +767,8 @@ std::string VulkanQueueRunner::StepToString(VulkanContext *vulkan, const VKRStep
 	case VKRStepType::READBACK_IMAGE:
 		snprintf(buffer, sizeof(buffer), "READBACK_IMAGE '%s' (%dx%d)", step.tag, step.readback_image.srcRect.extent.width, step.readback_image.srcRect.extent.height);
 		break;
-	case VKRStepType::CALLBACK:
-		snprintf(buffer, sizeof(buffer), "CALLBACK %s (src=%s dst=%s)", step.tag,
+	case VKRStepType::NATIVE_CALLBACK:
+		snprintf(buffer, sizeof(buffer), "NATIVE_CALLBACK %s (src=%s dst=%s)", step.tag,
 		         step.callback.src ? step.callback.src->Tag() : "-", step.callback.dst ? step.callback.dst->Tag() : "-");
 		break;
 	case VKRStepType::RENDER_SKIP:
@@ -860,8 +860,8 @@ void VulkanQueueRunner::ApplyRenderPassMerge(std::vector<VKRStep *> &steps) {
 					// Not sure this has much effect, when executed READBACK is always the last step
 					// since we stall the GPU and wait immediately after.
 					break;
-				case VKRStepType::CALLBACK:
-					// CALLBACK acts as an opaque barrier; can't merge across it.
+				case VKRStepType::NATIVE_CALLBACK:
+					// NATIVE_CALLBACK acts as an opaque barrier; can't merge across it.
 					goto done_fb;
 				case VKRStepType::RENDER_SKIP:
 				case VKRStepType::READBACK_IMAGE:
@@ -898,8 +898,8 @@ void VulkanQueueRunner::LogSteps(const std::vector<VKRStep *> &steps, bool verbo
 		case VKRStepType::READBACK_IMAGE:
 			LogReadbackImage(step);
 			break;
-		case VKRStepType::CALLBACK:
-			INFO_LOG(Log::G3D, "CALLBACK %s (src=%s dst=%s)", step.tag,
+		case VKRStepType::NATIVE_CALLBACK:
+			INFO_LOG(Log::G3D, "NATIVE_CALLBACK %s (src=%s dst=%s)", step.tag,
 			         step.callback.src ? step.callback.src->Tag() : "-", step.callback.dst ? step.callback.dst->Tag() : "-");
 			break;
 		case VKRStepType::RENDER_SKIP:
