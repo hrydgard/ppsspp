@@ -303,9 +303,21 @@ Draw::Framebuffer *LibrashaderFilterChain::Run(Draw::Framebuffer *source, int so
 	if (needsNativeInput_ && (actualW != sourceW || actualH != sourceH)) {
 		if (!EnsureNativeInput(sourceW, sourceH))
 			return nullptr;
-		draw_->BlitFramebuffer(source, 0, 0, actualW, actualH, nativeInput_, 0, 0, sourceW, sourceH,
-			Draw::Aspect::COLOR_BIT, Draw::FB_BLIT_LINEAR, "librashader_native");
-		chainInput = nativeInput_;
+		if (draw_->GetDeviceCaps().framebufferBlitSupported) {
+			draw_->BlitFramebuffer(source, 0, 0, actualW, actualH, nativeInput_, 0, 0, sourceW, sourceH,
+				Draw::Aspect::COLOR_BIT, Draw::FB_BLIT_LINEAR, "librashader_native");
+			chainInput = nativeInput_;
+		} else if (rasterBlit_) {
+			// D3D11's thin3d has no framebuffer blit at all (calling it is fatal), so the framebuffer
+			// manager hands us its 2D raster path instead - a linear-filtered quad draw.
+			rasterBlit_(source, actualW, actualH, nativeInput_, sourceW, sourceH);
+			chainInput = nativeInput_;
+		} else if (!warnedNativeSize_) {
+			WARN_LOG(Log::G3D, "LibrashaderFilterChain: this preset wants a %dx%d input but the backend can "
+				"neither blit framebuffers nor raster-blit; passing the %dx%d framebuffer instead",
+				sourceW, sourceH, actualW, actualH);
+			warnedNativeSize_ = true;
+		}
 	} else if (!needsNativeInput_ && !warnedNativeSize_) {
 		if (actualW != sourceW || actualH != sourceH) {
 			// Two different reasons, depending on the backend: either librashader is told the size we

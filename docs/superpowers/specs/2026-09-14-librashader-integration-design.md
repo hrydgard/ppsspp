@@ -350,7 +350,7 @@ State split by thread:
   `RequiresNativeSizedInput()` is `false` for the Vulkan and GL adapters — their frame API declares
   the input size — and `true` for D3D11, whose frame API takes a bare
   `ID3D11ShaderResourceView` (§12). When `needsNativeInput_` is true, `Run()` keeps a second,
-  native-sized framebuffer, blits the source into it (`FB_BLIT_LINEAR`) and hands *that* to the
+  native-sized framebuffer, downscales the source into it and hands *that* to the
   callback, so the declared size equals the real extents: history covers the whole picture, and on
   D3D11 `SourceSize`/`OriginalSize` and the source-relative pass sizes come out the same as on the
   other backends. When it is false nothing changes: the upscaled fbo is passed with the declared
@@ -363,6 +363,13 @@ State split by thread:
   decides whether the preset loads at all. The two token scans are free functions
   (`ReferencesOriginalHistory`, `ReferencesSourceSize`) so the unit tests cover them without a
   device.
+- **How the native-sized copy is produced.** `thin3d`'s `BlitFramebuffer` only exists where
+  `DeviceCaps::framebufferBlitSupported` is set; on D3D11 there is no equivalent at all and calling it
+  is fatal. So the chain uses `draw_->BlitFramebuffer(..., FB_BLIT_LINEAR, ...)` on Vulkan/GL and
+  otherwise a `SlangRasterBlitFn` that `FramebufferManagerCommon` installs right after creating the
+  chain - a linear-filtered `BlitUsingRaster` + `Get2DPipeline(DRAW2D_COPY_COLOR)` quad draw, the same
+  fallback `BlitFramebufferChannel` uses for blit-less backends. Without a blitter (no backend today)
+  the chain warns once and passes the upscaled framebuffer instead of crashing.
 - `DeviceLost()` (emu thread; the render thread is already stopped and the device idle by
   the time `FramebufferManagerCommon::DeviceLost` runs, see `VKContext::DeviceLost`): free
   `chain_`, `preset_`, `output_`; keep `presetPath_` for `DeviceRestore`.
@@ -544,7 +551,7 @@ Each phase gets its own implementation plan. This spec covers all four; the Phas
   `LibrashaderFilterChain::EnsureNativeInput` already produced for `OriginalHistoryN` presets whenever
   the preset depends on the source size (§6.5). All backends now behave the same; what remains on
   D3D11 is input texel detail (a downscaled 480×272 copy instead of the upscaled framebuffer read
-  with native-sized semantics) plus one blit per frame. A size-declaring D3D11 entry point upstream
+  with native-sized semantics) plus one downscale per frame (a raster quad blit on D3D11, see §6.5). A size-declaring D3D11 entry point upstream
   would remove even that.
 - **Frames in flight.** Verified during the final Phase 1 review: librashader's Vulkan
   runtime does *not* index its per-frame resources by the `frame_count` we pass. It keeps its

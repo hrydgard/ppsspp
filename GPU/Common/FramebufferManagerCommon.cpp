@@ -159,6 +159,13 @@ void FramebufferManagerCommon::UpdateSlangChain(const DisplayLayoutConfig &confi
 		return;
 	}
 	INFO_LOG(Log::G3D, "Slang chain backend: %s", SlangChainBackendName(backend));
+	// Some presets need the chain to downscale the upscaled framebuffer to native PSP size. thin3d's
+	// BlitFramebuffer does not exist on D3D11, so hand the chain our backend-portable quad blit - the
+	// same one BlitFramebufferChannel falls back to when framebufferBlitSupported is false.
+	slangChain_->SetRasterBlitter([this](Draw::Framebuffer *src, int srcW, int srcH, Draw::Framebuffer *dst, int dstW, int dstH) {
+		BlitUsingRaster(src, 0.0f, 0.0f, (float)srcW, (float)srcH, dst, 0.0f, 0.0f, (float)dstW, (float)dstH,
+			true, 1, Get2DPipeline(DRAW2D_COPY_COLOR), "librashader_native");
+	});
 	std::string error;
 	Path presetPath(g_Config.sSlangShaderPreset);
 	if (!slangChain_->Load(presetPath, &error)) {

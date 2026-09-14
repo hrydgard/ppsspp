@@ -56,6 +56,7 @@ public:
 	Draw::Framebuffer *Run(Draw::Framebuffer *source, int sourceW, int sourceH,
 	                       int viewportW, int viewportH, int frameCount) override;
 	void SetParamOverrides(const std::map<std::string, float> &overrides) override { paramOverrides_ = overrides; }
+	void SetRasterBlitter(SlangRasterBlitFn fn) override { rasterBlit_ = std::move(fn); }
 	void DeviceLost() override;
 	void DeviceRestore(Draw::DrawContext *draw) override;
 	SlangChainBackend Backend() const override { return SlangChainBackend::Librashader; }
@@ -85,6 +86,8 @@ private:
 	Draw::Framebuffer *nativeInput_ = nullptr;
 	int nativeInputW_ = 0, nativeInputH_ = 0;
 	std::map<std::string, float> paramOverrides_;
+	// Scaling copy for backends where thin3d cannot blit framebuffers (D3D11); see Run().
+	SlangRasterBlitFn rasterBlit_;
 	bool valid_ = false;
 	// Set by Load(): Run() must hand librashader a native-sized copy instead of the upscaled
 	// framebuffer, because the preset samples OriginalHistoryN, or because this backend cannot
