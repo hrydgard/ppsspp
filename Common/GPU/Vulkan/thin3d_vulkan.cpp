@@ -457,6 +457,8 @@ public:
 
 	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, Aspect aspects, const char *tag) override;
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, Aspect aspects, FBBlitFilter filter, const char *tag) override;
+	bool SupportsNativeCallback() const override { return true; }
+	bool RunNativeCallback(Framebuffer *src, Framebuffer *dst, NativeCallbackFn fn, const char *tag) override;
 	bool CopyFramebufferToMemory(Framebuffer *src, Aspect aspects, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, ReadbackMode mode, const char *tag) override;
 	DataFormat PreferredFramebufferReadbackFormat(Framebuffer *src) override;
 
@@ -1846,6 +1848,30 @@ bool VKContext::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int sr
 	return true;
 }
 
+bool VKContext::RunNativeCallback(Framebuffer *srcfb, Framebuffer *dstfb, NativeCallbackFn fn, const char *tag) {
+	VKRFramebuffer *src = srcfb ? ((VKFramebuffer *)srcfb)->GetFB() : nullptr;
+	VKRFramebuffer *dst = dstfb ? ((VKFramebuffer *)dstfb)->GetFB() : nullptr;
+	renderManager_.RunNativeCallback(src, dst, [fn = std::move(fn)](const VKRNativeCallbackInfo &vk) {
+		NativeCallbackInfo info;
+		info.cmdBuffer = (uint64_t)vk.cmd;
+		info.frameIndex = vk.curFrame;
+		if (vk.src) {
+			info.srcImage = (uint64_t)vk.src->color.image;
+			info.srcFormat = (uint32_t)vk.src->color.format;
+			info.srcWidth = vk.src->width;
+			info.srcHeight = vk.src->height;
+		}
+		if (vk.dst) {
+			info.dstImage = (uint64_t)vk.dst->color.image;
+			info.dstFormat = (uint32_t)vk.dst->color.format;
+			info.dstWidth = vk.dst->width;
+			info.dstHeight = vk.dst->height;
+		}
+		fn(info);
+	}, tag);
+	return true;
+}
+
 bool VKContext::CopyFramebufferToMemory(Framebuffer *srcfb, Aspect aspects, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, ReadbackMode mode, const char *tag) {
 	VKFramebuffer *src = (VKFramebuffer *)srcfb;
 
@@ -1972,6 +1998,8 @@ uint64_t VKContext::GetNativeObject(NativeObject obj, void *srcObject) {
 		return (uint64_t)pipelineLayout_;
 	case NativeObject::PUSH_POOL:
 		return (uint64_t)push_;
+	case NativeObject::VULKAN_GET_INSTANCE_PROC_ADDR:
+		return (uint64_t)(uintptr_t)vkGetInstanceProcAddr;
 	default:
 		Crash();
 		return 0;
