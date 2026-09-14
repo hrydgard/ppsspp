@@ -252,11 +252,6 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 #if PLATFORM_SUPPORTS_FILE_HANDLER_PLUGINS
 	list->Add(new CheckBox(&g_Config.bEnableFileHandlerPlugins, dev->T("Enable file handler plugins (insecure)")));
 #endif
-
-#if USE_LIBRASHADER
-	list->Add(new ItemHeader(dev->T("Slang shaders")));
-	list->Add(new CheckBox(&g_Config.bSlangUseLibrashader, dev->T("Use librashader for slang shaders")));
-#endif
 }
 
 void DeveloperToolsScreen::CreateTestsTab(UI::LinearLayout *list) {

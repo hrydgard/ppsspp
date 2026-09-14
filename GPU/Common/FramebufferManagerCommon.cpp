@@ -133,17 +133,14 @@ void FramebufferManagerCommon::UpdateSlangChain(const DisplayLayoutConfig &confi
 		return;
 	}
 
-	// Determine which backend to use for this reload. Only touch the loader when the user actually
-	// asked for librashader - with the toggle off we must not dlopen anything.
+	// Determine which backend to use for this reload. librashader is the only rendering core.
 	bool librashaderLoaded = false;
 #if USE_LIBRASHADER
-	if (g_Config.bSlangUseLibrashader) {
-		std::string loadErr;
-		librashaderLoaded = Librashader::Load(&loadErr);
-	}
+	std::string loadErr;
+	librashaderLoaded = Librashader::Load(&loadErr);
 #endif
 	SlangChainBackend backend = ChooseSlangChainBackend(
-		g_Config.bSlangUseLibrashader, librashaderLoaded, GetGPUBackend(), draw_->SupportsNativeCallback());
+		librashaderLoaded, GetGPUBackend(), draw_->SupportsNativeCallback());
 
 	// Check if we can keep the existing chain
 	if (slangChain_ && slangChainPresetPath_ == g_Config.sSlangShaderPreset && slangChain_->IsValid() && slangChain_->Backend() == backend) {
@@ -156,6 +153,12 @@ void FramebufferManagerCommon::UpdateSlangChain(const DisplayLayoutConfig &confi
 	slangChain_ = nullptr;
 
 	slangChain_ = CreateSlangFilterChain(draw_, backend);
+	if (!slangChain_) {
+		// No usable chain: the rest of the frame manager presents the unfiltered image.
+		INFO_LOG(Log::G3D, "Slang chain backend: none (librashader not loaded or backend unsupported)");
+		slangChainPresetPath_.clear();
+		return;
+	}
 	INFO_LOG(Log::G3D, "Slang chain backend: %s", SlangChainBackendName(backend));
 	std::string error;
 	Path presetPath(g_Config.sSlangShaderPreset);

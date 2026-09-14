@@ -133,13 +133,6 @@ set(GPU_SOURCES
 	Common/Slang/SlangPreset.h
 	Common/Slang/SlangpParser.cpp
 	Common/Slang/SlangpParser.h
-	Common/Slang/SlangPassCompiler.cpp
-	Common/Slang/SlangPassCompiler.h
-	Common/Slang/SlangReflection.cpp
-	Common/Slang/SlangReflection.h
-	Common/Slang/SlangResolution.h
-	Common/Slang/SlangFilterChain.cpp
-	Common/Slang/SlangFilterChain.h
 	Common/Slang/ISlangFilterChain.h
 	Common/Slang/SlangChainFactory.cpp
 	Common/Slang/LibrashaderFilterChain.cpp

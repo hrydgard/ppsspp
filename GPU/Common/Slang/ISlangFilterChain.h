@@ -24,11 +24,11 @@ namespace Draw { class DrawContext; class Framebuffer; }
 enum class GPUBackend;
 
 enum class SlangChainBackend {
-	InTree,       // GPU/Common/Slang/SlangFilterChain (thin3d-based)
+	None,         // No slang chain: present the unfiltered image.
 	Librashader,  // GPU/Common/Slang/LibrashaderFilterChain (librashader shared library)
 };
 
-// Contract shared by both slang filter-chain implementations. All methods are emu-thread.
+// Contract implemented by the slang filter chain. All methods are emu-thread.
 class ISlangFilterChain {
 public:
 	virtual ~ISlangFilterChain() = default;
@@ -46,10 +46,10 @@ public:
 
 const char *SlangChainBackendName(SlangChainBackend backend);
 
-// Pure decision: librashader iff the user prefers it, the library is loaded, the GPU backend
-// is one librashader supports in this phase (Vulkan), and the draw context can run native callbacks.
-SlangChainBackend ChooseSlangChainBackend(bool userPrefersLibrashader, bool librashaderLoaded,
-                                          GPUBackend gpuBackend, bool drawSupportsNativeCallback);
+// Pure decision: librashader iff the library is loaded, the GPU backend is one librashader
+// supports (Vulkan, OpenGL), and the draw context can run native callbacks. Otherwise no chain.
+SlangChainBackend ChooseSlangChainBackend(bool librashaderLoaded, GPUBackend gpuBackend,
+                                          bool drawSupportsNativeCallback);
 
-// Never returns null. Falls back to the in-tree chain if the librashader chain cannot be constructed.
+// Returns nullptr for SlangChainBackend::None (and if the librashader chain cannot be constructed).
 ISlangFilterChain *CreateSlangFilterChain(Draw::DrawContext *draw, SlangChainBackend backend);

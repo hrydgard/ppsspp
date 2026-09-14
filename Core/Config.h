@@ -401,7 +401,6 @@ public:
 
 	// Slang shader preset path (empty = disabled)
 	std::string sSlangShaderPreset;
-	bool bSlangUseLibrashader;  // Prefer the librashader runtime over the in-tree chain when available.
 
 	// URL of the libretro slang-shaders package zip (importer default; overridable for mirrors).
 	std::string sSlangBuildbotUrl;
