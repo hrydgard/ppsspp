@@ -254,7 +254,7 @@ Draw::Framebuffer *LibrashaderFilterChain::Run(Draw::Framebuffer *source, int so
 		chainInput = nativeInput_;
 	} else if (!needsNativeInput_ && !warnedNativeSize_) {
 		if (actualW != sourceW || actualH != sourceH) {
-			WARN_LOG(Log::G3D, "LibrashaderFilterChain: source is %dx%d but reported as %dx%d (native); "
+			INFO_LOG(Log::G3D, "LibrashaderFilterChain: source is %dx%d but reported as %dx%d (native); "
 				"harmless here because this preset does not sample OriginalHistory1+",
 				actualW, actualH, sourceW, sourceH);
 		}

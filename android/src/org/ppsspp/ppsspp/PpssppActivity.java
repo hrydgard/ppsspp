@@ -712,7 +712,18 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		if (javaGL) {
 			mGLSurfaceView = new NativeGLSurfaceView(this);
 			nativeRenderer = new NativeRenderer();
-			mGLSurfaceView.setEGLContextClientVersion(isVRDevice() ? 3 : 2);
+			int glesVersion = 2;
+			if (isVRDevice()) {
+				glesVersion = 3;
+			} else {
+				ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
+				ConfigurationInfo ci = am != null ? am.getDeviceConfigurationInfo() : null;
+				if (ci != null && ci.reqGlEsVersion >= 0x30000) {
+					glesVersion = 3;
+				}
+			}
+			Log.i(TAG, "Requesting OpenGL ES client version " + glesVersion);
+			mGLSurfaceView.setEGLContextClientVersion(glesVersion);
 
 			sizeManager.setSurfaceView(mGLSurfaceView);
 			setInsetsListener(mGLSurfaceView);

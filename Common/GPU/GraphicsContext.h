@@ -54,6 +54,15 @@ public:
 	// Called from the emu thread, so be ready for that.
 	virtual void NotifyEmuThreadExit() {}
 
+	// Called when the underlying API context has been lost (or replaced by a new one) while
+	// frames may still be queued up. Backends that record GPU object names in their queues must
+	// stop issuing API calls, since those names now belong to a dead context.
+	// Currently only used on Android, where a sleep/wake cycle hands GLSurfaceView a brand new
+	// EGL context before we get a chance to drain the old queue.
+	// Vulkan doesn't need it: its Android restart path tears down and recreates the swapchain
+	// while the VkDevice and all object handles stay valid, so draining queued frames is safe.
+	virtual void NotifyContextLost() {}
+
 	// Useful for checks that need to be performed every frame.
 	// Should strive to get rid of these.
 	virtual void Poll() {}
