@@ -130,6 +130,15 @@ void GLQueueRunner::RunInitSteps(const FastVec<GLRInitStep> &steps, bool skipGLC
 				}
 				break;
 			}
+			case GLRInitStepType::TEXTURE_SUBIMAGE:
+			{
+				if (step.texture_subimage.allocType == GLRAllocType::ALIGNED) {
+					FreeAlignedMemory(step.texture_subimage.data);
+				} else if (step.texture_subimage.allocType == GLRAllocType::NEW) {
+					delete[] step.texture_subimage.data;
+				}
+				break;
+			}
 			case GLRInitStepType::CREATE_PROGRAM:
 			{
 				WARN_LOG(Log::G3D, "CREATE_PROGRAM found with skipGLCalls, not good");
@@ -396,6 +405,31 @@ void GLQueueRunner::RunInitSteps(const FastVec<GLRInitStep> &steps, bool skipGLC
 			glTexParameteri(tex->target, GL_TEXTURE_MIN_FILTER, tex->minFilter);
 			if (step.texture_image.depth > 1) {
 				glTexParameteri(tex->target, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+			}
+			CHECK_GL_ERROR_IF_DEBUG();
+			break;
+		}
+		case GLRInitStepType::TEXTURE_SUBIMAGE:
+		{
+			GLRTexture *tex = step.texture_subimage.texture;
+			CHECK_GL_ERROR_IF_DEBUG();
+			if (boundTexture != tex->texture) {
+				glBindTexture(tex->target, tex->texture);
+				boundTexture = tex->texture;
+			}
+			_assert_(tex->target == GL_TEXTURE_2D);
+			_assert_(step.texture_subimage.data != nullptr);
+			GLenum internalFormat, format, type;
+			int alignment;
+			Thin3DFormatToGLFormatAndType(step.texture_subimage.format, internalFormat, format, type, alignment);
+			glTexSubImage2D(tex->target, step.texture_subimage.level,
+				step.texture_subimage.x, step.texture_subimage.y,
+				step.texture_subimage.width, step.texture_subimage.height,
+				format, type, step.texture_subimage.data);
+			if (step.texture_subimage.allocType == GLRAllocType::ALIGNED) {
+				FreeAlignedMemory(step.texture_subimage.data);
+			} else if (step.texture_subimage.allocType == GLRAllocType::NEW) {
+				delete[] step.texture_subimage.data;
 			}
 			CHECK_GL_ERROR_IF_DEBUG();
 			break;

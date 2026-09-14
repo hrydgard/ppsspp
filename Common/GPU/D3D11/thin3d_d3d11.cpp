@@ -112,6 +112,7 @@ public:
 
 	void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) override;
 	void UpdateTextureLevels(Texture *texture, const uint8_t **data, TextureCallback initDataCallback, int numLevels) override;
+	void UpdateTextureRegions(Texture *texture, int level, const TextureRegionUpdate *regions, int numRegions) override;
 
 	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, Aspect aspects, const char *tag) override;
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, Aspect aspects, FBBlitFilter filter, const char *tag) override;
@@ -890,6 +891,7 @@ public:
 
 	bool CreateStagingTexture(ID3D11Device *device);
 	void UpdateTextureLevels(ID3D11DeviceContext *context, ID3D11Device *device, Texture *texture, const uint8_t *const *data, TextureCallback initDataCallback, int numLevels);
+	void UpdateTextureRegions(ID3D11DeviceContext *context, int level, const TextureRegionUpdate *regions, int numRegions);
 
 	ID3D11ShaderResourceView *View() { return view_.Get(); }
 
@@ -1051,6 +1053,22 @@ void D3D11Texture::UpdateTextureLevels(ID3D11DeviceContext *context, ID3D11Devic
 	stagingTex_.Reset();
 }
 
+void D3D11Texture::UpdateTextureRegions(ID3D11DeviceContext *context, int level, const TextureRegionUpdate *regions, int numRegions) {
+	const UINT pixelSize = (UINT)DataFormatSizeInBytes(format_);
+	for (int i = 0; i < numRegions; i++) {
+		const TextureRegionUpdate &region = regions[i];
+		D3D11_BOX box{};
+		box.left = region.x;
+		box.top = region.y;
+		box.front = 0;
+		box.right = region.x + region.w;
+		box.bottom = region.y + region.h;
+		box.back = 1;
+		const UINT srcStride = region.byteStride ? (UINT)region.byteStride : region.w * pixelSize;
+		context->UpdateSubresource(tex_.Get(), level, &box, region.data, srcStride, 0);
+	}
+}
+
 Texture *D3D11DrawContext::CreateTexture(const TextureDesc &desc) {
 	if (!(GetDataFormatSupport(desc.format) & FMT_TEXTURE)) {
 		// D3D11 does not support this format as a texture format.
@@ -1075,6 +1093,11 @@ Texture *D3D11DrawContext::CreateTexture(const TextureDesc &desc) {
 void D3D11DrawContext::UpdateTextureLevels(Texture *texture, const uint8_t **data, TextureCallback initDataCallback, int numLevels) {
 	D3D11Texture *tex = (D3D11Texture *)texture;
 	tex->UpdateTextureLevels(context_.Get(), device_.Get(), texture, data, initDataCallback, numLevels);
+}
+
+void D3D11DrawContext::UpdateTextureRegions(Texture *texture, int level, const TextureRegionUpdate *regions, int numRegions) {
+	D3D11Texture *tex = (D3D11Texture *)texture;
+	tex->UpdateTextureRegions(context_.Get(), level, regions, numRegions);
 }
 
 ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLanguage language, const uint8_t *data, size_t dataSize, const char *tag) {

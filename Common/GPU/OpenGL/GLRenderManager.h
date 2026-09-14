@@ -444,6 +444,23 @@ public:
 		step.texture_image.linearFilter = linearFilter;
 	}
 
+	// Takes ownership over the data pointer and delete[]-s it. Runs as an init step, so unlike
+	// TextureSubImage below, it doesn't have to happen inside a render pass.
+	void TextureSubImageInit(GLRTexture *texture, int level, int x, int y, int width, int height, Draw::DataFormat format, uint8_t *data, GLRAllocType allocType = GLRAllocType::NEW) {
+		std::lock_guard<std::mutex> lock(initStepsMutex_);
+		GLRInitStep &step = initSteps_.push_uninitialized();
+		step.stepType = GLRInitStepType::TEXTURE_SUBIMAGE;
+		step.texture_subimage.texture = texture;
+		step.texture_subimage.data = data;
+		step.texture_subimage.format = format;
+		step.texture_subimage.level = level;
+		step.texture_subimage.x = x;
+		step.texture_subimage.y = y;
+		step.texture_subimage.width = width;
+		step.texture_subimage.height = height;
+		step.texture_subimage.allocType = allocType;
+	}
+
 	void TextureSubImage(int slot, GLRTexture *texture, int level, int x, int y, int width, int height, Draw::DataFormat format, uint8_t *data, GLRAllocType allocType = GLRAllocType::NEW) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData _data(GLRRenderCommand::TEXTURE_SUBIMAGE);

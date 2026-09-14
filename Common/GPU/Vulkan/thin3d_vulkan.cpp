@@ -332,6 +332,7 @@ public:
 	}
 	bool Create(VkCommandBuffer cmd, VulkanBarrierBatch *postBarriers, VulkanPushPool *pushBuffer, const TextureDesc &desc);
 	void Update(VkCommandBuffer cmd, VulkanBarrierBatch *postBarriers, VulkanPushPool *pushBuffer, const uint8_t *const *data, TextureCallback callback, int numLevels);
+	void UpdateRegions(VkCommandBuffer cmd, VulkanBarrierBatch *postBarriers, VulkanPushPool *pushBuffer, int level, const TextureRegionUpdate *regions, int numRegions);
 
 	~VKTexture() {
 		Destroy();
@@ -449,6 +450,7 @@ public:
 
 	void UpdateBuffer(Buffer *buffer, const uint8_t *data, size_t offset, size_t size, UpdateBufferFlags flags) override;
 	void UpdateTextureLevels(Texture *texture, const uint8_t **data, TextureCallback initDataCallback, int numLevels) override;
+	void UpdateTextureRegions(Texture *texture, int level, const TextureRegionUpdate *regions, int numRegions) override;
 
 	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, Aspect aspects, const char *tag) override;
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, Aspect aspects, FBBlitFilter filter, const char *tag) override;
@@ -858,6 +860,37 @@ void VKTexture::Update(VkCommandBuffer cmd, VulkanBarrierBatch *postBarriers, Vu
 	vkTex_->PrepareForTransferDst(cmd, numLevels);
 	UpdateInternal(cmd, pushBuffer, data, initDataCallback, numLevels);
 	vkTex_->RestoreAfterTransferDst(numLevels, postBarriers);
+}
+
+void VKTexture::UpdateRegions(VkCommandBuffer cmd, VulkanBarrierBatch *postBarriers, VulkanPushPool *pushBuffer, int level, const TextureRegionUpdate *regions, int numRegions) {
+	VkFormat vulkanFormat = DataFormatToVulkan(format_);
+	int bpp = GetBpp(vulkanFormat);
+	_dbg_assert_(bpp != 0);
+	const int bytesPerPixel = bpp / 8;
+
+	// Only the level we're writing needs to change layout, the others stay sampleable.
+	vkTex_->PrepareForTransferDst(cmd, level + 1);
+
+	TextureCopyBatch batch;
+	batch.reserve(numRegions);
+	for (int i = 0; i < numRegions; i++) {
+		const TextureRegionUpdate &region = regions[i];
+		_dbg_assert_(region.w > 0 && region.h > 0);
+		const int srcStride = region.byteStride ? region.byteStride : region.w * bytesPerPixel;
+		const int dstStride = region.w * bytesPerPixel;
+
+		uint32_t offset;
+		VkBuffer buf;
+		uint8_t *dest = (uint8_t *)pushBuffer->Allocate((size_t)dstStride * region.h, 16, &buf, &offset);
+		_assert_(dest != nullptr);
+		for (int y = 0; y < region.h; y++) {
+			memcpy(dest + (size_t)dstStride * y, region.data + (size_t)srcStride * y, dstStride);
+		}
+		vkTex_->CopyBufferToMipLevelRegion(cmd, &batch, level, region.x, region.y, region.w, region.h, 0, buf, offset, region.w);
+	}
+	vkTex_->FinishCopyBatch(cmd, &batch);
+
+	vkTex_->RestoreAfterTransferDst(level + 1, postBarriers);
 }
 
 void VKTexture::UpdateInternal(VkCommandBuffer cmd, VulkanPushPool *pushBuffer, const uint8_t * const *data, TextureCallback initDataCallback, int numLevels) {
@@ -1399,6 +1432,23 @@ void VKContext::UpdateTextureLevels(Texture *texture, const uint8_t **data, Text
 
 	_dbg_assert_(numLevels <= tex->NumLevels());
 	tex->Update(initCmd, &renderManager_.PostInitBarrier(), push_, data, initDataCallback, numLevels);
+}
+
+void VKContext::UpdateTextureRegions(Texture *texture, int level, const TextureRegionUpdate *regions, int numRegions) {
+	if (numRegions <= 0) {
+		return;
+	}
+	VkCommandBuffer initCmd = renderManager_.GetInitCmd();
+	if (!push_ || !initCmd) {
+		// Too early! Fail.
+		ERROR_LOG(Log::G3D, "Can't update textures before the first frame has started.");
+		return;
+	}
+
+	VKTexture *tex = (VKTexture *)texture;
+
+	_dbg_assert_(level < tex->NumLevels());
+	tex->UpdateRegions(initCmd, &renderManager_.PostInitBarrier(), push_, level, regions, numRegions);
 }
 
 static inline void CopySide(VkStencilOpState &dest, const StencilSetup &src) {

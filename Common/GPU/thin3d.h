@@ -669,6 +669,18 @@ struct TextureDesc {
 	TextureCallback initDataCallback;
 };
 
+// A rectangular piece of a single mip level, for DrawContext::UpdateTextureRegions.
+struct TextureRegionUpdate {
+	int x;
+	int y;
+	int w;
+	int h;
+	// Points at the top left pixel of the region. Does not take ownership.
+	const uint8_t *data;
+	// Distance between rows in data, in bytes. 0 means tightly packed, that is w pixels.
+	int byteStride;
+};
+
 enum class RPAction {
 	KEEP = 0,
 	CLEAR = 1,
@@ -789,6 +801,10 @@ public:
 	// Do not try to update a texture that might be used by an in-flight command buffer! In OpenGL and D3D, this will cause stalls
 	// while in Vulkan this might cause various strangeness like image corruption.
 	virtual void UpdateTextureLevels(Texture *texture, const uint8_t **data, TextureCallback initDataCallback, int numLevels) = 0;
+
+	// Replaces a set of rectangular regions of a single mip level, leaving the rest of the texture alone.
+	// Same in-flight caveat as UpdateTextureLevels. The regions must not overlap each other.
+	virtual void UpdateTextureRegions(Texture *texture, int level, const TextureRegionUpdate *regions, int numRegions) = 0;
 
 	virtual void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, Aspect aspects, const char *tag) = 0;
 	virtual bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, Aspect aspects, FBBlitFilter filter, const char *tag) = 0;
