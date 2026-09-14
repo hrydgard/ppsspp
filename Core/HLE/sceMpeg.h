@@ -139,7 +139,19 @@ void __MpegLoadModule(int version, u32 crc);
 
 void Register_sceMpeg();
 
-void Register_sceMpegbase();
+// One block of the scatter-gather list sceMpegBasePESpacketCopy walks. Shared because the PMP
+// video path reads the same list back.
+struct SceMpegLLI {
+	u32 pSrc;
+	u32 pDst;
+	u32 Next;
+	int iSize;
+};
+
+// sceMpegBasePESpacketCopy hands the list it just walked to the PMP path, which decodes from it.
+// The two values live in sceMpeg.cpp rather than with the copy itself because __VideoPmpDoState
+// serializes them as part of sceMpeg's savestate section.
+void MpegSetPmpVideoSource(u32 addr, int blocks);
 
 void __VideoPmpInit();
 void __VideoPmpDoState(PointerWrap &p);

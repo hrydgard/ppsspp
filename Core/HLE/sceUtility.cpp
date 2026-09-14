@@ -137,11 +137,23 @@ static void LoadFirmwareModules(const char *library, const FirmwareModule *modul
 	}
 }
 
-// libmp3.prx imports nothing but the kernel and sceAudiocodec, which we have.
-static void NotifyLoadStatusMp3(int state, u32 loadAddr, u32 totalSize) {
+// mpeg.prx needs sceVideocodec, sceMpegbase and sceAudiocodec from us, all of which we implement,
+// so the module itself is the only thing that has to come from somewhere real.
+static void NotifyLoadStatusMpegBase(int state, u32 loadAddr, u32 totalSize) {
 	// The effective flags, not the raw setting: those also account for the compat flags, for a
 	// firmware dump that isn't there, and for the boundary a savestate restored - resolving
 	// imports one way and loading modules the other is how a game ends up with neither.
+	if (state != 1 || !(GetEffectiveDisableHLEFlags() & DisableHLEFlags::sceMpeg)) {
+		return;
+	}
+	static const FirmwareModule modules[] = {
+		{ "flash0:/kd/mpeg.prx", "sceMpeg_library" },
+	};
+	LoadFirmwareModules("sceMpeg", modules, ARRAY_SIZE(modules));
+}
+
+// libmp3.prx imports nothing but the kernel and sceAudiocodec, which we have.
+static void NotifyLoadStatusMp3(int state, u32 loadAddr, u32 totalSize) {
 	if (state != 1 || !(GetEffectiveDisableHLEFlags() & DisableHLEFlags::sceMp3)) {
 		return;
 	}
@@ -203,6 +215,7 @@ static void NotifyLoadStatusAtrac(int state, u32 loadAddr, u32 totalSize) {
 static DisableHLEFlags UtilityModuleLibraryFlag(u32 module) {
 	switch (module) {
 	case 0x302: return DisableHLEFlags::sceAtrac;    // av_atrac3plus
+	case 0x303: return DisableHLEFlags::sceMpeg;     // av_mpegbase
 	case 0x304: return DisableHLEFlags::sceMp3;      // av_mp3
 	case 0x308: return DisableHLEFlags::sceMp4;      // av_mp4
 	default: return (DisableHLEFlags)0;
@@ -235,7 +248,7 @@ static const ModuleLoadInfo moduleLoadInfo[] = {
 	// The size varies a bit per version, from about 0x3C00 to 0x4500 bytes. We could make a lookup table...
 	// Changing this breaks some bad cheats though..
 	ModuleLoadInfo(0x302, 0x00008000, "av_atrac3plus", atrac3PlusModuleDeps, &NotifyLoadStatusAtrac),
-	ModuleLoadInfo(0x303, 0x0000c000, "av_mpegbase", mpegBaseModuleDeps),
+	ModuleLoadInfo(0x303, 0x0000c000, "av_mpegbase", mpegBaseModuleDeps, &NotifyLoadStatusMpegBase),
 	ModuleLoadInfo(0x304, 0x00004000, "av_mp3", &NotifyLoadStatusMp3),
 	ModuleLoadInfo(0x305, 0x0000a300, "av_vaudio"),
 	ModuleLoadInfo(0x306, 0x00004000, "av_aac"),
