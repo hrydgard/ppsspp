@@ -66,6 +66,9 @@ constexpr int SCREENSHOT_FAILURE_RETRIES = 6;
 static const char * const STATE_EXTENSION = "ppst";
 static const char * const UNDO_STATE_EXTENSION = "undo.ppst";
 static const char * const UNDO_SCREENSHOT_EXTENSION = "undo.jpg";
+// Namespaced the way UNDO_STATE_EXTENSION is, so a stray "<prefix>_<slot>.txt" someone happened to
+// leave in the savestate folder isn't mistaken for a slot's name.
+static const char * const NAME_EXTENSION = "name.txt";
 
 static const char * const LOAD_UNDO_NAME = "load_undo.ppst";
 
@@ -469,12 +472,10 @@ int g_screenshotFailures;
 		if (NetworkWarnUserIfOnlineAndCantSavestate()) {
 			return;
 		}
-
 		Path fn = GenerateSaveSlotPath(gamePrefix, slot, STATE_EXTENSION);
 		Path fnUndo = GenerateSaveSlotPath(gamePrefix, slot, UNDO_STATE_EXTENSION);
 		if (!fn.empty()) {
 			Path shot = GenerateSaveSlotPath(gamePrefix, slot, SCREENSHOT_EXTENSION);
-
 			std::string prefix(gamePrefix);
 			auto renameCallback = [fn, fnUndo, prefix, slot, callback](Status status, std::string_view message, std::string_view metadata) {
 				if (status != Status::FAILURE) {
@@ -535,10 +536,12 @@ int g_screenshotFailures;
 	void DeleteSlot(std::string_view gamePrefix, int slot) {
 		Path fn = GenerateSaveSlotPath(gamePrefix, slot, STATE_EXTENSION);
 		Path shot = GenerateSaveSlotPath(gamePrefix, slot, SCREENSHOT_EXTENSION);
+		Path fnName = GenerateSaveSlotPath(gamePrefix, slot, NAME_EXTENSION);
 
 		if (File::Exists(fn)) {
 			DeleteIfExists(fn);
 			DeleteIfExists(shot);
+			DeleteIfExists(fnName);
 		}
 		Rescan(gamePrefix);
 	}
@@ -704,6 +707,47 @@ int g_screenshotFailures;
 	std::string GetSlotDateAsString(std::string_view gamePrefix, int slot) {
 		std::string fn = GenerateSaveSlotFilename(gamePrefix, slot, STATE_EXTENSION);
 		return GetSaveFileDateAsString(fn);
+	}
+
+	std::string GetSlotCustomName(std::string_view gamePrefix, int slot) {
+		// Most slots don't have a name file, and this gets called for every slot each time the
+		// pause screen builds its views - so consult the listing before touching the disk.
+		if (!SaveStateFileExists(gamePrefix, slot, NAME_EXTENSION)) {
+			return std::string();
+		}
+		Path path = GenerateSaveSlotPath(gamePrefix, slot, NAME_EXTENSION);
+		std::string result;
+		File::ReadBinaryFileToString(path, &result);
+		return result;
+	}
+
+	void SetSlotCustomName(std::string_view gamePrefix, int slot, std::string_view new_name){
+		const Path path = GenerateSaveSlotPath(gamePrefix, slot, NAME_EXTENSION);
+		if (new_name.empty()) {
+			// Clearing the name. Leaving an empty file behind would work, but it'd stay in the
+			// savestate folder for good - a slot with no name shouldn't have a name file.
+			DeleteIfExists(path);
+		} else {
+			File::WriteStringToFile(true, new_name, path);
+		}
+		// What we just wrote (or removed) isn't reflected in the listing GetSlotCustomName reads,
+		// so without this the change wouldn't show up until something else happened to rescan.
+		Rescan(gamePrefix);
+	}
+
+	std::vector<Path> GetCompanionFilePaths(const Path &statePath) {
+		const std::string stateExtension = std::string(".") + STATE_EXTENSION;
+		// A path that isn't a savestate yields nothing, which WithReplacedExtension now tells us
+		// rather than handing back the path itself. An undo state does work, and correctly:
+		// "x.undo.ppst" maps onto "x.undo.jpg".
+		std::vector<Path> paths;
+		for (const char *extension : { SCREENSHOT_EXTENSION, NAME_EXTENSION }) {
+			Path companion;
+			if (statePath.WithReplacedExtension(stateExtension, std::string(".") + extension, &companion)) {
+				paths.push_back(companion);
+			}
+		}
+		return paths;
 	}
 
 	std::vector<Operation> Flush() {
