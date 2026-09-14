@@ -105,6 +105,17 @@ librashader support is gated by a runtime toggle:
 
 When enabled, all slang shader presets are rendered through librashader. When disabled (or if librashader is unavailable), PPSSPP falls back to its built-in slang stack.
 
+### Presets that use `OriginalHistoryN`
+
+librashader snapshots the `OriginalHistoryN` ring at the size PPSSPP declares in `libra_image_vk_t`, not at the input image's real extents. PPSSPP normally declares the *native* PSP resolution (so `SourceSize` and `scale_type = source` behave like the built-in stack) while handing over its upscaled render target, which would make history frames a native-sized corner of the frame.
+
+To avoid that, `LibrashaderFilterChain::Load` re-parses the preset with PPSSPP's own parser and scans each pass's `#include`-resolved source for `OriginalHistory1`..`9` / `OriginalHistorySize1`..`9`. Presets that reference them get an extra downscaling blit into a native-sized intermediate, so the declared size is the real size and history frames cover the whole picture (at native resolution). Presets that do not are unaffected and keep sampling the full upscaled framebuffer. The mode is logged once per preset load:
+
+```
+INFO  LibrashaderFilterChain: preset parsed: <path> (input mode: upscaled framebuffer with declared native size)
+INFO  LibrashaderFilterChain: preset parsed: <path> (input mode: native-sized copy, preset samples OriginalHistoryN)
+```
+
 ## Confirming the Load
 
 Check the PPSSPP log for one of these lines at startup:
@@ -113,10 +124,16 @@ Check the PPSSPP log for one of these lines at startup:
 INFO  librashader loaded (ABI 2, API 5)
 ```
 
-or, if loading failed:
+or, if loading failed (logged at INFO, not WARN - an absent library is a supported configuration):
 
 ```
-WARN  librashader unavailable: <reason>
+INFO  librashader unavailable: <reason>
+```
+
+If the library was found and preloaded from a path but librashader's own bare-name lookup still failed, the reason names the likely cause:
+
+```
+INFO  librashader unavailable: librashader preloaded from /path/to/librashader.dylib but bare-name load failed - check the library's install name/soname is librashader.dylib (see docs/superpowers/librashader-build.md)
 ```
 
 When a slang preset is loaded, the chosen backend is logged:

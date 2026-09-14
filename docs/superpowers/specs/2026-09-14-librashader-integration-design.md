@@ -264,9 +264,22 @@ State split by thread:
   `viewport = {0, 0, dstW, dstH}`, `frameOpts.rotation = 0`, `frame_direction = 1`.
   `SourceSize`/`OriginalSize` semantics: librashader derives them from `in.width/height`,
   so the chain passes the *native* PSP size the way the in-tree chain does today, with the
-  upscaled fbo sampled via 0..1 UVs. If librashader validates the size against the image,
-  Phase 1 verification will show it and the fallback is a one-pass blit to a native-sized
-  intermediate before the chain.
+  upscaled fbo sampled via 0..1 UVs. Phase 1 verification confirmed librashader honours those
+  numbers for `SourceSize`/`OriginalSize`/`scale_type = source` without validating them
+  against the image - but it *also* uses them as the copy extent when it snapshots the input
+  into its `OriginalHistoryN` ring, so a preset that samples history would see only a
+  native-sized corner of the upscaled frame.
+- **History detection (added after Phase 1 on-device verification).** `Load()` therefore
+  re-parses the preset with PPSSPP's in-tree `ParseSlangPreset` and scans each pass's
+  `#include`-resolved source for `OriginalHistory[1-9]` / `OriginalHistorySize[1-9]`, storing
+  the answer in `needsNativeInput_`. When it is true, `Run()` keeps a second, native-sized
+  framebuffer, blits the source into it (`FB_BLIT_LINEAR`) and hands *that* to the callback,
+  so the declared size equals the real extents and history covers the whole picture (at
+  native resolution). When it is false nothing changes: the upscaled fbo is passed with the
+  declared native size, which is what keeps non-history presets bit-identical to the in-tree
+  chain. The selected mode is logged once at INFO per preset load. If the re-parse or a
+  shader read fails the answer is "no history", i.e. the pre-existing behaviour; librashader's
+  own parser remains the one that decides whether the preset loads at all.
 - `DeviceLost()` (emu thread; the render thread is already stopped and the device idle by
   the time `FramebufferManagerCommon::DeviceLost` runs, see `VKContext::DeviceLost`): free
   `chain_`, `preset_`, `output_`; keep `presetPath_` for `DeviceRestore`.
@@ -320,7 +333,11 @@ Developer Tools system-info line so on-device screenshots are attributable.
 ## 8. Threading and lifetime rules
 
 - `libra_*_filter_chain_frame` and `_set_param` are called only from inside a callback
-  (render thread). `libra_preset_*` and the loader are called from the emu thread.
+  (render thread). `libra_preset_*` and the loader are called from the emu thread, with one
+  exception: `libra_preset_free` may also run on the render thread, from the Vulkan
+  deletion-queue callback that disposes a preset which was parsed but whose chain was never
+  created. librashader's header imposes no thread affinity on it, and the deletion-queue
+  callback is the only other place that can own the handle.
 - The `std::function` in a step owns copies of everything it needs; it never dereferences
   emu-thread state other than `this`, whose lifetime is guaranteed because destruction
   happens only after the render thread is stopped or idle (`DeviceLost` / destructor).
@@ -355,9 +372,13 @@ Each phase gets its own implementation plan. This spec covers all four; the Phas
 ## 11. Testing strategy
 
 - **Device-free unit tests** (PPSSPP `unittest` harness): loader reports "not loaded"
-  cleanly when the library is absent and when `LIBRASHADER_PATH` points at a non-library;
-  `ChooseSlangChainBackend` truth table; `NativeCallbackInfo` marshaling from a fake
-  `VKRFramebuffer` pair; the in-tree chain still passes its 19 tests unchanged.
+  cleanly when the library is absent and when `LIBRASHADER_PATH` points at a file that exists
+  but is not a loadable library; `ChooseSlangChainBackend` truth table; the in-tree chain
+  still passes its 19 tests unchanged. The originally planned `NativeCallbackInfo` marshaling
+  test was dropped: marshaling reads a live `VKRFramebuffer` pair (real `VkImage` handles and
+  formats owned by a created device), so it cannot be exercised device-free. The loader tests
+  and the backend-selection truth table are the device-free suite; marshaling is covered by
+  the on-device checks instead.
 - **Compile-time**: CMake configure + build with `USE_LIBRASHADER=ON` and `OFF`.
 - **Vulkan validation**: run once per phase with `VK_LAYER_KHRONOS_validation` enabled and
   the three presets; zero new validation errors is the bar (the CALLBACK step's layout
@@ -376,11 +397,15 @@ Each phase gets its own implementation plan. This spec covers all four; the Phas
 - **Native size vs image size.** librashader may take `SourceSize` from the image extents
   rather than the `width/height` fields. Mitigation noted in §6.5 (one blit to a
   native-sized intermediate). This is the first thing Phase 1 verifies on device.
-- **Frames in flight.** librashader recycles per-frame resources by `frame_count %
-  frames_in_flight`. PPSSPP's `curFrame` index cycles over `MAX_INFLIGHT_FRAMES = 3`; we
-  set `frames_in_flight = 3` and pass PPSSPP's monotonically increasing flip count as
-  `frame_count`. If PPSSPP ever skips a frame index the mapping still holds because
-  librashader only requires that resources for frame N are not reused before N+3.
+- **Frames in flight.** Verified during the final Phase 1 review: librashader's Vulkan
+  runtime does *not* index its per-frame resources by the `frame_count` we pass. It keeps its
+  own internal counter, advanced once per `libra_vk_filter_chain_frame` call, and cycles it
+  over the `frames_in_flight` given at creation (we pass `MAX_INFLIGHT_FRAMES = 3`, matching
+  PPSSPP's own in-flight depth). The `frame_count` argument only feeds the `FrameCount`
+  uniform that shaders read, so passing PPSSPP's monotonically increasing flip count is
+  correct even when frames are skipped, and a skipped or repeated flip count cannot alias
+  librashader's resource recycling. What we do owe librashader is one call per submitted
+  frame, which the CALLBACK step gives us by construction.
 - **MoltenVK.** Dynamic rendering is off by default in our options; the render-pass
   fallback path is the one librashader's 86Box integration uses on macOS.
 - **Rust toolchain in CI (Phase 3).** Adds minutes to Android/desktop builds; pinning the
