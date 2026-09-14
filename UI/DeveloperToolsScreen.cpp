@@ -193,6 +193,7 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 	}
 
 	list->Add(new CheckBox(&g_Config.bLogFrameDrops, dev->T("Log Dropped Frame Statistics")));
+	list->Add(new CheckBox(&g_Config.bLogGpuProfile, dev->T("Log GPU profile")));
 	if (GetGPUBackend() == GPUBackend::VULKAN) {
 		list->Add(new CheckBox(&g_Config.bGpuLogProfiler, dev->T("GPU log profiler")));
 	}

@@ -4,6 +4,7 @@
 #include "Common/Data/Text/I18n.h"
 #include "Common/CPUDetect.h"
 #include "Common/StringUtils.h"
+#include "Common/TimeUtil.h"
 #include "Common/Data/Text/StringWriter.h"
 
 #include "Core/MIPS/MIPS.h"
@@ -259,6 +260,22 @@ void DrawDebugOverlay(UIContext *ctx, const Bounds &bounds, DebugOverlay overlay
 	case DebugOverlay::GPU_PROFILE:
 		if (inGame && (g_Config.iGPUBackend == (int)GPUBackend::VULKAN || g_Config.iGPUBackend == (int)GPUBackend::OPENGL)) {
 			DrawGPUProfilerVis(ctx, gpu);
+			if (g_Config.bLogGpuProfile) {
+				// Dev aid: sample the same string the overlay shows into the log, at 1 Hz.
+				static double lastLog = 0.0;
+				double now = time_now_d();
+				if (now - lastLog >= 1.0) {
+					lastLog = now;
+					// One log line per profiler line so the log keeps them intact.
+					std::vector<std::string> lines;
+					SplitString(ctx->GetDrawContext()->GetGpuProfileString(), '\n', lines);
+					for (const std::string &line : lines) {
+						if (!line.empty()) {
+							INFO_LOG(Log::G3D, "GPUPROFILE %s", line.c_str());
+						}
+					}
+				}
+			}
 		}
 		break;
 	case DebugOverlay::GPU_ALLOCATOR:

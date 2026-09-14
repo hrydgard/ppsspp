@@ -51,7 +51,7 @@
 **Interfaces:**
 - Produces: `bool g_Config.bLogGpuProfile` (ini `LogGpuProfile`, default false); when true and the GPU_PROFILE overlay is active, `DrawGPUProfilerVis` path logs `INFO_LOG(Log::G3D, "GPUPROFILE %s", gpu->GetDrawContext()->GetGpuProfileString().c_str())` at most once per second (static `double lastLog` with `time_now_d()`).
 
-- [ ] **Step 1: Dev toggle**
+- [x] **Step 1: Dev toggle**
 
 `Core/Config.h`: `bool bLogGpuProfile;  // Log the GPU profiler string once per second while the GPU_PROFILE overlay is shown.`
 `Core/Config.cpp`: `ConfigSetting("LogGpuProfile", SETTING(g_Config, bLogGpuProfile), false, CfgFlag::DEFAULT),`
@@ -72,22 +72,37 @@
 ```
 Check the helper names in this file (`time_now_d` from `Common/TimeUtil.h`, `SplitString` from `Common/StringUtils.h`; include if missing; `gpu->GetDrawContext()` — confirm the accessor name used elsewhere in `DebugOverlay.cpp` for the profile string). Developer Tools General tab: `list->Add(new CheckBox(&g_Config.bLogGpuProfile, dev->T("Log GPU profile")));`.
 
-- [ ] **Step 2: Build APK, measure**
+- [x] **Step 2: Build APK, measure**
 
 Build + install the arm64 debug APK (version name `librashader-p4a`). Device ini: `GraphicsBackend = 3 (VULKAN)`, `SlangShaderPreset = .../slang/presets/crt-royale-downsample.slangp`, `DebugOverlay = 6` (GPU_PROFILE, value confirmed in Phase 3), `LogGpuProfile = True`, `G3DLevel = 4` in both `[Log]` and `[LogDebug]`. Launch the game; after the boot dialog appears, `adb logcat -c`, wait 60 s, `adb logcat -d | grep GPUPROFILE > /tmp/ppsspp-t8/p4-prof-libra.log`. Repeat with `SlangUseLibrashader = False` → `p4-prof-intree.log`. Parse with a small Python script: for librashader sum lines matching `CALLBACK librashader` per sample; for in-tree sum `RENDER slang-pass*` + `BLIT ... slang` lines per sample (use the exact step tags seen in the Phase 3 GPU-profile screenshots: `RENDER slang-pass` ×N and one `BLIT`); report mean, median, p95 and sample count for each; ratio = mean_libra / mean_intree. Also record the total frame GPU time both ways. Restore ini keys afterwards (`DebugOverlay = 0`, `LogGpuProfile = False`, `SlangUseLibrashader = True`, log levels back to 2).
 
-- [ ] **Step 3: Record and gate**
+- [x] **Step 3: Record and gate**
+
+**Results** (AYN Thor, Adreno 740, Vulkan, `presets/crt-royale-downsample.slangp`,
+internal resolution 4x → 1920x1088, APK `librashader-p4a` arm64 debug; scene: 3rd Birthday's
+static "memory stick" boot dialog, which waits for input, so every sample in every run rendered
+the same frame — confirmed by `BACKBUF BackBuffer (draws: 3, 1920x1080/1080x1920)` in 100% of
+samples). Post-process = `CALLBACK librashader ...` for librashader; 14 × `RENDER slang-pass
+slang-pass ...` + 1 × `BLIT 'slang-feedback' slang-pass -> slang-feedback ...` for in-tree
+(15 steps in every sample). Logs `/tmp/ppsspp-t8/p4-prof-{libra,intree,libra-dynrender}.log`,
+parser `/tmp/ppsspp-t8/p4-parse-prof.py`.
 
 | Metric | librashader | in-tree | ratio |
 |---|---|---|---|
-| samples (1 Hz) | | | |
-| post-process GPU ms mean | | | |
-| median / p95 | | | |
-| whole-frame GPU ms mean | | | |
+| samples (1 Hz) | 215 | 214 | — |
+| post-process GPU ms mean | 10.569 | 8.661 | **1.220** |
+| median / p95 | 10.564 / 10.604 | 8.661 / 8.704 | 1.219 / 1.218 |
+| whole-frame GPU ms mean | 13.880 | 11.325 | 1.226 |
 
-Gate: ratio ≤ 1.5 → proceed. Also try once with `opts.use_dynamic_rendering = true` in `LibrashaderRuntimeVulkan.cpp` if the device reports Vulkan 1.3 (Adreno 740 driver 512.676 does) and record whether it changes the number; keep whichever is faster only if identical output (`cmp.py` the boot dialog) — otherwise leave `false`.
+`use_dynamic_rendering = true` (214 samples): post-process mean **10.569 ms** (median 10.567,
+p95 10.597), whole-frame mean 13.976 ms — no measurable difference in the CALLBACK cost and
+whole-frame marginally worse (within run-to-run noise). Output was pixel-identical to the
+`false` build (`cmp.py p4-dynrender-false.png p4-dynrender-true.png` → 0 differing pixels of
+2073600), but since it is not faster the flag was **reverted to `false`** per the rule.
 
-- [ ] **Step 4: Desktop gate + commit**
+Gate: ratio ≤ 1.5 → **PASS (1.220)**, Task 4 may proceed. Also try once with `opts.use_dynamic_rendering = true` in `LibrashaderRuntimeVulkan.cpp` if the device reports Vulkan 1.3 (Adreno 740 driver 512.676 does) and record whether it changes the number; keep whichever is faster only if identical output (`cmp.py` the boot dialog) — otherwise leave `false`.
+
+- [x] **Step 4: Desktop gate + commit**
 
 `./build-unittest/PPSSPPUnitTest all` → 76. Commit `perf: LogGpuProfile dev toggle + Phase 4 GPU-time comparison results` with the trailer.
 

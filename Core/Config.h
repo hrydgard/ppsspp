@@ -447,6 +447,7 @@ public:
 	// UI
 	bool bShowDebuggerOnLoad;
 	int iShowStatusFlags;
+	bool bLogGpuProfile;  // Log the GPU profiler string once per second while the GPU_PROFILE overlay is shown.
 	bool bShowRegionOnGameIcon;
 	bool bShowIDOnGameIcon;
 	float fGameGridScale;
