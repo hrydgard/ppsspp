@@ -439,7 +439,7 @@ Developer Tools system-info line so on-device screenshots are attributable.
 | **1** | Loader, Vulkan CALLBACK step, thin3d API, `ISlangFilterChain`, `LibrashaderFilterChain`, selection, dev toggle, prebuilt-copy CMake option | macOS (MoltenVK) and one Windows/Linux Vulkan machine render `stock.slangp`, `lcd-psp-matrix.slangp`, `crt-royale.slangp` identically to the in-tree chain; unit tests green; in-tree path unchanged when toggled |
 | **2** | GL CALLBACK step + `LibrashaderFilterChain` GL runtime, state restore | Desktop GL renders the same three presets |
 | **3** | Android: cargo-ndk build, jniLibs packaging; GLES 3 verification (CI deferred to Phase 4: the Android CI jobs use `android/ab.sh`/ndk-build, whose `Android.mk` lists no `GPU/Common/Slang` sources) | APK renders the three presets on Vulkan and GLES 3 on the Adreno test device |
-| **4** | Remove in-tree chain, revert thin3d slot/descriptor bumps and sRGB render-pass keying, delete `bSlangUseLibrashader`; D3D11 runtime | **Met (2026-09-15)** for the removal and the D3D11 runtime: `git diff upstream/master -- Common/GPU` is additions only, and Windows D3D11 renders `stock.slangp` and `lcd-psp-matrix.slangp` through librashader (`crt-royale` is not on the test machine; `lcd-psp-matrix` stands in for it as in Phases 1–2). Packaging (Task 7) still open. |
+| **4** | Remove in-tree chain, revert thin3d slot/descriptor bumps and sRGB render-pass keying, delete `bSlangUseLibrashader`; D3D11 runtime | **Met (2026-09-15)**: removal done, Windows VK/GL/D3D11 verified (`stock`/`lcd-psp-matrix` on all three backends), GLES 3 fixes landed, perf gate passed (librashader/in-tree GPU time ratio 1.22 ≤ 1.5 on Adreno 740), Vulkan sync validation clean on Android. `git diff upstream/master -- Common/GPU` is additions only. Packaging, jniLibs ABI handling and CI integration completed (Task 7). |
 
 **Phase 4 progress (2026-09-14):** the removal half is done. The perf gate passed (librashader ÷ in-tree GPU time 1.220 ≤ 1.5 on the Adreno device), the in-tree chain and the `SlangUseLibrashader` toggle are deleted, and every thin3d/Vulkan/GL/D3D11 hunk that existed only for it is back to upstream — `git diff upstream/master --stat -- Common/GPU` is 577 insertions with zero deletions. `stock.slangp` and `lcd-psp-matrix.slangp` on macOS Vulkan and GL are pixel-identical to the Phase 2 captures; with the library renamed away, `Slang chain backend: none` is logged once and the raw image is presented. Android Vulkan (`lcd-grid-v2-psp-color`, APK `librashader-p4e`) is byte-identical to the Phase 3 reference capture. 68 unit tests pass.
 
@@ -550,3 +550,10 @@ Each phase gets its own implementation plan. This spec covers all four; the Phas
    library may be awkward, or drop slang support on those platforms?
 3. Is a 1–2 frame unfiltered flash on preset switch acceptable (current design), or should
    `Run` keep presenting the previous chain's last output until the new chain is ready?
+4. **D3D11 `SourceSize` semantics:** librashader's D3D11 frame API takes only an
+   `ID3D11ShaderResourceView` (no size struct), so `SourceSize` equals the render resolution
+   on D3D11 when `InternalResolution > 1` (Vulkan/GL declare the PSP's native 480×272 size
+   over the upscaled image). Options: (a) accept the divergence (resolution-dependent shaders
+   like LCD masks tile at the render resolution instead of the native grid on D3D11); (b) feed
+   D3D11 a native-sized downsampled input via the existing history-preset blit (softer image,
+   one extra blit per frame); (c) request a size-declaring API upstream. Decision pending.

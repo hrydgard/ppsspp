@@ -390,11 +390,26 @@ bump, then rebuild the APK with Gradle.
 produce a `libc++_shared.so` symbol-version mismatch at load.
 
 The script produces all three ABIs and Gradle packages every `jniLibs/<abi>` regardless of
-`-Pandroid.injected.build.abi` (that flag filters only the CMake output), so the dev APK carries all
-three `librashader.so` (~29 MB uncompressed); release flavors prune by `ndk.abiFilters` (`normal`/`gold`
-keep all three, `legacy` two, `vr` one). To build a single ABI, pass it to the script
-(`android/build-librashader.sh arm64-v8a`) and delete the other `jniLibs/<abi>/librashader.so`.
-Gradle-side pruning is a Phase 4 item.
+`-Pandroid.injected.build.abi` (that flag filters only the CMake output), so dev APKs carry all
+three `librashader.so` (~29 MB uncompressed) by default. Release flavors are already pruned by
+`ndk.abiFilters` (`normal`/`gold` keep all three, `legacy` two, `vr` one).
+
+**Dev builds with a single ABI:** Use the `-PlibrashaderAbi=<abi>` Gradle property to exclude the
+other ABIs from packaging:
+
+```bash
+ANDROID_HOME=/opt/homebrew/share/android-commandlinetools \
+  ./gradlew assembleNormalDebug \
+    -Pandroid.injected.build.abi=arm64-v8a \
+    -PlibrashaderAbi=arm64-v8a \
+    -PANDROID_VERSION_CODE=999999999 \
+    -PANDROID_VERSION_NAME=dev --console=plain
+```
+
+The resulting APK contains only `lib/arm64-v8a/librashader.so` (~14 MB uncompressed), reducing the
+dev APK size by ~15 MB. When `-PlibrashaderAbi` is absent, behavior is unchanged (all present ABIs
+are packaged). Alternatively, build a single ABI with the script (`android/build-librashader.sh
+arm64-v8a`) and manually delete the other `jniLibs/<abi>/librashader.so` directories.
 
 ### Confirming on Device
 
@@ -440,11 +455,19 @@ for that, not `VUID`/`VALIDATION`), and the debug callback reports core validati
 validation requires `VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT`, which
 `Common/GPU/Vulkan/VulkanContext.cpp` never sets). Release builds ignore the layers even if present.
 
-### CI Deferred
+### CI Integration
 
-The fork's Android CI jobs use `android/ab.sh` (ndk-build via `Android.mk`), which does not list the
-`GPU/Common/Slang` sources (so a `cargo ndk` step would be pointless until that build is fixed;
-`FramebufferManagerCommon.cpp` references the Slang sources unconditionally, so the ndk-build path is
-not expected to build at all). The Gradle/CMake path is the one that works; Android librashader
-integration is tested manually on device. `.github/workflows/manual_generate_apk.yml` is the
-Gradle-based job that can host a `cargo ndk` step.
+`.github/workflows/manual_generate_apk.yml` now includes a `cargo ndk` step before the Gradle build:
+
+1. Install Rust stable with Android targets (`aarch64-linux-android`, `armv7-linux-androideabi`,
+   `x86_64-linux-android`)
+2. Install `cargo-ndk`
+3. Build librashader: `ANDROID_NDK_HOME=$ANDROID_HOME/ndk/29.0.14206865 android/build-librashader.sh`
+
+The Gradle build then packages the resulting `jniLibs/<abi>/librashader.so` files into the APK.
+The workflow is unverified locally (added in Phase 4 without a local CI runner); it assumes the
+GitHub Actions `ubuntu-latest` runner has `ANDROID_HOME` set by the `setup-java` step.
+
+The fork's other Android CI jobs (`android/ab.sh` via ndk-build) do not list the `GPU/Common/Slang`
+sources and are not expected to build. Android librashader integration is primarily tested manually
+on device.

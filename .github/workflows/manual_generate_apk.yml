@@ -59,7 +59,22 @@ jobs:
         run: |
           echo "count=${{steps.valid-tags.outputs.count}}"
           gradle --quiet androidGitVersion
-      
+
+      # Build librashader for Android (unverified locally)
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk
+
+      - name: Build librashader
+        run: |
+          export ANDROID_NDK_HOME=$ANDROID_HOME/ndk/29.0.14206865
+          android/build-librashader.sh
+        continue-on-error: false
+
       - name: Assemble APK
         run: ./gradlew assemble${{ github.event.inputs.buildVariant }} --stacktrace
       
