@@ -205,8 +205,8 @@ This step only runs if `USE_LIBRASHADER=ON` (the default on desktop platforms) a
 
 There is no toggle. librashader is the only slang rendering core: whenever a preset is selected
 (`SlangShaderPreset` / Settings → Graphics → Slang shaders), PPSSPP loads the library and renders
-the preset through it. Without the library — or on a backend that cannot run native callbacks
-(VULKAN, OPENGL, and DIRECT3D11 on Windows are supported today) — slang shaders are off: the log shows
+the preset through it. Supported backends are VULKAN, OPENGL (3.3+/GLES 3.0+) and DIRECT3D11 (Windows).
+Without the library — or on any other backend — slang shaders are off: the log shows
 
 ```
 INFO  Slang chain backend: none (librashader not loaded or backend unsupported)
@@ -453,17 +453,18 @@ To enable Vulkan validation layers during development:
 The PPSSPP debug build enables validation at compile time via `g_Validate` in
 `GPU/Vulkan/VulkanUtil.cpp` (gated by `_DEBUG`). PPSSPP prefixes layer messages with `VKDEBUG:` (grep
 for that, not `VUID`/`VALIDATION`), and the debug callback reports core validation only (synchronization
-validation requires `VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT`, which
-`Common/GPU/Vulkan/VulkanContext.cpp` never sets). Release builds ignore the layers even if present.
+validation is opt-in: set `VulkanSyncValidation = True` in the ini; `Common/GPU/Vulkan/VulkanContext.cpp`
+then chains `VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT` — Phase 4 ran it with zero hazards). Release builds ignore the layers even if present.
 
 ### CI Integration
 
 `.github/workflows/manual_generate_apk.yml` now includes a `cargo ndk` step before the Gradle build:
 
-1. Install Rust stable with Android targets (`aarch64-linux-android`, `armv7-linux-androideabi`,
-   `x86_64-linux-android`)
-2. Install `cargo-ndk`
-3. Build librashader: `ANDROID_NDK_HOME=$ANDROID_HOME/ndk/29.0.14206865 android/build-librashader.sh`
+1. Install NDK 29.0.14206865 via `sdkmanager` (Gradle would otherwise install it only later)
+2. Install Rust stable with Android targets (`aarch64-linux-android`, `armv7-linux-androideabi`,
+   `x86_64-linux-android`); cache `~/.cargo` (registry, git, the `cargo-ndk` binary)
+3. Install `cargo-ndk`
+4. Build librashader: `ANDROID_NDK_HOME=$ANDROID_HOME/ndk/29.0.14206865 android/build-librashader.sh`
 
 The Gradle build then packages the resulting `jniLibs/<abi>/librashader.so` files into the APK.
 The workflow is unverified locally (added in Phase 4 without a local CI runner); `ANDROID_HOME` is

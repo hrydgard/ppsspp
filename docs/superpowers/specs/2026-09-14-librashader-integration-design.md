@@ -67,9 +67,8 @@ These were decided to keep the work moving. Each is cheap to reverse before Phas
 2. **Order of backends: desktop Vulkan → desktop OpenGL → Android Vulkan/GLES → D3D11.**
    Desktop Vulkan is where the in-tree chain is verified today, so it is the regression
    baseline. Android needs a Rust cross-build and is deferred to its own phase.
-3. **Keep the in-tree chain as a fallback until Phase 4.** Both implementations sit behind
-   one interface; a developer setting chooses between them for A/B comparison. Removal is an
-   explicit phase, not a side effect.
+3. **The in-tree chain stayed as a fallback through Phases 1–3** behind one interface with a
+   developer A/B setting; Phase 4 removed it (and the setting) once the averaged perf gate passed.
 4. **Chain creation happens on the render thread, deferred.** librashader's non-deferred
    create submits to the queue and waits idle, which would race the render thread's
    submissions. The deferred variant records LUT uploads into the command buffer we hand it.
@@ -81,8 +80,8 @@ These were decided to keep the work moving. Each is cheap to reverse before Phas
    optimization, not part of this design.
 6. **Building librashader is a developer/CI step, not part of the default CMake build.**
    A documented `cargo` command and a CMake option that copies a prebuilt library next to
-   the executable are sufficient for Phases 1–2. CI integration and Android packaging come
-   with Phase 3.
+   the executable are sufficient for Phases 1–2. Android packaging came with Phase 3; the CI step landed
+   (unverified) in Phase 4.
 
 ## 5. Current state (what is being replaced and what is kept)
 
@@ -124,7 +123,7 @@ LibrashaderFilterChain (emu thread side)
 thin3d VKContext::RunNativeCallback
    │  renderManager_.RunNativeCallback(VKRFramebuffer *src, *dst, fn)
    ▼
-VulkanRenderManager: EndCurRenderStep(); push VKRStep{CALLBACK}
+VulkanRenderManager: EndCurRenderStep(); push VKRStep{NATIVE_CALLBACK}
    ▼  (render thread)
 VulkanQueueRunner::PerformCallback(step, cmd, curFrame)
    │  transition src → SHADER_READ_ONLY_OPTIMAL, dst → COLOR_ATTACHMENT_OPTIMAL, flush barriers
@@ -160,7 +159,7 @@ LibrashaderFilterChain render-thread side
 
 ### 6.2 Native callback step in the render managers
 
-**Vulkan.** New `VKRStepType::CALLBACK`. `VKRStep` gains:
+**Vulkan.** New `VKRStepType::NATIVE_CALLBACK` (named `CALLBACK` in Phases 1–3; renamed in Phase 4 because `<windows.h>` defines a `CALLBACK` macro and `LibrashaderLoader.h` pulls in `<d3d11.h>` on Windows). `VKRStep` gains:
 ```cpp
 struct {
     VKRFramebuffer *src;   // color read by the callback (may be null)
@@ -182,27 +181,27 @@ NativeCallbackFn fn, const char *tag)`:
   documents that it leaves the output in that layout and emits no final barrier. `src`
   stays in `SHADER_READ_ONLY_OPTIMAL`, which the tracker already records.
 - The step optimizer passes (`ApplyMGSHack`, `ApplySonicHack`, render-pass merging,
-  `RENDER_SKIP` conversion) must treat CALLBACK like COPY: an opaque barrier that reads
+  `RENDER_SKIP` conversion) must treat NATIVE_CALLBACK like COPY: an opaque barrier that reads
   `src` and writes `dst`. The `switch` statements in `RunSteps`, `LogSteps`, and the
-  step-type dumps gain a CALLBACK case; `default: UNREACHABLE()` must never be hit.
+  step-type dumps gain a NATIVE_CALLBACK case; `default: UNREACHABLE()` must never be hit.
 
 **OpenGL (Phase 2 — implemented and verified on macOS, 2026-09-14).** Mirror:
-`GLRStepType::CALLBACK`, `GLRStep::callback{src, dst, fn}`, `GLQueueRunner::PerformCallback` runs
+`GLRStepType::NATIVE_CALLBACK`, `GLRStep::callback{src, dst, fn}`, `GLQueueRunner::PerformCallback` runs
 `fn` with `src->color_texture.texture` and `dst->color_texture.texture`, then calls
 `RestoreBaselineStateAfterCallback()` because librashader changes GL state freely. The step is
 gated on `OpenGLContext::SupportsNativeCallback()` (desktop GL 3.3+ / GLES 3.0+); GLES 2 never
 selects librashader. Unlike Vulkan there is no readiness gate: the GL adapter creates the chain and
-renders in the same callback, and frees it through a second CALLBACK step (the creating context must
+renders in the same callback, and frees it through a second NATIVE_CALLBACK step (the creating context must
 be current for `libra_gl_filter_chain_free`).
 
-That second CALLBACK step only helps while the render thread still drains work. At `DeviceLost` /
-shutdown it does not: `GLRenderManager::ThreadEnd` deletes queued CALLBACK functions without running
+That second NATIVE_CALLBACK step only helps while the render thread still drains work. At `DeviceLost` /
+shutdown it does not: `GLRenderManager::ThreadEnd` deletes queued NATIVE_CALLBACK functions without running
 them, so `QueueFree` takes a `deviceLost` flag and, when it is set, drops the state with one warning
 instead of enqueuing a free that would never run. The GL objects die with the context and
 librashader's Rust-side allocation is knowingly leaked (see §8). `libra_gl_filter_chain_free` has
 therefore never been exercised on device; only the drop path has.
 
-Under VR multi-pass (`keepSteps`) the same CALLBACK step is replayed once per pass with the same
+Under VR multi-pass (`keepSteps`) the same NATIVE_CALLBACK step is replayed once per pass with the same
 `frame_count`, so a preset's history/feedback ring advances twice per frame. Acceptable for now; to
 revisit if Quest ever comes into scope.
 
@@ -244,7 +243,7 @@ What has to be unbound and restored is the state the immediate context is alread
   cached, the SRV and sampler slots cleared again, `Invalidate(InvalidationFlags::CACHED_RENDER_STATE)`
   — which resets exactly the fields `ApplyCurrentState()` compares (`curPipeline_`, `curBlend_`,
   `curDepthStencil_`, `curRaster_`, `curInputLayout_`, `curVS_`, `curPS_`, `curTopology_`) — plus
-  `blendFactorDirty_`/`stencilDirty_`, and the `InvalidationCallbackFlags::RENDER_PASS_STATE` callback
+  `blendFactorDirty_`/`stencilDirty_`/`dirtyIndexBuffer_`, and the `InvalidationCallbackFlags::RENDER_PASS_STATE` callback
   so `DrawEngineD3D11` re-sends viewport/scissor and texture state. Viewport and scissor need no
   explicit re-issue because thin3d caches no last-set values for them.
 
@@ -262,8 +261,10 @@ the PSP's native 480×272 when `InternalResolution > 1` — see §12.
 struct NativeCallbackInfo {
     // Vulkan: VkCommandBuffer, VkImage, VkFormat as integers (no Vulkan header in thin3d.h)
     uint64_t cmdBuffer = 0;
-    uint64_t srcView = 0;   uint32_t srcFormat = 0;  // srcView: VkImage (Vulkan) or ID3D11ShaderResourceView (D3D11)
-    uint64_t dstView = 0;   uint32_t dstFormat = 0;  // dstView: VkImage (Vulkan) or ID3D11RenderTargetView (D3D11)
+    uint64_t srcImage = 0;  uint32_t srcFormat = 0;  // Vulkan: VkImage; formats are backend-native (VkFormat / GL internal format / DXGI_FORMAT)
+    uint64_t dstImage = 0;  uint32_t dstFormat = 0;
+    uint64_t srcView = 0;   // D3D11: ID3D11ShaderResourceView*
+    uint64_t dstView = 0;   // D3D11: ID3D11RenderTargetView*
     // OpenGL: texture names
     uint32_t srcTexture = 0, dstTexture = 0;
     int srcWidth = 0, srcHeight = 0, dstWidth = 0, dstHeight = 0;
@@ -394,11 +395,11 @@ The chosen backend name is logged at INFO on every preset (re)load.
 1. Emu thread, `PrepareCopyDisplayToOutput`: compute display rect; collect param overrides
    for the current preset; `out = chain->Run(vfb->fbo, bufferW, bufferH, rectW, rectH, flips)`.
 2. `LibrashaderFilterChain::Run` ensures `output_` is `rectW×rectH` RGBA8 and enqueues the
-   CALLBACK step through thin3d. Returns `output_`.
+   NATIVE_CALLBACK step through thin3d. Returns `output_`.
 3. Emu thread continues: `presentation_->SourceFramebuffer(output_, rectW, rectH)`, then the
    normal present blit records a RENDER step that samples `output_`. The render manager
-   sees a dependency on `output_`, which the CALLBACK step wrote, so ordering is preserved.
-4. Render thread, `RunSteps`: ... RENDER(game) → CALLBACK(librashader) → RENDER(backbuffer).
+   sees a dependency on `output_`, which the NATIVE_CALLBACK step wrote, so ordering is preserved.
+4. Render thread, `RunSteps`: ... RENDER(game) → NATIVE_CALLBACK(librashader) → RENDER(backbuffer).
    `PerformCallback` transitions, calls into librashader, records the final layout.
 5. The present RENDER step's `BindFramebufferAsTexture(output_)` finds `output_` in
    `COLOR_ATTACHMENT_OPTIMAL` and inserts the usual transition to shader-read.
@@ -421,7 +422,7 @@ The chosen backend name is logged at INFO on every preset (re)load.
   `draw_->FlushAndWait()`-equivalent ordering, which today's code already has because
   `DeviceLost`/`UpdateSlangChain` run between frames on the emu thread with the render
   thread drained by `VulkanRenderManager::Finish`. Phase 1 adds a debug assertion that no
-  CALLBACK step referencing the chain is pending when it is deleted.
+  NATIVE_CALLBACK step referencing the chain is pending when it is deleted.
 
 ## 9. Error handling
 
@@ -437,8 +438,8 @@ The chosen backend name is logged at INFO on every preset (re)load.
 
 | Phase | Scope | Exit criterion |
 |---|---|---|
-| **1** | Loader, Vulkan CALLBACK step, thin3d API, `ISlangFilterChain`, `LibrashaderFilterChain`, selection, dev toggle, prebuilt-copy CMake option | macOS (MoltenVK) and one Windows/Linux Vulkan machine render `stock.slangp`, `lcd-psp-matrix.slangp`, `crt-royale.slangp` identically to the in-tree chain; unit tests green; in-tree path unchanged when toggled |
-| **2** | GL CALLBACK step + `LibrashaderFilterChain` GL runtime, state restore | Desktop GL renders the same three presets |
+| **1** | Loader, Vulkan NATIVE_CALLBACK step, thin3d API, `ISlangFilterChain`, `LibrashaderFilterChain`, selection, dev toggle, prebuilt-copy CMake option | macOS (MoltenVK) and one Windows/Linux Vulkan machine render `stock.slangp`, `lcd-psp-matrix.slangp`, `crt-royale.slangp` identically to the in-tree chain; unit tests green; in-tree path unchanged when toggled |
+| **2** | GL NATIVE_CALLBACK step + `LibrashaderFilterChain` GL runtime, state restore | Desktop GL renders the same three presets |
 | **3** | Android: cargo-ndk build, jniLibs packaging; GLES 3 verification (CI deferred to Phase 4: the Android CI jobs use `android/ab.sh`/ndk-build, whose `Android.mk` lists no `GPU/Common/Slang` sources) | APK renders the three presets on Vulkan and GLES 3 on the Adreno test device |
 | **4** | Remove in-tree chain, revert thin3d slot/descriptor bumps and sRGB render-pass keying, delete `bSlangUseLibrashader`; D3D11 runtime | **Met (2026-09-15)**: removal done, Windows VK/GL/D3D11 verified (`stock`/`lcd-psp-matrix` on all three backends), GLES 3 fixes landed, perf gate passed (librashader/in-tree GPU time ratio 1.22 ≤ 1.5 on Adreno 740), Vulkan sync validation clean on Android. `git diff upstream/master -- Common/GPU` is additions only (18 files, 654 insertions). Packaging, jniLibs ABI handling complete; CI step added to manual_generate_apk.yml, unverified. |
 
@@ -469,7 +470,7 @@ GLES 3 verification stays in Phase 3. Details: `.superpowers/sdd/2026-09-14-libr
 code change on either. Vulkan (device API 1.3.128): `lcd-grid-v2-psp-color` (substituted for the
 spec's `stock` preset, which is not present in `assets/shaders/slang_test` on the device while the
 full libretro pack is), `presets/crt-royale-downsample` and the heavy `crt/crt-maximus-royale-fast-mode`
-(substituted for `crt-royale`) all render; a Khronos-validation run over the CALLBACK step produced
+(substituted for `crt-royale`) all render; a Khronos-validation run over the NATIVE_CALLBACK step produced
 **zero** librashader-attributable messages (core validation only: `VK_LAYER_KHRONOS_validation` default
 features; synchronization validation is not enabled by PPSSPP — `Common/GPU/Vulkan/VulkanContext.cpp`
 never sets `VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT` — and is a Phase 4 item);
@@ -503,18 +504,18 @@ Each phase gets its own implementation plan. This spec covers all four; the Phas
   marshaling is covered by the on-device checks instead.
 - **Compile-time**: CMake configure + build with `USE_LIBRASHADER=ON` and `OFF`.
 - **Vulkan validation**: run once per phase with `VK_LAYER_KHRONOS_validation` enabled and
-  the three presets; zero new validation errors is the bar (the CALLBACK step's layout
+  the three presets; zero new validation errors is the bar (the NATIVE_CALLBACK step's layout
   bookkeeping is the risk).
 - **Visual**: screenshot the same frame (PPSSPP's screenshot function) with in-tree and
   librashader for the three presets; compare with a pixel-diff tool; differences must be
   explainable (librashader applies rotation only on the final pass; sRGB conversions).
-- **Regression**: with the toggle off or the library absent, output must be byte-identical
+- **Regression**: with the library absent, output must be byte-identical
   to the pre-change build.
 
 ## 12. Risks
 
 - **Step optimizer interactions.** The Vulkan queue runner rewrites steps (merging, MGS and
-  Sonic hacks). A CALLBACK step that is silently converted or reordered would corrupt
+  Sonic hacks). A NATIVE_CALLBACK step that is silently converted or reordered would corrupt
   frames. Mitigation: treat it exactly like COPY in every pass; debug-build sanity check.
 - **Native size vs image size.** librashader may take `SourceSize` from the image extents
   rather than the `width/height` fields. Mitigation noted in §6.5 (one blit to a
@@ -535,7 +536,7 @@ Each phase gets its own implementation plan. This spec covers all four; the Phas
   uniform that shaders read, so passing PPSSPP's monotonically increasing flip count is
   correct even when frames are skipped, and a skipped or repeated flip count cannot alias
   librashader's resource recycling. What we do owe librashader is one call per submitted
-  frame, which the CALLBACK step gives us by construction.
+  frame, which the NATIVE_CALLBACK step gives us by construction.
 - **MoltenVK.** Dynamic rendering is off by default in our options; the render-pass
   fallback path is the one librashader's 86Box integration uses on macOS.
 - **Rust toolchain in CI (Phase 3).** Adds minutes to Android/desktop builds; pinning the

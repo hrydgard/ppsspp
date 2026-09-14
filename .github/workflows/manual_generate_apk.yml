@@ -74,9 +74,10 @@ jobs:
         with:
           path: |
             ~/.cargo/registry
+            ~/.cargo/git
             ~/.cargo/bin/cargo-ndk*
-            build/librashader-src/target
-          key: librashader-${{ runner.os }}-${{ hashFiles('build/librashader-tag.txt') }}
+          # Do not cache build/librashader-src: the script git-clones into it and would fail on a non-empty, non-git directory.
+          key: librashader-${{ runner.os }}-${{ hashFiles('android/build-librashader.sh') }}
 
       - name: Install cargo-ndk
         run: cargo install cargo-ndk

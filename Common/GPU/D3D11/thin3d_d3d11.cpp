@@ -1903,7 +1903,7 @@ bool D3D11DrawContext::RunNativeCallback(Framebuffer *src, Framebuffer *dst, Nat
 	// Everything ApplyCurrentState() compares against: blend/depthStencil/raster/input layout/
 	// shaders/topology (Invalidate resets exactly those, including curPipeline_ so BindPipeline
 	// stops early-outing), plus the two dynamic-state dirty flags it also keys off.
-	// The texture cache was already cleared by FramebufferManagerCommon::CopyDisplayToOutput
+	// The texture cache was already cleared by FramebufferManagerCommon::PrepareCopyDisplayToOutput
 	// before the callback, so the SRVs we just cleared are the only stale binding state.
 	Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 	blendFactorDirty_ = true;
