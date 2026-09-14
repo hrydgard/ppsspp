@@ -24,6 +24,7 @@ class CtrlRegisterList {
 	RECT rect;
 
 	int rowHeight;
+	int charWidth;
 	int selection = 0;
 	int category = 0;
 	int scrollRow_ = 0;

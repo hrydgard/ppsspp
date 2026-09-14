@@ -41,8 +41,8 @@ public:
 	void PrintRegValue(int cat, int index, char *out, size_t outSize) const override {
 		switch (cat) {
 		case 0: snprintf(out, outSize, "%08X", ctx.r[index]); break;
-		case 1: snprintf(out, outSize, "%f", ctx.f[index]); break;
-		case 2: snprintf(out, outSize, "%f", ctx.v[voffset[index]]); break;
+		case 1: snprintf(out, outSize, "%g", ctx.f[index]); break;
+		case 2: snprintf(out, outSize, "%g", ctx.v[voffset[index]]); break;
 		}
 	}
 

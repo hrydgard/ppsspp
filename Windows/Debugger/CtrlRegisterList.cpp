@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cmath>
 
 #include "Common/System/Display.h"
@@ -140,7 +141,9 @@ CtrlRegisterList::CtrlRegisterList(HWND _wnd)
 
 	const float fontScale = 1.0f / g_display.dpi_scale_real_y;
 	rowHeight = g_Config.iFontHeight * fontScale;
-	int charWidth = g_Config.iFontWidth * fontScale;
+	charWidth = g_Config.iFontWidth * fontScale;
+	if (charWidth < 1)
+		charWidth = 1;
 	font = CreateFont(rowHeight, charWidth, 0, 0,
 		FW_DONTCARE, FALSE, FALSE, FALSE, DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS, DEFAULT_QUALITY, DEFAULT_PITCH,
 		L"Lucida Console");
@@ -199,12 +202,34 @@ void CtrlRegisterList::onPaint(WPARAM wParam, LPARAM lParam)
 	{
 		SelectObject(hdc,i==category?currentPen:nullPen);
 		SelectObject(hdc,i==category?pcBrush:nullBrush);
-		Rectangle(hdc,width*i/nc,0,width*(i+1)/nc,rowHeight);
+		int tabX = width * i / nc;
+		Rectangle(hdc,tabX,0,width*(i+1)/nc,rowHeight);
 		const char *name = cpu->GetCategoryName(i);
-		TextOutA(hdc,width*i/nc,1,name,(int)strlen(name));
+		// Clip to the tab so a narrow list doesn't get the labels running into each other.
+		int tabChars = std::max((width * (i + 1) / nc - tabX) / charWidth, 1);
+		TextOutA(hdc,tabX,1,name,std::min((int)strlen(name), tabChars));
 	}
 
 	int numRows=rect.bottom/rowHeight;
+
+	// Column layout, in pixels. The font scales with the DPI and the vertical scrollbar takes a
+	// bite out of the client width, while the control has a fixed width in the dialog - so derive
+	// the value column from the client width instead of hardcoding it, or the values get cut off
+	// at the right edge. kNameChars covers the widest register name in any category ("zero").
+	constexpr int kNameChars = 5;
+	const int nameX = 17;
+	const int minValueX = nameX + kNameChars * charWidth;
+	const int maxValueX = nameX + (kNameChars + 3) * charWidth;
+	// Pull the column in far enough that a whole value fits - 8 digits for hex, more for floats.
+	int valueX = width - 2 - (category == 0 ? 8 : 12) * charWidth;
+	if (valueX > maxValueX)
+		valueX = maxValueX;
+	if (valueX < minValueX)
+		valueX = minValueX;
+	// How many characters actually fit. Anything longer gets clipped rather than spilling over.
+	int valueChars = (width - 2 - valueX) / charWidth;
+	if (valueChars < 1)
+		valueChars = 1;
 
 	SCROLLINFO si{ sizeof(si), SIF_RANGE | SIF_PAGE | SIF_POS | SIF_DISABLENOSCROLL };
 	si.nMax = totalRows() - 1;
@@ -273,7 +298,7 @@ void CtrlRegisterList::onPaint(WPARAM wParam, LPARAM lParam)
 			char temp[256];
 			int temp_len = snprintf(temp, sizeof(temp), "%s", cpu->GetRegName(category, i).c_str());
 			SetTextColor(hdc, running ? 0x808080 : 0x600000);
-			TextOutA(hdc,17,rowY1,temp,temp_len);
+			TextOutA(hdc,nameX,rowY1,temp,std::min(temp_len, kNameChars));
 
 			cpu->PrintRegValue(category, i, temp, sizeof(temp));
 			if (running)
@@ -282,7 +307,7 @@ void CtrlRegisterList::onPaint(WPARAM wParam, LPARAM lParam)
 				SetTextColor(hdc, 0x0000FF);
 			else
 				SetTextColor(hdc,0x004000);
-			TextOutA(hdc,77,rowY1,temp,(int)strlen(temp));
+			TextOutA(hdc,valueX,rowY1,temp,std::min((int)strlen(temp), valueChars));
 		} else if (category == 0 && i < REGISTERS_END)
 		{
 			char temp[256];
@@ -310,7 +335,7 @@ void CtrlRegisterList::onPaint(WPARAM wParam, LPARAM lParam)
 			}
 
 			SetTextColor(hdc, running ? 0x808080 : 0x600000);
-			TextOutA(hdc,17,rowY1,temp,len);
+			TextOutA(hdc,nameX,rowY1,temp,std::min(len, kNameChars));
 			len = snprintf(temp, sizeof(temp), "%08X",value);
 			if (running)
 				SetTextColor(hdc, 0x808080);
@@ -318,7 +343,7 @@ void CtrlRegisterList::onPaint(WPARAM wParam, LPARAM lParam)
 				SetTextColor(hdc, 0x0000FF);
 			else
 				SetTextColor(hdc,0x004000);
-			TextOutA(hdc,77,rowY1,temp,(int)strlen(temp));
+			TextOutA(hdc,valueX,rowY1,temp,std::min(len, valueChars));
 		}
 	}
 
