@@ -24,35 +24,38 @@
 #include "Common/GPU/thin3d.h"
 #include "GPU/Common/Slang/SlangPreset.h"
 #include "GPU/Common/Slang/SlangPassCompiler.h"
+#include "GPU/Common/Slang/ISlangFilterChain.h"
 
 // SlangFilterChain loads and executes a multi-pass slang shader preset.
 // It manages GPU resources (pipelines, framebuffers, samplers), parses the preset,
 // compiles each pass, and runs the full chain frame-by-frame.
-class SlangFilterChain {
+class SlangFilterChain : public ISlangFilterChain {
 public:
 	explicit SlangFilterChain(Draw::DrawContext *draw);
-	~SlangFilterChain();
+	~SlangFilterChain() override;
 
 	// Parse and compile a .slangp preset. Reads the preset file and all .slang shader files,
 	// compiles each pass, and creates GPU resources. Returns false + *error on failure.
-	bool Load(const Path &presetPath, std::string *error);
+	bool Load(const Path &presetPath, std::string *error) override;
 
-	bool IsValid() const { return valid_; }
+	bool IsValid() const override { return valid_; }
 
 	// Execute the filter chain for one frame. `source` is the input framebuffer (game output),
 	// sourceW/H are its dimensions, viewportW/H are the final display dimensions, and frameCount
 	// is the current frame number (for animations). Returns the final pass output framebuffer,
 	// or nullptr on failure.
 	Draw::Framebuffer *Run(Draw::Framebuffer *source, int sourceW, int sourceH,
-	                       int viewportW, int viewportH, int frameCount);
+	                       int viewportW, int viewportH, int frameCount) override;
 
 	// Device loss/restore handling for graphics API resets.
-	void DeviceLost();
-	void DeviceRestore(Draw::DrawContext *draw);
+	void DeviceLost() override;
+	void DeviceRestore(Draw::DrawContext *draw) override;
 
 	// Runtime overrides for #pragma parameter values: name -> value. Applied in Run()'s
 	// UserParameter binding; a name absent from the map falls back to the parameter's default.
-	void SetParamOverrides(const std::map<std::string, float> &overrides);
+	void SetParamOverrides(const std::map<std::string, float> &overrides) override;
+
+	SlangChainBackend Backend() const override { return SlangChainBackend::InTree; }
 
 	// Resolve a parameter value: if present in overrides return it, else return the param's initial, else 0.0f.
 	static float ResolveParamValue(const std::string &name, const std::vector<SlangParamDesc> &params,
