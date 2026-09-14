@@ -366,6 +366,7 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("UIScaleFactor", SETTING(g_Config, iUIScaleFactor), &DefaultUIScaleFactor, CfgFlag::DEFAULT),
 
 	ConfigSetting("VulkanDisableImplicitLayers", SETTING(g_Config, bVulkanDisableImplicitLayers), false, CfgFlag::DEFAULT),
+	ConfigSetting("VulkanSyncValidation", SETTING(g_Config, bVulkanSyncValidation), false, CfgFlag::DEFAULT),
 };
 
 static bool DefaultSasThread() {

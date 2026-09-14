@@ -114,7 +114,7 @@ Gate: ratio ≤ 1.5 → **PASS (1.220)**, Task 4 may proceed. Also try once with
 - Modify: `Common/GPU/Vulkan/VulkanContext.h` (`VulkanInitFlags`: add `SYNC_VALIDATE = (1 << 1)`), `Common/GPU/Vulkan/VulkanContext.cpp` (instance creation ~line 229–244), `GPU/Vulkan/VulkanUtil.cpp` (`VulkanInitFlagsFromConfig` ~line 65), `Core/Config.h/.cpp` (`bool bVulkanSyncValidation`, ini `VulkanSyncValidation`, default false, next to `VulkanDisableImplicitLayers` ~line 368)
 - Modify: this plan (results)
 
-- [ ] **Step 1: Wire the feature**
+- [x] **Step 1: Wire the feature**
 
 In `VulkanContext::CreateInstance` (the block shown around `VkInstanceCreateInfo inst_info`): when `(createInfo_.flags & VulkanInitFlags::VALIDATE) && (createInfo_.flags & VulkanInitFlags::SYNC_VALIDATE)` and the instance extension `VK_EXT_validation_features` is available (`IsInstanceExtensionAvailable(VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME)` — enable it via the same path other instance extensions use, ~line 200–210), chain:
 
@@ -131,13 +131,44 @@ In `VulkanContext::CreateInstance` (the block shown around `VkInstanceCreateInfo
 ```
 `VulkanUtil.cpp`: `if (g_Validate && g_Config.bVulkanSyncValidation) flags |= VulkanInitFlags::SYNC_VALIDATE;`. Verify the enum values in `ext/vulkan/vulkan.h` (`VK_EXT_validation_features` is core-promoted-free; the struct exists since 1.1.106).
 
-- [ ] **Step 2: Run on device**
+- [x] **Step 2: Run on device**
 
 Drop `arm64-v8a/libVkLayer_khronos_validation.so` (from `/tmp/vvl` extracted in Phase 3, or re-download `android-binaries-1.4.357.0.zip`) into `android/src/main/jniLibs/arm64-v8a/`, build `librashader-p4b`, install. Ini: `VulkanSyncValidation = True`, log levels 4, preset `lcd-grid-v2-psp-color`, then `crt-royale-downsample`. Baseline with `SlangUseLibrashader = False` for each. Collect `adb logcat -d | grep -E "VKDEBUG|SYNC-HAZARD|Vulkan synchronization validation enabled"` per run into `/tmp/ppsspp-t8/p4-sync-*.log`. Report the set difference (librashader − baseline) of message IDs, with the first occurrence text of each new ID. Expected: none attributable to the CALLBACK step; if a `SYNC-HAZARD` names the callback's images, fix the barrier in `VulkanQueueRunner::PerformCallback` (allowed file) and re-run. Remove the layer, rebuild `librashader-p4c`, reinstall. Restore ini.
 
-- [ ] **Step 3: Record + commit**
+- [x] **Step 3: Record + commit**
 
 Table: layer loaded (yes/no), sync validation enabled log line, baseline IDs, librashader IDs, difference, fix applied (if any). Desktop gate 76. Commit `Vulkan: optional synchronization validation (VulkanSyncValidation) + Phase 4 results`.
+
+**Results (2026-09-14, AYN Thor `64dc3c35`, Adreno 740, APK `librashader-p4b`, VVL 1.4.357.0, game `3rd Birthday`, ~40 s at the boot dialog, `InternalResolution = 4`):**
+
+| Run | Preset | `SlangUseLibrashader` | Layer loaded | `Vulkan synchronization validation enabled` | `SYNC-HAZARD` | Distinct message-ID set |
+|---|---|---|---|---|---|---|
+| `p4-sync-lcd-baseline.log` | `lcd-grid-v2-psp-color` | False (in-tree) | yes | yes | 0 | `{WARNING(perf:-937765618) vkCreateGraphicsPipelines()}` (6 lines) |
+| `p4-sync-lcd-libra.log` | `lcd-grid-v2-psp-color` | True (librashader) | yes | yes | 0 | ∅ |
+| `p4-sync-royale-baseline.log` | `presets/crt-royale-downsample` | False (in-tree) | yes | yes | 0 | `{WARNING(perf:-937765618) vkCreateGraphicsPipelines()}` (9 lines) |
+| `p4-sync-royale-libra.log` | `presets/crt-royale-downsample` | True (librashader) | yes | yes | 0 | ∅ |
+
+**Set difference (librashader − baseline) = ∅ for both presets.** No `SYNC-HAZARD` of any kind in
+any run, so nothing to attribute to the CALLBACK step / `VulkanQueueRunner::PerformCallback`, and
+**no barrier fix was needed**. The only baseline ID is the pre-existing in-tree-slang pipeline
+warning already recorded in Phase 3 (`Vertex attribute at location 2 not consumed by vertex
+shader`), which disappears when librashader replaces those pipelines. Screencaps are byte-identical
+in size to the Phase 3 validation runs (109,967 / 118,408 / 459,206 / 358,896 B), i.e. rendering was
+unaffected.
+
+**Positive control (the chained `VkValidationFeaturesEXT` is really consumed):** a throwaway build
+`librashader-p4b-control` added `VK_VALIDATION_FEATURE_ENABLE_BEST_PRACTICES_EXT` as a second entry
+of the same `syncEnables[]` array; that run produced 43 best-practices messages
+(`perf:1147161417 vkBindImageMemory()`, `perf:280337739 vkBindBufferMemory()`,
+`perf:2075859757` LAZILY_ALLOCATED, `validation:1734198062 vkCreateDevice()`, …) that appear in no
+other run. The extra entry was reverted before the final build.
+
+Cleanup: layer `.so` removed from `jniLibs`, `librashader-p4c` rebuilt and installed
+(`unzip -l | grep -c VkLayer` → `0`; the Android loader no longer logs `added global layer
+'VK_LAYER_KHRONOS_validation'`). Ini restored: `VulkanSyncValidation = False`, `G3DLevel = 2` and
+`SYSTEMLevel = 2` in both `[Log]` and `[LogDebug]`. Gradle daemon stopped. Desktop gate: 76 tests
+passed. No UI checkbox was added — `VulkanSyncValidation` is an ini-only dev knob (it costs a lot of
+performance and only does anything in a validation-enabled build).
 
 ---
 

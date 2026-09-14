@@ -29,6 +29,9 @@
 
 enum class VulkanInitFlags : uint32_t {
 	VALIDATE = (1 << 0),
+	// Requires VALIDATE. Turns on the validation layer's synchronization validation
+	// through VK_EXT_validation_features. Very slow, dev-only (ini: VulkanSyncValidation).
+	SYNC_VALIDATE = (1 << 1),
 	DISABLE_IMPLICIT_LAYERS = (1 << 5),
 };
 ENUM_CLASS_BITOPS(VulkanInitFlags);

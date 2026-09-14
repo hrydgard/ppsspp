@@ -1,5 +1,6 @@
 #define __STDC_LIMIT_MACROS
 
+#include <algorithm>
 #include <cstdlib>
 #include <cstdint>
 #include <cstring>
@@ -195,6 +196,20 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 		}
 	}
 
+	// Synchronization validation is opt-in on top of normal validation (it's very slow).
+	// VK_EXT_validation_features is implemented by the validation layer itself, so this can only
+	// succeed if the layer was found above.
+	bool syncValidation = (createInfo_.flags & VulkanInitFlags::VALIDATE) && (createInfo_.flags & VulkanInitFlags::SYNC_VALIDATE);
+	if (syncValidation) {
+		if (IsInstanceExtensionAvailable(VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME)) {
+			instance_extensions_enabled_.push_back(VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME);
+		} else {
+			ERROR_LOG(Log::G3D, "%s not available - not enabling Vulkan synchronization validation.", VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME);
+			createInfo_.flags &= ~VulkanInitFlags::SYNC_VALIDATE;
+			syncValidation = false;
+		}
+	}
+
 	if (IsInstanceExtensionAvailable(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME)) {
 		instance_extensions_enabled_.push_back(VK_KHR_GET_SURFACE_CAPABILITIES_2_EXTENSION_NAME);
 		extensionsLookup_.KHR_get_surface_capabilities2 = true;
@@ -238,6 +253,17 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 	inst_info.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
 #endif
 
+	// Must stay alive across both vkCreateInstance calls below.
+	const VkValidationFeatureEnableEXT syncEnables[] = { VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT };
+	VkValidationFeaturesEXT validationFeatures{ VK_STRUCTURE_TYPE_VALIDATION_FEATURES_EXT };
+	validationFeatures.enabledValidationFeatureCount = ARRAY_SIZE(syncEnables);
+	validationFeatures.pEnabledValidationFeatures = syncEnables;
+	if (syncValidation) {
+		validationFeatures.pNext = inst_info.pNext;
+		inst_info.pNext = &validationFeatures;
+		INFO_LOG(Log::G3D, "Vulkan synchronization validation enabled");
+	}
+
 #if SIMULATE_VULKAN_FAILURE == 2
 	VkResult res = VK_ERROR_INCOMPATIBLE_DRIVER;
 #else
@@ -250,6 +276,18 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 			instance_layer_names_.clear();
 			inst_info.enabledLayerCount = 0;
 			inst_info.ppEnabledLayerNames = nullptr;
+			if (syncValidation) {
+				// The layer implemented VK_EXT_validation_features, so that has to go too.
+				inst_info.pNext = validationFeatures.pNext;
+				instance_extensions_enabled_.erase(
+					std::remove_if(instance_extensions_enabled_.begin(), instance_extensions_enabled_.end(),
+						[](const char *ext) { return !strcmp(ext, VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME); }),
+					instance_extensions_enabled_.end());
+				inst_info.enabledExtensionCount = (uint32_t)instance_extensions_enabled_.size();
+				inst_info.ppEnabledExtensionNames = instance_extensions_enabled_.size() ? instance_extensions_enabled_.data() : nullptr;
+				createInfo_.flags &= ~VulkanInitFlags::SYNC_VALIDATE;
+				syncValidation = false;
+			}
 			res = vkCreateInstance(&inst_info, nullptr, &instance_);
 			if (res != VK_SUCCESS)
 				ERROR_LOG(Log::G3D, "Failed to create instance even without validation: %d", res);

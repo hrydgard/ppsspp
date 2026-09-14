@@ -385,6 +385,7 @@ public:
 	int iDefaultTab;
 	int iScreenshotMode;
 	bool bVulkanDisableImplicitLayers;
+	bool bVulkanSyncValidation;  // Only has an effect in builds with Vulkan validation enabled.
 	bool bForceFfmpegForAudioDec;
 
 	std::vector<std::string> vPostShaderNames; // Off for chain end (only Off for no shader)
