@@ -192,16 +192,29 @@ selects librashader. Unlike Vulkan there is no readiness gate: the GL adapter cr
 renders in the same callback, and frees it through a second CALLBACK step (the creating context must
 be current for `libra_gl_filter_chain_free`).
 
+That second CALLBACK step only helps while the render thread still drains work. At `DeviceLost` /
+shutdown it does not: `GLRenderManager::ThreadEnd` deletes queued CALLBACK functions without running
+them, so `QueueFree` takes a `deviceLost` flag and, when it is set, drops the state with one warning
+instead of enqueuing a free that would never run. The GL objects die with the context and
+librashader's Rust-side allocation is knowingly leaked (see §8). `libra_gl_filter_chain_free` has
+therefore never been exercised on device; only the drop path has.
+
+Under VR multi-pass (`keepSteps`) the same CALLBACK step is replayed once per pass with the same
+`frame_count`, so a preset's history/feedback ring advances twice per frame. Acceptable for now; to
+revisit if Quest ever comes into scope.
+
 The restored baseline is:
 
-- FBO binding caches invalidated (`currentDrawHandle_ = currentReadHandle_ = (GLuint)-1`) plus
-  `fbo_unbind()`, so the next `fbo_bind_fb_target` really rebinds
+- `fbo_unbind()`, which binds the default FBO and sets both binding caches to it, so the next
+  `fbo_bind_fb_target` for a real framebuffer really rebinds
 - `glBindVertexArray(globalVAO_)` when VAOs are in use (also the only thing that restores
   vertex-attribute enable state), `glUseProgram(0)`, `glBindBuffer(GL_ARRAY_BUFFER, 0)`
 - `glBindSampler(i, 0)` for `i < MAX_GL_TEXTURE_SLOTS` (GLES 3 / desktop ≥ 3.3),
   `glActiveTexture(GL_TEXTURE0)`
-- `GL_UNPACK_ALIGNMENT` 4 and, on desktop, `GL_UNPACK_ROW_LENGTH`/`SKIP_ROWS`/`SKIP_PIXELS` 0 and
-  `glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0)`
+- `GL_UNPACK_ALIGNMENT` 4 and, on desktop GL *and GLES 3.0+*,
+  `GL_UNPACK_ROW_LENGTH`/`SKIP_ROWS`/`SKIP_PIXELS` 0 and `glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0)`
+  (a runtime `!gl_extensions.IsGLES || gl_extensions.GLES3` check - all four enums are declared for
+  `USING_GLES2` builds via `gl3stub.h`, so no compile-time guard is needed)
 - `glColorMask(1,1,1,1)`, `glDepthMask(GL_TRUE)`, `glStencilMask(0xFF)`
 - depth test, stencil test, blend, cull face and dither disabled; scissor test enabled
 - desktop only: colour logic op, depth clamp and `GL_FRAMEBUFFER_SRGB` disabled, all eight

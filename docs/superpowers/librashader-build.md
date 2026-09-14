@@ -163,17 +163,29 @@ the GL thread with the creating context current; the chain is created and used i
 (unlike Vulkan there is no command-buffer readiness gate), and it is freed through another CALLBACK
 step because `libra_gl_filter_chain_free` needs that context. librashader changes GL state freely,
 so `GLQueueRunner::RestoreBaselineStateAfterCallback()` puts back everything
-`PerformRenderPass`/`PerformBindFramebufferAsRenderTarget` assume: the FBO binding caches are
-invalidated and `fbo_unbind()` is called, the global VAO is rebound, `glUseProgram(0)`,
+`PerformRenderPass`/`PerformBindFramebufferAsRenderTarget` assume: `fbo_unbind()` (which binds the
+default FBO and updates both binding caches), the global VAO is rebound, `glUseProgram(0)`,
 `GL_ARRAY_BUFFER` 0, `glBindSampler(i, 0)` for every texture slot, `glActiveTexture(GL_TEXTURE0)`,
-the `GL_UNPACK_*` pixel-store parameters and `GL_PIXEL_UNPACK_BUFFER`, full colour/depth/stencil
-masks, depth/stencil/blend/cull/dither/logic-op/depth-clamp/clip-distance disabled, scissor test
-enabled, and `GL_FRAMEBUFFER_SRGB` disabled on desktop.
+the `GL_UNPACK_*` pixel-store parameters and `GL_PIXEL_UNPACK_BUFFER` (desktop GL and GLES 3.0+,
+selected by a runtime check), full colour/depth/stencil masks, depth/stencil/blend/cull/dither
+disabled, scissor test enabled, and - desktop only - logic op, depth clamp, `GL_FRAMEBUFFER_SRGB`
+and all eight `GL_CLIP_DISTANCE*` disabled.
+
+**Chain free at teardown.** The free CALLBACK step only runs while the render thread still drains
+work. At `DeviceLost` / shutdown it does not - `GLRenderManager::ThreadEnd` deletes queued CALLBACK
+functions without running them - so `LibrashaderRuntime::QueueFree` takes a `deviceLost` flag and,
+when it is set, drops the state with a single warning
+(`LibrashaderRuntimeOpenGL: dropping chain without freeing`) instead of enqueuing a free that would
+silently never run. The GL objects die with the context; librashader's Rust-side allocation is
+knowingly leaked. `libra_gl_filter_chain_free` itself is therefore only reachable from an in-process
+preset change, which has not been exercised on device yet.
 
 **Verified** on 2026-09-14 (macOS 15, Apple M2 Pro, GL 4.1 core over Metal): `stock`, `lut`,
-`feedback`, `lcd-psp-matrix` and `twopass` are **bit-identical** to the Vulkan librashader output of
-the same frame, and PPSSPP's own overlays (FPS counter, debug statistics, the ImGui debugger with its
-framebuffer preview) render correctly over the filtered image. GLES 3 is Phase 3.
+`feedback`, `lcd-psp-matrix`, `twopass` and `srgb` are **bit-identical** to the Vulkan librashader
+output of the same frame, and PPSSPP's own overlays (FPS counter, debug statistics, the ImGui
+debugger with its framebuffer preview) render correctly over the filtered image. GLES 3 is Phase 3.
+At shutdown the GL chain is dropped, not freed (see above), so the drop warning in the log is
+expected, not a failure.
 
 ## Confirming the Load
 
