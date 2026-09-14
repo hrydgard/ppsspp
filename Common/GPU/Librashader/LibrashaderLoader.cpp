@@ -57,7 +57,7 @@ static bool Preload(const Path &path) {
 #if PPSSPP_PLATFORM(WINDOWS)
 	g_preloaded = LoadLibraryW(path.ToWString().c_str());
 #else
-	g_preloaded = dlopen(path.c_str(), RTLD_NOW | RTLD_GLOBAL);
+	g_preloaded = dlopen(path.c_str(), RTLD_NOW | RTLD_LOCAL);
 #endif
 	return g_preloaded != nullptr;
 }
@@ -67,20 +67,24 @@ bool Load(std::string *error) {
 	if (!g_attempted) {
 		g_attempted = true;
 		const char *env = getenv("LIBRASHADER_PATH");
-		bool preloaded = false;
-		if (env && env[0]) {
-			preloaded = Preload(Path(env));
-			if (!preloaded)
-				g_error = std::string("LIBRASHADER_PATH set but not loadable: ") + env;
-		}
-		if (!preloaded && !(env && env[0])) {
-			preloaded = Preload(File::GetExeDirectory() / PlatformLibraryName());
-		}
-		if (!(env && env[0]) || preloaded) {
+		const bool envSet = env && env[0];
+		Path preloadPath = envSet ? Path(env) : File::GetExeDirectory() / PlatformLibraryName();
+		const bool preloaded = Preload(preloadPath);
+		if (envSet && !preloaded)
+			g_error = std::string("LIBRASHADER_PATH set but not loadable: ") + env;
+		if (!envSet || preloaded) {
 			g_instance = librashader_load_instance();
 			if (!g_instance.instance_loaded) {
-				g_error = std::string("librashader not found or ABI mismatch (want ABI ") +
-				          std::to_string(LIBRASHADER_CURRENT_ABI) + ")";
+				if (preloaded) {
+					// The image is in the process but librashader_ld.h's bare-name dlopen/LoadLibrary
+					// did not find it, which means it does not answer to the expected name.
+					g_error = "librashader preloaded from " + preloadPath.ToString() +
+					          " but bare-name load failed - check the library's install name/soname is " +
+					          PlatformLibraryName() + " (see docs/superpowers/librashader-build.md)";
+				} else {
+					g_error = std::string("librashader not found or ABI mismatch (want ABI ") +
+					          std::to_string(LIBRASHADER_CURRENT_ABI) + ")";
+				}
 			} else {
 				INFO_LOG(Log::G3D, "librashader loaded (ABI %d, API %d)", (int)g_instance.instance_abi_version(),
 				         (int)g_instance.instance_api_version());

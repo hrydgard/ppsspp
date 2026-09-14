@@ -96,11 +96,6 @@ void DeveloperToolsScreen::CreateTextureReplacementTab(UI::LinearLayout *list) {
 	list->Add(new CheckBox(&g_Config.bSaveNewTextures, dev->T("Save new textures")));
 	list->Add(new CheckBox(&g_Config.bReplaceTextures, dev->T("Replace textures")));
 
-#if USE_LIBRASHADER
-	list->Add(new ItemHeader(dev->T("Slang shaders")));
-	list->Add(new CheckBox(&g_Config.bSlangUseLibrashader, dev->T("Use librashader for slang shaders")));
-#endif
-
 	Choice *createTextureIni = list->Add(new Choice(dev->T("Create/Open textures.ini file for current game")));
 	createTextureIni->OnClick.Handle(this, &DeveloperToolsScreen::OnOpenTexturesIniFile);
 	createTextureIni->SetEnabledFunc([&] {
@@ -255,6 +250,11 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 
 #if PLATFORM_SUPPORTS_FILE_HANDLER_PLUGINS
 	list->Add(new CheckBox(&g_Config.bEnableFileHandlerPlugins, dev->T("Enable file handler plugins (insecure)")));
+#endif
+
+#if USE_LIBRASHADER
+	list->Add(new ItemHeader(dev->T("Slang shaders")));
+	list->Add(new CheckBox(&g_Config.bSlangUseLibrashader, dev->T("Use librashader for slang shaders")));
 #endif
 }
 

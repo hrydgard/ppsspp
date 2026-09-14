@@ -20,6 +20,8 @@
 #include <string>
 #include "ppsspp_config.h"
 #include "unittest/UnitTest.h"
+#include "Common/File/FileUtil.h"
+#include "Common/File/Path.h"
 #include "Common/GPU/Librashader/LibrashaderLoader.h"
 #include "GPU/Common/Slang/ISlangFilterChain.h"
 #include "Core/ConfigValues.h"
@@ -39,6 +41,25 @@ bool TestLibrashaderLoaderAbsent() {
 	EXPECT_FALSE(Librashader::IsLoaded());
 	unsetenv("LIBRASHADER_PATH");
 	Librashader::Unload();
+#endif
+	return true;
+}
+
+// Device-free: LIBRASHADER_PATH pointing at a file that exists but is not a loadable library must
+// also fail cleanly (dlopen fails rather than the file being missing).
+bool TestLibrashaderLoaderNotALibrary() {
+#if USE_LIBRASHADER && !PPSSPP_PLATFORM(WINDOWS)
+	const Path bogus("/tmp/ppsspp-test-not-a-librashader.bin");
+	EXPECT_TRUE(File::WriteStringToFile(false, "this is not a shared library\n", bogus));
+	setenv("LIBRASHADER_PATH", bogus.c_str(), 1);
+	Librashader::Unload();
+	std::string err;
+	EXPECT_FALSE(Librashader::Load(&err));
+	EXPECT_FALSE(Librashader::IsLoaded());
+	EXPECT_FALSE(err.empty());
+	unsetenv("LIBRASHADER_PATH");
+	Librashader::Unload();
+	File::Delete(bogus);
 #endif
 	return true;
 }

@@ -1120,10 +1120,7 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 			if (curRenderStep_->render.colorLoad != VKRRenderPassLoadAction::CLEAR && curRenderStep_->render.depthLoad != VKRRenderPassLoadAction::CLEAR && curRenderStep_->render.stencilLoad != VKRRenderPassLoadAction::CLEAR) {
 				// Can trivially kill the last empty render step.
 				_dbg_assert_(steps_.back() == curRenderStep_);
-				// Clean up heap-allocated callback fn if this were a callback step.
-				if (steps_.back()->stepType == VKRStepType::CALLBACK && steps_.back()->callback.fn) {
-					delete steps_.back()->callback.fn;
-				}
+				// curRenderStep_ is by definition a RENDER step, so there is no callback fn to free.
 				delete steps_.back();
 				steps_.pop_back();
 				curRenderStep_ = nullptr;
