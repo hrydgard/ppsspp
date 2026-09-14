@@ -1,0 +1,399 @@
+# Design: librashader-backed slang shader rendering for PPSSPP
+
+- **Status:** Draft for review
+- **Date:** 2026-09-14
+- **Branch:** `feature/librashader-integration` (based on `chore/merge-upstream-2026-09-14`)
+- **Author:** design doc (Claude-assisted)
+- **Supersedes (rendering core only):** `2026-07-13-slang-shader-support-design.md` §4–§5.
+  The parser, preset library, importer, UI and config from that design stay.
+
+## 1. Summary
+
+Replace the in-tree slang *rendering core* (`SlangFilterChain` + `SlangPassCompiler`,
+~1400 LOC, Vulkan-only) with [librashader](https://github.com/SnowflakePowered/librashader),
+the reference implementation of the RetroArch slang shader pipeline, loaded at runtime
+through its MIT-licensed C loader header. Everything above the rendering core is kept:
+preset discovery, package import, parameter browsing UI and config persistence.
+
+librashader records its whole filter chain into a caller-supplied command buffer using raw
+Vulkan (or GL/D3D11) handles. PPSSPP's `thin3d` abstraction does not expose those handles
+per frame, and both the Vulkan and OpenGL backends execute on a deferred render thread from a
+recorded step list. The central piece of this design is therefore a new **native callback
+step** in the render managers, surfaced through one new `thin3d` entry point, that runs a
+caller's function on the render thread with the current command buffer and the source and
+destination images already in the layouts librashader requires.
+
+The in-tree chain is kept as a fallback during the transition and is removed in a later phase
+once librashader ships on every platform PPSSPP supports.
+
+## 2. Why
+
+| In-tree chain today | With librashader |
+|---|---|
+| Vulkan only; GL/D3D11 cross-compile plan at 0/34 tasks, GL black-render unsolved | Vulkan, GL 3.3+/GLES 3.0+, D3D11 (and D3D9/12/Metal) already implemented |
+| Push-constant → UBO textual rewrite of shader source | Compiles the untouched shader through the same glslang + SPIRV-Cross path RetroArch uses |
+| Needed `MAX_TEXTURE_SLOTS` 3→12 and `MAX_DESC_SET_BINDINGS` 6→14 in thin3d, which upstream just tightened to 5 | librashader owns its pipelines, descriptors and intermediates; the thin3d bumps can be reverted |
+| No shader cache; synchronous compile on the main thread | Parallel compile plus a persistent on-disk cache |
+| Spec conformance maintained by us | Maintained upstream; tested against the full libretro shader repository |
+
+## 3. Goals and non-goals
+
+### Goals
+- Render any preset the current chain renders, pixel-comparable, on desktop Vulkan first.
+- Bring OpenGL/GLES and D3D11 to parity without a per-backend cross-compile layer in PPSSPP.
+- Keep the existing user-facing feature set: preset browser, import, parameter sliders,
+  per-game preset, parameter persistence.
+- Degrade gracefully: if the librashader library is not present or fails to load, PPSSPP
+  behaves exactly as before this change (in-tree chain during transition; "shader off" after
+  the in-tree chain is removed).
+- Keep the change surface in `thin3d` and the render managers small and reviewable.
+
+### Non-goals
+- Replacing PPSSPP's legacy `.ini`/GLSL post-shader system. It stays untouched.
+- Metal or wgpu runtimes. PPSSPP has no Metal backend (macOS/iOS use MoltenVK).
+- Statically linking librashader. Upstream marks static linking unsupported.
+- Rewriting the parameter UI on top of librashader's parameter API in this pass. The in-tree
+  `.slangp` parser keeps enumerating parameters for the sliders; it is already tested and
+  device-free.
+
+## 4. Assumptions and decisions taken without an interactive review
+
+These were decided to keep the work moving. Each is cheap to reverse before Phase 2 starts.
+
+1. **Runtime dynamic loading, never linking.** The only librashader code compiled into PPSSPP
+   is the MIT `librashader.h` / `librashader_ld.h` pair. The MPL-2.0 shared library is
+   loaded with `dlopen` / `LoadLibrary`. This keeps PPSSPP's GPL-2.0-or-later licensing
+   simple (MPL-2.0 permits distribution alongside GPL code) and lets a build without the
+   library still run.
+2. **Order of backends: desktop Vulkan → desktop OpenGL → Android Vulkan/GLES → D3D11.**
+   Desktop Vulkan is where the in-tree chain is verified today, so it is the regression
+   baseline. Android needs a Rust cross-build and is deferred to its own phase.
+3. **Keep the in-tree chain as a fallback until Phase 4.** Both implementations sit behind
+   one interface; a developer setting chooses between them for A/B comparison. Removal is an
+   explicit phase, not a side effect.
+4. **Chain creation happens on the render thread, deferred.** librashader's non-deferred
+   create submits to the queue and waits idle, which would race the render thread's
+   submissions. The deferred variant records LUT uploads into the command buffer we hand it.
+   Shader compilation stalls the render thread for the duration of one preset switch, which
+   is the behavior users have today (the in-tree chain compiles synchronously too).
+5. **Output goes into a PPSSPP-owned `Draw::Framebuffer`**, sized to the display rect,
+   exactly as the in-tree chain does today, and is handed to `PresentationCommon` unchanged.
+   Rendering librashader's last pass straight into the swapchain image is a possible later
+   optimization, not part of this design.
+6. **Building librashader is a developer/CI step, not part of the default CMake build.**
+   A documented `cargo` command and a CMake option that copies a prebuilt library next to
+   the executable are sufficient for Phases 1–2. CI integration and Android packaging come
+   with Phase 3.
+
+## 5. Current state (what is being replaced and what is kept)
+
+Reference: `GPU/Common/Slang/`, `Core/Slang/`, `UI/SlangShaderScreen.*`.
+
+**Kept unchanged (backend-agnostic, ~1500 LOC):**
+`SlangpParser`, `SlangPreset.h`, `SlangResolution.h`, `SlangReflection` (parameter
+enumeration only), `SlangPresetLibrary`, `SlangPackageImporter`, `SlangPaths`,
+`SlangShaderScreen`, config fields `sSlangShaderPreset`, `sSlangBuildbotUrl`,
+`mSlangParams`, and `FramebufferManagerCommon::UpdateSlangChain` scaffolding.
+
+**Replaced (rendering core):** `SlangFilterChain`, `SlangPassCompiler`. Their public
+contract is the interface in §6.4.
+
+**Made redundant once the fallback is removed (Phase 4):** `MAX_TEXTURE_SLOTS` 3→12
+(`Common/GPU/thin3d.h`), `MAX_DESC_SET_BINDINGS` 6→14 (`VulkanRenderManager.h`), D3D11
+`MAX_BOUND_TEXTURES` 8→12, GL `sampler0..7` names, `FramebufferDesc::colorFormat` and the
+sRGB render-pass keying in `VulkanFramebuffer.*` / `VulkanQueueRunner.cpp`.
+
+**Integration point (unchanged location):**
+`FramebufferManagerCommon::PrepareCopyDisplayToOutput`, which today calls
+`slangChain_->Run(vfb->fbo, nativeW, nativeH, displayRectW, displayRectH, frameCount)` and
+feeds the result to `presentation_->SourceFramebuffer(...)`.
+
+## 6. Architecture
+
+```
+FramebufferManagerCommon (emu thread)
+   │  ISlangFilterChain::Run(src fbo, native size, display rect, frameCount)
+   ▼
+LibrashaderFilterChain (emu thread side)          SlangFilterChain (in-tree, fallback)
+   │  ensures output Draw::Framebuffer
+   │  draw->RunNativeCallback(src, dst, fn)
+   ▼
+thin3d VKContext::RunNativeCallback
+   │  renderManager_.RunNativeCallback(VKRFramebuffer *src, *dst, fn)
+   ▼
+VulkanRenderManager: EndCurRenderStep(); push VKRStep{CALLBACK}
+   ▼  (render thread)
+VulkanQueueRunner::PerformCallback(step, cmd, curFrame)
+   │  transition src → SHADER_READ_ONLY_OPTIMAL, dst → COLOR_ATTACHMENT_OPTIMAL, flush barriers
+   │  fn(NativeCallbackInfo{cmd, srcImage, srcFormat, dstImage, dstFormat, curFrame})
+   │  record dst layout as COLOR_ATTACHMENT_OPTIMAL (librashader leaves it there)
+   ▼
+LibrashaderFilterChain render-thread side
+   │  first call: libra_vk_filter_chain_create_deferred(preset, device, cmd, opts)
+   │  every call:  set params; libra_vk_filter_chain_frame(chain, cmd, frameCount, in, out, viewport, NULL, opts)
+```
+
+### 6.1 Librashader loader — `Common/GPU/Librashader/LibrashaderLoader.{h,cpp}`
+
+- Vendors `ext/librashader/include/librashader.h` and `librashader_ld.h` pinned to a
+  release tag (0.12.0, C ABI 2 / API 5) with the upstream MIT notice.
+- Defines `LIBRA_RUNTIME_VULKAN` (and later `LIBRA_RUNTIME_OPENGL`, `LIBRA_RUNTIME_D3D11`)
+  before including the loader header so only the needed runtime bindings are compiled.
+- API:
+  ```cpp
+  namespace Librashader {
+  // Loads once, thread-safe, idempotent. Returns true if the library and ABI matched.
+  bool Load(std::string *error);
+  bool IsLoaded();
+  const libra_instance_t &Instance();  // valid only when IsLoaded()
+  void Unload();                        // at shutdown only
+  }
+  ```
+- Search order: `LIBRASHADER_PATH` env var, the executable directory
+  (`GetExeDirectory()`), then the platform default name (`librashader.dll`,
+  `librashader.dylib`, `librashader.so`) through the normal loader search path. On Android
+  the app's native library directory is already on that path.
+- Never asserts on absence; absence is a normal state and is logged once at INFO.
+
+### 6.2 Native callback step in the render managers
+
+**Vulkan.** New `VKRStepType::CALLBACK`. `VKRStep` gains:
+```cpp
+struct {
+    VKRFramebuffer *src;   // color read by the callback (may be null)
+    VKRFramebuffer *dst;   // color written by the callback (may be null)
+    NativeCallbackFn *fn;  // heap-allocated std::function, deleted after the step runs
+} callback;
+```
+`VulkanRenderManager::RunNativeCallback(VKRFramebuffer *src, VKRFramebuffer *dst,
+NativeCallbackFn fn, const char *tag)`:
+- `EndCurRenderStep()`; bumps `numReads` on the last RENDER step targeting `src` (same as
+  `BlitFramebuffer`); inserts `src` and `dst` into `dependencies`; pushes the step.
+
+`VulkanQueueRunner::PerformCallback(const VKRStep &step, VkCommandBuffer cmd, int curFrame)`:
+- `recordBarrier_.TransitionColorImageAuto(&src->color, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL)`;
+  `TransitionColorImageAuto(&dst->color, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL)`;
+  `recordBarrier_.Flush(cmd)`.
+- Calls `fn` with a `Draw::NativeCallbackInfo` (see §6.3).
+- Sets `dst->color.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL` afterwards. librashader
+  documents that it leaves the output in that layout and emits no final barrier. `src`
+  stays in `SHADER_READ_ONLY_OPTIMAL`, which the tracker already records.
+- The step optimizer passes (`ApplyMGSHack`, `ApplySonicHack`, render-pass merging,
+  `RENDER_SKIP` conversion) must treat CALLBACK like COPY: an opaque barrier that reads
+  `src` and writes `dst`. The `switch` statements in `RunSteps`, `LogSteps`, and the
+  step-type dumps gain a CALLBACK case; `default: UNREACHABLE()` must never be hit.
+
+**OpenGL (Phase 2).** Mirror: `GLRStepType::CALLBACK`, `GLRStep::callback{src, dst, fn}`,
+`GLQueueRunner::PerformCallback` runs `fn` with `src->color_texture.texture` and
+`dst->color_texture.texture`, then restores the runner's cached GL state (bound FBO, program,
+texture units 0–1, viewport, scissor) because librashader changes GL state freely.
+
+### 6.3 thin3d surface — `Common/GPU/thin3d.h`
+
+```cpp
+struct NativeCallbackInfo {
+    // Vulkan: VkCommandBuffer, VkImage, VkFormat as integers (no Vulkan header in thin3d.h)
+    uint64_t cmdBuffer = 0;
+    uint64_t srcImage = 0;  uint32_t srcFormat = 0;
+    uint64_t dstImage = 0;  uint32_t dstFormat = 0;
+    // OpenGL: texture names
+    uint32_t srcTexture = 0, dstTexture = 0;
+    int srcWidth = 0, srcHeight = 0, dstWidth = 0, dstHeight = 0;
+    int frameIndex = 0;     // 0..MAX_INFLIGHT_FRAMES-1
+};
+using NativeCallbackFn = std::function<void(const NativeCallbackInfo &)>;
+
+// Runs fn on the backend's render thread, outside any render pass, with src readable as a
+// shader-sampled color image and dst writable as a color attachment. Returns false if the
+// backend does not support native callbacks (D3D9, or GL/D3D11 before their phases).
+virtual bool RunNativeCallback(Framebuffer *src, Framebuffer *dst, NativeCallbackFn fn, const char *tag) { return false; }
+```
+Only `VKContext` overrides it in Phase 1. `GetNativeObject` additionally exposes
+`NativeObject::VULKAN_GET_INSTANCE_PROC_ADDR` (the loader's `vkGetInstanceProcAddr`) so the
+chain does not include `VulkanLoader.h` directly; instance, physical device, device and
+graphics queue are reachable through the existing `NativeObject::CONTEXT` (`VulkanContext *`).
+
+### 6.4 Filter-chain interface — `GPU/Common/Slang/ISlangFilterChain.h`
+
+Extracted verbatim from today's `SlangFilterChain` public surface:
+```cpp
+class ISlangFilterChain {
+public:
+    virtual ~ISlangFilterChain() = default;
+    virtual bool Load(const Path &presetPath, std::string *error) = 0;
+    virtual bool IsValid() const = 0;
+    virtual Draw::Framebuffer *Run(Draw::Framebuffer *source, int sourceW, int sourceH,
+                                   int viewportW, int viewportH, int frameCount) = 0;
+    virtual void SetParamOverrides(const std::map<std::string, float> &overrides) = 0;
+    virtual void DeviceLost() = 0;
+    virtual void DeviceRestore(Draw::DrawContext *draw) = 0;
+    virtual const char *BackendName() const = 0;  // "in-tree" | "librashader"
+};
+```
+`SlangFilterChain` implements it with no behavior change. A factory
+`CreateSlangFilterChain(Draw::DrawContext *, SlangChainBackend preference)` picks the
+implementation (§6.6).
+
+### 6.5 `LibrashaderFilterChain` — `GPU/Common/Slang/LibrashaderFilterChain.{h,cpp}`
+
+State split by thread:
+
+| Emu-thread state | Render-thread state (touched only inside callbacks) |
+|---|---|
+| `Path presetPath_`, `libra_shader_preset_t preset_` | `libra_vk_filter_chain_t chain_` |
+| `Draw::Framebuffer *output_` + its size | `bool createFailed_` |
+| `std::map<std::string,float> overrides_` (copied into each callback) | |
+| `std::atomic<bool> chainReady_` | |
+
+- `Load()` (emu thread): `libra_preset_create_with_options(path, ctx, NULL, &preset_)`. The
+  context sets `PRESET_DIR`/`PRESET` (automatic), `runtime = vulkan`, `core_name = "PPSSPP"`.
+  Any error → `valid_ = false`, error string returned, nothing enqueued. This is cheap
+  (parsing only) so it stays synchronous, matching today's `Load` semantics.
+- `Run()` (emu thread): (re)creates `output_` when the viewport size changes; then
+  `draw_->RunNativeCallback(source, output_, fn, "librashader")` where `fn` captures
+  `this`, `frameCount`, a copy of `overrides_`, the viewport, and the native source size.
+  Returns `output_` if `chainReady_` is already true, else `nullptr` so the caller presents
+  the unfiltered frame while the chain compiles (one or two frames).
+- Callback (render thread): if `!chain_ && !createFailed_`, call
+  `libra_vk_filter_chain_create_deferred(&preset_, device, cmd, &opts, &chain_)` with
+  `frames_in_flight = 3` (`VulkanContext::MAX_INFLIGHT_FRAMES`), `use_dynamic_rendering = 0`,
+  and return (the first frame only uploads LUTs; `chainReady_` becomes true for the next
+  frame). Otherwise apply overrides through `libra_vk_filter_chain_set_param`, then
+  `libra_vk_filter_chain_frame(chain_, cmd, frameCount, in, out, &viewport, NULL, &frameOpts)`
+  with `in = {srcImage, srcFormat, srcW, srcH}`, `out = {dstImage, dstFormat, dstW, dstH}`,
+  `viewport = {0, 0, dstW, dstH}`, `frameOpts.rotation = 0`, `frame_direction = 1`.
+  `SourceSize`/`OriginalSize` semantics: librashader derives them from `in.width/height`,
+  so the chain passes the *native* PSP size the way the in-tree chain does today, with the
+  upscaled fbo sampled via 0..1 UVs. If librashader validates the size against the image,
+  Phase 1 verification will show it and the fallback is a one-pass blit to a native-sized
+  intermediate before the chain.
+- `DeviceLost()` (emu thread; the render thread is already stopped and the device idle by
+  the time `FramebufferManagerCommon::DeviceLost` runs, see `VKContext::DeviceLost`): free
+  `chain_`, `preset_`, `output_`; keep `presetPath_` for `DeviceRestore`.
+- Destructor: same as `DeviceLost` after `draw_->FlushAndWait()`-equivalent
+  (`VulkanRenderManager::StopThread` has already run in the shutdown paths that matter;
+  the destructor asserts the render thread is not running in debug builds).
+
+### 6.6 Selection and fallback — `FramebufferManagerCommon::UpdateSlangChain`
+
+New config: `bool bSlangUseLibrashader` (default `true`, `CfgFlag::DEFAULT`, Developer
+Tools checkbox "Use librashader for slang shaders"). Pure decision function, unit-tested:
+```cpp
+enum class SlangChainBackend { InTree, Librashader };
+SlangChainBackend ChooseSlangChainBackend(bool userPrefersLibrashader, bool librashaderLoaded,
+                                          GPUBackend gpuBackend, bool drawSupportsNativeCallback);
+// Librashader iff all of: user prefers it, library loaded, backend ∈ {VULKAN} (Phase 1),
+// draw supports native callbacks. Otherwise InTree.
+```
+The chosen backend name is logged at INFO on every preset (re)load and shown in the
+Developer Tools system-info line so on-device screenshots are attributable.
+
+### 6.7 Build and distribution
+
+- CMake option `USE_LIBRASHADER` (default ON on Windows/macOS/Linux/Android, OFF on
+  iOS/UWP/libretro until verified). Adds `ext/librashader/include` and compiles the
+  loader; adds `-DUSE_LIBRASHADER=1`. No cargo invocation in the default build.
+- Optional CMake variable `LIBRASHADER_PREBUILT=<path to library>`: post-build copy next to
+  the executable (`PPSSPPSDL`, `PPSSPPQt`, unit test not needed).
+- Developer instructions in `docs/superpowers/librashader-build.md`: pin the tag, run
+  `cargo build -p librashader-capi --release --features runtime-vulkan,runtime-opengl`
+  (verify exact feature names against the pinned `librashader-capi/Cargo.toml` during
+  Task 1), copy the artifact.
+- Phase 3 adds: GitHub Actions job building librashader per platform with the pinned tag,
+  Android `cargo ndk` build for `arm64-v8a`, `armeabi-v7a`, `x86_64` into `jniLibs`,
+  and `USE_LIBRASHADER=ON` for Android CMake.
+
+## 7. Per-frame data flow (Vulkan, steady state)
+
+1. Emu thread, `PrepareCopyDisplayToOutput`: compute display rect; collect param overrides
+   for the current preset; `out = chain->Run(vfb->fbo, bufferW, bufferH, rectW, rectH, flips)`.
+2. `LibrashaderFilterChain::Run` ensures `output_` is `rectW×rectH` RGBA8 and enqueues the
+   CALLBACK step through thin3d. Returns `output_`.
+3. Emu thread continues: `presentation_->SourceFramebuffer(output_, rectW, rectH)`, then the
+   normal present blit records a RENDER step that samples `output_`. The render manager
+   sees a dependency on `output_`, which the CALLBACK step wrote, so ordering is preserved.
+4. Render thread, `RunSteps`: ... RENDER(game) → CALLBACK(librashader) → RENDER(backbuffer).
+   `PerformCallback` transitions, calls into librashader, records the final layout.
+5. The present RENDER step's `BindFramebufferAsTexture(output_)` finds `output_` in
+   `COLOR_ATTACHMENT_OPTIMAL` and inserts the usual transition to shader-read.
+
+## 8. Threading and lifetime rules
+
+- `libra_*_filter_chain_frame` and `_set_param` are called only from inside a callback
+  (render thread). `libra_preset_*` and the loader are called from the emu thread.
+- The `std::function` in a step owns copies of everything it needs; it never dereferences
+  emu-thread state other than `this`, whose lifetime is guaranteed because destruction
+  happens only after the render thread is stopped or idle (`DeviceLost` / destructor).
+- Changing presets: `UpdateSlangChain` deletes the old chain object (emu thread) only after
+  `draw_->FlushAndWait()`-equivalent ordering, which today's code already has because
+  `DeviceLost`/`UpdateSlangChain` run between frames on the emu thread with the render
+  thread drained by `VulkanRenderManager::Finish`. Phase 1 adds a debug assertion that no
+  CALLBACK step referencing the chain is pending when it is deleted.
+
+## 9. Error handling
+
+| Failure | Behavior |
+|---|---|
+| Library absent / ABI mismatch | `Librashader::Load` false, INFO log once, factory picks in-tree (Phase 1–3) or "off" (Phase 4). |
+| Preset parse error | `Load` false with librashader's error string; `UpdateSlangChain` logs ERROR and renders raw, as today. |
+| Chain creation error on render thread | `createFailed_ = true`, chain never becomes ready, `Run` keeps returning `nullptr`; error string surfaced to the emu thread through a mutex-protected `std::string lastError_` and logged once. |
+| Backend without native callbacks | Factory never picks librashader; no behavior change. |
+| Device lost mid-compile | `DeviceLost` runs after the render thread stopped, so the chain is either complete or never created; both are freed. |
+
+## 10. Platform and phase matrix
+
+| Phase | Scope | Exit criterion |
+|---|---|---|
+| **1** | Loader, Vulkan CALLBACK step, thin3d API, `ISlangFilterChain`, `LibrashaderFilterChain`, selection, dev toggle, prebuilt-copy CMake option | macOS (MoltenVK) and one Windows/Linux Vulkan machine render `stock.slangp`, `lcd-psp-matrix.slangp`, `crt-royale.slangp` identically to the in-tree chain; unit tests green; in-tree path unchanged when toggled |
+| **2** | GL CALLBACK step + `LibrashaderFilterChain` GL runtime, state restore | Desktop GL renders the same three presets |
+| **3** | Android: cargo-ndk build, jniLibs packaging, CI jobs for all desktop platforms; GLES 3 verification | APK renders the three presets on Vulkan and GLES 3 on the Adreno test device |
+| **4** | Remove in-tree chain, revert thin3d slot/descriptor bumps and sRGB render-pass keying, delete `bSlangUseLibrashader`; D3D11 runtime | Diff vs upstream shrinks to librashader glue + kept subsystems; Windows D3D11 renders the three presets |
+
+Each phase gets its own implementation plan. This spec covers all four; the Phase 1 plan is
+`docs/superpowers/plans/2026-09-14-librashader-phase1-vulkan-core.md`.
+
+## 11. Testing strategy
+
+- **Device-free unit tests** (PPSSPP `unittest` harness): loader reports "not loaded"
+  cleanly when the library is absent and when `LIBRASHADER_PATH` points at a non-library;
+  `ChooseSlangChainBackend` truth table; `NativeCallbackInfo` marshaling from a fake
+  `VKRFramebuffer` pair; the in-tree chain still passes its 19 tests unchanged.
+- **Compile-time**: CMake configure + build with `USE_LIBRASHADER=ON` and `OFF`.
+- **Vulkan validation**: run once per phase with `VK_LAYER_KHRONOS_validation` enabled and
+  the three presets; zero new validation errors is the bar (the CALLBACK step's layout
+  bookkeeping is the risk).
+- **Visual**: screenshot the same frame (PPSSPP's screenshot function) with in-tree and
+  librashader for the three presets; compare with a pixel-diff tool; differences must be
+  explainable (librashader applies rotation only on the final pass; sRGB conversions).
+- **Regression**: with the toggle off or the library absent, output must be byte-identical
+  to the pre-change build.
+
+## 12. Risks
+
+- **Step optimizer interactions.** The Vulkan queue runner rewrites steps (merging, MGS and
+  Sonic hacks). A CALLBACK step that is silently converted or reordered would corrupt
+  frames. Mitigation: treat it exactly like COPY in every pass; debug-build sanity check.
+- **Native size vs image size.** librashader may take `SourceSize` from the image extents
+  rather than the `width/height` fields. Mitigation noted in §6.5 (one blit to a
+  native-sized intermediate). This is the first thing Phase 1 verifies on device.
+- **Frames in flight.** librashader recycles per-frame resources by `frame_count %
+  frames_in_flight`. PPSSPP's `curFrame` index cycles over `MAX_INFLIGHT_FRAMES = 3`; we
+  set `frames_in_flight = 3` and pass PPSSPP's monotonically increasing flip count as
+  `frame_count`. If PPSSPP ever skips a frame index the mapping still holds because
+  librashader only requires that resources for frame N are not reused before N+3.
+- **MoltenVK.** Dynamic rendering is off by default in our options; the render-pass
+  fallback path is the one librashader's 86Box integration uses on macOS.
+- **Rust toolchain in CI (Phase 3).** Adds minutes to Android/desktop builds; pinning the
+  tag and caching the cargo target directory keeps this bounded.
+- **Library not shipped.** If distribution is a problem for some store build (iOS), the
+  fallback keeps shaders working there until Phase 4 decides whether to keep the in-tree
+  chain for that platform only.
+
+## 13. Open questions for the reviewer
+
+1. Is the Android GLES backend a must-have for shaders? If not, Phase 2 could be skipped
+   entirely and GL stays "in-tree or off".
+2. Should Phase 4 keep the in-tree chain for iOS/UWP/libretro where shipping an MPL
+   library may be awkward, or drop slang support on those platforms?
+3. Is a 1–2 frame unfiltered flash on preset switch acceptable (current design), or should
+   `Run` keep presenting the previous chain's last output until the new chain is ready?
