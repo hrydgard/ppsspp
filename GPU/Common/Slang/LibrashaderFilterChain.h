@@ -58,13 +58,15 @@ private:
 		// the render thread: consumed by chain creation, or freed by the deletion-queue callback.
 		libra_shader_preset_t preset = nullptr;
 		libra_vk_filter_chain_t chain = nullptr;
-		// First frame at which the deferred creation's uploads are guaranteed to have executed.
-		// Render thread only.
-		int64_t readyAtFrame = -1;
+		// Callbacks the render thread has run since the chain was created (still 0 in the callback
+		// that creates it). Render thread only; the gate in the callback explains the bound.
+		int callbacksSinceCreate = 0;
 		std::atomic<bool> ready{false};
-		std::atomic<bool> createFailed{false};
+		std::atomic<bool> failed{false};
 		std::mutex errorLock;
-		std::string lastError;  // set on the render thread, read on the emu thread
+		// Set on the render thread, read on the emu thread. Prefixed "create: " or "frame: " so the
+		// emu-side log says which librashader call actually failed.
+		std::string lastError;
 	};
 
 	// Queues the librashader frees on the Vulkan deletion queue and installs a fresh RenderState.
@@ -86,7 +88,7 @@ private:
 	bool valid_ = false;
 	// Set by Load(): this preset references OriginalHistory[1-9] / OriginalHistorySize[1-9].
 	bool needsNativeInput_ = false;
-	bool loggedCreateError_ = false;
+	bool loggedError_ = false;
 	bool warnedNativeSize_ = false;
 };
 

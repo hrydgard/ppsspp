@@ -133,10 +133,11 @@ void FramebufferManagerCommon::UpdateSlangChain(const DisplayLayoutConfig &confi
 		return;
 	}
 
-	// Determine which backend to use for this reload
+	// Determine which backend to use for this reload. Only touch the loader when the user actually
+	// asked for librashader - with the toggle off we must not dlopen anything.
 	bool librashaderLoaded = false;
 #if USE_LIBRASHADER
-	{
+	if (g_Config.bSlangUseLibrashader) {
 		std::string loadErr;
 		librashaderLoaded = Librashader::Load(&loadErr);
 	}

@@ -110,7 +110,7 @@ bool LibrashaderFilterChain::Load(const Path &presetPath, std::string *error) {
 	// RenderState which nothing else references yet - so we can fill it in from this thread.
 	ReleaseChain();
 	valid_ = false;
-	loggedCreateError_ = false;
+	loggedError_ = false;
 	warnedNativeSize_ = false;
 	needsNativeInput_ = false;
 	presetPath_ = presetPath;
@@ -198,11 +198,11 @@ Draw::Framebuffer *LibrashaderFilterChain::Run(Draw::Framebuffer *source, int so
                                                int viewportW, int viewportH, int frameCount) {
 	if (!valid_ || !source)
 		return nullptr;
-	if (render_->createFailed.load()) {
-		if (!loggedCreateError_) {
+	if (render_->failed.load()) {
+		if (!loggedError_) {
 			std::lock_guard<std::mutex> guard(render_->errorLock);
-			ERROR_LOG(Log::G3D, "LibrashaderFilterChain: chain creation failed: %s", render_->lastError.c_str());
-			loggedCreateError_ = true;
+			ERROR_LOG(Log::G3D, "LibrashaderFilterChain: disabled after librashader error (%s)", render_->lastError.c_str());
+			loggedError_ = true;
 		}
 		return nullptr;
 	}
@@ -251,7 +251,7 @@ Draw::Framebuffer *LibrashaderFilterChain::Run(Draw::Framebuffer *source, int so
 	std::map<std::string, float> overrides = paramOverrides_;
 
 	bool enqueued = draw_->RunNativeCallback(chainInput, output_, [rs, device, overrides, frameCount, sourceW, sourceH](const Draw::NativeCallbackInfo &info) {
-		if (!Librashader::IsLoaded() || rs->createFailed.load())
+		if (!Librashader::IsLoaded() || rs->failed.load())
 			return;
 		const libra_instance_t &lib = Librashader::Instance();
 		if (!rs->chain) {
@@ -269,23 +269,29 @@ Draw::Framebuffer *LibrashaderFilterChain::Run(Draw::Framebuffer *source, int so
 			//     All of our own barriers are flushed before this call and librashader only records
 			//     LUT/texture uploads into it, so sharing the buffer is benign in practice.
 			// (b) "The command buffer must be completely executed before calling
-			//     libra_vk_filter_chain_frame." Honoured by the readyAtFrame gate below: PPSSPP
-			//     waits on frame N's fence before recording frame N + MAX_INFLIGHT_FRAMES, so by
-			//     then this buffer has finished executing.
+			//     libra_vk_filter_chain_frame." Honoured by the callbacksSinceCreate gate below:
+			//     we wait until MAX_INFLIGHT_FRAMES further frames have been *recorded* on this
+			//     thread, and PPSSPP waits on frame N's fence before recording frame
+			//     N + MAX_INFLIGHT_FRAMES, so the create's frame has completed by then.
 			std::string err = Librashader::ErrorToString(lib.vk_filter_chain_create_deferred(&rs->preset, device, (VkCommandBuffer)(uintptr_t)info.cmdBuffer, &opts, &rs->chain));
 			// The preset is invalidated (consumed) whether or not creation succeeded, so drop our
 			// handle without freeing it - librashader owns it from here on.
 			rs->preset = nullptr;
 			if (!err.empty() || !rs->chain) {
 				std::lock_guard<std::mutex> guard(rs->errorLock);
-				rs->lastError = err.empty() ? "unknown error" : err;
-				rs->createFailed.store(true);
+				rs->lastError = "create: " + (err.empty() ? std::string("unknown error") : err);
+				rs->failed.store(true);
 				return;
 			}
-			rs->readyAtFrame = (int64_t)frameCount + VulkanContext::MAX_INFLIGHT_FRAMES;
 			return;
 		}
-		if ((int64_t)frameCount < rs->readyAtFrame)
+		// One RenderState holds at most one chain, so this counts callbacks since *this* chain's
+		// creation. The guarantee we need is "MAX_INFLIGHT_FRAMES frames were submitted after the
+		// create was recorded", which PPSSPP's per-frame fence wait turns into "the create's frame
+		// has completed on the GPU". Keyed on render-thread callbacks, not on the emu thread's flip
+		// counter, which advances on skipped frames and runs ahead of the render thread.
+		rs->callbacksSinceCreate++;
+		if (rs->callbacksSinceCreate < VulkanContext::MAX_INFLIGHT_FRAMES)
 			return;  // creation's uploads may still be executing; see (b) above
 		rs->ready.store(true);
 		for (const auto &kv : overrides) {
@@ -324,8 +330,8 @@ Draw::Framebuffer *LibrashaderFilterChain::Run(Draw::Framebuffer *source, int so
 		std::string err = Librashader::ErrorToString(lib.vk_filter_chain_frame(&rs->chain, (VkCommandBuffer)(uintptr_t)info.cmdBuffer, (size_t)frameCount, in, out, &vp, nullptr, &fopts));
 		if (!err.empty()) {
 			std::lock_guard<std::mutex> guard(rs->errorLock);
-			rs->lastError = err;
-			rs->createFailed.store(true);  // stop rendering through a broken chain
+			rs->lastError = "frame: " + err;
+			rs->failed.store(true);  // stop rendering through a broken chain
 		}
 	}, "librashader");
 
