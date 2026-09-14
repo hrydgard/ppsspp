@@ -226,6 +226,7 @@ if(USE_LIBRASHADER)
 else()
 	add_compile_definitions(USE_LIBRASHADER=0)
 endif()
+set(LIBRASHADER_PREBUILT "" CACHE FILEPATH "Optional path to a prebuilt librashader shared library to copy next to the executable")
 
 if(USE_CCACHE)
 	include(ccache)
@@ -1549,6 +1550,19 @@ if(TargetBin)
 	elseif(${CMAKE_SYSTEM_NAME} MATCHES "^(DragonFly|FreeBSD|NetBSD)$")
 		target_link_libraries(${TargetBin} execinfo)
 	endif()
+endif()
+
+# librashader prebuilt copy
+if(USE_LIBRASHADER AND LIBRASHADER_PREBUILT AND TARGET ${TargetBin})
+	get_target_property(_isBundle ${TargetBin} MACOSX_BUNDLE)
+	if(_isBundle)
+		set(LIBRASHADER_DEST "$<TARGET_BUNDLE_CONTENT_DIR:${TargetBin}>/MacOS")
+	else()
+		set(LIBRASHADER_DEST "$<TARGET_FILE_DIR:${TargetBin}>")
+	endif()
+	add_custom_command(TARGET ${TargetBin} POST_BUILD
+		COMMAND ${CMAKE_COMMAND} -E copy_if_different "${LIBRASHADER_PREBUILT}" "${LIBRASHADER_DEST}"
+		COMMENT "Copying librashader next to ${TargetBin}")
 endif()
 
 # installs
