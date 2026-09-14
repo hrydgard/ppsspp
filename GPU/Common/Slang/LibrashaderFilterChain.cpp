@@ -234,8 +234,9 @@ Draw::Framebuffer *LibrashaderFilterChain::Run(Draw::Framebuffer *source, int so
 		return nullptr;
 
 	// Spec §12, verified in Task 8: librashader reads SourceSize/OriginalSize and the pass scale
-	// base from libra_image_vk_t::width/height (good - we report the native PSP size, so
-	// SourceSize-driven masks tile at the same frequency as the in-tree chain), but it also uses
+	// base from the declared input image size (libra_image_{vk,gl}_t::width/height) - good, we
+	// report the native PSP size, so
+	// SourceSize-driven masks tile at the same frequency as the in-tree chain - but it also uses
 	// those numbers as the copy extent when it snapshots the input into its OriginalHistoryN ring.
 	// With PPSSPP's upscaled render target that snapshot would capture only the native-sized
 	// top-left corner, so for presets that actually sample OriginalHistoryN (detected in Load) we

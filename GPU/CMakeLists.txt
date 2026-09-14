@@ -146,6 +146,7 @@ set(GPU_SOURCES
 	Common/Slang/LibrashaderFilterChain.h
 	Common/Slang/LibrashaderRuntime.cpp
 	Common/Slang/LibrashaderRuntime.h
+	Common/Slang/LibrashaderRuntimeOpenGL.cpp
 	Common/Slang/LibrashaderRuntimeVulkan.cpp
 	Common/TextureReplacer.cpp
 	Common/TextureReplacer.h

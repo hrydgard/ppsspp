@@ -25,8 +25,7 @@ std::unique_ptr<LibrashaderRuntime> CreateLibrashaderRuntime(GPUBackend backend)
 	case GPUBackend::VULKAN:
 		return CreateLibrashaderRuntimeVulkan();
 	case GPUBackend::OPENGL:
-		// Phase 2, Step 2.
-		return nullptr;
+		return CreateLibrashaderRuntimeOpenGL();
 	default:
 		return nullptr;
 	}
