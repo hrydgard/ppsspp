@@ -410,6 +410,27 @@ PPSSPP's own overlays. `crt-royale` was not available on the test machine, so `t
 `OriginalHistory`) and `lcd-psp-matrix` (subpixel mask, phase-exact) stand in for it, as in Phase 1.
 GLES 3 verification stays in Phase 3. Details: `.superpowers/sdd/2026-09-14-librashader-phase2-opengl/task-5-report.md`.
 
+**Phase 3 exit criterion: met (2026-09-14, AYN Thor / Adreno 740, Android 14).** The APK ships
+`librashader.so` in `jniLibs` and the loader's bare-name `dlopen` resolves it; `librashader loaded
+(ABI 2, API 5)` + `Slang chain backend: librashader` on **both** backends, with no Phase 1/2 runtime
+code change on either. Vulkan (device API 1.3.128): `lcd-grid-v2-psp-color`,
+`presets/crt-royale-downsample` and the heavy `crt/crt-maximus-royale-fast-mode` all render, a
+Khronos-validation run over the CALLBACK step produced **zero** librashader-attributable messages, and
+sleep/wake plus an in-process preset switch both recover. GLES 3: the device hands PPSSPP a native
+Adreno **ES 3.2** context (not the ANGLE-over-Vulkan driver assumed in the Phase 3 plan), so
+`SupportsNativeCallback()` is true and no ES 3 context-request change was needed;
+`lcd-grid-v2-psp-color` matches the Vulkan librashader frame to within shader-compiler rounding
+(4.74% of pixels, max 49/255, symmetric and confined to lit areas), `crt-royale-downsample` compiles
+and renders on GLES with no `create:` error, the GL context-loss drop warning and full chain
+recreation both fire on sleep/wake (post-wake frame byte-identical to the fresh-boot frame), and
+`libra_gl_filter_chain_free` ran for the first time on any device via an in-process preset switch
+without a crash. Toggling librashader off on GL correctly yields a raw image plus the intended
+"slang passes require the Vulkan backend in Phase 1" diagnostic, since the in-tree chain is
+Vulkan-only. Not covered: ANGLE and non-Adreno GLES drivers (a driver that honours a strict ES 2
+context request would silently lose slang on GL — see the risk note), the `armeabi-v7a`/`x86_64` ABIs
+at runtime, and the CI jobs, which the Phase 3 plan defers. Details:
+`.superpowers/sdd/2026-09-14-librashader-phase3-android/task-2-report.md` and `task-3-report.md`.
+
 Each phase gets its own implementation plan. This spec covers all four; the Phase 1 plan is
 `docs/superpowers/plans/2026-09-14-librashader-phase1-vulkan-core.md`.
 

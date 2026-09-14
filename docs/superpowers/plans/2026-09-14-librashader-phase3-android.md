@@ -180,36 +180,44 @@ All nine checks PASS; no NOT RUN rows, no fix required. Device ini restored (`iS
 - Possibly modify: `android/src/org/ppsspp/ppsspp/NativeGLSurfaceView.java`, `android/src/org/ppsspp/ppsspp/PpssppActivity.java` (~line 715 `mGLSurfaceView.setEGLContextClientVersion(isVRDevice() ? 3 : 2)`), and only if a GL-specific defect appears: `GPU/Common/Slang/LibrashaderRuntimeOpenGL.cpp`, `Common/GPU/OpenGL/GLQueueRunner.cpp`, `Common/GPU/OpenGL/thin3d_gl.cpp`
 - Modify: this plan (table), spec §10 row 3
 
-- [ ] **Step 1: Switch the device to OpenGL and read the context version**
+- [x] **Step 1: Switch the device to OpenGL and read the context version**
 
 Ini: `GraphicsBackend = 0 (OPENGL)`, `SlangUseLibrashader = True`, preset `lcd-grid-v2-psp-color`. Launch; logcat: PPSSPP logs the GL vendor/version string at startup (`GL_VERSION`/`OpenGL ES 3.x`). Record whether the context is ES 2 or ES 3.x and whether `Slang chain backend:` says `librashader` or `in-tree`.
 
-- [ ] **Step 2: Contingency — ES 2 context**
+- [x] **Step 2: Contingency — ES 2 context**
 
 If the log shows an ES 2.0 context (and therefore `in-tree`), PPSSPP's Java GL path (`javaGL = true`, `PpssppActivity.java:712-715`) requested client version 2. Change it to try 3 first: in `PpssppActivity.java` replace `setEGLContextClientVersion(isVRDevice() ? 3 : 2)` with a call that sets 3 when `android.opengl.GLES30` is usable and the device reports `reqGlEsVersion >= 0x30000` (`ActivityManager.getDeviceConfigurationInfo().reqGlEsVersion`), else 2 — mirror the existing VR branch's style, keep ES 2 as the fallback, and add a one-line INFO log of the chosen version. Rebuild the APK, reinstall, repeat Step 1. Document the change in the build doc's Android section and in this table. If the context is already ES 3.x, skip this step and say so.
 
-- [ ] **Step 3: GLES rendering and A/B vs Vulkan**
+- [x] **Step 3: GLES rendering and A/B vs Vulkan**
 
 With `librashader` selected on GL: no `LibrashaderRuntimeOpenGL:`/`LibrashaderFilterChain:` errors (a `create:` error here means ES 3.x shader compilation failed for the preset — capture the full string; try `presets/crt-royale-downsample.slangp` and `lcd-grid-v2-psp-color` both); screencap the static boot dialog on GL and on Vulkan (`GraphicsBackend = 3`) with librashader, `cmp.py` them; expect visually identical (ANGLE vs native Vulkan rounding may differ — report the numbers and view the images). Also `SlangUseLibrashader = False` on GL → raw image (in-tree is Vulkan-only), no crash.
 
-- [ ] **Step 4: GL lifecycle (the path Phase 2 could not exercise)**
+- [x] **Step 4: GL lifecycle (the path Phase 2 could not exercise)**
 
 Sleep/wake in-game on GL: expect the drop warning `LibrashaderRuntimeOpenGL: dropping chain without freeing (no GL context)` at context loss (or no warning if Android kept the context), then a new `preset parsed` + `input mode:` after wake and a filtered image. Preset switch via pause-menu close (see Task 2 Step 4): on GL this is the first time `libra_gl_filter_chain_free` runs on any device — add nothing to the code; just confirm no crash and that the new preset renders. Record whether the free path was reached (no log line exists for it; infer from a successful switch without leak-related crash and from the absence of the drop warning).
 
-- [ ] **Step 5: Record**
+- [x] **Step 5: Record**
 
 | Check | Result | Notes |
 |---|---|---|
-| GL context version reported | | |
-| ES 3 contingency applied? | | |
-| GL: librashader loaded + backend selected | | |
-| lcd-grid-v2-psp-color GL vs Vulkan (librashader) | | |
-| crt-royale-downsample on GLES | | |
-| Toggle off on GL → raw, no crash | | |
-| Sleep/wake on GL (drop warning, recreation) | | |
-| Preset switch on GL (free path) | | |
+| GL context version reported | **ES 3.2 (native Adreno, not ANGLE)** | `GPU Vendor : Qualcomm ; renderer: Adreno (TM) 740 version str: OpenGL ES 3.2 V@0676.53 … GLSL version str: OpenGL ES GLSL ES 3.20`, then `OpenGL ES 3.1 support detected!`. The plan's "ANGLE-over-Vulkan" device fact does **not** apply to the PPSSPP process — it gets `/vendor/lib64/egl/libGLESv2_adreno.so`. Adreno returns its highest supported context even though Java asks for `setEGLContextClientVersion(2)`. GL backend started normally (`Not checking for failed graphics backends in debug mode`); no fallback, no crash. |
+| ES 3 contingency applied? | **NOT APPLIED (not needed)** | Context is already ES 3.2, so `gl_extensions.GLES3` is true and `OpenGLContext::SupportsNativeCallback()` returns true. `PpssppActivity.java` unchanged; no rebuild. |
+| GL: librashader loaded + backend selected | PASS | `librashader loaded (ABI 2, API 5)` + `Slang chain backend: librashader` on GL. Zero `LibrashaderRuntimeOpenGL:`/`create:` errors on a clean boot. |
+| lcd-grid-v2-psp-color GL vs Vulkan (librashader) | PASS | `differing 98203 (4.74%) >2/255 83079 (4.01%) max 49 mean-over-diff 10.92`. Differences confined to the lit dialog band (bbox y 354..725); pure-black areas bit-identical; mean luminance 52.8 (GL) vs 53.3 (VK) and the sign of the difference is balanced (43111 GL-brighter / 39968 VK-brighter) → shader-compiler rounding, no gamma or structural difference. Visually identical. |
+| crt-royale-downsample on GLES | PASS | `preset parsed` in 232 ms, no `create:` error, phosphor mask + bloom render correctly. |
+| Toggle off on GL → raw, no crash | PASS | `Slang chain backend: in-tree` then the intended diagnostic `Failed to load slang preset '…crt-royale-downsample.slangp': slang passes require the Vulkan backend in Phase 1 (got a non-Vulkan backend)`; raw unfiltered image, process alive. |
+| Sleep/wake on GL (drop warning, recreation) | PASS (with a benign transient error) | Drop warning fires as designed: `LibrashaderRuntimeOpenGL: dropping chain without freeing (GL objects die with the context; librashader's Rust-side allocation is knowingly leaked)`, preceded 0 ms earlier by one frame's `LibrashaderFilterChain: disabled after librashader error (frame: OpenGlFilterError(FramebufferInit(36055)))` — 36055 = `GL_FRAMEBUFFER_INCOMPLETE_ATTACHMENT`, the last in-flight frame racing the teardown; caught by the existing disable-on-error guard and confined to the dying chain. Recreation is complete: new `Slang chain backend: librashader` + `preset parsed` + `input mode:`, and the post-wake screencap is **byte-identical (md5)** to the fresh-boot filtered shot. Same PID. |
+| Preset switch on GL (free path) | PASS (`libra_gl_filter_chain_free` reached) | In-process via the pause menu (Task 2's tap recipe; the Graphics "RetroArch (slang) shaders" row sits at y=800 on GL, not 891). `preset parsed: …/crt/GritsScanlines.slangp`, same PID 7172, no crash, no error. **No drop warning** on this path → the chain was released through the real `libra_gl_filter_chain_free` rather than the context-loss leak path. New preset verifiably rendering (42.70% of pixels differ from the crt-royale frame, 7.17% from the raw frame). |
 
-Restore the device ini afterwards: `GraphicsBackend = 3 (VULKAN)`, `G3DLevel = 2`, `SystemLevel` as before, and the user's original `SlangShaderPreset` (`presets/crt-royale-downsample.slangp` at the start of Phase 3). Update spec §10 row 3 with the outcome. Commit with the trailer.
+**All eight checks PASS; no NOT RUN rows, no code change required.** Report:
+`.superpowers/sdd/2026-09-14-librashader-phase3-android/task-3-report.md`; artefacts `/tmp/ppsspp-t8/p3gl-*`.
+
+Device ini restored and verified byte-for-byte against Task 2's original (`GraphicsBackend = 3 (VULKAN)`,
+`G3DLevel = 2` and `SYSTEMLevel = 2` in both `[Log]` and `[LogDebug]`,
+`SlangShaderPreset = presets/crt-royale-downsample.slangp`, `iShowStatusFlags = 0`,
+`SlangUseLibrashader = True`, UTF-8 BOM restored); the only remaining differences are app-written
+`RunCount` and `[PlayTime]`. Incidental finding: running the GL backend made PPSSPP clamp and persist
+`MultiSampleLevel = 2 → 0` (the Android GL path offers no MSAA); restored to `2`.
 
 ---
 
