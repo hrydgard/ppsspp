@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <mutex>
 #include <condition_variable>
 
@@ -123,6 +124,7 @@ enum class VKRStepType : uint8_t {
 	BLIT,
 	READBACK,
 	READBACK_IMAGE,
+	CALLBACK,   // Runs native code on the render thread with src readable / dst writable.
 };
 
 struct TransitionRequest {
@@ -136,6 +138,14 @@ struct TransitionRequest {
 };
 
 class VKRRenderPass;
+
+struct VKRNativeCallbackInfo {
+	VkCommandBuffer cmd;
+	VKRFramebuffer *src;  // in VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL when the callback runs, may be null
+	VKRFramebuffer *dst;  // in VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL when the callback runs, may be null
+	int curFrame;         // 0..VulkanContext::MAX_INFLIGHT_FRAMES-1
+};
+using VKRNativeCallbackFn = std::function<void(const VKRNativeCallbackInfo &)>;
 
 struct VKRStep {
 	VKRStep(VKRStepType _type) : stepType(_type) {}
@@ -195,6 +205,11 @@ struct VKRStep {
 			VkRect2D srcRect;
 			int mipLevel;
 		} readback_image;
+		struct {
+			VKRFramebuffer *src;
+			VKRFramebuffer *dst;
+			VKRNativeCallbackFn *fn;  // heap-allocated; PerformCallback deletes it after running.
+		} callback;
 	};
 };
 
@@ -278,6 +293,7 @@ private:
 	void PerformBlit(const VKRStep &pass, VkCommandBuffer cmd);
 	void PerformReadback(const VKRStep &pass, VkCommandBuffer cmd, FrameData &frameData);
 	void PerformReadbackImage(const VKRStep &pass, VkCommandBuffer cmd);
+	void PerformCallback(const VKRStep &step, VkCommandBuffer cmd, int curFrame);
 
 	void LogRenderPass(const VKRStep &pass, bool verbose);
 	void LogCopy(const VKRStep &pass);

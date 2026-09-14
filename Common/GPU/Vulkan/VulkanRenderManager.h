@@ -273,6 +273,11 @@ public:
 	void CopyFramebuffer(VKRFramebuffer *src, VkRect2D srcRect, VKRFramebuffer *dst, VkOffset2D dstPos, VkImageAspectFlags aspectMask, const char *tag);
 	void BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect, VKRFramebuffer *dst, VkRect2D dstRect, VkImageAspectFlags aspectMask, VkFilter filter, const char *tag);
 
+	// Runs fn on the render thread with the frame's command buffer, outside any render pass.
+	// src (if any) will be in SHADER_READ_ONLY_OPTIMAL, dst (if any) in COLOR_ATTACHMENT_OPTIMAL.
+	// fn must leave dst in COLOR_ATTACHMENT_OPTIMAL and must not change src's layout.
+	void RunNativeCallback(VKRFramebuffer *src, VKRFramebuffer *dst, VKRNativeCallbackFn fn, const char *tag);
+
 	// Deferred creation, like in GL. Unlike GL though, the purpose is to allow background creation and avoiding
 	// stalling the emulation thread as much as possible.
 	// We delay creating pipelines until the end of the current render pass, so we can create the right type immediately.

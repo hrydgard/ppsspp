@@ -1120,6 +1120,10 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 			if (curRenderStep_->render.colorLoad != VKRRenderPassLoadAction::CLEAR && curRenderStep_->render.depthLoad != VKRRenderPassLoadAction::CLEAR && curRenderStep_->render.stencilLoad != VKRRenderPassLoadAction::CLEAR) {
 				// Can trivially kill the last empty render step.
 				_dbg_assert_(steps_.back() == curRenderStep_);
+				// Clean up heap-allocated callback fn if this were a callback step.
+				if (steps_.back()->stepType == VKRStepType::CALLBACK && steps_.back()->callback.fn) {
+					delete steps_.back()->callback.fn;
+				}
 				delete steps_.back();
 				steps_.pop_back();
 				curRenderStep_ = nullptr;
@@ -1542,6 +1546,34 @@ void VulkanRenderManager::BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 	if (!fillsDst)
 		step->dependencies.insert(dst);
 
+	steps_.push_back(step);
+}
+
+void VulkanRenderManager::RunNativeCallback(VKRFramebuffer *src, VKRFramebuffer *dst, VKRNativeCallbackFn fn, const char *tag) {
+#ifdef _DEBUG
+	SanityCheckPassesOnAdd();
+#endif
+	// Like BlitFramebuffer: count the read so the last RENDER step into src keeps its contents.
+	if (src) {
+		for (int i = (int)steps_.size() - 1; i >= 0; i--) {
+			if (steps_[i]->stepType == VKRStepType::RENDER && steps_[i]->render.framebuffer == src) {
+				steps_[i]->render.numReads++;
+				break;
+			}
+		}
+	}
+
+	EndCurRenderStep();
+
+	VKRStep *step = new VKRStep{ VKRStepType::CALLBACK };
+	step->callback.src = src;
+	step->callback.dst = dst;
+	step->callback.fn = new VKRNativeCallbackFn(std::move(fn));
+	if (src)
+		step->dependencies.insert(src);
+	if (dst)
+		step->dependencies.insert(dst);
+	step->tag = tag;
 	steps_.push_back(step);
 }
 
