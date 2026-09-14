@@ -34,7 +34,7 @@ inline constexpr uint32_t RoundDownToMultipleOf(uint32_t v, uint32_t multiple) {
 
 // TODO: this should just use a bitscan.
 inline uint32_t log2i(uint32_t val) {
-	unsigned int ret = -1;
+	unsigned int ret = (unsigned int)-1;
 	while (val != 0) {
 		val >>= 1; ret++;
 	}

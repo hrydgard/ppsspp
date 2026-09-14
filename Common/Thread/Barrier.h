@@ -12,8 +12,9 @@ public:
 		std::unique_lock<std::mutex> lk(m);
 		counter++;
 		waiting++;
+		// notify_all (not notify_one) - every waiter needs to see counter >= threadCount_.
 		cv.wait(lk, [&] {return counter >= threadCount_; });
-		cv.notify_one();
+		cv.notify_all();
 		waiting--;
 		if (waiting == 0) {
 			// Reset so it can be re-used.

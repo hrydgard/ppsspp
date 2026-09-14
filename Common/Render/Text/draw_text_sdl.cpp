@@ -292,13 +292,13 @@ void TextDrawerSDL::SetOrCreateFont(const FontStyle &style) {
 	uint8_t *fileData = nullptr;
 	std::string useFont = GetFilenameForFontStyle(style) + ".ttf";
 	const int ptSize = static_cast<int>(style.sizePts / dpiScale_ * 1.25f);
-	INFO_LOG(Log::G3D, "Loading SDL font '%s' from VFS at size %d pts", useFont.c_str(), ptSize);
+	DEBUG_LOG(Log::G3D, "Loading SDL font '%s' from VFS at size %d pts", useFont.c_str(), ptSize);
 
 	size_t fileSz;
 	fileData = g_VFS.ReadFile(useFont.c_str(), &fileSz);
 	if (fileData) {
 		SDL_IOStream *rw = SDL_IOFromConstMem(fileData, fileSz);
-		INFO_LOG(Log::G3D, "Opened font from RW: '%p' '%d'", fileData, (int)fileSz);
+		DEBUG_LOG(Log::G3D, "Opened font from RW: '%p' '%d'", fileData, (int)fileSz);
 		font = TTF_OpenFontIO(rw, true, static_cast<float>(ptSize));
 		if (!font) {
 			ERROR_LOG(Log::G3D, "Failed to load font from asset file: '%s'", useFont.c_str());

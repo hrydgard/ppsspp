@@ -27,6 +27,7 @@
 #include "Common/File/FileUtil.h"
 #include "Common/Render/Text/draw_text.h"
 #include "Common/StringUtils.h"
+#include "Common/UI/ScreenManager.h"
 #include "GPU/Common/TextureReplacer.h"
 #include "GPU/Common/PostShader.h"
 #include "Core/MIPS/MIPSTracer.h"
@@ -37,6 +38,7 @@
 #include "Core/System.h"
 #include "Core/WebServer.h"
 #include "Core/Util/PathUtil.h"
+#include "Core/FileSystems/VirtualDiscFileSystem.h"
 #include "UI/GPUDriverTestScreen.h"
 #include "UI/DeveloperToolsScreen.h"
 #include "UI/DevScreens.h"
@@ -152,10 +154,15 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 		core->HideChoice(1);
 		core->HideChoice(3);
 	}
-	// TODO: Enable "JIT using IR" on more architectures.
+	// TODO: Enable "JIT using IR" on more architectures. ARM32 needs more testing.
+	// Note also that Loongarch and RISC-V only have a jit-ir backend, and it's used for the JIT option, so the fourth option isn't shown.
 #if !PPSSPP_ARCH(X86) && !PPSSPP_ARCH(AMD64) && !PPSSPP_ARCH(ARM64)
 	core->HideChoice(3);
 #endif
+
+	// Only the interpreter raises these, but don't hide it behind the CPU core choice - it'd just
+	// look like the setting had vanished.
+	list->Add(new CheckBox(&g_Config.bEnableFPUExceptionTraps, dev->T("Enable FPU exceptions")));
 
 	list->Add(new Choice(dev->T("JIT debug tools")))->OnClick.Handle(this, &DeveloperToolsScreen::OnJitDebugTools);
 	list->Add(new CheckBox(&g_Config.bShowDeveloperMenu, dev->T("Show in-game developer menu")));
@@ -198,6 +205,8 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 	CheckBox *localDebugger = list->Add(new CheckBox(&g_Config.bRemoteDebuggerLocal, dev->T("Use locally hosted remote debugger")));
 	localDebugger->SetEnabledPtr(&allowDebugger_);
 
+	list->Add(new CheckBox(&g_Config.bAutoSaveLoadSymbols, dev->T("Auto save/load symbols")));
+
 	list->Add(new Choice(dev->T("GPI/GPO switches/LEDs")))->OnClick.Add([=](UI::EventParams &e) {
 		screenManager()->push(new GPIGPOScreen(dev->T("GPI/GPO switches/LEDs")));
 	});
@@ -237,6 +246,10 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 			g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions(di->T("Copied to clipboard: %1"), "ppsspp.ini"), 0.0f, "copyToClip");
 		}
 	});
+
+#if PLATFORM_SUPPORTS_FILE_HANDLER_PLUGINS
+	list->Add(new CheckBox(&g_Config.bEnableFileHandlerPlugins, dev->T("Enable file handler plugins (insecure)")));
+#endif
 }
 
 void DeveloperToolsScreen::CreateTestsTab(UI::LinearLayout *list) {
@@ -563,17 +576,20 @@ void DeveloperToolsScreen::CreateGraphicsTab(UI::LinearLayout *list) {
 	if (multiViewSupported) {
 		list->Add(new ItemHeader(gr->T("Stereo rendering")));
 		list->Add(new CheckBox(&g_Config.bStereoRendering, gr->T("Stereo rendering")));
-		std::vector<std::string> stereoShaderNames;
 
 		ChoiceWithValueDisplay *stereoShaderChoice = list->Add(new ChoiceWithValueDisplay(&g_Config.sStereoToMonoShader, gr->T("Stereo display shader"), &PostShaderTranslateName));
 		stereoShaderChoice->SetEnabledFunc(enableStereo);
 		stereoShaderChoice->OnClick.Add([=](EventParams &e) {
 			auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 			auto procScreen = new PostProcScreen(gr->T("Stereo display shader"), 0, true);
+			procScreen->OnChoice.Add([this](EventParams &) {
+				RecreateViews();
+			});
 			if (e.v)
 				procScreen->SetPopupOrigin(e.v);
 			screenManager()->push(procScreen);
 		});
+
 		const ShaderInfo *shaderInfo = GetPostShaderInfo(g_Config.sStereoToMonoShader);
 		if (shaderInfo) {
 			for (size_t i = 0; i < ARRAY_SIZE(shaderInfo->settings); ++i) {
@@ -647,8 +663,7 @@ void DeveloperToolsScreen::CreateTabs() {
 	AddTab("DumpFiles", dev->T("Dump files"), [this](UI::LinearLayout *parent) {
 		CreateDumpFileTab(parent);
 	});
-	// Need a better title string.
-	AddTab("HLE", dev->T("Disable HLE"), [this](UI::LinearLayout *parent) {
+	AddTab("HLE", dev->T("HLE"), [this](UI::LinearLayout *parent) {
 		CreateHLETab(parent);
 	});
 #if !PPSSPP_PLATFORM(ANDROID) && !PPSSPP_PLATFORM(IOS) && !PPSSPP_PLATFORM(SWITCH)

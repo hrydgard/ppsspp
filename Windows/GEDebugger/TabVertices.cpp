@@ -186,7 +186,7 @@ void CtrlVertexList::GetColumnText(wchar_t *dest, size_t destSize, int row, int 
 }
 
 int CtrlVertexList::GetRowCount() {
-	auto memLock = Memory::Lock();
+	CoreShutdownLock coreLock = Core_LockAgainstShutdown();
 	if (!PSP_IsInited()) {
 		return 0;
 	}
@@ -228,7 +228,7 @@ int CtrlVertexList::GetRowCount() {
 
 	VertexDecoderOptions options{};
 	// TODO: Maybe an option?
-	u32 vertTypeID = GetVertTypeID(state.vertType, state.getUVGenMode(), true);
+	u32 vertTypeID = GetVertTypeID(state.vertType, state.getUVGenMode());
 	decoder->SetVertexType(vertTypeID, options);
 	return rowCount_;
 }

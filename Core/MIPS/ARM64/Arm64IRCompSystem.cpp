@@ -219,13 +219,20 @@ void Arm64JitBackend::CompIR_System(IRInst inst) {
 		// Skip the CallSyscall where possible.
 		{
 			MIPSOpcode op(inst.constant);
-			void *quickFunc = GetQuickSyscallFunc(op);
-			if (quickFunc) {
-				MOVP2R(X0, GetSyscallFuncPointer(op));
-				QuickCallFunction(SCRATCH2_64, (const u8 *)quickFunc);
+			const HLEFunction *func = GetSyscallFunctionData(op, 0);
+			if (func) {
+				void *quickFunc = GetQuickSyscallFunc(func, op);
+				if (quickFunc) {
+					MOVP2R(X0, func);
+					QuickCallFunction(SCRATCH2_64, (const u8 *)quickFunc);
+				} else {
+					MOVI2R(W0, inst.constant);
+					QuickCallFunction(SCRATCH2_64, &CallSyscall);
+				}
 			} else {
-				MOVI2R(W0, inst.constant);
-				QuickCallFunction(SCRATCH2_64, &CallSyscall);
+				// Shouldn't get here.
+				MOVI2R(W0, 0);
+				QuickCallFunction(SCRATCH2_64, &CallSyscallUnresolvedAtPC);
 			}
 		}
 #endif
@@ -233,6 +240,16 @@ void Arm64JitBackend::CompIR_System(IRInst inst) {
 		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 		LoadStaticRegisters();
 		// This is always followed by an ExitToPC, where we check coreState.
+		break;
+
+	case IROp::SyscallUnresolved:
+		FlushAll();
+		SaveStaticRegisters();
+		WriteDebugProfilerStatus(IRProfilerStatus::SYSCALL);
+		MOVI2R(W0, inst.constant);
+		QuickCallFunction(SCRATCH2_64, &CallSyscallUnresolvedAtPC);
+		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
+		LoadStaticRegisters();
 		break;
 
 	case IROp::CallReplacement:

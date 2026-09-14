@@ -187,10 +187,47 @@ bool PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 	fileName = header.fontName;
 
 	if (header.revision == 3) {
+		if (dataSize < sizeof(header) + sizeof(rev3extra)) {
+			return false;
+		}
 		memcpy(&rev3extra, ptr, sizeof(rev3extra));
 		rev3extra.compCharMapLength1 &= 0xFFFF;
 		rev3extra.compCharMapLength2 &= 0xFFFF;
 		ptr += sizeof(rev3extra);
+	}
+
+	// Also cap the lengths so a crafted font can't force absurd allocations
+	// or loops downstream. Real PGF fonts are tiny.
+	if (header.charPointerLength < 0 || header.charPointerLength > 0x100000 ||
+		header.charMapLength < 0 || header.charMapLength > 0x100000 ||
+		header.shadowMapLength < 0 || header.shadowMapLength > 0x10000) {
+		return false;
+	}
+
+	// BPE fields are signed in the on-disk header, but getBits() only accepts
+	// positive widths up to one machine word. Validate them before converting
+	// them to unsigned values for the table-size calculations below.
+	if (header.charMapBpe < 0 || header.charMapBpe > 32 ||
+		header.charPointerBpe < 0 || header.charPointerBpe > 32 ||
+		header.shadowMapBpe < 0 || header.shadowMapBpe > 32 ||
+		(header.charMapLength > 0 && header.charMapBpe == 0) ||
+		(header.charPointerLength > 0 && header.charPointerBpe == 0) ||
+		(header.shadowMapLength > 0 && header.shadowMapBpe == 0)) {
+		return false;
+	}
+
+	// Validate that all tables fit in the input buffer before reading any of
+	// them. Use 64-bit arithmetic: the original 32-bit signed size math could
+	// overflow for crafted lengths.
+	const u64 headerSize = (u64)(ptr - startPtr);
+	const u64 tablesSize = ((u64)header.dimTableLength + header.xAdjustTableLength + header.yAdjustTableLength + header.advanceTableLength) * 8;
+	const u64 shadowCharMapSize = (((u64)header.shadowMapLength * header.shadowMapBpe + 31) & ~31ull) / 8;
+	const u64 compTableSize = header.revision == 3 ? ((u64)rev3extra.compCharMapLength1 + rev3extra.compCharMapLength2) * 4 : 0;
+	const u64 charMapSize = (((u64)header.charMapLength * header.charMapBpe + 31) & ~31ull) / 8;
+	const u64 charPointerSize = (((u64)header.charPointerLength * header.charPointerBpe + 31) & ~31ull) / 8;
+
+	if (headerSize + tablesSize + shadowCharMapSize + compTableSize + charMapSize + charPointerSize > dataSize) {
+		return false;
 	}
 
 	const u32_le *wptr = (const u32_le *)ptr;
@@ -224,7 +261,6 @@ bool PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 
 	const u8 *uptr = (const u8 *)wptr;
 
-	int shadowCharMapSize = ((header.shadowMapLength * header.shadowMapBpe + 31) & ~31) / 8;
 	const u8 *shadowCharMap = uptr;
 	uptr += shadowCharMapSize;
 
@@ -251,11 +287,9 @@ bool PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 
 	uptr = (const u8 *)sptr;
 
-	int charMapSize = ((header.charMapLength * header.charMapBpe + 31) & ~31) / 8;
 	const u8 *charMap = uptr;
 	uptr += charMapSize;
 
-	int charPointerSize = (((header.charPointerLength * header.charPointerBpe + 31) & ~31) / 8);
 	const u8 *charPointerTable = uptr;
 	uptr += charPointerSize;
 
@@ -290,9 +324,14 @@ bool PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 	std::vector<int> charPointers = getTable(charPointerTable, header.charPointerBpe, glyphs.size());
 	std::vector<int> shadowMap = getTable(shadowCharMap, header.shadowMapBpe, (s32)header.shadowMapLength);
 
-	// Pregenerate glyphs.
+	// Pregenerate glyphs. charPointers come from the (attacker-controlled)
+	// char pointer table, so their offsets into fontData must be validated.
+	// ReadCharGlyph/ReadShadowGlyph bounds-check charPtr internally.
 	for (size_t i = 0; i < glyphs.size(); i++) {
-		ReadCharGlyph(fontData, charPointers[i] * 4 * 8  /* ??? */, glyphs[i]);
+		if (charPointers[i] < 0)
+			continue;
+		size_t charPtr = (size_t)charPointers[i] * 4 * 8;
+		ReadCharGlyph(fontData, charPtr, glyphs[i]);
 	}
 
 	// And shadow glyphs.
@@ -300,9 +339,10 @@ bool PGF::ReadPtr(const u8 *ptr, size_t dataSize) {
 		size_t shadowId = glyphs[i].shadowID;
 		if (shadowId < shadowMap.size()) {
 			size_t charId = shadowMap[shadowId];
-			if (charId < shadowGlyphs.size()) {
+			if (charId < shadowGlyphs.size() && charPointers[charId] >= 0) {
+				size_t charPtr = (size_t)charPointers[charId] * 4 * 8;
 				// TODO: check for pre existing shadow glyph
-				ReadShadowGlyph(fontData, charPointers[charId] * 4 * 8  /* ??? */, shadowGlyphs[charId]);
+				ReadShadowGlyph(fontData, charPtr, shadowGlyphs[charId]);
 			}
 		}
 	}
@@ -419,6 +459,13 @@ bool PGF::ReadShadowGlyph(const u8 *fontdata, size_t charPtr, Glyph &glyph) {
 }
 
 bool PGF::ReadCharGlyph(const u8 *fontdata, size_t charPtr, Glyph &glyph) {
+	// The glyph header reads below stay within a few hundred bits, but
+	// validate the offset here so this function is safe regardless of caller.
+	// charPtr is a bit offset; fontDataSize is in bytes.
+	if (charPtr + 1024 > (size_t)fontDataSize * 8) {
+		return false;
+	}
+
 	// Skip size.
 	charPtr += 14;
 
@@ -549,6 +596,23 @@ bool PGF::GetCharGlyph(int charCode, int glyphType, Glyph &glyph) const {
 	return true;
 }
 
+static const u8 fontPixelSizeInBytes[] = { 0, 0, 1, 3, 4 };  // 0 means 2 pixels per byte
+
+// How far into the glyph buffer a draw can reach. Usually bytesPerLine covers a whole row and this
+// is just bytesPerLine * bufHeight, but nothing makes a game set it that way - with a smaller
+// bytesPerLine the rows overlap and the last one runs past that, so the cache invalidation has to
+// cover the wider of the two.
+static u32 GlyphBufferExtent(const GlyphImage *image) {
+	const u32 rows = (u32)image->bytesPerLine * image->bufHeight;
+	if (image->pixelFormat < 0 || image->pixelFormat > PSP_FONT_PIXELFORMAT_32 || image->bufHeight == 0) {
+		return rows;
+	}
+	const int pixelBytes = fontPixelSizeInBytes[image->pixelFormat];
+	const u32 rowBytes = pixelBytes == 0 ? ((u32)image->bufWidth + 1) / 2 : (u32)image->bufWidth * pixelBytes;
+	const u32 lastRow = (u32)(image->bufHeight - 1) * image->bytesPerLine + rowBytes;
+	return std::max(rows, lastRow);
+}
+
 void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipWidth, int clipHeight, int charCode, int altCharCode, int glyphType) const {
 	Glyph glyph;
 	if (!GetCharGlyph(charCode, glyphType, glyph)) {
@@ -574,14 +638,29 @@ void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipW
 		return;
 	}
 
+	const FontPixelFormat pixelFormat = (FontPixelFormat)(u32)image->pixelFormat;
+
+	// Hardware only ever renders into 4bpp and 8bpp buffers.
+	// `_4_REV`, `_24` and `_32` are accepted and the call returns 0, but not one byte of the buffer is touched.
+	//
+	// This was measured on a PSP-1000: 32 cases per format, every pixel left at its pre-fill value.
+	if (pixelFormat != PSP_FONT_PIXELFORMAT_4 && pixelFormat != PSP_FONT_PIXELFORMAT_8) {
+		WARN_LOG_REPORT_ONCE(pgfunsupportedfmt, Log::sceFont, "Font pixel format %d draws nothing on hardware", (int)pixelFormat);
+		return;
+	}
+
 	size_t bitPtr = glyph.ptr * 8;
 	int numberPixels = glyph.w * glyph.h;
 	int pixelIndex = 0;
 
 	int x = image->xPos64 >> 6;
 	int y = image->yPos64 >> 6;
-	u8 xFrac = image->xPos64 & 0x3F;
-	u8 yFrac = image->yPos64 & 0x3F;
+	int xFrac = image->xPos64 & 0x3F;
+	// Note: there is deliberately no `yFrac`.
+	// Hardware discards the fractional part of yPos64 entirely;
+	// it neither blends vertically nor grows the rectangle downwards.
+	//
+	// This was verified on a PSP-1000 by sweeping yPos64's fraction: the output is bit for bit identical for every value of it.
 
 	// Negative means don't clip on that side.
 	if (clipX < 0)
@@ -616,7 +695,10 @@ void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipW
 				value = consumeBits(4, fontData, bitPtr);
 			}
 
-			decodedPixels[pixelIndex++] = value | (value << 4);
+			// Kept as the raw 4 bit value.
+			// Hardware blends at the precision of the destination format, so the widening to 8 bit shouldn't be one here.
+			// See the scale computed in the render loop below.
+			decodedPixels[pixelIndex++] = value;
 		}
 	}
 
@@ -635,98 +717,102 @@ void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipW
 		return decodedPixels[index];
 	};
 
+	// 4bpp blends the raw nibble, 8bpp blends the value swizzled to 8 bit (v | v << 4, i.e. v * 17).
+	// These are not the same thing as blending at 8 bit and narrowing afterwards.
+	const int scale = pixelFormat == PSP_FONT_PIXELFORMAT_4 ? 1 : 17;
+
 	int renderX1 = std::max(clipX, x) - x;
 	int renderY1 = std::max(clipY, y) - y;
-	// We can render up to frac beyond the glyph w/h, so add 1px if necessary.
+	// A non-zero horizontal fraction bleeds one column past the glyph, so the rectangle grows by 1px there.
+	// Vertically it never does.
 	int renderX2 = std::min(clipX + clipWidth - x, glyph.w + (xFrac > 0 ? 1 : 0));
-	int renderY2 = std::min(clipY + clipHeight - y, glyph.h + (yFrac > 0 ? 1 : 0));
+	int renderY2 = std::min(clipY + clipHeight - y, glyph.h);
 
 	if (gpu && renderX1 < renderX2 && renderY1 < renderY2) {
 		// The game may reuse this glyph buffer as a texture immediately after drawing it.
 		gpu->Flush();
 	}
 
-	if (xFrac == 0 && yFrac == 0) {
-		for (int yy = renderY1; yy < renderY2; ++yy) {
-			for (int xx = renderX1; xx < renderX2; ++xx) {
-				u8 pixelColor = samplePixel(xx, yy);
-				SetFontPixel(image->bufferPtr, image->bytesPerLine, image->bufWidth, image->bufHeight, x + xx, y + yy, pixelColor, (FontPixelFormat)(u32)image->pixelFormat);
-			}
-		}
-	} else {
-		for (int yy = renderY1; yy < renderY2; ++yy) {
-			for (int xx = renderX1; xx < renderX2; ++xx) {
-				// First, blend horizontally.  Tests show we blend swizzled to 8 bit.
-				u32 horiz1 = samplePixel(xx - 1, yy - 1) * xFrac + samplePixel(xx, yy - 1) * (64 - xFrac);
-				u32 horiz2 = samplePixel(xx - 1, yy + 0) * xFrac + samplePixel(xx, yy + 0) * (64 - xFrac);
-				// Now blend those together vertically.
-				u32 blended = horiz1 * yFrac + horiz2 * (64 - yFrac);
+	for (int yy = renderY1; yy < renderY2; ++yy) {
+		for (int xx = renderX1; xx < renderX2; ++xx) {
+			const int a = samplePixel(xx - 1, yy) * scale;
+			const int b = samplePixel(xx + 0, yy) * scale;
 
-				// We multiplied an 8 bit value by 64 twice, so now we have a 20 bit value.
-				u8 pixelColor = blended >> 12;
-				SetFontPixel(image->bufferPtr, image->bytesPerLine, image->bufWidth, image->bufHeight, x + xx, y + yy, pixelColor, (FontPixelFormat)(u32)image->pixelFormat);
-			}
+			// The two weights are rounded in opposite directions; down for the left neighbour, up for the pixel itself.
+			//
+			// This blending equation was inferred from test runs on a PSP-1000 with different prefill values when calling `sceFontGetCharGlyphImage_Clip`.
+			//
+			// The rounding choice makes the pair sum to exactly the max value of the pixel format (15 for 4bpp, 255 for 8bpp) whenever both samples are full ink, for every fraction,
+			// which may be the intention.
+			const int blended = (a * xFrac) / 64 + (b * (64 - xFrac) + 63) / 64;
+
+			// xFrac == 0 needs no special case; the first term vanishes and the second collapses to exactly b.
+			SetFontPixel(image->bufferPtr, image->bytesPerLine, image->bufWidth, image->bufHeight, x + xx, y + yy, blended, pixelFormat);
 		}
 	}
 
-	gpu->InvalidateCache(image->bufferPtr, image->bytesPerLine * image->bufHeight, GPU_INVALIDATE_SAFE);
+	gpu->InvalidateCache(image->bufferPtr, GlyphBufferExtent(image), GPU_INVALIDATE_SAFE);
 }
 
-void PGF::SetFontPixel(u32 base, int bpl, int bufWidth, int bufHeight, int x, int y, u8 pixelColor, FontPixelFormat pixelformat) const {
+// pixelColor arrives already scaled to `pixelformat`'s range, and is *added* to what is in the buffer with saturation; it does not replace it.
+// A glyph drawn over existing content therefore never erases it; the transparent parts contribute zero.
+//
+// This was verified against a PSP-1000 for `PSP_FONT_PIXELFORMAT_4` and `_8` across 196608 pixels with no exceptions.
+void PGF::SetFontPixel(u32 base, int bpl, int bufWidth, int bufHeight, int x, int y, int pixelColor, FontPixelFormat pixelformat) const {
 	if (x < 0 || x >= bufWidth || y < 0 || y >= bufHeight) {
 		return;
 	}
 
-	static const u8 fontPixelSizeInBytes[] = { 0, 0, 1, 3, 4 }; // 0 means 2 pixels per byte
 	if (pixelformat < 0 || pixelformat > PSP_FONT_PIXELFORMAT_32) {
 		ERROR_LOG_REPORT_ONCE(pfgbadformat, Log::sceFont, "Invalid image format in image: %d", (int)pixelformat);
 		return;
 	}
-	int pixelBytes = fontPixelSizeInBytes[pixelformat];
-	int bufMaxWidth = (pixelBytes == 0 ? bpl * 2 : bpl / pixelBytes);
-	if (x >= bufMaxWidth) {
+	const int pixelBytes = fontPixelSizeInBytes[pixelformat];
+
+	// Deliberately no check that x fits within bytesPerLine. The hardware just works out an
+	// address and writes, so with a bytesPerLine smaller than the row needs, rows overlap and the
+	// glyph smears across them - see the "Linesize = 1" case in pspautotests font/charglyphimage.
+	// The bufWidth/bufHeight rectangle above and the address check below are what keep this sane.
+	int framebufferAddr = base + (y * bpl) + (pixelBytes == 0 ? x / 2 : x * pixelBytes);
+	if (!Memory::IsValidAddress(framebufferAddr)) {
 		return;
 	}
-
-	int framebufferAddr = base + (y * bpl) + (pixelBytes == 0 ? x / 2 : x * pixelBytes);
 
 	switch (pixelformat) {
 	case PSP_FONT_PIXELFORMAT_4:
 	case PSP_FONT_PIXELFORMAT_4_REV:
 		{
-			// We always get a 8-bit value, so take only the top 4 bits.
-			const u8 pix4 = pixelColor >> 4;
-
-			int oldColor = Memory::Read_U8(framebufferAddr);
-			int newColor;
-			if ((x & 1) != pixelformat) {
-				newColor = (pix4 << 4) | (oldColor & 0xF);
-			} else {
-				newColor = (oldColor & 0xF0) | pix4;
-			}
-			Memory::Write_U8(newColor, framebufferAddr);
+			// The two pixels share a byte, so the neighbour's nibble is left alone.
+			const int shift = ((x & 1) != pixelformat) ? 4 : 0;
+			const int oldColor = Memory::ReadUnchecked_U8(framebufferAddr);
+			const int newPix = std::min(((oldColor >> shift) & 0xF) + pixelColor, 15);
+			Memory::WriteUnchecked_U8((u8)((oldColor & ~(0xF << shift)) | (newPix << shift)), framebufferAddr);
 			break;
 		}
 	case PSP_FONT_PIXELFORMAT_8:
 		{
-			Memory::Write_U8(pixelColor, framebufferAddr);
+			const int newPix = std::min((int)Memory::ReadUnchecked_U8(framebufferAddr) + pixelColor, 255);
+			Memory::WriteUnchecked_U8((u8)newPix, framebufferAddr);
 			break;
 		}
 	case PSP_FONT_PIXELFORMAT_24:
 		{
-			// Each channel has the same value.
-			Memory::Write_U8(pixelColor, framebufferAddr + 0);
-			Memory::Write_U8(pixelColor, framebufferAddr + 1);
-			Memory::Write_U8(pixelColor, framebufferAddr + 2);
+			// Each channel gets the same value.
+			for (int i = 0; i < 3; ++i) {
+				const int newPix = std::min((int)Memory::ReadUnchecked_U8(framebufferAddr + i) + pixelColor, 255);
+				Memory::WriteUnchecked_U8((u8)newPix, framebufferAddr + i);
+			}
 			break;
 		}
 	case PSP_FONT_PIXELFORMAT_32:
 		{
-			// Spread the 8 bits out into one write of 32 bits.
-			u32 pix32 = pixelColor;
-			pix32 |= pix32 << 8;
-			pix32 |= pix32 << 16;
-			Memory::Write_U32(pix32, framebufferAddr);
+			const u32 oldColor = Memory::ReadUnchecked_U32(framebufferAddr);
+			u32 pix32 = 0;
+			for (int i = 0; i < 4; ++i) {
+				const int newPix = std::min((int)((oldColor >> (i * 8)) & 0xFF) + pixelColor, 255);
+				pix32 |= (u32)newPix << (i * 8);
+			}
+			Memory::WriteUnchecked_U32(pix32, framebufferAddr);
 			break;
 		}
 	}

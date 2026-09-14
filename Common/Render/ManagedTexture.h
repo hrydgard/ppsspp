@@ -32,7 +32,7 @@ struct TempImage {
 	int height[16]{};
 	int numLevels = 0;
 
-	bool LoadTextureLevelsFromFileData(const uint8_t *data, size_t size, ImageFileType typeSuggestion = ImageFileType::DETECT);
+	bool LoadTextureLevelsFromFileData(const uint8_t *data, size_t size, ImageFileType typeSuggestion = ImageFileType::DETECT, int maxWidth = 8192, int maxHeight = 8192);
 	void Free() {
 		if (levels[0]) {
 			free(levels[0]);
@@ -76,8 +76,8 @@ private:
 	LoadState state_ = LoadState::PENDING;
 };
 
-Draw::Texture *CreateTextureFromFileData(Draw::DrawContext *draw, const uint8_t *data, size_t dataSize, ImageFileType type, bool generateMips, const char *name);
-Draw::Texture *CreateTextureFromFile(Draw::DrawContext *draw, const char *filename, ImageFileType type, bool generateMips);
+Draw::Texture *CreateTextureFromFileData(Draw::DrawContext *draw, const uint8_t *data, size_t dataSize, ImageFileType type, bool generateMips, const char *name, int maxWidth = 8192, int maxHeight = 8192);
+Draw::Texture *CreateTextureFromFile(Draw::DrawContext *draw, const char *filename, ImageFileType type, bool generateMips, int maxWidth = 8192, int maxHeight = 8192);
 Draw::Texture *CreateTextureFromTempImage(Draw::DrawContext *draw, const TempImage &image, bool generateMips, const char *name);
 
 ImageFileType DetectImageFileType(const uint8_t *data, size_t size);

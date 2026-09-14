@@ -106,6 +106,7 @@ struct ImConfig {
 	int selectedFramebuffer = -1;
 	int selectedBreakpoint = -1;
 	int selectedMemCheck = -1;
+	int selectedRegBreakpoint = -1;
 	int selectedAtracCtx = 0;
 	int selectedMp3Ctx = 0;
 	int selectedAacCtx = 0;

@@ -116,6 +116,7 @@ void OnScreenDisplay::Show(OSDType type, std::string_view text, std::string_view
 }
 
 void OnScreenDisplay::CancelById(std::string_view id) {
+	std::lock_guard<std::mutex> guard(mutex_);
 	for (auto iter = entries_.begin(); iter != entries_.end();) {
 		if (iter->id == id) {
 			iter = entries_.erase(iter);
@@ -138,6 +139,7 @@ void OnScreenDisplay::ShowAchievementUnlocked(int achievementID) {
 
 	double duration_s = 5.0;
 
+	std::lock_guard<std::mutex> guard(mutex_);
 	Entry msg{};
 	msg.numericID = achievementID;
 	msg.type = OSDType::ACHIEVEMENT_UNLOCKED;
@@ -149,6 +151,7 @@ void OnScreenDisplay::ShowAchievementUnlocked(int achievementID) {
 void OnScreenDisplay::ShowAchievementProgress(int achievementID, bool show) {
 	double now = time_now_d();
 
+	std::lock_guard<std::mutex> guard(mutex_);
 	// There can only be one of these at a time.
 	for (auto &entry : entries_) {
 		if (entry.type == OSDType::ACHIEVEMENT_PROGRESS) {
@@ -182,6 +185,7 @@ void OnScreenDisplay::ShowAchievementProgress(int achievementID, bool show) {
 void OnScreenDisplay::ShowChallengeIndicator(int achievementID, bool show) {
 	double now = time_now_d();
 
+	std::lock_guard<std::mutex> guard(mutex_);
 	for (auto &entry : entries_) {
 		if (entry.numericID == achievementID && entry.type == OSDType::ACHIEVEMENT_CHALLENGE_INDICATOR && !show) {
 			// Hide and eventually delete it.
@@ -208,6 +212,7 @@ void OnScreenDisplay::ShowChallengeIndicator(int achievementID, bool show) {
 void OnScreenDisplay::ShowLeaderboardTracker(int leaderboardTrackerID, std::string_view trackerText, bool show) {   // show=true is used both for create and update.
 	double now = time_now_d();
 
+	std::lock_guard<std::mutex> guard(mutex_);
 	for (auto &entry : entries_) {
 		if (entry.numericID == leaderboardTrackerID && entry.type == OSDType::LEADERBOARD_TRACKER) {
 			if (show) {
@@ -303,6 +308,7 @@ void OnScreenDisplay::RemoveProgressBar(std::string_view id, bool success, float
 // Fades out everything related to achievements. Should be used on game shutdown.
 void OnScreenDisplay::ClearAchievementStuff() {
 	double now = time_now_d();
+	std::lock_guard<std::mutex> guard(mutex_);
 	for (auto &iter : entries_) {
 		switch (iter.type) {
 		case OSDType::ACHIEVEMENT_CHALLENGE_INDICATOR:
@@ -321,6 +327,7 @@ void OnScreenDisplay::ClearAchievementStuff() {
 
 void OnScreenDisplay::SetClickCallback(std::string_view id, std::function<void()> callback) {
 	_dbg_assert_(callback != nullptr);
+	std::lock_guard<std::mutex> guard(mutex_);
 	for (auto &ent : entries_) {
 		// protect against dupes.
 		if (ent.id == id) {
@@ -330,6 +337,7 @@ void OnScreenDisplay::SetClickCallback(std::string_view id, std::function<void()
 }
 
 void OnScreenDisplay::SetFlags(std::string_view id, OSDMessageFlags flags) {
+	std::lock_guard<std::mutex> guard(mutex_);
 	for (auto &ent : entries_) {
 		// protect against dupes.
 		if (ent.id == id) {

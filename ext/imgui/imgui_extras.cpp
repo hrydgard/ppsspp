@@ -63,4 +63,26 @@ bool CollapsingHeaderWithCount(const char *title, int count, ImGuiTreeNodeFlags 
 	return ImGui::CollapsingHeader(temp, flags);
 }
 
+bool CheckboxInverted(const char* label, bool* v) {
+	bool value = !(*v);
+	if (ImGui::Checkbox(label, &value)) {
+		*v = !value;
+		return true;
+	}
+	return false;
+}
+
+bool MenuItemInverted(const char* label, const char* shortcut, bool* p_selected, bool enabled) {
+	if (p_selected) {
+		bool value = !(*p_selected);
+		if (ImGui::MenuItem(label, shortcut, &value, enabled)) {
+			*p_selected = !value;
+			return true;
+		}
+	} else {
+		return ImGui::MenuItem(label, shortcut, nullptr, enabled);
+	}
+	return false;
+}
+
 }  // namespace ImGui

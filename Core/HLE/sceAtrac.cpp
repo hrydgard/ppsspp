@@ -333,7 +333,7 @@ static u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 
 		return hleLogError(Log::Atrac, SCE_ERROR_ATRAC_SIZE_TOO_SMALL);
 	}
 
-	u8 *outPtr = outAddr ? Memory::GetPointerWrite(outAddr) : nullptr;
+	u8 *outPtr = outAddr ? Memory::GetPointerWriteOrException(outAddr) : nullptr;
 
 	int ret = atrac->DecodeData(outPtr, outAddr, &numSamplesWritten, &finish, &remains);
 	if (ret != (int)SCE_ERROR_ATRAC_BAD_ATRACID && ret != (int)SCE_ERROR_ATRAC_NO_DATA) {
@@ -1093,6 +1093,7 @@ u32 AtracSasAddStreamData(int atracID, u32 bufPtr, u32 bytesToAdd) {
 	AtracBase *atrac = getAtrac(atracID);
 	if (!atrac) {
 		WARN_LOG(Log::Atrac, "bad atrac ID");
+		return 0;
 	}
 	return atrac->EnqueueForSas(bufPtr, bytesToAdd);
 }
@@ -1109,9 +1110,10 @@ void AtracSasDecodeData(int atracID, u8* outbuf, int *SamplesNum, int *finish) {
 	atrac->DecodeForSas((s16 *)outbuf, SamplesNum, finish);
 }
 
+// The context pointer is assumed to be valid.
 int AtracSasBindContextAndGetID(u32 contextAddr) {
 	// Ugly hack, but needed to support both old and new contexts.
-	int atracID = (int)Memory::Read_U32(contextAddr + 0xfc);
+	int atracID = (int)Memory::ReadUnchecked_U32(contextAddr + 0xfc);
 	if (atracID < PSP_MAX_ATRAC_IDS && atracContexts[atracID] && atracContexts[atracID]->GetContextVersion() == 1) {
 		// We can assume the old atracID hack was used, and atracID is valid.
 	} else {

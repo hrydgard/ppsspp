@@ -24,7 +24,7 @@ enum WaitType : int;
 class HLEHelperThread {
 public:
 	// For savestates.
-	HLEHelperThread();
+	HLEHelperThread() = default;
 	HLEHelperThread(const char *threadName, const u32 instructions[], u32 instrCount, u32 prio, int stacksize);
 	HLEHelperThread(const char *threadName, const char *module, const char *func, u32 prio, int stacksize);
 	~HLEHelperThread();
@@ -47,6 +47,6 @@ private:
 	void AllocEntry(u32 size);
 	void Create(const char *threadName, u32 prio, int stacksize);
 
-	SceUID id_;
-	u32 entry_;
+	SceUID id_ = 0;
+	u32 entry_ = 0;
 };

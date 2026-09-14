@@ -40,6 +40,8 @@ enum class IdentifiedFileType {
 	ARCHIVE_RAR,
 	ARCHIVE_ZIP,
 	ARCHIVE_7Z,
+	// A .pkg game update - a container we install from rather than boot. See Core/Util/PkgUnpack.h.
+	PSP_PKG,
 	PSP_PS1_PBP,
 	PSX_ISO,
 	PS2_ISO,
@@ -63,7 +65,7 @@ enum class IdentifiedFileType {
 const char *IdentifiedFileTypeToString(IdentifiedFileType type);
 
 // NB: It is a REQUIREMENT that implementations of this class are entirely thread safe!
-// TOOD: actually, is it really?
+// TODO: actually, is it really?
 class FileLoader {
 public:
 	enum class Flags {

@@ -20,7 +20,6 @@ const char *ShaderStageAsString(ShaderStage stage) {
 	switch (stage) {
 	case ShaderStage::Fragment: return "Fragment";
 	case ShaderStage::Vertex: return "Vertex";
-	case ShaderStage::Geometry: return "Geometry";
 	case ShaderStage::Compute: return "Compute";
 	default: return "(unknown)";
 	}

@@ -281,10 +281,18 @@ struct VulkanExtensions {
 };
 
 // Way to do a quick check before even attempting to load.
+void VulkanSetNativeLibDir(std::string_view nativeLibDir);
 bool VulkanMayBeAvailable();
 void VulkanSetAvailable(bool available);
 
 bool VulkanLoad(std::string *errorStr);
+// Alternative to VulkanLoad() for adopting a Vulkan loader that a host application (e.g. a libretro
+// frontend) already resolved for us, instead of dlopen/dlsym-ing the Vulkan loader library ourselves.
+// instance must already be a valid, live VkInstance - vkGetDeviceProcAddr can only be resolved through
+// vkGetInstanceProcAddr with a real instance, not NULL (see the Vulkan spec's vkGetInstanceProcAddr
+// "encodes the info from" table - only a handful of global commands are NULL-instance queryable, and
+// vkGetDeviceProcAddr isn't one of them).
+bool VulkanLoadFromGetInstanceProcAddr(VkInstance instance, PFN_vkGetInstanceProcAddr getInstanceProcAddr);
 void VulkanLoadInstanceFunctions(VkInstance instance, const VulkanExtensions &enabledExtensions, uint32_t vulkanApiVersion);
 void VulkanLoadDeviceFunctions(VkDevice device, const VulkanExtensions &enabledExtensions, uint32_t vulkanApiVersion);
 void VulkanFree();

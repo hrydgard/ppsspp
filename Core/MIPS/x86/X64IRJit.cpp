@@ -256,7 +256,7 @@ void X64JitBackend::CompIR_Interpret(IRInst inst) {
 	if (DebugStatsEnabled()) {
 		ABI_CallFunctionP((const void *)&NotifyMIPSInterpret, (void *)MIPSGetName(op));
 	}
-	ABI_CallFunctionC((const void *)MIPSGetInterpretFunc(op), inst.constant);
+	ABI_CallFunctionC((const void *)&MIPSInterpretTrampoline, inst.constant);
 	WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 	LoadStaticRegisters();
 }

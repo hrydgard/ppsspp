@@ -123,6 +123,14 @@ void Jit::Comp_FPU3op(MIPSOpcode op) {
 
 void Jit::Comp_FPULS(MIPSOpcode op) {
 	CONDITIONAL_DISABLE(LSU_FPU);
+
+	if (js.kernelMode) {
+		// Send all memory accesses to the interpreter in kernel mode.
+		// TODO: Do something faster - but it hardly matters, currently this is VSH-only.
+		DISABLE;
+		return;
+	}
+
 	s32 offset = _IMM16;
 	int ft = _FT;
 	MIPSGPReg rs = _RS;
@@ -130,7 +138,7 @@ void Jit::Comp_FPULS(MIPSOpcode op) {
 	CheckMemoryBreakpoint(0, rs, offset);
 
 	switch (op >> 26) {
-	case 49: //FI(ft) = Memory::Read_U32(addr); break; //lwc1
+	case 49: // lwc1
 		{
 			gpr.Lock(rs);
 			fpr.SpillLock(ft);
@@ -148,7 +156,7 @@ void Jit::Comp_FPULS(MIPSOpcode op) {
 			fpr.ReleaseSpillLocks();
 		}
 		break;
-	case 57: //Memory::Write_U32(FI(ft), addr); break; //swc1
+	case 57: // swc1
 		{
 			gpr.Lock(rs);
 			fpr.SpillLock(ft);

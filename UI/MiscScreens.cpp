@@ -37,6 +37,7 @@
 #include "Common/Data/Color/RGBAUtil.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Data/Text/I18n.h"
+#include "Common/UI/ScreenManager.h"
 #include "Common/TimeUtil.h"
 #include "Common/File/FileUtil.h"
 #include "Common/Render/ManagedTexture.h"
@@ -66,7 +67,6 @@ void HandleCommonMessages(UIMessage message, const char *value, ScreenManager *m
 	if (message == UIMessage::REQUEST_CLEAR_JIT && PSP_IsInited()) {
 		// TODO: This seems to clearly be the wrong place to handle this.
 		if (MIPSComp::jit) {
-			std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 			if (MIPSComp::jit)
 				MIPSComp::jit->ClearCache();
 		}
@@ -288,7 +288,7 @@ NewLanguageScreen::NewLanguageScreen(std::string_view title) : ListPopupScreen(t
 
 		// We only support Arabic on platforms where we have support for the native text rendering
 		// APIs, as proper Arabic support is way too difficult to implement ourselves.
-#if !(defined(USING_QT_UI) || PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID))
+#if !(PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID))
 		if (tempLangs[i].name.find("ar_AE") != std::string::npos) {
 			continue;
 		}
@@ -395,7 +395,7 @@ LogoScreen::LogoScreen(AfterLogoScreen afterLogoScreen)
 }
 
 void LogoScreen::update() {
-	UIScreen::update();
+	UIBaseScreen::update();
 	double rate = std::max(30.0, (double)System_GetPropertyFloat(SYSPROP_DISPLAY_REFRESH_RATE));
 
 	if ((double)frames_ / rate > logoScreenSeconds) {
@@ -592,7 +592,7 @@ void CreditsScreen::CreateDialogViews(UI::ViewGroup *parent) {
 }
 
 void CreditsScreen::update() {
-	UIScreen::update();
+	UISimpleBaseDialogScreen::update();
 	UpdateUIState(UISTATE_MENU);
 }
 
@@ -702,9 +702,6 @@ void CreditsScroller::Draw(UIContext &dc) {
 		cr->T("tools", "Free tools used:"),
 #if PPSSPP_PLATFORM(ANDROID)
 		"Android SDK + NDK",
-#endif
-#if defined(USING_QT_UI)
-		"Qt",
 #endif
 #if defined(SDL)
 		"SDL",

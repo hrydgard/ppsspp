@@ -219,9 +219,14 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 		return IdentifiedFileType::ARCHIVE_RAR;
 	} else if (!memcmp(&id, "\x37\x7A\xBC\xAF", 4)) {
 		return IdentifiedFileType::ARCHIVE_7Z;
+	} else if (!memcmp(&id, "\x7F""PKG", 4)) {
+		return IdentifiedFileType::PSP_PKG;
 	}
 
-	if (id == 'FLE\x7F') {
+	// "~PSP" is an encrypted PRX. The module loader decrypts those on the way in, so as far as
+	// identification goes it's the same thing as a plain ELF - which is how the modules in a
+	// firmware unpacked straight from an updater arrive (see Core/Util/PSARUnpack.cpp).
+	if (id == 'FLE\x7F' || id == 'PSP~') {
 		Path filename = fileLoader->GetPath();
 		// There are a few elfs misnamed as pbp (like Trig Wars), accept that. Also accept extension-less paths.
 		if (extension == ".plf" || strstr(filename.GetFilename().c_str(), "BOOT.BIN") ||
@@ -276,6 +281,10 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 		return IdentifiedFileType::ARCHIVE_RAR;
 	} else if (extension == ".7z") {
 		return IdentifiedFileType::ARCHIVE_7Z;
+	} else if (extension == ".pkg") {
+		// Magic didn't match, but the name says what it was meant to be - report it as a PKG so
+		// the install screen can explain what's wrong with it.
+		return IdentifiedFileType::PSP_PKG;
 	}
 	return IdentifiedFileType::UNKNOWN;
 }
@@ -424,15 +433,31 @@ inline char asciitolower(char in) {
 	return in;
 }
 
+// Only used for small metadata files (PARAM.SFO, plugin ini). The size below is far above
+// anything legitimate - it exists because the size comes from the zip's central directory,
+// i.e. straight from an untrusted file.
+static const u64 MAX_ZIP_EXTRACT_TO_MEMORY_SIZE = 16 * 1024 * 1024;
+
 static bool ZipExtractFileToMemory(struct zip *z, int fileIndex, std::string *data) {
-	struct zip_stat zstat;
-	zip_stat_index(z, fileIndex, 0, &zstat);
+	zip_stat_t zstat{};
+	if (zip_stat_index(z, fileIndex, 0, &zstat) != 0) {
+		ERROR_LOG(Log::HLE, "zip_stat_index failed for file %d in zip", fileIndex);
+		return false;
+	}
+	if (!(zstat.valid & ZIP_STAT_SIZE)) {
+		ERROR_LOG(Log::HLE, "No size for file %d in zip", fileIndex);
+		return false;
+	}
 	if (zstat.size == 0) {
 		data->clear();
 		return true;
 	}
+	if (zstat.size > MAX_ZIP_EXTRACT_TO_MEMORY_SIZE) {
+		ERROR_LOG(Log::HLE, "Refusing to extract file %d from zip: declared size %llu is implausible", fileIndex, (unsigned long long)zstat.size);
+		return false;
+	}
 
-	size_t readSize = zstat.size;
+	size_t readSize = (size_t)zstat.size;
 	data->resize(readSize);
 
 	zip_file *zf = zip_fopen_index(z, fileIndex, 0);
@@ -654,6 +679,7 @@ const char *IdentifiedFileTypeToString(IdentifiedFileType type) {
 	case IdentifiedFileType::UNKNOWN_ISO: return "UNKNOWN_ISO";
 	case IdentifiedFileType::ARCHIVE_RAR: return "ARCHIVE_RAR";
 	case IdentifiedFileType::ARCHIVE_ZIP: return "ARCHIVE_ZIP";
+	case IdentifiedFileType::PSP_PKG: return "PSP_PKG";
 	case IdentifiedFileType::ARCHIVE_7Z: return "ARCHIVE_7Z";
 	case IdentifiedFileType::PSP_PS1_PBP: return "PSP_PS1_PBP";
 	case IdentifiedFileType::PSX_ISO: return "PSX_ISO";

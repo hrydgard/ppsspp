@@ -11,8 +11,8 @@
 #define __uuidof(type) IID_##type
 #endif
 
-bool LibretroD3D11Context::Init() {
-   if (!LibretroHWRenderContext::Init(true)) {
+bool LibretroD3D11Context::InitAPI(void *wnd, std::string *deviceName, std::string *error_message) {
+   if (!LibretroHWRenderContext::InitHW(true)) {
       return false;
    }
 

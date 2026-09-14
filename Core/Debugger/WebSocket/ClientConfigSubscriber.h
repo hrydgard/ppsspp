@@ -23,3 +23,5 @@ DebuggerSubscriber *WebSocketClientConfigInit(DebuggerEventHandlerMap &map);
 
 void WebSocketBroadcastConfigSet(DebuggerRequest &req);
 void WebSocketBroadcastConfigGet(DebuggerRequest &req);
+void WebSocketClientConfigSet(DebuggerRequest &req);
+void WebSocketClientConfigGet(DebuggerRequest &req);

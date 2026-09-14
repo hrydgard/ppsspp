@@ -1,8 +1,11 @@
 #pragma once
 
+#include <atomic>
 #include <functional>
 #include <map>
+#include <memory>
 #include <thread>
+#include <vector>
 
 #include "Common/Net/HTTPHeaders.h"
 #include "Common/Net/Resolve.h"
@@ -13,7 +16,19 @@ public:
 	void Run(std::function<void()> func);
 
 private:
-	std::vector<std::thread> threads_;
+	// Reap threads that have finished. Only called from the thread that calls Run().
+	void Prune();
+
+	struct Worker {
+		std::thread thread;
+		// Set by the worker as its last act, read by whoever calls Run() next.
+		// It does look a bit fragile with the atomic inside a shared_ptr, but the way
+		// this is used, it should be fine. The atomic is only used to signal that the thread
+		// is done, and the shared_ptr is only used to keep the atomic alive until
+		// the thread is joined.
+		std::shared_ptr<std::atomic<bool>> done;
+	};
+	std::vector<Worker> workers_;
 };
 
 namespace net {

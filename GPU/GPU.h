@@ -95,6 +95,7 @@ struct GPUStatsPerFrame {
 	int numUpdateStall;
 	int numDrawSyncs;
 	int numListSyncs;
+	int numGEInterrupts;
 	int numDrawCalls;
 	int numVertexDecodes;
 	int numCulledDraws;

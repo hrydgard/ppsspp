@@ -72,9 +72,9 @@ bool NpMatching2ProcessEvents() {
 	}
 
 	// Per npMatching2 function callback
-	u32* inStruct = (u32*)Memory::GetPointer(inStructPtr);
+	u32* inStruct = (u32*)Memory::GetPointerOrException(inStructPtr);
 	if (Memory::IsValidAddress(inStruct[0])) {
-		DEBUG_LOG(Log::sceNet, "NpMatching2Callback [ServerID=%i][EventID=%04x][State=%04x][FuncAddr=%08x][ArgsPtr=%08x]", *(u32*)Memory::GetPointer(serverIdPtr), event, stat, inStruct[0], inStruct[1]);
+		DEBUG_LOG(Log::sceNet, "NpMatching2Callback [ServerID=%i][EventID=%04x][State=%04x][FuncAddr=%08x][ArgsPtr=%08x]", *(u32*)Memory::GetPointerOrException(serverIdPtr), event, stat, inStruct[0], inStruct[1]);
 		hleEnqueueCall(inStruct[0], 7, args.data);
 	}
 	return true;
@@ -106,13 +106,11 @@ static int sceNpMatching2Term()
 	return 0;
 }
 
-static int sceNpMatching2CreateContext(u32 communicationIdPtr, u32 passPhrasePtr, u32 ctxIdPtr, int unknown)
-{
-	ERROR_LOG(Log::sceNet, "UNIMPL %s(%08x[%s], %08x[%08x], %08x[%hu], %i) at %08x", __FUNCTION__, communicationIdPtr, safe_string(Memory::GetCharPointer(communicationIdPtr)), passPhrasePtr, Memory::Read_U32(passPhrasePtr), ctxIdPtr, Memory::Read_U16(ctxIdPtr), unknown, currentMIPS->pc);
+static int sceNpMatching2CreateContext(u32 communicationIdPtr, u32 passPhrasePtr, u32 ctxIdPtr, int unknown) {
 	if (!npMatching2Inited)
 		return hleLogError(Log::sceNet, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
 
-	if (!Memory::IsValidAddress(communicationIdPtr) || !Memory::IsValidAddress(passPhrasePtr) || !Memory::IsValidAddress(ctxIdPtr))
+	if (!Memory::IsValidAddress(communicationIdPtr) || !Memory::IsValidAddress(passPhrasePtr) || !Memory::IsValidRange(ctxIdPtr, 2))
 		return hleLogError(Log::sceNet, SCE_NP_MATCHING2_ERROR_CONTEXT_MAX);
 
 	// FIXME: It seems Context are mapped to TitleID? may return 0x80550C05 or 0x80550C06 when finding an existing context
@@ -139,8 +137,8 @@ static int sceNpMatching2CreateContext(u32 communicationIdPtr, u32 passPhrasePtr
 
 	// Returning dummy Id, a 16-bit variable according to JPCSP
 	// FIXME: It seems ctxId need to be in the range of 1 to 7 to be valid ?
-	Memory::Write_U16(1, ctxIdPtr);
-	return 0;
+	Memory::WriteUnchecked_U16(1, ctxIdPtr);
+	return hleLogError(Log::sceNet, 0, "UNIMPL");
 }
 
 static int sceNpMatching2ContextStart(int ctxId)
@@ -369,12 +367,13 @@ static int sceNpMatching2GetServerIdListLocal(int ctxId, u32 serverIdsPtr, int m
 	if (!npMatching2Inited)
 		return hleLogError(Log::sceNet, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
 
-	if (!Memory::IsValidAddress(serverIdsPtr))
+	if (!Memory::IsValidRange(serverIdsPtr, maxServerIds * sizeof(u16)))
 		return hleLogError(Log::sceNet, SCE_NP_MATCHING2_ERROR_INVALID_ARGUMENT);
 
-	// Returning dummy Id, a 16-bit variable according to JPCSP
-	for (int i = 0; i < maxServerIds; i++)
-		Memory::Write_U16(1234+i, serverIdsPtr+(i*2));
+	// Returning dummy ids, 16-bit variables according to JPCSP
+	for (int i = 0; i < maxServerIds; i++) {
+		Memory::WriteUnchecked_U16(1234 + i, serverIdsPtr + (i * 2));
+	}
 
 	return maxServerIds; // dummy value
 }
@@ -382,15 +381,14 @@ static int sceNpMatching2GetServerIdListLocal(int ctxId, u32 serverIdsPtr, int m
 // Unknown1 = optParam, unknown2 = assignedReqId according to https://github.com/RPCS3/rpcs3/blob/master/rpcs3/Emu/Cell/Modules/sceNp2.cpp ?
 static int sceNpMatching2GetServerInfo(int ctxId, u32 serverIdPtr, u32 unknown1Ptr, u32 unknown2Ptr)
 {
-	ERROR_LOG(Log::sceNet, "UNIMPL %s(%d, %08x[%d], %08x, %08x[%08x]) at %08x", __FUNCTION__, ctxId, serverIdPtr, Memory::Read_U16(serverIdPtr), unknown1Ptr, unknown2Ptr, Memory::Read_U32(unknown2Ptr), currentMIPS->pc);
 	if (!npMatching2Inited)
 		return hleLogError(Log::sceNet, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
 
-	if (!Memory::IsValidAddress(serverIdPtr) || !Memory::IsValidAddress(unknown2Ptr))
+	if (!Memory::IsValidRange(serverIdPtr, 2) || !Memory::IsValid4AlignedRange(unknown2Ptr, 8))
 		return hleLogError(Log::sceNet, SCE_NP_MATCHING2_ERROR_CONTEXT_MAX); // Should be SCE_NP_MATCHING2_ERROR_INVALID_ARGUMENT ?
 
 	// Server ID is a 16-bit variable according to JPCSP
-	int serverId = Memory::Read_U16(serverIdPtr);
+	int serverId = Memory::ReadUnchecked_U16(serverIdPtr);
 
 	if (serverId == 0)
 		return hleLogError(Log::sceNet, 0x80550CBF); // Should be SCE_NP_MATCHING2_ERROR_INVALID_SERVER_ID ?
@@ -404,8 +402,8 @@ static int sceNpMatching2GetServerInfo(int ctxId, u32 serverIdPtr, u32 unknown1P
 	// 	   0008 32-bit set to 0
 	// 	   000a 16-bit set to 0
 	//
-	u32 cbFunc = Memory::Read_U32(unknown1Ptr);
-	u32 cbArg = Memory::Read_U32(unknown1Ptr + 0x04);
+	u32 cbFunc = Memory::ReadUnchecked_U32(unknown1Ptr);
+	u32 cbArg = Memory::ReadUnchecked_U32(unknown1Ptr + 0x04);
 
 	// Notify callback handler
 	if (Memory::IsValidAddress(cbFunc)) {
@@ -435,24 +433,23 @@ static int sceNpMatching2GetServerInfo(int ctxId, u32 serverIdPtr, u32 unknown1P
 
 		notifyNpMatching2Handlers(args, ctxId, serverId, 0, 0, 0, 0, 0, 1);
 
-		Memory::Write_U32(args.data[1], unknown2Ptr); // server status or flags?
+		Memory::WriteUnchecked_U32(args.data[1], unknown2Ptr); // server status or flags?
 	}
 
 	// After returning, Fat Princess will loop for 64 times (increasing the address by 288 bytes on each loop) or until found a zero status byte (0x08BD4860 + 0x10), looking for empty/available entry to set?
-	return 0;
+	return hleLogError(Log::sceNet, 0, "UNIMPL");
 }
 
 static int sceNpMatching2LeaveRoom(int ctxId, u32 reqParamPtr, u32 optParamPtr, u32 assignedReqIdPtr)
 {
-	ERROR_LOG(Log::sceNet, "UNIMPL %s(%d, %08x, %08x, %08x[%08x]) at %08x", __FUNCTION__, ctxId, reqParamPtr, optParamPtr, assignedReqIdPtr, Memory::Read_U32(assignedReqIdPtr), currentMIPS->pc);
 	if (!npMatching2Inited)
 		return hleLogError(Log::sceNet, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
 
-	if (!Memory::IsValidAddress(reqParamPtr) || !Memory::IsValidAddress(assignedReqIdPtr))
+	if (!Memory::IsValidRange(reqParamPtr, 8) || !Memory::IsValid4AlignedRange(assignedReqIdPtr, 4))
 		return hleLogError(Log::sceNet, SCE_NP_MATCHING2_ERROR_CONTEXT_MAX); // Should be SCE_NP_MATCHING2_ERROR_INVALID_ARGUMENT ?
 
-	u32 cbFunc = Memory::Read_U32(reqParamPtr);
-	u32 cbArg = Memory::Read_U32(reqParamPtr + 0x04);
+	u32 cbFunc = Memory::ReadUnchecked_U32(reqParamPtr);
+	u32 cbArg = Memory::ReadUnchecked_U32(reqParamPtr + 0x04);
 
 	// Notify callback handler
 	if (Memory::IsValidAddress(cbFunc)) {
@@ -469,30 +466,29 @@ static int sceNpMatching2LeaveRoom(int ctxId, u32 reqParamPtr, u32 optParamPtr, 
 
 		notifyNpMatching2Handlers(args, ctxId, 0, cbFunc, cbArg, 0, 0, 0, 0x0c);
 
-		Memory::Write_U32(args.data[1], assignedReqIdPtr);
+		Memory::WriteUnchecked_U32(args.data[1], assignedReqIdPtr);
 	}
 
 	// After returning, Fat Princess will loop for 64 times (increasing the address by 288 bytes on each loop) or until found a zero status byte (0x08BD4860 + 0x10), looking for empty/available entry to set?
-	return 0;
+	return hleLogError(Log::sceNet, 0, "UNIMPL");
 }
 
 static int sceNpMatching2CreateJoinRoom(int ctxId, u32 reqParamPtr, u32 optParamPtr, u32 unknown1, u32 unknown2, u32 assignedReqIdPtr)
 {
-	ERROR_LOG(Log::sceNet, "UNIMPL %s(%d, %08x, %08x, %08x[%08x]) at %08x", __FUNCTION__, ctxId, reqParamPtr, optParamPtr, assignedReqIdPtr, Memory::Read_U32(assignedReqIdPtr), currentMIPS->pc);
 	if (!npMatching2Inited)
 		return hleLogError(Log::sceNet, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
 
-	if (!Memory::IsValidAddress(reqParamPtr) || !Memory::IsValidAddress(assignedReqIdPtr))
+	if (!Memory::IsValidRange(reqParamPtr, 8) || !Memory::IsValid4AlignedRange(assignedReqIdPtr, 4))
 		return hleLogError(Log::sceNet, SCE_NP_MATCHING2_ERROR_CONTEXT_MAX); // Should be SCE_NP_MATCHING2_ERROR_INVALID_ARGUMENT ?
 
 	// Server ID is a 16-bit variable according to JPCSP
-	int serverId = Memory::Read_U16(reqParamPtr + 0x06);
+	int serverId = Memory::ReadUnchecked_U16(reqParamPtr + 0x06);
 
 	if (serverId == 0)
 		return hleLogError(Log::sceNet, 0x80550CBF); // Should be SCE_NP_MATCHING2_ERROR_INVALID_SERVER_ID ?
 
-	u32 cbFunc = Memory::Read_U32(reqParamPtr);
-	u32 cbArg = Memory::Read_U32(reqParamPtr + 0x04);
+	u32 cbFunc = Memory::ReadUnchecked_U32(reqParamPtr);
+	u32 cbArg = Memory::ReadUnchecked_U32(reqParamPtr + 0x04);
 
 	// Notify callback handler
 	if (Memory::IsValidAddress(cbFunc)) {
@@ -512,24 +508,23 @@ static int sceNpMatching2CreateJoinRoom(int ctxId, u32 reqParamPtr, u32 optParam
 
 		notifyNpMatching2Handlers(args, ctxId, serverId, 0, 0, 0, 0, 1, 0x0a);
 
-		Memory::Write_U32(args.data[1], assignedReqIdPtr);
+		Memory::WriteUnchecked_U32(args.data[1], assignedReqIdPtr);
 	}
 
 	// After returning, Fat Princess will loop for 64 times (increasing the address by 288 bytes on each loop) or until found a zero status byte (0x08BD4860 + 0x10), looking for empty/available entry to set?
-	return 0;
+	return hleLogError(Log::sceNet, 0, "UNIMPL");
 }
 
 static int sceNpMatching2SearchRoom(int ctxId, u32 reqParamPtr, u32 optParamPtr, u32 assignedReqIdPtr)
 {
-	ERROR_LOG(Log::sceNet, "UNIMPL %s(%d, %08x, %08x, %08x[%08x]) at %08x", __FUNCTION__, ctxId, reqParamPtr, optParamPtr, assignedReqIdPtr, Memory::Read_U32(assignedReqIdPtr), currentMIPS->pc);
 	if (!npMatching2Inited)
 		return hleLogError(Log::sceNet, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
 
-	if (!Memory::IsValidAddress(reqParamPtr) || !Memory::IsValidAddress(assignedReqIdPtr))
+	if (!Memory::IsValidRange(reqParamPtr, 8) || !Memory::IsValid4AlignedRange(assignedReqIdPtr, 4))
 		return hleLogError(Log::sceNet, SCE_NP_MATCHING2_ERROR_CONTEXT_MAX); // Should be SCE_NP_MATCHING2_ERROR_INVALID_ARGUMENT ?
 
-	u32 cbFunc = Memory::Read_U32(reqParamPtr);
-	u32 cbArg = Memory::Read_U32(reqParamPtr + 0x04);
+	u32 cbFunc = Memory::ReadUnchecked_U32(reqParamPtr);
+	u32 cbArg = Memory::ReadUnchecked_U32(reqParamPtr + 0x04);
 
 	// Notify callback handler
 	if (Memory::IsValidAddress(cbFunc)) {
@@ -537,23 +532,22 @@ static int sceNpMatching2SearchRoom(int ctxId, u32 reqParamPtr, u32 optParamPtr,
 		NpMatching2Args args = {};
 		// TODO: Set the correct callback args
 
-		Memory::Write_U32(args.data[1], assignedReqIdPtr); // server status or flags?
+		Memory::WriteUnchecked_U32(args.data[1], assignedReqIdPtr); // server status or flags?
 	}
 
-	return 0;
+	return hleLogError(Log::sceNet, 0, "UNIMPL");
 }
 
 static int sceNpMatching2SendRoomChatMessage(int ctxId, u32 reqParamPtr, u32 optParamPtr, u32 assignedReqIdPtr)
 {
-	ERROR_LOG(Log::sceNet, "UNIMPL %s(%d, %08x, %08x, %08x[%08x]) at %08x", __FUNCTION__, ctxId, reqParamPtr, optParamPtr, assignedReqIdPtr, Memory::Read_U32(assignedReqIdPtr), currentMIPS->pc);
 	if (!npMatching2Inited)
 		return hleLogError(Log::sceNet, SCE_NP_MATCHING2_ERROR_NOT_INITIALIZED);
 
-	if (!Memory::IsValidAddress(reqParamPtr) || !Memory::IsValidAddress(assignedReqIdPtr))
+	if (!Memory::IsValidRange(reqParamPtr, 8) || !Memory::IsValid4AlignedRange(assignedReqIdPtr, 4))
 		return hleLogError(Log::sceNet, SCE_NP_MATCHING2_ERROR_CONTEXT_MAX); // Should be SCE_NP_MATCHING2_ERROR_INVALID_ARGUMENT ?
 
-	u32 cbFunc = Memory::Read_U32(reqParamPtr);
-	u32 cbArg = Memory::Read_U32(reqParamPtr + 0x04);
+	u32 cbFunc = Memory::ReadUnchecked_U32(reqParamPtr);
+	u32 cbArg = Memory::ReadUnchecked_U32(reqParamPtr + 0x04);
 
 	// Notify callback handler
 	if (Memory::IsValidAddress(cbFunc)) {
@@ -570,11 +564,11 @@ static int sceNpMatching2SendRoomChatMessage(int ctxId, u32 reqParamPtr, u32 opt
 
 		notifyNpMatching2Handlers(args, ctxId, 0, cbFunc, cbArg, 0, 0, 0, 0x10);
 
-		Memory::Write_U32(args.data[1], assignedReqIdPtr); // server status or flags?
+		Memory::WriteUnchecked_U32(args.data[1], assignedReqIdPtr); // server status or flags?
 	}
 
 	// After returning, Fat Princess will loop for 64 times (increasing the address by 288 bytes on each loop) or until found a zero status byte (0x08BD4860 + 0x10), looking for empty/available entry to set?
-	return 0;
+	return hleLogError(Log::sceNet, 0, "UNIMPL");
 }
 
 const HLEFunction sceNpMatching2[] = {

@@ -517,54 +517,65 @@ ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat) {
 	return REPLACE_BLEND_STANDARD;
 }
 
+// Viewport and scissor really could be treated entirely separately, but the non-buffered case is nicer by doing them "together".
 void ConvertViewportAndScissor(const DisplayLayoutConfig &config, bool useBufferedRendering, float renderWidth, float renderHeight, int bufferWidth, int bufferHeight, ViewportAndScissor &out) {
-	float renderWidthFactor, renderHeightFactor;
-	float renderX = 0.0f, renderY = 0.0f;
-	float displayOffsetX, displayOffsetY;
+	// Scissor. The scissor needs to be offset by the framebuffer offset.
+	const int scissorX1 = gstate.getScissorX1();
+	const int scissorY1 = gstate.getScissorY1();
+	const int scissorW = gstate.getScissorX2() + 1 - scissorX1;
+	const int scissorH = gstate.getScissorY2() + 1 - scissorY1;
+
 	if (useBufferedRendering) {
-		displayOffsetX = 0.0f;
-		displayOffsetY = 0.0f;
-		renderWidthFactor = (float)renderWidth / (float)bufferWidth;
-		renderHeightFactor = (float)renderHeight / (float)bufferHeight;
+		const float renderWidthFactor = (float)renderWidth / (float)bufferWidth;
+		const float renderHeightFactor = (float)renderHeight / (float)bufferHeight;
+
+		if (scissorW < 0 || scissorH < 0) {
+			// Bad scissor, kill all drawing with a valid scissor setup.
+			out.scissorX = 0;
+			out.scissorY = 0;
+			out.scissorW = 0;
+			out.scissorH = 0;
+		} else {
+			out.scissorX = (scissorX1 + gstate_c.curRTOffsetX) * renderWidthFactor;
+			out.scissorY = (scissorY1 + gstate_c.curRTOffsetY) * renderHeightFactor;
+			out.scissorW = scissorW * renderWidthFactor;
+			out.scissorH = scissorH * renderHeightFactor;
+		}
+		out.viewportX = 0.0f;
+		out.viewportY = 0.0f;
+		out.viewportW = gstate_c.curRTWidth * renderWidthFactor;
+		out.viewportH = gstate_c.curRTHeight * renderHeightFactor;
 	} else {
+		// Hacky path for non-buffered rendering.
 		float pixelW = PSP_CoreParameter().pixelWidth;
 		float pixelH = PSP_CoreParameter().pixelHeight;
 		FRect frame = GetScreenFrame(config.bIgnoreScreenInsets, pixelW, pixelH);
 		FRect rc;
 		CalculateDisplayOutputRect(config, &rc, 480, 272, frame, ROTATION_LOCKED_HORIZONTAL);
-		displayOffsetX = rc.x;
-		displayOffsetY = rc.y;
+		const float displayOffsetX = rc.x;
+		const float displayOffsetY = rc.y;
 		renderWidth = rc.w;
 		renderHeight = rc.h;
-		renderWidthFactor = renderWidth / 480.0f;
-		renderHeightFactor = renderHeight / 272.0f;
+		const float renderWidthFactor = renderWidth / 480.0f;
+		const float renderHeightFactor = renderHeight / 272.0f;
+		if (scissorW < 0 || scissorH < 0) {
+			// Bad scissor, kill all drawing with a valid scissor setup.
+			out.scissorX = 0;
+			out.scissorY = 0;
+			out.scissorW = 0;
+			out.scissorH = 0;
+		} else {
+			out.scissorX = displayOffsetX + (scissorX1 + gstate_c.curRTOffsetX) * renderWidthFactor;
+			out.scissorY = displayOffsetY + (scissorY1 + gstate_c.curRTOffsetY) * renderHeightFactor;
+			out.scissorW = scissorW * renderWidthFactor;
+			out.scissorH = scissorH * renderHeightFactor;
+		}
+
+		out.viewportX = displayOffsetX;
+		out.viewportY = displayOffsetY;
+		out.viewportW = gstate_c.curRTWidth * renderWidthFactor;
+		out.viewportH = gstate_c.curRTHeight * renderHeightFactor;
 	}
-
-	// Scissor
-	int scissorX1 = gstate.getScissorX1();
-	int scissorY1 = gstate.getScissorY1();
-	int scissorX2 = gstate.getScissorX2() + 1;
-	int scissorY2 = gstate.getScissorY2() + 1;
-
-	if (scissorX2 < scissorX1 || scissorY2 < scissorY1) {
-		out.scissorX = 0;
-		out.scissorY = 0;
-		out.scissorW = 0;
-		out.scissorH = 0;
-	} else {
-		out.scissorX = displayOffsetX + scissorX1 * renderWidthFactor;
-		out.scissorY = displayOffsetY + scissorY1 * renderHeightFactor;
-		out.scissorW = (scissorX2 - scissorX1) * renderWidthFactor;
-		out.scissorH = (scissorY2 - scissorY1) * renderHeightFactor;
-	}
-
-	int curRTWidth = gstate_c.curRTWidth;
-	int curRTHeight = gstate_c.curRTHeight;
-
-	out.viewportX = displayOffsetX;
-	out.viewportY = displayOffsetY;
-	out.viewportW = curRTWidth * renderWidthFactor;
-	out.viewportH = curRTHeight * renderHeightFactor;
 }
 
 static const BlendFactor genericALookup[11] = {

@@ -305,19 +305,24 @@ namespace MIPSDis
 		int vd = _VD;
 		int vs = _VS;
 		int vt = _VT;
-		int ins = (op>>23) & 7;
-		VectorSize sz = GetVecSize(op);
-		MatrixSize msz = GetMtxSize(op);
+		// irregular opcode
+		// vec/mtx size stored in bits 23 & 24 instead of 7 & 15
+		int d = (op>>23) & 3;
+		MIPSOpcode dummyOp = MIPSOpcode{(op & 0xFFFF7F7F) | ((d & 2) << 14) | ((d & 1) << 7)};
+		VectorSize sz = GetVecSize(dummyOp);
+		MatrixSize msz = GetMtxSize(dummyOp);
 		int n = GetNumVectorElements(sz);
-
-		if (n == ins)
+		// instead, bits 7 & 15 indicate the type of transform
+		// for homogeneous transforms, this is one less than sz
+		VectorSize tsz = GetVecSize(op);
+		if (tsz + 1 == sz)
 		{
 			//homogenous
-			snprintf(out, outSize, "vhtfm%i%s\t%s, %s, %s", n, VSuff(op), VN(vd, sz), MN(vs, msz), VN(vt, sz));
+			snprintf(out, outSize, "vhtfm%i%s\t%s, %s, %s", n, VSuff(dummyOp), VN(vd, sz), MN(vs, msz), VN(vt, sz));
 		}
-		else if (n == ins+1)
+		else if (tsz == sz)
 		{
-			snprintf(out, outSize, "vtfm%i%s\t%s, %s, %s", n, VSuff(op), VN(vd, sz), MN(vs, msz), VN(vt, sz));
+			snprintf(out, outSize, "vtfm%i%s\t%s, %s, %s", n, VSuff(dummyOp), VN(vd, sz), MN(vs, msz), VN(vt, sz));
 		}
 		else
 		{
@@ -467,14 +472,6 @@ namespace MIPSDis
 		snprintf(out, outSize, "%s%s\t%s, %s, %s", name, VSuff(op), VN(vd, sz), VN(vs,sz), VN(vt, sz));
 	}
 
-	void Dis_Vbfy(MIPSOpcode op, uint32_t pc, char *out, size_t outSize) {
-		VectorSize sz = GetVecSize(op);
-		int vd = _VD;
-		int vs = _VS;
-		const char *name = MIPSGetName(op);
-		snprintf(out, outSize, "%s%s\t%s, %s", name, VSuff(op), VN(vd, sz), VN(vs, sz));
-	}
-
 	void Dis_Vf2i(MIPSOpcode op, uint32_t pc, char *out, size_t outSize) {
 		VectorSize sz = GetVecSize(op);
 		int vd = _VD;
@@ -489,6 +486,11 @@ namespace MIPSDis
 		int vs = _VS;
 		const char *name = MIPSGetName(op);
 		snprintf(out, outSize, "%s%s\t%s, %s", name, VSuff(op), VN(vd, dsz), VN(vs, sz));
+	}
+
+	void Dis_Vbfy(MIPSOpcode op, uint32_t pc, char *out, size_t outSize) {
+		VectorSize sz = GetVecSize(op);
+		Dis_Vx2i(op, pc, out, outSize, sz, sz);
 	}
 
 	void Dis_Vc2i(MIPSOpcode op, uint32_t pc, char *out, size_t outSize) {

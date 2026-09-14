@@ -21,6 +21,7 @@
 
 #include "MemArena.h"
 #include "CommonWindows.h"
+#include "Common/Log.h"
 
 // Windows mappings need to be on 64K boundaries, due to Alpha legacy.
 size_t MemArena::roundup(size_t x) {
@@ -31,6 +32,10 @@ size_t MemArena::roundup(size_t x) {
 bool MemArena::GrabMemSpace(size_t size) {
 #if !PPSSPP_PLATFORM(UWP)
 	hMemoryMapping = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, (DWORD)(size), NULL);
+	if (hMemoryMapping == NULL) {
+		ERROR_LOG(Log::MemMap, "Failed to grab a block of virtual memory (CreateFileMapping failed with error %d)", (int)GetLastError());
+		return false;
+	}
 	GetSystemInfo(&sysInfo);
 #else
 	hMemoryMapping = 0;
@@ -47,6 +52,16 @@ void *MemArena::CreateView(s64 offset, size_t size, void *viewbase) {
 	size = roundup(size);
 #if PPSSPP_PLATFORM(UWP)
 	// We just grabbed some RAM before using RESERVE. This commits it.
+	//
+	// NOTE: This ignores offset, so views don't alias - each gets its own storage. UWP defines
+	// MASKED_PSP_MEMORY, which folds the uncached and kernel address bits away before they get
+	// here, so the only casualties are the three VRAM mirrors at 0x04200000/0x04400000/0x04600000,
+	// which practically nothing depends on.
+	//
+	// Don't try to fix this with placeholders: CreateFileMappingFromApp + VirtualAlloc2FromApp
+	// (MEM_RESERVE_PLACEHOLDER) + MapViewOfFile3FromApp compiles and is available on the targeted
+	// SDK, but the very first reservation fails at runtime with ERROR_INVALID_ADDRESS (487) - not
+	// a per-view problem, the app container just won't hand out placeholders. Tried and reverted.
 	void *ptr = VirtualAllocFromApp(viewbase, size, MEM_COMMIT, PAGE_READWRITE);
 #else
 	void *ptr = MapViewOfFileEx(hMemoryMapping, FILE_MAP_ALL_ACCESS, 0, (DWORD)((u64)offset), size, viewbase);

@@ -87,6 +87,9 @@ bool __CtrlGetRapidFire();
 
 // For use by internal UI like MsgDialog
 u32 __CtrlPeekButtons();
+
+// Exposed so sceVshBridge can reuse it directly for vshCtrlReadBufferPositive, matching JPCSP.
+int sceCtrlReadBufferPositive(u32 ctrlDataPtr, u32 nBufs);
 u32 __CtrlPeekButtonsVisual();  // also incorporates rapid-fire
 void __CtrlPeekAnalog(int stick, float *x, float *y);
 u32 __CtrlReadLatch();

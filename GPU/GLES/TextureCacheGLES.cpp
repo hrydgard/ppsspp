@@ -26,6 +26,8 @@
 #include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "Common/TimeUtil.h"
 
+#include "Core/Config.h"
+
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
 #include "GPU/GPUDefinitions.h"
@@ -37,8 +39,6 @@
 TextureCacheGLES::TextureCacheGLES(Draw::DrawContext *draw, Draw2D *draw2D)
 	: TextureCacheCommon(draw, draw2D) {
 	render_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-
-	nextTexture_ = nullptr;
 }
 
 TextureCacheGLES::~TextureCacheGLES() {
@@ -93,7 +93,7 @@ static constexpr GLuint MagFiltGL[2] = {
 	GL_LINEAR
 };
 
-void TextureCacheGLES::ApplySamplingParams(const SamplerCacheKey &key) {
+void TextureCacheGLES::ApplySamplerByKey(const SamplerCacheKey &key) {
 	if (gstate_c.Use(GPU_USE_SAMPLER_LOD_CONTROL)) {
 		float minLod = (float)key.minLevel / 256.0f;
 		float maxLod = (float)key.maxLevel / 256.0f;
@@ -101,7 +101,8 @@ void TextureCacheGLES::ApplySamplingParams(const SamplerCacheKey &key) {
 		render_->SetTextureLod(0, minLod, maxLod, lodBias);
 	}
 
-	float aniso = 0.0f;
+	// 1.0 means no anisotropic filtering. The queue runner clamps to the device maximum.
+	float aniso = key.aniso ? (float)(1 << g_Config.iAnisotropyLevel) : 1.0f;
 	int minKey = ((int)key.mipEnable << 2) | ((int)key.mipFilt << 1) | ((int)key.minFilt);
 	render_->SetTextureSampler(0,
 		key.sClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT, key.tClamp ? GL_CLAMP_TO_EDGE : GL_REPEAT,
@@ -127,23 +128,6 @@ static void ConvertColors(void *dstBuf, const void *srcBuf, Draw::DataFormat dst
 		if (dst != src)
 			memcpy(dst, src, numPixels * sizeof(u32));
 		break;
-	}
-}
-
-void TextureCacheGLES::StartFrame() {
-	TextureCacheCommon::StartFrame();
-
-	GLRenderManager *renderManager = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-	if (!lowMemoryMode_ && renderManager->SawOutOfMemory()) {
-		lowMemoryMode_ = true;
-		decimationCounter_ = 0;
-
-		auto err = GetI18NCategory(I18NCat::ERRORS);
-		if (standardScaleFactor_ > 1) {
-			g_OSD.Show(OSDType::MESSAGE_WARNING, err->T("Warning: Video memory FULL, reducing upscaling and switching to slow caching mode"), 2.0f);
-		} else {
-			g_OSD.Show(OSDType::MESSAGE_WARNING, err->T("Warning: Video memory FULL, switching to slow caching mode"), 2.0f);
-		}
 	}
 }
 
@@ -194,19 +178,16 @@ void TextureCacheGLES::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutBas
 	clutLastFormat_ = gstate.clutformat;
 }
 
-void TextureCacheGLES::BindTexture(TexCacheEntry *entry, bool flatZ) {
+void TextureCacheGLES::BindTexture(TexCacheEntry *entry) {
 	if (!entry) {
 		render_->BindTexture(0, nullptr);
-		lastBoundTexture = nullptr;
+		lastBoundTexture_ = nullptr;
 		return;
 	}
-	if (entry->textureName != lastBoundTexture) {
+	if (entry->textureName != lastBoundTexture_) {
 		render_->BindTexture(0, entry->textureName);
-		lastBoundTexture = entry->textureName;
+		lastBoundTexture_ = entry->textureName;
 	}
-	int maxLevel = (entry->status & TexStatus::NO_MIPS) ? 0 : entry->maxLevel;
-	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry, flatZ);
-	ApplySamplingParams(samplerKey);
 }
 
 void TextureCacheGLES::Unbind() {
@@ -252,6 +233,10 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 	} else {
 		_dbg_assert_(draw_->GetDeviceCaps().texture3DSupported);
 		entry->textureName = render_->CreateTexture(GL_TEXTURE_3D, tw, th, plan.depth, 1);
+		// Set this together with creating the texture - it has to match the target of the object we
+		// just created even if we bail out below, or the shader gets generated with a 2D sampler
+		// for a 3D texture.
+		entry->status |= TexStatus::IS_3D;
 	}
 
 	// Apply some additional compatibility checks.
@@ -336,6 +321,11 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 		size_t dataSize = levelStride * plan.depth;
 		u8 *data = (u8 *)AllocateAlignedMemory(dataSize, 16);
 		_assert_msg_(data != nullptr, "Failed to allocate aligned memory for 3d texture: %d bytes", (int)dataSize);
+		if (!data) {
+			ERROR_LOG(Log::G3D, "Ran out of RAM trying to allocate a temporary 3D texture upload buffer (%dx%dx%d)", plan.w, plan.h, plan.depth);
+			return;
+		}
+
 		memset(data, 0, levelStride * plan.depth);
 		u8 *p = data;
 
@@ -345,9 +335,6 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 		}
 
 		render_->TextureImage(entry->textureName, 0, plan.w * plan.scaleFactor, plan.h * plan.scaleFactor, plan.depth, dstFmt, data, GLRAllocType::ALIGNED);
-
-		// Signal that we support depth textures so use it as one.
-		entry->status |= TexStatus::IS_3D;
 
 		render_->FinalizeTexture(entry->textureName, 1, false);
 	}
@@ -381,16 +368,20 @@ Draw::DataFormat TextureCacheGLES::GetDestFormat(GETextureFormat format, GEPalet
 
 bool TextureCacheGLES::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) {
 	ForgetLastTexture();
-	SetTexture();
-	if (!nextTexture_) {
-		return GetCurrentFramebufferTextureDebug(buffer, isFramebuffer);
-	}
 
 	// Apply texture may need to rebuild the texture if we're about to render, or bind a framebuffer.
-	TexCacheEntry *entry = nextTexture_;
 	// We might need a render pass to set the sampling params, unfortunately.  Otherwise BuildTexture may crash.
 	framebufferManagerGL_->RebindFramebuffer("RebindFramebuffer - GetCurrentTextureDebug");
-	ApplyTexture(false, false);
+	TextureApplyResult textureResult = ApplyTexture(false);
+	if (textureResult.framebuffer) {
+		*isFramebuffer = true;
+		return GetFramebufferTextureDebug(textureResult.framebuffer, textureResult.framebufferTextureChannel, buffer);
+	}
+
+	TexCacheEntry *entry = textureResult.texCacheEntry;
+	if (!entry) {
+		return false;
+	}
 
 	GLRenderManager *renderManager = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 

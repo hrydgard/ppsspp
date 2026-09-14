@@ -11,6 +11,7 @@ enum PSPDirectories {
 	DIRECTORY_CHEATS,
 	DIRECTORY_SCREENSHOT,
 	DIRECTORY_SYSTEM,
+	DIRECTORY_NAND,
 	DIRECTORY_GAME,
 	DIRECTORY_SAVEDATA,
 	DIRECTORY_PAUTH,
@@ -28,6 +29,16 @@ enum PSPDirectories {
 	DIRECTORY_CUSTOM_THEMES,
 	COUNT,
 };
+
+// Returns true if the given path (e.g. a zip entry name) contains a parent
+// directory ("..") component. Used to guard against path traversal when
+// extracting or writing files to disk.
+bool HasParentDirComponent(std::string_view path);
+
+// Returns true if the given string contains a path separator ('/' or '\\')
+// or is a bare dot component ("." or ".."). Used to reject guest-controlled
+// strings that would otherwise become host filesystem path components.
+bool HasPathTraversal(std::string_view path);
 
 Path FindConfigFile(const Path &searchPath, std::string_view baseFilename, bool *exists);
 Path GetSysDirectory(PSPDirectories directoryType);

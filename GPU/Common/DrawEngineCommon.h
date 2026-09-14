@@ -73,7 +73,7 @@ public:
 
 	void Init();
 
-	virtual void BeginFrame();
+	virtual void BeginFrame() {}
 
 	void SetGPUCommon(GPUCommon *gpuCommon) {
 		gpuCommon_ = gpuCommon;
@@ -169,7 +169,7 @@ protected:
 	void ShutdownDepthRaster();
 	void DepthRasterSubmitRaw(GEPrimitiveType prim, const VertexDecoder *dec, uint32_t vertTypeID, int vertexCount);
 	void DepthRasterPredecoded(GEPrimitiveType prim, const void *inVerts, int numDecoded, const VertexDecoder *dec, int vertexCount);
-	bool CalculateDepthDraw(DepthDraw *draw, GEPrimitiveType prim, int vertexCount);
+	bool CalculateDepthDraw(DepthDraw *draw, GEPrimitiveType prim, int vertexCount, int numDecoded);
 
 	static inline int IndexSize(u32 vtype) {
 		const u32 indexType = (vtype & GE_VTYPE_IDX_MASK);
@@ -282,7 +282,7 @@ protected:
 	TransformedVertex *transformed_ = nullptr;
 	TransformedVertex *transformedExpanded_ = nullptr;
 
-	// Defer all vertex decoding to a "Flush" (except when software skinning)
+	// Defer all vertex decoding to a "Flush" (except when skinning, when we decode per draw)
 	struct DeferredVerts {
 		const void *verts;
 		UVScale uvScale;
@@ -319,8 +319,6 @@ protected:
 	int seenPrims_ = 0;
 	bool anyCCWOrIndexed_ = 0;
 	bool anyIndexed_ = 0;
-
-	bool applySkinInDecode_ = false;
 
 	// Vertex collector state
 	IndexGenerator indexGen;

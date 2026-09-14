@@ -209,7 +209,7 @@ void TextureCacheD3D11::ForgetLastTexture() {
 	context_->PSSetShaderResources(0, 4, nullTex);
 }
 
-void TextureCacheD3D11::BindTexture(TexCacheEntry *entry, bool flatZ) {
+void TextureCacheD3D11::BindTexture(TexCacheEntry *entry) {
 	if (!entry) {
 		ID3D11ShaderResourceView *textureView = nullptr;
 		context_->PSSetShaderResources(0, 1, &textureView);
@@ -220,14 +220,9 @@ void TextureCacheD3D11::BindTexture(TexCacheEntry *entry, bool flatZ) {
 		context_->PSSetShaderResources(0, 1, &textureView);
 		lastBoundTexture_ = textureView;
 	}
-	int maxLevel = (entry->status & TexStatus::NO_MIPS) ? 0 : entry->maxLevel;
-	SamplerCacheKey samplerKey = GetSamplingParams(maxLevel, entry, flatZ);
-	ComPtr<ID3D11SamplerState> state;
-	samplerCache_.GetOrCreateSampler(device_, samplerKey, &state);
-	context_->PSSetSamplers(0, 1, state.GetAddressOf());
 }
 
-void TextureCacheD3D11::ApplySamplingParams(const SamplerCacheKey &key) {
+void TextureCacheD3D11::ApplySamplerByKey(const SamplerCacheKey &key) {
 	ComPtr<ID3D11SamplerState> state;
 	samplerCache_.GetOrCreateSampler(device_, key, &state);
 	context_->PSSetSamplers(0, 1, state.GetAddressOf());
@@ -265,12 +260,24 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 	ID3D11Resource *texture = DxTex(entry);
 	_assert_(texture == nullptr);
 
-	// The PSP only supports 8 mip levels, but we support more in the texture replacer. 20 will never run out.
-	D3D11_SUBRESOURCE_DATA subresData[20]{};
+	// The PSP only supports 8 mip levels, but we support more in the texture replacer. 16 will never run out,
+	// D3D11 caps textures at 16384 pixels anyway.
+	D3D11_SUBRESOURCE_DATA subresData[16]{};
+
+	auto freeSubresData = [&subresData]() {
+		for (size_t i = 0; i < ARRAY_SIZE(subresData); i++) {
+			if (subresData[i].pSysMem) {
+				FreeAlignedMemory((void *)subresData[i].pSysMem);
+				subresData[i].pSysMem = nullptr;
+			}
+		}
+	};
 
 	if (plan.depth == 1) {
 		// We don't yet have mip generation, so clamp the number of levels to the ones we can load directly.
 		levels = std::min(plan.levelsToCreate, plan.levelsToLoad);
+		// Only the 2D path indexes subresData per level - the 3D path puts everything in slot 0.
+		_dbg_assert_(levels <= (int)ARRAY_SIZE(subresData));
 	} else {
 		levels = plan.depth;
 	}
@@ -325,6 +332,7 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 
 		if (!data) {
 			ERROR_LOG(Log::G3D, "Ran out of RAM trying to allocate a temporary texture upload buffer (%dx%d)", mipWidth, mipHeight);
+			freeSubresData();
 			return;
 		}
 
@@ -385,11 +393,7 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 	entry->texturePtr = texture;
 	entry->textureView = view;
 
-	for (int i = 0; i < 12; i++) {
-		if (subresData[i].pSysMem) {
-			FreeAlignedMemory((void *)subresData[i].pSysMem);
-		}
-	}
+	freeSubresData();
 
 	// Signal that we support depth textures so use it as one.
 	if (plan.depth > 1) {
@@ -449,18 +453,23 @@ DXGI_FORMAT TextureCacheD3D11::GetDestFormat(GETextureFormat format, GEPaletteFo
 }
 
 bool TextureCacheD3D11::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) {
-	SetTexture();
-	if (!nextTexture_) {
-		return GetCurrentFramebufferTextureDebug(buffer, isFramebuffer);
+	// Apply texture may need to rebuild the texture if we're about to render, or bind a framebuffer.
+	TextureApplyResult textureResult = ApplyTexture(true);
+	if (textureResult.framebuffer) {
+		*isFramebuffer = true;
+		return GetFramebufferTextureDebug(textureResult.framebuffer, textureResult.framebufferTextureChannel, buffer);
 	}
 
-	// Apply texture may need to rebuild the texture if we're about to render, or bind a framebuffer.
-	TexCacheEntry *entry = nextTexture_;
-	ApplyTexture(true, false);
+	const TexCacheEntry *entry = textureResult.texCacheEntry;
+	if (!entry) {
+		return false;
+	}
 
 	ID3D11Texture2D *texture = (ID3D11Texture2D *)entry->texturePtr;
-	if (!texture)
+	if (!texture) {
+		// Hm.
 		return false;
+	}
 
 	D3D11_TEXTURE2D_DESC desc;
 	texture->GetDesc(&desc);

@@ -289,6 +289,15 @@ namespace MIPSComp {
 	void Jit::Comp_ITypeMem(MIPSOpcode op)
 	{
 		CONDITIONAL_DISABLE(LSU);
+
+		if (js.kernelMode) {
+			// Send all memory accesses to the interpreter in kernel mode.
+			// TODO: Do something faster - but it hardly matters, currently this is VSH-only.
+			// NOTE: This should be done before the $zr check in case there are reads with side effects.
+			DISABLE;
+			return;
+		}
+
 		int offset = _IMM16;
 		MIPSGPReg rs = _RS;
 		MIPSGPReg rt = _RT;
@@ -411,6 +420,13 @@ namespace MIPSComp {
 
 	void Jit::Comp_StoreSync(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(LSU);
+
+		if (js.kernelMode) {
+			// Send all memory accesses to the interpreter in kernel mode.
+			// TODO: Do something faster - but it hardly matters, currently this is VSH-only.
+			DISABLE;
+			return;
+		}
 
 		int offset = _IMM16;
 		MIPSGPReg rt = _RT;

@@ -563,8 +563,10 @@ void BinManager::Flush(const char *reason) {
 		return;
 
 	double st = 0.0;
-	if (coreCollectDebugStats)
+	const bool collectDebugStats = g_coreCollectDebugStats;
+	if (collectDebugStats) {
 		st = time_now_d();
+	}
 	Drain(true);
 	waitable_->Wait();
 	taskRanges_.clear();
@@ -584,16 +586,17 @@ void BinManager::Flush(const char *reason) {
 	queueRange_.x2 = 0;
 	queueRange_.y2 = 0;
 
-	for (auto &pending : pendingWrites_)
+	for (BinDirtyRange &pending : pendingWrites_) {
 		pending.base = 0;
+	}
 	pendingOverlap_ = false;
 	pendingReads_.clear();
 
 	// We'll need to set the pending writes and reads again, since we just flushed it.
 	dirty_ |= SoftDirty::BINNER_RANGE | SoftDirty::BINNER_OVERLAP;
 
-	if (coreCollectDebugStats) {
-		double et = time_now_d();
+	if (collectDebugStats) {
+		const double et = time_now_d();
 		flushReasonTimes_[reason] += et - st;
 		if (et - st > slowestFlushTime_) {
 			slowestFlushTime_ = et - st;
@@ -611,7 +614,7 @@ void BinManager::OptimizePendingStates(uint16_t first, uint16_t last) {
 		last--;
 	}
 
-	int count = (QUEUED_STATES + last - first) % QUEUED_STATES + 1;
+	const int count = (QUEUED_STATES + last - first) % QUEUED_STATES + 1;
 	for (int i = 0; i < count; ++i) {
 		size_t pos = (first + i) % QUEUED_STATES;
 		OptimizeRasterState(&states_[pos]);

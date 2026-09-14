@@ -4,6 +4,8 @@
 #include <string>
 
 #include "Common/Common.h"
+#include "Common/System/Application.h"
+#include "Common/GPU/MiscTypes.h"
 
 // The Native App API.
 //
@@ -40,10 +42,12 @@ void NativeGetAppInfo(std::string *app_dir_name, std::string *app_nice_name, boo
 // Otherwise, just return false.
 bool NativeIsAtTopLevel();
 
+struct CommandLineOptions;
+
 // The very first function to be called after NativeGetAppInfo. Even NativeMix is not called
 // before this, although it may be called at any point in time afterwards (on any thread!)
 // This functions must NOT call OpenGL. Main thread.
-void NativeInit(int argc, const char *argv[], const char *savegame_dir, const char *external_dir, const char *cache_dir);
+void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineOptions, const char *savegame_dir, const char *external_dir, const char *cache_dir);
 void NativeSetAchievementsHostOverride(std::string_view host);
 void NativeClearAchievementsHostOverride();
 
@@ -55,12 +59,6 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext);
 // place to do it. You should only read g_dpi_scale and pixel_xres and pixel_yres in this,
 // and only write dp_xres and dp_yres.
 void NativeResized();
-
-// Set a flag to indicate a restart.  Reset after NativeInit().
-void NativeSetRestarting();
-
-// Retrieve current restarting flag.
-bool NativeIsRestarting();
 
 // Delivers touch/key/axis events "instantly", without waiting for the next frame so that NativeFrame can deliver.
 // Some systems like UI will buffer these events internally but at least in gameplay we can get the minimum possible
@@ -89,7 +87,7 @@ void NativeMix(short *audio, int num_samples, int sampleRateHz, void *userdata);
 // The graphics context should still be active when calling this, as freeing
 // of graphics resources happens here.
 // Main thread.
-void NativeShutdownGraphics();
+void NativeShutdownGraphics(GraphicsContext *graphicsContext);
 void NativeShutdown();
 
 void PostLoadConfig();
@@ -110,3 +108,13 @@ bool Native_IsWindowHidden();
 bool Native_UpdateScreenScale(int width, int height, float customScale);
 
 AudioBackend *System_CreateAudioBackend();
+
+class NativeApplication : public Application {
+public:
+	bool InitGraphics(GraphicsContext *graphicsContext) override {
+		return NativeInitGraphics(graphicsContext);
+	}
+	void ShutdownGraphics(GraphicsContext *graphicsContext) override {
+		NativeShutdownGraphics(graphicsContext);
+	}
+};

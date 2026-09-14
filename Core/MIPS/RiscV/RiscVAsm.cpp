@@ -143,7 +143,7 @@ void RiscVJitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	SaveStaticRegisters();
 	RestoreRoundingMode(true);
 	WriteDebugProfilerStatus(IRProfilerStatus::TIMER_ADVANCE);
-	QuickCallFunction(&CoreTiming::Advance, X7);
+	QuickCallFunctionR(&CoreTiming::Advance, CTXREG, X7);
 	WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 	ApplyRoundingMode(true);
 	LoadStaticRegisters();

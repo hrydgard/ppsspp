@@ -256,11 +256,11 @@ namespace MIPSComp {
 				}
 
 				// Nope, it has something else going on.
-				zeroedLanes = -1;
+				zeroedLanes = (u32)-1;
 				break;
 			}
 
-			if (zeroedLanes != -1) {
+			if (zeroedLanes != (u32)-1) {
 				InitRegs(vregs, tempReg);
 				ir.Write(IROp::Vec4Init, vregs[0], (int)Vec4Init::AllZERO);
 				ir.Write(IROp::Vec4Blend, vregs[0], origV[0], vregs[0], zeroedLanes);
@@ -284,8 +284,9 @@ namespace MIPSComp {
 			if (!constants) {
 				if (regnum >= n) {
 					// Depends on the op, but often zero.
-					ir.Write(IROp::SetConstF, vregs[i], ir.AddConstantFloat(0.0f));
+					ir.WriteSetConstantFloat(vregs[i], 0.0f);
 				} else if (abs) {
+					// Could have a FNAbs op, but probably not worth it.
 					ir.Write(IROp::FAbs, vregs[i], origV[regnum]);
 					if (negate)
 						ir.Write(IROp::FNeg, vregs[i], vregs[i]);
@@ -297,9 +298,9 @@ namespace MIPSComp {
 				}
 			} else {
 				if (negate) {
-					ir.Write(IROp::SetConstF, vregs[i], ir.AddConstantFloat(-constantArray[regnum + (abs << 2)]));
+					ir.WriteSetConstantFloat(vregs[i], -constantArray[regnum + (abs << 2)]);
 				} else {
-					ir.Write(IROp::SetConstF, vregs[i], ir.AddConstantFloat(constantArray[regnum + (abs << 2)]));
+					ir.WriteSetConstantFloat(vregs[i], constantArray[regnum + (abs << 2)]);
 				}
 			}
 		}
@@ -399,13 +400,20 @@ namespace MIPSComp {
 
 		CheckMemoryBreakpoint(rs, offset);
 
+		if (js.kernelMode) {
+			// Send all memory accesses to the interpreter in kernel mode.
+			// TODO: Do something faster - but it hardly matters, currently this is VSH-only.
+			DISABLE;
+			return;
+		}
+
 		switch (op >> 26) {
 		case 50: //lv.s
-			ir.Write(IROp::LoadFloat, vfpuBase + voffset[vt], rs, ir.AddConstant(offset));
+			ir.Write(IROp::LoadFloat, vfpuBase + voffset[vt], rs, 0, offset);
 			break;
 
 		case 58: //sv.s
-			ir.Write(IROp::StoreFloat, vfpuBase + voffset[vt], rs, ir.AddConstant(offset));
+			ir.Write(IROp::StoreFloat, vfpuBase + voffset[vt], rs, 0, offset);
 			break;
 
 		default:
@@ -423,6 +431,13 @@ namespace MIPSComp {
 		GetVectorRegs(vregs, V_Quad, vt);
 
 		CheckMemoryBreakpoint(rs, imm);
+
+		if (js.kernelMode) {
+			// Send all memory accesses to the interpreter in kernel mode.
+			// TODO: Do something faster - but it hardly matters, currently this is VSH-only.
+			DISABLE;
+			return;
+		}
 
 		enum class LSVType {
 			INVALID,
@@ -461,29 +476,29 @@ namespace MIPSComp {
 		switch (optype) {
 		case LSVType::LVQ:
 			if (IsVec4(V_Quad, vregs)) {
-				ir.Write(IROp::LoadVec4, vregs[0], rs, ir.AddConstant(imm));
+				ir.Write(IROp::LoadVec4, vregs[0], rs, 0, imm);
 			} else {
-				// Let's not even bother with "vertical" loads for now.
+				// Fall back to individual reads for vertical vector stores.
 				if (!g_Config.bFastMemory)
 					ir.Write(IROp::ValidateAddress128, 0, (u8)rs, 0, (u32)imm);
-				ir.Write(IROp::LoadFloat, vregs[0], rs, ir.AddConstant(imm));
-				ir.Write(IROp::LoadFloat, vregs[1], rs, ir.AddConstant(imm + 4));
-				ir.Write(IROp::LoadFloat, vregs[2], rs, ir.AddConstant(imm + 8));
-				ir.Write(IROp::LoadFloat, vregs[3], rs, ir.AddConstant(imm + 12));
+				ir.Write(IROp::LoadFloat, vregs[0], rs, 0, imm);
+				ir.Write(IROp::LoadFloat, vregs[1], rs, 0, imm + 4);
+				ir.Write(IROp::LoadFloat, vregs[2], rs, 0, imm + 8);
+				ir.Write(IROp::LoadFloat, vregs[3], rs, 0, imm + 12);
 			}
 			break;
 
 		case LSVType::SVQ:
 			if (IsVec4(V_Quad, vregs)) {
-				ir.Write(IROp::StoreVec4, vregs[0], rs, ir.AddConstant(imm));
+				ir.Write(IROp::StoreVec4, vregs[0], rs, 0, imm);
 			} else {
-				// Let's not even bother with "vertical" stores for now.
+				// Fall back to individual writes for vertical vector stores.
 				if (!g_Config.bFastMemory)
 					ir.Write(IROp::ValidateAddress128, 0, (u8)rs, 1, (u32)imm);
-				ir.Write(IROp::StoreFloat, vregs[0], rs, ir.AddConstant(imm));
-				ir.Write(IROp::StoreFloat, vregs[1], rs, ir.AddConstant(imm + 4));
-				ir.Write(IROp::StoreFloat, vregs[2], rs, ir.AddConstant(imm + 8));
-				ir.Write(IROp::StoreFloat, vregs[3], rs, ir.AddConstant(imm + 12));
+				ir.Write(IROp::StoreFloat, vregs[0], rs, 0, imm);
+				ir.Write(IROp::StoreFloat, vregs[1], rs, 0, imm + 4);
+				ir.Write(IROp::StoreFloat, vregs[2], rs, 0, imm + 8);
+				ir.Write(IROp::StoreFloat, vregs[3], rs, 0, imm + 12);
 			}
 			break;
 
@@ -491,7 +506,8 @@ namespace MIPSComp {
 		case LSVType::LVRQ:
 		case LSVType::SVLQ:
 		case LSVType::SVRQ:
-			// These are pretty uncommon unless paired.
+			// These are pretty uncommon unless paired (which would be caught above).
+			// Fall back to interpreter.
 			DISABLE;
 			break;
 
@@ -521,7 +537,7 @@ namespace MIPSComp {
 			ir.Write(IROp::Vec4Init, dregs[0], (int)(type == 6 ? Vec4Init::AllZERO : Vec4Init::AllONE));
 		} else {
 			for (int i = 0; i < n; i++) {
-				ir.Write(IROp::SetConstF, dregs[i], ir.AddConstantFloat(type == 6 ? 0.0f : 1.0f));
+				ir.WriteSetConstantFloat(dregs[i], type == 6 ? 0.0f : 1.0f);
 			}
 		}
 		ApplyPrefixD(dregs, sz, vd);
@@ -549,14 +565,14 @@ namespace MIPSComp {
 		} else {
 			switch (sz) {
 			case V_Pair:
-				ir.Write(IROp::SetConstF, dregs[0], ir.AddConstantFloat((vd & 1) == 0 ? 1.0f : 0.0f));
-				ir.Write(IROp::SetConstF, dregs[1], ir.AddConstantFloat((vd & 1) == 1 ? 1.0f : 0.0f));
+				ir.WriteSetConstantFloat(dregs[0], (vd & 1) == 0 ? 1.0f : 0.0f);
+				ir.WriteSetConstantFloat(dregs[1], (vd & 1) == 1 ? 1.0f : 0.0f);
 				break;
 			case V_Quad:
-				ir.Write(IROp::SetConstF, dregs[0], ir.AddConstantFloat((vd & 3) == 0 ? 1.0f : 0.0f));
-				ir.Write(IROp::SetConstF, dregs[1], ir.AddConstantFloat((vd & 3) == 1 ? 1.0f : 0.0f));
-				ir.Write(IROp::SetConstF, dregs[2], ir.AddConstantFloat((vd & 3) == 2 ? 1.0f : 0.0f));
-				ir.Write(IROp::SetConstF, dregs[3], ir.AddConstantFloat((vd & 3) == 3 ? 1.0f : 0.0f));
+				ir.WriteSetConstantFloat(dregs[0], (vd & 3) == 0 ? 1.0f : 0.0f);
+				ir.WriteSetConstantFloat(dregs[1], (vd & 3) == 1 ? 1.0f : 0.0f);
+				ir.WriteSetConstantFloat(dregs[2], (vd & 3) == 2 ? 1.0f : 0.0f);
+				ir.WriteSetConstantFloat(dregs[3], (vd & 3) == 3 ? 1.0f : 0.0f);
 				break;
 			default:
 				INVALIDOP;
@@ -594,19 +610,19 @@ namespace MIPSComp {
 					switch ((op >> 16) & 0xF) {
 					case 3: // vmidt
 						if (x == 0 && y == 0)
-							ir.Write(IROp::SetConstF, dregs[y * 4 + x], ir.AddConstantFloat(1.0f));
+							ir.WriteSetConstantFloat(dregs[y * 4 + x], 1.0f);
 						else if (x == y)
 							ir.Write(IROp::FMov, dregs[y * 4 + x], dregs[0]);
 						else
-							ir.Write(IROp::SetConstF, dregs[y * 4 + x], ir.AddConstantFloat(0.0f));
+							ir.WriteSetConstantFloat(dregs[y * 4 + x], 0.0f);
 						break;
 					case 6: // vmzero
 						// Likely to be fast.
-						ir.Write(IROp::SetConstF, dregs[y * 4 + x], ir.AddConstantFloat(0.0f));
+						ir.WriteSetConstantFloat(dregs[y * 4 + x], 0.0f);
 						break;
 					case 7: // vmone
 						if (x == 0 && y == 0)
-							ir.Write(IROp::SetConstF, dregs[y * 4 + x], ir.AddConstantFloat(1.0f));
+							ir.WriteSetConstantFloat(dregs[y * 4 + x], 1.0f);
 						else
 							ir.Write(IROp::FMov, dregs[y * 4 + x], dregs[0]);
 						break;
@@ -707,7 +723,7 @@ namespace MIPSComp {
 		GetVectorRegsPrefixD(dregs, V_Single, _VD);
 
 		// We have to start at +0.000 in case any values are -0.000.
-		ir.Write(IROp::SetConstF, IRVTEMP_0, ir.AddConstantFloat(0.0f));
+		ir.WriteSetConstantFloat(IRVTEMP_0, 0.0f);
 		for (int i = 0; i < n; ++i) {
 			ir.Write(IROp::FAdd, IRVTEMP_0, IRVTEMP_0, sregs[i]);
 		}
@@ -717,7 +733,7 @@ namespace MIPSComp {
 			ir.Write(IROp::FMov, dregs[0], IRVTEMP_0);
 			break;
 		case 7:  // vavg
-			ir.Write(IROp::SetConstF, IRVTEMP_0 + 1, ir.AddConstantFloat(vavg_table[n - 1]));
+			ir.WriteSetConstantFloat(IRVTEMP_0 + 1, vavg_table[n - 1]);
 			ir.Write(IROp::FMul, dregs[0], IRVTEMP_0, IRVTEMP_0 + 1);
 			break;
 		}
@@ -939,7 +955,7 @@ namespace MIPSComp {
 			case VecDo3Op::VSGE: // vsge
 				ir.Write(IROp::FCmp, (int)IRFpCompareMode::LessUnordered, sregs[i], tregs[i]);
 				ir.Write(IROp::FpCondToReg, IRTEMP_1);
-				ir.Write(IROp::XorConst, IRTEMP_1, IRTEMP_1, ir.AddConstant(1));
+				ir.Write(IROp::XorConst, IRTEMP_1, IRTEMP_1, 0, 1);
 				ir.Write(IROp::FMovFromGPR, tempregs[i], IRTEMP_1);
 				ir.Write(IROp::FCvtSW, tempregs[i], tempregs[i]);
 				break;
@@ -1266,7 +1282,7 @@ namespace MIPSComp {
 				u32 mask;
 				if (GetVFPUCtrlMask(imm - 128, &mask)) {
 					if (mask != 0xFFFFFFFF) {
-						ir.Write(IROp::AndConst, IRTEMP_0, rt, ir.AddConstant(mask));
+						ir.Write(IROp::AndConst, IRTEMP_0, rt, 0, mask);
 						ir.Write(IROp::SetCtrlVFPUReg, imm - 128, IRTEMP_0);
 					} else {
 						ir.Write(IROp::SetCtrlVFPUReg, imm - 128, rt);
@@ -1322,7 +1338,7 @@ namespace MIPSComp {
 			if (GetVFPUCtrlMask(imm, &mask)) {
 				if (mask != 0xFFFFFFFF) {
 					ir.Write(IROp::FMovToGPR, IRTEMP_0, vfpuBase + voffset[imm]);
-					ir.Write(IROp::AndConst, IRTEMP_0, IRTEMP_0, ir.AddConstant(mask));
+					ir.Write(IROp::AndConst, IRTEMP_0, IRTEMP_0, 0, mask);
 					ir.Write(IROp::SetCtrlVFPUReg, imm, IRTEMP_0);
 				} else {
 					ir.Write(IROp::SetCtrlVFPUFReg, imm, vfpuBase + voffset[vs]);
@@ -2146,7 +2162,7 @@ namespace MIPSComp {
 		s32 imm = SignExtend16ToS32(op);
 		u8 dreg;
 		GetVectorRegsPrefixD(&dreg, V_Single, _VT);
-		ir.Write(IROp::SetConstF, dreg, ir.AddConstantFloat((float)imm));
+		ir.WriteSetConstantFloat(dreg, (float)imm);
 		ApplyPrefixD(&dreg, V_Single, _VT);
 	}
 
@@ -2164,7 +2180,7 @@ namespace MIPSComp {
 
 		u8 dreg;
 		GetVectorRegsPrefixD(&dreg, V_Single, _VT);
-		ir.Write(IROp::SetConstF, dreg, ir.AddConstantFloat(fval.f));
+		ir.WriteSetConstantFloat(dreg, fval.f);
 		ApplyPrefixD(&dreg, V_Single, _VT);
 	}
 
@@ -2186,17 +2202,17 @@ namespace MIPSComp {
 		GetVectorRegsPrefixD(dregs, sz, vd);
 
 		if (IsVec4(sz, dregs)) {
-			ir.Write(IROp::SetConstF, IRVTEMP_0, ir.AddConstantFloat(cst_constants[conNum]));
+			ir.WriteSetConstantFloat(IRVTEMP_0, cst_constants[conNum]);
 			ir.Write(IROp::Vec4Shuffle, dregs[0], IRVTEMP_0, 0);
 		} else if (IsVec3of4(sz, dregs) && opts.preferVec4) {
-			ir.Write(IROp::SetConstF, IRVTEMP_0, ir.AddConstantFloat(cst_constants[conNum]));
+			ir.WriteSetConstantFloat(IRVTEMP_0, cst_constants[conNum]);
 			ir.Write(IROp::Vec4Shuffle, IRVTEMP_0, IRVTEMP_0, 0);
 			ir.Write(IROp::Vec4Blend, dregs[0], dregs[0], IRVTEMP_0, 0x7);
 		} else {
 			for (int i = 0; i < n; i++) {
 				// Most of the time, materializing a float is slower than copying from another float.
 				if (i == 0)
-					ir.Write(IROp::SetConstF, dregs[i], ir.AddConstantFloat(cst_constants[conNum]));
+					ir.WriteSetConstantFloat(dregs[i], cst_constants[conNum]);
 				else
 					ir.Write(IROp::FMov, dregs[i], dregs[0]);
 			}
@@ -2253,7 +2269,7 @@ namespace MIPSComp {
 		for (int i = 0; i < n; i++) {
 			switch (d[i]) {
 			case '0':
-				ir.Write(IROp::SetConstF, dregs[i], ir.AddConstantFloat(0.0f));
+				ir.WriteFC(IROp::SetConstF, dregs[i], 0, 0, 0.0f);
 				break;
 			case 's':
 				if (broadcastSine || !IsOverlapSafe(n, dregs, 1, sreg)) {
@@ -2271,7 +2287,7 @@ namespace MIPSComp {
 				else if (dregs[sineLane] == sreg[0])
 					ir.Write(IROp::FCos, dregs[i], IRVTEMP_0);
 				else
-					ir.Write(IROp::SetConstF, dregs[i], ir.AddConstantFloat(1.0f));
+					ir.WriteFC(IROp::SetConstF, dregs[i], 0, 0, 1.0f);
 				break;
 			}
 		}

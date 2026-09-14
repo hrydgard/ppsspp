@@ -240,6 +240,13 @@ bool IsOverlapSafe(int dreg, int di, int sn, const u8 sregs[], int tn = 0, const
 void Jit::Comp_SV(MIPSOpcode op) {
 	CONDITIONAL_DISABLE(LSU_VFPU);
 
+	if (js.kernelMode) {
+		// Send all memory accesses to the interpreter in kernel mode.
+		// TODO: Do something faster - but it hardly matters, currently this is VSH-only.
+		DISABLE;
+		return;
+	}
+
 	s32 imm = (signed short)(op&0xFFFC);
 	int vt = ((op >> 16) & 0x1f) | ((op & 3) << 5);
 	MIPSGPReg rs = _RS;
@@ -247,7 +254,7 @@ void Jit::Comp_SV(MIPSOpcode op) {
 	CheckMemoryBreakpoint(0, rs, imm);
 
 	switch (op >> 26) {
-	case 50: //lv.s  // VI(vt) = Memory::Read_U32(addr);
+	case 50: // lv.s
 		{
 			gpr.Lock(rs);
 			fpr.MapRegV(vt, MAP_DIRTY | MAP_NOINIT);
@@ -267,7 +274,7 @@ void Jit::Comp_SV(MIPSOpcode op) {
 		}
 		break;
 
-	case 58: //sv.s   // Memory::Write_U32(VI(vt), addr);
+	case 58: // sv.s
 		{
 			gpr.Lock(rs);
 
@@ -296,6 +303,13 @@ void Jit::Comp_SV(MIPSOpcode op) {
 
 void Jit::Comp_SVQ(MIPSOpcode op) {
 	CONDITIONAL_DISABLE(LSU_VFPU);
+
+	if (js.kernelMode) {
+		// Send all memory accesses to the interpreter in kernel mode.
+		// TODO: Do something faster - but it hardly matters, currently this is VSH-only.
+		DISABLE;
+		return;
+	}
 
 	int imm = (signed short)(op&0xFFFC);
 	int vt = (((op >> 16) & 0x1f)) | ((op&1) << 5);

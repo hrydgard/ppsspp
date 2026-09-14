@@ -33,7 +33,7 @@
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
-#include "Core/MIPS/MIPSInt.h"
+#include "Core/MIPS/Interpreter.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/IR/IRRegCache.h"
 #include "Core/MIPS/IR/IRInterpreter.h"
@@ -172,15 +172,15 @@ void IRJit::RunLoopUntil(u64 globalticks) {
 	// ApplyRoundingMode(true);
 	// IR Dispatcher
 	
+	MIPSState *mips = mips_;
 	while (true) {
 		// RestoreRoundingMode(true);
-		CoreTiming::Advance();
+		CoreTiming::Advance(currentMIPS);
 		// ApplyRoundingMode(true);
 		if (coreState != 0) {
 			break;
 		}
 
-		MIPSState *mips = mips_;
 #ifdef _DEBUG
 		compilerEnabled_ = false;
 #endif
@@ -268,7 +268,7 @@ int IRBlockCache::AllocateBlock(int emAddr, u32 origSize, const std::vector<IRIn
 		return -1;
 	}
 	// TODO: Use memcpy.
-	for (int i = 0; i < insts.size(); i++) {
+	for (size_t i = 0; i < insts.size(); i++) {
 		arena_.push_back(insts[i]);
 	}
 	int newBlockIndex = (int)blocks_.size();
@@ -547,7 +547,7 @@ bool IRBlock::RestoreOriginalFirstOp(int cookie) {
 void IRBlock::Finalize(int cookie) {
 	// Check it wasn't invalidated, in case this is after preload.
 	// TODO: Allow reusing blocks when the code matches hash_ again, instead.
-	if (origAddr_) {
+	if (origAddr_ && Memory::IsValid4AlignedAddress(origAddr_)) {
 		origFirstOpcode_ = Memory::Read_Opcode_JIT(origAddr_);
 		MIPSOpcode opcode = MIPSOpcode(MIPS_EMUHACK_OPCODE | cookie);
 		Memory::Write_Opcode_JIT(origAddr_, opcode);
@@ -557,7 +557,7 @@ void IRBlock::Finalize(int cookie) {
 }
 
 void IRBlock::Destroy(int cookie) {
-	if (origAddr_) {
+	if (origAddr_ && Memory::IsValid4AlignedAddress(origAddr_)) {
 		MIPSOpcode opcode = MIPSOpcode(MIPS_EMUHACK_OPCODE | cookie);
 		u32 memOp = Memory::ReadUnchecked_U32(origAddr_);
 		if (memOp == opcode.encoding) {

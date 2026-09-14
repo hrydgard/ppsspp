@@ -293,7 +293,8 @@ void DrawEngineGLES::ApplyDrawState(int prim) {
 
 void DrawEngineGLES::ApplyDrawStateLate(bool setStencilValue, int stencilValue) {
 	if (setStencilValue) {
-		render_->SetStencil(stencilState_.writeMask, GL_ALWAYS, stencilValue, 255, 0xFF, GL_REPLACE, GL_REPLACE, GL_REPLACE);
+		// NOTE: The write mask goes in the writeMask slot, not the enabled slot - see the clear-mode call above.
+		render_->SetStencil(true, GL_ALWAYS, stencilValue, 255, stencilState_.writeMask, GL_REPLACE, GL_REPLACE, GL_REPLACE);
 		gstate_c.Dirty(DIRTY_DEPTHSTENCIL_STATE);  // For the next time.
 	}
 

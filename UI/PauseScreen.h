@@ -66,7 +66,10 @@ private:
 
 	void AddExtraOptions(UI::ViewGroup *parent);
 
+	void FinishNextFrame(DialogResult finishNextFrameResult);
+
 	// hack
+	std::mutex finishNextFrameMutex_;
 	bool finishNextFrame_ = false;
 	DialogResult finishNextFrameResult_ = DR_CANCEL;
 

@@ -265,6 +265,7 @@ static VulkanLibraryHandle vulkanLibrary;
 
 bool g_vulkanAvailabilityChecked = false;
 bool g_vulkanMayBeAvailable = false;
+static std::string g_nativeLibDir;
 
 static PFN_vkVoidFunction LoadInstanceFunc(VkInstance instance, const char *name) {
 	PFN_vkVoidFunction funcPtr = vkGetInstanceProcAddr(instance, name);
@@ -432,6 +433,10 @@ void VulkanSetAvailable(bool available) {
 	g_vulkanMayBeAvailable = available;
 }
 
+void VulkanSetNativeLibDir(std::string_view nativeLibDir) {
+	g_nativeLibDir = nativeLibDir;
+}
+
 bool VulkanMayBeAvailable() {
 #if PPSSPP_PLATFORM(IOS)
 	g_vulkanAvailabilityChecked = true;
@@ -532,7 +537,8 @@ bool VulkanMayBeAvailable() {
 			INFO_LOG(Log::G3D, "VulkanMayBeAvailable: Found platform surface extension '%s'", platformSurfaceExtension);
 			instanceExtensions[ci.enabledExtensionCount++] = platformSurfaceExtension;
 			platformSurfaceExtensionFound = true;
-			break;
+			// Note: Can't stop here - the enumeration order isn't specified anywhere, so VK_KHR_surface
+			// may well come after the platform one, and we need both.
 		} else if (!strcmp(iter.extensionName, VK_KHR_SURFACE_EXTENSION_NAME)) {
 			instanceExtensions[ci.enabledExtensionCount++] = VK_KHR_SURFACE_EXTENSION_NAME;
 			surfaceExtensionFound = true;
@@ -613,8 +619,9 @@ bool VulkanMayBeAvailable() {
 					}
 				}
 			}
-			anyGood = !blacklisted;
-			if (anyGood) {
+			// Note: Must not overwrite the verdict from a previously seen device, one good one is enough.
+			anyGood = anyGood || !blacklisted;
+			if (!blacklisted) {
 				INFO_LOG(Log::G3D, "VulkanMayBeAvailable: Eligible device found: '%s'", props.deviceName);
 			} else {
 				INFO_LOG(Log::G3D, "VulkanMayBeAvailable: Blacklisted device found and ignored: '%s'", props.deviceName);
@@ -681,6 +688,32 @@ bool VulkanLoad(std::string *errorStr) {
 		*errorStr = "Failed to load Vulkan base functions";
 		ERROR_LOG(Log::G3D, "VulkanLoad: %s", errorStr->c_str());
 		VulkanFreeLibrary(vulkanLibrary);
+		return false;
+	}
+#endif
+}
+
+bool VulkanLoadFromGetInstanceProcAddr(VkInstance instance, PFN_vkGetInstanceProcAddr getInstanceProcAddr) {
+#if PPSSPP_PLATFORM(IOS_APP_STORE)
+	// MoltenVK is linked statically, the functions are already there - there are no function pointers to fill in.
+	INFO_LOG(Log::G3D, "iOS: Vulkan doesn't need loading");
+	return true;
+#else
+	vkGetInstanceProcAddr = getInstanceProcAddr;
+	vkCreateInstance = (PFN_vkCreateInstance)getInstanceProcAddr(nullptr, "vkCreateInstance");
+	// Per the Vulkan spec, vkGetDeviceProcAddr is not one of the handful of commands queryable with a
+	// NULL instance - it requires the real, already-existing instance.
+	vkGetDeviceProcAddr = (PFN_vkGetDeviceProcAddr)getInstanceProcAddr(instance, "vkGetDeviceProcAddr");
+	vkEnumerateInstanceVersion = (PFN_vkEnumerateInstanceVersion)getInstanceProcAddr(nullptr, "vkEnumerateInstanceVersion");
+	vkEnumerateInstanceExtensionProperties = (PFN_vkEnumerateInstanceExtensionProperties)getInstanceProcAddr(nullptr, "vkEnumerateInstanceExtensionProperties");
+	vkEnumerateInstanceLayerProperties = (PFN_vkEnumerateInstanceLayerProperties)getInstanceProcAddr(nullptr, "vkEnumerateInstanceLayerProperties");
+
+	if (vkCreateInstance && vkGetInstanceProcAddr && vkGetDeviceProcAddr && vkEnumerateInstanceExtensionProperties && vkEnumerateInstanceLayerProperties) {
+		INFO_LOG(Log::G3D, "VulkanLoadFromGetInstanceProcAddr: Base functions loaded.");
+		// NOTE: It's ok if vkEnumerateInstanceVersion is missing.
+		return true;
+	} else {
+		ERROR_LOG(Log::G3D, "VulkanLoadFromGetInstanceProcAddr: Failed to load Vulkan base functions");
 		return false;
 	}
 #endif

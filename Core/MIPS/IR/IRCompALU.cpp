@@ -61,19 +61,19 @@ void IRFrontend::Comp_IType(MIPSOpcode op) {
 	switch (op >> 26) {
 	case 8:	// same as addiu?
 	case 9:	// R(rt) = R(rs) + simm; break;	//addiu
-		ir.Write(IROp::AddConst, rt, rs, ir.AddConstant(simm));
+		ir.Write(IROp::AddConst, rt, rs, 0, (u32)simm);
 		break;
 
-	case 12: ir.Write(IROp::AndConst, rt, rs, ir.AddConstant(uimm)); break;
-	case 13: ir.Write(IROp::OrConst, rt, rs, ir.AddConstant(uimm)); break;
-	case 14: ir.Write(IROp::XorConst, rt, rs, ir.AddConstant(uimm)); break;
+	case 12: ir.Write(IROp::AndConst, rt, rs, 0, uimm); break;
+	case 13: ir.Write(IROp::OrConst, rt, rs, 0, uimm); break;
+	case 14: ir.Write(IROp::XorConst, rt, rs, 0, uimm); break;
 
 	case 10: // R(rt) = (s32)R(rs) < simm; break; //slti
-		ir.Write(IROp::SltConst, rt, rs, ir.AddConstant(simm));
+		ir.Write(IROp::SltConst, rt, rs, 0, (u32)simm);
 		break;
 
 	case 11: // R(rt) = R(rs) < suimm; break; //sltiu
-		ir.Write(IROp::SltUConst, rt, rs, ir.AddConstant(suimm));
+		ir.Write(IROp::SltUConst, rt, rs, 0, suimm);
 		break;
 
 	case 15: // R(rt) = uimm << 16;	 //lui
@@ -197,7 +197,7 @@ void IRFrontend::CompShiftVar(MIPSOpcode op, IROp shiftOp) {
 		// The interpreter already masks where needed, don't need to generate extra ops.
 		ir.Write(shiftOp, rd, rt, rs);
 	} else {
-		ir.Write(IROp::AndConst, IRTEMP_0, rs, ir.AddConstant(31));
+		ir.Write(IROp::AndConst, IRTEMP_0, rs, 0, (u32)31);
 		ir.Write(shiftOp, rd, rt, IRTEMP_0);
 	}
 }
@@ -244,9 +244,9 @@ void IRFrontend::Comp_Special3(MIPSOpcode op) {
 	case 0x0: // ext
 		if (pos != 0) {
 			ir.Write(IROp::ShrImm, rt, rs, pos);
-			ir.Write(IROp::AndConst, rt, rt, ir.AddConstant(mask));
+			ir.Write(IROp::AndConst, rt, rt, 0, mask);
 		} else {
-			ir.Write(IROp::AndConst, rt, rs, ir.AddConstant(mask));
+			ir.Write(IROp::AndConst, rt, rs, 0, mask);
 		}
 		break;
 
@@ -259,7 +259,7 @@ void IRFrontend::Comp_Special3(MIPSOpcode op) {
 
 		if (size != 32) {
 			// Need to use the sourcemask.
-			ir.Write(IROp::AndConst, IRTEMP_0, rs, ir.AddConstant(sourcemask));
+			ir.Write(IROp::AndConst, IRTEMP_0, rs, 0, sourcemask);
 			if (pos != 0) {
 				ir.Write(IROp::ShlImm, IRTEMP_0, IRTEMP_0, pos);
 			}
@@ -271,7 +271,7 @@ void IRFrontend::Comp_Special3(MIPSOpcode op) {
 				ir.Write(IROp::Mov, IRTEMP_0, rs);
 			}
 		}
-		ir.Write(IROp::AndConst, rt, rt, ir.AddConstant(destmask));
+		ir.Write(IROp::AndConst, rt, rt, 0, destmask);
 		ir.Write(IROp::Or, rt, rt, IRTEMP_0);
 	}
 	break;

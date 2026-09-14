@@ -14,11 +14,7 @@
 #pragma once
 
 #include <cstdint>
-#include <mutex>
 #include <string>
-#include <deque>
-#include <unordered_map>
-#include <vector>
 
 #include "Common/Common.h"
 #include "Common/Input/InputState.h"
@@ -26,6 +22,10 @@
 
 namespace UI {
 	class View;
+}
+
+namespace Draw {
+class DrawContext;
 }
 
 enum DialogResult {
@@ -36,13 +36,10 @@ enum DialogResult {
 	DR_NO,
 	DR_BACK,
 };
+const char *DialogResultToString(DialogResult result);
 
 class ScreenManager;
 class UIContext;
-
-namespace Draw {
-	class DrawContext;
-}
 
 enum class ScreenFocusChange {
 	FOCUS_LOST_TOP,  // Another screen was pushed on top
@@ -57,12 +54,6 @@ enum class ScreenRenderMode {
 };
 ENUM_CLASS_BITOPS(ScreenRenderMode);
 
-enum class ScreenRenderFlags {
-	NONE = 0,
-	HANDLED_THROTTLING = 1,
-};
-ENUM_CLASS_BITOPS(ScreenRenderFlags);
-
 enum class ScreenRenderRole {
 	NONE = 0,
 	CAN_BE_BACKGROUND = 1,
@@ -75,15 +66,6 @@ enum class ViewLayoutMode {
 	IgnoreInsets,  // For gameplay, option #2
 	IgnoreBottomInset,
 };
-
-enum class InputMode {
-	None = 0,
-	Keyboard = 1,
-	Mouse = 2,
-	Other = 4,
-	ImDebuggerToggle = 8,  // ugly hack. debugger and pause goes through.
-};
-ENUM_CLASS_BITOPS(InputMode);
 
 enum class QueuedEventType : u8 {
 	KEY,
@@ -99,6 +81,21 @@ struct QueuedEvent {
 		AxisInput axis;
 	};
 };
+
+enum class ScreenRenderFlags {
+	NONE = 0,
+	HANDLED_THROTTLING = 1,
+};
+ENUM_CLASS_BITOPS(ScreenRenderFlags);
+
+enum class InputMode {
+	None = 0,
+	Keyboard = 1,
+	Mouse = 2,
+	Other = 4,
+	ImDebuggerToggle = 8,  // ugly hack. debugger and pause goes through.
+};
+ENUM_CLASS_BITOPS(InputMode);
 
 class Screen {
 public:
@@ -125,8 +122,7 @@ public:
 
 	virtual void RecreateViews() {}
 
-	// NOTE: This is polled every frame, not called on every input event. This is
-	// a step towards eventually removing the ScreenManager input mutex.
+	// NOTE: This is polled every frame, not called on every input event.
 	virtual InputMode PassInputToMapper() const { return InputMode::None; }
 
 	ScreenManager *screenManager() { return screenManager_; }
@@ -152,111 +148,4 @@ private:
 	int token_ = -1;
 
 	DISALLOW_COPY_AND_ASSIGN(Screen);
-};
-
-class Transition {
-public:
-	Transition() = default;
-};
-
-enum {
-	LAYER_TRANSPARENT = 2,
-};
-
-typedef void (*PostRenderCallback)(UIContext *ui, void *userdata);
-
-class ScreenManager {
-public:
-	virtual ~ScreenManager();
-
-	void switchScreen(Screen *screen);
-	void update();
-
-	void setUIContext(UIContext *context) { uiContext_ = context; }
-	UIContext *getUIContext() { return uiContext_; }
-	Draw::DrawContext *getDrawContext() { return draw_; }
-
-	void setPostRenderCallback(PostRenderCallback cb, void *userdata) {
-		postRenderCb_ = cb;
-		postRenderUserdata_ = userdata;
-	}
-
-	ScreenRenderFlags render();
-	void resized();
-	void shutdown();
-
-	void deviceLost();
-	void deviceRestored(Draw::DrawContext *draw);
-
-	// Push a dialog box in front. Currently 1-level only.
-	void push(Screen *screen, int layerFlags = 0);
-
-	// Recreate all views
-	void RecreateAllViews();
-
-	// Pops the dialog away.
-	void finishDialog(Screen *dialog, DialogResult result = DR_OK);
-	Screen *dialogParent(const Screen *dialog) const;
-
-	// Instant touch, separate from the update() mechanism.
-	void touch(const TouchInput &touch);
-	void key(const KeyInput &key);
-	void axis(const AxisInput *axes, size_t count);
-
-	void sendMessage(UIMessage message, const char *value);
-
-	const Screen *topScreen() const {
-		return stack_.empty() ? nullptr : stack_.back().screen;
-	}
-	Screen *topScreen() {
-		return stack_.empty() ? nullptr : stack_.back().screen;
-	}
-
-	void cancelScreensAbove(Screen *screen);
-
-	void getFocusPosition(float &x, float &y, float &z);
-
-	// Will delete any existing overlay screen.
-	void SetBackgroundOverlayScreens(Screen *backgroundScreen, Screen *overlayScreen);
-
-	InputMode PassInputToMapper() const {
-		return passInputToMapper_;
-	}
-
-private:
-	void pop();
-	void switchToNext();
-	void processFinishDialog();
-
-	UIContext *uiContext_ = nullptr;
-	Draw::DrawContext *draw_ = nullptr;
-
-	PostRenderCallback postRenderCb_ = nullptr;
-	void *postRenderUserdata_ = nullptr;
-
-	const Screen *dialogFinished_ = nullptr;
-	DialogResult dialogResult_{};
-
-	Screen *backgroundScreen_ = nullptr;
-	Screen *overlayScreen_ = nullptr;
-
-	Screen *cancelScreensAbove_ = nullptr;
-
-	struct Layer {
-		Screen *screen;
-		int flags;  // From LAYER_ enum above
-		UI::View *focusedView;  // TODO: save focus here. Going for quick solution now to reset focus.
-	};
-
-	// Dialog stack. These are shown "on top" of base screens and the Android back button works as expected.
-	// Used for options, in-game menus and other things you expect to be able to back out from onto something.
-	std::vector<Layer> stack_;
-	std::vector<Layer> nextStack_;
-
-	std::unordered_map<int64_t, int> lastAxis_;
-
-	std::mutex eventQueueLock_;
-	std::deque<QueuedEvent> eventQueue_;
-
-	InputMode passInputToMapper_ = InputMode::None;
 };

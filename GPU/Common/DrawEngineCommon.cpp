@@ -158,7 +158,7 @@ void DrawEngineCommon::DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex
 	}
 
 	int bytesRead;
-	uint32_t vertTypeID = GetVertTypeID(vtype, 0, applySkinInDecode_);
+	uint32_t vertTypeID = GetVertTypeID(vtype, 0);
 
 	bool clockwise = !gstate.isCullEnabled() || gstate.getCullMode() == cullMode;
 	VertexDecoder *dec = GetVertexDecoder(vertTypeID);
@@ -228,10 +228,16 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 
 			if (vertexCount > 0 && inds) {
 				GetIndexBounds(inds, vertexCount, vertType, &indexLowerBound, &indexUpperBound);
+				if (indexUpperBound > 1024) {
+					// NormalizeVertices below writes indexUpperBound - indexLowerBound + 1 vertices
+					// into corners, which only has room until the verts region above it. The index
+					// values are the game's, so the vertexCount cap doesn't bound them. A bbox test
+					// over this many verts is counter-productive anyway - say it's visible.
+					return true;
+				}
 			}
 			// TODO: Avoid normalization if just plain skinning.
-			// Force software skinning.
-			const u32 vertTypeID = GetVertTypeID(vertType, gstate.getUVGenMode(), true);
+			const u32 vertTypeID = GetVertTypeID(vertType, gstate.getUVGenMode());
 			UVScale uvScale{};  // We don't care about UV.
 			::NormalizeVertices(corners, temp_buffer, (const u8 *)vdata, indexLowerBound, indexUpperBound, uvScale, dec, vertType);
 			IndexConverter conv(vertType, inds);
@@ -908,10 +914,6 @@ bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 	return true;
 }
 
-void DrawEngineCommon::BeginFrame() {
-	applySkinInDecode_ = g_Config.bSoftwareSkinning;
-}
-
 void DrawEngineCommon::DecodeVerts(const VertexDecoder *dec, u8 *dest) {
 	const int numDrawVerts = numDrawVerts_;
 	if (!numDrawVerts) {
@@ -1015,7 +1017,8 @@ enum {
 	DEPTH_SCREENVERTS_COMPONENT_COUNT = VERTEX_BUFFER_MAX,
 	DEPTH_SCREENVERTS_COMPONENT_BYTES = DEPTH_SCREENVERTS_COMPONENT_COUNT * sizeof(int) + 384,
 	DEPTH_SCREENVERTS_TOTAL_BYTES = DEPTH_SCREENVERTS_COMPONENT_BYTES * 3,
-	DEPTH_INDEXBUFFER_BYTES = DEPTH_TRANSFORMED_MAX_VERTS * 3 * sizeof(uint16_t),  // hmmm
+	DEPTH_INDEXBUFFER_MAX_INDICES = DEPTH_TRANSFORMED_MAX_VERTS * 3,
+	DEPTH_INDEXBUFFER_BYTES = DEPTH_INDEXBUFFER_MAX_INDICES * sizeof(uint16_t),
 };
 
 // We process vertices for depth rendering in several stages:
@@ -1075,7 +1078,10 @@ Mat4F32 ComputeFinalProjMatrix() {
 	return m;
 }
 
-bool DrawEngineCommon::CalculateDepthDraw(DepthDraw *draw, GEPrimitiveType prim, int vertexCount) {
+// numDecoded is how many vertices this draw will write to depthTransformed_, which is not the
+// same thing as vertexCount (the number of indices) - an indexed draw can decode far more
+// vertices than it has indices, or far fewer.
+bool DrawEngineCommon::CalculateDepthDraw(DepthDraw *draw, GEPrimitiveType prim, int vertexCount, int numDecoded) {
 	switch (prim) {
 	case GE_PRIM_INVALID:
 	case GE_PRIM_KEEP_PREVIOUS:
@@ -1121,8 +1127,11 @@ bool DrawEngineCommon::CalculateDepthDraw(DepthDraw *draw, GEPrimitiveType prim,
 		_dbg_assert_(gstate.isDepthWriteEnabled());
 	}
 
-	if (depthVertexCount_ + vertexCount >= DEPTH_TRANSFORMED_MAX_VERTS) {
+	if (depthVertexCount_ + numDecoded > DEPTH_TRANSFORMED_MAX_VERTS) {
 		// Can't add more. We need to flush.
+		return false;
+	}
+	if (depthIndexCount_ + vertexCount > DEPTH_INDEXBUFFER_MAX_INDICES) {
 		return false;
 	}
 
@@ -1155,18 +1164,24 @@ void DrawEngineCommon::DepthRasterSubmitRaw(GEPrimitiveType prim, const VertexDe
 	float worldviewproj[16];
 	ComputeFinalProjMatrix().Store(worldviewproj);
 
+	// How many vertices the decode loop below will write.
+	int willDecode = 0;
+	for (int i = 0; i < numDrawVerts_; i++) {
+		willDecode += drawVerts_[i].indexUpperBound + 1 - drawVerts_[i].indexLowerBound;
+	}
+
 	DepthDraw draw;
-	if (!CalculateDepthDraw(&draw, prim, vertexCount)) {
+	if (!CalculateDepthDraw(&draw, prim, vertexCount, willDecode)) {
 		return;
 	}
 
-	TimeCollector collectStat(&gpuStats.perFrame.msPrepareDepth, coreCollectDebugStats);
+	TimeCollector collectStat(&gpuStats.perFrame.msPrepareDepth, g_coreCollectDebugStats);
 
 	// Decode.
 	int numDecoded = 0;
 	for (int i = 0; i < numDrawVerts_; i++) {
 		const DeferredVerts &dv = drawVerts_[i];
-		if (dv.indexUpperBound + 1 - dv.indexLowerBound + numDecoded >= DEPTH_TRANSFORMED_MAX_VERTS) {
+		if (draw.vertexOffset + numDecoded + (dv.indexUpperBound + 1 - dv.indexLowerBound) > DEPTH_TRANSFORMED_MAX_VERTS) {
 			// Hit our limit! Stop decoding in this draw.
 			// We should have already broken out in CalculateDepthDraw.
 			break;
@@ -1198,11 +1213,11 @@ void DrawEngineCommon::DepthRasterPredecoded(GEPrimitiveType prim, const void *i
 	}
 
 	DepthDraw draw;
-	if (!CalculateDepthDraw(&draw, prim, vertexCount)) {
+	if (!CalculateDepthDraw(&draw, prim, vertexCount, numDecoded)) {
 		return;
 	}
 
-	TimeCollector collectStat(&gpuStats.perFrame.msPrepareDepth, coreCollectDebugStats);
+	TimeCollector collectStat(&gpuStats.perFrame.msPrepareDepth, g_coreCollectDebugStats);
 
 	// Make sure these have already been indexed away.
 	_dbg_assert_(prim != GE_PRIM_TRIANGLE_STRIP && prim != GE_PRIM_TRIANGLE_FAN);
@@ -1239,7 +1254,7 @@ void DrawEngineCommon::FlushQueuedDepth() {
 		rasterTimeStart_ = 0.0;
 	}
 
-	const bool collectStats = coreCollectDebugStats;
+	const bool collectStats = g_coreCollectDebugStats;
 	const bool lowQ = g_Config.iDepthRasterMode == (int)DepthRasterMode::LOW_QUALITY;
 	for (const auto &draw : depthDraws_) {
 		int *tx = depthScreenVerts_;
@@ -1260,7 +1275,7 @@ void DrawEngineCommon::FlushQueuedDepth() {
 				outVertCount = DepthRasterClipIndexedRectangles(tx, ty, tz, vertices, indices, draw, tileScissor);
 				break;
 			case GE_PRIM_TRIANGLES:
-				outVertCount = DepthRasterClipIndexedTriangles(tx, ty, tz, vertices, indices, draw, tileScissor);
+				outVertCount = DepthRasterClipIndexedTriangles(tx, ty, tz, vertices, indices, draw, tileScissor, DEPTH_SCREENVERTS_COMPONENT_COUNT);
 				break;
 			default:
 				_dbg_assert_(false);

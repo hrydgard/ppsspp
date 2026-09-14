@@ -82,14 +82,16 @@ AndroidContentURI AndroidContentURI::WithExtraExtension(std::string_view extensi
 	return uri;
 }
 
-AndroidContentURI AndroidContentURI::WithReplacedExtension(const std::string &oldExtension, const std::string &newExtension) const {
+bool AndroidContentURI::WithReplacedExtension(const std::string &oldExtension, const std::string &newExtension, AndroidContentURI *out) const {
 	_dbg_assert_(!oldExtension.empty() && oldExtension[0] == '.');
 	_dbg_assert_(!newExtension.empty() && newExtension[0] == '.');
-	AndroidContentURI uri = *this;
-	if (endsWithNoCase(file, oldExtension)) {
-		uri.file = file.substr(0, file.size() - oldExtension.size()) + newExtension;
+	if (!endsWithNoCase(file, oldExtension)) {
+		return false;
 	}
-	return uri;
+	AndroidContentURI uri = *this;
+	uri.file = file.substr(0, file.size() - oldExtension.size()) + newExtension;
+	*out = uri;
+	return true;
 }
 
 AndroidContentURI AndroidContentURI::WithReplacedExtension(const std::string &newExtension) const {

@@ -2,6 +2,7 @@
 #include <cstdint>
 
 void TimeInit();
+void TimeShutdown();  // Not really necessary to call, just for completeness.
 
 // Seconds.
 double time_now_d();

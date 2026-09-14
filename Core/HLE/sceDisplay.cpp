@@ -284,7 +284,7 @@ void __DisplayDoState(PointerWrap &p) {
 	}
 
 	if (s < 7) {
-		u64 now = CoreTiming::GetTicks();
+		u64 now = CoreTiming::GetTicks(currentMIPS);
 		lastFlipCycles = now;
 		nextFlipCycles = now;
 	} else {
@@ -357,7 +357,7 @@ void __DisplaySetWasPaused() {
 	wasPaused = true;
 }
 
-// TOOD: Should return 59.997?
+// TODO: Should return 59.997?
 static int FrameTimingLimit() {
 	if (!NetworkAllowSpeedControl()) {
 		return 60;
@@ -384,7 +384,13 @@ static int FrameTimingLimit() {
 		return fixRate(g_Config.iFpsLimit2);
 	if (PSP_CoreParameter().fpsLimit == FPSLimit::ANALOG)
 		return fixRate(PSP_CoreParameter().analogFpsLimit);
+	if (PSP_CoreParameter().fpsLimit == FPSLimit::DEBUGGER)
+		return fixRate(PSP_CoreParameter().debuggerFpsLimit);
 	return framerate;
+}
+
+int __DisplayGetFrameTimingLimit() {
+	return FrameTimingLimit();
 }
 
 static bool FrameTimingThrottled() {
@@ -507,7 +513,7 @@ static void DoFrameIdleTiming() {
 #endif
 		}
 
-		if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::FRAME_GRAPH || coreCollectDebugStats) {
+		if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::FRAME_GRAPH || g_coreCollectDebugStats) {
 			DisplayNotifySleep(time_now_d() - before);
 		}
 	}
@@ -720,7 +726,7 @@ void __DisplayFlip(int cyclesLate) {
 	CoreTiming::ScheduleEvent(0 - cyclesLate, afterFlipEvent, 0);
 	numVBlanksSinceFlip = 0;
 
-	if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::FRAME_GRAPH || coreCollectDebugStats) {
+	if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::FRAME_GRAPH || g_coreCollectDebugStats) {
 		// Track how long we sleep (whether vsync or sleep_ms.)
 		DisplayNotifySleep(time_now_d() - frameSleepStart, frameSleepPos);
 	}
@@ -786,7 +792,7 @@ void hleLagSync(u64 userdata, int cyclesLate) {
 	const int over = (int)((now - goal) * 1000000);
 	ScheduleLagSync(over - emuOver);
 
-	if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::FRAME_GRAPH || coreCollectDebugStats) {
+	if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::FRAME_GRAPH || g_coreCollectDebugStats) {
 		DisplayNotifySleep(now - before);
 	}
 }
@@ -796,7 +802,7 @@ static u32 sceDisplayIsVblank() {
 }
 
 void __DisplayWaitForVblanks(const char *reason, int vblanks, bool callbacks) {
-	const s64 ticksIntoFrame = CoreTiming::GetTicks() - DisplayFrameStartTicks();
+	const s64 ticksIntoFrame = CoreTiming::GetTicks(currentMIPS) - DisplayFrameStartTicks();
 	const s64 cyclesToNextVblank = msToCycles(frameMs) - ticksIntoFrame;
 
 	// These syscalls take about 115 us, so if the next vblank is before then, we're waiting extra.
@@ -846,9 +852,9 @@ void __DisplaySetFramebuf(u32 topaddr, int linesize, int pixelFormat, int sync) 
 		// Doing it in non-buffered though creates problems (black screen) on occasion though
 		// so let's not.
 		if (!flippedThisFrame && !g_Config.bSkipBufferEffects) {
-			double before_flip = time_now_d();
+			const double before_flip = time_now_d();
 			__DisplayFlip(0);
-			double after_flip = time_now_d();
+			const double after_flip = time_now_d();
 			// Ignore for debug stats.
 			hleSetFlipTime(after_flip - before_flip);
 		}
@@ -905,7 +911,7 @@ int sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) 
 		// Otherwise it'll always be ahead if the game messes up even once.
 		const s64 LEEWAY_CYCLES_PER_FLIP = usToCycles(10);
 
-		u64 now = CoreTiming::GetTicks();
+		u64 now = CoreTiming::GetTicks(currentMIPS);
 		s64 cyclesAhead = nextFlipCycles - now;
 		if (cyclesAhead > FLIP_DELAY_CYCLES_MIN) {
 			if (lastFlipsTooFrequent >= FLIP_DELAY_MIN_FLIPS) {
@@ -940,7 +946,7 @@ int sceDisplaySetFramebuf(u32 topaddr, int linesize, int pixelformat, int sync) 
 	}
 }
 
-bool __DisplayGetFramebuf(PSPPointer<u8> *topaddr, u32 *linesize, u32 *pixelFormat, int latchedMode) {
+bool __DisplayGetFramebuf(PSPPointer<u8> *topaddr, u32 *linesize, GEBufferFormat *pixelFormat, int latchedMode) {
 	const FrameBufferState &fbState = latchedMode == PSP_DISPLAY_SETBUF_NEXTFRAME ? latchedFramebuf : framebuf;
 	if (topaddr != nullptr)
 		(*topaddr).ptr = fbState.topaddr;
@@ -955,12 +961,12 @@ bool __DisplayGetFramebuf(PSPPointer<u8> *topaddr, u32 *linesize, u32 *pixelForm
 static u32 sceDisplayGetFramebuf(u32 topaddrPtr, u32 linesizePtr, u32 pixelFormatPtr, int latchedMode) {
 	const FrameBufferState &fbState = latchedMode == PSP_DISPLAY_SETBUF_NEXTFRAME ? latchedFramebuf : framebuf;
 
-	if (Memory::IsValidAddress(topaddrPtr))
-		Memory::Write_U32(fbState.topaddr, topaddrPtr);
-	if (Memory::IsValidAddress(linesizePtr))
-		Memory::Write_U32(fbState.stride, linesizePtr);
-	if (Memory::IsValidAddress(pixelFormatPtr))
-		Memory::Write_U32(fbState.fmt, pixelFormatPtr);
+	if (Memory::IsValid4AlignedAddress(topaddrPtr))
+		Memory::WriteUnchecked_U32(fbState.topaddr, topaddrPtr);
+	if (Memory::IsValid4AlignedAddress(linesizePtr))
+		Memory::WriteUnchecked_U32(fbState.stride, linesizePtr);
+	if (Memory::IsValid4AlignedAddress(pixelFormatPtr))
+		Memory::WriteUnchecked_U32(fbState.fmt, pixelFormatPtr);
 
 	return hleLogDebug(Log::sceDisplay, 0);
 }
@@ -1068,17 +1074,17 @@ static u32 sceDisplayIsForeground() {
 }
 
 static u32 sceDisplayGetMode(u32 modeAddr, u32 widthAddr, u32 heightAddr) {
-	if (Memory::IsValidAddress(modeAddr))
-		Memory::Write_U32(mode, modeAddr);
-	if (Memory::IsValidAddress(widthAddr))
-		Memory::Write_U32(width, widthAddr);
-	if (Memory::IsValidAddress(heightAddr))
-		Memory::Write_U32(height, heightAddr);
+	if (Memory::IsValid4AlignedAddress(modeAddr))
+		Memory::WriteUnchecked_U32(mode, modeAddr);
+	if (Memory::IsValid4AlignedAddress(widthAddr))
+		Memory::WriteUnchecked_U32(width, widthAddr);
+	if (Memory::IsValid4AlignedAddress(heightAddr))
+		Memory::WriteUnchecked_U32(height, heightAddr);
 	return hleLogDebug(Log::sceDisplay, 0);
 }
 
 static u32 sceDisplayIsVsync() {
-	u64 now = CoreTiming::GetTicks();
+	u64 now = CoreTiming::GetTicks(currentMIPS);
 	u64 start = DisplayFrameStartTicks() + msToCycles(vsyncStartMs);
 	u64 end = DisplayFrameStartTicks() + msToCycles(vsyncEndMs);
 
@@ -1086,8 +1092,8 @@ static u32 sceDisplayIsVsync() {
 }
 
 static u32 sceDisplayGetResumeMode(u32 resumeModeAddr) {
-	if (Memory::IsValidAddress(resumeModeAddr))
-		Memory::Write_U32(resumeMode, resumeModeAddr);
+	if (Memory::IsValid4AlignedAddress(resumeModeAddr))
+		Memory::WriteUnchecked_U32(resumeMode, resumeModeAddr);
 	return hleLogDebug(Log::sceDisplay, 0);
 }
 
@@ -1100,12 +1106,12 @@ static u32 sceDisplaySetResumeMode(u32 rMode) {
 static u32 sceDisplayGetBrightness(u32 levelAddr, u32 otherAddr) {
 	// Standard levels on a PSP: 44, 60, 72, 84 (AC only)
 
-	if (Memory::IsValidAddress(levelAddr)) {
-		Memory::Write_U32(brightnessLevel, levelAddr);
+	if (Memory::IsValid4AlignedAddress(levelAddr)) {
+		Memory::WriteUnchecked_U32(brightnessLevel, levelAddr);
 	}
 	// Always seems to write zero?
-	if (Memory::IsValidAddress(otherAddr)) {
-		Memory::Write_U32(0, otherAddr);
+	if (Memory::IsValid4AlignedAddress(otherAddr)) {
+		Memory::WriteUnchecked_U32(0, otherAddr);
 	}
 	return hleLogWarning(Log::sceDisplay, 0);
 }

@@ -5,6 +5,7 @@
 #include <thread>
 #include <cstdint>
 #include <string>
+#include <utility>
 
 #include "Common/File/Path.h"
 #include "Common/Net/NetBuffer.h"
@@ -19,9 +20,9 @@ class Connection {
 public:
 	virtual ~Connection();
 
-	explicit Connection(ResolveFunc func) : customResolve_(func) {}
+	explicit Connection(ResolveFunc func) : customResolve_(std::move(func)) {}
 
-	// Inits the sockaddr_in.
+	// Inits the addrinfo chain.
 	bool Resolve(const char *host, int port, DNSType type = DNSType::ANY);
 
 	bool Connect(int maxTries = 2, double timeout = 20.0f, bool *cancelConnect = nullptr);
@@ -55,9 +56,9 @@ bool GetHeaderValue(const std::vector<std::string> &responseHeaders, std::string
 
 class RequestParams {
 public:
-	RequestParams() {}
+	RequestParams() = default;
 	explicit RequestParams(const char *r) : resource(r) {}
-	RequestParams(const std::string &r, const char *a) : resource(r), acceptMime(a) {}
+	RequestParams(std::string r, const char *a) : resource(std::move(r)), acceptMime(a) {}
 
 	std::string resource;
 	const char *acceptMime = "*/*";

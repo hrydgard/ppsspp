@@ -588,7 +588,7 @@ void FPURegCache::ReleaseSpillLock(int mipsreg) {
 void FPURegCache::ReleaseSpillLocks() {
 	for (int i = 0; i < NUM_MIPS_FPRS; i++)
 		regs[i].locked = 0;
-	for (int i = TEMP0; i < TEMP0 + NUM_X86_FPU_TEMPS; ++i)
+	for (int i = TEMP0; i < TEMP0 + MIPSState::NUM_X86_FPU_TEMPS; ++i)
 		DiscardR(i);
 }
 
@@ -797,7 +797,7 @@ bool FPURegCache::IsTempX(X64Reg xr) {
 
 int FPURegCache::GetTempR() {
 	pendingFlush = true;
-	for (int r = TEMP0; r < TEMP0 + NUM_X86_FPU_TEMPS; ++r) {
+	for (int r = TEMP0; r < TEMP0 + MIPSState::NUM_X86_FPU_TEMPS; ++r) {
 		if (!regs[r].away && !regs[r].tempLocked) {
 			regs[r].tempLocked = true;
 			return r;
@@ -814,7 +814,7 @@ int FPURegCache::GetTempVS(u8 *v, VectorSize vsz) {
 
 	// Let's collect regs as we go, but try for n free in a row.
 	int found = 0;
-	for (int r = TEMP0; r <= TEMP0 + NUM_X86_FPU_TEMPS - n; ++r) {
+	for (int r = TEMP0; r <= TEMP0 + MIPSState::NUM_X86_FPU_TEMPS - n; ++r) {
 		if (regs[r].away || regs[r].tempLocked) {
 			continue;
 		}

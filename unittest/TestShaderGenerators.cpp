@@ -94,7 +94,6 @@ bool GenerateVShader(VShaderID id, char *buffer, ShaderLanguage lang, Draw::Bugs
 static VkShaderStageFlagBits StageToVulkan(ShaderStage stage) {
 	switch (stage) {
 	case ShaderStage::Vertex: return VK_SHADER_STAGE_VERTEX_BIT;
-	case ShaderStage::Geometry: return VK_SHADER_STAGE_GEOMETRY_BIT;
 	case ShaderStage::Compute: return VK_SHADER_STAGE_COMPUTE_BIT;
 	case ShaderStage::Fragment: return VK_SHADER_STAGE_FRAGMENT_BIT;
 	}
@@ -111,7 +110,6 @@ bool TestCompileShader(const char *buffer, ShaderLanguage lang, ShaderStage stag
 		switch (stage) {
 		case ShaderStage::Vertex: programType = "vs_4_0"; break;
 		case ShaderStage::Fragment: programType = "ps_4_0"; break;
-		case ShaderStage::Geometry: programType = "gs_4_0"; break;
 		default:
 			*errorMessage = "Unknown shader stage";
 			return false;
@@ -374,14 +372,9 @@ bool TestVertexShaders() {
 
 		// The generated bits need some adjustment:
 
-		// We don't use these bits in the HLSL shader generator.
-		id.SetBits(VS_BIT_WEIGHT_FMTSCALE, 2, 0);
 		// If mode is through, we won't do hardware transform.
 		if (id.Bit(VS_BIT_IS_THROUGH)) {
 			id.SetBit(VS_BIT_USE_HW_TRANSFORM, 0);
-		}
-		if (!id.Bit(VS_BIT_USE_HW_TRANSFORM)) {
-			id.SetBit(VS_BIT_ENABLE_BONES, 0);
 		}
 		if (id.Bit(VS_BIT_VERTEX_RANGE_CULLING)) {
 			continue;

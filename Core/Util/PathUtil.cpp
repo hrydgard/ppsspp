@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <string_view>
 
 #include "Common/File/Path.h"
@@ -9,6 +10,25 @@
 #include "Core/Util/DarwinFileSystemServices.h"
 #include "Core/Config.h"
 #include "Common/VR/PPSSPPVR.h"
+
+bool HasParentDirComponent(std::string_view path) {
+	for (size_t i = 0; i < path.size(); ) {
+		size_t end = path.find_first_of("/\\", i);
+		size_t len = end == std::string_view::npos ? path.size() - i : end - i;
+		if (len == 2 && path[i] == '.' && path[i + 1] == '.')
+			return true;
+		if (end == std::string_view::npos)
+			break;
+		i = end + 1;
+	}
+	return false;
+}
+
+bool HasPathTraversal(std::string_view path) {
+	if (path.find_first_of("/\\") != std::string_view::npos)
+		return true;
+	return path == "." || path == "..";
+}
 
 Path FindConfigFile(const Path &searchPath, std::string_view baseFilename, bool *exists) {
 	// Don't search for an absolute path.
@@ -40,6 +60,22 @@ Path FindConfigFile(const Path &searchPath, std::string_view baseFilename, bool 
 		File::CreateFullPath(parent);
 	}
 	return filename;
+}
+
+// The custom shader and theme directories are lower case for legacy reasons, which is confusing
+// since every other directory is upper case - and on a case sensitive file system, like the one
+// iOS uses, the case actually matters. So we prefer the upper case name now, but keep using a
+// lower case directory that already exists, so nobody has to move their files.
+static Path PreferUpperCaseDir(const Path &parent, const char *upperCase, const char *lowerCase) {
+	const Path upper = parent / upperCase;
+	if (File::Exists(upper)) {
+		return upper;
+	}
+	const Path lower = parent / lowerCase;
+	if (File::Exists(lower)) {
+		return lower;
+	}
+	return upper;
 }
 
 Path GetSysDirectory(PSPDirectories directoryType) {
@@ -89,9 +125,11 @@ Path GetSysDirectory(PSPDirectories directoryType) {
 	case DIRECTORY_AUDIO:
 		return pspDirectory / "AUDIO";
 	case DIRECTORY_CUSTOM_SHADERS:
-		return pspDirectory / "shaders";
+		return PreferUpperCaseDir(pspDirectory, "SHADERS", "shaders");
 	case DIRECTORY_CUSTOM_THEMES:
-		return pspDirectory / "themes";
+		return PreferUpperCaseDir(pspDirectory, "THEMES", "themes");
+	case DIRECTORY_NAND:
+		return pspDirectory / "NAND";
 
 	case DIRECTORY_MEMSTICK_ROOT:
 		return g_Config.memStickDirectory;
@@ -113,7 +151,7 @@ bool CreateSysDirectories() {
 	INFO_LOG(Log::IO, "Creating '%s' and subdirs:", pspDir.c_str());
 	File::CreateFullPath(pspDir);
 	if (!File::Exists(pspDir)) {
-		INFO_LOG(Log::IO, "Not a workable memstick directory. Giving up");
+		INFO_LOG(Log::IO, "Not a workable memstick directory (%s). Giving up for now", pspDir.c_str());
 		return false;
 	}
 

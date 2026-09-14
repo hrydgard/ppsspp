@@ -16,7 +16,6 @@
 #include "Common/Render/Text/draw_text.h"
 #include "Common/Render/Text/draw_text_win.h"
 #include "Common/Render/Text/draw_text_cocoa.h"
-#include "Common/Render/Text/draw_text_qt.h"
 #include "Common/Render/Text/draw_text_android.h"
 #include "Common/Render/Text/draw_text_sdl.h"
 #include "Common/Render/Text/draw_text_uwp.h"
@@ -301,7 +300,7 @@ TextDrawer *TextDrawer::Create(Draw::DrawContext *draw) {
 	// No text drawer
 #elif PPSSPP_PLATFORM(UWP)
 	drawer = new TextDrawerUWP(draw);
-#elif defined(_WIN32) && !defined(USING_QT_UI)
+#elif defined(_WIN32)
 	// If RenderDoc is active, we can't use the UWP drawer since it uses D3D11 to initialize D2D,
 	// and RenderDoc doesn't permit multiple graphics contexts.
 	// Also, this seems to cause failures under Windows 7, so let's gate on Win 10 to be safe.
@@ -312,8 +311,6 @@ TextDrawer *TextDrawer::Create(Draw::DrawContext *draw) {
 	}
 #elif PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
 	drawer = new TextDrawerCocoa(draw);
-#elif defined(USING_QT_UI)
-	drawer = new TextDrawerQt(draw);
 #elif PPSSPP_PLATFORM(ANDROID)
 	drawer = new TextDrawerAndroid(draw);
 #elif USE_SDL3_TTF

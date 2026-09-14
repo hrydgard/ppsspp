@@ -4,13 +4,6 @@
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/Data/Text/Parsers.h"
 
-extern std::thread::id renderThreadId;
-#if MAX_LOGLEVEL >= DEBUG_LEVEL
-static bool OnRenderThread() {
-	return std::this_thread::get_id() == renderThreadId;
-}
-#endif
-
 void *GLRBuffer::Map(GLBufferStrategy strategy) {
 	_assert_(buffer_ != 0);
 
@@ -102,7 +95,6 @@ void GLPushBuffer::Unmap() {
 
 void GLPushBuffer::Flush() {
 	// Must be called from the render thread.
-	_dbg_assert_(OnRenderThread());
 	if (buf_ >= buffers_.size()) {
 		_dbg_assert_msg_(false, "buf_ somehow got out of sync: %d vs %d", (int)buf_, (int)buffers_.size());
 		return;
@@ -184,8 +176,6 @@ void GLPushBuffer::NextBuffer(size_t minSize) {
 }
 
 void GLPushBuffer::Defragment() {
-	_dbg_assert_msg_(!OnRenderThread(), "Defragment must not run on the render thread");
-
 	if (buffers_.size() <= 1) {
 		// Let's take this opportunity to jettison any localMemory we don't need.
 		for (auto &info : buffers_) {
@@ -227,8 +217,6 @@ size_t GLPushBuffer::GetTotalSize() const {
 }
 
 void GLPushBuffer::MapDevice(GLBufferStrategy strategy) {
-	_dbg_assert_msg_(OnRenderThread(), "MapDevice must run on render thread");
-
 	strategy_ = strategy;
 	if (strategy_ == GLBufferStrategy::SUBDATA) {
 		return;
@@ -261,8 +249,6 @@ void GLPushBuffer::MapDevice(GLBufferStrategy strategy) {
 }
 
 void GLPushBuffer::UnmapDevice() {
-	_dbg_assert_msg_(OnRenderThread(), "UnmapDevice must run on render thread");
-
 	for (auto &info : buffers_) {
 		if (info.deviceMemory) {
 			// TODO: Technically this can return false?

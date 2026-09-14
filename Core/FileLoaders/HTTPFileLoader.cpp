@@ -254,7 +254,10 @@ size_t HTTPFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, Flags f
 		return 0;
 	}
 
-	size_t readBytes = output.size();
+	// Never trust the entity length: a malicious/MITM'd server can claim a
+	// matching Content-Range but send a larger body. Clamp to what we
+	// requested so we can't overflow the caller's fixed-size buffer.
+	size_t readBytes = std::min(output.size(), (size_t)(absoluteEnd - absolutePos));
 	output.Take(readBytes, (char *)data);
 	filepos_ = absolutePos + readBytes;
 	return readBytes;

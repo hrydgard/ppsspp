@@ -167,13 +167,13 @@ inline u32 VFPU_MAKE_CONSTANTS(VFPUConst x, VFPUConst y, VFPUConst z, VFPUConst 
 	return result;
 }
 
-u32 VFPURewritePrefix(int ctrl, u32 remove, u32 add);
+u32 VFPURewritePrefix(MIPSState *mips, int ctrl, u32 remove, u32 add);
 
-void ReadMatrix(float *rd, MatrixSize size, int reg);
-void WriteMatrix(const float *rs, MatrixSize size, int reg);
+void ReadMatrix(const MIPSState *mips, float *rd, MatrixSize size, int reg);
+void WriteMatrix(MIPSState *mips,const float *rs, MatrixSize size, int reg);
 
-void WriteVector(const float *rs, VectorSize N, int reg);
-void ReadVector(float *rd, VectorSize N, int reg);
+void ReadVector(const MIPSState *mips, float *rd, VectorSize N, int reg);
+void WriteVector(MIPSState *mips, const float *rs, VectorSize N, int reg);
 
 void GetVectorRegs(u8 regs[4], VectorSize N, int vectorReg);
 void GetMatrixRegs(u8 regs[16], MatrixSize N, int matrixReg);

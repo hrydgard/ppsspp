@@ -489,6 +489,27 @@ NeighborResult ViewGroup::FindNeighbor(View *view, FocusMove direction, Neighbor
 	}
 }
 
+void ViewGroup::CollectTabOrder(std::vector<View *> *outViews) const {
+	for (View *view : views_) {
+		// Gate on visibility only, like Key/Touch/Axis do - a container being disabled doesn't
+		// stop its children from being interactive elsewhere, so it shouldn't here either.
+		if (view->GetVisibility() != V_VISIBLE) {
+			continue;
+		}
+		if (view->IsViewGroup()) {
+			// A group can be focusable itself (rare), in which case it's a stop and we still
+			// descend into it - same as arrow navigation, which considers both.
+			ViewGroup *vg = static_cast<ViewGroup *>(view);
+			if (vg->CanBeFocused() && vg->IsEnabled()) {
+				outViews->push_back(vg);
+			}
+			vg->CollectTabOrder(outViews);
+		} else if (view->CanBeFocused() && view->IsEnabled()) {
+			outViews->push_back(view);
+		}
+	}
+}
+
 NeighborResult ViewGroup::FindScrollNeighbor(View *view, const Point2D &target, FocusMove direction, NeighborResult best) {
 	if (!IsEnabled())
 		return best;

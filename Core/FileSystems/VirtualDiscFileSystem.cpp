@@ -27,7 +27,18 @@
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/Reporting.h"
+#include "Core/Util/PathUtil.h"
 #include "Common/Data/Encoding/Utf8.h"
+#include "Core/Config.h"
+
+#if PLATFORM_SUPPORTS_FILE_HANDLER_PLUGINS
+static bool EnableFileHandlerPlugins() {
+	return g_Config.bEnableFileHandlerPlugins;
+}
+#else
+// Completely disable file handler plugins. Just not allowed to do things like this on mobile.
+constexpr bool EnableFileHandlerPlugins() { return false; }
+#endif
 
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
@@ -40,7 +51,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <ctype.h>
-#if !PPSSPP_PLATFORM(SWITCH)
+#if PLATFORM_SUPPORTS_FILE_HANDLER_PLUGINS
 #include <dlfcn.h>
 #endif
 #endif
@@ -111,22 +122,39 @@ void VirtualDiscFileSystem::LoadFileListIndex() {
 		size_t handler_pos = line.find(':', filename_pos);
 		if (handler_pos != line.npos) {
 			entry.fileName = line.substr(filename_pos, handler_pos - filename_pos);
+#if PLATFORM_SUPPORTS_FILE_HANDLER_PLUGINS
+			if (EnableFileHandlerPlugins()) {
+				std::string handler = line.substr(handler_pos + 1);
+				size_t trunc = handler.find_last_not_of("\r\n");
+				if (trunc != handler.npos && trunc != handler.size())
+					handler.resize(trunc + 1);
 
-			std::string handler = line.substr(handler_pos + 1);
-			size_t trunc = handler.find_last_not_of("\r\n");
-			if (trunc != handler.npos && trunc != handler.size())
-				handler.resize(trunc + 1);
-
-			if (handlers.find(handler) == handlers.end())
-				handlers[handler] = new Handler(handler.c_str(), this);
-			if (handlers[handler]->IsValid())
-				entry.handler = handlers[handler];
+				if (handlers.find(handler) == handlers.end())
+					handlers[handler] = new Handler(handler.c_str(), this);
+				if (handlers[handler]->IsValid())
+					entry.handler = handlers[handler];
+			} else {
+				ERROR_LOG(Log::FileSystem, "File handler plugins are disabled, ignoring handler %s for file %s", line.substr(handler_pos + 1).c_str(), entry.fileName.c_str());
+			}
+#else
+			ERROR_LOG(Log::FileSystem, "File handler plugins are not supported on this platform, ignoring handler %s for file %s", line.substr(handler_pos + 1).c_str(), entry.fileName.c_str());
+#endif
 		} else {
 			entry.fileName = line.substr(filename_pos);
 		}
 		size_t trunc = entry.fileName.find_last_not_of("\r\n");
 		if (trunc != entry.fileName.npos && trunc != entry.fileName.size())
 			entry.fileName.resize(trunc + 1);
+
+		// This index file comes from the (often shared/downloaded) "virtual disc"
+		// folder itself, and fileName is used essentially unsanitized below (and
+		// throughout this class) to build a path under basePath. Without this check,
+		// a ".." component would let a crafted index file probe or open arbitrary
+		// host files/directories outside basePath.
+		if (HasParentDirComponent(entry.fileName)) {
+			ERROR_LOG(Log::FileSystem, "Ignoring index entry with parent directory reference: %s", entry.fileName.c_str());
+			continue;
+		}
 
 		entry.firstBlock = (u32)strtol(line.c_str(), NULL, 16);
 		if (entry.handler != NULL && entry.handler->IsValid()) {
@@ -821,7 +849,7 @@ void VirtualDiscFileSystem::HandlerLogger(void *arg, HandlerHandle handle, LogLe
 
 VirtualDiscFileSystem::Handler::Handler(const char *filename, VirtualDiscFileSystem *const sys)
 : sys_(sys) {
-#if !PPSSPP_PLATFORM(SWITCH)
+#if PLATFORM_SUPPORTS_FILE_HANDLER_PLUGINS
 #ifdef _WIN32
 #if PPSSPP_PLATFORM(UWP)
 #define dlopen(name, ignore) (void *)LoadPackagedLibrary(ConvertUTF8ToWString(name).c_str(), 0)
@@ -875,7 +903,7 @@ VirtualDiscFileSystem::Handler::~Handler() {
 		else
 			Shutdown();
 
-#if !PPSSPP_PLATFORM(UWP) && !PPSSPP_PLATFORM(SWITCH)
+#if PLATFORM_SUPPORTS_FILE_HANDLER_PLUGINS
 #ifdef _WIN32
 		FreeLibrary((HMODULE)library);
 #else

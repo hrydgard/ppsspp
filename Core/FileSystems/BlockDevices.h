@@ -77,6 +77,7 @@ public:
 private:
 	u32 *index = nullptr;
 	u8 *readBuffer = nullptr;
+	size_t readBufferSize = 0;
 	u8 *zlibBuffer = nullptr;
 	u32 zlibBufferFrame = 0;
 	u8 indexShift = 0;

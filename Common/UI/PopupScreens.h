@@ -320,6 +320,17 @@ public:
 		return hidden_.find(c) != hidden_.end();
 	}
 
+	// Marks a choice (index into the choices array) as not needing translation, like a plain number.
+	// Without this, every lookup of such a choice gets logged as a missing translation.
+	void SetChoiceUntranslated(int c) {
+		untranslated_.insert(c);
+	}
+	void SetChoicesUntranslated(int first, int last) {
+		for (int i = first; i <= last; i++) {
+			untranslated_.insert(i);
+		}
+	}
+
 	void SetPreOpenCallback(std::function<void(PopupMultiChoice *)> callback) {
 		preOpenCallback_ = callback;
 	}
@@ -354,6 +365,8 @@ protected:
 private:
 	void HandleClick(UI::EventParams &e);
 
+	std::string_view TranslateChoice(int index) const;
+
 	void ChoiceCallback(int num);
 	virtual bool PostChoiceCallback(int num) { return true; }
 
@@ -362,6 +375,7 @@ private:
 	std::string valueText_;
 	bool restoreFocus_ = false;
 	std::set<int> hidden_;
+	std::set<int> untranslated_;
 	std::map<int, ImageID> icons_;
 
 	std::function<void(PopupMultiChoice *)> preOpenCallback_;

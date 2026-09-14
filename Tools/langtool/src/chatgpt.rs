@@ -41,6 +41,10 @@ impl ChatGPT {
         ChatGPT { api_key, model }
     }
 
+    pub fn model(&self) -> &str {
+        &self.model
+    }
+
     pub fn chat(&self, request: &str) -> Result<String, Box<dyn Error>> {
         let client = reqwest::blocking::Client::builder()
             .timeout(Duration::from_secs(300))

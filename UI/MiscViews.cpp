@@ -436,14 +436,24 @@ void ViewSearch::ApplySearchFilter(UI::ViewGroup *viewGroup, bool setKeyboardFoc
 	}
 }
 
+static bool IsSearchableChar(int unichar) {
+	// 127 gets produced from Ctrl+Backspace on Windows for some reason.
+	return unichar >= 0x20 && unichar != 127;
+}
+
+static bool IsFirstSearchableChar(int unichar) {
+	// Don't allow spaces as the first character, it looks confusing (empty search field)
+	return IsSearchableChar(unichar) && unichar != ' ' && unichar != '`' && unichar != '.' && unichar != ',';
+}
+
 bool ViewSearch::Key(UI::ViewGroup *viewGroup, const KeyInput &input) {
 	bool retval = false;
 	// Only one is visible at a time, so we can just grab all Char input.
 	if (input.flags & KeyInputFlags::CHAR) {
 		const int unichar = input.keyCode;
-		if (unichar >= 0x20 && unichar != 127) {  // 127 gets produced from Ctrl+Backspace on Windows for some reason.
+		if (IsSearchableChar(unichar)) {
 			// Don't allow spaces as the first character, it looks confusing (empty search field)
-			if (searchFilter.empty() && unichar == ' ') {
+			if (searchFilter.empty() && !IsFirstSearchableChar(unichar)) {
 				return false;
 			}
 

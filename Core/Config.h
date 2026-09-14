@@ -213,6 +213,22 @@ public:
 	// Core
 	bool bIgnoreBadMemAccess;
 
+	// Detect FPU exceptions the game has unmasked in fcr31 and report them, instead of
+	// silently producing the IEEE default result. Off by default: PSP threads start with
+	// fcr31 = 0x00000e00, i.e. three of the traps already enabled, so this changes behavior
+	// in plenty of games that divide by zero without meaning anything by it.
+	bool bEnableFPUExceptionTraps;
+
+	// ExceptionAction enum: 0 = default (obey bIgnoreBadMemAccess), 1 = log, 2 = break, 3 = exit
+	int iExceptionActionMemRead;  // this also includes alignment and other odd memory exceptions.
+	int iExceptionActionMemWrite;
+	int iExceptionActionBreak;
+
+	// If true, log a best-effort native stack trace (Windows only) when a genuinely
+	// unhandled access violation is about to crash the process. Diagnostic only, off by
+	// default - see --log-native-crashes in Core/CmdLine.cpp.
+	bool bLogNativeCrashStackTraces;
+
 	bool bFastMemory;
 	int iCpuCore;
 	bool bCheckForNewVersion;
@@ -231,6 +247,7 @@ public:
 	bool bAutoSaveSymbolMap;
 	bool bCompressSymbols;
 	bool bCacheFullIsoInRam;
+	bool bAutoUpgradeFirmware;
 	int iRemoteISOPort; // Also used for serving a local remote debugger.
 	std::string sLastRemoteISOServer;
 	int iLastRemoteISOPort;
@@ -284,8 +301,8 @@ public:
 
 	bool bSoftwareRendering;
 	bool bSoftwareRenderingJit;
+	bool bSoftwareDisableDithering;
 	bool bHardwareTransform;
-	bool bSoftwareSkinning;
 	bool bVendorBugChecksEnabled;
 
 	// Speedhacks (more will be moved here):
@@ -353,11 +370,13 @@ public:
 	bool bEnableCheats;
 	bool bReloadCheats;
 	bool bEnablePlugins;
+	bool bEnableFileHandlerPlugins;
 	int iCwCheatRefreshIntervalMs;
 	float fCwCheatScrollPosition;
 	float fGameListScrollPosition;
 	float fHomebrewScrollPosition;
 	float fRemoteScrollPosition;
+	bool bReportAccurateFreeStorageSpace;
 	int iBloomHack; //0 = off, 1 = safe, 2 = balanced, 3 = aggressive
 	int iSkipGPUReadbackMode;  // 0 = off, 1 = skip, 2 = to texture
 	int iSplineBezierQuality; // 0 = low , 1 = Intermediate , 2 = High
@@ -601,6 +620,7 @@ public:
 	bool bDontDownloadInfraJson;
 	int iChatButtonPosition;
 	int iChatScreenPosition;
+	bool bChatTimestamps;
 
 	bool bEnableQuickChat;
 	std::string sQuickChat[5];
@@ -654,6 +674,12 @@ public:
 	bool bFuncHashMap;
 	std::string sSkipFuncHashMap;
 	bool bDebugMemInfoDetailed;
+	// Auto-save a loaded module's symbols (name/CRC keyed, shared across games that load the
+	// same module) to PSP/SYSTEM/SYMBOLS on unload, and auto-load them back on module load.
+	// See SymbolMap::SaveModuleSymbols/LoadModuleSymbols and Core/HLE/sceKernelModule.cpp.
+	// Also covers the symbols that aren't inside any module, which are keyed by game instead -
+	// see SymbolMap::GetGameSymbolsPath and Load/SaveGameSymbolsIfEnabled in Core/System.cpp.
+	bool bAutoSaveLoadSymbols;
 
 	// Volatile development settings
 	// Overlays
@@ -696,7 +722,7 @@ public:
 	Path defaultCurrentDirectory;  // Platform dependent, initialized at startup.
 
 	Path memStickDirectory;
-	Path flash0Directory;
+	Path nandRootDirectory;
 	Path internalDataDirectory;
 	Path appCacheDirectory;
 

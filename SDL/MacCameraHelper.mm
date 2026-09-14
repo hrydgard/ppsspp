@@ -13,6 +13,7 @@
 #include "Common/Log.h"
 #include "Core/Config.h"
 #include "Core/HW/Camera.h"
+#include "Core/HLE/sceUsbCam.h"
 
 namespace {
 

@@ -18,7 +18,7 @@
 #include <string>
 
 #include "Common/Log.h"
-#include "Common/GraphicsContext.h"
+#include "Common/GPU/GraphicsContext.h"
 #include "Common/Profiler/Profiler.h"
 #include "Common/Data/Text/StringWriter.h"
 
@@ -97,8 +97,6 @@ void GPU_D3D11::BeginHostFrame(const DisplayLayoutConfig &config) {
 
 	textureCache_->StartFrame();
 	drawEngine_.BeginFrame();
-
-	shaderManager_->DirtyLastShader();
 
 	framebufferManager_->BeginFrame(config);
 

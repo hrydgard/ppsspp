@@ -11,7 +11,8 @@ int pngLoad(const char *file, int *pwidth,
             int *pheight, unsigned char **image_data_ptr);
 
 int pngLoadPtr(const unsigned  char *input_ptr, size_t input_len, int *pwidth,
-            int *pheight, unsigned char **image_data_ptr);
+            int *pheight, unsigned char **image_data_ptr,
+            int maxWidth = 8192, int maxHeight = 8192);
 
 // PNG peeker - just read the start of a PNG straight into this struct, in order to
 // look at basic parameters like width and height. Note that while PNG is a chunk-based

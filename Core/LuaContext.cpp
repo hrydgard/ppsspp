@@ -46,7 +46,7 @@ static void error(const std::string &message) {
 // only support read/writes that refer to the name of a memory region.
 static int r32(int address) {
 	if (Memory::IsValid4AlignedAddress(address)) {
-		return Memory::Read_U32(address);
+		return Memory::ReadUnchecked_U32(address);
 	} else {
 		g_lua.Print(LogLineType::Error, StringFromFormat("r32: bad address %08x", address));
 		return 0;
@@ -55,7 +55,7 @@ static int r32(int address) {
 
 static void w32(int address, int value) {
 	if (Memory::IsValid4AlignedAddress(address)) {
-		Memory::Write_U32(value, address);  // NOTE: These are backwards for historical reasons.
+		Memory::WriteUnchecked_U32(value, address);  // NOTE: These are backwards for historical reasons.
 	} else {
 		g_lua.Print(LogLineType::Error, StringFromFormat("w32: bad address %08x trying to write %08x", address, value));
 	}
@@ -98,6 +98,14 @@ void LuaContext::Print(LogLineType type, std::string_view text) {
 }
 
 void LuaContext::ExecuteConsoleCommand(std::string_view cmd) {
+	if (!lua_) {
+		// Init() only runs on game load and Shutdown() nulls this back out, but the ImDebugger draws
+		// the Lua console outside its PSP_IsInited() check - and whether it's open is persisted
+		// config, so it can be up with no game loaded at all.
+		Print(LogLineType::Error, "No Lua state - load a game first.");
+		return;
+	}
+
 	// TODO: Also rewrite expressions like:
 	// print "hello"
 	// to

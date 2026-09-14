@@ -1619,7 +1619,7 @@ void RiscVEmitter::SW(RiscVReg rs2, RiscVReg rs1, s32 simm12) {
 			C_SW(rs2, rs1, (u8)simm12);
 			return;
 		} else if (rs1 == R_SP && (simm12 & 0xFC) == simm12) {
-			C_LWSP(rs2, (u8)simm12);
+			C_SWSP(rs2, (u8)simm12);
 			return;
 		}
 	}
@@ -2555,8 +2555,9 @@ void RiscVEmitter::VSETIVLI(RiscVReg rd, u8 uimm5, VType vtype) {
 	_assert_msg_((vtype.value & ~0xFF) == 0, "%s with invalid vtype", __func__);
 	_assert_msg_(IsGPR(rd), "%s rd (VL) must be GPR", __func__);
 	_assert_msg_((u32)uimm5 <= 0x1F, "%s (AVL) can only set up to 31", __func__);
+	// vsetivli is distinguished from vsetvli by imm[11:10] == 0b11, so the vtype alone isn't enough.
 	s32 simm12 = 0xFFFFFC00 | vtype.value;
-	Write32(EncodeI(Opcode32::OP_V, rd, Funct3::OPCFG, (RiscVReg)uimm5, (s32)vtype.value));
+	Write32(EncodeI(Opcode32::OP_V, rd, Funct3::OPCFG, (RiscVReg)uimm5, simm12));
 }
 
 void RiscVEmitter::VSETVL(RiscVReg rd, RiscVReg rs1, RiscVReg rs2) {
@@ -3056,7 +3057,7 @@ void RiscVEmitter::VMINU_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm
 }
 
 void RiscVEmitter::VMINU_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
-	Write32(EncodeIVV(vd, rs1, vs2, vm, Funct6::VMINU));
+	Write32(EncodeIVX(vd, rs1, vs2, vm, Funct6::VMINU));
 }
 
 void RiscVEmitter::VMIN_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
@@ -3064,7 +3065,7 @@ void RiscVEmitter::VMIN_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm)
 }
 
 void RiscVEmitter::VMIN_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
-	Write32(EncodeIVV(vd, rs1, vs2, vm, Funct6::VMIN));
+	Write32(EncodeIVX(vd, rs1, vs2, vm, Funct6::VMIN));
 }
 
 void RiscVEmitter::VMAXU_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
@@ -3072,7 +3073,7 @@ void RiscVEmitter::VMAXU_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm
 }
 
 void RiscVEmitter::VMAXU_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
-	Write32(EncodeIVV(vd, rs1, vs2, vm, Funct6::VMAXU));
+	Write32(EncodeIVX(vd, rs1, vs2, vm, Funct6::VMAXU));
 }
 
 void RiscVEmitter::VMAX_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {
@@ -3080,7 +3081,7 @@ void RiscVEmitter::VMAX_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm)
 }
 
 void RiscVEmitter::VMAX_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
-	Write32(EncodeIVV(vd, rs1, vs2, vm, Funct6::VMAX));
+	Write32(EncodeIVX(vd, rs1, vs2, vm, Funct6::VMAX));
 }
 
 void RiscVEmitter::VMUL_VV(RiscVReg vd, RiscVReg vs2, RiscVReg vs1, VUseMask vm) {

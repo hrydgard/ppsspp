@@ -3,6 +3,9 @@
 #include "ppsspp_config.h"
 
 #if PPSSPP_PLATFORM(WINDOWS)
+#ifndef _CRT_NO_POSIX_ERROR_CODES
+#define _CRT_NO_POSIX_ERROR_CODES
+#endif
 #include "Common/CommonWindows.h"
 #include <io.h>
 #include <winsock2.h>
@@ -44,35 +47,18 @@ extern "C" struct hostent *gethostbyname(const char *name);
 
 // TODO: move this to some common set
 #if PPSSPP_PLATFORM(WINDOWS)
-#undef ESHUTDOWN
-#undef ECONNABORTED
-#undef ECONNRESET
-#undef ECONNREFUSED
-#undef ENETUNREACH
-#undef ENOTCONN
+#ifdef ESHUTDOWN
+#error This should not be defined. _CRT_NO_POSIX_ERROR_CODES not set in your project?
+#endif
 #undef EBADF
-#undef EAGAIN
-#undef EINPROGRESS
-#undef EISCONN
-#undef EALREADY
-#undef ETIMEDOUT
-#undef EOPNOTSUPP
-#undef ENOTSOCK
-#undef EPROTONOSUPPORT
-#undef ESOCKTNOSUPPORT
-#undef EPFNOSUPPORT
-#undef EAFNOSUPPORT
-#undef EINTR
 #undef EACCES
 #undef EFAULT
 #undef EINVAL
+#undef EINTR
 #undef ENOSPC
-#undef EHOSTDOWN
 #undef EADDRINUSE
 #undef EADDRNOTAVAIL
-#undef ENETUNREACH
-#undef EHOSTUNREACH
-#undef ENETDOWN
+#undef EAGAIN
 #define socket_errno WSAGetLastError()
 #define ESHUTDOWN WSAESHUTDOWN
 #define ECONNABORTED WSAECONNABORTED
@@ -81,7 +67,9 @@ extern "C" struct hostent *gethostbyname(const char *name);
 #define ENETUNREACH WSAENETUNREACH
 #define ENOTCONN WSAENOTCONN
 #define EBADF WSAEBADF
-#define EAGAIN WSAEWOULDBLOCK
+#define EAGAIN WSAEWOULDBLOCK  // EAGAIN does not match WSAETRY_AGAIN, that's only for DNS. WSAEWOULDBLOCK is the closest match for EAGAIN on Windows.
+#define ENOBUFS WSAENOBUFS
+#define EWOULDBLOCK WSAEWOULDBLOCK
 #define EINPROGRESS WSAEWOULDBLOCK
 #define EISCONN WSAEISCONN
 #define EALREADY WSAEALREADY

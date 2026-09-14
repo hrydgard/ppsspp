@@ -2761,6 +2761,8 @@ struct LoongArch64LSInstructionInfo {
     bool isFPLoadStore;
     int size; // 0 = 8-bit, 1 = 16-bit, 2 = 32-bit, 3 = 64-bit
     bool isMemoryWrite;
+
+	int OperandSizeInBytes() const { return size; }
 };
 
 uint32_t la_assemble(Ins *ins);

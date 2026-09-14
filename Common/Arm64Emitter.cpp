@@ -516,9 +516,13 @@ void ARM64XEmitter::EncodeTestBranchInst(u32 op, ARM64Reg Rt, u8 bits, const voi
 
 	_assert_msg_(distance >= -0x2000 && distance <= 0x1FFF, "%s: Received too large distance: %llx", __FUNCTION__, distance);
 
+	_assert_msg_(bits < (b64Bit ? 64 : 32), "%s: bit %d out of range for the register", __FUNCTION__, bits);
+
 	Rt = DecodeReg(Rt);
-	Write32((b64Bit << 31) | (0x36 << 24) | (op << 24) | \
-	        (bits << 19) | (((u32)distance << 5) & 0x7FFE0) | Rt);
+	// Bit 31 is b5 (the high bit of the bit index), NOT the register size - and b40 is only 5 bits wide.
+	// SetJumpTarget's re-encoding of this same instruction gets this right.
+	Write32((((u32)bits & 0x20) << 26) | (0x36 << 24) | (op << 24) | \
+	        (((u32)bits & 0x1F) << 19) | (((u32)distance << 5) & 0x7FFE0) | Rt);
 }
 
 void ARM64XEmitter::EncodeUnconditionalBranchInst(u32 op, const void* ptr)
@@ -662,12 +666,13 @@ void ARM64XEmitter::EncodeLoadRegisterInst(u32 bitop, ARM64Reg Rt, u32 imm)
 	bool b64Bit = Is64Bit(Rt);
 	bool bVec = IsVector(Rt);
 
-	_assert_msg_(!(imm & 0xFFFFF), "%s: offset too large %d", __FUNCTION__, imm);
+	// The literal offset field is imm19, at bits 23:5.
+	_assert_msg_(!(imm & ~0x7FFFFu), "%s: offset too large %d", __FUNCTION__, imm);
 
 	Rt = DecodeReg(Rt);
 	if (b64Bit && bitop != 0x2) // LDRSW(0x2) uses 64bit reg, doesn't have 64bit bit set
 		bitop |= 0x1;
-	Write32((bitop << 30) | (bVec << 26) | (0x18 << 24) | (imm << 5) | Rt);
+	Write32((bitop << 30) | (bVec << 26) | (0x18 << 24) | ((imm & 0x7FFFF) << 5) | Rt);
 }
 
 void ARM64XEmitter::EncodeLoadStoreExcInst(u32 instenc,
@@ -1044,8 +1049,21 @@ void ARM64XEmitter::BL(const void* ptr)
 }
 
 void ARM64XEmitter::QuickCallFunction(ARM64Reg scratchreg, const void *func) {
-	s64 distance = (s64)func - (s64)m_code;
-	distance >>= 2;  // Can only branch to opcode-aligned (4) addresses
+	s64 distance = ((s64)func - (s64)m_code) >> 2;
+	if (!IsInRangeImm26(distance)) {
+		// WARN_LOG(Log::JIT, "Distance too far in function call (%p to %p)! Using scratch.", m_code, func);
+		MOVI2R(scratchreg, (uintptr_t)func);
+		BLR(scratchreg);
+	} else {
+		BL(func);
+	}
+}
+
+void ARM64XEmitter::QuickCallFunctionR(ARM64Reg scratchreg, const void *func, ARM64Reg arg) {
+	s64 distance = ((s64)func - (s64)m_code) >> 2;
+	if (arg != X0) {
+		MOV(X0, arg);
+	}
 	if (!IsInRangeImm26(distance)) {
 		// WARN_LOG(Log::JIT, "Distance too far in function call (%p to %p)! Using scratch.", m_code, func);
 		MOVI2R(scratchreg, (uintptr_t)func);
@@ -2248,12 +2266,13 @@ void ARM64FloatEmitter::FCVTZS(ARM64Reg Rd, ARM64Reg Rn, int scale) {
 
 		Write32((1 << 30) | (0 << 29) | (0x1F << 24) | (imm << 16) | (0x1F << 11) | (1 << 10) | (Rn << 5) | Rd);
 	} else {
+		// Rd is a GPR here and Rn is the float source, so the type comes from Rn - and both still need decoding.
 		bool sf = Is64Bit(Rd);
-		u32 type = 0;
-		if (IsDouble(Rd))
-			type = 1;
+		u32 type = IsDouble(Rn) ? 1 : 0;
 		int rmode = 3;
 		int opcode = 0;
+		Rd = DecodeReg(Rd);
+		Rn = DecodeReg(Rn);
 
 		Write32((sf << 31) | (0 << 29) | (0x1E << 24) | (type << 22) | (rmode << 19) | (opcode << 16) | (scale << 10) | (Rn << 5) | Rd);
 
@@ -2268,12 +2287,13 @@ void ARM64FloatEmitter::FCVTZU(ARM64Reg Rd, ARM64Reg Rn, int scale) {
 
 		Write32((1 << 30) | (1 << 29) | (0x1F << 24) | (imm << 16) | (0x1F << 11) | (1 << 10) | (Rn << 5) | Rd);
 	} else {
+		// Rd is a GPR here and Rn is the float source, so the type comes from Rn - and both still need decoding.
 		bool sf = Is64Bit(Rd);
-		u32 type = 0;
-		if (IsDouble(Rd))
-			type = 1;
+		u32 type = IsDouble(Rn) ? 1 : 0;
 		int rmode = 3;
 		int opcode = 1;
+		Rd = DecodeReg(Rd);
+		Rn = DecodeReg(Rn);
 
 		Write32((sf << 31) | (0 << 29) | (0x1E << 24) | (type << 22) | (rmode << 19) | (opcode << 16) | (scale << 10) | (Rn << 5) | Rd);
 	}
@@ -3476,7 +3496,7 @@ void ARM64FloatEmitter::MOVI(u8 size, ARM64Reg Rd, u8 imm8, u8 shift, bool MSL) 
 	else if (size == 16)
 		cmode = 0b1000 | (shift >> 2);
 	else if (MSL)
-		cmode = 0b1100 | (shift >> 3);
+		cmode = 0b1100 | ((shift >> 3) - 1);  // MSL #8 is cmode 1100, MSL #16 is cmode 1101.
 	else if (size == 32)
 		cmode = (shift >> 2);
 	else if (size == 64)
@@ -3497,7 +3517,7 @@ void ARM64FloatEmitter::MVNI(u8 size, ARM64Reg Rd, u8 imm8, u8 shift, bool MSL) 
 	if (size == 16)
 		cmode = 0b1000 | (shift >> 2);
 	else if (MSL)
-		cmode = 0b1100 | (shift >> 3);
+		cmode = 0b1100 | ((shift >> 3) - 1);  // MSL #8 is cmode 1100, MSL #16 is cmode 1101.
 	else if (size == 32)
 		cmode = (shift >> 2);
 	else
@@ -4218,11 +4238,12 @@ void ARM64FloatEmitter::MOVI2FDUP(ARM64Reg Rd, float value, ARM64Reg scratch, bo
 		if (negate) {
 			FNEG(32, Rd, Rd);
 		}
-	} else if (TryAnyMOVI(32, Rd, ival)) {
+	} else if (TryAnyMOVI(32, Rd, (uint32_t)ival)) {
+		// NOTE: The casts matter - a negative int would sign-extend into the upper 32 bits.
 		if (negate) {
 			FNEG(32, Rd, Rd);
 		}
-	} else if (TryAnyMOVI(32, Rd, ival ^ 0x80000000)) {
+	} else if (TryAnyMOVI(32, Rd, (uint32_t)(ival ^ 0x80000000))) {
 		if (!negate) {
 			FNEG(32, Rd, Rd);
 		}
@@ -4238,8 +4259,13 @@ void ARM64FloatEmitter::MOVI2FDUP(ARM64Reg Rd, float value, ARM64Reg scratch, bo
 
 bool ARM64FloatEmitter::TryMOVI(u8 size, ARM64Reg Rd, uint64_t elementValue) {
 	if (size == 8) {
-		// Can always do 8.
-		MOVI(size, Rd, elementValue & 0xFF);
+		// MOVI with an 8-bit element replicates imm8 into every byte, so this only works if the
+		// value is byte-uniform - it is NOT "always possible", which is what this used to claim.
+		const uint8_t byte = (uint8_t)elementValue;
+		if (elementValue != byte * 0x0101010101010101ULL) {
+			return false;
+		}
+		MOVI(size, Rd, byte);
 		return true;
 	} else if (size == 16) {
 		if ((elementValue & 0xFF00) == 0) {
@@ -4278,7 +4304,8 @@ bool ARM64FloatEmitter::TryMOVI(u8 size, ARM64Reg Rd, uint64_t elementValue) {
 				MOVI(size, Rd, (elementValue >> shift) & 0xFF, shift, true);
 				return true;
 			} else if ((elementValue & mask) == notOnes) {
-				MVNI(size, Rd, (elementValue >> shift) & 0xFF, shift, true);
+				// MVNI inverts, so the imm8 to encode comes from the complement (same as the non-MSL case above).
+				MVNI(size, Rd, (~elementValue >> shift) & 0xFF, shift, true);
 				return true;
 			}
 		}
@@ -4302,25 +4329,41 @@ bool ARM64FloatEmitter::TryMOVI(u8 size, ARM64Reg Rd, uint64_t elementValue) {
 	return false;
 }
 
+// True if the 64-bit pattern is nothing but an elementSize-bit value repeated.
+static bool IsRepeatedElement(uint64_t value, int elementSize) {
+	if (elementSize >= 64)
+		return true;
+	const uint64_t mask = (1ULL << elementSize) - 1ULL;
+	const uint64_t element = value & mask;
+	for (int i = elementSize; i < 64; i += elementSize) {
+		if (((value >> i) & mask) != element)
+			return false;
+	}
+	return true;
+}
+
 bool ARM64FloatEmitter::TryAnyMOVI(u8 size, ARM64Reg Rd, uint64_t elementValue) {
 	// Try the original size first in case that's more optimal.
 	if (TryMOVI(size, Rd, elementValue))
 		return true;
 
+	// Spread the element across the full 64 bits, so we can try the other element sizes against it.
 	uint64_t value = elementValue;
 	if (size != 64) {
-		uint64_t masked = elementValue & ((1ULL << size) - 1ULL);
-		for (int i = size; i < 64; ++i) {
+		const uint64_t masked = elementValue & ((1ULL << size) - 1ULL);
+		value = 0;
+		for (int i = 0; i < 64; i += size) {
 			value |= masked << i;
 		}
 	}
 
 	for (int attempt = 8; attempt <= 64; attempt += attempt) {
-		// Original size was already attempted above.
-		if (attempt != size) {
-			if (TryMOVI(attempt, Rd, value))
-				return true;
-		}
+		// A different element size can only express this value if the value actually repeats at
+		// that width - MOVI/MVNI replicate the element across the whole register.
+		if (!IsRepeatedElement(value, attempt))
+			continue;
+		if (TryMOVI(attempt, Rd, value))
+			return true;
 	}
 
 	return false;

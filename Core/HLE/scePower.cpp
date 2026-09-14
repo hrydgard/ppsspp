@@ -204,6 +204,24 @@ static int scePowerIsLowBattery() {
 	return hleLogDebug(Log::HLE, 0);
 }
 
+static int scePowerIsSuspendRequired() {
+	return hleLogDebug(Log::HLE, 0);
+}
+
+static int scePowerCancelRequest(u32 something) {
+	return hleLogError(Log::sceMisc, 0, "UNIMPL");
+}
+
+static int scePowerRequestSuspend() {
+	// Don't think we need to do anything.
+	return hleLogWarning(Log::sceMisc, 0, "UNIMPL");
+}
+
+static int scePowerRequestStandby() {
+	// Don't think we need to do anything.
+	return hleLogWarning(Log::sceMisc, 0, "UNIMPL");
+}
+
 static int scePowerRegisterCallback(int slot, int cbId) {
 	if (slot < -1 || slot >= numberOfCBPowerSlotsPrivate) {
 		return hleLogError(Log::HLE, PSP_POWER_ERROR_INVALID_SLOT);
@@ -409,16 +427,16 @@ static int sceKernelVolatileMemLock(int type, u32 paddr, u32 psize) {
 	case SCE_KERNEL_ERROR_CAN_NOT_WAIT:
 		{
 			WARN_LOG(Log::HLE, "sceKernelVolatileMemLock(%i, %08x, %08x): dispatch disabled", type, paddr, psize);
-			Memory::Write_U32(0x08400000, paddr);
-			Memory::Write_U32(0x00400000, psize);
+			Memory::WriteOrException_U32(0x08400000, paddr);
+			Memory::WriteOrException_U32(0x00400000, psize);
 		}
 		break;
 
 	case SCE_KERNEL_ERROR_ILLEGAL_CONTEXT:
 		{
 			WARN_LOG(Log::HLE, "sceKernelVolatileMemLock(%i, %08x, %08x): in interrupt", type, paddr, psize);
-			Memory::Write_U32(0x08400000, paddr);
-			Memory::Write_U32(0x00400000, psize);
+			Memory::WriteOrException_U32(0x08400000, paddr);
+			Memory::WriteOrException_U32(0x00400000, psize);
 		}
 		break;
 
@@ -568,7 +586,7 @@ static const HLEFunction scePower[] = {
 	{0X1E490401, &WrapI_V<scePowerIsBatteryCharging>,         "scePowerIsBatteryCharging",         'i', ""   },
 	{0XB4432BC8, &WrapI_V<scePowerGetBatteryChargingStatus>,  "scePowerGetBatteryChargingStatus",  'i', ""   },
 	{0XD3075926, &WrapI_V<scePowerIsLowBattery>,              "scePowerIsLowBattery",              'i', ""   },
-	{0X78A1A796, nullptr,                                     "scePowerIsSuspendRequired",         '?', ""   },
+	{0X78A1A796, &WrapI_V<scePowerIsSuspendRequired>,         "scePowerIsSuspendRequired",         '?', ""   },
 	{0X94F5A53F, nullptr,                                     "scePowerGetBatteryRemainCapacity",  '?', ""   },
 	{0XFD18A0FF, nullptr,                                     "scePowerGetBatteryFullCapacity",    '?', ""   },
 	{0X2085D15D, &WrapI_V<scePowerGetBatteryLifePercent>,     "scePowerGetBatteryLifePercent",     'i', ""   },
@@ -582,10 +600,10 @@ static const HLEFunction scePower[] = {
 	{0X165CE085, nullptr,                                     "scePowerGetPowerSwMode",            '?', ""   },
 	{0XD6D016EF, nullptr,                                     "scePowerLock",                      '?', ""   },
 	{0XCA3D34C1, nullptr,                                     "scePowerUnlock",                    '?', ""   },
-	{0XDB62C9CF, nullptr,                                     "scePowerCancelRequest",             '?', ""   },
+	{0XDB62C9CF, &WrapI_U<scePowerCancelRequest>,             "scePowerCancelRequest",             'i', ""   },
 	{0X7FA406DD, nullptr,                                     "scePowerIsRequest",                 '?', ""   },
-	{0X2B7C7CF4, nullptr,                                     "scePowerRequestStandby",            '?', ""   },
-	{0XAC32C9CC, nullptr,                                     "scePowerRequestSuspend",            '?', ""   },
+	{0X2B7C7CF4, &WrapI_V<scePowerRequestStandby>,            "scePowerRequestStandby",            'I', ""   },
+	{0XAC32C9CC, &WrapI_V<scePowerRequestSuspend>,            "scePowerRequestSuspend",            'I', ""   },
 	{0X2875994B, nullptr,                                     "scePower_2875994B",                 '?', ""   },
 	{0X0074EF9B, nullptr,                                     "scePowerGetResumeCount",            '?', ""   },
 	{0XDFA8BAF8, &WrapI_I<scePowerUnregisterCallback>,        "scePowerUnregisterCallback",        'i', "i"  },
@@ -602,7 +620,7 @@ static const HLEFunction scePower[] = {
 	{0X34F9C463, &WrapU_V<scePowerGetPllClockFrequencyInt>,   "scePowerGetPllClockFrequencyInt",   'x', ""   },
 	{0XEA382A27, &WrapF_V<scePowerGetPllClockFrequencyFloat>, "scePowerGetPllClockFrequencyFloat", 'f', ""   },
 	{0XEBD177D6, &WrapU_UUU<scePowerSetClockFrequency>,       "scePowerSetClockFrequency350",      'x', "xxx"}, // This is also the same as SetClockFrequency
-	{0X469989AD, &WrapU_UUU<scePowerSetClockFrequency>,       "scePower_469989ad",                 'x', "xxx"}, // This is also the same as SetClockFrequency
+	{0X469989AD, &WrapU_UUU<scePowerSetClockFrequency>,       "scePowerSetClockFrequency630",      'x', "xxx"}, // This is also the same as SetClockFrequency
 	{0X545A7F3C, nullptr,                                     "scePower_545A7F3C",                 '?', ""   }, // TODO: Supposedly the same as SetClockFrequency also?
 	{0XA4E93389, nullptr,                                     "scePower_A4E93389",                 '?', ""   }, // TODO: Supposedly the same as SetClockFrequency also?
 	{0XA85880D0, &WrapU_V<scePowerCheckWlanCoexistenceClock>, "scePowerCheckWlanCoexistenceClock", 'x', ""   },
@@ -633,6 +651,28 @@ const HLEFunction sceSuspendForUser[] = {
 
 void Register_scePower() {
 	RegisterHLEModule("scePower",ARRAY_SIZE(scePower),scePower);
+}
+
+// Real name unknown (jpcsp's scePower.java doesn't have one either - it's named after its
+// own NID, scePower_driver_5F5006D2, and just returns 0 unconditionally). Kernel-only alias
+// module some firmware-660+ code (e.g. the VSH's sceVshBridge_Driver) imports from.
+static int scePower_driver_5F5006D2() {
+	return hleLogDebug(Log::HLE, 0, "UNTESTED");
+}
+
+// Configures which events would wake the console from suspend. We never suspend, so there's
+// nothing to arm - but the VSH calls it during startup and wants a success back.
+static int scePowerSetWakeupCondition(u32 condition) {
+	return hleLogWarning(Log::sceMisc, 0, "UNIMPL");
+}
+
+const HLEFunction scePower_driver[] = {
+	{0X5F5006D2, &WrapI_V<scePower_driver_5F5006D2>,          "scePower_driver_5F5006D2",          'i', ""   },
+	{0XBA566CD0, &WrapI_U<scePowerSetWakeupCondition>,        "scePowerSetWakeupCondition",        'i', "x"  },
+};
+
+void Register_scePower_driver() {
+	RegisterHLEModule("scePower_driver", ARRAY_SIZE(scePower_driver), scePower_driver);
 }
 
 void Register_sceSuspendForUser() {

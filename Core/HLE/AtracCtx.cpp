@@ -165,7 +165,7 @@ void Atrac::ResetData() {
 }
 
 u8 *Atrac::BufferStart() {
-	return ignoreDataBuf_ ? Memory::GetPointerWrite(first_.addr) : dataBuf_;
+	return ignoreDataBuf_ ? Memory::GetPointerWriteOrException(first_.addr) : dataBuf_;
 }
 
 AtracBase::~AtracBase() {
@@ -960,15 +960,24 @@ void Atrac::CheckForSas() {
 }
 
 int Atrac::EnqueueForSas(u32 bufPtr, u32 bytesToAdd) {
-	int addbytes = std::min(bytesToAdd, track_.fileSize - first_.fileoffset - track_.FirstOffsetExtra());
-	Memory::Memcpy(dataBuf_ + first_.fileoffset + track_.FirstOffsetExtra(), bufPtr, addbytes, "AtracAddStreamData");
+	// Compute in signed 64-bit so an attacker-controlled fileoffset /
+	// FirstOffsetExtra can't underflow the space-left clamp and leave
+	// addbytes unclamped.
+	const s64 destOffset = (s64)first_.fileoffset + track_.FirstOffsetExtra();
+	const s64 spaceLeft = (s64)track_.fileSize - destOffset;
+	s64 addbytes = std::min<s64>((s64)bytesToAdd, spaceLeft);
+	if (addbytes < 0)
+		addbytes = 0;
+	if (addbytes > 0) {
+		Memory::Memcpy(dataBuf_ + destOffset, bufPtr, (u32)addbytes, "AtracAddStreamData");
+	}
 	first_.size += bytesToAdd;
 	if (first_.size >= track_.fileSize) {
 		first_.size = track_.fileSize;
 		if (bufferState_ == ATRAC_STATUS_HALFWAY_BUFFER)
 			bufferState_ = ATRAC_STATUS_ALL_DATA_LOADED;
 	}
-	first_.fileoffset += addbytes;
+	first_.fileoffset += (u32)addbytes;
 	// refresh context_
 	WriteContextToPSPMem();
 	return 0;

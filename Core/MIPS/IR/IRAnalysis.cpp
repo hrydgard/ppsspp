@@ -77,7 +77,7 @@ static int IRReadsFromList(const IRInstMeta &inst, IRReg regs[4], char type) {
 	if ((inst.m.flags & (IRFLAG_SRC3 | IRFLAG_SRC3DST)) != 0 && inst.m.types[0] == type)
 		regs[c++] = inst.src3;
 
-	if (inst.op == IROp::Interpret || inst.op == IROp::CallReplacement || inst.op == IROp::Syscall || inst.op == IROp::Break)
+	if (inst.op == IROp::Interpret || inst.op == IROp::CallReplacement || inst.op == IROp::Syscall || inst.op == IROp::SyscallUnresolved ||inst.op == IROp::Break)
 		return -1;
 	if (inst.op == IROp::Breakpoint || inst.op == IROp::MemoryCheck)
 		return -1;

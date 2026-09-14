@@ -6,8 +6,6 @@
 #include "Common/Log.h"
 #include "Core/Config.h"
 
-constexpr size_t WaveFileWriter::BUFFER_SIZE;
-
 WaveFileWriter::WaveFileWriter() {}
 
 WaveFileWriter::~WaveFileWriter()
@@ -78,10 +76,15 @@ void WaveFileWriter::Write4(const char* ptr)
 	file.WriteBytes(ptr, 4);
 }
 
+// count is the number of stereo frames, so 4 bytes each.
 void WaveFileWriter::AddStereoSamples(const short* sample_data, uint32_t count)
 {
-	_assert_msg_(file, "WaveFileWriter - file not open.");
-	_assert_msg_(count <= BUFFER_SIZE * 2, "WaveFileWriter - buffer too small (count = %u).", count);
+	if (!file) {
+		// Callers are supposed to check that Start() succeeded, but this used to assert - which
+		// isn't compiled out in release builds, so a file we couldn't open crashed the emulator.
+		ERROR_LOG(Log::System, "WaveFileWriter - file not open.");
+		return;
+	}
 
 	if (skip_silence)
 	{

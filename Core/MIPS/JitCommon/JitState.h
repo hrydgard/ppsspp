@@ -58,6 +58,7 @@ namespace MIPSComp {
 		int nextExit;
 		bool cancel;
 		bool inDelaySlot;
+		bool kernelMode;  // Changes what instructions are allowed.
 		// See JitState::AfterOp for values.
 		int afterOp;
 		int downcountAmount;

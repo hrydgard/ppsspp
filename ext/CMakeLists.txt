@@ -36,6 +36,44 @@ add_subdirectory(at3_standalone)
 add_subdirectory(udis86)
 add_subdirectory(SPIRV-Cross-build)
 add_subdirectory(rcheevos-build)
+add_subdirectory(gason)
+add_subdirectory(vma)
+add_subdirectory(cityhash)
+add_subdirectory(lzma-sdk)
+add_subdirectory(basis_universal)
+add_subdirectory(pugixml)
+add_subdirectory(libkirk)
+add_subdirectory(sfmt19937)
+add_subdirectory(xbrz)
+
+add_library(xxhash STATIC
+	xxhash.c
+	xxhash.h
+)
+
+set(aemu_postoffice_client_obj
+	aemu_postoffice/client/postoffice.c
+	aemu_postoffice/client/postoffice_mem_stdc.c
+	aemu_postoffice/client/mutex_impl_cpp.cpp
+	aemu_postoffice/client/delay_impl_cpp.cpp
+	aemu_postoffice/client/log_impl_ppsspp.cpp
+)
+
+if(WIN32)
+	list(APPEND aemu_postoffice_client_obj
+		aemu_postoffice/client/sock_impl_windows.c
+	)
+endif()
+
+if(LINUX OR ANDROID OR MACOSX OR IOS OR BSD)
+	list(APPEND aemu_postoffice_client_obj
+		aemu_postoffice/client/sock_impl_linux.c
+	)
+endif()
+
+add_library(aemu_postoffice_client STATIC
+	${aemu_postoffice_client_obj}
+)
 
 set(FT_REQUIRE_ZLIB OFF CACHE BOOL "" FORCE)
 set(FT_REQUIRE_BZIP2 OFF CACHE BOOL "" FORCE)

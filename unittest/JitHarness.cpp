@@ -38,15 +38,6 @@
 #include "Core/Config.h"
 #include "Core/HLE/HLE.h"
 
-// Temporary hacks around annoying linking errors.  Copied from Headless.
-void NativeFrame(GraphicsContext *graphicsContext) { }
-void NativeResized() { }
-
-bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4) { return false; }
-void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) { cb(false, ""); }
-void System_AskForPermission(SystemPermission permission) {}
-PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
-
 void UnitTestTerminator() {
 	// Bails out of jit so we can time things.
 	coreState = CORE_POWERDOWN;
@@ -109,7 +100,7 @@ static void SetupJitHarness() {
 
 	Memory::Init(Memory::MemMapSetupFlags::Default);
 	mipsr4k.Reset();
-	CoreTiming::Init();
+	CoreTiming::Init(currentMIPS);
 	InitVFPU();
 }
 
@@ -129,7 +120,7 @@ bool TestJit() {
 
 	g_Config.bFastMemory = true;
 	currentMIPS->pc = PSP_GetUserMemoryBase();
-	u32 *p = (u32 *)Memory::GetPointer(currentMIPS->pc);
+	u32 *p = (u32 *)Memory::GetPointerOrException(currentMIPS->pc);
 
 	// TODO: Smarter way of seeding in the code sequence.
 	static const char *lines[] = {
@@ -156,16 +147,6 @@ bool TestJit() {
 	u32 addr = currentMIPS->pc;
 	DebugInterface *dbg = currentDebugMIPS;
 	for (int i = 0; i < 100; ++i) {
-		/*
-		// VFPU ops aren't supported by MIPSAsm yet.
-		*p++ = 0xD03C0000 | (1 << 7) | (1 << 15) | (7 << 8);
-		*p++ = 0xD03C0000 | (1 << 7) | (1 << 15);
-		*p++ = 0xD03C0000 | (1 << 7) | (1 << 15) | (7 << 8);
-		*p++ = 0xD03C0000 | (1 << 7) | (1 << 15) | (7 << 8);
-		*p++ = 0xD03C0000 | (1 << 7) | (1 << 15) | (7 << 8);
-		*p++ = 0xD03C0000 | (1 << 7) | (1 << 15) | (7 << 8);
-		*p++ = 0xD03C0000 | (1 << 7) | (1 << 15) | (7 << 8);
-		*/
 		std::string error;
 		for (size_t j = 0; j < ARRAY_SIZE(lines); ++j) {
 			p++;
@@ -201,7 +182,7 @@ bool TestJit() {
 		jit_speed = ExecCPUTest();
 #if !PPSSPP_PLATFORM(MAC)
 		mipsr4k.UpdateCore(CPUCore::JIT_IR);
-		jit_ir_speed = ExecCPUTest(false);
+		jit_ir_speed = ExecCPUTest(false);  // not clearing, so the below can do things.
 #endif
 
 		// Disassemble

@@ -39,17 +39,31 @@ public:
 	}
 };
 
+// Helper to detect if a type is std::atomic
+template <typename T>
+struct is_atomic : std::false_type {};
+
+template <typename T>
+struct is_atomic<std::atomic<T>> : std::true_type {};
+
+template <typename T>
+struct is_atomic<const std::atomic<T>> : std::true_type {};
+
+template <typename T>
+struct is_atomic<volatile std::atomic<T>> : std::true_type {};
+
+template <typename T>
+struct is_atomic<const volatile std::atomic<T>> : std::true_type {};
+
 // Use on atomics to check if they're equal to one of multiple values.
 template <typename T, typename... Ts>
 bool equals_any(const T& first, const Ts... rest) {
 	// Make a single copy (or single load, if atomic)
-	auto value = [&]() {
-		if constexpr (std::is_same_v<T, std::atomic<typename T::value_type>>) {
-			return first.load();
-		} else {
-			return first;
-		}
-	}();
-
-	return ((value == rest) || ...);
+	using BaseType = std::remove_reference_t<T>;
+	if constexpr (is_atomic<BaseType>::value) {
+		auto value = first.load();
+		return ((value == rest) || ...);
+	} else {
+		return ((first == rest) || ...);
+	}
 }

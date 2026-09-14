@@ -193,13 +193,20 @@ void RiscVJitBackend::CompIR_System(IRInst inst) {
 		// Skip the CallSyscall where possible.
 		{
 			MIPSOpcode op(inst.constant);
-			void *quickFunc = GetQuickSyscallFunc(op);
-			if (quickFunc) {
-				LI(X10, (uintptr_t)GetSyscallFuncPointer(op));
-				QuickCallFunction((const u8 *)quickFunc, SCRATCH2);
+			const HLEFunction *func = GetSyscallFunctionData(op, 0);
+			if (func) {
+				void *quickFunc = GetQuickSyscallFunc(func, op);
+				if (quickFunc) {
+					LI(X10, (uintptr_t)func);
+					QuickCallFunction((const u8 *)quickFunc, SCRATCH2);
+				} else {
+					LI(X10, (int32_t)inst.constant);
+					QuickCallFunction(&CallSyscall, SCRATCH2);
+				}
 			} else {
-				LI(X10, (int32_t)inst.constant);
-				QuickCallFunction(&CallSyscall, SCRATCH2);
+				// Shouldn't get here.
+				LI(X10, 0);
+				QuickCallFunction(&CallSyscallUnresolvedAtPC, SCRATCH2);
 			}
 		}
 #endif

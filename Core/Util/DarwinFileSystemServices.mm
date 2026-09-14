@@ -238,6 +238,9 @@ void DarwinFileSystemServices::presentDirectoryPanel(
 		case BrowseFileType::BOOTABLE:
 			[panel setAllowedFileTypes:[NSArray arrayWithObjects:@"iso", @"cso", @"chd", @"pbp", @"elf", @"zip", @"ppdmp", @"prx", nil]];
 			break;
+		case BrowseFileType::SAVE_STATE:
+			[panel setAllowedFileTypes:[NSArray arrayWithObjects:@"ppst", nil]];
+			break;
 		case BrowseFileType::IMAGE:
 			[panel setAllowedFileTypes:[NSArray arrayWithObjects:@"jpg", @"png", nil]];
 			break;

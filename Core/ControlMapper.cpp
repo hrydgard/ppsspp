@@ -683,7 +683,10 @@ void ControlMapper::Axis(const AxisInput *axes, size_t count) {
 		if (deviceIndex < (size_t)DEVICE_ID_COUNT) {
 			deviceTimestamps_[deviceIndex] = now;
 		}
-		rawAxisValue_[axis.axisId] = axis.value;  // these are only used for co-axis mapping
+		// Same as deviceId above, axisId comes straight from the device and can be out of range.
+		if ((size_t)axis.axisId < JOYSTICK_AXIS_MAX) {
+			rawAxisValue_[axis.axisId] = axis.value;  // these are only used for co-axis mapping
+		}
 		if (axis.value >= 0.0f) {
 			InputMapping mapping(axis.deviceId, axis.axisId, 1);
 			InputMapping opposite(axis.deviceId, axis.axisId, -1);
@@ -831,6 +834,11 @@ void ControlMapper::GetDebugString(StringWriter &w) const {
 	}
 	w.F("Lstick: %f, %f\n", converted_[0][0], converted_[0][1]);
 	w.F("Rstick: %f, %f\n", converted_[1][0], converted_[1][1]);
+}
+
+void ControlMapper::AddListener(ControlListener *listener) {
+	std::lock_guard<std::mutex> guard(mutex_);
+	listeners_.push_back(listener);
 }
 
 void ControlMapper::RemoveListener(ControlListener *listener) {

@@ -135,7 +135,7 @@ inline void DeIndexTexture(/*WRITEONLY*/ ClutT *dest, const IndexT *indexed, int
 
 template <typename IndexT, typename ClutT>
 inline void DeIndexTexture(/*WRITEONLY*/ ClutT *dest, const u32 texaddr, int length, const ClutT *clut, u32 *outAlphaSum) {
-	const IndexT *indexed = (const IndexT *) Memory::GetPointer(texaddr);
+	const IndexT *indexed = (const IndexT *) Memory::GetPointerOrException(texaddr);
 	DeIndexTexture(dest, indexed, length, clut, outAlphaSum);
 }
 
@@ -221,12 +221,12 @@ inline void DeIndexTexture4OptimalRev(u16 *dest, const u8 *indexed, int length, 
 
 template <typename ClutT>
 inline void DeIndexTexture4(ClutT *dest, const u32 texaddr, int length, const ClutT *clut) {
-	const u8 *indexed = (const u8 *) Memory::GetPointer(texaddr);
+	const u8 *indexed = (const u8 *) Memory::GetPointerOrException(texaddr);
 	DeIndexTexture4(dest, indexed, length, clut);
 }
 
 template <typename ClutT>
 inline void DeIndexTexture4Optimal(ClutT *dest, const u32 texaddr, int length, ClutT color) {
-	const u8 *indexed = (const u8 *) Memory::GetPointer(texaddr);
+	const u8 *indexed = (const u8 *) Memory::GetPointerOrException(texaddr);
 	DeIndexTexture4Optimal(dest, indexed, length, color);
 }

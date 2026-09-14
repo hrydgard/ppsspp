@@ -29,6 +29,7 @@
 #include <mutex>
 #include <thread>
 #include <climits>
+#include <ctime>
 
 #include "Common/Net/Resolve.h"
 #include "Common/Serialize/Serializer.h"
@@ -884,7 +885,12 @@ void addFriend(SceNetAdhocctlConnectPacketS2C * packet);
 * @param std::string ChatString 
 */
 void sendChat(std::string_view chatString);
-std::vector<std::string> getChatLog();
+
+struct ChatLogEntry {
+	std::string text;  // "name: message", or an info line with no colon.
+	time_t timestamp;
+};
+std::vector<ChatLogEntry> getChatLog();
 int GetChatChangeID();
 int GetChatMessageCount();
 

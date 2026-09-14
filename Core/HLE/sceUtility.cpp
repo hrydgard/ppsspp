@@ -25,6 +25,10 @@
 #include "Common/Serialize/SerializeMap.h"
 #include "Common/Serialize/SerializeSet.h"
 #include "Common/File/VFS/VFS.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/StringUtils.h"
+#include "Common/System/OSD.h"
+#include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
 #include "Core/HLE/HLE.h"
@@ -46,6 +50,7 @@
 #include "Core/HLE/sceAtrac.h"
 #include "Core/HLE/sceUtility.h"
 #include "Core/HLE/sceNet.h"
+#include "Core/HLE/sceNetAdhoc.h"
 
 #include "Core/Dialog/PSPDialog.h"
 #include "Core/Dialog/PSPSaveDialog.h"
@@ -80,19 +85,105 @@ static const int atrac3PlusModuleDeps[] = {0x0300, 0};
 static const int mpegBaseModuleDeps[] = {0x0300, 0};
 static const int mp4ModuleDeps[] = {0x0300, 0};
 
+// Loading the firmware's module for a library we've been told not to HLE.
+//
+// This is the path for a game that brings no copy of its own. One that does loads it directly and
+// never comes here: a third of the checked games ship an AV library, and of the twelve seen doing both,
+// not one asked sceUtility for a library it had already loaded - only for the ones it hadn't
+// brought. Toca Race Driver ships LIBMP3.PRX and asks for 0x300 to 0x303.
+//
+// So the module-list check below is a guard rather than the normal path, and it costs nothing:
+// asking the list rather than remembering what we loaded means this needs no state of its own. It
+// is right after a savestate load, across games, and if a game unloads a library and asks again.
+struct FirmwareModule {
+	const char *path;        // in the firmware
+	const char *moduleName;  // what the module calls itself once loaded
+};
+
+static void LoadFirmwareModules(const char *library, const FirmwareModule *modules, size_t count) {
+	for (size_t i = 0; i < count; i++) {
+		if (KernelModuleIsLoaded(modules[i].moduleName)) {
+			DEBUG_LOG(Log::sceUtility, "%s is already loaded - not loading %s on top of it",
+				modules[i].moduleName, modules[i].path);
+			continue;
+		}
+		if (!pspFileSystem.GetFileInfo(modules[i].path).exists) {
+			// Nothing to fall back to: the game's imports were resolved against the real module
+			// when it loaded, so putting our HLE back now is not an option.
+			ERROR_LOG(Log::sceUtility, "%s HLE is disabled, but %s isn't in the firmware and the "
+				"game didn't bring its own - it will get unresolved imports", library, modules[i].path);
+			auto sy = GetI18NCategory(I18NCat::SYSTEM);
+			// Keyed per library, so a game that asks for the module again replaces the message
+			// rather than stacking another copy of it, and two missing libraries still both show.
+			char osdId[64];
+			snprintf(osdId, sizeof(osdId), "hle_no_module_%s", library);
+			g_OSD.Show(OSDType::MESSAGE_WARNING, ApplySafeSubstitutions(
+				sy->T("%1 needs a firmware installed to run without HLE. Install one, or re-enable HLE for it."),
+				library), 6.0f, osdId);
+			return;
+		}
+		std::string error;
+		SceUID id = KernelLoadModule(modules[i].path, &error, false);
+		if (id < 0) {
+			ERROR_LOG(Log::sceUtility, "Couldn't load %s: %s", modules[i].path, error.c_str());
+			return;
+		}
+		const int result = __KernelStartModule(id, 0, 0, 0, nullptr, nullptr);
+		if (result < 0) {
+			ERROR_LOG(Log::sceUtility, "Failed to start %s (%08x)", modules[i].path, result);
+			return;
+		}
+		INFO_LOG(Log::sceUtility, "Loaded the real %s", modules[i].path);
+	}
+}
+
+// libmp3.prx imports nothing but the kernel and sceAudiocodec, which we have.
+static void NotifyLoadStatusMp3(int state, u32 loadAddr, u32 totalSize) {
+	// The effective flags, not the raw setting: those also account for the compat flags, for a
+	// firmware dump that isn't there, and for the boundary a savestate restored - resolving
+	// imports one way and loading modules the other is how a game ends up with neither.
+	if (state != 1 || !(GetEffectiveDisableHLEFlags() & DisableHLEFlags::sceMp3)) {
+		return;
+	}
+	static const FirmwareModule modules[] = {
+		{ "flash0:/kd/libmp3.prx", "sceMp3_Library" },
+	};
+	LoadFirmwareModules("sceMp3", modules, ARRAY_SIZE(modules));
+}
+
 static void NotifyLoadStatusAvcodec(int state, u32 loadAddr, u32 totalSize) {
 	JpegNotifyLoadStatus(state);
 }
 
+// The MP4 libraries are a good candidate for running the real thing: libmp4.prx needs only two
+// functions from sceAudiocodec (Init and Decode) plus ordinary kernel calls, and mp4msv.prx - the
+// 41 functions libmp4 leans on - imports nothing at all.
+static void NotifyLoadStatusMp4(int state, u32 loadAddr, u32 totalSize) {
+	if (state != 1 || !(GetEffectiveDisableHLEFlags() & DisableHLEFlags::sceMp4)) {
+		return;
+	}
+	// mp4msv first - libmp4 imports from it, and an import can only resolve to a module that is
+	// already loaded.
+	static const FirmwareModule modules[] = {
+		{ "flash0:/kd/mp4msv.prx", "mp4msv_module" },
+		{ "flash0:/kd/libmp4.prx", "sceMp4_library" },
+	};
+	LoadFirmwareModules("sceMp4", modules, ARRAY_SIZE(modules));
+}
+
 static void NotifyLoadStatusAtrac(int state, u32 loadAddr, u32 totalSize) {
 	if (state == 1) {
-		// If HLE of sceAtrac is disabled, things will break!
-		// For now we do angry logging and a debug assert.
-		if ((DisableHLEFlags)g_Config.iDisableHLE & DisableHLEFlags::sceAtrac) {
-			ERROR_LOG(Log::ME, "sceAtrac HLE is disabled, and the game tries to load sceAtrac from firmware - this won't work!");
-			_dbg_assert_(false);
-
-			// Actually, if the user has an F0 (psardumper) dump, we could go look for the file there.
+		// The effective flags, for the same reason the loads above use them.
+		if (GetEffectiveDisableHLEFlags() & DisableHLEFlags::sceAtrac) {
+			// libatrac3plus.prx imports only Kernel_Library and sceAudiocodec, both of which we
+			// have, so the real module runs against our HLE the same way libmp3.prx does. Nothing
+			// below applies once it does: the atrac contexts then live in that module's own bss,
+			// not in the block we hand out here, and the game's calls go to it rather than to us.
+			static const FirmwareModule modules[] = {
+				{ "flash0:/kd/libatrac3plus.prx", "sceATRAC3plus_Library" },
+			};
+			LoadFirmwareModules("sceAtrac", modules, ARRAY_SIZE(modules));
+			return;
 		}
 
 		// We try to imitate a recent version of the prx.
@@ -102,8 +193,19 @@ static void NotifyLoadStatusAtrac(int state, u32 loadAddr, u32 totalSize) {
 		_dbg_assert_(bssSize <= totalSize);
 		__AtracNotifyLoadModule(version, 0, loadAddr, bssSize);
 	} else if (state == -1) {
-		// Unload.
+		// Unload. Harmless when the firmware's module took over - there was no load to undo.
 		__AtracNotifyUnloadModule();
+	}
+}
+
+// Which library each AV utility module provides, for the ones a real module can take over when
+// HLE is disabled for it. See LoadModuleInternal.
+static DisableHLEFlags UtilityModuleLibraryFlag(u32 module) {
+	switch (module) {
+	case 0x302: return DisableHLEFlags::sceAtrac;    // av_atrac3plus
+	case 0x304: return DisableHLEFlags::sceMp3;      // av_mp3
+	case 0x308: return DisableHLEFlags::sceMp4;      // av_mp4
+	default: return (DisableHLEFlags)0;
 	}
 }
 
@@ -134,11 +236,11 @@ static const ModuleLoadInfo moduleLoadInfo[] = {
 	// Changing this breaks some bad cheats though..
 	ModuleLoadInfo(0x302, 0x00008000, "av_atrac3plus", atrac3PlusModuleDeps, &NotifyLoadStatusAtrac),
 	ModuleLoadInfo(0x303, 0x0000c000, "av_mpegbase", mpegBaseModuleDeps),
-	ModuleLoadInfo(0x304, 0x00004000, "av_mp3"),
+	ModuleLoadInfo(0x304, 0x00004000, "av_mp3", &NotifyLoadStatusMp3),
 	ModuleLoadInfo(0x305, 0x0000a300, "av_vaudio"),
 	ModuleLoadInfo(0x306, 0x00004000, "av_aac"),
 	ModuleLoadInfo(0x307, 0x00000000, "av_g729"),
-	ModuleLoadInfo(0x308, 0x0003c000, "av_mp4", mp4ModuleDeps),
+	ModuleLoadInfo(0x308, 0x0003c000, "av_mp4", mp4ModuleDeps, &NotifyLoadStatusMp4),
 	ModuleLoadInfo(0x3fe, 0x00000000, "me_stuff"),
 	ModuleLoadInfo(0x3ff, 0x00000000, "me_core"),  // ME Core?
 	ModuleLoadInfo(0x400, 0x0000c000, "np_common"),
@@ -361,6 +463,16 @@ void __UtilityDoState(PointerWrap &p) {
 	if (s >= 4) {
 		Do(p, hasAccessThread);
 		if (hasAccessThread) {
+			if (p.mode == p.MODE_READ && accessThread) {
+				// Do() below would delete the stale host object without Forget(),
+				// letting ~HLEHelperThread run __KernelDeleteThread and free kernel
+				// memory using pre-load ids/blocks against the restored kernel
+				// state. If an id or block was recycled, that kills a live thread
+				// or frees a live allocation. Same pattern as __IoDoState.
+				accessThread->Forget();
+				delete accessThread;
+				accessThread = nullptr;
+			}
 			Do(p, accessThread);
 			if (p.mode == p.MODE_READ)
 				accessThreadState = "from save state";
@@ -662,10 +774,15 @@ static int LoadModuleInternal(u32 module, bool av) {
 	}
 
 	u32 allocSize = info->size;
+	const DisableHLEFlags libraryFlag = UtilityModuleLibraryFlag(module);
+	if (libraryFlag != (DisableHLEFlags)0 && (GetEffectiveDisableHLEFlags() & libraryFlag)) {
+		allocSize = 0;
+	}
+
 	u32 address = 0;
-	char name[128];
-	snprintf(name, sizeof(name), "UtilityModule/%3x_%s", module, info->name);
 	if (allocSize != 0) {
+		char name[128];
+		snprintf(name, sizeof(name), "UtilityModule/%3x_%s", module, info->name);
 		address = userMemory.Alloc(allocSize, false, name);
 	}
 	currentlyLoadedModules[module] = address;
@@ -1080,7 +1197,7 @@ static int sceUtilityGetNetParam(int id, int param, u32 dataAddr) {
 static int sceUtilityGetNetParamLatestID(u32 idAddr) {
 	DEBUG_LOG(Log::sceUtility, "sceUtilityGetNetParamLatestID(%08x)", idAddr);
 	// This function is saving the last net param ID (non-zero ID?) and not the number of net configurations.
-	Memory::Write_U32(netParamLatestId, idAddr);
+	Memory::WriteOrException_U32(netParamLatestId, idAddr);
 
 	return 0;
 }
@@ -1210,19 +1327,23 @@ static u32 sceUtilitySetSystemParamString(u32 id, u32 strPtr)
 }
 
 static u32 sceUtilityGetSystemParamString(u32 id, u32 destAddr, int destSize) {
-	if (!Memory::IsValidRange(destAddr, destSize)) {
+	// A size that isn't positive can't hold the string, and that's what the PSP reports - not a
+	// bad-buffer error. Range checking it first would turn a negative size into a huge range.
+	if (destSize > 0 && !Memory::IsValidRange(destAddr, destSize)) {
 		// TODO: What error code?
 		return hleLogError(Log::sceUtility, -1);
 	}
-	char *buf = (char *)Memory::GetPointerWriteUnchecked(destAddr);
 	switch (id) {
 	case PSP_SYSTEMPARAM_ID_STRING_NICKNAME:
+	{
 		// If there's not enough space for the string and null terminator, fail.
 		if (destSize <= (int)g_Config.sNickName.length())
 			return SCE_ERROR_UTILITY_STRING_TOO_LONG;
+		char *buf = (char *)Memory::GetPointerWriteUnchecked(destAddr);
 		// TODO: should we zero-pad the output as strncpy does? And what are the semantics for the terminating null if destSize == length?
 		strncpy(buf, g_Config.sNickName.c_str(), destSize);
 		break;
+	}
 
 	default:
 		return hleLogError(Log::sceUtility, SCE_ERROR_UTILITY_INVALID_SYSTEM_PARAM_ID);
@@ -1253,13 +1374,16 @@ static u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr) {
 	switch (id) {
 	case PSP_SYSTEMPARAM_ID_INT_ADHOC_CHANNEL:
 		param = g_Config.iWlanAdhocChannel;
-		if (param == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC) {
+		// Only once adhocctl is up. The FIXME below wondered whether this error depends on that,
+		// and it does - utility/systemparam gets a plain 0 out of the hardware before any adhoc
+		// module is initialized, which is the state nearly every game asks this in.
+		if (param == PSP_SYSTEMPARAM_ADHOC_CHANNEL_AUTOMATIC && netAdhocctlInited) {
 			// FIXME: Actually.. it's always returning 0x800ADF4 regardless using Auto channel or Not, and regardless the connection state either,
 			//        Not sure whether this error code only returned after Adhocctl Initialized (ie. netAdhocctlInited) or also before initialized.
 			// FIXME: Outputted channel (might be unchanged?) either 0 when not connected to a group yet (ie. adhocctlState == ADHOCCTL_STATE_DISCONNECTED),
 			//        or -1 (0xFFFFFFFF) when a scan is in progress (ie. adhocctlState == ADHOCCTL_STATE_SCANNING),
 			//        or 0x60 early when in connected state (ie. adhocctlState == ADHOCCTL_STATE_CONNECTED) right after Creating a group, regardless the channel settings.
-			Memory::Write_U32(param, destaddr);
+			Memory::WriteOrException_U32(param, destaddr);
 			return 0x800ADF4;
 		}
 		break;
@@ -1299,7 +1423,7 @@ static u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr) {
 		return hleLogError(Log::sceUtility, SCE_ERROR_UTILITY_INVALID_SYSTEM_PARAM_ID);
 	}
 
-	Memory::Write_U32(param, destaddr);
+	Memory::WriteOrException_U32(param, destaddr);
 	return hleLogInfo(Log::sceUtility, 0, "(%s): %08x", SystemParamToString(id), param);
 }
 
@@ -1419,7 +1543,7 @@ static int sceUtilityGameSharingUpdate(int animSpeed) {
 		return hleLogWarning(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 
-	return hleLogError(Log::sceUtility, 0, "UNIMPL sceUtilityGameSharingUpdate(%i)", animSpeed);
+	return hleLogError(Log::sceUtility, 0, "UNIMPL");
 }
 
 static int sceUtilityGameSharingGetStatus() {
@@ -1431,30 +1555,21 @@ static int sceUtilityGameSharingGetStatus() {
 	return hleLogError(Log::sceUtility, 0, "UNIMPL");
 }
 
-static u32 sceUtilityLoadUsbModule(u32 module)
-{
-	if (module < 1 || module > 5)
-	{
-		ERROR_LOG(Log::sceUtility, "sceUtilityLoadUsbModule(%i): invalid module id", module);
+static u32 sceUtilityLoadUsbModule(u32 module) {
+	if (module < 1 || module > 5) {
+		return hleLogError(Log::sceUtility, 0, "invalid module id");
 	}
-
-	ERROR_LOG_REPORT(Log::sceUtility, "UNIMPL sceUtilityLoadUsbModule(%i)", module);
-	return hleNoLog(0);
+	return hleLogWarning(Log::sceUtility, 0, "UNIMPL");
 }
 
-static u32 sceUtilityUnloadUsbModule(u32 module)
-{
-	if (module < 1 || module > 5)
-	{
-		ERROR_LOG(Log::sceUtility, "sceUtilityUnloadUsbModule(%i): invalid module id", module);
+static u32 sceUtilityUnloadUsbModule(u32 module) {
+	if (module < 1 || module > 5) {
+		return hleLogError(Log::sceUtility, 0, "invalid module id");
 	}
-
-	ERROR_LOG_REPORT(Log::sceUtility, "UNIMPL sceUtilityUnloadUsbModule(%i)", module);
-	return hleNoLog(0);
+	return hleLogWarning(Log::sceUtility, 0, "UNIMPL");
 }
 
-const HLEFunction sceUtility[] =
-{
+const HLEFunction sceUtility[] = {
 	{0X1579A159, &WrapU_U<sceUtilityLoadNetModule>,                "sceUtilityLoadNetModule",                'x', "x"  },
 	{0X64D50C56, &WrapU_U<sceUtilityUnloadNetModule>,              "sceUtilityUnloadNetModule",              'x', "x"  },
 
@@ -1586,10 +1701,10 @@ const HLEFunction sceUtility[] =
 	{0X417BED54, nullptr,                                          "sceNetplayDialogUpdate",                 '?', ""   },
 	{0XB6CEE597, nullptr,                                          "sceNetplayDialogGetStatus",              '?', ""   },
 
-	{0X28D35634, nullptr,                                          "sceUtility_28D35634",                    '?', ""   },
-	{0X70267ADF, nullptr,                                          "sceUtility_70267ADF",                    '?', ""   },
-	{0XECE1D3E5, nullptr,                                          "sceUtility_ECE1D3E5",                    '?', ""   },
-	{0XEF3582B2, nullptr,                                          "sceUtility_EF3582B2",                    '?', ""   },
+	{0X28D35634, nullptr,                                          "sceUtility_28D35634",                    '?', ""   }, // jpcsp: getAuthName(char *authNameOut64)
+	{0X70267ADF, nullptr,                                          "sceUtility_70267ADF",                    '?', ""   }, // jpcsp: setAuthKey(const char *authKey64)
+	{0XECE1D3E5, nullptr,                                          "sceUtility_ECE1D3E5",                    '?', ""   }, // jpcsp: setAuthName(const char *authName64)
+	{0XEF3582B2, nullptr,                                          "sceUtility_EF3582B2",                    '?', ""   }, // jpcsp: getAuthKey(char *authKeyOut64)
 
 	{0x05e242a1, nullptr,                                          "sceUtility_05e242a1",                    '?', ""   },
 	{0x644b513b, nullptr,                                          "sceUtility_644b513b",                    '?', ""   },

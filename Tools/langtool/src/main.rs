@@ -1,19 +1,26 @@
 use std::io;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 mod section;
-use section::{Section, line_value};
+use section::{SAME_COMMENT, Section, line_value, marked_same, split_comment};
 
 mod inifile;
 use inifile::IniFile;
 
+mod ai;
 mod chatgpt;
+mod claude;
 use clap::Parser;
 
 mod util;
+mod validate;
 
-use crate::{chatgpt::ChatGPT, section::split_line, util::ask_letter};
+use crate::{
+    ai::{Ai, Provider},
+    section::split_line,
+    util::ask_letter,
+};
 
 #[derive(Parser, Debug)]
 struct Args {
@@ -23,9 +30,12 @@ struct Args {
     dry_run: bool,
     #[arg(short, long)]
     verbose: bool,
-    // gpt-5, gpt-5-mini, gpt-5-nano, gpt-4.1, gpt-4.1-mini,  gpt-4.1-nano, o3, o4-mini, gpt-4o, gpt-4o-realtime-preview
-    #[arg(short, long, default_value = "gpt-4o-mini")]
-    model: String,
+    /// Which AI service to use for translation. Defaults to whichever one we have an API key for.
+    #[arg(short, long, value_enum)]
+    provider: Option<Provider>,
+    /// Model to use, see ai.rs for examples. Defaults to a reasonable one for the provider.
+    #[arg(short, long)]
+    model: Option<String>,
 }
 
 #[derive(Parser, Debug)]
@@ -104,6 +114,10 @@ enum Command {
         section: String,
         key: String,
     },
+    RemoveAmpersands {
+        section: String,
+        key: String,
+    },
     ApplyRegex {
         section: String,
         key: String,
@@ -114,6 +128,8 @@ enum Command {
         section: String,
         key: String,
     },
+    /// Check every translated string against the English one, see validate.rs.
+    Validate,
 }
 
 fn copy_missing_lines(
@@ -249,6 +265,15 @@ fn remove_linebreaks(target_ini: &mut IniFile, section: &str, key: &str) -> io::
     Ok(())
 }
 
+fn remove_ampersands(target_ini: &mut IniFile, section: &str, key: &str) -> io::Result<()> {
+    if let Some(old_section) = target_ini.get_section_mut(section) {
+        old_section.remove_ampersands(key);
+    } else {
+        println!("No section {section}");
+    }
+    Ok(())
+}
+
 fn add_new_key(
     target_ini: &mut IniFile,
     section: &str,
@@ -273,6 +298,33 @@ fn add_new_key(
         println!("No section {section}");
     }
     Ok(())
+}
+
+/// Runs the validation checks over a whole language file, printing what it finds.
+/// Returns the number of problems, so the caller can set the exit code.
+fn validate_ini(target_ini: &IniFile, reference_ini: &IniFile, language: &str) -> usize {
+    let mut count = 0;
+    for section in &target_ini.sections {
+        let Some(ref_section) = reference_ini.get_section(&section.name) else {
+            continue;
+        };
+        for line in &section.lines {
+            let Some((key, _)) = split_line(line) else {
+                continue;
+            };
+            let (Some(value), Some(ref_value)) = (section.get_value(key), ref_section.get_value(key))
+            else {
+                continue;
+            };
+            for issue in validate::check(&ref_value, &value) {
+                println!("{language} [{}] {key}: {issue}", section.name);
+                println!("      en: {ref_value}");
+                println!("   {language}: {value}");
+                count += 1;
+            }
+        }
+    }
+    count
 }
 
 fn check_keys(target_ini: &IniFile) -> io::Result<()> {
@@ -391,10 +443,10 @@ fn finish_language_with_ai(
     target_ini: &mut IniFile,
     ref_ini: &IniFile,
     section: Option<&str>,
-    ai: &ChatGPT,
+    ai: &Ai,
     dry_run: bool,
 ) -> anyhow::Result<()> {
-    println!("Finishing language with AI");
+    println!("Finishing language with {}", ai.description());
     println!(
         "Step 1: Compare all strings in the section with the matching strings from the reference."
     );
@@ -434,7 +486,7 @@ fn finish_language_with_ai(
             continue;
         };
         let mut alias_map = BTreeMap::new();
-        let mut alias_inverse_map = BTreeMap::new();
+        let mut alias_inverse_map: BTreeMap<String, Vec<&str>> = BTreeMap::new();
         for line in &ref_section.lines {
             if let Some((key, value)) = split_line(line) {
                 // We actually process almost everything here, we could check for case but we don't
@@ -442,7 +494,13 @@ fn finish_language_with_ai(
                 if key != value {
                     println!("Saving alias: {key} = {value}");
                     alias_map.insert(key, value.to_string());
-                    alias_inverse_map.insert(value.to_string(), key);
+                    // Several keys can share the same English string (like "Texture Filter" and
+                    // "Texture Filtering" in [Graphics]), so this can't be a plain value -> key
+                    // map, we'd silently lose all but the last of them.
+                    alias_inverse_map
+                        .entry(value.to_string())
+                        .or_default()
+                        .push(key);
                 }
             }
         }
@@ -453,8 +511,13 @@ fn finish_language_with_ai(
         let mut untranslated_keys = vec![];
         let mut translated_keys = vec![];
         for line in &section.lines {
-            if let Some((key, value)) = split_line(line) {
+            if let Some((key, raw_value)) = split_line(line) {
+                let (value, comment) = split_comment(raw_value);
                 if let Some(ref_value) = ref_section.get_value(key) {
+                    if marked_same(comment) {
+                        // Settled: this one stays as the English string, don't ask about it again.
+                        continue;
+                    }
                     if value == ref_value {
                         // Key not translated.
                         // However, we need to reject some things that the AI likes to mishandle.
@@ -498,6 +561,9 @@ fn finish_language_with_ai(
             untranslated_keys
                 .iter()
                 .map(|(k, _v)| format!("{} = ", alias_map.get(k).unwrap_or(&k.to_string())))
+                // Deduped, since keys that share an English string produce the same line.
+                .collect::<BTreeSet<String>>()
+                .into_iter()
                 .collect::<Vec<String>>()
                 .join("\n"),
             translated_keys
@@ -526,17 +592,46 @@ fn finish_language_with_ai(
                     println!("Merging AI response for section '{}'", parsed_section.name);
                     for line in &parsed_section.lines {
                         if let Some((key, value)) = split_line(line) {
-                            // Put the key through the inverse alias map.
-                            let original_key = alias_inverse_map.get(key).unwrap_or(&key);
-                            print!("Updating '{}': {}", original_key, value);
-                            if key != *original_key {
-                                println!(" ({})", key);
-                            } else {
-                                println!();
-                            }
-                            if !target_section.set_value(original_key, value, Some("AI translated"))
-                            {
-                                println!("Failed to update '{}'", original_key);
+                            // Put the key through the inverse alias map. Can give us more than one
+                            // key, if they share the same English string - they all get the same
+                            // translation, which is what we want.
+                            let itself = vec![key];
+                            let original_keys = alias_inverse_map.get(key).unwrap_or(&itself);
+                            for original_key in original_keys {
+                                let ref_value =
+                                    ref_section.get_value(original_key).unwrap_or_default();
+                                let issues = validate::check_ai_translation(&ref_value, value);
+                                if issues == vec![validate::Issue::Untranslated] {
+                                    // The AI handed the English string back unchanged, which for
+                                    // things like "Vsync" or "Ad Hoc multiplayer" is the right
+                                    // answer. Write that down so we stop asking every run.
+                                    println!("Marking '{original_key}' as not needing translation");
+                                    target_section.set_value(
+                                        original_key,
+                                        value,
+                                        Some(SAME_COMMENT),
+                                    );
+                                    continue;
+                                }
+                                if !issues.is_empty() {
+                                    for issue in issues {
+                                        println!("Rejecting '{original_key}' = '{value}': {issue}");
+                                    }
+                                    continue;
+                                }
+                                print!("Updating '{}': {}", original_key, value);
+                                if key != *original_key {
+                                    println!(" ({})", key);
+                                } else {
+                                    println!();
+                                }
+                                if !target_section.set_value(
+                                    original_key,
+                                    value,
+                                    Some("AI translated"),
+                                ) {
+                                    println!("Failed to update '{}'", original_key);
+                                }
                             }
                         }
                     }
@@ -653,20 +748,18 @@ fn parse_response(response: &str) -> Option<BTreeMap<String, String>> {
 fn main() {
     let opt = Args::parse();
 
-    let api_key = std::env::var("OPENAI_API_KEY").ok();
-    let ai = api_key.map(|key| chatgpt::ChatGPT::new(key, opt.model));
+    let ai = Ai::create(opt.provider, opt.model);
 
     // TODO: Grab extra arguments from opt somehow.
     // let args: Vec<String> = vec![]; //std::env::args().skip(1).collect();
     execute_command(opt.cmd, ai.as_ref(), opt.dry_run, opt.verbose);
 }
 
-fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: bool) {
+fn execute_command(cmd: Command, ai: Option<&Ai>, dry_run: bool, verbose: bool) {
     let root = "../../assets/lang";
     let reference_ini_filename = "en_US.ini";
 
-    let reference_ini =
-        IniFile::parse_file(&format!("{root}/{reference_ini_filename}")).unwrap();
+    let reference_ini = IniFile::parse_file(&format!("{root}/{reference_ini_filename}")).unwrap();
 
     let mut filenames = Vec::new();
     if filenames.is_empty() {
@@ -752,6 +845,8 @@ fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: b
         None
     };
 
+    let mut issue_count = 0;
+
     for filename in &filenames {
         let reference_ini = &reference_ini;
         if filename == "langtool" {
@@ -789,15 +884,25 @@ fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: b
             } => {
                 split_key(&mut target_ini, section, key).unwrap();
             }
+            Command::Validate => {
+                if !is_reference {
+                    let language = filename.split_once('.').unwrap().0;
+                    issue_count += validate_ini(&target_ini, reference_ini, language);
+                }
+            }
             Command::FinishLanguageWithAI {
                 language: _,
                 section: _,
             } => {}
-            Command::FixupRefKeys => if is_reference {
-                fixup_keys(&target_ini, dry_run).unwrap();
+            Command::FixupRefKeys => {
+                if is_reference {
+                    fixup_keys(&target_ini, dry_run).unwrap();
+                }
             }
-            Command::CheckRefKeys => if is_reference {
-                check_keys(&target_ini).unwrap();
+            Command::CheckRefKeys => {
+                if is_reference {
+                    check_keys(&target_ini).unwrap();
+                }
             }
             Command::CopyMissingLines {
                 dont_comment_missing,
@@ -867,8 +972,8 @@ fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: b
                             )
                             .unwrap();
                         } else {
-                            println!("Language {lang} not found in response. Bailing.");
-                            return;
+                            println!("No usable translation for {lang}, skipping it.");
+                            continue;
                         }
                     }
                 } else {
@@ -901,21 +1006,15 @@ fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: b
                             )
                             .unwrap();
                         } else {
-                            println!("Language {lang} not found in response. Bailing.");
-                            return;
+                            println!("No usable translation for {lang}, skipping it.");
+                            continue;
                         }
                     }
                 } else {
                     if ai_response.is_some() {
                         let _ = extra;
-                        add_new_key(
-                            &mut target_ini,
-                            section,
-                            key,
-                            value,
-                            overwrite_translated,
-                        )
-                        .unwrap();
+                        add_new_key(&mut target_ini, section, key, value, overwrite_translated)
+                            .unwrap();
                     }
                 }
             }
@@ -958,36 +1057,56 @@ fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: b
             } => {
                 remove_linebreaks(&mut target_ini, section, key).unwrap();
             }
+            Command::RemoveAmpersands {
+                ref section,
+                ref key,
+            } => {
+                remove_ampersands(&mut target_ini, section, key).unwrap();
+            }
             Command::ImportSingle {
                 filename: _,
                 ref section,
                 ref key,
             } => {
-                if !is_reference {
-                    let lang_id = filename.strip_suffix(".ini").unwrap();
-                    if let Some(single_section) = &single_ini_section {
-                        if let Some(target_section) = target_ini.get_section_mut(section) {
-                            if let Some(single_line) = single_section.get_line(lang_id) {
-                                if let Some(value) = line_value(&single_line) {
-                                    println!(
-                                        "Inserting value {value} for key {key} in section {section} in {target_ini_filename}"
-                                    );
-                                    if !target_section.insert_line_if_missing(&format!(
-                                        "{key} = {value} # AI translated"
-                                    )) {
-                                        // Didn't insert it, so it exists. We need to replace it.
-                                        target_section.set_value(key, value, Some("AI translated"));
-                                    }
+                let lang_id = filename.strip_suffix(".ini").unwrap();
+                if let Some(single_section) = &single_ini_section {
+                    let english = single_section
+                        .get_line("en_US")
+                        .and_then(|line| line_value(&line).map(|value| value.to_string()));
+                    if let Some(target_section) = target_ini.get_section_mut(section) {
+                        if let Some(single_line) = single_section.get_line(lang_id) {
+                            if let Some(value) = line_value(&single_line) {
+                                // en_US is the string the others were translated from, not a
+                                // translation, so it gets no comment. A language where the
+                                // translation is just the English string gets marked as such, so
+                                // nothing tries to translate it again later.
+                                let comment = if is_reference {
+                                    None
+                                } else if Some(value) == english.as_deref() {
+                                    Some(SAME_COMMENT)
+                                } else {
+                                    Some("AI translated")
+                                };
+                                println!(
+                                    "Inserting value {value} for key {key} in section {section} in {target_ini_filename}"
+                                );
+                                let line = match comment {
+                                    Some(comment) => format!("{key} = {value} # {comment}"),
+                                    None => format!("{key} = {value}"),
+                                };
+                                if !target_section.insert_line_if_missing(&line) {
+                                    // Didn't insert it, so it exists. We need to replace it.
+                                    target_section.set_value(key, value, comment);
                                 }
-                            } else {
-                                println!("No lang_id {lang_id} in single section");
                             }
                         } else {
-                            println!("No section {section} in {target_ini_filename}");
+                            println!("No lang_id {lang_id} in single section");
                         }
                     } else {
-                        println!("No section {section} in {filename}");
+                        println!("No section {section} in {target_ini_filename}");
                     }
+                } else {
+                    println!("No section {section} in {filename}");
                 }
             }
         }
@@ -997,12 +1116,20 @@ fn execute_command(cmd: Command, ai: Option<&ChatGPT>, dry_run: bool, verbose: b
         }
     }
 
+    if let Command::Validate = cmd {
+        println!("Found {issue_count} problems.");
+        if issue_count > 0 {
+            // Makes this usable as a check in scripts.
+            std::process::exit(1);
+        }
+    }
+
     // Don't need to additionally process reference here like we did before, this is done
     // in the main loop.
 }
 
 fn generate_ai_response(
-    ai: Option<&ChatGPT>,
+    ai: Option<&Ai>,
     filenames: &[String],
     section: &str,
     key: &str,
@@ -1016,14 +1143,27 @@ fn generate_ai_response(
     );
     println!("generated prompt:\n{prompt}");
     Some(if let Some(ai) = &ai {
-        println!("Using AI for translation...");
+        println!("Using {} for translation...", ai.description());
         let response = ai
             .chat(&prompt)
             .map_err(|e| anyhow::anyhow!("chat failed: {e}"))
             .unwrap();
         println!("AI response: {response}");
-        if let Some(parsed) = parse_response(&response) {
+        if let Some(mut parsed) = parse_response(&response) {
             println!("Parsed: {:?}", parsed);
+
+            // The English string we asked for a translation of is in the prompt as 'key'.
+            parsed.retain(|language, translation| {
+                let issues = if language == "en_US" {
+                    validate::check(key, translation)
+                } else {
+                    validate::check_ai_translation(key, translation)
+                };
+                for issue in &issues {
+                    println!("Rejecting {language} translation '{translation}': {issue}");
+                }
+                issues.is_empty()
+            });
 
             if parsed.len() < filenames.len() {
                 println!(

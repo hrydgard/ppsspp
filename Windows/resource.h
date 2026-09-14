@@ -170,6 +170,7 @@
 #define ID_FILE_QUICKLOADSTATE_HC        40037
 #define ID_OPTIONS_CONTROLS              40038
 #define ID_DEBUG_BREAKONLOAD             40039
+#define ID_FILE_LOAD_VSH                 40040
 #define ID_OPTIONS_FRAMESKIP             40044
 #define IDC_MEMCHECK                     40045
 #define ID_FILE_MEMSTICK                 40046

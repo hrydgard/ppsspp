@@ -280,8 +280,9 @@ static u32 sceRtcGetCurrentTick(u32 tickPtr)
 	VERBOSE_LOG(Log::sceRtc, "sceRtcGetCurrentTick(%08x)", tickPtr);
 
 	u64 curTick = __RtcGetCurrentTick();
-	if (Memory::IsValidAddress(tickPtr))
-		Memory::Write_U64(curTick, tickPtr);
+	if (Memory::IsValid4AlignedRange(tickPtr, 8)) {
+		Memory::WriteUnchecked_U64(curTick, tickPtr);
+	}
 	hleEatCycles(300);
 	hleReSchedule("rtc current tick");
 	return hleNoLog(0);
@@ -435,9 +436,9 @@ static u32 sceRtcIsLeapYear(u32 year)
 static int sceRtcConvertLocalTimeToUTC(u32 tickLocalPtr,u32 tickUTCPtr)
 {
 	DEBUG_LOG(Log::sceRtc, "sceRtcConvertLocalTimeToUTC(%d, %d)", tickLocalPtr, tickUTCPtr);
-	if (Memory::IsValidAddress(tickLocalPtr) && Memory::IsValidAddress(tickUTCPtr))
+	if (Memory::IsValidRange(tickLocalPtr, 8) && Memory::IsValidAddress(tickUTCPtr))
 	{
-		u64 srcTick = Memory::Read_U64(tickLocalPtr);
+		u64 srcTick = Memory::ReadUnchecked_U64(tickLocalPtr);
 		// TODO : Let the user select his timezone / daylight saving instead of taking system param ?
 #ifdef _WIN32
 		long timezone_val;
@@ -448,7 +449,7 @@ static int sceRtcConvertLocalTimeToUTC(u32 tickLocalPtr,u32 tickUTCPtr)
 		tm *time = localtime(&timezone);
 		srcTick -= time->tm_gmtoff*1000000ULL;
 #endif
-		Memory::Write_U64(srcTick, tickUTCPtr);
+		Memory::WriteUnchecked_U64(srcTick, tickUTCPtr);
 	}
 	else
 	{
@@ -457,12 +458,11 @@ static int sceRtcConvertLocalTimeToUTC(u32 tickLocalPtr,u32 tickUTCPtr)
 	return 0;
 }
 
-static int sceRtcConvertUtcToLocalTime(u32 tickUTCPtr,u32 tickLocalPtr)
+static int sceRtcConvertUtcToLocalTime(u32 tickUTCPtr, u32 tickLocalPtr)
 {
 	DEBUG_LOG(Log::sceRtc, "sceRtcConvertLocalTimeToUTC(%d, %d)", tickLocalPtr, tickUTCPtr);
-	if (Memory::IsValidAddress(tickLocalPtr) && Memory::IsValidAddress(tickUTCPtr))
-	{
-		u64 srcTick = Memory::Read_U64(tickUTCPtr);
+	if (Memory::IsValidRange(tickLocalPtr, 8) && Memory::IsValidRange(tickUTCPtr, 8)) {
+		u64 srcTick = Memory::ReadUnchecked_U64(tickUTCPtr);
 		// TODO : Let the user select his timezone / daylight saving instead of taking system param ?
 #ifdef _WIN32
 		long timezone_val;
@@ -473,10 +473,8 @@ static int sceRtcConvertUtcToLocalTime(u32 tickUTCPtr,u32 tickLocalPtr)
 		tm *time = localtime(&timezone);
 		srcTick += time->tm_gmtoff*1000000ULL;
 #endif
-		Memory::Write_U64(srcTick, tickLocalPtr);
-	}
-	else
-	{
+		Memory::WriteUnchecked_U64(srcTick, tickLocalPtr);
+	} else {
 		return 1;
 	}
 	return 0;
@@ -592,8 +590,7 @@ static int sceRtcGetDosTime(u32 datePtr, u32 dosTime) {
 	return hleLogDebug(Log::sceRtc, 0);
 }
 
-static int sceRtcSetWin32FileTime(u32 datePtr, u64 win32Time)
-{
+static int sceRtcSetWin32FileTime(u32 datePtr, u64 win32Time) {
 	if (!Memory::IsValidAddress(datePtr))
 	{
 		ERROR_LOG_REPORT(Log::sceRtc, "sceRtcSetWin32FileTime(%08x, %lld): invalid address", datePtr, win32Time);
@@ -608,38 +605,34 @@ static int sceRtcSetWin32FileTime(u32 datePtr, u64 win32Time)
 	return 0;
 }
 
-static int sceRtcGetWin32FileTime(u32 datePtr, u32 win32TimePtr)
-{
-	if (!Memory::IsValidAddress(datePtr))
-	{
+static int sceRtcGetWin32FileTime(u32 datePtr, u32 win32TimePtr) {
+	if (!Memory::IsValidAddress(datePtr)) {
 		ERROR_LOG_REPORT(Log::sceRtc, "sceRtcGetWin32FileTime(%08x, %08x): invalid address", datePtr, win32TimePtr);
 		return -1;
 	}
 
 	DEBUG_LOG(Log::sceRtc, "sceRtcGetWin32FileTime(%08x, %08x)", datePtr, win32TimePtr);
-	if (!Memory::IsValidAddress(win32TimePtr))
+	if (!Memory::IsValid4AlignedRange(win32TimePtr, 8)) {
 		return SCE_KERNEL_ERROR_INVALID_VALUE;
+	}
 
 	auto pspTime = PSPPointer<const ScePspDateTime>::Create(datePtr);
 	u64 result = __RtcPspTimeToTicks(*pspTime);
 
-	if (!__RtcValidatePspTime(*pspTime) || result < rtcFiletimeOffset)
-	{
-		Memory::Write_U64(0, win32TimePtr);
+	if (!__RtcValidatePspTime(*pspTime) || result < rtcFiletimeOffset) {
+		Memory::WriteUnchecked_U64(0, win32TimePtr);
 		return SCE_KERNEL_ERROR_INVALID_VALUE;
 	}
 
-	Memory::Write_U64((result - rtcFiletimeOffset) * 10, win32TimePtr);
+	Memory::WriteUnchecked_U64((result - rtcFiletimeOffset) * 10, win32TimePtr);
 	return 0;
 }
 
-static int sceRtcCompareTick(u32 tick1Ptr, u32 tick2Ptr)
-{
+static int sceRtcCompareTick(u32 tick1Ptr, u32 tick2Ptr) {
 	DEBUG_LOG(Log::sceRtc, "sceRtcCompareTick(%d,%d)", tick1Ptr, tick2Ptr);
-	if (Memory::IsValidAddress(tick1Ptr) && Memory::IsValidAddress(tick2Ptr))
-	{
-		u64 tick1 = Memory::Read_U64(tick1Ptr);
-		u64 tick2 = Memory::Read_U64(tick2Ptr);
+	if (Memory::IsValid4AlignedRange(tick1Ptr, 8) && Memory::IsValid4AlignedRange(tick2Ptr, 8)) {
+		u64 tick1 = Memory::ReadUnchecked_U64(tick1Ptr);
+		u64 tick2 = Memory::ReadUnchecked_U64(tick2Ptr);
 		if (tick1 > tick2)
 			return hleNoLog(1);
 		if (tick1 < tick2)
@@ -648,187 +641,338 @@ static int sceRtcCompareTick(u32 tick1Ptr, u32 tick2Ptr)
 	return hleNoLog(0);
 }
 
-static int sceRtcTickAddTicks(u32 destTickPtr, u32 srcTickPtr, u64 numTicks)
-{
-	if (Memory::IsValidAddress(destTickPtr) && Memory::IsValidAddress(srcTickPtr))
-	{
-		u64 srcTick = Memory::Read_U64(srcTickPtr);
+static int sceRtcTickAddTicks(u32 destTickPtr, u32 srcTickPtr, u64 numTicks) {
+	if (Memory::IsValid4AlignedRange(destTickPtr, 8) && Memory::IsValid4AlignedRange(srcTickPtr, 8)) {
+		u64 srcTick = Memory::ReadUnchecked_U64(srcTickPtr);
 
 		srcTick += numTicks;
-		Memory::Write_U64(srcTick, destTickPtr);
+		Memory::WriteUnchecked_U64(srcTick, destTickPtr);
 	}
 	return hleLogDebug(Log::sceRtc, 0);
 }
 
-static int sceRtcTickAddMicroseconds(u32 destTickPtr,u32 srcTickPtr, u64 numMS)
-{
-	if (Memory::IsValidAddress(destTickPtr) && Memory::IsValidAddress(srcTickPtr))
-	{
-		s64 srcTick = (s64)Memory::Read_U64(srcTickPtr);
+static int sceRtcTickAddMicroseconds(u32 destTickPtr,u32 srcTickPtr, u64 numMS) {
+	if (Memory::IsValid4AlignedRange(destTickPtr, 8) && Memory::IsValid4AlignedRange(srcTickPtr, 8)) {
+		s64 srcTick = (s64)Memory::ReadUnchecked_U64(srcTickPtr);
 
 		srcTick += numMS;
-		Memory::Write_U64(srcTick, destTickPtr);
+		Memory::WriteUnchecked_U64(srcTick, destTickPtr);
 	}
 	return hleLogDebug(Log::sceRtc, 0);
 }
 
-static int sceRtcTickAddSeconds(u32 destTickPtr, u32 srcTickPtr, u64 numSecs)
-{
-	if (Memory::IsValidAddress(destTickPtr) && Memory::IsValidAddress(srcTickPtr))
-	{
-		s64 srcTick = (s64)Memory::Read_U64(srcTickPtr);
+static int sceRtcTickAddSeconds(u32 destTickPtr, u32 srcTickPtr, u64 numSecs) {
+	if (Memory::IsValid4AlignedRange(destTickPtr, 8) && Memory::IsValid4AlignedRange(srcTickPtr, 8)) {
+		s64 srcTick = (s64)Memory::ReadUnchecked_U64(srcTickPtr);
 
 		srcTick += numSecs * 1000000UL;
-		Memory::Write_U64(srcTick, destTickPtr);
+		Memory::WriteUnchecked_U64(srcTick, destTickPtr);
 	}
 	return hleLogDebug(Log::sceRtc, 0);
 }
 
-static int sceRtcTickAddMinutes(u32 destTickPtr, u32 srcTickPtr, u64 numMins)
-{
-	if (Memory::IsValidAddress(destTickPtr) && Memory::IsValidAddress(srcTickPtr))
-	{
-		s64 srcTick = (s64)Memory::Read_U64(srcTickPtr);
+static int sceRtcTickAddMinutes(u32 destTickPtr, u32 srcTickPtr, u64 numMins) {
+	if (Memory::IsValid4AlignedRange(destTickPtr, 8) && Memory::IsValid4AlignedRange(srcTickPtr, 8)) {
+		s64 srcTick = (s64)Memory::ReadUnchecked_U64(srcTickPtr);
 
 		srcTick += numMins*60000000UL;
-		Memory::Write_U64(srcTick, destTickPtr);
+		Memory::WriteUnchecked_U64(srcTick, destTickPtr);
 	}
 	return hleLogDebug(Log::sceRtc, 0);
 }
 
-static int sceRtcTickAddHours(u32 destTickPtr, u32 srcTickPtr, int numHours)
-{
-	if (Memory::IsValidAddress(destTickPtr) && Memory::IsValidAddress(srcTickPtr))
-	{
-		s64 srcTick = (s64)Memory::Read_U64(srcTickPtr);
+static int sceRtcTickAddHours(u32 destTickPtr, u32 srcTickPtr, int numHours) {
+	if (Memory::IsValid4AlignedRange(destTickPtr, 8) && Memory::IsValid4AlignedRange(srcTickPtr, 8)) {
+		s64 srcTick = (s64)Memory::ReadUnchecked_U64(srcTickPtr);
 		srcTick += numHours * 3600ULL * 1000000ULL;
-		Memory::Write_U64(srcTick, destTickPtr);
+		Memory::WriteUnchecked_U64(srcTick, destTickPtr);
 	}
 	return hleLogDebug(Log::sceRtc, 0);
 }
 
-static int sceRtcTickAddDays(u32 destTickPtr, u32 srcTickPtr, int numDays)
-{
-	if (Memory::IsValidAddress(destTickPtr) && Memory::IsValidAddress(srcTickPtr))
-	{
-		s64 srcTick = (s64)Memory::Read_U64(srcTickPtr);
-
+static int sceRtcTickAddDays(u32 destTickPtr, u32 srcTickPtr, int numDays) {
+	if (Memory::IsValid4AlignedRange(destTickPtr, 8) && Memory::IsValid4AlignedRange(srcTickPtr, 8)) {
+		s64 srcTick = (s64)Memory::ReadUnchecked_U64(srcTickPtr);
 		srcTick += numDays * 86400ULL * 1000000ULL;
-		Memory::Write_U64(srcTick, destTickPtr);
+		Memory::WriteUnchecked_U64(srcTick, destTickPtr);
 	}
 	return hleLogDebug(Log::sceRtc, 0);
 }
 
-static int sceRtcTickAddWeeks(u32 destTickPtr, u32 srcTickPtr, int numWeeks)
-{
-	if (Memory::IsValidAddress(destTickPtr) && Memory::IsValidAddress(srcTickPtr))
-	{
-		s64 srcTick = (s64)Memory::Read_U64(srcTickPtr);
-
+static int sceRtcTickAddWeeks(u32 destTickPtr, u32 srcTickPtr, int numWeeks) {
+	if (Memory::IsValid4AlignedRange(destTickPtr, 8) && Memory::IsValid4AlignedRange(srcTickPtr, 8)) {
+		s64 srcTick = (s64)Memory::ReadUnchecked_U64(srcTickPtr);
 		srcTick += numWeeks * 7ULL * 86400ULL * 1000000ULL;
-		Memory::Write_U64(srcTick, destTickPtr);
+		Memory::WriteUnchecked_U64(srcTick, destTickPtr);
 	}
 	return hleLogDebug(Log::sceRtc, 0);
 }
 
-static int sceRtcTickAddMonths(u32 destTickPtr, u32 srcTickPtr, int numMonths)
-{
-	if (!Memory::IsValidAddress(destTickPtr) || !Memory::IsValidAddress(srcTickPtr))
-	{
+static int sceRtcTickAddMonths(u32 destTickPtr, u32 srcTickPtr, int numMonths) {
+	if (!Memory::IsValid4AlignedRange(destTickPtr, 8) || !Memory::IsValid4AlignedRange(srcTickPtr, 8)) {
 		return hleLogWarning(Log::sceRtc, -1, "invalid address");
 	}
 
-	u64 srcTick = Memory::Read_U64(srcTickPtr);
+	u64 srcTick = Memory::ReadUnchecked_U64(srcTickPtr);
 
-	ScePspDateTime pt;
-	memset(&pt, 0, sizeof(pt));
+	ScePspDateTime pt{};
 
 	__RtcTicksToPspTime(pt,srcTick);
 	pt.year += numMonths / 12;
 	pt.month += numMonths % 12;
 
-	if (pt.month < 1)
-	{
+	if (pt.month < 1) {
 		pt.month += 12;
 		pt.year--;
 	}
-	if (pt.month > 12)
-	{
+	if (pt.month > 12) {
 		pt.month -= 12;
 		pt.year++;
 	}
 
-	if (__RtcValidatePspTime(pt))
-	{
+	if (__RtcValidatePspTime(pt)) {
 		// Did we land on a year that isn't a leap year?
 		if (pt.month == 2 && pt.day == 29 && !__RtcIsLeapYear((s16)pt.year))
 			pt.day = 28;
-		Memory::Write_U64(__RtcPspTimeToTicks(pt), destTickPtr);
+		Memory::WriteUnchecked_U64(__RtcPspTimeToTicks(pt), destTickPtr);
 	}
 
 	DEBUG_LOG(Log::sceRtc, "sceRtcTickAddMonths(%08x, %08x = %lld, %d)", destTickPtr, srcTickPtr, srcTick, numMonths);
 	return hleNoLog(0);
 }
 
-static int sceRtcTickAddYears(u32 destTickPtr, u32 srcTickPtr, int numYears)
-{
-	if (!Memory::IsValidAddress(destTickPtr) || !Memory::IsValidAddress(srcTickPtr)) {
+static int sceRtcTickAddYears(u32 destTickPtr, u32 srcTickPtr, int numYears) {
+	if (!Memory::IsValid4AlignedRange(destTickPtr, 8) || !Memory::IsValid4AlignedRange(srcTickPtr, 8)) {
 		return hleLogWarning(Log::sceRtc, -1, "invalid address");
 	}
 
-	u64 srcTick = Memory::Read_U64(srcTickPtr);
+	u64 srcTick = Memory::ReadUnchecked_U64(srcTickPtr);
 
-	ScePspDateTime pt;
-	memset(&pt, 0, sizeof(pt));
+	ScePspDateTime pt{};
 
 	__RtcTicksToPspTime(pt, srcTick);
 	pt.year += numYears;
 
-	if (__RtcValidatePspTime(pt))
-	{
+	if (__RtcValidatePspTime(pt)) {
 		// Did we land on a year that isn't a leap year?
 		if (pt.month == 2 && pt.day == 29 && !__RtcIsLeapYear((s16)pt.year))
 			pt.day = 28;
-		Memory::Write_U64(__RtcPspTimeToTicks(pt), destTickPtr);
+		Memory::WriteUnchecked_U64(__RtcPspTimeToTicks(pt), destTickPtr);
 	}
 
 	DEBUG_LOG(Log::sceRtc, "sceRtcTickAddYears(%08x, %08x = %lld, %d)", destTickPtr, srcTickPtr, srcTick, numYears);
 	return hleNoLog(0);
 }
 
+struct RtcParseResult {
+	ScePspDateTime date;
+	int tzOffsetMinutes;
+	bool ok;
+};
+
+static const char *rtcParseMonthName(const char *p, int &month) {
+	static const char *names[] = { "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec" };
+	for (int i = 0; i < 12; i++) {
+		if (p[0] == names[i][0] && p[1] == names[i][1] && p[2] == names[i][2]) {
+			month = i + 1;
+			return p + 3;
+		}
+	}
+	return nullptr;
+}
+
+static bool rtcParseDigits(const char *&p, int n, int &value) {
+	value = 0;
+	for (int i = 0; i < n; i++) {
+		if (p[i] < '0' || p[i] > '9') return false;
+		value = value * 10 + (p[i] - '0');
+	}
+	p += n;
+	return true;
+}
+
+static bool rtcParseRFC3339(const char *s, RtcParseResult &r) {
+	r.ok = false;
+	memset(&r.date, 0, sizeof(r.date));
+
+	int year, month, day, hour, minute, second, micro = 0;
+	// YYYY-MM-DD
+	if (!rtcParseDigits(s, 4, year) || *s++ != '-') return false;
+	if (!rtcParseDigits(s, 2, month) || *s++ != '-') return false;
+	if (!rtcParseDigits(s, 2, day)) return false;
+	if (*s++ != 'T') return false;
+	// HH:MM:SS
+	if (!rtcParseDigits(s, 2, hour) || *s++ != ':') return false;
+	if (!rtcParseDigits(s, 2, minute) || *s++ != ':') return false;
+	if (!rtcParseDigits(s, 2, second)) return false;
+	// Optional fractional seconds
+	if (*s == '.') {
+		s++;
+		int frac = 0;
+		int fracDigits = 0;
+		while (*s >= '0' && *s <= '9' && fracDigits < 6) {
+			frac = frac * 10 + (*s - '0');
+			fracDigits++;
+			s++;
+		}
+		// Scale to microseconds (6 digits)
+		while (fracDigits < 6) { frac *= 10; fracDigits++; }
+		while (fracDigits > 6) { frac /= 10; fracDigits--; }
+		micro = frac;
+	}
+	// Timezone
+	if (*s == 'Z') {
+		s++;
+		r.tzOffsetMinutes = 0;
+	} else if (*s == '+' || *s == '-') {
+		int tzSign = (*s == '+') ? 1 : -1;
+		s++;
+		int tzHour, tzMin;
+		if (!rtcParseDigits(s, 2, tzHour)) return false;
+		if (*s != ':') return false;
+		s++;
+		if (!rtcParseDigits(s, 2, tzMin)) return false;
+		r.tzOffsetMinutes = tzSign * (tzHour * 60 + tzMin);
+	} else {
+		return false;
+	}
+	// Must consume entire string
+	if (*s != '\0') return false;
+
+	r.date.year = year;
+	r.date.month = month;
+	r.date.day = day;
+	r.date.hour = hour;
+	r.date.minute = minute;
+	r.date.second = second;
+	r.date.microsecond = micro;
+	r.ok = true;
+	return true;
+}
+
+static bool rtcParseRFC2822(const char *s, RtcParseResult &r) {
+	r.ok = false;
+	memset(&r.date, 0, sizeof(r.date));
+
+	// Optional weekday prefix: [weekday,]
+	while (*s && *s != ' ' && *s != ',') s++;
+	if (*s == ',') {
+		s++;
+		if (*s != ' ') return false;
+		s++;
+	} else {
+		return false;
+	}
+
+	int day, month, year, hour, minute, second;
+	// DD
+	if (!rtcParseDigits(s, 2, day)) return false;
+	if (*s++ != ' ') return false;
+	// Mon (3-letter month)
+	if (!rtcParseMonthName(s, month)) return false;
+	s += 3;
+	if (*s++ != ' ') return false;
+	// YYYY
+	if (!rtcParseDigits(s, 4, year)) return false;
+	if (*s++ != ' ') return false;
+	// HH:MM:SS
+	if (!rtcParseDigits(s, 2, hour) || *s++ != ':') return false;
+	if (!rtcParseDigits(s, 2, minute) || *s++ != ':') return false;
+	if (!rtcParseDigits(s, 2, second)) return false;
+	if (*s++ != ' ') return false;
+	// Timezone: ±HHMM
+	if (*s != '+' && *s != '-') return false;
+	int tzSign = (*s == '+') ? 1 : -1;
+	s++;
+	int tzHour, tzMin;
+	if (!rtcParseDigits(s, 2, tzHour)) return false;
+	if (!rtcParseDigits(s, 2, tzMin)) return false;
+	r.tzOffsetMinutes = tzSign * (tzHour * 60 + tzMin);
+	if (*s != '\0') return false;
+
+	r.date.year = year;
+	r.date.month = month;
+	r.date.day = day;
+	r.date.hour = hour;
+	r.date.minute = minute;
+	r.date.second = second;
+	r.ok = true;
+	return true;
+}
+
 static int sceRtcParseDateTime(u32 destTickPtr, u32 dateStringPtr)
 {
-	ERROR_LOG_REPORT(Log::sceRtc, "UNIMPL sceRtcParseDateTime(%d,%d)", destTickPtr, dateStringPtr);
-	return 0;
+	if (!Memory::IsValid4AlignedRange(destTickPtr, 8) || !Memory::IsValidAddress(dateStringPtr))
+		return hleLogError(Log::sceRtc, -1, "bad address");
+
+	const char *s = Memory::GetCharPointer(dateStringPtr);
+	if (!s) {
+		return hleLogError(Log::sceRtc, -1, "null string");
+	}
+
+	RtcParseResult r;
+	memset(&r, 0, sizeof(r));
+
+	if (rtcParseRFC3339(s, r) || rtcParseRFC2822(s, r)) {
+		u64 ticks = __RtcPspTimeToTicks(r.date);
+		s64 offsetUs = (s64)r.tzOffsetMinutes * 60 * 1000000;
+		ticks -= offsetUs;
+		Memory::WriteUnchecked_U64(ticks, destTickPtr);
+		return hleLogDebug(Log::sceRtc, 0);
+	}
+
+	// Parse failed - return -1 without modifying destTickPtr.
+	return hleLogDebug(Log::sceRtc, -1);
 }
 
 static int sceRtcGetLastAdjustedTime(u32 tickPtr)
 {
-	if (Memory::IsValidAddress(tickPtr))
-		Memory::Write_U64(rtcLastAdjustedTicks, tickPtr);
+	if (Memory::IsValid4AlignedRange(tickPtr, 8))
+		Memory::WriteUnchecked_U64(rtcLastAdjustedTicks, tickPtr);
 	DEBUG_LOG(Log::sceRtc, "sceRtcGetLastAdjustedTime(%d)", tickPtr);
 	return 0;
 }
 
 static int sceRtcGetLastReincarnatedTime(u32 tickPtr)
 {
-	if (Memory::IsValidAddress(tickPtr))
-		Memory::Write_U64(rtcLastReincarnatedTicks, tickPtr);
+	if (Memory::IsValid4AlignedRange(tickPtr, 8))
+		Memory::WriteUnchecked_U64(rtcLastReincarnatedTicks, tickPtr);
 	DEBUG_LOG(Log::sceRtc, "sceRtcGetLastReincarnatedTime(%d)", tickPtr);
 	return 0;
 }
 
-//Returns 0 on success, according to Project Diva 2nd jpcsptrace log
-static int sceRtcSetAlarmTick(u32 unknown1, u32 unknown2)
-{
-	ERROR_LOG_REPORT(Log::sceRtc, "UNIMPL sceRtcSetAlarmTick(%x, %x)", unknown1, unknown2);
-	return 0; 
+// Returns 0 on success, according to Project Diva 2nd jpcsptrace log
+static int sceRtcSetAlarmTick(u32 unknown1, u32 unknown2) {
+	return hleLogError(Log::sceRtc, 0, "UNIMPL");
+}
+
+// "Has the RTC alarm fired?" - we don't model one and sceRtcSetAlarmTick above is a no-op, so the
+// answer is always no. Same as JPCSP, which returns a bare 0. Left unimplemented this returned
+// SCE_KERNEL_ERROR_LIBRARY_NOT_YET_LINKED, and the 3.0x-3.5x VSH took that as "ask the hardware
+// instead" and blocked forever on a syscon reply.
+static int sceRtcIsAlarmed() {
+	return hleLogDebug(Log::sceRtc, 0);
+}
+
+// Real signature per uofw (sceRtc_C2DDBEB5, src/kd/rtc/rtc.c): s32 sceRtcGetAlarmTick(u64 *tick).
+// PPSSPP doesn't track a real hardware RTC alarm, so there's nothing meaningful to report -
+// but leaving this fully unimplemented (nullptr in the function table) meant callers got back
+// PPSSPP's uninitialized-memory poison in *tick instead of a real value. On the VSH boot path
+// (see docs/VSHBootInvestigation.md) that poisoned tick was later dereferenced as a pointer by
+// vsh_module's own code, causing a wild-address SIGSEGV. Write a real (zero) tick instead, same
+// as if no alarm were currently set - matches sceRtcSetAlarmTick() above also being a no-op.
+static int sceRtcGetAlarmTick(u32 tickPtr) {
+	auto tick = PSPPointer<u64_le>::Create(tickPtr);
+	if (!tick.IsValid())
+		return hleLogError(Log::sceRtc, 0, "bad address");
+
+	*tick = 0;
+	return hleLogDebug(Log::sceRtc, 0);
 }
 
 // Caller must check outPtr and srcTickPtr.
-static int __RtcFormatRFC2822(u32 outPtr, u32 srcTickPtr, int tz)
-{
-	u64 srcTick = Memory::Read_U64(srcTickPtr);
+static int __RtcFormatRFC2822(u32 outPtr, u32 srcTickPtr, int tz) {
+	u64 srcTick = Memory::ReadUnchecked_U64(srcTickPtr);
 
 	ScePspDateTime pt;
 	memset(&pt, 0, sizeof(pt));
@@ -857,9 +1001,9 @@ static int __RtcFormatRFC2822(u32 outPtr, u32 srcTickPtr, int tz)
 	return 0;
 }
 
-static int __RtcFormatRFC3339(u32 outPtr, u32 srcTickPtr, int tz)
-{
-	u64 srcTick = Memory::Read_U64(srcTickPtr);
+// Caller must check outPtr and srcTickPtr.
+static int __RtcFormatRFC3339(u32 outPtr, u32 srcTickPtr, int tz) {
+	u64 srcTick = Memory::ReadUnchecked_U64(srcTickPtr);
 
 	ScePspDateTime pt;
 	memset(&pt, 0, sizeof(pt));
@@ -891,7 +1035,7 @@ static int __RtcFormatRFC3339(u32 outPtr, u32 srcTickPtr, int tz)
 
 static int sceRtcFormatRFC2822(u32 outPtr, u32 srcTickPtr, int tz)
 {
-	if (!Memory::IsValidAddress(outPtr) || !Memory::IsValidAddress(srcTickPtr))
+	if (!Memory::IsValidAddress(outPtr) || !Memory::IsValid4AlignedRange(srcTickPtr, 8))
 	{
 		// TODO: Not well tested.
 		ERROR_LOG(Log::sceRtc, "sceRtcFormatRFC2822(%08x, %08x, %d): invalid address", outPtr, srcTickPtr, tz);
@@ -904,7 +1048,7 @@ static int sceRtcFormatRFC2822(u32 outPtr, u32 srcTickPtr, int tz)
 
 static int sceRtcFormatRFC2822LocalTime(u32 outPtr, u32 srcTickPtr)
 {
-	if (!Memory::IsValidAddress(outPtr) || !Memory::IsValidAddress(srcTickPtr))
+	if (!Memory::IsValidAddress(outPtr) || !Memory::IsValid4AlignedRange(srcTickPtr, 8))
 	{
 		// TODO: Not well tested.
 		ERROR_LOG(Log::sceRtc, "sceRtcFormatRFC2822LocalTime(%08x, %08x): invalid address", outPtr, srcTickPtr);
@@ -928,7 +1072,7 @@ static int sceRtcFormatRFC2822LocalTime(u32 outPtr, u32 srcTickPtr)
 
 static int sceRtcFormatRFC3339(u32 outPtr, u32 srcTickPtr, int tz)
 {
-	if (!Memory::IsValidAddress(outPtr) || !Memory::IsValidAddress(srcTickPtr))
+	if (!Memory::IsValidAddress(outPtr) || !Memory::IsValid4AlignedRange(srcTickPtr, 8))
 	{
 		// TODO: Not well tested.
 		ERROR_LOG(Log::sceRtc, "sceRtcFormatRFC3339(%08x, %08x, %d): invalid address", outPtr, srcTickPtr, tz);
@@ -941,7 +1085,7 @@ static int sceRtcFormatRFC3339(u32 outPtr, u32 srcTickPtr, int tz)
 
 static int sceRtcFormatRFC3339LocalTime(u32 outPtr, u32 srcTickPtr)
 {
-	if (!Memory::IsValidAddress(outPtr) || !Memory::IsValidAddress(srcTickPtr))
+	if (!Memory::IsValidAddress(outPtr) || !Memory::IsValid4AlignedRange(srcTickPtr, 8))
 	{
 		// TODO: Not well tested.
 		ERROR_LOG(Log::sceRtc, "sceRtcFormatRFC3339LocalTime(%08x, %08x): invalid address", outPtr, srcTickPtr);
@@ -1007,13 +1151,45 @@ const HLEFunction sceRtc[] =
 	{0X203CEB0D, &WrapI_U<sceRtcGetLastReincarnatedTime>,  "sceRtcGetLastReincarnatedTime",  'i', "x"  },
 	{0X7D1FBED3, &WrapI_UU<sceRtcSetAlarmTick>,            "sceRtcSetAlarmTick",             'i', "xx" },
 	{0XF5FCC995, nullptr,                                  "sceRtcGetCurrentNetworkTick",    '?', ""   },
-	{0X81FCDA34, nullptr,                                  "sceRtcIsAlarmed",                '?', ""   },
+	{0X81FCDA34, &WrapI_V<sceRtcIsAlarmed>,                "sceRtcIsAlarmed",                'i', ""   },
 	{0XFB3B18CD, nullptr,                                  "sceRtcRegisterCallback",         '?', ""   },
 	{0X6A676D2D, nullptr,                                  "sceRtcUnregisterCallback",       '?', ""   },
-	{0XC2DDBEB5, nullptr,                                  "sceRtcGetAlarmTick",             '?', ""   },
+	{0XC2DDBEB5, &WrapI_U<sceRtcGetAlarmTick>,             "sceRtcGetAlarmTick",             'i', "x"  },
 };
 
 void Register_sceRtc()
 {
 	RegisterHLEModule("sceRtc", ARRAY_SIZE(sceRtc), sceRtc);
+}
+
+// sceRtc_driver is the kernel-only alias some firmware modules (e.g. the VSH's
+// sceVshBridge_Driver) import from instead of plain sceRtc - same underlying functions,
+// just also exported under a second, kernel-suffixed module name. Confirmed by cross-
+// checking jpcsp's sceRtc.java, which registers 0xE09880CF as an alternate NID on the exact
+// same sceRtcSetAlarmTick() method (JPCSP doesn't distinguish import module names the way
+// PPSSPP's HLE dispatch does, but the NID->function mapping is the same either way).
+//
+// Sony renumbered the kernel NIDs across firmware versions, so the same function has three of
+// them. All three are the export at rtc.prx+0xB28, which every one of these builds also
+// exports as the user-mode sceRtc/0x7D1FBED3 (sceRtcSetAlarmTick) - that's how they line up.
+// Covering the older two matters for the VSH: without the HLE, sceVshBridge_Driver's alarm
+// call lands in the real rtc.prx, which goes on into syscon.prx and blocks forever on a
+// SceSysconSync semaphore that never gets signalled.
+const HLEFunction sceRtc_driver[] = {
+	{0XE09880CF, &WrapI_UU<sceRtcSetAlarmTick>,            "sceRtcSetAlarmTick",             'i', "xx" },
+	// NOTE: new entries go at the end - the syscall opcode in a savestate is an index into this array.
+	{0X54B9C589, &WrapI_UU<sceRtcSetAlarmTick>,            "sceRtcSetAlarmTick",             'i', "xx" },  // 6.31 - 6.39
+	{0X68AED59A, &WrapI_UU<sceRtcSetAlarmTick>,            "sceRtcSetAlarmTick",             'i', "xx" },  // 6.00 - 6.20
+	{0XADAF231F, &WrapI_UU<sceRtcSetAlarmTick>,            "sceRtcSetAlarmTick",             'i', "xx" },  // 5.03 - 5.55
+	{0X55AC1C23, &WrapI_UU<sceRtcSetAlarmTick>,            "sceRtcSetAlarmTick",             'i', "xx" },  // 3.95 - 4.05
+	{0X827BCB3F, &WrapI_UU<sceRtcSetAlarmTick>,            "sceRtcSetAlarmTick",             'i', "xx" },  // 3.72 - 3.90
+	{0X329E8E3A, &WrapI_UU<sceRtcSetAlarmTick>,            "sceRtcSetAlarmTick",             'i', "xx" },  // 3.71
+	// 3.51 and older didn't renumber it for kernel mode at all - the driver library exports it
+	// under the same NID as the user-mode one.
+	{0X7D1FBED3, &WrapI_UU<sceRtcSetAlarmTick>,            "sceRtcSetAlarmTick",             'i', "xx" },  // 2.71 - 3.51
+};
+
+void Register_sceRtc_driver()
+{
+	RegisterHLEModule("sceRtc_driver", ARRAY_SIZE(sceRtc_driver), sceRtc_driver);
 }

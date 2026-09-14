@@ -50,10 +50,11 @@
 GameInfoCache *g_gameInfoCache;
 
 void GameInfoTex::Clear() {
-	if (!data.empty()) {
-		data.clear();
-		dataLoaded = false;
-	}
+	data.clear();
+	// Note: has to be reset even when data was already empty - plenty of paths set dataLoaded on a
+	// file that turned out not to exist, and leaving it set makes FinishPendingTextureLoads stamp
+	// timeLoaded again, so the tex reads as permanently Failed().
+	dataLoaded = false;
 	if (texture) {
 		texture->Release();
 		texture = nullptr;
@@ -152,6 +153,7 @@ bool GameInfo::Delete() {
 	case IdentifiedFileType::ARCHIVE_RAR:
 	case IdentifiedFileType::ARCHIVE_ZIP:
 	case IdentifiedFileType::ARCHIVE_7Z:
+	case IdentifiedFileType::PSP_PKG:
 	case IdentifiedFileType::UNKNOWN:
 	case IdentifiedFileType::PSP_UMD_VIDEO_ISO:
 	case IdentifiedFileType::PPSSPP_GE_DUMP:
@@ -168,8 +170,8 @@ bool GameInfo::Delete() {
 			const Path &ppstPath = filePath_;
 			INFO_LOG(Log::System, "Deleting file %s", ppstPath.c_str());
 			MoveFileToTrashOrDelete(ppstPath);
-			const Path screenshotPath = filePath_.WithReplacedExtension(".ppst", ".jpg");
-			if (File::Exists(screenshotPath)) {
+			Path screenshotPath;
+			if (filePath_.WithReplacedExtension(".ppst", ".jpg", &screenshotPath) && File::Exists(screenshotPath)) {
 				MoveFileToTrashOrDelete(screenshotPath);
 			}
 			return true;
@@ -338,8 +340,7 @@ bool GameInfo::CreateLoader() {
 
 std::shared_ptr<FileLoader> GameInfo::GetFileLoader() {
 	if (filePath_.empty()) {
-		// Happens when workqueue tries to figure out priorities,
-		// because Priority() calls GetFileLoader()... gnarly.
+		// Defensive - don't try to construct a loader for nothing. Just hand back whatever we have.
 		return fileLoader;
 	}
 
@@ -395,17 +396,18 @@ std::string GameInfo::GetTitle() {
 
 std::string GameInfo::GetDBTitle() {
 	std::lock_guard<std::mutex> guard(lock);
-	if (!(hasFlags & GameInfoFlags::PARAM_SFO) && !title.empty()) {
-		return filePath_.GetFilename();
+	// Without PARAM_SFO there's no id_version to look up, so don't bother.
+	if (hasFlags & GameInfoFlags::PARAM_SFO) {
+		std::vector<GameDBInfo> dbInfos;
+		if (g_gameDB.GetGameInfos(id_version, &dbInfos)) {
+			return std::string(dbInfos[0].title);
+		}
+		if (!title.empty()) {
+			return title;
+		}
 	}
-
-	std::vector<GameDBInfo> dbInfos;
-	const bool inGameDB = g_gameDB.GetGameInfos(id_version, &dbInfos);
-	if (inGameDB) {
-		return std::string(dbInfos[0].title);
-	} else {
-		return title;
-	}
+	// Same fallback as GetTitle(), which we can't just call from here since the lock isn't recursive.
+	return filePath_.GetFilename();
 }
 
 void GameInfo::SetTitle(const std::string &newTitle) {
@@ -418,7 +420,7 @@ void GameInfo::FinishPendingTextureLoads(Draw::DrawContext *draw) {
 		return;
 	}
 	if (icon.dataLoaded && !icon.texture) {
-		SetupTexture(draw, icon);
+		SetupTexture(draw, icon, 2048, 2048);
 	}
 	if (pic0.dataLoaded && !pic0.texture) {
 		SetupTexture(draw, pic0);
@@ -428,7 +430,7 @@ void GameInfo::FinishPendingTextureLoads(Draw::DrawContext *draw) {
 	}
 }
 
-void GameInfo::SetupTexture(Draw::DrawContext *thin3d, GameInfoTex &tex) {
+void GameInfo::SetupTexture(Draw::DrawContext *thin3d, GameInfoTex &tex, int maxWidth, int maxHeight) {
 	if (tex.timeLoaded) {
 		// Failed before, skip.
 		return;
@@ -440,7 +442,7 @@ void GameInfo::SetupTexture(Draw::DrawContext *thin3d, GameInfoTex &tex) {
 	using namespace Draw;
 	// TODO: Use TempImage to semi-load the image in the worker task, then here we
 	// could just call CreateTextureFromTempImage.
-	tex.texture = CreateTextureFromFileData(thin3d, (const uint8_t *)tex.data.data(), tex.data.size(), ImageFileType::DETECT, false, GetTitle().c_str());
+	tex.texture = CreateTextureFromFileData(thin3d, (const uint8_t *)tex.data.data(), tex.data.size(), ImageFileType::DETECT, false, GetTitle().c_str(), maxWidth, maxHeight);
 	tex.timeLoaded = time_now_d();
 	if (!tex.texture) {
 		ERROR_LOG(Log::G3D, "Failed creating texture (%s) from %d-byte file", GetTitle().c_str(), (int)tex.data.size());
@@ -449,9 +451,14 @@ void GameInfo::SetupTexture(Draw::DrawContext *thin3d, GameInfoTex &tex) {
 
 // Will clear contents on failure.
 static bool ReadFileToString(IFileSystem *fs, std::string_view filename, std::string *contents, std::mutex *mtx) {
+	static constexpr s64 MAX_GAME_INFO_FILE_SIZE = 64 * 1024 * 1024;
 	std::string fn(filename);
 	PSPFileInfo info = fs->GetFileInfo(fn);
 	if (!info.exists) {
+		return false;
+	}
+	if (info.size < 0 || info.size > MAX_GAME_INFO_FILE_SIZE) {
+		WARN_LOG(Log::UI, "Ignoring implausibly large game metadata file %s (%lld bytes)", fn.c_str(), (long long)info.size);
 		return false;
 	}
 
@@ -556,10 +563,10 @@ public:
 	}
 
 	void Run() override {
-		// An early-return will result in the destructor running, where we can set
-		// flags like working and pending.
+		// Every exit from here has to MarkReadyNoLock(flags_) - otherwise those bits stay in
+		// pendingFlags forever and GetInfo() will never ask for them again.
 		if (!info_->CreateLoader() || !info_->GetFileLoader()) {
-			// Mark everything requested as done, so 
+			// Mark everything requested as done, so the caller can handle the missing data.
 			std::unique_lock<std::mutex> lock(info_->lock);
 			info_->MarkReadyNoLock(flags_);
 			ERROR_LOG(Log::Loader, "Failed getting game info for %s", info_->GetFilePath().ToVisualString().c_str());
@@ -568,16 +575,25 @@ public:
 
 		std::string errorString;
 
+		// Work on a local copy: another work item for the same GameInfo can be running alongside us,
+		// so info_->fileType isn't stable to switch on. GetInfo() guarantees we either compute it
+		// ourselves here, or that it's already in hasFlags and thus final.
+		IdentifiedFileType fileType;
 		if (flags_ & GameInfoFlags::FILE_TYPE) {
-			info_->fileType = Identify_File(info_->GetFileLoader().get(), &errorString);
+			fileType = Identify_File(info_->GetFileLoader().get(), &errorString);
+			std::lock_guard<std::mutex> lock(info_->lock);
+			info_->fileType = fileType;
+		} else {
+			std::lock_guard<std::mutex> lock(info_->lock);
+			fileType = info_->fileType;
 		}
 
-		switch (info_->fileType) {
+		switch (fileType) {
 		case IdentifiedFileType::PSP_PBP:
 		case IdentifiedFileType::PSP_PBP_DIRECTORY:
 			{
 				auto pbpLoader = info_->GetFileLoader();
-				if (info_->fileType == IdentifiedFileType::PSP_PBP_DIRECTORY) {
+				if (fileType == IdentifiedFileType::PSP_PBP_DIRECTORY) {
 					Path ebootPath = ResolvePBPFile(gamePath_);
 					if (ebootPath != gamePath_) {
 						pbpLoader.reset(ConstructFileLoader(ebootPath));
@@ -610,12 +626,12 @@ public:
 					if (pbp.GetSubFile(PBP_PARAM_SFO, &sfoData)) {
 						std::lock_guard<std::mutex> lock(info_->lock);
 						info_->paramSFO.ReadSFO(sfoData);
-						info_->ParseParamSFO(info_->fileType);
+						info_->ParseParamSFO(fileType);
 
 						// Assuming PSP_PBP_DIRECTORY without ID or with disc_total < 1 in GAME dir must be homebrew
 						if ((info_->id.empty() || !info_->disc_total)
 							&& gamePath_.FilePathContainsNoCase("PSP/GAME/")
-							&& info_->fileType == IdentifiedFileType::PSP_PBP_DIRECTORY) {
+							&& fileType == IdentifiedFileType::PSP_PBP_DIRECTORY) {
 							info_->id = g_paramSFO.GenerateFakeID(gamePath_);
 							info_->id_version = info_->id + "_1.00";
 							info_->region = GameRegion::HOMEBREW; // Homebrew
@@ -687,12 +703,14 @@ public:
 
 		case IdentifiedFileType::PSP_ELF:
 handleELF:
-			info_->title = info_->GetFilePath().GetFilename();
+			info_->SetTitle(info_->GetFilePath().GetFilename());
 			// An elf on its own has no usable information, no icons, no nothing.
 			if (flags_ & GameInfoFlags::PARAM_SFO) {
-				info_->id = g_paramSFO.GenerateFakeID(gamePath_);
-				info_->id_version = info_->id + "_1.00";
-				info_->region = GameRegion::HOMEBREW; // Homebrew
+				const std::string fakeID = g_paramSFO.GenerateFakeID(gamePath_);
+				std::lock_guard<std::mutex> lock(info_->lock);
+				info_->id = fakeID;
+				info_->id_version = fakeID + "_1.00";
+				info_->region = equals(info_->title, "vshmain.prx") ? GameRegion::VSH : GameRegion::HOMEBREW;
 			}
 
 			if (flags_ & GameInfoFlags::ICON) {
@@ -723,7 +741,7 @@ handleELF:
 				if (ReadFileToString(&umd, "/PARAM.SFO", &paramSFOcontents, 0)) {
 					std::lock_guard<std::mutex> lock(info_->lock);
 					info_->paramSFO.ReadSFO((const u8 *)paramSFOcontents.data(), paramSFOcontents.size());
-					info_->ParseParamSFO(info_->fileType);
+					info_->ParseParamSFO(fileType);
 					info_->MarkReadyNoLock(GameInfoFlags::PARAM_SFO);
 				}
 			}
@@ -748,8 +766,9 @@ handleELF:
 
 			// Let's use the screenshot as an icon, too.
 			if (flags_ & GameInfoFlags::ICON) {
-				Path screenshotPath = gamePath_.WithReplacedExtension(".ppst", ".jpg");
-				if (ReadLocalFileToString(screenshotPath, &info_->icon.data, &info_->lock)) {
+				Path screenshotPath;
+				if (gamePath_.WithReplacedExtension(".ppst", ".jpg", &screenshotPath) &&
+					ReadLocalFileToString(screenshotPath, &info_->icon.data, &info_->lock)) {
 					info_->icon.dataLoaded = true;
 				}
 			}
@@ -758,11 +777,12 @@ handleELF:
 
 		case IdentifiedFileType::PPSSPP_GE_DUMP:
 		{
-			info_->title = info_->GetFilePath().GetFilename();
+			info_->SetTitle(info_->GetFilePath().GetFilename());
 			if (flags_ & GameInfoFlags::ICON) {
-				Path screenshotPath = gamePath_.WithReplacedExtension(".ppdmp", ".png");
 				// Let's use the comparison screenshot as an icon, if it exists.
-				if (screenshotPath.IsLocalType() && ReadLocalFileToString(screenshotPath, &info_->icon.data, &info_->lock)) {
+				Path screenshotPath;
+				if (gamePath_.WithReplacedExtension(".ppdmp", ".png", &screenshotPath) &&
+					screenshotPath.IsLocalType() && ReadLocalFileToString(screenshotPath, &info_->icon.data, &info_->lock)) {
 					info_->icon.dataLoaded = true;
 				}
 			}
@@ -780,7 +800,8 @@ handleELF:
 					if (ReadFileToString(&umd, "/PSP_GAME/PARAM.SFO", &paramSFOcontents, nullptr)) {
 						std::lock_guard<std::mutex> lock(info_->lock);
 						info_->paramSFO.ReadSFO((const u8 *)paramSFOcontents.data(), paramSFOcontents.size());
-						info_->ParseParamSFO(info_->fileType);
+						info_->ParseParamSFO(fileType);
+						info_->MarkReadyNoLock(GameInfoFlags::PARAM_SFO);
 					}
 				}
 
@@ -801,7 +822,7 @@ handleELF:
 				}
 				if (flags_ & GameInfoFlags::SND) {
 					ReadFileToString(&umd, "/PSP_GAME/SND0.AT3", &info_->sndFileData, &info_->lock);
-					info_->pic1.dataLoaded = true;
+					info_->sndDataLoaded = true;
 				}
 				break;
 			}
@@ -810,7 +831,7 @@ handleELF:
 		case IdentifiedFileType::PSP_ISO_NP:
 		case IdentifiedFileType::PSP_UMD_VIDEO_ISO:
 			{
-				std::string_view gameRoot = info_->fileType == IdentifiedFileType::PSP_UMD_VIDEO_ISO ? "/UMD_VIDEO/" : "/PSP_GAME/";
+				std::string_view gameRoot = fileType == IdentifiedFileType::PSP_UMD_VIDEO_ISO ? "/UMD_VIDEO/" : "/PSP_GAME/";
 				SequentialHandleAllocator handles;
 				// Let's assume it's an ISO.
 				// TODO: This will currently read in the whole directory tree. Not really necessary for just a
@@ -840,14 +861,23 @@ handleELF:
 						{
 							std::lock_guard<std::mutex> lock(info_->lock);
 							info_->paramSFO.ReadSFO((const u8 *)paramSFOcontents.data(), paramSFOcontents.size());
-							info_->ParseParamSFO(info_->fileType);
+							info_->ParseParamSFO(fileType);
 
 							// quick-update the info while we have the lock, so we don't need to wait for the image load to display the title.
 							info_->MarkReadyNoLock(GameInfoFlags::PARAM_SFO);
 						}
 					} else {
-						info_->title = info_->GetFilePath().GetFilename();
+						info_->SetTitle(info_->GetFilePath().GetFilename());
 					}
+				}
+
+				// Most UMDs carry a firmware updater, which is a source of things like the
+				// system fonts. Just note down what's there - unpacking it is a separate step.
+				if (flags_ & GameInfoFlags::BUNDLED_UPDATE_INFO) {
+					BundledUpdateInfo update;
+					ReadBundledUpdateInfo(&umd, "/", &update);
+					std::lock_guard<std::mutex> lock(info_->lock);
+					info_->bundledUpdate = update;
 				}
 
 				if (flags_ & GameInfoFlags::PIC0) {
@@ -891,37 +921,47 @@ handleELF:
 			}
 
 			case IdentifiedFileType::ARCHIVE_ZIP:
-				info_->title = info_->GetFilePath().GetFilename();
+			case IdentifiedFileType::PSP_PKG:
+				info_->SetTitle(info_->GetFilePath().GetFilename());
 				info_->icon.dataLoaded = true;
 				break;
 
 			case IdentifiedFileType::NORMAL_DIRECTORY:
 			default:
-				info_->title = info_->GetFilePath().GetFilename();
+			{
+				info_->SetTitle(info_->GetFilePath().GetFilename());
+				std::lock_guard<std::mutex> lock(info_->lock);
 				if (info_->errorString.empty()) {
 					info_->errorString = errorString;
 				}
 				break;
+			}
 		}
 
 		if (flags_ & GameInfoFlags::PARAM_SFO) {
 			// We fetch the hasConfig together with the params, since that's what fills out the id.
-			info_->hasConfig = g_Config.HasGameConfig(info_->id);
+			// Don't hold the lock across HasGameConfig(), it hits the file system.
+			std::string id;
+			{
+				std::lock_guard<std::mutex> lock(info_->lock);
+				id = info_->id;
+			}
+			const bool hasConfig = g_Config.HasGameConfig(id);
+			std::lock_guard<std::mutex> lock(info_->lock);
+			info_->hasConfig = hasConfig;
 		}
 
 		if (flags_ & GameInfoFlags::SIZE) {
 			const u64 gameSizeOnDisk = info_->GetSizeOnDiskInBytes();
-			u64 saveDataSize = 0;
-			u64 installDataSize = 0;
 
+			// NOTE: Don't touch saveDataSize/installDataSize here - those belong to SAVEDATA_SIZE,
+			// which can have been fetched by an earlier work item.
 			std::lock_guard<std::mutex> lock(info_->lock);
 			info_->gameSizeOnDisk = gameSizeOnDisk;
-			info_->saveDataSize = saveDataSize;
-			info_->installDataSize = installDataSize;
 		}
 
 		if (flags_ & GameInfoFlags::SAVEDATA_SIZE) {
-			switch (info_->fileType) {
+			switch (fileType) {
 			case IdentifiedFileType::PSP_ISO:
 			case IdentifiedFileType::PSP_ISO_NP:
 			case IdentifiedFileType::PSP_DISC_DIRECTORY:
@@ -939,7 +979,10 @@ handleELF:
 		}
 
 		if (flags_ & GameInfoFlags::UNCOMPRESSED_SIZE) {
-			info_->gameSizeUncompressed = info_->GetSizeUncompressedInBytes();
+			// Expensive, so compute it before taking the lock.
+			const u64 gameSizeUncompressed = info_->GetSizeUncompressedInBytes();
+			std::lock_guard<std::mutex> lock(info_->lock);
+			info_->gameSizeUncompressed = gameSizeUncompressed;
 		}
 
 		// Time to update the flags.
@@ -1027,17 +1070,29 @@ void GameInfoCache::PurgeType(IdentifiedFileType fileType) {
 			std::lock_guard<std::mutex> lock(mapLock_);
 			for (auto iter = info_.begin(); iter != info_.end();) {
 				auto &info = iter->second;
-				if (!(info->hasFlags & GameInfoFlags::FILE_TYPE)) {
-					iter++;
-					continue;
+				GameInfoFlags pendingFlags = GameInfoFlags::EMPTY;
+				{
+					std::lock_guard<std::mutex> infoLock(info->lock);
+					if (!(info->hasFlags & GameInfoFlags::FILE_TYPE) || info->fileType != fileType) {
+						iter++;
+						continue;
+					}
+					// TODO: Find a better way to wait here.
+					pendingFlags = info->pendingFlags;
+					if (pendingFlags == GameInfoFlags::EMPTY) {
+						// Drop the textures here, on the main thread. A work item that finished just before
+						// we took the lock can still hold the last reference to this GameInfo, and then
+						// ~GameInfo would run - and release them - on a worker thread. Same reasoning as
+						// the NOTE in Clear().
+						info->pic0.Clear();
+						info->pic1.Clear();
+						info->icon.Clear();
+						info->hasFlags &= ~(GameInfoFlags::PIC0 | GameInfoFlags::PIC1 | GameInfoFlags::ICON);
+					}
 				}
-				if (info->fileType != fileType) {
-					iter++;
-					continue;
-				}
-				// TODO: Find a better way to wait here.
-				if (info->pendingFlags != (GameInfoFlags)0) {
-					INFO_LOG(Log::Loader, "%s: pending flags %08x, retrying", info->GetTitle().c_str(), (int)info->pendingFlags);
+				if (pendingFlags != GameInfoFlags::EMPTY) {
+					// Note: GetTitle() takes info->lock, so this has to be outside the block above.
+					INFO_LOG(Log::Loader, "%s: pending flags %08x, retrying", info->GetTitle().c_str(), (int)pendingFlags);
 					retry = true;
 					break;
 				}
@@ -1045,7 +1100,9 @@ void GameInfoCache::PurgeType(IdentifiedFileType fileType) {
 			}
 		}
 
-		sleep_ms(10, "game-info-cache-purge-poll");
+		if (retry) {
+			sleep_ms(10, "game-info-cache-purge-poll");
+		}
 	} while (retry);
 }
 
@@ -1081,6 +1138,12 @@ std::shared_ptr<GameInfo> GameInfoCache::GetInfo(Draw::DrawContext *draw, const 
 			}
 			GameInfoFlags willHaveFlags = info->hasFlags | info->pendingFlags;  // We don't want to re-fetch data that we have, so or in pendingFlags.
 			wanted = (GameInfoFlags)((int)wantFlags & ~(int)willHaveFlags);  // & is reserved for testing so we have to cast to int. ugh.
+			// FILE_TYPE is special: every work item switches on info->fileType, so it's not enough that
+			// some *pending* item is going to compute it - that item may not have got there yet, and we'd
+			// switch on UNKNOWN and mark our flags ready having loaded nothing. Cheap enough to redo.
+			if (wanted != GameInfoFlags::EMPTY && !(info->hasFlags & GameInfoFlags::FILE_TYPE)) {
+				wanted |= GameInfoFlags::FILE_TYPE;
+			}
 			info->pendingFlags |= wanted;
 			if (outHasFlags) {
 				*outHasFlags = info->hasFlags;

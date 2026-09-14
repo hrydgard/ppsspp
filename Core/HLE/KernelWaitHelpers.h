@@ -29,6 +29,21 @@
 namespace HLEKernel
 {
 
+// Cancels the pending timeout event for a wait that's being satisfied, and writes the time
+// remaining back to the game.
+// Note the clamp: UnscheduleEvent returns the scheduled time minus the current time, which goes
+// negative when the event is already overdue but hasn't been processed yet. Without the clamp we'd
+// write a huge bogus timeout back into the game's variable.
+inline void WriteRemainingTimeout(int waitTimer, SceUID threadID, u32 timeoutPtr) {
+	if (timeoutPtr == 0 || waitTimer == -1)
+		return;
+
+	s64 cyclesLeft = CoreTiming::UnscheduleEvent(waitTimer, threadID);
+	if (cyclesLeft < 0)
+		cyclesLeft = 0;
+	Memory::WriteOrException_U32((u32)cyclesToUs(cyclesLeft), timeoutPtr);
+}
+
 // Should be called from the CoreTiming handler for the wait func.
 template <typename KO, WaitType waitType>
 inline void WaitExecTimeout(SceUID threadID) {
@@ -39,7 +54,7 @@ inline void WaitExecTimeout(SceUID threadID) {
 	if (ko)
 	{
 		if (timeoutPtr != 0)
-			Memory::Write_U32(0, timeoutPtr);
+			Memory::WriteOrException_U32(0, timeoutPtr);
 
 		// This thread isn't waiting anymore, but we'll remove it from waitingThreads later.
 		// The reason is, if it times out, but what it was waiting on is DELETED prior to it
@@ -144,7 +159,7 @@ WaitBeginEndCallbackResult WaitBeginCallback(SceUID threadID, SceUID prevCallbac
 	u64 pausedTimeout = 0;
 	if (doTimeout && waitTimer != -1) {
 		s64 cyclesLeft = CoreTiming::UnscheduleEvent(waitTimer, threadID);
-		pausedTimeout = CoreTiming::GetTicks() + cyclesLeft;
+		pausedTimeout = CoreTiming::GetTicks(currentMIPS) + cyclesLeft;
 	}
 
 	if (!WaitPauseHelperUpdate(pauseKey, threadID, waitingThreads, pausedWaits, pausedTimeout)) {
@@ -196,7 +211,7 @@ WaitBeginEndCallbackResult WaitEndCallback(SceUID threadID, SceUID prevCallbackI
 		// TODO: Since it was deleted, we don't know how long was actually left.
 		// For now, we just say the full time was taken.
 		if (timeoutPtr != 0 && waitTimer != -1) {
-			Memory::Write_U32(0, timeoutPtr);
+			Memory::WriteOrException_U32(0, timeoutPtr);
 		}
 
 		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_DELETE);
@@ -214,10 +229,10 @@ WaitBeginEndCallbackResult WaitEndCallback(SceUID threadID, SceUID prevCallbackI
 	}
 
 	// We only check if it timed out if it couldn't unlock.
-	s64 cyclesLeft = waitDeadline - CoreTiming::GetTicks();
+	s64 cyclesLeft = waitDeadline - CoreTiming::GetTicks(currentMIPS);
 	if (cyclesLeft < 0 && waitDeadline != 0) {
 		if (timeoutPtr != 0 && waitTimer != -1) {
-			Memory::Write_U32(0, timeoutPtr);
+			Memory::WriteOrException_U32(0, timeoutPtr);
 		}
 
 		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
@@ -247,7 +262,7 @@ WaitBeginEndCallbackResult WaitEndCallback(SceUID threadID, SceUID prevCallbackI
 		// TODO: Since it was deleted, we don't know how long was actually left.
 		// For now, we just say the full time was taken.
 		if (timeoutPtr != 0 && waitTimer != -1) {
-			Memory::Write_U32(0, timeoutPtr);
+			Memory::WriteOrException_U32(0, timeoutPtr);
 		}
 
 		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_DELETE);

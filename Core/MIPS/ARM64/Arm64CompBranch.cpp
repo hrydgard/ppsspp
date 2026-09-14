@@ -593,7 +593,6 @@ void Arm64Jit::Comp_JumpReg(MIPSOpcode op)
 	WriteExitDestInR(destReg);
 	js.compiling = false;
 }
-
 	
 void Arm64Jit::Comp_Syscall(MIPSOpcode op)
 {
@@ -636,14 +635,20 @@ void Arm64Jit::Comp_Syscall(MIPSOpcode op)
 	QuickCallFunction(X1, (void *)&CallSyscall);
 #else
 	// Skip the CallSyscall where possible.
-	void *quickFunc = GetQuickSyscallFunc(op);
-	if (quickFunc) {
-		MOVI2R(X0, (uintptr_t)GetSyscallFuncPointer(op));
-		// Already flushed, so X1 is safe.
-		QuickCallFunction(X1, quickFunc);
+	const HLEFunction *func = GetSyscallFunctionData(op, js.compilerPC);
+	if (func) {
+		void *quickFunc = GetQuickSyscallFunc(func, op);
+		if (quickFunc) {
+			MOVI2R(X0, (uintptr_t)func);
+			// Already flushed, so X1 is safe.
+			QuickCallFunction(X1, quickFunc);
+		} else {
+			MOVI2R(W0, op.encoding);
+			QuickCallFunction(X1, (void *)&CallSyscall);
+		}
 	} else {
-		MOVI2R(W0, op.encoding);
-		QuickCallFunction(X1, (void *)&CallSyscall);
+		MOVI2R(W0, js.compilerPC);
+		QuickCallFunction(X1, (void *)&CallSyscallUnresolvedAtPC);
 	}
 #endif
 	LoadStaticRegisters();

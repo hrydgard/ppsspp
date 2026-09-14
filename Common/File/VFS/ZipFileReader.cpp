@@ -15,6 +15,10 @@
 #include "Common/File/VFS/ZipFileReader.h"
 #include "Common/StringUtils.h"
 
+// Sanity cap on a single zip entry's declared uncompressed size, so a corrupt or
+// malicious zip can't drive an implausible (or, near UINT64_MAX, wrapping) allocation.
+static constexpr uint64_t MAX_ZIP_ENTRY_SIZE = 1ULL << 32;  // 4GB, generous for any real asset.
+
 ZipContainer::ZipContainer() noexcept : sourceData_(nullptr), zip_(nullptr) {}
 
 ZipContainer::ZipContainer(const Path &path) : sourceData_(new SourceData {path, nullptr}), zip_(nullptr) {
@@ -169,6 +173,13 @@ uint8_t *ZipFileReader::ReadFile(std::string_view path, size_t *size) {
 		ERROR_LOG(Log::IO, "Error opening %s from ZIP", temp_path.c_str());
 		return 0;
 	}
+	// Sanity check the declared size before trusting it for an allocation - a corrupt
+	// or malicious zip could claim a huge (even ~UINT64_MAX, which would wrap the +1
+	// below to 0) size here.
+	if (zstat.size > MAX_ZIP_ENTRY_SIZE) {
+		ERROR_LOG(Log::IO, "Zip entry %s claims an implausible size (%llu), refusing to read", temp_path.c_str(), (unsigned long long)zstat.size);
+		return 0;
+	}
 	zip_file *file = zip_fopen_index(zip_file_, zstat.index, ZIP_FL_NOCASE | ZIP_FL_UNCHANGED);
 	if (!file) {
 		ERROR_LOG(Log::IO, "Error opening %s from ZIP", temp_path.c_str());
@@ -311,7 +322,7 @@ bool ZipFileReader::GetFileInfo(std::string_view path, File::FileInfo *info) {
 	}
 
 	// Zips usually don't contain directory entries, but they may.
-	if ((zstat.valid & ZIP_STAT_NAME) != 0 && zstat.name) {
+	if ((zstat.valid & ZIP_STAT_NAME) != 0 && zstat.name && zstat.name[0] != '\0') {
 		info->isDirectory = zstat.name[strlen(zstat.name) - 1] == '/';
 	}
 	if ((zstat.valid & ZIP_STAT_SIZE) != 0) {
@@ -434,6 +445,10 @@ bool ReadSingleFileFromZip(Path zipFile, const char *path, std::string *data, st
 
 	struct zip_stat zstat;
 	if (zip_stat(zip, path, ZIP_FL_NOCASE | ZIP_FL_UNCHANGED, &zstat) != 0) {
+		return false;
+	}
+	if (zstat.size > MAX_ZIP_ENTRY_SIZE) {
+		ERROR_LOG(Log::IO, "Zip entry %s claims an implausible size (%llu), refusing to read", path, (unsigned long long)zstat.size);
 		return false;
 	}
 	zip_file *file = zip_fopen_index(zip, zstat.index, ZIP_FL_UNCHANGED);

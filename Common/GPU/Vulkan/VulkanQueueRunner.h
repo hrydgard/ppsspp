@@ -47,7 +47,7 @@ enum class PipelineFlags : u8 {
 	NONE = 0,
 	USES_BLEND_CONSTANT = (1 << 1),
 	USES_DEPTH_STENCIL = (1 << 2),  // Reads or writes the depth or stencil buffers.
-	USES_GEOMETRY_SHADER = (1 << 3),
+	// Note: (1 << 3) is free, it used to be USES_GEOMETRY_SHADER.
 	USES_MULTIVIEW = (1 << 4),  // Inherited from the render pass it was created with.
 	USES_DISCARD = (1 << 5),
 	USES_FLAT_SHADING = (1 << 6),
@@ -253,6 +253,7 @@ public:
 	VKRRenderPass *GetRenderPass(const RPKey &key);
 
 	bool GetRenderPassKey(VKRRenderPass *passToFind, RPKey *outKey) const {
+		std::lock_guard<std::mutex> lock(renderPassesMutex_);
 		bool found = false;
 		renderPasses_.Iterate([passToFind, &found, outKey](const RPKey &rpkey, const VKRRenderPass *pass) {
 			if (pass == passToFind) {
@@ -302,6 +303,8 @@ private:
 
 	// Renderpasses, all combinations of preserving or clearing or dont-care-ing fb contents.
 	// Each VKRRenderPass contains all compatibility classes (which attachments they have, etc).
+	// Looked up and inserted into from both the main thread and the render thread - see GetRenderPass.
+	mutable std::mutex renderPassesMutex_;
 	DenseHashMap<RPKey, VKRRenderPass *> renderPasses_;
 
 	// Readback buffer. Currently we only support synchronous readback, so we only really need one.

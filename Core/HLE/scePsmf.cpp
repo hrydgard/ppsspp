@@ -290,9 +290,21 @@ public:
 		videoHeight_ = addr[13] * 16;
 
 		const u32 EP_MAP_STRIDE = 1 + 1 + 4 + 4;
-		if (psmf->headerOffset != 0 && !Memory::IsValidRange(psmf->headerOffset, psmf->EPMapOffset + EP_MAP_STRIDE * psmf->EPMapEntriesNum)) {
-			ERROR_LOG(Log::ME, "Invalid PSMF EP map entry count: %d", psmf->EPMapEntriesNum);
-			psmf->EPMapEntriesNum = Memory::ClampValidSizeAt(psmf->headerOffset + psmf->EPMapOffset, EP_MAP_STRIDE * psmf->EPMapEntriesNum) / EP_MAP_STRIDE;
+		// Compute in 64-bit so EP_MAP_STRIDE * EPMapEntriesNum can't overflow
+		// and pass a wrapped range check while the loop below still iterates
+		// the unwrapped count.
+		const u64 epMapBytes = EP_MAP_STRIDE * (u64)psmf->EPMapEntriesNum;
+		if (psmf->headerOffset != 0) {
+			if (epMapBytes > 0xFFFFFFFFull - psmf->EPMapOffset || !Memory::IsValidRange(psmf->headerOffset, psmf->EPMapOffset + (u32)epMapBytes)) {
+				ERROR_LOG(Log::ME, "Invalid PSMF EP map entry count: %d", psmf->EPMapEntriesNum);
+				psmf->EPMapEntriesNum = Memory::ClampValidSizeAt(psmf->headerOffset + psmf->EPMapOffset, (u32)epMapBytes) / EP_MAP_STRIDE;
+			}
+		} else {
+			// No guest address to validate against (player tempbuf path,
+			// where the buffer is 64KB): cap so the reads below stay in bounds.
+			if (epMapBytes > 0x10000) {
+				psmf->EPMapEntriesNum = 0x10000 / EP_MAP_STRIDE;
+			}
 		}
 
 		psmf->EPMap.clear();
@@ -658,9 +670,9 @@ static Psmf *getPsmf(u32 psmf) {
 	}
 }
 
-static PsmfPlayer *getPsmfPlayer(u32 psmfplayer)
-{
-	auto iter = psmfPlayerMap.find(Memory::Read_U32(psmfplayer));
+// This can assume that psmfPlayer is a valid pointer.
+static PsmfPlayer *getPsmfPlayer(u32 psmfplayer) {
+	auto iter = psmfPlayerMap.find(Memory::ReadUnchecked_U32(psmfplayer));
 	if (iter != psmfPlayerMap.end())
 		return iter->second;
 	else
@@ -701,6 +713,18 @@ void __PsmfPlayerDoState(PointerWrap &p) {
 	if (!s)
 		return;
 
+	if (p.mode == p.MODE_READ) {
+		// The map serializer deletes every existing host PsmfPlayer before
+		// loading. ~PsmfPlayer -> AbortFinish() deletes its helper thread
+		// without Forget(), mutating the freshly restored kernel state with
+		// stale ids/blocks from before the load (see the matching fix in
+		// __UtilityDoState). Forget the helpers first; the kernel-side
+		// objects belong to the restored state, not to these host wrappers.
+		for (auto &it : psmfPlayerMap) {
+			if (it.second && it.second->finishThread)
+				it.second->finishThread->Forget();
+		}
+	}
 	Do(p, psmfPlayerMap);
 	Do(p, videoPixelMode);
 	Do(p, videoLoopStatus);
@@ -746,7 +770,7 @@ static u32 scePsmfSetPsmf(u32 psmfStruct, u32 psmfData) {
 		return hleReportError(Log::ME, SCE_KERNEL_ERROR_ILLEGAL_ADDRESS, "bad address");
 	}
 
-	Psmf *psmf = new Psmf(Memory::GetPointer(psmfData), psmfData);
+	Psmf *psmf = new Psmf(Memory::GetPointerOrException(psmfData), psmfData);
 	if (psmf->magic != PSMF_MAGIC) {
 		delete psmf;
 		return hleLogError(Log::ME, SCE_PSMF_ERROR_INVALID_PSMF, "invalid psmf data");
@@ -859,8 +883,8 @@ static u32 scePsmfGetVideoInfo(u32 psmfStruct, u32 videoInfoAddr) {
 	if (info->videoWidth_ == PsmfStream::INVALID) {
 		return hleLogError(Log::ME, SCE_PSMF_ERROR_INVALID_ID, "not a video stream");
 	}
-	Memory::Write_U32(info->videoWidth_ == PsmfStream::USE_PSMF ? psmf->videoWidth : info->videoWidth_, videoInfoAddr);
-	Memory::Write_U32(info->videoHeight_ == PsmfStream::USE_PSMF ? psmf->videoHeight : info->videoHeight_, videoInfoAddr + 4);
+	Memory::WriteUnchecked_U32(info->videoWidth_ == PsmfStream::USE_PSMF ? psmf->videoWidth : info->videoWidth_, videoInfoAddr);
+	Memory::WriteUnchecked_U32(info->videoHeight_ == PsmfStream::USE_PSMF ? psmf->videoHeight : info->videoHeight_, videoInfoAddr + 4);
 	return hleLogDebug(Log::ME, 0);
 }
 
@@ -879,8 +903,8 @@ static u32 scePsmfGetAudioInfo(u32 psmfStruct, u32 audioInfoAddr) {
 	if (info->audioChannels_ == PsmfStream::INVALID) {
 		return hleLogError(Log::ME, SCE_PSMF_ERROR_INVALID_ID, "not an audio stream");
 	}
-	Memory::Write_U32(info->audioChannels_ == PsmfStream::USE_PSMF ? psmf->audioChannels : info->audioChannels_, audioInfoAddr);
-	Memory::Write_U32(info->audioFrequency_ == PsmfStream::USE_PSMF ? psmf->audioFrequency : info->audioFrequency_, audioInfoAddr + 4);
+	Memory::WriteUnchecked_U32(info->audioChannels_ == PsmfStream::USE_PSMF ? psmf->audioChannels : info->audioChannels_, audioInfoAddr);
+	Memory::WriteUnchecked_U32(info->audioFrequency_ == PsmfStream::USE_PSMF ? psmf->audioFrequency : info->audioFrequency_, audioInfoAddr + 4);
 	return hleLogDebug(Log::ME, 0);
 }
 
@@ -916,20 +940,18 @@ static u32 scePsmfGetStreamSize(u32 psmfStruct, u32 sizeAddr)
 
 static u32 scePsmfQueryStreamOffset(u32 bufferAddr, u32 offsetAddr)
 {
-	WARN_LOG(Log::ME, "scePsmfQueryStreamOffset(%08x, %08x)", bufferAddr, offsetAddr);
-	if (Memory::IsValidAddress(offsetAddr)) {
-		Memory::WriteUnchecked_U32(bswap32(Memory::Read_U32(bufferAddr + PSMF_STREAM_OFFSET_OFFSET)), offsetAddr);
+	if (Memory::IsValidAddress(offsetAddr) && Memory::IsValidRange(bufferAddr, 12)) {
+		Memory::WriteUnchecked_U32(bswap32(Memory::ReadUnchecked_U32(bufferAddr + PSMF_STREAM_OFFSET_OFFSET)), offsetAddr);
 	}
-	return 0;
+	return hleLogWarning(Log::ME, 0);
 }
 
 static u32 scePsmfQueryStreamSize(u32 bufferAddr, u32 sizeAddr)
 {
-	WARN_LOG(Log::ME, "scePsmfQueryStreamSize(%08x, %08x)", bufferAddr, sizeAddr);
-	if (Memory::IsValidAddress(sizeAddr)) {
-		Memory::WriteUnchecked_U32(bswap32(Memory::Read_U32(bufferAddr + PSMF_STREAM_SIZE_OFFSET)), sizeAddr);
+	if (Memory::IsValidAddress(sizeAddr) && Memory::IsValidRange(bufferAddr, 12)) {
+		Memory::WriteUnchecked_U32(bswap32(Memory::ReadUnchecked_U32(bufferAddr + PSMF_STREAM_SIZE_OFFSET)), sizeAddr);
 	}
-	return 0;
+	return hleLogWarning(Log::ME, 0);
 }
 
 static u32 scePsmfGetHeaderSize(u32 psmfStruct, u32 sizeAddr)
@@ -955,11 +977,14 @@ static u32 scePsmfGetPsmfVersion(u32 psmfStruct)
 
 static u32 scePsmfVerifyPsmf(u32 psmfAddr)
 {
-	u32 magic = Memory::Read_U32(psmfAddr);
+	if (!Memory::IsValid4AlignedRange(psmfAddr, 12)) {
+		return hleLogError(Log::ME, SCE_PSMF_ERROR_NOT_FOUND, "bad address");
+	}
+	const u32 magic = Memory::ReadUnchecked_U32(psmfAddr);
 	if (magic != PSMF_MAGIC) {
 		return hleLogError(Log::ME, SCE_PSMF_ERROR_NOT_FOUND, "bad magic %08x", magic);
 	}
-	int version = Memory::Read_U32(psmfAddr + PSMF_STREAM_VERSION_OFFSET);
+	const int version = Memory::ReadUnchecked_U32(psmfAddr + PSMF_STREAM_VERSION_OFFSET);
 	if (version < 0) {
 		return hleLogError(Log::ME, SCE_PSMF_ERROR_NOT_FOUND, "bad version at %08x: %d", psmfAddr + PSMF_STREAM_VERSION_OFFSET, version);
 	}
@@ -984,8 +1009,8 @@ static u32 scePsmfGetPresentationStartTime(u32 psmfStruct, u32 startTimeAddr)
 	if (!psmf) {
 		return hleLogError(Log::ME, SCE_PSMF_ERROR_NOT_FOUND, "invalid psmf");
 	}
-	if (Memory::IsValidAddress(startTimeAddr)) {
-		Memory::Write_U32(psmf->presentationStartTime, startTimeAddr);
+	if (Memory::IsValid4AlignedAddress(startTimeAddr)) {
+		Memory::WriteUnchecked_U32(psmf->presentationStartTime, startTimeAddr);
 	}
 	return hleLogDebug(Log::ME, 0);
 }
@@ -998,7 +1023,7 @@ static u32 scePsmfGetPresentationEndTime(u32 psmfStruct, u32 endTimeAddr)
 		return SCE_PSMF_ERROR_NOT_FOUND;
 	}
 	DEBUG_LOG(Log::ME, "scePsmfGetPresentationEndTime(%08x, %08x)", psmfStruct, endTimeAddr);
-	if (Memory::IsValidAddress(endTimeAddr)) {
+	if (Memory::IsValid4AlignedAddress(endTimeAddr)) {
 		Memory::WriteUnchecked_U32(psmf->presentationEndTime, endTimeAddr);
 	}
 	return 0;
@@ -1218,8 +1243,12 @@ static int _PsmfPlayerSetPsmfOffset(u32 psmfPlayer, const char *filename, int of
 		return hleDelayResult(hleLogError(Log::ME, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid file data or does not exist"), "psmfplayer set", delayUs);
 	}
 
-	if (offset != 0)
-		pspFileSystem.SeekFile(psmfplayer->filehandle, offset, FILEMOVE_BEGIN);
+	if (offset < 0) {
+		return hleDelayResult(hleLogError(Log::ME, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid file data or does not exist"), "psmfplayer set", delayUs);
+	}
+
+	pspFileSystem.SeekFile(psmfplayer->filehandle, offset, FILEMOVE_BEGIN);
+
 	u8 *buf = psmfplayer->tempbuf;
 	int tempbufSize = (int)sizeof(psmfplayer->tempbuf);
 	int size = (int)pspFileSystem.ReadFile(psmfplayer->filehandle, buf, 2048);
@@ -1460,8 +1489,8 @@ static int scePsmfPlayerDelete(u32 psmfPlayer)
 
 	delete psmfplayer;
 
-	psmfPlayerMap.erase(Memory::Read_U32(psmfPlayer));
-	Memory::Write_U32(0, psmfPlayer);
+	psmfPlayerMap.erase(Memory::ReadUnchecked_U32(psmfPlayer));
+	Memory::WriteUnchecked_U32(0, psmfPlayer);
 
 	return hleDelayResult(hleLogDebug(Log::ME, 0), "psmfplayer deleted", 20000);
 }

@@ -10,7 +10,7 @@
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 
-#if defined(_WIN32) && !defined(USING_QT_UI) && !PPSSPP_PLATFORM(UWP)
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 
 #define WIN32_LEAN_AND_MEAN
 #include <Windows.h>

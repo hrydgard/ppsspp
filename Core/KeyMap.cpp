@@ -185,7 +185,8 @@ void UpdateNativeMenuKeys() {
 		InsertIntoVector(&cancelKeys, hardcodedCancelKeys[i]);
 	}
 	if (!HasMainButtonMapping(cancelKeys)) {
-		confirmKeys.push_back(InputMapping(DEVICE_ID_ANY, confirmWithCross ? NKCODE_BUTTON_A : NKCODE_BUTTON_B));
+		// This used to push the confirm button into confirmKeys - wrong list, wrong button.
+		cancelKeys.push_back(InputMapping(DEVICE_ID_ANY, confirmWithCross ? NKCODE_BUTTON_B : NKCODE_BUTTON_A));
 	}
 
 	const InputMapping hardcodedInfoKeys[] = {

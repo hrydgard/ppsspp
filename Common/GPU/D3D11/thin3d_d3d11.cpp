@@ -248,7 +248,6 @@ private:
 	ComPtr<ID3D11InputLayout> curInputLayout_;
 	ComPtr<ID3D11VertexShader> curVS_;
 	ComPtr<ID3D11PixelShader> curPS_;
-	ComPtr<ID3D11GeometryShader> curGS_;
 	D3D11_PRIMITIVE_TOPOLOGY curTopology_ = D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED;
 
 	ComPtr<ID3D11Buffer> nextVertexBuffer_;
@@ -293,10 +292,8 @@ D3D11DrawContext::D3D11DrawContext(ComPtr<ID3D11Device> device, ComPtr<ID3D11Dev
 		swapChain_(swapChain),
 		deviceList_(std::move(deviceList)) {
 
-	// We no longer support Windows Phone.
-	_assert_(featureLevel_ >= D3D_FEATURE_LEVEL_9_3);
-
 	caps_.coordConvention = CoordConvention::Direct3D11;
+	caps_.fragmentShaderFullPrecisionFloat = true;
 
 	switch (featureLevel_) {
 	case D3D_FEATURE_LEVEL_11_1:
@@ -849,7 +846,6 @@ public:
 
 	ComPtr<ID3D11VertexShader> vs;
 	ComPtr<ID3D11PixelShader> ps;
-	ComPtr<ID3D11GeometryShader> gs;
 };
 
 class D3D11Pipeline : public Pipeline {
@@ -870,7 +866,6 @@ public:
 
 	ComPtr<ID3D11VertexShader> vs;
 	ComPtr<ID3D11PixelShader> ps;
-	ComPtr<ID3D11GeometryShader> gs;
 	D3D11_PRIMITIVE_TOPOLOGY topology = D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED;
 
 	std::vector<D3D11ShaderModule *> shaderModules;
@@ -1090,11 +1085,9 @@ ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLang
 
 	const char *vertexModel = "vs_4_0";
 	const char *fragmentModel = "ps_4_0";
-	const char *geometryModel = "gs_4_0";
 	if (featureLevel_ <= D3D_FEATURE_LEVEL_9_3) {
 		vertexModel = "vs_4_0_level_9_1";
 		fragmentModel = "ps_4_0_level_9_1";
-		geometryModel = nullptr;
 	}
 
 	std::string compiled;
@@ -1103,11 +1096,6 @@ ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLang
 	switch (stage) {
 	case ShaderStage::Fragment: target = fragmentModel; break;
 	case ShaderStage::Vertex: target = vertexModel; break;
-	case ShaderStage::Geometry:
-		if (!geometryModel)
-			return nullptr;
-		target = geometryModel;
-		break;
 	case ShaderStage::Compute:
 	default:
 		Crash();
@@ -1147,9 +1135,6 @@ ShaderModule *D3D11DrawContext::CreateShaderModule(ShaderStage stage, ShaderLang
 		break;
 	case ShaderStage::Fragment:
 		result = device_->CreatePixelShader(data, dataSize, nullptr, &module->ps);
-		break;
-	case ShaderStage::Geometry:
-		result = device_->CreateGeometryShader(data, dataSize, nullptr, &module->gs);
 		break;
 	default:
 		ERROR_LOG(Log::G3D, "Unsupported shader stage");
@@ -1203,9 +1188,6 @@ Pipeline *D3D11DrawContext::CreateGraphicsPipeline(const PipelineDesc &desc, con
 		case ShaderStage::Fragment:
 			dPipeline->ps = module->ps;
 			break;
-		case ShaderStage::Geometry:
-			dPipeline->gs = module->gs;
-			break;
 		case ShaderStage::Compute:
 			break;
 		}
@@ -1249,7 +1231,6 @@ void D3D11DrawContext::Invalidate(InvalidationFlags flags) {
 		curRaster_ = nullptr;
 		curPS_.Reset();
 		curVS_.Reset();
-		curGS_.Reset();
 		curInputLayout_.Reset();
 		curTopology_ = D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED;
 		curPipeline_= nullptr;
@@ -1291,10 +1272,6 @@ void D3D11DrawContext::ApplyCurrentState() {
 	if (curPS_ != curPipeline_->ps) {
 		context_->PSSetShader(curPipeline_->ps.Get(), nullptr, 0);
 		curPS_ = curPipeline_->ps;
-	}
-	if (curGS_ != curPipeline_->gs) {
-		context_->GSSetShader(curPipeline_->gs.Get(), nullptr, 0);
-		curGS_ = curPipeline_->gs;
 	}
 	if (curTopology_ != curPipeline_->topology) {
 		context_->IASetPrimitiveTopology(curPipeline_->topology);
@@ -1650,7 +1627,6 @@ void D3D11DrawContext::BeginFrame(DebugFlags debugFlags) {
 	context_->IASetInputLayout(curInputLayout_.Get());
 	context_->VSSetShader(curVS_.Get(), nullptr, 0);
 	context_->PSSetShader(curPS_.Get(), nullptr, 0);
-	context_->GSSetShader(curGS_.Get(), nullptr, 0);
 	if (curTopology_ != D3D11_PRIMITIVE_TOPOLOGY_UNDEFINED) {
 		context_->IASetPrimitiveTopology(curTopology_);
 	}
@@ -1875,7 +1851,7 @@ bool D3D11DrawContext::CopyFramebufferToMemory(Framebuffer *src, Aspect channelB
 }
 
 void D3D11DrawContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) {
-	// TODO: deviceContext1 can actually discard. Useful on Windows Mobile.
+	// TODO: deviceContext1 can actually discard.
 	if (fbo) {
 		D3D11Framebuffer *fb = (D3D11Framebuffer *)fbo;
 		if (curRenderTargetView_ == fb->colorRTView && curDepthStencilView_ == fb->depthStencilRTView) {

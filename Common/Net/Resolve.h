@@ -12,6 +12,11 @@ namespace net {
 void Init();
 void Shutdown();
 
+// Whether we have a working HTTPS backend. False if PPSSPP was built without one, and on
+// Linux also if libcurl couldn't be loaded at runtime. Safe to call before Init().
+// Platform ports should factor this into SYSPROP_SUPPORTS_HTTPS.
+bool HTTPSAvailable();
+
 enum class DNSType {
 	ANY = 0,
 	IPV4 = 1,

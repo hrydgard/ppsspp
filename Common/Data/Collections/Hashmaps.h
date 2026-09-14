@@ -56,6 +56,7 @@ public:
 			if (p == pos) {
 				// We looped around the whole map.
 				_assert_msg_(false, "DenseHashMap: Hit full on Get()");
+				return false;  // Can't happen now that tombstones count towards the load factor, but don't spin if it does.
 			}
 		}
 		return false;
@@ -80,8 +81,13 @@ public:
 	// Asserts if we already had the key!
 	bool Insert(const Key &key, Value value) {
 		// Check load factor, resize if necessary. We never shrink.
-		if (count_ > capacity_ / 2) {
-			Grow(2);
+		// Tombstones take up probe slots exactly like live entries do, so they have to count
+		// towards the load factor as well. Otherwise a workload that inserts and removes distinct
+		// keys keeps count_ low forever while REMOVED fills the table, and once no FREE bucket is
+		// left, probing has nothing to terminate on.
+		if (count_ + removedCount_ > capacity_ / 2) {
+			// Mostly tombstones? Compacting in place is enough. Otherwise we need more room.
+			Grow(removedCount_ > count_ ? 1 : 2);
 		}
 		uint32_t mask = capacity_ - 1;
 		uint32_t pos = HashKey(key) & mask;
@@ -102,6 +108,7 @@ public:
 			if (p == pos) {
 				// FULL! Error. Should not happen thanks to Grow().
 				_assert_msg_(false, "DenseHashMap: Hit full on Insert()");
+				return false;  // Can't happen now that tombstones count towards the load factor, but don't spin if it does.
 			}
 		}
 		if (state[p] == BucketState::REMOVED) {
@@ -130,6 +137,7 @@ public:
 			if (p == pos) {
 				// FULL! Error. Should not happen.
 				_assert_msg_(false, "DenseHashMap: Hit full on Remove()");
+				return false;  // Can't happen now that tombstones count towards the load factor, but don't spin if it does.
 			}
 		}
 		return false;
@@ -236,6 +244,7 @@ public:
 			p = (p + 1) & mask;  // If the state is REMOVED, we just keep on walking. 
 			if (p == pos) {
 				_assert_msg_(false, "PrehashMap: Hit full on Get()");
+				return false;  // Can't happen now that tombstones count towards the load factor, but don't spin if it does.
 			}
 		}
 		return false;
@@ -244,8 +253,13 @@ public:
 	// Returns false if we already had the key! Which is a bit different.
 	bool Insert(uint32_t hash, Value value) {
 		// Check load factor, resize if necessary. We never shrink.
-		if (count_ > capacity_ / 2) {
-			Grow(2);
+		// Tombstones take up probe slots exactly like live entries do, so they have to count
+		// towards the load factor as well. Otherwise a workload that inserts and removes distinct
+		// keys keeps count_ low forever while REMOVED fills the table, and once no FREE bucket is
+		// left, probing has nothing to terminate on.
+		if (count_ + removedCount_ > capacity_ / 2) {
+			// Mostly tombstones? Compacting in place is enough. Otherwise we need more room.
+			Grow(removedCount_ > count_ ? 1 : 2);
 		}
 		uint32_t mask = capacity_ - 1;
 		uint32_t pos = hash & mask;
@@ -262,6 +276,7 @@ public:
 			if (p == pos) {
 				// FULL! Error. Should not happen thanks to Grow().
 				_assert_msg_(false, "PrehashMap: Hit full on Insert()");
+				return false;  // Can't happen now that tombstones count towards the load factor, but don't spin if it does.
 			}
 		}
 		if (state[p] == BucketState::REMOVED) {
@@ -289,6 +304,7 @@ public:
 			p = (p + 1) & mask;
 			if (p == pos) {
 				_assert_msg_(false, "PrehashMap: Hit full on Remove()");
+				return false;  // Can't happen now that tombstones count towards the load factor, but don't spin if it does.
 			}
 		}
 		return false;

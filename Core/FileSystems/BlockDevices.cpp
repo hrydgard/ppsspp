@@ -18,6 +18,7 @@
 #include <algorithm>
 #include <array>
 #include <cstring>
+#include <limits>
 #include <vector>
 
 #include "Common/Data/Text/I18n.h"
@@ -34,12 +35,9 @@
 #include "Core/Util/PathUtil.h"
 #include "libchdr/chd.h"
 
-extern "C"
-{
 #include "zlib.h"
 #include "ext/libkirk/amctrl.h"
 #include "ext/libkirk/kirk_engine.h"
-};
 
 static u16 ReadLE16(const u8 *ptr) {
 	return ptr[0] | (ptr[1] << 8);
@@ -305,8 +303,18 @@ FileBlockDevice::~FileBlockDevice() {}
 
 bool FileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached) {
 	FileLoader::Flags flags = uncached ? FileLoader::Flags::HINT_UNCACHED : FileLoader::Flags::NONE;
-	size_t retval = fileLoader_->ReadAt((u64)blockNumber * (u64)GetBlockSize(), 1, 2048, outPtr, flags);
+	const u64 offset = (u64)blockNumber * (u64)GetBlockSize();
+	size_t retval = fileLoader_->ReadAt(offset, 1, 2048, outPtr, flags);
 	if (retval != 2048) {
+		// Not every image is a whole number of sectors. Tools that build pre-patched ISOs do write
+		// images that stop in the middle of their last sector, with a file legitimately ending
+		// there. The bytes that are present are real, so zero the rest of the sector and report
+		// success. Failing instead loses them: callers substitute an all-zero sector, which
+		// quietly corrupts whatever was in that tail.
+		if (retval > 0 && offset < filesize_) {
+			memset(outPtr + retval, 0, 2048 - retval);
+			return true;
+		}
 		DEBUG_LOG(Log::FileSystem, "Could not read 2048 byte block, at block offset %d. Only got %d bytes", blockNumber, (int)retval);
 		return false;
 	}
@@ -511,6 +519,10 @@ typedef struct ciso_header
 // TODO: Need much better error handling.
 
 static const u32 CSO_READ_BUFFER_SIZE = 256 * 1024;
+// The frame size decides how big readBuffer and zlibBuffer are, straight from the header, so
+// without a ceiling a 96-byte file can ask us for a couple of gigabytes. Real images use 2KB
+// through 64KB; this leaves a lot of room above that and still bounds what a header can cost us.
+static const u32 CSO_MAX_FRAME_SIZE = 16 * 1024 * 1024;
 
 CISOFileBlockDevice::CISOFileBlockDevice(FileLoader *fileLoader)
 	: BlockDevice(fileLoader)
@@ -536,6 +548,9 @@ CISOFileBlockDevice::CISOFileBlockDevice(FileLoader *fileLoader)
 	} else if (frameSize < 0x800) {
 		errorString_ = StringFromFormat("CSO block size %i unsupported, must be at least one sector", frameSize);
 		return;
+	} else if (frameSize > CSO_MAX_FRAME_SIZE) {
+		errorString_ = StringFromFormat("CSO block size %u unsupported, too large", frameSize);
+		return;
 	}
 
 	// Determine the translation from block to frame.
@@ -544,21 +559,58 @@ CISOFileBlockDevice::CISOFileBlockDevice(FileLoader *fileLoader)
 		++blockShift;
 
 	indexShift = hdr.align;
+	// Sanity check the index shift: index entries are u32 masked to 31 bits,
+	// and are shifted up by indexShift to get byte offsets.  Values above a
+	// couple dozen would be bogus and could overflow the buffer size math.
+	if (indexShift > 20) {
+		errorString_ = StringFromFormat("CSO index alignment %i unsupported", indexShift);
+		return;
+	}
 	const u64 totalSize = hdr.total_bytes;
-	numFrames = (u32)((totalSize + frameSize - 1) / frameSize);
-	numBlocks = (u32)(totalSize / GetBlockSize());
+	// Compute the counts without overflowing the 64-bit total size, then
+	// validate them before truncating to the 32-bit fields used by the CSO
+	// block reader. In particular, numFrames + 1 must remain representable.
+	const u64 numFrames64 = totalSize / frameSize + (totalSize % frameSize != 0);
+	const u64 numBlocks64 = totalSize / GetBlockSize();
+	if (numFrames64 >= 0xFFFFFFFFull || numBlocks64 > 0xFFFFFFFFull) {
+		errorString_ = "Invalid CSO header (image is too large)";
+		return;
+	}
+	numFrames = (u32)numFrames64;
+	numBlocks = (u32)numBlocks64;
 	VERBOSE_LOG(Log::Loader, "CSO numBlocks=%i numFrames=%i align=%i", numBlocks, numFrames, indexShift);
 
+	// numFrames and numBlocks are independently truncated to 32 bits from the same
+	// attacker-controlled 64-bit total_bytes, using different divisors (frameSize vs.
+	// the fixed 2048-byte block size). With extreme total_bytes/block_size values these
+	// can disagree so that numBlocks describes more blocks than numFrames actually has
+	// frames for - ReadBlock() would then index the numFrames+1-sized `index` array
+	// (via frameNumber+1, with frameNumber derived from a blockNumber < numBlocks) out
+	// of bounds. Reject any header where that could happen.
+	if ((u64)numBlocks > (u64)numFrames << blockShift) {
+		errorString_ = "Invalid CSO header (block/frame size mismatch)";
+		return;
+	}
+
+	const size_t headerEnd = hdr.ver > 1 ? (size_t)hdr.header_size : sizeof(hdr);
+	const u64 indexSize64 = numFrames64 + 1;
+	const u64 indexBytes = indexSize64 * sizeof(u32);
+	const u64 fileSize = fileLoader->FileSize();
+	if (indexBytes > (u64)std::numeric_limits<size_t>::max() ||
+		headerEnd > fileSize || indexBytes > fileSize - headerEnd) {
+		errorString_ = "Invalid CSO header (index table is truncated)";
+		return;
+	}
+
 	// We might read a bit of alignment too, so be prepared.
-	if (frameSize + (1 << indexShift) < CSO_READ_BUFFER_SIZE)
-		readBuffer = new u8[CSO_READ_BUFFER_SIZE];
-	else
-		readBuffer = new u8[frameSize + (1 << indexShift)];
-	zlibBuffer = new u8[frameSize + (1 << indexShift)];
+	readBufferSize = frameSize + (1u << indexShift);
+	if (readBufferSize < CSO_READ_BUFFER_SIZE)
+		readBufferSize = CSO_READ_BUFFER_SIZE;
+	readBuffer = new u8[readBufferSize];
+	zlibBuffer = new u8[frameSize + (1u << indexShift)];
 	zlibBufferFrame = numFrames;
 
-	const u32 indexSize = numFrames + 1;
-	const size_t headerEnd = hdr.ver > 1 ? (size_t)hdr.header_size : sizeof(hdr);
+	const u32 indexSize = (u32)indexSize64;
 
 #if COMMON_LITTLE_ENDIAN
 	index = new u32[indexSize];
@@ -584,12 +636,21 @@ CISOFileBlockDevice::CISOFileBlockDevice(FileLoader *fileLoader)
 	ver_ = hdr.ver;
 
 	// Double check that the CSO is not truncated.  In most cases, this will be the exact size.
-	u64 fileSize = fileLoader->FileSize();
 	u64 lastIndexPos = index[indexSize - 1] & 0x7FFFFFFF;
 	u64 expectedFileSize = lastIndexPos << indexShift;
 	if (expectedFileSize > fileSize) {
 		errorString_ = StringFromFormat("CSO file incomplete: expected %s, but is %s", NiceSizeFormat(expectedFileSize).c_str(), NiceSizeFormat(fileSize).c_str());
 		return;
+	}
+
+	// Index entries must be monotonically non-decreasing, otherwise ReadBlock()
+	// would compute a negative (underflowed) compressed read size from two
+	// adjacent entries.  Reject such files rather than reading into a fixed buffer.
+	for (u32 i = 0; i < indexSize - 1; i++) {
+		if ((index[i] & 0x7FFFFFFF) > (index[i + 1] & 0x7FFFFFFF)) {
+			errorString_ = StringFromFormat("CSO index is not monotonic at entry %d", i);
+			return;
+		}
 	}
 
 	// all ok.
@@ -619,7 +680,9 @@ bool CISOFileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached)
 
 	const u64 compressedReadPos = (u64)indexPos << indexShift;
 	const u64 compressedReadEnd = (u64)nextIndexPos << indexShift;
-	const size_t compressedReadSize = (size_t)(compressedReadEnd - compressedReadPos);
+	// A single frame's compressed data must fit in readBuffer.  Guard against
+	// crafted index entries with huge gaps (index[i+1] >> index[i]).
+	const size_t compressedReadSize = std::min<size_t>((size_t)(compressedReadEnd - compressedReadPos), readBufferSize);
 	const u32 compressedOffset = (blockNumber & ((1 << blockShift) - 1)) * GetBlockSize();
 
 	bool plain = (idx & 0x80000000) != 0;
@@ -712,13 +775,14 @@ bool CISOFileBlockDevice::ReadBlocks(u32 minBlock, int count, u8 *outPtr) {
 
 		const u64 frameReadPos = (u64)indexPos << indexShift;
 		const u64 frameReadEnd = (u64)nextIndexPos << indexShift;
-		const u32 frameReadSize = (u32)(frameReadEnd - frameReadPos);
+		// A single frame's compressed data must fit in readBuffer.
+		const u32 frameReadSize = (u32)std::min<size_t>((size_t)(frameReadEnd - frameReadPos), readBufferSize);
 		const u32 frameBlockOffset = block & ((1 << blockShift) - 1);
 		const u32 frameBlocks = std::min(lastBlock - block + 1, blocksPerFrame - frameBlockOffset);
 
 		if (frameReadEnd > readBufferEnd) {
 			const s64 maxNeeded = totalReadEnd - frameReadPos;
-			const size_t chunkSize = (size_t)std::min(maxNeeded, (s64)std::max(frameReadSize, CSO_READ_BUFFER_SIZE));
+			const size_t chunkSize = (size_t)std::min<s64>(std::min(maxNeeded, (s64)std::max(frameReadSize, CSO_READ_BUFFER_SIZE)), (s64)readBufferSize);
 
 			const u32 readSize = (u32)fileLoader_->ReadAt(frameReadPos, 1, chunkSize, readBuffer);
 			if (readSize < chunkSize) {
@@ -828,6 +892,10 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 
 	u32 lbaStart = *(u32*)(np_header+0x54); // LBA start
 	u32 lbaEnd   = *(u32*)(np_header+0x64); // LBA end
+	if (lbaEnd < lbaStart) {
+		errorString_ = "Bad LBA range in header";
+		return;
+	}
 	lbaSize_     = (lbaEnd - lbaStart + 1); // LBA size of ISO
 	blockLBAs_   = *(u32*)(np_header+0x0c); // block size in LBA
 
@@ -835,10 +903,11 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 	memcpy(psarStr, &psar_id, 4);
 
 	// Protect against a badly decrypted header, and send information through the assert about what's being played (implicitly).
-	_dbg_assert_msg_(blockLBAs_ <= 4096, "Bad blockLBAs in header: %08x (%s) psar: %s", blockLBAs_, fileLoader->GetPath().ToVisualString().c_str(), psarStr);
+	_dbg_assert_msg_(blockLBAs_ > 0 && blockLBAs_ <= 4096, "Bad blockLBAs in header: %08x (%s) psar: %s", blockLBAs_, fileLoader->GetPath().ToVisualString().c_str(), psarStr);
 
 	// When we remove the above assert, let's just try to survive.
-	if (blockLBAs_ > 4096) {
+	// blockLBAs_ also must not be zero, or we'd divide by zero below.
+	if (blockLBAs_ <= 0 || blockLBAs_ > 4096) {
 		errorString_ = StringFromFormat("Bad blockLBAs in header: %08x (%s) psar: %s", blockLBAs_, GetFriendlyPath(fileLoader->GetPath()).c_str(), psarStr);
 		return;
 	}
@@ -855,7 +924,17 @@ NPDRMDemoBlockDevice::NPDRMDemoBlockDevice(FileLoader *fileLoader)
 		return;
 	}
 
-	tableSize_ = numBlocks_ * 32;
+	// Computed in 64-bit and sanity checked against the file size, since numBlocks_
+	// could otherwise be large enough that numBlocks_ * sizeof(table_info) wraps
+	// around in 32-bit, causing us to only actually read (and XOR-descramble) a
+	// small prefix of the `numBlocks_`-sized table_ allocation, leaving the rest
+	// as uninitialized heap memory that ReadBlock() would later trust.
+	u64 tableSize64 = (u64)numBlocks_ * sizeof(table_info);
+	if (tableSize64 == 0 || tableSize64 > (u64)fileLoader_->FileSize()) {
+		errorString_ = "Invalid NPUMDIMG table size";
+		return;
+	}
+	tableSize_ = (u32)tableSize64;
 	table_ = new table_info[numBlocks_];
 
 	readSize = fileLoader_->ReadAt(psarOffset + tableOffset_, 1, tableSize_, table_);
@@ -910,11 +989,26 @@ bool NPDRMDemoBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached)
 	lba = blockNumber % blockLBAs_;
 	currentBlock_ = block * blockLBAs_;
 
+	// blockNumber comes from the caller (ultimately from guest-controlled reads, e.g.
+	// via /sce_lbn.../_size... on a raw sector open) and isn't otherwise guaranteed to be
+	// within table_'s bounds, so bounds-check it before indexing.
+	if (block < 0 || (u32)block >= numBlocks_) {
+		return false;
+	}
+
 	if (table_[block].unk_1c != 0) {
 		if((u32)block == (numBlocks_ - 1))
 			return true; // demos make by fake_np
 		else
 			return false;
+	}
+
+	// table_[block].size comes straight from the (only reversibly-scrambled, not
+	// otherwise validated) table in the PBP file, so a malicious/corrupt file could
+	// claim a size larger than blockSize_ here - refuse rather than overflowing
+	// blockBuf_/tempBuf_ (both exactly blockSize_ bytes) via ReadAt/CipherUpdate below.
+	if (table_[block].size < 0 || table_[block].size > blockSize_) {
+		return false;
 	}
 
 	u8 *readBuf;
@@ -943,7 +1037,9 @@ bool NPDRMDemoBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached)
 	}
 
 	if (table_[block].size < blockSize_) {
-		int lzsize = lzrc_decompress(blockBuf_, 0x00100000, readBuf, table_[block].size);
+		// The decompressed block is always blockSize_ bytes; blockBuf_ is exactly
+		// that big. Pass the real size so the decompressor can't write past it.
+		int lzsize = lzrc_decompress(blockBuf_, blockSize_, readBuf, table_[block].size);
 		if(lzsize != blockSize_){
 			ERROR_LOG(Log::Loader, "LZRC decompress error! lzsize=%d\n", lzsize);
 			NotifyReadError();

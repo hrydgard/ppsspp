@@ -17,6 +17,7 @@
 
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/StringUtils.h"
+#include "Core/Config.h"
 #include "Core/MemMap.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/GPUState.h"
@@ -54,7 +55,7 @@ void ComputePixelFuncID(PixelFuncID *id) {
 	// TODO: Could this be minz > 0x0000 || maxz < 0xFFFF?  Maybe unsafe, depending on verts...
 	id->applyDepthRange = !gstate.isModeThrough();
 	// Dither happens even in clear mode.
-	id->dithering = gstate.isDitherEnabled();
+	id->dithering = gstate.isDitherEnabled() && !g_Config.bSoftwareDisableDithering;
 	id->fbFormat = gstate.FrameBufFormat();
 	id->useStandardStride = gstate.FrameBufStride() == 512;
 	id->applyColorWriteMask = gstate.getColorMask() != 0;

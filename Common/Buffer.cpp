@@ -103,8 +103,11 @@ void Buffer::Printf(const char *fmt, ...) {
 	va_start(vl, fmt);
 	int retval = vsnprintf(buffer, sizeof(buffer), fmt, vl);
 	if (retval >= (int)sizeof(buffer)) {
-		// Output was truncated. TODO: Do something.
+		// Output was truncated. vsnprintf returns the length it would have written,
+		// but buffer only actually holds sizeof(buffer) - 1 chars (plus the NUL) -
+		// clamp so we don't copy past what was actually written into it.
 		ERROR_LOG(Log::IO, "Buffer::Printf truncated output");
+		retval = (int)sizeof(buffer) - 1;
 	}
 	va_end(vl);
 	if (retval < 0) {

@@ -105,6 +105,7 @@ inline void System_BrowseForImage(RequesterToken token, std::string_view title, 
 
 enum class BrowseFileType {
 	BOOTABLE,
+	SAVE_STATE,
 	IMAGE,
 	INI,
 	DB,
@@ -187,13 +188,6 @@ inline void System_SetWindowTitle(std::string_view param) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::SET_WINDOW_TITLE, NO_REQUESTER_TOKEN, nullptr, nullptr, param, "", 0);
 }
 
-inline bool System_SendDebugOutput(std::string_view string) {
-	return g_requestManager.MakeSystemRequest(SystemRequestType::SEND_DEBUG_OUTPUT, NO_REQUESTER_TOKEN, nullptr, nullptr, string, "", 0);
-}
-
-inline void System_SendDebugScreenshot(std::string_view data, int height) {
-	g_requestManager.MakeSystemRequest(SystemRequestType::SEND_DEBUG_SCREENSHOT, NO_REQUESTER_TOKEN, nullptr, nullptr, data, "", height);
-}
 
 inline void System_IAPRestorePurchases(RequesterToken token, RequestCallback callback, RequestFailedCallback failedCallback = nullptr) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::IAP_RESTORE_PURCHASES, token, callback, failedCallback, "", "", 0);

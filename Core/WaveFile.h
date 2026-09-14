@@ -30,8 +30,6 @@ public:
 	void AddStereoSamples(const short* sample_data, uint32_t count);
 	uint32_t GetAudioSize() const { return audio_size; }
 private:
-	static constexpr size_t BUFFER_SIZE = 32 * 1024;
-
 	File::IOFile file;
 	bool skip_silence = false;
 	uint32_t audio_size = 0;
