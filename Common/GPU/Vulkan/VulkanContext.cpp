@@ -204,7 +204,7 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 		if (IsInstanceExtensionAvailable(VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME)) {
 			instance_extensions_enabled_.push_back(VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME);
 		} else {
-			ERROR_LOG(Log::G3D, "%s not available - not enabling Vulkan synchronization validation.", VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME);
+			WARN_LOG(Log::G3D, "%s not available - not enabling Vulkan synchronization validation.", VK_EXT_VALIDATION_FEATURES_EXTENSION_NAME);
 			createInfo_.flags &= ~VulkanInitFlags::SYNC_VALIDATE;
 			syncValidation = false;
 		}

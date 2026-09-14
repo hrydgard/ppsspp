@@ -136,8 +136,7 @@ void FramebufferManagerCommon::UpdateSlangChain(const DisplayLayoutConfig &confi
 	// Determine which backend to use for this reload. librashader is the only rendering core.
 	bool librashaderLoaded = false;
 #if USE_LIBRASHADER
-	std::string loadErr;
-	librashaderLoaded = Librashader::Load(&loadErr);
+	librashaderLoaded = Librashader::Load(nullptr);
 #endif
 	SlangChainBackend backend = ChooseSlangChainBackend(
 		librashaderLoaded, GetGPUBackend(), draw_->SupportsNativeCallback());

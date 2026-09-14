@@ -47,7 +47,8 @@ public:
 const char *SlangChainBackendName(SlangChainBackend backend);
 
 // Pure decision: librashader iff the library is loaded, the GPU backend is one librashader
-// supports (Vulkan, OpenGL), and the draw context can run native callbacks. Otherwise no chain.
+// supports (VULKAN, OPENGL, DIRECT3D11), and the draw context can run native callbacks.
+// CreateLibrashaderRuntime maps DIRECT3D11 only on Windows. Otherwise no chain.
 SlangChainBackend ChooseSlangChainBackend(bool librashaderLoaded, GPUBackend gpuBackend,
                                           bool drawSupportsNativeCallback);
 

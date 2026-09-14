@@ -73,6 +73,7 @@ bool TestSlangChainBackendSelection() {
 	EXPECT_TRUE(ChooseSlangChainBackend(false, GPUBackend::VULKAN, true) == SlangChainBackend::None);
 	EXPECT_TRUE(ChooseSlangChainBackend(true, GPUBackend::VULKAN, false) == SlangChainBackend::None);
 	EXPECT_TRUE(ChooseSlangChainBackend(true, GPUBackend::DIRECT3D11, false) == SlangChainBackend::None);
+	EXPECT_TRUE(ChooseSlangChainBackend(true, (GPUBackend)1, true) == SlangChainBackend::None);  // retired D3D9 slot: not a supported backend
 	EXPECT_TRUE(strcmp(SlangChainBackendName(SlangChainBackend::None), "none") == 0);
 	EXPECT_TRUE(strcmp(SlangChainBackendName(SlangChainBackend::Librashader), "librashader") == 0);
 	return true;

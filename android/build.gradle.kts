@@ -168,6 +168,7 @@ android {
 		if (project.hasProperty("librashaderAbi")) {
 			val keepAbi = project.property("librashaderAbi") as String
 			val allAbis = listOf("armeabi-v7a", "arm64-v8a", "x86_64")
+			require(keepAbi in allAbis) { "librashaderAbi must be one of $allAbis, got '$keepAbi'" }
 			val excludeAbis = allAbis.filter { it != keepAbi }
 			jniLibs {
 				excludes += excludeAbis.map { "**/$it/librashader.so" }

@@ -1903,8 +1903,11 @@ bool D3D11DrawContext::RunNativeCallback(Framebuffer *src, Framebuffer *dst, Nat
 	// Everything ApplyCurrentState() compares against: blend/depthStencil/raster/input layout/
 	// shaders/topology (Invalidate resets exactly those, including curPipeline_ so BindPipeline
 	// stops early-outing), plus the two dynamic-state dirty flags it also keys off.
+	// The texture cache was already cleared by FramebufferManagerCommon::CopyDisplayToOutput
+	// before the callback, so the SRVs we just cleared are the only stale binding state.
 	Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 	blendFactorDirty_ = true;
+	dirtyIndexBuffer_ = true;
 	stencilDirty_ = true;
 	// Viewport and scissor are not cached by thin3d (SetViewport/SetScissorRect always re-send), but
 	// the D3D11 draw engine keeps its own idea of them - same signal a render-pass switch sends.

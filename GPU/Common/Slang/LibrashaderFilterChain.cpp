@@ -279,8 +279,13 @@ void LibrashaderFilterChain::ReleaseChain(bool deviceLost) {
 	render_ = std::make_shared<LibrashaderRenderState>();
 	// No adapter means Load() always failed, so the state we just swapped out is empty.
 	if (!runtime_) {
+#if PPSSPP_PLATFORM(WINDOWS)
+		_dbg_assert_msg_(!rs->preset && !rs->vkChain && !rs->glChain && !rs->d3d11Chain,
+			"librashader state is non-empty although the runtime never initialized");
+#else
 		_dbg_assert_msg_(!rs->preset && !rs->vkChain && !rs->glChain,
 			"librashader state is non-empty although the runtime never initialized");
+#endif
 		return;
 	}
 	// draw_ is read here, before any caller nulls it (DeviceLost); the runtime decides which
