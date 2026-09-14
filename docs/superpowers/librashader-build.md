@@ -112,9 +112,16 @@ deliberately without the define, so librashader stays off there, exactly like th
 
 ```bat
 cd /d C:\Users\Ilya\source\ppsspp
+git config --global --add safe.directory "*"
 git submodule update --init --recursive --depth 1 --jobs 6
 "C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\MSBuild.exe" Windows\PPSSPP.sln /m /p:Configuration=Release /p:Platform=x64 /v:m
 ```
+
+**The `safe.directory` line is not optional** when the checkout is not owned by the account running
+git (a repo cloned by an elevated shell ends up owned by `Administrators`). Without it every git
+command fails with `detected dubious ownership` - including the `fetch`/`checkout` in a build script,
+which then happily builds whatever was already checked out. Always confirm `git rev-parse HEAD` on
+the host before trusting a Windows build result.
 
 Release|x64 links `PPSSPPWindows64.exe` into the **repository root** (not `Windows\x64\Release\`,
 which only holds the static libs), so `librashader.dll` belongs in the repository root too - or
@@ -122,7 +129,54 @@ point `LIBRASHADER_PATH` at it from anywhere.
 
 **Verified** on 2026-09-14 (Windows 11, RTX 4090, driver 596.49, Vulkan 1.4.329 and GL 4.6):
 `stock.slangp` and `lcd-psp-matrix.slangp` render through librashader on both the Vulkan and the
-OpenGL backend (`librashader loaded (ABI 2, API 5)`, `Slang chain backend: librashader`).
+OpenGL backend (`librashader loaded (ABI 2, API 5)`, `Slang chain backend: librashader`), and on
+2026-09-15 on the **Direct3D 11** backend as well (see below).
+
+## Backend Notes: Direct3D 11 (Windows only)
+
+Select the backend with `GraphicsBackend = DIRECT3D11` in `ppsspp.ini` (the strings come from
+`GPUBackendToString`: `OPENGL`, `DIRECT3D11`, `VULKAN`). No other setting is involved - the chain
+selector admits D3D11 as soon as `librashader.dll` loads.
+
+The DLL must be built with `runtime-d3d11` compiled in (the command above already does that;
+`dumpbin /exports librashader.dll` should list `libra_d3d11_filter_chain_create`).
+
+**What the adapter does** (`GPU/Common/Slang/LibrashaderRuntimeD3D11.cpp`, whole file inside
+`#if USE_LIBRASHADER && PPSSPP_PLATFORM(WINDOWS)`): takes the `ID3D11Device *` from
+`NativeObject::DEVICE`, creates the filter chain on the first frame callback, pushes the preset
+parameter overrides, then calls `libra_d3d11_filter_chain_frame` with the immediate context, the
+source framebuffer's shader resource view and the destination framebuffer's render target view.
+Frame options are the same as on GL/Vulkan (SDR, `aspect_ratio = 0`, `frametime_delta = 16`).
+
+**Immediate mode, and what that means for state.** D3D11 has no render thread and no command buffer,
+so `D3D11DrawContext::RunNativeCallback` runs the callback synchronously on the calling thread. It
+unbinds all pixel-shader resource slots and the render target first (the destination is normally
+still bound as the current RTV, the source is often still bound as an SRV), and afterwards it
+restores `curRenderTargetView_`/`curDepthStencilView_`, invalidates every cached comparison
+`ApplyCurrentState()` makes (via `Invalidate(CACHED_RENDER_STATE)` plus the blend-factor and stencil
+dirty flags), clears the SRV/sampler slots it dirtied, and fires the draw engine's
+`RENDER_PASS_STATE` invalidation callback so viewport/scissor and texture state are re-sent. Because
+everything is synchronous and D3D11 devices are free-threaded, `QueueFree` needs no deletion queue:
+`libra_d3d11_filter_chain_free` (and `libra_preset_free`) run directly, even on device loss.
+
+**Known difference from GL/Vulkan: `SourceSize`.** `libra_d3d11_filter_chain_frame` takes only an
+`ID3D11ShaderResourceView`, with no width/height fields - unlike `libra_image_gl_t`/`libra_image_vk_t`,
+which is how the other adapters report the PSP's *native* 480x272 size while handing over the
+upscaled framebuffer. librashader therefore reads the size off the resource on D3D11, so with
+`InternalResolution > 1` a preset's `SourceSize`/`OriginalSize` is the render resolution, and
+resolution-dependent shader math (CRT/LCD masks, scanlines) tiles at that resolution instead of the
+native grid. At 1x the backends agree. Measured on 2026-09-15: the GL `lcd-psp-matrix` capture is
+identical at 1x and 3x, the D3D11 one changes. The fix, if it matters, is to make the D3D11 runtime
+always take the native-sized copy `LibrashaderFilterChain` already produces for `OriginalHistoryN`
+presets (one extra downscaling blit per frame, at the cost of the upscaled detail).
+
+**Shaders must survive FXC.** librashader cross-compiles the preset to HLSL and compiles it with
+FXC, which is stricter than glslang: a dynamically indexed vector component is not a valid l-value
+(`error X3500: array reference cannot be used as an l-value; not natively addressable`). This is why
+`lcd-psp-matrix-pass3.slang` builds its subpixel mask with selects instead of `mask[sub] = 1.0`.
+A preset that only ever ran on GL/Vulkan may need the same treatment; the failure is reported as
+`LibrashaderFilterChain: disabled after librashader error (create: D3D11FilterError(D3DCompileError(...)))`
+and PPSSPP keeps presenting the unfiltered image.
 
 ## Using the Library
 

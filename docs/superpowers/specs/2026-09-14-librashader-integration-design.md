@@ -228,6 +228,35 @@ Verified on device: with a chain active, PPSSPP's FPS counter, debug-statistics 
 debugger (menu bar, windows, framebuffer preview texture) all render correctly over the filtered
 image, and the present blit is intact — no additional state needed restoring.
 
+**Direct3D 11 (Phase 4 — implemented and verified on Windows, 2026-09-15).** No render manager and no
+step type: D3D11 is immediate mode, so `D3D11DrawContext::RunNativeCallback` (`Common/GPU/D3D11/thin3d_d3d11.cpp`)
+just calls `fn` synchronously on the calling thread with `cmdBuffer = context_.Get()` (the immediate
+context), `srcView` = the source framebuffer's `colorSRView`, `dstView` = the destination's
+`colorRTView`, and `srcFormat`/`dstFormat` = the real `DXGI_FORMAT`. Because there is no queue there is
+also no readiness gate and no deferred free — the D3D11 adapter creates the chain, renders and frees on
+this same thread (see §8).
+
+What has to be unbound and restored is the state the immediate context is already carrying:
+
+- before the call: `PSSetShaderResources(0, MAX_BOUND_TEXTURES, nullptr…)` (the source is normally
+  still bound as an SRV, and D3D11 refuses to bind a resource as both SRV and RTV) and
+  `OMSetRenderTargets(0, nullptr, nullptr)` (the destination is normally the current RTV)
+- after: `OMSetRenderTargets(1, curRenderTargetView_, curDepthStencilView_)` when a render target was
+  cached, the SRV and sampler slots cleared again, `Invalidate(InvalidationFlags::CACHED_RENDER_STATE)`
+  — which resets exactly the fields `ApplyCurrentState()` compares (`curPipeline_`, `curBlend_`,
+  `curDepthStencil_`, `curRaster_`, `curInputLayout_`, `curVS_`, `curPS_`, `curTopology_`) — plus
+  `blendFactorDirty_`/`stencilDirty_`, and the `InvalidationCallbackFlags::RENDER_PASS_STATE` callback
+  so `DrawEngineD3D11` re-sends viewport/scissor and texture state. Viewport and scissor need no
+  explicit re-issue because thin3d caches no last-set values for them.
+
+Verified on device (Windows 11, RTX 4090): `stock.slangp` and `lcd-psp-matrix.slangp` render through
+librashader on D3D11, and PPSSPP's own menu bar and FPS/speed overlay draw correctly over the filtered
+image afterwards. One behavioural difference from GL/Vulkan is unavoidable at this API level:
+`libra_d3d11_filter_chain_frame` takes a bare `ID3D11ShaderResourceView` with no size struct (unlike
+`libra_image_gl_t`/`libra_image_vk_t`), so librashader derives `SourceSize`/`OriginalSize` from the
+view's resource and a preset's resolution-dependent math runs at the render resolution rather than at
+the PSP's native 480×272 when `InternalResolution > 1` — see §12.
+
 ### 6.3 thin3d surface — `Common/GPU/thin3d.h`
 
 ```cpp
@@ -410,9 +439,18 @@ Developer Tools system-info line so on-device screenshots are attributable.
 | **1** | Loader, Vulkan CALLBACK step, thin3d API, `ISlangFilterChain`, `LibrashaderFilterChain`, selection, dev toggle, prebuilt-copy CMake option | macOS (MoltenVK) and one Windows/Linux Vulkan machine render `stock.slangp`, `lcd-psp-matrix.slangp`, `crt-royale.slangp` identically to the in-tree chain; unit tests green; in-tree path unchanged when toggled |
 | **2** | GL CALLBACK step + `LibrashaderFilterChain` GL runtime, state restore | Desktop GL renders the same three presets |
 | **3** | Android: cargo-ndk build, jniLibs packaging; GLES 3 verification (CI deferred to Phase 4: the Android CI jobs use `android/ab.sh`/ndk-build, whose `Android.mk` lists no `GPU/Common/Slang` sources) | APK renders the three presets on Vulkan and GLES 3 on the Adreno test device |
-| **4** | Remove in-tree chain, revert thin3d slot/descriptor bumps and sRGB render-pass keying, delete `bSlangUseLibrashader`; D3D11 runtime | Diff vs upstream shrinks to librashader glue + kept subsystems; Windows D3D11 renders the three presets |
+| **4** | Remove in-tree chain, revert thin3d slot/descriptor bumps and sRGB render-pass keying, delete `bSlangUseLibrashader`; D3D11 runtime | **Met (2026-09-15)** for the removal and the D3D11 runtime: `git diff upstream/master -- Common/GPU` is additions only, and Windows D3D11 renders `stock.slangp` and `lcd-psp-matrix.slangp` through librashader (`crt-royale` is not on the test machine; `lcd-psp-matrix` stands in for it as in Phases 1–2). Packaging (Task 7) still open. |
 
-**Phase 4 progress (2026-09-14):** the removal half is done. The perf gate passed (librashader ÷ in-tree GPU time 1.220 ≤ 1.5 on the Adreno device), the in-tree chain and the `SlangUseLibrashader` toggle are deleted, and every thin3d/Vulkan/GL/D3D11 hunk that existed only for it is back to upstream — `git diff upstream/master --stat -- Common/GPU` is 577 insertions with zero deletions. `stock.slangp` and `lcd-psp-matrix.slangp` on macOS Vulkan and GL are pixel-identical to the Phase 2 captures; with the library renamed away, `Slang chain backend: none` is logged once and the raw image is presented. Android Vulkan (`lcd-grid-v2-psp-color`, APK `librashader-p4e`) is byte-identical to the Phase 3 reference capture. 68 unit tests pass. The Windows/D3D11 half (Tasks 5–6) and packaging (Task 7) are still open.
+**Phase 4 progress (2026-09-14):** the removal half is done. The perf gate passed (librashader ÷ in-tree GPU time 1.220 ≤ 1.5 on the Adreno device), the in-tree chain and the `SlangUseLibrashader` toggle are deleted, and every thin3d/Vulkan/GL/D3D11 hunk that existed only for it is back to upstream — `git diff upstream/master --stat -- Common/GPU` is 577 insertions with zero deletions. `stock.slangp` and `lcd-psp-matrix.slangp` on macOS Vulkan and GL are pixel-identical to the Phase 2 captures; with the library renamed away, `Slang chain backend: none` is logged once and the raw image is presented. Android Vulkan (`lcd-grid-v2-psp-color`, APK `librashader-p4e`) is byte-identical to the Phase 3 reference capture. 68 unit tests pass.
+
+**Phase 4 Windows (2026-09-15):** Task 5 verified Vulkan and OpenGL on Windows; Task 6 added the D3D11
+adapter (`GPU/Common/Slang/LibrashaderRuntimeD3D11.cpp`, `D3D11DrawContext::RunNativeCallback`) and
+verified `stock.slangp` and `lcd-psp-matrix.slangp` on the D3D11 backend, with the UI/OSD intact after
+the callback and a clean `Slang chain backend: none` fallback when `librashader.dll` is renamed away.
+Two findings recorded rather than fixed: the lighter, highlight-clipped Windows present path is common
+to D3D11 and Vulkan and absent on GL (a pre-existing PPSSPP present-path difference, not librashader —
+D3D11 and Vulkan no-chain captures agree with each other to a mean of 0.4/255), and the D3D11
+`SourceSize` caveat above. Packaging (Task 7) is still open.
 
 **Phase 2 exit criterion: met (2026-09-14, macOS 15 / Apple M2 Pro, SDL GL 4.1 core over Metal).**
 Desktop GL renders `stock`, `lut`, `feedback`, `lcd-psp-matrix` and `twopass` through librashader
@@ -479,6 +517,14 @@ Each phase gets its own implementation plan. This spec covers all four; the Phas
 - **Native size vs image size.** librashader may take `SourceSize` from the image extents
   rather than the `width/height` fields. Mitigation noted in §6.5 (one blit to a
   native-sized intermediate). This is the first thing Phase 1 verifies on device.
+  **Confirmed on D3D11 (2026-09-15):** the D3D11 frame entry point takes only an
+  `ID3D11ShaderResourceView` — there are no `width`/`height` fields to declare — so
+  `SourceSize`/`OriginalSize` are always the view resource's size. At `InternalResolution = 1`
+  the three backends agree; above it, D3D11 runs resolution-dependent shader math at render
+  resolution while GL/Vulkan run it at 480×272 (measured: the GL `lcd-psp-matrix` capture is
+  unchanged from 1x to 3x, the D3D11 one changes). The fix, if it is ever wanted, is to make the
+  D3D11 runtime always take the native-sized copy `LibrashaderFilterChain::EnsureNativeInput`
+  already produces for `OriginalHistoryN` presets, at the cost of the upscaled detail.
 - **Frames in flight.** Verified during the final Phase 1 review: librashader's Vulkan
   runtime does *not* index its per-frame resources by the `frame_count` we pass. It keeps its
   own internal counter, advanced once per `libra_vk_filter_chain_frame` call, and cycles it

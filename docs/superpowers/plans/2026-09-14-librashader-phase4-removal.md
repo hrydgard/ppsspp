@@ -299,6 +299,13 @@ Notes / observations:
   `B8G8R8A8_UNORM`. It is a pre-existing Vulkan-vs-GL presentation difference on this host, so
   Windows Vulkan and Windows GL captures are not pixel-comparable to each other (each backend is
   self-consistent, and both match the macOS captures in structure: same geometry, same LCD matrix).
+  **Tracked pre-existing Windows Vulkan present-path defect (not librashader).** Task 6 confirmed
+  it is not even Vulkan-specific: the *D3D11* no-chain control matches the Vulkan no-chain control
+  (mean 205.55 vs 205.97, both 34.37% of pixels at ≥250 on all channels, mean abs diff 1.58 = the
+  same capture-to-capture noise floor as two shots of the same backend) while the GL no-chain
+  control sits at mean 161.23 / 2.75% white, 85.1% of pixels differing by more than 8. So both D3D11
+  and Vulkan clip highlights on this host and GL does not; the librashader path is identical in all
+  three. Filed here rather than fixed — out of scope for Phase 4.
 - The exe's baked git version string reads `54d4793167` while the build was made from
   `d925bc1c89`; the only delta is `unittest/TestSlangParser.cpp`, which cannot affect
   `PPSSPPWindows64.exe`.
@@ -323,21 +330,49 @@ Notes / observations:
 **Interfaces:**
 - librashader D3D11 C API (vendored header, lines ~1066–1128): `libra_d3d11_filter_chain_create(libra_shader_preset_t *preset, ID3D11Device *device, const filter_chain_d3d11_opt_t *options, libra_d3d11_filter_chain_t *out)`; `libra_d3d11_filter_chain_frame(libra_d3d11_filter_chain_t *chain, ID3D11DeviceContext *device_context, size_t frame_count, ID3D11ShaderResourceView *image, ID3D11RenderTargetView *out, const libra_viewport_t *viewport, const float *mvp, const frame_d3d11_opt_t *opt)`; `_set_param`, `_free`. `filter_chain_d3d11_opt_t { version; force_no_mipmaps; disable_cache; }`. Preset runtime hint `LIBRA_PRESET_CTX_RUNTIME_D3D11`.
 
-- [ ] **Step 1: thin3d D3D11 `RunNativeCallback` (immediate mode)**
+- [x] **Step 1: thin3d D3D11 `RunNativeCallback` (immediate mode)**
 
 `D3D11DrawContext::RunNativeCallback(src, dst, fn, tag)`: `D3D11Framebuffer *s = (D3D11Framebuffer *)src, *d = ...;` fill `NativeCallbackInfo` with `srcView = (uint64_t)s->colorSRView.Get()`, `dstView = (uint64_t)d->colorRTView.Get()`, `srcFormat/dstFormat = DXGI_FORMAT_R8G8B8A8_UNORM` (28), widths/heights (`D3D11Framebuffer` has `Width()/Height()` or public members — check ~line 65–85), `cmdBuffer = (uint64_t)context_`; unbind the framebuffer's SRV from any pixel-shader slot it may be bound to and unbind the current RTV (`context_->OMSetRenderTargets(0, nullptr, nullptr)`) before calling `fn` to avoid read/write hazards; call `fn(info)` synchronously; afterwards restore thin3d's assumptions: re-issue `OMSetRenderTargets` with `curRenderTargetView_`/`curDepthStencilView_`, and invalidate the cached pipeline state so `ApplyCurrentState` re-sends everything (`curBlend_ = nullptr; curDepthStencil_ = nullptr; curRaster_ = nullptr; curInputLayout_ = nullptr; curVS_ = nullptr; curPS_ = nullptr; curGS_ = nullptr; curTopology_ = ...invalid; curPipeline_ = nullptr;` — use the exact member names at ~lines 225–245 and mirror what `BindPipeline`/`ApplyCurrentState` compare against), plus clear the sampler/texture slot caches if any exist (`nextTextures_`/`nextSamplers_` are applied per draw — confirm), reset viewport/scissor caches (`RSSetViewports` is re-sent per `SetViewport`? check) — the goal: the next thin3d draw is correct regardless of what librashader changed. Return true.
 
-- [ ] **Step 2: Adapter**
+- [x] **Step 2: Adapter**
 
 `LibrashaderRuntimeD3D11.cpp` mirroring the GL adapter: `Init` grabs `ID3D11Device *` via `NativeObject::DEVICE`; `MakeFrameCallback` lambda: create on first call `libra_d3d11_filter_chain_create(&rs->preset, device, &opts, &rs->d3d11Chain)` (`opts.version = LIBRASHADER_CURRENT_VERSION; force_no_mipmaps = false; disable_cache = false;`), then `set_param` loop and `libra_d3d11_filter_chain_frame(&rs->d3d11Chain, (ID3D11DeviceContext *)info.cmdBuffer, frameCount, (ID3D11ShaderResourceView *)info.srcView, (ID3D11RenderTargetView *)info.dstView, &vp, nullptr, &fopts)` with the same frame options as the other adapters; `QueueFree`: D3D11 is immediate-mode and thread-agnostic (the device is free-threaded) → call `libra_d3d11_filter_chain_free` directly on the emu thread (documented in spec §8), `preset_free` if non-null. `LibrashaderRenderState` gains `libra_d3d11_filter_chain_t d3d11Chain` under `#if PPSSPP_PLATFORM(WINDOWS)`. Selector admits `DIRECT3D11` (test row: `(true, DIRECT3D11, true) == Librashader`; `DIRECT3D9 → None`). Native input blit for history presets uses thin3d `BlitFramebuffer`, which D3D11 implements — no change.
 
-- [ ] **Step 3: Build on Windows, verify**
+- [x] **Step 3: Build on Windows, verify**
 
 Push the branch; on the Windows host pull, rebuild (incremental), run with `GraphicsBackend = 1 (DIRECT3D11)`: `librashader loaded`, `Slang chain backend: librashader`, `stock.slangp` and `lcd-psp-matrix.slangp` render (screenshots), compare with the Vulkan run from Task 5; toggle nothing (no toggle exists) — rename the dll → raw image. PPSSPP's own UI/OSD must be intact after the callback (state restore). Record a table. If the Windows GUI cannot be driven from SSH, record NOT RUN with the reason and keep the code compile-verified only.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 `slang: D3D11 runtime adapter for LibrashaderFilterChain (Windows)` + `thin3d: D3D11 RunNativeCallback` + docs (spec §6.2 D3D11 paragraph, §10 row 4, build doc Windows section).
+
+**Result (2026-09-15): DONE.** Commits `466cafed52` (adapter + thin3d + build files + unit-test rows)
+and `545c1a2545` (FXC fix in `lcd-psp-matrix-pass3.slang`). macOS gate: 68/68 unit tests pass, SDL
+build clean. Windows host: RTX 4090 / driver 596.49 / Windows 11, HEAD `545c1a2545`, incremental
+`MSBuild Windows\PPSSPP.sln /p:Configuration=Release /p:Platform=x64` → `MSBUILD_EXIT=0`,
+`PPSSPPWindows64.exe` 20,583,424 bytes, **zero errors and zero warnings** — no MSVC fix was needed
+this task (the `CALLBACK`-macro and `zip.h` portability bugs were already dealt with in Task 5).
+
+| Item | Result | Notes |
+|---|---|---|
+| D3D11 + `stock.slangp` | **PASS** | `GraphicsBackend = DIRECT3D11`: `librashader loaded (ABI 2, API 5)`, `Slang chain backend: librashader`, `LibrashaderFilterChain: preset parsed: .../stock.slangp (input mode: upscaled framebuffer with declared native size)`. No `LibrashaderFilterChain:`/`LibrashaderRuntimeD3D11:` error line. `p4win-t6-d3d11-stock.png`. |
+| D3D11 + `lcd-psp-matrix.slangp` | **PASS** (after the FXC fix) | Same three log lines, LCD subpixel matrix visible. `p4win-t6-d3d11-lcd.png`. Before `545c1a2545` this failed with `create: D3D11FilterError(D3DCompileError("...(66,5-13): error X3500: array reference cannot be used as an l-value; not natively addressable"))` — librashader cross-compiles to HLSL and FXC rejects `mask[sub] = 1.0`. |
+| UI/OSD after the callback | **PASS** | With `iShowStatusFlags = 6` the FPS/speed overlay (`60/60 (100.0%)`) and PPSSPP's menu bar both draw correctly over the filtered image, so the post-callback state restore is sufficient. |
+| control: dll renamed away | **PASS** | D3D11 *and* GL both log `librashader unavailable: librashader not found or ABI mismatch (want ABI 2)` and `Slang chain backend: none (librashader not loaded or backend unsupported)`, present the raw image and do not crash. `p4win-t6-d3d11-nochain.png`, `p4win-t6-gl-nochain.png`. |
+| D3D11 vs Vulkan chain output | **MATCH** | `d3d11-lcd` vs `vk-lcd`: mean abs diff 1.906, 2.41% of pixels differing by >8 — the same noise floor as `d3d11-nochain` vs `vk-nochain` (1.584 / 2.31%), i.e. animation and overlay text between captures, not a chain difference. |
+| nochain controls (attribution) | see Task 5 note | `d3d11-nochain` mean 205.55 / 34.37% white ≈ `vk-nochain` 205.97 / 34.37%; `gl-nochain` 161.23 / 2.75%, 85.1% of pixels >8 apart. Pre-existing Windows present-path difference shared by D3D11 and Vulkan. |
+| `InternalResolution` 1x vs 3x | **DIFFERENCE** (reported, not fixed) | GL `lcd-psp-matrix` 1x vs 3x: mean 0.894, 2.28% >8 (noise floor) — output unchanged, as intended. D3D11 1x vs 3x: mean 7.475, **42.8%** >8 — the mask period changes. `libra_d3d11_filter_chain_frame` takes a bare SRV with no size struct, so `SourceSize`/`OriginalSize` come from the resource and the shader runs at render resolution. Our `source is 1440x816 but reported as 480x272 (native)` INFO is still logged on D3D11 but the declaration has nowhere to go. Ruling 4 kept the native-input blit unchanged, so this is documented (spec §12, build doc) rather than fixed. |
+
+Notes:
+
+- Screenshots are `/tmp/ppsspp-t8/p4win-t6-*.png` (not the `p4win-d3d11-*.png` the brief guessed);
+  logs are `/tmp/ppsspp-t8/win/ppsspp-t6-*.log`. Task 5's `p4win-gl-lcd.png` was accidentally
+  overwritten by a Task 6 capture; the equivalent new capture is `p4win-t6-gl-lcd.png`.
+- The FXC fix touches an asset shader shared by all backends, so a GL control was captured before
+  and after it: mean abs diff 0.494 with identical white%/black% — neutral on GL.
+- `Did not switch failed backend! 2` appears once at startup when a previous run was killed while
+  D3D11 was selected (`FailedGraphicsBackends.txt`); it is not a D3D11 initialisation failure and
+  the file is deleted on the next clean start.
 
 ---
 
