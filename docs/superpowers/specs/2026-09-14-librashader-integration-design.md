@@ -348,9 +348,10 @@ Developer Tools system-info line so on-device screenshots are attributable.
   `cargo build -p librashader-capi --release --features runtime-vulkan,runtime-opengl`
   (verify exact feature names against the pinned `librashader-capi/Cargo.toml` during
   Task 1), copy the artifact.
-- Phase 3 adds: GitHub Actions job building librashader per platform with the pinned tag,
-  Android `cargo ndk` build for `arm64-v8a`, `armeabi-v7a`, `x86_64` into `jniLibs`,
-  and `USE_LIBRASHADER=ON` for Android CMake.
+- Phase 3 adds: Android `cargo ndk` build for `arm64-v8a`, `armeabi-v7a`, `x86_64` into
+  `jniLibs`. CI deferred to Phase 4 (the Android CI jobs use `android/ab.sh`/ndk-build,
+  whose `Android.mk` lists no `GPU/Common/Slang` sources; `.github/workflows/manual_generate_apk.yml`
+  is the Gradle-based job that can host a `cargo ndk` step).
 
 ## 7. Per-frame data flow (Vulkan, steady state)
 
@@ -399,7 +400,7 @@ Developer Tools system-info line so on-device screenshots are attributable.
 |---|---|---|
 | **1** | Loader, Vulkan CALLBACK step, thin3d API, `ISlangFilterChain`, `LibrashaderFilterChain`, selection, dev toggle, prebuilt-copy CMake option | macOS (MoltenVK) and one Windows/Linux Vulkan machine render `stock.slangp`, `lcd-psp-matrix.slangp`, `crt-royale.slangp` identically to the in-tree chain; unit tests green; in-tree path unchanged when toggled |
 | **2** | GL CALLBACK step + `LibrashaderFilterChain` GL runtime, state restore | Desktop GL renders the same three presets |
-| **3** | Android: cargo-ndk build, jniLibs packaging, CI jobs for all desktop platforms; GLES 3 verification | APK renders the three presets on Vulkan and GLES 3 on the Adreno test device |
+| **3** | Android: cargo-ndk build, jniLibs packaging; GLES 3 verification (CI deferred to Phase 4: the Android CI jobs use `android/ab.sh`/ndk-build, whose `Android.mk` lists no `GPU/Common/Slang` sources) | APK renders the three presets on Vulkan and GLES 3 on the Adreno test device |
 | **4** | Remove in-tree chain, revert thin3d slot/descriptor bumps and sRGB render-pass keying, delete `bSlangUseLibrashader`; D3D11 runtime | Diff vs upstream shrinks to librashader glue + kept subsystems; Windows D3D11 renders the three presets |
 
 **Phase 2 exit criterion: met (2026-09-14, macOS 15 / Apple M2 Pro, SDL GL 4.1 core over Metal).**
@@ -413,13 +414,18 @@ GLES 3 verification stays in Phase 3. Details: `.superpowers/sdd/2026-09-14-libr
 **Phase 3 exit criterion: met (2026-09-14, AYN Thor / Adreno 740, Android 14).** The APK ships
 `librashader.so` in `jniLibs` and the loader's bare-name `dlopen` resolves it; `librashader loaded
 (ABI 2, API 5)` + `Slang chain backend: librashader` on **both** backends, with no Phase 1/2 runtime
-code change on either. Vulkan (device API 1.3.128): `lcd-grid-v2-psp-color`,
-`presets/crt-royale-downsample` and the heavy `crt/crt-maximus-royale-fast-mode` all render, a
-Khronos-validation run over the CALLBACK step produced **zero** librashader-attributable messages, and
+code change on either. Vulkan (device API 1.3.128): `lcd-grid-v2-psp-color` (substituted for the
+spec's `stock` preset, which is not present in `assets/shaders/slang_test` on the device while the
+full libretro pack is), `presets/crt-royale-downsample` and the heavy `crt/crt-maximus-royale-fast-mode`
+(substituted for `crt-royale`) all render; a Khronos-validation run over the CALLBACK step produced
+**zero** librashader-attributable messages (core validation only: `VK_LAYER_KHRONOS_validation` default
+features; synchronization validation is not enabled by PPSSPP — `Common/GPU/Vulkan/VulkanContext.cpp`
+never sets `VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT` — and is a Phase 4 item);
 sleep/wake plus an in-process preset switch both recover. GLES 3: the device hands PPSSPP a native
-Adreno **ES 3.2** context (not the ANGLE-over-Vulkan driver assumed in the Phase 3 plan), so
-`SupportsNativeCallback()` is true and no ES 3 context-request change was needed;
-`lcd-grid-v2-psp-color` matches the Vulkan librashader frame to within shader-compiler rounding
+Adreno **ES 3.2** context (not the ANGLE-over-Vulkan driver initially assumed — Task 3 found PPSSPP
+receives a native Adreno OpenGL ES 3.2 context; the ANGLE string comes from SurfaceFlinger, not from
+PPSSPP's EGL context), so `SupportsNativeCallback()` is true and no ES 3 context-request change was
+needed; `lcd-grid-v2-psp-color` matches the Vulkan librashader frame to within shader-compiler rounding
 (4.74% of pixels, max 49/255, symmetric and confined to lit areas), `crt-royale-downsample` compiles
 and renders on GLES with no `create:` error, the GL context-loss drop warning and full chain
 recreation both fire on sleep/wake (post-wake frame byte-identical to the fresh-boot frame), and
@@ -428,7 +434,7 @@ without a crash. Toggling librashader off on GL correctly yields a raw image plu
 "slang passes require the Vulkan backend in Phase 1" diagnostic, since the in-tree chain is
 Vulkan-only. Not covered: ANGLE and non-Adreno GLES drivers (a driver that honours a strict ES 2
 context request would silently lose slang on GL — see the risk note), the `armeabi-v7a`/`x86_64` ABIs
-at runtime, and the CI jobs, which the Phase 3 plan defers. Details:
+at runtime, and the CI jobs (deferred to Phase 4). Details:
 `.superpowers/sdd/2026-09-14-librashader-phase3-android/task-2-report.md` and `task-3-report.md`.
 
 Each phase gets its own implementation plan. This spec covers all four; the Phase 1 plan is

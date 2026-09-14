@@ -268,19 +268,32 @@ ANDROID_NDK_HOME=/opt/homebrew/share/android-commandlinetools/ndk/29.0.14206865 
 ### APK Packaging
 
 Gradle automatically packages everything under `android/src/main/jniLibs/<abi>/` into the APK.
-PPSSPP's `System_LoadLibrary` finds `librashader.so` with a bare-name `dlopen("librashader.so")`
-because (1) legacy APK packaging extracts `lib*.so` to the app's native library directory, and (2)
-that directory is in the app linker's search namespace. No path prefix is needed.
+The loader finds `librashader.so` with a bare-name `dlopen` (`Librashader::Load` in
+`Common/GPU/Librashader/LibrashaderLoader.cpp` → `librashader_load_instance()`) because the APK's
+`lib/<abi>` directory is in the app's linker namespace. `useLegacyPackaging = true` here means the
+library is both compressed in the APK and extracted at install; it would work with
+`extractNativeLibs=false` too. No path prefix is needed.
 
 The `jniLibs/` directory is gitignored; run the script after each checkout or librashader version
 bump, then rebuild the APK with Gradle.
 
+**Note:** Building with an `ANDROID_NDK_HOME` different from `ndkVersion` in `build.gradle.kts` can
+produce a `libc++_shared.so` symbol-version mismatch at load.
+
+The script produces all three ABIs and Gradle packages every `jniLibs/<abi>` regardless of
+`-Pandroid.injected.build.abi` (that flag filters only the CMake output), so the dev APK carries all
+three `librashader.so` (~29 MB uncompressed); release flavors prune by `ndk.abiFilters` (`normal`/`gold`
+keep all three, `legacy` two, `vr` one). To build a single ABI, pass it to the script
+(`android/build-librashader.sh arm64-v8a`) and delete the other `jniLibs/<abi>/librashader.so`.
+Gradle-side pruning is a Phase 4 item.
+
 ### Confirming on Device
 
-Enable slang shader preset support:
+Enable slang shader logging:
 
 ```
-Developer Tools → G3DLevel = 4
+Device ini: set G3DLevel = 4 and SYSTEMLevel = 4 in BOTH the [Log] and [LogDebug] sections
+(or Developer Tools → Logging channels)
 ```
 
 Then load a slang preset and check `adb logcat`:
@@ -308,17 +321,22 @@ INFO  Slang chain backend: in-tree
 
 To enable Vulkan validation layers during development:
 
-1. Download the [Khronos Vulkan ValidationLayers release](https://github.com/KhronosGroup/Vulkan-ValidationLayers/releases) (e.g., `android-binaries-1.4.341.zip`).
+1. Download the [Khronos Vulkan ValidationLayers release](https://github.com/KhronosGroup/Vulkan-ValidationLayers/releases) (e.g., `android-binaries-1.4.357.0.zip`).
 2. Extract `libVkLayer_khronos_validation.so` from the archive's `<abi>/` directories.
 3. Drop the `.so` files into `android/src/main/jniLibs/<abi>/` (same location as `librashader.so`).
 4. Rebuild the APK.
 
 The PPSSPP debug build enables validation at compile time via `g_Validate` in
-`GPU/Vulkan/VulkanUtil.cpp` (gated by `_DEBUG`). Release builds ignore the layers even if present.
+`GPU/Vulkan/VulkanUtil.cpp` (gated by `_DEBUG`). PPSSPP prefixes layer messages with `VKDEBUG:` (grep
+for that, not `VUID`/`VALIDATION`), and the debug callback reports core validation only (synchronization
+validation requires `VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT`, which
+`Common/GPU/Vulkan/VulkanContext.cpp` never sets). Release builds ignore the layers even if present.
 
 ### CI Deferred
 
 The fork's Android CI jobs use `android/ab.sh` (ndk-build via `Android.mk`), which does not list the
-`GPU/Common/Slang` sources and produces a binary that lacks slang support entirely. A `cargo ndk`
-step would therefore be pointless until that build is fixed. The Gradle/CMake path is the one that
-works; Android librashader integration is tested manually on device.
+`GPU/Common/Slang` sources (so a `cargo ndk` step would be pointless until that build is fixed;
+`FramebufferManagerCommon.cpp` references the Slang sources unconditionally, so the ndk-build path is
+not expected to build at all). The Gradle/CMake path is the one that works; Android librashader
+integration is tested manually on device. `.github/workflows/manual_generate_apk.yml` is the
+Gradle-based job that can host a `cargo ndk` step.

@@ -18,7 +18,7 @@ cargo ndk --version >/dev/null 2>&1 || { echo "error: cargo-ndk not found (cargo
 
 if [ -z "${ANDROID_NDK_HOME:-}" ]; then
 	NDK_VER=$(sed -n 's/.*ndkVersion = "\([^"]*\)".*/\1/p' "$REPO/android/build.gradle.kts" | head -1)
-	for base in "${ANDROID_HOME:-}" "$HOME/Library/Android/sdk" /opt/homebrew/share/android-commandlinetools; do
+	for base in "${ANDROID_HOME:-}" "$HOME/Library/Android/sdk" "$HOME/Android/Sdk" /opt/homebrew/share/android-commandlinetools; do
 		[ -n "$base" ] && [ -d "$base/ndk/$NDK_VER" ] && export ANDROID_NDK_HOME="$base/ndk/$NDK_VER" && break
 	done
 fi
@@ -40,6 +40,8 @@ fi
 HOST=$(uname -s | tr '[:upper:]' '[:lower:]')-x86_64
 READELF="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/$HOST/bin/llvm-readelf"
 NM="$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/$HOST/bin/llvm-nm"
+VERIFY=1
+[ -x "$READELF" ] && [ -x "$NM" ] || { echo "warning: NDK llvm-readelf/llvm-nm not found at $READELF / $NM; skipping soname/export verification" >&2; VERIFY=0; }
 
 for abi in "${ABIS[@]}"; do
 	t=$(target_for "$abi")
@@ -47,13 +49,14 @@ for abi in "${ABIS[@]}"; do
 	( cd "$SRC" && RUSTFLAGS="-C link-arg=-Wl,-soname,librashader.so" \
 	  cargo ndk -t "$abi" --platform "$PLATFORM" build -p librashader-capi --release \
 	    --no-default-features --features runtime-vulkan,runtime-opengl )
-	mkdir -p "$OUT/$abi"
-	cp "$SRC/target/$t/release/liblibrashader_capi.so" "$OUT/$abi/librashader.so"
-	if [ -x "$READELF" ]; then
-		"$READELF" -d "$OUT/$abi/librashader.so" | grep -q 'SONAME.*\[librashader.so\]' || { echo "error: soname not set for $abi" >&2; exit 1; }
-		n=$("$NM" -gD --defined-only "$OUT/$abi/librashader.so" | grep -c ' libra_' || true)
+	ARTIFACT="$SRC/target/$t/release/liblibrashader_capi.so"
+	if [ "$VERIFY" -eq 1 ]; then
+		"$READELF" -d "$ARTIFACT" | grep -q 'SONAME.*\[librashader.so\]' || { echo "error: soname not set for $abi" >&2; exit 1; }
+		n=$("$NM" -gD --defined-only "$ARTIFACT" | grep -c ' libra_' || true)
 		[ "$n" -ge 40 ] || { echo "error: only $n libra_* exports for $abi" >&2; exit 1; }
-		echo "   ok: soname librashader.so, $n exports, $(du -h "$OUT/$abi/librashader.so" | cut -f1)"
 	fi
+	mkdir -p "$OUT/$abi"
+	cp "$ARTIFACT" "$OUT/$abi/librashader.so"
+	[ "$VERIFY" -eq 1 ] && echo "   ok: soname librashader.so, $n exports, $(du -h "$OUT/$abi/librashader.so" | cut -f1)"
 done
 echo "Done. Rebuild the APK (gradle packages android/src/main/jniLibs automatically)."
