@@ -30,10 +30,6 @@ LibrashaderFilterChain::LibrashaderFilterChain(Draw::DrawContext *draw)
 LibrashaderFilterChain::~LibrashaderFilterChain() {
 	ReleaseChain();
 	ReleaseOutput();
-	if (preset_ && Librashader::IsLoaded()) {
-		(void)Librashader::ErrorToString(Librashader::Instance().preset_free(&preset_));
-	}
-	preset_ = nullptr;
 }
 
 bool LibrashaderFilterChain::Load(const Path &presetPath, std::string *error) {
@@ -44,30 +40,30 @@ bool LibrashaderFilterChain::Load(const Path &presetPath, std::string *error) {
 	}
 	const libra_instance_t &lib = Librashader::Instance();
 
+	// Frees the previous preset/chain through the deletion queue and installs a fresh, empty
+	// RenderState which nothing else references yet - so we can fill it in from this thread.
 	ReleaseChain();
-	if (preset_) {
-		(void)Librashader::ErrorToString(lib.preset_free(&preset_));
-		preset_ = nullptr;
-	}
 	valid_ = false;
 	loggedCreateError_ = false;
 	presetPath_ = presetPath;
 
+	libra_shader_preset_t preset = nullptr;
 	libra_preset_ctx_t ctx = nullptr;
 	std::string err = Librashader::ErrorToString(lib.preset_ctx_create(&ctx));
 	if (err.empty()) err = Librashader::ErrorToString(lib.preset_ctx_set_core_name(&ctx, "PPSSPP"));
 	if (err.empty()) err = Librashader::ErrorToString(lib.preset_ctx_set_runtime(&ctx, LIBRA_PRESET_CTX_RUNTIME_VULKAN));
-	if (err.empty()) err = Librashader::ErrorToString(lib.preset_create_with_options(presetPath.c_str(), &ctx, nullptr, &preset_));
+	if (err.empty()) err = Librashader::ErrorToString(lib.preset_create_with_options(presetPath.c_str(), &ctx, nullptr, &preset));
 	// preset_create_with_options invalidates the context and nulls it (like every other
 	// consuming librashader entry point), so this only frees it if an earlier step failed.
 	if (ctx) (void)Librashader::ErrorToString(lib.preset_ctx_free(&ctx));
 	if (!err.empty()) {
 		if (error) *error = "librashader preset load failed: " + err;
-		if (preset_) (void)Librashader::ErrorToString(lib.preset_free(&preset_));
-		preset_ = nullptr;
+		if (preset) (void)Librashader::ErrorToString(lib.preset_free(&preset));
 		return false;
 	}
-	render_ = std::make_shared<RenderState>();  // fresh render-thread state for the new preset
+	// Hand the preset over to the render-thread state; it is consumed by chain creation, or
+	// freed by the deletion-queue callback if the chain is never created.
+	render_->preset = preset;
 	valid_ = true;
 	INFO_LOG(Log::G3D, "LibrashaderFilterChain: preset parsed: %s", presetPath.c_str());
 	return true;
@@ -99,7 +95,7 @@ bool LibrashaderFilterChain::EnsureOutput(int w, int h) {
 
 Draw::Framebuffer *LibrashaderFilterChain::Run(Draw::Framebuffer *source, int sourceW, int sourceH,
                                                int viewportW, int viewportH, int frameCount) {
-	if (!valid_ || !preset_ || !source || !draw_)
+	if (!valid_ || !source)
 		return nullptr;
 	if (render_->createFailed.load()) {
 		if (!loggedCreateError_) {
@@ -124,31 +120,46 @@ Draw::Framebuffer *LibrashaderFilterChain::Run(Draw::Framebuffer *source, int so
 	device.entry = getProc;
 
 	std::shared_ptr<RenderState> rs = render_;
-	libra_shader_preset_t *presetSlot = &preset_;  // consumed (set to null) by create_deferred on success
 	std::map<std::string, float> overrides = paramOverrides_;
 
-	bool enqueued = draw_->RunNativeCallback(source, output_, [rs, device, presetSlot, overrides, frameCount, sourceW, sourceH](const Draw::NativeCallbackInfo &info) {
+	bool enqueued = draw_->RunNativeCallback(source, output_, [rs, device, overrides, frameCount, sourceW, sourceH](const Draw::NativeCallbackInfo &info) {
 		if (!Librashader::IsLoaded() || rs->createFailed.load())
 			return;
 		const libra_instance_t &lib = Librashader::Instance();
 		if (!rs->chain) {
+			if (!rs->preset)
+				return;  // nothing left to create from
 			filter_chain_vk_opt_t opts{};
 			opts.version = LIBRASHADER_CURRENT_VERSION;
 			opts.frames_in_flight = VulkanContext::MAX_INFLIGHT_FRAMES;
 			opts.force_no_mipmaps = false;
 			opts.use_dynamic_rendering = false;
 			opts.disable_cache = false;
-			std::string err = Librashader::ErrorToString(lib.vk_filter_chain_create_deferred(presetSlot, device, (VkCommandBuffer)(uintptr_t)info.cmdBuffer, &opts, &rs->chain));
+			// Two preconditions from librashader.h (docs above libra_vk_filter_chain_create_deferred):
+			// (a) "The provided command buffer must be ready for recording and contain no prior
+			//     commands." Knowingly not met: PPSSPP hands us the frame's main command buffer.
+			//     All of our own barriers are flushed before this call and librashader only records
+			//     LUT/texture uploads into it, so sharing the buffer is benign in practice.
+			// (b) "The command buffer must be completely executed before calling
+			//     libra_vk_filter_chain_frame." Honoured by the readyAtFrame gate below: PPSSPP
+			//     waits on frame N's fence before recording frame N + MAX_INFLIGHT_FRAMES, so by
+			//     then this buffer has finished executing.
+			std::string err = Librashader::ErrorToString(lib.vk_filter_chain_create_deferred(&rs->preset, device, (VkCommandBuffer)(uintptr_t)info.cmdBuffer, &opts, &rs->chain));
+			// The preset is invalidated (consumed) whether or not creation succeeded, so drop our
+			// handle without freeing it - librashader owns it from here on.
+			rs->preset = nullptr;
 			if (!err.empty() || !rs->chain) {
 				std::lock_guard<std::mutex> guard(rs->errorLock);
 				rs->lastError = err.empty() ? "unknown error" : err;
 				rs->createFailed.store(true);
 				return;
 			}
-			// LUT uploads were recorded into this frame's command buffer; first real frame is next frame.
-			rs->ready.store(true);
+			rs->readyAtFrame = (int64_t)frameCount + VulkanContext::MAX_INFLIGHT_FRAMES;
 			return;
 		}
+		if ((int64_t)frameCount < rs->readyAtFrame)
+			return;  // creation's uploads may still be executing; see (b) above
+		rs->ready.store(true);
 		for (const auto &kv : overrides) {
 			libra_error_t e = lib.vk_filter_chain_set_param(&rs->chain, kv.first.c_str(), kv.second);
 			// Unknown parameter names are not fatal; convert (which frees) and drop the error.
@@ -176,9 +187,9 @@ Draw::Framebuffer *LibrashaderFilterChain::Run(Draw::Framebuffer *source, int so
 		fopts.rotation = 0;
 		fopts.total_subframes = 1;
 		fopts.current_subframe = 1;
-		fopts.aspect_ratio = (float)info.dstWidth / (float)std::max(1, info.dstHeight);
+		fopts.aspect_ratio = 0.0f;        // librashader.h:449 - 0 infers the ratio from the source image
 		fopts.frames_per_second = 60.0f;
-		fopts.frametime_delta = 16667;
+		fopts.frametime_delta = 16;      // librashader.h:454 - milliseconds, not microseconds
 		fopts.color_space = LIBRA_COLOR_SPACE_SDR;
 		std::string err = Librashader::ErrorToString(lib.vk_filter_chain_frame(&rs->chain, (VkCommandBuffer)(uintptr_t)info.cmdBuffer, (size_t)frameCount, in, out, &vp, nullptr, &fopts));
 		if (!err.empty()) {
@@ -204,14 +215,21 @@ void LibrashaderFilterChain::ReleaseChain() {
 		// Device is gone (or the library never loaded): nothing left to free.
 		return;
 	}
-	// Nobody else may hold the state: a pending CALLBACK step would use a freed chain.
-	_dbg_assert_msg_(rs.use_count() == 1, "LibrashaderFilterChain: releasing chain while a CALLBACK step is pending");
-	// Runs after every frame that could still reference the chain has completed on the GPU.
+	// Runs after every frame that could still reference the state has completed on the GPU,
+	// so a still-pending CALLBACK step is harmless: it holds a reference and runs first.
 	vulkan->Delete().QueueCallback([rs](VulkanContext *) {
-		if (rs->chain && Librashader::IsLoaded()) {
-			(void)Librashader::ErrorToString(Librashader::Instance().vk_filter_chain_free(&rs->chain));
+		if (!Librashader::IsLoaded())
+			return;
+		const libra_instance_t &lib = Librashader::Instance();
+		if (rs->chain) {
+			(void)Librashader::ErrorToString(lib.vk_filter_chain_free(&rs->chain));
+			rs->chain = nullptr;
 		}
-		rs->chain = nullptr;
+		// Non-null only if the preset was parsed but the chain was never created.
+		if (rs->preset) {
+			(void)Librashader::ErrorToString(lib.preset_free(&rs->preset));
+			rs->preset = nullptr;
+		}
 	});
 }
 
@@ -226,10 +244,6 @@ void LibrashaderFilterChain::ReleaseOutput() {
 void LibrashaderFilterChain::DeviceLost() {
 	ReleaseChain();
 	ReleaseOutput();
-	if (preset_ && Librashader::IsLoaded()) {
-		(void)Librashader::ErrorToString(Librashader::Instance().preset_free(&preset_));
-	}
-	preset_ = nullptr;
 	valid_ = false;
 	draw_ = nullptr;
 }

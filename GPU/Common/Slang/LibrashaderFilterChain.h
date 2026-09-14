@@ -50,23 +50,30 @@ public:
 	SlangChainBackend Backend() const override { return SlangChainBackend::Librashader; }
 
 private:
-	// Touched only on the render thread (inside native callbacks), except for the atomics.
-	// Held by shared_ptr so a pending callback keeps it alive even if the chain object dies.
+	// Owns everything the render thread touches, so nothing in the callback points back into
+	// this object. Held by shared_ptr, so a pending callback (or the deletion queue) keeps it
+	// alive even if the chain object dies first.
 	struct RenderState {
+		// Parsed on the emu thread in Load() while nothing else holds this state, then owned by
+		// the render thread: consumed by chain creation, or freed by the deletion-queue callback.
+		libra_shader_preset_t preset = nullptr;
 		libra_vk_filter_chain_t chain = nullptr;
+		// First frame at which the deferred creation's uploads are guaranteed to have executed.
+		// Render thread only.
+		int64_t readyAtFrame = -1;
 		std::atomic<bool> ready{false};
 		std::atomic<bool> createFailed{false};
 		std::mutex errorLock;
 		std::string lastError;  // set on the render thread, read on the emu thread
 	};
 
-	void ReleaseChain();       // queues the librashader free on the Vulkan deletion queue
+	// Queues the librashader frees on the Vulkan deletion queue and installs a fresh RenderState.
+	void ReleaseChain();
 	void ReleaseOutput();
 	bool EnsureOutput(int w, int h);
 
 	Draw::DrawContext *draw_ = nullptr;
 	Path presetPath_;
-	libra_shader_preset_t preset_ = nullptr;   // emu thread; consumed by chain creation
 	std::shared_ptr<RenderState> render_;
 	Draw::Framebuffer *output_ = nullptr;
 	int outputW_ = 0, outputH_ = 0;
