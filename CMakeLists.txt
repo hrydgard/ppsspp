@@ -211,6 +211,22 @@ option(USE_NO_MMAP "Disable mmap usage" OFF)
 option(USE_IAP "IAP enabled" OFF)
 option(GOLD "Gold build" OFF)
 
+if(WIN32 OR APPLE OR ANDROID OR (UNIX AND NOT IOS))
+	set(USE_LIBRASHADER_DEFAULT ON)
+else()
+	set(USE_LIBRASHADER_DEFAULT OFF)
+endif()
+if(IOS OR LIBRETRO OR UWP)
+	set(USE_LIBRASHADER_DEFAULT OFF)
+endif()
+option(USE_LIBRASHADER "Load librashader at runtime for slang shader rendering" ${USE_LIBRASHADER_DEFAULT})
+if(USE_LIBRASHADER)
+	add_compile_definitions(USE_LIBRASHADER=1)
+	include_directories(ext/librashader/include)
+else()
+	add_compile_definitions(USE_LIBRASHADER=0)
+endif()
+
 if(USE_CCACHE)
 	include(ccache)
 endif()
@@ -1361,6 +1377,7 @@ if(UNITTEST)
 		unittest/UnitTest.cpp
 		unittest/TestShaderGenerators.cpp
 		unittest/TestSlangParser.cpp
+		unittest/TestLibrashader.cpp
 		unittest/TestArmEmitter.cpp
 		unittest/TestArm64Emitter.cpp
 		unittest/TestIRPassSimplify.cpp

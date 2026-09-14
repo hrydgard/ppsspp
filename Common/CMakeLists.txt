@@ -143,6 +143,8 @@ add_library(Common STATIC
 	GPU/GPUBackendCommon.h
 	GPU/thin3d.cpp
 	GPU/thin3d.h
+	GPU/Librashader/LibrashaderLoader.cpp
+	GPU/Librashader/LibrashaderLoader.h
 	GPU/thin3d_create.h
 	GPU/Shader.cpp
 	GPU/Shader.h
