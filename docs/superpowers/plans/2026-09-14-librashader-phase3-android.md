@@ -138,37 +138,39 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Possibly modify (fixes only, if a defect is found): `GPU/Common/Slang/LibrashaderRuntimeVulkan.cpp`, `GPU/Common/Slang/LibrashaderFilterChain.cpp`, `Common/GPU/Vulkan/VulkanQueueRunner.cpp`, `Common/GPU/Librashader/LibrashaderLoader.cpp`
 - Modify: this plan (results table below), `docs/superpowers/librashader-build.md` if the recipe needed adjusting
 
-- [ ] **Step 1: Build, inspect, install**
+- [x] **Step 1: Build, inspect, install**
 
 Build the APK (Global Constraints command). Verify: `unzip -l <apk> | grep -E "lib/arm64-v8a/(librashader|libppsspp_jni|libc\+\+_shared)"` lists all three; `adb install -t -r <apk>` → `Success`; `adb shell dumpsys package org.ppsspp.ppsspp | grep versionName` → `librashader-p3`.
 
-- [ ] **Step 2: Vulkan load + rendering**
+- [x] **Step 2: Vulkan load + rendering**
 
 Device ini: `G3DLevel = 4`, `SystemLevel = 4`, `GraphicsBackend = 3 (VULKAN)`, `SlangUseLibrashader = True`, `SlangShaderPreset = /storage/emulated/0/Android/data/org.ppsspp.ppsspp/files/slang/presets/handheld-plus-color-mod/lcd-grid-v2-psp-color.slangp`. Launch the game; after ~25 s: logcat must show `librashader loaded (ABI 2, API 5)`, `Slang chain backend: librashader`, `LibrashaderFilterChain: preset parsed`, an `input mode:` line, no `LibrashaderFilterChain:`/`LibrashaderRuntimeVulkan:` errors, no `Fatal signal`; `adb exec-out screencap -p` shows the game with the LCD grid. Then `SlangUseLibrashader = False`, relaunch, screencap: in-tree output for A/B. Compare with `cmp.py` (same frame is unlikely in a live game — capture the static "This game saves data automatically" dialog that appears right after boot, which Phase 1's device run showed; it is static for ~10 s).
 
-- [ ] **Step 3: Vulkan validation layers (first ever run of the CALLBACK step under validation)**
+- [x] **Step 3: Vulkan validation layers (first ever run of the CALLBACK step under validation)**
 
 The debug APK sets `VulkanInitFlags::VALIDATE` at compile time (`GPU/Vulkan/VulkanUtil.cpp:29-33`, `_DEBUG` builds) and `VulkanContext` enables `VK_LAYER_KHRONOS_validation` if it is loadable; PPSSPP's own `android/src/main/jniLibs/README.txt` documents dropping the Khronos Android layer there. Do it: `curl -sfL -o /tmp/vvl.zip https://github.com/KhronosGroup/Vulkan-ValidationLayers/releases/download/vulkan-sdk-1.4.357.0/android-binaries-1.4.357.0.zip` (30 MB), unzip, copy `arm64-v8a/libVkLayer_khronos_validation.so` into `android/src/main/jniLibs/arm64-v8a/`, rebuild + reinstall the APK, confirm `unzip -l` lists the layer, launch with `lcd-grid-v2-psp-color` and then `presets/crt-royale-downsample.slangp`; logcat filtered for `VALIDATION|VUID|vkCmd|SYNC-HAZARD|Validation Error` (PPSSPP logs layer messages through its debug callback at ERROR/WARN). Expected: zero messages attributable to the CALLBACK step or librashader (messages that also appear with `SlangUseLibrashader = False` are pre-existing PPSSPP noise — capture a baseline run with the toggle off and diff the message sets). Also confirm the layer actually loaded (`Enabling Vulkan validation`/layer-found log line, or the message volume being non-zero on the baseline). Remove the layer `.so` from jniLibs afterwards and rebuild so the final installed APK is layer-free (record both APK sizes). If the layer refuses to load on this device (e.g. Vulkan 1.3 driver vs layer version), record NOT RUN with the exact log.
 
-- [ ] **Step 4: Heavy preset, performance, lifecycle**
+- [x] **Step 4: Heavy preset, performance, lifecycle**
 
 `SlangShaderPreset = .../crt/crt-maximus-royale-fast-mode.slangp` (heaviest available; falls back to `presets/crt-royale-downsample.slangp` if it fails to compile — record the error): loads (`preset parsed`, first frames after the MAX_INFLIGHT_FRAMES gate), renders, no errors; note chain creation time from the log timestamps (`preset parsed` → first frame without the unfiltered fallback is not logged; use the timestamp of the first `input mode:` line vs the time the game booted). Performance: enable the FPS counter (ini key `iShowStatusFlags` in `[Graphics]`: bit 2 = FPS counter, bit 4 = speed counter, so `iShowStatusFlags = 6` shows both; enum `ShowStatusFlags` in `Core/ConfigValues.h`) and read it off two screencaps ~10 s apart for librashader vs in-tree on `crt-royale-downsample` (both chains render the same preset); record the numbers. Lifecycle: with librashader active, sleep/wake the device in-game (`KEYCODE_SLEEP`, 3 s, `KEYCODE_WAKEUP`, `82`): process survives, the chain is recreated (a second `preset parsed` + `input mode:` pair), image still filtered. Preset switch: edit `SlangShaderPreset` in the ini and trigger a reload without relaunching if possible (open and close the in-game pause menu with `KEYCODE_BACK`/`KEYCODE_ESCAPE` — `NotifyConfigChanged` fires when settings close); otherwise relaunch and record that in-process switching was done by ini + relaunch only.
 
-- [ ] **Step 5: Record**
+- [x] **Step 5: Record**
+
+Device: AYN Thor (serial 64dc3c35, Adreno 740, Vulkan device API 1.3.128), `android-normal-debug.apk` versionName `librashader-p3`, game `3rd Birthday`, `InternalResolution = 4` (4x PSP, 1080p). Full evidence: `.superpowers/sdd/2026-09-14-librashader-phase3-android/task-2-report.md`.
 
 | Check | Result | Notes |
 |---|---|---|
-| APK contains librashader.so (arm64) | | |
-| Vulkan: librashader loaded + backend selected | | |
-| lcd-grid-v2-psp-color renders (librashader vs in-tree) | | |
-| Validation layers: layer loaded | | |
-| Validation layers: CALLBACK/librashader messages | | |
-| crt-maximus-royale-fast-mode loads + renders | | |
-| Performance crt-royale-downsample (FPS librashader / in-tree) | | |
-| Sleep/wake with librashader | | |
-| Preset switch | | |
+| APK contains librashader.so (arm64) | PASS | `lib/arm64-v8a/{librashader.so 10,010,784, libppsspp_jni.so, libc++_shared.so}`; install `Success`; `versionName=librashader-p3`. `jniLibs` is *not* filtered by `-Pandroid.injected.build.abi`, so the armeabi-v7a + x86_64 `librashader.so` also ship (+18 MB) — harmless for the test APK, worth an `abiFilters`/splits note for release builds. |
+| Vulkan: librashader loaded + backend selected | PASS | `librashader loaded (ABI 2, API 5)`, `Slang chain backend: librashader`, `LibrashaderFilterChain: preset parsed: ... (input mode: upscaled framebuffer with declared native size)`. No `LibrashaderFilterChain:`/`LibrashaderRuntimeVulkan:` errors, no `Fatal signal`, in any of the 12 device runs. No runtime code change was needed. |
+| lcd-grid-v2-psp-color renders (librashader vs in-tree) | PASS | Both screencaps of the static boot dialog show the LCD dot-matrix grid; `cmp.py`: 99.4% of pixels differ but **max delta 15/255, mean-over-differing 3.42** — rounding-level agreement, no structural difference. `p3-v-libra-lcd.png` / `p3-v-intree-lcd.png`. |
+| Validation layers: layer loaded | PASS | Khronos 1.4.357.0 arm64 layer in `jniLibs`: `added global layer 'VK_LAYER_KHRONOS_validation'`, `Vulkan debug_utils validation enabled.`, `Loaded layer VK_LAYER_KHRONOS_validation`. Callback proven live by the baseline messages below. APK sizes: 46,264,860 B layer-free → 62,054,782 B with layer. Layer removed + rebuilt + reinstalled afterwards; final APK has 0 `VkLayer` entries and the device logs `Validation on but instance layer not available - dropping layers` again. |
+| Validation layers: CALLBACK/librashader messages | PASS (zero) | Messages arrive as `VKDEBUG:` through PPSSPP's debug callback. In-tree baseline: 6 (lcd-grid) / 10 (crt-royale-downsample) messages, all one ID — `WARNING(perf:-937765618) vkCreateGraphicsPipelines(): ... Vertex attribute at location 2 not consumed by vertex shader` (pre-existing PPSSPP noise from the in-tree slang pipelines). librashader on the same two presets: **0 VKDEBUG lines**. Set difference (librashader − baseline) = ∅; no VUID error, no SYNC-HAZARD, nothing attributable to the CALLBACK step. |
+| crt-maximus-royale-fast-mode loads + renders | PASS | No fallback needed. Bezel + curvature + scanlines all render; chain creation `librashader loaded` → `preset parsed` = **239 ms**; boot (`NativeApp.init() -- begin` 19:44:54.095) → first filtered frame (19:44:57.281) = 3.19 s, of which the chain is 0.24 s. 30/30 (100.1%). |
+| Performance crt-royale-downsample (FPS librashader / in-tree) | PASS | FPS/speed counter (`iShowStatusFlags = 6`), two samples 10 s apart each: librashader **30/30 (100.0%) / 30/30 (100.0%)**, in-tree **30/30 (100.0%) / 30/30 (100.0%)** — the counter is vsync-capped at the game's 30 fps so it cannot discriminate. `DebugOverlay = 6` (GPU_PROFILE) does: librashader `CALLBACK librashader: 10.566 ms`, totalGPUTimeMs 14.36; in-tree 14 `RENDER slang-pass` + 1 BLIT = **8.634 ms**, totalGPUTimeMs 11.27. librashader costs **+1.93 ms/frame (+22%)**, both far inside the 33.3 ms budget. librashader also writes fewer descriptors (5 vs 19) and shows 0 resource deletions/frame (vs 14). |
+| Sleep/wake with librashader | PASS | `KEYCODE_SLEEP` / 3 s / `KEYCODE_WAKEUP` + `82` / 10 s: same PID (31871) before and after; surface recreated (`Creating Vulkan surface for window`), chain recreated (second `Slang chain backend: librashader` + `preset parsed` + `input mode:` pair), image still filtered at 30/30, no errors. |
+| Preset switch | PASS (in-process) | Reliable in-process path found: pause menu (`KEYCODE_BACK`) → Settings → Graphics → *RetroArch (slang) shaders* → category `crt` → `GritsScanlines`, driven by `adb shell input tap` with a screencap after each step. Same PID, `crt-royale-downsample` → `GritsScanlines` rebuilt live (`preset parsed: .../crt/GritsScanlines.slangp`), new look renders, no crash — so `libra_vk_filter_chain_free` ran on a live Vulkan chain. Separately: pause-menu open/close with no config change correctly does *not* rebuild the chain and does not crash. Ini + relaunch also works (used for every other row). |
 
-Commit any fix plus the table: `git commit -m "librashader: Phase 3 Android Vulkan verification results ..."` with the trailer.
+All nine checks PASS; no NOT RUN rows, no fix required. Device ini restored (`iShowStatusFlags = 0`, `SlangUseLibrashader = True`, `SlangShaderPreset = presets/crt-royale-downsample.slangp`, `GraphicsBackend = 3 (VULKAN)`, inserted `DebugOverlay` removed) except `G3DLevel`/`SYSTEMLevel`, deliberately left at 4 for Task 3.
 
 ---
 
