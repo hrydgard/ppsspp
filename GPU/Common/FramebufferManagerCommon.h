@@ -37,7 +37,7 @@
 #include "GPU/ge_constants.h"
 #include "GPU/Common/Draw2D.h"
 
-class SlangFilterChain;
+class ISlangFilterChain;
 
 enum {
 	FB_USAGE_DISPLAYED_FRAMEBUFFER = 1,
@@ -579,7 +579,7 @@ protected:
 	static SkipGPUReadbackMode GetSkipGPUReadbackMode();
 
 	PresentationCommon *presentation_ = nullptr;
-	SlangFilterChain *slangChain_ = nullptr;
+	ISlangFilterChain *slangChain_ = nullptr;
 	std::string slangChainPresetPath_;  // path currently loaded into slangChain_, empty if none
 
 	Draw::DrawContext *draw_ = nullptr;

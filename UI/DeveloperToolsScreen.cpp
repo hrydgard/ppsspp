@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <string>
+#include "ppsspp_config.h"
 
 #include "android/jni/app-android.h"
 #include "Common/UI/View.h"
@@ -94,6 +95,11 @@ void DeveloperToolsScreen::CreateTextureReplacementTab(UI::LinearLayout *list) {
 	list->Add(new ItemHeader(dev->T("Texture Replacement")));
 	list->Add(new CheckBox(&g_Config.bSaveNewTextures, dev->T("Save new textures")));
 	list->Add(new CheckBox(&g_Config.bReplaceTextures, dev->T("Replace textures")));
+
+#if USE_LIBRASHADER
+	list->Add(new ItemHeader(dev->T("Slang shaders")));
+	list->Add(new CheckBox(&g_Config.bSlangUseLibrashader, dev->T("Use librashader for slang shaders")));
+#endif
 
 	Choice *createTextureIni = list->Add(new Choice(dev->T("Create/Open textures.ini file for current game")));
 	createTextureIni->OnClick.Handle(this, &DeveloperToolsScreen::OnOpenTexturesIniFile);
