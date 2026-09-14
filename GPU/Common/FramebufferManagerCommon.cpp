@@ -3546,8 +3546,15 @@ void FramebufferManagerCommon::DeviceRestore(Draw::DrawContext *draw) {
 	draw_ = draw;
 	draw2D_.DeviceRestore(draw_);
 	presentation_->DeviceRestore(draw_);
+	// Don't reload the slang chain here: loading creates GPU textures (LUTs) through the
+	// Vulkan push pool, which is only valid inside a frame, and DeviceRestore runs before
+	// the first frame begins (crashes on Android sleep/wake with a LUT preset). Drop the
+	// chain and let CheckPostShaders rebuild it lazily during the next frame instead.
 	if (slangChain_) {
-		slangChain_->DeviceRestore(draw_);
+		delete slangChain_;
+		slangChain_ = nullptr;
+		slangChainPresetPath_.clear();
+		updatePostShaders_ = true;
 	}
 }
 
