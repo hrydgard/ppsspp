@@ -135,7 +135,7 @@ protected:
 			grid->Add(undoButton)->OnClick.Handle(this, &ScreenshotViewScreen::OnUndoState);
 		}
 		grid->Add(new Choice(di->T("Back"), ImageID("I_NAVIGATE_BACK")))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
-		grid->Add(new Choice(di->T("Modify State Name"), ImageID("I_EDIT_TEXT")))->OnClick.Handle(this, &ScreenshotViewScreen::OnChangeState);
+		grid->Add(new Choice(di->T("Rename state"), ImageID("I_EDIT_TEXT")))->OnClick.Handle(this, &ScreenshotViewScreen::OnChangeState);
 
 		scroll->Add(content);
 		parent->Add(scroll);
@@ -212,7 +212,7 @@ void ScreenshotViewScreen::OnChangeState(UI::EventParams &e) {
 
 	customNameTemp_ = SaveState::GetSlotCustomName(saveStatePrefix_, slot_);
 
-	UI::TextEditPopupScreen *popupScreen = new UI::TextEditPopupScreen(&customNameTemp_, "", di->T("Modify the state name"), 64);
+	UI::TextEditPopupScreen *popupScreen = new UI::TextEditPopupScreen(&customNameTemp_, "", di->T("Save state name"), 64);
 	popupScreen->OnChange.Add([this](UI::EventParams &e) {
 		SaveState::SetSlotCustomName(saveStatePrefix_, slot_, customNameTemp_);
 		TriggerFinish(DR_YES);  // DR_YES signals that we need a refresh, but not to close the pause menu.

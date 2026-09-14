@@ -26,9 +26,9 @@ from `Tools/langtool`:
    changes the string all the others were just translated from. Diff `en_US.ini` afterwards to check
    it didn't move.
    No trailing `# comments` on those lines, they'd end up inside the translation. Placeholders have to
-   survive verbatim. If you don't know a language well enough, leave it out - a key that's missing from
-   a language file falls back to the English string at runtime, which is much better than a confident
-   guess. If a language deliberately keeps the English string (a term like "Vsync" that isn't
+   survive verbatim. If you don't know a language well enough, leave it out - step 4 gives it the
+   English string as a placeholder, which is much better than a confident guess. If a language
+   deliberately keeps the English string (a term like "Vsync" that isn't
    translated), do include it with the English text - it gets written with a `# same as English`
    comment, which stops langtool from trying to translate it again on every later run.
 3. `cargo run -- import-single <scratch-file> <Section> "<Key>"` writes them all in, including a new
@@ -36,10 +36,16 @@ from `Tools/langtool`:
    were translated from. Note it overwrites existing values for that key, so take care with keys that
    already have human translations, and that the section has to exist already - langtool won't create
    one.
-4. `cargo run -- validate` at the end, always. It checks that placeholders survived and exits
+4. `cargo run -- add-new-key <Section> "<Key>"` gives every language you skipped the English string
+   as a placeholder - `Key = Key`, with no `# same as English` marker, so it still reads as
+   outstanding work - and leaves the translated ones untouched. Always do this: every language file
+   should end up with the key. A missing key falls back to English at runtime anyway, but in the
+   files it's indistinguishable from a translated one, so translators can't see what's left.
+   `copy-missing-lines` does the same job across every key in the repo at once, which is a different
+   job - it'll bury a two-string change under several hundred lines of unrelated housekeeping.
+5. `cargo run -- validate` at the end, always. It checks that placeholders survived and exits
    non-zero if anything is off.
 
-Optionally follow up with `cargo run -- copy-missing-lines` to give the languages you skipped the
-English string as a placeholder. The other mechanical jobs (renaming and moving keys, sorting
-sections) are langtool commands too - prefer them over editing the ini files by hand.
+The other mechanical jobs (renaming and moving keys, sorting sections) are langtool commands too -
+prefer them over editing the ini files by hand.
 
