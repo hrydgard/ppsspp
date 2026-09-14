@@ -70,6 +70,10 @@ public:
 	virtual LIBRA_PRESET_CTX_RUNTIME PresetRuntime() const = 0;
 	// Emu thread. Grabs the device handles / proc loader from draw.
 	virtual bool Init(Draw::DrawContext *draw, std::string *error) = 0;
+	// true when the runtime's frame API cannot declare an input size different from the texture's
+	// (D3D11); the core then feeds a native-sized copy so SourceSize/OriginalSize and source-relative
+	// pass sizes match the other backends.
+	virtual bool RequiresNativeSizedInput() const { return false; }
 	// Emu thread. Returns the function RunNativeCallback executes on the render thread.
 	virtual Draw::NativeCallbackFn MakeFrameCallback(std::shared_ptr<LibrashaderRenderState> rs, LibrashaderFrameArgs args) = 0;
 	// Emu thread. Frees rs->preset / chain on the thread the backend requires; draw may be null (device gone).

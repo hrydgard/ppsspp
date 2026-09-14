@@ -2916,6 +2916,7 @@ bool TestSlangPresetParameters();
 bool TestLibrashaderLoaderAbsent();
 bool TestLibrashaderLoaderNotALibrary();
 bool TestSlangChainBackendSelection();
+bool TestLibrashaderSourceScan();
 bool TestZipSlip();
 bool TestLzrc();
 bool TestDemangle();
@@ -3138,6 +3139,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(LibrashaderLoaderAbsent),
 	TEST_ITEM(LibrashaderLoaderNotALibrary),
 	TEST_ITEM(SlangChainBackendSelection),
+	TEST_ITEM(LibrashaderSourceScan),
 	TEST_ITEM(ColorConv),
 	TEST_ITEM(CharQueue),
 	TEST_ITEM(Buffer),

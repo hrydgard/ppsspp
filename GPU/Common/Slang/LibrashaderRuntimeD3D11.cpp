@@ -40,6 +40,11 @@ public:
 		return true;
 	}
 
+	// libra_d3d11_filter_chain_frame takes a bare ID3D11ShaderResourceView, so there is no width/height
+	// to declare: librashader always reads the size off the view's resource. Size-dependent presets
+	// therefore need a genuinely native-sized input from the core (spec §12, §13 Q4).
+	bool RequiresNativeSizedInput() const override { return true; }
+
 	Draw::NativeCallbackFn MakeFrameCallback(std::shared_ptr<LibrashaderRenderState> rs, LibrashaderFrameArgs args) override {
 		ID3D11Device *device = device_;
 		return [rs, device, args](const Draw::NativeCallbackInfo &info) {
@@ -72,10 +77,11 @@ public:
 				// Unknown parameter names are not fatal; convert (which frees) and drop the error.
 				if (e) (void)Librashader::ErrorToString(e);
 			}
-			// Declared native PSP size, same semantics as the other adapters: the upscaled fbo is
-			// sampled with 0..1 UVs, and Run() hands us a genuinely native-sized image whenever the
-			// preset samples OriginalHistoryN. librashader reads the actual pixel size off the view's
-			// resource, so unlike GL/Vulkan there is nowhere to declare it - see spec §12.
+			// librashader reads the input's pixel size off the view's resource, so unlike GL/Vulkan
+			// there is nowhere to declare the native PSP size - see spec §12. Instead Run() hands us a
+			// genuinely native-sized image whenever the preset samples OriginalHistoryN or its result
+			// depends on the input size (RequiresNativeSizedInput above); other presets get the
+			// upscaled fbo, which they sample with 0..1 UVs like on every other backend.
 			libra_viewport_t vp{ 0.0f, 0.0f, (uint32_t)info.dstWidth, (uint32_t)info.dstHeight };
 			frame_d3d11_opt_t fopts{};
 			fopts.version = LIBRASHADER_CURRENT_VERSION;

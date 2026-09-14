@@ -252,8 +252,9 @@ librashader on D3D11, and PPSSPP's own menu bar and FPS/speed overlay draw corre
 image afterwards. One behavioural difference from GL/Vulkan is unavoidable at this API level:
 `libra_d3d11_filter_chain_frame` takes a bare `ID3D11ShaderResourceView` with no size struct (unlike
 `libra_image_gl_t`/`libra_image_vk_t`), so librashader derives `SourceSize`/`OriginalSize` from the
-view's resource and a preset's resolution-dependent math runs at the render resolution rather than at
-the PSP's native 480×272 when `InternalResolution > 1` — see §12.
+view's resource. The adapter therefore returns `true` from `RequiresNativeSizedInput()` and the core
+feeds it a native-sized copy whenever the preset depends on the source size, which restores identical
+behaviour across backends — see §6.5 and §12.
 
 ### 6.3 thin3d surface — `Common/GPU/thin3d.h`
 
@@ -337,17 +338,31 @@ State split by thread:
   against the image - but it *also* uses them as the copy extent when it snapshots the input
   into its `OriginalHistoryN` ring, so a preset that samples history would see only a
   native-sized corner of the upscaled frame.
-- **History detection (added after Phase 1 on-device verification).** `Load()` therefore
-  re-parses the preset with PPSSPP's in-tree `ParseSlangPreset` and scans each pass's
-  `#include`-resolved source for `OriginalHistory[1-9]` / `OriginalHistorySize[1-9]`, storing
-  the answer in `needsNativeInput_`. When it is true, `Run()` keeps a second, native-sized
-  framebuffer, blits the source into it (`FB_BLIT_LINEAR`) and hands *that* to the callback,
-  so the declared size equals the real extents and history covers the whole picture (at
-  native resolution). When it is false nothing changes: the upscaled fbo is passed with the
-  declared native size, which is what keeps non-history presets bit-identical to the in-tree
-  chain. The selected mode is logged once at INFO per preset load. If the re-parse or a
-  shader read fails the answer is "no history", i.e. the pre-existing behaviour; librashader's
-  own parser remains the one that decides whether the preset loads at all.
+- **Input-mode detection (history added after Phase 1 on-device verification; size dependence
+  added 2026-09-15).** `Load()` therefore re-parses the preset with PPSSPP's in-tree
+  `ParseSlangPreset` and derives three facts: `usesHistory` — a pass's `#include`-resolved source
+  references `OriginalHistory[1-9]` / `OriginalHistorySize[1-9]`; `readsSourceSize` — a source
+  references `SourceSize` or `OriginalSize` as a whole identifier (so `OriginalHistorySizeN` and
+  `FinalViewportSize` do not count); `sourceRelativePasses` — a multi-pass preset has a
+  non-final pass with `scale_type{,_x,_y} = source`, whose resolution therefore follows the input
+  size. Then
+  `needsNativeInput_ = usesHistory || (runtime_->RequiresNativeSizedInput() && (readsSourceSize || sourceRelativePasses))`.
+  `RequiresNativeSizedInput()` is `false` for the Vulkan and GL adapters — their frame API declares
+  the input size — and `true` for D3D11, whose frame API takes a bare
+  `ID3D11ShaderResourceView` (§12). When `needsNativeInput_` is true, `Run()` keeps a second,
+  native-sized framebuffer, blits the source into it (`FB_BLIT_LINEAR`) and hands *that* to the
+  callback, so the declared size equals the real extents: history covers the whole picture, and on
+  D3D11 `SourceSize`/`OriginalSize` and the source-relative pass sizes come out the same as on the
+  other backends. When it is false nothing changes: the upscaled fbo is passed with the declared
+  native size, which is what keeps non-history presets bit-identical to the in-tree chain, and what
+  a single viewport-scaled pass (e.g. `stock.slangp`) still gets on D3D11. The selected mode is
+  logged once at INFO per preset load (`native-sized copy (history)`,
+  `native-sized copy (D3D11: preset depends on SourceSize)`,
+  `upscaled framebuffer with declared native size`). If the re-parse or a shader read fails every
+  answer is "no", i.e. the pre-existing behaviour; librashader's own parser remains the one that
+  decides whether the preset loads at all. The two token scans are free functions
+  (`ReferencesOriginalHistory`, `ReferencesSourceSize`) so the unit tests cover them without a
+  device.
 - `DeviceLost()` (emu thread; the render thread is already stopped and the device idle by
   the time `FramebufferManagerCommon::DeviceLost` runs, see `VKContext::DeviceLost`): free
   `chain_`, `preset_`, `output_`; keep `presetPath_` for `DeviceRestore`.
@@ -522,12 +537,15 @@ Each phase gets its own implementation plan. This spec covers all four; the Phas
   native-sized intermediate). This is the first thing Phase 1 verifies on device.
   **Confirmed on D3D11 (2026-09-15):** the D3D11 frame entry point takes only an
   `ID3D11ShaderResourceView` — there are no `width`/`height` fields to declare — so
-  `SourceSize`/`OriginalSize` are always the view resource's size. At `InternalResolution = 1`
-  the three backends agree; above it, D3D11 runs resolution-dependent shader math at render
-  resolution while GL/Vulkan run it at 480×272 (measured: the GL `lcd-psp-matrix` capture is
-  unchanged from 1x to 3x, the D3D11 one changes). The fix, if it is ever wanted, is to make the
-  D3D11 runtime always take the native-sized copy `LibrashaderFilterChain::EnsureNativeInput`
-  already produces for `OriginalHistoryN` presets, at the cost of the upscaled detail.
+  `SourceSize`/`OriginalSize` are always the view resource's size. Measured before the fix: the GL
+  `lcd-psp-matrix` capture was unchanged from `InternalResolution` 1 to 3 while the D3D11 one changed
+  materially. **Fixed (2026-09-15):** `LibrashaderRuntime::RequiresNativeSizedInput()` is `true` on
+  D3D11, so `Load()` routes the input through the native-sized copy
+  `LibrashaderFilterChain::EnsureNativeInput` already produced for `OriginalHistoryN` presets whenever
+  the preset depends on the source size (§6.5). All backends now behave the same; what remains on
+  D3D11 is input texel detail (a downscaled 480×272 copy instead of the upscaled framebuffer read
+  with native-sized semantics) plus one blit per frame. A size-declaring D3D11 entry point upstream
+  would remove even that.
 - **Frames in flight.** Verified during the final Phase 1 review: librashader's Vulkan
   runtime does *not* index its per-frame resources by the `frame_count` we pass. It keeps its
   own internal counter, advanced once per `libra_vk_filter_chain_frame` call, and cycles it
@@ -556,11 +574,9 @@ Each phase gets its own implementation plan. This spec covers all four; the Phas
 4. **D3D11 `SourceSize` semantics:** librashader's D3D11 frame API takes only an
    `ID3D11ShaderResourceView` (no size struct), so `SourceSize` equals the render resolution
    on D3D11 when `InternalResolution > 1` (Vulkan/GL declare the PSP's native 480×272 size
-   over the upscaled image). Options: (a) accept the divergence (resolution-dependent shaders
-   like LCD masks tile at the render resolution instead of the native grid on D3D11); (b) feed
-   D3D11 a native-sized downsampled input via the existing history-preset blit (softer image,
-   one extra blit per frame) — **recommended, decision pending:** route the input through the
-   existing native-sized blit only when the preset's include-resolved sources reference
-   `SourceSize`/`OriginalSize` (same scan as the `OriginalHistoryN` detection), keep the upscaled
-   input otherwise, log the mode in the existing `input mode:` INFO line; (c) request a
-   size-declaring API upstream (file an upstream request regardless). Decision pending.
+   over the upscaled image). **Answered (2026-09-15):** all backends must behave identically;
+   D3D11 uses a native-sized input whenever the preset depends on the source size
+   (`SourceSize`/`OriginalSize` reads or source-relative intermediate passes), via
+   `LibrashaderRuntime::RequiresNativeSizedInput()`; residual difference is input texel detail
+   (downsampled vs upscaled), not geometry. Upstream request for a size-declaring D3D11 entry
+   point still worthwhile.

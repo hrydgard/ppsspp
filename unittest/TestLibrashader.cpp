@@ -24,6 +24,7 @@
 #include "Common/File/Path.h"
 #include "Common/GPU/Librashader/LibrashaderLoader.h"
 #include "GPU/Common/Slang/ISlangFilterChain.h"
+#include "GPU/Common/Slang/LibrashaderFilterChain.h"
 #include "Core/ConfigValues.h"
 
 // Device-free: with LIBRASHADER_PATH pointing at a non-library, Load must fail cleanly,
@@ -76,5 +77,34 @@ bool TestSlangChainBackendSelection() {
 	EXPECT_TRUE(ChooseSlangChainBackend(true, (GPUBackend)1, true) == SlangChainBackend::None);  // retired D3D9 slot: not a supported backend
 	EXPECT_TRUE(strcmp(SlangChainBackendName(SlangChainBackend::None), "none") == 0);
 	EXPECT_TRUE(strcmp(SlangChainBackendName(SlangChainBackend::Librashader), "librashader") == 0);
+	return true;
+}
+
+// Device-free: the pure token scans LibrashaderFilterChain::Load() uses to pick the input mode.
+// Both must match whole identifiers only, so a longer name that merely contains the needle does not
+// change the input mode (and with it the rendered result) of an unrelated preset.
+bool TestLibrashaderSourceScan() {
+#if USE_LIBRASHADER
+	// SourceSize / OriginalSize: the reads that make a preset's output depend on the input size.
+	EXPECT_TRUE(ReferencesSourceSize("vec2 s = params.SourceSize.xy;"));
+	EXPECT_TRUE(ReferencesSourceSize("uv * OriginalSize.zw"));
+	EXPECT_TRUE(ReferencesSourceSize("\tvec4 SourceSize;\n"));
+	EXPECT_FALSE(ReferencesSourceSize("FinalViewportSize"));
+	EXPECT_FALSE(ReferencesSourceSize("OriginalHistorySize1"));
+	EXPECT_FALSE(ReferencesSourceSize("mySourceSizeHack"));   // glued in front
+	EXPECT_FALSE(ReferencesSourceSize("SourceSizes[2]"));     // glued behind
+	EXPECT_FALSE(ReferencesSourceSize("texture(Source, uv)"));
+	EXPECT_FALSE(ReferencesSourceSize(""));
+
+	// OriginalHistoryN / OriginalHistorySizeN: index 0 is the current frame, so it does not count.
+	EXPECT_TRUE(ReferencesOriginalHistory("texture(OriginalHistory1, uv)"));
+	EXPECT_TRUE(ReferencesOriginalHistory("params.OriginalHistorySize2.xy"));
+	EXPECT_TRUE(ReferencesOriginalHistory("OriginalHistory9"));
+	EXPECT_FALSE(ReferencesOriginalHistory("texture(OriginalHistory0, uv)"));
+	EXPECT_FALSE(ReferencesOriginalHistory("texture(Original, uv)"));
+	EXPECT_FALSE(ReferencesOriginalHistory("MyOriginalHistory1"));  // glued in front
+	EXPECT_FALSE(ReferencesOriginalHistory("OriginalHistory"));
+	EXPECT_FALSE(ReferencesOriginalHistory(""));
+#endif
 	return true;
 }

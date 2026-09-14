@@ -159,16 +159,22 @@ dirty flags), clears the SRV/sampler slots it dirtied, and fires the draw engine
 everything is synchronous and D3D11 devices are free-threaded, `QueueFree` needs no deletion queue:
 `libra_d3d11_filter_chain_free` (and `libra_preset_free`) run directly, even on device loss.
 
-**Known difference from GL/Vulkan: `SourceSize`.** `libra_d3d11_filter_chain_frame` takes only an
+**`SourceSize` on D3D11: native-sized input.** `libra_d3d11_filter_chain_frame` takes only an
 `ID3D11ShaderResourceView`, with no width/height fields - unlike `libra_image_gl_t`/`libra_image_vk_t`,
 which is how the other adapters report the PSP's *native* 480x272 size while handing over the
-upscaled framebuffer. librashader therefore reads the size off the resource on D3D11, so with
-`InternalResolution > 1` a preset's `SourceSize`/`OriginalSize` is the render resolution, and
-resolution-dependent shader math (CRT/LCD masks, scanlines) tiles at that resolution instead of the
-native grid. At 1x the backends agree. Measured on 2026-09-15: the GL `lcd-psp-matrix` capture is
-identical at 1x and 3x, the D3D11 one changes. The fix, if it matters, is to make the D3D11 runtime
-always take the native-sized copy `LibrashaderFilterChain` already produces for `OriginalHistoryN`
-presets (one extra downscaling blit per frame, at the cost of the upscaled detail).
+upscaled framebuffer. librashader therefore reads the size off the resource on D3D11, so a preset
+whose result depends on the input size would otherwise run its math at the render resolution
+(CRT/LCD masks tiling at 3x instead of on the native grid). The D3D11 adapter therefore returns
+`true` from `LibrashaderRuntime::RequiresNativeSizedInput()`, and `LibrashaderFilterChain::Load()`
+routes the input through the native-sized blit it already had for `OriginalHistoryN` presets whenever
+the preset reads `SourceSize`/`OriginalSize` or has an intermediate `scale_type = source` pass. All
+three backends then behave the same; the residual difference is input texel detail (D3D11 samples a
+downscaled 480x272 copy where GL/Vulkan sample the upscaled framebuffer with native-sized
+semantics), not geometry. Presets that do not depend on the source size (a single viewport-scaled
+pass, e.g. `stock.slangp`) keep the upscaled input on D3D11 too. The chosen mode is in the
+`input mode:` INFO line at preset load: `native-sized copy (history)`,
+`native-sized copy (D3D11: preset depends on SourceSize)` or
+`upscaled framebuffer with declared native size`.
 
 **Shaders must survive FXC.** librashader cross-compiles the preset to HLSL and compiles it with
 FXC, which is stricter than glslang: a dynamically indexed vector component is not a valid l-value

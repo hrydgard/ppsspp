@@ -42,13 +42,19 @@ static bool ReadSlangFile(const Path &path, std::string *out) {
 	return File::ReadBinaryFileToString(path, out);
 }
 
+static bool IsIdentifierChar(char c) {
+	return (c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_';
+}
+
 // True if the text references OriginalHistory1..9 or OriginalHistorySize1..9. Index 0 is the
 // current frame, which librashader binds as a view of the real image and therefore never
 // snapshots, so it does not need the native-sized input.
-static bool ReferencesOriginalHistory(const std::string &src) {
+bool ReferencesOriginalHistory(const std::string &src) {
 	static const char *kNeedle = "OriginalHistory";
 	const size_t needleLen = strlen(kNeedle);
 	for (size_t pos = src.find(kNeedle); pos != std::string::npos; pos = src.find(kNeedle, pos + needleLen)) {
+		if (pos > 0 && IsIdentifierChar(src[pos - 1]))
+			continue;  // tail of a longer identifier, e.g. MyOriginalHistory1
 		size_t after = pos + needleLen;
 		if (src.compare(after, 4, "Size") == 0)
 			after += 4;  // OriginalHistorySizeN
@@ -58,36 +64,75 @@ static bool ReferencesOriginalHistory(const std::string &src) {
 	return false;
 }
 
+// True if the text reads the input image's size, i.e. mentions SourceSize or OriginalSize as whole
+// identifiers (so OriginalHistorySizeN and FinalViewportSize do not count). Such a preset renders
+// differently depending on what size librashader believes the input is - which is exactly what a
+// RequiresNativeSizedInput() backend cannot declare.
+bool ReferencesSourceSize(const std::string &src) {
+	static const char *kNeedles[] = { "SourceSize", "OriginalSize" };
+	for (const char *needle : kNeedles) {
+		const size_t needleLen = strlen(needle);
+		for (size_t pos = src.find(needle); pos != std::string::npos; pos = src.find(needle, pos + needleLen)) {
+			if (pos > 0 && IsIdentifierChar(src[pos - 1]))
+				continue;
+			const size_t after = pos + needleLen;
+			if (after < src.size() && IsIdentifierChar(src[after]))
+				continue;
+			return true;
+		}
+	}
+	return false;
+}
+
+// What a preset needs from its input image, as far as the .slangp and the pass sources can tell.
+struct PresetInputNeeds {
+	bool usesHistory = false;           // samples OriginalHistory[1-9] / OriginalHistorySize[1-9]
+	bool readsSourceSize = false;       // reads SourceSize / OriginalSize
+	bool sourceRelativePasses = false;  // an intermediate pass is sized off its input
+};
+
 // librashader's C API exposes no way to enumerate a preset's semantics, so re-parse the preset with
-// the in-tree parser and scan the (include-resolved) pass sources. On any read/parse failure we
-// answer "no history" - that is the pre-existing behaviour, and librashader's own parser is the one
-// that decides whether the preset loads at all.
-static bool PresetUsesOriginalHistory(const Path &presetPath) {
+// the in-tree parser and scan the (include-resolved) pass sources. On any read/parse failure every
+// answer is "no" - that is the pre-existing behaviour, and librashader's own parser is the one that
+// decides whether the preset loads at all.
+static PresetInputNeeds ScanPresetInputNeeds(const Path &presetPath) {
+	PresetInputNeeds needs;
 	std::string presetText;
 	if (!ReadSlangFile(presetPath, &presetText)) {
-		WARN_LOG(Log::G3D, "LibrashaderFilterChain: could not re-read '%s' to scan for OriginalHistoryN", presetPath.c_str());
-		return false;
+		WARN_LOG(Log::G3D, "LibrashaderFilterChain: could not re-read '%s' to scan its input needs", presetPath.c_str());
+		return needs;
 	}
 	SlangPreset preset;
 	std::string err;
 	if (!ParseSlangPreset(presetText, Path(presetPath.GetDirectory()), &preset, &err)) {
-		WARN_LOG(Log::G3D, "LibrashaderFilterChain: OriginalHistoryN scan skipped, preset re-parse failed: %s", err.c_str());
-		return false;
+		WARN_LOG(Log::G3D, "LibrashaderFilterChain: input-needs scan skipped, preset re-parse failed: %s", err.c_str());
+		return needs;
+	}
+	// An intermediate pass with scale_type = source renders at a multiple of its *input* size, so its
+	// resolution - and everything sampled from it - follows the declared input size. The final pass
+	// is excluded: its output is our viewport-sized output framebuffer either way.
+	for (size_t i = 0; i + 1 < preset.passes.size(); i++) {
+		if (preset.passes[i].scaleTypeX == SlangScaleType::Source || preset.passes[i].scaleTypeY == SlangScaleType::Source) {
+			needs.sourceRelativePasses = true;
+			break;
+		}
 	}
 	const SlangFileReader reader = [](const Path &path, std::string *out) -> bool {
 		return ReadSlangFile(path, out);
 	};
 	for (const SlangPassDesc &pass : preset.passes) {
+		if (needs.usesHistory && needs.readsSourceSize)
+			break;
 		std::string shaderSrc;
 		if (!ReadSlangFile(Path(pass.shaderPath), &shaderSrc))
 			continue;
 		std::string resolved;
 		if (!ResolveSlangIncludes(shaderSrc, Path(Path(pass.shaderPath).GetDirectory()), reader, &resolved, &err))
 			resolved = shaderSrc;  // includes unresolved: scan what we could read
-		if (ReferencesOriginalHistory(resolved))
-			return true;
+		needs.usesHistory = needs.usesHistory || ReferencesOriginalHistory(resolved);
+		needs.readsSourceSize = needs.readsSourceSize || ReferencesSourceSize(resolved);
 	}
-	return false;
+	return needs;
 }
 
 LibrashaderFilterChain::LibrashaderFilterChain(Draw::DrawContext *draw)
@@ -157,9 +202,19 @@ bool LibrashaderFilterChain::Load(const Path &presetPath, std::string *error) {
 	// freed by the deletion-queue callback if the chain is never created.
 	render_->preset = preset;
 	valid_ = true;
-	needsNativeInput_ = PresetUsesOriginalHistory(presetPath);
-	INFO_LOG(Log::G3D, "LibrashaderFilterChain: preset parsed: %s (input mode: %s)", presetPath.c_str(),
-		needsNativeInput_ ? "native-sized copy, preset samples OriginalHistoryN" : "upscaled framebuffer with declared native size");
+	const PresetInputNeeds needs = ScanPresetInputNeeds(presetPath);
+	// A history preset needs the native-sized input on every backend (librashader snapshots history at
+	// the *declared* size). On a backend whose frame API cannot declare an input size at all, every
+	// preset whose result depends on that size needs it too, so all backends behave the same - see
+	// spec §12 and §13 Q4.
+	const bool sizeDependent = needs.readsSourceSize || needs.sourceRelativePasses;
+	needsNativeInput_ = needs.usesHistory || (runtime_->RequiresNativeSizedInput() && sizeDependent);
+	const char *inputMode = "upscaled framebuffer with declared native size";
+	if (needs.usesHistory)
+		inputMode = "native-sized copy (history)";
+	else if (needsNativeInput_)
+		inputMode = "native-sized copy (D3D11: preset depends on SourceSize)";
+	INFO_LOG(Log::G3D, "LibrashaderFilterChain: preset parsed: %s (input mode: %s)", presetPath.c_str(), inputMode);
 	return true;
 }
 
@@ -239,8 +294,9 @@ Draw::Framebuffer *LibrashaderFilterChain::Run(Draw::Framebuffer *source, int so
 	// With PPSSPP's upscaled render target that snapshot would capture only the native-sized
 	// top-left corner, so for presets that actually sample OriginalHistoryN (detected in Load) we
 	// downscale into a native-sized intermediate first, making the declared size the true extent.
-	// Presets that do not use history keep sampling the full upscaled framebuffer, which is what
-	// makes them bit-identical to the in-tree chain.
+	// The same intermediate makes the size-declaring backends and D3D11 agree: D3D11's frame API has
+	// no width/height to declare (RequiresNativeSizedInput()), so Load() also routes size-dependent
+	// presets through it there. Everything else keeps sampling the full upscaled framebuffer.
 	int actualW = sourceW, actualH = sourceH;
 	draw_->GetFramebufferDimensions(source, &actualW, &actualH);
 	Draw::Framebuffer *chainInput = source;
@@ -252,9 +308,14 @@ Draw::Framebuffer *LibrashaderFilterChain::Run(Draw::Framebuffer *source, int so
 		chainInput = nativeInput_;
 	} else if (!needsNativeInput_ && !warnedNativeSize_) {
 		if (actualW != sourceW || actualH != sourceH) {
+			// Two different reasons, depending on the backend: either librashader is told the size we
+			// want (GL/Vulkan), or the preset does not care what the size is (D3D11 - Load() would
+			// have taken the native path otherwise).
 			INFO_LOG(Log::G3D, "LibrashaderFilterChain: source is %dx%d but reported as %dx%d (native); "
-				"harmless here because this preset does not sample OriginalHistory1+",
-				actualW, actualH, sourceW, sourceH);
+				"harmless here: %s", actualW, actualH, sourceW, sourceH,
+				runtime_->RequiresNativeSizedInput()
+					? "this preset samples no OriginalHistory1+ and does not depend on the input size"
+					: "librashader honours the declared size and this preset samples no OriginalHistory1+");
 		}
 		warnedNativeSize_ = true;
 	}
