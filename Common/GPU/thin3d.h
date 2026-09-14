@@ -315,7 +315,7 @@ enum class ReadbackMode {
 	OLD_DATA_OK,  // Lets the backend return old results that won't need any waiting to get.
 };
 
-constexpr uint32_t MAX_TEXTURE_SLOTS = 12;
+constexpr uint32_t MAX_TEXTURE_SLOTS = 3;
 
 struct FramebufferDesc {
 	int width;
@@ -325,7 +325,6 @@ struct FramebufferDesc {
 	int multiSampleLevel;  // 0 = 1xaa, 1 = 2xaa, and so on.
 	bool z_stencil;
 	const char *tag;  // For graphics debuggers
-	DataFormat colorFormat = DataFormat::R8G8B8A8_UNORM;  // Color attachment format (defaulted for backward compatibility)
 };
 
 // Binary compatible with D3D11 viewport.
@@ -835,7 +834,7 @@ public:
 	// If an fbo has two layers, we bind for stereo rendering ALWAYS. There's no rendering to one layer anymore.
 	virtual void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) = 0;
 
-	// binding must be < MAX_TEXTURE_SLOTS (0-7 are valid when MAX_TEXTURE_SLOTS is 8).
+	// binding must be < MAX_TEXTURE_SLOTS (0, 1 are okay if it's 2).
 	virtual void BindFramebufferAsTexture(Framebuffer *fbo, int binding, Aspect aspect, int layer) = 0;
 
 	// Framebuffer fetch / input attachment support, needs to be explicit in Vulkan.

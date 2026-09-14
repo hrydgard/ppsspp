@@ -180,7 +180,6 @@ bool LibrashaderFilterChain::EnsureOutput(int w, int h) {
 	desc.multiSampleLevel = 0;
 	desc.z_stencil = false;
 	desc.tag = "librashader_output";
-	desc.colorFormat = Draw::DataFormat::R8G8B8A8_UNORM;
 	output_ = draw_->CreateFramebuffer(desc);
 	if (!output_) {
 		ERROR_LOG(Log::G3D, "LibrashaderFilterChain: failed to create %dx%d output framebuffer", w, h);
@@ -207,7 +206,6 @@ bool LibrashaderFilterChain::EnsureNativeInput(int w, int h) {
 	desc.multiSampleLevel = 0;
 	desc.z_stencil = false;
 	desc.tag = "librashader_native";
-	desc.colorFormat = Draw::DataFormat::R8G8B8A8_UNORM;
 	nativeInput_ = draw_->CreateFramebuffer(desc);
 	if (!nativeInput_) {
 		ERROR_LOG(Log::G3D, "LibrashaderFilterChain: failed to create %dx%d native input framebuffer", w, h);
