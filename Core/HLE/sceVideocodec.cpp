@@ -99,13 +99,11 @@ static std::map<u32, VideocodecCtx> g_videocodecCtxs;
 
 // The Media Engine's own 2MB of embedded DRAM, modelled as memory of ours.
 //
-// The CPU cannot address it. mpeg.prx asks for a block with sceVideocodecGetEDRAM, keeps the value
+// The main CPU cannot address it. mpeg.prx asks for a block with sceVideocodecGetEDRAM, keeps the value
 // and hands it back, and never dereferences it; the frame buffers the ME reports back live in here
 // too, which is why sceVideocodecSetMemory is given a frame size rather than a buffer - 480, 272
 // and a count of 2 for a full-screen movie, with nowhere for the caller to say where to put them.
 //
-// So none of it may come out of the game's partitions: taking it from user memory would push a
-// game's own allocations around, and from kernel memory would spend memory a real PSP never does.
 // The addresses handed out are offsets into g_meRam, based well outside anything PSP RAM maps so
 // that a stray dereference faults where it happens instead of quietly reading the game's memory.
 // Being outside PSP RAM, the contents aren't in the memory a savestate captures either, so the
@@ -184,6 +182,10 @@ void __VideocodecDoState(PointerWrap &p) {
 	// The decoders themselves aren't serializable - a savestate resumes with fresh ones, which
 	// costs at most the frames up to the next keyframe. The frame buffer allocations do have to
 	// come back, or we'd lose track of memory the restored allocator still has handed out.
+	//
+	// If we in the future directly integrate with a h.264 decoder, it might be actually possible
+	// to serialize the internal states. But 100% accurate savestates during cutscene playback are
+	// not really that important.
 	int count = (int)g_videocodecCtxs.size();
 	Do(p, count);
 	if (p.mode == p.MODE_READ) {

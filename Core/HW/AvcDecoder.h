@@ -26,12 +26,10 @@ struct AVFrame;
 
 // A plain "hand it one access unit, get a frame back" H.264 decoder.
 //
-// This exists for sceVideocodec, which is the interface the Media Engine really exposes: the
-// caller owns the buffers and hands over one access unit at a time. MediaEngine can't serve that
-// - it is built around sceMpeg's own model, with the PSMF demuxer, the ringbuffer and its own
-// frame pacing wrapped around the decoder - so this is deliberately a second, separate path
-// rather than a refactor of code every game that plays video depends on. Merging the two is
-// worth doing once sceVideocodec has proven itself.
+// This exists for sceVideocodec, which is a low level interface to the PSP Media Engine.
+// PPSSPP's MediaEngine can't serve that - it is built around sceMpeg's own model, with the
+// PSMF demuxer, the ringbuffer and its own frame pacing wrapped around the decoder, so this
+// is a second path in addition to that. Implementing the old path around this might happen later.
 //
 // Output is whatever pixel format the decoder produced, normally YUV420P; the caller converts.
 class AvcDecoder {
@@ -39,6 +37,7 @@ public:
 	AvcDecoder();
 	~AvcDecoder();
 
+	// Not copyable.
 	AvcDecoder(const AvcDecoder &) = delete;
 	AvcDecoder &operator=(const AvcDecoder &) = delete;
 

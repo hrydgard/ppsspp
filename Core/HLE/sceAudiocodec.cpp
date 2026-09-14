@@ -453,12 +453,12 @@ static int sceAudiocodecCheckNeedMem(u32 ctxPtr, int codec) {
 	switch (codec) {
 	case 0x1000:
 		ctx->neededMem = 0x7bc0;
-		// avcodec.prx does no format check here at all - it just forwards to the ME - and the
-		// caller isn't obliged to have filled these in yet, so this stays a note. libatrac3plus
-		// writes 28 5c (the worst case it sizes EDRAM against); mpeg.prx writes the real frame's
-		// own header bytes, so anything with bit 3 of the first byte is ordinary.
+		// avcodec.prx does no format check here at all, it just forwards to the ME.
+		// libatrac3plus writes 28 5c (the worst case it sizes EDRAM against).
+		// mpeg.prx writes the real frame's own header bytes. Let's just log if we find
+		// something unusual here, it might mean something.
 		if (ctx->fmt.at3.formatByte1 != 0x28 && ctx->fmt.at3.formatByte1 != 0x24) {
-			DEBUG_LOG(Log::ME, "sceAudiocodecCheckNeedMem: unfamiliar Atrac3+ format bytes %02x %02x",
+			INFO_LOG(Log::ME, "sceAudiocodecCheckNeedMem: unfamiliar Atrac3+ format bytes %02x %02x",
 				ctx->fmt.at3.formatByte1, ctx->fmt.at3.formatByte2);
 		}
 		break;

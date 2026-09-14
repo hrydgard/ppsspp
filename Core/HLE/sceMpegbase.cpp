@@ -71,8 +71,8 @@ static u32 sceMpegBasePESpacketCopy(u32 p)
 	auto lli = PSPPointer<SceMpegLLI>::Create(p);
 	while (lli.IsValid()) {
 		nBlocks++;
-		// lli.Next ==0 for last block
-		if (lli->Next == 0){
+		if (lli->Next == 0) {
+			// Last block
 			break;
 		}
 		++lli;
@@ -90,16 +90,14 @@ static u32 sceMpegBasePESpacketCopy(u32 p)
 		if (i == 0) {
 			dest = lli->pDst;
 		}
-		// The list is game-supplied, so check the span before taking a pointer to it: the range
-		// accessors raise a memory exception rather than returning null, and a malformed block
-		// shouldn't fault the game when the intent here is to skip it.
+		// The list is game-supplied, so check the span validity before taking a pointer to it.
 		const u8 *src = (lli->iSize > 0 && Memory::IsValidRange(lli->pSrc, lli->iSize))
 			? Memory::GetTypedPointerRange<u8>(lli->pSrc, lli->iSize) : nullptr;
 		if (src) {
 			gathered.insert(gathered.end(), src, src + lli->iSize);
 			// Audio payloads land in main memory, and mpeg.prx hands that same address to
-			// sceAudiocodecDecode as its input - so for those the copy has to really happen.
-			// Video goes to a Media Engine address that isn't mapped for us; the gather above
+			// sceAudiocodecDecode as its input, so for those the copy has to really happen.
+			// Video goes to a Media Engine address that isn't mapped for us: the gather above
 			// is what stands in for it there.
 			if (Memory::IsValidRange(lli->pDst, lli->iSize)) {
 				Memory::MemcpyUnchecked(lli->pDst, src, lli->iSize);
@@ -121,8 +119,6 @@ std::vector<u8> MpegBaseTakePESPacket(u32 dest) {
 	if (it == g_pesPackets.end()) {
 		return std::vector<u8>();
 	}
-	// Handed over, not lent: leaving it behind meant the first decode of the next movie could pick
-	// up the last packet of the previous one, if the address came round again.
 	std::vector<u8> packet = std::move(it->second);
 	g_pesPackets.erase(it);
 	return packet;
@@ -132,7 +128,7 @@ std::vector<u8> MpegBaseTakePESPacket(u32 dest) {
 // --- sceMpegbase colour conversion ---------------------------------------------------------
 //
 // mpeg.prx hands the ME's decoded output to these to be converted to RGB. The descriptor it
-// passes is 48 bytes - which is exactly the range mpegbase.prx bounds-checks before using it.
+// passes is 48 bytes, which matches the range mpegbase.prx bounds-checks before using it.
 //
 // The dimensions appear twice. Death Jr. has the plain macroblock counts in both pairs, but
 // Thrillville's psmfplayer path has them shifted up by 8 in the first pair and plain in the
@@ -152,7 +148,7 @@ struct SceMp4AvcCscStruct {
 static_assert(sizeof(SceMp4AvcCscStruct) == 0x30);
 
 
-// The ME doesn't write planar YCbCr. The layout below was established by analysing
+// The ME doesn't write plain planar YCbCr. The layout below was established by analysing
 // sceMpegBaseYCrCbCopy output on a real PSP (documented in JPCSP's sceVideocodec), and it uses
 // all eight buffers in the descriptor:
 //
