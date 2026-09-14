@@ -41,6 +41,9 @@ struct LibrashaderRenderState {
 	libra_shader_preset_t preset = nullptr;
 	libra_vk_filter_chain_t vkChain = nullptr;
 	libra_gl_filter_chain_t glChain = nullptr;
+#if PPSSPP_PLATFORM(WINDOWS)
+	libra_d3d11_filter_chain_t d3d11Chain = nullptr;
+#endif
 	// Callbacks the render thread has run since the chain was created (still 0 in the callback
 	// that creates it). Render thread only; the gate in the callback explains the bound.
 	int callbacksSinceCreate = 0;
@@ -77,6 +80,9 @@ public:
 // Implemented by the per-backend adapter .cpp files.
 std::unique_ptr<LibrashaderRuntime> CreateLibrashaderRuntimeVulkan();
 std::unique_ptr<LibrashaderRuntime> CreateLibrashaderRuntimeOpenGL();
+#if PPSSPP_PLATFORM(WINDOWS)
+std::unique_ptr<LibrashaderRuntime> CreateLibrashaderRuntimeD3D11();
+#endif
 
 // nullptr if librashader has no runtime for this backend.
 std::unique_ptr<LibrashaderRuntime> CreateLibrashaderRuntime(GPUBackend backend);

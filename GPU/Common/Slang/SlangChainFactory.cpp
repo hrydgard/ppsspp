@@ -33,7 +33,9 @@ SlangChainBackend ChooseSlangChainBackend(bool librashaderLoaded, GPUBackend gpu
                                           bool drawSupportsNativeCallback) {
 	if (!librashaderLoaded || !drawSupportsNativeCallback)
 		return SlangChainBackend::None;
-	if (gpuBackend != GPUBackend::VULKAN && gpuBackend != GPUBackend::OPENGL)
+	// librashader has a runtime for each of these three, which is every backend PPSSPP still has.
+	// Kept explicit so a backend added later has to opt in rather than silently get a null runtime.
+	if (gpuBackend != GPUBackend::VULKAN && gpuBackend != GPUBackend::OPENGL && gpuBackend != GPUBackend::DIRECT3D11)
 		return SlangChainBackend::None;
 	return SlangChainBackend::Librashader;
 }

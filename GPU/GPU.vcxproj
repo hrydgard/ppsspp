@@ -386,6 +386,7 @@
     <ClCompile Include="Common\ShaderUniforms.cpp" />
     <ClCompile Include="Common\Slang\LibrashaderFilterChain.cpp" />
     <ClCompile Include="Common\Slang\LibrashaderRuntime.cpp" />
+    <ClCompile Include="Common\Slang\LibrashaderRuntimeD3D11.cpp" />
     <ClCompile Include="Common\Slang\LibrashaderRuntimeOpenGL.cpp" />
     <ClCompile Include="Common\Slang\LibrashaderRuntimeVulkan.cpp" />
     <ClCompile Include="Common\Slang\SlangChainFactory.cpp" />

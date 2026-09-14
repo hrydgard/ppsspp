@@ -268,7 +268,8 @@ ENUM_CLASS_BITOPS(Aspect);
 
 // Payload handed to a native callback (see DrawContext::RunNativeCallback). Handles are
 // backend-specific integers so this header stays free of Vulkan/GL includes.
-// srcFormat/dstFormat are backend-native: VkFormat on Vulkan, a sized GL internal format (e.g. GL_RGBA8) on OpenGL.
+// srcFormat/dstFormat are backend-native: VkFormat on Vulkan, a sized GL internal format (e.g. GL_RGBA8)
+// on OpenGL, a DXGI_FORMAT on D3D11.
 struct NativeCallbackInfo {
 	uint64_t cmdBuffer = 0;    // Vulkan: VkCommandBuffer
 	uint64_t srcImage = 0;     // Vulkan: VkImage of src color
@@ -277,6 +278,8 @@ struct NativeCallbackInfo {
 	uint32_t dstFormat = 0;    // Backend-native format
 	uint32_t srcTexture = 0;   // OpenGL: texture name (Phase 2)
 	uint32_t dstTexture = 0;
+	uint64_t srcView = 0;      // D3D11: ID3D11ShaderResourceView* of src color
+	uint64_t dstView = 0;      // D3D11: ID3D11RenderTargetView* of dst color
 	int srcWidth = 0, srcHeight = 0;
 	int dstWidth = 0, dstHeight = 0;
 	int frameIndex = 0;        // 0..(frames in flight - 1)

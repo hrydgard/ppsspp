@@ -488,6 +488,9 @@
     <ClCompile Include="Common\Slang\LibrashaderRuntime.cpp">
       <Filter>Common\Slang</Filter>
     </ClCompile>
+    <ClCompile Include="Common\Slang\LibrashaderRuntimeD3D11.cpp">
+      <Filter>Common\Slang</Filter>
+    </ClCompile>
     <ClCompile Include="Common\Slang\LibrashaderRuntimeOpenGL.cpp">
       <Filter>Common\Slang</Filter>
     </ClCompile>

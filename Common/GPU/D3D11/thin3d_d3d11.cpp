@@ -117,6 +117,9 @@ public:
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, Aspect aspects, FBBlitFilter filter, const char *tag) override;
 	bool CopyFramebufferToMemory(Framebuffer *src, Aspect channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, ReadbackMode mode, const char *tag) override;
 
+	bool SupportsNativeCallback() const override { return true; }
+	bool RunNativeCallback(Framebuffer *src, Framebuffer *dst, NativeCallbackFn fn, const char *tag) override;
+
 	// These functions should be self explanatory.
 	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) override;
 	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, Aspect channelBit, int layer) override;
@@ -1847,6 +1850,67 @@ bool D3D11DrawContext::CopyFramebufferToMemory(Framebuffer *src, Aspect channelB
 
 	context_->Unmap(packTex.Get(), 0);
 
+	return true;
+}
+
+// D3D11 is immediate mode: there is no render thread and no command buffer to defer into, so the
+// callback runs synchronously right here, with the immediate context handed over as info.cmdBuffer.
+// The callee (librashader) is free to change any context state; we hand it the source SRV and the
+// destination RTV, then put back the little state thin3d itself caches.
+bool D3D11DrawContext::RunNativeCallback(Framebuffer *src, Framebuffer *dst, NativeCallbackFn fn, const char *tag) {
+	if (!fn)
+		return true;
+	D3D11Framebuffer *s = (D3D11Framebuffer *)src;
+	D3D11Framebuffer *d = (D3D11Framebuffer *)dst;
+
+	NativeCallbackInfo info{};
+	info.cmdBuffer = (uint64_t)(uintptr_t)context_.Get();
+	if (s) {
+		info.srcView = (uint64_t)(uintptr_t)s->colorSRView.Get();
+		info.srcFormat = (uint32_t)s->colorFormat;
+		info.srcWidth = s->Width();
+		info.srcHeight = s->Height();
+	}
+	if (d) {
+		info.dstView = (uint64_t)(uintptr_t)d->colorRTView.Get();
+		info.dstFormat = (uint32_t)d->colorFormat;
+		info.dstWidth = d->Width();
+		info.dstHeight = d->Height();
+	}
+	info.frameIndex = 0;  // Nothing is in flight: the callback's work is done when it returns.
+
+	// The destination is very likely still bound as the current render target, and the source may
+	// still be bound to a pixel-shader slot from an earlier draw. Either would be a read/write
+	// hazard once the callback binds them the other way round, so drop both bindings first.
+	ID3D11ShaderResourceView *noViews[MAX_BOUND_TEXTURES]{};
+	context_->PSSetShaderResources(0, MAX_BOUND_TEXTURES, noViews);
+	context_->OMSetRenderTargets(0, nullptr, nullptr);
+
+	fn(info);
+
+	// Put back the render target thin3d believes is bound (BindFramebufferAsRenderTarget skips the
+	// OMSetRenderTargets call when its cache already matches), and leave no shader resource or
+	// sampler bound that the callback set up.
+	if (curRenderTargetView_) {
+		context_->OMSetRenderTargets(1, curRenderTargetView_.GetAddressOf(), curDepthStencilView_.Get());
+	} else {
+		context_->OMSetRenderTargets(0, nullptr, nullptr);
+	}
+	context_->PSSetShaderResources(0, MAX_BOUND_TEXTURES, noViews);
+	ID3D11SamplerState *noSamplers[MAX_BOUND_TEXTURES]{};
+	context_->PSSetSamplers(0, MAX_BOUND_TEXTURES, noSamplers);
+
+	// Everything ApplyCurrentState() compares against: blend/depthStencil/raster/input layout/
+	// shaders/topology (Invalidate resets exactly those, including curPipeline_ so BindPipeline
+	// stops early-outing), plus the two dynamic-state dirty flags it also keys off.
+	Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
+	blendFactorDirty_ = true;
+	stencilDirty_ = true;
+	// Viewport and scissor are not cached by thin3d (SetViewport/SetScissorRect always re-send), but
+	// the D3D11 draw engine keeps its own idea of them - same signal a render-pass switch sends.
+	if (invalidationCallback_) {
+		invalidationCallback_(InvalidationCallbackFlags::RENDER_PASS_STATE);
+	}
 	return true;
 }
 

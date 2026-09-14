@@ -14,6 +14,7 @@
     <ClCompile Include="..\..\GPU\Common\ShaderUniforms.cpp" />
     <ClCompile Include="..\..\GPU\Common\Slang\LibrashaderFilterChain.cpp" />
     <ClCompile Include="..\..\GPU\Common\Slang\LibrashaderRuntime.cpp" />
+    <ClCompile Include="..\..\GPU\Common\Slang\LibrashaderRuntimeD3D11.cpp" />
     <ClCompile Include="..\..\GPU\Common\Slang\LibrashaderRuntimeOpenGL.cpp" />
     <ClCompile Include="..\..\GPU\Common\Slang\LibrashaderRuntimeVulkan.cpp" />
     <ClCompile Include="..\..\GPU\Common\Slang\SlangChainFactory.cpp" />

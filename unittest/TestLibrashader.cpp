@@ -68,10 +68,11 @@ bool TestSlangChainBackendSelection() {
 	// Librashader is the only rendering core: selected when every precondition holds.
 	EXPECT_TRUE(ChooseSlangChainBackend(true, GPUBackend::VULKAN, true) == SlangChainBackend::Librashader);
 	EXPECT_TRUE(ChooseSlangChainBackend(true, GPUBackend::OPENGL, true) == SlangChainBackend::Librashader);
+	EXPECT_TRUE(ChooseSlangChainBackend(true, GPUBackend::DIRECT3D11, true) == SlangChainBackend::Librashader);
 	// Any missing precondition means no chain at all (the raw image is presented).
 	EXPECT_TRUE(ChooseSlangChainBackend(false, GPUBackend::VULKAN, true) == SlangChainBackend::None);
 	EXPECT_TRUE(ChooseSlangChainBackend(true, GPUBackend::VULKAN, false) == SlangChainBackend::None);
-	EXPECT_TRUE(ChooseSlangChainBackend(true, GPUBackend::DIRECT3D11, true) == SlangChainBackend::None);
+	EXPECT_TRUE(ChooseSlangChainBackend(true, GPUBackend::DIRECT3D11, false) == SlangChainBackend::None);
 	EXPECT_TRUE(strcmp(SlangChainBackendName(SlangChainBackend::None), "none") == 0);
 	EXPECT_TRUE(strcmp(SlangChainBackendName(SlangChainBackend::Librashader), "librashader") == 0);
 	return true;
