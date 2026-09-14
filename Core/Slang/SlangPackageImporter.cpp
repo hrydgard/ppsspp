@@ -15,7 +15,11 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#ifdef SHARED_LIBZIP
 #include <zip.h>
+#else
+#include "ext/libzip/zip.h"
+#endif
 #include "Core/Slang/SlangPackageImporter.h"
 #include "Core/Slang/SlangPaths.h"
 #include "Core/Loaders.h"
