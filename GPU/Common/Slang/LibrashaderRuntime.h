@@ -28,8 +28,7 @@
 
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/Librashader/LibrashaderLoader.h"
-
-enum class GPUBackend;
+#include "Core/ConfigValues.h"
 
 namespace Draw { class DrawContext; }
 

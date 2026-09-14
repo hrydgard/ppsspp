@@ -38,10 +38,12 @@ namespace Draw {
 static const void *GLGetProcAddress(const char *name) {
 #if PPSSPP_PLATFORM(WINDOWS)
 	void *p = (void *)wglGetProcAddress(name);
-	if (!p) {
+	// Some Windows drivers return these sentinels instead of null for unsupported entry points,
+	// and wglGetProcAddress never resolves GL 1.1 core functions - fall back to opengl32.dll.
+	// (Same check GLEW/glad apply.)
+	if (p == nullptr || p == (void *)1 || p == (void *)2 || p == (void *)3 || p == (void *)-1) {
 		static HMODULE opengl32 = GetModuleHandleW(L"opengl32.dll");
-		if (opengl32)
-			p = (void *)GetProcAddress(opengl32, name);
+		p = opengl32 ? (void *)GetProcAddress(opengl32, name) : nullptr;
 	}
 	return p;
 #else
