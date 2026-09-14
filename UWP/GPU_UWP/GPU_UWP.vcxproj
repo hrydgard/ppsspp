@@ -103,6 +103,11 @@
     <ClInclude Include="..\..\GPU\Common\ShaderCommon.h" />
     <ClInclude Include="..\..\GPU\Common\ShaderId.h" />
     <ClInclude Include="..\..\GPU\Common\ShaderUniforms.h" />
+    <ClInclude Include="..\..\GPU\Common\Slang\ISlangFilterChain.h" />
+    <ClInclude Include="..\..\GPU\Common\Slang\LibrashaderFilterChain.h" />
+    <ClInclude Include="..\..\GPU\Common\Slang\LibrashaderRuntime.h" />
+    <ClInclude Include="..\..\GPU\Common\Slang\SlangPreset.h" />
+    <ClInclude Include="..\..\GPU\Common\Slang\SlangpParser.h" />
     <ClInclude Include="..\..\GPU\Common\SoftwareLighting.h" />
     <ClInclude Include="..\..\GPU\Common\SoftwareTransformCommon.h" />
     <ClInclude Include="..\..\GPU\Common\SplineCommon.h" />
@@ -171,6 +176,12 @@
     <ClCompile Include="..\..\GPU\Common\ShaderCommon.cpp" />
     <ClCompile Include="..\..\GPU\Common\ShaderId.cpp" />
     <ClCompile Include="..\..\GPU\Common\ShaderUniforms.cpp" />
+    <ClCompile Include="..\..\GPU\Common\Slang\LibrashaderFilterChain.cpp" />
+    <ClCompile Include="..\..\GPU\Common\Slang\LibrashaderRuntime.cpp" />
+    <ClCompile Include="..\..\GPU\Common\Slang\LibrashaderRuntimeOpenGL.cpp" />
+    <ClCompile Include="..\..\GPU\Common\Slang\LibrashaderRuntimeVulkan.cpp" />
+    <ClCompile Include="..\..\GPU\Common\Slang\SlangChainFactory.cpp" />
+    <ClCompile Include="..\..\GPU\Common\Slang\SlangpParser.cpp" />
     <ClCompile Include="..\..\GPU\Common\SoftwareTransformCommon.cpp" />
     <ClCompile Include="..\..\GPU\Common\SplineCommon.cpp" />
     <ClCompile Include="..\..\GPU\Common\StencilCommon.cpp" />
