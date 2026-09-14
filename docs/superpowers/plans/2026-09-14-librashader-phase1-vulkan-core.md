@@ -1253,43 +1253,61 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 
 **Interfaces:** none new.
 
-- [ ] **Step 1: Load check**
+- [x] **Step 1: Load check**
 
 Launch `PPSSPPSDL` (Vulkan). Log must show `librashader loaded (ABI 2, API 5)`. Select `stock.slangp` in the shader screen. Log must show `Slang chain backend: librashader` and `LibrashaderFilterChain: preset parsed`. The game image must appear within two frames (first callback creates the chain).
 
-- [ ] **Step 2: Validation layers**
+- [ ] **Step 2: Validation layers** — NOT RUN, validation layers are not installed on the verification machine
 
 Run once with `VK_LAYER_KHRONOS_validation` enabled (PPSSPP: Developer Tools → "Enable Vulkan validation layers" if present in this build, else `export VK_INSTANCE_LAYERS=VK_LAYER_KHRONOS_validation`). Switch between `stock.slangp`, `lcd-psp-matrix.slangp`, `crt-royale.slangp`, and Off. Zero new validation errors. Typical failures and the fix:
   - "image layout mismatch" on the output image when the present pass samples it → check `PerformCallback` sets `dst->color.layout = COLOR_ATTACHMENT_OPTIMAL` (Task 2).
   - "command buffer in render pass" → a RENDER step was not ended before the CALLBACK; confirm `EndCurRenderStep()` in `RunNativeCallback`.
   - Errors from librashader's own pipelines on MoltenVK → try `opts.use_dynamic_rendering = true` only if MoltenVK reports Vulkan 1.3; otherwise report upstream.
 
-- [ ] **Step 3: Pixel comparison vs the in-tree chain**
+- [x] **Step 3: Pixel comparison vs the in-tree chain** — run for `stock`, `lcd-psp-matrix`, `twopass`, `feedback`, `lut` (no crt-royale on this machine)
 
 For each of the three presets: pause the same game frame (use a save state), screenshot with `SlangUseLibrashader=True`, then `False`. Compare with ImageMagick: `compare -metric AE a.png b.png diff.png`. Expected: `stock` identical or ≤ 0.1% pixels differing (sRGB rounding); `lcd-psp-matrix` and `crt-royale` visually identical, differences confined to rounding. If `SourceSize`-dependent shaders (scanlines) tile at the wrong frequency, apply the native-size fallback from Task 5's implementer notes.
 
-- [ ] **Step 4: Parameters and reload**
+- [x] **Step 4: Parameters and reload** — parameters verified via `[SlangParams]`; in-app slider/UI switching NOT RUN (no Accessibility permission for synthetic input)
 
 Change a parameter slider in the shader screen while running: the change applies within a frame (overrides pass through `set_param`). Switch presets three times, toggle Off, toggle back: no crash, no leak warnings in the log at exit, no validation errors.
 
-- [ ] **Step 5: Absent library**
+- [x] **Step 5: Absent library**
 
 Rename `librashader.dylib`, relaunch: log shows `librashader unavailable`, backend is `in-tree`, rendering matches Task 6 Step 5.
 
-- [ ] **Step 6: Record and commit**
+- [x] **Step 6: Record and commit**
 
 Fill in the results table in this file:
 
+Run on 2026-09-14, macOS 15 / Apple M2 Pro, MoltenVK (Vulkan 1.4.323), `PPSSPPSDL` built from
+`7ebcfe2401` + this commit, content = GE frame dump `frametests/dumps/locoroco.ppdmp` (replays one
+static frame, so A/B captures are directly comparable). Window 960x544 logical = 1920x1088 px,
+`InternalResolution = 0` (auto -> 4x = 1920x1088) unless stated. Full commands, log excerpts and
+screenshot paths are in
+`.superpowers/sdd/2026-09-14-librashader-phase1-vulkan-core/task-8-report.md`.
+
 | Check | Result | Notes |
 |---|---|---|
-| Load + first frame | | |
-| Validation layers clean | | |
-| stock pixel diff | | |
-| lcd-psp-matrix pixel diff | | |
-| crt-royale pixel diff | | |
-| Params live update | | |
-| Preset switching / Off | | |
-| Library absent fallback | | |
+| Load + first frame | PASS | `librashader loaded (ABI 2, API 5)`, `Slang chain backend: librashader`, `LibrashaderFilterChain: preset parsed`, no `LibrashaderFilterChain:` errors; game image visible (screenshots below), no black/frozen frame after the 3-frame warm-up. |
+| Validation layers clean | NOT RUN (layers not installed) | No `VK_LAYER_KHRONOS_validation` on this machine and nothing may be installed. As a proxy: zero `mvk-error`/`VUID`/assert lines across all 24 runs. |
+| stock pixel diff | PASS | 0 / 2088960 pixels differ from the in-tree chain (bit-identical). |
+| lcd-psp-matrix pixel diff | PASS | Visually identical; 29.0% of pixels differ by >=1/255, 14.3% by >2/255, max 67, mean |diff| 1.5/255, mean signed +0.03/+0.17/+0.36 per channel. A shift search shows (0,0) is the clear minimum (mean 1.5 vs 12-14 at +/-1 px), so the subpixel grid period and phase match exactly - librashader honours the native `SourceSize` we declare. Residual is float16 intermediate rounding on mask edges. |
+| twopass pixel diff | **FAIL (known limitation, not fixed)** | 83.4% of pixels differ, max 121. Root cause: `OriginalHistory1`. See the "native size" row. Bit-identical at `InternalResolution = 1`. |
+| feedback pixel diff | PASS | 0 pixels differ (feedback ring lives in librashader's own viewport-sized buffers, so no size lie is involved). |
+| lut pixel diff | PASS | 0 pixels differ; LUT texture loaded by librashader itself. |
+| Native-size behaviour (spec §12) | PARTIAL | `SourceSize`/`OriginalSize`/`scale_type = source` are taken from `libra_image_vk_t::width/height` as hoped, so the fallback blit is **not** needed for mask frequency (see lcd row). But librashader also uses those numbers as the *copy extent* when snapshotting the input into its `OriginalHistoryN` ring, so with an upscaled render target the snapshot captures only the native-sized top-left corner. Proven with a one-pass probe that outputs `OriginalHistory1` (`/tmp/ppsspp-t8/hist.slangp`): librashader shows the top-left 480x272 of the 1920x1088 frame stretched to full screen, in-tree shows the whole frame; at `InternalResolution = 1` (480x272 render target) the two are bit-identical. The brief's fallback (blit source into a native-sized intermediate) would fix this but would also throw away the upscaled detail pass 0 samples today, regressing `stock`/`lut`/`feedback` from bit-identical to a blurry native upscale - so it is deliberately **not** applied. `LibrashaderFilterChain::Run` now warns once when the declared and real extents disagree. Decide in a later phase: accept, gate on a per-preset "uses history" check, or make it a user setting. |
+| Params live update | PASS | `[SlangParams]` overrides `<preset>|SUBPIXEL_SIZE = 8` and `<preset>|GRID_STRENGTH = 0` on `lcd-psp-matrix`: librashader output changes on 89.0% of pixels vs its own default run (grid lines gone, stripes 8 px wide) and tracks the in-tree chain with the same overrides inside the same rounding envelope (25.0% / max 66). In-app slider drag NOT RUN (see below). |
+| Preset switching / Off | PARTIAL | 12 process runs covering 6 different presets, plus `SlangShaderPreset = ""` (Off -> no chain created, no errors, output = raw framebuffer) and back On: no crash, no `LibrashaderFilterChain:` error, no Vulkan error, no crash report in `~/Library/Logs/DiagnosticReports`. In-process switching and in-app UI navigation NOT RUN: `osascript` has no Accessibility permission on this machine (`osascript is not allowed to send keystrokes` / `not allowed assistive access`), so no synthetic keystrokes or window resizing are possible and nothing may be installed to work around it. The in-process teardown/recreate path (`ReleaseChain` with frames in flight) is therefore still unverified. |
+| Library absent fallback | PASS | `librashader.dylib` renamed: `librashader unavailable: librashader not found or ABI mismatch (want ABI 2)`, `Slang chain backend: in-tree`, and the render is bit-identical to the librashader-off in-tree run of the same preset. Library restored. |
+| Unit tests | PASS | `./build-unittest/PPSSPPUnitTest all` -> `75 tests passed.` before and after the change in this commit. |
+
+**Also found (outside this plan's scope, not fixed):** a preset set only in `ppsspp.ini` is not
+applied until something sets `FramebufferManagerCommon::updatePostShaders_` (display/render resize
+or a UI config change), because `UpdateSlangChain` only runs from `CheckPostShaders`. On this box the
+startup `NotifyDisplayResized` does fire, so it works, but there is no explicit "apply the configured
+preset at boot" step. Pre-existing, affects the in-tree chain identically, lives in
+`GPU/Common/FramebufferManagerCommon.cpp`.
 
 ```bash
 git add docs/superpowers/plans/2026-09-14-librashader-phase1-vulkan-core.md GPU/Common/Slang/LibrashaderFilterChain.cpp Common/GPU/Vulkan/VulkanQueueRunner.cpp
