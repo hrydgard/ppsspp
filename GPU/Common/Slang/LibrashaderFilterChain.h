@@ -71,14 +71,21 @@ private:
 	void ReleaseChain();
 	void ReleaseOutput();
 	bool EnsureOutput(int w, int h);
+	bool EnsureNativeInput(int w, int h);
 
 	Draw::DrawContext *draw_ = nullptr;
 	Path presetPath_;
 	std::shared_ptr<RenderState> render_;
 	Draw::Framebuffer *output_ = nullptr;
 	int outputW_ = 0, outputH_ = 0;
+	// Native-PSP-sized copy of the source, only used by presets that sample OriginalHistoryN
+	// (librashader snapshots history at the *declared* size, so it must equal the real extents).
+	Draw::Framebuffer *nativeInput_ = nullptr;
+	int nativeInputW_ = 0, nativeInputH_ = 0;
 	std::map<std::string, float> paramOverrides_;
 	bool valid_ = false;
+	// Set by Load(): this preset references OriginalHistory[1-9] / OriginalHistorySize[1-9].
+	bool needsNativeInput_ = false;
 	bool loggedCreateError_ = false;
 	bool warnedNativeSize_ = false;
 };

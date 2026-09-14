@@ -19,10 +19,76 @@
 #if USE_LIBRASHADER
 
 #include <algorithm>
+#include <string>
 
 #include "Common/Log.h"
+#include "Common/File/FileUtil.h"
+#include "Common/File/VFS/VFS.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
+#include "GPU/Common/Slang/SlangPreset.h"
+#include "GPU/Common/Slang/SlangpParser.h"
+
+// Read a slang asset: VFS first (bundled assets), then the real filesystem (custom shader dir).
+// Same lookup order as the in-tree chain's private helper of the same name.
+static bool ReadSlangFile(const Path &path, std::string *out) {
+	size_t sz = 0;
+	uint8_t *data = g_VFS.ReadFile(path.c_str(), &sz);
+	if (data) {
+		out->assign((const char *)data, sz);
+		delete[] data;
+		return true;
+	}
+	return File::ReadBinaryFileToString(path, out);
+}
+
+// True if the text references OriginalHistory1..9 or OriginalHistorySize1..9. Index 0 is the
+// current frame, which librashader binds as a view of the real image and therefore never
+// snapshots, so it does not need the native-sized input.
+static bool ReferencesOriginalHistory(const std::string &src) {
+	static const char *kNeedle = "OriginalHistory";
+	const size_t needleLen = strlen(kNeedle);
+	for (size_t pos = src.find(kNeedle); pos != std::string::npos; pos = src.find(kNeedle, pos + needleLen)) {
+		size_t after = pos + needleLen;
+		if (src.compare(after, 4, "Size") == 0)
+			after += 4;  // OriginalHistorySizeN
+		if (after < src.size() && src[after] >= '1' && src[after] <= '9')
+			return true;
+	}
+	return false;
+}
+
+// librashader's C API exposes no way to enumerate a preset's semantics, so re-parse the preset with
+// the in-tree parser and scan the (include-resolved) pass sources. On any read/parse failure we
+// answer "no history" - that is the pre-existing behaviour, and librashader's own parser is the one
+// that decides whether the preset loads at all.
+static bool PresetUsesOriginalHistory(const Path &presetPath) {
+	std::string presetText;
+	if (!ReadSlangFile(presetPath, &presetText)) {
+		WARN_LOG(Log::G3D, "LibrashaderFilterChain: could not re-read '%s' to scan for OriginalHistoryN", presetPath.c_str());
+		return false;
+	}
+	SlangPreset preset;
+	std::string err;
+	if (!ParseSlangPreset(presetText, Path(presetPath.GetDirectory()), &preset, &err)) {
+		WARN_LOG(Log::G3D, "LibrashaderFilterChain: OriginalHistoryN scan skipped, preset re-parse failed: %s", err.c_str());
+		return false;
+	}
+	const SlangFileReader reader = [](const Path &path, std::string *out) -> bool {
+		return ReadSlangFile(path, out);
+	};
+	for (const SlangPassDesc &pass : preset.passes) {
+		std::string shaderSrc;
+		if (!ReadSlangFile(Path(pass.shaderPath), &shaderSrc))
+			continue;
+		std::string resolved;
+		if (!ResolveSlangIncludes(shaderSrc, Path(Path(pass.shaderPath).GetDirectory()), reader, &resolved, &err))
+			resolved = shaderSrc;  // includes unresolved: scan what we could read
+		if (ReferencesOriginalHistory(resolved))
+			return true;
+	}
+	return false;
+}
 
 LibrashaderFilterChain::LibrashaderFilterChain(Draw::DrawContext *draw)
 	: draw_(draw), render_(std::make_shared<RenderState>()) {}
@@ -45,6 +111,8 @@ bool LibrashaderFilterChain::Load(const Path &presetPath, std::string *error) {
 	ReleaseChain();
 	valid_ = false;
 	loggedCreateError_ = false;
+	warnedNativeSize_ = false;
+	needsNativeInput_ = false;
 	presetPath_ = presetPath;
 
 	libra_shader_preset_t preset = nullptr;
@@ -65,14 +133,20 @@ bool LibrashaderFilterChain::Load(const Path &presetPath, std::string *error) {
 	// freed by the deletion-queue callback if the chain is never created.
 	render_->preset = preset;
 	valid_ = true;
-	INFO_LOG(Log::G3D, "LibrashaderFilterChain: preset parsed: %s", presetPath.c_str());
+	needsNativeInput_ = PresetUsesOriginalHistory(presetPath);
+	INFO_LOG(Log::G3D, "LibrashaderFilterChain: preset parsed: %s (input mode: %s)", presetPath.c_str(),
+		needsNativeInput_ ? "native-sized copy, preset samples OriginalHistoryN" : "upscaled framebuffer with declared native size");
 	return true;
 }
 
 bool LibrashaderFilterChain::EnsureOutput(int w, int h) {
 	if (output_ && outputW_ == w && outputH_ == h)
 		return true;
-	ReleaseOutput();
+	if (output_) {
+		output_->Release();
+		output_ = nullptr;
+	}
+	outputW_ = outputH_ = 0;
 	// Plain RGBA8, no MSAA, single layer: the CALLBACK step only transitions dst->color.
 	Draw::FramebufferDesc desc{};
 	desc.width = w;
@@ -90,6 +164,33 @@ bool LibrashaderFilterChain::EnsureOutput(int w, int h) {
 	}
 	outputW_ = w;
 	outputH_ = h;
+	return true;
+}
+
+bool LibrashaderFilterChain::EnsureNativeInput(int w, int h) {
+	if (nativeInput_ && nativeInputW_ == w && nativeInputH_ == h)
+		return true;
+	if (nativeInput_) {
+		nativeInput_->Release();
+		nativeInput_ = nullptr;
+	}
+	nativeInputW_ = nativeInputH_ = 0;
+	Draw::FramebufferDesc desc{};
+	desc.width = w;
+	desc.height = h;
+	desc.depth = 1;
+	desc.numLayers = 1;
+	desc.multiSampleLevel = 0;
+	desc.z_stencil = false;
+	desc.tag = "librashader_native";
+	desc.colorFormat = Draw::DataFormat::R8G8B8A8_UNORM;
+	nativeInput_ = draw_->CreateFramebuffer(desc);
+	if (!nativeInput_) {
+		ERROR_LOG(Log::G3D, "LibrashaderFilterChain: failed to create %dx%d native input framebuffer", w, h);
+		return false;
+	}
+	nativeInputW_ = w;
+	nativeInputH_ = h;
 	return true;
 }
 
@@ -112,16 +213,24 @@ Draw::Framebuffer *LibrashaderFilterChain::Run(Draw::Framebuffer *source, int so
 	// base from libra_image_vk_t::width/height (good - we report the native PSP size, so
 	// SourceSize-driven masks tile at the same frequency as the in-tree chain), but it also uses
 	// those numbers as the copy extent when it snapshots the input into its OriginalHistoryN ring.
-	// With PPSSPP's upscaled render target that snapshot therefore captures only the native-sized
-	// top-left corner. Warn once so the mismatch is visible instead of silent; the fallback (blit
-	// the source into a native-sized intermediate first) would fix history at the cost of throwing
-	// away the upscaled detail that pass 0 samples today, so it is deliberately not applied.
-	if (!warnedNativeSize_) {
-		int actualW = sourceW, actualH = sourceH;
-		draw_->GetFramebufferDimensions(source, &actualW, &actualH);
+	// With PPSSPP's upscaled render target that snapshot would capture only the native-sized
+	// top-left corner, so for presets that actually sample OriginalHistoryN (detected in Load) we
+	// downscale into a native-sized intermediate first, making the declared size the true extent.
+	// Presets that do not use history keep sampling the full upscaled framebuffer, which is what
+	// makes them bit-identical to the in-tree chain.
+	int actualW = sourceW, actualH = sourceH;
+	draw_->GetFramebufferDimensions(source, &actualW, &actualH);
+	Draw::Framebuffer *chainInput = source;
+	if (needsNativeInput_ && (actualW != sourceW || actualH != sourceH)) {
+		if (!EnsureNativeInput(sourceW, sourceH))
+			return nullptr;
+		draw_->BlitFramebuffer(source, 0, 0, actualW, actualH, nativeInput_, 0, 0, sourceW, sourceH,
+			Draw::Aspect::COLOR_BIT, Draw::FB_BLIT_LINEAR, "librashader_native");
+		chainInput = nativeInput_;
+	} else if (!needsNativeInput_ && !warnedNativeSize_) {
 		if (actualW != sourceW || actualH != sourceH) {
 			WARN_LOG(Log::G3D, "LibrashaderFilterChain: source is %dx%d but reported as %dx%d (native); "
-				"presets using OriginalHistory1+ will see only the native-sized corner of it",
+				"harmless here because this preset does not sample OriginalHistory1+",
 				actualW, actualH, sourceW, sourceH);
 		}
 		warnedNativeSize_ = true;
@@ -141,7 +250,7 @@ Draw::Framebuffer *LibrashaderFilterChain::Run(Draw::Framebuffer *source, int so
 	std::shared_ptr<RenderState> rs = render_;
 	std::map<std::string, float> overrides = paramOverrides_;
 
-	bool enqueued = draw_->RunNativeCallback(source, output_, [rs, device, overrides, frameCount, sourceW, sourceH](const Draw::NativeCallbackInfo &info) {
+	bool enqueued = draw_->RunNativeCallback(chainInput, output_, [rs, device, overrides, frameCount, sourceW, sourceH](const Draw::NativeCallbackInfo &info) {
 		if (!Librashader::IsLoaded() || rs->createFailed.load())
 			return;
 		const libra_instance_t &lib = Librashader::Instance();
@@ -191,7 +300,8 @@ Draw::Framebuffer *LibrashaderFilterChain::Run(Draw::Framebuffer *source, int so
 		// upscaled fbo is sampled with 0..1 UVs. Verified on device in Task 8: librashader does
 		// not validate these against the real image extents, and SourceSize-driven masks match the
 		// in-tree chain pixel-for-pixel in period. The one place it does treat them as the real
-		// extents is its OriginalHistoryN snapshot - see the warning in Run() above.
+		// extents is its OriginalHistoryN snapshot, so Run() hands us a genuinely native-sized
+		// image whenever the preset samples history - see the comment there.
 		in.width = (uint32_t)sourceW;
 		in.height = (uint32_t)sourceH;
 		libra_image_vk_t out{};
@@ -259,6 +369,11 @@ void LibrashaderFilterChain::ReleaseOutput() {
 		output_ = nullptr;
 	}
 	outputW_ = outputH_ = 0;
+	if (nativeInput_) {
+		nativeInput_->Release();
+		nativeInput_ = nullptr;
+	}
+	nativeInputW_ = nativeInputH_ = 0;
 }
 
 void LibrashaderFilterChain::DeviceLost() {
