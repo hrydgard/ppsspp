@@ -206,7 +206,7 @@ This step only runs if `USE_LIBRASHADER=ON` (the default on desktop platforms) a
 There is no toggle. librashader is the only slang rendering core: whenever a preset is selected
 (`SlangShaderPreset` / Settings → Graphics → Slang shaders), PPSSPP loads the library and renders
 the preset through it. Without the library — or on a backend that cannot run native callbacks
-(anything other than Vulkan and GL 3.3+/GLES 3.0+ today) — slang shaders are off: the log shows
+(VULKAN, OPENGL, and DIRECT3D11 on Windows are supported today) — slang shaders are off: the log shows
 
 ```
 INFO  Slang chain backend: none (librashader not loaded or backend unsupported)
@@ -408,8 +408,9 @@ ANDROID_HOME=/opt/homebrew/share/android-commandlinetools \
 
 The resulting APK contains only `lib/arm64-v8a/librashader.so` (~14 MB uncompressed), reducing the
 dev APK size by ~15 MB. When `-PlibrashaderAbi` is absent, behavior is unchanged (all present ABIs
-are packaged). Alternatively, build a single ABI with the script (`android/build-librashader.sh
-arm64-v8a`) and manually delete the other `jniLibs/<abi>/librashader.so` directories.
+are packaged); an unknown ABI value fails the build (`require(keepAbi in allAbis)` validation).
+Alternatively, build a single ABI with the script (`android/build-librashader.sh arm64-v8a`) and
+manually delete the other `jniLibs/<abi>/librashader.so` directories.
 
 ### Confirming on Device
 
@@ -465,8 +466,8 @@ validation requires `VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT
 3. Build librashader: `ANDROID_NDK_HOME=$ANDROID_HOME/ndk/29.0.14206865 android/build-librashader.sh`
 
 The Gradle build then packages the resulting `jniLibs/<abi>/librashader.so` files into the APK.
-The workflow is unverified locally (added in Phase 4 without a local CI runner); it assumes the
-GitHub Actions `ubuntu-latest` runner has `ANDROID_HOME` set by the `setup-java` step.
+The workflow is unverified locally (added in Phase 4 without a local CI runner); `ANDROID_HOME` is
+preset on the GitHub Actions `ubuntu-latest` runner image.
 
 The fork's other Android CI jobs (`android/ab.sh` via ndk-build) do not list the `GPU/Common/Slang`
 sources and are not expected to build. Android librashader integration is primarily tested manually

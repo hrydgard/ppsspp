@@ -74,7 +74,7 @@ Check the helper names in this file (`time_now_d` from `Common/TimeUtil.h`, `Spl
 
 - [x] **Step 2: Build APK, measure**
 
-Build + install the arm64 debug APK (version name `librashader-p4a`). Device ini: `GraphicsBackend = 3 (VULKAN)`, `SlangShaderPreset = .../slang/presets/crt-royale-downsample.slangp`, `DebugOverlay = 6` (GPU_PROFILE, value confirmed in Phase 3), `LogGpuProfile = True`, `G3DLevel = 4` in both `[Log]` and `[LogDebug]`. Launch the game; after the boot dialog appears, `adb logcat -c`, wait 60 s, `adb logcat -d | grep GPUPROFILE > /tmp/ppsspp-t8/p4-prof-libra.log`. Repeat with `SlangUseLibrashader = False` → `p4-prof-intree.log`. Parse with a small Python script: for librashader sum lines matching `CALLBACK librashader` per sample; for in-tree sum `RENDER slang-pass*` + `BLIT ... slang` lines per sample (use the exact step tags seen in the Phase 3 GPU-profile screenshots: `RENDER slang-pass` ×N and one `BLIT`); report mean, median, p95 and sample count for each; ratio = mean_libra / mean_intree. Also record the total frame GPU time both ways. Restore ini keys afterwards (`DebugOverlay = 0`, `LogGpuProfile = False`, `SlangUseLibrashader = True`, log levels back to 2).
+Build + install the arm64 debug APK (version name `librashader-p4a`). Device ini: `GraphicsBackend = 3 (VULKAN)`, `SlangShaderPreset = .../slang/presets/crt-royale-downsample.slangp`, `DebugOverlay = 6` (GPU_PROFILE, value confirmed in Phase 3), `LogGpuProfile = True`, `G3DLevel = 4` in both `[Log]` and `[LogDebug]`. Launch the game; after the boot dialog appears, `adb logcat -c`, wait 60 s, `adb logcat -d | grep GPUPROFILE > /tmp/ppsspp-t8/p4-prof-libra.log`. Repeat with `SlangUseLibrashader = False` → `p4-prof-intree.log`. Parse with a small Python script: for librashader sum lines matching `NATIVE_CALLBACK librashader` per sample; for in-tree sum `RENDER slang-pass*` + `BLIT ... slang` lines per sample (use the exact step tags seen in the Phase 3 GPU-profile screenshots: `RENDER slang-pass` ×N and one `BLIT`); report mean, median, p95 and sample count for each; ratio = mean_libra / mean_intree. Also record the total frame GPU time both ways. Restore ini keys afterwards (`DebugOverlay = 0`, `LogGpuProfile = False`, `SlangUseLibrashader = True`, log levels back to 2).
 
 - [x] **Step 3: Record and gate**
 
@@ -82,7 +82,7 @@ Build + install the arm64 debug APK (version name `librashader-p4a`). Device ini
 internal resolution 4x → 1920x1088, APK `librashader-p4a` arm64 debug; scene: 3rd Birthday's
 static "memory stick" boot dialog, which waits for input, so every sample in every run rendered
 the same frame — confirmed by `BACKBUF BackBuffer (draws: 3, 1920x1080/1080x1920)` in 100% of
-samples). Post-process = `CALLBACK librashader ...` for librashader; 14 × `RENDER slang-pass
+samples). Post-process = `NATIVE_CALLBACK librashader ...` for librashader; 14 × `RENDER slang-pass
 slang-pass ...` + 1 × `BLIT 'slang-feedback' slang-pass -> slang-feedback ...` for in-tree
 (15 steps in every sample). Logs `/tmp/ppsspp-t8/p4-prof-{libra,intree,libra-dynrender}.log`,
 parser `/tmp/ppsspp-t8/p4-parse-prof.py`.
@@ -177,11 +177,11 @@ performance and only does anything in a validation-enabled build).
 **Files:**
 - Modify: `Common/GPU/OpenGL/GLRenderManager.h` (~line 851: where `skipGLCalls_ = true` is set in `NotifyEmuThreadExit`), `Common/GPU/OpenGL/OpenGLGraphicsContext.h` (~line 37), `android/jni/app-android.cpp` (`displayInit` second-time branch ~line 967 before `EmuThread_Join`), `android/src/org/ppsspp/ppsspp/PpssppActivity.java` (~line 715), `GPU/Common/Slang/LibrashaderFilterChain.cpp` (~line 257 native-size `WARN_LOG` → `INFO_LOG`)
 
-- [ ] **Step 1: GL restart drain**
+- [x] **Step 1: GL restart drain**
 
 Root cause (Phase 3 final review): on wake, `GLSurfaceView` creates a new EGL context and `displayInit` (second-time branch) calls `EmuThread_Join`, which drains already-queued frames on the new context while `skipGLCalls_` is still false, so stale texture names reach PPSSPP's steps and the CALLBACK. Add `void GLRenderManager::SetSkipGLCalls() { skipGLCalls_ = true; }` (public; `NotifyEmuThreadExit` already sets the same flag — reuse it internally), `OpenGLGraphicsContext::NotifyContextLost() { renderManager_->SetSkipGLCalls(); }` (add a virtual `NotifyContextLost()` no-op to the `GraphicsContext` base if there is none — check `Common/GraphicsContext.h`), and in `app-android.cpp`'s `displayInit` second-time branch call `graphicsContext->NotifyContextLost();` immediately before `EmuThread_Join(...)`. `ThreadStart` resets `skipGLCalls_` for the new context (`GLRenderManager.cpp:55` — verify). Guard the call so the first-time branch is untouched.
 
-- [ ] **Step 2: ES 3 request**
+- [x] **Step 2: ES 3 request**
 
 `PpssppActivity.java` ~line 715: replace `mGLSurfaceView.setEGLContextClientVersion(isVRDevice() ? 3 : 2);` with
 
@@ -201,9 +201,9 @@ Root cause (Phase 3 final review): on wake, `GLSurfaceView` creates a new EGL co
 ```
 Add the imports (`android.app.ActivityManager`, `android.content.pm.ConfigurationInfo`) if missing. PPSSPP's own GL backend already requires ES 3 features, so this only makes the request explicit; ES 2 remains the fallback.
 
-- [ ] **Step 3: WARN → INFO** in `LibrashaderFilterChain.cpp` for the "source is WxH but reported as wxh" message (keep the once-per-chain flag).
+- [x] **Step 3: WARN → INFO** in `LibrashaderFilterChain.cpp` for the "source is WxH but reported as wxh" message (keep the once-per-chain flag).
 
-- [ ] **Step 4: Verify on device (GL) and commit**
+- [x] **Step 4: Verify on device (GL) and commit**
 
 Build `librashader-p4d`, install. Ini `GraphicsBackend = 0 (OPENGL)`, preset `lcd-grid-v2-psp-color`, log levels 4. Launch: log shows `Requesting OpenGL ES client version 3`, GL version 3.2, `Slang chain backend: librashader`. Sleep/wake twice: NO `disabled after librashader error` line, the drop warning still appears at context loss, chain recreated, image filtered. Then Vulkan sleep/wake once to confirm no regression. Restore ini (`GraphicsBackend = 3`). Desktop gate 76 (GL desktop unaffected: run `stock.slangp` on macOS GL once). Commit `android: skip GL calls before the restart drain; request ES 3; demote native-size log`.
 
@@ -216,7 +216,7 @@ Build `librashader-p4d`, install. Ini `GraphicsBackend = 0 (OPENGL)`, preset `lc
 - Modify: `GPU/Common/Slang/ISlangFilterChain.h` (`SlangChainBackend { None, Librashader }`), `GPU/Common/Slang/SlangChainFactory.cpp` (no fallback; `CreateSlangFilterChain` returns nullptr for `None`), `GPU/Common/FramebufferManagerCommon.cpp` (`UpdateSlangChain`: no `bSlangUseLibrashader`, handle nullptr chain, log `Slang chain backend: none` once), `Core/Config.h/.cpp` (remove `bSlangUseLibrashader`), `UI/DeveloperToolsScreen.cpp` (remove the checkbox + header), `GPU/CMakeLists.txt`, `unittest/TestSlangParser.cpp` + `unittest/UnitTest.cpp` (drop tests of deleted code: `SlangResolution`, `SlangSemantics`, `SlangReflection`, `SlangSemanticsPhase2`, `SlangPushConstant`, `SlangPushConstantBraceInComment`, `SlangReflectionIndexOverflow`, and `SlangParamOverride` if it only tested `SlangFilterChain::ResolveParamValue` — otherwise move that helper next to `SlangParamDesc` in `SlangPreset.h` as a free function and keep the test), `unittest/TestLibrashader.cpp` (truth table: `Librashader` iff loaded && supportsNativeCallback && backend ∈ {VULKAN, OPENGL}; else `None`)
 - Revert to upstream: `Common/GPU/thin3d.h` (`MAX_TEXTURE_SLOTS = 3`, remove `FramebufferDesc::colorFormat`, restore the `BindFramebufferAsTexture` comment), `Common/GPU/Vulkan/VulkanRenderManager.h` (`MAX_DESC_SET_BINDINGS = 5`), `VulkanRenderManager.cpp`/`VulkanQueueRunner.cpp`/`VulkanFramebuffer.h/.cpp`/`thin3d_vulkan.cpp` (colorFormat parameter, `RPKey::colorFormat`/`_padding`, sRGB render-pass keying, `PushDescriptorSet` sizing back to upstream), `Common/GPU/OpenGL/thin3d_gl.cpp` (drop `sampler3..7` queries), `Common/GPU/D3D11/thin3d_d3d11.cpp` (`MAX_BOUND_TEXTURES = 8`), and any `R8G8B8A8_UNORM_SRGB` `DataFormat` plumbing that no remaining code uses (grep first; `Common/GPU/DataFormat.h` and the per-backend format tables)
 
-- [ ] **Step 1: Delete and re-wire (commit A)**
+- [x] **Step 1: Delete and re-wire (commit A)**
 
 Remove the files and CMake entries; rewrite `SlangChainFactory.cpp`:
 
@@ -237,15 +237,15 @@ ISlangFilterChain *CreateSlangFilterChain(Draw::DrawContext *draw, SlangChainBac
 ```
 (the `userPrefersLibrashader` parameter goes away; update `ISlangFilterChain.h`, the test, and `UpdateSlangChain`, which must treat a nullptr chain as "no chain": clear `slangChainPresetPath_`, log `Slang chain backend: none (librashader not loaded or backend unsupported)` once per reload, and skip `Load`). Update the tests, build, run all — record the new count. Commit `slang: remove the in-tree filter chain; librashader is the only rendering core`.
 
-- [ ] **Step 2: Revert thin3d/Vulkan/GL/D3D11 (commit B)**
+- [x] **Step 2: Revert thin3d/Vulkan/GL/D3D11 (commit B)**
 
 Apply the reverts listed above. Method: for each file, `git diff upstream/master -- <file>` and remove every hunk that is not part of the native-callback work (CALLBACK step, `RunNativeCallback`, `SupportsNativeCallback`, `NativeCallbackInfo`, `VULKAN_GET_INSTANCE_PROC_ADDR`, `GL_GET_PROC_ADDRESS`, the GL restore function, Task 3's `SetSkipGLCalls`). After the change, `git diff upstream/master --stat -- Common/GPU` must list only those additions. Build all targets; `LibrashaderFilterChain` creates its framebuffers without `colorFormat` already, so nothing else should break. Run the unit tests. Commit `thin3d: revert the texture-slot/descriptor caps and sRGB render-pass keying added for the in-tree slang chain`.
 
-- [ ] **Step 3: Verify on macOS (Vulkan + GL) and Android**
+- [x] **Step 3: Verify on macOS (Vulkan + GL) and Android**
 
 macOS: `stock.slangp` and `lcd-psp-matrix.slangp` on Vulkan and GL with librashader → screenshots `cmp.py`-identical to the Phase 2 captures (`/tmp/ppsspp-t8/shot-p2-*`); with the dylib renamed away → `Slang chain backend: none`, raw image, no crash. Android: build `librashader-p4e`, install, `lcd-grid-v2-psp-color` on Vulkan renders; toggle key no longer exists (ini key ignored). Record in a table. Restore ini.
 
-- [ ] **Step 4: Docs + commit C**
+- [x] **Step 4: Docs + commit C**
 
 Spec §5 "made redundant" → "removed in Phase 4"; §6.6 (selector without toggle); §10 row 4 progress; `docs/superpowers/librashader-build.md` remove toggle references ("without the library, slang shaders are off"). Commit.
 
@@ -352,6 +352,9 @@ build clean. Windows host: RTX 4090 / driver 596.49 / Windows 11, HEAD `545c1a25
 `MSBuild Windows\PPSSPP.sln /p:Configuration=Release /p:Platform=x64` → `MSBUILD_EXIT=0`,
 `PPSSPPWindows64.exe` 20,583,424 bytes, **zero errors and zero warnings** — no MSVC fix was needed
 this task (the `CALLBACK`-macro and `zip.h` portability bugs were already dealt with in Task 5).
+D3D11 captures were taken with the `466cafed52` executable plus the fixed asset (delta to
+`545c1a2545` is that asset only); the `dirtyIndexBuffer_` line from the final-review fix wave is
+compile-unverified on Windows.
 
 | Item | Result | Notes |
 |---|---|---|
@@ -382,7 +385,7 @@ Notes:
 - Modify: `android/build.gradle.kts` (prune `jniLibs` per flavor: the existing `ndk.abiFilters` already restrict release flavors; for dev builds add a Gradle property `-PlibrashaderAbi=<abi>` that sets `packaging.jniLibs.excludes` for the other ABIs — or document that the script's single-ABI mode is the dev path; pick the smaller change and document it), `.github/workflows/manual_generate_apk.yml` (a step before the Gradle build: install Rust stable + `cargo-ndk` + the three targets, run `android/build-librashader.sh`; mark the job as unverified locally), `docs/superpowers/librashader-build.md`, spec §10 (Phase 4 row: result), `README`-level note in `android/src/main/jniLibs/README.txt` if wording changed
 - Optional check: load-test `armeabi-v7a`/`x86_64` `librashader.so` in the macOS Android emulator (an AVD `dolphin_test` exists at `~/.android/avd`; `/opt/homebrew/share/android-commandlinetools/emulator/emulator -avd dolphin_test`) — install the x86_64 APK (`-Pandroid.injected.build.abi=x86_64`), launch, confirm `librashader loaded` in logcat; record NOT RUN if the AVD lacks GPU/Vulkan or does not boot in ~3 minutes.
 
-- [ ] Steps: implement, build the APK once to confirm Gradle still packages correctly, run the emulator check, update docs/spec, commit `android/ci: jniLibs ABI handling, cargo ndk step in manual_generate_apk.yml, Phase 4 docs`.
+- [x] Steps: implement, build the APK once to confirm Gradle still packages correctly, run the emulator check, update docs/spec, commit `android/ci: jniLibs ABI handling, cargo ndk step in manual_generate_apk.yml, Phase 4 docs`.
 
 ---
 

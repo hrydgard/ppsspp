@@ -1,8 +1,8 @@
 # Design: librashader-backed slang shader rendering for PPSSPP
 
-- **Status:** Draft for review
+- **Status:** Implemented — Phases 1–4 complete (Phase 4 branch feature/librashader-phase4-removal)
 - **Date:** 2026-09-14
-- **Branch:** `feature/librashader-integration` (based on `chore/merge-upstream-2026-09-14`)
+- **Branch:** `feature/librashader-phase4-removal` (based on `chore/merge-upstream-2026-09-14`)
 - **Author:** design doc (Claude-assisted)
 - **Supersedes (rendering core only):** `2026-07-13-slang-shader-support-design.md` §4–§5.
   The parser, preset library, importer, UI and config from that design stay.
@@ -23,8 +23,7 @@ step** in the render managers, surfaced through one new `thin3d` entry point, th
 caller's function on the render thread with the current command buffer and the source and
 destination images already in the layouts librashader requires.
 
-The in-tree chain is kept as a fallback during the transition and is removed in a later phase
-once librashader ships on every platform PPSSPP supports.
+The in-tree chain was removed in Phase 4.
 
 ## 2. Why
 
@@ -118,7 +117,7 @@ feeds the result to `presentation_->SourceFramebuffer(...)`.
 FramebufferManagerCommon (emu thread)
    │  ISlangFilterChain::Run(src fbo, native size, display rect, frameCount)
    ▼
-LibrashaderFilterChain (emu thread side)          SlangFilterChain (in-tree, fallback)
+LibrashaderFilterChain (emu thread side)
    │  ensures output Draw::Framebuffer
    │  draw->RunNativeCallback(src, dst, fn)
    ▼
@@ -263,8 +262,8 @@ the PSP's native 480×272 when `InternalResolution > 1` — see §12.
 struct NativeCallbackInfo {
     // Vulkan: VkCommandBuffer, VkImage, VkFormat as integers (no Vulkan header in thin3d.h)
     uint64_t cmdBuffer = 0;
-    uint64_t srcImage = 0;  uint32_t srcFormat = 0;
-    uint64_t dstImage = 0;  uint32_t dstFormat = 0;
+    uint64_t srcView = 0;   uint32_t srcFormat = 0;  // srcView: VkImage (Vulkan) or ID3D11ShaderResourceView (D3D11)
+    uint64_t dstView = 0;   uint32_t dstFormat = 0;  // dstView: VkImage (Vulkan) or ID3D11RenderTargetView (D3D11)
     // OpenGL: texture names
     uint32_t srcTexture = 0, dstTexture = 0;
     int srcWidth = 0, srcHeight = 0, dstWidth = 0, dstHeight = 0;
@@ -274,7 +273,7 @@ using NativeCallbackFn = std::function<void(const NativeCallbackInfo &)>;
 
 // Runs fn on the backend's render thread, outside any render pass, with src readable as a
 // shader-sampled color image and dst writable as a color attachment. Returns false if the
-// backend does not support native callbacks (D3D9, or GL/D3D11 before their phases).
+// backend does not support native callbacks (D3D9, retired backends).
 virtual bool RunNativeCallback(Framebuffer *src, Framebuffer *dst, NativeCallbackFn fn, const char *tag) { return false; }
 ```
 Only `VKContext` overrides it in Phase 1. `GetNativeObject` additionally exposes
@@ -284,7 +283,6 @@ graphics queue are reachable through the existing `NativeObject::CONTEXT` (`Vulk
 
 ### 6.4 Filter-chain interface — `GPU/Common/Slang/ISlangFilterChain.h`
 
-Extracted verbatim from today's `SlangFilterChain` public surface:
 ```cpp
 class ISlangFilterChain {
 public:
@@ -296,12 +294,12 @@ public:
     virtual void SetParamOverrides(const std::map<std::string, float> &overrides) = 0;
     virtual void DeviceLost() = 0;
     virtual void DeviceRestore(Draw::DrawContext *draw) = 0;
-    virtual const char *BackendName() const = 0;  // "in-tree" | "librashader"
+    virtual SlangChainBackend Backend() const = 0;
 };
 ```
-`SlangFilterChain` implements it with no behavior change. A factory
-`CreateSlangFilterChain(Draw::DrawContext *, SlangChainBackend preference)` picks the
-implementation (§6.6).
+The free function `SlangChainBackendName(SlangChainBackend)` returns "librashader" | "none".
+A factory `CreateSlangFilterChain(Draw::DrawContext *, SlangChainBackend)` returns the
+single implementation or nullptr (§6.6).
 
 ### 6.5 `LibrashaderFilterChain` — `GPU/Common/Slang/LibrashaderFilterChain.{h,cpp}`
 
@@ -366,14 +364,14 @@ decision function, unit-tested:
 enum class SlangChainBackend { None, Librashader };
 SlangChainBackend ChooseSlangChainBackend(bool librashaderLoaded, GPUBackend gpuBackend,
                                           bool drawSupportsNativeCallback);
-// Librashader iff all of: library loaded, backend ∈ {VULKAN, OPENGL},
-// draw supports native callbacks. Otherwise None.
+// Librashader iff all of: library loaded, backend ∈ {VULKAN, OPENGL, DIRECT3D11},
+// draw supports native callbacks (CreateLibrashaderRuntime maps DIRECT3D11 only on Windows).
+// Otherwise None.
 ```
 `CreateSlangFilterChain` returns `nullptr` for `None`; `UpdateSlangChain` then clears
 `slangChainPresetPath_`, logs `Slang chain backend: none (librashader not loaded or backend
 unsupported)` once per reload and skips `Load`, and the unfiltered image is presented.
-The chosen backend name is logged at INFO on every preset (re)load and shown in the
-Developer Tools system-info line so on-device screenshots are attributable.
+The chosen backend name is logged at INFO on every preset (re)load.
 
 ### 6.7 Build and distribution
 
@@ -413,6 +411,9 @@ Developer Tools system-info line so on-device screenshots are attributable.
   deletion-queue callback that disposes a preset which was parsed but whose chain was never
   created. librashader's header imposes no thread affinity on it, and the deletion-queue
   callback is the only other place that can own the handle.
+- **D3D11 threading:** D3D11 is immediate-mode — `libra_d3d11_filter_chain_frame` and `_free`
+  run synchronously on the emu thread inside/after `RunNativeCallback`; no render thread;
+  `QueueFree` frees directly.
 - The `std::function` in a step owns copies of everything it needs; it never dereferences
   emu-thread state other than `this`, whose lifetime is guaranteed because destruction
   happens only after the render thread is stopped or idle (`DeviceLost` / destructor).
@@ -439,18 +440,20 @@ Developer Tools system-info line so on-device screenshots are attributable.
 | **1** | Loader, Vulkan CALLBACK step, thin3d API, `ISlangFilterChain`, `LibrashaderFilterChain`, selection, dev toggle, prebuilt-copy CMake option | macOS (MoltenVK) and one Windows/Linux Vulkan machine render `stock.slangp`, `lcd-psp-matrix.slangp`, `crt-royale.slangp` identically to the in-tree chain; unit tests green; in-tree path unchanged when toggled |
 | **2** | GL CALLBACK step + `LibrashaderFilterChain` GL runtime, state restore | Desktop GL renders the same three presets |
 | **3** | Android: cargo-ndk build, jniLibs packaging; GLES 3 verification (CI deferred to Phase 4: the Android CI jobs use `android/ab.sh`/ndk-build, whose `Android.mk` lists no `GPU/Common/Slang` sources) | APK renders the three presets on Vulkan and GLES 3 on the Adreno test device |
-| **4** | Remove in-tree chain, revert thin3d slot/descriptor bumps and sRGB render-pass keying, delete `bSlangUseLibrashader`; D3D11 runtime | **Met (2026-09-15)**: removal done, Windows VK/GL/D3D11 verified (`stock`/`lcd-psp-matrix` on all three backends), GLES 3 fixes landed, perf gate passed (librashader/in-tree GPU time ratio 1.22 ≤ 1.5 on Adreno 740), Vulkan sync validation clean on Android. `git diff upstream/master -- Common/GPU` is additions only. Packaging, jniLibs ABI handling and CI integration completed (Task 7). |
+| **4** | Remove in-tree chain, revert thin3d slot/descriptor bumps and sRGB render-pass keying, delete `bSlangUseLibrashader`; D3D11 runtime | **Met (2026-09-15)**: removal done, Windows VK/GL/D3D11 verified (`stock`/`lcd-psp-matrix` on all three backends), GLES 3 fixes landed, perf gate passed (librashader/in-tree GPU time ratio 1.22 ≤ 1.5 on Adreno 740), Vulkan sync validation clean on Android. `git diff upstream/master -- Common/GPU` is additions only (18 files, 654 insertions). Packaging, jniLibs ABI handling complete; CI step added to manual_generate_apk.yml, unverified. |
 
-**Phase 4 progress (2026-09-14):** the removal half is done. The perf gate passed (librashader ÷ in-tree GPU time 1.220 ≤ 1.5 on the Adreno device), the in-tree chain and the `SlangUseLibrashader` toggle are deleted, and every thin3d/Vulkan/GL/D3D11 hunk that existed only for it is back to upstream — `git diff upstream/master --stat -- Common/GPU` is 577 insertions with zero deletions. `stock.slangp` and `lcd-psp-matrix.slangp` on macOS Vulkan and GL are pixel-identical to the Phase 2 captures; with the library renamed away, `Slang chain backend: none` is logged once and the raw image is presented. Android Vulkan (`lcd-grid-v2-psp-color`, APK `librashader-p4e`) is byte-identical to the Phase 3 reference capture. 68 unit tests pass.
+**Phase 4 progress (2026-09-14):** the removal half is done. The perf gate passed (librashader ÷ in-tree GPU time 1.220 ≤ 1.5 on the Adreno device), the in-tree chain and the `SlangUseLibrashader` toggle are deleted, and every thin3d/Vulkan/GL hunk that existed only for it is back to upstream — `git diff upstream/master --stat -- Common/GPU` is additions only. `stock.slangp` and `lcd-psp-matrix.slangp` on macOS Vulkan and GL are pixel-identical to the Phase 2 captures; with the library renamed away, `Slang chain backend: none` is logged once and the raw image is presented. Android Vulkan (`lcd-grid-v2-psp-color`, APK `librashader-p4e`) is byte-identical to the Phase 3 reference capture. 68 unit tests pass.
 
 **Phase 4 Windows (2026-09-15):** Task 5 verified Vulkan and OpenGL on Windows; Task 6 added the D3D11
 adapter (`GPU/Common/Slang/LibrashaderRuntimeD3D11.cpp`, `D3D11DrawContext::RunNativeCallback`) and
 verified `stock.slangp` and `lcd-psp-matrix.slangp` on the D3D11 backend, with the UI/OSD intact after
 the callback and a clean `Slang chain backend: none` fallback when `librashader.dll` is renamed away.
-Two findings recorded rather than fixed: the lighter, highlight-clipped Windows present path is common
-to D3D11 and Vulkan and absent on GL (a pre-existing PPSSPP present-path difference, not librashader —
-D3D11 and Vulkan no-chain captures agree with each other to a mean of 0.4/255), and the D3D11
-`SourceSize` caveat above. Packaging (Task 7) is still open.
+Two findings recorded rather than fixed: the lighter Windows present path is common to D3D11 and Vulkan
+and absent on GL (a pre-existing, unexplained host/present difference shared by D3D11 and Vulkan, absent
+on GL, and not librashader — nochain controls identical; image-mean difference 0.4/255, mean absolute
+per-pixel difference 1.58/255; candidates: Windows Auto HDR / capture tone-mapping of DXGI flip-model
+swapchains versus PPSSPP's present path; to be split with an in-app screenshot on D3D11 vs GL), and the
+D3D11 `SourceSize` caveat above. Packaging (Task 7) complete; CI unverified.
 
 **Phase 2 exit criterion: met (2026-09-14, macOS 15 / Apple M2 Pro, SDL GL 4.1 core over Metal).**
 Desktop GL renders `stock`, `lut`, `feedback`, `lcd-psp-matrix` and `twopass` through librashader
@@ -493,12 +496,11 @@ Each phase gets its own implementation plan. This spec covers all four; the Phas
 
 - **Device-free unit tests** (PPSSPP `unittest` harness): loader reports "not loaded"
   cleanly when the library is absent and when `LIBRASHADER_PATH` points at a file that exists
-  but is not a loadable library; `ChooseSlangChainBackend` truth table; the in-tree chain
-  still passes its 19 tests unchanged. The originally planned `NativeCallbackInfo` marshaling
-  test was dropped: marshaling reads a live `VKRFramebuffer` pair (real `VkImage` handles and
-  formats owned by a created device), so it cannot be exercised device-free. The loader tests
-  and the backend-selection truth table are the device-free suite; marshaling is covered by
-  the on-device checks instead.
+  but is not a loadable library; `ChooseSlangChainBackend` truth table. The originally planned
+  `NativeCallbackInfo` marshaling test was dropped: marshaling reads a live `VKRFramebuffer` pair
+  (real `VkImage` handles and formats owned by a created device), so it cannot be exercised
+  device-free. The loader tests and the backend-selection truth table are the device-free suite;
+  marshaling is covered by the on-device checks instead.
 - **Compile-time**: CMake configure + build with `USE_LIBRASHADER=ON` and `OFF`.
 - **Vulkan validation**: run once per phase with `VK_LAYER_KHRONOS_validation` enabled and
   the three presets; zero new validation errors is the bar (the CALLBACK step's layout
@@ -538,16 +540,16 @@ Each phase gets its own implementation plan. This spec covers all four; the Phas
   fallback path is the one librashader's 86Box integration uses on macOS.
 - **Rust toolchain in CI (Phase 3).** Adds minutes to Android/desktop builds; pinning the
   tag and caching the cargo target directory keeps this bounded.
-- **Library not shipped.** If distribution is a problem for some store build (iOS), the
-  fallback keeps shaders working there until Phase 4 decides whether to keep the in-tree
-  chain for that platform only.
+- **Library not shipped.** If distribution is a problem for some store build (iOS/UWP), slang
+  is off on those platforms (no in-tree chain anywhere).
 
 ## 13. Open questions for the reviewer
 
 1. Is the Android GLES backend a must-have for shaders? If not, Phase 2 could be skipped
    entirely and GL stays "in-tree or off".
-2. Should Phase 4 keep the in-tree chain for iOS/UWP/libretro where shipping an MPL
-   library may be awkward, or drop slang support on those platforms?
+2. ~~Should Phase 4 keep the in-tree chain for iOS/UWP/libretro where shipping an MPL
+   library may be awkward, or drop slang support on those platforms?~~ **Answered:** remove now,
+   gated on perf — done in Phase 4.
 3. Is a 1–2 frame unfiltered flash on preset switch acceptable (current design), or should
    `Run` keep presenting the previous chain's last output until the new chain is ready?
 4. **D3D11 `SourceSize` semantics:** librashader's D3D11 frame API takes only an
@@ -556,4 +558,8 @@ Each phase gets its own implementation plan. This spec covers all four; the Phas
    over the upscaled image). Options: (a) accept the divergence (resolution-dependent shaders
    like LCD masks tile at the render resolution instead of the native grid on D3D11); (b) feed
    D3D11 a native-sized downsampled input via the existing history-preset blit (softer image,
-   one extra blit per frame); (c) request a size-declaring API upstream. Decision pending.
+   one extra blit per frame) — **recommended, decision pending:** route the input through the
+   existing native-sized blit only when the preset's include-resolved sources reference
+   `SourceSize`/`OriginalSize` (same scan as the `OriginalHistoryN` detection), keep the upscaled
+   input otherwise, log the mode in the existing `input mode:` INFO line; (c) request a
+   size-declaring API upstream (file an upstream request regardless). Decision pending.
