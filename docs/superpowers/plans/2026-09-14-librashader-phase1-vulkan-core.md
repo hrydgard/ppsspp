@@ -32,7 +32,7 @@
 
 | File | Responsibility |
 |---|---|
-| `ext/librashader/include/librashader.h`, `librashader_ld.h`, `vulkan/vulkan.h` (shim), `LICENSE`, `VERSION` | Vendored MIT headers, pinned; shim routes `<vulkan/vulkan.h>` to `ext/vulkan/vulkan.h` |
+| `ext/librashader/include/librashader.h`, `librashader_ld.h`, `LICENSE`, `VERSION` | Vendored MIT headers, pinned. The include directory is added per target (`Common`, `GPU`, `PPSSPPUnitTest`), not globally; `<vulkan/vulkan.h>` inside `librashader.h` resolves through the global `ext` include directory to `ext/vulkan/vulkan.h`, so no shim is needed |
 | `Common/GPU/Librashader/LibrashaderLoader.h/.cpp` | Load/unload the shared library once; expose `libra_instance_t`; error to string helper |
 | `Common/GPU/Vulkan/VulkanQueueRunner.h/.cpp` | `VKRStepType::CALLBACK`, `VKRStep::callback`, `PerformCallback` |
 | `Common/GPU/Vulkan/VulkanRenderManager.h/.cpp` | `RunNativeCallback(VKRFramebuffer*, VKRFramebuffer*, fn, tag)` step producer |
@@ -83,14 +83,7 @@ echo "librashader-v0.12.0 (C ABI 2, API 5)" > ext/librashader/VERSION
 grep -n "LIBRASHADER_CURRENT_ABI 2\|LIBRASHADER_CURRENT_VERSION 5" ext/librashader/include/librashader.h   # must print both
 ```
 
-Create the Vulkan shim so `#include <vulkan/vulkan.h>` inside `librashader.h` resolves to PPSSPP's vendored header:
-
-```c
-// ext/librashader/include/vulkan/vulkan.h
-// Shim: librashader.h includes <vulkan/vulkan.h>; route it to PPSSPP's vendored Vulkan header.
-#pragma once
-#include "ext/vulkan/vulkan.h"
-```
+No Vulkan shim is needed: `#include <vulkan/vulkan.h>` inside `librashader.h` already resolves to PPSSPP's vendored `ext/vulkan/vulkan.h` through the global `include_directories(ext)` in the root `CMakeLists.txt`.
 
 - [ ] **Step 2: CMake option and include path**
 

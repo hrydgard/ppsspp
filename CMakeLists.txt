@@ -222,7 +222,11 @@ endif()
 option(USE_LIBRASHADER "Load librashader at runtime for slang shader rendering" ${USE_LIBRASHADER_DEFAULT})
 if(USE_LIBRASHADER)
 	add_compile_definitions(USE_LIBRASHADER=1)
-	include_directories(ext/librashader/include)
+	# The vendored librashader headers are NOT added globally: librashader.h includes
+	# <vulkan/vulkan.h>, and a global entry would let any translation unit pick up whatever
+	# vulkan/ directory happens to sit next to it. Only the targets that actually include
+	# LibrashaderLoader.h get the directory (Common, GPU, PPSSPPUnitTest); <vulkan/vulkan.h>
+	# resolves through the global include_directories(ext) below, i.e. ext/vulkan/vulkan.h.
 else()
 	add_compile_definitions(USE_LIBRASHADER=0)
 endif()
@@ -1417,6 +1421,11 @@ if(UNITTEST)
 		)
 	endif()
 	target_link_libraries(PPSSPPUnitTest ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${IOKIT_LIBRARY} ${CMAKE_THREAD_LIBS_INIT} Common Core)
+	# unittest/TestLibrashader.cpp includes the vendored librashader headers (through
+	# Common/GPU/Librashader/LibrashaderLoader.h); scoped, not global. See the USE_LIBRASHADER block above.
+	if(USE_LIBRASHADER)
+		target_include_directories(PPSSPPUnitTest PRIVATE ${CMAKE_SOURCE_DIR}/ext/librashader/include)
+	endif()
 	if(SDL_LIB_TARGET)
 		target_link_libraries(PPSSPPUnitTest ${SDL_LIB_TARGET})
 	endif()
