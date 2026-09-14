@@ -354,6 +354,7 @@
     </ClCompile>
     <ClCompile Include="..\Windows\W32Util\Misc.cpp" />
     <ClCompile Include="Compare.cpp" />
+    <ClCompile Include="ReverseEngineer.cpp" />
     <ClCompile Include="Headless.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
@@ -416,6 +417,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClInclude>
     <ClInclude Include="Compare.h" />
+    <ClInclude Include="ReverseEngineer.h" />
     <ClInclude Include="SDLHeadlessGLGraphicsContext.h">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">true</ExcludedFromBuild>

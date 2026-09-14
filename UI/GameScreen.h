@@ -23,6 +23,7 @@
 #include "Common/UI/UIScreen.h"
 #include "Common/File/Path.h"
 #include "UI/GameInfoCache.h"
+#include "Core/Util/PkgUnpack.h"
 #include "UI/SimpleDialogScreen.h"
 
 
@@ -58,6 +59,11 @@ private:
 	void OnCreateConfig(UI::EventParams &e);
 	void OnDeleteConfig(UI::EventParams &e);
 	void OnSetBackground(UI::EventParams &e);
+	void OnDeleteGameUpdate(UI::EventParams &e);
+
+	// Checks whether a game update is installed for this game. Both the info pane and the context
+	// menu need the answer, and either can be built first.
+	void RefreshInstalledUpdate();
 
 	std::string CRC32string;
 
@@ -68,6 +74,10 @@ private:
 	GameInfoFlags knownFlags_ = GameInfoFlags::EMPTY;
 
 	bool knownHasCRC_ = false;
+
+	// A game update installed in PSP/GAME/<DISC_ID>, which is what actually runs when there is one.
+	InstalledGameUpdate installedUpdate_;
+	bool hasInstalledUpdate_ = false;
 
 	std::shared_ptr<GameInfo> info_;
 	mutable std::string titleCache_;

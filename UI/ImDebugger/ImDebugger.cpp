@@ -1630,46 +1630,76 @@ void DrawAudioChannels(ImConfig &cfg, ImControl &control) {
 
 		ImGui::TableHeadersRow();
 
-		// vaudio / output2 uses channel 8.
-		for (int i = 0; i < PSP_AUDIO_CHANNEL_MAX + 1; i++) {
-			if (!g_audioChans[i].reserved) {
+		static const auto formatName = [](u32 format) {
+			switch (format) {
+			case PSP_AUDIO_FORMAT_STEREO: return "Stereo";
+			case PSP_AUDIO_FORMAT_MONO: return "Mono";
+			default: return "UNK";
+			}
+		};
+		static const auto threadName = [](SceUID threadID) -> const char * {
+			KernelObject *thread = kernelObjects.GetFast<KernelObject>(threadID);
+			return thread ? thread->GetName() : nullptr;
+		};
+
+		for (int i = 0; i < (int)PSP_AUDIO_CHANNEL_MAX; i++) {
+			const AudioChannel &chan = g_audioChans[i];
+			if (!chan.reserved) {
 				continue;
 			}
 			ImGui::TableNextRow();
 			ImGui::TableNextColumn();
 			ImGui::PushID(i);
-			if (i == 8) {
-				ImGui::TextUnformatted("audio2");
-			} else {
-				ImGui::Text("%d", i);
-			}
+			ImGui::Text("%d", i);
 			ImGui::TableNextColumn();
 			ImGui::Checkbox("", &g_audioChans[i].mute);
 			ImGui::TableNextColumn();
 			char id[2]{};
 			id[0] = i + 1;
-			ImClickableValue(id, g_audioChans[i].sampleAddress, control, ImCmd::SHOW_IN_MEMORY_VIEWER);
+			ImClickableValue(id, chan.sampleAddress, control, ImCmd::SHOW_IN_MEMORY_VIEWER);
 			ImGui::TableNextColumn();
-			ImGui::Text("%08x", g_audioChans[i].sampleCount);
+			ImGui::Text("%08x", chan.sampleCount);
 			ImGui::TableNextColumn();
-			ImGui::Text("%d | %d", g_audioChans[i].leftVolume, g_audioChans[i].rightVolume);
+			ImGui::Text("%d | %d", chan.leftVolume, chan.rightVolume);
 			ImGui::TableNextColumn();
-			switch (g_audioChans[i].format) {
-			case PSP_AUDIO_FORMAT_STEREO:
-				ImGui::TextUnformatted("Stereo");
-				break;
-			case PSP_AUDIO_FORMAT_MONO:
-				ImGui::TextUnformatted("Mono");
-				break;
-			default:
-				ImGui::TextUnformatted("UNK: %04x");
-				break;
+			ImGui::TextUnformatted(formatName(chan.format));
+			ImGui::TableNextColumn();
+			// Only one thread can ever be parked on a mixer channel.
+			if (chan.waitingThread != 0) {
+				const char *name = threadName(chan.waitingThread);
+				if (name) {
+					ImGui::TextUnformatted(name);
+				}
+			}
+			ImGui::PopID();
+		}
+
+		// Output2, SRC and Vaudio all mean this one, which holds two buffers rather than one
+		// and can have more than one thread waiting on it.
+		if (g_audioSRC.reserved) {
+			ImGui::TableNextRow();
+			ImGui::TableNextColumn();
+			ImGui::PushID("src");
+			ImGui::TextUnformatted("audio2");
+			ImGui::TableNextColumn();
+			ImGui::Checkbox("", &g_audioSRC.mute);
+			ImGui::TableNextColumn();
+			if (g_audioSRC.bufferCount > 0) {
+				ImClickableValue("src", g_audioSRC.buffers[0].address, control, ImCmd::SHOW_IN_MEMORY_VIEWER);
+			} else {
+				ImGui::TextUnformatted("-");
 			}
 			ImGui::TableNextColumn();
-			for (auto t : g_audioChans[i].waitingThreads) {
-				KernelObject *thread = kernelObjects.GetFast<KernelObject>(t.threadID);
-				if (thread) {
-					ImGui::Text("%s: %d", thread->GetName(), t.numSamples);
+			ImGui::Text("%08x (%d queued)", g_audioSRC.sampleCount, g_audioSRC.bufferCount);
+			ImGui::TableNextColumn();
+			ImGui::Text("%d | %d", g_audioSRC.leftVolume, g_audioSRC.rightVolume);
+			ImGui::TableNextColumn();
+			ImGui::TextUnformatted(formatName(g_audioSRC.format));
+			ImGui::TableNextColumn();
+			for (SceUID threadID : g_audioSRC.waitingThreads) {
+				const char *name = threadName(threadID);
+				if (name) {
+					ImGui::TextUnformatted(name);
 				}
 			}
 			ImGui::PopID();
@@ -1815,6 +1845,9 @@ void DrawSasAudio(ImConfig &cfg) {
 	}
 
 	ImGui::Checkbox("Mute", __SasGetGlobalMuteFlag());
+	if (ImGui::SliderInt("Reverb", &g_Config.iReverbVolume, 0, 200)) {
+		g_Config.DoNotSaveSetting(&g_Config.iReverbVolume);
+	}
 	ImGui::SameLine();
 	ImGui::Checkbox("Show all voices", &cfg.sasShowAllVoices);
 
@@ -2468,7 +2501,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 	if (ImGui::BeginMainMenuBar()) {
 		if (ImGui::BeginMenu("File")) {
 			if (ImGui::MenuItem("Load")) {
-				System_BrowseForFile(reqToken_, "Load", BrowseFileType::SAVE_STATE, [this](std::string_view responseString, int) {
+				System_BrowseForFile(reqToken_, "Load", BrowseFileType::SAVE_STATE, [](std::string_view responseString, int) {
 					Path path(responseString);
 					System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, path.ToString());
 				});
@@ -2503,12 +2536,12 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 				}
 				ImGui::Separator();
 				if (ImGui::MenuItem("Load state from file...")) {
-					System_BrowseForFile(reqToken_, "Load", BrowseFileType::SAVE_STATE, [this](std::string_view fn, int) {
+					System_BrowseForFile(reqToken_, "Load", BrowseFileType::SAVE_STATE, [](std::string_view fn, int) {
 						SaveState::Load(Path(fn), -1, ShowMessageAfterSaveStateAction);
 					});
 				}
 				if (ImGui::MenuItem("Save state to file...")) {
-					System_BrowseForFile(reqToken_, "Save", BrowseFileType::SAVE_STATE, [this](std::string_view fn, int) {
+					System_BrowseForFile(reqToken_, "Save", BrowseFileType::SAVE_STATE, [](std::string_view fn, int) {
 						SaveState::Save(Path(fn), -1, ShowMessageAfterSaveStateAction);
 					});
 				}

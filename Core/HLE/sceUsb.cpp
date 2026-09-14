@@ -103,6 +103,8 @@ static void UsbUpdateState() {
 			if (timeout.IsValid() && usbWaitTimer != -1) {
 				// Remove any event for this thread.
 				s64 cyclesLeft = CoreTiming::UnscheduleEvent(usbWaitTimer, threadID);
+				if (cyclesLeft < 0)
+					cyclesLeft = 0;
 				*timeout = (int)cyclesToUs(cyclesLeft);
 			}
 

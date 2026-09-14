@@ -679,7 +679,16 @@ static u32 sysclib_memcpy(u32 dst, u32 src, u32 size) {
 
 static u32 sysclib_strcat(u32 dst, u32 src) {
 	if (Memory::IsValidNullTerminatedString(dst) && Memory::IsValidNullTerminatedString(src)) {
-		strcat((char *)Memory::GetPointerWriteUnchecked(dst), (const char *)Memory::GetPointerUnchecked(src));
+		char *dstp = (char *)Memory::GetPointerWriteUnchecked(dst);
+		const char *srcp = Memory::GetCharPointerUnchecked(src);
+		// The string checks above only cover the strings as they are - the concatenation is longer,
+		// and has to fit too, or we'd write past the end of guest memory.
+		const size_t dstLen = strlen(dstp);
+		const size_t size = dstLen + strlen(srcp) + 1;
+		if (!Memory::IsValidRange(dst, (u32)size)) {
+			return hleLogError(Log::sceKernel, dst, "result doesn't fit at %08x", dst);
+		}
+		memcpy(dstp + dstLen, srcp, size - dstLen);
 	}
 	return hleLogVerbose(Log::sceKernel, dst);
 }
@@ -696,8 +705,14 @@ static int sysclib_strcmp(u32 dst, u32 src) {
 
 static u32 sysclib_strcpy(u32 dst, u32 src) {
 	ERROR_LOG(Log::sceKernel, "Untested sysclib_strcpy(dest=%08x, src=%08x)", dst, src);
-	if (Memory::IsValidAddress(dst) && Memory::IsValidNullTerminatedString(src)) {
-		strcpy((char *)Memory::GetPointerWriteUnchecked(dst), (const char *)Memory::GetPointerUnchecked(src));
+	if (Memory::IsValidNullTerminatedString(src)) {
+		const char *srcp = Memory::GetCharPointerUnchecked(src);
+		// Note: the destination has to fit the whole string. IsValidAddress would only check one byte.
+		const size_t size = strlen(srcp) + 1;
+		if (!Memory::IsValidRange(dst, (u32)size)) {
+			return hleLogError(Log::sceKernel, dst, "string doesn't fit at %08x", dst);
+		}
+		memcpy(Memory::GetPointerWriteUnchecked(dst), srcp, size);
 	}
 	return hleLogVerbose(Log::sceKernel, dst);
 }
@@ -865,7 +880,8 @@ static int sysclib_sprintf_impl(u32 dst, int limit, u32 fmt, int paramOffset) {
 	const size_t retval = result.size();
 
 	// Implement the snprintf length check.
-	if (limit != 0 && (int)result.length() >= limit) {
+	// Note: > 0, not != 0. A negative size from snprintf would resize() to a huge value and throw.
+	if (limit > 0 && (int)result.length() >= limit) {
 		result.resize(limit - 1);
 	}
 

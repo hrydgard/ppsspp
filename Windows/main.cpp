@@ -1312,15 +1312,17 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 	_dbg_assert_(mainThread.joinable());
 	mainThread.join();
 
+	// The debugger windows reach into core state as they go away (CtrlDisAsmView touches
+	// g_disassemblyManager, for example), so tear them down while the core is still around.
+	MainWindow::DestroyDebugWindows();
+	DialogManager::DestroyAll();
+
 	// It's safe to call NativeShutdown, we've joined the main thread.
 	NativeShutdown();
 
 	g_VFS.Clear();
 
 	// g_InputManager.StopPolling() is called in WM_DESTROY
-
-	MainWindow::DestroyDebugWindows();
-	DialogManager::DestroyAll();
 
 	TimeShutdown();
 

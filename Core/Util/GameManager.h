@@ -85,6 +85,10 @@ public:
 	// Only returns false if there's already an installation in progress.
 	bool InstallZipOnThread(ZipFileTask task);
 
+	// Installs a game update from a .pkg into PSP/GAME/<DISC_ID>. Same contract as the above -
+	// only returns false if something else is already installing. See Core/Util/PkgUnpack.h.
+	bool InstallPkgOnThread(const Path &pkgPath, bool deleteAfter);
+
 	// Separate kind of functionality from InstallZipOnThread, so doesn't re-use the task struct.
 	bool UninstallGameOnThread(const std::string &name);
 
@@ -94,6 +98,7 @@ public:
 
 private:
 	void InstallZipContents(ZipFileTask task);
+	void InstallPkgContents(Path pkgPath, bool deleteAfter);
 	bool InstallMemstickZip(const Path &zipFile, const Path &dest, const ZipFileInfo &info);
 	bool InstallZippedISO(struct zip *z, int isoFileIndex, const Path &destDir);
 	void UninstallGame(const std::string &name);

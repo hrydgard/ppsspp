@@ -4,6 +4,7 @@
 #if defined(__IOS__) || defined (__MACOS__)
 #include <assert.h>
 #include <math.h>
+#include <stdio.h>
 
 #include <objc/NSObjCRuntime.h>
 #include <objc/message.h>
@@ -42,11 +43,20 @@
 // Check here to get the signature right:
 // https://nshipster.com/type-encodings/
 // https://ko9.org/posts/encode-types/
-#define addMethod(CLASS, NAME, IMPL, SIGNATURE) \
-    if (!class_addMethod(CLASS, sel(NAME), (IMP) (IMPL), (SIGNATURE))) assert(false)
+// PPSSPP: these used to report failure with assert() alone, which is compiled out in release -
+// so a delegate that failed to pick up its methods would just never receive data, and the
+// request would hang with no clue why. Still asserts in debug, says so either way.
+#define addMethod(CLASS, NAME, IMPL, SIGNATURE)                                \
+    if (!class_addMethod(CLASS, sel(NAME), (IMP)(IMPL), (SIGNATURE))) {        \
+        fprintf(stderr, "naett: failed to add method %s\n", (NAME));           \
+        assert(false);                                                         \
+    }
 
-#define addIvar(CLASS, NAME, SIZE, SIGNATURE) \
-    if (!class_addIvar(CLASS, NAME, SIZE, rint(log2(SIZE)), SIGNATURE)) assert(false)
+#define addIvar(CLASS, NAME, SIZE, SIGNATURE)                                  \
+    if (!class_addIvar(CLASS, NAME, SIZE, rint(log2(SIZE)), SIGNATURE)) {      \
+        fprintf(stderr, "naett: failed to add ivar %s\n", (NAME));             \
+        assert(false);                                                         \
+    }
 
 #define objc_alloc(CLASS) objc_msgSend_id(class(CLASS), sel("alloc"))
 #define autorelease(OBJ) objc_msgSend_void(OBJ, sel("autorelease"))

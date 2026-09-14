@@ -15,6 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+// NOTE: This is now unmaintained legacy code. sceDeflt is a small leaf library that games ship
+// on the disc themselves and that appears in no firmware dump, so we let the game's own module run
+// and this HLE is only a fallback for the rare game that imports it without shipping it, and for
+// old savestates - whose syscall opcodes index these tables, which is why nothing here is removed.
+// See AlwaysDisableHLEFlags in Core/HLE/HLE.cpp.
+
 #pragma once
 
 void Register_sceDeflt();

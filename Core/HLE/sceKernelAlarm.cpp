@@ -95,10 +95,15 @@ public:
 		// A non-zero result means to reschedule.
 		if (result > 0)
 		{
-			DEBUG_LOG(Log::sceKernel, "Rescheduling alarm %08x for +%dms", alarmID, result);
 			u32 error;
 			PSPAlarm *alarm = kernelObjects.Get<PSPAlarm>(alarmID, error);
-			__KernelScheduleAlarm(alarm, result);
+			if (alarm) {
+				DEBUG_LOG(Log::sceKernel, "Rescheduling alarm %08x for +%dus", alarmID, result);
+				__KernelScheduleAlarm(alarm, result);
+			} else {
+				// The handler can have deleted its own alarm, in which case there's nothing to reschedule.
+				WARN_LOG(Log::sceKernel, "Alarm %08x requested a reschedule but no longer exists", alarmID);
+			}
 		}
 		else
 		{
@@ -176,10 +181,11 @@ SceUID sceKernelSetAlarm(SceUInt micro, u32 handlerPtr, u32 commonPtr) {
 
 SceUID sceKernelSetSysClockAlarm(u32 microPtr, u32 handlerPtr, u32 commonPtr) {
 	u64 micro;
-	if (Memory::IsValid4AlignedAddress(microPtr))  // 8-aligned?
+	// Note: we read 8 bytes here, so the whole range has to be valid, not just the first word.
+	if (Memory::IsValid4AlignedRange(microPtr, 8))
 		micro = Memory::ReadUnchecked_U64(microPtr);
 	else
-		return -1;
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid microPtr");
 
 	return hleLogDebug(Log::sceKernel, __KernelSetAlarm(micro, handlerPtr, commonPtr));
 }

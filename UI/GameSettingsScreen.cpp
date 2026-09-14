@@ -50,6 +50,7 @@
 #include "UI/DevScreens.h"
 #include "UI/DeveloperToolsScreen.h"
 #include "UI/DisplayLayoutScreen.h"
+#include "UI/FirmwareScreen.h"
 #include "UI/RemoteISOScreen.h"
 #include "UI/SavedataScreen.h"
 #include "UI/SystemInfoScreen.h"
@@ -1143,6 +1144,9 @@ void GameSettingsScreen::CreateToolsSettings(UI::ViewGroup *tools) {
 	tools->Add(new Choice(sa->T("Savedata Manager")))->OnClick.Add([=](UI::EventParams &) {
 		screenManager()->push(new SavedataScreen(gamePath_));
 	});
+  tools->Add(new Choice(sy->T("PSP Firmware")))->OnClick.Add([=](UI::EventParams &) {
+		screenManager()->push(new FirmwareScreen(gamePath_));
+	});
 	tools->Add(new Choice(dev->T("System Information")))->OnClick.Add([=](UI::EventParams &) {
 		screenManager()->push(new SystemInfoScreen(gamePath_));
 	});
@@ -1737,7 +1741,7 @@ void TriggerRestart(const char *why, bool editThenRestore, const Path &gamePath)
 	// Extra save here to make sure the choice really gets saved even if there are shutdown bugs in
 	// the GPU backend code.
 	g_Config.Save(why);
-	std::string param = "--gamesettings";
+	std::string param = "--start-screen=gamesettings";
 	if (editThenRestore) {
 		// We won't pass the gameID, so don't resume back into settings.
 		param.clear();

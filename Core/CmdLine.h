@@ -46,6 +46,17 @@ struct CommandLineOptions {
 	// Enables the WebSocket debugger on startup, on this port (0 = pick automatically).
 	// Also breaks the CPU at start in the headless build. See docs/WebSocketDebugger.md.
 	std::optional<int> debuggerPort;
+	// Same, but without breaking at the entry point first.
+	std::optional<int> debuggerRunPort;
+
+	// The port either of the two debugger options asked for, if any.
+	std::optional<int> DebuggerPort() const {
+		return debuggerPort.has_value() ? debuggerPort : debuggerRunPort;
+	}
+	// --debugger waits at the entry point for a client to drive it; --debugger-run doesn't.
+	bool DebuggerBreaksAtStart() const {
+		return debuggerPort.has_value();
+	}
 
 	// Overrides g_Config.bAutoSaveLoadSymbols for this run only (see SymbolMap::SaveModuleSymbols/
 	// LoadModuleSymbols and Core/HLE/sceKernelModule.cpp) - handy for headless runs that want
@@ -66,6 +77,7 @@ struct CommandLineOptions {
 	// meant copying it in. Points at the same layout the app uses, so the two can share one.
 	std::optional<std::string> memStick;
 	std::optional<std::string> stateToLoad;
+	std::optional<std::string> stateToSave;
 
 	// Headless: unpack the firmware inside an official updater EBOOT.PBP (given as the boot
 	// filename) into this directory, then exit without booting anything.
@@ -75,6 +87,41 @@ struct CommandLineOptions {
 	// Headless: which PSP model the unpacker resolves names against - "01g".."12g", or "any"
 	// (the default) to take whatever file list names each file first.
 	std::optional<std::string> unpackUpdaterModel;
+	std::optional<std::string> unpackUpdaterFilter;
+	// Headless: install the firmware bundled on the disc being booted into a scratch NAND, and
+	// boot against that.
+	std::optional<bool> firmwareFromDisc;
+
+	// Bitmask of DisableHLEFlags: run the real firmware module instead of our HLE for those
+	// libraries. Needs a firmware dump under the NAND directory.
+	std::optional<int> disableHLE;
+
+	// Headless: install the game update in a .pkg (given as the boot filename) into this
+	// directory, then exit without booting anything. The directory is the game folder itself -
+	// the app puts that under PSP/GAME/<DISC_ID>, but here the caller picks. See
+	// Core/Util/PkgUnpack.h.
+	std::optional<std::string> installPkg;
+
+	// Headless: load one PRX standalone (no game) and write a reverse-engineering report -
+	// module header, exports/imports, per-function disassembly and a call graph - then exit.
+	// See headless/ReverseEngineer.cpp.
+	std::optional<std::string> reModule;
+	// Where the report goes. Defaults to "re-out" next to the current directory.
+	std::optional<std::string> reOut;
+	// Only disassemble this one function, by name or "0x08801234".
+	std::optional<std::string> reFunc;
+	// A .ppsym file of already-known names to apply before dumping, so the disassembly comes
+	// out readable. Module-relative, same format the emulator saves.
+	std::optional<std::string> reSyms;
+	// Headless: analyze --re-module as a flat code image loaded at this address instead of as a
+	// PRX. The decrypted ME images are raw MIPS with no ELF around them; the address they were
+	// linked for is recoverable from their own jal targets.
+	std::optional<std::string> reRawBase;
+	// Headless: decrypt one encrypted PSP file (a tagged PRX, or an ME image from
+	// flash0:/kd/resource) to --re-decrypt-out and exit. Nothing is loaded or run.
+	std::optional<std::string> reDecrypt;
+	// Where the plaintext goes. Defaults to "decrypted.bin".
+	std::optional<std::string> reDecryptOut;
 
 	std::optional<int> memReadAction;
 	std::optional<int> memWriteAction;

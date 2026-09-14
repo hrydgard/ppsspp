@@ -364,9 +364,41 @@ void LogManager::LogLine(LogLevel level, Log type, const char *file, int line, c
 #endif
 
 	if (outputs_ & LogOutput::ExternalCallback) {
-		if (externalCallback_) {
-			externalCallback_(message, externalUserData_);
+		// Held across the dispatch on purpose: RemoveExternalLogCallback() takes the same lock, so a
+		// listener can't be torn down (and its userdata freed) while we're in the middle of calling it.
+		std::lock_guard<std::mutex> guard(externalLock_);
+		for (const ExternalCallbackEntry &entry : externalCallbacks_) {
+			entry.callback(message, entry.userdata);
 		}
+	}
+}
+
+int LogManager::AddExternalLogCallback(LogCallback callback, void *userdata) {
+	if (!callback) {
+		return -1;
+	}
+	std::lock_guard<std::mutex> guard(externalLock_);
+	const int handle = nextExternalHandle_++;
+	externalCallbacks_.push_back(ExternalCallbackEntry{ handle, callback, userdata });
+	EnableOutput(LogOutput::ExternalCallback);
+	return handle;
+}
+
+void LogManager::RemoveExternalLogCallback(int handle) {
+	if (handle < 0) {
+		return;
+	}
+	std::lock_guard<std::mutex> guard(externalLock_);
+	for (size_t i = 0; i < externalCallbacks_.size(); i++) {
+		if (externalCallbacks_[i].handle == handle) {
+			externalCallbacks_.erase(externalCallbacks_.begin() + i);
+			break;
+		}
+	}
+	// Only when the last one goes away - otherwise removing one connection's callback would stop
+	// delivery to the ones still attached, which is the bug this list exists to avoid.
+	if (externalCallbacks_.empty()) {
+		DisableOutput(LogOutput::ExternalCallback);
 	}
 }
 

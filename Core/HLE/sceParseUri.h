@@ -15,6 +15,12 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+// NOTE: a graduation candidate, but not graduated. sceParseUri is a small library with no
+// dependencies beyond the kernel, and most games that use it ship their own copy - but it is also
+// in the firmware, and sceUtility can load it (module 0x103), so a game may import it without
+// carrying one. Letting the game's module win would hand that game unresolved imports. It can
+// follow once sceUtility loads the firmware copy the way it does for sceMp3 and sceMp4.
+
 #pragma once
 
 #ifdef _MSC_VER

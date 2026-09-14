@@ -86,8 +86,8 @@ SavedataView::SavedataView(UIContext &dc, const Path &savePath, IdentifiedFileTy
 		Add(new Spacer(3.0));
 	} else {
 		_dbg_assert_(type == IdentifiedFileType::PPSSPP_SAVESTATE);
-		Path image_path = savePath.WithReplacedExtension(".ppst", ".jpg");
-		if (File::Exists(image_path)) {
+		Path image_path;
+		if (savePath.WithReplacedExtension(".ppst", ".jpg", &image_path) && File::Exists(image_path)) {
 			toprow->Add(new AsyncImageFileView(image_path, IS_KEEP_ASPECT, new LinearLayoutParams(480, 272, Margins(10, 0))));
 		} else {
 			auto sa = GetI18NCategory(I18NCat::SAVEDATA);

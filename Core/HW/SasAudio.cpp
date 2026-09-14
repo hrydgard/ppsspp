@@ -34,8 +34,7 @@ static const u8 f[16][2] = {
 	{ 115,  52 },
 	{  98,  55 },
 	{ 122,  60 },
-	// TODO: The below values could use more testing, but match initial tests.
-	// Not sure if they are used by games, found by tests.
+	// Everything past index 4 is the hardware reading off the end of its own table, so this is garbage extra values.
 	{   0,   0 },
 	{   0,   0 },
 	{  52,   0 },
@@ -414,12 +413,11 @@ void SasInstance::GetDebugText(char *text, size_t bufsize) {
 
 	snprintf(text, bufsize,
 		"SR: %d Mode: %s Grain: %d\n"
-		"Effect: Type: %d Dry: %d Wet: %d L: %d R: %d Delay: %d Feedback: %d\n"
+		"Effect: Type: %s Dry: %d Wet: %d L: %d R: %d Delay: %d Feedback: %d\n"
 		"\n%s\n",
 		sampleRate, outputMode == PSP_SAS_OUTPUTMODE_RAW ? "Raw" : "Mixed", grainSize,
-		waveformEffect.type, waveformEffect.isDryOn, waveformEffect.isWetOn, waveformEffect.leftVol, waveformEffect.rightVol, waveformEffect.delay, waveformEffect.feedback,
+		SasReverb::GetPresetName(waveformEffect.type), waveformEffect.isDryOn, waveformEffect.isWetOn, waveformEffect.leftVol, waveformEffect.rightVol, waveformEffect.delay, waveformEffect.feedback,
 		voiceBuf);
-
 }
 
 void SasInstance::ClearGrainSize() {
@@ -582,11 +580,11 @@ void SasInstance::MixVoice(SasVoice &voice) {
 		for (int i = delay; i < grainSize; i++) {
 			const int16_t *s = mixTemp_ + (sampleFrac >> PSP_SAS_PITCH_BASE_SHIFT);
 
-			// Linear interpolation. Good enough. Need to make resampleHist bigger if we want more.
+			// Two-tap linear interpolation. The hardware does the same, unlike the PSX there's no bicubic lookup table etc.
 			int sample = s[0];
 			if (needsInterp) {
 				int f = sampleFrac & PSP_SAS_PITCH_MASK;
-				sample = (s[0] * (PSP_SAS_PITCH_MASK - f) + s[1] * f) >> PSP_SAS_PITCH_BASE_SHIFT;
+				sample = s[0] - (((s[0] - s[1]) * f) >> PSP_SAS_PITCH_BASE_SHIFT);
 			}
 			sampleFrac += voicePitch;
 
@@ -733,6 +731,13 @@ void SasInstance::SetWaveformEffectType(int type) {
 	}
 }
 
+void SasInstance::SetWaveformEffectParams(int delay, int feedback) {
+	waveformEffect.delay = delay;
+	waveformEffect.feedback = feedback;
+	// Echo and Delay compute most of their parameters from these; the rest ignore them.
+	reverb_.SetParams(delay, feedback);
+}
+
 // http://psx.rules.org/spu.txt has some information about setting up the delay time by modifying the delay preset.
 // See http://report.ppsspp.org/logs/kind/772 for a list of games that use different types. Maybe can help us figure out
 // which is which.
@@ -789,6 +794,9 @@ void SasInstance::DoState(PointerWrap &p) {
 	Do(p, waveformEffect);
 	if (p.mode == p.MODE_READ) {
 		reverb_.SetPreset(waveformEffect.type);
+		// SetPreset() alone would leave Echo/Delay at their defaults, since those two compute
+		// their parameters from the delay/feedback we just restored.
+		reverb_.SetParams(waveformEffect.delay, waveformEffect.feedback);
 	}
 }
 

@@ -869,9 +869,10 @@ const HLEFunction sceHttp[] = {
 	{0X267618F4, &WrapI_IUU<sceHttpSetAuthInfoCallback>,     "sceHttpSetAuthInfoCallback",     'i', "ixx"   },
 	{0X569A1481, &WrapI_IUU<sceHttpsSetSslCallback>,         "sceHttpsSetSslCallback",         'i', "ixx"   },
 	{0XBAC31BF1, nullptr,                                    "sceHttpsEnableOption",           '?', ""      },
-};				
+	{0xCC920C12, nullptr,                                    "sceHttpEnableNagle",             '?', ""      },
+	{0xD29163DA, nullptr,                                    "sceHttpDisableNagle",            '?', ""      }
+};
 
-void Register_sceHttp()
-{
+void Register_sceHttp() {
 	RegisterHLEModule("sceHttp",ARRAY_SIZE(sceHttp),sceHttp);
 }

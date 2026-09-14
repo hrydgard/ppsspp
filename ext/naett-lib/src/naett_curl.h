@@ -46,7 +46,9 @@ typedef struct {
 	void (*easy_cleanup)(CURL *handle);
 
 	CURLM *(*multi_init)(void);
+	CURLMcode (*multi_cleanup)(CURLM *multi);
 	CURLMcode (*multi_add_handle)(CURLM *multi, CURL *easy);
+	CURLMcode (*multi_remove_handle)(CURLM *multi, CURL *easy);
 	CURLMcode (*multi_perform)(CURLM *multi, int *runningHandles);
 	CURLMsg *(*multi_info_read)(CURLM *multi, int *msgsInQueue);
 	CURLMcode (*multi_wait)(CURLM *multi, struct curl_waitfd extraFDs[], unsigned int extraNFDs, int timeoutMS,
@@ -64,7 +66,9 @@ extern NaettCurl g_curl;
 #define curl_easy_getinfo g_curl.easy_getinfo
 #define curl_easy_cleanup g_curl.easy_cleanup
 #define curl_multi_init g_curl.multi_init
+#define curl_multi_cleanup g_curl.multi_cleanup
 #define curl_multi_add_handle g_curl.multi_add_handle
+#define curl_multi_remove_handle g_curl.multi_remove_handle
 #define curl_multi_perform g_curl.multi_perform
 #define curl_multi_info_read g_curl.multi_info_read
 #define curl_multi_wait g_curl.multi_wait

@@ -26,6 +26,11 @@
 
 #pragma once
 
+// kirk4()/kirk7() below take a size_t, and nothing here provided it - the header only ever
+// compiled because whatever included it had pulled in a definition first. Core/HLE/scePspNpDrm_user.cpp
+// includes libkirk before anything else, so it doesn't.
+#include <stddef.h>
+
 #include "kirk_common.h"
 #include "SHA1.h"
 #include "AES.h"

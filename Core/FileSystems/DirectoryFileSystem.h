@@ -85,6 +85,7 @@ public:
 	bool RmDir(const std::string &dirname) override;
 	int  RenameFile(const std::string &from, const std::string &to) override;
 	bool RemoveFile(const std::string &filename) override;
+	bool SetFileWritable(const std::string &filename, bool writable) override;
 	FileSystemFlags Flags() const override { return flags; }
 	u64 FreeDiskSpace(const std::string &path) override;
 
@@ -105,6 +106,13 @@ private:
 	FileSystemFlags flags;
 
 	Path GetLocalPath(std::string_view internalPath) const;
+
+	// Rewrites any FAT 8.3 short-name components of a guest path to the long names they were
+	// generated from, so a game that read a short name out of d_private can open the file by it.
+	void ResolveShortNames(std::string &path);
+
+	// Guards ResolveShortNames against re-entering itself through GetDirListing.
+	bool resolvingShortNames_ = false;
 };
 
 // VFSFileSystem: Ability to map in Android APK paths as well! Does not support all features, only meant for fonts.

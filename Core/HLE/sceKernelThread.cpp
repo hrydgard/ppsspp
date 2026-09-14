@@ -477,6 +477,9 @@ static int g_inCbCount = 0;
 static SceUID currentCallbackThreadID = 0;
 static int readyCallbacksCount = 0;
 static SceUID currentThread;
+// When the running thread last changed, so each thread can be billed for the time it actually ran
+// (nt.runForClocks). Not serialized - it's re-based on load, which only skews the very first slice.
+static u64 lastContextSwitchUs = 0;
 static PSPThread *currentThreadPtr;
 static u32 idleThreadHackAddr;
 static u32 threadReturnHackAddr;
@@ -676,7 +679,10 @@ static bool __KernelCheckResumeThreadEnd(PSPThread *t, SceUID waitingThreadID, u
 
 	if (t->nt.status == THREADSTATUS_DORMANT) {
 		u32 timeoutPtr = __KernelGetWaitTimeoutPtr(waitingThreadID, error);
+		// Note: unlike the helper in KernelWaitHelpers.h, we unschedule even without a timeout ptr.
 		s64 cyclesLeft = CoreTiming::UnscheduleEvent(eventThreadEndTimeout, waitingThreadID);
+		if (cyclesLeft < 0)
+			cyclesLeft = 0;
 		if (timeoutPtr != 0)
 			Memory::WriteOrException_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
 		s32 exitStatus = t->nt.exitStatus;
@@ -771,6 +777,7 @@ void __KernelThreadingInit() {
 	currentCallbackThreadID = 0;
 	readyCallbacksCount = 0;
 	lastSwitchCycles = 0;
+	lastContextSwitchUs = 0;
 	idleThreadHackAddr = kernelMemory.Alloc(blockSize, false, "threadrethack");
 
 	Memory::Memcpy(idleThreadHackAddr, idleThreadCode, sizeof(idleThreadCode), "ThreadMIPS");
@@ -853,6 +860,15 @@ void __KernelThreadingDoState(PointerWrap &p)
 		Do(p, threadEventHandlers);
 	if (s >= 3)
 		Do(p, pendingDeleteThreads);
+
+	if (p.mode == p.MODE_READ) {
+		// Re-base rather than serialize, so a state saved before this existed doesn't bill one
+		// thread for the entire emulated time up to the save. Only on load: saving runs a measure
+		// pass and then a write pass, and re-basing in either would throw away the time the
+		// running thread had accumulated since the last switch - a save must not change what the
+		// game can observe.
+		lastContextSwitchUs = CoreTiming::GetGlobalTimeUs();
+	}
 }
 
 void __KernelThreadingDoStateLate(PointerWrap &p) {
@@ -1476,6 +1492,8 @@ void __KernelStopThread(SceUID threadID, int exitStatus, const char *reason)
 			if (HLEKernel::VerifyWait(waitingThread, WAITTYPE_THREADEND, threadID))
 			{
 				s64 cyclesLeft = CoreTiming::UnscheduleEvent(eventThreadEndTimeout, waitingThread);
+				if (cyclesLeft < 0)
+					cyclesLeft = 0;
 				if (timeoutPtr != 0)
 					Memory::WriteOrException_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
 
@@ -2272,6 +2290,17 @@ SceUID __KernelGetCurThreadModuleId() {
 	return 0;
 }
 
+bool __KernelCurThreadIsKernelMode() {
+	PSPThread *thread = __GetCurrentThread();
+	if (thread && (thread->nt.attr & PSP_THREAD_ATTR_KERNEL) != 0) {
+		return true;
+	}
+	// A kernel module's own main thread isn't necessarily flagged kernel - the attribute comes
+	// from PSP_MAIN_THREAD_ATTR in the module info, which needn't set it - so fall back to what
+	// module the thread belongs to, the same way sceKernelCreateThread decides allowKernel.
+	return KernelModuleIsKernelMode(__KernelGetCurThreadModuleId());
+}
+
 u32 __KernelGetCurThreadStack() {
 	PSPThread *t = __GetCurrentThread();
 	if (t)
@@ -2901,7 +2930,22 @@ void __KernelSwitchContext(PSPThread *target, const char *reason) {
 	SceUID oldUID = 0;
 	const char *oldName = hleCurrentThreadName != NULL ? hleCurrentThreadName : "(none)";
 
+	// Everything since the previous switch was spent running the outgoing thread, so bill it to
+	// that thread's runForClocks before we change over. This is the only field that tells a game
+	// how much time a thread has actually had, and it used to always read back as zero: Crazy
+	// Taxi: Fare Wars samples its mp3 thread's run time once a second through
+	// sceKernelReferThreadStatus, and when it never advanced the game decided playback was wedged
+	// and restarted the track, roughly once a second, forever.
+	const u64 nowUs = CoreTiming::GetGlobalTimeUs();
 	PSPThread *cur = __GetCurrentThread();
+	if (cur && nowUs > lastContextSwitchUs) {
+		const u64 ranForUs = nowUs - lastContextSwitchUs;
+		const u64 total = ((u64)cur->nt.runForClocks.hi << 32 | cur->nt.runForClocks.lo) + ranForUs;
+		cur->nt.runForClocks.lo = (u32)total;
+		cur->nt.runForClocks.hi = (u32)(total >> 32);
+	}
+	lastContextSwitchUs = nowUs;
+
 	if (cur)  // It might just have been deleted.
 	{
 		__KernelSaveContext(&cur->context, (cur->nt.attr & PSP_THREAD_ATTR_VFPU) != 0);

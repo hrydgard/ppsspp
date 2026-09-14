@@ -31,6 +31,7 @@
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"
 #include "Common/Data/Format/JSONReader.h"
+#include "Common/System/System.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/FunctionWrappers.h"
@@ -218,6 +219,10 @@ bool LoadDNSForGameID(std::string_view gameID, std::string_view jsonStr, InfraDN
 
 	const JsonGet root = reader.root();
 	const JsonGet def = root.getDict("default");
+	if (!def) {
+		ERROR_LOG(Log::sceNet, "Infra DNS JSON is missing a default object");
+		return false;
+	}
 
 	// Load the default DNS.
 	if (def) {
@@ -233,6 +238,10 @@ bool LoadDNSForGameID(std::string_view gameID, std::string_view jsonStr, InfraDN
 	}
 
 	const JsonNode *games = root.getArray("games");
+	if (!games) {
+		ERROR_LOG(Log::sceNet, "Infra DNS JSON is missing a games array");
+		return false;
+	}
 	for (const JsonNode *iter : games->value) {
 		JsonGet game = iter->value;
 		// Goddamn I have to change the json reader we're using. So ugly.
@@ -374,10 +383,15 @@ bool LoadAutoDNS(std::string_view json) {
 
 std::shared_ptr<http::Request> g_infraDL;
 
-static const std::string_view jsonUrl = "http://metadata.ppsspp.org/infra-dns.json";
+static constexpr std::string_view jsonUrlHttp = "http://metadata.ppsspp.org/infra-dns.json";
+static constexpr std::string_view jsonUrlHttps = "https://metadata.ppsspp.org/infra-dns.json";
+
+static std::string_view GetInfraDNSUrl() {
+	return System_GetPropertyBool(SYSPROP_SUPPORTS_HTTPS) ? jsonUrlHttps : jsonUrlHttp;
+}
 
 void DeleteAutoDNSCacheFile() {
-	File::Delete(g_DownloadManager.UrlToCachePath(jsonUrl));
+	File::Delete(g_DownloadManager.UrlToCachePath(GetInfraDNSUrl()));
 }
 
 void StartInfraJsonDownload() {
@@ -391,7 +405,7 @@ void StartInfraJsonDownload() {
 
 	if (!g_Config.bDontDownloadInfraJson) {
 		const char * const acceptMime = "application/json, text/*; q=0.9, */*; q=0.8";
-		g_infraDL = g_DownloadManager.StartDownload(jsonUrl, Path(), http::RequestFlags::Cached24H, acceptMime);
+		g_infraDL = g_DownloadManager.StartDownload(GetInfraDNSUrl(), Path(), http::RequestFlags::Cached24H, acceptMime);
 	}
 }
 
@@ -436,7 +450,7 @@ bool PollInfraJsonDownload(std::string *jsonOutput) {
 		// First, fall back to cache if it exists. Could build this functionality into the download manager
 		// but it would be a bit awkward.
 		std::string json;
-		if (File::ReadBinaryFileToString(g_DownloadManager.UrlToCachePath(jsonUrl), &json) && !json.empty()) {
+		if (File::ReadBinaryFileToString(g_DownloadManager.UrlToCachePath(GetInfraDNSUrl()), &json) && !json.empty()) {
 			WARN_LOG(Log::sceNet, "Failed to download infra-dns.json, falling back to cached file");
 			*jsonOutput = json;
 			LoadAutoDNS(*jsonOutput);
@@ -1701,14 +1715,14 @@ static int sceNetApctlDelInternalHandler(u32 handlerID) {
 	return NetApctl_DelHandler(handlerID);
 }
 
-static int sceNetApctl_A7BB73DF(u32 handlerPtr, u32 handlerArg) {
+static int sceNetApctlAddInternal03Handler(u32 handlerPtr, u32 handlerArg) {
 	ERROR_LOG(Log::sceNet, "UNIMPL %s(%08x, %08x)", __FUNCTION__, handlerPtr, handlerArg);
 	// This seems to be a 3rd kind of handler
 	// Simple forward, don't need to use hleCall
 	return sceNetApctlAddHandler(handlerPtr, handlerArg);
 }
 
-static int sceNetApctl_6F5D2981(u32 handlerID) {
+static int sceNetApctlDelInternal03Handler(u32 handlerID) {
 	ERROR_LOG(Log::sceNet, "UNIMPL %s(%i)", __FUNCTION__, handlerID);
 	// This seems to be a 3rd kind of handler
 	// Simple forward, don't need to use hleCall
@@ -1805,8 +1819,8 @@ const HLEFunction sceNetApctl[] = {
 	{0X6BDDCB8C, &WrapI_UU<sceNetApctlGetBSSDescIDListUser>,    "sceNetApctlGetBSSDescIDListUser", 'i', "xx"   },
 	{0X7CFAB990, &WrapI_UU<sceNetApctlAddInternalHandler>,      "sceNetApctlAddInternalHandler",   'i', "xx"   },
 	{0XE11BAFAB, &WrapI_U<sceNetApctlDelInternalHandler>,       "sceNetApctlDelInternalHandler",   'i', "x"    },
-	{0XA7BB73DF, &WrapI_UU<sceNetApctl_A7BB73DF>,               "sceNetApctl_A7BB73DF",            'i', "xx"   },
-	{0X6F5D2981, &WrapI_U<sceNetApctl_6F5D2981>,                "sceNetApctl_6F5D2981",            'i', "x"    },
+	{0XA7BB73DF, &WrapI_UU<sceNetApctlAddInternal03Handler>,    "sceNetApctlAddInternal03Handler", 'i', "xx"   },
+	{0X6F5D2981, &WrapI_U<sceNetApctlDelInternal03Handler>,     "sceNetApctlDelInternal03Handler", 'i', "x"    },
 	{0X69745F0A, &WrapI_I<sceNetApctl_lib2_69745F0A>,           "sceNetApctl_lib2_69745F0A",       'i', "i"    },
 	{0X4C19731F, &WrapI_IU<sceNetApctl_lib2_4C19731F>,          "sceNetApctl_lib2_4C19731F",       'i', "ix"   },
 	{0XB3CF6849, &WrapI_V<sceNetApctlScan>,                     "sceNetApctlScan",                 'i', ""     },

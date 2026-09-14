@@ -103,6 +103,7 @@
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
 #include "Core/Debugger/MemBlockInfo.h"
+#include "Core/FileSystems/FileSystem.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/MemMap.h"
 #include "Core/KeyMap.h"
@@ -2235,7 +2236,15 @@ static bool TestPath() {
 	EXPECT_EQ_INT((Path("") / "/etc/passwd").empty(), false);
 
 	EXPECT_EQ_STR(Path("foo.bar/hello").GetFileExtension(), std::string());
-	EXPECT_EQ_STR(Path("foo.bar/hello.txt").WithReplacedExtension(".txt", ".html").ToString(), std::string("foo.bar/hello.html"));
+	Path replaced("unset");
+	EXPECT_EQ_INT(Path("foo.bar/hello.txt").WithReplacedExtension(".txt", ".html", &replaced), true);
+	EXPECT_EQ_STR(replaced.ToString(), std::string("foo.bar/hello.html"));
+	// The extension has to actually be there. This used to hand back "foo.bar/hello.txt", so a
+	// caller asking for the .html next to it would have been pointed at the .txt itself.
+	EXPECT_EQ_INT(Path("foo.bar/hello.txt").WithReplacedExtension(".png", ".html", &replaced), false);
+	EXPECT_EQ_STR(replaced.ToString(), std::string("foo.bar/hello.html"));  // Untouched by the failure.
+	// Only the trailing extension counts - a dot earlier in the name isn't one.
+	EXPECT_EQ_INT(Path("foo.txt/hello").WithReplacedExtension(".txt", ".html", &replaced), false);
 
 	EXPECT_EQ_STR(Path("C:\\Yo").NavigateUp().ToString(), std::string("C:"));
 #if PPSSPP_PLATFORM(WINDOWS)
@@ -2897,6 +2906,93 @@ bool TestZipSlip();
 bool TestLzrc();
 bool TestDemangle();
 
+// The 8.3 short names games read out of d_private. These aren't verified against hardware yet (no
+// pspautotest covers d_private), so this pins down the behavior we chose - notably that the counter
+// keeps going past ~4 rather than switching to a hash the way Windows does.
+bool TestFatShortNames() {
+	auto shortNamesFor = [](const std::vector<std::string> &names) {
+		std::vector<PSPFileInfo> listing;
+		for (const std::string &name : names) {
+			PSPFileInfo info;
+			info.name = name;
+			listing.push_back(info);
+		}
+		std::vector<std::string> shortNames;
+		GenerateFatShortNames(listing, &shortNames);
+		return shortNames;
+	};
+
+	// A name that is already valid uppercase 8.3 is kept as-is, and the navigation entries are
+	// left alone. "readme.md" is not: its extension is lowercase, which a PSP can't record, so it
+	// gets a counter - see the case block below.
+	std::vector<std::string> plain = shortNamesFor({".", "..", "TEST.TXT", "readme.md", "WIPEOUT"});
+	EXPECT_EQ_STR(plain[0], std::string("."));
+	EXPECT_EQ_STR(plain[1], std::string(".."));
+	EXPECT_EQ_STR(plain[2], std::string("TEST.TXT"));
+	EXPECT_EQ_STR(plain[3], std::string("README~1.MD"));
+	EXPECT_EQ_STR(plain[4], std::string("WIPEOUT"));
+
+	// Capitalisation, as recorded off a real PSP by pspautotests io/shortname. FAT keeps a
+	// lowercase flag for the base and another for the extension, but the PSP only honours the
+	// base one - so a lowercase base survives on its own and a lowercase extension never does.
+	std::vector<std::string> cased = shortNamesFor({"shrt", "readme.txt", "UPPER.TXT", "MiXeD.txt"});
+	// All lowercase, no extension: representable, so no counter.
+	EXPECT_EQ_STR(cased[0], std::string("SHRT"));
+	// Lowercase extension: not representable.
+	EXPECT_EQ_STR(cased[1], std::string("README~1.TXT"));
+	// Already uppercase throughout.
+	EXPECT_EQ_STR(cased[2], std::string("UPPER.TXT"));
+	// Mixed case in the base.
+	EXPECT_EQ_STR(cased[3], std::string("MIXED~1.TXT"));
+
+	// Long names get truncated to six characters plus a counter, which keeps counting past ~4.
+	std::vector<std::string> many = shortNamesFor({
+		"sample-12s.mp3",
+		"sample-15s-cbr-128kbps.mp3",
+		"sample-15s-cbr-192kbps.mp3",
+		"sample-15s-cbr-320kbps.mp3",
+		"sample-15s-cbr-64kbps.mp3",
+		"sample-15s-vbr-v0.mp3",
+		"music-sample-320kbps.mp3",
+	});
+	EXPECT_EQ_STR(many[0], std::string("SAMPLE~1.MP3"));
+	EXPECT_EQ_STR(many[1], std::string("SAMPLE~2.MP3"));
+	EXPECT_EQ_STR(many[2], std::string("SAMPLE~3.MP3"));
+	EXPECT_EQ_STR(many[3], std::string("SAMPLE~4.MP3"));
+	EXPECT_EQ_STR(many[4], std::string("SAMPLE~5.MP3"));
+	EXPECT_EQ_STR(many[5], std::string("SAMPLE~6.MP3"));
+	// A different stem numbers independently.
+	EXPECT_EQ_STR(many[6], std::string("MUSIC-~1.MP3"));
+
+	// Spaces and characters FAT won't take force a counter even when the name is short enough.
+	std::vector<std::string> odd = shortNamesFor({"my song.mp3", "a+b.mp3", "no_ext", ".hidden"});
+	EXPECT_EQ_STR(odd[0], std::string("MYSONG~1.MP3"));
+	EXPECT_EQ_STR(odd[1], std::string("A_B~1.MP3"));
+	// All lowercase with no extension, so this one keeps its name.
+	EXPECT_EQ_STR(odd[2], std::string("NO_EXT"));
+	EXPECT_EQ_STR(odd[3], std::string("HIDDEN~1"));
+
+	// The rest of what io/shortname records, so the whole recorded set is pinned here and not
+	// only in a test that needs a PSP to re-run.
+	std::vector<std::string> hw = shortNamesFor({
+		"a.b.c.txt", "noextensionhere", "sp ace.txt", "+plus[brack].txt",
+		"toolongextension.mpeg", "LongDirectoryName",
+	});
+	EXPECT_EQ_STR(hw[0], std::string("ABC~1.TXT"));
+	EXPECT_EQ_STR(hw[1], std::string("NOEXTE~1"));
+	EXPECT_EQ_STR(hw[2], std::string("SPACE~1.TXT"));
+	EXPECT_EQ_STR(hw[3], std::string("_PLUS_~1.TXT"));
+	EXPECT_EQ_STR(hw[4], std::string("TOOLON~1.MPE"));
+	EXPECT_EQ_STR(hw[5], std::string("LONGDI~1"));
+
+	// Two long names sharing a six character stem must not collide.
+	std::vector<std::string> collide = shortNamesFor({"longname-one.txt", "longname-two.txt"});
+	EXPECT_EQ_STR(collide[0], std::string("LONGNA~1.TXT"));
+	EXPECT_EQ_STR(collide[1], std::string("LONGNA~2.TXT"));
+
+	return true;
+}
+
 // Tab/Shift+Tab focus navigation walks the view hierarchy in declaration order rather than by
 // geometry, so what it does is entirely determined by CollectTabOrder - which is worth pinning
 // down, since the interesting cases (nesting, hidden tabs, disabled items) are all structural.
@@ -3030,6 +3126,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(Demangle),
 	TEST_ITEM(TextureReplacer),
 	TEST_ITEM(UITabOrder),
+	TEST_ITEM(FatShortNames),
 };
 
 int main(int argc, const char *argv[]) {

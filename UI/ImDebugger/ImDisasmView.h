@@ -23,7 +23,6 @@ class MIPSState;
 class ImDisasmView {
 public:
 	ImDisasmView();
-	~ImDisasmView();
 
 	// Public variables bounds to imgui checkboxes
 	bool followPC_ = true;

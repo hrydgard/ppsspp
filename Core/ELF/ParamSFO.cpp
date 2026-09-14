@@ -119,6 +119,18 @@ std::string ParamSFOData::GetDiscID() {
 	return discID;
 }
 
+int ParamSFOData::VersionToInt(std::string_view version) {
+	int major = 0, minor = 0;
+	if (sscanf(std::string(version).c_str(), "%d.%d", &major, &minor) != 2) {
+		return 0;
+	}
+	return major * 100 + minor;
+}
+
+int ParamSFOData::GetSystemVersion() const {
+	return VersionToInt(GetValueString("PSP_SYSTEM_VER"));
+}
+
 // I'm so sorry Ced but this is highly endian unsafe :(
 bool ParamSFOData::ReadSFO(const u8 *paramsfo, size_t size) {
 	if (size < sizeof(Header))

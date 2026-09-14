@@ -42,6 +42,14 @@ public:
 
 	std::string GetDiscID();
 
+	// PSP_SYSTEM_VER, the firmware a disc says it needs, as major * 100 + minor - "2.60" gives
+	// 260, which sorts the way you'd want. Zero if the key is missing or unparseable; homebrew
+	// often leaves it out, but retail discs practically always set it.
+	int GetSystemVersion() const;
+
+	// The same conversion on its own, for versions that come from somewhere other than this SFO.
+	static int VersionToInt(std::string_view version);
+
 	// This allocates a buffer (*paramsfo) using new[], whose size is zero-filled up to a multiple of 16 bytes.
 	// This is required for SavedataParam::BuildHash.
 	void WriteSFO(u8 **paramsfo, size_t *size) const;

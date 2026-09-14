@@ -52,7 +52,15 @@ public:
 			splitPoint = nextMessage_;
 			readCount = Count();
 		} else {
-			splitPoint = read_;
+			// read_ counts messages ever read, so it has to be wrapped to index the ring - the
+			// overflow branch above starts from nextMessage_, which already is an index. Without
+			// the modulo this went wrong the moment a session logged BUFFER_SIZE messages: with
+			// splitPoint >= BUFFER_SIZE the first copy loop below is empty, so the second one
+			// handed back messages_[0..readCount-1] - the oldest entries in the buffer, not the
+			// new ones - and every later poll stayed that far out of step. High-volume sources
+			// (a log-only breakpoint in a hot loop) hit it within seconds, and the result looked
+			// like the tail of the log going missing rather than being wrong.
+			splitPoint = read_ % BUFFER_SIZE;
 			readCount = count_ - read_;
 		}
 
@@ -100,13 +108,14 @@ static void BroadcastCallback(const LogMessage &message, void *userdata) {
 
 LogBroadcaster::LogBroadcaster() {
 	listener_ = new DebuggerLogListener();
-	g_logManager.SetExternalLogCallback(&BroadcastCallback, (void *)listener_);
-	g_logManager.EnableOutput(LogOutput::ExternalCallback);
+	// One of these exists per open connection, so it registers alongside any other client's
+	// rather than replacing it - see AddExternalLogCallback().
+	callbackHandle_ = g_logManager.AddExternalLogCallback(&BroadcastCallback, (void *)listener_);
 }
 
 LogBroadcaster::~LogBroadcaster() {
-	g_logManager.DisableOutput(LogOutput::ExternalCallback);
-	g_logManager.SetExternalLogCallback(nullptr, nullptr);
+	// Returns only once no log call is inside our callback, so the listener is safe to delete.
+	g_logManager.RemoveExternalLogCallback(callbackHandle_);
 	delete listener_;
 }
 

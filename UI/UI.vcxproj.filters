@@ -40,6 +40,12 @@
     <ClCompile Include="TiltAnalogSettingsScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="InstallPkgScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="FirmwareScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
     <ClCompile Include="InstallUpdateScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
@@ -192,6 +198,12 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="TiltAnalogSettingsScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="InstallPkgScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="FirmwareScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="InstallUpdateScreen.h">

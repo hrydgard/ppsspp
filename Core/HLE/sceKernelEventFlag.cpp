@@ -128,11 +128,7 @@ static bool __KernelUnlockEventFlagForThread(EventFlag *e, EventFlagTh &th, u32 
 	}
 
 	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(th.threadID, error);
-	if (timeoutPtr != 0 && eventFlagWaitTimer != -1) {
-		// Remove any event for this thread.
-		s64 cyclesLeft = CoreTiming::UnscheduleEvent(eventFlagWaitTimer, th.threadID);
-		Memory::WriteOrException_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
-	}
+	HLEKernel::WriteRemainingTimeout(eventFlagWaitTimer, th.threadID, timeoutPtr);
 
 	__KernelResumeThreadFromWait(th.threadID, result);
 	wokeThreads = true;
@@ -289,7 +285,7 @@ void __KernelEventFlagTimeout(u64 userdata, int cycleslate) {
 		for (size_t i = 0; i < e->waitingThreads.size(); i++) {
 			EventFlagTh *t = &e->waitingThreads[i];
 			if (t->threadID == threadID) {
-				bool wokeThreads;
+				bool wokeThreads = false;
 
 				// This thread isn't waiting anymore, but we'll remove it from waitingThreads later.
 				// The reason is, if it times out, but what it was waiting on is DELETED prior to it

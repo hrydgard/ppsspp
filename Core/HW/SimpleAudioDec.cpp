@@ -503,8 +503,15 @@ u32 AuCtx::AuDecode(u32 pcmAddr) {
 	if (pcmAddr)
 		Memory::WriteOrException_U32(outptr, pcmAddr);
 
+	// The stream is over once the decoder has consumed up to endPos, whatever is still sitting in
+	// the buffer. A game can hand us more than the file actually had - audio/mp3/stream notifies
+	// the full size it asked for even when the read came up short - and the hardware won't decode
+	// that tail, it just reports the end. A stream that still has loops left was already rewound
+	// by the block below, so this only stops us for good.
+	bool end = (int64_t)readPos - AuBufAvailable >= (int64_t)endPos;
+
 	// Decode a single frame in sourcebuff and output into PCMBuf.
-	if (!sourcebuff.empty()) {
+	if (!end && !sourcebuff.empty()) {
 		// FFmpeg doesn't seem to search for a sync for us, so let's do that.
 		int nextSync = 0;
 		if (decoder->GetAudioType() == PSP_CODEC_MP3) {
@@ -533,7 +540,9 @@ u32 AuCtx::AuDecode(u32 pcmAddr) {
 		}
 	}
 
-	bool end = readPos - AuBufAvailable >= (int64_t)endPos;
+	// Check again now that the decode has consumed more. The hardware rewinds in the same call that
+	// decodes the last frame, so the sum reads back as zero right after it (audio/mp3/getsumdecoded).
+	end = (int64_t)readPos - AuBufAvailable >= (int64_t)endPos;
 	if (end && LoopNum != 0) {
 		// When looping, start the sum back off at zero and reset readPos to the start.
 		SumDecodedSamples = 0;
@@ -572,11 +581,34 @@ int AuCtx::AuCheckStreamDataNeeded() {
 int AuCtx::AuStreamBytesNeeded() {
 	if (decoder->GetAudioType() == PSP_CODEC_MP3) {
 		// The endPos and readPos are not considered, except when you've read to the end.
-		if (readPos >= endPos)
+		// Compare signed: readPos is an int and can legitimately go negative (a game can notify
+		// a negative size), and promoting that to u64 would make it look like the end of the
+		// stream instead of what the hardware reports.
+		if ((int64_t)readPos >= (int64_t)endPos)
 			return 0;
-		// Account for the workarea.
-		int offset = AuStreamWorkareaSize();
-		return (int)AuBufSize - AuBufAvailable - offset;
+
+		// The area after the workarea is double buffered: the game may write ahead up to the end
+		// of the half that follows the one the decoder is currently reading from, so a half only
+		// opens up once the decoder has consumed past its end. Decoding a single frame therefore
+		// usually frees nothing at all, which is what the hardware reports (audio/mp3/checkneeded).
+		// Games depend on it: Beats sleeps 50ms every time sceMp3CheckStreamDataNeeded() says it's
+		// behind, so handing back the bytes each decode consumed made it sleep once per frame and
+		// fall to less than half of realtime - badly stuttering custom soundtracks.
+		//
+		// Every case seen so far - the two hardware tests, Beats and Wipeout Pulse - passes the
+		// minimum 8192 byte buffer, so the split being exactly half is unverified for anything
+		// larger. If a game with a bigger buffer ever streams badly, suspect this first: the real
+		// granularity could be a fixed chunk size rather than half of whatever it was given.
+		int half = AuStreamHalfSize();
+		if (half <= 0)
+			return 0;
+		int64_t written = (int64_t)readPos - (int64_t)startPos;
+		int64_t consumed = written - AuBufAvailable;
+		// Floor division - consumed can go negative if a game notifies a negative size.
+		int64_t halvesDone = consumed / half - ((consumed % half < 0) ? 1 : 0);
+		// Note that this is deliberately not clamped to the buffer size. The hardware reports
+		// 6721 bytes to write for an 8192 byte buffer after notifying a size of -1.
+		return (int)std::max((int64_t)0, (halvesDone + 2) * half - written);
 	}
 
 	// TODO: Untested.  Maybe similar to MP3.
@@ -590,9 +622,29 @@ int AuCtx::AuStreamWorkareaSize() {
 	return 0;
 }
 
+// Size of each of the two halves the stream buffer is split into, after the workarea.
+int AuCtx::AuStreamHalfSize() {
+	return ((int)AuBufSize - AuStreamWorkareaSize()) / 2;
+}
+
+// Offset into the stream buffer (past the workarea) that the next added bytes go to. The write
+// position simply walks the two halves in turn and wraps around, it doesn't follow the decoder.
+int AuCtx::AuStreamWriteOffset() {
+	int size = AuStreamHalfSize() * 2;
+	if (size <= 0)
+		return 0;
+	int64_t pos = ((int64_t)readPos - (int64_t)startPos) % size;
+	if (pos < 0)
+		pos += size;
+	return (int)pos;
+}
+
 // check how many bytes we have read from source file
 u32 AuCtx::AuNotifyAddStreamData(int size) {
 	int offset = AuStreamWorkareaSize();
+	// Where AuGetInfoToAddStreamData pointed the game, i.e. where the bytes it just added start.
+	// Has to be sampled before readPos moves on below.
+	const int writeOffset = AuStreamWriteOffset();
 
 	if (askedReadSize != 0) {
 		// Old save state, numbers already adjusted.
@@ -613,9 +665,10 @@ u32 AuCtx::AuNotifyAddStreamData(int size) {
 	// and an unbounded positive value would grow sourcebuff without limit (DoS).
 	// The validated range also has to match what's actually read below - it was
 	// checking [AuBuf, AuBuf+size) while the copy reads from [AuBuf+offset, ...).
-	if (size > 0 && size <= (int)AuBufSize && Memory::IsValidRange(AuBuf + offset, size)) {
+	if (size > 0 && (int64_t)offset + writeOffset + size <= (int64_t)AuBufSize &&
+		Memory::IsValidRange(AuBuf + offset + writeOffset, size)) {
 		sourcebuff.resize(sourcebuff.size() + size);
-		Memory::MemcpyUnchecked(&sourcebuff[sourcebuff.size() - size], AuBuf + offset, size);
+		Memory::MemcpyUnchecked(&sourcebuff[sourcebuff.size() - size], AuBuf + offset + writeOffset, size);
 	}
 
 	return 0;
@@ -627,10 +680,11 @@ u32 AuCtx::AuGetInfoToAddStreamData(u32 bufPtr, u32 sizePtr, u32 srcPosPtr) {
 	int readsize = AuStreamBytesNeeded();
 	int offset = AuStreamWorkareaSize();
 
-	// we can recharge AuBuf from its beginning
+	// The write position walks forward through the two halves as data is added and wraps around,
+	// so point the game at that rather than at the start of the work area.
 	if (readsize != 0) {
 		if (Memory::IsValidAddress(bufPtr))
-			Memory::WriteUnchecked_U32(AuBuf + offset, bufPtr);
+			Memory::WriteUnchecked_U32(AuBuf + offset + AuStreamWriteOffset(), bufPtr);
 		if (Memory::IsValidAddress(sizePtr))
 			Memory::WriteUnchecked_U32(readsize, sizePtr);
 		if (Memory::IsValidAddress(srcPosPtr))

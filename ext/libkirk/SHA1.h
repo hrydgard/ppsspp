@@ -2,6 +2,10 @@
 
 #include "kirk_common.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* POINTER defines a generic pointer type */
 typedef unsigned char *POINTER;
 typedef const unsigned char *CONST_POINTER;
@@ -34,3 +38,7 @@ void SHAUpdate(SHA_CTX *, const BYTE *buffer, int count);
 void SHAFinal(BYTE *output, SHA_CTX *);
 
 void endianTest(int *endianness);
+
+#ifdef __cplusplus
+}
+#endif

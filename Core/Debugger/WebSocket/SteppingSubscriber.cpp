@@ -33,9 +33,6 @@ struct WebSocketSteppingState : public DebuggerSubscriber {
 	WebSocketSteppingState() {
 		g_disassemblyManager.setCpu(currentDebugMIPS);
 	}
-	~WebSocketSteppingState() {
-		g_disassemblyManager.clear();
-	}
 
 	void Into(DebuggerRequest &req);
 	void Over(DebuggerRequest &req);

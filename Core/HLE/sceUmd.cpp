@@ -533,6 +533,8 @@ const HLEFunction sceUmdUser[] =
 	{0XCBE9F02A, &WrapU_V<sceUmdReplacePermit>,           "sceUmdReplacePermit",          'x', ""  },
 	{0X14C6C45C, nullptr,                                 "sceUmdUnuseUMDInMsUsbWlan",    '?', ""  },
 	{0XB103FA38, nullptr,                                 "sceUmdUseUMDInMsUsbWlan",      '?', ""  },
+	{0X1A2485D2, nullptr,                                 "sceUmdUseUMDDetectIntr",       '?', ""  },
+	{0X3BA4EC53, nullptr,                                 "sceUmdUnuseUMDDetectIntr",     '?', ""  },
 };
 
 void Register_sceUmdUser()

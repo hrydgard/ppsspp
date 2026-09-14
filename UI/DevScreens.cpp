@@ -58,6 +58,7 @@
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
 #include "Core/Reporting.h"
+#include "Core/RetroAchievements.h"
 #include "Core/CoreParameter.h"
 #include "Core/HLE/sceKernel.h"  // GPI/GPO
 #include "Core/MIPS/MIPSTables.h"
@@ -187,6 +188,10 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	});
 
 	items->Add(new Choice(dev->T("Toggle Freeze")))->OnClick.Add([](UI::EventParams &e) {
+		// Freezing restores a savestate every frame, so it's not allowed in hardcore mode.
+		if (Achievements::WarnUserIfHardcoreModeActive(false)) {
+			return;
+		}
 		if (PSP_CoreParameter().frozen) {
 			PSP_CoreParameter().frozen = false;
 		} else {
@@ -894,7 +899,7 @@ void TouchTestScreen::OnImmersiveModeChange(UI::EventParams &e) {
 
 void TouchTestScreen::OnRenderingBackend(UI::EventParams &e) {
 	g_Config.Save("GameSettingsScreen::RenderingBackend");
-	System_RestartApp("--touchscreentest");
+	System_RestartApp("--start-screen=touchscreentest");
 }
 
 void TouchTestScreen::OnRecreateActivity(UI::EventParams &e) {

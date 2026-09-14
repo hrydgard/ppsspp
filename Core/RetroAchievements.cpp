@@ -37,6 +37,7 @@
 #include "Common/Crypto/md5.h"
 #include "Common/Log.h"
 #include "Common/File/Path.h"
+#include "Common/File/FileUtil.h"
 #include "Common/Net/HTTPRequest.h"
 #include "Common/Net/HTTPClient.h"
 #include "Common/System/OSD.h"
@@ -704,6 +705,21 @@ void InitializeRAIntegration(void *windowHandle) {
 			ERROR_LOG(Log::Achievements, "RAIntegration is enabled, but no main window handle was found.");
 			return;
 		}
+
+		// RAIntegration writes its cache and local achievement data next to the executable. If we
+		// can't write there - the usual case being an install under Program Files - it takes the
+		// emulator down with it as soon as it loads a set, so refuse to load it at all. See #21260.
+		const Path &exeDir = File::GetExeDirectory();
+		if (!File::IsDirectoryWritable(exeDir)) {
+			auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
+			ERROR_LOG(Log::Achievements, "Not loading RAIntegration, '%s' is not writable", exeDir.c_str());
+			g_OSD.Show(OSDType::MESSAGE_ERROR, ac->T("RAIntegrationNotWritable",
+				"RAIntegration needs to write next to PPSSPP.exe, which this install doesn't allow. Use the portable .zip version instead."), "", g_RAImageID, 10.0f);
+			// Carry on without the toolkit - plain achievements still work.
+			TryLoginByToken(true);
+			return;
+		}
+
 		rc_client_begin_load_raintegration(g_rcClient, szFilePath, hWnd, "PPSSPP", PPSSPP_GIT_VERSION, &load_integration_callback, hWnd);
 		return;
 	}

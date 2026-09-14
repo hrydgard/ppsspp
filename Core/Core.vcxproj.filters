@@ -363,7 +363,13 @@
     <ClCompile Include="Util\PPGeDraw.cpp">
       <Filter>Util</Filter>
     </ClCompile>
+    <ClCompile Include="Util\KL4E.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
     <ClCompile Include="Util\PSARUnpack.cpp">
+      <Filter>Util</Filter>
+    </ClCompile>
+    <ClCompile Include="Util\PkgUnpack.cpp">
       <Filter>Util</Filter>
     </ClCompile>
     <ClCompile Include="HLE\sceFont.cpp">
@@ -1690,6 +1696,9 @@
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Util\PSARUnpack.h">
+      <Filter>Util</Filter>
+    </ClInclude>
+    <ClInclude Include="Util\PkgUnpack.h">
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="HLE\sceFont.h">

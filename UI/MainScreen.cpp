@@ -51,6 +51,7 @@
 #include "UI/SavedataScreen.h"
 #include "UI/InstallUpdateScreen.h"
 #include "UI/InstallZipScreen.h"
+#include "UI/InstallPkgScreen.h"
 #include "UI/Background.h"
 #include "UI/GameBrowser.h"
 #include "Core/Config.h"
@@ -67,6 +68,9 @@ static void LaunchFile(ScreenManager *screenManager, Screen *currentScreen, cons
 	if (extension == ".zip" || extension == ".7z") {
 		// If is a zip file, we have a screen for that.
 		screenManager->push(new InstallZipScreen(path));
+	} else if (extension == ".pkg") {
+		// A game update package - not something to boot, something to install.
+		screenManager->push(new InstallPkgScreen(path));
 	} else {
 		// Check if we already know that this game isn't playable.
 		// If coming from the main screen, the info will already be computed here since the icon is displayed etc.
@@ -97,7 +101,7 @@ static void LaunchFile(ScreenManager *screenManager, Screen *currentScreen, cons
 				std::string title = info->GetTitle();  // includes the version.
 				// The unpacker wants the PBP itself, not the folder it happens to sit in.
 				const Path pbpPath = info->fileType == IdentifiedFileType::PSP_PBP ? path : path / "EBOOT.PBP";
-				screenManager->push(new InstallUpdateScreen(pbpPath, title));
+				screenManager->push(new InstallUpdateScreen(pbpPath, title, true));
 				return;
 			}
 			break;

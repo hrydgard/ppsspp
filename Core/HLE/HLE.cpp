@@ -22,6 +22,9 @@
 
 #include "Common/Math/CrossSIMD.h"
 
+#include "Common/File/FileUtil.h"
+#include "Common/Data/Text/I18n.h"
+#include "Common/System/OSD.h"
 #include "Common/Profiler/Profiler.h"
 
 #include "Common/Log.h"
@@ -40,6 +43,8 @@
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceKernelModule.h"
+#include "Core/HLE/sceFont.h"
+#include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/HLE/HLE.h"
 
 enum {
@@ -138,8 +143,6 @@ static const HLEModuleMeta g_moduleMeta[] = {
 	{"sceNetAdhocctl_Library"},
 	{"sceNetIfhandle_Service"},
 	{"sceSsl_Module"},
-	{"sceDEFLATE_Library"},
-	{"sceMD5_Library"},
 	{"sceMemab"},  // Underlying AdHoc crypto library
 	{"sceAvcodec_driver"},
 	{"sceAudiocodec_Driver"},
@@ -153,8 +156,20 @@ static const HLEModuleMeta g_moduleMeta[] = {
 	{"scePsmfPlayer", "scePsmfPlayer", DisableHLEFlags::scePsmfPlayer},
 	{"sceSAScore", "sceSasCore"},
 	{"sceCcc_Library", "sceCcc", DisableHLEFlags::sceCcc},
+	// libmp4.prx needs 41 functions from mp4msv.prx, so the two only make sense swapped together.
+	{"sceMp4_library", "sceMp4", DisableHLEFlags::sceMp4},
+	{"mp4msv_module", "mp4msv", DisableHLEFlags::sceMp4},
 	{"SceParseHTTPheader_Library", "sceParseHttp", DisableHLEFlags::sceParseHttp},
-	{"SceParseURI_Library"},
+	{"SceParseURI_Library", "sceParseUri", DisableHLEFlags::sceParseUri},
+	// Dependency-free libraries games carry on the disc (never loaded from firmware).
+	{"sceDEFLATE_Library", "sceDeflt", DisableHLEFlags::sceDeflt},
+	{"sceADLER32_Library", "sceAdler", DisableHLEFlags::sceAdler},
+	{"sceMD5_Library", "sceMd5", DisableHLEFlags::sceMd5},
+	{"sceSHA256_Library", "sceSha256", DisableHLEFlags::sceSha256},
+	{"sceMT19937_Library", "sceMt19937", DisableHLEFlags::sceMt19937},
+	{"sceSfmt19937_Library", "sceSfmt19937", DisableHLEFlags::sceSfmt19937},
+	// sceHeap imports only Kernel_Library and ThreadManForUser.
+	{"sceHeap_Library", "sceHeap", DisableHLEFlags::sceHeap},
 	// Guessing these names
 	{"sceJpeg", "sceJpeg"},
 	{"sceJpeg_library", "sceJpeg"},
@@ -194,11 +209,44 @@ DisableHLEFlags AlwaysDisableHLEFlags() {
 	//
 	// PSMF testing issue: #20200
 	// sceCcc is simply a character conversion library, zero deps. If available we just load it.
-	return DisableHLEFlags::scePsmf | DisableHLEFlags::scePsmfPlayer | DisableHLEFlags::sceCcc;
+	// sceDeflt is zip format decompression.
+	// sceSmft19937 and sceMt19937 are random number generation.
+	// sceAdler, sceSha256, sceMd5 are hashes.
+	// sceHeap is a memory allocator wrapper.
+	//
+	// All these are found in game discs, and are basically dependency-less libraries that we
+	// can just run as-is, no need for HLE. Games always ship these if they use them.
+	//
+	// sceFont is the odd one out: the module is on the disc like the others, but it reads its fonts
+	// from flash0:/font, so it is only usable with a firmware dump installed - see
+	// CheckDisableHLEAvailability, which puts the HLE back when those fonts aren't there.
+	//
+	// sceParseUri and sceParseHttp are not here - those two are also in the firmware, and
+	// sceUtility can load them (modules 0x103 and 0x104), so unlike the rest a game may import them
+	// without carrying a copy.
+	return DisableHLEFlags::scePsmf | DisableHLEFlags::scePsmfPlayer | DisableHLEFlags::sceCcc |
+		DisableHLEFlags::sceDeflt | DisableHLEFlags::sceAdler | DisableHLEFlags::sceMd5 |
+		DisableHLEFlags::sceSha256 | DisableHLEFlags::sceMt19937 | DisableHLEFlags::sceSfmt19937 |
+		DisableHLEFlags::sceHeap | DisableHLEFlags::sceFont;
 }
 
+// Which modules we're HLE-ing is part of the machine's state, not a live setting: it's decided
+// when each module is loaded, and the syscall stubs written into memory then are what a savestate
+// captures. So latch it on the first use after boot, save it in the state, and restore it on load
+// - otherwise a state made on one side of the boundary gets its imports re-resolved against the
+// other, and every call into the module lands on an unresolved stub. Changing the setting takes
+// effect on the next boot, which is the only point it could have taken effect anyway.
+static DisableHLEFlags g_effectiveDisableHLE;
+static bool g_disableHLELatched;
+
+// Flags the user asked for that we can't honour this boot, because the firmware modules they
+// need aren't in the NAND directory. Subtracted in ComputeDisableHLEFlags so that a missing dump
+// leaves the HLE in place rather than handing the game unresolved imports, which is much worse
+// than our stubs. Recomputed per boot, since the dump can appear between runs.
+static DisableHLEFlags g_unavailableDisableFlags = (DisableHLEFlags)0;
+
 // Process compat flags.
-static DisableHLEFlags GetDisableHLEFlags() {
+static DisableHLEFlags ComputeDisableHLEFlags() {
 	DisableHLEFlags flags = (DisableHLEFlags)g_Config.iDisableHLE | AlwaysDisableHLEFlags();
 	if (PSP_CoreParameter().compat.flags().DisableHLESceFont) {
 		flags |= DisableHLEFlags::sceFont;
@@ -208,11 +256,38 @@ static DisableHLEFlags GetDisableHLEFlags() {
 	}
 
 	flags &= ~(DisableHLEFlags)g_Config.iForceEnableHLE;
+	// Anything whose firmware module isn't actually present stays HLE'd.
+	flags &= ~g_unavailableDisableFlags;
 	return flags;
 }
 
+static DisableHLEFlags GetDisableHLEFlags() {
+	if (!g_disableHLELatched) {
+		g_effectiveDisableHLE = ComputeDisableHLEFlags();
+		g_disableHLELatched = true;
+	}
+	return g_effectiveDisableHLE;
+}
+
+DisableHLEFlags GetEffectiveDisableHLEFlags() {
+	return GetDisableHLEFlags();
+}
+
 // Note: name is the modname from prx, not the export module name!
+// See SetForceRealModuleLoads.
+static bool g_forceRealModuleLoads = false;
+
+void SetForceRealModuleLoads(bool force) {
+	g_forceRealModuleLoads = force;
+}
+
 bool ShouldHLEModule(std::string_view modname, bool *wasDisabledManually) {
+	if (g_forceRealModuleLoads) {
+		if (wasDisabledManually) {
+			*wasDisabledManually = false;
+		}
+		return false;
+	}
 	if (wasDisabledManually) {
 		*wasDisabledManually = false;
 	}
@@ -262,17 +337,67 @@ static void hleDelayResultFinish(u64 userdata, int cycleslate) {
 		WARN_LOG(Log::HLE, "Someone else woke up HLE-blocked thread %d?", threadID);
 }
 
+// Which files need to be present for a disable-hle-flag to be honoured.
+//
+// Two shapes end up here. sceMp4 because libmp4.prx and mp4msv.prx are firmware libraries no game
+// ships, so without a dump there is nothing to run at all. sceFont because the module is on the
+// disc like any other but reads its fonts from flash0:/font with nothing to fall back on. Either
+// way the HLE is the only thing that can serve, so the flag comes off.
+//
+// sceMpeg, sceMp3 and sceAtrac are deliberately not here: plenty of discs carry their own copy
+// (Death Jr. has MPEG.PRX and LIBATRAC3PLUS.PRX under PSP_GAME/USRDIR/MODULES), and dropping the
+// flag for want of a dump would replace a perfectly good disc module with our HLE. Those check for
+// a real module at the point they would load one, and warn there if neither source has it.
+static void CheckDisableHLEAvailability() {
+	g_unavailableDisableFlags = (DisableHLEFlags)0;
+
+	// libfont.prx/sceFont is shipped on game discs but reads its fonts from flash0:/font and has
+	// nothing to fall back on, so the fonts are required.
+	if (AlwaysDisableHLEFlags() & DisableHLEFlags::sceFont) {
+		if (!NandFontsComplete()) {
+			g_unavailableDisableFlags |= DisableHLEFlags::sceFont;
+			INFO_LOG(Log::HLE, "flash0:/font doesn't have this firmware's fonts - using the HLE sceFont rather than the disc's.");
+		}
+	}
+
+	if ((DisableHLEFlags)g_Config.iDisableHLE & DisableHLEFlags::sceMp4) {
+		const Path kd = g_Config.nandRootDirectory / "flash0" / "kd";
+		if (!pspFileSystem.GetFileInfo("flash0:/kd/libmp4.prx").exists ||
+			!pspFileSystem.GetFileInfo("flash0:/kd/mp4msv.prx").exists) {
+			g_unavailableDisableFlags |= DisableHLEFlags::sceMp4;
+			ERROR_LOG(Log::HLE, "Asked to run the real sceMp4, but %s doesn't have libmp4.prx and "
+				"mp4msv.prx - keeping the HLE.", kd.c_str());
+			auto sy = GetI18NCategory(I18NCat::SYSTEM);
+			g_OSD.Show(OSDType::MESSAGE_WARNING,
+				sy->T("Real sceMp4 needs a firmware dump in the NAND folder - using HLE instead"), 6.0f);
+		}
+	}
+}
+
 void HLEInit() {
+	CheckDisableHLEAvailability();
 	RegisterAllModules();
+	// Latched lazily rather than here: the compat flags this depends on aren't loaded yet.
+	g_disableHLELatched = false;
 	g_stackSize = 0;
 	delayedResultEvent = CoreTiming::RegisterEvent("HLEDelayedResult", hleDelayResultFinish);
 	g_idleOp = GetSyscallOp("FakeSysCalls", NID_IDLE);
 }
 
 void HLEDoState(PointerWrap &p) {
-	auto s = p.Section("HLE", 1, 2);
+	auto s = p.Section("HLE", 1, 3);
 	if (!s)
 		return;
+
+	if (s >= 3) {
+		int disableHLE = (int)GetDisableHLEFlags();
+		Do(p, disableHLE);
+		if (p.mode == p.MODE_READ) {
+			// Whatever the config says now, this state's modules were loaded under these flags.
+			g_effectiveDisableHLE = (DisableHLEFlags)disableHLE;
+			g_disableHLELatched = true;
+		}
+	}
 
 	// Can't be inside a syscall when saving state, reset this so errors aren't misleading.
 	if (g_stackSize) {
@@ -325,7 +450,6 @@ const HLEModule *GetHLEModuleByIndex(int index) {
 	return &moduleDB[index];
 }
 
-// TODO: Do something faster.
 const HLEModule *GetHLEModuleByName(std::string_view name) {
 	for (auto &module : moduleDB) {
 		if (name == module.name) {
@@ -335,7 +459,6 @@ const HLEModule *GetHLEModuleByName(std::string_view name) {
 	return nullptr;
 }
 
-// TODO: Do something faster.
 const HLEFunction *GetHLEFuncByName(const HLEModule *module, std::string_view name) {
 	for (int i = 0; i < module->numFunctions; i++) {
 		auto &func = module->funcTable[i];

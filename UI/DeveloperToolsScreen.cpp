@@ -576,17 +576,20 @@ void DeveloperToolsScreen::CreateGraphicsTab(UI::LinearLayout *list) {
 	if (multiViewSupported) {
 		list->Add(new ItemHeader(gr->T("Stereo rendering")));
 		list->Add(new CheckBox(&g_Config.bStereoRendering, gr->T("Stereo rendering")));
-		std::vector<std::string> stereoShaderNames;
 
 		ChoiceWithValueDisplay *stereoShaderChoice = list->Add(new ChoiceWithValueDisplay(&g_Config.sStereoToMonoShader, gr->T("Stereo display shader"), &PostShaderTranslateName));
 		stereoShaderChoice->SetEnabledFunc(enableStereo);
 		stereoShaderChoice->OnClick.Add([=](EventParams &e) {
 			auto gr = GetI18NCategory(I18NCat::GRAPHICS);
 			auto procScreen = new PostProcScreen(gr->T("Stereo display shader"), 0, true);
+			procScreen->OnChoice.Add([this](EventParams &) {
+				RecreateViews();
+			});
 			if (e.v)
 				procScreen->SetPopupOrigin(e.v);
 			screenManager()->push(procScreen);
 		});
+
 		const ShaderInfo *shaderInfo = GetPostShaderInfo(g_Config.sStereoToMonoShader);
 		if (shaderInfo) {
 			for (size_t i = 0; i < ARRAY_SIZE(shaderInfo->settings); ++i) {
@@ -660,8 +663,7 @@ void DeveloperToolsScreen::CreateTabs() {
 	AddTab("DumpFiles", dev->T("Dump files"), [this](UI::LinearLayout *parent) {
 		CreateDumpFileTab(parent);
 	});
-	// Need a better title string.
-	AddTab("HLE", dev->T("Disable HLE"), [this](UI::LinearLayout *parent) {
+	AddTab("HLE", dev->T("HLE"), [this](UI::LinearLayout *parent) {
 		CreateHLETab(parent);
 	});
 #if !PPSSPP_PLATFORM(ANDROID) && !PPSSPP_PLATFORM(IOS) && !PPSSPP_PLATFORM(SWITCH)

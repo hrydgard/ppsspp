@@ -40,6 +40,8 @@ enum class IdentifiedFileType {
 	ARCHIVE_RAR,
 	ARCHIVE_ZIP,
 	ARCHIVE_7Z,
+	// A .pkg game update - a container we install from rather than boot. See Core/Util/PkgUnpack.h.
+	PSP_PKG,
 	PSP_PS1_PBP,
 	PSX_ISO,
 	PS2_ISO,

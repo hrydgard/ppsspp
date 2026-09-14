@@ -40,6 +40,10 @@
 
 DisassemblyManager g_disassemblyManager;
 
+void ClearDisassemblyCache() {
+	g_disassemblyManager.clear();
+}
+
 bool isInInterval(u32 start, u32 size, u32 value) {
 	return start <= value && value <= (start+size-1);
 }

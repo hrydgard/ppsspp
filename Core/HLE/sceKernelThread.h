@@ -341,6 +341,10 @@ KernelObject *__KernelCallbackObject();
 SceUID __KernelGetCurThread();
 int KernelCurThreadPriority();
 bool KernelChangeThreadPriority(SceUID threadID, int priority);
+// Whether the running thread belongs to a kernel module. Privilege on the PSP is a property of
+// the caller, not of the syscall - hleIsKernelMode() only says the entry point itself is a
+// kernel-only export, which is a different question.
+bool __KernelCurThreadIsKernelMode();
 u32 __KernelGetCurThreadStack();
 u32 __KernelGetCurThreadStackStart();
 const char *__KernelGetThreadName(SceUID threadID);

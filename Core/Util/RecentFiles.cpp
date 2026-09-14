@@ -131,7 +131,7 @@ void RecentFilesManager::Add(std::string_view filename) {
 	}
 
 	// Some things should not be added to recent, such as the VSH (which will have a separate UI for launching it)
-	if (endsWithNoCase(filename, "vshmain.prx")) {
+	if (equalsNoCase(Path(filename).GetFilename(), "vshmain.prx")) {
 		return;
 	}
 

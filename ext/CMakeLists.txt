@@ -51,6 +51,30 @@ add_library(xxhash STATIC
 	xxhash.h
 )
 
+set(aemu_postoffice_client_obj
+	aemu_postoffice/client/postoffice.c
+	aemu_postoffice/client/postoffice_mem_stdc.c
+	aemu_postoffice/client/mutex_impl_cpp.cpp
+	aemu_postoffice/client/delay_impl_cpp.cpp
+	aemu_postoffice/client/log_impl_ppsspp.cpp
+)
+
+if(WIN32)
+	list(APPEND aemu_postoffice_client_obj
+		aemu_postoffice/client/sock_impl_windows.c
+	)
+endif()
+
+if(LINUX OR ANDROID OR MACOSX OR IOS OR BSD)
+	list(APPEND aemu_postoffice_client_obj
+		aemu_postoffice/client/sock_impl_linux.c
+	)
+endif()
+
+add_library(aemu_postoffice_client STATIC
+	${aemu_postoffice_client_obj}
+)
+
 set(FT_REQUIRE_ZLIB OFF CACHE BOOL "" FORCE)
 set(FT_REQUIRE_BZIP2 OFF CACHE BOOL "" FORCE)
 set(FT_REQUIRE_PNG OFF CACHE BOOL "" FORCE)

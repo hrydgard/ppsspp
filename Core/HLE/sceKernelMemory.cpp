@@ -390,11 +390,17 @@ void __KernelMemoryShutdown()
 }
 
 BlockAllocator *BlockAllocatorFromID(int id) {
+	// A kernel module gets the privileged partitions whichever entry point it came in through -
+	// threads/tls/kernel/partition records sceKernelCreateTlspl accepting 1, 3 and 4 from a
+	// kernel module and refusing them from user mode, and it reaches the kernel through the
+	// ordinary ThreadManForUser NID either way. hleIsKernelMode() alone only catches the case
+	// where the export itself is kernel-only.
+	const bool kernelMode = hleIsKernelMode() || __KernelCurThreadIsKernelMode();
 	switch (id) {
 	case KERNEL_PARTITION_ID:
 	case 3:
 	case 4:
-		if (hleIsKernelMode())
+		if (kernelMode)
 			return &kernelMemory;
 		return nullptr;
 
@@ -404,7 +410,7 @@ BlockAllocator *BlockAllocatorFromID(int id) {
 
 	case 8:
 	case 10:
-		if (hleIsKernelMode())
+		if (kernelMode)
 			return &userMemory;
 		return nullptr;
 
@@ -465,11 +471,7 @@ static bool __KernelUnlockFplForThread(FPL *fpl, FplWaitingThread &threadInfo, u
 	}
 
 	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
-	if (timeoutPtr != 0 && fplWaitTimer != -1) {
-		// Remove any event for this thread.
-		s64 cyclesLeft = CoreTiming::UnscheduleEvent(fplWaitTimer, threadID);
-		Memory::WriteOrException_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
-	}
+	HLEKernel::WriteRemainingTimeout(fplWaitTimer, threadID, timeoutPtr);
 
 	__KernelResumeThreadFromWait(threadID, result);
 	wokeThreads = true;
@@ -523,7 +525,10 @@ static void __KernelSortFplThreads(FPL *fpl)
 int sceKernelCreateFpl(const char *name, u32 mpid, u32 attr, u32 blockSize, u32 numBlocks, u32 optPtr) {
 	if (!name)
 		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_NO_MEMORY, "invalid name");
-	if (mpid < 1 || mpid > 9 || mpid == 7)
+	// Only partitions 1-6 exist. sysmem/partitions and its kernel-mode twin record 7 and up
+	// coming back ILLEGAL_ARGUMENT from both privilege levels; what privilege changes is the
+	// permission check below, not the range.
+	if (mpid < 1 || mpid > 6)
 		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid partition %d", mpid);
 
 	BlockAllocator *allocator = BlockAllocatorFromID(mpid);
@@ -556,6 +561,12 @@ int sceKernelCreateFpl(const char *name, u32 mpid, u32 attr, u32 blockSize, u32 
 		alignment = 4;
 
 	int alignedSize = ((int)blockSize + alignment - 1) & ~(alignment - 1);
+	// The size check above uses 4 byte alignment, but the caller can ask for much more than that,
+	// so the aligned total can still overflow - and then we'd allocate a small block while
+	// numBlocks stays huge, handing out block addresses outside it.
+	if ((u64)(u32)alignedSize * (u64)numBlocks > 0xFFFFFFFFULL)
+		return hleReportWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE, "aligned blockSize/count overflows");
+
 	u32 totalSize = alignedSize * numBlocks;
 	bool atEnd = (attr & PSP_FPL_ATTR_HIGHMEM) != 0;
 	u32 address = allocator->Alloc(totalSize, atEnd, StringFromFormat("FPL/%s", name).c_str());
@@ -847,7 +858,9 @@ public:
 	}
 
 	BlockAllocator *alloc;
-	u32 address;
+	// Note: the savestate constructor doesn't allocate, and DoState bails out if the section is
+	// missing - so this needs a value the destructor won't try to free.
+	u32 address = (u32)-1;
 	char name[32];
 };
 
@@ -872,8 +885,14 @@ int sceKernelAllocPartitionMemory(int partition, const char *name, int type, u32
 		if ((addr & (addr - 1)) != 0 || addr == 0)
 			return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ALIGNMENT_SIZE, "invalid alignment %x", addr);
 	}
-	if (partition < 1 || partition > 9 || partition == 7)
-		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid partition %x", partition);
+	// SysMemUserForUser and SysMemForKernel both land here, and sysmem/partitions shows they
+	// report an out-of-range partition differently - ILLEGAL_ARGUMENT from the user entry point,
+	// ILLEGAL_PARTITION from the kernel one. hleIsKernelMode() is exactly "came in through the
+	// kernel NID", which is the distinction being made.
+	if (partition < 1 || partition > 6) {
+		const u32 error = hleIsKernelMode() ? SCE_KERNEL_ERROR_ILLEGAL_PARTITION : SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
+		return hleLogWarning(Log::sceKernel, error, "invalid partition %x", partition);
+	}
 
 	BlockAllocator *allocator = BlockAllocatorFromID(partition);
 	if (allocator == nullptr)
@@ -1247,11 +1266,7 @@ static bool __KernelUnlockVplForThread(VPL *vpl, VplWaitingThread &threadInfo, u
 	}
 
 	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
-	if (timeoutPtr != 0 && vplWaitTimer != -1) {
-		// Remove any event for this thread.
-		s64 cyclesLeft = CoreTiming::UnscheduleEvent(vplWaitTimer, threadID);
-		Memory::WriteOrException_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
-	}
+	HLEKernel::WriteRemainingTimeout(vplWaitTimer, threadID, timeoutPtr);
 
 	__KernelResumeThreadFromWait(threadID, result);
 	wokeThreads = true;
@@ -1305,7 +1320,10 @@ static void __KernelSortVplThreads(VPL *vpl)
 SceUID sceKernelCreateVpl(const char *name, int partition, u32 attr, u32 vplSize, u32 optPtr) {
 	if (!name)
 		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ERROR, "invalid name");
-	if (partition < 1 || partition > 9 || partition == 7)
+	// Only partitions 1-6 exist. sysmem/partitions and its kernel-mode twin record 7 and up
+	// coming back ILLEGAL_ARGUMENT from both privilege levels; what privilege changes is the
+	// permission check below, not the range.
+	if (partition < 1 || partition > 6)
 		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid partition %d", partition);
 
 	BlockAllocator *allocator = BlockAllocatorFromID(partition);
@@ -1443,7 +1461,7 @@ void __KernelVplTimeout(u64 userdata, int cyclesLate) {
 	// If in FIFO mode, that may have cleared another thread to wake up.
 	VPL *vpl = kernelObjects.Get<VPL>(uid, error);
 	if (vpl && (vpl->nv.attr & PSP_VPL_ATTR_MASK_ORDER) == PSP_VPL_ATTR_FIFO) {
-		bool wokeThreads;
+		bool wokeThreads = false;
 		std::vector<VplWaitingThread>::iterator iter = vpl->waitingThreads.begin();
 		// Unlock every waiting thread until the first that must still wait.
 		while (iter != vpl->waitingThreads.end() && __KernelUnlockVplForThread(vpl, *iter, error, 0, wokeThreads)) {
@@ -1863,7 +1881,12 @@ SceUID sceKernelCreateTlspl(const char *name, u32 partition, u32 attr, u32 block
 		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_NO_MEMORY, "invalid name");
 	if ((attr & ~PSP_TLSPL_ATTR_KNOWN) >= 0x100)
 		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ATTR, "invalid attr parameter: %08x", attr);
-	if (partition < 1 || partition > 9 || partition == 7)
+	// Only 1-6 exist, in either privilege level: threads/tls/partition and its kernel-mode twin
+	// both record 7 and up returning ILLEGAL_ARGUMENT on a real PSP. What the privilege changes
+	// is the permission check below - 1, 3 and 4 are ILLEGAL_PERM from user mode and fine from
+	// kernel mode. Note this differs from sceKernelCreateVpl above, which lets 8 and 9 reach the
+	// permission check; the two used to share a range that was only ever right for Vpl.
+	if (partition < 1 || partition > 6)
 		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "invalid partition %d", partition);
 
 	BlockAllocator *allocator = BlockAllocatorFromID(partition);
@@ -1908,6 +1931,11 @@ SceUID sceKernelCreateTlspl(const char *name, u32 partition, u32 attr, u32 block
 
 	// Upalign.  Strangely, the sceKernelReferTlsplStatus value is the original.
 	u32 alignedSize = (blockSize + alignment - 1) & ~(alignment - 1);
+	// The size check above uses 4 byte alignment, but the caller can ask for much more than that,
+	// so the aligned total can still overflow - and then we'd allocate a small block while
+	// totalBlocks stays huge, handing out block addresses outside it.
+	if ((u64)alignedSize * (u64)count > 0xFFFFFFFFULL)
+		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE, "aligned blockSize/count overflows");
 
 	u32 totalSize = alignedSize * count;
 	u32 blockPtr = allocator->Alloc(totalSize, (attr & PSP_TLSPL_ATTR_HIGHMEM) != 0, StringFromFormat("TLS/%s", name).c_str());

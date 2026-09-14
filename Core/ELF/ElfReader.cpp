@@ -269,6 +269,8 @@ void ElfReader::LoadRelocations2(int rel_seg)
 	int flag_bits, seg_bits, type_bits;
 	int cmd, flag, seg, type;
 	int off_seg = 0, addr_seg, rel_base, rel_offset;
+	// last_type is the type of the previous relocation, which one of the lo16 encodings below
+	// depends on.
 	int relocate_to, last_type, lo16 = 0;
 	u32 op, addr;
 	int rcount = 0;
@@ -328,6 +330,15 @@ void ElfReader::LoadRelocations2(int rel_seg)
 	if (!haveBytes(type_table_size))
 		return;
 	buf += type_table_size;
+
+	// Note: flash0:/kd/loadcore.prx and flash0:/kd/sysmem.prx are relocated by the PSP's own
+	// reboot code, which reads this table through a different type mapping -
+	// {0, 3, 6, 7, 1, 2, 4, 5} indexed by the entry, see
+	// https://github.com/uofw/uofw/blob/master/src/reboot/elf.c and the same special case in
+	// JPCSP's Loader.relocateFromBufferA1. We don't apply it, because we don't emulate that
+	// reboot path - those two only get here through a --vsh boot, and would need the module
+	// filename plumbed down to tell them apart. Worth doing if VSH/LLE boot is ever taken
+	// further; harmless for every game module, which is everything else that lands here.
 
 	rel_base = 0;
 	last_type = -1;
@@ -433,6 +444,11 @@ void ElfReader::LoadRelocations2(int rel_seg)
 			if((flag&0x38)==0x00){
 				lo16 = 0;
 			}else if((flag&0x38)==0x08){
+				// Reuse the lo16 the previous command carried, but only if that was itself a
+				// HI16 - this is how a pair of luis on either side of a branch share one addiu.
+				// last_type used to never be assigned, so this always fell through to lo16 = 0,
+				// and the HI16 case below then added a spurious carry whenever the load address
+				// happened to have bit 15 set - putting the pointer 0x10000 past its target.
 				if(last_type!=0x04)
 					lo16 = 0;
 			}else if((flag&0x38)==0x10){
@@ -447,11 +463,15 @@ void ElfReader::LoadRelocations2(int rel_seg)
 			}
 
 			op = Memory::Read_Instruction(rel_offset, true).encoding;
+			const u32 origOp = op;
 			VERBOSE_LOG(Log::Loader, "Rel2: %5d: CMD=0x%04X flag=%x type=%d off_seg=%d offset=%08x addr_seg=%d op=%08x", rcount, cmd, flag, type, off_seg, rel_base, addr_seg, op);
 
 			switch(type){
 			case 0:
-				continue;
+				// Falls through to the bookkeeping below rather than continuing the loop: an
+				// R_MIPS_NONE between two HI16s still has to clear last_type, or the second one
+				// would reuse a lo16 that isn't its own. Writing op back unchanged is harmless.
+				break;
 			case 2: // R_MIPS_32
 				op += relocate_to;
 				break;
@@ -480,9 +500,19 @@ void ElfReader::LoadRelocations2(int rel_seg)
 				break;
 			}
 
-			Memory::WriteUnchecked_U32(op, rel_offset);
-			NotifyMemInfo(MemBlockFlags::WRITE, rel_offset, 4, "Relocation2");
+			// R_MIPS_NONE never changes anything, and a relocation against a zero base doesn't
+			// either, so don't report a write that didn't happen - it only adds noise to the
+			// memory-info view. JPCSP guards its write the same way. rcount still counts the
+			// relocation as processed.
+			if (op != origOp) {
+				Memory::WriteUnchecked_U32(op, rel_offset);
+				NotifyMemInfo(MemBlockFlags::WRITE, rel_offset, 4, "Relocation2");
+			}
 			rcount += 1;
+			// Only the commands that actually relocate something count as "the previous type" -
+			// the ones above that just move the base around don't, so a HI16/HI16/LO16 group
+			// still pairs up across them. Same place JPCSP assigns its R_TYPE_OLD.
+			last_type = type;
 		}
 	}
 
@@ -514,8 +544,18 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop) {
 	if (header->e_ident[EI_DATA] != ELFDATA2LSB)
 		return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
 
-	if (size_ < header->e_phoff + sizeof(Elf32_Phdr) * GetNumSegments() || size_ < header->e_shoff + sizeof(Elf32_Shdr) * GetNumSections()) {
-		ERROR_LOG(Log::Loader, "Truncated ELF, %d bytes with %d sections and %d segments", (int)size_, GetNumSections(), GetNumSegments());
+	const size_t phdrEnd = header->e_phoff + sizeof(Elf32_Phdr) * GetNumSegments();
+	const size_t shdrEnd = header->e_shoff + sizeof(Elf32_Shdr) * GetNumSections();
+	if (size_ < phdrEnd || size_ < shdrEnd) {
+		// Say which table runs off the end and by how much. "Truncated ELF" on its own sends you
+		// looking at the executable, when the usual cause is that we were handed fewer bytes than
+		// the file really has - a short read, or a size clamped somewhere upstream.
+		const char *which = size_ < phdrEnd ? "program header table" : "section header table";
+		const size_t needed = size_ < phdrEnd ? phdrEnd : shdrEnd;
+		loadError_ = StringFromFormat(
+			"Truncated ELF: %s ends at %d but only %d bytes are available (%d short), %d sections, %d segments",
+			which, (int)needed, (int)size_, (int)(needed - size_), GetNumSections(), GetNumSegments());
+		ERROR_LOG(Log::Loader, "%s", loadError_.c_str());
 		// Probably not the right error code.
 		return SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED;
 	}

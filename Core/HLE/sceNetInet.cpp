@@ -1237,6 +1237,8 @@ const HLEFunction sceNetInet[] = {
 	{0X80A21ABD, &WrapI_I<sceNetInetSocketAbort>,    "sceNetInetSocketAbort",           'i', "i"      },
 	{0X39B0C7D3, nullptr,                            "sceNetInetGetUdpcbstat",          '?', ""       },
 	{0XB3888AD4, nullptr,                            "sceNetInetGetTcpcbstat",          '?', ""       },
+	{0X2D5868C0, nullptr,                            "sceNetInetDelArp",                '?', ""       },
+	{0XCCC18C45, nullptr,                            "sceNetInetAddArp",                '?', ""       }
 };
 
 void Register_sceNetInet() {

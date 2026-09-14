@@ -35,12 +35,9 @@
 #include "Core/Util/PathUtil.h"
 #include "libchdr/chd.h"
 
-extern "C"
-{
 #include "zlib.h"
 #include "ext/libkirk/amctrl.h"
 #include "ext/libkirk/kirk_engine.h"
-};
 
 static u16 ReadLE16(const u8 *ptr) {
 	return ptr[0] | (ptr[1] << 8);
@@ -306,8 +303,18 @@ FileBlockDevice::~FileBlockDevice() {}
 
 bool FileBlockDevice::ReadBlock(int blockNumber, u8 *outPtr, bool uncached) {
 	FileLoader::Flags flags = uncached ? FileLoader::Flags::HINT_UNCACHED : FileLoader::Flags::NONE;
-	size_t retval = fileLoader_->ReadAt((u64)blockNumber * (u64)GetBlockSize(), 1, 2048, outPtr, flags);
+	const u64 offset = (u64)blockNumber * (u64)GetBlockSize();
+	size_t retval = fileLoader_->ReadAt(offset, 1, 2048, outPtr, flags);
 	if (retval != 2048) {
+		// Not every image is a whole number of sectors. Tools that build pre-patched ISOs do write
+		// images that stop in the middle of their last sector, with a file legitimately ending
+		// there. The bytes that are present are real, so zero the rest of the sector and report
+		// success. Failing instead loses them: callers substitute an all-zero sector, which
+		// quietly corrupts whatever was in that tail.
+		if (retval > 0 && offset < filesize_) {
+			memset(outPtr + retval, 0, 2048 - retval);
+			return true;
+		}
 		DEBUG_LOG(Log::FileSystem, "Could not read 2048 byte block, at block offset %d. Only got %d bytes", blockNumber, (int)retval);
 		return false;
 	}

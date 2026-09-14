@@ -232,12 +232,7 @@ static bool __KernelUnlockMutexForThread(PSPMutex *mutex, SceUID threadID, u32 &
 	}
 
 	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
-	if (timeoutPtr != 0 && mutexWaitTimer != -1)
-	{
-		// Remove any event for this thread.
-		s64 cyclesLeft = CoreTiming::UnscheduleEvent(mutexWaitTimer, threadID);
-		Memory::WriteOrException_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
-	}
+	HLEKernel::WriteRemainingTimeout(mutexWaitTimer, threadID, timeoutPtr);
 
 	__KernelResumeThreadFromWait(threadID, result);
 	return true;
@@ -695,11 +690,7 @@ bool __KernelUnlockLwMutexForThread(LwMutex *mutex, T workarea, SceUID threadID,
 	}
 
 	const u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
-	if (timeoutPtr != 0 && lwMutexWaitTimer != -1) {
-		// Remove any event for this thread.
-		s64 cyclesLeft = CoreTiming::UnscheduleEvent(lwMutexWaitTimer, threadID);
-		Memory::WriteOrException_U32((u32) cyclesToUs(cyclesLeft), timeoutPtr);
-	}
+	HLEKernel::WriteRemainingTimeout(lwMutexWaitTimer, threadID, timeoutPtr);
 
 	__KernelResumeThreadFromWait(threadID, result);
 	return true;

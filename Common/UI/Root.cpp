@@ -128,8 +128,6 @@ void EnableFocusMovement(bool enable) {
 		focusMoves.clear();
 		heldKeys.clear();
 		focusedView = nullptr;
-	} else {
-		enable = enable;
 	}
 }
 

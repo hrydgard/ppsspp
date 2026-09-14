@@ -38,6 +38,8 @@ struct OpenCategory {
 };
 
 static int g_openRegistryMode;
+// How many sceRegOpenRegistry calls are outstanding. It really is refcounted.
+static int g_openRegistryCount;
 static int g_handleGen;  // TODO: The real PSP seems to use memory addresses. Probably it's doing allocations, which we don't really want to do unless we can match them exactly.
 static std::map<int, OpenCategory> g_openCategories;
 
@@ -939,7 +941,10 @@ static const KeyValue tree_CONFIG[] = {
 
 // Dump of /REGISTRY
 static const KeyValue tree_REGISTRY[] = {
-	{ "category_version", ValueType::INT, "", (int)0x66 },  // decimal: 102
+	// A real 6.6x PSP has 0x66 here, which is what this tree was dumped from - but the VSH treats a
+	// category_version higher than the schema it knows as a corrupt registry and offers to reset your
+	// settings instead of booting. So we go very low.
+	{ "category_version", ValueType::INT, "", 1 },
 };
 
 // There might be more categories.
@@ -959,12 +964,14 @@ enum RegOpenMode {
 
 void __RegInit() {
 	g_openRegistryMode = 0;
+	g_openRegistryCount = 0;
 	g_handleGen = 1337;
 	g_openCategories.clear();
 }
 
 void __RegShutdown() {
 	g_openCategories.clear();
+	g_openRegistryCount = 0;
 }
 
 static const KeyValue *LookupCategory(std::string_view path, int *count) {
@@ -1003,11 +1010,17 @@ static const KeyValue *LookupCategory(std::string_view path, int *count) {
 }
 
 void __RegDoState(PointerWrap &p) {
-	auto s = p.Section("sceReg", 0, 1);
+	auto s = p.Section("sceReg", 0, 2);
 	if (!s)
 		return;
 	Do(p, g_openRegistryMode);
 	Do(p, g_openCategories);
+	if (s >= 2) {
+		Do(p, g_openRegistryCount);
+	} else {
+		// Old states didn't track this. Anything with a category open had the registry open too.
+		g_openRegistryCount = g_openCategories.empty() ? 0 : 1;
+	}
 }
 
 // Registry level (it seems only /system can exist, so kinda pointless)
@@ -1017,6 +1030,7 @@ int sceRegOpenRegistry(u32 regParamAddr, int mode, u32 regHandleAddr) {
 		Memory::WriteUnchecked_U32(0, regHandleAddr);
 	}
 	g_openRegistryMode = mode;
+	g_openRegistryCount++;
 
 	if (g_openRegistryMode != REG_OPEN_READONLY) {
 		WARN_LOG(Log::HLE, "sceRegOpenRegistry: Opening registry in non-readonly mode. This is not yet supported (we'll simply emulate it as read-only anyway).");
@@ -1029,7 +1043,12 @@ int sceRegCloseRegistry(int regHandle) {
 	if (regHandle != 0) {
 		return hleLogError(Log::sceReg, SCE_REG_ERROR_REGISTRY_NOT_FOUND);
 	}
-	g_openCategories.clear();
+	if (g_openRegistryCount > 0) {
+		g_openRegistryCount--;
+	}
+	if (g_openRegistryCount == 0) {
+		g_openCategories.clear();
+	}
 	return hleLogInfo(Log::sceReg, 0);
 }
 

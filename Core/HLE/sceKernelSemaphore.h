@@ -80,7 +80,4 @@ void __KernelSemaInit();
 void __KernelSemaDoState(PointerWrap &p);
 KernelObject *__KernelSemaphoreObject();
 
-extern "C"
-{
 #include "ext/libkirk/kirk_engine.h"
-}

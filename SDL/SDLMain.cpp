@@ -700,6 +700,17 @@ static void InitializeFilters(std::vector<std::string> &filters, BrowseFileType 
 	filters.push_back("*");
 }
 
+#if PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID)
+// Opens a file or folder in whatever the desktop associates with it, without blocking the caller.
+static void LaunchXdgOpen(const std::string &path) {
+	pid_t pid = fork();
+	if (pid == 0) {
+		execlp("xdg-open", "xdg-open", path.c_str(), nullptr);
+		_exit(1);
+	}
+}
+#endif
+
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4) {
 	switch (type) {
 	case SystemRequestType::RESTART_APP:
@@ -870,14 +881,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 #elif PPSSPP_PLATFORM(MAC)
 		OSXShowInFinder(param1.c_str());
 #elif (PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID))
-		pid_t pid = fork();
-		if (pid < 0)
-			return true;
-
-		if (pid == 0) {
-			execlp("xdg-open", "xdg-open", param1.c_str(), nullptr);
-			exit(1);
-		}
+		LaunchXdgOpen(param1);
 #endif /* PPSSPP_PLATFORM(WINDOWS) */
 		return true;
 	}
@@ -989,6 +993,8 @@ void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {
 #if defined(__APPLE__)
 		// If it's a folder and we're on a mac, open it in finder.
 		OSXShowInFinder(std::string(url).c_str());
+#elif PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID)
+		LaunchXdgOpen(std::string(url));
 #endif
 		// INFO_LOG(Log::System, "LaunchUrlType::LOCAL_FILE not implemented on this platform");
 		break;
@@ -1787,6 +1793,17 @@ int main(int argc, char *argv[]) {
 	SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");
 #endif
 
+	// SDL's automatic pick between Wayland and X11 doesn't always land on Wayland even in a
+	// Wayland session, and going through XWayland instead costs us scaling and input quality.
+	// So ask for it explicitly when the session looks like Wayland - unless the user has set
+	// SDL_VIDEO_DRIVER, in which case they've already told us what they want.
+	// WAYLAND_DISPLAY is only set on Wayland sessions, so this is a no-op elsewhere.
+	bool preferWayland = false;
+	if (getenv("WAYLAND_DISPLAY") && !getenv("SDL_VIDEO_DRIVER")) {
+		SDL_SetHint(SDL_HINT_VIDEO_DRIVER, "wayland");
+		preferWayland = true;
+	}
+
 	bool vulkanMayBeAvailable = false;
 	if (VulkanMayBeAvailable()) {
 		fprintf(stderr, "DEBUG: Vulkan might be available.\n");
@@ -1815,10 +1832,29 @@ int main(int argc, char *argv[]) {
 		fprintf(stderr, "Failed to initialize SDL with joystick support. Retrying without.\n");
 		joystick_enabled = false;
 		if (!SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO)) {
-			fprintf(stderr, "Unable to initialize SDL: %s\n", SDL_GetError());
-			return 1;
+			bool initialized = false;
+			if (preferWayland) {
+				// Asking for Wayland may be exactly what failed, so let SDL pick instead.
+				fprintf(stderr, "Unable to initialize SDL with the Wayland video driver (%s). Letting SDL choose.\n", SDL_GetError());
+				SDL_SetHint(SDL_HINT_VIDEO_DRIVER, nullptr);
+				preferWayland = false;
+				// Retry with joystick support - it was the video driver that failed, not the joysticks.
+				if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_JOYSTICK | SDL_INIT_GAMEPAD | SDL_INIT_AUDIO)) {
+					joystick_enabled = true;
+					initialized = true;
+				} else {
+					initialized = SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO);
+				}
+			}
+			if (!initialized) {
+				fprintf(stderr, "Unable to initialize SDL: %s\n", SDL_GetError());
+				return 1;
+			}
 		}
 	}
+
+	const char *videoDriver = SDL_GetCurrentVideoDriver();
+	fprintf(stderr, "Info: SDL video driver: %s\n", videoDriver ? videoDriver : "(none)");
 
 	fprintf(stderr, "Info: We compiled against SDL version %d.%d.%d", SDL_VERSIONNUM_MAJOR(compiled), SDL_VERSIONNUM_MINOR(compiled), SDL_VERSIONNUM_MICRO(compiled));
 	if (compiled != linked) {

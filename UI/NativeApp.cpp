@@ -807,8 +807,8 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 		// Launch into specified start screen. This is useful for testing UI, more screens can be easily added here.
 		if (equals(cmdLineOptions.startScreen.value(), "touchscreentest")) {
 			g_screenManager->switchScreen(new MainScreen());
+			g_screenManager->push(new TouchTestScreen(Path()));
 		}
-		g_screenManager->push(new TouchTestScreen(Path()));
 		if (equals(cmdLineOptions.startScreen.value(), "gamesettings")) {
 			g_screenManager->switchScreen(new LogoScreen(AfterLogoScreen::TO_GAME_SETTINGS));
 		} else if (equals(cmdLineOptions.startScreen.value(), "developertools")) {
@@ -1046,7 +1046,13 @@ void NativeShutdownGraphics(GraphicsContext *graphicsContext) {
 		}
 		ImGui_ImplThin3d_DestroyDeviceObjects();
 		ImGui_ImplThin3d_Shutdown();
+		// Destroy the debugger here, while the things it refers to are still alive. If left to
+		// static destruction, ~ImDisasmView runs after Core's globals are gone and its
+		// g_disassemblyManager.clear() walks a destroyed map (and locks a destroyed mutex).
+		imDebugger_.reset();
 		ImGui::DestroyContext(ctx_);
+		ctx_ = nullptr;
+		imguiInited_ = false;
 	}
 
 #if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)

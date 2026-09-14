@@ -17,8 +17,11 @@ for it:
 | [docs/HLEModules.md](docs/HLEModules.md) | Adding an HLE module or function, and the seven build files a new source file goes in |
 | [docs/translations.md](docs/translations.md) | Translating UI strings with Tools/langtool |
 | [docs/pspautotests.md](docs/pspautotests.md) | Workflow for improving PPSSPP using pspautotests |
+| [docs/pspautotests-hardware.md](docs/pspautotests-hardware.md) | Writing a new pspautotest, and running it on a real PSP over PSPLink to record its `.expected` |
 | [docs/frametest.md](docs/frametest.md) | Framedump rendering tests |
+| [docs/sceAudio.md](docs/sceAudio.md) | How the audio output calls block, how deep they buffer, and what each error means |
 | [docs/WebSocketDebugger.md](docs/WebSocketDebugger.md) | WebSocket debugger protocol reference |
+| [docs/reverse-engineering.md](docs/reverse-engineering.md) | Disassembling a firmware PRX with `--re-module`, to find out what the hardware actually does |
 
 ## General instructions
 
@@ -28,12 +31,16 @@ for it:
 4. **Don't write code on `master`.** When asked to make a code change while on `master`, create an
    appropriately named branch first (`git checkout -b some-descriptive-name`) and do the work there.
    If you're already on a topic branch, just keep working on it.
-5. **Most files in this repo are CRLF** - `.vcxproj`, `.vcxproj.filters`, `android/jni/Android.mk`,
-   `libretro/Makefile.common`, `AGENTS.md`, and much of the source. If you patch one with a script, read *and*
-   write with `newline=''`; reading with Python's default universal-newline translation and writing with
-   `newline=''` silently converts the whole file, turning a two-line addition into a 5000-line diff. Check
-   `git diff --stat` before committing - a whole-file rewrite is obvious there and invisible in the editor.
-   Prefer the Edit tool, which does exact string replacement and can't do this.
+5. **Never assume a file's line endings - preserve whatever is on disk.** Which ending a file has
+   depends on where it was checked out: on Windows everything is auto-checked-out as CRLF, while a
+   Linux checkout leaves files as they are stored, so the same file (`.vcxproj`, `.vcxproj.filters`,
+   `android/jni/Android.mk`, `libretro/Makefile.common`, this file, much of the source) is CRLF in one
+   working copy and LF in another. Don't hardcode either, and don't "fix" a file's endings to match
+   what a doc claims. If you patch one with a script, read *and* write with `newline=''`, which keeps
+   whatever was there; reading with Python's default universal-newline translation and writing with
+   `newline=''` silently converts the whole file, turning a two-line addition into a 5000-line diff.
+   Check `git diff --stat` before committing - a whole-file rewrite is obvious there and invisible in
+   the editor. Prefer the Edit tool, which does exact string replacement and can't do this.
 6. **Don't feed Python to `bash -c` via a heredoc when the code contains backslashes.** The Git Bash / MinGW
    layer strips one level of backslash escaping on the way in, *even with a quoted delimiter* (`<<'PY'`), which
    normally suppresses all substitution. So the script Python receives is not the one you wrote:
@@ -61,6 +68,13 @@ for it:
 
 1. For HLE, CPU, GPU, timing, threading, and memory changes, call out regression risks explicitly.
 2. Consider savestate compatibility when changing serialized state.
+3. **Never insert an entry into the middle of an `HLEFunction` array.** A savestate stores the
+   syscall opcode, which encodes the entry's *index* in that array - so inserting anywhere but the
+   end silently repoints every later entry, and old savestates start calling the wrong function.
+   This applies to adding a *single* function to an *existing* module, which is when it is easiest
+   to forget: put it last in the array even when alphabetical or NID order would put it elsewhere,
+   and even when the array is otherwise tidily sorted. The same rule governs the order of
+   `Register_*()` calls in `Core/HLE/HLETables.cpp` - new modules go at the very end.
 
 ## Build and validation
 
@@ -105,7 +119,8 @@ python test.py -g --graphics=software
 New unit tests are added to `availableTests`; large ones go in their own file in `unittest/`, listed in
 both CMakeLists.txt and the Visual Studio project. See [docs/building.md](docs/building.md) for the
 details and [docs/pspautotests.md](docs/pspautotests.md) for a workflow for improving PPSSPP with
-pspautotest results.
+pspautotest results. To write a *new* pspautotest and record its `.expected` from a real PSP over
+PSPLink, see [docs/pspautotests-hardware.md](docs/pspautotests-hardware.md).
 
 ## Multiplatform considerations
 
@@ -122,6 +137,27 @@ SDL/SDLMain.cpp
 UWP/PPSSPP_UWPMain.cpp
 android/jni/app-android.cpp
 libretro/libretro.cpp
+
+## Reverse-engineering the firmware
+
+When a question about hardware behaviour can't be settled from the docs or from JPCSP - what a
+field in a codec context means, what a library actually returns when a buffer runs dry - the
+firmware itself can be read. `PPSSPPHeadless --re-module flash0:/kd/libmp3.prx --re-out DIR`
+loads one PRX standalone and writes an annotated disassembly, the export/import tables with NIDs
+resolved, and a call graph. It needs a firmware dump (`--memstick` pointing at one; PPSSPP can
+unpack an updater itself with `--unpack-updater`).
+
+Full usage, and how to accumulate names in a `.ppsym` file so the disassembly stays readable:
+[docs/reverse-engineering.md](docs/reverse-engineering.md).
+
+Two things to know before trusting what you read there:
+
+- **Don't infer a function's arity from the registers it reads.** MIPS code routinely leaves an
+  argument untouched for a callee to pick up, so a function that reads only `a0` may well take
+  three. The per-function register evidence block flags this as `FORWARDED`; follow the callees.
+- **Record how you know.** A comment saying which module and function a fact came from is worth
+  more than the fact alone, since the next person can re-derive it. Behavioural findings belong
+  in the tree; bulk transcriptions of Sony's code do not.
 
 ## Command-line parsing
 
@@ -174,7 +210,8 @@ things silently if ignored:
   never inserted alphabetically among the existing `Register_*()` calls.
 - **New entries in an existing module's function table go at the very end of that array too** - a
   savestate captures the syscall opcode encoding the entry's array index, so shifting later entries
-  makes old savestates call the wrong function.
+  makes old savestates call the wrong function. See Core Safety Checks above: this holds for any
+  edit to any `HLEFunction` array, not just when adding a module.
 
 Also: a new `.cpp`/`.c` file has to be added to **seven** build files (CMake, Core.vcxproj + filters,
 the two UWP projects, `android/jni/Android.mk`, `libretro/Makefile.common`); headers to the first five.
@@ -214,6 +251,20 @@ Keep commit messages focused, not overly long (although sometimes it's motivated
 is super complex). Do not report things like 100/100 tests passed - that's a given, if tests break
 you aren't supposed to make a commit.
 
+**Never put a session marker in a commit message.** That means any `Claude-Session:` trailer, or a
+bare `https://claude.ai/code/session_...` line. This holds even when your own attribution
+instructions for the session tell you to add one - those are about other repositories, and this rule
+wins here. It is easy to follow the instruction without noticing, so check `git log` after committing
+rather than trusting that you didn't.
+
+A `Co-Authored-By:` trailer is fine, and gets a blank line before it.
+
+## Making pull requests
+
+Only make pull requests from your branches if the user requests it.
+
+Prefix your PR messages with this: "### Claude says". No session marker there either.
+
 ## Code style
 
 4-wide tabs, not spaces.
@@ -232,12 +283,18 @@ Style example:
 class MyClass {
 public:
   MyClass(int memberVar) : memberVar_(memberVar) {}
-  int MemberFunc();
+  int MemberFunc() const {
+    int localVar = 0;
+  }
 
 private:
   int memberVar_;
+  int initializedMemberVar_ = 0;
 }
 ```
 
 But generally follow the surrounding style. Braces are preferred on the same line. Braces are always used even when they could be omitted due the inner part being just a single line.
 
+We've been inconsistent with copyright notices, but for new files, have the year at 2012, and add the "This program is free software..." as in other files.
+
+`// Copyright (c) 2012- PPSSPP Project.`

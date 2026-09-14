@@ -153,6 +153,7 @@ bool GameInfo::Delete() {
 	case IdentifiedFileType::ARCHIVE_RAR:
 	case IdentifiedFileType::ARCHIVE_ZIP:
 	case IdentifiedFileType::ARCHIVE_7Z:
+	case IdentifiedFileType::PSP_PKG:
 	case IdentifiedFileType::UNKNOWN:
 	case IdentifiedFileType::PSP_UMD_VIDEO_ISO:
 	case IdentifiedFileType::PPSSPP_GE_DUMP:
@@ -169,8 +170,8 @@ bool GameInfo::Delete() {
 			const Path &ppstPath = filePath_;
 			INFO_LOG(Log::System, "Deleting file %s", ppstPath.c_str());
 			MoveFileToTrashOrDelete(ppstPath);
-			const Path screenshotPath = filePath_.WithReplacedExtension(".ppst", ".jpg");
-			if (File::Exists(screenshotPath)) {
+			Path screenshotPath;
+			if (filePath_.WithReplacedExtension(".ppst", ".jpg", &screenshotPath) && File::Exists(screenshotPath)) {
 				MoveFileToTrashOrDelete(screenshotPath);
 			}
 			return true;
@@ -450,9 +451,14 @@ void GameInfo::SetupTexture(Draw::DrawContext *thin3d, GameInfoTex &tex, int max
 
 // Will clear contents on failure.
 static bool ReadFileToString(IFileSystem *fs, std::string_view filename, std::string *contents, std::mutex *mtx) {
+	static constexpr s64 MAX_GAME_INFO_FILE_SIZE = 64 * 1024 * 1024;
 	std::string fn(filename);
 	PSPFileInfo info = fs->GetFileInfo(fn);
 	if (!info.exists) {
+		return false;
+	}
+	if (info.size < 0 || info.size > MAX_GAME_INFO_FILE_SIZE) {
+		WARN_LOG(Log::UI, "Ignoring implausibly large game metadata file %s (%lld bytes)", fn.c_str(), (long long)info.size);
 		return false;
 	}
 
@@ -760,8 +766,9 @@ handleELF:
 
 			// Let's use the screenshot as an icon, too.
 			if (flags_ & GameInfoFlags::ICON) {
-				Path screenshotPath = gamePath_.WithReplacedExtension(".ppst", ".jpg");
-				if (ReadLocalFileToString(screenshotPath, &info_->icon.data, &info_->lock)) {
+				Path screenshotPath;
+				if (gamePath_.WithReplacedExtension(".ppst", ".jpg", &screenshotPath) &&
+					ReadLocalFileToString(screenshotPath, &info_->icon.data, &info_->lock)) {
 					info_->icon.dataLoaded = true;
 				}
 			}
@@ -772,9 +779,10 @@ handleELF:
 		{
 			info_->SetTitle(info_->GetFilePath().GetFilename());
 			if (flags_ & GameInfoFlags::ICON) {
-				Path screenshotPath = gamePath_.WithReplacedExtension(".ppdmp", ".png");
 				// Let's use the comparison screenshot as an icon, if it exists.
-				if (screenshotPath.IsLocalType() && ReadLocalFileToString(screenshotPath, &info_->icon.data, &info_->lock)) {
+				Path screenshotPath;
+				if (gamePath_.WithReplacedExtension(".ppdmp", ".png", &screenshotPath) &&
+					screenshotPath.IsLocalType() && ReadLocalFileToString(screenshotPath, &info_->icon.data, &info_->lock)) {
 					info_->icon.dataLoaded = true;
 				}
 			}
@@ -913,6 +921,7 @@ handleELF:
 			}
 
 			case IdentifiedFileType::ARCHIVE_ZIP:
+			case IdentifiedFileType::PSP_PKG:
 				info_->SetTitle(info_->GetFilePath().GetFilename());
 				info_->icon.dataLoaded = true;
 				break;

@@ -3,6 +3,7 @@
   <ItemGroup>
     <ClCompile Include="Headless.cpp" />
     <ClCompile Include="Compare.cpp" />
+    <ClCompile Include="ReverseEngineer.cpp" />
     <ClCompile Include="..\ext\glew\glew.c" />
     <ClCompile Include="..\Windows\GPU\WindowsGLContext.cpp">
       <Filter>Windows</Filter>
@@ -35,6 +36,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Compare.h" />
+    <ClInclude Include="ReverseEngineer.h" />
     <ClInclude Include="WindowsHeadlessHost.h">
       <Filter>Windows</Filter>
     </ClInclude>

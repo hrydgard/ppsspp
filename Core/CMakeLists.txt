@@ -1,23 +1,4 @@
 set(CoreExtra)
-set(aemu_postoffice
-	${CMAKE_SOURCE_DIR}/ext/aemu_postoffice/client/postoffice.c
-	${CMAKE_SOURCE_DIR}/ext/aemu_postoffice/client/postoffice_mem_stdc.c
-	${CMAKE_SOURCE_DIR}/ext/aemu_postoffice/client/mutex_impl_cpp.cpp
-	${CMAKE_SOURCE_DIR}/ext/aemu_postoffice/client/delay_impl_cpp.cpp
-	${CMAKE_SOURCE_DIR}/ext/aemu_postoffice/client/log_impl_ppsspp.cpp
-)
-
-if(WIN32)
-	list(APPEND aemu_postoffice
-		${CMAKE_SOURCE_DIR}/ext/aemu_postoffice/client/sock_impl_windows.c
-	)
-endif()
-
-if(LINUX OR ANDROID OR MACOSX OR IOS OR BSD)
-	list(APPEND aemu_postoffice
-		${CMAKE_SOURCE_DIR}/ext/aemu_postoffice/client/sock_impl_linux.c
-	)
-endif()
 
 list(APPEND CoreExtra
 	MIPS/IR/IRAnalysis.cpp
@@ -523,7 +504,6 @@ add_library(Core STATIC
 	HLE/NetAdhocCommon.h
 	HLE/sceNetAdhoc.cpp
 	HLE/sceNetAdhoc.h
-	${aemu_postoffice}
 	HLE/sceNetAdhocMatching.cpp
 	HLE/sceNetAdhocMatching.h
 	HLE/sceNetInet.cpp
@@ -713,8 +693,12 @@ add_library(Core STATIC
 	Util/BlockAllocator.h
 	Util/PPGeDraw.cpp
 	Util/PPGeDraw.h
+	Util/KL4E.cpp
+	Util/KL4E.h
 	Util/PSARUnpack.cpp
 	Util/PSARUnpack.h
+	Util/PkgUnpack.cpp
+	Util/PkgUnpack.h
 	Util/RecentFiles.cpp
 	Util/RecentFiles.h
 	${CMAKE_SOURCE_DIR}/ext/disarm.cpp
@@ -746,7 +730,7 @@ endif()
 list(APPEND CoreExtraLibs armips)
 
 target_link_libraries(Core GPU Common chdr kirk cityhash sfmt19937 xbrz xxhash rcheevos minimp3 at3_standalone lua
-	${CoreExtraLibs} ${CMAKE_DL_LIBS})
+	aemu_postoffice_client ${CoreExtraLibs} ${CMAKE_DL_LIBS})
 
 # Winsock
 if(WIN32)
