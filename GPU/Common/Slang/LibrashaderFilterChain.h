@@ -56,7 +56,8 @@ private:
 	// the reason and Load() fails with it. Re-run by DeviceRestore for the new context.
 	void InitRuntime();
 	// Hands the librashader frees to the runtime and installs a fresh LibrashaderRenderState.
-	void ReleaseChain();
+	// deviceLost tells the runtime the render thread is going away and will not run queued work.
+	void ReleaseChain(bool deviceLost);
 	void ReleaseOutput();
 	bool EnsureOutput(int w, int h);
 	bool EnsureNativeInput(int w, int h);

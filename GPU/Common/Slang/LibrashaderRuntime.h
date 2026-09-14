@@ -71,7 +71,8 @@ public:
 	// Emu thread. Returns the function RunNativeCallback executes on the render thread.
 	virtual Draw::NativeCallbackFn MakeFrameCallback(std::shared_ptr<LibrashaderRenderState> rs, LibrashaderFrameArgs args) = 0;
 	// Emu thread. Frees rs->preset / chain on the thread the backend requires; draw may be null (device gone).
-	virtual void QueueFree(Draw::DrawContext *draw, std::shared_ptr<LibrashaderRenderState> rs) = 0;
+	// deviceLost means the backend is tearing down: a queue that never drains again must not be used.
+	virtual void QueueFree(Draw::DrawContext *draw, std::shared_ptr<LibrashaderRenderState> rs, bool deviceLost) = 0;
 };
 
 // Implemented by the per-backend adapter .cpp files.

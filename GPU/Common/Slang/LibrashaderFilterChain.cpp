@@ -110,7 +110,7 @@ void LibrashaderFilterChain::InitRuntime() {
 }
 
 LibrashaderFilterChain::~LibrashaderFilterChain() {
-	ReleaseChain();
+	ReleaseChain(false);
 	ReleaseOutput();
 }
 
@@ -132,7 +132,7 @@ bool LibrashaderFilterChain::Load(const Path &presetPath, std::string *error) {
 
 	// Frees the previous preset/chain through the deletion queue and installs a fresh, empty
 	// RenderState which nothing else references yet - so we can fill it in from this thread.
-	ReleaseChain();
+	ReleaseChain(false);
 	valid_ = false;
 	loggedError_ = false;
 	warnedNativeSize_ = false;
@@ -274,17 +274,20 @@ Draw::Framebuffer *LibrashaderFilterChain::Run(Draw::Framebuffer *source, int so
 	return render_->ready.load() ? output_ : nullptr;
 }
 
-void LibrashaderFilterChain::ReleaseChain() {
+void LibrashaderFilterChain::ReleaseChain(bool deviceLost) {
 	if (!render_)
 		return;
 	std::shared_ptr<LibrashaderRenderState> rs = render_;
 	render_ = std::make_shared<LibrashaderRenderState>();
 	// No adapter means Load() always failed, so the state we just swapped out is empty.
-	if (!runtime_)
+	if (!runtime_) {
+		_dbg_assert_msg_(!rs->preset && !rs->vkChain && !rs->glChain,
+			"librashader state is non-empty although the runtime never initialized");
 		return;
+	}
 	// draw_ is read here, before any caller nulls it (DeviceLost); the runtime decides which
 	// thread may touch the handles.
-	runtime_->QueueFree(draw_, std::move(rs));
+	runtime_->QueueFree(draw_, std::move(rs), deviceLost);
 }
 
 void LibrashaderFilterChain::ReleaseOutput() {
@@ -301,7 +304,7 @@ void LibrashaderFilterChain::ReleaseOutput() {
 }
 
 void LibrashaderFilterChain::DeviceLost() {
-	ReleaseChain();
+	ReleaseChain(true);
 	ReleaseOutput();
 	valid_ = false;
 	draw_ = nullptr;

@@ -132,7 +132,9 @@ public:
 		};
 	}
 
-	void QueueFree(Draw::DrawContext *draw, std::shared_ptr<LibrashaderRenderState> rs) override {
+	// deviceLost is ignored: Vulkan's deletion queue is fully drained before vkDestroyDevice, so a
+	// callback queued during teardown still runs.
+	void QueueFree(Draw::DrawContext *draw, std::shared_ptr<LibrashaderRenderState> rs, bool deviceLost) override {
 		VulkanContext *vulkan = draw ? (VulkanContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT) : nullptr;
 		if (!vulkan || !Librashader::IsLoaded()) {
 			// Device is gone (or the library never loaded): nothing left to free.

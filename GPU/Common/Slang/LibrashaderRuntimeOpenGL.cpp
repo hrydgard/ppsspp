@@ -105,18 +105,18 @@ public:
 		};
 	}
 
-	void QueueFree(Draw::DrawContext *draw, std::shared_ptr<LibrashaderRenderState> rs) override {
-		if (!draw || !Librashader::IsLoaded()) {
-			// Context is gone (DeviceLost): the GL objects died with it; the Rust-side allocation
-			// is leaked knowingly - freeing it needs the (now destroyed) creating context current.
-			if (rs->glChain || rs->preset)
-				WARN_LOG(Log::G3D, "LibrashaderRuntimeOpenGL: dropping chain without freeing (no GL context)");
+	void QueueFree(Draw::DrawContext *draw, std::shared_ptr<LibrashaderRenderState> rs, bool deviceLost) override {
+		// deviceLost: the render thread is stopping, and GLRenderManager::ThreadEnd deletes queued
+		// CALLBACK functions without running them - so enqueuing a free here would silently do
+		// nothing. Drop instead, deliberately.
+		if (deviceLost || !draw || !Librashader::IsLoaded()) {
+			DropChain(rs);
 			return;
 		}
 		// libra_gl_filter_chain_free requires the creating context to be current: do it on the GL
 		// thread. The callback holds a reference to rs, so a still-pending frame callback (queued
 		// earlier) runs first.
-		draw->RunNativeCallback(nullptr, nullptr, [rs](const Draw::NativeCallbackInfo &) {
+		bool enqueued = draw->RunNativeCallback(nullptr, nullptr, [rs](const Draw::NativeCallbackInfo &) {
 			if (!Librashader::IsLoaded())
 				return;
 			const libra_instance_t &lib = Librashader::Instance();
@@ -130,9 +130,26 @@ public:
 				rs->preset = nullptr;
 			}
 		}, "librashader_free");
+		if (!enqueued) {
+			WARN_LOG(Log::G3D, "LibrashaderRuntimeOpenGL: free callback could not be queued");
+			// A preset needs no GL context, so it can be freed right here (spec §8). The chain
+			// cannot, so it is dropped like on the DeviceLost path.
+			if (rs->preset && Librashader::IsLoaded()) {
+				(void)Librashader::ErrorToString(Librashader::Instance().preset_free(&rs->preset));
+				rs->preset = nullptr;
+			}
+			DropChain(rs);
+		}
 	}
 
 private:
+	// The GL objects die with the context; the Rust-side allocation is leaked knowingly - freeing it
+	// needs the (now unusable) creating context current on a render thread that still drains work.
+	static void DropChain(const std::shared_ptr<LibrashaderRenderState> &rs) {
+		if (rs->glChain || rs->preset)
+			WARN_LOG(Log::G3D, "LibrashaderRuntimeOpenGL: dropping chain without freeing (GL objects die with the context; librashader's Rust-side allocation is knowingly leaked)");
+	}
+
 	libra_gl_loader_t loader_ = nullptr;
 };
 
