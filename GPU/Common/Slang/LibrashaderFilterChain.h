@@ -29,11 +29,13 @@
 #include "Common/File/Path.h"
 #include "Common/GPU/Librashader/LibrashaderLoader.h"
 #include "GPU/Common/Slang/ISlangFilterChain.h"
+#include "GPU/Common/Slang/LibrashaderRuntime.h"
 
 namespace Draw { class DrawContext; class Framebuffer; }
 
-// Slang filter chain backed by the librashader shared library (Vulkan runtime).
-// All public methods are emu-thread only; the librashader runtime calls happen on the
+// Slang filter chain backed by the librashader shared library. Backend-agnostic: the device
+// handles, the render-thread frame callback and the free rules live in a LibrashaderRuntime
+// adapter. All public methods are emu-thread only; the librashader runtime calls happen on the
 // render thread inside native callback steps. See spec §6.5, §8, §9.
 class LibrashaderFilterChain : public ISlangFilterChain {
 public:
@@ -50,34 +52,21 @@ public:
 	SlangChainBackend Backend() const override { return SlangChainBackend::Librashader; }
 
 private:
-	// Owns everything the render thread touches, so nothing in the callback points back into
-	// this object. Held by shared_ptr, so a pending callback (or the deletion queue) keeps it
-	// alive even if the chain object dies first.
-	struct RenderState {
-		// Parsed on the emu thread in Load() while nothing else holds this state, then owned by
-		// the render thread: consumed by chain creation, or freed by the deletion-queue callback.
-		libra_shader_preset_t preset = nullptr;
-		libra_vk_filter_chain_t chain = nullptr;
-		// Callbacks the render thread has run since the chain was created (still 0 in the callback
-		// that creates it). Render thread only; the gate in the callback explains the bound.
-		int callbacksSinceCreate = 0;
-		std::atomic<bool> ready{false};
-		std::atomic<bool> failed{false};
-		std::mutex errorLock;
-		// Set on the render thread, read on the emu thread. Prefixed "create: " or "frame: " so the
-		// emu-side log says which librashader call actually failed.
-		std::string lastError;
-	};
-
-	// Queues the librashader frees on the Vulkan deletion queue and installs a fresh RenderState.
+	// Creates the backend adapter and grabs its device handles; on failure runtimeError_ holds
+	// the reason and Load() fails with it. Re-run by DeviceRestore for the new context.
+	void InitRuntime();
+	// Hands the librashader frees to the runtime and installs a fresh LibrashaderRenderState.
 	void ReleaseChain();
 	void ReleaseOutput();
 	bool EnsureOutput(int w, int h);
 	bool EnsureNativeInput(int w, int h);
 
 	Draw::DrawContext *draw_ = nullptr;
+	std::unique_ptr<LibrashaderRuntime> runtime_;
+	// Why runtime_ is null (unsupported backend, or Init failed). Surfaced by Load().
+	std::string runtimeError_;
 	Path presetPath_;
-	std::shared_ptr<RenderState> render_;
+	std::shared_ptr<LibrashaderRenderState> render_;
 	Draw::Framebuffer *output_ = nullptr;
 	int outputW_ = 0, outputH_ = 0;
 	// Native-PSP-sized copy of the source, only used by presets that sample OriginalHistoryN
@@ -89,6 +78,7 @@ private:
 	// Set by Load(): this preset references OriginalHistory[1-9] / OriginalHistorySize[1-9].
 	bool needsNativeInput_ = false;
 	bool loggedError_ = false;
+	bool loggedRuntimeError_ = false;
 	bool warnedNativeSize_ = false;
 };
 
