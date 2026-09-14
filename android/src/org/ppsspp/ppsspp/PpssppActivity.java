@@ -29,6 +29,7 @@ import android.media.AudioManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.VibrationEffect;
 import android.os.Environment;
 import android.os.PowerManager;
 import android.provider.MediaStore;
@@ -1663,6 +1664,31 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 				}
 			} else {
 				Log.e(TAG, "Can't vibrate, no surface view");
+			}
+			return true;
+
+		} else if (command.equals("controllerRumble")) {
+			// Controller rumble, requested by the core when "Vibrate controller on button
+			// press" is enabled. Params: "1,<deviceIndex>" = start, "0,<deviceIndex>" = stop.
+			// PPSSPP maps every connected pad to DEVICE_ID_PAD_0, so we rumble all of them.
+			if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+				boolean start = params != null && params.startsWith("1");
+				for (InputDeviceState state : inputPlayers) {
+					if (state == null || state.getDevice() == null) {
+						continue;
+					}
+					android.os.Vibrator vibrator = state.getDevice().getVibrator();
+					if (vibrator == null || !vibrator.hasVibrator()) {
+						continue;
+					}
+					if (start) {
+						// Repeats from index 0, so it runs until we cancel it - that is, until
+						// the button comes back up.
+						vibrator.vibrate(VibrationEffect.createWaveform(new long[]{1000}, new int[]{255}, 0));
+					} else {
+						vibrator.cancel();
+					}
+				}
 			}
 			return true;
 		} else if (command.equals("finish")) {
