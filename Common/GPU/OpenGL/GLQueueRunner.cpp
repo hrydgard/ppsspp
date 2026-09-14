@@ -725,7 +725,7 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, GLFrameData &f
 		case GLRStepType::RENDER_SKIP:
 			break;
 		case GLRStepType::CALLBACK:
-			PerformCallback(step, skipGLCalls);
+			PerformCallback(step, keepSteps);
 			break;
 		default:
 			Crash();
@@ -779,18 +779,18 @@ void GLQueueRunner::PerformBlit(const GLRStep &step) {
 	}
 }
 
-void GLQueueRunner::PerformCallback(const GLRStep &step, bool skipGLCalls) {
+void GLQueueRunner::PerformCallback(GLRStep &step, bool keepSteps) {
 	CHECK_GL_ERROR_IF_DEBUG();
 	GLRNativeCallbackFn *fn = step.callback.fn;
-	const_cast<GLRStep &>(step).callback.fn = nullptr;
 	if (!fn)
 		return;
-	if (!skipGLCalls) {
-		GLRNativeCallbackInfo info{ step.callback.src, step.callback.dst };
-		(*fn)(info);
-		RestoreBaselineStateAfterCallback();
+	GLRNativeCallbackInfo info{ step.callback.src, step.callback.dst };
+	(*fn)(info);
+	RestoreBaselineStateAfterCallback();
+	if (!keepSteps) {
+		delete step.callback.fn;
+		step.callback.fn = nullptr;
 	}
-	delete fn;
 	CHECK_GL_ERROR_IF_DEBUG();
 }
 
@@ -801,24 +801,43 @@ void GLQueueRunner::RestoreBaselineStateAfterCallback() {
 	// Force the next fbo_bind_fb_target to actually bind.
 	currentDrawHandle_ = (GLuint)-1;
 	currentReadHandle_ = (GLuint)-1;
-	fbo_bind_fb_target(false, 0);
-	fbo_bind_fb_target(true, 0);
+	fbo_unbind();
+	// The CALLBACK step presumes VAO support; attribute-enable state is only restored via the global VAO rebind.
 	if (gl_extensions.ARB_vertex_array_object) {
 		glBindVertexArray(globalVAO_);
 	}
 	glUseProgram(0);
+	glBindBuffer(GL_ARRAY_BUFFER, 0);
 	if (gl_extensions.GLES3 || gl_extensions.VersionGEThan(3, 3)) {
 		for (int i = 0; i < MAX_GL_TEXTURE_SLOTS; i++)
 			glBindSampler(i, 0);
 	}
 	glActiveTexture(GL_TEXTURE0);
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+#if !defined(USING_GLES2)
+	glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+	glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
+	glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
+	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+#endif
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 	glDepthMask(GL_TRUE);
 	glStencilMask(0xFF);
+	glDisable(GL_DEPTH_TEST);
+	glDisable(GL_STENCIL_TEST);
+	glDisable(GL_BLEND);
+	glDisable(GL_CULL_FACE);
+	glDisable(GL_DITHER);
+	glEnable(GL_SCISSOR_TEST);
 #ifndef USING_GLES2
-	if (!gl_extensions.IsGLES)
+	if (!gl_extensions.IsGLES) {
+		glDisable(GL_COLOR_LOGIC_OP);
+		glDisable(GL_DEPTH_CLAMP);
 		glDisable(GL_FRAMEBUFFER_SRGB);
+	}
+	for (int i = 0; i < 8; i++) {
+		glDisable(GL_CLIP_DISTANCE0 + (GLenum)i);
+	}
 #endif
 }
 

@@ -391,7 +391,7 @@ private:
 	void PerformBlit(const GLRStep &pass);
 	void PerformReadback(const GLRStep &pass);
 	void PerformReadbackImage(const GLRStep &pass);
-	void PerformCallback(const GLRStep &step, bool skipGLCalls);
+	void PerformCallback(GLRStep &step, bool keepSteps);
 	void RestoreBaselineStateAfterCallback();
 
 	void fbo_ext_create(const GLRInitStep &step);  // Unused on some platforms
