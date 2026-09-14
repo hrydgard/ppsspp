@@ -251,6 +251,7 @@ enum class NativeObject {
 	THIN3D_PIPELINE_LAYOUT,
 	PUSH_POOL,
 	VULKAN_GET_INSTANCE_PROC_ADDR,
+	GL_GET_PROC_ADDRESS,
 };
 
 enum class Aspect {
@@ -267,12 +268,13 @@ ENUM_CLASS_BITOPS(Aspect);
 
 // Payload handed to a native callback (see DrawContext::RunNativeCallback). Handles are
 // backend-specific integers so this header stays free of Vulkan/GL includes.
+// srcFormat/dstFormat are backend-native: VkFormat on Vulkan, a sized GL internal format (e.g. GL_RGBA8) on OpenGL.
 struct NativeCallbackInfo {
 	uint64_t cmdBuffer = 0;    // Vulkan: VkCommandBuffer
 	uint64_t srcImage = 0;     // Vulkan: VkImage of src color
-	uint32_t srcFormat = 0;    // Vulkan: VkFormat
+	uint32_t srcFormat = 0;    // Backend-native format (VkFormat, GL_RGBA8, etc.)
 	uint64_t dstImage = 0;
-	uint32_t dstFormat = 0;
+	uint32_t dstFormat = 0;    // Backend-native format
 	uint32_t srcTexture = 0;   // OpenGL: texture name (Phase 2)
 	uint32_t dstTexture = 0;
 	int srcWidth = 0, srcHeight = 0;
