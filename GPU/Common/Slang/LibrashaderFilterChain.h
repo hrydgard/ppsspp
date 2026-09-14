@@ -80,6 +80,7 @@ private:
 	std::map<std::string, float> paramOverrides_;
 	bool valid_ = false;
 	bool loggedCreateError_ = false;
+	bool warnedNativeSize_ = false;
 };
 
 #endif  // USE_LIBRASHADER

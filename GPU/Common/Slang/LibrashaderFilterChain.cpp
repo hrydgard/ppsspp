@@ -108,6 +108,25 @@ Draw::Framebuffer *LibrashaderFilterChain::Run(Draw::Framebuffer *source, int so
 	if (!EnsureOutput(std::max(1, viewportW), std::max(1, viewportH)))
 		return nullptr;
 
+	// Spec §12, verified in Task 8: librashader reads SourceSize/OriginalSize and the pass scale
+	// base from libra_image_vk_t::width/height (good - we report the native PSP size, so
+	// SourceSize-driven masks tile at the same frequency as the in-tree chain), but it also uses
+	// those numbers as the copy extent when it snapshots the input into its OriginalHistoryN ring.
+	// With PPSSPP's upscaled render target that snapshot therefore captures only the native-sized
+	// top-left corner. Warn once so the mismatch is visible instead of silent; the fallback (blit
+	// the source into a native-sized intermediate first) would fix history at the cost of throwing
+	// away the upscaled detail that pass 0 samples today, so it is deliberately not applied.
+	if (!warnedNativeSize_) {
+		int actualW = sourceW, actualH = sourceH;
+		draw_->GetFramebufferDimensions(source, &actualW, &actualH);
+		if (actualW != sourceW || actualH != sourceH) {
+			WARN_LOG(Log::G3D, "LibrashaderFilterChain: source is %dx%d but reported as %dx%d (native); "
+				"presets using OriginalHistory1+ will see only the native-sized corner of it",
+				actualW, actualH, sourceW, sourceH);
+		}
+		warnedNativeSize_ = true;
+	}
+
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
 	PFN_vkGetInstanceProcAddr getProc = (PFN_vkGetInstanceProcAddr)(uintptr_t)draw_->GetNativeObject(Draw::NativeObject::VULKAN_GET_INSTANCE_PROC_ADDR);
 	if (!vulkan || !getProc)
@@ -169,9 +188,10 @@ Draw::Framebuffer *LibrashaderFilterChain::Run(Draw::Framebuffer *source, int so
 		in.handle = (VkImage)info.srcImage;
 		in.format = (VkFormat)info.srcFormat;
 		// Native PSP size, matching the in-tree chain's SourceSize/OriginalSize semantics: the
-		// upscaled fbo is sampled with 0..1 UVs. See spec §12 "Native size vs image size" — if
-		// librashader validates these against the real image extents, the fallback is a blit to
-		// a native-sized intermediate before the callback (not implemented yet).
+		// upscaled fbo is sampled with 0..1 UVs. Verified on device in Task 8: librashader does
+		// not validate these against the real image extents, and SourceSize-driven masks match the
+		// in-tree chain pixel-for-pixel in period. The one place it does treat them as the real
+		// extents is its OriginalHistoryN snapshot - see the warning in Run() above.
 		in.width = (uint32_t)sourceW;
 		in.height = (uint32_t)sourceH;
 		libra_image_vk_t out{};
