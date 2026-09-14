@@ -37,6 +37,8 @@
 #include "GPU/ge_constants.h"
 #include "GPU/Common/Draw2D.h"
 
+class SlangFilterChain;
+
 enum {
 	FB_USAGE_DISPLAYED_FRAMEBUFFER = 1,
 	FB_USAGE_RENDER_COLOR = 2,
@@ -559,6 +561,8 @@ protected:
 
 	int GetFramebufferLayers() const;
 
+	void UpdateSlangChain(const DisplayLayoutConfig &config);
+
 	static void SetColorUpdated(VirtualFramebuffer *dstBuffer, int skipDrawReason) {
 		dstBuffer->memoryUpdated = false;
 		dstBuffer->clutUpdatedBytes = 0;
@@ -575,6 +579,8 @@ protected:
 	static SkipGPUReadbackMode GetSkipGPUReadbackMode();
 
 	PresentationCommon *presentation_ = nullptr;
+	SlangFilterChain *slangChain_ = nullptr;
+	std::string slangChainPresetPath_;  // path currently loaded into slangChain_, empty if none
 
 	Draw::DrawContext *draw_ = nullptr;
 

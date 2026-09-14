@@ -37,6 +37,7 @@
 #include "GPU/Common/PresentationCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Common/ReinterpretFramebuffer.h"
+#include "GPU/Common/Slang/SlangFilterChain.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 
@@ -70,6 +71,8 @@ FramebufferManagerCommon::~FramebufferManagerCommon() {
 	bvfbs_.clear();
 
 	delete presentation_;
+	delete slangChain_;
+	slangChainPresetPath_.clear();
 	delete[] convBuf_;
 }
 
@@ -113,7 +116,39 @@ bool FramebufferManagerCommon::UpdateRenderSize(int msaaLevel) {
 void FramebufferManagerCommon::CheckPostShaders(const DisplayLayoutConfig &config) {
 	if (updatePostShaders_) {
 		presentation_->UpdatePostShader(config);
+		UpdateSlangChain(config);
 		updatePostShaders_ = false;
+	}
+}
+
+void FramebufferManagerCommon::UpdateSlangChain(const DisplayLayoutConfig &config) {
+	if (g_Config.sSlangShaderPreset.empty()) {
+		delete slangChain_;
+		slangChain_ = nullptr;
+		slangChainPresetPath_.clear();
+		return;
+	}
+
+	// Check if we can keep the existing chain
+	if (slangChain_ && slangChainPresetPath_ == g_Config.sSlangShaderPreset && slangChain_->IsValid()) {
+		// Path unchanged and chain still valid, keep it
+		return;
+	}
+
+	// Need to reload - delete any existing chain
+	delete slangChain_;
+	slangChain_ = nullptr;
+
+	slangChain_ = new SlangFilterChain(draw_);
+	std::string error;
+	Path presetPath(g_Config.sSlangShaderPreset);
+	if (!slangChain_->Load(presetPath, &error)) {
+		ERROR_LOG(Log::G3D, "Failed to load slang preset '%s': %s", g_Config.sSlangShaderPreset.c_str(), error.c_str());
+		delete slangChain_;
+		slangChain_ = nullptr;
+		slangChainPresetPath_.clear();
+	} else {
+		slangChainPresetPath_ = g_Config.sSlangShaderPreset;
 	}
 }
 
@@ -1728,7 +1763,47 @@ void FramebufferManagerCommon::PrepareCopyDisplayToOutput(const DisplayLayoutCon
 		int actualWidth = (vfb->bufferWidth * vfb->renderWidth) / vfb->width;
 		int actualHeight = (vfb->bufferHeight * vfb->renderHeight) / vfb->height;
 		presentation_->UpdateUniforms(textureCache_->VideoIsPlaying());
-		presentation_->SourceFramebuffer(vfb->fbo, actualWidth, actualHeight);
+
+		if (slangChain_ && slangChain_->IsValid()) {
+			// Slang shaders expect SourceSize/OriginalSize to be the emulated content's NATIVE
+			// resolution (like RetroArch feeding a core's output), NOT PPSSPP's upscaled render
+			// resolution. Passing the upscaled size makes CRT scanline/mask math tile at display
+			// resolution (fine moiré / wobble). The bound texture is still the (upscaled) fbo,
+			// sampled via 0..1 UVs, so only the reported size must be native.
+			//
+			// The viewport passed to the chain must be the ACTUAL on-screen display rect, not the
+			// raw window size. Viewport-scaled passes (and the final pass) render at this size, and
+			// the presentation blit then draws that framebuffer 1:1 into the same rect. If we passed
+			// the window size instead, the final CRT-patterned image (e.g. 1920x1080) would be
+			// resampled to the aspect-corrected display rect (e.g. 1920x1088 with crop-to-16:9),
+			// beating against the scanline/mask frequency and producing moiré bands. Matching the
+			// chain's output to the display rect makes the final blit a 1:1 copy, like RetroArch
+			// rendering the last shader pass directly at output resolution.
+			FRect slangFrame = GetScreenFrame(config.bIgnoreScreenInsets, (float)pixelWidth_, (float)pixelHeight_);
+			FRect slangRc;
+			CalculateDisplayOutputRect(config, &slangRc, 480.0f, 272.0f, slangFrame, uvRotation);
+			int slangVpW = std::max(1, (int)lroundf(slangRc.w));
+			int slangVpH = std::max(1, (int)lroundf(slangRc.h));
+			std::map<std::string, float> slangOverrides;
+			const std::string prefix = g_Config.sSlangShaderPreset + "|";
+			for (const auto &[k, v] : g_Config.mSlangParams) {
+				if (k.compare(0, prefix.size(), prefix) == 0)
+					slangOverrides[k.substr(prefix.size())] = v;
+			}
+			slangChain_->SetParamOverrides(slangOverrides);
+			Draw::Framebuffer *slangOut = slangChain_->Run(vfb->fbo, vfb->bufferWidth, vfb->bufferHeight,
+			                                                slangVpW, slangVpH, gpuStats.totals.numFlips);
+			if (slangOut) {
+				// Query the actual framebuffer dimensions (final pass may not be viewport-scaled)
+				int sw = 0, sh = 0;
+				draw_->GetFramebufferDimensions(slangOut, &sw, &sh);
+				presentation_->SourceFramebuffer(slangOut, sw, sh);
+			} else {
+				presentation_->SourceFramebuffer(vfb->fbo, actualWidth, actualHeight);
+			}
+		} else {
+			presentation_->SourceFramebuffer(vfb->fbo, actualWidth, actualHeight);
+		}
 		presentation_->RunPostshaderPasses(config, flags, uvRotation, u0, v0, u1, v1);
 	}
 }
@@ -3415,6 +3490,9 @@ void FramebufferManagerCommon::DeviceLost() {
 	DestroyAllFBOs();
 
 	presentation_->DeviceLost();
+	if (slangChain_) {
+		slangChain_->DeviceLost();
+	}
 	draw2D_.DeviceLost();
 
 	ReleasePipelines();
@@ -3426,6 +3504,9 @@ void FramebufferManagerCommon::DeviceRestore(Draw::DrawContext *draw) {
 	draw_ = draw;
 	draw2D_.DeviceRestore(draw_);
 	presentation_->DeviceRestore(draw_);
+	if (slangChain_) {
+		slangChain_->DeviceRestore(draw_);
+	}
 }
 
 void FramebufferManagerCommon::DrawActiveTexture(float x, float y, float w, float h, float destW, float destH, float u0, float v0, float u1, float v1, int uvRotation, int flags) {

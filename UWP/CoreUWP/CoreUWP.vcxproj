@@ -316,6 +316,9 @@
     <ClInclude Include="..\..\Core\Util\GameDB.h" />
     <ClInclude Include="..\..\Core\Util\MemStick.h" />
     <ClInclude Include="..\..\Core\Util\PathUtil.h" />
+    <ClInclude Include="..\..\Core\Slang\SlangPaths.h" />
+    <ClInclude Include="..\..\Core\Slang\SlangPresetLibrary.h" />
+    <ClInclude Include="..\..\Core\Slang\SlangPackageImporter.h" />
     <ClInclude Include="..\..\Core\Util\PortManager.h" />
     <ClInclude Include="..\..\Core\Util\RecentFiles.h" />
     <ClInclude Include="..\..\Core\Util\VideoPlayer.h" />
@@ -623,6 +626,9 @@
     <ClCompile Include="..\..\Core\Util\GameDB.cpp" />
     <ClCompile Include="..\..\Core\Util\MemStick.cpp" />
     <ClCompile Include="..\..\Core\Util\PathUtil.cpp" />
+    <ClCompile Include="..\..\Core\Slang\SlangPaths.cpp" />
+    <ClCompile Include="..\..\Core\Slang\SlangPresetLibrary.cpp" />
+    <ClCompile Include="..\..\Core\Slang\SlangPackageImporter.cpp" />
     <ClCompile Include="..\..\Core\Util\PortManager.cpp" />
     <ClCompile Include="..\..\Core\Util\RecentFiles.cpp" />
     <ClCompile Include="..\..\Core\Util\VideoPlayer.cpp" />

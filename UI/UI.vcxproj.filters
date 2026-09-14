@@ -59,6 +59,9 @@
     <ClCompile Include="DisplayLayoutScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="SlangShaderScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
     <ClCompile Include="RemoteISOScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
@@ -207,6 +210,9 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="DisplayLayoutScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="SlangShaderScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="RemoteISOScreen.h">

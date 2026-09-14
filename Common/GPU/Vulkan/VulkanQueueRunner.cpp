@@ -1107,6 +1107,8 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 						// Unfortunately I don't know if we can fix it in any more sensible place than here.
 						// Maybe a middle pass. But let's try to just block and compile here for now, this doesn't
 						// happen all that much.
+						// renderPass here comes from PerformBindFramebufferAsRenderTarget, which keyed it on
+						// the framebuffer's actual color format, so Get() already returns the format-correct pass.
 						graphicsPipeline->pipeline[(size_t)rpType] = Promise<VkPipeline>::CreateEmpty();
 						graphicsPipeline->Create(vulkan_, renderPass->Get(vulkan_, rpType, fbSampleCount), rpType, fbSampleCount, time_now_d(), -1);
 					}
@@ -1303,13 +1305,17 @@ VKRRenderPass *VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKR
 		_dbg_assert_(step.render.finalColorLayout != VK_IMAGE_LAYOUT_UNDEFINED);
 		_dbg_assert_(step.render.finalDepthStencilLayout != VK_IMAGE_LAYOUT_UNDEFINED);
 
+		VKRFramebuffer *fb = step.render.framebuffer;
+
 		RPKey key{
 			step.render.colorLoad, step.render.depthLoad, step.render.stencilLoad,
 			step.render.colorStore, step.render.depthStore, step.render.stencilStore,
 		};
+		// The color format is part of render-pass compatibility - key on the actual fb format so
+		// sRGB/float framebuffers get a matching render pass instead of the default UNORM one.
+		key.colorFormat = fb->color.format;
 		renderPass = GetRenderPass(key);
 
-		VKRFramebuffer *fb = step.render.framebuffer;
 		framebuf = fb->Get(renderPass, step.render.renderPassType);
 		sampleCount = fb->sampleCount;
 		_dbg_assert_(framebuf != VK_NULL_HANDLE);

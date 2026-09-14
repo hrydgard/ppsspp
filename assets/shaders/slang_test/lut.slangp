@@ -1,0 +1,9 @@
+shaders = 1
+shader0 = lut.slang
+filter_linear0 = true
+scale_type0 = viewport
+scale0 = 1.0
+textures = "PaletteLUT"
+PaletteLUT = palette.png
+PaletteLUT_linear = true
+PaletteLUT_wrap_mode = clamp_to_edge

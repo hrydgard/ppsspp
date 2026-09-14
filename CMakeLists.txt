@@ -1620,6 +1620,8 @@ list(APPEND NativeAppSource
 	UI/DevScreens.h
 	UI/DisplayLayoutScreen.cpp
 	UI/DisplayLayoutScreen.h
+	UI/SlangShaderScreen.cpp
+	UI/SlangShaderScreen.h
 	UI/EmuScreen.h
 	UI/EmuScreen.cpp
 	UI/GameInfoCache.h
@@ -2052,6 +2054,16 @@ set(GPU_SOURCES
 	GPU/Common/TextureScalerCommon.h
 	GPU/Common/PostShader.cpp
 	GPU/Common/PostShader.h
+	GPU/Common/Slang/SlangPreset.h
+	GPU/Common/Slang/SlangpParser.cpp
+	GPU/Common/Slang/SlangpParser.h
+	GPU/Common/Slang/SlangPassCompiler.cpp
+	GPU/Common/Slang/SlangPassCompiler.h
+	GPU/Common/Slang/SlangReflection.cpp
+	GPU/Common/Slang/SlangReflection.h
+	GPU/Common/Slang/SlangResolution.h
+	GPU/Common/Slang/SlangFilterChain.cpp
+	GPU/Common/Slang/SlangFilterChain.h
 	GPU/Common/TextureReplacer.cpp
 	GPU/Common/TextureReplacer.h
 	GPU/Common/ReplacedTexture.cpp
@@ -2558,6 +2570,12 @@ add_library(${CoreLibName} ${CoreLinkType}
 	Core/Util/GameDB.h
 	Core/Util/PathUtil.cpp
 	Core/Util/PathUtil.h
+	Core/Slang/SlangPaths.cpp
+	Core/Slang/SlangPaths.h
+	Core/Slang/SlangPresetLibrary.cpp
+	Core/Slang/SlangPresetLibrary.h
+	Core/Slang/SlangPackageImporter.cpp
+	Core/Slang/SlangPackageImporter.h
 	Core/Util/PortManager.cpp
 	Core/Util/PortManager.h
 	Core/Util/BlockAllocator.cpp
@@ -2978,6 +2996,7 @@ if(UNITTEST)
 	add_executable(PPSSPPUnitTest
 		unittest/UnitTest.cpp
 		unittest/TestShaderGenerators.cpp
+		unittest/TestSlangParser.cpp
 		unittest/TestArmEmitter.cpp
 		unittest/TestArm64Emitter.cpp
 		unittest/TestIRPassSimplify.cpp

@@ -1,0 +1,10 @@
+shaders = 2
+shader0 = twopass_a.slang
+alias0 = FirstPass
+filter_linear0 = true
+scale_type0 = source
+scale0 = 1.0
+shader1 = twopass_b.slang
+filter_linear1 = true
+scale_type1 = viewport
+scale1 = 1.0

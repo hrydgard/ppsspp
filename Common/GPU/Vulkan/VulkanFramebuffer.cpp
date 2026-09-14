@@ -56,12 +56,12 @@ void VKRImage::Delete(VulkanContext *vulkan) {
 	}
 }
 
-VKRFramebuffer::VKRFramebuffer(VulkanContext *vk, VulkanBarrierBatch *barriers, int _width, int _height, int _numLayers, int _multiSampleLevel, bool createDepthStencilBuffer, const char *tag)
+VKRFramebuffer::VKRFramebuffer(VulkanContext *vk, VulkanBarrierBatch *barriers, int _width, int _height, int _numLayers, int _multiSampleLevel, bool createDepthStencilBuffer, const char *tag, VkFormat colorFormat)
 	: vulkan_(vk), width(_width), height(_height), numLayers(_numLayers) {
 
 	_dbg_assert_(tag);
 
-	CreateImage(vulkan_, barriers, color, width, height, numLayers, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true, tag);
+	CreateImage(vulkan_, barriers, color, width, height, numLayers, VK_SAMPLE_COUNT_1_BIT, colorFormat, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true, tag);
 	if (createDepthStencilBuffer) {
 		CreateImage(vulkan_, barriers, depth, width, height, numLayers, VK_SAMPLE_COUNT_1_BIT, vulkan_->GetDeviceInfo().preferredDepthStencilFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false, tag);
 	}
@@ -70,7 +70,7 @@ VKRFramebuffer::VKRFramebuffer(VulkanContext *vk, VulkanBarrierBatch *barriers, 
 		sampleCount = MultiSampleLevelToFlagBits(_multiSampleLevel);
 
 		// TODO: Create a different tag for these?
-		CreateImage(vulkan_, barriers, msaaColor, width, height, numLayers, sampleCount, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true, tag);
+		CreateImage(vulkan_, barriers, msaaColor, width, height, numLayers, sampleCount, colorFormat, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true, tag);
 		if (createDepthStencilBuffer) {
 			CreateImage(vulkan_, barriers, msaaDepth, width, height, numLayers, sampleCount, vulkan_->GetDeviceInfo().preferredDepthStencilFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false, tag);
 		}
@@ -290,7 +290,7 @@ static VkAttachmentStoreOp ConvertStoreAction(VKRRenderPassStoreAction action) {
 // Self-dependency: https://github.com/gpuweb/gpuweb/issues/442#issuecomment-547604827
 // Also see https://www.khronos.org/registry/vulkan/specs/1.3-extensions/html/vkspec.html#synchronization-pipeline-barriers-subpass-self-dependencies
 
-VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPassType rpType, VkSampleCountFlagBits sampleCount) {
+VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPassType rpType, VkSampleCountFlagBits sampleCount, VkFormat colorFormat) {
 	bool isBackbuffer = rpType == RenderPassType::BACKBUFFER;
 	if (isBackbuffer) {
 		_dbg_assert_(key.colorLoadAction != VKRRenderPassLoadAction::KEEP);
@@ -316,7 +316,7 @@ VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPas
 
 	int attachmentCount = 0;
 	VkAttachmentDescription attachments[4]{};
-	attachments[attachmentCount].format = isBackbuffer ? vulkan->GetSwapchainFormat() : VK_FORMAT_R8G8B8A8_UNORM;
+	attachments[attachmentCount].format = isBackbuffer ? vulkan->GetSwapchainFormat() : colorFormat;
 	attachments[attachmentCount].samples = VK_SAMPLE_COUNT_1_BIT;
 	attachments[attachmentCount].loadOp = multisample ? VK_ATTACHMENT_LOAD_OP_DONT_CARE : ConvertLoadAction(key.colorLoadAction);
 	attachments[attachmentCount].storeOp = ConvertStoreAction(key.colorStoreAction);
@@ -340,7 +340,7 @@ VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPas
 
 	if (multisample) {
 		colorAttachmentIndex = attachmentCount;
-		attachments[attachmentCount].format = isBackbuffer ? vulkan->GetSwapchainFormat() : VK_FORMAT_R8G8B8A8_UNORM;
+		attachments[attachmentCount].format = isBackbuffer ? vulkan->GetSwapchainFormat() : colorFormat;
 		attachments[attachmentCount].samples = sampleCount;
 		attachments[attachmentCount].loadOp = ConvertLoadAction(key.colorLoadAction);
 		attachments[attachmentCount].storeOp = ConvertStoreAction(key.colorStoreAction);
@@ -557,13 +557,16 @@ VkRenderPass VKRRenderPass::Get(VulkanContext *vulkan, RenderPassType rpType, Vk
 	// which comes from the rpType.
 	// So you CAN NOT mix and match different non-one sample counts.
 
+	// The color format comes from key_ - it's part of RPKey, so each VKRRenderPass instance has
+	// exactly one color format and distinct formats live in distinct cache buckets.
+
 	_dbg_assert_(!((rpType & RenderPassType::MULTISAMPLE) && sampleCount == VK_SAMPLE_COUNT_1_BIT));
 
 	if (!pass[(int)rpType] || sampleCounts[(int)rpType] != sampleCount) {
 		if (pass[(int)rpType]) {
 			vulkan->Delete().QueueDeleteRenderPass(pass[(int)rpType]);
 		}
-		pass[(int)rpType] = CreateRenderPass(vulkan, key_, (RenderPassType)rpType, sampleCount);
+		pass[(int)rpType] = CreateRenderPass(vulkan, key_, (RenderPassType)rpType, sampleCount, key_.colorFormat);
 		sampleCounts[(int)rpType] = sampleCount;
 	}
 	return pass[(int)rpType];

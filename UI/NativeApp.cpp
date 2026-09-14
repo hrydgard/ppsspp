@@ -116,6 +116,7 @@
 #include "Core/Util/PathUtil.h"
 #include "Core/WebServer.h"
 #include "Core/TiltEventProcessor.h"
+#include "Core/Slang/SlangPackageImporter.h"
 
 #include "GPU/GPUCommon.h"
 #include "GPU/Common/PresentationCommon.h"
@@ -1091,6 +1092,25 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	Achievements::Idle();
 
 	g_DownloadManager.Update();
+	g_SlangImporter.Update();
+
+	// Drive OSD progress bar for slang shader import
+	static SlangImportState prevSlangState = SlangImportState::IDLE;
+	SlangImportState slangState = g_SlangImporter.GetState();
+	if (g_SlangImporter.Busy()) {
+		g_OSD.SetProgressBar("slang_import", "Importing slang shaders...", 0.0f, 1.0f, g_SlangImporter.GetProgress(), 0.1f);
+	} else {
+		if (prevSlangState == SlangImportState::DOWNLOADING || prevSlangState == SlangImportState::EXTRACTING) {
+			if (slangState == SlangImportState::DONE) {
+				g_OSD.RemoveProgressBar("slang_import", true, 0.5f);
+				g_OSD.Show(OSDType::MESSAGE_SUCCESS, "Slang shaders imported", "", 3.0f);
+			} else if (slangState == SlangImportState::FAILED) {
+				g_OSD.RemoveProgressBar("slang_import", false, 1.5f);
+				g_OSD.Show(OSDType::MESSAGE_ERROR, "Slang shader import failed", g_SlangImporter.GetError(), 4.0f);
+			}
+		}
+	}
+	prevSlangState = slangState;
 
 	g_Discord.Update();
 

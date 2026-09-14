@@ -908,6 +908,9 @@
     <ClCompile Include="Util\GameManager.cpp" />
     <ClCompile Include="Util\MemStick.cpp" />
     <ClCompile Include="Util\PathUtil.cpp" />
+    <ClCompile Include="Slang\SlangPaths.cpp" />
+    <ClCompile Include="Slang\SlangPresetLibrary.cpp" />
+    <ClCompile Include="Slang\SlangPackageImporter.cpp" />
     <ClCompile Include="Util\PortManager.cpp" />
     <ClCompile Include="Util\PPGeDraw.cpp" />
     <ClCompile Include="..\ext\xxhash.c">
@@ -1263,6 +1266,9 @@
     <ClInclude Include="Util\GameManager.h" />
     <ClInclude Include="Util\MemStick.h" />
     <ClInclude Include="Util\PathUtil.h" />
+    <ClInclude Include="Slang\SlangPaths.h" />
+    <ClInclude Include="Slang\SlangPresetLibrary.h" />
+    <ClInclude Include="Slang\SlangPackageImporter.h" />
     <ClInclude Include="Util\PortManager.h" />
     <ClInclude Include="Util\PPGeDraw.h" />
     <ClInclude Include="..\ext\xxhash.h" />

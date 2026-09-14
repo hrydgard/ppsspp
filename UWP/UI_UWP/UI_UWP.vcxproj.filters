@@ -55,6 +55,9 @@
     <ClCompile Include="..\..\UI\DisplayLayoutScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\UI\SlangShaderScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\UI\DriverManagerScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
@@ -196,6 +199,9 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="..\..\UI\DisplayLayoutScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\SlangShaderScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="..\..\UI\DriverManagerScreen.h">

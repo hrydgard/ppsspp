@@ -906,6 +906,9 @@ SOURCES_CXX += \
 	       $(COREDIR)/Util/RecentFiles.cpp \
 	       $(COREDIR)/Util/AudioFormat.cpp \
 	       $(COREDIR)/Util/PathUtil.cpp \
+	       $(COREDIR)/Slang/SlangPaths.cpp \
+	       $(COREDIR)/Slang/SlangPresetLibrary.cpp \
+	       $(COREDIR)/Slang/SlangPackageImporter.cpp \
 	       $(COREDIR)/Util/PortManager.cpp \
 	       $(COREDIR)/Util/GameDB.cpp \
 	       $(CORE_DIR)/UI/GameInfoCache.cpp

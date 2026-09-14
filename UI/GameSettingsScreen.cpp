@@ -64,6 +64,7 @@
 #include "UI/BackgroundAudio.h"
 #include "UI/MiscViews.h"
 #include "UI/AdhocServerScreen.h"
+#include "UI/SlangShaderScreen.h"
 
 #include "Common/File/FileUtil.h"
 #include "Common/File/AndroidContentURI.h"
@@ -162,6 +163,20 @@ void GameSettingsScreen::PreCreateViews() {
 static bool UsingHardwareTextureScaling() {
 	// For now, Vulkan only.
 	return g_Config.bTexHardwareScaling && GetGPUBackend() == GPUBackend::VULKAN && !g_Config.bSoftwareRendering;
+}
+
+// Render the active slang preset path as its basename (no dir, no extension), or "Off" if empty.
+static std::string SlangPresetDisplayName(std::string_view value) {
+	if (value.empty()) {
+		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+		return std::string(gr->T("Off"));
+	}
+	std::string s(value);
+	size_t slash = s.find_last_of("/\\");
+	if (slash != std::string::npos) s = s.substr(slash + 1);
+	size_t dot = s.rfind('.');
+	if (dot != std::string::npos) s = s.substr(0, dot);
+	return s;
 }
 
 static std::string TextureTranslateName(std::string_view value) {
@@ -410,6 +425,24 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 		displayEditor->OnClick.Add([&](UI::EventParams &) -> void {
 			screenManager()->push(new DisplayLayoutScreen(gamePath_));
 		});
+
+		// RetroArch (slang) shaders: the row shows the active preset name (or "Off"), like the
+		// resolution row. Value binds to sSlangShaderPreset (a path); the callback renders its basename.
+		ChoiceWithValueDisplay *slangChoice = graphicsSettings->Add(new ChoiceWithValueDisplay(
+			&g_Config.sSlangShaderPreset, gr->T("RetroArch (slang) shaders"), &SlangPresetDisplayName));
+		slangChoice->OnClick.Add([this](UI::EventParams &e) {
+			screenManager()->push(new SlangShaderScreen(gamePath_));
+		});
+		// Only when the active preset exposes adjustable parameters, offer a sliders screen.
+		// ActiveSlangPresetHasParams() reads+parses the preset's files, so evaluate it ONCE here
+		// (at view-build time), NOT in SetEnabledFunc (which runs every frame and would re-parse
+		// all pass shaders from disk each frame — severe slowdown).
+		if (ActiveSlangPresetHasParams()) {
+			Choice *slangParamsChoice = graphicsSettings->Add(new Choice(gr->T("Shader parameters")));
+			slangParamsChoice->OnClick.Add([this](UI::EventParams &e) {
+				screenManager()->push(new SlangParamsScreen(gamePath_));
+			});
+		}
 	}
 
 	// If only one mode is supported (like FIFO on iOS), no need to show the options.

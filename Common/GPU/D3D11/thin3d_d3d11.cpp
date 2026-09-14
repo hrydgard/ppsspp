@@ -31,7 +31,7 @@ using namespace Microsoft::WRL;
 
 namespace Draw {
 
-static constexpr int MAX_BOUND_TEXTURES = 8;
+static constexpr int MAX_BOUND_TEXTURES = 12;
 
 // A problem is that we can't get the D3Dcompiler.dll without using a later SDK than 7.1, which was the last that
 // supported XP. A possible solution might be here:

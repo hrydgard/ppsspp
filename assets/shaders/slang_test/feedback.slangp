@@ -1,0 +1,7 @@
+shaders = 1
+shader0 = feedback.slang
+alias0 = FeedbackPass
+filter_linear0 = true
+scale_type0 = viewport
+scale0 = 1.0
+feedback_pass = 0

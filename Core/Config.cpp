@@ -731,6 +731,9 @@ static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("AutoFrameSkip", SETTING(g_Config, bAutoFrameSkip), IsVREnabled(), CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("StereoRendering", SETTING(g_Config, bStereoRendering), false, CfgFlag::PER_GAME),
 	ConfigSetting("StereoToMonoShader", SETTING(g_Config, sStereoToMonoShader), "RedBlue", CfgFlag::PER_GAME),
+	ConfigSetting("SlangShaderPreset", SETTING(g_Config, sSlangShaderPreset), "", CfgFlag::PER_GAME),
+	ConfigSetting("SlangBuildbotUrl", SETTING(g_Config, sSlangBuildbotUrl),
+		"https://buildbot.libretro.com/assets/frontend/shaders_slang.zip", CfgFlag::DEFAULT),
 	ConfigSetting("FrameRate", SETTING(g_Config, iFpsLimit1), 0, CfgFlag::PER_GAME),
 	ConfigSetting("FrameRate2", SETTING(g_Config, iFpsLimit2), -1, CfgFlag::PER_GAME),
 	ConfigSetting("AnalogFrameRate", SETTING(g_Config, iAnalogFpsLimit), 240, CfgFlag::PER_GAME),
@@ -1410,6 +1413,15 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 		mPostShaderSetting[key] = std::stof(value);
 	}
 
+	// Load slang shader runtime parameter overrides.
+	const Section *slangParams = iniFile.GetOrCreateSection("SlangParams");
+	mSlangParams.clear();
+	for (const auto &[key, value] : slangParams->ToMap()) {
+		// Guard against a hand-edited ini with non-numeric values.
+		try { mSlangParams[key] = std::stof(value); }
+		catch (...) { WARN_LOG(Log::Loader, "Bad SlangParams value for '%s': %s", key.c_str(), value.c_str()); }
+	}
+
 	const Section *hostOverrideSetting = iniFile.GetOrCreateSection("HostAliases");
 	// TODO: relocate me before PR
 	mHostToAlias = hostOverrideSetting->ToMap();
@@ -1516,6 +1528,11 @@ bool Config::Save(const char *saveReason) {
 			postShaderSetting->Clear();
 			for (const auto &[k, v] : mPostShaderSetting) {
 				postShaderSetting->Set(k, v);
+			}
+			Section *slangParams = iniFile.GetOrCreateSection("SlangParams");
+			slangParams->Clear();
+			for (const auto &[k, v] : mSlangParams) {
+				slangParams->Set(k.c_str(), v);
 			}
 			Section *postShaderChain = iniFile.GetOrCreateSection("PostShaderList");
 			postShaderChain->Clear();

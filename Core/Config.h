@@ -370,11 +370,19 @@ public:
 
 	std::vector<std::string> vPostShaderNames; // Off for chain end (only Off for no shader)
 	std::map<std::string, float> mPostShaderSetting;
+	// Slang shader runtime parameter overrides, keyed "<presetPath>|<paramName>" -> value.
+	// Persisted manually in the [SlangParams] ini section (see Config.cpp Load/Save).
+	std::map<std::string, float> mSlangParams;
 
 	// Note that this is separate from VR stereo, though it'll share some code paths.
 	bool bStereoRendering;
 	// There can only be one, unlike regular post shaders.
 	std::string sStereoToMonoShader;
+
+	// Slang shader preset path (empty = disabled)
+	std::string sSlangShaderPreset;
+	// URL of the libretro slang-shaders package zip (importer default; overridable for mirrors).
+	std::string sSlangBuildbotUrl;
 
 	bool bShaderChainRequires60FPS;
 	std::string sTextureShaderName;
