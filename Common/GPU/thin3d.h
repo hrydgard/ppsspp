@@ -250,6 +250,7 @@ enum class NativeObject {
 	NULL_IMAGEVIEW_ARRAY,
 	THIN3D_PIPELINE_LAYOUT,
 	PUSH_POOL,
+	VULKAN_GET_INSTANCE_PROC_ADDR,
 };
 
 enum class Aspect {
@@ -263,6 +264,22 @@ enum class Aspect {
 	FORMAT_BIT = 128,  // Actually retrieves the native format instead. D3D11 only.
 };
 ENUM_CLASS_BITOPS(Aspect);
+
+// Payload handed to a native callback (see DrawContext::RunNativeCallback). Handles are
+// backend-specific integers so this header stays free of Vulkan/GL includes.
+struct NativeCallbackInfo {
+	uint64_t cmdBuffer = 0;    // Vulkan: VkCommandBuffer
+	uint64_t srcImage = 0;     // Vulkan: VkImage of src color
+	uint32_t srcFormat = 0;    // Vulkan: VkFormat
+	uint64_t dstImage = 0;
+	uint32_t dstFormat = 0;
+	uint32_t srcTexture = 0;   // OpenGL: texture name (Phase 2)
+	uint32_t dstTexture = 0;
+	int srcWidth = 0, srcHeight = 0;
+	int dstWidth = 0, dstHeight = 0;
+	int frameIndex = 0;        // 0..(frames in flight - 1)
+};
+using NativeCallbackFn = std::function<void(const NativeCallbackInfo &)>;
 
 enum FBInvalidationStage {
 	FB_INVALIDATION_LOAD = 1,
@@ -793,6 +810,15 @@ public:
 
 	virtual void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, Aspect aspects, const char *tag) = 0;
 	virtual bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, Aspect aspects, FBBlitFilter filter, const char *tag) = 0;
+
+	// True if RunNativeCallback is implemented by this backend. Lets callers decide without enqueuing anything.
+	virtual bool SupportsNativeCallback() const { return false; }
+
+	// Runs fn on the backend's render thread, outside any render pass, with src's color image
+	// readable by shaders and dst's color image writable as a color attachment. fn must leave
+	// dst as a color attachment and must not change src. Returns false when the backend does
+	// not support native callbacks (then fn is never called).
+	virtual bool RunNativeCallback(Framebuffer *src, Framebuffer *dst, NativeCallbackFn fn, const char *tag) { return false; }
 
 	// If the backend doesn't support old data, it's "OK" to block.
 	virtual bool CopyFramebufferToMemory(Framebuffer *src, Aspect aspect, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, ReadbackMode mode, const char *tag) {

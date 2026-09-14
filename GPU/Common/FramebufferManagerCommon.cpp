@@ -37,7 +37,11 @@
 #include "GPU/Common/PresentationCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Common/ReinterpretFramebuffer.h"
-#include "GPU/Common/Slang/SlangFilterChain.h"
+#include "GPU/Common/Slang/ISlangFilterChain.h"
+#include "Core/System.h"
+#if USE_LIBRASHADER
+#include "Common/GPU/Librashader/LibrashaderLoader.h"
+#endif
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 
@@ -129,9 +133,21 @@ void FramebufferManagerCommon::UpdateSlangChain(const DisplayLayoutConfig &confi
 		return;
 	}
 
+	// Determine which backend to use for this reload. Only touch the loader when the user actually
+	// asked for librashader - with the toggle off we must not dlopen anything.
+	bool librashaderLoaded = false;
+#if USE_LIBRASHADER
+	if (g_Config.bSlangUseLibrashader) {
+		std::string loadErr;
+		librashaderLoaded = Librashader::Load(&loadErr);
+	}
+#endif
+	SlangChainBackend backend = ChooseSlangChainBackend(
+		g_Config.bSlangUseLibrashader, librashaderLoaded, GetGPUBackend(), draw_->SupportsNativeCallback());
+
 	// Check if we can keep the existing chain
-	if (slangChain_ && slangChainPresetPath_ == g_Config.sSlangShaderPreset && slangChain_->IsValid()) {
-		// Path unchanged and chain still valid, keep it
+	if (slangChain_ && slangChainPresetPath_ == g_Config.sSlangShaderPreset && slangChain_->IsValid() && slangChain_->Backend() == backend) {
+		// Path unchanged, chain still valid, and backend matches - keep it
 		return;
 	}
 
@@ -139,7 +155,8 @@ void FramebufferManagerCommon::UpdateSlangChain(const DisplayLayoutConfig &confi
 	delete slangChain_;
 	slangChain_ = nullptr;
 
-	slangChain_ = new SlangFilterChain(draw_);
+	slangChain_ = CreateSlangFilterChain(draw_, backend);
+	INFO_LOG(Log::G3D, "Slang chain backend: %s", SlangChainBackendName(backend));
 	std::string error;
 	Path presetPath(g_Config.sSlangShaderPreset);
 	if (!slangChain_->Load(presetPath, &error)) {
@@ -151,6 +168,7 @@ void FramebufferManagerCommon::UpdateSlangChain(const DisplayLayoutConfig &confi
 		slangChainPresetPath_ = g_Config.sSlangShaderPreset;
 	}
 }
+
 
 void FramebufferManagerCommon::BeginFrame(const DisplayLayoutConfig &config) {
 	DecimateFBOs();
@@ -3528,8 +3546,15 @@ void FramebufferManagerCommon::DeviceRestore(Draw::DrawContext *draw) {
 	draw_ = draw;
 	draw2D_.DeviceRestore(draw_);
 	presentation_->DeviceRestore(draw_);
+	// Don't reload the slang chain here: loading creates GPU textures (LUTs) through the
+	// Vulkan push pool, which is only valid inside a frame, and DeviceRestore runs before
+	// the first frame begins (crashes on Android sleep/wake with a LUT preset). Drop the
+	// chain and let CheckPostShaders rebuild it lazily during the next frame instead.
 	if (slangChain_) {
-		slangChain_->DeviceRestore(draw_);
+		delete slangChain_;
+		slangChain_ = nullptr;
+		slangChainPresetPath_.clear();
+		updatePostShaders_ = true;
 	}
 }
 

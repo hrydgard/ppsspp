@@ -143,6 +143,8 @@ add_library(Common STATIC
 	GPU/GPUBackendCommon.h
 	GPU/thin3d.cpp
 	GPU/thin3d.h
+	GPU/Librashader/LibrashaderLoader.cpp
+	GPU/Librashader/LibrashaderLoader.h
 	GPU/thin3d_create.h
 	GPU/Shader.cpp
 	GPU/Shader.h
@@ -405,3 +407,10 @@ endif()
 # was only linked to the old combined "core" target, which happened to always be linked after
 # Common everywhere it mattered).
 target_link_libraries(Common ${GlslangLibs})
+
+# Common/GPU/Librashader/LibrashaderLoader.cpp includes the vendored librashader headers. Scoped to
+# this target rather than added globally (see the USE_LIBRASHADER block in the root CMakeLists.txt);
+# <vulkan/vulkan.h> inside librashader.h resolves through the global "ext" include directory.
+if(USE_LIBRASHADER)
+	target_include_directories(Common PRIVATE ${CMAKE_SOURCE_DIR}/ext/librashader/include)
+endif()

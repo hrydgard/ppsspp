@@ -140,6 +140,10 @@ set(GPU_SOURCES
 	Common/Slang/SlangResolution.h
 	Common/Slang/SlangFilterChain.cpp
 	Common/Slang/SlangFilterChain.h
+	Common/Slang/ISlangFilterChain.h
+	Common/Slang/SlangChainFactory.cpp
+	Common/Slang/LibrashaderFilterChain.cpp
+	Common/Slang/LibrashaderFilterChain.h
 	Common/TextureReplacer.cpp
 	Common/TextureReplacer.h
 	Common/ReplacedTexture.cpp
@@ -224,4 +228,11 @@ if(USE_SYSTEM_ZSTD)
 	target_link_libraries(GPU PUBLIC ${ZSTD_LIBRARY})
 else()
 	target_link_libraries(GPU PUBLIC libzstd_static)
+endif()
+
+# FramebufferManagerCommon.cpp and Common/Slang/LibrashaderFilterChain.cpp include the vendored
+# librashader headers (through Common/GPU/Librashader/LibrashaderLoader.h). Scoped to this target
+# rather than added globally; see the USE_LIBRASHADER block in the root CMakeLists.txt.
+if(USE_LIBRASHADER)
+	target_include_directories(GPU PRIVATE ${CMAKE_SOURCE_DIR}/ext/librashader/include)
 endif()

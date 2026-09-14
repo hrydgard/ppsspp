@@ -707,6 +707,8 @@ static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("StereoRendering", SETTING(g_Config, bStereoRendering), false, CfgFlag::PER_GAME),
 	ConfigSetting("StereoToMonoShader", SETTING(g_Config, sStereoToMonoShader), "RedBlue", CfgFlag::PER_GAME),
 	ConfigSetting("SlangShaderPreset", SETTING(g_Config, sSlangShaderPreset), "", CfgFlag::PER_GAME),
+	ConfigSetting("SlangUseLibrashader", SETTING(g_Config, bSlangUseLibrashader), true, CfgFlag::DEFAULT),
+
 	ConfigSetting("SlangBuildbotUrl", SETTING(g_Config, sSlangBuildbotUrl),
 		"https://buildbot.libretro.com/assets/frontend/shaders_slang.zip", CfgFlag::DEFAULT),
 	ConfigSetting("FrameRate", SETTING(g_Config, iFpsLimit1), 0, CfgFlag::PER_GAME),

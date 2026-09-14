@@ -2921,6 +2921,9 @@ bool TestSlangParamDescription();
 bool TestSlangPresetLibrary();
 bool TestSlangPresetParameters();
 bool TestSlangParamOverride();
+bool TestLibrashaderLoaderAbsent();
+bool TestLibrashaderLoaderNotALibrary();
+bool TestSlangChainBackendSelection();
 bool TestZipSlip();
 bool TestLzrc();
 bool TestDemangle();
@@ -3148,6 +3151,9 @@ TestItem availableTests[] = {
 	TEST_ITEM(SlangPresetLibrary),
 	TEST_ITEM(SlangPresetParameters),
 	TEST_ITEM(SlangParamOverride),
+	TEST_ITEM(LibrashaderLoaderAbsent),
+	TEST_ITEM(LibrashaderLoaderNotALibrary),
+	TEST_ITEM(SlangChainBackendSelection),
 	TEST_ITEM(ColorConv),
 	TEST_ITEM(CharQueue),
 	TEST_ITEM(Buffer),

@@ -276,6 +276,9 @@ void VulkanQueueRunner::PreprocessSteps(std::vector<VKRStep *> &steps) {
 					// rendered to. However this should be rare.
 					// TODO: This should never happen when we check numReads now.
 					break;
+				} else if (steps[i]->stepType == VKRStepType::CALLBACK) {
+					// CALLBACK acts as an opaque barrier; can't convert to RENDER_SKIP across it.
+					break;
 				}
 			}
 		}
@@ -381,6 +384,9 @@ void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, int curFrame, Fr
 		case VKRStepType::READBACK_IMAGE:
 			PerformReadbackImage(step, cmd);
 			break;
+		case VKRStepType::CALLBACK:
+			PerformCallback(step, cmd, curFrame);
+			break;
 		case VKRStepType::RENDER_SKIP:
 			break;
 		default:
@@ -402,6 +408,10 @@ void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, int curFrame, Fr
 	// them as we go - and easier to debug because we can look backwards in the frame.
 	if (!keepSteps) {
 		for (auto step : steps) {
+			// Clean up heap-allocated callback fn if it wasn't already run (PerformCallback nulls it after delete).
+			if (step->stepType == VKRStepType::CALLBACK && step->callback.fn) {
+				delete step->callback.fn;
+			}
 			delete step;
 		}
 		steps.clear();
@@ -444,6 +454,9 @@ void VulkanQueueRunner::ApplyMGSHack(std::vector<VKRStep *> &steps) {
 			case VKRStepType::COPY:
 				if (steps[j]->copy.dst != steps[i]->copy.dst)
 					last = j - 1;
+				break;
+			case VKRStepType::CALLBACK:
+				last = j - 1;  // Opaque barrier: never reorder across it.
 				break;
 			default:
 				break;
@@ -516,6 +529,8 @@ void VulkanQueueRunner::ApplyMGSHack(std::vector<VKRStep *> &steps) {
 		VKRFramebuffer *targetFramebuffer = render_i_plus_1.framebuffer;
 		// OK, found the start of a post-process sequence. Let's scan until we find the end.
 		for (int j = i; j < (int)steps.size() - 3; j++) {
+			if (steps[j]->stepType != VKRStepType::RENDER)
+				break;
 			const decltype(steps[j]->render) &render_j = steps[j]->render;
 			if (((j - i) & 1) == 0) {
 				// This should be a depal draw.
@@ -752,6 +767,10 @@ std::string VulkanQueueRunner::StepToString(VulkanContext *vulkan, const VKRStep
 	case VKRStepType::READBACK_IMAGE:
 		snprintf(buffer, sizeof(buffer), "READBACK_IMAGE '%s' (%dx%d)", step.tag, step.readback_image.srcRect.extent.width, step.readback_image.srcRect.extent.height);
 		break;
+	case VKRStepType::CALLBACK:
+		snprintf(buffer, sizeof(buffer), "CALLBACK %s (src=%s dst=%s)", step.tag,
+		         step.callback.src ? step.callback.src->Tag() : "-", step.callback.dst ? step.callback.dst->Tag() : "-");
+		break;
 	case VKRStepType::RENDER_SKIP:
 		snprintf(buffer, sizeof(buffer), "(RENDER_SKIP) %s", step.tag);
 		break;
@@ -841,6 +860,9 @@ void VulkanQueueRunner::ApplyRenderPassMerge(std::vector<VKRStep *> &steps) {
 					// Not sure this has much effect, when executed READBACK is always the last step
 					// since we stall the GPU and wait immediately after.
 					break;
+				case VKRStepType::CALLBACK:
+					// CALLBACK acts as an opaque barrier; can't merge across it.
+					goto done_fb;
 				case VKRStepType::RENDER_SKIP:
 				case VKRStepType::READBACK_IMAGE:
 					break;
@@ -875,6 +897,10 @@ void VulkanQueueRunner::LogSteps(const std::vector<VKRStep *> &steps, bool verbo
 			break;
 		case VKRStepType::READBACK_IMAGE:
 			LogReadbackImage(step);
+			break;
+		case VKRStepType::CALLBACK:
+			INFO_LOG(Log::G3D, "CALLBACK %s (src=%s dst=%s)", step.tag,
+			         step.callback.src ? step.callback.src->Tag() : "-", step.callback.dst ? step.callback.dst->Tag() : "-");
 			break;
 		case VKRStepType::RENDER_SKIP:
 			INFO_LOG(Log::G3D, "(skipped render pass)");
@@ -1654,6 +1680,30 @@ void VulkanQueueRunner::PerformBlit(const VKRStep &step, VkCommandBuffer cmd) {
 			blit.dstSubresource.aspectMask |= VK_IMAGE_ASPECT_STENCIL_BIT;
 		}
 		vkCmdBlitImage(cmd, src->depth.image, src->depth.layout, dst->depth.image, dst->depth.layout, 1, &blit, step.blit.filter);
+	}
+}
+
+void VulkanQueueRunner::PerformCallback(const VKRStep &step, VkCommandBuffer cmd, int curFrame) {
+	// Put the images in the layouts the callback is promised, outside any render pass.
+	if (step.callback.src) {
+		recordBarrier_.TransitionColorImageAuto(&step.callback.src->color, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL);
+	}
+	if (step.callback.dst) {
+		recordBarrier_.TransitionColorImageAuto(&step.callback.dst->color, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+	}
+	recordBarrier_.Flush(cmd);
+
+	if (step.callback.fn) {
+		VKRNativeCallbackInfo info{ cmd, step.callback.src, step.callback.dst, curFrame };
+		(*step.callback.fn)(info);
+		delete step.callback.fn;
+		const_cast<VKRStep &>(step).callback.fn = nullptr;
+	}
+
+	// The callback is contractually required to leave dst in COLOR_ATTACHMENT_OPTIMAL and to
+	// not change src's layout. Record that so later steps insert correct barriers.
+	if (step.callback.dst) {
+		step.callback.dst->color.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 	}
 }
 
