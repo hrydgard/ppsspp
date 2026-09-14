@@ -649,6 +649,11 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, GLFrameData &f
 					}
 				}
 				break;
+			case GLRStepType::CALLBACK:
+				if (step.callback.fn) {
+					delete step.callback.fn;
+				}
+				break;
 			default:
 				break;
 			}
@@ -719,6 +724,9 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, GLFrameData &f
 			break;
 		case GLRStepType::RENDER_SKIP:
 			break;
+		case GLRStepType::CALLBACK:
+			PerformCallback(step, skipGLCalls);
+			break;
 		default:
 			Crash();
 			break;
@@ -732,6 +740,9 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, GLFrameData &f
 			frameData.profile.passesString += StepToString(step);
 		}
 		if (!keepSteps) {
+			if (step.stepType == GLRStepType::CALLBACK && step.callback.fn) {
+				delete step.callback.fn;
+			}
 			delete steps[i];
 		}
 	}
@@ -766,6 +777,49 @@ void GLQueueRunner::PerformBlit(const GLRStep &step) {
 	} else {
 		ERROR_LOG(Log::G3D, "GLQueueRunner: Tried to blit without the capability");
 	}
+}
+
+void GLQueueRunner::PerformCallback(const GLRStep &step, bool skipGLCalls) {
+	CHECK_GL_ERROR_IF_DEBUG();
+	GLRNativeCallbackFn *fn = step.callback.fn;
+	const_cast<GLRStep &>(step).callback.fn = nullptr;
+	if (!fn)
+		return;
+	if (!skipGLCalls) {
+		GLRNativeCallbackInfo info{ step.callback.src, step.callback.dst };
+		(*fn)(info);
+		RestoreBaselineStateAfterCallback();
+	}
+	delete fn;
+	CHECK_GL_ERROR_IF_DEBUG();
+}
+
+// PerformRenderPass assumes this state on entry (see its prologue: it only disables tests/blend/cull
+// and rebinds the global VAO). Foreign code (librashader) binds its own FBOs, programs, VAOs, sampler
+// objects and may enable GL_FRAMEBUFFER_SRGB, so put everything it can touch back.
+void GLQueueRunner::RestoreBaselineStateAfterCallback() {
+	// Force the next fbo_bind_fb_target to actually bind.
+	currentDrawHandle_ = (GLuint)-1;
+	currentReadHandle_ = (GLuint)-1;
+	fbo_bind_fb_target(false, 0);
+	fbo_bind_fb_target(true, 0);
+	if (gl_extensions.ARB_vertex_array_object) {
+		glBindVertexArray(globalVAO_);
+	}
+	glUseProgram(0);
+	if (gl_extensions.GLES3 || gl_extensions.VersionGEThan(3, 3)) {
+		for (int i = 0; i < MAX_GL_TEXTURE_SLOTS; i++)
+			glBindSampler(i, 0);
+	}
+	glActiveTexture(GL_TEXTURE0);
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
+	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+	glDepthMask(GL_TRUE);
+	glStencilMask(0xFF);
+#ifndef USING_GLES2
+	if (!gl_extensions.IsGLES)
+		glDisable(GL_FRAMEBUFFER_SRGB);
+#endif
 }
 
 static void EnableDisableVertexArrays(uint32_t prevAttr, uint32_t newAttr) {
@@ -1855,6 +1909,9 @@ std::string GLQueueRunner::StepToString(const GLRStep &step) const {
 		break;
 	case GLRStepType::RENDER_SKIP:
 		snprintf(buffer, sizeof(buffer), "(RENDER_SKIP) %s\n", step.tag);
+		break;
+	case GLRStepType::CALLBACK:
+		snprintf(buffer, sizeof(buffer), "CALLBACK %s\n", step.tag);
 		break;
 	default:
 		buffer[0] = 0;

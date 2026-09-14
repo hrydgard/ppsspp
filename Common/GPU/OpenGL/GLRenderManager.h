@@ -413,6 +413,10 @@ public:
 	void CopyFramebuffer(GLRFramebuffer *src, GLRect2D srcRect, GLRFramebuffer *dst, GLOffset2D dstPos, int aspectMask, const char *tag);
 	void BlitFramebuffer(GLRFramebuffer *src, GLRect2D srcRect, GLRFramebuffer *dst, GLRect2D dstRect, int aspectMask, bool filter, const char *tag);
 
+	// Runs fn on the GL thread with the context current, outside any render pass. src/dst may be null.
+	// fn may change any GL state; the runner restores PPSSPP's baseline afterwards.
+	void RunNativeCallback(GLRFramebuffer *src, GLRFramebuffer *dst, GLRNativeCallbackFn fn, const char *tag);
+
 	// Takes ownership of data if deleteData = true.
 	void BufferSubdata(GLRBuffer *buffer, size_t offset, size_t size, uint8_t *data, bool deleteData = true) {
 		// TODO: Maybe should be a render command instead of an init command? When possible it's better as

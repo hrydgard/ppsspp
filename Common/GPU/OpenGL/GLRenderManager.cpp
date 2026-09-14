@@ -111,6 +111,9 @@ void GLRenderManager::ThreadEnd() {
 	}
 	deleter_.Perform(this, skipGLCalls_);
 	for (int i = 0; i < (int)steps_.size(); i++) {
+		if (steps_[i]->stepType == GLRStepType::CALLBACK && steps_[i]->callback.fn) {
+			delete steps_[i]->callback.fn;
+		}
 		delete steps_[i];
 	}
 	steps_.clear();
@@ -284,6 +287,20 @@ void GLRenderManager::BlitFramebuffer(GLRFramebuffer *src, GLRect2D srcRect, GLR
 	bool fillsDst = dst && dstRect.x == 0 && dstRect.y == 0 && dstRect.w == dst->width && dstRect.h == dst->height;
 	if (!fillsDst)
 		step->dependencies.insert(dst);
+	steps_.push_back(step);
+}
+
+void GLRenderManager::RunNativeCallback(GLRFramebuffer *src, GLRFramebuffer *dst, GLRNativeCallbackFn fn, const char *tag) {
+	curRenderStep_ = nullptr;  // EndCurRenderStep equivalent in this manager (see Finish()).
+	GLRStep *step = new GLRStep{ GLRStepType::CALLBACK };
+	step->callback.src = src;
+	step->callback.dst = dst;
+	step->callback.fn = new GLRNativeCallbackFn(std::move(fn));
+	if (src)
+		step->dependencies.insert(src);
+	if (dst)
+		step->dependencies.insert(dst);
+	step->tag = tag;
 	steps_.push_back(step);
 }
 
