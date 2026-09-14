@@ -527,38 +527,44 @@ Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>"
 - Possibly modify (fixes only): `GPU/Common/Slang/LibrashaderRuntimeOpenGL.cpp`, `Common/GPU/OpenGL/GLQueueRunner.cpp`, `Common/GPU/OpenGL/thin3d_gl.cpp`
 - Modify: `docs/superpowers/librashader-build.md` (GL section: requirements GL 3.3+/GLES 3.0+, options used, macOS 4.1 note, in-tree chain is Vulkan-only so "toggle off" on GL = raw image), `docs/superpowers/specs/2026-09-14-librashader-integration-design.md` (§6.2 marks Phase 2 done with the state-restore list; §10 row 2 exit criterion result), this plan (results table below)
 
-- [ ] **Step 1: Load on GL**
+- [x] **Step 1: Load on GL**
 
 Set `GraphicsBackend = 0 (OPENGL)`, `SlangUseLibrashader = True`, `SlangShaderPreset = .../stock.slangp`; launch with `/tmp/ppsspp-t8/locoroco.ppdmp`; log must show `librashader loaded (ABI 2, API 5)`, `Slang chain backend: librashader`, `LibrashaderFilterChain: preset parsed`, no `LibrashaderFilterChain:`/`LibrashaderRuntimeOpenGL:` errors, and the dump image visible (not black) within a few frames. Check `glGetError` spam: run once with PPSSPP's GL debug logging if available (`CHECK_GL_ERROR_IF_DEBUG` is compiled in debug builds; a `-DCMAKE_BUILD_TYPE=Debug` configure in a separate dir is acceptable if needed).
 
-- [ ] **Step 2: Visual A/B GL vs Vulkan (same chain)**
+- [x] **Step 2: Visual A/B GL vs Vulkan (same chain)**
 
 For `stock`, `lut`, `feedback`, `lcd-psp-matrix`, `twopass`: screenshot on GL, then the same preset on Vulkan (`GraphicsBackend = 3 (VULKAN)`), same window size/position. Expect visually identical output; differences must be explainable (GL vs Vulkan rounding, y-flip conventions — if the GL output is vertically flipped relative to Vulkan, that is a real bug in how the output texture is presented and must be fixed: compare with how `PresentationCommon` samples `output_` on GL and whether librashader's final pass expects a flipped MVP; the `mvp` argument of `gl_filter_chain_frame` accepts a 16-float matrix — pass a y-flipping MVP if needed and document it).
 
-- [ ] **Step 3: State restore**
+- [x] **Step 3: State restore**
 
 After the chain runs, PPSSPP's own UI/OSD and the present blit must render correctly (no missing textures, wrong FBO, or black UI). Toggle the pause menu / settings over the running dump and screenshot. Any corruption points at `RestoreBaselineStateAfterCallback` — extend it with the missing state and note it in the plan's Global Constraints.
 
-- [ ] **Step 4: Switching, toggle, absent library**
+- [x] **Step 4: Switching, toggle, absent library**
 
 Change presets across three runs, toggle Off/On (Off on GL means raw image — confirm no crash), rename the dylib → `librashader unavailable`, in-tree (raw image on GL), restore.
 
-- [ ] **Step 5: Record**
+- [x] **Step 5: Record**
 
 Fill the table and update the docs:
 
+Environment: macOS 15 (Darwin 25.6.0), Apple M2 Pro, SDL GL **4.1 core** over Metal (`GPU Vendor : Apple ; renderer: Apple M2 Pro version str: 4.1 Metal - 90.5 ; GLSL version str: 4.10`), `librashader.dylib` 0.12.0 (ABI 2 / API 5, `runtime-vulkan,runtime-opengl`), HEAD `ab255dd8d3`, `InternalResolution = 0` (4x → 1920x1088), window 960x544 logical at (100,100), content `/tmp/ppsspp-t8/locoroco.ppdmp`. Harness `/tmp/ppsspp-t8/runp2.sh` + `setini.py` + `setsect.py` + `cmp.py`. Full report: `.superpowers/sdd/2026-09-14-librashader-phase2-opengl/task-5-report.md`.
+
 | Check | Result | Notes |
 |---|---|---|
-| GL load + first frame | | |
-| stock GL vs Vulkan | | |
-| lut GL vs Vulkan | | |
-| feedback GL vs Vulkan | | |
-| lcd-psp-matrix GL vs Vulkan | | |
-| twopass GL vs Vulkan | | |
-| State restore (UI/OSD intact) | | |
-| Preset switching / toggle | | |
-| Library absent fallback | | |
+| GL load + first frame | **PASS** | `librashader loaded (ABI 2, API 5)`, `Slang chain backend: librashader`, `LibrashaderFilterChain: preset parsed: …/stock.slangp`. No `LibrashaderFilterChain:`/`LibrashaderRuntimeOpenGL:` error, no chain-disabled line, image correct and upright (`shot-p2-stock-gl.png`). `glsl_version = 0` auto-detect worked on the 4.1 core context — no `330`/`410` override needed. |
+| stock GL vs Vulkan | **PASS — bit-identical** | 0 / 2088960 px differ; the two PNGs are byte-identical (same MD5). |
+| lut GL vs Vulkan | **PASS — bit-identical** | 0 / 2088960 px differ (same MD5). |
+| feedback GL vs Vulkan | **PASS — bit-identical** | 0 / 2088960 px differ (same MD5). |
+| lcd-psp-matrix GL vs Vulkan | **PASS — bit-identical** | 0 / 2088960 px differ (same MD5); subpixel mask period *and* phase identical, so no y-flip and no half-pixel offset. |
+| twopass GL vs Vulkan | **PASS — bit-identical** | 0 / 2088960 px differ (same MD5); `input mode: native-sized copy, preset samples OriginalHistoryN` on both backends. |
+| No vertical flip | **PASS** | Byte-identical captures rule out any flip; no `mvp` argument needed (`nullptr` passed to `gl_filter_chain_frame`). |
+| State restore (UI/OSD intact) | **PASS** | With the chain active on GL: FPS counter + full debug-statistics overlay (`shot-p2-overlay-gl.png`) and the ImGui debugger — menu bar, window chrome, the framebuffer-preview texture — over the filtered image (`shot-p2-imdbg-gl.png`). Text, shadows, backgrounds and the present blit all correct; `RestoreBaselineStateAfterCallback` needed no extension. Pause menu itself NOT RUN (needs a synthetic Esc; osascript has no Accessibility permission on this machine) — the overlays exercise the same UI/present path. |
+| Preset switching / toggle | **PASS (across runs)** | Five different presets loaded correctly in five consecutive GL runs; `SlangUseLibrashader = False` on GL gives the raw image (`Slang chain backend: in-tree` + `Failed to load slang preset …: slang passes require the Vulkan backend in Phase 1`), no crash, clean `Leaving main`. In-process switching (chain teardown while a CALLBACK step may be pending) still NOT RUN — same Accessibility limitation as Phase 1 Task 8. |
+| Library absent fallback | **PASS** | Dylib renamed away → `librashader unavailable: librashader not found or ABI mismatch (want ABI 2)`, `Slang chain backend: in-tree`, raw image on GL, no crash; restored and reloaded fine afterwards. |
+| Chain free / shutdown | **PASS** | No `LibrashaderRuntimeOpenGL: dropping chain without freeing` in any run, no GL/driver error at exit, `Leaving main` in all 12 GL runs (8 with a librashader chain, 3 with the toggle off, 1 with the dylib renamed away). |
+| `glGetError` spam | **NOT RUN — substituted** | `DEBUG_OPENGL` cannot be enabled on macOS: `CHECK_GL_ERROR_IF_DEBUG()` expands to `__debugbreak()`, which PPSSPP only defines on Windows (`Common/CommonFuncs.h`), and fixing that means editing `Common/GPU/OpenGL/GLDebugLog.h` — outside this task's allowed files. Substituted a run with `MTL_DEBUG_LAYER=1 MTL_SHADER_VALIDATION=1` (macOS GL runs on Metal): Metal API + GPU validation enabled, chain active, **no validation error**, clean exit (`run-p2-mtldebug-gl.log`). |
 | GLES 3 (Android) | NOT RUN — Phase 3 (no librashader.so on device yet) | |
+| Unit tests | **PASS** | `./build-unittest/PPSSPPUnitTest all` → `76 tests passed.` at `ab255dd8d3` (no code change was needed in this task). |
 
 ```bash
 git add docs/superpowers/plans/2026-09-14-librashader-phase2-opengl.md docs/superpowers/librashader-build.md docs/superpowers/specs/2026-09-14-librashader-integration-design.md GPU/Common/Slang/LibrashaderRuntimeOpenGL.cpp Common/GPU/OpenGL/GLQueueRunner.cpp Common/GPU/OpenGL/thin3d_gl.cpp

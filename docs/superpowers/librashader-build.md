@@ -116,6 +116,65 @@ INFO  LibrashaderFilterChain: preset parsed: <path> (input mode: upscaled frameb
 INFO  LibrashaderFilterChain: preset parsed: <path> (input mode: native-sized copy, preset samples OriginalHistoryN)
 ```
 
+## Backend Notes: OpenGL / GLES
+
+**Requirements.** The GL runtime needs desktop GL **3.3+** or **GLES 3.0+**. That is exactly what
+`OpenGLContext::SupportsNativeCallback()` gates on (`gl_extensions.IsGLES ? gl_extensions.GLES3 :
+gl_extensions.VersionGEThan(3, 3)`), and the chain selector refuses librashader when it returns
+false, so GLES 2 devices never take this path. Sampler objects and VAOs - which the post-callback
+state restore relies on - are core at those versions.
+
+Build the library with the GL runtime compiled in (`--features runtime-vulkan,runtime-opengl`, as in
+the commands above); a Vulkan-only build reports `librashader loaded` but every GL chain creation
+fails.
+
+**librashader GL options used** (`filter_chain_gl_opt_t` in `LibrashaderRuntimeOpenGL.cpp`):
+
+| Option | Value | Why |
+|---|---|---|
+| `glsl_version` | `0` | Auto-detect from the current context. Verified on macOS's 4.1 core profile (`GLSL version str: 4.10`) - no explicit `330`/`410` override is needed. |
+| `use_dsa` | `false` | Direct State Access needs GL 4.5; macOS caps at 4.1 and GLES has no DSA. |
+| `force_no_mipmaps` | `false` | Presets that ask for mipmapped passes keep them. |
+| `disable_cache` | `false` | librashader turns its own on-disk cache off when DSA is unavailable. |
+
+Framebuffer color textures created by PPSSPP's GL backend use unsized `GL_RGBA`/`GL_UNSIGNED_BYTE`,
+so both `libra_image_gl_t`s report `GL_RGBA8` (`0x8058`) as the sized internal format.
+
+**macOS.** SDL hands PPSSPP a **GL 4.1 core** context on top of Metal (`GPU Vendor : Apple ;
+renderer: Apple M2 Pro version str: 4.1 Metal - 90.5 ; GLSL version str: 4.10`). Everything works
+with `glsl_version = 0`; no DSA, no compute, no `KHR_debug`.
+
+**"Toggle off" on GL renders the raw image.** The in-tree slang chain is Vulkan-only (it is being
+removed in Phase 4), so on GL, turning librashader off does not fall back to an equivalent chain -
+the preset is refused and PPSSPP presents the unprocessed framebuffer:
+
+```
+INFO   Slang chain backend: in-tree
+ERROR  Failed to load slang preset '<path>': slang passes require the Vulkan backend in Phase 1 (got a non-Vulkan backend)
+```
+
+The same happens if `librashader.dylib`/`.so` is missing (`librashader unavailable: ...`). Neither
+case crashes; slang shaders are simply inactive until librashader is available again. Therefore the
+A/B reference for a GL capture is the **Vulkan librashader** capture of the same preset, not a GL
+"toggle off" capture.
+
+**GL state contract.** Every `libra_gl_*` call runs inside a `GLRStepType::CALLBACK` step, i.e. on
+the GL thread with the creating context current; the chain is created and used in the same callback
+(unlike Vulkan there is no command-buffer readiness gate), and it is freed through another CALLBACK
+step because `libra_gl_filter_chain_free` needs that context. librashader changes GL state freely,
+so `GLQueueRunner::RestoreBaselineStateAfterCallback()` puts back everything
+`PerformRenderPass`/`PerformBindFramebufferAsRenderTarget` assume: the FBO binding caches are
+invalidated and `fbo_unbind()` is called, the global VAO is rebound, `glUseProgram(0)`,
+`GL_ARRAY_BUFFER` 0, `glBindSampler(i, 0)` for every texture slot, `glActiveTexture(GL_TEXTURE0)`,
+the `GL_UNPACK_*` pixel-store parameters and `GL_PIXEL_UNPACK_BUFFER`, full colour/depth/stencil
+masks, depth/stencil/blend/cull/dither/logic-op/depth-clamp/clip-distance disabled, scissor test
+enabled, and `GL_FRAMEBUFFER_SRGB` disabled on desktop.
+
+**Verified** on 2026-09-14 (macOS 15, Apple M2 Pro, GL 4.1 core over Metal): `stock`, `lut`,
+`feedback`, `lcd-psp-matrix` and `twopass` are **bit-identical** to the Vulkan librashader output of
+the same frame, and PPSSPP's own overlays (FPS counter, debug statistics, the ImGui debugger with its
+framebuffer preview) render correctly over the filtered image. GLES 3 is Phase 3.
+
 ## Confirming the Load
 
 Check the PPSSPP log for one of these lines at startup:
