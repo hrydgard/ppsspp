@@ -25,7 +25,7 @@
 #else
 #include <dlfcn.h>
 #endif
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || defined(USING_EGL)
 #include <EGL/egl.h>
 #endif
 
@@ -45,7 +45,7 @@ static const void *GLGetProcAddress(const char *name) {
 	}
 	return p;
 #else
-#if defined(__ANDROID__)
+#if defined(__ANDROID__) || defined(USING_EGL)
 	void *p = (void *)eglGetProcAddress(name);
 	if (p)
 		return p;
