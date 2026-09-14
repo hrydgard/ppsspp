@@ -66,12 +66,16 @@ static DebugInterface *CPUFromRequest(DebuggerRequest &req) {
 //
 // No parameters.
 //
-// No immediate response.  Once CPU is stepping, a "cpu.stepping" event will be sent.
+// No immediate response (only a "deferred" event, if the client asked for those via
+// client.config.set).  Once CPU is stepping, a "cpu.stepping" event will be sent.
 void WebSocketCPUStepping(DebuggerRequest &req) {
 	if (!currentDebugMIPS->isAlive()) {
 		return req.Fail("CPU not started");
 	}
 	if (!Core_IsStepping() && Core_IsActive()) {
+		// Core_Break() is explicitly free-threaded (see Core.cpp), so no need to bounce this to the CPU
+		// thread - and we can't anyway, since queuing to it only makes sense once the CPU actually *is*
+		// stepping, which this call is what triggers in the first place.
 		Core_Break(BreakReason::DebugStep, 0);
 	}
 }
@@ -80,7 +84,8 @@ void WebSocketCPUStepping(DebuggerRequest &req) {
 //
 // No parameters.
 //
-// No immediate response.  Once CPU is stepping, a "cpu.resume" event will be sent.
+// No immediate response (only a "deferred" event, if the client asked for those via
+// client.config.set).  Once CPU is running again, a "cpu.resume" event will be sent.
 void WebSocketCPUResume(DebuggerRequest &req) {
 	if (!currentDebugMIPS->isAlive()) {
 		return req.Fail("CPU not started");
@@ -89,11 +94,15 @@ void WebSocketCPUResume(DebuggerRequest &req) {
 		return req.Fail("CPU not stepping");
 	}
 
-	g_breakpoints.SetSkipFirst(currentMIPS->pc);
-	if (currentMIPS->inDelaySlot) {
-		Core_RequestCPUStep(CPUStepType::Into, 1);
-	}
-	Core_Resume();
+	// Route the actual breakpoint/stepping manipulation to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		g_breakpoints.SetSkipFirst(currentMIPS->pc);
+		if (currentMIPS->inDelaySlot) {
+			Core_RequestCPUStep(CPUStepType::Into);
+		}
+		Core_Resume();
+	});
 }
 
 // Request the current CPU status (cpu.status)
@@ -105,6 +114,15 @@ void WebSocketCPUResume(DebuggerRequest &req) {
 //  - paused: boolean, CPU paused or not started yet.
 //  - pc: number value of PC register (inaccurate unless stepping.)
 //  - ticks: number of CPU cycles into emulation.
+//  - us: microseconds of emulated time. Not derivable from ticks on the client side: the PSP's
+//    clock frequency is changeable (scePowerSetCpuClockFrequency), and games do change it, so the
+//    ticks-per-second ratio isn't fixed over a run. This is what to use to answer "how far into
+//    the game am I", e.g. to line up input injection with a wall-clock repro.
+//  - clockHz: the CPU clock frequency right now, for reference.
+// Deliberately not routed through Core_RunOnCPUThread(): this is meant to be a cheap, frequently-pollable
+// status check, and the "pc" field is already documented as inaccurate unless stepping - queuing it would
+// add up to a frame of latency to every poll for no real accuracy benefit. Matches how SteppingBroadcaster
+// already reads this same state directly from the WebSocket thread.
 void WebSocketCPUStatus(DebuggerRequest &req) {
 	JsonWriter &json = req.Respond();
 
@@ -115,7 +133,9 @@ void WebSocketCPUStatus(DebuggerRequest &req) {
 	// Avoid NULL deference.
 	json.writeUint("pc", pspInited ? currentMIPS->pc : 0);
 	// A double ought to be good enough for a 156 day debug session.
-	json.writeFloat("ticks", pspInited ? CoreTiming::GetTicks() : 0);
+	json.writeFloat("ticks", pspInited ? CoreTiming::GetTicks(currentMIPS) : 0);
+	json.writeFloat("us", pspInited ? (double)CoreTiming::PeekGlobalTimeUs() : 0);
+	json.writeUint("clockHz", pspInited ? CoreTiming::GetClockFrequencyHz() : 0);
 }
 
 // Retrieve all regs and their values (cpu.getAllRegs)
@@ -131,55 +151,59 @@ void WebSocketCPUStatus(DebuggerRequest &req) {
 //     - uintValues: array of unsigned integer values for the registers.
 //     - floatValues: array of strings showing float representation.  May be "nan", "inf", or "-inf".
 void WebSocketCPUGetAllRegs(DebuggerRequest &req) {
-	auto cpuDebug = CPUFromRequest(req);
-	if (!cpuDebug)
-		return;
+	// Route the actual register reads to the CPU thread instead of poking at them directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		DebugInterface *cpuDebug = CPUFromRequest(req);
+		if (!cpuDebug)
+			return;
 
-	JsonWriter &json = req.Respond();
+		JsonWriter &json = req.Respond();
 
-	json.pushArray("categories");
-	for (int c = 0; c < MIPSDebugInterface::GetNumCategories(); ++c) {
-		json.pushDict();
-		json.writeInt("id", c);
-		json.writeString("name", MIPSDebugInterface::GetCategoryName(c));
+		json.pushArray("categories");
+		for (int c = 0; c < MIPSDebugInterface::GetNumCategories(); ++c) {
+			json.pushDict();
+			json.writeInt("id", c);
+			json.writeString("name", MIPSDebugInterface::GetCategoryName(c));
 
-		int total = MIPSDebugInterface::GetNumRegsInCategory(c);
+			int total = MIPSDebugInterface::GetNumRegsInCategory(c);
 
-		json.pushArray("registerNames");
-		for (int r = 0; r < total; ++r)
-			json.writeString(MIPSDebugInterface::GetRegName(c, r));
-		if (c == 0) {
-			json.writeString("pc");
-			json.writeString("hi");
-			json.writeString("lo");
+			json.pushArray("registerNames");
+			for (int r = 0; r < total; ++r)
+				json.writeString(MIPSDebugInterface::GetRegName(c, r));
+			if (c == 0) {
+				json.writeString("pc");
+				json.writeString("hi");
+				json.writeString("lo");
+			}
+			json.pop();
+
+			json.pushArray("uintValues");
+			// Writing as floating point to avoid negatives.  Actually double, so safe.
+			for (int r = 0; r < total; ++r)
+				json.writeUint(cpuDebug->GetRegValue(c, r));
+			if (c == 0) {
+				json.writeUint(cpuDebug->GetPC());
+				json.writeUint(cpuDebug->GetHi());
+				json.writeUint(cpuDebug->GetLo());
+			}
+			json.pop();
+
+			json.pushArray("floatValues");
+			// Note: String so it can have Infinity and NaN.
+			for (int r = 0; r < total; ++r)
+				json.writeString(RegValueAsFloat(cpuDebug->GetRegValue(c, r)));
+			if (c == 0) {
+				json.writeString(RegValueAsFloat(cpuDebug->GetPC()));
+				json.writeString(RegValueAsFloat(cpuDebug->GetHi()));
+				json.writeString(RegValueAsFloat(cpuDebug->GetLo()));
+			}
+			json.pop();
+
+			json.pop();
 		}
 		json.pop();
-
-		json.pushArray("uintValues");
-		// Writing as floating point to avoid negatives.  Actually double, so safe.
-		for (int r = 0; r < total; ++r)
-			json.writeUint(cpuDebug->GetRegValue(c, r));
-		if (c == 0) {
-			json.writeUint(cpuDebug->GetPC());
-			json.writeUint(cpuDebug->GetHi());
-			json.writeUint(cpuDebug->GetLo());
-		}
-		json.pop();
-
-		json.pushArray("floatValues");
-		// Note: String so it can have Infinity and NaN.
-		for (int r = 0; r < total; ++r)
-			json.writeString(RegValueAsFloat(cpuDebug->GetRegValue(c, r)));
-		if (c == 0) {
-			json.writeString(RegValueAsFloat(cpuDebug->GetPC()));
-			json.writeString(RegValueAsFloat(cpuDebug->GetHi()));
-			json.writeString(RegValueAsFloat(cpuDebug->GetLo()));
-		}
-		json.pop();
-
-		json.pop();
-	}
-	json.pop();
+	});
 }
 
 enum class DebuggerRegType {
@@ -271,37 +295,41 @@ static DebuggerRegType ValidateCatReg(DebuggerRequest &req, int *cat, int *reg) 
 //  - uintValue: value in register.
 //  - floatValue: string showing float representation.  May be "nan", "inf", or "-inf".
 void WebSocketCPUGetReg(DebuggerRequest &req) {
-	auto cpuDebug = CPUFromRequest(req);
-	if (!cpuDebug)
-		return;
+	// Route the actual register read to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		DebugInterface *cpuDebug = CPUFromRequest(req);
+		if (!cpuDebug)
+			return;
 
-	int cat, reg;
-	uint32_t val = 0;
-	switch (ValidateCatReg(req, &cat, &reg)) {
-	case DebuggerRegType::NORMAL:
-		val = cpuDebug->GetRegValue(cat, reg);
-		break;
+		int cat, reg;
+		uint32_t val = 0;
+		switch (ValidateCatReg(req, &cat, &reg)) {
+		case DebuggerRegType::NORMAL:
+			val = cpuDebug->GetRegValue(cat, reg);
+			break;
 
-	case DebuggerRegType::PC:
-		val = cpuDebug->GetPC();
-		break;
-	case DebuggerRegType::HI:
-		val = cpuDebug->GetHi();
-		break;
-	case DebuggerRegType::LO:
-		val = cpuDebug->GetLo();
-		break;
+		case DebuggerRegType::PC:
+			val = cpuDebug->GetPC();
+			break;
+		case DebuggerRegType::HI:
+			val = cpuDebug->GetHi();
+			break;
+		case DebuggerRegType::LO:
+			val = cpuDebug->GetLo();
+			break;
 
-	case DebuggerRegType::INVALID:
-		// Error response already sent.
-		return;
-	}
+		case DebuggerRegType::INVALID:
+			// Error response already sent.
+			return;
+		}
 
-	JsonWriter &json = req.Respond();
-	json.writeInt("category", cat);
-	json.writeInt("register", reg);
-	json.writeUint("uintValue", val);
-	json.writeString("floatValue", RegValueAsFloat(val));
+		JsonWriter &json = req.Respond();
+		json.writeInt("category", cat);
+		json.writeInt("register", reg);
+		json.writeUint("uintValue", val);
+		json.writeString("floatValue", RegValueAsFloat(val));
+	});
 }
 
 // Update the value of a single register (cpu.setReg)
@@ -334,50 +362,55 @@ void WebSocketCPUSetReg(DebuggerRequest &req) {
 		return req.Fail("CPU currently running (cpu.stepping first)");
 	}
 
-	auto cpuDebug = CPUFromRequest(req);
-	if (!cpuDebug)
-		return;
+	// Route the actual register write to the CPU thread instead of poking at it directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		DebugInterface *cpuDebug = CPUFromRequest(req);
+		if (!cpuDebug)
+			return;
 
-	uint32_t val;
-	if (!req.ParamU32("value", &val, true)) {
-		// Already sent error.
-		return;
-	}
-
-	int cat, reg;
-	switch (ValidateCatReg(req, &cat, &reg)) {
-	case DebuggerRegType::NORMAL:
-		if (cat == 0 && reg == 0 && val != 0) {
-			return req.Fail("Cannot change reg zero");
+		uint32_t val;
+		if (!req.ParamU32("value", &val, true)) {
+			// Already sent error.
+			return;
 		}
-		cpuDebug->SetRegValue(cat, reg, val);
-		// In case part of it was ignored (e.g. flags reg.)
-		val = cpuDebug->GetRegValue(cat, reg);
-		break;
 
-	case DebuggerRegType::PC:
-		cpuDebug->SetPC(val);
-		break;
-	case DebuggerRegType::HI:
-		cpuDebug->SetHi(val);
-		break;
-	case DebuggerRegType::LO:
-		cpuDebug->SetLo(val);
-		break;
+		int cat, reg;
+		switch (ValidateCatReg(req, &cat, &reg)) {
+		case DebuggerRegType::NORMAL:
+			if (cat == 0 && reg == 0 && val != 0) {
+				req.Fail("Cannot change reg zero");
+				return;
+			}
+			cpuDebug->SetRegValue(cat, reg, val);
+			// In case part of it was ignored (e.g. flags reg.)
+			val = cpuDebug->GetRegValue(cat, reg);
+			break;
 
-	case DebuggerRegType::INVALID:
-		// Error response already sent.
-		return;
-	}
+		case DebuggerRegType::PC:
+			cpuDebug->SetPC(val);
+			break;
+		case DebuggerRegType::HI:
+			cpuDebug->SetHi(val);
+			break;
+		case DebuggerRegType::LO:
+			cpuDebug->SetLo(val);
+			break;
 
-	Reporting::NotifyDebugger();
+		case DebuggerRegType::INVALID:
+			// Error response already sent.
+			return;
+		}
 
-	JsonWriter &json = req.Respond();
-	// Repeat it back just to avoid confusion on how it parsed.
-	json.writeInt("category", cat);
-	json.writeInt("register", reg);
-	json.writeUint("uintValue", val);
-	json.writeString("floatValue", RegValueAsFloat(val));
+		Reporting::NotifyDebugger();
+
+		JsonWriter &json = req.Respond();
+		// Repeat it back just to avoid confusion on how it parsed.
+		json.writeInt("category", cat);
+		json.writeInt("register", reg);
+		json.writeUint("uintValue", val);
+		json.writeString("floatValue", RegValueAsFloat(val));
+	});
 }
 
 // Evaluate an expression (cpu.evaluate)
@@ -394,26 +427,32 @@ void WebSocketCPUEvaluate(DebuggerRequest &req) {
 		return req.Fail("CPU not started");
 	}
 
-	auto cpuDebug = CPUFromRequest(req);
-	if (!cpuDebug)
-		return;
+	// Route the actual register/symbol reads to the CPU thread instead of poking at them directly
+	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
+	Core_RunOnCPUThread([&] {
+		DebugInterface *cpuDebug = CPUFromRequest(req);
+		if (!cpuDebug)
+			return;
 
-	std::string exp;
-	if (!req.ParamString("expression", &exp)) {
-		// Already sent error.
-		return;
-	}
+		std::string exp;
+		if (!req.ParamString("expression", &exp)) {
+			// Already sent error.
+			return;
+		}
 
-	u32 val;
-	PostfixExpression postfix;
-	if (!initExpression(cpuDebug, exp.c_str(), postfix)) {
-		return req.Fail(StringFromFormat("Could not parse expression syntax: %s", getExpressionError()));
-	}
-	if (!parseExpression(cpuDebug, postfix, val)) {
-		return req.Fail(StringFromFormat("Could not evaluate expression: %s", getExpressionError()));
-	}
+		u32 val;
+		PostfixExpression postfix;
+		if (!initExpression(cpuDebug, exp.c_str(), postfix)) {
+			req.Fail(StringFromFormat("Could not parse expression syntax: %s", getExpressionError()));
+			return;
+		}
+		if (!parseExpression(cpuDebug, postfix, val)) {
+			req.Fail(StringFromFormat("Could not evaluate expression: %s", getExpressionError()));
+			return;
+		}
 
-	JsonWriter &json = req.Respond();
-	json.writeUint("uintValue", val);
-	json.writeString("floatValue", RegValueAsFloat(val));
+		JsonWriter &json = req.Respond();
+		json.writeUint("uintValue", val);
+		json.writeString("floatValue", RegValueAsFloat(val));
+	});
 }

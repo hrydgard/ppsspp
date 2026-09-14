@@ -17,6 +17,46 @@
 
 #pragma once
 
+#include <map>
+#include <vector>
+
+#include "Core/HLE/sceKernel.h"
+#include "Core/HLE/ErrorCodes.h"
+
+class PointerWrap;
+
+struct NativeMutex {
+	SceSize_le size;
+	char name[KERNELOBJECT_MAX_NAME_LENGTH + 1];
+	SceUInt_le attr;
+	s32_le initialCount;
+	s32_le lockLevel;
+	SceUID_le lockThread;
+	// Not kept up to date.
+	s32_le numWaitThreads;
+};
+
+// Exposed here (rather than kept private to sceKernelMutex.cpp) so the WebSocket debugger can
+// read a live object's state directly via kernelObjects.Get<PSPMutex>()/Iterate<PSPMutex>() - see
+// HLEKernelObjectSubscriber.cpp. That's a read-only use: nothing outside this file should call
+// DoState() or otherwise mutate a PSPMutex - it's public here for this file's own use as before,
+// not an invitation to write to it from elsewhere.
+struct PSPMutex : public KernelObject {
+	const char *GetName() override { return nm.name; }
+	const char *GetTypeName() override { return GetStaticTypeName(); }
+	static const char *GetStaticTypeName() { return "Mutex"; }
+	static u32 GetMissingErrorCode() { return SCE_MUTEX_ERROR_NO_SUCH_MUTEX; }
+	static int GetStaticIDType() { return SCE_KERNEL_TMID_Mutex; }
+	int GetIDType() const override { return SCE_KERNEL_TMID_Mutex; }
+
+	void DoState(PointerWrap &p) override;
+
+	NativeMutex nm;
+	std::vector<SceUID> waitingThreads;
+	// Key is the callback id it was for, or if no callback, the thread id.
+	std::map<SceUID, u64> pausedWaits;
+};
+
 int sceKernelCancelMutex(SceUID uid, int count, u32 numWaitThreadsPtr);
 int sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optionsPtr);
 int sceKernelDeleteMutex(SceUID id);

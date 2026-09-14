@@ -4,7 +4,7 @@
 
 #include "Common/Profiler/Profiler.h"
 
-#include "Common/GraphicsContext.h"
+#include "Common/GPU/GraphicsContext.h"
 #include "Common/LogReporting.h"
 #include "Common/Math/SIMDHeaders.h"
 #include "Common/Math/CrossSIMD.h"
@@ -186,7 +186,7 @@ u32 GPUCommon::DrawSync(int mode) {
 			return SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
 		}
 
-		if (drawCompleteTicks > CoreTiming::GetTicks()) {
+		if (drawCompleteTicks > CoreTiming::GetTicks(currentMIPS)) {
 			__GeWaitCurrentThread(GPU_SYNC_DRAW, 1, "GeDrawSync");
 		} else {
 			for (int i = 0; i < DisplayListMaxCount; ++i) {
@@ -262,7 +262,7 @@ int GPUCommon::ListSync(int listid, int mode) {
 		return SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
 	}
 
-	if (dl.waitUntilTicks > CoreTiming::GetTicks()) {
+	if (dl.waitUntilTicks > CoreTiming::GetTicks(currentMIPS)) {
 		__GeWaitCurrentThread(GPU_SYNC_LIST, listid, "GeListSync");
 	}
 
@@ -345,7 +345,7 @@ void GPUCommon::ResetMatrices() {
 		matrixVisible.tgen[i] = toFloat24(gstate.tgenMatrix[i]);
 
 	// Assume all the matrices changed, so dirty things related to them.
-	gstate_c.Dirty(DIRTY_WORLDMATRIX | DIRTY_VIEWMATRIX | DIRTY_PROJMATRIX | DIRTY_TEXMATRIX | DIRTY_FRAGMENTSHADER_STATE | DIRTY_BONE_UNIFORMS);
+	gstate_c.Dirty(DIRTY_WORLDMATRIX | DIRTY_VIEWMATRIX | DIRTY_PROJMATRIX | DIRTY_TEXMATRIX | DIRTY_FRAGMENTSHADER_STATE);
 }
 
 u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<PspGeListArgs> args, bool head, bool *runList) {
@@ -367,7 +367,7 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 	}
 
 	int id = -1;
-	u64 currentTicks = CoreTiming::GetTicks();
+	u64 currentTicks = CoreTiming::GetTicks(currentMIPS);
 	u32 stackAddr = args.IsValid() && args->size >= 16 ? (u32)args->stackAddr : 0;
 	// Check compatibility
 	// TODO: Figure out what games are affected by this...
@@ -735,7 +735,7 @@ inline void GPUCommon::UpdateState(GPURunState state) {
 // This is now called when coreState == CORE_RUNNING_GE, in addition to from the various sceGe commands.
 DLResult GPUCommon::ProcessDLQueue() {
 	if (!resumingFromDebugBreak_) {
-		startingTicks = CoreTiming::GetTicks();
+		startingTicks = CoreTiming::GetTicks(currentMIPS);
 		cyclesExecuted = 0;
 
 		// ?? Seems to be correct behaviour to process the list anyway?
@@ -745,7 +745,7 @@ DLResult GPUCommon::ProcessDLQueue() {
 		}
 	}
 
-	TimeCollector collectStat(&gpuStats.perFrame.msProcessingDisplayLists, coreCollectDebugStats);
+	TimeCollector collectStat(&gpuStats.perFrame.msProcessingDisplayLists, g_coreCollectDebugStats);
 
 	auto GetNextListIndex = [&]() -> int {
 		if (dlQueue.empty())
@@ -873,7 +873,7 @@ DLResult GPUCommon::ProcessDLQueue() {
 
 	currentList = nullptr;
 
-	if (coreCollectDebugStats) {
+	if (g_coreCollectDebugStats) {
 		gpuStats.perFrame.otherGPUCycles += cyclesExecuted;
 	}
 
@@ -1243,7 +1243,7 @@ void GPUCommon::Execute_BoundingBox(u32 op, u32 diff) {
 		// This is the normal case that pretty much always happens, the others are esoteric.
 		currentList->bboxResult = drawEngineCommon_->TestBoundingBox(control_points, inds, count, dec, vertType);
 	}
-	AdvanceVerts(gstate.vertType, count, bytesRead);
+	gstate_c.AdvanceVerts(vertType, count, bytesRead);
 }
 
 void GPUCommon::Execute_MorphWeight(u32 op, u32 diff) {
@@ -1389,24 +1389,12 @@ void GPUCommon::FastLoadBoneMatrix(u32 target) {
 	const u32 num = gstate.boneMatrixNumber & 0x7F;
 	_dbg_assert_msg_(num + 12 <= 96, "FastLoadBoneMatrix would corrupt memory");
 	const u32 mtxNum = num / 12;
-	u32 uniformsToDirty = DIRTY_BONEMATRIX0 << mtxNum;
-	if (num != 12 * mtxNum) {
-		uniformsToDirty |= DIRTY_BONEMATRIX0 << ((mtxNum + 1) & 7);
-	}
 
-	if (!g_Config.bSoftwareSkinning) {
-		if (flushOnParams_) {
-			Flush();
-		}
-		gstate_c.Dirty(uniformsToDirty);
-	} else {
-		gstate_c.deferredVertTypeDirty |= uniformsToDirty;
-	}
 	gstate.FastLoadBoneMatrix(target);
 
 	cyclesExecuted += 2 * 14;  // one to reset the counter, 12 to load the matrix, and a return.
 
-	if (coreCollectDebugStats) {
+	if (g_coreCollectDebugStats) {
 		gpuStats.perFrame.otherGPUCycles += 2 * 14;
 	}
 }
@@ -1588,7 +1576,12 @@ int GPUCommon::GetCurrentPrim(GEPrimitiveType *prim, GECommand *outCmd) const {
 	DisplayList list;
 	u32 cmdWord;
 	if (GetCurrentDisplayList(list)) {
-		cmdWord = Memory::Read_U32(list.pc);
+		if (Memory::IsValid4AlignedAddress(list.pc)) {
+			cmdWord = Memory::ReadUnchecked_U32(list.pc);
+		} else {
+			// We are screwed.
+			return 0;
+		}
 	} else {
 		// Current prim value.
 		cmdWord = gstate.cmdmem[GE_CMD_PRIM];
@@ -1677,10 +1670,10 @@ std::vector<GPUDebugOp> GPUCommon::DisassembleOpRange(u32 startpc, u32 endpc) {
 	GPUDebugOp info;
 
 	// Don't trigger a pause.
-	u32 prev = Memory::IsValidAddress(startpc - 4) ? Memory::Read_U32(startpc - 4) : 0;
+	u32 prev = Memory::IsValid4AlignedAddress(startpc - 4) ? Memory::ReadUnchecked_U32(startpc - 4) : 0;
 	result.reserve((endpc - startpc) / 4);
 	for (u32 pc = startpc; pc < endpc; pc += 4) {
-		u32 op = Memory::IsValidAddress(pc) ? Memory::Read_U32(pc) : 0;
+		u32 op = Memory::IsValid4AlignedAddress(pc) ? Memory::ReadUnchecked_U32(pc) : 0;
 		GeDisassembleOp(pc, op, prev, buffer, sizeof(buffer));
 		prev = op;
 
@@ -1775,8 +1768,8 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 			u32 dstLineStartAddr = dstBasePtr + (dstY * dstStride + dstX) * bpp;
 			u32 bytesToCopy = width * height * bpp;
 
-			const u8 *srcp = Memory::GetPointer(srcLineStartAddr);
-			u8 *dstp = Memory::GetPointerWrite(dstLineStartAddr);
+			const u8 *srcp = Memory::GetPointerOrException(srcLineStartAddr);
+			u8 *dstp = Memory::GetPointerWriteOrException(dstLineStartAddr);
 			memcpy(dstp, srcp, bytesToCopy);
 
 			if (MemBlockInfoDetailed(bytesToCopy)) {
@@ -1793,8 +1786,8 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 			}
 
 			auto notifyingMemmove = [&](u32 d, u32 s, u32 sz) {
-				const u8 *srcp = Memory::GetPointer(s);
-				u8 *dstp = Memory::GetPointerWrite(d);
+				const u8 *srcp = Memory::GetPointerOrException(s);
+				u8 *dstp = Memory::GetPointerWriteOrException(d);
 				memmove(dstp, srcp, sz);
 
 				if (notifyDetail) {
@@ -1816,8 +1809,8 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 				bool dstLineWrap = !Memory::IsValidRange(dstLineStartAddr, bytesToCopy);
 
 				if (!srcLineWrap && !dstLineWrap) {
-					const u8 *srcp = Memory::GetPointer(srcLineStartAddr);
-					u8 *dstp = Memory::GetPointerWrite(dstLineStartAddr);
+					const u8 *srcp = Memory::GetPointerOrException(srcLineStartAddr);
+					u8 *dstp = Memory::GetPointerWriteOrException(dstLineStartAddr);
 					for (u32 i = 0; i < bytesToCopy; i += 64) {
 						u32 chunk = i + 64 > bytesToCopy ? bytesToCopy - i : 64;
 						memmove(dstp + i, srcp + i, chunk);
@@ -1897,8 +1890,8 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 				u32 srcLineStartAddr = srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp;
 				u32 dstLineStartAddr = dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp;
 
-				const u8 *srcp = Memory::GetPointer(srcLineStartAddr);
-				u8 *dstp = Memory::GetPointerWrite(dstLineStartAddr);
+				const u8 *srcp = Memory::GetPointerOrException(srcLineStartAddr);
+				u8 *dstp = Memory::GetPointerWriteOrException(dstLineStartAddr);
 				memcpy(dstp, srcp, bytesToCopy);
 
 				// If we're tracking detail, it's useful to have the gaps illustrated properly.
@@ -2158,8 +2151,17 @@ GPUDebug::NotifyResult GPUCommon::NotifyCommand(u32 pc, GPUBreakpoints *breakpoi
 	if (debugBreak) {
 		breakpoints->ClearTempBreakpoints();
 
-		u32 op = Memory::Read_U32(pc);
-		auto info = DisassembleOp(pc, op);
+		GPUDebugOp info;
+		if (Memory::IsValid4AlignedAddress(pc)) {
+			op = Memory::ReadUnchecked_U32(pc);
+			info = DisassembleOp(pc, op);
+		} else {
+			op = 0;
+			info.pc = pc;
+			info.cmd = 0;
+			info.op = 0;
+			info.desc = "(invalid address)";
+		}
 		NOTICE_LOG(Log::GeDebugger, "Waiting at %08x, %s", pc, info.desc.c_str());
 
 		skipPcOnce_ = pc;

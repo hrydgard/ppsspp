@@ -20,6 +20,7 @@ private:
 	void setUpControllers();
 	InputKeyCode getKeycodeForButton(SDL_GamepadButton button);
 	int getDeviceIndex(int instanceId);
+	void releaseAllKeys();
 
 	bool registeredAsEventHandler;
 	std::vector<SDL_Gamepad *> controllers;

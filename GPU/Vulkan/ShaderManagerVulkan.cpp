@@ -73,7 +73,6 @@ static Promise<VkShaderModule> *CompileShaderModuleAsync(VulkanContext *vulkan, 
 				switch (stage) {
 				case VK_SHADER_STAGE_VERTEX_BIT: createTag = "game_vertex"; break;
 				case VK_SHADER_STAGE_FRAGMENT_BIT: createTag = "game_fragment"; break;
-				case VK_SHADER_STAGE_GEOMETRY_BIT: createTag = "game_geometry"; break;
 				case VK_SHADER_STAGE_COMPUTE_BIT: createTag = "game_compute"; break;
 				default: break;
 				}
@@ -83,8 +82,9 @@ static Promise<VkShaderModule> *CompileShaderModuleAsync(VulkanContext *vulkan, 
 #ifdef SHADERLOG
 			OutputDebugStringA("OK");
 #endif
-			delete tag;
 		}
+		// We take ownership of the tag, so delete it whether we got here through success or failure.
+		delete tag;
 		return shaderModule;
 	};
 
@@ -177,7 +177,6 @@ ShaderManagerVulkan::ShaderManagerVulkan(Draw::DrawContext *draw)
 
 	static_assert(sizeof(uniforms_->ub_base) <= 512, "ub_base grew too big");
 	static_assert(sizeof(uniforms_->ub_lights) <= 512, "ub_lights grew too big");
-	static_assert(sizeof(uniforms_->ub_bones) <= 384, "ub_bones grew too big");
 }
 
 ShaderManagerVulkan::~ShaderManagerVulkan() {
@@ -213,26 +212,18 @@ void ShaderManagerVulkan::Clear() {
 
 void ShaderManagerVulkan::ClearShaders() {
 	Clear();
-	DirtyLastShader();
+	lastFSID_.set_invalid();
+	lastVSID_.set_invalid();
 	gstate_c.Dirty(DIRTY_ALL_UNIFORMS | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
 }
 
-void ShaderManagerVulkan::DirtyLastShader() {
-	// Forget the last shader ID
-	lastFSID_.set_invalid();
-	lastVSID_.set_invalid();
-	gstate_c.Dirty(DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE);
-}
-
-uint64_t ShaderManagerVulkan::UpdateUniforms(bool useBufferedRendering) {
+uint64_t ShaderManagerVulkan::UpdateUniforms(bool useBufferedRendering, bool pixelMapped) {
 	uint64_t dirty = gstate_c.GetDirtyUniforms();
 	if (dirty != 0) {
 		if (dirty & DIRTY_BASE_UNIFORMS)
-			BaseUpdateUniforms(&uniforms_->ub_base, dirty, useBufferedRendering);
+			BaseUpdateUniforms(&uniforms_->ub_base, dirty, useBufferedRendering, pixelMapped);
 		if (dirty & DIRTY_LIGHT_UNIFORMS)
 			LightUpdateUniforms(&uniforms_->ub_lights, dirty);
-		if (dirty & DIRTY_BONE_UNIFORMS)
-			BoneUpdateUniforms(&uniforms_->ub_bones, dirty);
 	}
 	gstate_c.CleanUniforms();
 	return dirty;
@@ -278,14 +269,14 @@ const VulkanFragmentShader *ShaderManagerVulkan::GetFragmentShaderFromID(FShader
 	return fs;
 }
 
-void ShaderManagerVulkan::GetShaderIDs(int prim, u32 vertexType, VShaderID *vshader, FShaderID *fshader, const ComputedPipelineState &pipelineState, bool useHWTransform, bool weightsAsFloat, bool useSkinInDecode, ClipInfoFlags clipInfoFlags) {
+void ShaderManagerVulkan::GetShaderIDs(int prim, u32 vertexType, VShaderID *vshader, FShaderID *fshader, const ComputedPipelineState &pipelineState, bool useHWTransform, ClipInfoFlags clipInfoFlags) {
 	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
 
 	bool recomputedVS = false;
 	VShaderID VSID;
 	if (gstate_c.IsDirty(DIRTY_VERTEXSHADER_STATE)) {
 		gstate_c.Clean(DIRTY_VERTEXSHADER_STATE);
-		ComputeVertexShaderID(&VSID, vertexType, useHWTransform, weightsAsFloat, useSkinInDecode, clipInfoFlags);
+		ComputeVertexShaderID(&VSID, vertexType, useHWTransform, clipInfoFlags);
 		lastVSID_ = VSID;
 		*vshader = VSID;
 		recomputedVS = true;
@@ -387,7 +378,7 @@ struct VulkanCacheHeader {
 	uint32_t detectFlags;
 	int numVertexShaders;
 	int numFragmentShaders;
-	int numGeometryShaders;
+	int unused_numGeometryShaders;  // Always 0, kept so the file format stays compatible.
 };
 
 bool ShaderManagerVulkan::LoadCacheFlags(FILE *f, DrawEngineVulkan *drawEngine) {
@@ -473,7 +464,7 @@ bool ShaderManagerVulkan::LoadCache(FILE *f) {
 		}
 	}
 
-	NOTICE_LOG(Log::G3D, "ShaderCache: Loaded %d vertex, %d fragment shaders and %d geometry shaders (failed %d)", header.numVertexShaders, header.numFragmentShaders, header.numGeometryShaders, failCount);
+	NOTICE_LOG(Log::G3D, "ShaderCache: Loaded %d vertex and %d fragment shaders (failed %d)", header.numVertexShaders, header.numFragmentShaders, failCount);
 	return true;
 }
 
@@ -485,7 +476,7 @@ void ShaderManagerVulkan::SaveCache(FILE *f, DrawEngineVulkan *drawEngine) {
 	header.detectFlags = 0;
 	header.numVertexShaders = (int)vsCache_.size();
 	header.numFragmentShaders = (int)fsCache_.size();
-	header.numGeometryShaders = 0;
+	header.unused_numGeometryShaders = 0;
 	bool writeFailed = fwrite(&header, sizeof(header), 1, f) != 1;
 	vsCache_.Iterate([&](const VShaderID &id, VulkanVertexShader *vs) {
 		writeFailed = writeFailed || fwrite(&id, sizeof(id), 1, f) != 1;

@@ -20,6 +20,12 @@
 #ifndef UNICODE
 #error Win32 build requires a unicode build
 #endif
+#elif defined(__APPLE__)
+// _POSIX_SOURCE alone restricts Darwin's libc headers to POSIX.1-1990 declarations,
+// which predates fseeko/ftello/ftruncate (POSIX.1-2001+) and hides them entirely -
+// unlike glibc, Darwin doesn't fall back to a broader feature set here.
+#define _DARWIN_C_SOURCE
+#define _LARGE_TIME_API
 #else
 #define _POSIX_SOURCE
 #define _LARGE_TIME_API
@@ -624,7 +630,7 @@ bool Delete(const Path &filename, bool quiet) {
 }
 
 // Returns true if successful, or path already exists.
-bool CreateDir(const Path &path) {
+bool CreateDir(const Path &path, bool quiet) {
 	if (SIMULATE_SLOW_IO) {
 		sleep_ms(100, "slow-io-sim");
 		INFO_LOG(Log::IO, "CreateDir %s", path.c_str());
@@ -645,11 +651,15 @@ bool CreateDir(const Path &path) {
 		AndroidContentURI uri(path.ToString());
 		std::string newDirName = uri.GetLastPart();
 		if (uri.NavigateUp()) {
-			INFO_LOG(Log::IO, "Calling Android_CreateDirectory(%s, %s)", uri.ToString().c_str(), newDirName.c_str());
+			if (!quiet) {
+				INFO_LOG(Log::IO, "Calling Android_CreateDirectory(%s, %s)", uri.ToString().c_str(), newDirName.c_str());
+			}
 			return Android_CreateDirectory(uri.ToString(), newDirName) == StorageError::SUCCESS;
 		} else {
 			// Bad path - can't create this directory.
-			WARN_LOG(Log::IO, "CreateDir failed: '%s'", path.c_str());
+			if (!quiet) {
+				WARN_LOG(Log::IO, "CreateDir failed: '%s'", path.c_str());
+			}
 			return false;
 		}
 		break;
@@ -658,7 +668,10 @@ bool CreateDir(const Path &path) {
 		return false;
 	}
 
-	DEBUG_LOG(Log::IO, "CreateDir('%s')", path.c_str());
+	if (!quiet) {
+		DEBUG_LOG(Log::IO, "CreateDir('%s')", path.c_str());
+	}
+
 #ifdef HAVE_LIBRETRO_VFS
 	switch (LibretroMkdir(path.ToString().c_str())) {
 		case -2:
@@ -680,10 +693,14 @@ bool CreateDir(const Path &path) {
 
 	DWORD error = GetLastError();
 	if (error == ERROR_ALREADY_EXISTS) {
-		DEBUG_LOG(Log::IO, "CreateDir: CreateDirectory failed on %s: already exists", path.c_str());
+		if (!quiet) {
+			DEBUG_LOG(Log::IO, "CreateDir: CreateDirectory failed on %s: already exists", path.c_str());
+		}
 		return true;
 	}
-	ERROR_LOG(Log::IO, "CreateDir: CreateDirectory failed on %s: %08x %s", path.c_str(), (uint32_t)error, GetStringErrorMsg(error).c_str());
+	if (!quiet) {
+		ERROR_LOG(Log::IO, "CreateDir: CreateDirectory failed on %s: %08x %s", path.c_str(), (uint32_t)error, GetStringErrorMsg(error).c_str());
+	}
 	return false;
 #else
 	if (mkdir(path.ToString().c_str(), 0755) == 0) {
@@ -692,11 +709,15 @@ bool CreateDir(const Path &path) {
 
 	int err = errno;
 	if (err == EEXIST) {
-		DEBUG_LOG(Log::IO, "CreateDir: mkdir failed on %s: already exists", path.c_str());
+		if (!quiet) {
+			DEBUG_LOG(Log::IO, "CreateDir: mkdir failed on %s: already exists", path.c_str());
+		}
 		return true;
 	}
 
-	ERROR_LOG(Log::IO, "CreateDir: mkdir failed on %s: %s", path.c_str(), strerror(err));
+	if (!quiet) {
+		ERROR_LOG(Log::IO, "CreateDir: mkdir failed on %s: %s", path.c_str(), strerror(err));
+	}
 	return false;
 #endif
 }
@@ -704,8 +725,13 @@ bool CreateDir(const Path &path) {
 // Creates the full path of fullPath returns true on success
 bool CreateFullPath(const Path &path) {
 	if (File::Exists(path)) {
-		DEBUG_LOG(Log::IO, "CreateFullPath: path exists %s", path.ToVisualString().c_str());
+		VERBOSE_LOG(Log::IO, "CreateFullPath: path exists %s", path.ToVisualString().c_str());
 		return true;
+	}
+
+	if (path.empty()) {
+		ERROR_LOG(Log::IO, "Can't create an empty path");
+		return false;
 	}
 
 	switch (path.Type()) {
@@ -1040,6 +1066,53 @@ bool CreateEmptyFile(const Path &filename) {
 	}
 	fclose(pFile);
 	return true;
+}
+
+bool IsDirectoryWritable(const Path &path) {
+	// There's no portable way to ask, so just try it and clean up after ourselves.
+	const Path probe = path / ".ppsspp_write_test";
+	FILE *file = OpenCFile(probe, "wb");
+	if (!file) {
+		return false;
+	}
+	fclose(file);
+	Delete(probe, true);
+	return true;
+}
+
+bool SetFileWritable(const Path &filename, bool writable) {
+	switch (filename.Type()) {
+	case PathType::NATIVE:
+		break;
+	default:
+		// Content URIs and the other virtual path types have no notion of this, so say so rather
+		// than pretending it worked.
+		return false;
+	}
+
+#ifdef _WIN32
+	const DWORD attrs = GetFileAttributesW(filename.ToWString().c_str());
+	if (attrs == INVALID_FILE_ATTRIBUTES) {
+		return false;
+	}
+	const DWORD updated = writable ? (attrs & ~FILE_ATTRIBUTE_READONLY) : (attrs | FILE_ATTRIBUTE_READONLY);
+	if (updated == attrs) {
+		return true;
+	}
+	return SetFileAttributesW(filename.ToWString().c_str(), updated) != 0;
+#else
+	struct stat info;
+	if (stat(filename.c_str(), &info) != 0) {
+		return false;
+	}
+	// Mirror the write bits onto whoever already has read access, which is what clearing the FAT
+	// read-only attribute amounts to.
+	mode_t mode = info.st_mode & ~(mode_t)0222;
+	if (writable) {
+		mode |= (info.st_mode & 0444) >> 1;
+	}
+	return chmod(filename.c_str(), mode) == 0;
+#endif
 }
 
 // Deletes an empty directory, returns true on success
@@ -1417,7 +1490,7 @@ uint8_t *ReadLocalFile(const Path &filename, size_t *size) {
 		return nullptr;
 	}
 	Fseek(file, 0, SEEK_SET);
-	// NOTE: If you find ~10 memory leaks from here, with very varying sizes, it might be the VFPU LUTs.
+	// NOTE: If you find up to ~10-ish memory leaks from here, with very varying sizes, it might be the VFPU LUTs.
 	uint8_t *contents = new uint8_t[f_size + 1];
 	if (fread(contents, 1, f_size, file) != f_size) {
 		delete[] contents;

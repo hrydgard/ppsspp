@@ -41,9 +41,6 @@
 [submodule "ext/rcheevos"]
 	path = ext/rcheevos
 	url = https://github.com/RetroAchievements/rcheevos.git
-[submodule "ext/naett"]
-	path = ext/naett
-	url = https://github.com/erkkah/naett.git
 [submodule "ext/libchdr"]
 	path = ext/libchdr
 	url = https://github.com/rtissera/libchdr.git
@@ -69,3 +66,6 @@
 	path = ext/aemu_postoffice
 	url = https://github.com/Kethen/aemu_postoffice.git
 	branch = ppsspp
+[submodule "frametests"]
+	path = frametests
+	url = https://github.com/hrydgard/ppsspp-frametest-ci.git

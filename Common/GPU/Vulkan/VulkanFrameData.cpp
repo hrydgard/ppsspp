@@ -77,8 +77,13 @@ void FrameData::Destroy(VulkanContext *vulkan) {
 void FrameData::AcquireNextImage(VulkanContext *vulkan) {
 	_dbg_assert_(!hasAcquired);
 
-	// Get the index of the next available swapchain image, and a semaphore to block command buffer execution on.
-	VkResult res = vkAcquireNextImageKHR(vulkan->GetDevice(), vulkan->GetSwapchain(), UINT64_MAX, acquireSemaphore, (VkFence)VK_NULL_HANDLE, &curSwapchainImage);
+	VkResult res;
+	if (VulkanPresentation *presentation = vulkan->GetPresentation()) {
+		res = presentation->AcquireNextImage(vulkan, acquireSemaphore, &curSwapchainImage);
+	} else {
+		// Get the index of the next available swapchain image, and a semaphore to block command buffer execution on.
+		res = vkAcquireNextImageKHR(vulkan->GetDevice(), vulkan->GetSwapchain(), UINT64_MAX, acquireSemaphore, (VkFence)VK_NULL_HANDLE, &curSwapchainImage);
+	}
 	switch (res) {
 	case VK_SUCCESS:
 		hasAcquired = true;
@@ -110,6 +115,10 @@ VkResult FrameData::QueuePresent(VulkanContext *vulkan, FrameDataShared &shared)
 	_dbg_assert_(hasAcquired);
 	hasAcquired = false;
 	_dbg_assert_(!skipSwap);
+
+	if (VulkanPresentation *presentation = vulkan->GetPresentation()) {
+		return presentation->QueuePresent(vulkan, vulkan->GetGraphicsQueue(), curSwapchainImage, shared.swapchainImages_[curSwapchainImage].renderingCompleteSemaphore);
+	}
 
 	VkSwapchainKHR swapchain = vulkan->GetSwapchain();
 	VkPresentInfoKHR present = { VK_STRUCTURE_TYPE_PRESENT_INFO_KHR };
@@ -230,12 +239,15 @@ void FrameData::Submit(VulkanContext *vulkan, FrameSubmitType type, FrameDataSha
 		submit_info.signalSemaphoreCount = 1;
 		submit_info.pSignalSemaphores = &sharedData.swapchainImages_[curSwapchainImage].renderingCompleteSemaphore;
 	}
+	vulkan->PrepareSubmit(submit_info);
 
 	VkResult res;
 	if (fenceToTrigger == fence) {
 		VLOG("Doing queue submit, fencing frame %d", this->index);
 		// The fence is waited on by the main thread, they are not allowed to access it simultaneously.
+		vulkan->LockQueue();
 		res = vkQueueSubmit(vulkan->GetGraphicsQueue(), 1, &submit_info, fenceToTrigger);
+		vulkan->UnlockQueue();
 		if (sharedData.useMultiThreading) {
 			std::lock_guard<std::mutex> lock(fenceMutex);
 			readyForFence = true;
@@ -243,7 +255,9 @@ void FrameData::Submit(VulkanContext *vulkan, FrameSubmitType type, FrameDataSha
 		}
 	} else {
 		VLOG("Doing queue submit, fencing something (%p)", fenceToTrigger);
+		vulkan->LockQueue();
 		res = vkQueueSubmit(vulkan->GetGraphicsQueue(), 1, &submit_info, fenceToTrigger);
+		vulkan->UnlockQueue();
 	}
 
 	if (res == VK_ERROR_DEVICE_LOST) {

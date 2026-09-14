@@ -29,6 +29,7 @@ CChunkFileReader::Error StateRingbuffer::Save() {
 	{
 		base_ = (base_ + 1) % ARRAY_SIZE(bases_);
 		baseUsage_ = 0;
+		baseGeneration_[base_] = nextBaseGeneration_++;
 		err = SaveToRam(bases_[base_]);
 		// Let's not bother savestating twice.
 		compressBuffer = &bases_[base_];
@@ -42,7 +43,7 @@ CChunkFileReader::Error StateRingbuffer::Save() {
 		states_[n].clear();
 	}
 
-	baseMapping_[n] = base_;
+	baseMapping_[n] = baseGeneration_[base_];
 	return err;
 }
 
@@ -59,8 +60,17 @@ CChunkFileReader::Error StateRingbuffer::Restore(std::string *errorString, std::
 
 	auto pa = GetI18NCategory(I18NCat::PAUSE);
 
+	const int generation = baseMapping_[n];
+	const int baseSlot = generation < 0 ? -1 : generation % (int)ARRAY_SIZE(bases_);
+	if (baseSlot < 0 || baseGeneration_[baseSlot] != generation) {
+		// The base this state was compressed against has since been overwritten, so it can't be
+		// decoded any more. Only two bases are kept, but the state ring is longer.
+		WARN_LOG(Log::SaveState, "Rewind: state %d was compressed against a base that's gone", n);
+		return CChunkFileReader::ERROR_BAD_FILE;
+	}
+
 	static std::vector<u8> buffer;
-	LockedDecompress(buffer, states_[n].stateBuffer, bases_[baseMapping_[n]]);
+	LockedDecompress(buffer, states_[n].stateBuffer, bases_[baseSlot]);
 	CChunkFileReader::Error error = LoadFromRam(buffer, errorString);
 	*metadata = pa->T("Rewind");
 
@@ -117,7 +127,12 @@ void StateRingbuffer::LockedDecompress(std::vector<u8> &result, const std::vecto
 	for (size_t i = 0; i < compressed.size(); ) {
 		if (compressed[i] == 0) {
 			++i;
-			int blockSize = std::min(BLOCK_SIZE, (int)(base.size() - result.size()));
+			// Bound against what's actually left of the base: the subtraction this used to do
+			// (base.size() - result.size()) wraps once the output is longer than the base.
+			const int blockSize = (int)std::min((size_t)BLOCK_SIZE, (size_t)(base.end() - basePos));
+			if (blockSize <= 0) {
+				break;
+			}
 			result.insert(result.end(), basePos, basePos + blockSize);
 			basePos += blockSize;
 		} else {
@@ -145,6 +160,10 @@ void StateRingbuffer::Clear() {
 	for (auto &b : bases_) {
 		b.clear();
 	}
+	for (int &g : baseGeneration_) {
+		g = -1;
+	}
+	nextBaseGeneration_ = 0;
 	baseMapping_.clear();
 	baseMapping_.resize(size_);
 	for (auto &s : states_) {

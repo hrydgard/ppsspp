@@ -43,6 +43,7 @@
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/UI.h"
 #include "Common/UI/IconCache.h"
+#include "Common/UI/ScreenManager.h"
 #include "Common/Render/Text/draw_text.h"
 #include "Common/Profiler/Profiler.h"
 
@@ -57,6 +58,7 @@
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
 #include "Core/Reporting.h"
+#include "Core/RetroAchievements.h"
 #include "Core/CoreParameter.h"
 #include "Core/HLE/sceKernel.h"  // GPI/GPO
 #include "Core/MIPS/MIPSTables.h"
@@ -186,6 +188,10 @@ void DevMenuScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	});
 
 	items->Add(new Choice(dev->T("Toggle Freeze")))->OnClick.Add([](UI::EventParams &e) {
+		// Freezing restores a savestate every frame, so it's not allowed in hardcore mode.
+		if (Achievements::WarnUserIfHardcoreModeActive(false)) {
+			return;
+		}
 		if (PSP_CoreParameter().frozen) {
 			PSP_CoreParameter().frozen = false;
 		} else {
@@ -571,6 +577,7 @@ void ShaderViewScreen::CreateViews() {
 	using namespace UI;
 
 	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
 
 	LinearLayout *layout = new LinearLayout(ORIENT_VERTICAL);
 	root_ = layout;
@@ -579,6 +586,9 @@ void ShaderViewScreen::CreateViews() {
 	topbar->Add(new Choice(ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams()))->OnClick.Handle<UIScreen>(this, &UIScreen::OnBack);
 	topbar->Add(new Choice(ImageID("I_FILE_COPY"), new LinearLayoutParams()))->OnClick.Add([this](UI::EventParams &e) {
 		System_CopyStringToClipboard(gpu->DebugGetShaderString(id_, type_, SHADER_STRING_SHORT_DESC));
+	});
+	topbar->Add(new Choice(dev->T("Copy source code"), ImageID("I_FILE_COPY"), new LinearLayoutParams()))->OnClick.Add([this](UI::EventParams &e) {
+		System_CopyStringToClipboard(gpu->DebugGetShaderString(id_, type_, SHADER_STRING_SOURCE_CODE));
 	});
 	topbar->Add(new TextView(gpu->DebugGetShaderString(id_, type_, SHADER_STRING_SHORT_DESC), FLAG_DYNAMIC_ASCII | FLAG_WRAP_TEXT, false));
 	layout->Add(topbar);
@@ -889,7 +899,7 @@ void TouchTestScreen::OnImmersiveModeChange(UI::EventParams &e) {
 
 void TouchTestScreen::OnRenderingBackend(UI::EventParams &e) {
 	g_Config.Save("GameSettingsScreen::RenderingBackend");
-	System_RestartApp("--touchscreentest");
+	System_RestartApp("--start-screen=touchscreentest");
 }
 
 void TouchTestScreen::OnRecreateActivity(UI::EventParams &e) {

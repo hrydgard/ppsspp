@@ -80,49 +80,50 @@ INT_PTR CALLBACK DumpMemoryWindow::dlgFunc(HWND hwnd, UINT iMsg, WPARAM wParam, 
 			break;
 		case IDOK:
 			if (bp->fetchDialogData(hwnd)) {
-				bool priorDumpWasStepping = Core_IsStepping();
-				if (!priorDumpWasStepping && PSP_IsInited()) {
-					// If emulator isn't paused force paused state, but wait before locking.
-					Core_Break(BreakReason::MemoryAccess, bp->start);
-					Core_WaitInactive();
-				}
+				bool includeReplacements = SendMessage(GetDlgItem(hwnd, IDC_DUMP_INCLUDEHACKS), BM_GETCHECK, 0, 0) != 0;
 
-				auto memLock = Memory::Lock();
-				if (!PSP_IsInited())
-					break;
+				// Route the actual memory dump to the CPU thread instead of forcing the emulator
+				// to pause and poking at it directly from this GUI thread - see
+				// Core_RunOnCPUThread() in Core.h. MessageBoxA() is modal, so it stays outside the
+				// queued callback.
+				enum class Outcome { NotInited, OpenFailed, Success } outcome = Outcome::NotInited;
+				Core_RunOnCPUThread([&] {
+					CoreShutdownLock coreLock = Core_LockAgainstShutdown();
+					if (!PSP_IsInited())
+						return;
 
-				FILE *output = _wfopen(bp->fileName_.c_str(), L"wb");
-				if (output == nullptr) {
+					FILE *output = _wfopen(bp->fileName_.c_str(), L"wb");
+					if (output == nullptr) {
+						outcome = Outcome::OpenFailed;
+						return;
+					}
+
+					if (includeReplacements) {
+						fwrite(Memory::GetPointerOrException(bp->start), 1, bp->size, output);
+					} else {
+						auto savedReplacements = SaveAndClearReplacements();
+						if (MIPSComp::jit) {
+							auto savedBlocks = MIPSComp::jit->SaveAndClearEmuHackOps();
+							fwrite(Memory::GetPointerOrException(bp->start), 1, bp->size, output);
+							MIPSComp::jit->RestoreSavedEmuHackOps(savedBlocks);
+						} else {
+							fwrite(Memory::GetPointerOrException(bp->start), 1, bp->size, output);
+						}
+						RestoreSavedReplacements(savedReplacements);
+					}
+
+					fclose(output);
+					outcome = Outcome::Success;
+				});
+
+				if (outcome == Outcome::OpenFailed) {
 					char errorMessage[2048];
 					snprintf(errorMessage, sizeof(errorMessage), "Could not open file \"%S\".", bp->fileName_.c_str());
 					MessageBoxA(hwnd, errorMessage, "Error", MB_OK);
-					break;
+				} else if (outcome == Outcome::Success) {
+					MessageBoxA(hwnd, "Done.", "Information", MB_OK);
+					EndDialog(hwnd, true);
 				}
-
-				bool includeReplacements = SendMessage(GetDlgItem(hwnd, IDC_DUMP_INCLUDEHACKS), BM_GETCHECK, 0, 0) != 0;
-				if (includeReplacements) {
-					fwrite(Memory::GetPointer(bp->start), 1, bp->size, output);
-				} else {
-					auto savedReplacements = SaveAndClearReplacements();
-					std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
-					if (MIPSComp::jit) {
-						auto savedBlocks = MIPSComp::jit->SaveAndClearEmuHackOps();
-						fwrite(Memory::GetPointer(bp->start), 1, bp->size, output);
-						MIPSComp::jit->RestoreSavedEmuHackOps(savedBlocks);
-					} else {
-						fwrite(Memory::GetPointer(bp->start), 1, bp->size, output);
-					}
-					RestoreSavedReplacements(savedReplacements);
-				}
-
-				fclose(output);
-				if (!priorDumpWasStepping) {
-					// If emulator wasn't paused before memory dump resume emulation automatically.
-					Core_Resume();
-				}
-
-				MessageBoxA(hwnd, "Done.", "Information", MB_OK);
-				EndDialog(hwnd, true);
 			}
 			break;
 		case IDCANCEL:

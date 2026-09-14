@@ -34,6 +34,7 @@
 #include "Common/System/OSD.h"
 #include "Common/System/Request.h"
 #include "Common/System/NativeApp.h"
+#include "Common/UI/ScreenManager.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "Core/System.h"
@@ -50,6 +51,7 @@
 #include "UI/GameScreen.h"
 #include "UI/GameSettingsScreen.h"
 #include "UI/GameInfoCache.h"
+#include "UI/InstallUpdateScreen.h"
 #include "UI/BaseScreens.h"
 #include "UI/MiscScreens.h"
 #include "UI/MainScreen.h"
@@ -65,7 +67,7 @@ void copyDeepLinkForPath(std::string_view filePath);
 void copyDeepLinkForPath(std::string_view) {}
 #endif
 
-constexpr GameInfoFlags g_desiredFlags = GameInfoFlags::PARAM_SFO | GameInfoFlags::ICON | GameInfoFlags::PIC0 | GameInfoFlags::PIC1 | GameInfoFlags::ICON1_PMF | GameInfoFlags::UNCOMPRESSED_SIZE | GameInfoFlags::SIZE | GameInfoFlags::SAVEDATA_SIZE;
+constexpr GameInfoFlags g_desiredFlags = GameInfoFlags::PARAM_SFO | GameInfoFlags::ICON | GameInfoFlags::PIC0 | GameInfoFlags::PIC1 | GameInfoFlags::ICON1_PMF | GameInfoFlags::UNCOMPRESSED_SIZE | GameInfoFlags::SIZE | GameInfoFlags::SAVEDATA_SIZE | GameInfoFlags::BUNDLED_UPDATE_INFO;
 
 class PMFView : public UI::InertView {
 public:
@@ -113,7 +115,9 @@ public:
 
 		Draw::DrawContext *draw = dc.GetDrawContext();
 
-		std::vector<u8> frame(width_ * height_ * 4);
+		// Dimensions are capped by pmf_init, but use size_t arithmetic anyway
+		// so a regression can't overflow the allocation.
+		std::vector<u8> frame((size_t)width_ * (size_t)height_ * 4);
 		if (pmf_update(player_, startTime_.ElapsedSeconds(), frame.data())) {
 			if (curFrame_) {
 				curFrame_->Release();
@@ -181,7 +185,7 @@ template <typename I> std::string int2hexstr(I w, size_t hex_len = sizeof(I) << 
 }
 
 void GameScreen::update() {
-	UIScreen::update();
+	UITwoPaneBaseDialogScreen::update();
 
 	GameInfoFlags hasFlags;
 	g_gameInfoCache->GetInfo(NULL, gamePath_, g_desiredFlags, &hasFlags);
@@ -259,6 +263,15 @@ static bool FileTypeIsPlayable(IdentifiedFileType fileType) {
 	}
 }
 
+void GameScreen::RefreshInstalledUpdate() {
+	hasInstalledUpdate_ = false;
+	// Homebrew reuses real disc IDs often enough that we'd get false positives.
+	if (isHomebrew_ || !(knownFlags_ & GameInfoFlags::PARAM_SFO)) {
+		return;
+	}
+	hasInstalledUpdate_ = FindInstalledGameUpdate(info_->id, &installedUpdate_);
+}
+
 void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 	if (!info_) {
 		// Shouldn't happen
@@ -327,12 +340,12 @@ void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 	std::string title = info_->GetTitle();
 
 	if (knownFlags_ & GameInfoFlags::PARAM_SFO) {
+		TextView* tvTitle = mainGameInfo->Add(new TextView(title, ALIGN_LEFT | FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		tvTitle->SetShadow(true);
+
 		std::string regionID = ReplaceAll(info_->id_version, "_", " v");
 		if (!regionID.empty()) {
 			regionID += ": ";
-
-			TextView *tvTitle = mainGameInfo->Add(new TextView(title, ALIGN_LEFT | FLAG_WRAP_TEXT, false, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
-			tvTitle->SetShadow(true);
 		}
 
 		if (info_->region != GameRegion::UNKNOWN) {
@@ -382,6 +395,15 @@ void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 		}
 		TextView *tvGameSize = mainGameInfo->Add(new TextView(temp, ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		tvGameSize->SetShadow(true);
+	}
+
+	// Most game discs carry a firmware updater, which holds files we'd like to have, like the fonts.
+	if ((knownFlags_ & GameInfoFlags::BUNDLED_UPDATE_INFO) && info_->bundledUpdate.present) {
+		char temp[256];
+		snprintf(temp, sizeof(temp), "%s: %s, %s", ga->T_cstr("Firmware update on disc"),
+			info_->bundledUpdate.Describe().c_str(), NiceSizeFormat(info_->bundledUpdate.archiveSize).c_str());
+		TextView *tvUpdate = mainGameInfo->Add(new TextView(temp, ALIGN_LEFT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		tvUpdate->SetShadow(true);
 	}
 
 	if ((knownFlags_ & GameInfoFlags::SAVEDATA_SIZE)) {
@@ -491,6 +513,24 @@ void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 				tvVerified->SetLevel(NoticeLevel::INFO);
 			}
 		}
+	}
+
+	// An installed game update replaces the disc's executable, so it's worth saying so here -
+	// otherwise there's nothing in the UI to explain why a patched game is running.
+	RefreshInstalledUpdate();
+	if (hasInstalledUpdate_) {
+		infoLayout->Add(new ItemHeader(ga->T("Game update")));
+		std::string updateLine = installedUpdate_.title;
+		if (!installedUpdate_.appVer.empty()) {
+			const std::string version = ApplySafeSubstitutions(ga->T("Version %1"), installedUpdate_.appVer);
+			updateLine = updateLine.empty() ? version : updateLine + " - " + version;
+		}
+		if (updateLine.empty()) {
+			updateLine = ga->T("Installed");
+		}
+		updateLine += " - " + NiceSizeFormat(installedUpdate_.sizeOnDisk);
+		infoLayout->Add(new TextView(updateLine, ALIGN_LEFT, true))->SetBullet(true);
+		infoLayout->Add(new TextView(GetFriendlyPath(installedUpdate_.folder), ALIGN_LEFT | FLAG_WRAP_TEXT, true))->SetBullet(true);
 	}
 
 	// Show plugin info_, if any. Later might add checkboxes.
@@ -613,11 +653,57 @@ void GameScreen::CreateContextMenu(UI::ViewGroup *parent) {
 		});
 	}
 
+	RefreshInstalledUpdate();
+	if (!inGame_ && hasInstalledUpdate_) {
+		Choice *btnDeleteUpdate = parent->Add(new Choice(ga->T("Delete Game Update"), ImageID("I_TRASHCAN")));
+		btnDeleteUpdate->OnClick.Handle(this, &GameScreen::OnDeleteGameUpdate);
+	}
+
+	// Most discs carry a firmware updater, and the firmware inside it is what our flash0 wants.
+	// Not while a game is running, though - installing wipes the NAND the running game has mounted.
+	if (!inGame_ && (knownFlags_ & GameInfoFlags::BUNDLED_UPDATE_INFO) && info_->bundledUpdate.present) {
+		auto iz = GetI18NCategory(I18NCat::INSTALLZIP);
+		Choice *btnInstallFirmware = parent->Add(new Choice(iz->T("Install PSP firmware update"), ImageID("I_FOLDER_UPLOAD")));
+		const BundledUpdateInfo update = info_->bundledUpdate;
+		btnInstallFirmware->OnClick.Add([this, update](UI::EventParams &e) {
+			screenManager()->push(new InstallUpdateScreen(gamePath_, update.title, false, update.archiveSize));
+		});
+	}
+
 	// Don't want to be able to delete the game while it's running.
 	if (!inGame_) {
 		Choice *deleteChoice = parent->Add(new Choice(ga->T("Delete Game"), ImageID("I_WARNING")));
 		deleteChoice->OnClick.Handle(this, &GameScreen::OnDeleteGame);
 	}
+}
+
+void GameScreen::OnDeleteGameUpdate(UI::EventParams &e) {
+	if (!hasInstalledUpdate_) {
+		return;
+	}
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	auto ga = GetI18NCategory(I18NCat::GAME);
+
+	std::string prompt(ga->T("DeleteConfirmGameUpdate", "Do you really want to remove the installed update?\nThe game will go back to running the version on the disc."));
+	prompt += "\n\n";
+	// Say exactly what disappears - for a digital game the folder holds the game itself, so only
+	// the update's executable goes.
+	prompt += GetFriendlyPath(installedUpdate_.sharesFolderWithGame ? installedUpdate_.pbootPath : installedUpdate_.folder);
+
+	const bool trashAvailable = System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN);
+	const InstalledGameUpdate update = installedUpdate_;
+	screenManager()->push(
+		new UI::MessagePopupScreen(ga->T("Delete Game Update"), prompt, trashAvailable ? di->T("Move to trash") : di->T("Delete"), di->T("Cancel"),
+			[this, update](bool yes) {
+		if (!yes) {
+			return;
+		}
+		if (!DeleteInstalledGameUpdate(update)) {
+			auto er = GetI18NCategory(I18NCat::ERRORS);
+			g_OSD.Show(OSDType::MESSAGE_ERROR, er->T("Failed to delete the game update"));
+		}
+		RecreateViews();
+	}));
 }
 
 void GameScreen::OnCreateConfig(UI::EventParams &e) {

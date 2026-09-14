@@ -48,8 +48,12 @@ public:
 
 	virtual bool AllowKeyboardNavigation() const { return true; }
 
+	// Process keyboard shortcuts even outside the game.
+	virtual InputMode PassInputToMapper() const override { return InputMode::Keyboard; }
+
 protected:
 	virtual void CreateViews() = 0;
+	virtual bool AllowFocusMovement() const { return true; }
 
 	Bounds GetLayoutBounds(UIContext &dc) const;
 

@@ -45,9 +45,6 @@ std::string VShaderID::Description(bool includeID) const {
 		desc.W(uvprojModes[uvprojMode]);
 	}
 
-	if (Bit(VS_BIT_ENABLE_BONES)) desc.F("Bones:%d ", Bits(VS_BIT_BONES, 3) + 1);
-	if (Bits(VS_BIT_WEIGHT_FMTSCALE, 2)) desc.F("WScale:%d ", Bits(VS_BIT_WEIGHT_FMTSCALE, 2));
-
 	int ls0 = Bits(VS_BIT_LS0, 2);
 	int ls1 = Bits(VS_BIT_LS1, 2);
 
@@ -75,7 +72,7 @@ std::string VShaderID::Description(bool includeID) const {
 	return desc.as_string();
 }
 
-void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform, bool weightsAsFloat, bool useSkinInDecode, ClipInfoFlags clipInfoFlags) {
+void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform, ClipInfoFlags clipInfoFlags) {
 	const bool isModeThrough = (vertType & GE_VTYPE_THROUGH) != 0;
 	bool doTexture = gstate.isTextureMapEnabled() && !gstate.isModeClear();
 	bool doShadeMapping = doTexture && (gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP);
@@ -119,16 +116,6 @@ void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform,
 			id.SetBits(VS_BIT_LS1, 2, gstate.getUVLS1());
 		}
 
-		// Bones.
-		bool enableBones = !useSkinInDecode && vertTypeIsSkinningEnabled(vertType);
-		id.SetBit(VS_BIT_ENABLE_BONES, enableBones);
-		if (enableBones) {
-			id.SetBits(VS_BIT_BONES, 3, TranslateNumBones(vertTypeGetNumBoneWeights(vertType)) - 1);
-			// 2 bits. We should probably send in the weight scalefactor as a uniform instead,
-			// or simply preconvert all weights to floats.
-			id.SetBits(VS_BIT_WEIGHT_FMTSCALE, 2, weightsAsFloat ? 0 : (vertType & GE_VTYPE_WEIGHT_MASK) >> GE_VTYPE_WEIGHT_SHIFT);
-		}
-
 		if (gstate.isLightingEnabled()) {
 			// doShadeMapping is stored as UVGenMode, and light type doesn't matter for shade mapping.
 			id.SetBit(VS_BIT_LIGHTING_ENABLE);
@@ -151,11 +138,15 @@ void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform,
 		id.SetBit(VS_BIT_NORM_REVERSE, gstate.areNormalsReversed());
 	}
 
-	if (clipInfoFlags & ClipInfoFlags::DepthClampFragment) {
-		id.SetBit(VS_BIT_FS_DEPTH_CLAMP);
-	}
-	if (clipInfoFlags & ClipInfoFlags::MinMaxZDiscard) {
-		id.SetBit(VS_BIT_FS_MINMAX_DISCARD);
+	if (gstate_c.Use(GPU_USE_FULL_PRECISION_IN_FRAGMENT)) {
+		if (clipInfoFlags & ClipInfoFlags::DepthClampFragment) {
+			id.SetBit(VS_BIT_FS_DEPTH_CLAMP);
+		}
+		if (clipInfoFlags & ClipInfoFlags::MinMaxZDiscard) {
+			id.SetBit(VS_BIT_FS_MINMAX_DISCARD);
+		}
+	} else {
+		// TODO: We're gonna need to soft-clip... Ugh.
 	}
 
 	id.SetBit(VS_BIT_FLATSHADE, doFlatShading);
@@ -166,12 +157,13 @@ void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform,
 	*id_out = id;
 }
 
-
 static const char * const alphaTestFuncs[] = { "NEVER", "ALWAYS", "==", "!=", "<", "<=", ">", ">=" };
+static_assert(ARRAY_SIZE(alphaTestFuncs) == 8);
 static const char * const logicFuncs[] = {
 	"CLEAR", "AND", "AND_REV", "COPY", "AND_INV", "NOOP", "XOR", "OR",
 	"NOR", "EQUIV", "INVERTED", "OR_REV", "COPY_INV", "OR_INV", "NAND", "SET",
 };
+static_assert(ARRAY_SIZE(logicFuncs) == 16);
 
 static bool MatrixNeedsProjection(const float m[12], GETexProjMapMode mode) {
 	// For GE_PROJMAP_UV, we can ignore m[8] since it multiplies to zero.
@@ -298,11 +290,15 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 
 	// NOTE: This check MUST be identical to the one in ComputeVertexShaderID, otherwise we might get mismatches between VS and FS and end up with no shader at all.
 	if (!isModeThrough) {
-		if (clipInfoFlags & ClipInfoFlags::DepthClampFragment) {
-			id.SetBit(FS_BIT_DEPTH_CLAMP);
-		}
-		if (clipInfoFlags & ClipInfoFlags::MinMaxZDiscard) {
-			id.SetBit(FS_BIT_MINMAX_DISCARD);
+		if (gstate_c.Use(GPU_USE_FULL_PRECISION_IN_FRAGMENT)) {
+			if (clipInfoFlags & ClipInfoFlags::DepthClampFragment) {
+				id.SetBit(FS_BIT_DEPTH_CLAMP);
+			}
+			if (clipInfoFlags & ClipInfoFlags::MinMaxZDiscard) {
+				id.SetBit(FS_BIT_MINMAX_DISCARD);
+			}
+		} else {
+			// TODO: We're gonna need to soft-clip... Ugh.
 		}
 	} else {
 		_dbg_assert_(0 == (clipInfoFlags & (ClipInfoFlags::DepthClampFragment | ClipInfoFlags::MinMaxZDiscard)));

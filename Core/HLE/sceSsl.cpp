@@ -23,19 +23,17 @@
 #include "Core/MemMap.h"
 #include "Core/HLE/sceSsl.h"
 
-bool isSslInit;
-u32 maxMemSize;
-u32 currentMemSize;
+static bool isSslInit;
+static u32 maxMemSize;
+static u32 currentMemSize;
 
-void __SslInit() 
-{
+void __SslInit() {
 	isSslInit = 0;
 	maxMemSize = 0;
 	currentMemSize = 0;
 }
 
-void __SslDoState(PointerWrap &p)
-{
+void __SslDoState(PointerWrap &p) {
 	auto s = p.Section("sceSsl", 1);
 	if (!s)
 		return;
@@ -45,67 +43,52 @@ void __SslDoState(PointerWrap &p)
 	Do(p, currentMemSize);
 }
 
-static int sceSslInit(int heapSize)
-{
-	DEBUG_LOG(Log::HLE, "sceSslInit %d", heapSize);
-	if (isSslInit) 
-	{
+static int sceSslInit(int heapSize) {
+	if (isSslInit) {
 		return SCE_SSL_ERROR_ALREADY_INIT;
 	}
-	if (heapSize <= 0) 
-	{
+	if (heapSize <= 0) {
 		return SCE_SSL_ERROR_INVALID_PARAMETER;
 	}
 
 	maxMemSize = heapSize;
 	currentMemSize = heapSize / 2; // As per jpcsp
 	isSslInit = true;
-	return 0;
+	return hleLogDebug(Log::HLE, 0);
 }
 
-static int sceSslEnd()
-{
+static int sceSslEnd() {
 	DEBUG_LOG(Log::HLE, "sceSslEnd");
-	if (!isSslInit) 
-	{
+	if (!isSslInit) {
 		return SCE_SSL_ERROR_NOT_INIT;
 	}
 	isSslInit = false;
-	return 0;
+	return hleLogDebug(Log::HLE, 0);
 }
 
-static int sceSslGetUsedMemoryMax(u32 maxMemPtr)
-{
-	DEBUG_LOG(Log::HLE, "sceSslGetUsedMemoryMax %d", maxMemPtr);
-	if (!isSslInit) 
-	{
+static int sceSslGetUsedMemoryMax(u32 maxMemPtr) {
+	if (!isSslInit) {
 		return SCE_SSL_ERROR_NOT_INIT;
 	}
 
-	if (Memory::IsValidAddress(maxMemPtr))
-	{
-		Memory::Write_U32(maxMemSize, maxMemPtr);
+	if (Memory::IsValid4AlignedAddress(maxMemPtr)) {
+		Memory::WriteUnchecked_U32(maxMemSize, maxMemPtr);
 	}
-	return 0;
+	return hleLogDebug(Log::HLE, 0);
 }
 
-static int sceSslGetUsedMemoryCurrent(u32 currentMemPtr)
-{
-	DEBUG_LOG(Log::HLE, "sceSslGetUsedMemoryCurrent %d", currentMemPtr);
-	if (!isSslInit) 
-	{
+static int sceSslGetUsedMemoryCurrent(u32 currentMemPtr) {
+	if (!isSslInit) {
 		return SCE_SSL_ERROR_NOT_INIT;
 	}
 
-	if (Memory::IsValidAddress(currentMemPtr))
-	{
-		Memory::Write_U32(currentMemSize, currentMemPtr);
+	if (Memory::IsValid4AlignedAddress(currentMemPtr)) {
+		Memory::WriteUnchecked_U32(currentMemSize, currentMemPtr);
 	}
-	return 0;
+	return hleLogDebug(Log::HLE, 0);
 }
 
-const HLEFunction sceSsl[] = 
-{
+const HLEFunction sceSsl[] = {
 	{0X957ECBE2, &WrapI_I<sceSslInit>,                 "sceSslInit",                 'i', "i"},
 	{0X191CDEFF, &WrapI_V<sceSslEnd>,                  "sceSslEnd",                  'i', "" },
 	{0X5BFB6B61, nullptr,                              "sceSslGetNotAfter",          '?', "" },
@@ -120,7 +103,6 @@ const HLEFunction sceSsl[] =
 	{0XF57765D3, nullptr,                              "sceSslGetKeyUsage",          '?', "" },
 };
 
-void Register_sceSsl()
-{
+void Register_sceSsl() {
 	RegisterHLEModule("sceSsl", ARRAY_SIZE(sceSsl), sceSsl);
 }

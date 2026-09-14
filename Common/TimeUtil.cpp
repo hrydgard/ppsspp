@@ -65,11 +65,19 @@ void TimeInit() {
 
 	// The timer will be automatically deleted on process destruction. Don't need to CloseHandle.
 	Timer = CreateWaitableTimerExW(NULL, NULL, CREATE_WAITABLE_TIMER_HIGH_RESOLUTION, TIMER_ALL_ACCESS);
+
+	// TODO: We probably don't need this anymore if we are using the high res waitable timers?
 #if !PPSSPP_PLATFORM(UWP)
 	TIMECAPS caps;
 	timeGetDevCaps(&caps, sizeof caps);
 	timeBeginPeriod(caps.wPeriodMin);
 	SchedulerPeriodMs = (int)caps.wPeriodMin;
+#endif
+}
+
+void TimeShutdown() {
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
+	timeEndPeriod(1);
 #endif
 }
 
@@ -138,6 +146,10 @@ int64_t Instant::ElapsedNanos() const {
 #elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(LINUX) || PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
 
 void TimeInit() {
+	// Nothing to do.
+}
+
+void TimeShutdown() {
 	// Nothing to do.
 }
 
@@ -210,6 +222,10 @@ void TimeInit() {
 	// Nothing to do.
 }
 
+void TimeShutdown() {
+	// Nothing to do.
+}
+
 static time_t start;
 
 double time_now_d() {
@@ -222,12 +238,12 @@ double time_now_d() {
 }
 
 uint64_t time_now_raw() {
-	struct timeval tv;
-	gettimeofday(&tv, nullptr);
-	if (start == 0) {
-		start = tv.tv_sec;
-	}
-	return (double)tv.tv_sec + (double)tv.tv_usec * (1.0 / micros);
+	// Nanoseconds, like the other platforms - from_time_raw() scales by 1/nanos. This used to
+	// build a double of seconds and return it through the uint64_t, so it both lost the fraction
+	// and was off by a factor of a billion.
+	struct timespec tp;
+	clock_gettime(CLOCK_MONOTONIC, &tp);
+	return (uint64_t)tp.tv_sec * 1000000000ULL + tp.tv_nsec;
 }
 
 double from_time_raw(uint64_t raw_time) {
@@ -241,7 +257,10 @@ double from_time_raw_relative(uint64_t raw_time) {
 void yield() {}
 
 double time_now_unix_utc() {
-	return time_now_raw();
+	// Not time_now_raw() - that's a monotonic clock with no relation to the epoch.
+	struct timeval tv;
+	gettimeofday(&tv, nullptr);
+	return (double)tv.tv_sec + (double)tv.tv_usec * (1.0 / micros);
 }
 
 double time_to_unix_utc(double t) {
@@ -251,10 +270,12 @@ double time_to_unix_utc(double t) {
 }
 
 Instant::Instant() {
-	struct timeval tv;
-	gettimeofday(&tv, nullptr);
-	nativeStart_ = tv.tv_sec;
-	nsecs_ = tv.tv_usec;
+	// Has to be the same clock, and the same unit, as ElapsedNanos() below: this took the wall
+	// clock in microseconds while that one subtracts it from a monotonic clock in nanoseconds.
+	struct timespec ts;
+	clock_gettime(CLOCK_MONOTONIC, &ts);
+	nativeStart_ = ts.tv_sec;
+	nsecs_ = ts.tv_nsec;
 }
 
 int64_t Instant::ElapsedNanos() const {
@@ -262,12 +283,12 @@ int64_t Instant::ElapsedNanos() const {
 	clock_gettime(CLOCK_MONOTONIC, &ts);
 
 	int64_t secs = ts.tv_sec - nativeStart_;
-	int64_t usecs = ts.tv_nsec - nsecs_;
-	if (usecs < 0) {
+	int64_t nsecs = ts.tv_nsec - nsecs_;
+	if (nsecs < 0) {
 		secs--;
-		usecs += 1000000;
+		nsecs += 1000000000;
 	}
-	return secs * 1000000000 + usecs * 1000;
+	return secs * 1000000000 + nsecs;
 }
 
 double Instant::ElapsedSeconds() const {

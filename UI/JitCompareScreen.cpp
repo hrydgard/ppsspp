@@ -3,6 +3,7 @@
 #include "UI/JitCompareScreen.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/UI/ViewGroup.h"
+#include "Common/UI/ScreenManager.h"
 #include "Common/Render/DrawBuffer.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPSTables.h"
@@ -336,7 +337,6 @@ void JitCompareScreen::OnBlockClick(UI::EventParams &e) {
 }
 
 void JitCompareScreen::OnAddressChange(UI::EventParams &e) {
-	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 	if (!MIPSComp::jit) {
 		return;
 	}
@@ -363,7 +363,6 @@ void JitCompareScreen::OnSelectBlock(UI::EventParams &e) {
 }
 
 void JitCompareScreen::OnBlockAddress(UI::EventParams &e) {
-	std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 	if (!MIPSComp::jit) {
 		return;
 	}

@@ -5,7 +5,7 @@ set(LIBRETRO_SRCS
 	LibretroGLContext.cpp
 	LibretroGLCoreContext.cpp
 	LibretroVulkanContext.cpp
-	libretro_vulkan.cpp)
+	LibretroVulkanPresentation.cpp)
 
 if(WIN32)
 	set(LIBRETRO_SRCS ${LIBRETRO_SRCS}
@@ -42,4 +42,7 @@ if(NOT MSVC)
    	target_link_libraries(ppsspp_libretro "-Wl,-Bsymbolic")
    endif()
 endif()
-target_link_libraries(ppsspp_libretro ${LinkCommon})
+target_link_libraries(ppsspp_libretro Core ${CMAKE_THREAD_LIBS_INIT})
+if(ANDROID)
+	target_link_libraries(ppsspp_libretro log)
+endif()

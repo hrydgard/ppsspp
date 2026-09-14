@@ -8,8 +8,7 @@ cp -r ../assets/upload assets/
 cp -r ../assets/ui_images assets/
 cp ../assets/*.ini assets/
 cp ../assets/*.ttf assets/
-cp ../assets/*.png assets/
 cp ../assets/*.zim assets/
 cp ../assets/*.meta assets/
 cp ../assets/*.wav assets/
-NDK_MODULE_PATH=../ext $NDK/ndk-build -j3 $*
+NDK_MODULE_PATH=../ext $NDK/ndk-build -j$(nproc 2>/dev/null || echo 4) $*

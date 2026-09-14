@@ -22,7 +22,7 @@
 #include "Core/MIPS/MIPS.h"
 
 static u32 sceHprmPeekCurrentKey(u32 keyAddress) {
-	Memory::Write_U32(0, keyAddress);
+	Memory::WriteOrException_U32(0, keyAddress);
 	return hleLogDebug(Log::HLE, 0);
 }
 
@@ -53,6 +53,9 @@ static u32 sceHprmPeekLatch(u32 latchAddr) {
 }
 
 static u32 sceHprmReadLatch(u32 latchAddr) {
+	// Real hardware/JPCSP: 4 x u32 output struct, dummied out to all-zero (nothing held/pressed).
+	for (int i = 0; i < 4; i++)
+		Memory::WriteOrException_U32(0, latchAddr + i * 4);
 	return hleLogDebug(Log::HLE, 0, "latchAddr %08x", latchAddr);
 }
 
@@ -73,4 +76,38 @@ const HLEFunction sceHprm[] =
 void Register_sceHprm()
 {
 	RegisterHLEModule("sceHprm", ARRAY_SIZE(sceHprm), sceHprm);
+}
+
+// Kernel-mode variant library used by VSH modules (e.g. vshbridge). NID 0xE9B776BE is the
+// firmware 6.60+ alias of sceHprmReadLatch, listed as nid=0xE9B776BE version=660 alongside the
+// 0x40D2F9F0 version=150 NID in JPCSP's sceHprm.java - both resolve to the same function there.
+static u32 sceHprm_driver_DC895B2B() {
+	return hleLogWarning(Log::sceMisc, 0, "UNIMPL");
+}
+
+const HLEFunction sceHprm_driver[] =
+{
+	{0XE9B776BE, &WrapU_U<sceHprmReadLatch>, "sceHprmReadLatch", 'x', "x"},
+	// Purpose unknown - JPCSP names it after its NID too, and returns 0. Present so the VSH's
+	// one startup call resolves instead of trapping.
+	{0XDC895B2B, &WrapU_V<sceHprm_driver_DC895B2B>, "sceHprm_driver_DC895B2B", 'x', ""},
+	// Older firmwares number these two differently. Same functions - matched by address against
+	// the same module's user-mode sceHprm exports (sceHprmReadLatch is sceHprm/0x40D2F9F0 in
+	// every build). The VSH calls ReadLatch once a frame, so without these an older firmware's
+	// XMB spends the whole boot trapping on an unresolved import.
+	// NOTE: new entries go at the end - the syscall opcode in a savestate is an index into this array.
+	{0XA3A87975, &WrapU_U<sceHprmReadLatch>, "sceHprmReadLatch", 'x', "x"},  // 6.31 - 6.39
+	{0X5FC5E53B, &WrapU_U<sceHprmReadLatch>, "sceHprmReadLatch", 'x', "x"},  // 6.00 - 6.20
+	{0X748FC3C8, &WrapU_V<sceHprm_driver_DC895B2B>, "sceHprm_driver_DC895B2B", 'x', ""},  // 6.31 - 6.39
+	{0X605DEA7A, &WrapU_U<sceHprmReadLatch>, "sceHprmReadLatch", 'x', "x"},  // 5.03 - 5.55
+	{0XA6E8D4F0, &WrapU_U<sceHprmReadLatch>, "sceHprmReadLatch", 'x', "x"},  // 3.95 - 4.05
+	{0X8C728076, &WrapU_U<sceHprmReadLatch>, "sceHprmReadLatch", 'x', "x"},  // 3.72 - 3.90
+	{0XF0AA1FB9, &WrapU_U<sceHprmReadLatch>, "sceHprmReadLatch", 'x', "x"},  // 3.71
+	// Same story as sceRtc_driver: 3.51 and older export it to kernel mode under the user-mode NID.
+	{0X40D2F9F0, &WrapU_U<sceHprmReadLatch>, "sceHprmReadLatch", 'x', "x"},  // 1.50 - 3.51
+};
+
+void Register_sceHprm_driver()
+{
+	RegisterHLEModule("sceHprm_driver", ARRAY_SIZE(sceHprm_driver), sceHprm_driver);
 }

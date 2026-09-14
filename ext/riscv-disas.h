@@ -594,4 +594,16 @@ size_t riscv_inst_length(rv_inst inst);
 void riscv_inst_fetch(const uint8_t *data, rv_inst *instp, size_t *length);
 void riscv_disasm_inst(char *buf, size_t buflen, rv_isa isa, uint64_t pc, rv_inst inst);
 
+// PPSSPP: information about a load/store instruction, used by the JIT crash handler.
+struct RiscVLSInstructionInfo {
+    int instructionSize;
+    bool isIntegerLoadStore;
+    bool isFPLoadStore;
+    int size;  // Size of the access, in bytes (1, 2, 4, or 8).
+    bool isMemoryWrite;
+	int OperandSizeInBytes() const { return size; }
+};
+
+bool RiscVAnalyzeLoadStore(uint64_t addr, uint32_t word, RiscVLSInstructionInfo *info);
+
 #endif

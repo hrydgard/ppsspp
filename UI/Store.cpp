@@ -22,6 +22,7 @@
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/IconCache.h"
 #include "Common/UI/ScrollView.h"
+#include "Common/UI/ScreenManager.h"
 #include "Common/Render/DrawBuffer.h"
 
 #include "Common/Log.h"
@@ -33,6 +34,7 @@
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/Util/GameManager.h"
+#include "Core/Util/PathUtil.h"
 #include "UI/EmuScreen.h"
 #include "UI/Store.h"
 
@@ -496,6 +498,12 @@ void StoreScreen::ParseListing(const std::string &json) {
 			e.hidden = false;  // NOTE: Handling of the "hidden" flag is broken in old versions of PPSSPP. Do not use.
 			const char *file = game.getStringOr("file", nullptr);
 			if (!file)
+				continue;
+			// entry_.file gets joined onto DIRECTORY_GAME verbatim in OnLaunchClick()
+			// (Path::operator/ does no ".." normalization); on platforms/builds where
+			// the store index isn't fetched over HTTPS, a MITM'd or compromised
+			// response could otherwise point "launch" at an arbitrary host path.
+			if (HasParentDirComponent(file))
 				continue;
 			e.file = file;
 			entries_.push_back(e);

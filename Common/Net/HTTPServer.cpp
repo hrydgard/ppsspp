@@ -44,14 +44,37 @@
 
 
 void NewThreadExecutor::Run(std::function<void()> func) {
-	threads_.push_back(std::thread(func));
+	// Every connection gets a thread, and we only ever joined them at shutdown - so a server that
+	// had served N connections was still holding N joinable std::threads. Reap the finished ones.
+	Prune();
+
+	auto done = std::make_shared<std::atomic<bool>>(false);
+	Worker worker;
+	worker.done = done;
+	worker.thread = std::thread([func, done]() {
+		func();
+		done->store(true, std::memory_order_release);
+	});
+	workers_.push_back(std::move(worker));
+}
+
+void NewThreadExecutor::Prune() {
+	for (size_t i = 0; i < workers_.size(); ) {
+		if (workers_[i].done->load(std::memory_order_acquire)) {
+			// Set right at the end of the thread body, so this join returns essentially at once.
+			workers_[i].thread.join();
+			workers_.erase(workers_.begin() + i);
+		} else {
+			++i;
+		}
+	}
 }
 
 NewThreadExecutor::~NewThreadExecutor() {
 	// If Run was ever called...
-	for (auto &thread : threads_)
-		thread.join();
-	threads_.clear();
+	for (auto &worker : workers_)
+		worker.thread.join();
+	workers_.clear();
 }
 
 namespace http {
@@ -114,7 +137,7 @@ void ServerRequest::WriteHttpResponseHeader(const char *ver, int status, int64_t
 		buffer->Push("Connection: close\r\n");
 	}
 	if (size >= 0) {
-		buffer->Printf("Content-Length: %llu\r\n", size);
+		buffer->Printf("Content-Length: %llu\r\n", (unsigned long long)size);
 	}
 	if (otherHeaders) {
 		buffer->Push(otherHeaders, strlen(otherHeaders));
@@ -158,6 +181,24 @@ void Server::SetFallbackHandler(UrlHandlerFunc handler) {
 	fallback_ = handler;
 }
 
+// SO_REUSEADDR means two very different things depending on the platform, and only one of them is
+// what we want here ("don't make me wait out TIME_WAIT when restarting the server quickly").
+//
+// On Windows it *also* lets a socket bind a port another socket is already actively listening on -
+// both binds succeed, and which one receives any given connection is undefined. That's a real
+// hazard (it's how port hijacking works), and it bit us concretely: two PPSSPP instances launched
+// with the same --debugger=PORT would both report "Listening on port N", and a debugger client
+// could silently end up attached to the wrong process. SO_EXCLUSIVEADDRUSE is the Windows way to
+// ask for the POSIX behavior, so use that there and plain SO_REUSEADDR everywhere else.
+static void SetPortReusePolicy(int sock) {
+	int opt = 1;
+#if PPSSPP_PLATFORM(WINDOWS)
+	setsockopt(sock, SOL_SOCKET, SO_EXCLUSIVEADDRUSE, (const char *)&opt, sizeof(opt));
+#else
+	setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (const char *)&opt, sizeof(opt));
+#endif
+}
+
 bool Server::Listen(int port, const char *reason, net::DNSType type) {
 	bool success = false;
 	if (type == net::DNSType::ANY || type == net::DNSType::IPV6) {
@@ -180,9 +221,7 @@ bool Server::Listen4(int port, const char *reason) {
 	server_addr.sin_addr.s_addr = htonl(INADDR_ANY);
 	server_addr.sin_port = htons(port);
 
-	int opt = 1;
-	// Enable re-binding to avoid the pain when restarting the server quickly.
-	setsockopt(listenerSock_, SOL_SOCKET, SO_REUSEADDR, (const char *)&opt, sizeof(opt));
+	SetPortReusePolicy(listenerSock_);
 
 	if (bind(listenerSock_, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
 #if PPSSPP_PLATFORM(WINDOWS)
@@ -227,12 +266,10 @@ bool Server::Listen6(int port, bool ipv6_only, const char *reason) {
 	server_addr.sin6_addr = in6addr_any;
 	server_addr.sin6_port = htons(port);
 
-	int opt = 1;
-	// Enable re-binding to avoid the pain when restarting the server quickly.
-	setsockopt(listenerSock_, SOL_SOCKET, SO_REUSEADDR, (const char *)&opt, sizeof(opt));
+	SetPortReusePolicy(listenerSock_);
 
 	// Enable listening on IPv6 and IPv4?
-	opt = ipv6_only ? 1 : 0;
+	int opt = ipv6_only ? 1 : 0;
 	setsockopt(listenerSock_, IPPROTO_IPV6, IPV6_V6ONLY, (const char *)&opt, sizeof(opt));
 
 	if (bind(listenerSock_, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0) {
@@ -352,7 +389,7 @@ void Server::HandleRequestDefault(const ServerRequest &request) {
 }
 
 void Server::Handle404(const ServerRequest &request) {
-	INFO_LOG(Log::HTTP, "No handler for '%.*s', falling back to 404.", (int)request.resource().size(), request.resource().data());
+	INFO_LOG(Log::HTTP, "No handler for '%.*s', falling back to 404.", STR_VIEW(request.resource()));
 	const char *payload = "<html><body>404 not found</body></html>\r\n";
 	request.WriteHttpResponseHeader("1.0", 404, strlen(payload));
 	request.Out()->Push(payload);

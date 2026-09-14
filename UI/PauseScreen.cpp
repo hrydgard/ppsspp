@@ -25,6 +25,7 @@
 #include "Common/UI/UIScreen.h"
 #include "Common/UI/PopupScreens.h"
 #include "Common/UI/Notice.h"
+#include "Common/UI/ScreenManager.h"
 #include "Common/GPU/thin3d.h"
 
 #include "Common/Data/Text/I18n.h"
@@ -334,16 +335,20 @@ void SaveSlotView::OnSaveState(UI::EventParams &e) {
 void GamePauseScreen::update() {
 	UpdateUIState(UISTATE_PAUSEMENU);
 
-	if (!firstFrame_ && g_controlMapper.PollPauseTrigger()) {
-		TriggerFinish(DR_BACK);
-	}
-	UIScreen::update();
+	UIBaseDialogScreen::update();
 
-	firstFrame_ = false;
-
-	if (finishNextFrame_) {
-		TriggerFinish(finishNextFrameResult_);
-		finishNextFrame_ = false;
+	{
+		std::lock_guard<std::mutex> lock(finishNextFrameMutex_);
+		if (!firstFrame_ && g_controlMapper.PollPauseTrigger()) {
+			finishNextFrame_ = true;
+			finishNextFrameResult_ = DR_BACK;
+		}
+		firstFrame_ = false;
+		if (finishNextFrame_) {
+			TriggerFinish(finishNextFrameResult_);
+			finishNextFrame_ = false;
+			finishNextFrameResult_ = DR_BACK;
+		}
 	}
 
 	const bool networkConnected = IsNetworkConnected();
@@ -385,8 +390,7 @@ GamePauseScreen::~GamePauseScreen() {
 void GamePauseScreen::OnVKey(VirtKey virtualKeyCode, bool down) {
 	// Simple de-bounce using createdTime_, just to be safe.
 	if (down && virtualKeyCode == VIRTKEY_PAUSE && time_now_d() > createdTime_ + 0.1) {
-		finishNextFrame_ = true;
-		finishNextFrameResult_ = DR_BACK;
+		FinishNextFrame(DR_BACK);
 	}
 }
 
@@ -405,8 +409,7 @@ void GamePauseScreen::CreateSavestateControls(UI::LinearLayout *leftColumnItems,
 			int slotNum = v->GetSlot();
 			auto doLoad = [this, slotNum]() {
 				SaveState::LoadSlot(saveStatePrefix_, slotNum, &ShowMessageAfterSaveStateAction);
-				finishNextFrame_ = true;
-				finishNextFrameResult_ = DR_CANCEL;
+				FinishNextFrame(DR_CANCEL);
 			};
 			if (g_Config.bConfirmLoadState) {
 				screenManager()->push(new LoadStateConfirmScreen(saveStatePrefix_, slotNum, [doLoad](bool result) {
@@ -589,8 +592,8 @@ void GamePauseScreen::CreateViews() {
 		}
 	}
 
-	bool achievementsAllowSavestates = !Achievements::HardcoreModeActive() || g_Config.bAchievementsSaveStateInHardcoreMode;
-	bool showSavestateControls = achievementsAllowSavestates;
+	const bool achievementsAllowSavestates = !Achievements::HardcoreModeActive() || g_Config.bAchievementsSaveStateInHardcoreMode;
+	bool showSavestateControls = achievementsAllowSavestates && PSP_CoreParameter().fileType != IdentifiedFileType::PPSSPP_GE_DUMP && PSP_CoreParameter().fileToStart.GetFilename() != "vshmain.prx";
 	if (IsNetworkConnected() && !g_Config.bAllowSavestateWhileConnected) {
 		showSavestateControls = false;
 	}
@@ -625,6 +628,19 @@ void GamePauseScreen::CreateViews() {
 		// And tack on an explanation for why savestate options are not available.
 		if (!achievementsAllowSavestates) {
 			saveDataScrollItems->Add(new NoticeView(NoticeLevel::INFO, ac->T("Save states not available in Hardcore Mode"), ""));
+		}
+
+		if (PSP_CoreParameter().fileType == IdentifiedFileType::PPSSPP_GE_DUMP) {
+			// Show some metadata about the frame dump.
+			std::vector<GameDBInfo> info{};
+			std::string id = g_paramSFO.GetDiscID();
+			saveDataScrollItems->Add(new TextView(id, new UI::LinearLayoutParams(Margins(10, 0))));
+			if (g_gameDB.GetGameInfos(id, &info)) {
+				// All we have is the game ID, let's dig out some info if possible.
+				for (const auto &iter : info) {
+					saveDataScrollItems->Add(new TextView(iter.title, new UI::LinearLayoutParams(Margins(10, 0))));
+				}
+			}
 		}
 	}
 
@@ -777,14 +793,12 @@ void GamePauseScreen::ShowContextMenu(UI::View *menuButton, bool portrait) {
 				screenManager()->push(new UI::MessagePopupScreen(di->T("Reset"), confirmMessage, di->T("Reset"), di->T("Cancel"), [this](bool result) {
 					if (result) {
 						System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
-						finishNextFrameResult_ = DR_BACK;  // resume
-						finishNextFrame_ = true;
+						FinishNextFrame(DR_BACK);  // resume
 					}
 				}));
 			} else {
 				System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
-				finishNextFrameResult_ = DR_BACK;  // resume
-				finishNextFrame_ = true;
+				FinishNextFrame(DR_BACK);  // resume
 			}
 		});
 		auto dev = GetI18NCategory(I18NCat::DEVELOPER);
@@ -819,7 +833,7 @@ void GamePauseScreen::dialogFinished(const Screen *dialog, DialogResult dr) {
 	std::string tag = dialog->tag();
 	if (tag == "ScreenshotView") {
 		if (dr == DR_OK) {
-			finishNextFrame_ = true;
+			FinishNextFrame(DR_BACK);
 		} else if (dr != DR_CANCEL && dr != DR_BACK) {
 			// Just go back to the pause menu, but refresh the savestate thumbnails in case something changed.
 			SaveState::Rescan(saveStatePrefix_);
@@ -894,8 +908,7 @@ void GamePauseScreen::OnExit(UI::EventParams &e) {
 				if (g_Config.bPauseMenuExitsEmulator) {
 					System_ExitApp();
 				} else {
-					finishNextFrameResult_ = DR_OK;  // exit game
-					finishNextFrame_ = true;
+					FinishNextFrame(DR_OK);  // exit game
 				}
 			}
 		}));
@@ -950,4 +963,15 @@ void GamePauseScreen::OnDeleteConfig(UI::EventParams &e) {
 			screenManager()->RecreateAllViews();
 		}
 	}));
+}
+
+// This is a bit of a hack that we should try to remove.
+void GamePauseScreen::FinishNextFrame(DialogResult finishNextFrameResult) {
+	std::lock_guard<std::mutex> lock(finishNextFrameMutex_);
+	if (!finishNextFrame_) {
+		finishNextFrameResult_ = finishNextFrameResult;
+		finishNextFrame_ = true;
+	} else {
+		WARN_LOG(Log::UI, "Duplicate call to FinishNextFrame - we were already finishing with result %d, now trying to finish with result %d", finishNextFrameResult_, finishNextFrameResult);
+	}
 }

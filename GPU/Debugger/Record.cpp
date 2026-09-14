@@ -466,10 +466,10 @@ void Recorder::FlushPrimState(int vcount) {
 		}
 	}
 
-	const void *verts = Memory::GetPointer(gstate_c.vertexAddr);
+	const void *verts = Memory::GetPointerOrException(gstate_c.vertexAddr);
 	const void *indices = nullptr;
 	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
-		indices = Memory::GetPointer(gstate_c.indexAddr);
+		indices = Memory::GetPointerOrException(gstate_c.indexAddr);
 	}
 
 	u32 ibytes = 0;
@@ -628,8 +628,13 @@ void Recorder::NotifyCommand(u32 pc) {
 		return;
 	}
 
+	if (!Memory::IsValid4AlignedAddress(pc)) {
+		ERROR_LOG(Log::G3D, "Bad pc in Recorder: %08x", pc);
+		return;
+	}
+
 	CheckEdramTrans();
-	const u32 op = Memory::Read_U32(pc);
+	const u32 op = Memory::ReadUnchecked_U32(pc);
 	const GECommand cmd = GECommand(op >> 24);
 
 	switch (cmd) {
@@ -793,7 +798,8 @@ void Recorder::NotifyBeginFrame() {
 		CheckEdramTrans();
 		struct DisplayBufData {
 			PSPPointer<u8> topaddr;
-			u32 linesize, pixelFormat;
+			u32 linesize;
+			GEBufferFormat pixelFormat;
 		};
 
 		DisplayBufData disp;

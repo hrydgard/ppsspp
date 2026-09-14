@@ -2526,3 +2526,54 @@ void riscv_disasm_inst(char *buf, size_t buflen, rv_isa isa, uint64_t pc, rv_ins
     decode_inst_lift_pseudo(&dec);
     decode_inst_format(buf, buflen, 32, &dec);
 }
+
+/* PPSSPP: analyze a load/store instruction, used by the JIT crash handler */
+
+bool RiscVAnalyzeLoadStore(uint64_t addr, uint32_t word, RiscVLSInstructionInfo *info)
+{
+    *info = {};
+    // Compressed instructions have low bits 00, 01, or 10.
+    info->instructionSize = (word & 3) == 3 ? 4 : 2;
+
+    switch (word & 0x7F) {
+    case 3:
+        info->isIntegerLoadStore = true;
+        info->size = 1 << ((word >> 12) & 3);
+        return true;
+    case 7:
+        info->isFPLoadStore = true;
+        info->size = 1 << ((word >> 12) & 3);
+        return true;
+    case 35:
+        info->isIntegerLoadStore = true;
+        info->isMemoryWrite = true;
+        info->size = 1 << ((word >> 12) & 3);
+        return true;
+    case 39:
+        info->isFPLoadStore = true;
+        info->isMemoryWrite = true;
+        info->size = 1 << ((word >> 12) & 3);
+        return true;
+    default:
+        // Compressed instruction.
+        switch (word & 0x6003) {
+        case 0x4000:
+        case 0x4002:
+        case 0x6000:
+        case 0x6002:
+            info->isIntegerLoadStore = true;
+            info->size = (word & 0x2000) != 0 ? 8 : 4;
+            info->isMemoryWrite = (word & 0x8000) != 0;
+            return true;
+        case 0x2000:
+        case 0x2002:
+            info->isFPLoadStore = true;
+            info->size = 8;
+            info->isMemoryWrite = (word & 0x8000) != 0;
+            return true;
+        default:
+            // Not a read or a write.
+            return false;
+        }
+    }
+}

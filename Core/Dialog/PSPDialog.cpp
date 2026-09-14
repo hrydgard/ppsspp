@@ -85,7 +85,7 @@ void PSPDialog::UpdateCommon() {
 }
 
 PSPDialog::DialogStatus PSPDialog::GetStatus() {
-	if (pendingStatusTicks != 0 && CoreTiming::GetTicks() >= pendingStatusTicks) {
+	if (pendingStatusTicks != 0 && CoreTiming::GetTicks(currentMIPS) >= pendingStatusTicks) {
 		bool changeAllowed = true;
 		if (pendingStatus == SCE_UTILITY_STATUS_NONE && status == SCE_UTILITY_STATUS_SHUTDOWN) {
 			FinishVolatile();
@@ -126,7 +126,7 @@ void PSPDialog::ChangeStatus(DialogStatus newStatus, int delayUs) {
 		pendingStatusTicks = 0;
 	} else {
 		pendingStatus = newStatus;
-		pendingStatusTicks = CoreTiming::GetTicks() + usToCycles(delayUs);
+		pendingStatusTicks = CoreTiming::GetTicks(currentMIPS) + usToCycles(delayUs);
 	}
 }
 

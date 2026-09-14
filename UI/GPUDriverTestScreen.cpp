@@ -2,6 +2,7 @@
 #include "Common/Data/Text/I18n.h"
 #include "Common/UI/UI.h"
 #include "Common/UI/View.h"
+#include "Common/UI/ScreenManager.h"
 #include "Common/GPU/Shader.h"
 #include "Common/GPU/ShaderWriter.h"
 

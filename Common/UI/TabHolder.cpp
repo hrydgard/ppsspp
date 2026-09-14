@@ -219,6 +219,7 @@ bool TabHolder::SetCurrentTab(int tab, bool skipTween) {
 	tabs_[tab]->SetVisibility(V_VISIBLE);
 
 	currentTab_ = tab;
+	tabStrip_->SetSelection(tab, false);
 	UI::EventParams e{};
 	e.v = this;
 	e.a = currentTab_;

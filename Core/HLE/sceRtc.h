@@ -35,6 +35,7 @@ void RtcSetBaseTime(int32_t seconds, int32_t micro = 0);
 u64 __RtcGetCurrentTick();
 
 void Register_sceRtc();
+void Register_sceRtc_driver();
 void __RtcInit();
 void __RtcDoState(PointerWrap &p);
 

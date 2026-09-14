@@ -267,6 +267,13 @@ void OSXOpenURL(const char *url) {
     openMemstickFolderItem.target = self;
     [self.fileMenu addItem:openMemstickFolderItem];
 
+    [self.fileMenu addItem:[NSMenuItem separatorItem]];
+
+    NSMenuItem *loadVSH = [[NSMenuItem alloc] initWithTitle:DESKTOPUI_LOCALIZED("Load VSH") action:@selector(loadVSH) keyEquivalent:@""];
+    loadVSH.enabled = YES;
+    loadVSH.target = self;
+    [self.fileMenu addItem:loadVSH];
+
     return menu;
 }
 
@@ -448,12 +455,12 @@ void OSXOpenURL(const char *url) {
 }
 
 -(void)pauseAction: (NSMenuItem *)item {
-	System_PostUIMessage(UIMessage::REQUEST_GAME_PAUSE);
+    System_PostUIMessage(UIMessage::REQUEST_GAME_PAUSE);
 }
 
 -(void)resetAction: (NSMenuItem *)item {
     System_PostUIMessage(UIMessage::REQUEST_GAME_RESET);
-	Core_Resume();
+    Core_Resume();
 }
 
 -(void)chatAction: (NSMenuItem *)item {
@@ -494,7 +501,7 @@ void OSXOpenURL(const char *url) {
 }
 
 -(void)saveFrameDump {
-	System_PostUIMessage(UIMessage::SAVE_FRAME_DUMP);
+    System_PostUIMessage(UIMessage::SAVE_FRAME_DUMP);
 }
 
 -(void)takeScreenshot {
@@ -655,6 +662,10 @@ TOGGLE_METHOD(FullScreen, g_Config.bFullScreen, g_Config.bFullScreen = !g_Config
 -(void)openMemstickFolder {
     NSURL *memstickURL = [NSURL fileURLWithPath:@(g_Config.memStickDirectory.c_str())];
     [NSWorkspace.sharedWorkspace openURL:memstickURL];
+}
+
+-(void)loadVSH {
+    System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, (g_Config.nandRootDirectory / "flash0/vsh/module/vshmain.prx").ToString());
 }
 
 - (void)dealloc {

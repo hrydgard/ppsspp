@@ -854,6 +854,10 @@ public:
 	template <typename T> void QuickCallFunction(ARMReg scratchreg, T func) {
 		QuickCallFunction(scratchreg, (const void *)func);
 	}
+	void QuickCallFunctionR(ARMReg scratchreg, const void *func, ARMReg arg);
+	template <typename T> void QuickCallFunctionR(ARMReg scratchreg, T func, ARMReg arg) {
+		QuickCallFunctionR(scratchreg, (const void *)func, arg);
+	}
 
 	// Wrapper around MOVT/MOVW with fallbacks.
 	void MOVI2R(ARMReg reg, u32 val, bool optimize = true);

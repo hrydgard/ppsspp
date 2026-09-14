@@ -168,6 +168,12 @@ bool VKRGraphicsPipeline::Create(VulkanContext *vulkan, VkRenderPass compatibleR
 }
 
 void VKRGraphicsPipeline::DestroyVariants(VulkanContext *vulkan, bool msaaOnly) {
+	// Called from InvalidateMSAAPipelines on the main thread, mid-frame, while the render thread may be
+	// reading and replacing these same slots in PerformRenderPass - so take the lock that's documented
+	// as protecting the array. It also has to be held across the delete below, or the render thread can
+	// be left holding a freed Promise.
+	std::lock_guard<std::mutex> lock(mutex_);
+
 	for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
 		if (!this->pipeline[i])
 			continue;
@@ -179,6 +185,9 @@ void VKRGraphicsPipeline::DestroyVariants(VulkanContext *vulkan, bool msaaOnly) 
 		if (pipeline) {
 			vulkan->Delete().QueueDeletePipeline(pipeline);
 		}
+		// The array owns the Promise - DestroyVariantsInstant deletes it too. Forgetting it here leaked
+		// one per destroyed variant on every MSAA or resolution change.
+		delete this->pipeline[i];
 		this->pipeline[i] = nullptr;
 	}
 	sampleCount_ = VK_SAMPLE_COUNT_FLAG_BITS_MAX_ENUM;
@@ -316,14 +325,14 @@ VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan, bool useThread, 
 }
 
 bool VulkanRenderManager::CreateBackbuffers() {
-	if (!vulkan_->IsSwapchainInited()) {
+	if (!vulkan_->IsSwapchainInited() && !vulkan_->GetPresentation()) {
 		ERROR_LOG(Log::G3D, "No swapchain - can't create backbuffers");
 		return false;
 	}
 
 	VkCommandBuffer cmdInit = GetInitCmd();
 
-	if (vulkan_->HasRealSwapchain()) {
+	if (vulkan_->HasRealSwapchain() || vulkan_->GetPresentation()) {
 		if (!CreateSwapchainViewsAndDepth(cmdInit, &postInitBarrier_, frameDataShared_)) {
 			return false;
 		}
@@ -333,7 +342,7 @@ bool VulkanRenderManager::CreateBackbuffers() {
 	curHeightRaw_ = -1;
 
 	if (newInflightFrames_ != -1) {
-		INFO_LOG(Log::G3D, "Updating inflight frames to %d", newInflightFrames_);
+		INFO_LOG(Log::G3D, "Vulkan: Updating inflight frames to %d", newInflightFrames_);
 		vulkan_->UpdateInflightFrames(newInflightFrames_);
 		newInflightFrames_ = -1;
 	}
@@ -351,26 +360,37 @@ bool VulkanRenderManager::CreateBackbuffers() {
 }
 
 bool VulkanRenderManager::CreateSwapchainViewsAndDepth(VkCommandBuffer cmdInit, VulkanBarrierBatch *barriers, FrameDataShared &frameDataShared) {
-	VkResult res = vkGetSwapchainImagesKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), &frameDataShared.swapchainImageCount_, nullptr);
-	_dbg_assert_(res == VK_SUCCESS);
+	std::vector<VkImage> swapchainImages;
+	if (VulkanPresentation *presentation = vulkan_->GetPresentation()) {
+		frameDataShared.swapchainImageCount_ = presentation->GetImageCount();
+		swapchainImages.resize(frameDataShared.swapchainImageCount_);
+		for (uint32_t i = 0; i < frameDataShared.swapchainImageCount_; i++) {
+			swapchainImages[i] = presentation->GetImage(i);
+		}
+	} else {
+		VkResult res = vkGetSwapchainImagesKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), &frameDataShared.swapchainImageCount_, nullptr);
+		_dbg_assert_(res == VK_SUCCESS);
 
-	VkImage *swapchainImages = new VkImage[frameDataShared.swapchainImageCount_];
-	res = vkGetSwapchainImagesKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), &frameDataShared.swapchainImageCount_, swapchainImages);
-	if (res != VK_SUCCESS) {
-		ERROR_LOG(Log::G3D, "vkGetSwapchainImagesKHR failed");
-		delete[] swapchainImages;
-		return false;
+		swapchainImages.resize(frameDataShared.swapchainImageCount_);
+		res = vkGetSwapchainImagesKHR(vulkan_->GetDevice(), vulkan_->GetSwapchain(), &frameDataShared.swapchainImageCount_, swapchainImages.data());
+		if (res != VK_SUCCESS) {
+			ERROR_LOG(Log::G3D, "vkGetSwapchainImagesKHR failed");
+			return false;
+		}
 	}
 
 	static const VkSemaphoreCreateInfo semaphoreCreateInfo = { VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
 	for (uint32_t i = 0; i < frameDataShared.swapchainImageCount_; i++) {
 		SwapchainImageData sc_buffer{};
 		sc_buffer.image = swapchainImages[i];
-		res = vkCreateSemaphore(vulkan_->GetDevice(), &semaphoreCreateInfo, nullptr, &sc_buffer.renderingCompleteSemaphore);
+		VkResult res = vkCreateSemaphore(vulkan_->GetDevice(), &semaphoreCreateInfo, nullptr, &sc_buffer.renderingCompleteSemaphore);
 		_dbg_assert_(res == VK_SUCCESS);
 
 		VkImageViewCreateInfo color_image_view = { VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO };
 		color_image_view.format = vulkan_->GetSwapchainFormat();
+
+		_dbg_assert_(color_image_view.format != VK_FORMAT_UNDEFINED);
+
 		color_image_view.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
 		color_image_view.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
 		color_image_view.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
@@ -393,11 +413,33 @@ bool VulkanRenderManager::CreateSwapchainViewsAndDepth(VkCommandBuffer cmdInit, 
 		frameDataShared.swapchainImages_.push_back(sc_buffer);
 		_dbg_assert_(res == VK_SUCCESS);
 	}
-	delete[] swapchainImages;
 
 	// Must be before InitBackbufferRenderPass.
 	if (queueRunner_.InitDepthStencilBuffer(cmdInit, barriers)) {
 		queueRunner_.InitBackbufferFramebuffers(vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight(), frameDataShared);
+	}
+	return true;
+}
+
+bool VulkanRenderManager::RecreatePresentationIfNeeded() {
+	VulkanPresentation *presentation = vulkan_->GetPresentation();
+	if (!presentation || !presentation->NeedsRecreate()) {
+		return true;
+	}
+
+	DestroyBackbuffers();
+	// DestroyBackbuffers() queues its views for deletion. They must be gone before a presentation
+	// backend destroys the images those views reference.
+	vulkan_->PerformPendingDeletes();
+	if (!presentation->Recreate(vulkan_)) {
+		return false;
+	}
+	if (!CreateBackbuffers()) {
+		// Keep the presentation empty so a later frame retries the complete recreation.
+		DestroyBackbuffers();
+		vulkan_->PerformPendingDeletes();
+		presentation->Destroy(vulkan_);
+		return false;
 	}
 	return true;
 }
@@ -433,7 +475,8 @@ void VulkanRenderManager::StopThreads() {
 	// Not sure this is a sensible check - should be ok even if not.
 	// _dbg_assert_(steps_.empty());
 
-	_dbg_assert_(renderThread_.joinable());
+	// A failed presentation recreation may leave the threads already stopped, so this cleanup must
+	// also be safe to call during a later retry.
 	if (useRenderThread_ && renderThread_.joinable()) {
 		// Tell the render thread to quit when it's done.
 		VKRRenderThreadTask *task = new VKRRenderThreadTask(VKRRunType::EXIT);
@@ -457,7 +500,6 @@ void VulkanRenderManager::StopThreads() {
 	{
 		std::unique_lock<std::mutex> lock(compileQueueMutex_);
 		runCompileThread_ = false;  // Compiler and present thread both look at this bool.
-		_dbg_assert_(compileThread_.joinable());
 		compileCond_.notify_one();
 	}
 	if (compileThread_.joinable()) {
@@ -684,7 +726,7 @@ void VulkanRenderManager::PollPresentTiming() {
 }
 
 void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfiler) {
-	double frameBeginTime = time_now_d()
+	double frameBeginTime = time_now_d();
 	VLOG("BeginFrame");
 	VkDevice device = vulkan_->GetDevice();
 
@@ -701,11 +743,30 @@ void VulkanRenderManager::BeginFrame(bool enableProfiling, bool enableLogProfile
 		}
 		frameData.readyForFence = false;
 	}
+	auto restoreReadyForFence = [&]() {
+		if (useRenderThread_) {
+			std::lock_guard<std::mutex> lock(frameData.fenceMutex);
+			frameData.readyForFence = true;
+			frameData.fenceCondVar.notify_one();
+		}
+	};
 
 	// This must be the very first Vulkan call we do in a new frame.
 	// Makes sure the very last command buffer from the frame before the previous has been fully executed.
 	if (vkWaitForFences(device, 1, &frameData.fence, true, UINT64_MAX) == VK_ERROR_DEVICE_LOST) {
 		_assert_msg_(false, "Device lost in vkWaitForFences");
+	}
+
+	if (!RecreatePresentationIfNeeded()) {
+		restoreReadyForFence();
+		ERROR_LOG(Log::G3D, "Failed to recreate Vulkan presentation backbuffers");
+		return;
+	}
+	// CreateBackbuffers() resets readyForFence for all frames. Keep the current frame consumed until
+	// its new submission signals the fence. Also, don't reset the fence until recreation succeeded.
+	if (useRenderThread_) {
+		std::lock_guard<std::mutex> lock(frameData.fenceMutex);
+		frameData.readyForFence = false;
 	}
 	vkResetFences(device, 1, &frameData.fence);
 
@@ -1570,6 +1631,9 @@ void VulkanRenderManager::Finish() {
 
 void VulkanRenderManager::Present() {
 	int curFrame = vulkan_->GetCurFrame();
+	if (VulkanPresentation *presentation = vulkan_->GetPresentation()) {
+		presentation->BeginPresent();
+	}
 
 	VKRRenderThreadTask *task = new VKRRenderThreadTask(VKRRunType::PRESENT);
 	task->frame = curFrame;
@@ -1620,6 +1684,9 @@ void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
 				outOfDateFrames_++;
 			}
 			frameData.skipSwap = false;
+		}
+		if (VulkanPresentation *presentation = vulkan_->GetPresentation()) {
+			presentation->EndPresent();
 		}
 		return;
 	}
@@ -1807,12 +1874,22 @@ VKRPipelineLayout *VulkanRenderManager::CreatePipelineLayout(BindingType *bindin
 		layout->frameData[i].pool.Create(vulkan_, bindingTypes, (uint32_t)bindingTypesCount, 1024);
 	}
 
-	pipelineLayouts_.push_back(layout);
+	{
+		std::lock_guard<std::mutex> lock(pipelineLayoutsMutex_);
+		pipelineLayouts_.push_back(layout);
+	}
 	return layout;
 }
 
 void VulkanRenderManager::DestroyPipelineLayout(VKRPipelineLayout *layout) {
+	// The layout has to stay in pipelineLayouts_ until the frames that were recorded with it have been
+	// flushed by the render thread, otherwise their descriptor sets never get written. So, we can't
+	// remove it here - instead we let it ride along on the delete list, which won't be run until the
+	// fence for the frame it was queued in has been waited on.
 	vulkan_->Delete().QueueCallback([this, layout](VulkanContext *vulkan) {
+		// Runs on the main thread, while the render thread may be in FlushDescriptors - so both the
+		// erase and the destruction of the layout itself have to be under the lock.
+		std::lock_guard<std::mutex> lock(pipelineLayoutsMutex_);
 		for (auto iter = pipelineLayouts_.begin(); iter != pipelineLayouts_.end(); iter++) {
 			if (*iter == layout) {
 				pipelineLayouts_.erase(iter);
@@ -1829,13 +1906,17 @@ void VulkanRenderManager::DestroyPipelineLayout(VKRPipelineLayout *layout) {
 	});
 }
 
+// Called on the render thread.
 void VulkanRenderManager::FlushDescriptors(int frame) {
+	std::lock_guard<std::mutex> lock(pipelineLayoutsMutex_);
 	for (VKRPipelineLayout *iter : pipelineLayouts_) {
 		iter->FlushDescSets(vulkan_, frame, &frameData_[frame].profile);
 	}
 }
 
+// Called on the main thread, from BeginFrame.
 void VulkanRenderManager::ResetDescriptorLists(int frame) {
+	std::lock_guard<std::mutex> lock(pipelineLayoutsMutex_);
 	for (VKRPipelineLayout *iter : pipelineLayouts_) {
 		VKRPipelineLayout::FrameData &data = iter->frameData[frame];
 

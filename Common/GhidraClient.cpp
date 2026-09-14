@@ -79,11 +79,12 @@ bool GhidraClient::FetchSymbols() {
 		pendingResult_.error = "symbols parsing error";
 		return false;
 	}
-	const JsonValue entries = reader.root().getArray("symbols")->value;
-	if (entries.getTag() != JSON_ARRAY) {
+	const JsonNode *entriesNode = reader.root().getArray("symbols");
+	if (!entriesNode) {
 		pendingResult_.error = "symbols is not an array";
 		return false;
 	}
+	const JsonValue entries = entriesNode->value;
 
 	for (const auto pEntry : entries) {
 		JsonGet entry = pEntry->value;
@@ -109,11 +110,12 @@ bool GhidraClient::FetchTypes() {
 		pendingResult_.error = "types parsing error";
 		return false;
 	}
-	const JsonValue entries = reader.root().getArray("types")->value;
-	if (entries.getTag() != JSON_ARRAY) {
+	const JsonNode *entriesNode = reader.root().getArray("types");
+	if (!entriesNode) {
 		pendingResult_.error = "types is not an array";
 		return false;
 	}
+	const JsonValue entries = entriesNode->value;
 
 	for (const auto pEntry : entries) {
 		const JsonGet entry = pEntry->value;

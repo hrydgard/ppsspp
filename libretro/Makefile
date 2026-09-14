@@ -71,6 +71,9 @@ ifneq (,$(findstring unix,$(platform)))
 		GL_LIB := -lGLESv2
 	else
 		GL_LIB := -lGL
+		ifeq ($(GLEW_EGL),1)
+			GL_LIB += -lEGL
+		endif
 	endif
 	PLATFORM_EXT = unix
 	LDFLAGS += -lrt -ldl
@@ -451,6 +454,15 @@ else
 endif
 
 ### Finalize ###
+# GLEW resolves its entry points through GLX by default, and glxewInit() returns
+# GLEW_ERROR_NO_GLX_DISPLAY on a display stack that provides no GLX, so
+# glewInit() fails and the GL backend never comes up. Wayland and GBM are both
+# affected. Building GLEW's EGL backend instead resolves them through
+# eglGetProcAddress. Opt-in, so GLX builds keep the behaviour they have today.
+ifeq ($(GLEW_EGL),1)
+	COREFLAGS += -DGLEW_EGL
+endif
+
 OBJECTS		+= $(SOURCES_CXX:.cpp=.o) $(SOURCES_C:.c=.o) $(ASMFILES:.S=.o)
 CXXFLAGS    += $(CPUOPTS) $(COREFLAGS) $(FFMPEGINCFLAGS) $(INCFLAGS) $(INCFLAGS_PLATFORM) $(PLATCFLAGS) $(fpic) $(PLATCFLAGS) $(CPUFLAGS) $(GLFLAGS) $(DYNAFLAGS)
 CFLAGS		+= $(CPUOPTS) $(COREFLAGS) $(FFMPEGINCFLAGS) $(INCFLAGS) $(INCFLAGS_PLATFORM) $(PLATCFLAGS) $(fpic) $(PLATCFLAGS) $(CPUFLAGS) $(GLFLAGS) $(DYNAFLAGS)

@@ -26,18 +26,16 @@
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 
-HLEHelperThread::HLEHelperThread() : id_(0), entry_(0) {
-}
-
 HLEHelperThread::HLEHelperThread(const char *threadName, const u32 instructions[], u32 instrCount, u32 prio, int stacksize) {
 	u32 instrBytes = instrCount * sizeof(u32);
 	u32 totalBytes = instrBytes + sizeof(u32) * 2;
 	AllocEntry(totalBytes);
+	_dbg_assert_(Memory::IsValid4AlignedAddress(entry_));  // after AllocEntry.
 	Memory::Memcpy(entry_, instructions, instrBytes, "HelperMIPS");
 
 	// Just to simplify things, we add the return here.
-	Memory::Write_U32(MIPS_MAKE_JR_RA(), entry_ + instrBytes + 0);
-	Memory::Write_U32(MIPS_MAKE_NOP(), entry_ + instrBytes + 4);
+	Memory::WriteUnchecked_U32(MIPS_MAKE_JR_RA(), entry_ + instrBytes + 0);
+	Memory::WriteUnchecked_U32(MIPS_MAKE_NOP(), entry_ + instrBytes + 4);
 
 	Create(threadName, prio, stacksize);
 }
@@ -45,8 +43,9 @@ HLEHelperThread::HLEHelperThread(const char *threadName, const u32 instructions[
 HLEHelperThread::HLEHelperThread(const char *threadName, const char *module, const char *func, u32 prio, int stacksize) {
 	const u32 bytes = sizeof(u32) * 2;
 	AllocEntry(bytes);
-	Memory::Write_U32(MIPS_MAKE_JR_RA(), entry_ + 0);
-	Memory::Write_U32(MIPS_MAKE_SYSCALL(module, func), entry_ + 4);
+	_dbg_assert_(Memory::IsValid4AlignedAddress(entry_));  // after AllocEntry.
+	Memory::WriteUnchecked_U32(MIPS_MAKE_JR_RA(), entry_ + 0);
+	Memory::WriteUnchecked_U32(MIPS_MAKE_SYSCALL(module, func), entry_ + 4);
 
 	Create(threadName, prio, stacksize);
 }
@@ -60,8 +59,9 @@ HLEHelperThread::~HLEHelperThread() {
 
 void HLEHelperThread::AllocEntry(u32 size) {
 	entry_ = kernelMemory.Alloc(size, false, "HLEHelper");
+	_dbg_assert_(Memory::IsValid4AlignedAddress(entry_));  // after AllocEntry.
 	Memory::Memset(entry_, 0, size, "HLEHelperClear");
-	currentMIPS->InvalidateICache(entry_, size);
+	currentMIPS->InvalidateICacheRangeDeferred(entry_, size);
 }
 
 void HLEHelperThread::Create(const char *threadName, u32 prio, int stacksize) {

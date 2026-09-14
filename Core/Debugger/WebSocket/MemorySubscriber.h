@@ -30,3 +30,4 @@ void WebSocketMemoryWriteU8(DebuggerRequest &req);
 void WebSocketMemoryWriteU16(DebuggerRequest &req);
 void WebSocketMemoryWriteU32(DebuggerRequest &req);
 void WebSocketMemoryWrite(DebuggerRequest &req);
+void WebSocketMemorySearch(DebuggerRequest &req);

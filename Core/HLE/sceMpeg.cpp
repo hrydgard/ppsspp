@@ -238,7 +238,7 @@ static MpegContext *getMpegCtx(u32 mpegAddr) {
 	if (!Memory::IsValidAddress(mpegAddr))
 		return nullptr;
 
-	u32 mpeg = Memory::Read_U32(mpegAddr);
+	u32 mpeg = Memory::ReadUnchecked_U32(mpegAddr);
 	auto found = g_mpegCtxs.find(mpeg);
 	if (found == g_mpegCtxs.end())
 		return nullptr;
@@ -509,15 +509,15 @@ static u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr
 
 	// Generate, and write mpeg handle into mpeg data, for some reason
 	int mpegHandle = dataPtr + 0x30;
-	Memory::Write_U32(mpegHandle, mpegAddr);
+	Memory::WriteUnchecked_U32(mpegHandle, mpegAddr);
 
 	// Initialize fake mpeg struct.
 	Memory::Memcpy(mpegHandle, "LIBMPEG\0", 8, "Mpeg");
 	Memory::Memcpy(mpegHandle + 8, "001\0", 4, "Mpeg");
-	Memory::Write_U32(-1, mpegHandle + 12);
+	Memory::WriteUnchecked_U32(-1, mpegHandle + 12);
 	if (ringbuffer.IsValid()) {
-		Memory::Write_U32(ringbufferAddr, mpegHandle + 16);
-		Memory::Write_U32(ringbuffer->dataUpperBound, mpegHandle + 20);
+		Memory::WriteUnchecked_U32(ringbufferAddr, mpegHandle + 16);
+		Memory::WriteUnchecked_U32(ringbuffer->dataUpperBound, mpegHandle + 20);
 	}
 	MpegContext *ctx = new MpegContext();
 	if (g_mpegCtxs.find(mpegHandle) != g_mpegCtxs.end()) {
@@ -560,7 +560,7 @@ static int sceMpegDelete(u32 mpeg) {
 	}
 
 	delete ctx;
-	g_mpegCtxs.erase(Memory::Read_U32(mpeg));
+	g_mpegCtxs.erase(Memory::ReadUnchecked_U32(mpeg));
 
 	return hleDelayResult(hleLogDebug(Log::Mpeg, 0), "mpeg delete", 40000);
 }
@@ -568,7 +568,7 @@ static int sceMpegDelete(u32 mpeg) {
 
 static int sceMpegAvcDecodeMode(u32 mpeg, u32 modeAddr)
 {
-	if (!Memory::IsValidAddress(modeAddr)) {
+	if (!Memory::IsValidRange(modeAddr, 8)) {
 		return hleLogWarning(Log::Mpeg, -1, "invalid addresses");
 	}
 
@@ -579,8 +579,8 @@ static int sceMpegAvcDecodeMode(u32 mpeg, u32 modeAddr)
 
 	DEBUG_LOG(Log::Mpeg, "sceMpegAvcDecodeMode(%08x, %08x)", mpeg, modeAddr);
 
-	int mode = Memory::Read_U32(modeAddr);
-	int pixelMode = Memory::Read_U32(modeAddr + 4);
+	int mode = Memory::ReadUnchecked_U32(modeAddr);
+	int pixelMode = Memory::ReadUnchecked_U32(modeAddr + 4);
 	if (pixelMode >= GE_CMODE_16BIT_BGR5650 && pixelMode <= GE_CMODE_32BIT_ABGR8888) {
 		ctx->videoPixelMode = pixelMode;
 	} else {
@@ -923,7 +923,7 @@ static bool decodePmpVideo(PSPPointer<SceMpegRingBuffer> ringbuffer, u32 pmpctxA
 		for (int i = 0; i < pmp_nBlocks; i++){
 			auto lli = PSPPointer<SceMpegLLI>::Create(pmp_videoSource);
 			// add source block into pmpframes
-			const uint8_t *ptr = Memory::GetPointerRange(lli->pSrc, lli->iSize);
+			const uint8_t *ptr = Memory::GetPointerRangeOrException(lli->pSrc, lli->iSize);
 			if (ptr)
 				pmpframes->add(ptr, lli->iSize);
 			// get next block
@@ -1071,8 +1071,7 @@ void __VideoPmpDoState(PointerWrap &p){
 	}
 }
 
-static u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 initAddr)
-{
+static u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr, u32 initAddr) {
 	MpegContext *ctx = getMpegCtx(mpeg);
 	if (!ctx) {
 		return hleLogWarning(Log::Mpeg, -1, "bad mpeg handle");
@@ -1094,8 +1093,12 @@ static u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr
 		return hleLogError(Log::Mpeg, -1, "Bogus mpegringbufferaddr");
 	}
 
-	u32 buffer = Memory::Read_U32(bufferAddr);
-	u32 init = Memory::Read_U32(initAddr);
+	if (!Memory::IsValidRange(bufferAddr, 4) || !Memory::IsValidRange(initAddr, 4)) {
+		return hleLogError(Log::Mpeg, -1, "invalid addresses");
+	}
+
+	u32 buffer = Memory::ReadUnchecked_U32(bufferAddr);
+	u32 init = Memory::ReadUnchecked_U32(initAddr);
 	DEBUG_LOG(Log::Mpeg, "video: bufferAddr = %08x, *buffer = %08x, *init = %08x", bufferAddr, buffer, init);
 
 	// check and decode pmp video
@@ -1155,11 +1158,11 @@ static u32 sceMpegAvcDecode(u32 mpeg, u32 auAddr, u32 frameWidth, u32 bufferAddr
 
 	if (mpegLibVersion >= 0x0105 && mpegLibVersion < 0x010a) {
 		//Killzone - Liberation expect , issue #16727
-		Memory::Write_U32(1, initAddr);
+		Memory::WriteOrException_U32(1, initAddr);
 	}
 	else {
 		// Save the current frame's status to initAddr
-		Memory::Write_U32(ctx->avc.avcFrameStatus, initAddr);
+		Memory::WriteOrException_U32(ctx->avc.avcFrameStatus, initAddr);
 	}
 	ctx->avc.avcDecodeResult = MPEG_AVC_DECODE_SUCCESS;
 
@@ -1183,7 +1186,7 @@ static u32 sceMpegAvcDecodeStop(u32 mpeg, u32 frameWidth, u32 bufferAddr, u32 st
 	}
 
 	// No last frame generated
-	Memory::Write_U32(0, statusAddr);
+	Memory::WriteOrException_U32(0, statusAddr);
 	return hleLogDebug(Log::Mpeg, 0);
 }
 
@@ -1222,7 +1225,7 @@ static u32 sceMpegUnRegistStream(u32 mpeg, int streamUid) {
 }
 
 static int sceMpegAvcDecodeDetail(u32 mpeg, u32 detailAddr) {
-	if (!Memory::IsValidAddress(detailAddr)) {
+	if (!Memory::IsValidRange(detailAddr, 36)) {
 		return hleLogError(Log::Mpeg, -1, "invalid addresses");
 	}
 
@@ -1231,20 +1234,20 @@ static int sceMpegAvcDecodeDetail(u32 mpeg, u32 detailAddr) {
 		return hleLogWarning(Log::Mpeg, -1, "bad mpeg handle");
 	}
 
-	Memory::Write_U32(ctx->avc.avcDecodeResult, detailAddr + 0);
-	Memory::Write_U32(ctx->videoFrameCount, detailAddr + 4);
-	Memory::Write_U32(ctx->avc.avcDetailFrameWidth, detailAddr + 8);
-	Memory::Write_U32(ctx->avc.avcDetailFrameHeight, detailAddr + 12);
-	Memory::Write_U32(0, detailAddr + 16);
-	Memory::Write_U32(0, detailAddr + 20);
-	Memory::Write_U32(0, detailAddr + 24);
-	Memory::Write_U32(0, detailAddr + 28);
-	Memory::Write_U32(ctx->avc.avcFrameStatus, detailAddr + 32);
+	Memory::WriteUnchecked_U32(ctx->avc.avcDecodeResult, detailAddr + 0);
+	Memory::WriteUnchecked_U32(ctx->videoFrameCount, detailAddr + 4);
+	Memory::WriteUnchecked_U32(ctx->avc.avcDetailFrameWidth, detailAddr + 8);
+	Memory::WriteUnchecked_U32(ctx->avc.avcDetailFrameHeight, detailAddr + 12);
+	Memory::WriteUnchecked_U32(0, detailAddr + 16);
+	Memory::WriteUnchecked_U32(0, detailAddr + 20);
+	Memory::WriteUnchecked_U32(0, detailAddr + 24);
+	Memory::WriteUnchecked_U32(0, detailAddr + 28);
+	Memory::WriteUnchecked_U32(ctx->avc.avcFrameStatus, detailAddr + 32);
 	return hleLogDebug(Log::Mpeg, 0);
 }
 
 static u32 sceMpegAvcDecodeStopYCbCr(u32 mpeg, u32 bufferAddr, u32 statusAddr) {
-	if (!Memory::IsValidAddress(bufferAddr) || !Memory::IsValidAddress(statusAddr)) {
+	if (!Memory::IsValidAddress(bufferAddr) || !Memory::IsValid4AlignedAddress(statusAddr)) {
 		return hleLogError(Log::Mpeg, -1, "UNIMPL + invalid addresses");
 	}
 
@@ -1254,7 +1257,7 @@ static u32 sceMpegAvcDecodeStopYCbCr(u32 mpeg, u32 bufferAddr, u32 statusAddr) {
 	}
 
 	ERROR_LOG(Log::Mpeg, "UNIMPL sceMpegAvcDecodeStopYCbCr(%08x, %08x, %08x)", mpeg, bufferAddr, statusAddr);
-	Memory::Write_U32(0, statusAddr);
+	Memory::WriteUnchecked_U32(0, statusAddr);
 	return hleNoLog(0);
 }
 
@@ -1282,8 +1285,12 @@ static int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initA
 	// We stored the video stream id here in sceMpegGetAvcAu().
 	ctx->mediaengine->setVideoStream(avcAu.esBuffer);
 
-	u32 buffer = Memory::Read_U32(bufferAddr);
-	u32 init = Memory::Read_U32(initAddr);
+	if (!Memory::IsValidRange(bufferAddr, 4) || !Memory::IsValidRange(initAddr, 4)) {
+		return hleLogError(Log::Mpeg, -1, "invalid addresses");
+	}
+
+	u32 buffer = Memory::ReadUnchecked_U32(bufferAddr);
+	u32 init = Memory::ReadUnchecked_U32(initAddr);
 	DEBUG_LOG(Log::Mpeg, "*buffer = %08x, *init = %08x", buffer, init);
 
 	if (ctx->mediaengine->stepVideo(ctx->videoPixelMode)) {
@@ -1309,10 +1316,10 @@ static int sceMpegAvcDecodeYCbCr(u32 mpeg, u32 auAddr, u32 bufferAddr, u32 initA
 
 	if (mpegLibVersion >= 0x010A) {
 		// Sunday Vs Magazine Shuuketsu! Choujou Daikessen expect, issue #11060
-		Memory::Write_U32(1, initAddr);
+		Memory::WriteUnchecked_U32(1, initAddr);
 	} else {
 		// Save the current frame's status to initAddr
-		Memory::Write_U32(ctx->avc.avcFrameStatus, initAddr);
+		Memory::WriteUnchecked_U32(ctx->avc.avcFrameStatus, initAddr);
 	}
 	ctx->avc.avcDecodeResult = MPEG_AVC_DECODE_SUCCESS;
 
@@ -1371,7 +1378,7 @@ static int sceMpegInitAu(u32 mpeg, u32 bufferAddr, u32 auPointer) {
 }
 
 static int sceMpegQueryAtracEsSize(u32 mpeg, u32 esSizeAddr, u32 outSizeAddr) {
-	if (!Memory::IsValidAddress(esSizeAddr) || !Memory::IsValidAddress(outSizeAddr)) {
+	if (!Memory::IsValid4AlignedAddress(esSizeAddr) || !Memory::IsValid4AlignedAddress(outSizeAddr)) {
 		return hleLogError(Log::Mpeg, -1, "invalid addresses");
 	}
 
@@ -1380,8 +1387,8 @@ static int sceMpegQueryAtracEsSize(u32 mpeg, u32 esSizeAddr, u32 outSizeAddr) {
 		return hleLogWarning(Log::Mpeg, -1, "bad mpeg handle");
 	}
 
-	Memory::Write_U32(MPEG_ATRAC_ES_SIZE, esSizeAddr);
-	Memory::Write_U32(MPEG_ATRAC_ES_OUTPUT_SIZE, outSizeAddr);
+	Memory::WriteUnchecked_U32(MPEG_ATRAC_ES_SIZE, esSizeAddr);
+	Memory::WriteUnchecked_U32(MPEG_ATRAC_ES_OUTPUT_SIZE, outSizeAddr);
 	return hleLogDebug(Log::Mpeg, 0);
 }
 
@@ -1442,7 +1449,7 @@ void PostPutAction::run(MipsCall &call) {
 		auto demuxer = std::make_unique<MpegDemux>(packetsAddedThisRound * 2048, 0);
 		int readOffset = ringbuffer->packetsRead % (s32)ringbuffer->packets;
 		uint32_t bufSize = Memory::ClampValidSizeAt(ringbuffer->data + readOffset * 2048, packetsAddedThisRound * 2048);
-		const u8 *buf = Memory::GetPointer(ringbuffer->data + readOffset * 2048);
+		const u8 *buf = Memory::GetPointerOrException(ringbuffer->data + readOffset * 2048);
 		bool invalid = false;
 		for (uint32_t i = 0; i < bufSize / 2048; ++i) {
 			demuxer->addStreamData(buf, 2048);
@@ -1477,11 +1484,11 @@ void PostPutAction::run(MipsCall &call) {
 			WARN_LOG(Log::Mpeg, "sceMpegRingbufferPut clamping packetsAdded old=%i new=%i", packetsAddedThisRound, ringbuffer->packets - ringbuffer->packetsAvail);
 			packetsAddedThisRound = ringbuffer->packets - ringbuffer->packetsAvail;
 		}
-		const u8 *data = Memory::GetPointer(ringbuffer->data + writeOffset * 2048);
+		const u8 *data = Memory::GetPointerOrException(ringbuffer->data + writeOffset * 2048);
 		uint32_t dataSize = Memory::ClampValidSizeAt(ringbuffer->data + writeOffset * 2048, packetsAddedThisRound * 2048);
 		int actuallyAdded = ctx->mediaengine == NULL ? 8 : ctx->mediaengine->addStreamData(data, dataSize) / 2048;
 		if (actuallyAdded != packetsAddedThisRound) {
-			WARN_LOG_REPORT(Log::Mpeg, "sceMpegRingbufferPut(): unable to enqueue all added packets, going to overwrite some frames.");
+			WARN_LOG(Log::Mpeg, "sceMpegRingbufferPut(): unable to enqueue all added packets, going to overwrite some frames (%d != %d)", actuallyAdded, packetsAddedThisRound);
 		}
 		ringbuffer->packetsRead += packetsAddedThisRound;
 		ringbuffer->packetsWritePos += packetsAddedThisRound;
@@ -1489,7 +1496,7 @@ void PostPutAction::run(MipsCall &call) {
 
 		if (remainingPackets_ > 0) {
 			if (packetsAddedThisRound > remainingPackets_) {
-				WARN_LOG_REPORT(Log::Mpeg, "Wrote more than expected.");
+				WARN_LOG(Log::Mpeg, "Wrote more packets than expected (added %d, remaining %d).", packetsAddedThisRound, remainingPackets_);
 			}
 			else if (packetsAddedThisRound < remainingPackets_) {
 				// Call the callback again to get more packets.
@@ -1604,8 +1611,8 @@ static int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 		avcAu.dts = avcAu.pts - videoTimestampStep;
 		avcAu.esBuffer = streamInfo->second.num;
 		avcAu.write(auAddr);
-		if (Memory::IsValidAddress(attrAddr)) {
-			Memory::Write_U32(1, attrAddr);
+		if (Memory::IsValid4AlignedAddress(attrAddr)) {
+			Memory::WriteUnchecked_U32(1, attrAddr);
 		}
 		return hleDelayResult(hleLogDebug(Log::Mpeg, 0), "mpeg get avc ignore", 100);
 	}
@@ -1642,9 +1649,9 @@ static int sceMpegGetAvcAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	avcAu.write(auAddr);
 
 	if (result == 0) {
-		// Jeanne d'Arc return 00000000 as attrAddr here and cause WriteToHardware error
+		// Jeanne d'Arc return 00000000 as attrAddr here and cause WriteMemoryOrRaiseException error
 		if (Memory::IsValidAddress(attrAddr)) {
-			Memory::Write_U32(1, attrAddr);
+			Memory::WriteOrException_U32(1, attrAddr);
 		}
 	}
 
@@ -1703,8 +1710,8 @@ static int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 		atracAu.dts = atracAu.pts;
 		atracAu.esBuffer = streamInfo->second.num;
 		atracAu.write(auAddr);
-		if (Memory::IsValidAddress(attrAddr)) {
-			Memory::Write_U32(0, attrAddr);
+		if (Memory::IsValid4AlignedAddress(attrAddr)) {
+			Memory::WriteUnchecked_U32(0, attrAddr);
 		}
 		return hleDelayResult(hleLogDebug(Log::Mpeg, 0), "mpeg get atrac ignore", 100);
 	}
@@ -1742,9 +1749,9 @@ static int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 	atracAu.write(auAddr);
 
 	if (result == 0) {
-		// 3rd birthday return 00000000 as attrAddr here and cause WriteToHardware error
-		if (Memory::IsValidAddress(attrAddr)) {
-			Memory::Write_U32(0, attrAddr);
+		// 3rd birthday return 00000000 as attrAddr here and cause WriteMemoryOrRaiseException error
+		if (Memory::IsValid4AlignedAddress(attrAddr)) {
+			Memory::WriteUnchecked_U32(0, attrAddr);
 		}
 	}
 
@@ -1754,7 +1761,7 @@ static int sceMpegGetAtracAu(u32 mpeg, u32 streamId, u32 auAddr, u32 attrAddr)
 
 static int sceMpegQueryPcmEsSize(u32 mpeg, u32 esSizeAddr, u32 outSizeAddr)
 {
-	if (!Memory::IsValidAddress(esSizeAddr) || !Memory::IsValidAddress(outSizeAddr)) {
+	if (!Memory::IsValid4AlignedAddress(esSizeAddr) || !Memory::IsValid4AlignedAddress(outSizeAddr)) {
 		return hleLogError(Log::Mpeg, -1, "invalid addresses");
 	}
 
@@ -1763,8 +1770,8 @@ static int sceMpegQueryPcmEsSize(u32 mpeg, u32 esSizeAddr, u32 outSizeAddr)
 		return hleLogWarning(Log::Mpeg, -1, "bad mpeg handle");
 	}
 
-	Memory::Write_U32(MPEG_PCM_ES_SIZE, esSizeAddr);
-	Memory::Write_U32(MPEG_PCM_ES_OUTPUT_SIZE, outSizeAddr);
+	Memory::WriteUnchecked_U32(MPEG_PCM_ES_SIZE, esSizeAddr);
+	Memory::WriteUnchecked_U32(MPEG_PCM_ES_OUTPUT_SIZE, outSizeAddr);
 	return hleLogError(Log::Mpeg, 0, "UNIMPL");
 }
 
@@ -1928,7 +1935,7 @@ static u32 sceMpegAtracDecode(u32 mpeg, u32 auAddr, u32 bufferAddr, int init)
 // YCbCr -> RGB color space conversion
 static u32 sceMpegAvcCsc(u32 mpeg, u32 sourceAddr, u32 rangeAddr, int frameWidth, u32 destAddr)
 {
-	if (!Memory::IsValidAddress(sourceAddr) || !Memory::IsValidAddress(rangeAddr) || !Memory::IsValidAddress(destAddr)) {
+	if (!Memory::IsValidAddress(sourceAddr) || !Memory::IsValidRange(rangeAddr, 16) || !Memory::IsValidAddress(destAddr)) {
 		return hleLogError(Log::Mpeg, -1, "invalid addresses");
 	}
 
@@ -1945,10 +1952,10 @@ static u32 sceMpegAvcCsc(u32 mpeg, u32 sourceAddr, u32 rangeAddr, int frameWidth
 		}
 	}
 
-	int x = Memory::Read_U32(rangeAddr);
-	int y = Memory::Read_U32(rangeAddr + 4);
-	int width = Memory::Read_U32(rangeAddr + 8);
-	int height = Memory::Read_U32(rangeAddr + 12);
+	int x = Memory::ReadUnchecked_U32(rangeAddr);
+	int y = Memory::ReadUnchecked_U32(rangeAddr + 4);
+	int width = Memory::ReadUnchecked_U32(rangeAddr + 8);
+	int height = Memory::ReadUnchecked_U32(rangeAddr + 12);
 
 	if (x < 0 || y < 0 || width < 0 || height < 0) {
 		WARN_LOG(Log::Mpeg, "sceMpegAvcCsc(%08x, %08x, %08x, %i, %08x) returning ERROR_INVALID_VALUE", mpeg, sourceAddr, rangeAddr, frameWidth, destAddr);
@@ -2095,7 +2102,7 @@ static int __MpegAvcConvertToYuv420(const void *data, u32 bufferOutputAddr, int 
 	u32 *imageBuffer = (u32*)data;
 	int sizeY = width * height;
 	int sizeCb = sizeY >> 2;
-	u8 *Y = Memory::GetPointerWriteRange(bufferOutputAddr, sizeY + sizeCb + sizeCb);
+	u8 *Y = Memory::GetPointerWriteRangeOrException(bufferOutputAddr, sizeY + sizeCb + sizeCb);
 	u8 *Cb = Y + sizeY;
 	u8 *Cr = Cb + sizeCb;
 

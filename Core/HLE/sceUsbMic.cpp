@@ -82,7 +82,7 @@ static void __MicBlockingResume(u64 userdata, int cyclesLate) {
 		} else {
 			for (int i = 0; i < iter->needSize; i++) {
 				if (Memory::IsValidAddress(iter->addr + i)) {
-					Memory::Write_U8(i & 0xFF, iter->addr + i);
+					Memory::WriteUnchecked_U8(i & 0xFF, iter->addr + i);
 				}
 			}
 			u32 ret = __KernelGetWaitValue(threadID, error);
@@ -299,7 +299,7 @@ static int sceUsbMicInputInit(int unknown1, int inputVolume, int unknown2) {
 }
 
 static int sceUsbMicWaitInputEnd() {
-	ERROR_LOG(Log::HLE, "UNIMPL sceUsbMicWaitInputEnd");
+	WARN_LOG(Log::HLE, "UNIMPL sceUsbMicWaitInputEnd");
 	// Hack: Just task switch so other threads get to do work. Helps Beaterator (although recording does not appear to work correctly).
 	return hleDelayResult(0, "MicWait", 100);
 }

@@ -5,10 +5,13 @@
 #include "Common/Data/Format/PNGLoad.h"
 #include "Common/Data/Format/ZIMLoad.h"
 #include "Common/Data/Format/ZIMSave.h"
-
+#include "Common/System/System.h"
 #include "Common/Common.h"
 
-char magic[5] = "ZIMG";
+
+bool System_GetPropertyBool(SystemProperty prop) { return false; }
+
+static const char magic[5] = "ZIMG";
 
 const char *format_strings[4] = { "8888", "4444", "565", "ETC1" };
 int formats[3] = { ZIM_RGBA8888, ZIM_RGBA4444, ZIM_RGB565 };

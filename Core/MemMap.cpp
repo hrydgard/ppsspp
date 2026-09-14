@@ -53,6 +53,8 @@ MemArena g_arena;
 u8 *m_pNullPage;
 u8 *m_pPhysicalScratchPad;
 u8 *m_pUncachedScratchPad;
+u8 *m_pKernelScratchPad;
+u8 *m_pUncachedKernelScratchPad;
 // 64-bit: Pointers to high-mem mirrors
 // 32-bit: Same as above
 u8 *m_pPhysicalRAM[3];
@@ -71,6 +73,11 @@ u8 *m_pUncachedKernelRAM[3];
 static u8 *m_pPhysicalVRAM[4];
 static u8 *m_pUncachedVRAM[4];
 
+// Hardware registers are mapped at 0xbc000000 and forwards (physical address 0x1C000000, but we need
+// the 0x80000000 kernel flag and 0x40000000 uncached flag for these). Exception vectors are at 0xbfc00000.
+// Since we do HLE emulation, we currently don't bother with any of that.
+// Some limited documentation here: https://www.psdevwiki.com/psp/Hardware_Registers#Introduction
+
 // Holds the ending address of the PSP's user space.
 // Required for HD Remasters to work properly.
 // This replaces RAM_NORMAL_SIZE at runtime.
@@ -80,13 +87,18 @@ u32 g_PSPModel;
 
 static MemMapSetupFlags g_setupFlags;
 
-std::recursive_mutex g_shutdownLock;
 
 // We don't declare the IO region in here since its handled by other means.
 static MemoryView views[] = {
 	{&m_pNullPage,            0x00000000, 0x00010000, MV_NULL_PAGE}, // Null page, usually not enabled. Only used for working around some race condition bugs.
 	{&m_pPhysicalScratchPad,  0x00010000, SCRATCHPAD_SIZE, 0},
 	{&m_pUncachedScratchPad,  0x40010000, SCRATCHPAD_SIZE, MV_MIRROR_PREVIOUS},
+	// Kernel-mode code (e.g. flash0:/reboot.bin) sees the scratchpad through these mirrors -
+	// same two address bits as RAM below (0x80000000 = kernel, 0x40000000 = uncached,
+	// independently combinable), just missing here until this was noticed via a real SIGSEGV
+	// writing 0x80010000 (see docs/VSHBootInvestigation.md).
+	{&m_pKernelScratchPad,        0x80010000, SCRATCHPAD_SIZE, MV_MIRROR_PREVIOUS | MV_KERNEL},
+	{&m_pUncachedKernelScratchPad,0xC0010000, SCRATCHPAD_SIZE, MV_MIRROR_PREVIOUS | MV_KERNEL},
 	{&m_pPhysicalVRAM[0],     0x04000000, 0x00200000, 0},
 	{&m_pPhysicalVRAM[1],     0x04200000, 0x00200000, MV_MIRROR_PREVIOUS},
 	{&m_pPhysicalVRAM[2],     0x04400000, 0x00200000, MV_MIRROR_PREVIOUS},
@@ -303,9 +315,16 @@ void MemoryMap_Shutdown() {
 #endif
 }
 
+// On some 32 bit platforms (like old Android, old iOS, etc.), there are/were restrictions on memory map sizes.
+// This particular size I can't find any sources for though.
+static const int MAX_MMAP_SIZE = 31 * 1024 * 1024;
+
+// Every size we actually use (32MB, 64MB, and the 76MB remasters) is a whole number of megabytes.
+static bool IsPlausibleMemorySize(u32 size) {
+	return size != 0 && size <= (u32)MAX_MMAP_SIZE * 3 && (size & 0xFFFFF) == 0;
+}
+
 bool Init(MemMapSetupFlags flags) {
-	// On some 32 bit platforms (like Android, iOS, etc.), you can only map < 32 megs at a time.
-	const static int MAX_MMAP_SIZE = 31 * 1024 * 1024;
 	_dbg_assert_msg_(g_MemorySize <= MAX_MMAP_SIZE * 3, "ACK - too much memory for three mmap views.");
 	for (size_t i = 0; i < ARRAY_SIZE(views); i++) {
 		if (views[i].flags & MV_IS_PRIMARY_RAM)
@@ -327,17 +346,23 @@ bool Init(MemMapSetupFlags flags) {
 	return true;
 }
 
-void Reinit() {
+// Returns false if the new map couldn't be set up - in which case there is no memory map at all,
+// and base is null. Callers must not carry on writing to guest memory.
+bool Reinit() {
 	_assert_msg_(PSP_GetBootState() == BootState::Complete, "Cannot reinit during startup/shutdown");
 	Core_NotifyLifecycle(CoreLifecycle::MEMORY_REINITING);
+	// Held across both halves: between Shutdown() and Init() there is no memory map at all, and a
+	// reader that only saw Shutdown()'s own acquire could slip into that gap.
+	CoreShutdownLock coreLock = Core_LockAgainstShutdown();
 	MemMapSetupFlags flags = g_setupFlags;
 	Shutdown();
-	Init(flags);
+	const bool success = Init(flags);
 	Core_NotifyLifecycle(CoreLifecycle::MEMORY_REINITED);
+	return success;
 }
 
 static void DoMemoryVoid(PointerWrap &p, uint32_t start, uint32_t size) {
-	uint8_t *d = GetPointerWrite(start);
+	uint8_t *d = GetPointerWriteOrException(start);
 	uint8_t *&storage = *p.ptr;
 
 	// We only handle aligned data and sizes.
@@ -382,8 +407,10 @@ void DoState(PointerWrap &p) {
 		p.DoMarker("PSPModel");
 		if (!g_RemasterMode) {
 			g_MemorySize = g_PSPModel == PSP_MODEL_FAT ? RAM_NORMAL_SIZE : RAM_DOUBLE_SIZE;
-			if (oldMemorySize < g_MemorySize) {
-				Reinit();
+			if (oldMemorySize < g_MemorySize && !Reinit()) {
+				ERROR_LOG(Log::MemMap, "Failed to reinit memory to %08x bytes", g_MemorySize);
+				p.SetError(PointerWrap::ERROR_FAILURE);
+				return;
 			}
 		}
 	} else {
@@ -393,8 +420,20 @@ void DoState(PointerWrap &p) {
 		Do(p, g_PSPModel);
 		p.DoMarker("PSPModel");
 		Do(p, g_MemorySize);
-		if (oldMemorySize != g_MemorySize) {
+		if (p.mode == PointerWrap::MODE_READ && !IsPlausibleMemorySize(g_MemorySize)) {
+			// Straight out of the file, so don't hand it to Init() - a bogus size makes the map
+			// fail to allocate, and we'd carry on writing RAM through a null base.
+			ERROR_LOG(Log::MemMap, "Savestate specifies an implausible memory size: %08x", g_MemorySize);
+			g_MemorySize = oldMemorySize;
+			p.SetError(PointerWrap::ERROR_FAILURE);
+			return;
+		}
+		if (oldMemorySize != g_MemorySize && !Reinit()) {
+			ERROR_LOG(Log::MemMap, "Failed to reinit memory to %08x bytes, restoring %08x", g_MemorySize, oldMemorySize);
+			g_MemorySize = oldMemorySize;
 			Reinit();
+			p.SetError(PointerWrap::ERROR_FAILURE);
+			return;
 		}
 	}
 
@@ -408,7 +447,7 @@ void DoState(PointerWrap &p) {
 }
 
 void Shutdown() {
-	std::lock_guard<std::recursive_mutex> guard(g_shutdownLock);
+	CoreShutdownLock coreLock = Core_LockAgainstShutdown();
 	u32 flags = 0;
 	MemoryMap_Shutdown();
 	base = nullptr;
@@ -417,21 +456,6 @@ void Shutdown() {
 
 bool IsActive() {
 	return base != nullptr;
-}
-
-// Wanting to avoid include pollution, MemMap.h is included a lot.
-MemoryInitedLock::MemoryInitedLock()
-{
-	g_shutdownLock.lock();
-}
-MemoryInitedLock::~MemoryInitedLock()
-{
-	g_shutdownLock.unlock();
-}
-
-MemoryInitedLock Lock()
-{
-	return MemoryInitedLock();
 }
 
 static Opcode Read_Instruction(u32 address, bool resolveReplacements, Opcode inst) {
@@ -490,9 +514,10 @@ Opcode ReadUnchecked_Instruction(u32 address, bool resolveReplacements) {
 	return Read_Instruction(address, resolveReplacements, inst);
 }
 
-Opcode Read_Opcode_JIT(u32 address)
-{
-	Opcode inst = Opcode(Read_U32(address));
+// WARNING! Caller checks that address is valid!
+Opcode Read_Opcode_JIT(u32 address) {
+	_dbg_assert_(Memory::IsValid4AlignedAddress(address));
+	Opcode inst = Opcode(ReadUnchecked_U32(address));
 	// No mutex around jit access here, but we assume caller has if necessary.
 	if (MIPS_IS_RUNBLOCK(inst.encoding) && MIPSComp::jit) {
 		return MIPSComp::jit->GetOriginalOp(inst);
@@ -518,10 +543,10 @@ void Memset(const u32 addr, const u8 value, const u32 size, const char *tag) {
 		memset(ptr, value, size);
 	} else {
 		// TODO: This mainly seems to be produced by GPUCommon::PerformMemorySet, called from
-		// Replace_memset_jak(). Strangely, this managed to crash in Write_U8().
-		for (size_t i = 0; i < size; i++) {
-			if (Memory::IsValidAddress(addr + (u32)i)) {
-				WriteUnchecked_U8(value, (u32)(addr + i));
+		// Replace_memset_jak().
+		if (Memory::IsValidRange(addr, size)) {
+			for (size_t i = 0; i < size; i++) {
+				Memory::WriteUnchecked_U8(value, (u32)(addr + i));
 			}
 		}
 	}

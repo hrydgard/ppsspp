@@ -367,10 +367,6 @@ public:
 		targetHeight_ = height;
 	}
 
-	bool SawOutOfMemory() {
-		return sawOutOfMemory_;
-	}
-
 	std::string GetGLString(int name) const;
 
 private:

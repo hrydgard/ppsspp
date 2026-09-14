@@ -17,21 +17,18 @@
 
 #pragma once
 
-#include "Core/Core.h"
+#include <string>
 
-namespace net {
-class WebSocketServer;
-}
+namespace SteppingBroadcaster {
 
-struct SteppingBroadcaster {
-public:
-	SteppingBroadcaster() {
-		prevState_ = coreState;
-	}
+// Notices the CPU entering or leaving stepping and returns the formatted event for one, or an empty
+// string if nothing changed. CPU thread only - it reads pc and the tick count, which is exactly what
+// connected debuggers must not do from their own threads. Must be called even when no debugger is
+// connected, so the transition state doesn't go stale.
+std::string PollChange();
 
-	void Broadcast(net::WebSocketServer *ws);
+// The cpu.stepping event describing the state right now, for a debugger that connected while the
+// CPU was already stopped. Empty if it isn't stepping. CPU thread only.
+std::string CurrentState();
 
-private:
-	CoreState prevState_;
-	int lastCounter_ = 0;
-};
+}  // namespace SteppingBroadcaster

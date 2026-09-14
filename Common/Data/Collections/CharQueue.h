@@ -188,6 +188,10 @@ public:
 
 	// If return value is negative, one wasn't found.
 	int next_crlf_offset() {
+		// A trailing '\r' with no '\n' after it yet (e.g. right at a TCP fragmentation
+		// boundary) is a normal "not found yet", not an error - don't peek() past the
+		// data we actually have.
+		const size_t totalSize = size();
 		int offset = 0;
 		Block *b = head_;
 		do {
@@ -195,7 +199,7 @@ public:
 			for (int i = 0; i < remain; i++) {
 				if (b->data[b->head + i] == '\r') {
 					// Use peek to avoid handling edge cases.
-					if (peek(offset + i + 1) == '\n') {
+					if ((size_t)(offset + i + 1) < totalSize && peek(offset + i + 1) == '\n') {
 						return offset + i;
 					}
 				}

@@ -50,7 +50,6 @@ public:
 	bool FramebufferDirty() override;
 	bool FramebufferReallyDirty() override;
 
-	void Execute_VertexType(u32 op, u32 diff);
 	void Execute_VertexTypeSkinning(u32 op, u32 diff);
 
 	void Execute_Prim(u32 op, u32 diff);

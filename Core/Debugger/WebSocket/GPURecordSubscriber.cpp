@@ -17,6 +17,7 @@
 
 #include "Common/Data/Encoding/Base64.h"
 #include "Common/File/FileUtil.h"
+#include "Core/Core.h"
 #include "Core/Debugger/WebSocket/GPURecordSubscriber.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
 #include "Core/System.h"
@@ -44,9 +45,14 @@ DebuggerSubscriber *WebSocketGPURecordInit(DebuggerEventHandlerMap &map) {
 }
 
 WebSocketGPURecordState::~WebSocketGPURecordState() {
-	// Clear the callback to hopefully avoid a crash.
-	if (pending_)
-		gpu->GetRecorder()->ClearCallback();
+	// Clear the callback to hopefully avoid a crash. On the CPU thread, since gpu itself is
+	// destroyed over there - see Core_RunOnCPUThread() in Core.h.
+	if (pending_) {
+		Core_RunOnCPUThread([&] {
+			if (gpu)
+				gpu->GetRecorder()->ClearCallback();
+		});
+	}
 }
 
 // Begin recording (gpu.record.dump)
@@ -58,16 +64,24 @@ WebSocketGPURecordState::~WebSocketGPURecordState() {
 //
 // Note: recording may take a moment.
 void WebSocketGPURecordState::Dump(DebuggerRequest &req) {
-	if (PSP_GetBootState() != BootState::Complete) {
-		return req.Fail("CPU not started");
-	}
-
-	bool result = gpu->GetRecorder()->RecordNextFrame([=](const Path &filename) {
-		lastFilename_ = filename;
-		pending_ = false;
+	// gpu is created and destroyed on the CPU thread, so ask it for a recording over there rather
+	// than dereferencing it from this WebSocket handler thread.
+	bool started = false;
+	bool haveGPU = false;
+	Core_RunOnCPUThread([&] {
+		haveGPU = PSP_GetBootState() == BootState::Complete && gpu != nullptr;
+		if (!haveGPU)
+			return;
+		started = gpu->GetRecorder()->RecordNextFrame([=](const Path &filename) {
+			lastFilename_ = filename;
+			pending_ = false;
+		});
 	});
 
-	if (!result) {
+	if (!haveGPU) {
+		return req.Fail("CPU not started");
+	}
+	if (!started) {
 		return req.Fail("Recording already in progress");
 	}
 

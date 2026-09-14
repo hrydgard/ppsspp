@@ -125,7 +125,7 @@ int g_screenshotFailures;
 
 	CChunkFileReader::Error LoadFromRam(std::vector<u8> &data, std::string *errorString) {
 		SaveStart state;
-		return CChunkFileReader::LoadPtr(&data[0], state, errorString);
+		return CChunkFileReader::LoadPtr(&data[0], data.size(), state, errorString);
 	}
 
 	// TODO: Should this be configurable?
@@ -165,7 +165,6 @@ int g_screenshotFailures;
 		// These must be saved before copying out memory and restored after.
 		auto savedReplacements = SaveAndClearReplacements();
 		if (MIPSComp::jit && p.mode == p.MODE_WRITE) {
-			std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 			if (MIPSComp::jit) {
 				std::vector<u32> savedBlocks;
 				savedBlocks = MIPSComp::jit->SaveAndClearEmuHackOps();
@@ -198,16 +197,16 @@ int g_screenshotFailures;
 	}
 
 	void Enqueue(const SaveState::Operation &op) {
-		if (!NetworkAllowSaveState()) {
+		// These two both refuse the operation, and both say so - dropping it silently just
+		// looks like the hotkey didn't work. Callers that ask the same questions themselves
+		// return before getting here, so nothing shows a message twice.
+		if (NetworkWarnUserIfOnlineAndCantSavestate()) {
 			return;
 		}
-		if (Achievements::HardcoreModeActive()) {
-			if (g_Config.bAchievementsSaveStateInHardcoreMode && ((op.type == SaveState::OperationType::Save))) {
-				// We allow saving in hardcore mode if this setting is on.
-			} else {
-				// Operation not allowed
-				return;
-			}
+		// Hardcore mode bans loading savestates outright, and saving too unless the user opted
+		// back into that.
+		if (Achievements::WarnUserIfHardcoreModeActive(op.type == OperationType::Save)) {
+			return;
 		}
 
 		std::lock_guard<std::mutex> guard(mutex);
@@ -219,7 +218,7 @@ int g_screenshotFailures;
 	}
 
 	void Load(const Path &filename, int slot, Callback callback) {
-		if (!NetworkAllowSaveState()) {
+		if (NetworkWarnUserIfOnlineAndCantSavestate()) {
 			return;
 		}
 
@@ -230,7 +229,7 @@ int g_screenshotFailures;
 	}
 
 	void Save(const Path &filename, int slot, Callback callback) {
-		if (!NetworkAllowSaveState()) {
+		if (NetworkWarnUserIfOnlineAndCantSavestate()) {
 			return;
 		}
 
@@ -400,7 +399,7 @@ int g_screenshotFailures;
 	}
 
 	void LoadSlot(std::string_view gamePrefix, int slot, Callback callback) {
-		if (!NetworkAllowSaveState()) {
+		if (NetworkWarnUserIfOnlineAndCantSavestate()) {
 			return;
 		}
 
@@ -441,7 +440,7 @@ int g_screenshotFailures;
 	}
 
 	bool UndoLoad(std::string_view gamePrefix, Callback callback) {
-		if (!NetworkAllowSaveState()) {
+		if (NetworkWarnUserIfOnlineAndCantSavestate()) {
 			return false;
 		}
 
@@ -467,7 +466,7 @@ int g_screenshotFailures;
 	}
 
 	void SaveSlot(std::string_view gamePrefix, int slot, Callback callback) {
-		if (!NetworkAllowSaveState()) {
+		if (NetworkWarnUserIfOnlineAndCantSavestate()) {
 			return;
 		}
 
@@ -512,7 +511,7 @@ int g_screenshotFailures;
 	}
 
 	bool UndoSaveSlot(std::string_view gamePrefix, int slot) {
-		if (!NetworkAllowSaveState()) {
+		if (NetworkWarnUserIfOnlineAndCantSavestate()) {
 			return false;
 		}
 
@@ -545,7 +544,7 @@ int g_screenshotFailures;
 	}
 
 	bool UndoLastSave(std::string_view gamePrefix) {
-		if (!NetworkAllowSaveState()) {
+		if (NetworkWarnUserIfOnlineAndCantSavestate()) {
 			return false;
 		}
 
@@ -811,6 +810,16 @@ int g_screenshotFailures;
 		SaveStart state;
 
 		for (const auto &op : operations) {
+			// Re-check here, and not just in Enqueue: during boot, RetroAchievements is still
+			// identifying the game asynchronously, and until it's done hardcore mode doesn't
+			// read as active yet. An operation queued in that window (a hotkey press, --state,
+			// auto-load) passed the check in Enqueue and would otherwise be applied here, after
+			// identification has finished and hardcore mode has come up.
+			if (Achievements::WarnUserIfHardcoreModeActive(op.type == OperationType::Save)) {
+				WARN_LOG(Log::SaveState, "Dropping queued savestate operation - hardcore mode is active");
+				continue;
+			}
+
 			CChunkFileReader::Error result;
 			Status callbackResult;
 			std::string callbackMessage;

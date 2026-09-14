@@ -1,56 +1,10 @@
 #pragma once
 
-#include <set>
-
 #include "pch.h"
 #include "Common/DeviceResources.h"
 #include "PPSSPP_UWPMain.h"
 
 namespace UWP {
-	struct Touch {
-		bool inUse = false;
-		unsigned uid;
-	};
-
-	class TouchMapper {
-	public:
-		int TouchId(unsigned touch) {
-			for (int touchIx = 0; touchIx < maxTouches; touchIx++)
-				if (touches[touchIx].inUse && touches[touchIx].uid == touch)
-					return touchIx;
-			return -1;
-		}
-
-		int AddNewTouch(unsigned touch) {
-			for (int touchIx = 0; touchIx < maxTouches; touchIx++) {
-				if (!touches[touchIx].inUse) {
-					touches[touchIx].inUse = true;
-					touches[touchIx].uid = touch;
-					return touchIx;
-				}
-			}
-			return -1;
-		}
-
-		int RemoveTouch(unsigned touch) {
-			for (int touchIx = 0; touchIx < maxTouches; touchIx++) {
-				if (touches[touchIx].inUse && touches[touchIx].uid == touch) {
-					touches[touchIx].inUse = false;
-					return touchIx;
-				}
-			}
-			return -1;
-		}
-
-	private:
-		enum { maxTouches = 11 };
-		Touch touches[maxTouches]{};
-	};
-
-	enum class HardwareButton {
-		BACK,
-	};
-
 	// Main entry point for our app. Connects the app with the Windows shell and handles application lifecycle events.
 	struct App : winrt::implements<App, winrt::Windows::ApplicationModel::Core::IFrameworkView> {
 	public:
@@ -62,8 +16,6 @@ namespace UWP {
 		void Load(const winrt::hstring& entryPoint);
 		void Run();
 		void Uninitialize();
-
-		bool HasBackButton();
 
 	private:
 		// Application lifecycle event handlers.
@@ -98,12 +50,10 @@ namespace UWP {
 		void InitialPPSSPP();
 
 		std::shared_ptr<DX::DeviceResources> m_deviceResources;
-		std::set<HardwareButton> m_hardwareButtons;
 		std::unique_ptr<PPSSPP_UWPMain> m_main;
 		bool m_windowClosed;
 		bool m_windowVisible;
 
-		bool m_isPhone = false;
 		TouchMapper touchMap_;
 	};
 }

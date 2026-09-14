@@ -30,6 +30,7 @@
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/Notice.h"
+#include "Common/UI/ScreenManager.h"
 #include "Common/Render/ManagedTexture.h"
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/BitSet.h"
@@ -49,6 +50,7 @@
 #include "UI/DevScreens.h"
 #include "UI/DeveloperToolsScreen.h"
 #include "UI/DisplayLayoutScreen.h"
+#include "UI/FirmwareScreen.h"
 #include "UI/RemoteISOScreen.h"
 #include "UI/SavedataScreen.h"
 #include "UI/SystemInfoScreen.h"
@@ -79,6 +81,7 @@
 #include "Core/HLE/sceUsbCam.h"
 #include "Core/HLE/sceUsbMic.h"
 #include "Core/HLE/sceUtility.h"
+#include "Core/Util/PortManager.h"
 #include "GPU/Common/PostShader.h"
 #include "GPU/GPU.h"
 
@@ -470,6 +473,7 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 	graphicsSettings->Add(new ItemHeader(gr->T("Frame Rate Control")));
 	static const char *frameSkip[] = {"Off", "1", "2", "3", "4", "5", "6", "7", "8"};
 	PopupMultiChoice *frameSkipping = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iFrameSkip, gr->T("Frame Skipping"), frameSkip, 0, ARRAY_SIZE(frameSkip), I18NCat::GRAPHICS, screenManager()));
+	frameSkipping->SetChoicesUntranslated(1, (int)ARRAY_SIZE(frameSkip) - 1);
 	frameSkipping->SetEnabledFunc([] {
 		return !g_Config.bAutoFrameSkip;
 	});
@@ -543,7 +547,7 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 	graphicsSettings->Add(new SettingHint(gr->T("RenderDuplicateFrames Tip", "Can make framerate smoother in games that run at lower framerates"), frameDuplication));
 
 	if (draw->GetDeviceCaps().setMaxFrameLatencySupported) {
-		static const char *bufferOptions[] = { "No buffer", "Up to 1", "Up to 2" };
+		static const char *bufferOptions[] = { "No buffer", "Up to 1" };
 		PopupMultiChoice *inflightChoice = graphicsSettings->Add(new PopupMultiChoice(&g_Config.iInflightFrames, gr->T("Buffer graphics commands"), bufferOptions, 1, ARRAY_SIZE(bufferOptions), I18NCat::GRAPHICS, screenManager()));
 		inflightChoice->OnChoice.Handle(this, &GameSettingsScreen::OnInflightFramesChoice);
 		graphicsSettings->Add(new SettingHint(gr->T("Faster, input lag"), inflightChoice));  // TODO: This hint could use improvement.
@@ -553,10 +557,6 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 		CheckBox *hwTransform = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTransform, gr->T("Hardware Transform")));
 		hwTransform->SetDisabledPtr(&g_Config.bSoftwareRendering);
 	}
-
-	CheckBox *swSkin = graphicsSettings->Add(new CheckBox(&g_Config.bSoftwareSkinning, gr->T("Software Skinning")));
-	swSkin->SetDisabledPtr(&g_Config.bSoftwareRendering);
-	graphicsSettings->Add(new SettingHint(gr->T("SoftwareSkinning Tip", "Combine skinned model draws on the CPU, faster in most games"), swSkin));
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Texture upscaling")));
 
@@ -826,10 +826,10 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 		screenManager()->push(new AnalogCalibrationScreen(gamePath_));
 	});
 
-#if defined(USING_WIN_UI) || (PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID))
+#if (PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)) || (PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID))
 	controlsSettings->Add(new CheckBox(&g_Config.bSystemControls, co->T("Enable standard shortcut keys")));
 #endif
-#if defined(USING_WIN_UI)
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 	controlsSettings->Add(new CheckBox(&g_Config.bGamepadOnlyFocused, co->T("Ignore gamepads when not focused")));
 #endif
 
@@ -920,14 +920,14 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 
 	if (deviceType != DEVICE_TYPE_VR) {
 		controlsSettings->Add(new ItemHeader(co->T("Keyboard", "Keyboard Control Settings")));
-#if defined(USING_WIN_UI)
+#if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
 		controlsSettings->Add(new CheckBox(&g_Config.bIgnoreWindowsKey, co->T("Ignore Windows Key")));
-#endif // #if defined(USING_WIN_UI)
+#endif
 		PopupSliderChoiceFloat *analogLimiter = new PopupSliderChoiceFloat(&g_Config.fAnalogLimiterDeadzone, 0.0f, 1.0f, 0.6f, co->T("Analog Limiter"), 0.10f, screenManager(), "/ 1.0");
 		controlsSettings->Add(analogLimiter);
 		controlsSettings->Add(new SettingHint(co->T("AnalogLimiter Tip", "When the analog limiter button is pressed"), analogLimiter));
 		controlsSettings->Add(new PopupSliderChoice(&g_Config.iRapidFireInterval, 1, 10, 5, co->T("Rapid fire interval"), screenManager(), "frames"));
-#if defined(USING_WIN_UI) || defined(SDL) || PPSSPP_PLATFORM(ANDROID)
+#if PPSSPP_PLATFORM(WINDOWS) || defined(SDL) || PPSSPP_PLATFORM(ANDROID)
 		bool enableMouseSettings = true;
 #if PPSSPP_PLATFORM(ANDROID)
 		if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) < 12) {
@@ -1084,7 +1084,15 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 	dnsServer->SetDisabledPtr(&g_Config.bInfrastructureAutoDNS);
 
 	networkingSettings->Add(new ItemHeader(n->T("UPnP (port-forwarding)")));
-	networkingSettings->Add(new CheckBox(&g_Config.bEnableUPnP, n->T("Enable UPnP", "Enable UPnP (need a few seconds to detect)")));
+	// Only togglable outside a game - sceNet latches settings like UPnPUseOriginalPort at boot,
+	// and a game that's already mapped its ports wouldn't cope with them disappearing.
+	CheckBox *enableUPnP = networkingSettings->Add(new CheckBox(&g_Config.bEnableUPnP, n->T("Enable UPnP", "Enable UPnP (need a few seconds to detect)")));
+	enableUPnP->SetEnabled(!PSP_IsInited());
+	enableUPnP->OnClick.Add([](UI::EventParams &e) {
+		// Wake the UPnP service thread so it connects (or tears its mappings back down) right
+		// away, instead of waiting for a port request that may never come.
+		UPnP_Notify();
+	});
 	auto *useOriPort = networkingSettings->Add(new CheckBox(&g_Config.bUPnPUseOriginalPort, n->T("UPnP use original port", "UPnP use original port (Enabled = PSP compatibility)")));
 	networkingSettings->Add(new SettingHint(n->T("UseOriginalPort Tip", "May not work for all devices or games, see wiki."), useOriPort));
 
@@ -1096,6 +1104,7 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 	networkingSettings->Add(new PopupMultiChoice(&g_Config.iChatButtonPosition, n->T("Chat Button Position"), chatButtonPositions, 0, ARRAY_SIZE(chatButtonPositions), I18NCat::DIALOG, screenManager()))->SetEnabledPtr(&g_Config.bEnableNetworkChat);
 	static const char *chatScreenPositions[] = { "Bottom Left", "Bottom Center", "Bottom Right", "Top Left", "Top Center", "Top Right" };
 	networkingSettings->Add(new PopupMultiChoice(&g_Config.iChatScreenPosition, n->T("Chat Screen Position"), chatScreenPositions, 0, ARRAY_SIZE(chatScreenPositions), I18NCat::DIALOG, screenManager()))->SetEnabledPtr(&g_Config.bEnableNetworkChat);
+	networkingSettings->Add(new CheckBox(&g_Config.bChatTimestamps, n->T("Show timestamps in chat")))->SetEnabledPtr(&g_Config.bEnableNetworkChat);
 
 	networkingSettings->Add(new ItemHeader(n->T("Quick chat")));
 	CheckBox *qc = networkingSettings->Add(new CheckBox(&g_Config.bEnableQuickChat, n->T("Enable quick chat")));
@@ -1115,6 +1124,7 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 	});
 	static const char *wlanChannels[] = {"Auto", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"};
 	auto wlanChannelChoice = networkingSettings->Add(new PopupMultiChoice(&g_Config.iWlanAdhocChannel, n->T("WLAN Channel"), wlanChannels, 0, ARRAY_SIZE(wlanChannels), I18NCat::NETWORKING, screenManager()));
+	wlanChannelChoice->SetChoicesUntranslated(1, (int)ARRAY_SIZE(wlanChannels) - 1);
 	for (int i = 0; i < 4; i++) {
 		wlanChannelChoice->HideChoice(i + 2);
 		wlanChannelChoice->HideChoice(i + 7);
@@ -1162,6 +1172,9 @@ void GameSettingsScreen::CreateToolsSettings(UI::ViewGroup *tools) {
 	tools->Add(new Choice(ri->T("Remote disc streaming")))->OnClick.Add([=](UI::EventParams &) {
 		screenManager()->push(new RemoteISOScreen(gamePath_));
 	});
+	tools->Add(new Choice(sy->T("PSP Firmware")))->OnClick.Add([=](UI::EventParams &) {
+		screenManager()->push(new FirmwareScreen(gamePath_));
+	});
 }
 
 void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
@@ -1202,6 +1215,14 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	switchMode->OnChoice.Add([](EventParams &e) {
 		System_Notify(SystemNotification::APP_SWITCH_MODE_CHANGED);
 	});
+
+	{
+		// Note: On iPhone, iOS hides the status bar in landscape no matter what this is set to.
+		DisplayLayoutConfig &config = g_Config.GetDisplayLayoutConfig(GetDeviceOrientation());
+		systemSettings->Add(new CheckBox(&config.bImmersiveMode, sy->T("Hide status bar")))->OnClick.Add([](EventParams &e) {
+			System_Notify(SystemNotification::IMMERSIVE_MODE_CHANGE);
+		});
+	}
 #endif
 
 #if PPSSPP_PLATFORM(ANDROID)
@@ -1322,6 +1343,11 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 	SavePathInOtherChoice->SetEnabled(false);
 	SavePathInOtherChoice->OnClick.Handle(this, &GameSettingsScreen::OnMemoryStickOther);
 	const bool myDocsExists = W32Util::UserDocumentsPath().size() != 0;
+
+	if (!System_GetPropertyBool(SYSPROP_CAN_GET_FREE_SPACE_FAST)) {
+		// It might be slow, so use an option.
+		systemSettings->Add(new CheckBox(&g_Config.bReportAccurateFreeStorageSpace, sy->T("Report free storage space accurately")));
+	}
 
 	const Path &PPSSPPpath = File::GetExeDirectory();
 	const Path installedFile = PPSSPPpath / "installed.txt";
@@ -1489,7 +1515,7 @@ void GameSettingsScreen::CreateSystemSettings(UI::ViewGroup *systemSettings) {
 		KeyMap::UpdateNativeMenuKeys();
 	});
 
-#if defined(_WIN32) || (defined(USING_QT_UI) && !defined(MOBILE_DEVICE))
+#if defined(_WIN32)
 	systemSettings->Add(new ItemHeader(sy->T("Recording")));
 	systemSettings->Add(new CheckBox(&g_Config.bDumpFrames, sy->T("Record Display")));
 	systemSettings->Add(new CheckBox(&g_Config.bUseFFV1, sy->T("Use Lossless Video Codec (FFV1)")));
@@ -1625,7 +1651,7 @@ void GameSettingsScreen::OnChangeBackground(UI::EventParams &e) {
 	System_BrowseForImage(GetRequesterToken(), sy->T("Set UI background..."), bgJpg, [this](std::string_view value, int converted) {
 		if (converted == 1) {
 			// The platform code converted and saved the file to the desired path already.
-			INFO_LOG(Log::UI, "Converted file.");
+			INFO_LOG(Log::UI, "Platform converted the file: %.*s", STR_VIEW(value));
 		} else if (!value.empty()) {
 			Path path(value);
 
@@ -1734,7 +1760,7 @@ void TriggerRestart(const char *why, bool editThenRestore, const Path &gamePath)
 	// Extra save here to make sure the choice really gets saved even if there are shutdown bugs in
 	// the GPU backend code.
 	g_Config.Save(why);
-	std::string param = "--gamesettings";
+	std::string param = "--start-screen=gamesettings";
 	if (editThenRestore) {
 		// We won't pass the gameID, so don't resume back into settings.
 		param.clear();

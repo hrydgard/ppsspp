@@ -46,6 +46,7 @@
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Debugger/SymbolMap.h"
+#include "Core/EmuThread.h"
 #include "Core/Instance.h"
 #include "Core/KeyMap.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
@@ -59,13 +60,12 @@
 #include "Windows/Debugger/Debugger_Disasm.h"
 #include "Windows/Debugger/Debugger_MemoryDlg.h"
 
-#include "Common/GraphicsContext.h"
+#include "Common/GPU/GraphicsContext.h"
 
 #include "Windows/main.h"
 #ifndef _M_ARM
 #include "Windows/DinputDevice.h"
 #endif
-#include "Windows/EmuThread.h"
 #include "Windows/resource.h"
 
 #include "Windows/MainWindow.h"
@@ -507,7 +507,7 @@ namespace MainWindow {
 
 		WINDOWPLACEMENT placement{sizeof(WINDOWPLACEMENT)};
 		if ((g_Config.iWindowX == -1 && g_Config.iWindowY == -1) || g_Config.iWindowWidth < 20 || g_Config.iWindowHeight < 20) {
-			RECT rc = DetermineDefaultWindowRectangle();
+			const RECT rc = DetermineDefaultWindowRectangle();
 			// Should be a first boot, or just bad parameters. Reset.
 			g_Config.iWindowSizeState = (int)WindowSizeState::Normal;
 			g_Config.iWindowX = rc.left;
@@ -725,8 +725,12 @@ namespace MainWindow {
 			{
 				return 0;
 			}
-			// Get all modules from symbol map
-			auto modules = g_symbolMap->getAllModules();
+			// Get all modules from symbol map. Reading it here on the GUI thread would otherwise
+			// race with the CPU thread - hold g_frameMutex for the duration of the read, which
+			// NativeFrame() also holds while it's actually touching that state. See g_frameMutex
+			// in Core.h.
+			std::lock_guard<std::mutex> frameGuard(g_frameMutex);
+			std::vector<LoadedModuleInfo> modules = g_symbolMap->getAllModules();
 			for (const auto& module : modules)
 			{
 				if (module.name == moduleName)
@@ -1013,22 +1017,25 @@ namespace MainWindow {
 				return TRUE;
 
 			case VERYSLEEPY_WPARAM_GETADDRINFO:
-				{
+			{
+				Core_RunOnCPUThread([lParam]() {
+					// This is called from VerySleepy, which is on a different thread than the CPU thread.
+					// We need to run this on the CPU thread to avoid race conditions.
 					VerySleepy_AddrInfo *info = (VerySleepy_AddrInfo *)lParam;
 					const u8 *ptr = (const u8 *)info->addr;
 					std::string name;
 
-					std::lock_guard<std::recursive_mutex> guard(MIPSComp::jitLock);
 					if (MIPSComp::jit && MIPSComp::jit->DescribeCodePtr(ptr, name)) {
 						swprintf_s(info->name, L"Jit::%S", name.c_str());
-						return TRUE;
+						return;
 					}
 					if (gpu && gpu->DescribeCodePtr(ptr, name)) {
 						swprintf_s(info->name, L"GPU::%S", name.c_str());
-						return TRUE;
+						return;
 					}
-				}
-				return FALSE;
+				});
+				return TRUE;
+			}
 
 			default:
 				return FALSE;
@@ -1070,7 +1077,6 @@ namespace MainWindow {
 			g_InputManager.Shutdown();
 			WindowsRawInput::Shutdown();
 
-			MainThread_Stop();
 			KillTimer(hWnd, TIMER_CURSORUPDATE);
 			KillTimer(hWnd, TIMER_CURSORMOVEUPDATE);
 			// Main window is gone, this tells the message loop to exit.
@@ -1097,21 +1103,17 @@ namespace MainWindow {
 			UpdateWindowTitle();
 			break;
 
-		case WM_USER_RESTART_EMUTHREAD:
-			NativeSetRestarting();
-			g_InputManager.StopPolling();
-			MainThread_Stop();
-			UpdateUIState(UISTATE_MENU);
-			MainThread_Start(g_Config.iGPUBackend == (int)GPUBackend::OPENGL);
-			g_InputManager.BeginPolling();
-			break;
-
 		case WM_USER_SWITCHUMD_UPDATED:
 			UpdateSwitchUMD();
 			break;
 
 		case WM_USER_DESTROY:
 			DestroyWindow(hWnd);
+			break;
+
+		case WM_USER_SHOW_DISASM:
+			CreateDisasmWindow();
+			disasmWindow->Show(g_Config.bShowDebuggerOnLoad, false);
 			break;
 
 		case WM_INITMENUPOPUP:

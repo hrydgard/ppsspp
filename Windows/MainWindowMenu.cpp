@@ -398,6 +398,7 @@ namespace MainWindow {
 	static void SaveStateActionFinished(SaveState::Status status, std::string_view message, std::string_view metadata) {
 		// Reuse the message from the pause screen.
 		ShowMessageAfterSaveStateAction(status, message, metadata);
+		// This is just used to restore the mouse cursor from wait mode.
 		PostMessage(MainWindow::GetHWND(), WM_USER_SAVESTATE_FINISH, 0, 0);
 	}
 
@@ -446,12 +447,8 @@ namespace MainWindow {
 	}
 
 	static void RestartApp() {
-		if (System_GetPropertyBool(SYSPROP_DEBUGGER_PRESENT)) {
-			PostMessage(MainWindow::GetHWND(), WM_USER_RESTART_EMUTHREAD, 0, 0);
-		} else {
-			g_Config.bRestartRequired = true;
-			PostMessage(MainWindow::GetHWND(), WM_USER_DESTROY, 0, 0);
-		}
+		g_Config.bRestartRequired = true;
+		PostMessage(MainWindow::GetHWND(), WM_USER_DESTROY, 0, 0);
 	}
 
 	void MainWindowMenu_Process(HWND hWnd, WPARAM wParam) {
@@ -472,6 +469,10 @@ namespace MainWindow {
 
 		case ID_FILE_LOAD_MEMSTICK:
 			BrowseAndBoot(NON_EPHEMERAL_TOKEN, GetSysDirectory(DIRECTORY_GAME).ToString());
+			break;
+
+		case ID_FILE_LOAD_VSH:
+			System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, (g_Config.nandRootDirectory / "flash0/vsh/module/vshmain.prx").ToString());
 			break;
 
 		case ID_FILE_OPEN_NEW_INSTANCE:
@@ -624,8 +625,7 @@ namespace MainWindow {
 		case ID_FILE_QUICKSAVESTATE_HC:
 		{
 			if (!Achievements::WarnUserIfHardcoreModeActive(true) && !NetworkWarnUserIfOnlineAndCantSavestate()) {
-				if (!KeyMap::PspButtonHasMappings(VIRTKEY_SAVE_STATE))
-				{
+				if (!KeyMap::PspButtonHasMappings(VIRTKEY_SAVE_STATE)) {
 					SetCursor(LoadCursor(0, IDC_WAIT));
 					SaveState::SaveSlot(SaveState::GetGamePrefix(g_paramSFO), g_Config.iCurrentStateSlot, SaveStateActionFinished);
 					break;
@@ -773,34 +773,41 @@ namespace MainWindow {
 			break;
 		}
 
+		// g_symbolMap access below is routed through Core_RunOnCPUThread() instead of poking at it
+		// directly from this GUI thread - see Core_RunOnCPUThread() in Core.h. The file-browse
+		// dialogs are modal, so they stay outside the queued callback; NotifyDebuggerMapLoaded()
+		// also stays outside, since it locks g_frameMutex internally (CDisasm/CMemoryDlg's
+		// NotifyMapLoaded()) and Core_RunOnCPUThread's queue can be drained from inside a
+		// g_frameMutex-locked NativeFrame() span, so calling it from within the lambda could
+		// deadlock.
 		case ID_DEBUG_LOADMAPFILE:
 			if (W32Util::BrowseForFileName(true, hWnd, L"Load .ppmap", nullptr, nullptr, L"Maps\0*.ppmap\0All files\0*.*\0\0", L"ppmap", fn)) {
-				g_symbolMap->LoadSymbolMap(Path(fn));
+				Core_RunOnCPUThread([&] { g_symbolMap->LoadSymbolMap(Path(fn)); });
 				NotifyDebuggerMapLoaded();
 			}
 			break;
 
 		case ID_DEBUG_SAVEMAPFILE:
 			if (W32Util::BrowseForFileName(false, hWnd, L"Save .ppmap", nullptr, L"map.ppmap", L"Maps\0*.ppmap\0All files\0*.*\0\0", L"ppmap", fn)) {
-				g_symbolMap->SaveSymbolMap(Path(fn));
+				Core_RunOnCPUThread([&] { g_symbolMap->SaveSymbolMap(Path(fn)); });
 			}
 			break;
 
 		case ID_DEBUG_LOADSYMFILE:
 			if (W32Util::BrowseForFileName(true, hWnd, L"Load .sym", nullptr, nullptr, L"Symbols\0*.sym\0All files\0*.*\0\0", L"sym", fn)) {
-				g_symbolMap->LoadNocashSym(Path(fn));
+				Core_RunOnCPUThread([&] { g_symbolMap->LoadNocashSym(Path(fn)); });
 				NotifyDebuggerMapLoaded();
 			}
 			break;
 
 		case ID_DEBUG_SAVESYMFILE:
 			if (W32Util::BrowseForFileName(false, hWnd, L"Save .sym", nullptr, L"symbols.sym", L"Symbols\0*.sym\0All files\0*.*\0\0", L"sym", fn)) {
-				g_symbolMap->SaveNocashSym(Path(fn));
+				Core_RunOnCPUThread([&] { g_symbolMap->SaveNocashSym(Path(fn)); });
 			}
 			break;
 
 		case ID_DEBUG_RESETSYMBOLTABLE:
-			g_symbolMap->Clear();
+			Core_RunOnCPUThread([&] { g_symbolMap->Clear(); });
 			NotifyDebuggerMapLoaded();
 			break;
 

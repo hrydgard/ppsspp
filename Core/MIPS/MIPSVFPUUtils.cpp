@@ -159,11 +159,11 @@ void GetMatrixRows(int matrixReg, MatrixSize msize, u8 vecs[4]) {
 	}
 }
 
-void ReadVector(float *rd, VectorSize size, int reg) {
+void ReadVector(const MIPSState *mips, float *rd, VectorSize size, int reg) {
 	int row;
 	int length;
 	switch (size) {
-	case V_Single: rd[0] = currentMIPS->v[voffset[reg]]; return; // transpose = 0; row=(reg>>5)&3; length = 1; break;
+	case V_Single: rd[0] = mips->v[voffset[reg]]; return; // transpose = 0; row=(reg>>5)&3; length = 1; break;
 	case V_Pair:   row=(reg>>5)&2; length = 2; break;
 	case V_Triple: row=(reg>>6)&1; length = 3; break;
 	case V_Quad:   row=(reg>>5)&2; length = 4; break;
@@ -176,20 +176,20 @@ void ReadVector(float *rd, VectorSize size, int reg) {
 	if (transpose) {
 		const int base = mtx + col;
 		for (int i = 0; i < length; i++)
-			rd[i] = currentMIPS->v[base + ((row + i) & 3) * 4];
+			rd[i] = mips->v[base + ((row + i) & 3) * 4];
 	} else {
 		const int base = mtx + col * 4;
 		for (int i = 0; i < length; i++)
-			rd[i] = currentMIPS->v[base + ((row + i) & 3)];
+			rd[i] = mips->v[base + ((row + i) & 3)];
 	}
 }
 
-void WriteVector(const float *rd, VectorSize size, int reg) {
+void WriteVector(MIPSState *mips, const float *rd, VectorSize size, int reg) {
 	int row;
 	int length;
 
 	switch (size) {
-	case V_Single: if (!currentMIPS->VfpuWriteMask(0)) currentMIPS->v[voffset[reg]] = rd[0]; return; // transpose = 0; row=(reg>>5)&3; length = 1; break;
+	case V_Single: if (!mips->VfpuWriteMask(0)) mips->v[voffset[reg]] = rd[0]; return; // transpose = 0; row=(reg>>5)&3; length = 1; break;
 	case V_Pair:   row=(reg>>5)&2; length = 2; break;
 	case V_Triple: row=(reg>>6)&1; length = 3; break;
 	case V_Quad:   row=(reg>>5)&2; length = 4; break;
@@ -202,37 +202,37 @@ void WriteVector(const float *rd, VectorSize size, int reg) {
 	// NOTE: We now skip the voffset lookups.
 	if (transpose) {
 		const int base = mtx + col;
-		if (currentMIPS->VfpuWriteMask() == 0) {
+		if (mips->VfpuWriteMask() == 0) {
 			for (int i = 0; i < length; i++)
-				currentMIPS->v[base + ((row+i) & 3) * 4] = rd[i];
+				mips->v[base + ((row+i) & 3) * 4] = rd[i];
 		} else {
 			for (int i = 0; i < length; i++) {
-				if (!currentMIPS->VfpuWriteMask(i)) {
-					currentMIPS->v[base + ((row+i) & 3) * 4] = rd[i];
+				if (!mips->VfpuWriteMask(i)) {
+					mips->v[base + ((row+i) & 3) * 4] = rd[i];
 				}
 			}
 		}
 	} else {
 		const int base = mtx + col * 4;
-		if (currentMIPS->VfpuWriteMask() == 0) {
+		if (mips->VfpuWriteMask() == 0) {
 			for (int i = 0; i < length; i++)
-				currentMIPS->v[base + ((row + i) & 3)] = rd[i];
+				mips->v[base + ((row + i) & 3)] = rd[i];
 		} else {
 			for (int i = 0; i < length; i++) {
-				if (!currentMIPS->VfpuWriteMask(i)) {
-					currentMIPS->v[base + ((row + i) & 3)] = rd[i];
+				if (!mips->VfpuWriteMask(i)) {
+					mips->v[base + ((row + i) & 3)] = rd[i];
 				}
 			}
 		}
 	}
 }
 
-u32 VFPURewritePrefix(int ctrl, u32 remove, u32 add) {
-	u32 prefix = currentMIPS->vfpuCtrl[ctrl];
+u32 VFPURewritePrefix(MIPSState *mips, int ctrl, u32 remove, u32 add) {
+	u32 prefix = mips->vfpuCtrl[ctrl];
 	return (prefix & ~remove) | add;
 }
 
-void ReadMatrix(float *rd, MatrixSize size, int reg) {
+void ReadMatrix(const MIPSState *mips, float *rd, MatrixSize size, int reg) {
 	int row = 0;
 	int side = 0;
 	int transpose = (reg >> 5) & 1;
@@ -250,7 +250,7 @@ void ReadMatrix(float *rd, MatrixSize size, int reg) {
 
 	// The voffset ordering is now integrated in these formulas,
 	// eliminating a table lookup.
-	const float *v = currentMIPS->v + (size_t)mtx * 16;
+	const float *v = mips->v + (size_t)mtx * 16;
 	if (transpose) {
 		if (side == 4 && col == 0 && row == 0) {
 			// Fast path: Simple 4x4 transpose. TODO: Optimize.
@@ -282,7 +282,7 @@ void ReadMatrix(float *rd, MatrixSize size, int reg) {
 	}
 }
 
-void WriteMatrix(const float *rd, MatrixSize size, int reg) {
+void WriteMatrix(MIPSState *mips, const float *rd, MatrixSize size, int reg) {
 	int mtx = (reg>>2)&7;
 	int col = reg&3;
 
@@ -304,9 +304,9 @@ void WriteMatrix(const float *rd, MatrixSize size, int reg) {
 
 	// The voffset ordering is now integrated in these formulas,
 	// eliminating a table lookup.
-	float *v = currentMIPS->v + (size_t)mtx * 16;
+	float *v = mips->v + (size_t)mtx * 16;
 	if (transpose) {
-		if (side == 4 && row == 0 && col == 0 && currentMIPS->VfpuWriteMask() == 0x0) {
+		if (side == 4 && row == 0 && col == 0 && mips->VfpuWriteMask() == 0x0) {
 			// Fast path: Simple 4x4 transpose. TODO: Optimize.
 			for (int j = 0; j < side; j++) {
 				for (int i = 0; i < side; i++) {
@@ -316,7 +316,7 @@ void WriteMatrix(const float *rd, MatrixSize size, int reg) {
 		} else {
 			for (int j = 0; j < side; j++) {
 				for (int i = 0; i < side; i++) {
-					if (j != side - 1 || !currentMIPS->VfpuWriteMask(i)) {
+					if (j != side - 1 || !mips->VfpuWriteMask(i)) {
 						int index = ((row + i) & 3) * 4 + ((col + j) & 3);
 						v[index] = rd[j * 4 + i];
 					}
@@ -324,12 +324,12 @@ void WriteMatrix(const float *rd, MatrixSize size, int reg) {
 			}
 		}
 	} else {
-		if (side == 4 && row == 0 && col == 0 && currentMIPS->VfpuWriteMask() == 0x0) {
+		if (side == 4 && row == 0 && col == 0 && mips->VfpuWriteMask() == 0x0) {
 			memcpy(v, rd, sizeof(float) * 16);  // v[j * 4 + i] = rd[j * 4 + i];
 		} else {
 			for (int j = 0; j < side; j++) {
 				for (int i = 0; i < side; i++) {
-					if (j != side - 1 || !currentMIPS->VfpuWriteMask(i)) {
+					if (j != side - 1 || !mips->VfpuWriteMask(i)) {
 						int index = ((col + j) & 3) * 4 + ((row + i) & 3);
 						v[index] = rd[j * 4 + i];
 					}

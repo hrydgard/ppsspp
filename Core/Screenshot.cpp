@@ -427,6 +427,7 @@ static void SaveScreenshotAsync(GPUDebugBuffer &&buf, int w, int h, int maxRes) 
 				height /= 2;
 			}
 			result = Save888RGBScreenshot(filename, fmt, shrinkBuffer, width, height) ? ScreenshotResult::Success : ScreenshotResult::FailedToWriteFile;
+			delete[] shrinkBuffer;
 		}
 
 		System_RunOnMainThread([result, callback = std::move(callback)]() {

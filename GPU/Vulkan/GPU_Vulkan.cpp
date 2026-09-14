@@ -23,7 +23,7 @@
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
 #include "Common/File/FileUtil.h"
-#include "Common/GraphicsContext.h"
+#include "Common/GPU/GraphicsContext.h"
 #include "Common/StringUtils.h"
 #include "Common/Data/Text/StringWriter.h"
 
@@ -247,7 +247,6 @@ void GPU_Vulkan::BeginHostFrame(const DisplayLayoutConfig &config) {
 
 	framebufferManager_->BeginFrame(config);
 
-	shaderManagerVulkan_->DirtyLastShader();
 	gstate_c.Dirty(DIRTY_ALL);
 
 	if (gstate_c.useFlagsChanged) {

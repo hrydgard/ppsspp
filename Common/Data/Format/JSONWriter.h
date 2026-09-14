@@ -57,6 +57,32 @@ public:
 		return result;
 	}
 
+	// RAII helpers: push in the constructor, pop in the destructor. Prefer these over manually
+	// paired pushDict()/pushArray() + pop() calls - a forgotten or early-returned pop() silently
+	// produces malformed JSON (extra or missing closing brace/bracket) rather than a compile or
+	// even runtime error, and that gets easy to miss once nesting goes a few levels deep (e.g.
+	// an array of per-item dicts, each with their own nested array).
+	class DictScope {
+	public:
+		explicit DictScope(JsonWriter &w) : w_(w) { w_.pushDict(); }
+		DictScope(JsonWriter &w, const std::string &name) : w_(w) { w_.pushDict(name); }
+		~DictScope() { w_.pop(); }
+		DictScope(const DictScope &) = delete;
+		DictScope &operator=(const DictScope &) = delete;
+	private:
+		JsonWriter &w_;
+	};
+	class ArrayScope {
+	public:
+		explicit ArrayScope(JsonWriter &w) : w_(w) { w_.pushArray(); }
+		ArrayScope(JsonWriter &w, const std::string &name) : w_(w) { w_.pushArray(name); }
+		~ArrayScope() { w_.pop(); }
+		ArrayScope(const ArrayScope &) = delete;
+		ArrayScope &operator=(const ArrayScope &) = delete;
+	private:
+		JsonWriter &w_;
+	};
+
 	enum {
 		NORMAL = 0,
 		PRETTY = 1,

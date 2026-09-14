@@ -32,15 +32,16 @@ typedef u64 HashType;
 typedef u32 HashType;
 #endif
 
-enum DisassemblyLineType { DISTYPE_OPCODE, DISTYPE_MACRO, DISTYPE_DATA, DISTYPE_OTHER };
+enum DisassemblyLineType { DISTYPE_OPCODE, DISTYPE_DATA, DISTYPE_OTHER };
 
-struct DisassemblyLineInfo
-{
+struct DisassemblyLineInfo {
 	DisassemblyLineType type;
 	MIPSAnalyst::MipsOpcodeInfo info;
 	std::string name;
 	std::string params;
 	u32 totalSize;
+
+	void ToString(char *dest, size_t size, u32 curAddress) const;
 };
 
 enum DisasmLineType { LINE_UP, LINE_DOWN, LINE_RIGHT };
@@ -117,33 +118,6 @@ private:
 };
 
 
-class DisassemblyMacro: public DisassemblyEntry
-{
-public:
-	DisassemblyMacro(u32 _address): address(_address) { }
-
-	void setMacroLi(u32 _immediate, u8 _rt);
-	void setMacroMemory(std::string_view _name, u32 _immediate, u8 _rt, int _dataSize);
-
-	void recheck() override { };
-	int getNumLines() override { return 1; };
-	int getLineNum(u32 address, bool findStart) override { return 0; };
-	u32 getLineAddress(int line) override { return address; };
-	u32 getTotalSize() override { return numOpcodes * 4; };
-	bool disassemble(u32 address, DisassemblyLineInfo& dest, bool insertSymbols, DebugInterface *cpuDebug) override;
-private:
-	enum MacroType { MACRO_LI, MACRO_MEMORYIMM };
-
-	MacroType type;
-	std::string name;
-	u32 immediate;
-	u32 address;
-	u32 numOpcodes;
-	u8 rt;
-	int dataSize;
-};
-
-
 class DisassemblyData: public DisassemblyEntry
 {
 public:
@@ -152,7 +126,13 @@ public:
 	void recheck() override;
 	int getNumLines() override { return (int)lines.size(); };
 	int getLineNum(u32 address, bool findStart) override;
-	u32 getLineAddress(int line) override { return lineAddresses[line]; };
+	u32 getLineAddress(int line) override {
+		// A zero-size data symbol leaves lineAddresses empty; fall back to the
+		// symbol's own base address rather than indexing out of bounds.
+		if (line < 0 || (size_t)line >= lineAddresses.size())
+			return address;
+		return lineAddresses[line];
+	};
 	u32 getTotalSize() override { return size; };
 	bool disassemble(u32 address, DisassemblyLineInfo& dest, bool insertSymbols, DebugInterface *cpuDebug) override;
 
@@ -223,6 +203,15 @@ private:
 };
 
 extern DisassemblyManager g_disassemblyManager;
+
+// Drops the cached disassembly. Call this when what it describes - emulated memory and the symbol
+// map - goes away. DisassemblyManager.cpp isn't built for libretro (see libretro/Makefile.common),
+// so there it's a no-op, the same way the WebSocket debugger entry points are.
+#ifdef __LIBRETRO__
+inline void ClearDisassemblyCache() {}
+#else
+void ClearDisassemblyCache();
+#endif
 
 bool isInInterval(u32 start, u32 size, u32 value);
 bool IsLikelyStringAt(uint32_t addr);

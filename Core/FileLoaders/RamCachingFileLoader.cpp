@@ -189,7 +189,16 @@ void RamCachingFileLoader::SaveIntoCache(s64 pos, size_t bytes, Flags flags) {
 	size_t bytesRead = backend_->ReadAt(cacheFilePos, blocksToRead << BLOCK_SHIFT, &cache_[cacheFilePos], flags);
 
 	// In case there was an error, let's not mark blocks that failed to read as read.
-	u32 blocksActuallyRead = (u32)((bytesRead + BLOCK_SIZE - 1) >> BLOCK_SHIFT);
+	// Round up only for a genuine short read exactly at the true end of the file -
+	// cache_ is deliberately over-allocated to a full BLOCK_SIZE for the last block,
+	// so its unwritten tail past filesize_ is never read back. Any other short read
+	// (e.g. a dropped Remote ISO connection mid-file) must not be rounded up, or the
+	// unwritten (uninitialized, since cache_ is malloc'd) rest of that block would be
+	// served as if it were real file data.
+	u32 blocksActuallyRead = (u32)(bytesRead >> BLOCK_SHIFT);
+	if ((bytesRead & (BLOCK_SIZE - 1)) != 0 && cacheFilePos + (s64)bytesRead == filesize_) {
+		++blocksActuallyRead;
+	}
 	{
 		std::lock_guard<std::mutex> guard(blocksMutex_);
 

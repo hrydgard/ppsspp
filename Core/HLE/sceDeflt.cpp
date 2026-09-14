@@ -36,8 +36,8 @@ static int CommonDecompress(int windowBits, u32 OutBuffer, int OutBufferLength, 
 	}
 
 	z_stream stream{};
-	u8 *outBufferPtr = Memory::GetPointerWrite(OutBuffer);
-	stream.next_in = (Bytef*)Memory::GetPointer(InBuffer);
+	u8 *outBufferPtr = Memory::GetPointerWriteOrException(OutBuffer);
+	stream.next_in = (Bytef*)Memory::GetPointerOrException(InBuffer);
 	// We don't know the available length, just let it use as much as it wants.
 	stream.avail_in = (uInt)Memory::ClampValidSizeAt(InBuffer, Memory::g_MemorySize);
 	stream.next_out = outBufferPtr;

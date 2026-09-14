@@ -17,6 +17,67 @@
 
 #pragma once
 
+#include <cstdio>
+#include <map>
+#include <vector>
+
+#include "Core/HLE/sceKernel.h"
+#include "Core/HLE/ErrorCodes.h"
+
+class PointerWrap;
+
+struct NativeEventFlag {
+	u32_le size;
+	char name[KERNELOBJECT_MAX_NAME_LENGTH + 1];
+	u32_le attr;
+	u32_le initPattern;
+	u32_le currentPattern;
+	s32_le numWaitThreads;
+};
+
+struct EventFlagTh {
+	SceUID threadID;
+	u32 bits;
+	u32 wait;
+	u32 outAddr;
+	u64 pausedTimeout;
+
+	bool operator ==(const SceUID &otherThreadID) const {
+		return threadID == otherThreadID;
+	}
+};
+
+// Exposed here (rather than kept private to sceKernelEventFlag.cpp) so the WebSocket debugger
+// can read a live object's state directly via kernelObjects.Get<EventFlag>()/Iterate<EventFlag>()
+// - see HLEKernelObjectSubscriber.cpp. That's a read-only use: nothing outside this file should
+// call DoState() or otherwise mutate an EventFlag - it's public here for this file's own use as
+// before, not an invitation to write to it from elsewhere.
+class EventFlag : public KernelObject {
+public:
+	const char *GetName() override { return nef.name; }
+	const char *GetTypeName() override { return GetStaticTypeName(); }
+	static const char *GetStaticTypeName() { return "EventFlag"; }
+	void GetQuickInfo(char *ptr, int size) override {
+		snprintf(ptr, size, "init=%08x cur=%08x numwait=%i",
+			nef.initPattern,
+			nef.currentPattern,
+			nef.numWaitThreads);
+	}
+
+	static u32 GetMissingErrorCode() {
+		return SCE_KERNEL_ERROR_UNKNOWN_EVFID;
+	}
+	static int GetStaticIDType() { return SCE_KERNEL_TMID_EventFlag; }
+	int GetIDType() const override { return SCE_KERNEL_TMID_EventFlag; }
+
+	void DoState(PointerWrap &p) override;
+
+	NativeEventFlag nef;
+	std::vector<EventFlagTh> waitingThreads;
+	// Key is the callback id it was for, or if no callback, the thread id.
+	std::map<SceUID, EventFlagTh> pausedWaits;
+};
+
 int sceKernelCreateEventFlag(const char *name, u32 flag_attr, u32 flag_initPattern, u32 optPtr);
 u32 sceKernelClearEventFlag(SceUID id, u32 bits);
 u32 sceKernelDeleteEventFlag(SceUID uid);

@@ -415,6 +415,9 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		case SYSPROP_CAN_RESTRICT_ORIENTATION:
 			return true;
 
+		case SYSPROP_CAN_GET_FREE_SPACE_FAST:
+			return false;
+
 		default:
 			return false;
 	}
@@ -426,6 +429,13 @@ void System_Notify(SystemNotification notification) {
 		dispatch_async(dispatch_get_main_queue(), ^{
 			if (sharedViewController) {
 				[sharedViewController appSwitchModeChanged];
+			}
+		});
+		break;
+	case SystemNotification::IMMERSIVE_MODE_CHANGE:
+		dispatch_async(dispatch_get_main_queue(), ^{
+			if (sharedViewController) {
+				[sharedViewController immersiveModeChanged];
 			}
 		});
 		break;
@@ -449,6 +459,7 @@ void System_Notify(SystemNotification notification) {
 				[UIViewController attemptRotationToDeviceOrientation];
 			}
 		});
+		break;
 	default:
 		break;
 	}
@@ -593,7 +604,11 @@ void System_AskForPermission(SystemPermission permission) {}
 
 void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {
 	std::string strUrl(url);
-	NSURL *nsUrl = [NSURL URLWithString:[NSString stringWithCString:strUrl.c_str() encoding:NSStringEncodingConversionAllowLossy]];
+	NSURL *nsUrl = [NSURL URLWithString:[NSString stringWithUTF8String:strUrl.c_str()]];
+	if (!nsUrl) {
+		ERROR_LOG(Log::System, "Failed to parse URL: %s", strUrl.c_str());
+		return;
+	}
 	dispatch_async(dispatch_get_main_queue(), ^{
 		[[UIApplication sharedApplication] openURL:nsUrl options:@{} completionHandler:nil];
 	});

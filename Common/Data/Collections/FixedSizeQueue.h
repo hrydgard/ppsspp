@@ -161,65 +161,46 @@ public:
 		p.DoMarker("FixedSizeQueue");
 	}
 
+	// Compact serialization: stores only the live [head_, head_+count_) region
+	// instead of the whole fixed storage. NOT format-compatible with DoState();
+	// callers must gate on their own section version.
+	void DoStateCompact(PointerWrap &p) {
+		int size = N;
+		Do(p, size);
+		if (size != N) {
+			ERROR_LOG(Log::Common, "Savestate failure: Incompatible queue size.");
+			p.SetError(p.ERROR_FAILURE);
+			return;
+		}
+		Do(p, count_);
+		if (count_ < 0 || count_ > N) {
+			ERROR_LOG(Log::Common, "Savestate failure: Bad compact queue count.");
+			p.SetError(p.ERROR_FAILURE);
+			return;
+		}
+		if (p.mode == PointerWrap::MODE_READ) {
+			// Restore linearized: live data starts at the front of storage.
+			head_ = 0;
+			tail_ = count_ == N ? 0 : count_;
+			DoArray<T>(p, storage_, count_);
+		} else {
+			if (head_ + count_ <= N) {
+				DoArray<T>(p, storage_ + head_, count_);
+			} else {
+				// Live region wraps; write the two pieces in pop order. Raw
+				// bytes only (POD DoArray has no per-call header), so the
+				// single linear read above consumes them identically.
+				const int firstPart = N - head_;
+				DoArray<T>(p, storage_ + head_, firstPart);
+				DoArray<T>(p, storage_, count_ - firstPart);
+			}
+		}
+		p.DoMarker("FixedSizeQueue");
+	}
+
 private:
 	T *storage_;
 	int head_;
 	int tail_;
 	int count_;  // sacrifice 4 bytes for a simpler implementation. may optimize away in the future.
-};
-
-
-// I'm not sure this is 100% safe but it might be "Good Enough" :)
-// TODO: Use this, maybe make it safer first by using proper atomics
-// instead of volatile
-template<class T, int blockSize, int numBlocks>
-class LockFreeBlockQueue {
-public:
-	LockFreeBlockQueue() {
-		curReadBlock = 0;
-		curWriteBlock = 0;
-		for (size_t i = 0; i < numBlocks; i++) {
-			blocks[i] = new T[blockSize];
-		}
-	}
-	~LockFreeBlockQueue() {
-		for (size_t i = 0; i < numBlocks; i++) {
-			delete [] blocks[i];
-		}
-	}
-
-	// Write to the returned pointer then call EndPush to finish the push.
-	T *BeginPush() {
-		return blocks[curWriteBlock];
-	}
-	void EndPush() {
-		curWriteBlock++;
-		if (curWriteBlock == NUM_BLOCKS)
-			curWriteBlock = 0;
-	}
-
-	bool CanPush() { 
-		int nextBlock = curWriteBlock + 1;
-		if (nextBlock == NUM_BLOCKS) nextBlock = 0;
-		return nextBlock != curReadBlock;
-	}
-
-	bool CanPop() { return curReadBlock != curWriteBlock; }
-
-	// Read from the returned pointer then call EndPush to finish the pop.
-	T *BeginPop() {
-		return blocks[curReadBlock];
-	}
-	void EndPop() {
-		curReadBlock++;
-		if (curReadBlock == NUM_BLOCKS)
-			curReadBlock = 0;
-	}
-
-private:
-	enum { NUM_BLOCKS = 16 };
-	T **blocks[NUM_BLOCKS];
-
-	volatile int curReadBlock;
-	volatile int curWriteBlock;
 };

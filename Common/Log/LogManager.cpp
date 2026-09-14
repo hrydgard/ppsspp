@@ -27,7 +27,6 @@
 #include <cstring>
 
 #include "Common/Data/Encoding/Utf8.h"
-
 #include "Common/Log/LogManager.h"
 
 #if PPSSPP_PLATFORM(WINDOWS)
@@ -61,6 +60,7 @@ static const char level_to_char[8] = "-NEWIDV";
 void AndroidLog(const LogMessage &message);
 #endif
 
+// TODO: Get rid of this wrapper, not much point.
 void GenericLog(Log type, LogLevel level, const char *file, int line, const char* fmt, ...) {
 	va_list args;
 	va_start(args, fmt);
@@ -70,49 +70,51 @@ void GenericLog(Log type, LogLevel level, const char *file, int line, const char
 
 // NOTE: Needs to be kept in sync with the Log enum.
 static const char * const g_logTypeNames[] = {
-	"SYSTEM",
-	"BOOT",
-	"COMMON",
+	"System",
+	"Config",
+	"Boot",
+	"Common",
 	"CPU",
-	"FILESYS",
+	"FileSystem",
 	"G3D",
+	"TexCache",
 	"HLE",
 	"JIT",
-	"LOADER",
-	"MPEG",
-	"ATRAC",
-	"ME",  // Rest of the media Engine
-	"MEMMAP",
-	"SASMIX",
-	"SAVESTATE",
-	"FRAMEBUF",
-	"AUDIO",
+	"Loader",
+	"Mpeg",
+	"Atrac",
+	"ME",
+	"MemMap",
+	"SasMix",
+	"SaveState",
+	"FrameBuf",
+	"Audio",
 	"IO",
-	"ACHIEVEMENTS",
+	"Achievements",
 	"HTTP",
-	"PRINTF",
-	"TEXREPLACE",
-	"DEBUGGER",
-	"GEDEBUGGER",
+	"Printf",
+	"TexReplacement",
+	"Debugger",
+	"GeDebugger",
 	"UI",
 	"IAP",
-	"CWCHEATS",
-	"NET",
-	"SCEAUDIO",
-	"SCECTRL",
-	"SCEDISP",
-	"SCEFONT",
-	"SCEGE",
-	"SCEINTC",
-	"SCEIO",
-	"SCEKERNEL",
-	"SCEMODULE",
-	"SCENET",
-	"SCERTC",
-	"SCESAS",
-	"SCEUTIL",
-	"SCEMISC",
-	"SCEREG",
+	"CwCheats",
+	"Net",
+	"sceAudio",
+	"sceCtrl",
+	"sceDisplay",
+	"sceFont",
+	"sceGe",
+	"sceIntc",
+	"sceIo",
+	"sceKernel",
+	"sceModule",
+	"sceNet",
+	"sceRtc",
+	"sceSas",
+	"sceUtility",
+	"sceMisc",
+	"sceReg",
 };
 
 const char *LogManager::GetLogTypeName(Log type) {
@@ -145,9 +147,12 @@ void LogManager::Shutdown() {
 		return;
 	}
 
-	if (fp_) {
-		fclose(fp_);
-		fp_ = nullptr;
+	{
+		std::lock_guard<std::mutex> lk(logFileLock_);
+		if (fp_) {
+			fclose(fp_);
+			fp_ = nullptr;
+		}
 	}
 
 	outputs_ = (LogOutput)0;
@@ -192,6 +197,7 @@ LogManager::~LogManager() {
 }
 
 void LogManager::SetFileLogPath(const Path &filename) {
+	std::lock_guard<std::mutex> lk(logFileLock_);
 	if (fp_ && filename == logFilename_) {
 		// All good
 		return;
@@ -199,21 +205,29 @@ void LogManager::SetFileLogPath(const Path &filename) {
 
 	if (fp_) {
 		fclose(fp_);
+		fp_ = nullptr;
 	}
 
-	logFilename_ = Path(filename);
+	if (!filename.empty()) {
+		logFilename_ = Path(filename);
 
-	if (outputs_ & LogOutput::File) {
-		File::CreateFullPath(logFilename_.NavigateUp());
-		fp_ = File::OpenCFile(logFilename_, "at");
-		logFileOpenFailed_ = fp_ == nullptr;
-		if (logFileOpenFailed_) {
-			printf("Failed to open log file %s\n", logFilename_.c_str());
+		if (outputs_ & LogOutput::File) {
+			File::CreateFullPath(logFilename_.NavigateUp());
+			fp_ = File::OpenCFile(logFilename_, "at");
+			logFileOpenFailed_ = fp_ == nullptr;
+			if (logFileOpenFailed_) {
+				printf("Failed to open log file %s\n", logFilename_.c_str());
+			}
 		}
 	}
 }
 
 void LogManager::SaveConfig(Section *section) {
+	if (channelsChangedByDebugger_) {
+		// Leave the section as whatever was already on disk - see the doc comment on
+		// NotifyChannelsChangedByDebugger().
+		return;
+	}
 	for (int i = 0; i < (int)Log::NUMBER_OF_LOGS; i++) {
 		section->Set((std::string(g_logTypeNames[i]) + "Enabled"), g_log[i].enabled);
 		section->Set((std::string(g_logTypeNames[i]) + "Level"), (int)g_log[i].level);
@@ -314,8 +328,9 @@ void LogManager::LogLine(LogLevel level, Log type, const char *file, int line, c
 
 	// OK, now go through the possible listeners in order.
 	if (outputs_ & LogOutput::File) {
+		// Lock covers the fp_ check too - SetFileLogPath()/Shutdown() can close it concurrently.
+		std::lock_guard<std::mutex> lk(logFileLock_);
 		if (fp_) {
-			std::lock_guard<std::mutex> lk(logFileLock_);
 			fprintf(fp_, "%s %s %s", message.timestamp, message.header, message.msg.c_str());
 			// Is this really necessary to do every time? I guess to catch the last message before a crash..
 			fflush(fp_);
@@ -349,9 +364,41 @@ void LogManager::LogLine(LogLevel level, Log type, const char *file, int line, c
 #endif
 
 	if (outputs_ & LogOutput::ExternalCallback) {
-		if (externalCallback_) {
-			externalCallback_(message, externalUserData_);
+		// Held across the dispatch on purpose: RemoveExternalLogCallback() takes the same lock, so a
+		// listener can't be torn down (and its userdata freed) while we're in the middle of calling it.
+		std::lock_guard<std::mutex> guard(externalLock_);
+		for (const ExternalCallbackEntry &entry : externalCallbacks_) {
+			entry.callback(message, entry.userdata);
 		}
+	}
+}
+
+int LogManager::AddExternalLogCallback(LogCallback callback, void *userdata) {
+	if (!callback) {
+		return -1;
+	}
+	std::lock_guard<std::mutex> guard(externalLock_);
+	const int handle = nextExternalHandle_++;
+	externalCallbacks_.push_back(ExternalCallbackEntry{ handle, callback, userdata });
+	EnableOutput(LogOutput::ExternalCallback);
+	return handle;
+}
+
+void LogManager::RemoveExternalLogCallback(int handle) {
+	if (handle < 0) {
+		return;
+	}
+	std::lock_guard<std::mutex> guard(externalLock_);
+	for (size_t i = 0; i < externalCallbacks_.size(); i++) {
+		if (externalCallbacks_[i].handle == handle) {
+			externalCallbacks_.erase(externalCallbacks_.begin() + i);
+			break;
+		}
+	}
+	// Only when the last one goes away - otherwise removing one connection's callback would stop
+	// delivery to the ones still attached, which is the bug this list exists to avoid.
+	if (externalCallbacks_.empty()) {
+		DisableOutput(LogOutput::ExternalCallback);
 	}
 }
 
@@ -468,25 +515,27 @@ void LogManager::StdioLog(const LogMessage &message) {
 }
 
 void PrintfLog(const LogMessage &message) {
+	const char *category = message.log;
+
 	switch (message.level) {
 	case LogLevel::LVERBOSE:
-		fprintf(stderr, "V %s", message.msg.c_str());
+		fprintf(stderr, "V %s: %s", category, message.msg.c_str());
 		break;
 	case LogLevel::LDEBUG:
-		fprintf(stderr, "D %s", message.msg.c_str());
+		fprintf(stderr, "D %s: %s", category, message.msg.c_str());
 		break;
 	case LogLevel::LINFO:
-		fprintf(stderr, "I %s", message.msg.c_str());
+		fprintf(stderr, "I %s: %s", category, message.msg.c_str());
 		break;
 	case LogLevel::LERROR:
-		fprintf(stderr, "E %s", message.msg.c_str());
+		fprintf(stderr, "E %s: %s", category, message.msg.c_str());
 		break;
 	case LogLevel::LWARNING:
-		fprintf(stderr, "W %s", message.msg.c_str());
+		fprintf(stderr, "W %s: %s", category, message.msg.c_str());
 		break;
 	case LogLevel::LNOTICE:
 	default:
-		fprintf(stderr, "N %s", message.msg.c_str());
+		fprintf(stderr, "N %s: %s", category, message.msg.c_str());
 		break;
 	}
 }

@@ -85,11 +85,11 @@ public:
 	void *GetNativeTextureView(const TexCacheEntry *entry, bool flat) const override;
 
 protected:
-	void BindTexture(TexCacheEntry *entry, bool flatZ) override;
+	void BindTexture(TexCacheEntry *entry) override;
 	void Unbind() override;
 	void ReleaseTexture(TexCacheEntry *entry, bool delete_them) override;
 	void BindAsClutTexture(Draw::Texture *tex, bool smooth) override;
-	void ApplySamplingParams(const SamplerCacheKey &key) override;
+	void ApplySamplerByKey(const SamplerCacheKey &key) override;
 	void BoundFramebufferTexture() override;
 
 private:
@@ -128,7 +128,8 @@ private:
 	bool RunMultipassCompute(VulkanContext *vulkan, VkCommandBuffer cmdInit, VkImageView dstView, VkBuffer texBuf, uint32_t bufferOffset, int srcSize, int srcWidth, int srcHeight, int dstWidth, int dstHeight);
 	bool ScaleBufferToImage(VulkanContext *vulkan, VkCommandBuffer cmdInit, VkImageView dstView, VkBuffer texBuf, uint32_t bufferOffset, int srcSize, int srcWidth, int srcHeight, int dstWidth, int dstHeight);
 
-	void LoadConstantBuffer(VulkanContext *vulkan, VkCommandBuffer cmdInit);
+	// Returns false if the constant buffer couldn't be loaded, in which case hardware scaling gets disabled.
+	bool LoadConstantBuffer(VulkanContext *vulkan, VkCommandBuffer cmdInit);
 
 	VulkanComputeShaderManager computeShaderManager_;
 

@@ -127,7 +127,6 @@ bool FramebufferManagerGLES::ReadbackStencilbuffer(Draw::Framebuffer *fbo, int x
 		stencilReadbackSampler_ = draw_->CreateSamplerState({});
 	}
 
-	shaderManager_->DirtyLastShader();
 	auto *blitFBO = GetTempFBO(TempFBO::Z_COPY, fbo->Width(), fbo->Height());
 	draw_->BindFramebufferAsRenderTarget(blitFBO, { RPAction::DONT_CARE, RPAction::DONT_CARE, RPAction::DONT_CARE }, "ReadbackStencilbufferSync");
 	Draw::Viewport viewport = { 0.0f, 0.0f, (float)fbo->Width(), (float)fbo->Height(), 0.0f, 1.0f };
@@ -137,7 +136,7 @@ bool FramebufferManagerGLES::ReadbackStencilbuffer(Draw::Framebuffer *fbo, int x
 	draw_->BindSamplerStates(TEX_SLOT_PSP_TEXTURE, 1, &stencilReadbackSampler_);
 
 	// We must bind the program after starting the render pass.
-	draw_->SetScissorRect(0, 0, w, h);
+	draw_->SetScissorRect(x, y, w, h);
 	draw_->BindPipeline(stencilReadbackPipeline_);
 
 	// Fullscreen triangle coordinates.

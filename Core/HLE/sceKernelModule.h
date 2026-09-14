@@ -28,8 +28,15 @@
 class PointerWrap;
 struct SceKernelSMOption;
 
+// Known bits of PspModuleInfo::moduleAttrs.
+enum {
+	PSP_MODULE_USER_MODE = 0x0000,
+	PSP_MODULE_VSH_MODE = 0x0800,
+	PSP_MODULE_KERNEL_MODE = 0x1000,
+};
+
 struct PspModuleInfo {
-	u16_le moduleAttrs; //0x0000 User Mode, 0x1000 Kernel Mode
+	u16_le moduleAttrs; //0x0000 User Mode, 0x0800 VSH Mode, 0x1000 Kernel Mode
 	u16_le moduleVersion;
 	// 28 bytes of module name, packed with 0's.
 	char name[28];
@@ -224,13 +231,31 @@ KernelObject *__KernelModuleObject();
 void __KernelModuleDoState(PointerWrap &p);
 void __KernelModuleShutdown();
 
+class MIPSState;
+
 u32 __KernelGetModuleGP(SceUID module);
 bool KernelModuleIsKernelMode(SceUID module);
-bool __KernelLoadGEDump(std::string_view base_filename, std::string *error_string);
-bool __KernelLoadExec(const char *filename, u32 paramPtr, std::string *error_string);
+bool __KernelLoadGEDump(MIPSState *mips, std::string_view base_filename, std::string *error_string);
+bool __KernelLoadExec(MIPSState *mips, const char *filename, u32 paramPtr, std::string *error_string);
+// Exposed so sceVshBridge can reuse it directly for vshKernelLoadModuleBufferVSH, matching JPCSP.
+SceUID sceKernelLoadModuleBufferUsbWlan(u32 size, u32 bufPtr, u32 flags, u32 lmoptionPtr);
+bool __KernelLoadExecFromBuffer(MIPSState *mips, const u8 *data, size_t size, u32 paramPtr, std::string *error_string);
+// Exposed for HLE.cpp's "Unknown syscall" diagnostic - see the definition for details.
+bool KernelFindImportByStubAddr(u32 stubAddr, std::string *importModuleName, u32 *nid, std::string *importingModuleName);
+// Describes which loaded module (and section within it) an address falls in, e.g. "EBOOT.BIN.text+1234".
+// Returns an empty string if the address isn't inside any currently loaded module.
+bool DescribeModuleAddress(u32 address, char *buffer, size_t bufferSize);
 int __KernelGPUReplay();
 void __KernelReturnFromModuleFunc();
-SceUID KernelLoadModule(const std::string &filename, std::string *error_string);
+// fromTop puts the module at the top of the user partition instead of the bottom. Use it for
+// firmware modules we inject before the game loads - taking the bottom pushes the game's own ELF
+// up, which shifts every address in it and invalidates cheats and achievements, and outright
+// fails for a game like Tekken 6 whose EBOOT must load at a fixed low address.
+SceUID KernelLoadModule(const std::string &filename, std::string *error_string, bool fromTop = false);
+
+// Whether a real (non-HLE-stub) module calling itself this is loaded. Lets a caller tell whether a
+// library is already provided before bringing in another copy of it.
+bool KernelModuleIsLoaded(std::string_view name);
 int __KernelStartModule(SceUID moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, SceKernelSMOption *smoption, bool *needsWait);
 u32 __KernelStopUnloadSelfModuleWithOrWithoutStatus(u32 exitCode, u32 argSize, u32 argp, u32 statusAddr, u32 optionAddr, bool WithStatus);
 u32 sceKernelFindModuleByUID(u32 uid);

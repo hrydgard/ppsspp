@@ -3,10 +3,6 @@
 
 #include "ppsspp_config.h"
 
-#if PPSSPP_PLATFORM(WINDOWS) && PPSSPP_ARCH(ARM64)
-#include <arm64intr.h>
-#endif
-
 #include "Common/BitSet.h"
 #include "Common/BitScan.h"
 #include "Common/Common.h"
@@ -27,32 +23,6 @@
 #include "Core/MIPS/IR/IRInterpreter.h"
 #include "Core/System.h"
 #include "Core/MIPS/MIPSTracer.h"
-
-#if PPSSPP_ARCH(ARM64)
-
-// TODO: This should be put in some common header.
-static inline u64 ARM64ReadFPCR() {
-#if PPSSPP_PLATFORM(WINDOWS)
-	return _ReadStatusReg(ARM64_FPCR);
-#else
-	// TODO: Try __builtin_arm_get_fpcr()
-	u64 fpcr;  // not really 64-bit, just to match the register size.
-	asm volatile ("mrs %0, fpcr" : "=r" (fpcr));
-	return fpcr;
-#endif
-}
-
-static inline void ARM64WriteFPCR(u64 fpcr) {
-#if PPSSPP_PLATFORM(WINDOWS)
-	_WriteStatusReg(ARM64_FPCR, fpcr);
-#else
-	// TODO: Try __builtin_arm_set_fpcr()
-	// Write back the modified FPCR
-	asm volatile ("msr fpcr, %0" : : "r" (fpcr));
-#endif
-}
-
-#endif
 
 #ifdef mips
 // Why do MIPS compilers define something so generic?  Try to keep defined, at least...
@@ -108,57 +78,6 @@ u32 IRRunMemCheck(u32 pc, u32 addr) {
 
 	g_breakpoints.ExecOpMemCheck(addr, pc);
 	return coreState != CORE_RUNNING_CPU ? 1 : 0;
-}
-
-void IRApplyRounding(MIPSState *mips) {
-	u32 fcr1Bits = mips->fcr31 & 0x01000003;
-	// If these are 0, we just leave things as they are.
-	if (fcr1Bits) {
-		int rmode = fcr1Bits & 3;
-		bool ftz = (fcr1Bits & 0x01000000) != 0;
-#if PPSSPP_ARCH(SSE2)
-		u32 csr = _mm_getcsr() & ~0x6000;
-		// Translate the rounding mode bits to X86, the same way as in Asm.cpp.
-		if (rmode & 1) {
-			rmode ^= 2;
-		}
-		csr |= rmode << 13;
-
-		if (ftz) {
-			// Flush to zero
-			csr |= 0x8000;
-		}
-		_mm_setcsr(csr);
-#elif PPSSPP_ARCH(ARM64)
-		u64 fpcr = ARM64ReadFPCR();
-		// Translate MIPS to ARM rounding mode
-		static const u8 lookup[4] = {0, 3, 1, 2};
-
-		fpcr &= ~(3 << 22);    // Clear bits [23:22]
-		fpcr |= ((u64)lookup[rmode] << 22);
-
-		if (ftz) {
-			fpcr |= 1 << 24;
-		}
-
-		ARM64WriteFPCR(fpcr);
-#endif
-	}
-}
-
-void IRRestoreRounding() {
-#if PPSSPP_ARCH(SSE2)
-	// TODO: We should avoid this if we didn't apply rounding in the first place.
-	// In the meantime, clear out FTZ and rounding mode bits.
-	u32 csr = _mm_getcsr();
-	csr &= ~(7 << 13);
-	_mm_setcsr(csr);
-#elif PPSSPP_ARCH(ARM64)
-	u64 fpcr = ARM64ReadFPCR();  // not really 64-bit, just to match the regsiter size.
-	fpcr &= ~(7 << 22);    // Clear bits [23:22] for rounding, 24 for FTZ
-	// Write back the modified FPCR
-	ARM64WriteFPCR(fpcr);
-#endif
 }
 
 u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
@@ -1203,10 +1122,24 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		case IROp::Syscall:
 			// IROp::SetPC was (hopefully) executed before.
 		{
+			// If we get here, the syscall is valid.
 			MIPSOpcode op(inst->constant);
 			CallSyscall(op);
-			if (coreState != CORE_RUNNING_CPU)
-				CoreTiming::ForceCheck();
+			if (coreState != CORE_RUNNING_CPU) {
+				CoreTiming::ForceCheck(mips);
+			}
+			break;
+		}
+
+		case IROp::SyscallUnresolved:
+		{
+			// If we get here, the syscall is invalid.
+			u32 pc = inst->constant;
+			CallSyscallUnresolvedAtPC(pc);
+			if (coreState != CORE_RUNNING_CPU) {
+				// hm, what's this for?
+				CoreTiming::ForceCheck(mips);
+			}
 			break;
 		}
 
@@ -1216,7 +1149,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		case IROp::Interpret:  // SLOW fallback. Can be made faster. Ideally should be removed but may be useful for debugging.
 		{
 			MIPSOpcode op(inst->constant);
-			MIPSInterpret(op);
+			MIPSInterpret(mips, op);
 			break;
 		}
 
@@ -1243,10 +1176,10 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			break;
 
 		case IROp::ApplyRoundingMode:
-			IRApplyRounding(mips);
+			ApplyHostRoundingMode(mips);
 			break;
 		case IROp::RestoreRoundingMode:
-			IRRestoreRounding();
+			RestoreHostRoundingMode();
 			break;
 		case IROp::UpdateRoundingMode:
 			// TODO: Implement
@@ -1258,39 +1191,39 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 
 		case IROp::Breakpoint:
 			if (IRRunBreakpoint(inst->constant)) {
-				CoreTiming::ForceCheck();
+				CoreTiming::ForceCheck(mips);
 				return mips->pc;
 			}
 			break;
 
 		case IROp::MemoryCheck:
 			if (IRRunMemCheck(mips->pc + inst->dest, mips->r[inst->src1] + inst->constant)) {
-				CoreTiming::ForceCheck();
+				CoreTiming::ForceCheck(mips);
 				return mips->pc;
 			}
 			break;
 
 		case IROp::ValidateAddress8:
 			if (RunValidateAddress<1>(mips->pc, mips->r[inst->src1] + inst->constant, inst->src2)) {
-				CoreTiming::ForceCheck();
+				CoreTiming::ForceCheck(mips);
 				return mips->pc;
 			}
 			break;
 		case IROp::ValidateAddress16:
 			if (RunValidateAddress<2>(mips->pc, mips->r[inst->src1] + inst->constant, inst->src2)) {
-				CoreTiming::ForceCheck();
+				CoreTiming::ForceCheck(mips);
 				return mips->pc;
 			}
 			break;
 		case IROp::ValidateAddress32:
 			if (RunValidateAddress<4>(mips->pc, mips->r[inst->src1] + inst->constant, inst->src2)) {
-				CoreTiming::ForceCheck();
+				CoreTiming::ForceCheck(mips);
 				return mips->pc;
 			}
 			break;
 		case IROp::ValidateAddress128:
 			if (RunValidateAddress<16>(mips->pc, mips->r[inst->src1] + inst->constant, inst->src2)) {
-				CoreTiming::ForceCheck();
+				CoreTiming::ForceCheck(mips);
 				return mips->pc;
 			}
 			break;
@@ -1300,7 +1233,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			}
 			break;
 
-		case IROp::Nop: // TODO: This shouldn't crash, but for now we should not emit nops, so...
+		case IROp::Nop:  // Unused, add a break if we start using it to avoid UNREACHABLE.
 		case IROp::Bad:
 		default:
 			// Unimplemented IR op. Bad. We define it as unreachable so the compiler can optimize better (remove the range check).

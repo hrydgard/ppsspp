@@ -18,8 +18,10 @@
 #include <algorithm>
 #include <cstring>
 #include <cstdio>
+#include <ctime>
 
 #include "Common/CommonTypes.h"
+#include "Common/File/FileUtil.h"  // for localtime_r on Windows
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/StringUtils.h"
@@ -138,6 +140,39 @@ struct VolDescriptor {
 	char zeroos[653];
 };
 
+// From http://howardhinnant.github.io/date_algorithms.html - same one sceRtc.cpp uses. Beats
+// timegm(), which isn't portable, and mktime(), which would drag the host's timezone in.
+static s64 DaysFromCivil(s64 y, u32 m, u32 d) {
+	y -= m <= 2;
+	const s64 era = (y >= 0 ? y : y - 399) / 400;
+	const u32 yoe = (u32)(y - era * 400);                    // [0, 399]
+	const u32 doy = (153 * (m > 2 ? m - 3 : m + 9) + 2) / 5 + d - 1;  // [0, 365]
+	const u32 doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;   // [0, 146096]
+	return era * 146097 + (s64)doe - 719468;
+}
+
+// The 7-byte date in a directory record, as Unix UTC seconds. Returns 0 if there isn't a real
+// date in there - plenty of ISOs leave it zeroed, and "1900-00-00" isn't worth propagating.
+static s64 UnixTimeFromDirectoryEntry(const DirectoryEntry &dir) {
+	if (dir.month < 1 || dir.month > 12 || dir.day < 1 || dir.day > 31) {
+		return 0;
+	}
+	// years is an offset from 1900, and offsetFromGMT is a signed count of 15-minute steps.
+	const s64 days = DaysFromCivil(1900 + (s64)dir.years, dir.month, dir.day);
+	return days * 86400 + dir.hour * 3600 + dir.minute * 60 + dir.second - (s64)(s8)dir.offsetFromGMT * 15 * 60;
+}
+
+// ISO9660 has one timestamp per file, so it goes into all three of the PSP's. Local time, to
+// match what the other file systems report.
+static void FillFileTimes(PSPFileInfo *info, s64 unixTime) {
+	if (unixTime == 0) {
+		return;
+	}
+	const time_t t = (time_t)unixTime;
+	localtime_r(&t, &info->mtime);
+	info->atime = info->ctime = info->mtime;
+}
+
 // Removes version numbers from filenames.
 static std::string_view CleanISOFileName(std::string_view name) {
 	auto pos = name.find(';');
@@ -222,6 +257,16 @@ void ISOFileSystem::ReadDirectory(TreeEntry *root) const {
 				ERROR_LOG(Log::FileSystem, "Directory entry crosses sectors, corrupt iso?");
 				return;
 			}
+			// dir.size (the record length actually consumed) must cover at least its
+			// own header and identifier, or a crafted sector could set it to 1 and
+			// make the loop reinterpret the same overlapping bytes as many separate
+			// entries, allocating far more TreeEntry objects than the sector's real
+			// size warrants.
+			if (dir.size < IDENTIFIER_OFFSET + dir.identifierLength) {
+				blockDevice->NotifyReadError();
+				ERROR_LOG(Log::FileSystem, "Directory entry size too small, corrupt iso?");
+				return;
+			}
 
 			offset += dir.size;
 
@@ -248,12 +293,32 @@ void ISOFileSystem::ReadDirectory(TreeEntry *root) const {
 			entry->startsector = dir.firstDataSector;
 			entry->dirsize = dir.dataLength;
 			entry->valid = isFile;  // Can pre-mark as valid if file, as we don't recurse into those.
+			entry->recordTime = UnixTimeFromDirectoryEntry(dir);
 			VERBOSE_LOG(Log::FileSystem, "%s: %s %08x %08x %d", entry->isDirectory ? "D" : "F", entry->name.c_str(), (u32)dir.firstDataSector, entry->startingPosition, entry->startingPosition);
 
 			// Round down to avoid any false reports.
 			if (isFile && dir.firstDataSector + (dir.dataLength / 2048) > blockDevice->GetNumBlocks()) {
 				blockDevice->NotifyReadError();
 				ERROR_LOG(Log::FileSystem, "File '%s' starts or ends outside ISO. firstDataSector: %d len: %d", entry->BuildPath().c_str(), (int)dir.firstDataSector, (int)dir.dataLength);
+			}
+
+			// The directory record is untrusted, and callers size host buffers from entry->size, so
+			// don't let it claim more data than the image actually contains. We clamp rather than
+			// drop the entry - truncated ISOs are common and used to work with just the warning
+			// above, and dropping EBOOT.BIN would turn that into an unbootable game. For a sane
+			// file this is a no-op, since the extent always fits in its sectors.
+			// Measured in bytes, not whole sectors: an image whose length isn't a multiple of the
+			// sector size still contains its final partial sector, and a file is allowed to end
+			// there. Counting blocks discards that tail, which clamped real files short - a dump
+			// with EBOOT.BIN running to the last byte of the image lost the end of it, and the ELF
+			// section headers that live there went with it.
+			if (isFile) {
+				const u64 imageBytes = blockDevice->GetUncompressedSize();
+				const u64 firstByte = (u64)dir.firstDataSector * (u64)sectorSize;
+				const s64 availableBytes = firstByte >= imageBytes ? 0 : (s64)(imageBytes - firstByte);
+				if (entry->size > availableBytes) {
+					entry->size = availableBytes;
+				}
 			}
 
 			if (entry->isDirectory && !relative) {
@@ -288,6 +353,11 @@ const ISOFileSystem::TreeEntry *ISOFileSystem::GetFromPath(std::string_view path
 
 	if (pathLength <= pathIndex)
 		return treeroot;
+
+	if (!treeroot) {
+		// The constructor gave up - no ISO9660 volume descriptor, or it wouldn't read.
+		return nullptr;
+	}
 
 	TreeEntry *entry = treeroot;
 	while (true) {
@@ -439,13 +509,17 @@ int ISOFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outd
 		}
 
 		VolDescriptor desc;
-		blockDevice->ReadBlock(16, (u8 *)&desc);
+		if (!blockDevice->ReadBlock(16, (u8 *)&desc)) {
+			blockDevice->NotifyReadError();
+			ERROR_LOG(Log::FileSystem, "Failed to read volume descriptor for the path table");
+			return SCE_KERNEL_ERROR_ERRNO_IO_ERROR;
+		}
 		if (outlen < (u32)desc.pathTableLength) {
 			return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 		} else {
 			int block = (u16)desc.firstLETableSector;
 			u32 size = Memory::ClampValidSizeAt(outdataPtr, (u32)desc.pathTableLength);
-			u8 *out = Memory::GetPointerWriteRange(outdataPtr, size);
+			u8 *out = Memory::GetPointerWriteRangeOrException(outdataPtr, size);
 
 			int blocks = size / blockDevice->GetBlockSize();
 			blockDevice->ReadBlocks(block, blocks, out);
@@ -455,7 +529,11 @@ int ISOFileSystem::Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outd
 			// The remaining (or, usually, only) partial sector.
 			if (size > 0) {
 				u8 temp[2048];
-				blockDevice->ReadBlock(block, temp);
+				// `blocks` whole sectors starting at `block` were already consumed by
+				// ReadBlocks() above, so the trailing partial sector is the next one.
+				if (!blockDevice->ReadBlock(block + blocks, temp)) {
+					memset(temp, 0, sizeof(temp));
+				}
 				memcpy(out, temp, size);
 			}
 			return 0;
@@ -554,7 +632,11 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) {
 
 		const u8 *const start = pointer;
 		if (firstBlockSize > 0) {
-			blockDevice->ReadBlock(secNum++, theSector);
+			// theSector is uninitialized stack memory, so on a failed read we must not copy it out -
+			// that would hand host stack contents to the game.
+			if (!blockDevice->ReadBlock(secNum++, theSector)) {
+				memset(theSector, 0, sizeof(theSector));
+			}
 			memcpy(pointer, theSector + firstBlockOffset, firstBlockSize);
 			pointer += firstBlockSize;
 		}
@@ -565,7 +647,9 @@ size_t ISOFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &usec) {
 			pointer += middleSize;
 		}
 		if (lastBlockSize > 0) {
-			blockDevice->ReadBlock(secNum++, theSector);
+			if (!blockDevice->ReadBlock(secNum++, theSector)) {
+				memset(theSector, 0, sizeof(theSector));
+			}
 			memcpy(pointer, theSector, lastBlockSize);
 			pointer += lastBlockSize;
 		}
@@ -650,6 +734,7 @@ PSPFileInfo ISOFileSystem::GetFileInfo(std::string filename) {
 		x.type = entry->isDirectory ? FILETYPE_DIRECTORY : FILETYPE_NORMAL;
 		x.isOnSectorSystem = true;
 		x.startSector = entry->startingPosition / 2048;
+		FillFileTimes(&x, entry->recordTime);
 	}
 	return x;
 }
@@ -667,6 +752,7 @@ PSPFileInfo ISOFileSystem::GetFileInfoByHandle(u32 handle) {
 		x.type = entry->isDirectory ? FILETYPE_DIRECTORY : FILETYPE_NORMAL;
 		x.isOnSectorSystem = true;
 		x.startSector = entry->startingPosition / 2048;
+		FillFileTimes(&x, entry->recordTime);
 	}
 	return x;
 }
@@ -702,6 +788,7 @@ std::vector<PSPFileInfo> ISOFileSystem::GetDirListing(std::string_view path, boo
 		x.type = e->isDirectory ? FILETYPE_DIRECTORY : FILETYPE_NORMAL;
 		x.isOnSectorSystem = true;
 		x.startSector = e->startingPosition/2048;
+		FillFileTimes(&x, e->recordTime);
 		x.sectorSize = sectorSize;
 		x.numSectors = (u32)((e->size + sectorSize - 1) / sectorSize);
 		myVector.push_back(x);

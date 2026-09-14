@@ -67,7 +67,7 @@ bool AsyncIOManager::PopResult(u32 handle, AsyncIOResult &result) {
 		resultsPending_.erase(handle);
 
 		if (result.invalidateAddr && result.result > 0) {
-			currentMIPS->InvalidateICache(result.invalidateAddr, (int)result.result);
+			currentMIPS->InvalidateICacheRangeImmediate(result.invalidateAddr, (int)result.result);
 		}
 		return true;
 	} else {

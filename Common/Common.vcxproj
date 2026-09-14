@@ -103,7 +103,7 @@
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
-      <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_32=1;_M_IX86=1;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;_CRTDBG_MAP_ALLOC;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_32=1;_M_IX86=1;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>Common/DbgNew.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <AdditionalIncludeDirectories>../ext/OpenXR-SDK/include;../ext/glew;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..;../ext/zstd/lib</AdditionalIncludeDirectories>
@@ -131,7 +131,7 @@
       <WarningLevel>Level3</WarningLevel>
       <ForcedIncludeFiles>Common/DbgNew.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
-      <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_64=1;_M_X64=1;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;_CRTDBG_MAP_ALLOC;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_64=1;_M_X64=1;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>../ext/OpenXR-SDK/include;../ext/glew;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..;../ext/zstd/lib</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
@@ -158,7 +158,7 @@
       <WarningLevel>Level3</WarningLevel>
       <ForcedIncludeFiles>Common/DbgNew.h</ForcedIncludeFiles>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
-      <PreprocessorDefinitions>_CRTDBG_MAP_ALLOC;USING_WIN_UI;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_64=1;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;_CRTDBG_MAP_ALLOC;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_64=1;_DEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>../ext/OpenXR-SDK/include;../ext/glew;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..;../ext/zstd/lib</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>NotSet</EnableEnhancedInstructionSet>
       <FloatingPointModel>Precise</FloatingPointModel>
@@ -186,7 +186,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>USING_WIN_UI;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_32=1;_M_IX86=1;NDEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_32=1;_M_IX86=1;NDEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>
       </ForcedIncludeFiles>
       <BufferSecurityCheck>false</BufferSecurityCheck>
@@ -219,7 +219,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>USING_WIN_UI;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_64=1;_M_X64=1;NDEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_64=1;_M_X64=1;NDEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>
       </ForcedIncludeFiles>
       <AdditionalIncludeDirectories>../ext/OpenXR-SDK/include;../ext/glew;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..;../ext/zstd/lib</AdditionalIncludeDirectories>
@@ -254,7 +254,7 @@
       <Optimization>MaxSpeed</Optimization>
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
-      <PreprocessorDefinitions>USING_WIN_UI;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_64=1;NDEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_CRT_NO_POSIX_ERROR_CODES;_CRT_NONSTDC_NO_DEPRECATE;_CRT_SECURE_NO_WARNINGS;WIN32;_ARCH_64=1;NDEBUG;_LIB;_UNICODE;UNICODE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ForcedIncludeFiles>
       </ForcedIncludeFiles>
       <AdditionalIncludeDirectories>../ext/OpenXR-SDK/include;../ext/glew;../ext/snappy;../ext/glslang;../ext/libpng17;../ext;../ext/zlib;..;../ext/zstd/lib</AdditionalIncludeDirectories>
@@ -366,7 +366,8 @@
     <ClInclude Include="..\ext\lzma-sdk\Precomp.h" />
     <ClInclude Include="..\ext\lzma-sdk\RotateDefs.h" />
     <ClInclude Include="..\ext\minimp3\minimp3.h" />
-    <ClInclude Include="..\ext\naett\naett.h" />
+    <ClInclude Include="..\ext\naett-lib\naett.h" />
+    <ClInclude Include="..\ext\naett-lib\src\naett_internal.h" />
     <ClInclude Include="..\ext\nanosvg\src\nanosvg.h" />
     <ClInclude Include="..\ext\nanosvg\src\nanosvgrast.h" />
     <ClInclude Include="..\ext\pugixml\pugiconfig.hpp" />
@@ -409,6 +410,7 @@
     <ClInclude Include="Data\Format\ZIMSave.h" />
     <ClInclude Include="Data\Hash\Hash.h" />
     <ClInclude Include="Data\Random\Rng.h" />
+    <ClInclude Include="Data\Text\Demangle.h" />
     <ClInclude Include="Data\Text\I18n.h" />
     <ClInclude Include="Data\Text\Parsers.h" />
     <ClInclude Include="Data\Text\StringWriter.h" />
@@ -429,6 +431,7 @@
     <ClInclude Include="GPU\D3D11\D3D11Loader.h" />
     <ClInclude Include="GPU\DataFormat.h" />
     <ClInclude Include="GPU\GPUBackendCommon.h" />
+    <ClInclude Include="GPU\GraphicsContext.h" />
     <ClInclude Include="GPU\MiscTypes.h" />
     <ClInclude Include="GPU\OpenGL\DataFormatGL.h" />
     <ClInclude Include="GPU\OpenGL\gl3stub.h" />
@@ -441,6 +444,7 @@
     <ClInclude Include="GPU\OpenGL\GLSLProgram.h" />
     <ClInclude Include="GPU\OpenGL\GLCommon.h" />
     <ClInclude Include="GPU\OpenGL\GLDebugLog.h" />
+    <ClInclude Include="GPU\OpenGL\OpenGLGraphicsContext.h" />
     <ClInclude Include="GPU\Shader.h" />
     <ClInclude Include="GPU\ShaderTranslation.h" />
     <ClInclude Include="GPU\ShaderWriter.h" />
@@ -453,9 +457,11 @@
     <ClInclude Include="GPU\Vulkan\VulkanDescSet.h" />
     <ClInclude Include="GPU\Vulkan\VulkanFramebuffer.h" />
     <ClInclude Include="GPU\Vulkan\VulkanFrameData.h" />
+    <ClInclude Include="GPU\Vulkan\VulkanGraphicsContext.h" />
     <ClInclude Include="GPU\Vulkan\VulkanImage.h" />
     <ClInclude Include="GPU\Vulkan\VulkanLoader.h" />
     <ClInclude Include="GPU\Vulkan\VulkanMemory.h" />
+    <ClInclude Include="GPU\Vulkan\VulkanPresentation.h" />
     <ClInclude Include="GPU\Vulkan\VulkanProfiler.h" />
     <ClInclude Include="GPU\Vulkan\VulkanQueueRunner.h" />
     <ClInclude Include="GPU\Vulkan\VulkanRenderManager.h" />
@@ -499,7 +505,6 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
     </ClInclude>
-    <ClInclude Include="Render\Text\draw_text_qt.h" />
     <ClInclude Include="Render\Text\draw_text_sdl.h" />
     <ClInclude Include="Render\Text\draw_text_uwp.h" />
     <ClInclude Include="Render\Text\draw_text_win.h" />
@@ -525,7 +530,6 @@
     <ClInclude Include="DbgNew.h" />
     <ClInclude Include="ExceptionHandlerSetup.h" />
     <ClInclude Include="GhidraClient.h" />
-    <ClInclude Include="GraphicsContext.h" />
     <ClInclude Include="Log.h" />
     <ClInclude Include="Log\LogManager.h" />
     <ClInclude Include="MachineContext.h" />
@@ -536,6 +540,7 @@
     <ClInclude Include="StringUtils.h" />
     <ClInclude Include="Swap.h" />
     <ClInclude Include="SysError.h" />
+    <ClInclude Include="System\Application.h" />
     <ClInclude Include="System\Display.h" />
     <ClInclude Include="System\OSD.h" />
     <ClInclude Include="System\Request.h" />
@@ -558,6 +563,7 @@
     <ClInclude Include="UI\PopupScreens.h" />
     <ClInclude Include="UI\Root.h" />
     <ClInclude Include="UI\Screen.h" />
+    <ClInclude Include="UI\ScreenManager.h" />
     <ClInclude Include="UI\ScrollView.h" />
     <ClInclude Include="UI\TabHolder.h" />
     <ClInclude Include="UI\Tween.h" />
@@ -863,7 +869,8 @@
     <ClCompile Include="..\ext\lzma-sdk\Lzma2Dec.c" />
     <ClCompile Include="..\ext\lzma-sdk\LzmaDec.c" />
     <ClCompile Include="..\ext\minimp3\minimp3.cpp" />
-    <ClCompile Include="..\ext\naett\naett.c" />
+    <ClCompile Include="..\ext\naett-lib\src\naett_core.c" />
+    <ClCompile Include="..\ext\naett-lib\src\naett_win.c" />
     <ClCompile Include="..\ext\pugixml\pugixml.cpp" />
     <ClCompile Include="..\ext\vma\vk_mem_alloc.cpp" />
     <ClCompile Include="ABI.cpp" />
@@ -894,6 +901,7 @@
     <ClCompile Include="Data\Format\ZIMLoad.cpp" />
     <ClCompile Include="Data\Format\ZIMSave.cpp" />
     <ClCompile Include="Data\Hash\Hash.cpp" />
+    <ClCompile Include="Data\Text\Demangle.cpp" />
     <ClCompile Include="Data\Text\I18n.cpp" />
     <ClCompile Include="Data\Text\Parsers.cpp" />
     <ClCompile Include="Data\Text\WrapText.cpp" />
@@ -922,6 +930,7 @@
     <ClCompile Include="GPU\OpenGL\GLRenderManager.cpp" />
     <ClCompile Include="GPU\OpenGL\GLSLProgram.cpp" />
     <ClCompile Include="GPU\OpenGL\GLDebugLog.cpp" />
+    <ClCompile Include="GPU\OpenGL\OpenGLGraphicsContext.cpp" />
     <ClCompile Include="GPU\OpenGL\thin3d_gl.cpp" />
     <ClCompile Include="GPU\Shader.cpp" />
     <ClCompile Include="GPU\ShaderTranslation.cpp" />
@@ -934,6 +943,7 @@
     <ClCompile Include="GPU\Vulkan\VulkanDescSet.cpp" />
     <ClCompile Include="GPU\Vulkan\VulkanFramebuffer.cpp" />
     <ClCompile Include="GPU\Vulkan\VulkanFrameData.cpp" />
+    <ClCompile Include="GPU\Vulkan\VulkanGraphicsContext.cpp" />
     <ClCompile Include="GPU\Vulkan\VulkanImage.cpp" />
     <ClCompile Include="GPU\Vulkan\VulkanLoader.cpp" />
     <ClCompile Include="GPU\Vulkan\VulkanMemory.cpp" />
@@ -968,7 +978,6 @@
     <ClCompile Include="Render\TextureAtlas.cpp" />
     <ClCompile Include="Render\Text\draw_text.cpp" />
     <ClCompile Include="Render\Text\draw_text_android.cpp" />
-    <ClCompile Include="Render\Text\draw_text_qt.cpp" />
     <ClCompile Include="Render\Text\draw_text_sdl.cpp" />
     <ClCompile Include="Render\Text\draw_text_uwp.cpp" />
     <ClCompile Include="Render\Text\draw_text_win.cpp" />
@@ -1016,6 +1025,7 @@
     <ClCompile Include="UI\PopupScreens.cpp" />
     <ClCompile Include="UI\Root.cpp" />
     <ClCompile Include="UI\Screen.cpp" />
+    <ClCompile Include="UI\ScreenManager.cpp" />
     <ClCompile Include="UI\ScrollView.cpp" />
     <ClCompile Include="UI\TabHolder.cpp" />
     <ClCompile Include="UI\Tween.cpp" />
@@ -1038,6 +1048,7 @@
     <Text Include="..\ext\at3_standalone\README.txt" />
     <Text Include="..\ext\imgui\CMakeLists.txt" />
     <Text Include="..\ext\libpng17\CMakeLists.txt" />
+    <Text Include="CMakeLists.txt" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\ext\cpu_features.vcxproj">

@@ -175,6 +175,14 @@ IFileSystem *MetaFileSystem::GetHandleOwner(u32 handle) const
 	return nullptr;
 }
 
+std::string MetaFileSystem::GetCurrentDirForThread(int threadID) const {
+	auto iter = currentDir.find(threadID);
+	if (iter == currentDir.end()) {
+		return "";
+	}
+	return iter->second;
+}
+
 int MetaFileSystem::MapFilePath(std::string_view _inpath, std::string *outpath, MountPoint **system) {
 	int error = SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
 	std::lock_guard<std::recursive_mutex> guard(lock);
@@ -194,49 +202,53 @@ int MetaFileSystem::MapFilePath(std::string_view _inpath, std::string *outpath, 
 	}
 
 	// Special handling: host0:command.txt (as seen in Super Monkey Ball Adventures, for example)
-	// appears to mean the current directory on the UMD. Let's just assume the current directory.
-	if (strncasecmp(inpath.c_str(), "host0:", strlen("host0:")) == 0) {
-		INFO_LOG(Log::FileSystem, "Host0 path detected, stripping: %s", inpath.c_str());
-		// However, this causes trouble when running tests, since our test framework uses host0:.
-		// Maybe it's really just supposed to map to umd0 or something?
-		if (PSP_CoreParameter().headLess) {
-			inpath = "umd0:" + inpath.substr(strlen("host0:"));
-		} else {
-			inpath = inpath.substr(strlen("host0:"));
-		}
+	// appears to mean the current directory on the UMD.
+	// Actually, not sure if this is still needed. It doesn't make a whole lot of sense.
+	if (startsWithNoCase(inpath.c_str(), "host0:") && !host0Mapped_) {
+		inpath = "umd0:" + inpath.substr(strlen("host0:"));
 	}
 
 	const std::string *currentDirectory = &startingDirectory;
 
+	// Hm, does this make sense? Doesn't each drive has its own currentDir per thread, or maybe not?
 	int currentThread = __KernelGetCurThread();
-	currentDir_t::iterator it = currentDir.find(currentThread);
-	if (it == currentDir.end()) 
-	{
-		//Attempt to emulate SCE_KERNEL_ERROR_NOCWD / 8002032C: may break things requiring fixes elsewhere
-		if (inpath.find(':') == std::string::npos /* means path is relative */) 
-		{
+	auto it = currentDir.find(currentThread);
+	if (it == currentDir.end()) {
+		// Attempt to emulate SCE_KERNEL_ERROR_NOCWD / 8002032C: may break things requiring fixes elsewhere
+		if (inpath.find(':') == std::string::npos /* means path is relative */) {
 			error = SCE_KERNEL_ERROR_NOCWD;
 			WARN_LOG(Log::FileSystem, "Path is relative, but current directory not set for thread %i. returning 8002032C(SCE_KERNEL_ERROR_NOCWD) instead.", currentThread);
 		}
-	}
-	else
-	{
+	} else {
 		currentDirectory = &(it->second);
 	}
 
-	if (RealPath(*currentDirectory, inpath, realpath))
-	{
+	if (RealPath(*currentDirectory, inpath, realpath)) {
 		std::string prefix = realpath;
 		size_t prefixPos = realpath.find(':');
 		if (prefixPos != realpath.npos)
 			prefix = NormalizePrefix(realpath.substr(0, prefixPos + 1));
 
-		for (size_t i = 0; i < fileSystems.size(); i++)
-		{
-			size_t prefLen = fileSystems[i].prefix.size();
-			if (strncasecmp(fileSystems[i].prefix.c_str(), prefix.c_str(), prefLen) == 0)
-			{
-				*outpath = realpath.substr(prefixPos + 1);
+		for (size_t i = 0; i < fileSystems.size(); i++) {
+			if (equalsNoCase(fileSystems[i].prefix, prefix)) {
+				// Map into the underlying filesystem. If the mount specifies a subDir,
+				// join that with the path inside the device.
+				std::string basePath = realpath.substr(prefixPos + 1); // may be empty or start with '/'
+				const std::string &mountSub = fileSystems[i].subDir;
+				if (mountSub.empty()) {
+					*outpath = basePath;
+				} else {
+					// Normalize subDir: ensure it starts with '/' and has no trailing slash (unless it's root "/").
+					std::string s = mountSub;
+					if (s.empty()) s = "/";
+					if (s[0] != '/') s.insert(s.begin(), '/');
+					if (s.size() > 1 && s.back() == '/') s.pop_back();
+					if (basePath.empty()) {
+						*outpath = s;
+					} else {
+						*outpath = s + basePath; // basePath usually starts with '/'
+					}
+				}
 				*system = &(fileSystems[i]);
 
 				VERBOSE_LOG(Log::FileSystem, "MapFilePath: mapped \"%s\" to prefix: \"%s\", path: \"%s\"", inpath.c_str(), fileSystems[i].prefix.c_str(), outpath->c_str());
@@ -252,39 +264,43 @@ int MetaFileSystem::MapFilePath(std::string_view _inpath, std::string *outpath, 
 	return error;
 }
 
-std::string MetaFileSystem::NormalizePrefix(std::string_view prefix) const {
+std::string_view MetaFileSystem::NormalizePrefix(std::string_view prefix) const {
 	// Let's apply some mapping here since it won't break savestates.
 	if (prefix == "memstick:")
-		prefix = "ms0:";
+		return "ms0:";
 	// Seems like umd00: etc. work just fine... avoid umd1/umd for tests.
 	if (startsWith(prefix, "umd") && prefix != "umd1:" && prefix != "umd:")
-		prefix = "umd0:";
+		return "umd0:";
 	// Seems like umd00: etc. work just fine...
 	if (startsWith(prefix, "host"))
-		prefix = "host0:";
+		return "host0:";
 
 	// Should we simply make this case insensitive?
 	if (prefix == "DISC0:")
-		prefix = "disc0:";
-
-	return std::string(prefix);
+		return "disc0:";
+	return prefix;
 }
 
-void MetaFileSystem::Mount(std::string_view prefix, std::shared_ptr<IFileSystem> system) {
+void MetaFileSystem::Mount(std::string_view prefix, std::shared_ptr<IFileSystem> system, std::string_view subDir) {
 	std::lock_guard<std::recursive_mutex> guard(lock);
 	for (auto &it : fileSystems) {
 		if (it.prefix == prefix) {
 			// Overwrite the old mount.
-			// shared_ptr makes sure there's no leak.
 			it.system = system;
+			it.subDir = std::string(subDir);
 			return;
 		}
+	}
+
+	if (equalsNoCase(prefix, "host0:")) {
+		host0Mapped_ = true;
 	}
 
 	// Prefix not yet mounted, do so.
 	MountPoint x;
 	x.prefix = prefix;
 	x.system = system;
+	x.subDir = std::string(subDir);
 	fileSystems.push_back(x);
 }
 
@@ -292,10 +308,14 @@ void MetaFileSystem::Mount(std::string_view prefix, std::shared_ptr<IFileSystem>
 void MetaFileSystem::UnmountAll() {
 	fileSystems.clear();
 	currentDir.clear();
+	host0Mapped_ = false;
 }
 
 void MetaFileSystem::Unmount(std::string_view prefix) {
 	std::lock_guard<std::recursive_mutex> guard(lock);
+	if (equalsNoCase(prefix, "host0:")) {
+		host0Mapped_ = false;
+	}
 	for (auto iter = fileSystems.begin(); iter != fileSystems.end(); iter++) {
 		if (iter->prefix == prefix) {
 			fileSystems.erase(iter);
@@ -487,6 +507,19 @@ int MetaFileSystem::RenameFile(const std::string &from, const std::string &to)
 	}
 }
 
+bool MetaFileSystem::SetFileWritable(const std::string &filename, bool writable)
+{
+	std::lock_guard<std::recursive_mutex> guard(lock);
+	std::string of;
+	IFileSystem *system;
+	int error = MapFilePath(filename, &of, &system);
+	if (error == 0) {
+		return system->SetFileWritable(of, writable);
+	} else {
+		return false;
+	}
+}
+
 bool MetaFileSystem::RemoveFile(const std::string &filename)
 {
 	std::lock_guard<std::recursive_mutex> guard(lock);
@@ -624,20 +657,45 @@ void MetaFileSystem::DoState(PointerWrap &p) {
 
 	u32 n = (u32) fileSystems.size();
 	Do(p, n);
-	bool skipPfat0 = false;
-	if (n != (u32) fileSystems.size()) {
-		if (n == (u32) fileSystems.size() - 1) {
-			skipPfat0 = true;
-		} else {
-			p.SetError(p.ERROR_FAILURE);
-			ERROR_LOG(Log::FileSystem, "Savestate failure: number of filesystems doesn't match.");
-			return;
-		}
+
+	// The mounts are serialized positionally: one section per mount, in fileSystems order, with no
+	// length to skip by. That order is the order Mount() first saw each prefix during boot, which
+	// spans more than MountFileSystems() - booting an ISO, MountGameISO() has already added umd0:,
+	// umd1:, umd: and disc0: by the time we get there. An older build's savestate simply lacks the
+	// sections for mounts that didn't exist yet, and we have to leave out exactly those to stay
+	// lined up. We only know how many are missing (n), not which, hence the list below.
+	//
+	// ADDING A NEW MOUNT: prepend its prefix here, or every existing savestate stops loading with
+	// "Failure at <whatever section follows>". Newest first, because a state missing k mounts is
+	// missing the k most recently added ones. Where the new mount falls in the order doesn't
+	// matter - skipping it by prefix leaves the relative order of all the others unchanged.
+	//
+	// DO NOT REORDER EXISTING MOUNTS. Sections are paired with filesystems purely by position, so
+	// swapping two Mount() calls feeds every old savestate's sections to the wrong filesystems,
+	// silently and with no version to catch it.
+	//
+	// RENAMING OR REMOVING A MOUNT isn't handled here either: a section in the state we have no
+	// mount for can't be skipped, because we can't know how long it is. Either of those needs a
+	// format change - storing the prefixes, or a length per section.
+	static const char * const mountsAddedOverTime[] = { "flash1:", "pfat0:" };
+
+	const size_t missing = n < (u32)fileSystems.size() ? fileSystems.size() - n : 0;
+	if (n > (u32)fileSystems.size() || missing > ARRAY_SIZE(mountsAddedOverTime)) {
+		p.SetError(p.ERROR_FAILURE);
+		ERROR_LOG(Log::FileSystem, "Savestate failure: number of filesystems doesn't match (%d in state, %d mounted).", (int)n, (int)fileSystems.size());
+		return;
 	}
 
-	for (u32 i = 0; i < n; ++i) {
-		if (!skipPfat0 || fileSystems[i].prefix != "pfat0:") {
-			fileSystems[i].system->DoState(p);
+	for (const MountPoint &mount : fileSystems) {
+		bool skip = false;
+		for (size_t i = 0; i < missing; i++) {
+			if (mount.prefix == mountsAddedOverTime[i]) {
+				skip = true;
+				break;
+			}
+		}
+		if (!skip) {
+			mount.system->DoState(p);
 		}
 	}
 }

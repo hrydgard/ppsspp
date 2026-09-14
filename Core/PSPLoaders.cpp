@@ -42,6 +42,7 @@
 #include "Core/MemMap.h"
 #include "Core/HDRemaster.h"
 #include "Core/Util/PathUtil.h"
+#include "Core/MIPS/MIPS.h"
 
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -159,9 +160,21 @@ void InitMemorySizeForGame() {
 		}
 
 		if (umdData.empty()) {
-			std::vector<u8> umdDataBin;
-			if (pspFileSystem.ReadEntireFile("disc0:/UMD_DATA.BIN", umdDataBin) >= 0) {
-				umdData = std::string((const char *)&umdDataBin[0], umdDataBin.size());
+			// A real UMD_DATA.BIN is a few dozen bytes - it's just the disc ID line matched below.
+			// Check the size first: this comes off the disc image, which is not something we trust,
+			// and ReadEntireFile has no limit of its own - it would resize a vector to whatever the
+			// image claims, and the string copy after it doubles that.
+			const s64 MAX_UMD_DATA_SIZE = 4096;
+			const PSPFileInfo info = pspFileSystem.GetFileInfo("disc0:/UMD_DATA.BIN");
+			if (info.exists && info.size > MAX_UMD_DATA_SIZE) {
+				WARN_LOG(Log::Loader, "Ignoring implausibly large UMD_DATA.BIN (%lld bytes)", (long long)info.size);
+			} else if (info.exists) {
+				std::vector<u8> umdDataBin;
+				// .data() rather than &umdDataBin[0] - the file can legitimately be empty, and
+				// indexing an empty vector is undefined.
+				if (pspFileSystem.ReadEntireFile("disc0:/UMD_DATA.BIN", umdDataBin) >= 0) {
+					umdData = std::string((const char *)umdDataBin.data(), umdDataBin.size());
+				}
 			}
 		}
 
@@ -247,41 +260,118 @@ static const char * const altBootNames[] = {
 	//"disc0:/PSP_GAME/SYSDIR/ss.RAW",//Code Geass: Lost Colors chinese version
 };
 
+// A game update installed from a .pkg (see Core/Util/PkgUnpack.h) lands in PSP/GAME/<DISC_ID>/,
+// with the patched executable as PBOOT.PBP. The PSP boots that instead of the disc's own EBOOT,
+// leaving the disc mounted - so the update overrides the files it ships and the disc supplies
+// everything else.
+
+static bool ReadPBPParamSFO(const std::string &path, ParamSFOData *sfo) {
+	const int fd = pspFileSystem.OpenFile(path, FILEACCESS_READ);
+	if (fd < 0) {
+		return false;
+	}
+
+	bool success = false;
+	// A PBP starts with its magic, a version, and eight little-endian subfile offsets. PARAM.SFO
+	// is the first subfile, so it runs from its own offset to ICON0.PNG's.
+	u8 header[0x28];
+	if (pspFileSystem.ReadFile(fd, header, sizeof(header)) == sizeof(header) && !memcmp(header, "\0PBP", 4)) {
+		u32_le sfoOffset, iconOffset;
+		memcpy(&sfoOffset, header + 0x08, sizeof(sfoOffset));
+		memcpy(&iconOffset, header + 0x0C, sizeof(iconOffset));
+		const u32 sfoSize = iconOffset - sfoOffset;
+		if (sfoOffset >= sizeof(header) && iconOffset > sfoOffset && sfoSize <= 64 * 1024) {
+			std::vector<u8> sfoData(sfoSize);
+			if (pspFileSystem.SeekFile(fd, sfoOffset, FILEMOVE_BEGIN) >= 0 &&
+				pspFileSystem.ReadFile(fd, sfoData.data(), sfoSize) == sfoSize) {
+				success = sfo->ReadSFO(sfoData);
+			}
+		}
+	}
+	pspFileSystem.CloseFile(fd);
+	return success;
+}
+
+// Returns the path of the update to boot, or an empty string to boot the disc normally.
+static std::string FindGameUpdatePBOOT(const std::string &discId, const std::string &discVersion) {
+	if (discId.empty()) {
+		return std::string();
+	}
+	const std::string path = "ms0:/PSP/GAME/" + discId + "/PBOOT.PBP";
+	if (!pspFileSystem.GetFileInfo(path).exists) {
+		return std::string();
+	}
+
+	// Check what the update claims to patch before handing it the boot.
+	ParamSFOData sfo;
+	if (!ReadPBPParamSFO(path, &sfo)) {
+		WARN_LOG(Log::Loader, "Ignoring '%s': couldn't read its PARAM.SFO", path.c_str());
+		return std::string();
+	}
+
+	const std::string updateDiscId = sfo.GetValueString("DISC_ID");
+	if (updateDiscId != discId) {
+		WARN_LOG(Log::Loader, "Ignoring '%s': it's an update for %s, not %s", path.c_str(), updateDiscId.c_str(), discId.c_str());
+		return std::string();
+	}
+
+	// The disc version is advisory here. An update is built against one specific revision of a
+	// disc, but refusing to run one on a slightly different dump is a worse failure than letting
+	// the user find out - they went and installed it on purpose.
+	const std::string updateDiscVersion = sfo.GetValueString("DISC_VERSION");
+	if (!updateDiscVersion.empty() && !discVersion.empty() && updateDiscVersion != discVersion) {
+		WARN_LOG(Log::Loader, "Game update '%s' is for disc version %s, but this disc is %s. Booting it anyway.",
+			path.c_str(), updateDiscVersion.c_str(), discVersion.c_str());
+	}
+
+	NOTICE_LOG(Log::Loader, "Booting game update '%s' (app version %s) instead of the disc's executable",
+		path.c_str(), sfo.GetValueString("APP_VER").c_str());
+	return path;
+}
+
 bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
-	std::string bootpath("disc0:/PSP_GAME/SYSDIR/EBOOT.BIN");
+	const std::string id = g_paramSFO.GetValueString("DISC_ID");
 
-	// Bypass Chinese translation patches, see comment above.
-	for (size_t i = 0; i < ARRAY_SIZE(altBootNames); i++) {
-		if (pspFileSystem.GetFileInfo(altBootNames[i]).exists) {
-			WARN_LOG(Log::Boot, "Bypassing suspected translation patch. Booting '%s' instead of '%s'.", altBootNames[i], bootpath.c_str());
-			bootpath = altBootNames[i];
-			// break;  // should have a break here, but it would effectively reverse the evaluation order.
+	// An installed game update replaces the disc's executable - see FindGameUpdatePBOOT above.
+	std::string bootpath = FindGameUpdatePBOOT(id, g_paramSFO.GetValueString("DISC_VERSION"));
+	if (bootpath.empty()) {
+		bootpath = "disc0:/PSP_GAME/SYSDIR/EBOOT.BIN";
+
+		// Bypass Chinese translation patches, see comment above.
+		for (size_t i = 0; i < ARRAY_SIZE(altBootNames); i++) {
+			if (pspFileSystem.GetFileInfo(altBootNames[i]).exists) {
+				WARN_LOG(Log::Boot, "Bypassing suspected translation patch. Booting '%s' instead of '%s'.", altBootNames[i], bootpath.c_str());
+				bootpath = altBootNames[i];
+				// break;  // should have a break here, but it would effectively reverse the evaluation order.
+			}
 		}
-	}
 
-	// Bypass another more dangerous one where the file is in USRDIR - this could collide with files in some game.
-	std::string id = g_paramSFO.GetValueString("DISC_ID");
-	if (id == "NPJH50624" && pspFileSystem.GetFileInfo("disc0:/PSP_GAME/USRDIR/PAKFILE2.BIN").exists) {
-		bootpath = "disc0:/PSP_GAME/USRDIR/PAKFILE2.BIN";
-	}
-	if (id == "NPJH00100" && pspFileSystem.GetFileInfo("disc0:/PSP_GAME/USRDIR/DATA/GIM/GBL").exists) {
-		bootpath = "disc0:/PSP_GAME/USRDIR/DATA/GIM/GBL";
-	}
-
-	bool hasEncrypted = false;
-	int fd;
-	if ((fd = pspFileSystem.OpenFile(bootpath, FILEACCESS_READ)) >= 0) {
-		u8 head[4];
-		pspFileSystem.ReadFile(fd, head, 4);
-		if (memcmp(head, "~PSP", 4) == 0 || memcmp(head, "\x7F""ELF", 4) == 0) {
-			hasEncrypted = true;
+		// Bypass another more dangerous one where the file is in USRDIR - this could collide with files in some game.
+		if (id == "NPJH50624" && pspFileSystem.GetFileInfo("disc0:/PSP_GAME/USRDIR/PAKFILE2.BIN").exists) {
+			bootpath = "disc0:/PSP_GAME/USRDIR/PAKFILE2.BIN";
 		}
-		pspFileSystem.CloseFile(fd);
-	}
+		if (id == "NPJH00100" && pspFileSystem.GetFileInfo("disc0:/PSP_GAME/USRDIR/DATA/GIM/GBL").exists) {
+			bootpath = "disc0:/PSP_GAME/USRDIR/DATA/GIM/GBL";
+		}
 
-	if (!hasEncrypted) {
-		// try unencrypted Boot.BIN
-		bootpath = "disc0:/PSP_GAME/SYSDIR/BOOT.BIN";
+		bool hasEncrypted = false;
+		int fd;
+		if ((fd = pspFileSystem.OpenFile(bootpath, FILEACCESS_READ)) >= 0) {
+			u8 head[4]{};
+			// A file shorter than the magic used to leave head partly uninitialized, and then decided
+			// which boot file to use by comparing against it.
+			if (pspFileSystem.ReadFile(fd, head, sizeof(head)) == sizeof(head)) {
+				if (memcmp(head, "~PSP", 4) == 0 || memcmp(head, "\x7F""ELF", 4) == 0) {
+					hasEncrypted = true;
+				}
+			}
+			pspFileSystem.CloseFile(fd);
+		}
+
+		if (!hasEncrypted) {
+			// try unencrypted Boot.BIN
+			bootpath = "disc0:/PSP_GAME/SYSDIR/BOOT.BIN";
+		}
 	}
 
 	// Fail early with a clearer message for some types of ISOs.
@@ -307,7 +397,7 @@ bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 	System_PostUIMessage(UIMessage::CONFIG_LOADED);
 	INFO_LOG(Log::Loader, "Loading %s...", bootpath.c_str());
 	// TODO: We can't use the initial error_string pointer.
-	return __KernelLoadExec(bootpath.c_str(), 0, &PSP_CoreParameter().errorString);
+	return __KernelLoadExec(currentMIPS, bootpath.c_str(), 0, &PSP_CoreParameter().errorString);
 }
 
 // TODO: Move this to common. Merge with ResolvePath?
@@ -318,18 +408,23 @@ static Path NormalizePath(const Path &path) {
 	}
 
 #ifdef _WIN32
-	std::wstring wpath = path.ToWString();
+	const std::wstring wpath = path.ToWString();
 	std::wstring buf;
 	buf.resize(512);
-	size_t sz = GetFullPathName(wpath.c_str(), (DWORD)buf.size(), &buf[0], nullptr);
-	if (sz != 0 && sz < buf.size()) {
+	// On success GetFullPathName returns the length without the terminator; if the buffer is too
+	// small it returns the required length *including* it, and on failure it returns 0. A zero used
+	// to fall through both branches below and hand back 512 characters of uninitialized buffer.
+	DWORD sz = GetFullPathName(wpath.c_str(), (DWORD)buf.size(), buf.data(), nullptr);
+	if (sz >= buf.size()) {
 		buf.resize(sz);
-	} else if (sz > buf.size()) {
-		buf.resize(sz);
-		sz = GetFullPathName(wpath.c_str(), (DWORD)buf.size(), &buf[0], nullptr);
-		// This should truncate off the null terminator.
-		buf.resize(sz);
+		sz = GetFullPathName(wpath.c_str(), (DWORD)buf.size(), buf.data(), nullptr);
 	}
+	if (sz == 0 || sz >= buf.size()) {
+		WARN_LOG(Log::Loader, "GetFullPathName failed for '%s'", path.c_str());
+		return Path();
+	}
+	// Truncates off the null terminator.
+	buf.resize(sz);
 	return Path(buf);
 #else
 	char buf[PATH_MAX + 1];
@@ -339,7 +434,7 @@ static Path NormalizePath(const Path &path) {
 #endif
 }
 
-bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string_view discId, std::string *error_string) {
+bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string_view discId, bool loadGameConfigs, std::string *error_string) {
 	// This is really just for headless, might need tweaking later.
 	if (PSP_CoreParameter().mountIsoLoader != nullptr) {
 		std::shared_ptr<BlockDevice> bd(ConstructBlockDevice(PSP_CoreParameter().mountIsoLoader, error_string));
@@ -363,17 +458,17 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string_view discId, std::stri
 		path = AndroidContentURI(full_path.GetDirectory()).FilePath();
 	}
 
+	// TODO: More robust check.
 	size_t pos = path.find("PSP/GAME/");
 	std::string ms_path;
 	if (pos != std::string::npos) {
 		ms_path = "ms0:/" + path.substr(pos) + "/";
 	} else {
-		// This is wrong, but it's better than not having a working directory at all.
-		// Note that umd0:/ is actually the writable containing directory, in this case.
-		ms_path = "umd0:/";
+		// We map host0: to the containing directory, see below. This will also be set as the current dir
+		ms_path = "host0:/";
 	}
 
-	Path dir;
+	Path host0Dir;
 	if (!PSP_CoreParameter().mountRoot.empty()) {
 		// We don't want to worry about .. and cwd and such.
 		const Path rootNorm = NormalizePath(PSP_CoreParameter().mountRoot);
@@ -381,6 +476,13 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string_view discId, std::stri
 
 		if (full_path.Type() == PathType::CONTENT_URI) {
 			pathNorm = full_path.NavigateUp();
+		}
+
+		// Path::StartsWith() returns true for an empty argument, so an unresolvable mountRoot would
+		// make the containment check below pass for any path at all.
+		if (rootNorm.empty() || pathNorm.empty()) {
+			*error_string = "Cannot boot ELF - couldn't resolve its path or mountRoot.";
+			return false;
 		}
 
 		// If root is not a subpath of path, we can't boot the game.
@@ -391,8 +493,14 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string_view discId, std::stri
 
 		std::string filepath;
 		if (full_path.Type() == PathType::CONTENT_URI) {
-			std::string rootFilePath = AndroidContentURI(rootNorm.c_str()).FilePath();
-			std::string pathFilePath = AndroidContentURI(pathNorm.c_str()).FilePath();
+			const std::string rootFilePath = AndroidContentURI(rootNorm.c_str()).FilePath();
+			const std::string pathFilePath = AndroidContentURI(pathNorm.c_str()).FilePath();
+			// StartsWith above compared the URIs. That doesn't mean the decoded file paths have the
+			// same prefix relationship, and substr() throws when they don't.
+			if (!startsWith(pathFilePath, rootFilePath)) {
+				*error_string = "Cannot boot ELF located outside mountRoot.";
+				return false;
+			}
 			filepath = pathFilePath.substr(rootFilePath.size());
 		} else {
 			filepath = ReplaceAll(pathNorm.ToString().substr(rootNorm.ToString().size()), "\\", "/");
@@ -401,32 +509,41 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string_view discId, std::stri
 		file = filepath + "/" + file;
 		path = rootNorm.ToString();
 		pspFileSystem.SetStartingDirectory(filepath);
-		dir = Path(path);
+		host0Dir = Path(path);
 	} else {
 		pspFileSystem.SetStartingDirectory(ms_path);
-		dir = full_path.NavigateUp();
+		host0Dir = full_path.NavigateUp();
 	}
 
-	auto fs = std::make_shared<DirectoryFileSystem>(&pspFileSystem, dir, FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD);
-	pspFileSystem.Mount("umd0:", fs);
+	auto fs = std::make_shared<DirectoryFileSystem>(&pspFileSystem, host0Dir, FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD);
+	pspFileSystem.Mount("host0:", fs);
 
 	std::string finalName = ms_path + file;
 
 	std::string homebrewName = PSP_CoreParameter().fileToStart.ToVisualString();
 	std::size_t lslash = homebrewName.find_last_of('/');
 	std::size_t rslash = homebrewName.find_last_of('\\');
-	if (lslash != homebrewName.npos)
+	if (lslash != homebrewName.npos) {
 		homebrewName = homebrewName.substr(lslash + 1);
-	if (rslash != homebrewName.npos)
+	}
+	if (rslash != homebrewName.npos) {
 		homebrewName = homebrewName.substr(rslash + 1);
+	}
 	std::string discID = g_paramSFO.GetDiscID();
 	std::string discVersion = g_paramSFO.GetValueString("DISC_VERSION");
 	std::string madeUpID = g_paramSFO.GenerateFakeID(Path());
 
+	// TODO: This was long enough ago that I think this can be safely removed.
 	// Migrate old save states from old versions of fake game IDs.
 	// Ugh, this might actually be slow on Android.
+	// The strings here are attacker-controlled (from PARAM.SFO / filenames), so
+	// if any of them contain a path separator, skip the migration to avoid
+	// building traversal paths.
+	const bool anyPathSeparator =
+		HasPathTraversal(discID) || HasPathTraversal(discVersion) ||
+		HasPathTraversal(homebrewName) || HasPathTraversal(madeUpID);
 	const Path savestateDir = GetSysDirectory(DIRECTORY_SAVESTATE);
-	for (int i = 0; i < 5; ++i) {
+	for (int i = 0; i < 5 && !anyPathSeparator; ++i) {
 		Path newPrefix = savestateDir / StringFromFormat("%s_%s_%d", discID.c_str(), discVersion.c_str(), i);
 		Path oldNamePrefix = savestateDir / StringFromFormat("%s_%d", homebrewName.c_str(), i);
 		Path oldIDPrefix = savestateDir / StringFromFormat("%s_1.00_%d", madeUpID.c_str(), i);
@@ -441,14 +558,16 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string_view discId, std::stri
 			File::Rename(oldNamePrefix.WithExtraExtension(".jpg"), newPrefix.WithExtraExtension(".jpg"));
 	}
 
-	g_Config.LoadGameConfig(discID);
+	if (loadGameConfigs) {
+		g_Config.LoadGameConfig(discID);
+	}
 
-	return __KernelLoadExec(finalName.c_str(), 0, error_string);
+	return __KernelLoadExec(currentMIPS, finalName.c_str(), 0, error_string);
 }
 
 bool Load_PSP_GE_Dump(FileLoader *fileLoader, std::string *error_string) {
 	auto umd = std::make_shared<BlobFileSystem>(&pspFileSystem, fileLoader, "data.ppdmp");
 	pspFileSystem.Mount("disc0:", umd);
 
-	return __KernelLoadGEDump("disc0:/data.ppdmp", &PSP_CoreParameter().errorString);
+	return __KernelLoadGEDump(currentMIPS, "disc0:/data.ppdmp", &PSP_CoreParameter().errorString);
 }

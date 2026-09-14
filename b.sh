@@ -5,14 +5,6 @@ CMAKE=1
 while test $# -gt 0
 do
 	case "$1" in
-		--qt) echo "Qt enabled"
-			QT=1
-			CMAKE_ARGS="-DUSING_QT_UI=ON ${CMAKE_ARGS}"
-			;;
-		--qtbrew) echo "Qt enabled (homebrew)"
-			QT=1
-			CMAKE_ARGS="-DUSING_QT_UI=ON -DCMAKE_PREFIX_PATH=$(brew --prefix qt5) ${CMAKE_ARGS}"
-			;;
 		--ios) CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=cmake/Toolchains/ios.cmake ${CMAKE_ARGS}"
 			TARGET_OS=iOS
 			;;
@@ -55,6 +47,9 @@ do
 			;;
 		--debug)
 			CMAKE_ARGS="-DCMAKE_BUILD_TYPE=Debug ${CMAKE_ARGS}"
+			;;
+		--build)
+			# Compatibility flag: build is the default action of this script.
 			;;
 		--reldebug)
 			CMAKE_ARGS="-DCMAKE_BUILD_TYPE=RelWithDebInfo ${CMAKE_ARGS}"

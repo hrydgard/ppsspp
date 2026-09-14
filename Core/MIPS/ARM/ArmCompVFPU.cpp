@@ -229,6 +229,13 @@ namespace MIPSComp
 		CONDITIONAL_DISABLE(LSU_VFPU);
 		CheckMemoryBreakpoint();
 
+		if (js.kernelMode) {
+			// Send all memory accesses to the interpreter in kernel mode.
+			// TODO: Do something faster - but it hardly matters, currently this is VSH-only.
+			DISABLE;
+			return;
+		}
+
 		s32 offset = (signed short)(op & 0xFFFC);
 		int vt = ((op >> 16) & 0x1f) | ((op & 3) << 5);
 		MIPSGPReg rs = _RS;
@@ -236,7 +243,7 @@ namespace MIPSComp
 		bool doCheck = false;
 		switch (op >> 26)
 		{
-		case 50: //lv.s  // VI(vt) = Memory::Read_U32(addr);
+		case 50: //lv.s
 			{
 				if (!gpr.IsImm(rs) && jo.cachePointers && g_Config.bFastMemory && (offset & 3) == 0 && offset < 0x400 && offset > -0x400) {
 					gpr.MapRegAsPointer(rs);
@@ -281,7 +288,7 @@ namespace MIPSComp
 			}
 			break;
 
-		case 58: //sv.s   // Memory::Write_U32(VI(vt), addr);
+		case 58: //sv.s
 			{
 				if (!gpr.IsImm(rs) && jo.cachePointers && g_Config.bFastMemory && (offset & 3) == 0 && offset < 0x400 && offset > -0x400) {
 					gpr.MapRegAsPointer(rs);
@@ -333,6 +340,13 @@ namespace MIPSComp
 	void ArmJit::Comp_SVQ(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(LSU_VFPU);
 		CheckMemoryBreakpoint();
+
+		if (js.kernelMode) {
+			// Send all memory accesses to the interpreter in kernel mode.
+			// TODO: Do something faster - but it hardly matters, currently this is VSH-only.
+			DISABLE;
+			return;
+		}
 
 		int imm = (signed short)(op&0xFFFC);
 		int vt = (((op >> 16) & 0x1f)) | ((op&1) << 5);

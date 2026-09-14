@@ -24,7 +24,7 @@
 #include "GPU/ge_constants.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "Common/Data/Convert/ColorConv.h"
-#include "Common/GraphicsContext.h"
+#include "Common/GPU/GraphicsContext.h"
 #include "Common/LogReporting.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -395,8 +395,8 @@ const SoftwareCommandTableEntry softgpuCommandTable[] = {
 SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	: GPUCommon(gfxCtx, draw)
 {
-	fb.data = Memory::GetPointerWrite(0x44000000); // TODO: correct default address?
-	depthbuf.data = Memory::GetPointerWrite(0x44000000); // TODO: correct default address?
+	fb.data = Memory::GetPointerWriteOrException(0x44000000); // TODO: correct default address?
+	depthbuf.data = Memory::GetPointerWriteOrException(0x44000000); // TODO: correct default address?
 
 	memset(softgpuCmdInfo, 0, sizeof(softgpuCmdInfo));
 
@@ -500,7 +500,7 @@ void SoftGPU::ConvertTextureDescFrom16(Draw::TextureDesc &desc, int srcwidth, in
 	fbTexBuffer_.resize(srcwidth * srcheight);
 	const uint16_t *displayBuffer = overrideData;
 	if (!displayBuffer)
-		displayBuffer = (const uint16_t *)Memory::GetPointer(displayFramebuf_);
+		displayBuffer = (const uint16_t *)Memory::GetPointerOrException(displayFramebuf_);
 
 	for (int y = 0; y < srcheight; ++y) {
 		u32 *buf_line = &fbTexBuffer_[y * srcwidth];
@@ -564,7 +564,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(const DisplayLayoutConfig &config, 
 	bool hasPostShader = presentation_ && presentation_->HasPostShader();
 
 	if (PSP_CoreParameter().compat.flags().DarkStalkersPresentHack && displayFormat_ == GE_FORMAT_5551 && g_DarkStalkerStretch != DSStretch::Off) {
-		const u8 *data = Memory::GetPointerWrite(0x04088000);
+		const u8 *data = Memory::GetPointerWriteOrException(0x04088000);
 		bool fillDesc = true;
 		if (draw_->GetDataFormatSupport(Draw::DataFormat::A1B5G5R5_UNORM_PACK16) & Draw::FMT_TEXTURE) {
 			// The perfect one.
@@ -593,13 +593,13 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(const DisplayLayoutConfig &config, 
 		hasImage = false;
 		u1 = 1.0f;
 	} else if (displayFormat_ == GE_FORMAT_8888) {
-		const u8 *data = Memory::GetPointer(displayFramebuf_);
+		const u8 *data = Memory::GetPointerOrException(displayFramebuf_);
 		desc.width = displayStride_ == 0 ? srcwidth : displayStride_;
 		desc.height = srcheight;
 		desc.initData.push_back(data);
 		desc.format = Draw::DataFormat::R8G8B8A8_UNORM;
 	} else if (displayFormat_ == GE_FORMAT_5551) {
-		const u8 *data = Memory::GetPointer(displayFramebuf_);
+		const u8 *data = Memory::GetPointerOrException(displayFramebuf_);
 		bool fillDesc = true;
 		if (draw_->GetDataFormatSupport(Draw::DataFormat::A1B5G5R5_UNORM_PACK16) & Draw::FMT_TEXTURE) {
 			// The perfect one.
@@ -853,7 +853,9 @@ void SoftGPU::Execute_Prim(u32 op, u32 diff) {
 
 	const void *verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 	const void *indices = NULL;
-	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+
+	const u32 vertType = gstate.vertType;
+	if ((vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 		if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
 			ERROR_LOG_REPORT(Log::G3D, "Software: Bad index address %08x!", gstate_c.indexAddr);
 			return;
@@ -864,7 +866,7 @@ void SoftGPU::Execute_Prim(u32 op, u32 diff) {
 	cyclesExecuted += EstimatePerVertexCost() * count;
 	int bytesRead;
 	drawEngine_->transformUnit.SetDirty(dirtyFlags_);
-	drawEngine_->transformUnit.SubmitPrimitive(verts, indices, prim, count, gstate.vertType, &bytesRead, drawEngine_);
+	drawEngine_->transformUnit.SubmitPrimitive(verts, indices, prim, count, vertType, &bytesRead, drawEngine_);
 	dirtyFlags_ = drawEngine_->transformUnit.GetDirty();
 
 	SoftGPUVRAMDirty mark = (gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) != 0 ? SoftGPUVRAMDirty::DIRTY : SoftGPUVRAMDirty::DIRTY | SoftGPUVRAMDirty::REALLY_DIRTY;
@@ -873,7 +875,7 @@ void SoftGPU::Execute_Prim(u32 op, u32 diff) {
 	// After drawing, we advance the vertexAddr (when non indexed) or indexAddr (when indexed).
 	// Some games rely on this, they don't bother reloading VADDR and IADDR.
 	// The VADDR/IADDR registers are NOT updated.
-	AdvanceVerts(gstate.vertType, count, bytesRead);
+	gstate_c.AdvanceVerts(vertType, count, bytesRead);
 }
 
 void SoftGPU::Execute_Bezier(u32 op, u32 diff) {
@@ -890,7 +892,8 @@ void SoftGPU::Execute_Bezier(u32 op, u32 diff) {
 
 	const void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 	const void *indices = NULL;
-	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+	const u32 vertType = gstate.vertType;
+	if ((vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 		if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
 			ERROR_LOG_REPORT(Log::G3D, "Bad index address %08x!", gstate_c.indexAddr);
 			return;
@@ -898,8 +901,8 @@ void SoftGPU::Execute_Bezier(u32 op, u32 diff) {
 		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 	}
 
-	if ((gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) || vertTypeIsSkinningEnabled(gstate.vertType)) {
-		DEBUG_LOG_REPORT(Log::G3D, "Unusual bezier/spline vtype: %08x, morph: %d, bones: %d", gstate.vertType, (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT, vertTypeGetNumBoneWeights(gstate.vertType));
+	if ((vertType & GE_VTYPE_MORPHCOUNT_MASK) || vertTypeIsSkinningEnabled(vertType)) {
+		DEBUG_LOG_REPORT(Log::G3D, "Unusual bezier/spline vtype: %08x, morph: %d, bones: %d", vertType, (vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT, vertTypeGetNumBoneWeights(vertType));
 	}
 
 	Spline::BezierSurface surface;
@@ -924,7 +927,7 @@ void SoftGPU::Execute_Bezier(u32 op, u32 diff) {
 
 	// After drawing, we advance pointers - see SubmitPrim which does the same.
 	int count = surface.num_points_u * surface.num_points_v;
-	AdvanceVerts(gstate.vertType, count, bytesRead);
+	gstate_c.AdvanceVerts(vertType, count, bytesRead);
 }
 
 void SoftGPU::Execute_Spline(u32 op, u32 diff) {
@@ -941,7 +944,8 @@ void SoftGPU::Execute_Spline(u32 op, u32 diff) {
 
 	const void *control_points = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 	const void *indices = NULL;
-	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+	const u32 vertType = gstate.vertType;
+	if ((vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
 		if (!Memory::IsValidAddress(gstate_c.indexAddr)) {
 			ERROR_LOG_REPORT(Log::G3D, "Bad index address %08x!", gstate_c.indexAddr);
 			return;
@@ -949,8 +953,8 @@ void SoftGPU::Execute_Spline(u32 op, u32 diff) {
 		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 	}
 
-	if ((gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) || vertTypeIsSkinningEnabled(gstate.vertType)) {
-		DEBUG_LOG_REPORT(Log::G3D, "Unusual bezier/spline vtype: %08x, morph: %d, bones: %d", gstate.vertType, (gstate.vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT, vertTypeGetNumBoneWeights(gstate.vertType));
+	if ((vertType & GE_VTYPE_MORPHCOUNT_MASK) || vertTypeIsSkinningEnabled(vertType)) {
+		DEBUG_LOG_REPORT(Log::G3D, "Unusual bezier/spline vtype: %08x, morph: %d, bones: %d", vertType, (vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT, vertTypeGetNumBoneWeights(vertType));
 	}
 
 	Spline::SplineSurface surface;
@@ -969,7 +973,7 @@ void SoftGPU::Execute_Spline(u32 op, u32 diff) {
 
 	int bytesRead = 0;
 	drawEngine_->transformUnit.SetDirty(dirtyFlags_);
-	drawEngineCommon_->SubmitCurve(control_points, indices, surface, gstate.vertType, &bytesRead, "spline");
+	drawEngineCommon_->SubmitCurve(control_points, indices, surface, vertType, &bytesRead, "spline");
 	dirtyFlags_ = drawEngine_->transformUnit.GetDirty();
 
 	SoftGPUVRAMDirty mark = (gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) != 0 ? SoftGPUVRAMDirty::DIRTY : SoftGPUVRAMDirty::DIRTY | SoftGPUVRAMDirty::REALLY_DIRTY;
@@ -977,7 +981,7 @@ void SoftGPU::Execute_Spline(u32 op, u32 diff) {
 
 	// After drawing, we advance pointers - see SubmitPrim which does the same.
 	int count = surface.num_points_u * surface.num_points_v;
-	AdvanceVerts(gstate.vertType, count, bytesRead);
+	gstate_c.AdvanceVerts(vertType, count, bytesRead);
 }
 
 void SoftGPU::Execute_LoadClut(u32 op, u32 diff) {
@@ -1033,7 +1037,7 @@ void SoftGPU::Execute_ZbufPtr(u32 op, u32 diff) {
 		drawEngine_->transformUnit.Flush(this, "depthbuf");
 		// For the pointer, ignore memory mirrors.  This also gives some buffer for draws that go outside.
 		// TODO: Confirm how wrapping is handled in drawing.  Adjust if we ever handle VRAM mirrors more accurately.
-		depthbuf.data = Memory::GetPointerWrite(gstate.getDepthBufAddress() & 0x041FFFF0);
+		depthbuf.data = Memory::GetPointerWriteOrException(gstate.getDepthBufAddress() & 0x041FFFF0);
 	}
 }
 
@@ -1361,7 +1365,7 @@ bool SoftGPU::GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferT
 		size.y = 272;
 		stride = displayStride_;
 		fmt = displayFormat_;
-		src = Memory::GetPointer(displayFramebuf_);
+		src = Memory::GetPointerOrException(displayFramebuf_);
 	}
 
 	buffer.Allocate(size.x, size.y, fmt);

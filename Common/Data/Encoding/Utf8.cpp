@@ -113,33 +113,15 @@ uint32_t u8_nextchar(const char *s, int *index, size_t size) {
 	do {
 		ch = (ch << 6) + (unsigned char)s[i++];
 		sz++;
+		// Prevent reading past the offsetsFromUTF8 array (max valid UTF-8 is 4 bytes, array has 6 elements)
+		if (sz >= 6) {
+			break;
+		}
 	} while (i < size && s[i] && ((s[i]) & 0xC0) == 0x80);
 	*index = i;
+	// Clamp sz to valid range
+	if (sz > 6) sz = 6;
 	return ch - offsetsFromUTF8[sz - 1];
-}
-
-uint32_t u8_nextchar_unsafe(const char *s, int *i) {
-	uint32_t ch = (unsigned char)s[(*i)++];
-	int sz = 1;
-	if (ch >= 0xF0) {
-		sz++;
-		ch &= ~0x10;
-	}
-	if (ch >= 0xE0) {
-		sz++;
-		ch &= ~0x20;
-	}
-	if (ch >= 0xC0) {
-		sz++;
-		ch &= ~0xC0;
-	}
-
-	// Just assume the bytes must be there.  This is the logic used on the PSP.
-	for (int j = 1; j < sz; ++j) {
-		ch <<= 6;
-		ch += ((unsigned char)s[(*i)++]) & 0x3F;
-	}
-	return ch;
 }
 
 void u8_inc(const char *s, int *i) {
@@ -203,11 +185,13 @@ std::string ConvertWStringToUTF8(const std::wstring &wstr) {
 }
 
 void ConvertUTF8ToWString(wchar_t *dest, size_t destSize, std::string_view source) {
+	if (destSize == 0) return;
 	int len = (int)source.size();
 	destSize -= 1;  // account for the \0.
 	int size = (int)MultiByteToWideChar(CP_UTF8, 0, source.data(), len, NULL, 0);
-	MultiByteToWideChar(CP_UTF8, 0, source.data(), len, dest, std::min((int)destSize, size));
-	dest[size] = 0;
+	int actualSize = std::min((int)destSize, size);
+	MultiByteToWideChar(CP_UTF8, 0, source.data(), len, dest, actualSize);
+	dest[actualSize] = 0;  // Write null terminator at the correct position
 }
 
 std::wstring ConvertUTF8ToWString(const std::string_view source) {
@@ -240,16 +224,96 @@ std::string ConvertUCS2ToUTF8(const std::u16string &wstr) {
 std::string SanitizeUTF8(std::string_view utf8string) {
 	UTF8 utf(utf8string);
 	std::string s;
+	// Check for overflow
+	if (utf8string.size() > SIZE_MAX / 4) {
+		ERROR_LOG(Log::Common, "SanitizeUTF8: Input too large");
+		return std::string();
+	}
 	// Worst case.
 	s.resize(utf8string.size() * 4);
 
 	// This stops at invalid start bytes.
 	size_t pos = 0;
 	while (!utf.end() && !utf.invalid()) {
-		int c = utf.next_unsafe();
+		int c = utf.next();
 		pos += UTF8::encode(&s[pos], c);
 	}
 	s.resize(pos);
+	return s;
+}
+
+// Length of the well-formed UTF-8 sequence starting at s, or 0 if it isn't one. Strict per
+// RFC 3629: rejects overlong encodings, surrogates (U+D800..U+DFFF) and anything above U+10FFFF,
+// all of which some decoders accept but which aren't legal UTF-8 and get rejected downstream.
+static int ValidUTF8SequenceLength(const unsigned char *s, size_t remaining) {
+	const unsigned char c = s[0];
+	int length;
+	unsigned char min2, max2;  // Allowed range of the *second* byte, which is the constrained one.
+
+	if (c < 0x80)
+		return 1;
+	else if (c >= 0xC2 && c <= 0xDF)
+		length = 2, min2 = 0x80, max2 = 0xBF;
+	else if (c == 0xE0)
+		length = 3, min2 = 0xA0, max2 = 0xBF;  // Would be overlong below A0.
+	else if (c >= 0xE1 && c <= 0xEC)
+		length = 3, min2 = 0x80, max2 = 0xBF;
+	else if (c == 0xED)
+		length = 3, min2 = 0x80, max2 = 0x9F;  // Above 9F is a surrogate.
+	else if (c >= 0xEE && c <= 0xEF)
+		length = 3, min2 = 0x80, max2 = 0xBF;
+	else if (c == 0xF0)
+		length = 4, min2 = 0x90, max2 = 0xBF;  // Would be overlong below 90.
+	else if (c >= 0xF1 && c <= 0xF3)
+		length = 4, min2 = 0x80, max2 = 0xBF;
+	else if (c == 0xF4)
+		length = 4, min2 = 0x80, max2 = 0x8F;  // Above 8F is past U+10FFFF.
+	else
+		return 0;  // Continuation byte with nothing to continue, or C0/C1/F5..FF.
+
+	if (remaining < (size_t)length)
+		return 0;
+	if (s[1] < min2 || s[1] > max2)
+		return 0;
+	for (int i = 2; i < length; ++i) {
+		if ((s[i] & 0xC0) != 0x80)
+			return 0;
+	}
+	return length;
+}
+
+std::string ReplaceInvalidUTF8(std::string_view utf8string) {
+	static const char REPLACEMENT[] = "\xEF\xBF\xBD";  // U+FFFD
+
+	const unsigned char *bytes = (const unsigned char *)utf8string.data();
+	const size_t size = utf8string.size();
+
+	// Overwhelmingly the common case - avoid the copy entirely when there's nothing to fix.
+	size_t pos = 0;
+	while (pos < size) {
+		int length = ValidUTF8SequenceLength(bytes + pos, size - pos);
+		if (length == 0)
+			break;
+		pos += length;
+	}
+	if (pos == size)
+		return std::string(utf8string);
+
+	std::string s;
+	s.reserve(size);
+	s.append(utf8string.substr(0, pos));
+	while (pos < size) {
+		int length = ValidUTF8SequenceLength(bytes + pos, size - pos);
+		if (length == 0) {
+			// Not the start of anything legal - swallow exactly one byte so we resynchronize on
+			// the next one rather than skipping over a valid sequence that follows.
+			s.append(REPLACEMENT, sizeof(REPLACEMENT) - 1);
+			pos++;
+		} else {
+			s.append(utf8string.substr(pos, length));
+			pos += length;
+		}
+	}
 	return s;
 }
 
@@ -371,7 +435,6 @@ void ConvertUTF8ToJavaModifiedUTF8(std::string *output, std::string_view input) 
 		}
 	}
 	output->resize(out_idx);
-	_dbg_assert_(output->size() >= input.size());
 }
 
 std::string NormalizeForSearch(std::string_view input) {

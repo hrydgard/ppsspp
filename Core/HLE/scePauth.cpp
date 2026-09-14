@@ -27,37 +27,53 @@
 #include "Core/HLE/FunctionWrappers.h"
 #include "Common/File/FileUtil.h"
 
-static int scePauth_F7AA47F6(u32 srcPtr, int srcLength, u32 destLengthPtr, u32 workArea)
-{
-	auto src = Memory::GetPointerWrite(srcPtr);
-	auto key = Memory::GetPointer(workArea);
+// workarea is actually the key?
+static int scePauth_F7AA47F6(u32 srcPtr, int srcLength, u32 destLengthPtr, u32 workArea) {
+	if (!Memory::IsValidRange(srcPtr, srcLength)) {
+		return hleLogError(Log::HLE, -1, "invalid source range");
+	}
+	if (!Memory::IsValidRange(workArea, 16)) {  // guess about the key size
+		return hleLogError(Log::HLE, -1, "invalid work area pointer");
+	}
+	if (!Memory::IsValid4AlignedAddress(destLengthPtr)) {
+		return hleLogError(Log::HLE, -1, "invalid dest length pointer");
+	}
+
+	u8 *src = Memory::GetPointerWriteUnchecked(srcPtr);
+	const u8 *key = Memory::GetPointerUnchecked(workArea);
 
 	const auto decryptResult = pspDecryptPRX(src, src, srcLength, key);
-
-	if (decryptResult < 0)
-	{
+	if (decryptResult < 0) {
 		ERROR_LOG(Log::HLE, "Pauth decryption failed 0x%08X", decryptResult);
 		return decryptResult;
 	}
 
-	Memory::Write_U32(decryptResult, destLengthPtr);
+	Memory::WriteUnchecked_U32(decryptResult, destLengthPtr);
 	return 0;
 }
 
-static int scePauth_98B83B5D(u32 srcPtr, int srcLength, u32 destLengthPtr, u32 workArea)
-{
-	auto src = Memory::GetPointerWrite(srcPtr);
-	auto key = Memory::GetPointer(workArea);
+static int scePauth_98B83B5D(u32 srcPtr, int srcLength, u32 destLengthPtr, u32 workArea) {
+	if (!Memory::IsValidRange(srcPtr, srcLength)) {
+		return hleLogError(Log::HLE, -1, "invalid source range");
+	}
+	if (!Memory::IsValidRange(workArea, 16)) {  // guess about the key size
+		return hleLogError(Log::HLE, -1, "invalid work area pointer");
+	}
+	if (!Memory::IsValid4AlignedAddress(destLengthPtr)) {
+		return hleLogError(Log::HLE, -1, "invalid dest length pointer");
+	}
+
+	u8 *src = Memory::GetPointerWriteUnchecked(srcPtr);
+	const u8 *key = Memory::GetPointerUnchecked(workArea);
 
 	const auto decryptResult = pspDecryptPRX(src, src, srcLength, key);
 
-	if (decryptResult < 0)
-	{
+	if (decryptResult < 0) {
 		ERROR_LOG(Log::HLE, "Pauth decryption failed 0x%08X", decryptResult);
 		return decryptResult;
 	}
 
-	Memory::Write_U32(decryptResult, destLengthPtr);
+	Memory::WriteUnchecked_U32(decryptResult, destLengthPtr);
 	return 0;
 }
 
@@ -66,7 +82,6 @@ const HLEFunction scePauth[] = {
 	{0X98B83B5D, &WrapI_UIUU<scePauth_98B83B5D>,     "scePauth_98B83B5D", 'i', "xixx"},
 };
 
-void Register_scePauth()
-{
+void Register_scePauth() {
 	RegisterHLEModule("scePauth", ARRAY_SIZE(scePauth), scePauth);
 }

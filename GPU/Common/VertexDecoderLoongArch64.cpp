@@ -93,9 +93,6 @@ static constexpr LoongArch64Reg regs_to_save_fp[]{ F24, F25, F26, F27, F28, F29,
 // V16+ are free-for-all for matrices. In 16 registers, we can fit 4 4x4 matrices.
 
 static const JitLookup jitLookup[] = {
-	{&VertexDecoder::Step_WeightsU8, &VertexDecoderJitCache::Jit_WeightsU8},
-	{&VertexDecoder::Step_WeightsU16, &VertexDecoderJitCache::Jit_WeightsU16},
-	{&VertexDecoder::Step_WeightsFloat, &VertexDecoderJitCache::Jit_WeightsFloat},
 	{&VertexDecoder::Step_WeightsU8Skin, &VertexDecoderJitCache::Jit_WeightsU8Skin},
 	{&VertexDecoder::Step_WeightsU16Skin, &VertexDecoderJitCache::Jit_WeightsU16Skin},
 	{&VertexDecoder::Step_WeightsFloatSkin, &VertexDecoderJitCache::Jit_WeightsFloatSkin},
@@ -412,46 +409,6 @@ void VertexDecoderJitCache::Jit_ApplyWeights() {
 			VFMADD_S(V7, V11, lsxScratchReg, V7);
 			break;
 		}
-	}
-}
-
-void VertexDecoderJitCache::Jit_WeightsU8() {
-	// Basic implementation - a byte at a time.
-    // TODO: Could optimize with unaligned load/store
-	int j;
-	for (j = 0; j < dec_->nweights; j++) {
-		LD_B(tempReg1, srcReg, dec_->weightoff + j);
-		ST_B(tempReg1, dstReg, dec_->decFmt.w0off + j);
-	}
-	while (j & 3) {
-		ST_B(R_ZERO, dstReg, dec_->decFmt.w0off + j);
-		j++;
-	}
-}
-
-void VertexDecoderJitCache::Jit_WeightsU16() {
-	// Basic implementation - a short at a time.
-    // TODO: Could optimize with unaligned load/store
-	int j;
-	for (j = 0; j < dec_->nweights; j++) {
-		LD_H(tempReg1, srcReg, dec_->weightoff + j * 2);
-		ST_H(tempReg1, dstReg, dec_->decFmt.w0off + j * 2);
-	}
-	while (j & 3) {
-		ST_H(R_ZERO, dstReg, dec_->decFmt.w0off + j * 2);
-		j++;
-	}
-}
-
-void VertexDecoderJitCache::Jit_WeightsFloat() {
-	int j;
-	for (j = 0; j < dec_->nweights; j++) {
-		LD_W(tempReg1, srcReg, dec_->weightoff + j * 4);
-		ST_W(tempReg1, dstReg, dec_->decFmt.w0off + j * 4);
-	}
-	while (j & 3) {  // Zero additional weights rounding up to 4.
-		ST_W(R_ZERO, dstReg, dec_->decFmt.w0off + j * 4);
-		j++;
 	}
 }
 

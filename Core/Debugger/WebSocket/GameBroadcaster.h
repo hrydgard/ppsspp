@@ -17,20 +17,14 @@
 
 #pragma once
 
-#include "Core/System.h"
+#include <string>
 
-namespace net {
-class WebSocketServer;
-}
+namespace GameBroadcaster {
 
-struct GameBroadcaster {
-public:
-	GameBroadcaster() {
-		prevState_ = GetUIState();
-	}
+// Notices game start/quit/pause/resume transitions and returns the formatted event for one, or an
+// empty string if nothing changed. CPU thread only - it reads the UI state and the param SFO, and
+// is what lets connected debuggers hear about this without touching either from their own threads.
+// Must be called even when no debugger is connected, so the transition state doesn't go stale.
+std::string PollChange();
 
-	void Broadcast(net::WebSocketServer *ws);
-
-private:
-	GlobalUIState prevState_;
-};
+}  // namespace GameBroadcaster

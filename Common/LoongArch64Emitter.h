@@ -165,7 +165,15 @@ public:
 		static_assert(std::is_function<T>::value, "QuickCallFunction without function");
 		QuickCallFunction((const u8 *)func, scratchreg);
 	}
-
+	void QuickCallFunctionR(const u8 *func, LoongArch64Reg arg, LoongArch64Reg scratchreg = R_RA) {
+		MOVE(LoongArch64Reg::X4, arg);
+		QuickJump(scratchreg, R_RA, func);
+	}
+	template <typename T>
+	void QuickCallFunctionR(T *func, LoongArch64Reg arg, LoongArch64Reg scratchreg = R_RA) {
+		static_assert(std::is_function<T>::value, "QuickCallFunction without function");
+		QuickCallFunctionR((const u8 *)func, arg, scratchreg);
+	}
     // https://loongson.github.io/LoongArch-Documentation/LoongArch-Vol1-EN.html
     // https://github.com/loongson-community/loongarch-opcodes/
 

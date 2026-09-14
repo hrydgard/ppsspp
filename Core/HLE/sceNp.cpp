@@ -28,9 +28,9 @@
 #include "Core/CoreTiming.h"
 #include "Core/Config.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/HLEUtil.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceNp.h"
-
 
 bool npAuthInited = false;
 int npSigninState = NP_SIGNIN_STATUS_NONE;
@@ -173,8 +173,8 @@ static int sceNpGetContentRatingFlag(u32 parentalControlAddr, u32 userAgeAddr)
 	INFO_LOG(Log::sceNet, "%s - Parental Control: %d", __FUNCTION__, npParentalControl);
 	INFO_LOG(Log::sceNet, "%s - User Age: %d", __FUNCTION__, npUserAge);
 
-	Memory::Write_U32(npParentalControl, parentalControlAddr);
-	Memory::Write_U32(npUserAge, userAgeAddr);
+	Memory::WriteOrException_U32(npParentalControl, parentalControlAddr);
+	Memory::WriteOrException_U32(npUserAge, userAgeAddr);
 
 	return hleLogWarning(Log::sceNet, 0, "UNTESTED");
 }
@@ -184,7 +184,7 @@ static int sceNpGetChatRestrictionFlag(u32 flagAddr)
 	if (!Memory::IsValidAddress(flagAddr))
 		return hleLogError(Log::sceNet, SCE_NP_ERROR_INVALID_ARGUMENT, "invalid arg");
 
-	Memory::Write_U32(npChatRestriction, flagAddr);
+	Memory::WriteOrException_U32(npChatRestriction, flagAddr);
 
 	return hleLogWarning(Log::sceNet, 0, "Chat restriction: %d", npChatRestriction);
 }
@@ -354,14 +354,12 @@ param seems to be a struct where offset:
 	+20: 32-bit a pointer to a random data (4 to 8-bytes data max? both 2x 32-bit seems to be a valid pointer). optional handler args?
 return value >= 0 and <0 seems to be stored at a different location by the game (valid result vs error code?)
 */
-int sceNpAuthCreateStartRequest(u32 paramAddr)
-{
-	if (!Memory::IsValidAddress(paramAddr))
-		return hleLogError(Log::sceNet, SCE_NP_AUTH_ERROR_INVALID_ARGUMENT, "invalid arg");
-
+int sceNpAuthCreateStartRequest(u32 paramAddr) {
 	SceNpAuthRequestParameter params = {};
-	int size = Memory::Read_U32(paramAddr);
-	Memory::Memcpy(&params, paramAddr, size);
+	if (!ReadVariableSizedStruct(paramAddr, &params)) {
+		return hleLogError(Log::sceNet, SCE_NP_AUTH_ERROR_INVALID_ARGUMENT, "invalid arg");
+	}
+
 	npServiceId = Memory::GetCharPointer(params.serviceIdAddr);
 
 	INFO_LOG(Log::sceNet, "%s - Max Version: %u.%u", __FUNCTION__, params.version.major, params.version.minor);
@@ -434,7 +432,7 @@ int sceNpAuthGetTicket(u32 requestId, u32 bufferAddr, u32 length) {
 	// Dummy Login ticket returned as Login response. Dummy ticket contents were taken from https://www.psdevwiki.com/ps3/X-I-5-Ticket
 	ticket.header.version = TICKET_VER_2_1;
 	ticket.header.size = 0xF0; // size excluding the header
-	u8* buf = Memory::GetPointerWrite(bufferAddr + sizeof(ticket));
+	u8* buf = Memory::GetPointerWriteOrException(bufferAddr + sizeof(ticket));
 	int ofs = 0;
 	ofs += writeTicketParam(buf, PARAM_TYPE_STRING_ASCII, "\x4c\x47\x56\x3b\x81\x39\x4a\x22\xd8\x6b\xc1\x57\x71\x6e\xfd\xb8\xab\x63\xcc\x51", 20); // 20 random letters, token key or SceNpSignature?
 	ofs += writeTicketU32Param(buf + ofs, PARAM_TYPE_INT, 0x0100); // a flags?
@@ -518,13 +516,13 @@ int sceNpAuthGetTicketParam(u32 ticketBufPtr, int ticketLen, int paramNum, u32 b
 		return hleLogError(Log::sceNet, SCE_NP_MANAGER_ERROR_INVALID_ARGUMENT);
 	}
 
-	SceNpTicket* ticket = (SceNpTicket*)Memory::GetPointer(ticketBufPtr);
+	SceNpTicket* ticket = (SceNpTicket*)Memory::GetPointerOrException(ticketBufPtr);
 	u32 inbuf = ticketBufPtr;
 	inbuf += sizeof(ticket->header);
 	inbuf += ticket->section.size + sizeof(ticket->section);
 	u32 outbuf = bufferPtr;
 	for (int i = 0; i < paramNum; i++) {
-		SceNpTicketParamData* ticketParam = (SceNpTicketParamData*)Memory::GetPointer(inbuf);
+		SceNpTicketParamData* ticketParam = (SceNpTicketParamData*)Memory::GetPointerOrException(inbuf);
 		u32 sz = (u32)sizeof(SceNpTicketParamData) + ticketParam->length;
 		Memory::Memcpy(outbuf, inbuf, sz);
 		DEBUG_LOG(Log::sceNet, "%s - Param #%d: Type = %04x, Length = %u", __FUNCTION__, i, static_cast<unsigned int>(ticketParam->type), static_cast<unsigned int>(ticketParam->length));

@@ -187,12 +187,6 @@ SoftwareTransformAction RunSoftwareTransform(SoftwareTransformParams &params, in
 			int scissorX2 = gstate.getScissorX2() + 1;
 			int scissorY2 = gstate.getScissorY2() + 1;
 			reallyAClear = IsReallyAClear(transformed, numDecodedVerts, scissorX2, scissorY2);
-
-			if (reallyAClear && gstate.getColorMask() != 0xFFFFFFFF && (gstate.isClearModeColorMask() || gstate.isClearModeAlphaMask())) {
-				result->setSafeSize = true;
-				result->safeWidth = scissorX2;
-				result->safeHeight = scissorY2;
-			}
 		}
 		if (params.allowClear && reallyAClear && gl_extensions.gpuVendor != GPU_VENDOR_IMGTEC) {
 			// If alpha is not allowed to be separate, it must match for both depth/stencil and color.  Vulkan requires this.
@@ -381,24 +375,6 @@ SoftwareTransformAction RunSoftwareTransform(SoftwareTransformParams &params, in
 			// Projection happens later in ProjectClipAndExpand.
 
 			// Vertex depth rounding is done in the shader if enabled, to simulate the 16-bit depth buffer.
-		}
-	}
-
-	// TODO: This doesn't seem to be a very good check, but let's leave it for now.
-
-	// Detect full screen "clears" that might not be so obvious, to set the safe size if possible.
-	if (!result->setSafeSize && prim == GE_PRIM_RECTANGLES && numDecodedVerts == 2 && throughmode) {
-		bool clearingColor = gstate.isModeClear() && (gstate.isClearModeColorMask() || gstate.isClearModeAlphaMask());
-		bool writingColor = gstate.getColorMask() != 0xFFFFFFFF;
-		bool startsZeroX = transformed[0].x <= 0.0f && transformed[1].x > 0.0f && transformed[1].x > transformed[0].x;
-		bool startsZeroY = transformed[0].y <= 0.0f && transformed[1].y > 0.0f && transformed[1].y > transformed[0].y;
-
-		if (startsZeroX && startsZeroY && (clearingColor || writingColor)) {
-			int scissorX2 = gstate.getScissorX2() + 1;
-			int scissorY2 = gstate.getScissorY2() + 1;
-			result->setSafeSize = true;
-			result->safeWidth = std::min(scissorX2, (int)transformed[1].x);
-			result->safeHeight = std::min(scissorY2, (int)transformed[1].y);
 		}
 	}
 
@@ -979,7 +955,8 @@ static SoftwareTransformAction ProjectClipAndExpand(SoftwareTransformParams &par
 
 static bool ExpandRectangles(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int *drawIndexCount, bool throughmode, bool *pixelMappedExactly) {
 	// Before we start, do a sanity check - does the output fit?
-	if ((vertexCount / 2) * 6 > indsSize) {
+	// The expanded indices are written after the input ones, at inds + vertexCount.
+	if (vertexCount + (vertexCount / 2) * 6 > indsSize) {
 		// Won't fit, kill the draw.
 		return false;
 	}
@@ -1152,7 +1129,8 @@ void IndexBufferProvokingLastToFirst(int prim, u16 *inds, int indsSize) {
 
 static bool ExpandLines(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int *drawIndexCount, bool throughmode) {
 	// Before we start, do a sanity check - does the output fit?
-	if ((vertexCount / 2) * 6 > indsSize) {
+	// The expanded indices are written after the input ones, at inds + vertexCount.
+	if (vertexCount + (vertexCount / 2) * 6 > indsSize) {
 		// Won't fit, kill the draw.
 		return false;
 	}
@@ -1285,7 +1263,8 @@ static bool ExpandLines(int vertexCount, int &numDecodedVerts, int vertsSize, u1
 
 static bool ExpandPoints(int vertexCount, int &maxIndex, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int *drawIndexCount, bool throughmode, float pointScale) {
 	// Before we start, do a sanity check - does the output fit?
-	if (vertexCount * 6 > indsSize) {
+	// The expanded indices are written after the input ones, at inds + vertexCount.
+	if (vertexCount + vertexCount * 6 > indsSize) {
 		// Won't fit, kill the draw.
 		return false;
 	}
@@ -1508,12 +1487,14 @@ bool GetCurrentDrawAsDebugVertices(DrawEngineCommon *drawEngine, GECommand cmd, 
 		return false;
 	}
 
-	const u32 vertTypeID = GetVertTypeID(gstate.vertType, gstate.getUVGenMode(), true);
+	const u32 vertTypeID = GetVertTypeID(gstate.vertType, gstate.getUVGenMode());
 	const bool throughMode = (vertTypeID & GE_VTYPE_THROUGH) != 0;
 
-	// Points is the only primitive that generates 6x as many vertices as input indices (2 triangles per point).
+	// Two expansions happen in here, and both multiply the input count, so a fixed 65536 wasn't
+	// enough: index generation turns strips/fans into up to 3 indices per input index, and then
+	// RunSoftwareTransform can expand points/lines/rects to 6 more each, written after those.
 	std::vector<u16> indexTemp;
-	indexTemp.resize(65536); // (prim == GEPrimitiveType::GE_PRIM_POINTS ? count * 6 : count * 3) * 4);
+	indexTemp.resize((size_t)count * 3 * 7 + 32);
 
 	// First, inspect the indices to find the range we need to decode.
 	const u8 *indsPtr = Memory::GetPointerUnchecked(gstate_c.indexAddr);
@@ -1532,7 +1513,7 @@ bool GetCurrentDrawAsDebugVertices(DrawEngineCommon *drawEngine, GECommand cmd, 
 		indexLowerBound = 0;
 	}
 
-	int verticesToDecode = indexUpperBound + 1 - indexLowerBound;
+	const int verticesToDecode = indexUpperBound + 1 - indexLowerBound;
 
 	const u8 *verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 

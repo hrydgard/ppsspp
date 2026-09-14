@@ -405,6 +405,13 @@ info.pc,
 info.ra);
 		ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
 		y += 180;
+	} else if (info.type == MIPSExceptionType::FPU) {
+		snprintf(statbuf, sizeof(statbuf), R"(
+FPU: %s
+PC: %08x
+)", FPUExceptionTypeAsString(info.fpu_type), info.pc);
+		ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
+		y += 180;
 	} else if (info.type == MIPSExceptionType::BREAK) {
 		snprintf(statbuf, sizeof(statbuf), R"(
 BREAK

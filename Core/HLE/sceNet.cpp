@@ -31,6 +31,7 @@
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"
 #include "Common/Data/Format/JSONReader.h"
+#include "Common/System/System.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/FunctionWrappers.h"
@@ -218,6 +219,10 @@ bool LoadDNSForGameID(std::string_view gameID, std::string_view jsonStr, InfraDN
 
 	const JsonGet root = reader.root();
 	const JsonGet def = root.getDict("default");
+	if (!def) {
+		ERROR_LOG(Log::sceNet, "Infra DNS JSON is missing a default object");
+		return false;
+	}
 
 	// Load the default DNS.
 	if (def) {
@@ -233,6 +238,10 @@ bool LoadDNSForGameID(std::string_view gameID, std::string_view jsonStr, InfraDN
 	}
 
 	const JsonNode *games = root.getArray("games");
+	if (!games) {
+		ERROR_LOG(Log::sceNet, "Infra DNS JSON is missing a games array");
+		return false;
+	}
 	for (const JsonNode *iter : games->value) {
 		JsonGet game = iter->value;
 		// Goddamn I have to change the json reader we're using. So ugly.
@@ -374,10 +383,15 @@ bool LoadAutoDNS(std::string_view json) {
 
 std::shared_ptr<http::Request> g_infraDL;
 
-static const std::string_view jsonUrl = "http://metadata.ppsspp.org/infra-dns.json";
+static constexpr std::string_view jsonUrlHttp = "http://metadata.ppsspp.org/infra-dns.json";
+static constexpr std::string_view jsonUrlHttps = "https://metadata.ppsspp.org/infra-dns.json";
+
+static std::string_view GetInfraDNSUrl() {
+	return System_GetPropertyBool(SYSPROP_SUPPORTS_HTTPS) ? jsonUrlHttps : jsonUrlHttp;
+}
 
 void DeleteAutoDNSCacheFile() {
-	File::Delete(g_DownloadManager.UrlToCachePath(jsonUrl));
+	File::Delete(g_DownloadManager.UrlToCachePath(GetInfraDNSUrl()));
 }
 
 void StartInfraJsonDownload() {
@@ -391,7 +405,7 @@ void StartInfraJsonDownload() {
 
 	if (!g_Config.bDontDownloadInfraJson) {
 		const char * const acceptMime = "application/json, text/*; q=0.9, */*; q=0.8";
-		g_infraDL = g_DownloadManager.StartDownload(jsonUrl, Path(), http::RequestFlags::Cached24H, acceptMime);
+		g_infraDL = g_DownloadManager.StartDownload(GetInfraDNSUrl(), Path(), http::RequestFlags::Cached24H, acceptMime);
 	}
 }
 
@@ -436,7 +450,7 @@ bool PollInfraJsonDownload(std::string *jsonOutput) {
 		// First, fall back to cache if it exists. Could build this functionality into the download manager
 		// but it would be a bit awkward.
 		std::string json;
-		if (File::ReadBinaryFileToString(g_DownloadManager.UrlToCachePath(jsonUrl), &json) && !json.empty()) {
+		if (File::ReadBinaryFileToString(g_DownloadManager.UrlToCachePath(GetInfraDNSUrl()), &json) && !json.empty()) {
 			WARN_LOG(Log::sceNet, "Failed to download infra-dns.json, falling back to cached file");
 			*jsonOutput = json;
 			LoadAutoDNS(*jsonOutput);
@@ -626,6 +640,10 @@ void __NetInit() {
 #ifdef __LIBRETRO__
 	__UPnPInit(2000);
 #endif
+	// The UPnP service thread only exists while UPnP is enabled, and a per-game config (or a
+	// libretro core option) can turn it on after startup. Kick it here so discovery is already
+	// done by the time the game binds its first socket, rather than starting on that request.
+	UPnP_Notify();
 
 	__ResetInitNetLib();
 	__NetApctlInit();
@@ -1098,7 +1116,7 @@ static void sceNetEtherStrton(u32 bufferPtr, u32 macPtr) {
 
 	if (Memory::IsValidAddress(bufferPtr) && Memory::IsValidAddress(macPtr)) {
 		const char *buffer = (const char *)Memory::GetPointerUnchecked(bufferPtr);
-		u8 *mac = Memory::GetPointerWrite(macPtr);
+		u8 *mac = Memory::GetPointerWriteOrException(macPtr);
 
 		// MAC address is always 6 pairs of hex digits.
 		// TODO: Funny stuff happens if it's too short.
@@ -1124,7 +1142,7 @@ static void sceNetEtherStrton(u32 bufferPtr, u32 macPtr) {
 			}
 		}
 
-		VERBOSE_LOG(Log::sceNet, "sceNetEtherStrton - [%s]", mac2str((SceNetEtherAddr*)Memory::GetPointer(macPtr)).c_str());
+		VERBOSE_LOG(Log::sceNet, "sceNetEtherStrton - [%s]", mac2str((SceNetEtherAddr*)Memory::GetPointerOrException(macPtr)).c_str());
 		// Seems to maybe kinda return the last value.  Probably returns void.
 		//return value;
 	}
@@ -1521,7 +1539,7 @@ static int sceNetApctlGetState(u32 pStateAddr) {
 	// Valid Arguments
 	if (Memory::IsValidAddress(pStateAddr)) {
 		// Return Thread Status
-		Memory::Write_U32(NetApctl_GetState(), pStateAddr);
+		Memory::WriteOrException_U32(NetApctl_GetState(), pStateAddr);
 		// Return Success
 		return hleLogDebug(Log::sceNet, 0);
 	}
@@ -1552,12 +1570,12 @@ int NetApctl_GetBSSDescIDListUser(u32 sizeAddr, u32 bufAddr) {
 	const int userInfoSize = 8; // 8 bytes per entry (next address + entry id)
 	// Faking 4 entries, games like MGS:PW Recruit will need to have a different AP for each entry
 	int entries = 4;
-	if (!Memory::IsValidAddress(sizeAddr) || !Memory::IsValidAddress(bufAddr))
+	if (!Memory::IsValid4AlignedAddress(sizeAddr) || !Memory::IsValidAddress(bufAddr))
 		return hleLogError(Log::sceNet, -1, "apctl invalid arg"); // 0x8002013A or ERROR_NET_WLAN_INVALID_ARG ?
 
-	int size = Memory::Read_U32(sizeAddr);
+	int size = Memory::ReadUnchecked_U32(sizeAddr);
 	// Return size required
-	Memory::Write_U32(entries * userInfoSize, sizeAddr);
+	Memory::WriteUnchecked_U32(entries * userInfoSize, sizeAddr);
 
 	if (bufAddr != 0 && Memory::IsValidAddress(sizeAddr)) {
 		int offset = 0;
@@ -1570,16 +1588,16 @@ int NetApctl_GetBSSDescIDListUser(u32 sizeAddr, u32 bufAddr) {
 			DEBUG_LOG(Log::sceNet, "%s writing ID#%d to %08x", __FUNCTION__, i, bufAddr + offset);
 
 			// Pointer to next Network structure in list
-			Memory::Write_U32((i + 1) * userInfoSize + bufAddr, bufAddr + offset);
+			Memory::WriteUnchecked_U32((i + 1) * userInfoSize + bufAddr, bufAddr + offset);
 			offset += 4;
 
 			// Entry ID
-			Memory::Write_U32(i, bufAddr + offset);
+			Memory::WriteUnchecked_U32(i, bufAddr + offset);
 			offset += 4;
 		}
 		// Fix the last Pointer
 		if (offset > 0)
-			Memory::Write_U32(0, bufAddr + offset - userInfoSize);
+			Memory::WriteUnchecked_U32(0, bufAddr + offset - userInfoSize);
 	}
 
 	return hleLogInfo(Log::sceNet, 0);
@@ -1621,33 +1639,33 @@ int NetApctl_GetBSSDescEntryUser(int entryId, int infoId, u32 resultAddr) {
 	case PSP_NET_APCTL_DESC_SSID_NAME_LENGTH:
 		// Return one 32-bit value
 		if (entryId == 0)
-			Memory::Write_U32(netApctlInfo.ssidLength, resultAddr);
+			Memory::WriteUnchecked_U32(netApctlInfo.ssidLength, resultAddr);
 		else {
 			// Calculate the SSID length
-			Memory::Write_U32((u32)strlen(dummySSID), resultAddr);
+			Memory::WriteUnchecked_U32((u32)strlen(dummySSID), resultAddr);
 		}
 		break;
 	case PSP_NET_APCTL_DESC_CHANNEL:
 		// FIXME: Return one 1 byte value or may be 32-bit if this is not a channel?
 		if (entryId == 0)
-			Memory::Write_U8(netApctlInfo.channel, resultAddr);
+			Memory::WriteUnchecked_U8(netApctlInfo.channel, resultAddr);
 		else {
 			// Generate channel for testing purposes, not even sure whether this is channel or not, MGS:PW seems to treat the data as u8
-			Memory::Write_U8(entryId, resultAddr);
+			Memory::WriteUnchecked_U8(entryId, resultAddr);
 		}
 		break;
 	case PSP_NET_APCTL_DESC_SIGNAL_STRENGTH:
 		// Return 1 byte
 		if (entryId == 0)
-			Memory::Write_U8(netApctlInfo.strength, resultAddr);
+			Memory::WriteUnchecked_U8(netApctlInfo.strength, resultAddr);
 		else {
 			// Randomize signal strength between 1%~99% since games like MGS:PW are using signal strength to determine the strength of the recruit
-			Memory::Write_U8((int)(((float)rand() / (float)RAND_MAX) * 99.0 + 1.0), resultAddr);
+			Memory::WriteUnchecked_U8((int)(((float)rand() / (float)RAND_MAX) * 99.0 + 1.0), resultAddr);
 		}
 		break;
 	case PSP_NET_APCTL_DESC_SECURITY:
 		// Return one 32-bit value
-		Memory::Write_U32(netApctlInfo.securityType, resultAddr);
+		Memory::WriteUnchecked_U32(netApctlInfo.securityType, resultAddr);
 		break;
 	default:
 		return hleLogError(Log::sceNet, SCE_NET_APCTL_ERROR_INVALID_CODE, "unknown info id");
@@ -1697,14 +1715,14 @@ static int sceNetApctlDelInternalHandler(u32 handlerID) {
 	return NetApctl_DelHandler(handlerID);
 }
 
-static int sceNetApctl_A7BB73DF(u32 handlerPtr, u32 handlerArg) {
+static int sceNetApctlAddInternal03Handler(u32 handlerPtr, u32 handlerArg) {
 	ERROR_LOG(Log::sceNet, "UNIMPL %s(%08x, %08x)", __FUNCTION__, handlerPtr, handlerArg);
 	// This seems to be a 3rd kind of handler
 	// Simple forward, don't need to use hleCall
 	return sceNetApctlAddHandler(handlerPtr, handlerArg);
 }
 
-static int sceNetApctl_6F5D2981(u32 handlerID) {
+static int sceNetApctlDelInternal03Handler(u32 handlerID) {
 	ERROR_LOG(Log::sceNet, "UNIMPL %s(%i)", __FUNCTION__, handlerID);
 	// This seems to be a 3rd kind of handler
 	// Simple forward, don't need to use hleCall
@@ -1762,8 +1780,8 @@ static int sceNetUpnpGetNatInfo() {
 }
 
 static int sceNetGetDropRate(u32 dropRateAddr, u32 dropDurationAddr) {
-	Memory::Write_U32(netDropRate, dropRateAddr);
-	Memory::Write_U32(netDropDuration, dropDurationAddr);
+	Memory::WriteOrException_U32(netDropRate, dropRateAddr);
+	Memory::WriteOrException_U32(netDropDuration, dropDurationAddr);
 	return hleLogInfo(Log::sceNet, 0);
 }
 
@@ -1801,8 +1819,8 @@ const HLEFunction sceNetApctl[] = {
 	{0X6BDDCB8C, &WrapI_UU<sceNetApctlGetBSSDescIDListUser>,    "sceNetApctlGetBSSDescIDListUser", 'i', "xx"   },
 	{0X7CFAB990, &WrapI_UU<sceNetApctlAddInternalHandler>,      "sceNetApctlAddInternalHandler",   'i', "xx"   },
 	{0XE11BAFAB, &WrapI_U<sceNetApctlDelInternalHandler>,       "sceNetApctlDelInternalHandler",   'i', "x"    },
-	{0XA7BB73DF, &WrapI_UU<sceNetApctl_A7BB73DF>,               "sceNetApctl_A7BB73DF",            'i', "xx"   },
-	{0X6F5D2981, &WrapI_U<sceNetApctl_6F5D2981>,                "sceNetApctl_6F5D2981",            'i', "x"    },
+	{0XA7BB73DF, &WrapI_UU<sceNetApctlAddInternal03Handler>,    "sceNetApctlAddInternal03Handler", 'i', "xx"   },
+	{0X6F5D2981, &WrapI_U<sceNetApctlDelInternal03Handler>,     "sceNetApctlDelInternal03Handler", 'i', "x"    },
 	{0X69745F0A, &WrapI_I<sceNetApctl_lib2_69745F0A>,           "sceNetApctl_lib2_69745F0A",       'i', "i"    },
 	{0X4C19731F, &WrapI_IU<sceNetApctl_lib2_4C19731F>,          "sceNetApctl_lib2_4C19731F",       'i', "ix"   },
 	{0XB3CF6849, &WrapI_V<sceNetApctlScan>,                     "sceNetApctlScan",                 'i', ""     },

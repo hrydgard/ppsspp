@@ -3,6 +3,7 @@
 
 #include "Common/Input/InputState.h"
 #include "Common/Input/KeyCodes.h"
+#include "Common/Log.h"
 #include "Common/StringUtils.h"
 
 const char *GetDeviceName(int deviceId) {
@@ -90,9 +91,25 @@ int GetAnalogYDirection(InputDeviceID deviceId) {
 
 // NOTE: Changing the format of FromConfigString/ToConfigString breaks controls.ini backwards compatibility.
 InputMapping InputMapping::FromConfigString(const std::string_view str) {
+	// DEVICE_ID_ANY (-1) is not a mapping we want to support (and the ANY concept is likely
+	// going away entirely), so reject it outright instead of trying to round-trip a negative
+	// device ID through the '-'-separated format.
+	if (str.size() >= 2 && str[0] == '-' && str[1] == '1') {
+		ERROR_LOG(Log::System, "Rejecting DEVICE_ID_ANY InputMapping config string: '%.*s'", (int)str.size(), str.data());
+		return InputMapping();
+	}
+
 	std::vector<std::string_view> parts;
 	SplitString(str, '-', parts);
+	if (parts.size() < 2) {
+		// Malformed entry, e.g. a corrupted/hand-edited controls.ini line.
+		ERROR_LOG(Log::System, "Bad InputMapping config string: '%.*s'", (int)str.size(), str.data());
+		return InputMapping();
+	}
+
 	// We only convert to std::string here to add null terminators for atoi.
+	// Note: atoi() stopping at the first non-digit character is relied upon elsewhere
+	// to let this parse just the first mapping out of a MultiInputMapping string.
 	InputDeviceID deviceId = (InputDeviceID)(atoi(std::string(parts[0]).c_str()));
 	InputKeyCode keyCode = (InputKeyCode)atoi(std::string(parts[1]).c_str());
 

@@ -28,6 +28,7 @@
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
 
+#include "Common/UI/ScreenManager.h"
 #include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
 #include "Core/System.h"
@@ -48,7 +49,9 @@
 #include "UI/RemoteISOScreen.h"
 #include "UI/DisplayLayoutScreen.h"
 #include "UI/SavedataScreen.h"
+#include "UI/InstallUpdateScreen.h"
 #include "UI/InstallZipScreen.h"
+#include "UI/InstallPkgScreen.h"
 #include "UI/Background.h"
 #include "UI/GameBrowser.h"
 #include "Core/Config.h"
@@ -65,9 +68,17 @@ static void LaunchFile(ScreenManager *screenManager, Screen *currentScreen, cons
 	if (extension == ".zip" || extension == ".7z") {
 		// If is a zip file, we have a screen for that.
 		screenManager->push(new InstallZipScreen(path));
+	} else if (extension == ".pkg") {
+		// A game update package - not something to boot, something to install.
+		screenManager->push(new InstallPkgScreen(path));
 	} else {
 		// Check if we already know that this game isn't playable.
-		auto info = g_gameInfoCache->GetInfo(nullptr, path, GameInfoFlags::FILE_TYPE);
+		// If coming from the main screen, the info will already be computed here since the icon is displayed etc.
+		// Otherwise (launching from a file association, a shortcut, drag-and-drop...) we have to block until
+		// it's available - we can't decide what to do below without it.
+		const GameInfoFlags neededFlags = GameInfoFlags::FILE_TYPE | GameInfoFlags::PARAM_SFO;
+		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, path, neededFlags);
+		info->WaitUntilReady(neededFlags);
 
 		switch (info->fileType) {
 		case IdentifiedFileType::PSP_UMD_VIDEO_ISO:
@@ -80,6 +91,20 @@ static void LaunchFile(ScreenManager *screenManager, Screen *currentScreen, cons
 			std::string title = SanitizeString(info->GetTitle(), StringRestriction::NoLineBreaksOrSpecials, 0, 200);
 			screenManager->push(new SavedataPopupScreen(Path(), path, title));
 			return;
+		}
+		case IdentifiedFileType::PSP_PBP:
+		case IdentifiedFileType::PSP_PBP_DIRECTORY:
+		{
+			// Check if it's an update file. If so, we'll offer to install it directly,
+			// instead of running it (which currently will not work).
+			if (info->id == "MSTKUPDATE") {
+				std::string title = info->GetTitle();  // includes the version.
+				// The unpacker wants the PBP itself, not the folder it happens to sit in.
+				const Path pbpPath = info->fileType == IdentifiedFileType::PSP_PBP ? path : path / "EBOOT.PBP";
+				screenManager->push(new InstallUpdateScreen(pbpPath, title, true));
+				return;
+			}
+			break;
 		}
 		default:
 			break;
@@ -320,7 +345,6 @@ void MainScreen::CreateMainButtons(UI::ViewGroup *parent, bool portrait) {
 			if (!g_Config.Save("MainScreen::OnExit")) {
 				System_Toast("Failed to save settings!\nCheck permissions, or try to restart the device.");
 			}
-
 			UpdateUIState(UISTATE_EXIT);
 			// Request the framework to exit cleanly.
 			System_ExitApp();
@@ -859,8 +883,8 @@ void UmdReplaceScreen::CreateViews() {
 }
 
 void UmdReplaceScreen::update() {
+	UIBaseDialogScreen::update();
 	UpdateUIState(UISTATE_PAUSEMENU);
-	UIScreen::update();
 }
 
 void UmdReplaceScreen::OnGameSelected(UI::EventParams &e) {

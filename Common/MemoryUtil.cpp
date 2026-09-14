@@ -145,8 +145,17 @@ void *AllocateExecutableMemory(size_t size) {
 #endif
 		if (ptr) {
 			ptr = VirtualAlloc(ptr, aligned_size, MEM_RESERVE | MEM_COMMIT, prot);
+			if (!ptr) {
+				// Finding a free region isn't the same as being able to reserve it: VirtualAlloc
+				// rounds a non-null address down to the 64K allocation granularity, and
+				// SearchForFreeMem only returns page alignment, so the rounded-down base can land
+				// back inside something committed. Another thread allocating in between does it too.
+				WARN_LOG(Log::Common, "Could not reserve the nearby executable memory found for jit. Proceeding with far memory.");
+			}
 		} else {
 			WARN_LOG(Log::Common, "Unable to find nearby executable memory for jit. Proceeding with far memory.");
+		}
+		if (!ptr) {
 			// Can still run, thanks to "RipAccessible".
 			ptr = VirtualAlloc(nullptr, aligned_size, MEM_RESERVE | MEM_COMMIT, prot);
 		}

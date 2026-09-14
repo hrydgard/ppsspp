@@ -82,6 +82,10 @@ void GameDB::LoadIfNeeded() {
 	std::vector<std::string_view> lines;
 	lines.reserve(RESERVE_COUNT);
 	SplitSV(contents_, '\n', false, &lines);
+	if (lines.empty()) {
+		ERROR_LOG(Log::System, "GameDB CSV is empty");
+		return;
+	}
 	SplitCSVLine(lines[0], columns_);
 
 	const size_t titleColumn = GetColumnIndex("Title");
@@ -89,6 +93,11 @@ void GameDB::LoadIfNeeded() {
 	const size_t serialColumn = GetColumnIndex("Serial");
 	const size_t crcColumn = GetColumnIndex("CRC32");
 	const size_t sizeColumn = GetColumnIndex("Size");
+	if (titleColumn == (size_t)-1 || foreignTitleColumn == (size_t)-1 || serialColumn == (size_t)-1 ||
+		crcColumn == (size_t)-1 || sizeColumn == (size_t)-1) {
+		ERROR_LOG(Log::System, "GameDB CSV missing an expected column");
+		return;
+	}
 
 	std::vector<std::string_view> items;
 	items.reserve(8);

@@ -25,6 +25,7 @@
 #include "Common/UI/View.h"
 #include "Common/UI/UIScreen.h"
 #include "Common/UI/TabHolder.h"
+#include "Common/UI/ScreenManager.h"
 #include "Common/Math/math_util.h"
 #include "Common/System/NativeApp.h"
 #include "Common/VR/PPSSPPVR.h"

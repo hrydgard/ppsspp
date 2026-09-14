@@ -5,7 +5,7 @@
 #include <map>
 #include "Common/Render/Text/draw_text.h"
 
-#if defined(_WIN32) && !defined(USING_QT_UI) && !PPSSPP_PLATFORM(UWP)
+#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 
 struct TextDrawerContext;
 // Internal struct but all details in .cpp file (pimpl to avoid pulling in excessive headers here)

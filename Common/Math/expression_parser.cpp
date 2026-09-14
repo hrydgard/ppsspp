@@ -244,6 +244,11 @@ bool initPostfixExpression(const char* infix, IExpressionFunctions* funcs, Postf
 		{
 			while (isAlphaNum(infix[infixPos]))
 			{
+				if (subPos >= (int)sizeof(subStr) - 1)
+				{
+					expressionError = "Token too long";
+					return false;
+				}
 				subStr[subPos++] = infix[infixPos++];
 			}
 			subStr[subPos] = 0;
@@ -264,6 +269,11 @@ bool initPostfixExpression(const char* infix, IExpressionFunctions* funcs, Postf
 		{
 			while (isAlphaNum(infix[infixPos]))
 			{
+				if (subPos >= (int)sizeof(subStr) - 1)
+				{
+					expressionError = "Token too long";
+					return false;
+				}
 				subStr[subPos++] = infix[infixPos++];
 			}
 			subStr[subPos] = 0;

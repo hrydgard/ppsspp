@@ -5,7 +5,6 @@ AppPackages
 Generated Files
 packages
 x64
-ARM
 ARM64
 *.VC.db
 *.VC.VC.opendb

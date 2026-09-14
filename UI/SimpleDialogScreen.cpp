@@ -2,6 +2,7 @@
 #include "Common/Data/Text/I18n.h"
 #include "UI/SimpleDialogScreen.h"
 #include "Common/UI/PopupScreens.h"
+#include "Common/UI/ScreenManager.h"
 #include "UI/MiscViews.h"
 
 ViewLayoutMode UISimpleBaseDialogScreen::LayoutMode() const {

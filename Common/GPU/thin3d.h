@@ -613,6 +613,7 @@ struct DeviceCaps {
 	bool framebufferStencilBlitSupported;
 	bool framebufferFetchSupported;
 	bool texture3DSupported;
+	bool fragmentShaderFullPrecisionFloat;  // Without this, our clip plane workaround doesn't work
 	bool fragmentShaderInt32Supported;
 	bool fragmentShaderDepthWriteSupported;
 	bool fragmentShaderStencilWriteSupported;

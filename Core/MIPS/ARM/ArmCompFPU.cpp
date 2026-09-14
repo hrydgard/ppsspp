@@ -95,15 +95,20 @@ void ArmJit::Comp_FPULS(MIPSOpcode op)
 	CONDITIONAL_DISABLE(LSU_FPU);
 	CheckMemoryBreakpoint();
 
+	if (js.kernelMode) {
+		// Send all memory accesses to the interpreter in kernel mode.
+		// TODO: Do something faster - but it hardly matters, currently this is VSH-only.
+		DISABLE;
+		return;
+	}
+
 	s32 offset = SignExtend16ToS32(op & 0xFFFF);
 	int ft = _FT;
 	MIPSGPReg rs = _RS;
-	// u32 addr = R(rs) + offset;
-	// logBlocks = 1;
 	bool doCheck = false;
 	switch(op >> 26)
 	{
-	case 49: //FI(ft) = Memory::Read_U32(addr); break; //lwc1
+	case 49:  //lwc1
 		if (!gpr.IsImm(rs) && jo.cachePointers && g_Config.bFastMemory && (offset & 3) == 0 && offset < 0x400 && offset > -0x400) {
 			gpr.MapRegAsPointer(rs);
 			fpr.MapReg(ft, MAP_NOINIT | MAP_DIRTY);
@@ -147,7 +152,7 @@ void ArmJit::Comp_FPULS(MIPSOpcode op)
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 		break;
 
-	case 57: //Memory::Write_U32(FI(ft), addr); break; //swc1
+	case 57:  //swc1
 		if (!gpr.IsImm(rs) && jo.cachePointers && g_Config.bFastMemory && (offset & 3) == 0 && offset < 0x400 && offset > -0x400) {
 			gpr.MapRegAsPointer(rs);
 			fpr.MapReg(ft, 0);

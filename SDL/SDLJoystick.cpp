@@ -25,11 +25,10 @@ SDLJoystick::SDLJoystick(bool init_SDL ) : registeredAsEventHandler(false) {
 	}
 
 	const char *dbPath = "gamecontrollerdb.txt";
-	INFO_LOG(Log::System, "loading control pad mappings from %s:", dbPath);
-
 	size_t size;
 	u8 *mappingData = g_VFS.ReadFile(dbPath, &size);
 	if (mappingData) {
+		DEBUG_LOG(Log::System, "loading control pad mappings from '%s'", dbPath);
 		SDL_IOStream *io = SDL_IOFromConstMem(mappingData, size);
 		if (SDL_AddGamepadMappingsFromIO(io, true) == -1) {
 			ERROR_LOG(Log::System, "Failed to read mapping data - corrupt?");
@@ -168,6 +167,31 @@ InputKeyCode SDLJoystick::getKeycodeForButton(SDL_GamepadButton button) {
 	}
 }
 
+// Called when a pad is disconnected - we won't be getting any more up events from it.
+void SDLJoystick::releaseAllKeys() {
+	for (int i = 0; i < SDL_GAMEPAD_BUTTON_COUNT; i++) {
+		const InputKeyCode code = getKeycodeForButton((SDL_GamepadButton)i);
+		if (code == NKCODE_UNKNOWN) {
+			continue;
+		}
+		KeyInput key{};
+		key.deviceId = DEVICE_ID_PAD_0;
+		key.keyCode = code;
+		key.flags = KeyInputFlags::UP;
+		NativeKey(key);
+	}
+
+	// Zero every axis we've actually sent a value for, so sticks and triggers recenter.
+	for (auto &[key, value] : prevAxisValue_) {
+		AxisInput axis{};
+		axis.deviceId = key.first;
+		axis.axisId = key.second;
+		axis.value = 0.0f;
+		NativeAxis(&axis, 1);
+	}
+	prevAxisValue_.clear();
+}
+
 void SDLJoystick::ProcessInput(const SDL_Event &event){
 	switch (event.type) {
 	case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
@@ -212,6 +236,11 @@ void SDLJoystick::ProcessInput(const SDL_Event &event){
 				SDL_CloseGamepad(*it);
 				controllerDeviceMap.erase(event.gdevice.which);
 				controllers.erase(it);
+				// Otherwise whatever was held when the pad vanished stays held forever, which
+				// tends to walk the player off a cliff. Note that we map every pad to pad 0,
+				// so we can't release just the one that went away.
+				releaseAllKeys();
+				KeyMap::NotifyPadDisconnected(DEVICE_ID_PAD_0);
 				break;
 			}
 		}

@@ -1,6 +1,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
+#include <utility>
 
 #include "Common/Net/HTTPClient.h"
 
@@ -75,7 +76,7 @@ bool Connection::Resolve(const char *host, int port, DNSType type) {
 	}
 	
 	std::string err;
-	if (!net::DNSResolve(processedHostname.c_str(), port_str, &resolved_, err, type)) {
+	if (!net::DNSResolve(processedHostname, port_str, &resolved_, err, type)) {
 		WARN_LOG(Log::Net, "Failed to resolve host '%s': '%s' (%s)", host, err.c_str(), DNSTypeAsString(type));
 		// Zero port so that future calls fail.
 		port_ = 0;
@@ -87,10 +88,17 @@ bool Connection::Resolve(const char *host, int port, DNSType type) {
 
 static void FormatAddr(char *addrbuf, size_t bufsize, const addrinfo *info) {
 	switch (info->ai_family) {
-	case AF_INET:
-	case AF_INET6:
-		inet_ntop(info->ai_family, &((sockaddr_in *)info->ai_addr)->sin_addr, addrbuf, bufsize);
+	case AF_INET: {
+		auto sock_addr = (sockaddr_in*)info->ai_addr;
+		inet_ntop(info->ai_family, &(sock_addr)->sin_addr, addrbuf, bufsize);
 		break;
+	}
+	case AF_INET6: {
+		auto sock_addr = (sockaddr_in6*)info->ai_addr;
+		// There's also 'sin6_flowinfo' before 'sin6_addr', so we can't combine these cases into one.
+		inet_ntop(info->ai_family, &(sock_addr)->sin6_addr, addrbuf, bufsize);
+		break;
+	}
 	default:
 		snprintf(addrbuf, bufsize, "(Unknown AF %d)", info->ai_family);
 		break;
@@ -141,7 +149,7 @@ bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 					if (!unreachable) {
 						ERROR_LOG(Log::HTTP, "connect(%d) call to %s failed (%d: %s)", sock, addrStr, errorCode, errorString.c_str());
 					} else {
-						INFO_LOG(Log::HTTP, "connect(%d): Ignoring unreachable resolved address %s", sock, addrStr);
+						VERBOSE_LOG(Log::HTTP, "connect(%d): Ignoring unreachable resolved address %s", sock, addrStr);
 					}
 					closesocket(sock);
 					continue;
@@ -153,6 +161,17 @@ bool Connection::Connect(int maxTries, double timeout, bool *cancelConnect) {
 				maxfd = sock + 1;
 			}
 		}
+
+		if (sockets.empty()) {
+			// No need to call 'select' if we don't have any plausible sockets.
+			if (cancelConnect && *cancelConnect) {
+				WARN_LOG(Log::Net, "connect: cancelled (2): %s:%d", host_.c_str(), port_);
+				break;
+			}
+			sleep_ms(1, "connect");
+			continue;
+		}
+		// There is at least 1 socket candidate.
 
 		int selectResult = 0;
 		long timeoutHalfSeconds = floor(2 * timeout);
@@ -220,7 +239,7 @@ namespace http {
 constexpr const char *DEFAULT_USERAGENT = "PPSSPP";
 constexpr const char *HTTP_VERSION = "1.1";
 
-Client::Client(net::ResolveFunc func) : Connection(func) {
+Client::Client(net::ResolveFunc func) : Connection(std::move(func)) {
 	userAgent_ = DEFAULT_USERAGENT;
 	httpVersion_ = HTTP_VERSION;
 }
@@ -261,7 +280,7 @@ static bool DeChunk(Buffer *inbuffer, Buffer *outbuffer, int contentLength) {
 	while (true) {
 		std::string line;
 		inbuffer->TakeLineCRLF(&line);
-		if (!line.size())
+		if (line.empty())
 			return false;
 		unsigned int chunkSize = 0;
 		if (sscanf(line.c_str(), "%x", &chunkSize) != 1) {
@@ -426,10 +445,10 @@ int Client::ReadResponseHeaders(net::Buffer *readbuf, std::vector<std::string> &
 		if (!sz || sz < 0)
 			break;
 		VERBOSE_LOG(Log::HTTP, "Header line: %s", line.c_str());
-		responseHeaders.emplace_back(line);
+		responseHeaders.push_back(std::move(line));
 	}
 
-	if (responseHeaders.size() == 0) {
+	if (responseHeaders.empty()) {
 		ERROR_LOG(Log::HTTP, "No HTTP response headers");
 		return -1;
 	}
@@ -512,7 +531,7 @@ int Client::ReadResponseEntity(net::Buffer *readbuf, const std::vector<std::stri
 }
 
 HTTPRequest::HTTPRequest(RequestMethod method, std::string_view url, std::string_view postData, std::string_view postMime, const Path &outfile, RequestFlags flags, net::ResolveFunc customResolve, std::string_view name)
-	: Request(method, url, name, outfile, &cancelled_, flags), postData_(postData), postMime_(postMime), customResolve_(customResolve) {
+	: Request(method, url, name, outfile, &cancelled_, flags), postData_(postData), postMime_(postMime), customResolve_(std::move(customResolve)) {
 }
 
 HTTPRequest::~HTTPRequest() {

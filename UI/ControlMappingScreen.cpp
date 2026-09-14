@@ -26,6 +26,7 @@
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
 #include "Common/UI/Notice.h"
+#include "Common/UI/ScreenManager.h"
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/Log.h"
 #include "Common/Data/Color/RGBAUtil.h"

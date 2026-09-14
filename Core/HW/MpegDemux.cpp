@@ -1,3 +1,5 @@
+#include <algorithm>
+
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Core/HW/MpegDemux.h"
 #include "Core/Reporting.h"
@@ -123,7 +125,8 @@ int MpegDemux::readPesHeader(PesHeader &pesHeader, int length, int startCode) {
 		pesHeader.channel = channel;
 		length--;
 		if (channel >= 0x80 && channel <= 0xCF) {
-			// Skip audio header
+			// Skip audio header. Standard PSP audio sub-streams have a 3 or 4 byte sub-header.
+			// ATRAC3+ (0x90) and some others have an additional byte in the sub-header.
 			skip(3);
 			length -= 3;
 			if (channel >= 0xB0 && channel <= 0xBF) {
@@ -209,7 +212,10 @@ bool MpegDemux::demux(int audioChannel)
 		}
 		// Not enough data available yet.
 		if (m_readSize - m_index < 16) {
-			m_index -= 4;
+			// The inner scan above may have hit EOF (no start code found at all) after
+			// consuming fewer than 4 bytes, in which case this rewind must not go
+			// negative - that would make the memmove() below read before m_buf.
+			m_index = std::max(0, m_index - 4);
 			break;
 		}
 
@@ -223,7 +229,8 @@ bool MpegDemux::demux(int audioChannel)
 			looksValid = true;
 			int length = read16();
 			if (m_readSize - m_index < length) {
-				m_index -= 4 + 2;
+				// See the m_index rewind above - must not go negative.
+				m_index = std::max(0, m_index - (4 + 2));
 				needMore = true;
 				break;
 			}
@@ -235,7 +242,8 @@ bool MpegDemux::demux(int audioChannel)
 			looksValid = true;
 			int length = read16();
 			if (m_readSize - m_index < length) {
-				m_index -= 4 + 2;
+				// See the m_index rewind above - must not go negative.
+				m_index = std::max(0, m_index - (4 + 2));
 				needMore = true;
 				break;
 			}
@@ -248,7 +256,8 @@ bool MpegDemux::demux(int audioChannel)
 			// Check for PES header marker.
 			looksValid = (m_buf[m_index] & 0xC0) == 0x80;
 			if (m_readSize - m_index < length) {
-				m_index -= 4 + 2;
+				// See the m_index rewind above - must not go negative.
+				m_index = std::max(0, m_index - (4 + 2));
 				needMore = true;
 				break;
 			}
@@ -265,7 +274,8 @@ bool MpegDemux::demux(int audioChannel)
 			// Check for PES header marker.
 			looksValid = (m_buf[m_index] & 0xC0) == 0x80;
 			if (m_readSize - m_index < length) {
-				m_index -= 4 + 2;
+				// See the m_index rewind above - must not go negative.
+				m_index = std::max(0, m_index - (4 + 2));
 				needMore = true;
 				break;
 			}
@@ -340,16 +350,27 @@ int MpegDemux::getNextAudioFrame(u8 **buf, int *headerCode1, int *headerCode2, s
 bool MpegDemux::hasNextAudioFrame(int *gotsizeOut, int *frameSizeOut, int *headerCode1, int *headerCode2)
 {
 	int gotsize = m_audioStream.get_front(m_audioFrame, 0x2000);
-	if (gotsize < 4 || !isHeader(m_audioFrame, 0))
+	if (gotsize < 4)
 		return false;
-	u8 code1 = m_audioFrame[2];
-	u8 code2 = m_audioFrame[3];
+
+	int offset = 0;
+	if (!isHeader(m_audioFrame, 0)) {
+		// If the header is not at the start, try to find it. This can happen during chapter transitions
+		// where garbage data might precede the first valid frame. Scanning prevents a "no data" deadlock
+		// by allowing the demuxer to resync even when the high-level code is just checking for availability.
+		offset = getNextHeaderPosition(m_audioFrame, 1, gotsize, 0);
+		if (offset < 0 || gotsize - offset < 4)
+			return false;
+	}
+
+	u8 code1 = m_audioFrame[offset + 2];
+	u8 code2 = m_audioFrame[offset + 3];
 	int frameSize = (((code1 & 0x03) << 8) | (code2 * 8)) + 0x10;
-	if (frameSize > gotsize)
+	if (frameSize > gotsize - offset)
 		return false;
 
 	if (gotsizeOut)
-		*gotsizeOut = gotsize;
+		*gotsizeOut = gotsize - offset;
 	if (frameSizeOut)
 		*frameSizeOut = frameSize;
 	if (headerCode1)

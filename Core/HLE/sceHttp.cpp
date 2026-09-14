@@ -158,7 +158,7 @@ int HTTPRequest::getAllResponseHeaders(u32 headerAddrPtr, u32 headerSizePtr) {
 		headerSize_ = sz;
 	}
 
-	u8* header = Memory::GetPointerWrite(headerAddr_);
+	u8* header = Memory::GetPointerWriteOrException(headerAddr_);
 	DEBUG_LOG(Log::sceNet, "headerAddr: %08x => %08x", headerAddr.IsValid() ? *headerAddr : 0, headerAddr_);
 	DEBUG_LOG(Log::sceNet, "headerSize: %d => %d", headerSize.IsValid() ? *headerSize : 0, sz);
 	if (!header && sz > 0) {
@@ -803,8 +803,8 @@ static int sceHttpGetContentLength(int requestID, u32 contentLengthPtr) {
 	if (len < 0)
 		return hleLogError(Log::sceNet, SCE_HTTP_ERROR_NO_CONTENT_LENGTH, "no content length");
 
-	DEBUG_LOG(Log::sceNet, "ContentLength = %lld (in) => %lld (out)", Memory::Read_U64(contentLengthPtr), (u64)len);
-	Memory::Write_U64((u64)len, contentLengthPtr);
+	DEBUG_LOG(Log::sceNet, "ContentLength = %lld (in) => %lld (out)", Memory::ReadUnchecked_U64(contentLengthPtr), (u64)len);
+	Memory::WriteUnchecked_U64((u64)len, contentLengthPtr);
 	NotifyMemInfo(MemBlockFlags::WRITE, contentLengthPtr, 8, "HttpGetContentLength");
 	return 0;
 }
@@ -869,9 +869,10 @@ const HLEFunction sceHttp[] = {
 	{0X267618F4, &WrapI_IUU<sceHttpSetAuthInfoCallback>,     "sceHttpSetAuthInfoCallback",     'i', "ixx"   },
 	{0X569A1481, &WrapI_IUU<sceHttpsSetSslCallback>,         "sceHttpsSetSslCallback",         'i', "ixx"   },
 	{0XBAC31BF1, nullptr,                                    "sceHttpsEnableOption",           '?', ""      },
-};				
+	{0xCC920C12, nullptr,                                    "sceHttpEnableNagle",             '?', ""      },
+	{0xD29163DA, nullptr,                                    "sceHttpDisableNagle",            '?', ""      }
+};
 
-void Register_sceHttp()
-{
+void Register_sceHttp() {
 	RegisterHLEModule("sceHttp",ARRAY_SIZE(sceHttp),sceHttp);
 }

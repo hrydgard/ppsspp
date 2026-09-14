@@ -414,7 +414,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			WRITE(p, "%s %s vec3 v_texcoord;\n", compat.varying_fs, highpTexcoord ? "highp" : "mediump");
 		}
 		if (fsMinmaxDiscard || fsDepthClamp) {
-			WRITE(p, "%s vec2 v_zw;\n", compat.varying_fs);
+			WRITE(p, "%s highp vec2 v_zw;\n", compat.varying_fs);
 		}
 
 		if (!enableFragmentTestCache) {
@@ -1094,17 +1094,19 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		case STENCIL_VALUE_INCR_4BIT:
 		case STENCIL_VALUE_DECR_4BIT:
 			// We're adding/subtracting, just by the smallest value in 4-bit.
+			// We have to set the blend mode to match elsewhere.
 			snprintf(replacedAlpha, sizeof(replacedAlpha), "%f", 1.0 / 15.0);
 			break;
 
 		case STENCIL_VALUE_INCR_8BIT:
 		case STENCIL_VALUE_DECR_8BIT:
 			// We're adding/subtracting, just by the smallest value in 8-bit.
+			// We have to set the blend mode to match elsewhere.
 			snprintf(replacedAlpha, sizeof(replacedAlpha), "%f", 1.0 / 255.0);
 			break;
 
 		case STENCIL_VALUE_KEEP:
-			// Do nothing. We'll mask out the alpha using color mask.
+			// Do nothing. We'll mask out the alpha using color mask (could also be done with a blend mode).
 			break;
 		}
 	}
@@ -1206,13 +1208,13 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			}
 		} else if (fsDepthClamp) {
 			WRITE(p, "  gl_FragDepth = clamp(projZ, 0.0, 65535.0) / 65535.0;\n");
-		} else if (useDiscardStencilBugWorkaround) {
-			// Adreno and some Mali drivers apply early frag tests even with discard in the shader,
-			// when only stencil is used. The exact situation seems to vary by driver.
-			// Writing depth prevents the bug for both vendors, even with depth_unchanged specified.
-			// This doesn't make a ton of sense, but empirically does work.
-			WRITE(p, "  gl_FragDepth = gl_FragCoord.z;\n");
 		}
+	} else if (useDiscardStencilBugWorkaround) {
+		// Adreno and some Mali drivers apply early frag tests even with discard in the shader,
+		// when only stencil is used. The exact situation seems to vary by driver.
+		// Writing depth prevents the bug for both vendors, even with depth_unchanged specified.
+		// This doesn't make a ton of sense, but empirically does work.
+		WRITE(p, "  gl_FragDepth = gl_FragCoord.z;\n");
 	}
 
 	if (compat.shaderLanguage == HLSL_D3D11) {

@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <cmath>
+#include <cstdlib>
 #include <limits>
 
 #include "Common/Data/Text/Parsers.h"
@@ -170,6 +171,41 @@ bool DebuggerRequest::ParamU32(const char *name, uint32_t *out, bool allowFloatB
 		Fail(StringFromFormat("Could not parse '%s' parameter: number expected", name));
 	else
 		Fail(StringFromFormat("Could not parse '%s' parameter: integer required", name));
+	return false;
+}
+
+bool DebuggerRequest::ParamF64(const char *name, double *out, DebuggerParamType type) {
+	const bool required = type == DebuggerParamType::REQUIRED || type == DebuggerParamType::REQUIRED_LOOSE;
+
+	const JsonNode *node = data.get(name);
+	if (!node) {
+		if (required)
+			Fail(StringFromFormat("Missing '%s' parameter", name));
+		return !required;
+	}
+
+	const auto tag = node->value.getTag();
+	if (tag == JSON_NUMBER) {
+		*out = node->value.toNumber();
+		return true;
+	}
+	if (tag == JSON_STRING) {
+		// Same escape hatch as the integer params: a string for values a JSON number would mangle.
+		const char *s = node->value.toString();
+		char *end = nullptr;
+		const double val = strtod(s, &end);
+		if (end != s && *end == '\0') {
+			*out = val;
+			return true;
+		}
+		Fail(StringFromFormat("Could not parse '%s' parameter: number required", name));
+		return false;
+	}
+	if (tag == JSON_NULL && !required) {
+		return false;
+	}
+
+	Fail(StringFromFormat("Invalid '%s' parameter type", name));
 	return false;
 }
 

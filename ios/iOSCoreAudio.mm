@@ -29,18 +29,9 @@
 #define SAMPLE_RATE 44100
 
 static AudioComponentInstance audioInstance = nil;
-static bool g_displayConnected = false;
 
 void iOSCoreAudioUpdateSession() {
 	NSError *error = nil;
-	if (g_displayConnected) {
-		INFO_LOG(Log::Audio, "Display connected, setting Playback mode");
-		// Special handling when a display is connected. Always exclusive.
-		// Let's revisit this later.
-		[[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback error:&error];
-		return;
-	}
-
 	INFO_LOG(Log::Audio, "RespectSilentMode: %d MixWithOthers: %d", g_Config.bAudioRespectSilentMode, g_Config.bAudioMixWithOthers);
 
 	// Hacky hack to force iOS to re-evaluate.
@@ -48,7 +39,6 @@ void iOSCoreAudioUpdateSession() {
 	[[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryAudioProcessing error:&error];
 
 	// Here, we apply the settings.
-	const bool mixWithOthers = g_Config.bAudioMixWithOthers;
 	if (g_Config.bAudioMixWithOthers) {
 		if (g_Config.bAudioRespectSilentMode) {
 			[[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryAmbient error:&error];
@@ -67,11 +57,6 @@ void iOSCoreAudioUpdateSession() {
 	if (error) {
 		NSLog(@"%@", error);
 	}
-}
-
-void iOSCoreAudioSetDisplayConnected(bool connected) {
-	g_displayConnected = connected;
-	iOSCoreAudioUpdateSession();
 }
 
 void NativeMix(short *audio, int numSamples, int sampleRateHz, void *userdata);

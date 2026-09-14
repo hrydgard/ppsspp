@@ -197,17 +197,17 @@ inline __m128i _mm_mullo_epi32_SSE2(const __m128i v0, const __m128i v1) {
 inline __m128i _mm_max_epu16_SSE2(const __m128i v0, const __m128i v1) {
 	return _mm_xor_si128(
 		_mm_max_epi16(
-			_mm_xor_si128(v0, _mm_set1_epi16((int16_t)0x8000)),
-			_mm_xor_si128(v1, _mm_set1_epi16((int16_t)0x8000))),
-		_mm_set1_epi16((int16_t)0x8000));
+			_mm_xor_si128(v0, _mm_set1_epi16((int16_t)(uint16_t)0x8000)),
+			_mm_xor_si128(v1, _mm_set1_epi16((int16_t)(uint16_t)0x8000))),
+		_mm_set1_epi16((int16_t)(uint16_t)0x8000));
 }
 
 inline __m128i _mm_min_epu16_SSE2(const __m128i v0, const __m128i v1) {
 	return _mm_xor_si128(
 		_mm_min_epi16(
-			_mm_xor_si128(v0, _mm_set1_epi16((int16_t)0x8000)),
-			_mm_xor_si128(v1, _mm_set1_epi16((int16_t)0x8000))),
-		_mm_set1_epi16((int16_t)0x8000));
+			_mm_xor_si128(v0, _mm_set1_epi16((int16_t)(uint16_t)0x8000)),
+			_mm_xor_si128(v1, _mm_set1_epi16((int16_t)(uint16_t)0x8000))),
+		_mm_set1_epi16((int16_t)(uint16_t)0x8000));
 }
 
 // SSE2 replacement for half of a _mm_packus_epi32 but without the saturation.

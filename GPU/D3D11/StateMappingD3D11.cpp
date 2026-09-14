@@ -427,14 +427,6 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 		}
 		depthStencilState_ = ds;
 	}
-
-	if (gstate_c.IsDirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS) && !gstate.isModeClear() && gstate.isTextureMapEnabled()) {
-		textureCache_->SetTexture();
-		gstate_c.Clean(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
-	} else if (gstate.getTextureAddress(0) == (gstate.getFrameBufRawAddress() | 0x04000000)) {
-		// This catches the case of clearing a texture.
-		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
-	}
 }
 
 void DrawEngineD3D11::ApplyDrawStateLate(bool applyStencilRef, uint8_t stencilRef) {

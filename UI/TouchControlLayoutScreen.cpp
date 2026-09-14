@@ -25,6 +25,7 @@
 #include "Common/System/Display.h"
 #include "Common/UI/Context.h"
 #include "Common/UI/PopupScreens.h"
+#include "Common/UI/ScreenManager.h"
 
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
@@ -536,12 +537,7 @@ void ControlLayoutView::CreateViews() {
 
 	for (int i = 0; i < TouchControlConfig::CUSTOM_BUTTON_COUNT; i++) {
 		// Similar to GamepadEmu, we sanitize the images for valid values.
-		if (g_Config.CustomButton[i].shape >= ARRAY_SIZE(CustomKeyData::customKeyShapes)) {
-			g_Config.CustomButton[i].shape = 0;
-		}
-		if (g_Config.CustomButton[i].image >= ARRAY_SIZE(CustomKeyData::customKeyImages)) {
-			g_Config.CustomButton[i].image = 0;
-		}
+		CustomKeyData::Sanitize(g_Config.CustomButton[i]);
 
 		char temp[64];
 		snprintf(temp, sizeof(temp), "Custom %d button", i);

@@ -259,7 +259,7 @@ void LoongArch64JitBackend::CompIR_Interpret(IRInst inst) {
 		QuickCallFunction(&NotifyMIPSInterpret, SCRATCH2);
 	}
 	LI(R4, (int32_t)inst.constant);
-	QuickCallFunction((const u8 *)MIPSGetInterpretFunc(op), SCRATCH2);
+	QuickCallFunction((const u8 *)&MIPSInterpretTrampoline, SCRATCH2);
 	WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 	LoadStaticRegisters();
 }

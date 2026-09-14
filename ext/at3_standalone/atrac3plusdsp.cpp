@@ -163,7 +163,7 @@ static void waves_synth(Atrac3pWaveSynthParams *synth_param,
                : 1.0f);
 
         inc = wave_param->freq_index;
-        pos = DEQUANT_PHASE(wave_param->phase_index) - (reg_offset ^ 128) * inc & 2047;
+        pos = (DEQUANT_PHASE(wave_param->phase_index) - (reg_offset ^ 128) * inc) & 2047;
 
         /* waveform generation */
         for (i = 0; i < 128; i++) {

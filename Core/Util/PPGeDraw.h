@@ -108,9 +108,7 @@ void PPGeScissor(int x1, int y1, int x2, int y2);
 void PPGeScissorReset();
 
 void PPGeNotifyFrame();
-
-// Could have returned the address directly I guess, but nothing out side of PPGe should actually use it so..
-bool PPGeIsFontTextureAddress(u32 addr);
+const u8 *PPGeAtlasGetData();
 
 class PPGeImage {
 public:

@@ -26,6 +26,7 @@
 
 #include "GPU/Common/ReplacedTexture.h"
 #include "GPU/Common/TextureReplacer.h"
+#include "Core/Util/PathUtil.h"
 
 #include "Common/Data/Format/DDSLoad.h"
 #include "Common/Data/Format/ZIMLoad.h"
@@ -105,7 +106,10 @@ ReplacedTexture::~ReplacedTexture() {
 	}
 
 	for (auto &level : levels_) {
-		vfs_->ReleaseFile(level.fileRef);
+		// Null when replacement was switched off after we were cached - see NotifyConfigChanged.
+		if (vfs_) {
+			vfs_->ReleaseFile(level.fileRef);
+		}
 		level.fileRef = nullptr;
 	}
 }
@@ -200,7 +204,11 @@ inline uint32_t RoundUpTo4(uint32_t value) {
 }
 
 void ReplacedTexture::Prepare(VFSBackend *vfs) {
-	_assert_(vfs != nullptr);
+	if (!vfs) {
+		// Replacement was switched off while this was queued. Nothing to load from any more.
+		SetState(ReplacementState::NOT_FOUND);
+		return;
+	}
 
 	this->vfs_ = vfs;
 
@@ -224,6 +232,11 @@ void ReplacedTexture::Prepare(VFSBackend *vfs) {
 		}
 
 		std::string path(desc_.filenames[i]);
+		// Defense in depth: skip filenames that could escape the pack dir.
+		if (HasParentDirComponent(path)) {
+			SetState(ReplacementState::CANCEL_INIT);
+			return;
+		}
 		VFSFileReference *fileRef = vfs_->GetFile(path.c_str());
 		if (!fileRef) {
 			if (i == 0) {
@@ -264,7 +277,7 @@ void ReplacedTexture::Prepare(VFSBackend *vfs) {
 
 	if (levels_.empty()) {
 		// No replacement found.
-		std::string name = TextureReplacer::HashName(desc_.cachekey, desc_.hash, 0);
+		std::string name = TextureReplacer::HashName(desc_.cacheKey, 0);
 		if (result == LoadLevelResult::LOAD_ERROR) {
 			WARN_LOG(Log::TexReplacement, "Failed to load replacement texture '%s'", name.c_str());
 		}
@@ -273,7 +286,7 @@ void ReplacedTexture::Prepare(VFSBackend *vfs) {
 	}
 
 	// Update the level dimensions.
-	for (auto &level : levels_) {
+	for (ReplacedTextureLevel &level : levels_) {
 		level.fullW = (level.w * desc_.w) / desc_.newW;
 		level.fullH = (level.h * desc_.h) / desc_.newH;
 
@@ -314,6 +327,17 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 
 	std::string magic;
 	ReplacedImageType imageType = Identify(vfs_, openFile, &magic);
+
+	// Disallow mixing image formats across mip levels: a KTX2/DDS container
+	// manages its own mip chain, so mixing one in at a higher mip level
+	// would corrupt the shared level data layout.
+	if (mipLevel == 0) {
+		firstImageType_ = imageType;
+	} else if (imageType != firstImageType_) {
+		WARN_LOG(Log::TexReplacement, "Replacement mipmap %d uses image format %d, but mip 0 uses %d. Stopping.", mipLevel, (int)imageType, (int)firstImageType_);
+		vfs_->CloseFile(openFile);
+		return LoadLevelResult::DONE;
+	}
 
 	bool ddsDX10 = false;
 	int numMips = 1;
@@ -525,7 +549,13 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 			WARN_LOG(Log::TexReplacement, "Block compressed replacement texture '%s' not divisible by 4x4 (%dx%d). In D3D11 (only!) we will have to expand (potentially causing glitches).", filename.c_str(), level.w, level.h);
 		}
 
-		data_.resize(numMips);
+		// Cap the mip count (attacker-controlled header field) and make sure
+		// data_ is large enough for mipLevel + numMips; otherwise the loop
+		// below indexes past the end of data_.
+		numMips = std::max(1, std::min(numMips, MAX_REPLACEMENT_MIP_LEVELS - mipLevel));
+		if ((size_t)(mipLevel + numMips) > data_.size()) {
+			data_.resize(mipLevel + numMips);
+		}
 
 		basist::ktx2_transcoder_state transcodeState;  // Each thread needs one of these.
 
@@ -547,7 +577,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 				outputSize = levelInfo.m_orig_width * levelInfo.m_orig_height;
 				outputPitch = levelInfo.m_orig_width;
 			}
-			data_[i].resize(dataSizeBytes);
+			out.resize(dataSizeBytes);
 
 			transcodeState.clear();
 			transcoder.transcode_image_level(i, 0, 0, &out[0], (uint32_t)outputSize, transcoderFormat, 0, (uint32_t)outputPitch, level.h, -1, -1, &transcodeState);
@@ -579,7 +609,13 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 			WARN_LOG(Log::TexReplacement, "Block compressed replacement texture '%s' not divisible by 4x4 (%dx%d). In D3D11 (only!) we will have to expand (potentially causing glitches).", filename.c_str(), level.w, level.h);
 		}
 
-		data_.resize(numMips);
+		// Cap the mip count (attacker-controlled header field) and make sure
+		// data_ is large enough for mipLevel + numMips; otherwise the loop
+		// below indexes past the end of data_.
+		numMips = std::max(1, std::min(numMips, MAX_REPLACEMENT_MIP_LEVELS - mipLevel));
+		if ((size_t)(mipLevel + numMips) > data_.size()) {
+			data_.resize(mipLevel + numMips);
+		}
 
 		// A DDS File can contain multiple mipmaps.
 		levels_.reserve(numMips);
@@ -620,27 +656,33 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		}
 		vfs_->CloseFile(openFile);
 
-		int w, h, f;
-		uint8_t *image;
+		// LoadZIMPtr writes to these as arrays (one entry per mip level, up to
+		// ZIM_MAX_MIP_LEVELS) whenever the file has ZIM_HAS_MIPS set - passing plain
+		// scalars here was an OOB stack write waiting for a mipped (or malicious) ZIM.
+		int w[ZIM_MAX_MIP_LEVELS], h[ZIM_MAX_MIP_LEVELS], f;
+		uint8_t *image[ZIM_MAX_MIP_LEVELS];
 		std::vector<uint8_t> &out = data_[mipLevel];
 		// TODO: Zim files can actually hold mipmaps (although no tool has ever been made to create them :P)
-		if (LoadZIMPtr(&zim[0], fileSize, &w, &h, &f, &image)) {
-			if (w > level.w || h > level.h) {
+		// We only use the first level for now.
+		int numLevels = LoadZIMPtr(&zim[0], fileSize, w, h, &f, image);
+		if (numLevels > 0) {
+			if (w[0] > level.w || h[0] > level.h) {
 				ERROR_LOG(Log::TexReplacement, "Texture replacement changed since header read: %s", filename.c_str());
+				free(image[0]);
 				return LoadLevelResult::LOAD_ERROR;
 			}
 
 			out.resize(level.w * level.h * 4);
-			if (w == level.w) {
-				memcpy(&out[0], image, level.w * 4 * level.h);
+			if (w[0] == level.w) {
+				memcpy(&out[0], image[0], level.w * 4 * level.h);
 			} else {
-				for (int y = 0; y < h; ++y) {
-					memcpy(&out[level.w * 4 * y], image + w * 4 * y, w * 4);
+				for (int y = 0; y < h[0]; ++y) {
+					memcpy(&out[level.w * 4 * y], image[0] + w[0] * 4 * y, w[0] * 4);
 				}
 			}
-			free(image);
+			free(image[0]);
 
-			const TextureAlpha res = CheckAlpha32Rect((u32 *)&out[0], level.w, w, h, 0xFF000000);
+			const TextureAlpha res = CheckAlpha32Rect((u32 *)&out[0], level.w, w[0], h[0], 0xFF000000);
 			if (res == TextureAlpha::Any || mipLevel == 0) {
 				alphaStatus_ = res;
 			}
@@ -679,7 +721,6 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		png.format = PNG_FORMAT_RGBA;
 
 		std::vector<uint8_t> &out = data_[mipLevel];
-		// TODO: Should probably try to handle out-of-memory gracefully here.
 		out.resize(level.w * level.h * 4);
 		if (!png_image_finish_read(&png, nullptr, &out[0], level.w * 4, nullptr)) {
 			ERROR_LOG(Log::TexReplacement, "Could not load texture replacement: %s - %s", filename.c_str(), png.message);

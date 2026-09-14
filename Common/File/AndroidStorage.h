@@ -33,7 +33,6 @@ inline StorageError StorageErrorFromInt(int ival) {
 
 extern std::string g_extFilesDir;
 extern std::string g_externalDir;
-extern std::string g_nativeLibDir;
 
 // Note that we don't use string_view much here because NewStringUTF doesn't have a size parameter.
 

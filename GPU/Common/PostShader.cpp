@@ -163,6 +163,12 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 					section.Get("OutputResolution", &info.outputResolution);
 					section.Get("Upscaling", &info.isUpscalingFilter);
 					section.Get("SSAA", &info.SSAAFilterLevel);
+					if (info.SSAAFilterLevel < 0 || info.SSAAFilterLevel > 8) {
+						// It multiplies the render resolution, and shader inis come from downloads -
+						// the neighbouring texture-shader "Scale" is bounded for the same reason.
+						WARN_LOG(Log::G3D, "Ignoring out-of-range SSAA level %d in shader '%s'", info.SSAAFilterLevel, info.section.c_str());
+						info.SSAAFilterLevel = 0;
+					}
 					section.Get("60fps", &info.requires60fps);
 					section.Get("UsePreviousFrame", &info.usePreviousFrame);
 

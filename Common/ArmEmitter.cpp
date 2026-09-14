@@ -557,6 +557,18 @@ void ARMXEmitter::QuickCallFunction(ARMReg reg, const void *func) {
 	}
 }
 
+void ARMXEmitter::QuickCallFunctionR(ARMReg reg, const void *func, ARMReg arg) {
+	if (arg != R0) {
+		MOV(R0, arg);
+	}
+	if (BLInRange(func)) {
+		BL(func);
+	} else {
+		MOVP2R(reg, func);
+		BL(reg);
+	}
+}
+
 void ARMXEmitter::SetCodePointer(u8 *ptr, u8 *writePtr)
 {
 	code = ptr;

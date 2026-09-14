@@ -131,6 +131,11 @@ struct PSPFileInfo {
 	u32 sectorSize = 0;
 };
 
+// Generates the FAT 8.3 short names for a directory listing, one per entry and in the same order.
+// Games read these out of d_private in sceIoDread and may then open files by them - see the long
+// comment in FileSystem.cpp, including what's still unverified against hardware.
+void GenerateFatShortNames(const std::vector<PSPFileInfo> &listing, std::vector<std::string> *shortNames);
+
 
 class IFileSystem {
 public:
@@ -152,6 +157,9 @@ public:
 	virtual bool     RmDir(const std::string &dirname) = 0;
 	virtual int      RenameFile(const std::string &from, const std::string &to) = 0;
 	virtual bool     RemoveFile(const std::string &filename) = 0;
+	// Sets or clears the FAT read-only attribute, as sceIoChstat does. Defaults to "can't", which
+	// is right for read-only filesystems and for hosts that can't express it.
+	virtual bool     SetFileWritable(const std::string &filename, bool writable) { return false; }
 	virtual int      Ioctl(u32 handle, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec) = 0;
 	virtual PSPDevType DevType(u32 handle) = 0;
 	virtual FileSystemFlags Flags() const = 0;

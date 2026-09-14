@@ -40,21 +40,18 @@ std::string getHeaderString(std::istringstream &headers) {
 
 // FIXME: Is it allowed for fieldName to be null/0 or empty string ? JPCSP seems to ignore it
 static int sceParseHttpResponseHeader(u32 headerAddr, int headerLength, const char *fieldName, u32 valueAddr, u32 valueLengthAddr) {
-	WARN_LOG(Log::sceNet, "UNTESTED sceParseHttpResponseHeader(%x, %i, %s, %x, %x[%i]) at %08x", headerAddr, headerLength, fieldName, valueAddr, valueLengthAddr, Memory::Read_U32(valueLengthAddr), currentMIPS->pc);
 	if (!Memory::IsValidRange(headerAddr, headerLength))
 		return hleLogError(Log::sceNet, -1, "invalid arg");
 
 	if (!Memory::IsValidRange(valueLengthAddr, 4))
 		return hleLogError(Log::sceNet, -1, "invalid arg");
 
-	// FIXME: Not sure whether valuerAddr can be null or not (in case the game just need to get the size to allocate the value buffer first)
+	// FIXME: Not sure whether valueAddr can be null or not (in case the game just need to get the size to allocate the value buffer first)
 	// Note: Based on the outputted value address from JPCSP, the address seems to be within the input headers address range, thus no need to allocate output value buffer
-	if (!Memory::IsValidRange(valueAddr, Memory::Read_U32(valueLengthAddr)))
+	if (!Memory::IsValidRange(valueAddr, Memory::ReadUnchecked_U32(valueLengthAddr)))
 		return hleLogError(Log::sceNet, -1, "invalid arg");
 
-	std::string field = "";
-	if (fieldName != nullptr)
-		field = std::string(fieldName);
+	std::string field = fieldName ? fieldName : "";
 	field = StripSpaces(field);
 	std::string headers(Memory::GetCharPointer(headerAddr), headerLength);
 	std::istringstream hdrs(headers);
@@ -66,7 +63,7 @@ static int sceParseHttpResponseHeader(u32 headerAddr, int headerLength, const ch
 		const std::string delim = ":"; // JPCSP use ": " delimiter
 		size_t delimpos = headerString.find(delim);
 		std::string key = headerString.substr(0, delimpos); // the key part
-		if (equalsNoCase(StripSpaces(key), field.c_str())) {
+		if (equalsNoCase(StripSpaces(key), field)) {
 			found = true;
 			int offset = hdrs.tellg();
 			if (offset >= 0) {

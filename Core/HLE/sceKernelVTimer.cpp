@@ -148,9 +148,10 @@ public:
 		// Reserve some stack space for arguments.
 		u32 argArea = currentMIPS->r[MIPS_REG_SP];
 		currentMIPS->r[MIPS_REG_SP] -= HANDLER_STACK_SPACE;
-
-		Memory::Write_U64(vtimer->nvt.schedule, argArea - 16);
-		Memory::Write_U64(__getVTimerCurrentTime(vtimer), argArea - 8);
+		if (Memory::IsValidRange(argArea - HANDLER_STACK_SPACE, HANDLER_STACK_SPACE)) {
+			Memory::WriteUnchecked_U64(vtimer->nvt.schedule, argArea - 16);
+			Memory::WriteUnchecked_U64(__getVTimerCurrentTime(vtimer), argArea - 8);
+		}
 
 		currentMIPS->pc = vtimer->nvt.handlerAddr;
 		currentMIPS->r[MIPS_REG_A0] = vtimer->GetUID();
@@ -229,7 +230,7 @@ u32 sceKernelCreateVTimer(const char *name, u32 optParamAddr) {
 	vtimer->nvt.name[KERNELOBJECT_MAX_NAME_LENGTH] = '\0';
 
 	if (optParamAddr != 0) {
-		u32 size = Memory::Read_U32(optParamAddr);
+		u32 size = Memory::ReadOrException_U32(optParamAddr);
 		if (size > 4)
 			WARN_LOG_REPORT_ONCE(vtimeropt, Log::sceKernel, "sceKernelCreateVTimer(%s) unsupported options parameter, size = %d", name, size);
 	}
@@ -261,8 +262,9 @@ u32 sceKernelGetVTimerBase(SceUID uid, u32 baseClockAddr) {
 		return hleLogError(Log::sceKernel, error, "bad timer ID");
 	}
 
-	if (Memory::IsValidAddress(baseClockAddr))
-		Memory::Write_U64(vt->nvt.base, baseClockAddr);
+	if (Memory::IsValid4AlignedRange(baseClockAddr, 8)) {
+		Memory::WriteUnchecked_U64(vt->nvt.base, baseClockAddr);
+	}
 
 	return hleLogDebug(Log::sceKernel, 0);
 }
@@ -285,9 +287,9 @@ u32 sceKernelGetVTimerTime(SceUID uid, u32 timeClockAddr) {
 	}
 
 	u64 time = __getVTimerCurrentTime(vt);
-	if (Memory::IsValidAddress(timeClockAddr))
-		Memory::Write_U64(time, timeClockAddr);
-
+	if (Memory::IsValid4AlignedRange(timeClockAddr, 8)) {
+		Memory::WriteUnchecked_U64(time, timeClockAddr);
+	}
 	return hleLogDebug(Log::sceKernel, 0);
 }
 
@@ -319,10 +321,13 @@ u32 sceKernelSetVTimerTime(SceUID uid, u32 timeClockAddr) {
 	if (!vt) {
 		return hleLogError(Log::sceKernel, error, "bad timer ID");
 	}
-
-	u64 time = Memory::Read_U64(timeClockAddr);
-	if (Memory::IsValidAddress(timeClockAddr))
-		Memory::Write_U64(__KernelSetVTimer(vt, time), timeClockAddr);
+	
+	if (Memory::IsValid4AlignedRange(timeClockAddr, 8)) {
+		u64 time = Memory::ReadUnchecked_U64(timeClockAddr);
+		Memory::WriteUnchecked_U64(__KernelSetVTimer(vt, time), timeClockAddr);
+	} else {
+		_dbg_assert_(false);
+	}
 
 	return hleLogDebug(Log::sceKernel, 0);
 }
@@ -409,8 +414,14 @@ u32 sceKernelSetVTimerHandler(SceUID uid, u32 scheduleAddr, u32 handlerFuncAddr,
 	}
 
 	hleEatCycles(2000);
+	u64 schedule;
+	if (!Memory::IsValidAddress(scheduleAddr)) {
+		ERROR_LOG(Log::sceKernel, "sceKernelSetVTimerHandler: invalid schedule address %08x", scheduleAddr);
+		schedule = 0;
+	} else {
+		schedule = Memory::ReadUnchecked_U64(scheduleAddr);
+	}
 
-	u64 schedule = Memory::Read_U64(scheduleAddr);
 	vt->nvt.handlerAddr = handlerFuncAddr;
 	if (handlerFuncAddr) {
 		vt->nvt.commonAddr = commonAddr;
@@ -461,9 +472,9 @@ u32 sceKernelReferVTimerStatus(SceUID uid, u32 statusAddr) {
 		return hleLogError(Log::sceKernel, error, "bad timer ID");
 	}
 
-	if (Memory::IsValidAddress(statusAddr)) {
+	if (Memory::IsValid4AlignedAddress(statusAddr)) {
 		NativeVTimer status = vt->nvt;
-		u32 size = Memory::Read_U32(statusAddr);
+		u32 size = Memory::ReadUnchecked_U32(statusAddr);
 		status.current = __getVTimerCurrentTime(vt);
 		Memory::Memcpy(statusAddr, &status, std::min(size, (u32)sizeof(status)), "VTimerStatus");
 	}

@@ -482,20 +482,20 @@ static int sceCtrlSetIdleCancelThreshold(int idleReset, int idleBack)
 
 static int sceCtrlGetIdleCancelThreshold(u32 idleResetPtr, u32 idleBackPtr)
 {
-	if (idleResetPtr && !Memory::IsValidAddress(idleResetPtr))
+	if (idleResetPtr && !Memory::IsValid4AlignedAddress(idleResetPtr))
 		return hleLogError(Log::sceCtrl, SCE_KERNEL_ERROR_PRIV_REQUIRED);
-	if (idleBackPtr && !Memory::IsValidAddress(idleBackPtr))
+	if (idleBackPtr && !Memory::IsValid4AlignedAddress(idleBackPtr))
 		return hleLogError(Log::sceCtrl, SCE_KERNEL_ERROR_PRIV_REQUIRED);
 
 	if (idleResetPtr)
-		Memory::Write_U32(ctrlIdleReset, idleResetPtr);
+		Memory::WriteUnchecked_U32(ctrlIdleReset, idleResetPtr);
 	if (idleBackPtr)
-		Memory::Write_U32(ctrlIdleBack, idleBackPtr);
+		Memory::WriteUnchecked_U32(ctrlIdleBack, idleBackPtr);
 
 	return hleLogDebug(Log::sceCtrl, 0);
 }
 
-static int sceCtrlReadBufferPositive(u32 ctrlDataPtr, u32 nBufs)
+int sceCtrlReadBufferPositive(u32 ctrlDataPtr, u32 nBufs)
 {
 	int done = __CtrlReadBuffer(ctrlDataPtr, nBufs, false, false);
 	hleEatCycles(330);

@@ -7,6 +7,7 @@
 #include "Common/UI/Context.h"
 #include "Common/UI/Root.h"
 #include "Common/UI/Notice.h"
+#include "Common/UI/ScreenManager.h"
 #include "Common/StringUtils.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/System/System.h"
@@ -366,11 +367,9 @@ void PopupMultiChoice::HandleClick(UI::EventParams &e) {
 
 	restoreFocus_ = HasFocus();
 
-	auto category = GetI18NCategory(category_);
-
 	std::vector<std::string> choices;
 	for (int i = 0; i < numChoices_; i++) {
-		choices.push_back(category ? std::string(category->T(choices_[i])) : std::string(choices_[i]));
+		choices.push_back(std::string(TranslateChoice(i)));
 	}
 
 	ListPopupScreen *popupScreen = new ListPopupScreen(ChopTitle(text_), choices, *value_ - minVal_, [this](int num) {ChoiceCallback(num);});
@@ -386,6 +385,12 @@ void PopupMultiChoice::Update() {
 	UpdateText();
 }
 
+std::string_view PopupMultiChoice::TranslateChoice(int index) const {
+	// Choices like plain numbers have no translation, and looking them up would just spam the log.
+	const I18NCat category = untranslated_.find(index) != untranslated_.end() ? I18NCat::NONE : category_;
+	return T(category, choices_[index]);
+}
+
 void PopupMultiChoice::UpdateText() {
 	if (!choices_)
 		return;
@@ -394,7 +399,7 @@ void PopupMultiChoice::UpdateText() {
 		valueText_ = "(invalid choice)";  // Shouldn't happen. Should be no need to translate this.
 	} else {
 		if (choices_[index]) {
-			std::string text(T(category_, choices_[index]));
+			std::string text(TranslateChoice(index));
 			if (default_ == index) {
 				auto di = GetI18NCategory(I18NCat::DIALOG);
 				text = ApplySafeSubstitutions("%1 (%2)", text, di->T("Default"));
@@ -641,8 +646,8 @@ void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	vert->Add(slider_);
 
 	LinearLayout *lin = vert->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(UI::Margins(10, 10))));
-	lin->Add(new Button(" - "))->OnClick.Handle(this, &SliderPopupScreen::OnDecrease);
-	lin->Add(new Button(" + "))->OnClick.Handle(this, &SliderPopupScreen::OnIncrease);
+	lin->Add(new Button("", ImageID("I_MINUS"), new LayoutParams(60.0f, 60.0f)))->OnClick.Handle(this, &SliderPopupScreen::OnDecrease);
+	lin->Add(new Button("", ImageID("I_PLUS"), new LayoutParams(60.0f, 60.0f)))->OnClick.Handle(this, &SliderPopupScreen::OnIncrease);
 
 	edit_ = new TextEdit("", Title(), "", new LinearLayoutParams(1.0f));
 	edit_->SetMaxLen(16);
@@ -657,7 +662,7 @@ void SliderPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	if (defaultValue_ != NO_DEFAULT_FLOAT) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		lin->Add(new Button(di->T("Reset")))->OnClick.Add([=](UI::EventParams &) {
+		lin->Add(new Button(di->T("Reset"), new LayoutParams(WRAP_CONTENT, 60.0f)))->OnClick.Add([=](UI::EventParams &) {
 			sliderValue_ = defaultValue_;
 			changing_ = true;
 			UpdateTextBox();
@@ -683,8 +688,8 @@ void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	vert->Add(slider_);
 
 	LinearLayout *lin = vert->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(UI::Margins(10, 10))));
-	lin->Add(new Button(" - "))->OnClick.Handle(this, &SliderFloatPopupScreen::OnDecrease);
-	lin->Add(new Button(" + "))->OnClick.Handle(this, &SliderFloatPopupScreen::OnIncrease);
+	lin->Add(new Button("", ImageID("I_MINUS"), new LayoutParams(60.0f, 60.0f)))->OnClick.Handle(this, &SliderFloatPopupScreen::OnDecrease);
+	lin->Add(new Button("", ImageID("I_PLUS"), new LayoutParams(60.0f, 60.0f)))->OnClick.Handle(this, &SliderFloatPopupScreen::OnIncrease);
 
 	edit_ = new TextEdit("", Title(), "", new LinearLayoutParams(1.0f));
 	edit_->SetMaxLen(16);
@@ -700,7 +705,7 @@ void SliderFloatPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 
 	if (defaultValue_ != NO_DEFAULT_FLOAT) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
-		lin->Add(new Button(di->T("Reset")))->OnClick.Add([=](UI::EventParams &) {
+		lin->Add(new Button(di->T("Reset"), new LayoutParams(WRAP_CONTENT, 60.0f)))->OnClick.Add([=](UI::EventParams &) {
 			sliderValue_ = defaultValue_;
 			if (liveUpdate_) {
 				*value_ = defaultValue_;

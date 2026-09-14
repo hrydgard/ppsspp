@@ -483,7 +483,7 @@ enum : u32 {
 	// Free bit: 18
 	GPU_USE_FRAMEBUFFER_ARRAYS = FLAG_BIT(19),
 	GPU_USE_FRAMEBUFFER_FETCH = FLAG_BIT(20),
-	// Free bit: 21
+	GPU_USE_FULL_PRECISION_IN_FRAGMENT = FLAG_BIT(21),  // Required for the min-max/depthclamp in fragment shader stuff
 	GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT = FLAG_BIT(22),
 	GPU_ROUND_DEPTH_TO_16BIT = FLAG_BIT(23),  // Can be disabled either per game or if we use a real 16-bit depth buffer
 	GPU_USE_CLIP_DISTANCE = FLAG_BIT(24),
@@ -534,6 +534,16 @@ struct GPUStateCache {
 	bool IsDirty(u64 what) const {
 		return (dirty & what) != 0ULL;
 	}
+
+	void AdvanceVerts(u32 vertType, int count, int bytesRead) {
+		if ((vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
+			const int indexShift = ((vertType & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT) - 1;
+			indexAddr += count << indexShift;
+		} else {
+			vertexAddr += bytesRead;
+		}
+	}
+
 	void SetTextureSolidAlpha(bool solidAlpha) {
 		if (solidAlpha != textureSolidAlpha) {
 			textureSolidAlpha = solidAlpha;
@@ -610,7 +620,6 @@ public:
 	bool useFlagsChanged;
 
 	float morphWeights[8];
-	u32 deferredVertTypeDirty;
 
 	u32 curTextureWidth;
 	u32 curTextureHeight;
@@ -641,9 +650,6 @@ public:
 	// DST squared, used in Brave Story
 	bool dstSquared;
 
-	// U/V is 1:1 to pixels. Can influence texture sampling.
-	bool pixelMapped;
-
 	// TODO: These should be accessed from the current VFB object directly.
 	u32 curRTWidth;
 	u32 curRTHeight;
@@ -654,7 +660,7 @@ public:
 		if (xoff != curRTOffsetX || yoff != curRTOffsetY) {
 			curRTOffsetX = xoff;
 			curRTOffsetY = yoff;
-			Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_PROJTHROUGHMATRIX);
+			Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_FRAMEBUFFER_DIM);
 		}
 	}
 	int curRTOffsetX;

@@ -267,7 +267,7 @@ enum class Opcode32 {
     AMCAS_W = 0x38590000,
     AMCAS_DB_W = 0x385b0000,
     AMCAS_D = 0x38598000,
-    AMCAS_DB_D = 0x38698000,
+    AMCAS_DB_D = 0x385b8000,
 
     CRC_W_B_W = 0x00240000,
     CRC_W_H_W = 0x00248000,
@@ -1292,7 +1292,7 @@ static inline u32 EncodeDJ(Opcode32 opcode, LoongArch64Reg rd, LoongArch64Reg rj
 static inline u32 EncodeJK(Opcode32 opcode, LoongArch64Reg rj, LoongArch64Reg rk) {
     _assert_msg_(IsGPR(rj), "JK instruction rj must be GPR");
     _assert_msg_(IsGPR(rk), "JK instruction rk must be GPR");
-    return (u32)opcode | ((u32)rk << 5) | ((u32)rj << 5);
+    return (u32)opcode | ((u32)rk << 10) | ((u32)rj << 5);
 }
 
 static inline u32 EncodeDJKUa2(Opcode32 opcode, LoongArch64Reg rd, LoongArch64Reg rj, LoongArch64Reg rk, u8 sa2) {
@@ -1426,7 +1426,7 @@ static inline u32 EncodeFdJ(Opcode32 opcode, LoongArch64Reg fd, LoongArch64Reg r
 static inline u32 EncodeDFj(Opcode32 opcode, LoongArch64Reg rd, LoongArch64Reg fj) {
     _assert_msg_(IsGPR(rd), "DFj instruction rd must be GPR");
     _assert_msg_(IsFPR(fj), "DFj instruction fj must be FPR");
-    return (u32)opcode | ((u32)fj << 5) | (u32)DecodeReg(rd);
+    return (u32)opcode | ((u32)DecodeReg(fj) << 5) | (u32)DecodeReg(rd);
 }
 
 static inline u32 EncodeJUd5(Opcode32 opcode, LoongArch64FCSR fcsr, LoongArch64Reg rj) {
@@ -2223,7 +2223,7 @@ void LoongArch64Emitter::BYTEPICK_W(LoongArch64Reg rd, LoongArch64Reg rj, LoongA
 
 void LoongArch64Emitter::BYTEPICK_D(LoongArch64Reg rd, LoongArch64Reg rj, LoongArch64Reg rk, u8 sa3) {
     _assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
-    Write32(EncodeDJKUa2(Opcode32::BYTEPICK_D, rd, rj, rk, sa3));
+    Write32(EncodeDJKUa3(Opcode32::BYTEPICK_D, rd, rj, rk, sa3));
 }
 
 void LoongArch64Emitter::REVB_2H(LoongArch64Reg rd, LoongArch64Reg rj) {
@@ -2543,17 +2543,15 @@ void LoongArch64Emitter::LDPTR_W(LoongArch64Reg rd, LoongArch64Reg rj, s16 si14)
 
 void LoongArch64Emitter::LDPTR_D(LoongArch64Reg rd, LoongArch64Reg rj, s16 si14) {
     _assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
-    Write32(EncodeDJSk14ps2(Opcode32::LDPTR_W, rd, rj, si14));
+    Write32(EncodeDJSk14ps2(Opcode32::LDPTR_D, rd, rj, si14));
 }
 
 void LoongArch64Emitter::STPTR_W(LoongArch64Reg rd, LoongArch64Reg rj, s16 si14) {
-    _assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
-    Write32(EncodeDJSk14ps2(Opcode32::LDPTR_W, rd, rj, si14));
+    Write32(EncodeDJSk14ps2(Opcode32::STPTR_W, rd, rj, si14));
 }
 
 void LoongArch64Emitter::STPTR_D(LoongArch64Reg rd, LoongArch64Reg rj, s16 si14) {
-    _assert_msg_(rd != R_ZERO, "%s write to zero is a HINT", __func__);
-    Write32(EncodeDJSk14ps2(Opcode32::LDPTR_W, rd, rj, si14));
+    Write32(EncodeDJSk14ps2(Opcode32::STPTR_D, rd, rj, si14));
 }
 
 void LoongArch64Emitter::PRELD(u32 hint, LoongArch64Reg rj, s16 si12) {

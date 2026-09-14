@@ -96,11 +96,11 @@ void IRFrontend::BranchRSRTComp(MIPSOpcode op, IRComparison cc, bool likely) {
 		CompileDelaySlot();
 
 	int dcAmount = js.downcountAmount;
-	ir.Write(IROp::Downcount, 0, ir.AddConstant(dcAmount));
+	ir.Write(IROp::Downcount, 0, 0, 0, dcAmount);
 	js.downcountAmount = 0;
 
 	FlushAll();
-	ir.Write(ComparisonToExit(cc), ir.AddConstant(ResolveNotTakenTarget(branchInfo)), lhs, rhs);
+	ir.Write(ComparisonToExit(cc), 0, lhs, rhs, ResolveNotTakenTarget(branchInfo));
 	// This makes the block "impure" :(
 	if (likely && !branchInfo.delaySlotIsBranch)
 		CompileDelaySlot();
@@ -114,7 +114,7 @@ void IRFrontend::BranchRSRTComp(MIPSOpcode op, IRComparison cc, bool likely) {
 	}
 
 	FlushAll();
-	ir.Write(IROp::ExitToConst, ir.AddConstant(targetAddr));
+	ir.Write(IROp::ExitToConst, 0, 0, 0, targetAddr);
 
 	// Account for the delay slot.
 	js.compilerPC += 4;
@@ -147,11 +147,11 @@ void IRFrontend::BranchRSZeroComp(MIPSOpcode op, IRComparison cc, bool andLink, 
 		CompileDelaySlot();
 
 	int dcAmount = js.downcountAmount;
-	ir.Write(IROp::Downcount, 0, ir.AddConstant(dcAmount));
+	ir.Write(IROp::Downcount, 0, 0, 0, dcAmount);
 	js.downcountAmount = 0;
 
 	FlushAll();
-	ir.Write(ComparisonToExit(cc), ir.AddConstant(ResolveNotTakenTarget(branchInfo)), lhs);
+	ir.Write(ComparisonToExit(cc), 0, lhs, 0, ResolveNotTakenTarget(branchInfo));
 	if (likely && !branchInfo.delaySlotIsBranch)
 		CompileDelaySlot();
 	if (branchInfo.delaySlotIsBranch) {
@@ -165,7 +165,7 @@ void IRFrontend::BranchRSZeroComp(MIPSOpcode op, IRComparison cc, bool andLink, 
 
 	// Taken
 	FlushAll();
-	ir.Write(IROp::ExitToConst, ir.AddConstant(targetAddr));
+	ir.Write(IROp::ExitToConst, 0, 0, 0, targetAddr);
 
 	// Account for the delay slot.
 	js.compilerPC += 4;
@@ -225,12 +225,12 @@ void IRFrontend::BranchFPFlag(MIPSOpcode op, IRComparison cc, bool likely) {
 		CompileDelaySlot();
 
 	int dcAmount = js.downcountAmount;
-	ir.Write(IROp::Downcount, 0, ir.AddConstant(dcAmount));
+	ir.Write(IROp::Downcount, 0, 0, 0, dcAmount);
 	js.downcountAmount = 0;
 
 	FlushAll();
 	// Not taken
-	ir.Write(ComparisonToExit(cc), ir.AddConstant(ResolveNotTakenTarget(branchInfo)), IRTEMP_LHS, 0);
+	ir.Write(ComparisonToExit(cc), 0, IRTEMP_LHS, 0, ResolveNotTakenTarget(branchInfo));
 	// Taken
 	if (likely && !branchInfo.delaySlotIsBranch)
 		CompileDelaySlot();
@@ -244,7 +244,7 @@ void IRFrontend::BranchFPFlag(MIPSOpcode op, IRComparison cc, bool likely) {
 	}
 
 	FlushAll();
-	ir.Write(IROp::ExitToConst, ir.AddConstant(targetAddr));
+	ir.Write(IROp::ExitToConst, 0, 0, 0, targetAddr);
 
 	// Account for the delay slot.
 	js.compilerPC += 4;
@@ -284,14 +284,14 @@ void IRFrontend::BranchVFPUFlag(MIPSOpcode op, IRComparison cc, bool likely) {
 		CompileDelaySlot();
 
 	int dcAmount = js.downcountAmount;
-	ir.Write(IROp::Downcount, 0, ir.AddConstant(dcAmount));
+	ir.Write(IROp::Downcount, 0, 0, 0, dcAmount);
 	js.downcountAmount = 0;
 
 	int imm3 = (op >> 18) & 7;
 
-	ir.Write(IROp::AndConst, IRTEMP_LHS, IRTEMP_LHS, ir.AddConstant(1 << imm3));
+	ir.Write(IROp::AndConst, IRTEMP_LHS, IRTEMP_LHS, 0, 1 << imm3);
 	FlushAll();
-	ir.Write(ComparisonToExit(cc), ir.AddConstant(ResolveNotTakenTarget(branchInfo)), IRTEMP_LHS, 0);
+	ir.Write(ComparisonToExit(cc), 0, IRTEMP_LHS, 0, ResolveNotTakenTarget(branchInfo));
 
 	if (likely && !branchInfo.delaySlotIsBranch)
 		CompileDelaySlot();
@@ -306,7 +306,7 @@ void IRFrontend::BranchVFPUFlag(MIPSOpcode op, IRComparison cc, bool likely) {
 
 	// Taken
 	FlushAll();
-	ir.Write(IROp::ExitToConst, ir.AddConstant(targetAddr));
+	ir.Write(IROp::ExitToConst, 0, 0, 0, targetAddr);
 
 	// Account for the delay slot.
 	js.compilerPC += 4;
@@ -355,11 +355,11 @@ void IRFrontend::Comp_Jump(MIPSOpcode op) {
 	}
 
 	int dcAmount = js.downcountAmount;
-	ir.Write(IROp::Downcount, 0, ir.AddConstant(dcAmount));
+	ir.Write(IROp::Downcount, 0, 0, 0, dcAmount);
 	js.downcountAmount = 0;
 
 	FlushAll();
-	ir.Write(IROp::ExitToConst, ir.AddConstant(targetAddr));
+	ir.Write(IROp::ExitToConst, 0, 0, 0, targetAddr);
 
 	// Account for the delay slot.
 	js.compilerPC += 4;
@@ -420,7 +420,7 @@ void IRFrontend::Comp_JumpReg(MIPSOpcode op) {
 	}
 
 	int dcAmount = js.downcountAmount;
-	ir.Write(IROp::Downcount, 0, ir.AddConstant(dcAmount));
+	ir.Write(IROp::Downcount, 0, 0, 0, dcAmount);
 	js.downcountAmount = 0;
 
 	ir.Write(IROp::ExitToReg, 0, destReg, 0);
@@ -433,18 +433,25 @@ void IRFrontend::Comp_JumpReg(MIPSOpcode op) {
 void IRFrontend::Comp_Syscall(MIPSOpcode op) {
 	// Note: If we're in a delay slot, this is off by one compared to the interpreter.
 	int dcAmount = js.downcountAmount + (js.inDelaySlot ? -1 : 0);
-	ir.Write(IROp::Downcount, 0, ir.AddConstant(dcAmount));
+	ir.Write(IROp::Downcount, 0, 0, 0, dcAmount);
 	js.downcountAmount = 0;
 
 	// If not in a delay slot, we need to update PC.
+	// However we also need the PC for some diagnostics so let's just always do it.
+	// Not exactly a bottleneck.
 	if (!js.inDelaySlot) {
-		ir.Write(IROp::SetPCConst, 0, ir.AddConstant(GetCompilerPC() + 4));
+		ir.Write(IROp::SetPCConst, 0, 0, 0, GetCompilerPC() + 4);
 	}
 
 	FlushAll();
 
 	RestoreRoundingMode();
-	ir.Write(IROp::Syscall, 0, ir.AddConstant(op.encoding));
+	const HLEFunction *func = GetSyscallFunctionData(op, js.compilerPC);
+	if (func) {
+		ir.Write(IROp::Syscall, 0, 0, 0, op.encoding);
+	} else {
+		ir.Write(IROp::SyscallUnresolved, 0, 0, 0, js.compilerPC);
+	}
 	ApplyRoundingMode();
 	ir.Write(IROp::ExitToPC);
 
@@ -452,7 +459,7 @@ void IRFrontend::Comp_Syscall(MIPSOpcode op) {
 }
 
 void IRFrontend::Comp_Break(MIPSOpcode op) {
-	ir.Write(IROp::SetPCConst, 0, ir.AddConstant(GetCompilerPC()));
+	ir.Write(IROp::SetPCConst, 0, 0, 0, GetCompilerPC());
 	ir.Write(IROp::Break);
 	js.compiling = false;
 }

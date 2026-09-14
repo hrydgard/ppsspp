@@ -565,6 +565,7 @@ private:
 
 	void SanityCheckPassesOnAdd();
 	bool CreateSwapchainViewsAndDepth(VkCommandBuffer cmdInit, VulkanBarrierBatch *barriers, FrameDataShared &frameDataShared);
+	bool RecreatePresentationIfNeeded();
 
 	FrameDataShared frameDataShared_;
 
@@ -643,5 +644,12 @@ private:
 	HistoryBuffer<FrameTimeData, FRAME_TIME_HISTORY_LENGTH> &frameTimeHistory_;
 
 	VKRPipelineLayout *curPipelineLayout_ = nullptr;
+
+	// Guards pipelineLayouts_, both the vector itself and the lifetime of the layouts in it.
+	// The list is added to by CreatePipelineLayout and erased from by the deferred callback queued by
+	// DestroyPipelineLayout, both of which run on the main thread, while the render thread walks it
+	// every frame in FlushDescriptors. Contention is negligible - layouts are only created and destroyed
+	// when a game starts or stops, and the lock is otherwise taken exactly twice per frame.
+	std::mutex pipelineLayoutsMutex_;
 	std::vector<VKRPipelineLayout *> pipelineLayouts_;
 };

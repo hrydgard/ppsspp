@@ -86,7 +86,7 @@ void notifyMatchingHandler(SceNetAdhocMatchingContext * context, ThreadMessage *
 	MatchingArgs argsNew = { 0 };
 	u32_le dataBufLen = msg->optlen + 8; //max(bufLen, msg->optlen + 8);
 	u32_le dataBufAddr = userMemory.Alloc(dataBufLen); // We will free this memory after returning from mipscall. FIXME: Are these buffers supposed to be taken/pre-allocated from the memory pool during sceNetAdhocMatchingInit?
-	uint8_t *dataPtr = Memory::GetPointerWriteRange(dataBufAddr, dataBufLen);
+	uint8_t *dataPtr = Memory::GetPointerWriteRangeOrException(dataBufAddr, dataBufLen);
 	if (dataPtr) {
 		memcpy(dataPtr, &msg->mac, sizeof(msg->mac));
 		if (msg->optlen > 0)
@@ -1624,20 +1624,20 @@ int NetAdhocMatching_Delete(int matchingId) {
 	SceNetAdhocMatchingContext* prev = NULL;
 
 	// Context Pointer
-	SceNetAdhocMatchingContext* item = contexts;
+	SceNetAdhocMatchingContext* context = contexts;
 
 	// Iterate contexts
-	for (; item != NULL; item = item->next) {
+	for (; context != NULL; context = context->next) {
 		// Found matching ID
-		if (item->id == matchingId) {
+		if (context->id == matchingId) {
 			// Unlink Left (Beginning)
-			if (prev == NULL) contexts = item->next;
+			if (prev == NULL) contexts = context->next;
 
 			// Unlink Left (Other)
-			else prev->next = item->next;
+			else prev->next = context->next;
 
 			// Stop it first if it's still running
-			if (item->running) {
+			if (context->running) {
 				NetAdhocMatching_Stop(matchingId);
 			}
 			// Delete the Fake PSP Thread
@@ -1645,24 +1645,24 @@ int NetAdhocMatching_Delete(int matchingId) {
 			//delete item->matchingThread;
 
 			// Free allocated memories
-			free(item->hello);
-			free(item->rxbuf);
-			clearPeerList(item); //deleteAllMembers(item);
-			(*item->peerPort).clear();
-			delete item->peerPort;
+			free(context->hello);
+			free(context->rxbuf);
+			clearPeerList(context); //deleteAllMembers(item);
+			(*context->peerPort).clear();
+			delete context->peerPort;
 			// Destroy locks
-			item->eventlock->lock(); // Make sure it's not locked when being deleted
-			item->eventlock->unlock();
-			delete item->eventlock;
-			item->inputlock->lock(); // Make sure it's not locked when being deleted
-			item->inputlock->unlock();
-			delete item->inputlock;
-			item->socketlock->lock(); // Make sure it's not locked when being deleted
-			item->socketlock->unlock();
-			delete item->socketlock;
+			context->eventlock->lock(); // Make sure it's not locked when being deleted
+			context->eventlock->unlock();
+			delete context->eventlock;
+			context->inputlock->lock(); // Make sure it's not locked when being deleted
+			context->inputlock->unlock();
+			delete context->inputlock;
+			context->socketlock->lock(); // Make sure it's not locked when being deleted
+			context->socketlock->unlock();
+			delete context->socketlock;
 			// Free item context memory
-			free(item);
-			item = NULL;
+			delete context;
+			context = nullptr;
 
 			// Making sure there are no leftover matching events from this session which could cause a crash on the next session
 			deleteMatchingEvents(matchingId);
@@ -1672,7 +1672,7 @@ int NetAdhocMatching_Delete(int matchingId) {
 		}
 
 		// Set Previous Reference
-		prev = item;
+		prev = context;
 	}
 
 	return 0;
@@ -1775,16 +1775,16 @@ static int sceNetAdhocMatchingCreate(int mode, int maxnum, int port, int rxbufle
 	}
 
 	// Allocate Context Memory
-	SceNetAdhocMatchingContext * context = (SceNetAdhocMatchingContext *)malloc(sizeof(SceNetAdhocMatchingContext));
+	SceNetAdhocMatchingContext *context = new SceNetAdhocMatchingContext();
 
 	// Allocated Memory
-	if (context != NULL) {
+	if (context) {  // This can't be null but let's not reformat all this code..
 		// Create PDP Socket
 		SceNetEtherAddr localmac;
 		getLocalMac(&localmac);
 
 		// Clear Memory
-		context = {};
+		*context = {};
 
 		// Allocate Receive Buffer
 		context->rxbuf = (uint8_t*)malloc(rxbuflen);
@@ -1842,7 +1842,7 @@ static int sceNetAdhocMatchingCreate(int mode, int maxnum, int port, int rxbufle
 		}
 
 		// Free Memory
-		free(context);
+		delete context;
 	}
 
 	// Out of Memory
@@ -1907,10 +1907,8 @@ int NetAdhocMatching_Start(int matchingId, int evthPri, int evthPartitionId, int
 	return hleLogDebug(Log::sceNet, 0);
 }
 
-#define KERNEL_PARTITION_ID  1
-#define USER_PARTITION_ID  2
-#define VSHELL_PARTITION_ID  5
 // This should be similar with sceNetAdhocMatchingStart2 but using USER_PARTITION_ID (2) for PartitionId params
+// (KERNEL_PARTITION_ID/USER_PARTITION_ID/VSHELL_PARTITION_ID come from Core/HLE/sceKernelMemory.h)
 static int sceNetAdhocMatchingStart(int matchingId, int evthPri, int evthStack, int inthPri, int inthStack, int optLen, u32 optDataAddr) {
 	WARN_LOG(Log::sceNet, "UNTESTED sceNetAdhocMatchingStart(%i, %i, %i, %i, %i, %i, %08x) at %08x", matchingId, evthPri, evthStack, inthPri, inthStack, optLen, optDataAddr, currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
@@ -2264,7 +2262,6 @@ int sceNetAdhocMatchingSetHelloOpt(int matchingId, int optLenAddr, u32 optDataAd
 }
 
 static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) {
-	DEBUG_LOG(Log::sceNet, "UNTESTED sceNetAdhocMatchingGetMembers(%i, [%08x]=%i, %08x) at %08x", matchingId, sizeAddr, Memory::Read_U32(sizeAddr), buf, currentMIPS->pc);
 	if (!g_Config.bEnableWlan) {
 		return hleLogError(Log::sceNet, -1, "WLAN off");
 	}
@@ -2295,10 +2292,10 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 	if (!Memory::IsValidAddress(sizeAddr))
 		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_INVALID_ARG, "adhocmatching invalid arg");
 
-	int* buflen = (int*)Memory::GetPointer(sizeAddr);
+	int *buflen = (int*)Memory::GetPointerUnchecked(sizeAddr);
 	SceNetAdhocMatchingMemberInfoEmu* buf2 = NULL;
 	if (Memory::IsValidAddress(buf)) {
-		buf2 = (SceNetAdhocMatchingMemberInfoEmu*)Memory::GetPointer(buf);
+		buf2 = (SceNetAdhocMatchingMemberInfoEmu*)Memory::GetPointerUnchecked(buf);
 	}
 
 	// Number of Connected Peers, should we exclude timeout members?
@@ -2597,7 +2594,7 @@ int sceNetAdhocMatchingGetPoolStat(u32 poolstatPtr) {
 	}
 
 	SceNetMallocStat * poolstat = NULL;
-	if (Memory::IsValidAddress(poolstatPtr)) poolstat = (SceNetMallocStat *)Memory::GetPointer(poolstatPtr);
+	if (Memory::IsValidAddress(poolstatPtr)) poolstat = (SceNetMallocStat *)Memory::GetPointerOrException(poolstatPtr);
 
 	if (poolstat == NULL) {
 		// Invalid Argument
@@ -2631,10 +2628,10 @@ void __NetMatchingCallbacks() { //(int matchingId)
 			actionAfterMatchingMipsCall = __KernelRegisterActionType(AfterMatchingMipsCall::Create);
 		}
 		DEBUG_LOG(Log::sceNet, "AdhocMatching - Remaining Events: %zu", matchingEvents.size());
-		auto peer = findPeer(context, (SceNetEtherAddr*)Memory::GetPointer(args[2]));
+		auto peer = findPeer(context, (SceNetEtherAddr*)Memory::GetPointerOrException(args[2]));
 		// Discard HELLO Events when in the middle of joining, as some games (ie. Super Pocket Tennis) might tried to join again (TODO: Need to confirm whether sceNetAdhocMatchingSelectTarget supposed to be blocking the current thread or not)
 		if (peer == NULL || (args[1] != PSP_ADHOC_MATCHING_EVENT_HELLO || (peer->state != PSP_ADHOC_MATCHING_PEER_OUTGOING_REQUEST && peer->state != PSP_ADHOC_MATCHING_PEER_INCOMING_REQUEST && peer->state != PSP_ADHOC_MATCHING_PEER_CANCEL_IN_PROGRESS))) {
-			DEBUG_LOG(Log::sceNet, "AdhocMatchingCallback: [ID=%i][EVENT=%i][%s]", args[0], args[1], mac2str((SceNetEtherAddr *)Memory::GetPointer(args[2])).c_str());
+			DEBUG_LOG(Log::sceNet, "AdhocMatchingCallback: [ID=%i][EVENT=%i][%s]", args[0], args[1], mac2str((SceNetEtherAddr *)Memory::GetPointerOrException(args[2])).c_str());
 
 			AfterMatchingMipsCall* after = (AfterMatchingMipsCall*)__KernelCreateAction(actionAfterMatchingMipsCall);
 			after->SetData(args[0], args[1], args[2]);
@@ -2642,7 +2639,7 @@ void __NetMatchingCallbacks() { //(int matchingId)
 			matchingEvents.pop_front();
 		}
 		else {
-			DEBUG_LOG(Log::sceNet, "AdhocMatching - Discarding Callback: [ID=%i][EVENT=%i][%s]", args[0], args[1], mac2str((SceNetEtherAddr*)Memory::GetPointer(args[2])).c_str());
+			DEBUG_LOG(Log::sceNet, "AdhocMatching - Discarding Callback: [ID=%i][EVENT=%i][%s]", args[0], args[1], mac2str((SceNetEtherAddr*)Memory::GetPointerOrException(args[2])).c_str());
 			matchingEvents.pop_front();
 		}
 	}

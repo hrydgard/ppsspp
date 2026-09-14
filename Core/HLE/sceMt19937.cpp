@@ -44,7 +44,7 @@ static u32 sceMt19937UInt(u32 mt19937Addr)
 {
 	if (!Memory::IsValidAddress(mt19937Addr))
 		return hleLogError(Log::HLE, -1);
-	MersenneTwister *mt = (MersenneTwister *)Memory::GetPointer(mt19937Addr);
+	MersenneTwister *mt = (MersenneTwister *)Memory::GetPointerOrException(mt19937Addr);
 	return hleLogVerbose(Log::HLE, mt->R32());
 }
 

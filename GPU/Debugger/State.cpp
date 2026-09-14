@@ -815,6 +815,8 @@ bool GetPrimPreview(u32 op, GEPrimitiveType *prim, std::vector<GPUDebugVertex> *
 
 	int count = 0;
 
+	*lowerIndexBound = 0;
+
 	const GECommand cmd = static_cast<GECommand>(op >> 24);
 	if (cmd == GE_CMD_PRIM) {
 		*prim = static_cast<GEPrimitiveType>((op >> 16) & 0x7);  // irrelevant for bbox

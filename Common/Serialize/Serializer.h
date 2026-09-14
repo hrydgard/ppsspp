@@ -33,6 +33,7 @@
 #include <cstring>
 #include <vector>
 #include <cstdlib>
+#include <cstdint>
 
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
@@ -153,10 +154,37 @@ public:
 
 	size_t Offset() const { return *ptr - ptrStart_; }
 
+	// Restrict reads (MODE_READ / MODE_VERIFY) to not go past the end of the
+	// buffer. Not required for write/measure, but harmless to set.
+	void SetReadEnd(u8 *end) { end_ = end; }
+
+	// Number of bytes left before the end of the read buffer, or SIZE_MAX if
+	// no end was set. Only meaningful in MODE_READ/MODE_VERIFY.
+	size_t Remaining() const {
+		if (!end_) {
+			return SIZE_MAX;
+		}
+		if (*ptr >= end_) {
+			return 0;
+		}
+		return (size_t)(end_ - *ptr);
+	}
+
+	// Returns true if we can safely read/compare 'size' more bytes. On
+	// failure, marks an error and switches to MODE_NOOP.
+	bool CheckRead(size_t size) {
+		if (end_ && size > Remaining()) {
+			SetError(ERROR_FAILURE);
+			return false;
+		}
+		return true;
+	}
+
 private:
 	const char *firstBadSectionTitle_ = nullptr;
 	const char *curTitle_;
 	u8 *ptrStart_;
+	u8 *end_ = nullptr;
 	std::vector<SerializeCheckpoint> checkpoints_;
 	size_t curCheckpoint_ = 0;
 	size_t measuredSize_ = 0;
@@ -174,9 +202,10 @@ public:
 
 	// May fail badly if ptr doesn't point to valid data.
 	template<class T>
-	static Error LoadPtr(u8 *ptr, T &_class, std::string *errorString)
+	static Error LoadPtr(u8 *ptr, size_t size, T &_class, std::string *errorString)
 	{
 		PointerWrap p(&ptr, PointerWrap::MODE_READ);
+		p.SetReadEnd(ptr + size);
 		_class.DoState(p);
 
 		if (p.error != p.ERROR_FAILURE) {
@@ -267,7 +296,7 @@ public:
 		Error error = LoadFile(filename, gitVersion, ptr, sz, failureReason);
 		if (error == ERROR_NONE) {
 			failureReason->clear();
-			error = LoadPtr(ptr, _class, failureReason);
+			error = LoadPtr(ptr, sz, _class, failureReason);
 			delete [] ptr;
 			INFO_LOG(Log::SaveState, "ChunkReader: Done loading '%s'", filename.c_str());
 		} else {
@@ -311,6 +340,9 @@ public:
 		p.SetMode(PointerWrap::MODE_VERIFY);
 		_class.DoState(p);
 
+		if (p.error == PointerWrap::ERROR_FAILURE) {
+			return ERROR_BROKEN_STATE;
+		}
 		return ERROR_NONE;
 	}
 

@@ -98,7 +98,7 @@ Path GetSysDirectory(PSPDirectories directoryType);
 
 bool CreateSysDirectories();
 
-extern bool coreCollectDebugStats;
+extern bool g_coreCollectDebugStats;
 
 inline CoreParameter &PSP_CoreParameter() {
 	extern CoreParameter g_CoreParameter;

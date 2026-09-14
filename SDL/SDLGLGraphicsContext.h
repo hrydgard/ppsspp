@@ -5,17 +5,21 @@
 
 #include "Common/GPU/OpenGL/GLRenderManager.h"
 #include "Common/GPU/OpenGL/GLCommon.h"
-#include "Common/GraphicsContext.h"
+#include "Common/GPU/GraphicsContext.h"
 
 class SDLGLGraphicsContext : public GraphicsContext {
 public:
+	SDLGLGraphicsContext() {}
+
+	bool InitAPI(void *wnd, std::string *deviceName, std::string *errorMessage) override;
+	void ShutdownAPI() override;
+
 	// Returns 0 on success.
-	int Init(SDL_Window *&window, int x, int y, int w, int h, int mode, std::string *error_message, int force_gl_version);
+	// data1 should be the SDL_Window pointer, data2 is the SDL_WindowFlags.
+	bool InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *error_message) override;
+	void ShutdownSurface() override;
 
-	bool InitFromRenderThread(std::string *errorMessage) override;
-
-	void Shutdown() override {}
-	void ShutdownFromRenderThread() override;
+	bool NeedsSeparateEmuThread() const override { return true; }
 
 	void Resize() override {}
 
@@ -27,17 +31,23 @@ public:
 		renderManager_->ThreadStart(draw_);
 	}
 
-	bool ThreadFrame(bool waitIfEmpty) override {
-		return renderManager_->ThreadFrame(waitIfEmpty);
+	bool ThreadFrame() override {
+		return renderManager_->ThreadFrame();
 	}
 
 	void ThreadEnd() override {
 		renderManager_->ThreadEnd();
 	}
 
+	void NotifyEmuThreadExit() override {
+		renderManager_->NotifyEmuThreadExit();
+	}
+
 private:
 	Draw::DrawContext *draw_ = nullptr;
 	SDL_Window *window_ = nullptr;
-	SDL_GLContext glContext = nullptr;
+	SDL_GLContext glContext_ = nullptr;
 	GLRenderManager *renderManager_ = nullptr;
 };
+
+SDL_Window *CreateSDLGLWindowAndContext(int x, int y, int w, int h, int mode, int forceGLVersion, SDL_GLContext *glContextOut, std::string *errorMessage);
