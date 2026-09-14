@@ -455,6 +455,9 @@ void VulkanQueueRunner::ApplyMGSHack(std::vector<VKRStep *> &steps) {
 				if (steps[j]->copy.dst != steps[i]->copy.dst)
 					last = j - 1;
 				break;
+			case VKRStepType::CALLBACK:
+				last = j - 1;  // Opaque barrier: never reorder across it.
+				break;
 			default:
 				break;
 			}
@@ -526,6 +529,8 @@ void VulkanQueueRunner::ApplyMGSHack(std::vector<VKRStep *> &steps) {
 		VKRFramebuffer *targetFramebuffer = render_i_plus_1.framebuffer;
 		// OK, found the start of a post-process sequence. Let's scan until we find the end.
 		for (int j = i; j < (int)steps.size() - 3; j++) {
+			if (steps[j]->stepType != VKRStepType::RENDER)
+				break;
 			const decltype(steps[j]->render) &render_j = steps[j]->render;
 			if (((j - i) & 1) == 0) {
 				// This should be a depal draw.
