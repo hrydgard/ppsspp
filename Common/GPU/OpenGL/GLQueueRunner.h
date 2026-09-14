@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <functional>
 #include <vector>
 #include <set>
 #include <unordered_map>
@@ -281,6 +282,7 @@ enum class GLRStepType : uint8_t {
 	READBACK,
 	READBACK_IMAGE,
 	RENDER_SKIP,
+	CALLBACK,
 };
 
 enum class GLRRenderPassAction {
@@ -297,6 +299,12 @@ enum GLRAspect {
 	GLR_ASPECT_STENCIL = 3,
 };
 const char *GLRAspectToString(GLRAspect aspect);
+
+struct GLRNativeCallbackInfo {
+	GLRFramebuffer *src;  // color_texture.texture readable; may be null
+	GLRFramebuffer *dst;  // color_texture.texture writable (callee renders into it via its own FBO); may be null
+};
+using GLRNativeCallbackFn = std::function<void(const GLRNativeCallbackInfo &)>;
 
 struct GLRStep {
 	GLRStep(GLRStepType _type) : stepType(_type), tag() {}
@@ -337,6 +345,11 @@ struct GLRStep {
 			GLRect2D srcRect;
 			int mipLevel;
 		} readback_image;
+		struct {
+			GLRFramebuffer *src;
+			GLRFramebuffer *dst;
+			GLRNativeCallbackFn *fn;  // heap-allocated; freed exactly once (PerformCallback, or discard paths)
+		} callback;
 	};
 };
 
@@ -378,6 +391,8 @@ private:
 	void PerformBlit(const GLRStep &pass);
 	void PerformReadback(const GLRStep &pass);
 	void PerformReadbackImage(const GLRStep &pass);
+	void PerformCallback(GLRStep &step, bool keepSteps);
+	void RestoreBaselineStateAfterCallback();
 
 	void fbo_ext_create(const GLRInitStep &step);  // Unused on some platforms
 	void fbo_bind_fb_target(bool read, GLuint name);

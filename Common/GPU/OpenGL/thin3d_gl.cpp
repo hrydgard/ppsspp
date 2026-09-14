@@ -20,9 +20,41 @@
 
 #include "Common/GPU/OpenGL/GLRenderManager.h"
 
+#if PPSSPP_PLATFORM(WINDOWS)
+#include "Common/CommonWindows.h"
+#else
+#include <dlfcn.h>
+#endif
+#if defined(__ANDROID__) || defined(USING_EGL)
+#include <EGL/egl.h>
+#endif
+
 // #define DEBUG_READ_PIXELS 1
 
 namespace Draw {
+
+// librashader's GL runtime loads every entry point through this. It must resolve both core
+// functions and extensions for the *current* context.
+static const void *GLGetProcAddress(const char *name) {
+#if PPSSPP_PLATFORM(WINDOWS)
+	void *p = (void *)wglGetProcAddress(name);
+	// Some Windows drivers return these sentinels instead of null for unsupported entry points,
+	// and wglGetProcAddress never resolves GL 1.1 core functions - fall back to opengl32.dll.
+	// (Same check GLEW/glad apply.)
+	if (p == nullptr || p == (void *)1 || p == (void *)2 || p == (void *)3 || p == (void *)-1) {
+		static HMODULE opengl32 = GetModuleHandleW(L"opengl32.dll");
+		p = opengl32 ? (void *)GetProcAddress(opengl32, name) : nullptr;
+	}
+	return p;
+#else
+#if defined(__ANDROID__) || defined(USING_EGL)
+	void *p = (void *)eglGetProcAddress(name);
+	if (p)
+		return p;
+#endif
+	return dlsym(RTLD_DEFAULT, name);  // macOS OpenGL.framework, Linux libGL/libGLESv2 already loaded
+#endif
+}
 
 static const unsigned short compToGL[] = {
 	GL_NEVER,
@@ -381,6 +413,9 @@ public:
 	void CopyFramebufferImage(Framebuffer *src, int level, int x, int y, int z, Framebuffer *dst, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, Aspect aspects, const char *tag) override;
 	bool BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *dst, int dstX1, int dstY1, int dstX2, int dstY2, Aspect aspects, FBBlitFilter filter, const char *tag) override;
 	bool CopyFramebufferToMemory(Framebuffer *src, Aspect channelBits, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, ReadbackMode mode, const char *tag) override;
+
+	bool SupportsNativeCallback() const override;
+	bool RunNativeCallback(Framebuffer *src, Framebuffer *dst, NativeCallbackFn fn, const char *tag) override;
 
 	// These functions should be self explanatory.
 	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) override;
@@ -1630,12 +1665,44 @@ void OpenGLContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {
 	}
 }
 
+bool OpenGLContext::SupportsNativeCallback() const {
+	// librashader's GL runtime needs GL 3.3+ or GLES 3.0+ (UBOs, sampler objects, #version 330/300 es).
+	return gl_extensions.IsGLES ? gl_extensions.GLES3 : gl_extensions.VersionGEThan(3, 3);
+}
+
+bool OpenGLContext::RunNativeCallback(Framebuffer *srcfb, Framebuffer *dstfb, NativeCallbackFn fn, const char *tag) {
+	if (!SupportsNativeCallback())
+		return false;
+	GLRFramebuffer *src = srcfb ? ((OpenGLFramebuffer *)srcfb)->framebuffer_ : nullptr;
+	GLRFramebuffer *dst = dstfb ? ((OpenGLFramebuffer *)dstfb)->framebuffer_ : nullptr;
+	renderManager_.RunNativeCallback(src, dst, [fn = std::move(fn)](const GLRNativeCallbackInfo &gl) {
+		NativeCallbackInfo info;
+		const uint32_t GL_RGBA8_SIZED = 0x8058;  // PPSSPP creates FBO color as unsized GL_RGBA/UNSIGNED_BYTE; report the sized equivalent.
+		if (gl.src) {
+			info.srcTexture = gl.src->color_texture.texture;
+			info.srcFormat = GL_RGBA8_SIZED;
+			info.srcWidth = gl.src->width;
+			info.srcHeight = gl.src->height;
+		}
+		if (gl.dst) {
+			info.dstTexture = gl.dst->color_texture.texture;
+			info.dstFormat = GL_RGBA8_SIZED;
+			info.dstWidth = gl.dst->width;
+			info.dstHeight = gl.dst->height;
+		}
+		fn(info);
+	}, tag);
+	return true;
+}
+
 uint64_t OpenGLContext::GetNativeObject(NativeObject obj, void *srcObject) {
 	switch (obj) {
 	case NativeObject::RENDER_MANAGER:
 		return (uint64_t)(uintptr_t)&renderManager_;
 	case NativeObject::TEXTURE_VIEW:  // Gets the GLRTexture *
 		return (uint64_t)(((OpenGLTexture *)srcObject)->GetTex());
+	case NativeObject::GL_GET_PROC_ADDRESS:
+		return (uint64_t)(uintptr_t)&GLGetProcAddress;
 	default:
 		return 0;
 	}

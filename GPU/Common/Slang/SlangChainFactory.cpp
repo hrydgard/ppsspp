@@ -34,7 +34,7 @@ SlangChainBackend ChooseSlangChainBackend(bool userPrefersLibrashader, bool libr
                                           GPUBackend gpuBackend, bool drawSupportsNativeCallback) {
 	if (!userPrefersLibrashader || !librashaderLoaded || !drawSupportsNativeCallback)
 		return SlangChainBackend::InTree;
-	if (gpuBackend != GPUBackend::VULKAN)
+	if (gpuBackend != GPUBackend::VULKAN && gpuBackend != GPUBackend::OPENGL)
 		return SlangChainBackend::InTree;
 	return SlangChainBackend::Librashader;
 }

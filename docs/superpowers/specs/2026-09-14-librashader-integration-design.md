@@ -183,10 +183,46 @@ NativeCallbackFn fn, const char *tag)`:
   `src` and writes `dst`. The `switch` statements in `RunSteps`, `LogSteps`, and the
   step-type dumps gain a CALLBACK case; `default: UNREACHABLE()` must never be hit.
 
-**OpenGL (Phase 2).** Mirror: `GLRStepType::CALLBACK`, `GLRStep::callback{src, dst, fn}`,
-`GLQueueRunner::PerformCallback` runs `fn` with `src->color_texture.texture` and
-`dst->color_texture.texture`, then restores the runner's cached GL state (bound FBO, program,
-texture units 0–1, viewport, scissor) because librashader changes GL state freely.
+**OpenGL (Phase 2 — implemented and verified on macOS, 2026-09-14).** Mirror:
+`GLRStepType::CALLBACK`, `GLRStep::callback{src, dst, fn}`, `GLQueueRunner::PerformCallback` runs
+`fn` with `src->color_texture.texture` and `dst->color_texture.texture`, then calls
+`RestoreBaselineStateAfterCallback()` because librashader changes GL state freely. The step is
+gated on `OpenGLContext::SupportsNativeCallback()` (desktop GL 3.3+ / GLES 3.0+); GLES 2 never
+selects librashader. Unlike Vulkan there is no readiness gate: the GL adapter creates the chain and
+renders in the same callback, and frees it through a second CALLBACK step (the creating context must
+be current for `libra_gl_filter_chain_free`).
+
+That second CALLBACK step only helps while the render thread still drains work. At `DeviceLost` /
+shutdown it does not: `GLRenderManager::ThreadEnd` deletes queued CALLBACK functions without running
+them, so `QueueFree` takes a `deviceLost` flag and, when it is set, drops the state with one warning
+instead of enqueuing a free that would never run. The GL objects die with the context and
+librashader's Rust-side allocation is knowingly leaked (see §8). `libra_gl_filter_chain_free` has
+therefore never been exercised on device; only the drop path has.
+
+Under VR multi-pass (`keepSteps`) the same CALLBACK step is replayed once per pass with the same
+`frame_count`, so a preset's history/feedback ring advances twice per frame. Acceptable for now; to
+revisit if Quest ever comes into scope.
+
+The restored baseline is:
+
+- `fbo_unbind()`, which binds the default FBO and sets both binding caches to it, so the next
+  `fbo_bind_fb_target` for a real framebuffer really rebinds
+- `glBindVertexArray(globalVAO_)` when VAOs are in use (also the only thing that restores
+  vertex-attribute enable state), `glUseProgram(0)`, `glBindBuffer(GL_ARRAY_BUFFER, 0)`
+- `glBindSampler(i, 0)` for `i < MAX_GL_TEXTURE_SLOTS` (GLES 3 / desktop ≥ 3.3),
+  `glActiveTexture(GL_TEXTURE0)`
+- `GL_UNPACK_ALIGNMENT` 4 and, on desktop GL *and GLES 3.0+*,
+  `GL_UNPACK_ROW_LENGTH`/`SKIP_ROWS`/`SKIP_PIXELS` 0 and `glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0)`
+  (a runtime `!gl_extensions.IsGLES || gl_extensions.GLES3` check - all four enums are declared for
+  `USING_GLES2` builds via `gl3stub.h`, so no compile-time guard is needed)
+- `glColorMask(1,1,1,1)`, `glDepthMask(GL_TRUE)`, `glStencilMask(0xFF)`
+- depth test, stencil test, blend, cull face and dither disabled; scissor test enabled
+- desktop only: colour logic op, depth clamp and `GL_FRAMEBUFFER_SRGB` disabled, all eight
+  `GL_CLIP_DISTANCE*` disabled
+
+Verified on device: with a chain active, PPSSPP's FPS counter, debug-statistics overlay and the ImGui
+debugger (menu bar, windows, framebuffer preview texture) all render correctly over the filtered
+image, and the present blit is intact — no additional state needed restoring.
 
 ### 6.3 thin3d surface — `Common/GPU/thin3d.h`
 
@@ -365,6 +401,14 @@ Developer Tools system-info line so on-device screenshots are attributable.
 | **2** | GL CALLBACK step + `LibrashaderFilterChain` GL runtime, state restore | Desktop GL renders the same three presets |
 | **3** | Android: cargo-ndk build, jniLibs packaging, CI jobs for all desktop platforms; GLES 3 verification | APK renders the three presets on Vulkan and GLES 3 on the Adreno test device |
 | **4** | Remove in-tree chain, revert thin3d slot/descriptor bumps and sRGB render-pass keying, delete `bSlangUseLibrashader`; D3D11 runtime | Diff vs upstream shrinks to librashader glue + kept subsystems; Windows D3D11 renders the three presets |
+
+**Phase 2 exit criterion: met (2026-09-14, macOS 15 / Apple M2 Pro, SDL GL 4.1 core over Metal).**
+Desktop GL renders `stock`, `lut`, `feedback`, `lcd-psp-matrix` and `twopass` through librashader
+bit-identically to the Vulkan librashader output of the same frame (0 of 2088960 pixels differ in all
+five; the captured PNGs are byte-identical), with no vertical flip and no state-restore damage to
+PPSSPP's own overlays. `crt-royale` was not available on the test machine, so `twopass` (multi-pass +
+`OriginalHistory`) and `lcd-psp-matrix` (subpixel mask, phase-exact) stand in for it, as in Phase 1.
+GLES 3 verification stays in Phase 3. Details: `.superpowers/sdd/2026-09-14-librashader-phase2-opengl/task-5-report.md`.
 
 Each phase gets its own implementation plan. This spec covers all four; the Phase 1 plan is
 `docs/superpowers/plans/2026-09-14-librashader-phase1-vulkan-core.md`.

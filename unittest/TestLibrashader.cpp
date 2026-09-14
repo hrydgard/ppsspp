@@ -71,8 +71,9 @@ bool TestSlangChainBackendSelection() {
 	EXPECT_TRUE(ChooseSlangChainBackend(false, true, GPUBackend::VULKAN, true) == SlangChainBackend::InTree);
 	EXPECT_TRUE(ChooseSlangChainBackend(true, false, GPUBackend::VULKAN, true) == SlangChainBackend::InTree);
 	EXPECT_TRUE(ChooseSlangChainBackend(true, true, GPUBackend::VULKAN, false) == SlangChainBackend::InTree);
-	// Phase 1: Vulkan only.
-	EXPECT_TRUE(ChooseSlangChainBackend(true, true, GPUBackend::OPENGL, true) == SlangChainBackend::InTree);
+	// Phase 2: OpenGL is admitted; the version gate lives in DrawContext::SupportsNativeCallback().
+	EXPECT_TRUE(ChooseSlangChainBackend(true, true, GPUBackend::OPENGL, true) == SlangChainBackend::Librashader);
+	EXPECT_TRUE(ChooseSlangChainBackend(true, true, GPUBackend::OPENGL, false) == SlangChainBackend::InTree);
 	EXPECT_TRUE(ChooseSlangChainBackend(true, true, GPUBackend::DIRECT3D11, true) == SlangChainBackend::InTree);
 	EXPECT_TRUE(strcmp(SlangChainBackendName(SlangChainBackend::InTree), "in-tree") == 0);
 	EXPECT_TRUE(strcmp(SlangChainBackendName(SlangChainBackend::Librashader), "librashader") == 0);

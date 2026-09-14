@@ -23,6 +23,8 @@
 // Vulkan types must come from PPSSPP's loader so VK_NO_PROTOTYPES etc. match.
 #include "Common/GPU/Vulkan/VulkanLoader.h"
 #define LIBRA_RUNTIME_VULKAN
+// The GL section of librashader.h uses plain uint32_t handles and pulls in no GL headers.
+#define LIBRA_RUNTIME_OPENGL
 #include "librashader_ld.h"
 
 namespace Librashader {
