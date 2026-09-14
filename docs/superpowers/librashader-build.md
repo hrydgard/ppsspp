@@ -224,3 +224,101 @@ INFO  Slang chain backend: in-tree
 - **librashader library:** MPL-2.0 OR GPL-3.0
 - **librashader headers:** MIT
 - **PPSSPP integration:** PPSSPP loads librashader dynamically and does not link it. No GPL requirements flow to PPSSPP.
+
+## Android
+
+### Prerequisites
+
+- Rust stable ≥ 1.88 with Android targets:
+  ```bash
+  rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
+  ```
+- `cargo-ndk` 4.x:
+  ```bash
+  cargo install cargo-ndk
+  ```
+- Android NDK 29 (matches `ndkVersion` in `android/build.gradle.kts`). Set `ANDROID_NDK_HOME` or
+  install at one of the default locations (`$ANDROID_HOME/ndk/<ver>`,
+  `$HOME/Library/Android/sdk/ndk/<ver>`, or `/opt/homebrew/share/android-commandlinetools/ndk/<ver>`).
+
+### Building
+
+```bash
+./android/build-librashader.sh [ABI ...]
+```
+
+Defaults to `arm64-v8a armeabi-v7a x86_64` (all three ABIs). Optionally override with:
+
+- `LIBRASHADER_TAG` — git tag (default: `librashader-v0.12.0`)
+- `LIBRASHADER_SRC` — source directory (default: `<repo>/build/librashader-src`, gitignored)
+- `ANDROID_NDK_HOME` — path to the NDK (auto-detected if unset)
+
+The script clones librashader (if needed), cross-compiles for each ABI with `cargo ndk`, and copies
+the output to `android/src/main/jniLibs/<abi>/librashader.so`. Build time: ~45 seconds per ABI after
+the first (incremental). Outputs are **14 MB** (arm64-v8a), **11 MB** (armeabi-v7a), **13 MB**
+(x86_64).
+
+Example:
+
+```bash
+ANDROID_NDK_HOME=/opt/homebrew/share/android-commandlinetools/ndk/29.0.14206865 \
+  ./android/build-librashader.sh arm64-v8a
+```
+
+### APK Packaging
+
+Gradle automatically packages everything under `android/src/main/jniLibs/<abi>/` into the APK.
+PPSSPP's `System_LoadLibrary` finds `librashader.so` with a bare-name `dlopen("librashader.so")`
+because (1) legacy APK packaging extracts `lib*.so` to the app's native library directory, and (2)
+that directory is in the app linker's search namespace. No path prefix is needed.
+
+The `jniLibs/` directory is gitignored; run the script after each checkout or librashader version
+bump, then rebuild the APK with Gradle.
+
+### Confirming on Device
+
+Enable slang shader preset support:
+
+```
+Developer Tools → G3DLevel = 4
+```
+
+Then load a slang preset and check `adb logcat`:
+
+```bash
+adb logcat | grep -E "librashader loaded|Slang chain backend"
+```
+
+Expected:
+
+```
+INFO  librashader loaded (ABI 2, API 5)
+INFO  Slang chain backend: librashader
+```
+
+If `librashader.so` is missing from the APK, the chain falls back to the in-tree implementation (no
+push constants):
+
+```
+INFO  librashader unavailable: <reason>
+INFO  Slang chain backend: in-tree
+```
+
+### Vulkan Validation Layers on Android (Debug APK)
+
+To enable Vulkan validation layers during development:
+
+1. Download the [Khronos Vulkan ValidationLayers release](https://github.com/KhronosGroup/Vulkan-ValidationLayers/releases) (e.g., `android-binaries-1.4.341.zip`).
+2. Extract `libVkLayer_khronos_validation.so` from the archive's `<abi>/` directories.
+3. Drop the `.so` files into `android/src/main/jniLibs/<abi>/` (same location as `librashader.so`).
+4. Rebuild the APK.
+
+The PPSSPP debug build enables validation at compile time via `g_Validate` in
+`GPU/Vulkan/VulkanUtil.cpp` (gated by `_DEBUG`). Release builds ignore the layers even if present.
+
+### CI Deferred
+
+The fork's Android CI jobs use `android/ab.sh` (ndk-build via `Android.mk`), which does not list the
+`GPU/Common/Slang` sources and produces a binary that lacks slang support entirely. A `cargo ndk`
+step would therefore be pointless until that build is fixed. The Gradle/CMake path is the one that
+works; Android librashader integration is tested manually on device.

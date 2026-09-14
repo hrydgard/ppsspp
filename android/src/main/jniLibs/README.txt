@@ -9,3 +9,6 @@ src/main/jniLibs/
     libVkLayer_khronos_validation.so
   x86-64/
     libVkLayer_khronos_validation.so
+librashader (for slang shader preset support) also goes here as <abi>/librashader.so,
+produced by android/build-librashader.sh. Without it, the slang chain falls back to
+the in-tree SPIR-V implementation (no push constants, slower).
