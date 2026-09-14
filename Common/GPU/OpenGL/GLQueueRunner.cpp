@@ -798,9 +798,8 @@ void GLQueueRunner::PerformCallback(GLRStep &step, bool keepSteps) {
 // and rebinds the global VAO). Foreign code (librashader) binds its own FBOs, programs, VAOs, sampler
 // objects and may enable GL_FRAMEBUFFER_SRGB, so put everything it can touch back.
 void GLQueueRunner::RestoreBaselineStateAfterCallback() {
-	// Force the next fbo_bind_fb_target to actually bind.
-	currentDrawHandle_ = (GLuint)-1;
-	currentReadHandle_ = (GLuint)-1;
+	// Binds the default FBO and sets both binding caches to it, so a later fbo_bind_fb_target
+	// for a real framebuffer sees a mismatch and rebinds.
 	fbo_unbind();
 	// The CALLBACK step presumes VAO support; attribute-enable state is only restored via the global VAO rebind.
 	if (gl_extensions.ARB_vertex_array_object) {
@@ -814,12 +813,14 @@ void GLQueueRunner::RestoreBaselineStateAfterCallback() {
 	}
 	glActiveTexture(GL_TEXTURE0);
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-#if !defined(USING_GLES2)
-	glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-	glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
-	glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
-	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
-#endif
+	// GLES 2 has none of these; GLES 3.0 has all four, and gl3stub.h declares the enums for
+	// USING_GLES2 builds, so the guard is purely a runtime one.
+	if (!gl_extensions.IsGLES || gl_extensions.GLES3) {
+		glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
+		glPixelStorei(GL_UNPACK_SKIP_ROWS, 0);
+		glPixelStorei(GL_UNPACK_SKIP_PIXELS, 0);
+		glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
+	}
 	glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
 	glDepthMask(GL_TRUE);
 	glStencilMask(0xFF);
@@ -834,9 +835,9 @@ void GLQueueRunner::RestoreBaselineStateAfterCallback() {
 		glDisable(GL_COLOR_LOGIC_OP);
 		glDisable(GL_DEPTH_CLAMP);
 		glDisable(GL_FRAMEBUFFER_SRGB);
-	}
-	for (int i = 0; i < 8; i++) {
-		glDisable(GL_CLIP_DISTANCE0 + (GLenum)i);
+		for (int i = 0; i < 8; i++) {
+			glDisable(GL_CLIP_DISTANCE0 + (GLenum)i);
+		}
 	}
 #endif
 }
