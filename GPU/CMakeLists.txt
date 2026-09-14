@@ -142,6 +142,8 @@ set(GPU_SOURCES
 	Common/Slang/SlangFilterChain.h
 	Common/Slang/ISlangFilterChain.h
 	Common/Slang/SlangChainFactory.cpp
+	Common/Slang/LibrashaderFilterChain.cpp
+	Common/Slang/LibrashaderFilterChain.h
 	Common/TextureReplacer.cpp
 	Common/TextureReplacer.h
 	Common/ReplacedTexture.cpp

@@ -19,10 +19,8 @@
 #include "GPU/Common/Slang/ISlangFilterChain.h"
 #include "GPU/Common/Slang/SlangFilterChain.h"
 #include "Core/ConfigValues.h"
-#if 0 // Task 5
 #if USE_LIBRASHADER
 #include "GPU/Common/Slang/LibrashaderFilterChain.h"
-#endif
 #endif
 
 const char *SlangChainBackendName(SlangChainBackend backend) {
@@ -42,11 +40,9 @@ SlangChainBackend ChooseSlangChainBackend(bool userPrefersLibrashader, bool libr
 }
 
 ISlangFilterChain *CreateSlangFilterChain(Draw::DrawContext *draw, SlangChainBackend backend) {
-#if 0 // Task 5
 #if USE_LIBRASHADER
 	if (backend == SlangChainBackend::Librashader)
 		return new LibrashaderFilterChain(draw);
-#endif
 #endif
 	return new SlangFilterChain(draw);
 }
