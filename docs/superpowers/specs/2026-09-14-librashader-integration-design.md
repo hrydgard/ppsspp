@@ -95,13 +95,17 @@ enumeration only), `SlangPresetLibrary`, `SlangPackageImporter`, `SlangPaths`,
 `SlangShaderScreen`, config fields `sSlangShaderPreset`, `sSlangBuildbotUrl`,
 `mSlangParams`, and `FramebufferManagerCommon::UpdateSlangChain` scaffolding.
 
-**Replaced (rendering core):** `SlangFilterChain`, `SlangPassCompiler`. Their public
-contract is the interface in §6.4.
+**Replaced (rendering core), removed in Phase 4:** `SlangFilterChain`, `SlangPassCompiler`,
+`SlangReflection`, `SlangResolution.h`. Their public contract is the interface in §6.4, which
+`LibrashaderFilterChain` is now the only implementation of. (Parameter enumeration for the UI
+lives in `SlangpParser`/`Core/Slang/SlangPresetLibrary.cpp`, which are kept.)
 
-**Made redundant once the fallback is removed (Phase 4):** `MAX_TEXTURE_SLOTS` 3→12
-(`Common/GPU/thin3d.h`), `MAX_DESC_SET_BINDINGS` 6→14 (`VulkanRenderManager.h`), D3D11
-`MAX_BOUND_TEXTURES` 8→12, GL `sampler0..7` names, `FramebufferDesc::colorFormat` and the
-sRGB render-pass keying in `VulkanFramebuffer.*` / `VulkanQueueRunner.cpp`.
+**Removed in Phase 4** (reverted to upstream values, since only the in-tree chain needed them):
+`MAX_TEXTURE_SLOTS` 12→3 (`Common/GPU/thin3d.h`), `MAX_DESC_SET_BINDINGS` 14→5
+(`VulkanRenderManager.h`), D3D11 `MAX_BOUND_TEXTURES` 12→8, the GL `sampler3..7` uniform
+queries, `FramebufferDesc::colorFormat`, `RPKey::colorFormat`/`_padding` and the sRGB/float
+render-pass keying in `VulkanFramebuffer.*` / `VulkanRenderManager.cpp` / `VulkanQueueRunner.cpp`.
+`git diff upstream/master -- Common/GPU` is now pure additions (the native-callback plumbing).
 
 **Integration point (unchanged location):**
 `FramebufferManagerCommon::PrepareCopyDisplayToOutput`, which today calls
@@ -325,15 +329,20 @@ State split by thread:
 
 ### 6.6 Selection and fallback — `FramebufferManagerCommon::UpdateSlangChain`
 
-New config: `bool bSlangUseLibrashader` (default `true`, `CfgFlag::DEFAULT`, Developer
-Tools checkbox "Use librashader for slang shaders"). Pure decision function, unit-tested:
+There is no user-facing toggle (Phases 1–3 had `bSlangUseLibrashader`; Phase 4 removed it
+along with the in-tree chain, and an existing `SlangUseLibrashader` ini key is ignored).
+librashader is the only rendering core, so the decision is purely a capability check. Pure
+decision function, unit-tested:
 ```cpp
-enum class SlangChainBackend { InTree, Librashader };
-SlangChainBackend ChooseSlangChainBackend(bool userPrefersLibrashader, bool librashaderLoaded,
-                                          GPUBackend gpuBackend, bool drawSupportsNativeCallback);
-// Librashader iff all of: user prefers it, library loaded, backend ∈ {VULKAN} (Phase 1),
-// draw supports native callbacks. Otherwise InTree.
+enum class SlangChainBackend { None, Librashader };
+SlangChainBackend ChooseSlangChainBackend(bool librashaderLoaded, GPUBackend gpuBackend,
+                                          bool drawSupportsNativeCallback);
+// Librashader iff all of: library loaded, backend ∈ {VULKAN, OPENGL},
+// draw supports native callbacks. Otherwise None.
 ```
+`CreateSlangFilterChain` returns `nullptr` for `None`; `UpdateSlangChain` then clears
+`slangChainPresetPath_`, logs `Slang chain backend: none (librashader not loaded or backend
+unsupported)` once per reload and skips `Load`, and the unfiltered image is presented.
 The chosen backend name is logged at INFO on every preset (re)load and shown in the
 Developer Tools system-info line so on-device screenshots are attributable.
 
@@ -402,6 +411,8 @@ Developer Tools system-info line so on-device screenshots are attributable.
 | **2** | GL CALLBACK step + `LibrashaderFilterChain` GL runtime, state restore | Desktop GL renders the same three presets |
 | **3** | Android: cargo-ndk build, jniLibs packaging; GLES 3 verification (CI deferred to Phase 4: the Android CI jobs use `android/ab.sh`/ndk-build, whose `Android.mk` lists no `GPU/Common/Slang` sources) | APK renders the three presets on Vulkan and GLES 3 on the Adreno test device |
 | **4** | Remove in-tree chain, revert thin3d slot/descriptor bumps and sRGB render-pass keying, delete `bSlangUseLibrashader`; D3D11 runtime | Diff vs upstream shrinks to librashader glue + kept subsystems; Windows D3D11 renders the three presets |
+
+**Phase 4 progress (2026-09-14):** the removal half is done. The perf gate passed (librashader ÷ in-tree GPU time 1.220 ≤ 1.5 on the Adreno device), the in-tree chain and the `SlangUseLibrashader` toggle are deleted, and every thin3d/Vulkan/GL/D3D11 hunk that existed only for it is back to upstream — `git diff upstream/master --stat -- Common/GPU` is 577 insertions with zero deletions. `stock.slangp` and `lcd-psp-matrix.slangp` on macOS Vulkan and GL are pixel-identical to the Phase 2 captures; with the library renamed away, `Slang chain backend: none` is logged once and the raw image is presented. Android Vulkan (`lcd-grid-v2-psp-color`, APK `librashader-p4e`) is byte-identical to the Phase 3 reference capture. 68 unit tests pass. The Windows/D3D11 half (Tasks 5–6) and packaging (Task 7) are still open.
 
 **Phase 2 exit criterion: met (2026-09-14, macOS 15 / Apple M2 Pro, SDL GL 4.1 core over Metal).**
 Desktop GL renders `stock`, `lut`, `feedback`, `lcd-psp-matrix` and `twopass` through librashader

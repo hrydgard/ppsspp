@@ -99,11 +99,17 @@ This step only runs if `USE_LIBRASHADER=ON` (the default on desktop platforms) a
 
 ## Enabling at Runtime
 
-librashader support is gated by a runtime toggle:
+There is no toggle. librashader is the only slang rendering core: whenever a preset is selected
+(`SlangShaderPreset` / Settings → Graphics → Slang shaders), PPSSPP loads the library and renders
+the preset through it. Without the library — or on a backend that cannot run native callbacks
+(anything other than Vulkan and GL 3.3+/GLES 3.0+ today) — slang shaders are off: the log shows
 
-**Developer Tools → "Use librashader for slang shaders"** (or `SlangUseLibrashader = True` in `ppsspp.ini`)
+```
+INFO  Slang chain backend: none (librashader not loaded or backend unsupported)
+```
 
-When enabled, all slang shader presets are rendered through librashader. When disabled (or if librashader is unavailable), PPSSPP falls back to its built-in slang stack.
+once per preset (re)load and the unfiltered image is presented. (Older builds had a
+`SlangUseLibrashader` ini key / Developer Tools checkbox; the key is now ignored.)
 
 ### Presets that use `OriginalHistoryN`
 
@@ -144,19 +150,18 @@ so both `libra_image_gl_t`s report `GL_RGBA8` (`0x8058`) as the sized internal f
 renderer: Apple M2 Pro version str: 4.1 Metal - 90.5 ; GLSL version str: 4.10`). Everything works
 with `glsl_version = 0`; no DSA, no compute, no `KHR_debug`.
 
-**"Toggle off" on GL renders the raw image.** The in-tree slang chain is Vulkan-only (it is being
-removed in Phase 4), so on GL, turning librashader off does not fall back to an equivalent chain -
-the preset is refused and PPSSPP presents the unprocessed framebuffer:
+**Without the library, slang shaders are off.** If `librashader.dylib`/`.so` is missing, or the GL
+context is below 3.3 / GLES 3.0, no chain is created and PPSSPP presents the unprocessed
+framebuffer:
 
 ```
-INFO   Slang chain backend: in-tree
-ERROR  Failed to load slang preset '<path>': slang passes require the Vulkan backend in Phase 1 (got a non-Vulkan backend)
+INFO  librashader unavailable: <reason>
+INFO  Slang chain backend: none (librashader not loaded or backend unsupported)
 ```
 
-The same happens if `librashader.dylib`/`.so` is missing (`librashader unavailable: ...`). Neither
-case crashes; slang shaders are simply inactive until librashader is available again. Therefore the
-A/B reference for a GL capture is the **Vulkan librashader** capture of the same preset, not a GL
-"toggle off" capture.
+This does not crash; slang shaders are simply inactive until librashader is available again.
+Therefore the A/B reference for a GL capture is the **Vulkan librashader** capture of the same
+preset, not a "shaders off" capture.
 
 **GL state contract.** Every `libra_gl_*` call runs inside a `GLRStepType::CALLBACK` step, i.e. on
 the GL thread with the creating context current; the chain is created and used in the same callback
@@ -213,10 +218,10 @@ When a slang preset is loaded, the chosen backend is logged:
 INFO  Slang chain backend: librashader
 ```
 
-or
+or, when the library is unavailable or the backend cannot run native callbacks:
 
 ```
-INFO  Slang chain backend: in-tree
+INFO  Slang chain backend: none (librashader not loaded or backend unsupported)
 ```
 
 ## Licensing
@@ -309,12 +314,11 @@ INFO  librashader loaded (ABI 2, API 5)
 INFO  Slang chain backend: librashader
 ```
 
-If `librashader.so` is missing from the APK, the chain falls back to the in-tree implementation (no
-push constants):
+If `librashader.so` is missing from the APK, slang shaders are off and the raw image is presented:
 
 ```
 INFO  librashader unavailable: <reason>
-INFO  Slang chain backend: in-tree
+INFO  Slang chain backend: none (librashader not loaded or backend unsupported)
 ```
 
 ### Vulkan Validation Layers on Android (Debug APK)
