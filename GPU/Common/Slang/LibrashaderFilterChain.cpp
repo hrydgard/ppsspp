@@ -64,10 +64,20 @@ bool ReferencesOriginalHistory(const std::string &src) {
 	return false;
 }
 
+static bool IsSpaceChar(char c) {
+	return c == ' ' || c == '\t' || c == '\r' || c == '\n';
+}
+
 // True if the text reads the input image's size, i.e. mentions SourceSize or OriginalSize as whole
 // identifiers (so OriginalHistorySizeN and FinalViewportSize do not count). Such a preset renders
 // differently depending on what size librashader believes the input is - which is exactly what a
 // RequiresNativeSizedInput() backend cannot declare.
+//
+// The uniform-block *declaration* (`vec4 SourceSize;`) does not count: virtually every RetroArch
+// shader declares both sizes in its Push/UBO block whether it uses them or not, and treating the
+// declaration as a read would put every preset - stock.slangp included - on the downscaled input.
+// A declaration is an occurrence preceded by a type name (identifier + whitespace) and followed by
+// `;`; a read is member access (`params.SourceSize.xy`) or an expression operand, never both.
 bool ReferencesSourceSize(const std::string &src) {
 	static const char *kNeedles[] = { "SourceSize", "OriginalSize" };
 	for (const char *needle : kNeedles) {
@@ -75,8 +85,18 @@ bool ReferencesSourceSize(const std::string &src) {
 		for (size_t pos = src.find(needle); pos != std::string::npos; pos = src.find(needle, pos + needleLen)) {
 			if (pos > 0 && IsIdentifierChar(src[pos - 1]))
 				continue;
-			const size_t after = pos + needleLen;
+			size_t after = pos + needleLen;
 			if (after < src.size() && IsIdentifierChar(src[after]))
+				continue;
+			// Declaration? Look back over whitespace for a type identifier, forward over whitespace for ';'.
+			size_t before = pos;
+			while (before > 0 && IsSpaceChar(src[before - 1]))
+				before--;
+			const bool typeBefore = before > 0 && before < pos && IsIdentifierChar(src[before - 1]);
+			while (after < src.size() && IsSpaceChar(src[after]))
+				after++;
+			const bool semicolonAfter = after < src.size() && src[after] == ';';
+			if (typeBefore && semicolonAfter)
 				continue;
 			return true;
 		}

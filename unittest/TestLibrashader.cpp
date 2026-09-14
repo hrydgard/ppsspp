@@ -88,7 +88,12 @@ bool TestLibrashaderSourceScan() {
 	// SourceSize / OriginalSize: the reads that make a preset's output depend on the input size.
 	EXPECT_TRUE(ReferencesSourceSize("vec2 s = params.SourceSize.xy;"));
 	EXPECT_TRUE(ReferencesSourceSize("uv * OriginalSize.zw"));
-	EXPECT_TRUE(ReferencesSourceSize("\tvec4 SourceSize;\n"));
+	EXPECT_TRUE(ReferencesSourceSize("vec4 s = global.SourceSize;"));   // read, then ';'
+	EXPECT_TRUE(ReferencesSourceSize("vec4 s = SourceSize;"));          // anonymous block read
+	EXPECT_TRUE(ReferencesSourceSize("vec4 SourceSize;\nvec2 p = SourceSize.xy;"));  // declared and read
+	// The Push/UBO block declaration alone is not a read - nearly every shader has one.
+	EXPECT_FALSE(ReferencesSourceSize("\tvec4 SourceSize;\n"));
+	EXPECT_FALSE(ReferencesSourceSize("layout(push_constant) uniform Push {\n\tvec4 SourceSize;\n\tvec4 OriginalSize ;\n\tvec4 OutputSize;\n} params;"));
 	EXPECT_FALSE(ReferencesSourceSize("FinalViewportSize"));
 	EXPECT_FALSE(ReferencesSourceSize("OriginalHistorySize1"));
 	EXPECT_FALSE(ReferencesSourceSize("mySourceSizeHack"));   // glued in front
