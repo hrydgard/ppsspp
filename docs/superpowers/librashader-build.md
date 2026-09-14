@@ -59,20 +59,70 @@ If you did not set `RUSTFLAGS` at build time, fix the soname after the fact:
 patchelf --set-soname librashader.so dist/librashader.so
 ```
 
-### Windows MSVC (expected, not verified)
+### Windows MSVC (verified on x64)
 
-```bash
-git clone --depth 1 --branch librashader-v0.12.0 https://github.com/SnowflakePowered/librashader.git C:\tmp\librashader
-cd C:\tmp\librashader
-cargo build -p librashader-capi --release --no-default-features --features runtime-vulkan,runtime-opengl
+Build from a VS x64 developer environment - cargo shells out to MSVC's linker:
+
+```bat
+git clone --depth 1 --branch librashader-v0.12.0 https://github.com/SnowflakePowered/librashader.git C:\Users\Ilya\source\librashader
+call "C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat"
+cd /d C:\Users\Ilya\source\librashader
+cargo build -p librashader-capi --release --no-default-features --features runtime-vulkan,runtime-opengl,runtime-d3d11
 ```
 
-Artifact: `target\release\librashader_capi.dll`. Rename to `librashader.dll`:
+`runtime-d3d11` is included so a single DLL also serves PPSSPP's D3D11 backend. Build time: ~1m50s
+on a 16-core host. Artifact: `target\release\librashader_capi.dll` (13.8 MB).
 
-```bash
-mkdir dist
-copy target\release\librashader_capi.dll dist\librashader.dll
+There is no install-name/soname step on Windows (the import name lives in the importing module and
+PPSSPP calls `LoadLibraryW`), so copying under the bare name PPSSPP looks for is all that is needed:
+
+```bat
+copy target\release\librashader_capi.dll C:\Users\Ilya\source\ppsspp\librashader.dll
 ```
+
+Verify the exports - 52 `libra_` entry points with these three runtimes compiled in:
+
+```powershell
+& "C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\<ver>\bin\Hostx64\x64\dumpbin.exe" /exports librashader.dll | Select-String ' libra_' | Measure-Object
+```
+
+`libra_vk_filter_chain_create`, `libra_gl_filter_chain_create` and `libra_d3d11_filter_chain_create`
+must all be present; a DLL missing a runtime still reports `librashader loaded` but every chain
+creation on that backend fails.
+
+**rustup shims over SSH.** `%USERPROFILE%\.cargo\bin\cargo.exe` is a symlink to the active
+toolchain. Under an SSH session that can fail (`os error 448: untrusted mount point`, or "No
+application is associated with this file"); call the real binaries in the toolchain directory
+instead and put them first on `PATH`:
+
+```bat
+set TC=%USERPROFILE%\.rustup\toolchains\stable-x86_64-pc-windows-msvc\bin
+set PATH=%TC%;%PATH%
+set RUSTC=%TC%\rustc.exe
+set RUSTDOC=%TC%\rustdoc.exe
+"%TC%\cargo.exe" build -p librashader-capi --release --no-default-features --features runtime-vulkan,runtime-opengl,runtime-d3d11
+```
+
+### Building PPSSPP itself on Windows
+
+`Windows/PPSSPP.sln` compiles the Slang/librashader sources; `USE_LIBRASHADER=1` and
+`../ext/librashader/include` are set for every configuration of `Common/Common.vcxproj`,
+`GPU/GPU.vcxproj` and `unittest/UnitTests.vcxproj` (the UWP projects list the same sources but
+deliberately without the define, so librashader stays off there, exactly like the CMake build).
+
+```bat
+cd /d C:\Users\Ilya\source\ppsspp
+git submodule update --init --recursive --depth 1 --jobs 6
+"C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\MSBuild.exe" Windows\PPSSPP.sln /m /p:Configuration=Release /p:Platform=x64 /v:m
+```
+
+Release|x64 links `PPSSPPWindows64.exe` into the **repository root** (not `Windows\x64\Release\`,
+which only holds the static libs), so `librashader.dll` belongs in the repository root too - or
+point `LIBRASHADER_PATH` at it from anywhere.
+
+**Verified** on 2026-09-14 (Windows 11, RTX 4090, driver 596.49, Vulkan 1.4.329 and GL 4.6):
+`stock.slangp` and `lcd-psp-matrix.slangp` render through librashader on both the Vulkan and the
+OpenGL backend (`librashader loaded (ABI 2, API 5)`, `Slang chain backend: librashader`).
 
 ## Using the Library
 
@@ -163,9 +213,9 @@ This does not crash; slang shaders are simply inactive until librashader is avai
 Therefore the A/B reference for a GL capture is the **Vulkan librashader** capture of the same
 preset, not a "shaders off" capture.
 
-**GL state contract.** Every `libra_gl_*` call runs inside a `GLRStepType::CALLBACK` step, i.e. on
+**GL state contract.** Every `libra_gl_*` call runs inside a `GLRStepType::NATIVE_CALLBACK` step, i.e. on
 the GL thread with the creating context current; the chain is created and used in the same callback
-(unlike Vulkan there is no command-buffer readiness gate), and it is freed through another CALLBACK
+(unlike Vulkan there is no command-buffer readiness gate), and it is freed through another NATIVE_CALLBACK
 step because `libra_gl_filter_chain_free` needs that context. librashader changes GL state freely,
 so `GLQueueRunner::RestoreBaselineStateAfterCallback()` puts back everything
 `PerformRenderPass`/`PerformBindFramebufferAsRenderTarget` assume: `fbo_unbind()` (which binds the
@@ -176,8 +226,8 @@ selected by a runtime check), full colour/depth/stencil masks, depth/stencil/ble
 disabled, scissor test enabled, and - desktop only - logic op, depth clamp, `GL_FRAMEBUFFER_SRGB`
 and all eight `GL_CLIP_DISTANCE*` disabled.
 
-**Chain free at teardown.** The free CALLBACK step only runs while the render thread still drains
-work. At `DeviceLost` / shutdown it does not - `GLRenderManager::ThreadEnd` deletes queued CALLBACK
+**Chain free at teardown.** The free NATIVE_CALLBACK step only runs while the render thread still drains
+work. At `DeviceLost` / shutdown it does not - `GLRenderManager::ThreadEnd` deletes queued NATIVE_CALLBACK
 functions without running them - so `LibrashaderRuntime::QueueFree` takes a `deviceLost` flag and,
 when it is set, drops the state with a single warning
 (`LibrashaderRuntimeOpenGL: dropping chain without freeing`) instead of enqueuing a free that would

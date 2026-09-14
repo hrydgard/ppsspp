@@ -257,25 +257,61 @@ Spec §5 "made redundant" → "removed in Phase 4"; §6.6 (selector without togg
 - Modify: `GPU/GPU.vcxproj` + `.filters` (add `Common\Slang\*.cpp/.h` that remain: `ISlangFilterChain.h`, `SlangChainFactory.cpp`, `SlangpParser.cpp/.h`, `SlangPreset.h`, `LibrashaderFilterChain.cpp/.h`, `LibrashaderRuntime.cpp/.h`, `LibrashaderRuntimeVulkan.cpp`, `LibrashaderRuntimeOpenGL.cpp`), `Common/Common.vcxproj` + `.filters` (`GPU\Librashader\LibrashaderLoader.cpp/.h`), and add `USE_LIBRASHADER=1` to `PreprocessorDefinitions` plus `..\ext\librashader\include` to `AdditionalIncludeDirectories` for every configuration of `Common`, `GPU`, `UI` (`UI/UI.vcxproj`, for `DeveloperToolsScreen.cpp`/`SlangShaderScreen.cpp`) and `Windows/PPSSPP.vcxproj` if it compiles any file including `LibrashaderLoader.h`. Follow the existing entries' style (e.g. `Core/Core.vcxproj:922-924`). Also check `UWP/*.vcxproj` compile the same sources; if they do, add the files with `USE_LIBRASHADER=0` there (UWP is OFF per spec).
 - Create on the Windows host: checkout at `C:\Users\Ilya\source\ppsspp`, `librashader.dll` built with cargo.
 
-- [ ] **Step 1: Project files (edit locally, commit, push the branch; the Windows host pulls)**
+- [x] **Step 1: Project files (edit locally, commit, push the branch; the Windows host pulls)**
 
 Edit the `.vcxproj`/`.filters` files as XML (keep CRLF line endings and the existing indentation; verify with `git diff --stat` that only the intended lines changed and `file GPU/GPU.vcxproj` still reports CRLF). Commit `windows: add Slang/Librashader sources and USE_LIBRASHADER to the VS projects`, `git push -u origin feature/librashader-phase4-removal` (this push is required for the Windows host to build; it is a feature branch, not master).
 
-- [ ] **Step 2: Clone + build on Windows**
+- [x] **Step 2: Clone + build on Windows**
 
 PowerShell over SSH (pipe scripts): `git clone --recursive https://github.com/ilya-slalom/ppsspp.git C:\Users\Ilya\source\ppsspp; cd ...; git checkout feature/librashader-phase4-removal`. Build: `& "C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\MSBuild.exe" Windows\PPSSPP.sln /m /p:Configuration=Release /p:Platform=x64 /v:m > C:\Users\Ilya\source\ppsspp-build.log 2>&1` started detached (`Start-Process -NoNewWindow -RedirectStandardOutput ...`), polled every ~4 min via `Get-Content -Tail 5`. Expected artifact `Windows\x64\Release\PPSSPPWindows64.exe` (check the exact name in `Windows/PPSSPP.vcxproj` `<TargetName>`). Fix compile errors that are ours (Slang/Librashader sources under MSVC: e.g. missing `<cstring>` noted in Phase 1, `strlen`, `ssize_t`, designated initializers); pre-existing upstream MSVC breakage is out of scope — report it.
 
-- [ ] **Step 3: librashader.dll**
+- [x] **Step 3: librashader.dll**
 
 On Windows: `git clone --depth 1 --branch librashader-v0.12.0 https://github.com/SnowflakePowered/librashader.git C:\Users\Ilya\source\librashader; cargo build -p librashader-capi --release --no-default-features --features runtime-vulkan,runtime-opengl,runtime-d3d11` → `target\release\librashader_capi.dll` → copy to `Windows\x64\Release\librashader.dll`. Verify exports with `dumpbin /exports` (from the VS developer prompt: `& "C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\14.51.36231\bin\Hostx64\x64\dumpbin.exe" /exports librashader.dll | Select-String libra_ | Measure-Object`). Document in the build doc (Windows section: cargo command, rename, placement next to the exe, `LIBRASHADER_PATH` env).
 
-- [ ] **Step 4: Windows Vulkan + GL smoke**
+- [x] **Step 4: Windows Vulkan + GL smoke**
 
 The Windows host has a display session (RTX 4090). Config lives in `%USERPROFILE%\Documents\PPSSPP\PSP\SYSTEM\ppsspp.ini` (or `memstick` beside the exe — check `Windows/main.cpp` `GetExeDirectory` handling; a `memstick\` folder beside the exe makes it portable — create one to avoid touching the user's profile). Copy `/tmp/ppsspp-t8/locoroco.ppdmp` and `assets/shaders/slang_test/*.slangp/*.slang/*.png` over `scp`. Launch `PPSSPPWindows64.exe <dump>` via `Start-Process` in the interactive session (`schtasks /create ... /it` or `psexec -i` may be needed for a GUI session from SSH; if no GUI launch path works, record NOT RUN with the reason). Log file: enable `FileLogging = True` in the ini so `ppsspp.log` (or `PSP\SYSTEM\ppsspp.log`) captures `librashader loaded`, `Slang chain backend: librashader`. Screenshot: PPSSPP's own screenshot key or `Windows.Graphics.Capture` via a small PowerShell using `System.Drawing` (`[System.Windows.Forms.Screen]::PrimaryScreen` + `Graphics.CopyFromScreen`). Vulkan and GL runs with `stock.slangp` and `lcd-psp-matrix.slangp`; compare visually with the macOS captures.
 
-- [ ] **Step 5: Record + commit**
+- [x] **Step 5: Record + commit**
 
 Table (vcxproj build, dll exports, Vulkan load/render, GL load/render, notes). Commit docs.
+
+**Results** (host `pcsx2-win`: Windows 11, 16 cores, RTX 4090 driver 596.49 + Radeon iGPU, VS 18
+Community / MSBuild 18.10.1, MSVC 14.51; checkout `C:\Users\Ilya\source\ppsspp` at
+`d925bc1c89`; logs `/tmp/ppsspp-t8/win/*.log`, screenshots `/tmp/ppsspp-t8/p4win-*.png`).
+
+| Item | Result | Notes |
+|---|---|---|
+| vcxproj coverage | **PASS** | `GPU/GPU.vcxproj(.filters)` 5 headers + 6 sources under a new `Common\Slang` filter; `Common/Common.vcxproj(.filters)` `GPU\Librashader\LibrashaderLoader.cpp/.h` under a new `GPU\Librashader` filter; `unittest/UnitTests.vcxproj(.filters)` `TestLibrashader.cpp` + `TestSlangParser.cpp` (`UnitTest.cpp` registers those tests, so the project would not link without them); `USE_LIBRASHADER=1` + `../ext/librashader/include` on all 6 configurations of those three projects. `UWP/GPU_UWP/GPU_UWP.vcxproj(.filters)` gets the same sources **without** the define (UWP stays off, as in CMake). `UI/UI.vcxproj` and `Windows/PPSSPP.vcxproj` need nothing: after Task 4 no `UI/` or `Windows/` TU includes `LibrashaderLoader.h` (the brief's `DeveloperToolsScreen.cpp` reference is stale). Commit `37940fd289`. |
+| `PPSSPP.sln` Release\|x64 | **PASS** | `MSBUILD_EXIT=0`, `PPSSPP.vcxproj -> C:\Users\Ilya\source\ppsspp\PPSSPPWindows64.exe` (20,578,816 bytes) — the link output lands in the repo root, not `Windows\x64\Release\`. `PPSSPPHeadless.exe` and `UnitTest.exe` also link. |
+| our MSVC compile errors | 2 real portability bugs, both fixed | (a) `VulkanQueueRunner.h(127,2): error C2143: syntax error: missing '}' before '__cdecl'` (+ C2059 at 127,10 and 128,1; same at `GLQueueRunner.h(285-286)`) — our `CALLBACK` enum member collides with the `windows.h` calling-convention macro; renamed to `NATIVE_CALLBACK` everywhere (`69c004adf1`). (b) `Core\Slang\SlangPackageImporter.cpp(18,10): error C1083: Cannot open include file: 'zip.h'` and the same in `unittest\TestSlangParser.cpp(20,10)` — a bare `<zip.h>` only resolves under CMake; both now use the tree's `SHARED_LIBZIP` pattern (`54d4793167`, `d925bc1c89`). No pre-existing upstream MSVC breakage was hit. |
+| `librashader.dll` | **PASS** | `cargo build -p librashader-capi --release --no-default-features --features runtime-vulkan,runtime-opengl,runtime-d3d11` inside `vcvars64`, `CARGO_EXIT=0` in 1m50s; `librashader_capi.dll` copied to the exe directory as `librashader.dll` (13,836,800 bytes). `dumpbin /exports` → **52** `libra_` symbols, including `libra_d3d11_filter_chain_create` (ready for Task 6), `libra_vk_filter_chain_create`, `libra_gl_filter_chain_create`. |
+| Vulkan load + render | **PASS** | `GraphicsBackend = 3`, `stock.slangp` and `lcd-psp-matrix.slangp`: `librashader loaded (ABI 2, API 5)`, `Slang chain backend: librashader`, `preset parsed: ... (input mode: upscaled framebuffer with declared native size)`. Vulkan 1.4.329 on the RTX 4090, swapchain `B8G8R8A8_UNORM (44)`. Screenshots `p4win-vk-stock.png`, `p4win-vk-lcd.png` (LCD subpixel matrix clearly visible), no errors, PPSSPP's own menu bar/OSD intact. |
+| GL load + render | **PASS** | `GraphicsBackend = 0`, same two presets, same three log lines; GL 4.6 / GLSL 4.60 NVIDIA. Screenshots `p4win-gl-stock.png`, `p4win-gl-lcd.png`. |
+| control: chain fails | **PASS** | A nonexistent preset logs `Slang chain backend: librashader` + `Failed to load slang preset ...: PresetError(IOError(...))` and presents the raw image without crashing (`p4win-vk-nochain.png`). |
+
+Notes / observations:
+
+- **Windows Vulkan presents a lighter image than Windows GL** for the same preset. This is *not*
+  librashader: the `nochain` control (chain creation failed → raw present, no librashader work at
+  all) looks identical to the Vulkan `stock` capture, and the swapchain is a plain
+  `B8G8R8A8_UNORM`. It is a pre-existing Vulkan-vs-GL presentation difference on this host, so
+  Windows Vulkan and Windows GL captures are not pixel-comparable to each other (each backend is
+  self-consistent, and both match the macOS captures in structure: same geometry, same LCD matrix).
+- The exe's baked git version string reads `54d4793167` while the build was made from
+  `d925bc1c89`; the only delta is `unittest/TestSlangParser.cpp`, which cannot affect
+  `PPSSPPWindows64.exe`.
+- GUI launch from SSH: `Start-Process`-launched children die with the SSH session, so both the
+  builds and the runs go through `schtasks /create /tn ... /it /f` + `schtasks /run` with
+  redirection inside a `.cmd`. Portable config via a `memstick\` folder beside the exe (no
+  `installed.txt` ⇒ `memStickDirectory = exePath/memstick`), and `--log=<file> --loglevel=4` on
+  the command line (INFO is filtered by default, so without `--loglevel=4` the librashader lines
+  never reach the log). Screenshots are captured window-only (`GetWindowRect` +
+  `CopyFromScreen`) to avoid capturing the user's desktop.
+- Repo owned by `Administrators` ⇒ `git fetch`/`checkout` silently fail with `detected dubious
+  ownership`; `git config --global --add safe.directory '*'` on the host fixes it. Worth checking
+  `git rev-parse HEAD` on the host before trusting a Windows build.
 
 ---
 
