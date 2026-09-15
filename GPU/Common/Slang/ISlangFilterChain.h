@@ -24,6 +24,11 @@
 namespace Draw { class DrawContext; class Framebuffer; }
 enum class GPUBackend;
 
+// X11, sigh. X.h defines None as 0L, which turns the enumerator below into a numeric constant.
+#ifdef None
+#undef None
+#endif
+
 // Draws src into dst as a filtered quad; sizes are in pixels, both rects are the whole framebuffer.
 // The framebuffer manager supplies one because thin3d's BlitFramebuffer does not exist on every
 // backend (D3D11 has no equivalent), and the chain needs a scaling copy for its native-sized input.
