@@ -47,7 +47,7 @@ static SlangWrapMode ParseWrapMode(const std::string &v) {
 bool ParseSlangPreset(const std::string &text, const Path &basePath, SlangPreset *out, std::string *error) {
 	out->basePath = basePath;
 	out->passes.clear();
-	out->params.clear();
+	out->values.clear();
 
 	// key -> value map (last write wins, matching RetroArch).
 	std::map<std::string, std::string> kv;
@@ -72,6 +72,9 @@ bool ParseSlangPreset(const std::string &text, const Path &basePath, SlangPreset
 		std::string val = Unquote(line.substr(eq + 1));
 		if (!key.empty()) kv[key] = val;
 	}
+
+	// Keep the raw lines for GetPresetParameters(); a one-time copy per preset load.
+	out->values = kv;
 
 	auto it = kv.find("shaders");
 	if (it == kv.end()) { *error = "missing 'shaders' count"; return false; }
