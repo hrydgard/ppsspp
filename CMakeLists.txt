@@ -266,6 +266,14 @@ if(LIBRETRO)
 	add_compile_definitions(HAVE_LIBRETRO_VFS)
 endif()
 
+if(USE_LIBNX)
+	# The guards spread through Common and Core have always been spelled
+	# HAVE_LIBNX; nothing in-tree defined it, so they only ever fired for
+	# out-of-tree Switch builds that passed it themselves. There is no GLU
+	# on the Switch either.
+	add_compile_definitions(HAVE_LIBNX GLEW_NO_GLU)
+endif()
+
 if(ANDROID)
 	set(MOBILE_DEVICE ON)
 	set(USING_GLES2 ON)
@@ -582,7 +590,8 @@ include_directories(ext/OpenXR-SDK/include)
 include_directories(ext)
 
 include_directories(Common)
-if(USING_GLES2 OR (USING_EGL AND NOT USING_FBDEV))
+# libnx has no X11 to find, and GLES there comes from the Switch's own EGL.
+if((USING_GLES2 OR (USING_EGL AND NOT USING_FBDEV)) AND NOT USE_LIBNX)
 	find_package(X11)
 endif()
 

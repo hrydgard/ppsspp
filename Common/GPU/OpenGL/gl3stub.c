@@ -19,7 +19,7 @@
 #include "Common/GPU/OpenGL/GLCommon.h"
 
 #if defined(USING_GLES2)
-#if !PPSSPP_PLATFORM(IOS)
+#if !PPSSPP_PLATFORM(IOS) && !PPSSPP_PLATFORM(SWITCH)
 #include "EGL/egl.h"
 
 GLboolean gl3stubInit() {
