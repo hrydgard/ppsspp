@@ -78,6 +78,7 @@ struct CompatFlags {
 	bool ShaderColorBitmask;
 	bool DisableFirstFrameReadback;
 	bool MpegAvcWarmUp;
+	bool MpegSmallDelay;
 	bool BlueToAlpha;
 	bool CenteredLines;
 	bool ZZT3SelectHack;
