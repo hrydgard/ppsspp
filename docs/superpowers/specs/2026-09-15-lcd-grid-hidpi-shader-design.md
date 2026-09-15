@@ -4,8 +4,9 @@
 - **Date:** 2026-09-15
 - **Branch:** `feature/lcd-grid-hidpi-shader`
 - **Target device:** AYN Thor (6.0" 1920×1080 AMOLED, 367 PPI)
-- **Depends on:** the shipped librashader-backed slang subsystem. This is a *content* deliverable — an
-  overlay for an imported libretro `slang-shaders` pack — plus one unit-test addition. No engine change.
+- **Depends on:** the shipped librashader-backed slang subsystem. Mainly a *content* deliverable — an
+  overlay for an imported libretro `slang-shaders` pack — plus one small parser fix without which
+  preset-level parameter values do not survive a visit to the parameter screen (§9.1).
 
 ## 1. Summary
 
@@ -39,7 +40,8 @@ its grid to `SourceSize` instead of `OriginalSize` and takes a `PITCH` parameter
 
 ### Non-Goals
 
-- No engine, parser, or runtime change. Everything here is preset content the subsystem already runs.
+- No runtime, chain or rendering change. The one engine change is the parser fix in §9.1, which this
+  design turned out to require; everything else is preset content the subsystem already runs.
 - No change to the upstream reference preset or to any other pack file.
 - Not a colorimetric match to a specific PSP unit — the colour path is inherited unchanged.
 - No new grid/mask *model*. This is cgwg's `lcd-grid-v2` at a different pitch, not a new effect.
@@ -115,15 +117,22 @@ over the imported slang root (`GetSlangShaderDir()`; on Android the app-private
 
 ```
 assets/shaders/slang_overlay/
+  README.md
   handheld/shaders/lcd-cgwg/lcd-grid-v2-pitch.slang
   presets/handheld-plus-color-mod/lcd-grid-v2-psp-color-hidpi-2x.slangp
   presets/handheld-plus-color-mod/lcd-grid-v2-psp-color-hidpi-tunable.slangp
 ```
 
+The `README.md` carries the imported-pack prerequisite, the per-platform install path and the fork's
+provenance, since the overlay is copied out of the tree by hand and has to explain itself where it lands.
+
 `assets/shaders/slang_overlay/` is the in-repo home so the files are versioned and ship with the build
 (~8 KB), which also leaves room for an in-app "install overlay" action later. They are *not* loadable
 from there — the relative paths resolve only once the tree is merged into a pack, which is the
 documented prerequisite.
+
+Plus the engine-side fix in §9.1 (`SlangPreset::values`, `GetPresetParameters()`) and its unit test,
+without which neither preset's parameter values survive the user opening the parameter screen.
 
 Prerequisite for use: the libretro `slang-shaders` pack must already be imported, since the presets
 reference its `b-spline-4-taps`, `multiLUT`, `psp-color` and the two `psp-grey` LUT PNGs. Without it
@@ -255,12 +264,16 @@ Verified available: PPSSPP sets `force_no_mipmaps = false` on both the Vulkan an
 runtimes (`LibrashaderRuntimeVulkan.cpp:59`, `LibrashaderRuntimeOpenGL.cpp:53`), and `mipmap_inputN`
 is parsed and honoured.
 
-Non-power-of-two `PITCH` (1.25, 1.5, 2.5 …) gets an approximate box: trilinear blending between two
-mip levels, and cell boundaries that no longer align with mip texel boundaries. Visually
-inconsequential at these sizes; the exact-average cases are 1× and 2×.
+`PITCH` 1.0 and 2.0 give an exact box average: `lod` is an integer, the cell centre lands on a mip
+texel centre, and the fetch returns that texel whichever mip filter mode the runtime picked for a
+`filter_linear2 = false` pass. Non-power-of-two `PITCH` (1.25, 1.5, 2.5 …) is approximate — a
+fractional `lod` either snaps to the nearer level or blends two of them, and cell boundaries no longer
+align with mip texel boundaries. The grid *geometry* still tracks `PITCH` continuously either way, so
+this only softens the cell colour slightly; visually inconsequential at these sizes.
 
 PPSSPP keys parameter overrides by `presetPath|paramName` (`FramebufferManagerCommon.cpp:1813-1817`),
-so a `PITCH` tuned in variant B does not disturb variant A.
+so a `PITCH` tuned in variant B does not disturb variant A. For `PITCH = "2.0"` to survive the user
+opening the parameter screen at all, the parser fix in §9.1 is required.
 
 ## 8. Decisions and rationale
 
@@ -297,9 +310,9 @@ recorded in §3.
 
 ## 9. Parameters exposed in the UI
 
-`GetPresetParameters()` merges `#pragma parameter` declarations from every pass with `.slangp`-level
-overrides winning, so the browser shows the values written above as the starting point. The
-interesting knobs on the device:
+`GetPresetParameters()` merges the `#pragma parameter` declarations of every pass (first-seen wins
+across passes), and — once §9.1 lands — lets a `.slangp`-level value override the declared default, so
+the browser shows the values written above as the starting point. The interesting knobs on the device:
 
 | name | pass | default (A / B) | range | note |
 |---|---|---|---|---|
@@ -312,6 +325,42 @@ interesting knobs on the device:
 | `LUT_selector_param` | multiLUT | 1.0 | 1.0–2.0 | which psp-grey LUT |
 | `mode` | psp-color | 1.0 | 1.0–3.0 | sRGB / DCI / Rec2020 target |
 
+### 9.1 Required parser fix: preset-level parameter values
+
+Found while planning, and load-bearing for this design: **PPSSPP currently discards `.slangp`-level
+parameter values, and the parameter screen actively overwrites them.** Three facts compose into that:
+
+- `ParseSlangPreset` clears `SlangPreset::params` and never fills it (`SlangpParser.cpp:47-142`).
+  A line like `gamma = "2.2"` is stored in the parser's internal key/value map and then dropped, so
+  `GetPresetParameters()` returns only the shaders' `#pragma parameter` defaults. `preset.params` has
+  exactly one reader — `*out = preset.params;` in `SlangPresetLibrary.cpp:149` — and it is always empty.
+- `SlangShaderScreen` seeds `g_Config.mSlangParams[preset|name] = p.initial` for **every** parameter the
+  first time the screen is opened (`SlangShaderScreen.cpp:234-236`).
+- `FramebufferManagerCommon` then pushes every such entry as a `set_param` override
+  (`FramebufferManagerCommon.cpp:1814-1818`).
+
+librashader itself parses the `.slangp` and honours its values when building the chain, so a preset
+renders correctly until the user opens the parameter screen — at which point the pragma defaults are
+written over the preset's values and stay there. This is pre-existing and affects imported presets
+generally: the stock `lcd-grid-v2-psp-color` silently moves from `gamma` 2.2 to 3.0 and `blacklevel` 0
+to 0.05. It is fatal to variant B in particular, whose entire purpose is to be tuned from that screen
+and whose `PITCH = "2.0"` would reset to the pragma default 1.0 on arrival.
+
+The fix, and its whole extent:
+
+- Replace the vacant `SlangPreset::params` vector with `std::map<std::string, std::string> values` —
+  every `key = value` line the preset declared, unparsed.
+- In `GetPresetParameters()`, after merging the pass pragmas, look each declared parameter's **name** up
+  in that map and override its `initial`. Resolving by declared name is what keeps structural keys
+  (`shader0`, `scale_type1`, LUT names …) from being mistaken for parameters — the shaders own the
+  authoritative name set, so no key whitelist is needed.
+- Range, step and description keep coming from the `#pragma parameter` line; only the initial value
+  moves. A value outside the declared range is kept verbatim rather than clamped, because that is the
+  number librashader will use, and clamping would make the UI disagree with the rendered image.
+
+No UI change is needed: `SlangShaderScreen` already seeds from `p.initial` and already passes it as the
+slider's reset-to-default value, so both become correct once `initial` is.
+
 ## 10. Testing
 
 **Unit.** The presets introduce no parser construct that is not already covered: `absolute` scale,
@@ -321,11 +370,12 @@ convention — they write fixtures into a temp directory rather than reading the
 testing the shipped files by path would mean new test plumbing for little return. Following the
 `lcd-psp-matrix` precedent, no new parser test is warranted for the presets themselves.
 
-One gap does matter, because the two variants are distinguished *only* by preset-level values:
-`TestSlangPresetParameters` never exercises a `.slangp`-level override, so the rule the design leans on
-— preset value beats `#pragma parameter` default — is untested. Extend that test with a fixture whose
-`.slangp` overrides a declared parameter and assert the override wins. Self-contained, ~10 lines, same
-pattern as the existing case.
+The §9.1 fix does need a test, and it is the one place here with real behaviour to drive: extend
+`TestSlangPresetParameters` with a fixture whose `.slangp` overrides a declared parameter, and assert
+the preset's value wins while range, step and description still come from the `#pragma parameter` line.
+It fails against today's code — which is the point — plus a second fixture pinning the deliberate
+no-clamp behaviour for an out-of-range value. Self-contained temp-directory fixtures, same pattern as
+the existing case.
 
 **On-device (AYN Thor, Vulkan and GLES).**
 
@@ -353,6 +403,7 @@ untouched.
 | Gamma-space downsample darkens edges | side-by-side against the reference preset; linear-light b-spline fork if it shows (§8.1) |
 | Fork drifts from upstream `lcd-grid-v2` | header records the upstream path and commit; the fork is three localised changes |
 | Pack not imported | presets do not appear in the browser; prerequisite documented in §4 |
+| §9.1's parser change alters what other imported presets show in the UI | that is the bug being fixed — those presets already render with their own values, and the UI now agrees instead of overwriting them; covered by a unit test |
 | D3D11 pre-blit softens pass-0 input on Windows | expected and explained in §3.4; the Thor path is Vulkan/GLES |
 
 ## 12. Licensing
