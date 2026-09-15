@@ -397,6 +397,39 @@ bool TestSlangPresetParameters() {
 	EXPECT_TRUE(params[0].description == "Gamma");
 	EXPECT_TRUE(params[1].name == "bright");
 	EXPECT_TRUE(params[1].maximum == 2.0f);
+
+	// A .slangp-level value overrides the shader's #pragma parameter default. librashader applies
+	// preset values when it builds the chain, so the UI has to start from the same number: it seeds
+	// g_Config.mSlangParams from `initial` and FramebufferManagerCommon pushes every seeded entry back
+	// as an override, so a stale `initial` silently overwrites what the preset asked for. Range, step
+	// and description keep coming from the declaration - only the value moves.
+	File::WriteStringToFile(true,
+		"shaders = 1\n"
+		"shader0 = a.slang\n"
+		"gamma = \"2.5\"\n", root / "override.slangp");
+	std::vector<SlangParamDesc> overridden; std::string overrideErr;
+	EXPECT_TRUE(GetPresetParameters(root / "override.slangp", &overridden, &overrideErr));
+	EXPECT_EQ_INT((int)overridden.size(), 2);   // structural keys are not parameters
+	EXPECT_TRUE(overridden[0].name == "gamma");
+	EXPECT_EQ_FLOAT(overridden[0].initial, 2.5f);
+	EXPECT_EQ_FLOAT(overridden[0].minimum, 1.0f);
+	EXPECT_EQ_FLOAT(overridden[0].maximum, 3.0f);
+	EXPECT_EQ_FLOAT(overridden[0].step, 0.1f);
+	std::string overriddenDesc = overridden[0].description;
+	std::string expectDesc = "Gamma";
+	EXPECT_EQ_STR(overriddenDesc, expectDesc);
+	EXPECT_EQ_FLOAT(overridden[1].initial, 1.0f);   // a parameter the preset does not mention
+
+	// A value outside the declared range is kept as-is rather than clamped: it is what librashader
+	// will use, and clamping here would make the slider disagree with the rendered image.
+	File::WriteStringToFile(true,
+		"shaders = 1\n"
+		"shader0 = a.slang\n"
+		"gamma = \"9.0\"\n", root / "wide.slangp");
+	std::vector<SlangParamDesc> wide; std::string wideErr;
+	EXPECT_TRUE(GetPresetParameters(root / "wide.slangp", &wide, &wideErr));
+	EXPECT_EQ_FLOAT(wide[0].initial, 9.0f);
+
 	File::DeleteDirRecursively(root);
 	return true;
 }

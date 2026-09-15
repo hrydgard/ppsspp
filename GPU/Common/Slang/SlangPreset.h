@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <map>
 #include <string>
 #include <vector>
 
@@ -77,7 +78,12 @@ struct SlangPassDesc {
 struct SlangPreset {
 	Path basePath;   // directory the .slangp lives in
 	std::vector<SlangPassDesc> passes;
-	std::vector<SlangParamDesc> params;
+	// Every `key = value` line in the preset, unparsed. A .slangp may set any shader parameter by
+	// name (`gamma = "2.2"`), which librashader honours when it builds the chain - but the
+	// authoritative parameter *names* live in the pass shaders' #pragma parameter lines, so keep the
+	// raw lines here and let GetPresetParameters() resolve them per declared parameter. That is also
+	// what keeps structural keys (shader0, scale_type1, LUT names, ...) from being read as parameters.
+	std::map<std::string, std::string> values;
 	std::vector<SlangLutDesc> luts;
 	int feedbackPass = -1;   // global feedback_pass; -1 = none
 };

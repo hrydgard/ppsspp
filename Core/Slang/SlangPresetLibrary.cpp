@@ -22,6 +22,7 @@
 #include "Common/StringUtils.h"
 #include "GPU/Common/Slang/SlangpParser.h"
 #include <algorithm>
+#include <cstdlib>
 #include <functional>
 #include <set>
 
@@ -145,9 +146,6 @@ bool GetPresetParameters(const Path &presetPath, std::vector<SlangParamDesc> *ou
 		return false;
 	}
 
-	// Seed output with preset-level parameters (usually empty)
-	*out = preset.params;
-
 	// File reader for includes
 	SlangFileReader reader = [](const Path &p, std::string *o) {
 		return File::ReadBinaryFileToString(p, o);
@@ -188,6 +186,21 @@ bool GetPresetParameters(const Path &presetPath, std::vector<SlangParamDesc> *ou
 			if (!alreadyExists) {
 				out->push_back(param);
 			}
+		}
+	}
+
+	// A .slangp may override any declared parameter's value by name (`gamma = "2.2"`), and librashader
+	// applies those when it builds the chain - so the UI has to start from the same number. Otherwise
+	// SlangShaderScreen seeds g_Config.mSlangParams with the pragma default and FramebufferManagerCommon
+	// pushes it straight back over the preset's value. Looking names up (rather than scanning the
+	// preset for parameter-shaped keys) is what keeps shader0/scale_type1/LUT names out of the list:
+	// the pass shaders own the authoritative name set. A value outside the declared range is kept
+	// as-is, because that is what librashader will use and clamping would make the UI disagree with
+	// the rendered image.
+	for (SlangParamDesc &param : *out) {
+		auto valueIt = preset.values.find(param.name);
+		if (valueIt != preset.values.end()) {
+			param.initial = (float)atof(valueIt->second.c_str());
 		}
 	}
 
