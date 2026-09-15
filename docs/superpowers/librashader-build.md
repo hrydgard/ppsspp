@@ -59,20 +59,135 @@ If you did not set `RUSTFLAGS` at build time, fix the soname after the fact:
 patchelf --set-soname librashader.so dist/librashader.so
 ```
 
-### Windows MSVC (expected, not verified)
+### Windows MSVC (verified on x64)
 
-```bash
-git clone --depth 1 --branch librashader-v0.12.0 https://github.com/SnowflakePowered/librashader.git C:\tmp\librashader
-cd C:\tmp\librashader
-cargo build -p librashader-capi --release --no-default-features --features runtime-vulkan,runtime-opengl
+Build from a VS x64 developer environment - cargo shells out to MSVC's linker:
+
+```bat
+git clone --depth 1 --branch librashader-v0.12.0 https://github.com/SnowflakePowered/librashader.git C:\Users\Ilya\source\librashader
+call "C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat"
+cd /d C:\Users\Ilya\source\librashader
+cargo build -p librashader-capi --release --no-default-features --features runtime-vulkan,runtime-opengl,runtime-d3d11
 ```
 
-Artifact: `target\release\librashader_capi.dll`. Rename to `librashader.dll`:
+`runtime-d3d11` is included so a single DLL also serves PPSSPP's D3D11 backend. Build time: ~1m50s
+on a 16-core host. Artifact: `target\release\librashader_capi.dll` (13.8 MB).
 
-```bash
-mkdir dist
-copy target\release\librashader_capi.dll dist\librashader.dll
+There is no install-name/soname step on Windows (the import name lives in the importing module and
+PPSSPP calls `LoadLibraryW`), so copying under the bare name PPSSPP looks for is all that is needed:
+
+```bat
+copy target\release\librashader_capi.dll C:\Users\Ilya\source\ppsspp\librashader.dll
 ```
+
+Verify the exports - 52 `libra_` entry points with these three runtimes compiled in:
+
+```powershell
+& "C:\Program Files\Microsoft Visual Studio\18\Community\VC\Tools\MSVC\<ver>\bin\Hostx64\x64\dumpbin.exe" /exports librashader.dll | Select-String ' libra_' | Measure-Object
+```
+
+`libra_vk_filter_chain_create`, `libra_gl_filter_chain_create` and `libra_d3d11_filter_chain_create`
+must all be present; a DLL missing a runtime still reports `librashader loaded` but every chain
+creation on that backend fails.
+
+**rustup shims over SSH.** `%USERPROFILE%\.cargo\bin\cargo.exe` is a symlink to the active
+toolchain. Under an SSH session that can fail (`os error 448: untrusted mount point`, or "No
+application is associated with this file"); call the real binaries in the toolchain directory
+instead and put them first on `PATH`:
+
+```bat
+set TC=%USERPROFILE%\.rustup\toolchains\stable-x86_64-pc-windows-msvc\bin
+set PATH=%TC%;%PATH%
+set RUSTC=%TC%\rustc.exe
+set RUSTDOC=%TC%\rustdoc.exe
+"%TC%\cargo.exe" build -p librashader-capi --release --no-default-features --features runtime-vulkan,runtime-opengl,runtime-d3d11
+```
+
+### Building PPSSPP itself on Windows
+
+`Windows/PPSSPP.sln` compiles the Slang/librashader sources; `USE_LIBRASHADER=1` and
+`../ext/librashader/include` are set for every configuration of `Common/Common.vcxproj`,
+`GPU/GPU.vcxproj` and `unittest/UnitTests.vcxproj` (the UWP projects list the same sources but
+deliberately without the define, so librashader stays off there, exactly like the CMake build).
+
+```bat
+cd /d C:\Users\Ilya\source\ppsspp
+git config --global --add safe.directory "*"
+git submodule update --init --recursive --depth 1 --jobs 6
+"C:\Program Files\Microsoft Visual Studio\18\Community\MSBuild\Current\Bin\MSBuild.exe" Windows\PPSSPP.sln /m /p:Configuration=Release /p:Platform=x64 /v:m
+```
+
+**The `safe.directory` line is not optional** when the checkout is not owned by the account running
+git (a repo cloned by an elevated shell ends up owned by `Administrators`). Without it every git
+command fails with `detected dubious ownership` - including the `fetch`/`checkout` in a build script,
+which then happily builds whatever was already checked out. Always confirm `git rev-parse HEAD` on
+the host before trusting a Windows build result.
+
+Release|x64 links `PPSSPPWindows64.exe` into the **repository root** (not `Windows\x64\Release\`,
+which only holds the static libs), so `librashader.dll` belongs in the repository root too - or
+point `LIBRASHADER_PATH` at it from anywhere.
+
+**Verified** on 2026-09-14 (Windows 11, RTX 4090, driver 596.49, Vulkan 1.4.329 and GL 4.6):
+`stock.slangp` and `lcd-psp-matrix.slangp` render through librashader on both the Vulkan and the
+OpenGL backend (`librashader loaded (ABI 2, API 5)`, `Slang chain backend: librashader`), and on
+2026-09-15 on the **Direct3D 11** backend as well (see below).
+
+## Backend Notes: Direct3D 11 (Windows only)
+
+Select the backend with `GraphicsBackend = DIRECT3D11` in `ppsspp.ini` (the strings come from
+`GPUBackendToString`: `OPENGL`, `DIRECT3D11`, `VULKAN`). No other setting is involved - the chain
+selector admits D3D11 as soon as `librashader.dll` loads.
+
+The DLL must be built with `runtime-d3d11` compiled in (the command above already does that;
+`dumpbin /exports librashader.dll` should list `libra_d3d11_filter_chain_create`).
+
+**What the adapter does** (`GPU/Common/Slang/LibrashaderRuntimeD3D11.cpp`, whole file inside
+`#if USE_LIBRASHADER && PPSSPP_PLATFORM(WINDOWS)`): takes the `ID3D11Device *` from
+`NativeObject::DEVICE`, creates the filter chain on the first frame callback, pushes the preset
+parameter overrides, then calls `libra_d3d11_filter_chain_frame` with the immediate context, the
+source framebuffer's shader resource view and the destination framebuffer's render target view.
+Frame options are the same as on GL/Vulkan (SDR, `aspect_ratio = 0`, `frametime_delta = 16`).
+
+**Immediate mode, and what that means for state.** D3D11 has no render thread and no command buffer,
+so `D3D11DrawContext::RunNativeCallback` runs the callback synchronously on the calling thread. It
+unbinds all pixel-shader resource slots and the render target first (the destination is normally
+still bound as the current RTV, the source is often still bound as an SRV), and afterwards it
+restores `curRenderTargetView_`/`curDepthStencilView_`, invalidates every cached comparison
+`ApplyCurrentState()` makes (via `Invalidate(CACHED_RENDER_STATE)` plus the blend-factor and stencil
+dirty flags), clears the SRV/sampler slots it dirtied, and fires the draw engine's
+`RENDER_PASS_STATE` invalidation callback so viewport/scissor and texture state are re-sent. Because
+everything is synchronous and D3D11 devices are free-threaded, `QueueFree` needs no deletion queue:
+`libra_d3d11_filter_chain_free` (and `libra_preset_free`) run directly, even on device loss.
+
+**`SourceSize` on D3D11: native-sized input.** `libra_d3d11_filter_chain_frame` takes only an
+`ID3D11ShaderResourceView`, with no width/height fields - unlike `libra_image_gl_t`/`libra_image_vk_t`,
+which is how the other adapters report the PSP's *native* 480x272 size while handing over the
+upscaled framebuffer. librashader therefore reads the size off the resource on D3D11, so a preset
+whose result depends on the input size would otherwise run its math at the render resolution
+(CRT/LCD masks tiling at 3x instead of on the native grid). The D3D11 adapter therefore returns
+`true` from `LibrashaderRuntime::RequiresNativeSizedInput()`, and `LibrashaderFilterChain::Load()`
+routes the input through the native-sized copy it already had for `OriginalHistoryN` presets whenever
+the preset reads `SourceSize`/`OriginalSize` (a use such as `params.SourceSize.xy`; the bare
+`vec4 SourceSize;` declaration every shader carries does not count) or has an intermediate
+`scale_type = source` pass. D3D11's
+`thin3d` has no `BlitFramebuffer`, so that copy is a linear-filtered `BlitUsingRaster`
+(`DRAW2D_COPY_COLOR`) quad draw the framebuffer manager hands the chain; Vulkan/GL keep using
+`BlitFramebuffer`. All
+three backends then behave the same; the residual difference is input texel detail (D3D11 samples a
+downscaled 480x272 copy where GL/Vulkan sample the upscaled framebuffer with native-sized
+semantics), not geometry. Presets that do not depend on the source size (a single viewport-scaled
+pass, e.g. `stock.slangp`) keep the upscaled input on D3D11 too. The chosen mode is in the
+`input mode:` INFO line at preset load: `native-sized copy (history)`,
+`native-sized copy (D3D11: preset depends on SourceSize)` or
+`upscaled framebuffer with declared native size`.
+
+**Shaders must survive FXC.** librashader cross-compiles the preset to HLSL and compiles it with
+FXC, which is stricter than glslang: a dynamically indexed vector component is not a valid l-value
+(`error X3500: array reference cannot be used as an l-value; not natively addressable`). This is why
+`lcd-psp-matrix-pass3.slang` builds its subpixel mask with selects instead of `mask[sub] = 1.0`.
+A preset that only ever ran on GL/Vulkan may need the same treatment; the failure is reported as
+`LibrashaderFilterChain: disabled after librashader error (create: D3D11FilterError(D3DCompileError(...)))`
+and PPSSPP keeps presenting the unfiltered image.
 
 ## Using the Library
 
@@ -99,11 +214,17 @@ This step only runs if `USE_LIBRASHADER=ON` (the default on desktop platforms) a
 
 ## Enabling at Runtime
 
-librashader support is gated by a runtime toggle:
+There is no toggle. librashader is the only slang rendering core: whenever a preset is selected
+(`SlangShaderPreset` / Settings → Graphics → Slang shaders), PPSSPP loads the library and renders
+the preset through it. Supported backends are VULKAN, OPENGL (3.3+/GLES 3.0+) and DIRECT3D11 (Windows).
+Without the library — or on any other backend — slang shaders are off: the log shows
 
-**Developer Tools → "Use librashader for slang shaders"** (or `SlangUseLibrashader = True` in `ppsspp.ini`)
+```
+INFO  Slang chain backend: none (librashader not loaded or backend unsupported)
+```
 
-When enabled, all slang shader presets are rendered through librashader. When disabled (or if librashader is unavailable), PPSSPP falls back to its built-in slang stack.
+once per preset (re)load and the unfiltered image is presented. (Older builds had a
+`SlangUseLibrashader` ini key / Developer Tools checkbox; the key is now ignored.)
 
 ### Presets that use `OriginalHistoryN`
 
@@ -144,23 +265,22 @@ so both `libra_image_gl_t`s report `GL_RGBA8` (`0x8058`) as the sized internal f
 renderer: Apple M2 Pro version str: 4.1 Metal - 90.5 ; GLSL version str: 4.10`). Everything works
 with `glsl_version = 0`; no DSA, no compute, no `KHR_debug`.
 
-**"Toggle off" on GL renders the raw image.** The in-tree slang chain is Vulkan-only (it is being
-removed in Phase 4), so on GL, turning librashader off does not fall back to an equivalent chain -
-the preset is refused and PPSSPP presents the unprocessed framebuffer:
+**Without the library, slang shaders are off.** If `librashader.dylib`/`.so` is missing, or the GL
+context is below 3.3 / GLES 3.0, no chain is created and PPSSPP presents the unprocessed
+framebuffer:
 
 ```
-INFO   Slang chain backend: in-tree
-ERROR  Failed to load slang preset '<path>': slang passes require the Vulkan backend in Phase 1 (got a non-Vulkan backend)
+INFO  librashader unavailable: <reason>
+INFO  Slang chain backend: none (librashader not loaded or backend unsupported)
 ```
 
-The same happens if `librashader.dylib`/`.so` is missing (`librashader unavailable: ...`). Neither
-case crashes; slang shaders are simply inactive until librashader is available again. Therefore the
-A/B reference for a GL capture is the **Vulkan librashader** capture of the same preset, not a GL
-"toggle off" capture.
+This does not crash; slang shaders are simply inactive until librashader is available again.
+Therefore the A/B reference for a GL capture is the **Vulkan librashader** capture of the same
+preset, not a "shaders off" capture.
 
-**GL state contract.** Every `libra_gl_*` call runs inside a `GLRStepType::CALLBACK` step, i.e. on
+**GL state contract.** Every `libra_gl_*` call runs inside a `GLRStepType::NATIVE_CALLBACK` step, i.e. on
 the GL thread with the creating context current; the chain is created and used in the same callback
-(unlike Vulkan there is no command-buffer readiness gate), and it is freed through another CALLBACK
+(unlike Vulkan there is no command-buffer readiness gate), and it is freed through another NATIVE_CALLBACK
 step because `libra_gl_filter_chain_free` needs that context. librashader changes GL state freely,
 so `GLQueueRunner::RestoreBaselineStateAfterCallback()` puts back everything
 `PerformRenderPass`/`PerformBindFramebufferAsRenderTarget` assume: `fbo_unbind()` (which binds the
@@ -171,8 +291,8 @@ selected by a runtime check), full colour/depth/stencil masks, depth/stencil/ble
 disabled, scissor test enabled, and - desktop only - logic op, depth clamp, `GL_FRAMEBUFFER_SRGB`
 and all eight `GL_CLIP_DISTANCE*` disabled.
 
-**Chain free at teardown.** The free CALLBACK step only runs while the render thread still drains
-work. At `DeviceLost` / shutdown it does not - `GLRenderManager::ThreadEnd` deletes queued CALLBACK
+**Chain free at teardown.** The free NATIVE_CALLBACK step only runs while the render thread still drains
+work. At `DeviceLost` / shutdown it does not - `GLRenderManager::ThreadEnd` deletes queued NATIVE_CALLBACK
 functions without running them - so `LibrashaderRuntime::QueueFree` takes a `deviceLost` flag and,
 when it is set, drops the state with a single warning
 (`LibrashaderRuntimeOpenGL: dropping chain without freeing`) instead of enqueuing a free that would
@@ -213,10 +333,10 @@ When a slang preset is loaded, the chosen backend is logged:
 INFO  Slang chain backend: librashader
 ```
 
-or
+or, when the library is unavailable or the backend cannot run native callbacks:
 
 ```
-INFO  Slang chain backend: in-tree
+INFO  Slang chain backend: none (librashader not loaded or backend unsupported)
 ```
 
 ## Licensing
@@ -281,11 +401,27 @@ bump, then rebuild the APK with Gradle.
 produce a `libc++_shared.so` symbol-version mismatch at load.
 
 The script produces all three ABIs and Gradle packages every `jniLibs/<abi>` regardless of
-`-Pandroid.injected.build.abi` (that flag filters only the CMake output), so the dev APK carries all
-three `librashader.so` (~29 MB uncompressed); release flavors prune by `ndk.abiFilters` (`normal`/`gold`
-keep all three, `legacy` two, `vr` one). To build a single ABI, pass it to the script
-(`android/build-librashader.sh arm64-v8a`) and delete the other `jniLibs/<abi>/librashader.so`.
-Gradle-side pruning is a Phase 4 item.
+`-Pandroid.injected.build.abi` (that flag filters only the CMake output), so dev APKs carry all
+three `librashader.so` (~29 MB uncompressed) by default. Release flavors are already pruned by
+`ndk.abiFilters` (`normal`/`gold` keep all three, `legacy` two, `vr` one).
+
+**Dev builds with a single ABI:** Use the `-PlibrashaderAbi=<abi>` Gradle property to exclude the
+other ABIs from packaging:
+
+```bash
+ANDROID_HOME=/opt/homebrew/share/android-commandlinetools \
+  ./gradlew assembleNormalDebug \
+    -Pandroid.injected.build.abi=arm64-v8a \
+    -PlibrashaderAbi=arm64-v8a \
+    -PANDROID_VERSION_CODE=999999999 \
+    -PANDROID_VERSION_NAME=dev --console=plain
+```
+
+The resulting APK contains only `lib/arm64-v8a/librashader.so` (~14 MB uncompressed), reducing the
+dev APK size by ~15 MB. When `-PlibrashaderAbi` is absent, behavior is unchanged (all present ABIs
+are packaged); an unknown ABI value fails the build (`require(keepAbi in allAbis)` validation).
+Alternatively, build a single ABI with the script (`android/build-librashader.sh arm64-v8a`) and
+manually delete the other `jniLibs/<abi>/librashader.so` directories.
 
 ### Confirming on Device
 
@@ -309,12 +445,11 @@ INFO  librashader loaded (ABI 2, API 5)
 INFO  Slang chain backend: librashader
 ```
 
-If `librashader.so` is missing from the APK, the chain falls back to the in-tree implementation (no
-push constants):
+If `librashader.so` is missing from the APK, slang shaders are off and the raw image is presented:
 
 ```
 INFO  librashader unavailable: <reason>
-INFO  Slang chain backend: in-tree
+INFO  Slang chain backend: none (librashader not loaded or backend unsupported)
 ```
 
 ### Vulkan Validation Layers on Android (Debug APK)
@@ -329,14 +464,23 @@ To enable Vulkan validation layers during development:
 The PPSSPP debug build enables validation at compile time via `g_Validate` in
 `GPU/Vulkan/VulkanUtil.cpp` (gated by `_DEBUG`). PPSSPP prefixes layer messages with `VKDEBUG:` (grep
 for that, not `VUID`/`VALIDATION`), and the debug callback reports core validation only (synchronization
-validation requires `VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT`, which
-`Common/GPU/Vulkan/VulkanContext.cpp` never sets). Release builds ignore the layers even if present.
+validation is opt-in: set `VulkanSyncValidation = True` in the ini; `Common/GPU/Vulkan/VulkanContext.cpp`
+then chains `VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT` — Phase 4 ran it with zero hazards). Release builds ignore the layers even if present.
 
-### CI Deferred
+### CI Integration
 
-The fork's Android CI jobs use `android/ab.sh` (ndk-build via `Android.mk`), which does not list the
-`GPU/Common/Slang` sources (so a `cargo ndk` step would be pointless until that build is fixed;
-`FramebufferManagerCommon.cpp` references the Slang sources unconditionally, so the ndk-build path is
-not expected to build at all). The Gradle/CMake path is the one that works; Android librashader
-integration is tested manually on device. `.github/workflows/manual_generate_apk.yml` is the
-Gradle-based job that can host a `cargo ndk` step.
+`.github/workflows/manual_generate_apk.yml` now includes a `cargo ndk` step before the Gradle build:
+
+1. Install NDK 29.0.14206865 via `sdkmanager` (Gradle would otherwise install it only later)
+2. Install Rust stable with Android targets (`aarch64-linux-android`, `armv7-linux-androideabi`,
+   `x86_64-linux-android`); cache `~/.cargo` (registry, git, the `cargo-ndk` binary)
+3. Install `cargo-ndk`
+4. Build librashader: `ANDROID_NDK_HOME=$ANDROID_HOME/ndk/29.0.14206865 android/build-librashader.sh`
+
+The Gradle build then packages the resulting `jniLibs/<abi>/librashader.so` files into the APK.
+The workflow is unverified locally (added in Phase 4 without a local CI runner); `ANDROID_HOME` is
+preset on the GitHub Actions `ubuntu-latest` runner image.
+
+The fork's other Android CI jobs (`android/ab.sh` via ndk-build) do not list the `GPU/Common/Slang`
+sources and are not expected to build. Android librashader integration is primarily tested manually
+on device.

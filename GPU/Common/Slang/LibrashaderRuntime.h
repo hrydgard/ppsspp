@@ -41,6 +41,9 @@ struct LibrashaderRenderState {
 	libra_shader_preset_t preset = nullptr;
 	libra_vk_filter_chain_t vkChain = nullptr;
 	libra_gl_filter_chain_t glChain = nullptr;
+#if PPSSPP_PLATFORM(WINDOWS)
+	libra_d3d11_filter_chain_t d3d11Chain = nullptr;
+#endif
 	// Callbacks the render thread has run since the chain was created (still 0 in the callback
 	// that creates it). Render thread only; the gate in the callback explains the bound.
 	int callbacksSinceCreate = 0;
@@ -67,6 +70,10 @@ public:
 	virtual LIBRA_PRESET_CTX_RUNTIME PresetRuntime() const = 0;
 	// Emu thread. Grabs the device handles / proc loader from draw.
 	virtual bool Init(Draw::DrawContext *draw, std::string *error) = 0;
+	// true when the runtime's frame API cannot declare an input size different from the texture's
+	// (D3D11); the core then feeds a native-sized copy so SourceSize/OriginalSize and source-relative
+	// pass sizes match the other backends.
+	virtual bool RequiresNativeSizedInput() const { return false; }
 	// Emu thread. Returns the function RunNativeCallback executes on the render thread.
 	virtual Draw::NativeCallbackFn MakeFrameCallback(std::shared_ptr<LibrashaderRenderState> rs, LibrashaderFrameArgs args) = 0;
 	// Emu thread. Frees rs->preset / chain on the thread the backend requires; draw may be null (device gone).
@@ -77,6 +84,9 @@ public:
 // Implemented by the per-backend adapter .cpp files.
 std::unique_ptr<LibrashaderRuntime> CreateLibrashaderRuntimeVulkan();
 std::unique_ptr<LibrashaderRuntime> CreateLibrashaderRuntimeOpenGL();
+#if PPSSPP_PLATFORM(WINDOWS)
+std::unique_ptr<LibrashaderRuntime> CreateLibrashaderRuntimeD3D11();
+#endif
 
 // nullptr if librashader has no runtime for this backend.
 std::unique_ptr<LibrashaderRuntime> CreateLibrashaderRuntime(GPUBackend backend);

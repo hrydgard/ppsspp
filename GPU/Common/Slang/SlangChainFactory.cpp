@@ -17,7 +17,6 @@
 
 #include "ppsspp_config.h"
 #include "GPU/Common/Slang/ISlangFilterChain.h"
-#include "GPU/Common/Slang/SlangFilterChain.h"
 #include "Core/ConfigValues.h"
 #if USE_LIBRASHADER
 #include "GPU/Common/Slang/LibrashaderFilterChain.h"
@@ -26,16 +25,18 @@
 const char *SlangChainBackendName(SlangChainBackend backend) {
 	switch (backend) {
 	case SlangChainBackend::Librashader: return "librashader";
-	default: return "in-tree";
+	default: return "none";
 	}
 }
 
-SlangChainBackend ChooseSlangChainBackend(bool userPrefersLibrashader, bool librashaderLoaded,
-                                          GPUBackend gpuBackend, bool drawSupportsNativeCallback) {
-	if (!userPrefersLibrashader || !librashaderLoaded || !drawSupportsNativeCallback)
-		return SlangChainBackend::InTree;
-	if (gpuBackend != GPUBackend::VULKAN && gpuBackend != GPUBackend::OPENGL)
-		return SlangChainBackend::InTree;
+SlangChainBackend ChooseSlangChainBackend(bool librashaderLoaded, GPUBackend gpuBackend,
+                                          bool drawSupportsNativeCallback) {
+	if (!librashaderLoaded || !drawSupportsNativeCallback)
+		return SlangChainBackend::None;
+	// librashader has a runtime for each of these three, which is every backend PPSSPP still has.
+	// Kept explicit so a backend added later has to opt in rather than silently get a null runtime.
+	if (gpuBackend != GPUBackend::VULKAN && gpuBackend != GPUBackend::OPENGL && gpuBackend != GPUBackend::DIRECT3D11)
+		return SlangChainBackend::None;
 	return SlangChainBackend::Librashader;
 }
 
@@ -44,5 +45,5 @@ ISlangFilterChain *CreateSlangFilterChain(Draw::DrawContext *draw, SlangChainBac
 	if (backend == SlangChainBackend::Librashader)
 		return new LibrashaderFilterChain(draw);
 #endif
-	return new SlangFilterChain(draw);
+	return nullptr;
 }

@@ -107,7 +107,7 @@ public:
 
 	void QueueFree(Draw::DrawContext *draw, std::shared_ptr<LibrashaderRenderState> rs, bool deviceLost) override {
 		// deviceLost: the render thread is stopping, and GLRenderManager::ThreadEnd deletes queued
-		// CALLBACK functions without running them - so enqueuing a free here would silently do
+		// NATIVE_CALLBACK functions without running them - so enqueuing a free here would silently do
 		// nothing. Drop instead, deliberately.
 		if (deviceLost || !draw || !Librashader::IsLoaded()) {
 			DropChain(rs);

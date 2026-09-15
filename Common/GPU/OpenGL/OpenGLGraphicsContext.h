@@ -39,6 +39,13 @@ public:
 		renderManager_->NotifyEmuThreadExit();
 	}
 
+	void NotifyContextLost() override {
+		// The GL object names still sitting in the queued frames belong to the context we just
+		// lost, so don't let them reach the driver (or the slang chain) while we drain them.
+		// GLRenderManager::ThreadStart clears the flag again for the new context.
+		renderManager_->SetSkipGLCalls();
+	}
+
 private:
 	Draw::DrawContext *draw_ = nullptr;
 	GLRenderManager *renderManager_ = nullptr;

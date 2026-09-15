@@ -956,10 +956,6 @@ VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipe
 			// Sanity check
 			if (runCompileThread_) {
 				pipeline->pipeline[i] = Promise<VkPipeline>::CreateEmpty();
-				// This is the init / shader-cache-load path (no active render step). It only compiles the
-				// requested variants against the default UNORM compatible pass. Non-default (sRGB/float)
-				// formats are only used by slang framebuffers, whose pipeline variants are compiled
-				// on-demand in EndCurRenderStep / PerformRenderPass against the format-correct render pass.
 				compileQueue_.emplace_back(pipeline, compatibleRenderPass->Get(vulkan_, rpType, sampleCount), rpType, sampleCount);
 			}
 			needsCompile = true;
@@ -980,13 +976,6 @@ void VulkanRenderManager::EndCurRenderStep() {
 		curRenderStep_->render.colorLoad, curRenderStep_->render.depthLoad, curRenderStep_->render.stencilLoad,
 		curRenderStep_->render.colorStore, curRenderStep_->render.depthStore, curRenderStep_->render.stencilStore,
 	};
-	// The color format is part of render-pass compatibility. Key on the framebuffer's actual format so
-	// pipelines are compiled against a render pass matching the (possibly sRGB/float) framebuffer.
-	// The backbuffer (no framebuffer) keeps the default UNORM sentinel - the actual swapchain format is
-	// applied inside CreateRenderPass via isBackbuffer.
-	if (curRenderStep_->render.framebuffer) {
-		key.colorFormat = curRenderStep_->render.framebuffer->color.format;
-	}
 	// Save the accumulated pipeline flags so we can use that to configure the render pass.
 	// We'll often be able to avoid loading/saving the depth/stencil buffer.
 	curRenderStep_->render.pipelineFlags = curPipelineFlags_;
@@ -1562,7 +1551,7 @@ void VulkanRenderManager::RunNativeCallback(VKRFramebuffer *src, VKRFramebuffer 
 
 	EndCurRenderStep();
 
-	VKRStep *step = new VKRStep{ VKRStepType::CALLBACK };
+	VKRStep *step = new VKRStep{ VKRStepType::NATIVE_CALLBACK };
 	step->callback.src = src;
 	step->callback.dst = dst;
 	step->callback.fn = new VKRNativeCallbackFn(std::move(fn));

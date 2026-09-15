@@ -63,6 +63,9 @@ set(GPU_D3D11
 	D3D11/StateMappingD3D11.h
 	D3D11/TextureCacheD3D11.cpp
 	D3D11/TextureCacheD3D11.h
+	# The librashader D3D11 adapter lives with the other Slang sources but only compiles where
+	# <d3d11.h> does, so it is gated with the D3D11 backend rather than listed in GPU_SOURCES.
+	Common/Slang/LibrashaderRuntimeD3D11.cpp
 )
 
 # We build Vulkan even on Apple to avoid annoying build differences.
@@ -133,13 +136,6 @@ set(GPU_SOURCES
 	Common/Slang/SlangPreset.h
 	Common/Slang/SlangpParser.cpp
 	Common/Slang/SlangpParser.h
-	Common/Slang/SlangPassCompiler.cpp
-	Common/Slang/SlangPassCompiler.h
-	Common/Slang/SlangReflection.cpp
-	Common/Slang/SlangReflection.h
-	Common/Slang/SlangResolution.h
-	Common/Slang/SlangFilterChain.cpp
-	Common/Slang/SlangFilterChain.h
 	Common/Slang/ISlangFilterChain.h
 	Common/Slang/SlangChainFactory.cpp
 	Common/Slang/LibrashaderFilterChain.cpp

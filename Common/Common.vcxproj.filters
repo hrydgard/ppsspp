@@ -311,6 +311,9 @@
     <ClInclude Include="GPU\Vulkan\VulkanImage.h">
       <Filter>GPU\Vulkan</Filter>
     </ClInclude>
+    <ClInclude Include="GPU\Librashader\LibrashaderLoader.h">
+      <Filter>GPU\Librashader</Filter>
+    </ClInclude>
     <ClInclude Include="GPU\Vulkan\VulkanLoader.h">
       <Filter>GPU\Vulkan</Filter>
     </ClInclude>
@@ -1091,6 +1094,9 @@
     <ClCompile Include="GPU\Vulkan\VulkanImage.cpp">
       <Filter>GPU\Vulkan</Filter>
     </ClCompile>
+    <ClCompile Include="GPU\Librashader\LibrashaderLoader.cpp">
+      <Filter>GPU\Librashader</Filter>
+    </ClCompile>
     <ClCompile Include="GPU\Vulkan\VulkanLoader.cpp">
       <Filter>GPU\Vulkan</Filter>
     </ClCompile>
@@ -1569,6 +1575,9 @@
     </Filter>
     <Filter Include="GPU\OpenGL">
       <UniqueIdentifier>{19ad2070-4f85-48d3-abab-add446ea3a77}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="GPU\Librashader">
+      <UniqueIdentifier>{8d4f1c67-3e2a-4b55-9d18-52c0e4a7b933}</UniqueIdentifier>
     </Filter>
     <Filter Include="Render">
       <UniqueIdentifier>{c9aba118-5c31-4607-9a69-18eca9f92b44}</UniqueIdentifier>

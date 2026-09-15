@@ -24,6 +24,7 @@
 #include "Common/File/Path.h"
 #include "Common/GPU/Librashader/LibrashaderLoader.h"
 #include "GPU/Common/Slang/ISlangFilterChain.h"
+#include "GPU/Common/Slang/LibrashaderFilterChain.h"
 #include "Core/ConfigValues.h"
 
 // Device-free: with LIBRASHADER_PATH pointing at a non-library, Load must fail cleanly,
@@ -65,17 +66,50 @@ bool TestLibrashaderLoaderNotALibrary() {
 }
 
 bool TestSlangChainBackendSelection() {
-	// Librashader only when every precondition holds.
-	EXPECT_TRUE(ChooseSlangChainBackend(true, true, GPUBackend::VULKAN, true) == SlangChainBackend::Librashader);
-	// Any missing precondition falls back to the in-tree chain.
-	EXPECT_TRUE(ChooseSlangChainBackend(false, true, GPUBackend::VULKAN, true) == SlangChainBackend::InTree);
-	EXPECT_TRUE(ChooseSlangChainBackend(true, false, GPUBackend::VULKAN, true) == SlangChainBackend::InTree);
-	EXPECT_TRUE(ChooseSlangChainBackend(true, true, GPUBackend::VULKAN, false) == SlangChainBackend::InTree);
-	// Phase 2: OpenGL is admitted; the version gate lives in DrawContext::SupportsNativeCallback().
-	EXPECT_TRUE(ChooseSlangChainBackend(true, true, GPUBackend::OPENGL, true) == SlangChainBackend::Librashader);
-	EXPECT_TRUE(ChooseSlangChainBackend(true, true, GPUBackend::OPENGL, false) == SlangChainBackend::InTree);
-	EXPECT_TRUE(ChooseSlangChainBackend(true, true, GPUBackend::DIRECT3D11, true) == SlangChainBackend::InTree);
-	EXPECT_TRUE(strcmp(SlangChainBackendName(SlangChainBackend::InTree), "in-tree") == 0);
+	// Librashader is the only rendering core: selected when every precondition holds.
+	EXPECT_TRUE(ChooseSlangChainBackend(true, GPUBackend::VULKAN, true) == SlangChainBackend::Librashader);
+	EXPECT_TRUE(ChooseSlangChainBackend(true, GPUBackend::OPENGL, true) == SlangChainBackend::Librashader);
+	EXPECT_TRUE(ChooseSlangChainBackend(true, GPUBackend::DIRECT3D11, true) == SlangChainBackend::Librashader);
+	// Any missing precondition means no chain at all (the raw image is presented).
+	EXPECT_TRUE(ChooseSlangChainBackend(false, GPUBackend::VULKAN, true) == SlangChainBackend::None);
+	EXPECT_TRUE(ChooseSlangChainBackend(true, GPUBackend::VULKAN, false) == SlangChainBackend::None);
+	EXPECT_TRUE(ChooseSlangChainBackend(true, GPUBackend::DIRECT3D11, false) == SlangChainBackend::None);
+	EXPECT_TRUE(ChooseSlangChainBackend(true, (GPUBackend)1, true) == SlangChainBackend::None);  // retired D3D9 slot: not a supported backend
+	EXPECT_TRUE(strcmp(SlangChainBackendName(SlangChainBackend::None), "none") == 0);
 	EXPECT_TRUE(strcmp(SlangChainBackendName(SlangChainBackend::Librashader), "librashader") == 0);
+	return true;
+}
+
+// Device-free: the pure token scans LibrashaderFilterChain::Load() uses to pick the input mode.
+// Both must match whole identifiers only, so a longer name that merely contains the needle does not
+// change the input mode (and with it the rendered result) of an unrelated preset.
+bool TestLibrashaderSourceScan() {
+#if USE_LIBRASHADER
+	// SourceSize / OriginalSize: the reads that make a preset's output depend on the input size.
+	EXPECT_TRUE(ReferencesSourceSize("vec2 s = params.SourceSize.xy;"));
+	EXPECT_TRUE(ReferencesSourceSize("uv * OriginalSize.zw"));
+	EXPECT_TRUE(ReferencesSourceSize("vec4 s = global.SourceSize;"));   // read, then ';'
+	EXPECT_TRUE(ReferencesSourceSize("vec4 s = SourceSize;"));          // anonymous block read
+	EXPECT_TRUE(ReferencesSourceSize("vec4 SourceSize;\nvec2 p = SourceSize.xy;"));  // declared and read
+	// The Push/UBO block declaration alone is not a read - nearly every shader has one.
+	EXPECT_FALSE(ReferencesSourceSize("\tvec4 SourceSize;\n"));
+	EXPECT_FALSE(ReferencesSourceSize("layout(push_constant) uniform Push {\n\tvec4 SourceSize;\n\tvec4 OriginalSize ;\n\tvec4 OutputSize;\n} params;"));
+	EXPECT_FALSE(ReferencesSourceSize("FinalViewportSize"));
+	EXPECT_FALSE(ReferencesSourceSize("OriginalHistorySize1"));
+	EXPECT_FALSE(ReferencesSourceSize("mySourceSizeHack"));   // glued in front
+	EXPECT_FALSE(ReferencesSourceSize("SourceSizes[2]"));     // glued behind
+	EXPECT_FALSE(ReferencesSourceSize("texture(Source, uv)"));
+	EXPECT_FALSE(ReferencesSourceSize(""));
+
+	// OriginalHistoryN / OriginalHistorySizeN: index 0 is the current frame, so it does not count.
+	EXPECT_TRUE(ReferencesOriginalHistory("texture(OriginalHistory1, uv)"));
+	EXPECT_TRUE(ReferencesOriginalHistory("params.OriginalHistorySize2.xy"));
+	EXPECT_TRUE(ReferencesOriginalHistory("OriginalHistory9"));
+	EXPECT_FALSE(ReferencesOriginalHistory("texture(OriginalHistory0, uv)"));
+	EXPECT_FALSE(ReferencesOriginalHistory("texture(Original, uv)"));
+	EXPECT_FALSE(ReferencesOriginalHistory("MyOriginalHistory1"));  // glued in front
+	EXPECT_FALSE(ReferencesOriginalHistory("OriginalHistory"));
+	EXPECT_FALSE(ReferencesOriginalHistory(""));
+#endif
 	return true;
 }

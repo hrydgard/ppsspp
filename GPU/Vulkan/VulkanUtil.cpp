@@ -68,6 +68,9 @@ static VulkanInitFlags VulkanInitFlagsFromConfig() {
 	if (g_Validate) {
 		flags |= VulkanInitFlags::VALIDATE;
 	}
+	if (g_Validate && g_Config.bVulkanSyncValidation) {
+		flags |= VulkanInitFlags::SYNC_VALIDATE;
+	}
 	if (g_Config.bVulkanDisableImplicitLayers) {
 		flags |= VulkanInitFlags::DISABLE_IMPLICIT_LAYERS;
 	}

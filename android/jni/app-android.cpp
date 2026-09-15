@@ -965,6 +965,10 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * e
 		// but the only mechanism for handling lost devices seems to be that onSurfaceCreated is called again,
 		// which ends up calling displayInit.
 		INFO_LOG(Log::G3D, "NativeApp.displayInit(): Second time, joining the emuthread and starting it up again.");
+		// The EGL context that owned the frames still queued up is gone (GLSurfaceView already made
+		// a new one), so tell the backend to drop API calls while EmuThread_Join drains them.
+		// No-op on Vulkan; only the first-time branch above must stay untouched.
+		graphicsContext->NotifyContextLost();
 		EmuThread_Join(graphicsContext, g_emuThread);
 
 		graphicsContext->ShutdownSurface();

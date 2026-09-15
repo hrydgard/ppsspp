@@ -366,6 +366,7 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("UIScaleFactor", SETTING(g_Config, iUIScaleFactor), &DefaultUIScaleFactor, CfgFlag::DEFAULT),
 
 	ConfigSetting("VulkanDisableImplicitLayers", SETTING(g_Config, bVulkanDisableImplicitLayers), false, CfgFlag::DEFAULT),
+	ConfigSetting("VulkanSyncValidation", SETTING(g_Config, bVulkanSyncValidation), false, CfgFlag::DEFAULT),
 };
 
 static bool DefaultSasThread() {
@@ -678,6 +679,7 @@ static const ConfigSetting gestureControlSettings[] = {
 
 static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("iShowStatusFlags", SETTING(g_Config, iShowStatusFlags), 0, CfgFlag::PER_GAME),
+	ConfigSetting("LogGpuProfile", SETTING(g_Config, bLogGpuProfile), false, CfgFlag::DEFAULT),
 	ConfigSetting("GraphicsBackend", SETTING(g_Config, iGPUBackend), &DefaultGPUBackend, &GPUBackendTranslator::To, &GPUBackendTranslator::From, CfgFlag::DEFAULT | CfgFlag::REPORT),
 #if PPSSPP_PLATFORM(ANDROID) && PPSSPP_ARCH(ARM64)
 	ConfigSetting("CustomDriver", SETTING(g_Config, sCustomDriver), "", CfgFlag::DEFAULT),
@@ -707,7 +709,6 @@ static const ConfigSetting graphicsSettings[] = {
 	ConfigSetting("StereoRendering", SETTING(g_Config, bStereoRendering), false, CfgFlag::PER_GAME),
 	ConfigSetting("StereoToMonoShader", SETTING(g_Config, sStereoToMonoShader), "RedBlue", CfgFlag::PER_GAME),
 	ConfigSetting("SlangShaderPreset", SETTING(g_Config, sSlangShaderPreset), "", CfgFlag::PER_GAME),
-	ConfigSetting("SlangUseLibrashader", SETTING(g_Config, bSlangUseLibrashader), true, CfgFlag::DEFAULT),
 
 	ConfigSetting("SlangBuildbotUrl", SETTING(g_Config, sSlangBuildbotUrl),
 		"https://buildbot.libretro.com/assets/frontend/shaders_slang.zip", CfgFlag::DEFAULT),

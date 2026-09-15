@@ -1,8 +1,8 @@
 # Design: librashader-backed slang shader rendering for PPSSPP
 
-- **Status:** Draft for review
+- **Status:** Implemented — Phases 1–4 complete (Phase 4 branch feature/librashader-phase4-removal)
 - **Date:** 2026-09-14
-- **Branch:** `feature/librashader-integration` (based on `chore/merge-upstream-2026-09-14`)
+- **Branch:** `feature/librashader-phase4-removal` (based on `chore/merge-upstream-2026-09-14`)
 - **Author:** design doc (Claude-assisted)
 - **Supersedes (rendering core only):** `2026-07-13-slang-shader-support-design.md` §4–§5.
   The parser, preset library, importer, UI and config from that design stay.
@@ -23,8 +23,7 @@ step** in the render managers, surfaced through one new `thin3d` entry point, th
 caller's function on the render thread with the current command buffer and the source and
 destination images already in the layouts librashader requires.
 
-The in-tree chain is kept as a fallback during the transition and is removed in a later phase
-once librashader ships on every platform PPSSPP supports.
+The in-tree chain was removed in Phase 4.
 
 ## 2. Why
 
@@ -68,9 +67,8 @@ These were decided to keep the work moving. Each is cheap to reverse before Phas
 2. **Order of backends: desktop Vulkan → desktop OpenGL → Android Vulkan/GLES → D3D11.**
    Desktop Vulkan is where the in-tree chain is verified today, so it is the regression
    baseline. Android needs a Rust cross-build and is deferred to its own phase.
-3. **Keep the in-tree chain as a fallback until Phase 4.** Both implementations sit behind
-   one interface; a developer setting chooses between them for A/B comparison. Removal is an
-   explicit phase, not a side effect.
+3. **The in-tree chain stayed as a fallback through Phases 1–3** behind one interface with a
+   developer A/B setting; Phase 4 removed it (and the setting) once the averaged perf gate passed.
 4. **Chain creation happens on the render thread, deferred.** librashader's non-deferred
    create submits to the queue and waits idle, which would race the render thread's
    submissions. The deferred variant records LUT uploads into the command buffer we hand it.
@@ -82,8 +80,8 @@ These were decided to keep the work moving. Each is cheap to reverse before Phas
    optimization, not part of this design.
 6. **Building librashader is a developer/CI step, not part of the default CMake build.**
    A documented `cargo` command and a CMake option that copies a prebuilt library next to
-   the executable are sufficient for Phases 1–2. CI integration and Android packaging come
-   with Phase 3.
+   the executable are sufficient for Phases 1–2. Android packaging came with Phase 3; the CI step landed
+   (unverified) in Phase 4.
 
 ## 5. Current state (what is being replaced and what is kept)
 
@@ -95,13 +93,17 @@ enumeration only), `SlangPresetLibrary`, `SlangPackageImporter`, `SlangPaths`,
 `SlangShaderScreen`, config fields `sSlangShaderPreset`, `sSlangBuildbotUrl`,
 `mSlangParams`, and `FramebufferManagerCommon::UpdateSlangChain` scaffolding.
 
-**Replaced (rendering core):** `SlangFilterChain`, `SlangPassCompiler`. Their public
-contract is the interface in §6.4.
+**Replaced (rendering core), removed in Phase 4:** `SlangFilterChain`, `SlangPassCompiler`,
+`SlangReflection`, `SlangResolution.h`. Their public contract is the interface in §6.4, which
+`LibrashaderFilterChain` is now the only implementation of. (Parameter enumeration for the UI
+lives in `SlangpParser`/`Core/Slang/SlangPresetLibrary.cpp`, which are kept.)
 
-**Made redundant once the fallback is removed (Phase 4):** `MAX_TEXTURE_SLOTS` 3→12
-(`Common/GPU/thin3d.h`), `MAX_DESC_SET_BINDINGS` 6→14 (`VulkanRenderManager.h`), D3D11
-`MAX_BOUND_TEXTURES` 8→12, GL `sampler0..7` names, `FramebufferDesc::colorFormat` and the
-sRGB render-pass keying in `VulkanFramebuffer.*` / `VulkanQueueRunner.cpp`.
+**Removed in Phase 4** (reverted to upstream values, since only the in-tree chain needed them):
+`MAX_TEXTURE_SLOTS` 12→3 (`Common/GPU/thin3d.h`), `MAX_DESC_SET_BINDINGS` 14→5
+(`VulkanRenderManager.h`), D3D11 `MAX_BOUND_TEXTURES` 12→8, the GL `sampler3..7` uniform
+queries, `FramebufferDesc::colorFormat`, `RPKey::colorFormat`/`_padding` and the sRGB/float
+render-pass keying in `VulkanFramebuffer.*` / `VulkanRenderManager.cpp` / `VulkanQueueRunner.cpp`.
+`git diff upstream/master -- Common/GPU` is now pure additions (the native-callback plumbing).
 
 **Integration point (unchanged location):**
 `FramebufferManagerCommon::PrepareCopyDisplayToOutput`, which today calls
@@ -114,14 +116,14 @@ feeds the result to `presentation_->SourceFramebuffer(...)`.
 FramebufferManagerCommon (emu thread)
    │  ISlangFilterChain::Run(src fbo, native size, display rect, frameCount)
    ▼
-LibrashaderFilterChain (emu thread side)          SlangFilterChain (in-tree, fallback)
+LibrashaderFilterChain (emu thread side)
    │  ensures output Draw::Framebuffer
    │  draw->RunNativeCallback(src, dst, fn)
    ▼
 thin3d VKContext::RunNativeCallback
    │  renderManager_.RunNativeCallback(VKRFramebuffer *src, *dst, fn)
    ▼
-VulkanRenderManager: EndCurRenderStep(); push VKRStep{CALLBACK}
+VulkanRenderManager: EndCurRenderStep(); push VKRStep{NATIVE_CALLBACK}
    ▼  (render thread)
 VulkanQueueRunner::PerformCallback(step, cmd, curFrame)
    │  transition src → SHADER_READ_ONLY_OPTIMAL, dst → COLOR_ATTACHMENT_OPTIMAL, flush barriers
@@ -157,7 +159,7 @@ LibrashaderFilterChain render-thread side
 
 ### 6.2 Native callback step in the render managers
 
-**Vulkan.** New `VKRStepType::CALLBACK`. `VKRStep` gains:
+**Vulkan.** New `VKRStepType::NATIVE_CALLBACK` (named `CALLBACK` in Phases 1–3; renamed in Phase 4 because `<windows.h>` defines a `CALLBACK` macro and `LibrashaderLoader.h` pulls in `<d3d11.h>` on Windows). `VKRStep` gains:
 ```cpp
 struct {
     VKRFramebuffer *src;   // color read by the callback (may be null)
@@ -179,27 +181,27 @@ NativeCallbackFn fn, const char *tag)`:
   documents that it leaves the output in that layout and emits no final barrier. `src`
   stays in `SHADER_READ_ONLY_OPTIMAL`, which the tracker already records.
 - The step optimizer passes (`ApplyMGSHack`, `ApplySonicHack`, render-pass merging,
-  `RENDER_SKIP` conversion) must treat CALLBACK like COPY: an opaque barrier that reads
+  `RENDER_SKIP` conversion) must treat NATIVE_CALLBACK like COPY: an opaque barrier that reads
   `src` and writes `dst`. The `switch` statements in `RunSteps`, `LogSteps`, and the
-  step-type dumps gain a CALLBACK case; `default: UNREACHABLE()` must never be hit.
+  step-type dumps gain a NATIVE_CALLBACK case; `default: UNREACHABLE()` must never be hit.
 
 **OpenGL (Phase 2 — implemented and verified on macOS, 2026-09-14).** Mirror:
-`GLRStepType::CALLBACK`, `GLRStep::callback{src, dst, fn}`, `GLQueueRunner::PerformCallback` runs
+`GLRStepType::NATIVE_CALLBACK`, `GLRStep::callback{src, dst, fn}`, `GLQueueRunner::PerformCallback` runs
 `fn` with `src->color_texture.texture` and `dst->color_texture.texture`, then calls
 `RestoreBaselineStateAfterCallback()` because librashader changes GL state freely. The step is
 gated on `OpenGLContext::SupportsNativeCallback()` (desktop GL 3.3+ / GLES 3.0+); GLES 2 never
 selects librashader. Unlike Vulkan there is no readiness gate: the GL adapter creates the chain and
-renders in the same callback, and frees it through a second CALLBACK step (the creating context must
+renders in the same callback, and frees it through a second NATIVE_CALLBACK step (the creating context must
 be current for `libra_gl_filter_chain_free`).
 
-That second CALLBACK step only helps while the render thread still drains work. At `DeviceLost` /
-shutdown it does not: `GLRenderManager::ThreadEnd` deletes queued CALLBACK functions without running
+That second NATIVE_CALLBACK step only helps while the render thread still drains work. At `DeviceLost` /
+shutdown it does not: `GLRenderManager::ThreadEnd` deletes queued NATIVE_CALLBACK functions without running
 them, so `QueueFree` takes a `deviceLost` flag and, when it is set, drops the state with one warning
 instead of enqueuing a free that would never run. The GL objects die with the context and
 librashader's Rust-side allocation is knowingly leaked (see §8). `libra_gl_filter_chain_free` has
 therefore never been exercised on device; only the drop path has.
 
-Under VR multi-pass (`keepSteps`) the same CALLBACK step is replayed once per pass with the same
+Under VR multi-pass (`keepSteps`) the same NATIVE_CALLBACK step is replayed once per pass with the same
 `frame_count`, so a preset's history/feedback ring advances twice per frame. Acceptable for now; to
 revisit if Quest ever comes into scope.
 
@@ -224,14 +226,46 @@ Verified on device: with a chain active, PPSSPP's FPS counter, debug-statistics 
 debugger (menu bar, windows, framebuffer preview texture) all render correctly over the filtered
 image, and the present blit is intact — no additional state needed restoring.
 
+**Direct3D 11 (Phase 4 — implemented and verified on Windows, 2026-09-15).** No render manager and no
+step type: D3D11 is immediate mode, so `D3D11DrawContext::RunNativeCallback` (`Common/GPU/D3D11/thin3d_d3d11.cpp`)
+just calls `fn` synchronously on the calling thread with `cmdBuffer = context_.Get()` (the immediate
+context), `srcView` = the source framebuffer's `colorSRView`, `dstView` = the destination's
+`colorRTView`, and `srcFormat`/`dstFormat` = the real `DXGI_FORMAT`. Because there is no queue there is
+also no readiness gate and no deferred free — the D3D11 adapter creates the chain, renders and frees on
+this same thread (see §8).
+
+What has to be unbound and restored is the state the immediate context is already carrying:
+
+- before the call: `PSSetShaderResources(0, MAX_BOUND_TEXTURES, nullptr…)` (the source is normally
+  still bound as an SRV, and D3D11 refuses to bind a resource as both SRV and RTV) and
+  `OMSetRenderTargets(0, nullptr, nullptr)` (the destination is normally the current RTV)
+- after: `OMSetRenderTargets(1, curRenderTargetView_, curDepthStencilView_)` when a render target was
+  cached, the SRV and sampler slots cleared again, `Invalidate(InvalidationFlags::CACHED_RENDER_STATE)`
+  — which resets exactly the fields `ApplyCurrentState()` compares (`curPipeline_`, `curBlend_`,
+  `curDepthStencil_`, `curRaster_`, `curInputLayout_`, `curVS_`, `curPS_`, `curTopology_`) — plus
+  `blendFactorDirty_`/`stencilDirty_`/`dirtyIndexBuffer_`, and the `InvalidationCallbackFlags::RENDER_PASS_STATE` callback
+  so `DrawEngineD3D11` re-sends viewport/scissor and texture state. Viewport and scissor need no
+  explicit re-issue because thin3d caches no last-set values for them.
+
+Verified on device (Windows 11, RTX 4090): `stock.slangp` and `lcd-psp-matrix.slangp` render through
+librashader on D3D11, and PPSSPP's own menu bar and FPS/speed overlay draw correctly over the filtered
+image afterwards. One behavioural difference from GL/Vulkan is unavoidable at this API level:
+`libra_d3d11_filter_chain_frame` takes a bare `ID3D11ShaderResourceView` with no size struct (unlike
+`libra_image_gl_t`/`libra_image_vk_t`), so librashader derives `SourceSize`/`OriginalSize` from the
+view's resource. The adapter therefore returns `true` from `RequiresNativeSizedInput()` and the core
+feeds it a native-sized copy whenever the preset depends on the source size, which restores identical
+behaviour across backends — see §6.5 and §12.
+
 ### 6.3 thin3d surface — `Common/GPU/thin3d.h`
 
 ```cpp
 struct NativeCallbackInfo {
     // Vulkan: VkCommandBuffer, VkImage, VkFormat as integers (no Vulkan header in thin3d.h)
     uint64_t cmdBuffer = 0;
-    uint64_t srcImage = 0;  uint32_t srcFormat = 0;
+    uint64_t srcImage = 0;  uint32_t srcFormat = 0;  // Vulkan: VkImage; formats are backend-native (VkFormat / GL internal format / DXGI_FORMAT)
     uint64_t dstImage = 0;  uint32_t dstFormat = 0;
+    uint64_t srcView = 0;   // D3D11: ID3D11ShaderResourceView*
+    uint64_t dstView = 0;   // D3D11: ID3D11RenderTargetView*
     // OpenGL: texture names
     uint32_t srcTexture = 0, dstTexture = 0;
     int srcWidth = 0, srcHeight = 0, dstWidth = 0, dstHeight = 0;
@@ -241,7 +275,7 @@ using NativeCallbackFn = std::function<void(const NativeCallbackInfo &)>;
 
 // Runs fn on the backend's render thread, outside any render pass, with src readable as a
 // shader-sampled color image and dst writable as a color attachment. Returns false if the
-// backend does not support native callbacks (D3D9, or GL/D3D11 before their phases).
+// backend does not support native callbacks (D3D9, retired backends).
 virtual bool RunNativeCallback(Framebuffer *src, Framebuffer *dst, NativeCallbackFn fn, const char *tag) { return false; }
 ```
 Only `VKContext` overrides it in Phase 1. `GetNativeObject` additionally exposes
@@ -251,7 +285,6 @@ graphics queue are reachable through the existing `NativeObject::CONTEXT` (`Vulk
 
 ### 6.4 Filter-chain interface — `GPU/Common/Slang/ISlangFilterChain.h`
 
-Extracted verbatim from today's `SlangFilterChain` public surface:
 ```cpp
 class ISlangFilterChain {
 public:
@@ -263,12 +296,12 @@ public:
     virtual void SetParamOverrides(const std::map<std::string, float> &overrides) = 0;
     virtual void DeviceLost() = 0;
     virtual void DeviceRestore(Draw::DrawContext *draw) = 0;
-    virtual const char *BackendName() const = 0;  // "in-tree" | "librashader"
+    virtual SlangChainBackend Backend() const = 0;
 };
 ```
-`SlangFilterChain` implements it with no behavior change. A factory
-`CreateSlangFilterChain(Draw::DrawContext *, SlangChainBackend preference)` picks the
-implementation (§6.6).
+The free function `SlangChainBackendName(SlangChainBackend)` returns "librashader" | "none".
+A factory `CreateSlangFilterChain(Draw::DrawContext *, SlangChainBackend)` returns the
+single implementation or nullptr (§6.6).
 
 ### 6.5 `LibrashaderFilterChain` — `GPU/Common/Slang/LibrashaderFilterChain.{h,cpp}`
 
@@ -305,17 +338,40 @@ State split by thread:
   against the image - but it *also* uses them as the copy extent when it snapshots the input
   into its `OriginalHistoryN` ring, so a preset that samples history would see only a
   native-sized corner of the upscaled frame.
-- **History detection (added after Phase 1 on-device verification).** `Load()` therefore
-  re-parses the preset with PPSSPP's in-tree `ParseSlangPreset` and scans each pass's
-  `#include`-resolved source for `OriginalHistory[1-9]` / `OriginalHistorySize[1-9]`, storing
-  the answer in `needsNativeInput_`. When it is true, `Run()` keeps a second, native-sized
-  framebuffer, blits the source into it (`FB_BLIT_LINEAR`) and hands *that* to the callback,
-  so the declared size equals the real extents and history covers the whole picture (at
-  native resolution). When it is false nothing changes: the upscaled fbo is passed with the
-  declared native size, which is what keeps non-history presets bit-identical to the in-tree
-  chain. The selected mode is logged once at INFO per preset load. If the re-parse or a
-  shader read fails the answer is "no history", i.e. the pre-existing behaviour; librashader's
-  own parser remains the one that decides whether the preset loads at all.
+- **Input-mode detection (history added after Phase 1 on-device verification; size dependence
+  added 2026-09-15).** `Load()` therefore re-parses the preset with PPSSPP's in-tree
+  `ParseSlangPreset` and derives three facts: `usesHistory` — a pass's `#include`-resolved source
+  references `OriginalHistory[1-9]` / `OriginalHistorySize[1-9]`; `readsSourceSize` — a source
+  references `SourceSize` or `OriginalSize` as a whole identifier (so `OriginalHistorySizeN` and
+  `FinalViewportSize` do not count) *outside the uniform-block declaration* — `vec4 SourceSize;`
+  alone is not a read, since virtually every RetroArch shader declares both sizes whether it uses
+  them or not, and counting it would put `stock.slangp` on the downscaled input; `sourceRelativePasses` — a multi-pass preset has a
+  non-final pass with `scale_type{,_x,_y} = source`, whose resolution therefore follows the input
+  size. Then
+  `needsNativeInput_ = usesHistory || (runtime_->RequiresNativeSizedInput() && (readsSourceSize || sourceRelativePasses))`.
+  `RequiresNativeSizedInput()` is `false` for the Vulkan and GL adapters — their frame API declares
+  the input size — and `true` for D3D11, whose frame API takes a bare
+  `ID3D11ShaderResourceView` (§12). When `needsNativeInput_` is true, `Run()` keeps a second,
+  native-sized framebuffer, downscales the source into it and hands *that* to the
+  callback, so the declared size equals the real extents: history covers the whole picture, and on
+  D3D11 `SourceSize`/`OriginalSize` and the source-relative pass sizes come out the same as on the
+  other backends. When it is false nothing changes: the upscaled fbo is passed with the declared
+  native size, which is what keeps non-history presets bit-identical to the in-tree chain, and what
+  a single viewport-scaled pass (e.g. `stock.slangp`) still gets on D3D11. The selected mode is
+  logged once at INFO per preset load (`native-sized copy (history)`,
+  `native-sized copy (D3D11: preset depends on SourceSize)`,
+  `upscaled framebuffer with declared native size`). If the re-parse or a shader read fails every
+  answer is "no", i.e. the pre-existing behaviour; librashader's own parser remains the one that
+  decides whether the preset loads at all. The two token scans are free functions
+  (`ReferencesOriginalHistory`, `ReferencesSourceSize`) so the unit tests cover them without a
+  device.
+- **How the native-sized copy is produced.** `thin3d`'s `BlitFramebuffer` only exists where
+  `DeviceCaps::framebufferBlitSupported` is set; on D3D11 there is no equivalent at all and calling it
+  is fatal. So the chain uses `draw_->BlitFramebuffer(..., FB_BLIT_LINEAR, ...)` on Vulkan/GL and
+  otherwise a `SlangRasterBlitFn` that `FramebufferManagerCommon` installs right after creating the
+  chain - a linear-filtered `BlitUsingRaster` + `Get2DPipeline(DRAW2D_COPY_COLOR)` quad draw, the same
+  fallback `BlitFramebufferChannel` uses for blit-less backends. Without a blitter (no backend today)
+  the chain warns once and passes the upscaled framebuffer instead of crashing.
 - `DeviceLost()` (emu thread; the render thread is already stopped and the device idle by
   the time `FramebufferManagerCommon::DeviceLost` runs, see `VKContext::DeviceLost`): free
   `chain_`, `preset_`, `output_`; keep `presetPath_` for `DeviceRestore`.
@@ -325,17 +381,22 @@ State split by thread:
 
 ### 6.6 Selection and fallback — `FramebufferManagerCommon::UpdateSlangChain`
 
-New config: `bool bSlangUseLibrashader` (default `true`, `CfgFlag::DEFAULT`, Developer
-Tools checkbox "Use librashader for slang shaders"). Pure decision function, unit-tested:
+There is no user-facing toggle (Phases 1–3 had `bSlangUseLibrashader`; Phase 4 removed it
+along with the in-tree chain, and an existing `SlangUseLibrashader` ini key is ignored).
+librashader is the only rendering core, so the decision is purely a capability check. Pure
+decision function, unit-tested:
 ```cpp
-enum class SlangChainBackend { InTree, Librashader };
-SlangChainBackend ChooseSlangChainBackend(bool userPrefersLibrashader, bool librashaderLoaded,
-                                          GPUBackend gpuBackend, bool drawSupportsNativeCallback);
-// Librashader iff all of: user prefers it, library loaded, backend ∈ {VULKAN} (Phase 1),
-// draw supports native callbacks. Otherwise InTree.
+enum class SlangChainBackend { None, Librashader };
+SlangChainBackend ChooseSlangChainBackend(bool librashaderLoaded, GPUBackend gpuBackend,
+                                          bool drawSupportsNativeCallback);
+// Librashader iff all of: library loaded, backend ∈ {VULKAN, OPENGL, DIRECT3D11},
+// draw supports native callbacks (CreateLibrashaderRuntime maps DIRECT3D11 only on Windows).
+// Otherwise None.
 ```
-The chosen backend name is logged at INFO on every preset (re)load and shown in the
-Developer Tools system-info line so on-device screenshots are attributable.
+`CreateSlangFilterChain` returns `nullptr` for `None`; `UpdateSlangChain` then clears
+`slangChainPresetPath_`, logs `Slang chain backend: none (librashader not loaded or backend
+unsupported)` once per reload and skips `Load`, and the unfiltered image is presented.
+The chosen backend name is logged at INFO on every preset (re)load.
 
 ### 6.7 Build and distribution
 
@@ -358,11 +419,11 @@ Developer Tools system-info line so on-device screenshots are attributable.
 1. Emu thread, `PrepareCopyDisplayToOutput`: compute display rect; collect param overrides
    for the current preset; `out = chain->Run(vfb->fbo, bufferW, bufferH, rectW, rectH, flips)`.
 2. `LibrashaderFilterChain::Run` ensures `output_` is `rectW×rectH` RGBA8 and enqueues the
-   CALLBACK step through thin3d. Returns `output_`.
+   NATIVE_CALLBACK step through thin3d. Returns `output_`.
 3. Emu thread continues: `presentation_->SourceFramebuffer(output_, rectW, rectH)`, then the
    normal present blit records a RENDER step that samples `output_`. The render manager
-   sees a dependency on `output_`, which the CALLBACK step wrote, so ordering is preserved.
-4. Render thread, `RunSteps`: ... RENDER(game) → CALLBACK(librashader) → RENDER(backbuffer).
+   sees a dependency on `output_`, which the NATIVE_CALLBACK step wrote, so ordering is preserved.
+4. Render thread, `RunSteps`: ... RENDER(game) → NATIVE_CALLBACK(librashader) → RENDER(backbuffer).
    `PerformCallback` transitions, calls into librashader, records the final layout.
 5. The present RENDER step's `BindFramebufferAsTexture(output_)` finds `output_` in
    `COLOR_ATTACHMENT_OPTIMAL` and inserts the usual transition to shader-read.
@@ -375,6 +436,9 @@ Developer Tools system-info line so on-device screenshots are attributable.
   deletion-queue callback that disposes a preset which was parsed but whose chain was never
   created. librashader's header imposes no thread affinity on it, and the deletion-queue
   callback is the only other place that can own the handle.
+- **D3D11 threading:** D3D11 is immediate-mode — `libra_d3d11_filter_chain_frame` and `_free`
+  run synchronously on the emu thread inside/after `RunNativeCallback`; no render thread;
+  `QueueFree` frees directly.
 - The `std::function` in a step owns copies of everything it needs; it never dereferences
   emu-thread state other than `this`, whose lifetime is guaranteed because destruction
   happens only after the render thread is stopped or idle (`DeviceLost` / destructor).
@@ -382,7 +446,7 @@ Developer Tools system-info line so on-device screenshots are attributable.
   `draw_->FlushAndWait()`-equivalent ordering, which today's code already has because
   `DeviceLost`/`UpdateSlangChain` run between frames on the emu thread with the render
   thread drained by `VulkanRenderManager::Finish`. Phase 1 adds a debug assertion that no
-  CALLBACK step referencing the chain is pending when it is deleted.
+  NATIVE_CALLBACK step referencing the chain is pending when it is deleted.
 
 ## 9. Error handling
 
@@ -398,10 +462,23 @@ Developer Tools system-info line so on-device screenshots are attributable.
 
 | Phase | Scope | Exit criterion |
 |---|---|---|
-| **1** | Loader, Vulkan CALLBACK step, thin3d API, `ISlangFilterChain`, `LibrashaderFilterChain`, selection, dev toggle, prebuilt-copy CMake option | macOS (MoltenVK) and one Windows/Linux Vulkan machine render `stock.slangp`, `lcd-psp-matrix.slangp`, `crt-royale.slangp` identically to the in-tree chain; unit tests green; in-tree path unchanged when toggled |
-| **2** | GL CALLBACK step + `LibrashaderFilterChain` GL runtime, state restore | Desktop GL renders the same three presets |
+| **1** | Loader, Vulkan NATIVE_CALLBACK step, thin3d API, `ISlangFilterChain`, `LibrashaderFilterChain`, selection, dev toggle, prebuilt-copy CMake option | macOS (MoltenVK) and one Windows/Linux Vulkan machine render `stock.slangp`, `lcd-psp-matrix.slangp`, `crt-royale.slangp` identically to the in-tree chain; unit tests green; in-tree path unchanged when toggled |
+| **2** | GL NATIVE_CALLBACK step + `LibrashaderFilterChain` GL runtime, state restore | Desktop GL renders the same three presets |
 | **3** | Android: cargo-ndk build, jniLibs packaging; GLES 3 verification (CI deferred to Phase 4: the Android CI jobs use `android/ab.sh`/ndk-build, whose `Android.mk` lists no `GPU/Common/Slang` sources) | APK renders the three presets on Vulkan and GLES 3 on the Adreno test device |
-| **4** | Remove in-tree chain, revert thin3d slot/descriptor bumps and sRGB render-pass keying, delete `bSlangUseLibrashader`; D3D11 runtime | Diff vs upstream shrinks to librashader glue + kept subsystems; Windows D3D11 renders the three presets |
+| **4** | Remove in-tree chain, revert thin3d slot/descriptor bumps and sRGB render-pass keying, delete `bSlangUseLibrashader`; D3D11 runtime | **Met (2026-09-15)**: removal done, Windows VK/GL/D3D11 verified (`stock`/`lcd-psp-matrix` on all three backends), GLES 3 fixes landed, perf gate passed (librashader/in-tree GPU time ratio 1.22 ≤ 1.5 on Adreno 740), Vulkan sync validation clean on Android. `git diff upstream/master -- Common/GPU` is additions only (18 files, 654 insertions). Packaging, jniLibs ABI handling complete; CI step added to manual_generate_apk.yml, unverified. |
+
+**Phase 4 progress (2026-09-14):** the removal half is done. The perf gate passed (librashader ÷ in-tree GPU time 1.220 ≤ 1.5 on the Adreno device), the in-tree chain and the `SlangUseLibrashader` toggle are deleted, and every thin3d/Vulkan/GL hunk that existed only for it is back to upstream — `git diff upstream/master --stat -- Common/GPU` is additions only. `stock.slangp` and `lcd-psp-matrix.slangp` on macOS Vulkan and GL are pixel-identical to the Phase 2 captures; with the library renamed away, `Slang chain backend: none` is logged once and the raw image is presented. Android Vulkan (`lcd-grid-v2-psp-color`, APK `librashader-p4e`) is byte-identical to the Phase 3 reference capture. 68 unit tests pass.
+
+**Phase 4 Windows (2026-09-15):** Task 5 verified Vulkan and OpenGL on Windows; Task 6 added the D3D11
+adapter (`GPU/Common/Slang/LibrashaderRuntimeD3D11.cpp`, `D3D11DrawContext::RunNativeCallback`) and
+verified `stock.slangp` and `lcd-psp-matrix.slangp` on the D3D11 backend, with the UI/OSD intact after
+the callback and a clean `Slang chain backend: none` fallback when `librashader.dll` is renamed away.
+Two findings recorded rather than fixed: the lighter Windows present path is common to D3D11 and Vulkan
+and absent on GL (a pre-existing, unexplained host/present difference shared by D3D11 and Vulkan, absent
+on GL, and not librashader — nochain controls identical; image-mean difference 0.4/255, mean absolute
+per-pixel difference 1.58/255; candidates: Windows Auto HDR / capture tone-mapping of DXGI flip-model
+swapchains versus PPSSPP's present path; to be split with an in-app screenshot on D3D11 vs GL), and the
+D3D11 `SourceSize` caveat above. Packaging (Task 7) complete; CI unverified.
 
 **Phase 2 exit criterion: met (2026-09-14, macOS 15 / Apple M2 Pro, SDL GL 4.1 core over Metal).**
 Desktop GL renders `stock`, `lut`, `feedback`, `lcd-psp-matrix` and `twopass` through librashader
@@ -417,7 +494,7 @@ GLES 3 verification stays in Phase 3. Details: `.superpowers/sdd/2026-09-14-libr
 code change on either. Vulkan (device API 1.3.128): `lcd-grid-v2-psp-color` (substituted for the
 spec's `stock` preset, which is not present in `assets/shaders/slang_test` on the device while the
 full libretro pack is), `presets/crt-royale-downsample` and the heavy `crt/crt-maximus-royale-fast-mode`
-(substituted for `crt-royale`) all render; a Khronos-validation run over the CALLBACK step produced
+(substituted for `crt-royale`) all render; a Khronos-validation run over the NATIVE_CALLBACK step produced
 **zero** librashader-attributable messages (core validation only: `VK_LAYER_KHRONOS_validation` default
 features; synchronization validation is not enabled by PPSSPP — `Common/GPU/Vulkan/VulkanContext.cpp`
 never sets `VK_VALIDATION_FEATURE_ENABLE_SYNCHRONIZATION_VALIDATION_EXT` — and is a Phase 4 item);
@@ -444,30 +521,40 @@ Each phase gets its own implementation plan. This spec covers all four; the Phas
 
 - **Device-free unit tests** (PPSSPP `unittest` harness): loader reports "not loaded"
   cleanly when the library is absent and when `LIBRASHADER_PATH` points at a file that exists
-  but is not a loadable library; `ChooseSlangChainBackend` truth table; the in-tree chain
-  still passes its 19 tests unchanged. The originally planned `NativeCallbackInfo` marshaling
-  test was dropped: marshaling reads a live `VKRFramebuffer` pair (real `VkImage` handles and
-  formats owned by a created device), so it cannot be exercised device-free. The loader tests
-  and the backend-selection truth table are the device-free suite; marshaling is covered by
-  the on-device checks instead.
+  but is not a loadable library; `ChooseSlangChainBackend` truth table. The originally planned
+  `NativeCallbackInfo` marshaling test was dropped: marshaling reads a live `VKRFramebuffer` pair
+  (real `VkImage` handles and formats owned by a created device), so it cannot be exercised
+  device-free. The loader tests and the backend-selection truth table are the device-free suite;
+  marshaling is covered by the on-device checks instead.
 - **Compile-time**: CMake configure + build with `USE_LIBRASHADER=ON` and `OFF`.
 - **Vulkan validation**: run once per phase with `VK_LAYER_KHRONOS_validation` enabled and
-  the three presets; zero new validation errors is the bar (the CALLBACK step's layout
+  the three presets; zero new validation errors is the bar (the NATIVE_CALLBACK step's layout
   bookkeeping is the risk).
 - **Visual**: screenshot the same frame (PPSSPP's screenshot function) with in-tree and
   librashader for the three presets; compare with a pixel-diff tool; differences must be
   explainable (librashader applies rotation only on the final pass; sRGB conversions).
-- **Regression**: with the toggle off or the library absent, output must be byte-identical
+- **Regression**: with the library absent, output must be byte-identical
   to the pre-change build.
 
 ## 12. Risks
 
 - **Step optimizer interactions.** The Vulkan queue runner rewrites steps (merging, MGS and
-  Sonic hacks). A CALLBACK step that is silently converted or reordered would corrupt
+  Sonic hacks). A NATIVE_CALLBACK step that is silently converted or reordered would corrupt
   frames. Mitigation: treat it exactly like COPY in every pass; debug-build sanity check.
 - **Native size vs image size.** librashader may take `SourceSize` from the image extents
   rather than the `width/height` fields. Mitigation noted in §6.5 (one blit to a
   native-sized intermediate). This is the first thing Phase 1 verifies on device.
+  **Confirmed on D3D11 (2026-09-15):** the D3D11 frame entry point takes only an
+  `ID3D11ShaderResourceView` — there are no `width`/`height` fields to declare — so
+  `SourceSize`/`OriginalSize` are always the view resource's size. Measured before the fix: the GL
+  `lcd-psp-matrix` capture was unchanged from `InternalResolution` 1 to 3 while the D3D11 one changed
+  materially. **Fixed (2026-09-15):** `LibrashaderRuntime::RequiresNativeSizedInput()` is `true` on
+  D3D11, so `Load()` routes the input through the native-sized copy
+  `LibrashaderFilterChain::EnsureNativeInput` already produced for `OriginalHistoryN` presets whenever
+  the preset depends on the source size (§6.5). All backends now behave the same; what remains on
+  D3D11 is input texel detail (a downscaled 480×272 copy instead of the upscaled framebuffer read
+  with native-sized semantics) plus one downscale per frame (a raster quad blit on D3D11, see §6.5). A size-declaring D3D11 entry point upstream
+  would remove even that.
 - **Frames in flight.** Verified during the final Phase 1 review: librashader's Vulkan
   runtime does *not* index its per-frame resources by the `frame_count` we pass. It keeps its
   own internal counter, advanced once per `libra_vk_filter_chain_frame` call, and cycles it
@@ -476,20 +563,29 @@ Each phase gets its own implementation plan. This spec covers all four; the Phas
   uniform that shaders read, so passing PPSSPP's monotonically increasing flip count is
   correct even when frames are skipped, and a skipped or repeated flip count cannot alias
   librashader's resource recycling. What we do owe librashader is one call per submitted
-  frame, which the CALLBACK step gives us by construction.
+  frame, which the NATIVE_CALLBACK step gives us by construction.
 - **MoltenVK.** Dynamic rendering is off by default in our options; the render-pass
   fallback path is the one librashader's 86Box integration uses on macOS.
 - **Rust toolchain in CI (Phase 3).** Adds minutes to Android/desktop builds; pinning the
   tag and caching the cargo target directory keeps this bounded.
-- **Library not shipped.** If distribution is a problem for some store build (iOS), the
-  fallback keeps shaders working there until Phase 4 decides whether to keep the in-tree
-  chain for that platform only.
+- **Library not shipped.** If distribution is a problem for some store build (iOS/UWP), slang
+  is off on those platforms (no in-tree chain anywhere).
 
 ## 13. Open questions for the reviewer
 
 1. Is the Android GLES backend a must-have for shaders? If not, Phase 2 could be skipped
    entirely and GL stays "in-tree or off".
-2. Should Phase 4 keep the in-tree chain for iOS/UWP/libretro where shipping an MPL
-   library may be awkward, or drop slang support on those platforms?
+2. ~~Should Phase 4 keep the in-tree chain for iOS/UWP/libretro where shipping an MPL
+   library may be awkward, or drop slang support on those platforms?~~ **Answered:** remove now,
+   gated on perf — done in Phase 4.
 3. Is a 1–2 frame unfiltered flash on preset switch acceptable (current design), or should
    `Run` keep presenting the previous chain's last output until the new chain is ready?
+4. **D3D11 `SourceSize` semantics:** librashader's D3D11 frame API takes only an
+   `ID3D11ShaderResourceView` (no size struct), so `SourceSize` equals the render resolution
+   on D3D11 when `InternalResolution > 1` (Vulkan/GL declare the PSP's native 480×272 size
+   over the upscaled image). **Answered (2026-09-15):** all backends must behave identically;
+   D3D11 uses a native-sized input whenever the preset depends on the source size
+   (`SourceSize`/`OriginalSize` reads or source-relative intermediate passes), via
+   `LibrashaderRuntime::RequiresNativeSizedInput()`; residual difference is input texel detail
+   (downsampled vs upscaled), not geometry. Upstream request for a size-declaring D3D11 entry
+   point still worthwhile.

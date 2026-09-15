@@ -10,6 +10,9 @@
     <Filter Include="Common">
       <UniqueIdentifier>{21783292-4dd7-447b-af93-356cd2eaa4d6}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Common\Slang">
+      <UniqueIdentifier>{2a5c8c31-0a1b-4f4d-9c2e-7b9f6f0d8e11}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Debugger">
       <UniqueIdentifier>{0cbddc00-4aa3-41d0-bed2-a454d37f838e}</UniqueIdentifier>
     </Filter>
@@ -209,6 +212,21 @@
     </ClInclude>
     <ClInclude Include="Common\FramebufferManagerCommon.h">
       <Filter>Common</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\Slang\ISlangFilterChain.h">
+      <Filter>Common\Slang</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\Slang\LibrashaderFilterChain.h">
+      <Filter>Common\Slang</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\Slang\LibrashaderRuntime.h">
+      <Filter>Common\Slang</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\Slang\SlangPreset.h">
+      <Filter>Common\Slang</Filter>
+    </ClInclude>
+    <ClInclude Include="Common\Slang\SlangpParser.h">
+      <Filter>Common\Slang</Filter>
     </ClInclude>
     <ClInclude Include="ge_constants.h">
       <Filter>Common</Filter>
@@ -463,6 +481,27 @@
     </ClCompile>
     <ClCompile Include="Common\FramebufferManagerCommon.cpp">
       <Filter>Common</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\Slang\LibrashaderFilterChain.cpp">
+      <Filter>Common\Slang</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\Slang\LibrashaderRuntime.cpp">
+      <Filter>Common\Slang</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\Slang\LibrashaderRuntimeD3D11.cpp">
+      <Filter>Common\Slang</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\Slang\LibrashaderRuntimeOpenGL.cpp">
+      <Filter>Common\Slang</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\Slang\LibrashaderRuntimeVulkan.cpp">
+      <Filter>Common\Slang</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\Slang\SlangChainFactory.cpp">
+      <Filter>Common\Slang</Filter>
+    </ClCompile>
+    <ClCompile Include="Common\Slang\SlangpParser.cpp">
+      <Filter>Common\Slang</Filter>
     </ClCompile>
     <ClCompile Include="GeConstants.cpp">
       <Filter>Common</Filter>

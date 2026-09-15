@@ -124,7 +124,7 @@ enum class VKRStepType : uint8_t {
 	BLIT,
 	READBACK,
 	READBACK_IMAGE,
-	CALLBACK,   // Runs native code on the render thread with src readable / dst writable.
+	NATIVE_CALLBACK,   // Runs native code on the render thread with src readable / dst writable.
 };
 
 struct TransitionRequest {

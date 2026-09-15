@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #pragma once
+#include <functional>
 #include <map>
 #include <string>
 #include "Common/File/Path.h"
@@ -23,12 +24,18 @@
 namespace Draw { class DrawContext; class Framebuffer; }
 enum class GPUBackend;
 
+// Draws src into dst as a filtered quad; sizes are in pixels, both rects are the whole framebuffer.
+// The framebuffer manager supplies one because thin3d's BlitFramebuffer does not exist on every
+// backend (D3D11 has no equivalent), and the chain needs a scaling copy for its native-sized input.
+using SlangRasterBlitFn = std::function<void(Draw::Framebuffer *src, int srcW, int srcH,
+                                             Draw::Framebuffer *dst, int dstW, int dstH)>;
+
 enum class SlangChainBackend {
-	InTree,       // GPU/Common/Slang/SlangFilterChain (thin3d-based)
+	None,         // No slang chain: present the unfiltered image.
 	Librashader,  // GPU/Common/Slang/LibrashaderFilterChain (librashader shared library)
 };
 
-// Contract shared by both slang filter-chain implementations. All methods are emu-thread.
+// Contract implemented by the slang filter chain. All methods are emu-thread.
 class ISlangFilterChain {
 public:
 	virtual ~ISlangFilterChain() = default;
@@ -39,6 +46,9 @@ public:
 	virtual Draw::Framebuffer *Run(Draw::Framebuffer *source, int sourceW, int sourceH,
 	                               int viewportW, int viewportH, int frameCount) = 0;
 	virtual void SetParamOverrides(const std::map<std::string, float> &overrides) = 0;
+	// Used instead of Draw::DrawContext::BlitFramebuffer when the backend lacks
+	// DeviceCaps::framebufferBlitSupported. Survives DeviceLost/DeviceRestore (no device handles).
+	virtual void SetRasterBlitter(SlangRasterBlitFn fn) = 0;
 	virtual void DeviceLost() = 0;
 	virtual void DeviceRestore(Draw::DrawContext *draw) = 0;
 	virtual SlangChainBackend Backend() const = 0;
@@ -46,10 +56,11 @@ public:
 
 const char *SlangChainBackendName(SlangChainBackend backend);
 
-// Pure decision: librashader iff the user prefers it, the library is loaded, the GPU backend
-// is one librashader supports in this phase (Vulkan), and the draw context can run native callbacks.
-SlangChainBackend ChooseSlangChainBackend(bool userPrefersLibrashader, bool librashaderLoaded,
-                                          GPUBackend gpuBackend, bool drawSupportsNativeCallback);
+// Pure decision: librashader iff the library is loaded, the GPU backend is one librashader
+// supports (VULKAN, OPENGL, DIRECT3D11), and the draw context can run native callbacks.
+// CreateLibrashaderRuntime maps DIRECT3D11 only on Windows. Otherwise no chain.
+SlangChainBackend ChooseSlangChainBackend(bool librashaderLoaded, GPUBackend gpuBackend,
+                                          bool drawSupportsNativeCallback);
 
-// Never returns null. Falls back to the in-tree chain if the librashader chain cannot be constructed.
+// Returns nullptr for SlangChainBackend::None (and if the librashader chain cannot be constructed).
 ISlangFilterChain *CreateSlangFilterChain(Draw::DrawContext *draw, SlangChainBackend backend);

@@ -60,7 +60,7 @@ struct VKRImage {
 
 class VKRFramebuffer {
 public:
-	VKRFramebuffer(VulkanContext *vk, VulkanBarrierBatch *barriers, int _width, int _height, int _numLayers, int _multiSampleLevel, bool createDepthStencilBuffer, const char *tag, VkFormat colorFormat = VK_FORMAT_R8G8B8A8_UNORM);
+	VKRFramebuffer(VulkanContext *vk, VulkanBarrierBatch *barriers, int _width, int _height, int _numLayers, int _multiSampleLevel, bool createDepthStencilBuffer, const char *tag);
 	~VKRFramebuffer();
 
 	VkFramebuffer Get(VKRRenderPass *compatibleRenderPass, RenderPassType rpType);
@@ -139,15 +139,6 @@ struct RPKey {
 	VKRRenderPassStoreAction colorStoreAction;
 	VKRRenderPassStoreAction depthStoreAction;
 	VKRRenderPassStoreAction stencilStoreAction;
-	// The color attachment format is part of render-pass compatibility (sRGB/float framebuffers for
-	// slang shaders need a matching render pass), so it must be part of the key.
-	// IMPORTANT: RPKey is hashed and compared byte-wise (see Hashmaps.h - XXH over sizeof + memcmp),
-	// so there must be no uninitialized padding. The explicit _padding member fills the gap to the
-	// 4-byte alignment of VkFormat, and both trailing members have default initializers so the
-	// existing 6-field aggregate initializers keep the padding and format deterministically zeroed
-	// (UNORM). Sites that render to a non-default format set colorFormat explicitly after init.
-	uint8_t _padding[2] = { 0, 0 };
-	VkFormat colorFormat = VK_FORMAT_R8G8B8A8_UNORM;
 };
 
 class VKRRenderPass {

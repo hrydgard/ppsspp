@@ -48,8 +48,11 @@ void main() {
    // 3 columns emphasizes R/G/B; the others are attenuated by SUBPIXEL_STRENGTH.
    vec2 op = vTexCoord * registers.OutputSize.xy;
    int sub = int(mod(floor(op.x / registers.SUBPIXEL_SIZE), 3.0));
-   vec3 mask = vec3(1.0 - registers.SUBPIXEL_STRENGTH);
-   mask[sub] = 1.0;
+   // Built with selects rather than "mask[sub] = 1.0": a dynamically indexed vector component is
+   // not a valid l-value in HLSL SM5, so FXC rejects the cross-compiled D3D11 shader with
+   // "error X3500: array reference cannot be used as an l-value; not natively addressable".
+   vec3 sel = vec3(float(sub == 0), float(sub == 1), float(sub == 2));
+   vec3 mask = mix(vec3(1.0 - registers.SUBPIXEL_STRENGTH), vec3(1.0), sel);
 
    // Inter-cell grid: darken the gap between source-pixel cells (both axes). fract over the
    // source-pixel grid spans many display pixels at high res, so the grid stays visible.

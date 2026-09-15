@@ -385,6 +385,7 @@ public:
 	int iDefaultTab;
 	int iScreenshotMode;
 	bool bVulkanDisableImplicitLayers;
+	bool bVulkanSyncValidation;  // Only has an effect in builds with Vulkan validation enabled.
 	bool bForceFfmpegForAudioDec;
 
 	std::vector<std::string> vPostShaderNames; // Off for chain end (only Off for no shader)
@@ -400,7 +401,6 @@ public:
 
 	// Slang shader preset path (empty = disabled)
 	std::string sSlangShaderPreset;
-	bool bSlangUseLibrashader;  // Prefer the librashader runtime over the in-tree chain when available.
 
 	// URL of the libretro slang-shaders package zip (importer default; overridable for mirrors).
 	std::string sSlangBuildbotUrl;
@@ -447,6 +447,7 @@ public:
 	// UI
 	bool bShowDebuggerOnLoad;
 	int iShowStatusFlags;
+	bool bLogGpuProfile;  // Log the GPU profiler string once per second while the GPU_PROFILE overlay is shown.
 	bool bShowRegionOnGameIcon;
 	bool bShowIDOnGameIcon;
 	float fGameGridScale;

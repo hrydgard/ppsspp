@@ -25,6 +25,13 @@
 #define LIBRA_RUNTIME_VULKAN
 // The GL section of librashader.h uses plain uint32_t handles and pulls in no GL headers.
 #define LIBRA_RUNTIME_OPENGL
+#if PPSSPP_PLATFORM(WINDOWS)
+// The D3D11 section of librashader.h includes <d3d11.h>, which pulls in windows.h. Go through
+// CommonWindows.h first so it arrives with PPSSPP's NOMINMAX/WIN32_LEAN_AND_MEAN and the min/max
+// macros undefined - that way this header stays safe to include in any order.
+#include "Common/CommonWindows.h"
+#define LIBRA_RUNTIME_D3D11
+#endif
 #include "librashader_ld.h"
 
 namespace Librashader {

@@ -23,7 +23,7 @@
 #include "Common/GPU/Vulkan/VulkanContext.h"
 
 // Vulkan half of the librashader integration. All libra_vk_* calls happen on the render thread:
-// the frame callback runs inside a CALLBACK step, and the frees run from the deletion queue.
+// the frame callback runs inside a NATIVE_CALLBACK step, and the frees run from the deletion queue.
 class LibrashaderRuntimeVulkan : public LibrashaderRuntime {
 public:
 	LIBRA_PRESET_CTX_RUNTIME PresetRuntime() const override { return LIBRA_PRESET_CTX_RUNTIME_VULKAN; }
@@ -141,7 +141,7 @@ public:
 			return;
 		}
 		// Runs after every frame that could still reference the state has completed on the GPU,
-		// so a still-pending CALLBACK step is harmless: it holds a reference and runs first.
+		// so a still-pending NATIVE_CALLBACK step is harmless: it holds a reference and runs first.
 		vulkan->Delete().QueueCallback([rs](VulkanContext *) {
 			if (!Librashader::IsLoaded())
 				return;

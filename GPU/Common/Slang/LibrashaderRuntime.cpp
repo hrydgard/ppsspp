@@ -26,6 +26,10 @@ std::unique_ptr<LibrashaderRuntime> CreateLibrashaderRuntime(GPUBackend backend)
 		return CreateLibrashaderRuntimeVulkan();
 	case GPUBackend::OPENGL:
 		return CreateLibrashaderRuntimeOpenGL();
+#if PPSSPP_PLATFORM(WINDOWS)
+	case GPUBackend::DIRECT3D11:
+		return CreateLibrashaderRuntimeD3D11();
+#endif
 	default:
 		return nullptr;
 	}

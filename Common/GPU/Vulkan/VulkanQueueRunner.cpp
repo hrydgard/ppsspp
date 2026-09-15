@@ -276,8 +276,8 @@ void VulkanQueueRunner::PreprocessSteps(std::vector<VKRStep *> &steps) {
 					// rendered to. However this should be rare.
 					// TODO: This should never happen when we check numReads now.
 					break;
-				} else if (steps[i]->stepType == VKRStepType::CALLBACK) {
-					// CALLBACK acts as an opaque barrier; can't convert to RENDER_SKIP across it.
+				} else if (steps[i]->stepType == VKRStepType::NATIVE_CALLBACK) {
+					// NATIVE_CALLBACK acts as an opaque barrier; can't convert to RENDER_SKIP across it.
 					break;
 				}
 			}
@@ -384,7 +384,7 @@ void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, int curFrame, Fr
 		case VKRStepType::READBACK_IMAGE:
 			PerformReadbackImage(step, cmd);
 			break;
-		case VKRStepType::CALLBACK:
+		case VKRStepType::NATIVE_CALLBACK:
 			PerformCallback(step, cmd, curFrame);
 			break;
 		case VKRStepType::RENDER_SKIP:
@@ -409,7 +409,7 @@ void VulkanQueueRunner::RunSteps(std::vector<VKRStep *> &steps, int curFrame, Fr
 	if (!keepSteps) {
 		for (auto step : steps) {
 			// Clean up heap-allocated callback fn if it wasn't already run (PerformCallback nulls it after delete).
-			if (step->stepType == VKRStepType::CALLBACK && step->callback.fn) {
+			if (step->stepType == VKRStepType::NATIVE_CALLBACK && step->callback.fn) {
 				delete step->callback.fn;
 			}
 			delete step;
@@ -455,7 +455,7 @@ void VulkanQueueRunner::ApplyMGSHack(std::vector<VKRStep *> &steps) {
 				if (steps[j]->copy.dst != steps[i]->copy.dst)
 					last = j - 1;
 				break;
-			case VKRStepType::CALLBACK:
+			case VKRStepType::NATIVE_CALLBACK:
 				last = j - 1;  // Opaque barrier: never reorder across it.
 				break;
 			default:
@@ -767,8 +767,8 @@ std::string VulkanQueueRunner::StepToString(VulkanContext *vulkan, const VKRStep
 	case VKRStepType::READBACK_IMAGE:
 		snprintf(buffer, sizeof(buffer), "READBACK_IMAGE '%s' (%dx%d)", step.tag, step.readback_image.srcRect.extent.width, step.readback_image.srcRect.extent.height);
 		break;
-	case VKRStepType::CALLBACK:
-		snprintf(buffer, sizeof(buffer), "CALLBACK %s (src=%s dst=%s)", step.tag,
+	case VKRStepType::NATIVE_CALLBACK:
+		snprintf(buffer, sizeof(buffer), "NATIVE_CALLBACK %s (src=%s dst=%s)", step.tag,
 		         step.callback.src ? step.callback.src->Tag() : "-", step.callback.dst ? step.callback.dst->Tag() : "-");
 		break;
 	case VKRStepType::RENDER_SKIP:
@@ -860,8 +860,8 @@ void VulkanQueueRunner::ApplyRenderPassMerge(std::vector<VKRStep *> &steps) {
 					// Not sure this has much effect, when executed READBACK is always the last step
 					// since we stall the GPU and wait immediately after.
 					break;
-				case VKRStepType::CALLBACK:
-					// CALLBACK acts as an opaque barrier; can't merge across it.
+				case VKRStepType::NATIVE_CALLBACK:
+					// NATIVE_CALLBACK acts as an opaque barrier; can't merge across it.
 					goto done_fb;
 				case VKRStepType::RENDER_SKIP:
 				case VKRStepType::READBACK_IMAGE:
@@ -898,8 +898,8 @@ void VulkanQueueRunner::LogSteps(const std::vector<VKRStep *> &steps, bool verbo
 		case VKRStepType::READBACK_IMAGE:
 			LogReadbackImage(step);
 			break;
-		case VKRStepType::CALLBACK:
-			INFO_LOG(Log::G3D, "CALLBACK %s (src=%s dst=%s)", step.tag,
+		case VKRStepType::NATIVE_CALLBACK:
+			INFO_LOG(Log::G3D, "NATIVE_CALLBACK %s (src=%s dst=%s)", step.tag,
 			         step.callback.src ? step.callback.src->Tag() : "-", step.callback.dst ? step.callback.dst->Tag() : "-");
 			break;
 		case VKRStepType::RENDER_SKIP:
@@ -1144,8 +1144,6 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 						// Unfortunately I don't know if we can fix it in any more sensible place than here.
 						// Maybe a middle pass. But let's try to just block and compile here for now, this doesn't
 						// happen all that much.
-						// renderPass here comes from PerformBindFramebufferAsRenderTarget, which keyed it on
-						// the framebuffer's actual color format, so Get() already returns the format-correct pass.
 						graphicsPipeline->pipeline[(size_t)rpType] = Promise<VkPipeline>::CreateEmpty();
 						graphicsPipeline->Create(vulkan_, renderPass->Get(vulkan_, rpType, fbSampleCount), rpType, fbSampleCount, time_now_d(), -1);
 					}
@@ -1342,17 +1340,13 @@ VKRRenderPass *VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKR
 		_dbg_assert_(step.render.finalColorLayout != VK_IMAGE_LAYOUT_UNDEFINED);
 		_dbg_assert_(step.render.finalDepthStencilLayout != VK_IMAGE_LAYOUT_UNDEFINED);
 
-		VKRFramebuffer *fb = step.render.framebuffer;
-
 		RPKey key{
 			step.render.colorLoad, step.render.depthLoad, step.render.stencilLoad,
 			step.render.colorStore, step.render.depthStore, step.render.stencilStore,
 		};
-		// The color format is part of render-pass compatibility - key on the actual fb format so
-		// sRGB/float framebuffers get a matching render pass instead of the default UNORM one.
-		key.colorFormat = fb->color.format;
 		renderPass = GetRenderPass(key);
 
+		VKRFramebuffer *fb = step.render.framebuffer;
 		framebuf = fb->Get(renderPass, step.render.renderPassType);
 		sampleCount = fb->sampleCount;
 		_dbg_assert_(framebuf != VK_NULL_HANDLE);

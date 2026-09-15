@@ -19,6 +19,8 @@
     <ClCompile Include="TestLzrc.cpp" />
     <ClCompile Include="TestTextureReplacer.cpp" />
     <ClCompile Include="TestRiscVEmitter.cpp" />
+    <ClCompile Include="TestLibrashader.cpp" />
+    <ClCompile Include="TestSlangParser.cpp" />
     <ClCompile Include="TestVFS.cpp" />
     <ClCompile Include="TestZipSlip.cpp" />
     <ClCompile Include="TestLoongArch64Emitter.cpp" />

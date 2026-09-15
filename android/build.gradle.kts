@@ -162,6 +162,18 @@ android {
 	}
 	packaging {
 		jniLibs.useLegacyPackaging = true
+		// Optional: -PlibrashaderAbi=<abi> (arm64-v8a|armeabi-v7a|x86_64) excludes the other ABIs
+		// from packaging. When absent, all present jniLibs are packaged (release flavors prune by
+		// abiFilters). Example: -Pandroid.injected.build.abi=arm64-v8a -PlibrashaderAbi=arm64-v8a
+		if (project.hasProperty("librashaderAbi")) {
+			val keepAbi = project.property("librashaderAbi") as String
+			val allAbis = listOf("armeabi-v7a", "arm64-v8a", "x86_64")
+			require(keepAbi in allAbis) { "librashaderAbi must be one of $allAbis, got '$keepAbi'" }
+			val excludeAbis = allAbis.filter { it != keepAbi }
+			jniLibs {
+				excludes += excludeAbis.map { "**/$it/librashader.so" }
+			}
+		}
 	}
 	sourceSets {
 		getByName("main") {

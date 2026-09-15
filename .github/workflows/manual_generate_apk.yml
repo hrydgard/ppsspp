@@ -59,7 +59,34 @@ jobs:
         run: |
           echo "count=${{steps.valid-tags.outputs.count}}"
           gradle --quiet androidGitVersion
-      
+
+      # Build librashader for Android (unverified locally; expect 20-40 min cold build time)
+      - name: Install Android NDK 29.0.14206865
+        run: yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --install "ndk;29.0.14206865"
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android
+
+      - name: Cache Cargo and librashader build artifacts
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ~/.cargo/bin/cargo-ndk*
+          # Do not cache build/librashader-src: the script git-clones into it and would fail on a non-empty, non-git directory.
+          key: librashader-${{ runner.os }}-${{ hashFiles('android/build-librashader.sh') }}
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk
+
+      - name: Build librashader
+        run: |
+          export ANDROID_NDK_HOME=$ANDROID_HOME/ndk/29.0.14206865
+          android/build-librashader.sh
+
       - name: Assemble APK
         run: ./gradlew assemble${{ github.event.inputs.buildVariant }} --stacktrace
       

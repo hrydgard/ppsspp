@@ -2904,26 +2904,19 @@ bool TestThreadManager();
 bool TestVFS();
 bool TestSlangParser();
 bool TestSlangSplit();
-bool TestSlangResolution();
-bool TestSlangSemantics();
-bool TestSlangReflection();
 bool TestSlangParserPhase2Keys();
 bool TestSlangParserLuts();
 bool TestSlangFormatPragma();
-bool TestSlangSemanticsPhase2();
 bool TestSlangIncludes();
-bool TestSlangPushConstant();
-bool TestSlangPushConstantBraceInComment();
-bool TestSlangReflectionIndexOverflow();
 bool TestSlangZipPathSanitizer();
 bool TestSlangPackageExtract();
 bool TestSlangParamDescription();
 bool TestSlangPresetLibrary();
 bool TestSlangPresetParameters();
-bool TestSlangParamOverride();
 bool TestLibrashaderLoaderAbsent();
 bool TestLibrashaderLoaderNotALibrary();
 bool TestSlangChainBackendSelection();
+bool TestLibrashaderSourceScan();
 bool TestZipSlip();
 bool TestLzrc();
 bool TestDemangle();
@@ -3134,26 +3127,19 @@ TestItem availableTests[] = {
 	TEST_ITEM(IniFile),
 	TEST_ITEM(SlangParser),
 	TEST_ITEM(SlangSplit),
-	TEST_ITEM(SlangResolution),
-	TEST_ITEM(SlangSemantics),
-	TEST_ITEM(SlangReflection),
 	TEST_ITEM(SlangParserPhase2Keys),
 	TEST_ITEM(SlangParserLuts),
 	TEST_ITEM(SlangFormatPragma),
-	TEST_ITEM(SlangSemanticsPhase2),
 	TEST_ITEM(SlangIncludes),
-	TEST_ITEM(SlangPushConstant),
-	TEST_ITEM(SlangPushConstantBraceInComment),
-	TEST_ITEM(SlangReflectionIndexOverflow),
 	TEST_ITEM(SlangZipPathSanitizer),
 	TEST_ITEM(SlangPackageExtract),
 	TEST_ITEM(SlangParamDescription),
 	TEST_ITEM(SlangPresetLibrary),
 	TEST_ITEM(SlangPresetParameters),
-	TEST_ITEM(SlangParamOverride),
 	TEST_ITEM(LibrashaderLoaderAbsent),
 	TEST_ITEM(LibrashaderLoaderNotALibrary),
 	TEST_ITEM(SlangChainBackendSelection),
+	TEST_ITEM(LibrashaderSourceScan),
 	TEST_ITEM(ColorConv),
 	TEST_ITEM(CharQueue),
 	TEST_ITEM(Buffer),
