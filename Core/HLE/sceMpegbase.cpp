@@ -33,6 +33,8 @@
 #include "Core/HLE/sceMpegbase.h"
 #include "Core/HLE/sceVideocodec.h"
 #include "Core/MemMapHelpers.h"
+#include "GPU/GPUCommon.h"
+#include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 
 // The PES payloads gathered by sceMpegBasePESpacketCopy, keyed by the destination each was
@@ -333,6 +335,11 @@ static int MpegBaseCscRange(u32 bufferRGB, u32 cscAddr, int bufferWidth,
 		}
 	}
 	NotifyMemInfo(MemBlockFlags::WRITE, bufferRGB, destSize, "MpegBaseCsc");
+	// The CPU just wrote a video frame straight into what is usually a display buffer. The hardware
+	// backends don't see that on their own, so without telling them, the screen keeps showing the
+	// last frame the GE drew - the same notification our sceMpegAvcCsc HLE does. The pixel mode
+	// numbering matches GEBufferFormat, as it does there.
+	gpu->PerformWriteFormattedFromMemory(bufferRGB, destSize, bufferWidth, (GEBufferFormat)g_mpegBasePixelMode);
 	return hleLogDebug(Log::Mpeg, 0, "%dx%d at %d,%d -> %08x stride %d",
 		rangeWidth, rangeHeight, rangeX, rangeY, bufferRGB, bufferWidth);
 }
