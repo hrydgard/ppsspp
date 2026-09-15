@@ -573,6 +573,8 @@ SOURCES_CXX += \
 	$(GPUCOMMONDIR)/PostShader.cpp \
 	$(GPUCOMMONDIR)/TextureReplacer.cpp \
 	$(GPUCOMMONDIR)/ReplacedTexture.cpp \
+	$(GPUCOMMONDIR)/Slang/SlangpParser.cpp \
+	$(GPUCOMMONDIR)/Slang/SlangChainFactory.cpp \
 	$(COMMONDIR)/Data/Convert/ColorConv.cpp \
 	$(GPUDIR)/Debugger/Breakpoints.cpp \
 	$(GPUDIR)/Debugger/Debugger.cpp \

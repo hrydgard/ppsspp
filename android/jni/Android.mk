@@ -354,6 +354,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Common/GPU/Shader.cpp \
   $(SRC)/Common/GPU/ShaderWriter.cpp \
   $(SRC)/Common/GPU/ShaderTranslation.cpp \
+  $(SRC)/Common/GPU/Librashader/LibrashaderLoader.cpp \
   $(SRC)/Common/Render/ManagedTexture.cpp \
   $(SRC)/Common/Render/DrawBuffer.cpp \
   $(SRC)/Common/Render/AtlasGen.cpp \
@@ -575,6 +576,12 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Common/VertexShaderGenerator.cpp \
   $(SRC)/GPU/Common/TextureReplacer.cpp \
   $(SRC)/GPU/Common/ReplacedTexture.cpp \
+  $(SRC)/GPU/Common/Slang/SlangpParser.cpp \
+  $(SRC)/GPU/Common/Slang/SlangChainFactory.cpp \
+  $(SRC)/GPU/Common/Slang/LibrashaderFilterChain.cpp \
+  $(SRC)/GPU/Common/Slang/LibrashaderRuntime.cpp \
+  $(SRC)/GPU/Common/Slang/LibrashaderRuntimeOpenGL.cpp \
+  $(SRC)/GPU/Common/Slang/LibrashaderRuntimeVulkan.cpp \
   $(SRC)/GPU/Debugger/Breakpoints.cpp \
   $(SRC)/GPU/Debugger/Debugger.cpp \
   $(SRC)/GPU/Debugger/GECommandTable.cpp \
@@ -1062,6 +1069,8 @@ ifeq ($(UNITTEST),1)
     $(SRC)/unittest/TestDemangle.cpp \
     $(SRC)/unittest/TestLzrc.cpp \
     $(SRC)/unittest/TestZipSlip.cpp \
+    $(SRC)/unittest/TestSlangParser.cpp \
+    $(SRC)/unittest/TestLibrashader.cpp \
     $(SRC)/unittest/UnitTest.cpp
 
   include $(BUILD_EXECUTABLE)
