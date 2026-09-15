@@ -1,0 +1,64 @@
+# Coarse-pitch PSP LCD grid, pitch tunable at runtime - for physically small high-PPI panels.
+# Derived from presets/handheld-plus-color-mod/lcd-grid-v2-psp-color.slangp, with
+# crt-royale-downsample.slangp's b-spline pass prepended as the antialiasing stage.
+# Design notes: PPSSPP's docs/superpowers/specs/2026-09-15-lcd-grid-hidpi-shader-design.md
+#
+# Requires the libretro slang-shaders pack: every path below points into it.
+#
+# Set the grid coarseness with the "LCD cell pitch (source px)" parameter. 2.0 is the default and,
+# like 1.0, an exact block average; values between snap or blend mip levels, which only softens the
+# cell colour slightly - the grid geometry tracks the parameter continuously either way.
+
+shaders = "4"
+
+# Pass 0 resamples PPSSPP's upscaled render down to native 480x272 - a real downsample, because the
+# chain is handed the upscaled target with a native declared size. It is the antialiasing stage here,
+# not the pitch stage; raising the internal resolution improves it for free.
+shader0 = "../../interpolation/shaders/b-spline-4-taps.slang"
+filter_linear0 = "true"
+wrap_mode0 = "clamp_to_edge"
+scale_type0 = "source"
+scale0 = "1.0"
+
+shader1 = "../../reshade/shaders/LUT/multiLUT.slang"
+filter_linear1 = "false"
+scale_type1 = "source"
+scale1 = "1.0"
+
+# mipmap_input2 so a cell can be the average of the PITCH x PITCH block it covers, fetched as one
+# textureLod per corner. clamp_to_edge because the grid fetches one cell right and down, and
+# clamp_to_border would blend black into the right and bottom edges - PITCH pixels wide.
+shader2 = "../../handheld/shaders/lcd-cgwg/lcd-grid-v2-pitch.slang"
+filter_linear2 = "false"
+mipmap_input2 = "true"
+wrap_mode2 = "clamp_to_edge"
+scale_type2 = "viewport"
+scale2 = "1.0"
+
+shader3 = "../../handheld/shaders/color/psp-color.slang"
+filter_linear3 = "false"
+scale_type3 = "source"
+scale3 = "1.0"
+
+textures = "SamplerLUT1;SamplerLUT2"
+SamplerLUT1 = "../../handheld/shaders/color/lut/psp-grey1.png"
+SamplerLUT1_linear = "true"
+SamplerLUT2 = "../../handheld/shaders/color/lut/psp-grey2.png"
+SamplerLUT2_linear = "true"
+
+# 7.94 display px per cell on a 6" 1080p panel. Tunable at runtime.
+PITCH = "2.0"
+RSUBPIX_R = "1"
+RSUBPIX_G = "0"
+RSUBPIX_B = "0"
+GSUBPIX_R = "0"
+GSUBPIX_G = "1"
+GSUBPIX_B = "0"
+BSUBPIX_R = "0"
+BSUBPIX_G = "0"
+BSUBPIX_B = "1"
+gain = "1"
+gamma = "2.2"
+blacklevel = "0"
+ambient = "0"
+BGR = "0"

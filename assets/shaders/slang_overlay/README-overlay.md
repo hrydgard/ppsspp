@@ -39,6 +39,7 @@ These appear under the **`presets`** category in PPSSPP's shader browser.
 | Preset | Pitch |
 |---|---|
 | `presets/handheld-plus-color-mod/lcd-grid-v2-psp-color-hidpi-2x.slangp` | Fixed 2x. A `b-spline-4-taps` pass resamples to an absolute 240x136 and the grid draws one cell per pixel. Leave `PITCH` at 1.0 - this preset has no mip chain to average with. |
+| `presets/handheld-plus-color-mod/lcd-grid-v2-psp-color-hidpi-tunable.slangp` | Set by the `LCD cell pitch (source px)` parameter, 1.0-3.0, default 2.0. Cells are averaged through the mip chain. |
 
 The colour path is the reference `lcd-grid-v2-psp-color` preset's, unchanged: `multiLUT` with the PSP
 grey LUTs, then `psp-color`, with the same identity subpixel matrix and tone parameters. Two things
