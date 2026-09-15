@@ -167,7 +167,9 @@ whose result depends on the input size would otherwise run its math at the rende
 (CRT/LCD masks tiling at 3x instead of on the native grid). The D3D11 adapter therefore returns
 `true` from `LibrashaderRuntime::RequiresNativeSizedInput()`, and `LibrashaderFilterChain::Load()`
 routes the input through the native-sized copy it already had for `OriginalHistoryN` presets whenever
-the preset reads `SourceSize`/`OriginalSize` or has an intermediate `scale_type = source` pass. D3D11's
+the preset reads `SourceSize`/`OriginalSize` (a use such as `params.SourceSize.xy`; the bare
+`vec4 SourceSize;` declaration every shader carries does not count) or has an intermediate
+`scale_type = source` pass. D3D11's
 `thin3d` has no `BlitFramebuffer`, so that copy is a linear-filtered `BlitUsingRaster`
 (`DRAW2D_COPY_COLOR`) quad draw the framebuffer manager hands the chain; Vulkan/GL keep using
 `BlitFramebuffer`. All

@@ -343,7 +343,9 @@ State split by thread:
   `ParseSlangPreset` and derives three facts: `usesHistory` — a pass's `#include`-resolved source
   references `OriginalHistory[1-9]` / `OriginalHistorySize[1-9]`; `readsSourceSize` — a source
   references `SourceSize` or `OriginalSize` as a whole identifier (so `OriginalHistorySizeN` and
-  `FinalViewportSize` do not count); `sourceRelativePasses` — a multi-pass preset has a
+  `FinalViewportSize` do not count) *outside the uniform-block declaration* — `vec4 SourceSize;`
+  alone is not a read, since virtually every RetroArch shader declares both sizes whether it uses
+  them or not, and counting it would put `stock.slangp` on the downscaled input; `sourceRelativePasses` — a multi-pass preset has a
   non-final pass with `scale_type{,_x,_y} = source`, whose resolution therefore follows the input
   size. Then
   `needsNativeInput_ = usesHistory || (runtime_->RequiresNativeSizedInput() && (readsSourceSize || sourceRelativePasses))`.
