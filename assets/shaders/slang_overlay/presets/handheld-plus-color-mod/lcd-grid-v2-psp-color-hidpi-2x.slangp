@@ -44,7 +44,8 @@ SamplerLUT1_linear = "true"
 SamplerLUT2 = "../../handheld/shaders/color/lut/psp-grey2.png"
 SamplerLUT2_linear = "true"
 
-# Pass 0 already set the pitch, so the grid draws one cell per pixel it receives.
+# Pass 0 already set the pitch, so the grid draws one cell per pixel it receives. Leave PITCH at 1.0:
+# this preset has no mip chain to average with, so raising it coarsens the grid while point-sampling.
 PITCH = "1.0"
 RSUBPIX_R = "1"
 RSUBPIX_G = "0"

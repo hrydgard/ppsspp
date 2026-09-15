@@ -13,15 +13,17 @@ Tuned for a 6" 1920x1080 panel (367 PPI, e.g. the AYN Thor), where PPSSPP fits 4
 
 **The libretro slang-shaders pack must already be imported.** Every path in these presets points into
 it - `b-spline-4-taps`, `multiLUT`, `psp-color` and the two `psp-grey` LUTs are all pack files. Without
-the pack the presets do not appear in the shader browser. They are also not loadable from inside the
-PPSSPP install: the relative paths only resolve once this tree is merged into the pack.
+the pack the presets appear in the shader browser but fail to load, naming the missing pack shader.
+They are also not loadable from inside the PPSSPP install: the relative paths only resolve once this
+tree is merged into the pack.
 
 ## Installing
 
-Copy the contents of this directory over the imported pack, merging directories:
+Copy the contents of this directory over the imported pack, merging directories. A pre-existing
+lower-case `shaders/` is used instead of `SHADERS/` if one exists.
 
 - Windows: `<memstick>\PSP\SHADERS\slang\`
-- macOS/Linux: `<memstick>/PSP/SHADERS/slang/` (a pre-existing lower-case `shaders/` is used instead)
+- macOS/Linux: `<memstick>/PSP/SHADERS/slang/`
 - Android: the app-private external files dir, `<extFilesDir>/slang/`
 
 ```bash
@@ -32,12 +34,16 @@ Nothing is overwritten - every file added here is new.
 
 ## Presets
 
+These appear under the **`presets`** category in PPSSPP's shader browser.
+
 | Preset | Pitch |
 |---|---|
-| `presets/handheld-plus-color-mod/lcd-grid-v2-psp-color-hidpi-2x.slangp` | Fixed 2x. A `b-spline-4-taps` pass resamples to an absolute 240x136 and the grid draws one cell per pixel. |
+| `presets/handheld-plus-color-mod/lcd-grid-v2-psp-color-hidpi-2x.slangp` | Fixed 2x. A `b-spline-4-taps` pass resamples to an absolute 240x136 and the grid draws one cell per pixel. Leave `PITCH` at 1.0 - this preset has no mip chain to average with. |
 
 The colour path is the reference `lcd-grid-v2-psp-color` preset's, unchanged: `multiLUT` with the PSP
-grey LUTs, then `psp-color`, with the same identity subpixel matrix and tone parameters.
+grey LUTs, then `psp-color`, with the same identity subpixel matrix and tone parameters. Two things
+do differ: `multiLUT` now runs on the resampled 240x136 image rather than at 480x272, and the grid
+pass clamps to edge rather than to border, so edge pixels differ slightly.
 
 Raising PPSSPP's internal resolution improves the downsample pass's antialiasing at no cost to the
 grid; 3x-5x is a good range.
