@@ -117,14 +117,15 @@ over the imported slang root (`GetSlangShaderDir()`; on Android the app-private
 
 ```
 assets/shaders/slang_overlay/
-  README.md
+  README-overlay.md
   handheld/shaders/lcd-cgwg/lcd-grid-v2-pitch.slang
   presets/handheld-plus-color-mod/lcd-grid-v2-psp-color-hidpi-2x.slangp
   presets/handheld-plus-color-mod/lcd-grid-v2-psp-color-hidpi-tunable.slangp
 ```
 
-The `README.md` carries the imported-pack prerequisite, the per-platform install path and the fork's
-provenance, since the overlay is copied out of the tree by hand and has to explain itself where it lands.
+The `README-overlay.md` carries the imported-pack prerequisite, the per-platform install path and the
+fork's provenance, since the overlay is copied out of the tree by hand and has to explain itself where
+it lands. The name avoids colliding with the pack's own root `README.md`.
 
 `assets/shaders/slang_overlay/` is the in-repo home so the files are versioned and ship with the build
 (~8 KB), which also leaves room for an in-app "install overlay" action later. They are *not* loadable
@@ -136,7 +137,7 @@ without which neither preset's parameter values survive the user opening the par
 
 Prerequisite for use: the libretro `slang-shaders` pack must already be imported, since the presets
 reference its `b-spline-4-taps`, `multiLUT`, `psp-color` and the two `psp-grey` LUT PNGs. Without it
-the presets simply do not appear in the browser.
+the presets are listed in the browser but fail to load, with librashader's error logged at load.
 
 ## 5. The forked shader — `lcd-grid-v2-pitch.slang`
 
@@ -159,7 +160,7 @@ follow the previous pass, which is what a pass in the middle of a chain should d
 
 ```
 float PITCH;   // appended to the end of the Push block
-#pragma parameter PITCH "LCD cell pitch (source pixels)" 1.0 1.0 3.0 0.25
+#pragma parameter PITCH "LCD cell pitch (source px)" 1.0 1.0 3.0 0.25
 ```
 
 Appended at the end of the `push_constant` block; librashader reflects members by name, so the
@@ -402,7 +403,7 @@ untouched.
 | B-spline is a smoothing kernel, so variant B's pass 0 softens even at 1:1 | measured on device against a nearest/stock pass; if too soft, retarget pass 0 to `stock.slang` with `filter_linear` for B while keeping b-spline for A's real 2:1 reduction |
 | Gamma-space downsample darkens edges | side-by-side against the reference preset; linear-light b-spline fork if it shows (§8.1) |
 | Fork drifts from upstream `lcd-grid-v2` | header records the upstream path and commit; the fork is three localised changes |
-| Pack not imported | presets do not appear in the browser; prerequisite documented in §4 |
+| Pack not imported | presets are listed but fail to load; prerequisite documented in §4 |
 | §9.1's parser change alters what other imported presets show in the UI | that is the bug being fixed — those presets already render with their own values, and the UI now agrees instead of overwriting them; covered by a unit test |
 | D3D11 pre-blit softens pass-0 input on Windows | expected and explained in §3.4; the Thor path is Vulkan/GLES |
 

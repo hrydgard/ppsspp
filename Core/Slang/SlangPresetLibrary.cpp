@@ -196,11 +196,16 @@ bool GetPresetParameters(const Path &presetPath, std::vector<SlangParamDesc> *ou
 	// preset for parameter-shaped keys) is what keeps shader0/scale_type1/LUT names out of the list:
 	// the pass shaders own the authoritative name set. A value outside the declared range is kept
 	// as-is, because that is what librashader will use and clamping would make the UI disagree with
-	// the rendered image.
+	// the rendered image. A value that does not parse as a number is ignored rather than treated as 0.
 	for (SlangParamDesc &param : *out) {
 		auto valueIt = preset.values.find(param.name);
 		if (valueIt != preset.values.end()) {
-			param.initial = (float)atof(valueIt->second.c_str());
+			const char *text = valueIt->second.c_str();
+			char *end = nullptr;
+			float value = strtof(text, &end);
+			if (end != text) {
+				param.initial = value;
+			}
 		}
 	}
 

@@ -430,6 +430,25 @@ bool TestSlangPresetParameters() {
 	EXPECT_TRUE(GetPresetParameters(root / "wide.slangp", &wide, &wideErr));
 	EXPECT_EQ_FLOAT(wide[0].initial, 9.0f);
 
+	// A .slangp key that is not a number must not be able to zero a declared default: an empty value
+	// or a collision with a structural key (shader0, scale_type1, LUT names) should leave the pragma
+	// default alone rather than setting the slider to 0.
+	File::WriteStringToFile(true,
+		"shaders = 1\n"
+		"shader0 = a.slang\n"
+		"gamma = \"abc\"\n", root / "junk.slangp");
+	std::vector<SlangParamDesc> junk; std::string junkErr;
+	EXPECT_TRUE(GetPresetParameters(root / "junk.slangp", &junk, &junkErr));
+	EXPECT_EQ_FLOAT(junk[0].initial, 2.2f);
+
+	File::WriteStringToFile(true,
+		"shaders = 1\n"
+		"shader0 = a.slang\n"
+		"gamma = \"\"\n", root / "empty.slangp");
+	std::vector<SlangParamDesc> empty; std::string emptyErr;
+	EXPECT_TRUE(GetPresetParameters(root / "empty.slangp", &empty, &emptyErr));
+	EXPECT_EQ_FLOAT(empty[0].initial, 2.2f);
+
 	File::DeleteDirRecursively(root);
 	return true;
 }

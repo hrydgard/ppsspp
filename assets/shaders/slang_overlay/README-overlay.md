@@ -43,8 +43,9 @@ These appear under the **`presets`** category in PPSSPP's shader browser.
 
 The colour path is the reference `lcd-grid-v2-psp-color` preset's, unchanged: `multiLUT` with the PSP
 grey LUTs, then `psp-color`, with the same identity subpixel matrix and tone parameters. Two things
-do differ: `multiLUT` now runs on the resampled 240x136 image rather than at 480x272, and the grid
-pass clamps to edge rather than to border, so edge pixels differ slightly.
+do differ: in the 2x preset `multiLUT` runs on the resampled 240x136 image (pass 0 is `absolute` at
+that size), while in the tunable preset it stays at 480x272 (pass 0 is `source`/`1.0`); and both
+presets clamp to edge rather than to border, so edge pixels differ slightly from the reference.
 
 Raising PPSSPP's internal resolution improves the downsample pass's antialiasing at no cost to the
 grid; 3x-5x is a good range.

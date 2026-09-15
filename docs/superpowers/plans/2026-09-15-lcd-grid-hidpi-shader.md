@@ -35,7 +35,7 @@
 | `assets/shaders/slang_overlay/handheld/shaders/lcd-cgwg/lcd-grid-v2-pitch.slang` | The forked grid shader. Owns the cell geometry and the `PITCH` parameter. The only derivative work here. |
 | `assets/shaders/slang_overlay/presets/handheld-plus-color-mod/lcd-grid-v2-psp-color-hidpi-2x.slangp` | Variant A. Pitch fixed at 2× by an absolute 240×136 downsample pass. |
 | `assets/shaders/slang_overlay/presets/handheld-plus-color-mod/lcd-grid-v2-psp-color-hidpi-tunable.slangp` | Variant B. Pitch set live by `PITCH`, cells averaged through the mip chain. |
-| `assets/shaders/slang_overlay/README.md` | What the overlay is, the imported-pack prerequisite, how to install it, provenance and licence. |
+| `assets/shaders/slang_overlay/README-overlay.md` | What the overlay is, the imported-pack prerequisite, how to install it, provenance and licence. |
 
 **Modified (the §9.1 parser fix):**
 
@@ -247,7 +247,7 @@ Spec §5 and §6. The fork is the enabling piece; variant A is the first preset 
 **Files:**
 - Create: `assets/shaders/slang_overlay/handheld/shaders/lcd-cgwg/lcd-grid-v2-pitch.slang`
 - Create: `assets/shaders/slang_overlay/presets/handheld-plus-color-mod/lcd-grid-v2-psp-color-hidpi-2x.slangp`
-- Create: `assets/shaders/slang_overlay/README.md`
+- Create: `assets/shaders/slang_overlay/README-overlay.md`
 - Reference (read-only): `/tmp/slang-shaders/handheld/shaders/lcd-cgwg/lcd-grid-v2.slang`, `/tmp/slang-shaders/presets/handheld-plus-color-mod/lcd-grid-v2-psp-color.slangp`, `/tmp/slang-shaders/presets/crt-royale-downsample.slangp`
 
 **Interfaces:**
@@ -516,7 +516,7 @@ BGR = "0"
 
 - [ ] **Step 4: Create the overlay README**
 
-Write `assets/shaders/slang_overlay/README.md`:
+Write `assets/shaders/slang_overlay/README-overlay.md`:
 
 ````markdown
 # Coarse-pitch PSP LCD grid overlay
@@ -631,7 +631,7 @@ Spec §7. Same four passes and the same colour path, but the pitch comes from `P
 
 **Files:**
 - Create: `assets/shaders/slang_overlay/presets/handheld-plus-color-mod/lcd-grid-v2-psp-color-hidpi-tunable.slangp`
-- Modify: `assets/shaders/slang_overlay/README.md` (add the preset to the table)
+- Modify: `assets/shaders/slang_overlay/README-overlay.md` (add the preset to the table)
 
 **Interfaces:**
 - Consumes: Task 2's `lcd-grid-v2-pitch.slang` at `../../handheld/shaders/lcd-cgwg/lcd-grid-v2-pitch.slang`, with `PITCH` in range 1.0–3.0, step 0.25. Task 1's fix, which is what makes `PITCH = "2.0"` hold once the parameter screen has been opened.
@@ -710,7 +710,7 @@ BGR = "0"
 
 - [ ] **Step 2: Add it to the README table**
 
-In `assets/shaders/slang_overlay/README.md`, replace the single-row table with:
+In `assets/shaders/slang_overlay/README-overlay.md`, replace the single-row table with:
 
 ```markdown
 | Preset | Pitch |
