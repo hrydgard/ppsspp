@@ -1,0 +1,62 @@
+# Coarse-pitch PSP LCD grid, fixed 2x pitch - for physically small high-PPI panels.
+# Derived from presets/handheld-plus-color-mod/lcd-grid-v2-psp-color.slangp, with
+# crt-royale-downsample.slangp's b-spline pass prepended to set the LCD cell pitch.
+# Design notes: PPSSPP's docs/superpowers/specs/2026-09-15-lcd-grid-hidpi-shader-design.md
+#
+# Requires the libretro slang-shaders pack: every path below points into it.
+
+shaders = "4"
+
+# Pass 0 sets the cell pitch. 240x136 is exactly half of 480x272, so cells land on integer PSP-pixel
+# pairs with no beat against the source grid. On PPSSPP this is also a genuine downsample of the
+# internal-resolution render, since the chain is handed the upscaled target with a native declared
+# size - so raising the internal resolution improves this pass's antialiasing for free.
+shader0 = "../../interpolation/shaders/b-spline-4-taps.slang"
+filter_linear0 = "true"
+wrap_mode0 = "clamp_to_edge"
+scale_type_x0 = "absolute"
+scale_x0 = "240"
+scale_type_y0 = "absolute"
+scale_y0 = "136"
+
+shader1 = "../../reshade/shaders/LUT/multiLUT.slang"
+filter_linear1 = "false"
+scale_type1 = "source"
+scale1 = "1.0"
+
+# One cell per pass-0 pixel: 7.94 display px per cell on a 6" 1080p panel.
+# clamp_to_edge because the grid fetches one cell right and down, and clamp_to_border would blend
+# black into the right and bottom edges - PITCH pixels wide at coarser pitches.
+shader2 = "../../handheld/shaders/lcd-cgwg/lcd-grid-v2-pitch.slang"
+filter_linear2 = "false"
+wrap_mode2 = "clamp_to_edge"
+scale_type2 = "viewport"
+scale2 = "1.0"
+
+shader3 = "../../handheld/shaders/color/psp-color.slang"
+filter_linear3 = "false"
+scale_type3 = "source"
+scale3 = "1.0"
+
+textures = "SamplerLUT1;SamplerLUT2"
+SamplerLUT1 = "../../handheld/shaders/color/lut/psp-grey1.png"
+SamplerLUT1_linear = "true"
+SamplerLUT2 = "../../handheld/shaders/color/lut/psp-grey2.png"
+SamplerLUT2_linear = "true"
+
+# Pass 0 already set the pitch, so the grid draws one cell per pixel it receives.
+PITCH = "1.0"
+RSUBPIX_R = "1"
+RSUBPIX_G = "0"
+RSUBPIX_B = "0"
+GSUBPIX_R = "0"
+GSUBPIX_G = "1"
+GSUBPIX_B = "0"
+BSUBPIX_R = "0"
+BSUBPIX_G = "0"
+BSUBPIX_B = "1"
+gain = "1"
+gamma = "2.2"
+blacklevel = "0"
+ambient = "0"
+BGR = "0"
