@@ -1115,6 +1115,27 @@ static bool ValidateAllocator(BlockAllocator &a, u32 rangeStart, u32 rangeSize) 
 	return true;
 }
 
+// Writes one allocator's state and reads it back into another, the way a savestate does.
+// Returns false if either direction reported an error.
+static bool SaveLoadAllocator(BlockAllocator &from, BlockAllocator &to) {
+	std::vector<u8> buffer(64 * 1024);
+	u8 *writePtr = buffer.data();
+	PointerWrap pw(&writePtr, PointerWrap::MODE_WRITE);
+	from.DoState(pw);
+	if (pw.Failed())
+		return false;
+	const size_t written = (size_t)(writePtr - buffer.data());
+
+	u8 *readPtr = buffer.data();
+	PointerWrap pr(&readPtr, PointerWrap::MODE_READ);
+	pr.SetReadEnd(buffer.data() + written);
+	to.DoState(pr);
+	if (pr.Failed())
+		return false;
+	// Both sides must have walked exactly the same number of bytes.
+	return (size_t)(readPtr - buffer.data()) == written;
+}
+
 bool TestBlockAllocator() {
 	const u32 kStart = 0x08800000;
 	const u32 kSize = 0x00100000;  // 1MB
@@ -1424,6 +1445,45 @@ bool TestBlockAllocator() {
 		EXPECT_EQ_INT((int)a.GetTotalFreeBytes(), (int)kSize);
 		EXPECT_EQ_INT((int)a.GetLargestFreeBlockSize(), (int)kSize);
 		EXPECT_TRUE(ValidateAllocator(a, kStart, kSize));
+	}
+
+	// Savestates. An allocator that nothing has Init'd yet has no blocks at all, and that has to
+	// survive a round trip as readily as a populated one - sceVideocodec saves an allocator for
+	// memory no game has asked for until it plays a video.
+	{
+		BlockAllocator empty(kGrain);
+		BlockAllocator loaded(kGrain);
+		loaded.Init(kStart, kSize, false);  // starts populated, to prove the load clears it
+		EXPECT_TRUE(SaveLoadAllocator(empty, loaded));
+		EXPECT_EQ_INT((int)loaded.GetTotalFreeBytes(), 0);
+		EXPECT_EQ_INT((int)loaded.GetLargestFreeBlockSize(), 0);
+		EXPECT_FALSE(loaded.IsBlockFree(kStart));
+
+		// And an empty one can be Init'd afterwards and behave normally.
+		loaded.Init(kStart, kSize, false);
+		EXPECT_TRUE(ValidateAllocator(loaded, kStart, kSize));
+	}
+
+	{
+		BlockAllocator a(kGrain);
+		a.Init(kStart, kSize, false);
+		u32 size1 = 0x1000, size2 = 0x2000;
+		const u32 a1 = a.Alloc(size1, false, "saved1");
+		const u32 a2 = a.Alloc(size2, true, "saved2");
+
+		BlockAllocator b(kGrain);
+		EXPECT_TRUE(SaveLoadAllocator(a, b));
+		EXPECT_TRUE(ValidateAllocator(b, kStart, kSize));
+		EXPECT_EQ_INT((int)b.GetTotalFreeBytes(), (int)a.GetTotalFreeBytes());
+		EXPECT_EQ_INT((int)b.GetLargestFreeBlockSize(), (int)a.GetLargestFreeBlockSize());
+		EXPECT_FALSE(b.IsBlockFree(a1));
+		EXPECT_FALSE(b.IsBlockFree(a2));
+		EXPECT_EQ_STR(std::string(b.GetBlockTag(a1)), std::string("saved1"));
+		EXPECT_EQ_STR(std::string(b.GetBlockTag(a2)), std::string("saved2"));
+		// The loaded copy is a working allocator, not just a readable snapshot.
+		EXPECT_TRUE(b.Free(a1));
+		EXPECT_TRUE(b.Free(a2));
+		EXPECT_EQ_INT((int)b.GetLargestFreeBlockSize(), (int)kSize);
 	}
 
 	return true;

@@ -22,6 +22,13 @@ for it:
 | [docs/sceAudio.md](docs/sceAudio.md) | How the audio output calls block, how deep they buffer, and what each error means |
 | [docs/WebSocketDebugger.md](docs/WebSocketDebugger.md) | WebSocket debugger protocol reference |
 | [docs/reverse-engineering.md](docs/reverse-engineering.md) | Disassembling a firmware PRX with `--re-module`, to find out what the hardware actually does |
+| [docs/command-line.md](docs/command-line.md) | Adding a command-line option - the `g_autoParams` table, per-mode options, `ApplyToConfig()` |
+| [docs/patching-files.md](docs/patching-files.md) | Editing files from a script without wrecking the diff: line endings, and heredoc backslash escaping |
+| [docs/VSHBootInvestigation.md](docs/VSHBootInvestigation.md) | Booting the PSP's Visual Shell with `--vsh` against a real firmware dump |
+| [docs/PsarFileFormat.md](docs/PsarFileFormat.md) | The PSAR archive inside a firmware updater - the format `Core/Util/PSARUnpack.cpp` walks |
+| [docs/pkg_notes.md](docs/pkg_notes.md) | The NPDRM `.pkg` format PSP game updates ship in, and how PPSSPP installs them |
+| [docs/kernel-hle-review.md](docs/kernel-hle-review.md) | Findings from a review pass over `Core/HLE/sceKernel*.cpp`, and what was verified clean |
+| [docs/metal-backend.md](docs/metal-backend.md) | What a native Metal backend would take, and why programmable blending is the reason to want one |
 
 ## General instructions
 
@@ -41,28 +48,11 @@ for it:
    `newline=''` silently converts the whole file, turning a two-line addition into a 5000-line diff.
    Check `git diff --stat` before committing - a whole-file rewrite is obvious there and invisible in
    the editor. Prefer the Edit tool, which does exact string replacement and can't do this.
-6. **Don't feed Python to `bash -c` via a heredoc when the code contains backslashes.** The Git Bash / MinGW
-   layer strips one level of backslash escaping on the way in, *even with a quoted delimiter* (`<<'PY'`), which
-   normally suppresses all substitution. So the script Python receives is not the one you wrote:
-
-   | You write in the heredoc | Python actually sees | Result |
-   |---|---|---|
-   | `"\r\n"` | `"\r\n"` | fine - survives, because you *want* Python to interpret it |
-   | `"\\n"` (intending a literal `\n` in the output) | `"\n"` | **a real newline is written into the file** |
-   | `'foo \\\r\n'` as a match anchor | `'foo \<CR><LF>'` | **anchor silently doesn't match**, reported as "anchor missing" |
-
-   The tell for the first case is a compiler error like `C2001: newline in string literal`; the second case
-   produces no error at all, just a patch that quietly did nothing. Both are invisible in the heredoc you wrote.
-
-   The rule: **a heredoc is fine as long as every backslash in the script is one you want Python to interpret.
-   The moment you need a literal backslash in the *output*, stop.** Then either:
-   - use the Edit tool instead (exact string replacement, no shell in the path - the best option for the common
-     case of "insert a few lines of C++ that contain `\n`"), or
-   - write the script to a file with the Write tool and run `python thescript.py`, or
-   - build the backslash as `chr(92)` so no literal backslash appears in the heredoc at all.
-
-   Note this is about the *Python source*, not the data: reading and rewriting a CRLF file with `newline=''` and
-   `\r\n` anchors works fine in a heredoc, and is the normal way to patch files here (see rule 5).
+6. **Don't feed Python to `bash -c` via a heredoc when the code needs a literal backslash in its
+   *output*.** Git Bash strips one level of escaping on the way in even with a quoted delimiter
+   (`<<'PY'`), so `"\\n"` reaches Python as `"\n"` and writes a real newline into the file - no error,
+   just a patch that quietly did nothing. Use the Edit tool, or write the script to a file and run it.
+   Details and the other two failure shapes: [docs/patching-files.md](docs/patching-files.md).
 
 ## Core Safety Checks
 
@@ -78,11 +68,9 @@ for it:
 
 ## Build and validation
 
-- Linux/Mac: `./b.sh --debug` for a full configure+build; after that, just `cd build ; make -j32; cd ..`
-  for a quick rebuild.
-- Windows: the Visual Studio solution `Windows/PPSSPP.sln` - always build through it, even if a stray
-  CMake-generated `build/` directory exists at the repo root. An agent can drive it with `MSBuild.exe`
-  (located via `vswhere.exe`) instead of the GUI:
+- Linux/Mac: `./b.sh --debug` for a full configure+build; after that, `cd build ; make -j32; cd ..`.
+- Windows: always build through `Windows/PPSSPP.sln`, even if a stray CMake-generated `build/` directory
+  exists at the repo root. Drive it with `MSBuild.exe` (found via `vswhere.exe`) rather than the GUI:
 
 ```powershell
 $installPath = & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
@@ -96,8 +84,7 @@ $msbuild = "$installPath\MSBuild\Current\Bin\MSBuild.exe"
   `/t:Rebuild`; when bisecting a behavioural change, confirm the binary actually changed before you
   believe the result.
 
-UWP, the legacy Android NDK build and the libretro core have their own build systems - see
-[docs/building.md](docs/building.md), which also covers the above in full.
+UWP, the legacy Android NDK build and the libretro core have their own build systems.
 
 ## Testing
 
@@ -117,10 +104,7 @@ python test.py -g --graphics=software
   (The debug-CRT "Detected memory leaks!" dump after the summary line is normal, not a failure.)
 
 New unit tests are added to `availableTests`; large ones go in their own file in `unittest/`, listed in
-both CMakeLists.txt and the Visual Studio project. See [docs/building.md](docs/building.md) for the
-details and [docs/pspautotests.md](docs/pspautotests.md) for a workflow for improving PPSSPP with
-pspautotest results. To write a *new* pspautotest and record its `.expected` from a real PSP over
-PSPLink, see [docs/pspautotests-hardware.md](docs/pspautotests-hardware.md).
+both CMakeLists.txt and the Visual Studio project.
 
 ## Multiplatform considerations
 
@@ -140,15 +124,11 @@ libretro/libretro.cpp
 
 ## Reverse-engineering the firmware
 
-When a question about hardware behaviour can't be settled from the docs or from JPCSP - what a
-field in a codec context means, what a library actually returns when a buffer runs dry - the
-firmware itself can be read. `PPSSPPHeadless --re-module flash0:/kd/libmp3.prx --re-out DIR`
-loads one PRX standalone and writes an annotated disassembly, the export/import tables with NIDs
-resolved, and a call graph. It needs a firmware dump (`--memstick` pointing at one; PPSSPP can
-unpack an updater itself with `--unpack-updater`).
-
-Full usage, and how to accumulate names in a `.ppsym` file so the disassembly stays readable:
-[docs/reverse-engineering.md](docs/reverse-engineering.md).
+When a question about hardware behaviour can't be settled from the docs or from JPCSP - what a field in
+a codec context means, what a library returns when a buffer runs dry - read the firmware.
+`PPSSPPHeadless --re-module flash0:/kd/libmp3.prx --re-out DIR` loads one PRX standalone and writes an
+annotated disassembly, the export/import tables with NIDs resolved, and a call graph. It needs a
+firmware dump (`--memstick` pointing at one; `--unpack-updater` can produce one).
 
 Two things to know before trusting what you read there:
 
@@ -162,24 +142,10 @@ Two things to know before trusting what you read there:
 ## Command-line parsing
 
 All command-line parsing for both the main app and headless builds belongs in `Core/CmdLine.cpp` /
-`Core/CmdLine.h` (`CommandLineOptions`), not in the platform entry points (`Windows/main.cpp`, `headless/Headless.cpp`,
-`UI/NativeApp.cpp`, etc.). Don't re-parse `argv` manually in those files - add a field to `CommandLineOptions` instead.
-
-- Most options are declared in the `g_autoParams` table in `CmdLine.cpp` as `{offsetof(...), type, longName,
-  shortName, docString, mode}`. `mode` gates the option to `CmdLineMode::Application`, `::Headless`, or `::Both`
-  (the default if the field is omitted from the initializer) - the same long name can be reused for both modes with
-  different types/meanings (e.g. `--log` is a `String` "log to FILE" option in Application mode but a `Bool` "full
-  log output" option in Headless mode; they don't collide because a given `Parse()` call only matches params whose
-  mode is `Both` or equal to the current mode).
-- Options that can be repeated (e.g. `--ignore TESTNAME`, collected into a `std::vector<std::string>`) or that don't
-  fit the generic single-value table need manual handling in the `else if` chain inside `CommandLineOptions::Parse()`,
-  similar to how `--graphics=` and `boot Filenames` are handled.
-- `ApplyToConfig()` is where parsed options get pushed into `g_Config`/`g_logManager`; prefer wiring a new option
-  through there so all platforms get it for free, rather than reading `CommandLineOptions` fields ad-hoc at each
-  call site.
-- `NativeInit()` in `UI/NativeApp.cpp` still takes `argc`/`argv` (several platform entry points pass them in), but
-  it shouldn't read them directly - by the time `NativeInit()` runs, `CommandLineOptions` should already have
-  everything.
+`Core/CmdLine.h` (`CommandLineOptions`), not in the platform entry points (`Windows/main.cpp`,
+`headless/Headless.cpp`, `UI/NativeApp.cpp`, etc.). Don't re-parse `argv` manually in those files - add
+a field to `CommandLineOptions`, and push it into `g_Config` from `ApplyToConfig()` so every platform
+gets it for free. How to declare one: [docs/command-line.md](docs/command-line.md).
 
 ## File formats, codecs, and other format handlers
 
@@ -192,9 +158,8 @@ For string sanitation, we already have SanitizeString in StringUtils.cpp - add n
 
 ## Framedump rendering tests (frametests)
 
-There is a rendering test system that replays GE frame dumps (`.ppdmp`) through PPSSPPHeadless and compares
-the output against reference images, driven by the `frametests.py` script and a JSON config per test set.
-When changing rendering code, consider running these tests. See docs/frametest.md for full documentation.
+`frametests.py` replays GE frame dumps (`.ppdmp`) through PPSSPPHeadless and compares the output against
+reference images, with a JSON config per test set. Consider running these when changing rendering code.
 
 Note: `headless/Compare.cpp` reads back framebuffers top-down; the flip to bottom-up is only applied when
 writing BMPs (and when reading BMP references). `TranslateDebugBufferToCompare` also exists as a copy in
@@ -203,15 +168,9 @@ writing BMPs (and when reading BMP references). `TranslateDebugBufferToCompare` 
 ## Adding HLE modules
 
 HLE module implementations live in `Core/HLE/sce<ModuleName>.cpp` / `.h`, as a `const HLEFunction
-<name>[]` table registered via `RegisterHLEModule()`. Two savestate-compatibility rules that break
-things silently if ignored:
-
-- **New modules are registered at the very end** of the registration function in `Core/HLE/HLETables.cpp`,
-  never inserted alphabetically among the existing `Register_*()` calls.
-- **New entries in an existing module's function table go at the very end of that array too** - a
-  savestate captures the syscall opcode encoding the entry's array index, so shifting later entries
-  makes old savestates call the wrong function. See Core Safety Checks above: this holds for any
-  edit to any `HLEFunction` array, not just when adding a module.
+<name>[]` table registered via `RegisterHLEModule()`. Both the function table and the `Register_*()`
+calls are append-only - see Core Safety Checks above, which is what breaks old savestates silently
+if ignored.
 
 Also: a new `.cpp`/`.c` file has to be added to **seven** build files (CMake, Core.vcxproj + filters,
 the two UWP projects, `android/jni/Android.mk`, `libretro/Makefile.common`); headers to the first five.
@@ -234,16 +193,14 @@ PPSSPP has a JSON/WebSocket debugger and automation API (read/write memory, brea
 state, input injection, log tailing), served at `/debugger` on the Remote ISO port and enabled with
 `--debugger=PORT` on both the application and headless builds. `Tools/wsdbg/` is a CLI client for it.
 
-- Protocol reference and event catalog: [docs/WebSocketDebugger.md](docs/WebSocketDebugger.md) - read it
-  before changing the interface, and update it when adding commands.
-- Driving it from a script, plus the many headless gotchas (`--timeout` is for the whole session, `-r`
-  is ambiguous, exceptions don't reach the log, ...): [docs/debugging.md](docs/debugging.md).
-- Breakpoints are most reliable on the interpreter (`-i`); memory breakpoints only work for constant
-  addresses under the JITs, and register breakpoints never trip there. Table in
-  [docs/debugging.md](docs/debugging.md).
-- **Before touching debugger code that runs off the CPU thread, read
-  [docs/DebuggerThreading.md](docs/DebuggerThreading.md)** - `Core_RunOnCPUThread()` for mutations,
-  `g_frameMutex` for hot reads, and a lock order that has deadlocked for real when gotten backwards.
+Read [docs/WebSocketDebugger.md](docs/WebSocketDebugger.md) before changing the interface, and update
+it when you add a command.
+
+- Breakpoints are most reliable on the interpreter (`-i`): under the JITs, memory breakpoints only work
+  for constant addresses and register breakpoints never trip at all.
+- **Debugger code that runs off the CPU thread has a lock order that has deadlocked for real** -
+  `Core_RunOnCPUThread()` for mutations, `g_frameMutex` for hot reads. Read
+  [docs/DebuggerThreading.md](docs/DebuggerThreading.md) before touching it.
 
 ## Commit message style
 
