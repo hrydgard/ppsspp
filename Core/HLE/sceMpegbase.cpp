@@ -132,13 +132,12 @@ std::vector<u8> MpegBaseTakePESPacket(u32 dest) {
 // mpeg.prx hands the ME's decoded output to these to be converted to RGB. The descriptor it
 // passes is 48 bytes, which matches the range mpegbase.prx bounds-checks before using it.
 //
-// mpeg.prx builds this on its own stack right before each call (1.3 at 08805698, 1.8 at 08805898 -
-// the two are the same shape), from the eight buffer addresses sceVideocodec published plus the
-// dimensions out of its own context. mpegbase.prx reads exactly these fields: the dimensions at
-// 0x00/0x04 and all eight buffers at 0x10..0x2c.
+// mpeg.prx builds this on its own stack before each call (1.3 at 08805698, 1.8 at 08805898, the
+// same shape) from the eight buffer addresses sceVideocodec published and the dimensions from its
+// own context. mpegbase.prx reads the dimensions at 0x00/0x04 and the eight buffers at 0x10..0x2c.
 //
-// The buffers can be in either place: the Media Engine's memory for a frame the decoder just
-// produced, or the game's, once sceMpegBaseYCrCbCopy has moved one out.
+// The buffers live either in Media Engine memory (a freshly decoded frame) or in the game's
+// memory (once sceMpegBaseYCrCbCopy has moved one out).
 struct SceMp4AvcCscStruct {
 	s32_le height;        // 0x00  in macroblocks
 	s32_le width;         // 0x04
@@ -335,17 +334,16 @@ static int MpegBaseCscRange(u32 bufferRGB, u32 cscAddr, int bufferWidth,
 		}
 	}
 	NotifyMemInfo(MemBlockFlags::WRITE, bufferRGB, destSize, "MpegBaseCsc");
-	// The CPU just wrote a video frame straight into what is usually a display buffer. The hardware
-	// backends don't see that on their own, so without telling them, the screen keeps showing the
-	// last frame the GE drew - the same notification our sceMpegAvcCsc HLE does. The pixel mode
-	// numbering matches GEBufferFormat, as it does there.
+	// The CPU just wrote a video frame into what is usually a display buffer. The hardware backends
+	// don't see that on their own, so without telling them the screen keeps showing the last frame
+	// the GE drew (the same notification our sceMpegAvcCsc HLE does). The pixel mode numbering
+	// matches GEBufferFormat, as it does there.
 	gpu->PerformWriteFormattedFromMemory(bufferRGB, destSize, bufferWidth, (GEBufferFormat)g_mpegBasePixelMode);
-	// This runs on the DMACPLUS hardware and takes real time, and a caller running the real
-	// mpeg.prx leans on that. A psmfplayer game blits the current video frame every render frame
-	// while it waits for the next one to be ready, so returning instantly turns that into a tight
-	// loop that never yields and starves the audio thread - which is what paces playback - so the
-	// whole A/V pipeline deadlocks a few frames in. (SOCOM: Tactical Strike hangs exactly here.)
-	// Our sceMpeg HLE delays the equivalent sceMpegAvcCsc by the same amount for the same reason.
+	// This runs on the DMACPLUS and takes real time. A psmfplayer game blits the current video
+	// frame every render frame while it waits for the next, so an instant return is a tight loop
+	// that never yields and starves the audio thread that paces playback, and the A/V pipeline
+	// deadlocks a few frames in (SOCOM: Tactical Strike hangs exactly here). Our sceMpeg HLE delays
+	// sceMpegAvcCsc the same way.
 	return hleDelayResult(hleLogDebug(Log::Mpeg, 0, "%dx%d at %d,%d -> %08x stride %d",
 		rangeWidth, rangeHeight, rangeX, rangeY, bufferRGB, bufferWidth), "mpegbase csc", 4000);
 }
@@ -378,8 +376,8 @@ static int sceMpegBaseCscAvc(u32 bufferRGB, u32 unknown, int bufferWidth, u32 cs
 	if (!csc.IsValid()) {
 		return hleLogError(Log::Mpeg, -1, "bad csc struct pointer");
 	}
-	// The whole frame. MpegBaseCscRange clamps the range to the real frame size, which it gets
-	// from the allocation rather than from the descriptor, so ask for more than any frame can be.
+	// The whole frame. MpegBaseCscRange clamps to the real frame size (from the allocation, not the
+	// descriptor), so pass more than any frame can be.
 	return MpegBaseCscRange(bufferRGB, cscAddr, bufferWidth, 0, 0, 1024, 1024);
 }
 
@@ -395,14 +393,13 @@ static u32 sceMpegBaseCscAvcRange(u32 bufferRGB, u32 unknown, u32 rangeAddr, int
 	return MpegBaseCscRange(bufferRGB, cscAddr, bufferWidth, rangeX, rangeY, rangeWidth, rangeHeight);
 }
 
-// Moves a decoded frame between two sets of buffers - both arguments are descriptors, and what
-// gets copied is the pixels they point at, not the descriptors themselves.
+// Moves a decoded frame between two sets of buffers. Both arguments are descriptors; what gets
+// copied is the pixels they point at, not the descriptors.
 //
-// mpegbase.prx builds a DMA list over the eight buffers (080010f8 in mpegbase_260.prx): bit 0 of
-// the flags selects buffers 0, 1, 4 and 5, bit 1 selects 2, 3, 6 and 7, and the per-buffer sizes
-// are the same ones sceVideocodec lays its frame out with. mpeg.prx always passes 3, i.e. all
-// eight. The source is the ME's own frame; the destination is wherever the caller wants it, which
-// for psmfplayer is a slot in its output pool.
+// mpegbase.prx builds a DMA list over the eight buffers (080010f8 in mpegbase_260.prx): flag bit 0
+// selects buffers 0,1,4,5 and bit 1 selects 2,3,6,7, with the per-buffer sizes sceVideocodec lays
+// its frame out with. mpeg.prx always passes 3 (all eight). The source is the ME's frame; the
+// destination is wherever the caller wants it (for psmfplayer, a slot in its output pool).
 static int sceMpegBaseYCrCbCopy(u32 dstAddr, u32 srcAddr, int flags) {
 	auto dst = PSPPointer<SceMp4AvcCscStruct>::Create(dstAddr);
 	auto src = PSPPointer<SceMp4AvcCscStruct>::Create(srcAddr);
@@ -410,10 +407,8 @@ static int sceMpegBaseYCrCbCopy(u32 dstAddr, u32 srcAddr, int flags) {
 		return hleLogError(Log::Mpeg, -1, "bad descriptor pointer");
 	}
 
-	// Same story as the colour conversion: the frame size comes from the allocation the source
-	// buffers belong to, not from the descriptor's own dimension fields.
-	// mpeg.prx fills the destination's dimensions in macroblocks, the same way the colour
-	// conversion gets them; the source descriptor it builds on its stack states them in pixels.
+	// The destination descriptor carries the dimensions in macroblocks (as the colour conversion's
+	// does); the stack-built source descriptor states them in pixels, so read the destination.
 	const int width = dst->width << 4;
 	const int height = dst->height << 4;
 	if (width <= 0 || height <= 0 || width > 1024 || height > 1024) {
@@ -424,8 +419,8 @@ static int sceMpegBaseYCrCbCopy(u32 dstAddr, u32 srcAddr, int flags) {
 
 	int copied = 0;
 	for (int i = 0; i < 8; i++) {
-		// Buffers 0,1,4,5 go with bit 0 and 2,3,6,7 with bit 1 - the even/odd row halves of luma
-		// and of chroma respectively.
+		// Buffers 0,1,4,5 go with bit 0 and 2,3,6,7 with bit 1 (the even and odd row halves of luma
+		// and chroma).
 		const int bit = ((i & 3) < 2) ? 1 : 2;
 		if (!(flags & bit) || sizes[i] <= 0) {
 			continue;

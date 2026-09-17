@@ -451,9 +451,8 @@ void BlockAllocator::DoState(PointerWrap &p)
 	const bool compact = s >= 2;
 	int count = 0;
 
-	// An allocator that was never Init'd (or has been Shutdown) has no blocks at all. That's a
-	// perfectly good state to save - it's what one that nothing has asked for memory from yet
-	// looks like - so zero blocks is a normal count here, not a corrupt one.
+	// An allocator that was never Init'd (or has been Shutdown) has no blocks, which is a valid
+	// state to save, so a zero block count here is normal rather than corrupt.
 	if (p.mode == p.MODE_READ)
 	{
 		Shutdown();

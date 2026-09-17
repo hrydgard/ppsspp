@@ -53,8 +53,8 @@ void VideocodecGetCtxInfo(std::vector<VideocodecCtxInfo> *infos);
 u8 *VideocodecMEPointer(u32 addr, u32 size);
 
 // The eight buffers of the frame starting at `firstBuffer`, and its size. Returns false if that
-// isn't the start of an allocation we handed out - which is the normal answer once
-// sceMpegBaseYCrCbCopy has moved a frame into the game's own memory.
+// isn't the start of an allocation we handed out (the normal answer once sceMpegBaseYCrCbCopy has
+// moved a frame into the game's memory).
 bool VideocodecGetFrameBuffers(u32 firstBuffer, u32 buffers[8], int *width = nullptr, int *height = nullptr);
 
 // How the eight buffers a frame is delivered in are sized and laid out, in the order the
