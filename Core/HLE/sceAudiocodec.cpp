@@ -96,11 +96,9 @@ static_assert(offsetof(SceAudiocodecCodec, allocMem) == 0x68);
 
 // AAC (0x1003)
 // ------------------------------------------------
-// Sample rate is at offset 0x28.
-// srcBytesConsumed can be very small the first frames.
-// 0x1000 is always the frame size.
-// The firmware sizes AAC from the bytes at 0x2c and 0x2d rather than from 0x28: input is
-// 0x600 or 0x609, output 0x1000 or 0x2000, depending on those two. Consistent with the above.
+// Sample rate is at offset 0x28. The input frame size is 0x609 when the byte at 0x2c is nonzero
+// and 0x600 when it is zero (avcodec.prx decodeUtility, case 0x1003); the output size comes from
+// the byte at 0x2d and is 0x1000 or 0x2000.
 
 // MP3 (0x1002)
 // ------------------------------------------------
@@ -141,24 +139,12 @@ void CalculateInputBytesAndChannelsAt3Plus(const SceAudiocodecCodec *ctx, int *i
 		return;
 	}
 
-	int size = formatByte2 * 8 + 8;
-	// No idea if this is accurate, this is just a guess...
-	if (formatByte1 & 8) {
-		*channels = 2;
-	} else {
-		*channels = 1;
-	}
-	switch (size) {
-	case 0x118:
-	case 0x178:
-	case 0x230:
-	case 0x2E8:
-		// These have been seen before, let's return it.
-		*inputBytes = size;
-		return;
-	default:
-		break;
-	}
+	// bit 3 of the first byte is the channel count. This is a guess, but it fits the data we have.
+	*channels = (formatByte1 & 8) ? 2 : 1;
+	// formatByte2 * 8 + 8 gives the frame size for every bitrate we have data for (0x118, 0x178,
+	// 0x230, 0x2E8), so use it for any other value as well rather than leaving inputBytes at 0,
+	// which the firmware never does and which would fail the decode outright.
+	*inputBytes = formatByte2 * 8 + 8;
 }
 
 // Atrac3 (0x1001). Unlike Atrac3+, the context doesn't carry a frame size - libatrac3plus.prx
@@ -342,7 +328,11 @@ static int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 		sampleRate = Mp3SampleRateFromContext(ctx);
 		break;
 	case PSP_CODEC_AAC:
-		bytesPerFrame = ctx->srcBytesRead;
+		// avcodec.prx sizes the AAC input frame from the byte at 0x2c: 0x609 when it is nonzero,
+		// 0x600 when it is zero (decodeUtility, case 0x1003). srcBytesRead, which this used to read,
+		// is an output field and is 0 on the first call, so the decoder got nothing to read and
+		// audio never started (seen in Meururu no Atelier Plus running the real mpeg.prx).
+		bytesPerFrame = ctx->fmt.aac.unk2c ? 0x609 : 0x600;
 		sampleRate = ctx->fmt.aac.sampleRate;
 		break;
 	case PSP_CODEC_AT3:
@@ -470,6 +460,7 @@ static int sceAudiocodecCheckNeedMem(u32 ctxPtr, int codec) {
 		break;
 	case 0x1003:
 		// Kosmodrones uses sceAudiocodec directly (no intermediate library).
+		ctx->neededMem = 0x18f20;
 		INFO_LOG(Log::ME, "CheckNeedMem for codec %04x: format %02x %02x", codec, ctx->fmt.at3.formatByte1, ctx->fmt.at3.formatByte2);
 		break;
 	}

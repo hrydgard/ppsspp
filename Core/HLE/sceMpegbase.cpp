@@ -132,23 +132,29 @@ std::vector<u8> MpegBaseTakePESPacket(u32 dest) {
 // mpeg.prx hands the ME's decoded output to these to be converted to RGB. The descriptor it
 // passes is 48 bytes, which matches the range mpegbase.prx bounds-checks before using it.
 //
-// The dimensions appear twice. Death Jr. has the plain macroblock counts in both pairs, but
-// Thrillville's psmfplayer path has them shifted up by 8 in the first pair and plain in the
-// second, so the second is the one to trust. The four luma buffers are at 0x20; the chroma ones
-// aren't in here at all (see the recovery in MpegBaseCscRange).
+// mpeg.prx builds this on its own stack before each call (1.3 at 08805698, 1.8 at 08805898, the
+// same shape) from the eight buffer addresses sceVideocodec published and the dimensions from its
+// own context. mpegbase.prx reads the dimensions at 0x00/0x04 and the eight buffers at 0x10..0x2c.
+//
+// The buffers live either in Media Engine memory (a freshly decoded frame) or in the game's
+// memory (once sceMpegBaseYCrCbCopy has moved one out).
 struct SceMp4AvcCscStruct {
-	s32_le scaledHeight;  // 0x00  height << 8 on some paths, macroblocks on others - unused
-	s32_le scaledWidth;   // 0x04
-	s32_le mode0;         // 0x08
-	s32_le mode1;         // 0x0c
-	s32_le height;        // 0x10  in macroblocks
-	s32_le width;         // 0x14  in macroblocks
-	s32_le unk18;         // 0x18
-	s32_le unk1c;         // 0x1c
-	u32_le buffer[4];     // 0x20  luma only
+	s32_le height;        // 0x00  in macroblocks
+	s32_le width;         // 0x04
+	s32_le unk08;         // 0x08
+	s32_le unk0c;         // 0x0c
+	u32_le buffer[8];     // 0x10  four luma, then four chroma
 };
 static_assert(sizeof(SceMp4AvcCscStruct) == 0x30);
 
+
+// A frame buffer is either in the Media Engine's memory or, after a copy, in the game's.
+static const u8 *MpegBaseFramePointer(u32 addr, int size) {
+	if (const u8 *me = VideocodecMEPointer(addr, size)) {
+		return me;
+	}
+	return Memory::GetTypedPointerRange<u8>(addr, size);
+}
 
 // The ME doesn't write plain planar YCbCr. The layout below was established by analysing
 // sceMpegBaseYCrCbCopy output on a real PSP (documented in JPCSP's sceVideocodec), and it uses
@@ -163,8 +169,8 @@ static_assert(sizeof(SceMp4AvcCscStruct) == 0x30);
 //
 //   Chroma is one (Cb,Cr) byte pair per 2x2 pixel square, so in chroma coordinates the bands are
 //   16 wide with 8-pixel halves, and the same even/odd split applies:
-//     buffer4: left half,  even chroma rows  buffer5: left half,  odd chroma rows
-//     buffer6: right half, even chroma rows  buffer7: right half, odd chroma rows
+//     buffer4: left half,  even chroma rows  buffer5: right half, even chroma rows
+//     buffer6: left half,  odd chroma rows   buffer7: right half, odd chroma rows
 //
 // Untangling it into plain planes costs one pass per frame, which keeps the conversion below
 // readable and is not where the time goes.
@@ -178,20 +184,17 @@ static bool ReadTiledYCbCr(const u32 *buffers, int width, int height,
 	const int *ySize = sizes;
 	const int *cSize = sizes + 4;
 
-	// These are addresses in the Media Engine's memory, not in PSP RAM, so they resolve through
-	// sceVideocodec rather than through Memory::. A descriptor that was never filled in holds
-	// small integers instead, and those simply aren't in the ME's range.
 	const u8 *y[4] = {};
 	const u8 *c[4] = {};
 	for (int i = 0; i < 4; i++) {
 		if (ySize[i] > 0) {
-			y[i] = VideocodecMEPointer(buffers[i], ySize[i]);
+			y[i] = MpegBaseFramePointer(buffers[i], ySize[i]);
 			if (!y[i]) {
 				return false;
 			}
 		}
 		if (cSize[i] > 0) {
-			c[i] = VideocodecMEPointer(buffers[4 + i], cSize[i]);
+			c[i] = MpegBaseFramePointer(buffers[4 + i], cSize[i]);
 			if (!c[i]) {
 				return false;
 			}
@@ -226,8 +229,8 @@ static bool ReadTiledYCbCr(const u32 *buffers, int width, int height,
 		if (!c[b]) {
 			continue;
 		}
-		const int xOffset = (b >> 1) ? 8 : 0;
-		const int yStart = (b & 1) ? 1 : 0;
+		const int xOffset = (b & 1) ? 8 : 0;
+		const int yStart = (b >> 1) ? 1 : 0;
 		int j = 0;
 		for (int bandX = xOffset; bandX < width2; bandX += 16) {
 			for (int row = yStart; row < height2; row += 2) {
@@ -278,6 +281,10 @@ static int MpegBaseCscRange(u32 bufferRGB, u32 cscAddr, int bufferWidth,
 		bufferWidth = g_mpegBaseBufferWidth;
 	}
 
+	u32 buffers[8]{};
+	for (int i = 0; i < 8; i++) {
+		buffers[i] = csc->buffer[i];
+	}
 	const int width = csc->width << 4;
 	const int height = csc->height << 4;
 	if (width <= 0 || height <= 0 || width > 1024 || height > 1024) {
@@ -295,14 +302,6 @@ static int MpegBaseCscRange(u32 bufferRGB, u32 cscAddr, int bufferWidth,
 	if (rangeX < 0 || rangeY < 0 || rangeWidth <= 0 || rangeHeight <= 0) {
 		return hleLogError(Log::Mpeg, -1, "range outside the frame");
 	}
-
-	// The descriptor only carries the four luma buffers. Recover the full set from the allocation
-	// sceVideocodec handed out - both ends of that are ours.
-	u32 buffers[8]{};
-	for (int i = 0; i < 4; i++) {
-		buffers[i] = csc->buffer[i];
-	}
-	VideocodecGetFrameBuffers(csc->buffer[0], buffers);
 
 	std::vector<u8> luma, cb, cr;
 	if (!ReadTiledYCbCr(buffers, width, height, luma, cb, cr)) {
@@ -335,13 +334,18 @@ static int MpegBaseCscRange(u32 bufferRGB, u32 cscAddr, int bufferWidth,
 		}
 	}
 	NotifyMemInfo(MemBlockFlags::WRITE, bufferRGB, destSize, "MpegBaseCsc");
-	// The CPU just wrote a video frame straight into what is usually a display buffer. The hardware
-	// backends don't see that on their own, so without telling them, the screen keeps showing the
-	// last frame the GE drew - the same notification our sceMpegAvcCsc HLE does. The pixel mode
-	// numbering matches GEBufferFormat, as it does there.
+	// The CPU just wrote a video frame into what is usually a display buffer. The hardware backends
+	// don't see that on their own, so without telling them the screen keeps showing the last frame
+	// the GE drew (the same notification our sceMpegAvcCsc HLE does). The pixel mode numbering
+	// matches GEBufferFormat, as it does there.
 	gpu->PerformWriteFormattedFromMemory(bufferRGB, destSize, bufferWidth, (GEBufferFormat)g_mpegBasePixelMode);
-	return hleLogDebug(Log::Mpeg, 0, "%dx%d at %d,%d -> %08x stride %d",
-		rangeWidth, rangeHeight, rangeX, rangeY, bufferRGB, bufferWidth);
+	// This runs on the DMACPLUS and takes real time. A psmfplayer game blits the current video
+	// frame every render frame while it waits for the next, so an instant return is a tight loop
+	// that never yields and starves the audio thread that paces playback, and the A/V pipeline
+	// deadlocks a few frames in (SOCOM: Tactical Strike hangs exactly here). Our sceMpeg HLE delays
+	// sceMpegAvcCsc the same way.
+	return hleDelayResult(hleLogDebug(Log::Mpeg, 0, "%dx%d at %d,%d -> %08x stride %d",
+		rangeWidth, rangeHeight, rangeX, rangeY, bufferRGB, bufferWidth), "mpegbase csc", 4000);
 }
 
 static int sceMpegBaseCscInit(int bufferWidth) {
@@ -372,7 +376,9 @@ static int sceMpegBaseCscAvc(u32 bufferRGB, u32 unknown, int bufferWidth, u32 cs
 	if (!csc.IsValid()) {
 		return hleLogError(Log::Mpeg, -1, "bad csc struct pointer");
 	}
-	return MpegBaseCscRange(bufferRGB, cscAddr, bufferWidth, 0, 0, csc->width << 4, csc->height << 4);
+	// The whole frame. MpegBaseCscRange clamps to the real frame size (from the allocation, not the
+	// descriptor), so pass more than any frame can be.
+	return MpegBaseCscRange(bufferRGB, cscAddr, bufferWidth, 0, 0, 1024, 1024);
 }
 
 static u32 sceMpegBaseCscAvcRange(u32 bufferRGB, u32 unknown, u32 rangeAddr, int bufferWidth, u32 cscAddr) {
@@ -387,16 +393,50 @@ static u32 sceMpegBaseCscAvcRange(u32 bufferRGB, u32 unknown, u32 rangeAddr, int
 	return MpegBaseCscRange(bufferRGB, cscAddr, bufferWidth, rangeX, rangeY, rangeWidth, rangeHeight);
 }
 
-// Copies one 48-byte YCrCb descriptor over another. The hardware copies the buffers themselves
-// when told to; games seen so far only use it to move the descriptor around, so that is all we
-// do until something needs more.
+// Moves a decoded frame between two sets of buffers. Both arguments are descriptors; what gets
+// copied is the pixels they point at, not the descriptors.
+//
+// mpegbase.prx builds a DMA list over the eight buffers (080010f8 in mpegbase_260.prx): flag bit 0
+// selects buffers 0,1,4,5 and bit 1 selects 2,3,6,7, with the per-buffer sizes sceVideocodec lays
+// its frame out with. mpeg.prx always passes 3 (all eight). The source is the ME's frame; the
+// destination is wherever the caller wants it (for psmfplayer, a slot in its output pool).
 static int sceMpegBaseYCrCbCopy(u32 dstAddr, u32 srcAddr, int flags) {
-	if (!Memory::IsValidRange(dstAddr, sizeof(SceMp4AvcCscStruct)) ||
-		!Memory::IsValidRange(srcAddr, sizeof(SceMp4AvcCscStruct))) {
+	auto dst = PSPPointer<SceMp4AvcCscStruct>::Create(dstAddr);
+	auto src = PSPPointer<SceMp4AvcCscStruct>::Create(srcAddr);
+	if (!dst.IsValid() || !src.IsValid()) {
 		return hleLogError(Log::Mpeg, -1, "bad descriptor pointer");
 	}
-	Memory::Memcpy(dstAddr, srcAddr, (u32)sizeof(SceMp4AvcCscStruct), "MpegBaseYCrCbCopy");
-	return hleLogDebug(Log::Mpeg, 0, "flags %08x - descriptor copied, buffers left alone", flags);
+
+	// The destination descriptor carries the dimensions in macroblocks (as the colour conversion's
+	// does); the stack-built source descriptor states them in pixels, so read the destination.
+	const int width = dst->width << 4;
+	const int height = dst->height << 4;
+	if (width <= 0 || height <= 0 || width > 1024 || height > 1024) {
+		return hleLogError(Log::Mpeg, -1, "unreasonable frame size %dx%d", width, height);
+	}
+	int sizes[8];
+	VideocodecFrameBufferLayout(width, height, sizes, nullptr);
+
+	int copied = 0;
+	for (int i = 0; i < 8; i++) {
+		// Buffers 0,1,4,5 go with bit 0 and 2,3,6,7 with bit 1 (the even and odd row halves of luma
+		// and chroma).
+		const int bit = ((i & 3) < 2) ? 1 : 2;
+		if (!(flags & bit) || sizes[i] <= 0) {
+			continue;
+		}
+		const u8 *from = MpegBaseFramePointer(src->buffer[i], sizes[i]);
+		if (!from) {
+			return hleLogError(Log::Mpeg, -1, "source buffer %d not readable", i);
+		}
+		if (!Memory::IsValidRange(dst->buffer[i], sizes[i])) {
+			return hleLogError(Log::Mpeg, -1, "destination buffer %d (%08x, %d bytes) not writable",
+				i, (u32)dst->buffer[i], sizes[i]);
+		}
+		Memory::MemcpyUnchecked(dst->buffer[i], from, sizes[i]);
+		copied += sizes[i];
+	}
+	return hleLogDebug(Log::Mpeg, 0, "flags %d, %dx%d, %d bytes", flags, width, height, copied);
 }
 
 const HLEFunction sceMpegbase[] =

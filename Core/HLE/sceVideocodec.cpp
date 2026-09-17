@@ -227,9 +227,13 @@ u32 VideocodecFrameBufferLayout(int width, int height, int sizes[8], u32 offsets
 	// buffer0/2 take the odd band out when the width isn't a multiple of 32.
 	const int lumaLeft = ((width + 16) >> 5) * (height >> 1) * 16;
 	const int lumaRight = (width >> 5) * (height >> 1) * 16;
+	// Chroma is paired like luma (left/right of a band, then even/odd rows), which is what
+	// sceMpegBaseYCrCbCopy's flags assume: bit 0 selects buffers 0,1,4,5 and bit 1 selects 2,3,6,7.
+	// The sizes have to match that, or a copy writes the wrong count into a buffer someone else
+	// sized.
 	const int local[8] = {
 		lumaLeft, lumaRight, lumaLeft, lumaRight,
-		lumaLeft >> 1, lumaLeft >> 1, lumaRight >> 1, lumaRight >> 1,
+		lumaLeft >> 1, lumaRight >> 1, lumaLeft >> 1, lumaRight >> 1,
 	};
 	u32 total = 0;
 	for (int i = 0; i < 8; i++) {
@@ -244,9 +248,8 @@ u32 VideocodecFrameBufferLayout(int width, int height, int sizes[8], u32 offsets
 	return total;
 }
 
-// The descriptor mpeg.prx passes in is empty: on hardware the ME owns the frame buffers, and
-// reports where it put them. So allocate them here and fill the descriptor in the shape
-// sceMpegBaseCscAvc expects - dimensions in macroblocks, then the eight buffer addresses.
+// The descriptor mpeg.prx passes in is empty: on hardware the ME owns the frame buffers and
+// reports where it put them. So allocate them here and fill in the eight buffer addresses.
 static bool PublishFrameBuffers(VideocodecCtx &vctx, u32 structAddr, int width, int height, u32 buffers[8]) {
 	u32 offsets[8];
 	const u32 total = VideocodecFrameBufferLayout(width, height, nullptr, offsets);
@@ -278,13 +281,15 @@ static bool PublishFrameBuffers(VideocodecCtx &vctx, u32 structAddr, int width, 
 		buffers[i] = vctx.frameBuffers + offsets[i];
 	}
 
-	if (!Memory::IsValidRange(structAddr, 48)) {
+	// mpeg.prx reads eight buffer addresses off the front of this structure (`lw` at 0x00..0x1C,
+	// verified in 1.3 at 08805698 and 1.8 at 08805898) and takes the frame dimensions from its own
+	// context. So write only the addresses; anything else at the front lands in slots 0 and 1,
+	// which sceMpegBaseYCrCbCopy then DMAs to.
+	if (!Memory::IsValidRange(structAddr, 8 * 4)) {
 		return false;
 	}
-	Memory::WriteUnchecked_U32(height >> 4, structAddr + 0);   // macroblocks
-	Memory::WriteUnchecked_U32(width >> 4, structAddr + 4);
 	for (int i = 0; i < 8; i++) {
-		Memory::WriteUnchecked_U32(buffers[i], structAddr + 16 + i * 4);
+		Memory::WriteUnchecked_U32(buffers[i], structAddr + i * 4);
 	}
 	return true;
 }
@@ -308,7 +313,7 @@ void VideocodecGetCtxInfo(std::vector<VideocodecCtxInfo> *infos) {
 	}
 }
 
-bool VideocodecGetFrameBuffers(u32 firstBuffer, u32 buffers[8]) {
+bool VideocodecGetFrameBuffers(u32 firstBuffer, u32 buffers[8], int *width, int *height) {
 	// sceMpegbase only has the first of the eight addresses, so find whose allocation it is.
 	const VideocodecCtx *found = nullptr;
 	for (const auto &[addr, ctx] : g_videocodecCtxs) {
@@ -322,6 +327,12 @@ bool VideocodecGetFrameBuffers(u32 firstBuffer, u32 buffers[8]) {
 	}
 	u32 offsets[8];
 	VideocodecFrameBufferLayout(found->frameBufferWidth, found->frameBufferHeight, nullptr, offsets);
+	if (width) {
+		*width = found->frameBufferWidth;
+	}
+	if (height) {
+		*height = found->frameBufferHeight;
+	}
 	for (int i = 0; i < 8; i++) {
 		buffers[i] = found->frameBuffers + offsets[i];
 	}
@@ -381,8 +392,8 @@ static void WriteTiledYCbCr(const u32 *buffers, const AvcDecoder &dec, int width
 		if (!dst) {
 			continue;
 		}
-		const int xOffset = (b >> 1) ? 8 : 0;
-		const int yStart = (b & 1) ? 1 : 0;
+		const int xOffset = (b & 1) ? 8 : 0;
+		const int yStart = (b >> 1) ? 1 : 0;
 		int j = 0;
 		for (int bandX = xOffset; bandX < width2; bandX += 16) {
 			for (int row = yStart; row < height2; row += 2) {
@@ -624,11 +635,18 @@ static int sceVideocodecSetMemory(u32 ctxAddr, int type) {
 	return hleLogDebug(Log::ME, 0);
 }
 
-static int sceVideocodec_893B32B1(u32 ctxAddr, int type) {
+// 0x893B32B1. mpeg.prx runs this from sceMpegCreate, only in mode 1 (the path where the game reads
+// raw YCbCr out rather than letting sceMpegbase convert to RGB). On hardware it writes back the
+// 0x28-byte output descriptor at ctx+0x10 and issues ME video op 0x6D68B223 to configure the codec.
+// Nothing we run reaches it, so it stays a stub - implement it if a mode-1 game needs it.
+static int sceVideocodecSetMode(u32 ctxAddr, int type) {
 	return hleLogWarning(Log::ME, 0, "UNIMPL");
 }
 
-static int sceVideocodec_D95C24D5(u32 ctxAddr, int type) {
+// 0xD95C24D5. Copies a decoded YCbCr frame between two sets of buffers through the ME (op
+// 0x21521BE5) - the videocodec-level counterpart of sceMpegBaseYCrCbCopy. mpeg.prx calls it on the
+// sceMpegAvcCopyYCbCr path. Nothing we run reaches it, so it stays a stub for now.
+static int sceVideocodecCopyYCbCr(u32 ctxAddr, int type) {
 	return hleLogWarning(Log::ME, 0, "UNIMPL");
 }
 
@@ -645,8 +663,8 @@ const HLEFunction sceVideocodec[] = {
 	{0X17CF7D2C, &WrapI_UI<sceVideocodecGetFrameCrop>,  "sceVideocodecGetFrameCrop",  'i', "xi"},
 	{0X26927D19, &WrapI_UI<sceVideocodecGetVersion>,    "sceVideocodecGetVersion",    'i', "xi"},
 	{0X627B7D42, &WrapI_UI<sceVideocodecGetSEI>,        "sceVideocodecGetSEI",        'i', "xi"},
-	{0X893B32B1, &WrapI_UI<sceVideocodec_893B32B1>,     "sceVideocodec_893B32B1",     'i', "xi"},
-	{0XD95C24D5, &WrapI_UI<sceVideocodec_D95C24D5>,     "sceVideocodec_D95C24D5",     'i', "xi"},
+	{0X893B32B1, &WrapI_UI<sceVideocodecSetMode>,       "sceVideocodecSetMode",       'i', "xi"},
+	{0XD95C24D5, &WrapI_UI<sceVideocodecCopyYCbCr>,     "sceVideocodecCopyYCbCr",     'i', "xi"},
 };
 
 void Register_sceVideocodec() {

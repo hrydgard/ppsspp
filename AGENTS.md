@@ -252,6 +252,17 @@ private:
 
 But generally follow the surrounding style. Braces are preferred on the same line. Braces are always used even when they could be omitted due the inner part being just a single line.
 
+### Comments
+
+Keep comments tight. Say the thing once; don't restate what the code already shows, and don't
+allude to a previous, now-corrected version ("eight addresses and nothing else" - the "and nothing
+else" only makes sense against the old wrong layout, which is history). Cut filler like "the two
+are the same shape" down to "(the same shape)".
+
+For a parenthetical aside, prefer parentheses over a pair of spaced dashes: write "the audio thread
+that paces playback", or "the audio thread (which paces playback)", not "the audio thread - which
+paces playback -". A single trailing dash to tack on an example is fine.
+
 We've been inconsistent with copyright notices, but for new files, have the year at 2012, and add the "This program is free software..." as in other files.
 
 `// Copyright (c) 2012- PPSSPP Project.`
