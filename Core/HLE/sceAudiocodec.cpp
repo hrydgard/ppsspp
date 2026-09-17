@@ -460,6 +460,7 @@ static int sceAudiocodecCheckNeedMem(u32 ctxPtr, int codec) {
 		break;
 	case 0x1003:
 		// Kosmodrones uses sceAudiocodec directly (no intermediate library).
+		ctx->neededMem = 0x18f20;
 		INFO_LOG(Log::ME, "CheckNeedMem for codec %04x: format %02x %02x", codec, ctx->fmt.at3.formatByte1, ctx->fmt.at3.formatByte2);
 		break;
 	}

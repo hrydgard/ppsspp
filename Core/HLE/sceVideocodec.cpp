@@ -635,11 +635,18 @@ static int sceVideocodecSetMemory(u32 ctxAddr, int type) {
 	return hleLogDebug(Log::ME, 0);
 }
 
-static int sceVideocodec_893B32B1(u32 ctxAddr, int type) {
+// 0x893B32B1. mpeg.prx runs this from sceMpegCreate, only in mode 1 (the path where the game reads
+// raw YCbCr out rather than letting sceMpegbase convert to RGB). On hardware it writes back the
+// 0x28-byte output descriptor at ctx+0x10 and issues ME video op 0x6D68B223 to configure the codec.
+// Nothing we run reaches it, so it stays a stub - implement it if a mode-1 game needs it.
+static int sceVideocodecSetMode(u32 ctxAddr, int type) {
 	return hleLogWarning(Log::ME, 0, "UNIMPL");
 }
 
-static int sceVideocodec_D95C24D5(u32 ctxAddr, int type) {
+// 0xD95C24D5. Copies a decoded YCbCr frame between two sets of buffers through the ME (op
+// 0x21521BE5) - the videocodec-level counterpart of sceMpegBaseYCrCbCopy. mpeg.prx calls it on the
+// sceMpegAvcCopyYCbCr path. Nothing we run reaches it, so it stays a stub for now.
+static int sceVideocodecCopyYCbCr(u32 ctxAddr, int type) {
 	return hleLogWarning(Log::ME, 0, "UNIMPL");
 }
 
@@ -656,8 +663,8 @@ const HLEFunction sceVideocodec[] = {
 	{0X17CF7D2C, &WrapI_UI<sceVideocodecGetFrameCrop>,  "sceVideocodecGetFrameCrop",  'i', "xi"},
 	{0X26927D19, &WrapI_UI<sceVideocodecGetVersion>,    "sceVideocodecGetVersion",    'i', "xi"},
 	{0X627B7D42, &WrapI_UI<sceVideocodecGetSEI>,        "sceVideocodecGetSEI",        'i', "xi"},
-	{0X893B32B1, &WrapI_UI<sceVideocodec_893B32B1>,     "sceVideocodec_893B32B1",     'i', "xi"},
-	{0XD95C24D5, &WrapI_UI<sceVideocodec_D95C24D5>,     "sceVideocodec_D95C24D5",     'i', "xi"},
+	{0X893B32B1, &WrapI_UI<sceVideocodecSetMode>,       "sceVideocodecSetMode",       'i', "xi"},
+	{0XD95C24D5, &WrapI_UI<sceVideocodecCopyYCbCr>,     "sceVideocodecCopyYCbCr",     'i', "xi"},
 };
 
 void Register_sceVideocodec() {
