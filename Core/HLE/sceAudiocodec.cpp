@@ -139,24 +139,12 @@ void CalculateInputBytesAndChannelsAt3Plus(const SceAudiocodecCodec *ctx, int *i
 		return;
 	}
 
-	int size = formatByte2 * 8 + 8;
-	// No idea if this is accurate, this is just a guess...
-	if (formatByte1 & 8) {
-		*channels = 2;
-	} else {
-		*channels = 1;
-	}
-	switch (size) {
-	case 0x118:
-	case 0x178:
-	case 0x230:
-	case 0x2E8:
-		// These have been seen before, let's return it.
-		*inputBytes = size;
-		return;
-	default:
-		break;
-	}
+	// bit 3 of the first byte is the channel count. This is a guess, but it fits the data we have.
+	*channels = (formatByte1 & 8) ? 2 : 1;
+	// formatByte2 * 8 + 8 gives the frame size for every bitrate we have data for (0x118, 0x178,
+	// 0x230, 0x2E8), so use it for any other value as well rather than leaving inputBytes at 0,
+	// which the firmware never does and which would fail the decode outright.
+	*inputBytes = formatByte2 * 8 + 8;
 }
 
 // Atrac3 (0x1001). Unlike Atrac3+, the context doesn't carry a frame size - libatrac3plus.prx
