@@ -50,7 +50,7 @@ struct SceAudiocodecCodec {
 	u32 inBuf;              // 0x18  the raw frame to decode
 	s32 srcBytesRead;       // 0x1c  written by the decoder
 	u32 outBuf;             // 0x20  where decoded PCM goes
-	s32 dstSamplesWritten;  // 0x24  written by the decoder
+	s32 dstBytesWritten;    // 0x24  written by the decoder, in bytes like srcBytesRead
 
 	// Codec-specific, 0x28..0x67.
 	union {

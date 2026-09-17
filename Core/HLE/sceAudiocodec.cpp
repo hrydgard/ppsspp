@@ -398,7 +398,11 @@ static int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 		}
 
 		ctx->srcBytesRead = inDataConsumed + headerBytes;
-		ctx->dstSamplesWritten = outSamples;
+		// In bytes, not samples. sceAudiocodecGetOutputBytes describes the same quantity in bytes
+		// (0x1200 for MPEG1 MP3), and libmp3.prx takes this as the length of the PCM to hand on -
+		// reporting the sample count instead gave it a quarter of every frame, which played back
+		// fast and metallic. The decoder always writes stereo 16-bit, whatever the source is.
+		ctx->dstBytesWritten = outSamples * 2 * (int)sizeof(int16_t);
 	}
 	return hleLogDebug(Log::ME, 0, "codec %s sampleRate: %d bytesPerFrame: %d channels: %d", GetCodecName(codec), sampleRate, bytesPerFrame, channels);
 }
