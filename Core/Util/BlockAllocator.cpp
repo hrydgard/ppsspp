@@ -451,51 +451,46 @@ void BlockAllocator::DoState(PointerWrap &p)
 	const bool compact = s >= 2;
 	int count = 0;
 
+	// An allocator that was never Init'd (or has been Shutdown) has no blocks at all. That's a
+	// perfectly good state to save - it's what one that nothing has asked for memory from yet
+	// looks like - so zero blocks is a normal count here, not a corrupt one.
 	if (p.mode == p.MODE_READ)
 	{
 		Shutdown();
 		Do(p, count);
 
-		bottom_ = new Block(0, 0, false, NULL, NULL);
-		bottom_->DoState(p, compact);
-		--count;
-
 		// A corrupt/malicious savestate could claim an enormous block count. Each
 		// block needs at least sizeof(start)+sizeof(size)+sizeof(taken)+sizeof(tag)
-		// bytes in the stream. Reject totally outlandish values, and also if count is now sub-zero.
-		size_t maxRemainingBlocks = p.Remaining() / (sizeof(u32) + sizeof(u32) + 1 + 32);
+		// bytes in the stream. Reject totally outlandish values.
+		const size_t maxBlocks = p.Remaining() / (sizeof(u32) + sizeof(u32) + 1 + 32);
 		if (count < 0) {
 			count = 0;
 			p.SetError(PointerWrap::ERROR_FAILURE);
-		} else if ((size_t)count > maxRemainingBlocks) {
-			count = (int)maxRemainingBlocks;
+		} else if ((size_t)count > maxBlocks) {
+			count = (int)maxBlocks;
 			p.SetError(PointerWrap::ERROR_FAILURE);
 		}
 
-		top_ = bottom_;
 		for (int i = 0; i < count; ++i)
 		{
-			top_->next = new Block(0, 0, false, top_, NULL);
-			top_->next->DoState(p, compact);
-			top_ = top_->next;
+			Block *block = new Block(0, 0, false, top_, NULL);
+			if (top_) {
+				top_->next = block;
+			} else {
+				bottom_ = block;
+			}
+			top_ = block;
+			block->DoState(p, compact);
 		}
 	}
 	else
 	{
-		_assert_(bottom_ != nullptr);
 		for (const Block *bp = bottom_; bp != NULL; bp = bp->next)
 			++count;
 		Do(p, count);
 
-		bottom_->DoState(p, compact);
-		--count;
-
-		Block *last = bottom_;
-		for (int i = 0; i < count; ++i)
-		{
-			last->next->DoState(p, compact);
-			last = last->next;
-		}
+		for (Block *bp = bottom_; bp != NULL; bp = bp->next)
+			bp->DoState(p, compact);
 	}
 
 	Do(p, rangeStart_);

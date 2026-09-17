@@ -121,6 +121,22 @@ A working invocation, and the traps around it:
 - **To line input injection up with a wall-clock repro, use `cpu.status`'s `us` field** (emulated microseconds), not
   `ticks`. The PSP's clock frequency is changeable and games do change it - CrossCraft Classic runs at 333MHz, so
   `ticks / 222000000` is off by a factor of 1.5. `clockHz` is reported alongside.
+- **`--graphics=software` cannot see "the screen stops updating" bugs.** When HLE writes pixels straight into a
+  display buffer - video decoding, `sceJpeg`, `sceMpegAvcCsc` - the hardware backends only find out because the HLE
+  calls `gpu->PerformWriteFormattedFromMemory()`. The software renderer reads that memory directly and so renders
+  the frame whether or not anything was notified. A missing notification therefore looks perfect under
+  `--graphics=software` and shows up as a frozen screen on every real backend, while the decode logs keep scrolling
+  past as if all were well. Reproduce display bugs on `--graphics=d3d11` or `--graphics=vulkan` (`directx9` is not
+  a valid value) and compare `--screenshot-save=` output, not the log.
+- **`wsdbg --launch` only works with the headless build.** The app build is a GUI-subsystem exe with no stdout, so
+  the `Listening on port N` line never reaches the launcher and it gives up. Start it yourself with an explicit
+  `--debugger=PORT` and point wsdbg at that port. Note also that `--debugger-run` is `CmdLineMode::Headless`; the
+  app takes plain `--debugger=PORT`.
+- **`--launch` needs `--log` to find the port.** Without it, headless prints only emulated printfs, so the
+  `Listening on port N` NOTICE never appears and `--launch` fails with "PPSSPP never reported a debugger port".
+  `--log --loglevel=3` keeps the port line while cutting the debug flood - full `--log` at the default level costs
+  a lot of emulation speed (a 25-second run of a game playing video wrote 450k lines and ran several times slower
+  than real time, which on its own looks like the stall you're hunting).
 
 ## Debugging and breakpoint considerations
 
