@@ -594,12 +594,21 @@ static int sceVideocodecDecode(u32 ctxAddr, int type) {
 		type, auBytes, gotFrame ? "frame" : "no frame yet", width, height);
 }
 
+// Stopping or deleting the decoder is an ME round-trip and takes real time on hardware. Returning
+// immediately matters beyond speed: a game can be relying on a thread of its own getting to run
+// once more before it tears things down. Jak and Daxter deletes its video_sound_thread straight
+// after sceVideocodecDelete without waiting for it to exit, and with no time passing here the audio
+// thread never gets to deliver the wake that would let it exit - so the delete fails with
+// NOT_DORMANT and the thread lives on, reading a context the game has already freed.
+// One audio mix block is 64 samples at 44100Hz, about 1.45ms, so stay above that.
+static const int videocodecTeardownDelayUs = 2000;
+
 static int sceVideocodecStop(u32 ctxAddr, int type) {
 	auto it = g_videocodecCtxs.find(ctxAddr);
 	if (it != g_videocodecCtxs.end() && it->second.decoder) {
 		it->second.decoder->Flush();
 	}
-	return hleLogInfo(Log::ME, 0);
+	return hleDelayResult(hleLogInfo(Log::ME, 0), "videocodec stop", videocodecTeardownDelayUs);
 }
 
 static int sceVideocodecDelete(u32 ctxAddr, int type) {
@@ -608,7 +617,7 @@ static int sceVideocodecDelete(u32 ctxAddr, int type) {
 		FreeContext(it->second);
 		g_videocodecCtxs.erase(it);
 	}
-	return hleLogInfo(Log::ME, 0);
+	return hleDelayResult(hleLogInfo(Log::ME, 0), "videocodec delete", videocodecTeardownDelayUs);
 }
 
 static int sceVideocodecGetVersion(u32 ctxAddr, int type) {
