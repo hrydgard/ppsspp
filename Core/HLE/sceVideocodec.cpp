@@ -162,8 +162,9 @@ static void ClearContexts(bool freeMemory) {
 }
 
 void __VideocodecInit() {
-	// Nothing to free: a boot starts with a fresh allocator.
-	g_videocodecCtxs.clear();
+	// The decoders have to be deleted; the ME blocks they hold don't need freeing individually,
+	// since the allocator is emptied right below.
+	ClearContexts(false);
 	g_meRam.clear();
 	g_meRam.shrink_to_fit();
 	g_meAlloc.Shutdown();
