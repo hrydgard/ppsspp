@@ -174,7 +174,7 @@ static const u8 *MpegBaseFramePointer(u32 addr, int size) {
 //
 // Untangling it into plain planes costs one pass per frame, which keeps the conversion below
 // readable and is not where the time goes.
-static bool ReadTiledYCbCr(const u32 *buffers, int width, int height,
+bool ReadTiledYCbCr(const u32 *buffers, int width, int height,
 	std::vector<u8> &luma, std::vector<u8> &cb, std::vector<u8> &cr) {
 	const int width2 = width >> 1;
 	const int height2 = height >> 1;

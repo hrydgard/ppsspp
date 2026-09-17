@@ -653,11 +653,54 @@ static int sceVideocodecSetMode(u32 ctxAddr, int type) {
 	return hleLogWarning(Log::ME, 0, "UNIMPL");
 }
 
-// 0xD95C24D5. Copies a decoded YCbCr frame between two sets of buffers through the ME (op
-// 0x21521BE5) - the videocodec-level counterpart of sceMpegBaseYCrCbCopy. mpeg.prx calls it on the
-// sceMpegAvcCopyYCbCr path. Nothing we run reaches it, so it stays a stub for now.
+// 0xD95C24D5. Hands a decoded frame back to the caller as three planes, which is what
+// sceMpegAvcCopyYCbCr is built on - the videocodec-level counterpart of sceMpegBaseYCrCbCopy.
+// Games that want the raw YCbCr rather than letting sceMpegbase convert to RGB use this and nothing
+// else (Monster Hunter Portable 3rd calls it once per decoded frame and never calls a Csc).
+//
+// mpeg.prx builds the descriptor on its own stack (AvcCopyDeeper in mpeg.prx 2.60) and avcodec.prx
+// reads it back at 0x800015c4, which is where the layout below comes from:
+//
+//   0x00  width in pixels        0x04  height in pixels
+//   0x0c  the eight frame buffers, but ordered 0,2,4,6 then 1,3,5,7 rather than 0..7
+//   0x2c  destination Y, then Cb at +width*height and Cr a further width*height/4 on - so the
+//         three planes are contiguous, and the caller gets ordinary planar YUV420.
 static int sceVideocodecCopyYCbCr(u32 ctxAddr, int type) {
-	return hleLogWarning(Log::ME, 0, "UNIMPL");
+	if (!Memory::IsValidRange(ctxAddr, 0x38)) {
+		return hleLogError(Log::ME, -1, "bad descriptor pointer");
+	}
+	const int width = (int)Memory::ReadUnchecked_U32(ctxAddr + 0x00);
+	const int height = (int)Memory::ReadUnchecked_U32(ctxAddr + 0x04);
+	if (width <= 0 || height <= 0 || width > 1024 || height > 1024) {
+		return hleLogError(Log::ME, -1, "unreasonable frame size %dx%d", width, height);
+	}
+
+	// Back into the order the rest of our code uses: four luma, then four chroma.
+	static const int fromDescriptor[8] = { 0, 2, 4, 6, 1, 3, 5, 7 };
+	u32 buffers[8]{};
+	for (int i = 0; i < 8; i++) {
+		buffers[fromDescriptor[i]] = Memory::ReadUnchecked_U32(ctxAddr + 0x0c + i * 4);
+	}
+
+	std::vector<u8> luma, cb, cr;
+	if (!ReadTiledYCbCr(buffers, width, height, luma, cb, cr)) {
+		return hleLogError(Log::ME, -1, "YCbCr buffers not readable");
+	}
+
+	const u32 dst[3] = {
+		Memory::ReadUnchecked_U32(ctxAddr + 0x2c),
+		Memory::ReadUnchecked_U32(ctxAddr + 0x30),
+		Memory::ReadUnchecked_U32(ctxAddr + 0x34),
+	};
+	const std::vector<u8> *planes[3] = { &luma, &cb, &cr };
+	for (int i = 0; i < 3; i++) {
+		const u32 size = (u32)planes[i]->size();
+		if (!Memory::IsValidRange(dst[i], size)) {
+			return hleLogError(Log::ME, -1, "plane %d (%08x, %d bytes) not writable", i, dst[i], size);
+		}
+		Memory::MemcpyUnchecked(dst[i], planes[i]->data(), size);
+	}
+	return hleLogDebug(Log::ME, 0, "%dx%d -> %08x %08x %08x", width, height, dst[0], dst[1], dst[2]);
 }
 
 const HLEFunction sceVideocodec[] = {
