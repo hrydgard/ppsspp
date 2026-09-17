@@ -794,7 +794,9 @@ public:
 	}
 
 	// Would really love to have a basevertex parameter, but impossible in unextended GLES, without glDrawElementsBaseVertex, unfortunately.
-	void DrawIndexed(GLRInputLayout *inputLayout, GLRBuffer *vertexBuffer, uint32_t vertexOffset, GLRBuffer *indexBuffer, uint32_t indexOffset, GLenum mode, int count, GLenum indexType, int instances = 1) {
+	// If maxIndex is known (>= 0), it's passed on to the driver through glDrawRangeElements, which saves drivers that need the index
+	// range (like Panfrost) from scanning the index data on the CPU for every draw.
+	void DrawIndexed(GLRInputLayout *inputLayout, GLRBuffer *vertexBuffer, uint32_t vertexOffset, GLRBuffer *indexBuffer, uint32_t indexOffset, GLenum mode, int count, GLenum indexType, int instances = 1, int maxIndex = -1) {
 		_dbg_assert_(vertexBuffer && indexBuffer && curRenderStep_ && curRenderStep_->stepType == GLRStepType::RENDER);
 		GLRRenderData &data = curRenderStep_->commands.push_uninitialized();
 		data.cmd = GLRRenderCommand::DRAW;
@@ -807,6 +809,7 @@ public:
 		data.draw.count = count;
 		data.draw.indexType = indexType;
 		data.draw.instances = instances;
+		data.draw.maxIndex = maxIndex;
 	}
 
 	enum { MAX_INFLIGHT_FRAMES = 3 };
