@@ -999,7 +999,7 @@ static u32 npdrmRead(FileNode *f, u8 *data, int size) {
 	PGD_DESC *pgd = f->pgdInfo;
 	if (!pgd) {
 		// When pgdInfo is null, fall back to reading the file in non-encrypted mode
-		WARN_LOG(Log::IO, "npdrmRead: pgdInfo is null for file %s, reading as non-encrypted", f->fullpath.c_str());
+		DEBUG_LOG(Log::IO, "npdrmRead: pgdInfo is null for file %s, reading as non-encrypted", f->fullpath.c_str());
 		return (u32)pspFileSystem.ReadFile(f->handle, data, size);
 	}
 	u32 block, offset, blockPos;

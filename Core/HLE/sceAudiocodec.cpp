@@ -21,6 +21,7 @@
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceAudiocodec.h"
+#include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
@@ -414,18 +415,46 @@ static int sceAudiocodecGetInfo(u32 ctxPtr, int codec) {
 	// Write some expected values.
 	switch (codec) {
 	case PSP_CODEC_MP3:
-		// When this is called, the caller has written:
-		// * inptr
-		// * outptr
-		// * fmt.mp3.maxFrameBytes = 0x5A1
-		// Our response is written to a bunch of fields, but I really don't know much
-		// about what the values are - this is handled internally in the ME.
+	{
+		// The caller has written inBuf, outBuf and maxFrameBytes, and left version at the 9999
+		// sceAudiocodecInit puts there to mean "not known yet". Filling that in is the point of
+		// this call - libmp3.prx reads it straight back out, and leaving it at 9999 is what made
+		// Meruru no Atelier Plus go silent: it got this far and then stopped without ever asking
+		// for a decode.
+		//
+		// The hardware reads these off the frame, so read them off the frame. Apart from the
+		// version index, which has its own numbering, they are the raw MPEG header fields.
 		ctx->fmt.mp3.unk3c = 3;
-		ctx->fmt.mp3.bitrateIndex = 9;
-		ctx->fmt.mp3.sampleRateIndex = 0;
 		ctx->fmt.mp3.unk60 = 1;
-		ctx->fmt.mp3.channelConfig = 1;
+
+		// Header version bits are 0 = MPEG2.5, 2 = MPEG2, 3 = MPEG1 (1 is reserved); the field
+		// wants 0 = MPEG2, 1 = MPEG1, 2 = MPEG2.5.
+		static const int versionFromHeader[4] = { 2, -1, 0, 1 };
+		const u8 *header = Memory::IsValidRange(ctx->inBuf, 4) ? Memory::GetPointerUnchecked(ctx->inBuf) : nullptr;
+		const bool haveFrame = header && header[0] == 0xFF && (header[1] & 0xE0) == 0xE0 &&
+			versionFromHeader[(header[1] >> 3) & 3] >= 0;
+		if (haveFrame) {
+			ctx->fmt.mp3.version = versionFromHeader[(header[1] >> 3) & 3];
+			ctx->fmt.mp3.bitrateIndex = (header[2] >> 4) & 0x0F;
+			ctx->fmt.mp3.sampleRateIndex = (header[2] >> 2) & 0x03;
+			ctx->fmt.mp3.channelConfig = (header[3] >> 6) & 0x03;
+			INFO_LOG(Log::ME, "GetInfo MP3: sdk=%08x version=%d bitrateIdx=%d sampleRateIdx=%d channelConfig=%d (hdr %02x %02x %02x %02x)",
+				sceKernelGetCompiledSdkVersion(), (int)ctx->fmt.mp3.version, (int)ctx->fmt.mp3.bitrateIndex, (int)ctx->fmt.mp3.sampleRateIndex,
+				(int)ctx->fmt.mp3.channelConfig, header[0], header[1], header[2], header[3]);
+		} else {
+			// Nothing readable to look at. Claim 128kbps 44.1kHz stereo, as this used to
+			// unconditionally - but do set the version, since 9999 stops the caller dead.
+			// Worth hearing about: everything the caller does with the stream follows from these,
+			// so if a game ever lands here its audio will be wrong in a way that starts right here.
+			WARN_LOG(Log::ME, "sceAudiocodecGetInfo: no MP3 frame at inBuf %08x, guessing 128kbps 44.1kHz stereo",
+				ctx->inBuf);
+			ctx->fmt.mp3.version = 1;
+			ctx->fmt.mp3.bitrateIndex = 9;
+			ctx->fmt.mp3.sampleRateIndex = 0;
+			ctx->fmt.mp3.channelConfig = 1;
+		}
 		break;
+	}
 	}
 
 	return hleLogInfo(Log::ME, 0, "codec=%s", GetCodecName(codec));
@@ -471,7 +500,7 @@ static int sceAudiocodecCheckNeedMem(u32 ctxPtr, int codec) {
 	ctx->err = 0;
 	ctx->magic = 0x5100601;
 
-	return hleLogWarning(Log::ME, 0, "%s", GetCodecName(codec));
+	return hleLogInfo(Log::ME, 0, "%s: %x", GetCodecName(codec), ctx->neededMem);
 }
 
 static int sceAudiocodecGetEDRAM(u32 ctxPtr, int codec) {
