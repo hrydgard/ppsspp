@@ -1,6 +1,6 @@
 # PPSSPPHeadless
 
-Non-interactive, headless build of PPSSPP. It boots a PSP executable, PRX, or GE frame dump (`.ppdmp`) without a GUI, outputs emulated debug text to the console, optionally captures and compares text output or screenshots, and exits.
+Non-interactive, headless build of PPSSPP. It boots a PSP executable, PRX, or GE frame dump (`.ppdmp`) without a GUI, forwards what the program prints to the console, optionally captures and compares text output or screenshots, and exits.
 
 Primarily intended for:
 - Automated regression testing (via [pspautotests](https://github.com/hrydgard/pspautotests/))
@@ -39,7 +39,7 @@ PPSSPPHeadless file.elf|file.prx|file.ppdmp [...] [options]
 | `@file`                         | Read list of test filenames from a text file (`@-` for stdin). |
 | `-m`, `--mount <file.cso>`      | Mount an ISO/CSO on `umd1:`.                               |
 | `-r`, `--root <path>`           | Mount a path on `host0:` (ELF/PRX files must be under this). |
-| `-l`, `--log`                   | Full emulator log output (not just emulated `printf`).     |
+| `-l`, `--log`                   | Full emulator log output, on top of the program's own output (see Program Output below). |
 | `-o`, `--odslog`                | Write log to `OutputDebugString` (Windows only).           |
 | `--graphics=<backend>`          | GPU backend: `software`, `gles`, `directx11`, `vulkan`.    |
 | `--screenshot=<file>`           | Compare the rendered output against a reference screenshot. |
@@ -59,6 +59,21 @@ PPSSPPHeadless file.elf|file.prx|file.ppdmp [...] [options]
 | `--old-atrac`                   | Use the old Atrac3+ audio decoder.                         |
 | `--ignore <file>`               | Skip the specified test file.                              |
 | `--help` / `-h`                 | Show usage information.                                    |
+
+## Program Output
+
+Running a homebrew with no options at all prints what it prints, and nothing else. Two separate
+channels feed the console, both on by default:
+
+- **The emulated program's `stdout` and `stderr`** - `sceIoWrite()` to fd 1 and 2 (which is where a
+  PSPSDK `printf()` ends up), and writes to a tty device. These go to *our* `stdout` and `stderr`
+  respectively, byte for byte, with no prefix or sanitization.
+- **The `emulator:` devctl channel** - `sceIoDevctl("emulator:", SEND_OUTPUT, ...)`, a PPSSPP
+  extension. This goes to `stdout`. pspautotests uses this channel exclusively, and it is what
+  `--compare` compares against the `.expected` file.
+
+`--compare` and `--bench` turn both off, so the only thing a test run prints is the comparison
+result. Emulator log output is separate again, and stays off unless you pass `-l`.
 
 ## GPU Backends
 

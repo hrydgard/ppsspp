@@ -85,6 +85,10 @@ static bool g_screenshotFailed = false;
 static std::string g_debugOutputBuffer;
 static bool g_writeFailureScreenshot = true;
 static bool g_writeDebugOutput = true;
+// Whether the emulated program's stdout/stderr are forwarded to ours. On by default - just running
+// a homebrew and seeing what it prints is the most basic thing headless does. Off for test runs,
+// where the only output that should reach the console is what the comparison produces.
+static bool g_forwardHostOutput = true;
 // Set from the savestate callback on the emu thread, read after it has been joined.
 static bool g_stateLoadFailed = false;
 // Set by --save-state. Saving needs the game to actually be running, so it happens from the run
@@ -167,7 +171,20 @@ void SetWriteFailureScreenshot(bool flag) {
 	g_writeFailureScreenshot = flag;
 }
 
-void SendDebugOutput(std::string_view output) {
+void SendDebugOutput(DebugOutputChannel channel, std::string_view output) {
+	if (channel != DebugOutputChannel::Debug) {
+		if (!g_forwardHostOutput)
+			return;
+		// Straight through, unmodified - and flushed, so it interleaves with the debug channel in
+		// the order the program actually wrote it.
+		FlushDebugOutput();
+		fflush(stdout);
+		FILE *stream = channel == DebugOutputChannel::StdErr ? stderr : stdout;
+		fwrite(output.data(), sizeof(char), output.length(), stream);
+		fflush(stream);
+		return;
+	}
+
 	if (!g_writeDebugOutput)
 		return;
 #ifdef _WIN32
@@ -183,7 +200,7 @@ void SendDebugOutput(std::string_view output) {
 }
 
 void SendAndCollectOutput(std::string_view output) {
-	SendDebugOutput(output);
+	SendDebugOutput(DebugOutputChannel::Debug, output);
 	if (PSP_CoreParameter().collectDebugOutput) {
 		*PSP_CoreParameter().collectDebugOutput += output;
 	}
@@ -397,7 +414,7 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 			if (!opt.bench) {
 				printf("%s", output.c_str());
 
-				SendDebugOutput("TIMEOUT\n");
+				SendDebugOutput(DebugOutputChannel::Debug, "TIMEOUT\n");
 				GitHubActionsPrint("error", "Test timeout for %s", currentTestName.c_str());
 			}
 
@@ -971,6 +988,7 @@ int main(int argc, const char* argv[]) {
 
 	SetWriteFailureScreenshot(!getenv("GITHUB_ACTIONS") && !testOptions.bench);
 	g_writeDebugOutput = !testOptions.compare && !testOptions.bench;
+	g_forwardHostOutput = !testOptions.compare && !testOptions.bench;
 
 #if PPSSPP_PLATFORM(ANDROID)
 	// For some reason the debugger installs it with this name?

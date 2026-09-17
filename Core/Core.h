@@ -301,9 +301,19 @@ struct DebugScreenshotDesc {
 	u32 height;
 	GEBufferFormat format;
 };
+// Which of the host's output streams a piece of emulated output belongs on.
+enum class DebugOutputChannel {
+	Debug,   // The "emulator:" devctl channel, plus our own messages about the run. This is what pspautotests uses.
+	StdOut,  // sceIoWrite() to fd 1, and to a tty device.
+	StdErr,  // sceIoWrite() to fd 2.
+};
+
 void Core_SendDebugOutput(LogLevel level, std::string_view string);
+// Offers raw output from the emulated program to the listener, if any. Returns false if there was
+// none, in which case the caller should log it instead - that's what the normal app does.
+bool Core_SendHostOutput(DebugOutputChannel channel, std::string_view string);
 void Core_SendDebugScreenshot(const DebugScreenshotDesc &desc);
-void Core_RegisterDebugOutputListeners(std::function<void(std::string_view)> listener, std::function<void(const DebugScreenshotDesc &)> screenshotListener);
+void Core_RegisterDebugOutputListeners(std::function<void(DebugOutputChannel, std::string_view)> listener, std::function<void(const DebugScreenshotDesc &)> screenshotListener);
 
 class MIPSState;
 // Shortcut, just calls Core_MemoryException with automatically determined parameters (function name, etc).

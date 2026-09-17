@@ -245,20 +245,28 @@ static MIPSExceptionInfo g_exceptionInfo;
 // This is called on EmuThread before RunLoop.
 static bool Core_ProcessStepping(MIPSDebugInterface *cpu);
 
-static std::function<void(std::string_view)> g_debugOutputListener;
+static std::function<void(DebugOutputChannel, std::string_view)> g_debugOutputListener;
 static std::function<void(const DebugScreenshotDesc &)> g_debugScreenshotListener;
 
-void Core_RegisterDebugOutputListeners(std::function<void(std::string_view)> listener, std::function<void(const DebugScreenshotDesc &)> screenshotListener) {
+void Core_RegisterDebugOutputListeners(std::function<void(DebugOutputChannel, std::string_view)> listener, std::function<void(const DebugScreenshotDesc &)> screenshotListener) {
 	g_debugOutputListener = std::move(listener);
 	g_debugScreenshotListener = std::move(screenshotListener);
 }
 
 void Core_SendDebugOutput(LogLevel level, std::string_view string) {
 	if (g_debugOutputListener) {
-		g_debugOutputListener(string);
+		g_debugOutputListener(DebugOutputChannel::Debug, string);
 	} else {
 		GENERIC_LOG(Log::sceIo, level, "%.*s", STR_VIEW(string));
 	}
+}
+
+bool Core_SendHostOutput(DebugOutputChannel channel, std::string_view string) {
+	if (!g_debugOutputListener) {
+		return false;
+	}
+	g_debugOutputListener(channel, string);
+	return true;
 }
 
 void Core_SendDebugScreenshot(const DebugScreenshotDesc &desc) {
