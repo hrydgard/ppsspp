@@ -227,9 +227,13 @@ u32 VideocodecFrameBufferLayout(int width, int height, int sizes[8], u32 offsets
 	// buffer0/2 take the odd band out when the width isn't a multiple of 32.
 	const int lumaLeft = ((width + 16) >> 5) * (height >> 1) * 16;
 	const int lumaRight = (width >> 5) * (height >> 1) * 16;
+	// Chroma is paired the same way luma is - left/right of a band, then even/odd rows - which is
+	// what sceMpegBaseYCrCbCopy's flags assume: bit 0 selects buffers 0,1,4,5 (the even rows) and
+	// bit 1 selects 2,3,6,7. Sizes have to line up with that, or a copy writes the wrong count
+	// into a buffer someone else sized.
 	const int local[8] = {
 		lumaLeft, lumaRight, lumaLeft, lumaRight,
-		lumaLeft >> 1, lumaLeft >> 1, lumaRight >> 1, lumaRight >> 1,
+		lumaLeft >> 1, lumaRight >> 1, lumaLeft >> 1, lumaRight >> 1,
 	};
 	u32 total = 0;
 	for (int i = 0; i < 8; i++) {
@@ -278,13 +282,16 @@ static bool PublishFrameBuffers(VideocodecCtx &vctx, u32 structAddr, int width, 
 		buffers[i] = vctx.frameBuffers + offsets[i];
 	}
 
-	if (!Memory::IsValidRange(structAddr, 48)) {
+	// Eight addresses and nothing else. mpeg.prx reads them straight off the front of this
+	// structure - `lw` at 0x00..0x1C, verified in both 1.3 (Daxter's disc copy, at 08805698) and
+	// 1.8 (flash0:/kd/mpeg.prx, at 08805898) - and takes the frame's dimensions from its own
+	// context rather than from here. Writing anything else at the front lands in buffer slots 0
+	// and 1, which sceMpegBaseYCrCbCopy then DMAs to.
+	if (!Memory::IsValidRange(structAddr, 8 * 4)) {
 		return false;
 	}
-	Memory::WriteUnchecked_U32(height >> 4, structAddr + 0);   // macroblocks
-	Memory::WriteUnchecked_U32(width >> 4, structAddr + 4);
 	for (int i = 0; i < 8; i++) {
-		Memory::WriteUnchecked_U32(buffers[i], structAddr + 16 + i * 4);
+		Memory::WriteUnchecked_U32(buffers[i], structAddr + i * 4);
 	}
 	return true;
 }
@@ -308,7 +315,7 @@ void VideocodecGetCtxInfo(std::vector<VideocodecCtxInfo> *infos) {
 	}
 }
 
-bool VideocodecGetFrameBuffers(u32 firstBuffer, u32 buffers[8]) {
+bool VideocodecGetFrameBuffers(u32 firstBuffer, u32 buffers[8], int *width, int *height) {
 	// sceMpegbase only has the first of the eight addresses, so find whose allocation it is.
 	const VideocodecCtx *found = nullptr;
 	for (const auto &[addr, ctx] : g_videocodecCtxs) {
@@ -322,6 +329,12 @@ bool VideocodecGetFrameBuffers(u32 firstBuffer, u32 buffers[8]) {
 	}
 	u32 offsets[8];
 	VideocodecFrameBufferLayout(found->frameBufferWidth, found->frameBufferHeight, nullptr, offsets);
+	if (width) {
+		*width = found->frameBufferWidth;
+	}
+	if (height) {
+		*height = found->frameBufferHeight;
+	}
 	for (int i = 0; i < 8; i++) {
 		buffers[i] = found->frameBuffers + offsets[i];
 	}
@@ -381,8 +394,8 @@ static void WriteTiledYCbCr(const u32 *buffers, const AvcDecoder &dec, int width
 		if (!dst) {
 			continue;
 		}
-		const int xOffset = (b >> 1) ? 8 : 0;
-		const int yStart = (b & 1) ? 1 : 0;
+		const int xOffset = (b & 1) ? 8 : 0;
+		const int yStart = (b >> 1) ? 1 : 0;
 		int j = 0;
 		for (int bandX = xOffset; bandX < width2; bandX += 16) {
 			for (int row = yStart; row < height2; row += 2) {

@@ -52,10 +52,10 @@ void VideocodecGetCtxInfo(std::vector<VideocodecCtxInfo> *infos);
 // than through Memory:: - the ME's memory is not part of PSP RAM.
 u8 *VideocodecMEPointer(u32 addr, u32 size);
 
-// mpeg.prx copies only the four luma buffers into the descriptor it hands sceMpegBaseCscAvc.
-// Both ends of that are ours, so the conversion can recover the other four from the allocation
-// they came from. Returns false if `firstBuffer` isn't one we handed out.
-bool VideocodecGetFrameBuffers(u32 firstBuffer, u32 buffers[8]);
+// The eight buffers of the frame starting at `firstBuffer`, and its size. Returns false if that
+// isn't the start of an allocation we handed out - which is the normal answer once
+// sceMpegBaseYCrCbCopy has moved a frame into the game's own memory.
+bool VideocodecGetFrameBuffers(u32 firstBuffer, u32 buffers[8], int *width = nullptr, int *height = nullptr);
 
 // How the eight buffers a frame is delivered in are sized and laid out, in the order the
 // descriptor lists them: four luma (left/right half of a 32-pixel band, even/odd rows) then four
