@@ -96,11 +96,9 @@ static_assert(offsetof(SceAudiocodecCodec, allocMem) == 0x68);
 
 // AAC (0x1003)
 // ------------------------------------------------
-// Sample rate is at offset 0x28.
-// srcBytesConsumed can be very small the first frames.
-// 0x1000 is always the frame size.
-// The firmware sizes AAC from the bytes at 0x2c and 0x2d rather than from 0x28: input is
-// 0x600 or 0x609, output 0x1000 or 0x2000, depending on those two. Consistent with the above.
+// Sample rate is at offset 0x28. The input frame size is 0x609 when the byte at 0x2c is nonzero
+// and 0x600 when it is zero (avcodec.prx decodeUtility, case 0x1003); the output size comes from
+// the byte at 0x2d and is 0x1000 or 0x2000.
 
 // MP3 (0x1002)
 // ------------------------------------------------
@@ -342,7 +340,11 @@ static int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 		sampleRate = Mp3SampleRateFromContext(ctx);
 		break;
 	case PSP_CODEC_AAC:
-		bytesPerFrame = ctx->srcBytesRead;
+		// avcodec.prx sizes the AAC input frame from the byte at 0x2c: 0x609 when it is nonzero,
+		// 0x600 when it is zero (decodeUtility, case 0x1003). srcBytesRead, which this used to read,
+		// is an output field and is 0 on the first call, so the decoder got nothing to read and
+		// audio never started (seen in Meururu no Atelier Plus running the real mpeg.prx).
+		bytesPerFrame = ctx->fmt.aac.unk2c ? 0x609 : 0x600;
 		sampleRate = ctx->fmt.aac.sampleRate;
 		break;
 	case PSP_CODEC_AT3:
