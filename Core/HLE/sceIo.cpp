@@ -1187,6 +1187,20 @@ void SanitizeControlChars(std::string &buf) {
 	}
 }
 
+// Output the emulated program wrote to stdout, stderr or a tty. A host that wants it (headless)
+// gets the bytes exactly as written, so its stdout is a faithful copy of the program's. Otherwise
+// it goes in the log, sanitized and with the trailing newline trimmed, since the log adds one.
+static void __IoWriteToHostOutput(DebugOutputChannel channel, const char *str, u32 validSize, int size, const char *name) {
+	if (Core_SendHostOutput(channel, std::string_view(str, validSize))) {
+		return;
+	}
+	const int str_size = size <= 0 || validSize == 0 ? 0 : (str[validSize - 1] == '\n' ? validSize - 1 : validSize);
+	// buffer so we can edit the string.
+	std::string buf(str, str_size);
+	SanitizeControlChars(buf);
+	INFO_LOG(Log::Printf, "%s: %.*s", name, (int)buf.size(), buf.data());
+}
+
 static bool __IoWrite(int &result, int id, u32 data_addr, int size, int &us) {
 	PROFILE_THIS_SCOPE("io_rw");
 	// Low estimate, may be improved later from the WriteFile result.
@@ -1199,12 +1213,8 @@ static bool __IoWrite(int &result, int id, u32 data_addr, int size, int &us) {
 	const u32 validSize = Memory::ClampValidSizeAt(data_addr, size);
 	// Let's handle stdout/stderr specially.
 	if (id == PSP_STDOUT || id == PSP_STDERR) {
-		const char *str = (const char *) data_ptr;
-		const int str_size = size <= 0 ? 0 : (str[validSize - 1] == '\n' ? validSize - 1 : validSize);
-		// buffer so we can edit the string.
-		std::string buf(str, str_size);
-		SanitizeControlChars(buf);
-		INFO_LOG(Log::Printf, "%s: %.*s", id == 1 ? "stdout" : "stderr", (int)buf.size(), buf.data());
+		__IoWriteToHostOutput(id == PSP_STDERR ? DebugOutputChannel::StdErr : DebugOutputChannel::StdOut,
+			(const char *)data_ptr, validSize, size, id == PSP_STDOUT ? "stdout" : "stderr");
 		result = validSize;
 		return true;
 	}
@@ -1228,11 +1238,7 @@ static bool __IoWrite(int &result, int id, u32 data_addr, int size, int &us) {
 		NotifyMemInfo(MemBlockFlags::READ, data_addr, size, tag.c_str(), tag.size());
 
 		if (f->isTTY) {
-			const char *str = (const char *)data_ptr;
-			const int str_size = size <= 0 ? 0 : (str[validSize - 1] == '\n' ? validSize - 1 : validSize);
-			std::string buf(str, str_size);
-			SanitizeControlChars(buf);
-			INFO_LOG(Log::Printf, "%s: %.*s", "tty", (int)buf.size(), buf.data());
+			__IoWriteToHostOutput(DebugOutputChannel::StdOut, (const char *)data_ptr, validSize, size, "tty");
 			result = validSize;
 			return true;
 		}
