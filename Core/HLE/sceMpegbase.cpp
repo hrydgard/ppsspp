@@ -340,8 +340,14 @@ static int MpegBaseCscRange(u32 bufferRGB, u32 cscAddr, int bufferWidth,
 	// last frame the GE drew - the same notification our sceMpegAvcCsc HLE does. The pixel mode
 	// numbering matches GEBufferFormat, as it does there.
 	gpu->PerformWriteFormattedFromMemory(bufferRGB, destSize, bufferWidth, (GEBufferFormat)g_mpegBasePixelMode);
-	return hleLogDebug(Log::Mpeg, 0, "%dx%d at %d,%d -> %08x stride %d",
-		rangeWidth, rangeHeight, rangeX, rangeY, bufferRGB, bufferWidth);
+	// This runs on the DMACPLUS hardware and takes real time, and a caller running the real
+	// mpeg.prx leans on that. A psmfplayer game blits the current video frame every render frame
+	// while it waits for the next one to be ready, so returning instantly turns that into a tight
+	// loop that never yields and starves the audio thread - which is what paces playback - so the
+	// whole A/V pipeline deadlocks a few frames in. (SOCOM: Tactical Strike hangs exactly here.)
+	// Our sceMpeg HLE delays the equivalent sceMpegAvcCsc by the same amount for the same reason.
+	return hleDelayResult(hleLogDebug(Log::Mpeg, 0, "%dx%d at %d,%d -> %08x stride %d",
+		rangeWidth, rangeHeight, rangeX, rangeY, bufferRGB, bufferWidth), "mpegbase csc", 4000);
 }
 
 static int sceMpegBaseCscInit(int bufferWidth) {
