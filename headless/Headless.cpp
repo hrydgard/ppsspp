@@ -400,6 +400,14 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 		if (coreState == CORE_NEXTFRAME) {
 			// INFO_LOG(Log::System, "(frame)");
 			coreState = CORE_RUNNING_CPU;
+			// Close and reopen the host frame, which is what the app does once per displayed
+			// frame. All the GPU's per-frame work hangs off BeginHostFrame - the texture cache's
+			// StartFrame and the framebuffer manager's DecimateFBOs - so with a single host frame
+			// spanning the whole run, none of it ever ran here, and a long test decayed nothing.
+			if (gpu) {
+				gpu->EndHostFrame();
+				gpu->BeginHostFrame(g_Config.GetDisplayLayoutConfig(DeviceOrientation::Landscape));
+			}
 		}
 		if (coreState == CORE_STEPPING_CPU && !coreParameter.startBreak) {
 			break;
