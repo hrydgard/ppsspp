@@ -137,7 +137,12 @@ static void applyOptionParams(InternalRequest* req, InternalOption* option) {
 // Public API
 
 void naettInit(naettInitData initData) {
-    assert(!initialized);
+    // PPSSPP: upstream asserted that this was the first call. Callers that can be entered more
+    // than once then need a flag of their own purely to guard this, which is bookkeeping the
+    // library may as well do itself - so a repeat call is a no-op instead.
+    if (initialized) {
+        return;
+    }
     naettPlatformInit(initData);
     initialized = 1;
 }
@@ -310,6 +315,12 @@ naettReq* naettRequestWithOptions(const char* url, int numOptions, const naettOp
 naettRes* naettMake(naettReq* request) {
     assert(initialized);
     assert(request != NULL);
+    // PPSSPP: naettRequest* returns NULL when the platform can't set the request up - a URL it
+    // can't parse, most likely - and the assert above is compiled out in release, so this used to
+    // walk straight into a null dereference.
+    if (request == NULL) {
+        return NULL;
+    }
 
     InternalRequest* req = (InternalRequest*)request;
     naettAlloc(InternalResponse, res);
