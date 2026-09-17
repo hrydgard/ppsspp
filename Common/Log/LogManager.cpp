@@ -515,27 +515,8 @@ void LogManager::StdioLog(const LogMessage &message) {
 }
 
 void PrintfLog(const LogMessage &message) {
-	const char *category = message.log;
-
-	switch (message.level) {
-	case LogLevel::LVERBOSE:
-		fprintf(stderr, "V %s: %s", category, message.msg.c_str());
-		break;
-	case LogLevel::LDEBUG:
-		fprintf(stderr, "D %s: %s", category, message.msg.c_str());
-		break;
-	case LogLevel::LINFO:
-		fprintf(stderr, "I %s: %s", category, message.msg.c_str());
-		break;
-	case LogLevel::LERROR:
-		fprintf(stderr, "E %s: %s", category, message.msg.c_str());
-		break;
-	case LogLevel::LWARNING:
-		fprintf(stderr, "W %s: %s", category, message.msg.c_str());
-		break;
-	case LogLevel::LNOTICE:
-	default:
-		fprintf(stderr, "N %s: %s", category, message.msg.c_str());
-		break;
-	}
+	// Same shape as the stdio and file outputs the other builds use. It used to be its own
+	// shorter format, which meant a pattern that matched a log from the app quietly matched
+	// nothing in one from headless.
+	fprintf(stderr, "%s %s %s", message.timestamp, message.header, message.msg.c_str());
 }
