@@ -2907,7 +2907,10 @@ bool TestCmdLine() {
 		EXPECT_EQ_INT((int)options.gpuBackend.value_or((GPUBackend)-1), (int)GPUBackend::DIRECT3D11);
 		EXPECT_TRUE(options.pauseMenuExit.value_or(false));
 	}
-	// --timeout is headless-only (only headless/Headless.cpp reads it), so it must be parsed in Headless mode.
+	// The timeouts are headless-only (only headless/Headless.cpp reads them), so they must be
+	// parsed in Headless mode. --timeout is the old name for --timeout-wall and sets the same
+	// field; --timeout-wall must not be swallowed by it, which is the interesting case since one
+	// name is a prefix of the other.
 	{
 		const char *argv[] = {
 			"ppsspp",
@@ -2917,7 +2920,21 @@ bool TestCmdLine() {
 		int argc = ARRAY_SIZE(argv);
 		CommandLineOptions options;
 		options.Parse(argc, argv, CmdLineMode::Headless);
-		EXPECT_EQ_INT(options.timeout.value_or(0), 3);
+		EXPECT_EQ_INT(options.timeoutWall.value_or(0), 3);
+		EXPECT_FALSE(options.timeoutEmulated.has_value());
+	}
+	{
+		const char *argv[] = {
+			"ppsspp",
+			"--timeout-wall=4",
+			"--timeout-emulated=5",
+			"My_Game.iso"
+		};
+		int argc = ARRAY_SIZE(argv);
+		CommandLineOptions options;
+		options.Parse(argc, argv, CmdLineMode::Headless);
+		EXPECT_EQ_INT(options.timeoutWall.value_or(0), 4);
+		EXPECT_EQ_INT(options.timeoutEmulated.value_or(0), 5);
 	}
 	// Test GL version override
 	{

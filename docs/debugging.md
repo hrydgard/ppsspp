@@ -47,16 +47,24 @@ platforms. Where arch is x64 or ARM64.
 A working invocation, and the traps around it:
 
 ```bash
-./Windows/x64/Debug/PPSSPPHeadless.exe -i --debugger=34567 --timeout=100000 --graphics=software --log \
+./Windows/x64/Debug/PPSSPPHeadless.exe -i --debugger=34567 --timeout-wall=100000 --graphics=software --log \
     --root pspautotests/tests/../ pspautotests/tests/cpu/cpu_alu/cpu_alu.prx > hl.log 2>&1 &
 # wait for "Listening on port" in hl.log, then:
 ./Tools/wsdbg/target/release/wsdbg.exe 34567 --sync --sync-timeout 15 < script.txt
 ```
 
-- **`--timeout` is wall-clock seconds for the whole session**, not per test - the default is infinity, but as soon as
-  you pass one it applies to your whole interactive debugging session too. Pass something huge (`--timeout=100000`);
-  otherwise the process prints `TIMEOUT` and exits out from under you mid-session. (There's an escape hatch: the
-  deadline check is skipped while `IsDebuggerPresent()`, i.e. under a native debugger.)
+- **The timeouts apply to the whole session**, not per test. `--timeout-wall=N` is real seconds and
+  `--timeout-emulated=N` is emulated ones; both default to infinity, both can be set at once, and whichever
+  is reached first ends the run (`TIMEOUT` or `TIMEOUT (emulated)`). `--timeout` is the old name for
+  `--timeout-wall`. As soon as you pass one it applies to your whole interactive debugging session too, so
+  pass something huge (`--timeout-wall=100000`) or the process exits out from under you mid-session. The
+  wall-clock check is skipped while `IsDebuggerPresent()`; the emulated one doesn't need that escape hatch,
+  since sitting at a native breakpoint burns no emulated time.
+- **Which one you want depends on the question.** Wall-clock is what stops a hang from hanging the machine.
+  Emulated is what you want for "has the game had long enough to get somewhere" - a heavy scene runs many
+  times slower than real time and a near-idle one much faster, so the same wall-clock budget means very
+  different amounts of game time. Booting a firmware VSH to its XMB is a good example: 10 emulated seconds
+  is about 25 real ones on 6.61 and about 7 on 2.00.
 - **Prefer `--debugger=0` and scrape `Listening on port N` from that run's own log** over hardcoding a port. Also
   `taskkill //F //IM PPSSPPHeadless.exe` between runs for hygiene (Git Bash here has no `pkill`) - leftover
   instances are easy to accumulate when a script leaves the CPU stopped at a breakpoint.
@@ -112,7 +120,7 @@ A working invocation, and the traps around it:
 - **Exception and crash messages do not reach the log in headless.** It registers its own debug-output listener
   (`SendDebugOutput` in `headless/Headless.cpp`) that `fwrite`s to stdout, which is block-buffered when you
   redirect it to a file - so the output sits in the CRT buffer while the process runs, and `taskkill //F` throws
-  it away rather than flushing. To actually read a crash trace, give that run a short `--timeout` and `wait` for
+  it away rather than flushing. To actually read a crash trace, give that run a short `--timeout-wall` and `wait` for
   the process to exit on its own.
 - **`0xFFFFFFFF` is not an invalid instruction** - it decodes to `vflush`, a real Allegrex VFPU op, so writing it
   over code to test illegal-instruction handling just runs it. Check what an encoding actually is with

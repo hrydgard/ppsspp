@@ -4,7 +4,7 @@
 // To build on non-windows systems, just run CMake in the SDL directory, it will build both a normal ppsspp and the headless version.
 //
 // Example command line to run a test in the VS debugger (useful to debug failures):
-// > --root pspautotests/tests/../ --compare --timeout=5 --graphics=software pspautotests/tests/cpu/cpu_alu/cpu_alu.prx
+// > --root pspautotests/tests/../ --compare --timeout-wall=5 --graphics=software pspautotests/tests/cpu/cpu_alu/cpu_alu.prx
 // Example command line for taking screenshots from a frame dump:
 // > -l --graphics=vulkan --screenshot-save=vt_ref.bmp "D:\PSP ISO\dump\Depth\11578 Virtua Tennis pause menu ULES00126_0002.zip" --resolution-scale=2
 // Example command line for messing with the vsh:
@@ -317,7 +317,9 @@ static bool BootTargetIsHomebrewExecutable(const std::string &filename) {
 }
 
 struct AutoTestOptions {
-	double timeout;
+	// Both in effect at once; whichever is reached first ends the run. Infinity means "no limit".
+	double timeoutWall;
+	double timeoutEmulated;
 	double maxScreenshotError;
 	bool compare;
 	bool verbose;
@@ -376,16 +378,37 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 
 	bool passed = true;
 	const double startTime = time_now_d();
-	double deadline = startTime + opt.timeout;
-	// Late enough that the game is past booting, early enough to leave the run some time after.
-	double saveStateAt = startTime + opt.timeout * 0.7;
+	// Emulated time is what you want for "has the game had long enough" - a heavy scene runs many
+	// times slower than real time and a near-idle one much faster, so a wall-clock budget says
+	// something quite different depending on what's on screen. Wall-clock is what stops a hang from
+	// hanging the machine. Either, both or neither may be set.
+	const double wallDeadline = startTime + opt.timeoutWall;
+	// Late enough that the game is past booting, early enough to leave the run some time after -
+	// against whichever limit is actually set, and the earlier of the two if both are.
+	const double wallSaveStateAt = startTime + opt.timeoutWall * 0.7;
+	// Emulated time is accumulated rather than measured from a fixed start, because loading a
+	// savestate sets the emulated clock to whatever it read when the state was written, which can
+	// be a long way either side of where this run is. One iteration of the loop below advances the
+	// clock by 0.1 seconds of emulated time at most, plus whatever an idle skip jumps to the next
+	// scheduled event - bounded in practice by vblank, so tens of milliseconds. A step of a whole
+	// second is therefore the clock being moved rather than time passing, and doesn't count.
+	const double emulatedStepLimit = 1.0;
+	double emulatedElapsed = 0.0;
+	double lastEmulatedTime = CoreTiming::GetGlobalTimeUs() / 1000000.0;
 	coreState = coreParameter.startBreak ? CORE_STEPPING_CPU : CORE_RUNNING_CPU;
 	while (coreState == CORE_RUNNING_CPU || coreState == CORE_STEPPING_CPU) {
 		// Savestate loads/saves are queued and applied here, same as EmuScreen::render does in the
 		// app. Without this, --state silently did nothing at all.
 		SaveState::Process();
 
-		if (!g_stateToSave.empty() && time_now_d() > saveStateAt) {
+		const double emulatedNow = CoreTiming::GetGlobalTimeUs() / 1000000.0;
+		const double emulatedStep = emulatedNow - lastEmulatedTime;
+		lastEmulatedTime = emulatedNow;
+		if (emulatedStep > 0.0 && emulatedStep < emulatedStepLimit) {
+			emulatedElapsed += emulatedStep;
+		}
+
+		if (!g_stateToSave.empty() && (time_now_d() > wallSaveStateAt || emulatedElapsed > opt.timeoutEmulated * 0.7)) {
 			const std::string filename = g_stateToSave;
 			g_stateToSave.clear();
 			SaveState::Save(Path(filename), -1, [](SaveState::Status status, std::string_view message, std::string_view) {
@@ -417,13 +440,18 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 		if (IsDebuggerPresent())
 			debugger = true;
 #endif
-		if (time_now_d() > deadline && !debugger) {
+		// The debugger exemption is only for the wall-clock limit: sitting at a native breakpoint
+		// burns real seconds but no emulated ones, so the emulated limit can't misfire that way.
+		const bool wallTimedOut = time_now_d() > wallDeadline && !debugger;
+		const bool emulatedTimedOut = emulatedElapsed > opt.timeoutEmulated;
+		if (wallTimedOut || emulatedTimedOut) {
 			// Don't compare, print the output at least up to this point, and bail.
 			if (!opt.bench) {
 				printf("%s", output.c_str());
 
-				SendDebugOutput(DebugOutputChannel::Debug, "TIMEOUT\n");
-				GitHubActionsPrint("error", "Test timeout for %s", currentTestName.c_str());
+				SendDebugOutput(DebugOutputChannel::Debug, wallTimedOut ? "TIMEOUT\n" : "TIMEOUT (emulated)\n");
+				GitHubActionsPrint("error", "Test %s timeout for %s",
+					wallTimedOut ? "wall-clock" : "emulated-time", currentTestName.c_str());
 			}
 
 			passed = false;
@@ -541,7 +569,9 @@ int RunTests(GraphicsContext *graphicsContext, CoreParameter &coreParameter, con
 		const bool passed = RunAutoTest(graphicsContext, coreParameter, testOptions);
 		if (testOptions.bench) {
 			double st = time_now_d();
-			double deadline = st + testOptions.timeout;
+			// Benchmarking repeats the run, so budget it in real seconds regardless of what the run
+			// itself is limited by.
+			double deadline = st + testOptions.timeoutWall;
 			double runs = 0.0;
 			for (int i = 0; i < 100; ++i) {
 				RunAutoTest(graphicsContext, coreParameter, testOptions);
@@ -633,7 +663,8 @@ int main(int argc, const char* argv[]) {
 	AutoTestOptions testOptions{};
 	testOptions.compare = cmdLineOptions.compare.value_or(false);
 	testOptions.bench = cmdLineOptions.bench.value_or(false);
-	testOptions.timeout = cmdLineOptions.timeout.value_or(std::numeric_limits<double>::infinity());
+	testOptions.timeoutWall = cmdLineOptions.timeoutWall.value_or(std::numeric_limits<double>::infinity());
+	testOptions.timeoutEmulated = cmdLineOptions.timeoutEmulated.value_or(std::numeric_limits<double>::infinity());
 	testOptions.verbose = cmdLineOptions.verbose.value_or(false);
 	testOptions.printEqualLines = cmdLineOptions.printEqualLines.value_or(false);
 	testOptions.maxScreenshotError = cmdLineOptions.maxScreenshotError.value_or(0.0);
