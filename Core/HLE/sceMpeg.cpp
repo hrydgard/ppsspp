@@ -348,8 +348,18 @@ private:
 	s32 remainingPackets_ = 0;
 };
 
+static void ClearMpegContexts() {
+	for (const auto &[_, ctx] : g_mpegCtxs) {
+		delete ctx;
+	}
+	g_mpegCtxs.clear();
+}
+
 void __MpegInit() {
 	__MpegBaseInit();
+	// getMpegCtx keys on a handle read out of game memory, so don't leave contexts from a previous
+	// game around for the next one to find.
+	ClearMpegContexts();
 	isMpegInit = false;
 	mpegLibVersion = 0x010A;
 	streamIdGen = 1;
@@ -403,11 +413,7 @@ void __MpegDoState(PointerWrap &p) {
 }
 
 void __MpegShutdown() {
-	std::map<u32, MpegContext *>::iterator it, end;
-	for (it = g_mpegCtxs.begin(), end = g_mpegCtxs.end(); it != end; ++it) {
-		delete it->second;
-	}
-	g_mpegCtxs.clear();
+	ClearMpegContexts();
 }
 
 void __MpegLoadModule(int version,u32 crc) {

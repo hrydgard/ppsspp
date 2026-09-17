@@ -400,6 +400,14 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 		if (coreState == CORE_NEXTFRAME) {
 			// INFO_LOG(Log::System, "(frame)");
 			coreState = CORE_RUNNING_CPU;
+			// Close and reopen the host frame, which is what the app does once per displayed
+			// frame. All the GPU's per-frame work hangs off BeginHostFrame - the texture cache's
+			// StartFrame and the framebuffer manager's DecimateFBOs - so with a single host frame
+			// spanning the whole run, none of it ever ran here, and a long test decayed nothing.
+			if (gpu) {
+				gpu->EndHostFrame();
+				gpu->BeginHostFrame(g_Config.GetDisplayLayoutConfig(DeviceOrientation::Landscape));
+			}
 		}
 		if (coreState == CORE_STEPPING_CPU && !coreParameter.startBreak) {
 			break;
@@ -752,6 +760,12 @@ int main(int argc, const char* argv[]) {
 
 	std::string error_string;
 
+	// Headless never loads a config file, so without this every setting not named below keeps the
+	// zero-initialized value instead of its real default, and headless runs games differently from
+	// every other build (bFastMemory and bFuncReplacements are both "true" defaults that came out
+	// false that way). Apply the defaults first, then force the values the tests want.
+	g_Config.RestoreDefaults(RestoreSettingsBits::SETTINGS, false);
+
 	// Force known values for deterministic test execution. This happens before
 	// ApplyToConfig() below, so a matching command line flag can still override any of it -
 	// ApplyToConfig() always has the final say on the settings in g_Config.
@@ -785,6 +799,10 @@ int main(int argc, const char* argv[]) {
 	g_Config.iInternalResolution = cmdLineOptions.resolutionScale.value_or(1);
 	g_Config.bEnableLogging = (fullLog || outputDebugStringLog);
 	g_Config.bVertexDecoderJit = true;
+	// Headless never loads a config file, so anything not set here keeps the zero-initialized
+	// value rather than the ConfigSetting default. This one defaults to true in the app, and
+	// leaving it false made headless run games differently from every other build.
+	g_Config.bFuncReplacements = true;
 	g_Config.bSoftwareRendering = cmdLineOptions.softwareRendering.value_or(false);
 	g_Config.bSoftwareRenderingJit = true;
 	g_Config.iSplineBezierQuality = 2;

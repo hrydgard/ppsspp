@@ -210,6 +210,9 @@ static void clearDecoders() {
 }
 
 void __AudioCodecInit() {
+	// findDecoder keys on a game-chosen context address, so don't leave decoders from a previous
+	// game around for the next one to find.
+	clearDecoders();
 	oldStateLoaded = false;
 }
 
