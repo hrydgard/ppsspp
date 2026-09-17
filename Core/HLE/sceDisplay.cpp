@@ -120,6 +120,11 @@ static double curFrameTime;
 static double lastFrameTime;
 static double nextFrameTime;
 static int numVBlanksSinceFlip;
+// Host timestamp of the last flip we let through, for the fast-forward flip limiter in
+// __DisplayFlip. Up here with the rest of them so a boot resets it - as a static inside the
+// function it kept a timestamp from whatever ran before, and the first flip of a new game was
+// compared against it.
+static double lastFlipHostTime;
 
 const int PSP_DISPLAY_MODE_LCD = 0;
 
@@ -212,6 +217,7 @@ void __DisplayInit() {
 	curFrameTime = 0.0;
 	nextFrameTime = 0.0;
 	lastFrameTime = 0.0;
+	lastFlipHostTime = 0.0;
 
 	__KernelRegisterWaitTypeFuncs(WAITTYPE_VBLANK, __DisplayVblankBeginCallback, __DisplayVblankEndCallback);
 }
@@ -651,12 +657,11 @@ void __DisplayFlip(int cyclesLate) {
 	// Alternative to frameskip fast-forward, where we draw everything.
 	// Useful if skipping a frame breaks graphics or for checking drawing speed.
 	if (g_frameTiming.FastForwardNeedsSkipFlip() && (!FrameTimingThrottled() || refreshRateNeedsSkip)) {
-		static double lastFlip = 0;
 		double now = time_now_d();
-		if ((now - lastFlip) < 1.0f / refreshRate) {
+		if ((now - lastFlipHostTime) < 1.0f / refreshRate) {
 			forceNoFlip = true;
 		} else {
-			lastFlip = now;
+			lastFlipHostTime = now;
 		}
 	}
 
