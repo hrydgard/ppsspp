@@ -2171,6 +2171,9 @@ void __KernelLoadReset() {
 		HLEShutdown();
 		Replacement_Init();
 		HLEInit();
+		// LoadExec keeps the PSP filesystems mounted, so refresh the filesystem-dependent HLE
+		// availability state after rebuilding the basic HLE state.
+		HLECheckModuleAvailability();
 	}
 
 	__KernelModuleInit();
