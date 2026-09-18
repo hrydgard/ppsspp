@@ -2,6 +2,7 @@
 
 #include <climits>
 #include <algorithm>
+#include <atomic>
 
 #include "Common/System/NativeApp.h"
 #include "Common/CommonWindows.h"
@@ -122,6 +123,15 @@ static void UnloadXInputDLL() {}
 #ifndef XUSER_MAX_COUNT
 #define XUSER_MAX_COUNT 4
 #endif
+
+// Written from the input thread by XinputSetButtonRumble, read by ApplyVibration.
+static std::atomic<bool> g_buttonRumble[XUSER_MAX_COUNT];
+
+void XinputSetButtonRumble(int pad, bool on) {
+	if (pad >= 0 && pad < XUSER_MAX_COUNT) {
+		g_buttonRumble[pad] = on;
+	}
+}
 
 // Undocumented. Steam annoyingly grabs this button though....
 #define XINPUT_GUIDE_BUTTON 0x400
@@ -307,6 +317,7 @@ void XinputDevice::ApplyVibration(int pad, XINPUT_VIBRATION &vibration) {
 				vibration.wLeftMotorSpeed = 0;
 				vibration.wRightMotorSpeed = 0;
 			}
+			ApplyButtonRumble(pad, vibration);
 
 			if (padData_[pad].prevVibration.wLeftMotorSpeed != vibration.wLeftMotorSpeed || padData_[pad].prevVibration.wRightMotorSpeed != vibration.wRightMotorSpeed) {
 				PPSSPP_XInputSetState(pad, &vibration);
@@ -315,9 +326,19 @@ void XinputDevice::ApplyVibration(int pad, XINPUT_VIBRATION &vibration) {
 			prevVibrationTime_ = newVibrationTime_;
 		}
 	} else {
+		ApplyButtonRumble(pad, vibration);
 		DWORD dwResult = PPSSPP_XInputSetState(pad, &vibration);
 		if (dwResult != ERROR_SUCCESS) {
 			padData_[pad].checkDelayUpdates = 30;
 		}
+	}
+}
+
+void XinputDevice::ApplyButtonRumble(int pad, XINPUT_VIBRATION &vibration) {
+	// Runs the motors flat out for as long as the button is held, overriding whatever
+	// the game asked for - it's an explicit user setting, so it wins.
+	if (g_buttonRumble[pad]) {
+		vibration.wLeftMotorSpeed = 0xFFFF;
+		vibration.wRightMotorSpeed = 0xFFFF;
 	}
 }
