@@ -67,6 +67,15 @@ void __MpegBaseInit() {
 	g_mpegBasePixelMode = GE_CMODE_32BIT_ABGR8888;
 }
 
+void __MpegBaseShutdown() {
+	// The scratch and the swscale context are worth a few hundred kilobytes between them, and a
+	// game that played one video early on has no use for either afterwards.
+	g_pesPackets.clear();
+	g_untileScratch.clear();
+	g_untileScratch.shrink_to_fit();
+	MpegCscShutdown();
+}
+
 void __MpegBaseDoState(PointerWrap &p) {
 	auto s = p.Section("sceMpegbase", 0, 1);
 	if (!s) {
@@ -352,6 +361,12 @@ static AVPixelFormat SwsFormatForPixelMode(int pixelMode) {
 	}
 }
 
+// Nothing is being scaled here, so this only picks how chroma reaches full resolution: SWS_POINT
+// repeats each 2x2 block's sample, as the scalar path and presumably the hardware do, while
+// SWS_BILINEAR smooths between samples, as our sceMpeg HLE does. Swap the line to taste - it
+// deserves a real option eventually.
+static const int MPEG_CSC_SWS_FLAGS = SWS_POINT;
+
 static SwsContext *g_cscSws;
 static int g_cscSwsWidth, g_cscSwsHeight, g_cscSwsFormat = -1;
 
@@ -378,7 +393,7 @@ bool MpegCscRangeSws(u8 *dest, int destStride, int pixelMode,
 	const AVPixelFormat format = SwsFormatForPixelMode(pixelMode);
 	if (rangeWidth != g_cscSwsWidth || rangeHeight != g_cscSwsHeight || (int)format != g_cscSwsFormat) {
 		g_cscSws = sws_getCachedContext(g_cscSws, rangeWidth, rangeHeight, AV_PIX_FMT_YUV420P,
-			rangeWidth, rangeHeight, format, SWS_POINT, nullptr, nullptr, nullptr);
+			rangeWidth, rangeHeight, format, MPEG_CSC_SWS_FLAGS, nullptr, nullptr, nullptr);
 		if (!g_cscSws) {
 			return false;
 		}

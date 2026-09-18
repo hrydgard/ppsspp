@@ -414,6 +414,7 @@ void __MpegDoState(PointerWrap &p) {
 
 void __MpegShutdown() {
 	ClearMpegContexts();
+	__MpegBaseShutdown();
 }
 
 void __MpegLoadModule(int version,u32 crc) {
