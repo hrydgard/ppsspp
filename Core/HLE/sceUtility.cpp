@@ -171,7 +171,20 @@ static void NotifyLoadStatusAvcodec(int state, u32 loadAddr, u32 totalSize) {
 // functions from sceAudiocodec (Init and Decode) plus ordinary kernel calls, and mp4msv.prx - the
 // 41 functions libmp4 leans on - imports nothing at all.
 static void NotifyLoadStatusMp4(int state, u32 loadAddr, u32 totalSize) {
-	if (state != 1 || !(GetEffectiveDisableHLEFlags() & DisableHLEFlags::sceMp4)) {
+	if (state != 1) {
+		return;
+	}
+	if (!(GetEffectiveDisableHLEFlags() & DisableHLEFlags::sceMp4)) {
+		// Only something that actually uses sceMp4 gets this far, which is why the warning lives
+		// here rather than with the other firmware checks at boot: our HLE is nearly all stubs, so
+		// whatever just asked for MP4 is not going to work, and this is the one moment where
+		// saying so is neither noise nor too late.
+		if (!pspFileSystem.GetFileInfo("flash0:/kd/libmp4.prx").exists ||
+			!pspFileSystem.GetFileInfo("flash0:/kd/mp4msv.prx").exists) {
+			auto sy = GetI18NCategory(I18NCat::SYSTEM);
+			g_OSD.Show(OSDType::MESSAGE_WARNING, sy->T("MP4 playback needs a firmware dump from "
+				"version 6.00 or later - it won't work without one"), 8.0f, "hle_no_module_sceMp4");
+		}
 		return;
 	}
 	// mp4msv first - libmp4 imports from it, and an import can only resolve to a module that is

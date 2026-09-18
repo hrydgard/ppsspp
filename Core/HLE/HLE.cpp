@@ -29,6 +29,7 @@
 
 #include "Common/Log.h"
 #include "Common/Serialize/SerializeFuncs.h"
+#include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
@@ -349,14 +350,54 @@ static void hleDelayResultFinish(u64 userdata, int cycleslate) {
 // disc like any other but reads its fonts from flash0:/font with nothing to fall back on. Either
 // way the HLE is the only thing that can serve, so the flag comes off.
 //
-// sceMpeg is the awkward one. Some discs carry their own mpeg.prx (Death Jr. has one under
-// PSP_GAME/USRDIR/MODULES) and don't need the firmware at all, but the choice has to be made before
-// the game's imports are resolved, and we can't tell then whether a module will show up later.
-// Choosing wrong leaves the game importing from a module that never loads. So: no firmware, no
-// flag, even for a disc that would have worked.
+// sceMpeg can come from either place: some discs carry their own mpeg.prx (Death Jr. loads
+// PSP_GAME/USRDIR/MODULES/MPEG.PRX) and don't need the firmware at all. The choice has to be made
+// here, before the game's imports are resolved, and getting it wrong leaves the game importing from
+// a module that never loads - so when the firmware hasn't got one, look on the disc for one too.
 //
 // sceMp3 and sceAtrac aren't here because they're not on by default - the user asked for those
 // specifically, and they warn at the point they would have loaded a module.
+
+// Whether the disc carries its own copy of a module, for when the firmware doesn't have it. Only a
+// filename match: reading each PRX to see what it exports would be the sure way, but the name is
+// remarkably consistent, and guessing wrong here only costs us the real module.
+//
+// About a quarter of discs ship one, and in every case seen it is called mpeg.prx - but where it
+// sits varies a great deal. PSP_GAME/USRDIR/MODULE and .../MODULES are the common ones, with
+// KMODULE, PRX, AMODULE, DATA/MODULE, LAUNCHER/MODULE, PSP152 and plain USRDIR also turning up -
+// and EACN/PRX/MODULE, which is five deep. Hence the generous depth.
+static bool DiscHasModule(std::string_view filename) {
+	struct Walker {
+		std::string_view wanted;
+		// Bounded so a disc laid out in some way nobody expected can't turn this into a long walk
+		// during boot. Listing a directory is cheap - it reads the ISO's own records, not files -
+		// so this is a lot of headroom over the handful of module directories a game really has.
+		int budget = 10000;
+
+		bool Search(const std::string &dir, int depth) {
+			if (depth > 8 || budget <= 0) {
+				return false;
+			}
+			std::vector<PSPFileInfo> entries = pspFileSystem.GetDirListing(dir);
+			budget -= (int)entries.size();
+			for (const PSPFileInfo &entry : entries) {
+				if (entry.name == "." || entry.name == "..") {
+					continue;
+				}
+				if (entry.type == FILETYPE_DIRECTORY) {
+					if (Search(dir + entry.name + "/", depth + 1)) {
+						return true;
+					}
+				} else if (equalsNoCase(entry.name, wanted)) {
+					return true;
+				}
+			}
+			return false;
+		}
+	};
+	Walker walker{ filename };
+	return walker.Search("disc0:/", 0);
+}
 void HLECheckModuleAvailability() {
 	g_unavailableDisableFlags = (DisableHLEFlags)0;
 
@@ -370,8 +411,13 @@ void HLECheckModuleAvailability() {
 	}
 
 	// Ask AlwaysDisableHLEFlags rather than the setting: these two are on by default now, so the
-	// setting's bit is clear for almost everyone. That is also why neither warns on screen any
-	// more - missing firmware is the ordinary way to run PPSSPP, not a failed request.
+	// setting's bit is clear for almost everyone.
+	//
+	// No game ships the MP4 libraries and they only appear in firmware 6.00 and later, so an older
+	// dump legitimately hasn't got them. Dropping the flag here doesn't rescue anything - our
+	// sceMp4 HLE is very nearly all stubs - so without those files MP4 playback is simply not
+	// available. Nothing is said about it here because almost nothing uses sceMp4, and a warning
+	// every boot would be noise; NotifyLoadStatusMp4 says it instead, when something actually asks.
 	if (AlwaysDisableHLEFlags() & DisableHLEFlags::sceMp4) {
 		const Path kd = g_Config.nandRootDirectory / "flash0" / "kd";
 		if (!pspFileSystem.GetFileInfo("flash0:/kd/libmp4.prx").exists ||
@@ -382,10 +428,16 @@ void HLECheckModuleAvailability() {
 		}
 	}
 
+	// sceMpeg is the one that should normally be there - PPSSPP installs a firmware dump when it
+	// finds one - so unlike sceMp4 above, not having it is worth saying out loud. Unless the disc
+	// brought its own, which is just as good and wants no comment.
 	if (AlwaysDisableHLEFlags() & DisableHLEFlags::sceMpeg) {
-		if (!pspFileSystem.GetFileInfo("flash0:/kd/mpeg.prx").exists) {
+		if (!pspFileSystem.GetFileInfo("flash0:/kd/mpeg.prx").exists && !DiscHasModule("mpeg.prx")) {
 			g_unavailableDisableFlags |= DisableHLEFlags::sceMpeg;
-			INFO_LOG(Log::HLE, "flash0:/kd/mpeg.prx isn't there - using the HLE sceMpeg.");
+			ERROR_LOG(Log::HLE, "Neither flash0:/kd nor the disc has mpeg.prx - using the HLE sceMpeg.");
+			auto sy = GetI18NCategory(I18NCat::SYSTEM);
+			g_OSD.Show(OSDType::MESSAGE_WARNING,
+				sy->T("No mpeg.prx - install a firmware dump for accurate video"), 6.0f);
 		}
 	}
 }
