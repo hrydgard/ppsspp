@@ -682,8 +682,8 @@ static int sceVideocodecCopyYCbCr(u32 ctxAddr, int type) {
 		buffers[fromDescriptor[i]] = Memory::ReadUnchecked_U32(ctxAddr + 0x0c + i * 4);
 	}
 
-	std::vector<u8> luma, cb, cr;
-	if (!ReadTiledYCbCr(buffers, width, height, luma, cb, cr)) {
+	const u8 *luma, *cb, *cr;
+	if (!ReadTiledYCbCr(buffers, width, height, &luma, &cb, &cr)) {
 		return hleLogError(Log::ME, -1, "YCbCr buffers not readable");
 	}
 
@@ -692,13 +692,17 @@ static int sceVideocodecCopyYCbCr(u32 ctxAddr, int type) {
 		Memory::ReadUnchecked_U32(ctxAddr + 0x30),
 		Memory::ReadUnchecked_U32(ctxAddr + 0x34),
 	};
-	const std::vector<u8> *planes[3] = { &luma, &cb, &cr };
+	const u8 *planes[3] = { luma, cb, cr };
+	const u32 planeSizes[3] = {
+		(u32)(width * height),
+		(u32)((width >> 1) * (height >> 1)),
+		(u32)((width >> 1) * (height >> 1)),
+	};
 	for (int i = 0; i < 3; i++) {
-		const u32 size = (u32)planes[i]->size();
-		if (!Memory::IsValidRange(dst[i], size)) {
-			return hleLogError(Log::ME, -1, "plane %d (%08x, %d bytes) not writable", i, dst[i], size);
+		if (!Memory::IsValidRange(dst[i], planeSizes[i])) {
+			return hleLogError(Log::ME, -1, "plane %d (%08x, %d bytes) not writable", i, dst[i], planeSizes[i]);
 		}
-		Memory::MemcpyUnchecked(dst[i], planes[i]->data(), size);
+		Memory::MemcpyUnchecked(dst[i], planes[i], planeSizes[i]);
 	}
 	return hleLogDebug(Log::ME, 0, "%dx%d -> %08x %08x %08x", width, height, dst[0], dst[1], dst[2]);
 }

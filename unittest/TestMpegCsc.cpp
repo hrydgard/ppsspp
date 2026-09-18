@@ -30,6 +30,7 @@
 #include "Common/CommonTypes.h"
 #include "Common/TimeUtil.h"
 #include "Core/HLE/sceMpegbase.h"
+#include "Core/HLE/sceVideocodec.h"
 #include "GPU/ge_constants.h"
 
 #include "unittest/UnitTest.h"
@@ -45,15 +46,16 @@ static u32 ReferencePixel(int y, int cbv, int crv, int pixelMode) {
 	r = r < 0 ? 0 : (r > 255 ? 255 : r);
 	g = g < 0 ? 0 : (g > 255 ? 255 : g);
 	b = b < 0 ? 0 : (b > 255 ? 255 : b);
+	// Alpha zero, matching the hardware - see the note in sceMpegbase.cpp.
 	switch (pixelMode) {
 	case GE_CMODE_16BIT_BGR5650:
 		return ((b >> 3) << 11) | ((g >> 2) << 5) | (r >> 3);
 	case GE_CMODE_16BIT_ABGR5551:
-		return (1 << 15) | ((b >> 3) << 10) | ((g >> 3) << 5) | (r >> 3);
+		return ((b >> 3) << 10) | ((g >> 3) << 5) | (r >> 3);
 	case GE_CMODE_16BIT_ABGR4444:
-		return (0xF << 12) | ((b >> 4) << 8) | ((g >> 4) << 4) | (r >> 4);
+		return ((b >> 4) << 8) | ((g >> 4) << 4) | (r >> 4);
 	default:
-		return 0xFF000000 | (b << 16) | (g << 8) | r;
+		return (b << 16) | (g << 8) | r;
 	}
 }
 
@@ -162,6 +164,94 @@ static double MeasureMegapixelsPerSecond(const TestFrame &frame, int pixelMode, 
 	return (double)frames * frame.width * frame.height / elapsed / 1000000.0;
 }
 
+// The de-tiling as it was originally written, straight from the description of the layout: bounds
+// checked per pixel, chroma pulled apart one byte at a time. Kept as the thing UntileYCbCr has to
+// agree with, and as something to measure it against.
+static void ReferenceUntile(u8 *luma, u8 *cb, u8 *cr, const u8 *const src[8], const int sizes[8],
+	int width, int height) {
+	const int width2 = width >> 1, height2 = height >> 1;
+	const int *ySize = sizes;
+	const int *cSize = sizes + 4;
+	for (int b = 0; b < 4; b++) {
+		if (!src[b]) {
+			continue;
+		}
+		const int xOffset = (b & 1) ? 16 : 0;
+		const int yStart = (b >> 1) ? 1 : 0;
+		int j = 0;
+		for (int bandX = xOffset; bandX < width; bandX += 32) {
+			const int run = width - bandX < 16 ? width - bandX : 16;
+			for (int row = yStart; row < height; row += 2, j += 16) {
+				if (run <= 0 || j + run > ySize[b]) {
+					continue;
+				}
+				memcpy(luma + (size_t)row * width + bandX, src[b] + j, run);
+			}
+		}
+	}
+	for (int b = 0; b < 4; b++) {
+		if (!src[b + 4]) {
+			continue;
+		}
+		const int xOffset = (b & 1) ? 8 : 0;
+		const int yStart = (b >> 1) ? 1 : 0;
+		int j = 0;
+		for (int bandX = xOffset; bandX < width2; bandX += 16) {
+			for (int row = yStart; row < height2; row += 2) {
+				for (int k = 0; k < 8; k++, j += 2) {
+					const int x = bandX + k;
+					if (x >= width2 || j + 1 >= cSize[b]) {
+						continue;
+					}
+					const size_t i = (size_t)row * width2 + x;
+					cb[i] = src[b + 4][j];
+					cr[i] = src[b + 4][j + 1];
+				}
+			}
+		}
+	}
+}
+
+// The eight buffers the Media Engine would have produced, laid out as UntileYCbCr expects. The
+// contents do not matter for speed and the de-tiling is a pure shuffle, so any pattern will do -
+// but make it vary so a broken copy is visible.
+struct TiledFrame {
+	std::vector<u8> storage[8];
+	const u8 *src[8]{};
+	int sizes[8]{};
+
+	TiledFrame(int width, int height) {
+		VideocodecFrameBufferLayout(width, height, sizes, nullptr);
+		for (int i = 0; i < 8; i++) {
+			storage[i].resize(sizes[i] > 0 ? sizes[i] : 1);
+			for (int j = 0; j < sizes[i]; j++) {
+				storage[i][j] = (u8)((j * 7 + i * 31) & 0xFF);
+			}
+			src[i] = sizes[i] > 0 ? storage[i].data() : nullptr;
+		}
+	}
+};
+
+typedef void (*UntileFunc)(u8 *, u8 *, u8 *, const u8 *const[8], const int[8], int, int);
+
+static double MeasureUntileMegapixelsPerSecond(const TiledFrame &tiled, int width, int height,
+	std::vector<u8> &planes, UntileFunc fn = &UntileYCbCr) {
+	u8 *luma = planes.data();
+	u8 *cb = luma + (size_t)width * height;
+	u8 *cr = cb + (size_t)(width / 2) * (height / 2);
+	const double seconds = 0.2;
+	int frames = 0;
+	const double start = time_now_d();
+	do {
+		for (int i = 0; i < 4; i++) {
+			fn(luma, cb, cr, tiled.src, tiled.sizes, width, height);
+			frames++;
+		}
+	} while (time_now_d() - start < seconds);
+	const double elapsed = time_now_d() - start;
+	return (double)frames * width * height / elapsed / 1000000.0;
+}
+
 bool TestMpegCsc() {
 	// The size a PSP movie is, so the speed below is the speed that matters.
 	TestFrame frame(480, 272);
@@ -181,6 +271,41 @@ bool TestMpegCsc() {
 		EXPECT_TRUE(CompareAgainstReference(frame, pixelMode, 5, 9, 1, 1, 16));
 		EXPECT_TRUE(CompareAgainstReference(frame, pixelMode, 0, 100, 480, 1, 512));
 		EXPECT_TRUE(CompareAgainstReference(frame, pixelMode, 100, 0, 1, 272, 16));
+	}
+
+	// De-tiling, which runs once per frame ahead of the conversion.
+	{
+		const size_t planeBytes = (size_t)480 * 272 + (size_t)240 * 136 * 2;
+		// Odd frame sizes as well as the real one: the guards in here are about buffers that don't
+		// divide evenly into bands, which is the only thing that makes them fire.
+		for (auto dims : { std::make_pair(480, 272), std::make_pair(64, 32), std::make_pair(48, 16) }) {
+			const int w = dims.first, h = dims.second;
+			TiledFrame tiled(w, h);
+			std::vector<u8> got((size_t)w * h + (size_t)(w / 2) * (h / 2) * 2, 0xCD);
+			std::vector<u8> want(got.size(), 0xCD);
+			u8 *gl = got.data(), *gb = gl + (size_t)w * h, *gr = gb + (size_t)(w / 2) * (h / 2);
+			u8 *wl = want.data(), *wb = wl + (size_t)w * h, *wr = wb + (size_t)(w / 2) * (h / 2);
+			UntileYCbCr(gl, gb, gr, tiled.src, tiled.sizes, w, h);
+			ReferenceUntile(wl, wb, wr, tiled.src, tiled.sizes, w, h);
+			EXPECT_TRUE(got == want);
+			// Nothing left at the fill value: the de-tiling covers every byte of a frame, which is
+			// what lets the caller skip clearing the planes first. A real frame could contain the
+			// fill byte by chance, so this is looking for whole rows left behind, not exact cover.
+			size_t untouched = 0;
+			for (u8 v : got) {
+				if (v == 0xCD) {
+					untouched++;
+				}
+			}
+			EXPECT_TRUE(untouched < got.size() / 100);
+		}
+
+		TiledFrame tiled(480, 272);
+		std::vector<u8> planes(planeBytes, 0);
+		const double mps = MeasureUntileMegapixelsPerSecond(tiled, 480, 272, planes);
+		const double refMps = MeasureUntileMegapixelsPerSecond(tiled, 480, 272, planes, ReferenceUntile);
+		printf("UntileYCbCr, 480x272: %6.1f MPix/s (%5.2f ms/frame), was %6.1f (%5.2f ms)\n",
+			mps, 480.0 * 272.0 / mps / 1000.0, refMps, 480.0 * 272.0 / refMps / 1000.0);
 	}
 
 	std::vector<u8> dest((size_t)512 * 272 * 4, 0);
