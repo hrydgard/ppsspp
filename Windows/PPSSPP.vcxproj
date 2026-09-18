@@ -1071,7 +1071,6 @@
     <None Include="..\.github\workflows\manual_generate_apk.yml" />
     <None Include="..\.github\workflows\tarball.yml" />
     <None Include="..\AGENTS.md" />
-    <None Include="..\android\buildassets.sh" />
     <None Include="..\android\git-version-gen.sh" />
     <None Include="..\android\jni\Android.mk" />
     <None Include="..\android\jni\Application.mk" />
