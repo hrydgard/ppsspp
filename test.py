@@ -7,12 +7,18 @@ import os
 import subprocess
 import threading
 import glob
+import platform
 
 
 PPSSPP_EXECUTABLES = [
-  # Windows
+  # Windows. The machine's own architecture comes first: an x64 build runs on Windows-on-ARM too,
+  # under emulation, so looking for it first would quietly test the emulated build instead.
   "Windows\\Debug\\PPSSPPHeadless.exe",
   "Windows\\Release\\PPSSPPHeadless.exe",
+] + ([
+  "Windows\\ARM64\\Debug\\PPSSPPHeadless.exe",
+  "Windows\\ARM64\\Release\\PPSSPPHeadless.exe",
+] if platform.machine().lower() in ("arm64", "aarch64") else []) + [
   "Windows\\x64\\Debug\\PPSSPPHeadless.exe",
   "Windows\\x64\\Release\\PPSSPPHeadless.exe",
   "build*/PPSSPPHeadless.exe",

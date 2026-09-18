@@ -16,16 +16,24 @@ An agent can drive the VS solution non-interactively with `MSBuild.exe` instead 
 ```powershell
 $installPath = & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
 $msbuild = "$installPath\MSBuild\Current\Bin\MSBuild.exe"
-& $msbuild "Windows\PPSSPP.sln" /t:UnitTest /p:Configuration=Debug /p:Platform=x64 /m
+& $msbuild "Windows\PPSSPP.sln" /t:UnitTest /p:Configuration=Debug /p:Platform=<platform> /m
 ```
 
 (swap `/t:UnitTest` for `/t:PPSSPPWindows` or another project name as needed; drop it entirely to build the whole solution).
+
+`<platform>` is `ARM64` or `x64` - whichever the machine actually is, so look it up rather than
+picking a default. The output directory follows it (`Windows\<platform>\<configuration>\`), which
+makes building one and running the other an easy mistake. It is easiest to make on Windows-on-ARM,
+where an x64 build runs anyway under emulation: everything appears to work, but it is slower than
+the native build and any performance measurement from it describes the emulator rather than the
+code. `platform.machine()` in Python reports the host; `$PROCESSOR_ARCHITECTURE` reports the shell,
+which is `AMD64` in an emulated shell even on an ARM64 machine.
 
 In addition to the pspautotests runner (test.py), there is a separate binary with C++ unit tests
 in the /unittest subdirectory. After substantial changes (at the end of a chunk of work, not
 necessarily after every edit), run these too:
 
-- Windows: build the `UnitTest` project (unittest/UnitTests.vcxproj), then run `Windows/x64/Debug/UnitTest.exe all`
+- Windows: build the `UnitTest` project (unittest/UnitTests.vcxproj), then run `Windows/<platform>/Debug/UnitTest.exe all` (`<platform>` being `ARM64` or `x64`, whichever you built)
 - Linux/Mac: configure with `-DUNITTEST=ON`, then run `build/PPSSPPUnitTest all`
 
 This runs all tests in `availableTests` in unittest/UnitTest.cpp. You can run one or more
