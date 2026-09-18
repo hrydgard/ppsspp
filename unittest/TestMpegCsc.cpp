@@ -131,7 +131,7 @@ static bool CompareAgainstReference(const TestFrame &frame, int pixelMode,
 	const size_t destSize = (size_t)(rangeHeight + 2) * destStride * bpp;
 	std::vector<u8> got(destSize, 0xCD), want(destSize, 0xCD);
 
-	MpegCscRange(got.data(), destStride, pixelMode, frame.luma.data(), frame.cb.data(),
+	MpegCscRangeScalar(got.data(), destStride, pixelMode, frame.luma.data(), frame.cb.data(),
 		frame.cr.data(), frame.width, rangeX, rangeY, rangeWidth, rangeHeight);
 	ReferenceCscRange(want.data(), destStride, pixelMode, frame.luma.data(), frame.cb.data(),
 		frame.cr.data(), frame.width, rangeX, rangeY, rangeWidth, rangeHeight);
@@ -147,7 +147,10 @@ static bool CompareAgainstReference(const TestFrame &frame, int pixelMode,
 	return true;
 }
 
-static double MeasureMegapixelsPerSecond(const TestFrame &frame, int pixelMode, std::vector<u8> &dest) {
+typedef void (*CscFunc)(u8 *, int, int, const u8 *, const u8 *, const u8 *, int, int, int, int, int);
+
+static double MeasureMegapixelsPerSecond(const TestFrame &frame, int pixelMode, std::vector<u8> &dest,
+	CscFunc fn = &MpegCscRange) {
 	const int destStride = 512;
 	// Long enough to swamp the clock's own resolution, short enough not to pad the test run.
 	const double seconds = 0.2;
@@ -155,7 +158,7 @@ static double MeasureMegapixelsPerSecond(const TestFrame &frame, int pixelMode, 
 	const double start = time_now_d();
 	do {
 		for (int i = 0; i < 4; i++) {
-			MpegCscRange(dest.data(), destStride, pixelMode, frame.luma.data(), frame.cb.data(),
+			fn(dest.data(), destStride, pixelMode, frame.luma.data(), frame.cb.data(),
 				frame.cr.data(), frame.width, 0, 0, frame.width, frame.height);
 			frames++;
 		}
@@ -309,12 +312,65 @@ bool TestMpegCsc() {
 	}
 
 	std::vector<u8> dest((size_t)512 * 272 * 4, 0);
+	// How far swscale lands from the conversion written out longhand. It rounds its own way, so
+	// this is not expected to be zero - the question is whether it is close enough to use.
+	printf("swscale against the reference, per channel:\n");
+	for (int pixelMode : pixelModes) {
+		const int bpp = pixelMode == GE_CMODE_32BIT_ABGR8888 ? 4 : 2;
+		std::vector<u8> sws((size_t)512 * 272 * 4, 0), ref((size_t)512 * 272 * 4, 0);
+		if (!MpegCscRangeSws(sws.data(), 512, pixelMode, frame.luma.data(), frame.cb.data(),
+				frame.cr.data(), 480, 0, 0, 480, 272)) {
+			printf("  %s: declined\n", PixelModeName(pixelMode));
+			continue;
+		}
+		ReferenceCscRange(ref.data(), 512, pixelMode, frame.luma.data(), frame.cb.data(),
+			frame.cr.data(), 480, 0, 0, 480, 272);
+		// Per channel, because that is what "how different does it look" means - a byte-wise diff
+		// on a packed 16-bit pixel could be one step in one channel or a disaster in three.
+		int shifts[3], masks[3];
+		if (bpp == 4) {
+			shifts[0] = 0; shifts[1] = 8; shifts[2] = 16;
+			masks[0] = masks[1] = masks[2] = 0xFF;
+		} else if (pixelMode == GE_CMODE_16BIT_BGR5650) {
+			shifts[0] = 0; shifts[1] = 5; shifts[2] = 11;
+			masks[0] = 0x1F; masks[1] = 0x3F; masks[2] = 0x1F;
+		} else if (pixelMode == GE_CMODE_16BIT_ABGR5551) {
+			shifts[0] = 0; shifts[1] = 5; shifts[2] = 10;
+			masks[0] = masks[1] = masks[2] = 0x1F;
+		} else {
+			shifts[0] = 0; shifts[1] = 4; shifts[2] = 8;
+			masks[0] = masks[1] = masks[2] = 0x0F;
+		}
+		int worst = 0;
+		double total = 0.0;
+		int count = 0;
+		for (int y = 0; y < 272; y++) {
+			for (int x = 0; x < 480; x++) {
+				const size_t off = ((size_t)y * 512 + x) * bpp;
+				u32 a = 0, b = 0;
+				memcpy(&a, &sws[off], bpp);
+				memcpy(&b, &ref[off], bpp);
+				for (int ch = 0; ch < 3; ch++) {
+					const int d = abs((int)((a >> shifts[ch]) & masks[ch]) -
+						(int)((b >> shifts[ch]) & masks[ch]));
+					worst = worst > d ? worst : d;
+					total += d;
+					count++;
+				}
+			}
+		}
+		printf("  %s: worst channel step %d, mean %.3f\n", PixelModeName(pixelMode), worst,
+			total / count);
+	}
+
 	printf("MpegCscRange, 480x272:\n");
 	for (int pixelMode : pixelModes) {
-		const double mps = MeasureMegapixelsPerSecond(frame, pixelMode, dest);
+		const double mps = MeasureMegapixelsPerSecond(frame, pixelMode, dest, &MpegCscRangeScalar);
+		const double swsMps = MeasureMegapixelsPerSecond(frame, pixelMode, dest, &MpegCscRange);
 		// A movie is 480*272 at ~30fps, so 3.9 MPix/s is what playback needs of it.
-		printf("  %s: %6.1f MPix/s (%5.2f ms/frame)\n", PixelModeName(pixelMode), mps,
-			480.0 * 272.0 / mps / 1000.0);
+		printf("  %s: scalar %6.1f MPix/s (%5.2f ms), swscale %6.1f MPix/s (%5.2f ms)\n",
+			PixelModeName(pixelMode), mps, 480.0 * 272.0 / mps / 1000.0,
+			swsMps, 480.0 * 272.0 / swsMps / 1000.0);
 	}
 
 	return true;

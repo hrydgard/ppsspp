@@ -37,6 +37,13 @@
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 
+#ifdef USE_FFMPEG
+extern "C" {
+#include "libswscale/swscale.h"
+#include "libavutil/pixfmt.h"
+}
+#endif
+
 // The PES payloads gathered by sceMpegBasePESpacketCopy, keyed by the destination each was
 // copied to. It carries audio as well as video - the destination is what tells them apart - so
 // sceVideocodec has to ask for the one matching the address it was handed.
@@ -55,6 +62,7 @@ void __MpegBaseInit() {
 	g_pesPackets.clear();
 	g_untileScratch.clear();
 	g_untileScratch.shrink_to_fit();
+	MpegCscShutdown();
 	g_mpegBaseBufferWidth = 512;
 	g_mpegBasePixelMode = GE_CMODE_32BIT_ABGR8888;
 }
@@ -304,7 +312,7 @@ static u32 YCbCrToPixel(int y, int cbv, int crv, int pixelMode) {
 // luma is width by height; cb and cr are half that in both directions, as YUV420 is. dest is
 // destStride pixels wide in the format pixelMode names, and the converted range always lands at
 // its origin.
-void MpegCscRange(u8 *dest, int destStride, int pixelMode,
+void MpegCscRangeScalar(u8 *dest, int destStride, int pixelMode,
 	const u8 *luma, const u8 *cb, const u8 *cr, int width,
 	int rangeX, int rangeY, int rangeWidth, int rangeHeight) {
 	const int bpp = pixelMode == GE_CMODE_32BIT_ABGR8888 ? 4 : 2;
@@ -323,6 +331,125 @@ void MpegCscRange(u8 *dest, int destStride, int pixelMode,
 			}
 		}
 	}
+}
+
+#ifdef USE_FFMPEG
+
+// swscale is what our sceMpeg HLE converts with, and the planes the de-tiling produces are
+// already the YUV420P it wants, so the same thing works here - and it is a great deal quicker
+// than doing it a pixel at a time.
+//
+// The four output formats are the ones MediaEngine::getSwsFormat picks, for the same reasons.
+// Alpha is not among them: swscale writes RGBA opaque and leaves the spare bits of the 16-bit
+// formats clear, so the masking below is what makes the result match the hardware, exactly as
+// the HLE does after its own sws_scale.
+static AVPixelFormat SwsFormatForPixelMode(int pixelMode) {
+	switch (pixelMode) {
+	case GE_CMODE_16BIT_BGR5650: return AV_PIX_FMT_BGR565LE;
+	case GE_CMODE_16BIT_ABGR5551: return AV_PIX_FMT_BGR555LE;
+	case GE_CMODE_16BIT_ABGR4444: return AV_PIX_FMT_BGR444LE;
+	default: return AV_PIX_FMT_RGBA;
+	}
+}
+
+static SwsContext *g_cscSws;
+static int g_cscSwsWidth, g_cscSwsHeight, g_cscSwsFormat = -1;
+
+void MpegCscShutdown() {
+	if (g_cscSws) {
+		sws_freeContext(g_cscSws);
+		g_cscSws = nullptr;
+	}
+	g_cscSwsWidth = 0;
+	g_cscSwsHeight = 0;
+	g_cscSwsFormat = -1;
+}
+
+bool MpegCscRangeSws(u8 *dest, int destStride, int pixelMode,
+	const u8 *luma, const u8 *cb, const u8 *cr, int width,
+	int rangeX, int rangeY, int rangeWidth, int rangeHeight) {
+	// Chroma is half resolution, so an odd origin would start half a sample in and there is no way
+	// to say that to swscale. Nothing can actually ask for one - the ranges arrive in macroblocks -
+	// but the scalar path is still there for it.
+	if ((rangeX & 1) || (rangeY & 1)) {
+		return false;
+	}
+
+	const AVPixelFormat format = SwsFormatForPixelMode(pixelMode);
+	if (rangeWidth != g_cscSwsWidth || rangeHeight != g_cscSwsHeight || (int)format != g_cscSwsFormat) {
+		g_cscSws = sws_getCachedContext(g_cscSws, rangeWidth, rangeHeight, AV_PIX_FMT_YUV420P,
+			rangeWidth, rangeHeight, format, SWS_POINT, nullptr, nullptr, nullptr);
+		if (!g_cscSws) {
+			return false;
+		}
+		// Studio swing both ways, which is the range the coefficients in the scalar path assume.
+		int *invCoeff, *coeff, srcRange, dstRange, brightness, contrast, saturation;
+		if (sws_getColorspaceDetails(g_cscSws, &invCoeff, &srcRange, &coeff, &dstRange, &brightness,
+			&contrast, &saturation) != -1) {
+			sws_setColorspaceDetails(g_cscSws, invCoeff, 0, coeff, 0, brightness, contrast, saturation);
+		}
+		g_cscSwsWidth = rangeWidth;
+		g_cscSwsHeight = rangeHeight;
+		g_cscSwsFormat = (int)format;
+	}
+
+	const int width2 = width >> 1;
+	const u8 *srcSlice[4] = {
+		luma + (size_t)rangeY * width + rangeX,
+		cb + (size_t)(rangeY >> 1) * width2 + (rangeX >> 1),
+		cr + (size_t)(rangeY >> 1) * width2 + (rangeX >> 1),
+		nullptr,
+	};
+	const int srcStride[4] = { width, width2, width2, 0 };
+	const int bpp = pixelMode == GE_CMODE_32BIT_ABGR8888 ? 4 : 2;
+	u8 *dstSlice[4] = { dest, nullptr, nullptr, nullptr };
+	const int dstStride[4] = { destStride * bpp, 0, 0, 0 };
+	if (sws_scale(g_cscSws, srcSlice, srcStride, 0, rangeHeight, dstSlice, dstStride) <= 0) {
+		return false;
+	}
+
+	// Clear the alpha swscale filled in, which the hardware leaves at zero.
+	for (int y = 0; y < rangeHeight; y++) {
+		u8 *row = dest + (size_t)y * destStride * bpp;
+		if (bpp == 4) {
+			u32_le *p32 = (u32_le *)row;
+			for (int x = 0; x < rangeWidth; x++) {
+				p32[x] = p32[x] & 0x00FFFFFF;
+			}
+		} else if (pixelMode != GE_CMODE_16BIT_BGR5650) {
+			const u16 mask = pixelMode == GE_CMODE_16BIT_ABGR5551 ? 0x7FFF : 0x0FFF;
+			u16_le *p16 = (u16_le *)row;
+			for (int x = 0; x < rangeWidth; x++) {
+				p16[x] = p16[x] & mask;
+			}
+		}
+	}
+	return true;
+}
+
+#else  // !USE_FFMPEG
+
+bool MpegCscRangeSws(u8 *dest, int destStride, int pixelMode,
+	const u8 *luma, const u8 *cb, const u8 *cr, int width,
+	int rangeX, int rangeY, int rangeWidth, int rangeHeight) {
+	return false;
+}
+
+void MpegCscShutdown() {}
+
+#endif  // USE_FFMPEG
+
+void MpegCscRange(u8 *dest, int destStride, int pixelMode,
+	const u8 *luma, const u8 *cb, const u8 *cr, int width,
+	int rangeX, int rangeY, int rangeWidth, int rangeHeight) {
+#ifdef USE_FFMPEG
+	if (MpegCscRangeSws(dest, destStride, pixelMode, luma, cb, cr, width,
+			rangeX, rangeY, rangeWidth, rangeHeight)) {
+		return;
+	}
+#endif
+	MpegCscRangeScalar(dest, destStride, pixelMode, luma, cb, cr, width,
+		rangeX, rangeY, rangeWidth, rangeHeight);
 }
 
 // The shared body of sceMpegBaseCscAvc and sceMpegBaseCscAvcRange - the former is just the
