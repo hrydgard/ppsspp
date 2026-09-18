@@ -224,10 +224,15 @@ DisableHLEFlags AlwaysDisableHLEFlags() {
 	// sceParseUri and sceParseHttp are not here - those two are also in the firmware, and
 	// sceUtility can load them (modules 0x103 and 0x104), so unlike the rest a game may import them
 	// without carrying a copy.
+	//
+	// sceMpeg and sceMp4 are video, and unlike the rest above they need a module we may not have -
+	// sceMp4's two are firmware-only. HLECheckModuleAvailability takes the flag back off when the
+	// module isn't there, as it does for sceFont's fonts.
 	return DisableHLEFlags::scePsmf | DisableHLEFlags::scePsmfPlayer | DisableHLEFlags::sceCcc |
 		DisableHLEFlags::sceDeflt | DisableHLEFlags::sceAdler | DisableHLEFlags::sceMd5 |
 		DisableHLEFlags::sceSha256 | DisableHLEFlags::sceMt19937 | DisableHLEFlags::sceSfmt19937 |
-		DisableHLEFlags::sceHeap | DisableHLEFlags::sceFont;
+		DisableHLEFlags::sceHeap | DisableHLEFlags::sceFont |
+		DisableHLEFlags::sceMpeg | DisableHLEFlags::sceMp4;
 }
 
 // Which modules we're HLE-ing is part of the machine's state, not a live setting: it's decided
@@ -344,10 +349,14 @@ static void hleDelayResultFinish(u64 userdata, int cycleslate) {
 // disc like any other but reads its fonts from flash0:/font with nothing to fall back on. Either
 // way the HLE is the only thing that can serve, so the flag comes off.
 //
-// sceMpeg, sceMp3 and sceAtrac are deliberately not here: plenty of discs carry their own copy
-// (Death Jr. has MPEG.PRX and LIBATRAC3PLUS.PRX under PSP_GAME/USRDIR/MODULES), and dropping the
-// flag for want of firmware would replace a perfectly good disc module with our HLE. Those check for
-// a real module at the point they would load one, and warn there if neither source has it.
+// sceMpeg is the awkward one. Some discs carry their own mpeg.prx (Death Jr. has one under
+// PSP_GAME/USRDIR/MODULES) and don't need the firmware at all, but the choice has to be made before
+// the game's imports are resolved, and we can't tell then whether a module will show up later.
+// Choosing wrong leaves the game importing from a module that never loads. So: no firmware, no
+// flag, even for a disc that would have worked.
+//
+// sceMp3 and sceAtrac aren't here because they're not on by default - the user asked for those
+// specifically, and they warn at the point they would have loaded a module.
 void HLECheckModuleAvailability() {
 	g_unavailableDisableFlags = (DisableHLEFlags)0;
 
@@ -360,16 +369,23 @@ void HLECheckModuleAvailability() {
 		}
 	}
 
-	if ((DisableHLEFlags)g_Config.iDisableHLE & DisableHLEFlags::sceMp4) {
+	// Ask AlwaysDisableHLEFlags rather than the setting: these two are on by default now, so the
+	// setting's bit is clear for almost everyone. That is also why neither warns on screen any
+	// more - missing firmware is the ordinary way to run PPSSPP, not a failed request.
+	if (AlwaysDisableHLEFlags() & DisableHLEFlags::sceMp4) {
 		const Path kd = g_Config.nandRootDirectory / "flash0" / "kd";
 		if (!pspFileSystem.GetFileInfo("flash0:/kd/libmp4.prx").exists ||
 			!pspFileSystem.GetFileInfo("flash0:/kd/mp4msv.prx").exists) {
 			g_unavailableDisableFlags |= DisableHLEFlags::sceMp4;
-			ERROR_LOG(Log::HLE, "Asked to run the real sceMp4, but %s doesn't have libmp4.prx and "
-				"mp4msv.prx - keeping the HLE.", kd.c_str());
-			auto sy = GetI18NCategory(I18NCat::SYSTEM);
-			g_OSD.Show(OSDType::MESSAGE_WARNING,
-				sy->T("Real sceMp4 needs a firmware dump in the NAND folder - using HLE instead"), 6.0f);
+			INFO_LOG(Log::HLE, "%s doesn't have libmp4.prx and mp4msv.prx - using the HLE sceMp4.",
+				kd.c_str());
+		}
+	}
+
+	if (AlwaysDisableHLEFlags() & DisableHLEFlags::sceMpeg) {
+		if (!pspFileSystem.GetFileInfo("flash0:/kd/mpeg.prx").exists) {
+			g_unavailableDisableFlags |= DisableHLEFlags::sceMpeg;
+			INFO_LOG(Log::HLE, "flash0:/kd/mpeg.prx isn't there - using the HLE sceMpeg.");
 		}
 	}
 }
