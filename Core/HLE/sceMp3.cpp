@@ -480,7 +480,24 @@ static int sceMp3Init(u32 mp3) {
 		// TODO: Should return 0x80671301 (unsupported version?)
 		WARN_LOG_REPORT(Log::ME, "sceMp3Init: invalid data: not MPEG v1");
 	}
-	if (samplerate != 44100 && sdkver < 3090500) {
+	// DELIBERATELY MORE LENIENT THAN A PSP.
+	//
+	// libmp3.prx only accepts a rate other than 44.1kHz from a game built with SDK 3.09.05 or
+	// later - it compares the compiled SDK version against 0x030904FF - and audio/mp3/init carries
+	// the hardware's answers for the rest: 48kHz and 32kHz both come back as 0x80671302.
+	//
+	// We only give that answer to something that declares no SDK version at all, which in practice
+	// means the test. Anything that declares one gets its rate accepted whatever it is. That is
+	// what PPSSPP has always done here, by accident - the threshold was written as decimal 3090500
+	// rather than 0x03090500, so every real version cleared it - but it is worth keeping on
+	// purpose. Beats and games like it build levels out of MP3s the user supplies, and refusing an
+	// ordinary 48kHz file looks like a bug to whoever supplied it.
+	//
+	// Note this only applies here. Under DisableHLE for sceMp3 the check is inside libmp3.prx and
+	// it does refuse the file, because the only thing we hand it is the sample rate index - which
+	// it also uses to look up the rate it plays at, so claiming 44.1kHz to get past the check would
+	// play the stream at the wrong speed. To be strict again, compare against 0x030904FF.
+	if (samplerate != 44100 && sdkver == 0) {
 		return hleDelayResult(hleLogError(Log::ME, SCE_MP3_ERROR_BAD_SAMPLE_RATE, "invalid data: not 44.1kHz"), "mp3 init", PARSE_DELAY_MS);
 	}
 
