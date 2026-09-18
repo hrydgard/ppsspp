@@ -8,7 +8,9 @@
 class UIBaseScreen : public UIScreen {
 public:
 	UIBaseScreen() : UIScreen() {}
-	ViewLayoutMode LayoutMode() const override;
+	ViewLayoutMode LayoutMode() const override {
+		return ViewLayoutMode::IgnoreBottomInset;
+	}
 	bool UseImmersiveMode() const override;
 protected:
 	void sendMessage(UIMessage message, const char *value) override;
