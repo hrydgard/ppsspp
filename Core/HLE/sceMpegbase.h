@@ -25,7 +25,7 @@ class PointerWrap;
 
 void Register_sceMpegbase();
 
-// Called per boot, from __MpegInit and __MpegShutdown.
+// Called per boot, from __KernelInit and __KernelShutdown, around sceMpeg's own pair.
 void __MpegBaseInit();
 void __MpegBaseShutdown();
 
