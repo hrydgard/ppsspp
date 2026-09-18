@@ -175,13 +175,31 @@ static u32 sceKernelSm1ReferOperations() {
 	return hleLogDebug(Log::sceKernel, 0);
 }
 
+// The kernel's debug printf. On hardware it formats the string and hands it to whatever
+// sceKernelRegisterKprintfHandler() installed, which on a retail PSP means the serial port -
+// so nothing a player ever sees, and games that call it are just leaving debug output in.
+// We format it and put it in the log, which is the useful thing to do with it.
+// Declared void in the SDK headers, so the return value doesn't matter, but 0 is what the
+// firmware leaves in v0.
+static u32 Kprintf(u32 fmtAddr) {
+	std::string formatted;
+	if (!HLEFormatPrintf(fmtAddr, 1, &formatted)) {
+		return hleLogError(Log::Printf, 0, "bad format string or args");
+	}
+	// Each log line is already a line, so don't double space.
+	if (!formatted.empty() && formatted.back() == '\n') {
+		formatted.pop_back();
+	}
+	return hleLogInfo(Log::Printf, 0, "\"%s\"", formatted.c_str());
+}
+
 static const HLEFunction KDebugForKernel[] = {
 	{0XE7A3874D, nullptr,                                            "sceKernelRegisterAssertHandler",          '?', ""   },
 	{0X2FF4E9F9, nullptr,                                            "sceKernelAssert",                         '?', ""   },
 	{0X9B868276, nullptr,                                            "sceKernelGetDebugPutchar",                '?', ""   },
 	{0XE146606D, nullptr,                                            "sceKernelRegisterDebugPutchar",           '?', ""   },
 	{0X7CEB2C09, &WrapU_V<sceKernelRegisterKprintfHandler>,          "sceKernelRegisterKprintfHandler",         'x', "",       HLE_KERNEL_SYSCALL },
-	{0X84F370BC, nullptr,                                            "Kprintf",                                 '?', ""   },
+	{0X84F370BC, &WrapU_U<Kprintf>,                                  "Kprintf",                                 'x', "x",      HLE_KERNEL_SYSCALL },
 	{0X5CE9838B, nullptr,                                            "sceKernelDebugWrite",                     '?', ""   },
 	{0X66253C4E, nullptr,                                            "sceKernelRegisterDebugWrite",             '?', ""   },
 	{0XDBB5597F, nullptr,                                            "sceKernelDebugRead",                      '?', ""   },

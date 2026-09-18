@@ -1218,6 +1218,133 @@ void hlePushFuncDesc(std::string_view module, std::string_view funcName) {
 	}
 }
 
+// Fetches one word of a variadic argument list. Note that this is not the o32 layout - psp-gcc
+// builds for the MIPS EABI, where the first eight arguments go in a0-a3 and t0-t3, and the rest
+// on the stack starting at sp+0 (o32 would pass four in registers and start the stack at sp+16).
+static bool ReadVarArgWord(int index, u32 *value) {
+	if (index < 4) {
+		*value = currentMIPS->r[MIPS_REG_A0 + index];
+		return true;
+	}
+	if (index < 8) {
+		*value = currentMIPS->r[MIPS_REG_T0 + index - 4];
+		return true;
+	}
+	const u32 addr = currentMIPS->r[MIPS_REG_SP] + (index - 8) * 4;
+	if (!Memory::IsValid4AlignedAddress(addr)) {
+		ERROR_LOG(Log::HLE, "printf: bad stack pointer %08x", addr);
+		return false;
+	}
+	*value = Memory::ReadUnchecked_U32(addr);
+	return true;
+}
+
+bool HLEFormatPrintf(u32 fmtAddr, int firstVarArg, std::string *result) {
+	if (!Memory::IsValidNullTerminatedString(fmtAddr)) {
+		ERROR_LOG(Log::HLE, "printf: bad format string at %08x", fmtAddr);
+		return false;
+	}
+
+	VERBOSE_LOG(Log::HLE, "printf fmt: %s", Memory::GetCharPointerUnchecked(fmtAddr));
+	VERBOSE_LOG(Log::HLE, "printf a0-a3, t0-t3: %08x %08x %08x %08x %08x %08x %08x %08x",
+		currentMIPS->r[MIPS_REG_A0], currentMIPS->r[MIPS_REG_A1],
+		currentMIPS->r[MIPS_REG_A2], currentMIPS->r[MIPS_REG_A3],
+		currentMIPS->r[MIPS_REG_T0], currentMIPS->r[MIPS_REG_T1],
+		currentMIPS->r[MIPS_REG_T2], currentMIPS->r[MIPS_REG_T3]);
+
+	bool processingSpecifier = false;
+	std::string specifier;
+	int bytesToRead = 0;
+	int argIndex = firstVarArg;
+	result->clear();
+	for (const char *c = Memory::GetCharPointerUnchecked(fmtAddr); *c != '\0'; c++) {
+		if (!processingSpecifier) {
+			if (*c == '%') {
+				specifier = "%";
+				processingSpecifier = true;
+				bytesToRead = 0;
+			} else {
+				result->append(1, *c);
+			}
+			continue;
+		}
+
+		specifier.append(1, *c);
+
+		// Going by https://cplusplus.com/reference/cstdio/printf/#compatibility - no idea what the
+		// kernel module really supports.
+		switch (*c) {
+		case '%':
+			result->append(specifier);
+			processingSpecifier = false;
+			break;
+
+		case 's':
+		{
+			u32 val = 0;
+			if (!ReadVarArgWord(argIndex++, &val)) {
+				return false;
+			}
+			if (!Memory::IsValidNullTerminatedString(val)) {
+				ERROR_LOG(Log::HLE, "printf: bad string reference at %08x", val);
+				return false;
+			}
+			result->append(Memory::GetCharPointerUnchecked(val));
+			processingSpecifier = false;
+			break;
+		}
+
+		case 'd':
+		case 'i':
+		case 'u':
+		case 'o':
+		case 'x':
+		case 'X':
+		case 'f':
+		case 'e':
+		case 'E':
+		case 'g':
+		case 'G':
+		case 'c':
+		case 'p':
+		case 'n':
+		{
+			u64 val = 0;
+			if (bytesToRead == 0) {
+				bytesToRead = 4;
+			}
+			int readCount = 0;
+			while (bytesToRead != 0) {
+				u32 word = 0;
+				if (!ReadVarArgWord(argIndex++, &word)) {
+					return false;
+				}
+				val = val | ((u64)word << (readCount * 32));
+				bytesToRead -= 4;
+				readCount++;
+			}
+			char buf[128]{};
+			snprintf(buf, sizeof(buf), specifier.c_str(), val);
+			buf[sizeof(buf) - 1] = '\0';
+			result->append(buf);
+			processingSpecifier = false;
+			break;
+		}
+
+		case 'h':
+			// The allegrex calling convention is 4 byte aligned.
+			bytesToRead = 4;
+			break;
+
+		case 'l':
+			bytesToRead = bytesToRead + 4;
+			break;
+		}
+	}
+
+	return true;
+}
+
 // TODO: Also add support for argument names.
 size_t HLEFormatLogArgs(const MIPSState *mips, char *message, size_t sz, const char *argmask) {
 	char *p = message;
