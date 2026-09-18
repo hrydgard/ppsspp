@@ -192,6 +192,11 @@ void HLEDoState(PointerWrap &p);
 void HLEShutdown();
 const HLEFunction *HLEGetFunctionBeingCalled();
 size_t HLEFormatLogArgs(const MIPSState *mips, char *message, size_t sz, const char *argmask);
+// Runs a printf-style format string from the emulated program, pulling the varargs out of the PSP's
+// registers and stack. firstVarArg is the index of the first vararg, counting a0 as 0 - so 1 for a
+// printf(fmt, ...), 2 for an sprintf(dst, fmt, ...). Returns false, having logged why, if the format
+// string or an argument couldn't be read; the caller shouldn't use the result then.
+bool HLEFormatPrintf(u32 fmtAddr, int firstVarArg, std::string *result);
 u32 GetSyscallOp(std::string_view module, u32 nib);
 bool WriteHLESyscall(std::string_view module, u32 nib, u32 address);
 void CallSyscall(MIPSOpcode op);
