@@ -26,7 +26,9 @@
 // by looking at sceMpegBaseYCrCbCopy output on a real PSP.
 
 #include <algorithm>
+#include <cstring>
 #include <map>
+#include <utility>
 #include <vector>
 
 #include "Common/Serialize/Serializer.h"

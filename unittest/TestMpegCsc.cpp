@@ -23,8 +23,9 @@
 // MpegCscRange has something to be wrong against that isn't itself. The speed half reports
 // megapixels per second for a 480x272 frame, the size a PSP movie actually is.
 
-#include <cmath>
+#include <cstdio>
 #include <cstring>
+#include <utility>
 #include <vector>
 
 #include "Common/CommonTypes.h"
@@ -351,8 +352,9 @@ bool TestMpegCsc() {
 				memcpy(&a, &sws[off], bpp);
 				memcpy(&b, &ref[off], bpp);
 				for (int ch = 0; ch < 3; ch++) {
-					const int d = abs((int)((a >> shifts[ch]) & masks[ch]) -
-						(int)((b >> shifts[ch]) & masks[ch]));
+					const int va = (int)((a >> shifts[ch]) & masks[ch]);
+					const int vb = (int)((b >> shifts[ch]) & masks[ch]);
+					const int d = va > vb ? va - vb : vb - va;
 					worst = worst > d ? worst : d;
 					total += d;
 					count++;

@@ -20,7 +20,10 @@
 // mpeg.prx drives these directly, so they have to be real for the firmware module to run in place
 // of our sceMpeg HLE.
 
+#include <algorithm>
+#include <cstring>
 #include <map>
+#include <utility>
 #include <vector>
 
 #include "Common/Serialize/Serializer.h"
