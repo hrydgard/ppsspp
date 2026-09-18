@@ -30,7 +30,6 @@ Windows/ipch
 Windows/bin-release
 Windows/win-version.h
 Windows/win-version-*.tmp
-android/assets
 ext/_Output
 android/lint.xml
 PPSSPPWindows64.exe.manifest
@@ -96,11 +95,6 @@ __testcompare.png
 vt_ref.bmp
 GameLogNotes.txt
 screenshots
-android/assets/lang
-android/assets/flash0
-android/assets/flash1
-android/assets/flash2
-android/assets/flash3
 font_atlas.zim.png
 asciifont_atlas.zim.png
 ppge_atlas.zim.png

@@ -61,6 +61,13 @@ bug, since CI runs the equivalent of `UnitTest.exe all` on every commit across m
 platforms without apparent issue. If `all`/`Jit` hangs in your environment, run every other
 test by name instead (skip `Jit`) to still get real coverage.
 
+## Android assets
+
+The APK's `assets/` directory is the repo-root `assets/` directory, wired up by
+`assets.directories.add("../assets")` in `android/build.gradle.kts`. There's no copy step, so a file dropped
+in `assets/` ships as-is. `ndk-build` doesn't read assets at all, and nothing populates `android/assets/` -
+if you have one, it's a leftover from the old Ant/Eclipse build and is ignored.
+
 ## Legacy Android build (android/jni)
 
 There is a legacy Android build using the raw NDK build system (`android/jni/Android.mk` + `ndk-build`), separate from the
@@ -69,8 +76,8 @@ useful for quick test builds (it can build `ppsspp_headless` and the unit tests 
 by default, but if you want to test-build it locally:
 
 - The NDK path is hardcoded in `android/ab.cmd` (Windows) or passed via the `NDK` env var to `android/ab.sh` (POSIX).
-  It should match the `ndkVersion` in `android/build.gradle.kts`. The scripts copy assets first, then run ndk-build with
-  a core count derived from the machine (nproc / %NUMBER_OF_PROCESSORS%).
+  It should match the `ndkVersion` in `android/build.gradle.kts`. The scripts just run ndk-build with a core count
+  derived from the machine (nproc / %NUMBER_OF_PROCESSORS%).
 - Example (POSIX): `cd android && NDK=/path/to/ndk ./ab.sh APP_ABI=arm64-v8a HEADLESS=1`
 - The `ppsspp_headless` executable ends up in `android/libs/<abi>/`.
 

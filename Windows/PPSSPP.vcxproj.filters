@@ -695,9 +695,6 @@
     <None Include="..\.github\workflows\generateDockerLayer.yml">
       <Filter>Build\Actions</Filter>
     </None>
-    <None Include="..\android\buildassets.sh">
-      <Filter>Build</Filter>
-    </None>
     <None Include="..\ios\Launch Screen.storyboard">
       <Filter>Other Platforms\iOS</Filter>
     </None>
