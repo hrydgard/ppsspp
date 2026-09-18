@@ -35,3 +35,9 @@ void __MpegBaseDoState(PointerWrap &p);
 // instead. The payload is moved out and dropped from the table, so each one is decoded once.
 // Empty if nothing was copied to that address.
 std::vector<u8> MpegBaseTakePESPacket(u32 dest);
+
+// Un-tiles a decoded frame from the eight buffers the Media Engine lays it out in into three
+// planes. The buffers are in sceVideocodec's order: four luma, then four chroma. cb and cr come
+// out at half width and half height, as YUV420 does.
+bool ReadTiledYCbCr(const u32 *buffers, int width, int height,
+	std::vector<u8> &luma, std::vector<u8> &cb, std::vector<u8> &cr);
