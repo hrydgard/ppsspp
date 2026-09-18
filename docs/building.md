@@ -128,7 +128,10 @@ main functions (and also stub out most of the System_ functions as needed). Take
 when making cross platform changes.
 
 New unit tests are added by listing them in availableTests in unittest.cpp. If they are large, put them in
-separate files in the unittest subdirectory. Remember to update both CMakeLists.txt and the visual studio project.
+separate files in the unittest subdirectory. A new file has to be listed in three build files, not two:
+`CMakeLists.txt`, `unittest/UnitTests.vcxproj` (and its `.filters`), and `android/jni/Android.mk`, which
+builds a unit test executable of its own. The Android one is the easiest to forget, since missing it builds
+fine everywhere you are likely to try it and only fails on Android CI.
 
 A unit test is often the first thing to call a given function from outside its own .cpp, which makes the
 `ppsspp_unittest` target in the legacy Android build (`android/jni/Android.mk`, see above) the strictest check

@@ -111,8 +111,10 @@ python test.py -g --graphics=software
   around a hundred failures that mean nothing is wrong. The only meaningful result is `0 tests failed`.
   (The debug-CRT "Detected memory leaks!" dump after the summary line is normal, not a failure.)
 
-New unit tests are added to `availableTests`; large ones go in their own file in `unittest/`, listed in
-both CMakeLists.txt and the Visual Studio project.
+New unit tests are added to `availableTests`; large ones go in their own file in `unittest/`, which has
+to be listed in **three** build files, not two: `CMakeLists.txt`, `unittest/UnitTests.vcxproj` (and its
+`.filters`), and `android/jni/Android.mk`, which builds a unit test executable of its own. Miss the last
+one and it builds everywhere you can easily try it, and fails on Android CI.
 
 ## Multiplatform considerations
 
