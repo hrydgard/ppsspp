@@ -527,7 +527,6 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 		level = std::max(0, gstate.getTexLevelOffset16() / 16);
 	}
 	const u32 texaddr = gstate.getTextureAddress(level);
-	_dbg_assert_(texaddr != 0);
 	if (!Memory::IsValidTextureAddress(texaddr)) {
 		// Bind a null texture and return.
 		Unbind();

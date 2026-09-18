@@ -257,13 +257,20 @@ static DisableHLEFlags ComputeDisableHLEFlags() {
 	if (PSP_CoreParameter().compat.flags().DisableHLESceFont) {
 		flags |= DisableHLEFlags::sceFont;
 	}
-	if (PSP_CoreParameter().compat.flags().ForceHLEPsmf) {
-		flags &= ~(DisableHLEFlags::scePsmf | DisableHLEFlags::scePsmfPlayer);
-	}
-
 	flags &= ~(DisableHLEFlags)g_Config.iForceEnableHLE;
 	// Anything whose firmware module isn't actually present stays HLE'd.
 	flags &= ~g_unavailableDisableFlags;
+
+	// Our psmf and psmfPlayer HLE plays video by calling our sceMpeg HLE, so it has nothing to talk
+	// to when the real mpeg.prx is running: the player sits in "not yet playing" forever and no
+	// frame ever comes out. The two have to be on the same side, and since sceMpeg is the one we
+	// now run for real by default, this compat flag gives way to it.
+	//
+	// Last, so it sees what sceMpeg actually ended up as rather than what was asked for - without a
+	// module to run, sceMpeg is back on HLE and the flag means what it always did.
+	if (PSP_CoreParameter().compat.flags().ForceHLEPsmf && !(flags & DisableHLEFlags::sceMpeg)) {
+		flags &= ~(DisableHLEFlags::scePsmf | DisableHLEFlags::scePsmfPlayer);
+	}
 	return flags;
 }
 
