@@ -20,7 +20,10 @@
 // mpeg.prx drives these directly, so they have to be real for the firmware module to run in place
 // of our sceMpeg HLE.
 
+#include <algorithm>
+#include <cstring>
 #include <map>
+#include <utility>
 #include <vector>
 
 #include "Common/Serialize/Serializer.h"
@@ -37,6 +40,13 @@
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 
+#ifdef USE_FFMPEG
+extern "C" {
+#include "libswscale/swscale.h"
+#include "libavutil/pixfmt.h"
+}
+#endif
+
 // The PES payloads gathered by sceMpegBasePESpacketCopy, keyed by the destination each was
 // copied to. It carries audio as well as video - the destination is what tells them apart - so
 // sceVideocodec has to ask for the one matching the address it was handed.
@@ -45,11 +55,28 @@ static std::map<u32, std::vector<u8>> g_pesPackets;
 static int g_mpegBaseBufferWidth = 512;
 static int g_mpegBasePixelMode = GE_CMODE_32BIT_ABGR8888;
 
+// Scratch for the planes the de-tiling produces. Reused between calls: a movie converts one of
+// these every frame, and they are a couple of hundred kilobytes, so allocating them per call was
+// pure overhead. Nothing here needs saving - it is rebuilt from the ME's buffers on every call.
+static std::vector<u8> g_untileScratch;
+
 void __MpegBaseInit() {
 	// None of this survives a boot on hardware.
 	g_pesPackets.clear();
+	g_untileScratch.clear();
+	g_untileScratch.shrink_to_fit();
+	MpegCscShutdown();
 	g_mpegBaseBufferWidth = 512;
 	g_mpegBasePixelMode = GE_CMODE_32BIT_ABGR8888;
+}
+
+void __MpegBaseShutdown() {
+	// The scratch and the swscale context are worth a few hundred kilobytes between them, and a
+	// game that played one video early on has no use for either afterwards.
+	g_pesPackets.clear();
+	g_untileScratch.clear();
+	g_untileScratch.shrink_to_fit();
+	MpegCscShutdown();
 }
 
 void __MpegBaseDoState(PointerWrap &p) {
@@ -174,40 +201,22 @@ static const u8 *MpegBaseFramePointer(u32 addr, int size) {
 //
 // Untangling it into plain planes costs one pass per frame, which keeps the conversion below
 // readable and is not where the time goes.
-bool ReadTiledYCbCr(const u32 *buffers, int width, int height,
-	std::vector<u8> &luma, std::vector<u8> &cb, std::vector<u8> &cr) {
+// The de-tiling itself, with the address resolution left outside so it can be measured and
+// checked on its own - see TestMpegCsc. src is the eight buffers in sceVideocodec order (four
+// luma, then four chroma) and sizes says how big each one is.
+//
+// Every byte of the output is written for any frame the hardware can produce, so the caller does
+// not have to clear it first.
+void UntileYCbCr(u8 *luma, u8 *cb, u8 *cr, const u8 *const src[8], const int sizes[8],
+	int width, int height) {
 	const int width2 = width >> 1;
 	const int height2 = height >> 1;
-
-	int sizes[8];
-	VideocodecFrameBufferLayout(width, height, sizes, nullptr);
 	const int *ySize = sizes;
 	const int *cSize = sizes + 4;
 
-	const u8 *y[4] = {};
-	const u8 *c[4] = {};
-	for (int i = 0; i < 4; i++) {
-		if (ySize[i] > 0) {
-			y[i] = MpegBaseFramePointer(buffers[i], ySize[i]);
-			if (!y[i]) {
-				return false;
-			}
-		}
-		if (cSize[i] > 0) {
-			c[i] = MpegBaseFramePointer(buffers[4 + i], cSize[i]);
-			if (!c[i]) {
-				return false;
-			}
-		}
-	}
-
-	luma.assign((size_t)width * height, 0);
-	cb.assign((size_t)width2 * height2, 128);
-	cr.assign((size_t)width2 * height2, 128);
-
 	// Luma: four buffers, keyed by (left/right half of the band, even/odd row).
 	for (int b = 0; b < 4; b++) {
-		if (!y[b]) {
+		if (!src[b]) {
 			continue;
 		}
 		const int xOffset = (b & 1) ? 16 : 0;
@@ -219,33 +228,69 @@ bool ReadTiledYCbCr(const u32 *buffers, int width, int height,
 				if (run <= 0 || j + run > ySize[b]) {
 					continue;
 				}
-				memcpy(&luma[(size_t)row * width + bandX], y[b] + j, run);
+				memcpy(luma + (size_t)row * width + bandX, src[b] + j, run);
 			}
 		}
 	}
 
-	// Chroma: same shape in half-resolution coordinates, with interleaved Cb/Cr pairs.
+	// Chroma: same shape in half-resolution coordinates, but the two planes arrive interleaved as
+	// (Cb,Cr) pairs, so each group of 8 pixels is a 16-byte run to pull apart. The bounds the old
+	// version checked per pixel only depend on the group, so they are hoisted out here - that inner
+	// loop was the expensive half of this function.
 	for (int b = 0; b < 4; b++) {
-		if (!c[b]) {
+		if (!src[b + 4]) {
 			continue;
 		}
 		const int xOffset = (b & 1) ? 8 : 0;
 		const int yStart = (b >> 1) ? 1 : 0;
 		int j = 0;
 		for (int bandX = xOffset; bandX < width2; bandX += 16) {
-			for (int row = yStart; row < height2; row += 2) {
-				for (int k = 0; k < 8; k++, j += 2) {
-					const int x = bandX + k;
-					if (x >= width2 || j + 1 >= cSize[b]) {
-						continue;
-					}
-					const size_t i = (size_t)row * width2 + x;
-					cb[i] = c[b][j];
-					cr[i] = c[b][j + 1];
+			for (int row = yStart; row < height2; row += 2, j += 16) {
+				// How many of the 8 fit both in the row and in what the buffer actually holds.
+				const int fits = std::min(8, (cSize[b] - j) >> 1);
+				const int run = std::min(width2 - bandX, fits);
+				if (run <= 0) {
+					continue;
+				}
+				const u8 *from = src[b + 4] + j;
+				u8 *toCb = cb + (size_t)row * width2 + bandX;
+				u8 *toCr = cr + (size_t)row * width2 + bandX;
+				for (int k = 0; k < run; k++) {
+					toCb[k] = from[k * 2];
+					toCr[k] = from[k * 2 + 1];
 				}
 			}
 		}
 	}
+}
+
+bool ReadTiledYCbCr(const u32 *buffers, int width, int height,
+	const u8 **luma, const u8 **cb, const u8 **cr) {
+	int sizes[8];
+	VideocodecFrameBufferLayout(width, height, sizes, nullptr);
+
+	const u8 *src[8]{};
+	for (int i = 0; i < 8; i++) {
+		if (sizes[i] > 0) {
+			src[i] = MpegBaseFramePointer(buffers[i], sizes[i]);
+			if (!src[i]) {
+				return false;
+			}
+		}
+	}
+
+	const size_t lumaBytes = (size_t)width * height;
+	const size_t chromaBytes = (size_t)(width >> 1) * (height >> 1);
+	if (g_untileScratch.size() < lumaBytes + chromaBytes * 2) {
+		g_untileScratch.resize(lumaBytes + chromaBytes * 2);
+	}
+	u8 *l = g_untileScratch.data();
+	u8 *b = l + lumaBytes;
+	u8 *r = b + chromaBytes;
+	UntileYCbCr(l, b, r, src, sizes, width, height);
+	*luma = l;
+	*cb = b;
+	*cr = r;
 	return true;
 }
 
@@ -257,16 +302,172 @@ static u32 YCbCrToPixel(int y, int cbv, int crv, int pixelMode) {
 	r = std::min(255, std::max(0, r));
 	g = std::min(255, std::max(0, g));
 	b = std::min(255, std::max(0, b));
+	// Alpha comes out zero, not opaque. That is what the hardware does - our sceMpeg HLE masks it
+	// off for the same reason, and names Sword Art Online as a game that depends on it, because it
+	// doesn't clear the alpha in the buffer it hands over and expects the video to leave it clear.
 	switch (pixelMode) {
 	case GE_CMODE_16BIT_BGR5650:
 		return ((b >> 3) << 11) | ((g >> 2) << 5) | (r >> 3);
 	case GE_CMODE_16BIT_ABGR5551:
-		return (1 << 15) | ((b >> 3) << 10) | ((g >> 3) << 5) | (r >> 3);
+		return ((b >> 3) << 10) | ((g >> 3) << 5) | (r >> 3);
 	case GE_CMODE_16BIT_ABGR4444:
-		return (0xF << 12) | ((b >> 4) << 8) | ((g >> 4) << 4) | (r >> 4);
+		return ((b >> 4) << 8) | ((g >> 4) << 4) | (r >> 4);
 	default:
-		return 0xFF000000 | (b << 16) | (g << 8) | r;
+		return (b << 16) | (g << 8) | r;
 	}
+}
+
+// The conversion itself, with nothing around it. Pure, so that TestMpegCsc can measure it and
+// check it - it is the hottest thing in video playback, and the point of having it out here is
+// that it can be worked on without a game in the loop.
+//
+// luma is width by height; cb and cr are half that in both directions, as YUV420 is. dest is
+// destStride pixels wide in the format pixelMode names, and the converted range always lands at
+// its origin.
+void MpegCscRangeScalar(u8 *dest, int destStride, int pixelMode,
+	const u8 *luma, const u8 *cb, const u8 *cr, int width,
+	int rangeX, int rangeY, int rangeWidth, int rangeHeight) {
+	const int bpp = pixelMode == GE_CMODE_32BIT_ABGR8888 ? 4 : 2;
+	const int width2 = width >> 1;
+	for (int y = 0; y < rangeHeight; y++) {
+		const int sy = rangeY + y;
+		for (int x = 0; x < rangeWidth; x++) {
+			const int sx = rangeX + x;
+			const int ci = (sy >> 1) * width2 + (sx >> 1);
+			const u32 pixel = YCbCrToPixel(luma[sy * width + sx], cb[ci], cr[ci], pixelMode);
+			if (bpp == 4) {
+				memcpy(dest + (y * destStride + x) * 4, &pixel, 4);
+			} else {
+				const u16 p16 = (u16)pixel;
+				memcpy(dest + (y * destStride + x) * 2, &p16, 2);
+			}
+		}
+	}
+}
+
+#ifdef USE_FFMPEG
+
+// swscale is what our sceMpeg HLE converts with, and the planes the de-tiling produces are
+// already the YUV420P it wants, so the same thing works here - and it is a great deal quicker
+// than doing it a pixel at a time.
+//
+// The four output formats are the ones MediaEngine::getSwsFormat picks, for the same reasons.
+// Alpha is not among them: swscale writes RGBA opaque and leaves the spare bits of the 16-bit
+// formats clear, so the masking below is what makes the result match the hardware, exactly as
+// the HLE does after its own sws_scale.
+static AVPixelFormat SwsFormatForPixelMode(int pixelMode) {
+	switch (pixelMode) {
+	case GE_CMODE_16BIT_BGR5650: return AV_PIX_FMT_BGR565LE;
+	case GE_CMODE_16BIT_ABGR5551: return AV_PIX_FMT_BGR555LE;
+	case GE_CMODE_16BIT_ABGR4444: return AV_PIX_FMT_BGR444LE;
+	default: return AV_PIX_FMT_RGBA;
+	}
+}
+
+// Nothing is being scaled here, so this only picks how chroma reaches full resolution: SWS_POINT
+// repeats each 2x2 block's sample, as the scalar path and presumably the hardware do, while
+// SWS_BILINEAR smooths between samples, as our sceMpeg HLE does. Swap the line to taste - it
+// deserves a real option eventually.
+static const int MPEG_CSC_SWS_FLAGS = SWS_POINT;
+
+static SwsContext *g_cscSws;
+static int g_cscSwsWidth, g_cscSwsHeight, g_cscSwsFormat = -1;
+
+void MpegCscShutdown() {
+	if (g_cscSws) {
+		sws_freeContext(g_cscSws);
+		g_cscSws = nullptr;
+	}
+	g_cscSwsWidth = 0;
+	g_cscSwsHeight = 0;
+	g_cscSwsFormat = -1;
+}
+
+bool MpegCscRangeSws(u8 *dest, int destStride, int pixelMode,
+	const u8 *luma, const u8 *cb, const u8 *cr, int width,
+	int rangeX, int rangeY, int rangeWidth, int rangeHeight) {
+	// Chroma is half resolution, so an odd origin would start half a sample in and there is no way
+	// to say that to swscale. Nothing can actually ask for one - the ranges arrive in macroblocks -
+	// but the scalar path is still there for it.
+	if ((rangeX & 1) || (rangeY & 1)) {
+		return false;
+	}
+
+	const AVPixelFormat format = SwsFormatForPixelMode(pixelMode);
+	if (rangeWidth != g_cscSwsWidth || rangeHeight != g_cscSwsHeight || (int)format != g_cscSwsFormat) {
+		g_cscSws = sws_getCachedContext(g_cscSws, rangeWidth, rangeHeight, AV_PIX_FMT_YUV420P,
+			rangeWidth, rangeHeight, format, MPEG_CSC_SWS_FLAGS, nullptr, nullptr, nullptr);
+		if (!g_cscSws) {
+			return false;
+		}
+		// Studio swing both ways, which is the range the coefficients in the scalar path assume.
+		int *invCoeff, *coeff, srcRange, dstRange, brightness, contrast, saturation;
+		if (sws_getColorspaceDetails(g_cscSws, &invCoeff, &srcRange, &coeff, &dstRange, &brightness,
+			&contrast, &saturation) != -1) {
+			sws_setColorspaceDetails(g_cscSws, invCoeff, 0, coeff, 0, brightness, contrast, saturation);
+		}
+		g_cscSwsWidth = rangeWidth;
+		g_cscSwsHeight = rangeHeight;
+		g_cscSwsFormat = (int)format;
+	}
+
+	const int width2 = width >> 1;
+	const u8 *srcSlice[4] = {
+		luma + (size_t)rangeY * width + rangeX,
+		cb + (size_t)(rangeY >> 1) * width2 + (rangeX >> 1),
+		cr + (size_t)(rangeY >> 1) * width2 + (rangeX >> 1),
+		nullptr,
+	};
+	const int srcStride[4] = { width, width2, width2, 0 };
+	const int bpp = pixelMode == GE_CMODE_32BIT_ABGR8888 ? 4 : 2;
+	u8 *dstSlice[4] = { dest, nullptr, nullptr, nullptr };
+	const int dstStride[4] = { destStride * bpp, 0, 0, 0 };
+	if (sws_scale(g_cscSws, srcSlice, srcStride, 0, rangeHeight, dstSlice, dstStride) <= 0) {
+		return false;
+	}
+
+	// Clear the alpha swscale filled in, which the hardware leaves at zero.
+	for (int y = 0; y < rangeHeight; y++) {
+		u8 *row = dest + (size_t)y * destStride * bpp;
+		if (bpp == 4) {
+			u32_le *p32 = (u32_le *)row;
+			for (int x = 0; x < rangeWidth; x++) {
+				p32[x] = p32[x] & 0x00FFFFFF;
+			}
+		} else if (pixelMode != GE_CMODE_16BIT_BGR5650) {
+			const u16 mask = pixelMode == GE_CMODE_16BIT_ABGR5551 ? 0x7FFF : 0x0FFF;
+			u16_le *p16 = (u16_le *)row;
+			for (int x = 0; x < rangeWidth; x++) {
+				p16[x] = p16[x] & mask;
+			}
+		}
+	}
+	return true;
+}
+
+#else  // !USE_FFMPEG
+
+bool MpegCscRangeSws(u8 *dest, int destStride, int pixelMode,
+	const u8 *luma, const u8 *cb, const u8 *cr, int width,
+	int rangeX, int rangeY, int rangeWidth, int rangeHeight) {
+	return false;
+}
+
+void MpegCscShutdown() {}
+
+#endif  // USE_FFMPEG
+
+void MpegCscRange(u8 *dest, int destStride, int pixelMode,
+	const u8 *luma, const u8 *cb, const u8 *cr, int width,
+	int rangeX, int rangeY, int rangeWidth, int rangeHeight) {
+#ifdef USE_FFMPEG
+	if (MpegCscRangeSws(dest, destStride, pixelMode, luma, cb, cr, width,
+			rangeX, rangeY, rangeWidth, rangeHeight)) {
+		return;
+	}
+#endif
+	MpegCscRangeScalar(dest, destStride, pixelMode, luma, cb, cr, width,
+		rangeX, rangeY, rangeWidth, rangeHeight);
 }
 
 // The shared body of sceMpegBaseCscAvc and sceMpegBaseCscAvcRange - the former is just the
@@ -303,8 +504,8 @@ static int MpegBaseCscRange(u32 bufferRGB, u32 cscAddr, int bufferWidth,
 		return hleLogError(Log::Mpeg, -1, "range outside the frame");
 	}
 
-	std::vector<u8> luma, cb, cr;
-	if (!ReadTiledYCbCr(buffers, width, height, luma, cb, cr)) {
+	const u8 *luma, *cb, *cr;
+	if (!ReadTiledYCbCr(buffers, width, height, &luma, &cb, &cr)) {
 		return hleLogError(Log::Mpeg, -1, "YCbCr buffers not readable");
 	}
 
@@ -318,21 +519,8 @@ static int MpegBaseCscRange(u32 bufferRGB, u32 cscAddr, int bufferWidth,
 		return hleLogError(Log::Mpeg, -1, "output buffer not writable");
 	}
 
-	const int width2 = width >> 1;
-	for (int y = 0; y < rangeHeight; y++) {
-		const int sy = rangeY + y;
-		for (int x = 0; x < rangeWidth; x++) {
-			const int sx = rangeX + x;
-			const int ci = (sy >> 1) * width2 + (sx >> 1);
-			const u32 pixel = YCbCrToPixel(luma[sy * width + sx], cb[ci], cr[ci], g_mpegBasePixelMode);
-			if (bpp == 4) {
-				memcpy(dest + (y * bufferWidth + x) * 4, &pixel, 4);
-			} else {
-				const u16 p16 = (u16)pixel;
-				memcpy(dest + (y * bufferWidth + x) * 2, &p16, 2);
-			}
-		}
-	}
+	MpegCscRange(dest, bufferWidth, g_mpegBasePixelMode, luma, cb, cr, width,
+		rangeX, rangeY, rangeWidth, rangeHeight);
 	NotifyMemInfo(MemBlockFlags::WRITE, bufferRGB, destSize, "MpegBaseCsc");
 	// The CPU just wrote a video frame into what is usually a display buffer. The hardware backends
 	// don't see that on their own, so without telling them the screen keeps showing the last frame

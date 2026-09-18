@@ -144,6 +144,7 @@ void __KernelInit()
 	__PowerInit();
 	__UtilityInit();
 	__UmdInit();
+	__MpegBaseInit();
 	__MpegInit();
 	__PsmfInit();
 	__CtrlInit();
@@ -210,6 +211,7 @@ void __KernelShutdown()
 
 	__Mp3Shutdown();
 	__MpegShutdown();
+	__MpegBaseShutdown();
 	__PsmfShutdown();
 	__PPGeShutdown();
 

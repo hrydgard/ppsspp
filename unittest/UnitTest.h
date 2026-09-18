@@ -1,6 +1,8 @@
 #pragma once
 
 #include <cmath>
+#include <cstdio>
+#include <cstring>
 #include <algorithm>
 
 inline bool rel_equal(float a, float b, float precision) {

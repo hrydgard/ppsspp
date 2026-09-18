@@ -75,9 +75,17 @@ for it:
 ```powershell
 $installPath = & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
 $msbuild = "$installPath\MSBuild\Current\Bin\MSBuild.exe"
-& $msbuild "Windows\PPSSPP.sln" /t:UnitTest /p:Configuration=Debug /p:Platform=x64 /m
+& $msbuild "Windows\PPSSPP.sln" /t:UnitTest /p:Configuration=Debug /p:Platform=<platform> /m
 ```
 
+- **`<platform>` is whatever the machine is - look it up, don't assume.** It is `ARM64` or `x64`, and
+  the build lands in `Windows\<platform>\<configuration>\` to match, so building one and running the
+  other is easy to do without noticing. On Windows-on-ARM an x64 build runs anyway, under emulation,
+  which is what makes it easy to miss: it works, but it is slower than the native build, it is not
+  the code ARM users get, and any benchmark from it measures the emulator. Get the host from
+  `python -c "import platform; print(platform.machine())"`, not `$PROCESSOR_ARCHITECTURE`, which
+  describes the *shell* and says `AMD64` from an emulated one. The binaries say which they are too -
+  `UnitTest.exe` prints an `ABI:` line at startup.
 - Kill leftover `PPSSPPHeadless.exe`/`PPSSPP*.exe` instances before building - one holding the exe makes
   the link fail with `LNK1168`, which looks like a build problem and isn't.
 - **A stale binary lies consistently.** After a `git stash` cycle that touched a header, do a
@@ -90,7 +98,7 @@ UWP, the legacy Android NDK build and the libretro core have their own build sys
 
 After a chunk of work (not after every edit), run both suites:
 
-- C++ unit tests: build the `UnitTest` project and run `Windows/x64/Debug/UnitTest.exe all`
+- C++ unit tests: build the `UnitTest` project and run `Windows/<platform>/Debug/UnitTest.exe all`
   (Linux/Mac: configure with `-DUNITTEST=ON`, run `build/PPSSPPUnitTest all`). Tests are listed in
   `availableTests` in `unittest/UnitTest.cpp`; pass names instead of `all` to run a subset.
 - pspautotests (HLE coverage) - run them **exactly the way CI does**:
@@ -103,8 +111,10 @@ python test.py -g --graphics=software
   around a hundred failures that mean nothing is wrong. The only meaningful result is `0 tests failed`.
   (The debug-CRT "Detected memory leaks!" dump after the summary line is normal, not a failure.)
 
-New unit tests are added to `availableTests`; large ones go in their own file in `unittest/`, listed in
-both CMakeLists.txt and the Visual Studio project.
+New unit tests are added to `availableTests`; large ones go in their own file in `unittest/`, which has
+to be listed in **three** build files, not two: `CMakeLists.txt`, `unittest/UnitTests.vcxproj` (and its
+`.filters`), and `android/jni/Android.mk`, which builds a unit test executable of its own. Miss the last
+one and it builds everywhere you can easily try it, and fails on Android CI.
 
 ## Multiplatform considerations
 

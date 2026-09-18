@@ -356,7 +356,6 @@ static void ClearMpegContexts() {
 }
 
 void __MpegInit() {
-	__MpegBaseInit();
 	// getMpegCtx keys on a handle read out of game memory, so don't leave contexts from a previous
 	// game around for the next one to find.
 	ClearMpegContexts();

@@ -16,16 +16,24 @@ An agent can drive the VS solution non-interactively with `MSBuild.exe` instead 
 ```powershell
 $installPath = & "C:\Program Files (x86)\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
 $msbuild = "$installPath\MSBuild\Current\Bin\MSBuild.exe"
-& $msbuild "Windows\PPSSPP.sln" /t:UnitTest /p:Configuration=Debug /p:Platform=x64 /m
+& $msbuild "Windows\PPSSPP.sln" /t:UnitTest /p:Configuration=Debug /p:Platform=<platform> /m
 ```
 
 (swap `/t:UnitTest` for `/t:PPSSPPWindows` or another project name as needed; drop it entirely to build the whole solution).
+
+`<platform>` is `ARM64` or `x64` - whichever the machine actually is, so look it up rather than
+picking a default. The output directory follows it (`Windows\<platform>\<configuration>\`), which
+makes building one and running the other an easy mistake. It is easiest to make on Windows-on-ARM,
+where an x64 build runs anyway under emulation: everything appears to work, but it is slower than
+the native build and any performance measurement from it describes the emulator rather than the
+code. `platform.machine()` in Python reports the host; `$PROCESSOR_ARCHITECTURE` reports the shell,
+which is `AMD64` in an emulated shell even on an ARM64 machine.
 
 In addition to the pspautotests runner (test.py), there is a separate binary with C++ unit tests
 in the /unittest subdirectory. After substantial changes (at the end of a chunk of work, not
 necessarily after every edit), run these too:
 
-- Windows: build the `UnitTest` project (unittest/UnitTests.vcxproj), then run `Windows/x64/Debug/UnitTest.exe all`
+- Windows: build the `UnitTest` project (unittest/UnitTests.vcxproj), then run `Windows/<platform>/Debug/UnitTest.exe all` (`<platform>` being `ARM64` or `x64`, whichever you built)
 - Linux/Mac: configure with `-DUNITTEST=ON`, then run `build/PPSSPPUnitTest all`
 
 This runs all tests in `availableTests` in unittest/UnitTest.cpp. You can run one or more
@@ -127,7 +135,10 @@ main functions (and also stub out most of the System_ functions as needed). Take
 when making cross platform changes.
 
 New unit tests are added by listing them in availableTests in unittest.cpp. If they are large, put them in
-separate files in the unittest subdirectory. Remember to update both CMakeLists.txt and the visual studio project.
+separate files in the unittest subdirectory. A new file has to be listed in three build files, not two:
+`CMakeLists.txt`, `unittest/UnitTests.vcxproj` (and its `.filters`), and `android/jni/Android.mk`, which
+builds a unit test executable of its own. The Android one is the easiest to forget, since missing it builds
+fine everywhere you are likely to try it and only fails on Android CI.
 
 A unit test is often the first thing to call a given function from outside its own .cpp, which makes the
 `ppsspp_unittest` target in the legacy Android build (`android/jni/Android.mk`, see above) the strictest check
