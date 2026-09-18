@@ -428,16 +428,13 @@ void HLECheckModuleAvailability() {
 		}
 	}
 
-	// sceMpeg is the one that should normally be there - PPSSPP installs a firmware dump when it
-	// finds one - so unlike sceMp4 above, not having it is worth saying out loud. Unless the disc
-	// brought its own, which is just as good and wants no comment.
+	// Nothing on screen for this one: the sceMpeg HLE is good enough that landing on it is not
+	// something to interrupt the player over. Worth a line in the log, since it explains why a
+	// video looks different from how it looks with the real module.
 	if (AlwaysDisableHLEFlags() & DisableHLEFlags::sceMpeg) {
 		if (!pspFileSystem.GetFileInfo("flash0:/kd/mpeg.prx").exists && !DiscHasModule("mpeg.prx")) {
 			g_unavailableDisableFlags |= DisableHLEFlags::sceMpeg;
-			ERROR_LOG(Log::HLE, "Neither flash0:/kd nor the disc has mpeg.prx - using the HLE sceMpeg.");
-			auto sy = GetI18NCategory(I18NCat::SYSTEM);
-			g_OSD.Show(OSDType::MESSAGE_WARNING,
-				sy->T("No mpeg.prx - install a firmware dump for accurate video"), 6.0f);
+			INFO_LOG(Log::HLE, "Neither flash0:/kd nor the disc has mpeg.prx - using the HLE sceMpeg.");
 		}
 	}
 }

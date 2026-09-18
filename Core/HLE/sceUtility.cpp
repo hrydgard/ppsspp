@@ -182,8 +182,9 @@ static void NotifyLoadStatusMp4(int state, u32 loadAddr, u32 totalSize) {
 		if (!pspFileSystem.GetFileInfo("flash0:/kd/libmp4.prx").exists ||
 			!pspFileSystem.GetFileInfo("flash0:/kd/mp4msv.prx").exists) {
 			auto sy = GetI18NCategory(I18NCat::SYSTEM);
-			g_OSD.Show(OSDType::MESSAGE_WARNING, sy->T("MP4 playback needs a firmware dump from "
-				"version 6.00 or later - it won't work without one"), 8.0f, "hle_no_module_sceMp4");
+			g_OSD.Show(OSDType::MESSAGE_WARNING,
+				sy->T("MP4 playback needs PSP firmware 6.00 or later to be installed"),
+				8.0f, "hle_no_module_sceMp4");
 		}
 		return;
 	}
