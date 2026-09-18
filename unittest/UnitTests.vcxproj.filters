@@ -17,6 +17,7 @@
     <ClCompile Include="TestIRPassSimplify.cpp" />
     <ClCompile Include="TestDemangle.cpp" />
     <ClCompile Include="TestLzrc.cpp" />
+    <ClCompile Include="TestMpegCsc.cpp" />
     <ClCompile Include="TestTextureReplacer.cpp" />
     <ClCompile Include="TestRiscVEmitter.cpp" />
     <ClCompile Include="TestVFS.cpp" />

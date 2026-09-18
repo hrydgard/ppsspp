@@ -41,3 +41,12 @@ std::vector<u8> MpegBaseTakePESPacket(u32 dest);
 // out at half width and half height, as YUV420 does.
 bool ReadTiledYCbCr(const u32 *buffers, int width, int height,
 	std::vector<u8> &luma, std::vector<u8> &cb, std::vector<u8> &cr);
+
+// Converts a rectangle of a planar YCbCr420 frame to RGB, the way the DMACPLUS does on the way to
+// the screen. Pure, so it can be measured and checked on its own - see TestMpegCsc.
+//
+// luma is width by height; cb and cr are half that in both directions. dest is destStride pixels
+// wide in the format pixelMode names (a GEBufferFormat), and the range lands at its origin.
+void MpegCscRange(u8 *dest, int destStride, int pixelMode,
+	const u8 *luma, const u8 *cb, const u8 *cr, int width,
+	int rangeX, int rangeY, int rangeWidth, int rangeHeight);

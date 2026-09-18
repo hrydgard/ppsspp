@@ -1368,6 +1368,7 @@ if(UNITTEST)
 		unittest/TestVFS.cpp
 		unittest/TestZipSlip.cpp
 		unittest/TestLzrc.cpp
+		unittest/TestMpegCsc.cpp
 		unittest/TestDemangle.cpp
 		unittest/TestTextureReplacer.cpp
 		unittest/TestRiscVEmitter.cpp

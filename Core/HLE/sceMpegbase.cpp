@@ -269,6 +269,34 @@ static u32 YCbCrToPixel(int y, int cbv, int crv, int pixelMode) {
 	}
 }
 
+// The conversion itself, with nothing around it. Pure, so that TestMpegCsc can measure it and
+// check it - it is the hottest thing in video playback, and the point of having it out here is
+// that it can be worked on without a game in the loop.
+//
+// luma is width by height; cb and cr are half that in both directions, as YUV420 is. dest is
+// destStride pixels wide in the format pixelMode names, and the converted range always lands at
+// its origin.
+void MpegCscRange(u8 *dest, int destStride, int pixelMode,
+	const u8 *luma, const u8 *cb, const u8 *cr, int width,
+	int rangeX, int rangeY, int rangeWidth, int rangeHeight) {
+	const int bpp = pixelMode == GE_CMODE_32BIT_ABGR8888 ? 4 : 2;
+	const int width2 = width >> 1;
+	for (int y = 0; y < rangeHeight; y++) {
+		const int sy = rangeY + y;
+		for (int x = 0; x < rangeWidth; x++) {
+			const int sx = rangeX + x;
+			const int ci = (sy >> 1) * width2 + (sx >> 1);
+			const u32 pixel = YCbCrToPixel(luma[sy * width + sx], cb[ci], cr[ci], pixelMode);
+			if (bpp == 4) {
+				memcpy(dest + (y * destStride + x) * 4, &pixel, 4);
+			} else {
+				const u16 p16 = (u16)pixel;
+				memcpy(dest + (y * destStride + x) * 2, &p16, 2);
+			}
+		}
+	}
+}
+
 // The shared body of sceMpegBaseCscAvc and sceMpegBaseCscAvcRange - the former is just the
 // latter over the whole frame.
 static int MpegBaseCscRange(u32 bufferRGB, u32 cscAddr, int bufferWidth,
@@ -318,21 +346,8 @@ static int MpegBaseCscRange(u32 bufferRGB, u32 cscAddr, int bufferWidth,
 		return hleLogError(Log::Mpeg, -1, "output buffer not writable");
 	}
 
-	const int width2 = width >> 1;
-	for (int y = 0; y < rangeHeight; y++) {
-		const int sy = rangeY + y;
-		for (int x = 0; x < rangeWidth; x++) {
-			const int sx = rangeX + x;
-			const int ci = (sy >> 1) * width2 + (sx >> 1);
-			const u32 pixel = YCbCrToPixel(luma[sy * width + sx], cb[ci], cr[ci], g_mpegBasePixelMode);
-			if (bpp == 4) {
-				memcpy(dest + (y * bufferWidth + x) * 4, &pixel, 4);
-			} else {
-				const u16 p16 = (u16)pixel;
-				memcpy(dest + (y * bufferWidth + x) * 2, &p16, 2);
-			}
-		}
-	}
+	MpegCscRange(dest, bufferWidth, g_mpegBasePixelMode, luma.data(), cb.data(), cr.data(), width,
+		rangeX, rangeY, rangeWidth, rangeHeight);
 	NotifyMemInfo(MemBlockFlags::WRITE, bufferRGB, destSize, "MpegBaseCsc");
 	// The CPU just wrote a video frame into what is usually a display buffer. The hardware backends
 	// don't see that on their own, so without telling them the screen keeps showing the last frame
