@@ -1953,8 +1953,10 @@ u32 sceNetAdhocInit() {
 		}
 
 		auto n = GetI18NCategory(I18NCat::NETWORKING);
-		std::string_view modeStr = serverHasRelay ? n->T("Relay server mode") : n->T("P2P mode");
-		g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions("%1: %2", n->T("Ad Hoc multiplayer"), modeStr), 0.0f, "adhoc started");
+		if (g_Config.bEnableWlan) {
+			std::string_view modeStr = serverHasRelay ? n->T("Relay server mode") : n->T("P2P mode");
+			g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions("%1: %2", n->T("Ad Hoc multiplayer"), modeStr), 0.0f, "adhoc started");
+		}
 
 		// Return Success
 		return hleLogInfo(Log::sceNet, 0, "at %08x", currentMIPS->pc);
