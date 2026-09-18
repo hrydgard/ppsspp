@@ -219,7 +219,7 @@ DisableHLEFlags AlwaysDisableHLEFlags() {
 	//
 	// sceFont is the odd one out: the module is on the disc like the others, but it reads its fonts
 	// from flash0:/font, so it is only usable with a firmware dump installed - see
-	// CheckDisableHLEAvailability, which puts the HLE back when those fonts aren't there.
+	// HLECheckModuleAvailability, which puts the HLE back when those fonts aren't there.
 	//
 	// sceParseUri and sceParseHttp are not here - those two are also in the firmware, and
 	// sceUtility can load them (modules 0x103 and 0x104), so unlike the rest a game may import them
@@ -348,7 +348,7 @@ static void hleDelayResultFinish(u64 userdata, int cycleslate) {
 // (Death Jr. has MPEG.PRX and LIBATRAC3PLUS.PRX under PSP_GAME/USRDIR/MODULES), and dropping the
 // flag for want of firmware would replace a perfectly good disc module with our HLE. Those check for
 // a real module at the point they would load one, and warn there if neither source has it.
-static void CheckDisableHLEAvailability() {
+void HLECheckModuleAvailability() {
 	g_unavailableDisableFlags = (DisableHLEFlags)0;
 
 	// libfont.prx/sceFont is shipped on game discs but reads its fonts from flash0:/font and has
@@ -375,7 +375,6 @@ static void CheckDisableHLEAvailability() {
 }
 
 void HLEInit() {
-	CheckDisableHLEAvailability();
 	RegisterAllModules();
 	// Latched lazily rather than here: the compat flags this depends on aren't loaded yet.
 	g_disableHLELatched = false;

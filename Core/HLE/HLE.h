@@ -187,6 +187,7 @@ inline s64 hleDelayResult(s64 result, const char *reason, int usec) {
 }
 
 void HLEInit();
+void HLECheckModuleAvailability();
 void HLEDoState(PointerWrap &p);
 void HLEShutdown();
 const HLEFunction *HLEGetFunctionBeingCalled();
