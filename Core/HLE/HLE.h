@@ -188,6 +188,10 @@ inline s64 hleDelayResult(s64 result, const char *reason, int usec) {
 
 void HLEInit();
 void HLECheckModuleAvailability();
+// The flags that were asked for but could not be honoured, because the firmware module they need
+// is neither installed nor on the disc - those libraries ran our HLE instead. HLECheckModuleAvailability()
+// fills this in during boot, so it only means anything after that.
+DisableHLEFlags HLEGetUnavailableDisableFlags();
 void HLEDoState(PointerWrap &p);
 void HLEShutdown();
 const HLEFunction *HLEGetFunctionBeingCalled();

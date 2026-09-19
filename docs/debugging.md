@@ -171,6 +171,13 @@ produced a round of bogus results here:
 The last three compound: the fix is to treat the run's exit code and a positive "we got here" counter as
 preconditions, and only then believe the error counts.
 
+For the silent-fallback half of this, headless refuses the run rather than substituting: an explicit
+`--disable-hle=` whose firmware module isn't there names the module, prints the `flash0:/kd` and memory stick
+it looked in (usually enough to spot that it's the one beside the exe), and exits 1. Only an *explicit*
+`--disable-hle` binds - sceMpeg and sceMp4 are LLE by default and still fall back quietly, or every run on a
+machine with no firmware would fail. So when a measurement depends on the real module, pass the flag
+explicitly even though it's on by default, and the run will tell you if it didn't get it.
+
 ## Debugging and breakpoint considerations
 
 It might be worth trying the interpreter - all types of breakpoints are the most reliable with this CPU backend.
