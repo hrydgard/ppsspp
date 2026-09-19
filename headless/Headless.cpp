@@ -799,12 +799,8 @@ int main(int argc, const char* argv[]) {
 
 	// Force known values for deterministic test execution. This happens before
 	// ApplyToConfig() below, so a matching command line flag can still override any of it -
-	// ApplyToConfig() always has the final say on the settings in g_Config.
-	//
-	// This affects the test execution of pspautotests/tests/gpu/vertices/morph.prx, even though
-	// we actually set the cpu core in CoreParameter below.
-	// The check that decides that is in the DrawEngineCommon constructor.
-	g_Config.iCpuCore = (int)CPUCore::INTERPRETER;
+	// ApplyToConfig() always has the final say on the settings in g_Config - except for iCpuCore,
+	// which is forced after it instead, see below.
 
 	// NOTE: In headless mode, we never save the config. This is just for this run.
 	g_Config.iDumpFileTypes = 0;
@@ -856,6 +852,14 @@ int main(int argc, const char* argv[]) {
 	// ApplyToConfig() has the final say, applied after RestoreDefaults() and the headless
 	// overrides above, so a matching command line flag always wins.
 	cmdLineOptions.ApplyToConfig();
+
+	// The exception to that, forced after ApplyToConfig() so --cpu can't reach it. g_Config.iCpuCore
+	// doesn't pick the MIPS core here (CoreParameter below does, straight from the command line) -
+	// it also gates the vertex decoder JIT, in the DrawEngineCommon constructor. Letting --cpu=jit
+	// switch that on decodes vertices through a different path and changes the output of a dozen or
+	// so GPU tests, gpu/vertices/morph among them. The core to test is a CPU question, so keep the
+	// GPU side on one path for every backend.
+	g_Config.iCpuCore = (int)CPUCore::INTERPRETER;
 
 	// pspautotests is plain homebrew PRXes so do not ship user libraries that a retail disc may carry. 
 	// So we must use HLE, unless we install firmware.
