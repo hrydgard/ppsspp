@@ -313,7 +313,8 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &m
 		instructions.reserve(block_instructions.size() + 2); // +2 for Downcount and LogIRBlock
 		// The first instruction is "Downcount"
 		instructions.push_back(block_instructions.front());
-		instructions.push_back({ IROp::LogIRBlock, {0}, 0, 0, 0 });
+		// prepare_block() fills in the constant, unless it fails to record the block.
+		instructions.push_back({ IROp::LogIRBlock, {0}, 0, 0, INVALID_TRACE_INDEX });
 		std::copy(block_instructions.begin() + 1, block_instructions.end(), std::back_inserter(instructions));
 	}
 

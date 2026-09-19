@@ -156,6 +156,7 @@ void WriteMMIO_U16(MIPSState *mips, u32 addr, u16 value) {
 void WriteMMIO_U32(MIPSState *mips, u32 addr, u32 value) {
 	if (!Memory::IsKernelCodeAddress(mips->pc)) {
 		Core_MemoryException(addr, 4, mips->pc, MemoryExceptionType::WRITE_WORD, "Kernel mode only");
+		return;
 	}
 	if (GpioMMIO::IsGpioAddress(addr)) {
 		GpioMMIO::Write32(addr, value);

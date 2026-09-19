@@ -349,7 +349,7 @@ int GetVectorOverlap(int vec1, VectorSize size1, int vec2, VectorSize size2) {
 	u8 regs1[4];
 	u8 regs2[4];
 	GetVectorRegs(regs1, size1, vec1);
-	GetVectorRegs(regs2, size1, vec2);
+	GetVectorRegs(regs2, size2, vec2);
 	int count = 0;
 	for (int i = 0; i < n1; i++) {
 		for (int j = 0; j < n2; j++) {
