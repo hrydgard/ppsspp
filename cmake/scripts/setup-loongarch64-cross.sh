@@ -32,10 +32,12 @@ done
 # B26 branch to address 0 would overflow on LoongArch).
 echo "Generating libGL.so stub..."
 
+HOST_MULTIARCH=$(gcc -print-multiarch 2>/dev/null || dpkg-architecture -qDEB_HOST_MULTIARCH 2>/dev/null)
+
 HOST_GL=""
 for candidate in \
-        /usr/lib/x86_64-linux-gnu/libGL.so.1 \
-        /usr/lib/x86_64-linux-gnu/libGL.so \
+        /usr/lib/$HOST_MULTIARCH/libGL.so.1 \
+        /usr/lib/$HOST_MULTIARCH/libGL.so \
         /usr/lib/libGL.so.1 ; do
     [ -f "$candidate" ] && HOST_GL="$candidate" && break
 done

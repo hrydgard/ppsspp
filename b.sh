@@ -133,10 +133,11 @@ if [ ! -z "$LOONGARCH64_BUILD" ]; then
 	STUB_C=$(mktemp /tmp/gl_stub_XXXXXX.c)
 	echo "/* Loongarch64 GL/GLX stub - cross-compilation only */" > "$STUB_C"
 	# Collect all T (exported) symbols from GL/GLX libs, deduplicate, emit stubs
+	HOST_MULTIARCH=$(gcc -print-multiarch 2>/dev/null || dpkg-architecture -qDEB_HOST_MULTIARCH 2>/dev/null)
 	{
-		for lib in /usr/lib/x86_64-linux-gnu/libGL.so.1 \
-		           /usr/lib/x86_64-linux-gnu/libGLX.so.0 \
-		           /usr/lib/x86_64-linux-gnu/libGLdispatch.so.0; do
+		for lib in /usr/lib/$HOST_MULTIARCH/libGL.so.1 \
+		           /usr/lib/$HOST_MULTIARCH/libGLX.so.0 \
+		           /usr/lib/$HOST_MULTIARCH/libGLdispatch.so.0; do
 			[ -f "$lib" ] && nm -D "$lib" 2>/dev/null | awk '/^[0-9a-f]+ T /{ print $3 }'
 		done
 		# Always include the minimal GLX symbols GLEW directly references
