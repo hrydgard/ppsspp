@@ -1051,6 +1051,7 @@ ifeq ($(UNITTEST),1)
 	$(SRC)/unittest/TestX64Emitter.cpp \
     $(SRC)/unittest/TestRiscVEmitter.cpp \
     $(SRC)/unittest/TestLoongArch64Emitter.cpp \
+    $(SRC)/unittest/TestCrossSIMD.cpp \
     $(SRC)/unittest/TestIRPassSimplify.cpp \
     $(SRC)/unittest/TestShaderGenerators.cpp \
     $(SRC)/unittest/TestSoftwareGPUJit.cpp \
