@@ -598,16 +598,20 @@ void LoongArch64JitBackend::CompIR_Div(IRInst inst) {
 		{
 			// Start with divide by zero, the quotient and remainder are arbitrary numbers.
 			FixupBranch skipNonZero = BNEZ(denomReg);
-            // Clear the arbitrary number
-            XOR(regs_.R(IRREG_LO), regs_.R(IRREG_LO), regs_.R(IRREG_LO));
-            // Replace remainder to numReg
-            BSTRINS_D(regs_.R(IRREG_LO), numReg, 63, 32);
+			// Clear the arbitrary number
+			XOR(regs_.R(IRREG_LO), regs_.R(IRREG_LO), regs_.R(IRREG_LO));
+			// Replace remainder to numReg
+			BSTRINS_D(regs_.R(IRREG_LO), numReg, 63, 32);
 			FixupBranch keepNegOne = BGE(numReg, R_ZERO);
-			// Replace quotient with 1.
-			ADDI_D(regs_.R(IRREG_LO), regs_.R(IRREG_LO), 1);
+			// Replace quotient with 1. The low half is zero, so setting the bit is enough.
+			ORI(regs_.R(IRREG_LO), regs_.R(IRREG_LO), 1);
+			FixupBranch skipNegOne = B();
 			SetJumpTarget(keepNegOne);
-            // Replace quotient with -1.
-            ADDI_D(regs_.R(IRREG_LO), regs_.R(IRREG_LO), -1);
+			// Replace quotient with -1. Insert it - subtracting one would borrow into the
+			// remainder sitting in the high half.
+			LI(R_RA, -1);
+			BSTRINS_D(regs_.R(IRREG_LO), R_RA, 31, 0);
+			SetJumpTarget(skipNegOne);
 			SetJumpTarget(skipNonZero);
 
 			// For overflow, LoongArch sets LO right, but remainder to zero.

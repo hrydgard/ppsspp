@@ -83,6 +83,13 @@ void RiscVJitBackend::CompIR_FCondAssign(IRInst inst) {
 
 	// FMin and FMax are used by VFPU and handle NAN/INF as just a larger exponent.
 	regs_.Map(inst);
+
+	// Allocate this before the branch below. Allocating can spill a register, and that store
+	// would then sit on the NAN-only path while the regcache believes it always ran.
+	RiscVReg isSrc1LowerReg = INVALID_REG;
+	if (!cpu_info.RiscV_Zbb)
+		isSrc1LowerReg = regs_.GetAndLockTempGPR();
+
 	FCLASS(32, SCRATCH1, regs_.F(inst.src1));
 	FCLASS(32, SCRATCH2, regs_.F(inst.src2));
 
@@ -115,7 +122,6 @@ void RiscVJitBackend::CompIR_FCondAssign(IRInst inst) {
 			MAX(SCRATCH1, SCRATCH1, SCRATCH2);
 		SetJumpTarget(skipSwapCompare);
 	} else {
-		RiscVReg isSrc1LowerReg = regs_.GetAndLockTempGPR();
 		SLT(isSrc1LowerReg, SCRATCH1, SCRATCH2);
 		// Flip the flag (to reverse the min/max) based on if both were negative.
 		XOR(isSrc1LowerReg, isSrc1LowerReg, R_RA);

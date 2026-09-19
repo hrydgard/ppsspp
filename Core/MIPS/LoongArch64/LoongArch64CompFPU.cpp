@@ -80,6 +80,11 @@ void LoongArch64JitBackend::CompIR_FCondAssign(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	regs_.Map(inst);
+
+	// Allocate this before the branch below. Allocating can spill a register, and that store
+	// would then sit on the unordered-only path while the regcache believes it always ran.
+	LoongArch64Reg isSrc1LowerReg = regs_.GetAndLockTempGPR();
+
 	FCMP_COND_S(FCC0, regs_.F(inst.src1), regs_.F(inst.src2), LoongArch64Fcond::CUN);
 	MOVCF2GR(SCRATCH1, FCC0);
 	FixupBranch unordered = BNEZ(SCRATCH1);
@@ -109,7 +114,6 @@ void LoongArch64JitBackend::CompIR_FCondAssign(IRInst inst) {
 	AND(R_RA, SCRATCH1, SCRATCH2);
 	SRLI_W(R_RA, R_RA, 31);
 
-	LoongArch64Reg isSrc1LowerReg = regs_.GetAndLockTempGPR();
 	SLT(isSrc1LowerReg, SCRATCH1, SCRATCH2);
 	// Flip the flag (to reverse the min/max) based on if both were negative.
 	XOR(isSrc1LowerReg, isSrc1LowerReg, R_RA);
@@ -231,8 +235,8 @@ void LoongArch64JitBackend::CompIR_FCvt(IRInst inst) {
 
 	case IROp::FCvtScaledWS:
 		regs_.Map(inst);
-		// Prepare for the NAN result
-		QuickFLI(32, SCRATCHF1, (uint32_t)(0x7FFFFFFF), SCRATCH1);
+		// Prepare for the NAN result, which the FSELs below pick out of SCRATCHF2.
+		QuickFLI(32, SCRATCHF2, (uint32_t)(0x7FFFFFFF), SCRATCH1);
 		// Prepare the multiplier.
 		QuickFLI(32, SCRATCHF1, (float)(1UL << (inst.src2 & 0x1F)), SCRATCH1);
 
