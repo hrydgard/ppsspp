@@ -29,6 +29,9 @@
 #include "Common/Data/Collections/CyclicBuffer.h"
 
 
+// Stored in the LogIRBlock instruction's constant field for a block the tracer never recorded.
+constexpr u32 INVALID_TRACE_INDEX = 0xFFFFFFFF;
+
 struct TraceBlockInfo {
 	u32 virt_address;
 	u32 storage_index;

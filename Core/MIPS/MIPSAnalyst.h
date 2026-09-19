@@ -82,15 +82,15 @@ namespace MIPSAnalyst {
 	bool IsRegisterClobbered(MIPSGPReg reg, u32 addr, int instrs);
 
 	struct AnalyzedFunction {
-		u32 start;
-		u32 end;
-		u64 hash;
-		u32 size;
-		bool isStraightLeaf;
-		bool hasHash;
-		bool usesVFPU;
-		bool foundInSymbolMap;
-		char name[64];
+		u32 start = 0;
+		u32 end = 0;
+		u64 hash = 0;
+		u32 size = 0;
+		bool isStraightLeaf = false;
+		bool hasHash = false;
+		bool usesVFPU = false;
+		bool foundInSymbolMap = false;
+		char name[64] = {};
 	};
 
 	struct ReplacementTableEntry;

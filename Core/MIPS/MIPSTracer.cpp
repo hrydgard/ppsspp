@@ -113,9 +113,19 @@ bool MIPSTracer::flush_to_file() {
 		return false;
 	}
 	auto trace = executed_blocks.get_content();
+	int skipped = 0;
 	for (auto index : trace) {
+		// Blocks compiled before an earlier flush (or before a clear) still carry their old index,
+		// which no longer refers to anything. Clearing the jit cache gets rid of them for good.
+		if (index >= trace_info.size()) {
+			skipped++;
+			continue;
+		}
 		auto& block_info = trace_info[index];
 		flush_block_to_file(block_info);
+	}
+	if (skipped != 0) {
+		WARN_LOG(Log::JIT, "Skipped %d stale block(s) in the trace, clear the jit cache to avoid this", skipped);
 	}
 
 	INFO_LOG(Log::JIT, "Trace flushed, closing the file...");

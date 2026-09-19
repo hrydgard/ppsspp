@@ -1146,6 +1146,7 @@ static bool CheckExecBreakpoints(const MIPSState *mips, u32 pc) {
 	return false;
 }
 
+// instr must not be null - the callers skip these checks for undecodable opcodes.
 static bool CheckMemBreakpoints(const MIPSState *mips, const MIPSInstruction *instr, const MIPSOpcode op) {
 	if ((instr->flags & (IN_MEM | OUT_MEM)) != 0 && g_breakpoints.CheckSkipFirst() != mips->pc && instr->interpret != &Int_Syscall) {
 		// This is common for all IN_MEM/OUT_MEM funcs.
@@ -1198,10 +1199,12 @@ void MIPSInterpret(MIPSState *mips, MIPSOpcode op) {
 	if (g_breakpoints.HasBreakPoints()) {
 		CheckExecBreakpoints(mips, mips->pc);
 	}
-	if (g_breakpoints.HasMemChecks()) {
+	// instr is null if the opcode doesn't decode - InterpretInstruction raises ILLEGAL below,
+	// and the checks that read instr->flags have to be skipped.
+	if (instr && g_breakpoints.HasMemChecks()) {
 		CheckMemBreakpoints(mips, instr, op);
 	}
-	if (g_breakpoints.GetRegBreakpointMask()) {
+	if (instr && g_breakpoints.GetRegBreakpointMask()) {
 		CheckRegBreakpoints(mips, instr, op, g_breakpoints.GetRegBreakpointMask());
 	}
 	InterpretInstruction(mips, instr, op);
@@ -1241,10 +1244,11 @@ static void RunUntilDowncountZeroWithChecks(MIPSState *mips, u64 globalTicks) {
 				// If it tripped, bail without running.
 				breakExec = true;
 			}
-			if (hasMCs && CheckMemBreakpoints(mips, instr, op)) {
+			// instr is null if the opcode doesn't decode, see MIPSInterpret.
+			if (hasMCs && instr && CheckMemBreakpoints(mips, instr, op)) {
 				breakExec = true;
 			}
-			if (regBPMask != 0 && CheckRegBreakpoints(mips, instr, op, regBPMask)) {
+			if (regBPMask != 0 && instr && CheckRegBreakpoints(mips, instr, op, regBPMask)) {
 				breakExec = true;
 			}
 			if (breakExec) {

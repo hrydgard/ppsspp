@@ -1632,8 +1632,11 @@ namespace MIPSInt
 			u8 dregs[4]{};
 			GetVectorRegs(dregs, sz, vd);
 			// Calculate cosine based on sine/zero result.
+			// Only the first n entries of dregs are valid, the rest are still zero - which would
+			// falsely match vs == 0 (S000).
+			int n = GetNumVectorElements(sz);
 			bool written = false;
-			for (int i = 0; i < 4; i++) {
+			for (int i = 0; i < n; i++) {
 				if (vs == dregs[i]) {
 					d[cosineLane] = vfpu_cos(d[i]);
 					written = true;

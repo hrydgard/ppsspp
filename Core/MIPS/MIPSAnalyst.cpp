@@ -1218,6 +1218,7 @@ skip:
 		AnalyzedFunction fun;
 		fun.start = startAddr;
 		fun.end = startAddr + size - 4;
+		fun.size = size;
 		fun.isStraightLeaf = false;  // dunno really
 		strncpy(fun.name, name, 64);
 		fun.name[63] = 0;
