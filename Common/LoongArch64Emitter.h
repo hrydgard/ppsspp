@@ -166,7 +166,8 @@ public:
 		QuickCallFunction((const u8 *)func, scratchreg);
 	}
 	void QuickCallFunctionR(const u8 *func, LoongArch64Reg arg, LoongArch64Reg scratchreg = R_RA) {
-		MOVE(LoongArch64Reg::X4, arg);
+		// The first integer argument goes in a0, which is R4 - X4 is an LASX vector register.
+		MOVE(LoongArch64Reg::R4, arg);
 		QuickJump(scratchreg, R_RA, func);
 	}
 	template <typename T>
