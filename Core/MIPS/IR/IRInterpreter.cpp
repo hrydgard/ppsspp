@@ -486,8 +486,9 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 
 #if PPSSPP_ARCH(SSE2)
 			__m128i src = _mm_loadu_si128((__m128i *) & mips->fi[inst->src1]);
-			// Shift each 32-bit lane right by 24 bits. Then left by 1. This matches the rather weird behavior.
-			src = _mm_slli_epi32(_mm_srli_epi32(src, 24), 1);
+			// Shift each 32-bit lane left by 1, then take the top byte - that is, (v >> 23) & 0xFF.
+			// Shifting right by 24 first would drop bit 23.
+			src = _mm_srli_epi32(_mm_slli_epi32(src, 1), 24);
 			// Pack 32-bit lanes to 16-bit, then 16-bit to 8-bit
 			// This moves our target bytes to the bottom of the XMM register
 			src = _mm_packs_epi32(src, src);
@@ -905,7 +906,8 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		}
 
 		case IROp::FpCondFromReg:
-			mips->fpcond = mips->r[inst->dest];
+			// Note: the register is in src1, see the "_G" meta - the native backends read it there.
+			mips->fpcond = mips->r[inst->src1];
 			break;
 		case IROp::FpCondToReg:
 			mips->r[inst->dest] = mips->fpcond;

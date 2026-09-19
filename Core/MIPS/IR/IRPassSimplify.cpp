@@ -23,10 +23,11 @@ u32 Evaluate(u32 a, u32 b, IROp op) {
 	case IROp::And: case IROp::AndConst: return a & b;
 	case IROp::Or: case IROp::OrConst: return a | b;
 	case IROp::Xor: case IROp::XorConst: return a ^ b;
-	case IROp::Shr: case IROp::ShrImm: return a >> b;
-	case IROp::Sar: case IROp::SarImm: return (s32)a >> b;
-	case IROp::Ror: case IROp::RorImm: return (a >> b) | (a << (32 - b));
-	case IROp::Shl: case IROp::ShlImm: return a << b;
+	// MIPS (and IRInterpret) only look at the low 5 bits of a variable shift amount.
+	case IROp::Shr: case IROp::ShrImm: return a >> (b & 31);
+	case IROp::Sar: case IROp::SarImm: return (s32)a >> (b & 31);
+	case IROp::Ror: case IROp::RorImm: return __rotr(a, b & 31);
+	case IROp::Shl: case IROp::ShlImm: return a << (b & 31);
 	case IROp::Slt: case IROp::SltConst: return ((s32)a < (s32)b);
 	case IROp::SltU: case IROp::SltUConst: return (a < b);
 	default:
@@ -1886,7 +1887,11 @@ bool ApplyMemoryValidation(const IRWriter &in, IRWriter &out, const IROptions &o
 		}
 
 		const IRMeta *m = GetIRMeta(inst.op);
-		if (m->types[0] == 'G' && (m->flags & IRFLAG_SRC3) == 0) {
+		if ((m->flags & IRFLAG_BARRIER) != 0) {
+			// Interpret runs an arbitrary instruction and CallReplacement a whole function, so
+			// either can write any GPR - no address we validated earlier can be trusted after one.
+			checks.clear();
+		} else if (m->types[0] == 'G' && (m->flags & IRFLAG_SRC3) == 0) {
 			uint64_t key = (uint64_t)inst.dest << 32;
 			// Wipe out all the already done checks since this was modified.
 			checks.erase(checks.lower_bound(key), checks.upper_bound(key | 0xFFFFFFFFULL));
@@ -2148,7 +2153,7 @@ bool ReduceVec4Flush(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 				out.Write(inst.op, inst.dest, inst.src1, temp, inst.constant);
 				skip = true;
 				inst.src2 = IRREG_INVALID;
-			} else if (isVec4[inst.src2 & 3] && usedLaterAsVec4(inst.src2 & ~3) && findAvailTempVec4()) {
+			} else if (isVec4[inst.src2 & ~3] && usedLaterAsVec4(inst.src2 & ~3) && findAvailTempVec4()) {
 				out.Write(IROp::FMov, temp, inst.src2);
 				out.Write(inst.op, inst.dest, inst.src1, temp, inst.constant);
 				skip = true;
