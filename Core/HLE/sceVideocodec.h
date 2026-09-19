@@ -47,10 +47,18 @@ struct VideocodecCtxInfo {
 };
 void VideocodecGetCtxInfo(std::vector<VideocodecCtxInfo> *infos);
 
-// A host pointer into the Media Engine's memory, or null if the range isn't in it. The frame
-// buffers and the EDRAM block both live there, so anything reading them goes through this rather
-// than through Memory:: - the ME's memory is not part of PSP RAM.
-u8 *VideocodecMEPointer(u32 addr, u32 size);
+// The Media Engine's address space. It is the ME's own, so Memory::IsValidAddress and the rest,
+// which answer for the Allegrex's memory, have nothing to say about it. These are the equivalents
+// for the code standing in for the ME (the decoder, the DMA, the colour conversion).
+//
+// An address is only meaningful together with the space it came from, and mpeg.prx hands us bare
+// integers. Where we have to work it out from the value, ask the ME first: the addresses mpeg.prx
+// uses for ME memory sit well down in the first megabyte, and the ones it means for PSP RAM are
+// 0x08000000 and up, so the two sets stay apart. That is what these callers happen to pass rather
+// than a rule (a PSP address small enough to pass for an ME one, like the scratchpad, would be
+// taken for one).
+bool MEIsValidRange(u32 addr, u32 size);
+u8 *MEGetPointerRange(u32 addr, u32 size);
 
 // The eight buffers of the frame starting at `firstBuffer`, and its size. Returns false if that
 // isn't the start of an allocation we handed out (the normal answer once sceMpegBaseYCrCbCopy has

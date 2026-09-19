@@ -31,11 +31,6 @@ void __MpegBaseShutdown();
 
 void __MpegBaseDoState(PointerWrap &p);
 
-// Takes the PES payload sceMpegBasePESpacketCopy gathered for a given destination. On hardware that
-// copy lands in Media Engine memory, which sceVideocodec would then read back; we keep it here
-// instead. The payload is moved out and dropped from the table, so each one is decoded once.
-// Empty if nothing was copied to that address.
-std::vector<u8> MpegBaseTakePESPacket(u32 dest);
 
 // Un-tiles a decoded frame from the eight buffers the Media Engine lays it out in into three
 // planes. The buffers are in sceVideocodec's order: four luma, then four chroma. cb and cr come

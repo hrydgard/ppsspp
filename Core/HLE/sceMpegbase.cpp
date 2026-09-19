@@ -47,10 +47,6 @@ extern "C" {
 }
 #endif
 
-// The PES payloads gathered by sceMpegBasePESpacketCopy, keyed by the destination each was
-// copied to. It carries audio as well as video - the destination is what tells them apart - so
-// sceVideocodec has to ask for the one matching the address it was handed.
-static std::map<u32, std::vector<u8>> g_pesPackets;
 // Set by sceMpegBaseCscInit / sceMpegBaseCscSetPixelMode, and used when the caller passes 0.
 static int g_mpegBaseBufferWidth = 512;
 static int g_mpegBasePixelMode = GE_CMODE_32BIT_ABGR8888;
@@ -62,7 +58,6 @@ static std::vector<u8> g_untileScratch;
 
 void __MpegBaseInit() {
 	// None of this survives a boot on hardware.
-	g_pesPackets.clear();
 	g_untileScratch.clear();
 	g_untileScratch.shrink_to_fit();
 	MpegCscShutdown();
@@ -73,14 +68,13 @@ void __MpegBaseInit() {
 void __MpegBaseShutdown() {
 	// The scratch and the swscale context are worth a few hundred kilobytes between them, and a
 	// game that played one video early on has no use for either afterwards.
-	g_pesPackets.clear();
 	g_untileScratch.clear();
 	g_untileScratch.shrink_to_fit();
 	MpegCscShutdown();
 }
 
 void __MpegBaseDoState(PointerWrap &p) {
-	auto s = p.Section("sceMpegbase", 0, 1);
+	auto s = p.Section("sceMpegbase", 0, 2);
 	if (!s) {
 		return;
 	}
@@ -89,8 +83,12 @@ void __MpegBaseDoState(PointerWrap &p) {
 	// mid-movie converted at the default until the next sceMpegBaseCscInit, which may never come.
 	Do(p, g_mpegBaseBufferWidth);
 	Do(p, g_mpegBasePixelMode);
-	// A state can land between the copy and the decode that consumes it.
-	Do(p, g_pesPackets);
+	if (s < 2) {
+		// Used to hold the gathered PES payloads. They live in Media Engine memory now, which
+		// sceVideocodec saves, so read the old table to get past it and let it go.
+		std::map<u32, std::vector<u8>> oldPesPackets;
+		Do(p, oldPesPackets);
+	}
 }
 
 // p pointing to a SceMpegLLI structure consists of video frame blocks.
@@ -108,49 +106,39 @@ static u32 sceMpegBasePESpacketCopy(u32 p)
 	}
 	MpegSetPmpVideoSource(p, nBlocks);
 
-	// On hardware this is the DMA that moves the PES payload into the Media Engine's own memory,
-	// after which mpeg.prx hands sceVideocodecDecode an ME-side address we have no way to read.
-	// Since the copy is ours, gather the blocks here instead and let sceVideocodec decode from
-	// this - see MpegBaseTakePESPacket.
+	// The DMA itself. Each block names where it lands, and a single access unit routinely arrives
+	// as several blocks at consecutive addresses, so the only thing that reassembles it is putting
+	// each one where it says. Video goes to the Media Engine, audio to main memory (mpeg.prx hands
+	// that straight to sceAudiocodecDecode), and the destination address is all we have to tell the
+	// two spaces apart.
 	lli = PSPPointer<SceMpegLLI>::Create(p);
-	u32 dest = 0;
-	std::vector<u8> gathered;
+	u32 firstDest = 0;
+	int copied = 0;
 	for (int i = 0; i < nBlocks && lli.IsValid(); i++) {
 		if (i == 0) {
-			dest = lli->pDst;
+			firstDest = lli->pDst;
 		}
 		// The list is game-supplied, so check the span validity before taking a pointer to it.
 		const u8 *src = (lli->iSize > 0 && Memory::IsValidRange(lli->pSrc, lli->iSize))
 			? Memory::GetTypedPointerRange<u8>(lli->pSrc, lli->iSize) : nullptr;
 		if (src) {
-			gathered.insert(gathered.end(), src, src + lli->iSize);
-			// Audio payloads land in main memory, and mpeg.prx hands that same address to
-			// sceAudiocodecDecode as its input, so for those the copy has to really happen.
-			// Video goes to a Media Engine address that isn't mapped for us: the gather above
-			// is what stands in for it there.
-			if (Memory::IsValidRange(lli->pDst, lli->iSize)) {
+			if (u8 *me = MEGetPointerRange(lli->pDst, lli->iSize)) {
+				memcpy(me, src, lli->iSize);
+				copied += lli->iSize;
+			} else if (Memory::IsValidRange(lli->pDst, lli->iSize)) {
 				Memory::MemcpyUnchecked(lli->pDst, src, lli->iSize);
+				copied += lli->iSize;
+			} else {
+				WARN_LOG(Log::Mpeg, "sceMpegBasePESpacketCopy: %d bytes to %08x went nowhere",
+					(int)lli->iSize, (u32)lli->pDst);
 			}
 		}
 		++lli;
 	}
-	if (dest != 0) {
-		g_pesPackets[dest] = std::move(gathered);
-	}
 
 	DEBUG_LOG(Log::Mpeg, "sceMpegBasePESpacketCopy(%08x), %d block(s) -> %08x, %d bytes",
-		p, nBlocks, dest, dest ? (int)g_pesPackets[dest].size() : 0);
+		p, nBlocks, firstDest, copied);
 	return 0;
-}
-
-std::vector<u8> MpegBaseTakePESPacket(u32 dest) {
-	auto it = g_pesPackets.find(dest);
-	if (it == g_pesPackets.end()) {
-		return std::vector<u8>();
-	}
-	std::vector<u8> packet = std::move(it->second);
-	g_pesPackets.erase(it);
-	return packet;
 }
 
 
@@ -175,9 +163,11 @@ struct SceMp4AvcCscStruct {
 static_assert(sizeof(SceMp4AvcCscStruct) == 0x30);
 
 
-// A frame buffer is either in the Media Engine's memory or, after a copy, in the game's.
+// These descriptors carry Media Engine addresses (it is the ME that decoded the frame), so that is
+// the space to resolve them in. The exception is a frame sceMpegBaseYCrCbCopy has moved into the
+// game's memory, which is why there is a second look.
 static const u8 *MpegBaseFramePointer(u32 addr, int size) {
-	if (const u8 *me = VideocodecMEPointer(addr, size)) {
+	if (const u8 *me = MEGetPointerRange(addr, size)) {
 		return me;
 	}
 	return Memory::GetTypedPointerRange<u8>(addr, size);
