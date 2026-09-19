@@ -228,6 +228,15 @@ jobs:
           args: ./b.sh --headless --unittest
           id: gcc-normal
 
+        # Gives the headless tests an arm64 host to run the CPU backends on - the arm64 JIT is a
+        # different backend from the x86-64 one, and nothing else in the matrix tests it on Linux.
+        - os: ubuntu-26.04-arm
+          extra: test
+          cc: clang
+          cxx: clang++
+          args: ./b.sh --headless --unittest
+          id: clang-arm64
+
         - os: ubuntu-26.04
           extra: android
           cc: clang
@@ -456,7 +465,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-26.04, macos-latest]
+        os: [ubuntu-26.04, ubuntu-26.04-arm, macos-latest]
 
     runs-on: ${{ matrix.os }}
     needs: build
@@ -501,17 +510,36 @@ jobs:
       run: ./PPSSPPUnitTest ALL
 
     - name: Execute headless tests
+      if: runner.os != 'Linux'
       working-directory: ${{ env.GITHUB_WORKSPACE }}
       run: python test.py -g --graphics=software
 
-    - name: Execute frametests
+    # The Linux runners carry the CPU backend coverage, on both x86-64 and arm64. Elsewhere the
+    # default (JIT) is enough - the backends are shared code, and four runs everywhere adds up.
+    # test.py picks a wall clock to match the backend, so the slower ones don't time out.
+    - name: Execute headless tests (all CPU backends)
       if: runner.os == 'Linux'
+      working-directory: ${{ env.GITHUB_WORKSPACE }}
+      run: |
+        fail=0
+        for cpu in jit jit-ir ir interpreter; do
+          echo "::group::CPU backend: $cpu"
+          python test.py -g --graphics=software --cpu=$cpu || fail=1
+          echo "::endgroup::"
+        done
+        exit $fail
+
+    # x86-64 only: the reference images don't match what the software renderer produces on arm64,
+    # 23 of the 30 dumps differ there, one of them by an MSE of 100. That's a real difference and
+    # worth chasing, but it predates the arm64 runner - it just never had a CI job to show up in.
+    - name: Execute frametests
+      if: matrix.os == 'ubuntu-26.04'
       working-directory: ${{ env.GITHUB_WORKSPACE }}
       run: python3 frametests.py frametests/frametests.json --out-mode=failures
 
     - name: Upload frametest report
       uses: actions/upload-artifact@v7
-      if: runner.os == 'Linux' && always()
+      if: matrix.os == 'ubuntu-26.04' && always()
       with:
         name: frametest-report
         path: frametests/out/

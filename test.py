@@ -40,6 +40,17 @@ PPSSPP_EXE = None
 TEST_ROOT = "pspautotests/tests/"
 TIMEOUT = 5
 
+# The slower CPU backends need a longer wall clock on the CPU-heavy tests - the interpreter runs
+# gpu/rendertarget/copy in about 4.5s against the JIT's 0.15s, since that test does over a million
+# guest-side vsprintf calls. Scale the timeout per backend rather than raising it for everyone, so
+# a genuine hang under the JIT is still caught in five seconds.
+CPU_TIMEOUTS = {
+  'interpreter': 20,
+  'ir': 10,
+  'jit': 5,
+  'jit-ir': 5,
+}
+
 class Command(object):
   def __init__(self, cmd, data = None):
     self.cmd = cmd
@@ -573,9 +584,22 @@ def init():
     print("PPSSPPHeadless executable missing, please build one.")
     sys.exit(1)
 
+def cpu_backend(args):
+  # Which backend headless will end up on, given the args we hand through to it. Headless defaults
+  # to the JIT, and a later flag overrides an earlier one, like its own parsing in Core/CmdLine.cpp.
+  short_flags = {'-i': 'interpreter', '-r': 'ir', '-j': 'jit', '-J': 'jit-ir'}
+  backend = 'jit'
+  for arg in args:
+    if arg in short_flags:
+      backend = short_flags[arg]
+    elif arg.startswith('--cpu='):
+      backend = arg[len('--cpu='):]
+  return backend
+
 def run_tests(test_list, args):
   global PPSSPP_EXE, TIMEOUT
   returncode = 0
+  timeout = CPU_TIMEOUTS.get(cpu_backend(args), TIMEOUT)
 
   test_filenames = []
   for test in test_list:
@@ -589,11 +613,11 @@ def run_tests(test_list, args):
 
   if len(test_filenames):
     # TODO: Maybe --compare should detect --graphics?
-    cmdline = [PPSSPP_EXE, '--root', TEST_ROOT + '../', '--compare', '--timeout-wall=' + str(TIMEOUT), '@-']
+    cmdline = [PPSSPP_EXE, '--root', TEST_ROOT + '../', '--compare', '--timeout-wall=' + str(timeout), '@-']
     cmdline.extend([i for i in args if i not in ['-g', '-m', '-b']])
 
     c = Command(cmdline, '\n'.join(test_filenames))
-    returncode = c.run(TIMEOUT * len(test_filenames))
+    returncode = c.run(timeout * len(test_filenames))
 
     print("Ran " + ' '.join(cmdline))
 
