@@ -19,6 +19,7 @@
 
 #include "Common/Log.h"
 #include "Core/HW/AvcDecoder.h"
+#include "Core/HW/MediaEngine.h"
 
 #ifdef USE_FFMPEG
 extern "C" {
@@ -40,6 +41,11 @@ AvcDecoder::AvcDecoder() {
 		ERROR_LOG(Log::ME, "AvcDecoder: couldn't allocate a codec context");
 		return;
 	}
+	// Route ffmpeg's own diagnostics into our log. It is the only thing that knows a frame came
+	// out of a damaged bitstream - our return codes say a frame arrived, not whether it was built
+	// out of concealment - and without this they go nowhere on this path.
+	InitFFmpeg();
+
 	// The PSP hands us whole access units, so no parser is needed and no truncation is expected.
 	codecCtx_->flags = 0;
 	codecCtx_->flags2 = 0;
@@ -154,6 +160,27 @@ bool AvcDecoder::Decode(const u8 *data, int size) {
 		return false;
 	}
 #endif
+
+	// A frame can arrive with everything above returning success and still be built partly out of
+	// concealment - a reference the decoder never got, or a slice it had to guess at. That only
+	// shows up here, and it is the difference between "the video is decoding" and "the video is
+	// decoding what the game actually sent us".
+	if (frame_->decode_error_flags || (frame_->flags & AV_FRAME_FLAG_CORRUPT)) {
+		concealedFrames_++;
+		// One line per run of trouble rather than per frame: once a reference is missing, every
+		// frame until the next keyframe is damaged, and that would be hundreds of lines.
+		if (!wasConcealing_) {
+			WARN_LOG(Log::ME, "AvcDecoder: frame %d decoded from a damaged bitstream (flags %08x%s) - "
+				"the stream is missing data, not the decoder", frameCount_, frame_->decode_error_flags,
+				(frame_->flags & AV_FRAME_FLAG_CORRUPT) ? ", corrupt" : "");
+			wasConcealing_ = true;
+		}
+	} else if (wasConcealing_) {
+		WARN_LOG(Log::ME, "AvcDecoder: clean again at frame %d, %d frames were concealed",
+			frameCount_, concealedFrames_);
+		wasConcealing_ = false;
+	}
+	frameCount_++;
 
 	// Everything downstream indexes the three planes as 8-bit 4:2:0, which is all the PSP's
 	// encoder produced. Anything else would be read as if it were, so say so and drop the frame
