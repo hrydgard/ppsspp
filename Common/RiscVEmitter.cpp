@@ -842,7 +842,7 @@ static inline u32 EncodeFVF(RiscVReg vd, RiscVReg rs1, RiscVReg vs2, VUseMask vm
 
 static inline u16 EncodeCR(Opcode16 op, RiscVReg rs2, RiscVReg rd, Funct4 funct4) {
 	_assert_msg_(SupportsCompressed(), "Compressed instructions unsupported");
-	return (u16)op | ((u16)rs2 << 2) | ((u16)rd << 7) | ((u16)funct4 << 12);
+	return (u16)op | ((u16)DecodeReg(rs2) << 2) | ((u16)DecodeReg(rd) << 7) | ((u16)funct4 << 12);
 }
 
 static inline u16 EncodeCI(Opcode16 op, u8 uimm6, RiscVReg rd, Funct3 funct3) {
@@ -850,13 +850,13 @@ static inline u16 EncodeCI(Opcode16 op, u8 uimm6, RiscVReg rd, Funct3 funct3) {
 	_assert_msg_(uimm6 <= 0x3F, "CI immediate overflow: %04x", uimm6);
 	u16 imm4_0 = ImmBits16(uimm6, 0, 5);
 	u16 imm5 = ImmBit16(uimm6, 5);
-	return (u16)op | (imm4_0 << 2) | ((u16)rd << 7) | (imm5 << 12) | ((u16)funct3 << 13);
+	return (u16)op | (imm4_0 << 2) | ((u16)DecodeReg(rd) << 7) | (imm5 << 12) | ((u16)funct3 << 13);
 }
 
 static inline u16 EncodeCSS(Opcode16 op, RiscVReg rs2, u8 uimm6, Funct3 funct3) {
 	_assert_msg_(SupportsCompressed(), "Compressed instructions unsupported");
 	_assert_msg_(uimm6 <= 0x3F, "CI immediate overflow: %04x", uimm6);
-	return (u16)op | ((u16)rs2 << 2) | ((u16)uimm6 << 7) | ((u16)funct3 << 13);
+	return (u16)op | ((u16)DecodeReg(rs2) << 2) | ((u16)uimm6 << 7) | ((u16)funct3 << 13);
 }
 
 static inline u16 EncodeCIW(Opcode16 op, RiscCReg rd, u8 uimm8, Funct3 funct3) {
