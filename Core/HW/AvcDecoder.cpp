@@ -193,6 +193,17 @@ bool AvcDecoder::Decode(const u8 *data, int size) {
 #endif
 }
 
+int AvcDecoder::FramePeriodUs() const {
+#ifdef USE_FFMPEG
+	if (!codecCtx_ || codecCtx_->framerate.num <= 0 || codecCtx_->framerate.den <= 0) {
+		return 0;
+	}
+	return (int)((s64)1000000 * codecCtx_->framerate.den / codecCtx_->framerate.num);
+#else
+	return 0;
+#endif
+}
+
 const u8 *AvcDecoder::Plane(int index) const {
 #ifdef USE_FFMPEG
 	if (!haveFrame_ || !frame_ || index < 0 || index >= 3) {
