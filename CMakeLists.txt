@@ -184,6 +184,8 @@ option(USE_VULKAN_DISPLAY_KHR "Enable or disable full screen display of Vulkan" 
 # :: Frontends
 option(MOBILE_DEVICE "Set to ON when targeting a mobile device" ${MOBILE_DEVICE})
 option(HEADLESS "Set to OFF to not generate the PPSSPPHeadless target" ${HEADLESS})
+# Set by b.sh for the loongarch64/riscv64 cross builds, whose sysroots have no SDL3.
+option(HEADLESS_CROSS "Set to ON for a headless-only cross build (no SDL frontend)" ${HEADLESS_CROSS})
 option(ATLAS_TOOL "Set to OFF to not generate the ATLAS_TOOL target" ${ATLAS_TOOL})
 option(UNITTEST "Set to ON to generate the unittest target" ${UNITTEST})
 option(SIMULATOR "Set to ON when targeting an x86 simulator of an ARM platform" ${SIMULATOR})
@@ -331,7 +333,7 @@ set(SDL_LIB_TARGET "")
 set(SDL_TTF_LIB_TARGET "")
 set(FONTCONFIG_LIB_TARGET "")
 
-if(NOT LIBRETRO AND NOT IOS AND NOT LOONGARCH64_DEVICE AND NOT ANDROID)
+if(NOT LIBRETRO AND NOT IOS AND NOT HEADLESS_CROSS AND NOT ANDROID)
 	find_package(SDL3 QUIET)
 	if(NOT SDL3_FOUND)
 		if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND (EXISTS "/usr/bin/apt" OR EXISTS "/usr/bin/apt-get" OR EXISTS "/etc/debian_version"))
@@ -1001,9 +1003,11 @@ elseif(WIN32)
 	# Don't care about SDL.
 	set(TargetBin PPSSPPWindows)
 elseif(LIBRETRO)
-elseif(LOONGARCH64_DEVICE)
-	# Cross-compiling for loongarch64 currently only builds PPSSPPHeadless, and there's
-	# no SDL3 available for that target, so skip the desktop SDL frontend entirely.
+elseif(HEADLESS_CROSS)
+	# The loongarch64/riscv64 cross builds only build PPSSPPHeadless, and there's no
+	# SDL3 available in those sysroots, so skip the desktop SDL frontend entirely.
+	# Note this is deliberately not keyed off the target architecture: a native build
+	# on such a machine can have SDL3 and should still get the normal frontend.
 else()
 	if(GOLD)
 		set(TargetBin PPSSPPGold)
