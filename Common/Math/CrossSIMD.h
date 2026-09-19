@@ -1188,8 +1188,11 @@ struct Vec4F32 {
 	}
 	void StoreConvertToU8(uint8_t *dest) {
 		__m128i ivalue32 = __lsx_vftintrz_w_s(v);
-		__m128i ivalue16 = __lsx_vssrlrni_hu_w(ivalue32, ivalue32, 0);
-		__m128i ivalue8 = __lsx_vssrlrni_bu_h(ivalue16, ivalue16, 0);
+		// Narrow signed->signed first, then signed->unsigned, matching the packs/packus pair the
+		// SSE version uses. The logical (unsigned) narrowing shifts turn a negative value into a
+		// huge unsigned one, which saturates to 255 instead of clamping to 0.
+		__m128i ivalue16 = __lsx_vssrani_h_w(ivalue32, ivalue32, 0);
+		__m128i ivalue8 = __lsx_vssrani_bu_h(ivalue16, ivalue16, 0);
 		uint32_t value = __lsx_vpickve2gr_wu(ivalue8, 0);
 		memcpy(dest, &value, sizeof(uint32_t));
 	}
@@ -1199,10 +1202,10 @@ struct Vec4F32 {
 		// index is a compile-time constant parameter to the intrinsic.
 		int ival;
 		switch (index) {
-		case 0: ival = __lsx_vpickve2gr_w((__m128i)v, 0);
-		case 1: ival = __lsx_vpickve2gr_w((__m128i)v, 1);
-		case 2: ival = __lsx_vpickve2gr_w((__m128i)v, 2);
-		default: ival = __lsx_vpickve2gr_w((__m128i)v, 3);
+		case 0: ival = __lsx_vpickve2gr_w((__m128i)v, 0); break;
+		case 1: ival = __lsx_vpickve2gr_w((__m128i)v, 1); break;
+		case 2: ival = __lsx_vpickve2gr_w((__m128i)v, 2); break;
+		default: ival = __lsx_vpickve2gr_w((__m128i)v, 3); break;
 		}
 		float fval;
 		memcpy(&fval, &ival, sizeof(float));
@@ -1672,6 +1675,25 @@ struct Vec4F32 {
 		return temp;
 	}
 
+	static Vec4F32 LoadConvertU8(const uint8_t *src) {  // Note: will load 8 bytes, not 4. Only the first 4 bytes will be used.
+		Vec4F32 temp;
+		for (int i = 0; i < 4; i++) {
+			temp.v[i] = (float)src[i];
+		}
+		return temp;
+	}
+
+	// Truncates towards zero and saturates to 0-255, like the packing instructions the other
+	// implementations use.
+	void StoreConvertToU8(uint8_t *dest) {
+		for (int i = 0; i < 4; i++) {
+			int value = (int)v[i];
+			if (value < 0) value = 0;
+			if (value > 255) value = 255;
+			dest[i] = (uint8_t)value;
+		}
+	}
+
 	static Vec4F32 LoadF24x3_One(const uint32_t *src) {
 		constexpr uint32_t kOneF32Bits = 0x3F800000;
 		uint32_t shifted[4] = { src[0] << 8, src[1] << 8, src[2] << 8, kOneF32Bits };
@@ -1864,6 +1886,15 @@ struct Vec4F32 {
 
 	Vec4F32 ShuffleWWWW() const {
 		return Vec4F32{{ v[3], v[3], v[3], v[3] }};
+	}
+
+	// Loads four rows of four floats and transposes them into columns.
+	static void LoadTranspose(const float *src, Vec4F32 &col0, Vec4F32 &col1, Vec4F32 &col2, Vec4F32 &col3) {
+		col0 = Vec4F32::Load(src);
+		col1 = Vec4F32::Load(src + 4);
+		col2 = Vec4F32::Load(src + 8);
+		col3 = Vec4F32::Load(src + 12);
+		Transpose(col0, col1, col2, col3);
 	}
 
 	// In-place transpose.
