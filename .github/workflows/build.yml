@@ -288,6 +288,13 @@ jobs:
           args: ./b.sh --loongarch64 PPSSPPHeadless
           id: loongarch64
 
+        - os: ubuntu-26.04
+          extra: riscv64
+          cc: gcc
+          cxx: g++
+          args: ./b.sh --riscv64 PPSSPPHeadless
+          id: riscv64
+
         - os: macos-latest
           extra: test
           cc: clang
@@ -327,7 +334,7 @@ jobs:
         ndk-version: r29
 
     - name: Install Linux dependencies
-      if: runner.os == 'Linux' && matrix.extra != 'android' && matrix.extra != 'loongarch64'
+      if: runner.os == 'Linux' && matrix.extra != 'android' && matrix.extra != 'loongarch64' && matrix.extra != 'riscv64'
       run: |
         sudo apt-get update -y -qq
         sudo apt-get install libsdl3-dev libgl1-mesa-dev libglu1-mesa-dev libsdl3-ttf-dev libfontconfig1-dev libcurl4-openssl-dev
@@ -336,12 +343,12 @@ jobs:
       if: runner.os == 'macOS' && matrix.id == 'macos'
       run: brew install sdl3 sdl3_ttf
 
-    - name: Install loongarch64 cross-compilation dependencies
-      if: matrix.extra == 'loongarch64'
+    - name: Install cross-compilation dependencies
+      if: matrix.extra == 'loongarch64' || matrix.extra == 'riscv64'
       run: |
         sudo apt-get update -y -qq
-        sudo apt-get install -y gcc-14-loongarch64-linux-gnu g++-14-loongarch64-linux-gnu binutils-loongarch64-linux-gnu libgl-dev libglu1-mesa-dev
-        sudo cmake/scripts/setup-loongarch64-cross.sh
+        sudo apt-get install -y gcc-14-${{ matrix.extra }}-linux-gnu g++-14-${{ matrix.extra }}-linux-gnu binutils-${{ matrix.extra }}-linux-gnu libgl-dev libglu1-mesa-dev
+        sudo cmake/scripts/setup-cross.sh ${{ matrix.extra }}
 
     - name: Install iOS dependencies
       if: matrix.id == 'ios'

@@ -6,6 +6,7 @@
 
 #pragma once
 
+#include <cmath>
 #include <cstring>
 #include "Common/Math/SIMDHeaders.h"
 
@@ -1187,8 +1188,11 @@ struct Vec4F32 {
 	}
 	void StoreConvertToU8(uint8_t *dest) {
 		__m128i ivalue32 = __lsx_vftintrz_w_s(v);
-		__m128i ivalue16 = __lsx_vssrlrni_hu_w(ivalue32, ivalue32, 0);
-		__m128i ivalue8 = __lsx_vssrlrni_bu_h(ivalue16, ivalue16, 0);
+		// Narrow signed->signed first, then signed->unsigned, matching the packs/packus pair the
+		// SSE version uses. The logical (unsigned) narrowing shifts turn a negative value into a
+		// huge unsigned one, which saturates to 255 instead of clamping to 0.
+		__m128i ivalue16 = __lsx_vssrani_h_w(ivalue32, ivalue32, 0);
+		__m128i ivalue8 = __lsx_vssrani_bu_h(ivalue16, ivalue16, 0);
 		uint32_t value = __lsx_vpickve2gr_wu(ivalue8, 0);
 		memcpy(dest, &value, sizeof(uint32_t));
 	}
@@ -1198,10 +1202,10 @@ struct Vec4F32 {
 		// index is a compile-time constant parameter to the intrinsic.
 		int ival;
 		switch (index) {
-		case 0: ival = __lsx_vpickve2gr_w((__m128i)v, 0);
-		case 1: ival = __lsx_vpickve2gr_w((__m128i)v, 1);
-		case 2: ival = __lsx_vpickve2gr_w((__m128i)v, 2);
-		default: ival = __lsx_vpickve2gr_w((__m128i)v, 3);
+		case 0: ival = __lsx_vpickve2gr_w((__m128i)v, 0); break;
+		case 1: ival = __lsx_vpickve2gr_w((__m128i)v, 1); break;
+		case 2: ival = __lsx_vpickve2gr_w((__m128i)v, 2); break;
+		default: ival = __lsx_vpickve2gr_w((__m128i)v, 3); break;
 		}
 		float fval;
 		memcpy(&fval, &ival, sizeof(float));
@@ -1671,15 +1675,38 @@ struct Vec4F32 {
 		return temp;
 	}
 
+	static Vec4F32 LoadConvertU8(const uint8_t *src) {  // Note: will load 8 bytes, not 4. Only the first 4 bytes will be used.
+		Vec4F32 temp;
+		for (int i = 0; i < 4; i++) {
+			temp.v[i] = (float)src[i];
+		}
+		return temp;
+	}
+
+	// Truncates towards zero and saturates to 0-255, like the packing instructions the other
+	// implementations use.
+	void StoreConvertToU8(uint8_t *dest) {
+		for (int i = 0; i < 4; i++) {
+			int value = (int)v[i];
+			if (value < 0) value = 0;
+			if (value > 255) value = 255;
+			dest[i] = (uint8_t)value;
+		}
+	}
+
 	static Vec4F32 LoadF24x3_One(const uint32_t *src) {
-		uint32_t shifted[4] = { src[0] << 8, src[1] << 8, src[2] << 8, 0 };
+		constexpr uint32_t kOneF32Bits = 0x3F800000;
+		uint32_t shifted[4] = { src[0] << 8, src[1] << 8, src[2] << 8, kOneF32Bits };
 		Vec4F32 temp;
 		memcpy(temp.v, shifted, sizeof(temp.v));
 		return temp;
 	}
 
 	static Vec4F32 LoadF24x4(const uint32_t *src) {
-		return LoadR24x3_One(src);
+		uint32_t shifted[4] = { src[0] << 8, src[1] << 8, src[2] << 8, src[3] << 8 };
+		Vec4F32 temp;
+		memcpy(temp.v, shifted, sizeof(temp.v));
+		return temp;
 	}
 
 	static Vec4F32 FromVec4S32(Vec4S32 src) {
@@ -1695,7 +1722,7 @@ struct Vec4F32 {
 	Vec4F32 ZeroNaNs() const {
 		Vec4F32 temp;
 		for (int i = 0; i < 4; i++) {
-			temp.v[i] = isnan(v[i]) ? 0.0f : v[i];
+			temp.v[i] = std::isnan(v[i]) ? 0.0f : v[i];
 		}
 		return temp;
 	}
@@ -1703,7 +1730,7 @@ struct Vec4F32 {
 	Vec4F32 CleanNaNInfs() {
 		Vec4F32 temp;
 		for (int i = 0; i < 4; i++) {
-			temp.v[i] = (isnan(v[i]) || isinf(v[i])) ? 0.0f : v[i];
+			temp.v[i] = (std::isnan(v[i]) || std::isinf(v[i])) ? 0.0f : v[i];
 		}
 		return temp;
 	}
@@ -1798,6 +1825,10 @@ struct Vec4F32 {
 		return Vec4F32{ { v[0], v[1], v[2], 1.0f } };
 	}
 
+	Vec4F32 WithLane3From(Vec4F32 other) const {
+		return Vec4F32{ { v[0], v[1], v[2], other.v[3] } };
+	}
+
 	Vec4S32 CompareEq(Vec4F32 other) const {
 		Vec4S32 temp;
 		for (int i = 0; i < 4; i++) {
@@ -1855,6 +1886,15 @@ struct Vec4F32 {
 
 	Vec4F32 ShuffleWWWW() const {
 		return Vec4F32{{ v[3], v[3], v[3], v[3] }};
+	}
+
+	// Loads four rows of four floats and transposes them into columns.
+	static void LoadTranspose(const float *src, Vec4F32 &col0, Vec4F32 &col1, Vec4F32 &col2, Vec4F32 &col3) {
+		col0 = Vec4F32::Load(src);
+		col1 = Vec4F32::Load(src + 4);
+		col2 = Vec4F32::Load(src + 8);
+		col3 = Vec4F32::Load(src + 12);
+		Transpose(col0, col1, col2, col3);
 	}
 
 	// In-place transpose.
@@ -1917,6 +1957,10 @@ inline bool AnyZeroSignBit(Vec4F32 value) {
 inline bool AllCompareBitsSet(Vec4S32 value) {
 	if (value.v[0] != 0xFFFFFFFF || value.v[1] != 0xFFFFFFFF || value.v[2] != 0xFFFFFFFF || value.v[3] != 0xFFFFFFFF) return false;
 	return true;
+}
+
+inline bool AnyCompareBitsSet(Vec4S32 value) {
+	return value.v[0] != 0 || value.v[1] != 0 || value.v[2] != 0 || value.v[3] != 0;
 }
 
 struct Vec4U16 {
