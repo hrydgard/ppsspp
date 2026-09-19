@@ -146,6 +146,31 @@ A working invocation, and the traps around it:
   a lot of emulation speed (a 25-second run of a game playing video wrote 450k lines and ran several times slower
   than real time, which on its own looks like the stall you're hunting).
 
+## Measuring a commercial game with headless
+
+Headless will happily run a game and print nothing, or run *a different configuration than the one you asked
+for*, and both look like a clean pass if you are counting log lines. Four traps, each of which silently
+produced a round of bogus results here:
+
+- **`--log` is required for any log output at all**, and the log goes to **stderr**. Without it you get only
+  headless's own lines (`Loaded State`, `TIMEOUT`); `-d`/`-v` set the level but don't turn the printf logger
+  on. So folding stderr in isn't optional if you're grepping, which is what makes the third trap bite.
+- **Headless's memory stick is not the app's.** It defaults to `<exe dir>/memstick` (`headless/Headless.cpp`),
+  so `Windows/<platform>/<config>/memstick`, while the app derives its own from `installed.txt` or Documents
+  (`InitMemstickDirectory` in `Windows/main.cpp`, which carries a TODO about sharing the derivation). Headless
+  *creates* that directory, empty `PSP/NAND/flash0` and all, so firmware installed through the app is invisible
+  and every LLE module quietly falls back to HLE - at which point you are measuring the HLE you were trying to
+  compare against. Pass `--memstick=` explicitly; it resolves relative to the CWD, not the exe.
+- **Check the exit code.** An unrecognised parameter prints `Error: ...` to stderr and exits 1, which is
+  correct and easy to throw away: fold stderr into stdout (which the first trap forces), count grep hits, and a
+  run that never started reports the same all-zero line as a clean one.
+- **Zero is not a pass.** Measuring by log-grepping needs a positive precondition asserted separately ("did
+  this run reach the code at all"), or "0 errors" also means "0 anything" - which is equally what a failed
+  boot, a savestate that never reaches the cutscene, and a silent HLE fallback produce.
+
+The last three compound: the fix is to treat the run's exit code and a positive "we got here" counter as
+preconditions, and only then believe the error counts.
+
 ## Debugging and breakpoint considerations
 
 It might be worth trying the interpreter - all types of breakpoints are the most reliable with this CPU backend.
