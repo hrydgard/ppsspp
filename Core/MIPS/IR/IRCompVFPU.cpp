@@ -971,7 +971,7 @@ namespace MIPSComp {
 		}
 
 		if (type == VecDo3Op::VSGE || type == VecDo3Op::VSLT) {
-			ir.Write(IROp::FpCondFromReg, IRTEMP_0);
+			ir.Write(IROp::FpCondFromReg, 0, IRTEMP_0);
 		}
 
 		for (int i = 0; i < n; i++) {
