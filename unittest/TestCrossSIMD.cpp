@@ -391,9 +391,15 @@ static bool TestVec4F32NaNInf() {
 	EXPECT_TRUE(std::isinf(result[2]));
 	EXPECT_TRUE(std::isinf(result[3]));
 
+	// The contract is just "a value that yields zero when multiplied by zero" - whatever is
+	// cheapest to get there. So the implementations legitimately differ on what a bad lane
+	// becomes: SSE2 clamps to +-FLT_MAX, NEON, LSX and the scalar fallback zero it. Check the
+	// property rather than the value, and that good lanes are left alone.
 	v.CleanNaNInfs().Store(result);
-	static const float known_clean[4] = { 1.0f, 0.0f, 0.0f, 0.0f };
-	if (!CompareFloats(result, known_clean, 4, __LINE__)) return false;
+	EXPECT_EQ_FLOAT(result[0], 1.0f);
+	for (int i = 0; i < 4; i++) {
+		EXPECT_EQ_FLOAT(result[i] * 0.0f, 0.0f);
+	}
 
 	return true;
 }
