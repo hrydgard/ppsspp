@@ -106,11 +106,9 @@ static u32 sceMpegBasePESpacketCopy(u32 p)
 	}
 	MpegSetPmpVideoSource(p, nBlocks);
 
-	// The DMA itself. Each block names where it lands, and a single access unit routinely arrives
-	// as several blocks at consecutive addresses, so the only thing that reassembles it is putting
-	// each one where it says. Video goes to the Media Engine, audio to main memory (mpeg.prx hands
-	// that straight to sceAudiocodecDecode), and the destination address is all we have to tell the
-	// two spaces apart.
+	// The DMA copy. Each block specifies where in ME memory it lands. In some games that use very small
+	// reads, multiple of these blocks will form one video frame packet - so we can't just keep track of
+	// block addresses, we have to copy them to a simulated ME memory.
 	lli = PSPPointer<SceMpegLLI>::Create(p);
 	u32 firstDest = 0;
 	int copied = 0;
@@ -162,10 +160,9 @@ struct SceMp4AvcCscStruct {
 };
 static_assert(sizeof(SceMp4AvcCscStruct) == 0x30);
 
-
-// These descriptors carry Media Engine addresses (it is the ME that decoded the frame), so that is
-// the space to resolve them in. The exception is a frame sceMpegBaseYCrCbCopy has moved into the
-// game's memory, which is why there is a second look.
+// Addresses in these descriptors are in Media Engine space. The exception is a frame that
+// sceMpegBaseYCrCbCopy has moved into game's memory, which is why there is a second look.
+// TODO: Although, this should really be revisited - the caller should know what space it's in.
 static const u8 *MpegBaseFramePointer(u32 addr, int size) {
 	if (const u8 *me = MEGetPointerRange(addr, size)) {
 		return me;

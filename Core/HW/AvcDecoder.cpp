@@ -41,9 +41,8 @@ AvcDecoder::AvcDecoder() {
 		ERROR_LOG(Log::ME, "AvcDecoder: couldn't allocate a codec context");
 		return;
 	}
-	// Route ffmpeg's own diagnostics into our log. It is the only thing that knows a frame came
-	// out of a damaged bitstream - our return codes say a frame arrived, not whether it was built
-	// out of concealment - and without this they go nowhere on this path.
+
+	// Route ffmpeg's own diagnostics into our log - it's the only way we can detect damaged bitstreams.
 	InitFFmpeg();
 
 	// The PSP hands us whole access units, so no parser is needed and no truncation is expected.
@@ -161,14 +160,10 @@ bool AvcDecoder::Decode(const u8 *data, int size) {
 	}
 #endif
 
-	// A frame can arrive with everything above returning success and still be built partly out of
-	// concealment - a reference the decoder never got, or a slice it had to guess at. That only
-	// shows up here, and it is the difference between "the video is decoding" and "the video is
-	// decoding what the game actually sent us".
+	// Check for decode errors. Concealing means covering up missing data, and to us, that is a bad error
+	// as we're normally streaming from disk.
 	if (frame_->decode_error_flags || (frame_->flags & AV_FRAME_FLAG_CORRUPT)) {
 		concealedFrames_++;
-		// One line per run of trouble rather than per frame: once a reference is missing, every
-		// frame until the next keyframe is damaged, and that would be hundreds of lines.
 		if (!wasConcealing_) {
 			WARN_LOG(Log::ME, "AvcDecoder: frame %d decoded from a damaged bitstream (flags %08x%s) - "
 				"the stream is missing data, not the decoder", frameCount_, frame_->decode_error_flags,

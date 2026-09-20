@@ -67,7 +67,7 @@ private:
 	// Kept between calls so the usual case doesn't allocate.
 	std::vector<u8> packetBuf_;
 	bool haveFrame_ = false;
-	// For reporting runs of concealed frames rather than one line each - see Decode.
+	// For reporting runs of concealed-error frames rather than one line each - see Decode.
 	bool wasConcealing_ = false;
 	int concealedFrames_ = 0;
 	int frameCount_ = 0;

@@ -284,6 +284,8 @@ allude to a previous, now-corrected version ("eight addresses and nothing else" 
 else" only makes sense against the old wrong layout, which is history). Cut filler like "the two
 are the same shape" down to "(the same shape)".
 
+Avoid AI clichés like "not this, but that".
+
 For a parenthetical aside, prefer parentheses over a pair of spaced dashes: write "the audio thread
 that paces playback", or "the audio thread (which paces playback)", not "the audio thread - which
 paces playback -". A single trailing dash to tack on an example is fine.

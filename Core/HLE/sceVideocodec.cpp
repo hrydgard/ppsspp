@@ -101,18 +101,10 @@ static std::map<u32, VideocodecCtx> g_videocodecCtxs;
 
 // The Media Engine's own memory, modelled as an address space rather than a pool of blocks.
 //
-// The addresses are the ME's own: mpeg.prx bounds-checks the ones it uses against 0x3FFFFF, and
-// works out where to put things itself rather than only using what we hand back. That is why this
-// has to be a real address space - a DMA arrives in several pieces, each naming the address it
-// lands at, and only laying them out at those addresses puts them back together. Keying the pieces
-// by address instead, as this used to, kept whichever piece started at the address someone later
-// asked for and quietly dropped the rest.
-//
-// This is the Media Engine's memory, not the CPU's, and the two are separate address spaces: on
-// hardware it is reached only by the ME (the second CPU nothing else can see). So it is
-// deliberately a buffer of our own rather than anything in Memory::, and nothing emulated can
-// address it. The only way in is MEGetPointerRange, whose callers are all parts of us standing in
-// for the ME: the decoder that writes frames, the DMA that feeds it, and the colour conversion.
+// mpeg.prx bounds-checks the ones it uses against 0x3FFFFF (4MB). However only 2MB are available
+// for the ME: the rest of the EDRAM is actually allocated to the GPU on a real PSP in the default
+// configuration, which is what we emulate. DMA:s can arrive in multiple pieces so this has to be
+// a "real" separate address space, so a subsequent larger read will work.
 static const u32 ME_MEM_SIZE = 2 * 1024 * 1024;
 // What we hand out ourselves lives in the top half, out of the way of the addresses mpeg.prx
 // picks for itself, which have all been well down in the first megabyte.
