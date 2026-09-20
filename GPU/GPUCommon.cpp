@@ -39,6 +39,55 @@
 
 bool __KernelIsDispatchEnabled();
 
+// The drawing an application of the emulator registered, see SetBeforeUIDrawDraw. A plain
+// function pointer so that the entry point below can set it from outside the emulator.
+static PPSSPPBeforeUIDrawDrawFn beforeUIDrawDraw = nullptr;
+
+void GPUCommon::SetBeforeUIDrawDraw(PPSSPPBeforeUIDrawDrawFn fn) {
+	beforeUIDrawDraw = fn;
+}
+
+// How an application gives back what it made with the drawing, see
+// PPSSPPBeforeUIDrawTarget::release: only the emulator can release one.
+static void ReleaseDrawObject(void *object) {
+	if (object) {
+		static_cast<Draw::RefCountedObject *>(object)->Release();
+	}
+}
+
+PPSSPPBeforeUIDrawTarget GPUCommon::GetBeforeUIDrawTarget() {
+	PPSSPPBeforeUIDrawTarget target{};
+
+	if (!framebufferManager_) {
+		return target;
+	}
+
+	const VirtualFramebuffer *vfb = framebufferManager_->GetCurrentRenderVFB();
+
+	if (!vfb || !vfb->fbo) {
+		return target;
+	}
+
+	target.draw = (void *)draw_;
+	target.frame = (void *)vfb->fbo;
+	target.width = vfb->renderWidth;
+	target.height = vfb->renderHeight;
+	target.shownWidth = PSP_CoreParameter().pixelWidth;
+	target.shownHeight = PSP_CoreParameter().pixelHeight;
+	target.memory = (void *)Memory::base;
+	target.reportAddress = beforeUIDrawReport_;
+	target.release = &ReleaseDrawObject;
+	return target;
+}
+
+#if defined(_WIN32)
+// The entry point an application of the emulator registers its drawing through, looked up in the
+// image of the emulator it is loaded into.
+extern "C" __declspec(dllexport) void PPSSPP_RegisterBeforeUIDrawDraw(PPSSPPBeforeUIDrawDrawFn fn) {
+	GPUCommon::SetBeforeUIDrawDraw(fn);
+}
+#endif
+
 void GPUCommon::Flush() {
 	drawEngineCommon_->Flush();
 }
@@ -732,6 +781,60 @@ inline void GPUCommon::UpdateState(GPURunState state) {
 		downcount = 0;
 }
 
+// The position a game reports and the position its display list is at are the same memory seen
+// through different mirrors (the GE reads a list uncached, 0x48... where a game may hold 0x08...),
+// so only the bits both views share are compared.
+static u32 BeforeUIDrawOffset(u32 addr) {
+	return addr & 0x0FFFFFFF;
+}
+
+void GPUCommon::ReportBeforeUIDraw(u32 counterAddr, u32 listPos) {
+	if (listPos == 0) {
+		// Where the world of the frame ends is not known, so there is nothing to wait for.
+		beforeUIDrawAddr_ = 0;
+		beforeUIDrawPos_ = 0;
+		beforeUIDrawReport_ = 0;
+		Memory::WriteUnchecked_U32(Memory::ReadUnchecked_U32(counterAddr) + 1, counterAddr);
+		return;
+	}
+
+	// A report of an earlier frame whose display list was never run is dropped rather than kept:
+	// it would be counted in this frame, which is worse than not being counted.
+	beforeUIDrawAddr_ = counterAddr;
+	beforeUIDrawPos_ = listPos;
+	beforeUIDrawStall_ = 0;
+	beforeUIDrawSplit_ = false;
+	beforeUIDrawReport_ = counterAddr;
+}
+
+// The display list has run up to what the game had written when it reported, which is the end of
+// the world of the frame: this is where the report is counted, see ReportBeforeUIDraw.
+void GPUCommon::CountBeforeUIDraw() {
+	if (beforeUIDrawAddr_ == 0) {
+		return;
+	}
+
+	const u32 counterAddr = beforeUIDrawAddr_;
+	beforeUIDrawAddr_ = 0;
+	beforeUIDrawPos_ = 0;
+	// The engine collects the vertex data of the game and hands it to the backend at the next draw
+	// with a different state, so what it still holds has to go out here.
+	FinishDeferred();
+	Flush();
+
+	Memory::WriteUnchecked_U32(Memory::ReadUnchecked_U32(counterAddr) + 1, counterAddr);
+
+	// The counter moves before the mark is recorded, so a plugin that watches the counter at the
+	// mark sees it moved.
+	MarkBeforeUIDraw();
+
+	// Where the world of the frame ends and its UI is still to come.
+	if (beforeUIDrawDraw) {
+		const PPSSPPBeforeUIDrawTarget target = GetBeforeUIDrawTarget();
+		beforeUIDrawDraw(&target);
+	}
+}
+
 // This is now called when coreState == CORE_RUNNING_GE, in addition to from the various sceGe commands.
 DLResult GPUCommon::ProcessDLQueue() {
 	if (!resumingFromDebugBreak_) {
@@ -792,6 +895,20 @@ DLResult GPUCommon::ProcessDLQueue() {
 			list.state = PSP_GE_DL_STATE_RUNNING;
 			list.interrupted = false;
 
+			// A waiting report of the game, see ReportBeforeUIDraw: stop the list where the game had
+			// written when it reported, so the counter moves when the world of the frame is drawn and
+			// before its UI is. A stall of 0 means the list runs to its end, in which case the point
+			// is inside it as well.
+			if (beforeUIDrawAddr_ != 0 && beforeUIDrawPos_ != 0 &&
+				BeforeUIDrawOffset(list.pc) <= BeforeUIDrawOffset(beforeUIDrawPos_) &&
+				(list.stall == 0 || BeforeUIDrawOffset(beforeUIDrawPos_) <= BeforeUIDrawOffset(list.stall))) {
+				beforeUIDrawStall_ = list.stall;
+				beforeUIDrawSplit_ = true;
+				// the list is read through the same mirror of the memory the game writes it through,
+				// so the run stops exactly there
+				list.stall = (list.stall & 0xF0000000) | BeforeUIDrawOffset(beforeUIDrawPos_);
+			}
+
 			gpuState = list.pc == list.stall ? GPUSTATE_STALL : GPUSTATE_RUNNING;
 
 			// To enable breakpoints, we don't do fast matrix loads while debugger active.
@@ -812,6 +929,15 @@ DLResult GPUCommon::ProcessDLQueue() {
 		const bool useFastRunLoop = useFastRunLoop_;
 
 		while (gpuState == GPUSTATE_RUNNING) {
+			// The run has reached the end of the world of the frame the game reported, see
+			// ReportBeforeUIDraw: the counter is counted here, which is the point the plugin of
+			// the host draws at, and the list carries on to the UI of the frame right after it.
+			if (beforeUIDrawSplit_ && list.pc == list.stall) {
+				beforeUIDrawSplit_ = false;
+				list.stall = beforeUIDrawStall_;
+				CountBeforeUIDraw();
+			}
+
 			if (list.pc == list.stall) {
 				gpuState = GPUSTATE_STALL;
 				downcount = 0;

@@ -47,6 +47,7 @@
 #include "Core/HLE/sceUmd.h"
 #include "Core/HLE/sceChnnlsv.h"
 #include "Core/HW/Display.h"
+#include "GPU/GPUCommon.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/HW/MemoryStick.h"
 #include "Core/HW/AsyncIOManager.h"
@@ -2053,6 +2054,8 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			EMULATOR_DEVCTL__GET_SCALE,
 			EMULATOR_DEVCTL__GET_AXIS,
 			EMULATOR_DEVCTL__GET_VKEY,
+
+			EMULATOR_DEVCTL__BEFORE_UI_DRAW = 0x35,
 		};
 
 		switch (cmd) {
@@ -2127,6 +2130,17 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 		case EMULATOR_DEVCTL__GET_VKEY:
 			if (Memory::IsValidAddress(outPtr) && (argAddr >= 0 && argAddr < NKCODE_MAX)) {
 				Memory::WriteUnchecked_U8(HLEPlugins::GetKey(argAddr), outPtr);
+			}
+			return hleLogDebug(Log::sceIo, 0);
+		case EMULATOR_DEVCTL__BEFORE_UI_DRAW:
+			// The guest is between the world and the UI of its frame, and says where the commands it
+			// has written into the display list of the game end at that moment, which is where its
+			// world ends and its UI begins. The counter is counted there and not here, see
+			// GPUCommon::ReportBeforeUIDraw: the display list is still running at this call, so
+			// counting now would let a plugin draw before the world of the frame is. A guest that
+			// cannot say where that point is passes 0.
+			if (Memory::IsValidRange(argAddr, 4)) {
+				gpu->ReportBeforeUIDraw(argAddr, outPtr);
 			}
 			return hleLogDebug(Log::sceIo, 0);
 		}

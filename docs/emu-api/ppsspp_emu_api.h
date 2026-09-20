@@ -37,6 +37,8 @@ enum PPSSPPEmulatorDevctlCmd {
 	PPSSPP_DEVCTL__GET_SCALE           = 0x32,
 	PPSSPP_DEVCTL__GET_AXIS            = 0x33,
 	PPSSPP_DEVCTL__GET_VKEY            = 0x34,
+
+	PPSSPP_DEVCTL__BEFORE_UI_DRAW      = 0x35,
 };
 
 // Either name works - PPSSPP currently treats them identically.
@@ -72,6 +74,24 @@ static inline void ppsspp_send_output_str(const char *str) {
 // reported back here. Mainly useful when testing the emulator itself.
 static inline void ppsspp_verify_state(void) {
 	sceIoDevctl(PPSSPP_EMULATOR_DEVICE, PPSSPP_DEVCTL__VERIFY_STATE, NULL, 0, NULL, 0);
+}
+
+// Reports that the frame of the game is between its world and its UI.
+//
+// PPSSPP makes everything drawn so far real, and then counts the counter this
+// is handed - the caller's own, in its own memory, which has to stay there for
+// as long as the game runs. Call this from the point of the game's own code
+// where the world is done and the UI is not drawn yet; the emulator cannot work
+// that point out by itself.
+//
+// This exists for a plugin of the host application that draws into the frame of
+// the game: such a plugin watches the counter, and fills the frame in when it
+// changes, which is what puts its drawing under the UI the game sends next
+// instead of on top of it. An emulator that does not know the call - a real
+// PSP, for one - does nothing with it, so a game built against it still runs
+// anywhere.
+static inline void ppsspp_before_ui_draw(volatile unsigned int *tick) {
+	sceIoDevctl(PPSSPP_EMULATOR_DEVICE, PPSSPP_DEVCTL__BEFORE_UI_DRAW, (void *)tick, sizeof(*tick), NULL, 0);
 }
 
 // Delivers the current framebuffer through PPSSPP's internal debug-screenshot
