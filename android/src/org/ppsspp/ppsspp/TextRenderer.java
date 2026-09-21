@@ -59,8 +59,12 @@ public class TextRenderer {
 
 	public static void init(Context ctx) {
 		Log.i(TAG, "initializing TextDrawerAndroid java side");
-		textPaint = new Paint(Paint.SUBPIXEL_TEXT_FLAG | Paint.ANTI_ALIAS_FLAG);
-		textPaint.setColor(Color.WHITE);
+		// Called for every new activity. With OpenGL the emu thread lives on across those and may be
+		// drawing text with the paint right now, so don't swap it out from under it.
+		if (textPaint == null) {
+			textPaint = new Paint(Paint.SUBPIXEL_TEXT_FLAG | Paint.ANTI_ALIAS_FLAG);
+			textPaint.setColor(Color.WHITE);
+		}
 		highContrastFontsEnabled = Settings.Secure.getInt(ctx.getContentResolver(), "high_text_contrast_enabled", 0) == 1;
 	}
 
