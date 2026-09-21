@@ -137,10 +137,13 @@ off and lets the next one go, as in steps 4 to 7 above. Before that rule, the ne
 away and the finished one left the queue at once, so a finish callback saw an empty queue: a list
 it enqueued was started instead of queued, and then couldn't be dequeued.
 
-Two places deliberately treat a list with its FINISH pending as already gone, since on hardware it
+Three places deliberately treat a list with its FINISH pending as already gone, since on hardware it
 would be: the duplicate check when enqueueing (Exit enqueues the same list again right after it
-ends), and `drawCompleteTicks`, which is set when the last list reaches its FINISH rather than
-when the interrupt is delivered, so that a `sceGeDrawSync(0)` in between doesn't wait for nothing.
+ends), `drawCompleteTicks`, which is set when the last list reaches its FINISH rather than
+when the interrupt is delivered, so that a `sceGeDrawSync(0)` in between doesn't wait for nothing,
+and `sceGeBreak(1)`. That one throws away interrupts that have been *raised* and couldn't be taken,
+as hardware does, but not the ones we simply haven't raised yet: a game that breaks right after
+its last list and then waits for what the finish callback signals had that callback long ago.
 
 ## Waiting
 
@@ -200,6 +203,15 @@ callback with an SDK version above `0x02000010`. With an older one the list is P
 duration and the break is refused (`0x80000021`). With a newer one it goes through, the GE is
 restarted anyway when the callback returns, and the PSP hangs.
 
+## Starting another executable
+
+`sceKernelLoadExec` restarts the kernel, and the GE driver with it: the new executable finds an
+empty queue, whatever the old one left on it. `GPUCommon::Reinitialize()` is that, and has to
+leave nothing behind - not the lists, and not the queue of their ids either. It used to keep the
+queue, so the old executable's ids came back as lists with no state and a pc of 0, waiting their
+turn behind the new executable's first list, where they'd block everything. Crazy Taxi: Fare
+Wars, which is a launcher for its two games, stopped at a black screen that way (#19894).
+
 ## Known leftovers in PPSSPP
 
 - `gpu/signals/jumps` and `gpu/signals/simple` ask for a list's state the moment
@@ -209,10 +221,6 @@ restarted anyway when the callback returns, and the PSP hangs.
 - `IgnoreEnqueue` in `compat.ini` (Metal Gear Acid 2, #10906) skips the stack check. It was most
   likely hitting the not-started case, which no longer fails. If the game is fine without it,
   remove it.
-- The "Discarding display list with state NONE" workaround in `ProcessDLQueue()` (Crazy Taxi,
-  #19894) guards against a NONE list being on the queue. With the finished list now staying on
-  the queue until its interrupt is done, the known ways for that to happen are gone, but it
-  hasn't been proven unreachable.
 - The GE has one stall address, which isn't the same thing as the one each list remembers:
   `sceGeListUpdateStallAddr` always updates the list's, but only a RUNNING list's update reaches
   the GE. PPSSPP has just `DisplayList::stall` for both. The pause window gets away with that,
