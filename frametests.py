@@ -28,13 +28,19 @@ import re
 import shlex
 import shutil
 import subprocess
+import platform
 import sys
 import time
 from pathlib import Path
 
 # test.py-style candidate paths for the headless binary, relative to the
 # current working directory, in preference order.
-HEADLESS_CANDIDATES = [
+# The machine's own architecture comes first, the same way test.py picks: an x64 build runs on
+# Windows-on-ARM too, under emulation, so looking for it first quietly tests the emulated build.
+HEADLESS_CANDIDATES = ([
+    "Windows/ARM64/Debug/PPSSPPHeadless.exe",
+    "Windows/ARM64/Release/PPSSPPHeadless.exe",
+] if platform.machine().lower() in ("arm64", "aarch64") else []) + [
     "Windows/x64/Debug/PPSSPPHeadless.exe",
     "Windows/Debug/PPSSPPHeadless.exe",
     "Windows/x64/Release/PPSSPPHeadless.exe",
