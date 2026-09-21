@@ -409,6 +409,21 @@ jobs:
         qemu-${{ matrix.extra }} -L /usr/${{ matrix.extra }}-linux-gnu \
           build-${{ matrix.extra }}/PPSSPPUnitTest all
 
+    # Only the IR JIT - it's the sole native backend these two have, and the only thing here that
+    # isn't shared code. The interpreters are portable C++ that the x86-64 and arm64 runners
+    # already cover on all four backends, and every run costs emulated wall clock.
+    - name: Execute headless tests under qemu
+      if: matrix.extra == 'loongarch64' || matrix.extra == 'riscv64'
+      run: |
+        # test.py takes the newest build*/PPSSPPHeadless, so hand it one that runs the cross build
+        # under emulation. The wall clock is raised because everything is slower under qemu.
+        mkdir -p build-qemu
+        printf '#!/bin/bash\nexec qemu-%s -L /usr/%s-linux-gnu "$(dirname "$0")/../build-%s/PPSSPPHeadless" "$@"\n' \
+          '${{ matrix.extra }}' '${{ matrix.extra }}' '${{ matrix.extra }}' > build-qemu/PPSSPPHeadless
+        chmod +x build-qemu/PPSSPPHeadless
+        python3 test.py -g --graphics=software --cpu=jit-ir --timeout=60 \
+          --known-failures=${{ matrix.extra }}
+
     - name: Package build
       if: matrix.extra == 'test' || matrix.id == 'ios'
       run: |

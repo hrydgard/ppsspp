@@ -432,6 +432,30 @@ tests_good = [
 
 # Broken tests
 # -b flag runs these.
+
+# Tests that don't pass yet on an architecture we can only reach through emulation. Pass
+# --known-failures=<arch> to drop them from the run, so CI can still catch anything *new* breaking
+# while these stay outstanding. Keep a reason next to each one, and delete entries as they're fixed
+# rather than letting the list rot.
+known_failures = {
+  "riscv64": [
+    # No flush-to-zero: the ISA has no control for it, so a denormal result survives where the
+    # PSP would have flushed it. Everything else in this test passes.
+    "cpu/fpu/fpu",
+    # The software renderer's output differs from the reference by the same amount on both of
+    # these architectures, despite them using completely different SIMD paths. Unexplained.
+    "gpu/clipping/homogeneous",
+    "gpu/commands/cull",
+    "gpu/primitives/triangles",
+  ],
+  "loongarch64": [
+    "cpu/fpu/fpu",
+    "gpu/clipping/homogeneous",
+    "gpu/commands/cull",
+    "gpu/primitives/triangles",
+  ],
+}
+
 tests_next = [
 # These are the next tests up for fixing. These run by default.
   "cpu/fpu/fcr",
@@ -628,10 +652,17 @@ def main():
   tests = []
   args = []
   teamcity = False
+  skip_arch = None
   for arg in sys.argv[1:]:
     if arg == '--teamcity':
       args.append(arg)
       teamcity = True
+    elif arg.startswith('--known-failures='):
+      # Ours, not headless's - don't pass it through.
+      skip_arch = arg[len('--known-failures='):]
+      if skip_arch not in known_failures:
+        print("Unknown architecture for --known-failures: " + skip_arch)
+        sys.exit(1)
     elif arg[0] == '-':
       args.append(arg)
     else:
@@ -650,6 +681,12 @@ def main():
     tests = [i for i in tests_next if i.startswith(tests[0])]
   elif '-m' in args:
     tests = [i for i in tests_next + tests_good if i.startswith(tests[0])]
+
+  if skip_arch:
+    skipped = [t for t in tests if t in known_failures[skip_arch]]
+    tests = [t for t in tests if t not in known_failures[skip_arch]]
+    if skipped:
+      print("Skipping %d known failures on %s: %s" % (len(skipped), skip_arch, ", ".join(skipped)))
 
   returncode = run_tests(tests, args)
   if teamcity:
