@@ -691,6 +691,8 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		// whether to start at 1x or 2x.
 		sizeManager.updateDisplayMeasurements();
 
+		// On the first run, the shortcut parameter is passed to NativeApp.init in here.
+		final boolean firstRun = !initialized;
 		if (!initialized) {
 			Initialize();
 			initialized = true;
@@ -753,9 +755,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			// render loop thread will be started once we get a surface.
 		}
 
-		if (shortcutParam != null && !shortcutParam.isEmpty()) {
+		if (!firstRun && shortcutParam != null && !shortcutParam.isEmpty()) {
+			// The native side is already up, so it didn't see this through NativeApp.init.
 			Log.i(TAG, "Got shortcutParam in onCreate on secondary run: " + shortcutParam);
-			// Make sure we only send it once.
 			NativeApp.sendMessageFromJava("shortcutParam", shortcutParam);
 		}
 
