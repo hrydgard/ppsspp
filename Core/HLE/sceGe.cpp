@@ -119,7 +119,7 @@ public:
 			dl->state = PSP_GE_DL_STATE_COMPLETED;
 		}
 
-		// The pause has been delivered now.  The firmware marks this the same way as sceGeBreak does, which
+		// The pause has been delivered now. It's marked the same way as sceGeBreak does, which
 		// is what lets sceGeContinue through again.
 		if (dl->signal == PSP_GE_SIGNAL_HANDLER_PAUSE && cmd == GE_CMD_FINISH) {
 			dl->signal = PSP_GE_SIGNAL_HANDLER_SUSPEND;
@@ -134,7 +134,6 @@ public:
 			currentMIPS->r[MIPS_REG_A1] = handler->handlerArg;
 			currentMIPS->r[MIPS_REG_A2] = sceKernelGetCompiledSdkVersion() <= 0x02000010 ? 0 : intrdata.pc + 4;
 			// RA is already taken care of in __RunOnePendingInterrupt
-
 			return true;
 		}
 
@@ -149,11 +148,10 @@ public:
 		ge_pending_cb.pop_front();
 		gpu->InterruptEnd(intrdata.listid);
 		// Seen in GoW.
-		if (subintr >= 0)
+		if (subintr >= 0) {
 			DEBUG_LOG(Log::sceGe, "Ignoring interrupt for display list %d, already been released.", intrdata.listid);
+		}
 
-		// Hm. This might be really tricky to get to behave the same in both modes. Here we are in __KernelReschedule, CoreTiming::Advance, ProcessEvents, GeExecuteInterrupt, ... .... __RunOnePendingInterrupt
-		// But not sure how much it will matter. The test pause2 hits here.
 		DLResult result = gpu->ProcessDLQueue();
 		_dbg_assert_(result != DLResult::DebugBreak);
 		return false;
@@ -294,8 +292,8 @@ bool __GeTriggerSync(GPUSyncType type, int id, u64 atTicks) {
 
 void __GeCancelRaisedInterrupts(bool interruptRunning) {
 	int count = __CancelRaisedInterrupts(PSP_GE_INTR);
-	// They're raised in the order they were triggered, so these are the oldest ones - after the one
-	// being handled right now, if any, which is still needed when its handler returns.
+	// They're raised in the order they were triggered. Hence these are the oldest ones - after the one
+	// being handled right now (if any) which is still needed when its handler returns.
 	auto it = ge_pending_cb.begin();
 	if (interruptRunning && it != ge_pending_cb.end())
 		++it;
