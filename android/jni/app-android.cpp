@@ -1650,23 +1650,26 @@ extern "C" jboolean JNICALL Java_org_ppsspp_ppsspp_PpssppActivity_runVulkanRende
 	if (!wnd) {
 		// This shouldn't ever happen.
 		ERROR_LOG(Log::G3D, "Error: Surface is null.");
-		renderLoopRunning = false;
 		return false;
 	}
 
+	// Set before the thread exists, so an exit request can't slip in ahead of it.
+	renderLoopRunning = true;
 	g_renderLoopThread = std::thread(VulkanEmuThread, wnd, graphicsContext);
 	return true;
 }
 
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_PpssppActivity_requestExitVulkanRenderLoop(JNIEnv * env, jobject obj) {
-	if (!renderLoopRunning) {
-		ERROR_LOG(Log::System, "Render loop already exited");
+	// Like runVulkanRenderLoop, this is only called from the UI thread, so the thread object is ours.
+	// Don't go by renderLoopRunning - the thread might have bailed by itself, and still needs joining.
+	if (!g_renderLoopThread.joinable()) {
+		INFO_LOG(Log::System, "Render loop not running, nothing to join");
 		return;
 	}
-	_assert_(g_renderLoopThread.joinable());
 	exitRenderLoop = true;
 	g_renderLoopThread.join();
 	g_renderLoopThread = std::thread();
+	exitRenderLoop = false;
 }
 
 // TODO: Merge with the Win32 EmuThread and so on, and the Java EmuThread?
@@ -1681,13 +1684,9 @@ static void VulkanEmuThread(ANativeWindow *wnd, GraphicsContext *graphicsContext
 	if (exitRenderLoop) {
 		WARN_LOG(Log::G3D, "runVulkanRenderLoop: ExitRenderLoop requested at start, skipping the whole thing.");
 		renderLoopRunning = false;
-		exitRenderLoop = false;
 		ANativeWindow_release(wnd);
 		return;
 	}
-
-	// This is up here to prevent race conditions, in case we pause during init.
-	renderLoopRunning = true;
 
 	WARN_LOG(Log::G3D, "runVulkanRenderLoop. display_xres=%d display_yres=%d desiredBackbufferSizeX=%d desiredBackbufferSizeY=%d",
 		display_xres, display_yres, desiredBackbufferSizeX, desiredBackbufferSizeY);
@@ -1718,8 +1717,8 @@ static void VulkanEmuThread(ANativeWindow *wnd, GraphicsContext *graphicsContext
 
 	// But we don't shut down the API. On some platforms like Android, we keep that around for later.
 
+	// exitRenderLoop is reset by whoever set it, after joining us.
 	renderLoopRunning = false;
-	exitRenderLoop = false;
 	ANativeWindow_release(wnd);
 
 	WARN_LOG(Log::G3D, "Render loop function exited.");
