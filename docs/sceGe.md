@@ -3,7 +3,7 @@
 This describes the behavior `GPU/GPUCommon.cpp` (the queue) and `Core/HLE/sceGe.cpp` (the
 interrupt side) model. All of it is what a game can observe, and all of it is pinned down on a
 real PSP by the tests in `pspautotests/tests/gpu/ge` (`queue`, `queue2`, `break`, `breakwait`,
-`enqueueparam`) and `pspautotests/tests/gpu/signals`.
+`intrsuspend`, `enqueueparam`) and `pspautotests/tests/gpu/signals`.
 
 The headline, because everything else follows from it: **the GE stops at every SIGNAL and every
 FINISH, and it takes the interrupt to get it going again.** After a signal it carries on with the
@@ -71,6 +71,11 @@ the head of the queue.
 | `JUMP`, `CALL`, `RET`, and their relative and origin variants (0x10 - 0x16) | Done in software by the interrupt. CALL uses the list's stack; overflowing or underflowing it leaves the GE stopped. |
 | 0x20 - 0x2F, 0x30, 0x38 | Set a texture or CLUT address relative to the list or to the offset address. PPSSPP doesn't implement these. |
 
+PPSSPP treats `HANDLER_CONTINUE` like `HANDLER_SUSPEND`: the GE waits for the callback. On
+hardware the two run side by side, so a callback that looks at the GE finds it further along,
+which is all `gpu/signals/continue` fails on. Waiting is the safe side to err on - a callback
+that prepares something the list is about to use still gets there first.
+
 Callbacks get the low 16 bits of the SIGNAL (or FINISH) command, the argument they were
 registered with, and - for SDK > `0x02000010` only, otherwise 0 - the address after the END.
 
@@ -110,6 +115,13 @@ the list, see above. Otherwise, in this order:
 
 If a SIGNAL and a FINISH are both pending by the time the interrupt runs, only the FINISH counts.
 
+### While the interrupt can't be taken
+
+All of the above happens in the interrupt, so with interrupts off (`sceKernelCpuSuspendIntr`)
+the queue simply stands still at the first FINISH: that list keeps reading as DRAWING, the next
+one as QUEUED, and no callback runs. It all catches up, in order, when interrupts come back.
+Suspending thread dispatch (`sceKernelSuspendDispatchThread`) doesn't hold any of it up.
+
 ### How PPSSPP does this
 
 PPSSPP doesn't run the GE in parallel with the CPU. `ProcessDLQueue()` executes a list all the way
@@ -131,6 +143,10 @@ ends), and `drawCompleteTicks`, which is set when the last list reaches its FINI
 when the interrupt is delivered, so that a `sceGeDrawSync(0)` in between doesn't wait for nothing.
 
 ## Waiting
+
+The two waiting calls, `sceGeListSync(id, 0)` and `sceGeDrawSync(0)`, refuse outright where a
+thread can't wait, *even if there is nothing to wait for*: `0x80020064` from a GE callback or
+any other interrupt, `0x800201A7` with dispatch or interrupts suspended.
 
 `sceGeListSync(id, 0)` doesn't care what state the list is in. It waits for that id to complete or
 be dequeued, and for an id that isn't pending - never used, or done - it returns 0 at once.
@@ -161,8 +177,9 @@ whether the GE is at that list's stall address - which it can't be if it isn't o
 | PAUSED | `0x80000021` for SDK <= `0x02000010` or inside the pause window, otherwise `0x80000020`. |
 | no list | `0x80000020` |
 
-**`sceGeBreak(1)` throws the whole queue away** and resets the GE: every list becomes NONE. It
-doesn't wake anybody. A thread in `sceGeListSync(id, 0)` or `sceGeDrawSync(0)` stays there - until
+**`sceGeBreak(1)` throws the whole queue away** and resets the GE: every list becomes NONE. An
+interrupt that was raised but not taken yet goes too, so a list that reached its FINISH just
+before never gets its finish callback. It doesn't wake anybody. A thread in `sceGeListSync(id, 0)` or `sceGeDrawSync(0)` stays there - until
 a *new* list happens to get the same id and completes, or the queue next drains, at which point
 they return 0 as if nothing had happened.
 
@@ -178,7 +195,16 @@ becomes NONE, and threads waiting for it are woken.
 list resumes by itself. For QUEUED and PAUSED lists it's just remembered for when they run.
 COMPLETED is `0x80000020`.
 
+One thing not to do, in a test or anywhere: `sceGeBreak(0)` from inside a `HANDLER_SUSPEND`
+callback with an SDK version above `0x02000010`. With an older one the list is PAUSED for the
+duration and the break is refused (`0x80000021`). With a newer one it goes through, the GE is
+restarted anyway when the callback returns, and the PSP hangs.
+
 ## Known leftovers in PPSSPP
+
+- `gpu/signals/jumps` and `gpu/signals/simple` ask for a list's state the moment
+  `sceGeListUpdateStallAddr` returns. On hardware the list is long done by then, callbacks and
+  all. For PPSSPP it has reached its FINISH, but the interrupt is still to come.
 
 - `IgnoreEnqueue` in `compat.ini` (Metal Gear Acid 2, #10906) skips the stack check. It was most
   likely hitting the not-started case, which no longer fails. If the game is fine without it,
@@ -187,6 +213,15 @@ COMPLETED is `0x80000020`.
   #19894) guards against a NONE list being on the queue. With the finished list now staying on
   the queue until its interrupt is done, the known ways for that to happen are gone, but it
   hasn't been proven unreachable.
+- The GE has one stall address, which isn't the same thing as the one each list remembers:
+  `sceGeListUpdateStallAddr` always updates the list's, but only a RUNNING list's update reaches
+  the GE. PPSSPP has just `DisplayList::stall` for both. The pause window gets away with that,
+  since a PAUSED list doesn't run. What doesn't is an old-SDK game updating the stall from inside
+  a `HANDLER_SUSPEND` callback, where the list reads as PAUSED: on hardware the GE then stops at
+  the *old* stall address until the next update from a thread, while reading as DRAWING rather
+  than STALLING. PPSSPP lets it run on. `gpu/signals/handlercalls` shows it, and fails on it.
+  Fixing it means giving `GPUCommon` a stall address of its own for execution, which touches the
+  fast paths in `GPUCommonHW.cpp` and both GE debuggers.
 - `sceGeBreak(0)` doesn't back up over a half-done SIGNAL or FINISH pair. With lists executing in
   one go, it's rarely in the middle of one.
 - Signal CALL and RET save and restore only the pc, the offset address and the base address. On
