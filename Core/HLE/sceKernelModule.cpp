@@ -2026,6 +2026,17 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	return module;
 }
 
+bool KernelUnloadModuleByID(SceUID moduleId) {
+	u32 error;
+	PSPModule *module = kernelObjects.Get<PSPModule>(moduleId, error);
+	if (!module) {
+		return false;
+	}
+	module->Cleanup();
+	kernelObjects.Destroy<PSPModule>(moduleId);
+	return true;
+}
+
 bool KernelModuleIsLoaded(std::string_view name) {
 	u32 error;
 	for (SceUID moduleId : loadedModules) {

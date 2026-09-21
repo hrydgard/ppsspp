@@ -454,12 +454,24 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 		if (coreState == CORE_NEXTFRAME) {
 			// INFO_LOG(Log::System, "(frame)");
 			coreState = CORE_RUNNING_CPU;
-			// Close and reopen the host frame, which is what the app does once per displayed
-			// frame. All the GPU's per-frame work hangs off BeginHostFrame - the texture cache's
+			// Close and reopen the frame, which is what the app does once per displayed frame.
+			// All the GPU's per-frame work hangs off BeginHostFrame - the texture cache's
 			// StartFrame and the framebuffer manager's DecimateFBOs - so with a single host frame
 			// spanning the whole run, none of it ever ran here, and a long test decayed nothing.
+			//
+			// The draw context's frame has to turn over too, and for the same reason one level up:
+			// Vulkan's push buffers are recycled by BeginFrame, so one frame spanning the run means
+			// nothing is ever reused and every allocation takes a fresh 8MB block - about 13MB a
+			// second, which runs a long test out of device memory. Draw frame outside, host frame
+			// inside, the way the app nests them.
 			if (gpu) {
 				gpu->EndHostFrame();
+			}
+			if (draw) {
+				draw->EndFrame();
+				draw->BeginFrame(Draw::DebugFlags::NONE);
+			}
+			if (gpu) {
 				gpu->BeginHostFrame(g_Config.GetDisplayLayoutConfig(DeviceOrientation::Landscape));
 			}
 		}

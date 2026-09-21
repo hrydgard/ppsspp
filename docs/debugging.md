@@ -178,6 +178,13 @@ it looked in (usually enough to spot that it's the one beside the exe), and exit
 machine with no firmware would fail. So when a measurement depends on the real module, pass the flag
 explicitly even though it's on by default, and the run will tell you if it didn't get it.
 
+`--force-hle=` is the other direction, and the one to reach for when deciding whether something is
+our fault: it puts our HLE back for libraries that now run the real module by default, so the same
+repro can be run both ways and the logs diffed. That is how the leftover warnings in Tekken 6 were
+sorted - three appeared identically with `--force-hle=16`, which made them the game's own, and the
+fourth only under the real module, which made it ours. Neither `--nand=` pointing somewhere empty
+nor `--appendconfig` does this job: the firmware gets found anyway and the setting is per-game.
+
 ## Debugging and breakpoint considerations
 
 It might be worth trying the interpreter - all types of breakpoints are the most reliable with this CPU backend.

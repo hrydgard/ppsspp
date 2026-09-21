@@ -95,12 +95,17 @@ static const int mp4ModuleDeps[] = {0x0300, 0};
 // So the module-list check below is a guard rather than the normal path, and it costs nothing:
 // asking the list rather than remembering what we loaded means this needs no state of its own. It
 // is right after a savestate load, across games, and if a game unloads a library and asks again.
+// The firmware modules we swapped in for a library whose HLE is disabled, keyed by the utility
+// module whose load brought them in. Remembered because the unload has to take out what we put
+// in and nothing else: a game that ships its own copy loads it itself, and we must not free that.
+static std::map<int, std::vector<SceUID>> swappedFirmwareModules;
+
 struct FirmwareModule {
 	const char *path;        // in the firmware
 	const char *moduleName;  // what the module calls itself once loaded
 };
 
-static void LoadFirmwareModules(const char *library, const FirmwareModule *modules, size_t count) {
+static void LoadFirmwareModules(int utilityModule, const char *library, const FirmwareModule *modules, size_t count) {
 	for (size_t i = 0; i < count; i++) {
 		if (KernelModuleIsLoaded(modules[i].moduleName)) {
 			DEBUG_LOG(Log::sceUtility, "%s is already loaded - not loading %s on top of it",
@@ -133,13 +138,33 @@ static void LoadFirmwareModules(const char *library, const FirmwareModule *modul
 			ERROR_LOG(Log::sceUtility, "Failed to start %s (%08x)", modules[i].path, result);
 			return;
 		}
+		swappedFirmwareModules[utilityModule].push_back(id);
 		INFO_LOG(Log::sceUtility, "Loaded the real %s", modules[i].path);
 	}
+}
+
+// The other half: give the memory back when the game says it is done with the library. Reverse
+// order, since a later module may import from an earlier one.
+static void UnloadFirmwareModules(int utilityModule) {
+	auto it = swappedFirmwareModules.find(utilityModule);
+	if (it == swappedFirmwareModules.end()) {
+		return;
+	}
+	for (auto id = it->second.rbegin(); id != it->second.rend(); ++id) {
+		if (KernelUnloadModuleByID(*id)) {
+			INFO_LOG(Log::sceUtility, "Unloaded the real module %d we had swapped in", *id);
+		}
+	}
+	swappedFirmwareModules.erase(it);
 }
 
 // mpeg.prx needs sceVideocodec, sceMpegbase and sceAudiocodec from us, all of which we implement,
 // so the module itself is the only thing that has to come from somewhere real.
 static void NotifyLoadStatusMpegBase(int state, u32 loadAddr, u32 totalSize) {
+	if (state == -1) {
+		UnloadFirmwareModules(0x303);
+		return;
+	}
 	// The effective flags, not the raw setting: those also account for the compat flags, for a
 	// firmware dump that isn't there, and for the boundary a savestate restored - resolving
 	// imports one way and loading modules the other is how a game ends up with neither.
@@ -149,18 +174,22 @@ static void NotifyLoadStatusMpegBase(int state, u32 loadAddr, u32 totalSize) {
 	static const FirmwareModule modules[] = {
 		{ "flash0:/kd/mpeg.prx", "sceMpeg_library" },
 	};
-	LoadFirmwareModules("sceMpeg", modules, ARRAY_SIZE(modules));
+	LoadFirmwareModules(0x303, "sceMpeg", modules, ARRAY_SIZE(modules));
 }
 
 // libmp3.prx imports nothing but the kernel and sceAudiocodec, which we have.
 static void NotifyLoadStatusMp3(int state, u32 loadAddr, u32 totalSize) {
+	if (state == -1) {
+		UnloadFirmwareModules(0x304);
+		return;
+	}
 	if (state != 1 || !(GetEffectiveDisableHLEFlags() & DisableHLEFlags::sceMp3)) {
 		return;
 	}
 	static const FirmwareModule modules[] = {
 		{ "flash0:/kd/libmp3.prx", "sceMp3_Library" },
 	};
-	LoadFirmwareModules("sceMp3", modules, ARRAY_SIZE(modules));
+	LoadFirmwareModules(0x304, "sceMp3", modules, ARRAY_SIZE(modules));
 }
 
 static void NotifyLoadStatusAvcodec(int state, u32 loadAddr, u32 totalSize) {
@@ -171,6 +200,10 @@ static void NotifyLoadStatusAvcodec(int state, u32 loadAddr, u32 totalSize) {
 // functions from sceAudiocodec (Init and Decode) plus ordinary kernel calls, and mp4msv.prx - the
 // 41 functions libmp4 leans on - imports nothing at all.
 static void NotifyLoadStatusMp4(int state, u32 loadAddr, u32 totalSize) {
+	if (state == -1) {
+		UnloadFirmwareModules(0x308);
+		return;
+	}
 	if (state != 1) {
 		return;
 	}
@@ -194,10 +227,14 @@ static void NotifyLoadStatusMp4(int state, u32 loadAddr, u32 totalSize) {
 		{ "flash0:/kd/mp4msv.prx", "mp4msv_module" },
 		{ "flash0:/kd/libmp4.prx", "sceMp4_library" },
 	};
-	LoadFirmwareModules("sceMp4", modules, ARRAY_SIZE(modules));
+	LoadFirmwareModules(0x308, "sceMp4", modules, ARRAY_SIZE(modules));
 }
 
 static void NotifyLoadStatusAtrac(int state, u32 loadAddr, u32 totalSize) {
+	if (state == -1) {
+		UnloadFirmwareModules(0x302);
+		return;
+	}
 	if (state == 1) {
 		// The effective flags, for the same reason the loads above use them.
 		if (GetEffectiveDisableHLEFlags() & DisableHLEFlags::sceAtrac) {
@@ -208,7 +245,7 @@ static void NotifyLoadStatusAtrac(int state, u32 loadAddr, u32 totalSize) {
 			static const FirmwareModule modules[] = {
 				{ "flash0:/kd/libatrac3plus.prx", "sceATRAC3plus_Library" },
 			};
-			LoadFirmwareModules("sceAtrac", modules, ARRAY_SIZE(modules));
+			LoadFirmwareModules(0x302, "sceAtrac", modules, ARRAY_SIZE(modules));
 			return;
 		}
 
@@ -449,13 +486,14 @@ void __UtilityInit() {
 	DeactivateDialog();
 	SavedataParam::Init();
 	currentlyLoadedModules.clear();
+	swappedFirmwareModules.clear();
 	volatileUnlockEvent = CoreTiming::RegisterEvent("UtilityVolatileUnlock", UtilityVolatileUnlock);
 
 	ResetSecondsSinceLastGameSave();
 }
 
 void __UtilityDoState(PointerWrap &p) {
-	auto s = p.Section("sceUtility", 1, 6);
+	auto s = p.Section("sceUtility", 1, 7);
 	if (!s) {
 		return;
 	}
@@ -477,6 +515,14 @@ void __UtilityDoState(PointerWrap &p) {
 		for (auto it = oldModules.begin(), end = oldModules.end(); it != end; ++it) {
 			currentlyLoadedModules[*it] = 0;
 		}
+	}
+
+	if (s >= 7) {
+		Do(p, swappedFirmwareModules);
+	} else if (p.mode == p.MODE_READ) {
+		// An older state has no record of what we swapped in, so the unload notification will
+		// leave those modules loaded rather than risk freeing something the game owns.
+		swappedFirmwareModules.clear();
 	}
 
 	if (s >= 3) {
@@ -743,6 +789,17 @@ static int UnloadModuleInternal(u32 module, bool av);
 
 // Same as sceUtilityLoadModule, just limited in categories.
 // It seems this just loads module 0x300 + module & 0xFF..
+// Loading a module that is already loaded is a normal answer, not a fault: a game asks for the
+// libraries it wants without tracking whether something else already brought them in, and just
+// ignores this (Tekken 6 loads av_avcodec three times and never unloads it). Everything else that
+// comes back from here is worth an error.
+static int LogModuleLoadResult(int result) {
+	if (result == SCE_ERROR_MODULE_ALREADY_LOADED || result == SCE_ERROR_AV_MODULE_ALREADY_LOADED) {
+		return hleLogDebug(Log::sceUtility, result, "already loaded");
+	}
+	return hleLogDebugOrError(Log::sceUtility, result);
+}
+
 static u32 sceUtilityLoadAvModule(u32 module) {
 	if (module > 7) {
 		ERROR_LOG_REPORT(Log::sceUtility, "sceUtilityLoadAvModule(%i): invalid module id", module);
@@ -750,7 +807,7 @@ static u32 sceUtilityLoadAvModule(u32 module) {
 	}
 
 	int result = LoadModuleInternal(0x300 | module, true);
-	return hleDelayResult(hleLogDebugOrError(Log::sceUtility, result), "utility av module loaded", 25000);
+	return hleDelayResult(LogModuleLoadResult(result), "utility av module loaded", 25000);
 }
 
 static u32 sceUtilityUnloadAvModule(u32 module) {
@@ -767,9 +824,9 @@ static u32 sceUtilityLoadModule(u32 module) {
 	int result = LoadModuleInternal(module, false);
 	// TODO: Each module has its own timing, technically, but this is a low-end.
 	if (module == 0x3FF) {
-		return hleDelayResult(hleLogDebugOrError(Log::sceUtility, result), "utility module loaded", 130);
+		return hleDelayResult(LogModuleLoadResult(result), "utility module loaded", 130);
 	} else {
-		return hleDelayResult(hleLogDebugOrError(Log::sceUtility, result), "utility module loaded", 25000);
+		return hleDelayResult(LogModuleLoadResult(result), "utility module loaded", 25000);
 	}
 }
 

@@ -96,6 +96,10 @@ struct CommandLineOptions {
 	// libraries. Needs a firmware dump under the NAND directory.
 	std::optional<int> disableHLE;
 
+	// The opposite: put our HLE back for libraries that now run the real module by default. The
+	// way to compare the two without editing a config, and the way out if the real one breaks a game.
+	std::optional<int> forceHLE;
+
 	// Headless: install the game update in a .pkg (given as the boot filename) into this
 	// directory, then exit without booting anything. The directory is the game folder itself -
 	// the app puts that under PSP/GAME/<DISC_ID>, but here the caller picks. See

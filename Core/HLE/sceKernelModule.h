@@ -256,6 +256,12 @@ SceUID KernelLoadModule(const std::string &filename, std::string *error_string, 
 // Whether a real (non-HLE-stub) module calling itself this is loaded. Lets a caller tell whether a
 // library is already provided before bringing in another copy of it.
 bool KernelModuleIsLoaded(std::string_view name);
+
+// Take back out a module we brought in ourselves (the firmware swap in sceUtility). Frees the
+// memory block, which is the point: a game that unloads its video libraries before a level load
+// expects that space back, and one 33KB module left sitting in the middle of it is enough to
+// break a contiguous allocation. Returns false if the id is not a live module.
+bool KernelUnloadModuleByID(SceUID moduleId);
 int __KernelStartModule(SceUID moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, SceKernelSMOption *smoption, bool *needsWait);
 u32 __KernelStopUnloadSelfModuleWithOrWithoutStatus(u32 exitCode, u32 argSize, u32 argp, u32 statusAddr, u32 optionAddr, bool WithStatus);
 u32 sceKernelFindModuleByUID(u32 uid);
