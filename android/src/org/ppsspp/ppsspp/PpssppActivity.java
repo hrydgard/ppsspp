@@ -905,14 +905,16 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 				return;
 			}
 
-			// If we got a surface, this starts the thread. If not, it doesn't.
-			// NOTE: We do not try to join the thread here
+			// If we got a surface, this starts the thread.
 			if (mSurface != null) {
 				// applyFramerate is called in here.
 				Log.i(TAG, "notifySurface: got surface, starting thread.");
 				startRenderLoopThread();
 			} else {
-				Log.i(TAG, "notifySurface: Notified surface is null, not starting thread.");
+				// The surface must not be touched once surfaceDestroyed returns. Normally onPause has
+				// already joined the thread and this does nothing, but that order isn't guaranteed.
+				Log.i(TAG, "notifySurface: Surface is gone, making sure the render thread is too.");
+				joinRenderLoopThread();
 			}
 		} else if (mSurface != null) {
 			// JavaGL path.
