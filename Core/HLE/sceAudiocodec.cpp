@@ -523,11 +523,17 @@ static int sceAudiocodecGetEDRAM(u32 ctxPtr, int codec) {
 	return hleLogInfo(Log::ME, 0, "edram address set to %08x", ctx->edramAddr);
 }
 
-static int sceAudiocodecReleaseEDRAM(u32 ctxPtr, int id) {
-	if (removeDecoder(ctxPtr)){
+// One parameter, not two: the real module (audiocodec_260.prx, 080007c0) reads only a0 and sets
+// up a1-a3 itself, so a second argument here just logs whatever was left in the register.
+//
+// Releasing the EDRAM without ever having made a decoder is normal - mpeg.prx calls
+// CheckNeedMem/GetEDRAM to size the allocation and only creates a decoder if the stream turns out
+// to need one, so there is often nothing here to drop.
+static int sceAudiocodecReleaseEDRAM(u32 ctxPtr) {
+	if (removeDecoder(ctxPtr)) {
 		return hleLogInfo(Log::ME, 0);
 	}
-	return hleLogWarning(Log::ME, 0, "failed to remove decoder");
+	return hleLogDebug(Log::ME, 0, "no decoder for this context");
 }
 
 static int sceAudiocodecGetOutputBytes(u32 ctxPtr, int codec, u32 outBytesAddr) {
@@ -607,7 +613,7 @@ const HLEFunction sceAudiocodec[] = {
 	{0X5B37EB1D, &WrapI_UI<sceAudiocodecInit>,           "sceAudiocodecInit",         'i', "xx"},
 	{0X8ACA11D5, &WrapI_UI<sceAudiocodecGetInfo>,        "sceAudiocodecGetInfo",      'i', "xx"},
 	{0X3A20A200, &WrapI_UI<sceAudiocodecGetEDRAM>,       "sceAudiocodecGetEDRAM",     'i', "xx"},
-	{0X29681260, &WrapI_UI<sceAudiocodecReleaseEDRAM>,   "sceAudiocodecReleaseEDRAM", 'i', "xx"},
+	{0X29681260, &WrapI_U<sceAudiocodecReleaseEDRAM>,    "sceAudiocodecReleaseEDRAM", 'i', "x"},
 	{0X9D3F790C, &WrapI_UI<sceAudiocodecCheckNeedMem>,   "sceAudiocodecCheckNeedMem", 'i', "xx"},
 	{0X59176A0F, &WrapI_UIU<sceAudiocodecGetOutputBytes>, "sceAudiocodecGetOutputBytes", 'i', "xxp" },  // params are context, codec, outptr
 	{0X3DD7EE1A, &WrapI_UI<sceAudiocodecInitMono>,       "sceAudiocodecInitMono",     'i', "xx"},  // Used by sceAtrac for MOut* functions.

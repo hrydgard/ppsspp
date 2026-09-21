@@ -789,6 +789,17 @@ static int UnloadModuleInternal(u32 module, bool av);
 
 // Same as sceUtilityLoadModule, just limited in categories.
 // It seems this just loads module 0x300 + module & 0xFF..
+// Loading a module that is already loaded is a normal answer, not a fault: a game asks for the
+// libraries it wants without tracking whether something else already brought them in, and just
+// ignores this (Tekken 6 loads av_avcodec three times and never unloads it). Everything else that
+// comes back from here is worth an error.
+static int LogModuleLoadResult(int result) {
+	if (result == SCE_ERROR_MODULE_ALREADY_LOADED || result == SCE_ERROR_AV_MODULE_ALREADY_LOADED) {
+		return hleLogDebug(Log::sceUtility, result, "already loaded");
+	}
+	return hleLogDebugOrError(Log::sceUtility, result);
+}
+
 static u32 sceUtilityLoadAvModule(u32 module) {
 	if (module > 7) {
 		ERROR_LOG_REPORT(Log::sceUtility, "sceUtilityLoadAvModule(%i): invalid module id", module);
@@ -796,7 +807,7 @@ static u32 sceUtilityLoadAvModule(u32 module) {
 	}
 
 	int result = LoadModuleInternal(0x300 | module, true);
-	return hleDelayResult(hleLogDebugOrError(Log::sceUtility, result), "utility av module loaded", 25000);
+	return hleDelayResult(LogModuleLoadResult(result), "utility av module loaded", 25000);
 }
 
 static u32 sceUtilityUnloadAvModule(u32 module) {
@@ -813,9 +824,9 @@ static u32 sceUtilityLoadModule(u32 module) {
 	int result = LoadModuleInternal(module, false);
 	// TODO: Each module has its own timing, technically, but this is a low-end.
 	if (module == 0x3FF) {
-		return hleDelayResult(hleLogDebugOrError(Log::sceUtility, result), "utility module loaded", 130);
+		return hleDelayResult(LogModuleLoadResult(result), "utility module loaded", 130);
 	} else {
-		return hleDelayResult(hleLogDebugOrError(Log::sceUtility, result), "utility module loaded", 25000);
+		return hleDelayResult(LogModuleLoadResult(result), "utility module loaded", 25000);
 	}
 }
 
