@@ -99,40 +99,34 @@ struct VideocodecCtx {
 
 static std::map<u32, VideocodecCtx> g_videocodecCtxs;
 
-// The Media Engine's own 2MB of embedded DRAM, modelled as memory of ours.
+// The Media Engine's own memory, modelled as an address space rather than a pool of blocks.
 //
-// The main CPU cannot address it. mpeg.prx asks for a block with sceVideocodecGetEDRAM, keeps the value
-// and hands it back, and never dereferences it; the frame buffers the ME reports back live in here
-// too, which is why sceVideocodecSetMemory is given a frame size rather than a buffer - 480, 272
-// and a count of 2 for a full-screen movie, with nowhere for the caller to say where to put them.
-//
-// The addresses handed out are offsets into g_meRam, based well outside anything PSP RAM maps so
-// that a stray dereference faults where it happens instead of quietly reading the game's memory.
-// Being outside PSP RAM, the contents aren't in the memory a savestate captures either, so the
-// block and its allocator go in __VideocodecDoState.
-static const u32 ME_EDRAM_BASE = 0xC0000000;
-static const u32 ME_EDRAM_SIZE = 2 * 1024 * 1024;
+// mpeg.prx bounds-checks the ones it uses against 0x3FFFFF (4MB). However only 2MB are available
+// for the ME: the rest of the EDRAM is actually allocated to the GPU on a real PSP in the default
+// configuration, which is what we emulate. DMA:s can arrive in multiple pieces so this has to be
+// a "real" separate address space, so a subsequent larger read will work.
+static const u32 ME_MEM_SIZE = 2 * 1024 * 1024;
+// What we hand out ourselves lives in the top half, out of the way of the addresses mpeg.prx
+// picks for itself, which have all been well down in the first megabyte.
+static const u32 ME_ALLOC_BASE = ME_MEM_SIZE / 2;
 static std::vector<u8> g_meRam;
 static BlockAllocator g_meAlloc(64);
 
-// The 2MB is only committed once something asks for a piece of it, so a game that never plays a
-// video pays nothing for this and its savestates don't carry it.
+// Only committed once something asks for a piece of it, so a game that never plays a video pays
+// nothing for this and its savestates don't carry it.
 static void MEEnsureRam() {
-	if (g_meRam.size() != ME_EDRAM_SIZE) {
-		g_meRam.assign(ME_EDRAM_SIZE, 0);
-		g_meAlloc.Init(ME_EDRAM_BASE, ME_EDRAM_SIZE, false);
+	if (g_meRam.size() != ME_MEM_SIZE) {
+		g_meRam.assign(ME_MEM_SIZE, 0);
+		g_meAlloc.Init(ME_ALLOC_BASE, ME_MEM_SIZE - ME_ALLOC_BASE, false);
 	}
 }
 
-u8 *VideocodecMEPointer(u32 addr, u32 size) {
-	if (addr < ME_EDRAM_BASE || size > ME_EDRAM_SIZE || g_meRam.size() != ME_EDRAM_SIZE) {
-		return nullptr;
-	}
-	const u32 offset = addr - ME_EDRAM_BASE;
-	if (offset > ME_EDRAM_SIZE - size) {
-		return nullptr;
-	}
-	return g_meRam.data() + offset;
+bool MEIsValidRange(u32 addr, u32 size) {
+	return g_meRam.size() == ME_MEM_SIZE && addr < ME_MEM_SIZE && size <= ME_MEM_SIZE - addr;
+}
+
+u8 *MEGetPointerRange(u32 addr, u32 size) {
+	return MEIsValidRange(addr, size) ? g_meRam.data() + addr : nullptr;
 }
 
 static void FreeContext(VideocodecCtx &ctx) {
@@ -369,7 +363,7 @@ static void WriteTiledYCbCr(const u32 *buffers, const AvcDecoder &dec, int width
 		if (ySize[b] <= 0) {
 			continue;
 		}
-		u8 *dst = VideocodecMEPointer(buffers[b], ySize[b]);
+		u8 *dst = MEGetPointerRange(buffers[b], ySize[b]);
 		if (!dst) {
 			continue;
 		}
@@ -391,7 +385,7 @@ static void WriteTiledYCbCr(const u32 *buffers, const AvcDecoder &dec, int width
 		if (cSize[b] <= 0) {
 			continue;
 		}
-		u8 *dst = VideocodecMEPointer(buffers[4 + b], cSize[b]);
+		u8 *dst = MEGetPointerRange(buffers[4 + b], cSize[b]);
 		if (!dst) {
 			continue;
 		}
@@ -509,24 +503,21 @@ static int sceVideocodecDecode(u32 ctxAddr, int type) {
 		return hleLogError(Log::ME, -1, "bad output descriptor");
 	}
 
-	// The access unit address mpeg.prx passes is in Media Engine space, which we can't read -
-	// on hardware sceMpegBasePESpacketCopy DMA'd the data there. That copy is ours, so use what
-	// it gathered instead, and fall back to main memory for any caller that points at it
-	// directly.
+	// The access unit mpeg.prx points at is normally in Media Engine memory, which the DMA in
+	// sceMpegBasePESpacketCopy has already filled in, so read it straight from there - auSize is
+	// the length it says it wrote. A caller pointing at main memory instead is served from there.
 	bool gotFrame = false;
 	const u8 *au = nullptr;
 	int auBytes = 0;
-	// Owns the gathered payload for as long as au points into it.
-	std::vector<u8> pes;
-	if (auSize > 0 && Memory::IsValidRange(auAddr, auSize)) {
-		au = Memory::GetTypedPointerRange<u8>(auAddr, auSize);
-		auBytes = auSize;
-	} else {
-		// Take the payload copied to this exact address - the same call carries audio too.
-		pes = MpegBaseTakePESPacket(auAddr);
-		if (!pes.empty()) {
-			au = pes.data();
-			auBytes = (int)pes.size();
+	if (auSize > 0) {
+		au = MEGetPointerRange(auAddr, auSize);
+		if (!au && Memory::IsValidRange(auAddr, auSize)) {
+			au = Memory::GetTypedPointerRange<u8>(auAddr, auSize);
+		}
+		auBytes = au ? auSize : 0;
+		if (!au) {
+			WARN_LOG(Log::ME, "sceVideocodecDecode: %d bytes at %08x is neither game nor ME memory",
+				auSize, auAddr);
 		}
 	}
 	if (au && auBytes > 0) {

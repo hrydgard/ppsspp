@@ -12,7 +12,7 @@ for it:
 | Doc | When you need it |
 |---|---|
 | [docs/building.md](docs/building.md) | Build commands for every target (VS/MSBuild, CMake, UWP, legacy Android NDK, libretro), unit tests, pspautotests |
-| [docs/debugging.md](docs/debugging.md) | Driving the WebSocket debugger and PPSSPPHeadless from a script, breakpoint reliability per CPU backend, debugging a game that works on hardware |
+| [docs/debugging.md](docs/debugging.md) | Driving the WebSocket debugger and PPSSPPHeadless from a script, measuring a commercial game with headless, breakpoint reliability per CPU backend, debugging a game that works on hardware |
 | [docs/DebuggerThreading.md](docs/DebuggerThreading.md) | `Core_RunOnCPUThread` / `g_frameMutex` / shutdown-lock rules - required reading before touching debugger code |
 | [docs/HLEModules.md](docs/HLEModules.md) | Adding an HLE module or function, and the seven build files a new source file goes in |
 | [docs/translations.md](docs/translations.md) | Translating UI strings with Tools/langtool |
@@ -48,6 +48,14 @@ for it:
    `newline=''` silently converts the whole file, turning a two-line addition into a 5000-line diff.
    Check `git diff --stat` before committing - a whole-file rewrite is obvious there and invisible in
    the editor. Prefer the Edit tool, which does exact string replacement and can't do this.
+
+   **Don't verify this with `grep -c $'\r$'`** - Git Bash's grep normalises line endings, so it counts
+   a bare-LF line as having a CR and reports any file as clean. The opposite mistake to a whole-file
+   rewrite is inserting a handful of LF lines into a CRLF file (a Python `"""..."""` block written with
+   `newline=''` does exactly this), and that shows in `--stat` only as the lines you meant to add. Check
+   the bytes instead, e.g. `python -c "d=open(F,'rb').read(); print(d.count(b'\r\n'), d.count(b'\n'))"`,
+   and treat git's "LF will be replaced by CRLF the next time Git touches it" as the warning it is
+   rather than autocrlf noise.
 6. **Don't feed Python to `bash -c` via a heredoc when the code needs a literal backslash in its
    *output*.** Git Bash strips one level of escaping on the way in even with a quoted delimiter
    (`<<'PY'`), so `"\\n"` reaches Python as `"\n"` and writes a real newline into the file - no error,
@@ -110,6 +118,13 @@ python test.py -g --graphics=software
   **The `-g` matters**: without it you also get `tests_next`, the expected-to-fail to-do list, and
   around a hundred failures that mean nothing is wrong. The only meaningful result is `0 tests failed`.
   (The debug-CRT "Detected memory leaks!" dump after the summary line is normal, not a failure.)
+
+When the thing under test is a commercial game rather than a suite, headless needs `--log` before it prints
+anything (to stderr), and defaults its memory stick to `<exe dir>/memstick` rather than the app's - so the
+firmware you installed in the app isn't there, and LLE modules silently fall back to HLE. A run configured
+differently from what you asked for, or one that never reached the code, produces the same all-zero counts as
+a clean one, so assert the exit code and a positive "we got here" counter before believing any error count.
+The traps in full: [docs/debugging.md](docs/debugging.md).
 
 New unit tests are added to `availableTests`; large ones go in their own file in `unittest/`, which has
 to be listed in **three** build files, not two: `CMakeLists.txt`, `unittest/UnitTests.vcxproj` (and its
@@ -268,6 +283,8 @@ Keep comments tight. Say the thing once; don't restate what the code already sho
 allude to a previous, now-corrected version ("eight addresses and nothing else" - the "and nothing
 else" only makes sense against the old wrong layout, which is history). Cut filler like "the two
 are the same shape" down to "(the same shape)".
+
+Avoid AI clichés like "not this, but that".
 
 For a parenthetical aside, prefer parentheses over a pair of spaced dashes: write "the audio thread
 that paces playback", or "the audio thread (which paces playback)", not "the audio thread - which

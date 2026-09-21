@@ -446,6 +446,10 @@ void HLECheckModuleAvailability() {
 	}
 }
 
+DisableHLEFlags HLEGetUnavailableDisableFlags() {
+	return g_unavailableDisableFlags;
+}
+
 void HLEInit() {
 	RegisterAllModules();
 	// Latched lazily rather than here: the compat flags this depends on aren't loaded yet.

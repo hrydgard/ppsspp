@@ -19,6 +19,7 @@
 
 #include "Common/Log.h"
 #include "Core/HW/AvcDecoder.h"
+#include "Core/HW/MediaEngine.h"
 
 #ifdef USE_FFMPEG
 extern "C" {
@@ -40,6 +41,10 @@ AvcDecoder::AvcDecoder() {
 		ERROR_LOG(Log::ME, "AvcDecoder: couldn't allocate a codec context");
 		return;
 	}
+
+	// Route ffmpeg's own diagnostics into our log - it's the only way we can detect damaged bitstreams.
+	InitFFmpeg();
+
 	// The PSP hands us whole access units, so no parser is needed and no truncation is expected.
 	codecCtx_->flags = 0;
 	codecCtx_->flags2 = 0;
@@ -154,6 +159,23 @@ bool AvcDecoder::Decode(const u8 *data, int size) {
 		return false;
 	}
 #endif
+
+	// Check for decode errors. Concealing means covering up missing data, and to us, that is a bad error
+	// as we're normally streaming from disk.
+	if (frame_->decode_error_flags || (frame_->flags & AV_FRAME_FLAG_CORRUPT)) {
+		concealedFrames_++;
+		if (!wasConcealing_) {
+			WARN_LOG(Log::ME, "AvcDecoder: frame %d decoded from a damaged bitstream (flags %08x%s) - "
+				"the stream is missing data, not the decoder", frameCount_, frame_->decode_error_flags,
+				(frame_->flags & AV_FRAME_FLAG_CORRUPT) ? ", corrupt" : "");
+			wasConcealing_ = true;
+		}
+	} else if (wasConcealing_) {
+		WARN_LOG(Log::ME, "AvcDecoder: clean again at frame %d, %d frames were concealed",
+			frameCount_, concealedFrames_);
+		wasConcealing_ = false;
+	}
+	frameCount_++;
 
 	// Everything downstream indexes the three planes as 8-bit 4:2:0, which is all the PSP's
 	// encoder produced. Anything else would be read as if it were, so say so and drop the frame
