@@ -33,6 +33,9 @@
 
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
+#include "Core/Config.h"
+#include "Core/CoreTiming.h"
+#include "Core/System.h"
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
@@ -95,6 +98,9 @@ struct VideocodecCtx {
 	u32 frameBuffersSize = 0;
 	int frameBufferWidth = 0;
 	int frameBufferHeight = 0;
+	// When the next decode may finish, for PaceVideocodecDecode. Not serialized: a restored state
+	// just paces from scratch.
+	s64 pacedUntilUs = 0;
 };
 
 static std::map<u32, VideocodecCtx> g_videocodecCtxs;
@@ -583,12 +589,25 @@ static int sceVideocodecDecode(u32 ctxAddr, int type) {
 		out32(36, published ? 0 : 1);
 	}
 
+	// This is a compat hack for games that do not seem to pace playback in any way, such as Ys I & II.
+	if (gotFrame && PSP_CoreParameter().compat.flags().PaceVideocodecDecode && vctx.decoder) {
+		const int period = vctx.decoder->FramePeriodUs();
+		if (period > 0) {
+			const s64 now = CoreTiming::GetGlobalTimeUs();
+			const int wait = (int)std::max((s64)0, vctx.pacedUntilUs - now);
+			vctx.pacedUntilUs = now + wait + period;
+			if (wait > 0) {
+				return hleDelayResult(hleLogDebug(Log::ME, 0, "type %d, %d bytes -> frame %dx%d",
+					type, auBytes, width, height), "videocodec decode", wait);
+			}
+		}
+	}
 	return hleLogDebug(Log::ME, 0, "type %d, %d bytes -> %s %dx%d",
 		type, auBytes, gotFrame ? "frame" : "no frame yet", width, height);
 }
 
 // Stopping or deleting the decoder is an ME round-trip and takes real time on hardware. Returning
-// immediately matters beyond speed: a game can be relying on a thread of its own getting to run
+// immediately is not correct, because a game can be relying on a thread of its own getting to run
 // once more before it tears things down. Jak and Daxter deletes its video_sound_thread straight
 // after sceVideocodecDelete without waiting for it to exit, and with no time passing here the audio
 // thread never gets to deliver the wake that would let it exit - so the delete fails with

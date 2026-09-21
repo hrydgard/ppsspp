@@ -56,6 +56,8 @@ public:
 	// necessarily the width.
 	const u8 *Plane(int index) const;
 	int Stride(int index) const;
+	// The frame period the bitstream declares, in microseconds, or 0 if it says nothing useful.
+	int FramePeriodUs() const;
 
 	// True if we were built without ffmpeg, in which case nothing decodes.
 	static bool IsAvailable();
