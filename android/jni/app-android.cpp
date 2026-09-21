@@ -171,7 +171,8 @@ static std::mutex g_activityLock;
 static std::atomic<bool> exitRenderLoop;
 static std::atomic<bool> renderLoopRunning;
 
-static bool renderer_inited = false;  // only used with OpenGL.
+// Set on the render thread (GL) or the emu thread (Vulkan), read by the input functions on the UI thread.
+static std::atomic<bool> renderer_inited{false};
 
 static bool sustainedPerfSupported = false;
 static std::string g_installerName;
