@@ -223,9 +223,9 @@ void LogManager::SetFileLogPath(const Path &filename) {
 }
 
 void LogManager::SaveConfig(Section *section) {
-	if (channelsChangedByDebugger_) {
+	if (doNotSaveChannels_) {
 		// Leave the section as whatever was already on disk - see the doc comment on
-		// NotifyChannelsChangedByDebugger().
+		// DoNotSaveChannels().
 		return;
 	}
 	for (int i = 0; i < (int)Log::NUMBER_OF_LOGS; i++) {

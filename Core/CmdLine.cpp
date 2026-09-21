@@ -583,6 +583,7 @@ void CommandLineOptions::ApplyToConfig() const {
 
 	if (logLevel.has_value()) {
 		g_logManager.SetAllLogLevels(logLevel.value());
+		g_logManager.DoNotSaveChannels();
 	}
 
 	if (oldAtrac.has_value()) {
