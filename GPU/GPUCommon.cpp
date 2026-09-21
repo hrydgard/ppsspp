@@ -790,11 +790,18 @@ static u32 BeforeUIDrawOffset(u32 addr) {
 }
 
 void GPUCommon::ReportBeforeUIDraw(u32 counterAddr, u32 listPos) {
+	// Where the frame is reported from, which is handed to a plugin of the host, and that the report of this
+	// frame has a point to wait for again, see the display list split in ProcessDLQueue.
+	beforeUIDrawReport_ = counterAddr;
+	beforeUIDrawFired_ = false;
+
 	if (listPos == 0) {
-		// Where the world of the frame ends is not known, so there is nothing to wait for.
+		// Where the world of the frame ends is not known, so there is nothing to wait for and the counter is
+		// counted right away. Where it ended the last time the game could say is kept, though: a game knows the
+		// point of its frame in general and only misses it for some frames, and a frame point that comes and goes
+		// would make what is drawn there come and go with it - the drawing of a plugin of the host as much as the
+		// post shaders of the emulator. See CountBeforeUIDraw.
 		beforeUIDrawAddr_ = 0;
-		beforeUIDrawPos_ = 0;
-		beforeUIDrawReport_ = 0;
 		Memory::WriteUnchecked_U32(Memory::ReadUnchecked_U32(counterAddr) + 1, counterAddr);
 		return;
 	}
@@ -805,25 +812,33 @@ void GPUCommon::ReportBeforeUIDraw(u32 counterAddr, u32 listPos) {
 	beforeUIDrawPos_ = listPos;
 	beforeUIDrawStall_ = 0;
 	beforeUIDrawSplit_ = false;
-	beforeUIDrawReport_ = counterAddr;
 }
 
 // The display list has run up to what the game had written when it reported, which is the end of
 // the world of the frame: this is where the report is counted, see ReportBeforeUIDraw.
 void GPUCommon::CountBeforeUIDraw() {
-	if (beforeUIDrawAddr_ == 0) {
-		return;
-	}
-
-	const u32 counterAddr = beforeUIDrawAddr_;
-	beforeUIDrawAddr_ = 0;
-	beforeUIDrawPos_ = 0;
 	// The engine collects the vertex data of the game and hands it to the backend at the next draw
 	// with a different state, so what it still holds has to go out here.
 	FinishDeferred();
 	Flush();
 
-	Memory::WriteUnchecked_U32(Memory::ReadUnchecked_U32(counterAddr) + 1, counterAddr);
+	// Everything the game has drawn so far is in the frame and its UI is not: the post shaders of the
+	// emulator are run over it here, so that the UI the game sends next lands on top of the processed
+	// frame instead of being processed with it, see FramebufferManagerCommon::RunPostShadersInPlace.
+	// The point is the end of the world the game last said, see ReportBeforeUIDraw, so a frame it could
+	// not say it for is processed like the ones it could.
+	if (framebufferManager_) {
+		framebufferManager_->RunPostShadersInPlace(framebufferManager_->GetCurrentRenderVFB());
+	}
+
+	// A report of this frame counts the counter it handed over, which is what a plugin of the host
+	// watches. A frame point kept from an earlier report counts nothing: that report was counted when
+	// it said it could not say where its world ends.
+	if (beforeUIDrawAddr_ != 0) {
+		const u32 counterAddr = beforeUIDrawAddr_;
+		beforeUIDrawAddr_ = 0;
+		Memory::WriteUnchecked_U32(Memory::ReadUnchecked_U32(counterAddr) + 1, counterAddr);
+	}
 
 	// The counter moves before the mark is recorded, so a plugin that watches the counter at the
 	// mark sees it moved.
@@ -899,8 +914,9 @@ DLResult GPUCommon::ProcessDLQueue() {
 			// A waiting report of the game, see ReportBeforeUIDraw: stop the list where the game had
 			// written when it reported, so the counter moves when the world of the frame is drawn and
 			// before its UI is. A stall of 0 means the list runs to its end, in which case the point
-			// is inside it as well.
-			if (beforeUIDrawAddr_ != 0 && beforeUIDrawPos_ != 0 &&
+			// is inside it as well. The point of the last report the game could make stands for a frame
+			// it cannot say it for, and is waited for once per report.
+			if (!beforeUIDrawFired_ && beforeUIDrawPos_ != 0 &&
 				BeforeUIDrawOffset(list.pc) <= BeforeUIDrawOffset(beforeUIDrawPos_) &&
 				(list.stall == 0 || BeforeUIDrawOffset(beforeUIDrawPos_) <= BeforeUIDrawOffset(list.stall))) {
 				beforeUIDrawStall_ = list.stall;
@@ -935,6 +951,7 @@ DLResult GPUCommon::ProcessDLQueue() {
 			// the host draws at, and the list carries on to the UI of the frame right after it.
 			if (beforeUIDrawSplit_ && list.pc == list.stall) {
 				beforeUIDrawSplit_ = false;
+				beforeUIDrawFired_ = true;
 				list.stall = beforeUIDrawStall_;
 				CountBeforeUIDraw();
 			}

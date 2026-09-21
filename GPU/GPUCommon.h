@@ -420,13 +420,17 @@ protected:
 	bool dumpThisFrame_ = false;
 	bool useFastRunLoop_ = false;
 	bool interruptsEnabled_ = false;
-	// The frame point a game reported: the counter to count, where its display list ends at that
-	// moment, and what has to be put back once the list has been stopped there, see
-	// ReportBeforeUIDraw.
+	// The end of the world of the frame the game last said, the counter it reported with, and what has to be
+	// put back once the list has been stopped there, see ReportBeforeUIDraw. The point stands until the game
+	// says another one: a report that says nothing about it - a game that cannot say where its world ends for
+	// that frame - leaves it as it was, so that a frame without it does not come and go in what is drawn there.
 	u32 beforeUIDrawAddr_ = 0;
 	u32 beforeUIDrawPos_ = 0;
 	u32 beforeUIDrawStall_ = 0;
 	bool beforeUIDrawSplit_ = false;
+	// Whether the report of the frame has had its point, which is one per report even where more than one
+	// display list is run, see ReportBeforeUIDraw.
+	bool beforeUIDrawFired_ = false;
 	// Where the last report came from: handed over as PPSSPPBeforeUIDrawTarget::reportAddress.
 	u32 beforeUIDrawReport_ = 0;
 	bool displayResized_ = false;

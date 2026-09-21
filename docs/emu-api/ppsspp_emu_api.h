@@ -84,11 +84,20 @@ static inline void ppsspp_verify_state(void) {
 // where the world is done and the UI is not drawn yet; the emulator cannot work
 // that point out by itself.
 //
+// A caller that cannot say where the world of the frame ends this time passes 0
+// for the position, and its counter is counted right away. The point of the last
+// call that could say stays the point of the frame until another one says
+// otherwise, so a frame the point is missed for does not make what is drawn
+// there - the drawing of a plugin of the host, and the post shaders of the
+// emulator - come and go.
+//
 // This exists for a plugin of the host application that draws into the frame of
 // the game: such a plugin watches the counter, and fills the frame in when it
 // changes, which is what puts its drawing under the UI the game sends next
-// instead of on top of it. An emulator that does not know the call - a real
-// PSP, for one - does nothing with it, so a game built against it still runs
+// instead of on top of it. PPSSPP runs its own post-processing shaders at that
+// same point when they are enabled, so they end up under that UI too instead of
+// over the whole frame. An emulator that does not know the call - a real PSP,
+// for one - does nothing with it, so a game built against it still runs
 // anywhere.
 static inline void ppsspp_before_ui_draw(volatile unsigned int *tick) {
 	sceIoDevctl(PPSSPP_EMULATOR_DEVICE, PPSSPP_DEVCTL__BEFORE_UI_DRAW, (void *)tick, sizeof(*tick), NULL, 0);

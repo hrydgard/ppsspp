@@ -1576,6 +1576,45 @@ void FramebufferManagerCommon::SetViewport2D(int x, int y, int w, int h) {
 	draw_->SetViewport(viewport);
 }
 
+// The post shaders of the emulator, run where the guest said the world of its frame ends: what the game draws
+// after that point is its UI, and lands on top of the processed frame instead of being processed with it.
+bool FramebufferManagerCommon::RunPostShadersInPlace(VirtualFramebuffer *vfb) {
+	// Without a framebuffer of its own, the game draws straight into the window, and the post shaders of the
+	// present are over that before the game gets there.
+	if (!vfb || !vfb->fbo || !useBufferedRendering_) {
+		return false;
+	}
+
+	Draw::Framebuffer *result = presentation_->RunPostShadersInPlace(displayLayoutConfigCopy_, vfb->fbo);
+	if (!result || result == vfb->fbo) {
+		return false;
+	}
+
+	// The processed frame is copied over the frame rather than drawn straight into it, so that no pass reads the
+	// frame it writes. The two are not the same size: the chain runs at the resolution it was built for, which
+	// is the one the display has, while the frame is the one the game asked for, stride and all. Each side is
+	// therefore measured by its own extent, which maps the whole of the one onto the whole of the other.
+	int srcWidth = 0;
+	int srcHeight = 0;
+	int dstWidth = 0;
+	int dstHeight = 0;
+	draw_->GetFramebufferDimensions(result, &srcWidth, &srcHeight);
+	draw_->GetFramebufferDimensions(vfb->fbo, &dstWidth, &dstHeight);
+
+	if (srcWidth <= 0 || srcHeight <= 0 || dstWidth <= 0 || dstHeight <= 0) {
+		return false;
+	}
+
+	BlitUsingRaster(result, 0.0f, 0.0f, (float)srcWidth, (float)srcHeight, vfb->fbo, 0.0f, 0.0f, (float)dstWidth, (float)dstHeight, false, 1, Get2DPipeline(DRAW2D_COPY_COLOR), "PostShaderInPlace");
+
+	// The pass drew with pipelines and state of its own, and the frame of the game carries on with what the
+	// game sets, which is no longer what the pass left behind.
+	gstate_c.Dirty(DIRTY_ALL);
+	textureCache_->ForgetLastTexture();
+	DiscardFramebufferCopy();
+	return true;
+}
+
 void FramebufferManagerCommon::CopyDisplayToOutput(const DisplayLayoutConfig &config) {
 	// PresentationCommon sets all kinds of state, we can't rely on anything.
 	gstate_c.Dirty(DIRTY_ALL);
