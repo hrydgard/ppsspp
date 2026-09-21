@@ -82,7 +82,8 @@ PPSSPPBeforeUIDrawTarget GPUCommon::GetBeforeUIDrawTarget() {
 
 #if defined(_WIN32)
 // The entry point an application of the emulator registers its drawing through, looked up in the
-// image of the emulator it is loaded into.
+// image of the emulator it is loaded into, which is what a plugin of the host does to find it.
+// Only Windows exports a symbol of a running program that way, so the entry point is only there.
 extern "C" __declspec(dllexport) void PPSSPP_RegisterBeforeUIDrawDraw(PPSSPPBeforeUIDrawDrawFn fn) {
 	GPUCommon::SetBeforeUIDrawDraw(fn);
 }

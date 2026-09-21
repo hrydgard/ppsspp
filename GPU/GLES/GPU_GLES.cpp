@@ -258,19 +258,15 @@ void GPU_GLES::MarkBeforeUIDraw() {
 
 	if (!beforeUIDrawMarkTexture_) {
 		static const uint8_t markPixel[4] = { 0, 0, 0, 0 };
-		Draw::TextureDesc desc{
-			Draw::TextureType::LINEAR2D,
-			Draw::DataFormat::R8G8B8A8_UNORM,
-			1,
-			1,
-			1,
-			1,
-			false,
-			Draw::TextureSwizzle::DEFAULT,
-			"before UI mark",
-			{ (uint8_t *)markPixel },
-			false,
-		};
+		Draw::TextureDesc desc{};
+		desc.type = Draw::TextureType::LINEAR2D;
+		desc.format = Draw::DataFormat::R8G8B8A8_UNORM;
+		desc.width = 1;
+		desc.height = 1;
+		desc.depth = 1;
+		desc.mipLevels = 1;
+		desc.tag = "before UI mark";
+		desc.initData.push_back(markPixel);
 
 		beforeUIDrawMarkTexture_ = draw_->CreateTexture(desc);
 
