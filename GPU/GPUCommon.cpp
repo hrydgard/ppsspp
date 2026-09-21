@@ -89,9 +89,24 @@ void GPUCommon::Reinitialize() {
 		dls[i].state = PSP_GE_DL_STATE_NONE;
 		dls[i].waitUntilTicks = 0;
 	}
+	// This is what sceKernelLoadExec gets, and whatever the old executable still had queued goes with
+	// it.  Left behind, those ids would now be lists with no state and a pc of 0, waiting their turn
+	// behind the first list of the new executable.  Crazy Taxi: Fare Wars starts its games this way, #19894.
+	dlQueue.clear();
+
+	// The GE driver starts over as well, and the first thing it does is run a list that sets every
+	// register to zero, and all the matrices.  So a program started this way finds the GE exactly as
+	// one booted directly does, not as the previous one left it.
+	gstate.Reset();
+	gstate_c.offsetAddr = 0;
+	gstate_c.vertexAddr = 0;
+	gstate_c.indexAddr = 0;
+	ResetMatrices();
+	gstate_c.Dirty(DIRTY_ALL);
 
 	nextListID = 0;
 	currentList = nullptr;
+	interruptRunning = false;
 	isbreak = false;
 	drawCompleteTicks = 0;
 	busyTicks = 0;
@@ -147,6 +162,15 @@ void GPUCommon::PopDLQueue() {
 }
 
 bool GPUCommon::BusyDrawing() {
+	// This is about whether the GE is executing right now, not whether lists are queued.  It's
+	// stopped for the duration of a finish callback, and of a signal callback unless that's a
+	// CONTINUE one, which the GE doesn't wait for.  sceGeSaveContext works fine from those.
+	if (interruptRunning) {
+		const bool continueSignal = gpuState == GPUSTATE_INTERRUPT && currentList && currentList->signal == PSP_GE_SIGNAL_HANDLER_CONTINUE;
+		if (!continueSignal)
+			return false;
+	}
+
 	u32 state = DrawSync(1);
 	if (state == PSP_GE_LIST_DRAWING || state == PSP_GE_LIST_STALLING) {
 		if (currentList && currentList->state != PSP_GE_DL_STATE_PAUSED) {
@@ -209,17 +233,12 @@ u32 GPUCommon::DrawSync(int mode) {
 	if (!top || top->state == PSP_GE_DL_STATE_COMPLETED)
 		return PSP_GE_LIST_COMPLETED;
 
-	if (currentList->pc == currentList->stall)
+	// The firmware compares the stall address against the hardware's pc, which a list that's still
+	// waiting behind a completed one (so, we're in its finish callback) hasn't touched yet.
+	if (top->state != PSP_GE_DL_STATE_QUEUED && top->pc == top->stall)
 		return PSP_GE_LIST_STALLING;
 
 	return PSP_GE_LIST_DRAWING;
-}
-
-void GPUCommon::CheckDrawSync() {
-	if (dlQueue.empty()) {
-		for (int i = 0; i < DisplayListMaxCount; ++i)
-			dls[i].state = PSP_GE_DL_STATE_NONE;
-	}
 }
 
 int GPUCommon::ListSync(int listid, int mode) {
@@ -369,28 +388,34 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 	int id = -1;
 	u64 currentTicks = CoreTiming::GetTicks(currentMIPS);
 	u32 stackAddr = args.IsValid() && args->size >= 16 ? (u32)args->stackAddr : 0;
-	// Check compatibility
-	// TODO: Figure out what games are affected by this...
+	// The firmware walks the queue looking for the same list or the same stack, but only minds for newer SDKs.
+	// See docs/sceGe.md.
 	if (sceKernelGetCompiledSdkVersion() > 0x01FFFFFF) {
-		//numStacks = 0;
-		//stack = NULL;
-		for (int i = 0; i < DisplayListMaxCount; ++i) {
-			if (dls[i].state != PSP_GE_DL_STATE_NONE && dls[i].state != PSP_GE_DL_STATE_COMPLETED) {
-				// Logically, if the CPU has not interrupted yet, it hasn't seen the latest pc either.
-				// Exit enqueues right after an END, which fails without ignoring pendingInterrupt lists.
-				if (dls[i].pc == listpc && !dls[i].pendingInterrupt) {
-					ERROR_LOG(Log::G3D, "sceGeListEnqueue: can't enqueue, list address %08X already used", listpc);
+		for (int i : dlQueue) {
+			const DisplayList &other = dls[i];
+			// On hardware the FINISH interrupt is immediate, so a list that's only waiting for us to deliver
+			// it is already off the queue. Exit enqueues the same list right after one ends.
+			// Once the finish callback is running the list is COMPLETED, and does count - it's still linked.
+			// Nothing else runs while an interrupt is pending, so gpuState tells a FINISH from a SIGNAL.
+			if (other.pendingInterrupt && other.state != PSP_GE_DL_STATE_COMPLETED && gpuState == GPUSTATE_DONE) {
+				continue;
+			}
+			// This is the address it was enqueued at (or stopped at by sceGeBreak), not where it has got to since.
+			if (other.startpc == (listpc & 0x0FFFFFFF)) {
+				ERROR_LOG(Log::G3D, "sceGeListEnqueue: can't enqueue, list address %08X already used", listpc);
+				return 0x80000021;
+			}
+			// Lists that haven't started executing yet are free to share a stack.
+			if (stackAddr != 0 && other.stackAddr == stackAddr && other.started) {
+				ERROR_LOG(Log::G3D, "sceGeListEnqueue: can't enqueue, stack address %08X already used", stackAddr);
+				// TODO: Metal Gear Acid 2 (#10906) was probably hitting the not-started case above, which used to
+				// fail too. If it's fine without this flag now, the flag should go.
+				if (!PSP_CoreParameter().compat.flags().IgnoreEnqueue) {
 					return 0x80000021;
-				} else if (stackAddr != 0 && dls[i].stackAddr == stackAddr && !dls[i].pendingInterrupt) {
-					ERROR_LOG(Log::G3D, "sceGeListEnqueue: can't enqueue, stack address %08X already used", stackAddr);
-					if (!PSP_CoreParameter().compat.flags().IgnoreEnqueue) {
-						return 0x80000021;
-					}
 				}
 			}
 		}
 	}
-	// TODO Check if list stack dls[i].stack already used then return 0x80000021 as above
 
 	for (int i = 0; i < DisplayListMaxCount; ++i) {
 		int possibleID = (i + nextListID) % DisplayListMaxCount;
@@ -454,6 +479,8 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 	} else if (currentList) {
 		dl.state = PSP_GE_DL_STATE_QUEUED;
 		dlQueue.push_back(id);
+		// This can come from the finish callback of what was the last list, so we're not done after all.
+		drawCompleteTicks = (u64)-1;
 	} else {
 		dl.state = PSP_GE_DL_STATE_RUNNING;
 		currentList = &dl;
@@ -476,7 +503,9 @@ u32 GPUCommon::DequeueList(int listid) {
 		return SCE_KERNEL_ERROR_INVALID_ID;
 
 	auto &dl = dls[listid];
-	if (dl.started)
+	// Anything that has started executing is off limits, which includes completed lists until sceGeDrawSync
+	// recycles them.  We clear started when restoring the context, so check the state too.
+	if (dl.started || dl.state == PSP_GE_DL_STATE_COMPLETED)
 		return SCE_KERNEL_ERROR_BUSY;
 
 	dl.state = PSP_GE_DL_STATE_NONE;
@@ -489,7 +518,7 @@ u32 GPUCommon::DequeueList(int listid) {
 	dl.waitUntilTicks = 0;
 	__GeTriggerWait(GPU_SYNC_LIST, listid);
 
-	CheckDrawSync();
+	// Completed lists stay completed, even if this empties the queue.  Only sceGeDrawSync recycles them.
 	return 0;
 }
 
@@ -517,8 +546,10 @@ u32 GPUCommon::Continue(bool *runList) {
 	if (currentList->state == PSP_GE_DL_STATE_PAUSED)
 	{
 		if (!isbreak) {
-			// TODO: Supposedly this returns SCE_KERNEL_ERROR_BUSY in some case, previously it had
-			// currentList->signal == PSP_GE_SIGNAL_HANDLER_PAUSE, but it doesn't reproduce.
+			// The PAUSE signal has been seen, but the FINISH that delivers it hasn't.  There's no getting out
+			// of this on hardware if the list is stalled in between, short of sceGeBreak(1).
+			if (currentList->signal == PSP_GE_SIGNAL_HANDLER_PAUSE)
+				return SCE_KERNEL_ERROR_BUSY;
 
 			currentList->state = PSP_GE_DL_STATE_RUNNING;
 			currentList->signal = PSP_GE_SIGNAL_NONE;
@@ -566,6 +597,10 @@ u32 GPUCommon::Break(int mode) {
 			dls[i].state = PSP_GE_DL_STATE_NONE;
 			dls[i].signal = PSP_GE_SIGNAL_NONE;
 		}
+		// This resets the GE, and an interrupt that was raised but couldn't be taken yet goes with it:
+		// no callback for a list that reached its FINISH with interrupts off.  One that we just haven't
+		// got around to raising is another matter, the game would have had that callback long ago.
+		__GeCancelRaisedInterrupts(interruptRunning);
 
 		nextListID = 0;
 		currentList = NULL;
@@ -606,10 +641,16 @@ u32 GPUCommon::Break(int mode) {
 	if (currentList->signal == PSP_GE_SIGNAL_SYNC)
 		currentList->pc += 8;
 
+	// The firmware keeps the pc to resume at where the list's address was, so that's now what a new list
+	// is compared against in sceGeListEnQueue.
+	currentList->startpc = currentList->pc;
 	currentList->interrupted = true;
 	currentList->state = PSP_GE_DL_STATE_PAUSED;
 	currentList->signal = PSP_GE_SIGNAL_HANDLER_SUSPEND;
-	isbreak = true;
+	// On hardware, the break sets off a finish interrupt of its own, and until that has been taken,
+	// sceGeContinue only marks the list to be started by it.  From a thread that's immediate, so this
+	// is only ever seen from a callback, or with interrupts off.  InterruptEnd() is where it ends.
+	isbreak = __IsInInterrupt() || !__InterruptsEnabled();
 
 	return currentList->id;
 }
@@ -756,15 +797,17 @@ DLResult GPUCommon::ProcessDLQueue() {
 	for (int listIndex = GetNextListIndex(); listIndex != -1; listIndex = GetNextListIndex()) {
 		DisplayList &list = dls[listIndex];
 
-		if (list.state == PSP_GE_DL_STATE_PAUSED) {
-			return DLResult::Done;
-		}
+		if (!resumingFromDebugBreak_) {
+			if (list.state == PSP_GE_DL_STATE_PAUSED) {
+				return DLResult::Done;
+			}
 
-		// Temporary workaround for Crazy Taxi, see #19894
-		if (list.state == PSP_GE_DL_STATE_NONE) {
-			WARN_LOG(Log::G3D, "Discarding display list with state NONE (pc=%08x). This is odd.", list.pc);
-			dlQueue.erase(std::remove(dlQueue.begin(), dlQueue.end(), listIndex), dlQueue.end());
-			return DLResult::Done;
+			// A SIGNAL or FINISH stops the hardware, and it's the interrupt handler that gets it going again:
+			// on the same list after a signal, or on the next one after running the finish callback.
+			// So until we've delivered that interrupt, nothing runs, whoever asks.  See docs/sceGe.md.
+			if (list.pendingInterrupt) {
+				return DLResult::Done;
+			}
 		}
 
 		DEBUG_LOG(Log::G3D, "%s DL execution at %08x - stall = %08x (startingTicks=%lld)",
@@ -782,8 +825,11 @@ DLResult GPUCommon::ProcessDLQueue() {
 			gstate_c.offsetAddr = list.offsetAddr;
 
 			if (!Memory::IsValidAddress(list.pc)) {
-				ERROR_LOG(Log::G3D, "DL PC = %08x WTF!!!!", list.pc);
-				return DLResult::Done;
+				// Nothing to execute here, and leaving it at the head of the queue would block everything
+				// behind it for good.  Treat it like a list that ran into an error.
+				ERROR_LOG(Log::G3D, "Display list %d has a bad pc %08x (state %d), dropping it", listIndex, list.pc, (int)list.state);
+				dlQueue.erase(std::remove(dlQueue.begin(), dlQueue.end(), listIndex), dlQueue.end());
+				continue;
 			}
 
 			cycleLastPC = list.pc;
@@ -853,6 +899,22 @@ DLResult GPUCommon::ProcessDLQueue() {
 
 		switch (gpuState) {
 		case GPUSTATE_DONE:
+			if (list.pendingInterrupt) {
+				// The list stays at the head of the queue until its finish callback has run, and the next
+				// list isn't started before that.  InterruptEnd() takes it off the queue.
+				if (dlQueue.size() == 1) {
+					// That was all the drawing there is though, and this is when it was done.  A sceGeDrawSync
+					// that comes after this, but before we get to deliver the interrupt, shouldn't wait.
+					drawCompleteTicks = startingTicks + cyclesExecuted;
+					busyTicks = std::max(busyTicks, drawCompleteTicks);
+					__GeTriggerSync(GPU_SYNC_DRAW, 1, drawCompleteTicks);
+				}
+				if (g_coreCollectDebugStats) {
+					gpuStats.perFrame.otherGPUCycles += cyclesExecuted;
+				}
+				return DLResult::Done;
+			}
+			break;
 		case GPUSTATE_ERROR:
 			// don't do anything - though dunno about error...
 			break;
@@ -1044,6 +1106,9 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 				// But right now, signal is always reset by interrupts, so that causes pause to not work.
 				trigger = false;
 				currentList->signal = behaviour;
+				// The list reads as paused from here on, though it keeps executing until that FINISH.
+				// If it stalls before it, it's stuck: only a running list's stall address is updated.
+				currentList->state = PSP_GE_DL_STATE_PAUSED;
 				DEBUG_LOG(Log::G3D, "Signal with Pause. signal/end: %04x %04x", signal, enddata);
 				break;
 			case PSP_GE_SIGNAL_SYNC:
@@ -1167,17 +1232,19 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 			FlushImm();
 			currentList->subIntrToken = prev & 0xFFFF;
 			UpdateState(GPUSTATE_DONE);
-			// Since we marked done, we have to restore the context now before the next list runs.
-			if (currentList->started && currentList->context.IsValid()) {
-				gstate.Restore(currentList->context);
-				ReapplyGfxState();
-				// Don't restore the context again.
-				currentList->started = false;
-			}
 
 			if (currentList->interruptsEnabled && __GeTriggerInterrupt(currentList->id, currentList->pc, startingTicks + cyclesExecuted)) {
+				// The context is restored once the finish callback has run, which gets to see the state
+				// the list left behind.  Nothing else runs before then, see InterruptEnd().
 				currentList->pendingInterrupt = true;
 			} else {
+				// No interrupt to wait for, so this is it.
+				if (currentList->started && currentList->context.IsValid()) {
+					gstate.Restore(currentList->context);
+					ReapplyGfxState();
+					// Don't restore the context again.
+					currentList->started = false;
+				}
 				currentList->state = PSP_GE_DL_STATE_COMPLETED;
 				currentList->waitUntilTicks = startingTicks + cyclesExecuted;
 				busyTicks = std::max(busyTicks, currentList->waitUntilTicks);
@@ -1442,7 +1509,7 @@ struct DisplayList_v2 {
 };
 
 void GPUCommon::DoState(PointerWrap &p) {
-	auto s = p.Section("GPUCommon", 1, 6);
+	auto s = p.Section("GPUCommon", 1, 7);
 	if (!s)
 		return;
 
@@ -1499,12 +1566,24 @@ void GPUCommon::DoState(PointerWrap &p) {
 			dls[i].stackAddr = 0;
 		}
 	}
+	if (s < 7 && p.mode == PointerWrap::MODE_READ) {
+		// We didn't use to mark a PAUSE signal as delivered, which sceGeContinue now goes by.
+		// Back then, a list was only PAUSED with that signal set once it had reached its FINISH,
+		// and if the interrupt for that is still to come, it'll take care of this.
+		for (DisplayList &dl : dls) {
+			if (dl.state == PSP_GE_DL_STATE_PAUSED && dl.signal == PSP_GE_SIGNAL_HANDLER_PAUSE && !dl.pendingInterrupt) {
+				dl.signal = PSP_GE_SIGNAL_HANDLER_SUSPEND;
+			}
+		}
+	}
+
 	int currentID = 0;
 	if (currentList != nullptr) {
 		currentID = (int)(currentList - &dls[0]);
 	}
 	Do(p, currentID);
-	if (currentID == 0) {
+	// List 0 looks the same as no list here, but no list means an empty queue.
+	if (currentID == 0 && (dlQueue.empty() || dlQueue.front() != 0)) {
 		currentList = nullptr;
 	} else {
 		currentList = &dls[currentID];
@@ -1539,9 +1618,6 @@ void GPUCommon::InterruptEnd(int listid) {
 			gstate.Restore(dl.context);
 			ReapplyGfxState();
 		}
-		dl.waitUntilTicks = 0;
-		__GeTriggerWait(GPU_SYNC_LIST, listid);
-
 		// Make sure the list isn't still queued since it's now completed.
 		if (!dlQueue.empty()) {
 			if (listid == dlQueue.front())
@@ -1549,6 +1625,16 @@ void GPUCommon::InterruptEnd(int listid) {
 			else
 				dlQueue.remove(listid);
 		}
+
+		// If that was the last list, threads in sceGeDrawSync are woken before the ones waiting for this list.
+		// Not for a list sceGeBreak(1) has reset though, that doesn't wake anyone.
+		if (dlQueue.empty() && dl.state == PSP_GE_DL_STATE_COMPLETED) {
+			bool wokeThreads = __GeTriggerWait(GPU_SYNC_DRAW, 1);
+			SyncEnd(GPU_SYNC_DRAW, 1, wokeThreads);
+		}
+
+		dl.waitUntilTicks = 0;
+		__GeTriggerWait(GPU_SYNC_LIST, listid);
 	}
 }
 

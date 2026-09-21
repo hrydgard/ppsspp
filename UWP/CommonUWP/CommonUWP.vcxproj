@@ -106,7 +106,6 @@
     <ClInclude Include="..\..\Common\Data\Collections\ConstMap.h" />
     <ClInclude Include="..\..\Common\Data\Collections\FixedSizeQueue.h" />
     <ClInclude Include="..\..\Common\Data\Collections\Hashmaps.h" />
-    <ClInclude Include="..\..\Common\Data\Collections\ThreadSafeList.h" />
     <ClInclude Include="..\..\Common\Data\Collections\TinySet.h" />
     <ClInclude Include="..\..\Common\Data\Collections\CyclicBuffer.h" />
     <ClInclude Include="..\..\Common\Data\Color\RGBAUtil.h" />

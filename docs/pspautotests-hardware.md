@@ -161,6 +161,10 @@ python3 test.py --graphics=software io/shortname/shortname
   `1.txt` rather than `1.TXT`. Anything testing FAT semantics has to run against `ms0:` - create a
   scratch directory on the real memory stick and clean it up - and anything reading `host0:` will
   only reproduce on the OS it was recorded on.
+- **Start `usbhostfs_pc` yourself before the first `gentest.py` run in a scripted session.** When
+  `gentest.py` has to start it, the bridge inherits the script's stdout and keeps running, so
+  anything waiting for the pipe to close (`gentest.py ... | tail`, or an agent's shell tool) hangs
+  long after the `.expected` file has been written. With the port already open it returns at once.
 - **A test that hangs leaves the PSP wedged.** `gentest.py` issues `pspsh -e reset` after a
   timeout, but if you ran the PRX by hand, do that yourself. Default timeout is 10s; raise it with
   `-t SECONDS`.

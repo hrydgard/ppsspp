@@ -137,6 +137,8 @@ void __InterruptsDoState(PointerWrap &p);
 void __InterruptsDoStateLate(PointerWrap &p);
 void __InterruptsShutdown();
 void __TriggerInterrupt(int type, PSPInterrupt intno, int subInterrupts = -1);
+// Forgets interrupts that have been raised but not taken, except for one that's being handled. Returns how many.
+int __CancelRaisedInterrupts(PSPInterrupt intno);
 bool __RunOnePendingInterrupt();
 void __KernelReturnFromInterrupt();
 

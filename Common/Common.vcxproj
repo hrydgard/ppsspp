@@ -391,7 +391,6 @@
     <ClInclude Include="Data\Collections\Hashmaps.h" />
     <ClInclude Include="Data\Collections\LinkedList.h" />
     <ClInclude Include="Data\Collections\Slice.h" />
-    <ClInclude Include="Data\Collections\ThreadSafeList.h" />
     <ClInclude Include="Data\Collections\TinySet.h" />
     <ClInclude Include="Data\Color\RGBAUtil.h" />
     <ClInclude Include="Data\Convert\SmallDataConvert.h" />

@@ -424,5 +424,4 @@ protected:
 private:
 	void DoExecuteCall(u32 target);
 	void PopDLQueue();
-	void CheckDrawSync();
 };
