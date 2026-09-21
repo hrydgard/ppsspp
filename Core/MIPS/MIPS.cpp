@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <cfenv>
 #include <cmath>
 #include <limits>
 #include <mutex>
@@ -105,6 +106,13 @@ void ApplyHostRoundingMode(const MIPSState *mips) {
 		}
 
 		ARM64WriteFPCR(fpcr);
+#else
+		// No control register access written for this architecture, so go through the standard
+		// call. Rounding is all it can do: there is no portable flush-to-zero, and neither
+		// riscv64 nor loongarch64 has one in the base ISA either, so denormals stay as they are.
+		static const int roundLookup[4] = { FE_TONEAREST, FE_TOWARDZERO, FE_UPWARD, FE_DOWNWARD };
+		fesetround(roundLookup[rmode]);
+		(void)ftz;
 #endif
 	}
 }
@@ -121,6 +129,8 @@ void RestoreHostRoundingMode() {
 	fpcr &= ~(7 << 22);    // Clear bits [23:22] for rounding, 24 for FTZ
 	// Write back the modified FPCR
 	ARM64WriteFPCR(fpcr);
+#else
+	fesetround(FE_TONEAREST);
 #endif
 }
 

@@ -97,13 +97,16 @@ static float skinMatrix[12];
 static uint32_t GetMorphValueUsage(uint32_t vtype) {
 	uint32_t morphFlags = 0;
 	switch (vtype & GE_VTYPE_TC_MASK) {
-	case GE_VTYPE_TC_8BIT: morphFlags |= 1 << (int)MorphValuesIndex::BY_128; break;
-	case GE_VTYPE_TC_16BIT: morphFlags |= 1 << (int)MorphValuesIndex::BY_32768; break;
+	// The prescale decoders bake by128 into the prescale and use the raw weight instead, so
+	// both forms have to be available - which one runs isn't known from the vertex type alone.
+	case GE_VTYPE_TC_8BIT: morphFlags |= (1 << (int)MorphValuesIndex::BY_128) | (1 << (int)MorphValuesIndex::AS_FLOAT); break;
+	case GE_VTYPE_TC_16BIT: morphFlags |= (1 << (int)MorphValuesIndex::BY_32768) | (1 << (int)MorphValuesIndex::AS_FLOAT); break;
 	case GE_VTYPE_TC_FLOAT: morphFlags |= 1 << (int)MorphValuesIndex::AS_FLOAT; break;
 	}
 	switch (vtype & GE_VTYPE_COL_MASK) {
 	case GE_VTYPE_COL_565: morphFlags |= (1 << (int)MorphValuesIndex::COLOR_5) | (1 << (int)MorphValuesIndex::COLOR_6); break;
-	case GE_VTYPE_COL_5551: morphFlags |= 1 << (int)MorphValuesIndex::COLOR_5; break;
+	// 5551 alpha is accumulated with the raw weight, not the color-scaled one.
+	case GE_VTYPE_COL_5551: morphFlags |= (1 << (int)MorphValuesIndex::COLOR_5) | (1 << (int)MorphValuesIndex::AS_FLOAT); break;
 	case GE_VTYPE_COL_4444: morphFlags |= 1 << (int)MorphValuesIndex::COLOR_4; break;
 	case GE_VTYPE_COL_8888: morphFlags |= 1 << (int)MorphValuesIndex::AS_FLOAT; break;
 	}
@@ -300,10 +303,11 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	if (dec.tc && dec.throughmode) {
 		// TODO: Smarter, only when doing bounds.
 		LI(tempReg1, &gstate_c.vertBounds.minU);
-		LH(boundsMinUReg, tempReg1, offsetof(KnownVertexBounds, minU));
-		LH(boundsMaxUReg, tempReg1, offsetof(KnownVertexBounds, maxU));
-		LH(boundsMinVReg, tempReg1, offsetof(KnownVertexBounds, minV));
-		LH(boundsMaxVReg, tempReg1, offsetof(KnownVertexBounds, maxV));
+		// Unsigned - these are u16, and minU/minV start at 0xFFFF.
+		LHU(boundsMinUReg, tempReg1, offsetof(KnownVertexBounds, minU));
+		LHU(boundsMaxUReg, tempReg1, offsetof(KnownVertexBounds, maxU));
+		LHU(boundsMinVReg, tempReg1, offsetof(KnownVertexBounds, minV));
+		LHU(boundsMaxVReg, tempReg1, offsetof(KnownVertexBounds, maxV));
 	}
 
 	const u8 *loopStart = GetCodePtr();
@@ -501,7 +505,9 @@ void VertexDecoderJitCache::Jit_TcU16ThroughToFloat() {
 		MAXU(boundsMaxVReg, boundsMaxVReg, tempReg2);
 	} else {
 		auto updateSide = [&](RiscVReg src, bool greater, RiscVReg dst) {
-			FixupBranch skip = BLT(greater ? dst : src, greater ? src : dst);
+			// Skip when dst is already the more extreme of the two. Unsigned: these are u16
+			// texcoords, and a value above 32767 compares negative as a signed word.
+			FixupBranch skip = greater ? BGEU(dst, src) : BGEU(src, dst);
 			MV(dst, src);
 			SetJumpTarget(skip);
 		};
@@ -558,15 +564,13 @@ void VertexDecoderJitCache::Jit_TcFloatPrescale() {
 }
 
 void VertexDecoderJitCache::Jit_TcU8MorphToFloat() {
-	FL(32, fpScratchReg4, morphBaseReg, ((int)MorphValuesIndex::BY_128 * 8 + 0) * 4);
-	LBU(tempReg1, srcReg, dec_->tcoff + 0);
-	LBU(tempReg2, srcReg, dec_->tcoff + 1);
-	FCVT(FConv::S, FConv::WU, fpSrc[0], tempReg1, Round::TOZERO);
-	FCVT(FConv::S, FConv::WU, fpSrc[1], tempReg2, Round::TOZERO);
-	FMUL(32, fpSrc[0], fpSrc[0], fpScratchReg4, Round::TOZERO);
-	FMUL(32, fpSrc[1], fpSrc[1], fpScratchReg4, Round::TOZERO);
+	// Accumulate like the Step_ functions, which the compiler contracts into fused
+	// multiply-adds. Starting from the first product instead of +0.0 rounds differently and
+	// lets a -0 term through where the steps give +0.
+	for (int j = 0; j < 2; j++)
+		FMV(FMv::W, FMv::X, fpSrc[j], R_ZERO);
 
-	for (int n = 1; n < dec_->morphcount; n++) {
+	for (int n = 0; n < dec_->morphcount; n++) {
 		FL(32, fpScratchReg4, morphBaseReg, ((int)MorphValuesIndex::BY_128 * 8 + n) * 4);
 		LBU(tempReg1, srcReg, dec_->onesize_ * n + dec_->tcoff + 0);
 		LBU(tempReg2, srcReg, dec_->onesize_ * n + dec_->tcoff + 1);
@@ -581,15 +585,13 @@ void VertexDecoderJitCache::Jit_TcU8MorphToFloat() {
 }
 
 void VertexDecoderJitCache::Jit_TcU16MorphToFloat() {
-	FL(32, fpScratchReg4, morphBaseReg, ((int)MorphValuesIndex::BY_32768 * 8 + 0) * 4);
-	LHU(tempReg1, srcReg, dec_->tcoff + 0);
-	LHU(tempReg2, srcReg, dec_->tcoff + 2);
-	FCVT(FConv::S, FConv::WU, fpSrc[0], tempReg1, Round::TOZERO);
-	FCVT(FConv::S, FConv::WU, fpSrc[1], tempReg2, Round::TOZERO);
-	FMUL(32, fpSrc[0], fpSrc[0], fpScratchReg4, Round::TOZERO);
-	FMUL(32, fpSrc[1], fpSrc[1], fpScratchReg4, Round::TOZERO);
+	// Accumulate like the Step_ functions, which the compiler contracts into fused
+	// multiply-adds. Starting from the first product instead of +0.0 rounds differently and
+	// lets a -0 term through where the steps give +0.
+	for (int j = 0; j < 2; j++)
+		FMV(FMv::W, FMv::X, fpSrc[j], R_ZERO);
 
-	for (int n = 1; n < dec_->morphcount; n++) {
+	for (int n = 0; n < dec_->morphcount; n++) {
 		FL(32, fpScratchReg4, morphBaseReg, ((int)MorphValuesIndex::BY_32768 * 8 + n) * 4);
 		LHU(tempReg1, srcReg, dec_->onesize_ * n + dec_->tcoff + 0);
 		LHU(tempReg2, srcReg, dec_->onesize_ * n + dec_->tcoff + 2);
@@ -604,13 +606,13 @@ void VertexDecoderJitCache::Jit_TcU16MorphToFloat() {
 }
 
 void VertexDecoderJitCache::Jit_TcFloatMorph() {
-	FL(32, fpScratchReg4, morphBaseReg, ((int)MorphValuesIndex::AS_FLOAT * 8 + 0) * 4);
-	FL(32, fpSrc[0], srcReg, dec_->tcoff + 0);
-	FL(32, fpSrc[1], srcReg, dec_->tcoff + 4);
-	FMUL(32, fpSrc[0], fpSrc[0], fpScratchReg4, Round::TOZERO);
-	FMUL(32, fpSrc[1], fpSrc[1], fpScratchReg4, Round::TOZERO);
+	// Accumulate like the Step_ functions, which the compiler contracts into fused
+	// multiply-adds. Starting from the first product instead of +0.0 rounds differently and
+	// lets a -0 term through where the steps give +0.
+	for (int j = 0; j < 2; j++)
+		FMV(FMv::W, FMv::X, fpSrc[j], R_ZERO);
 
-	for (int n = 1; n < dec_->morphcount; n++) {
+	for (int n = 0; n < dec_->morphcount; n++) {
 		FL(32, fpScratchReg4, morphBaseReg, ((int)MorphValuesIndex::AS_FLOAT * 8 + n) * 4);
 		FL(32, fpScratchReg1, srcReg, dec_->onesize_ * n + dec_->tcoff + 0);
 		FL(32, fpScratchReg2, srcReg, dec_->onesize_ * n + dec_->tcoff + 4);
@@ -624,15 +626,13 @@ void VertexDecoderJitCache::Jit_TcFloatMorph() {
 
 void VertexDecoderJitCache::Jit_TcU8PrescaleMorph() {
 	// We use AS_FLOAT since by128 is already baked into precale.
-	FL(32, fpScratchReg4, morphBaseReg, ((int)MorphValuesIndex::AS_FLOAT * 8 + 0) * 4);
-	LBU(tempReg1, srcReg, dec_->tcoff + 0);
-	LBU(tempReg2, srcReg, dec_->tcoff + 1);
-	FCVT(FConv::S, FConv::WU, fpSrc[0], tempReg1, Round::TOZERO);
-	FCVT(FConv::S, FConv::WU, fpSrc[1], tempReg2, Round::TOZERO);
-	FMUL(32, fpSrc[0], fpSrc[0], fpScratchReg4, Round::TOZERO);
-	FMUL(32, fpSrc[1], fpSrc[1], fpScratchReg4, Round::TOZERO);
+	// Accumulate like the Step_ functions, which the compiler contracts into fused
+	// multiply-adds. Starting from the first product instead of +0.0 rounds differently and
+	// lets a -0 term through where the steps give +0.
+	for (int j = 0; j < 2; j++)
+		FMV(FMv::W, FMv::X, fpSrc[j], R_ZERO);
 
-	for (int n = 1; n < dec_->morphcount; n++) {
+	for (int n = 0; n < dec_->morphcount; n++) {
 		FL(32, fpScratchReg4, morphBaseReg, ((int)MorphValuesIndex::AS_FLOAT * 8 + n) * 4);
 		LBU(tempReg1, srcReg, dec_->onesize_ * n + dec_->tcoff + 0);
 		LBU(tempReg2, srcReg, dec_->onesize_ * n + dec_->tcoff + 1);
@@ -650,15 +650,13 @@ void VertexDecoderJitCache::Jit_TcU8PrescaleMorph() {
 
 void VertexDecoderJitCache::Jit_TcU16PrescaleMorph() {
 	// We use AS_FLOAT since by32768 is already baked into precale.
-	FL(32, fpScratchReg4, morphBaseReg, ((int)MorphValuesIndex::AS_FLOAT * 8 + 0) * 4);
-	LHU(tempReg1, srcReg, dec_->tcoff + 0);
-	LHU(tempReg2, srcReg, dec_->tcoff + 2);
-	FCVT(FConv::S, FConv::WU, fpSrc[0], tempReg1, Round::TOZERO);
-	FCVT(FConv::S, FConv::WU, fpSrc[1], tempReg2, Round::TOZERO);
-	FMUL(32, fpSrc[0], fpSrc[0], fpScratchReg4, Round::TOZERO);
-	FMUL(32, fpSrc[1], fpSrc[1], fpScratchReg4, Round::TOZERO);
+	// Accumulate like the Step_ functions, which the compiler contracts into fused
+	// multiply-adds. Starting from the first product instead of +0.0 rounds differently and
+	// lets a -0 term through where the steps give +0.
+	for (int j = 0; j < 2; j++)
+		FMV(FMv::W, FMv::X, fpSrc[j], R_ZERO);
 
-	for (int n = 1; n < dec_->morphcount; n++) {
+	for (int n = 0; n < dec_->morphcount; n++) {
 		FL(32, fpScratchReg4, morphBaseReg, ((int)MorphValuesIndex::AS_FLOAT * 8 + n) * 4);
 		LHU(tempReg1, srcReg, dec_->onesize_ * n + dec_->tcoff + 0);
 		LHU(tempReg2, srcReg, dec_->onesize_ * n + dec_->tcoff + 2);
@@ -675,13 +673,13 @@ void VertexDecoderJitCache::Jit_TcU16PrescaleMorph() {
 }
 
 void VertexDecoderJitCache::Jit_TcFloatPrescaleMorph() {
-	FL(32, fpScratchReg4, morphBaseReg, ((int)MorphValuesIndex::AS_FLOAT * 8 + 0) * 4);
-	FL(32, fpSrc[0], srcReg, dec_->tcoff + 0);
-	FL(32, fpSrc[1], srcReg, dec_->tcoff + 4);
-	FMUL(32, fpSrc[0], fpSrc[0], fpScratchReg4, Round::TOZERO);
-	FMUL(32, fpSrc[1], fpSrc[1], fpScratchReg4, Round::TOZERO);
+	// Accumulate like the Step_ functions, which the compiler contracts into fused
+	// multiply-adds. Starting from the first product instead of +0.0 rounds differently and
+	// lets a -0 term through where the steps give +0.
+	for (int j = 0; j < 2; j++)
+		FMV(FMv::W, FMv::X, fpSrc[j], R_ZERO);
 
-	for (int n = 1; n < dec_->morphcount; n++) {
+	for (int n = 0; n < dec_->morphcount; n++) {
 		FL(32, fpScratchReg4, morphBaseReg, ((int)MorphValuesIndex::AS_FLOAT * 8 + n) * 4);
 		FL(32, fpScratchReg1, srcReg, dec_->onesize_ * n + dec_->tcoff + 0);
 		FL(32, fpScratchReg2, srcReg, dec_->onesize_ * n + dec_->tcoff + 4);
@@ -784,13 +782,16 @@ void VertexDecoderJitCache::Jit_PosS16() {
 }
 
 void VertexDecoderJitCache::Jit_PosFloat() {
-	// Just copy 12 bytes, play with over read/write later.
-	LW(tempReg1, srcReg, dec_->posoff + 0);
-	LW(tempReg2, srcReg, dec_->posoff + 4);
-	LW(tempReg3, srcReg, dec_->posoff + 8);
-	SW(tempReg1, dstReg, dec_->decFmt.posoff + 0);
-	SW(tempReg2, dstReg, dec_->decFmt.posoff + 4);
-	SW(tempReg3, dstReg, dec_->decFmt.posoff + 8);
+	// Clamp to +-FLT_MAX, which turns infinities finite and, since FMIN/FMAX return the non-NaN
+	// operand, NaN into FLT_MAX. Step_PosFloat does the same via CleanNaNInfs.
+	QuickFLI(32, fpScratchReg1, FLT_MAX, scratchReg);
+	FNEG(32, fpScratchReg2, fpScratchReg1);
+	for (int i = 0; i < 3; i++) {
+		FL(32, fpSrc[i], srcReg, dec_->posoff + i * 4);
+		FMIN(32, fpSrc[i], fpSrc[i], fpScratchReg1);
+		FMAX(32, fpSrc[i], fpSrc[i], fpScratchReg2);
+		FS(32, fpSrc[i], dstReg, dec_->decFmt.posoff + i * 4);
+	}
 }
 
 void VertexDecoderJitCache::Jit_PosS8Skin() {
@@ -843,6 +844,9 @@ void VertexDecoderJitCache::Jit_PosFloatThrough() {
 	FMV(FMv::W, FMv::X, fpScratchReg1, R_ZERO);
 	FMAX(32, fpSrc[2], fpSrc[2], fpScratchReg1);
 	FMIN(32, fpSrc[2], fpSrc[2], const65535Reg);
+	// Depth is an integer in through mode - truncate, like Step_PosFloatThrough.
+	FCVT(FConv::W, FConv::S, scratchReg, fpSrc[2], Round::TOZERO);
+	FCVT(FConv::S, FConv::W, fpSrc[2], scratchReg);
 	FS(32, fpSrc[2], dstReg, dec_->decFmt.posoff + 8);
 }
 
@@ -1253,28 +1257,22 @@ void VertexDecoderJitCache::Jit_AnyU16ToFloat(int srcoff, u32 bits) {
 }
 
 void VertexDecoderJitCache::Jit_AnyS8Morph(int srcoff, int dstoff) {
-	FL(32, fpScratchReg4, morphBaseReg, ((int)MorphValuesIndex::BY_128 * 8 + 0) * 4);
-	LB(tempReg1, srcReg, srcoff + 0);
-	LB(tempReg2, srcReg, srcoff + 1);
-	LB(tempReg3, srcReg, srcoff + 2);
-	FCVT(FConv::S, FConv::W, fpSrc[0], tempReg1, Round::TOZERO);
-	FCVT(FConv::S, FConv::W, fpSrc[1], tempReg2, Round::TOZERO);
-	FCVT(FConv::S, FConv::W, fpSrc[2], tempReg3, Round::TOZERO);
-	FMUL(32, fpSrc[0], fpSrc[0], fpScratchReg4, Round::TOZERO);
-	FMUL(32, fpSrc[1], fpSrc[1], fpScratchReg4, Round::TOZERO);
-	FMUL(32, fpSrc[2], fpSrc[2], fpScratchReg4, Round::TOZERO);
+	// Accumulate exactly like the Step_ functions, which the compiler contracts into fused
+	// multiply-adds - so use FMADD here too, and start from +0.0 rather than from the first
+	// product, which would round differently and let a -0 term through where the steps give +0.
+	for (int j = 0; j < 3; j++)
+		FMV(FMv::W, FMv::X, fpSrc[j], R_ZERO);
 
-	for (int n = 1; n < dec_->morphcount; n++) {
+	const RiscVReg fpTemp[3] = { fpScratchReg1, fpScratchReg2, fpScratchReg3 };
+	const RiscVReg tempRegs[3] = { tempReg1, tempReg2, tempReg3 };
+	for (int n = 0; n < dec_->morphcount; n++) {
 		FL(32, fpScratchReg4, morphBaseReg, ((int)MorphValuesIndex::BY_128 * 8 + n) * 4);
-		LB(tempReg1, srcReg, dec_->onesize_ * n + srcoff + 0);
-		LB(tempReg2, srcReg, dec_->onesize_ * n + srcoff + 1);
-		LB(tempReg3, srcReg, dec_->onesize_ * n + srcoff + 2);
-		FCVT(FConv::S, FConv::W, fpScratchReg1, tempReg1, Round::TOZERO);
-		FCVT(FConv::S, FConv::W, fpScratchReg2, tempReg2, Round::TOZERO);
-		FCVT(FConv::S, FConv::W, fpScratchReg3, tempReg3, Round::TOZERO);
-		FMADD(32, fpSrc[0], fpScratchReg1, fpScratchReg4, fpSrc[0]);
-		FMADD(32, fpSrc[1], fpScratchReg2, fpScratchReg4, fpSrc[1]);
-		FMADD(32, fpSrc[2], fpScratchReg3, fpScratchReg4, fpSrc[2]);
+		for (int j = 0; j < 3; j++)
+			LB(tempRegs[j], srcReg, dec_->onesize_ * n + srcoff + j);
+		for (int j = 0; j < 3; j++)
+			FCVT(FConv::S, FConv::W, fpTemp[j], tempRegs[j]);
+		for (int j = 0; j < 3; j++)
+			FMADD(32, fpSrc[j], fpTemp[j], fpScratchReg4, fpSrc[j]);
 	}
 
 	if (dstoff >= 0) {
@@ -1285,28 +1283,22 @@ void VertexDecoderJitCache::Jit_AnyS8Morph(int srcoff, int dstoff) {
 }
 
 void VertexDecoderJitCache::Jit_AnyS16Morph(int srcoff, int dstoff) {
-	FL(32, fpScratchReg4, morphBaseReg, ((int)MorphValuesIndex::BY_32768 * 8 + 0) * 4);
-	LH(tempReg1, srcReg, srcoff + 0);
-	LH(tempReg2, srcReg, srcoff + 2);
-	LH(tempReg3, srcReg, srcoff + 4);
-	FCVT(FConv::S, FConv::W, fpSrc[0], tempReg1, Round::TOZERO);
-	FCVT(FConv::S, FConv::W, fpSrc[1], tempReg2, Round::TOZERO);
-	FCVT(FConv::S, FConv::W, fpSrc[2], tempReg3, Round::TOZERO);
-	FMUL(32, fpSrc[0], fpSrc[0], fpScratchReg4, Round::TOZERO);
-	FMUL(32, fpSrc[1], fpSrc[1], fpScratchReg4, Round::TOZERO);
-	FMUL(32, fpSrc[2], fpSrc[2], fpScratchReg4, Round::TOZERO);
+	// Accumulate exactly like the Step_ functions, which the compiler contracts into fused
+	// multiply-adds - so use FMADD here too, and start from +0.0 rather than from the first
+	// product, which would round differently and let a -0 term through where the steps give +0.
+	for (int j = 0; j < 3; j++)
+		FMV(FMv::W, FMv::X, fpSrc[j], R_ZERO);
 
-	for (int n = 1; n < dec_->morphcount; n++) {
+	const RiscVReg fpTemp[3] = { fpScratchReg1, fpScratchReg2, fpScratchReg3 };
+	const RiscVReg tempRegs[3] = { tempReg1, tempReg2, tempReg3 };
+	for (int n = 0; n < dec_->morphcount; n++) {
 		FL(32, fpScratchReg4, morphBaseReg, ((int)MorphValuesIndex::BY_32768 * 8 + n) * 4);
-		LH(tempReg1, srcReg, dec_->onesize_ * n + srcoff + 0);
-		LH(tempReg2, srcReg, dec_->onesize_ * n + srcoff + 2);
-		LH(tempReg3, srcReg, dec_->onesize_ * n + srcoff + 4);
-		FCVT(FConv::S, FConv::W, fpScratchReg1, tempReg1, Round::TOZERO);
-		FCVT(FConv::S, FConv::W, fpScratchReg2, tempReg2, Round::TOZERO);
-		FCVT(FConv::S, FConv::W, fpScratchReg3, tempReg3, Round::TOZERO);
-		FMADD(32, fpSrc[0], fpScratchReg1, fpScratchReg4, fpSrc[0]);
-		FMADD(32, fpSrc[1], fpScratchReg2, fpScratchReg4, fpSrc[1]);
-		FMADD(32, fpSrc[2], fpScratchReg3, fpScratchReg4, fpSrc[2]);
+		for (int j = 0; j < 3; j++)
+			LH(tempRegs[j], srcReg, dec_->onesize_ * n + srcoff + j * 2);
+		for (int j = 0; j < 3; j++)
+			FCVT(FConv::S, FConv::W, fpTemp[j], tempRegs[j]);
+		for (int j = 0; j < 3; j++)
+			FMADD(32, fpSrc[j], fpTemp[j], fpScratchReg4, fpSrc[j]);
 	}
 
 	if (dstoff >= 0) {
@@ -1317,22 +1309,19 @@ void VertexDecoderJitCache::Jit_AnyS16Morph(int srcoff, int dstoff) {
 }
 
 void VertexDecoderJitCache::Jit_AnyFloatMorph(int srcoff, int dstoff) {
-	FL(32, fpScratchReg4, morphBaseReg, ((int)MorphValuesIndex::AS_FLOAT * 8 + 0) * 4);
-	FL(32, fpSrc[0], srcReg, srcoff + 0);
-	FL(32, fpSrc[1], srcReg, srcoff + 4);
-	FL(32, fpSrc[2], srcReg, srcoff + 8);
-	FMUL(32, fpSrc[0], fpSrc[0], fpScratchReg4, Round::TOZERO);
-	FMUL(32, fpSrc[1], fpSrc[1], fpScratchReg4, Round::TOZERO);
-	FMUL(32, fpSrc[2], fpSrc[2], fpScratchReg4, Round::TOZERO);
+	// Accumulate exactly like the Step_ functions, which the compiler contracts into fused
+	// multiply-adds - so use FMADD here too, and start from +0.0 rather than from the first
+	// product, which would round differently and let a -0 term through where the steps give +0.
+	for (int j = 0; j < 3; j++)
+		FMV(FMv::W, FMv::X, fpSrc[j], R_ZERO);
 
-	for (int n = 1; n < dec_->morphcount; n++) {
+	const RiscVReg fpTemp[3] = { fpScratchReg1, fpScratchReg2, fpScratchReg3 };
+	for (int n = 0; n < dec_->morphcount; n++) {
 		FL(32, fpScratchReg4, morphBaseReg, ((int)MorphValuesIndex::AS_FLOAT * 8 + n) * 4);
-		FL(32, fpScratchReg1, srcReg, dec_->onesize_ * n + srcoff + 0);
-		FL(32, fpScratchReg2, srcReg, dec_->onesize_ * n + srcoff + 4);
-		FL(32, fpScratchReg3, srcReg, dec_->onesize_ * n + srcoff + 8);
-		FMADD(32, fpSrc[0], fpScratchReg1, fpScratchReg4, fpSrc[0]);
-		FMADD(32, fpSrc[1], fpScratchReg2, fpScratchReg4, fpSrc[1]);
-		FMADD(32, fpSrc[2], fpScratchReg3, fpScratchReg4, fpSrc[2]);
+		for (int j = 0; j < 3; j++)
+			FL(32, fpTemp[j], srcReg, dec_->onesize_ * n + srcoff + j * 4);
+		for (int j = 0; j < 3; j++)
+			FMADD(32, fpSrc[j], fpTemp[j], fpScratchReg4, fpSrc[j]);
 	}
 
 	if (dstoff >= 0) {

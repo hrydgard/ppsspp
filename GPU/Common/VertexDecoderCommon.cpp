@@ -352,32 +352,48 @@ void VertexDecoder::Step_TcFloatThrough(const VertexDecoder *dec, const u8 *ptr,
 	gstate_c.vertBounds.maxV = std::max(gstate_c.vertBounds.maxV, (u16)uvdata[1]);
 }
 
+// The arm64 JIT and the NEON handwritten decoders fuse the UV prescale (FMLA), the x86 ones don't
+// (MULPS + ADDPS). Spell out which one happens here instead of leaving it to the compiler's
+// contraction setting: clang contracts this by default and MSVC doesn't, so relying on it makes the
+// steps disagree with the JIT on Windows on ARM only.
+static inline float PrescaleUV(float value, float scale, float offset) {
+#if PPSSPP_ARCH(ARM64_NEON) || PPSSPP_ARCH(RISCV64) || PPSSPP_ARCH(LOONGARCH64)
+	// The riscv64 and loongarch64 JITs fuse this too - and on those the compiler would contract
+	// the plain expression below into an FMA anyway, so say so rather than leaving it to chance.
+	return fmaf(value, scale, offset);
+#else
+	// Safe as long as x86 stays on the SSE2 baseline, which has nothing to contract into. A build
+	// targeting FMA would need this spelled out too, the other way around from the arm64 one.
+	return value * scale + offset;
+#endif
+}
+
 void VertexDecoder::Step_TcU8Prescale(const VertexDecoder *dec, const u8 *ptr, u8 *decoded) {
 	float *uv = (float *)(decoded + dec->decFmt.uvoff);
 	const u8 *uvdata = (const u8 *)(ptr + dec->tcoff);
-	uv[0] = (float)uvdata[0] * (1.f / 128.f) * dec->prescaleUV_->uScale + dec->prescaleUV_->uOff;
-	uv[1] = (float)uvdata[1] * (1.f / 128.f) * dec->prescaleUV_->vScale + dec->prescaleUV_->vOff;
+	uv[0] = PrescaleUV((float)uvdata[0] * (1.f / 128.f), dec->prescaleUV_->uScale, dec->prescaleUV_->uOff);
+	uv[1] = PrescaleUV((float)uvdata[1] * (1.f / 128.f), dec->prescaleUV_->vScale, dec->prescaleUV_->vOff);
 }
 
 void VertexDecoder::Step_TcU16Prescale(const VertexDecoder *dec, const u8 *ptr, u8 *decoded) {
 	float *uv = (float *)(decoded + dec->decFmt.uvoff);
 	const u16_le *uvdata = (const u16_le *)(ptr + dec->tcoff);
-	uv[0] = (float)uvdata[0] * (1.f / 32768.f) * dec->prescaleUV_->uScale + dec->prescaleUV_->uOff;
-	uv[1] = (float)uvdata[1] * (1.f / 32768.f) * dec->prescaleUV_->vScale + dec->prescaleUV_->vOff;
+	uv[0] = PrescaleUV((float)uvdata[0] * (1.f / 32768.f), dec->prescaleUV_->uScale, dec->prescaleUV_->uOff);
+	uv[1] = PrescaleUV((float)uvdata[1] * (1.f / 32768.f), dec->prescaleUV_->vScale, dec->prescaleUV_->vOff);
 }
 
 void VertexDecoder::Step_TcU16DoublePrescale(const VertexDecoder *dec, const u8 *ptr, u8 *decoded) {
 	float *uv = (float *)(decoded + dec->decFmt.uvoff);
 	const u16_le *uvdata = (const u16_le *)(ptr + dec->tcoff);
-	uv[0] = (float)uvdata[0] * (1.f / 16384.f) * dec->prescaleUV_->uScale + dec->prescaleUV_->uOff;
-	uv[1] = (float)uvdata[1] * (1.f / 16384.f) * dec->prescaleUV_->vScale + dec->prescaleUV_->vOff;
+	uv[0] = PrescaleUV((float)uvdata[0] * (1.f / 16384.f), dec->prescaleUV_->uScale, dec->prescaleUV_->uOff);
+	uv[1] = PrescaleUV((float)uvdata[1] * (1.f / 16384.f), dec->prescaleUV_->vScale, dec->prescaleUV_->vOff);
 }
 
 void VertexDecoder::Step_TcFloatPrescale(const VertexDecoder *dec, const u8 *ptr, u8 *decoded) {
 	float *uv = (float *)(decoded + dec->decFmt.uvoff);
 	const float_le *uvdata = (const float_le *)(ptr + dec->tcoff);
-	uv[0] = uvdata[0] * dec->prescaleUV_->uScale + dec->prescaleUV_->uOff;
-	uv[1] = uvdata[1] * dec->prescaleUV_->vScale + dec->prescaleUV_->vOff;
+	uv[0] = PrescaleUV(uvdata[0], dec->prescaleUV_->uScale, dec->prescaleUV_->uOff);
+	uv[1] = PrescaleUV(uvdata[1], dec->prescaleUV_->vScale, dec->prescaleUV_->vOff);
 }
 
 void VertexDecoder::Step_TcU8MorphToFloat(const VertexDecoder *dec, const u8 *ptr, u8 *decoded) {
@@ -745,9 +761,7 @@ void VertexDecoder::Step_NormalS16Morph(const VertexDecoder *dec, const u8 *ptr,
 			acc[j] += sv[j] * multiplier;
 	}
 	float *normal = (float *)(decoded + dec->decFmt.nrmoff);
-	normal[0] = acc[0] * (1.0f / 32768.0f);
-	normal[1] = acc[1] * (1.0f / 32768.0f);
-	normal[2] = acc[2] * (1.0f / 32768.0f);
+	memcpy(normal, acc, sizeof(float) * 3);
 }
 
 void VertexDecoder::Step_NormalFloatMorph(const VertexDecoder *dec, const u8 *ptr, u8 *decoded) {
@@ -835,6 +849,9 @@ void VertexDecoder::Step_PosS16(const VertexDecoder *dec, const u8 *ptr, u8 *dec
 
 void VertexDecoder::Step_PosFloat(const VertexDecoder *dec, const u8 *ptr, u8 *decoded) {
 	Vec4F32 v = Vec4F32::Load((const float *)(ptr + dec->posoff));
+	// NaN and infinity only have to come out finite, so that the viewport scale can zero them later
+	// like the PSP does (0 * NaN == 0 there). The platforms differ in how (SSE clamps, NEON zeroes),
+	// and so do the JITs, which is fine.
 	v.CleanNaNInfs().Store((float *)(decoded + dec->decFmt.posoff));
 }
 
@@ -888,7 +905,9 @@ void VertexDecoder::Step_PosFloatThrough(const VertexDecoder *dec, const u8 *ptr
 	float *v = (float *)(decoded + dec->decFmt.posoff);
 	const float *fv = (const float *)(ptr + dec->posoff);
 	memcpy(v, fv, 8);
-	v[2] = fv[2] > 65535.0f ? 65535.0f : (fv[2] < 0.0f ? 0.0f : fv[2]);
+	// Depth is an integer in through mode: truncate, and clamp to 16 bits (NaN becomes 0).
+	const float z = fv[2];
+	v[2] = z >= 65535.0f ? 65535.0f : (z > 0.0f ? (float)(int)z : 0.0f);
 }
 
 void VertexDecoder::Step_PosS8Morph(const VertexDecoder *dec, const u8 *ptr, u8 *decoded) {
@@ -1191,9 +1210,8 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 		DEBUG_LOG(Log::G3D, "VTYPE: THRU=%i TC=%i COL=%i POS=%i NRM=%i WT=%i NW=%i IDX=%i MC=%i", (int)throughmode, tc, col, pos, nrm, weighttype, nweights, idx, morphcount);
 	}
 
-
+	skinInDecode = weighttype != 0;
 	if (weighttype) { // && nweights?
-		skinInDecode = true;
 		weightoff = size;
 		//size = align(size, wtalign[weighttype]);	unnecessary
 		size += wtsize[weighttype] * nweights;

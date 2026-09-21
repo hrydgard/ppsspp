@@ -281,10 +281,12 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 
     if (updateTexBounds) {
         LI(tempReg1, &gstate_c.vertBounds.minU);
-        LD_H(boundsMinUReg, tempReg1, offsetof(KnownVertexBounds, minU));
-        LD_H(boundsMaxUReg, tempReg1, offsetof(KnownVertexBounds, maxU));
-        LD_H(boundsMinVReg, tempReg1, offsetof(KnownVertexBounds, minV));
-        LD_H(boundsMaxVReg, tempReg1, offsetof(KnownVertexBounds, maxV));
+        // Unsigned: the bounds are u16, and minU/minV start at 0xFFFF, which a signed load
+        // would turn into -1 and no texcoord would ever be below it.
+        LD_HU(boundsMinUReg, tempReg1, offsetof(KnownVertexBounds, minU));
+        LD_HU(boundsMaxUReg, tempReg1, offsetof(KnownVertexBounds, maxU));
+        LD_HU(boundsMinVReg, tempReg1, offsetof(KnownVertexBounds, minV));
+        LD_HU(boundsMaxVReg, tempReg1, offsetof(KnownVertexBounds, maxV));
     }
 
     const u8 *loopStart = GetCodePtr();
@@ -657,41 +659,33 @@ void VertexDecoderJitCache::Jit_Color8888Morph() {
 	Jit_WriteMorphColor(dec_->decFmt.c0off);
 }
 
+// The packed color morph formats follow the steps channel by channel. The accumulator has to be
+// an LSX scratch register, not an F register: F4-F7 alias V4-V7, which hold the skin matrix for
+// the whole vertex.
 void VertexDecoderJitCache::Jit_Color4444Morph() {
+	const LoongArch64Reg accReg = lsxScratchReg;
+	const LoongArch64Reg weightReg = lsxScratchReg2;
+	const LoongArch64Reg valueReg = lsxScratchReg3;
+	const LoongArch64Reg scaleReg = lsxScratchReg4;
+	static const int shift[4] = { 0, 4, 8, 12 };
+	static const int width[4] = { 4, 4, 4, 4 };
+
 	LI(tempReg1, &gstate_c.morphWeights[0]);
-	VXOR_V(lsxScratchReg4, lsxScratchReg4, lsxScratchReg4);
+	VXOR_V(accReg, accReg, accReg);
+	LI(scratchReg, 255.0f / 15.0f);
+	VREPLGR2VR_W(scaleReg, scratchReg);
 
-	LI(tempReg2, 0xf00ff00f); // color 4444 mask
-	VREPLGR2VR_W(V8, tempReg2);
-	LI(tempReg3, 255.0f / 15.0f); // by color 4444
-	VREPLGR2VR_W(V9, tempReg2);
-
-	bool first = true;
-	for (int n = 0; n < dec_->morphcount; ++n) {
-		const LoongArch64Reg reg = first ? lsxScratchReg : lsxScratchReg2;
-		FLD_S((LoongArch64Reg)(DecodeReg(reg) + F0), srcReg, dec_->onesize_ * n + dec_->coloff);
-		VILVL_B(reg, reg, reg);
-		VAND_V(reg, reg, V8);
-		VEXTRINS_W(lsxScratchReg3, reg, 0);
-		VSLLI_H(lsxScratchReg3, lsxScratchReg3, 4);
-		VOR_V(reg, reg,lsxScratchReg3);
-		VSRLI_W(reg, reg, 4);
-
-		VILVL_B(reg, lsxScratchReg4, reg);
-		VILVL_H(reg, lsxScratchReg4, reg);
-
-		VFFINT_S_W(reg, reg);
-		VFMUL_S(reg, reg, V9);
-
-		// And now the weight.
-		VLDREPL_W(lsxScratchReg3, tempReg1, n * sizeof(float));
-		VFMUL_S(reg, reg, lsxScratchReg3);
-
-		if (!first) {
-			VFADD_S(lsxScratchReg, lsxScratchReg,lsxScratchReg2);
-		} else {
-			first = false;
+	for (int n = 0; n < dec_->morphcount; n++) {
+		VLDREPL_W(weightReg, tempReg1, n * sizeof(float));
+		LD_HU(tempReg2, srcReg, dec_->onesize_ * n + dec_->coloff);
+		for (int j = 0; j < 4; j++) {
+			BSTRPICK_D(tempReg3, tempReg2, shift[j] + width[j] - 1, shift[j]);
+			VINSGR2VR_W(valueReg, tempReg3, j);
 		}
+		VFFINT_S_W(valueReg, valueReg);
+		// col[j] += w * value * scale - the weight first, then the scale, as the steps do.
+		VFMUL_S(valueReg, valueReg, weightReg);
+		VFMADD_S(accReg, valueReg, scaleReg, accReg);
 	}
 
 	Jit_WriteMorphColor(dec_->decFmt.c0off);
@@ -702,46 +696,29 @@ alignas(16) static const u32 color565Mask[4] = { 0x0000f800, 0x000007e0, 0x00000
 alignas(16) static const float byColor565[4] = { 255.0f / 31.0f, 255.0f / 63.0f, 255.0f / 31.0f, 255.0f / 1.0f, };
 
 void VertexDecoderJitCache::Jit_Color565Morph() {
+	const LoongArch64Reg accReg = lsxScratchReg;
+	const LoongArch64Reg weightReg = lsxScratchReg2;
+	const LoongArch64Reg valueReg = lsxScratchReg3;
+	const LoongArch64Reg scaleReg = lsxScratchReg4;
+	static const int shift[4] = { 0, 5, 11, 0 };
+	static const int width[4] = { 5, 6, 5, 1 };
+
 	LI(tempReg1, &gstate_c.morphWeights[0]);
-	LI(tempReg2, &color565Mask[0]);
-	VLD(V8, tempReg2, 0);
+	VXOR_V(accReg, accReg, accReg);
 	LI(tempReg2, &byColor565[0]);
-	VLD(V9, tempReg2, 0);
+	VLD(scaleReg, tempReg2, 0);
 
-	bool first = true;
-	for (int n = 0; n < dec_->morphcount; ++n) {
-		const LoongArch64Reg reg = first ? lsxScratchReg : lsxScratchReg3;
-		// Spread it out into each lane.  We end up with it reversed (R high, A low.)
-		// Below, we shift out each lane from low to high and reverse them.
-		VLDREPL_W(lsxScratchReg2, srcReg, dec_->onesize_ * n + dec_->coloff);
-		VAND_V(lsxScratchReg2, lsxScratchReg2, V8);
-
-		// Alpha handled in Jit_WriteMorphColor.
-
-		// Blue first.
-		VEXTRINS_W(reg, lsxScratchReg2, 0);
-		VSRLI_W(reg, reg, 6);
-		VSHUF4I_W(reg, reg, 3 << 6);
-
-		// Green, let's shift it into the right lane first.
-		VEXTRINS_W(reg, lsxScratchReg2, 1);
-		VSRLI_W(reg, reg, 5);
-		VSHUF4I_W(reg, reg, (3 << 6 | 2 << 4));
-
-		// Last one, red.
-		VEXTRINS_W(reg, lsxScratchReg2, 2);
-		VFFINT_S_W(reg, reg);
-		VFMUL_S(reg, reg, V9);
-
-		// And now the weight.
-		VLDREPL_W(lsxScratchReg2, tempReg1, n * sizeof(float));
-		VFMUL_S(reg, reg, lsxScratchReg2);
-
-		if (!first) {
-			VFADD_S(lsxScratchReg, lsxScratchReg, lsxScratchReg3);
-		} else {
-			first = false;
+	for (int n = 0; n < dec_->morphcount; n++) {
+		VLDREPL_W(weightReg, tempReg1, n * sizeof(float));
+		LD_HU(tempReg2, srcReg, dec_->onesize_ * n + dec_->coloff);
+		for (int j = 0; j < 3; j++) {
+			BSTRPICK_D(tempReg3, tempReg2, shift[j] + width[j] - 1, shift[j]);
+			VINSGR2VR_W(valueReg, tempReg3, j);
 		}
+		VFFINT_S_W(valueReg, valueReg);
+		// col[j] += w * value * scale - the weight first, then the scale, as the steps do.
+		VFMUL_S(valueReg, valueReg, weightReg);
+		VFMADD_S(accReg, valueReg, scaleReg, accReg);
 	}
 
 	Jit_WriteMorphColor(dec_->decFmt.c0off, false);
@@ -752,59 +729,44 @@ alignas(16) static const u32 color5551Mask[4] = { 0x00008000, 0x00007c00, 0x0000
 alignas(16) static const float byColor5551[4] = { 255.0f / 31.0f, 255.0f / 31.0f, 255.0f / 31.0f, 255.0f / 1.0f, };
 
 void VertexDecoderJitCache::Jit_Color5551Morph() {
+	const LoongArch64Reg accReg = lsxScratchReg;
+	const LoongArch64Reg weightReg = lsxScratchReg2;
+	const LoongArch64Reg valueReg = lsxScratchReg3;
+	const LoongArch64Reg scaleReg = lsxScratchReg4;
+	static const int shift[4] = { 0, 5, 10, 15 };
+	static const int width[4] = { 5, 5, 5, 1 };
+
 	LI(tempReg1, &gstate_c.morphWeights[0]);
-	LI(tempReg2, &color5551Mask[0]);
-	VLD(V8, tempReg2, 0);
+	VXOR_V(accReg, accReg, accReg);
 	LI(tempReg2, &byColor5551[0]);
-	VLD(V9, tempReg2, 0);
+	VLD(scaleReg, tempReg2, 0);
 
-	bool first = true;
-	for (int n = 0; n < dec_->morphcount; ++n) {
-		const LoongArch64Reg reg = first ? lsxScratchReg : lsxScratchReg3;
-		// Spread it out into each lane.
-		VLDREPL_W(lsxScratchReg2, srcReg, dec_->onesize_ * n + dec_->coloff);
-		VAND_V(lsxScratchReg2, lsxScratchReg2, V8);
-
-		// Alpha first.
-		VEXTRINS_W(reg, lsxScratchReg2, 0);
-		VSRLI_W(reg, reg, 5);
-		VSHUF4I_W(reg, reg, 0);
-
-		// Blue, let's shift it into the right lane first.
-		VEXTRINS_W(reg, lsxScratchReg2, 1);
-		VSRLI_W(reg, reg, 5);
-		VSHUF4I_W(reg, reg, 3 << 6);
-
-		// Green.
-		VEXTRINS_W(reg, lsxScratchReg2, 2);
-		VSRLI_W(reg, reg, 5);
-		VSHUF4I_W(reg, reg, (3 << 6 | 2 << 4));
-
-		// Last one, red.
-		VEXTRINS_W(reg, lsxScratchReg2, 3);
-		VFFINT_S_W(reg, reg);
-		VFMUL_S(reg, reg, V9);
-
-		// And now the weight.
-		VLDREPL_W(lsxScratchReg2, tempReg1, n * sizeof(float));
-		VFMUL_S(reg, reg, lsxScratchReg2);
-
-		if (!first) {
-			VFADD_S(lsxScratchReg, lsxScratchReg, lsxScratchReg3);
-		} else {
-			first = false;
+	for (int n = 0; n < dec_->morphcount; n++) {
+		VLDREPL_W(weightReg, tempReg1, n * sizeof(float));
+		LD_HU(tempReg2, srcReg, dec_->onesize_ * n + dec_->coloff);
+		for (int j = 0; j < 4; j++) {
+			BSTRPICK_D(tempReg3, tempReg2, shift[j] + width[j] - 1, shift[j]);
+			VINSGR2VR_W(valueReg, tempReg3, j);
 		}
+		VFFINT_S_W(valueReg, valueReg);
+		// col[j] += w * value * scale - the weight first, then the scale, as the steps do.
+		VFMUL_S(valueReg, valueReg, weightReg);
+		VFMADD_S(accReg, valueReg, scaleReg, accReg);
 	}
 
 	Jit_WriteMorphColor(dec_->decFmt.c0off);
 }
 
 void VertexDecoderJitCache::Jit_WriteMorphColor(int outOff, bool checkAlpha) {
-	// Pack back into a u32, with saturation.
-	VFTINT_W_S(lsxScratchReg, lsxScratchReg);
-	VSSRLNI_H_W(lsxScratchReg, lsxScratchReg, 0);
-	VSSRLNI_BU_H(lsxScratchReg, lsxScratchReg, 0);
-	VPICKVE2GR_W(tempReg1, lsxScratchReg, 0);
+	// Pack back into a u32, with saturation. Truncate towards zero like the (int) cast in the
+	// steps, and narrow signed->signed then signed->unsigned: the logical narrowing shifts read a
+	// negative channel as a huge unsigned value and saturate it to 255 instead of clamping to 0.
+	VFTINTRZ_W_S(lsxScratchReg, lsxScratchReg);
+	VSSRANI_H_W(lsxScratchReg, lsxScratchReg, 0);
+	VSSRANI_BU_H(lsxScratchReg, lsxScratchReg, 0);
+	// Unsigned: the full-alpha check below compares this against 0xFF000000, and a sign-extended
+	// color with alpha >= 0x80 would look larger than any of it.
+	VPICKVE2GR_WU(tempReg1, lsxScratchReg, 0);
 
 	// TODO: Could be optimize with a SLLI on fullAlphaReg
 	SLLI_D(tempReg2, fullAlphaReg, 24);
@@ -988,14 +950,17 @@ void VertexDecoderJitCache::Jit_PosS16() {
 }
 
 void VertexDecoderJitCache::Jit_PosFloat() {
-	// Just copy 12 bytes, play with over read/write later.
-	// TODO: This should clean out inf and NaN values.
-	LD_W(tempReg1, srcReg, dec_->posoff + 0);
-	LD_W(tempReg2, srcReg, dec_->posoff + 4);
-	LD_W(tempReg3, srcReg, dec_->posoff + 8);
-	ST_W(tempReg1, dstReg, dec_->decFmt.posoff + 0);
-	ST_W(tempReg2, dstReg, dec_->decFmt.posoff + 4);
-	ST_W(tempReg3, dstReg, dec_->decFmt.posoff + 8);
+	// Step_PosFloat cleans out infinities and NaNs. Do it on the bits rather than with FMIN/FMAX
+	// so it doesn't depend on how the FPU treats a NaN operand: anything with all exponent bits
+	// set becomes zero, which is finite and multiplies to zero, as the callers expect.
+	LI(scratchReg, 0x7F800000);
+	for (int i = 0; i < 3; i++) {
+		LD_W(tempReg1, srcReg, dec_->posoff + i * 4);
+		BSTRPICK_D(tempReg2, tempReg1, 30, 0);  // Drop the sign bit.
+		SLTU(tempReg3, tempReg2, scratchReg);   // 1 if finite.
+		MASKEQZ(tempReg1, tempReg1, tempReg3);  // Zero it if not.
+		ST_W(tempReg1, dstReg, dec_->decFmt.posoff + i * 4);
+	}
 }
 
 void VertexDecoderJitCache::Jit_PosS8Through() {
@@ -1037,6 +1002,9 @@ void VertexDecoderJitCache::Jit_PosFloatThrough() {
 	MOVGR2FR_W(fpScratchReg2, scratchReg);
 	FMAX_S(fpSrc[2], fpSrc[2], fpScratchReg);
 	FMIN_S(fpSrc[2], fpSrc[2], fpScratchReg2);
+	// Depth is an integer in through mode - truncate, like Step_PosFloatThrough.
+	FTINTRZ_W_S(fpSrc[2], fpSrc[2]);
+	FFINT_S_W(fpSrc[2], fpSrc[2]);
 	FST_S(fpSrc[2], dstReg, dec_->decFmt.posoff + 8);
 }
 

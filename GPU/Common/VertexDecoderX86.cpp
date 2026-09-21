@@ -691,6 +691,10 @@ void VertexDecoderJitCache::Jit_TcAnyMorph(int bits) {
 			first = false;
 		}
 	}
+
+	// The steps sum onto +0, which turns a sum of -0s into +0. Adding +0 at the end does the same.
+	XORPS(fpScratchReg2, R(fpScratchReg2));
+	ADDPS(fpScratchReg, R(fpScratchReg2));
 }
 
 void VertexDecoderJitCache::Jit_TcU8MorphToFloat() {
@@ -770,10 +774,11 @@ void VertexDecoderJitCache::Jit_TcU16ThroughToFloat() {
 		SetJumpTarget(skip);
 	};
 	// TODO: Can this actually be fast?  Hmm, floats aren't better.
-	updateSide(tempReg1, CC_GE, offsetof(KnownVertexBounds, minU));
-	updateSide(tempReg1, CC_LE, offsetof(KnownVertexBounds, maxU));
-	updateSide(tempReg2, CC_GE, offsetof(KnownVertexBounds, minV));
-	updateSide(tempReg2, CC_LE, offsetof(KnownVertexBounds, maxV));
+	// The bounds are unsigned, so unsigned conditions.
+	updateSide(tempReg1, CC_AE, offsetof(KnownVertexBounds, minU));
+	updateSide(tempReg1, CC_BE, offsetof(KnownVertexBounds, maxU));
+	updateSide(tempReg2, CC_AE, offsetof(KnownVertexBounds, minV));
+	updateSide(tempReg2, CC_BE, offsetof(KnownVertexBounds, maxV));
 }
 
 void VertexDecoderJitCache::Jit_TcFloatThrough() {
@@ -994,12 +999,12 @@ void VertexDecoderJitCache::Jit_Color4444Morph() {
 		}
 
 		CVTDQ2PS(reg, R(reg));
-		MULPS(reg, R(XMM6));
 
-		// And now the weight.
+		// The weight goes on before the scale, same order as the steps (it rounds differently).
 		MOVSS(fpScratchReg3, MDisp(tempReg1, n * sizeof(float)));
 		SHUFPS(fpScratchReg3, R(fpScratchReg3), _MM_SHUFFLE(0, 0, 0, 0));
 		MULPS(reg, R(fpScratchReg3));
+		MULPS(reg, R(XMM6));
 
 		if (!first) {
 			ADDPS(fpScratchReg, R(fpScratchReg2));
@@ -1049,12 +1054,12 @@ void VertexDecoderJitCache::Jit_Color565Morph() {
 		MOVSS(reg, R(fpScratchReg2));
 
 		CVTDQ2PS(reg, R(reg));
-		MULPS(reg, R(XMM6));
 
-		// And now the weight.
+		// The weight goes on before the scale, same order as the steps (it rounds differently).
 		MOVSS(fpScratchReg2, MDisp(tempReg1, n * sizeof(float)));
 		SHUFPS(fpScratchReg2, R(fpScratchReg2), _MM_SHUFFLE(0, 0, 0, 0));
 		MULPS(reg, R(fpScratchReg2));
+		MULPS(reg, R(XMM6));
 
 		if (!first) {
 			ADDPS(fpScratchReg, R(fpScratchReg3));
@@ -1107,12 +1112,12 @@ void VertexDecoderJitCache::Jit_Color5551Morph() {
 		MOVSS(reg, R(fpScratchReg2));
 
 		CVTDQ2PS(reg, R(reg));
-		MULPS(reg, R(XMM6));
 
-		// And now the weight.
+		// The weight goes on before the scale, same order as the steps (it rounds differently).
 		MOVSS(fpScratchReg2, MDisp(tempReg1, n * sizeof(float)));
 		SHUFPS(fpScratchReg2, R(fpScratchReg2), _MM_SHUFFLE(0, 0, 0, 0));
 		MULPS(reg, R(fpScratchReg2));
+		MULPS(reg, R(XMM6));
 
 		if (!first) {
 			ADDPS(fpScratchReg, R(fpScratchReg3));
@@ -1125,8 +1130,8 @@ void VertexDecoderJitCache::Jit_Color5551Morph() {
 }
 
 void VertexDecoderJitCache::Jit_WriteMorphColor(int outOff, bool checkAlpha) {
-	// Pack back into a u32, with saturation.
-	CVTPS2DQ(fpScratchReg, R(fpScratchReg));
+	// Pack back into a u32, with saturation. Truncate like the other color paths.
+	CVTTPS2DQ(fpScratchReg, R(fpScratchReg));
 	PACKSSDW(fpScratchReg, R(fpScratchReg));
 	PACKUSWB(fpScratchReg, R(fpScratchReg));
 	MOVD_xmm(R(tempReg1), fpScratchReg);
@@ -1467,6 +1472,9 @@ void VertexDecoderJitCache::Jit_AnyS8Morph(int srcoff, int dstoff) {
 		}
 	}
 
+	// The steps sum onto +0, which turns a sum of -0s into +0. Adding +0 at the end does the same.
+	XORPS(fpScratchReg2, R(fpScratchReg2));
+	ADDPS(fpScratchReg, R(fpScratchReg2));
 	MOVUPS(MDisp(dstReg, dstoff), fpScratchReg);
 }
 
@@ -1506,6 +1514,9 @@ void VertexDecoderJitCache::Jit_AnyS16Morph(int srcoff, int dstoff) {
 		}
 	}
 
+	// The steps sum onto +0, which turns a sum of -0s into +0. Adding +0 at the end does the same.
+	XORPS(fpScratchReg2, R(fpScratchReg2));
+	ADDPS(fpScratchReg, R(fpScratchReg2));
 	MOVUPS(MDisp(dstReg, dstoff), fpScratchReg);
 }
 
@@ -1527,6 +1538,9 @@ void VertexDecoderJitCache::Jit_AnyFloatMorph(int srcoff, int dstoff) {
 		}
 	}
 
+	// The steps sum onto +0, which turns a sum of -0s into +0. Adding +0 at the end does the same.
+	XORPS(fpScratchReg2, R(fpScratchReg2));
+	ADDPS(fpScratchReg, R(fpScratchReg2));
 	MOVUPS(MDisp(dstReg, dstoff), fpScratchReg);
 }
 
