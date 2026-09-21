@@ -2586,6 +2586,8 @@ void Jit::Comp_Vmfvc(MIPSOpcode op) {
 			gpr.MapReg(MIPS_REG_VFPUCC, true, false);
 			MOVD_xmm(fpr.VX(vd), gpr.R(MIPS_REG_VFPUCC));
 		} else {
+			// In case we have a saved prefix.
+			FlushPrefixV();
 			MOVSS(fpr.VX(vd), MIPSSTATE_VAR_ELEM32(vfpuCtrl[0], imm));
 		}
 		fpr.ReleaseSpillLocks();

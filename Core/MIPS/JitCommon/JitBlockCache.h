@@ -67,8 +67,8 @@ struct JitBlock {
 
 	uint64_t compiledHash;
 
-	u16 codeSize;
-	u16 originalSize;
+	u32 codeSize;      // in bytes, so it doesn't fit in a u16 for a long block
+	u16 originalSize;  // in instructions, bounded by MAX_BLOCK_INSTRUCTIONS
 	u16 blockNum;
 
 	bool invalid;

@@ -1318,6 +1318,14 @@ namespace MIPSComp {
 		int vd = _VD;
 		int imm = (op >> 8) & 0x7F;
 		if (imm < VFPU_CTRL_MAX) {
+			switch (imm) {
+			case VFPU_CTRL_DPREFIX:
+			case VFPU_CTRL_SPREFIX:
+			case VFPU_CTRL_TPREFIX:
+				// In case we have a saved prefix.
+				FlushPrefixV();
+				break;
+			}
 			ir.Write(IROp::VfpuCtrlToReg, IRTEMP_0, imm);
 			ir.Write(IROp::FMovFromGPR, vfpuBase + voffset[vd], IRTEMP_0);
 		} else {

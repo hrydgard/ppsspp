@@ -200,7 +200,9 @@ void JitBlockCache::FinalizeBlock(int block_num, bool block_link) {
 	if (b.originalAddress < PSP_GetUserMemoryBase() + halfUserMemory) {
 		ExpandRange(blockMemRanges_[JITBLOCK_RANGE_RAMBOTTOM], b.originalAddress, blockEnd);
 	}
-	if (blockEnd > PSP_GetUserMemoryBase() + halfUserMemory) {
+	// >=, not >: the bottom check above is strict, so a block sitting exactly on the midpoint
+	// would otherwise land in neither range.
+	if (blockEnd >= PSP_GetUserMemoryBase() + halfUserMemory) {
 		ExpandRange(blockMemRanges_[JITBLOCK_RANGE_RAMTOP], b.originalAddress, blockEnd);
 	}
 }
@@ -422,13 +424,15 @@ void JitBlockCache::DestroyBlock(int block_num, DestroyType type) {
 
 	b->invalid = true;
 
-	if (!Memory::IsValid4AlignedAddress(b->originalAddress)) {
+	// Only restoring the original opcode needs a valid address. The unlinking below has to
+	// happen either way - otherwise other blocks go on jumping straight into this one, which
+	// we've just marked invalid.
+	if (Memory::IsValid4AlignedAddress(b->originalAddress)) {
+		if (Memory::ReadUnchecked_U32(b->originalAddress) == GetEmuHackOpForBlock(block_num).encoding) {
+			Memory::Write_Opcode_JIT(b->originalAddress, b->originalFirstOpcode);
+		}
+	} else {
 		_dbg_assert_msg_(false, "Destroying block with invalid original address: %08x (block num: %d)", b->originalAddress, block_num);
-		return;
-	}
-
-	if (Memory::ReadUnchecked_U32(b->originalAddress) == GetEmuHackOpForBlock(block_num).encoding) {
-		Memory::Write_Opcode_JIT(b->originalAddress, b->originalFirstOpcode);
 	}
 
 	// It's not safe to set normalEntry to 0 here, since we use a binary search
@@ -467,7 +471,9 @@ void JitBlockCache::InvalidateICache(u32 address, const u32 length) {
 	do {
 	restart:
 		auto next = block_map_.lower_bound(std::make_pair(pAddr, 0));
-		auto last = block_map_.upper_bound(std::make_pair(pEnd + MAX_BLOCK_INSTRUCTIONS, 0));
+		// block_map_ is keyed by byte addresses, so the margin has to cover the longest
+		// possible block in bytes, not instructions.
+		auto last = block_map_.upper_bound(std::make_pair(pEnd + 4 * MAX_BLOCK_INSTRUCTIONS, 0));
 		// Note that if next is end(), last will be end() too (equal.)
 		for (; next != last; ++next) {
 			const u32 blockStart = next->first.second;
@@ -558,7 +564,7 @@ JitBlockDebugInfo JitBlockCache::GetBlockDebugInfo(int blockNum) const {
 	const JitBlock *block = GetBlock(blockNum);
 	debugInfo.originalAddress = block->originalAddress;
 	debugInfo.origDisasm.reserve(((block->originalAddress + block->originalSize * 4) - block->originalAddress) / 4);
-	for (u32 addr = block->originalAddress; addr <= block->originalAddress + block->originalSize * 4; addr += 4) {
+	for (u32 addr = block->originalAddress; addr < block->originalAddress + block->originalSize * 4; addr += 4) {
 		char temp[256];
 		MIPSDisAsm(Memory::Read_Instruction(addr), addr, temp, sizeof(temp), true);
 		std::string mipsDis = temp;

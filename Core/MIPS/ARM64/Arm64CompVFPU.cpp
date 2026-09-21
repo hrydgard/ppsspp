@@ -1110,11 +1110,13 @@ namespace MIPSComp {
 		int vd = _VD;
 		int imm = (op >> 8) & 0x7F;
 		if (imm < VFPU_CTRL_MAX) {
-			fpr.MapRegV(vd);
+			fpr.MapRegV(vd, MAP_DIRTY | MAP_NOINIT);
 			if (imm == VFPU_CTRL_CC) {
 				gpr.MapReg(MIPS_REG_VFPUCC, 0);
 				fp.FMOV(fpr.V(vd), gpr.R(MIPS_REG_VFPUCC));
 			} else {
+				// In case we have a saved prefix.
+				FlushPrefixV();
 				ADDI2R(SCRATCH1_64, CTXREG, offsetof(MIPSState, vfpuCtrl[0]) + imm * 4, SCRATCH2);
 				fp.LDR(32, INDEX_UNSIGNED, fpr.V(vd), SCRATCH1_64, 0);
 			}
