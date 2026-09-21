@@ -117,6 +117,7 @@ int Android_OpenContentUriFd(std::string_view filename, Android_OpenContentUriMo
 		fname.pop_back();
 
 	auto env = getEnv();
+	JNILocalFrame frame(env);
 	const char *modeStr = "";
 	switch (mode) {
 	case Android_OpenContentUriMode::READ: modeStr = "r"; break;
@@ -134,6 +135,7 @@ StorageError Android_CreateDirectory(const std::string &rootTreeUri, const std::
 		return StorageError::UNKNOWN;
 	}
 	auto env = getEnv();
+	JNILocalFrame frame(env);
 	jstring paramRoot = env->NewStringUTF(rootTreeUri.c_str());
 	jstring paramDirName = env->NewStringUTF(dirName.c_str());
 	return StorageErrorFromInt(env->CallStaticIntMethod(g_classContentUri, contentUriCreateDirectory, g_nativeActivity, paramRoot, paramDirName));
@@ -144,6 +146,7 @@ StorageError Android_CreateFile(const std::string &parentTreeUri, const std::str
 		return StorageError::UNKNOWN;
 	}
 	auto env = getEnv();
+	JNILocalFrame frame(env);
 	jstring paramRoot = env->NewStringUTF(parentTreeUri.c_str());
 	jstring paramFileName = env->NewStringUTF(fileName.c_str());
 	return StorageErrorFromInt(env->CallStaticIntMethod(g_classContentUri, contentUriCreateFile, g_nativeActivity, paramRoot, paramFileName));
@@ -154,6 +157,7 @@ StorageError Android_CopyFile(const std::string &fileUri, const std::string &des
 		return StorageError::UNKNOWN;
 	}
 	auto env = getEnv();
+	JNILocalFrame frame(env);
 	jstring paramFileName = env->NewStringUTF(fileUri.c_str());
 	jstring paramDestParentUri = env->NewStringUTF(destParentUri.c_str());
 	return StorageErrorFromInt(env->CallStaticIntMethod(g_classContentUri, contentUriCopyFile, g_nativeActivity, paramFileName, paramDestParentUri));
@@ -164,6 +168,7 @@ StorageError Android_MoveFile(const std::string &fileUri, const std::string &src
 		return StorageError::UNKNOWN;
 	}
 	auto env = getEnv();
+	JNILocalFrame frame(env);
 	jstring paramFileName = env->NewStringUTF(fileUri.c_str());
 	jstring paramSrcParentUri = env->NewStringUTF(srcParentUri.c_str());
 	jstring paramDestParentUri = env->NewStringUTF(destParentUri.c_str());
@@ -175,6 +180,7 @@ StorageError Android_RemoveFile(const std::string &fileUri) {
 		return StorageError::UNKNOWN;
 	}
 	auto env = getEnv();
+	JNILocalFrame frame(env);
 	jstring paramFileName = env->NewStringUTF(fileUri.c_str());
 	return StorageErrorFromInt(env->CallStaticIntMethod(g_classContentUri, contentUriRemoveFile, g_nativeActivity, paramFileName));
 }
@@ -184,6 +190,7 @@ StorageError Android_RenameFileTo(const std::string &fileUri, const std::string 
 		return StorageError::UNKNOWN;
 	}
 	auto env = getEnv();
+	JNILocalFrame frame(env);
 	jstring paramFileUri = env->NewStringUTF(fileUri.c_str());
 	jstring paramNewName = env->NewStringUTF(newName.c_str());
 	return StorageErrorFromInt(env->CallStaticIntMethod(g_classContentUri, contentUriRenameFileTo, g_nativeActivity, paramFileUri, paramNewName));
@@ -230,6 +237,7 @@ bool Android_GetFileInfo(const std::string &fileUri, File::FileInfo *fileInfo) {
 		return false;
 	}
 	auto env = getEnv();
+	JNILocalFrame frame(env);
 	jstring paramFileUri = env->NewStringUTF(fileUri.c_str());
 
 	jstring str = (jstring)env->CallStaticObjectMethod(g_classContentUri, contentUriGetFileInfo, g_nativeActivity, paramFileUri);
@@ -237,10 +245,12 @@ bool Android_GetFileInfo(const std::string &fileUri, File::FileInfo *fileInfo) {
 		return false;
 	}
 	const char *charArray = env->GetStringUTFChars(str, 0);
+	if (!charArray) {
+		return false;
+	}
 	bool retval = ParseFileInfo(charArray, fileInfo);
+	env->ReleaseStringUTFChars(str, charArray);
 	fileInfo->fullName = Path(fileUri);
-
-	env->DeleteLocalRef(str);
 	return retval && fileInfo->exists;
 }
 
@@ -249,6 +259,7 @@ bool Android_FileExists(const std::string &fileUri) {
 		return false;
 	}
 	auto env = getEnv();
+	JNILocalFrame frame(env);
 	jstring paramFileUri = env->NewStringUTF(fileUri.c_str());
 	bool exists = env->CallStaticBooleanMethod(g_classContentUri, contentUriFileExists, g_nativeActivity, paramFileUri);
 	return exists;
@@ -260,6 +271,7 @@ std::vector<File::FileInfo> Android_ListContentUri(const std::string &uri, const
 		return {};
 	}
 	auto env = getEnv();
+	JNILocalFrame frame(env);
 	*exists = true;
 
 	double start = time_now_d();
@@ -270,6 +282,10 @@ std::vector<File::FileInfo> Android_ListContentUri(const std::string &uri, const
 
 	jobjectArray fileList = (jobjectArray)retval;
 	std::vector<File::FileInfo> items;
+	if (!fileList) {
+		*exists = false;
+		return items;
+	}
 	int size = env->GetArrayLength(fileList);
 	for (int i = 0; i < size; i++) {
 		jstring str = (jstring)env->GetObjectArrayElement(fileList, i);
@@ -286,11 +302,11 @@ std::vector<File::FileInfo> Android_ListContentUri(const std::string &uri, const
 				// INFO_LOG(Log::IO, "%s", info.name.c_str());
 				items.push_back(info);
 			}
+			env->ReleaseStringUTFChars(str, charArray);
 		}
-		env->ReleaseStringUTFChars(str, charArray);
+		// Don't leave these to the frame, there can be thousands.
 		env->DeleteLocalRef(str);
 	}
-	env->DeleteLocalRef(fileList);
 
 	double elapsed = time_now_d() - start;
 	double threshold = 0.1;
@@ -305,6 +321,7 @@ int64_t Android_GetFreeSpaceByContentUri(const std::string &uri) {
 		return false;
 	}
 	auto env = getEnv();
+	JNILocalFrame frame(env);
 
 	jstring param = env->NewStringUTF(uri.c_str());
 	return env->CallStaticLongMethod(g_classContentUri, contentUriGetFreeStorageSpace, g_nativeActivity, param);
@@ -316,6 +333,7 @@ int64_t Android_GetFreeSpaceByFilePath(const std::string &filePath) {
 		return false;
 	}
 	auto env = getEnv();
+	JNILocalFrame frame(env);
 
 	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) < 26) {
 		// This is available from Android O.
@@ -331,6 +349,7 @@ int64_t Android_ComputeRecursiveDirectorySize(const std::string &uri) {
 		return false;
 	}
 	auto env = getEnv();
+	JNILocalFrame frame(env);
 
 	jstring param = env->NewStringUTF(uri.c_str());
 
@@ -347,6 +366,7 @@ bool Android_IsExternalStoragePreservedLegacy() {
 		return false;
 	}
 	auto env = getEnv();
+	JNILocalFrame frame(env);
 	// Note: No activity param
 	return env->CallStaticBooleanMethod(g_classContentUri, isExternalStoragePreservedLegacy);
 }

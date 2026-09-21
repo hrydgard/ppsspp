@@ -198,8 +198,13 @@ JNIEnv* getEnv() {
 	return env;
 }
 
+// Returns a local reference.
 jclass findClass(const char* name) {
-	return static_cast<jclass>(getEnv()->CallObjectMethod(gClassLoader, gFindClassMethod, getEnv()->NewStringUTF(name)));
+	JNIEnv *env = getEnv();
+	jstring jname = env->NewStringUTF(name);
+	jclass cls = static_cast<jclass>(env->CallObjectMethod(gClassLoader, gFindClassMethod, jname));
+	env->DeleteLocalRef(jname);
+	return cls;
 }
 
 void Android_AttachThreadToJNI() {
@@ -1421,6 +1426,7 @@ extern "C" jint JNICALL Java_org_ppsspp_ppsspp_NativeApp_getDisplayFramerateMode
 }
 
 std::vector<std::string> System_GetCameraDeviceList() {
+	JNILocalFrame frame(getEnv());
 	jclass cameraClass = findClass("org/ppsspp/ppsspp/CameraHelper");
 	jmethodID deviceListMethod = getEnv()->GetStaticMethodID(cameraClass, "getDeviceList", "()Ljava/util/ArrayList;");
 	jobject deviceListObject = getEnv()->CallStaticObjectMethod(cameraClass, deviceListMethod);

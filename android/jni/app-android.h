@@ -22,6 +22,28 @@ std::vector<std::string> Android_GetNativeCrashHistory(int maxEntries);
 jclass findClass(const char* name);
 JNIEnv* getEnv();
 
+// Frees the JNI local references created in its scope. Java only does that for us when a native
+// method returns to it, which never happens on the threads we attach ourselves (EmuThread, IO and
+// worker threads), so there every local ref leaks until the thread detaches. Before Android 8 there's
+// only room for 512 of them, and running out aborts the process.
+class JNILocalFrame {
+public:
+	explicit JNILocalFrame(JNIEnv *env, int capacity = 16) : env_(env) {
+		pushed_ = env_->PushLocalFrame(capacity) == 0;
+	}
+	~JNILocalFrame() {
+		if (pushed_) {
+			env_->PopLocalFrame(nullptr);
+		}
+	}
+	JNILocalFrame(const JNILocalFrame &) = delete;
+	JNILocalFrame &operator=(const JNILocalFrame &) = delete;
+
+private:
+	JNIEnv *env_;
+	bool pushed_;
+};
+
 #endif
 
 #else
