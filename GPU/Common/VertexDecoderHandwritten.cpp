@@ -1,5 +1,6 @@
 #include "Common/CommonTypes.h"
 #include "Common/Data/Convert/ColorConv.h"
+#include "Core/HDRemaster.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/GPUState.h"
 
@@ -61,41 +62,61 @@ void VtxDec_Tu16_C8888_Pfloat(const u8 *srcp, u8 *dstp, int count, const UVScale
 	};
 	const GOWVTX *src = (const GOWVTX *)srcp;
 	OutVTX *dst = (OutVTX *)dstp;
-	float uscale = uvScaleOffset->uScale * (1.0f / 32768.0f);
-	float vscale = uvScaleOffset->vScale * (1.0f / 32768);
+	// The HD Remasters double the texture coordinates, see Step_TcU16DoublePrescale.
+	const float uvDiv = g_DoubleTextureCoordinates ? (1.0f / 16384.0f) : (1.0f / 32768.0f);
+	float uscale = uvScaleOffset->uScale * uvDiv;
+	float vscale = uvScaleOffset->vScale * uvDiv;
 	float uoff = uvScaleOffset->uOff;
 	float voff = uvScaleOffset->vOff;
 
 	u32 alpha = 0xFFFFFFFF;
 
+	// The position is loaded together with the color, as lanes 1-3. A NaN or infinite coordinate has
+	// to come out finite, so that the viewport scale can zero it later like the PSP does. Which finite
+	// value doesn't matter, so any lane with an all-ones exponent is zeroed. Lane 0 (the color) is
+	// left alone: its mask is 0, which never equals the exponent.
+	alignas(16) static const u32 expMask[4] = { 0, 0x7F800000, 0x7F800000, 0x7F800000 };
+
 #if PPSSPP_ARCH(SSE2)
 	__m128 uvOff = _mm_setr_ps(uoff, voff, uoff, voff);
 	__m128 uvScale = _mm_setr_ps(uscale, vscale, uscale, vscale);
 	__m128i alphaMask = _mm_set1_epi32(0xFFFFFFFF);
+	const __m128i posExpMask = _mm_load_si128((const __m128i *)expMask);
+	const __m128i expAllOnes = _mm_set1_epi32(0x7F800000);
 	for (int i = 0; i < count; i++) {
 		__m128i uv = _mm_set1_epi32(src[i].packed_uv);
 		__m128 fuv = _mm_cvtepi32_ps(_mm_unpacklo_epi16(uv, _mm_setzero_si128()));
 		__m128 finalUV = _mm_add_ps(_mm_mul_ps(fuv, uvScale), uvOff);
 		u32 normal = src[i].packed_normal;
 		__m128i colpos = _mm_loadu_si128((const __m128i *)&src[i].col);
+		alphaMask = _mm_and_si128(alphaMask, colpos);
+		colpos = _mm_andnot_si128(_mm_cmpeq_epi32(_mm_and_si128(colpos, posExpMask), expAllOnes), colpos);
 		_mm_store_sd((double *)&dst[i].u, _mm_castps_pd(finalUV));
 		dst[i].packed_normal = normal;
 		_mm_storeu_si128((__m128i *)&dst[i].col, colpos);
-		alphaMask = _mm_and_si128(alphaMask, colpos);
 	}
 	alpha = _mm_cvtsi128_si32(alphaMask);
 
 #elif PPSSPP_ARCH(ARM_NEON)
-	float32x2_t uvScale = vmul_f32(vld1_f32(&uvScaleOffset->uScale), vdup_n_f32(1.0f / 32768.0f));
+	const float scaleArr[2] = { uscale, vscale };
+	float32x2_t uvScale = vld1_f32(scaleArr);
 	float32x2_t uvOff = vld1_f32(&uvScaleOffset->uOff);
 	uint32x4_t alphaMask = vdupq_n_u32(0xFFFFFFFF);
+	const uint32x4_t posExpMask = vld1q_u32(expMask);
+	const uint32x4_t expAllOnes = vdupq_n_u32(0x7F800000);
 	for (int i = 0; i < count; i++) {
 		uint16x4_t uv = vld1_u16(&src[i].u);  // TODO: We only need the first two lanes, maybe there's a better way?
 		uint32x2_t fuv = vget_low_u32(vmovl_u16(uv));  // Only using the first two lanes
+#if PPSSPP_ARCH(ARM64_NEON)
+		// Fused, like the arm64 JIT and the steps as the compiler builds them.
+		float32x2_t finalUV = vfma_f32(uvOff, vcvt_f32_u32(fuv), uvScale);
+#else
 		float32x2_t finalUV = vadd_f32(vmul_f32(vcvt_f32_u32(fuv), uvScale), uvOff);
+#endif
 		u32 normal = src[i].packed_normal;
 		uint32x4_t colpos = vld1q_u32((const u32 *)&src[i].col);
 		alphaMask = vandq_u32(alphaMask, colpos);
+		colpos = vbicq_u32(colpos, vceqq_u32(vandq_u32(colpos, posExpMask), expAllOnes));
 		vst1_f32(&dst[i].u, finalUV);
 		dst[i].packed_normal = normal;
 		vst1q_u32(&dst[i].col, colpos);
@@ -246,7 +267,11 @@ void VtxDec_Tu8_C5551_Ps16(const u8 *srcp, u8 *dstp, int numVerts, const UVScale
 		uint8x8_t uv8 = vreinterpret_u8_u64(uv8_one);
 		uint16x4_t uv16 = vget_low_u16(vmovl_u8(uv8));
 		uint32x4_t uv32 = vmovl_u16(uv16);
+#if PPSSPP_ARCH(ARM64_NEON)
+		float32x4_t uvf = vfmaq_f32(uvOffset, vcvtq_f32_u32(uv32), uvScale);
+#else
 		float32x4_t uvf = vaddq_f32(vmulq_f32(vcvtq_f32_u32(uv32), uvScale), uvOffset);
+#endif
 
 		alpha &= col0;
 
@@ -258,7 +283,7 @@ void VtxDec_Tu8_C5551_Ps16(const u8 *srcp, u8 *dstp, int numVerts, const UVScale
 		int32x2_t a_shifted = vshr_n_s32(vreinterpret_s32_u32(vshl_n_u32(vand_u32(col, amask), 16)), 7);
 		uint32x2_t a = vreinterpret_u32_s32(a_shifted);
 		col = vorr_u32(vorr_u32(r, g), b);
-		col = vorr_u32(col, vand_u32(vshl_n_u32(col, 5), lowbits));
+		col = vorr_u32(col, vand_u32(vshr_n_u32(col, 5), lowbits));
 		col = vorr_u32(col, a);
 
 		// TODO: Mix into fewer stores.

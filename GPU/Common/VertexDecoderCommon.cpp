@@ -833,6 +833,9 @@ void VertexDecoder::Step_PosS16(const VertexDecoder *dec, const u8 *ptr, u8 *dec
 
 void VertexDecoder::Step_PosFloat(const VertexDecoder *dec, const u8 *ptr, u8 *decoded) {
 	Vec4F32 v = Vec4F32::Load((const float *)(ptr + dec->posoff));
+	// NaN and infinity only have to come out finite, so that the viewport scale can zero them later
+	// like the PSP does (0 * NaN == 0 there). The platforms differ in how (SSE clamps, NEON zeroes),
+	// and so do the JITs, which is fine.
 	v.CleanNaNInfs().Store((float *)(decoded + dec->decFmt.posoff));
 }
 

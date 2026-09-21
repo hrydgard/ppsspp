@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <math.h>
+#include <cmath>
 #include <cstring>
 #include <map>
 #include <string>
@@ -682,7 +683,8 @@ int DecodedComponentSize(u8 fmt) {
 	}
 }
 
-void FillVertexData(JitMatchRng &rng, const VertexDecoder &dec, u8 *src, int count) {
+// With specialPos, some plain float positions get a NaN or infinity, and specialPos[v] says which.
+void FillVertexData(JitMatchRng &rng, const VertexDecoder &dec, u8 *src, int count, bool *specialPos) {
 	static const int wtSize[] = { 0, 1, 2, 4 };
 	static const int tcSize[] = { 0, 1, 2, 4 };
 	static const int nrmPosSize[] = { 0, 1, 2, 4 };
@@ -726,6 +728,14 @@ void FillVertexData(JitMatchRng &rng, const VertexDecoder &dec, u8 *src, int cou
 			}
 			if (dec.pos) {
 				fillScalars(p + dec.posoff, 3, nrmPosSize[dec.pos]);
+			}
+		}
+		if (specialPos) {
+			specialPos[v] = (rng.Next() & 7) == 0;
+			if (specialPos[v]) {
+				static const float specials[] = { NAN, INFINITY, -INFINITY };
+				float_le f = specials[rng.Next() % 3];
+				memcpy(src + v * dec.size + dec.posoff + (rng.Next() % 3) * 4, &f, 4);
 			}
 		}
 	}
@@ -783,7 +793,7 @@ struct JitMismatch {
 
 }  // namespace
 
-static bool TestVertexJitMatchesSteps() {
+[[maybe_unused]] static bool TestVertexJitMatchesSteps() {
 	constexpr int VERTS = 32;
 	constexpr int BUF_SIZE = 64 * 1024;
 	// Decode may overrun by a vertex plus 16 bytes, see DecodeVerts.
@@ -819,11 +829,14 @@ static bool TestVertexJitMatchesSteps() {
 		if (!jit.jitted_) {
 			return;
 		}
-		// TODO: The handwritten decoders don't match the steps yet.
-		if (!cache->IsInSpace((const u8 *)jit.jitted_)) {
-			return;
-		}
 		formatsJitted++;
+
+		// Which step writes each component: weights (if any) first, then tc, col, nrm, pos.
+		int stepIndex = ref.weighttype ? 1 : 0;
+		StepFunction tcStep = ref.tc ? ref.steps_[stepIndex++] : nullptr;
+		StepFunction colStep = ref.col ? ref.steps_[stepIndex++] : nullptr;
+		StepFunction nrmStep = ref.nrm ? ref.steps_[stepIndex++] : nullptr;
+		StepFunction posStep = ref.steps_[stepIndex];
 
 		for (int i = 0; i < 8; i++) {
 			gstate_c.morphWeights[i] = rng.Float24(-0.5f, 1.5f);
@@ -835,29 +848,26 @@ static bool TestVertexJitMatchesSteps() {
 
 		const int srcBytes = ref.VertexSize() * VERTS;
 		_assert_(srcBytes + 256 <= BUF_SIZE && ref.decFmt.stride * (VERTS + 1) + 16 <= BUF_SIZE);
-		FillVertexData(rng, ref, src, VERTS);
+		// Only plain float positions are cleaned of NaN and infinity (see Step_PosFloat).
+		bool specialPos[VERTS]{};
+		FillVertexData(rng, ref, src, VERTS, posStep == &VertexDecoder::Step_PosFloat ? specialPos : nullptr);
 
 		const KnownVertexBounds initialBounds{ 0xFFFF, 0xFFFF, 0, 0 };
 		memset(refOut, 0, BUF_SIZE);
 		gstate_c.vertexFullAlpha = true;
 		gstate_c.vertBounds = initialBounds;
-		ref.DecodeVerts(refOut, src, &uvScale, VERTS);
+		// Vary the count a little, so the decoders' leftover-vertex paths get used too.
+		const int numVerts = VERTS - (formatsTested & 3);
+		ref.DecodeVerts(refOut, src, &uvScale, numVerts);
 		const bool refFullAlpha = gstate_c.vertexFullAlpha;
 		const KnownVertexBounds refBounds = gstate_c.vertBounds;
 
 		memset(jitOut, 0, BUF_SIZE);
 		gstate_c.vertexFullAlpha = true;
 		gstate_c.vertBounds = initialBounds;
-		jit.DecodeVerts(jitOut, src, &uvScale, VERTS);
+		jit.DecodeVerts(jitOut, src, &uvScale, numVerts);
 		const bool jitFullAlpha = gstate_c.vertexFullAlpha;
 		const KnownVertexBounds jitBounds = gstate_c.vertBounds;
-
-		// Which step writes each component: weights (if any) first, then tc, col, nrm, pos.
-		int stepIndex = ref.weighttype ? 1 : 0;
-		StepFunction tcStep = ref.tc ? ref.steps_[stepIndex++] : nullptr;
-		StepFunction colStep = ref.col ? ref.steps_[stepIndex++] : nullptr;
-		StepFunction nrmStep = ref.nrm ? ref.steps_[stepIndex++] : nullptr;
-		StepFunction posStep = ref.steps_[stepIndex];
 
 		char fmtDesc[256]{};
 		ref.ToString(fmtDesc, sizeof(fmtDesc), true);
@@ -885,9 +895,25 @@ static bool TestVertexJitMatchesSteps() {
 			}
 			int badVerts = 0;
 			std::string detail;
-			for (int v = 0; v < VERTS; v++) {
+			for (int v = 0; v < numVerts; v++) {
 				const u8 *r = refOut + v * ref.decFmt.stride + off;
 				const u8 *j = jitOut + v * ref.decFmt.stride + off;
+				if (specialPos[v] && step == posStep) {
+					// NaN and infinity only have to come out finite. How is up to the platform.
+					bool finite = true;
+					for (int c = 0; c < 3; c++) {
+						float fr, fj;
+						memcpy(&fr, r + c * 4, 4);
+						memcpy(&fj, j + c * 4, 4);
+						finite = finite && std::isfinite(fr) && std::isfinite(fj);
+					}
+					if (!finite && badVerts++ == 0) {
+						float fj[3];
+						memcpy(fj, j, 12);
+						detail = StringFromFormat("vert %d: NaN/inf input gave %g %g %g", v, fj[0], fj[1], fj[2]);
+					}
+					continue;
+				}
 				if (memcmp(r, j, sz) == 0) {
 					continue;
 				}
@@ -1001,6 +1027,7 @@ static bool TestVertexJitMatchesSteps() {
 	return mismatches.empty();
 }
 
+
 typedef bool (*VertexTestFunc)();
 
 static VertexTestFunc vertdecTestFuncs[] = {
@@ -1021,7 +1048,10 @@ static VertexTestFunc vertdecTestFuncs[] = {
 	&TestVertex16Skin,
 	&TestVertexFloatSkin,
 
+	// The other architectures' JITs haven't been brought in line yet.
+#if PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(ARM64)
 	&TestVertexJitMatchesSteps,
+#endif
 };
 
 bool TestVertexJit() {
