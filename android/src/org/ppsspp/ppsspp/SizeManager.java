@@ -123,6 +123,8 @@ public class SizeManager implements SurfaceHolder.Callback {
 
 	@Override
 	public void surfaceDestroyed(SurfaceHolder holder) {
+		// Don't hand a dead surface over on resume.
+		earlySurface = null;
 		activity.notifySurface(null);
 
 		// Autosize the next created surface.
