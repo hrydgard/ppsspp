@@ -55,6 +55,10 @@ struct CoreParameter {
 	CPUCore cpuCore;
 	GPUCore gpuCore;
 
+	// Independent of cpuCore. Standalone turns it on wherever the host can JIT; headless keeps it
+	// off, since the test references were recorded with the C++ vertex decoder.
+	bool bUseVertexDecoderJit = false;
+
 	GraphicsContext *graphicsContext = nullptr;  // TODO: Find a better place.
 	bool enableSound = true;  // there aren't multiple sound cores.
 

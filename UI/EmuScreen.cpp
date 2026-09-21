@@ -282,6 +282,7 @@ void EmuScreen::ProcessGameBoot(const Path &filename) {
 
 	CoreParameter coreParam{};
 	coreParam.cpuCore = (CPUCore)g_Config.iCpuCore;
+	coreParam.bUseVertexDecoderJit = System_GetPropertyBool(SYSPROP_CAN_JIT);
 	coreParam.gpuCore = GPUCORE_GLES;
 	switch (GetGPUBackend()) {
 	case GPUBackend::DIRECT3D11:

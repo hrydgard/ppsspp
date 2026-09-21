@@ -412,6 +412,7 @@ void PSPSaveDialog::DisplaySaveList(bool canMove) {
 
 	for (int displayCount = 0; displayCount < param.GetFilenameCount(); displayCount++) {
 		PPGeImageStyle imageStyle = FadedImageStyle();
+		imageStyle.alphaBlend = false;
 		auto fileInfo = param.GetFileInfo(displayCount);
 
 		if (fileInfo.size == 0 && fileInfo.texture && fileInfo.texture->IsValid())
@@ -472,10 +473,11 @@ void PSPSaveDialog::DisplaySaveList(bool canMove) {
 	}
 }
 
-void PSPSaveDialog::DisplaySaveIcon(bool checkExists)
-{
+void PSPSaveDialog::DisplaySaveIcon(bool checkExists) {
 	std::lock_guard<std::mutex> guard(paramLock);
 	PPGeImageStyle imageStyle = FadedImageStyle();
+	imageStyle.alphaBlend = false;
+
 	auto curSave = param.GetFileInfo(currentSelectedSave);
 
 	if (curSave.size == 0 && checkExists)

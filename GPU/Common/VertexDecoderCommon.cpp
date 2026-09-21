@@ -27,7 +27,6 @@
 #include "Common/Math/CrossSIMD.h"
 #include "Common/Log.h"
 #include "Common/LogReporting.h"
-#include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/HDRemaster.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
@@ -1623,10 +1622,7 @@ VertexDecoderJitCache::VertexDecoderJitCache()
 }
 
 void VertexDecoderJitCache::Clear() {
-	// TODO: These should check CoreParameter instead.
-	if (g_Config.iCpuCore == (int)CPUCore::JIT || g_Config.iCpuCore == (int)CPUCore::JIT_IR) {
-		ClearCodeSpace(0);
-	}
+	ClearCodeSpace(0);
 }
 
 struct StepFunctionNameEntry {

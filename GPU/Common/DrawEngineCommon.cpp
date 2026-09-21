@@ -44,7 +44,7 @@ enum {
 };
 
 DrawEngineCommon::DrawEngineCommon() : decoderMap_(32) {
-	if (g_Config.bVertexDecoderJit && (g_Config.iCpuCore == (int)CPUCore::JIT || g_Config.iCpuCore == (int)CPUCore::JIT_IR)) {
+	if (g_Config.bVertexDecoderJit && PSP_CoreParameter().bUseVertexDecoderJit) {
 		decJitCache_ = new VertexDecoderJitCache();
 	}
 	transformed_ = (TransformedVertex *)AllocateMemoryPages(TRANSFORMED_VERTEX_BUFFER_SIZE, MEM_PROT_READ | MEM_PROT_WRITE);
