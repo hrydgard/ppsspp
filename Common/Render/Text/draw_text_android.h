@@ -31,11 +31,11 @@ protected:
 
 private:
 	// JNI functions
-	jclass cls_textRenderer;
-	jmethodID method_allocFont;
-	jmethodID method_freeAllFonts;
-	jmethodID method_measureText;
-	jmethodID method_renderText;
+	jclass cls_textRenderer = nullptr;
+	jmethodID method_allocFont = nullptr;
+	jmethodID method_freeAllFonts = nullptr;
+	jmethodID method_measureText = nullptr;
+	jmethodID method_renderText = nullptr;
 
 	std::map<FontStyle, AndroidFontEntry> fontMap_;
 	std::map<std::string, int> allocatedFonts_;

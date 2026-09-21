@@ -16,18 +16,32 @@
 
 #include <jni.h>
 
+// A new TextDrawer is created every time graphics are brought up, which on Android is every resume.
+// The class stays valid for the life of the process, so hold one global ref to it, forever.
+static jclass GetTextRendererClass(JNIEnv *env) {
+	static jclass cls;
+	if (!cls) {
+		const char *textRendererClassName = "org/ppsspp/ppsspp/TextRenderer";
+		jclass localClass = findClass(textRendererClassName);
+		if (localClass) {
+			cls = reinterpret_cast<jclass>(env->NewGlobalRef(localClass));
+			env->DeleteLocalRef(localClass);
+		} else {
+			env->ExceptionClear();  // ClassNotFoundException
+			ERROR_LOG(Log::G3D, "Failed to find class: '%s'", textRendererClassName);
+		}
+	}
+	return cls;
+}
+
 TextDrawerAndroid::TextDrawerAndroid(Draw::DrawContext *draw) : TextDrawer(draw) {
 	auto env = getEnv();
-	const char *textRendererClassName = "org/ppsspp/ppsspp/TextRenderer";
-	jclass localClass = findClass(textRendererClassName);
-	cls_textRenderer = reinterpret_cast<jclass>(env->NewGlobalRef(localClass));
+	cls_textRenderer = GetTextRendererClass(env);
 	if (cls_textRenderer) {
 		method_allocFont = env->GetStaticMethodID(cls_textRenderer, "allocFont", "(Landroid/content/Context;Ljava/lang/String;)I");
 		method_freeAllFonts = env->GetStaticMethodID(cls_textRenderer, "freeAllFonts", "()V");
 		method_measureText = env->GetStaticMethodID(cls_textRenderer, "measureText", "(Ljava/lang/String;ID)I");
 		method_renderText = env->GetStaticMethodID(cls_textRenderer, "renderText", "(Ljava/lang/String;IDII)[I");
-	} else {
-		ERROR_LOG(Log::G3D, "Failed to find class: '%s'", textRendererClassName);
 	}
 	dpiScale_ = CalculateDPIScale();
 
@@ -35,9 +49,7 @@ TextDrawerAndroid::TextDrawerAndroid(Draw::DrawContext *draw) : TextDrawer(draw)
 }
 
 TextDrawerAndroid::~TextDrawerAndroid() {
-	// Not sure why we can't do this but it crashes. Likely some deeper threading issue.
-	// At worst we leak one ref...
-	// env_->DeleteGlobalRef(cls_textRenderer);
+	// cls_textRenderer is shared and never released, see GetTextRendererClass.
 	ClearCache();
 	fontMap_.clear();  // size is precomputed using dpiScale_.
 }
@@ -129,6 +141,12 @@ bool TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextS
 	// TODO: Handle bold/italic
 	jintArray imageData = (jintArray)env->CallStaticObjectMethod(cls_textRenderer, method_renderText, jstr, iter->second.font, iter->second.size, imageWidth, imageHeight);
 	env->DeleteLocalRef(jstr);
+	if (!imageData) {
+		// Most likely an OutOfMemoryError allocating the bitmap.
+		env->ExceptionClear();
+		ERROR_LOG(Log::G3D, "TextRenderer failed to render text");
+		return false;
+	}
 
 	entry.texture = nullptr;
 	entry.bmWidth = imageWidth;
