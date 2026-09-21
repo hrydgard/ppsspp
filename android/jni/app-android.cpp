@@ -1639,8 +1639,14 @@ extern "C" jboolean JNICALL Java_org_ppsspp_ppsspp_PpssppActivity_runVulkanRende
 	_assert_(!graphicsContext->NeedsSeparateEmuThread());
 
 	if (g_renderLoopThread.joinable()) {
-		ERROR_LOG(Log::G3D, "runVulkanRenderLoop: Already running");
-		return false;
+		if (renderLoopRunning) {
+			ERROR_LOG(Log::G3D, "runVulkanRenderLoop: Already running");
+			return false;
+		}
+		// The previous thread gave up by itself (failed surface init). Reap it so we can try again.
+		WARN_LOG(Log::G3D, "runVulkanRenderLoop: Joining a render thread that had already exited");
+		g_renderLoopThread.join();
+		g_renderLoopThread = std::thread();
 	}
 
 	_assert_(!exitRenderLoop);
