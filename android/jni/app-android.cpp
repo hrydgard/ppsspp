@@ -164,7 +164,9 @@ static jmethodID postCommand;
 static jmethodID getDebugString;
 static jmethodID getNativeCrashHistory;
 
+// Global ref. Written on the UI thread under g_activityLock. Other threads go through Android_GetActivity.
 static jobject ppssppActivity;
+static std::mutex g_activityLock;
 
 static std::atomic<bool> exitRenderLoop;
 static std::atomic<bool> renderLoopRunning;
@@ -252,6 +254,11 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *pjvm, void *reserved) {
 
 	TimeInit();
 	return JNI_VERSION_1_6;
+}
+
+jobject Android_GetActivity(JNIEnv *env) {
+	std::lock_guard<std::mutex> guard(g_activityLock);
+	return ppssppActivity ? env->NewLocalRef(ppssppActivity) : nullptr;
 }
 
 static void PushCommand(std::string_view cmd, std::string_view param) {
@@ -455,33 +462,39 @@ bool System_GetPropertyBool(SystemProperty prop) {
 }
 
 std::string Android_GetInputDeviceDebugString() {
-	if (!ppssppActivity) {
+	auto env = getEnv();
+	JNILocalFrame frame(env);
+	jobject activity = Android_GetActivity(env);
+	if (!activity) {
 		return "(N/A)";
 	}
-	auto env = getEnv();
 
 	jstring jparam = env->NewStringUTF("InputDevice");
-	jstring jstr = (jstring)env->CallObjectMethod(ppssppActivity, getDebugString, jparam);
+	jstring jstr = (jstring)env->CallObjectMethod(activity, getDebugString, jparam);
 	if (!jstr) {
-		env->DeleteLocalRef(jparam);
 		return "(N/A)";
 	}
 
 	const char *charArray = env->GetStringUTFChars(jstr, nullptr);
-	std::string retVal = charArray;
-	env->ReleaseStringUTFChars(jstr, charArray);
-	env->DeleteLocalRef(jstr);
-	env->DeleteLocalRef(jparam);
+	std::string retVal = charArray ? charArray : "(N/A)";
+	if (charArray) {
+		env->ReleaseStringUTFChars(jstr, charArray);
+	}
 	return retVal;
 }
 
 std::vector<std::string> Android_GetNativeCrashHistory(int maxEntries) {
 	std::vector<std::string> crashHistory;
-	if (!ppssppActivity || !getNativeCrashHistory) {
+	if (!getNativeCrashHistory) {
 		return crashHistory;
 	}
 	auto env = getEnv();
-	jobject jlist = env->CallObjectMethod(ppssppActivity, getNativeCrashHistory, maxEntries);
+	JNILocalFrame frame(env);
+	jobject activity = Android_GetActivity(env);
+	if (!activity) {
+		return crashHistory;
+	}
+	jobject jlist = env->CallObjectMethod(activity, getNativeCrashHistory, maxEntries);
 	if (!jlist) {
 		return crashHistory;
 	}
@@ -513,8 +526,13 @@ std::string GetJavaString(JNIEnv *env, jstring jstr) {
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_PpssppActivity_registerCallbacks(JNIEnv *env, jobject obj) {
-	ppssppActivity = env->NewGlobalRef(obj);
-	TextDrawerAndroid::SetActivity(ppssppActivity);
+	jobject newActivity = env->NewGlobalRef(obj);
+	jobject oldActivity;
+	{
+		std::lock_guard<std::mutex> guard(g_activityLock);
+		oldActivity = ppssppActivity;
+		ppssppActivity = newActivity;
+	}
 	postCommand = env->GetMethodID(env->GetObjectClass(obj), "postCommand", "(Ljava/lang/String;Ljava/lang/String;)V");
 	getDebugString = env->GetMethodID(env->GetObjectClass(obj), "getDebugString", "(Ljava/lang/String;)Ljava/lang/String;");
 	getNativeCrashHistory = env->GetMethodID(env->GetObjectClass(obj), "getNativeCrashHistory", "(I)Ljava/util/ArrayList;");
@@ -524,13 +542,26 @@ extern "C" void Java_org_ppsspp_ppsspp_PpssppActivity_registerCallbacks(JNIEnv *
 	// It's OK if getNativeCrashHistory is missing.
 
 	Android_RegisterStorageCallbacks(env, obj);
-	Android_StorageSetActivity(ppssppActivity);
+	Android_StorageSetActivity(newActivity);
+
+	// An activity that gets recreated (rotation, resize) never unregisters, so this is where we let go
+	// of it. Used to leak the whole activity, once per rotation.
+	if (oldActivity) {
+		env->DeleteGlobalRef(oldActivity);
+	}
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_PpssppActivity_unregisterCallbacks(JNIEnv *env, jobject obj) {
 	Android_StorageSetActivity(nullptr);
-	env->DeleteGlobalRef(ppssppActivity);
-	ppssppActivity = nullptr;
+	jobject oldActivity;
+	{
+		std::lock_guard<std::mutex> guard(g_activityLock);
+		oldActivity = ppssppActivity;
+		ppssppActivity = nullptr;
+	}
+	if (oldActivity) {
+		env->DeleteGlobalRef(oldActivity);
+	}
 }
 
 // This is now only used as a trigger for GetAppInfo as a function to all before Init.
@@ -1476,14 +1507,16 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_pushCameraImageAndroid(
 	}
 }
 
-// Call this under frameCommandLock.
 static void ProcessFrameCommands() {
 	JNIEnv *env = getEnv();
+	jobject activity = Android_GetActivity(env);
 	std::vector<FrameCommand> frameCommands;
 	{
 		std::lock_guard<std::mutex> guard(frameCommandLock);
-		if (!ppssppActivity) {
-			ERROR_LOG(Log::System, "No activity, clearing commands");
+		if (!activity) {
+			if (!g_frameCommands.empty()) {
+				ERROR_LOG(Log::System, "No activity, clearing commands");
+			}
 		} else {
 			frameCommands = std::move(g_frameCommands);
 		}
@@ -1491,16 +1524,19 @@ static void ProcessFrameCommands() {
 	}
 
 	if (!frameCommands.empty()) {
-		INFO_LOG(Log::System, "Processing %zu frame commands", g_frameCommands.size());
+		INFO_LOG(Log::System, "Processing %zu frame commands", frameCommands.size());
 		for (const FrameCommand &frameCmd : frameCommands) {
 			DEBUG_LOG(Log::System, "frameCommand '%s' '%s'", frameCmd.command.c_str(), frameCmd.params.c_str());
 
 			jstring cmd = env->NewStringUTF(frameCmd.command.c_str());
 			jstring param = env->NewStringUTF(frameCmd.params.c_str());
-			env->CallVoidMethod(ppssppActivity, postCommand, cmd, param);
+			env->CallVoidMethod(activity, postCommand, cmd, param);
 			env->DeleteLocalRef(cmd);
 			env->DeleteLocalRef(param);
 		}
+	}
+	if (activity) {
+		env->DeleteLocalRef(activity);
 	}
 }
 

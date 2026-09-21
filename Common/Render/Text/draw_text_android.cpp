@@ -16,8 +16,6 @@
 
 #include <jni.h>
 
-jobject TextDrawerAndroid::activity_;
-
 TextDrawerAndroid::TextDrawerAndroid(Draw::DrawContext *draw) : TextDrawer(draw) {
 	auto env = getEnv();
 	const char *textRendererClassName = "org/ppsspp/ppsspp/TextRenderer";
@@ -61,9 +59,10 @@ void TextDrawerAndroid::SetOrCreateFont(const FontStyle &style) {
 	auto fontIter = allocatedFonts_.find(filename);
 	if (fontIter == allocatedFonts_.end()) {
 		auto env = getEnv();
+		JNILocalFrame frame(env);
+		jobject activity = Android_GetActivity(env);
 		jstring jstr = env->NewStringUTF(filename.c_str());
-		int fontId = env->CallStaticIntMethod(cls_textRenderer, method_allocFont, activity_, jstr);
-		env->DeleteLocalRef(jstr);
+		int fontId = env->CallStaticIntMethod(cls_textRenderer, method_allocFont, activity, jstr);
 
 		if (fontId >= 0) {
 			allocatedFonts_[filename] = fontId;

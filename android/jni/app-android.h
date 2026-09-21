@@ -22,6 +22,10 @@ std::vector<std::string> Android_GetNativeCrashHistory(int maxEntries);
 jclass findClass(const char* name);
 JNIEnv* getEnv();
 
+// Returns a new local reference to the current activity, or null if there is none. The activity gets
+// replaced whenever Android recreates it (rotation, resize), so don't hang on to anything longer-lived.
+jobject Android_GetActivity(JNIEnv *env);
+
 // Frees the JNI local references created in its scope. Java only does that for us when a native
 // method returns to it, which never happens on the threads we attach ourselves (EmuThread, IO and
 // worker threads), so there every local ref leaks until the thread detaches. Before Android 8 there's
