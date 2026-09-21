@@ -745,9 +745,7 @@ void VertexDecoder::Step_NormalS16Morph(const VertexDecoder *dec, const u8 *ptr,
 			acc[j] += sv[j] * multiplier;
 	}
 	float *normal = (float *)(decoded + dec->decFmt.nrmoff);
-	normal[0] = acc[0] * (1.0f / 32768.0f);
-	normal[1] = acc[1] * (1.0f / 32768.0f);
-	normal[2] = acc[2] * (1.0f / 32768.0f);
+	memcpy(normal, acc, sizeof(float) * 3);
 }
 
 void VertexDecoder::Step_NormalFloatMorph(const VertexDecoder *dec, const u8 *ptr, u8 *decoded) {
@@ -888,7 +886,9 @@ void VertexDecoder::Step_PosFloatThrough(const VertexDecoder *dec, const u8 *ptr
 	float *v = (float *)(decoded + dec->decFmt.posoff);
 	const float *fv = (const float *)(ptr + dec->posoff);
 	memcpy(v, fv, 8);
-	v[2] = fv[2] > 65535.0f ? 65535.0f : (fv[2] < 0.0f ? 0.0f : fv[2]);
+	// Depth is an integer in through mode: truncate, and clamp to 16 bits (NaN becomes 0).
+	const float z = fv[2];
+	v[2] = z >= 65535.0f ? 65535.0f : (z > 0.0f ? (float)(int)z : 0.0f);
 }
 
 void VertexDecoder::Step_PosS8Morph(const VertexDecoder *dec, const u8 *ptr, u8 *decoded) {
@@ -1191,9 +1191,8 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 		DEBUG_LOG(Log::G3D, "VTYPE: THRU=%i TC=%i COL=%i POS=%i NRM=%i WT=%i NW=%i IDX=%i MC=%i", (int)throughmode, tc, col, pos, nrm, weighttype, nweights, idx, morphcount);
 	}
 
-
+	skinInDecode = weighttype != 0;
 	if (weighttype) { // && nweights?
-		skinInDecode = true;
 		weightoff = size;
 		//size = align(size, wtalign[weighttype]);	unnecessary
 		size += wtsize[weighttype] * nweights;
