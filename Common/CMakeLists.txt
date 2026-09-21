@@ -69,7 +69,6 @@ add_library(Common STATIC
 	Data/Collections/FastVec.h
 	Data/Collections/CharQueue.h
 	Data/Collections/CyclicBuffer.h
-	Data/Collections/ThreadSafeList.h
 	Data/Color/RGBAUtil.cpp
 	Data/Color/RGBAUtil.h
 	Data/Convert/ColorConv.cpp

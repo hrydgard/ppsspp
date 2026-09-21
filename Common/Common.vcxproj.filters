@@ -338,9 +338,6 @@
     <ClInclude Include="Data\Collections\Hashmaps.h">
       <Filter>Data\Collections</Filter>
     </ClInclude>
-    <ClInclude Include="Data\Collections\ThreadSafeList.h">
-      <Filter>Data\Collections</Filter>
-    </ClInclude>
     <ClInclude Include="GPU\Shader.h">
       <Filter>GPU</Filter>
     </ClInclude>

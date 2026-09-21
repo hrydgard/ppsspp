@@ -901,9 +901,6 @@
     <ClInclude Include="..\..\Common\Data\Collections\Hashmaps.h">
       <Filter>Data\Collections</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\Common\Data\Collections\ThreadSafeList.h">
-      <Filter>Data\Collections</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\Common\GPU\Shader.h">
       <Filter>GPU</Filter>
     </ClInclude>
