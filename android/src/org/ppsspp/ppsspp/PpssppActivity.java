@@ -891,6 +891,10 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			Log.w(TAG, "startRenderLoopThread - not starting thread, needs surface");
 			return;
 		}
+		if (instance != latestInstance) {
+			Log.w(TAG, "startRenderLoopThread - not starting thread, a newer activity has taken over");
+			return;
+		}
 
 		Log.w(TAG, "startRenderLoopThread: Starting thread");
 
@@ -899,6 +903,13 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	}
 
 	private synchronized void joinRenderLoopThread() {
+		if (instance != latestInstance) {
+			// There's only one render thread, and it's rendering to the newer activity's surface now.
+			// We get here when our surface goes away late, after a finish() and a quick relaunch.
+			Log.w(TAG, "joinRenderLoopThread - leaving the thread alone, a newer activity has taken over");
+			return;
+		}
+
 		// This will wait until the thread has exited.
 		Log.i(TAG, "requestExitRenderLoop");
 		requestExitRenderLoop();
