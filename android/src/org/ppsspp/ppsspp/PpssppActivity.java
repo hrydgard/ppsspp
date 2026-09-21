@@ -78,6 +78,11 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	// Allows us to skip a lot of initialization on secondary calls to onCreate.
 	private static boolean initialized = false;
 
+	// Bumped by every onCreate. An activity whose number is no longer the latest has been replaced
+	// by a newer one, which now owns the native state.
+	private static int latestInstance = 0;
+	private int instance;
+
 	// Lifecycle tracker, to detect erroneous states.
 	private final LifeCycle lifeCycle = new LifeCycle();
 
@@ -652,6 +657,8 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			return;
 		}
 
+		instance = ++latestInstance;
+
 		WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
 
 		// In case app launched from homescreen shortcut, get shortcut parameter
@@ -928,16 +935,25 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			mPowerSaveModeReceiver = null;
 		}
 
-		// TODO: Can we ensure that the GL thread has stopped rendering here?
-		// I've seen crashes that seem to indicate that sometimes it hasn't...
-		NativeApp.audioShutdown();
-		if (shuttingDown) {
-			Log.i(TAG, "in onDestroy, shutting down. Calling NativeApp.shutdown().");
-			NativeApp.shutdown();
-			unregisterCallbacks();
-			initialized = false;
+		if (instance != latestInstance) {
+			// After finish(), Android is free to deliver onDestroy late, after it has already created
+			// and resumed a new activity if the user was quick to relaunch. That one found initialized
+			// still set and adopted the native state, so shutting down here would pull the audio and
+			// the graphics context out from under it. It's not ours to shut down anymore.
+			// (recreate() is not affected, it destroys the old activity before creating the new one.)
+			Log.w(TAG, "in onDestroy, but a newer activity has taken over. Leaving the native side alone.");
 		} else {
-			Log.i(TAG, "in onDestroy, but not shutting down.");
+			// TODO: Can we ensure that the GL thread has stopped rendering here?
+			// I've seen crashes that seem to indicate that sometimes it hasn't...
+			NativeApp.audioShutdown();
+			if (shuttingDown) {
+				Log.i(TAG, "in onDestroy, shutting down. Calling NativeApp.shutdown().");
+				NativeApp.shutdown();
+				unregisterCallbacks();
+				initialized = false;
+			} else {
+				Log.i(TAG, "in onDestroy, but not shutting down.");
+			}
 		}
 		navigationCallbackView = null;
 
