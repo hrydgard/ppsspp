@@ -123,7 +123,13 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_PosS16Skin, &VertexDecoderJitCache::Jit_PosS16Skin},
 	{&VertexDecoder::Step_PosFloatSkin, &VertexDecoderJitCache::Jit_PosFloatSkin},
 
-	/*
+	{&VertexDecoder::Step_TcU8MorphToFloat, &VertexDecoderJitCache::Jit_TcU8MorphToFloat},
+	{&VertexDecoder::Step_TcU16MorphToFloat, &VertexDecoderJitCache::Jit_TcU16MorphToFloat},
+	{&VertexDecoder::Step_TcFloatMorph, &VertexDecoderJitCache::Jit_TcFloatMorph},
+	{&VertexDecoder::Step_TcU8PrescaleMorph, &VertexDecoderJitCache::Jit_TcU8PrescaleMorph},
+	{&VertexDecoder::Step_TcU16PrescaleMorph, &VertexDecoderJitCache::Jit_TcU16PrescaleMorph},
+	{&VertexDecoder::Step_TcFloatPrescaleMorph, &VertexDecoderJitCache::Jit_TcFloatPrescaleMorph},
+
 	{&VertexDecoder::Step_NormalS8Morph, &VertexDecoderJitCache::Jit_NormalS8Morph},
 	{&VertexDecoder::Step_NormalS16Morph, &VertexDecoderJitCache::Jit_NormalS16Morph},
 	{&VertexDecoder::Step_NormalFloatMorph, &VertexDecoderJitCache::Jit_NormalFloatMorph},
@@ -136,7 +142,6 @@ static const JitLookup jitLookup[] = {
 	{&VertexDecoder::Step_Color4444Morph, &VertexDecoderJitCache::Jit_Color4444Morph},
 	{&VertexDecoder::Step_Color565Morph, &VertexDecoderJitCache::Jit_Color565Morph},
 	{&VertexDecoder::Step_Color5551Morph, &VertexDecoderJitCache::Jit_Color5551Morph},
-	*/
 };
 
 
@@ -156,7 +161,10 @@ JittedVertexDecoder VertexDecoderJitCache::Compile(const VertexDecoder &dec, int
 	for (int i = 0; i < dec.numSteps_; i++) {
 		if (dec.steps_[i] == &VertexDecoder::Step_TcU8Prescale ||
 			dec.steps_[i] == &VertexDecoder::Step_TcU16Prescale ||
-			dec.steps_[i] == &VertexDecoder::Step_TcFloatPrescale) {
+			dec.steps_[i] == &VertexDecoder::Step_TcFloatPrescale ||
+			dec.steps_[i] == &VertexDecoder::Step_TcU8PrescaleMorph ||
+			dec.steps_[i] == &VertexDecoder::Step_TcU16PrescaleMorph ||
+			dec.steps_[i] == &VertexDecoder::Step_TcFloatPrescaleMorph) {
 			prescaleStep = true;
 		}
 		if (dec.steps_[i] == &VertexDecoder::Step_WeightsU8Skin ||
@@ -753,6 +761,222 @@ void VertexDecoderJitCache::Jit_WriteMatrixMul(int outOff, bool pos) {
 		fp.FADD(32, accNEON, accNEON, Q7);
 	}
 	fp.STUR(128, accNEON, dstReg, outOff);
+}
+
+// Morph. Each step sums its attribute over the morph frames exactly the way its step function
+// does, so the results match bit for bit. Where that step is plain C++, the compiler fuses its
+// multiply-adds on arm64, so we use FMLA; where it's CrossSIMD (separate multiply and add
+// intrinsics), we don't.
+//
+// Registers: Q6 is the sum, Q2 the frame's data, Q3 its weight, and Q4, Q5 constants. That's
+// part of the skin matrix (Q4-Q7), which is fine: the *MorphSkin steps aren't JITed, so no decoder
+// with a morph step here ever uses that matrix. Q8-Q15 would need saving, Q16+ hold bones.
+static const ARM64Reg morphSumQ = Q6;
+static const ARM64Reg morphSumD = D6;
+// Walks the morph frames, since their offsets can be past what LDUR reaches.
+static const ARM64Reg morphFrameReg = X7;
+
+void VertexDecoderJitCache::Jit_MorphSum(MorphInput input, int srcoff, int fracBits, bool fused) {
+	MOVP2R(tempRegPtr, &gstate_c.morphWeights[0]);
+	ADDI2R(morphFrameReg, srcReg, srcoff, scratchReg);
+	fp.MOVI(32, morphSumQ, 0);
+	for (int n = 0; n < dec_->morphcount; n++) {
+		if (n > 0) {
+			ADDI2R(morphFrameReg, morphFrameReg, dec_->onesize_, scratchReg);
+		}
+		// Scaling by a power of two commutes with rounding, so doing it on load (the fixed point
+		// conversions) instead of after the sum like some of the steps gives the same result.
+		switch (input) {
+		case MorphInput::S8x3:
+			fp.LDUR(32, S2, morphFrameReg, 0);
+			fp.SXTL(8, D2, S2);
+			fp.SXTL(16, Q2, D2);
+			break;
+		case MorphInput::S16x3:
+			fp.LDUR(64, D2, morphFrameReg, 0);
+			fp.SXTL(16, Q2, D2);
+			break;
+		case MorphInput::U8x2:
+			fp.LDUR(16, D2, morphFrameReg, 0);
+			fp.UXTL(8, Q2, D2);
+			fp.UXTL(16, Q2, D2);
+			break;
+		case MorphInput::U16x2:
+			fp.LDUR(32, D2, morphFrameReg, 0);
+			fp.UXTL(16, Q2, D2);
+			break;
+		case MorphInput::U8x4:
+			fp.LDUR(32, S2, morphFrameReg, 0);
+			fp.UXTL(8, Q2, D2);
+			fp.UXTL(16, Q2, D2);
+			break;
+		case MorphInput::F32x2:
+			fp.LDUR(64, D2, morphFrameReg, 0);
+			break;
+		case MorphInput::F32x3:
+			fp.LDUR(128, Q2, morphFrameReg, 0);
+			break;
+		}
+		if (input == MorphInput::S8x3 || input == MorphInput::S16x3) {
+			if (fracBits)
+				fp.SCVTF(32, Q2, Q2, fracBits);
+			else
+				fp.SCVTF(32, Q2, Q2);
+		} else if (input != MorphInput::F32x2 && input != MorphInput::F32x3) {
+			if (fracBits)
+				fp.UCVTF(32, Q2, Q2, fracBits);
+			else
+				fp.UCVTF(32, Q2, Q2);
+		}
+
+		fp.LDR(32, INDEX_UNSIGNED, S3, tempRegPtr, n * 4);
+		if (fused) {
+			fp.FMLA(32, morphSumQ, Q2, Q3, 0);
+		} else {
+			fp.FMUL(32, Q2, Q2, Q3, 0);
+			fp.FADD(32, morphSumQ, morphSumQ, Q2);
+		}
+	}
+}
+
+void VertexDecoderJitCache::Jit_TcU8MorphToFloat() {
+	Jit_MorphSum(MorphInput::U8x2, dec_->tcoff, 7, true);
+	fp.STUR(64, morphSumD, dstReg, dec_->decFmt.uvoff);
+}
+
+void VertexDecoderJitCache::Jit_TcU16MorphToFloat() {
+	Jit_MorphSum(MorphInput::U16x2, dec_->tcoff, 15, true);
+	fp.STUR(64, morphSumD, dstReg, dec_->decFmt.uvoff);
+}
+
+void VertexDecoderJitCache::Jit_TcFloatMorph() {
+	Jit_MorphSum(MorphInput::F32x2, dec_->tcoff, 0, true);
+	fp.STUR(64, morphSumD, dstReg, dec_->decFmt.uvoff);
+}
+
+// The steps round sum * scale before applying the 1/128 (or 1/32768) and adding the offset. With the
+// fraction already applied to the sum, multiplying by the scale gives that same rounding, and the
+// offset is then added separately.
+void VertexDecoderJitCache::Jit_TcU8PrescaleMorph() {
+	Jit_MorphSum(MorphInput::U8x2, dec_->tcoff, 7, true);
+	fp.FMUL(32, morphSumD, morphSumD, neonUVScaleReg);
+	fp.FADD(32, morphSumD, morphSumD, neonUVOffsetReg);
+	fp.STUR(64, morphSumD, dstReg, dec_->decFmt.uvoff);
+}
+
+void VertexDecoderJitCache::Jit_TcU16PrescaleMorph() {
+	Jit_MorphSum(MorphInput::U16x2, dec_->tcoff, 15, true);
+	fp.FMUL(32, morphSumD, morphSumD, neonUVScaleReg);
+	fp.FADD(32, morphSumD, morphSumD, neonUVOffsetReg);
+	fp.STUR(64, morphSumD, dstReg, dec_->decFmt.uvoff);
+}
+
+void VertexDecoderJitCache::Jit_TcFloatPrescaleMorph() {
+	Jit_MorphSum(MorphInput::F32x2, dec_->tcoff, 0, true);
+	fp.MOV(neonScratchRegD, neonUVOffsetReg);
+	fp.FMLA(32, neonScratchRegD, morphSumD, neonUVScaleReg);
+	fp.STUR(64, neonScratchRegD, dstReg, dec_->decFmt.uvoff);
+}
+
+void VertexDecoderJitCache::Jit_NormalS8Morph() {
+	Jit_MorphSum(MorphInput::S8x3, dec_->nrmoff, 7, false);
+	fp.STUR(128, morphSumQ, dstReg, dec_->decFmt.nrmoff);
+}
+
+void VertexDecoderJitCache::Jit_NormalS16Morph() {
+	Jit_MorphSum(MorphInput::S16x3, dec_->nrmoff, 15, true);
+	fp.STUR(128, morphSumQ, dstReg, dec_->decFmt.nrmoff);
+}
+
+void VertexDecoderJitCache::Jit_NormalFloatMorph() {
+	Jit_MorphSum(MorphInput::F32x3, dec_->nrmoff, 0, false);
+	fp.STUR(128, morphSumQ, dstReg, dec_->decFmt.nrmoff);
+}
+
+void VertexDecoderJitCache::Jit_PosS8Morph() {
+	Jit_MorphSum(MorphInput::S8x3, dec_->posoff, 7, true);
+	fp.STUR(128, morphSumQ, dstReg, dec_->decFmt.posoff);
+}
+
+void VertexDecoderJitCache::Jit_PosS16Morph() {
+	Jit_MorphSum(MorphInput::S16x3, dec_->posoff, 15, false);
+	fp.STUR(128, morphSumQ, dstReg, dec_->decFmt.posoff);
+}
+
+void VertexDecoderJitCache::Jit_PosFloatMorph() {
+	Jit_MorphSum(MorphInput::F32x3, dec_->posoff, 0, true);
+	fp.STUR(128, morphSumQ, dstReg, dec_->decFmt.posoff);
+}
+
+// Truncates the RGBA sum to bytes and stores it, like clamp_u8((int)x) in the steps.
+void VertexDecoderJitCache::Jit_WriteMorphColorArm64(bool checkAlpha, bool forceFullAlpha) {
+	fp.FCVTZU(32, morphSumQ, morphSumQ);
+	fp.UQXTN(16, morphSumD, morphSumQ);
+	fp.UQXTN(8, morphSumD, morphSumQ);
+	fp.UMOV(32, tempReg1, morphSumQ, 0);
+	if (forceFullAlpha) {
+		ORRI2R(tempReg1, tempReg1, 0xFF000000, scratchReg);
+	} else if (checkAlpha) {
+		// Or any non-set bits into alphaNonFullReg. This way it's non-zero if not full.
+		ORN(alphaNonFullReg, alphaNonFullReg, tempReg1, ArithOption(tempReg1, ST_ASR, 24));
+	}
+	STR(INDEX_UNSIGNED, tempReg1, dstReg, dec_->decFmt.c0off);
+}
+
+void VertexDecoderJitCache::Jit_Color8888Morph() {
+	Jit_MorphSum(MorphInput::U8x4, dec_->coloff, 0, false);
+	Jit_WriteMorphColorArm64(true, false);
+}
+
+// The steps compute w * c * k per channel and add that to the sum, which the compiler fuses. w * c
+// is exact, so a multiply followed by a fused multiply-add gives the same result. Instead of shifting
+// each channel down, the masks leave it in place, and k is divided by the same power of two, which
+// keeps w * c exact and the product with k unchanged.
+struct alignas(16) ColorMorphConstants {
+	u32 masks[4];
+	float scales[4];
+};
+static const ColorMorphConstants color565Morph = {
+	{ 0x001F, 0x07E0, 0xF800, 0 },
+	{ 255.0f / 31.0f, (255.0f / 63.0f) / 32.0f, (255.0f / 31.0f) / 2048.0f, 0.0f },
+};
+static const ColorMorphConstants color5551Morph = {
+	{ 0x001F, 0x03E0, 0x7C00, 0x8000 },
+	{ 255.0f / 31.0f, (255.0f / 31.0f) / 32.0f, (255.0f / 31.0f) / 1024.0f, 255.0f / 32768.0f },
+};
+static const ColorMorphConstants color4444Morph = {
+	{ 0x000F, 0x00F0, 0x0F00, 0xF000 },
+	{ 255.0f / 15.0f, (255.0f / 15.0f) / 16.0f, (255.0f / 15.0f) / 256.0f, (255.0f / 15.0f) / 4096.0f },
+};
+
+void VertexDecoderJitCache::Jit_ColorMorph16(const void *constants, bool fullAlpha) {
+	MOVP2R(scratchReg64, constants);
+	fp.LDR(128, INDEX_UNSIGNED, Q4, scratchReg64, offsetof(ColorMorphConstants, masks));
+	fp.LDR(128, INDEX_UNSIGNED, Q5, scratchReg64, offsetof(ColorMorphConstants, scales));
+	MOVP2R(tempRegPtr, &gstate_c.morphWeights[0]);
+	fp.MOVI(32, morphSumQ, 0);
+	for (int n = 0; n < dec_->morphcount; n++) {
+		LDRH(INDEX_UNSIGNED, tempReg2, srcReg, dec_->onesize_ * n + dec_->coloff);
+		fp.DUP(32, Q2, tempReg2);
+		fp.AND(Q2, Q2, Q4);
+		fp.UCVTF(32, Q2, Q2);
+		fp.LDR(32, INDEX_UNSIGNED, S3, tempRegPtr, n * 4);
+		fp.FMUL(32, Q2, Q2, Q3, 0);
+		fp.FMLA(32, morphSumQ, Q2, Q5);
+	}
+	Jit_WriteMorphColorArm64(!fullAlpha, fullAlpha);
+}
+
+void VertexDecoderJitCache::Jit_Color565Morph() {
+	Jit_ColorMorph16(&color565Morph, true);
+}
+
+void VertexDecoderJitCache::Jit_Color5551Morph() {
+	Jit_ColorMorph16(&color5551Morph, false);
+}
+
+void VertexDecoderJitCache::Jit_Color4444Morph() {
+	Jit_ColorMorph16(&color4444Morph, false);
 }
 
 #endif // PPSSPP_ARCH(ARM64)

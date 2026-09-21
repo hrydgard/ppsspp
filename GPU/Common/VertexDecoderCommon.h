@@ -421,6 +421,10 @@ private:
 
 	const VertexDecoder *dec_ = nullptr;
 #if PPSSPP_ARCH(ARM64)
+	enum class MorphInput { S8x3, S16x3, U8x2, U16x2, U8x4, F32x2, F32x3 };
+	void Jit_MorphSum(MorphInput input, int srcoff, int fracBits, bool fused);
+	void Jit_ColorMorph16(const void *constants, bool fullAlpha);
+	void Jit_WriteMorphColorArm64(bool checkAlpha, bool forceFullAlpha);
 	Arm64Gen::ARM64FloatEmitter fp;
 #endif
 };
