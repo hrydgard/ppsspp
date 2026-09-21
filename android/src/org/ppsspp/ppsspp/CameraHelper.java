@@ -181,8 +181,24 @@ class CameraHelper {
 		mTargetHeight = height;
 	}
 
+	// Nobody else can use the camera until we release it, including ourselves the next time.
+	private void releaseCamera() {
+		if (mCamera != null) {
+			try {
+				mCamera.setPreviewCallback(null);
+				mCamera.stopPreview();
+			} catch (Exception e) {
+				Log.e(TAG, "Exception stopping the preview: " + e);
+			}
+			mCamera.release();
+			mCamera = null;
+		}
+	}
+
 	void startCamera() {
 		try {
+			// In case of a second start without a stop.
+			releaseCamera();
 			int cameraId = NativeApp.getSelectedCamera();
 			Log.d(TAG, "startCamera [id=" + cameraId + ", res=" + mTargetWidth + "x" + mTargetHeight + "]");
 
@@ -263,16 +279,16 @@ class CameraHelper {
 			mIsCameraRunning = true;
 		} catch (Exception e) {
 			Log.e(TAG, "Cannot start camera: " + e);
+			// We may have gotten as far as opening it. mIsCameraRunning is still false, so pause()
+			// would never release it.
+			releaseCamera();
 		}
 	}
 
 	void pause() {
 		if (mIsCameraRunning && mCamera != null) {
 			Log.d(TAG, "pause");
-			mCamera.setPreviewCallback(null);
-			mCamera.stopPreview();
-			mCamera.release();
-			mCamera = null;
+			releaseCamera();
 		}
 	}
 
