@@ -1010,6 +1010,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			Log.i(TAG, "Calling mCameraHelper.pause");
 			mCameraHelper.pause();
 		}
+		if (mLocationHelper != null) {
+			mLocationHelper.pause();
+		}
 		Log.i(TAG, "onPause end");
 	}
 
@@ -1027,6 +1030,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 
 		if (mCameraHelper != null) {
 			mCameraHelper.resume();
+		}
+		if (mLocationHelper != null) {
+			mLocationHelper.resume();
 		}
 
 		updateAudioFocus(this.audioManager, this.audioFocusChangeListener);
