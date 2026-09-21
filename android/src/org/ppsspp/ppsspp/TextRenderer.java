@@ -18,6 +18,8 @@ public class TextRenderer {
 	private static int idGen = 1;
 
 	private static final HashMap<java.lang.Integer, Typeface> fontMap = new HashMap<>();
+	// The native side asks again for every font each time graphics are brought up (every resume).
+	private static final HashMap<String, java.lang.Integer> fontIds = new HashMap<>();
 
 	private static boolean highContrastFontsEnabled = false;
 
@@ -29,6 +31,10 @@ public class TextRenderer {
 	@Keep
 	public static int allocFont(Context ctx, String ttfFile) {
 		try {
+			java.lang.Integer existing = fontIds.get(ttfFile);
+			if (existing != null) {
+				return existing;
+			}
 			Typeface typeFace = Typeface.createFromAsset(ctx.getAssets(), ttfFile);
 			if (typeFace != null) {
 				Log.i(TAG, "Successfully loaded typeface from " + ttfFile);
@@ -37,6 +43,7 @@ public class TextRenderer {
 			}
 			int id = idGen++;
 			fontMap.put(id, typeFace);
+			fontIds.put(ttfFile, id);
 			return id;
 		} catch (Exception e) {
 			Log.e(TAG, "Exception when loading typeface. shouldn't happen but is reported. We just fall back." + e);
@@ -47,6 +54,7 @@ public class TextRenderer {
 	@Keep
 	public static void freeAllFonts() {
 		fontMap.clear();
+		fontIds.clear();
 	}
 
 	public static void init(Context ctx) {
