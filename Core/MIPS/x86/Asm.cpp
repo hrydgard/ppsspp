@@ -194,7 +194,8 @@ void Jit::GenerateFixedCode(JitOptions &jo) {
 
 			//Ok, no block, let's jit
 			RestoreRoundingMode(true);
-			ABI_CallFunction(&MIPSComp::JitAt);
+			LEA(PTRBITS, ECX, MDisp(CTXREG, -(s32)offsetof(MIPSState, f[0])));  // Adjust to get the real pointer.
+			ABI_CallFunctionR(reinterpret_cast<void *>(&MIPSComp::JitAt), ECX);
 			ApplyRoundingMode(true);
 			JMP(dispatcherNoCheck, true); // Let's just dispatch again, we'll enter the block since we know it's there.
 

@@ -265,7 +265,8 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 			// No block found, let's jit.  We don't need to save static regs, they're all callee saved.
 			RestoreRoundingMode(true);
 			WriteDebugProfilerStatus(IRProfilerStatus::COMPILING);
-			ABI_CallFunction(&MIPSComp::JitAt);
+			LEA(PTRBITS, ECX, MDisp(CTXREG, -(s32)offsetof(MIPSState, f[0])));
+			ABI_CallFunctionR(reinterpret_cast<void *>(&MIPSComp::JitAt), ECX);
 			WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 			ApplyRoundingMode(true);
 			// Let's just dispatch again, we'll enter the block since we know it's there.

@@ -195,7 +195,7 @@ void RiscVJitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	// No block found, let's jit.  We don't need to save static regs, they're all callee saved.
 	RestoreRoundingMode(true);
 	WriteDebugProfilerStatus(IRProfilerStatus::COMPILING);
-	QuickCallFunction(&MIPSComp::JitAt, X7);
+	QuickCallFunctionR(&MIPSComp::JitAt, CTXREG, X7);
 	WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 	ApplyRoundingMode(true);
 

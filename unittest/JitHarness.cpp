@@ -54,7 +54,7 @@ double ExecCPUTest(bool clearCache = true) {
 
 	if (MIPSComp::jit) {
 		currentMIPS->pc = PSP_GetUserMemoryBase();
-		MIPSComp::JitAt();
+		MIPSComp::JitAt(currentMIPS);
 	}
 
 	double st = time_now_d();
