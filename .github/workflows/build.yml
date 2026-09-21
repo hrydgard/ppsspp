@@ -285,14 +285,14 @@ jobs:
           extra: loongarch64
           cc: gcc
           cxx: g++
-          args: ./b.sh --loongarch64 PPSSPPHeadless
+          args: ./b.sh --loongarch64 --unittest PPSSPPHeadless PPSSPPUnitTest
           id: loongarch64
 
         - os: ubuntu-26.04
           extra: riscv64
           cc: gcc
           cxx: g++
-          args: ./b.sh --riscv64 PPSSPPHeadless
+          args: ./b.sh --riscv64 --unittest PPSSPPHeadless PPSSPPUnitTest
           id: riscv64
 
         - os: macos-latest
@@ -347,7 +347,7 @@ jobs:
       if: matrix.extra == 'loongarch64' || matrix.extra == 'riscv64'
       run: |
         sudo apt-get update -y -qq
-        sudo apt-get install -y gcc-14-${{ matrix.extra }}-linux-gnu g++-14-${{ matrix.extra }}-linux-gnu binutils-${{ matrix.extra }}-linux-gnu libgl-dev libglu1-mesa-dev
+        sudo apt-get install -y gcc-14-${{ matrix.extra }}-linux-gnu g++-14-${{ matrix.extra }}-linux-gnu binutils-${{ matrix.extra }}-linux-gnu libgl-dev libglu1-mesa-dev qemu-user
         sudo cmake/scripts/setup-cross.sh ${{ matrix.extra }}
 
     - name: Install iOS dependencies
@@ -399,6 +399,15 @@ jobs:
           export CCACHE_COMPILERCHECK=content
         fi
         ${{ matrix.args }}
+
+    # These targets have no runner of their own, so the unit tests run under emulation. It's the
+    # only coverage the loongarch64 and riscv64 JITs get - a compile is not much of a test for a
+    # code generator.
+    - name: Execute unit tests under qemu
+      if: matrix.extra == 'loongarch64' || matrix.extra == 'riscv64'
+      run: |
+        qemu-${{ matrix.extra }} -L /usr/${{ matrix.extra }}-linux-gnu \
+          build-${{ matrix.extra }}/PPSSPPUnitTest all
 
     - name: Package build
       if: matrix.extra == 'test' || matrix.id == 'ios'
