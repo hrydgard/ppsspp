@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <iterator>
 #include <list>
 #include <map>
 #include <vector>
@@ -67,7 +68,8 @@ public:
 
 	bool run(PendingInterrupt& pend) override {
 		if (ge_pending_cb.empty()) {
-			ERROR_LOG_REPORT(Log::sceGe, "Unable to run GE interrupt: no pending interrupt");
+			// sceGeBreak(1) got there first.  If interrupts were off, this one had already been raised.
+			DEBUG_LOG(Log::sceGe, "Ignoring GE interrupt, nothing pending anymore");
 			return false;
 		}
 
@@ -289,6 +291,15 @@ bool __GeTriggerSync(GPUSyncType type, int id, u64 atTicks) {
 	}
 	CoreTiming::ScheduleEvent(future, geSyncEvent, userdata);
 	return true;
+}
+
+void __GeClearPendingInterrupts(bool interruptRunning) {
+	if (interruptRunning && !ge_pending_cb.empty()) {
+		ge_pending_cb.erase(std::next(ge_pending_cb.begin()), ge_pending_cb.end());
+	} else {
+		ge_pending_cb.clear();
+	}
+	CoreTiming::RemoveEvent(geInterruptEvent);
 }
 
 bool __GeTriggerInterrupt(int listid, u32 pc, u64 atTicks) {

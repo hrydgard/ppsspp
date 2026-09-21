@@ -204,6 +204,7 @@ tests_good = [
   "gpu/ge/context",
   "gpu/ge/edram",
   "gpu/ge/enqueueparam",
+  "gpu/ge/intrsuspend",
   "gpu/ge/queue",
   "gpu/ge/queue2",
   "gpu/primitives/indices",
@@ -478,6 +479,8 @@ tests_next = [
   "gpu/reflection/reflection",
   "gpu/rendertarget/rendertarget",
   "gpu/signals/continue",
+  # Old SDK: a stall update from inside a SUSPEND handler is remembered, but not applied to the GE. See docs/sceGe.md.
+  "gpu/signals/handlercalls",
   "gpu/signals/jumps",
   "gpu/signals/simple",
   "gpu/simple/simple",

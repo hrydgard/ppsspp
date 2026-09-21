@@ -52,6 +52,9 @@ void __GeDoState(PointerWrap &p);
 void __GeShutdown();
 bool __GeTriggerSync(GPUSyncType waitType, int id, u64 atTicks);
 bool __GeTriggerInterrupt(int listid, u32 pc, u64 atTicks);
+// Forgets the interrupts that haven't been delivered yet, as resetting the GE does.
+// The one being handled right now, if any, is still needed when its handler returns.
+void __GeClearPendingInterrupts(bool interruptRunning);
 void __GeWaitCurrentThread(GPUSyncType type, SceUID waitId, const char *reason);
 bool __GeTriggerWait(GPUSyncType type, SceUID waitId);
 

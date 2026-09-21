@@ -579,7 +579,11 @@ u32 GPUCommon::Break(int mode) {
 		{
 			dls[i].state = PSP_GE_DL_STATE_NONE;
 			dls[i].signal = PSP_GE_SIGNAL_NONE;
+			dls[i].pendingInterrupt = false;
 		}
+		// This resets the GE, and an interrupt that hasn't been taken yet goes with it: no callback
+		// for a list that reached its FINISH just before.
+		__GeClearPendingInterrupts(interruptRunning);
 
 		nextListID = 0;
 		currentList = NULL;
@@ -1487,7 +1491,7 @@ struct DisplayList_v2 {
 };
 
 void GPUCommon::DoState(PointerWrap &p) {
-	auto s = p.Section("GPUCommon", 1, 6);
+	auto s = p.Section("GPUCommon", 1, 7);
 	if (!s)
 		return;
 
@@ -1544,6 +1548,17 @@ void GPUCommon::DoState(PointerWrap &p) {
 			dls[i].stackAddr = 0;
 		}
 	}
+	if (s < 7 && p.mode == PointerWrap::MODE_READ) {
+		// We didn't use to mark a PAUSE signal as delivered, which sceGeContinue now goes by.
+		// Back then, a list was only PAUSED with that signal set once it had reached its FINISH,
+		// and if the interrupt for that is still to come, it'll take care of this.
+		for (DisplayList &dl : dls) {
+			if (dl.state == PSP_GE_DL_STATE_PAUSED && dl.signal == PSP_GE_SIGNAL_HANDLER_PAUSE && !dl.pendingInterrupt) {
+				dl.signal = PSP_GE_SIGNAL_HANDLER_SUSPEND;
+			}
+		}
+	}
+
 	int currentID = 0;
 	if (currentList != nullptr) {
 		currentID = (int)(currentList - &dls[0]);
