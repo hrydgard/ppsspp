@@ -1223,7 +1223,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_mouse(
 		}
 		input.id = 0;
 	}
-	INFO_LOG(Log::System, "New-style mouse event: %f %f %d %d -> x: %f y: %f buttons: %d flags: %04x", x, y, button, action, input.x, input.y, input.buttons, input.flags);
+	VERBOSE_LOG(Log::System, "New-style mouse event: %f %f %d %d -> x: %f y: %f buttons: %d flags: %04x", x, y, button, action, input.x, input.y, input.buttons, input.flags);
 	NativeTouch(input);
 
 	// Also send mouse button key events, for binding.

@@ -107,7 +107,7 @@ public class NativeApp {
 		if ((ev.getSource() & InputDevice.SOURCE_MOUSE) == InputDevice.SOURCE_MOUSE) {
 			float dx = ev.getAxisValue(MotionEvent.AXIS_RELATIVE_X);
 			float dy = ev.getAxisValue(MotionEvent.AXIS_RELATIVE_Y);
-			Log.i(TAG, "Mouse delta: " + dx + " " + dy);
+			// Log.i(TAG, "Mouse delta: " + dx + " " + dy);
 			NativeApp.mouseDelta(dx, dy);
 		}
 	}
@@ -117,7 +117,7 @@ public class NativeApp {
 	}
 
 	private static void onMouseEventMotion(final MotionEvent ev) {
-		Log.i(TAG, "motion mouse event");
+		// Log.i(TAG, "motion mouse event");
 		switch (ev.getActionMasked()) {
 			case MotionEvent.ACTION_DOWN: {
 				if (PpssppActivity.useModernMouseEvents) {
