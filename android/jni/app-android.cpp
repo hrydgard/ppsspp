@@ -897,6 +897,8 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 
 	if (renderer_inited && graphicsContext && graphicsContext->NeedsSeparateEmuThread()) {
 		// Only used in Java EGL path.
+		// The join drains the render queue right here, on a thread without a GL context.
+		graphicsContext->NotifyContextLost();
 		INFO_LOG(Log::System, "Joining emuthread.");
 		EmuThread_Join(graphicsContext, g_emuThread);
 
@@ -965,6 +967,9 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * e
 		// but the only mechanism for handling lost devices seems to be that onSurfaceCreated is called again,
 		// which ends up calling displayInit.
 		INFO_LOG(Log::G3D, "NativeApp.displayInit(): Second time, joining the emuthread and starting it up again.");
+		// We only get here with a fresh EGL context. What's left in the render queue refers to objects
+		// from the old one, so it mustn't be run against this one when the join drains it.
+		graphicsContext->NotifyContextLost();
 		EmuThread_Join(graphicsContext, g_emuThread);
 
 		graphicsContext->ShutdownSurface();

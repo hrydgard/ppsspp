@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <thread>
 #include <unordered_map>
 #include <vector>
@@ -921,7 +922,8 @@ private:
 	bool syncDone_ = false;
 
 	GLDeleter deleter_;
-	bool skipGLCalls_ = false;
+	// Set from either thread, read on the render thread.
+	std::atomic<bool> skipGLCalls_{false};
 
 	int curFrame_ = 0;
 

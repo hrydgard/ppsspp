@@ -54,6 +54,10 @@ public:
 	// Called from the emu thread, so be ready for that.
 	virtual void NotifyEmuThreadExit() {}
 
+	// The API context that queued-up commands were recorded against is gone (or isn't current on the
+	// thread about to drain them), so they must not be executed for real. Only meaningful on Android GL.
+	virtual void NotifyContextLost() {}
+
 	// Useful for checks that need to be performed every frame.
 	// Should strive to get rid of these.
 	virtual void Poll() {}
