@@ -15,7 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <iterator>
 #include <list>
 #include <map>
 #include <vector>
@@ -293,13 +292,19 @@ bool __GeTriggerSync(GPUSyncType type, int id, u64 atTicks) {
 	return true;
 }
 
-void __GeClearPendingInterrupts(bool interruptRunning) {
-	if (interruptRunning && !ge_pending_cb.empty()) {
-		ge_pending_cb.erase(std::next(ge_pending_cb.begin()), ge_pending_cb.end());
-	} else {
-		ge_pending_cb.clear();
+void __GeCancelRaisedInterrupts(bool interruptRunning) {
+	int count = __CancelRaisedInterrupts(PSP_GE_INTR);
+	// They're raised in the order they were triggered, so these are the oldest ones - after the one
+	// being handled right now, if any, which is still needed when its handler returns.
+	auto it = ge_pending_cb.begin();
+	if (interruptRunning && it != ge_pending_cb.end())
+		++it;
+	for (; count > 0 && it != ge_pending_cb.end(); --count) {
+		DisplayList *dl = gpu->getList(it->listid);
+		if (dl)
+			dl->pendingInterrupt = false;
+		it = ge_pending_cb.erase(it);
 	}
-	CoreTiming::RemoveEvent(geInterruptEvent);
 }
 
 bool __GeTriggerInterrupt(int listid, u32 pc, u64 atTicks) {

@@ -402,6 +402,23 @@ void __TriggerInterrupt(int type, PSPInterrupt intno, int subintr)
 	}
 }
 
+int __CancelRaisedInterrupts(PSPInterrupt intno) {
+	int count = 0;
+	auto it = pendingInterrupts.begin();
+	// The one at the front is what's running, if anything is, and gets popped when it returns.
+	if (inInterrupt && it != pendingInterrupts.end())
+		++it;
+	while (it != pendingInterrupts.end()) {
+		if (it->intr == intno) {
+			it = pendingInterrupts.erase(it);
+			count++;
+		} else {
+			++it;
+		}
+	}
+	return count;
+}
+
 void __KernelReturnFromInterrupt()
 {
 	VERBOSE_LOG(Log::sceIntc, "Left interrupt handler at %08x", currentMIPS->pc);

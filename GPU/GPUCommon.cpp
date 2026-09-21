@@ -89,9 +89,14 @@ void GPUCommon::Reinitialize() {
 		dls[i].state = PSP_GE_DL_STATE_NONE;
 		dls[i].waitUntilTicks = 0;
 	}
+	// This is what sceKernelLoadExec gets, and whatever the old executable still had queued goes with
+	// it.  Left behind, those ids would now be lists with no state and a pc of 0, waiting their turn
+	// behind the first list of the new executable.  Crazy Taxi: Fare Wars starts its games this way, #19894.
+	dlQueue.clear();
 
 	nextListID = 0;
 	currentList = nullptr;
+	interruptRunning = false;
 	isbreak = false;
 	drawCompleteTicks = 0;
 	busyTicks = 0;
@@ -579,11 +584,11 @@ u32 GPUCommon::Break(int mode) {
 		{
 			dls[i].state = PSP_GE_DL_STATE_NONE;
 			dls[i].signal = PSP_GE_SIGNAL_NONE;
-			dls[i].pendingInterrupt = false;
 		}
-		// This resets the GE, and an interrupt that hasn't been taken yet goes with it: no callback
-		// for a list that reached its FINISH just before.
-		__GeClearPendingInterrupts(interruptRunning);
+		// This resets the GE, and an interrupt that was raised but couldn't be taken yet goes with it:
+		// no callback for a list that reached its FINISH with interrupts off.  One that we just haven't
+		// got around to raising is another matter, the game would have had that callback long ago.
+		__GeCancelRaisedInterrupts(interruptRunning);
 
 		nextListID = 0;
 		currentList = NULL;
@@ -790,13 +795,6 @@ DLResult GPUCommon::ProcessDLQueue() {
 			}
 		}
 
-		// Temporary workaround for Crazy Taxi, see #19894
-		if (list.state == PSP_GE_DL_STATE_NONE) {
-			WARN_LOG(Log::G3D, "Discarding display list with state NONE (pc=%08x). This is odd.", list.pc);
-			dlQueue.erase(std::remove(dlQueue.begin(), dlQueue.end(), listIndex), dlQueue.end());
-			return DLResult::Done;
-		}
-
 		DEBUG_LOG(Log::G3D, "%s DL execution at %08x - stall = %08x (startingTicks=%lld)",
 			list.pc == list.startpc ? "Starting" : "Resuming", list.pc, list.stall, startingTicks);
 
@@ -812,8 +810,11 @@ DLResult GPUCommon::ProcessDLQueue() {
 			gstate_c.offsetAddr = list.offsetAddr;
 
 			if (!Memory::IsValidAddress(list.pc)) {
-				ERROR_LOG(Log::G3D, "DL PC = %08x WTF!!!!", list.pc);
-				return DLResult::Done;
+				// Nothing to execute here, and leaving it at the head of the queue would block everything
+				// behind it for good.  Treat it like a list that ran into an error.
+				ERROR_LOG(Log::G3D, "Display list %d has a bad pc %08x (state %d), dropping it", listIndex, list.pc, (int)list.state);
+				dlQueue.erase(std::remove(dlQueue.begin(), dlQueue.end(), listIndex), dlQueue.end());
+				continue;
 			}
 
 			cycleLastPC = list.pc;
