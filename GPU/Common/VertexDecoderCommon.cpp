@@ -357,7 +357,9 @@ void VertexDecoder::Step_TcFloatThrough(const VertexDecoder *dec, const u8 *ptr,
 // contraction setting: clang contracts this by default and MSVC doesn't, so relying on it makes the
 // steps disagree with the JIT on Windows on ARM only.
 static inline float PrescaleUV(float value, float scale, float offset) {
-#if PPSSPP_ARCH(ARM64_NEON)
+#if PPSSPP_ARCH(ARM64_NEON) || PPSSPP_ARCH(RISCV64) || PPSSPP_ARCH(LOONGARCH64)
+	// The riscv64 and loongarch64 JITs fuse this too - and on those the compiler would contract
+	// the plain expression below into an FMA anyway, so say so rather than leaving it to chance.
 	return fmaf(value, scale, offset);
 #else
 	// Safe as long as x86 stays on the SSE2 baseline, which has nothing to contract into. A build
