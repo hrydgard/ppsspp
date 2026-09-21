@@ -1349,15 +1349,34 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessageFromJava(JNI
 			return;
 		}
 		INFO_LOG(Log::System, "shortcutParam received: %s", prm.c_str());
-		
-		prm = StripQuotes(prm);
-		// NOTE: The parameter can be a file:// URL, which we need to take care of here. Similar to in NativeApp.cpp, search for file://
-		if (startsWith(prm, "file:///")) {
-			std::string param = prm;
-			prm = UriDecode(prm.substr(7));
-			INFO_LOG(Log::IO, "Decoding '%s' to '%s'", param.c_str(), prm.c_str());
+
+		// This is a command line, the same kind NativeApp.init gets: a quoted path from a shortcut or a
+		// file association, or raw arguments from the Args extra. We're already up and running, so any
+		// options in it are not applied. They still have to be parsed, to tell them (and their
+		// arguments) from the game to boot.
+		std::vector<std::string> parts;
+		parse_args(parts, prm);
+		std::vector<const char *> args;
+		args.push_back("ppsspp");
+		for (const auto &part : parts) {
+			args.push_back(part.c_str());
 		}
-		System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, StripQuotes(prm));
+		CommandLineOptions options;
+		if (options.Parse((int)args.size(), args.data()) == CommandLineParseResult::Error) {
+			WARN_LOG(Log::System, "shortcutParam: Failed to parse '%s'", prm.c_str());
+		}
+		if (options.bootFilenames.empty()) {
+			INFO_LOG(Log::System, "shortcutParam: Nothing to boot in there, ignoring (options only apply at startup)");
+			return;
+		}
+		std::string bootFilename = options.bootFilenames[0];
+		// NOTE: The parameter can be a file:// URL, which we need to take care of here. Similar to in NativeApp.cpp, search for file://
+		if (startsWith(bootFilename, "file:///")) {
+			std::string param = bootFilename;
+			bootFilename = UriDecode(bootFilename.substr(7));
+			INFO_LOG(Log::IO, "Decoding '%s' to '%s'", param.c_str(), bootFilename.c_str());
+		}
+		System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, bootFilename);
 	} else {
 		ERROR_LOG(Log::System, "Got unexpected message from Java, ignoring: %s / %s", msg.c_str(), prm.c_str());
 	}
