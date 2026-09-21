@@ -794,8 +794,9 @@ struct JitMismatch {
 }  // namespace
 
 [[maybe_unused]] static bool TestVertexJitMatchesSteps() {
-	constexpr int VERTS = 32;
-	constexpr int BUF_SIZE = 64 * 1024;
+	// static, or MSVC treats these as captured references and won't use VERTS as an array bound.
+	static constexpr int VERTS = 32;
+	static constexpr int BUF_SIZE = 64 * 1024;
 	// Decode may overrun by a vertex plus 16 bytes, see DecodeVerts.
 	u8 *src = (u8 *)AllocateAlignedMemory(BUF_SIZE, 16);
 	u8 *refOut = (u8 *)AllocateAlignedMemory(BUF_SIZE, 16);

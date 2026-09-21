@@ -146,6 +146,15 @@ we have: MSVC links an `inline` function defined in a .cpp anyway, clang correct
 build and pass on Windows and fail to link only on Android CI, with an undefined symbol pointing at a header
 line. Fix it by dropping the bogus `inline` from the definition, not by avoiding the call.
 
+The compilers also disagree about floating point contraction, which matters for any test asserting that a JIT
+is bit-identical to its C++ reference. Clang folds `a * b + c` into a single fused multiply-add by default;
+MSVC never does, under `/fp:precise`, in Debug or Release. So on arm64, where the JITs emit `FMLA`, a
+reference written as `a * b + c` matches on Mac, Linux and Android and is off by one ULP on Windows on ARM.
+Don't leave it to the compiler: write `fmaf(a, b, c)` when the fused result is wanted (MSVC compiles it to a
+single `fmadd`), and `a * b + c` when it isn't. `PrescaleUV` in `GPU/Common/VertexDecoderCommon.cpp` picks per
+architecture, matching what each JIT does. x86 doesn't have the problem, since the SSE2 baseline has no FMA
+instruction to contract into.
+
 pspautotests are a large set of tests of the PSP OS's API surface, and thus tests our HLE implementation.
 
 **To check for regressions, run them exactly the way CI does** (see `.github/workflows/build.yml`):

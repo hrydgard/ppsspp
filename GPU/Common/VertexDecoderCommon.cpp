@@ -352,32 +352,46 @@ void VertexDecoder::Step_TcFloatThrough(const VertexDecoder *dec, const u8 *ptr,
 	gstate_c.vertBounds.maxV = std::max(gstate_c.vertBounds.maxV, (u16)uvdata[1]);
 }
 
+// The arm64 JIT and the NEON handwritten decoders fuse the UV prescale (FMLA), the x86 ones don't
+// (MULPS + ADDPS). Spell out which one happens here instead of leaving it to the compiler's
+// contraction setting: clang contracts this by default and MSVC doesn't, so relying on it makes the
+// steps disagree with the JIT on Windows on ARM only.
+static inline float PrescaleUV(float value, float scale, float offset) {
+#if PPSSPP_ARCH(ARM64_NEON)
+	return fmaf(value, scale, offset);
+#else
+	// Safe as long as x86 stays on the SSE2 baseline, which has nothing to contract into. A build
+	// targeting FMA would need this spelled out too, the other way around from the arm64 one.
+	return value * scale + offset;
+#endif
+}
+
 void VertexDecoder::Step_TcU8Prescale(const VertexDecoder *dec, const u8 *ptr, u8 *decoded) {
 	float *uv = (float *)(decoded + dec->decFmt.uvoff);
 	const u8 *uvdata = (const u8 *)(ptr + dec->tcoff);
-	uv[0] = (float)uvdata[0] * (1.f / 128.f) * dec->prescaleUV_->uScale + dec->prescaleUV_->uOff;
-	uv[1] = (float)uvdata[1] * (1.f / 128.f) * dec->prescaleUV_->vScale + dec->prescaleUV_->vOff;
+	uv[0] = PrescaleUV((float)uvdata[0] * (1.f / 128.f), dec->prescaleUV_->uScale, dec->prescaleUV_->uOff);
+	uv[1] = PrescaleUV((float)uvdata[1] * (1.f / 128.f), dec->prescaleUV_->vScale, dec->prescaleUV_->vOff);
 }
 
 void VertexDecoder::Step_TcU16Prescale(const VertexDecoder *dec, const u8 *ptr, u8 *decoded) {
 	float *uv = (float *)(decoded + dec->decFmt.uvoff);
 	const u16_le *uvdata = (const u16_le *)(ptr + dec->tcoff);
-	uv[0] = (float)uvdata[0] * (1.f / 32768.f) * dec->prescaleUV_->uScale + dec->prescaleUV_->uOff;
-	uv[1] = (float)uvdata[1] * (1.f / 32768.f) * dec->prescaleUV_->vScale + dec->prescaleUV_->vOff;
+	uv[0] = PrescaleUV((float)uvdata[0] * (1.f / 32768.f), dec->prescaleUV_->uScale, dec->prescaleUV_->uOff);
+	uv[1] = PrescaleUV((float)uvdata[1] * (1.f / 32768.f), dec->prescaleUV_->vScale, dec->prescaleUV_->vOff);
 }
 
 void VertexDecoder::Step_TcU16DoublePrescale(const VertexDecoder *dec, const u8 *ptr, u8 *decoded) {
 	float *uv = (float *)(decoded + dec->decFmt.uvoff);
 	const u16_le *uvdata = (const u16_le *)(ptr + dec->tcoff);
-	uv[0] = (float)uvdata[0] * (1.f / 16384.f) * dec->prescaleUV_->uScale + dec->prescaleUV_->uOff;
-	uv[1] = (float)uvdata[1] * (1.f / 16384.f) * dec->prescaleUV_->vScale + dec->prescaleUV_->vOff;
+	uv[0] = PrescaleUV((float)uvdata[0] * (1.f / 16384.f), dec->prescaleUV_->uScale, dec->prescaleUV_->uOff);
+	uv[1] = PrescaleUV((float)uvdata[1] * (1.f / 16384.f), dec->prescaleUV_->vScale, dec->prescaleUV_->vOff);
 }
 
 void VertexDecoder::Step_TcFloatPrescale(const VertexDecoder *dec, const u8 *ptr, u8 *decoded) {
 	float *uv = (float *)(decoded + dec->decFmt.uvoff);
 	const float_le *uvdata = (const float_le *)(ptr + dec->tcoff);
-	uv[0] = uvdata[0] * dec->prescaleUV_->uScale + dec->prescaleUV_->uOff;
-	uv[1] = uvdata[1] * dec->prescaleUV_->vScale + dec->prescaleUV_->vOff;
+	uv[0] = PrescaleUV(uvdata[0], dec->prescaleUV_->uScale, dec->prescaleUV_->uOff);
+	uv[1] = PrescaleUV(uvdata[1], dec->prescaleUV_->vScale, dec->prescaleUV_->vOff);
 }
 
 void VertexDecoder::Step_TcU8MorphToFloat(const VertexDecoder *dec, const u8 *ptr, u8 *decoded) {
