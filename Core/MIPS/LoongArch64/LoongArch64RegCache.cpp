@@ -35,7 +35,10 @@ LoongArch64RegCache::LoongArch64RegCache(MIPSComp::JitOptions *jo)
 	config_.totalNativeRegs = NUM_LAGPR + NUM_LAFPR;
 	// F regs are used for both FPU and Vec, so we don't need VREGs.
 	config_.mapUseVRegs = false;
-	config_.mapFPUSIMD = true;
+	// Every compiler in this backend picks its path from cpu_info.LOONGARCH_LSX, so the mapping
+	// has to agree with it. Claiming SIMD here while the scalar paths run leaves them addressing
+	// lanes with F(reg + n) against a mapping that has no per-lane registers.
+	config_.mapFPUSIMD = cpu_info.LOONGARCH_LSX;
 }
 
 void LoongArch64RegCache::Init(LoongArch64Emitter *emitter) {
