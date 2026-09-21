@@ -112,6 +112,8 @@ public class TextRenderer {
 		Point s = measure(string, font, textSize);
 		return (s.x << 16) | s.y;
 	}
+
+	@Keep
 	public static int[] renderText(String string, int font, double textSize, int w, int h) {
 		textPaint.setTypeface(fontMap.get(font));
 		textPaint.setTextSize((float) textSize);

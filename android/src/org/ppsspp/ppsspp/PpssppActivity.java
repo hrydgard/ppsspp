@@ -1969,6 +1969,8 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		}
 	}
 
+	@Keep
+	@SuppressWarnings("unused")
 	@RequiresApi(api = Build.VERSION_CODES.R)
 	public ArrayList<String> getNativeCrashHistory(int max) {
 		ActivityManager activityManager =
