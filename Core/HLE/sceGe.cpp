@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <list>
 #include <map>
 #include <vector>
 #include <mutex>
@@ -23,7 +24,6 @@
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeList.h"
 #include "Common/Serialize/SerializeMap.h"
-#include "Common/Data/Collections/ThreadSafeList.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/FunctionWrappers.h"
@@ -56,7 +56,7 @@ struct GeInterruptData {
 	u32 cmd;
 };
 
-static ThreadSafeList<GeInterruptData> ge_pending_cb;
+static std::list<GeInterruptData> ge_pending_cb;
 static int geSyncEvent;
 static int geInterruptEvent;
 static int geCycleEvent;
@@ -113,8 +113,15 @@ public:
 
 		// Set the list as complete once the interrupt starts.
 		// In other words, not before another interrupt finishes.
-		if (dl->signal != PSP_GE_SIGNAL_HANDLER_PAUSE && cmd == GE_CMD_FINISH) {
+		// A list that sceGeBreak(1) reset in the meantime stays that way.
+		if (dl->signal != PSP_GE_SIGNAL_HANDLER_PAUSE && cmd == GE_CMD_FINISH && dl->state != PSP_GE_DL_STATE_NONE) {
 			dl->state = PSP_GE_DL_STATE_COMPLETED;
+		}
+
+		// The pause has been delivered now.  The firmware marks this the same way as sceGeBreak does, which
+		// is what lets sceGeContinue through again.
+		if (dl->signal == PSP_GE_SIGNAL_HANDLER_PAUSE && cmd == GE_CMD_FINISH) {
+			dl->signal = PSP_GE_SIGNAL_HANDLER_SUSPEND;
 		}
 
 		SubIntrHandler* handler = get(subintr);
@@ -130,7 +137,7 @@ public:
 			return true;
 		}
 
-		if (dl->signal == PSP_GE_SIGNAL_HANDLER_SUSPEND) {
+		if (dl->signal == PSP_GE_SIGNAL_HANDLER_SUSPEND && cmd == GE_CMD_SIGNAL) {
 			if (sceKernelGetCompiledSdkVersion() <= 0x02000010) {
 				if (dl->state != PSP_GE_DL_STATE_NONE && dl->state != PSP_GE_DL_STATE_COMPLETED) {
 					dl->state = PSP_GE_DL_STATE_QUEUED;
@@ -161,7 +168,7 @@ public:
 			return;
 		}
 
-		switch (dl->signal) {
+		switch (intrdata.cmd == GE_CMD_SIGNAL ? dl->signal : PSP_GE_SIGNAL_NONE) {
 		case PSP_GE_SIGNAL_HANDLER_SUSPEND:
 			if (sceKernelGetCompiledSdkVersion() <= 0x02000010) {
 				// uofw says dl->state = endCmd & 0xFF;
