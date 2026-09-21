@@ -94,6 +94,16 @@ void GPUCommon::Reinitialize() {
 	// behind the first list of the new executable.  Crazy Taxi: Fare Wars starts its games this way, #19894.
 	dlQueue.clear();
 
+	// The GE driver starts over as well, and the first thing it does is run a list that sets every
+	// register to zero, and all the matrices.  So a program started this way finds the GE exactly as
+	// one booted directly does, not as the previous one left it.
+	gstate.Reset();
+	gstate_c.offsetAddr = 0;
+	gstate_c.vertexAddr = 0;
+	gstate_c.indexAddr = 0;
+	ResetMatrices();
+	gstate_c.Dirty(DIRTY_ALL);
+
 	nextListID = 0;
 	currentList = nullptr;
 	interruptRunning = false;
@@ -152,6 +162,15 @@ void GPUCommon::PopDLQueue() {
 }
 
 bool GPUCommon::BusyDrawing() {
+	// This is about whether the GE is executing right now, not whether lists are queued.  It's
+	// stopped for the duration of a finish callback, and of a signal callback unless that's a
+	// CONTINUE one, which the GE doesn't wait for.  sceGeSaveContext works fine from those.
+	if (interruptRunning) {
+		const bool continueSignal = gpuState == GPUSTATE_INTERRUPT && currentList && currentList->signal == PSP_GE_SIGNAL_HANDLER_CONTINUE;
+		if (!continueSignal)
+			return false;
+	}
+
 	u32 state = DrawSync(1);
 	if (state == PSP_GE_LIST_DRAWING || state == PSP_GE_LIST_STALLING) {
 		if (currentList && currentList->state != PSP_GE_DL_STATE_PAUSED) {
@@ -220,13 +239,6 @@ u32 GPUCommon::DrawSync(int mode) {
 		return PSP_GE_LIST_STALLING;
 
 	return PSP_GE_LIST_DRAWING;
-}
-
-void GPUCommon::CheckDrawSync() {
-	if (dlQueue.empty()) {
-		for (int i = 0; i < DisplayListMaxCount; ++i)
-			dls[i].state = PSP_GE_DL_STATE_NONE;
-	}
 }
 
 int GPUCommon::ListSync(int listid, int mode) {
@@ -506,7 +518,7 @@ u32 GPUCommon::DequeueList(int listid) {
 	dl.waitUntilTicks = 0;
 	__GeTriggerWait(GPU_SYNC_LIST, listid);
 
-	CheckDrawSync();
+	// Completed lists stay completed, even if this empties the queue.  Only sceGeDrawSync recycles them.
 	return 0;
 }
 
@@ -635,7 +647,10 @@ u32 GPUCommon::Break(int mode) {
 	currentList->interrupted = true;
 	currentList->state = PSP_GE_DL_STATE_PAUSED;
 	currentList->signal = PSP_GE_SIGNAL_HANDLER_SUSPEND;
-	isbreak = true;
+	// On hardware, the break sets off a finish interrupt of its own, and until that has been taken,
+	// sceGeContinue only marks the list to be started by it.  From a thread that's immediate, so this
+	// is only ever seen from a callback, or with interrupts off.  InterruptEnd() is where it ends.
+	isbreak = __IsInInterrupt() || !__InterruptsEnabled();
 
 	return currentList->id;
 }
@@ -1217,17 +1232,19 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 			FlushImm();
 			currentList->subIntrToken = prev & 0xFFFF;
 			UpdateState(GPUSTATE_DONE);
-			// Since we marked done, we have to restore the context now before the next list runs.
-			if (currentList->started && currentList->context.IsValid()) {
-				gstate.Restore(currentList->context);
-				ReapplyGfxState();
-				// Don't restore the context again.
-				currentList->started = false;
-			}
 
 			if (currentList->interruptsEnabled && __GeTriggerInterrupt(currentList->id, currentList->pc, startingTicks + cyclesExecuted)) {
+				// The context is restored once the finish callback has run, which gets to see the state
+				// the list left behind.  Nothing else runs before then, see InterruptEnd().
 				currentList->pendingInterrupt = true;
 			} else {
+				// No interrupt to wait for, so this is it.
+				if (currentList->started && currentList->context.IsValid()) {
+					gstate.Restore(currentList->context);
+					ReapplyGfxState();
+					// Don't restore the context again.
+					currentList->started = false;
+				}
 				currentList->state = PSP_GE_DL_STATE_COMPLETED;
 				currentList->waitUntilTicks = startingTicks + cyclesExecuted;
 				busyTicks = std::max(busyTicks, currentList->waitUntilTicks);

@@ -201,6 +201,7 @@ tests_good = [
   "gpu/filtering/mipmaplinear",
   "gpu/ge/break",
   "gpu/ge/breakwait",
+  "gpu/ge/callbackstate",
   "gpu/ge/context",
   "gpu/ge/edram",
   "gpu/ge/enqueueparam",
