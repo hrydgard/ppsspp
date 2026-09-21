@@ -3,7 +3,7 @@
 This describes the behavior `GPU/GPUCommon.cpp` (the queue) and `Core/HLE/sceGe.cpp` (the
 interrupt side) model. All of it is what a game can observe, and all of it is pinned down on a
 real PSP by the tests in `pspautotests/tests/gpu/ge` (`queue`, `queue2`, `break`, `breakwait`,
-`intrsuspend`, `enqueueparam`) and `pspautotests/tests/gpu/signals`.
+`callbackstate`, `intrsuspend`, `enqueueparam`) and `pspautotests/tests/gpu/signals`.
 
 The headline, because everything else follows from it: **the GE stops at every SIGNAL and every
 FINISH, and it takes the interrupt to get it going again.** After a signal it carries on with the
@@ -101,7 +101,8 @@ A FINISH followed by END stops the GE and raises an interrupt. If a SYNC or a pa
 the list, see above. Otherwise, in this order:
 
 1. The list becomes COMPLETED. It is still at the head of the queue.
-2. The **finish callback** runs. The GE is idle. From in here, `sceGeListSync` on the next list
+2. The **finish callback** runs. The GE is idle, and its state is still what the list left it as:
+   a context isn't restored until the next step. From in here, `sceGeListSync` on the next list
    says QUEUED, `sceGeDrawSync(1)` says DRAWING if there is a next list and COMPLETED if not,
    `sceGeListDeQueue` on the finished list says `0x80000021`, and `sceGeListUpdateStallAddr` on
    it says `0x80000020`.
@@ -114,6 +115,14 @@ the list, see above. Otherwise, in this order:
    the ones from step 6, which shows when they have the same priority.
 
 If a SIGNAL and a FINISH are both pending by the time the interrupt runs, only the FINISH counts.
+
+### Is the GE busy?
+
+`sceGeSaveContext` and `sceGeRestoreContext` fail with -1 while the GE is *executing*, and that's
+all they go by - not whether lists are queued. A GE waiting at a stall address counts as
+executing. One that has stopped at a SIGNAL or FINISH doesn't, so both work from a finish
+callback and from a `HANDLER_SUSPEND` callback, however much is queued behind. From a
+`HANDLER_CONTINUE` callback they fail, as the GE is off again by then. `GPUCommon::BusyDrawing()`.
 
 ### While the interrupt can't be taken
 
@@ -192,7 +201,8 @@ for SDK <= `0x01FFFFFF`.
 
 `sceGeListDeQueue`: `0x80000100` for NONE, `0x80000021` for a list that has started - which
 includes COMPLETED ones, until `sceGeDrawSync(0)` - and otherwise the list leaves the queue,
-becomes NONE, and threads waiting for it are woken.
+becomes NONE, and threads waiting for it are woken. Other lists are left alone: if that was the
+last one queued, COMPLETED lists stay COMPLETED, and nobody in `sceGeDrawSync(0)` is woken.
 
 `sceGeListUpdateStallAddr`: takes effect only if the list is RUNNING, and a GE stalled on that
 list resumes by itself. For QUEUED and PAUSED lists it's just remembered for when they run.
@@ -206,8 +216,11 @@ restarted anyway when the callback returns, and the PSP hangs.
 ## Starting another executable
 
 `sceKernelLoadExec` restarts the kernel, and the GE driver with it: the new executable finds an
-empty queue, whatever the old one left on it. `GPUCommon::Reinitialize()` is that, and has to
-leave nothing behind - not the lists, and not the queue of their ids either. It used to keep the
+empty queue, whatever the old one left on it, and a GE with every register and matrix set to
+zero, which is how the driver starts up - the same as a program that was booted directly.
+`GPUCommon::Reinitialize()` is that, and has to leave nothing behind - not the lists, not the
+queue of their ids, and not the old program's GE state. (This part isn't confirmed by a test:
+whatever runs after the restart can't report back through PSPLink.) It used to keep the
 queue, so the old executable's ids came back as lists with no state and a pc of 0, waiting their
 turn behind the new executable's first list, where they'd block everything. Crazy Taxi: Fare
 Wars, which is a launcher for its two games, stopped at a black screen that way (#19894).
