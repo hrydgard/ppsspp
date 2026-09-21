@@ -1512,6 +1512,7 @@ bool retro_load_game(const struct retro_game_info *game) {
 
    // set cpuCore from libretro setting variable
    coreParam.cpuCore         =  (CPUCore)g_Config.iCpuCore;
+   coreParam.bUseVertexDecoderJit = System_GetPropertyBool(SYSPROP_CAN_JIT);
 
    g_pendingBoot = true;
 

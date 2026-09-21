@@ -835,8 +835,7 @@ int main(int argc, const char* argv[]) {
 
 	// Force known values for deterministic test execution. This happens before
 	// ApplyToConfig() below, so a matching command line flag can still override any of it -
-	// ApplyToConfig() always has the final say on the settings in g_Config - except for iCpuCore,
-	// which is forced after it instead, see below.
+	// ApplyToConfig() always has the final say on the settings in g_Config.
 
 	// NOTE: In headless mode, we never save the config. This is just for this run.
 	g_Config.iDumpFileTypes = 0;
@@ -889,14 +888,6 @@ int main(int argc, const char* argv[]) {
 	// overrides above, so a matching command line flag always wins.
 	cmdLineOptions.ApplyToConfig();
 
-	// The exception to that, forced after ApplyToConfig() so --cpu can't reach it. g_Config.iCpuCore
-	// doesn't pick the MIPS core here (CoreParameter below does, straight from the command line) -
-	// it also gates the vertex decoder JIT, in the DrawEngineCommon constructor. Letting --cpu=jit
-	// switch that on decodes vertices through a different path and changes the output of a dozen or
-	// so GPU tests, gpu/vertices/morph among them. The core to test is a CPU question, so keep the
-	// GPU side on one path for every backend.
-	g_Config.iCpuCore = (int)CPUCore::INTERPRETER;
-
 	// pspautotests is plain homebrew PRXes so do not ship user libraries that a retail disc may carry. 
 	// So we must use HLE, unless we install firmware.
 	// A disc brings its own copies and the app runs them for real, so
@@ -907,8 +898,6 @@ int main(int argc, const char* argv[]) {
 		g_Config.iForceEnableHLE = 0xFFFFFFFF & ~g_Config.iDisableHLE;
 	}
 
-	// This looks contradictory to above checks. But, this preserves the old test behavior which apparently ran the JIT for the CPU
-	// but ended up running software vertex decoding due to the setting in g_Config. Yeah, it's a mess.
 	CPUCore cpuCore = CPUCore::JIT;
 	if (cmdLineOptions.cpuCore.has_value()) {
 		cpuCore = cmdLineOptions.cpuCore.value();
@@ -963,6 +952,9 @@ int main(int argc, const char* argv[]) {
 	// but not now.
 	CoreParameter coreParameter;
 	coreParameter.cpuCore = (CPUCore)cpuCore;
+	// The pspautotests expectations and frametest references were recorded with the C++ vertex
+	// decoder, and the JIT decoders don't match it everywhere yet.
+	coreParameter.bUseVertexDecoderJit = false;
 	coreParameter.gpuCore = (GPUCore)gpuCore;
 	coreParameter.graphicsContext = graphicsContext;
 	coreParameter.enableSound = false;
