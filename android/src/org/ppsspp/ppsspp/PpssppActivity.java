@@ -478,12 +478,14 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			}
 		}
 
+		// These are static and outlive the activity, and the system services they look up hang on to
+		// the context they came from. So don't give them the activity.
 		if (mLocationHelper == null) {
-			mLocationHelper = new LocationHelper(this);
+			mLocationHelper = new LocationHelper(getApplicationContext());
 		}
 		try {
 			if (mInfraredHelper == null) {
-				mInfraredHelper = new InfraredHelper(this);
+				mInfraredHelper = new InfraredHelper(getApplicationContext());
 			}
 		} catch (Exception e) {
 			mInfraredHelper = null;
