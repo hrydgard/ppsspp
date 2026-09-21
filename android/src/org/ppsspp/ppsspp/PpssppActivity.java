@@ -648,6 +648,8 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		super.onCreate(savedInstanceState);
 
 		if (m_hasNoNativeBinary) {
+			// Nothing else gets set up, so everything else that Android calls has to check for this too
+			// or we'll crash before the user gets to read the message.
 			AlertDialog.Builder builder = new AlertDialog.Builder(this);
 			builder.setMessage("The native part of PPSSPP for ABI " + Build.CPU_ABI + " is missing. Try downloading an official build?")
 				.setTitle("Error starting PPSSPP")
@@ -806,6 +808,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	public void onWindowFocusChanged(boolean hasFocus) {
 		Log.i(TAG, "onWindowFocusChanged");
 		super.onWindowFocusChanged(hasFocus);
+		if (m_hasNoNativeBinary) {
+			return;
+		}
 		updateSustainedPerformanceMode();
 		updateSystemUiVisibility();
 	}
@@ -928,6 +933,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	@Override
 	protected void onDestroy() {
 		super.onDestroy();
+		if (m_hasNoNativeBinary) {
+			return;
+		}
 		lifeCycle.onDestroy();
 
 		mSurfaceView = null;
@@ -978,18 +986,27 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	@Override
 	protected void onStart() {
 		super.onStart();
+		if (m_hasNoNativeBinary) {
+			return;
+		}
 		lifeCycle.onStart();
 	}
 
 	@Override
 	protected void onStop() {
 		super.onStop();
+		if (m_hasNoNativeBinary) {
+			return;
+		}
 		lifeCycle.onStop();
 	}
 
 	@Override
 	protected void onPause() {
 		super.onPause();
+		if (m_hasNoNativeBinary) {
+			return;
+		}
 		lifeCycle.onPause();
 
 		InputManager inputManager = (InputManager)getSystemService(Context.INPUT_SERVICE);
@@ -1019,6 +1036,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	@Override
 	protected void onResume() {
 		super.onResume();
+		if (m_hasNoNativeBinary) {
+			return;
+		}
 		lifeCycle.onResume();
 
 		updateSustainedPerformanceMode();
@@ -1065,6 +1085,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	public void onAttachedToWindow() {
 		Log.i(TAG, "onAttachedToWindow");
 		super.onAttachedToWindow();
+		if (m_hasNoNativeBinary) {
+			return;
+		}
 		setupSystemUiCallback();
 	}
 
@@ -1072,6 +1095,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	public void onConfigurationChanged(@NonNull Configuration newConfig) {
 		super.onConfigurationChanged(newConfig);
 		Log.i(TAG, "onConfigurationChanged");
+		if (m_hasNoNativeBinary) {
+			return;
+		}
 		updateSystemUiVisibility();
 		sizeManager.updateDpi((float)newConfig.densityDpi);
 	}
@@ -1081,6 +1107,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		// onConfigurationChanged not called on multi-window change
 		Log.i(TAG, "onMultiWindowModeChanged: isInMultiWindowMode = " + isInMultiWindowMode);
 		super.onMultiWindowModeChanged(isInMultiWindowMode, newConfig);
+		if (m_hasNoNativeBinary) {
+			return;
+		}
 		sizeManager.checkDisplayMeasurements();
 	}
 
@@ -1145,6 +1174,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	// distinguish devices.
 	@Override
 	public boolean dispatchKeyEvent(KeyEvent event) {
+		if (m_hasNoNativeBinary) {
+			return super.dispatchKeyEvent(event);
+		}
 		// Log.d(TAG, "key event source: " + event.getSource());
 		if (NativeApp.isFromSource(event, InputDevice.SOURCE_MOUSE)) {
 			Log.i(TAG, "Forwarding key event from mouse: " + event.getKeyCode() + " useModernB2: " + useModernMouseEventsB2);
@@ -1233,6 +1265,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 
 	@Override
 	public boolean onGenericMotionEvent(MotionEvent event) {
+		if (m_hasNoNativeBinary) {
+			return super.onGenericMotionEvent(event);
+		}
 		if (InputDeviceState.inputSourceIsJoystick(event.getSource())) {
 			InputDeviceState state = getInputDeviceState(event);
 			if (state == null) {
@@ -1296,6 +1331,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	@SuppressLint("NewApi")
 	@Override
 	public boolean onKeyDown(int keyCode, KeyEvent event) {
+		if (m_hasNoNativeBinary) {
+			return super.onKeyDown(keyCode, event);
+		}
 		// Eat these keys, to avoid accidental exits / other screwups.
 		// Maybe there's even more we need to eat on tablets?
 		boolean repeat = event.getRepeatCount() > 0;
@@ -1333,6 +1371,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	@SuppressLint("NewApi")
 	@Override
 	public boolean onKeyUp(int keyCode, KeyEvent event) {
+		if (m_hasNoNativeBinary) {
+			return super.onKeyUp(keyCode, event);
+		}
 		switch (keyCode) {
 			case KeyEvent.KEYCODE_BACK:
 				if (event.isAltPressed()) {
@@ -1823,6 +1864,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	@Override
 	public void onNewIntent(Intent intent) {
 		super.onNewIntent(intent);
+		if (m_hasNoNativeBinary) {
+			return;
+		}
 
 		Log.i(TAG, "onNewIntent: " + intent.toString());
 
