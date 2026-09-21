@@ -229,8 +229,12 @@ static int __AudioCodecInitCommon(u32 ctxPtr, int codec, bool mono) {
 		return hleLogError(Log::ME, SCE_KERNEL_ERROR_OUT_OF_RANGE, "Invalid codec");
 	}
 
+	// Re-initialising a context that still has a decoder is normal, not a report-worthy
+	// surprise: mpeg.prx sizes the allocation through a scratch context of its own and only ever
+	// releases that one, so the context it actually decodes through still holds a decoder when the
+	// next movie starts. Once per video, on every game running the real module.
 	if (removeDecoder(ctxPtr)) {
-		WARN_LOG_REPORT(Log::HLE, "sceAudiocodecInit(%08x, %d): replacing existing context", ctxPtr, codec);
+		INFO_LOG(Log::HLE, "sceAudiocodecInit(%08x, %d): replacing existing context", ctxPtr, codec);
 	}
 
 	// Initialize the codec memory.
