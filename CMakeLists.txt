@@ -1008,6 +1008,9 @@ elseif(HEADLESS_CROSS)
 	# SDL3 available in those sysroots, so skip the desktop SDL frontend entirely.
 	# Note this is deliberately not keyed off the target architecture: a native build
 	# on such a machine can have SDL3 and should still get the normal frontend.
+	# Headless.cpp keys its no-window path off this too, so the same option serves for
+	# any headless-only build without SDL (an x86_64 build on an arm64 Mac, say).
+	add_definitions(-DHEADLESS_NO_SDL)
 else()
 	if(GOLD)
 		set(TargetBin PPSSPPGold)
