@@ -1450,9 +1450,7 @@ bool SavedataParam::GetSize(SceUtilitySavedataParam *param) {
 			// Note: this is "needed to overwrite".
 			param->sizeInfo->overwriteKB = 0;
 
-			spaceTxt = GetSpaceText(0, true);
-			truncate_cpy(param->sizeInfo->neededString, spaceTxt);
-			truncate_cpy(param->sizeInfo->overwriteString, spaceTxt);
+			// The strings are left alone when nothing is needed (tests/utility/savedata/getsize).
 		} else {
 			// Bytes needed to save additional data.
 			s64 neededBytes = writeBytes - freeBytes;
