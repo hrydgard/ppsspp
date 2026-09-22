@@ -144,7 +144,6 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "DaxterRotatedAnalogStick", &flags_.DaxterRotatedAnalogStick);
 	CheckSetting(iniFile, gameID, "ForceMaxDepthResolution", &flags_.ForceMaxDepthResolution);
 	CheckSetting(iniFile, gameID, "SOCOMClut8Replacement", &flags_.SOCOMClut8Replacement);
-	CheckSetting(iniFile, gameID, "Fontltn12Hack", &flags_.Fontltn12Hack);
 	CheckSetting(iniFile, gameID, "LoadCLUTFromCurrentFrameOnly", &flags_.LoadCLUTFromCurrentFrameOnly);
 	CheckSetting(iniFile, gameID, "ForceUMDReadSpeed", &flags_.ForceUMDReadSpeed);
 	CheckSetting(iniFile, gameID, "KernelGetSystemTimeLowEatMoreCycles", &flags_.KernelGetSystemTimeLowEatMoreCycles);
@@ -157,7 +156,6 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "DisableHLESceFont", &flags_.DisableHLESceFont);
 	CheckSetting(iniFile, gameID, "ForceHLEPsmf", &flags_.ForceHLEPsmf);
 	CheckSetting(iniFile, gameID, "SaveStatesNotRecommended", &flags_.SaveStatesNotRecommended);
-	CheckSetting(iniFile, gameID, "IgnoreEnqueue", &flags_.IgnoreEnqueue);
 	CheckSetting(iniFile, gameID, "MsgDialogAutoStatus", &flags_.MsgDialogAutoStatus);
 	CheckSetting(iniFile, gameID, "NullPageValid", &flags_.NullPageValid);
 	CheckSetting(iniFile, gameID, "DetectDestBlendSquared", &flags_.DetectDestBlendSquared);
