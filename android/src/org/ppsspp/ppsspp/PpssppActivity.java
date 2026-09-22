@@ -42,7 +42,6 @@ import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.Surface;
 import android.view.SurfaceView;
-import android.view.View;
 import android.view.Window;
 import android.view.WindowManager;
 import android.view.inputmethod.EditorInfo;
@@ -100,8 +99,6 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 
 	private boolean sustainedPerfSupported;
 
-	private View navigationCallbackView = null;
-
 	// audioFocusChangeListener to listen to changes in audio state
 	private AudioFocusChangeListener audioFocusChangeListener;
 	private AudioManager audioManager;
@@ -119,7 +116,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	private final ArrayList<InputDeviceState> inputPlayers = new ArrayList<>();
 
 	private PowerSaveModeReceiver mPowerSaveModeReceiver = null;
-	private SizeManager sizeManager = null;
+	private NativeSurfaceManager surfaceManager = null;
 	private static LocationHelper mLocationHelper;
 	private static InfraredHelper mInfraredHelper;
 	private static CameraHelper mCameraHelper;
@@ -558,7 +555,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			return;
 		}
 
-		// WARNING: when adding new modes here, check SizeManager's workaround in surfaceCreated.j
+		// WARNING: when adding new modes here, check NativeSurfaceManager.surfaceCreated.
 
 		int nativeRotation = ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED;
 		switch (rot) {
@@ -635,7 +632,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			}
 		}
 
-		sizeManager.checkDisplayMeasurements();
+		surfaceManager.updateDisplayMeasurements();
 	}
 
 	// Starts the native render loop thread, which owns the graphics context and its surface.
@@ -683,7 +680,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		mSensorManager = (SensorManager)getSystemService(Activity.SENSOR_SERVICE);
 		mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
 
-		sizeManager = new SizeManager(this);
+		surfaceManager = new NativeSurfaceManager(this);
 		TextRenderer.init(this);
 		shuttingDown = false;
 		registerCallbacks();
@@ -691,7 +688,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		// This calls NativeApp.setDisplayParameters. Make sure that's done early in order
 		// to be able to set defaults when loading config for the first time. Like figuring out
 		// whether to start at 1x or 2x.
-		sizeManager.updateDisplayMeasurements();
+		surfaceManager.updateDisplayMeasurements();
 
 		// On the first run, the shortcut parameter is passed to NativeApp.init in here.
 		final boolean firstRun = !initialized;
@@ -716,7 +713,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		updateSystemUiVisibility();
 
 		mSurfaceView = new NativeSurfaceView(this);
-		sizeManager.setSurfaceView(mSurfaceView);
+		surfaceManager.setSurfaceView(mSurfaceView);
 		setInsetsListener(mSurfaceView);
 		setContentView(mSurfaceView);
 
@@ -926,16 +923,6 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		renderLoopRunning = false;
 	}
 
-	void setupSystemUiCallback() {
-		final View decorView = getWindow().peekDecorView();
-		if (decorView == null || decorView == navigationCallbackView) {
-			return;
-		}
-
-		sizeManager.setupSystemUiCallback(decorView);
-		navigationCallbackView = decorView;
-	}
-
 	@Override
 	protected void onDestroy() {
 		super.onDestroy();
@@ -954,7 +941,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		audioFocusChangeListener = null;
 		audioManager = null;
 
-		sizeManager.setSurfaceView(null);
+		surfaceManager.setSurfaceView(null);
 		if (mPowerSaveModeReceiver != null) {
 			mPowerSaveModeReceiver.destroy(this);
 			mPowerSaveModeReceiver = null;
@@ -980,8 +967,6 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 				Log.i(TAG, "in onDestroy, but not shutting down.");
 			}
 		}
-		navigationCallbackView = null;
-
 		// Really ugly workaround for VR issues when PPSSPP restarts
 		if (isVRDevice()) {
 			System.exit(0);
@@ -1020,7 +1005,6 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		mSensorManager.unregisterListener(this);
 
 		loseAudioFocus(this.audioManager, this.audioFocusChangeListener);
-		sizeManager.onPause();
 		Log.i(TAG, "Calling NativeApp.pause...");
 		NativeApp.pause();
 		if (mCameraHelper != null) {
@@ -1042,7 +1026,6 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		Log.i(TAG, "onResume begin");
 
 		updateSustainedPerformanceMode();
-		sizeManager.onResume();
 		updateSystemUiVisibility();
 
 		// OK, config should be initialized, we can query for screen rotation.
@@ -1082,16 +1065,6 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	}
 
 	@Override
-	public void onAttachedToWindow() {
-		Log.i(TAG, "onAttachedToWindow");
-		super.onAttachedToWindow();
-		if (m_hasNoNativeBinary) {
-			return;
-		}
-		setupSystemUiCallback();
-	}
-
-	@Override
 	public void onConfigurationChanged(@NonNull Configuration newConfig) {
 		super.onConfigurationChanged(newConfig);
 		Log.i(TAG, "onConfigurationChanged: orientation=" + newConfig.orientation + " density=" + newConfig.densityDpi
@@ -1099,8 +1072,8 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		if (m_hasNoNativeBinary) {
 			return;
 		}
+		// The surface size change that comes with it is what actually updates the native side.
 		updateSystemUiVisibility();
-		sizeManager.updateDpi((float)newConfig.densityDpi);
 	}
 
 	@Override
@@ -1111,7 +1084,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		if (m_hasNoNativeBinary) {
 			return;
 		}
-		sizeManager.checkDisplayMeasurements();
+		surfaceManager.updateDisplayMeasurements();
 	}
 
 	// keep this static so we can call this even if we don't
