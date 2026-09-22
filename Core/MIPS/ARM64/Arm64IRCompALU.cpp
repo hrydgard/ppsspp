@@ -283,8 +283,9 @@ void Arm64JitBackend::CompIR_Div(IRInst inst) {
 			FixupBranch skipNonZero = CBNZ(regs_.R(inst.src2));
 			MOVI2R(regs_.R(IRREG_LO), 0xFFFF);
 			CMP(regs_.R(inst.src1), regs_.R(IRREG_LO));
-			// If it's <= 0xFFFF, keep 0xFFFF.  Otherwise, invert 0 = -1.
-			CSINV(regs_.R(IRREG_LO), regs_.R(IRREG_LO), WZR, CC_LE);
+			// If it's <= 0xFFFF (unsigned, a negative numerator is a large one), keep 0xFFFF.
+			// Otherwise, invert 0 = -1.
+			CSINV(regs_.R(IRREG_LO), regs_.R(IRREG_LO), WZR, CC_LS);
 			SetJumpTarget(skipNonZero);
 		}
 
