@@ -480,6 +480,8 @@ tests_next = [
   "cpu/vfpu/vbranch_hazard",  # VFPU pipeline latencies, which a compiler pads for; not emulated
   "cpu/vfpu/minmax_tie",  # vmin/vmax return the second operand on a -0/+0 tie; the IR path returns the first
   "cpu/vfpu/minmax_zero",  # signed zero and denormals in vmin/vmax
+  "cpu/vfpu/specials",  # vcmp on denormals, NaN canonicalization and denormal flush in vbfy/vocp/vavg/vfad/vsocp
+  "cpu/vfpu/overlap_vcrsp",  # vcrsp overlapping its source, which the assembler refuses; the hardware doesn't read-before-write
   "cpu/vfpu/prefixes",
   "cpu/vfpu/vector",
   "cpu/vfpu/vregs",
