@@ -33,7 +33,9 @@
 #include "Core/MemMapHelpers.h"
 #include "Core/Util/PPGeDraw.h"
 
-#define FADE_TIME 1.0
+// In seconds. On a PSP, dialog animations advance by animSpeed frames per Update and take about
+// this long.
+#define FADE_TIME 0.2
 
 constexpr float FONT_SCALE = 0.55f;
 
@@ -218,7 +220,7 @@ void PSPDialog::StartFade(bool fadeIn_)
 
 void PSPDialog::UpdateFade(int animSpeed) {
 	if (isFading) {
-		fadeTimer += 1.0f/30.0f * animSpeed; // Probably need a more real value of delta time
+		fadeTimer += animSpeed / 60.0f;
 		if (fadeTimer < FADE_TIME) {
 			if (fadeIn)
 				fadeValue = (u32) (fadeTimer / FADE_TIME * 255);
@@ -286,15 +288,20 @@ void PSPDialog::UpdateButtons()
 	buttons = __CtrlReadLatch();
 }
 
+// Input is fine while fading in, but not while fading out: the choice has already been made.
+bool PSPDialog::IsFadingOut() const {
+	return isFading && !fadeIn;
+}
+
 bool PSPDialog::IsButtonPressed(int checkButton)
 {
-	return !isFading && (buttons & checkButton);
+	return !IsFadingOut() && (buttons & checkButton);
 }
 
 bool PSPDialog::IsButtonHeld(int checkButton, int &framesHeld, int framesHeldThreshold, int framesHeldRepeatRate)
 {
 	bool btnWasHeldLastFrame = (lastButtons & checkButton) && (__CtrlPeekButtons() & checkButton);
-	if (!isFading && btnWasHeldLastFrame) {
+	if (!IsFadingOut() && btnWasHeldLastFrame) {
 		framesHeld++;
 	}
 	else {
