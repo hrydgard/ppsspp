@@ -584,6 +584,11 @@ static const HLEFunction sceCtrl[] =
 	{0X6841BE1A, nullptr,                                  "sceCtrlSetRapidFire",              '?', ""  },
 	{0XA7144800, &WrapI_II<sceCtrlSetIdleCancelThreshold>, "sceCtrlSetIdleCancelThreshold",    'i', "ii"},
 	{0X687660FA, &WrapI_UU<sceCtrlGetIdleCancelThreshold>, "sceCtrlGetIdleCancelThreshold",    'i', "xx"},
+	// The "2" variants take a port first: (int port, data, int count).
+	{0X5A36B1C2, nullptr,                                  "sceCtrlPeekBufferPositive2",       '?', ""  },
+	{0X239A6BA7, nullptr,                                  "sceCtrlPeekBufferNegative2",       '?', ""  },
+	{0X1098030B, nullptr,                                  "sceCtrlReadBufferPositive2",       '?', ""  },
+	{0X7C3675AB, nullptr,                                  "sceCtrlReadBufferNegative2",       '?', ""  },
 };
 
 void Register_sceCtrl()
