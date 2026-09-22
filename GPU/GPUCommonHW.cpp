@@ -1748,8 +1748,8 @@ void GPUCommonHW::FormatGPUStatsCommon(StringWriter &w) {
 		gpuStats.perFrame.vertexGPUCycles + gpuStats.perFrame.otherGPUCycles,
 		vertexAverageCycles);
 	w.F("FBOs active: %d (evaluations: %d, created %d)\n"
-		"Textures: %d (s: %d), dec: %d, invalidated: %d, changed %d, hashed: %d kB, clut %d\n"
-		"readbacks %d (%d non-block), upload %d (cached %d), depal %d\n"
+		"Text: %d (s: %d), dec: %d, invalidated: %d, changed %d, hashed: %d kB, clut %d\n"
+		"readbacks %d (%d non-block), upload %d (cached %d), depal %d, video %d\n"
 		"block transfers: %d\n"
 		"Cpy: depth %d, color %d, reint %d, blend %d, self %d\n",
 		(int)framebufferManager_->NumVFBs(),
@@ -1767,6 +1767,7 @@ void GPUCommonHW::FormatGPUStatsCommon(StringWriter &w) {
 		gpuStats.perFrame.numUploads,
 		gpuStats.perFrame.numCachedUploads,
 		gpuStats.perFrame.numDepal,
+		gpuStats.perFrame.numVideoTextures,
 		gpuStats.perFrame.numBlockTransfers,
 		gpuStats.perFrame.numDepthCopies,
 		gpuStats.perFrame.numColorCopies,

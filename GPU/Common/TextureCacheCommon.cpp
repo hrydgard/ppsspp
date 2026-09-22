@@ -153,6 +153,7 @@ void TextureCacheCommon::StartFrame() {
 		gpuStats.perFrame.numReplacerTrackedTex = replacer_.GetNumTrackedTextures();
 		gpuStats.perFrame.numCachedReplacedTextures = replacer_.GetNumCachedReplacedTextures();
 	}
+	gpuStats.perFrame.numVideoTextures = (int)videos_.size();
 
 	if (texelsScaledThisFrame_) {
 		VERBOSE_LOG(Log::TexCache, "Scaled %d texels", texelsScaledThisFrame_);
@@ -710,8 +711,12 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 				_dbg_assert_(h == gstate.getTextureHeight(0));
 				_dbg_assert_(entry->addr == texaddr);
 				UpdateMaxSeenV(entry, gstate.isModeThrough());
-				const u32 newFullHash = ComputeTextureHash(replacer_, entry->addr, entry->bufw, w, h, swizzled, entry);
-				if (newFullHash != entry->fullhash) {
+				// A video texture is new every frame by definition, so hashing it only confirms what the
+				// VIDEO flag already said. The replacer is the one thing that still wants the hash, and
+				// only when it has been told to replace video.
+				const bool skipHash = isVideo && !(replacer_.Enabled() && replacer_.AllowVideo());
+				const u32 newFullHash = skipHash ? 0 : ComputeTextureHash(replacer_, entry->addr, entry->bufw, w, h, swizzled, entry);
+				if (skipHash || newFullHash != entry->fullhash) {
 					// The texture changed. Throw it in the secondary cache. Then we'll create a new entry later.
 					gpuStats.perFrame.numTexturesChanged++;
 					if (!isVideo) {
@@ -765,7 +770,9 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 					// Now, look for the new hash in the secondary cache.
 					// If we find it, we can use that instead of building a new texture. We then pull it out from
 					// the secondary cache and move it to the main cache.
-					TexCache::iterator secondIterNew = secondCache_.find(secondKeyNew);
+					// Without a hash there is nothing to look up by, and a frame that will never recur has
+					// nothing to gain from the secondary cache anyway.
+					TexCache::iterator secondIterNew = skipHash ? secondCache_.end() : secondCache_.find(secondKeyNew);
 					if (secondIterNew != secondCache_.end()) {
 						// Found it, but does it match our current params?  If not, abort.
 						if (secondIterNew->second->MatchesProperties(dim, texFormat, maxLevel)) {
@@ -904,7 +911,8 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 	if (clutInShader) {
 		entry->status |= TexStatus::CLUT8_INDEXED;
 	}
-	if (IsVideo(entry->addr)) {
+	const bool isVideo = IsVideo(entry->addr);
+	if (isVideo) {
 		entry->status |= TexStatus::VIDEO;
 	}
 
@@ -912,8 +920,8 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 	gstate_c.curTextureHeight = h;
 	UpdateMaxSeenV(entry, gstate.isModeThrough());  // Critical to update this before hashing! As it's used to decide the hash range.
 
-	// TODO: Avoid hashing known video textures.
-	if (!(entry->status & TexStatus::IS_PPGE_ATLAS)) {
+	const bool skipHash = isVideo && !(replacer_.Enabled() && replacer_.AllowVideo());
+	if (!(entry->status & TexStatus::IS_PPGE_ATLAS) && !skipHash) {
 		entry->fullhash = ComputeTextureHash(replacer_, entry->addr, entry->bufw, w, h, swizzled, entry);
 	}
 
@@ -1501,6 +1509,16 @@ void TextureCacheCommon::NotifyConfigChanged() {
 
 void TextureCacheCommon::NotifyWriteFormattedFromMemory(u32 addr, int size, int width, GEBufferFormat fmt) {
 	addr &= 0x3FFFFFFF;
+	// A game blits its video frame every displayed frame while waiting for the next one, so the
+	// same few display buffers arrive over and over. Refresh the one we already have rather than
+	// stacking a duplicate per frame - IsVideo() scans this linearly.
+	for (VideoInfo &info : videos_) {
+		if (info.addr == addr) {
+			info.size = (u32)size;
+			info.flips = gpuStats.totals.numFlips;
+			return;
+		}
+	}
 	videos_.push_back({ addr, (u32)size, gpuStats.totals.numFlips });
 }
 
