@@ -1137,11 +1137,14 @@ namespace MIPSComp {
 				} else {
 					// Only some of the bits stick (the low 20 of a prefix, say), same as the IR does it.
 					u32 mask;
+					u32 setBits = GetVFPUCtrlSetBits(imm - 128);
 					if (!GetVFPUCtrlMask(imm - 128, &mask)) {
 						// Read-only or unknown register: nothing is written.
-					} else if (mask != 0xFFFFFFFF) {
+					} else if (mask != 0xFFFFFFFF || setBits != 0) {
 						gpr.MapReg(rt);
 						ANDI2R(SCRATCH1, gpr.R(rt), mask, SCRATCH2);
+						if (setBits != 0)
+							ORRI2R(SCRATCH1, SCRATCH1, setBits, SCRATCH2);
 						STR(INDEX_UNSIGNED, SCRATCH1, CTXREG, offsetof(MIPSState, vfpuCtrl) + 4 * (imm - 128));
 					} else {
 						gpr.MapReg(rt);

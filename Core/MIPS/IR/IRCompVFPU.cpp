@@ -1289,8 +1289,11 @@ namespace MIPSComp {
 			} else if ((imm - 128) < VFPU_CTRL_MAX) {
 				u32 mask;
 				if (GetVFPUCtrlMask(imm - 128, &mask)) {
-					if (mask != 0xFFFFFFFF) {
+					u32 setBits = GetVFPUCtrlSetBits(imm - 128);
+					if (mask != 0xFFFFFFFF || setBits != 0) {
 						ir.Write(IROp::AndConst, IRTEMP_0, rt, 0, mask);
+						if (setBits != 0)
+							ir.Write(IROp::OrConst, IRTEMP_0, IRTEMP_0, 0, setBits);
 						ir.Write(IROp::SetCtrlVFPUReg, imm - 128, IRTEMP_0);
 					} else {
 						ir.Write(IROp::SetCtrlVFPUReg, imm - 128, rt);
@@ -1352,9 +1355,12 @@ namespace MIPSComp {
 		if (imm < VFPU_CTRL_MAX) {
 			u32 mask;
 			if (GetVFPUCtrlMask(imm, &mask)) {
-				if (mask != 0xFFFFFFFF) {
+				u32 setBits = GetVFPUCtrlSetBits(imm);
+				if (mask != 0xFFFFFFFF || setBits != 0) {
 					ir.Write(IROp::FMovToGPR, IRTEMP_0, vfpuBase + voffset[imm]);
 					ir.Write(IROp::AndConst, IRTEMP_0, IRTEMP_0, 0, mask);
+					if (setBits != 0)
+						ir.Write(IROp::OrConst, IRTEMP_0, IRTEMP_0, 0, setBits);
 					ir.Write(IROp::SetCtrlVFPUReg, imm, IRTEMP_0);
 				} else {
 					ir.Write(IROp::SetCtrlVFPUFReg, imm, vfpuBase + voffset[vs]);

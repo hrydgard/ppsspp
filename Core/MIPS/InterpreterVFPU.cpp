@@ -1824,7 +1824,7 @@ namespace MIPSInt
 			} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc
 				u32 mask;
 				if (GetVFPUCtrlMask(imm - 128, &mask)) {
-					mips->vfpuCtrl[imm - 128] = R(rt) & mask;
+					mips->vfpuCtrl[imm - 128] = (R(rt) & mask) | GetVFPUCtrlSetBits(imm - 128);
 				}
 			} else {
 				//ERROR
@@ -1856,7 +1856,7 @@ namespace MIPSInt
 		if (imm < VFPU_CTRL_MAX) {
 			u32 mask;
 			if (GetVFPUCtrlMask(imm, &mask)) {
-				mips->vfpuCtrl[imm] = VI(vs) & mask;
+				mips->vfpuCtrl[imm] = (VI(vs) & mask) | GetVFPUCtrlSetBits(imm);
 			}
 		}
 		PC += 4;
