@@ -877,7 +877,10 @@ int main(int argc, const char* argv[]) {
 	// value rather than the ConfigSetting default. This one defaults to true in the app, and
 	// leaving it false made headless run games differently from every other build.
 	g_Config.bFuncReplacements = true;
-	g_Config.bSoftwareRendering = cmdLineOptions.softwareRendering.value_or(false);
+	// Software unless --graphics picked a hardware backend (which sets softwareRendering=false).
+	// Defaulting this to false silently ran everything on OpenGL, which hangs games early in boot
+	// under Mesa llvmpipe on Linux/WSL.
+	g_Config.bSoftwareRendering = cmdLineOptions.softwareRendering.value_or(true);
 	g_Config.bSoftwareRenderingJit = true;
 	g_Config.iSplineBezierQuality = 2;
 	g_Config.bHighQualityDepth = true;
