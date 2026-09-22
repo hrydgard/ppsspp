@@ -381,6 +381,8 @@ private:
 	// data must be zero-padded from len to alignedLen (which should be the next multiply of 16)!
 	int BuildHash(uint8_t *output, const uint8_t *data, unsigned int len, unsigned int alignedLen, int mode, const uint8_t *cryptkey);
 	int DetermineCryptMode(const SceUtilitySavedataParam *param) const;
+	bool UsesSecureVersion(const SceUtilitySavedataParam *param) const;
+	bool MissingRequiredKey(const SceUtilitySavedataParam *param) const;
 
 	std::vector<SaveSFOFileListEntry> GetSFOEntries(const std::string &dirPath);
 	std::set<std::string> GetSecureFileNames(const std::string &dirPath);
