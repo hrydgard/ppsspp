@@ -928,58 +928,17 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			mips->r[inst->dest] = mips->vfpuCtrl[inst->src1];
 			break;
 		case IROp::FRound:
-		{
-			float value = mips->f[inst->src1];
-			if (my_isnanorinf(value)) {
-				mips->fi[inst->dest] = my_isinf(value) && value < 0.0f ? -2147483648LL : 2147483647LL;
-				break;
-			} else {
-				mips->fs[inst->dest] = (int)round_ieee_754(value);
-			}
+			mips->fs[inst->dest] = SaturatedFloatToInt(round_ieee_754(mips->f[inst->src1]));
 			break;
-		}
 		case IROp::FTrunc:
-		{
-			float value = mips->f[inst->src1];
-			if (my_isnanorinf(value)) {
-				mips->fi[inst->dest] = my_isinf(value) && value < 0.0f ? -2147483648LL : 2147483647LL;
-				break;
-			} else {
-				if (value >= 0.0f) {
-					mips->fs[inst->dest] = (int)floorf(value);
-					// Overflow, but it was positive.
-					if (mips->fs[inst->dest] == -2147483648LL) {
-						mips->fs[inst->dest] = 2147483647LL;
-					}
-				} else {
-					// Overflow happens to be the right value anyway.
-					mips->fs[inst->dest] = (int)ceilf(value);
-				}
-				break;
-			}
-		}
+			mips->fs[inst->dest] = SaturatedFloatToInt(truncf(mips->f[inst->src1]));
+			break;
 		case IROp::FCeil:
-		{
-			float value = mips->f[inst->src1];
-			if (my_isnanorinf(value)) {
-				mips->fi[inst->dest] = my_isinf(value) && value < 0.0f ? -2147483648LL : 2147483647LL;
-				break;
-			} else {
-				mips->fs[inst->dest] = (int)ceilf(value);
-			}
+			mips->fs[inst->dest] = SaturatedFloatToInt(ceilf(mips->f[inst->src1]));
 			break;
-		}
 		case IROp::FFloor:
-		{
-			float value = mips->f[inst->src1];
-			if (my_isnanorinf(value)) {
-				mips->fi[inst->dest] = my_isinf(value) && value < 0.0f ? -2147483648LL : 2147483647LL;
-				break;
-			} else {
-				mips->fs[inst->dest] = (int)floorf(value);
-			}
+			mips->fs[inst->dest] = SaturatedFloatToInt(floorf(mips->f[inst->src1]));
 			break;
-		}
 		case IROp::FCmp:
 			switch (inst->dest) {
 			case IRFpCompareMode::False:
@@ -1019,16 +978,12 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		case IROp::FCvtWS:
 		{
 			float src = mips->f[inst->src1];
-			if (my_isnanorinf(src)) {
-				mips->fs[inst->dest] = my_isinf(src) && src < 0.0f ? -2147483648LL : 2147483647LL;
-				break;
-			}
 			// TODO: Inline assembly to use here would be better.
 			switch (IRRoundMode(mips->fcr31 & 3)) {
-			case IRRoundMode::RINT_0: mips->fs[inst->dest] = (int)round_ieee_754(src); break;
-			case IRRoundMode::CAST_1: mips->fs[inst->dest] = (int)src; break;
-			case IRRoundMode::CEIL_2: mips->fs[inst->dest] = (int)ceilf(src); break;
-			case IRRoundMode::FLOOR_3: mips->fs[inst->dest] = (int)floorf(src); break;
+			case IRRoundMode::RINT_0: mips->fs[inst->dest] = SaturatedFloatToInt(round_ieee_754(src)); break;
+			case IRRoundMode::CAST_1: mips->fs[inst->dest] = SaturatedFloatToInt(truncf(src)); break;
+			case IRRoundMode::CEIL_2: mips->fs[inst->dest] = SaturatedFloatToInt(ceilf(src)); break;
+			case IRRoundMode::FLOOR_3: mips->fs[inst->dest] = SaturatedFloatToInt(floorf(src)); break;
 			}
 			break; //cvt.w.s
 		}

@@ -1130,46 +1130,25 @@ namespace MIPSInt {
 		case 13:
 		case 14:
 		case 15:
-			if (my_isnanorinf(F(fs)))
-			{
-				FsI(fd) = my_isinf(F(fs)) && F(fs) < 0.0f ? -2147483648LL : 2147483647LL;
-				break;
-			}
 			switch (op & 0x3f)
 			{
 			// round.w.s is round-half-to-even, not half-away-from-zero - and its mode is fixed,
 			// so unlike cvt.w.s below it must not follow fcr31. round_ieee_754 is both.
-			case 12: FsI(fd) = (int)round_ieee_754(F(fs)); break; //round.w.s
-			case 13: //trunc.w.s
-				if (F(fs) >= 0.0f) {
-					FsI(fd) = (int)floorf(F(fs));
-					// Overflow, but it was positive.
-					if (FsI(fd) == -2147483648LL) {
-						FsI(fd) = 2147483647LL;
-					}
-				} else {
-					// Overflow happens to be the right value anyway.
-					FsI(fd) = (int)ceilf(F(fs));
-				}
-				break;
-			case 14: FsI(fd) = (int)ceilf (F(fs)); break; //ceil.w.s
-			case 15: FsI(fd) = (int)floorf(F(fs)); break; //floor.w.s
+			case 12: FsI(fd) = SaturatedFloatToInt(round_ieee_754(F(fs))); break; //round.w.s
+			case 13: FsI(fd) = SaturatedFloatToInt(truncf(F(fs))); break; //trunc.w.s
+			case 14: FsI(fd) = SaturatedFloatToInt(ceilf(F(fs))); break; //ceil.w.s
+			case 15: FsI(fd) = SaturatedFloatToInt(floorf(F(fs))); break; //floor.w.s
 			}
 			break;
 		case 32: F(fd) = (float)FsI(fs); break; //cvt.s.w
 
 		case 36:
-			if (my_isnanorinf(F(fs)))
-			{
-				FsI(fd) = my_isinf(F(fs)) && F(fs) < 0.0f ? -2147483648LL : 2147483647LL;
-				break;
-			}
 			switch (mips->fcr31 & 3)
 			{
-			case 0: FsI(fd) = (int)round_ieee_754(F(fs)); break;  // RINT_0
-			case 1: FsI(fd) = (int)F(fs); break;  // CAST_1
-			case 2: FsI(fd) = (int)ceilf(F(fs)); break;  // CEIL_2
-			case 3: FsI(fd) = (int)floorf(F(fs)); break;  // FLOOR_3
+			case 0: FsI(fd) = SaturatedFloatToInt(round_ieee_754(F(fs))); break;  // RINT_0
+			case 1: FsI(fd) = SaturatedFloatToInt(truncf(F(fs))); break;  // CAST_1
+			case 2: FsI(fd) = SaturatedFloatToInt(ceilf(F(fs))); break;  // CEIL_2
+			case 3: FsI(fd) = SaturatedFloatToInt(floorf(F(fs))); break;  // FLOOR_3
 			}
 			break; //cvt.w.s
 		default:
