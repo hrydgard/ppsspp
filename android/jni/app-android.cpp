@@ -1327,6 +1327,9 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessageFromJava(JNI
 		System_PostUIMessage(UIMessage::PERMISSION_GRANTED, prm);
 	} else if (msg == "sustained_perf_supported") {
 		sustainedPerfSupported = true;
+	} else if (msg == "smallestScreenWidthDp") {
+		// Changes on fold/unfold. Decides SYSPROP_CAN_RESTRICT_ORIENTATION.
+		smallestScreenWidthDp = (int)parseLong(prm);
 	} else if (msg == "safe_insets") {
 		// INFO_LOG(Log::System, "Got insets: %s", prm.c_str());
 		// We don't bother with supporting exact rectangular regions. Safe insets are good enough.

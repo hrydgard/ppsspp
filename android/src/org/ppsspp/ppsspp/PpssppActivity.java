@@ -1072,7 +1072,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		if (m_hasNoNativeBinary) {
 			return;
 		}
-		// The surface size change that comes with it is what actually updates the native side.
+		// The surface size change that comes with it is what actually updates the native side, except
+		// for this, which the native side was told once at init. Changes on fold/unfold.
+		NativeApp.sendMessageFromJava("smallestScreenWidthDp", String.valueOf(newConfig.smallestScreenWidthDp));
 		updateSystemUiVisibility();
 	}
 
