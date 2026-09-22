@@ -110,8 +110,30 @@ public class SizeManager implements SurfaceHolder.Callback {
 
 		Log.i(TAG, "Surface changed. Resolution: " + width + "x" + height + " Format: " + format);
 		// The window size might have changed (immersive mode, native fullscreen on some devices)
-		NativeApp.backbufferResize(width, height, format);
 		updateDisplayMeasurements();
+
+		// A rotation or a window resize no longer recreates the activity, so a fixed-size (hardware scaled)
+		// surface has to be re-fixed here for the new display size and aspect. The fixed size is what the
+		// surface will report, so only do it when it doesn't already match, or this would loop.
+		if (!holder.isCreating()) {
+			Point newDesired = new Point();
+			getDesiredBackbufferSize(newDesired);
+			boolean fixed = desiredSize.x > 0 && desiredSize.y > 0;
+			boolean wantFixed = newDesired.x > 0 && newDesired.y > 0;
+			if (wantFixed && (newDesired.x != width || newDesired.y != height)) {
+				Log.i(TAG, "Display changed, re-fixing surface size to " + newDesired.x + " x " + newDesired.y);
+				desiredSize.set(newDesired.x, newDesired.y);
+				holder.setFixedSize(newDesired.x, newDesired.y);
+				return;  // Another surfaceChanged is coming, with the new size.
+			} else if (!wantFixed && fixed) {
+				Log.i(TAG, "Display changed, surface no longer needs a fixed size");
+				desiredSize.set(0, 0);
+				holder.setSizeFromLayout();
+				return;
+			}
+		}
+
+		NativeApp.backbufferResize(width, height, format, activity.getWindowManager().getDefaultDisplay().getRotation());
 
 		if (!paused) {
 			activity.notifySurface(holder.getSurface());

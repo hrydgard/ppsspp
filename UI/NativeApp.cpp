@@ -1345,7 +1345,9 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 		g_screenManager->resized();
 
 		// TODO: Move this to the GraphicsContext objects for each backend.
-#if !PPSSPP_PLATFORM(WINDOWS) && !defined(ANDROID)
+		// (Android used to be left out here, since every size change there was a full graphics restart,
+		// and DeviceRestore covers it. Rotation and window resizing are in-place now.)
+#if !PPSSPP_PLATFORM(WINDOWS)
 		PSP_CoreParameter().pixelWidth = g_display.pixel_xres;
 		PSP_CoreParameter().pixelHeight = g_display.pixel_yres;
 		System_PostUIMessage(UIMessage::GPU_DISPLAY_RESIZED);

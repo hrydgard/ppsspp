@@ -940,8 +940,14 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 	INFO_LOG(Log::System, "NativeApp.shutdown() -- end");
 }
 
-extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv *, jclass, jint pixel_xres, jint pixel_yres, jint format) {
-	INFO_LOG(Log::System, "NativeApp.backbufferResize(%d x %d)", pixel_xres, pixel_yres);
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv *, jclass, jint pixel_xres, jint pixel_yres, jint format, jint rotation) {
+	INFO_LOG(Log::System, "NativeApp.backbufferResize(%d x %d, rotation %d)", pixel_xres, pixel_yres, rotation);
+
+	// The display's Surface.ROTATION_*. A 180 degree flip changes this but not the size, and the swapchain
+	// still needs recreating, for the pre-rotation.
+	static int lastRotation = -1;
+	const bool rotated = lastRotation != -1 && rotation != lastRotation;
+	lastRotation = rotation;
 
 	int old_w = g_display.pixel_xres;
 	int old_h = g_display.pixel_yres;
@@ -966,8 +972,8 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv
 	INFO_LOG(Log::G3D, "RecalcDPI: g_dpi=%d scaled_dpi_x=%f scaled_dpi_y=%f display_scale_x=%f display_scale_y=%f g_dpi_scale_x=%f g_dpi_scale_y=%f dp_xres=%d dp_yres=%d",
 		display_dpi, dpi_x, dpi_y, display_scale_x, display_scale_y, g_display.dpi_scale_x, g_display.dpi_scale_y, g_display.dp_xres, g_display.dp_yres);
 
-	if (new_size) {
-		INFO_LOG(Log::G3D, "Size change detected (previously %d,%d) - calling NativeResized()", old_w, old_h);
+	if (new_size || rotated) {
+		INFO_LOG(Log::G3D, "%s detected (previously %d,%d) - calling NativeResized()", new_size ? "Size change" : "Rotation change", old_w, old_h);
 		NativeResized();
 	} else {
 		INFO_LOG(Log::G3D, "NativeApp::backbufferResize: Size didn't change.");

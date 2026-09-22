@@ -111,6 +111,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	// switched-away from or rotated etc.
 	private boolean shuttingDown;
 
+	// surfaceChanged now also fires for rotations and resizes, where the thread just keeps going.
+	private boolean renderLoopRunning = false;
+
 	// Allow for multiple connected gamepads but just consider them the same for now.
 	// Actually this is not entirely true, see the code.
 	private final ArrayList<InputDeviceState> inputPlayers = new ArrayList<>();
@@ -898,10 +901,15 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			return;
 		}
 
+		if (renderLoopRunning) {
+			Log.i(TAG, "startRenderLoopThread: already running, surface changed in place");
+			return;
+		}
+
 		Log.w(TAG, "startRenderLoopThread: Starting thread");
 
 		applyFrameRate(mSurface, 60.0f);
-		runRenderLoop(mSurface);
+		renderLoopRunning = runRenderLoop(mSurface);
 	}
 
 	private synchronized void joinRenderLoopThread() {
@@ -915,6 +923,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		// This will wait until the thread has exited.
 		Log.i(TAG, "requestExitRenderLoop");
 		requestExitRenderLoop();
+		renderLoopRunning = false;
 	}
 
 	void setupSystemUiCallback() {
@@ -1085,7 +1094,8 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	@Override
 	public void onConfigurationChanged(@NonNull Configuration newConfig) {
 		super.onConfigurationChanged(newConfig);
-		Log.i(TAG, "onConfigurationChanged");
+		Log.i(TAG, "onConfigurationChanged: orientation=" + newConfig.orientation + " density=" + newConfig.densityDpi
+			+ " screen=" + newConfig.screenWidthDp + "x" + newConfig.screenHeightDp + "dp");
 		if (m_hasNoNativeBinary) {
 			return;
 		}
