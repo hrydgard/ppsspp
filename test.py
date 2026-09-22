@@ -460,6 +460,9 @@ known_failures = {
     # No flush-to-zero: the ISA has no control for it, so a denormal result survives where the
     # PSP would have flushed it. Everything else in this test passes.
     "cpu/fpu/fpu",
+    # The ISA returns the canonical NaN (0x7fc00000) from every operation, never the operand's
+    # NaN, so a negative or signaling NaN input loses its sign and payload. Everything else passes.
+    "cpu/fpu/roundmode",
     # The software renderer's output differs from the reference by the same amount on both of
     # these architectures, despite them using completely different SIMD paths. Unexplained.
     "gpu/clipping/homogeneous",
