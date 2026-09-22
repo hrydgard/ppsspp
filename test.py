@@ -472,6 +472,7 @@ tests_next = [
   "cpu/fpu/fcr",
   "cpu/vfpu/prefix_consume",  # see the pspautotests commit for what differs per core
   "cpu/vfpu/prefix_ctrl",
+  "cpu/vfpu/prefix_sat",
   "cpu/vfpu/minmax_tie",  # vmin/vmax return the second operand on a -0/+0 tie; the IR path returns the first
   "cpu/vfpu/minmax_zero",  # signed zero and denormals in vmin/vmax
   "cpu/vfpu/prefixes",
