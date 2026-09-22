@@ -879,8 +879,15 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			mips->f[inst->dest] = fabsf(mips->f[inst->src1]);
 			break;
 		case IROp::FSqrt:
-			mips->f[inst->dest] = sqrtf(mips->f[inst->src1]);
+		{
+			float src = mips->f[inst->src1];
+			mips->f[inst->dest] = sqrtf(src);
+			// A negative input gives a positive NaN, not the host's (cpu/fpu/roundmode).
+			if (src < 0.0f) {
+				mips->fi[inst->dest] = 0x7FC00000;
+			}
 			break;
+		}
 		case IROp::FNeg:
 			mips->f[inst->dest] = -mips->f[inst->src1];
 			break;

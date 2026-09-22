@@ -1122,7 +1122,13 @@ namespace MIPSInt {
 
 		switch (op & 0x3f)
 		{
-		case 4:	F(fd)	= sqrtf(F(fs)); break; //sqrt
+		case 4:	//sqrt
+			F(fd) = sqrtf(F(fs));
+			// A negative input gives a positive NaN, not the host's (cpu/fpu/roundmode).
+			if (F(fs) < 0.0f) {
+				FsI(fd) = 0x7FC00000;
+			}
+			break;
 		case 5:	F(fd)	= fabsf(F(fs)); break; //abs
 		case 6:	F(fd)	= F(fs); break; //mov
 		case 7:	F(fd)	= -F(fs); break; //neg

@@ -177,9 +177,21 @@ void X64JitBackend::CompIR_FArith(IRInst inst) {
 		break;
 
 	case IROp::FSqrt:
-		regs_.Map(inst);
+	{
+		X64Reg tempReg = regs_.MapWithFPRTemp(inst);
+		// x86 gives a negative NaN for a negative input, the PSP a positive one: clear the sign
+		// where the input was negative. -0 and NaN inputs come through as they are.
+		if (cpu_info.bAVX) {
+			VCMPSS(tempReg, regs_.FX(inst.src1), M(constants.positiveZeroes), CMP_LT);  // rip accessible
+		} else {
+			MOVAPS(tempReg, regs_.F(inst.src1));
+			CMPSS(tempReg, M(constants.positiveZeroes), CMP_LT);  // rip accessible
+		}
+		ANDPS(tempReg, M(constants.signBitAll));  // rip accessible
 		SQRTSS(regs_.FX(inst.dest), regs_.F(inst.src1));
+		XORPS(regs_.FX(inst.dest), R(tempReg));
 		break;
+	}
 
 	case IROp::FNeg:
 		regs_.Map(inst);
