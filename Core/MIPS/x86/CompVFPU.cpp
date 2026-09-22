@@ -1661,14 +1661,18 @@ void Jit::Comp_Vh2f(MIPSOpcode op) {
 	SSE_CONST4(magic,               (254 - 15) << 23);
 	SSE_CONST4(was_infnan,          0x7bff);
 	SSE_CONST4(exp_infnan,          255 << 23);
+	SSE_CONST4(max_subnormal,       0x03ff);
+	SSE_CONST4(sign_only,           0x80000000);
 
-	OpArg mask_nosign_arg, nan_mantissa_arg, magic_arg, was_infnan_arg, exp_infnan_arg;
+	OpArg mask_nosign_arg, nan_mantissa_arg, magic_arg, was_infnan_arg, exp_infnan_arg, max_subnormal_arg, sign_only_arg;
 	if (RipAccessible(mask_nosign)) {
 		mask_nosign_arg = M(&mask_nosign[0]);
 		nan_mantissa_arg = M(&nan_mantissa[0]);
 		magic_arg = M(&magic[0]);
 		was_infnan_arg = M(&was_infnan[0]);
 		exp_infnan_arg = M(&exp_infnan[0]);
+		max_subnormal_arg = M(&max_subnormal[0]);
+		sign_only_arg = M(&sign_only[0]);
 	} else {
 		MOV(PTRBITS, R(TEMPREG), ImmPtr(&mask_nosign[0]));
 		mask_nosign_arg = MAccessibleDisp(TEMPREG, &mask_nosign[0], &mask_nosign[0]);
@@ -1676,6 +1680,8 @@ void Jit::Comp_Vh2f(MIPSOpcode op) {
 		magic_arg = MAccessibleDisp(TEMPREG, &mask_nosign[0], &magic[0]);
 		was_infnan_arg = MAccessibleDisp(TEMPREG, &mask_nosign[0], &was_infnan[0]);
 		exp_infnan_arg = MAccessibleDisp(TEMPREG, &mask_nosign[0], &exp_infnan[0]);
+		max_subnormal_arg = MAccessibleDisp(TEMPREG, &mask_nosign[0], &max_subnormal[0]);
+		sign_only_arg = MAccessibleDisp(TEMPREG, &mask_nosign[0], &sign_only[0]);
 	}
 
 #undef SSE_CONST4
@@ -1699,9 +1705,12 @@ void Jit::Comp_Vh2f(MIPSOpcode op) {
 	// Flush SIMD.
 	fpr.SimpleRegsV(sregs, sz, 0);
 
-	// Force ourselves an extra xreg as temp space.
-	X64Reg tempR = fpr.GetFreeXReg();
-	
+	// Force ourselves two extra xregs as temp space.
+	X64Reg temps[2];
+	fpr.GetFreeXRegs(temps, 2);
+	X64Reg tempR = temps[0];
+	X64Reg keepMask = temps[1];
+
 	MOVSS(XMM0, fpr.V(sregs[0]));
  	if (sz != V_Single) {
 		MOVSS(XMM1, fpr.V(sregs[1]));
@@ -1716,6 +1725,11 @@ void Jit::Comp_Vh2f(MIPSOpcode op) {
 	ANDPS(XMM0, mask_nosign_arg); // xmm0 = expmant
 	XORPS(XMM1, R(XMM0));  // xmm1 = justsign = expmant ^ xmm0
 	MOVAPS(tempR, R(XMM0));
+	// The hardware flushes subnormal halves to a signed zero: keep only the sign where the
+	// exponent is zero.
+	MOVAPS(keepMask, R(XMM0));
+	PCMPGTD(keepMask, max_subnormal_arg);  // keepMask = exponent != 0
+	ORPS(keepMask, sign_only_arg);
 	PSLLD(XMM0, 13);
 	MULPS(XMM0, magic_arg);  /// xmm0 = scaled
 	PSLLD(XMM1, 16);  // xmm1 = sign
@@ -1729,8 +1743,9 @@ void Jit::Comp_Vh2f(MIPSOpcode op) {
 	ANDPS(XMM1, R(tempR)); // xmm1 = infnan result OR zero if not infnan
 	ANDNPS(tempR, R(XMM0)); // tempR = result OR zero if infnan
 	ORPS(XMM1, R(tempR));
+	ANDPS(XMM1, R(keepMask));
 
-	fpr.MapRegsV(dregs, outsize, MAP_NOINIT | MAP_DIRTY);  
+	fpr.MapRegsV(dregs, outsize, MAP_NOINIT | MAP_DIRTY);
 
 	// TODO: Could apply D-prefix in parallel here...
 

@@ -863,7 +863,7 @@ namespace MIPSInt
 
 	void Int_Vh2f(MIPSState *mips, MIPSOpcode op) {
 		u32 s[4];
-		float d[4];
+		u32 d[4];
 		int vd = _VD;
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
@@ -874,49 +874,49 @@ namespace MIPSInt
 		switch (sz) {
 		case V_Single:
 			outsize = V_Pair;
-			d[0] = ExpandHalf(s[0] & 0xFFFF);
-			d[1] = ExpandHalf(s[0] >> 16);
+			d[0] = vfpu_h2f(s[0] & 0xFFFF);
+			d[1] = vfpu_h2f(s[0] >> 16);
 			break;
 		case V_Pair:
 		default:
 			// All other sizes are treated the same.
 			outsize = V_Quad;
-			d[0] = ExpandHalf(s[0] & 0xFFFF);
-			d[1] = ExpandHalf(s[0] >> 16);
-			d[2] = ExpandHalf(s[1] & 0xFFFF);
-			d[3] = ExpandHalf(s[1] >> 16);
+			d[0] = vfpu_h2f(s[0] & 0xFFFF);
+			d[1] = vfpu_h2f(s[0] >> 16);
+			d[2] = vfpu_h2f(s[1] & 0xFFFF);
+			d[3] = vfpu_h2f(s[1] >> 16);
 			break;
 		}
-		ApplyPrefixD(mips, d, outsize);
-		WriteVector(mips, d, outsize, vd);
+		ApplyPrefixD(mips, reinterpret_cast<float *>(d), outsize);
+		WriteVector(mips, reinterpret_cast<float *>(d), outsize, vd);
 		PC += 4;
 		EatPrefixes(mips);
 	}
 
 	void Int_Vf2h(MIPSState *mips, MIPSOpcode op) {
-		float s[4]{};
+		u32 s[4]{};
 		u32 d[4];
 		int vd = _VD;
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
-		ReadVector(mips, s, sz, vs);
+		ReadVector(mips, reinterpret_cast<float *>(s), sz, vs);
 		// Swizzle can cause V_Single to properly write both components.
-		ApplySwizzleS(mips, s, V_Quad);
+		ApplySwizzleS(mips, reinterpret_cast<float *>(s), V_Quad);
 		// Negate should not actually apply to invalid swizzle.
-		RetainInvalidSwizzleST(mips, s, V_Quad);
-		
+		RetainInvalidSwizzleST(mips, reinterpret_cast<float *>(s), V_Quad);
+
 		VectorSize outsize = V_Single;
 		switch (sz) {
 		case V_Single:
 		case V_Pair:
 			outsize = V_Single;
-			d[0] = ShrinkToHalf(s[0]) | ((u32)ShrinkToHalf(s[1]) << 16);
+			d[0] = vfpu_f2h(s[0]) | ((u32)vfpu_f2h(s[1]) << 16);
 			break;
 		case V_Triple:
 		case V_Quad:
 			outsize = V_Pair;
-			d[0] = ShrinkToHalf(s[0]) | ((u32)ShrinkToHalf(s[1]) << 16);
-			d[1] = ShrinkToHalf(s[2]) | ((u32)ShrinkToHalf(s[3]) << 16);
+			d[0] = vfpu_f2h(s[0]) | ((u32)vfpu_f2h(s[1]) << 16);
+			d[1] = vfpu_f2h(s[2]) | ((u32)vfpu_f2h(s[3]) << 16);
 			break;
 
 		default:

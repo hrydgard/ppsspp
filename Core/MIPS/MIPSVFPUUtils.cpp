@@ -640,6 +640,40 @@ float Float16ToFloat32(unsigned short l)
 	return f;
 }
 
+u32 vfpu_h2f(u16 h) {
+	u32 sign = (u32)(h & 0x8000) << 16;
+	u32 exp = (h >> 10) & 0x1F;
+	u32 mant = h & 0x3FF;
+	if (exp == 0) {
+		// Zero and subnormal halves both give a signed zero.
+		return sign;
+	}
+	if (exp == 31) {
+		// Inf/NaN: the mantissa bits stay where they are, not shifted into place.
+		return sign | 0x7F800000 | mant;
+	}
+	return sign | ((exp + 112) << 23) | (mant << 13);
+}
+
+u16 vfpu_f2h(u32 f) {
+	u16 sign = (u16)((f >> 16) & 0x8000);
+	u32 exp = (f >> 23) & 0xFF;
+	u32 mant = f & 0x7FFFFF;
+	if (exp == 255) {
+		// Inf/NaN: the low ten mantissa bits carry over, so a NaN with those clear becomes inf.
+		return sign | 0x7C00 | (u16)(mant & 0x3FF);
+	}
+	if (exp < 113) {
+		// Below 2^-14: no subnormal halves, signed zero.
+		return sign;
+	}
+	if (exp >= 143) {
+		// 65536 and up: inf. Nothing rounds up to it, since the mantissa is truncated.
+		return sign | 0x7C00;
+	}
+	return sign | (u16)((exp - 112) << 10) | (u16)(mant >> 13);
+}
+
 // Implementations of vmul and vdiv, assumed to
 // be bitwise-exact to PSP, see
 // https://github.com/hrydgard/ppsspp/issues/21070#issuecomment-4618120525
