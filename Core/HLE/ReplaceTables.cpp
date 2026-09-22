@@ -132,6 +132,7 @@ static int Replace_memcpy() {
 			skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
 		}
 	}
+	gpu->NotifyVideoCopy(destPtr, srcPtr, bytes);
 	if (!skip && bytes != 0) {
 		u8 *dst = Memory::GetPointerWriteRangeOrException(destPtr, bytes);
 		const u8 *src = Memory::GetPointerRangeOrException(srcPtr, bytes);
@@ -193,6 +194,7 @@ static int Replace_memcpy_jak() {
 			skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
 		}
 	}
+	gpu->NotifyVideoCopy(destPtr, srcPtr, bytes);
 	if (!skip && bytes > SLICE_SIZE && bytes != 512 * 272 * 4 && !PSP_CoreParameter().compat.flags().DisableMemcpySlicing) {
 		// This is a very slow func.  To avoid thread blocking, do a slice at a time.
 		// Avoiding exactly 512 * 272 * 4 to detect videos, though.
@@ -264,6 +266,7 @@ static int Replace_memcpy16() {
 			skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
 		}
 	}
+	gpu->NotifyVideoCopy(destPtr, srcPtr, bytes);
 	if (!skip && bytes != 0) {
 		u8 *dst = Memory::GetPointerWriteRangeOrException(destPtr, bytes);
 		const u8 *src = Memory::GetPointerRangeOrException(srcPtr, bytes);
@@ -332,6 +335,7 @@ static int Replace_memmove() {
 			skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
 		}
 	}
+	gpu->NotifyVideoCopy(destPtr, srcPtr, bytes);
 	if (!skip && bytes != 0) {
 		u8 *dst = Memory::GetPointerWriteRangeOrException(destPtr, bytes);
 		const u8 *src = Memory::GetPointerRangeOrException(srcPtr, bytes);

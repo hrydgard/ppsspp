@@ -363,6 +363,7 @@ public:
 	// so that it can invalidate TexCacheEntries pointed at those addresses.
 	void NotifyFramebuffer(VirtualFramebuffer *framebuffer, FramebufferNotification msg);
 	void NotifyWriteFormattedFromMemory(u32 addr, int size, int width, GEBufferFormat fmt);
+	void NotifyVideoCopy(u32 dst, u32 src, int size);
 
 	int NumLoadedTextures() const {
 		return (int)cache_.size();
@@ -445,6 +446,7 @@ protected:
 	virtual void BoundFramebufferTexture() {}
 
 	bool IsVideo(u32 texaddr) const;
+	void NoteVideoRange(u32 addr, u32 size);
 
 	static TextureAlpha CheckCLUTAlpha(const uint8_t *pixelData, GEPaletteFormat clutFmt, int w);
 

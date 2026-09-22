@@ -2004,6 +2004,12 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 	cyclesExecuted += ((height * width * bpp) * 16) / 10;
 }
 
+void GPUCommon::NotifyVideoCopy(u32 dest, u32 src, int size) {
+	if (textureCache_) {
+		textureCache_->NotifyVideoCopy(dest, src, size);
+	}
+}
+
 bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags) {
 	if (size == 0) {
 		_dbg_assert_msg_(false, "Zero-sized PerformMemoryCopy: %08x -> %08x, size %d (flag: %d)", src, dest, size, (int)flags);

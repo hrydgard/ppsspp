@@ -1506,19 +1506,35 @@ void TextureCacheCommon::NotifyConfigChanged() {
 	replacer_.NotifyConfigChanged();
 }
 
-void TextureCacheCommon::NotifyWriteFormattedFromMemory(u32 addr, int size, int width, GEBufferFormat fmt) {
+void TextureCacheCommon::NoteVideoRange(u32 addr, u32 size) {
 	addr &= 0x3FFFFFFF;
 	// A game blits its video frame every displayed frame while waiting for the next one, so the
-	// same few display buffers arrive over and over. Refresh the one we already have rather than
-	// stacking a duplicate per frame - IsVideo() scans this linearly.
+	// same few buffers arrive over and over. Refresh the one we already have rather than stacking
+	// a duplicate per frame - IsVideo() scans this linearly.
 	for (VideoInfo &info : videos_) {
 		if (info.addr == addr) {
-			info.size = (u32)size;
+			info.size = size;
 			info.flips = gpuStats.totals.numFlips;
 			return;
 		}
 	}
-	videos_.push_back({ addr, (u32)size, gpuStats.totals.numFlips });
+	videos_.push_back({ addr, size, gpuStats.totals.numFlips });
+}
+
+void TextureCacheCommon::NotifyWriteFormattedFromMemory(u32 addr, int size, int width, GEBufferFormat fmt) {
+	NoteVideoRange(addr, (u32)size);
+}
+
+// A block copy of a video frame is still a video frame, and games do move them around: Dragon Ball
+// Z - Shin Budokai: Another Road colour-converts into RAM, sceDmacMemcpy's the result into VRAM and
+// textures from there, never sampling the converted buffer itself. Without carrying the status
+// across the copy, what we actually sample looks like an ordinary texture that happens to have new
+// contents every frame, so we hash it, miss, and rebuild it - forever.
+void TextureCacheCommon::NotifyVideoCopy(u32 dst, u32 src, int size) {
+	if (size <= 0 || !IsVideo(src)) {
+		return;
+	}
+	NoteVideoRange(dst, (u32)size);
 }
 
 void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes, GPURecord::Recorder *recorder) {

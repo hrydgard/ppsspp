@@ -162,6 +162,10 @@ public:
 	virtual void PerformWriteFormattedFromMemory(u32 addr, int size, int width, GEBufferFormat format);
 	virtual bool PerformWriteStencilFromMemory(u32 dest, int size, WriteStencil flags);
 
+	// Tells the texture cache that a block copy moved pixels, so it can carry "this is video" from
+	// the source to the destination. Cheap and safe to call for any copy.
+	void NotifyVideoCopy(u32 dest, u32 src, int size);
+
 	virtual void ExecuteOp(u32 op, u32 diff) = 0;
 
 	void Execute_OffsetAddr(u32 op, u32 diff);
