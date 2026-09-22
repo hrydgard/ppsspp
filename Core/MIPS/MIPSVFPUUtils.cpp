@@ -573,10 +573,26 @@ bool GetVFPUCtrlMask(int reg, u32 *mask) {
 	case VFPU_CTRL_RCX5:
 	case VFPU_CTRL_RCX6:
 	case VFPU_CTRL_RCX7:
-		*mask = 0x3FFFFFFF;
+		*mask = 0x000FFFFF;
 		return true;
 	default:
 		return false;
+	}
+}
+
+u32 GetVFPUCtrlSetBits(int reg) {
+	switch (reg) {
+	case VFPU_CTRL_RCX0:
+	case VFPU_CTRL_RCX1:
+	case VFPU_CTRL_RCX2:
+	case VFPU_CTRL_RCX3:
+	case VFPU_CTRL_RCX4:
+	case VFPU_CTRL_RCX5:
+	case VFPU_CTRL_RCX6:
+	case VFPU_CTRL_RCX7:
+		return 0x3F800000;
+	default:
+		return 0;
 	}
 }
 

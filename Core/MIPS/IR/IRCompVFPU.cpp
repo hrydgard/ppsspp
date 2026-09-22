@@ -138,16 +138,24 @@ namespace MIPSComp {
 		return true;
 	}
 
+	// True if the prefix only touches lanes the op has. A position past the size may only be the
+	// identity, and a position within it may not name a lane past it (which zeroes the result lane
+	// on hardware, see cpu/vfpu/prefix_ctrl - the interpreter handles that).
 	static bool IsPrefixWithinSize(u32 prefix, VectorSize sz) {
 		int n = GetNumVectorElements(sz);
-		for (int i = n; i < 4; i++) {
+		for (int i = 0; i < 4; i++) {
 			int regnum = (prefix >> (i * 2)) & 3;
 			int abs = (prefix >> (8 + i)) & 1;
 			int negate = (prefix >> (16 + i)) & 1;
 			int constants = (prefix >> (12 + i)) & 1;
-			if (regnum >= n && !constants) {
+			if (constants) {
+				continue;
+			}
+			if (i >= n) {
 				if (abs || negate || regnum != i)
 					return false;
+			} else if (regnum >= n) {
+				return false;
 			}
 		}
 
@@ -1281,8 +1289,11 @@ namespace MIPSComp {
 			} else if ((imm - 128) < VFPU_CTRL_MAX) {
 				u32 mask;
 				if (GetVFPUCtrlMask(imm - 128, &mask)) {
-					if (mask != 0xFFFFFFFF) {
+					u32 setBits = GetVFPUCtrlSetBits(imm - 128);
+					if (mask != 0xFFFFFFFF || setBits != 0) {
 						ir.Write(IROp::AndConst, IRTEMP_0, rt, 0, mask);
+						if (setBits != 0)
+							ir.Write(IROp::OrConst, IRTEMP_0, IRTEMP_0, 0, setBits);
 						ir.Write(IROp::SetCtrlVFPUReg, imm - 128, IRTEMP_0);
 					} else {
 						ir.Write(IROp::SetCtrlVFPUReg, imm - 128, rt);
@@ -1344,9 +1355,12 @@ namespace MIPSComp {
 		if (imm < VFPU_CTRL_MAX) {
 			u32 mask;
 			if (GetVFPUCtrlMask(imm, &mask)) {
-				if (mask != 0xFFFFFFFF) {
+				u32 setBits = GetVFPUCtrlSetBits(imm);
+				if (mask != 0xFFFFFFFF || setBits != 0) {
 					ir.Write(IROp::FMovToGPR, IRTEMP_0, vfpuBase + voffset[imm]);
 					ir.Write(IROp::AndConst, IRTEMP_0, IRTEMP_0, 0, mask);
+					if (setBits != 0)
+						ir.Write(IROp::OrConst, IRTEMP_0, IRTEMP_0, 0, setBits);
 					ir.Write(IROp::SetCtrlVFPUReg, imm, IRTEMP_0);
 				} else {
 					ir.Write(IROp::SetCtrlVFPUFReg, imm, vfpuBase + voffset[vs]);

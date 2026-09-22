@@ -134,17 +134,25 @@ void RiscVRegCache::EmitSaveStaticRegisters() {
 
 void RiscVRegCache::FlushBeforeCall() {
 	// These registers are not preserved by function calls.
-	// They match between X0 and F0, conveniently.
+	// X0-X4 are zero/ra/sp/gp/tp, which we never allocate, but F0-F4 (ft0-ft4) are caller-saved
+	// and we do allocate them - so the two don't line up and need separate loops.
 	for (int i = 5; i <= 7; ++i) {
 		FlushNativeReg(X0 + i);
-		FlushNativeReg(F0 + i);
 	}
 	for (int i = 10; i <= 17; ++i) {
 		FlushNativeReg(X0 + i);
-		FlushNativeReg(F0 + i);
 	}
 	for (int i = 28; i <= 31; ++i) {
 		FlushNativeReg(X0 + i);
+	}
+
+	for (int i = 0; i <= 7; ++i) {
+		FlushNativeReg(F0 + i);
+	}
+	for (int i = 10; i <= 17; ++i) {
+		FlushNativeReg(F0 + i);
+	}
+	for (int i = 28; i <= 31; ++i) {
 		FlushNativeReg(F0 + i);
 	}
 }

@@ -773,8 +773,9 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			s32 numerator = (s32)mips->r[inst->src1];
 			s32 denominator = (s32)mips->r[inst->src2];
 			if (numerator == (s32)0x80000000 && denominator == -1) {
+				// The one overflow. Hardware leaves the remainder at zero (cpu/cpu_alu/cpu_div).
 				mips->lo = 0x80000000;
-				mips->hi = -1;
+				mips->hi = 0;
 			} else if (denominator != 0) {
 				mips->lo = (u32)(numerator / denominator);
 				mips->hi = (u32)(numerator % denominator);

@@ -914,8 +914,9 @@ namespace MIPSInt {
 				s32 a = (s32)R(rs);
 				s32 b = (s32)R(rt);
 				if (a == (s32)0x80000000 && b == -1) {
+					// The one overflow. Hardware leaves the remainder at zero (cpu/cpu_alu/cpu_div).
 					LO = 0x80000000;
-					HI = -1;
+					HI = 0;
 				} else if (b != 0) {
 					LO = (u32)(a / b);
 					HI = (u32)(a % b);

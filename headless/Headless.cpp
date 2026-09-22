@@ -293,10 +293,10 @@ static GraphicsContext *CreateGraphicsContext(GPUCore gpuCore, std::string **dev
 	default:
 		return nullptr;
 	}
-#elif PPSSPP_ARCH(LOONGARCH64) || PPSSPP_ARCH(RISCV64)
-	// The loongarch64 and riscv64 cross-compilation sysroots have no SDL3 (see the HEADLESS_CROSS
-	// branch in CMakeLists.txt). These builds still run fine under qemu with --graphics=software,
-	// which needs no graphics context.
+#elif defined(HEADLESS_NO_SDL)
+	// A HEADLESS_CROSS build (see CMakeLists.txt): the loongarch64 and riscv64 cross-compilation
+	// sysroots have no SDL3, and a build for another architecture than the host's has no matching
+	// one either. These still run fine with --graphics=software, which needs no graphics context.
 	*deviceSetting = nullptr;
 	return nullptr;
 #elif PPSSPP_PLATFORM(ANDROID)
@@ -941,7 +941,7 @@ int main(int argc, const char* argv[]) {
 		// We don't bother with a window.
 		graphicsContext = new NullGraphicsContext();
 	} else {
-#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_ARCH(LOONGARCH64) || PPSSPP_ARCH(RISCV64)
+#if PPSSPP_PLATFORM(ANDROID) || defined(HEADLESS_NO_SDL)
 		fprintf(stderr, "Headless graphics context creation is not supported on this platform.\n");
 		return 1;
 #else
@@ -1174,7 +1174,7 @@ int main(int argc, const char* argv[]) {
 		ShutdownWebServer();
 	}
 
-#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_ARCH(LOONGARCH64) || PPSSPP_ARCH(RISCV64)
+#if PPSSPP_PLATFORM(ANDROID) || defined(HEADLESS_NO_SDL)
 	// ... see above
 #else
 	if (window) {

@@ -87,14 +87,21 @@ tests_good = [
   "cpu/cpu_alu/cpu_alu",
   "cpu/cpu_alu/cpu_branch",
   "cpu/cpu_alu/cpu_branch2",
+  "cpu/cpu_alu/cpu_div",
+  "cpu/vfpu/callout",
   "cpu/vfpu/colors",
   "cpu/vfpu/convert",
+  "cpu/vfpu/convert_scaled",
+  "cpu/vfpu/minmax",
+  "cpu/vfpu/prefix_branch",
+  "cpu/vfpu/prefix_ctrl",
   "cpu/vfpu/gum",
   "cpu/vfpu/matrix",
   "cpu/vfpu/vavg",
   "cpu/icache/icache",
   "cpu/lsu/lsu",
   "cpu/fpu/fpu",
+  "cpu/fpu/rounding",
 
   "audio/atrac/addstreamdata",
   "audio/atrac/atractest",
@@ -263,6 +270,7 @@ tests_good = [
   "malloc/malloc",
   "misc/dcache",
   "misc/deadbeef",
+  "modules/unresolved/unresolved",
   "misc/libc",
   "misc/sdkver",
   "misc/testgp",
@@ -463,6 +471,11 @@ known_failures = {
 tests_next = [
 # These are the next tests up for fixing. These run by default.
   "cpu/fpu/fcr",
+  "cpu/vfpu/prefix_consume",  # see the pspautotests commit for what differs per core
+  "cpu/vfpu/prefix_sat",
+  "cpu/vfpu/prefix_unpack",  # an invalid swizzle replays an earlier prefixed value, not emulated
+  "cpu/vfpu/minmax_tie",  # vmin/vmax return the second operand on a -0/+0 tie; the IR path returns the first
+  "cpu/vfpu/minmax_zero",  # signed zero and denormals in vmin/vmax
   "cpu/vfpu/prefixes",
   "cpu/vfpu/vector",
   "cpu/vfpu/vregs",

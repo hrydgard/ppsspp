@@ -1042,7 +1042,7 @@ namespace MIPSComp
 				CMP(32, gpr.R(rt), Imm32((u32) -1));
 				FixupBranch notOverflow2 = J_CC(CC_NE);
 				MOV(32, gpr.R(MIPS_REG_LO), Imm32(0x80000000));
-				MOV(32, gpr.R(MIPS_REG_HI), Imm32(-1));
+				MOV(32, gpr.R(MIPS_REG_HI), Imm32(0));  // Hardware leaves the remainder at zero.
 				FixupBranch skip2 = J();
 
 				SetJumpTarget(notOverflow);

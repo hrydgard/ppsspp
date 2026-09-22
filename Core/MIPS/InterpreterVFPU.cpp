@@ -164,6 +164,15 @@ void ApplyPrefixD(MIPSState *mips, float *v, VectorSize size, bool onlyWriteMask
 	}
 }
 
+// The ops that only apply the prefixes to their last lane (vrcp, vsin, vdiv and friends) take that
+// lane's prefix from position 0, as if it was a one-lane op. If it names any lane but the first, the
+// result lane comes out as zero - not the op of some substitute value, vlog2 and vsqrt give zero too
+// (cpu/vfpu/prefix_sat). Negate, abs and constants there apply normally.
+static bool LastLaneSwizzleInvalid(MIPSState *mips, int ctrl) {
+	const u32 prefix = mips->vfpuCtrl[ctrl];
+	return (prefix & 3) != 0 && (prefix & (1 << 12)) == 0;
+}
+
 static void RetainInvalidSwizzleST(MIPSState *mips, float *d, VectorSize sz) {
 	// Somehow it's like a supernan, maybe wires through to zero?
 	// Doesn't apply to all ops.
@@ -610,7 +619,7 @@ namespace MIPSInt
 		case 21:
 		case 22:
 		case 23:
-			// Similar to vdiv.  Some of the behavior using the invalid constant is iffy.
+			// Similar to vdiv. An invalid swizzle here zeroes the result, see below.
 			ApplySwizzleS(mips, &s[n - 1], V_Single, INFINITY);
 			break;
 		case 24:
@@ -668,6 +677,9 @@ namespace MIPSInt
 		case 26:
 		case 28:
 		{
+			if (LastLaneSwizzleInvalid(mips, VFPU_CTRL_SPREFIX)) {
+				d[n - 1] = 0.0f;
+			}
 			// Only the last element gets the mask applied.
 			u32 lastmask = (mips->vfpuCtrl[VFPU_CTRL_DPREFIX] & (1 << 8)) << (n - 1);
 			u32 lastsat = (mips->vfpuCtrl[VFPU_CTRL_DPREFIX] & 3) << (n + n - 2);
@@ -1812,7 +1824,7 @@ namespace MIPSInt
 			} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc
 				u32 mask;
 				if (GetVFPUCtrlMask(imm - 128, &mask)) {
-					mips->vfpuCtrl[imm - 128] = R(rt) & mask;
+					mips->vfpuCtrl[imm - 128] = (R(rt) & mask) | GetVFPUCtrlSetBits(imm - 128);
 				}
 			} else {
 				//ERROR
@@ -1844,7 +1856,7 @@ namespace MIPSInt
 		if (imm < VFPU_CTRL_MAX) {
 			u32 mask;
 			if (GetVFPUCtrlMask(imm, &mask)) {
-				mips->vfpuCtrl[imm] = VI(vs) & mask;
+				mips->vfpuCtrl[imm] = (VI(vs) & mask) | GetVFPUCtrlSetBits(imm);
 			}
 		}
 		PC += 4;
@@ -2142,8 +2154,8 @@ namespace MIPSInt
 			ApplySwizzleT(mips, t, sz);
 		} else {
 			// The prefix handling of S/T is a bit odd, probably the HW doesn't do it in parallel.
-			// The X prefix is applied to the last element in sz.
-			// TODO: This doesn't match exactly for a swizzle past x in some cases...
+			// The X prefix is applied to the last element in sz. A swizzle past x zeroes the
+			// result, see below.
 			ApplySwizzleS(mips, &s[n - 1], V_Single, -INFINITY);
 			ApplySwizzleT(mips, &t[n - 1], V_Single, -INFINITY);
 		}
@@ -2167,6 +2179,9 @@ namespace MIPSInt
 
 		// For vdiv only, the D prefix only applies mask (and like S/T, x applied to last.)
 		if (optype == 7) {
+			if (LastLaneSwizzleInvalid(mips, VFPU_CTRL_SPREFIX) || LastLaneSwizzleInvalid(mips, VFPU_CTRL_TPREFIX)) {
+				d.f[n - 1] = 0.0f;
+			}
 			u32 lastmask = (mips->vfpuCtrl[VFPU_CTRL_DPREFIX] & (1 << 8)) << (n - 1);
 			u32 lastsat = (mips->vfpuCtrl[VFPU_CTRL_DPREFIX] & 3) << (n + n - 2);
 			mips->vfpuCtrl[VFPU_CTRL_DPREFIX] = lastmask | lastsat;

@@ -377,10 +377,11 @@ void X64JitBackend::CompIR_Div(IRInst inst) {
 			TEST(32, regs_.R(inst.src2), regs_.R(inst.src2));
 			FixupBranch divideByZero = J_CC(CC_E, false);
 
-			// Sign extension sets HI to -1 for us on x64.
-			MOV(PTRBITS, regs_.R(IRREG_LO), Imm32(0x80000000));
+			// IDIV would trap on INT_MIN / -1. Hardware gives LO = INT_MIN, HI = 0 - a plain 32-bit
+			// move zero-extends on x64, which leaves HI (the high half) at zero.
+			MOV(32, regs_.R(IRREG_LO), Imm32(0x80000000));
 #if PPSSPP_ARCH(X86)
-			MOV(PTRBITS, regs_.R(IRREG_HI), Imm32(-1));
+			MOV(PTRBITS, regs_.R(IRREG_HI), Imm32(0));
 #endif
 			CMP(32, regs_.R(inst.src1), regs_.R(IRREG_LO));
 			FixupBranch numeratorNotOverflow = J_CC(CC_NE, false);
