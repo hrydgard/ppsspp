@@ -95,7 +95,7 @@ void PSPDialog::UpdateCommon() {
 	}
 }
 
-PSPDialog::DialogStatus PSPDialog::GetStatus() {
+void PSPDialog::UpdatePendingStatus() {
 	if (pendingStatusTicks != 0 && CoreTiming::GetTicks(currentMIPS) >= pendingStatusTicks) {
 		bool changeAllowed = true;
 		if (pendingStatus == SCE_UTILITY_STATUS_NONE && status == SCE_UTILITY_STATUS_SHUTDOWN) {
@@ -111,15 +111,37 @@ PSPDialog::DialogStatus PSPDialog::GetStatus() {
 			pendingStatusTicks = 0;
 		}
 	}
+}
+
+PSPDialog::DialogStatus PSPDialog::GetStatus() {
+	UpdatePendingStatus();
 
 	PSPDialog::DialogStatus retval = status;
 	if (UseAutoStatus()) {
-		if (status == SCE_UTILITY_STATUS_SHUTDOWN)
+		if (status == SCE_UTILITY_STATUS_SHUTDOWN) {
+			FinishVolatile();
 			status = SCE_UTILITY_STATUS_NONE;
+		}
 		if (status == SCE_UTILITY_STATUS_INITIALIZE)
 			status = SCE_UTILITY_STATUS_RUNNING;
 	}
 	return retval;
+}
+
+bool PSPDialog::IsBusy() {
+	UpdatePendingStatus();
+	// An auto status dialog in SHUTDOWN is only waiting for the game to see that (FinishAutoShutdown).
+	if (status == SCE_UTILITY_STATUS_SHUTDOWN && UseAutoStatus()) {
+		return false;
+	}
+	return status != SCE_UTILITY_STATUS_NONE;
+}
+
+void PSPDialog::FinishAutoShutdown() {
+	if (status == SCE_UTILITY_STATUS_SHUTDOWN && UseAutoStatus()) {
+		FinishVolatile();
+		status = SCE_UTILITY_STATUS_NONE;
+	}
 }
 
 void PSPDialog::ChangeStatus(DialogStatus newStatus, int delayUs) {
@@ -153,11 +175,15 @@ void PSPDialog::FinishVolatile() {
 }
 
 int PSPDialog::FinishInit() {
-	if (ReadStatus() != SCE_UTILITY_STATUS_INITIALIZE)
+	// The thread has locked volatile memory. An auto status dialog may be past INITIALIZE already,
+	// and must still let go of it on shutdown.
+	if (ReadStatus() == SCE_UTILITY_STATUS_NONE) {
+		KernelVolatileMemUnlock(0);
 		return -1;
-	// The thread already locked.
+	}
 	volatileLocked_ = true;
-	ChangeStatus(SCE_UTILITY_STATUS_RUNNING, 0);
+	if (ReadStatus() == SCE_UTILITY_STATUS_INITIALIZE)
+		ChangeStatus(SCE_UTILITY_STATUS_RUNNING, 0);
 	return 0;
 }
 

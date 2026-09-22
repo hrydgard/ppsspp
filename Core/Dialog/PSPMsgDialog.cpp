@@ -64,6 +64,10 @@ int PSPMsgDialog::Init(unsigned int paramAddr) {
 	}
 
 	int size = Memory::ReadUnchecked_U32(paramAddr);
+	// The only sizes sceUtility_Driver accepts (utility/dialog/sizes).
+	if (size != SCE_UTILITY_MSGDIALOG_SIZE_V1 && size != SCE_UTILITY_MSGDIALOG_SIZE_V2 && size != SCE_UTILITY_MSGDIALOG_SIZE_V3) {
+		return SCE_ERROR_UTILITY_INVALID_PARAM_SIZE;
+	}
 	memset(&messageDialog, 0, sizeof(messageDialog));
 	// Only copy the right size to support different request format
 	Memory::Memcpy(&messageDialog,paramAddr,size);

@@ -71,6 +71,12 @@ public:
 	};
 
 	DialogStatus GetStatus();
+	// Whether it keeps another dialog from starting. Applies a status change that's due, but unlike
+	// GetStatus doesn't use up the one-time reports of auto status dialogs.
+	bool IsBusy();
+	// An auto status dialog in SHUTDOWN only waits for the game to see that, which it no longer can
+	// once another dialog starts: done.
+	void FinishAutoShutdown();
 	UtilityDialogType DialogType() { return dialogType_; }
 
 	void StartDraw();
@@ -93,6 +99,7 @@ protected:
 	void DisplayButtons(int flags, std::string_view caption = "");
 	void DisplayMessage2(std::string_view text1, std::string_view text2a = "", std::string_view text2b = "", std::string_view text3a = "", std::string_view text3b = "", bool hasYesNo = false, bool hasOK = false);
 	void ChangeStatus(DialogStatus newStatus, int delayUs);
+	void UpdatePendingStatus();
 	void ChangeStatusInit(int delayUs);
 	void ChangeStatusShutdown(int delayUs);
 	DialogStatus ReadStatus() const {
