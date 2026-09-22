@@ -99,7 +99,6 @@ struct CompatFlags {
 	bool DaxterRotatedAnalogStick;
 	bool ForceMaxDepthResolution;
 	bool SOCOMClut8Replacement;
-	bool Fontltn12Hack;
 	bool LoadCLUTFromCurrentFrameOnly;
 	bool ForceUMDReadSpeed;
 	bool KernelGetSystemTimeLowEatMoreCycles;
