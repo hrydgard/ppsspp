@@ -241,13 +241,19 @@ void X64JitBackend::CompIR_FAssign(IRInst inst) {
 		}
 		ORPS(tempReg, M(constants.positiveOnes));  // rip accessible
 
-		// Set dest = 0xFFFFFFFF if +0.0 or -0.0.
+		// Set dest = 0xFFFFFFFF if the exponent is zero: +0.0, -0.0 or a denormal, which the
+		// hardware also signs as zero.
 		if (inst.dest != inst.src1) {
-			XORPS(regs_.FX(inst.dest), regs_.F(inst.dest));
-			CMPPS(regs_.FX(inst.dest), regs_.F(inst.src1), CMP_EQ);
+			if (cpu_info.bAVX) {
+				VANDPS(128, regs_.FX(inst.dest), regs_.FX(inst.src1), M(constants.positiveInfinity));  // rip accessible
+			} else {
+				MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
+				ANDPS(regs_.FX(inst.dest), M(constants.positiveInfinity));  // rip accessible
+			}
 		} else {
-			CMPPS(regs_.FX(inst.dest), M(constants.positiveZeroes), CMP_EQ);  // rip accessible
+			ANDPS(regs_.FX(inst.dest), M(constants.positiveInfinity));  // rip accessible
 		}
+		CMPPS(regs_.FX(inst.dest), M(constants.positiveZeroes), CMP_EQ);  // rip accessible
 
 		// Now not the mask to keep zero if it was zero.
 		ANDNPS(regs_.FX(inst.dest), R(tempReg));

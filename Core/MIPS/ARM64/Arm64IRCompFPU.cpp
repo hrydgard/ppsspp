@@ -20,6 +20,7 @@
 #if PPSSPP_ARCH(ARM64) || (PPSSPP_PLATFORM(WINDOWS) && !defined(__LIBRETRO__))
 
 #ifndef offsetof
+#include <cfloat>
 #include <cstddef>
 #endif
 
@@ -99,8 +100,11 @@ void Arm64JitBackend::CompIR_FAssign(IRInst inst) {
 
 	case IROp::FSign:
 		regs_.Map(inst);
-		// We'll need this flag later.  Vector could use a temp and FCMEQ.
-		fp_.FCMP(regs_.F(inst.src1));
+		// Zero and denormals both sign as zero on the hardware, so compare the magnitude against
+		// the smallest normal. We'll need this flag later.
+		fp_.FABS(SCRATCHF1, regs_.F(inst.src1));
+		fp_.MOVI2FDUP(EncodeRegToDouble(SCRATCHF2), FLT_MIN);
+		fp_.FCMP(SCRATCHF1, SCRATCHF2);
 
 		fp_.MOVI2FDUP(EncodeRegToDouble(SCRATCHF1), 1.0f);
 		// Invert 0x80000000 -> 0x7FFFFFFF as a mask for sign.
@@ -110,9 +114,9 @@ void Arm64JitBackend::CompIR_FAssign(IRInst inst) {
 			fp_.FMOV(regs_.FD(inst.dest), regs_.FD(inst.src1));
 		fp_.BIT(regs_.FD(inst.dest), EncodeRegToDouble(SCRATCHF1), EncodeRegToDouble(SCRATCHF2));
 
-		// It's later now, let's replace with zero if that FCmp was EQ to zero.
+		// It's later now, let's replace with zero if that FCmp said below (MI is false for a NaN.)
 		fp_.MOVI2FDUP(EncodeRegToDouble(SCRATCHF1), 0.0f);
-		fp_.FCSEL(regs_.F(inst.dest), SCRATCHF1, regs_.F(inst.dest), CC_EQ);
+		fp_.FCSEL(regs_.F(inst.dest), SCRATCHF1, regs_.F(inst.dest), CC_MI);
 		break;
 
 	default:

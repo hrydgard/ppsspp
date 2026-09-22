@@ -894,10 +894,10 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 
 		case IROp::FSign:
 		{
-			// Bitwise trickery
+			// Bitwise trickery. Denormals give zero, as on the hardware.
 			u32 val;
 			memcpy(&val, &mips->f[inst->src1], sizeof(u32));
-			if (val == 0 || val == 0x80000000)
+			if ((val & 0x7F800000) == 0)
 				mips->f[inst->dest] = 0.0f;
 			else if ((val >> 31) == 0)
 				mips->f[inst->dest] = 1.0f;

@@ -800,10 +800,11 @@ namespace MIPSInt
 
 		for (int i = 0; i < n; i++) {
 			float diff = s[i] - t[i];
-			// To handle NaNs correctly, we do this with integer hackery
+			// To handle NaNs correctly, we do this with integer hackery. A denormal difference
+			// is zero, like everywhere else on the VFPU.
 			u32 val;
 			memcpy(&val, &diff, sizeof(u32));
-			if (val == 0 || val == 0x80000000)
+			if ((val & 0x7F800000) == 0)
 				d[i] = 0.0f;
 			else if ((val >> 31) == 0)
 				d[i] = 1.0f;

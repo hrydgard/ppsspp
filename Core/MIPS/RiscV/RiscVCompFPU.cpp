@@ -164,9 +164,9 @@ void RiscVJitBackend::CompIR_FAssign(IRInst inst) {
 	case IROp::FSign:
 	{
 		regs_.Map(inst);
-		// Check if it's negative zero, either 0x10/0x08 is zero.
+		// Zero or a denormal signs as zero: 0x10/0x08 are the zeros, 0x20/0x04 the subnormals.
 		FCLASS(32, SCRATCH1, regs_.F(inst.src1));
-		ANDI(SCRATCH1, SCRATCH1, 0x18);
+		ANDI(SCRATCH1, SCRATCH1, 0x3C);
 		SEQZ(SCRATCH1, SCRATCH1);
 		// Okay, it's zero if zero, 1 otherwise.  Convert 1 to a constant 1.0.
 		// Probably non-zero is the common case, so we make that the straight line.

@@ -2072,9 +2072,17 @@ void Jit::Comp_Vsgn(MIPSOpcode op) {
 
 	// Would be nice with more temp regs here so we could put signBitLower and oneOneOneOne into regs...
 	for (int i = 0; i < n; ++i) {
-		XORPS(XMM0, R(XMM0));
-		CMPEQSS(XMM0, fpr.V(sregs[i]));  // XMM0 = s[i] == 0.0f
+		// A denormal signs as zero like on the hardware, so test the exponent field, not the value.
 		MOVSS(XMM1, fpr.V(sregs[i]));
+		MOVAPS(tempxregs[i], R(XMM1));
+		if (RipAccessible(fourinfnan)) {
+			ANDPS(tempxregs[i], M(&fourinfnan));  // rip accessible
+		} else {
+			MOV(PTRBITS, R(TEMPREG), ImmPtr(&fourinfnan));
+			ANDPS(tempxregs[i], MatR(TEMPREG));
+		}
+		XORPS(XMM0, R(XMM0));
+		CMPEQSS(XMM0, R(tempxregs[i]));  // XMM0 = exponent of s[i] == 0
 		// Preserve sign bit, replace rest with ones
 		if (RipAccessible(signBitLower)) {
 			ANDPS(XMM1, M(&signBitLower));  // rip accessible
