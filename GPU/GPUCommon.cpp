@@ -408,11 +408,7 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 			// Lists that haven't started executing yet are free to share a stack.
 			if (stackAddr != 0 && other.stackAddr == stackAddr && other.started) {
 				ERROR_LOG(Log::G3D, "sceGeListEnqueue: can't enqueue, stack address %08X already used", stackAddr);
-				// TODO: Metal Gear Acid 2 (#10906) was probably hitting the not-started case above, which used to
-				// fail too. If it's fine without this flag now, the flag should go.
-				if (!PSP_CoreParameter().compat.flags().IgnoreEnqueue) {
-					return 0x80000021;
-				}
+				return 0x80000021;
 			}
 		}
 	}

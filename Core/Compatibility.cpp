@@ -156,7 +156,6 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "DisableHLESceFont", &flags_.DisableHLESceFont);
 	CheckSetting(iniFile, gameID, "ForceHLEPsmf", &flags_.ForceHLEPsmf);
 	CheckSetting(iniFile, gameID, "SaveStatesNotRecommended", &flags_.SaveStatesNotRecommended);
-	CheckSetting(iniFile, gameID, "IgnoreEnqueue", &flags_.IgnoreEnqueue);
 	CheckSetting(iniFile, gameID, "MsgDialogAutoStatus", &flags_.MsgDialogAutoStatus);
 	CheckSetting(iniFile, gameID, "NullPageValid", &flags_.NullPageValid);
 	CheckSetting(iniFile, gameID, "DetectDestBlendSquared", &flags_.DetectDestBlendSquared);

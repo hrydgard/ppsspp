@@ -111,7 +111,6 @@ struct CompatFlags {
 	bool DisableHLESceFont;
 	bool ForceHLEPsmf;
 	bool SaveStatesNotRecommended;
-	bool IgnoreEnqueue;
 	bool MsgDialogAutoStatus;
 	bool NullPageValid;
 	bool DetectDestBlendSquared;
