@@ -506,28 +506,39 @@ void MainScreen::CreateViews() {
 
 	root_->SetTag("mainroot");
 
-	if (!g_Config.sUpgradeMessage.empty()) {
-		auto di = GetI18NCategory(I18NCat::DIALOG);
+	const UI::Drawable dismissableBackground = screenManager()->getUIContext()->GetTheme().itemDownStyle.background;
+
+	auto CreateDismissableBar = [this, vertical, dismissableBackground](std::string_view message, std::string_view action, std::function<void()> onDismiss) {
 		Margins margins(0, 0);
-		UI::LinearLayout *upgradeBar = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, margins));
+		UI::LinearLayout *bar = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, margins));
 
 		UI::Margins textMargins(10, 5);
 		UI::Margins buttonMargins(5, 0);
-		UI::Drawable solid(0xFFbd9939);
-		upgradeBar->SetSpacing(5.0f);
-		upgradeBar->SetBG(solid);
-		std::string upgradeMessage(di->T("New version of PPSSPP available"));
-		if (!vertical) {
-			// The version only really fits in the horizontal layout.
-			upgradeMessage += ": " + g_Config.sUpgradeVersion;
+		UI::Drawable solid(dismissableBackground);
+		bar->SetSpacing(5.0f);
+		bar->SetBG(solid);
+
+		bar->Add(new TextView(message, FLAG_WRAP_TEXT, false, new LinearLayoutParams(1.0f, UI::Gravity::G_VCENTER, textMargins)));
+		if (!action.empty()) {
+			bar->Add(new Choice(action, new LinearLayoutParams(0.0f, UI::Gravity::G_VCENTER, buttonMargins)))->OnClick.Handle(this, &MainScreen::OnDownloadUpgrade);
 		}
-		upgradeBar->Add(new TextView(upgradeMessage, new LinearLayoutParams(1.0f, UI::Gravity::G_VCENTER, textMargins)));
-		upgradeBar->Add(new Choice(di->T("Download"), new LinearLayoutParams(buttonMargins)))->OnClick.Handle(this, &MainScreen::OnDownloadUpgrade);
-		Choice *dismiss = upgradeBar->Add(new Choice("", ImageID("I_CROSS"), new LinearLayoutParams(buttonMargins)));
-		dismiss->OnClick.Add([this](UI::EventParams &e) {
+
+		Choice *dismiss = bar->Add(new Choice("", ImageID("I_CROSS"), new LinearLayoutParams(0.0f, UI::Gravity::G_VCENTER, buttonMargins)));
+		dismiss->OnClick.Add([this, onDismiss](UI::EventParams &e) {
+			onDismiss();
+			RecreateViews();
+		});
+		return bar;
+	};
+
+	if (!g_Config.sUpgradeMessage.empty()) {
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		std::string upgradeMessage(di->T("New version of PPSSPP available"));
+		// The version only really fits in the horizontal layout.
+		upgradeMessage += ": " + g_Config.sUpgradeVersion;
+		UI::LinearLayout *upgradeBar = CreateDismissableBar(upgradeMessage, di->T("Download"), [this]() {
 			g_Config.DismissUpgrade();
 			g_Config.Save("dismissupgrade");
-			RecreateViews();
 		});
 
 		// Slip in at the top.
