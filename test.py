@@ -469,6 +469,7 @@ known_failures = {
 tests_next = [
 # These are the next tests up for fixing. These run by default.
   "cpu/fpu/fcr",
+  "cpu/vfpu/minmax_tie",  # vmin/vmax return the second operand on a -0/+0 tie; the IR path returns the first
   "cpu/vfpu/minmax_zero",  # signed zero and denormals in vmin/vmax
   "cpu/vfpu/prefixes",
   "cpu/vfpu/vector",
