@@ -96,7 +96,7 @@ tests_good = [
   "cpu/vfpu/prefix_branch",
   "cpu/vfpu/prefix_ctrl",
   "cpu/vfpu/vbranch",
-  "cpu/vfpu/vbranch",
+  "cpu/vfpu/vrnd",
   "cpu/vfpu/gum",
   "cpu/vfpu/matrix",
   "cpu/vfpu/vavg",
@@ -476,7 +476,6 @@ tests_next = [
   "cpu/vfpu/prefix_consume",  # see the pspautotests commit for what differs per core
   "cpu/vfpu/prefix_sat",
   "cpu/vfpu/prefix_unpack",  # an invalid swizzle replays an earlier prefixed value, not emulated
-  "cpu/vfpu/vbranch_hazard",  # VFPU pipeline latencies, which a compiler pads for; not emulated
   "cpu/vfpu/vbranch_hazard",  # VFPU pipeline latencies, which a compiler pads for; not emulated
   "cpu/vfpu/minmax_tie",  # vmin/vmax return the second operand on a -0/+0 tie; the IR path returns the first
   "cpu/vfpu/minmax_zero",  # signed zero and denormals in vmin/vmax
