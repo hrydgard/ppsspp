@@ -600,8 +600,21 @@ void __UtilityShutdown() {
 	delete npSigninDialog;
 }
 
-void UtilityDialogInitialize(UtilityDialogType type, int delayUs, int priority) {
+// On a PSP, dialog init and shutdown happen partly at the accessThread priority and partly at the
+// graphicsThread priority, one phase after the other. One helper thread that switches priority per
+// phase reproduces who gets to run when - e.g. a game thread with worse priority than both doesn't
+// run again until the dialog has finished starting up or shutting down.
+static bool ValidThreadPriority(int priority) {
+	return priority >= 0x08 && priority <= 0x77;
+}
+
+static int PhasePriority(int priority, int fallback) {
+	return ValidThreadPriority(priority) ? priority : fallback;
+}
+
+void UtilityDialogInitialize(UtilityDialogType type, int delayUs, int accessPriority, int graphicsPriority) {
 	int partDelay = delayUs / 4;
+	const int dialogPriority = PhasePriority(graphicsPriority, accessPriority);
 	const u32_le insts[] = {
 		// Make sure we don't discard/deadbeef a0.
 		(u32_le)MIPS_MAKE_ORI(MIPS_REG_S0, MIPS_REG_A0, 0),
@@ -611,12 +624,18 @@ void UtilityDialogInitialize(UtilityDialogType type, int delayUs, int priority) 
 		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A2, MIPS_REG_ZERO, 0),
 		(u32_le)MIPS_MAKE_SYSCALL("sceSuspendForUser", "sceKernelVolatileMemLock"),
 
+		// Loading, at accessThread priority.
 		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_S0, 0),
 		(u32_le)MIPS_MAKE_SYSCALL("sceUtility", "__UtilityWorkUs"),
 		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_S0, 0),
 		(u32_le)MIPS_MAKE_SYSCALL("sceUtility", "__UtilityWorkUs"),
 		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_S0, 0),
 		(u32_le)MIPS_MAKE_SYSCALL("sceUtility", "__UtilityWorkUs"),
+
+		// Setting up the dialog, at graphicsThread priority, then the status goes to RUNNING.
+		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_ZERO, 0),
+		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A1, MIPS_REG_ZERO, dialogPriority),
+		(u32_le)MIPS_MAKE_SYSCALL("ThreadManForUser", "sceKernelChangeThreadPriority"),
 		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_S0, 0),
 		(u32_le)MIPS_MAKE_SYSCALL("sceUtility", "__UtilityWorkUs"),
 
@@ -626,22 +645,34 @@ void UtilityDialogInitialize(UtilityDialogType type, int delayUs, int priority) 
 	};
 
 	CleanupDialogThreads(true);
-	accessThread = new HLEHelperThread("ScePafJob", insts, (uint32_t)ARRAY_SIZE(insts), priority, 0x200);
+	accessThread = new HLEHelperThread("ScePafJob", insts, (uint32_t)ARRAY_SIZE(insts), accessPriority, 0x200);
 	accessThread->Start(partDelay, 0);
 	accessThreadFinished = false;
 	accessThreadState = "initializing";
 }
 
-void UtilityDialogShutdown(UtilityDialogType type, int delayUs, int priority) {
+void UtilityDialogShutdown(UtilityDialogType type, int delayUs, int accessPriority, int graphicsPriority) {
 	// Break it up so better-priority rescheduling happens.
 	// The windows aren't this regular, but close.
 	int partDelay = delayUs / 4;
+	const int dialogPriority = PhasePriority(graphicsPriority, accessPriority);
 	const u32_le insts[] = {
 		// Make sure we don't discard/deadbeef 'em.
 		(u32_le)MIPS_MAKE_ORI(MIPS_REG_S0, MIPS_REG_A0, 0),
+
+		// Tearing down the dialog, at graphicsThread priority.
+		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_ZERO, 0),
+		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A1, MIPS_REG_ZERO, dialogPriority),
+		(u32_le)MIPS_MAKE_SYSCALL("ThreadManForUser", "sceKernelChangeThreadPriority"),
+		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_S0, 0),
 		(u32_le)MIPS_MAKE_SYSCALL("sceUtility", "__UtilityWorkUs"),
 		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_S0, 0),
 		(u32_le)MIPS_MAKE_SYSCALL("sceUtility", "__UtilityWorkUs"),
+
+		// Cleaning up at accessThread priority, then the status goes to NONE.
+		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_ZERO, 0),
+		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A1, MIPS_REG_ZERO, accessPriority),
+		(u32_le)MIPS_MAKE_SYSCALL("ThreadManForUser", "sceKernelChangeThreadPriority"),
 		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_S0, 0),
 		(u32_le)MIPS_MAKE_SYSCALL("sceUtility", "__UtilityWorkUs"),
 		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_S0, 0),
@@ -652,15 +683,13 @@ void UtilityDialogShutdown(UtilityDialogType type, int delayUs, int priority) {
 		(u32_le)MIPS_MAKE_SYSCALL("sceUtility", "__UtilityFinishDialog"),
 	};
 
+	// Starting the thread reschedules normally, so a caller with worse priority than both phases sees
+	// NONE by the time ShutdownStart returns.
 	CleanupDialogThreads(true);
-	bool prevInterrupts = __InterruptsEnabled();
-	__DisableInterrupts();
-	accessThread = new HLEHelperThread("ScePafJob", insts, (uint32_t)ARRAY_SIZE(insts), priority, 0x200);
+	accessThread = new HLEHelperThread("ScePafJob", insts, (uint32_t)ARRAY_SIZE(insts), accessPriority, 0x200);
 	accessThread->Start(partDelay, 0);
 	accessThreadFinished = false;
 	accessThreadState = "shutting down";
-	if (prevInterrupts)
-		__EnableInterrupts();
 }
 
 static int UtilityWorkUs(int us) {

@@ -27,6 +27,7 @@
 #include "Core/CoreTiming.h"
 #include "Core/Dialog/PSPDialog.h"
 #include "Core/HLE/sceCtrl.h"
+#include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/scePower.h"
 #include "Core/HLE/sceUtility.h"
 #include "Core/MemMapHelpers.h"
@@ -65,6 +66,14 @@ const char *UtilityDialogStatusToString(PSPDialog::DialogStatus status) {
 
 void PSPDialog::InitCommon() {
 	UpdateCommon();
+
+	if (const pspUtilityDialogCommon *common = GetCommonParam()) {
+		// How these compare with the calling thread decides what the game sees from GetStatus right
+		// after InitStart/ShutdownStart.
+		DEBUG_LOG(Log::sceUtility, "%s thread priorities: graphics=%d access=%d font=%d sound=%d (caller %d)",
+			UtilityDialogTypeToString(DialogType()), common->graphicsThread, common->accessThread,
+			common->fontThread, common->soundThread, KernelCurThreadPriority());
+	}
 
 	if (GetCommonParam() && GetCommonParam()->language != GetPSPLanguage()) {
 		WARN_LOG(Log::sceUtility, "Game requested language %d, ignoring and using user language", GetCommonParam()->language);
@@ -162,7 +171,7 @@ void PSPDialog::ChangeStatusInit(int delayUs) {
 
 	auto params = GetCommonParam();
 	if (params)
-		UtilityDialogInitialize(DialogType(), delayUs, params->accessThread);
+		UtilityDialogInitialize(DialogType(), delayUs, params->accessThread, params->graphicsThread);
 	else
 		ChangeStatus(SCE_UTILITY_STATUS_RUNNING, delayUs);
 }
@@ -174,7 +183,7 @@ void PSPDialog::ChangeStatusShutdown(int delayUs) {
 
 	auto params = GetCommonParam();
 	if (params && !skipDialogShutdown)
-		UtilityDialogShutdown(DialogType(), delayUs, params->accessThread);
+		UtilityDialogShutdown(DialogType(), delayUs, params->accessThread, params->graphicsThread);
 	else
 		ChangeStatus(SCE_UTILITY_STATUS_NONE, delayUs);
 }
