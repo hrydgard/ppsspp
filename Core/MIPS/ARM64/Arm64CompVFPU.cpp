@@ -1128,11 +1128,12 @@ namespace MIPSComp {
 				}
 			} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc //currentMIPS->vfpuCtrl[imm - 128] = R(rt);
 				if (imm - 128 == VFPU_CTRL_CC) {
+					// Six condition bits, the rest don't stick (cpu/vfpu/vbranch).
 					if (gpr.IsImm(rt)) {
-						gpr.SetImm(MIPS_REG_VFPUCC, gpr.GetImm(rt));
+						gpr.SetImm(MIPS_REG_VFPUCC, gpr.GetImm(rt) & 0x3F);
 					} else {
 						gpr.MapDirtyIn(MIPS_REG_VFPUCC, rt);
-						MOV(gpr.R(MIPS_REG_VFPUCC), gpr.R(rt));
+						ANDI2R(gpr.R(MIPS_REG_VFPUCC), gpr.R(rt), 0x3F, SCRATCH1);
 					}
 				} else {
 					// Only some of the bits stick (the low 20 of a prefix, say), same as the IR does it.
