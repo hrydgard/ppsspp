@@ -232,6 +232,7 @@ public:
 	bool bFastMemory;
 	int iCpuCore;
 	bool bCheckForNewVersion;
+	bool bWow64WarningDismissed;
 	bool bForceLagSync;
 	bool bFuncReplacements;
 	bool bHideSlowWarnings;

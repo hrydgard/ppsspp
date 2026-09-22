@@ -222,7 +222,7 @@ void ArmJit::GenerateFixedCode() {
 			// No block found, let's jit
 			SaveDowncount();
 			RestoreRoundingMode(true);
-			QuickCallFunction(R2, (void *)&MIPSComp::JitAt);
+			QuickCallFunctionR(R2, (void *)&MIPSComp::JitAt, CTXREG);
 			ApplyRoundingMode(true);
 			RestoreDowncount();
 

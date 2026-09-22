@@ -264,7 +264,7 @@ void Arm64Jit::GenerateFixedCode(const JitOptions &jo) {
 			// Also, rounding mode gotta be irrelevant here..
 			SaveStaticRegisters();
 			RestoreRoundingMode(true);
-			QuickCallFunction(SCRATCH1_64, (void *)&MIPSComp::JitAt);
+			QuickCallFunctionR(SCRATCH1_64, (void *)&MIPSComp::JitAt, CTXREG);
 			ApplyRoundingMode(true);
 			LoadStaticRegisters();
 

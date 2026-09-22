@@ -38,7 +38,7 @@ class PointerWrap;
 class MIPSState;
 
 namespace MIPSComp {
-	void JitAt();
+	void JitAt(MIPSState *mips);
 
 	class MIPSFrontendInterface {
 	public:
