@@ -87,6 +87,7 @@ tests_good = [
   "cpu/cpu_alu/cpu_alu",
   "cpu/cpu_alu/cpu_branch",
   "cpu/cpu_alu/cpu_branch2",
+  "cpu/cpu_alu/cpu_div",
   "cpu/vfpu/callout",
   "cpu/vfpu/colors",
   "cpu/vfpu/convert",
@@ -467,7 +468,6 @@ known_failures = {
 
 tests_next = [
 # These are the next tests up for fixing. These run by default.
-  "cpu/cpu_alu/cpu_div",  # INT_MIN / -1 leaves HI = 0 on hardware, the interpreters and IR backends say -1
   "cpu/fpu/fcr",
   "cpu/vfpu/minmax_zero",  # signed zero and denormals in vmin/vmax
   "cpu/vfpu/prefixes",
