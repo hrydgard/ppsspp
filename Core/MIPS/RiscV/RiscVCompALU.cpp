@@ -710,17 +710,8 @@ void RiscVJitBackend::CompIR_Div(IRInst inst) {
 			SetJumpTarget(keepNegOne);
 			SetJumpTarget(skipNonZero);
 
-			// For overflow, RISC-V sets LO right, but remainder to zero.
-			// Cheating a bit by using R_RA as a temp...
-			LI(R_RA, (int32_t)0x80000000);
-			FixupBranch notMostNegative = BNE(numReg, R_RA);
-			LI(R_RA, -1);
-			FixupBranch notNegativeOne = BNE(denomReg, R_RA);
-			// Take our R_RA and put it in the high bits.
-			SLLI(R_RA, R_RA, 32);
-			OR(regs_.R(IRREG_LO), regs_.R(IRREG_LO), R_RA);
-			SetJumpTarget(notNegativeOne);
-			SetJumpTarget(notMostNegative);
+			// For overflow (INT_MIN / -1), RISC-V gives INT_MIN with remainder zero, which is also
+			// what the hardware does (cpu/cpu_alu/cpu_div). Nothing to fix up.
 		}
 		break;
 

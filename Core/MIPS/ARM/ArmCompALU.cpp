@@ -752,7 +752,8 @@ namespace MIPSComp
 
 		case 26: //div
 			if (cpu_info.bIDIVa) {
-				// TODO: Does this handle INT_MAX, 0, etc. correctly?
+				// INT_MIN / -1: SDIV gives INT_MIN, and the MUL/SUB below wraps the remainder to 0,
+				// which is what the hardware does (cpu/cpu_alu/cpu_div).
 				gpr.MapDirtyDirtyInIn(MIPS_REG_LO, MIPS_REG_HI, rs, rt);
 
 				CMPI2R(gpr.R(rt), 0, SCRATCHREG1);
