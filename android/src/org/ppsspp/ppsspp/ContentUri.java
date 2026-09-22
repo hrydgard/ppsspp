@@ -2,6 +2,9 @@ package org.ppsspp.ppsspp;
 
 import android.app.Activity;
 import android.content.ContentResolver;
+import android.content.Context;
+import android.content.Intent;
+import android.content.UriPermission;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
@@ -18,7 +21,13 @@ import androidx.documentfile.provider.DocumentFile;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.Date;
+import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 public class ContentUri {
 	private static final String TAG = "PpssppActivity";  // don't want to add yet another tag
@@ -414,6 +423,92 @@ public class ContentUri {
 
 		// Too early Android version
 		return -1;
+	}
+
+	// Android only lets an app keep so many persisted URI grants (512, or 128 before Android 11). When it
+	// goes over, the system drops the oldest ones, whatever they are - and our oldest is usually the
+	// folder the user set up as the memory stick. We take one for every single file picked (games loaded
+	// through the file picker, shortcuts, sound effects) and never gave any back.
+	//
+	// So stay well clear of the limit: past half of it, let go of the oldest single-file grants that
+	// nothing points at anymore. Folder grants are never touched. We can't tell which files a home screen
+	// shortcut still needs, which is why this waits until it has to, and then takes the oldest first -
+	// the same ones the system would have taken, minus the folders.
+	private static final String GRANT_TAG = "PPSSPPUriGrants";
+
+	private static boolean isTreeUri(Uri uri) {
+		// Same check as DocumentsContract.isTreeUri, which is API 24+.
+		List<String> segments = uri.getPathSegments();
+		return segments.size() >= 2 && "tree".equals(segments.get(0));
+	}
+
+	// Returns the grants to release to get down to maxGrants, oldest first. Doesn't release anything.
+	static ArrayList<UriPermission> chooseGrantsToRelease(List<UriPermission> grants, int maxGrants, Set<String> referencedUris) {
+		ArrayList<UriPermission> toRelease = new ArrayList<>();
+		int excess = grants.size() - maxGrants;
+		if (excess <= 0) {
+			return toRelease;
+		}
+		ArrayList<UriPermission> oldestFirst = new ArrayList<>(grants);
+		Collections.sort(oldestFirst, (a, b) -> Long.compare(a.getPersistedTime(), b.getPersistedTime()));
+		for (UriPermission grant : oldestFirst) {
+			if (toRelease.size() >= excess) {
+				break;
+			}
+			if (isTreeUri(grant.getUri()) || referencedUris.contains(grant.getUri().toString())) {
+				continue;
+			}
+			toRelease.add(grant);
+		}
+		return toRelease;
+	}
+
+	// Call once at startup, after the native side has loaded the config.
+	public static void pruneUriGrants(Context context) {
+		try {
+			final ContentResolver resolver = context.getContentResolver();
+			final List<UriPermission> grants = resolver.getPersistedUriPermissions();
+			final int systemLimit = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R ? 512 : 128;
+			final int maxGrants = systemLimit / 2;
+
+			int folders = 0;
+			for (UriPermission grant : grants) {
+				if (isTreeUri(grant.getUri())) {
+					folders++;
+					Log.i(GRANT_TAG, "Folder grant (always kept): " + grant.getUri() + " taken " + new Date(grant.getPersistedTime()));
+				}
+			}
+			Log.i(GRANT_TAG, "Holding " + grants.size() + " persisted URI grants: " + folders + " folders, " + (grants.size() - folders)
+				+ " files. The system drops the oldest above " + systemLimit + ", we start releasing old files above " + maxGrants + ".");
+
+			if (grants.size() <= maxGrants) {
+				Log.i(GRANT_TAG, "Nothing to release.");
+				return;
+			}
+
+			// Only ask the native side when there's something to decide.
+			final Set<String> referencedUris = new HashSet<>(Arrays.asList(NativeApp.getReferencedUris()));
+			Log.i(GRANT_TAG, "The recent list and the settings reference " + referencedUris.size() + " URIs.");
+			ArrayList<UriPermission> toRelease = chooseGrantsToRelease(grants, maxGrants, referencedUris);
+			if (toRelease.isEmpty()) {
+				Log.w(GRANT_TAG, "Over our limit, but everything is a folder or still in use. Nothing to release.");
+				return;
+			}
+			for (UriPermission grant : toRelease) {
+				Log.i(GRANT_TAG, "Releasing unused file grant: " + grant.getUri() + " taken " + new Date(grant.getPersistedTime()));
+				int flags = 0;
+				if (grant.isReadPermission()) {
+					flags |= Intent.FLAG_GRANT_READ_URI_PERMISSION;
+				}
+				if (grant.isWritePermission()) {
+					flags |= Intent.FLAG_GRANT_WRITE_URI_PERMISSION;
+				}
+				resolver.releasePersistableUriPermission(grant.getUri(), flags);
+			}
+			Log.i(GRANT_TAG, "Released " + toRelease.size() + " file grants, " + (grants.size() - toRelease.size()) + " remain.");
+		} catch (Exception e) {
+			Log.e(GRANT_TAG, "Exception while pruning URI grants: " + e);
+		}
 	}
 
 	@Keep

@@ -512,6 +512,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		NativeApp.audioConfig(optimalFramesPerBuffer, optimalSampleRate);
 		NativeApp.init(model, deviceType, languageRegion, apkFilePath, dataDir, extStorageDir, externalFilesDir, nativeLibDir, additionalStorageDirs, cacheDir, shortcut, installerName, Build.VERSION.SDK_INT, Build.BOARD);
 
+		// Needs the config, to know which files are still in use.
+		ContentUri.pruneUriGrants(this);
+
 		sendInitialGrants();
 
 		// OK, config should be initialized, we can query for screen rotation.

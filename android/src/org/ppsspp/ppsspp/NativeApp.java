@@ -82,6 +82,8 @@ public class NativeApp {
 	public static native void setAchievementsHostOverride(String host);
 	public static native void clearAchievementsHostOverride();
 	public static native String queryConfig(String queryName);
+	// The content URIs that the recent list and the settings still point at.
+	public static native String[] getReferencedUris();
 
 	public static native int getSelectedCamera();
 	public static native int getDisplayFramerateMode();

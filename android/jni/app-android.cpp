@@ -8,6 +8,7 @@
 
 #if PPSSPP_PLATFORM(ANDROID)
 
+#include <algorithm>
 #include <cstdlib>
 #include <cstdint>
 
@@ -102,6 +103,7 @@ struct JNIEnv {};
 #include "Core/ConfigValues.h"
 #include "Core/Loaders.h"
 #include "Core/KeyMap.h"
+#include "Core/Util/RecentFiles.h"
 #include "Core/System.h"
 #include "Core/EmuThread.h"
 #include "Core/HLE/sceUsbCam.h"
@@ -607,6 +609,27 @@ extern "C" jstring Java_org_ppsspp_ppsspp_NativeApp_queryConfig
 	std::string result = QueryConfig(query);
 	jstring jresult = env->NewStringUTF(result.c_str());
 	return jresult;
+}
+
+// For ContentUri.pruneUriGrants. Anything that stores the URI of a single picked file should be checked
+// here, or the grant for it may eventually be released. Folders don't need to be, they're always kept.
+extern "C" jobjectArray Java_org_ppsspp_ppsspp_NativeApp_getReferencedUris(JNIEnv *env, jclass) {
+	std::vector<std::string> uris = g_recentFiles.GetRecentFiles();
+	uris.push_back(g_Config.sAchievementsUnlockAudioFile);
+	uris.push_back(g_Config.sAchievementsLeaderboardSubmitAudioFile);
+	uris.erase(std::remove_if(uris.begin(), uris.end(), [](const std::string &uri) {
+		return !Android_IsContentUri(uri);
+	}), uris.end());
+
+	jclass stringClass = env->FindClass("java/lang/String");
+	jobjectArray result = env->NewObjectArray((jsize)uris.size(), stringClass, nullptr);
+	for (size_t i = 0; i < uris.size(); i++) {
+		jstring juri = env->NewStringUTF(uris[i].c_str());
+		env->SetObjectArrayElement(result, (jsize)i, juri);
+		env->DeleteLocalRef(juri);
+	}
+	env->DeleteLocalRef(stringClass);
+	return result;
 }
 
 // Need to use raw Android logging before NativeInit.
