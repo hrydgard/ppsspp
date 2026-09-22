@@ -326,6 +326,7 @@ static PSPNetconfDialog *netDialog;
 static PSPScreenshotDialog *screenshotDialog;
 static PSPGamedataInstallDialog *gamedataInstallDialog;
 static PSPNpSigninDialog *npSigninDialog;
+static PSPPlaceholderDialog *gameSharingDialog;
 
 // A lot of state seems to be shared between the various dialog types.
 static int oldStatus = -1;
@@ -389,7 +390,7 @@ static PSPDialog *CurrentDialog(UtilityDialogType type) {
 	case UtilityDialogType::SCREENSHOT:
 		return screenshotDialog;
 	case UtilityDialogType::GAMESHARING:
-		break;
+		return gameSharingDialog;
 	case UtilityDialogType::GAMEDATAINSTALL:
 		return gamedataInstallDialog;
 	case UtilityDialogType::NPSIGNIN:
@@ -481,6 +482,7 @@ void __UtilityInit() {
 	screenshotDialog = new PSPScreenshotDialog(UtilityDialogType::SCREENSHOT);
 	gamedataInstallDialog = new PSPGamedataInstallDialog(UtilityDialogType::GAMEDATAINSTALL);
 	npSigninDialog = new PSPNpSigninDialog(UtilityDialogType::NPSIGNIN);
+	gameSharingDialog = new PSPPlaceholderDialog(UtilityDialogType::GAMESHARING);
 
 	currentDialogType = UtilityDialogType::NONE;
 	DeactivateDialog();
@@ -493,7 +495,7 @@ void __UtilityInit() {
 }
 
 void __UtilityDoState(PointerWrap &p) {
-	auto s = p.Section("sceUtility", 1, 7);
+	auto s = p.Section("sceUtility", 1, 8);
 	if (!s) {
 		return;
 	}
@@ -564,6 +566,10 @@ void __UtilityDoState(PointerWrap &p) {
 		lastSaveStateVersion = s.Version();
 	}
 
+	if (s >= 8) {
+		gameSharingDialog->DoState(p);
+	}
+
 	if (!hasAccessThread && accessThread) {
 		accessThread->Forget();
 		delete accessThread;
@@ -580,6 +586,7 @@ void __UtilityShutdown() {
 	screenshotDialog->Shutdown(true);
 	gamedataInstallDialog->Shutdown(true);
 	npSigninDialog->Shutdown(true);
+	gameSharingDialog->Shutdown(true);
 
 	if (accessThread) {
 		// Don't need to free it during shutdown, may have already been freed.
@@ -598,6 +605,7 @@ void __UtilityShutdown() {
 	delete screenshotDialog;
 	delete gamedataInstallDialog;
 	delete npSigninDialog;
+	delete gameSharingDialog;
 }
 
 // On a PSP, dialog init and shutdown happen partly at the accessThread priority and partly at the
@@ -1632,40 +1640,47 @@ static int sceUtilityStoreCheckoutGetStatus() {
 	return hleLogError(Log::sceUtility, 0, "UNIMPL");
 }
 
+// We don't implement game sharing: a placeholder dialog runs the normal lifecycle and reports that
+// the user cancelled. Outside it, WRONG_TYPE is the normal answer (a PSP gives it for any type
+// other than the last one started), and games like Sega Rally poll GetStatus every frame.
 static int sceUtilityGameSharingShutdownStart() {
 	if (currentDialogType != UtilityDialogType::GAMESHARING) {
-		return hleLogWarning(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
+		return hleLogDebug(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 
 	DeactivateDialog();
-	return hleLogError(Log::sceUtility, 0, "UNIMPL");
+	return hleLogDebug(Log::sceUtility, gameSharingDialog->Shutdown());
 }
 
 static int sceUtilityGameSharingInitStart(u32 paramsPtr) {
 	if (currentDialogActive && currentDialogType != UtilityDialogType::GAMESHARING) {
-		return hleLogWarning(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE);
+		return hleLogWarning(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 
 	ActivateDialog(UtilityDialogType::GAMESHARING);
-	ERROR_LOG_REPORT(Log::sceUtility, "UNIMPL sceUtilityGameSharingInitStart(%08x)", paramsPtr);
-	return hleNoLog(0);
+	return hleLogWarning(Log::sceUtility, gameSharingDialog->Init(paramsPtr), "not implemented, will report cancelled");
 }
 
 static int sceUtilityGameSharingUpdate(int animSpeed) {
 	if (currentDialogType != UtilityDialogType::GAMESHARING) {
-		return hleLogWarning(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
+		return hleLogDebug(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 
-	return hleLogError(Log::sceUtility, 0, "UNIMPL");
+	return hleLogDebug(Log::sceUtility, gameSharingDialog->Update(animSpeed));
 }
 
 static int sceUtilityGameSharingGetStatus() {
 	if (currentDialogType != UtilityDialogType::GAMESHARING) {
-		return hleLogWarning(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
+		return hleLogDebug(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 
+	const PSPDialog::DialogStatus status = gameSharingDialog->GetStatus();
 	CleanupDialogThreads();
-	return hleLogError(Log::sceUtility, 0, "UNIMPL");
+	if (oldStatus != status) {
+		oldStatus = status;
+		return hleLogDebug(Log::sceUtility, status, "status changed: %s", UtilityDialogStatusToString(status));
+	}
+	return hleLogVerbose(Log::sceUtility, status, "status: %s", UtilityDialogStatusToString(status));
 }
 
 static u32 sceUtilityLoadUsbModule(u32 module) {

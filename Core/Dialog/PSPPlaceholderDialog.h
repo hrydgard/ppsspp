@@ -18,13 +18,26 @@
 #pragma once
 
 #include "Core/Dialog/PSPDialog.h"
+#include "Core/MemMap.h"
 
-class PSPPlaceholderDialog: public PSPDialog {
+// Stands in for a utility dialog we don't implement (currently GameSharing). It goes through the
+// real lifecycle - INIT, RUNNING, FINISHED, SHUTDOWN, NONE - and on the first frame reports that
+// the user backed out, so a game takes its "cancelled" path instead of waiting forever.
+class PSPPlaceholderDialog : public PSPDialog {
 public:
 	PSPPlaceholderDialog(UtilityDialogType type);
-	~PSPPlaceholderDialog();
 
-	int Init();
+	int Init(u32 paramAddr);
 	int Update(int animSpeed) override;
-};
+	int Shutdown(bool force = false) override;
+	void DoState(PointerWrap &p) override;
+	pspUtilityDialogCommon *GetCommonParam() override;
 
+protected:
+	bool UseAutoStatus() override {
+		return false;
+	}
+
+private:
+	PSPPointer<pspUtilityDialogCommon> params_;
+};
