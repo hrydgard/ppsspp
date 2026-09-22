@@ -117,6 +117,7 @@ enum class UtilityDialogType {
 	GAMESHARING,
 	GAMEDATAINSTALL,
 	NPSIGNIN,
+	HTMLVIEWER,
 };
 
 void __UtilityInit();

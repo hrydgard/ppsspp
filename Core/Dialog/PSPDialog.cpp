@@ -50,6 +50,7 @@ const char *UtilityDialogTypeToString(UtilityDialogType type) {
 	case UtilityDialogType::GAMESHARING: return "GAMESHARING";
 	case UtilityDialogType::GAMEDATAINSTALL: return "GAMEDATAINSTALL";
 	case UtilityDialogType::NPSIGNIN: return "NPSIGNIN";
+	case UtilityDialogType::HTMLVIEWER: return "HTMLVIEWER";
 	default: return "(unknown)";
 	}
 }
@@ -101,7 +102,7 @@ void PSPDialog::UpdatePendingStatus() {
 		if (pendingStatus == SCE_UTILITY_STATUS_NONE && status == SCE_UTILITY_STATUS_SHUTDOWN) {
 			FinishVolatile();
 		} else if (pendingStatus == SCE_UTILITY_STATUS_RUNNING && status == SCE_UTILITY_STATUS_INITIALIZE) {
-			if (!volatileLocked_) {
+			if (!volatileLocked_ && LocksVolatileMemory()) {
 				volatileLocked_ = KernelVolatileMemLock(0, 0, 0) == 0;
 				changeAllowed = volatileLocked_;
 			}
@@ -149,7 +150,7 @@ void PSPDialog::ChangeStatus(DialogStatus newStatus, int delayUs) {
 		if (newStatus == SCE_UTILITY_STATUS_NONE && status == SCE_UTILITY_STATUS_SHUTDOWN) {
 			FinishVolatile();
 		} else if (newStatus == SCE_UTILITY_STATUS_RUNNING && status == SCE_UTILITY_STATUS_INITIALIZE) {
-			if (!volatileLocked_) {
+			if (!volatileLocked_ && LocksVolatileMemory()) {
 				// TODO: Should probably make the status pending instead?
 				volatileLocked_ = KernelVolatileMemLock(0, 0, 0) == 0;
 			}

@@ -962,8 +962,11 @@ void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {
 		ShellExecute(NULL, L"open", wurl.c_str(), NULL, NULL, SW_SHOWNORMAL);
 #elif defined(__APPLE__)
 		OSXOpenURL(std::string(url).c_str());
+#elif PPSSPP_PLATFORM(LINUX)
+		// Not through a shell: the URL can come from the game.
+		LaunchXdgOpen(std::string(url));
 #else
-		std::string command = join("xdg-open ", url);
+		std::string command = "xdg-open '" + ReplaceAll(url, "'", "'\\''") + "'";
 		int err = system(command.c_str());
 		if (err) {
 			INFO_LOG(Log::System, "Would have gone to %.*s but xdg-utils seems not to be installed", STR_VIEW(url));
@@ -1176,6 +1179,12 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return true;
 #else
 		return false;
+#endif
+	case SYSPROP_CAN_LAUNCH_URL:
+#if defined(MOBILE_DEVICE) && !PPSSPP_PLATFORM(SWITCH)
+		return false;
+#else
+		return true;
 #endif
 	case SYSPROP_HAS_OPEN_DIRECTORY:
 #if PPSSPP_PLATFORM(WINDOWS)

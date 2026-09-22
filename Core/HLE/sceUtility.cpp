@@ -55,6 +55,7 @@
 #include "Core/Dialog/PSPDialog.h"
 #include "Core/Dialog/PSPSaveDialog.h"
 #include "Core/Dialog/PSPMsgDialog.h"
+#include "Core/Dialog/PSPHtmlViewerDialog.h"
 #include "Core/Dialog/PSPPlaceholderDialog.h"
 #include "Core/Dialog/PSPOskDialog.h"
 #include "Core/Dialog/PSPGamedataInstallDialog.h"
@@ -327,6 +328,8 @@ static PSPScreenshotDialog *screenshotDialog;
 static PSPGamedataInstallDialog *gamedataInstallDialog;
 static PSPNpSigninDialog *npSigninDialog;
 static PSPPlaceholderDialog *gameSharingDialog;
+// Not one of the dialogs above: it has its own state on a PSP, and doesn't count as the current dialog.
+static PSPHtmlViewerDialog *htmlViewerDialog;
 
 // A lot of state seems to be shared between the various dialog types.
 static int oldStatus = -1;
@@ -400,6 +403,8 @@ static PSPDialog *CurrentDialog(UtilityDialogType type) {
 		return gamedataInstallDialog;
 	case UtilityDialogType::NPSIGNIN:
 		return npSigninDialog;
+	case UtilityDialogType::HTMLVIEWER:
+		return htmlViewerDialog;
 	}
 	return nullptr;
 }
@@ -522,6 +527,7 @@ void __UtilityInit() {
 	gamedataInstallDialog = new PSPGamedataInstallDialog(UtilityDialogType::GAMEDATAINSTALL);
 	npSigninDialog = new PSPNpSigninDialog(UtilityDialogType::NPSIGNIN);
 	gameSharingDialog = new PSPPlaceholderDialog(UtilityDialogType::GAMESHARING);
+	htmlViewerDialog = new PSPHtmlViewerDialog(UtilityDialogType::HTMLVIEWER);
 
 	currentDialogType = UtilityDialogType::NONE;
 	DeactivateDialog();
@@ -534,7 +540,7 @@ void __UtilityInit() {
 }
 
 void __UtilityDoState(PointerWrap &p) {
-	auto s = p.Section("sceUtility", 1, 8);
+	auto s = p.Section("sceUtility", 1, 9);
 	if (!s) {
 		return;
 	}
@@ -608,6 +614,9 @@ void __UtilityDoState(PointerWrap &p) {
 	if (s >= 8) {
 		gameSharingDialog->DoState(p);
 	}
+	if (s >= 9) {
+		htmlViewerDialog->DoState(p);
+	}
 
 	if (!hasAccessThread && accessThread) {
 		accessThread->Forget();
@@ -626,6 +635,7 @@ void __UtilityShutdown() {
 	gamedataInstallDialog->Shutdown(true);
 	npSigninDialog->Shutdown(true);
 	gameSharingDialog->Shutdown(true);
+	htmlViewerDialog->Shutdown(true);
 
 	if (accessThread) {
 		// Don't need to free it during shutdown, may have already been freed.
@@ -645,6 +655,7 @@ void __UtilityShutdown() {
 	delete gamedataInstallDialog;
 	delete npSigninDialog;
 	delete gameSharingDialog;
+	delete htmlViewerDialog;
 }
 
 // On a PSP, dialog init and shutdown happen partly at the accessThread priority and partly at the
@@ -1677,9 +1688,31 @@ static int sceUtilityGameSharingGetStatus() {
 	return hleLogVerbose(Log::sceUtility, status, "status: %s", UtilityDialogStatusToString(status));
 }
 
-// We never run an HtmlViewer, so it's never the current type.
+// The HtmlViewer keeps its own state on a PSP: other dialogs don't make it busy or change its type,
+// and until one has been started its calls return WRONG_TYPE (utility/dialog/htmlviewer).
+static int sceUtilityHtmlViewerInitStart(u32 paramsPtr) {
+	return hleLogInfo(Log::sceUtility, htmlViewerDialog->Init(paramsPtr));
+}
+
+static int sceUtilityHtmlViewerShutdownStart() {
+	if (!htmlViewerDialog->HasStarted()) {
+		return hleLogDebug(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
+	}
+	return hleLogDebug(Log::sceUtility, htmlViewerDialog->Shutdown());
+}
+
+static int sceUtilityHtmlViewerUpdate(int animSpeed) {
+	if (!htmlViewerDialog->HasStarted()) {
+		return hleLogDebug(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
+	}
+	return hleLogDebug(Log::sceUtility, htmlViewerDialog->Update(animSpeed));
+}
+
 static int sceUtilityHtmlViewerGetStatus() {
-	return hleLogDebug(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
+	if (!htmlViewerDialog->HasStarted()) {
+		return hleLogDebug(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
+	}
+	return hleLogVerbose(Log::sceUtility, htmlViewerDialog->GetStatus());
 }
 
 static u32 sceUtilityLoadUsbModule(u32 module) {
@@ -1741,9 +1774,9 @@ const HLEFunction sceUtility[] = {
 	{0X88BC7406, nullptr,                                          "sceUtilitySavedataErrGetStatus",         '?', ""   },
 
 	{0XBDA7D894, &WrapI_V<sceUtilityHtmlViewerGetStatus>,          "sceUtilityHtmlViewerGetStatus",          'i', ""   },
-	{0XCDC3AA41, nullptr,                                          "sceUtilityHtmlViewerInitStart",          '?', ""   },
-	{0XF5CE1134, nullptr,                                          "sceUtilityHtmlViewerShutdownStart",      '?', ""   },
-	{0X05AFB9E4, nullptr,                                          "sceUtilityHtmlViewerUpdate",             '?', ""   },
+	{0XCDC3AA41, &WrapI_U<sceUtilityHtmlViewerInitStart>,          "sceUtilityHtmlViewerInitStart",          'i', "x"  },
+	{0XF5CE1134, &WrapI_V<sceUtilityHtmlViewerShutdownStart>,      "sceUtilityHtmlViewerShutdownStart",      'i', ""   },
+	{0X05AFB9E4, &WrapI_I<sceUtilityHtmlViewerUpdate>,             "sceUtilityHtmlViewerUpdate",             'i', "i"  },
 
 	{0X16A1A8D8, nullptr,                                          "sceUtilityAuthDialogGetStatus",          '?', ""   },
 	{0X943CBA46, nullptr,                                          "sceUtilityAuthDialogInitStart",          '?', ""   },

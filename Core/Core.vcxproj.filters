@@ -556,6 +556,9 @@
     <ClCompile Include="Dialog\PSPNpSigninDialog.cpp">
       <Filter>Dialog</Filter>
     </ClCompile>
+    <ClCompile Include="Dialog\PSPHtmlViewerDialog.cpp">
+      <Filter>Dialog</Filter>
+    </ClCompile>
     <ClCompile Include="Debugger\DisassemblyManager.cpp">
       <Filter>Debugger</Filter>
     </ClCompile>
@@ -1879,6 +1882,9 @@
       <Filter>Dialog</Filter>
     </ClInclude>
     <ClInclude Include="Dialog\PSPNpSigninDialog.h">
+      <Filter>Dialog</Filter>
+    </ClInclude>
+    <ClInclude Include="Dialog\PSPHtmlViewerDialog.h">
       <Filter>Dialog</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\JitCommon\JitState.h">

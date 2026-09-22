@@ -108,6 +108,10 @@ protected:
 
 	// TODO: Remove this once all dialogs are updated.
 	virtual bool UseAutoStatus() = 0;
+	// Whether the dialog holds volatile memory while running.
+	virtual bool LocksVolatileMemory() const {
+		return true;
+	}
 
 	static int GetConfirmButton();
 	static int GetCancelButton();

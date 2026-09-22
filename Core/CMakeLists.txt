@@ -209,8 +209,6 @@ if(NOT LIBRETRO)
 		Debugger/WebSocket/SteppingSubscriber.h
 		Debugger/WebSocket/WebSocketUtils.cpp
 		Debugger/WebSocket/WebSocketUtils.h
-		Dialog/PSPPlaceholderDialog.cpp
-		Dialog/PSPPlaceholderDialog.h
 		HW/GranularMixer.cpp
 		HW/GranularMixer.h
 		HW/StereoResampler.cpp
@@ -356,7 +354,9 @@ add_library(Core STATIC
 	Dialog/PSPNetconfDialog.cpp
 	Dialog/PSPNetconfDialog.h
 	Dialog/PSPNpSigninDialog.cpp
+	Dialog/PSPHtmlViewerDialog.cpp
 	Dialog/PSPNpSigninDialog.h
+	Dialog/PSPHtmlViewerDialog.h
 	Dialog/PSPOskDialog.cpp
 	Dialog/PSPOskDialog.h
 	Dialog/PSPOskConstants.cpp
