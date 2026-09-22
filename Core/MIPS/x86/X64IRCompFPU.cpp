@@ -556,7 +556,8 @@ void X64JitBackend::CompIR_FCondAssign(IRInst inst) {
 	case IROp::FMin:
 		tempReg = regs_.GetAndLockTempGPR();
 		regs_.Map(inst);
-		UCOMISS(regs_.FX(inst.src1), regs_.F(inst.src1));
+		// PF is set if either is a NaN. Comparing src1 with itself only caught a NaN in src1.
+		UCOMISS(regs_.FX(inst.src1), regs_.F(inst.src2));
 		skipNAN = J_CC(CC_NP, true);
 
 		// Slow path: NAN case.  Check if both are negative.
@@ -593,7 +594,8 @@ void X64JitBackend::CompIR_FCondAssign(IRInst inst) {
 	case IROp::FMax:
 		tempReg = regs_.GetAndLockTempGPR();
 		regs_.Map(inst);
-		UCOMISS(regs_.FX(inst.src1), regs_.F(inst.src1));
+		// PF is set if either is a NaN. Comparing src1 with itself only caught a NaN in src1.
+		UCOMISS(regs_.FX(inst.src1), regs_.F(inst.src2));
 		skipNAN = J_CC(CC_NP, true);
 
 		// Slow path: NAN case.  Check if both are negative.
