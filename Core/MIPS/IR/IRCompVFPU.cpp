@@ -138,16 +138,24 @@ namespace MIPSComp {
 		return true;
 	}
 
+	// True if the prefix only touches lanes the op has. A position past the size may only be the
+	// identity, and a position within it may not name a lane past it (which zeroes the result lane
+	// on hardware, see cpu/vfpu/prefix_ctrl - the interpreter handles that).
 	static bool IsPrefixWithinSize(u32 prefix, VectorSize sz) {
 		int n = GetNumVectorElements(sz);
-		for (int i = n; i < 4; i++) {
+		for (int i = 0; i < 4; i++) {
 			int regnum = (prefix >> (i * 2)) & 3;
 			int abs = (prefix >> (8 + i)) & 1;
 			int negate = (prefix >> (16 + i)) & 1;
 			int constants = (prefix >> (12 + i)) & 1;
-			if (regnum >= n && !constants) {
+			if (constants) {
+				continue;
+			}
+			if (i >= n) {
 				if (abs || negate || regnum != i)
 					return false;
+			} else if (regnum >= n) {
+				return false;
 			}
 		}
 
