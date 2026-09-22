@@ -18,6 +18,7 @@
 #pragma once
 
 #include "Common/File/Path.h"
+class PointerWrap;
 
 enum pspUmdState { 
 	PSP_UMD_INIT        = 0x00,

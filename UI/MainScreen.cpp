@@ -21,7 +21,7 @@
 
 #include "ppsspp_config.h"
 
-#include "Common/System/Display.h"
+#include "Common/CPUDetect.h"
 #include "Common/System/System.h"
 #include "Common/UI/Root.h"
 #include "Common/UI/Context.h"
@@ -33,9 +33,6 @@
 #include "Common/StringUtils.h"
 #include "Core/System.h"
 #include "Core/Util/RecentFiles.h"
-#include "Core/Reporting.h"
-#include "Core/HLE/sceCtrl.h"
-#include "Core/ELF/PBPReader.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/Util/GameManager.h"
 
@@ -544,6 +541,18 @@ void MainScreen::CreateViews() {
 		// Slip in at the top.
 		root_->Insert(0, upgradeBar);
 	}
+
+#if PPSSPP_PLATFORM(WINDOWS) && PPSSPP_ARCH(X86)
+	if (cpu_info.OS64bit && !g_Config.bWow64WarningDismissed) {
+		auto di = GetI18NCategory(I18NCat::DIALOG);
+		std::string_view message = di->T("You're running the 32-bit version. Use PPSSPPWindows64.exe instead for best performance.");
+		UI::LinearLayout *upgradeBar = CreateDismissableBar(message, "", [this]() {
+			g_Config.bWow64WarningDismissed = true;
+			g_Config.Save("dismisswow64");
+		});
+		root_->Insert(0, upgradeBar);
+	}
+#endif
 }
 
 bool MainScreen::key(const KeyInput &key) {
