@@ -414,7 +414,7 @@ CommandLineParseResult CommandLineOptions::Parse(int argc, const char *argv[], C
 				parsedAutoParam = true;
 				break;
 			} else if (result == ParseParamResult::BadValue) {
-				return CommandLineParseResult::Exit;
+				return CommandLineParseResult::Error;
 			} // else nomatch
 		}
 
