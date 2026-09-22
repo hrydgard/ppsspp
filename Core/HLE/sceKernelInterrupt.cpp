@@ -632,6 +632,7 @@ static u32 sceKernelMemcpy(u32 dst, u32 src, u32 size) {
 	if (Memory::IsVRAMAddress(src) || Memory::IsVRAMAddress(dst)) {
 		skip = gpu->PerformMemoryCopy(dst, src, size);
 	}
+	gpu->NotifyVideoCopy(dst, src, size);
 
 	// Technically should crash if these are invalid and size > 0...
 	if (!skip && Memory::IsValidAddress(dst) && Memory::IsValidAddress(src) && Memory::IsValidAddress(dst + size - 1) && Memory::IsValidAddress(src + size - 1))  {

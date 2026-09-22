@@ -145,7 +145,6 @@ bool TextureReplacer::LoadIni(std::string *error, bool notify) {
 	filtering_.clear();
 	reducehashranges_.clear();
 
-	allowVideo_ = false;
 	ignoreAddress_ = false;
 	reduceHash_ = false;
 	reduceHashGlobalValue = 0.5;
@@ -336,7 +335,6 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 		return false;
 	}
 
-	options->Get("video", &allowVideo_);
 	options->Get("ignoreAddress", &ignoreAddress_);
 	// Multiplies sizeInRAM/bytesPerLine in XXHASH by 0.5.
 	options->Get("reduceHash", &reduceHash_);
@@ -797,7 +795,7 @@ bool TextureReplacer::WillSave(const ReplacedTextureDecodeInfo &replacedInfo) co
 	// Don't save the PPGe texture.
 	if (replacedInfo.addr > 0x05000000 && replacedInfo.addr < PSP_GetKernelMemoryEnd())
 		return false;
-	if (replacedInfo.isVideo && !allowVideo_)
+	if (replacedInfo.isVideo)
 		return false;
 
 	return true;

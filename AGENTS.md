@@ -122,7 +122,13 @@ python test.py -g --graphics=software
 
 When the thing under test is a commercial game rather than a suite, headless needs `--log` before it prints
 anything (to stderr), and defaults its memory stick to `<exe dir>/memstick` rather than the app's - so the
-firmware you installed in the app isn't there, and LLE modules silently fall back to HLE. A run configured
+firmware you installed in the app isn't there. Pass `--memstick=<the app's memstick>` for any run that is
+meant to exercise a real firmware module. Without it, a library whose HLE the config has disabled has
+nothing left to resolve against, and the game does not fall back to our HLE - it gets unresolved imports and
+dies. The tell is a single line early on, `sceMpeg HLE is disabled, but flash0:/kd/mpeg.prx isn't in the
+firmware and the game didn't bring its own`, followed by a run that logs happily for its whole timeout with
+zero `sceDisplaySetFramebuf` calls and a handful of cached textures. Count flips before concluding anything
+about a game's behaviour. A run configured
 differently from what you asked for, or one that never reached the code, produces the same all-zero counts as
 a clean one, so assert the exit code and a positive "we got here" counter before believing any error count.
 The traps in full: [docs/debugging.md](docs/debugging.md).

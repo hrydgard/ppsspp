@@ -86,8 +86,6 @@ public:
 	bool ReplaceEnabled() const { return replaceEnabled_; }
 	bool SaveEnabled() const { return saveEnabled_; }
 
-	bool AllowVideo() const { return allowVideo_; }
-
 	u32 ComputeHash(u32 addr, int bufw, int w, int h, bool swizzled, GETextureFormat fmt, u16 maxSeenV);
 
 	// Returns nullptr if not found.
@@ -128,7 +126,6 @@ protected:
 
 	bool replaceEnabled_ = false;
 	bool saveEnabled_ = false;
-	bool allowVideo_ = false;
 	bool ignoreAddress_ = false;
 	bool reduceHash_ = false;
 	bool ignoreMipmap_ = false;
