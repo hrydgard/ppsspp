@@ -1,7 +1,9 @@
 #pragma once
 
 #include "Common/Common.h"
+#include "Common/System/Request.h"
 #include "Common/UI/View.h"
+#include "Common/UI/Root.h"
 #include "UI/ViewGroup.h"
 #include "UI/GameInfoCache.h"
 
@@ -15,6 +17,15 @@ public:
 class CopyableText : public UI::LinearLayout {
 public:
 	CopyableText(ImageID imageID, std::string_view text, UI::LinearLayoutParams *layoutParams = nullptr);
+};
+
+// Compound view, creating a FileChooserChoice inside.
+class AudioFileChooser : public UI::LinearLayout {
+public:
+	AudioFileChooser(RequesterToken token, std::string *value, std::string_view title, UI::UISound sound, UI::LayoutParams *layoutParams = nullptr);
+
+private:
+	UI::UISound sound_;
 };
 
 enum class TopBarFlags {

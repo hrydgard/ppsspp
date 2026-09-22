@@ -63,6 +63,8 @@ list(APPEND UISource
 	GameScreen.cpp
 	GameSettingsScreen.h
 	GameSettingsScreen.cpp
+	UISettingsScreen.h
+	UISettingsScreen.cpp
 	DeveloperToolsScreen.h
 	DeveloperToolsScreen.cpp
 	DriverManagerScreen.h
