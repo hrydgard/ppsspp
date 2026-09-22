@@ -97,6 +97,7 @@ tests_good = [
   "cpu/vfpu/prefix_ctrl",
   "cpu/vfpu/vbranch",
   "cpu/vfpu/vrnd",
+  "cpu/vfpu/overlap",
   "cpu/vfpu/gum",
   "cpu/vfpu/matrix",
   "cpu/vfpu/vavg",
