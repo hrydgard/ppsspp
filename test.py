@@ -425,6 +425,7 @@ tests_good = [
   "threads/vtimers/start",
   "threads/vtimers/stop",
   "threads/wakeup/wakeup",
+  "utility/dialog/abort",
   "utility/dialog/htmlviewer",
   "utility/dialog/priority",
   "utility/dialog/status",

@@ -87,6 +87,7 @@ private:
 	};
 
 	u32 flag = 0;
+	int framesRun_ = 0;
 
 	pspMessageDialog messageDialog{};
 	int messageDialogAddr = 0;

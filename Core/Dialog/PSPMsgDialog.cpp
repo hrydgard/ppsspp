@@ -80,6 +80,7 @@ int PSPMsgDialog::Init(unsigned int paramAddr) {
 	}
 
 	flag = 0;
+	framesRun_ = 0;
 	scrollPos_ = 0.0f;
 	framesUpHeld_ = 0;
 	framesDownHeld_ = 0;
@@ -293,7 +294,11 @@ int PSPMsgDialog::Update(int animSpeed) {
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 
-	if (flag & (DS_ERROR | DS_ABORT)) {
+	// On a PSP, an Abort only takes effect from the 8th Update, whatever animSpeed is
+	// (utility/dialog/abort). With an Update only every other vblank it took 6, so it isn't purely a
+	// count, but this is right for the usual one per vblank.
+	framesRun_++;
+	if ((flag & DS_ERROR) || ((flag & DS_ABORT) && framesRun_ >= 8)) {
 		ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
 	} else {
 		UpdateButtons();
@@ -376,11 +381,16 @@ void PSPMsgDialog::DoState(PointerWrap &p)
 {
 	PSPDialog::DoState(p);
 
-	auto s = p.Section("PSPMsgDialog", 1);
+	auto s = p.Section("PSPMsgDialog", 1, 2);
 	if (!s)
 		return;
 
 	Do(p, flag);
+	if (s >= 2) {
+		Do(p, framesRun_);
+	} else {
+		framesRun_ = 8;
+	}
 	Do(p, messageDialog);
 	Do(p, messageDialogAddr);
 	DoArray(p, msgText, sizeof(msgText));
