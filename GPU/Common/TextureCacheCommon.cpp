@@ -711,10 +711,9 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 				_dbg_assert_(h == gstate.getTextureHeight(0));
 				_dbg_assert_(entry->addr == texaddr);
 				UpdateMaxSeenV(entry, gstate.isModeThrough());
-				// A video texture is new every frame by definition, so hashing it only confirms what the
-				// VIDEO flag already said. The replacer is the one thing that still wants the hash, and
-				// only when it has been told to replace video.
-				const bool skipHash = isVideo && !(replacer_.Enabled() && replacer_.AllowVideo());
+				// A video texture is new every frame by definition, so hashing it only confirms what
+				// the VIDEO flag already said.
+				const bool skipHash = isVideo;
 				const u32 newFullHash = skipHash ? 0 : ComputeTextureHash(replacer_, entry->addr, entry->bufw, w, h, swizzled, entry);
 				if (skipHash || newFullHash != entry->fullhash) {
 					// The texture changed. Throw it in the secondary cache. Then we'll create a new entry later.
@@ -920,7 +919,7 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 	gstate_c.curTextureHeight = h;
 	UpdateMaxSeenV(entry, gstate.isModeThrough());  // Critical to update this before hashing! As it's used to decide the hash range.
 
-	const bool skipHash = isVideo && !(replacer_.Enabled() && replacer_.AllowVideo());
+	const bool skipHash = isVideo;
 	if (!(entry->status & TexStatus::IS_PPGE_ATLAS) && !skipHash) {
 		entry->fullhash = ComputeTextureHash(replacer_, entry->addr, entry->bufw, w, h, swizzled, entry);
 	}
@@ -1794,7 +1793,7 @@ ReplacedTexture *TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int *
 		return nullptr;
 	}
 
-	if ((entry->status & TexStatus::VIDEO) && !replacer_.AllowVideo()) {
+	if (entry->status & TexStatus::VIDEO) {
 		return nullptr;
 	}
 
