@@ -434,7 +434,14 @@ void X64JitBackend::CompIR_FCompare(IRInst inst) {
 			break;
 		case VC_EN:
 		case VC_NN:
-			CMPSS(tempReg, regs_.F(inst.src1), !condNegated ? CMP_UNORD : CMP_ORD);
+			// Compare src1 against itself: unordered exactly when it's a NaN. (tempReg holds whatever
+			// the previous lane left there, often an all-ones mask, which is a NaN too.)
+			if (cpu_info.bAVX) {
+				VCMPSS(tempReg, regs_.FX(inst.src1), regs_.F(inst.src1), !condNegated ? CMP_UNORD : CMP_ORD);
+			} else {
+				MOVAPS(tempReg, regs_.F(inst.src1));
+				CMPSS(tempReg, regs_.F(inst.src1), !condNegated ? CMP_UNORD : CMP_ORD);
+			}
 			break;
 		case VC_EI:
 		case VC_NI:
@@ -445,7 +452,8 @@ void X64JitBackend::CompIR_FCompare(IRInst inst) {
 				MOVAPS(tempReg, regs_.F(inst.src1));
 				ANDPS(tempReg, M(constants.noSignMask));  // rip accessible
 			}
-			CMPSS(tempReg, M(constants.positiveInfinity), !condNegated ? CMP_EQ : CMP_LT);  // rip accessible
+			// NEQ rather than LT so that a NaN counts as not infinite.
+			CMPSS(tempReg, M(constants.positiveInfinity), !condNegated ? CMP_EQ : CMP_NEQ);  // rip accessible
 			break;
 		case VC_ES:
 		case VC_NS:
@@ -460,7 +468,7 @@ void X64JitBackend::CompIR_FCompare(IRInst inst) {
 			break;
 		case VC_TR:
 			OR(32, regs_.R(IRREG_VFPU_CC), Imm8(affectedBit));
-			takeBitFromTempReg = true;
+			takeBitFromTempReg = false;
 			break;
 		case VC_FL:
 			AND(32, regs_.R(IRREG_VFPU_CC), Imm8(~affectedBit));
