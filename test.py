@@ -87,14 +87,18 @@ tests_good = [
   "cpu/cpu_alu/cpu_alu",
   "cpu/cpu_alu/cpu_branch",
   "cpu/cpu_alu/cpu_branch2",
+  "cpu/vfpu/callout",
   "cpu/vfpu/colors",
   "cpu/vfpu/convert",
+  "cpu/vfpu/convert_scaled",
+  "cpu/vfpu/minmax",
   "cpu/vfpu/gum",
   "cpu/vfpu/matrix",
   "cpu/vfpu/vavg",
   "cpu/icache/icache",
   "cpu/lsu/lsu",
   "cpu/fpu/fpu",
+  "cpu/fpu/rounding",
 
   "audio/atrac/addstreamdata",
   "audio/atrac/atractest",
@@ -263,6 +267,7 @@ tests_good = [
   "malloc/malloc",
   "misc/dcache",
   "misc/deadbeef",
+  "modules/unresolved/unresolved",
   "misc/libc",
   "misc/sdkver",
   "misc/testgp",
@@ -462,7 +467,9 @@ known_failures = {
 
 tests_next = [
 # These are the next tests up for fixing. These run by default.
+  "cpu/cpu_alu/cpu_div",  # INT_MIN / -1 leaves HI = 0 on hardware, the interpreters and IR backends say -1
   "cpu/fpu/fcr",
+  "cpu/vfpu/minmax_zero",  # signed zero and denormals in vmin/vmax
   "cpu/vfpu/prefixes",
   "cpu/vfpu/vector",
   "cpu/vfpu/vregs",
