@@ -50,6 +50,11 @@ public:
 		views_.push_back(view);
 		return view;
 	}
+	template <class T>
+	T *Insert(int index, T *view) {
+		views_.insert(views_.begin() + index, view);
+		return view;
+	}
 
 	// Note: This deletes the old view, if found. Returns whether the view was found.
 	// If it fails, the newView is deleted.

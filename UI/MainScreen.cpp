@@ -362,6 +362,9 @@ void MainScreen::CreateViews() {
 
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
+	// Thie is the true root, leaves room for persistent notifications.
+	root_ = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
+
 	tabHolder_ = new TabHolder(ORIENT_HORIZONTAL, 64, TabHolderFlags::Default, nullptr, nullptr, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f));
 	ViewGroup *leftColumn = tabHolder_;
 	tabHolder_->SetTag("MainScreenGames");
@@ -454,13 +457,13 @@ void MainScreen::CreateViews() {
 		CreateMainButtons(buttonGroup, vertical);
 		header->Add(buttonGroup);
 
-		LinearLayout *rootLayout = new LinearLayout(ORIENT_VERTICAL);
+		LinearLayout *rootLayout = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(1.0f));
 		rootLayout->SetSpacing(0.0f);
 
 		leftColumn->ReplaceLayoutParams(new LinearLayoutParams(1.0f));
 		rootLayout->Add(header);
 		rootLayout->Add(leftColumn);
-		root_ = rootLayout;
+		root_->Add(rootLayout);
 
 		// no space for a fullscreen button!
 	} else {
@@ -489,9 +492,10 @@ void MainScreen::CreateViews() {
 
 		rightColumn->Add(rightColumnItems);
 
-		root_ = new LinearLayout(ORIENT_HORIZONTAL);
-		root_->Add(leftColumn);
-		root_->Add(rightColumn);
+		LinearLayout *columns = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(1.0f));
+		columns->Add(leftColumn);
+		columns->Add(rightColumn);
+		root_->Add(columns);
 	}
 
 	if (focusButton) {
@@ -505,9 +509,6 @@ void MainScreen::CreateViews() {
 	if (!g_Config.sUpgradeMessage.empty()) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		Margins margins(0, 0);
-		if (vertical) {
-			margins.bottom = ITEM_HEIGHT;
-		}
 		UI::LinearLayout *upgradeBar = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, margins));
 
 		UI::Margins textMargins(10, 5);
@@ -529,12 +530,8 @@ void MainScreen::CreateViews() {
 			RecreateViews();
 		});
 
-		// Slip in under root_
-		LinearLayout *newRoot = new LinearLayout(ORIENT_VERTICAL);
-		newRoot->Add(root_);
-		newRoot->Add(upgradeBar);
-		root_->ReplaceLayoutParams(new LinearLayoutParams(1.0));
-		root_ = newRoot;
+		// Slip in at the top.
+		root_->Insert(0, upgradeBar);
 	}
 }
 
