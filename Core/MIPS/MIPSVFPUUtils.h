@@ -261,4 +261,10 @@ bool GetVFPUCtrlMask(int reg, u32 *mask);
 u32 GetVFPUCtrlSetBits(int reg);
 
 float Float16ToFloat32(unsigned short l);
+
+// vh2f and vf2h, bit-exact to the hardware (cpu/vfpu/specials). vf2h truncates the mantissa,
+// flushes below 2^-14 to zero and keeps the low ten mantissa bits of a NaN; vh2f flushes
+// subnormal halves and keeps inf/NaN mantissa bits unshifted.
+u32 vfpu_h2f(u16 h);
+u16 vfpu_f2h(u32 f);
 void InitVFPU();

@@ -95,13 +95,19 @@ tests_good = [
   "cpu/vfpu/minmax",
   "cpu/vfpu/prefix_branch",
   "cpu/vfpu/prefix_ctrl",
+  "cpu/vfpu/vbranch",
+  "cpu/vfpu/vrnd",
+  "cpu/vfpu/overlap",
   "cpu/vfpu/gum",
   "cpu/vfpu/matrix",
   "cpu/vfpu/vavg",
   "cpu/icache/icache",
   "cpu/lsu/lsu",
+  "cpu/lsu/llsc",
   "cpu/fpu/fpu",
   "cpu/fpu/rounding",
+  "cpu/fpu/roundmode",
+  "cpu/fpu/fpu_branch",
 
   "audio/atrac/addstreamdata",
   "audio/atrac/atractest",
@@ -454,6 +460,9 @@ known_failures = {
     # No flush-to-zero: the ISA has no control for it, so a denormal result survives where the
     # PSP would have flushed it. Everything else in this test passes.
     "cpu/fpu/fpu",
+    # The ISA returns the canonical NaN (0x7fc00000) from every operation, never the operand's
+    # NaN, so a negative or signaling NaN input loses its sign and payload. Everything else passes.
+    "cpu/fpu/roundmode",
     # The software renderer's output differs from the reference by the same amount on both of
     # these architectures, despite them using completely different SIMD paths. Unexplained.
     "gpu/clipping/homogeneous",
@@ -474,8 +483,14 @@ tests_next = [
   "cpu/vfpu/prefix_consume",  # see the pspautotests commit for what differs per core
   "cpu/vfpu/prefix_sat",
   "cpu/vfpu/prefix_unpack",  # an invalid swizzle replays an earlier prefixed value, not emulated
+  "cpu/vfpu/vbranch_hazard",  # VFPU pipeline latencies, which a compiler pads for; not emulated
   "cpu/vfpu/minmax_tie",  # vmin/vmax return the second operand on a -0/+0 tie; the IR path returns the first
   "cpu/vfpu/minmax_zero",  # signed zero and denormals in vmin/vmax
+  "cpu/vfpu/specials",  # vcmp on denormals, NaN canonicalization and denormal flush in vbfy/vocp/vavg/vfad/vsocp
+  "cpu/vfpu/overlap_vcrsp",  # vcrsp overlapping its source, which the assembler refuses; the hardware doesn't read-before-write
+  "cpu/fpu/fpu_branch_hazard",  # a bc1x right after c.xx.s sees the old condition; the compiler pads for it, not emulated
+  "cpu/fpu/fpu_nan",  # 0/0 and inf-inf give 0x7fc00000; x86 hosts make 0xffc00000, and a check per op isn't worth it
+  "cpu/lsu/cacheop",  # the data cache is write-back and the uncached mirror shows it; not emulated
   "cpu/vfpu/prefixes",
   "cpu/vfpu/vector",
   "cpu/vfpu/vregs",

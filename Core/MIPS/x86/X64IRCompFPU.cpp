@@ -177,9 +177,21 @@ void X64JitBackend::CompIR_FArith(IRInst inst) {
 		break;
 
 	case IROp::FSqrt:
-		regs_.Map(inst);
+	{
+		X64Reg tempReg = regs_.MapWithFPRTemp(inst);
+		// x86 gives a negative NaN for a negative input, the PSP a positive one: clear the sign
+		// where the input was negative. -0 and NaN inputs come through as they are.
+		if (cpu_info.bAVX) {
+			VCMPSS(tempReg, regs_.FX(inst.src1), M(constants.positiveZeroes), CMP_LT);  // rip accessible
+		} else {
+			MOVAPS(tempReg, regs_.F(inst.src1));
+			CMPSS(tempReg, M(constants.positiveZeroes), CMP_LT);  // rip accessible
+		}
+		ANDPS(tempReg, M(constants.signBitAll));  // rip accessible
 		SQRTSS(regs_.FX(inst.dest), regs_.F(inst.src1));
+		XORPS(regs_.FX(inst.dest), R(tempReg));
 		break;
+	}
 
 	case IROp::FNeg:
 		regs_.Map(inst);
@@ -241,13 +253,19 @@ void X64JitBackend::CompIR_FAssign(IRInst inst) {
 		}
 		ORPS(tempReg, M(constants.positiveOnes));  // rip accessible
 
-		// Set dest = 0xFFFFFFFF if +0.0 or -0.0.
+		// Set dest = 0xFFFFFFFF if the exponent is zero: +0.0, -0.0 or a denormal, which the
+		// hardware also signs as zero.
 		if (inst.dest != inst.src1) {
-			XORPS(regs_.FX(inst.dest), regs_.F(inst.dest));
-			CMPPS(regs_.FX(inst.dest), regs_.F(inst.src1), CMP_EQ);
+			if (cpu_info.bAVX) {
+				VANDPS(128, regs_.FX(inst.dest), regs_.FX(inst.src1), M(constants.positiveInfinity));  // rip accessible
+			} else {
+				MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
+				ANDPS(regs_.FX(inst.dest), M(constants.positiveInfinity));  // rip accessible
+			}
 		} else {
-			CMPPS(regs_.FX(inst.dest), M(constants.positiveZeroes), CMP_EQ);  // rip accessible
+			ANDPS(regs_.FX(inst.dest), M(constants.positiveInfinity));  // rip accessible
 		}
+		CMPPS(regs_.FX(inst.dest), M(constants.positiveZeroes), CMP_EQ);  // rip accessible
 
 		// Now not the mask to keep zero if it was zero.
 		ANDNPS(regs_.FX(inst.dest), R(tempReg));
@@ -428,7 +446,14 @@ void X64JitBackend::CompIR_FCompare(IRInst inst) {
 			break;
 		case VC_EN:
 		case VC_NN:
-			CMPSS(tempReg, regs_.F(inst.src1), !condNegated ? CMP_UNORD : CMP_ORD);
+			// Compare src1 against itself: unordered exactly when it's a NaN. (tempReg holds whatever
+			// the previous lane left there, often an all-ones mask, which is a NaN too.)
+			if (cpu_info.bAVX) {
+				VCMPSS(tempReg, regs_.FX(inst.src1), regs_.F(inst.src1), !condNegated ? CMP_UNORD : CMP_ORD);
+			} else {
+				MOVAPS(tempReg, regs_.F(inst.src1));
+				CMPSS(tempReg, regs_.F(inst.src1), !condNegated ? CMP_UNORD : CMP_ORD);
+			}
 			break;
 		case VC_EI:
 		case VC_NI:
@@ -439,7 +464,8 @@ void X64JitBackend::CompIR_FCompare(IRInst inst) {
 				MOVAPS(tempReg, regs_.F(inst.src1));
 				ANDPS(tempReg, M(constants.noSignMask));  // rip accessible
 			}
-			CMPSS(tempReg, M(constants.positiveInfinity), !condNegated ? CMP_EQ : CMP_LT);  // rip accessible
+			// NEQ rather than LT so that a NaN counts as not infinite.
+			CMPSS(tempReg, M(constants.positiveInfinity), !condNegated ? CMP_EQ : CMP_NEQ);  // rip accessible
 			break;
 		case VC_ES:
 		case VC_NS:
@@ -454,7 +480,7 @@ void X64JitBackend::CompIR_FCompare(IRInst inst) {
 			break;
 		case VC_TR:
 			OR(32, regs_.R(IRREG_VFPU_CC), Imm8(affectedBit));
-			takeBitFromTempReg = true;
+			takeBitFromTempReg = false;
 			break;
 		case VC_FL:
 			AND(32, regs_.R(IRREG_VFPU_CC), Imm8(~affectedBit));

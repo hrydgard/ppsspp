@@ -1869,6 +1869,14 @@ namespace MIPSComp {
 
 		int nOut = GetNumVectorElements(outsize);
 
+		// The first output may be a source of the second (vi2s.q C002, C000), so pack into temps
+		// then. No S prefix here, so its temps are free.
+		if (!IsOverlapSafe(nOut, dregs, GetNumVectorElements(sz), sregs)) {
+			for (int i = 0; i < nOut; i++) {
+				tempregs[i] = IRVTEMP_PFX_S + i;
+			}
+		}
+
 		// If src registers aren't contiguous, make them.
 		if (!IsVec2(sz, sregs) && !IsVec4(sz, sregs)) {
 			// T prefix is unused.

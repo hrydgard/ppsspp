@@ -102,6 +102,27 @@ inline float nanclamp(float f, float lower, float upper)
 	return nanmin(nanmax(f, lower), upper);
 }
 
+// The ordering the hardware's min/max family compares with: denormals count as zero, so ±0 and
+// every denormal tie with each other, and inf/NaN sort by sign and magnitude (-NaN < -inf < finite
+// < inf < NaN). A tie returns the second operand (cpu/vfpu/minmax_tie, minmax_zero, specials).
+inline s32 vfpu_order_key(float f) {
+	u32 u;
+	memcpy(&u, &f, sizeof(u));
+	u32 mag = u & 0x7FFFFFFF;
+	if (mag < 0x00800000) {
+		mag = 0;
+	}
+	return (u & 0x80000000) ? -(s32)mag : (s32)mag;
+}
+
+inline float vfpu_min(float a, float b) {
+	return vfpu_order_key(a) < vfpu_order_key(b) ? a : b;
+}
+
+inline float vfpu_max(float a, float b) {
+	return vfpu_order_key(a) > vfpu_order_key(b) ? a : b;
+}
+
 static void ApplyPrefixST(MIPSState *mips, float *r, u32 data, VectorSize size, float invalid = 0.0f) {
 	// Check for no prefix.
 	if (data == 0xe4)
@@ -779,10 +800,11 @@ namespace MIPSInt
 
 		for (int i = 0; i < n; i++) {
 			float diff = s[i] - t[i];
-			// To handle NaNs correctly, we do this with integer hackery
+			// To handle NaNs correctly, we do this with integer hackery. A denormal difference
+			// is zero, like everywhere else on the VFPU.
 			u32 val;
 			memcpy(&val, &diff, sizeof(u32));
-			if (val == 0 || val == 0x80000000)
+			if ((val & 0x7F800000) == 0)
 				d[i] = 0.0f;
 			else if ((val >> 31) == 0)
 				d[i] = 1.0f;
@@ -863,7 +885,7 @@ namespace MIPSInt
 
 	void Int_Vh2f(MIPSState *mips, MIPSOpcode op) {
 		u32 s[4];
-		float d[4];
+		u32 d[4];
 		int vd = _VD;
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
@@ -874,49 +896,49 @@ namespace MIPSInt
 		switch (sz) {
 		case V_Single:
 			outsize = V_Pair;
-			d[0] = ExpandHalf(s[0] & 0xFFFF);
-			d[1] = ExpandHalf(s[0] >> 16);
+			d[0] = vfpu_h2f(s[0] & 0xFFFF);
+			d[1] = vfpu_h2f(s[0] >> 16);
 			break;
 		case V_Pair:
 		default:
 			// All other sizes are treated the same.
 			outsize = V_Quad;
-			d[0] = ExpandHalf(s[0] & 0xFFFF);
-			d[1] = ExpandHalf(s[0] >> 16);
-			d[2] = ExpandHalf(s[1] & 0xFFFF);
-			d[3] = ExpandHalf(s[1] >> 16);
+			d[0] = vfpu_h2f(s[0] & 0xFFFF);
+			d[1] = vfpu_h2f(s[0] >> 16);
+			d[2] = vfpu_h2f(s[1] & 0xFFFF);
+			d[3] = vfpu_h2f(s[1] >> 16);
 			break;
 		}
-		ApplyPrefixD(mips, d, outsize);
-		WriteVector(mips, d, outsize, vd);
+		ApplyPrefixD(mips, reinterpret_cast<float *>(d), outsize);
+		WriteVector(mips, reinterpret_cast<float *>(d), outsize, vd);
 		PC += 4;
 		EatPrefixes(mips);
 	}
 
 	void Int_Vf2h(MIPSState *mips, MIPSOpcode op) {
-		float s[4]{};
+		u32 s[4]{};
 		u32 d[4];
 		int vd = _VD;
 		int vs = _VS;
 		VectorSize sz = GetVecSize(op);
-		ReadVector(mips, s, sz, vs);
+		ReadVector(mips, reinterpret_cast<float *>(s), sz, vs);
 		// Swizzle can cause V_Single to properly write both components.
-		ApplySwizzleS(mips, s, V_Quad);
+		ApplySwizzleS(mips, reinterpret_cast<float *>(s), V_Quad);
 		// Negate should not actually apply to invalid swizzle.
-		RetainInvalidSwizzleST(mips, s, V_Quad);
-		
+		RetainInvalidSwizzleST(mips, reinterpret_cast<float *>(s), V_Quad);
+
 		VectorSize outsize = V_Single;
 		switch (sz) {
 		case V_Single:
 		case V_Pair:
 			outsize = V_Single;
-			d[0] = ShrinkToHalf(s[0]) | ((u32)ShrinkToHalf(s[1]) << 16);
+			d[0] = vfpu_f2h(s[0]) | ((u32)vfpu_f2h(s[1]) << 16);
 			break;
 		case V_Triple:
 		case V_Quad:
 			outsize = V_Pair;
-			d[0] = ShrinkToHalf(s[0]) | ((u32)ShrinkToHalf(s[1]) << 16);
-			d[1] = ShrinkToHalf(s[2]) | ((u32)ShrinkToHalf(s[3]) << 16);
+			d[0] = vfpu_f2h(s[0]) | ((u32)vfpu_f2h(s[1]) << 16);
+			d[1] = vfpu_f2h(s[2]) | ((u32)vfpu_f2h(s[3]) << 16);
 			break;
 
 		default:
@@ -1319,11 +1341,12 @@ namespace MIPSInt
 		u32 tprefixAdd = VFPU_SWIZZLE(1, 0, 3, 2);
 		ApplyPrefixST(mips, t, VFPURewritePrefix(mips, VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), sz);
 
-		// TODO: May mishandle NAN / negative zero / etc.
-		d[0] = std::min(s[0], t[0]);
-		d[1] = std::max(s[1], t[1]);
-		d[2] = std::min(s[2], t[2]);
-		d[3] = std::max(s[3], t[3]);
+		// Each pair is compared as (y, x) and (w, z), so a tie keeps the lower lane; vsrt3 and
+		// vsrt4 compare the other way round and keep the upper one.
+		d[0] = vfpu_min(t[0], s[0]);
+		d[1] = vfpu_max(s[1], t[1]);
+		d[2] = vfpu_min(t[2], s[2]);
+		d[3] = vfpu_max(s[3], t[3]);
 		RetainInvalidSwizzleST(mips, d, sz);
 		ApplyPrefixD(mips, d, sz);
 		WriteVector(mips, d, sz, vd);
@@ -1345,11 +1368,11 @@ namespace MIPSInt
 		u32 tprefixAdd = VFPU_SWIZZLE(3, 2, 1, 0);
 		ApplyPrefixST(mips, t, VFPURewritePrefix(mips, VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), sz);
 
-		// TODO: May mishandle NAN / negative zero / etc.
-		d[0] = std::min(s[0], t[0]);
-		d[1] = std::min(s[1], t[1]);
-		d[2] = std::max(s[2], t[2]);
-		d[3] = std::max(s[3], t[3]);
+		// Compared as (w, x) and (z, y), ties keep x and y.
+		d[0] = vfpu_min(t[0], s[0]);
+		d[1] = vfpu_min(t[1], s[1]);
+		d[2] = vfpu_max(s[2], t[2]);
+		d[3] = vfpu_max(s[3], t[3]);
 		RetainInvalidSwizzleST(mips, d, sz);
 		ApplyPrefixD(mips, d, sz);
 		WriteVector(mips, d, sz, vd);
@@ -1371,11 +1394,11 @@ namespace MIPSInt
 		u32 tprefixAdd = VFPU_SWIZZLE(1, 0, 3, 2);
 		ApplyPrefixST(mips, t, VFPURewritePrefix(mips, VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), sz);
 
-		// TODO: May mishandle NAN / negative zero / etc.
-		d[0] = std::max(s[0], t[0]);
-		d[1] = std::min(s[1], t[1]);
-		d[2] = std::max(s[2], t[2]);
-		d[3] = std::min(s[3], t[3]);
+		// Compared as (x, y) and (z, w), ties keep y and w.
+		d[0] = vfpu_max(s[0], t[0]);
+		d[1] = vfpu_min(t[1], s[1]);
+		d[2] = vfpu_max(s[2], t[2]);
+		d[3] = vfpu_min(t[3], s[3]);
 		RetainInvalidSwizzleST(mips, d, sz);
 		ApplyPrefixD(mips, d, sz);
 		WriteVector(mips, d, sz, vd);
@@ -1397,11 +1420,11 @@ namespace MIPSInt
 		u32 tprefixAdd = VFPU_SWIZZLE(3, 2, 1, 0);
 		ApplyPrefixST(mips, t, VFPURewritePrefix(mips, VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), sz);
 
-		// TODO: May mishandle NAN / negative zero / etc.
-		d[0] = std::max(s[0], t[0]);
-		d[1] = std::max(s[1], t[1]);
-		d[2] = std::min(s[2], t[2]);
-		d[3] = std::min(s[3], t[3]);
+		// Compared as (x, w) and (y, z), ties keep w and z.
+		d[0] = vfpu_max(s[0], t[0]);
+		d[1] = vfpu_max(s[1], t[1]);
+		d[2] = vfpu_min(t[2], s[2]);
+		d[3] = vfpu_min(t[3], s[3]);
 		RetainInvalidSwizzleST(mips, d, sz);
 		ApplyPrefixD(mips, d, sz);
 		WriteVector(mips, d, sz, vd);

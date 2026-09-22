@@ -158,10 +158,10 @@ void LoongArch64JitBackend::CompIR_FAssign(IRInst inst) {
 	case IROp::FSign:
 	{
 		regs_.Map(inst);
-		// Check if it's negative zero, either 0x20/0x200 is zero.
+		// Zero or a denormal signs as zero: 0x20/0x200 are the zeros, 0x10/0x100 the subnormals.
 		FCLASS_S(SCRATCHF1, regs_.F(inst.src1));
 		MOVFR2GR_S(SCRATCH1, SCRATCHF1);
-		ANDI(SCRATCH1, SCRATCH1, 0x220);
+		ANDI(SCRATCH1, SCRATCH1, 0x330);
 		SLTUI(SCRATCH1, SCRATCH1, 1);
 		// Okay, it's zero if zero, 1 otherwise.  Convert 1 to a constant 1.0.
 		// Probably non-zero is the common case, so we make that the straight line.

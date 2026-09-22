@@ -127,6 +127,19 @@ inline int is_even(float d) {
 	return 2.0f * int_part == d;
 }
 
+// Float to int the way the PSP's FPU does it: at or past the int32 range the result is the nearest
+// limit, and a NaN gives INT_MAX whatever its sign (cpu/fpu/roundmode). The plain cast is undefined
+// there, and x86 makes it INT_MIN. Takes a value that's already been rounded.
+inline int32_t SaturatedFloatToInt(double d) {
+	if (d >= 2147483648.0)
+		return 0x7FFFFFFF;
+	if (d <= -2147483648.0)
+		return (int32_t)0x80000000;
+	if (d != d)
+		return 0x7FFFFFFF;
+	return (int32_t)d;
+}
+
 // Rounds *.5 to closest even number
 inline double round_ieee_754(double d) {
 	float i = (float)floor(d);
