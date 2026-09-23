@@ -32,6 +32,7 @@ public:
 	UI::UISound sound_;
 };
 
+constexpr double MAX_AUDIO_DURATION_SECONDS = 5.0;
 AudioFileChooser::AudioFileChooser(RequesterToken token, std::string *value, std::string_view title, UI::UISound sound, UI::LayoutParams *layoutParams) : UI::LinearLayout(ORIENT_HORIZONTAL, layoutParams), sound_(sound) {
 	using namespace UI;
 	SetSpacing(2.0f);
@@ -47,6 +48,14 @@ AudioFileChooser::AudioFileChooser(RequesterToken token, std::string *value, std
 		std::string path = e.s;
 		Sample *sample = Sample::Load(path);
 		if (sample) {
+			double duration = static_cast<double>(sample->length_) / sample->rateInHz_;
+			if (duration > MAX_AUDIO_DURATION_SECONDS) {
+				auto au = GetI18NCategory(I18NCat::AUDIO);
+				g_OSD.Show(OSDType::MESSAGE_ERROR, au->T("Audio file is too long. Maximum duration is 5 seconds."));
+				delete sample;
+				value->clear();
+				return;
+			}
 			g_BackgroundAudio.SFX().UpdateSample(sound, sample);
 		} else {
 			auto au = GetI18NCategory(I18NCat::AUDIO);
