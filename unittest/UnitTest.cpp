@@ -1986,7 +1986,7 @@ bool TestFastVec() {
 	return true;
 }
 
-// vfpu_dot's SIMD version against the reference, on inputs chosen to make trouble: close
+// vfpu_dot's SIMD versions against the reference, on inputs chosen to make trouble: close
 // exponents, cancelling products, ties, zeroes and subnormals, the overflow and underflow edges,
 // and inf and NaN.
 bool TestVFPUDot() {

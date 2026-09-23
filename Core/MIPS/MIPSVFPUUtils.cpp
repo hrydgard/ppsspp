@@ -830,15 +830,38 @@ float vfpu_dot_reference(const float a[4], const float b[4]) {
 	return ret;
 }
 
-#if PPSSPP_ARCH(ARM64_NEON)
+#if PPSSPP_ARCH(ARM64_NEON) || PPSSPP_ARCH(SSE2)
 
 // Inf and NaN inputs are rare, and the reference handles them.
 static NO_INLINE float vfpu_dot_special(const float a[4], const float b[4]) {
 	return vfpu_dot_reference(a, b);
 }
 
-// The reference, four lanes at a time, with a branch-free normalisation at the end. Bit-exact with
-// it; the rounding is done in integers because the host rounding mode may be the game's.
+// The end of the SIMD versions: drops the extra bits off the exact sum by truncation, then rounds to
+// 24 bits, nearest even. With the top bit moved to bit 62, adding 2^38 - 1 plus the lowest kept bit
+// and shifting out 39 bits does that for every magnitude, and adding the significand, implicit bit
+// and all, onto the exponent field lets a carry from the rounding bump the exponent by itself. It's
+// done in integers because the host rounding mode may be the game's.
+static inline float vfpu_dot_finish(int32_t val, uint32_t ehi) {
+	const uint32_t signBit = (uint32_t)val & 0x80000000u;
+	const uint32_t m = (val < 0 ? 0u - (uint32_t)val : (uint32_t)val) >> 2;
+	const int lz = 32 + (int)clz32_nonzero(m | 1);  // of m as 64 bits
+	const uint64_t top = (uint64_t)m << (lz - 1);
+	const uint64_t q = (top + ((1ULL << 38) - 1) + ((top >> 39) & 1)) >> 39;
+	const int64_t t = ((int64_t)((int)ehi - 88 - lz) << 23) + (int64_t)q;
+	uint32_t bits = t >= 0x7F800000 ? 0x7F800000u : (uint32_t)t;
+	bits = (t < 0x00800000 || m == 0) ? 0u : bits;
+	bits |= signBit;
+	float ret;
+	memcpy(&ret, &bits, sizeof(ret));
+	return ret;
+}
+
+#endif
+
+#if PPSSPP_ARCH(ARM64_NEON)
+
+// The reference, four lanes at a time. Bit-exact with it.
 static float vfpu_dot_neon(const float a[4], const float b[4]) {
 	const uint32x4_t x = vld1q_u32((const uint32_t *)a);
 	const uint32x4_t y = vld1q_u32((const uint32_t *)b);
@@ -870,24 +893,57 @@ static float vfpu_dot_neon(const float a[4], const float b[4]) {
 	const int32x4_t shift = vmaxq_s32(vreinterpretq_s32_u32(vsubq_u32(e, emax)), vdupq_n_s32(-28));
 	const int32x4_t v = vreinterpretq_s32_u32(vshlq_u32(p, shift));
 	const int32x4_t sign = vshrq_n_s32(vreinterpretq_s32_u32(veorq_u32(x, y)), 31);
-	const int32_t val = vaddvq_s32(vsubq_s32(veorq_s32(v, sign), sign));
+	return vfpu_dot_finish(vaddvq_s32(vsubq_s32(veorq_s32(v, sign), sign)), ehi);
+}
 
-	// Drop the extra bits by truncation, then round to 24 bits, nearest even: with the top bit
-	// moved to bit 62, adding 2^38 - 1 plus the lowest kept bit and shifting out 39 bits does it
-	// for every magnitude. Adding the significand, implicit bit and all, onto the exponent field
-	// lets a carry from the rounding bump the exponent by itself.
-	const uint32_t signBit = (uint32_t)val & 0x80000000u;
-	const uint32_t m = (val < 0 ? 0u - (uint32_t)val : (uint32_t)val) >> 2;
-	const int lz = 32 + (int)clz32_nonzero(m | 1);  // of m as 64 bits
-	const uint64_t top = (uint64_t)m << (lz - 1);
-	const uint64_t q = (top + ((1ULL << 38) - 1) + ((top >> 39) & 1)) >> 39;
-	const int64_t t = ((int64_t)((int)ehi - 88 - lz) << 23) + (int64_t)q;
-	uint32_t bits = t >= 0x7F800000 ? 0x7F800000u : (uint32_t)t;
-	bits = (t < 0x00800000 || m == 0) ? 0u : bits;
-	bits |= signBit;
-	float ret;
-	memcpy(&ret, &bits, sizeof(ret));
-	return ret;
+#elif PPSSPP_ARCH(SSE2)
+
+// The reference, four lanes at a time. Bit-exact with it.
+static float vfpu_dot_sse2(const float a[4], const float b[4]) {
+	const __m128i x = _mm_loadu_si128((const __m128i *)a);
+	const __m128i y = _mm_loadu_si128((const __m128i *)b);
+	const __m128i expBits = _mm_set1_epi32(0x7F800000);
+	const __m128i xe = _mm_and_si128(x, expBits), ye = _mm_and_si128(y, expBits);
+	const __m128i zero = _mm_setzero_si128();
+
+	// Zero and subnormal inputs make the product zero, with the lowest exponent. Inf and NaN get
+	// 0x7FF, above any real exponent sum, so one maximum finds the alignment and the specials. All of
+	// these fit in 15 bits, so the 16-bit maximum works on them.
+	const __m128i flush = _mm_or_si128(_mm_cmpeq_epi32(xe, zero), _mm_cmpeq_epi32(ye, zero));
+	const __m128i special = _mm_or_si128(_mm_cmpeq_epi32(xe, expBits), _mm_cmpeq_epi32(ye, expBits));
+	const __m128i e = _mm_or_si128(_mm_andnot_si128(flush, _mm_srli_epi32(_mm_add_epi32(xe, ye), 23)), _mm_srli_epi32(special, 21));
+	__m128i emax = _mm_max_epi16(e, _mm_shuffle_epi32(e, _MM_SHUFFLE(1, 0, 3, 2)));
+	emax = _mm_max_epi16(emax, _mm_shuffle_epi32(emax, _MM_SHUFFLE(2, 3, 0, 1)));
+	const uint32_t ehi = (uint32_t)_mm_cvtsi128_si32(emax);
+	if (ehi >= 0x7FF)
+		return vfpu_dot_special(a, b);
+
+	// 24x24-bit products, even and odd lanes separately, kept to 2 extra bits with round-to-odd.
+	const __m128i mantMask = _mm_set1_epi32(0x007FFFFF), implicitBit = _mm_set1_epi32(0x00800000);
+	const __m128i mx = _mm_or_si128(_mm_and_si128(x, mantMask), implicitBit);
+	const __m128i my = _mm_or_si128(_mm_and_si128(y, mantMask), implicitBit);
+	const __m128i pEven = _mm_mul_epu32(mx, my);
+	const __m128i pOdd = _mm_mul_epu32(_mm_srli_epi64(mx, 32), _mm_srli_epi64(my, 32));
+	const __m128i kept = _mm_or_si128(_mm_srli_epi64(pEven, 21), _mm_slli_epi64(_mm_srli_epi64(pOdd, 21), 32));
+	const __m128i lowMask = _mm_set_epi32(0, (1 << 21) - 1, 0, (1 << 21) - 1);
+	const __m128i dropped = _mm_or_si128(_mm_and_si128(pEven, lowMask), _mm_slli_epi64(_mm_and_si128(pOdd, lowMask), 32));
+	const __m128i sticky = _mm_andnot_si128(_mm_cmpeq_epi32(dropped, zero), _mm_set1_epi32(1));
+	const __m128i p = _mm_andnot_si128(flush, _mm_or_si128(kept, sticky));
+
+	// Align to the largest exponent by truncation. SSE2 has no per-lane shift, so p >> d is done as
+	// (p * 2^(28 - d)) >> 28, with the power of two built as float bits and converted by truncation.
+	const __m128i d = _mm_min_epi16(_mm_sub_epi32(emax, e), _mm_set1_epi32(28));
+	const __m128i scale = _mm_cvttps_epi32(_mm_castsi128_ps(_mm_slli_epi32(_mm_sub_epi32(_mm_set1_epi32(127 + 28), d), 23)));
+	const __m128i sEven = _mm_srli_epi64(_mm_mul_epu32(p, scale), 28);
+	const __m128i sOdd = _mm_srli_epi64(_mm_mul_epu32(_mm_srli_epi64(p, 32), _mm_srli_epi64(scale, 32)), 28);
+	__m128i v = _mm_or_si128(sEven, _mm_slli_epi64(sOdd, 32));
+
+	// Apply the signs and sum exactly.
+	const __m128i sign = _mm_srai_epi32(_mm_xor_si128(x, y), 31);
+	v = _mm_sub_epi32(_mm_xor_si128(v, sign), sign);
+	v = _mm_add_epi32(v, _mm_shuffle_epi32(v, _MM_SHUFFLE(1, 0, 3, 2)));
+	v = _mm_add_epi32(v, _mm_shuffle_epi32(v, _MM_SHUFFLE(2, 3, 0, 1)));
+	return vfpu_dot_finish(_mm_cvtsi128_si32(v), ehi);
 }
 
 #endif
@@ -895,6 +951,8 @@ static float vfpu_dot_neon(const float a[4], const float b[4]) {
 float vfpu_dot(const float a[4], const float b[4]) {
 #if PPSSPP_ARCH(ARM64_NEON)
 	return vfpu_dot_neon(a, b);
+#elif PPSSPP_ARCH(SSE2)
+	return vfpu_dot_sse2(a, b);
 #else
 	return vfpu_dot_reference(a, b);
 #endif
