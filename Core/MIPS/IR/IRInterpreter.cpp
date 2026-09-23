@@ -629,13 +629,16 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			mips->f[inst->dest] = vfpu_cos(mips->f[inst->src1]);
 			break;
 		case IROp::FRSqrt:
-			mips->f[inst->dest] = 1.0f / sqrtf(mips->f[inst->src1]);
+			mips->f[inst->dest] = vfpu_rsqrt(mips->f[inst->src1]);
 			break;
 		case IROp::FRecip:
-			mips->f[inst->dest] = 1.0f / mips->f[inst->src1];
+			mips->f[inst->dest] = vfpu_rcp(mips->f[inst->src1]);
 			break;
 		case IROp::FAsin:
 			mips->f[inst->dest] = vfpu_asin(mips->f[inst->src1]);
+			break;
+		case IROp::FVSqrt:
+			mips->f[inst->dest] = vfpu_sqrt(mips->f[inst->src1]);
 			break;
 
 		case IROp::ShlImm:

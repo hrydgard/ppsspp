@@ -548,20 +548,19 @@ void Arm64JitBackend::CompIR_FSpecial(IRInst inst) {
 		break;
 
 	case IROp::FRSqrt:
-		regs_.Map(inst);
-		fp_.MOVI2F(SCRATCHF1, 1.0f);
-		fp_.FSQRT(regs_.F(inst.dest), regs_.F(inst.src1));
-		fp_.FDIV(regs_.F(inst.dest), SCRATCHF1, regs_.F(inst.dest));
+		callFuncF_F(&vfpu_rsqrt);
 		break;
 
 	case IROp::FRecip:
-		regs_.Map(inst);
-		fp_.MOVI2F(SCRATCHF1, 1.0f);
-		fp_.FDIV(regs_.F(inst.dest), SCRATCHF1, regs_.F(inst.src1));
+		callFuncF_F(&vfpu_rcp);
 		break;
 
 	case IROp::FAsin:
 		callFuncF_F(&vfpu_asin);
+		break;
+
+	case IROp::FVSqrt:
+		callFuncF_F(&vfpu_sqrt);
 		break;
 
 	default:

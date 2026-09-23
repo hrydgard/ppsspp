@@ -1128,7 +1128,7 @@ namespace MIPSComp {
 				DISABLE;
 				break;
 			case 22: // d[i] = sqrtf(s[i]); break; //vsqrt
-				ir.Write(IROp::FSqrt, tempregs[i], sregs[i]);
+				ir.Write(IROp::FVSqrt, tempregs[i], sregs[i]);
 				break;
 			case 23: // d[i] = asinf(s[i]) / M_PI_2; break; //vasin
 				ir.Write(IROp::FAsin, tempregs[i], sregs[i]);

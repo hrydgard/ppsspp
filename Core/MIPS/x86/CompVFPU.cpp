@@ -2289,6 +2289,22 @@ void SinCosNegSin(SinCosArg angle, float *output) {
 	output[0] = -output[0];
 }
 
+void VSqrt(SinCosArg arg, float *output) {
+	output[0] = vfpu_sqrt(arg);
+}
+
+void VRSqrt(SinCosArg arg, float *output) {
+	output[0] = vfpu_rsqrt(arg);
+}
+
+void VRcp(SinCosArg arg, float *output) {
+	output[0] = vfpu_rcp(arg);
+}
+
+void VNRcp(SinCosArg arg, float *output) {
+	output[0] = -vfpu_rcp(arg);
+}
+
 void Exp2(SinCosArg arg, float *output) {
 	output[0] = vfpu_exp2(arg);
 }
@@ -2496,24 +2512,12 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 			MINSS(tempxregs[i], R(XMM0));
 			break;
 		case 16: // d[i] = 1.0f / s[i]; break; //vrcp
-			if (RipAccessible(&one)) {
-				MOVSS(XMM0, M(&one));  // rip accessible
-			} else {
-				MOV(PTRBITS, R(TEMPREG), ImmPtr(&one));
-				MOVSS(XMM0, MatR(TEMPREG));
-			}
-			DIVSS(XMM0, fpr.V(sregs[i]));
-			MOVSS(tempxregs[i], R(XMM0));
+			specialFuncCallHelper(&VRcp, sregs[i]);
+			MOVSS(tempxregs[i], MIPSSTATE_VAR(sincostemp[0]));
 			break;
 		case 17: // d[i] = 1.0f / sqrtf(s[i]); break; //vrsq
-			SQRTSS(XMM0, fpr.V(sregs[i]));
-			if (RipAccessible(&one)) {
-				MOVSS(tempxregs[i], M(&one));  // rip accessible
-			} else {
-				MOV(PTRBITS, R(TEMPREG), ImmPtr(&one));
-				MOVSS(tempxregs[i], MatR(TEMPREG));
-			}
-			DIVSS(tempxregs[i], R(XMM0));
+			specialFuncCallHelper(&VRSqrt, sregs[i]);
+			MOVSS(tempxregs[i], MIPSSTATE_VAR(sincostemp[0]));
 			break;
 		case 18: // d[i] = sinf((float)M_PI_2 * s[i]); break; //vsin
 			specialFuncCallHelper(&SinOnly, sregs[i]);
@@ -2532,20 +2536,16 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 			MOVSS(tempxregs[i], MIPSSTATE_VAR(sincostemp[0]));
 			break;
 		case 22: // d[i] = sqrtf(s[i]); break; //vsqrt
-			SQRTSS(tempxregs[i], fpr.V(sregs[i]));
-			MOV(PTRBITS, R(TEMPREG), ImmPtr(&noSignMask));
-			ANDPS(tempxregs[i], MatR(TEMPREG));
+			specialFuncCallHelper(&VSqrt, sregs[i]);
+			MOVSS(tempxregs[i], MIPSSTATE_VAR(sincostemp[0]));
 			break;
 		case 23: // d[i] = asinf(s[i]) / M_PI_2; break; //vasin
 			specialFuncCallHelper(&ASinScaled, sregs[i]);
 			MOVSS(tempxregs[i], MIPSSTATE_VAR(sincostemp[0]));
 			break;
 		case 24: // d[i] = -1.0f / s[i]; break; // vnrcp
-			// Rare so let's not bother checking for RipAccessible.
-			MOV(PTRBITS, R(TEMPREG), ImmPtr(&minus_one));
-			MOVSS(XMM0, MatR(TEMPREG));
-			DIVSS(XMM0, fpr.V(sregs[i]));
-			MOVSS(tempxregs[i], R(XMM0));
+			specialFuncCallHelper(&VNRcp, sregs[i]);
+			MOVSS(tempxregs[i], MIPSSTATE_VAR(sincostemp[0]));
 			break;
 		case 26: // d[i] = -sinf((float)M_PI_2 * s[i]); break; // vnsin
 			specialFuncCallHelper(&NegSinOnly, sregs[i]);

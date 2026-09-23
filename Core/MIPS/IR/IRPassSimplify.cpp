@@ -765,6 +765,7 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 		case IROp::FRSqrt:
 		case IROp::FRecip:
 		case IROp::FAsin:
+		case IROp::FVSqrt:
 			out.Write(inst);
 			break;
 

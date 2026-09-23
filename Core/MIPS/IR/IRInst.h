@@ -197,9 +197,10 @@ enum class IROp : uint8_t {
 	// Slow special functions. Used on singles.
 	FSin,
 	FCos,
-	FRSqrt,
-	FRecip,
+	FRSqrt,  // vrsq, bit-exact with the PSP
+	FRecip,  // vrcp, bit-exact with the PSP
 	FAsin,
+	FVSqrt,  // vsqrt, bit-exact with the PSP (FSqrt is the FPU's IEEE sqrt.s)
 
 	// Fake/System instructions
 	Interpret,

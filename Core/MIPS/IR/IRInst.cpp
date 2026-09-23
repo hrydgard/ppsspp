@@ -109,6 +109,7 @@ static const IRMeta irMeta[] = {
 	{ IROp::FRSqrt, "FRSqrt", "FF" },
 	{ IROp::FRecip, "FRecip", "FF" },
 	{ IROp::FAsin, "FAsin", "FF" },
+	{ IROp::FVSqrt, "FVSqrt", "FF" },
 	{ IROp::FNeg, "FNeg", "FF" },
 	{ IROp::FSign, "FSign", "FF" },
 	{ IROp::FAbs, "FAbs", "FF" },

@@ -969,6 +969,18 @@ static float X64JIT_XMM_CALL x64_cos(float f) {
 static float X64JIT_XMM_CALL x64_asin(float f) {
 	return vfpu_asin(f);
 }
+
+static float X64JIT_XMM_CALL x64_vsqrt(float f) {
+	return vfpu_sqrt(f);
+}
+
+static float X64JIT_XMM_CALL x64_rsqrt(float f) {
+	return vfpu_rsqrt(f);
+}
+
+static float X64JIT_XMM_CALL x64_rcp(float f) {
+	return vfpu_rcp(f);
+}
 #else
 static uint32_t x64_sin(uint32_t v) {
 	float f;
@@ -990,6 +1002,30 @@ static uint32_t x64_asin(uint32_t v) {
 	float f;
 	memcpy(&f, &v, sizeof(v));
 	f = vfpu_asin(f);
+	memcpy(&v, &f, sizeof(v));
+	return v;
+}
+
+static uint32_t x64_vsqrt(uint32_t v) {
+	float f;
+	memcpy(&f, &v, sizeof(v));
+	f = vfpu_sqrt(f);
+	memcpy(&v, &f, sizeof(v));
+	return v;
+}
+
+static uint32_t x64_rsqrt(uint32_t v) {
+	float f;
+	memcpy(&f, &v, sizeof(v));
+	f = vfpu_rsqrt(f);
+	memcpy(&v, &f, sizeof(v));
+	return v;
+}
+
+static uint32_t x64_rcp(uint32_t v) {
+	float f;
+	memcpy(&f, &v, sizeof(v));
+	f = vfpu_rcp(f);
 	memcpy(&v, &f, sizeof(v));
 	return v;
 }
@@ -1047,34 +1083,19 @@ void X64JitBackend::CompIR_FSpecial(IRInst inst) {
 		break;
 
 	case IROp::FRSqrt:
-		{
-			X64Reg tempReg = regs_.MapWithFPRTemp(inst);
-			SQRTSS(tempReg, regs_.F(inst.src1));
-
-			MOVSS(regs_.FX(inst.dest), M(constants.positiveOnes));  // rip accessible
-			DIVSS(regs_.FX(inst.dest), R(tempReg));
-			break;
-		}
+		callFuncF_F((const void *)&x64_rsqrt);
+		break;
 
 	case IROp::FRecip:
-		if (inst.dest != inst.src1) {
-			regs_.Map(inst);
-			MOVSS(regs_.FX(inst.dest), M(constants.positiveOnes));  // rip accessible
-			DIVSS(regs_.FX(inst.dest), regs_.F(inst.src1));
-		} else {
-			X64Reg tempReg = regs_.MapWithFPRTemp(inst);
-			MOVSS(tempReg, M(constants.positiveOnes));  // rip accessible
-			if (cpu_info.bAVX) {
-				VDIVSS(regs_.FX(inst.dest), tempReg, regs_.F(inst.src1));
-			} else {
-				DIVSS(tempReg, regs_.F(inst.src1));
-				MOVSS(regs_.FX(inst.dest), R(tempReg));
-			}
-		}
+		callFuncF_F((const void *)&x64_rcp);
 		break;
 
 	case IROp::FAsin:
 		callFuncF_F((const void *)&x64_asin);
+		break;
+
+	case IROp::FVSqrt:
+		callFuncF_F((const void *)&x64_vsqrt);
 		break;
 
 	default:
