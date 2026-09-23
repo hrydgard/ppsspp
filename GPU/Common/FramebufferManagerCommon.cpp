@@ -1066,6 +1066,9 @@ void FramebufferManagerCommon::DownloadFramebufferOnSwitch(VirtualFramebuffer *v
 }
 
 bool FramebufferManagerCommon::ShouldDownloadFramebufferColor(const VirtualFramebuffer *vfb) {
+	if (PSP_CoreParameter().compat.flags().ForceEnableGPUReadback) {
+		return true;
+	}
 	// Dangan Ronpa hack
 	return PSP_CoreParameter().compat.flags().Force04154000Download && vfb->fb_address == 0x04154000;
 }
