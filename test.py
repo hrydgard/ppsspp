@@ -101,6 +101,7 @@ tests_good = [
   "cpu/vfpu/gum",
   "cpu/vfpu/matrix",
   "cpu/vfpu/vavg",
+  "cpu/vfpu/exact",
   "cpu/icache/icache",
   "cpu/lsu/lsu",
   "cpu/lsu/llsc",
