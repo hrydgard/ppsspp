@@ -319,10 +319,6 @@
       <FileType>Document</FileType>
       <Link>Content\%(Filename)%(Extension)</Link>
     </Image>
-    <None Include="..\Assets\vfpu\*.dat">
-      <DeploymentContent>true</DeploymentContent>
-      <Link>Content\vfpu\%(Filename)%(Extension)</Link>
-    </None>
     <None Include="..\Assets\upload\*.*">
       <DeploymentContent>true</DeploymentContent>
       <Link>Content\upload\%(Filename)%(Extension)</Link>

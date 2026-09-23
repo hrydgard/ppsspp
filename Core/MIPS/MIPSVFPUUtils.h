@@ -269,4 +269,3 @@ float Float16ToFloat32(unsigned short l);
 // subnormal halves and keeps inf/NaN mantissa bits unshifted.
 u32 vfpu_h2f(u16 h);
 u16 vfpu_f2h(u32 f);
-void InitVFPU();

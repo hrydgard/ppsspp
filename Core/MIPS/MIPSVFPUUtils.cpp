@@ -19,13 +19,11 @@
 #include <cstring>
 
 #include "Common/BitScan.h"
-#include "Common/File/VFS/VFS.h"
 #include "Common/Math/SIMDHeaders.h"
 #include "Common/StringUtils.h"
 #include "Core/Reporting.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
-#include "Core/MIPS/MIPSVFPUFallbacks.h"
 
 #ifdef _MSC_VER
 #pragma warning(disable: 4146)
@@ -1030,21 +1028,14 @@ uint32_t vrnd_generate(uint32_t *rcx) {
 }
 
 //==============================================================================
-// The code below attempts to exactly match the output of
-// several PSP's VFPU functions. For the sake of
-// making lookup tables smaller the code is
-// somewhat gnarly.
-// Lookup tables sometimes store deltas from (explicitly computable)
-// estimations, to allow to store them in smaller types.
-// See https://github.com/hrydgard/ppsspp/issues/16946 for details.
-
-// rcp, rsqrt, sqrt and exp2 share one quadratic interpolator. The top 7 bits of a 23-bit input
-// index pick one of 128 segments with their own coefficients; the other 16 bits, x2, enter the
-// linear term in full, while the squared term only sees the top 10 of them, as a distance t from the
-// middle of the segment. The squarer rounds t^2 up to a multiple of 256, and the squared term is
-// floored separately from the rest. The sum is the significand (implicit bit included) in ulps of the
-// segment's exponent, truncated to 22 bits like every VFPU result. Derived from the output of the
-// table-based versions this replaces, and bit-exact with them over every input.
+// The PSP's VFPU computes rcp, rsq, sqrt, exp2, log2, sin/cos and asin with one quadratic
+// interpolator. The top 7 bits of a 23-bit input index pick one of 128 segments with their own
+// coefficients; the other 16 bits, x2, enter the linear term in full, while the squared term only
+// sees the top 10 of them, as a distance t from the middle of the segment. The squarer rounds t^2 up
+// to a multiple of 256, and the squared term is floored separately from the rest. The sum is a
+// significand in ulps of a per-segment exponent e, truncated to 22 bits like every VFPU result.
+// The coefficients were fitted to the output of fp64's table-based versions (see
+// https://github.com/hrydgard/ppsspp/issues/16946), and reproduce them bit for bit over every input.
 struct VFPUSegment {
 	int32_t c0;  // value at x2 = 0, in ulps of 2^(e - 150), implicit bit included
 	int32_t m;   // slope in 2^-17 ulps per step of x2
@@ -1324,6 +1315,210 @@ static const VFPUSegment vfpu_exp2_segments[128] = {
 	{ 0x0FD3DD0,  0x002C00C,  0x01E, 0x7F }, { 0x0FE9DD5,  0x002C3E0,  0x01E, 0x7F },
 };
 
+// log2(x) for x in [1, 2), in ulps of 2^-24. e is unused, see vfpu_log2.
+static const VFPUSegment vfpu_log2_segments[128] = {
+	{ 0x00000B6,  0x005BF94, -0x05B, 0x00 }, { 0x002E07E,  0x005B434, -0x05A, 0x00 },
+	{ 0x005BA95,  0x005A904, -0x058, 0x00 }, { 0x0088F16,  0x0059E00, -0x057, 0x00 },
+	{ 0x00B5E15,  0x0059324, -0x056, 0x00 }, { 0x00E27A5,  0x0058874, -0x054, 0x00 },
+	{ 0x010EBDE,  0x0057DEC, -0x053, 0x00 }, { 0x013AAD3,  0x005738C, -0x052, 0x00 },
+	{ 0x0166499,  0x0056954, -0x051, 0x00 }, { 0x0191941,  0x0055F40, -0x050, 0x00 },
+	{ 0x01BC8DE,  0x0055550, -0x04E, 0x00 }, { 0x01E7386,  0x0054B88, -0x04D, 0x00 },
+	{ 0x0211949,  0x00541E4, -0x04C, 0x00 }, { 0x023BA39,  0x0053860, -0x04B, 0x00 },
+	{ 0x0265667,  0x0052F00, -0x04A, 0x00 }, { 0x028EDE6,  0x00525C0, -0x049, 0x00 },
+	{ 0x02B80C4,  0x0051CA0, -0x048, 0x00 }, { 0x02E0F13,  0x00513A4, -0x047, 0x00 },
+	{ 0x03098E3,  0x0050AC4, -0x046, 0x00 }, { 0x0331E44,  0x0050204, -0x045, 0x00 },
+	{ 0x0359F44,  0x004F960, -0x044, 0x00 }, { 0x0381BF3,  0x004F0DC, -0x043, 0x00 },
+	{ 0x03A9460,  0x004E874, -0x042, 0x00 }, { 0x03D0899,  0x004E028, -0x041, 0x00 },
+	{ 0x03F78AF,  0x004D7FC, -0x041, 0x00 }, { 0x041E4AB,  0x004CFE8, -0x040, 0x00 },
+	{ 0x0444C9D,  0x004C7EC, -0x03F, 0x00 }, { 0x046B093,  0x004C00C, -0x03E, 0x00 },
+	{ 0x0491098,  0x004B848, -0x03D, 0x00 }, { 0x04B6CBE,  0x004B09C, -0x03D, 0x00 },
+	{ 0x04DC50B,  0x004A90C, -0x03C, 0x00 }, { 0x050198F,  0x004A190, -0x03B, 0x00 },
+	{ 0x0526A55,  0x0049A2C, -0x03A, 0x00 }, { 0x054B76C,  0x00492E0, -0x03A, 0x00 },
+	{ 0x05700DB,  0x0048BAC, -0x039, 0x00 }, { 0x05946AF,  0x004848C, -0x038, 0x00 },
+	{ 0x05B88F7,  0x0047D88, -0x038, 0x00 }, { 0x05DC7B9,  0x0047694, -0x037, 0x00 },
+	{ 0x0600301,  0x0046FB8, -0x036, 0x00 }, { 0x0623ADE,  0x00468F0, -0x036, 0x00 },
+	{ 0x0646F54,  0x004623C, -0x035, 0x00 }, { 0x066A071,  0x0045B9C, -0x034, 0x00 },
+	{ 0x068CE40,  0x0045514, -0x034, 0x00 }, { 0x06AF8C8,  0x0044E9C, -0x033, 0x00 },
+	{ 0x06D2014,  0x0044834, -0x032, 0x00 }, { 0x06F442F,  0x00441E4, -0x032, 0x00 },
+	{ 0x0716520,  0x0043BA8, -0x031, 0x00 }, { 0x07382F4,  0x0043578, -0x031, 0x00 },
+	{ 0x0759DAF,  0x0042F60, -0x030, 0x00 }, { 0x077B55F,  0x0042954, -0x030, 0x00 },
+	{ 0x079CA08,  0x004235C, -0x02F, 0x00 }, { 0x07BDBB6,  0x0041D74, -0x02E, 0x00 },
+	{ 0x07DEA71,  0x00417A0, -0x02E, 0x00 }, { 0x07FF640,  0x00411D8, -0x02D, 0x00 },
+	{ 0x081FF2E,  0x0040C28, -0x02D, 0x00 }, { 0x0840542,  0x0040680, -0x02D, 0x00 },
+	{ 0x0860880,  0x00400EC, -0x02C, 0x00 }, { 0x08808F6,  0x003FB64, -0x02C, 0x00 },
+	{ 0x08A06A6,  0x003F5EC, -0x02B, 0x00 }, { 0x08C019C,  0x003F084, -0x02B, 0x00 },
+	{ 0x08DF9DD,  0x003EB2C, -0x02A, 0x00 }, { 0x08FEF73,  0x003E5E0, -0x02A, 0x00 },
+	{ 0x091E261,  0x003E0A0, -0x029, 0x00 }, { 0x093D2B2,  0x003DB74, -0x029, 0x00 },
+	{ 0x095C06C,  0x003D654, -0x029, 0x00 }, { 0x097AB94,  0x003D13C, -0x028, 0x00 },
+	{ 0x0999433,  0x003CC38, -0x028, 0x00 }, { 0x09B7A4E,  0x003C740, -0x027, 0x00 },
+	{ 0x09D5DEE,  0x003C254, -0x027, 0x00 }, { 0x09F3F16,  0x003BD74, -0x026, 0x00 },
+	{ 0x0A11DD0,  0x003B8A0, -0x026, 0x00 }, { 0x0A2FA21,  0x003B3D8, -0x026, 0x00 },
+	{ 0x0A4D40C,  0x003AF20, -0x025, 0x00 }, { 0x0A6AB9D,  0x003AA70, -0x025, 0x00 },
+	{ 0x0A880D6,  0x003A5D0, -0x025, 0x00 }, { 0x0AA53BC,  0x003A138, -0x024, 0x00 },
+	{ 0x0AC2459,  0x0039CAC, -0x024, 0x00 }, { 0x0ADF2B0,  0x0039830, -0x024, 0x00 },
+	{ 0x0AFBEC6,  0x00393B8, -0x023, 0x00 }, { 0x0B188A2,  0x0038F50, -0x023, 0x00 },
+	{ 0x0B35048,  0x0038AF0, -0x022, 0x00 }, { 0x0B515C1,  0x003869C, -0x022, 0x00 },
+	{ 0x0B6D90F,  0x0038254, -0x022, 0x00 }, { 0x0B89A37,  0x0037E14, -0x021, 0x00 },
+	{ 0x0BA5941,  0x00379DC, -0x021, 0x00 }, { 0x0BC1630,  0x00375B4, -0x021, 0x00 },
+	{ 0x0BDD108,  0x0037190, -0x020, 0x00 }, { 0x0BF89D1,  0x0036D7C, -0x020, 0x00 },
+	{ 0x0C1408F,  0x003696C, -0x020, 0x00 }, { 0x0C2F546,  0x0036568, -0x020, 0x00 },
+	{ 0x0C4A7F8,  0x0036170, -0x01F, 0x00 }, { 0x0C658B0,  0x0035D7C, -0x01F, 0x00 },
+	{ 0x0C8076F,  0x0035994, -0x01F, 0x00 }, { 0x0C9B439,  0x00355B8, -0x01F, 0x00 },
+	{ 0x0CB5F13,  0x00351E0, -0x01E, 0x00 }, { 0x0CD0803,  0x0034E10, -0x01E, 0x00 },
+	{ 0x0CEAF0A,  0x0034A4C, -0x01D, 0x00 }, { 0x0D05431,  0x0034690, -0x01D, 0x00 },
+	{ 0x0D1F77A,  0x00342DC, -0x01D, 0x00 }, { 0x0D398E9,  0x0033F30, -0x01D, 0x00 },
+	{ 0x0D53880,  0x0033B8C, -0x01C, 0x00 }, { 0x0D6D649,  0x00337F4, -0x01D, 0x00 },
+	{ 0x0D87241,  0x0033460, -0x01C, 0x00 }, { 0x0DA0C72,  0x00330D4, -0x01C, 0x00 },
+	{ 0x0DBA4DC,  0x0032D54, -0x01C, 0x00 }, { 0x0DD3B84,  0x00329D4, -0x01B, 0x00 },
+	{ 0x0DED06F,  0x0032660, -0x01B, 0x00 }, { 0x0E063A0,  0x00322F4, -0x01B, 0x00 },
+	{ 0x0E1F51B,  0x0031F90, -0x01B, 0x00 }, { 0x0E384E3,  0x0031C34, -0x01B, 0x00 },
+	{ 0x0E512FB,  0x00318DC, -0x01A, 0x00 }, { 0x0E69F69,  0x003158C, -0x01A, 0x00 },
+	{ 0x0E82A2F,  0x0031244, -0x01A, 0x00 }, { 0x0E9B350,  0x0030F00, -0x019, 0x00 },
+	{ 0x0EB3AD3,  0x0030BC8, -0x01A, 0x00 }, { 0x0ECC0B5,  0x0030894, -0x019, 0x00 },
+	{ 0x0EE44FF,  0x0030568, -0x019, 0x00 }, { 0x0EFC7B3,  0x0030240, -0x019, 0x00 },
+	{ 0x0F148D1,  0x002FF20, -0x018, 0x00 }, { 0x0F2C862,  0x002FC08, -0x018, 0x00 },
+	{ 0x0F44666,  0x002F8F4, -0x018, 0x00 }, { 0x0F5C2E0,  0x002F5E8, -0x018, 0x00 },
+	{ 0x0F73DD4,  0x002F2E0, -0x018, 0x00 }, { 0x0F8B744,  0x002EFE0, -0x018, 0x00 },
+	{ 0x0FA2F32,  0x002ECE8, -0x017, 0x00 }, { 0x0FBA5A6,  0x002E9F0, -0x017, 0x00 },
+	{ 0x0FD1A9F,  0x002E700, -0x017, 0x00 }, { 0x0FE8E20,  0x002E41C, -0x017, 0x00 },
+};
+
+// sin(pi/2 * (1 - y)) for y in [0, 1): the hardware indexes the quarter wave from the top.
+static const VFPUSegment vfpu_sin_segments[128] = {
+	{ 0x100013C, -0x00009DC, -0x09E, 0x7E }, { 0x0FFFC4D, -0x0001D9C, -0x09E, 0x7E },
+	{ 0x0FFED7F, -0x0003158, -0x09E, 0x7E }, { 0x0FFD4D3, -0x0004510, -0x09E, 0x7E },
+	{ 0x0FFB24B, -0x00058C8, -0x09E, 0x7E }, { 0x0FF85E7, -0x0006C7C, -0x09E, 0x7E },
+	{ 0x0FF4FA7, -0x0008028, -0x09D, 0x7E }, { 0x0FF0F92, -0x00093D4, -0x09D, 0x7E },
+	{ 0x0FEC5A7, -0x000A778, -0x09D, 0x7E }, { 0x0FE71EA, -0x000BB18, -0x09D, 0x7E },
+	{ 0x0FE145E, -0x000CEB0, -0x09D, 0x7E }, { 0x0FDAD04, -0x000E240, -0x09C, 0x7E },
+	{ 0x0FD3BE4, -0x000F5C4, -0x09C, 0x7E }, { 0x0FCC101, -0x0010940, -0x09C, 0x7E },
+	{ 0x0FC3C5E, -0x0011CB4, -0x09B, 0x7E }, { 0x0FBAE03, -0x001301C, -0x09B, 0x7E },
+	{ 0x0FB15F4, -0x0014378, -0x09B, 0x7E }, { 0x0FA7436, -0x00156C8, -0x09A, 0x7E },
+	{ 0x0F9C8D1, -0x0016A08, -0x09A, 0x7E }, { 0x0F913CC, -0x0017D40, -0x09A, 0x7E },
+	{ 0x0F8552A, -0x0019064, -0x099, 0x7E }, { 0x0F78CF7, -0x001A37C, -0x099, 0x7E },
+	{ 0x0F6BB37, -0x001B680, -0x098, 0x7E }, { 0x0F5DFF4, -0x001C974, -0x097, 0x7E },
+	{ 0x0F4FB39, -0x001DC5C, -0x097, 0x7E }, { 0x0F40D0B, -0x001EF2C, -0x097, 0x7E },
+	{ 0x0F31573, -0x00201E8, -0x096, 0x7E }, { 0x0F2147C, -0x0021494, -0x095, 0x7E },
+	{ 0x0F10A30, -0x0022728, -0x094, 0x7E }, { 0x0EFF69B, -0x00239A8, -0x094, 0x7E },
+	{ 0x0EED9C4, -0x0024C14, -0x093, 0x7E }, { 0x0EDB3B7, -0x0025E68, -0x092, 0x7E },
+	{ 0x0EC8482, -0x00270A4, -0x092, 0x7E }, { 0x0EB4C2E, -0x00282C8, -0x091, 0x7E },
+	{ 0x0EA0AC7, -0x00294D4, -0x090, 0x7E }, { 0x0E8C05A, -0x002A6C8, -0x08F, 0x7E },
+	{ 0x0E76CF4, -0x002B8A0, -0x08E, 0x7E }, { 0x0E610A2, -0x002CA5C, -0x08D, 0x7E },
+	{ 0x0E4AB73, -0x002DBFC, -0x08D, 0x7E }, { 0x0E33D72, -0x002ED84, -0x08C, 0x7E },
+	{ 0x0E1C6AE, -0x002FEEC, -0x08B, 0x7E }, { 0x0E04735, -0x0031038, -0x08A, 0x7E },
+	{ 0x0DEBF17, -0x0032164, -0x089, 0x7E }, { 0x0DD2E63, -0x0033270, -0x088, 0x7E },
+	{ 0x0DB9528, -0x0034360, -0x087, 0x7E }, { 0x0D9F376, -0x003542C, -0x086, 0x7E },
+	{ 0x0D8495D, -0x00364DC, -0x085, 0x7E }, { 0x0D696ED, -0x0037568, -0x084, 0x7E },
+	{ 0x0D4DC37, -0x00385D0, -0x083, 0x7E }, { 0x0D3194D, -0x0039618, -0x082, 0x7E },
+	{ 0x0D14E3F, -0x003A63C, -0x081, 0x7E }, { 0x0CF7B1F, -0x003B638, -0x080, 0x7E },
+	{ 0x0CD9FFE, -0x003C614, -0x07E, 0x7E }, { 0x0CBBCF2, -0x003D5CC, -0x07D, 0x7E },
+	{ 0x0C9D20A, -0x003E558, -0x07C, 0x7E }, { 0x0C7DF5B, -0x003F4C4, -0x07B, 0x7E },
+	{ 0x0C5E4F7, -0x0040404, -0x07A, 0x7E }, { 0x0C3E2F2, -0x0041320, -0x079, 0x7E },
+	{ 0x0C1D95E, -0x0042210, -0x077, 0x7E }, { 0x0BFC853, -0x00430DC, -0x076, 0x7E },
+	{ 0x0BDAFE3, -0x0043F7C, -0x075, 0x7E }, { 0x0BB9021, -0x0044DF0, -0x073, 0x7E },
+	{ 0x0B96926, -0x0045C3C, -0x072, 0x7E }, { 0x0B73B05, -0x0046A60, -0x071, 0x7E },
+	{ 0x0B505D1, -0x0047854, -0x06F, 0x7E }, { 0x0B2C9A5, -0x004861C, -0x06E, 0x7E },
+	{ 0x0B08693, -0x00493B8, -0x06C, 0x7E }, { 0x0AE3CB4, -0x004A128, -0x06B, 0x7E },
+	{ 0x0ABEC1C, -0x004AE68, -0x069, 0x7E }, { 0x0A994E5, -0x004BB7C, -0x068, 0x7E },
+	{ 0x0A73722, -0x004C860, -0x066, 0x7E }, { 0x0A4D2EF, -0x004D518, -0x065, 0x7E },
+	{ 0x0A26861, -0x004E19C, -0x064, 0x7E }, { 0x09FF78F, -0x004EDF4, -0x062, 0x7E },
+	{ 0x09D8091, -0x004FA14, -0x060, 0x7E }, { 0x09B0384, -0x005060C, -0x05F, 0x7E },
+	{ 0x098807A, -0x00511CC, -0x05D, 0x7E }, { 0x095F791, -0x0051D5C, -0x05C, 0x7E },
+	{ 0x09368DE, -0x00528B8, -0x05A, 0x7E }, { 0x090D47D, -0x00533E4, -0x058, 0x7E },
+	{ 0x08E3A88, -0x0053EDC, -0x057, 0x7E }, { 0x08B9B15, -0x00549A0, -0x055, 0x7E },
+	{ 0x088F643, -0x0055430, -0x054, 0x7E }, { 0x0864C26, -0x0055E88, -0x052, 0x7E },
+	{ 0x0839CDD, -0x00568B0, -0x050, 0x7E }, { 0x080E882, -0x00572A0, -0x04F, 0x7E },
+	{ 0x0FC5E5B, -0x00AF8B8, -0x09A, 0x7D }, { 0x0F6E1F7, -0x00B0BC0, -0x096, 0x7D },
+	{ 0x0F15C10, -0x00B1E5C, -0x093, 0x7D }, { 0x0EBCCDB, -0x00B308C, -0x090, 0x7D },
+	{ 0x0E6348D, -0x00B424C, -0x08C, 0x7D }, { 0x0E09361, -0x00B539C, -0x089, 0x7D },
+	{ 0x0DAE98A, -0x00B647C, -0x085, 0x7D }, { 0x0D53745, -0x00B74EC, -0x082, 0x7D },
+	{ 0x0CF7CC6, -0x00B84EC, -0x07E, 0x7D }, { 0x0C9BA49, -0x00B947C, -0x07B, 0x7D },
+	{ 0x0C3F003, -0x00BA394, -0x077, 0x7D }, { 0x0BE1E30, -0x00BB240, -0x073, 0x7D },
+	{ 0x0B8450A, -0x00BC074, -0x070, 0x7D }, { 0x0B264C7, -0x00BCE34, -0x06C, 0x7D },
+	{ 0x0AC7DA6, -0x00BDB84, -0x069, 0x7D }, { 0x0A68FDC, -0x00BE858, -0x065, 0x7D },
+	{ 0x0A09BA7, -0x00BF4BC, -0x061, 0x7D }, { 0x09AA142, -0x00C00A8, -0x05E, 0x7D },
+	{ 0x094A0E5, -0x00C0C1C, -0x05A, 0x7D }, { 0x08E9ACE, -0x00C171C, -0x056, 0x7D },
+	{ 0x0888F37, -0x00C21A4, -0x052, 0x7D }, { 0x0827E5E, -0x00C2BB4, -0x04F, 0x7D },
+	{ 0x0F8D0F8, -0x0186A98, -0x096, 0x7C }, { 0x0EC9B9D, -0x0187CD8, -0x08F, 0x7C },
+	{ 0x0E05D21, -0x0188E24, -0x087, 0x7C }, { 0x0D415FF, -0x0189E7C, -0x07F, 0x7C },
+	{ 0x0C7C6B0, -0x018ADE4, -0x077, 0x7C }, { 0x0BB6FAF, -0x018BC58, -0x070, 0x7C },
+	{ 0x0AF1172, -0x018C9D8, -0x068, 0x7C }, { 0x0A2AC78, -0x018D664, -0x061, 0x7C },
+	{ 0x0964135, -0x018E1F8, -0x059, 0x7C }, { 0x089D028, -0x018EC98, -0x051, 0x7C },
+	{ 0x0FAB399, -0x031EC88, -0x093, 0x7B }, { 0x0E1BD36, -0x031FDF0, -0x084, 0x7B },
+	{ 0x0C8BE1E, -0x0320D6C, -0x074, 0x7B }, { 0x0AFB74A, -0x0321AF4, -0x065, 0x7B },
+	{ 0x096A9AF, -0x0322694, -0x055, 0x7B }, { 0x0FB2C8C, -0x0646088, -0x08C, 0x7A },
+	{ 0x0C8FC0A, -0x0647008, -0x06D, 0x7A }, { 0x096C3C8, -0x0647BA8, -0x04E, 0x7A },
+	{ 0x0C90B6A, -0x0C906D0, -0x05D, 0x79 }, { 0x0C90F0C, -0x1921D20, -0x03E, 0x78 },
+};
+
+// asin(x) * 2/pi for x in [0, 1).
+static const VFPUSegment vfpu_asin_segments[128] = {
+	{ 0x0000000,  0x145F3E0,  0x000, 0x77 }, { 0x0A2F978,  0x145F8F8,  0x03C, 0x77 },
+	{ 0x0A2FAD2,  0x0A30194,  0x032, 0x78 }, { 0x0F47B72,  0x0A3093C,  0x047, 0x78 },
+	{ 0x0A2FFF5,  0x05189B4,  0x02D, 0x79 }, { 0x0CBC4BC,  0x0519018,  0x037, 0x79 },
+	{ 0x0F48CB2,  0x05197C4,  0x042, 0x79 }, { 0x08EAC42,  0x028D058,  0x025, 0x7A },
+	{ 0x0A31463,  0x028D57C,  0x02B, 0x7A }, { 0x0B77F17,  0x028DB40,  0x030, 0x7A },
+	{ 0x0CBECAD,  0x028E1AC,  0x035, 0x7A }, { 0x0E05D7A,  0x028E8C0,  0x03A, 0x7A },
+	{ 0x0F4D1D1,  0x028F07C,  0x03F, 0x7A }, { 0x084A503,  0x0147C74,  0x022, 0x7B },
+	{ 0x08EE339,  0x01480FC,  0x024, 0x7B }, { 0x09923B2,  0x01485DC,  0x027, 0x7B },
+	{ 0x0A3669B,  0x0148B14,  0x02A, 0x7B }, { 0x0ADAC20,  0x01490A0,  0x02D, 0x7B },
+	{ 0x0B7F46B,  0x014968C,  0x030, 0x7B }, { 0x0C23FAB,  0x0149CCC,  0x033, 0x7B },
+	{ 0x0CC8E0B,  0x014A368,  0x036, 0x7B }, { 0x0D6DFBB,  0x014AA5C,  0x038, 0x7B },
+	{ 0x0E134E4,  0x014B1B0,  0x03B, 0x7B }, { 0x0EB8DB6,  0x014B960,  0x03E, 0x7B },
+	{ 0x0F5EA61,  0x014C170,  0x041, 0x7B }, { 0x080258A,  0x00A64F0,  0x022, 0x7C },
+	{ 0x0855801,  0x00A6958,  0x023, 0x7C }, { 0x08A8CA9,  0x00A6DF4,  0x025, 0x7C },
+	{ 0x08FC39F,  0x00A72C0,  0x027, 0x7C }, { 0x094FCFD,  0x00A77BC,  0x028, 0x7C },
+	{ 0x09A38D8,  0x00A7CF0,  0x02A, 0x7C }, { 0x09F774E,  0x00A8258,  0x02B, 0x7C },
+	{ 0x0A4B876,  0x00A87F0,  0x02D, 0x7C }, { 0x0A9FC6B,  0x00A8DC8,  0x02F, 0x7C },
+	{ 0x0AF434D,  0x00A93D0,  0x030, 0x7C }, { 0x0B48D31,  0x00A9A14,  0x032, 0x7C },
+	{ 0x0B9DA37,  0x00AA08C,  0x034, 0x7C }, { 0x0BF2A7A,  0x00AA744,  0x036, 0x7C },
+	{ 0x0C47E19,  0x00AAE38,  0x038, 0x7C }, { 0x0C9D531,  0x00AB564,  0x03A, 0x7C },
+	{ 0x0CF2FE0,  0x00ABCD4,  0x03C, 0x7C }, { 0x0D48E48,  0x00AC480,  0x03D, 0x7C },
+	{ 0x0D9F083,  0x00ACC70,  0x040, 0x7C }, { 0x0DF56B7,  0x00AD4A0,  0x042, 0x7C },
+	{ 0x0E4C103,  0x00ADD14,  0x044, 0x7C }, { 0x0EA2F89,  0x00AE5D0,  0x046, 0x7C },
+	{ 0x0EFA26D,  0x00AEED4,  0x048, 0x7C }, { 0x0F519D1,  0x00AF81C,  0x04B, 0x7C },
+	{ 0x0FA95DC,  0x00B01B4,  0x04D, 0x7C }, { 0x0800B5A,  0x00585CC,  0x027, 0x7D },
+	{ 0x082CE3F,  0x0058AE4,  0x028, 0x7D }, { 0x08593AE,  0x0059028,  0x02A, 0x7D },
+	{ 0x0885BC1,  0x0059594,  0x02B, 0x7D }, { 0x08B2688,  0x0059B2C,  0x02D, 0x7D },
+	{ 0x08DF41C,  0x005A0F0,  0x02E, 0x7D }, { 0x090C493,  0x005A6E4,  0x02F, 0x7D },
+	{ 0x0939801,  0x005AD04,  0x031, 0x7D }, { 0x0966E82,  0x005B354,  0x032, 0x7D },
+	{ 0x0994829,  0x005B9D8,  0x034, 0x7D }, { 0x09C2514,  0x005C090,  0x035, 0x7D },
+	{ 0x09F0559,  0x005C780,  0x037, 0x7D }, { 0x0A1E915,  0x005CEA4,  0x039, 0x7D },
+	{ 0x0A4D064,  0x005D604,  0x03B, 0x7D }, { 0x0A7BB62,  0x005DD9C,  0x03D, 0x7D },
+	{ 0x0AAAA2D,  0x005E574,  0x03F, 0x7D }, { 0x0AD9CE3,  0x005ED8C,  0x041, 0x7D },
+	{ 0x0B093A5,  0x005F5E8,  0x043, 0x7D }, { 0x0B38E95,  0x005FE84,  0x045, 0x7D },
+	{ 0x0B68DD1,  0x006076C,  0x048, 0x7D }, { 0x0B99183,  0x0061098,  0x04A, 0x7D },
+	{ 0x0BC99CC,  0x0061A1C,  0x04C, 0x7D }, { 0x0BFA6D4,  0x00623E8,  0x04F, 0x7D },
+	{ 0x0C2B8C4,  0x0062E0C,  0x051, 0x7D }, { 0x0C5CFC3,  0x0063888,  0x055, 0x7D },
+	{ 0x0C8EC01,  0x0064360,  0x058, 0x7D }, { 0x0CC0DAD,  0x0064E94,  0x05A, 0x7D },
+	{ 0x0CF34F0,  0x0065A34,  0x05E, 0x7D }, { 0x0D26204,  0x0066638,  0x061, 0x7D },
+	{ 0x0D59519,  0x00672AC,  0x065, 0x7D }, { 0x0D8CE6A,  0x0067F94,  0x068, 0x7D },
+	{ 0x0DC0E2D,  0x0068CF8,  0x06C, 0x7D }, { 0x0DF54A1,  0x0069ADC,  0x070, 0x7D },
+	{ 0x0E2A205,  0x006A944,  0x075, 0x7D }, { 0x0E5F6A0,  0x006B840,  0x079, 0x7D },
+	{ 0x0E952B6,  0x006C7D0,  0x07E, 0x7D }, { 0x0ECB694,  0x006D7FC,  0x083, 0x7D },
+	{ 0x0F02287,  0x006E8D8,  0x089, 0x7D }, { 0x0F396E9,  0x006FA64,  0x08E, 0x7D },
+	{ 0x0F7140F,  0x0070CAC,  0x094, 0x7D }, { 0x0FA9A58,  0x0071FC4,  0x09B, 0x7D },
+	{ 0x0FE2A2C,  0x00733B0,  0x0A2, 0x7D }, { 0x080E1FC,  0x003A440,  0x054, 0x7E },
+	{ 0x082B415,  0x003AF24,  0x058, 0x7E }, { 0x0848BA0,  0x003BA90,  0x05C, 0x7E },
+	{ 0x08668DE,  0x003C688,  0x061, 0x7E }, { 0x0884C18,  0x003D314,  0x066, 0x7E },
+	{ 0x08A3599,  0x003E048,  0x06B, 0x7E }, { 0x08C25B2,  0x003EE30,  0x071, 0x7E },
+	{ 0x08E1CBD,  0x003FCD8,  0x078, 0x7E }, { 0x0901B1D,  0x0040C50,  0x07E, 0x7E },
+	{ 0x0922135,  0x0041CB0,  0x086, 0x7E }, { 0x0942F7D,  0x0042E04,  0x08E, 0x7E },
+	{ 0x096466E,  0x0044070,  0x097, 0x7E }, { 0x0986692,  0x0045408,  0x0A1, 0x7E },
+	{ 0x09A9080,  0x00468F0,  0x0AC, 0x7E }, { 0x09CC4E0,  0x0047F44,  0x0B8, 0x7E },
+	{ 0x09F0469,  0x004973C,  0x0C5, 0x7E }, { 0x0A14FE8,  0x004B104,  0x0D5, 0x7E },
+	{ 0x0A3A848,  0x004CCD4,  0x0E6, 0x7E }, { 0x0A60E8A,  0x004EAF4,  0x0FA, 0x7E },
+	{ 0x0A883D6,  0x0050BB8,  0x111, 0x7E }, { 0x0AB097F,  0x0052F84,  0x12B, 0x7E },
+	{ 0x0ADA106,  0x00556D8,  0x149, 0x7E }, { 0x0B04C2B,  0x005824C,  0x16D, 0x7E },
+	{ 0x0B30CFB,  0x005B29C,  0x198, 0x7E }, { 0x0B5E5E5,  0x005E8C0,  0x1CA, 0x7E },
+	{ 0x0B8E1C8,  0x00625FC, -0x1F7, 0x7E }, { 0x0BBF42A,  0x0066BF4, -0x1A9, 0x7E },
+	{ 0x0BF295F,  0x006BCE8, -0x146, 0x7E }, { 0x0C286D1,  0x0071C04, -0x0C5, 0x7E },
+	{ 0x0C6137A,  0x0078DE4, -0x018, 0x7E }, { 0x0C9D887,  0x008198C,  0x0DB, 0x7E },
+	{ 0x0CDEA7F,  0x008CA58, -0x1BE, 0x7E }, { 0x0D24B35,  0x009B428,  0x07D, 0x7E },
+	{ 0x0D72566,  0x00AFE0C,  0x06F, 0x7E }, { 0x0DCA3BF,  0x00D035C,  0x0C6, 0x7E },
+	{ 0x0E32341,  0x010ECE0,  0x1DC, 0x7E }, { 0x0EB9DD1,  0x028C52C, -0x034, 0x7E },
+};
+
 // The squarer only sees the top 10 bits of x2, as a distance from the middle of the segment.
 static inline int32_t vfpu_square(uint32_t x2) {
 	const int32_t t = abs(int32_t(x2 >> 6) - 512);
@@ -1342,183 +1537,88 @@ static inline uint32_t vfpu_interp_bits(const VFPUSegment *segments, uint32_t in
 	return ((uint32_t(seg.e - 1) << 23) + uint32_t(vfpu_interp(seg, index & 0xFFFF))) & ~3u;
 }
 
-// Lookup tables.
-// Note: these are never unloaded, and stay till program termination.
-static uint32_t *vfpu_sin_lut8192=nullptr;
-static  int8_t  (*vfpu_sin_lut_delta)[2]=nullptr;
-static  int16_t *vfpu_sin_lut_interval_delta=nullptr;
-static uint8_t  *vfpu_sin_lut_exceptions=nullptr;
+// Sine of a quarter-wave angle arg in [0, 2^23] (0 to pi/2), in fixed point with 28 fraction bits.
+// The segments are indexed from the top of the quarter wave. Each has its own exponent, and its
+// results are truncated to 4 of its ulps even where they fall into a lower binade.
+static inline uint32_t vfpu_sin_fixed(uint32_t arg) {
+	if (arg == 0u) return 0u;
+	if (arg == 0x00800000u) return 0x10000000u;
+	const uint32_t y = 0x00800000u - arg;
+	const VFPUSegment &seg = vfpu_sin_segments[y >> 16];
+	const uint32_t v = uint32_t(vfpu_interp(seg, y & 0xFFFF)) & ~3u;
+	return seg.e >= 122 ? v << (seg.e - 122) : v >> (122 - seg.e);
+}
 
-static uint32_t *vfpu_log2_lut65536=nullptr;
-static uint32_t *vfpu_log2_lut65536_quadratic=nullptr;
-static uint8_t  (*vfpu_log2_lut)[131072][2]=nullptr;
-
-static  int32_t (*vfpu_asin_lut65536)[3]=nullptr;
-static uint64_t *vfpu_asin_lut_deltas=nullptr;
-static uint16_t *vfpu_asin_lut_indices=nullptr;
-
-template<typename T>
-static inline bool load_vfpu_table(T *&ptr, const char *filename, size_t expected_size) {
-#if COMMON_BIG_ENDIAN
-	// Tables are little-endian.
-#error Byteswap for VFPU tables not implemented
-#endif
-	if (ptr) return true; // Already loaded.
-	size_t size = 0u;
-	INFO_LOG(Log::CPU, "Loading '%s'...", filename);
-	ptr = reinterpret_cast<decltype(&*ptr)>(g_VFS.ReadFile(filename, &size));
-	if (!ptr || size != expected_size) {
-		ERROR_LOG(Log::CPU, "Error loading '%s' (size=%u, expected: %u)", filename, (unsigned)size, (unsigned)expected_size);
-		delete[] ptr;
-		ptr = nullptr;
+// Reduces an angle in quarter turns (the VFPU's unit) to a half turn, in units of 2^-23 quarter
+// turns. Sets *odd for an odd half turn, where the sine changes sign. Returns false for inf and NaN.
+static inline bool vfpu_sin_reduce(uint32_t bits, uint32_t *angle, bool *odd) {
+	const uint32_t exponent = (bits >> 23) & 0xFFu;
+	uint32_t significand = (bits & 0x007FFFFFu) | 0x00800000u;
+	if (exponent == 0xFFu)
 		return false;
+	if (exponent < 0x7Fu) {
+		if (exponent < 0x7Fu - 23u) significand = 0u;
+		else significand >>= (0x7F - exponent);
+	} else if (exponent > 0x7Fu) {
+		// There is weirdness for large exponents.
+		if (exponent - 0x7Fu >= 25u && exponent - 0x7Fu < 32u) significand = 0u;
+		else if ((exponent & 0x9Fu) == 0x9Fu) significand = 0u;
+		else significand <<= ((exponent - 0x7Fu) & 31);
 	}
-	INFO_LOG(Log::CPU, "Successfully loaded '%s'", filename);
+	*odd = (significand >> 24) & 1;
+	*angle = significand & 0x00FFFFFFu;
 	return true;
 }
 
-#define LOAD_TABLE(name, expected_size)\
-	load_vfpu_table(name,"vfpu/" #name ".dat",expected_size)
-
-// Note: PSP sin/cos output only has 22 significant
-// binary digits.
-static inline uint32_t vfpu_sin_quantum(uint32_t x) {
-	return x < 1u << 22?
-		1u:
-		1u << (32 - 22 - clz32_nonzero(x));
+static inline float vfpu_sin_from_reduced(uint32_t angle, bool negate) {
+	if (angle > 0x00800000u) angle = 0x01000000u - angle;
+	return (negate ? -1.0f : +1.0f) * float(int32_t(vfpu_sin_fixed(angle))) * 3.7252903e-09f; // 0x1p-28f
 }
 
-static inline uint32_t vfpu_sin_truncate_bits(u32 x) {
-	return x & -vfpu_sin_quantum(x);
-}
-
-static inline uint32_t vfpu_sin_fixed(uint32_t arg) {
-	// Handle endpoints.
-	if(arg == 0u) return 0u;
-	if(arg == 0x00800000) return 0x10000000;
-	// Get endpoints for 8192-wide interval.
-	uint32_t L = vfpu_sin_lut8192[(arg >> 13) + 0];
-	uint32_t H = vfpu_sin_lut8192[(arg >> 13) + 1];
-	// Approximate endpoints for 64-wide interval via lerp.
-	uint32_t A = L+(((H - L)*(((arg >> 6) & 127) + 0)) >> 7);
-	uint32_t B = L+(((H - L)*(((arg >> 6) & 127) + 1)) >> 7);
-	// Adjust endpoints from deltas, and increase working precision.
-	uint64_t a = (uint64_t(A) << 5) + uint64_t(vfpu_sin_lut_delta[arg >> 6][0]) * vfpu_sin_quantum(A);
-	uint64_t b = (uint64_t(B) << 5) + uint64_t(vfpu_sin_lut_delta[arg >> 6][1]) * vfpu_sin_quantum(B);
-	// Compute approximation via lerp. Is off by at most 1 quantum.
-	uint32_t v = uint32_t(((a * (64 - (arg & 63)) + b * (arg & 63)) >> 6) >> 5);
-	v=vfpu_sin_truncate_bits(v);
-	// Look up exceptions via binary search.
-	// Note: vfpu_sin_lut_interval_delta stores
-	// deltas from interval estimation.
-	uint32_t lo = ((169u * ((arg >> 7) + 0)) >> 7)+uint32_t(vfpu_sin_lut_interval_delta[(arg >> 7) + 0]) + 16384u;
-	uint32_t hi = ((169u * ((arg >> 7) + 1)) >> 7)+uint32_t(vfpu_sin_lut_interval_delta[(arg >> 7) + 1]) + 16384u;
-	while(lo < hi) {
-		uint32_t m = (lo + hi) / 2;
-		// Note: vfpu_sin_lut_exceptions stores
-		// index&127 (for each initial interval the
-		// upper bits of index are the same, namely
-		// arg&-128), plus direction (0 for +1, and
-		// 128 for -1).
-		uint32_t b = vfpu_sin_lut_exceptions[m];
-		uint32_t e = (arg & -128u)+(b & 127u);
-		if(e == arg) {
-			v += vfpu_sin_quantum(v) * (b >> 7 ? -1u : +1u);
-			break;
-		}
-		else if(e < arg) lo = m + 1;
-		else			 hi = m;
+static inline float vfpu_cos_from_reduced(uint32_t angle, bool negate) {
+	if (angle >= 0x00800000u) {
+		angle = 0x01000000u - angle;
+		negate = !negate;
 	}
-	return v;
+	return (negate ? -1.0f : +1.0f) * float(int32_t(vfpu_sin_fixed(0x00800000u - angle))) * 3.7252903e-09f; // 0x1p-28f
+}
+
+static inline float vfpu_float_from_bits(uint32_t bits) {
+	float f;
+	memcpy(&f, &bits, sizeof(f));
+	return f;
 }
 
 float vfpu_sin(float x) {
-	static bool loaded =
-		LOAD_TABLE(vfpu_sin_lut8192,              4100)&&
-		LOAD_TABLE(vfpu_sin_lut_delta,          262144)&&
-		LOAD_TABLE(vfpu_sin_lut_interval_delta, 131074)&&
-		LOAD_TABLE(vfpu_sin_lut_exceptions,      86938);
-	if (!loaded)
-		return vfpu_sin_fallback(x);
-	uint32_t bits;
-	memcpy(&bits, &x, sizeof(x));
-	uint32_t sign = bits & 0x80000000u;
-	uint32_t exponent = (bits >> 23) & 0xFFu;
-	uint32_t significand = (bits & 0x007FFFFFu) | 0x00800000u;
-	if(exponent == 0xFFu) {
-		// NOTE: this bitpattern is a signaling
-		// NaN on x86, so maybe just return
-		// a normal qNaN?
-		float y;
-		bits=sign ^ 0x7F800001u;
-		memcpy(&y, &bits, sizeof(y));
-		return y;
-	}
-	if(exponent < 0x7Fu) {
-		if(exponent < 0x7Fu-23u) significand = 0u;
-		else significand >>= (0x7F - exponent);
-	}
-	else if(exponent > 0x7Fu) {
-		// There is weirdness for large exponents.
-		if(exponent - 0x7Fu >= 25u && exponent - 0x7Fu < 32u) significand = 0u;
-		else if((exponent & 0x9Fu) == 0x9Fu) significand = 0u;
-		else significand <<= ((exponent - 0x7Fu) & 31);
-	}
-	sign ^= ((significand << 7) & 0x80000000u);
-	significand &= 0x00FFFFFFu;
-	if(significand > 0x00800000u) significand = 0x01000000u - significand;
-	uint32_t ret = vfpu_sin_fixed(significand);
-	return (sign ? -1.0f : +1.0f) * float(int32_t(ret)) * 3.7252903e-09f; // 0x1p-28f
+	uint32_t bits, angle;
+	bool odd;
+	memcpy(&bits, &x, sizeof(bits));
+	if (!vfpu_sin_reduce(bits, &angle, &odd))
+		return vfpu_float_from_bits((bits & 0x80000000u) ^ 0x7F800001u);
+	return vfpu_sin_from_reduced(angle, (bits >> 31) != odd);
 }
 
 float vfpu_cos(float x) {
-	static bool loaded =
-		LOAD_TABLE(vfpu_sin_lut8192,              4100)&&
-		LOAD_TABLE(vfpu_sin_lut_delta,          262144)&&
-		LOAD_TABLE(vfpu_sin_lut_interval_delta, 131074)&&
-		LOAD_TABLE(vfpu_sin_lut_exceptions,      86938);
-	if (!loaded)
-		return vfpu_cos_fallback(x);
-	uint32_t bits;
-	memcpy(&bits, &x, sizeof(x));
-	bits &= 0x7FFFFFFFu;
-	uint32_t sign = 0u;
-	uint32_t exponent = (bits >> 23) & 0xFFu;
-	uint32_t significand = (bits & 0x007FFFFFu) | 0x00800000u;
-	if(exponent == 0xFFu) {
-		// NOTE: this bitpattern is a signaling
-		// NaN on x86, so maybe just return
-		// a normal qNaN?
-		float y;
-		bits = sign ^ 0x7F800001u;
-		memcpy(&y, &bits, sizeof(y));
-		return y;
-	}
-	if(exponent < 0x7Fu) {
-		if(exponent < 0x7Fu - 23u) significand = 0u;
-		else significand >>= (0x7F - exponent);
-	}
-	else if(exponent > 0x7Fu) {
-		// There is weirdness for large exponents.
-		if(exponent - 0x7Fu >= 25u && exponent - 0x7Fu < 32u) significand = 0u;
-		else if((exponent & 0x9Fu) == 0x9Fu) significand = 0u;
-		else significand <<= ((exponent - 0x7Fu) & 31);
-	}
-	sign ^= ((significand << 7) & 0x80000000u);
-	significand &= 0x00FFFFFFu;
-	if(significand >= 0x00800000u) {
-		significand = 0x01000000u - significand;
-		sign ^= 0x80000000u;
-	}
-	uint32_t ret = vfpu_sin_fixed(0x00800000u - significand);
-	return (sign ? -1.0f : +1.0f) * float(int32_t(ret)) * 3.7252903e-09f; // 0x1p-28f
+	uint32_t bits, angle;
+	bool odd;
+	memcpy(&bits, &x, sizeof(bits));
+	if (!vfpu_sin_reduce(bits, &angle, &odd))
+		return vfpu_float_from_bits(0x7F800001u);
+	return vfpu_cos_from_reduced(angle, odd);
 }
 
+// Shares the argument reduction; the reduction ignores the sign bit.
 void vfpu_sincos(float a, float &s, float &c) {
-	// Just invoke both sin and cos.
-	// Suboptimal but whatever.
-	s = vfpu_sin(a);
-	c = vfpu_cos(a);
+	uint32_t bits, angle;
+	bool odd;
+	memcpy(&bits, &a, sizeof(bits));
+	if (!vfpu_sin_reduce(bits, &angle, &odd)) {
+		s = vfpu_float_from_bits((bits & 0x80000000u) ^ 0x7F800001u);
+		c = vfpu_float_from_bits(0x7F800001u);
+		return;
+	}
+	s = vfpu_sin_from_reduced(angle, (bits >> 31) != odd);
+	c = vfpu_cos_from_reduced(angle, odd);
 }
 
 float vfpu_sqrt(float x) {
@@ -1580,41 +1680,17 @@ float vfpu_rsqrt(float x) {
 	return x;
 }
 
-static inline uint32_t vfpu_asin_quantum(uint32_t x) {
-	return x<1u<<23?
-		1u:
-		1u<<(32-23-clz32_nonzero(x));
-}
-
-static inline uint32_t vfpu_asin_truncate_bits(uint32_t x) {
-	return x & -vfpu_asin_quantum(x);
-}
-
-// Input is fixed 9.23, output is fixed 2.30.
-static inline uint32_t vfpu_asin_approx(uint32_t x) {
-	const int32_t *C = vfpu_asin_lut65536[x >> 16];
-	x &= 0xFFFFu;
-	return vfpu_asin_truncate_bits(uint32_t((((((int64_t(C[2]) * x) >> 16) + int64_t(C[1])) * x) >> 16) + C[0]));
-}
-
-// Input is fixed 9.23, output is fixed 2.30.
-static uint32_t vfpu_asin_fixed(uint32_t x) {
-	if(x == 0u) return 0u;
-	if(x == 1u << 23) return 1u << 30;
-	uint32_t ret = vfpu_asin_approx(x);
-	uint32_t index = vfpu_asin_lut_indices[x / 21u];
-	uint64_t deltas = vfpu_asin_lut_deltas[index];
-	return ret + (3u - uint32_t((deltas >> (3u * (x % 21u))) & 7u)) * vfpu_asin_quantum(ret);
+// asin(x) * 2/pi in fixed point with 30 fraction bits, for x in [0, 1] as 23-bit fixed point.
+static inline uint32_t vfpu_asin_fixed(uint32_t x) {
+	if (x == 0u) return 0u;
+	if (x == 1u << 23) return 1u << 30;
+	const VFPUSegment &seg = vfpu_asin_segments[x >> 16];
+	// The first segment is linear, and keeps the 2^-30 step of the fixed-point output.
+	const uint32_t v = uint32_t(vfpu_interp(seg, x & 0xFFFF)) & ((x >> 16) == 0 ? ~1u : ~3u);
+	return seg.e >= 120 ? v << (seg.e - 120) : v >> (120 - seg.e);
 }
 
 float vfpu_asin(float x) {
-	static bool loaded =
-		LOAD_TABLE(vfpu_asin_lut65536,      1536)&&
-		LOAD_TABLE(vfpu_asin_lut_indices, 798916)&&
-		LOAD_TABLE(vfpu_asin_lut_deltas,  517448);
-	if (!loaded)
-		return vfpu_asin_fallback(x);
-
 	uint32_t bits;
 	memcpy(&bits, &x, sizeof(x));
 	uint32_t sign = bits & 0x80000000u;
@@ -1669,70 +1745,43 @@ float vfpu_rexp2(float x) {
 	return vfpu_exp2(-x);
 }
 
-// Input fixed 9.23, output fixed 10.22.
-// Returns log2(1+x).
-static inline uint32_t vfpu_log2_approx(uint32_t x) {
-	uint32_t a = vfpu_log2_lut65536[(x >> 16) + 0];
-	uint32_t b = vfpu_log2_lut65536[(x >> 16) + 1];
-	uint32_t c = vfpu_log2_lut65536_quadratic[x >> 16];
-	x &= 0xFFFFu;
-	uint64_t ret = uint64_t(a) * (0x10000u - x) + uint64_t(b) * x;
-	uint64_t d = (uint64_t(c) * x * (0x10000u-x)) >> 40;
-	ret += d;
-	return uint32_t(ret >> 16);
-}
-
-// Matches PSP output on all known values.
 float vfpu_log2(float x) {
-	static bool loaded =
-		LOAD_TABLE(vfpu_log2_lut65536,               516)&&
-		LOAD_TABLE(vfpu_log2_lut65536_quadratic,     512)&&
-		LOAD_TABLE(vfpu_log2_lut,                2097152);
-	if (!loaded)
-		return vfpu_log2_fallback(x);
 	uint32_t bits;
 	memcpy(&bits, &x, sizeof(bits));
-	if((bits & 0x7FFFFFFFu) <= 0x007FFFFFu) {
+	if ((bits & 0x7FFFFFFFu) <= 0x007FFFFFu) {
 		// Denormals (and zeroes) get -inf.
-		bits = 0xFF800000u;
-		memcpy(&x, &bits, sizeof(x));
-		return x;
+		return vfpu_float_from_bits(0xFF800000u);
 	}
-	if(bits & 0x80000000u) {
+	if (bits & 0x80000000u) {
 		// Other negatives get NaN.
-		bits = 0x7F800001u;
-		memcpy(&x, &bits, sizeof(x));
-		return x;
+		return vfpu_float_from_bits(0x7F800001u);
 	}
-	if((bits >> 23) == 255u) {
+	if ((bits >> 23) == 255u) {
 		// NaN gets NaN, +inf gets +inf.
-		bits = 0x7F800000u + ((bits & 0x007FFFFFu) != 0);
-		memcpy(&x, &bits, sizeof(x));
-		return x;
+		return vfpu_float_from_bits(0x7F800000u + ((bits & 0x007FFFFFu) != 0));
 	}
-	uint32_t e = (bits & 0x7F800000u) - 0x3F800000u;
-	uint32_t i = bits & 0x007FFFFFu;
-	if(e >> 31 && i >= 0x007FFE00u) {
-		// Process 1-2^{-14}<=x*2^n<1 (for n>0) separately,
-		// since the table doesn't give the right answer.
-		float c = float(int32_t(~e) >> 23);
-		// Note: if c is 0 the sign of -0 output is correct.
-		return i < 0x007FFEF7u ? // 1-265*2^{-24}
-			-3.05175781e-05f - c:
-			-0.0f - c;
-	}
-	int d = (e < 0x01000000u ? 0 : 8 - clz32_nonzero(e) - int(e >> 31));
-	//assert(d >= 0 && d < 8);
-	uint32_t q = 1u << d;
-	uint32_t A = vfpu_log2_approx((i     ) & -64u) & -q;
-	uint32_t B = vfpu_log2_approx((i + 64) & -64u) & -q;
-	uint64_t a = (A << 6)+(uint64_t(vfpu_log2_lut[d][i >> 6][0]) - 80ull) * q;
-	uint64_t b = (B << 6)+(uint64_t(vfpu_log2_lut[d][i >> 6][1]) - 80ull) * q;
-	uint32_t v = uint32_t((a +(((b - a) * (i & 63)) >> 6)) >> 6);
-	v &= -q;
-	bits = e ^ (2u * v);
-	x = float(int32_t(bits)) * 1.1920928955e-7f; // 0x1p-23f
-	return x;
+	// The result is exponent + log2(1.mantissa), truncated toward zero to 22 significant bits: a
+	// step of 2^-22 for exponents 0 and 1, twice that for each doubling of the exponent after that,
+	// and 2^-15 for every negative exponent (level d = 7). Where the step is coarser, the datapath
+	// drops coefficient bits too: m to the step, |n| to 2^d, and c0 takes the part of the squared
+	// term that was dropped, at the edge of the segment.
+	const int32_t exponent = int32_t(bits >> 23) - 127;
+	const uint32_t index = bits & 0x007FFFFFu;
+	const int d = exponent < 0 ? 7 : exponent < 2 ? 0 : 31 - (int)clz32_nonzero(uint32_t(exponent));
+	const int32_t p = 1 << d;
+	const int64_t step = int64_t(4 << d) << 17;
+	const VFPUSegment &seg = vfpu_log2_segments[index >> 16];
+	const uint32_t x2 = index & 0xFFFF;
+	const int32_t n = seg.n < 0 ? -(-seg.n & ~(p - 1)) : (seg.n & ~(p - 1));
+	const int32_t c0 = (seg.c0 + 2 * (seg.n - n)) & ~(p - 1);
+	const int32_t square = ((n * vfpu_square(x2)) >> 9) & ~(p - 1);
+	const int64_t m = seg.m & ~((4 << d) - 1);
+	// In units of 2^-41.
+	const int64_t y = (int64_t(c0 + square) << 17) + m * x2;
+	const int64_t frac = exponent >= 0 ? (y & ~(step - 1)) : -(-y & ~(step - 1));
+	const float result = float(double(exponent) + double(frac) * 0x1p-41);
+	// A negative sum truncated to zero keeps its sign.
+	return exponent < 0 && result == 0.0f ? -0.0f : result;
 }
 
 float vfpu_rcp(float x) {
@@ -1754,22 +1803,4 @@ float vfpu_rcp(float x) {
 	bits = s + (0x3F800000u - e) + vfpu_interp_bits(vfpu_rcp_segments, i);
 	memcpy(&x, &bits, sizeof(x));
 	return x;
-}
-
-//==============================================================================
-
-void InitVFPU() {
-#if 0
-	// Load all in advance.
-	LOAD_TABLE(vfpu_asin_lut65536          ,    1536); 
-	LOAD_TABLE(vfpu_asin_lut_deltas        ,  517448); 
-	LOAD_TABLE(vfpu_asin_lut_indices       ,  798916); 
-	LOAD_TABLE(vfpu_log2_lut65536          ,     516); 
-	LOAD_TABLE(vfpu_log2_lut65536_quadratic,     512); 
-	LOAD_TABLE(vfpu_log2_lut               , 2097152); 
-	LOAD_TABLE(vfpu_sin_lut8192            ,    4100); 
-	LOAD_TABLE(vfpu_sin_lut_delta          ,  262144); 
-	LOAD_TABLE(vfpu_sin_lut_exceptions     ,   86938); 
-	LOAD_TABLE(vfpu_sin_lut_interval_delta ,  131074); 
-#endif
 }

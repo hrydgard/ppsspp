@@ -2080,10 +2080,6 @@ bool TestVFPUDot() {
 
 bool TestVFPUSinCos() {
 	float sine, cosine;
-	// Needed for VFPU tables.
-	// There might be a better place to invoke it, but whatever.
-	g_VFS.Register("", new DirectoryReader(Path("assets")));
-	InitVFPU();
 	vfpu_sincos(0.0f, sine, cosine);
 	EXPECT_EQ_FLOAT(sine, 0.0f);
 	EXPECT_EQ_FLOAT(cosine, 1.0f);
