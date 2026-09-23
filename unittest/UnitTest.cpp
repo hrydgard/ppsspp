@@ -1988,7 +1988,7 @@ bool TestFastVec() {
 
 // vfpu_dot's SIMD versions against the reference, on inputs chosen to make trouble: close
 // exponents, cancelling products, ties, zeroes and subnormals, the overflow and underflow edges,
-// and inf and NaN.
+// inf and NaN, and sums whose rounding carries into the next power of two.
 bool TestVFPUDot() {
 	uint64_t state = 0x9E3779B97F4A7C15ULL;
 	auto rnd = [&]() {
@@ -2006,6 +2006,16 @@ bool TestVFPUDot() {
 		uint32_t bits;
 		memcpy(&bits, &f, sizeof(bits));
 		return bits;
+	};
+	auto check = [&](const float a[4], const float b[4]) {
+		const uint32_t expected = toBits(vfpu_dot_reference(a, b));
+		const uint32_t actual = toBits(vfpu_dot(a, b));
+		if (expected != actual) {
+			printf("vfpu_dot(%08x %08x %08x %08x, %08x %08x %08x %08x) = %08x, expected %08x\n",
+				toBits(a[0]), toBits(a[1]), toBits(a[2]), toBits(a[3]), toBits(b[0]), toBits(b[1]), toBits(b[2]), toBits(b[3]), actual, expected);
+			return false;
+		}
+		return true;
 	};
 	for (int n = 0; n < 4000000; n++) {
 		float a[4], b[4];
@@ -2040,12 +2050,29 @@ bool TestVFPUDot() {
 			a[1] = -a[0];
 			b[1] = fromBits(toBits(b[0]) ^ ((uint32_t)rnd() & 7));
 		}
-		const uint32_t expected = toBits(vfpu_dot_reference(a, b));
-		const uint32_t actual = toBits(vfpu_dot(a, b));
-		if (expected != actual) {
-			printf("vfpu_dot(%08x %08x %08x %08x, %08x %08x %08x %08x) = %08x, expected %08x\n",
-				toBits(a[0]), toBits(a[1]), toBits(a[2]), toBits(a[3]), toBits(b[0]), toBits(b[1]), toBits(b[2]), toBits(b[3]), actual, expected);
+		if (!check(a, b))
 			return false;
+	}
+
+	// Sums just below and above a power of two, whose rounding carries into the next exponent:
+	// 1.0 from just under it, and inf at the top of the range.
+	for (int e = 1; e <= 254; e++) {
+		for (int s = 0; s < 2; s++) {
+			const uint32_t sign = (uint32_t)s << 31;
+			for (int k = 1; k <= 40; k++) {
+				const uint32_t small = e - k >= 1 ? ((uint32_t)(e - k) << 23) | ((uint32_t)k * 0x2AAAA) : 0;
+				float a[4] = { fromBits(sign | (e << 23)), fromBits((sign ^ 0x80000000u) | small), 0.0f, 0.0f };
+				float b[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+				if (!check(a, b))
+					return false;
+				a[0] = fromBits(sign | (e << 23) | 0x7FFFFF);
+				a[1] = fromBits(sign | small);
+				if (!check(a, b))
+					return false;
+				a[2] = a[1];
+				if (!check(a, b))
+					return false;
+			}
 		}
 	}
 	return true;
