@@ -1986,6 +1986,71 @@ bool TestFastVec() {
 	return true;
 }
 
+// vfpu_dot's SIMD version against the reference, on inputs chosen to make trouble: close
+// exponents, cancelling products, ties, zeroes and subnormals, the overflow and underflow edges,
+// and inf and NaN.
+bool TestVFPUDot() {
+	uint64_t state = 0x9E3779B97F4A7C15ULL;
+	auto rnd = [&]() {
+		state ^= state << 13;
+		state ^= state >> 7;
+		state ^= state << 17;
+		return state;
+	};
+	auto fromBits = [](uint32_t bits) {
+		float f;
+		memcpy(&f, &bits, sizeof(f));
+		return f;
+	};
+	auto toBits = [](float f) {
+		uint32_t bits;
+		memcpy(&bits, &f, sizeof(bits));
+		return bits;
+	};
+	for (int n = 0; n < 4000000; n++) {
+		float a[4], b[4];
+		const int mode = (int)(rnd() & 15);
+		const int base = 1 + (int)(rnd() % 254);
+		const int spread = mode < 8 ? 3 : 40;
+		for (int i = 0; i < 4; i++) {
+			if (mode == 15) {
+				a[i] = fromBits((uint32_t)rnd());
+				b[i] = fromBits((uint32_t)rnd());
+				continue;
+			}
+			int ea = base + (int)(rnd() % (2 * spread + 1)) - spread;
+			int eb = 127 + (int)(rnd() % (2 * spread + 1)) - spread;
+			ea = std::max(0, std::min(254, ea));
+			eb = std::max(0, std::min(254, eb));
+			uint32_t xa = ((uint32_t)rnd() & 0x80000000) | (ea << 23) | ((uint32_t)rnd() & 0x7FFFFF);
+			uint32_t xb = ((uint32_t)rnd() & 0x80000000) | (eb << 23) | ((uint32_t)rnd() & 0x7FFFFF);
+			switch (rnd() & 63) {
+			case 0: xa &= 0x80000000; break;
+			case 1: xb &= 0x807FFFFF; break;
+			case 2: xa |= 0x7F800000; xa &= 0xFF800000; break;
+			case 3: xb |= 0x7FC00000; break;
+			case 4: xa &= 0xFFFF0000; break;
+			default: break;
+			}
+			a[i] = fromBits(xa);
+			b[i] = fromBits(xb);
+		}
+		if (mode == 5) {
+			// Nearly cancelling products.
+			a[1] = -a[0];
+			b[1] = fromBits(toBits(b[0]) ^ ((uint32_t)rnd() & 7));
+		}
+		const uint32_t expected = toBits(vfpu_dot_reference(a, b));
+		const uint32_t actual = toBits(vfpu_dot(a, b));
+		if (expected != actual) {
+			printf("vfpu_dot(%08x %08x %08x %08x, %08x %08x %08x %08x) = %08x, expected %08x\n",
+				toBits(a[0]), toBits(a[1]), toBits(a[2]), toBits(a[3]), toBits(b[0]), toBits(b[1]), toBits(b[2]), toBits(b[3]), actual, expected);
+			return false;
+		}
+	}
+	return true;
+}
+
 bool TestVFPUSinCos() {
 	float sine, cosine;
 	// Needed for VFPU tables.
@@ -3148,6 +3213,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(Asin),
 	TEST_ITEM(SinCos),
 	TEST_ITEM(VFPUSinCos),
+	TEST_ITEM(VFPUDot),
 	TEST_ITEM(MathUtil),
 	TEST_ITEM(Parsers),
 	TEST_ITEM(TruncateCpy),

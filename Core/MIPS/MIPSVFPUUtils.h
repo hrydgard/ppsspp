@@ -60,6 +60,8 @@ inline float vfpu_clamp(float v, float min, float max) {
 }
 
 float vfpu_dot(const float a[4], const float b[4]);
+// The portable version vfpu_dot is checked against.
+float vfpu_dot_reference(const float a[4], const float b[4]);
 float vfpu_sqrt(float a);
 float vfpu_rsqrt(float a);
 
