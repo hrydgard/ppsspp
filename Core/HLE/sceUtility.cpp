@@ -234,6 +234,8 @@ static void NotifyLoadStatusMp4(int state, u32 loadAddr, u32 totalSize) {
 static void NotifyLoadStatusAtrac(int state, u32 loadAddr, u32 totalSize) {
 	if (state == -1) {
 		UnloadFirmwareModules(0x302);
+		// Harmless when the firmware's module took over: there was no load to undo.
+		__AtracNotifyUnloadModule();
 		return;
 	}
 	if (state == 1) {
@@ -254,11 +256,9 @@ static void NotifyLoadStatusAtrac(int state, u32 loadAddr, u32 totalSize) {
 		// Let's just give it a piece of the space.
 		constexpr int version = 0x105;  // latest.
 		constexpr int bssSize = 0x67C;
-		_dbg_assert_(bssSize <= totalSize);
+		// Unless it was loaded without its memory (LoadModuleInternal), which leaves an old Atrac.
+		_dbg_assert_(loadAddr == 0 || bssSize <= totalSize);
 		__AtracNotifyLoadModule(version, 0, loadAddr, bssSize);
-	} else if (state == -1) {
-		// Unload. Harmless when the firmware's module took over - there was no load to undo.
-		__AtracNotifyUnloadModule();
 	}
 }
 
@@ -685,8 +685,14 @@ static int PhasePriority(int priority, int fallback) {
 	return ValidThreadPriority(priority) ? priority : fallback;
 }
 
+// It ends up in an ORI immediate and as the helper's priority, so it has to at least be one.
+static int HelperPriority(int priority) {
+	return priority >= 0 && priority <= 0x7F ? priority : 0x20;
+}
+
 void UtilityDialogInitialize(UtilityDialogType type, int delayUs, int accessPriority, int graphicsPriority) {
 	int partDelay = delayUs / 4;
+	accessPriority = HelperPriority(accessPriority);
 	const int dialogPriority = PhasePriority(graphicsPriority, accessPriority);
 	const u32_le insts[] = {
 		// Make sure we don't discard/deadbeef a0.
@@ -725,6 +731,7 @@ void UtilityDialogInitialize(UtilityDialogType type, int delayUs, int accessPrio
 }
 
 void UtilityDialogShutdown(UtilityDialogType type, int delayUs, int accessPriority, int graphicsPriority) {
+	accessPriority = HelperPriority(accessPriority);
 	// Break it up so better-priority rescheduling happens.
 	// The windows aren't this regular, but close.
 	int partDelay = delayUs / 4;
@@ -966,6 +973,12 @@ static int LoadModuleInternal(u32 module, bool av) {
 		char name[128];
 		snprintf(name, sizeof(name), "UtilityModule/%3x_%s", module, info->name);
 		address = userMemory.Alloc(allocSize, false, name);
+		if (address == (u32)-1) {
+			// Our sizes are rough, so the real module may well have fit. HLE doesn't need the block.
+			WARN_LOG(Log::sceUtility, "No room for utility module %03x (%08x bytes), loading it without its memory", module, allocSize);
+			address = 0;
+			allocSize = 0;
+		}
 	}
 	currentlyLoadedModules[module] = address;
 	if (info->notify) {
@@ -1599,7 +1612,7 @@ static u32 sceUtilityLoadNetModule(u32 module) {
 	}
 
 	for (const char *mod_path : mod_list) {
-		u32 modid = hleCall(ModuleMgrForUser, u32, sceKernelLoadModule, mod_path, 0, 0);
+		int modid = (int)hleCall(ModuleMgrForUser, u32, sceKernelLoadModule, mod_path, 0, 0);
 		if (modid >= 0) {
 			hleCall(ModuleMgrForUser, u32, sceKernelStartModule, modid, 0, 0, 0, 0);
 		}

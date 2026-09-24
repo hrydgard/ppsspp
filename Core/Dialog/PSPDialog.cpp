@@ -247,7 +247,8 @@ void PSPDialog::StartFade(bool fadeIn_)
 
 void PSPDialog::UpdateFade(int animSpeed) {
 	if (isFading) {
-		fadeTimer += animSpeed / 60.0f;
+		// At least a frame per Update, or it would never finish.
+		fadeTimer += std::max(animSpeed, 1) / 60.0f;
 		if (fadeTimer < FADE_TIME) {
 			if (fadeIn)
 				fadeValue = (u32) (fadeTimer / FADE_TIME * 255);

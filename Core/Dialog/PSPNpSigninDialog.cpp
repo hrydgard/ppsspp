@@ -52,8 +52,9 @@ int PSPNpSigninDialog::Init(u32 paramAddr) {
 		return SCE_KERNEL_ERROR_BAD_ARGUMENT;  // untested, it's misaligned
 	}
 	requestAddr = paramAddr;
-
 	WARN_LOG_REPORT_ONCE(PSPNpSigninDialogInit, Log::sceNet, "NpSignin Init Params: %08x, %08x, %08x, %08x", request.npSigninStatus, request.unknown1, request.unknown2, request.unknown3);
+	// An output. Update does nothing unless it's NONE, so a game that reuses its struct would hang.
+	request.npSigninStatus = NP_SIGNIN_STATUS_NONE;
 
 	ChangeStatusInit(NP_INIT_DELAY_US);
 
@@ -158,7 +159,8 @@ int PSPNpSigninDialog::Update(int animSpeed) {
 		EndDraw();
 	}
 
-	if (ReadStatus() == SCE_UTILITY_STATUS_FINISHED || pendingStatus == SCE_UTILITY_STATUS_FINISHED) {
+	const bool finished = ReadStatus() == SCE_UTILITY_STATUS_FINISHED || pendingStatus == SCE_UTILITY_STATUS_FINISHED;
+	if (finished && request.npSigninStatus != NP_SIGNIN_STATUS_CANCELED) {
 		npSigninState = NP_SIGNIN_STATUS_SUCCESS;
 		__RtcTimeOfDay(&npSigninTimestamp);
 		request.npSigninStatus = npSigninState;
