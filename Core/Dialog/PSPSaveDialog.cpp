@@ -1090,7 +1090,13 @@ int PSPSaveDialog::Update(int animSpeed) {
 		case DS_NONE: // For action which display nothing
 			switch (ioThreadStatus) {
 			case SAVEIO_NONE:
-				StartIOThread();
+				if (g_Config.iIOTimingMethod == IOTIMING_HOST) {
+					StartIOThread();
+				} else {
+					// The IO thread writes the results into PSP memory while the game runs, landing at
+					// an arbitrary point in its code. On a PSP they're all there when Update returns.
+					ExecuteIOAction();
+				}
 				break;
 			case SAVEIO_PENDING:
 			case SAVEIO_DONE:
