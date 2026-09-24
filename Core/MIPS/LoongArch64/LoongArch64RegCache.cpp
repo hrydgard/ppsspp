@@ -144,6 +144,12 @@ void LoongArch64RegCache::FlushBeforeCall() {
 	for (int i = 0; i <= 23; ++i) {
 		FlushNativeReg(F0 + i);
 	}
+	// F24-F31 are preserved, but only their low 64 bits, so an LSX vector there has to go.
+	for (int i = 24; i <= 31; ++i) {
+		IRNativeReg nreg = F0 + i;
+		if (nr[nreg].mipsReg != IRREG_INVALID && GetFPRLaneCount(nr[nreg].mipsReg - 32) > 2)
+			FlushNativeReg(nreg);
+	}
 }
 
 bool LoongArch64RegCache::IsNormalized32(IRReg mipsReg) {
