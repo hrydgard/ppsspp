@@ -1049,52 +1049,60 @@ namespace MIPSComp {
 	}
 
 	void Arm64Jit::Comp_Vh2f(MIPSOpcode op) {
-		// TODO: Fix by porting the general SSE solution to NEON
-		// FCVTL doesn't provide identical results to the PSP hardware, according to the unit test:
-		// O vh2f: 00000000,400c0000,00000000,7ff00000
-		// E vh2f: 00000000,400c0000,00000000,7f800380
-		DISABLE;
-
 		CONDITIONAL_DISABLE(VFPU_VEC);
-		if (js.HasUnknownPrefix()) {
+		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op)) {
 			DISABLE;
 		}
+
+		// Half to float, in integers to match vfpu_h2f: a zero exponent (subnormals included) gives a
+		// signed zero, and inf/NaN keep their mantissa bits unshifted. FCVTL does neither.
+		VectorSize sz = GetVecSize(op);
+		if (sz != V_Single && sz != V_Pair) {
+			DISABLE;
+		}
+		const int nIn = sz == V_Single ? 1 : 2;
+		const VectorSize outSz = sz == V_Single ? V_Pair : V_Quad;
 
 		u8 sregs[4], dregs[4];
-		VectorSize sz = GetVecSize(op);
-		VectorSize outSz;
-
-		switch (sz) {
-		case V_Single:
-			outSz = V_Pair;
-			break;
-		case V_Pair:
-			outSz = V_Quad;
-			break;
-		default:
-			DISABLE;
-		}
-
-		int n = GetNumVectorElements(sz);
-		int nOut = n * 2;
 		GetVectorRegsPrefixS(sregs, sz, _VS);
 		GetVectorRegsPrefixD(dregs, outSz, _VD);
 
-		// Take the single registers and combine them to a D register.
-		for (int i = 0; i < n; i++) {
-			fpr.MapRegV(sregs[i], sz);
-			fp.INS(32, Q0, i, fpr.V(sregs[i]), 0);
-		}
-		// Convert four 16-bit floats in D0 to four 32-bit floats in Q0 (even if we only have two...)
-		fp.FCVTL(32, Q0, D0);
-		// Split apart again.
-		for (int i = 0; i < nOut; i++) {
-			fpr.MapRegV(dregs[i], MAP_DIRTY | MAP_NOINIT);
-			fp.INS(32, fpr.V(dregs[i]), 0, Q0, i);
+		const ARM64Reg t = gpr.GetAndLockTempR();
+		const ARM64Reg t2 = gpr.GetAndLockTempR();
+		// Into S0-S3 first, since d may overlap s.
+		for (int i = 0; i < nIn * 2; i++) {
+			const ARM64Reg h = SCRATCH1, res = SCRATCH2;
+			fpr.MapRegV(sregs[i / 2]);
+			fp.FMOV(h, fpr.V(sregs[i / 2]));
+			if (i & 1) {
+				LSR(h, h, 16);
+			} else {
+				UBFX(h, h, 0, 16);
+			}
+			// Normal: ((h & 0x7FFF) << 13) + (112 << 23), then the sign.
+			UBFIZ(res, h, 13, 15);
+			MOVI2R(t, 0x38000000);
+			ADD(res, res, t);
+			UBFX(t, h, 10, 5);
+			CMPI2R(t, 0);
+			CSEL(res, WZR, res, CC_EQ);
+			CMPI2R(t, 31);
+			ANDI2R(t2, h, 0x3FF);
+			ORRI2R(t2, t2, 0x7F800000);
+			CSEL(res, t2, res, CC_EQ);
+			UBFX(t, h, 15, 1);
+			ORR(res, res, t, ArithOption(t, ST_LSL, 31));
+			fp.FMOV((ARM64Reg)(S0 + i), res);
 		}
 
-		ApplyPrefixD(dregs, sz);
+		for (int i = 0; i < nIn * 2; i++) {
+			fpr.MapRegV(dregs[i], MAP_DIRTY | MAP_NOINIT);
+			fp.FMOV(fpr.V(dregs[i]), (ARM64Reg)(S0 + i));
+		}
+
+		ApplyPrefixD(dregs, outSz);
 		fpr.ReleaseSpillLocksAndDiscardTemps();
+		gpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
 	void Arm64Jit::Comp_Vf2i(MIPSOpcode op) {
@@ -1444,7 +1452,34 @@ namespace MIPSComp {
 	}
 
 	void Arm64Jit::Comp_Vmscl(MIPSOpcode op) {
-		DISABLE;
+		CONDITIONAL_DISABLE(VFPU_MTX_VMSCL);
+		if (!js.HasNoPrefix()) {
+			DISABLE;
+		}
+
+		// Matrix scale: d[N,M] = s[N,M] * t[0]. Element-wise, so transposition doesn't matter, but a
+		// source that partly overlaps the destination would be read after it's written.
+		MatrixSize sz = GetMtxSize(op);
+		int n = GetMatrixSide(sz);
+		if (_VS != _VD && GetMatrixOverlap(_VS, _VD, sz) != OVERLAP_NONE) {
+			DISABLE;
+		}
+
+		u8 sregs[16], dregs[16], treg;
+		GetMatrixRegs(sregs, sz, _VS);
+		GetMatrixRegs(dregs, sz, _VD);
+		GetVectorRegs(&treg, V_Single, _VT);
+
+		// The scale can be part of the destination, so keep a copy.
+		fpr.MapRegV(treg);
+		fp.FMOV(S0, fpr.V(treg));
+		for (int a = 0; a < n; a++) {
+			for (int b = 0; b < n; b++) {
+				fpr.MapDirtyInV(dregs[a * 4 + b], sregs[a * 4 + b]);
+				fp.FMUL(fpr.V(dregs[a * 4 + b]), fpr.V(sregs[a * 4 + b]), S0);
+			}
+		}
+		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
 	void Arm64Jit::Comp_Vtfm(MIPSOpcode op) {
@@ -1513,11 +1548,66 @@ namespace MIPSComp {
 	}
 
 	void Arm64Jit::Comp_VCrs(MIPSOpcode op) {
-		DISABLE;
+		CONDITIONAL_DISABLE(VFPU_VEC);
+		if (js.HasUnknownPrefix() || js.HasSPrefix() || js.HasTPrefix()) {
+			DISABLE;
+		}
+
+		// Half a cross product: d[0] = s[y]*t[z], d[1] = s[z]*t[x], d[2] = s[x]*t[y].
+		VectorSize sz = GetVecSize(op);
+		if (sz != V_Triple) {
+			DISABLE;
+		}
+
+		u8 sregs[4], tregs[4], dregs[4];
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixT(tregs, sz, _VT);
+		GetVectorRegsPrefixD(dregs, sz, _VD);
+
+		// Into S0-S2 first, since d may overlap s or t.
+		fpr.MapRegsAndSpillLockV(sregs, sz, 0);
+		fpr.MapRegsAndSpillLockV(tregs, sz, 0);
+		fp.FMUL(S0, fpr.V(sregs[1]), fpr.V(tregs[2]));
+		fp.FMUL(S1, fpr.V(sregs[2]), fpr.V(tregs[0]));
+		fp.FMUL(S2, fpr.V(sregs[0]), fpr.V(tregs[1]));
+
+		fpr.MapRegsAndSpillLockV(dregs, sz, MAP_NOINIT);
+		for (int i = 0; i < 3; i++) {
+			fp.FMOV(fpr.V(dregs[i]), (ARM64Reg)(S0 + i));
+		}
+
+		ApplyPrefixD(dregs, sz);
+		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
 	void Arm64Jit::Comp_VDet(MIPSOpcode op) {
-		DISABLE;
+		CONDITIONAL_DISABLE(VFPU_VEC);
+		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || js.HasTPrefix()) {
+			DISABLE;
+		}
+
+		// 2D determinant of two vectors: d[0] = s[0]*t[1] - s[1]*t[0].
+		VectorSize sz = GetVecSize(op);
+		if (sz != V_Pair) {
+			DISABLE;
+		}
+
+		u8 sregs[4], tregs[4], dregs[4];
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixT(tregs, sz, _VT);
+		GetVectorRegsPrefixD(dregs, V_Single, _VD);
+
+		fpr.MapRegsAndSpillLockV(sregs, sz, 0);
+		fpr.MapRegsAndSpillLockV(tregs, sz, 0);
+		fp.FMUL(S1, fpr.V(sregs[1]), fpr.V(tregs[0]));
+		fp.FMUL(S0, fpr.V(sregs[0]), fpr.V(tregs[1]));
+		fp.FSUB(S0, S0, S1);
+
+		fpr.MapRegV(dregs[0], MAP_DIRTY | MAP_NOINIT);
+		fp.FMOV(fpr.V(dregs[0]), S0);
+
+		ApplyPrefixD(dregs, V_Single);
+		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
 	void Arm64Jit::Comp_Vi2x(MIPSOpcode op) {
@@ -2267,11 +2357,119 @@ namespace MIPSComp {
 	}
 
 	void Arm64Jit::Comp_ColorConv(MIPSOpcode op) {
-		DISABLE;
+		CONDITIONAL_DISABLE(VFPU_VEC);
+		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || js.HasTPrefix()) {
+			DISABLE;
+		}
+
+		// vt4444, vt5551, vt5650: four 8888 colors from a quad, whatever the size, into 16 bits each,
+		// two to a word.
+		const int type = (op >> 16) & 3;
+		if (type == 0) {
+			DISABLE;
+		}
+		VectorSize isz = GetVecSize(op);
+		VectorSize outSz = isz == V_Single ? V_Single : V_Pair;
+
+		u8 sregs[4], dregs[4];
+		GetVectorRegsPrefixS(sregs, V_Quad, _VS);
+		GetVectorRegsPrefixD(dregs, outSz, _VD);
+
+		const ARM64Reg t = gpr.GetAndLockTempR();
+		const ARM64Reg word = gpr.GetAndLockTempR();
+		const ARM64Reg in = SCRATCH1, col = SCRATCH2;
+		// Into S0-S1 first, since d may overlap s.
+		for (int i = 0; i < 4; i++) {
+			fpr.MapRegV(sregs[i]);
+			fp.FMOV(in, fpr.V(sregs[i]));
+			switch (type) {
+			case 1:  // 4444: the top four bits of each channel.
+				UBFX(col, in, 4, 4);
+				UBFX(t, in, 12, 4);
+				BFI(col, t, 4, 4);
+				UBFX(t, in, 20, 4);
+				BFI(col, t, 8, 4);
+				UBFX(t, in, 28, 4);
+				BFI(col, t, 12, 4);
+				break;
+			case 2:  // 5551
+				UBFX(col, in, 3, 5);
+				UBFX(t, in, 11, 5);
+				BFI(col, t, 5, 5);
+				UBFX(t, in, 19, 5);
+				BFI(col, t, 10, 5);
+				UBFX(t, in, 31, 1);
+				BFI(col, t, 15, 1);
+				break;
+			case 3:  // 565, no alpha.
+				UBFX(col, in, 3, 5);
+				UBFX(t, in, 10, 6);
+				BFI(col, t, 5, 6);
+				UBFX(t, in, 19, 5);
+				BFI(col, t, 11, 5);
+				break;
+			}
+			if ((i & 1) == 0) {
+				MOV(word, col);
+			} else {
+				BFI(word, col, 16, 16);
+				fp.FMOV((ARM64Reg)(S0 + i / 2), word);
+			}
+		}
+
+		const int nOut = outSz == V_Single ? 1 : 2;
+		for (int i = 0; i < nOut; i++) {
+			fpr.MapRegV(dregs[i], MAP_DIRTY | MAP_NOINIT);
+			fp.FMOV(fpr.V(dregs[i]), (ARM64Reg)(S0 + i));
+		}
+
+		ApplyPrefixD(dregs, outSz);
+		fpr.ReleaseSpillLocksAndDiscardTemps();
+		gpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
 	void Arm64Jit::Comp_Vbfy(MIPSOpcode op) {
-		DISABLE;
+		CONDITIONAL_DISABLE(VFPU_VEC);
+		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || js.HasTPrefix() || (js.prefixS & VFPU_NEGATE(1, 1, 1, 1)) != 0) {
+			DISABLE;
+		}
+
+		// Butterfly. vbfy1: d[2N] = s[2N] + s[2N+1], d[2N+1] = s[2N] - s[2N+1].
+		// vbfy2: d[0] = s[0] + s[2], d[1] = s[1] + s[3], d[2] = s[0] - s[2], d[3] = s[1] - s[3].
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+		const int subop = (op >> 16) & 0x1F;
+		if (!(subop == 3 && n == 4) && !(subop == 2 && (n == 2 || n == 4))) {
+			DISABLE;
+		}
+
+		u8 sregs[4], dregs[4];
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixD(dregs, sz, _VD);
+
+		// Into S0-S3 first, since d may overlap s.
+		fpr.MapRegsAndSpillLockV(sregs, sz, 0);
+		if (subop == 3) {
+			fp.FADD(S0, fpr.V(sregs[0]), fpr.V(sregs[2]));
+			fp.FADD(S1, fpr.V(sregs[1]), fpr.V(sregs[3]));
+			fp.FSUB(S2, fpr.V(sregs[0]), fpr.V(sregs[2]));
+			fp.FSUB(S3, fpr.V(sregs[1]), fpr.V(sregs[3]));
+		} else {
+			fp.FADD(S0, fpr.V(sregs[0]), fpr.V(sregs[1]));
+			fp.FSUB(S1, fpr.V(sregs[0]), fpr.V(sregs[1]));
+			if (n == 4) {
+				fp.FADD(S2, fpr.V(sregs[2]), fpr.V(sregs[3]));
+				fp.FSUB(S3, fpr.V(sregs[2]), fpr.V(sregs[3]));
+			}
+		}
+
+		fpr.MapRegsAndSpillLockV(dregs, sz, MAP_NOINIT);
+		for (int i = 0; i < n; i++) {
+			fp.FMOV(fpr.V(dregs[i]), (ARM64Reg)(S0 + i));
+		}
+
+		ApplyPrefixD(dregs, sz);
+		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 }
 
