@@ -93,6 +93,37 @@ static int g_atracBSS = 0;
 
 static bool g_muteFlag[PSP_MAX_ATRAC_IDS]{};  // Not saved, just for debugging.
 
+// On a PSP, the Media Engine does the decoding, and the samples land in the output buffer when
+// sceAtracDecodeData returns, about atracDecodeDelay later. A game can still be playing out of that
+// memory in the meantime: Fired Up decodes into a buffer that overlaps the first 16 samples of the
+// one it has just handed to sceAudio, and relies on the mixer having read them first. So the
+// samples are written just before the thread wakes rather than when the call is made.
+struct AtracPendingOutput {
+	u32 id;
+	u32 addr;
+	std::vector<u8> data;
+};
+static std::vector<AtracPendingOutput> g_pendingOutput;
+static u32 g_pendingOutputId = 0;
+static int g_atracOutputEvent = -1;
+
+static void WritePendingOutput(size_t index) {
+	const AtracPendingOutput &pending = g_pendingOutput[index];
+	if (Memory::IsValidRange(pending.addr, (u32)pending.data.size())) {
+		Memory::Memcpy(pending.addr, pending.data.data(), (u32)pending.data.size(), "AtracDecode");
+	}
+	g_pendingOutput.erase(g_pendingOutput.begin() + index);
+}
+
+static void AtracOutputEvent(u64 userdata, int cyclesLate) {
+	for (size_t i = 0; i < g_pendingOutput.size(); ++i) {
+		if (g_pendingOutput[i].id == (u32)userdata) {
+			WritePendingOutput(i);
+			return;
+		}
+	}
+}
+
 bool *__AtracMuteFlag(int atracID) {
 	if (atracID < 0 || atracID >= PSP_MAX_ATRAC_IDS) {
 		return nullptr;
@@ -120,6 +151,8 @@ void __AtracInit() {
 
 	memset(atracContexts, 0, sizeof(atracContexts));
 	memset(g_muteFlag, 0, sizeof(g_muteFlag));
+	g_pendingOutput.clear();
+	g_atracOutputEvent = CoreTiming::RegisterEvent("AtracOutput", AtracOutputEvent);
 
 	// Start with 2 of each in this order.
 	atracContextTypes[0] = PSP_CODEC_AT3PLUS;
@@ -131,6 +164,7 @@ void __AtracInit() {
 }
 
 void __AtracShutdown() {
+	g_pendingOutput.clear();
 	for (size_t i = 0; i < ARRAY_SIZE(atracContexts); ++i) {
 		delete atracContexts[i];
 		atracContexts[i] = nullptr;
@@ -166,7 +200,7 @@ static u32 GetAtracContextAddress(int atracID) {
 }
 
 void __AtracDoState(PointerWrap &p) {
-	auto s = p.Section("sceAtrac", 1, 4);
+	auto s = p.Section("sceAtrac", 1, 5);
 	if (!s)
 		return;
 
@@ -214,6 +248,24 @@ void __AtracDoState(PointerWrap &p) {
 		atracLibVersion = 0;
 		atracLibCrc = 0;
 	}
+
+	if (s >= 5) {
+		u32 count = (u32)g_pendingOutput.size();
+		Do(p, count);
+		if (p.mode == PointerWrap::MODE_READ) {
+			g_pendingOutput.resize(count);
+		}
+		for (AtracPendingOutput &pending : g_pendingOutput) {
+			Do(p, pending.id);
+			Do(p, pending.addr);
+			Do(p, pending.data);
+		}
+		Do(p, g_pendingOutputId);
+		Do(p, g_atracOutputEvent);
+	} else if (p.mode == PointerWrap::MODE_READ) {
+		g_pendingOutput.clear();
+	}
+	CoreTiming::RestoreRegisterEvent(g_atracOutputEvent, "AtracOutput", AtracOutputEvent);
 }
 
 static AtracBase *getAtrac(int atracID) {
@@ -335,6 +387,14 @@ static u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 
 
 	u8 *outPtr = outAddr ? Memory::GetPointerWriteOrException(outAddr) : nullptr;
 
+	// The decoder writes straight to outAddr. Keep what was there, to put back until the call
+	// returns (see AtracPendingOutput).
+	std::vector<u8> previous;
+	if (outPtr) {
+		const u32 maxSize = Memory::ClampValidSizeAt(outAddr, atrac->GetOutputChannels() * 2 * atrac->SamplesPerFrame());
+		previous.assign(outPtr, outPtr + maxSize);
+	}
+
 	int ret = atrac->DecodeData(outPtr, outAddr, &numSamplesWritten, &finish, &remains);
 	if (ret != (int)SCE_ERROR_ATRAC_BAD_ATRACID && ret != (int)SCE_ERROR_ATRAC_NO_DATA) {
 		if (Memory::IsValidAddress(numSamplesAddr))
@@ -355,6 +415,15 @@ static u32 sceAtracDecodeData(int atracID, u32 outAddr, u32 numSamplesAddr, u32 
 	}
 
 	if (ret == 0 || ret == SCE_ERROR_ATRAC_API_FAIL) {
+		const u32 written = std::min((u32)(atrac->GetOutputChannels() * 2 * numSamplesWritten), (u32)previous.size());
+		if (outPtr && written != 0) {
+			AtracPendingOutput pending{ ++g_pendingOutputId, outAddr };
+			pending.data.assign(outPtr, outPtr + written);
+			memcpy(outPtr, previous.data(), previous.size());
+			g_pendingOutput.push_back(std::move(pending));
+			// Just ahead of the thread waking up.
+			CoreTiming::ScheduleEvent(usToCycles(atracDecodeDelay) - 1, g_atracOutputEvent, g_pendingOutputId);
+		}
 		// Decoded or at least attempted to decode data, delay thread
 		return hleDelayResult(hleNoLog(ret), "atrac decode data", atracDecodeDelay);
 	}

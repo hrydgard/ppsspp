@@ -149,6 +149,7 @@ tests_good = [
   "audio/blocking/depth",
   "audio/blocking/errors",
   "audio/blocking/overhead",
+  "audio/blocking/parked",
   "audio/blocking/oneshot",
   "audio/blocking/restlen",
   "audio/blocking/vaudio",
