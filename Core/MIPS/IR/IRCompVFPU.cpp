@@ -2438,8 +2438,58 @@ namespace MIPSComp {
 
 		// Vector color conversion
 		// d[N] = ConvertTo16(s[N*2]) | (ConvertTo16(s[N*2+1]) << 16)
+		// Four 8888 colors from a quad, whatever the size. Each channel keeps its top bits.
+		struct Channel {
+			u8 srcShift;
+			u8 bits;
+			u8 destShift;
+		};
+		static const Channel c4444[] = { { 4, 4, 0 }, { 12, 4, 4 }, { 20, 4, 8 }, { 28, 4, 12 } };
+		static const Channel c5551[] = { { 3, 5, 0 }, { 11, 5, 5 }, { 19, 5, 10 }, { 31, 1, 15 } };
+		static const Channel c5650[] = { { 3, 5, 0 }, { 10, 6, 5 }, { 19, 5, 11 } };
+		const Channel *channels;
+		int numChannels;
+		switch ((op >> 16) & 3) {
+		case 1: channels = c4444; numChannels = 4; break;
+		case 2: channels = c5551; numChannels = 4; break;
+		case 3: channels = c5650; numChannels = 3; break;
+		default: INVALIDOP;
+		}
 
-		DISABLE;
+		VectorSize outsize = GetVecSize(op) == V_Single ? V_Single : V_Pair;
+		int nOut = GetNumVectorElements(outsize);
+
+		u8 sregs[4], dregs[4];
+		GetVectorRegsPrefixS(sregs, V_Quad, _VS);
+		GetVectorRegsPrefixD(dregs, outsize, _VD);
+
+		// Through temps, since d may overlap s.
+		for (int w = 0; w < nOut; w++) {
+			bool first = true;
+			for (int k = 0; k < 2; k++) {
+				ir.Write(IROp::FMovToGPR, IRTEMP_0, sregs[w * 2 + k]);
+				for (int c = 0; c < numChannels; c++) {
+					const Channel &ch = channels[c];
+					ir.Write(IROp::ShrImm, IRTEMP_1, IRTEMP_0, ch.srcShift);
+					if (ch.srcShift + ch.bits < 32)
+						ir.Write(IROp::AndConst, IRTEMP_1, IRTEMP_1, 0, (1 << ch.bits) - 1);
+					if (ch.destShift + k * 16 != 0)
+						ir.Write(IROp::ShlImm, IRTEMP_1, IRTEMP_1, ch.destShift + k * 16);
+					if (first) {
+						ir.Write(IROp::Mov, IRTEMP_2, IRTEMP_1);
+						first = false;
+					} else {
+						ir.Write(IROp::Or, IRTEMP_2, IRTEMP_2, IRTEMP_1);
+					}
+				}
+			}
+			ir.Write(IROp::FMovFromGPR, IRVTEMP_0 + w, IRTEMP_2);
+		}
+		for (int w = 0; w < nOut; w++) {
+			ir.Write(IROp::FMov, dregs[w], IRVTEMP_0 + w);
+		}
+
+		ApplyPrefixD(dregs, outsize, _VD);
 	}
 
 	void IRFrontend::Comp_Vbfy(MIPSOpcode op) {
