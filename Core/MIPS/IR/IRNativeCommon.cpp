@@ -422,11 +422,6 @@ void IRNativeBackend::CompileIRInst(IRInst inst) {
 		CompIR_VecPack(inst);
 		break;
 
-	case IROp::Vec4ClampToZero:
-	case IROp::Vec2ClampToZero:
-		CompIR_VecClamp(inst);
-		break;
-
 	case IROp::FSin:
 	case IROp::FCos:
 	case IROp::FRSqrt:

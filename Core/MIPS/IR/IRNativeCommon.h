@@ -125,7 +125,6 @@ protected:
 	virtual void CompIR_Transfer(IRInst inst) = 0;
 	virtual void CompIR_VecArith(IRInst inst) = 0;
 	virtual void CompIR_VecAssign(IRInst inst) = 0;
-	virtual void CompIR_VecClamp(IRInst inst) = 0;
 	virtual void CompIR_VecHoriz(IRInst inst) = 0;
 	virtual void CompIR_VecLoad(IRInst inst) = 0;
 	virtual void CompIR_VecPack(IRInst inst) = 0;

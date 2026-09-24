@@ -160,8 +160,6 @@ static const IRMeta irMeta[] = {
 	{ IROp::Vec4Unpack8To32, "Vec4Unpack8To32", "VF" },
 	{ IROp::Vec4DuplicateUpperBitsAndShift1, "Vec4DuplicateUpperBitsAndShift1", "VV" },
 
-	{ IROp::Vec4ClampToZero, "Vec4ClampToZero", "VV" },
-	{ IROp::Vec2ClampToZero, "Vec2ClampToZero", "22" },
 	{ IROp::Vec4Pack32To8, "Vec4Pack32To8", "FV" },
 	{ IROp::Vec4Pack31To8, "Vec4Pack31To8", "FV" },
 	{ IROp::Vec2Pack32To16, "Vec2Pack32To16", "F2" },

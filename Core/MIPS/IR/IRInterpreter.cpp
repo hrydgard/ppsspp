@@ -438,9 +438,10 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 
 		case IROp::Vec2Pack31To16:
 		{
-			// Used in Tekken 6
-			u32 val = (mips->fi[inst->src1] >> 15) & 0xFFFF;
-			mips->fi[inst->dest] = val | ((mips->fi[(u32)inst->src1 + 1] << 1) & 0xFFFF0000);
+			// Used in Tekken 6. Negative lanes clamp to zero.
+			const u32 s0 = (s32)mips->fi[inst->src1] < 0 ? 0 : mips->fi[inst->src1];
+			const u32 s1 = (s32)mips->fi[(u32)inst->src1 + 1] < 0 ? 0 : mips->fi[(u32)inst->src1 + 1];
+			mips->fi[inst->dest] = ((s0 >> 15) & 0xFFFF) | ((s1 << 1) & 0xFFFF0000);
 			break;
 		}
 
@@ -484,63 +485,29 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		{
 			// Used in Tekken 6, Gran Turismo
 
+			// Bits 30-23 of each lane, with negative lanes clamped to zero.
 #if PPSSPP_ARCH(SSE2)
 			__m128i src = _mm_loadu_si128((__m128i *) & mips->fi[inst->src1]);
-			// Shift each 32-bit lane left by 1, then take the top byte - that is, (v >> 23) & 0xFF.
-			// Shifting right by 24 first would drop bit 23.
-			src = _mm_srli_epi32(_mm_slli_epi32(src, 1), 24);
-			// Pack 32-bit lanes to 16-bit, then 16-bit to 8-bit
-			// This moves our target bytes to the bottom of the XMM register
+			// An arithmetic shift leaves 0-255 for positive lanes and negative values for negative
+			// ones, which the unsigned saturation in the second pack turns into 0.
+			src = _mm_srai_epi32(src, 23);
 			src = _mm_packs_epi32(src, src);
 			src = _mm_packus_epi16(src, src);
-			// Extract the lower 32 bits (which now contains our 4 bytes)
 			mips->fi[inst->dest] = (u32)_mm_cvtsi128_si32(src);
 #elif PPSSPP_ARCH(ARM_NEON)
-			uint32x4_t value = vld1q_u32(&mips->fi[inst->src1]);
-			value = vshlq_n_u32(value, 1);
-			uint16x4_t halved = vshrn_n_u32(value, 16);
+			int32x4_t value = vmaxq_s32(vld1q_s32((const int32_t *)&mips->fi[inst->src1]), vdupq_n_s32(0));
+			uint32x4_t shifted = vshlq_n_u32(vreinterpretq_u32_s32(value), 1);
+			uint16x4_t halved = vshrn_n_u32(shifted, 16);
 			uint8x8_t halvedAgain = vshrn_n_u16(vcombine_u16(halved, vdup_n_u16(0)), 8);
 			mips->fi[inst->dest] = vget_lane_u32(vreinterpret_u32_u8(halvedAgain), 0);
 #else
-			u32 val = (mips->fi[(u32)inst->src1] >> 23) & 0xFF;
-			val |= (mips->fi[(u32)inst->src1 + 1] >> 15) & 0xFF00;
-			val |= (mips->fi[(u32)inst->src1 + 2] >> 7) & 0xFF0000;
-			val |= (mips->fi[(u32)inst->src1 + 3] << 1) & 0xFF000000;
-			mips->fi[(u32)inst->dest] = val;
-#endif
-			break;
-		}
-
-		case IROp::Vec2ClampToZero:
-		{
-			const u32 temp0 = mips->fi[(u32)inst->src1];
-			const u32 temp1 = mips->fi[(u32)inst->src1 + 1];
-			mips->fi[(u32)inst->dest] = (int)temp0 >= 0 ? temp0 : 0;
-			mips->fi[(u32)inst->dest + 1] = (int)temp1 >= 0 ? temp1 : 0;
-			break;
-		}
-
-		case IROp::Vec4ClampToZero:
-		{
-#if PPSSPP_ARCH(SSE2)
-			// Trickery: Expand the sign bit, and use andnot to zero negative values.
-			__m128i val = _mm_load_si128((const __m128i *)&mips->fi[inst->src1]);
-			__m128i mask = _mm_srai_epi32(val, 31);
-			val = _mm_andnot_si128(mask, val);
-			_mm_store_si128((__m128i *)&mips->fi[inst->dest], val);
-#elif PPSSPP_ARCH(ARM_NEON)
-			// On ARM we use a compare. On ARM64 we could also do a shift like on x86.
-			int32x4_t val = vld1q_s32((const int32_t *)&mips->fi[inst->src1]);
-			uint32x4_t mask = vcgtq_s32(val, vdupq_n_s32(-1));  // val > -1 → keeps >= 0
-			val = vandq_s32(val, vreinterpretq_s32_u32(mask));  // zero out negative lanes
-			vst1q_s32((int32_t *)&mips->fi[inst->dest], val);
-#else
-			const int src1 = inst->src1;
-			const int dest = inst->dest;
+			u32 val = 0;
 			for (int i = 0; i < 4; i++) {
-				u32 val = mips->fi[src1 + i];
-				mips->fi[dest + i] = (int)val >= 0 ? val : 0;
+				const u32 lane = mips->fi[(u32)inst->src1 + i];
+				if ((s32)lane > 0)
+					val |= ((lane >> 23) & 0xFF) << (8 * i);
 			}
+			mips->fi[(u32)inst->dest] = val;
 #endif
 			break;
 		}

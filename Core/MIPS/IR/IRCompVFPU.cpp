@@ -1890,9 +1890,8 @@ namespace MIPSComp {
 
 		if (bits == 8) {
 			if (unsignedOp) {  //vi2uc
-				// Output is only one register.
-				ir.Write(IROp::Vec4ClampToZero, IRVTEMP_0, srcregs[0]);
-				ir.Write(IROp::Vec4Pack31To8, tempregs[0], IRVTEMP_0);
+				// Output is only one register. The pack clamps negative lanes to zero.
+				ir.Write(IROp::Vec4Pack31To8, tempregs[0], srcregs[0]);
 			} else {  //vi2c
 				ir.Write(IROp::Vec4Pack32To8, tempregs[0], srcregs[0]);
 			}
@@ -1900,11 +1899,10 @@ namespace MIPSComp {
 			// bits == 16
 			if (unsignedOp) {  //vi2us
 				// Output is only one register.
-				ir.Write(IROp::Vec2ClampToZero, IRVTEMP_0, srcregs[0]);
-				ir.Write(IROp::Vec2Pack31To16, tempregs[0], IRVTEMP_0);
+				// The pack clamps negative lanes to zero.
+				ir.Write(IROp::Vec2Pack31To16, tempregs[0], srcregs[0]);
 				if (outsize == V_Pair) {
-					ir.Write(IROp::Vec2ClampToZero, IRVTEMP_0 + 2, srcregs[2]);
-					ir.Write(IROp::Vec2Pack31To16, tempregs[1], IRVTEMP_0 + 2);
+					ir.Write(IROp::Vec2Pack31To16, tempregs[1], srcregs[2]);
 				}
 			} else {  //vi2s
 				ir.Write(IROp::Vec2Pack32To16, tempregs[0], srcregs[0]);

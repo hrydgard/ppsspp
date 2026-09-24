@@ -187,8 +187,7 @@ enum class IROp : uint8_t {
 	Vec2Unpack16To32,
 	Vec4Unpack8To32,
 	Vec4DuplicateUpperBitsAndShift1,  // Bizarro vuc2i behaviour, in an instruction. Split?
-	Vec4ClampToZero,
-	Vec2ClampToZero,
+	// vi2x. The 31 ones take bits 30 and down, after clamping negative lanes to zero (vi2uc, vi2us).
 	Vec4Pack31To8,
 	Vec4Pack32To8,
 	Vec2Pack31To16,

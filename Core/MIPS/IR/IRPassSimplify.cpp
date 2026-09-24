@@ -833,8 +833,6 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 		case IROp::Vec4Unpack8To32:
 		case IROp::Vec2Unpack16To32:
 		case IROp::Vec4DuplicateUpperBitsAndShift1:
-		case IROp::Vec2ClampToZero:
-		case IROp::Vec4ClampToZero:
 			out.Write(inst);
 			break;
 
