@@ -1474,12 +1474,6 @@ namespace MIPSComp {
 		int vt = _VT;
 
 		MatrixSize sz = GetMtxSize(op);
-		if (sz != M_4x4) {
-			DISABLE;
-		}
-		if (GetMtx(vt) == GetMtx(vd)) {
-			DISABLE;
-		}
 		int n = GetMatrixSide(sz);
 
 		// The entire matrix is scaled equally, so transpose doesn't matter.  Let's normalize.
@@ -1487,17 +1481,30 @@ namespace MIPSComp {
 			vs = TransposeMatrixReg(vs);
 			vd = TransposeMatrixReg(vd);
 		}
-		if (IsMatrixTransposed(vs) || IsMatrixTransposed(vd)) {
-			DISABLE;
-		}
 
 		u8 sregs[16], dregs[16], tregs[1];
 		GetMatrixRegs(sregs, sz, vs);
 		GetMatrixRegs(dregs, sz, vd);
 		GetVectorRegs(tregs, V_Single, vt);
 
-		for (int i = 0; i < n; ++i) {
-			ir.Write(IROp::Vec4Scale, dregs[i * 4], sregs[i * 4], tregs[0]);
+		if (sz == M_4x4 && GetMtx(vt) != GetMtx(vd) && !IsMatrixTransposed(vs) && !IsMatrixTransposed(vd)) {
+			for (int i = 0; i < n; ++i) {
+				ir.Write(IROp::Vec4Scale, dregs[i * 4], sregs[i * 4], tregs[0]);
+			}
+			return;
+		}
+
+		// Element by element otherwise, which works for any size and transposition. A source that
+		// partly overlaps the destination would be read after it's written, though.
+		if (vs != vd && GetMatrixOverlap(vs, vd, sz) != OVERLAP_NONE) {
+			DISABLE;
+		}
+		// The scale can be part of the destination, so keep a copy.
+		ir.Write(IROp::FMov, IRVTEMP_0, tregs[0]);
+		for (int a = 0; a < n; a++) {
+			for (int b = 0; b < n; b++) {
+				ir.Write(IROp::FMul, dregs[a * 4 + b], sregs[a * 4 + b], IRVTEMP_0);
+			}
 		}
 	}
 
