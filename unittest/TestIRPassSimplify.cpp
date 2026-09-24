@@ -18,6 +18,7 @@
 #include <cstdio>
 #include <cstring>
 #include "Core/MIPS/IR/IRInst.h"
+#include "Core/Config.h"
 #include "Core/MIPS/IR/IRPassSimplify.h"
 
 struct IRVerification {
@@ -25,6 +26,10 @@ struct IRVerification {
 	const std::vector<IRInst> input;
 	const std::vector<IRInst> expected;
 	const std::vector<IRPassFunc> passes;
+	// Leaves lwl/lwr halves alone, among other things.
+	bool optimizeForInterpreter = false;
+	// ApplyMemoryValidation only runs without fast memory.
+	bool slowMemory = false;
 };
 
 static void LogInstructions(const std::vector<IRInst> &insts) {
@@ -39,10 +44,15 @@ static bool VerifyPass(const IRVerification &v) {
 	IRWriter in, out;
 	IROptions opts{};
 	opts.unalignedLoadStore = true;
+	opts.optimizeForInterpreter = v.optimizeForInterpreter;
 
 	for (const auto &inst : v.input)
 		in.Write(inst);
-	if (IRApplyPasses(v.passes.data(), v.passes.size(), in, out, opts)) {
+	const bool fastMemory = g_Config.bFastMemory;
+	g_Config.bFastMemory = !v.slowMemory;
+	bool logged = IRApplyPasses(v.passes.data(), v.passes.size(), in, out, opts);
+	g_Config.bFastMemory = fastMemory;
+	if (logged) {
 		printf("%s FAILED: Unable to apply passes (or wanted to log)\n", v.name);
 		return false;
 	}
@@ -266,6 +276,51 @@ static const IRVerification tests[] = {
 			{ IROp::SetConst, { MIPS_REG_V0 }, 0, 0, 1 },
 		},
 		{ &PurgeTemps },
+	},
+	{
+		"CombineLoadLeftRight",
+		{
+			{ IROp::Load32Left, { MIPS_REG_A0 }, MIPS_REG_A1, 0, 3 },
+			{ IROp::Load32Right, { MIPS_REG_A0 }, MIPS_REG_A1, 0, 0 },
+		},
+		{
+			{ IROp::Load32, { MIPS_REG_A0 }, MIPS_REG_A1, 0, 0 },
+		},
+		{ &RemoveLoadStoreLeftRight },
+		true,
+	},
+	{
+		// The lwl changes a0, so the lwr reads from a different address.
+		"NoCombineLoadLeftRightIntoBase",
+		{
+			{ IROp::Load32Left, { MIPS_REG_A0 }, MIPS_REG_A0, 0, 3 },
+			{ IROp::Load32Right, { MIPS_REG_A0 }, MIPS_REG_A0, 0, 0 },
+		},
+		{
+			{ IROp::Load32Left, { MIPS_REG_A0 }, MIPS_REG_A0, 0, 3 },
+			{ IROp::Load32Right, { MIPS_REG_A0 }, MIPS_REG_A0, 0, 0 },
+		},
+		{ &RemoveLoadStoreLeftRight },
+		true,
+	},
+	{
+		// The sp accesses share one validation, but not across something that may change sp.
+		"ValidateSPAcrossInterpret",
+		{
+			{ IROp::Load32, { MIPS_REG_A0 }, MIPS_REG_SP, 0, 0 },
+			{ IROp::Interpret, { 0 }, 0, 0, 0 },
+			{ IROp::Load32, { MIPS_REG_A1 }, MIPS_REG_SP, 0, 8 },
+		},
+		{
+			{ IROp::ValidateAddress32, { 0 }, MIPS_REG_SP, 0, 0 },
+			{ IROp::Load32, { MIPS_REG_A0 }, MIPS_REG_SP, 0, 0 },
+			{ IROp::Interpret, { 0 }, 0, 0, 0 },
+			{ IROp::ValidateAddress32, { 0 }, MIPS_REG_SP, 0, 8 },
+			{ IROp::Load32, { MIPS_REG_A1 }, MIPS_REG_SP, 0, 8 },
+		},
+		{ &ApplyMemoryValidation },
+		false,
+		true,
 	},
 };
 

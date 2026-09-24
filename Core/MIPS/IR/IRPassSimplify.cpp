@@ -254,6 +254,9 @@ bool RemoveLoadStoreLeftRight(const IRWriter &in, IRWriter &out, const IROptions
 			const IRInst &next = nextOp();
 			if (next.op != matchOp || next.dest != inst.dest || next.src1 != inst.src1)
 				return false;
+			// A load into its own base changes the address the second half reads from.
+			if (replaceOp == IROp::Load32 && inst.dest == inst.src1)
+				return false;
 			if (inst.constant + matchOff != next.constant)
 				return false;
 
@@ -1863,9 +1866,11 @@ bool ApplyMemoryValidation(const IRWriter &in, IRWriter &out, const IROptions &o
 		}
 
 		const IRMeta *m = GetIRMeta(inst.op);
-		if (m->types[0] == 'G' && (m->flags & IRFLAG_SRC3) == 0 && inst.dest == MIPS_REG_SP) {
+		bool writesSP = m->types[0] == 'G' && (m->flags & IRFLAG_SRC3) == 0 && inst.dest == MIPS_REG_SP;
+		// A barrier (Interpret, CallReplacement) may write any GPR.
+		if (writesSP || (m->flags & IRFLAG_BARRIER) != 0) {
 			// We only care if it changes after we start combining.
-			spModified = spUpper != -1;
+			spModified = spModified || spUpper != -1;
 		}
 	}
 
