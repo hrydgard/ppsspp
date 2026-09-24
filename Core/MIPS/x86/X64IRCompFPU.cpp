@@ -970,6 +970,14 @@ static float X64JIT_XMM_CALL x64_asin(float f) {
 	return vfpu_asin(f);
 }
 
+static float X64JIT_XMM_CALL x64_exp2(float f) {
+	return vfpu_exp2(f);
+}
+
+static float X64JIT_XMM_CALL x64_log2(float f) {
+	return vfpu_log2(f);
+}
+
 static float X64JIT_XMM_CALL x64_vsqrt(float f) {
 	return vfpu_sqrt(f);
 }
@@ -1002,6 +1010,22 @@ static uint32_t x64_asin(uint32_t v) {
 	float f;
 	memcpy(&f, &v, sizeof(v));
 	f = vfpu_asin(f);
+	memcpy(&v, &f, sizeof(v));
+	return v;
+}
+
+static uint32_t x64_exp2(uint32_t v) {
+	float f;
+	memcpy(&f, &v, sizeof(v));
+	f = vfpu_exp2(f);
+	memcpy(&v, &f, sizeof(v));
+	return v;
+}
+
+static uint32_t x64_log2(uint32_t v) {
+	float f;
+	memcpy(&f, &v, sizeof(v));
+	f = vfpu_log2(f);
 	memcpy(&v, &f, sizeof(v));
 	return v;
 }
@@ -1096,6 +1120,14 @@ void X64JitBackend::CompIR_FSpecial(IRInst inst) {
 
 	case IROp::FVSqrt:
 		callFuncF_F((const void *)&x64_vsqrt);
+		break;
+
+	case IROp::FExp2:
+		callFuncF_F((const void *)&x64_exp2);
+		break;
+
+	case IROp::FLog2:
+		callFuncF_F((const void *)&x64_log2);
 		break;
 
 	default:

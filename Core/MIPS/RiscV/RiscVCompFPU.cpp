@@ -633,6 +633,14 @@ void RiscVJitBackend::CompIR_FSpecial(IRInst inst) {
 		callFuncF_F(&vfpu_sqrt);
 		break;
 
+	case IROp::FExp2:
+		callFuncF_F(&vfpu_exp2);
+		break;
+
+	case IROp::FLog2:
+		callFuncF_F(&vfpu_log2);
+		break;
+
 	default:
 		INVALIDOP;
 		break;

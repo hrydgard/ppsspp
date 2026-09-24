@@ -640,6 +640,12 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		case IROp::FVSqrt:
 			mips->f[inst->dest] = vfpu_sqrt(mips->f[inst->src1]);
 			break;
+		case IROp::FExp2:
+			mips->f[inst->dest] = vfpu_exp2(mips->f[inst->src1]);
+			break;
+		case IROp::FLog2:
+			mips->f[inst->dest] = vfpu_log2(mips->f[inst->src1]);
+			break;
 
 		case IROp::ShlImm:
 			mips->r[inst->dest] = mips->r[inst->src1] << (int)inst->src2;

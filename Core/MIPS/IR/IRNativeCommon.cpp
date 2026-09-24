@@ -433,6 +433,8 @@ void IRNativeBackend::CompileIRInst(IRInst inst) {
 	case IROp::FRecip:
 	case IROp::FAsin:
 	case IROp::FVSqrt:
+	case IROp::FExp2:
+	case IROp::FLog2:
 		CompIR_FSpecial(inst);
 		break;
 

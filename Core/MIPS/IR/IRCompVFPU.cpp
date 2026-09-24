@@ -1122,10 +1122,10 @@ namespace MIPSComp {
 				ir.Write(IROp::FCos, tempregs[i], sregs[i]);
 				break;
 			case 20: // d[i] = powf(2.0f, s[i]); break; //vexp2
-				DISABLE;
+				ir.Write(IROp::FExp2, tempregs[i], sregs[i]);
 				break;
 			case 21: // d[i] = logf(s[i])/log(2.0f); break; //vlog2
-				DISABLE;
+				ir.Write(IROp::FLog2, tempregs[i], sregs[i]);
 				break;
 			case 22: // d[i] = sqrtf(s[i]); break; //vsqrt
 				ir.Write(IROp::FVSqrt, tempregs[i], sregs[i]);
@@ -1142,7 +1142,9 @@ namespace MIPSComp {
 				ir.Write(IROp::FNeg, tempregs[i], tempregs[i]);
 				break;
 			case 28: // d[i] = 1.0f / expf(s[i] * (float)M_LOG2E); break; // vrexp2
-				DISABLE;
+				// exp2(-x), as vfpu_rexp2 computes it.
+				ir.Write(IROp::FNeg, tempregs[i], sregs[i]);
+				ir.Write(IROp::FExp2, tempregs[i], tempregs[i]);
 				break;
 			default:
 				INVALIDOP;
