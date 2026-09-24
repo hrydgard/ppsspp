@@ -613,6 +613,14 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		case IROp::FLog2:
 			mips->f[inst->dest] = vfpu_log2(mips->f[inst->src1]);
 			break;
+		case IROp::FSinCos:
+		{
+			float s, c;
+			vfpu_sincos(mips->f[inst->src1], s, c);
+			mips->f[inst->dest] = s;
+			mips->f[inst->dest + 1] = c;
+			break;
+		}
 		case IROp::FHalfToFloat:
 			mips->fi[inst->dest] = vfpu_h2f((u16)(inst->src2 ? mips->fi[inst->src1] >> 16 : mips->fi[inst->src1] & 0xFFFF));
 			break;

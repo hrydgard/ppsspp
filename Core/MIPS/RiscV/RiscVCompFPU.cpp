@@ -649,6 +649,19 @@ void RiscVJitBackend::CompIR_FSpecial(IRInst inst) {
 		callFuncF_F(inst.src2 ? &vfpu_h2f_upper : &vfpu_h2f_lower);
 		break;
 
+	case IROp::FSinCos:
+	{
+		// Two calls here. The frontend makes sure dest doesn't overlap src1.
+		IRInst sinInst = inst;
+		sinInst.op = IROp::FSin;
+		CompIR_FSpecial(sinInst);
+		IRInst cosInst = inst;
+		cosInst.op = IROp::FCos;
+		cosInst.dest = inst.dest + 1;
+		CompIR_FSpecial(cosInst);
+		break;
+	}
+
 	default:
 		INVALIDOP;
 		break;

@@ -1661,6 +1661,15 @@ void vfpu_sincos(float a, float &s, float &c) {
 	c = vfpu_float_from_bits(cosBits);
 }
 
+double vfpu_sincos_packed(float a) {
+	float s, c;
+	vfpu_sincos(a, s, c);
+	const uint64_t bits = ((uint64_t)vfpu_bits_from_float(c) << 32) | vfpu_bits_from_float(s);
+	double packed;
+	memcpy(&packed, &bits, sizeof(packed));
+	return packed;
+}
+
 // The tables for the fast paths (see VFPUFastSegment). bias moves the segment's binade to the
 // exponent the result's bits start from.
 static constexpr std::array<VFPUFastSegment, 128> vfpu_make_fast_table(const VFPUSegment (&segments)[128], int bias) {

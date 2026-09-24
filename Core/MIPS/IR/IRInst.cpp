@@ -113,6 +113,7 @@ static const IRMeta irMeta[] = {
 	{ IROp::FExp2, "FExp2", "FF" },
 	{ IROp::FLog2, "FLog2", "FF" },
 	{ IROp::FHalfToFloat, "FHalfToFloat", "FFI" },
+	{ IROp::FSinCos, "FSinCos", "2F" },
 	{ IROp::FNeg, "FNeg", "FF" },
 	{ IROp::FSign, "FSign", "FF" },
 	{ IROp::FAbs, "FAbs", "FF" },
