@@ -1194,8 +1194,24 @@ namespace MIPSComp {
 
 		// Vector expand half to float
 		// d[N*2] = float(lowerhalf(s[N])), d[N*2+1] = float(upperhalf(s[N]))
+		// Sizes above pair act like pair.
+		VectorSize sz = GetVecSize(op);
+		VectorSize outsize = sz == V_Single ? V_Pair : V_Quad;
+		int nOut = GetNumVectorElements(outsize);
 
-		DISABLE;
+		u8 sregs[4], dregs[4];
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixD(dregs, outsize, _VD);
+
+		// Through temps, since d may overlap s.
+		for (int i = 0; i < nOut; i++) {
+			ir.Write(IROp::FHalfToFloat, IRVTEMP_0 + i, sregs[i / 2], i & 1);
+		}
+		for (int i = 0; i < nOut; i++) {
+			ir.Write(IROp::FMov, dregs[i], IRVTEMP_0 + i);
+		}
+
+		ApplyPrefixD(dregs, outsize, _VD);
 	}
 
 	void IRFrontend::Comp_Vf2i(MIPSOpcode op) {

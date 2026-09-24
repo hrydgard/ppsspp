@@ -430,6 +430,7 @@ void IRNativeBackend::CompileIRInst(IRInst inst) {
 	case IROp::FVSqrt:
 	case IROp::FExp2:
 	case IROp::FLog2:
+	case IROp::FHalfToFloat:
 		CompIR_FSpecial(inst);
 		break;
 

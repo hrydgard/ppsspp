@@ -29,6 +29,18 @@
 #pragma warning(disable: 4146)
 #endif
 
+static inline uint32_t vfpu_bits_from_float(float f) {
+	uint32_t bits;
+	memcpy(&bits, &f, sizeof(bits));
+	return bits;
+}
+
+static inline float vfpu_float_from_bits(uint32_t bits) {
+	float f;
+	memcpy(&f, &bits, sizeof(f));
+	return f;
+}
+
 union float2int {
 	uint32_t i;
 	float f;
@@ -651,6 +663,14 @@ u32 vfpu_h2f(u16 h) {
 		return sign | 0x7F800000 | mant;
 	}
 	return sign | ((exp + 112) << 23) | (mant << 13);
+}
+
+float vfpu_h2f_lower(float word) {
+	return vfpu_float_from_bits(vfpu_h2f((u16)(vfpu_bits_from_float(word) & 0xFFFF)));
+}
+
+float vfpu_h2f_upper(float word) {
+	return vfpu_float_from_bits(vfpu_h2f((u16)(vfpu_bits_from_float(word) >> 16)));
 }
 
 u16 vfpu_f2h(u32 f) {
@@ -1568,18 +1588,6 @@ static inline bool vfpu_sin_reduce(uint32_t bits, uint32_t *angle, bool *odd) {
 	*odd = (significand >> 24) & 1;
 	*angle = significand & 0x00FFFFFFu;
 	return true;
-}
-
-static inline uint32_t vfpu_bits_from_float(float f) {
-	uint32_t bits;
-	memcpy(&bits, &f, sizeof(bits));
-	return bits;
-}
-
-static inline float vfpu_float_from_bits(uint32_t bits) {
-	float f;
-	memcpy(&f, &bits, sizeof(f));
-	return f;
 }
 
 static inline int vfpu_clz64_nonzero(uint64_t v) {

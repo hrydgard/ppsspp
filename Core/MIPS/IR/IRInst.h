@@ -202,6 +202,7 @@ enum class IROp : uint8_t {
 	FVSqrt,  // vsqrt, bit-exact with the PSP (FSqrt is the FPU's IEEE sqrt.s)
 	FExp2,  // vexp2, bit-exact with the PSP
 	FLog2,  // vlog2, bit-exact with the PSP
+	FHalfToFloat,  // vh2f of the lower (src2 = 0) or upper (src2 = 1) half of src1
 
 	// Fake/System instructions
 	Interpret,

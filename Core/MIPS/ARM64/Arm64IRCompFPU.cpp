@@ -571,6 +571,10 @@ void Arm64JitBackend::CompIR_FSpecial(IRInst inst) {
 		callFuncF_F(&vfpu_log2);
 		break;
 
+	case IROp::FHalfToFloat:
+		callFuncF_F(inst.src2 ? &vfpu_h2f_upper : &vfpu_h2f_lower);
+		break;
+
 	default:
 		INVALIDOP;
 		break;

@@ -1050,59 +1050,39 @@ namespace MIPSComp {
 
 	void Arm64Jit::Comp_Vh2f(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
-		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op)) {
+		if (js.HasUnknownPrefix() || js.HasSPrefix()) {
 			DISABLE;
 		}
 
-		// Half to float, in integers to match vfpu_h2f: a zero exponent (subnormals included) gives a
-		// signed zero, and inf/NaN keep their mantissa bits unshifted. FCVTL does neither.
+		// Half to float, by calling vfpu_h2f: FCVTL neither flushes subnormal halves nor keeps inf/NaN
+		// mantissa bits unshifted. Sizes above pair act like pair.
 		VectorSize sz = GetVecSize(op);
-		if (sz != V_Single && sz != V_Pair) {
-			DISABLE;
-		}
 		const int nIn = sz == V_Single ? 1 : 2;
+		const int nOut = nIn * 2;
 		const VectorSize outSz = sz == V_Single ? V_Pair : V_Quad;
 
 		u8 sregs[4], dregs[4];
-		GetVectorRegsPrefixS(sregs, sz, _VS);
-		GetVectorRegsPrefixD(dregs, outSz, _VD);
+		GetVectorRegs(sregs, sz, _VS);
+		GetVectorRegs(dregs, outSz, _VD);
 
-		const ARM64Reg t = gpr.GetAndLockTempR();
-		const ARM64Reg t2 = gpr.GetAndLockTempR();
-		// Into S0-S3 first, since d may overlap s.
-		for (int i = 0; i < nIn * 2; i++) {
-			const ARM64Reg h = SCRATCH1, res = SCRATCH2;
-			fpr.MapRegV(sregs[i / 2]);
-			fp.FMOV(h, fpr.V(sregs[i / 2]));
-			if (i & 1) {
-				LSR(h, h, 16);
-			} else {
-				UBFX(h, h, 0, 16);
-			}
-			// Normal: ((h & 0x7FFF) << 13) + (112 << 23), then the sign.
-			UBFIZ(res, h, 13, 15);
-			MOVI2R(t, 0x38000000);
-			ADD(res, res, t);
-			UBFX(t, h, 10, 5);
-			CMPI2R(t, 0);
-			CSEL(res, WZR, res, CC_EQ);
-			CMPI2R(t, 31);
-			ANDI2R(t2, h, 0x3FF);
-			ORRI2R(t2, t2, 0x7F800000);
-			CSEL(res, t2, res, CC_EQ);
-			UBFX(t, h, 15, 1);
-			ORR(res, res, t, ArithOption(t, ST_LSL, 31));
-			fp.FMOV((ARM64Reg)(S0 + i), res);
+		gpr.FlushBeforeCall();
+		fpr.FlushAll();
+
+		// The inputs stay in S8-S9 and the results in S10-S13 across the calls (callee-saved).
+		for (int i = 0; i < nIn; i++) {
+			fp.LDR(32, INDEX_UNSIGNED, (ARM64Reg)(S8 + i), CTXREG, fpr.GetMipsRegOffsetV(sregs[i]));
 		}
-
-		for (int i = 0; i < nIn * 2; i++) {
-			fpr.MapRegV(dregs[i], MAP_DIRTY | MAP_NOINIT);
-			fp.FMOV(fpr.V(dregs[i]), (ARM64Reg)(S0 + i));
+		for (int i = 0; i < nOut; i++) {
+			fp.FMOV(S0, (ARM64Reg)(S8 + i / 2));
+			QuickCallFunction(SCRATCH2_64, (i & 1) ? &vfpu_h2f_upper : &vfpu_h2f_lower);
+			fp.FMOV((ARM64Reg)(S10 + i), S0);
+		}
+		for (int i = 0; i < nOut; i++) {
+			fp.STR(32, INDEX_UNSIGNED, (ARM64Reg)(S10 + i), CTXREG, fpr.GetMipsRegOffsetV(dregs[i]));
 		}
 
 		ApplyPrefixD(dregs, outSz);
 		fpr.ReleaseSpillLocksAndDiscardTemps();
-		gpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
 	void Arm64Jit::Comp_Vf2i(MIPSOpcode op) {
