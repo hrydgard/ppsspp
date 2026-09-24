@@ -459,8 +459,9 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 	IRImmRegCache gpr(&out);
 
 	bool logBlocks = false;
-	bool skipNextExitToConst = false;
-	for (int i = 0; i < (int)in.GetInstructions().size(); i++) {
+	// Set once a conditional exit is known to be taken, making the rest of the block dead.
+	bool unreachable = false;
+	for (int i = 0; i < (int)in.GetInstructions().size() && !unreachable; i++) {
 		IRInst inst = in.GetInstructions()[i];
 		bool symmetric = true;
 		switch (inst.op) {
@@ -901,7 +902,7 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 				if (passed) {
 					gpr.FlushAll();
 					out.Write(IROp::ExitToConst, 0, 0, 0, inst.constant);
-					skipNextExitToConst = true;
+					unreachable = true;
 				}
 				break;
 			}
@@ -926,7 +927,7 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 				if (passed) {
 					gpr.FlushAll();
 					out.Write(IROp::ExitToConst, 0, 0, 0, inst.constant);
-					skipNextExitToConst = true;
+					unreachable = true;
 				}
 				break;
 			}
@@ -935,10 +936,6 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 			goto doDefault;
 
 		case IROp::ExitToConst:
-			if (skipNextExitToConst) {
-				skipNextExitToConst = false;
-				break;
-			}
 			gpr.FlushAll();
 			goto doDefault;
 

@@ -404,6 +404,21 @@ static const IRVerification tests[] = {
 		},
 		{ &PropagateConstants },
 	},
+	{
+		// The exit is always taken, so nothing after it runs.
+		"PropagateConstantsTakenExit",
+		{
+			{ IROp::SetConst, { MIPS_REG_A0 }, 0, 0, 0 },
+			{ IROp::ExitToConstIfEq, { 0 }, MIPS_REG_A0, MIPS_REG_ZERO, 0x08804000 },
+			{ IROp::Downcount, { 0 }, 0, 0, 4 },
+			{ IROp::ExitToConst, { 0 }, 0, 0, 0x08804100 },
+		},
+		{
+			{ IROp::SetConst, { MIPS_REG_A0 }, 0, 0, 0 },
+			{ IROp::ExitToConst, { 0 }, 0, 0, 0x08804000 },
+		},
+		{ &PropagateConstants },
+	},
 };
 
 bool TestIRPassSimplify() {
