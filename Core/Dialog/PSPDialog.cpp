@@ -394,6 +394,20 @@ void PSPDialog::DisplayButtons(int flags, std::string_view caption) {
 	}
 }
 
+int PSPDialog::CheckRequest(u32 addr, std::initializer_list<u32> sizes) {
+	if (!Memory::IsValidRange(addr, sizeof(pspUtilityDialogCommon))) {
+		return SCE_ERROR_UTILITY_INVALID_ADDRESS;
+	}
+	const u32 size = Memory::ReadUnchecked_U32(addr);
+	if (std::find(sizes.begin(), sizes.end(), size) == sizes.end()) {
+		return SCE_ERROR_UTILITY_INVALID_PARAM_SIZE;
+	}
+	if (!Memory::IsValidRange(addr, size)) {
+		return SCE_ERROR_UTILITY_INVALID_ADDRESS;
+	}
+	return 0;
+}
+
 int PSPDialog::GetConfirmButton() {
 	if (PSP_CoreParameter().compat.flags().ForceCircleButtonConfirm) {
 		return CTRL_CIRCLE;

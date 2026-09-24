@@ -52,23 +52,10 @@ struct SceUtilityHtmlViewerParam {
 };
 
 // From sceUtility_Driver's InitStart for the HtmlViewer, firmware 6.61: the request size says which
-// firmware's layout it is, and the working memory it allocates for the browser depends on that and
-// on bit 0x400 of options. Any other size is INVALID_PARAM_SIZE.
-static bool HtmlViewerWorkSize(u32 size, u32 options, u32 *workSize) {
-	switch (size) {
-	case 0x70:  // 2.00
-	case 0x78:  // 2.50
-	case 0x80:  // 2.60
-		*workSize = 0x380000;
-		return true;
-	case 0x98:  // 2.70
-	case 0xA4:  // 2.80
-	case 0xA8:  // 3.00
-		*workSize = (options & 0x400) ? 0x480000 : 0x380000;
-		return true;
-	default:
-		return false;
-	}
+// firmware's layout it is: 0x70, 0x78 and 0x80 are 2.00 to 2.60, 0x98, 0xA4 and 0xA8 2.70 to 3.00.
+// The working memory it allocates for the browser depends on that and on bit 0x400 of options.
+static u32 HtmlViewerWorkSize(u32 size, u32 options) {
+	return size >= 0x98 && (options & 0x400) ? 0x480000 : 0x380000;
 }
 
 static std::string ReadUrl(u32 addr) {
@@ -99,18 +86,13 @@ int PSPHtmlViewerDialog::Init(u32 paramAddr) {
 	if (GetStatus() != SCE_UTILITY_STATUS_NONE) {
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
-	if (!Memory::IsValidRange(paramAddr, sizeof(pspUtilityDialogCommon))) {
-		return SCE_ERROR_UTILITY_INVALID_ADDRESS;
+	const int check = CheckRequest(paramAddr, { 0x70, 0x78, 0x80, 0x98, 0xA4, 0xA8 });
+	if (check < 0) {
+		return check;
 	}
 	const u32 size = Memory::ReadUnchecked_U32(paramAddr);
 	const SceUtilityHtmlViewerParam *param = (const SceUtilityHtmlViewerParam *)Memory::GetPointerUnchecked(paramAddr);
-	u32 workSize = 0;
-	if (!HtmlViewerWorkSize(size, param->options, &workSize)) {
-		return SCE_ERROR_UTILITY_INVALID_PARAM_SIZE;
-	}
-	if (!Memory::IsValidRange(paramAddr, size)) {
-		return SCE_ERROR_UTILITY_INVALID_ADDRESS;
-	}
+	u32 workSize = HtmlViewerWorkSize(size, param->options);
 
 	u32 addr = userMemory.Alloc(workSize, false, "HtmlViewer");
 	if (addr == (u32)-1) {

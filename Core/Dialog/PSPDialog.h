@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <initializer_list>
+
 #include "Common/CommonTypes.h"
 #include "Common/Render/TextureAtlas.h"
 #include "Common/Swap.h"
@@ -114,6 +116,9 @@ protected:
 	}
 
 	static int GetConfirmButton();
+	// What every InitStart checks first in sceUtility_Driver: the address, then the size against
+	// the ones that type accepts (utility/dialog/sizes), then the rest of the range.
+	static int CheckRequest(u32 addr, std::initializer_list<u32> sizes);
 	static int GetCancelButton();
 
 	void StartFade(bool fadeIn_);

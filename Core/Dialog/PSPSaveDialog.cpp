@@ -127,6 +127,11 @@ int PSPSaveDialog::Init(int paramAddr) {
 	ioThreadStatus = SAVEIO_NONE;
 
 	requestAddr = 0;
+	const int check = CheckRequest(paramAddr, { SAVEDATA_DIALOG_SIZE_V1, SAVEDATA_DIALOG_SIZE_V2, SAVEDATA_DIALOG_SIZE_V3 });
+	if (check < 0) {
+		ERROR_LOG(Log::sceUtility, "sceUtilitySavedataInitStart: bad request at %08x: %08x", paramAddr, check);
+		return check;
+	}
 	if (!Memory::IsValid4AlignedAddress(paramAddr)) {
 		return SCE_KERNEL_ERROR_BAD_ARGUMENT;  // untested
 	}
@@ -134,11 +139,6 @@ int PSPSaveDialog::Init(int paramAddr) {
 
 	int size = Memory::ReadUnchecked_U32(requestAddr);
 	memset(&request, 0, sizeof(request));
-	// Only copy the right size to support different save request format
-	if (size != SAVEDATA_DIALOG_SIZE_V1 && size != SAVEDATA_DIALOG_SIZE_V2 && size != SAVEDATA_DIALOG_SIZE_V3) {
-		ERROR_LOG_REPORT(Log::sceUtility, "sceUtilitySavedataInitStart: invalid size %d", size);
-		return SCE_ERROR_UTILITY_INVALID_PARAM_SIZE;
-	}
 	Memory::Memcpy(&request, requestAddr, size);
 	Memory::Memcpy(&originalRequest, requestAddr, size);
 

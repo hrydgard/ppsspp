@@ -43,10 +43,15 @@ int PSPNpSigninDialog::Init(u32 paramAddr) {
 	if (ReadStatus() != SCE_UTILITY_STATUS_NONE)
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 
-	requestAddr = paramAddr;
-	if (!ReadVariableSizedStruct(paramAddr, &request)) {
-		return SCE_KERNEL_ERROR_BAD_ARGUMENT;  // untested
+	const int check = CheckRequest(paramAddr, { 0x40 });
+	if (check < 0) {
+		return check;
 	}
+
+	if (!ReadVariableSizedStruct(paramAddr, &request)) {
+		return SCE_KERNEL_ERROR_BAD_ARGUMENT;  // untested, it's misaligned
+	}
+	requestAddr = paramAddr;
 
 	WARN_LOG_REPORT_ONCE(PSPNpSigninDialogInit, Log::sceNet, "NpSignin Init Params: %08x, %08x, %08x, %08x", request.npSigninStatus, request.unknown1, request.unknown2, request.unknown3);
 
@@ -172,7 +177,7 @@ int PSPNpSigninDialog::Shutdown(bool force) {
 
 	// FIXME: This should probably be done within FinishShutdown to prevent some games (ie. UNO) from progressing further while the Dialog is still being faded-out, since we can't override non-virtual method... so here is the closes one to FinishShutdown.
 	if (Memory::IsValidAddress(requestAddr)) // Need to validate first to prevent Invalid address when the game is being Shutdown/Exited to menu
-		Memory::Memcpy(requestAddr, &request, request.common.size, "NpSigninDialogParam");
+		Memory::Memcpy(requestAddr, &request, std::min((u32)request.common.size, (u32)sizeof(request)), "NpSigninDialogParam");
 
 	return 0;
 }

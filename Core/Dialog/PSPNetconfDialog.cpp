@@ -60,15 +60,20 @@ int PSPNetconfDialog::Init(u32 paramAddr) {
 	if (ReadStatus() != SCE_UTILITY_STATUS_NONE)
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 
+	const int check = CheckRequest(paramAddr, { 0x38, 0x40, 0x44 });
+	if (check < 0) {
+		return check;
+	}
+
+	if (!ReadVariableSizedStruct(paramAddr, &request)) {
+		return SCE_KERNEL_ERROR_BAD_ARGUMENT;  // untested, it's misaligned
+	}
+	requestAddr = paramAddr;
+
 	NOTICE_LOG(Log::sceUtility, "PSPNetConfDialog Init");
 	jsonReady_ = false;
 	// Kick off a request to the infra-dns.json since we'll need it later.
 	StartInfraJsonDownload();
-
-	requestAddr = paramAddr;
-	if (!ReadVariableSizedStruct(paramAddr, &request)) {
-		return SCE_KERNEL_ERROR_BAD_ARGUMENT;  // untested
-	}
 
 	ChangeStatusInit(NET_INIT_DELAY_US);
 
@@ -340,7 +345,7 @@ int PSPNetconfDialog::Update(int animSpeed) {
 	}
 
 	if (ReadStatus() == SCE_UTILITY_STATUS_FINISHED || pendingStatus == SCE_UTILITY_STATUS_FINISHED)
-		Memory::Memcpy(requestAddr, &request, request.common.size, "NetConfDialogParam");
+		Memory::Memcpy(requestAddr, &request, std::min((u32)request.common.size, (u32)sizeof(request)), "NetConfDialogParam");
 
 	return 0;
 }

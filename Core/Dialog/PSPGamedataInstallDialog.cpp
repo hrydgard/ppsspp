@@ -61,10 +61,10 @@ int PSPGamedataInstallDialog::Init(u32 paramAddr) {
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 
-	if (!Memory::IsValidRange(paramAddr, sizeof(SceUtilityGamedataInstallParam))) {
-		// This should probably crash
-		ERROR_LOG(Log::sceUtility, "sceGamedataInstallInitStart: invalid param address 0x%08X", paramAddr);
-		return SCE_KERNEL_ERROR_INVALID_POINTER;
+	const int check = CheckRequest(paramAddr, { 1424, 1432 });
+	if (check < 0) {
+		ERROR_LOG(Log::sceUtility, "sceGamedataInstallInitStart: bad request at %08x: %08x", paramAddr, check);
+		return check;
 	}
 
 	param.ptr = paramAddr;
@@ -88,11 +88,6 @@ int PSPGamedataInstallDialog::Init(u32 paramAddr) {
 	}
 
 	const int size = Memory::ReadUnchecked_U32(paramAddr);
-	if (size != 1424 && size != 1432) {
-		ERROR_LOG_REPORT(Log::sceUtility, "sceGamedataInstallInitStart: invalid param size %d", size);
-		return SCE_ERROR_UTILITY_INVALID_PARAM_SIZE;
-	}
-
 	memset(&request, 0, sizeof(request));
 	// Only copy the right size to support different request format
 	Memory::Memcpy(&request, paramAddr, size, "sceGamedataInstallInitStart");

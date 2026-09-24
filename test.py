@@ -428,6 +428,7 @@ tests_good = [
   "utility/dialog/abort",
   "utility/dialog/htmlviewer",
   "utility/dialog/priority",
+  "utility/dialog/sizes",
   "utility/dialog/status",
   "utility/msgdialog/abort",
   "utility/savedata/autosave",
