@@ -448,7 +448,8 @@ else
 endif
 
 ifeq (,$(findstring msvc,$(platform)))
-   CXXFLAGS += -std=c++17
+   # No fused multiply-adds unless written explicitly, so float results are the same on every CPU.
+   CXXFLAGS += -std=c++17 -ffp-contract=off
 else
    CXXFLAGS += -std:c++17
 endif
