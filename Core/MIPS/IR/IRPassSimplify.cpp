@@ -2234,52 +2234,109 @@ bool ReduceVec4Flush(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 }
 
 // This optimizes away redundant loads-after-stores, which are surprisingly not that uncommon.
+// Replaces a load of what the block stored or loaded earlier with a register move, as long as
+// nothing in between may have changed the memory, the address reg, or the reg holding the value.
 bool OptimizeLoadsAfterStores(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 	CONDITIONAL_DISABLE;
-	// This tells us to skip an AND op that has been optimized out.
-	// Maybe we could skip multiple, but that'd slow things down and is pretty uncommon.
-	int nextSkip = -1;
 
-	bool logBlocks = false;
-	for (int i = 0, n = (int)in.GetInstructions().size(); i < n; i++) {
-		IRInst inst = in.GetInstructions()[i];
+	// The value reg's kind: G = GPR, F = FPR, V = Vec4 of FPRs.
+	struct Known {
+		IRReg base;
+		u32 offset;
+		int size;
+		char kind;
+		IRReg value;
+	};
+	std::vector<Known> known;
 
-		// Just copy the last instruction.
-		if (i == n - 1) {
+	auto kindOf = [](IROp op) {
+		switch (op) {
+		case IROp::LoadFloat: case IROp::StoreFloat: return 'F';
+		case IROp::LoadVec4: case IROp::StoreVec4: return 'V';
+		default: return 'G';
+		}
+	};
+	// Only plain RAM, so a hardware register read after a write isn't skipped.
+	auto isRAM = [](IRReg base, u32 addr) {
+		addr &= 0x3FFFFFFF;
+		return base != MIPS_REG_ZERO || (addr >= 0x08000000 && addr < 0x0C000000);
+	};
+	auto forgetReg = [&](IRReg reg, bool fpr) {
+		known.erase(std::remove_if(known.begin(), known.end(), [&](const Known &k) {
+			if (!fpr && k.base == reg)
+				return true;
+			if (fpr && k.kind != 'G')
+				return reg >= k.value && reg < k.value + (k.kind == 'V' ? 4 : 1);
+			return !fpr && k.kind == 'G' && k.value == reg;
+		}), known.end());
+	};
+
+	for (const IRInst &inst : in.GetInstructions()) {
+		const IRMeta *m = GetIRMeta(inst.op);
+		IRMemoryOpInfo info = IROpMemoryAccessSize(inst.op);
+		const bool plainLoad = info.size != 0 && !info.isWrite && inst.op != IROp::Load32Left && inst.op != IROp::Load32Right && inst.op != IROp::Load32Linked;
+		const bool plainStore = inst.op == IROp::Store8 || inst.op == IROp::Store16 || inst.op == IROp::Store32 || inst.op == IROp::StoreFloat || inst.op == IROp::StoreVec4;
+
+		bool replaced = false;
+		if (plainLoad) {
+			for (const Known &k : known) {
+				if (k.base != inst.src1 || k.offset != inst.constant || k.size != info.size)
+					continue;
+				const char kind = kindOf(inst.op);
+				switch (inst.op) {
+				case IROp::Load8: out.Write(IROp::AndConst, inst.dest, k.value, 0, 0xFF); break;
+				case IROp::Load8Ext: out.Write(IROp::Ext8to32, inst.dest, k.value); break;
+				case IROp::Load16: out.Write(IROp::AndConst, inst.dest, k.value, 0, 0xFFFF); break;
+				case IROp::Load16Ext: out.Write(IROp::Ext16to32, inst.dest, k.value); break;
+				default:
+					if (kind == k.kind && inst.dest == k.value)
+						break;
+					if (kind == 'V')
+						out.Write(IROp::Vec4Mov, inst.dest, k.value);
+					else if (kind == 'G')
+						out.Write(k.kind == 'G' ? IROp::Mov : IROp::FMovToGPR, inst.dest, k.value);
+					else
+						out.Write(k.kind == 'G' ? IROp::FMovFromGPR : IROp::FMov, inst.dest, k.value);
+					break;
+				}
+				replaced = true;
+				break;
+			}
+		}
+		if (!replaced)
 			out.Write(inst);
-			break;
+
+		if ((m->flags & IRFLAG_BARRIER) != 0 || ((m->flags & IRFLAG_EXIT) != 0 && !(inst.op >= IROp::ExitToConstIfEq && inst.op <= IROp::ExitToConstIfLeZ))) {
+			known.clear();
+			continue;
+		}
+		if (info.size != 0 && info.isWrite) {
+			// Keep only what this store can't overlap: the same base, at a disjoint range.
+			known.erase(std::remove_if(known.begin(), known.end(), [&](const Known &k) {
+				if (k.base != inst.src1 || !plainStore)
+					return true;
+				return !(k.offset + k.size <= inst.constant || inst.constant + info.size <= k.offset);
+			}), known.end());
 		}
 
-		out.Write(inst);
+		// Anything this writes can't be the address or value of a known access anymore.
+		int destGPR = IRDestGPR(GetIRMeta(inst));
+		if (destGPR >= 0)
+			forgetReg(destGPR, false);
+		IRReg destFPRs[4];
+		int numFPRs = IRDestFPRs(GetIRMeta(inst), destFPRs);
+		for (int i = 0; i < numFPRs; ++i)
+			forgetReg(destFPRs[i], true);
 
-		IRInst next = in.GetInstructions()[i + 1];
-		switch (inst.op) {
-		case IROp::Store32:
-			if (next.op == IROp::Load32 &&
-				next.constant == inst.constant &&
-				next.dest == inst.dest &&
-				next.src1 == inst.src1) {
-				// The upcoming load is completely redundant.
-				// Skip it.
-				i++;
-			}
-			break;
-		case IROp::StoreVec4:
-			if (next.op == IROp::LoadVec4 &&
-				next.constant == inst.constant &&
-				next.dest == inst.dest &&
-				next.src1 == inst.src1) {
-				// The upcoming load is completely redundant. These are common in Wipeout.
-				// Skip it. NOTE: It looks like vector load/stores uses different register assignments, but there's a union between dest and src3.
-				i++;
-			}
-			break;
-		default:
-			break;
+		if (!isRAM(inst.src1, inst.constant))
+			continue;
+		if (plainStore) {
+			known.push_back({ inst.src1, inst.constant, info.size, kindOf(inst.op), inst.src3 });
+		} else if (plainLoad && info.size >= 4 && !(kindOf(inst.op) == 'G' && inst.dest == inst.src1)) {
+			known.push_back({ inst.src1, inst.constant, info.size, kindOf(inst.op), inst.dest });
 		}
 	}
-
-	return logBlocks;
+	return false;
 }
 
 bool OptimizeForInterpreter(const IRWriter &in, IRWriter &out, const IROptions &opts) {
