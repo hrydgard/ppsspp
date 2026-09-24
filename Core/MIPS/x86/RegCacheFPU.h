@@ -172,6 +172,10 @@ public:
 	bool IsMappedV(int v) {
 		return vregs[v].lane == 0 && V(v).IsSimpleReg();
 	}
+	// Whether the register holds a MIPS register or a temp.
+	bool IsXRegInUse(Gen::X64Reg reg) const {
+		return xregs[reg].mipsReg != -1;
+	}
 	bool IsMappedVS(u8 v) {
 		return vregs[v].lane != 0 && VS(&v).IsSimpleReg();
 	}

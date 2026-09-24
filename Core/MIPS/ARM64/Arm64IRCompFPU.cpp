@@ -575,6 +575,25 @@ void Arm64JitBackend::CompIR_FSpecial(IRInst inst) {
 		callFuncF_F(inst.src2 ? &vfpu_h2f_upper : &vfpu_h2f_lower);
 		break;
 
+	case IROp::FSinCos:
+		// The helper returns the sine and cosine packed into D0, which the cache never allocates.
+		regs_.FlushBeforeCall();
+		WriteDebugProfilerStatus(IRProfilerStatus::MATH_HELPER);
+		if (regs_.IsFPRMapped(inst.src1)) {
+			int lane = regs_.GetFPRLane(inst.src1);
+			if (lane == 0)
+				fp_.FMOV(S0, regs_.F(inst.src1));
+			else
+				fp_.DUP(32, Q0, regs_.F(inst.src1), lane);
+		} else {
+			fp_.LDR(32, INDEX_UNSIGNED, S0, CTXREG, offsetof(MIPSState, f) + inst.src1 * 4);
+		}
+		QuickCallFunction(SCRATCH2_64, &vfpu_sincos_packed);
+		regs_.MapVec2(inst.dest, MIPSMap::NOINIT);
+		fp_.FMOV(regs_.FD(inst.dest), D0);
+		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
+		break;
+
 	default:
 		INVALIDOP;
 		break;

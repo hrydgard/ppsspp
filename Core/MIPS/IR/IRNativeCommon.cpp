@@ -431,6 +431,7 @@ void IRNativeBackend::CompileIRInst(IRInst inst) {
 	case IROp::FExp2:
 	case IROp::FLog2:
 	case IROp::FHalfToFloat:
+	case IROp::FSinCos:
 		CompIR_FSpecial(inst);
 		break;
 

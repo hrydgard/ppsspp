@@ -2311,6 +2311,27 @@ namespace MIPSComp {
 		u8 sreg[1];
 		GetVectorRegs(sreg, V_Single, vs);
 
+		// With both a sine and a cosine lane and no overlap, one call computes both.
+		bool hasSine = false, hasCosine = false;
+		for (int i = 0; i < n; i++) {
+			hasSine = hasSine || d[i] == 's';
+			hasCosine = hasCosine || d[i] == 'c';
+		}
+		if (hasSine && hasCosine && IsOverlapSafe(n, dregs, 1, sreg)) {
+			ir.Write(IROp::FSinCos, IRVTEMP_0, sreg[0]);
+			if (negSin)
+				ir.Write(IROp::FNeg, IRVTEMP_0, IRVTEMP_0);
+			for (int i = 0; i < n; i++) {
+				if (d[i] == 's')
+					ir.Write(IROp::FMov, dregs[i], IRVTEMP_0);
+				else if (d[i] == 'c')
+					ir.Write(IROp::FMov, dregs[i], IRVTEMP_0 + 1);
+				else
+					ir.WriteFC(IROp::SetConstF, dregs[i], 0, 0, 0.0f);
+			}
+			return;
+		}
+
 		// If there's overlap, sin is calculated without it, but cosine uses the result.
 		// This corresponds with prefix handling, where cosine doesn't get in prefixes.
 		if (broadcastSine || !IsOverlapSafe(n, dregs, 1, sreg)) {
@@ -2335,12 +2356,20 @@ namespace MIPSComp {
 				}
 				break;
 			case 'c':
-				if (IsOverlapSafe(n, dregs, 1, sreg))
+				if (IsOverlapSafe(n, dregs, 1, sreg)) {
 					ir.Write(IROp::FCos, dregs[i], sreg[0]);
-				else if (dregs[sineLane] == sreg[0])
-					ir.Write(IROp::FCos, dregs[i], IRVTEMP_0);
-				else
-					ir.WriteFC(IROp::SetConstF, dregs[i], 0, 0, 1.0f);
+				} else {
+					// The cosine is taken of what the source lane got: the sine, or zero.
+					int srcLane = 0;
+					while (dregs[srcLane] != sreg[0]) {
+						srcLane++;
+					}
+					if (broadcastSine || srcLane == sineLane) {
+						ir.Write(IROp::FCos, dregs[i], IRVTEMP_0);
+					} else {
+						ir.WriteFC(IROp::SetConstF, dregs[i], 0, 0, 1.0f);
+					}
+				}
 				break;
 			}
 		}

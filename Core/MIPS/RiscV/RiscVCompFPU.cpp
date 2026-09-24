@@ -589,7 +589,7 @@ void RiscVJitBackend::CompIR_FSpecial(IRInst inst) {
 #error Currently hard float is required.
 #endif
 
-	auto callFuncF_F = [&](float (*func)(float)) {
+	auto callWithF10 = [&](const u8 *func) {
 		regs_.FlushBeforeCall();
 		WriteDebugProfilerStatus(IRProfilerStatus::MATH_HELPER);
 
@@ -602,6 +602,10 @@ void RiscVJitBackend::CompIR_FSpecial(IRInst inst) {
 			FL(32, F10, CTXREG, offset);
 		}
 		QuickCallFunction(func, SCRATCH1);
+	};
+
+	auto callFuncF_F = [&](float (*func)(float)) {
+		callWithF10((const u8 *)func);
 
 		regs_.MapFPR(inst.dest, MIPSMap::NOINIT);
 		// If it's already F10, we're done - MapReg doesn't actually overwrite the reg in that case.
@@ -647,6 +651,20 @@ void RiscVJitBackend::CompIR_FSpecial(IRInst inst) {
 
 	case IROp::FHalfToFloat:
 		callFuncF_F(inst.src2 ? &vfpu_h2f_upper : &vfpu_h2f_lower);
+		break;
+
+	case IROp::FSinCos:
+		// The sine comes back in the low 32 bits of F10, the cosine in the high.
+		callWithF10((const u8 *)&vfpu_sincos_packed);
+		FMV(FMv::X, FMv::D, SCRATCH1, F10);
+		regs_.SpillLockFPR(inst.dest, inst.dest + 1);
+		regs_.MapFPR(inst.dest, MIPSMap::NOINIT);
+		regs_.MapFPR(inst.dest + 1, MIPSMap::NOINIT);
+		regs_.ReleaseSpillLockFPR(inst.dest, inst.dest + 1);
+		FMV(FMv::W, FMv::X, regs_.F(inst.dest), SCRATCH1);
+		SRLI(SCRATCH1, SCRATCH1, 32);
+		FMV(FMv::W, FMv::X, regs_.F(inst.dest + 1), SCRATCH1);
+		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 		break;
 
 	default:

@@ -907,6 +907,49 @@ void Jit::CallProtectedFunction(const void *func, const OpArg &arg1, const u32 a
 	ABI_CallFunctionAC(thunks.ProtectFunction(func, 2), arg1, arg2);
 }
 
+#if PPSSPP_ARCH(AMD64)
+void Jit::CallProtectedLeaf(const void *func) {
+	// The registers a call may clobber, apart from RAX and XMM0-1, which are scratch.
+#ifdef _WIN32
+	static const X64Reg callerSavedGPRs[] = { RCX, RDX, R8, R9, R10, R11 };
+	const int lastXMM = 5;
+	const int shadowSpace = 32;
+#else
+	static const X64Reg callerSavedGPRs[] = { RCX, RDX, R8, R9, R10, R11, RSI, RDI };
+	const int lastXMM = 15;
+	const int shadowSpace = 0;
+#endif
+	X64Reg xmms[16];
+	X64Reg gprs[ARRAY_SIZE(callerSavedGPRs)];
+	int numXMMs = 0, numGPRs = 0;
+	for (int i = 2; i <= lastXMM; i++) {
+		if (fpr.IsXRegInUse((X64Reg)(XMM0 + i)))
+			xmms[numXMMs++] = (X64Reg)(XMM0 + i);
+	}
+	for (X64Reg reg : callerSavedGPRs) {
+		if (gpr.IsXRegInUse(reg))
+			gprs[numGPRs++] = reg;
+	}
+
+	// The JIT runs with RSP 16-byte aligned, so this keeps it aligned for the call.
+	const int gprBase = shadowSpace + numXMMs * 16;
+	const int frameSize = (gprBase + numGPRs * 8 + 15) & ~15;
+	if (frameSize)
+		SUB(64, R(RSP), Imm32(frameSize));
+	for (int i = 0; i < numXMMs; i++)
+		MOVAPS(MDisp(RSP, shadowSpace + i * 16), xmms[i]);
+	for (int i = 0; i < numGPRs; i++)
+		MOV(64, MDisp(RSP, gprBase + i * 8), R(gprs[i]));
+	ABI_CallFunction(func);
+	for (int i = 0; i < numXMMs; i++)
+		MOVAPS(xmms[i], MDisp(RSP, shadowSpace + i * 16));
+	for (int i = 0; i < numGPRs; i++)
+		MOV(64, R(gprs[i]), MDisp(RSP, gprBase + i * 8));
+	if (frameSize)
+		ADD(64, R(RSP), Imm32(frameSize));
+}
+#endif
+
 void Jit::Comp_DoNothing(MIPSOpcode op) { }
 
 MIPSOpcode Jit::GetOriginalOp(MIPSOpcode op) {

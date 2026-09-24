@@ -52,6 +52,8 @@ inline int Xpose(int v) {
 extern float vfpu_sin(float);
 extern float vfpu_cos(float);
 extern void vfpu_sincos(float, float&, float&);
+// vfpu_sincos with the sine in the low 32 bits of the result and the cosine in the high, for the JITs.
+extern double vfpu_sincos_packed(float);
 
 extern float vfpu_asin(float);
 

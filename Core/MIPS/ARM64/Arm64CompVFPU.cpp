@@ -950,6 +950,16 @@ namespace MIPSComp {
 
 	// The VFPU special functions call the exact C versions. The lanes stay in S8-S11 across the
 	// calls (callee-saved), and the results are stored to the destinations' homes.
+	// After fpr.FlushBeforeCall(), a VFPU register is either still mapped (in S8-S15) or its value is
+	// in memory. Loads it into dest either way.
+	void Arm64Jit::LoadVAfterCallFlush(ARM64Reg dest, u8 vreg) {
+		if (fpr.IsMappedV(vreg)) {
+			fp.FMOV(dest, fpr.V(vreg));
+		} else {
+			fp.LDR(32, INDEX_UNSIGNED, dest, CTXREG, fpr.GetMipsRegOffsetV(vreg));
+		}
+	}
+
 	void Arm64Jit::CompVV2OpCall(MIPSOpcode op) {
 		if (js.HasSPrefix()) {
 			DISABLE;
@@ -978,23 +988,39 @@ namespace MIPSComp {
 		GetVectorRegs(sregs, sz, _VS);
 		GetVectorRegs(dregs, sz, _VD);
 
+		// Values in S8-S15 survive the calls, so only the rest is flushed.
 		gpr.FlushBeforeCall();
-		fpr.FlushAll();
+		fpr.FlushBeforeCall();
 
-		for (int i = 0; i < n; i++) {
-			fp.LDR(32, INDEX_UNSIGNED, (ARM64Reg)(S8 + i), CTXREG, fpr.GetMipsRegOffsetV(sregs[i]));
-		}
-		for (int i = 0; i < n; i++) {
-			fp.FMOV(S0, (ARM64Reg)(S8 + i));
+		if (n == 1) {
+			LoadVAfterCallFlush(S0, sregs[0]);
 			QuickCallFunction(SCRATCH2_64, func);
-			if (negate) {
-				fp.FNEG((ARM64Reg)(S8 + i), S0);
-			} else {
+		} else {
+			// The lanes wait in S8 and up between the calls, so free those too.
+			for (int i = 0; i < n; i++) {
+				fpr.FlushArmReg((ARM64Reg)(S8 + i));
+			}
+			for (int i = 0; i < n; i++) {
+				LoadVAfterCallFlush((ARM64Reg)(S8 + i), sregs[i]);
+			}
+			for (int i = 0; i < n; i++) {
+				fp.FMOV(S0, (ARM64Reg)(S8 + i));
+				QuickCallFunction(SCRATCH2_64, func);
 				fp.FMOV((ARM64Reg)(S8 + i), S0);
 			}
+			// Into S0-S3, which the cache never allocates, before mapping the destinations.
+			for (int i = 0; i < n; i++) {
+				fp.FMOV((ARM64Reg)(S0 + i), (ARM64Reg)(S8 + i));
+			}
 		}
+
 		for (int i = 0; i < n; i++) {
-			fp.STR(32, INDEX_UNSIGNED, (ARM64Reg)(S8 + i), CTXREG, fpr.GetMipsRegOffsetV(dregs[i]));
+			fpr.MapRegV(dregs[i], MAP_DIRTY | MAP_NOINIT);
+			if (negate) {
+				fp.FNEG(fpr.V(dregs[i]), (ARM64Reg)(S0 + i));
+			} else {
+				fp.FMOV(fpr.V(dregs[i]), (ARM64Reg)(S0 + i));
+			}
 		}
 
 		ApplyPrefixD(dregs, sz);
@@ -1065,20 +1091,28 @@ namespace MIPSComp {
 		GetVectorRegs(sregs, sz, _VS);
 		GetVectorRegs(dregs, outSz, _VD);
 
+		// The inputs wait in S8-S9 and the results in S10-S13 between the calls (callee-saved), so
+		// those are flushed along with the registers a call clobbers.
 		gpr.FlushBeforeCall();
-		fpr.FlushAll();
-
-		// The inputs stay in S8-S9 and the results in S10-S13 across the calls (callee-saved).
+		fpr.FlushBeforeCall();
+		for (int i = 0; i < 6; i++) {
+			fpr.FlushArmReg((ARM64Reg)(S8 + i));
+		}
 		for (int i = 0; i < nIn; i++) {
-			fp.LDR(32, INDEX_UNSIGNED, (ARM64Reg)(S8 + i), CTXREG, fpr.GetMipsRegOffsetV(sregs[i]));
+			LoadVAfterCallFlush((ARM64Reg)(S8 + i), sregs[i]);
 		}
 		for (int i = 0; i < nOut; i++) {
 			fp.FMOV(S0, (ARM64Reg)(S8 + i / 2));
 			QuickCallFunction(SCRATCH2_64, (i & 1) ? &vfpu_h2f_upper : &vfpu_h2f_lower);
 			fp.FMOV((ARM64Reg)(S10 + i), S0);
 		}
+		// Into S0-S3, which the cache never allocates, before mapping the destinations.
 		for (int i = 0; i < nOut; i++) {
-			fp.STR(32, INDEX_UNSIGNED, (ARM64Reg)(S10 + i), CTXREG, fpr.GetMipsRegOffsetV(dregs[i]));
+			fp.FMOV((ARM64Reg)(S0 + i), (ARM64Reg)(S10 + i));
+		}
+		for (int i = 0; i < nOut; i++) {
+			fpr.MapRegV(dregs[i], MAP_DIRTY | MAP_NOINIT);
+			fp.FMOV(fpr.V(dregs[i]), (ARM64Reg)(S0 + i));
 		}
 
 		ApplyPrefixD(dregs, outSz);
@@ -2197,18 +2231,28 @@ namespace MIPSComp {
 		if (vd2 >= 0)
 			GetVectorRegs(dregs2, sz, vd2);
 		GetVectorRegs(&sreg, V_Single, vs);
+		// With the angle in a destination lane, the cosine is taken of what was written there.
+		// The assembler refuses that, so leave it to the interpreter, and don't pair such a vrot.
+		for (int i = 0; i < n; i++) {
+			if (dregs[i] == sreg) {
+				DISABLE;
+			}
+			if (vd2 >= 0 && dregs2[i] == sreg) {
+				vd2 = -1;
+			}
+		}
 
 		int imm = (op >> 16) & 0x1f;
 
+		// Values in S8-S15 survive the call, so only the rest is flushed.
 		gpr.FlushBeforeCall();
-		fpr.FlushAll();
+		fpr.FlushBeforeCall();
 
 		// Don't need to SaveStaticRegs here as long as they are all in callee-save regs - this callee won't read them.
 
 		bool negSin1 = (imm & 0x10) ? true : false;
 
-		fpr.MapRegV(sreg);
-		fp.FMOV(S0, fpr.V(sreg));
+		LoadVAfterCallFlush(S0, sreg);
 		QuickCallFunction(SCRATCH2_64, negSin1 ? (void *)&SinCosNegSin : (void *)&SinCos);
 		// Here, sin and cos are stored together in Q0.d. On ARM32 we could use it directly
 		// but with ARM64's register organization, we need to split it up.

@@ -562,7 +562,7 @@ void LoongArch64JitBackend::CompIR_RoundingMode(IRInst inst) {
 void LoongArch64JitBackend::CompIR_FSpecial(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
-	auto callFuncF_F = [&](float (*func)(float)) {
+	auto callWithF0 = [&](const u8 *func) {
 		regs_.FlushBeforeCall();
 		WriteDebugProfilerStatus(IRProfilerStatus::MATH_HELPER);
 
@@ -579,6 +579,10 @@ void LoongArch64JitBackend::CompIR_FSpecial(IRInst inst) {
 			FLD_S(F0, CTXREG, offset);
 		}
 		QuickCallFunction(func, SCRATCH1);
+	};
+
+	auto callFuncF_F = [&](float (*func)(float)) {
+		callWithF0((const u8 *)func);
 
 		regs_.MapFPR(inst.dest, MIPSMap::NOINIT);
 		// If it's already F0, we're done - MapReg doesn't actually overwrite the reg in that case.
@@ -624,6 +628,20 @@ void LoongArch64JitBackend::CompIR_FSpecial(IRInst inst) {
 
 	case IROp::FHalfToFloat:
 		callFuncF_F(inst.src2 ? &vfpu_h2f_upper : &vfpu_h2f_lower);
+		break;
+
+	case IROp::FSinCos:
+		// The sine comes back in the low 32 bits of F0, the cosine in the high.
+		callWithF0((const u8 *)&vfpu_sincos_packed);
+		MOVFR2GR_S(SCRATCH1, F0);
+		MOVFRH2GR_S(SCRATCH2, F0);
+		regs_.SpillLockFPR(inst.dest, inst.dest + 1);
+		regs_.MapFPR(inst.dest, MIPSMap::NOINIT);
+		regs_.MapFPR(inst.dest + 1, MIPSMap::NOINIT);
+		regs_.ReleaseSpillLockFPR(inst.dest, inst.dest + 1);
+		MOVGR2FR_W(regs_.F(inst.dest), SCRATCH1);
+		MOVGR2FR_W(regs_.F(inst.dest + 1), SCRATCH2);
+		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 		break;
 
 	default:

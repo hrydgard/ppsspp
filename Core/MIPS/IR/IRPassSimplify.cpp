@@ -769,6 +769,7 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 		case IROp::FExp2:
 		case IROp::FLog2:
 		case IROp::FHalfToFloat:
+		case IROp::FSinCos:
 			out.Write(inst);
 			break;
 
