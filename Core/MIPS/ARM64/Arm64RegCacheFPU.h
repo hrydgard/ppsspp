@@ -127,6 +127,8 @@ public:
 	Arm64Gen::ARM64Reg V(int vreg) { return R(vreg + 32); }
 	 
 	void FlushAll();
+	// Flushes only the registers a call doesn't preserve. S8-S15 stay mapped.
+	void FlushBeforeCall();
 
 	// This one is allowed at any point.
 	void FlushV(MIPSReg r);

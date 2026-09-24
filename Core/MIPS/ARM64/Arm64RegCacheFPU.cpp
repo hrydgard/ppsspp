@@ -258,6 +258,15 @@ void Arm64RegCacheFPU::MapDirtyInInV(int vd, int vs, int vt, bool avoidLoad) {
 	ReleaseSpillLockV(vt);
 }
 
+void Arm64RegCacheFPU::FlushBeforeCall() {
+	// Only the bottom 64 bits of D8-D15 are callee-saved, which is all a single needs.
+	for (int i = 0; i < 32; i++) {
+		if (i < 8 || i > 15) {
+			FlushArmReg((ARM64Reg)(S0 + i));
+		}
+	}
+}
+
 void Arm64RegCacheFPU::FlushArmReg(ARM64Reg r) {
 	if (r >= S0 && r <= S31) {
 		int reg = r - S0;
