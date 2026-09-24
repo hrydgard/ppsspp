@@ -1955,8 +1955,9 @@ bool ApplyMemoryValidation(const IRWriter &in, IRWriter &out, const IROptions &o
 
 bool ReduceVec4Flush(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 	CONDITIONAL_DISABLE;
-	// Only do this when using a SIMD backend.
-	if (!opts.preferVec4) {
+	// Only do this when using a SIMD backend. The interpreter has no flushes to avoid, and would
+	// only get more instructions to dispatch.
+	if (!opts.preferVec4 || opts.optimizeForInterpreter) {
 		DISABLE;
 	}
 
