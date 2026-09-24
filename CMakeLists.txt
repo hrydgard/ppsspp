@@ -496,9 +496,6 @@ if(NOT MSVC)
 
 	add_compile_options(-fno-math-errno)
 
-	# No fused multiply-adds unless written explicitly, so float results are the same on every CPU.
-	add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:-ffp-contract=off>")
-
 	if(X86)
 		# enable sse2 code generation (enabled by default on X86_64)
 		if(NOT MACOSX)

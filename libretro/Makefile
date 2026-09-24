@@ -448,8 +448,7 @@ else
 endif
 
 ifeq (,$(findstring msvc,$(platform)))
-   # No fused multiply-adds unless written explicitly, so float results are the same on every CPU.
-   CXXFLAGS += -std=c++17 -ffp-contract=off
+   CXXFLAGS += -std=c++17
 else
    CXXFLAGS += -std:c++17
 endif
@@ -465,6 +464,12 @@ ifeq ($(GLEW_EGL),1)
 endif
 
 OBJECTS		+= $(SOURCES_CXX:.cpp=.o) $(SOURCES_C:.c=.o) $(ASMFILES:.S=.o)
+
+ifeq (,$(findstring msvc,$(platform)))
+# No fused multiply-adds in CPU emulation unless written explicitly, so its float results are the
+# same on every CPU. Elsewhere (the vertex decoder, say) they're fine.
+$(filter $(COREDIR)/MIPS/%,$(SOURCES_CXX:.cpp=.o)): CXXFLAGS += -ffp-contract=off
+endif
 CXXFLAGS    += $(CPUOPTS) $(COREFLAGS) $(FFMPEGINCFLAGS) $(INCFLAGS) $(INCFLAGS_PLATFORM) $(PLATCFLAGS) $(fpic) $(PLATCFLAGS) $(CPUFLAGS) $(GLFLAGS) $(DYNAFLAGS)
 CFLAGS		+= $(CPUOPTS) $(COREFLAGS) $(FFMPEGINCFLAGS) $(INCFLAGS) $(INCFLAGS_PLATFORM) $(PLATCFLAGS) $(fpic) $(PLATCFLAGS) $(CPUFLAGS) $(GLFLAGS) $(DYNAFLAGS)
 
