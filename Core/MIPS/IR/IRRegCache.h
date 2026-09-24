@@ -251,6 +251,8 @@ protected:
 	int GetMipsRegOffset(IRReg r);
 
 	bool IsRegClobbered(MIPSLoc type, IRReg r) const;
+	// At an exit, drops the temps nothing later in the block reads, so FlushAll doesn't store them.
+	void DiscardDeadTempsAtExit();
 	bool IsRegRead(MIPSLoc type, IRReg r) const;
 	IRUsage GetNextRegUsage(const IRSituation &info, MIPSLoc type, IRReg r) const;
 
