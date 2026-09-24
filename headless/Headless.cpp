@@ -50,6 +50,7 @@
 #include "Common/Thread/ThreadManager.h"
 #include "Common/GPU/Vulkan/VulkanGraphicsContext.h"
 #include "Core/CmdLine.h"
+#include "Common/Net/HTTPRequest.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/Core.h"
@@ -1184,6 +1185,9 @@ int main(int argc, const char* argv[]) {
 		DestroyHiddenWindow(window,	windowDesc);
 	}
 #endif
+
+	// A request finishing while globals are destroyed at exit touches g_OSD, which may be gone by then.
+	g_DownloadManager.CancelAll();
 
 	g_VFS.Clear();
 	g_logManager.Shutdown();

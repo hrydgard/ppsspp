@@ -1862,6 +1862,9 @@ void NativeShutdown() {
 
 	__UPnPShutdown();
 
+	// A request finishing while globals are destroyed at exit touches g_OSD, which may be gone by then.
+	g_DownloadManager.CancelAll();
+
 	net::Shutdown();
 
 	g_Discord.Shutdown();

@@ -660,6 +660,12 @@ void __NetApctlShutdown() {
 }
 
 void __NetShutdown() {
+	// A Netconf dialog may have started the json download. Don't leave it running past us.
+	if (g_infraDL) {
+		g_infraDL->Cancel();
+		g_infraDL.reset();
+	}
+
 	// Network Cleanup
 	Net_Term();
 

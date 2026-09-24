@@ -168,6 +168,11 @@ restart:
 }
 
 void RequestManager::CancelAll() {
+	// Including ones started since the last Update (headless never calls it).
+	for (auto &iter : newDownloads_) {
+		downloads_.push_back(iter);
+	}
+	newDownloads_.clear();
 	for (size_t i = 0; i < downloads_.size(); i++) {
 		downloads_[i]->Cancel();
 	}
