@@ -18,6 +18,7 @@
 #include "ppsspp_config.h"
 #if PPSSPP_ARCH(ARM64)
 
+#include <cfloat>
 #include <cmath>
 #include "Common/Arm64Emitter.h"
 #include "Common/CPUDetect.h"
@@ -784,10 +785,14 @@ namespace MIPSComp {
 					break;
 				}
 				case 6:  // vsge
-					DISABLE;  // pending testing
-					break;
 				case 7:  // vslt
-					DISABLE;  // pending testing
+					if (i == 0) {
+						fp.MOVI2F(S0, 1.0f, SCRATCH1);
+						fp.MOVI2F(S1, 0.0f, SCRATCH1);
+					}
+					// GE and MI are both false for unordered, so NaN gives 0 either way.
+					fp.FCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
+					fp.FCSEL(fpr.V(tempregs[i]), S0, S1, ((op >> 23) & 7) == 6 ? CC_GE : CC_MI);
 					break;
 				}
 				break;
@@ -1093,7 +1098,65 @@ namespace MIPSComp {
 	}
 
 	void Arm64Jit::Comp_Vf2i(MIPSOpcode op) {
-		DISABLE;
+		CONDITIONAL_DISABLE(VFPU_VEC);
+		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || (js.prefixD & 0xFF) != 0) {
+			DISABLE;
+		}
+		if (((op >> 21) & 0x1C) != 0x10) {
+			DISABLE;
+		}
+
+		// Vector float to integer, d[N] = int(s[N] * 2^imm) in the rounding mode from the opcode.
+		// FCVT saturates like the PSP, but gives 0 for NaN where the PSP gives 0x7FFFFFFF.
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+		const int imm = (op >> 16) & 0x1f;
+		static const RoundingMode modes[4] = { ROUND_N, ROUND_Z, ROUND_P, ROUND_M };
+		const RoundingMode rm = modes[(op >> 21) & 3];
+
+		u8 sregs[4], dregs[4];
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixD(dregs, sz, _VD);
+
+		MIPSReg tempregs[4];
+		for (int i = 0; i < n; ++i) {
+			if (!IsOverlapSafe(dregs[i], i, n, sregs)) {
+				tempregs[i] = fpr.GetTempV();
+			} else {
+				tempregs[i] = dregs[i];
+			}
+		}
+
+		// Invert 0x80000000 -> 0x7FFFFFFF for the NaN result.
+		fp.MVNI(32, EncodeRegToDouble(S1), 0x80, 24);
+		// Only the truncating conversion takes a scale, the others multiply first (exact).
+		if (imm != 0 && rm != ROUND_Z) {
+			fp.MOVI2F(S2, (float)(1UL << imm), SCRATCH1);
+		}
+
+		for (int i = 0; i < n; i++) {
+			fpr.MapDirtyInV(tempregs[i], sregs[i]);
+			fp.FCMP(fpr.V(sregs[i]), fpr.V(sregs[i]));
+			if (imm == 0) {
+				fp.FCVTS(fpr.V(tempregs[i]), fpr.V(sregs[i]), rm);
+			} else if (rm == ROUND_Z) {
+				fp.FCVTZS(fpr.V(tempregs[i]), fpr.V(sregs[i]), imm);
+			} else {
+				fp.FMUL(S0, fpr.V(sregs[i]), S2);
+				fp.FCVTS(fpr.V(tempregs[i]), S0, rm);
+			}
+			fp.FCSEL(fpr.V(tempregs[i]), fpr.V(tempregs[i]), S1, CC_VC);
+		}
+
+		for (int i = 0; i < n; ++i) {
+			if (dregs[i] != tempregs[i]) {
+				fpr.MapDirtyInV(dregs[i], tempregs[i]);
+				fp.FMOV(fpr.V(dregs[i]), fpr.V(tempregs[i]));
+			}
+		}
+
+		ApplyPrefixD(dregs, sz);
+		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
 	void Arm64Jit::Comp_Mftv(MIPSOpcode op) {
@@ -1724,9 +1787,6 @@ namespace MIPSComp {
 		// ES is just really equivalent to (value & 0x7F800000) == 0x7F800000.
 
 		switch (cond) {
-		case VC_EI: // c = my_isinf(s[i]); break;
-		case VC_NI: // c = !my_isinf(s[i]); break;
-			DISABLE;
 		case VC_ES: // c = my_isnan(s[i]) || my_isinf(s[i]); break;   // Tekken Dark Resurrection
 		case VC_NS: // c = !my_isnan(s[i]) && !my_isinf(s[i]); break;
 		case VC_EN: // c = my_isnan(s[i]); break;
@@ -1777,6 +1837,19 @@ namespace MIPSComp {
 				AND(SCRATCH2, SCRATCH2, SCRATCH1);
 				CMP(SCRATCH2, SCRATCH1);   // (SCRATCH2 & 0x7F800000) == 0x7F800000
 				flag = cond == VC_ES ? CC_EQ : CC_NEQ;
+				LDR(INDEX_UNSIGNED, SCRATCH1, CTXREG, offsetof(MIPSState, temp));
+				break;
+
+			case VC_EI: // c = my_isinf(s[i]); break;
+			case VC_NI: // c = !my_isinf(s[i]); break;
+				// |s| == inf, in the integer ALU like ES above.
+				STR(INDEX_UNSIGNED, SCRATCH1, CTXREG, offsetof(MIPSState, temp));
+				fpr.MapRegV(sregs[i], 0);
+				fp.FMOV(SCRATCH2, fpr.V(sregs[i]));
+				ANDI2R(SCRATCH2, SCRATCH2, 0x7FFFFFFF);
+				MOVI2R(SCRATCH1, 0x7F800000);
+				CMP(SCRATCH2, SCRATCH1);
+				flag = cond == VC_EI ? CC_EQ : CC_NEQ;
 				LDR(INDEX_UNSIGNED, SCRATCH1, CTXREG, offsetof(MIPSState, temp));
 				break;
 
@@ -2097,7 +2170,52 @@ namespace MIPSComp {
 	}
 
 	void Arm64Jit::Comp_Vsgn(MIPSOpcode op) {
-		DISABLE;
+		CONDITIONAL_DISABLE(VFPU_VEC);
+		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || js.HasTPrefix()) {
+			DISABLE;
+		}
+
+		// Vector extract sign: +1 or -1 with the sign of s, or 0 when s is zero or denormal. NaN
+		// keeps its sign bit, like the rest.
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+
+		u8 sregs[4], dregs[4];
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixD(dregs, sz, _VD);
+
+		MIPSReg tempregs[4];
+		for (int i = 0; i < n; ++i) {
+			if (!IsOverlapSafe(dregs[i], i, n, sregs)) {
+				tempregs[i] = fpr.GetTempV();
+			} else {
+				tempregs[i] = dregs[i];
+			}
+		}
+
+		fp.MOVI2F(S1, FLT_MIN, SCRATCH1);
+		fp.MOVI2F(S2, 0.0f, SCRATCH1);
+		for (int i = 0; i < n; i++) {
+			fpr.MapDirtyInV(tempregs[i], sregs[i]);
+			// MI (below the smallest normal) is false for NaN.
+			fp.FABS(S0, fpr.V(sregs[i]));
+			fp.FCMP(S0, S1);
+			fp.FMOV(SCRATCH1, fpr.V(sregs[i]));
+			ANDI2R(SCRATCH1, SCRATCH1, 0x80000000);
+			ORRI2R(SCRATCH1, SCRATCH1, 0x3F800000);
+			fp.FMOV(S3, SCRATCH1);
+			fp.FCSEL(fpr.V(tempregs[i]), S2, S3, CC_MI);
+		}
+
+		for (int i = 0; i < n; ++i) {
+			if (dregs[i] != tempregs[i]) {
+				fpr.MapDirtyInV(dregs[i], tempregs[i]);
+				fp.FMOV(fpr.V(dregs[i]), fpr.V(tempregs[i]));
+			}
+		}
+
+		ApplyPrefixD(dregs, sz);
+		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
 	void Arm64Jit::Comp_Vocp(MIPSOpcode op) {
