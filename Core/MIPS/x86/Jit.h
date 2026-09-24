@@ -246,6 +246,12 @@ private:
 	void CallProtectedFunction(const void *func, const Gen::OpArg &arg1, const Gen::OpArg &arg2);
 	void CallProtectedFunction(const void *func, const Gen::OpArg &arg1, const u32 arg2);
 	void CallProtectedFunction(const void *func, const u32 arg1, const u32 arg2);
+#if PPSSPP_ARCH(AMD64)
+	// A lighter CallProtectedFunction for a function that leaves MXCSR alone: saves only the
+	// caller-saved registers the caches are using. Set up the arguments first - the argument
+	// registers are never cached.
+	void CallProtectedLeaf(const void *func);
+#endif
 
 	template <typename Tr, typename T1>
 	void CallProtectedFunction(Tr (*func)(T1), const Gen::OpArg &arg1) {

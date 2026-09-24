@@ -2317,6 +2317,34 @@ void RExp2(SinCosArg arg, float *output) {
 	output[0] = vfpu_rexp2(arg);
 }
 
+#if PPSSPP_ARCH(AMD64)
+static float NegRcp(float x) {
+	return -vfpu_rcp(x);
+}
+
+static float NegSin(float x) {
+	return -vfpu_sin(x);
+}
+
+// The VV2Op math functions, called with CallProtectedLeaf. They take and return their float in XMM0.
+static float (*VV2OpMathFunc(int optype))(float) {
+	switch (optype) {
+	case 16: return &vfpu_rcp;
+	case 17: return &vfpu_rsqrt;
+	case 18: return &vfpu_sin;
+	case 19: return &vfpu_cos;
+	case 20: return &vfpu_exp2;
+	case 21: return &vfpu_log2;
+	case 22: return &vfpu_sqrt;
+	case 23: return &vfpu_asin;
+	case 24: return &NegRcp;
+	case 26: return &NegSin;
+	case 28: return &vfpu_rexp2;
+	default: return nullptr;
+	}
+}
+#endif
+
 void Jit::Comp_VV2Op(MIPSOpcode op) {
 	CONDITIONAL_DISABLE(VFPU_VEC);
 
@@ -2445,10 +2473,22 @@ void Jit::Comp_VV2Op(MIPSOpcode op) {
 		}
 	}
 
+#if PPSSPP_ARCH(AMD64)
+	float (*mathFunc)(float) = VV2OpMathFunc((op >> 16) & 0x1f);
+#endif
+
 	// Warning: sregs[i] and tempxregs[i] may be the same reg.
 	// Helps for vmov, hurts for vrcp, etc.
 	for (int i = 0; i < n; ++i)
 	{
+#if PPSSPP_ARCH(AMD64)
+		if (mathFunc) {
+			MOVSS(XMM0, fpr.V(sregs[i]));
+			CallProtectedLeaf((const void *)mathFunc);
+			MOVSS(tempxregs[i], R(XMM0));
+			continue;
+		}
+#endif
 		switch ((op >> 16) & 0x1f)
 		{
 		case 0: // d[i] = s[i]; break; //vmov
@@ -3725,9 +3765,6 @@ void Jit::Comp_VRot(MIPSOpcode op) {
 
 	int imm = (op >> 16) & 0x1f;
 
-	gpr.FlushBeforeCall();
-	fpr.Flush();
-
 	bool negSin1 = (imm & 0x10) ? true : false;
 
 #if PPSSPP_ARCH(AMD64)
@@ -3737,8 +3774,11 @@ void Jit::Comp_VRot(MIPSOpcode op) {
 	LEA(64, RDI, MIPSSTATE_VAR(sincostemp));
 #endif
 	MOVSS(XMM0, fpr.V(sreg));
-	ABI_CallFunction(negSin1 ? (const void *)&SinCosNegSin : (const void *)&SinCos);
+	CallProtectedLeaf(negSin1 ? (const void *)&SinCosNegSin : (const void *)&SinCos);
 #else
+	gpr.FlushBeforeCall();
+	fpr.Flush();
+
 	// Sigh, passing floats with cdecl isn't pretty, ends up on the stack.
 	ABI_CallFunctionAC(negSin1 ? (const void *)&SinCosNegSin : (const void *)&SinCos, fpr.V(sreg), (uintptr_t)mips_->sincostemp);
 #endif

@@ -119,6 +119,11 @@ public:
 	void GetState(GPRRegCacheState &state) const;
 	void RestoreState(const GPRRegCacheState& state);
 
+	// Whether the register holds something the cache cares about: a MIPS register or a locked temp.
+	bool IsXRegInUse(Gen::X64Reg reg) const {
+		return !xregs[reg].free || xregs[reg].allocLocked;
+	}
+
 	MIPSState *mips_ = nullptr;
 
 private:
