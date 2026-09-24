@@ -57,29 +57,25 @@ void RunOnMainQueue(dispatch_block_t block) {
 }
 
 - (BOOL)ensurePermission {
-	if (@available(macOS 10.14, *)) {
-		AVAuthorizationStatus status = [AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeVideo];
-		if (status == AVAuthorizationStatusAuthorized) {
-			return YES;
-		}
-
-		if (status == AVAuthorizationStatusNotDetermined) {
-			dispatch_semaphore_t sema = dispatch_semaphore_create(0);
-			[AVCaptureDevice requestAccessForMediaType:AVMediaTypeVideo completionHandler:^(BOOL granted) {
-				(void)granted;
-				dispatch_semaphore_signal(sema);
-			}];
-			dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
-			status = [AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeVideo];
-		}
-
-		if (status != AVAuthorizationStatusAuthorized) {
-			ERROR_LOG(Log::HLE, "Camera permission denied on macOS");
-			return NO;
-		}
+	AVAuthorizationStatus status = [AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeVideo];
+	if (status == AVAuthorizationStatusAuthorized) {
 		return YES;
 	}
-	// macOS < 10.14 does not require runtime permission checks.
+
+	if (status == AVAuthorizationStatusNotDetermined) {
+		dispatch_semaphore_t sema = dispatch_semaphore_create(0);
+		[AVCaptureDevice requestAccessForMediaType:AVMediaTypeVideo completionHandler:^(BOOL granted) {
+			(void)granted;
+			dispatch_semaphore_signal(sema);
+		}];
+		dispatch_semaphore_wait(sema, DISPATCH_TIME_FOREVER);
+		status = [AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeVideo];
+	}
+
+	if (status != AVAuthorizationStatusAuthorized) {
+		ERROR_LOG(Log::HLE, "Camera permission denied on macOS");
+		return NO;
+	}
 	return YES;
 }
 
