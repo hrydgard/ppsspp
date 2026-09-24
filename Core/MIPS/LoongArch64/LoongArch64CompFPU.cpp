@@ -593,17 +593,27 @@ void LoongArch64JitBackend::CompIR_FSpecial(IRInst inst) {
 		break;
 
 	case IROp::FRSqrt:
-		regs_.Map(inst);
-		FRSQRT_S(regs_.F(inst.dest), regs_.F(inst.src1));
+		callFuncF_F(&vfpu_rsqrt);
 		break;
 
 	case IROp::FRecip:
-		regs_.Map(inst);
-		FRECIP_S(regs_.F(inst.dest), regs_.F(inst.src1));
+		callFuncF_F(&vfpu_rcp);
 		break;
 
 	case IROp::FAsin:
 		callFuncF_F(&vfpu_asin);
+		break;
+
+	case IROp::FVSqrt:
+		callFuncF_F(&vfpu_sqrt);
+		break;
+
+	case IROp::FExp2:
+		callFuncF_F(&vfpu_exp2);
+		break;
+
+	case IROp::FLog2:
+		callFuncF_F(&vfpu_log2);
 		break;
 
 	default:

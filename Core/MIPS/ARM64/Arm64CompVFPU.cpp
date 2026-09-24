@@ -846,27 +846,21 @@ namespace MIPSComp {
 			return;
 		}
 
-		// Catch the disabled operations immediately so we don't map registers unnecessarily later.
-		// Move these down to the big switch below as they are implemented.
+		// The special functions call the exact C versions.
 		switch ((op >> 16) & 0x1f) {
-		case 18: // d[i] = sinf((float)M_PI_2 * s[i]); break; //vsin
-			DISABLE;
-			break;
-		case 19: // d[i] = cosf((float)M_PI_2 * s[i]); break; //vcos
-			DISABLE;
-			break;
-		case 20: // d[i] = powf(2.0f, s[i]); break; //vexp2
-			DISABLE;
-			break;
-		case 21: // d[i] = logf(s[i])/log(2.0f); break; //vlog2
-			DISABLE;
-			break;
-		case 26: // d[i] = -sinf((float)M_PI_2 * s[i]); break; // vnsin
-			DISABLE;
-			break;
-		case 28: // d[i] = 1.0f / expf(s[i] * (float)M_LOG2E); break; // vrexp2
-			DISABLE;
-			break;
+		case 16: // vrcp
+		case 17: // vrsq
+		case 18: // vsin
+		case 19: // vcos
+		case 20: // vexp2
+		case 21: // vlog2
+		case 22: // vsqrt
+		case 23: // vasin
+		case 24: // vnrcp
+		case 26: // vnsin
+		case 28: // vrexp2
+			CompVV2OpCall(op);
+			return;
 		default:
 			;
 		}
@@ -930,32 +924,6 @@ namespace MIPSComp {
 				fp.FMAX(fpr.V(tempregs[i]), fpr.V(tempregs[i]), S0);
 				fp.FMIN(fpr.V(tempregs[i]), fpr.V(tempregs[i]), S1);
 				break;
-			case 16: // d[i] = 1.0f / s[i]; break; //vrcp
-				if (i == 0) {
-					fp.MOVI2F(S0, 1.0f, SCRATCH1);
-				}
-				fp.FDIV(fpr.V(tempregs[i]), S0, fpr.V(sregs[i]));
-				break;
-			case 17: // d[i] = 1.0f / sqrtf(s[i]); break; //vrsq
-				if (i == 0) {
-					fp.MOVI2F(S0, 1.0f, SCRATCH1);
-				}
-				fp.FSQRT(S1, fpr.V(sregs[i]));
-				fp.FDIV(fpr.V(tempregs[i]), S0, S1);
-				break;
-			case 22: // d[i] = sqrtf(s[i]); break; //vsqrt
-				fp.FSQRT(fpr.V(tempregs[i]), fpr.V(sregs[i]));
-				fp.FABS(fpr.V(tempregs[i]), fpr.V(tempregs[i]));
-				break;
-			case 23: // d[i] = asinf(s[i] * (float)M_2_PI); break; //vasin
-				DISABLE;
-				break;
-			case 24: // d[i] = -1.0f / s[i]; break; // vnrcp
-				if (i == 0) {
-					fp.MOVI2F(S0, -1.0f, SCRATCH1);
-				}
-				fp.FDIV(fpr.V(tempregs[i]), S0, fpr.V(sregs[i]));
-				break;
 			default:
 				ERROR_LOG(Log::JIT, "case missing in vfpu vv2op");
 				DISABLE;
@@ -972,6 +940,59 @@ namespace MIPSComp {
 
 		ApplyPrefixD(dregs, sz);
 
+		fpr.ReleaseSpillLocksAndDiscardTemps();
+	}
+
+	// The VFPU special functions call the exact C versions. The lanes stay in S8-S11 across the
+	// calls (callee-saved), and the results are stored to the destinations' homes.
+	void Arm64Jit::CompVV2OpCall(MIPSOpcode op) {
+		if (js.HasSPrefix()) {
+			DISABLE;
+		}
+
+		const int optype = (op >> 16) & 0x1f;
+		// vnrcp and vnsin negate the result.
+		const bool negate = optype == 24 || optype == 26;
+		float (*func)(float) = nullptr;
+		switch (optype) {
+		case 16: case 24: func = &vfpu_rcp; break;
+		case 17: func = &vfpu_rsqrt; break;
+		case 18: case 26: func = &vfpu_sin; break;
+		case 19: func = &vfpu_cos; break;
+		case 20: func = &vfpu_exp2; break;
+		case 21: func = &vfpu_log2; break;
+		case 22: func = &vfpu_sqrt; break;
+		case 23: func = &vfpu_asin; break;
+		case 28: func = &vfpu_rexp2; break;
+		default: DISABLE;
+		}
+
+		VectorSize sz = GetVecSize(op);
+		int n = GetNumVectorElements(sz);
+		u8 sregs[4], dregs[4];
+		GetVectorRegs(sregs, sz, _VS);
+		GetVectorRegs(dregs, sz, _VD);
+
+		gpr.FlushBeforeCall();
+		fpr.FlushAll();
+
+		for (int i = 0; i < n; i++) {
+			fp.LDR(32, INDEX_UNSIGNED, (ARM64Reg)(S8 + i), CTXREG, fpr.GetMipsRegOffsetV(sregs[i]));
+		}
+		for (int i = 0; i < n; i++) {
+			fp.FMOV(S0, (ARM64Reg)(S8 + i));
+			QuickCallFunction(SCRATCH2_64, func);
+			if (negate) {
+				fp.FNEG((ARM64Reg)(S8 + i), S0);
+			} else {
+				fp.FMOV((ARM64Reg)(S8 + i), S0);
+			}
+		}
+		for (int i = 0; i < n; i++) {
+			fp.STR(32, INDEX_UNSIGNED, (ARM64Reg)(S8 + i), CTXREG, fpr.GetMipsRegOffsetV(dregs[i]));
+		}
+
+		ApplyPrefixD(dregs, sz);
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 

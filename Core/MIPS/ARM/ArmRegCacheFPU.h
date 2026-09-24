@@ -166,6 +166,9 @@ public:
 	void SetEmitter(ArmGen::ARMXEmitter *emitter) { emit_ = emitter; }
 
 	int GetMipsRegOffset(MIPSReg r);
+	int GetMipsRegOffsetV(MIPSReg r) {
+		return GetMipsRegOffset(r + 32);
+	}
 
 private:
 	bool Consecutive(int v1, int v2) const;
@@ -174,9 +177,6 @@ private:
 
 	MIPSReg GetTempR();
 	const ArmGen::ARMReg *GetMIPSAllocationOrder(int &count);
-	int GetMipsRegOffsetV(MIPSReg r) {
-		return GetMipsRegOffset(r + 32);
-	}
 	// This one WILL get a free quad as long as you haven't spill-locked them all.
 	int QGetFreeQuad(int start, int count, const char *reason);
 

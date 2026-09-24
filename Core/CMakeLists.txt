@@ -823,3 +823,11 @@ set_source_files_properties(${CMAKE_BINARY_DIR}/git-version.cpp
 	PROPERTIES GENERATED TRUE
 	SKIP_AUTOMOC ON)
 add_dependencies(Core GitVersion)
+
+# No fused multiply-adds in CPU emulation unless written explicitly, so its float results are the
+# same on every CPU. Elsewhere (the vertex decoder, say) they're fine. MSVC doesn't fuse by default.
+if(NOT MSVC)
+	get_target_property(CoreCPUSources Core SOURCES)
+	list(FILTER CoreCPUSources INCLUDE REGEX "^MIPS/")
+	set_source_files_properties(${CoreCPUSources} PROPERTIES COMPILE_OPTIONS "-ffp-contract=off")
+endif()

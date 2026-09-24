@@ -608,7 +608,6 @@ void RiscVJitBackend::CompIR_FSpecial(IRInst inst) {
 		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 	};
 
-	RiscVReg tempReg = INVALID_REG;
 	switch (inst.op) {
 	case IROp::FSin:
 		callFuncF_F(&vfpu_sin);
@@ -619,30 +618,27 @@ void RiscVJitBackend::CompIR_FSpecial(IRInst inst) {
 		break;
 
 	case IROp::FRSqrt:
-		tempReg = regs_.MapWithFPRTemp(inst);
-		FSQRT(32, regs_.F(inst.dest), regs_.F(inst.src1));
-
-		// Ugh, we can't really avoid a temp here.  Probably not worth a permanent one.
-		QuickFLI(32, tempReg, 1.0f, SCRATCH1);
-		FDIV(32, regs_.F(inst.dest), tempReg, regs_.F(inst.dest));
+		callFuncF_F(&vfpu_rsqrt);
 		break;
 
 	case IROp::FRecip:
-		if (inst.dest != inst.src1) {
-			// This is the easy case.
-			regs_.Map(inst);
-			LI(SCRATCH1, 1.0f);
-			FMV(FMv::W, FMv::X, regs_.F(inst.dest), SCRATCH1);
-			FDIV(32, regs_.F(inst.dest), regs_.F(inst.dest), regs_.F(inst.src1));
-		} else {
-			tempReg = regs_.MapWithFPRTemp(inst);
-			QuickFLI(32, tempReg, 1.0f, SCRATCH1);
-			FDIV(32, regs_.F(inst.dest), tempReg, regs_.F(inst.src1));
-		}
+		callFuncF_F(&vfpu_rcp);
 		break;
 
 	case IROp::FAsin:
 		callFuncF_F(&vfpu_asin);
+		break;
+
+	case IROp::FVSqrt:
+		callFuncF_F(&vfpu_sqrt);
+		break;
+
+	case IROp::FExp2:
+		callFuncF_F(&vfpu_exp2);
+		break;
+
+	case IROp::FLog2:
+		callFuncF_F(&vfpu_log2);
 		break;
 
 	default:

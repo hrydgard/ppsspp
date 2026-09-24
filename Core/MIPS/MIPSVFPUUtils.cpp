@@ -1044,7 +1044,7 @@ struct VFPUSegment {
 };
 
 // 1/x for x in [1, 2).
-static const VFPUSegment vfpu_rcp_segments[128] = {
+static constexpr VFPUSegment vfpu_rcp_segments[128] = {
 	{ 0x0FFFF02, -0x003F80C,  0x07F, 0x7E }, { 0x0FE0300, -0x003E86C,  0x07C, 0x7E },
 	{ 0x0FC0ECF, -0x003D924,  0x079, 0x7E }, { 0x0FA2241, -0x003CA38,  0x076, 0x7E },
 	{ 0x0F83D28, -0x003BBA0,  0x074, 0x7E }, { 0x0F65F5C, -0x003AD60,  0x071, 0x7E },
@@ -1112,7 +1112,7 @@ static const VFPUSegment vfpu_rcp_segments[128] = {
 };
 
 // 1/sqrt(x) for x in [1, 4), indexed by the bottom exponent bit and the top 22 mantissa bits.
-static const VFPUSegment vfpu_rsqrt_segments[128] = {
+static constexpr VFPUSegment vfpu_rsqrt_segments[128] = {
 	{ 0x0FFFE88, -0x003F428,  0x0BC, 0x7E }, { 0x0FE0482, -0x003DD10,  0x0B5, 0x7E },
 	{ 0x0FC1608, -0x003C6D4,  0x0AE, 0x7E }, { 0x0FA32AB, -0x003B16C,  0x0A7, 0x7E },
 	{ 0x0F859FE, -0x0039CCC,  0x0A2, 0x7E }, { 0x0F68BA4, -0x00388E8,  0x09C, 0x7E },
@@ -1180,7 +1180,7 @@ static const VFPUSegment vfpu_rsqrt_segments[128] = {
 };
 
 // sqrt(x) for x in [1, 4), indexed like rsqrt.
-static const VFPUSegment vfpu_sqrt_segments[128] = {
+static constexpr VFPUSegment vfpu_sqrt_segments[128] = {
 	{ 0x0800040,  0x001FE04, -0x020, 0x7F }, { 0x080FF40,  0x001FA1C, -0x01F, 0x7F },
 	{ 0x081FC4E,  0x001F648, -0x01F, 0x7F }, { 0x082F770,  0x001F290, -0x01E, 0x7F },
 	{ 0x083F0B5,  0x001EEE8, -0x01D, 0x7F }, { 0x084E828,  0x001EB54, -0x01D, 0x7F },
@@ -1570,17 +1570,10 @@ static inline bool vfpu_sin_reduce(uint32_t bits, uint32_t *angle, bool *odd) {
 	return true;
 }
 
-static inline float vfpu_sin_from_reduced(uint32_t angle, bool negate) {
-	if (angle > 0x00800000u) angle = 0x01000000u - angle;
-	return (negate ? -1.0f : +1.0f) * float(int32_t(vfpu_sin_fixed(angle))) * 3.7252903e-09f; // 0x1p-28f
-}
-
-static inline float vfpu_cos_from_reduced(uint32_t angle, bool negate) {
-	if (angle >= 0x00800000u) {
-		angle = 0x01000000u - angle;
-		negate = !negate;
-	}
-	return (negate ? -1.0f : +1.0f) * float(int32_t(vfpu_sin_fixed(0x00800000u - angle))) * 3.7252903e-09f; // 0x1p-28f
+static inline uint32_t vfpu_bits_from_float(float f) {
+	uint32_t bits;
+	memcpy(&bits, &f, sizeof(bits));
+	return bits;
 }
 
 static inline float vfpu_float_from_bits(uint32_t bits) {
@@ -1589,63 +1582,113 @@ static inline float vfpu_float_from_bits(uint32_t bits) {
 	return f;
 }
 
-float vfpu_sin(float x) {
-	uint32_t bits, angle;
+static inline int vfpu_clz64_nonzero(uint64_t v) {
+	return (v >> 32) != 0 ? (int)clz32_nonzero(uint32_t(v >> 32)) : 32 + (int)clz32_nonzero(uint32_t(v));
+}
+
+// Float bits of v * 2^-fracBits, with the sign bit set if negative (also for zero). v has to fit
+// in a float's significand, which every result here does, since the VFPU keeps 22 bits.
+static inline uint32_t vfpu_fixed_to_bits(uint64_t v, int fracBits, bool negative) {
+	const uint32_t sign = negative ? 0x80000000u : 0u;
+	if (v == 0)
+		return sign;
+	const int top = 63 - vfpu_clz64_nonzero(v);
+	const uint64_t significand = top <= 23 ? v << (23 - top) : v >> (top - 23);
+	return sign + (uint32_t(top - fracBits + 127) << 23) + (uint32_t(significand) & 0x007FFFFFu);
+}
+
+static inline uint32_t vfpu_sin_from_reduced(uint32_t angle, bool negate) {
+	if (angle > 0x00800000u) angle = 0x01000000u - angle;
+	return vfpu_fixed_to_bits(vfpu_sin_fixed(angle), 28, negate);
+}
+
+static inline uint32_t vfpu_cos_from_reduced(uint32_t angle, bool negate) {
+	if (angle >= 0x00800000u) {
+		angle = 0x01000000u - angle;
+		negate = !negate;
+	}
+	return vfpu_fixed_to_bits(vfpu_sin_fixed(0x00800000u - angle), 28, negate);
+}
+
+// These work on float bits throughout. A float made from a constant NaN bit pattern can come out
+// quieted (MSVC does this), and the VFPU's NaN is signaling.
+static uint32_t vfpu_sin_bits(uint32_t bits) {
+	uint32_t angle;
 	bool odd;
-	memcpy(&bits, &x, sizeof(bits));
 	if (!vfpu_sin_reduce(bits, &angle, &odd))
-		return vfpu_float_from_bits((bits & 0x80000000u) ^ 0x7F800001u);
+		return (bits & 0x80000000u) ^ 0x7F800001u;
 	return vfpu_sin_from_reduced(angle, (bits >> 31) != odd);
 }
 
-float vfpu_cos(float x) {
-	uint32_t bits, angle;
+static uint32_t vfpu_cos_bits(uint32_t bits) {
+	uint32_t angle;
 	bool odd;
-	memcpy(&bits, &x, sizeof(bits));
 	if (!vfpu_sin_reduce(bits, &angle, &odd))
-		return vfpu_float_from_bits(0x7F800001u);
+		return 0x7F800001u;
 	return vfpu_cos_from_reduced(angle, odd);
 }
 
-// Shares the argument reduction; the reduction ignores the sign bit.
+float vfpu_sin(float x) {
+	return vfpu_float_from_bits(vfpu_sin_bits(vfpu_bits_from_float(x)));
+}
+
+float vfpu_cos(float x) {
+	return vfpu_float_from_bits(vfpu_cos_bits(vfpu_bits_from_float(x)));
+}
+
+// Reduces the angle once for both.
 void vfpu_sincos(float a, float &s, float &c) {
-	uint32_t bits, angle;
+	const uint32_t bits = vfpu_bits_from_float(a);
+	uint32_t angle;
 	bool odd;
-	memcpy(&bits, &a, sizeof(bits));
+	uint32_t sinBits, cosBits;
 	if (!vfpu_sin_reduce(bits, &angle, &odd)) {
-		s = vfpu_float_from_bits((bits & 0x80000000u) ^ 0x7F800001u);
-		c = vfpu_float_from_bits(0x7F800001u);
-		return;
+		sinBits = (bits & 0x80000000u) ^ 0x7F800001u;
+		cosBits = 0x7F800001u;
+	} else {
+		sinBits = vfpu_sin_from_reduced(angle, (bits >> 31) != odd);
+		cosBits = vfpu_cos_from_reduced(angle, odd);
 	}
-	s = vfpu_sin_from_reduced(angle, (bits >> 31) != odd);
-	c = vfpu_cos_from_reduced(angle, odd);
+	s = vfpu_float_from_bits(sinBits);
+	c = vfpu_float_from_bits(cosBits);
+}
+
+// The tables for the fast paths (see VFPUFastSegment). bias moves the segment's binade to the
+// exponent the result's bits start from.
+static constexpr std::array<VFPUFastSegment, 128> vfpu_make_fast_table(const VFPUSegment (&segments)[128], int bias) {
+	std::array<VFPUFastSegment, 128> table{};
+	for (int i = 0; i < 128; i++) {
+		const VFPUSegment &seg = segments[i];
+		table[i] = { uint32_t(seg.c0) + (uint32_t(seg.e - 1 + bias) << 23), seg.m, seg.n, 0 };
+	}
+	return table;
+}
+
+const std::array<VFPUFastSegment, 128> vfpu_rcp_fast = vfpu_make_fast_table(vfpu_rcp_segments, 127);
+const std::array<VFPUFastSegment, 128> vfpu_rsqrt_fast = vfpu_make_fast_table(vfpu_rsqrt_segments, 64);
+const std::array<VFPUFastSegment, 128> vfpu_sqrt_fast = vfpu_make_fast_table(vfpu_sqrt_segments, -64);
+
+static inline uint32_t vfpu_fast_interp(const std::array<VFPUFastSegment, 128> &table, uint32_t w, uint32_t exponent) {
+	const VFPUFastSegment &seg = table[(w >> 16) & 0x7F];
+	const uint32_t x2 = w & 0xFFFF;
+	const uint32_t linear = uint32_t(((int64_t)seg.m * x2) >> 17);
+	const uint32_t square = uint32_t((seg.n * vfpu_square(x2)) >> 9);
+	return (seg.k + exponent + linear + square) & ~3u;
 }
 
 float vfpu_sqrt(float x) {
 	uint32_t bits;
 	memcpy(&bits, &x, sizeof(bits));
-	if((bits & 0x7FFFFFFFu) <= 0x007FFFFFu) {
-		// Denormals (and zeroes) get +0, regardless
-		// of sign.
-		return +0.0f;
+	if (vfpu_sqrt_is_fast(bits)) {
+		const uint32_t w = (bits + 0x00800000u) >> 1;
+		bits = vfpu_fast_interp(vfpu_sqrt_fast, w, w & 0x7F800000u);
+	} else if ((bits & 0x7FFFFFFFu) < 0x00800000u) {
+		// Zero and denormals give +0, whatever the sign.
+		bits = 0;
+	} else {
+		// Negatives and NaN give NaN, inf gives inf.
+		bits = bits == 0x7F800000u ? 0x7F800000u : 0x7F800001u;
 	}
-	if(bits >> 31) {
-		// Other negatives get NaN.
-		bits = 0x7F800001u;
-		memcpy(&x, &bits, sizeof(x));
-		return x;
-	}
-	if((bits >> 23) == 255u) {
-		// Inf/NaN gets Inf/NaN.
-		bits = 0x7F800000u + ((bits & 0x007FFFFFu) != 0u);
-		memcpy(&x, &bits, sizeof(bits));
-		return x;
-	}
-	int32_t exponent = int32_t(bits >> 23) - 127;
-	// Bottom bit of exponent (inverted) + significand (except bottom bit).
-	uint32_t index = ((bits + 0x00800000u) >> 1) & 0x007FFFFFu;
-	bits = vfpu_interp_bits(vfpu_sqrt_segments, index);
-	bits += uint32_t(exponent >> 1) << 23;
 	memcpy(&x, &bits, sizeof(bits));
 	return x;
 }
@@ -1653,29 +1696,16 @@ float vfpu_sqrt(float x) {
 float vfpu_rsqrt(float x) {
 	uint32_t bits;
 	memcpy(&bits, &x, sizeof(bits));
-	if((bits & 0x7FFFFFFFu) <= 0x007FFFFFu) {
-		// Denormals (and zeroes) get inf of the same sign.
-		bits = 0x7F800000u | (bits & 0x80000000u);
-		memcpy(&x, &bits, sizeof(x));
-		return x;
+	if (vfpu_sqrt_is_fast(bits)) {
+		const uint32_t w = (bits + 0x00800000u) >> 1;
+		bits = vfpu_fast_interp(vfpu_rsqrt_fast, w, 0u - (w & 0x7F800000u));
+	} else if ((bits & 0x7FFFFFFFu) < 0x00800000u) {
+		// Zero and denormals give inf of the same sign.
+		bits = (bits & 0x80000000u) | 0x7F800000u;
+	} else {
+		// Negatives give -NaN, NaN gives NaN and inf gives 0.
+		bits = (bits >> 31) ? 0xFF800001u : (bits > 0x7F800000u ? 0x7F800001u : 0u);
 	}
-	if(bits >> 31) {
-		// Other negatives get negative NaN.
-		bits = 0xFF800001u;
-		memcpy(&x, &bits, sizeof(x));
-		return x;
-	}
-	if((bits >> 23) == 255u) {
-		// inf gets 0, NaN gets NaN.
-		bits = ((bits & 0x007FFFFFu) ? 0x7F800001u : 0u);
-		memcpy(&x, &bits, sizeof(bits));
-		return x;
-	}
-	int32_t exponent = int32_t(bits >> 23) - 127;
-	// Bottom bit of exponent (inverted) + significand (except bottom bit).
-	uint32_t index = ((bits + 0x00800000u) >> 1) & 0x007FFFFFu;
-	bits = vfpu_interp_bits(vfpu_rsqrt_segments, index);
-	bits -= uint32_t(exponent >> 1) << 23;
 	memcpy(&x, &bits, sizeof(bits));
 	return x;
 }
@@ -1691,74 +1721,73 @@ static inline uint32_t vfpu_asin_fixed(uint32_t x) {
 }
 
 float vfpu_asin(float x) {
-	uint32_t bits;
-	memcpy(&bits, &x, sizeof(x));
-	uint32_t sign = bits & 0x80000000u;
-	bits = bits & 0x7FFFFFFFu;
-	if(bits > 0x3F800000u) {
-		bits = 0x7F800001u ^ sign;
-		memcpy(&x, &bits, sizeof(x));
-		return x;
+	const uint32_t bits = vfpu_bits_from_float(x);
+	const uint32_t sign = bits & 0x80000000u;
+	const uint32_t abs = bits & 0x7FFFFFFFu;
+	uint32_t result;
+	if (abs > 0x3F800000u) {
+		result = 0x7F800001u ^ sign;
+	} else {
+		// |x| * 2^23, truncated. Anything below 2^-23, denormals included, gives 0.
+		const int e = int(abs >> 23);
+		const uint32_t significand = (abs & 0x007FFFFFu) | 0x00800000u;
+		const uint32_t fixed = e < 104 ? 0 : significand >> (127 - e);
+		result = vfpu_fixed_to_bits(vfpu_asin_fixed(fixed), 30, sign != 0);
 	}
+	return vfpu_float_from_bits(result);
+}
 
-	bits = vfpu_asin_fixed(uint32_t(int32_t(fabsf(x) * 8388608.0f))); // 0x1p23
-	x=float(int32_t(bits)) * 9.31322574615478515625e-10f; // 0x1p-30
-	if(sign) x = -x;
-	return x;
+static uint32_t vfpu_exp2_bits(uint32_t bits) {
+	const uint32_t abs = bits & 0x7FFFFFFFu;
+	const bool negative = (bits >> 31) != 0;
+	if (abs <= 0x007FFFFFu) {
+		// Denormals are treated as 0.
+		return 0x3F800000u;
+	}
+	if (abs > 0x7F800000u) {
+		// NaN gets NaN.
+		return 0x7F800001u;
+	}
+	if (negative && abs >= 0x42FC0000u) {
+		// -126 and below get 0 (exp2(-126) is the smallest normal, but yes, -126 gives +0).
+		return 0;
+	}
+	if (!negative && abs >= 0x43000000u) {
+		// 128 and above get infinity.
+		return 0x7F800000u;
+	}
+	// x * 2^23 truncated toward zero, and one less for a negative x. Yes, really.
+	const int e = int(abs >> 23);
+	const uint32_t significand = (abs & 0x007FFFFFu) | 0x00800000u;
+	int32_t fixed = e >= 127 ? int32_t(significand << (e - 127)) : (e < 104 ? 0 : int32_t(significand >> (127 - e)));
+	if (negative)
+		fixed = -fixed - 1;
+	// The fraction's exp2 is in [1, 2), so its significand bits are the offset from 1.0.
+	const uint32_t frac = uint32_t(fixed) & 0x007FFFFFu;
+	const uint32_t significandBits = frac == 0 ? 0 : vfpu_interp_bits(vfpu_exp2_segments, frac) - 0x3F800000u;
+	return 0x3F800000u + (uint32_t(fixed) & 0xFF800000u) + significandBits;
 }
 
 float vfpu_exp2(float x) {
-	int32_t bits;
-	memcpy(&bits, &x, sizeof(bits));
-	if((bits & 0x7FFFFFFF) <= 0x007FFFFF) {
-		// Denormals are treated as 0.
-		return 1.0f;
-	}
-	if(x != x) {
-		// NaN gets NaN.
-		bits = 0x7F800001u;
-		memcpy(&x, &bits, sizeof(x));
-		return x;
-	}
-	if(x <= -126.0f) {
-		// Small numbers get 0 (exp2(-126) is smallest positive non-denormal).
-		// But yes, -126.0f produces +0.0f.
-		return 0.0f;
-	}
-	if(x >= +128.0f) {
-		// Large numbers get infinity.
-		bits = 0x7F800000u;
-		memcpy(&x, &bits, sizeof(x));
-		return x;
-	}
-	bits = int32_t(x * 0x1p23f);
-	if(x < 0.0f) --bits; // Yes, really.
-	// The fraction's exp2 is in [1, 2), so its significand bits are the offset from 1.0.
-	const uint32_t frac = bits & 0x007FFFFF;
-	const int32_t significand = frac == 0 ? 0 : int32_t(vfpu_interp_bits(vfpu_exp2_segments, frac) - 0x3F800000u);
-	bits = int32_t(0x3F800000) + (bits & int32_t(0xFF800000)) + significand;
-	memcpy(&x, &bits, sizeof(bits));
-	return x;
+	return vfpu_float_from_bits(vfpu_exp2_bits(vfpu_bits_from_float(x)));
 }
 
 float vfpu_rexp2(float x) {
-	return vfpu_exp2(-x);
+	return vfpu_float_from_bits(vfpu_exp2_bits(vfpu_bits_from_float(x) ^ 0x80000000u));
 }
 
-float vfpu_log2(float x) {
-	uint32_t bits;
-	memcpy(&bits, &x, sizeof(bits));
+static uint32_t vfpu_log2_bits(uint32_t bits) {
 	if ((bits & 0x7FFFFFFFu) <= 0x007FFFFFu) {
 		// Denormals (and zeroes) get -inf.
-		return vfpu_float_from_bits(0xFF800000u);
+		return 0xFF800000u;
 	}
 	if (bits & 0x80000000u) {
 		// Other negatives get NaN.
-		return vfpu_float_from_bits(0x7F800001u);
+		return 0x7F800001u;
 	}
 	if ((bits >> 23) == 255u) {
 		// NaN gets NaN, +inf gets +inf.
-		return vfpu_float_from_bits(0x7F800000u + ((bits & 0x007FFFFFu) != 0));
+		return 0x7F800000u + ((bits & 0x007FFFFFu) != 0);
 	}
 	// The result is exponent + log2(1.mantissa), truncated toward zero to 22 significant bits: a
 	// step of 2^-22 for exponents 0 and 1, twice that for each doubling of the exponent after that,
@@ -1779,28 +1808,25 @@ float vfpu_log2(float x) {
 	// In units of 2^-41.
 	const int64_t y = (int64_t(c0 + square) << 17) + m * x2;
 	const int64_t frac = exponent >= 0 ? (y & ~(step - 1)) : -(-y & ~(step - 1));
-	const float result = float(double(exponent) + double(frac) * 0x1p-41);
 	// A negative sum truncated to zero keeps its sign.
-	return exponent < 0 && result == 0.0f ? -0.0f : result;
+	const int64_t sum = (int64_t(exponent) << 41) + frac;
+	return vfpu_fixed_to_bits(uint64_t(sum < 0 ? -sum : sum), 41, exponent < 0);
+}
+
+float vfpu_log2(float x) {
+	return vfpu_float_from_bits(vfpu_log2_bits(vfpu_bits_from_float(x)));
 }
 
 float vfpu_rcp(float x) {
 	uint32_t bits;
 	memcpy(&bits, &x, sizeof(bits));
-	uint32_t s = bits & 0x80000000u;
-	uint32_t e = bits & 0x7F800000u;
-	uint32_t i = bits & 0x007FFFFFu;
-	if((bits & 0x7FFFFFFFu) > 0x7E800000u) {
-		bits = (e == 0x7F800000u && i ? s ^ 0x7F800001u : s);
-		memcpy(&x, &bits, sizeof(x));
-		return x;
+	if (vfpu_rcp_is_fast(bits)) {
+		bits = vfpu_fast_interp(vfpu_rcp_fast, bits, 0u - (bits & 0xFF800000u));
+	} else {
+		// Zero and denormals give inf, NaN gives NaN and the rest 0, all with the sign of x.
+		const uint32_t abs = bits & 0x7FFFFFFFu;
+		bits = (bits & 0x80000000u) ^ (abs < 0x00800000u ? 0x7F800000u : (abs > 0x7F800000u ? 0x7F800001u : 0u));
 	}
-	if(e==0u) {
-		bits = s^0x7F800000u;
-		memcpy(&x, &bits, sizeof(x));
-		return x;
-	}
-	bits = s + (0x3F800000u - e) + vfpu_interp_bits(vfpu_rcp_segments, i);
 	memcpy(&x, &bits, sizeof(x));
 	return x;
 }
