@@ -123,6 +123,8 @@ enum class UtilityDialogType {
 void __UtilityInit();
 void __UtilityDoState(PointerWrap &p);
 void __UtilityShutdown();
+// Before a savestate saves or loads memory: the savedata IO thread reads and writes it directly.
+void __UtilityWaitForIO();
 
 void UtilityDialogInitialize(UtilityDialogType type, int delayUs, int accessPriority, int graphicsPriority);
 void UtilityDialogShutdown(UtilityDialogType type, int delayUs, int accessPriority, int graphicsPriority);

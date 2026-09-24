@@ -626,6 +626,12 @@ void __UtilityDoState(PointerWrap &p) {
 	}
 }
 
+void __UtilityWaitForIO() {
+	if (saveDialog) {
+		saveDialog->WaitForIO();
+	}
+}
+
 void __UtilityShutdown() {
 	saveDialog->Shutdown(true);
 	msgDialog->Shutdown(true);
@@ -648,6 +654,7 @@ void __UtilityShutdown() {
 	lastSaveStateVersion = -1;
 
 	delete saveDialog;
+	saveDialog = nullptr;
 	delete msgDialog;
 	delete oskDialog;
 	delete netDialog;

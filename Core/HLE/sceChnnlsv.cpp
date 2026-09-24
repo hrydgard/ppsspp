@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <mutex>
+
 #include "Core/MemMapHelpers.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
@@ -28,6 +30,9 @@ KirkState *__ChnnlsvKirkState() {
 	return &g_kirk;
 }
 
+// The savedata IO thread uses these through the sceSd functions below, while the game can call them
+// (and the kirk ones) on the emulator thread.
+static std::mutex g_lock;
 static u8 dataBuf[2048+20];
 static u8 *dataBuf2 = dataBuf + 20;
 
@@ -226,6 +231,7 @@ static int sceSdGetLastIndex(u32 addressCtx, u32 addressHash, u32 addressKey) {
 
 int sceSdMacFinal(pspChnnlsvContext1& ctx, u8* in_hash, const u8* in_key)
 {
+	std::lock_guard<std::mutex> guard(g_lock);
 	if(ctx.keyLength >= 17)
 		return -1026;
 
@@ -352,6 +358,7 @@ static int sceSdRemoveValue(u32 addressCtx, u32 addressData, int length) {
 
 int sceSdMacUpdate(pspChnnlsvContext1& ctx, const u8* data, int length)
 {
+	std::lock_guard<std::mutex> guard(g_lock);
 	if(ctx.keyLength >= 17)
 		return -1026;
 
@@ -404,6 +411,7 @@ static int sceSdCreateList(u32 ctx2Addr, int mode, int unkwn, u32 dataAddr, u32 
 
 int sceSdCipherInit(pspChnnlsvContext2& ctx2, int mode, int uknw, u8* data, const u8* cryptkey)
 {
+	std::lock_guard<std::mutex> guard(g_lock);
 	ctx2.mode = mode;
 	ctx2.unkn = 1;
 	if (uknw == 2)
@@ -467,6 +475,7 @@ static int sceSdSetMember(u32 ctxAddr, u32 dataAddr, int alignedLen) {
 
 int sceSdCipherUpdate(pspChnnlsvContext2& ctx, u8* data, int alignedLen)
 {
+	std::lock_guard<std::mutex> guard(g_lock);
 	if (alignedLen == 0)
 	{
 		return 0;
@@ -538,6 +547,7 @@ void Register_sceChnnlsv()
 static u32 sceUtilsBufferCopyWithRange(u32 outAddr, int outSize, u32 inAddr, int inSize, int cmd) {
 	u8 *outAddress = Memory::IsValidRange(outAddr, outSize) ? Memory::GetPointerWriteUnchecked(outAddr) : nullptr;
 	u8 *inAddress = Memory::IsValidRange(inAddr, inSize) ? Memory::GetPointerWriteUnchecked(inAddr) : nullptr;
+	std::lock_guard<std::mutex> guard(g_lock);
 	int temp = kirk_sceUtilsBufferCopyWithRange(&g_kirk, outAddress, outSize, inAddress, inSize, cmd);
 	if (temp != 0) {
 		ERROR_LOG(Log::sceKernel, "hleUtilsBufferCopyWithRange: Failed with %d", temp);
@@ -549,6 +559,7 @@ static u32 sceUtilsBufferCopyWithRange(u32 outAddr, int outSize, u32 inAddr, int
 static int sceUtilsBufferCopyByPollingWithRange(u32 outAddr, int outSize, u32 inAddr, int inSize, int cmd) {
 	u8 *outAddress = Memory::IsValidRange(outAddr, outSize) ? Memory::GetPointerWriteUnchecked(outAddr) : nullptr;
 	u8 *inAddress = Memory::IsValidRange(inAddr, inSize) ? Memory::GetPointerWriteUnchecked(inAddr) : nullptr;
+	std::lock_guard<std::mutex> guard(g_lock);
 	return hleNoLog(kirk_sceUtilsBufferCopyWithRange(&g_kirk, outAddress, outSize, inAddress, inSize, cmd));
 }
 
