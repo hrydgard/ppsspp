@@ -273,6 +273,15 @@ u32 PSPDialog::CalcFadedColor(u32 inColor) const {
 	return (inColor & 0x00FFFFFF) | (alpha << 24);
 }
 
+void PSPDialog::ResetState() {
+	status = SCE_UTILITY_STATUS_NONE;
+	pendingStatus = SCE_UTILITY_STATUS_NONE;
+	pendingStatusTicks = 0;
+	volatileLocked_ = false;
+	isFading = false;
+	fadeValue = 0;
+}
+
 void PSPDialog::DoState(PointerWrap &p) {
 	auto s = p.Section("PSPDialog", 1, 3);
 	if (!s)

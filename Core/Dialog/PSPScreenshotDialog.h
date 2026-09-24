@@ -29,6 +29,7 @@ public:
 
 	int Init(u32 paramAddr);
 	int Update(int animSpeed) override;
+	int Shutdown(bool force = false) override;
 	int ContStart();
 	void DoState(PointerWrap &p) override;
 	pspUtilityDialogCommon *GetCommonParam() override;

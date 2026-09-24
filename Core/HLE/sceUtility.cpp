@@ -609,13 +609,21 @@ void __UtilityDoState(PointerWrap &p) {
 		lastSaveStateVersion = -1;
 	} else {
 		lastSaveStateVersion = s.Version();
+		if (p.mode == PointerWrap::MODE_READ) {
+			npSigninDialog->ResetState();
+		}
 	}
 
+	// Dialogs an older state doesn't have mustn't keep this session's state.
 	if (s >= 8) {
 		gameSharingDialog->DoState(p);
+	} else if (p.mode == PointerWrap::MODE_READ) {
+		gameSharingDialog->ResetState();
 	}
 	if (s >= 9) {
 		htmlViewerDialog->DoState(p);
+	} else if (p.mode == PointerWrap::MODE_READ) {
+		htmlViewerDialog->ResetState();
 	}
 
 	if (!hasAccessThread && accessThread) {
@@ -790,6 +798,9 @@ static int UtilityFinishDialog(int type) {
 static int sceUtilitySavedataInitStart(u32 paramAddr) {
 	if (UtilityDialogBusy() && currentDialogType != UtilityDialogType::SAVEDATA && PSP_CoreParameter().compat.flags().YugiohSaveFix) {
 		WARN_LOG_REPORT(Log::sceUtility, "Yugioh Savedata Correction (state=%d)", lastSaveStateVersion);
+		PSPDialog *other = CurrentDialog(currentDialogType);
+		// Its own lock first, so the unlock below only takes one its thread held.
+		other->FinishVolatile();
 		if (accessThread) {
 			accessThread->Terminate();
 			delete accessThread;
@@ -799,7 +810,7 @@ static int sceUtilitySavedataInitStart(u32 paramAddr) {
 			// Try to unlock in case other dialog was shutting down.
 			KernelVolatileMemUnlock(0);
 		}
-		CurrentDialog(currentDialogType)->Shutdown(true);
+		other->Shutdown(true);
 	}
 
 	return hleLogDebug(Log::sceUtility, UtilityInitStart(UtilityDialogType::SAVEDATA, saveDialog, paramAddr));

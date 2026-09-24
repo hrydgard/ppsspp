@@ -35,6 +35,7 @@ public:
 	int Update(int animSpeed) override;
 	int Shutdown(bool force = false) override;
 	void DoState(PointerWrap &p) override;
+	void ResetState() override;
 	pspUtilityDialogCommon *GetCommonParam() override;
 
 	// Until one has started, all the HtmlViewer calls return WRONG_TYPE.

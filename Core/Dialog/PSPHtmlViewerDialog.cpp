@@ -191,6 +191,14 @@ int PSPHtmlViewerDialog::Shutdown(bool force) {
 	return 0;
 }
 
+void PSPHtmlViewerDialog::ResetState() {
+	PSPDialog::ResetState();
+	// The block belonged to this session's memory, not the loaded one.
+	workMemory_ = 0;
+	started_ = false;
+	params_ = 0;
+}
+
 void PSPHtmlViewerDialog::DoState(PointerWrap &p) {
 	PSPDialog::DoState(p);
 

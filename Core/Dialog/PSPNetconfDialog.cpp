@@ -344,7 +344,8 @@ int PSPNetconfDialog::Update(int animSpeed) {
 		EndDraw();
 	}
 
-	if (ReadStatus() == SCE_UTILITY_STATUS_FINISHED || pendingStatus == SCE_UTILITY_STATUS_FINISHED)
+	const bool finished = ReadStatus() == SCE_UTILITY_STATUS_FINISHED || pendingStatus == SCE_UTILITY_STATUS_FINISHED;
+	if (finished && Memory::IsValidAddress(requestAddr))
 		Memory::Memcpy(requestAddr, &request, std::min((u32)request.common.size, (u32)sizeof(request)), "NetConfDialogParam");
 
 	return 0;
@@ -365,7 +366,7 @@ int PSPNetconfDialog::Shutdown(bool force) {
 void PSPNetconfDialog::DoState(PointerWrap &p) {	
 	PSPDialog::DoState(p);
 
-	auto s = p.Section("PSPNetconfigDialog", 0, 2);
+	auto s = p.Section("PSPNetconfigDialog", 0, 3);
 	if (!s)
 		return;
 
@@ -380,9 +381,22 @@ void PSPNetconfDialog::DoState(PointerWrap &p) {
 		scanStep = 0;
 		connResult = -1;
 	}
+	if (s >= 3) {
+		Do(p, requestAddr);
+		Do(p, showNoWlanNotice_);
+	} else if (p.mode == p.MODE_READ) {
+		// requestAddr is kept: most likely the same address in the same game.
+		showNoWlanNotice_ = !g_Config.bEnableWlan;
+	}
 
 	if (p.mode == p.MODE_READ) {
-		startTime = 0;
+		// The connect timeout starts over. The DNS config the json gave isn't in the state, so get
+		// it again (it's cached).
+		startTime = (u64)(time_now_d() * 1000000.0);
+		jsonReady_ = false;
+		if (ReadStatus() != SCE_UTILITY_STATUS_NONE) {
+			StartInfraJsonDownload();
+		}
 	}
 }
 

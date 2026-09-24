@@ -81,6 +81,9 @@ int PSPScreenshotDialog::Init(u32 paramAddr) {
 }
 
 int PSPScreenshotDialog::Update(int animSpeed) {
+	if (ReadStatus() == SCE_UTILITY_STATUS_NONE) {
+		return SCE_ERROR_UTILITY_INVALID_STATUS;
+	}
 	UpdateCommon();
 	if (UseAutoStatus()) {
 		if (ReadStatus() == SCE_UTILITY_STATUS_INITIALIZE) {
@@ -96,6 +99,14 @@ int PSPScreenshotDialog::Update(int animSpeed) {
 		}
 	}
 	return 0;
+}
+
+int PSPScreenshotDialog::Shutdown(bool force) {
+	// TODO: Only from FINISHED, like the other dialogs? Update moves on to SHUTDOWN by itself here.
+	if (!force && ReadStatus() == SCE_UTILITY_STATUS_NONE) {
+		return SCE_ERROR_UTILITY_INVALID_STATUS;
+	}
+	return PSPDialog::Shutdown(force);
 }
 
 int PSPScreenshotDialog::ContStart() {

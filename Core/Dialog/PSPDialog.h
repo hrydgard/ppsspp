@@ -51,6 +51,9 @@ public:
 	virtual int Update(int animSpeed) = 0;
 	virtual int Shutdown(bool force = false);
 	virtual void DoState(PointerWrap &p);
+	// For loading a state that doesn't have this dialog: back to NONE, without anything Shutdown does
+	// on the way (writing results, releasing volatile memory), which would hit the loaded state.
+	virtual void ResetState();
 	virtual pspUtilityDialogCommon *GetCommonParam() {
 		// This is returned properly by the derived classes (or should be...).
 		return nullptr;

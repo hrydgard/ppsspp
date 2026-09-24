@@ -185,16 +185,20 @@ int PSPNpSigninDialog::Shutdown(bool force) {
 void PSPNpSigninDialog::DoState(PointerWrap &p) {
 	PSPDialog::DoState(p);
 
-	auto s = p.Section("PSPNpSigninDialog", 1, 1);
+	auto s = p.Section("PSPNpSigninDialog", 1, 2);
 	if (!s)
 		return;
 
 	Do(p, request);
 	Do(p, step);
 	//Do(p, npSigninResult);
+	// Older states keep this session's requestAddr: most likely the same address in the same game.
+	if (s >= 2) {
+		Do(p, requestAddr);
+	}
 
 	if (p.mode == p.MODE_READ) {
-		startTime = 0;
+		startTime = (u64)(time_now_d() * 1000000.0);
 	}
 }
 
