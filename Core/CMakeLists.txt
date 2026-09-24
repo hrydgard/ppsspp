@@ -361,6 +361,8 @@ add_library(Core STATIC
 	Dialog/PSPOskDialog.h
 	Dialog/PSPOskConstants.cpp
 	Dialog/PSPOskConstants.h
+	Dialog/PSPPlaceholderDialog.cpp
+	Dialog/PSPPlaceholderDialog.h
 	Dialog/PSPSaveDialog.cpp
 	Dialog/PSPSaveDialog.h
 	Dialog/PSPScreenshotDialog.cpp

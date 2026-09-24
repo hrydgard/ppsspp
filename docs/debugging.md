@@ -68,6 +68,13 @@ A working invocation, and the traps around it:
 - **Prefer `--debugger=0` and scrape `Listening on port N` from that run's own log** over hardcoding a port. Also
   `taskkill //F //IM PPSSPPHeadless.exe` between runs for hygiene (Git Bash here has no `pkill`) - leftover
   instances are easy to accumulate when a script leaves the CPU stopped at a breakpoint.
+- **On Linux, kill leftovers with `pkill -x PPSSPPHeadless`, never `pkill -f PPSSPPHeadless`.** `-f` matches full
+  command lines, and the shell running your `pkill` has "PPSSPPHeadless" in its own command line, so it kills
+  itself (exit 144) and the emulator instances you meant to clear survive into the next run.
+- **Attaching gdb to a running instance fails under WSL/Ubuntu** (`ptrace_scope`: "Could not attach to process"),
+  so a hang has to be caught by starting the run under gdb. Interrupting a batch-mode gdb from another shell with
+  `pkill -INT` never got as far as the backtrace in the 2026-09-22 attempts. Before reaching for gdb, first rule out
+  the cheap explanations below (backend, flags) by diffing a good and a bad command line.
 
   Some history, because it silently produced a round of bogus results before it was fixed: `Common/Net/HTTPServer.cpp`
   used to set `SO_REUSEADDR`, which on Winsock means "allow binding a port someone else is already listening on"
@@ -170,6 +177,29 @@ produced a round of bogus results here:
 
 The last three compound: the fix is to treat the run's exit code and a positive "we got here" counter as
 preconditions, and only then believe the error counts.
+
+**If headless goes silent early in a game's boot, check which GPU backend it's actually using.** From
+551e4cd0ab (2026-08-04) until 2026-09-22, headless without `--graphics` quietly ran the OpenGL backend instead of
+the software renderer the README promises (`bSoftwareRendering` defaulted to false). Under Mesa llvmpipe on
+Linux/WSL, OpenGL hung every commercial game tried early in boot, e.g. AI Go right after its
+`sceKernelCreateCallback`, with no CPU use. Neither `--timeout-wall` nor `--timeout-emulated` fired, because both
+are checked only when the emulation loop comes back around, so a blocked host thread defeats them. `test.py`
+passes no `--graphics` either, so it stalled the same way. The default is software again; the OpenGL hang itself
+isn't fixed.
+
+That cost a lot of time because the first theories were confounded. Runs "worked in the background and hung in
+the foreground" only because the background ones happened to have `--graphics=software` added. Change one variable
+at a time, and diff the full command lines of a good and a bad run before theorising about the environment. If a
+run is still silent a few seconds in, it isn't going to recover, so don't wait out the full timeout. Other things
+that made it worse:
+
+- `docs/debugging.md` wasn't read first, so the `timeout`-wrapper and full-`--log` warnings above were missed.
+- The runs were wrapped in `timeout`, and a tool-call limit shorter than that sent them to the background. The
+  follow-up `pkill -f` then killed its own shell rather than the emulators, so hung instances piled up across runs.
+- `--memstick` was blamed first. It matters for LLE firmware modules, but a game that needs none (AI Go) stalled
+  just the same without it.
+- Pass `--graphics=software` whenever rendering doesn't matter, even though it's the default, so a copied
+  command line doesn't depend on the default.
 
 For the silent-fallback half of this, headless refuses the run rather than substituting: an explicit
 `--disable-hle=` whose firmware module isn't there names the module, prints the `flash0:/kd` and memory stick

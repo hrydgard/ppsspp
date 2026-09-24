@@ -423,6 +423,7 @@ tests_good = [
   "utility/msgdialog/abort",
   "utility/savedata/autosave",
   "utility/savedata/filelist",
+  "utility/savedata/getsize",
   "utility/savedata/makedata",
   "utility/systemparam/systemparam",
   "umd/callbacks/umd",
@@ -582,7 +583,6 @@ tests_next = [
   "umd/raw_access/raw_access",
   "umd/wait/wait",
   "utility/msgdialog/dialog",
-  "utility/savedata/getsize",
   "utility/savedata/idlist",
   # These tests appear to be broken and just hang.
   #"utility/savedata/deletebroken",

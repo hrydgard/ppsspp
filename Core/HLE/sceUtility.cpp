@@ -326,6 +326,7 @@ static PSPNetconfDialog *netDialog;
 static PSPScreenshotDialog *screenshotDialog;
 static PSPGamedataInstallDialog *gamedataInstallDialog;
 static PSPNpSigninDialog *npSigninDialog;
+static PSPPlaceholderDialog *gameSharingDialog;
 
 // A lot of state seems to be shared between the various dialog types.
 static int oldStatus = -1;
@@ -389,7 +390,7 @@ static PSPDialog *CurrentDialog(UtilityDialogType type) {
 	case UtilityDialogType::SCREENSHOT:
 		return screenshotDialog;
 	case UtilityDialogType::GAMESHARING:
-		break;
+		return gameSharingDialog;
 	case UtilityDialogType::GAMEDATAINSTALL:
 		return gamedataInstallDialog;
 	case UtilityDialogType::NPSIGNIN:
@@ -481,6 +482,7 @@ void __UtilityInit() {
 	screenshotDialog = new PSPScreenshotDialog(UtilityDialogType::SCREENSHOT);
 	gamedataInstallDialog = new PSPGamedataInstallDialog(UtilityDialogType::GAMEDATAINSTALL);
 	npSigninDialog = new PSPNpSigninDialog(UtilityDialogType::NPSIGNIN);
+	gameSharingDialog = new PSPPlaceholderDialog(UtilityDialogType::GAMESHARING);
 
 	currentDialogType = UtilityDialogType::NONE;
 	DeactivateDialog();
@@ -493,7 +495,7 @@ void __UtilityInit() {
 }
 
 void __UtilityDoState(PointerWrap &p) {
-	auto s = p.Section("sceUtility", 1, 7);
+	auto s = p.Section("sceUtility", 1, 8);
 	if (!s) {
 		return;
 	}
@@ -564,6 +566,10 @@ void __UtilityDoState(PointerWrap &p) {
 		lastSaveStateVersion = s.Version();
 	}
 
+	if (s >= 8) {
+		gameSharingDialog->DoState(p);
+	}
+
 	if (!hasAccessThread && accessThread) {
 		accessThread->Forget();
 		delete accessThread;
@@ -580,6 +586,7 @@ void __UtilityShutdown() {
 	screenshotDialog->Shutdown(true);
 	gamedataInstallDialog->Shutdown(true);
 	npSigninDialog->Shutdown(true);
+	gameSharingDialog->Shutdown(true);
 
 	if (accessThread) {
 		// Don't need to free it during shutdown, may have already been freed.
@@ -598,10 +605,24 @@ void __UtilityShutdown() {
 	delete screenshotDialog;
 	delete gamedataInstallDialog;
 	delete npSigninDialog;
+	delete gameSharingDialog;
 }
 
-void UtilityDialogInitialize(UtilityDialogType type, int delayUs, int priority) {
+// On a PSP, dialog init and shutdown happen partly at the accessThread priority and partly at the
+// graphicsThread priority, one phase after the other. One helper thread that switches priority per
+// phase reproduces who gets to run when - e.g. a game thread with worse priority than both doesn't
+// run again until the dialog has finished starting up or shutting down.
+static bool ValidThreadPriority(int priority) {
+	return priority >= 0x08 && priority <= 0x77;
+}
+
+static int PhasePriority(int priority, int fallback) {
+	return ValidThreadPriority(priority) ? priority : fallback;
+}
+
+void UtilityDialogInitialize(UtilityDialogType type, int delayUs, int accessPriority, int graphicsPriority) {
 	int partDelay = delayUs / 4;
+	const int dialogPriority = PhasePriority(graphicsPriority, accessPriority);
 	const u32_le insts[] = {
 		// Make sure we don't discard/deadbeef a0.
 		(u32_le)MIPS_MAKE_ORI(MIPS_REG_S0, MIPS_REG_A0, 0),
@@ -611,12 +632,18 @@ void UtilityDialogInitialize(UtilityDialogType type, int delayUs, int priority) 
 		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A2, MIPS_REG_ZERO, 0),
 		(u32_le)MIPS_MAKE_SYSCALL("sceSuspendForUser", "sceKernelVolatileMemLock"),
 
+		// Loading, at accessThread priority.
 		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_S0, 0),
 		(u32_le)MIPS_MAKE_SYSCALL("sceUtility", "__UtilityWorkUs"),
 		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_S0, 0),
 		(u32_le)MIPS_MAKE_SYSCALL("sceUtility", "__UtilityWorkUs"),
 		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_S0, 0),
 		(u32_le)MIPS_MAKE_SYSCALL("sceUtility", "__UtilityWorkUs"),
+
+		// Setting up the dialog, at graphicsThread priority, then the status goes to RUNNING.
+		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_ZERO, 0),
+		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A1, MIPS_REG_ZERO, dialogPriority),
+		(u32_le)MIPS_MAKE_SYSCALL("ThreadManForUser", "sceKernelChangeThreadPriority"),
 		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_S0, 0),
 		(u32_le)MIPS_MAKE_SYSCALL("sceUtility", "__UtilityWorkUs"),
 
@@ -626,22 +653,34 @@ void UtilityDialogInitialize(UtilityDialogType type, int delayUs, int priority) 
 	};
 
 	CleanupDialogThreads(true);
-	accessThread = new HLEHelperThread("ScePafJob", insts, (uint32_t)ARRAY_SIZE(insts), priority, 0x200);
+	accessThread = new HLEHelperThread("ScePafJob", insts, (uint32_t)ARRAY_SIZE(insts), accessPriority, 0x200);
 	accessThread->Start(partDelay, 0);
 	accessThreadFinished = false;
 	accessThreadState = "initializing";
 }
 
-void UtilityDialogShutdown(UtilityDialogType type, int delayUs, int priority) {
+void UtilityDialogShutdown(UtilityDialogType type, int delayUs, int accessPriority, int graphicsPriority) {
 	// Break it up so better-priority rescheduling happens.
 	// The windows aren't this regular, but close.
 	int partDelay = delayUs / 4;
+	const int dialogPriority = PhasePriority(graphicsPriority, accessPriority);
 	const u32_le insts[] = {
 		// Make sure we don't discard/deadbeef 'em.
 		(u32_le)MIPS_MAKE_ORI(MIPS_REG_S0, MIPS_REG_A0, 0),
+
+		// Tearing down the dialog, at graphicsThread priority.
+		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_ZERO, 0),
+		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A1, MIPS_REG_ZERO, dialogPriority),
+		(u32_le)MIPS_MAKE_SYSCALL("ThreadManForUser", "sceKernelChangeThreadPriority"),
+		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_S0, 0),
 		(u32_le)MIPS_MAKE_SYSCALL("sceUtility", "__UtilityWorkUs"),
 		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_S0, 0),
 		(u32_le)MIPS_MAKE_SYSCALL("sceUtility", "__UtilityWorkUs"),
+
+		// Cleaning up at accessThread priority, then the status goes to NONE.
+		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_ZERO, 0),
+		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A1, MIPS_REG_ZERO, accessPriority),
+		(u32_le)MIPS_MAKE_SYSCALL("ThreadManForUser", "sceKernelChangeThreadPriority"),
 		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_S0, 0),
 		(u32_le)MIPS_MAKE_SYSCALL("sceUtility", "__UtilityWorkUs"),
 		(u32_le)MIPS_MAKE_ORI(MIPS_REG_A0, MIPS_REG_S0, 0),
@@ -652,15 +691,13 @@ void UtilityDialogShutdown(UtilityDialogType type, int delayUs, int priority) {
 		(u32_le)MIPS_MAKE_SYSCALL("sceUtility", "__UtilityFinishDialog"),
 	};
 
+	// Starting the thread reschedules normally, so a caller with worse priority than both phases sees
+	// NONE by the time ShutdownStart returns.
 	CleanupDialogThreads(true);
-	bool prevInterrupts = __InterruptsEnabled();
-	__DisableInterrupts();
-	accessThread = new HLEHelperThread("ScePafJob", insts, (uint32_t)ARRAY_SIZE(insts), priority, 0x200);
+	accessThread = new HLEHelperThread("ScePafJob", insts, (uint32_t)ARRAY_SIZE(insts), accessPriority, 0x200);
 	accessThread->Start(partDelay, 0);
 	accessThreadFinished = false;
 	accessThreadState = "shutting down";
-	if (prevInterrupts)
-		__EnableInterrupts();
 }
 
 static int UtilityWorkUs(int us) {
@@ -1603,40 +1640,47 @@ static int sceUtilityStoreCheckoutGetStatus() {
 	return hleLogError(Log::sceUtility, 0, "UNIMPL");
 }
 
+// We don't implement game sharing: a placeholder dialog runs the normal lifecycle and reports that
+// the user cancelled. Outside it, WRONG_TYPE is the normal answer (a PSP gives it for any type
+// other than the last one started), and games like Sega Rally poll GetStatus every frame.
 static int sceUtilityGameSharingShutdownStart() {
 	if (currentDialogType != UtilityDialogType::GAMESHARING) {
-		return hleLogWarning(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
+		return hleLogDebug(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 
 	DeactivateDialog();
-	return hleLogError(Log::sceUtility, 0, "UNIMPL");
+	return hleLogDebug(Log::sceUtility, gameSharingDialog->Shutdown());
 }
 
 static int sceUtilityGameSharingInitStart(u32 paramsPtr) {
 	if (currentDialogActive && currentDialogType != UtilityDialogType::GAMESHARING) {
-		return hleLogWarning(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE);
+		return hleLogWarning(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 
 	ActivateDialog(UtilityDialogType::GAMESHARING);
-	ERROR_LOG_REPORT(Log::sceUtility, "UNIMPL sceUtilityGameSharingInitStart(%08x)", paramsPtr);
-	return hleNoLog(0);
+	return hleLogWarning(Log::sceUtility, gameSharingDialog->Init(paramsPtr), "not implemented, will report cancelled");
 }
 
 static int sceUtilityGameSharingUpdate(int animSpeed) {
 	if (currentDialogType != UtilityDialogType::GAMESHARING) {
-		return hleLogWarning(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
+		return hleLogDebug(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 
-	return hleLogError(Log::sceUtility, 0, "UNIMPL");
+	return hleLogDebug(Log::sceUtility, gameSharingDialog->Update(animSpeed));
 }
 
 static int sceUtilityGameSharingGetStatus() {
 	if (currentDialogType != UtilityDialogType::GAMESHARING) {
-		return hleLogWarning(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
+		return hleLogDebug(Log::sceUtility, SCE_ERROR_UTILITY_WRONG_TYPE, "wrong dialog type");
 	}
 
+	const PSPDialog::DialogStatus status = gameSharingDialog->GetStatus();
 	CleanupDialogThreads();
-	return hleLogError(Log::sceUtility, 0, "UNIMPL");
+	if (oldStatus != status) {
+		oldStatus = status;
+		return hleLogDebug(Log::sceUtility, status, "status changed: %s", UtilityDialogStatusToString(status));
+	}
+	return hleLogVerbose(Log::sceUtility, status, "status: %s", UtilityDialogStatusToString(status));
 }
 
 static u32 sceUtilityLoadUsbModule(u32 module) {

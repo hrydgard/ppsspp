@@ -431,11 +431,10 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 	if (param->secureVersion > 3) {
 		ERROR_LOG_REPORT(Log::sceUtility, "Savedata version requested on save: %d", param->secureVersion);
 		return SCE_UTILITY_SAVEDATA_ERROR_SAVE_PARAM;
+	} else if (secureMode && MissingRequiredKey(param)) {
+		ERROR_LOG_REPORT(Log::sceUtility, "Savedata version with missing key on save: %d", param->secureVersion);
+		return SCE_UTILITY_SAVEDATA_ERROR_SAVE_PARAM;
 	} else if (param->secureVersion != 0) {
-		if (param->secureVersion != 1 && !HasKey(param) && secureMode) {
-			ERROR_LOG_REPORT(Log::sceUtility, "Savedata version with missing key on save: %d", param->secureVersion);
-			return SCE_UTILITY_SAVEDATA_ERROR_SAVE_PARAM;
-		}
 		INFO_LOG(Log::sceUtility, "Savedata version requested on save: %d", param->secureVersion);
 	}
 
@@ -669,11 +668,10 @@ int SavedataParam::LoadSaveData(SceUtilitySavedataParam *param, const std::strin
 	if (param->secureVersion > 3) {
 		ERROR_LOG_REPORT(Log::sceUtility, "Savedata version requested: %d", param->secureVersion);
 		return SCE_UTILITY_SAVEDATA_ERROR_LOAD_PARAM;
+	} else if (secureMode && MissingRequiredKey(param)) {
+		ERROR_LOG_REPORT(Log::sceUtility, "Savedata version with missing key: %d", param->secureVersion);
+		return SCE_UTILITY_SAVEDATA_ERROR_LOAD_PARAM;
 	} else if (param->secureVersion != 0) {
-		if (param->secureVersion != 1 && !HasKey(param) && secureMode) {
-			ERROR_LOG_REPORT(Log::sceUtility, "Savedata version with missing key: %d", param->secureVersion);
-			return SCE_UTILITY_SAVEDATA_ERROR_LOAD_PARAM;
-		}
 		WARN_LOG_REPORT(Log::sceUtility, "Savedata version requested: %d", param->secureVersion);
 	}
 
@@ -727,19 +725,30 @@ int SavedataParam::LoadSaveData(SceUtilitySavedataParam *param, const std::strin
 	return 0;
 }
 
+// secureVersion and the key only matter for the full 1536-byte request (the two older sizes have
+// neither field). From there the game's SDK version decides between the old and new keyed hash:
+// SDK 2.07 and later get the new one for versions 0 and 3 (see utility/savedata/secureversion).
+bool SavedataParam::UsesSecureVersion(const SceUtilitySavedataParam *param) const {
+	return param->common.size >= 1536;
+}
+
+// secureVersion 0, 2 and 3 need a key, even where 3 then saves without one (older SDKs).
+// Hardware returns SAVE_PARAM for a save without one.
+bool SavedataParam::MissingRequiredKey(const SceUtilitySavedataParam *param) const {
+	return UsesSecureVersion(param) && param->secureVersion != 1 && !HasKey(param);
+}
+
 int SavedataParam::DetermineCryptMode(const SceUtilitySavedataParam *param) const {
-	int decryptMode = 1;
-	if (param->secureVersion == 1) {
-		decryptMode = 1;
-	} else if (param->secureVersion == 2) {
-		decryptMode = 3;
-	} else if (param->secureVersion == 3) {
-		decryptMode = GetSDKMainVersion(sceKernelGetCompiledSdkVersion()) >= 4 ? 5 : 1;
-	} else if (HasKey(param)) {
-		// TODO: This should ignore HasKey(), which would trigger errors.  Not doing that yet to play it safe.
-		decryptMode = GetSDKMainVersion(sceKernelGetCompiledSdkVersion()) >= 4 ? 5 : 3;
+	if (!UsesSecureVersion(param)) {
+		return 1;
 	}
-	return decryptMode;
+	const bool newHash = GetSDKMainVersion(sceKernelGetCompiledSdkVersion()) >= 4;
+	switch (param->secureVersion) {
+	case 0: return newHash ? 5 : 3;
+	case 2: return 3;
+	case 3: return newHash ? 5 : 1;
+	default: return 1;
+	}
 }
 
 u32 SavedataParam::LoadCryptedSave(SceUtilitySavedataParam *param, u8 *data, const u8 *saveData, int &saveSize, int prevCryptMode, const u8 *expectedHash, bool &saveDone) {
@@ -1450,9 +1459,7 @@ bool SavedataParam::GetSize(SceUtilitySavedataParam *param) {
 			// Note: this is "needed to overwrite".
 			param->sizeInfo->overwriteKB = 0;
 
-			spaceTxt = GetSpaceText(0, true);
-			truncate_cpy(param->sizeInfo->neededString, spaceTxt);
-			truncate_cpy(param->sizeInfo->overwriteString, spaceTxt);
+			// The strings are left alone when nothing is needed (tests/utility/savedata/getsize).
 		} else {
 			// Bytes needed to save additional data.
 			s64 neededBytes = writeBytes - freeBytes;

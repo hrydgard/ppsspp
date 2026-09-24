@@ -1539,6 +1539,15 @@ static FileNode *__IoOpen(int &error, const char *filename, int flags, int mode)
 	if (flags & PSP_O_EXCL)
 		access |= FILEACCESS_EXCL;
 
+	// Characters FAT can't store make the memory stick driver reject the path outright rather than
+	// report a missing file (utility/savedata/idlist opens a file under "TEST99901A?C").
+	const char *colon = strchr(filename, ':');
+	if (colon && (pspFileSystem.FlagsFromFilename(filename) & FileSystemFlags::SIMULATE_FAT32) &&
+		strpbrk(colon + 1, "?*<>|\"") != nullptr) {
+		error = SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
+		return nullptr;
+	}
+
 	PSPFileInfo info;
 	int h = -1;
 	bool isTTY = false;

@@ -15,31 +15,75 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include "PSPPlaceholderDialog.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
+#include "Core/Dialog/PSPPlaceholderDialog.h"
+#include "Core/HLE/ErrorCodes.h"
+
+// Rough guesses, like the other dialogs'.
+static const int PLACEHOLDER_INIT_DELAY_US = 200000;
+static const int PLACEHOLDER_SHUTDOWN_DELAY_US = 2000;
 
 PSPPlaceholderDialog::PSPPlaceholderDialog(UtilityDialogType type) : PSPDialog(type) {
-
 }
 
-PSPPlaceholderDialog::~PSPPlaceholderDialog() {
-}
+int PSPPlaceholderDialog::Init(u32 paramAddr) {
+	if (ReadStatus() != SCE_UTILITY_STATUS_NONE) {
+		return SCE_ERROR_UTILITY_INVALID_STATUS;
+	}
+	if (!Memory::IsValidRange(paramAddr, sizeof(pspUtilityDialogCommon))) {
+		return SCE_KERNEL_ERROR_BAD_ARGUMENT;
+	}
+	params_ = paramAddr;
+	// The request sizes a PSP accepts for GameSharing.
+	const u32 size = params_->size;
+	if (DialogType() == UtilityDialogType::GAMESHARING && size != 0x50 && size != 0x54 && size != 0x64) {
+		params_ = 0;
+		return SCE_ERROR_UTILITY_INVALID_PARAM_SIZE;
+	}
 
-
-int PSPPlaceholderDialog::Init() {
-	ChangeStatus(SCE_UTILITY_STATUS_INITIALIZE, 0);
+	ChangeStatusInit(PLACEHOLDER_INIT_DELAY_US);
 	InitCommon();
 	return 0;
 }
 
 int PSPPlaceholderDialog::Update(int animSpeed) {
-	if (ReadStatus() == SCE_UTILITY_STATUS_INITIALIZE) {
-		ChangeStatus(SCE_UTILITY_STATUS_RUNNING, 0);
-	} else if (ReadStatus() == SCE_UTILITY_STATUS_RUNNING) {
-		ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
-	} else if (ReadStatus() == SCE_UTILITY_STATUS_FINISHED) {
-		ChangeStatus(SCE_UTILITY_STATUS_SHUTDOWN, 0);
+	if (ReadStatus() != SCE_UTILITY_STATUS_RUNNING) {
+		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
-	UpdateCommon();
 
+	if (params_.IsValid()) {
+		params_->result = SCE_UTILITY_DIALOG_RESULT_CANCEL;
+		params_.NotifyWrite("DialogResult");
+	}
+	ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
 	return 0;
+}
+
+int PSPPlaceholderDialog::Shutdown(bool force) {
+	if (ReadStatus() != SCE_UTILITY_STATUS_FINISHED && !force) {
+		return SCE_ERROR_UTILITY_INVALID_STATUS;
+	}
+
+	PSPDialog::Shutdown(force);
+	if (!force) {
+		ChangeStatusShutdown(PLACEHOLDER_SHUTDOWN_DELAY_US);
+	}
+	return 0;
+}
+
+void PSPPlaceholderDialog::DoState(PointerWrap &p) {
+	PSPDialog::DoState(p);
+
+	auto s = p.Section("PSPPlaceholderDialog", 1, 1);
+	if (!s)
+		return;
+
+	Do(p, params_);
+}
+
+pspUtilityDialogCommon *PSPPlaceholderDialog::GetCommonParam() {
+	if (params_.IsValid())
+		return params_;
+	return nullptr;
 }
