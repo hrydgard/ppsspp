@@ -141,6 +141,14 @@ enum class IROp : uint8_t {
 	OptFCvtSWFromGPR,
 	FMovToGPR,
 	OptFMovToGPRShr8,
+	// A conditional exit merged with the ExitToConst after it, which stays behind as the target
+	// to take otherwise (in its constant).
+	OptExitToConstIfEqElse,
+	OptExitToConstIfNeqElse,
+	OptExitToConstIfGtZElse,
+	OptExitToConstIfGeZElse,
+	OptExitToConstIfLtZElse,
+	OptExitToConstIfLeZElse,
 
 	FSat0_1,
 	FSatMinus1_1,

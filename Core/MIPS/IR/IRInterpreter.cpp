@@ -1034,6 +1034,19 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		case IROp::ExitToReg:
 			return mips->r[inst->src1];
 
+		// The next instruction is the ExitToConst to take otherwise, never run itself.
+		case IROp::OptExitToConstIfEqElse:
+			return mips->r[inst->src1] == mips->r[inst->src2] ? inst->constant : inst[1].constant;
+		case IROp::OptExitToConstIfNeqElse:
+			return mips->r[inst->src1] != mips->r[inst->src2] ? inst->constant : inst[1].constant;
+		case IROp::OptExitToConstIfGtZElse:
+			return (s32)mips->r[inst->src1] > 0 ? inst->constant : inst[1].constant;
+		case IROp::OptExitToConstIfGeZElse:
+			return (s32)mips->r[inst->src1] >= 0 ? inst->constant : inst[1].constant;
+		case IROp::OptExitToConstIfLtZElse:
+			return (s32)mips->r[inst->src1] < 0 ? inst->constant : inst[1].constant;
+		case IROp::OptExitToConstIfLeZElse:
+			return (s32)mips->r[inst->src1] <= 0 ? inst->constant : inst[1].constant;
 		case IROp::ExitToConstIfEq:
 			if (mips->r[inst->src1] == mips->r[inst->src2])
 				return inst->constant;

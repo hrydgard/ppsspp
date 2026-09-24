@@ -2407,6 +2407,19 @@ bool OptimizeForInterpreter(const IRWriter &in, IRWriter &out, const IROptions &
 			}
 			out.Write(inst);
 			break;
+		case IROp::ExitToConstIfEq:
+		case IROp::ExitToConstIfNeq:
+		case IROp::ExitToConstIfGtZ:
+		case IROp::ExitToConstIfGeZ:
+		case IROp::ExitToConstIfLtZ:
+		case IROp::ExitToConstIfLeZ:
+			// With an ExitToConst right after, one op can pick either target. The ExitToConst stays
+			// as the second target's holder.
+			static_assert((int)IROp::OptExitToConstIfLeZElse - (int)IROp::OptExitToConstIfEqElse == (int)IROp::ExitToConstIfLeZ - (int)IROp::ExitToConstIfEq, "Else exits must match the exits' order");
+			if (!last && in.GetInstructions()[i + 1].op == IROp::ExitToConst)
+				inst.op = (IROp)((int)IROp::OptExitToConstIfEqElse + ((int)inst.op - (int)IROp::ExitToConstIfEq));
+			out.Write(inst);
+			break;
 		default:
 			out.Write(inst);
 			break;
