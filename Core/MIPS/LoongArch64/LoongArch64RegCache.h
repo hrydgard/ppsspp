@@ -63,6 +63,9 @@ public:
 
 	LoongArch64Gen::LoongArch64Reg R(IRReg preg); // Returns a cached register, while checking that it's NOT mapped as a pointer
 	LoongArch64Gen::LoongArch64Reg RPtr(IRReg preg); // Returns a cached register, if it has been mapped as a pointer
+	// With LSX, a group of four lanes can be mapped as one vector reg, and then F() returns that same
+	// reg for every lane. So F(x + 1) isn't a separate register, and code that writes lanes one by one
+	// has to fall back to CompIR_Generic under LSX, or it overwrites lane 0.
 	LoongArch64Gen::LoongArch64Reg F(IRReg preg);
 	LoongArch64Gen::LoongArch64Reg V(IRReg preg);
 

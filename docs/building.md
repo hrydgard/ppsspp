@@ -174,6 +174,26 @@ That's normal and not a test failure - read the `N tests passed, N tests failed`
 
 See docs/pspautotests.md for a workflow for running pspautotests and improving PPSSPP with the results.
 
+### LoongArch64 and RISC-V JITs under qemu
+
+CI tests these JITs by cross-building headless and running pspautotests under qemu-user, and you can do the
+same on Linux (packages: `gcc-14-loongarch64-linux-gnu g++-14-loongarch64-linux-gnu qemu-user`, or the riscv64
+equivalents):
+
+```bash
+./b.sh --loongarch64 PPSSPPHeadless     # builds into build-loongarch64/
+mkdir -p build-qemu
+printf '#!/bin/bash\nexec qemu-loongarch64 -L /usr/loongarch64-linux-gnu "$(dirname "$0")/../build-loongarch64/PPSSPPHeadless" "$@"\n' > build-qemu/PPSSPPHeadless
+chmod +x build-qemu/PPSSPPHeadless
+python3 test.py -g --graphics=software --cpu=jit-ir --timeout=60 --known-failures=loongarch64
+```
+
+`test.py` runs the most recently modified `build*/PPSSPPHeadless`, so `touch` the shim after rebuilding the real
+binary, or it runs your native build instead. The full suite takes a couple of minutes.
+
+qemu reports LSX and LASX as present, so CI only exercises the LoongArch vector paths.
+The scalar fallbacks never run here, so passing tells you nothing about them.
+
 ## Quick rebuild on Linux
 
 You don't need to do ./b.sh --debug to verify every single little change, instead use this shortcut:
