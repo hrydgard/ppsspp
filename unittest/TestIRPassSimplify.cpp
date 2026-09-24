@@ -69,7 +69,9 @@ static bool VerifyPass(const IRVerification &v) {
 				continue;
 			}
 
-			printf("%s FAILED: #%d expected '%s' but was '%s'", v.name, (int)i, expectedBuf, actualBuf);
+			printf("%s FAILED: #%d expected '%s' but was '%s'\n", v.name, (int)i, expectedBuf, actualBuf);
+			printf("Actual:\n");
+			LogInstructions(actual);
 			return false;
 		}
 	}
@@ -166,15 +168,115 @@ static const IRVerification tests[] = {
 		},
 		{ &PropagateConstants },
 	},
+	{
+		// The FNeg reads the temp and overwrites it, so the FAdd must see the negation.
+		"PurgeTempsFPRRewrittenInPlace",
+		{
+			{ IROp::FMov, { IRVTEMP_PFX_S }, 5 },
+			{ IROp::FNeg, { IRVTEMP_PFX_S }, IRVTEMP_PFX_S },
+			{ IROp::FAdd, { 0 }, IRVTEMP_PFX_S, 1 },
+		},
+		{
+			{ IROp::FNeg, { IRVTEMP_PFX_S }, 5 },
+			{ IROp::FAdd, { 0 }, IRVTEMP_PFX_S, 1 },
+		},
+		{ &PurgeTemps },
+	},
+	{
+		"PurgeTempsFPRReadTwice",
+		{
+			{ IROp::FMov, { IRVTEMP_PFX_S }, 5 },
+			{ IROp::FMul, { 0 }, IRVTEMP_PFX_S, IRVTEMP_PFX_S },
+		},
+		{
+			{ IROp::FMul, { 0 }, 5, 5 },
+		},
+		{ &PurgeTemps },
+	},
+	{
+		// The FPR temp has the same number as IRTEMP_0, which is the address here.
+		"PurgeTempsFPRStoreSrc3",
+		{
+			{ IROp::FMov, { IRVTEMP_PFX_S }, 5 },
+			{ IROp::StoreFloat, { IRVTEMP_PFX_S }, IRTEMP_0, 0, 0x10 },
+		},
+		{
+			{ IROp::StoreFloat, { 5 }, IRTEMP_0, 0, 0x10 },
+		},
+		{ &PurgeTemps },
+	},
+	{
+		// The FMov writes lane 1 of the temp between its write and the Vec4Mov.
+		"PurgeTempsVec4LaneWrite",
+		{
+			{ IROp::Vec4Add, { IRVTEMP_0 }, 32, 36 },
+			{ IROp::FMov, { IRVTEMP_0 + 1 }, 20 },
+			{ IROp::Vec4Mov, { 48 }, IRVTEMP_0 },
+		},
+		{
+			{ IROp::Vec4Add, { IRVTEMP_0 }, 32, 36 },
+			{ IROp::FMov, { IRVTEMP_0 + 1 }, 20 },
+			{ IROp::Vec4Mov, { 48 }, IRVTEMP_0 },
+		},
+		{ &PurgeTemps },
+	},
+	{
+		// The Vec4Scale reads 48 before the Vec4Mov writes it.
+		"PurgeTempsVec4ScaleRead",
+		{
+			{ IROp::Vec4Add, { IRVTEMP_0 }, 32, 36 },
+			{ IROp::Vec4Scale, { 40 }, 48, 1 },
+			{ IROp::Vec4Mov, { 48 }, IRVTEMP_0 },
+		},
+		{
+			{ IROp::Vec4Add, { IRVTEMP_0 }, 32, 36 },
+			{ IROp::Vec4Scale, { 40 }, 48, 1 },
+			{ IROp::Vec4Mov, { 48 }, IRVTEMP_0 },
+		},
+		{ &PurgeTemps },
+	},
+	{
+		// Writing 48 before the exit would change it on the path that exits.
+		"PurgeTempsSwapAcrossExit",
+		{
+			{ IROp::Vec4Add, { IRVTEMP_0 }, 32, 36 },
+			{ IROp::ExitToConstIfEq, { 0 }, MIPS_REG_A0, MIPS_REG_A1, 0x08804000 },
+			{ IROp::Vec4Mov, { 48 }, IRVTEMP_0 },
+		},
+		{
+			{ IROp::Vec4Add, { IRVTEMP_0 }, 32, 36 },
+			{ IROp::ExitToConstIfEq, { 0 }, MIPS_REG_A0, MIPS_REG_A1, 0x08804000 },
+			{ IROp::Vec4Mov, { 48 }, IRVTEMP_0 },
+		},
+		{ &PurgeTemps },
+	},
+	{
+		// sc stores and ll sets LLBIT, so neither goes away when the reg is overwritten.
+		"PurgeTempsKeepsLLSC",
+		{
+			{ IROp::Load32Linked, { MIPS_REG_V1 }, MIPS_REG_A0, 0, 0 },
+			{ IROp::SetConst, { MIPS_REG_V1 }, 0, 0, 1 },
+			{ IROp::Store32Conditional, { MIPS_REG_V0 }, MIPS_REG_A0, 0, 0 },
+			{ IROp::SetConst, { MIPS_REG_V0 }, 0, 0, 1 },
+		},
+		{
+			{ IROp::Load32Linked, { MIPS_REG_V1 }, MIPS_REG_A0, 0, 0 },
+			{ IROp::SetConst, { MIPS_REG_V1 }, 0, 0, 1 },
+			{ IROp::Store32Conditional, { MIPS_REG_V0 }, MIPS_REG_A0, 0, 0 },
+			{ IROp::SetConst, { MIPS_REG_V0 }, 0, 0, 1 },
+		},
+		{ &PurgeTemps },
+	},
 };
 
 bool TestIRPassSimplify() {
 	InitIR();
 
+	bool success = true;
 	for (const auto &test : tests) {
 		if (!VerifyPass(test))
-			return false;
+			success = false;
 	}
 
-	return true;
+	return success;
 }

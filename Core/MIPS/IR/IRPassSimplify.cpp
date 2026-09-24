@@ -1007,6 +1007,21 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 	memset(lastWrittenTo, -1, sizeof(lastWrittenTo));
 	memset(lastReadFrom, -1, sizeof(lastReadFrom));
 
+	auto writesToFPRCheck = [](const IRInstMeta &inst, const Check &check) {
+		for (int i = 0; i < check.fplen; ++i) {
+			if (IRWritesToFPR(inst, check.reg - 32 + i))
+				return true;
+		}
+		return false;
+	};
+
+	auto nukeCheckedInst = [&](Check &check) {
+		insts[check.index].op = IROp::Mov;
+		insts[check.index].dest = 0;
+		insts[check.index].src1 = 0;
+		check.reg = 0;
+	};
+
 	auto readsFromFPRCheck = [](IRInstMeta &inst, Check &check, bool *directly) {
 		if (check.reg < 32)
 			return false;
@@ -1112,25 +1127,29 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 				checkMismatch(inst.src1, inst.m.types[1]);
 				checkMismatch(inst.src2, inst.m.types[2]);
 				if ((inst.m.flags & (IRFLAG_SRC3 | IRFLAG_SRC3DST)) != 0)
-					checkMismatch(inst.src3, inst.m.types[3]);
+					checkMismatch(inst.src3, inst.m.types[0]);
 
 				bool cannotReplace = !readsDirectly || lenMismatch;
 				if (!cannotReplace && check.srcReg >= 32 && lastWrittenTo[check.srcReg] < check.index) {
 					// This is probably not worth doing unless we can get rid of a temp.
 					if (!check.readByExit) {
-						if (insts[check.index].dest == inst.src1)
-							inst.src1 = check.srcReg - 32;
-						else if (insts[check.index].dest == inst.src2)
-							inst.src2 = check.srcReg - 32;
-						else
-							_assert_msg_(false, "Unexpected src3 read of FPR");
+						// Replace every F operand that reads it (it might be read twice).
+						const IRReg reg = (IRReg)(check.reg - 32);
+						const IRReg srcReg = (IRReg)(check.srcReg - 32);
+						if (inst.m.types[1] == 'F' && inst.src1 == reg)
+							inst.src1 = srcReg;
+						if (inst.m.types[2] == 'F' && inst.src2 == reg)
+							inst.src2 = srcReg;
+						if ((inst.m.flags & (IRFLAG_SRC3 | IRFLAG_SRC3DST)) != 0 && inst.m.types[0] == 'F' && inst.src3 == reg)
+							inst.src3 = srcReg;
 
-						// Check if we've clobbered it entirely.
-						if (inst.dest == check.reg) {
+						// If this also writes the reg, the check ends here. A full overwrite leaves the
+						// original write dead, since every read in between now uses srcReg.
+						if (writesToFPRCheck(inst, check)) {
+							IRReg destFPRs[4];
+							if (IRDestFPRs(inst, destFPRs) == check.fplen && inst.dest + 32 == check.reg)
+								nukeCheckedInst(check);
 							check.reg = 0;
-							insts[check.index].op = IROp::Mov;
-							insts[check.index].dest = 0;
-							insts[check.index].src1 = 0;
 						}
 					} else {
 						// Let's not bother.
@@ -1176,17 +1195,14 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 				insts[check.index].dest = 0;
 				insts[check.index].src1 = 0;
 				check.reg = 0;
-			} else if (IRWritesToFPR(inst, check.reg - 32) && check.fplen >= 1) {
+			} else if (check.fplen >= 1 && writesToFPRCheck(inst, check)) {
 				IRReg destFPRs[4];
 				int numFPRs = IRDestFPRs(inst, destFPRs);
 
 				if (numFPRs == check.fplen && inst.dest + 32 == check.reg) {
 					// This means we've clobbered it, and with full overlap.
 					// Sometimes this happens for non-temps, i.e. vmmov + vinit last row.
-					insts[check.index].op = IROp::Mov;
-					insts[check.index].dest = 0;
-					insts[check.index].src1 = 0;
-					check.reg = 0;
+					nukeCheckedInst(check);
 				} else {
 					// Since there's an overlap, we simply cannot optimize.
 					check.reg = 0;
@@ -1228,6 +1244,10 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 			lastWrittenTo[dest] = i;
 			if (dest > IRTEMP_LR_SHIFT) {
 				// These might sometimes be implicitly read/written by other instructions.
+				break;
+			}
+			if (inst.op == IROp::Store32Conditional || inst.op == IROp::Load32Linked) {
+				// These do more than write the reg (the store, and LLBIT), so they must stay.
 				break;
 			}
 			checks.push_back(Check(dest, i, true));
