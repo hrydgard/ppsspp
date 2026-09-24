@@ -398,9 +398,45 @@ void LoongArch64JitBackend::CompIR_VecPack(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Vec2Unpack16To31:
-	case IROp::Vec2Pack31To16:
-		CompIR_Generic(inst);
+		// With LSX, a lane group can be mapped as one vector reg, and then F() returns the same
+		// reg for every lane. The Vec2 ops here address lanes one by one, so leave them to the interpreter.
+		if (cpu_info.LOONGARCH_LSX) {
+			CompIR_Generic(inst);
+			break;
+		}
+		// Like Vec2Unpack16To32, shifted down one more.
+		regs_.Map(inst);
+		MOVFR2GR_S(SCRATCH2, regs_.F(inst.src1));
+		SLLI_W(SCRATCH1, SCRATCH2, 16);
+		SRLI_W(SCRATCH1, SCRATCH1, 1);
+		MOVGR2FR_W(regs_.F(inst.dest), SCRATCH1);
+		SRLI_W(SCRATCH1, SCRATCH2, 16);
+		SLLI_W(SCRATCH1, SCRATCH1, 15);
+		MOVGR2FR_W(regs_.F(inst.dest + 1), SCRATCH1);
 		break;
+
+	case IROp::Vec2Pack31To16:
+	{
+		if (cpu_info.LOONGARCH_LSX) {
+			CompIR_Generic(inst);
+			break;
+		}
+		// Bits 30-15 of each lane, with negative lanes clamped to zero.
+		regs_.Map(inst);
+		LoongArch64Reg maskReg = regs_.GetAndLockTempGPR();
+		MOVFR2GR_S(SCRATCH1, regs_.F(inst.src1));
+		MOVFR2GR_S(SCRATCH2, regs_.F(inst.src1 + 1));
+		SRAI_W(maskReg, SCRATCH1, 31);
+		ANDN(SCRATCH1, SCRATCH1, maskReg);
+		SRAI_W(maskReg, SCRATCH2, 31);
+		ANDN(SCRATCH2, SCRATCH2, maskReg);
+		SRLI_D(SCRATCH1, SCRATCH1, 15);
+		SRLI_D(SCRATCH2, SCRATCH2, 15);
+		SLLI_D(SCRATCH2, SCRATCH2, 16);
+		OR(SCRATCH1, SCRATCH1, SCRATCH2);
+		MOVGR2FR_W(regs_.F(inst.dest), SCRATCH1);
+		break;
+	}
 
 	case IROp::Vec4Pack32To8:
 		if (cpu_info.LOONGARCH_LSX) {
@@ -412,7 +448,19 @@ void LoongArch64JitBackend::CompIR_VecPack(IRInst inst) {
 			VPICKEV_B(EncodeRegToV(SCRATCHF1), EncodeRegToV(SCRATCHF1), EncodeRegToV(SCRATCHF1));
 			VPICKEV_B(regs_.V(inst.dest), EncodeRegToV(SCRATCHF1), EncodeRegToV(SCRATCHF1));
 		} else {
-			CompIR_Generic(inst);
+			// The top byte of each lane. Every lane is read before dest is written.
+			regs_.Map(inst);
+			for (int i = 0; i < 4; ++i) {
+				MOVFR2GR_S(SCRATCH1, regs_.F(inst.src1 + i));
+				SRLI_W(SCRATCH1, SCRATCH1, 24);
+				if (i == 0) {
+					MOVE(SCRATCH2, SCRATCH1);
+				} else {
+					SLLI_D(SCRATCH1, SCRATCH1, 8 * i);
+					OR(SCRATCH2, SCRATCH2, SCRATCH1);
+				}
+			}
+			MOVGR2FR_W(regs_.F(inst.dest), SCRATCH2);
 		}
 		break;
 
@@ -442,11 +490,11 @@ void LoongArch64JitBackend::CompIR_VecPack(IRInst inst) {
 		break;
 
 	case IROp::Vec2Unpack16To32:
-		// TODO: This works for now, but may need to handle aliasing for vectors.
 		if (cpu_info.LOONGARCH_LSX) {
 			CompIR_Generic(inst);
 			break;
 		}
+		// src1 is read before either lane of dest is written.
 		regs_.Map(inst);
 		MOVFR2GR_S(SCRATCH2, regs_.F(inst.src1));
 		SLLI_D(SCRATCH1, SCRATCH2, 16);
@@ -478,24 +526,30 @@ void LoongArch64JitBackend::CompIR_VecPack(IRInst inst) {
 		break;
 
 	case IROp::Vec4Pack31To8:
-		// TODO: This works for now, but may need to handle aliasing for vectors.
+		// Bits 30-23 of each lane, with negative lanes clamped to zero.
 		if (cpu_info.LOONGARCH_LSX) {
 			if (Overlap(inst.dest, 1, inst.src1, 4))
 				DISABLE;
 
 			regs_.Map(inst);
-			VSRLI_W(EncodeRegToV(SCRATCHF1), regs_.V(inst.src1), 23);
+			VREPLGR2VR_D(EncodeRegToV(SCRATCHF1), R_ZERO);
+			VMAX_W(EncodeRegToV(SCRATCHF1), regs_.V(inst.src1), EncodeRegToV(SCRATCHF1));
+			VSRLI_W(EncodeRegToV(SCRATCHF1), EncodeRegToV(SCRATCHF1), 23);
 			VPICKEV_B(EncodeRegToV(SCRATCHF1), EncodeRegToV(SCRATCHF1), EncodeRegToV(SCRATCHF1));
 			VPICKEV_B(regs_.V(inst.dest), EncodeRegToV(SCRATCHF1), EncodeRegToV(SCRATCHF1));
 		} else {
+			// Every lane is read before dest is written.
 			regs_.Map(inst);
+			LoongArch64Reg maskReg = regs_.GetAndLockTempGPR();
 			for (int i = 0; i < 4; ++i) {
 				MOVFR2GR_S(SCRATCH1, regs_.F(inst.src1 + i));
+				SRAI_W(maskReg, SCRATCH1, 31);
+				ANDN(SCRATCH1, SCRATCH1, maskReg);
+				// At most 0x7FFFFFFF, so this leaves 0-255.
 				SRLI_D(SCRATCH1, SCRATCH1, 23);
 				if (i == 0) {
-					ANDI(SCRATCH2, SCRATCH1, 0xFF);
+					MOVE(SCRATCH2, SCRATCH1);
 				} else {
-					ANDI(SCRATCH1, SCRATCH1, 0xFF);
 					SLLI_D(SCRATCH1, SCRATCH1, 8 * i);
 					OR(SCRATCH2, SCRATCH2, SCRATCH1);
 				}
@@ -505,7 +559,6 @@ void LoongArch64JitBackend::CompIR_VecPack(IRInst inst) {
 		break;
 
 	case IROp::Vec2Pack32To16:
-		// TODO: This works for now, but may need to handle aliasing for vectors.
 		if (cpu_info.LOONGARCH_LSX) {
 			CompIR_Generic(inst);
 			break;
@@ -523,36 +576,6 @@ void LoongArch64JitBackend::CompIR_VecPack(IRInst inst) {
 		OR(SCRATCH1, SCRATCH1, SCRATCH2);
 		// Okay, to the floating point register.
 		MOVGR2FR_W(regs_.F(inst.dest), SCRATCH1);
-		break;
-
-	default:
-		INVALIDOP;
-		break;
-	}
-}
-
-void LoongArch64JitBackend::CompIR_VecClamp(IRInst inst) {
-	CONDITIONAL_DISABLE;
-
-	switch (inst.op) {
-	case IROp::Vec4ClampToZero:
-		regs_.Map(inst);
-		if (cpu_info.LOONGARCH_LSX) {
-			VREPLGR2VR_D(EncodeRegToV(SCRATCHF1), R_ZERO);
-			VMAX_W(regs_.V(inst.dest), regs_.V(inst.src1), EncodeRegToV(SCRATCHF1));
-		} else {
-			for (int i = 0; i < 4; i++) {
-				MOVFR2GR_S(SCRATCH1, regs_.F(inst.src1 + i));
-				SRAI_W(SCRATCH2, SCRATCH1, 31);
-				ORN(SCRATCH2, R_ZERO, SCRATCH2);
-				AND(SCRATCH1, SCRATCH1, SCRATCH2);
-				MOVGR2FR_W(regs_.F(inst.dest + i), SCRATCH1);
-			}
-		}
-		break;
-
-	case IROp::Vec2ClampToZero:
-		CompIR_Generic(inst);
 		break;
 
 	default:

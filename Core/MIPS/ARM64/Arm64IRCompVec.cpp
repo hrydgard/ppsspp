@@ -576,28 +576,6 @@ void Arm64JitBackend::CompIR_VecAssign(IRInst inst) {
 	}
 }
 
-void Arm64JitBackend::CompIR_VecClamp(IRInst inst) {
-	CONDITIONAL_DISABLE;
-
-	switch (inst.op) {
-	case IROp::Vec4ClampToZero:
-		regs_.Map(inst);
-		fp_.MOVI(32, EncodeRegToQuad(SCRATCHF1), 0);
-		fp_.SMAX(32, regs_.FQ(inst.dest), regs_.FQ(inst.src1), EncodeRegToQuad(SCRATCHF1));
-		break;
-
-	case IROp::Vec2ClampToZero:
-		regs_.Map(inst);
-		fp_.MOVI(32, EncodeRegToDouble(SCRATCHF1), 0);
-		fp_.SMAX(32, regs_.FD(inst.dest), regs_.FD(inst.src1), EncodeRegToDouble(SCRATCHF1));
-		break;
-
-	default:
-		INVALIDOP;
-		break;
-	}
-}
-
 void Arm64JitBackend::CompIR_VecHoriz(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
@@ -647,16 +625,21 @@ void Arm64JitBackend::CompIR_VecPack(IRInst inst) {
 		break;
 
 	case IROp::Vec2Pack31To16:
-		// Same as Vec2Pack32To16, but we shift left 1 first to nuke the sign bit.
+		// Same as Vec2Pack32To16, but negative lanes clamp to zero and we shift left 1 first to
+		// nuke the sign bit.
 		if (Overlap(inst.dest, 1, inst.src1, 2)) {
 			regs_.MapVec2(inst.src1, MIPSMap::DIRTY);
-			fp_.SHL(32, EncodeRegToDouble(SCRATCHF1), regs_.FD(inst.src1), 1);
+		} else {
+			regs_.Map(inst);
+		}
+		fp_.MOVI(32, EncodeRegToDouble(SCRATCHF2), 0);
+		fp_.SMAX(32, EncodeRegToDouble(SCRATCHF1), regs_.FD(inst.src1), EncodeRegToDouble(SCRATCHF2));
+		fp_.SHL(32, EncodeRegToDouble(SCRATCHF1), EncodeRegToDouble(SCRATCHF1), 1);
+		if (Overlap(inst.dest, 1, inst.src1, 2)) {
 			fp_.UZP2(16, EncodeRegToDouble(SCRATCHF1), EncodeRegToDouble(SCRATCHF1), EncodeRegToDouble(SCRATCHF1));
 			fp_.INS(32, regs_.FD(inst.dest & ~1), inst.dest & 1, EncodeRegToDouble(SCRATCHF1), 0);
 		} else {
-			regs_.Map(inst);
-			fp_.SHL(32, regs_.FD(inst.dest), regs_.FD(inst.src1), 1);
-			fp_.UZP2(16, regs_.FD(inst.dest), regs_.FD(inst.dest), regs_.FD(inst.dest));
+			fp_.UZP2(16, regs_.FD(inst.dest), EncodeRegToDouble(SCRATCHF1), EncodeRegToDouble(SCRATCHF1));
 		}
 		break;
 
@@ -679,9 +662,11 @@ void Arm64JitBackend::CompIR_VecPack(IRInst inst) {
 			regs_.Map(inst);
 		}
 
-		// Viewed as 8-bit lanes, after a shift by 23: AxxxBxxxCxxxDxxx.
-		// So: UZP1 -> AxBxCxDx -> UZP1 again -> ABCD
-		fp_.USHR(32, EncodeRegToQuad(SCRATCHF1), regs_.FQ(inst.src1), 23);
+		// Negative lanes clamp to zero. Then, viewed as 8-bit lanes after a shift by 23:
+		// AxxxBxxxCxxxDxxx. So: UZP1 -> AxBxCxDx -> UZP1 again -> ABCD
+		fp_.MOVI(32, EncodeRegToQuad(SCRATCHF2), 0);
+		fp_.SMAX(32, EncodeRegToQuad(SCRATCHF1), regs_.FQ(inst.src1), EncodeRegToQuad(SCRATCHF2));
+		fp_.USHR(32, EncodeRegToQuad(SCRATCHF1), EncodeRegToQuad(SCRATCHF1), 23);
 		fp_.UZP1(8, EncodeRegToQuad(SCRATCHF1), EncodeRegToQuad(SCRATCHF1), EncodeRegToQuad(SCRATCHF1));
 		// Second one directly to dest, if we can.
 		if (Overlap(inst.dest, 1, inst.src1, 4)) {

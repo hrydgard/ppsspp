@@ -232,6 +232,22 @@ void RiscVJitBackend::CompIR_Assign(IRInst inst) {
 	}
 }
 
+// Byte swap of the low 32 bits of src into dest, sign extended, without Zbb's REV8. src and dest may
+// be the same, since src is only read before dest is written.
+void RiscVJitBackend::EmitBSwap32NoZbb(RiscVGen::RiscVReg dest, RiscVGen::RiscVReg src) {
+	SRLIW(SCRATCH1, src, 24);
+	SRLIW(SCRATCH2, src, 16);
+	ANDI(SCRATCH2, SCRATCH2, 0xFF);
+	SLLI(SCRATCH2, SCRATCH2, 8);
+	OR(SCRATCH1, SCRATCH1, SCRATCH2);
+	SRLIW(SCRATCH2, src, 8);
+	ANDI(SCRATCH2, SCRATCH2, 0xFF);
+	SLLI(SCRATCH2, SCRATCH2, 16);
+	OR(SCRATCH1, SCRATCH1, SCRATCH2);
+	SLLIW(SCRATCH2, src, 24);
+	OR(dest, SCRATCH1, SCRATCH2);
+}
+
 void RiscVJitBackend::CompIR_Bits(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
@@ -270,12 +286,34 @@ void RiscVJitBackend::CompIR_Bits(IRInst inst) {
 			SLLIW(regs_.R(inst.dest), regs_.R(inst.dest), 1);
 			OR(regs_.R(inst.dest), regs_.R(inst.dest), SCRATCH2);
 		} else {
-			CompIR_Generic(inst);
+			// Swap bits, then pairs, then nibbles within each byte, then the bytes.
+			regs_.Map(inst);
+			if (inst.dest != inst.src1)
+				MV(regs_.R(inst.dest), regs_.R(inst.src1));
+			static const struct { u32 mask; int shift; } steps[] = { { 0x55555555, 1 }, { 0x33333333, 2 }, { 0x0F0F0F0F, 4 } };
+			for (const auto &step : steps) {
+				LI(SCRATCH1, (s32)step.mask);
+				SRLIW(SCRATCH2, regs_.R(inst.dest), step.shift);
+				AND(SCRATCH2, SCRATCH2, SCRATCH1);
+				AND(regs_.R(inst.dest), regs_.R(inst.dest), SCRATCH1);
+				SLLIW(regs_.R(inst.dest), regs_.R(inst.dest), step.shift);
+				OR(regs_.R(inst.dest), regs_.R(inst.dest), SCRATCH2);
+			}
+			EmitBSwap32NoZbb(regs_.R(inst.dest), regs_.R(inst.dest));
+			regs_.MarkGPRDirty(inst.dest, true);
 		}
 		break;
 
 	case IROp::BSwap16:
-		CompIR_Generic(inst);
+		// Swap the bytes in each halfword: ((x & 0x00FF00FF) << 8) | ((x >> 8) & 0x00FF00FF).
+		regs_.Map(inst);
+		LI(SCRATCH1, (s32)0x00FF00FF);
+		SRLIW(SCRATCH2, regs_.R(inst.src1), 8);
+		AND(SCRATCH2, SCRATCH2, SCRATCH1);
+		AND(SCRATCH1, regs_.R(inst.src1), SCRATCH1);
+		SLLIW(SCRATCH1, SCRATCH1, 8);
+		OR(regs_.R(inst.dest), SCRATCH1, SCRATCH2);
+		regs_.MarkGPRDirty(inst.dest, true);
 		break;
 
 	case IROp::BSwap32:
@@ -288,7 +326,9 @@ void RiscVJitBackend::CompIR_Bits(IRInst inst) {
 				regs_.MarkGPRDirty(inst.dest, true);
 			}
 		} else {
-			CompIR_Generic(inst);
+			regs_.Map(inst);
+			EmitBSwap32NoZbb(regs_.R(inst.dest), regs_.R(inst.src1));
+			regs_.MarkGPRDirty(inst.dest, true);
 		}
 		break;
 
@@ -299,7 +339,27 @@ void RiscVJitBackend::CompIR_Bits(IRInst inst) {
 			CLZW(regs_.R(inst.dest), regs_.R(inst.src1));
 			regs_.MarkGPRDirty(inst.dest, true);
 		} else {
-			CompIR_Generic(inst);
+			// A branchless binary search: each step shifts out the top bits when they're all zero,
+			// and counts them.
+			regs_.Map(inst);
+			MV(SCRATCH1, regs_.R(inst.src1));
+			for (int log2Bits = 4; log2Bits >= 0; log2Bits--) {
+				const int bits = 1 << log2Bits;
+				SRLIW(SCRATCH2, SCRATCH1, 32 - bits);
+				SEQZ(SCRATCH2, SCRATCH2);
+				if (log2Bits != 0)
+					SLLI(SCRATCH2, SCRATCH2, log2Bits);
+				SLLW(SCRATCH1, SCRATCH1, SCRATCH2);
+				if (log2Bits == 4)
+					MV(regs_.R(inst.dest), SCRATCH2);
+				else
+					ADD(regs_.R(inst.dest), regs_.R(inst.dest), SCRATCH2);
+			}
+			// Only zero is still zero at the top, and that counts one more, for 32.
+			SRLIW(SCRATCH2, SCRATCH1, 31);
+			SEQZ(SCRATCH2, SCRATCH2);
+			ADD(regs_.R(inst.dest), regs_.R(inst.dest), SCRATCH2);
+			regs_.MarkGPRDirty(inst.dest, true);
 		}
 		break;
 
@@ -337,7 +397,13 @@ void RiscVJitBackend::CompIR_Shift(IRInst inst) {
 			RORW(regs_.R(inst.dest), regs_.R(inst.src1), regs_.R(inst.src2));
 			regs_.MarkGPRDirty(inst.dest, true);
 		} else {
-			CompIR_Generic(inst);
+			// (x >> s) | (x << -s), the shifts taking the amount mod 32.
+			regs_.Map(inst);
+			SRLW(SCRATCH1, regs_.R(inst.src1), regs_.R(inst.src2));
+			SUB(SCRATCH2, R_ZERO, regs_.R(inst.src2));
+			SLLW(SCRATCH2, regs_.R(inst.src1), SCRATCH2);
+			OR(regs_.R(inst.dest), SCRATCH1, SCRATCH2);
+			regs_.MarkGPRDirty(inst.dest, true);
 		}
 		break;
 
@@ -406,7 +472,11 @@ void RiscVJitBackend::CompIR_Shift(IRInst inst) {
 			RORIW(regs_.R(inst.dest), regs_.R(inst.src1), inst.src2 & 31);
 			regs_.MarkGPRDirty(inst.dest, true);
 		} else {
-			CompIR_Generic(inst);
+			regs_.Map(inst);
+			SRLIW(SCRATCH1, regs_.R(inst.src1), inst.src2 & 31);
+			SLLIW(SCRATCH2, regs_.R(inst.src1), 32 - (inst.src2 & 31));
+			OR(regs_.R(inst.dest), SCRATCH1, SCRATCH2);
+			regs_.MarkGPRDirty(inst.dest, true);
 		}
 		break;
 
@@ -525,7 +595,16 @@ void RiscVJitBackend::CompIR_CondAssign(IRInst inst) {
 				// Because we had to normalize the inputs, the output is normalized.
 				regs_.MarkGPRDirty(inst.dest, true);
 			} else {
-				CompIR_Generic(inst);
+				regs_.Map(inst);
+				NormalizeSrc12(inst, &lhs, &rhs, SCRATCH1, SCRATCH2, true);
+				// Branch when lhs is the answer. dest may be either source, so each path moves once.
+				FixupBranch useLhs = BLT(rhs, lhs);
+				MV(regs_.R(inst.dest), rhs);
+				FixupBranch done = J();
+				SetJumpTarget(useLhs);
+				MV(regs_.R(inst.dest), lhs);
+				SetJumpTarget(done);
+				regs_.MarkGPRDirty(inst.dest, true);
 			}
 		} else if (inst.dest != inst.src1) {
 			regs_.Map(inst);
@@ -543,7 +622,16 @@ void RiscVJitBackend::CompIR_CondAssign(IRInst inst) {
 				// Because we had to normalize the inputs, the output is normalized.
 				regs_.MarkGPRDirty(inst.dest, true);
 			} else {
-				CompIR_Generic(inst);
+				regs_.Map(inst);
+				NormalizeSrc12(inst, &lhs, &rhs, SCRATCH1, SCRATCH2, true);
+				// Branch when lhs is the answer. dest may be either source, so each path moves once.
+				FixupBranch useLhs = BLT(lhs, rhs);
+				MV(regs_.R(inst.dest), rhs);
+				FixupBranch done = J();
+				SetJumpTarget(useLhs);
+				MV(regs_.R(inst.dest), lhs);
+				SetJumpTarget(done);
+				regs_.MarkGPRDirty(inst.dest, true);
 			}
 		} else if (inst.dest != inst.src1) {
 			regs_.Map(inst);

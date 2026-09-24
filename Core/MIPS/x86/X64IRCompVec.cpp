@@ -242,21 +242,6 @@ void X64JitBackend::CompIR_VecAssign(IRInst inst) {
 	}
 }
 
-void X64JitBackend::CompIR_VecClamp(IRInst inst) {
-	CONDITIONAL_DISABLE;
-
-	switch (inst.op) {
-	case IROp::Vec4ClampToZero:
-	case IROp::Vec2ClampToZero:
-		CompIR_Generic(inst);
-		break;
-
-	default:
-		INVALIDOP;
-		break;
-	}
-}
-
 void X64JitBackend::CompIR_VecHoriz(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
@@ -298,17 +283,99 @@ void X64JitBackend::CompIR_VecHoriz(IRInst inst) {
 void X64JitBackend::CompIR_VecPack(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
+	// Only SSE2 here. A destination overlapping the source goes the slow way, it's rare.
 	switch (inst.op) {
-	case IROp::Vec2Unpack16To31:
 	case IROp::Vec4Pack32To8:
-	case IROp::Vec2Pack31To16:
-	case IROp::Vec4Unpack8To32:
-	case IROp::Vec2Unpack16To32:
-	case IROp::Vec4DuplicateUpperBitsAndShift1:
 	case IROp::Vec4Pack31To8:
-	case IROp::Vec2Pack32To16:
-		CompIR_Generic(inst);
+	{
+		if (Overlap(inst.dest, 1, inst.src1, 4)) {
+			DISABLE;
+		}
+		// The top byte of each lane, packed into one lane. For 31, the byte below the sign, with
+		// negative lanes clamped to zero: the arithmetic shift makes them negative, and PACKUSWB
+		// saturates them to 0.
+		X64Reg tempReg = regs_.MapWithFPRTemp(inst);
+		MOVDQA(tempReg, regs_.F(inst.src1));
+		if (inst.op == IROp::Vec4Pack31To8)
+			PSRAD(tempReg, 23);
+		else
+			PSRLD(tempReg, 24);
+		PACKSSDW(tempReg, R(tempReg));
+		PACKUSWB(tempReg, R(tempReg));
+		MOVDQA(regs_.FX(inst.dest), R(tempReg));
 		break;
+	}
+
+	case IROp::Vec2Pack32To16:
+	case IROp::Vec2Pack31To16:
+	{
+		if (Overlap(inst.dest, 1, inst.src1, 2)) {
+			DISABLE;
+		}
+		// The top 16 bits of each lane (for 31, the 16 below the sign, with negative lanes clamped
+		// to zero), packed into one lane. The arithmetic shift keeps them in PACKSSDW's range, so
+		// the bits come through unchanged.
+		X64Reg tempReg = regs_.MapWithFPRTemp(inst);
+		MOVDQA(tempReg, regs_.F(inst.src1));
+		if (inst.op == IROp::Vec2Pack31To16) {
+			PSRAD(tempReg, 31);
+			PANDN(tempReg, regs_.F(inst.src1));
+			PSLLD(tempReg, 1);
+		}
+		PSRAD(tempReg, 16);
+		PACKSSDW(tempReg, R(tempReg));
+		MOVDQA(regs_.FX(inst.dest), R(tempReg));
+		break;
+	}
+
+	case IROp::Vec4Unpack8To32:
+	{
+		if (Overlap(inst.dest, 4, inst.src1, 1)) {
+			DISABLE;
+		}
+		// Each byte into the top of a lane: duplicate bytes, then words, then shift the rest out.
+		X64Reg tempReg = regs_.MapWithFPRTemp(inst);
+		MOVDQA(tempReg, regs_.F(inst.src1));
+		PUNPCKLBW(tempReg, R(tempReg));
+		PUNPCKLWD(tempReg, R(tempReg));
+		PSLLD(tempReg, 24);
+		MOVDQA(regs_.FX(inst.dest), R(tempReg));
+		break;
+	}
+
+	case IROp::Vec2Unpack16To32:
+	case IROp::Vec2Unpack16To31:
+	{
+		if (Overlap(inst.dest, 2, inst.src1, 1)) {
+			DISABLE;
+		}
+		// Each half into the top of a lane, shifted down one more for 31.
+		X64Reg tempReg = regs_.MapWithFPRTemp(inst);
+		MOVDQA(tempReg, regs_.F(inst.src1));
+		PUNPCKLWD(tempReg, R(tempReg));
+		PSLLD(tempReg, 16);
+		if (inst.op == IROp::Vec2Unpack16To31)
+			PSRLD(tempReg, 1);
+		MOVDQA(regs_.FX(inst.dest), R(tempReg));
+		break;
+	}
+
+	case IROp::Vec4DuplicateUpperBitsAndShift1:
+	{
+		if (inst.dest != inst.src1 && Overlap(inst.dest, 4, inst.src1, 4)) {
+			DISABLE;
+		}
+		// v |= v >> 8; v |= v >> 16; v >>= 1, which turns 0xFF000000 into 0x7FFFFFFF.
+		X64Reg tempReg = regs_.MapWithFPRTemp(inst);
+		MOVDQA(tempReg, regs_.F(inst.src1));
+		PSRLD(tempReg, 8);
+		POR(tempReg, regs_.F(inst.src1));
+		MOVDQA(regs_.FX(inst.dest), R(tempReg));
+		PSRLD(tempReg, 16);
+		POR(regs_.FX(inst.dest), R(tempReg));
+		PSRLD(regs_.FX(inst.dest), 1);
+		break;
+	}
 
 	default:
 		INVALIDOP;

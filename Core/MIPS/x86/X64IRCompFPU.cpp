@@ -978,6 +978,14 @@ static float X64JIT_XMM_CALL x64_log2(float f) {
 	return vfpu_log2(f);
 }
 
+static float X64JIT_XMM_CALL x64_h2f_lower(float f) {
+	return vfpu_h2f_lower(f);
+}
+
+static float X64JIT_XMM_CALL x64_h2f_upper(float f) {
+	return vfpu_h2f_upper(f);
+}
+
 static float X64JIT_XMM_CALL x64_vsqrt(float f) {
 	return vfpu_sqrt(f);
 }
@@ -1028,6 +1036,14 @@ static uint32_t x64_log2(uint32_t v) {
 	f = vfpu_log2(f);
 	memcpy(&v, &f, sizeof(v));
 	return v;
+}
+
+static uint32_t x64_h2f_lower(uint32_t v) {
+	return vfpu_h2f((u16)(v & 0xFFFF));
+}
+
+static uint32_t x64_h2f_upper(uint32_t v) {
+	return vfpu_h2f((u16)(v >> 16));
 }
 
 static uint32_t x64_vsqrt(uint32_t v) {
@@ -1128,6 +1144,10 @@ void X64JitBackend::CompIR_FSpecial(IRInst inst) {
 
 	case IROp::FLog2:
 		callFuncF_F((const void *)&x64_log2);
+		break;
+
+	case IROp::FHalfToFloat:
+		callFuncF_F(inst.src2 ? (const void *)&x64_h2f_upper : (const void *)&x64_h2f_lower);
 		break;
 
 	default:

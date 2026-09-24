@@ -108,7 +108,6 @@ private:
 	void CompIR_Transfer(IRInst inst) override;
 	void CompIR_VecArith(IRInst inst) override;
 	void CompIR_VecAssign(IRInst inst) override;
-	void CompIR_VecClamp(IRInst inst) override;
 	void CompIR_VecHoriz(IRInst inst) override;
 	void CompIR_VecLoad(IRInst inst) override;
 	void CompIR_VecPack(IRInst inst) override;

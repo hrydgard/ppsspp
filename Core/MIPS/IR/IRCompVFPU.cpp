@@ -1194,8 +1194,24 @@ namespace MIPSComp {
 
 		// Vector expand half to float
 		// d[N*2] = float(lowerhalf(s[N])), d[N*2+1] = float(upperhalf(s[N]))
+		// Sizes above pair act like pair.
+		VectorSize sz = GetVecSize(op);
+		VectorSize outsize = sz == V_Single ? V_Pair : V_Quad;
+		int nOut = GetNumVectorElements(outsize);
 
-		DISABLE;
+		u8 sregs[4], dregs[4];
+		GetVectorRegsPrefixS(sregs, sz, _VS);
+		GetVectorRegsPrefixD(dregs, outsize, _VD);
+
+		// Through temps, since d may overlap s.
+		for (int i = 0; i < nOut; i++) {
+			ir.Write(IROp::FHalfToFloat, IRVTEMP_0 + i, sregs[i / 2], i & 1);
+		}
+		for (int i = 0; i < nOut; i++) {
+			ir.Write(IROp::FMov, dregs[i], IRVTEMP_0 + i);
+		}
+
+		ApplyPrefixD(dregs, outsize, _VD);
 	}
 
 	void IRFrontend::Comp_Vf2i(MIPSOpcode op) {
@@ -1458,12 +1474,6 @@ namespace MIPSComp {
 		int vt = _VT;
 
 		MatrixSize sz = GetMtxSize(op);
-		if (sz != M_4x4) {
-			DISABLE;
-		}
-		if (GetMtx(vt) == GetMtx(vd)) {
-			DISABLE;
-		}
 		int n = GetMatrixSide(sz);
 
 		// The entire matrix is scaled equally, so transpose doesn't matter.  Let's normalize.
@@ -1471,17 +1481,30 @@ namespace MIPSComp {
 			vs = TransposeMatrixReg(vs);
 			vd = TransposeMatrixReg(vd);
 		}
-		if (IsMatrixTransposed(vs) || IsMatrixTransposed(vd)) {
-			DISABLE;
-		}
 
 		u8 sregs[16], dregs[16], tregs[1];
 		GetMatrixRegs(sregs, sz, vs);
 		GetMatrixRegs(dregs, sz, vd);
 		GetVectorRegs(tregs, V_Single, vt);
 
-		for (int i = 0; i < n; ++i) {
-			ir.Write(IROp::Vec4Scale, dregs[i * 4], sregs[i * 4], tregs[0]);
+		if (sz == M_4x4 && GetMtx(vt) != GetMtx(vd) && !IsMatrixTransposed(vs) && !IsMatrixTransposed(vd)) {
+			for (int i = 0; i < n; ++i) {
+				ir.Write(IROp::Vec4Scale, dregs[i * 4], sregs[i * 4], tregs[0]);
+			}
+			return;
+		}
+
+		// Element by element otherwise, which works for any size and transposition. A source that
+		// partly overlaps the destination would be read after it's written, though.
+		if (vs != vd && GetMatrixOverlap(vs, vd, sz) != OVERLAP_NONE) {
+			DISABLE;
+		}
+		// The scale can be part of the destination, so keep a copy.
+		ir.Write(IROp::FMov, IRVTEMP_0, tregs[0]);
+		for (int a = 0; a < n; a++) {
+			for (int b = 0; b < n; b++) {
+				ir.Write(IROp::FMul, dregs[a * 4 + b], sregs[a * 4 + b], IRVTEMP_0);
+			}
 		}
 	}
 
@@ -1890,9 +1913,8 @@ namespace MIPSComp {
 
 		if (bits == 8) {
 			if (unsignedOp) {  //vi2uc
-				// Output is only one register.
-				ir.Write(IROp::Vec4ClampToZero, IRVTEMP_0, srcregs[0]);
-				ir.Write(IROp::Vec4Pack31To8, tempregs[0], IRVTEMP_0);
+				// Output is only one register. The pack clamps negative lanes to zero.
+				ir.Write(IROp::Vec4Pack31To8, tempregs[0], srcregs[0]);
 			} else {  //vi2c
 				ir.Write(IROp::Vec4Pack32To8, tempregs[0], srcregs[0]);
 			}
@@ -1900,11 +1922,10 @@ namespace MIPSComp {
 			// bits == 16
 			if (unsignedOp) {  //vi2us
 				// Output is only one register.
-				ir.Write(IROp::Vec2ClampToZero, IRVTEMP_0, srcregs[0]);
-				ir.Write(IROp::Vec2Pack31To16, tempregs[0], IRVTEMP_0);
+				// The pack clamps negative lanes to zero.
+				ir.Write(IROp::Vec2Pack31To16, tempregs[0], srcregs[0]);
 				if (outsize == V_Pair) {
-					ir.Write(IROp::Vec2ClampToZero, IRVTEMP_0 + 2, srcregs[2]);
-					ir.Write(IROp::Vec2Pack31To16, tempregs[1], IRVTEMP_0 + 2);
+					ir.Write(IROp::Vec2Pack31To16, tempregs[1], srcregs[2]);
 				}
 			} else {  //vi2s
 				ir.Write(IROp::Vec2Pack32To16, tempregs[0], srcregs[0]);
@@ -2424,8 +2445,58 @@ namespace MIPSComp {
 
 		// Vector color conversion
 		// d[N] = ConvertTo16(s[N*2]) | (ConvertTo16(s[N*2+1]) << 16)
+		// Four 8888 colors from a quad, whatever the size. Each channel keeps its top bits.
+		struct Channel {
+			u8 srcShift;
+			u8 bits;
+			u8 destShift;
+		};
+		static const Channel c4444[] = { { 4, 4, 0 }, { 12, 4, 4 }, { 20, 4, 8 }, { 28, 4, 12 } };
+		static const Channel c5551[] = { { 3, 5, 0 }, { 11, 5, 5 }, { 19, 5, 10 }, { 31, 1, 15 } };
+		static const Channel c5650[] = { { 3, 5, 0 }, { 10, 6, 5 }, { 19, 5, 11 } };
+		const Channel *channels;
+		int numChannels;
+		switch ((op >> 16) & 3) {
+		case 1: channels = c4444; numChannels = 4; break;
+		case 2: channels = c5551; numChannels = 4; break;
+		case 3: channels = c5650; numChannels = 3; break;
+		default: INVALIDOP;
+		}
 
-		DISABLE;
+		VectorSize outsize = GetVecSize(op) == V_Single ? V_Single : V_Pair;
+		int nOut = GetNumVectorElements(outsize);
+
+		u8 sregs[4], dregs[4];
+		GetVectorRegsPrefixS(sregs, V_Quad, _VS);
+		GetVectorRegsPrefixD(dregs, outsize, _VD);
+
+		// Through temps, since d may overlap s.
+		for (int w = 0; w < nOut; w++) {
+			bool first = true;
+			for (int k = 0; k < 2; k++) {
+				ir.Write(IROp::FMovToGPR, IRTEMP_0, sregs[w * 2 + k]);
+				for (int c = 0; c < numChannels; c++) {
+					const Channel &ch = channels[c];
+					ir.Write(IROp::ShrImm, IRTEMP_1, IRTEMP_0, ch.srcShift);
+					if (ch.srcShift + ch.bits < 32)
+						ir.Write(IROp::AndConst, IRTEMP_1, IRTEMP_1, 0, (1 << ch.bits) - 1);
+					if (ch.destShift + k * 16 != 0)
+						ir.Write(IROp::ShlImm, IRTEMP_1, IRTEMP_1, ch.destShift + k * 16);
+					if (first) {
+						ir.Write(IROp::Mov, IRTEMP_2, IRTEMP_1);
+						first = false;
+					} else {
+						ir.Write(IROp::Or, IRTEMP_2, IRTEMP_2, IRTEMP_1);
+					}
+				}
+			}
+			ir.Write(IROp::FMovFromGPR, IRVTEMP_0 + w, IRTEMP_2);
+		}
+		for (int w = 0; w < nOut; w++) {
+			ir.Write(IROp::FMov, dregs[w], IRVTEMP_0 + w);
+		}
+
+		ApplyPrefixD(dregs, outsize, _VD);
 	}
 
 	void IRFrontend::Comp_Vbfy(MIPSOpcode op) {

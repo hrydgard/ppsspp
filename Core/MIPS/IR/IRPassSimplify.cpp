@@ -768,6 +768,7 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 		case IROp::FVSqrt:
 		case IROp::FExp2:
 		case IROp::FLog2:
+		case IROp::FHalfToFloat:
 			out.Write(inst);
 			break;
 
@@ -833,8 +834,6 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 		case IROp::Vec4Unpack8To32:
 		case IROp::Vec2Unpack16To32:
 		case IROp::Vec4DuplicateUpperBitsAndShift1:
-		case IROp::Vec2ClampToZero:
-		case IROp::Vec4ClampToZero:
 			out.Write(inst);
 			break;
 

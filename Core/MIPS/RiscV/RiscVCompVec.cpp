@@ -321,12 +321,62 @@ void RiscVJitBackend::CompIR_VecHoriz(IRInst inst) {
 void RiscVJitBackend::CompIR_VecPack(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
+	// Clamps a sign extended value in reg to zero if negative. Without Zbb, maskReg is a temp.
+	auto clampToZero = [&](RiscVReg reg, RiscVReg maskReg) {
+		if (cpu_info.RiscV_Zbb) {
+			MAX(reg, reg, R_ZERO);
+		} else {
+			SRAI(maskReg, reg, XLEN - 1);
+			NOT(maskReg, maskReg);
+			AND(reg, reg, maskReg);
+		}
+	};
+
 	switch (inst.op) {
 	case IROp::Vec2Unpack16To31:
-	case IROp::Vec4Pack32To8:
-	case IROp::Vec2Pack31To16:
-		CompIR_Generic(inst);
+		// Like Vec2Unpack16To32, shifted down one more.
+		regs_.Map(inst);
+		FMV(FMv::X, FMv::W, SCRATCH2, regs_.F(inst.src1));
+		SLLI(SCRATCH1, SCRATCH2, 16);
+		SRLIW(SCRATCH1, SCRATCH1, 1);
+		FMV(FMv::W, FMv::X, regs_.F(inst.dest), SCRATCH1);
+		SRLIW(SCRATCH1, SCRATCH2, 16);
+		SLLI(SCRATCH1, SCRATCH1, 15);
+		FMV(FMv::W, FMv::X, regs_.F(inst.dest + 1), SCRATCH1);
 		break;
+
+	case IROp::Vec4Pack32To8:
+		// The top byte of each lane. Every lane is read before dest is written.
+		regs_.Map(inst);
+		for (int i = 0; i < 4; ++i) {
+			FMV(FMv::X, FMv::W, SCRATCH1, regs_.F(inst.src1 + i));
+			SRLIW(SCRATCH1, SCRATCH1, 24);
+			if (i == 0) {
+				MV(SCRATCH2, SCRATCH1);
+			} else {
+				SLLI(SCRATCH1, SCRATCH1, 8 * i);
+				OR(SCRATCH2, SCRATCH2, SCRATCH1);
+			}
+		}
+		FMV(FMv::W, FMv::X, regs_.F(inst.dest), SCRATCH2);
+		break;
+
+	case IROp::Vec2Pack31To16:
+	{
+		// Bits 30-15 of each lane, with negative lanes clamped to zero.
+		regs_.Map(inst);
+		RiscVReg maskReg = cpu_info.RiscV_Zbb ? INVALID_REG : regs_.GetAndLockTempGPR();
+		FMV(FMv::X, FMv::W, SCRATCH1, regs_.F(inst.src1));
+		FMV(FMv::X, FMv::W, SCRATCH2, regs_.F(inst.src1 + 1));
+		clampToZero(SCRATCH1, maskReg);
+		clampToZero(SCRATCH2, maskReg);
+		SRLI(SCRATCH1, SCRATCH1, 15);
+		SRLI(SCRATCH2, SCRATCH2, 15);
+		SLLI(SCRATCH2, SCRATCH2, 16);
+		OR(SCRATCH1, SCRATCH1, SCRATCH2);
+		FMV(FMv::W, FMv::X, regs_.F(inst.dest), SCRATCH1);
+		break;
+	}
 
 	case IROp::Vec4Unpack8To32:
 		// TODO: This works for now, but may need to handle aliasing for vectors.
@@ -369,15 +419,19 @@ void RiscVJitBackend::CompIR_VecPack(IRInst inst) {
 		break;
 
 	case IROp::Vec4Pack31To8:
-		// TODO: This works for now, but may need to handle aliasing for vectors.
+	{
+		// Bits 30-23 of each lane, with negative lanes clamped to zero. Every lane is read before
+		// dest is written.
 		regs_.Map(inst);
+		RiscVReg maskReg = cpu_info.RiscV_Zbb ? INVALID_REG : regs_.GetAndLockTempGPR();
 		for (int i = 0; i < 4; ++i) {
 			FMV(FMv::X, FMv::W, SCRATCH1, regs_.F(inst.src1 + i));
+			clampToZero(SCRATCH1, maskReg);
+			// At most 0x7FFFFFFF, so this leaves 0-255.
 			SRLI(SCRATCH1, SCRATCH1, 23);
 			if (i == 0) {
-				ANDI(SCRATCH2, SCRATCH1, 0xFF);
+				MV(SCRATCH2, SCRATCH1);
 			} else {
-				ANDI(SCRATCH1, SCRATCH1, 0xFF);
 				SLLI(SCRATCH1, SCRATCH1, 8 * i);
 				OR(SCRATCH2, SCRATCH2, SCRATCH1);
 			}
@@ -385,6 +439,7 @@ void RiscVJitBackend::CompIR_VecPack(IRInst inst) {
 
 		FMV(FMv::W, FMv::X, regs_.F(inst.dest), SCRATCH2);
 		break;
+	}
 
 	case IROp::Vec2Pack32To16:
 		// TODO: This works for now, but may need to handle aliasing for vectors.
@@ -401,35 +456,6 @@ void RiscVJitBackend::CompIR_VecPack(IRInst inst) {
 		OR(SCRATCH1, SCRATCH1, SCRATCH2);
 		// Okay, to the floating point register.
 		FMV(FMv::W, FMv::X, regs_.F(inst.dest), SCRATCH1);
-		break;
-
-	default:
-		INVALIDOP;
-		break;
-	}
-}
-
-void RiscVJitBackend::CompIR_VecClamp(IRInst inst) {
-	CONDITIONAL_DISABLE;
-
-	switch (inst.op) {
-	case IROp::Vec4ClampToZero:
-		regs_.Map(inst);
-		for (int i = 0; i < 4; i++) {
-			FMV(FMv::X, FMv::W, SCRATCH1, regs_.F(inst.src1 + i));
-			SRAIW(SCRATCH2, SCRATCH1, 31);
-			if (cpu_info.RiscV_Zbb) {
-				ANDN(SCRATCH1, SCRATCH1, SCRATCH2);
-			} else {
-				NOT(SCRATCH2, SCRATCH2);
-				AND(SCRATCH1, SCRATCH1, SCRATCH2);
-			}
-			FMV(FMv::W, FMv::X, regs_.F(inst.dest + i), SCRATCH1);
-		}
-		break;
-
-	case IROp::Vec2ClampToZero:
-		CompIR_Generic(inst);
 		break;
 
 	default:

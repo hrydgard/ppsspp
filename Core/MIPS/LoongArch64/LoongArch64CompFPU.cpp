@@ -225,7 +225,13 @@ void LoongArch64JitBackend::CompIR_FCvt(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::FCvtWS:
-		CompIR_Generic(inst);
+		// FCSR's rounding mode is the game's (ApplyRoundingMode). NaN converts to zero, so patch
+		// in INT_MAX like FRound does.
+		regs_.Map(inst);
+		QuickFLI(32, SCRATCHF1, (uint32_t)0x7fffffffl, SCRATCH1);
+		FCMP_COND_S(FCC0, regs_.F(inst.src1), regs_.F(inst.src1), LoongArch64Fcond::CUN);
+		FTINT_W_S(regs_.F(inst.dest), regs_.F(inst.src1));
+		FSEL(regs_.F(inst.dest), regs_.F(inst.dest), SCRATCHF1, FCC0);
 		break;
 
 	case IROp::FCvtSW:
@@ -614,6 +620,10 @@ void LoongArch64JitBackend::CompIR_FSpecial(IRInst inst) {
 
 	case IROp::FLog2:
 		callFuncF_F(&vfpu_log2);
+		break;
+
+	case IROp::FHalfToFloat:
+		callFuncF_F(inst.src2 ? &vfpu_h2f_upper : &vfpu_h2f_lower);
 		break;
 
 	default:

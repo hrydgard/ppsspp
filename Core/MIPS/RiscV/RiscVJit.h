@@ -67,6 +67,7 @@ private:
 	void CompIR_Assign(IRInst inst) override;
 	void CompIR_Basic(IRInst inst) override;
 	void CompIR_Bits(IRInst inst) override;
+	void EmitBSwap32NoZbb(RiscVGen::RiscVReg dest, RiscVGen::RiscVReg src);
 	void CompIR_Breakpoint(IRInst inst) override;
 	void CompIR_Compare(IRInst inst) override;
 	void CompIR_CondAssign(IRInst inst) override;
@@ -99,7 +100,6 @@ private:
 	void CompIR_Transfer(IRInst inst) override;
 	void CompIR_VecArith(IRInst inst) override;
 	void CompIR_VecAssign(IRInst inst) override;
-	void CompIR_VecClamp(IRInst inst) override;
 	void CompIR_VecHoriz(IRInst inst) override;
 	void CompIR_VecLoad(IRInst inst) override;
 	void CompIR_VecPack(IRInst inst) override;

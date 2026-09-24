@@ -297,4 +297,7 @@ float Float16ToFloat32(unsigned short l);
 // flushes below 2^-14 to zero and keeps the low ten mantissa bits of a NaN; vh2f flushes
 // subnormal halves and keeps inf/NaN mantissa bits unshifted.
 u32 vfpu_h2f(u16 h);
+// vh2f of the lower or upper half of a word, with the word and result as float bits. For the JITs.
+float vfpu_h2f_lower(float word);
+float vfpu_h2f_upper(float word);
 u16 vfpu_f2h(u32 f);

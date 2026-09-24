@@ -460,18 +460,20 @@ void LoongArch64JitBackend::CompIR_CondAssign(IRInst inst) {
 		break;
 
 	case IROp::Max:
-		if (inst.src1 != inst.src2) {
-			CompIR_Generic(inst);
-		} else if (inst.dest != inst.src1) {
-			regs_.Map(inst);
-			MOVE(regs_.R(inst.dest), regs_.R(inst.src1));
-			regs_.MarkGPRDirty(inst.dest, regs_.IsNormalized32(inst.src1));
-		}
-		break;
-
 	case IROp::Min:
 		if (inst.src1 != inst.src2) {
-			CompIR_Generic(inst);
+			regs_.Map(inst);
+			// A signed 64-bit compare, so both need to be sign extended.
+			NormalizeSrc12(inst, &lhs, &rhs, SCRATCH1, SCRATCH2, true);
+			// Branch when lhs is the answer. dest may be either source, so each path moves once.
+			FixupBranch useLhs = inst.op == IROp::Min ? BLT(lhs, rhs) : BLT(rhs, lhs);
+			MOVE(regs_.R(inst.dest), rhs);
+			FixupBranch done = B();
+			SetJumpTarget(useLhs);
+			MOVE(regs_.R(inst.dest), lhs);
+			SetJumpTarget(done);
+			// Both inputs were normalized, so the result is too.
+			regs_.MarkGPRDirty(inst.dest, true);
 		} else if (inst.dest != inst.src1) {
 			regs_.Map(inst);
 			MOVE(regs_.R(inst.dest), regs_.R(inst.src1));
