@@ -396,12 +396,15 @@ SamplerCacheKey GetFramebufferSamplingParams(const GEState &gstate, u16 bufferWi
 
 static u32 ComputeTextureHash(TextureReplacer &replacer, u32 addr, int bufw, int w, int h, bool swizzled, const TexCacheEntry *entry) {
 	const GETextureFormat format = entry->format;
+	// Swizzled CLUT4 glyph atlases can fill below the visible UV range while remaining
+	// 512 pixels tall.  Hashing only maxSeenV rows misses those updates (#21980).
+	const u16 hashMaxSeenV = h == 512 && swizzled && format == GE_TFMT_CLUT4 ? 512 : entry->maxSeenV;
 	if (replacer.Enabled()) {
-		return replacer.ComputeHash(addr, bufw, w, h, swizzled, format, entry->maxSeenV);
+		return replacer.ComputeHash(addr, bufw, w, h, swizzled, format, hashMaxSeenV);
 	}
 
-	if (h == 512 && entry->maxSeenV < 512 && entry->maxSeenV != 0) {
-		h = (int)entry->maxSeenV;
+	if (h == 512 && hashMaxSeenV < 512 && hashMaxSeenV != 0) {
+		h = (int)hashMaxSeenV;
 	}
 
 	u32 sizeInRAM;
