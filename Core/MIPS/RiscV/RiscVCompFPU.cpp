@@ -228,7 +228,11 @@ void RiscVJitBackend::CompIR_FCvt(IRInst inst) {
 	RiscVReg tempReg = INVALID_REG;
 	switch (inst.op) {
 	case IROp::FCvtWS:
-		CompIR_Generic(inst);
+		// The dynamic rounding mode is the game's (ApplyRoundingMode). FCVT saturates and gives
+		// INT_MAX for NaN, like the PSP.
+		regs_.Map(inst);
+		FCVT(FConv::W, FConv::S, SCRATCH1, regs_.F(inst.src1), Round::DYNAMIC);
+		FMV(FMv::W, FMv::X, regs_.F(inst.dest), SCRATCH1);
 		break;
 
 	case IROp::FCvtSW:
