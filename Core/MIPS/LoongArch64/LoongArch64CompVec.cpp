@@ -398,6 +398,12 @@ void LoongArch64JitBackend::CompIR_VecPack(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Vec2Unpack16To31:
+		// With LSX, a lane group can be mapped as one vector reg, and then F() returns the same
+		// reg for every lane. The Vec2 ops here address lanes one by one, so leave them to the interpreter.
+		if (cpu_info.LOONGARCH_LSX) {
+			CompIR_Generic(inst);
+			break;
+		}
 		// Like Vec2Unpack16To32, shifted down one more.
 		regs_.Map(inst);
 		MOVFR2GR_S(SCRATCH2, regs_.F(inst.src1));
@@ -411,6 +417,10 @@ void LoongArch64JitBackend::CompIR_VecPack(IRInst inst) {
 
 	case IROp::Vec2Pack31To16:
 	{
+		if (cpu_info.LOONGARCH_LSX) {
+			CompIR_Generic(inst);
+			break;
+		}
 		// Bits 30-15 of each lane, with negative lanes clamped to zero.
 		regs_.Map(inst);
 		LoongArch64Reg maskReg = regs_.GetAndLockTempGPR();
@@ -480,7 +490,11 @@ void LoongArch64JitBackend::CompIR_VecPack(IRInst inst) {
 		break;
 
 	case IROp::Vec2Unpack16To32:
-		// TODO: This works for now, but may need to handle aliasing for vectors.
+		if (cpu_info.LOONGARCH_LSX) {
+			CompIR_Generic(inst);
+			break;
+		}
+		// src1 is read before either lane of dest is written.
 		regs_.Map(inst);
 		MOVFR2GR_S(SCRATCH2, regs_.F(inst.src1));
 		SLLI_D(SCRATCH1, SCRATCH2, 16);
@@ -512,7 +526,6 @@ void LoongArch64JitBackend::CompIR_VecPack(IRInst inst) {
 		break;
 
 	case IROp::Vec4Pack31To8:
-		// TODO: This works for now, but may need to handle aliasing for vectors.
 		// Bits 30-23 of each lane, with negative lanes clamped to zero.
 		if (cpu_info.LOONGARCH_LSX) {
 			if (Overlap(inst.dest, 1, inst.src1, 4))
@@ -546,7 +559,10 @@ void LoongArch64JitBackend::CompIR_VecPack(IRInst inst) {
 		break;
 
 	case IROp::Vec2Pack32To16:
-		// TODO: This works for now, but may need to handle aliasing for vectors.
+		if (cpu_info.LOONGARCH_LSX) {
+			CompIR_Generic(inst);
+			break;
+		}
 		regs_.Map(inst);
 		MOVFR2GR_S(SCRATCH1, regs_.F(inst.src1));
 		MOVFR2GR_S(SCRATCH2, regs_.F(inst.src1 + 1));
