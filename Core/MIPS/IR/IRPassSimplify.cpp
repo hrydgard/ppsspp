@@ -627,6 +627,8 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 		case IROp::MovZ:
 		case IROp::MovNZ:
 			gpr.MapInInIn(inst.dest, inst.src1, inst.src2);
+			// The dest is read, then maybe written.
+			gpr.MapDirty(inst.dest);
 			goto doDefault;
 
 		case IROp::Min:
@@ -664,11 +666,16 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 		case IROp::Store32Left:
 		case IROp::Store32Right:
 		case IROp::Store32Conditional:
-			if (gpr.IsImm(inst.src1) && inst.src1 != inst.dest) {
+			if (gpr.IsImm(inst.src1)) {
 				gpr.MapIn(inst.dest);
+				// sc also writes its value reg, with the result.
+				if (inst.op == IROp::Store32Conditional)
+					gpr.MapDirty(inst.dest);
 				out.Write(inst.op, inst.dest, 0, 0, gpr.GetImm(inst.src1) + inst.constant);
 			} else {
 				gpr.MapInIn(inst.dest, inst.src1);
+				if (inst.op == IROp::Store32Conditional)
+					gpr.MapDirty(inst.dest);
 				goto doDefault;
 			}
 			break;
@@ -688,9 +695,11 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 		case IROp::Load16Ext:
 		case IROp::Load32:
 		case IROp::Load32Linked:
-			if (gpr.IsImm(inst.src1) && inst.src1 != inst.dest) {
+			if (gpr.IsImm(inst.src1)) {
+				// Read the address first, as the dest may be the base (lui v0, hi; lw v0, lo(v0)).
+				u32 addr = gpr.GetImm(inst.src1) + inst.constant;
 				gpr.MapDirty(inst.dest);
-				out.Write(inst.op, inst.dest, 0, 0, gpr.GetImm(inst.src1) + inst.constant);
+				out.Write(inst.op, inst.dest, 0, 0, addr);
 			} else {
 				gpr.MapDirtyIn(inst.dest, inst.src1);
 				goto doDefault;
@@ -707,11 +716,15 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 			break;
 		case IROp::Load32Left:
 		case IROp::Load32Right:
+			// These merge into the dest, so it's read, then written.
 			if (gpr.IsImm(inst.src1)) {
+				u32 addr = gpr.GetImm(inst.src1) + inst.constant;
 				gpr.MapIn(inst.dest);
-				out.Write(inst.op, inst.dest, 0, 0, gpr.GetImm(inst.src1) + inst.constant);
+				gpr.MapDirty(inst.dest);
+				out.Write(inst.op, inst.dest, 0, 0, addr);
 			} else {
 				gpr.MapInIn(inst.dest, inst.src1);
+				gpr.MapDirty(inst.dest);
 				goto doDefault;
 			}
 			break;
@@ -773,6 +786,11 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 		case IROp::FLog2:
 		case IROp::FHalfToFloat:
 		case IROp::FSinCos:
+		case IROp::FMin:
+		case IROp::FMax:
+		case IROp::FSign:
+		case IROp::FSat0_1:
+		case IROp::FSatMinus1_1:
 			out.Write(inst);
 			break;
 
@@ -837,6 +855,8 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 		case IROp::Vec2Pack32To16:
 		case IROp::Vec4Unpack8To32:
 		case IROp::Vec2Unpack16To32:
+		case IROp::Vec2Unpack16To31:
+		case IROp::Vec2Pack31To16:
 		case IROp::Vec4DuplicateUpperBitsAndShift1:
 			out.Write(inst);
 			break;
@@ -885,7 +905,8 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 				}
 				break;
 			}
-			gpr.FlushAll();
+			// Only exits when taken, so the values stay known after.
+			gpr.FlushAll(true);
 			goto doDefault;
 
 		case IROp::ExitToConstIfGtZ:
@@ -909,7 +930,8 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 				}
 				break;
 			}
-			gpr.FlushAll();
+			// Only exits when taken, so the values stay known after.
+			gpr.FlushAll(true);
 			goto doDefault;
 
 		case IROp::ExitToConst:
@@ -944,6 +966,9 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 		{
 			gpr.FlushAll();
 		doDefault:
+			// Whatever the op writes isn't known anymore (its inputs were written out above).
+			if (GetIRMeta(inst.op)->types[0] == 'G' && (GetIRMeta(inst.op)->flags & IRFLAG_SRC3) == 0)
+				gpr.MapDirty(inst.dest);
 			out.Write(inst);
 			break;
 		}

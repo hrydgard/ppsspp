@@ -30,13 +30,10 @@
 #include "Core/MIPS/JitCommon/JitState.h"
 
 void IRImmRegCache::Flush(IRReg rd) {
-	if (isImm_[rd]) {
-		if (rd == 0) {
-			return;
-		}
+	if (isImm_[rd] && !isWritten_[rd]) {
 		_assert_((rd > 0 && rd < 32) || (rd >= IRTEMP_0 && rd < IRREG_VFPU_CTRL_BASE));
 		ir_->WriteSetConstant(rd, immVal_[rd]);
-		isImm_[rd] = false;
+		isWritten_[rd] = true;
 	}
 }
 
@@ -49,19 +46,23 @@ void IRImmRegCache::Discard(IRReg rd) {
 
 IRImmRegCache::IRImmRegCache(IRWriter *ir) : ir_(ir) {
 	memset(&isImm_, 0, sizeof(isImm_));
+	memset(&isWritten_, 0, sizeof(isWritten_));
 	memset(&immVal_, 0, sizeof(immVal_));
 	isImm_[0] = true;
+	isWritten_[0] = true;
 	ir_ = ir;
 }
 
-void IRImmRegCache::FlushAll() {
+void IRImmRegCache::FlushAll(bool keepKnown) {
 	for (int i = 1; i < TOTAL_MAPPABLE_IRREGS; ) {
 		if (isImm_[i]) {
 			Flush(i);
+			if (!keepKnown)
+				isImm_[i] = false;
 		}
 
 		// Most of the time, lots are not.  This speeds it up a lot.
-		bool *next = (bool *)memchr(&isImm_[i], 1, TOTAL_MAPPABLE_IRREGS - i);
+		bool *next = (bool *)memchr(&isImm_[i + 1], 1, TOTAL_MAPPABLE_IRREGS - i - 1);
 		if (!next)
 			break;
 		i = (int)(next - &isImm_[0]);
@@ -88,18 +89,14 @@ void IRImmRegCache::MapInInIn(IRReg rd, IRReg rs, IRReg rt) {
 }
 
 void IRImmRegCache::MapDirtyIn(IRReg rd, IRReg rs) {
-	if (rs != rd) {
-		Discard(rd);
-	}
 	Flush(rs);
+	Discard(rd);
 }
 
 void IRImmRegCache::MapDirtyInIn(IRReg rd, IRReg rs, IRReg rt) {
-	if (rs != rd && rt != rd) {
-		Discard(rd);
-	}
 	Flush(rs);
 	Flush(rt);
+	Discard(rd);
 }
 
 IRNativeRegCacheBase::IRNativeRegCacheBase(MIPSComp::JitOptions *jo)

@@ -322,6 +322,88 @@ static const IRVerification tests[] = {
 		false,
 		true,
 	},
+	{
+		"PropagateConstantsPastFSat",
+		{
+			{ IROp::SetConst, { MIPS_REG_A0 }, 0, 0, 0x100 },
+			{ IROp::FSat0_1, { 1 }, 1 },
+			{ IROp::Add, { MIPS_REG_A1 }, MIPS_REG_A0, MIPS_REG_A0 },
+		},
+		{
+			{ IROp::FSat0_1, { 1 }, 1 },
+			{ IROp::SetConst, { MIPS_REG_A0 }, 0, 0, 0x100 },
+			{ IROp::SetConst, { MIPS_REG_A1 }, 0, 0, 0x200 },
+		},
+		{ &PropagateConstants },
+	},
+	{
+		// lui v0, hi; lw v0, lo(v0)
+		"PropagateConstantsLoadIntoBase",
+		{
+			{ IROp::SetConst, { MIPS_REG_V0 }, 0, 0, 0x08810000 },
+			{ IROp::Load32, { MIPS_REG_V0 }, MIPS_REG_V0, 0, 0x20 },
+		},
+		{
+			{ IROp::Load32, { MIPS_REG_V0 }, MIPS_REG_ZERO, 0, 0x08810020 },
+		},
+		{ &PropagateConstants },
+	},
+	{
+		// The store writes a0 out, and it stays known.
+		"PropagateConstantsPastStore",
+		{
+			{ IROp::SetConst, { MIPS_REG_A0 }, 0, 0, 5 },
+			{ IROp::Store32, { MIPS_REG_A0 }, MIPS_REG_SP, 0, 0 },
+			{ IROp::AddConst, { MIPS_REG_A1 }, MIPS_REG_A0, 0, 0x20 },
+		},
+		{
+			{ IROp::SetConst, { MIPS_REG_A0 }, 0, 0, 5 },
+			{ IROp::Store32, { MIPS_REG_A0 }, MIPS_REG_SP, 0, 0 },
+			{ IROp::SetConst, { MIPS_REG_A1 }, 0, 0, 0x25 },
+		},
+		{ &PropagateConstants },
+	},
+	{
+		"PropagateConstantsPastCondExit",
+		{
+			{ IROp::SetConst, { MIPS_REG_A0 }, 0, 0, 5 },
+			{ IROp::ExitToConstIfEq, { 0 }, MIPS_REG_A1, MIPS_REG_A2, 0x08804000 },
+			{ IROp::AddConst, { MIPS_REG_A3 }, MIPS_REG_A0, 0, 1 },
+		},
+		{
+			{ IROp::SetConst, { MIPS_REG_A0 }, 0, 0, 5 },
+			{ IROp::ExitToConstIfEq, { 0 }, MIPS_REG_A1, MIPS_REG_A2, 0x08804000 },
+			{ IROp::SetConst, { MIPS_REG_A3 }, 0, 0, 6 },
+		},
+		{ &PropagateConstants },
+	},
+	{
+		// Each of these may change a0 after reading it.
+		"PropagateConstantsReadThenWritten",
+		{
+			{ IROp::SetConst, { MIPS_REG_A0 }, 0, 0, 5 },
+			{ IROp::MovZ, { MIPS_REG_A0 }, MIPS_REG_A1, MIPS_REG_A2 },
+			{ IROp::AddConst, { MIPS_REG_T0 }, MIPS_REG_A0, 0, 1 },
+			{ IROp::SetConst, { MIPS_REG_A0 }, 0, 0, 5 },
+			{ IROp::Store32Conditional, { MIPS_REG_A0 }, MIPS_REG_A1, 0, 0 },
+			{ IROp::AddConst, { MIPS_REG_T1 }, MIPS_REG_A0, 0, 1 },
+			{ IROp::SetConst, { MIPS_REG_A0 }, 0, 0, 5 },
+			{ IROp::Load32Left, { MIPS_REG_A0 }, MIPS_REG_A1, 0, 3 },
+			{ IROp::AddConst, { MIPS_REG_T2 }, MIPS_REG_A0, 0, 1 },
+		},
+		{
+			{ IROp::SetConst, { MIPS_REG_A0 }, 0, 0, 5 },
+			{ IROp::MovZ, { MIPS_REG_A0 }, MIPS_REG_A1, MIPS_REG_A2 },
+			{ IROp::AddConst, { MIPS_REG_T0 }, MIPS_REG_A0, 0, 1 },
+			{ IROp::SetConst, { MIPS_REG_A0 }, 0, 0, 5 },
+			{ IROp::Store32Conditional, { MIPS_REG_A0 }, MIPS_REG_A1, 0, 0 },
+			{ IROp::AddConst, { MIPS_REG_T1 }, MIPS_REG_A0, 0, 1 },
+			{ IROp::SetConst, { MIPS_REG_A0 }, 0, 0, 5 },
+			{ IROp::Load32Left, { MIPS_REG_A0 }, MIPS_REG_A1, 0, 3 },
+			{ IROp::AddConst, { MIPS_REG_T2 }, MIPS_REG_A0, 0, 1 },
+		},
+		{ &PropagateConstants },
+	},
 };
 
 bool TestIRPassSimplify() {
