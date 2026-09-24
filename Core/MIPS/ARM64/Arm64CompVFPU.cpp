@@ -1857,14 +1857,6 @@ namespace MIPSComp {
 		// ES is just really equivalent to (value & 0x7F800000) == 0x7F800000.
 
 		switch (cond) {
-		case VC_ES: // c = my_isnan(s[i]) || my_isinf(s[i]); break;   // Tekken Dark Resurrection
-		case VC_NS: // c = !my_isnan(s[i]) && !my_isinf(s[i]); break;
-		case VC_EN: // c = my_isnan(s[i]); break;
-		case VC_NN: // c = !my_isnan(s[i]); break;
-			if (_VS != _VT)
-				DISABLE;
-			break;
-
 		case VC_EZ:
 		case VC_NZ:
 			break;
@@ -1924,17 +1916,11 @@ namespace MIPSComp {
 				break;
 
 			case VC_EN: // c = my_isnan(s[i]); break;  // Tekken 6
-				// Should we involve T? Where I found this used, it compared a register with itself so should be fine.
-				fpr.MapInInV(sregs[i], tregs[i]);
-				fp.FCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
-				flag = CC_VS;  // overflow = unordered : http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0204j/Chdhcfbc.html
-				break;
-
 			case VC_NN: // c = !my_isnan(s[i]); break;
-				// Should we involve T? Where I found this used, it compared a register with itself so should be fine.
-				fpr.MapInInV(sregs[i], tregs[i]);
-				fp.FCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
-				flag = CC_VC;  // !overflow = !unordered : http://infocenter.arm.com/help/index.jsp?topic=/com.arm.doc.dui0204j/Chdhcfbc.html
+				// Only s counts: comparing it with itself is unordered exactly when it's NaN.
+				fpr.MapRegV(sregs[i]);
+				fp.FCMP(fpr.V(sregs[i]), fpr.V(sregs[i]));
+				flag = cond == VC_EN ? CC_VS : CC_VC;  // overflow = unordered
 				break;
 
 			case VC_EQ: // c = s[i] == t[i]

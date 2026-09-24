@@ -443,8 +443,51 @@ namespace MIPSComp {
 
 	void Arm64Jit::Comp_StoreSync(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(LSU);
+		CheckMemoryBreakpoint();
 
-		DISABLE;
+		// ll loads a word and sets llBit. sc stores a word only if llBit is set, and sets rt to
+		// whether it did. Only the fast memory path, like the plain loads and stores mostly take.
+		if (js.kernelMode || !g_Config.bFastMemory) {
+			DISABLE;
+		}
+
+		int offset = SignExtend16ToS32(op & 0xFFFF);
+		MIPSGPReg rt = _RT;
+		MIPSGPReg rs = _RS;
+
+		switch (op >> 26) {
+		case 48: // ll
+			if (rt != MIPS_REG_ZERO) {
+				gpr.MapDirtyIn(rt, rs);
+				SetScratch1ToEffectiveAddress(rs, offset);
+				LDR(gpr.R(rt), MEMBASEREG, SCRATCH1);
+			}
+			MOVI2R(SCRATCH2, 1);
+			STR(INDEX_UNSIGNED, SCRATCH2, CTXREG, offsetof(MIPSState, llBit));
+			break;
+
+		case 56: // sc
+		{
+			if (rt == MIPS_REG_ZERO) {
+				DISABLE;
+			}
+			// rt is both the value to store and the result.
+			gpr.MapDirtyIn(rt, rs, false);
+			SetScratch1ToEffectiveAddress(rs, offset);
+			LDR(INDEX_UNSIGNED, SCRATCH2, CTXREG, offsetof(MIPSState, llBit));
+			FixupBranch failed = CBZ(SCRATCH2);
+			STR(gpr.R(rt), MEMBASEREG, SCRATCH1);
+			MOVI2R(gpr.R(rt), 1);
+			FixupBranch done = B();
+			SetJumpTarget(failed);
+			MOVI2R(gpr.R(rt), 0);
+			SetJumpTarget(done);
+			break;
+		}
+
+		default:
+			DISABLE;
+		}
 	}
 
 	void Arm64Jit::Comp_Cache(MIPSOpcode op) {
