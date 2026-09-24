@@ -43,6 +43,10 @@ variableName.state = [self controlStateForBool: ConfigurationValueName];
 +(instancetype)sharedInstance;
 -(void)setupAppBarItems;
 @property (assign) NSMenu *fileMenu;
+@property (assign) NSMenu *emulationMenu;
+@property (assign) NSMenu *debugMenu;
+@property (assign) NSMenu *graphicsMenu;
+@property (assign) NSMenu *recentsMenu;
 @end
 
 void initializeOSXExtras() {
@@ -74,11 +78,6 @@ void OSXOpenURL(const char *url) {
     return @(T_cstr(cat, key));
 }
 
--(NSString *)localizedMenuString: (const char *)key {
-    std::string processed = UnescapeMenuString(T_cstr(I18NCat::DESKTOPUI, key), nullptr);
-    return @(processed.c_str());
-}
-
 -(void)setupAppBarItems {
     
     NSMenuItem *fileMenuItem = [[NSMenuItem alloc] init];
@@ -88,14 +87,17 @@ void OSXOpenURL(const char *url) {
     NSMenuItem *emulationMenuItem = [[NSMenuItem alloc] init];
     emulationMenuItem.submenu = [self makeEmulationMenu];
     emulationMenuItem.submenu.delegate = self;
+    self.emulationMenu = emulationMenuItem.submenu;
 
     NSMenuItem *debugMenuItem = [[NSMenuItem alloc] init];
     debugMenuItem.submenu = [self makeDebugMenu];
     debugMenuItem.submenu.delegate = self;
+    self.debugMenu = debugMenuItem.submenu;
 
     NSMenuItem *graphicsMenuItem = [[NSMenuItem alloc] init];
     graphicsMenuItem.submenu = [self makeGraphicsMenu];
     graphicsMenuItem.submenu.delegate = self;
+    self.graphicsMenu = graphicsMenuItem.submenu;
     
     NSMenuItem *helpMenuItem = [[NSMenuItem alloc] init];
     helpMenuItem.submenu = [self makeHelpMenu];
@@ -138,28 +140,23 @@ void OSXOpenURL(const char *url) {
     window.styleMask &= ~NSWindowStyleMaskResizable;
     [[window standardWindowButton:NSWindowMiniaturizeButton] setEnabled:NO];
     
-    if (@available(macOS 10.15, *)) {
-        window.backgroundColor = [NSColor colorWithName:nil dynamicProvider:^NSColor * _Nonnull(NSAppearance * _Nonnull appearance) {
-            // check for dark/light mode (dark mode is OS X 10.14+ only)
-            /* no I can't use switch statements here it's an NSString pointer */
-            if (appearance.name == NSAppearanceNameDarkAqua ||
-                appearance.name == NSAppearanceNameAccessibilityHighContrastVibrantDark ||
-                appearance.name == NSAppearanceNameAccessibilityHighContrastDarkAqua ||
-                appearance.name == NSAppearanceNameVibrantDark)
-                return [NSColor colorWithRed:0.19 green:0.19 blue:0.19 alpha:1];
-            
-            // macOS pre 10.14 is always light mode
-            return [NSColor whiteColor];
-        }];
-    } else {
-        window.backgroundColor = [NSColor whiteColor];
-    }
+    window.backgroundColor = [NSColor colorWithName:nil dynamicProvider:^NSColor * _Nonnull(NSAppearance * _Nonnull appearance) {
+        /* no I can't use switch statements here it's an NSString pointer */
+        if (appearance.name == NSAppearanceNameDarkAqua ||
+            appearance.name == NSAppearanceNameAccessibilityHighContrastVibrantDark ||
+            appearance.name == NSAppearanceNameAccessibilityHighContrastDarkAqua ||
+            appearance.name == NSAppearanceNameVibrantDark)
+            return [NSColor colorWithRed:0.19 green:0.19 blue:0.19 alpha:1];
+        return [NSColor whiteColor];
+    }];
     
     [[[NSWindowController alloc] initWithWindow:window] showWindow:nil];
 }
 
 - (void)menuNeedsUpdate:(NSMenu *)menu {
-    if ([menu.title isEqualToString: [self localizedMenuString:"Emulation"]]) {
+    if (menu == self.recentsMenu) {
+        [self rebuildRecentsMenu];
+    } else if (menu == self.emulationMenu) {
         menu.autoenablesItems = NO;
         // Enable/disable the various items.
         for (NSMenuItem *item in menu.itemArray) {
@@ -178,7 +175,7 @@ void OSXOpenURL(const char *url) {
                 break;
             }
         }
-    } else if ([menu.title isEqualToString: [self localizedMenuString:"Graphics"]]) {
+    } else if (menu == self.graphicsMenu) {
         for (NSMenuItem *item in menu.itemArray) {
             switch (item.tag) {
                 case 1:
@@ -206,7 +203,7 @@ void OSXOpenURL(const char *url) {
                     break;
             }
         }
-    } else if ([menu.title isEqualToString: [self localizedMenuString:"Debug"]]) {
+    } else if (menu == self.debugMenu) {
         menu.autoenablesItems = NO;
         GlobalUIState state = GetUIState();
         for (NSMenuItem *item in menu.itemArray) {
@@ -413,10 +410,6 @@ void OSXOpenURL(const char *url) {
     copyBaseAddr.target = self;
     copyBaseAddr.tag = 11;
 
-    NSMenuItem *restartGraphicsAction = [[NSMenuItem alloc] initWithTitle:DESKTOPUI_LOCALIZED("Restart Graphics") action:@selector(restartGraphics) keyEquivalent:@""];
-    restartGraphicsAction.target = self;
-    restartGraphicsAction.tag = 12;
-
     MENU_ITEM(showDebugStatsAction, DESKTOPUI_LOCALIZED("Show Debug Statistics"), @selector(toggleShowDebugStats:), ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS), 12)
 
     [parent addItem:loadSymbolMapAction];
@@ -433,7 +426,6 @@ void OSXOpenURL(const char *url) {
     [parent addItem:takeScreenshotAction];
     [parent addItem:saveFrameDumpAction];
     [parent addItem:showDebugStatsAction];
-    [parent addItem:restartGraphicsAction];
 
     [parent addItem:[NSMenuItem separatorItem]];
     [parent addItem:copyBaseAddr];
@@ -473,10 +465,6 @@ void OSXOpenURL(const char *url) {
     NSString *stringToCopy = [NSString stringWithFormat: @"%016llx", (uint64_t)(uintptr_t)Memory::base];
     [NSPasteboard.generalPasteboard declareTypes:@[NSPasteboardTypeString] owner:nil];
     [NSPasteboard.generalPasteboard setString:stringToCopy forType:NSPasteboardTypeString];
-}
-
--(void)restartGraphics {
-    System_PostUIMessage(UIMessage::RESTART_GRAPHICS);
 }
 
 -(NSURL *)presentOpenPanelWithAllowedFileTypes: (NSArray<NSString *> *)allowedFileTypes {
@@ -556,7 +544,7 @@ TOGGLE_METHOD_INVERSE(BreakOnLoad, g_Config.bAutoRun)
 TOGGLE_METHOD(IgnoreIllegalRWs, g_Config.bIgnoreBadMemAccess)
 TOGGLE_METHOD(AutoFrameSkip, g_Config.bAutoFrameSkip, g_Config.UpdateAfterSettingAutoFrameSkip())
 TOGGLE_METHOD(SoftwareRendering, g_Config.bSoftwareRendering)
-TOGGLE_METHOD(FullScreen, g_Config.bFullScreen, g_Config.bFullScreen = !g_Config.bFullScreen, System_ApplyFullscreenState());
+TOGGLE_METHOD(FullScreen, g_Config.bFullScreen, System_ApplyFullscreenState());
 // TOGGLE_METHOD(VSync, g_Config.bVSync)
 #undef TOGGLE_METHOD
 
@@ -572,7 +560,7 @@ TOGGLE_METHOD(FullScreen, g_Config.bFullScreen, g_Config.bFullScreen = !g_Config
 
 -(void)setToggleShowCounterItem: (NSMenuItem *)item {
     [self addOrRemoveInteger:(int)(item.tag - 100) to:&g_Config.iShowStatusFlags];
-    item.state = [self controlStateForBool:g_Config.iShowStatusFlags & item.tag];
+    item.state = [self controlStateForBool:g_Config.iShowStatusFlags & (int)(item.tag - 100)];
 }
 
 -(void)addOrRemoveInteger: (int)integer to: (int *)r {
@@ -630,25 +618,30 @@ TOGGLE_METHOD(FullScreen, g_Config.bFullScreen, g_Config.bFullScreen = !g_Config
     std::shared_ptr<I18NCategory> mainmenuLocalization = GetI18NCategory(I18NCat::MAINMENU);
 #define MAINMENU_LOCALIZED(key) @(mainmenuLocalization->T_cstr(key))
 
-    std::vector<std::string> recentFiles = g_recentFiles.GetRecentFiles();
     NSMenuItem *openRecent = [[NSMenuItem alloc] initWithTitle:MAINMENU_LOCALIZED("Recent") action:nil keyEquivalent:@""];
     NSMenu *recentsMenu = [[NSMenu alloc] init];
-    if (recentFiles.empty())
-        openRecent.enabled = NO;
-    
-    for (const auto &file : recentFiles) {
-        std::string filename = Path(file).GetFilename();
-        NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:@(filename.c_str()) action:@selector(openRecentItem:) keyEquivalent:@""];
-        item.target = self;
-        [recentsMenu addItem:item];
-    }
-    
+    recentsMenu.delegate = self;
+    self.recentsMenu = recentsMenu;
+    [self rebuildRecentsMenu];
+
     openRecent.submenu = recentsMenu;
     [self.fileMenu addItem:openRecent];
 }
 
+-(void)rebuildRecentsMenu {
+    [self.recentsMenu removeAllItems];
+    for (const auto &file : g_recentFiles.GetRecentFiles()) {
+        std::string filename = Path(file).GetFilename();
+        NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:@(filename.c_str()) action:@selector(openRecentItem:) keyEquivalent:@""];
+        item.target = self;
+        item.representedObject = @(file.c_str());
+        [self.recentsMenu addItem:item];
+    }
+}
+
 -(void)openRecentItem: (NSMenuItem *)item {
-    System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, g_recentFiles.GetRecentFiles()[item.tag]);
+    NSString *path = item.representedObject;
+    System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, path.UTF8String);
 }
 
 -(void)openSystemFileBrowser {
