@@ -1240,9 +1240,6 @@
     <ClCompile Include="TiltEventProcessor.cpp">
       <Filter>Core</Filter>
     </ClCompile>
-    <ClCompile Include="MIPS\MIPSVFPUFallbacks.cpp">
-      <Filter>MIPS</Filter>
-    </ClCompile>
     <ClCompile Include="ConfigSettings.cpp">
       <Filter>Core</Filter>
     </ClCompile>
@@ -2219,9 +2216,6 @@
     </ClInclude>
     <ClInclude Include="TiltEventProcessor.h">
       <Filter>Core</Filter>
-    </ClInclude>
-    <ClInclude Include="MIPS\MIPSVFPUFallbacks.h">
-      <Filter>MIPS</Filter>
     </ClInclude>
     <ClInclude Include="ConfigSettings.h">
       <Filter>Core</Filter>

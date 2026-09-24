@@ -531,7 +531,6 @@
     <ClCompile Include="MIPS\LoongArch64\LoongArch64CompVec.cpp" />
     <ClCompile Include="MIPS\LoongArch64\LoongArch64Jit.cpp" />
     <ClCompile Include="MIPS\LoongArch64\LoongArch64RegCache.cpp" />
-    <ClCompile Include="MIPS\MIPSVFPUFallbacks.cpp" />
     <ClCompile Include="MIPS\RiscV\RiscVAsm.cpp" />
     <ClCompile Include="MIPS\RiscV\RiscVCompALU.cpp" />
     <ClCompile Include="MIPS\RiscV\RiscVCompBranch.cpp" />
@@ -1069,7 +1068,6 @@
     <ClInclude Include="MIPS\IR\IRRegCache.h" />
     <ClInclude Include="MIPS\LoongArch64\LoongArch64Jit.h" />
     <ClInclude Include="MIPS\LoongArch64\LoongArch64RegCache.h" />
-    <ClInclude Include="MIPS\MIPSVFPUFallbacks.h" />
     <ClInclude Include="MIPS\RiscV\RiscVJit.h" />
     <ClInclude Include="MIPS\RiscV\RiscVRegCache.h" />
     <ClInclude Include="MIPS\x86\X64IRJit.h" />

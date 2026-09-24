@@ -1272,7 +1272,6 @@ set(NativeAssets
 	assets/lang
 	assets/shaders
 	assets/themes
-	assets/vfpu
 	assets/Roboto_Condensed-Regular.ttf
 	assets/Roboto_Condensed-Light.ttf
 	assets/Roboto_Condensed-Bold.ttf
@@ -1484,7 +1483,6 @@ if(TargetBin)
 		file(GLOB_RECURSE THEME_FILE assets/themes/*)
 		file(GLOB_RECURSE DEBUGGER_FILES assets/debugger/*)
 		file(GLOB_RECURSE WEB_UPLOAD_FILES assets/upload/*)
-		file(GLOB_RECURSE VFPU_FILES assets/vfpu/*)
 
 		if(NOT IOS)
 			set_source_files_properties(${BigFontAssets} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources/assets")
@@ -1496,7 +1494,6 @@ if(TargetBin)
 			set_source_files_properties(${THEME_FILE} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources/assets/themes")
 			set_source_files_properties(${DEBUGGER_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources/assets/debugger")
 			set_source_files_properties(${WEB_UPLOAD_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources/assets/upload")
-			set_source_files_properties(${VFPU_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources/assets/vfpu")
 		endif()
 
 		if(IOS)

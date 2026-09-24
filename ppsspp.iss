@@ -103,7 +103,6 @@ Source: "assets\debugger\*"; DestDir: "{app}\assets\debugger"; Flags: recursesub
 Source: "assets\upload\*"; DestDir: "{app}\assets\upload"; Flags: recursesubdirs
 Source: "assets\lang\*.ini"; DestDir: "{app}\assets\lang"
 Source: "assets\flash0\font\*.*"; DestDir: "{app}\assets\flash0\font"
-Source: "assets\vfpu\*.*"; DestDir: "{app}\assets\vfpu"
 
 [Run]
 Filename: {app}\PPSSPPWindows.exe; Description: {cm:LaunchProgram,{#ApplicationName}}; Flags: nowait postinstall skipifsilent; Check: not IsWin64

@@ -653,8 +653,6 @@ add_library(Core STATIC
 	MIPS/MIPSTables.h
 	MIPS/MIPSVFPUUtils.cpp
 	MIPS/MIPSVFPUUtils.h
-	MIPS/MIPSVFPUFallbacks.cpp
-	MIPS/MIPSVFPUFallbacks.h
 	MIPS/MIPSTracer.cpp
 	MIPS/MIPSTracer.h
 	MIPS/JitCommon/JitCommon.cpp

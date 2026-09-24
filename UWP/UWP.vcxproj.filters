@@ -56,10 +56,6 @@
     <Filter Include="Content\debugger\static\media">
       <UniqueIdentifier>{83476056-57b8-409f-b729-754d6401e3d5}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Content\vfpu">
-      <UniqueIdentifier>{eebef4bc-52b6-460d-946d-c70c8a4ee337}</UniqueIdentifier>
-      <Extensions>dat</Extensions>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="UWPHelpers\StorageAccess.h">
@@ -280,9 +276,6 @@
     <None Include="..\Assets\debugger\static\media\*.svg">
       <Filter>Content\debugger\static\media</Filter>
     </None>
-    <None Include="..\Assets\vfpu\*.dat">
-      <Filter>Content\vfpu</Filter>
-    </None>
   </ItemGroup>
   <ItemGroup>
     <Text Include="..\Assets\gamecontrollerdb.txt">
@@ -310,48 +303,6 @@
     </Font>
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\Assets\vfpu\*.dat">
-      <Filter>Content\vfpu</Filter>
-    </None>
-    <None Include="..\Assets\vfpu\*.dat">
-      <Filter>Content\vfpu</Filter>
-    </None>
-    <None Include="..\Assets\vfpu\*.dat">
-      <Filter>Content\vfpu</Filter>
-    </None>
-    <None Include="..\Assets\vfpu\*.dat">
-      <Filter>Content\vfpu</Filter>
-    </None>
-    <None Include="..\Assets\vfpu\*.dat">
-      <Filter>Content\vfpu</Filter>
-    </None>
-    <None Include="..\Assets\vfpu\*.dat">
-      <Filter>Content\vfpu</Filter>
-    </None>
-    <None Include="..\Assets\vfpu\*.dat">
-      <Filter>Content\vfpu</Filter>
-    </None>
-    <None Include="..\Assets\vfpu\*.dat">
-      <Filter>Content\vfpu</Filter>
-    </None>
-    <None Include="..\Assets\vfpu\*.dat">
-      <Filter>Content\vfpu</Filter>
-    </None>
-    <None Include="..\Assets\vfpu\*.dat">
-      <Filter>Content\vfpu</Filter>
-    </None>
-    <None Include="..\Assets\vfpu\*.dat">
-      <Filter>Content\vfpu</Filter>
-    </None>
-    <None Include="..\Assets\vfpu\*.dat">
-      <Filter>Content\vfpu</Filter>
-    </None>
-    <None Include="..\Assets\vfpu\*.dat">
-      <Filter>Content\vfpu</Filter>
-    </None>
-    <None Include="..\Assets\vfpu\*.dat">
-      <Filter>Content\vfpu</Filter>
-    </None>
     <None Include="..\Assets\debugger\*.json">
       <Filter>Content\debugger</Filter>
     </None>
