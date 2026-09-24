@@ -691,6 +691,8 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		// whether to start at 1x or 2x.
 		sizeManager.updateDisplayMeasurements();
 
+		// On the first run, the shortcut parameter is passed to NativeApp.init in here.
+		final boolean firstRun = !initialized;
 		if (!initialized) {
 			Initialize();
 			initialized = true;
@@ -753,9 +755,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			// render loop thread will be started once we get a surface.
 		}
 
-		if (shortcutParam != null && !shortcutParam.isEmpty()) {
+		if (!firstRun && shortcutParam != null && !shortcutParam.isEmpty()) {
+			// The native side is already up, so it didn't see this through NativeApp.init.
 			Log.i(TAG, "Got shortcutParam in onCreate on secondary run: " + shortcutParam);
-			// Make sure we only send it once.
 			NativeApp.sendMessageFromJava("shortcutParam", shortcutParam);
 		}
 
@@ -905,14 +907,16 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 				return;
 			}
 
-			// If we got a surface, this starts the thread. If not, it doesn't.
-			// NOTE: We do not try to join the thread here
+			// If we got a surface, this starts the thread.
 			if (mSurface != null) {
 				// applyFramerate is called in here.
 				Log.i(TAG, "notifySurface: got surface, starting thread.");
 				startRenderLoopThread();
 			} else {
-				Log.i(TAG, "notifySurface: Notified surface is null, not starting thread.");
+				// The surface must not be touched once surfaceDestroyed returns. Normally onPause has
+				// already joined the thread and this does nothing, but that order isn't guaranteed.
+				Log.i(TAG, "notifySurface: Surface is gone, making sure the render thread is too.");
+				joinRenderLoopThread();
 			}
 		} else if (mSurface != null) {
 			// JavaGL path.

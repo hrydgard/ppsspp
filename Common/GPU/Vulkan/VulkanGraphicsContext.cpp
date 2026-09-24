@@ -149,6 +149,8 @@ bool VulkanGraphicsContext::InitSurface(WindowSystem winsys, void *data1, void *
 
 	if (!vulkan_->InitSwapchain(presentMode)) {
 		*errorMessage = vulkan_->InitError();
+		// Callers don't call ShutdownSurface after a failed init, so clean up draw_ and the surface here.
+		ShutdownSurface();
 		return false;
 	}
 
@@ -162,6 +164,8 @@ bool VulkanGraphicsContext::InitSurface(WindowSystem winsys, void *data1, void *
 	if (!renderManager_->HasBackbuffers()) {
 		// WTF?
 		_dbg_assert_(false);
+		*errorMessage = "No backbuffers";
+		ShutdownSurface();
 		return false;
 	}
 	return true;
@@ -174,6 +178,7 @@ void VulkanGraphicsContext::ShutdownSurface() {
 
 	delete draw_;
 	draw_ = nullptr;
+	renderManager_ = nullptr;  // owned by draw_.
 
 	vulkan_->WaitUntilQueueIdle();
 	vulkan_->DestroySwapchain();
