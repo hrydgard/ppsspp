@@ -1044,7 +1044,7 @@ struct VFPUSegment {
 };
 
 // 1/x for x in [1, 2).
-static const VFPUSegment vfpu_rcp_segments[128] = {
+static constexpr VFPUSegment vfpu_rcp_segments[128] = {
 	{ 0x0FFFF02, -0x003F80C,  0x07F, 0x7E }, { 0x0FE0300, -0x003E86C,  0x07C, 0x7E },
 	{ 0x0FC0ECF, -0x003D924,  0x079, 0x7E }, { 0x0FA2241, -0x003CA38,  0x076, 0x7E },
 	{ 0x0F83D28, -0x003BBA0,  0x074, 0x7E }, { 0x0F65F5C, -0x003AD60,  0x071, 0x7E },
@@ -1112,7 +1112,7 @@ static const VFPUSegment vfpu_rcp_segments[128] = {
 };
 
 // 1/sqrt(x) for x in [1, 4), indexed by the bottom exponent bit and the top 22 mantissa bits.
-static const VFPUSegment vfpu_rsqrt_segments[128] = {
+static constexpr VFPUSegment vfpu_rsqrt_segments[128] = {
 	{ 0x0FFFE88, -0x003F428,  0x0BC, 0x7E }, { 0x0FE0482, -0x003DD10,  0x0B5, 0x7E },
 	{ 0x0FC1608, -0x003C6D4,  0x0AE, 0x7E }, { 0x0FA32AB, -0x003B16C,  0x0A7, 0x7E },
 	{ 0x0F859FE, -0x0039CCC,  0x0A2, 0x7E }, { 0x0F68BA4, -0x00388E8,  0x09C, 0x7E },
@@ -1180,7 +1180,7 @@ static const VFPUSegment vfpu_rsqrt_segments[128] = {
 };
 
 // sqrt(x) for x in [1, 4), indexed like rsqrt.
-static const VFPUSegment vfpu_sqrt_segments[128] = {
+static constexpr VFPUSegment vfpu_sqrt_segments[128] = {
 	{ 0x0800040,  0x001FE04, -0x020, 0x7F }, { 0x080FF40,  0x001FA1C, -0x01F, 0x7F },
 	{ 0x081FC4E,  0x001F648, -0x01F, 0x7F }, { 0x082F770,  0x001F290, -0x01E, 0x7F },
 	{ 0x083F0B5,  0x001EEE8, -0x01D, 0x7F }, { 0x084E828,  0x001EB54, -0x01D, 0x7F },
@@ -1621,31 +1621,42 @@ void vfpu_sincos(float a, float &s, float &c) {
 	c = vfpu_cos_from_reduced(angle, odd);
 }
 
+// The tables for the fast paths (see VFPUFastSegment). bias moves the segment's binade to the
+// exponent the result's bits start from.
+static constexpr std::array<VFPUFastSegment, 128> vfpu_make_fast_table(const VFPUSegment (&segments)[128], int bias) {
+	std::array<VFPUFastSegment, 128> table{};
+	for (int i = 0; i < 128; i++) {
+		const VFPUSegment &seg = segments[i];
+		table[i] = { uint32_t(seg.c0) + (uint32_t(seg.e - 1 + bias) << 23), seg.m, seg.n, 0 };
+	}
+	return table;
+}
+
+const std::array<VFPUFastSegment, 128> vfpu_rcp_fast = vfpu_make_fast_table(vfpu_rcp_segments, 127);
+const std::array<VFPUFastSegment, 128> vfpu_rsqrt_fast = vfpu_make_fast_table(vfpu_rsqrt_segments, 64);
+const std::array<VFPUFastSegment, 128> vfpu_sqrt_fast = vfpu_make_fast_table(vfpu_sqrt_segments, -64);
+
+static inline uint32_t vfpu_fast_interp(const std::array<VFPUFastSegment, 128> &table, uint32_t w, uint32_t exponent) {
+	const VFPUFastSegment &seg = table[(w >> 16) & 0x7F];
+	const uint32_t x2 = w & 0xFFFF;
+	const uint32_t linear = uint32_t(((int64_t)seg.m * x2) >> 17);
+	const uint32_t square = uint32_t((seg.n * vfpu_square(x2)) >> 9);
+	return (seg.k + exponent + linear + square) & ~3u;
+}
+
 float vfpu_sqrt(float x) {
 	uint32_t bits;
 	memcpy(&bits, &x, sizeof(bits));
-	if((bits & 0x7FFFFFFFu) <= 0x007FFFFFu) {
-		// Denormals (and zeroes) get +0, regardless
-		// of sign.
-		return +0.0f;
+	if (vfpu_sqrt_is_fast(bits)) {
+		const uint32_t w = (bits + 0x00800000u) >> 1;
+		bits = vfpu_fast_interp(vfpu_sqrt_fast, w, w & 0x7F800000u);
+	} else if ((bits & 0x7FFFFFFFu) < 0x00800000u) {
+		// Zero and denormals give +0, whatever the sign.
+		bits = 0;
+	} else {
+		// Negatives and NaN give NaN, inf gives inf.
+		bits = bits == 0x7F800000u ? 0x7F800000u : 0x7F800001u;
 	}
-	if(bits >> 31) {
-		// Other negatives get NaN.
-		bits = 0x7F800001u;
-		memcpy(&x, &bits, sizeof(x));
-		return x;
-	}
-	if((bits >> 23) == 255u) {
-		// Inf/NaN gets Inf/NaN.
-		bits = 0x7F800000u + ((bits & 0x007FFFFFu) != 0u);
-		memcpy(&x, &bits, sizeof(bits));
-		return x;
-	}
-	int32_t exponent = int32_t(bits >> 23) - 127;
-	// Bottom bit of exponent (inverted) + significand (except bottom bit).
-	uint32_t index = ((bits + 0x00800000u) >> 1) & 0x007FFFFFu;
-	bits = vfpu_interp_bits(vfpu_sqrt_segments, index);
-	bits += uint32_t(exponent >> 1) << 23;
 	memcpy(&x, &bits, sizeof(bits));
 	return x;
 }
@@ -1653,29 +1664,16 @@ float vfpu_sqrt(float x) {
 float vfpu_rsqrt(float x) {
 	uint32_t bits;
 	memcpy(&bits, &x, sizeof(bits));
-	if((bits & 0x7FFFFFFFu) <= 0x007FFFFFu) {
-		// Denormals (and zeroes) get inf of the same sign.
-		bits = 0x7F800000u | (bits & 0x80000000u);
-		memcpy(&x, &bits, sizeof(x));
-		return x;
+	if (vfpu_sqrt_is_fast(bits)) {
+		const uint32_t w = (bits + 0x00800000u) >> 1;
+		bits = vfpu_fast_interp(vfpu_rsqrt_fast, w, 0u - (w & 0x7F800000u));
+	} else if ((bits & 0x7FFFFFFFu) < 0x00800000u) {
+		// Zero and denormals give inf of the same sign.
+		bits = (bits & 0x80000000u) | 0x7F800000u;
+	} else {
+		// Negatives give -NaN, NaN gives NaN and inf gives 0.
+		bits = (bits >> 31) ? 0xFF800001u : (bits > 0x7F800000u ? 0x7F800001u : 0u);
 	}
-	if(bits >> 31) {
-		// Other negatives get negative NaN.
-		bits = 0xFF800001u;
-		memcpy(&x, &bits, sizeof(x));
-		return x;
-	}
-	if((bits >> 23) == 255u) {
-		// inf gets 0, NaN gets NaN.
-		bits = ((bits & 0x007FFFFFu) ? 0x7F800001u : 0u);
-		memcpy(&x, &bits, sizeof(bits));
-		return x;
-	}
-	int32_t exponent = int32_t(bits >> 23) - 127;
-	// Bottom bit of exponent (inverted) + significand (except bottom bit).
-	uint32_t index = ((bits + 0x00800000u) >> 1) & 0x007FFFFFu;
-	bits = vfpu_interp_bits(vfpu_rsqrt_segments, index);
-	bits -= uint32_t(exponent >> 1) << 23;
 	memcpy(&x, &bits, sizeof(bits));
 	return x;
 }
@@ -1787,20 +1785,13 @@ float vfpu_log2(float x) {
 float vfpu_rcp(float x) {
 	uint32_t bits;
 	memcpy(&bits, &x, sizeof(bits));
-	uint32_t s = bits & 0x80000000u;
-	uint32_t e = bits & 0x7F800000u;
-	uint32_t i = bits & 0x007FFFFFu;
-	if((bits & 0x7FFFFFFFu) > 0x7E800000u) {
-		bits = (e == 0x7F800000u && i ? s ^ 0x7F800001u : s);
-		memcpy(&x, &bits, sizeof(x));
-		return x;
+	if (vfpu_rcp_is_fast(bits)) {
+		bits = vfpu_fast_interp(vfpu_rcp_fast, bits, 0u - (bits & 0xFF800000u));
+	} else {
+		// Zero and denormals give inf, NaN gives NaN and the rest 0, all with the sign of x.
+		const uint32_t abs = bits & 0x7FFFFFFFu;
+		bits = (bits & 0x80000000u) ^ (abs < 0x00800000u ? 0x7F800000u : (abs > 0x7F800000u ? 0x7F800001u : 0u));
 	}
-	if(e==0u) {
-		bits = s^0x7F800000u;
-		memcpy(&x, &bits, sizeof(x));
-		return x;
-	}
-	bits = s + (0x3F800000u - e) + vfpu_interp_bits(vfpu_rcp_segments, i);
 	memcpy(&x, &bits, sizeof(x));
 	return x;
 }

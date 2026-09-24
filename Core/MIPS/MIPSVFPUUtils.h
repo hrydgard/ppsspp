@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <array>
 #include <cmath>
 #include <string>
 #include "Common/CommonTypes.h"
@@ -64,6 +65,34 @@ float vfpu_dot(const float a[4], const float b[4]);
 float vfpu_dot_reference(const float a[4], const float b[4]);
 float vfpu_sqrt(float a);
 float vfpu_rsqrt(float a);
+
+// vfpu_rcp, vfpu_rsqrt and vfpu_sqrt have a fast path. A segment and a
+// 16-bit x2 come from w, which is the input's bits for rcp and (bits + 0x00800000) >> 1 for the
+// square roots:
+//   rcp    (k - (bits & 0xFF800000) + linear + square) & ~3
+//   rsqrt  (k - (w & 0x7F800000) + linear + square) & ~3
+//   sqrt   (k + (w & 0x7F800000) + linear + square) & ~3
+// with linear = (m * x2) >> 17 (a 64-bit product), square = (n * ((t * t + 255) >> 8)) >> 9 and
+// t = |(x2 >> 6) - 512|. The results are float bits, and the shifts are arithmetic.
+struct VFPUFastSegment {
+	uint32_t k;  // c0 plus the exponent bits of the result
+	int32_t m;
+	int32_t n;
+	int32_t pad;  // makes the stride 16 bytes
+};
+extern const std::array<VFPUFastSegment, 128> vfpu_rcp_fast;
+extern const std::array<VFPUFastSegment, 128> vfpu_rsqrt_fast;
+extern const std::array<VFPUFastSegment, 128> vfpu_sqrt_fast;
+
+// |x| in [2^-126, 2^126].
+inline bool vfpu_rcp_is_fast(uint32_t bits) {
+	return (bits << 1) - 0x01000000u <= 0xFC000000u;
+}
+
+// Positive, normal and finite, for both square roots.
+inline bool vfpu_sqrt_is_fast(uint32_t bits) {
+	return bits - 0x00800000u < 0x7F000000u;
+}
 
 extern float vfpu_exp2(float);
 extern float vfpu_rexp2(float);
