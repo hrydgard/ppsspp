@@ -117,6 +117,7 @@ int NetApctl_GetState();
 bool __NetApctlConnected();
 
 int sceNetApctlConnect(int connIndex);
+int sceNetApctlDisconnect();
 
 // Are we connected - for the purpose of disabling speed consoles and savestates etc.
 bool IsNetworkConnected();

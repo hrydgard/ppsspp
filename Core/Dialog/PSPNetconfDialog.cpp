@@ -74,6 +74,8 @@ int PSPNetconfDialog::Init(u32 paramAddr) {
 	jsonReady_ = false;
 	// Kick off a request to the infra-dns.json since we'll need it later.
 	StartInfraJsonDownload();
+	// Connected, unless it's cancelled.
+	request.common.result = 0;
 
 	ChangeStatusInit(NET_INIT_DELAY_US);
 
@@ -199,6 +201,18 @@ int PSPNetconfDialog::Update(int animSpeed) {
 				// When connecting with infrastructure, simulate a connection using the first network configuration entry.
 				if (connResult < 0) {
 					connResult = hleCall(sceNetApctl, int, sceNetApctlConnect, 1);
+				}
+			}
+
+			// There's a Cancel button, so let it work if the connection doesn't come.
+			if (pendingStatus != SCE_UTILITY_STATUS_FINISHED && IsButtonPressed(cancelButtonFlag)) {
+				StartFade(false);
+				ChangeStatus(SCE_UTILITY_STATUS_FINISHED, NET_SHUTDOWN_DELAY_US);
+				request.common.result = SCE_UTILITY_DIALOG_RESULT_ABORT;
+				// Or the connect started above would carry on, and the game find itself connected.
+				if (connResult >= 0) {
+					hleCall(sceNetApctl, int, sceNetApctlDisconnect);
+					connResult = -1;
 				}
 			}
 		}
@@ -342,6 +356,11 @@ int PSPNetconfDialog::Update(int animSpeed) {
 		}
 
 		EndDraw();
+	} else if (pendingStatus != SCE_UTILITY_STATUS_FINISHED) {
+		// Nothing would ever finish it.
+		ERROR_LOG(Log::sceUtility, "Netconf: unknown action %d", request.netAction);
+		ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
+		request.common.result = SCE_UTILITY_DIALOG_RESULT_ABORT;
 	}
 
 	const bool finished = ReadStatus() == SCE_UTILITY_STATUS_FINISHED || pendingStatus == SCE_UTILITY_STATUS_FINISHED;
