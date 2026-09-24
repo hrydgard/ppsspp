@@ -3759,6 +3759,16 @@ void Jit::Comp_VRot(MIPSOpcode op) {
 	if (vd2 >= 0)
 		GetVectorRegs(dregs2, sz, vd2);
 	GetVectorRegs(&sreg, V_Single, vs);
+	// With the angle in a destination lane, the cosine is taken of what was written there.
+	// The assembler refuses that, so leave it to the interpreter, and don't pair such a vrot.
+	for (int i = 0; i < n; i++) {
+		if (dregs[i] == sreg) {
+			DISABLE;
+		}
+		if (vd2 >= 0 && dregs2[i] == sreg) {
+			vd2 = -1;
+		}
+	}
 
 	// Flush SIMD.
 	fpr.SimpleRegsV(&sreg, V_Single, 0);

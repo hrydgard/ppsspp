@@ -2335,12 +2335,20 @@ namespace MIPSComp {
 				}
 				break;
 			case 'c':
-				if (IsOverlapSafe(n, dregs, 1, sreg))
+				if (IsOverlapSafe(n, dregs, 1, sreg)) {
 					ir.Write(IROp::FCos, dregs[i], sreg[0]);
-				else if (dregs[sineLane] == sreg[0])
-					ir.Write(IROp::FCos, dregs[i], IRVTEMP_0);
-				else
-					ir.WriteFC(IROp::SetConstF, dregs[i], 0, 0, 1.0f);
+				} else {
+					// The cosine is taken of what the source lane got: the sine, or zero.
+					int srcLane = 0;
+					while (dregs[srcLane] != sreg[0]) {
+						srcLane++;
+					}
+					if (broadcastSine || srcLane == sineLane) {
+						ir.Write(IROp::FCos, dregs[i], IRVTEMP_0);
+					} else {
+						ir.WriteFC(IROp::SetConstF, dregs[i], 0, 0, 1.0f);
+					}
+				}
 				break;
 			}
 		}
