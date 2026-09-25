@@ -46,15 +46,18 @@ static int sceUriParse(u32 parsedUriAreaAddr, const char* url, u32 workAreaAddr,
 
 	auto workAreaSz = PSPPointer<u32>::Create(workAreaSizeAddr);
 
-	// Size returner
+	// Size query. sceUriParse in libparse_uri.prx (6.60) only measures when either area is missing,
+	// and succeeds as long as it has somewhere to put the size.
 	if (parsedUriAreaAddr == 0 || workAreaAddr == 0) {
+		if (workAreaSizeAddr == 0)
+			return hleLogError(Log::sceNet, 0x804331FE, "no work area and no size pointer");
 		// Based on JPCSP: The required workArea size is maximum the size of the URL + 7 times the null-byte for string termination.
 		int sz = (int)strlen(url) + 7;
 		if (workAreaSz.IsValid()) {
 			*workAreaSz = sz;
 			workAreaSz.NotifyWrite("UriParse");
 		}
-		return hleLogDebug(Log::sceNet, -1, "workAreaSize: %d, %d", sz, workAreaSize);
+		return hleLogDebug(Log::sceNet, 0, "workAreaSize: %d, %d", sz, workAreaSize);
 	}
 
 	auto parsedUri = PSPPointer<PSPParsedUri>::Create(parsedUriAreaAddr);

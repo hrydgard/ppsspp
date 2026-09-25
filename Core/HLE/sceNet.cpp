@@ -378,6 +378,13 @@ bool LoadAutoDNS(std::string_view json) {
 			net::DNSResolveFree(resolved);
 		}
 	}
+
+	// The connection usually gets its IP (and copies the DNS server) before the json has arrived,
+	// so a game asking for the DNS server afterwards would otherwise get the empty one.
+	if (netApctlState == PSP_NET_APCTL_STATE_GOT_IP) {
+		INFO_LOG(Log::sceNet, "Updating the connection's DNS server to %s", g_infraDNSConfig.dns.c_str());
+		truncate_cpy(netApctlInfo.primaryDns, sizeof(netApctlInfo.primaryDns), g_infraDNSConfig.dns);
+	}
 	return true;
 }
 
