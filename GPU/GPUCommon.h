@@ -53,6 +53,32 @@ inline bool IsTrianglePrim(GEPrimitiveType prim) {
 }
 
 struct TransformStats;
+
+// The frame of a game that an application of the emulator (a plugin injected into it) is handed
+// where it draws in between the world and the UI of the frame, see GPUCommon::SetBeforeUIDrawDraw.
+// A plain struct on purpose: an application gets it without any header of the emulator. The two
+// pointers are the Draw::DrawContext and the Draw::Framebuffer of Common/GPU/thin3d.h.
+struct PPSSPPBeforeUIDrawTarget {
+	void *draw = nullptr;
+	void *frame = nullptr;
+	int width = 0;                 // size of that framebuffer, in pixels
+	int height = 0;
+	// The size the frame is shown at in the window. A frame that is not shown in its own proportion
+	// is stretched, and a drawing that has to stay round needs to know that.
+	int shownWidth = 0;
+	int shownHeight = 0;
+	// The memory of the game, and the address it reported this frame point from, see
+	// PPSSPP_DEVCTL__BEFORE_UI_DRAW. The only way to reach that memory from here: asking the
+	// window of the emulator means asking its UI thread, which is waiting for this very frame.
+	void *memory = nullptr;
+	uint32_t reportAddress = 0;
+	// Everything an application makes with the drawing is reference counted and only the emulator
+	// can release one: what it made is given back through this.
+	void (*release)(void *object) = nullptr;
+};
+
+typedef void (*PPSSPPBeforeUIDrawDrawFn)(const PPSSPPBeforeUIDrawTarget *target);
+
 class GPUCommon {
 public:
 	// The constructor might run on the loader thread.
@@ -116,6 +142,17 @@ public:
 	virtual void PreExecuteOp(u32 op, u32 diff) {}
 
 	DLResult ProcessDLQueue();
+
+	// The report of a game that is between the world and the UI of its frame, from
+	// Core/HLE/sceIo.cpp. listPos is where the commands the game has written into its display list
+	// end at that moment, which is the end of the world of the frame. The counter is counted once
+	// the GE has run the list up to that point, so when it moves the world is really drawn and the
+	// UI is not. A game that cannot say where that point is passes 0 and the counter moves right
+	// away.
+	void ReportBeforeUIDraw(u32 counterAddr, u32 listPos);
+
+	// Counts the counter of a report that is waiting, if there is one, and clears it.
+	void CountBeforeUIDraw();
 
 	u32 UpdateStall(int listid, u32 newstall, bool *runList);
 	u32 EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<PspGeListArgs> args, bool head, bool *runList);
@@ -188,7 +225,31 @@ public:
 
 	static int EstimatePerVertexCost();
 
+	// The frame of the game being drawn at the moment, for the drawing of an application of the
+	// emulator to be handed, see PPSSPPBeforeUIDrawTarget.
+	PPSSPPBeforeUIDrawTarget GetBeforeUIDrawTarget();
+
+	// Sets the drawing of an application of the emulator. It is called from the thread the frame is
+	// run on, where the game reported its frame, so what it draws is part of that frame and the UI
+	// the game sends afterwards lands on top of it. Passing nothing takes it out again.
+	static void SetBeforeUIDrawDraw(PPSSPPBeforeUIDrawDrawFn fn);
+
 	virtual void Flush();
+
+	// The texture slot the mark of the frame of a game goes on, see MarkBeforeUIDraw: one a game
+	// leaves empty, so a plugin can tell the mark from the drawing of the game.
+	static constexpr int BEFORE_UI_MARK_SLOT = 2;
+
+	// Puts a mark into the drawing of the frame of the moment, at the point the game reported. The
+	// drawing of a frame is recorded in the order it is submitted whatever the backend is, so the
+	// mark runs at the same place of the frame even where the backend records the frame and runs it
+	// later. A backend that draws where it is called has nothing to do here.
+	virtual void MarkBeforeUIDraw() {}
+
+	// Runs whatever the guest has queued but not run yet, so that everything it drew so far is
+	// really drawn. Counting a report of a game needs this, see GPUCommon::CountBeforeUIDraw.
+	// TODO: Unify this. Vulkan and OpenGL are different due to how they buffer data.
+	virtual void FinishDeferred() {}
 
 #ifdef USE_CRT_DBG
 #undef new
@@ -321,9 +382,6 @@ protected:
 	void FlushImm();
 	void DoBlockTransfer(u32 skipDrawReason);
 
-	// TODO: Unify this. Vulkan and OpenGL are different due to how they buffer data.
-	virtual void FinishDeferred() {}
-
 	virtual void BuildReportingInfo() = 0;
 
 	virtual void UpdateMSAALevel(Draw::DrawContext *draw) {}
@@ -366,6 +424,19 @@ protected:
 	bool dumpThisFrame_ = false;
 	bool useFastRunLoop_ = false;
 	bool interruptsEnabled_ = false;
+	// The end of the world of the frame the game last said, the counter it reported with, and what has to be
+	// put back once the list has been stopped there, see ReportBeforeUIDraw. The point stands until the game
+	// says another one: a report that says nothing about it - a game that cannot say where its world ends for
+	// that frame - leaves it as it was, so that a frame without it does not come and go in what is drawn there.
+	u32 beforeUIDrawAddr_ = 0;
+	u32 beforeUIDrawPos_ = 0;
+	u32 beforeUIDrawStall_ = 0;
+	bool beforeUIDrawSplit_ = false;
+	// Whether the report of the frame has had its point, which is one per report even where more than one
+	// display list is run, see ReportBeforeUIDraw.
+	bool beforeUIDrawFired_ = false;
+	// Where the last report came from: handed over as PPSSPPBeforeUIDrawTarget::reportAddress.
+	u32 beforeUIDrawReport_ = 0;
 	bool displayResized_ = false;
 	bool renderResized_ = false;
 	bool configChanged_ = false;
