@@ -187,6 +187,15 @@ are checked only when the emulation loop comes back around, so a blocked host th
 passes no `--graphics` either, so it stalled the same way. The default is software again; the OpenGL hang itself
 isn't fixed.
 
+**For game runs, prefer `--graphics=vulkan`.** Headless renders it offscreen, into images of its own with no
+window, surface or swapchain, so it needs no display, and works on macOS through MoltenVK. It's far faster than
+the software renderer, which runs display lists synchronously inside `sceGeListEnQueue` and so dominates any
+profile of the emulator thread: 30 emulated seconds of God of War take about 4 seconds instead of a minute. OpenGL
+headless deadlocks at startup on macOS too, main thread in `GLRenderManager::ThreadFrame` with no CPU use. The
+pspautotests pass on Vulkan apart from 17 GPU tests, whose references are hardware screenshots that the hardware
+backends don't match exactly (edge pixels, dithering, filtering, Metal's always-on primitive restart), so keep
+`--graphics=software` for those.
+
 That cost a lot of time because the first theories were confounded. Runs "worked in the background and hung in
 the foreground" only because the background ones happened to have `--graphics=software` added. Change one variable
 at a time, and diff the full command lines of a good and a bad run before theorising about the environment. If a

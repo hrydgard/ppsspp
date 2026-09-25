@@ -271,9 +271,6 @@ static GraphicsContext *CreateGraphicsContext(GPUCore gpuCore, std::string **dev
 	switch (gpuCore) {
 	case GPUCORE_GLES:
 		return new SDLHeadlessGLGraphicsContext();
-	case GPUCORE_VULKAN:
-		*deviceSetting = &g_Config.sVulkanDevice;
-		return new VulkanGraphicsContext();
 	default:
 		return nullptr;
 	}
@@ -287,9 +284,6 @@ static GraphicsContext *CreateGraphicsContext(GPUCore gpuCore, std::string **dev
 	case GPUCORE_DIRECTX11:
 		*deviceSetting = &g_Config.sD3D11Device;
 		return new D3D11Context();
-	case GPUCORE_VULKAN:
-		*deviceSetting = &g_Config.sVulkanDevice;
-		return new VulkanGraphicsContext();
 	case GPUCORE_SOFTWARE:
 	default:
 		return nullptr;
@@ -335,6 +329,16 @@ struct AutoTestOptions {
 	// none is installed, which must not fail every run on such a machine.
 	int requiredDisableHLE;
 };
+
+// Ends a frame of the draw context the way the app does, presenting it. With Vulkan, presenting is
+// also what returns a frame's image, and a frame that isn't presented would wait forever for its
+// next one. The other backends present to a hidden window, which could wait for vsync.
+static void EndDrawFrame(Draw::DrawContext *draw) {
+	draw->EndFrame();
+	if (GetGPUBackend() == GPUBackend::VULKAN) {
+		draw->Present(Draw::PresentMode::FIFO);
+	}
+}
 
 static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &coreParameter, const AutoTestOptions &opt) {
 	using namespace Draw;
@@ -469,7 +473,7 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 				gpu->EndHostFrame();
 			}
 			if (draw) {
-				draw->EndFrame();
+				EndDrawFrame(draw);
 				draw->BeginFrame(Draw::DebugFlags::NONE);
 			}
 			if (gpu) {
@@ -515,7 +519,7 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 			gpu->CopyDisplayToOutput(g_Config.GetDisplayLayoutConfig(DeviceOrientation::Landscape));
 		}
 
-		draw->EndFrame();
+		EndDrawFrame(draw);
 	}
 
 	if (!g_screenshotSavePath.empty() && !g_screenshotSaved) {
@@ -681,6 +685,11 @@ int main(int argc, const char* argv[]) {
 	if (signal(SIGPIPE, SIG_IGN) == SIG_ERR) {
 		perror("Unable to ignore SIGPIPE");
 	}
+#endif
+#if PPSSPP_PLATFORM(MAC)
+	// MoltenVK logs its setup and every unsupported feature to the console, which mixes into the
+	// test output. Only its errors, unless asked for more.
+	setenv("MVK_CONFIG_LOG_LEVEL", "1", 0);
 #endif
 
 	SetupCRT(true);
@@ -949,17 +958,25 @@ int main(int argc, const char* argv[]) {
 		fprintf(stderr, "Headless graphics context creation is not supported on this platform.\n");
 		return 1;
 #else
-		// TODO: Will we need a larger window for higher resolutions? Well, not if we use buffered rendering.
-		window = CreateHiddenWindow(480, 272, cmdLineOptions.gpuBackend.value_or(GPUBackend::OPENGL), &windowDesc);
-		if (!windowDesc.Valid()) {
-			fprintf(stderr, "Failed to create a window for graphics context");
-			return 1;
-		}
-		graphicsContext = CreateGraphicsContext(gpuCore, &deviceSetting);
-		if (!graphicsContext) {
-			// If we don't get the desired context, we DO NOT fall back.
-			fprintf(stderr, "Failed to create a graphics context for GPU core");
-			return 1;
+		if (gpuCore == GPUCORE_VULKAN) {
+			// Vulkan renders into images of its own, with no window or swapchain.
+			VulkanGraphicsContext *vulkanContext = new VulkanGraphicsContext();
+			vulkanContext->SetOffscreen(480, 272);
+			graphicsContext = vulkanContext;
+			deviceSetting = &g_Config.sVulkanDevice;
+		} else {
+			// TODO: Will we need a larger window for higher resolutions? Well, not if we use buffered rendering.
+			window = CreateHiddenWindow(480, 272, cmdLineOptions.gpuBackend.value_or(GPUBackend::OPENGL), &windowDesc);
+			if (!windowDesc.Valid()) {
+				fprintf(stderr, "Failed to create a window for graphics context\n");
+				return 1;
+			}
+			graphicsContext = CreateGraphicsContext(gpuCore, &deviceSetting);
+			if (!graphicsContext) {
+				// If we don't get the desired context, we DO NOT fall back.
+				fprintf(stderr, "Failed to create a graphics context for GPU core\n");
+				return 1;
+			}
 		}
 #endif
 	}
