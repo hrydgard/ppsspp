@@ -899,7 +899,7 @@ const HLEFunction ThreadManForUser[] =
 	{0XB435DEC5, &WrapI_V<sceKernelDcacheWritebackInvalidateAll>,    "sceKernelDcacheWritebackInvalidateAll",   'i', "" },
 
 	// Internal, the syscall behind sceKernelGetTlsAddr in usersystemlib.
-	{0x65F54FFB, &WrapI_IUU<_sceKernelAllocateTlspl>,                "_sceKernelAllocateTlspl",                   'i', "ixx"     },
+	{0x65F54FFB, &WrapI_IUU<_sceKernelAllocateTlspl>,                "_sceKernelAllocateTlspl",                   'i', "ixp"     },
 };
 
 const HLEFunction ThreadManForKernel[] =
