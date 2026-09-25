@@ -408,11 +408,19 @@ static int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 		// fast and metallic. The decoder always writes stereo 16-bit, whatever the source is.
 		ctx->dstBytesWritten = outSamples * 2 * (int)sizeof(int16_t);
 	}
-	// The decode runs on the ME and takes real time. sceMpegAtracDecode of one ATRAC3+ frame (2048
-	// samples) takes about 2.5ms on a PSP (pspautotests video/mpeg/playertiming), which includes
-	// mpeg.prx's own work around this call. Other codecs aren't measured yet.
+	// The decode runs on the ME and takes real time. Measured on a PSP through the libraries that
+	// call this, so each includes their own work around the call: sceMpegAtracDecode of one ATRAC3+
+	// frame (2048 samples) takes about 2.5ms (pspautotests video/mpeg/playertiming), and
+	// sceMp4AacDecode of one AAC-LC stereo frame (1024 samples) about 1.7ms (video/mp4/mp4timing).
+	// Other codecs aren't measured yet.
+	int decodeUs = 0;
 	if (audioType == PSP_CODEC_AT3PLUS) {
-		return hleDelayResult(hleLogDebug(Log::ME, 0, "codec %s sampleRate: %d bytesPerFrame: %d channels: %d", GetCodecName(codec), sampleRate, bytesPerFrame, channels), "audiocodec decode", 2500);
+		decodeUs = 2500;
+	} else if (audioType == PSP_CODEC_AAC) {
+		decodeUs = 1700;
+	}
+	if (decodeUs > 0) {
+		return hleDelayResult(hleLogDebug(Log::ME, 0, "codec %s sampleRate: %d bytesPerFrame: %d channels: %d", GetCodecName(codec), sampleRate, bytesPerFrame, channels), "audiocodec decode", decodeUs);
 	}
 	return hleLogDebug(Log::ME, 0, "codec %s sampleRate: %d bytesPerFrame: %d channels: %d", GetCodecName(codec), sampleRate, bytesPerFrame, channels);
 }
