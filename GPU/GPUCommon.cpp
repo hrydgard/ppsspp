@@ -147,6 +147,47 @@ int GPUCommon::EstimatePerVertexCost() {
 	return cost;
 }
 
+int GPUCommon::EstimateVideoBlitCycles(GEPrimitiveType prim, const void *verts, const void *inds, int count, const VertexDecoder *dec, u32 vertType) const {
+	if (prim != GE_PRIM_RECTANGLES || !gstate.isModeThrough() || !gstate.isTextureMapEnabled() || videoFrameSize_ == 0) {
+		return 0;
+	}
+	const u32 texAddr = gstate.getTextureAddress(0) & 0x3FFFFFFF;
+	if (texAddr < (videoFrameAddr_ & 0x3FFFFFFF) || texAddr >= (videoFrameAddr_ & 0x3FFFFFFF) + videoFrameSize_) {
+		return 0;
+	}
+	if ((vertType & GE_VTYPE_POS_MASK) != GE_VTYPE_POS_16BIT) {
+		return 0;
+	}
+
+	const int stride = dec->VertexSize();
+	const int posOffset = dec->posoff;
+	const int left = gstate.getScissorX1();
+	const int top = gstate.getScissorY1();
+	const int right = gstate.getScissorX2() + 1;
+	const int bottom = gstate.getScissorY2() + 1;
+
+	IndexConverter conv(vertType, inds);
+	s64 pixels = 0;
+	for (int i = 0; i + 1 < count; i += 2) {
+		const s16 *p0 = (const s16 *)((const u8 *)verts + stride * conv(i) + posOffset);
+		const s16 *p1 = (const s16 *)((const u8 *)verts + stride * conv(i + 1) + posOffset);
+		const int x0 = std::max(left, (int)std::min(p0[0], p1[0]));
+		const int x1 = std::min(right, (int)std::max(p0[0], p1[0]));
+		const int y0 = std::max(top, (int)std::min(p0[1], p1[1]));
+		const int y1 = std::min(bottom, (int)std::max(p0[1], p1[1]));
+		if (x1 > x0 && y1 > y0) {
+			pixels += (x1 - x0) * (y1 - y0);
+		}
+	}
+
+	// Measured on a PSP (pspautotests video/mpeg/playertiming), copying what Star Wars: Lethal
+	// Alliance's movie player does: a 480x272 frame from an unswizzled 8888 texture in main RAM,
+	// drawn as 32-pixel-wide strips, takes 9.7ms until sceGeDrawSync returns. Drawn as a single
+	// full-width sprite it takes 75ms (texture cache thrashing), which isn't modelled here.
+	const s64 cyclesPerFrame = usToCycles(9700);
+	return (int)(pixels * cyclesPerFrame / (480 * 272));
+}
+
 void GPUCommon::PopDLQueue() {
 	if(!dlQueue.empty()) {
 		dlQueue.pop_front();
@@ -775,10 +816,11 @@ DLResult GPUCommon::ProcessDLQueue() {
 		startingTicks = CoreTiming::GetTicks(currentMIPS);
 		cyclesExecuted = 0;
 
-		// ?? Seems to be correct behaviour to process the list anyway?
+		// Still busy with earlier work (e.g. the part of a list before its stall address): run the
+		// list now, but account for its time from when the GE gets free.
 		if (startingTicks < busyTicks) {
-			DEBUG_LOG(Log::G3D, "Can't execute a list yet, still busy for %lld ticks", busyTicks - startingTicks);
-			//return;
+			DEBUG_LOG(Log::G3D, "Starting a list while still busy for %lld ticks", busyTicks - startingTicks);
+			cyclesExecuted = (int)(busyTicks - startingTicks);
 		}
 	}
 
@@ -915,7 +957,9 @@ DLResult GPUCommon::ProcessDLQueue() {
 			// don't do anything - though dunno about error...
 			break;
 		case GPUSTATE_STALL:
-			// Resume work on this same display list later.
+			// Resume work on this same display list later. The GE is still busy with what it has
+			// done so far, so the next run starts after that, not when the stall is lifted.
+			busyTicks = std::max(busyTicks, startingTicks + cyclesExecuted);
 			return DLResult::Done;
 		default:
 			return DLResult::Error;
@@ -2105,6 +2149,8 @@ bool GPUCommon::PerformWriteColorFromMemory(u32 dest, int size) {
 }
 
 void GPUCommon::PerformWriteFormattedFromMemory(u32 addr, int size, int frameWidth, GEBufferFormat format) {
+	videoFrameAddr_ = addr;
+	videoFrameSize_ = size;
 	if (Memory::IsVRAMAddress(addr)) {
 		framebufferManager_->PerformWriteFormattedFromMemory(addr, size, frameWidth, format);
 	}

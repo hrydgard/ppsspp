@@ -589,6 +589,15 @@ static int sceVideocodecDecode(u32 ctxAddr, int type) {
 		out32(36, published ? 0 : 1);
 	}
 
+	// The decode takes real time on the ME: about 3.4ms for a 480x272 frame on a PSP, measured as
+	// sceMpegAvcDecode (5.8ms) less sceMpegAvcCsc alone (2.4ms), in pspautotests
+	// video/mpeg/playertiming. Movie players that present every decoded frame after a single
+	// vblank wait rely on decode, colour conversion and blit adding up to more than a vblank.
+	int delayUs = 0;
+	if (gotFrame && width > 0 && height > 0) {
+		delayUs = (int)(3400LL * width * height / (480 * 272));
+	}
+
 	// This is a compat hack for games that do not seem to pace playback in any way, such as Ys I & II.
 	if (gotFrame && PSP_CoreParameter().compat.flags().PaceVideocodecDecode && vctx.decoder) {
 		const int period = vctx.decoder->FramePeriodUs();
@@ -596,11 +605,12 @@ static int sceVideocodecDecode(u32 ctxAddr, int type) {
 			const s64 now = CoreTiming::GetGlobalTimeUs();
 			const int wait = (int)std::max((s64)0, vctx.pacedUntilUs - now);
 			vctx.pacedUntilUs = now + wait + period;
-			if (wait > 0) {
-				return hleDelayResult(hleLogDebug(Log::ME, 0, "type %d, %d bytes -> frame %dx%d",
-					type, auBytes, width, height), "videocodec decode", wait);
-			}
+			delayUs = std::max(delayUs, wait);
 		}
+	}
+	if (delayUs > 0) {
+		return hleDelayResult(hleLogDebug(Log::ME, 0, "type %d, %d bytes -> frame %dx%d",
+			type, auBytes, width, height), "videocodec decode", delayUs);
 	}
 	return hleLogDebug(Log::ME, 0, "type %d, %d bytes -> %s %dx%d",
 		type, auBytes, gotFrame ? "frame" : "no frame yet", width, height);

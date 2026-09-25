@@ -28,6 +28,7 @@
 class FramebufferManagerCommon;
 class TextureCacheCommon;
 class DrawEngineCommon;
+class VertexDecoder;
 class GraphicsContext;
 struct PspGeListArgs;
 struct GEState;
@@ -187,6 +188,9 @@ public:
 	void Execute_Unknown(u32 op, u32 diff);
 
 	static int EstimatePerVertexCost();
+	// Fill time for a through-mode rectangle draw textured from a decoded video frame. Zero for
+	// anything else. We don't model fill rate in general, but a movie player can be paced by it.
+	int EstimateVideoBlitCycles(GEPrimitiveType prim, const void *verts, const void *inds, int count, const VertexDecoder *dec, u32 vertType) const;
 
 	virtual void Flush();
 
@@ -355,6 +359,10 @@ protected:
 	bool isbreak;  // This doesn't mean debugger breakpoints.
 	u64 drawCompleteTicks;
 	u64 busyTicks;
+
+	// The last buffer a video decoder wrote a frame into, see PerformWriteFormattedFromMemory.
+	u32 videoFrameAddr_ = 0;
+	u32 videoFrameSize_ = 0;
 
 	int downcount;
 	u64 startingTicks;
