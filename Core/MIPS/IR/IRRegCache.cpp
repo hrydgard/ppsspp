@@ -30,13 +30,10 @@
 #include "Core/MIPS/JitCommon/JitState.h"
 
 void IRImmRegCache::Flush(IRReg rd) {
-	if (isImm_[rd]) {
-		if (rd == 0) {
-			return;
-		}
+	if (isImm_[rd] && !isWritten_[rd]) {
 		_assert_((rd > 0 && rd < 32) || (rd >= IRTEMP_0 && rd < IRREG_VFPU_CTRL_BASE));
 		ir_->WriteSetConstant(rd, immVal_[rd]);
-		isImm_[rd] = false;
+		isWritten_[rd] = true;
 	}
 }
 
@@ -49,19 +46,23 @@ void IRImmRegCache::Discard(IRReg rd) {
 
 IRImmRegCache::IRImmRegCache(IRWriter *ir) : ir_(ir) {
 	memset(&isImm_, 0, sizeof(isImm_));
+	memset(&isWritten_, 0, sizeof(isWritten_));
 	memset(&immVal_, 0, sizeof(immVal_));
 	isImm_[0] = true;
+	isWritten_[0] = true;
 	ir_ = ir;
 }
 
-void IRImmRegCache::FlushAll() {
+void IRImmRegCache::FlushAll(bool keepKnown) {
 	for (int i = 1; i < TOTAL_MAPPABLE_IRREGS; ) {
 		if (isImm_[i]) {
 			Flush(i);
+			if (!keepKnown)
+				isImm_[i] = false;
 		}
 
 		// Most of the time, lots are not.  This speeds it up a lot.
-		bool *next = (bool *)memchr(&isImm_[i], 1, TOTAL_MAPPABLE_IRREGS - i);
+		bool *next = (bool *)memchr(&isImm_[i + 1], 1, TOTAL_MAPPABLE_IRREGS - i - 1);
 		if (!next)
 			break;
 		i = (int)(next - &isImm_[0]);
@@ -88,18 +89,14 @@ void IRImmRegCache::MapInInIn(IRReg rd, IRReg rs, IRReg rt) {
 }
 
 void IRImmRegCache::MapDirtyIn(IRReg rd, IRReg rs) {
-	if (rs != rd) {
-		Discard(rd);
-	}
 	Flush(rs);
+	Discard(rd);
 }
 
 void IRImmRegCache::MapDirtyInIn(IRReg rd, IRReg rs, IRReg rt) {
-	if (rs != rd && rt != rd) {
-		Discard(rd);
-	}
 	Flush(rs);
 	Flush(rt);
+	Discard(rd);
 }
 
 IRNativeRegCacheBase::IRNativeRegCacheBase(MIPSComp::JitOptions *jo)
@@ -681,9 +678,62 @@ void IRNativeRegCacheBase::FlushReg(IRReg mreg) {
 	}
 }
 
+void IRNativeRegCacheBase::DiscardDeadTempsAtExit() {
+	if (!irBlock_ || irIndex_ < 0 || irIndex_ >= irBlock_->GetNumIRInstructions())
+		return;
+	const IRInst *insts = irBlockCache_->GetBlockInstructionPtr(irBlockNum_);
+	if ((GetIRMeta(insts[irIndex_].op)->flags & IRFLAG_EXIT) == 0)
+		return;
+
+	// The temps don't live on past the block, so only reads later in this block matter.
+	auto isTemp = [](IRReg r) {
+		return (r >= IRTEMP_0 && r <= IRTEMP_LR_SHIFT) || (r >= 32 + IRVTEMP_PFX_S && r < 32 + IRVTEMP_0 + 4);
+	};
+	auto readLater = [&](IRReg r) {
+		const bool gpr = r < 32 + IRVTEMP_PFX_S;
+		const IRReg reg = gpr ? r : (IRReg)(r - 32);
+		auto reads = [&](IRReg src, char type) {
+			if (gpr)
+				return type == 'G' && src == reg;
+			int lanes = type == 'F' ? 1 : (type == '2' ? 2 : (type == 'V' ? 4 : 0));
+			return reg >= src && reg < src + lanes;
+		};
+		for (int i = irIndex_ + 1; i < irBlock_->GetNumIRInstructions(); ++i) {
+			const IRInstMeta inst = GetIRMeta(insts[i]);
+			if (reads(inst.src1, inst.m.types[1]) || reads(inst.src2, inst.m.types[2]))
+				return true;
+			if ((inst.m.flags & (IRFLAG_SRC3 | IRFLAG_SRC3DST)) != 0 && reads(inst.src3, inst.m.types[0]))
+				return true;
+			if (gpr ? IRDestGPR(inst) == reg : IRWritesToFPR(inst, reg))
+				return false;
+		}
+		return false;
+	};
+
+	for (IRReg r = IRTEMP_0; r < 32 + IRVTEMP_0 + 4; ++r) {
+		if (!isTemp(r) || mr[r].isStatic || mr[r].loc == MIPSLoc::MEM || readLater(r))
+			continue;
+		IRNativeReg nreg = mr[r].nReg;
+		if (nreg == -1) {
+			DiscardReg(r);
+			continue;
+		}
+		// A vector reg may hold other lanes, which all have to be dead temps too.
+		bool allDead = true;
+		for (IRReg m = nr[nreg].mipsReg; m < IRREG_INVALID && mr[m].nReg == nreg; ++m) {
+			if (m != r && (!isTemp(m) || readLater(m)))
+				allDead = false;
+		}
+		if (allDead)
+			DiscardNativeReg(nreg);
+	}
+}
+
 void IRNativeRegCacheBase::FlushAll(bool gprs, bool fprs) {
 	// Note: make sure not to change the registers when flushing.
 	// Branching code may expect the native reg to retain its value.
+
+	DiscardDeadTempsAtExit();
 
 	if (!mr[MIPS_REG_ZERO].isStatic && mr[MIPS_REG_ZERO].nReg != -1)
 		DiscardNativeReg(mr[MIPS_REG_ZERO].nReg);

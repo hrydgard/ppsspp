@@ -2318,6 +2318,17 @@ namespace MIPSComp {
 			hasCosine = hasCosine || d[i] == 'c';
 		}
 		if (hasSine && hasCosine && IsOverlapSafe(n, dregs, 1, sreg)) {
+			if (!broadcastSine && dregs[cosineLane] == dregs[sineLane] + 1 && (dregs[sineLane] & 1) == 0) {
+				// The pair is in place (and aligned, as a Vec2), so write it directly.
+				ir.Write(IROp::FSinCos, dregs[sineLane], sreg[0]);
+				if (negSin)
+					ir.Write(IROp::FNeg, dregs[sineLane], dregs[sineLane]);
+				for (int i = 0; i < n; i++) {
+					if (d[i] == '0')
+						ir.WriteFC(IROp::SetConstF, dregs[i], 0, 0, 0.0f);
+				}
+				return;
+			}
 			ir.Write(IROp::FSinCos, IRVTEMP_0, sreg[0]);
 			if (negSin)
 				ir.Write(IROp::FNeg, IRVTEMP_0, IRVTEMP_0);

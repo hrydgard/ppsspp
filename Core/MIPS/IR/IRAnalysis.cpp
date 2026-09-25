@@ -59,9 +59,9 @@ bool IRReadsFromFPR(const IRInstMeta &inst, int reg, bool *directly) {
 	if (inst.m.types[2] == '2' && reg >= inst.src2 && reg < inst.src2 + 2)
 		return true;
 	if ((inst.m.flags & (IRFLAG_SRC3 | IRFLAG_SRC3DST)) != 0) {
-		if (inst.m.types[0] == 'V' && reg >= inst.src3 && reg <= inst.src3 + 4)
+		if (inst.m.types[0] == 'V' && reg >= inst.src3 && reg < inst.src3 + 4)
 			return true;
-		if (inst.m.types[0] == '2' && reg >= inst.src3 && reg <= inst.src3 + 2)
+		if (inst.m.types[0] == '2' && reg >= inst.src3 && reg < inst.src3 + 2)
 			return true;
 	}
 	return false;
@@ -77,9 +77,8 @@ static int IRReadsFromList(const IRInstMeta &inst, IRReg regs[4], char type) {
 	if ((inst.m.flags & (IRFLAG_SRC3 | IRFLAG_SRC3DST)) != 0 && inst.m.types[0] == type)
 		regs[c++] = inst.src3;
 
-	if (inst.op == IROp::Interpret || inst.op == IROp::CallReplacement || inst.op == IROp::Syscall || inst.op == IROp::SyscallUnresolved ||inst.op == IROp::Break)
-		return -1;
-	if (inst.op == IROp::Breakpoint || inst.op == IROp::MemoryCheck)
+	// Exits read every reg that lives on, and barriers may read anything.
+	if ((inst.m.flags & (IRFLAG_EXIT | IRFLAG_BARRIER)) != 0)
 		return -1;
 
 	return c;
@@ -142,8 +141,8 @@ int IRReadsFromGPRs(const IRInstMeta &inst, IRReg regs[4]) {
 
 int IRReadsFromFPRs(const IRInstMeta &inst, IRReg regs[16]) {
 	int c = IRReadsFromList(inst, regs, 'F');
-	if (c != 0)
-		return c;
+	if (c == -1)
+		return -1;
 
 	// We also need to check V and 2.  Indirect reads already checked, don't check again.
 	if (inst.m.types[1] == 'V' || inst.m.types[1] == '2') {

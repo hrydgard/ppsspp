@@ -49,6 +49,9 @@ public:
 	IRImmRegCache(IRWriter *ir);
 
 	void SetImm(IRReg r, u32 immVal) {
+		// Setting the value it already holds doesn't need writing again.
+		if (!isImm_[r] || immVal_[r] != immVal)
+			isWritten_[r] = false;
 		isImm_[r] = true;
 		immVal_[r] = immVal;
 	}
@@ -56,8 +59,12 @@ public:
 	bool IsImm(IRReg r) const { return isImm_[r]; }
 	u32 GetImm(IRReg r) const { return immVal_[r]; }
 
-	void FlushAll();
+	// Writes out all pending values. With keepKnown, the values stay known afterward (for a
+	// conditional exit), otherwise they're forgotten (anything may change them after a barrier).
+	void FlushAll(bool keepKnown = false);
 
+	// The Map functions write out the values of the regs read, which stay known. A dirty reg
+	// is forgotten after its inputs are written.
 	void MapDirty(IRReg rd);
 	void MapIn(IRReg rd);
 	void MapInIn(IRReg rs, IRReg rt);
@@ -70,6 +77,8 @@ private:
 	void Discard(IRReg rd);
 
 	bool isImm_[TOTAL_MAPPABLE_IRREGS];
+	// Whether the known value has been written to the reg.
+	bool isWritten_[TOTAL_MAPPABLE_IRREGS];
 	uint32_t immVal_[TOTAL_MAPPABLE_IRREGS];
 	IRWriter *ir_;
 };
@@ -242,6 +251,8 @@ protected:
 	int GetMipsRegOffset(IRReg r);
 
 	bool IsRegClobbered(MIPSLoc type, IRReg r) const;
+	// At an exit, drops the temps nothing later in the block reads, so FlushAll doesn't store them.
+	void DiscardDeadTempsAtExit();
 	bool IsRegRead(MIPSLoc type, IRReg r) const;
 	IRUsage GetNextRegUsage(const IRSituation &info, MIPSLoc type, IRReg r) const;
 

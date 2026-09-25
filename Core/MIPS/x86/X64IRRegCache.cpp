@@ -151,6 +151,8 @@ void X64IRRegCache::FlushAll(bool gprs, bool fprs) {
 	// Note: make sure not to change the registers when flushing:
 	// Branching code may expect the x64reg to retain its value.
 
+	DiscardDeadTempsAtExit();
+
 	auto needsFlush = [&](IRReg i) {
 		if (mr[i].loc != MIPSLoc::MEM || mr[i].isStatic)
 			return false;

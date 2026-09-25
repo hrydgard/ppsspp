@@ -18,6 +18,7 @@
 #include <cstdio>
 #include <cstring>
 #include "Core/MIPS/IR/IRInst.h"
+#include "Core/Config.h"
 #include "Core/MIPS/IR/IRPassSimplify.h"
 
 struct IRVerification {
@@ -25,6 +26,10 @@ struct IRVerification {
 	const std::vector<IRInst> input;
 	const std::vector<IRInst> expected;
 	const std::vector<IRPassFunc> passes;
+	// Leaves lwl/lwr halves alone, among other things.
+	bool optimizeForInterpreter = false;
+	// ApplyMemoryValidation only runs without fast memory.
+	bool slowMemory = false;
 };
 
 static void LogInstructions(const std::vector<IRInst> &insts) {
@@ -39,10 +44,15 @@ static bool VerifyPass(const IRVerification &v) {
 	IRWriter in, out;
 	IROptions opts{};
 	opts.unalignedLoadStore = true;
+	opts.optimizeForInterpreter = v.optimizeForInterpreter;
 
 	for (const auto &inst : v.input)
 		in.Write(inst);
-	if (IRApplyPasses(v.passes.data(), v.passes.size(), in, out, opts)) {
+	const bool fastMemory = g_Config.bFastMemory;
+	g_Config.bFastMemory = !v.slowMemory;
+	bool logged = IRApplyPasses(v.passes.data(), v.passes.size(), in, out, opts);
+	g_Config.bFastMemory = fastMemory;
+	if (logged) {
 		printf("%s FAILED: Unable to apply passes (or wanted to log)\n", v.name);
 		return false;
 	}
@@ -69,7 +79,9 @@ static bool VerifyPass(const IRVerification &v) {
 				continue;
 			}
 
-			printf("%s FAILED: #%d expected '%s' but was '%s'", v.name, (int)i, expectedBuf, actualBuf);
+			printf("%s FAILED: #%d expected '%s' but was '%s'\n", v.name, (int)i, expectedBuf, actualBuf);
+			printf("Actual:\n");
+			LogInstructions(actual);
 			return false;
 		}
 	}
@@ -166,15 +178,348 @@ static const IRVerification tests[] = {
 		},
 		{ &PropagateConstants },
 	},
+	{
+		// The FNeg reads the temp and overwrites it, so the FAdd must see the negation.
+		"PurgeTempsFPRRewrittenInPlace",
+		{
+			{ IROp::FMov, { IRVTEMP_PFX_S }, 5 },
+			{ IROp::FNeg, { IRVTEMP_PFX_S }, IRVTEMP_PFX_S },
+			{ IROp::FAdd, { 0 }, IRVTEMP_PFX_S, 1 },
+		},
+		{
+			{ IROp::FNeg, { IRVTEMP_PFX_S }, 5 },
+			{ IROp::FAdd, { 0 }, IRVTEMP_PFX_S, 1 },
+		},
+		{ &PurgeTemps },
+	},
+	{
+		"PurgeTempsFPRReadTwice",
+		{
+			{ IROp::FMov, { IRVTEMP_PFX_S }, 5 },
+			{ IROp::FMul, { 0 }, IRVTEMP_PFX_S, IRVTEMP_PFX_S },
+		},
+		{
+			{ IROp::FMul, { 0 }, 5, 5 },
+		},
+		{ &PurgeTemps },
+	},
+	{
+		// The FPR temp has the same number as IRTEMP_0, which is the address here.
+		"PurgeTempsFPRStoreSrc3",
+		{
+			{ IROp::FMov, { IRVTEMP_PFX_S }, 5 },
+			{ IROp::StoreFloat, { IRVTEMP_PFX_S }, IRTEMP_0, 0, 0x10 },
+		},
+		{
+			{ IROp::StoreFloat, { 5 }, IRTEMP_0, 0, 0x10 },
+		},
+		{ &PurgeTemps },
+	},
+	{
+		// The FMov writes lane 1 of the temp between its write and the Vec4Mov.
+		"PurgeTempsVec4LaneWrite",
+		{
+			{ IROp::Vec4Add, { IRVTEMP_0 }, 32, 36 },
+			{ IROp::FMov, { IRVTEMP_0 + 1 }, 20 },
+			{ IROp::Vec4Mov, { 48 }, IRVTEMP_0 },
+		},
+		{
+			{ IROp::Vec4Add, { IRVTEMP_0 }, 32, 36 },
+			{ IROp::FMov, { IRVTEMP_0 + 1 }, 20 },
+			{ IROp::Vec4Mov, { 48 }, IRVTEMP_0 },
+		},
+		{ &PurgeTemps },
+	},
+	{
+		// The Vec4Scale reads 48 before the Vec4Mov writes it.
+		"PurgeTempsVec4ScaleRead",
+		{
+			{ IROp::Vec4Add, { IRVTEMP_0 }, 32, 36 },
+			{ IROp::Vec4Scale, { 40 }, 48, 1 },
+			{ IROp::Vec4Mov, { 48 }, IRVTEMP_0 },
+		},
+		{
+			{ IROp::Vec4Add, { IRVTEMP_0 }, 32, 36 },
+			{ IROp::Vec4Scale, { 40 }, 48, 1 },
+			{ IROp::Vec4Mov, { 48 }, IRVTEMP_0 },
+		},
+		{ &PurgeTemps },
+	},
+	{
+		// Writing 48 before the exit would change it on the path that exits.
+		"PurgeTempsSwapAcrossExit",
+		{
+			{ IROp::Vec4Add, { IRVTEMP_0 }, 32, 36 },
+			{ IROp::ExitToConstIfEq, { 0 }, MIPS_REG_A0, MIPS_REG_A1, 0x08804000 },
+			{ IROp::Vec4Mov, { 48 }, IRVTEMP_0 },
+		},
+		{
+			{ IROp::Vec4Add, { IRVTEMP_0 }, 32, 36 },
+			{ IROp::ExitToConstIfEq, { 0 }, MIPS_REG_A0, MIPS_REG_A1, 0x08804000 },
+			{ IROp::Vec4Mov, { 48 }, IRVTEMP_0 },
+		},
+		{ &PurgeTemps },
+	},
+	{
+		// sc stores and ll sets LLBIT, so neither goes away when the reg is overwritten.
+		"PurgeTempsKeepsLLSC",
+		{
+			{ IROp::Load32Linked, { MIPS_REG_V1 }, MIPS_REG_A0, 0, 0 },
+			{ IROp::SetConst, { MIPS_REG_V1 }, 0, 0, 1 },
+			{ IROp::Store32Conditional, { MIPS_REG_V0 }, MIPS_REG_A0, 0, 0 },
+			{ IROp::SetConst, { MIPS_REG_V0 }, 0, 0, 1 },
+		},
+		{
+			{ IROp::Load32Linked, { MIPS_REG_V1 }, MIPS_REG_A0, 0, 0 },
+			{ IROp::SetConst, { MIPS_REG_V1 }, 0, 0, 1 },
+			{ IROp::Store32Conditional, { MIPS_REG_V0 }, MIPS_REG_A0, 0, 0 },
+			{ IROp::SetConst, { MIPS_REG_V0 }, 0, 0, 1 },
+		},
+		{ &PurgeTemps },
+	},
+	{
+		"CombineLoadLeftRight",
+		{
+			{ IROp::Load32Left, { MIPS_REG_A0 }, MIPS_REG_A1, 0, 3 },
+			{ IROp::Load32Right, { MIPS_REG_A0 }, MIPS_REG_A1, 0, 0 },
+		},
+		{
+			{ IROp::Load32, { MIPS_REG_A0 }, MIPS_REG_A1, 0, 0 },
+		},
+		{ &RemoveLoadStoreLeftRight },
+		true,
+	},
+	{
+		// The lwl changes a0, so the lwr reads from a different address.
+		"NoCombineLoadLeftRightIntoBase",
+		{
+			{ IROp::Load32Left, { MIPS_REG_A0 }, MIPS_REG_A0, 0, 3 },
+			{ IROp::Load32Right, { MIPS_REG_A0 }, MIPS_REG_A0, 0, 0 },
+		},
+		{
+			{ IROp::Load32Left, { MIPS_REG_A0 }, MIPS_REG_A0, 0, 3 },
+			{ IROp::Load32Right, { MIPS_REG_A0 }, MIPS_REG_A0, 0, 0 },
+		},
+		{ &RemoveLoadStoreLeftRight },
+		true,
+	},
+	{
+		// The sp accesses share one validation, but not across something that may change sp.
+		"ValidateSPAcrossInterpret",
+		{
+			{ IROp::Load32, { MIPS_REG_A0 }, MIPS_REG_SP, 0, 0 },
+			{ IROp::Interpret, { 0 }, 0, 0, 0 },
+			{ IROp::Load32, { MIPS_REG_A1 }, MIPS_REG_SP, 0, 8 },
+		},
+		{
+			{ IROp::ValidateAddress32, { 0 }, MIPS_REG_SP, 0, 0 },
+			{ IROp::Load32, { MIPS_REG_A0 }, MIPS_REG_SP, 0, 0 },
+			{ IROp::Interpret, { 0 }, 0, 0, 0 },
+			{ IROp::ValidateAddress32, { 0 }, MIPS_REG_SP, 0, 8 },
+			{ IROp::Load32, { MIPS_REG_A1 }, MIPS_REG_SP, 0, 8 },
+		},
+		{ &ApplyMemoryValidation },
+		false,
+		true,
+	},
+	{
+		"PropagateConstantsPastFSat",
+		{
+			{ IROp::SetConst, { MIPS_REG_A0 }, 0, 0, 0x100 },
+			{ IROp::FSat0_1, { 1 }, 1 },
+			{ IROp::Add, { MIPS_REG_A1 }, MIPS_REG_A0, MIPS_REG_A0 },
+		},
+		{
+			{ IROp::FSat0_1, { 1 }, 1 },
+			{ IROp::SetConst, { MIPS_REG_A0 }, 0, 0, 0x100 },
+			{ IROp::SetConst, { MIPS_REG_A1 }, 0, 0, 0x200 },
+		},
+		{ &PropagateConstants },
+	},
+	{
+		// lui v0, hi; lw v0, lo(v0)
+		"PropagateConstantsLoadIntoBase",
+		{
+			{ IROp::SetConst, { MIPS_REG_V0 }, 0, 0, 0x08810000 },
+			{ IROp::Load32, { MIPS_REG_V0 }, MIPS_REG_V0, 0, 0x20 },
+		},
+		{
+			{ IROp::Load32, { MIPS_REG_V0 }, MIPS_REG_ZERO, 0, 0x08810020 },
+		},
+		{ &PropagateConstants },
+	},
+	{
+		// The store writes a0 out, and it stays known.
+		"PropagateConstantsPastStore",
+		{
+			{ IROp::SetConst, { MIPS_REG_A0 }, 0, 0, 5 },
+			{ IROp::Store32, { MIPS_REG_A0 }, MIPS_REG_SP, 0, 0 },
+			{ IROp::AddConst, { MIPS_REG_A1 }, MIPS_REG_A0, 0, 0x20 },
+		},
+		{
+			{ IROp::SetConst, { MIPS_REG_A0 }, 0, 0, 5 },
+			{ IROp::Store32, { MIPS_REG_A0 }, MIPS_REG_SP, 0, 0 },
+			{ IROp::SetConst, { MIPS_REG_A1 }, 0, 0, 0x25 },
+		},
+		{ &PropagateConstants },
+	},
+	{
+		"PropagateConstantsPastCondExit",
+		{
+			{ IROp::SetConst, { MIPS_REG_A0 }, 0, 0, 5 },
+			{ IROp::ExitToConstIfEq, { 0 }, MIPS_REG_A1, MIPS_REG_A2, 0x08804000 },
+			{ IROp::AddConst, { MIPS_REG_A3 }, MIPS_REG_A0, 0, 1 },
+		},
+		{
+			{ IROp::SetConst, { MIPS_REG_A0 }, 0, 0, 5 },
+			{ IROp::ExitToConstIfEq, { 0 }, MIPS_REG_A1, MIPS_REG_A2, 0x08804000 },
+			{ IROp::SetConst, { MIPS_REG_A3 }, 0, 0, 6 },
+		},
+		{ &PropagateConstants },
+	},
+	{
+		// Each of these may change a0 after reading it.
+		"PropagateConstantsReadThenWritten",
+		{
+			{ IROp::SetConst, { MIPS_REG_A0 }, 0, 0, 5 },
+			{ IROp::MovZ, { MIPS_REG_A0 }, MIPS_REG_A1, MIPS_REG_A2 },
+			{ IROp::AddConst, { MIPS_REG_T0 }, MIPS_REG_A0, 0, 1 },
+			{ IROp::SetConst, { MIPS_REG_A0 }, 0, 0, 5 },
+			{ IROp::Store32Conditional, { MIPS_REG_A0 }, MIPS_REG_A1, 0, 0 },
+			{ IROp::AddConst, { MIPS_REG_T1 }, MIPS_REG_A0, 0, 1 },
+			{ IROp::SetConst, { MIPS_REG_A0 }, 0, 0, 5 },
+			{ IROp::Load32Left, { MIPS_REG_A0 }, MIPS_REG_A1, 0, 3 },
+			{ IROp::AddConst, { MIPS_REG_T2 }, MIPS_REG_A0, 0, 1 },
+		},
+		{
+			{ IROp::SetConst, { MIPS_REG_A0 }, 0, 0, 5 },
+			{ IROp::MovZ, { MIPS_REG_A0 }, MIPS_REG_A1, MIPS_REG_A2 },
+			{ IROp::AddConst, { MIPS_REG_T0 }, MIPS_REG_A0, 0, 1 },
+			{ IROp::SetConst, { MIPS_REG_A0 }, 0, 0, 5 },
+			{ IROp::Store32Conditional, { MIPS_REG_A0 }, MIPS_REG_A1, 0, 0 },
+			{ IROp::AddConst, { MIPS_REG_T1 }, MIPS_REG_A0, 0, 1 },
+			{ IROp::SetConst, { MIPS_REG_A0 }, 0, 0, 5 },
+			{ IROp::Load32Left, { MIPS_REG_A0 }, MIPS_REG_A1, 0, 3 },
+			{ IROp::AddConst, { MIPS_REG_T2 }, MIPS_REG_A0, 0, 1 },
+		},
+		{ &PropagateConstants },
+	},
+	{
+		// The exit is always taken, so nothing after it runs.
+		"PropagateConstantsTakenExit",
+		{
+			{ IROp::SetConst, { MIPS_REG_A0 }, 0, 0, 0 },
+			{ IROp::ExitToConstIfEq, { 0 }, MIPS_REG_A0, MIPS_REG_ZERO, 0x08804000 },
+			{ IROp::Downcount, { 0 }, 0, 0, 4 },
+			{ IROp::ExitToConst, { 0 }, 0, 0, 0x08804100 },
+		},
+		{
+			{ IROp::SetConst, { MIPS_REG_A0 }, 0, 0, 0 },
+			{ IROp::ExitToConst, { 0 }, 0, 0, 0x08804000 },
+		},
+		{ &PropagateConstants },
+	},
+	{
+		"ForwardStoresToLoads",
+		{
+			{ IROp::Store32, { MIPS_REG_A0 }, MIPS_REG_SP, 0, 0x10 },
+			{ IROp::Add, { MIPS_REG_T0 }, MIPS_REG_T1, MIPS_REG_T2 },
+			{ IROp::Load32, { MIPS_REG_A1 }, MIPS_REG_SP, 0, 0x10 },
+			{ IROp::StoreFloat, { 1 }, MIPS_REG_SP, 0, 0x20 },
+			{ IROp::LoadFloat, { 2 }, MIPS_REG_SP, 0, 0x20 },
+			{ IROp::Store32, { MIPS_REG_A0 }, MIPS_REG_SP, 0, 0x30 },
+			{ IROp::LoadFloat, { 3 }, MIPS_REG_SP, 0, 0x30 },
+			{ IROp::Store8, { MIPS_REG_A2 }, MIPS_REG_SP, 0, 0x40 },
+			{ IROp::Load8Ext, { MIPS_REG_A3 }, MIPS_REG_SP, 0, 0x40 },
+			{ IROp::StoreVec4, { 32 }, MIPS_REG_SP, 0, 0x50 },
+			{ IROp::LoadVec4, { 36 }, MIPS_REG_SP, 0, 0x50 },
+			{ IROp::Load32, { MIPS_REG_T3 }, MIPS_REG_GP, 0, 0x100 },
+			{ IROp::Load32, { MIPS_REG_T4 }, MIPS_REG_GP, 0, 0x100 },
+			// Disjoint on the same base, so the first is still known.
+			{ IROp::Store32, { MIPS_REG_S0 }, MIPS_REG_S1, 0, 0x20 },
+			{ IROp::Store32, { MIPS_REG_S2 }, MIPS_REG_S1, 0, 0x24 },
+			{ IROp::Load32, { MIPS_REG_S3 }, MIPS_REG_S1, 0, 0x20 },
+			// Already in the reg.
+			{ IROp::Load32, { MIPS_REG_S2 }, MIPS_REG_S1, 0, 0x24 },
+		},
+		{
+			{ IROp::Store32, { MIPS_REG_A0 }, MIPS_REG_SP, 0, 0x10 },
+			{ IROp::Add, { MIPS_REG_T0 }, MIPS_REG_T1, MIPS_REG_T2 },
+			{ IROp::Mov, { MIPS_REG_A1 }, MIPS_REG_A0 },
+			{ IROp::StoreFloat, { 1 }, MIPS_REG_SP, 0, 0x20 },
+			{ IROp::FMov, { 2 }, 1 },
+			{ IROp::Store32, { MIPS_REG_A0 }, MIPS_REG_SP, 0, 0x30 },
+			{ IROp::FMovFromGPR, { 3 }, MIPS_REG_A0 },
+			{ IROp::Store8, { MIPS_REG_A2 }, MIPS_REG_SP, 0, 0x40 },
+			{ IROp::Ext8to32, { MIPS_REG_A3 }, MIPS_REG_A2 },
+			{ IROp::StoreVec4, { 32 }, MIPS_REG_SP, 0, 0x50 },
+			{ IROp::Vec4Mov, { 36 }, 32 },
+			{ IROp::Load32, { MIPS_REG_T3 }, MIPS_REG_GP, 0, 0x100 },
+			{ IROp::Mov, { MIPS_REG_T4 }, MIPS_REG_T3 },
+			{ IROp::Store32, { MIPS_REG_S0 }, MIPS_REG_S1, 0, 0x20 },
+			{ IROp::Store32, { MIPS_REG_S2 }, MIPS_REG_S1, 0, 0x24 },
+			{ IROp::Mov, { MIPS_REG_S3 }, MIPS_REG_S0 },
+		},
+		{ &OptimizeLoadsAfterStores },
+	},
+	{
+		"NoForwardStoresToLoads",
+		{
+			// A store through another base may alias.
+			{ IROp::Store32, { MIPS_REG_A0 }, MIPS_REG_SP, 0, 0 },
+			{ IROp::Store32, { MIPS_REG_A1 }, MIPS_REG_A2, 0, 0 },
+			{ IROp::Load32, { MIPS_REG_A3 }, MIPS_REG_SP, 0, 0 },
+			// The value reg changed.
+			{ IROp::Store32, { MIPS_REG_T0 }, MIPS_REG_SP, 0, 4 },
+			{ IROp::AddConst, { MIPS_REG_T0 }, MIPS_REG_T0, 0, 1 },
+			{ IROp::Load32, { MIPS_REG_T1 }, MIPS_REG_SP, 0, 4 },
+			// An overlapping narrow store.
+			{ IROp::Store32, { MIPS_REG_T2 }, MIPS_REG_SP, 0, 0x10 },
+			{ IROp::Store16, { MIPS_REG_T3 }, MIPS_REG_SP, 0, 0x12 },
+			{ IROp::Load32, { MIPS_REG_T4 }, MIPS_REG_SP, 0, 0x10 },
+			// The Interpret may do anything.
+			{ IROp::Store32, { MIPS_REG_S0 }, MIPS_REG_SP, 0, 0x20 },
+			{ IROp::Interpret, { 0 }, 0, 0, 0 },
+			{ IROp::Load32, { MIPS_REG_S1 }, MIPS_REG_SP, 0, 0x20 },
+			// Not RAM, so maybe a hardware register.
+			{ IROp::Store32, { MIPS_REG_S2 }, MIPS_REG_ZERO, 0, 0xBC100000 },
+			{ IROp::Load32, { MIPS_REG_S3 }, MIPS_REG_ZERO, 0, 0xBC100000 },
+			// The base reg changed.
+			{ IROp::Store32, { MIPS_REG_S4 }, MIPS_REG_SP, 0, 0x30 },
+			{ IROp::AddConst, { MIPS_REG_SP }, MIPS_REG_SP, 0, 0xFFFFFFF0 },
+			{ IROp::Load32, { MIPS_REG_S5 }, MIPS_REG_SP, 0, 0x30 },
+		},
+		{
+			{ IROp::Store32, { MIPS_REG_A0 }, MIPS_REG_SP, 0, 0 },
+			{ IROp::Store32, { MIPS_REG_A1 }, MIPS_REG_A2, 0, 0 },
+			{ IROp::Load32, { MIPS_REG_A3 }, MIPS_REG_SP, 0, 0 },
+			{ IROp::Store32, { MIPS_REG_T0 }, MIPS_REG_SP, 0, 4 },
+			{ IROp::AddConst, { MIPS_REG_T0 }, MIPS_REG_T0, 0, 1 },
+			{ IROp::Load32, { MIPS_REG_T1 }, MIPS_REG_SP, 0, 4 },
+			{ IROp::Store32, { MIPS_REG_T2 }, MIPS_REG_SP, 0, 0x10 },
+			{ IROp::Store16, { MIPS_REG_T3 }, MIPS_REG_SP, 0, 0x12 },
+			{ IROp::Load32, { MIPS_REG_T4 }, MIPS_REG_SP, 0, 0x10 },
+			{ IROp::Store32, { MIPS_REG_S0 }, MIPS_REG_SP, 0, 0x20 },
+			{ IROp::Interpret, { 0 }, 0, 0, 0 },
+			{ IROp::Load32, { MIPS_REG_S1 }, MIPS_REG_SP, 0, 0x20 },
+			{ IROp::Store32, { MIPS_REG_S2 }, MIPS_REG_ZERO, 0, 0xBC100000 },
+			{ IROp::Load32, { MIPS_REG_S3 }, MIPS_REG_ZERO, 0, 0xBC100000 },
+			{ IROp::Store32, { MIPS_REG_S4 }, MIPS_REG_SP, 0, 0x30 },
+			{ IROp::AddConst, { MIPS_REG_SP }, MIPS_REG_SP, 0, 0xFFFFFFF0 },
+			{ IROp::Load32, { MIPS_REG_S5 }, MIPS_REG_SP, 0, 0x30 },
+		},
+		{ &OptimizeLoadsAfterStores },
+	},
 };
 
 bool TestIRPassSimplify() {
 	InitIR();
 
+	bool success = true;
 	for (const auto &test : tests) {
 		if (!VerifyPass(test))
-			return false;
+			success = false;
 	}
 
-	return true;
+	return success;
 }
