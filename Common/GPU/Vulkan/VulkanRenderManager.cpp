@@ -1706,14 +1706,15 @@ void VulkanRenderManager::Run(VKRRenderThreadTask &task) {
 	frameData.profile.descWriteTime = time_now_d() - descStart;
 
 	queueRunner_.PreprocessSteps(task.steps);
-	// Likely during shutdown, happens in headless.
-	if (task.steps.empty() && !frameData.hasAcquired)
-		frameData.skipSwap = true;
 	//queueRunner_.LogSteps(stepsOnThread, false);
 	queueRunner_.RunSteps(task.steps, task.frame, frameData, frameDataShared_);
 
 	switch (task.runType) {
 	case VKRRunType::SUBMIT:
+		// A frame that never drew to the backbuffer never acquired an image, so there's nothing to
+		// wait for or present. Headless has such frames, and so does shutdown.
+		if (!frameData.hasAcquired)
+			frameData.skipSwap = true;
 		frameData.Submit(vulkan_, FrameSubmitType::FinishFrame, frameDataShared_);
 		break;
 
