@@ -141,8 +141,8 @@ A working invocation, and the traps around it:
   calls `gpu->PerformWriteFormattedFromMemory()`. The software renderer reads that memory directly and so renders
   the frame whether or not anything was notified. A missing notification therefore looks perfect under
   `--graphics=software` and shows up as a frozen screen on every real backend, while the decode logs keep scrolling
-  past as if all were well. Reproduce display bugs on `--graphics=d3d11` or `--graphics=vulkan` (`directx9` is not
-  a valid value) and compare `--screenshot-save=` output, not the log.
+  past as if all were well. Reproduce display bugs on a hardware backend (see "Choosing a GPU backend" below;
+  `directx9` is not a valid value) and compare `--screenshot-save=` output, not the log.
 - **`wsdbg --launch` only works with the headless build.** The app build is a GUI-subsystem exe with no stdout, so
   the `Listening on port N` line never reaches the launcher and it gives up. Start it yourself with an explicit
   `--debugger=PORT` and point wsdbg at that port. Note also that `--debugger-run` is `CmdLineMode::Headless`; the
@@ -178,41 +178,7 @@ produced a round of bogus results here:
 The last three compound: the fix is to treat the run's exit code and a positive "we got here" counter as
 preconditions, and only then believe the error counts.
 
-**If headless goes silent early in a game's boot, check which GPU backend it's actually using.** From
-551e4cd0ab (2026-08-04) until 2026-09-22, headless without `--graphics` quietly ran the OpenGL backend instead of
-the software renderer the README promises (`bSoftwareRendering` defaulted to false). Under Mesa llvmpipe on
-Linux/WSL, OpenGL hung every commercial game tried early in boot, e.g. AI Go right after its
-`sceKernelCreateCallback`, with no CPU use. Neither `--timeout-wall` nor `--timeout-emulated` fired, because both
-are checked only when the emulation loop comes back around, so a blocked host thread defeats them. `test.py`
-passes no `--graphics` either, so it stalled the same way. The default is software again. The hang was most likely
-headless never presenting its frames: OpenGL's render thread only finishes a frame once it's presented, so the emu
-thread ended up waiting in `GLRenderManager::BeginFrame` for a free frame while the render thread waited for work.
-That's fixed (headless presents now), and verified on macOS, not yet on Linux.
-
-**For game runs, prefer a hardware backend.** Headless renders `--graphics=vulkan` offscreen, into images of its
-own with no window, surface or swapchain, so it needs no display, and works on macOS through MoltenVK. On macOS,
-`--graphics=opengl` also runs without a window, in a CGL context rendering into a framebuffer object of its own;
-elsewhere it still uses a hidden SDL window. Both are far faster than the software renderer, which runs display
-lists synchronously inside `sceGeListEnQueue` and so dominates any profile of the emulator thread: 30 emulated
-seconds of God of War take 3-4 seconds instead of a minute. The pspautotests pass on both apart from the same 17
-GPU tests, whose references are hardware screenshots that the hardware backends don't match exactly (edge pixels,
-dithering, filtering, Metal's always-on primitive restart), so keep `--graphics=software` for those.
-
-That cost a lot of time because the first theories were confounded. Runs "worked in the background and hung in
-the foreground" only because the background ones happened to have `--graphics=software` added. Change one variable
-at a time, and diff the full command lines of a good and a bad run before theorising about the environment. If a
-run is still silent a few seconds in, it isn't going to recover, so don't wait out the full timeout. Other things
-that made it worse:
-
-- `docs/debugging.md` wasn't read first, so the `timeout`-wrapper and full-`--log` warnings above were missed.
-- The runs were wrapped in `timeout`, and a tool-call limit shorter than that sent them to the background. The
-  follow-up `pkill -f` then killed its own shell rather than the emulators, so hung instances piled up across runs.
-- `--memstick` was blamed first. It matters for LLE firmware modules, but a game that needs none (AI Go) stalled
-  just the same without it.
-- Pass `--graphics=software` whenever rendering doesn't matter, even though it's the default, so a copied
-  command line doesn't depend on the default.
-
-For the silent-fallback half of this, headless refuses the run rather than substituting: an explicit
+Rather than silently falling back to HLE, headless refuses the run: an explicit
 `--disable-hle=` whose firmware module isn't there names the module, prints the `flash0:/kd` and memory stick
 it looked in (usually enough to spot that it's the one beside the exe), and exits 1. Only an *explicit*
 `--disable-hle` binds - sceMpeg and sceMp4 are LLE by default and still fall back quietly, or every run on a
@@ -225,6 +191,25 @@ repro can be run both ways and the logs diffed. That is how the leftover warning
 sorted - three appeared identically with `--force-hle=16`, which made them the game's own, and the
 fourth only under the real module, which made it ours. Neither `--nand=` pointing somewhere empty
 nor `--appendconfig` does this job: the firmware gets found anyway and the setting is per-game.
+
+### Choosing a GPU backend
+
+- **`--graphics=software`** (the default) needs no GPU at all, and matches the GPU pspautotests' reference
+  screenshots (taken on a PSP) best. It's slow for games, though: it runs display lists synchronously inside
+  `sceGeListEnQueue`, which then dominates any profile of the emulator thread.
+- **`--graphics=vulkan`** renders offscreen, into images of its own with no window or swapchain, so it needs no
+  display. On macOS it goes through MoltenVK.
+- **`--graphics=opengl`** renders offscreen on macOS (a CGL context with a framebuffer object of its own), and
+  through a hidden SDL window elsewhere.
+- **`--graphics=d3d11`** (Windows) renders through a hidden window.
+
+For game runs, prefer a hardware backend: 30 emulated seconds of God of War take 3-4 seconds instead of a minute.
+The pspautotests pass on Vulkan and OpenGL except for 17 GPU tests, whose references are hardware screenshots
+that the hardware backends don't match exactly.
+
+Pass `--graphics` explicitly even when you want the default, so a copied command line doesn't depend on it. If a
+run goes silent with no CPU use, a host thread is blocked, and neither `--timeout-wall` nor `--timeout-emulated`
+will end it, as both are only checked when the emulation loop comes around.
 
 ## Debugging and breakpoint considerations
 
