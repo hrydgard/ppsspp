@@ -192,12 +192,7 @@ int PSPNetconfDialog::Update(int animSpeed) {
 					StartFade(false);
 					ChangeStatus(SCE_UTILITY_STATUS_FINISHED, NET_SHUTDOWN_DELAY_US);
 				}
-			} else if (state == PSP_NET_APCTL_STATE_JOINING) {
-				// Switch to the next message
-				StartFade(true);
-			}
-
-			else if (state == PSP_NET_APCTL_STATE_DISCONNECTED) {
+			} else if (state == PSP_NET_APCTL_STATE_DISCONNECTED) {
 				// When connecting with infrastructure, simulate a connection using the first network configuration entry.
 				if (connResult < 0) {
 					connResult = hleCall(sceNetApctl, int, sceNetApctlConnect, 1);
