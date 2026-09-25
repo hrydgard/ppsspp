@@ -262,6 +262,7 @@ tests_good = [
   "hash/sha1ctx",
   "hle/check_not_used_uids",
   "intr/intr",
+  "intr/mfic",
   "intr/enablesub",
   "intr/suspended",
   "intr/vblank/vblank",

@@ -261,9 +261,9 @@ static const MIPSInstruction tableSpecial2[64] = // 011100 ..... ..... ..... ...
 	INVALID_X_8,
 	//32
 	INVALID, INVALID, INVALID, INVALID,
-	INSTR("mfic", JITFUNC(Comp_Generic), Dis_Generic, Int_Special2, OUT_OTHER),
+	INSTR("mfic", JITFUNC(Comp_Generic), Dis_Generic, Int_Special2, OUT_RT | OUT_OTHER),
 	INVALID,
-	INSTR("mtic", JITFUNC(Comp_Generic), Dis_Generic, Int_Special2, OUT_OTHER),
+	INSTR("mtic", JITFUNC(Comp_Generic), Dis_Generic, Int_Special2, IN_RT | OUT_OTHER),
 	INVALID,
 	//40
 	INVALID_X_8,
