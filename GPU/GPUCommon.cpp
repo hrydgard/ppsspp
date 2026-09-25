@@ -27,6 +27,7 @@
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceGe.h"
+#include "Core/HLE/scePower.h"
 #include "Core/Util/PPGeDraw.h"
 #include "Core/MemMapHelpers.h"
 #include "GPU/Common/DrawEngineCommon.h"
@@ -159,6 +160,24 @@ int GPUCommon::EstimateVideoBlitCycles(GEPrimitiveType prim, const void *verts, 
 		return 0;
 	}
 
+	// Measured on a PSP (pspautotests gpu/timing/blittiming): nanoseconds per pixel of an unswizzled
+	// texture drawn 1:1. The texture fetch sets the rate - the framebuffer's format, filtering and
+	// blending make no difference. The texture cache copes with rectangles up to 128 texels wide and
+	// thrashes from 160 (a full-width sprite costs ~7.5x as much as 32-pixel strips). All at 222/111MHz;
+	// at 333/166 every case takes 2/3 as long.
+	bool is32Bit;
+	switch (gstate.getTextureFormat()) {
+	case GE_TFMT_8888: is32Bit = true; break;
+	case GE_TFMT_5650:
+	case GE_TFMT_5551:
+	case GE_TFMT_4444: is32Bit = false; break;
+	default: return 0;
+	}
+	struct Rate { float narrow, wide; };
+	static const Rate ramRates[2] = { { 34.9f, 253.0f }, { 66.3f, 503.5f } };
+	static const Rate vramRates[2] = { { 8.3f, 38.3f }, { 13.0f, 76.1f } };
+	const Rate &rate = (Memory::IsVRAMAddress(texAddr) ? vramRates : ramRates)[is32Bit ? 1 : 0];
+
 	const int stride = dec->VertexSize();
 	const int posOffset = dec->posoff;
 	const int left = gstate.getScissorX1();
@@ -167,25 +186,23 @@ int GPUCommon::EstimateVideoBlitCycles(GEPrimitiveType prim, const void *verts, 
 	const int bottom = gstate.getScissorY2() + 1;
 
 	IndexConverter conv(vertType, inds);
-	s64 pixels = 0;
+	float ns = 0.0f;
 	for (int i = 0; i + 1 < count; i += 2) {
 		const s16 *p0 = (const s16 *)((const u8 *)verts + stride * conv(i) + posOffset);
 		const s16 *p1 = (const s16 *)((const u8 *)verts + stride * conv(i + 1) + posOffset);
+		const int width = std::abs(p1[0] - p0[0]);
 		const int x0 = std::max(left, (int)std::min(p0[0], p1[0]));
 		const int x1 = std::min(right, (int)std::max(p0[0], p1[0]));
 		const int y0 = std::max(top, (int)std::min(p0[1], p1[1]));
 		const int y1 = std::min(bottom, (int)std::max(p0[1], p1[1]));
 		if (x1 > x0 && y1 > y0) {
-			pixels += (x1 - x0) * (y1 - y0);
+			// Measured 144 texels wide falls halfway, so interpolate between 128 and 160.
+			const float wide = std::clamp((width - 128) / 32.0f, 0.0f, 1.0f);
+			ns += (float)((x1 - x0) * (y1 - y0)) * (rate.narrow + wide * (rate.wide - rate.narrow));
 		}
 	}
-
-	// Measured on a PSP (pspautotests video/mpeg/playertiming), copying what Star Wars: Lethal
-	// Alliance's movie player does: a 480x272 frame from an unswizzled 8888 texture in main RAM,
-	// drawn as 32-pixel-wide strips, takes 9.7ms until sceGeDrawSync returns. Drawn as a single
-	// full-width sprite it takes 75ms (texture cache thrashing), which isn't modelled here.
-	const s64 cyclesPerFrame = usToCycles(9700);
-	return (int)(pixels * cyclesPerFrame / (480 * 272));
+	// Measured at the default clocks; the GE speeds up with the rest of the system.
+	return (int)((float)usToCycles(PowerScaleFromDefaultClock(1000)) * ns / 1000000.0f);
 }
 
 void GPUCommon::PopDLQueue() {

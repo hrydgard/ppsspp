@@ -22,6 +22,7 @@
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceAudiocodec.h"
 #include "Core/HLE/sceKernelMemory.h"
+#include "Core/HLE/scePower.h"
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
@@ -420,6 +421,7 @@ static int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 		decodeUs = 1700;
 	}
 	if (decodeUs > 0) {
+		decodeUs = PowerScaleFromDefaultClock(decodeUs);
 		return hleDelayResult(hleLogDebug(Log::ME, 0, "codec %s sampleRate: %d bytesPerFrame: %d channels: %d", GetCodecName(codec), sampleRate, bytesPerFrame, channels), "audiocodec decode", decodeUs);
 	}
 	return hleLogDebug(Log::ME, 0, "codec %s sampleRate: %d bytesPerFrame: %d channels: %d", GetCodecName(codec), sampleRate, bytesPerFrame, channels);

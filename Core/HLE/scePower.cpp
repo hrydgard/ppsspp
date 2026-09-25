@@ -68,6 +68,10 @@ static int RealbusFreq = 111000000;
 static int pllFreq = 222000000;
 static int busFreq = 111000000;
 
+int PowerScaleFromDefaultClock(int us) {
+	return (int)((s64)us * 222000000 / (pllFreq > 0 ? pllFreq : 222000000));
+}
+
 int GetLockedCPUSpeedMhz() {
 	return PSP_CoreParameter().compat.flags().RequireDefaultCPUClock ? 0 : g_Config.iLockedCPUSpeed;
 }
