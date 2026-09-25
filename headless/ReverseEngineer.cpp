@@ -414,6 +414,15 @@ int RunDumpDiscFile(const std::string &discPath, const std::string &inPath, cons
 	loader.release();
 	ISOFileSystem isoFs(&pspFileSystem, device);
 
+	// A directory gets listed instead.
+	const PSPFileInfo dirInfo = isoFs.GetFileInfo(insideDisc);
+	if (dirInfo.exists && dirInfo.type == FILETYPE_DIRECTORY) {
+		for (const PSPFileInfo &entry : isoFs.GetDirListing(insideDisc)) {
+			printf("%s %10lld %s\n", entry.type == FILETYPE_DIRECTORY ? "d" : "-", (long long)entry.size, entry.name.c_str());
+		}
+		return 0;
+	}
+
 	const int handle = isoFs.OpenFile(insideDisc, FILEACCESS_READ);
 	if (handle < 0) {
 		fprintf(stderr, "dump-file: no such file on the disc: %s\n", insideDisc.c_str());
