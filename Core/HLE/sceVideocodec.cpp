@@ -43,6 +43,7 @@
 #include "Core/Util/BlockAllocator.h"
 #include "Core/HLE/sceMpeg.h"
 #include "Core/HLE/sceMpegbase.h"
+#include "Core/HLE/scePower.h"
 #include "Core/HW/AvcDecoder.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
@@ -98,9 +99,6 @@ struct VideocodecCtx {
 	u32 frameBuffersSize = 0;
 	int frameBufferWidth = 0;
 	int frameBufferHeight = 0;
-	// When the next decode may finish, for PaceVideocodecDecode. Not serialized: a restored state
-	// just paces from scratch.
-	s64 pacedUntilUs = 0;
 };
 
 static std::map<u32, VideocodecCtx> g_videocodecCtxs;
@@ -595,19 +593,9 @@ static int sceVideocodecDecode(u32 ctxAddr, int type) {
 	// vblank wait rely on decode, colour conversion and blit adding up to more than a vblank.
 	int delayUs = 0;
 	if (gotFrame && width > 0 && height > 0) {
-		delayUs = (int)(3400LL * width * height / (480 * 272));
+		delayUs = PowerScaleFromDefaultClock((int)(3400LL * width * height / (480 * 272)));
 	}
 
-	// This is a compat hack for games that do not seem to pace playback in any way, such as Ys I & II.
-	if (gotFrame && PSP_CoreParameter().compat.flags().PaceVideocodecDecode && vctx.decoder) {
-		const int period = vctx.decoder->FramePeriodUs();
-		if (period > 0) {
-			const s64 now = CoreTiming::GetGlobalTimeUs();
-			const int wait = (int)std::max((s64)0, vctx.pacedUntilUs - now);
-			vctx.pacedUntilUs = now + wait + period;
-			delayUs = std::max(delayUs, wait);
-		}
-	}
 	if (delayUs > 0) {
 		return hleDelayResult(hleLogDebug(Log::ME, 0, "type %d, %d bytes -> frame %dx%d",
 			type, auBytes, width, height), "videocodec decode", delayUs);
