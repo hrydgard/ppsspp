@@ -345,6 +345,11 @@ static const char * const so_names[] = {
 #elif PPSSPP_PLATFORM(MAC)
 	"@executable_path/../Frameworks/libMoltenVK.dylib",
 	"MoltenVK",
+	// For executables outside a bundle (headless): the app bundle built next to it, the Vulkan SDK's
+	// install (dlopen looks in /usr/local/lib), and Homebrew's.
+	"@executable_path/PPSSPPSDL.app/Contents/Frameworks/libMoltenVK.dylib",
+	"libMoltenVK.dylib",
+	"/opt/homebrew/lib/libMoltenVK.dylib",
 #else
 	"libvulkan.so",
 #if !defined(__ANDROID__)
