@@ -50,3 +50,7 @@ int RunReverseEngineer(const ReverseEngineerOptions &opts);
 // flash0:/kd/resource, which are ordinary tagged containers with the signature blanked, so the
 // normal module loader won't touch them. Returns a process exit code.
 int RunDecryptFile(const std::string &inPath, const std::string &outPath);
+
+// Copies one file out of a disc image (ISO/CSO/...) as-is, e.g. "disc0:/PSP_GAME/USRDIR/MOVIE.PMF".
+// Returns a process exit code.
+int RunDumpDiscFile(const std::string &discPath, const std::string &inPath, const std::string &outPath);

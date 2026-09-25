@@ -22,6 +22,8 @@
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceAudiocodec.h"
 #include "Core/HLE/sceKernelMemory.h"
+#include "Core/HLE/scePower.h"
+#include "Core/HLE/sceVideocodec.h"
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
@@ -407,6 +409,21 @@ static int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 		// reporting the sample count instead gave it a quarter of every frame, which played back
 		// fast and metallic. The decoder always writes stereo 16-bit, whatever the source is.
 		ctx->dstBytesWritten = outSamples * 2 * (int)sizeof(int16_t);
+	}
+	// The decode runs on the ME and takes real time. Measured on a PSP through the libraries that
+	// call this, so each includes their own work around the call: sceMpegAtracDecode of one ATRAC3+
+	// frame (2048 samples) takes about 2.5ms (pspautotests video/mpeg/playertiming), and
+	// sceMp4AacDecode of one AAC-LC stereo frame (1024 samples) about 1.7ms (video/mp4/mp4timing).
+	// Other codecs aren't measured yet.
+	int decodeUs = 0;
+	if (audioType == PSP_CODEC_AT3PLUS) {
+		decodeUs = 2500;
+	} else if (audioType == PSP_CODEC_AAC) {
+		decodeUs = 1700;
+	}
+	if (decodeUs > 0) {
+		decodeUs = MEScheduleJob(PowerScaleFromDefaultClock(decodeUs));
+		return hleDelayResult(hleLogDebug(Log::ME, 0, "codec %s sampleRate: %d bytesPerFrame: %d channels: %d", GetCodecName(codec), sampleRate, bytesPerFrame, channels), "audiocodec decode", decodeUs);
 	}
 	return hleLogDebug(Log::ME, 0, "codec %s sampleRate: %d bytesPerFrame: %d channels: %d", GetCodecName(codec), sampleRate, bytesPerFrame, channels);
 }

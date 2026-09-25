@@ -43,6 +43,7 @@
 #include "Core/Util/BlockAllocator.h"
 #include "Core/HLE/sceMpeg.h"
 #include "Core/HLE/sceMpegbase.h"
+#include "Core/HLE/scePower.h"
 #include "Core/HW/AvcDecoder.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
@@ -98,9 +99,6 @@ struct VideocodecCtx {
 	u32 frameBuffersSize = 0;
 	int frameBufferWidth = 0;
 	int frameBufferHeight = 0;
-	// When the next decode may finish, for PaceVideocodecDecode. Not serialized: a restored state
-	// just paces from scratch.
-	s64 pacedUntilUs = 0;
 };
 
 static std::map<u32, VideocodecCtx> g_videocodecCtxs;
@@ -125,6 +123,17 @@ static void MEEnsureRam() {
 		g_meRam.assign(ME_MEM_SIZE, 0);
 		g_meAlloc.Init(ME_ALLOC_BASE, ME_MEM_SIZE - ME_ALLOC_BASE, false);
 	}
+}
+
+// When the Media Engine finishes the last job it was given. Not serialized: after a load it's
+// simply free.
+static s64 g_meBusyUntilUs;
+
+int MEScheduleJob(int us) {
+	const s64 now = CoreTiming::GetGlobalTimeUs();
+	const s64 start = std::max(now, g_meBusyUntilUs);
+	g_meBusyUntilUs = start + us;
+	return (int)(g_meBusyUntilUs - now);
 }
 
 bool MEIsValidRange(u32 addr, u32 size) {
@@ -167,6 +176,7 @@ void __VideocodecInit() {
 	// The decoders have to be deleted; the ME blocks they hold don't need freeing individually,
 	// since the allocator is emptied right below.
 	ClearContexts(false);
+	g_meBusyUntilUs = 0;
 	g_meRam.clear();
 	g_meRam.shrink_to_fit();
 	g_meAlloc.Shutdown();
@@ -589,18 +599,18 @@ static int sceVideocodecDecode(u32 ctxAddr, int type) {
 		out32(36, published ? 0 : 1);
 	}
 
-	// This is a compat hack for games that do not seem to pace playback in any way, such as Ys I & II.
-	if (gotFrame && PSP_CoreParameter().compat.flags().PaceVideocodecDecode && vctx.decoder) {
-		const int period = vctx.decoder->FramePeriodUs();
-		if (period > 0) {
-			const s64 now = CoreTiming::GetGlobalTimeUs();
-			const int wait = (int)std::max((s64)0, vctx.pacedUntilUs - now);
-			vctx.pacedUntilUs = now + wait + period;
-			if (wait > 0) {
-				return hleDelayResult(hleLogDebug(Log::ME, 0, "type %d, %d bytes -> frame %dx%d",
-					type, auBytes, width, height), "videocodec decode", wait);
-			}
-		}
+	// The decode takes real time on the ME: about 3.4ms for a 480x272 frame on a PSP, measured as
+	// sceMpegAvcDecode (5.8ms) less sceMpegAvcCsc alone (2.4ms), in pspautotests
+	// video/mpeg/playertiming. Movie players that present every decoded frame after a single
+	// vblank wait rely on decode, colour conversion and blit adding up to more than a vblank.
+	int delayUs = 0;
+	if (gotFrame && width > 0 && height > 0) {
+		delayUs = MEScheduleJob(PowerScaleFromDefaultClock((int)(3400LL * width * height / (480 * 272))));
+	}
+
+	if (delayUs > 0) {
+		return hleDelayResult(hleLogDebug(Log::ME, 0, "type %d, %d bytes -> frame %dx%d",
+			type, auBytes, width, height), "videocodec decode", delayUs);
 	}
 	return hleLogDebug(Log::ME, 0, "type %d, %d bytes -> %s %dx%d",
 		type, auBytes, gotFrame ? "frame" : "no frame yet", width, height);

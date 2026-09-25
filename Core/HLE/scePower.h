@@ -31,3 +31,7 @@ int KernelVolatileMemUnlock(int type);
 
 // Returns 0 for default.
 int GetLockedCPUSpeedMhz();
+
+// Scales a duration measured at the default 222MHz to the current clock. The whole system runs
+// from the one PLL - CPU, bus, the Media Engine and the GE - so hardware work speeds up with it.
+int PowerScaleFromDefaultClock(int us);

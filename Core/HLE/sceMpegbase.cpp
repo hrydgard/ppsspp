@@ -34,6 +34,7 @@
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceMpeg.h"
 #include "Core/HLE/sceMpegbase.h"
+#include "Core/HLE/scePower.h"
 #include "Core/HLE/sceVideocodec.h"
 #include "Core/MemMapHelpers.h"
 #include "GPU/GPUCommon.h"
@@ -518,9 +519,11 @@ static int MpegBaseCscRange(u32 bufferRGB, u32 cscAddr, int bufferWidth,
 	// frame every render frame while it waits for the next, so an instant return is a tight loop
 	// that never yields and starves the audio thread that paces playback, and the A/V pipeline
 	// deadlocks a few frames in (SOCOM: Tactical Strike hangs exactly here). Our sceMpeg HLE delays
-	// sceMpegAvcCsc the same way.
+	// sceMpegAvcCsc the same way. On a PSP, sceMpegAvcCsc of a 480x272 frame to 8888 takes 2.4ms
+	// (pspautotests video/mpeg/playertiming).
+	const int cscUs = std::max(1, PowerScaleFromDefaultClock((int)(2400LL * rangeWidth * rangeHeight / (480 * 272))));
 	return hleDelayResult(hleLogDebug(Log::Mpeg, 0, "%dx%d at %d,%d -> %08x stride %d",
-		rangeWidth, rangeHeight, rangeX, rangeY, bufferRGB, bufferWidth), "mpegbase csc", 4000);
+		rangeWidth, rangeHeight, rangeX, rangeY, bufferRGB, bufferWidth), "mpegbase csc", cscUs);
 }
 
 static int sceMpegBaseCscInit(int bufferWidth) {

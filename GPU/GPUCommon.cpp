@@ -27,6 +27,7 @@
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceGe.h"
+#include "Core/HLE/scePower.h"
 #include "Core/Util/PPGeDraw.h"
 #include "Core/MemMapHelpers.h"
 #include "GPU/Common/DrawEngineCommon.h"
@@ -145,6 +146,135 @@ int GPUCommon::EstimatePerVertexCost() {
 		cost += 5 * morphCount;
 	}
 	return cost;
+}
+
+// The blit rates were measured with nothing else running. In a game, other threads waking up and
+// SAS mixing on the Media Engine compete with the GE for main RAM, making RAM texture fetches
+// 10-20% slower: Star Wars: Lethal Alliance's movie blit takes 8.65ms alone and 10.3ms in the game
+// (pspautotests gpu/timing/blittiming, video/mpeg/playertiming). We don't model that load, so
+// assume a typical one. Clears and VRAM texture fetches don't touch main RAM and aren't affected.
+static constexpr float ramTextureContention = 1.17f;
+
+// Clears aren't charged yet. They could slow down games that spin hard on an empty screen - flip
+// this to try.
+static constexpr bool chargeClearTime = false;
+
+int GPUCommon::EstimateFillCycles(GEPrimitiveType prim, const void *verts, const void *inds, int count, const VertexDecoder *dec, u32 vertType) const {
+	if (prim != GE_PRIM_RECTANGLES || !gstate.isModeThrough() || (vertType & GE_VTYPE_POS_MASK) != GE_VTYPE_POS_16BIT) {
+		return 0;
+	}
+
+	// All measured on a PSP (pspautotests gpu/timing/blittiming), in nanoseconds per pixel at
+	// 222/111MHz. At 333/166 every case takes 2/3 as long.
+	struct Rate { float narrow, wide; };
+	Rate rate;
+	if (gstate.isModeClear()) {
+		if (!chargeClearTime) {
+			return 0;
+		}
+		// A full-screen clear takes 0.49ms on a 16-bit framebuffer whatever it clears, 0.69ms on
+		// 8888, and 1.02ms on 8888 if depth is cleared too. Stencil is free.
+		const bool is32Bit = gstate.FrameBufFormat() == GE_FORMAT_8888;
+		const float ns = is32Bit ? (gstate.isClearModeDepthMask() ? 7.82f : 5.28f) : 3.77f;
+		rate = { ns, ns };
+	} else {
+		// A draw without texture coordinates doesn't sample the texture even if texturing is still
+		// enabled from an earlier draw.
+		if (!gstate.isTextureMapEnabled() || (vertType & GE_VTYPE_TC_MASK) == 0) {
+			return 0;
+		}
+		const u32 texAddr = gstate.getTextureAddress(0) & 0x3FFFFFFF;
+		if (!IsVideo(texAddr)) {
+			return 0;
+		}
+		// An unswizzled texture drawn 1:1. The texture fetch sets the rate - the framebuffer's format,
+		// filtering and blending make no difference. The texture cache copes with rectangles up to
+		// 128 texels wide and thrashes from 160 (a full-width sprite costs ~7.5x as much as 32-pixel
+		// strips).
+		bool is32Bit;
+		switch (gstate.getTextureFormat()) {
+		case GE_TFMT_8888: is32Bit = true; break;
+		case GE_TFMT_5650:
+		case GE_TFMT_5551:
+		case GE_TFMT_4444: is32Bit = false; break;
+		default: return 0;
+		}
+		static const Rate ramRates[2] = { { 34.9f, 253.0f }, { 66.3f, 503.5f } };
+		static const Rate vramRates[2] = { { 8.3f, 38.3f }, { 13.0f, 76.1f } };
+		if (Memory::IsVRAMAddress(texAddr)) {
+			rate = vramRates[is32Bit ? 1 : 0];
+		} else {
+			rate = ramRates[is32Bit ? 1 : 0];
+			rate.narrow *= ramTextureContention;
+			rate.wide *= ramTextureContention;
+		}
+	}
+
+	const int stride = dec->VertexSize();
+	const int posOffset = dec->posoff;
+	const int left = gstate.getScissorX1();
+	const int top = gstate.getScissorY1();
+	const int right = gstate.getScissorX2() + 1;
+	const int bottom = gstate.getScissorY2() + 1;
+
+	IndexConverter conv(vertType, inds);
+	float ns = 0.0f;
+	for (int i = 0; i + 1 < count; i += 2) {
+		const s16 *p0 = (const s16 *)((const u8 *)verts + stride * conv(i) + posOffset);
+		const s16 *p1 = (const s16 *)((const u8 *)verts + stride * conv(i + 1) + posOffset);
+		const int width = std::abs(p1[0] - p0[0]);
+		const int x0 = std::max(left, (int)std::min(p0[0], p1[0]));
+		const int x1 = std::min(right, (int)std::max(p0[0], p1[0]));
+		const int y0 = std::max(top, (int)std::min(p0[1], p1[1]));
+		const int y1 = std::min(bottom, (int)std::max(p0[1], p1[1]));
+		if (x1 > x0 && y1 > y0) {
+			// Measured 144 texels wide falls halfway, so interpolate between 128 and 160.
+			const float wide = std::clamp((width - 128) / 32.0f, 0.0f, 1.0f);
+			ns += (float)((x1 - x0) * (y1 - y0)) * (rate.narrow + wide * (rate.wide - rate.narrow));
+		}
+	}
+	// Measured at the default clocks; the GE speeds up with the rest of the system.
+	return (int)((float)usToCycles(PowerScaleFromDefaultClock(1000)) * ns / 1000000.0f);
+}
+
+// How many flips a video range stays known after the last frame written to it.
+static const int VIDEO_DECIMATE_AGE = 4;
+
+bool GPUCommon::IsVideo(u32 addr) const {
+	addr &= 0x3FFFFFFF;
+	for (const VideoInfo &info : videos_) {
+		if (addr >= info.addr && addr < info.addr + info.size) {
+			return true;
+		}
+	}
+	return false;
+}
+
+void GPUCommon::NoteVideoRange(u32 addr, u32 size) {
+	addr &= 0x3FFFFFFF;
+	// A game blits its video frame every displayed frame while waiting for the next one, so the
+	// same few buffers arrive over and over. Refresh the one we already have rather than stacking
+	// a duplicate per frame - IsVideo() scans this linearly.
+	for (VideoInfo &info : videos_) {
+		if (info.addr == addr) {
+			info.size = size;
+			info.flips = gpuStats.totals.numFlips;
+			return;
+		}
+	}
+	videos_.push_back({ addr, size, gpuStats.totals.numFlips });
+}
+
+// So the list doesn't grow unboundedly, and a buffer reused for something else once the movie is
+// over stops being treated as video.
+void GPUCommon::DecimateVideos() {
+	for (auto iter = videos_.begin(); iter != videos_.end(); ) {
+		if (iter->flips + VIDEO_DECIMATE_AGE < gpuStats.totals.numFlips) {
+			iter = videos_.erase(iter);
+		} else {
+			++iter;
+		}
+	}
 }
 
 void GPUCommon::PopDLQueue() {
@@ -653,6 +783,7 @@ u32 GPUCommon::Break(int mode) {
 
 void GPUCommon::PSPFrame() {
 	immCount_ = 0;
+	DecimateVideos();
 	if (dumpNextFrame_) {
 		NOTICE_LOG(Log::G3D, "DUMPING THIS FRAME");
 		dumpThisFrame_ = true;
@@ -775,10 +906,11 @@ DLResult GPUCommon::ProcessDLQueue() {
 		startingTicks = CoreTiming::GetTicks(currentMIPS);
 		cyclesExecuted = 0;
 
-		// ?? Seems to be correct behaviour to process the list anyway?
+		// Still busy with earlier work (e.g. the part of a list before its stall address): run the
+		// list now, but account for its time from when the GE gets free.
 		if (startingTicks < busyTicks) {
-			DEBUG_LOG(Log::G3D, "Can't execute a list yet, still busy for %lld ticks", busyTicks - startingTicks);
-			//return;
+			DEBUG_LOG(Log::G3D, "Starting a list while still busy for %lld ticks", busyTicks - startingTicks);
+			cyclesExecuted = (int)(busyTicks - startingTicks);
 		}
 	}
 
@@ -915,7 +1047,9 @@ DLResult GPUCommon::ProcessDLQueue() {
 			// don't do anything - though dunno about error...
 			break;
 		case GPUSTATE_STALL:
-			// Resume work on this same display list later.
+			// Resume work on this same display list later. The GE is still busy with what it has
+			// done so far, so the next run starts after that, not when the stall is lifted.
+			busyTicks = std::max(busyTicks, startingTicks + cyclesExecuted);
 			return DLResult::Done;
 		default:
 			return DLResult::Error;
@@ -2004,9 +2138,14 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 	cyclesExecuted += ((height * width * bpp) * 16) / 10;
 }
 
+// A block copy of a video frame is still a video frame, and games do move them around: Dragon Ball
+// Z - Shin Budokai: Another Road colour-converts into RAM, sceDmacMemcpy's the result into VRAM and
+// textures from there, never sampling the converted buffer itself. Without carrying the status
+// across the copy, what we actually sample looks like an ordinary texture that happens to have new
+// contents every frame, so we hash it, miss, and rebuild it - forever.
 void GPUCommon::NotifyVideoCopy(u32 dest, u32 src, int size) {
-	if (textureCache_) {
-		textureCache_->NotifyVideoCopy(dest, src, size);
+	if (size > 0 && IsVideo(src)) {
+		NoteVideoRange(dest, (u32)size);
 	}
 }
 
@@ -2105,10 +2244,10 @@ bool GPUCommon::PerformWriteColorFromMemory(u32 dest, int size) {
 }
 
 void GPUCommon::PerformWriteFormattedFromMemory(u32 addr, int size, int frameWidth, GEBufferFormat format) {
+	NoteVideoRange(addr, (u32)size);
 	if (Memory::IsVRAMAddress(addr)) {
 		framebufferManager_->PerformWriteFormattedFromMemory(addr, size, frameWidth, format);
 	}
-	textureCache_->NotifyWriteFormattedFromMemory(addr, size, frameWidth, format);
 	InvalidateCache(addr, size, GPU_INVALIDATE_SAFE);
 }
 
