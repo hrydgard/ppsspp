@@ -99,12 +99,21 @@ bool Arm64JitBackend::CompileBlock(IRBlockCache *irBlockCache, int block_num) {
 	std::vector<const u8 *> addresses;
 	addresses.reserve(block->GetNumIRInstructions());
 	const IRInst *instructions = irBlockCache->GetBlockInstructionPtr(*block);
+	compilingInsts_ = instructions;
+	compilingCount_ = block->GetNumIRInstructions();
 	for (int i = 0; i < block->GetNumIRInstructions(); ++i) {
 		const IRInst &inst = instructions[i];
 		regs_.SetIRIndex(i);
+		compilingIndex_ = i;
 		addresses.push_back(GetCodePtr());
 
 		CompileIRInst(inst);
+		if (skipNextInst_) {
+			// It was compiled together with this one.
+			skipNextInst_ = false;
+			addresses.push_back(GetCodePtr());
+			i++;
+		}
 
 		if (jo.Disabled(JitDisable::REGALLOC_GPR) || jo.Disabled(JitDisable::REGALLOC_FPR))
 			regs_.FlushAll(jo.Disabled(JitDisable::REGALLOC_GPR), jo.Disabled(JitDisable::REGALLOC_FPR));
