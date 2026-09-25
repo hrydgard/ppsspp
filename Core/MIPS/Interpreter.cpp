@@ -35,6 +35,7 @@
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/HLETables.h"
 #include "Core/HLE/ReplaceTables.h"
+#include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HW/GpioMMIO.h"
 
 #define R(i) (mips->r[i])
@@ -1054,25 +1055,22 @@ namespace MIPSInt {
 		PC += 4;
 	}
 
+	// The interrupt enable flag, shared with the HLE sceKernelCpuSuspendIntr/ResumeIntr, which on
+	// hardware are just mfic v0, $0; mtic zero, $0 and mtic a0, $0. Only $0 exists.
 	void Int_Special2(MIPSState *mips, MIPSOpcode op) {
-		static int reported = 0;
+		int rt = _RT;
 		switch (op & 0x3F) {
 		case 36:  // mfic
-			// move from interrupt controller, not implemented
-			// See related report https://report.ppsspp.org/logs/kind/316 for possible locations.
-			// Also see https://forums.ps2dev.org/viewtopic.php?p=32700#p32700 .
-			// TODO: Should we actually implement this?
-			if (!reported) {
-				WARN_LOG(Log::CPU, "MFIC Disable/Enable Interrupt CPU instruction");
-				reported = 1;
-			}
+			if (rt != 0)
+				R(rt) = __InterruptsEnabled() ? 1 : 0;
 			break;
 		case 38:  // mtic
-			// move to interrupt controller, not implemented
-			if (!reported) {
-				WARN_LOG(Log::CPU, "MTIC Disable/Enable Interrupt CPU instruction");
-				reported = 1;
-			}
+			// Only bit 0 counts: mtic 2 disables. Pending interrupts run at the next scheduling point,
+			// not right away as with sceKernelCpuResumeIntr.
+			if (R(rt) & 1)
+				__EnableInterrupts();
+			else
+				__DisableInterrupts();
 			break;
 		}
 		PC += 4;

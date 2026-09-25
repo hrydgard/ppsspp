@@ -98,7 +98,8 @@ static int sceKernelCpuSuspendIntr()
 static void sceKernelCpuResumeIntr(u32 enable)
 {
 	VERBOSE_LOG(Log::sceIntc, "sceKernelCpuResumeIntr(%i)", enable);
-	if (enable)
+	// This is mtic a0, $0, which only looks at bit 0 (tests/intr/mfic).
+	if (enable & 1)
 	{
 		__EnableInterrupts();
 		hleRunInterrupts();
