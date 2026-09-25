@@ -966,6 +966,11 @@ int main(int argc, const char* argv[]) {
 			vulkanContext->SetOffscreen(480, 272);
 			graphicsContext = vulkanContext;
 			deviceSetting = &g_Config.sVulkanDevice;
+#if PPSSPP_PLATFORM(MAC) && defined(SDL)
+		} else if (gpuCore == GPUCORE_GLES) {
+			// So does OpenGL, into a framebuffer object of its own.
+			graphicsContext = new CGLHeadlessGraphicsContext(480, 272);
+#endif
 		} else {
 			// TODO: Will we need a larger window for higher resolutions? Well, not if we use buffered rendering.
 			window = CreateHiddenWindow(480, 272, cmdLineOptions.gpuBackend.value_or(GPUBackend::OPENGL), &windowDesc);
