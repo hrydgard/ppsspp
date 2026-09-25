@@ -865,7 +865,7 @@ void SoftGPU::Execute_Prim(u32 op, u32 diff) {
 
 	cyclesExecuted += EstimatePerVertexCost() * count;
 	if (gstate.isModeThrough()) {
-		cyclesExecuted += EstimateVideoBlitCycles(prim, verts, indices, count, drawEngine_->FindVertexDecoder(vertType), vertType);
+		cyclesExecuted += EstimateFillCycles(prim, verts, indices, count, drawEngine_->FindVertexDecoder(vertType), vertType);
 	}
 	int bytesRead;
 	drawEngine_->transformUnit.SetDirty(dirtyFlags_);
@@ -1284,7 +1284,7 @@ void SoftGPU::InvalidateCache(u32 addr, int size, GPUInvalidationType type)
 
 void SoftGPU::PerformWriteFormattedFromMemory(u32 addr, int size, int width, GEBufferFormat format)
 {
-	// Nothing to update, but remember it for EstimateVideoBlitCycles.
+	// Nothing to update, but remember it for EstimateFillCycles.
 	NoteVideoRange(addr, (u32)size);
 }
 

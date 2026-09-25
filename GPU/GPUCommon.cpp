@@ -148,38 +148,54 @@ int GPUCommon::EstimatePerVertexCost() {
 	return cost;
 }
 
-int GPUCommon::EstimateVideoBlitCycles(GEPrimitiveType prim, const void *verts, const void *inds, int count, const VertexDecoder *dec, u32 vertType) const {
-	// A clear, or a draw without texture coordinates, doesn't sample the texture even if texturing
-	// is still enabled from an earlier draw.
-	if (prim != GE_PRIM_RECTANGLES || !gstate.isModeThrough() || !gstate.isTextureMapEnabled() ||
-		gstate.isModeClear() || (vertType & GE_VTYPE_TC_MASK) == 0) {
-		return 0;
-	}
-	const u32 texAddr = gstate.getTextureAddress(0) & 0x3FFFFFFF;
-	if (!IsVideo(texAddr)) {
-		return 0;
-	}
-	if ((vertType & GE_VTYPE_POS_MASK) != GE_VTYPE_POS_16BIT) {
+// Clears aren't charged yet. They could slow down games that spin hard on an empty screen - flip
+// this to try.
+static constexpr bool chargeClearTime = false;
+
+int GPUCommon::EstimateFillCycles(GEPrimitiveType prim, const void *verts, const void *inds, int count, const VertexDecoder *dec, u32 vertType) const {
+	if (prim != GE_PRIM_RECTANGLES || !gstate.isModeThrough() || (vertType & GE_VTYPE_POS_MASK) != GE_VTYPE_POS_16BIT) {
 		return 0;
 	}
 
-	// Measured on a PSP (pspautotests gpu/timing/blittiming): nanoseconds per pixel of an unswizzled
-	// texture drawn 1:1. The texture fetch sets the rate - the framebuffer's format, filtering and
-	// blending make no difference. The texture cache copes with rectangles up to 128 texels wide and
-	// thrashes from 160 (a full-width sprite costs ~7.5x as much as 32-pixel strips). All at 222/111MHz;
-	// at 333/166 every case takes 2/3 as long.
-	bool is32Bit;
-	switch (gstate.getTextureFormat()) {
-	case GE_TFMT_8888: is32Bit = true; break;
-	case GE_TFMT_5650:
-	case GE_TFMT_5551:
-	case GE_TFMT_4444: is32Bit = false; break;
-	default: return 0;
-	}
+	// All measured on a PSP (pspautotests gpu/timing/blittiming), in nanoseconds per pixel at
+	// 222/111MHz. At 333/166 every case takes 2/3 as long.
 	struct Rate { float narrow, wide; };
-	static const Rate ramRates[2] = { { 34.9f, 253.0f }, { 66.3f, 503.5f } };
-	static const Rate vramRates[2] = { { 8.3f, 38.3f }, { 13.0f, 76.1f } };
-	const Rate &rate = (Memory::IsVRAMAddress(texAddr) ? vramRates : ramRates)[is32Bit ? 1 : 0];
+	Rate rate;
+	if (gstate.isModeClear()) {
+		if (!chargeClearTime) {
+			return 0;
+		}
+		// A full-screen clear takes 0.49ms on a 16-bit framebuffer whatever it clears, 0.69ms on
+		// 8888, and 1.02ms on 8888 if depth is cleared too. Stencil is free.
+		const bool is32Bit = gstate.FrameBufFormat() == GE_FORMAT_8888;
+		const float ns = is32Bit ? (gstate.isClearModeDepthMask() ? 7.82f : 5.28f) : 3.77f;
+		rate = { ns, ns };
+	} else {
+		// A draw without texture coordinates doesn't sample the texture even if texturing is still
+		// enabled from an earlier draw.
+		if (!gstate.isTextureMapEnabled() || (vertType & GE_VTYPE_TC_MASK) == 0) {
+			return 0;
+		}
+		const u32 texAddr = gstate.getTextureAddress(0) & 0x3FFFFFFF;
+		if (!IsVideo(texAddr)) {
+			return 0;
+		}
+		// An unswizzled texture drawn 1:1. The texture fetch sets the rate - the framebuffer's format,
+		// filtering and blending make no difference. The texture cache copes with rectangles up to
+		// 128 texels wide and thrashes from 160 (a full-width sprite costs ~7.5x as much as 32-pixel
+		// strips).
+		bool is32Bit;
+		switch (gstate.getTextureFormat()) {
+		case GE_TFMT_8888: is32Bit = true; break;
+		case GE_TFMT_5650:
+		case GE_TFMT_5551:
+		case GE_TFMT_4444: is32Bit = false; break;
+		default: return 0;
+		}
+		static const Rate ramRates[2] = { { 34.9f, 253.0f }, { 66.3f, 503.5f } };
+		static const Rate vramRates[2] = { { 8.3f, 38.3f }, { 13.0f, 76.1f } };
+		rate = (Memory::IsVRAMAddress(texAddr) ? vramRates : ramRates)[is32Bit ? 1 : 0];
+	}
 
 	const int stride = dec->VertexSize();
 	const int posOffset = dec->posoff;
