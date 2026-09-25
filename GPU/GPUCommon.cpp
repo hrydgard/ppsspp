@@ -148,6 +148,13 @@ int GPUCommon::EstimatePerVertexCost() {
 	return cost;
 }
 
+// The blit rates were measured with nothing else running. In a game, other threads waking up and
+// SAS mixing on the Media Engine compete with the GE for main RAM, making RAM texture fetches
+// 10-20% slower: Star Wars: Lethal Alliance's movie blit takes 8.65ms alone and 10.3ms in the game
+// (pspautotests gpu/timing/blittiming, video/mpeg/playertiming). We don't model that load, so
+// assume a typical one. Clears and VRAM texture fetches don't touch main RAM and aren't affected.
+static constexpr float ramTextureContention = 1.17f;
+
 // Clears aren't charged yet. They could slow down games that spin hard on an empty screen - flip
 // this to try.
 static constexpr bool chargeClearTime = false;
@@ -194,7 +201,13 @@ int GPUCommon::EstimateFillCycles(GEPrimitiveType prim, const void *verts, const
 		}
 		static const Rate ramRates[2] = { { 34.9f, 253.0f }, { 66.3f, 503.5f } };
 		static const Rate vramRates[2] = { { 8.3f, 38.3f }, { 13.0f, 76.1f } };
-		rate = (Memory::IsVRAMAddress(texAddr) ? vramRates : ramRates)[is32Bit ? 1 : 0];
+		if (Memory::IsVRAMAddress(texAddr)) {
+			rate = vramRates[is32Bit ? 1 : 0];
+		} else {
+			rate = ramRates[is32Bit ? 1 : 0];
+			rate.narrow *= ramTextureContention;
+			rate.wide *= ramTextureContention;
+		}
 	}
 
 	const int stride = dec->VertexSize();
