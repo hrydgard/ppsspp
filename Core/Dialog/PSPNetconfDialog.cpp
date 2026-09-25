@@ -60,15 +60,22 @@ int PSPNetconfDialog::Init(u32 paramAddr) {
 	if (ReadStatus() != SCE_UTILITY_STATUS_NONE)
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 
+	const int check = CheckRequest(paramAddr, { 0x38, 0x40, 0x44 });
+	if (check < 0) {
+		return check;
+	}
+
+	if (!ReadVariableSizedStruct(paramAddr, &request)) {
+		return SCE_KERNEL_ERROR_BAD_ARGUMENT;  // untested, it's misaligned
+	}
+	requestAddr = paramAddr;
+
 	NOTICE_LOG(Log::sceUtility, "PSPNetConfDialog Init");
 	jsonReady_ = false;
 	// Kick off a request to the infra-dns.json since we'll need it later.
 	StartInfraJsonDownload();
-
-	requestAddr = paramAddr;
-	if (!ReadVariableSizedStruct(paramAddr, &request)) {
-		return SCE_KERNEL_ERROR_BAD_ARGUMENT;  // untested
-	}
+	// Connected, unless it's cancelled.
+	request.common.result = 0;
 
 	ChangeStatusInit(NET_INIT_DELAY_US);
 
@@ -185,15 +192,22 @@ int PSPNetconfDialog::Update(int animSpeed) {
 					StartFade(false);
 					ChangeStatus(SCE_UTILITY_STATUS_FINISHED, NET_SHUTDOWN_DELAY_US);
 				}
-			} else if (state == PSP_NET_APCTL_STATE_JOINING) {
-				// Switch to the next message
-				StartFade(true);
-			}
-
-			else if (state == PSP_NET_APCTL_STATE_DISCONNECTED) {
+			} else if (state == PSP_NET_APCTL_STATE_DISCONNECTED) {
 				// When connecting with infrastructure, simulate a connection using the first network configuration entry.
 				if (connResult < 0) {
 					connResult = hleCall(sceNetApctl, int, sceNetApctlConnect, 1);
+				}
+			}
+
+			// There's a Cancel button, so let it work if the connection doesn't come.
+			if (pendingStatus != SCE_UTILITY_STATUS_FINISHED && IsButtonPressed(cancelButtonFlag)) {
+				StartFade(false);
+				ChangeStatus(SCE_UTILITY_STATUS_FINISHED, NET_SHUTDOWN_DELAY_US);
+				request.common.result = SCE_UTILITY_DIALOG_RESULT_ABORT;
+				// Or the connect started above would carry on, and the game find itself connected.
+				if (connResult >= 0) {
+					hleCall(sceNetApctl, int, sceNetApctlDisconnect);
+					connResult = -1;
 				}
 			}
 		}
@@ -337,10 +351,16 @@ int PSPNetconfDialog::Update(int animSpeed) {
 		}
 
 		EndDraw();
+	} else if (pendingStatus != SCE_UTILITY_STATUS_FINISHED) {
+		// Nothing would ever finish it.
+		ERROR_LOG(Log::sceUtility, "Netconf: unknown action %d", request.netAction);
+		ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
+		request.common.result = SCE_UTILITY_DIALOG_RESULT_ABORT;
 	}
 
-	if (ReadStatus() == SCE_UTILITY_STATUS_FINISHED || pendingStatus == SCE_UTILITY_STATUS_FINISHED)
-		Memory::Memcpy(requestAddr, &request, request.common.size, "NetConfDialogParam");
+	const bool finished = ReadStatus() == SCE_UTILITY_STATUS_FINISHED || pendingStatus == SCE_UTILITY_STATUS_FINISHED;
+	if (finished && Memory::IsValidAddress(requestAddr))
+		Memory::Memcpy(requestAddr, &request, std::min((u32)request.common.size, (u32)sizeof(request)), "NetConfDialogParam");
 
 	return 0;
 }
@@ -360,7 +380,7 @@ int PSPNetconfDialog::Shutdown(bool force) {
 void PSPNetconfDialog::DoState(PointerWrap &p) {	
 	PSPDialog::DoState(p);
 
-	auto s = p.Section("PSPNetconfigDialog", 0, 2);
+	auto s = p.Section("PSPNetconfigDialog", 0, 3);
 	if (!s)
 		return;
 
@@ -375,9 +395,22 @@ void PSPNetconfDialog::DoState(PointerWrap &p) {
 		scanStep = 0;
 		connResult = -1;
 	}
+	if (s >= 3) {
+		Do(p, requestAddr);
+		Do(p, showNoWlanNotice_);
+	} else if (p.mode == p.MODE_READ) {
+		// requestAddr is kept: most likely the same address in the same game.
+		showNoWlanNotice_ = !g_Config.bEnableWlan;
+	}
 
 	if (p.mode == p.MODE_READ) {
-		startTime = 0;
+		// The connect timeout starts over. The DNS config the json gave isn't in the state, so get
+		// it again (it's cached).
+		startTime = (u64)(time_now_d() * 1000000.0);
+		jsonReady_ = false;
+		if (ReadStatus() != SCE_UTILITY_STATUS_NONE) {
+			StartInfraJsonDownload();
+		}
 	}
 }
 

@@ -19,6 +19,7 @@
 #include "Common/CommonTypes.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
+#include "Common/StringUtils.h"
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/MemMapHelpers.h"
@@ -61,10 +62,10 @@ int PSPGamedataInstallDialog::Init(u32 paramAddr) {
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 
-	if (!Memory::IsValidRange(paramAddr, sizeof(SceUtilityGamedataInstallParam))) {
-		// This should probably crash
-		ERROR_LOG(Log::sceUtility, "sceGamedataInstallInitStart: invalid param address 0x%08X", paramAddr);
-		return SCE_KERNEL_ERROR_INVALID_POINTER;
+	const int check = CheckRequest(paramAddr, { 1424, 1432 });
+	if (check < 0) {
+		ERROR_LOG(Log::sceUtility, "sceGamedataInstallInitStart: bad request at %08x: %08x", paramAddr, check);
+		return check;
 	}
 
 	param.ptr = paramAddr;
@@ -88,11 +89,6 @@ int PSPGamedataInstallDialog::Init(u32 paramAddr) {
 	}
 
 	const int size = Memory::ReadUnchecked_U32(paramAddr);
-	if (size != 1424 && size != 1432) {
-		ERROR_LOG_REPORT(Log::sceUtility, "sceGamedataInstallInitStart: invalid param size %d", size);
-		return SCE_ERROR_UTILITY_INVALID_PARAM_SIZE;
-	}
-
 	memset(&request, 0, sizeof(request));
 	// Only copy the right size to support different request format
 	Memory::Memcpy(&request, paramAddr, size, "sceGamedataInstallInitStart");
@@ -105,6 +101,11 @@ int PSPGamedataInstallDialog::Init(u32 paramAddr) {
 int PSPGamedataInstallDialog::Update(int animSpeed) {
 	if (GetStatus() != SCE_UTILITY_STATUS_RUNNING)
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
+	// Only after loading a state from before it was saved.
+	if (!param.IsValid()) {
+		ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
+		return 0;
+	}
 
 	if (param->mode >= 2) {
 		param->common.result = SCE_ERROR_UTILITY_GAMEDATA_INVALID_MODE;
@@ -184,6 +185,9 @@ void PSPGamedataInstallDialog::CopyCurrentFileData() {
 			currentInputBytesLeft -= (u32)readSize;
 			allReadSize += readSize;
 		} else {
+			// Shorter than it said, or a read error. Move on rather than retry it forever.
+			ERROR_LOG(Log::sceUtility, "Install file %s ended %d bytes early", inFileNames[readFiles].c_str(), currentInputBytesLeft);
+			currentInputBytesLeft = 0;
 			break;
 		}
 	}
@@ -214,13 +218,13 @@ void PSPGamedataInstallDialog::WriteSfoFile() {
 	}
 
 	// Update based on the just-saved data.
-	sfoFile.SetValue("TITLE", param->sfoParam.title, 128);
-	sfoFile.SetValue("SAVEDATA_TITLE", param->sfoParam.savedataTitle, 128);
-	sfoFile.SetValue("SAVEDATA_DETAIL", param->sfoParam.detail, 1024);
-	sfoFile.SetValue("PARENTAL_LEVEL", param->sfoParam.parentalLevel, 4);
+	sfoFile.SetValue("TITLE", StringViewFromFixedSizeField(request.sfoParam.title), 128);
+	sfoFile.SetValue("SAVEDATA_TITLE", StringViewFromFixedSizeField(request.sfoParam.savedataTitle), 128);
+	sfoFile.SetValue("SAVEDATA_DETAIL", StringViewFromFixedSizeField(request.sfoParam.detail), 1024);
+	sfoFile.SetValue("PARENTAL_LEVEL", request.sfoParam.parentalLevel, 4);
 	// TODO: Verify category.
 	sfoFile.SetValue("CATEGORY", "MS", 4);
-	sfoFile.SetValue("SAVEDATA_DIRECTORY", std::string(param->gameName) + param->dataName, 64);
+	sfoFile.SetValue("SAVEDATA_DIRECTORY", std::string(StringViewFromFixedSizeField(request.gameName)) + std::string(StringViewFromFixedSizeField(request.dataName)), 64);
 
 	// TODO: Maybe there should be other things in the SFO file?  Needs testing.
 
@@ -238,8 +242,13 @@ void PSPGamedataInstallDialog::WriteSfoFile() {
 }
 
 int PSPGamedataInstallDialog::Abort() {
-	param->common.result = 1;
-	param.NotifyWrite("DialogResult");
+	const DialogStatus status = ReadStatus();
+	if (status == SCE_UTILITY_STATUS_NONE || status == SCE_UTILITY_STATUS_SHUTDOWN)
+		return SCE_ERROR_UTILITY_INVALID_STATUS;
+	if (param.IsValid()) {
+		param->common.result = 1;
+		param.NotifyWrite("DialogResult");
+	}
 
 	// TODO: Delete the files or anything?
 	return PSPDialog::Shutdown();
@@ -255,7 +264,7 @@ int PSPGamedataInstallDialog::Shutdown(bool force) {
 std::string PSPGamedataInstallDialog::GetGameDataInstallFileName(const SceUtilityGamedataInstallParam *param, const std::string &filename) {
 	if (!param)
 		return "";
-	std::string GameDataInstallPath = saveBasePath + param->gameName + param->dataName + "/";
+	std::string GameDataInstallPath = saveBasePath + std::string(StringViewFromFixedSizeField(param->gameName)) + std::string(StringViewFromFixedSizeField(param->dataName)) + "/";
 	if (!pspFileSystem.GetFileInfo(GameDataInstallPath).exists)
 		pspFileSystem.MkDir(GameDataInstallPath);
 

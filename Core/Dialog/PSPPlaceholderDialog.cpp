@@ -31,16 +31,15 @@ int PSPPlaceholderDialog::Init(u32 paramAddr) {
 	if (ReadStatus() != SCE_UTILITY_STATUS_NONE) {
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
+	// The request sizes a PSP accepts for GameSharing.
+	const int check = DialogType() == UtilityDialogType::GAMESHARING ? CheckRequest(paramAddr, { 0x50, 0x54, 0x64 }) : 0;
+	if (check < 0) {
+		return check;
+	}
 	if (!Memory::IsValidRange(paramAddr, sizeof(pspUtilityDialogCommon))) {
 		return SCE_KERNEL_ERROR_BAD_ARGUMENT;
 	}
 	params_ = paramAddr;
-	// The request sizes a PSP accepts for GameSharing.
-	const u32 size = params_->size;
-	if (DialogType() == UtilityDialogType::GAMESHARING && size != 0x50 && size != 0x54 && size != 0x64) {
-		params_ = 0;
-		return SCE_ERROR_UTILITY_INVALID_PARAM_SIZE;
-	}
 
 	ChangeStatusInit(PLACEHOLDER_INIT_DELAY_US);
 	InitCommon();

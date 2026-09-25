@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <memory>
 #include <mutex>
 #include <string>
 
@@ -212,6 +213,7 @@ private:
 	void RemoveKorean(); // for Korean character removal
 
 	u32 FieldMaxLength();
+	void WriteOutput(SceUtilityOskResult fieldResult);
 	int GetIndex(const wchar_t* src, wchar_t ch);
 
 	PSPPointer<SceUtilityOskParams> oskParams{};
@@ -225,9 +227,13 @@ private:
 	OskKeyboardLanguage currentKeyboardLanguage = OSK_LANGUAGE_ENGLISH;
 	bool isCombinated = false;
 
-	std::mutex nativeMutex_;
-	PSPOskNativeStatus nativeStatus_ = PSPOskNativeStatus::IDLE;
-	std::string nativeValue_;
+	// Shared with the native input box's callbacks, which can come after the dialog is gone.
+	struct NativeInput {
+		std::mutex mutex;
+		PSPOskNativeStatus status = PSPOskNativeStatus::IDLE;
+		std::string value;
+	};
+	std::shared_ptr<NativeInput> native_ = std::make_shared<NativeInput>();
 
 	int i_level = 0; // for Korean Keyboard support
 	int i_value[3]{}; // for Korean Keyboard support

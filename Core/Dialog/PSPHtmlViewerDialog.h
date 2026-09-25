@@ -17,29 +17,45 @@
 
 #pragma once
 
+#include <string>
+
 #include "Core/Dialog/PSPDialog.h"
 #include "Core/MemMap.h"
 
-struct SceUtilityScreenshotParams;
-
-class PSPScreenshotDialog : public PSPDialog {
+// Stands in for the PSP's web browser: shows the URL the game wants to open and offers to open it in
+// the host's browser instead.
+//
+// On a PSP the HtmlViewer has its own state, apart from the other dialogs: it doesn't wait for them,
+// and they don't wait for it (utility/dialog/htmlviewer).
+class PSPHtmlViewerDialog : public PSPDialog {
 public:
-	PSPScreenshotDialog(UtilityDialogType type);
-	~PSPScreenshotDialog();
+	PSPHtmlViewerDialog(UtilityDialogType type);
 
 	int Init(u32 paramAddr);
 	int Update(int animSpeed) override;
 	int Shutdown(bool force = false) override;
-	int ContStart();
 	void DoState(PointerWrap &p) override;
+	void ResetState() override;
 	pspUtilityDialogCommon *GetCommonParam() override;
 
-protected:
-	// TODO: Manage status correctly.
-	bool UseAutoStatus() override {
-		return true;
+	// Until one has started, all the HtmlViewer calls return WRONG_TYPE.
+	bool HasStarted() const {
+		return started_;
 	}
 
-	int mode = 0;
-	PSPPointer<SceUtilityScreenshotParams> params_{};
+protected:
+	bool UseAutoStatus() override {
+		return false;
+	}
+	bool LocksVolatileMemory() const override {
+		return false;
+	}
+
+private:
+	void FreeWorkMemory();
+
+	PSPPointer<pspUtilityDialogCommon> params_;
+	std::string url_;
+	u32 workMemory_ = 0;
+	bool started_ = false;
 };

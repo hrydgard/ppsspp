@@ -170,6 +170,7 @@ enum SystemProperty {
 
 	SYSPROP_CAN_CREATE_SHORTCUT,
 	SYSPROP_CAN_SHOW_FILE,
+	SYSPROP_CAN_LAUNCH_URL,  // System_LaunchUrl can open a web page.
 
 	SYSPROP_SUPPORTS_HTTPS,
 

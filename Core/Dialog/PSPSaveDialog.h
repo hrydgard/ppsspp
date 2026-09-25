@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <atomic>
+#include <string>
 #include <thread>
 #include <mutex>
 
@@ -33,8 +35,8 @@ public:
 	int Shutdown(bool force = false) override;
 	void DoState(PointerWrap &p) override;
 	pspUtilityDialogCommon *GetCommonParam() override;
-
-	void ExecuteIOAction();
+	// Waits for the IO thread, if any, to be done with PSP memory. Its results are still taken as usual.
+	void WaitForIO();
 
 protected:
 	bool UseAutoStatus() override {
@@ -51,6 +53,8 @@ private:
 	std::string GetSelectedSaveDirName() const;
 
 	void StartIOThread();
+	bool FinishIO(bool wait);
+	void ExecuteIOAction();
 	void ExecuteNotVisibleIOAction();
 
 	enum DisplayState {
@@ -98,12 +102,29 @@ private:
 	enum SaveIOStatus {
 		SAVEIO_NONE,
 		SAVEIO_PENDING,
+		// Finished, and the results taken.
 		SAVEIO_DONE,
+		// Finished, but the request changes and bookkeeping haven't been taken yet.
+		SAVEIO_READY,
 	};
 
 	std::thread ioThread;
 	std::mutex paramLock;
-	volatile SaveIOStatus ioThreadStatus = SAVEIO_NONE;
+	std::atomic<SaveIOStatus> ioThreadStatus{ SAVEIO_NONE };
+
+	// The IO thread uses these instead of the dialog's own state (it writes its results to PSP
+	// memory directly). StartIOThread sets them up and FinishIO takes the results back, both on the
+	// emulator thread.
+	DisplayState ioAction_ = DS_NONE;
+	DisplayState ioDisplay_ = DS_NONE;
+	SceUtilitySavedataParam ioRequest_{};
+	// The request when the IO started, to tell what the IO changed.
+	SceUtilitySavedataParam ioRequestStart_{};
+	SavedataParam ioParam_;
+	int ioSaveId_ = 0;
+	std::string ioSaveDirName_;
+	std::string ioListSaveDirName_;
+	std::string ioDeleteDir_;
 };
 
 void ResetSecondsSinceLastGameSave();

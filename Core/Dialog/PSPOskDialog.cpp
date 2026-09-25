@@ -105,69 +105,59 @@ void PSPOskDialog::ConvertUCS2ToUTF8(std::string& _string, const PSPPointer<u16_
 	}
 
 	const size_t maxLength = 2047;
-	char stringBuffer[maxLength + 1];
-	char *string = stringBuffer;
-
-	const u16_le *input = &em_address[0];
-	int c;
-	while ((c = *input++) != 0 && string < stringBuffer + maxLength)
-	{
-		if (c < 0x80)
-			*string++ = c;
-		else if (c < 0x800) {
-			*string++ = 0xC0 | (c >> 6);
-			*string++ = 0x80 | (c & 0x3F);
+	_string.clear();
+	for (u32 addr = em_address.ptr; Memory::IsValidRange(addr, 2); addr += 2) {
+		const u16 c = Memory::ReadUnchecked_U16(addr);
+		if (c == 0) {
+			break;
+		}
+		const size_t bytes = c < 0x80 ? 1 : (c < 0x800 ? 2 : 3);
+		if (_string.size() + bytes > maxLength) {
+			break;
+		}
+		if (c < 0x80) {
+			_string.push_back((char)c);
+		} else if (c < 0x800) {
+			_string.push_back((char)(0xC0 | (c >> 6)));
+			_string.push_back((char)(0x80 | (c & 0x3F)));
 		} else {
-			*string++ = 0xE0 | (c >> 12);
-			*string++ = 0x80 | ((c >> 6) & 0x3F);
-			*string++ = 0x80 | (c & 0x3F);
+			_string.push_back((char)(0xE0 | (c >> 12)));
+			_string.push_back((char)(0x80 | ((c >> 6) & 0x3F)));
+			_string.push_back((char)(0x80 | (c & 0x3F)));
 		}
 	}
-	*string++ = '\0';
-	_string = stringBuffer;
 }
 
 void GetWideStringFromPSPPointer(std::u16string& _string, const PSPPointer<u16_le>& em_address)
 {
-	if (!em_address.IsValid())
-	{
-		_string.clear();
-		return;
-	}
-
 	const size_t maxLength = 2047;
-	char16_t stringBuffer[maxLength + 1];
-	char16_t *string = stringBuffer;
-
-	const u16_le *input = &em_address[0];
-	int c;
-	while ((c = *input++) != 0 && string < stringBuffer + maxLength)
-		*string++ = c;
-	*string++ = '\0';
-	_string = stringBuffer;
+	_string.clear();
+	for (u32 addr = em_address.ptr; _string.size() < maxLength && Memory::IsValidRange(addr, 2); addr += 2) {
+		const u16 c = Memory::ReadUnchecked_U16(addr);
+		if (c == 0) {
+			break;
+		}
+		_string.push_back((char16_t)c);
+	}
 }
 
 void PSPOskDialog::ConvertUCS2ToUTF8(std::string& _string, const char16_t *input)
 {
-	char stringBuffer[2048];
-	char *string = stringBuffer;
-
+	_string.clear();
 	int c;
 	while ((c = *input++) != 0)
 	{
-		if (c < 0x80)
-			*string++ = c;
-		else if (c < 0x800) {
-			*string++ = 0xC0 | (c >> 6);
-			*string++ = 0x80 | (c & 0x3F);
+		if (c < 0x80) {
+			_string.push_back((char)c);
+		} else if (c < 0x800) {
+			_string.push_back((char)(0xC0 | (c >> 6)));
+			_string.push_back((char)(0x80 | (c & 0x3F)));
 		} else {
-			*string++ = 0xE0 | (c >> 12);
-			*string++ = 0x80 | ((c >> 6) & 0x3F);
-			*string++ = 0x80 | (c & 0x3F);
+			_string.push_back((char)(0xE0 | (c >> 12)));
+			_string.push_back((char)(0x80 | ((c >> 6) & 0x3F)));
+			_string.push_back((char)(0x80 | (c & 0x3F)));
 		}
 	}
-	*string++ = '\0';
-	_string = stringBuffer;
 }
 
 static void FindValidKeyboard(s32 inputType, int direction, OskKeyboardLanguage &lang, OskKeyboardDisplay &disp) {
@@ -218,20 +208,15 @@ int PSPOskDialog::Init(u32 oskPtr) {
 		ERROR_LOG_REPORT(Log::sceUtility, "sceUtilityOskInitStart: invalid status");
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
-	// Seems like this should crash?
-	if (!Memory::IsValidAddress(oskPtr)) {
-		ERROR_LOG_REPORT(Log::sceUtility, "sceUtilityOskInitStart: invalid params (%08x)", oskPtr);
-		return -1;
+	const int check = CheckRequest(oskPtr, { 0x40, 0x44 });
+	if (check < 0) {
+		ERROR_LOG_REPORT(Log::sceUtility, "sceUtilityOskInitStart: bad request at %08x: %08x", oskPtr, check);
+		return check;
 	}
 
 	oskParams = oskPtr;
-	if (oskParams->base.size != sizeof(SceUtilityOskParams))
-	{
-		ERROR_LOG_REPORT(Log::sceUtility, "sceUtilityOskInitStart: invalid size %d", oskParams->base.size);
-		return SCE_ERROR_UTILITY_INVALID_PARAM_SIZE;
-	}
-	// Also seems to crash.
-	if (!oskParams->fields.IsValid())
+	// Seems to crash.
+	if (!Memory::IsValidRange(oskParams->fields.ptr, sizeof(SceUtilityOskData)))
 	{
 		ERROR_LOG_REPORT(Log::sceUtility, "sceUtilityOskInitStart: invalid field data (%08x)", oskParams->fields.ptr);
 		return -1;
@@ -254,21 +239,14 @@ int PSPOskDialog::Init(u32 oskPtr) {
 
 	i_level = 0;
 
-	inputChars.clear();
-
-	if (oskParams->fields[0].intext.IsValid()) {
-		auto src = oskParams->fields[0].intext;
-		int c;
-		while ((c = *src++) != 0)
-			inputChars += c;
-	}
+	GetWideStringFromPSPPointer(inputChars, oskParams->fields[0].intext);
 
 	// Eat any keys pressed before the dialog inited.
 	UpdateButtons();
 	InitCommon();
 
-	std::lock_guard<std::mutex> guard(nativeMutex_);
-	nativeStatus_ = PSPOskNativeStatus::IDLE;
+	// A new one, so a callback from an earlier input box can't reach this one.
+	native_ = std::make_shared<NativeInput>();
 
 	StartFade(true);
 	return 0;
@@ -680,9 +658,35 @@ int PSPOskDialog::GetIndex(const wchar_t* src, wchar_t ch)
 
 u32 PSPOskDialog::FieldMaxLength()
 {
-	if ((oskParams->fields[0].outtextlimit > oskParams->fields[0].outtextlength - 1) || oskParams->fields[0].outtextlimit == 0)
-		return oskParams->fields[0].outtextlength - 1;
-	return oskParams->fields[0].outtextlimit;
+	const u32 length = oskParams->fields[0].outtextlength;
+	const u32 limit = oskParams->fields[0].outtextlimit;
+	if (length == 0)
+		return 0;
+	if (limit > length - 1 || limit == 0)
+		return length - 1;
+	return limit;
+}
+
+// Only writes the text and its terminator, not the rest of the buffer.
+void PSPOskDialog::WriteOutput(SceUtilityOskResult fieldResult) {
+	const u32 addr = oskParams->fields[0].outtext.ptr;
+	size_t end = oskParams->fields[0].outtextlength;
+	if (end > inputChars.size())
+		end = inputChars.size() + 1;
+	if (end != 0 && !Memory::IsValidRange(addr, (u32)(end * sizeof(u16_le)))) {
+		ERROR_LOG_REPORT_ONCE(oskBadOutput, Log::sceUtility, "OSK output %08x (%d chars) isn't in memory", addr, (int)end);
+	} else if (end != 0) {
+		u16_le *outText = (u16_le *)Memory::GetPointerWriteUnchecked(addr);
+		for (size_t i = 0; i < end; ++i) {
+			u16 value = 0;
+			if (i < FieldMaxLength() && i < inputChars.size())
+				value = inputChars[i];
+			outText[i] = value;
+		}
+	}
+
+	oskParams->base.result = 0;
+	oskParams->fields[0].result = fieldResult;
 }
 
 void PSPOskDialog::RenderKeyboard()
@@ -723,7 +727,8 @@ void PSPOskDialog::RenderKeyboard()
 	result = CombinationString(false);
 
 	u32 drawIndex = (u32)(result.size() > drawLimit ? result.size() - drawLimit : 0);
-	drawIndex = result.size() == limit + 1 ? drawIndex - 1 : drawIndex;  // When the length reached limit, the last character don't fade in and out.
+	if (result.size() == (size_t)limit + 1 && drawIndex > 0)
+		drawIndex--;  // When the length reached limit, the last character don't fade in and out.
 	for (u32 i = 0; i < drawLimit; ++i, ++drawIndex)
 	{
 		if (drawIndex + 1 < result.size())
@@ -791,16 +796,21 @@ int PSPOskDialog::NativeKeyboard() {
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 
-	bool beginInputBox = false;
-	if (nativeStatus_ == PSPOskNativeStatus::IDLE) {
-		std::lock_guard<std::mutex> guard(nativeMutex_);
-		if (nativeStatus_ == PSPOskNativeStatus::IDLE) {
-			nativeStatus_ = PSPOskNativeStatus::WAITING;
-			beginInputBox = true;
+	std::shared_ptr<NativeInput> native = native_;
+	PSPOskNativeStatus status;
+	std::string value;
+	{
+		std::lock_guard<std::mutex> guard(native->mutex);
+		status = native->status;
+		if (status == PSPOskNativeStatus::IDLE) {
+			native->status = PSPOskNativeStatus::WAITING;
+		} else if (status == PSPOskNativeStatus::SUCCESS || status == PSPOskNativeStatus::FAILURE) {
+			value = std::move(native->value);
+			native->status = PSPOskNativeStatus::DONE;
 		}
 	}
 
-	if (beginInputBox) {
+	if (status == PSPOskNativeStatus::IDLE) {
 		std::u16string titleText;
 		GetWideStringFromPSPPointer(titleText, oskParams->fields[0].desc);
 
@@ -809,28 +819,27 @@ int PSPOskDialog::NativeKeyboard() {
 
 		// There's already ConvertUCS2ToUTF8 in this file. Should we use that instead of the global ones?
 		System_InputBoxGetString(NON_EPHEMERAL_TOKEN, ::ConvertUCS2ToUTF8(titleText), ::ConvertUCS2ToUTF8(defaultText), false,
-			[this](std::string_view value, int) {
+			[native](std::string_view value, int) {
 				// Success callback
-				std::lock_guard<std::mutex> guard(nativeMutex_);
-				if (nativeStatus_ != PSPOskNativeStatus::WAITING) {
+				std::lock_guard<std::mutex> guard(native->mutex);
+				if (native->status != PSPOskNativeStatus::WAITING) {
 					return;
 				}
-				nativeValue_ = value;
-				nativeStatus_ = PSPOskNativeStatus::SUCCESS;
+				native->value = value;
+				native->status = PSPOskNativeStatus::SUCCESS;
 			},
-			[this](int responseValue) {
+			[native](int responseValue) {
 				// Failure callback
-				std::lock_guard<std::mutex> guard(nativeMutex_);
-				if (nativeStatus_ != PSPOskNativeStatus::WAITING) {
+				std::lock_guard<std::mutex> guard(native->mutex);
+				if (native->status != PSPOskNativeStatus::WAITING) {
 					return;
 				}
-				nativeValue_ = "";
-				nativeStatus_ = PSPOskNativeStatus::FAILURE;
+				native->value.clear();
+				native->status = PSPOskNativeStatus::FAILURE;
 			}
 		);
-	} else if (nativeStatus_ == PSPOskNativeStatus::SUCCESS) {
-		inputChars = ConvertUTF8ToUCS2(nativeValue_);
-		nativeValue_.clear();
+	} else if (status == PSPOskNativeStatus::SUCCESS) {
+		inputChars = ConvertUTF8ToUCS2(value);
 
 		u32 maxLength = FieldMaxLength();
 		if (inputChars.length() > maxLength) {
@@ -838,28 +847,12 @@ int PSPOskDialog::NativeKeyboard() {
 			inputChars.erase(maxLength, std::string::npos);
 		}
 		ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
-		nativeStatus_ = PSPOskNativeStatus::DONE;
-	} else if (nativeStatus_ == PSPOskNativeStatus::FAILURE) {
+	} else if (status == PSPOskNativeStatus::FAILURE) {
 		ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
-		nativeStatus_ = PSPOskNativeStatus::DONE;
-	}
-	
-	u16_le *outText = oskParams->fields[0].outtext;
-
-	size_t end = oskParams->fields[0].outtextlength;
-	if (end > inputChars.size())
-		end = inputChars.size() + 1;
-	// Only write the bytes of the output and the null terminator, don't write the rest.
-	for (size_t i = 0; i < end; ++i) {
-		u16 value = 0;
-		if (i < FieldMaxLength() && i < inputChars.size())
-			value = inputChars[i];
-		outText[i] = value;
 	}
 
-	oskParams->base.result = 0;
-	oskParams->fields[0].result = PSP_UTILITY_OSK_RESULT_CHANGED;
-
+	// TODO: A cancelled input box leaves the input text, but should it report CANCELLED? Untested.
+	WriteOutput(PSP_UTILITY_OSK_RESULT_CHANGED);
 	return 0;
 }
 
@@ -1051,21 +1044,7 @@ int PSPOskDialog::Update(int animSpeed) {
 
 	EndDraw();
 
-	u16_le *outText = oskParams->fields[0].outtext;
-	size_t end = oskParams->fields[0].outtextlength;
-	// Only write the bytes of the output and the null terminator, don't write the rest.
-	if (end > inputChars.size())
-		end = inputChars.size() + 1;
-	for (size_t i = 0; i < end; ++i)
-	{
-		u16 value = 0;
-		if (i < FieldMaxLength() && i < inputChars.size())
-			value = inputChars[i];
-		outText[i] = value;
-	}
-
-	oskParams->base.result = 0;
-	oskParams->fields[0].result = PSP_UTILITY_OSK_RESULT_CHANGED;
+	WriteOutput(PSP_UTILITY_OSK_RESULT_CHANGED);
 	return 0;
 }
 
@@ -1078,7 +1057,6 @@ int PSPOskDialog::Shutdown(bool force)
 	if (!force) {
 		ChangeStatusShutdown(OSK_SHUTDOWN_DELAY_US);
 	}
-	nativeStatus_ = PSPOskNativeStatus::IDLE;
 
 	return 0;
 }
@@ -1087,11 +1065,9 @@ void PSPOskDialog::DoState(PointerWrap &p)
 {
 	PSPDialog::DoState(p);
 
-	auto s = p.Section("PSPOskDialog", 1, 2);
+	auto s = p.Section("PSPOskDialog", 1, 3);
 	if (!s)
 		return;
-
-	// TODO: Should we save currentKeyboard/currentKeyboardLanguage?
 
 	Do(p, oskParams);
 	Do(p, oskDesc);
@@ -1104,6 +1080,29 @@ void PSPOskDialog::DoState(PointerWrap &p)
 		// Discard the wstring.
 		std::wstring wstr;
 		Do(p, wstr);
+	}
+	if (s >= 3) {
+		Do(p, currentKeyboard);
+		Do(p, currentKeyboardLanguage);
+		Do(p, i_level);
+		DoArray(p, i_value, ARRAY_SIZE(i_value));
+	} else if (p.mode == p.MODE_READ) {
+		// Pick a keyboard the field allows, as Init does, and keep the selection on it.
+		currentKeyboardLanguage = OSK_LANGUAGE_ENGLISH;
+		currentKeyboard = OSK_KEYBOARD_LATIN_LOWERCASE;
+		if (oskParams.IsValid() && Memory::IsValidRange(oskParams->fields.ptr, sizeof(SceUtilityOskData))) {
+			FindValidKeyboard(oskParams->fields[0].inputtype, 0, currentKeyboardLanguage, currentKeyboard);
+		}
+		selectedChar = std::clamp(selectedChar, 0, numKeyCols[currentKeyboard] * numKeyRows[currentKeyboard] - 1);
+		i_level = 0;
+	}
+	if (p.mode == p.MODE_READ) {
+		// A box still open can answer into the loaded state (the next Update would only open
+		// another). One that finished before mustn't block the next.
+		std::lock_guard<std::mutex> guard(native_->mutex);
+		if (native_->status != PSPOskNativeStatus::WAITING) {
+			native_ = std::make_shared<NativeInput>();
+		}
 	}
 	// Don't need to save state native status or value.
 }

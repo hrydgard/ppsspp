@@ -50,6 +50,7 @@ const char *UtilityDialogTypeToString(UtilityDialogType type) {
 	case UtilityDialogType::GAMESHARING: return "GAMESHARING";
 	case UtilityDialogType::GAMEDATAINSTALL: return "GAMEDATAINSTALL";
 	case UtilityDialogType::NPSIGNIN: return "NPSIGNIN";
+	case UtilityDialogType::HTMLVIEWER: return "HTMLVIEWER";
 	default: return "(unknown)";
 	}
 }
@@ -95,13 +96,13 @@ void PSPDialog::UpdateCommon() {
 	}
 }
 
-PSPDialog::DialogStatus PSPDialog::GetStatus() {
+void PSPDialog::UpdatePendingStatus() {
 	if (pendingStatusTicks != 0 && CoreTiming::GetTicks(currentMIPS) >= pendingStatusTicks) {
 		bool changeAllowed = true;
 		if (pendingStatus == SCE_UTILITY_STATUS_NONE && status == SCE_UTILITY_STATUS_SHUTDOWN) {
 			FinishVolatile();
 		} else if (pendingStatus == SCE_UTILITY_STATUS_RUNNING && status == SCE_UTILITY_STATUS_INITIALIZE) {
-			if (!volatileLocked_) {
+			if (!volatileLocked_ && LocksVolatileMemory()) {
 				volatileLocked_ = KernelVolatileMemLock(0, 0, 0) == 0;
 				changeAllowed = volatileLocked_;
 			}
@@ -111,15 +112,37 @@ PSPDialog::DialogStatus PSPDialog::GetStatus() {
 			pendingStatusTicks = 0;
 		}
 	}
+}
+
+PSPDialog::DialogStatus PSPDialog::GetStatus() {
+	UpdatePendingStatus();
 
 	PSPDialog::DialogStatus retval = status;
 	if (UseAutoStatus()) {
-		if (status == SCE_UTILITY_STATUS_SHUTDOWN)
+		if (status == SCE_UTILITY_STATUS_SHUTDOWN) {
+			FinishVolatile();
 			status = SCE_UTILITY_STATUS_NONE;
+		}
 		if (status == SCE_UTILITY_STATUS_INITIALIZE)
 			status = SCE_UTILITY_STATUS_RUNNING;
 	}
 	return retval;
+}
+
+bool PSPDialog::IsBusy() {
+	UpdatePendingStatus();
+	// An auto status dialog in SHUTDOWN is only waiting for the game to see that (FinishAutoShutdown).
+	if (status == SCE_UTILITY_STATUS_SHUTDOWN && UseAutoStatus()) {
+		return false;
+	}
+	return status != SCE_UTILITY_STATUS_NONE;
+}
+
+void PSPDialog::FinishAutoShutdown() {
+	if (status == SCE_UTILITY_STATUS_SHUTDOWN && UseAutoStatus()) {
+		FinishVolatile();
+		status = SCE_UTILITY_STATUS_NONE;
+	}
 }
 
 void PSPDialog::ChangeStatus(DialogStatus newStatus, int delayUs) {
@@ -127,7 +150,7 @@ void PSPDialog::ChangeStatus(DialogStatus newStatus, int delayUs) {
 		if (newStatus == SCE_UTILITY_STATUS_NONE && status == SCE_UTILITY_STATUS_SHUTDOWN) {
 			FinishVolatile();
 		} else if (newStatus == SCE_UTILITY_STATUS_RUNNING && status == SCE_UTILITY_STATUS_INITIALIZE) {
-			if (!volatileLocked_) {
+			if (!volatileLocked_ && LocksVolatileMemory()) {
 				// TODO: Should probably make the status pending instead?
 				volatileLocked_ = KernelVolatileMemLock(0, 0, 0) == 0;
 			}
@@ -153,11 +176,15 @@ void PSPDialog::FinishVolatile() {
 }
 
 int PSPDialog::FinishInit() {
-	if (ReadStatus() != SCE_UTILITY_STATUS_INITIALIZE)
+	// The thread has locked volatile memory. An auto status dialog may be past INITIALIZE already,
+	// and must still let go of it on shutdown.
+	if (ReadStatus() == SCE_UTILITY_STATUS_NONE) {
+		KernelVolatileMemUnlock(0);
 		return -1;
-	// The thread already locked.
+	}
 	volatileLocked_ = true;
-	ChangeStatus(SCE_UTILITY_STATUS_RUNNING, 0);
+	if (ReadStatus() == SCE_UTILITY_STATUS_INITIALIZE)
+		ChangeStatus(SCE_UTILITY_STATUS_RUNNING, 0);
 	return 0;
 }
 
@@ -220,7 +247,8 @@ void PSPDialog::StartFade(bool fadeIn_)
 
 void PSPDialog::UpdateFade(int animSpeed) {
 	if (isFading) {
-		fadeTimer += animSpeed / 60.0f;
+		// At least a frame per Update, or it would never finish.
+		fadeTimer += std::max(animSpeed, 1) / 60.0f;
 		if (fadeTimer < FADE_TIME) {
 			if (fadeIn)
 				fadeValue = (u32) (fadeTimer / FADE_TIME * 255);
@@ -244,6 +272,15 @@ u32 PSPDialog::CalcFadedColor(u32 inColor) const {
 	u32 alpha = inColor >> 24;
 	alpha = alpha * fadeValue / 255;
 	return (inColor & 0x00FFFFFF) | (alpha << 24);
+}
+
+void PSPDialog::ResetState() {
+	status = SCE_UTILITY_STATUS_NONE;
+	pendingStatus = SCE_UTILITY_STATUS_NONE;
+	pendingStatusTicks = 0;
+	volatileLocked_ = false;
+	isFading = false;
+	fadeValue = 0;
 }
 
 void PSPDialog::DoState(PointerWrap &p) {
@@ -365,6 +402,20 @@ void PSPDialog::DisplayButtons(int flags, std::string_view caption) {
 		PPGeDrawImage(cancelButtonImg, x1, 256, 11.5f, 11.5f, textStyle);
 		PPGeDrawText(text, x1 + 14.5f, 252, textStyle);
 	}
+}
+
+int PSPDialog::CheckRequest(u32 addr, std::initializer_list<u32> sizes) {
+	if (!Memory::IsValidRange(addr, sizeof(pspUtilityDialogCommon))) {
+		return SCE_ERROR_UTILITY_INVALID_ADDRESS;
+	}
+	const u32 size = Memory::ReadUnchecked_U32(addr);
+	if (std::find(sizes.begin(), sizes.end(), size) == sizes.end()) {
+		return SCE_ERROR_UTILITY_INVALID_PARAM_SIZE;
+	}
+	if (!Memory::IsValidRange(addr, size)) {
+		return SCE_ERROR_UTILITY_INVALID_ADDRESS;
+	}
+	return 0;
 }
 
 int PSPDialog::GetConfirmButton() {

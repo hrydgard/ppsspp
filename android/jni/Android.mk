@@ -688,6 +688,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/Dialog/PSPMsgDialog.cpp \
   $(SRC)/Core/Dialog/PSPNetconfDialog.cpp \
   $(SRC)/Core/Dialog/PSPNpSigninDialog.cpp \
+  $(SRC)/Core/Dialog/PSPHtmlViewerDialog.cpp \
   $(SRC)/Core/Dialog/PSPOskDialog.cpp \
   $(SRC)/Core/Dialog/PSPOskConstants.cpp \
   $(SRC)/Core/Dialog/PSPScreenshotDialog.cpp \

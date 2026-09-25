@@ -43,12 +43,18 @@ int PSPNpSigninDialog::Init(u32 paramAddr) {
 	if (ReadStatus() != SCE_UTILITY_STATUS_NONE)
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 
-	requestAddr = paramAddr;
-	if (!ReadVariableSizedStruct(paramAddr, &request)) {
-		return SCE_KERNEL_ERROR_BAD_ARGUMENT;  // untested
+	const int check = CheckRequest(paramAddr, { 0x40 });
+	if (check < 0) {
+		return check;
 	}
 
+	if (!ReadVariableSizedStruct(paramAddr, &request)) {
+		return SCE_KERNEL_ERROR_BAD_ARGUMENT;  // untested, it's misaligned
+	}
+	requestAddr = paramAddr;
 	WARN_LOG_REPORT_ONCE(PSPNpSigninDialogInit, Log::sceNet, "NpSignin Init Params: %08x, %08x, %08x, %08x", request.npSigninStatus, request.unknown1, request.unknown2, request.unknown3);
+	// An output. Update does nothing unless it's NONE, so a game that reuses its struct would hang.
+	request.npSigninStatus = NP_SIGNIN_STATUS_NONE;
 
 	ChangeStatusInit(NP_INIT_DELAY_US);
 
@@ -153,7 +159,8 @@ int PSPNpSigninDialog::Update(int animSpeed) {
 		EndDraw();
 	}
 
-	if (ReadStatus() == SCE_UTILITY_STATUS_FINISHED || pendingStatus == SCE_UTILITY_STATUS_FINISHED) {
+	const bool finished = ReadStatus() == SCE_UTILITY_STATUS_FINISHED || pendingStatus == SCE_UTILITY_STATUS_FINISHED;
+	if (finished && request.npSigninStatus != NP_SIGNIN_STATUS_CANCELED) {
 		npSigninState = NP_SIGNIN_STATUS_SUCCESS;
 		__RtcTimeOfDay(&npSigninTimestamp);
 		request.npSigninStatus = npSigninState;
@@ -172,7 +179,7 @@ int PSPNpSigninDialog::Shutdown(bool force) {
 
 	// FIXME: This should probably be done within FinishShutdown to prevent some games (ie. UNO) from progressing further while the Dialog is still being faded-out, since we can't override non-virtual method... so here is the closes one to FinishShutdown.
 	if (Memory::IsValidAddress(requestAddr)) // Need to validate first to prevent Invalid address when the game is being Shutdown/Exited to menu
-		Memory::Memcpy(requestAddr, &request, request.common.size, "NpSigninDialogParam");
+		Memory::Memcpy(requestAddr, &request, std::min((u32)request.common.size, (u32)sizeof(request)), "NpSigninDialogParam");
 
 	return 0;
 }
@@ -180,16 +187,20 @@ int PSPNpSigninDialog::Shutdown(bool force) {
 void PSPNpSigninDialog::DoState(PointerWrap &p) {
 	PSPDialog::DoState(p);
 
-	auto s = p.Section("PSPNpSigninDialog", 1, 1);
+	auto s = p.Section("PSPNpSigninDialog", 1, 2);
 	if (!s)
 		return;
 
 	Do(p, request);
 	Do(p, step);
 	//Do(p, npSigninResult);
+	// Older states keep this session's requestAddr: most likely the same address in the same game.
+	if (s >= 2) {
+		Do(p, requestAddr);
+	}
 
 	if (p.mode == p.MODE_READ) {
-		startTime = 0;
+		startTime = (u64)(time_now_d() * 1000000.0);
 	}
 }
 

@@ -311,13 +311,13 @@ public:
 	std::string GetSaveDirName(const SceUtilitySavedataParam *param, int saveId = -1) const;
 	std::string GetSaveDir(const SceUtilitySavedataParam *param, int saveId = -1) const;
 	std::string GetSaveDir(const SceUtilitySavedataParam *param, const std::string &saveDirName) const;
-	bool Delete(SceUtilitySavedataParam* param, int saveId = -1);
+	bool Delete(SceUtilitySavedataParam* param, const std::string &saveDir);
 	int DeleteData(SceUtilitySavedataParam* param);
 	int Save(SceUtilitySavedataParam* param, const std::string &saveDirName, bool secureMode = true);
 	int Load(SceUtilitySavedataParam* param, const std::string &saveDirName, int saveId = -1, bool secureMode = true);
 	int GetSizes(SceUtilitySavedataParam* param);
 	bool GetList(SceUtilitySavedataParam* param);
-	int GetFilesList(SceUtilitySavedataParam* param, u32 requestAddr);
+	int GetFilesList(SceUtilitySavedataParam* param, u32 requestAddr, const std::string &saveDirName);
 	bool GetSize(SceUtilitySavedataParam* param);
 	int GetSaveCryptMode(const SceUtilitySavedataParam *param, const std::string &saveDirName);
 	bool IsInSaveDataList(const std::string &saveName, int count);

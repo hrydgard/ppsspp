@@ -66,22 +66,12 @@ int PSPScreenshotDialog::Init(u32 paramAddr) {
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 
+	const int check = CheckRequest(paramAddr, { SCE_UTILITY_SCREENSHOTDIALOG_SIZE_V1, SCE_UTILITY_SCREENSHOTDIALOG_SIZE_V2, SCE_UTILITY_SCREENSHOTDIALOG_SIZE_V3 });
+	if (check < 0) {
+		ERROR_LOG(Log::HLE, "sceUtilityScreenshotInitStart(%08x): bad request: %08x", paramAddr, check);
+		return check;
+	}
 	params_ = PSPPointer<SceUtilityScreenshotParams>::Create(paramAddr);
-	if (!params_.IsValid()) {
-		ERROR_LOG_REPORT(Log::HLE, "sceUtilityScreenshotInitStart(%08x): invalid pointer", paramAddr);
-		return SCE_KERNEL_ERROR_INVALID_POINTER;
-	}
-
-	switch ((u32)params_->base.size) {
-	case SCE_UTILITY_SCREENSHOTDIALOG_SIZE_V1:
-	case SCE_UTILITY_SCREENSHOTDIALOG_SIZE_V2:
-	case SCE_UTILITY_SCREENSHOTDIALOG_SIZE_V3:
-		break;
-
-	default:
-		ERROR_LOG_REPORT(Log::HLE, "sceUtilityScreenshotInitStart(%08x): invalid size %d", paramAddr, (u32)params_->base.size);
-		return SCE_ERROR_UTILITY_INVALID_PARAM_SIZE;
-	}
 
 	mode = params_->mode;
 	ChangeStatus(SCE_UTILITY_STATUS_INITIALIZE, 0);
@@ -91,6 +81,9 @@ int PSPScreenshotDialog::Init(u32 paramAddr) {
 }
 
 int PSPScreenshotDialog::Update(int animSpeed) {
+	if (ReadStatus() == SCE_UTILITY_STATUS_NONE) {
+		return SCE_ERROR_UTILITY_INVALID_STATUS;
+	}
 	UpdateCommon();
 	if (UseAutoStatus()) {
 		if (ReadStatus() == SCE_UTILITY_STATUS_INITIALIZE) {
@@ -106,6 +99,14 @@ int PSPScreenshotDialog::Update(int animSpeed) {
 		}
 	}
 	return 0;
+}
+
+int PSPScreenshotDialog::Shutdown(bool force) {
+	// TODO: Only from FINISHED, like the other dialogs? Update moves on to SHUTDOWN by itself here.
+	if (!force && ReadStatus() == SCE_UTILITY_STATUS_NONE) {
+		return SCE_ERROR_UTILITY_INVALID_STATUS;
+	}
+	return PSPDialog::Shutdown(force);
 }
 
 int PSPScreenshotDialog::ContStart() {

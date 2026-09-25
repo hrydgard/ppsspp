@@ -360,6 +360,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
 		case SYSPROP_HAS_DEEP_LINKS:
 			return true;
+		case SYSPROP_CAN_LAUNCH_URL:
+			return true;
 		case SYSPROP_DISPLAY_HAS_CAMERA_CUTOUT:
 			return true;
 		case SYSPROP_HAS_FILE_BROWSER:

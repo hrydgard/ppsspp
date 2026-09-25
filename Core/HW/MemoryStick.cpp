@@ -16,6 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <atomic>
+#include <mutex>
 #include <string>
 #include <vector>
 #include <string_view>
@@ -42,8 +44,12 @@ static MemStickFatState memStickFatState;
 static bool memStickNeedsAssign = false;
 static uint64_t memStickInsertedAt = 0;
 static uint64_t memstickInitialFree = 0;
+// The savedata IO thread asks for the free space too, so the cached use is guarded, and a write
+// during the calculation leaves it stale rather than marked current.
+static std::mutex memstickCurrentUseLock;
 static uint64_t memstickCurrentUse = 0;
-static bool memstickCurrentUseValid = false;
+static uint32_t memstickCurrentUseGeneration = 0;
+static std::atomic<uint32_t> memstickWriteGeneration{ 1 };
 
 enum FreeCalcStatus {
 	NONE,
@@ -122,15 +128,21 @@ u64 MemoryStick_FreeSpace(std::string gameID) {
 	const u64 memStickSize = flags.ReportSmallMemstick ? smallMemstickSize : (u64)g_Config.iMemStickSizeGB * 1024 * 1024 * 1024;
 
 	// Assume the memory stick is only used to store savedata, for the current game only.
-	if (!memstickCurrentUseValid) {
-		Path saveFolder = GetSysDirectory(DIRECTORY_SAVEDATA);
-		memstickCurrentUse = ComputeSizeOfSavedataForGame(saveFolder, gameID);
-		memstickCurrentUseValid = true;
+	u64 currentUse;
+	{
+		std::lock_guard<std::mutex> guard(memstickCurrentUseLock);
+		const uint32_t generation = memstickWriteGeneration;
+		if (memstickCurrentUseGeneration != generation) {
+			Path saveFolder = GetSysDirectory(DIRECTORY_SAVEDATA);
+			memstickCurrentUse = ComputeSizeOfSavedataForGame(saveFolder, gameID);
+			memstickCurrentUseGeneration = generation;
+		}
+		currentUse = memstickCurrentUse;
 	}
 
 	u64 simulatedFreeSpace = 0;
-	if (memstickCurrentUse < memStickSize) {
-		simulatedFreeSpace = memStickSize - memstickCurrentUse;
+	if (currentUse < memStickSize) {
+		simulatedFreeSpace = memStickSize - currentUse;
 	} else if (flags.ReportSmallMemstick) {
 		// There's more stuff in the memstick than the size we report.
 		// This doesn't work, so we'll just have to lie. Not sure what the best way is.
@@ -144,8 +156,8 @@ u64 MemoryStick_FreeSpace(std::string gameID) {
 		// Assassin's Creed: Bloodlines fails to save if free space changes incorrectly during game.
 		// See issue #12761
 		u64 realFreeSpace = 0;
-		if (memstickCurrentUse <= memstickInitialFree) {
-			realFreeSpace = memstickInitialFree - memstickCurrentUse;
+		if (currentUse <= memstickInitialFree) {
+			realFreeSpace = memstickInitialFree - currentUse;
 		}
 		space = std::min(simulatedFreeSpace, realFreeSpace);
 	} else if (System_GetPropertyBool(SYSPROP_CAN_GET_FREE_SPACE_FAST) || g_Config.bReportAccurateFreeStorageSpace) {
@@ -161,7 +173,7 @@ u64 MemoryStick_FreeSpace(std::string gameID) {
 }
 
 void MemoryStick_NotifyWrite() {
-	memstickCurrentUseValid = false;
+	memstickWriteGeneration++;
 }
 
 void MemoryStick_SetFatState(MemStickFatState state) {

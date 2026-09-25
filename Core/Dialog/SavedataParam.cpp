@@ -313,7 +313,7 @@ bool SavedataParam::HasKey(const SceUtilitySavedataParam *param) const
 	return false;
 }
 
-bool SavedataParam::Delete(SceUtilitySavedataParam* param, int saveId) {
+bool SavedataParam::Delete(SceUtilitySavedataParam* param, const std::string &saveDir) {
 	if (!param) {
 		return false;
 	}
@@ -324,7 +324,7 @@ bool SavedataParam::Delete(SceUtilitySavedataParam* param, int saveId) {
 		return false;
 	}
 
-	std::string dirPath = GetSaveFilePath(param, GetSaveDir(saveId));
+	std::string dirPath = GetSaveFilePath(param, saveDir);
 	if (dirPath.size() == 0) {
 		ERROR_LOG(Log::sceUtility, "GetSaveFilePath (%.*s) returned empty - cannot delete save directory. Might already be deleted?", (int)sizeof(param->gameName), param->gameName);
 		return false;
@@ -1281,7 +1281,7 @@ bool SavedataParam::GetList(SceUtilitySavedataParam *param)
 	return true;
 }
 
-int SavedataParam::GetFilesList(SceUtilitySavedataParam *param, u32 requestAddr) {
+int SavedataParam::GetFilesList(SceUtilitySavedataParam *param, u32 requestAddr, const std::string &saveDirName) {
 	if (!param)	{
 		return SCE_UTILITY_SAVEDATA_ERROR_RW_BAD_STATUS;
 	}
@@ -1339,7 +1339,7 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param, u32 requestAddr)
 	requestPtr->bind = 1021;
 
 	// Does not list directories, nor recurse into them, and ignores files not ALL UPPERCASE.
-	bool isCrypted = GetSaveCryptMode(param, GetSaveDirName(param, 0)) != 0;
+	bool isCrypted = GetSaveCryptMode(param, saveDirName) != 0;
 	for (const auto &file : files) {
 		if (file.type == FILETYPE_DIRECTORY) {
 			continue;
@@ -1795,6 +1795,9 @@ std::string SavedataParam::GetFilename(int idx) const
 }
 
 std::string SavedataParam::GetSaveDir(int idx) const {
+	if (!saveDataList || idx < 0 || idx >= saveDataListCount) {
+		return "";
+	}
 	return saveDataList[idx].saveDir;
 }
 

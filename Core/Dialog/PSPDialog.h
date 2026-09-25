@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <initializer_list>
+
 #include "Common/CommonTypes.h"
 #include "Common/Render/TextureAtlas.h"
 #include "Common/Swap.h"
@@ -49,6 +51,9 @@ public:
 	virtual int Update(int animSpeed) = 0;
 	virtual int Shutdown(bool force = false);
 	virtual void DoState(PointerWrap &p);
+	// For loading a state that doesn't have this dialog: back to NONE, without anything Shutdown does
+	// on the way (writing results, releasing volatile memory), which would hit the loaded state.
+	virtual void ResetState();
 	virtual pspUtilityDialogCommon *GetCommonParam() {
 		// This is returned properly by the derived classes (or should be...).
 		return nullptr;
@@ -71,6 +76,12 @@ public:
 	};
 
 	DialogStatus GetStatus();
+	// Whether it keeps another dialog from starting. Applies a status change that's due, but unlike
+	// GetStatus doesn't use up the one-time reports of auto status dialogs.
+	bool IsBusy();
+	// An auto status dialog in SHUTDOWN only waits for the game to see that, which it no longer can
+	// once another dialog starts: done.
+	void FinishAutoShutdown();
 	UtilityDialogType DialogType() { return dialogType_; }
 
 	void StartDraw();
@@ -93,6 +104,7 @@ protected:
 	void DisplayButtons(int flags, std::string_view caption = "");
 	void DisplayMessage2(std::string_view text1, std::string_view text2a = "", std::string_view text2b = "", std::string_view text3a = "", std::string_view text3b = "", bool hasYesNo = false, bool hasOK = false);
 	void ChangeStatus(DialogStatus newStatus, int delayUs);
+	void UpdatePendingStatus();
 	void ChangeStatusInit(int delayUs);
 	void ChangeStatusShutdown(int delayUs);
 	DialogStatus ReadStatus() const {
@@ -101,8 +113,15 @@ protected:
 
 	// TODO: Remove this once all dialogs are updated.
 	virtual bool UseAutoStatus() = 0;
+	// Whether the dialog holds volatile memory while running.
+	virtual bool LocksVolatileMemory() const {
+		return true;
+	}
 
 	static int GetConfirmButton();
+	// What every InitStart checks first in sceUtility_Driver: the address, then the size against
+	// the ones that type accepts (utility/dialog/sizes), then the rest of the range.
+	static int CheckRequest(u32 addr, std::initializer_list<u32> sizes);
 	static int GetCancelButton();
 
 	void StartFade(bool fadeIn_);

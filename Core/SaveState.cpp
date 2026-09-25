@@ -137,6 +137,9 @@ int g_screenshotFailures;
 	// when in-game it's just not an issue.
 
 	void SaveStart::DoState(PointerWrap &p) {
+		// Nothing may still be writing PSP memory while it's saved, or be left to write into what's loaded.
+		__UtilityWaitForIO();
+
 		auto s = p.Section("SaveStart", 1, 3);
 		if (!s)
 			return;

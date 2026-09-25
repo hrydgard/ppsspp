@@ -56,12 +56,14 @@ int PSPMsgDialog::Init(unsigned int paramAddr) {
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 
-	messageDialogAddr = paramAddr;
-
-	if (!Memory::IsValid4AlignedAddress(paramAddr)) {
-		// What to do?
-		return SCE_KERNEL_ERROR_BAD_ARGUMENT;
+	const int check = CheckRequest(paramAddr, { SCE_UTILITY_MSGDIALOG_SIZE_V1, SCE_UTILITY_MSGDIALOG_SIZE_V2, SCE_UTILITY_MSGDIALOG_SIZE_V3 });
+	if (check < 0) {
+		return check;
 	}
+	if (!Memory::IsValid4AlignedAddress(paramAddr)) {
+		return SCE_KERNEL_ERROR_BAD_ARGUMENT;  // untested
+	}
+	messageDialogAddr = paramAddr;
 
 	int size = Memory::ReadUnchecked_U32(paramAddr);
 	memset(&messageDialog, 0, sizeof(messageDialog));
@@ -76,6 +78,7 @@ int PSPMsgDialog::Init(unsigned int paramAddr) {
 	}
 
 	flag = 0;
+	framesRun_ = 0;
 	scrollPos_ = 0.0f;
 	framesUpHeld_ = 0;
 	framesDownHeld_ = 0;
@@ -289,7 +292,11 @@ int PSPMsgDialog::Update(int animSpeed) {
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 
-	if (flag & (DS_ERROR | DS_ABORT)) {
+	// On a PSP, an Abort only takes effect from the 8th Update, whatever animSpeed is
+	// (utility/dialog/abort). With an Update only every other vblank it took 6, so it isn't purely a
+	// count, but this is right for the usual one per vblank.
+	framesRun_++;
+	if ((flag & DS_ERROR) || ((flag & DS_ABORT) && framesRun_ >= 8)) {
 		ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
 	} else {
 		UpdateButtons();
@@ -308,10 +315,10 @@ int PSPMsgDialog::Update(int animSpeed) {
 			DisplayMessage(msgText, (flag & DS_YESNO) != 0, (flag & DS_OK) != 0);
 
 		if (flag & (DS_OK | DS_VALIDBUTTON)) 
-			DisplayButtons(DS_BUTTON_OK, messageDialog.common.size == SCE_UTILITY_MSGDIALOG_SIZE_V3 ? messageDialog.okayButton : "");
+			DisplayButtons(DS_BUTTON_OK, messageDialog.common.size == SCE_UTILITY_MSGDIALOG_SIZE_V3 ? StringViewFromFixedSizeField(messageDialog.okayButton) : "");
 
 		if (flag & DS_CANCELBUTTON)
-			DisplayButtons(DS_BUTTON_CANCEL, messageDialog.common.size == SCE_UTILITY_MSGDIALOG_SIZE_V3 ? messageDialog.cancelButton : "");
+			DisplayButtons(DS_BUTTON_CANCEL, messageDialog.common.size == SCE_UTILITY_MSGDIALOG_SIZE_V3 ? StringViewFromFixedSizeField(messageDialog.cancelButton) : "");
 
 		if (IsButtonPressed(cancelButtonFlag) && (flag & DS_CANCELBUTTON))
 		{
@@ -372,11 +379,16 @@ void PSPMsgDialog::DoState(PointerWrap &p)
 {
 	PSPDialog::DoState(p);
 
-	auto s = p.Section("PSPMsgDialog", 1);
+	auto s = p.Section("PSPMsgDialog", 1, 2);
 	if (!s)
 		return;
 
 	Do(p, flag);
+	if (s >= 2) {
+		Do(p, framesRun_);
+	} else {
+		framesRun_ = 8;
+	}
 	Do(p, messageDialog);
 	Do(p, messageDialogAddr);
 	DoArray(p, msgText, sizeof(msgText));

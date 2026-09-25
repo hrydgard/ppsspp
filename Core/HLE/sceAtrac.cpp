@@ -190,9 +190,11 @@ void __AtracNotifyUnloadModule() {
 	atracLibVersion = 0;
 	atracLibCrc = 0;
 	INFO_LOG(Log::Atrac, "Atrac module unloaded.");
+	if (g_atracBSS != 0) {
+		NotifyMemInfo(MemBlockFlags::FREE, g_atracBSS, g_atracMaxContexts * sizeof(SceAtracContext), "AtracContext");
+	}
 	g_atracBSS = 0;
 	g_atracMaxContexts = 6;  // TODO: We should make this zero here.
-	NotifyMemInfo(MemBlockFlags::FREE, g_atracBSS, g_atracMaxContexts * sizeof(SceAtracContext), "AtracContext");
 }
 
 static u32 GetAtracContextAddress(int atracID) {
