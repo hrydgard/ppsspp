@@ -125,6 +125,17 @@ static void MEEnsureRam() {
 	}
 }
 
+// When the Media Engine finishes the last job it was given. Not serialized: after a load it's
+// simply free.
+static s64 g_meBusyUntilUs;
+
+int MEScheduleJob(int us) {
+	const s64 now = CoreTiming::GetGlobalTimeUs();
+	const s64 start = std::max(now, g_meBusyUntilUs);
+	g_meBusyUntilUs = start + us;
+	return (int)(g_meBusyUntilUs - now);
+}
+
 bool MEIsValidRange(u32 addr, u32 size) {
 	return g_meRam.size() == ME_MEM_SIZE && addr < ME_MEM_SIZE && size <= ME_MEM_SIZE - addr;
 }
@@ -165,6 +176,7 @@ void __VideocodecInit() {
 	// The decoders have to be deleted; the ME blocks they hold don't need freeing individually,
 	// since the allocator is emptied right below.
 	ClearContexts(false);
+	g_meBusyUntilUs = 0;
 	g_meRam.clear();
 	g_meRam.shrink_to_fit();
 	g_meAlloc.Shutdown();
@@ -593,7 +605,7 @@ static int sceVideocodecDecode(u32 ctxAddr, int type) {
 	// vblank wait rely on decode, colour conversion and blit adding up to more than a vblank.
 	int delayUs = 0;
 	if (gotFrame && width > 0 && height > 0) {
-		delayUs = PowerScaleFromDefaultClock((int)(3400LL * width * height / (480 * 272)));
+		delayUs = MEScheduleJob(PowerScaleFromDefaultClock((int)(3400LL * width * height / (480 * 272))));
 	}
 
 	if (delayUs > 0) {
