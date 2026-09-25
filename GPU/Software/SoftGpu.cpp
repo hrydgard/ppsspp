@@ -1285,8 +1285,7 @@ void SoftGPU::InvalidateCache(u32 addr, int size, GPUInvalidationType type)
 void SoftGPU::PerformWriteFormattedFromMemory(u32 addr, int size, int width, GEBufferFormat format)
 {
 	// Nothing to update, but remember it for EstimateVideoBlitCycles.
-	videoFrameAddr_ = addr;
-	videoFrameSize_ = size;
+	NoteVideoRange(addr, (u32)size);
 }
 
 bool SoftGPU::PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags) {

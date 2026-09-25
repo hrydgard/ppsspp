@@ -149,11 +149,14 @@ int GPUCommon::EstimatePerVertexCost() {
 }
 
 int GPUCommon::EstimateVideoBlitCycles(GEPrimitiveType prim, const void *verts, const void *inds, int count, const VertexDecoder *dec, u32 vertType) const {
-	if (prim != GE_PRIM_RECTANGLES || !gstate.isModeThrough() || !gstate.isTextureMapEnabled() || videoFrameSize_ == 0) {
+	// A clear, or a draw without texture coordinates, doesn't sample the texture even if texturing
+	// is still enabled from an earlier draw.
+	if (prim != GE_PRIM_RECTANGLES || !gstate.isModeThrough() || !gstate.isTextureMapEnabled() ||
+		gstate.isModeClear() || (vertType & GE_VTYPE_TC_MASK) == 0) {
 		return 0;
 	}
 	const u32 texAddr = gstate.getTextureAddress(0) & 0x3FFFFFFF;
-	if (texAddr < (videoFrameAddr_ & 0x3FFFFFFF) || texAddr >= (videoFrameAddr_ & 0x3FFFFFFF) + videoFrameSize_) {
+	if (!IsVideo(texAddr)) {
 		return 0;
 	}
 	if ((vertType & GE_VTYPE_POS_MASK) != GE_VTYPE_POS_16BIT) {
@@ -203,6 +206,46 @@ int GPUCommon::EstimateVideoBlitCycles(GEPrimitiveType prim, const void *verts, 
 	}
 	// Measured at the default clocks; the GE speeds up with the rest of the system.
 	return (int)((float)usToCycles(PowerScaleFromDefaultClock(1000)) * ns / 1000000.0f);
+}
+
+// How many flips a video range stays known after the last frame written to it.
+static const int VIDEO_DECIMATE_AGE = 4;
+
+bool GPUCommon::IsVideo(u32 addr) const {
+	addr &= 0x3FFFFFFF;
+	for (const VideoInfo &info : videos_) {
+		if (addr >= info.addr && addr < info.addr + info.size) {
+			return true;
+		}
+	}
+	return false;
+}
+
+void GPUCommon::NoteVideoRange(u32 addr, u32 size) {
+	addr &= 0x3FFFFFFF;
+	// A game blits its video frame every displayed frame while waiting for the next one, so the
+	// same few buffers arrive over and over. Refresh the one we already have rather than stacking
+	// a duplicate per frame - IsVideo() scans this linearly.
+	for (VideoInfo &info : videos_) {
+		if (info.addr == addr) {
+			info.size = size;
+			info.flips = gpuStats.totals.numFlips;
+			return;
+		}
+	}
+	videos_.push_back({ addr, size, gpuStats.totals.numFlips });
+}
+
+// So the list doesn't grow unboundedly, and a buffer reused for something else once the movie is
+// over stops being treated as video.
+void GPUCommon::DecimateVideos() {
+	for (auto iter = videos_.begin(); iter != videos_.end(); ) {
+		if (iter->flips + VIDEO_DECIMATE_AGE < gpuStats.totals.numFlips) {
+			iter = videos_.erase(iter);
+		} else {
+			++iter;
+		}
+	}
 }
 
 void GPUCommon::PopDLQueue() {
@@ -711,6 +754,7 @@ u32 GPUCommon::Break(int mode) {
 
 void GPUCommon::PSPFrame() {
 	immCount_ = 0;
+	DecimateVideos();
 	if (dumpNextFrame_) {
 		NOTICE_LOG(Log::G3D, "DUMPING THIS FRAME");
 		dumpThisFrame_ = true;
@@ -2065,9 +2109,14 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 	cyclesExecuted += ((height * width * bpp) * 16) / 10;
 }
 
+// A block copy of a video frame is still a video frame, and games do move them around: Dragon Ball
+// Z - Shin Budokai: Another Road colour-converts into RAM, sceDmacMemcpy's the result into VRAM and
+// textures from there, never sampling the converted buffer itself. Without carrying the status
+// across the copy, what we actually sample looks like an ordinary texture that happens to have new
+// contents every frame, so we hash it, miss, and rebuild it - forever.
 void GPUCommon::NotifyVideoCopy(u32 dest, u32 src, int size) {
-	if (textureCache_) {
-		textureCache_->NotifyVideoCopy(dest, src, size);
+	if (size > 0 && IsVideo(src)) {
+		NoteVideoRange(dest, (u32)size);
 	}
 }
 
@@ -2166,12 +2215,10 @@ bool GPUCommon::PerformWriteColorFromMemory(u32 dest, int size) {
 }
 
 void GPUCommon::PerformWriteFormattedFromMemory(u32 addr, int size, int frameWidth, GEBufferFormat format) {
-	videoFrameAddr_ = addr;
-	videoFrameSize_ = size;
+	NoteVideoRange(addr, (u32)size);
 	if (Memory::IsVRAMAddress(addr)) {
 		framebufferManager_->PerformWriteFormattedFromMemory(addr, size, frameWidth, format);
 	}
-	textureCache_->NotifyWriteFormattedFromMemory(addr, size, frameWidth, format);
 	InvalidateCache(addr, size, GPU_INVALIDATE_SAFE);
 }
 
