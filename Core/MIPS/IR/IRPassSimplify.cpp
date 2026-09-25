@@ -1955,8 +1955,9 @@ bool ApplyMemoryValidation(const IRWriter &in, IRWriter &out, const IROptions &o
 
 bool ReduceVec4Flush(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 	CONDITIONAL_DISABLE;
-	// Only do this when using a SIMD backend.
-	if (!opts.preferVec4) {
+	// Only do this when using a SIMD backend. The interpreter has no flushes to avoid, and would
+	// only get more instructions to dispatch.
+	if (!opts.preferVec4 || opts.optimizeForInterpreter) {
 		DISABLE;
 	}
 
@@ -2404,6 +2405,19 @@ bool OptimizeForInterpreter(const IRWriter &in, IRWriter &out, const IROptions &
 					i++;  // Skip the next
 				}
 			}
+			out.Write(inst);
+			break;
+		case IROp::ExitToConstIfEq:
+		case IROp::ExitToConstIfNeq:
+		case IROp::ExitToConstIfGtZ:
+		case IROp::ExitToConstIfGeZ:
+		case IROp::ExitToConstIfLtZ:
+		case IROp::ExitToConstIfLeZ:
+			// With an ExitToConst right after, one op can pick either target. The ExitToConst stays
+			// as the second target's holder.
+			static_assert((int)IROp::OptExitToConstIfLeZElse - (int)IROp::OptExitToConstIfEqElse == (int)IROp::ExitToConstIfLeZ - (int)IROp::ExitToConstIfEq, "Else exits must match the exits' order");
+			if (!last && in.GetInstructions()[i + 1].op == IROp::ExitToConst)
+				inst.op = (IROp)((int)IROp::OptExitToConstIfEqElse + ((int)inst.op - (int)IROp::ExitToConstIfEq));
 			out.Write(inst);
 			break;
 		default:

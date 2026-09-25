@@ -510,6 +510,19 @@ static const IRVerification tests[] = {
 		},
 		{ &OptimizeLoadsAfterStores },
 	},
+	{
+		"InterpreterExitElse",
+		{
+			{ IROp::ExitToConstIfLtZ, { 0 }, MIPS_REG_A0, 0, 0x08804000 },
+			{ IROp::ExitToConst, { 0 }, 0, 0, 0x08804100 },
+		},
+		{
+			{ IROp::Downcount, { 0 }, 0, 0, 0 },
+			{ IROp::OptExitToConstIfLtZElse, { 0 }, MIPS_REG_A0, 0, 0x08804000 },
+			{ IROp::ExitToConst, { 0 }, 0, 0, 0x08804100 },
+		},
+		{ &OptimizeForInterpreter },
+	},
 };
 
 bool TestIRPassSimplify() {

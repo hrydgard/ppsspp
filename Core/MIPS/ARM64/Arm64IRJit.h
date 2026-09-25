@@ -123,6 +123,9 @@ private:
 		bool signExtendRegOffset = false;
 	};
 	LoadStoreArg PrepareSrc1Address(IRInst inst);
+	// Compiles inst together with the next instruction as one LDP/STP when they access adjacent
+	// words through the same base. The next instruction is then skipped.
+	bool TryCompileLoadStorePair(IRInst inst);
 
 	JitOptions &jo;
 	Arm64IRRegCache regs_;
@@ -148,6 +151,11 @@ private:
 
 	int jitStartOffset_ = 0;
 	int compilingBlockNum_ = -1;
+	// The block's instructions while compiling, for looking at the next one.
+	const IRInst *compilingInsts_ = nullptr;
+	int compilingIndex_ = 0;
+	int compilingCount_ = 0;
+	bool skipNextInst_ = false;
 	int logBlocks_ = 0;
 	// Only useful in breakpoints, where it's set immediately prior.
 	uint32_t lastConstPC_ = 0;
