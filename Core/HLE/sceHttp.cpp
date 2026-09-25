@@ -143,8 +143,10 @@ int HTTPRequest::getAllResponseHeaders(u32 headerAddrPtr, u32 headerSizePtr) {
 	const char* const delim = "\r\n";
 	std::ostringstream imploded;
 	std::copy(responseHeaders_.begin(), responseHeaders_.end(), std::ostream_iterator<std::string>(imploded, delim));
-	const std::string& s = httpLine_ + delim + imploded.str();
-	u32 sz = (u32)s.size();
+	// libhttp.prx (6.60) keeps the header block as received, up to and including the blank line
+	// that ends it, and sceHttpGetAllHeader hands it out NUL-terminated with the NUL counted in the size.
+	const std::string s = httpLine_ + delim + imploded.str() + delim;
+	u32 sz = (u32)s.size() + 1;
 
 	auto headerAddr = PSPPointer<u32>::Create(headerAddrPtr);
 	auto headerSize = PSPPointer<u32>::Create(headerSizePtr);
