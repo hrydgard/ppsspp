@@ -43,6 +43,8 @@
 #include "Core/HLE/KernelWaitHelpers.h"
 
 const int TLSPL_NUM_INDEXES = 16;
+// Wait value of a thread waiting in sceKernelGetTlsAddr. In _sceKernelAllocateTlspl it's the address pointer instead.
+const u32 TLSPL_WAITVALUE_RETURN_ADDR = 1;
 
 //////////////////////////////////////////////////////////////////////////
 // STATE BEGIN
@@ -52,6 +54,7 @@ BlockAllocator volatileMemory(256);
 
 static int vplWaitTimer = -1;
 static int fplWaitTimer = -1;
+static int tlsplWaitTimer = -1;
 static bool tlsplUsedIndexes[TLSPL_NUM_INDEXES];
 
 // Thread -> TLSPL uids for thread end.
@@ -301,6 +304,7 @@ void VPL::DoState(PointerWrap &p) {
 
 void __KernelVplTimeout(u64 userdata, int cyclesLate);
 void __KernelFplTimeout(u64 userdata, int cyclesLate);
+void __KernelTlsplTimeout(u64 userdata, int cyclesLate);
 void __KernelTlsplThreadEnd(SceUID threadID);
 
 void __KernelVplBeginCallback(SceUID threadID, SceUID prevCallbackId);
@@ -325,6 +329,7 @@ void __KernelMemoryInit()
 
 	vplWaitTimer = CoreTiming::RegisterEvent("VplTimeout", __KernelVplTimeout);
 	fplWaitTimer = CoreTiming::RegisterEvent("FplTimeout", __KernelFplTimeout);
+	tlsplWaitTimer = CoreTiming::RegisterEvent("TlsplTimeout", __KernelTlsplTimeout);
 
 	flags_ = 0;
 	sdkVersion_ = 0;
@@ -344,7 +349,7 @@ void __KernelMemoryInit()
 
 void __KernelMemoryDoState(PointerWrap &p)
 {
-	auto s = p.Section("sceKernelMemory", 1, 3);
+	auto s = p.Section("sceKernelMemory", 1, 4);
 	if (!s)
 		return;
 
@@ -364,6 +369,12 @@ void __KernelMemoryDoState(PointerWrap &p)
 	if (s >= 2) {
 		Do(p, tlsplThreadEndChecks);
 	}
+	if (s >= 4) {
+		Do(p, tlsplWaitTimer);
+	} else {
+		tlsplWaitTimer = -1;
+	}
+	CoreTiming::RestoreRegisterEvent(tlsplWaitTimer, "TlsplTimeout", __KernelTlsplTimeout);
 
 	MemBlockInfoDoState(p);
 }
@@ -1823,7 +1834,17 @@ int __KernelFreeTls(TLSPL *tls, SceUID threadID)
 
 			// Otherwise, if there was a thread waiting, we were full, so this newly freed one is theirs.
 			tls->usage[freeBlock] = waitingThreadID;
-			__KernelResumeThreadFromWait(waitingThreadID, freedAddress);
+			// _sceKernelAllocateTlspl waits with its address pointer as the wait value, sceKernelGetTlsAddr with 1.
+			u32 error;
+			u32 timeoutPtr = __KernelGetWaitTimeoutPtr(waitingThreadID, error);
+			HLEKernel::WriteRemainingTimeout(tlsplWaitTimer, waitingThreadID, timeoutPtr);
+			u32 addrPtr = __KernelGetWaitValue(waitingThreadID, error);
+			if (addrPtr != TLSPL_WAITVALUE_RETURN_ADDR) {
+				Memory::WriteOrException_U32(freedAddress, addrPtr);
+				__KernelResumeThreadFromWait(waitingThreadID, 0);
+			} else {
+				__KernelResumeThreadFromWait(waitingThreadID, freedAddress);
+			}
 
 			// Gotta watch the thread to quit as well, since they've allocated now.
 			tlsplThreadEndChecks.emplace(waitingThreadID, uid);
@@ -1987,8 +2008,14 @@ int sceKernelDeleteTlspl(SceUID uid)
 
 		WARN_LOG(Log::sceKernel, "sceKernelDeleteTlspl(%08x)", uid);
 
-		for (SceUID threadID : tls->waitingThreads)
-			HLEKernel::ResumeFromWait(threadID, WAITTYPE_TLSPL, uid, 0);
+		for (SceUID threadID : tls->waitingThreads) {
+			// sceKernelGetTlsAddr returns a null address, _sceKernelAllocateTlspl an error.
+			u32 error;
+			u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
+			HLEKernel::WriteRemainingTimeout(tlsplWaitTimer, threadID, timeoutPtr);
+			u32 result = __KernelGetWaitValue(threadID, error) != TLSPL_WAITVALUE_RETURN_ADDR ? SCE_KERNEL_ERROR_WAIT_DELETE : 0;
+			HLEKernel::ResumeFromWait(threadID, WAITTYPE_TLSPL, uid, result);
+		}
 		hleReSchedule("deleted tlspl");
 
 		BlockAllocator *allocator = BlockAllocatorFromAddr(tls->address);
@@ -2008,36 +2035,30 @@ struct FindTLSByIndexArg {
 	TLSPL *result = nullptr;
 };
 
-int sceKernelGetTlsAddr(SceUID uid) {
-	if (!__KernelIsDispatchEnabled() || __IsInInterrupt())
-		return hleLogWarning(Log::sceKernel, 0, "dispatch disabled");
-
+static TLSPL *__KernelFindTlspl(SceUID uid) {
 	u32 error;
 	TLSPL *tls = kernelObjects.Get<TLSPL>(uid, error);
-	if (!tls) {
-		if (uid < 0)
-			return hleLogError(Log::sceKernel, 0, "tlspl not found");
+	if (tls || uid < 0)
+		return tls;
 
-		// There's this weird behavior where it looks up by index.  Maybe we shouldn't use uids...
-		if (!tlsplUsedIndexes[(uid >> 3) & 15])
-			return hleLogError(Log::sceKernel, 0, "tlspl not found");
+	// There's this weird behavior where it looks up by index.  Maybe we shouldn't use uids...
+	if (!tlsplUsedIndexes[(uid >> 3) & 15])
+		return nullptr;
 
-		FindTLSByIndexArg state;
-		state.index = (uid >> 3) & 15;
-		kernelObjects.Iterate<TLSPL>([&state](int id, TLSPL *possible) {
-			if (possible->ntls.index == state.index) {
-				state.result = possible;
-				return false;
-			}
-			return true;
-		});
+	FindTLSByIndexArg state;
+	state.index = (uid >> 3) & 15;
+	kernelObjects.Iterate<TLSPL>([&state](int id, TLSPL *possible) {
+		if (possible->ntls.index == state.index) {
+			state.result = possible;
+			return false;
+		}
+		return true;
+	});
+	return state.result;
+}
 
-		if (!state.result)
-			return hleLogError(Log::sceKernel, 0, "tlspl not found");
-
-		tls = state.result;
-	}
-
+// Returns the current thread's block in the pool, allocating it if needed, or 0 if the pool is full.
+static u32 __KernelAllocateTls(TLSPL *tls) {
 	SceUID threadID = __KernelGetCurThread();
 	int allocBlock = -1;
 	bool needsClear = false;
@@ -2062,18 +2083,14 @@ int sceKernelGetTlsAddr(SceUID uid) {
 		if (allocBlock != -1)
 		{
 			tls->usage[allocBlock] = threadID;
-			tlsplThreadEndChecks.emplace(threadID, uid);
+			tlsplThreadEndChecks.emplace(threadID, tls->GetUID());
 			--tls->ntls.freeBlocks;
 			needsClear = true;
 		}
 	}
 
 	if (allocBlock == -1)
-	{
-		tls->waitingThreads.push_back(threadID);
-		__KernelWaitCurThread(WAITTYPE_TLSPL, uid, 1, 0, false, "allocate tls");
-		return hleLogDebug(Log::sceKernel, 0, "waiting for tls alloc");
-	}
+		return 0;
 
 	u32 alignedSize = (tls->ntls.blockSize + tls->alignment - 1) & ~(tls->alignment - 1);
 	u32 allocAddress = tls->address + allocBlock * alignedSize;
@@ -2083,8 +2100,71 @@ int sceKernelGetTlsAddr(SceUID uid) {
 	if (needsClear) {
 		Memory::Memset(allocAddress, 0, tls->ntls.blockSize, "TlsAddr");
 	}
+	return allocAddress;
+}
 
+int sceKernelGetTlsAddr(SceUID uid) {
+	if (!__KernelIsDispatchEnabled() || __IsInInterrupt())
+		return hleLogWarning(Log::sceKernel, 0, "dispatch disabled");
+
+	TLSPL *tls = __KernelFindTlspl(uid);
+	if (!tls)
+		return hleLogError(Log::sceKernel, 0, "tlspl not found");
+
+	u32 allocAddress = __KernelAllocateTls(tls);
+	if (allocAddress == 0) {
+		SceUID threadID = __KernelGetCurThread();
+		tls->waitingThreads.push_back(threadID);
+		__KernelWaitCurThread(WAITTYPE_TLSPL, tls->GetUID(), TLSPL_WAITVALUE_RETURN_ADDR, 0, false, "allocate tls");
+		return hleLogDebug(Log::sceKernel, 0, "waiting for tls alloc");
+	}
 	return hleLogDebug(Log::sceKernel, allocAddress);
+}
+
+void __KernelTlsplTimeout(u64 userdata, int cyclesLate) {
+	SceUID threadID = (SceUID)userdata;
+	HLEKernel::WaitExecTimeout<TLSPL, WAITTYPE_TLSPL>(threadID);
+}
+
+// The kernel's check on a pointer from user mode: neither end may be a kernel address.
+static bool __KernelIsBadUserPtr(u32 ptr, u32 size) {
+	if (!__KernelCurThreadIsKernelMode() && ((ptr | (ptr + size)) & 0x80000000) != 0)
+		return true;
+	return ptr != 0 && !Memory::IsValidRange(ptr, size);
+}
+
+// The syscall behind usersystemlib's sceKernelGetTlsAddr, which calls it as (uid, &addr, NULL) when
+// the thread's cached address is null. Homebrew that has to run before usersystemlib.prx is loaded
+// (like plugins) inlines that code, so it imports this directly. Checked against threadman.prx.
+// We don't fill in the per-thread cache at $k0+0x40, so callers always take this path.
+int _sceKernelAllocateTlspl(SceUID uid, u32 addrPtr, u32 timeoutPtr) {
+	if (__KernelIsBadUserPtr(addrPtr, 4) || addrPtr == 0 || __KernelIsBadUserPtr(timeoutPtr, 4))
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "bad pointer");
+	if (__IsInInterrupt())
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "in interrupt");
+	if (!__KernelIsDispatchEnabled())
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
+
+	// Unlike sceKernelGetTlsAddr, no lookup by index.
+	u32 error;
+	TLSPL *tls = kernelObjects.Get<TLSPL>(uid, error);
+	if (!tls)
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_UNKNOWN_TLSPL_ID, "tlspl not found");
+
+	u32 allocAddress = __KernelAllocateTls(tls);
+	if (allocAddress == 0) {
+		SceUID threadID = __KernelGetCurThread();
+		tls->waitingThreads.push_back(threadID);
+		if (timeoutPtr != 0 && tlsplWaitTimer != -1) {
+			int micro = (int)Memory::ReadOrException_U32(timeoutPtr);
+			CoreTiming::ScheduleEvent(usToCycles(micro), tlsplWaitTimer, threadID);
+		}
+		__KernelWaitCurThread(WAITTYPE_TLSPL, uid, addrPtr, timeoutPtr, false, "allocate tls");
+		return hleLogDebug(Log::sceKernel, 0, "waiting for tls alloc");
+	}
+
+	Memory::WriteOrException_U32(allocAddress, addrPtr);
+	return hleLogDebug(Log::sceKernel, 0, "addr=%08x", allocAddress);
 }
 
 // Parameters are an educated guess.
