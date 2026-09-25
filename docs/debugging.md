@@ -184,17 +184,19 @@ the software renderer the README promises (`bSoftwareRendering` defaulted to fal
 Linux/WSL, OpenGL hung every commercial game tried early in boot, e.g. AI Go right after its
 `sceKernelCreateCallback`, with no CPU use. Neither `--timeout-wall` nor `--timeout-emulated` fired, because both
 are checked only when the emulation loop comes back around, so a blocked host thread defeats them. `test.py`
-passes no `--graphics` either, so it stalled the same way. The default is software again; the OpenGL hang itself
-isn't fixed.
+passes no `--graphics` either, so it stalled the same way. The default is software again. The hang was most likely
+headless never presenting its frames: OpenGL's render thread only finishes a frame once it's presented, so the emu
+thread ended up waiting in `GLRenderManager::BeginFrame` for a free frame while the render thread waited for work.
+That's fixed (headless presents now), and verified on macOS, not yet on Linux.
 
-**For game runs, prefer `--graphics=vulkan`.** Headless renders it offscreen, into images of its own with no
-window, surface or swapchain, so it needs no display, and works on macOS through MoltenVK. It's far faster than
-the software renderer, which runs display lists synchronously inside `sceGeListEnQueue` and so dominates any
-profile of the emulator thread: 30 emulated seconds of God of War take about 4 seconds instead of a minute. OpenGL
-headless deadlocks at startup on macOS too, main thread in `GLRenderManager::ThreadFrame` with no CPU use. The
-pspautotests pass on Vulkan apart from 17 GPU tests, whose references are hardware screenshots that the hardware
-backends don't match exactly (edge pixels, dithering, filtering, Metal's always-on primitive restart), so keep
-`--graphics=software` for those.
+**For game runs, prefer a hardware backend.** Headless renders `--graphics=vulkan` offscreen, into images of its
+own with no window, surface or swapchain, so it needs no display, and works on macOS through MoltenVK. On macOS,
+`--graphics=opengl` also runs without a window, in a CGL context rendering into a framebuffer object of its own;
+elsewhere it still uses a hidden SDL window. Both are far faster than the software renderer, which runs display
+lists synchronously inside `sceGeListEnQueue` and so dominates any profile of the emulator thread: 30 emulated
+seconds of God of War take 3-4 seconds instead of a minute. The pspautotests pass on both apart from the same 17
+GPU tests, whose references are hardware screenshots that the hardware backends don't match exactly (edge pixels,
+dithering, filtering, Metal's always-on primitive restart), so keep `--graphics=software` for those.
 
 That cost a lot of time because the first theories were confounded. Runs "worked in the background and hung in
 the foreground" only because the background ones happened to have `--graphics=software` added. Change one variable
