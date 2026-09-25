@@ -330,12 +330,14 @@ struct AutoTestOptions {
 	int requiredDisableHLE;
 };
 
-// Ends a frame of the draw context the way the app does, presenting it. With Vulkan, presenting is
-// also what returns a frame's image, and a frame that isn't presented would wait forever for its
-// next one. The other backends present to a hidden window, which could wait for vsync.
+// Ends a frame of the draw context the way the app does, presenting it. Unpresented frames never
+// finish: with Vulkan, presenting is what returns a frame's image, and OpenGL's render thread only
+// finishes a frame when it's presented, so either would eventually wait forever. Neither waits for
+// vsync here (Vulkan and, on macOS, OpenGL render offscreen, and the hidden-window OpenGL context
+// swaps with interval 0). D3D11 presents to a hidden window, which could.
 static void EndDrawFrame(Draw::DrawContext *draw) {
 	draw->EndFrame();
-	if (GetGPUBackend() == GPUBackend::VULKAN) {
+	if (GetGPUBackend() == GPUBackend::VULKAN || GetGPUBackend() == GPUBackend::OPENGL) {
 		draw->Present(Draw::PresentMode::FIFO);
 	}
 }
@@ -964,6 +966,11 @@ int main(int argc, const char* argv[]) {
 			vulkanContext->SetOffscreen(480, 272);
 			graphicsContext = vulkanContext;
 			deviceSetting = &g_Config.sVulkanDevice;
+#if PPSSPP_PLATFORM(MAC) && defined(SDL)
+		} else if (gpuCore == GPUCORE_GLES) {
+			// So does OpenGL, into a framebuffer object of its own.
+			graphicsContext = new CGLHeadlessGraphicsContext(480, 272);
+#endif
 		} else {
 			// TODO: Will we need a larger window for higher resolutions? Well, not if we use buffered rendering.
 			window = CreateHiddenWindow(480, 272, cmdLineOptions.gpuBackend.value_or(GPUBackend::OPENGL), &windowDesc);

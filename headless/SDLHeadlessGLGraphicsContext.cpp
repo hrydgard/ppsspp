@@ -25,7 +25,12 @@
 #include "headless/SDLHeadlessGLGraphicsContext.h"
 #include "Common/GPU/OpenGL/GLCommon.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
+#if PPSSPP_PLATFORM(MAC)
+// After glew, which has its own definitions of what this would include.
+#include <OpenGL/OpenGL.h>
+#endif
 #include "Common/GPU/thin3d_create.h"
+#include "Common/StringUtils.h"
 #include "Common/File/VFS/VFS.h"
 #include "Common/File/VFS/DirectoryReader.h"
 #include "Common/GPU/GraphicsContext.h"
@@ -91,6 +96,92 @@ bool SDLHeadlessGLGraphicsContext::InitSurface(WindowSystem winsys, void *data1,
 	// Not used in this context.
 	return true;
 }
+
+#if PPSSPP_PLATFORM(MAC)
+
+// Bound by the GL backend wherever it would bind the default framebuffer.
+extern GLuint g_defaultFBO;
+
+bool CGLHeadlessGraphicsContext::InitAPI(void *wnd, std::string *deviceName, std::string *errorMessage) {
+	const CGLPixelFormatAttribute attributes[] = {
+		kCGLPFAAccelerated,
+		kCGLPFAOpenGLProfile, (CGLPixelFormatAttribute)kCGLOGLPVersion_GL4_Core,
+		kCGLPFAColorSize, (CGLPixelFormatAttribute)24,
+		kCGLPFAAlphaSize, (CGLPixelFormatAttribute)8,
+		(CGLPixelFormatAttribute)0,
+	};
+	CGLPixelFormatObj pixelFormat = nullptr;
+	GLint formatCount = 0;
+	if (CGLChoosePixelFormat(attributes, &pixelFormat, &formatCount) != kCGLNoError || !pixelFormat) {
+		*errorMessage = "CGLChoosePixelFormat failed";
+		return false;
+	}
+	CGLContextObj context = nullptr;
+	CGLError err = CGLCreateContext(pixelFormat, nullptr, &context);
+	CGLDestroyPixelFormat(pixelFormat);
+	if (err != kCGLNoError) {
+		*errorMessage = StringFromFormat("CGLCreateContext failed: %s", CGLErrorString(err));
+		return false;
+	}
+	context_ = context;
+	CGLSetCurrentContext(context);
+
+	// Core profile drivers leave some extensions out of the list, so glew has to look for them anyway.
+	SetGLCoreContext(true);
+	glewExperimental = true;
+	if (glewInit() != GLEW_OK) {
+		*errorMessage = "Failed to initialize glew";
+		return false;
+	}
+	// glew causes an invalid enum error with core profiles, ignore it.
+	glGetError();
+
+	// There's no drawable, so the backbuffer is a framebuffer object of our own.
+	glGenRenderbuffers(1, &colorBuffer_);
+	glBindRenderbuffer(GL_RENDERBUFFER, colorBuffer_);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_RGBA8, width_, height_);
+	glGenRenderbuffers(1, &depthStencilBuffer_);
+	glBindRenderbuffer(GL_RENDERBUFFER, depthStencilBuffer_);
+	glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, width_, height_);
+	glGenFramebuffers(1, &fbo_);
+	glBindFramebuffer(GL_FRAMEBUFFER, fbo_);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_RENDERBUFFER, colorBuffer_);
+	glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, depthStencilBuffer_);
+	if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+		*errorMessage = "The offscreen framebuffer is incomplete";
+		return false;
+	}
+	g_defaultFBO = fbo_;
+
+	CheckGLExtensions();
+	SetGPUBackend(GPUBackend::OPENGL);
+	draw_ = Draw::T3DCreateGLContext(false);
+	renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+	renderManager_->SetInflightFrames(g_Config.iInflightFrames);
+	bool success = draw_->CreatePresets();
+	_assert_(success);
+	// Nothing to swap. Flushing keeps the frames moving like a swap would.
+	renderManager_->SetSwapFunction([]() {
+		glFlush();
+	});
+	return success;
+}
+
+void CGLHeadlessGraphicsContext::ShutdownSurface() {
+	delete draw_;
+	draw_ = nullptr;
+
+	g_defaultFBO = 0;
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	glDeleteFramebuffers(1, &fbo_);
+	glDeleteRenderbuffers(1, &colorBuffer_);
+	glDeleteRenderbuffers(1, &depthStencilBuffer_);
+	CGLSetCurrentContext(nullptr);
+	CGLDestroyContext((CGLContextObj)context_);
+	context_ = nullptr;
+}
+
+#endif
 
 bool SDLHeadlessGLGraphicsContext::InitAPI(void *wnd, std::string *deviceName, std::string *errorMessage) {
 	SDL_Init(SDL_INIT_VIDEO);

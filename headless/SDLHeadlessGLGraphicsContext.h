@@ -19,6 +19,7 @@
 
 #ifdef SDL
 
+#include "ppsspp_config.h"
 #include <SDL3/SDL.h>
 
 #include "Common/GPU/GraphicsContext.h"
@@ -69,5 +70,59 @@ private:
 
 void *CreateHiddenWindow(int w, int h, GPUBackend backend, WindowDesc *desc);
 void DestroyHiddenWindow(void *window, WindowDesc desc);
+
+#if PPSSPP_PLATFORM(MAC)
+
+// An OpenGL context with no window: a CGL context without a drawable, rendering into a framebuffer
+// object of its own that stands in for the backbuffer (through g_defaultFBO). Core profile, like
+// the SDL app uses on macOS.
+class CGLHeadlessGraphicsContext : public GraphicsContext {
+public:
+	CGLHeadlessGraphicsContext(int width, int height) : width_(width), height_(height) {}
+	~CGLHeadlessGraphicsContext() { delete draw_; }
+
+	bool InitAPI(void *wnd, std::string *deviceNameSetting, std::string *errorMessage) override;
+	bool InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *errorMessage) override {
+		return true;
+	}
+	void ShutdownSurface() override;
+
+	bool NeedsSeparateEmuThread() const override { return true; }
+
+	Draw::DrawContext *GetDrawContext() override {
+		return draw_;
+	}
+
+	void ThreadStart() override {
+		renderManager_->ThreadStart(draw_);
+	}
+
+	bool ThreadFrame() override {
+		return renderManager_->ThreadFrame();
+	}
+
+	void ThreadEnd() override {
+		renderManager_->ThreadEnd();
+	}
+
+	void Resize() override {}
+
+	// Call from emu thread
+	void NotifyEmuThreadExit() override {
+		renderManager_->NotifyEmuThreadExit();
+	}
+
+private:
+	Draw::DrawContext *draw_ = nullptr;
+	GLRenderManager *renderManager_ = nullptr;
+	void *context_ = nullptr;  // CGLContextObj
+	unsigned int fbo_ = 0;
+	unsigned int colorBuffer_ = 0;
+	unsigned int depthStencilBuffer_ = 0;
+	int width_;
+	int height_;
+};
+
+#endif
 
 #endif
