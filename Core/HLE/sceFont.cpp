@@ -360,7 +360,8 @@ public:
 		if (s >= 3) {
 			Do(p, mode_);
 		} else {
-			mode_ = FONT_OPEN_INTERNAL_FULL;
+			// Only the destructor looks at this: a font loaded above is ours to delete.
+			mode_ = internalFont == -1 ? FONT_OPEN_USERBUFFER : FONT_OPEN_INTERNAL_FULL;
 		}
 	}
 

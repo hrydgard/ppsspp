@@ -40,6 +40,13 @@ void DoList(PointerWrap &p, std::list<T> &x, T &default_val) {
 
 template<class T>
 void Do(PointerWrap &p, std::list<T *> &x) {
+	if (p.mode == PointerWrap::MODE_READ) {
+		// The elements are owned (DoClass replaces them), and a shorter list would drop the rest.
+		for (T *elem : x) {
+			delete elem;
+		}
+		x.clear();
+	}
 	T *dv = nullptr;
 	Do(p, x, dv);
 }

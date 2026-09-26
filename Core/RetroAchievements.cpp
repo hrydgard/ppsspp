@@ -902,6 +902,9 @@ void DoState(PointerWrap &p) {
 		data_size = (uint32_t)(g_rcClient ? rc_client_progress_size(g_rcClient) : 0);
 	}
 	Do(p, data_size);
+	if (p.mode == PointerWrap::MODE_READ && !p.CheckRead(data_size)) {
+		return;
+	}
 
 	if (data_size > 0) {
 		uint8_t *buffer = new uint8_t[data_size];

@@ -136,6 +136,11 @@ void PGF::DoState(PointerWrap &p) {
 	fontDataSize = (size_t)fontDataSizeTemp;
 	if (p.mode == p.MODE_READ) {
 		delete [] fontData;
+		fontData = nullptr;
+		if (!p.CheckRead(fontDataSize)) {
+			fontDataSize = 0;
+			return;
+		}
 		if (fontDataSize) {
 			fontData = new u8[fontDataSize];
 			DoArray(p, fontData, (int)fontDataSize);

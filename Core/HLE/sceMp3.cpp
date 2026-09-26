@@ -164,6 +164,11 @@ void __Mp3DoState(PointerWrap &p) {
 	if (s >= 2) {
 		Do(p, g_mp3Map);
 	} else {
+		for (auto &[_, mp3] : g_mp3Map) {
+			delete mp3;
+		}
+		g_mp3Map.clear();
+
 		std::map<u32, Mp3ContextOld *> mp3Map_old;
 		Do(p, mp3Map_old); // read old map
 		for (auto it = mp3Map_old.begin(), end = mp3Map_old.end(); it != end; ++it) {
@@ -188,6 +193,7 @@ void __Mp3DoState(PointerWrap &p) {
 
 			mp3->decoder = CreateAudioDecoder(PSP_CODEC_MP3);
 			g_mp3Map[id] = mp3;
+			delete mp3_old;
 		}
 	}
 

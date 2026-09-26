@@ -774,6 +774,11 @@ void SasInstance::DoState(PointerWrap &p) {
 
 	Do(p, grainSize);
 	if (p.mode == p.MODE_READ) {
+		if (grainSize > PSP_SAS_MAX_GRAIN) {
+			ERROR_LOG(Log::SaveState, "Bad SAS grain size %d", grainSize);
+			p.SetError(p.ERROR_FAILURE);
+			return;
+		}
 		if (grainSize > 0) {
 			SetGrainSize(grainSize);
 		} else {
@@ -803,6 +808,7 @@ void SasInstance::DoState(PointerWrap &p) {
 	Do(p, n);
 	if (n != PSP_SAS_VOICES_MAX) {
 		ERROR_LOG(Log::SaveState, "Wrong number of SAS voices");
+		p.SetError(p.ERROR_FAILURE);
 		return;
 	}
 	DoArray(p, voices, ARRAY_SIZE(voices));

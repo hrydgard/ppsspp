@@ -105,8 +105,13 @@ void FPL::DoState(PointerWrap &p) {
 		return;
 
 	Do(p, nf);
-	if (p.mode == p.MODE_READ)
+	if (p.mode == p.MODE_READ) {
+		if (nf.numBlocks < 0 || !p.CheckRead(nf.numBlocks)) {
+			p.SetError(p.ERROR_FAILURE);
+			return;
+		}
 		blocks = new bool[nf.numBlocks];
+	}
 	DoArray(p, blocks, nf.numBlocks);
 	Do(p, address);
 	Do(p, alignedSize);
