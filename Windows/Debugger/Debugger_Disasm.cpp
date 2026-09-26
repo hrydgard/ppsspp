@@ -195,6 +195,7 @@ CDisasm::~CDisasm()
 	delete threadList;
 	delete stackTraceView;
 	delete moduleList;
+	delete watchList_;
 }
 
 void CDisasm::step(CPUStepType stepType) {
