@@ -121,6 +121,11 @@ void deleteMatchingEvents(const int matchingId = -1) {
 	}
 }
 
+// For savestate loads: the events' buffers were allocated from the memory the load just replaced.
+void discardMatchingEvents() {
+	std::lock_guard<std::recursive_mutex> adhocGuard(adhocEvtMtx);
+	matchingEvents.clear();
+}
 
 /**
 * Broadcast Ping Message to other Matching Users
