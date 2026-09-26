@@ -1279,6 +1279,12 @@ skip:
 		return false;
 	}
 
+	void RehashFunctions() {
+		std::lock_guard<std::recursive_mutex> guard(functions_lock);
+		HashFunctions();
+		UpdateHashToFunctionMap();
+	}
+
 	void ReplaceFunctions() {
 		std::lock_guard<std::recursive_mutex> guard(functions_lock);
 
