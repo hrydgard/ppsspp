@@ -45,6 +45,10 @@ struct KernelHeap : public KernelObject {
 	}
 };
 
+KernelObject *__KernelHeapObject() {
+	return new KernelHeap;
+}
+
 static int sceKernelCreateHeap(int partitionId, int size, int flags, const char *Name) {
 	// Everything below is recorded by pspautotests sysmem/kernel/heap, which is the first test
 	// this API has ever had - these used to be guesses.

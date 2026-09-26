@@ -593,9 +593,11 @@ void KernelObjectPool::DoState(PointerWrap &p) {
 			Do(p, type);
 			pool[i] = CreateByIDType(type);
 
-			// Already logged an error.
-			if (pool[i] == nullptr)
+			// Already logged an error.  The rest of the stream can't be read without knowing its size.
+			if (pool[i] == nullptr) {
+				p.SetError(p.ERROR_FAILURE);
 				return;
+			}
 
 			pool[i]->uid = i + handleOffset;
 		} else {
@@ -648,6 +650,8 @@ KernelObject *KernelObjectPool::CreateByIDType(int type) {
 		return __KernelDirListingObject();
 	case SCE_KERNEL_TMID_ThreadEventHandler:
 		return __KernelThreadEventHandlerObject();
+	case PPSSPP_KERNEL_TMID_Heap:
+		return __KernelHeapObject();
 
 	default:
 		ERROR_LOG(Log::SaveState, "Unable to load state: could not find object type %d.", type);

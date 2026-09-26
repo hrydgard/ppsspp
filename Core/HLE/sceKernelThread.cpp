@@ -849,6 +849,10 @@ void __KernelThreadingDoState(PointerWrap &p)
 	if (s >= 5) {
 		Do(p, actionAfterExitCallback);
 		__KernelRestoreActionType(actionAfterExitCallback, ActionAfterExitCallback::Create);
+	} else {
+		// Older states numbered the action types without this one, so the slot it got at boot may
+		// now be restored to another type (sceMpeg's).  Give it a new one after all of those.
+		actionAfterExitCallback = __KernelRegisterActionType(ActionAfterExitCallback::Create);
 	}
 
 	Do(p, pausedDelays);
