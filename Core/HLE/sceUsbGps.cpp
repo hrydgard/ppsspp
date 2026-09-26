@@ -49,10 +49,15 @@ void __UsbGpsDoState(PointerWrap &p) {
 	if (!s)
 		return;
 
+	const bool wasOn = gpsStatus == GPS_STATE_ON;
 	Do(p, gpsStatus);
-	if (gpsStatus == GPS_STATE_ON) {
-		GPS::init();
-		System_GPSCommand("open");
+	if (p.mode == p.MODE_READ) {
+		if (gpsStatus == GPS_STATE_ON) {
+			GPS::init();
+			System_GPSCommand("open");
+		} else if (wasOn) {
+			System_GPSCommand("close");
+		}
 	}
 }
 

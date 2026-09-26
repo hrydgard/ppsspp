@@ -852,6 +852,11 @@ int g_screenshotFailures;
 
 		if (!needsProcess)
 			return;
+		if (coreState == CORE_STEPPING_GE || coreState == CORE_RUNNING_GE) {
+			// A display list stopped in the GE debugger still belongs to the sceGe call that started
+			// it, which finishes when the list does. Wait for that.
+			return;
+		}
 		needsProcess = false;
 
 		if (!__KernelIsRunning()) {
