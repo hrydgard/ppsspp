@@ -112,6 +112,7 @@ void GPUCommon::Reinitialize() {
 	drawCompleteTicks = 0;
 	busyTicks = 0;
 	interruptsEnabled_ = true;
+	videos_.clear();
 
 	if (textureCache_)
 		textureCache_->Clear(true);
@@ -1722,6 +1723,8 @@ void GPUCommon::DoState(PointerWrap &p) {
 			p.SetError(p.ERROR_FAILURE);
 			return;
 		}
+		// Video frames aren't saved, and the ones before the load are no longer in memory.
+		videos_.clear();
 	}
 	// List 0 looks the same as no list here, but no list means an empty queue.
 	if (currentID == 0 && (dlQueue.empty() || dlQueue.front() != 0)) {

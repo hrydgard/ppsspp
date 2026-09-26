@@ -187,6 +187,11 @@ void __VideocodecShutdown() {
 }
 
 void __VideocodecDoState(PointerWrap &p) {
+	if (p.mode == p.MODE_READ) {
+		// Not serialized, and the clock it was measured against just moved (maybe backwards).
+		g_meBusyUntilUs = 0;
+	}
+
 	auto s = p.Section("sceVideocodec", 0, 1);
 	if (!s) {
 		return;
