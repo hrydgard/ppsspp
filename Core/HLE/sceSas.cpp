@@ -204,6 +204,12 @@ void __SasDoState(PointerWrap &p) {
 	CoreTiming::RestoreRegisterEvent(sasMixEvent, "SasMix", sasMixFinish);
 }
 
+void __SasWaitForMix() {
+	if (sasThreadState == SasThreadState::QUEUED) {
+		__SasDrain();
+	}
+}
+
 void __SasShutdown() {
 	__SasDisableThread();
 

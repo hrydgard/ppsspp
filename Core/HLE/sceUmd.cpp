@@ -92,7 +92,7 @@ void __UmdDoState(PointerWrap &p)
 		return;
 
 	u8 activatedByte = umdActivated ? 1 : 0;
-	Do(p, umdActivated);
+	Do(p, activatedByte);
 	umdActivated = activatedByte != 0;
 	Do(p, umdStatus);
 	Do(p, umdErrorStat);

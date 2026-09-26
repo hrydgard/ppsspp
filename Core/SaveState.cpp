@@ -49,6 +49,8 @@
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceUtility.h"
+#include "Core/HLE/sceSas.h"
+#include "Core/HLE/sceIo.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/RetroAchievements.h"
@@ -139,14 +141,18 @@ int g_screenshotFailures;
 	void SaveStart::DoState(PointerWrap &p) {
 		// Nothing may still be writing PSP memory while it's saved, or be left to write into what's loaded.
 		__UtilityWaitForIO();
+		__SasWaitForMix();
+		__IoWaitForAsync();
 
 		auto s = p.Section("SaveStart", 1, 3);
 		if (!s)
 			return;
 
 		if (s >= 2) {
-			// This only increments on save, of course.
-			++saveStateGeneration;
+			// This only increments on save, of course (once, not also in the measuring pass.)
+			if (p.mode == p.MODE_WRITE) {
+				++saveStateGeneration;
+			}
 			Do(p, saveStateGeneration);
 			// This saves the first git version to create this save state (or generation of save states.)
 			if (saveStateInitialGitVersion.empty())

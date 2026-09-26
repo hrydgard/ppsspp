@@ -665,6 +665,10 @@ void __IoInit() {
 	lastMemStickFatState = MemoryStick_FatState();
 }
 
+void __IoWaitForAsync() {
+	ioManager.SyncThread();
+}
+
 void __IoShutdown() {
 	ioManagerThreadEnabled = false;
 	ioManager.SyncThread();

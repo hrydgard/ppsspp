@@ -20,6 +20,8 @@
 void __SasInit();
 void __SasDoState(PointerWrap &p);
 void __SasShutdown();
+// Waits for a mix still writing PSP memory on the SAS thread.
+void __SasWaitForMix();
 
 void __SasGetDebugStats(char *stats, size_t bufsize);
 bool *__SasGetGlobalMuteFlag();
