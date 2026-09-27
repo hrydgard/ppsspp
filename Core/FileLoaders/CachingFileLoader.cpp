@@ -100,7 +100,6 @@ size_t CachingFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, Flag
 }
 
 void CachingFileLoader::InitCache() {
-	cacheSize_ = 0;
 	oldestGeneration_ = 0;
 	generation_ = 0;
 }
@@ -120,7 +119,6 @@ void CachingFileLoader::ShutdownCache() {
 		delete [] block.second.ptr;
 	}
 	blocks_.clear();
-	cacheSize_ = 0;
 }
 
 size_t CachingFileLoader::ReadFromCache(s64 pos, size_t bytes, void *data) {
@@ -152,6 +150,8 @@ size_t CachingFileLoader::ReadFromCache(s64 pos, size_t bytes, void *data) {
 void CachingFileLoader::SaveIntoCache(s64 pos, size_t bytes, Flags flags, bool readingAhead) {
 	s64 cacheStartPos = pos >> BLOCK_SHIFT;
 	s64 cacheEndPos = (pos + bytes - 1) >> BLOCK_SHIFT;
+	// Read-ahead can ask for blocks past the end of the file.
+	cacheEndPos = std::min(cacheEndPos, (filesize_ - 1) >> BLOCK_SHIFT);
 
 	std::lock_guard<std::recursive_mutex> guard(blocksMutex_);
 	size_t blocksToRead = 0;
@@ -183,8 +183,9 @@ void CachingFileLoader::SaveIntoCache(s64 pos, size_t bytes, Flags flags, bool r
 			// Only cache a block we actually fully read - a short/failed read (e.g. a
 			// dropped connection on a Remote ISO) must not be cached as if valid, or
 			// every later read of this block would silently return the uninitialized
-			// tail of `buf` as if it were real file data.
-			if (readBytes == BLOCK_SIZE) {
+			// tail of `buf` as if it were real file data. The last block of the file
+			// is shorter, and complete if the read reached the end.
+			if (readBytes == BLOCK_SIZE || (readBytes > 0 && (cacheStartPos << BLOCK_SHIFT) + (s64)readBytes == filesize_)) {
 				blocks_[cacheStartPos] = BlockInfo{buf};
 			} else {
 				delete [] buf;
@@ -198,6 +199,10 @@ void CachingFileLoader::SaveIntoCache(s64 pos, size_t bytes, Flags flags, bool r
 		u8 *wholeRead = new u8[blocksToRead << BLOCK_SHIFT];
 		size_t readBytes = backend_->ReadAt(cacheStartPos << BLOCK_SHIFT, blocksToRead << BLOCK_SHIFT, wholeRead, flags);
 		size_t wholeBlocksRead = readBytes >> BLOCK_SHIFT;
+		if ((readBytes & (BLOCK_SIZE - 1)) != 0 && (cacheStartPos << BLOCK_SHIFT) + (s64)readBytes == filesize_) {
+			// The short last block of the file.
+			wholeBlocksRead++;
+		}
 
 		blocksMutex_.lock();
 		for (size_t i = 0; i < wholeBlocksRead; ++i) {
@@ -212,19 +217,18 @@ void CachingFileLoader::SaveIntoCache(s64 pos, size_t bytes, Flags flags, bool r
 		delete[] wholeRead;
 	}
 
-	cacheSize_ += blocksToRead;
 	++generation_;
 }
 
 bool CachingFileLoader::MakeCacheSpaceFor(size_t blocks, bool readingAhead) {
 	size_t goal = MAX_BLOCKS_CACHED - blocks;
 
-	if (readingAhead && cacheSize_ > goal) {
+	if (readingAhead && blocks_.size() > goal) {
 		return false;
 	}
 
 	std::lock_guard<std::recursive_mutex> guard(blocksMutex_);
-	while (cacheSize_ > goal) {
+	while (blocks_.size() > goal) {
 		u64 minGeneration = generation_;
 
 		// We increment the iterator inside because we delete things inside.
@@ -240,10 +244,9 @@ bool CachingFileLoader::MakeCacheSpaceFor(size_t blocks, bool readingAhead) {
 				s64 pos = it->first;
 				delete [] it->second.ptr;
 				blocks_.erase(it);
-				--cacheSize_;
 
 				// Our iterator is invalid now.  Keep going?
-				if (cacheSize_ > goal) {
+				if (blocks_.size() > goal) {
 					// This finds the one at that position.
 					it = blocks_.lower_bound(pos);
 				} else {
@@ -267,7 +270,7 @@ void CachingFileLoader::StartReadAhead(s64 pos) {
 		// Already going.
 		return;
 	}
-	if (cacheSize_ + BLOCK_READAHEAD > MAX_BLOCKS_CACHED) {
+	if (blocks_.size() + BLOCK_READAHEAD > MAX_BLOCKS_CACHED) {
 		// Not enough space to readahead.
 		return;
 	}

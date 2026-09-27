@@ -291,11 +291,15 @@ size_t DiskCachingFileLoaderCache::SaveIntoCache(FileLoader *backend, s64 pos, s
 		size_t readBytes = backend->ReadAt(cacheStartPos * (u64)blockSize_, blockSize_, buf, flags);
 
 		// A short/failed read (e.g. a dropped Remote ISO connection) must not be
-		// cached or returned as if it were valid data - only a full block counts.
-		if (readBytes == (size_t)blockSize_) {
+		// cached or returned as if it were valid data - only a full block counts,
+		// or the shorter last block of the file if the read reached the end.
+		if (readBytes == (size_t)blockSize_ || (readBytes > 0 && cacheStartPos * (u64)blockSize_ + readBytes == (u64)filesize_)) {
+			// Don't write uninitialized memory to the cache file.
+			memset(buf + readBytes, 0, blockSize_ - readBytes);
 			// Check if it was written while we were busy.  Might happen if we thread.
 			if (info.block == INVALID_BLOCK) {
 				info.block = AllocateBlock((u32)cacheStartPos);
+				++cacheSize_;
 				WriteBlockData(info, buf);
 				WriteIndexData((u32)cacheStartPos, info);
 			}
@@ -313,12 +317,18 @@ size_t DiskCachingFileLoaderCache::SaveIntoCache(FileLoader *backend, s64 pos, s
 		// the first short/missing one instead of caching (and returning) whatever
 		// was left over in the rest of `wholeRead` from a partial or failed read.
 		size_t wholeBlocksRead = readBytes / (size_t)blockSize_;
+		if (readBytes % blockSize_ != 0 && cacheStartPos * (u64)blockSize_ + readBytes == (u64)filesize_) {
+			// The short last block of the file.
+			memset(wholeRead + readBytes, 0, blockSize_ - readBytes % blockSize_);
+			wholeBlocksRead++;
+		}
 
 		for (size_t i = 0; i < wholeBlocksRead; ++i) {
 			auto &info = index_[cacheStartPos + i];
 			// Check if it was written while we were busy.  Might happen if we thread.
 			if (info.block == INVALID_BLOCK) {
 				info.block = AllocateBlock((u32)cacheStartPos + (u32)i);
+				++cacheSize_;
 				WriteBlockData(info, wholeRead + (i * blockSize_));
 				// TODO: Doing each index together would probably be better.
 				WriteIndexData((u32)cacheStartPos + (u32)i, info);
@@ -333,7 +343,6 @@ size_t DiskCachingFileLoaderCache::SaveIntoCache(FileLoader *backend, s64 pos, s
 		delete[] wholeRead;
 	}
 
-	cacheSize_ += blocksToRead;
 	++generation_;
 
 	if (generation_ == std::numeric_limits<u16>::max()) {

@@ -62,7 +62,6 @@ private:
 	int isDirectory_ = -1;
 	u64 generation_ = 0;
 	u64 oldestGeneration_ = 0;
-	size_t cacheSize_ = 0;
 
 	struct BlockInfo {
 		u8 *ptr;
