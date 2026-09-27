@@ -37,9 +37,11 @@
 #include <typeinfo>
 
 #include <algorithm>
+#include <atomic>
 #include <cstdio>
 #include <cstdlib>
 #include <cmath>
+#include <memory>
 #include <vector>
 #include <string>
 #include <sstream>
@@ -103,6 +105,7 @@
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
 #include "Core/Debugger/MemBlockInfo.h"
+#include "Core/FileLoaders/CachingFileLoader.h"
 #include "Core/FileSystems/FileSystem.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/MemMap.h"
@@ -2034,6 +2037,65 @@ bool TestParseLBN() {
 	return true;
 }
 
+// Serves byte i as (u8)(i * 31 + 7), clamped to the file size like HTTPFileLoader.
+// The read counter lives outside, since CachingFileLoader deletes its backend.
+class PatternFileLoader : public FileLoader {
+public:
+	PatternFileLoader(s64 size, std::atomic<int> *reads) : size_(size), reads_(reads) {}
+	bool Exists() override { return true; }
+	bool IsDirectory() override { return false; }
+	s64 FileSize() override { return size_; }
+	Path GetPath() const override { return Path(); }
+	size_t ReadAt(s64 pos, size_t bytes, size_t count, void *data, Flags flags) override {
+		(*reads_)++;
+		s64 end = std::min(pos + (s64)(bytes * count), size_);
+		for (s64 i = pos; i < end; i++) {
+			((u8 *)data)[i - pos] = (u8)(i * 31 + 7);
+		}
+		return pos < end ? (size_t)(end - pos) / bytes : 0;
+	}
+
+private:
+	s64 size_;
+	std::atomic<int> *reads_;
+};
+
+static bool MatchesPattern(const u8 *data, s64 pos, size_t bytes) {
+	for (size_t i = 0; i < bytes; i++) {
+		if (data[i] != (u8)((pos + i) * 31 + 7)) {
+			return false;
+		}
+	}
+	return true;
+}
+
+static bool TestCachingFileLoader() {
+	// The last 64 KB block of the file is short.
+	const s64 size = 3 * 65536 + 1234;
+	std::atomic<int> reads{};
+	std::unique_ptr<CachingFileLoader> loader(new CachingFileLoader(new PatternFileLoader(size, &reads)));
+	std::vector<u8> buf(65536 * 2);
+
+	s64 pos = 3 * 65536 + 100;
+	EXPECT_EQ_INT(loader->ReadAt(pos, 100, buf.data()), 100);
+	EXPECT_TRUE(MatchesPattern(buf.data(), pos, 100));
+	pos = 2 * 65536 + 10;
+	EXPECT_EQ_INT(loader->ReadAt(pos, (size_t)(size - pos), buf.data()), (int)(size - pos));
+	EXPECT_TRUE(MatchesPattern(buf.data(), pos, (size_t)(size - pos)));
+
+	// Both reads ended in the last block, so everything they touched is cached and there's
+	// nothing left to read ahead. Nothing further should reach the backend, even past EOF.
+	int readsBefore = reads;
+	pos = 3 * 65536 + 100;
+	for (int i = 0; i < 100; i++) {
+		EXPECT_EQ_INT(loader->ReadAt(pos, 100, buf.data()), 100);
+	}
+	// Waits for any read-ahead.
+	loader.reset();
+	EXPECT_EQ_INT(reads, readsBefore);
+	return true;
+}
+
 // So we can use EXPECT_TRUE, etc.
 struct AlignedMem {
 	AlignedMem(size_t sz, size_t alignment = 16) {
@@ -3060,6 +3122,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(Jit),
 	TEST_ITEM(VFPUMatrixTranspose),
 	TEST_ITEM(ParseLBN),
+	TEST_ITEM(CachingFileLoader),
 	TEST_ITEM(QuickTexHash),
 	TEST_ITEM(CLZ),
 	TEST_ITEM(MemMap),
