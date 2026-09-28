@@ -223,6 +223,10 @@ public:
 		{
 			if (p.mode == p.MODE_READ)
 				chainedAction = __KernelCreateAction(chainedActionType);
+			if (!chainedAction) {
+				p.SetError(p.ERROR_FAILURE);
+				return;
+			}
 			chainedAction->DoState(p);
 		}
 	}
@@ -286,6 +290,10 @@ public:
 		auto s = p.Section("ActionAfterExitCallback", 1);
 		if (!s)
 			return;
+		if (p.mode == p.MODE_READ) {
+			// The dispatch is still in flight in the loaded state (see __KernelThreadingDoState.)
+			g_exitCallbackPending = true;
+		}
 	}
 };
 
@@ -570,6 +578,10 @@ void MipsCall::DoState(PointerWrap &p)
 	{
 		if (p.mode == p.MODE_READ)
 			doAfter = __KernelCreateAction(actionTypeID);
+		if (!doAfter) {
+			p.SetError(p.ERROR_FAILURE);
+			return;
+		}
 		doAfter->DoState(p);
 	}
 }
@@ -810,6 +822,11 @@ void __KernelThreadingInit() {
 
 void __KernelThreadingDoState(PointerWrap &p)
 {
+	if (p.mode == p.MODE_READ) {
+		// Set again if an ActionAfterExitCallback is loaded (with the mips calls, later.)
+		g_exitCallbackPending = false;
+	}
+
 	auto s = p.Section("sceKernelThread", 1, 5);
 	if (!s)
 		return;
@@ -849,6 +866,10 @@ void __KernelThreadingDoState(PointerWrap &p)
 	if (s >= 5) {
 		Do(p, actionAfterExitCallback);
 		__KernelRestoreActionType(actionAfterExitCallback, ActionAfterExitCallback::Create);
+	} else {
+		// Older states numbered the action types without this one, so the slot it got at boot may
+		// now be restored to another type (sceMpeg's).  Give it a new one after all of those.
+		actionAfterExitCallback = __KernelRegisterActionType(ActionAfterExitCallback::Create);
 	}
 
 	Do(p, pausedDelays);

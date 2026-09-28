@@ -503,6 +503,9 @@ void __KernelModuleDoState(PointerWrap &p) {
 				}
 			}
 		}
+		// The functions were found in memory from before the load, where other code may have been
+		// (an overlay module, say.) Hash them from what's there now, so a hook only goes where it matches.
+		MIPSAnalyst::RehashFunctions();
 		if (g_Config.bFuncReplacements) {
 			MIPSAnalyst::ReplaceFunctions();
 		}

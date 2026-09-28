@@ -125,7 +125,9 @@ void PointerWrap::SetError(Error error_) {
 		// and also not logspam like MEASURE will do in an error case.
 		mode = PointerWrap::MODE_NOOP;
 		// Also, remember the bad section.
-		firstBadSectionTitle_ = curTitle_;
+		if (!firstBadSectionTitle_) {
+			firstBadSectionTitle_ = curTitle_;
+		}
 	}
 }
 
@@ -363,7 +365,8 @@ CChunkFileReader::Error CChunkFileReader::LoadFileHeader(File::IOFile &pFile, SC
 		}
 
 		if (title) {
-			*title = titleFixed;
+			// Not necessarily terminated in the file.
+			*title = std::string(titleFixed, strnlen(titleFixed, sizeof(titleFixed)));
 		}
 
 		headerSize += 128;

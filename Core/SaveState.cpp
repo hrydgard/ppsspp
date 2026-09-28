@@ -49,6 +49,8 @@
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceUtility.h"
+#include "Core/HLE/sceSas.h"
+#include "Core/HLE/sceIo.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/RetroAchievements.h"
@@ -139,14 +141,18 @@ int g_screenshotFailures;
 	void SaveStart::DoState(PointerWrap &p) {
 		// Nothing may still be writing PSP memory while it's saved, or be left to write into what's loaded.
 		__UtilityWaitForIO();
+		__SasWaitForMix();
+		__IoWaitForAsync();
 
 		auto s = p.Section("SaveStart", 1, 3);
 		if (!s)
 			return;
 
 		if (s >= 2) {
-			// This only increments on save, of course.
-			++saveStateGeneration;
+			// This only increments on save, of course (once, not also in the measuring pass.)
+			if (p.mode == p.MODE_WRITE) {
+				++saveStateGeneration;
+			}
 			Do(p, saveStateGeneration);
 			// This saves the first git version to create this save state (or generation of save states.)
 			if (saveStateInitialGitVersion.empty())
@@ -170,7 +176,7 @@ int g_screenshotFailures;
 		// Memory is a bit tricky when jit is enabled, since there's emuhacks in it.
 		// These must be saved before copying out memory and restored after.
 		auto savedReplacements = SaveAndClearReplacements();
-		if (MIPSComp::jit && p.mode == p.MODE_WRITE) {
+		if (MIPSComp::jit && (p.mode == p.MODE_WRITE || p.mode == p.MODE_VERIFY)) {
 			if (MIPSComp::jit) {
 				std::vector<u32> savedBlocks;
 				savedBlocks = MIPSComp::jit->SaveAndClearEmuHackOps();
@@ -846,6 +852,11 @@ int g_screenshotFailures;
 
 		if (!needsProcess)
 			return;
+		if (coreState == CORE_STEPPING_GE || coreState == CORE_RUNNING_GE) {
+			// A display list stopped in the GE debugger still belongs to the sceGe call that started
+			// it, which finishes when the list does. Wait for that.
+			return;
+		}
 		needsProcess = false;
 
 		if (!__KernelIsRunning()) {
@@ -957,7 +968,10 @@ int g_screenshotFailures;
 
 			case OperationType::Verify:
 			{
+				// Its write pass counts as a save, which it isn't.
+				const int generation = saveStateGeneration;
 				int tempResult = CChunkFileReader::Verify(state) == CChunkFileReader::ERROR_NONE;
+				saveStateGeneration = generation;
 				callbackResult = tempResult ? Status::SUCCESS : Status::FAILURE;
 				if (tempResult) {
 					INFO_LOG(Log::SaveState, "Verified save state system");

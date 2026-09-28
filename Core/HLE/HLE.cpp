@@ -486,16 +486,30 @@ void HLEDoState(PointerWrap &p) {
 	if (s >= 2) {
 		int actions = (int)mipsCallActions.size();
 		Do(p, actions);
-		if (actions != (int)mipsCallActions.size()) {
-			mipsCallActions.resize(actions);
+		if (p.mode == p.MODE_READ) {
+			for (PSPAction *action : mipsCallActions) {
+				delete action;
+			}
+			mipsCallActions.clear();
+			if (actions < 0) {
+				p.SetError(p.ERROR_FAILURE);
+				return;
+			}
+			mipsCallActions.resize(actions, nullptr);
 		}
 
 		for (auto &action : mipsCallActions) {
 			int actionTypeID = action != nullptr ? action->actionTypeID : -1;
 			Do(p, actionTypeID);
 			if (actionTypeID != -1) {
-				if (p.mode == p.MODE_READ)
+				if (p.mode == p.MODE_READ) {
 					action = __KernelCreateAction(actionTypeID);
+					if (!action) {
+						ERROR_LOG(Log::SaveState, "Unable to load state: unknown action type %d", actionTypeID);
+						p.SetError(p.ERROR_FAILURE);
+						return;
+					}
+				}
 				action->DoState(p);
 			}
 		}

@@ -62,6 +62,11 @@ void __HeapDoState(PointerWrap &p) {
 
 	if (s >= 2) {
 		Do(p, heapList);
+	} else if (p.mode == p.MODE_READ) {
+		for (auto &[_, heap] : heapList) {
+			delete heap;
+		}
+		heapList.clear();
 	}
 }
 

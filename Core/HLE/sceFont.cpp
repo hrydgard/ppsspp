@@ -360,7 +360,8 @@ public:
 		if (s >= 3) {
 			Do(p, mode_);
 		} else {
-			mode_ = FONT_OPEN_INTERNAL_FULL;
+			// Only the destructor looks at this: a font loaded above is ours to delete.
+			mode_ = internalFont == -1 ? FONT_OPEN_USERBUFFER : FONT_OPEN_INTERNAL_FULL;
 		}
 	}
 
@@ -1117,6 +1118,11 @@ void __FontDoState(PointerWrap &p) {
 		__KernelRestoreActionType(actionPostCharInfoFreeCallback, PostCharInfoFreeCallback::Create);
 	} else {
 		useAllocCallbacks = false;
+		// The state numbered the action types without these, so the slots they got at boot may now
+		// belong to other types. Give them new ones.
+		actionPostOpenAllocCallback = __KernelRegisterActionType(PostOpenAllocCallback::Create);
+		actionPostCharInfoAllocCallback = __KernelRegisterActionType(PostCharInfoAllocCallback::Create);
+		actionPostCharInfoFreeCallback = __KernelRegisterActionType(PostCharInfoFreeCallback::Create);
 	}
 }
 

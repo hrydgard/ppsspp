@@ -66,6 +66,9 @@ void DoClass(PointerWrap &p, T *&x) {
 	if (p.mode == PointerWrap::MODE_READ) {
 		delete x;
 		x = new T();
+	} else if (p.mode == PointerWrap::MODE_NOOP && !x) {
+		// A load that failed partway leaves the rest of a container unfilled.
+		return;
 	}
 	x->DoState(p);
 }
@@ -76,6 +79,8 @@ void DoSubClass(PointerWrap &p, T *&x, Args... args) {
 		if (x != nullptr)
 			delete x;
 		x = new S(args...);
+	} else if (p.mode == PointerWrap::MODE_NOOP && !x) {
+		return;
 	}
 	x->DoState(p);
 }
@@ -121,6 +126,13 @@ void DoVector(PointerWrap &p, std::vector<T> &x, T &default_val) {
 
 template<class T>
 void Do(PointerWrap &p, std::vector<T *> &x) {
+	if (p.mode == PointerWrap::MODE_READ) {
+		// The elements are owned (DoClass replaces them), and a shorter vector would drop the rest.
+		for (T *elem : x) {
+			delete elem;
+		}
+		x.clear();
+	}
 	T *dv = nullptr;
 	DoVector(p, x, dv);
 }

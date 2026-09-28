@@ -1958,12 +1958,47 @@ void SavedataParam::DoState(PointerWrap &p) {
 	if (!s)
 		return;
 
+	if (p.mode == p.MODE_READ) {
+		// The load replaces kernel memory, so the icons' texture addresses now belong to whatever
+		// the loaded state allocated there. Drop them without freeing those.
+		std::vector<PPGeImage *> oldTextures;
+		for (int i = 0; saveDataList && i < saveDataListCount; i++) {
+			if (saveDataList[i].texture) {
+				oldTextures.push_back(saveDataList[i].texture);
+				saveDataList[i].texture = nullptr;
+			}
+		}
+		if (noSaveIcon) {
+			oldTextures.push_back(noSaveIcon->texture);
+			delete noSaveIcon;
+			noSaveIcon = nullptr;
+		}
+		// Entries may share noSaveIcon's image.
+		std::sort(oldTextures.begin(), oldTextures.end());
+		oldTextures.erase(std::unique(oldTextures.begin(), oldTextures.end()), oldTextures.end());
+		for (PPGeImage *texture : oldTextures) {
+			if (texture) {
+				texture->Forget();
+				delete texture;
+			}
+		}
+	}
+
 	// pspParam is handled in PSPSaveDialog.
 	Do(p, selectedSave);
 	Do(p, saveDataListCount);
 	Do(p, saveNameListDataCount);
 	if (p.mode == p.MODE_READ) {
 		delete [] saveDataList;
+		saveDataList = nullptr;
+		if (saveDataListCount < 0 || !p.CheckRead(saveDataListCount)) {
+			saveDataListCount = 0;
+			saveNameListDataCount = 0;
+			p.SetError(p.ERROR_FAILURE);
+			return;
+		}
+		// Clear() leaves the name count behind, but it's only used to walk the list.
+		saveNameListDataCount = std::clamp(saveNameListDataCount, 0, saveDataListCount);
 		if (saveDataListCount != 0) {
 			saveDataList = new SaveFileInfo[saveDataListCount];
 			DoArray(p, saveDataList, saveDataListCount);

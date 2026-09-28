@@ -115,6 +115,8 @@ namespace MIPSAnalyst {
 	void StoreHashMap(Path filename = Path());
 
 	const char *LookupHash(u64 hash, u32 funcSize);
+	// Hashes the known functions again, from what memory holds now (after a savestate load.)
+	void RehashFunctions();
 	void ReplaceFunctions();
 
 	void UpdateHashMap();

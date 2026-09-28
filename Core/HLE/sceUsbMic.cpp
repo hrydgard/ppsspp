@@ -121,10 +121,12 @@ void __UsbMicShutdown() {
 void __UsbMicDoState(PointerWrap &p) {
 	auto s = p.Section("sceUsbMic", 0, 3);
 	if (!s) {
-		// Still need to restore the event.
-		eventMicBlockingResume = -1;
-		CoreTiming::RestoreRegisterEvent(eventMicBlockingResume, "MicBlockingResume", &__MicBlockingResume);
-		waitingThreads.clear();
+		// Still need to restore the event (unless this is a save that failed earlier.)
+		if (p.mode == p.MODE_READ) {
+			eventMicBlockingResume = -1;
+			CoreTiming::RestoreRegisterEvent(eventMicBlockingResume, "MicBlockingResume", &__MicBlockingResume);
+			waitingThreads.clear();
+		}
 		return;
 	}
 	bool isMicStartedNow = Microphone::isMicStarted();

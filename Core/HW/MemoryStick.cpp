@@ -78,6 +78,10 @@ void MemoryStick_DoState(PointerWrap &p) {
 		Do(p, memStickSize);
 	}
 	if (s >= 5) {
+		if (p.mode != p.MODE_READ && memstickInitialFree == 0 && g_initialMemstickSizePromise) {
+			// Keep the basis the game has seen, even when the state is loaded in another session.
+			memstickInitialFree = g_initialMemstickSizePromise->BlockUntilReady();
+		}
 		Do(p, memstickInitialFree);
 	}
 
@@ -151,8 +155,10 @@ u64 MemoryStick_FreeSpace(std::string gameID) {
 
 	u64 space;
 	if (flags.MemstickFixedFree) {
-		const u64 memstickInitialFree = g_initialMemstickSizePromise->BlockUntilReady();
 		_dbg_assert_(g_initialMemstickSizePromise);
+		if (memstickInitialFree == 0 && g_initialMemstickSizePromise) {
+			memstickInitialFree = g_initialMemstickSizePromise->BlockUntilReady();
+		}
 		// Assassin's Creed: Bloodlines fails to save if free space changes incorrectly during game.
 		// See issue #12761
 		u64 realFreeSpace = 0;
@@ -241,4 +247,5 @@ void MemoryStick_Shutdown() {
 	}
 	delete g_initialMemstickSizePromise;
 	g_initialMemstickSizePromise = nullptr;
+	memstickInitialFree = 0;
 }

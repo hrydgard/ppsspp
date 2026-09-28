@@ -92,7 +92,7 @@ void __UmdDoState(PointerWrap &p)
 		return;
 
 	u8 activatedByte = umdActivated ? 1 : 0;
-	Do(p, umdActivated);
+	Do(p, activatedByte);
 	umdActivated = activatedByte != 0;
 	Do(p, umdStatus);
 	Do(p, umdErrorStat);
@@ -106,7 +106,7 @@ void __UmdDoState(PointerWrap &p)
 
 	if (s > 1) {
 		Do(p, g_UMDReplacePermit);
-		if (g_UMDReplacePermit) {
+		if (g_UMDReplacePermit && p.mode == p.MODE_READ) {
 			System_Notify(SystemNotification::UI);
 		}
 	}

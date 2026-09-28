@@ -182,7 +182,7 @@ public:
 
 private:
 	const char *firstBadSectionTitle_ = nullptr;
-	const char *curTitle_;
+	const char *curTitle_ = nullptr;
 	u8 *ptrStart_;
 	u8 *end_ = nullptr;
 	std::vector<SerializeCheckpoint> checkpoints_;

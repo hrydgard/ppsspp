@@ -311,6 +311,7 @@ int NetAdhocPtp_Connect(int id, int timeout, int flag, bool allowForcedConnect =
 
 // Forward declarations for the savestate mechanism (the matching is sadly not inside its own section)
 void deleteMatchingEvents(const int matchingId = -1);
+void discardMatchingEvents();
 void DoNetAdhocMatchingInited(PointerWrap &p);
 void DoNetAdhocMatchingThreads(PointerWrap &p);
 void ZeroNetAdhocMatchingThreads();
@@ -510,7 +511,7 @@ static void __AdhocctlNotify(u64 userdata, int cyclesLate) {
 		return;
 	}
 
-	// Socket not found?! Should never happen! But if it ever happened (ie. loaded from SaveState where adhocctlRequests got cleared) return BUSY and let the game try again.
+	// Socket not found?! Should never happen! But if it ever happened (ie. loaded from an old SaveState, which didn't keep adhocctlRequests) return BUSY and let the game try again.
 	if (adhocctlRequests.find(uid) == adhocctlRequests.end()) {
 		WARN_LOG(Log::sceNet, "sceNetAdhocctl Socket WaitID(%i) not found!", uid);
 		__KernelResumeThreadFromWait(threadID, SCE_NET_ADHOCCTL_ERROR_BUSY);
@@ -1784,7 +1785,7 @@ int WaitBlockingAdhocSocket(u64 threadSocketId, int type, int pspSocketId, void*
 }
 
 void __NetAdhocDoState(PointerWrap &p) {
-	auto s = p.Section("sceNetAdhoc", 1, 8);
+	auto s = p.Section("sceNetAdhoc", 1, 9);
 	if (!s)
 		return;
 
@@ -1864,15 +1865,27 @@ void __NetAdhocDoState(PointerWrap &p) {
 		netAdhocGameModeEntered = false;
 		netAdhocEnterGameModeTimeout = 15000000;
 	}
+	if (s >= 9) {
+		// A thread may be waiting on one (sceNetAdhocctlInit waits for the login.) Without it, the
+		// wait ends in an error, which for Init can't be retried: the library already counts as inited.
+		Do(p, adhocctlRequests);
+		if (p.mode == p.MODE_READ) {
+			adhocctlStartTime = (u64)(time_now_d() * 1000000.0);
+		}
+	} else if (p.mode == p.MODE_READ) {
+		adhocctlRequests.clear();
+	}
 
 	if (p.mode == p.MODE_READ) {
 		// Discard leftover events
-		adhocctlEvents.clear();
-		adhocctlRequests.clear();
+		{
+			std::lock_guard<std::recursive_mutex> adhocGuard(adhocEvtMtx);
+			adhocctlEvents.clear();
+		}
 		adhocSocketRequests.clear();
 		sendTargetPeers.clear();
 		deleteAllAdhocSockets();
-		deleteMatchingEvents();
+		discardMatchingEvents();
 
 		// Let's not change "Inited" value when Loading SaveState to prevent memory & port leaks
 		RestoreNetAdhocMatchingInited();

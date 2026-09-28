@@ -1099,8 +1099,10 @@ void PSPOskDialog::DoState(PointerWrap &p)
 	if (p.mode == p.MODE_READ) {
 		// A box still open can answer into the loaded state (the next Update would only open
 		// another). One that finished before mustn't block the next.
-		std::lock_guard<std::mutex> guard(native_->mutex);
-		if (native_->status != PSPOskNativeStatus::WAITING) {
+		// Hold a reference, so the guard doesn't outlive the mutex it unlocks when native_ is replaced.
+		std::shared_ptr<NativeInput> native = native_;
+		std::lock_guard<std::mutex> guard(native->mutex);
+		if (native->status != PSPOskNativeStatus::WAITING) {
 			native_ = std::make_shared<NativeInput>();
 		}
 	}

@@ -29,8 +29,6 @@ void DoMap(PointerWrap &p, M &x, typename M::mapped_type &default_val) {
 	switch (p.mode) {
 	case PointerWrap::MODE_READ:
 	{
-		// Clear before the guard below can bail out: for a map of pointers, our caller has
-		// already deleted every value, so leaving them in place would be a use-after-free.
 		x.clear();
 		// Guard against an attacker-controlled count driving an enormous number of
 		// loop iterations/allocations, same spirit as DoVector's guard.
@@ -74,6 +72,8 @@ void Do(PointerWrap &p, std::map<K, T *> &x) {
 		for (auto &iter : x) {
 			delete iter.second;
 		}
+		// Right away: if reading the count fails, DoMap won't get as far as clearing.
+		x.clear();
 	}
 	T *dv = nullptr;
 	DoMap(p, x, dv);
@@ -91,6 +91,8 @@ void Do(PointerWrap &p, std::unordered_map<K, T *> &x) {
 		for (auto &iter : x) {
 			delete iter.second;
 		}
+		// Right away: if reading the count fails, DoMap won't get as far as clearing.
+		x.clear();
 	}
 	T *dv = nullptr;
 	DoMap(p, x, dv);
@@ -109,8 +111,6 @@ void DoMultimap(PointerWrap &p, M &x, typename M::mapped_type &default_val) {
 	switch (p.mode) {
 	case PointerWrap::MODE_READ:
 	{
-		// Clear before the guard below can bail out: for a map of pointers, our caller has
-		// already deleted every value, so leaving them in place would be a use-after-free.
 		x.clear();
 		// Guard against an attacker-controlled count driving an enormous number of
 		// loop iterations/allocations, same spirit as DoVector's guard.
@@ -153,6 +153,8 @@ void Do(PointerWrap &p, std::multimap<K, T *> &x) {
 		for (auto &iter : x) {
 			delete iter.second;
 		}
+		// Right away: if reading the count fails, DoMap won't get as far as clearing.
+		x.clear();
 	}
 	T *dv = nullptr;
 	DoMultimap(p, x, dv);
@@ -170,6 +172,8 @@ void Do(PointerWrap &p, std::unordered_multimap<K, T *> &x) {
 		for (auto &iter : x) {
 			delete iter.second;
 		}
+		// Right away: if reading the count fails, DoMap won't get as far as clearing.
+		x.clear();
 	}
 	T *dv = nullptr;
 	DoMultimap(p, x, dv);

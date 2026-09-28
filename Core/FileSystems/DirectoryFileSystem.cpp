@@ -1084,22 +1084,23 @@ void DirectoryFileSystem::DoState(PointerWrap &p) {
 
 	if (p.mode == p.MODE_READ) {
 		CloseAll();
-		u32 key;
-		OpenFileEntry entry;
-		entry.hFile.fileSystemFlags_ = flags;
 		for (u32 i = 0; i < num; i++) {
+			u32 key;
+			// A fresh one each time: Open can fail without touching the handle.
+			OpenFileEntry entry;
+			entry.hFile.fileSystemFlags_ = flags;
 			Do(p, key);
 			Do(p, entry.guestFilename);
 			Do(p, entry.access);
 			u32 err;
-			bool brokenFile = false;
-			if (!entry.hFile.Open(basePath,entry.guestFilename,entry.access, err)) {
+			bool opened = entry.hFile.Open(basePath, entry.guestFilename, entry.access, err);
+			bool brokenFile = !opened;
+			if (!opened) {
 				ERROR_LOG(Log::FileSystem, "Failed to reopen file while loading state: %s", entry.guestFilename.c_str());
-				brokenFile = true;
 			}
 			u32 position;
 			Do(p, position);
-			if (position != entry.hFile.Seek(position, FILEMOVE_BEGIN)) {
+			if (opened && position != entry.hFile.Seek(position, FILEMOVE_BEGIN)) {
 				ERROR_LOG(Log::FileSystem, "Failed to restore seek position while loading state: %s", entry.guestFilename.c_str());
 				brokenFile = true;
 			}
@@ -1110,6 +1111,10 @@ void DirectoryFileSystem::DoState(PointerWrap &p) {
 			// Better than not loading the save state at all, hopefully.
 			if (!brokenFile) {
 				entries[key] = entry;
+			} else if (opened) {
+				// Don't truncate a file we couldn't restore.
+				entry.hFile.needsTrunc_ = -1;
+				entry.hFile.Close();
 			}
 		}
 	} else {

@@ -206,6 +206,11 @@ void VirtualDiscFileSystem::DoState(PointerWrap &p)
 
 	if (p.mode == p.MODE_READ)
 	{
+		for (auto &[_, entry] : entries) {
+			if (entry.type != VFILETYPE_ISO) {
+				entry.Close();
+			}
+		}
 		entries.clear();
 
 		for (int i = 0; i < entryCount; i++)
@@ -222,6 +227,11 @@ void VirtualDiscFileSystem::DoState(PointerWrap &p)
 
 			// open file
 			if (of.type != VFILETYPE_ISO) {
+				if (of.fileIndex >= fileList.size()) {
+					ERROR_LOG(Log::FileSystem, "Savestate has an invalid file index %u", of.fileIndex);
+					p.SetError(p.ERROR_FAILURE);
+					return;
+				}
 				if (fileList[of.fileIndex].handler != NULL) {
 					of.handler = fileList[of.fileIndex].handler;
 				}

@@ -63,10 +63,15 @@ void __UsbCamDoState(PointerWrap &p) {
 		return;
 	}
 
+	const bool wasCapturing = config->mode == Camera::Mode::Video;
 	Do(p, *config);
-	if (config->mode == Camera::Mode::Video) { // stillImage? TBD
-		Camera::stopCapture();
-		Camera::startCapture();
+	if (p.mode == p.MODE_READ) {
+		if (config->mode == Camera::Mode::Video) { // stillImage? TBD
+			Camera::stopCapture();
+			Camera::startCapture();
+		} else if (wasCapturing) {
+			Camera::stopCapture();
+		}
 	}
 }
 

@@ -230,7 +230,9 @@ void MpegContext::DoState(PointerWrap &p) {
 		}
 	}
 	DoClass(p, mediaengine);
-	ringbufferNeedsReverse = s < 2;
+	if (p.mode == p.MODE_READ) {
+		ringbufferNeedsReverse = s < 2;
+	}
 }
 
 static MpegContext *getMpegCtx(u32 mpegAddr) {
@@ -1049,10 +1051,7 @@ void __VideoPmpInit() {
 
 void __VideoPmpShutdown() {
 #ifdef USE_FFMPEG
-	// We need to empty pmp_queue to not leak memory.
-	for (auto it = pmp_queue.begin(); it != pmp_queue.end(); ++it){
-		av_free(*it);
-	}
+	// The queued frames are the media engine's own m_pFrameRGB, which it frees.
 	pmp_queue.clear();
 	pmp_ContextList.clear();
 	delete pmpframes;

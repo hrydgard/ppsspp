@@ -23,6 +23,8 @@ class KernelObject;
 void __IoInit();
 void __IoDoState(PointerWrap &p);
 void __IoShutdown();
+// Waits for async reads and writes still accessing PSP memory on the IO thread.
+void __IoWaitForAsync();
 void __IoVblank();
 
 struct ScePspDateTime;

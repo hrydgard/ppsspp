@@ -112,6 +112,7 @@ void GPUCommon::Reinitialize() {
 	drawCompleteTicks = 0;
 	busyTicks = 0;
 	interruptsEnabled_ = true;
+	videos_.clear();
 
 	if (textureCache_)
 		textureCache_->Clear(true);
@@ -1712,6 +1713,19 @@ void GPUCommon::DoState(PointerWrap &p) {
 		currentID = (int)(currentList - &dls[0]);
 	}
 	Do(p, currentID);
+	if (p.mode == PointerWrap::MODE_READ) {
+		bool valid = currentID >= 0 && currentID < DisplayListMaxCount;
+		for (int id : dlQueue) {
+			valid = valid && id >= 0 && id < DisplayListMaxCount;
+		}
+		if (!valid) {
+			ERROR_LOG(Log::G3D, "Savestate has an invalid display list id");
+			p.SetError(p.ERROR_FAILURE);
+			return;
+		}
+		// Video frames aren't saved, and the ones before the load are no longer in memory.
+		videos_.clear();
+	}
 	// List 0 looks the same as no list here, but no list means an empty queue.
 	if (currentID == 0 && (dlQueue.empty() || dlQueue.front() != 0)) {
 		currentList = nullptr;
