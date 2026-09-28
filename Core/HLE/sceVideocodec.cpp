@@ -194,6 +194,14 @@ void __VideocodecDoState(PointerWrap &p) {
 
 	auto s = p.Section("sceVideocodec", 0, 1);
 	if (!s) {
+		if (p.mode == p.MODE_READ) {
+			// A state from before this module. Don't keep the contexts and ME memory of the session
+			// before the load.
+			ClearContexts(false);
+			g_meRam.clear();
+			g_meRam.shrink_to_fit();
+			g_meAlloc.Shutdown();
+		}
 		return;
 	}
 

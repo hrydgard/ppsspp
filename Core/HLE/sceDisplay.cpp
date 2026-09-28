@@ -299,6 +299,10 @@ void __DisplayDoState(PointerWrap &p) {
 		Do(p, lastFlipCycles);
 		Do(p, nextFlipCycles);
 	}
+	if (p.mode == p.MODE_READ) {
+		// Not saved. Start counting again rather than carry over the session before the load.
+		lastFlipsTooFrequent = 0;
+	}
 
 	gpu->DoState(p);
 

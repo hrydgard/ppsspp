@@ -43,8 +43,12 @@ void __AACShutdown() {
 
 void __AACDoState(PointerWrap &p) {
 	auto s = p.Section("sceAAC", 0, 1);
-	if (!s)
+	if (!s) {
+		if (p.mode == PointerWrap::MODE_READ) {
+			__AACShutdown();
+		}
 		return;
+	}
 
 	Do(p, g_aacMap);
 }

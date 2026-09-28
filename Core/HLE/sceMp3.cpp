@@ -158,8 +158,13 @@ void __Mp3Shutdown() {
 
 void __Mp3DoState(PointerWrap &p) {
 	auto s = p.Section("sceMp3", 0, 3);
-	if (!s)
+	if (!s) {
+		if (p.mode == PointerWrap::MODE_READ) {
+			__Mp3Shutdown();
+			resourceInited = false;
+		}
 		return;
+	}
 
 	if (s >= 2) {
 		Do(p, g_mp3Map);

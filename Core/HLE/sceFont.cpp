@@ -1107,6 +1107,9 @@ void __FontDoState(PointerWrap &p) {
 
 	Do(p, actionPostAllocCallback);
 	__KernelRestoreActionType(actionPostAllocCallback, PostAllocCallback::Create);
+	if (s >= 2) {
+		useAllocCallbacks = true;
+	}
 	Do(p, actionPostOpenCallback);
 	__KernelRestoreActionType(actionPostOpenCallback, PostOpenCallback::Create);
 	if (s >= 2) {

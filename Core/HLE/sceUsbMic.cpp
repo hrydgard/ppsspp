@@ -126,6 +126,14 @@ void __UsbMicDoState(PointerWrap &p) {
 			eventMicBlockingResume = -1;
 			CoreTiming::RestoreRegisterEvent(eventMicBlockingResume, "MicBlockingResume", &__MicBlockingResume);
 			waitingThreads.clear();
+			// Nor was the mic, so leave it off.
+			if (Microphone::isMicStarted()) {
+				Microphone::stopMic();
+			}
+			numNeedSamples = 0;
+			curTargetAddr = 0;
+			readMicDataLength = 0;
+			micState = 0;
 		}
 		return;
 	}
@@ -146,6 +154,10 @@ void __UsbMicDoState(PointerWrap &p) {
 	if (s > 2) {
 		Do(p, curTargetAddr);
 		Do(p, readMicDataLength);
+	} else if (p.mode == p.MODE_READ) {
+		// The host mic thread writes to curTargetAddr, so don't leave the one from before the load.
+		curTargetAddr = 0;
+		readMicDataLength = 0;
 	}
 	if (!audioBuf && numNeedSamples > 0) {
 		audioBuf = new QueueBuf(numNeedSamples << 1);

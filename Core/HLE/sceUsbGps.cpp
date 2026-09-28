@@ -45,11 +45,19 @@ void __UsbGpsInit() {
 }
 
 void __UsbGpsDoState(PointerWrap &p) {
-	auto s = p.Section("sceUsbGps", 0, 1);
-	if (!s)
-		return;
-
 	const bool wasOn = gpsStatus == GPS_STATE_ON;
+	auto s = p.Section("sceUsbGps", 0, 1);
+	if (!s) {
+		// Older states didn't save it, so leave it off.
+		if (p.mode == p.MODE_READ) {
+			if (wasOn) {
+				System_GPSCommand("close");
+			}
+			gpsStatus = GPS_STATE_OFF;
+		}
+		return;
+	}
+
 	Do(p, gpsStatus);
 	if (p.mode == p.MODE_READ) {
 		if (gpsStatus == GPS_STATE_ON) {

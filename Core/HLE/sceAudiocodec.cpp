@@ -658,8 +658,14 @@ void Register_sceAudiocodec() {
 void __sceAudiocodecDoState(PointerWrap &p){
 	auto s = p.Section("AudioList", 0, 2);
 	if (!s) {
-		oldStateLoaded = true;
+		if (p.mode == PointerWrap::MODE_READ) {
+			clearDecoders();
+			oldStateLoaded = true;
+		}
 		return;
+	}
+	if (p.mode == PointerWrap::MODE_READ) {
+		oldStateLoaded = false;
 	}
 
 	int count = (int)g_audioDecoderContexts.size();
