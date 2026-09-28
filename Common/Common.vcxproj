@@ -451,6 +451,7 @@
     <ClInclude Include="GPU\Vulkan\VulkanAlloc.h" />
     <ClInclude Include="GPU\Vulkan\VulkanBarrier.h" />
     <ClInclude Include="GPU\Vulkan\VulkanContext.h" />
+    <ClInclude Include="GPU\Vulkan\FixedSPIRVCache.h" />
     <ClInclude Include="GPU\Vulkan\VulkanDebug.h" />
     <ClInclude Include="GPU\Vulkan\VulkanDescSet.h" />
     <ClInclude Include="GPU\Vulkan\VulkanFramebuffer.h" />

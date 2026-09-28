@@ -12,6 +12,7 @@
 #include "Common/GPU/MiscTypes.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/GPU/Vulkan/VulkanDebug.h"
+#include "Common/GPU/Vulkan/FixedSPIRVCache.h"
 #include "Common/StringUtils.h"
 #include "Common/File/FileUtil.h"
 #include "ext/xxhash.h"
@@ -1799,6 +1800,14 @@ struct SPIRVCacheEntryHeader {
 };
 
 SPIRVCache g_spirvCache;
+
+void SetFixedSPIRVCachePath(const Path &path, int maxEntries) {
+	g_spirvCache.SetPath(path, maxEntries);
+}
+
+void SaveFixedSPIRVCache() {
+	g_spirvCache.SaveIfDirty();
+}
 
 SPIRVCache::Key SPIRVCache::MakeKey(VkShaderStageFlagBits stage, GLSLVariant variant, const char *source) {
 	const size_t length = strlen(source);

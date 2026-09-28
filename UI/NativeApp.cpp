@@ -62,7 +62,7 @@
 #include "Common/Render/Text/draw_text.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/GPU/thin3d.h"
-#include "Common/GPU/Vulkan/VulkanContext.h"
+#include "Common/GPU/Vulkan/FixedSPIRVCache.h"
 #include "Common/UI/UI.h"
 #include "Common/UI/Screen.h"
 #include "Common/UI/ScreenManager.h"
@@ -805,7 +805,7 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 		File::CreateFullPath(GetSysDirectory(DIRECTORY_APP_CACHE));
 		// About twice what a session compiles (menu and a game: 10, a few more with post-processing
 		// or texture upscaling), so it's flushed once outdated entries have piled up.
-		g_spirvCache.SetPath(GetSysDirectory(DIRECTORY_APP_CACHE) / "vulkan_spirv.cache", 32);
+		SetFixedSPIRVCachePath(GetSysDirectory(DIRECTORY_APP_CACHE) / "vulkan_spirv.cache", 32);
 	}
 #endif
 
@@ -979,7 +979,7 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 
 #if !PPSSPP_PLATFORM(UWP)
 	// Now, rather than only at shutdown: on mobile the app can be killed without one.
-	g_spirvCache.SaveIfDirty();
+	SaveFixedSPIRVCache();
 #endif
 
 	INFO_LOG(Log::System, "NativeInitGraphics completed");
@@ -1043,7 +1043,7 @@ void NativeShutdownGraphics(GraphicsContext *graphicsContext) {
 	INFO_LOG(Log::System, "NativeShutdownGraphics begin");
 
 #if !PPSSPP_PLATFORM(UWP)
-	g_spirvCache.SaveIfDirty();
+	SaveFixedSPIRVCache();
 #endif
 
 	graphicsContext->NotifyEmuThreadExit();
