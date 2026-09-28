@@ -1010,9 +1010,13 @@ static const KeyValue *LookupCategory(std::string_view path, int *count) {
 }
 
 void __RegDoState(PointerWrap &p) {
-	auto s = p.Section("sceReg", 0, 2);
-	if (!s)
+	auto s = p.Section("sceReg", 0, 3);
+	if (!s) {
+		if (p.mode == PointerWrap::MODE_READ) {
+			__RegInit();
+		}
 		return;
+	}
 	Do(p, g_openRegistryMode);
 	Do(p, g_openCategories);
 	if (s >= 2) {
@@ -1020,6 +1024,15 @@ void __RegDoState(PointerWrap &p) {
 	} else {
 		// Old states didn't track this. Anything with a category open had the registry open too.
 		g_openRegistryCount = g_openCategories.empty() ? 0 : 1;
+	}
+	if (s >= 3) {
+		Do(p, g_handleGen);
+	} else if (p.mode == PointerWrap::MODE_READ) {
+		// Don't hand out a handle that's still open in the state.
+		g_handleGen = 1337;
+		if (!g_openCategories.empty()) {
+			g_handleGen = std::max(g_handleGen, g_openCategories.rbegin()->first + 1);
+		}
 	}
 }
 

@@ -857,6 +857,12 @@ void ISOFileSystem::DoState(PointerWrap &p) {
 				std::string path;
 				Do(p, path);
 				of.file = GetFromPath(path);
+				if (!of.file) {
+					// Loaded against a different image. Like a file that's gone from a directory,
+					// drop the handle rather than keep one that points at nothing.
+					ERROR_LOG(Log::FileSystem, "Failed to reopen file while loading state: %s", path.c_str());
+					continue;
+				}
 			} else {
 				of.file = NULL;
 			}

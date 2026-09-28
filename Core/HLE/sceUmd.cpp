@@ -109,6 +109,8 @@ void __UmdDoState(PointerWrap &p)
 		if (g_UMDReplacePermit && p.mode == p.MODE_READ) {
 			System_Notify(SystemNotification::UI);
 		}
+	} else if (p.mode == p.MODE_READ) {
+		g_UMDReplacePermit = false;
 	}
 	if (s > 2) {
 		Do(p, umdInsertChangeEvent);

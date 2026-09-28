@@ -5,6 +5,8 @@
 class PointerWrap;
 
 void Register_sceNpDrm();
+void __NpDrmInit();
+void __NpDrmDoState(PointerWrap &p);
 
 // A module wrapped in an NPDRM "\0PSPEDAT" container has its PRX encrypted against a key built
 // from that container's header and, usually, the licensee key the game handed over through

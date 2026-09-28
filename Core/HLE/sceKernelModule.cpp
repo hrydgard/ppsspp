@@ -471,6 +471,9 @@ struct SceKernelSMOption {
 static int actionAfterModule;
 
 static std::set<SceUID> loadedModules;
+// Set once we've seen a PSP_MODULE_VSH_MODE module load (i.e. we're booting the VSH rather
+// than a game), and reset on the next __KernelLoadExec. See ShouldHLEModuleForLoad below.
+static bool g_runningVSH = false;
 // STATE END
 //////////////////////////////////////////////////////////////////////////
 
@@ -479,7 +482,7 @@ static void __KernelModuleInit() {
 }
 
 void __KernelModuleDoState(PointerWrap &p) {
-	auto s = p.Section("sceKernelModule", 1, 2);
+	auto s = p.Section("sceKernelModule", 1, 3);
 	if (!s)
 		return;
 
@@ -490,6 +493,19 @@ void __KernelModuleDoState(PointerWrap &p) {
 
 	if (s >= 2) {
 		Do(p, loadedModules);
+	}
+	if (s >= 3) {
+		Do(p, g_runningVSH);
+	} else if (p.mode == p.MODE_READ) {
+		// Derive it the way the loader sets it.
+		g_runningVSH = false;
+		for (SceUID moduleId : loadedModules) {
+			u32 error;
+			PSPModule *module = kernelObjects.Get<PSPModule>(moduleId, error);
+			if (module && ((module->nm.attribute & PSP_MODULE_VSH_MODE) != 0 || equals(module->nm.name, "vsh_module"))) {
+				g_runningVSH = true;
+			}
+		}
 	}
 
 	if (p.mode == p.MODE_READ) {
@@ -1119,10 +1135,6 @@ enum : u32 {
 	PSP_MAGIC = 0x5053507e,
 	ELF_MAGIC = 0x464c457f,
 };
-
-// Set once we've seen a PSP_MODULE_VSH_MODE module load (i.e. we're booting the VSH rather
-// than a game), and reset on the next __KernelLoadExec. See ShouldHLEModuleForLoad below.
-static bool g_runningVSH = false;
 
 // A few flash0 modules (VSH's own bridge/UI/utility libraries) should only ever be genuinely
 // loaded - rather than faked via any HLE implementation we may have for them - once we know

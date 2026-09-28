@@ -726,6 +726,9 @@ void __IoDoState(PointerWrap &p) {
 	if (s >= 3) {
 		Do(p, lastMemStickState);
 		Do(p, lastMemStickFatState);
+	} else if (p.mode == p.MODE_READ) {
+		lastMemStickState = MemoryStick_State();
+		lastMemStickFatState = MemoryStick_FatState();
 	}
 
 	for (int i = 0; i < PSP_COUNT_FDS; ++i) {

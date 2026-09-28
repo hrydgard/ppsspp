@@ -1093,7 +1093,8 @@ void DirectoryFileSystem::DoState(PointerWrap &p) {
 			Do(p, entry.guestFilename);
 			Do(p, entry.access);
 			u32 err;
-			bool opened = entry.hFile.Open(basePath, entry.guestFilename, entry.access, err);
+			// The original open created the file, so an exclusive create would fail now.
+			bool opened = entry.hFile.Open(basePath, entry.guestFilename, (FileAccess)(entry.access & ~FILEACCESS_EXCL), err);
 			bool brokenFile = !opened;
 			if (!opened) {
 				ERROR_LOG(Log::FileSystem, "Failed to reopen file while loading state: %s", entry.guestFilename.c_str());

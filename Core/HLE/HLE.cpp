@@ -252,8 +252,8 @@ static bool g_disableHLELatched;
 static DisableHLEFlags g_unavailableDisableFlags = (DisableHLEFlags)0;
 
 // Process compat flags.
-static DisableHLEFlags ComputeDisableHLEFlags() {
-	DisableHLEFlags flags = (DisableHLEFlags)g_Config.iDisableHLE | AlwaysDisableHLEFlags();
+static DisableHLEFlags ComputeDisableHLEFlags(DisableHLEFlags alwaysDisabled = AlwaysDisableHLEFlags()) {
+	DisableHLEFlags flags = (DisableHLEFlags)g_Config.iDisableHLE | alwaysDisabled;
 	if (PSP_CoreParameter().compat.flags().DisableHLESceFont) {
 		flags |= DisableHLEFlags::sceFont;
 	}
@@ -472,6 +472,12 @@ void HLEDoState(PointerWrap &p) {
 			g_effectiveDisableHLE = (DisableHLEFlags)disableHLE;
 			g_disableHLELatched = true;
 		}
+	} else if (p.mode == p.MODE_READ) {
+		// Older states didn't save the flags. They were all made before any module graduated past
+		// these, so resolving their imports against today's defaults would leave the ones since
+		// (sceMpeg, sceFont, the leaf libraries...) as unresolved stubs.
+		g_effectiveDisableHLE = ComputeDisableHLEFlags(DisableHLEFlags::scePsmf | DisableHLEFlags::scePsmfPlayer | DisableHLEFlags::sceCcc);
+		g_disableHLELatched = true;
 	}
 
 	// Can't be inside a syscall when saving state, reset this so errors aren't misleading.

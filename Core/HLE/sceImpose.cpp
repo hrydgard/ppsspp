@@ -70,6 +70,9 @@ void __ImposeDoState(PointerWrap &p) {
 	if (s >= 2) {
 		Do(p, imposeChanges);
 		Do(p, imposeAvls);
+	} else if (p.mode == p.MODE_READ) {
+		imposeChanges = 0;
+		imposeAvls = 0;
 	}
 }
 

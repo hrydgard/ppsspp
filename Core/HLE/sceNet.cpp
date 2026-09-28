@@ -29,6 +29,7 @@
 #include "Common/System/OSD.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
+#include "Common/Serialize/SerializeDeque.h"
 #include "Common/Serialize/SerializeMap.h"
 #include "Common/Data/Format/JSONReader.h"
 #include "Common/System/System.h"
@@ -707,7 +708,7 @@ void netValidateLoopMemory() {
 
 // This feels like a dubious proposition, mostly...
 void __NetDoState(PointerWrap &p) {
-	auto s = p.Section("sceNet", 1, 6);
+	auto s = p.Section("sceNet", 1, 7);
 	if (!s)
 		return;
 
@@ -763,6 +764,18 @@ void __NetDoState(PointerWrap &p) {
 		netApctlInfoId = 0;
 		NetApctl_InitDefaultInfo();
 	}
+	if (s >= 7) {
+		// The state only moves on when an event is processed, and each queues the next, so a
+		// connect in progress would never finish without them.
+		std::lock_guard<std::recursive_mutex> apctlGuard(apctlEvtMtx);
+		Do(p, apctlEvents);
+		// Allocated from user memory, which the load just replaced.
+		Do(p, apctlProdCodeAddr);
+	} else if (p.mode == p.MODE_READ) {
+		std::lock_guard<std::recursive_mutex> apctlGuard(apctlEvtMtx);
+		apctlEvents.clear();
+		apctlProdCodeAddr = 0;
+	}
 
 	if (p.mode == p.MODE_READ) {
 		// Let's not change "Inited" value when Loading SaveState in the middle of multiplayer to prevent memory & port leaks
@@ -770,8 +783,6 @@ void __NetDoState(PointerWrap &p) {
 		netInetInited = cur_netInetInited;
 		g_netInited = cur_netInited;
 
-		// Discard leftover events
-		apctlEvents.clear();
 		// Discard created resolvers for now (since i'm not sure whether the information in the struct is sufficient or not, and we don't support multi-threading yet anyway)
 		__NetResolverShutdown();
 	}

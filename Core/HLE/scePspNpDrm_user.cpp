@@ -1,6 +1,8 @@
 #include "ext/libkirk/AES.h"
 #include "ext/libkirk/amctrl.h"
 
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/HLE/scePspNpDrm_user.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/HLE/HLE.h"
@@ -15,6 +17,25 @@ extern MetaFileSystem pspFileSystem;
 static const int PSP_NPDRM_LICENSEE_KEY_LENGTH = 0x10;
 static u8 licenseeKey[PSP_NPDRM_LICENSEE_KEY_LENGTH];
 static bool isLicenseeKeySet = false;
+
+void __NpDrmInit() {
+	memset(licenseeKey, 0, sizeof(licenseeKey));
+	isLicenseeKeySet = false;
+}
+
+void __NpDrmDoState(PointerWrap &p) {
+	auto s = p.Section("sceNpDrm", 0, 1);
+	if (!s) {
+		// Older states didn't keep the key. The game set it once at startup, so EDATA it opens after
+		// the load can't be decrypted until it runs again.
+		if (p.mode == PointerWrap::MODE_READ) {
+			__NpDrmInit();
+		}
+		return;
+	}
+	Do(p, isLicenseeKeySet);
+	DoArray(p, licenseeKey, PSP_NPDRM_LICENSEE_KEY_LENGTH);
+}
 
 // Check if the file is an encrypted EDAT file by reading the magic number
 static bool isEncrypted(u32 edataFd) {
