@@ -176,7 +176,7 @@ int g_screenshotFailures;
 		// Memory is a bit tricky when jit is enabled, since there's emuhacks in it.
 		// These must be saved before copying out memory and restored after.
 		auto savedReplacements = SaveAndClearReplacements();
-		if (MIPSComp::jit && p.mode == p.MODE_WRITE) {
+		if (MIPSComp::jit && (p.mode == p.MODE_WRITE || p.mode == p.MODE_VERIFY)) {
 			if (MIPSComp::jit) {
 				std::vector<u32> savedBlocks;
 				savedBlocks = MIPSComp::jit->SaveAndClearEmuHackOps();
@@ -968,7 +968,10 @@ int g_screenshotFailures;
 
 			case OperationType::Verify:
 			{
+				// Its write pass counts as a save, which it isn't.
+				const int generation = saveStateGeneration;
 				int tempResult = CChunkFileReader::Verify(state) == CChunkFileReader::ERROR_NONE;
+				saveStateGeneration = generation;
 				callbackResult = tempResult ? Status::SUCCESS : Status::FAILURE;
 				if (tempResult) {
 					INFO_LOG(Log::SaveState, "Verified save state system");
