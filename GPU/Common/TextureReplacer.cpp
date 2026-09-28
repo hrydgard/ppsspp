@@ -109,14 +109,7 @@ void TextureReplacer::NotifyConfigChanged() {
 	}
 
 	if (!replaceEnabled_ && wasReplaceEnabled) {
-		// Everything in levelCache_ holds this pointer - LoadIni fixes them up when it swaps the
-		// VFS, and the same has to happen here or they're left dangling. Decimate(ALL) below only
-		// frees their data, it doesn't erase the entries.
-		for (auto &repl : levelCache_) {
-			repl.second->vfs_ = nullptr;
-		}
-		delete vfs_;
-		vfs_ = nullptr;
+		DeleteVFS();
 		Decimate(ReplacerDecimateMode::ALL);
 	} else if (!wasReplaceEnabled && replaceEnabled_) {
 		std::string error;
@@ -131,11 +124,21 @@ void TextureReplacer::NotifyConfigChanged() {
 		std::string error;
 		bool result = LoadIni(&error, false);
 		if (!result) {
-			// Ignore errors here, just log if we successfully loaded an ini.
+			// Ignore errors here, just log if we successfully loaded an ini. But the VFS is gone, so replacement is off.
+			replaceEnabled_ = false;
 		} else {
 			INFO_LOG(Log::G3D, "Loaded INI file for saving.");
 		}
 	}
+}
+
+void TextureReplacer::DeleteVFS() {
+	// Everything in levelCache_ uses the VFS, and may have a load task running against it.
+	for (auto &repl : levelCache_) {
+		repl.second->Unload();
+	}
+	delete vfs_;
+	vfs_ = nullptr;
 }
 
 bool TextureReplacer::LoadIni(std::string *error, bool notify) {
@@ -151,8 +154,7 @@ bool TextureReplacer::LoadIni(std::string *error, bool notify) {
 	// Prevents dumping the mipmaps.
 	ignoreMipmap_ = false;
 
-	delete vfs_;
-	vfs_ = nullptr;
+	DeleteVFS();
 
 	Path zipPath = basePath_ / ZIP_FILENAME;
 
