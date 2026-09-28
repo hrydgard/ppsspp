@@ -168,9 +168,6 @@ NAETT_FILES := \
   ${SRC}/ext/naett-lib/src/naett_core.c \
   ${SRC}/ext/naett-lib/src/naett_android.c
 
-MINIMP3_FILES := \
-    ${SRC}/ext/minimp3/minimp3.cpp
-
 AT3_STANDALONE_FILES := \
 	${SRC}/ext/at3_standalone/atrac.cpp \
 	${SRC}/ext/at3_standalone/atrac3.cpp \
@@ -306,7 +303,6 @@ EXEC_AND_LIB_FILES := \
   $(SPIRV_CROSS_FILES) \
   $(RCHEEVOS_FILES) \
   $(NAETT_FILES) \
-  $(MINIMP3_FILES) \
   $(AT3_STANDALONE_FILES) \
   $(EXT_FILES) \
   $(NATIVE_FILES) \

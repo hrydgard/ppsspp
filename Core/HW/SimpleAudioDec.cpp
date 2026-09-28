@@ -26,8 +26,6 @@
 #include "Core/HW/BufferQueue.h"
 #include "Core/HW/Atrac3Standalone.h"
 
-#include "ext/minimp3/minimp3.h"
-
 #ifdef USE_FFMPEG
 
 extern "C" {
@@ -58,51 +56,6 @@ extern "C" {
 // h.264 decoder candidates:
 // * https://github.com/meerkat-cv/h264_decoder
 // * https://github.com/shengbinmeng/ffmpeg-h264-dec
-
-// minimp3-based decoder.
-class MiniMp3Audio : public AudioDecoder {
-public:
-	MiniMp3Audio() {
-		mp3dec_init(&mp3_);
-	}
-	~MiniMp3Audio() {}
-
-	bool Decode(const uint8_t* inbuf, int inbytes, int *inbytesConsumed, int outputChannels, int16_t *outbuf, int *outSamples) override {
-		_dbg_assert_(outputChannels == 2);
-
-		// When used from sceMp3LowLevelDecode, this fails to parse the mp3 header!
-		// It's because minimp3 is a bit more sensitive than ffmpeg - if you give it a buffer that's larger than the frame size,
-		// it'll check that there's a second matching frame before accepting. But in our case we only get one frame,
-		// but we do not know the size. So this might need some modifications in minimp3.
-		mp3dec_frame_info_t info{};
-		int samplesWritten = mp3dec_decode_frame(&mp3_, inbuf, inbytes, (mp3d_sample_t *)temp_, &info);
-		_dbg_assert_(samplesWritten <= MINIMP3_MAX_SAMPLES_PER_FRAME);
-		_dbg_assert_(info.channels <= 2);
-		if (info.channels == 1) {
-			for (int i = 0; i < samplesWritten; i++) {
-				outbuf[i * 2] = temp_[i];
-				outbuf[i * 2 + 1] = temp_[i];
-			}
-		} else {
-			memcpy(outbuf, temp_, 4 * samplesWritten);
-		}
-		*inbytesConsumed = info.frame_bytes;
-		*outSamples = samplesWritten;
-		return true;
-	}
-
-	bool IsOK() const override { return true; }
-	void SetChannels(int channels) override {
-		// Hmm. ignore for now.
-	}
-
-	PSPAudioType GetAudioType() const override { return PSP_CODEC_MP3; }
-
-private:
-	// We use the lowest-level API.
-	mp3dec_t mp3_{};
-	int16_t temp_[MINIMP3_MAX_SAMPLES_PER_FRAME]{};
-};
 
 // FFMPEG-based decoder. TODO: Replace with individual codecs.
 // Based on http://ffmpeg.org/doxygen/trunk/doc_2examples_2decoding_encoding_8c-example.html#_a13
@@ -150,13 +103,6 @@ AudioDecoder *CreateAudioDecoder(PSPAudioType audioType, int sampleRateHz, int c
 	}
 
 	switch (audioType) {
-	// Our MiniMP3 backend has too many issues:
-	//   * Doesn't accept sample rate
-	//   * Doesn't accept data where there's only one valid frame if the buffer is bigger.
-	//     This prevents sceMp3LowLevelDecode from working, since nothing passes us the frame size.
-	//
-	// case PSP_CODEC_MP3:
-	// 	return new MiniMp3Audio();
 	case PSP_CODEC_AT3:
 	 	return CreateAtrac3Audio(channels, blockAlign, extraData, extraDataSize);
 	case PSP_CODEC_AT3PLUS:
