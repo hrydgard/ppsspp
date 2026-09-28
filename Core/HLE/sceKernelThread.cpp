@@ -3090,8 +3090,9 @@ void __KernelCallAddress(PSPThread *thread, u32 entryPoint, PSPAction *afterActi
 		afterAction = after;
 
 		if (thread->nt.waitType != WAITTYPE_NONE) {
-			// If it's a callback, tell the wait to stop.
-			if (cbId > 0) {
+			// If it's a callback, tell the wait to stop.  A thread that already returned from its
+			// wait keeps a stale waitType until it's switched out, so check that it's waiting.
+			if (cbId > 0 && (thread->nt.status & THREADSTATUS_WAIT) != 0) {
 				if (waitTypeFuncs[thread->nt.waitType].beginFunc != NULL) {
 					waitTypeFuncs[thread->nt.waitType].beginFunc(after->threadID, thread->currentCallbackId);
 				} else {
@@ -3250,7 +3251,7 @@ void __KernelReturnFromMipsCall() {
 	}
 	currentCallbackThreadID = 0;
 
-	if (cur->nt.waitType != WAITTYPE_NONE && call->cbId > 0) {
+	if (cur->nt.waitType != WAITTYPE_NONE && (cur->nt.status & THREADSTATUS_WAIT) != 0 && call->cbId > 0) {
 		if (waitTypeFuncs[cur->nt.waitType].endFunc != NULL)
 			waitTypeFuncs[cur->nt.waitType].endFunc(cur->GetUID(), cur->currentCallbackId);
 		else
