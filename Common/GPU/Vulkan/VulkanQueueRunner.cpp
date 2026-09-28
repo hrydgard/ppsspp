@@ -3,6 +3,7 @@
 #include "Common/GPU/DataFormat.h"
 #include "Common/GPU/Vulkan/VulkanQueueRunner.h"
 #include "Common/GPU/Vulkan/VulkanRenderManager.h"
+#include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
 
@@ -1080,6 +1081,23 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 	int lastStencilWriteMask = -1;
 	int lastStencilCompareMask = -1;
 	int lastStencilReference = -1;
+#if !PPSSPP_PLATFORM(IOS_APP_STORE)
+	uint8_t lastStencilTestEnable = 0xFF;  // 0xFF = uninitialized
+	uint8_t lastDepthTestEnable = 0xFF;
+	uint8_t lastDepthWriteEnable = 0xFF;
+	uint8_t lastDepthBoundsTestEnable = 0xFF;
+	VkCompareOp lastDepthCompareOp = VkCompareOp(-1);
+	VkStencilOp lastStencilFailOp = VkStencilOp(-1);
+	VkStencilOp lastStencilPassOp = VkStencilOp(-1);
+	VkStencilOp lastStencilDepthFailOp = VkStencilOp(-1);
+	VkCompareOp lastStencilCompareOp = VkCompareOp(-1);
+	uint8_t lastColorWriteMask = 0xFF;
+	uint8_t lastBlendEnable = 0xFF;
+
+	bool edsSupported = vulkan_->GetDeviceFeatures().enabled.extendedDynamicState.extendedDynamicState;
+	const auto &eds3 = vulkan_->GetDeviceFeatures().enabled.extendedDynamicState3;
+	bool eds3Supported = eds3.extendedDynamicState3ColorBlendEnable && eds3.extendedDynamicState3ColorBlendEquation && eds3.extendedDynamicState3ColorWriteMask;
+#endif
 
 	const RenderPassType rpType = step.render.renderPassType;
 
@@ -1139,6 +1157,77 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 				lastStencilWriteMask = -1;
 				lastStencilCompareMask = -1;
 				lastStencilReference = -1;
+#if !PPSSPP_PLATFORM(IOS_APP_STORE)
+				lastStencilTestEnable = 0xFF;
+				lastDepthTestEnable = 0xFF;
+				lastDepthWriteEnable = 0xFF;
+				lastDepthBoundsTestEnable = 0xFF;
+				lastDepthCompareOp = VkCompareOp(-1);
+				lastStencilFailOp = VkStencilOp(-1);
+				lastStencilPassOp = VkStencilOp(-1);
+				lastStencilDepthFailOp = VkStencilOp(-1);
+				lastStencilCompareOp = VkCompareOp(-1);
+				lastColorWriteMask = 0xFF;
+				lastBlendEnable = 0xFF;
+
+				// Emit depth/stencil state from the pipeline desc so pipelines need no variants for it.
+				if (pipelineOK && edsSupported && graphicsPipeline->desc) {
+					const VkPipelineDepthStencilStateCreateInfo &dss = graphicsPipeline->desc->dss;
+					if (lastDepthTestEnable != (uint8_t)dss.depthTestEnable) {
+						lastDepthTestEnable = dss.depthTestEnable;
+						vkCmdSetDepthTestEnable(cmd, dss.depthTestEnable);
+					}
+					if (lastDepthWriteEnable != (uint8_t)dss.depthWriteEnable) {
+						lastDepthWriteEnable = dss.depthWriteEnable;
+						vkCmdSetDepthWriteEnable(cmd, dss.depthWriteEnable);
+					}
+					if (lastDepthCompareOp != dss.depthCompareOp) {
+						lastDepthCompareOp = dss.depthCompareOp;
+						vkCmdSetDepthCompareOp(cmd, dss.depthCompareOp);
+					}
+					if (lastDepthBoundsTestEnable != (uint8_t)dss.depthBoundsTestEnable) {
+						lastDepthBoundsTestEnable = dss.depthBoundsTestEnable;
+						vkCmdSetDepthBoundsTestEnable(cmd, dss.depthBoundsTestEnable);
+					}
+					if (lastStencilTestEnable != (uint8_t)dss.stencilTestEnable) {
+						lastStencilTestEnable = dss.stencilTestEnable;
+						vkCmdSetStencilTestEnable(cmd, dss.stencilTestEnable);
+					}
+					if (dss.stencilTestEnable) {
+						if (lastStencilFailOp != dss.front.failOp || lastStencilPassOp != dss.front.passOp ||
+							lastStencilDepthFailOp != dss.front.depthFailOp || lastStencilCompareOp != dss.front.compareOp) {
+							lastStencilFailOp = dss.front.failOp;
+							lastStencilPassOp = dss.front.passOp;
+							lastStencilDepthFailOp = dss.front.depthFailOp;
+							lastStencilCompareOp = dss.front.compareOp;
+							vkCmdSetStencilOp(cmd, VK_STENCIL_FRONT_AND_BACK, dss.front.failOp, dss.front.passOp, dss.front.depthFailOp, dss.front.compareOp);
+						}
+					}
+				}
+				if (pipelineOK && eds3Supported && graphicsPipeline->desc) {
+					const VkPipelineColorBlendAttachmentState &blend0 = graphicsPipeline->desc->blend0;
+					if (lastBlendEnable != (uint8_t)blend0.blendEnable) {
+						lastBlendEnable = blend0.blendEnable;
+						VkBool32 enable = blend0.blendEnable;
+						vkCmdSetColorBlendEnableEXT(cmd, 0, 1, &enable);
+					}
+					if (lastColorWriteMask != blend0.colorWriteMask) {
+						lastColorWriteMask = blend0.colorWriteMask;
+						VkColorComponentFlags mask = blend0.colorWriteMask;
+						vkCmdSetColorWriteMaskEXT(cmd, 0, 1, &mask);
+					}
+					// For blend equation, always emit since it can't change without a new pipeline.
+					VkColorBlendEquationEXT eq{
+						blend0.srcColorBlendFactor,
+						blend0.dstColorBlendFactor,
+						blend0.colorBlendOp,
+						blend0.srcAlphaBlendFactor,
+						blend0.dstAlphaBlendFactor,
+						blend0.alphaBlendOp,
+					};
+					vkCmdSetColorBlendEquationEXT(cmd, 0, 1, &eq);
+				}
+#endif
 			}
 			break;
 		}

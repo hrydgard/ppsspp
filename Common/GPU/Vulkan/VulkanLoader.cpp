@@ -243,6 +243,19 @@ PFN_vkCreateRenderPass2 vkCreateRenderPass2;
 PFN_vkWaitForPresentKHR vkWaitForPresentKHR;
 PFN_vkGetPastPresentationTimingGOOGLE vkGetPastPresentationTimingGOOGLE;
 PFN_vkGetRefreshCycleDurationGOOGLE vkGetRefreshCycleDurationGOOGLE;
+
+// VK_EXT_extended_dynamic_state (promoted to Vulkan 1.3 core)
+PFN_vkCmdSetDepthTestEnable vkCmdSetDepthTestEnable;
+PFN_vkCmdSetDepthWriteEnable vkCmdSetDepthWriteEnable;
+PFN_vkCmdSetDepthCompareOp vkCmdSetDepthCompareOp;
+PFN_vkCmdSetDepthBoundsTestEnable vkCmdSetDepthBoundsTestEnable;
+PFN_vkCmdSetStencilTestEnable vkCmdSetStencilTestEnable;
+PFN_vkCmdSetStencilOp vkCmdSetStencilOp;
+
+// VK_EXT_extended_dynamic_state3 (still an EXT extension)
+PFN_vkCmdSetColorBlendEnableEXT vkCmdSetColorBlendEnableEXT;
+PFN_vkCmdSetColorBlendEquationEXT vkCmdSetColorBlendEquationEXT;
+PFN_vkCmdSetColorWriteMaskEXT vkCmdSetColorWriteMaskEXT;
 #endif
 } // namespace PPSSPP_VK
 
@@ -941,6 +954,19 @@ void VulkanLoadDeviceFunctions(VkDevice device, const VulkanExtensions &enabledE
 	if (enabledExtensions.KHR_maintenance4) {
 		LOAD_DEVICE_FUNC_CORE(device, vkGetDeviceBufferMemoryRequirements, vkGetDeviceBufferMemoryRequirementsKHR, VK_API_VERSION_1_3);
 		LOAD_DEVICE_FUNC_CORE(device, vkGetDeviceImageMemoryRequirements, vkGetDeviceImageMemoryRequirementsKHR, VK_API_VERSION_1_3);
+	}
+	if (enabledExtensions.EXT_extended_dynamic_state || vulkanDeviceApiVersion >= VK_API_VERSION_1_3) {
+		LOAD_DEVICE_FUNC_CORE(device, vkCmdSetDepthTestEnable, vkCmdSetDepthTestEnableEXT, VK_API_VERSION_1_3);
+		LOAD_DEVICE_FUNC_CORE(device, vkCmdSetDepthWriteEnable, vkCmdSetDepthWriteEnableEXT, VK_API_VERSION_1_3);
+		LOAD_DEVICE_FUNC_CORE(device, vkCmdSetDepthCompareOp, vkCmdSetDepthCompareOpEXT, VK_API_VERSION_1_3);
+		LOAD_DEVICE_FUNC_CORE(device, vkCmdSetDepthBoundsTestEnable, vkCmdSetDepthBoundsTestEnableEXT, VK_API_VERSION_1_3);
+		LOAD_DEVICE_FUNC_CORE(device, vkCmdSetStencilTestEnable, vkCmdSetStencilTestEnableEXT, VK_API_VERSION_1_3);
+		LOAD_DEVICE_FUNC_CORE(device, vkCmdSetStencilOp, vkCmdSetStencilOpEXT, VK_API_VERSION_1_3);
+	}
+	if (enabledExtensions.EXT_extended_dynamic_state3) {
+		LOAD_DEVICE_FUNC(device, vkCmdSetColorBlendEnableEXT);
+		LOAD_DEVICE_FUNC(device, vkCmdSetColorBlendEquationEXT);
+		LOAD_DEVICE_FUNC(device, vkCmdSetColorWriteMaskEXT);
 	}
 #endif
 }

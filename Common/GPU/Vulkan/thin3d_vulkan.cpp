@@ -1320,11 +1320,36 @@ Pipeline *VKContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char
 	gDesc.topology = primToVK[(int)desc.prim];
 
 	// We treat the three stencil states as a unit in other places, so let's do that here too.
-	const VkDynamicState dynamics[] = { VK_DYNAMIC_STATE_VIEWPORT, VK_DYNAMIC_STATE_SCISSOR, VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK, VK_DYNAMIC_STATE_STENCIL_REFERENCE, VK_DYNAMIC_STATE_STENCIL_WRITE_MASK };
-	gDesc.ds.dynamicStateCount = depth->info.stencilTestEnable ? ARRAY_SIZE(dynamics) : 2;
-	for (size_t i = 0; i < gDesc.ds.dynamicStateCount; i++) {
-		gDesc.dynamicStates[i] = dynamics[i];
+	int numDyn = 0;
+	gDesc.dynamicStates[numDyn++] = VK_DYNAMIC_STATE_VIEWPORT;
+	gDesc.dynamicStates[numDyn++] = VK_DYNAMIC_STATE_SCISSOR;
+	if (depth->info.stencilTestEnable) {
+		gDesc.dynamicStates[numDyn++] = VK_DYNAMIC_STATE_STENCIL_COMPARE_MASK;
+		gDesc.dynamicStates[numDyn++] = VK_DYNAMIC_STATE_STENCIL_REFERENCE;
+		gDesc.dynamicStates[numDyn++] = VK_DYNAMIC_STATE_STENCIL_WRITE_MASK;
 	}
+
+#if !PPSSPP_PLATFORM(IOS_APP_STORE)
+	bool edsSupported = vulkan_->GetDeviceFeatures().enabled.extendedDynamicState.extendedDynamicState;
+	if (edsSupported) {
+		gDesc.dynamicStates[numDyn++] = VK_DYNAMIC_STATE_DEPTH_TEST_ENABLE_EXT;
+		gDesc.dynamicStates[numDyn++] = VK_DYNAMIC_STATE_DEPTH_WRITE_ENABLE_EXT;
+		gDesc.dynamicStates[numDyn++] = VK_DYNAMIC_STATE_DEPTH_COMPARE_OP_EXT;
+		gDesc.dynamicStates[numDyn++] = VK_DYNAMIC_STATE_DEPTH_BOUNDS_TEST_ENABLE_EXT;
+		gDesc.dynamicStates[numDyn++] = VK_DYNAMIC_STATE_STENCIL_TEST_ENABLE_EXT;
+		gDesc.dynamicStates[numDyn++] = VK_DYNAMIC_STATE_STENCIL_OP_EXT;
+	}
+
+	const auto &eds3Feat = vulkan_->GetDeviceFeatures().enabled.extendedDynamicState3;
+	bool eds3Supported = eds3Feat.extendedDynamicState3ColorBlendEnable && eds3Feat.extendedDynamicState3ColorBlendEquation && eds3Feat.extendedDynamicState3ColorWriteMask;
+	if (eds3Supported) {
+		gDesc.dynamicStates[numDyn++] = VK_DYNAMIC_STATE_COLOR_BLEND_ENABLE_EXT;
+		gDesc.dynamicStates[numDyn++] = VK_DYNAMIC_STATE_COLOR_BLEND_EQUATION_EXT;
+		gDesc.dynamicStates[numDyn++] = VK_DYNAMIC_STATE_COLOR_WRITE_MASK_EXT;
+	}
+#endif
+
+	gDesc.ds.dynamicStateCount = numDyn;
 	gDesc.ds.pDynamicStates = gDesc.dynamicStates;
 
 	gDesc.views.viewportCount = 1;

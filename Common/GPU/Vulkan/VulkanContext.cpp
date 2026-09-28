@@ -752,6 +752,12 @@ VkResult VulkanContext::CreateDevice(int physical_device, const std::vector<cons
 	}
 
 	extensionsLookup_.EXT_provoking_vertex = EnableDeviceExtension(VK_EXT_PROVOKING_VERTEX_EXTENSION_NAME, 0);
+
+	// VK_EXT_extended_dynamic_state (promoted to Vulkan 1.3 core).
+	extensionsLookup_.EXT_extended_dynamic_state = EnableDeviceExtension(VK_EXT_EXTENDED_DYNAMIC_STATE_EXTENSION_NAME, VK_API_VERSION_1_3);
+	// VK_EXT_extended_dynamic_state3 (still an extension in Vulkan 1.3).
+	extensionsLookup_.EXT_extended_dynamic_state3 = EnableDeviceExtension(VK_EXT_EXTENDED_DYNAMIC_STATE_3_EXTENSION_NAME, 0);
+
 	if (extensionsLookup_.KHR_get_surface_capabilities2) {
 #ifdef VK_EXT_full_screen_exclusive
 		extensionsLookup_.EXT_full_screen_exclusive = EnableDeviceExtension(VK_EXT_FULL_SCREEN_EXCLUSIVE_EXTENSION_NAME, 0);
@@ -773,6 +779,8 @@ VkResult VulkanContext::CreateDevice(int physical_device, const std::vector<cons
 		VkPhysicalDeviceProvokingVertexFeaturesEXT provokingVertexFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROVOKING_VERTEX_FEATURES_EXT };
 		VkPhysicalDevicePresentModeFifoLatestReadyFeaturesKHR presentModeFifoProps{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_MODE_FIFO_LATEST_READY_FEATURES_KHR};
 		VkPhysicalDeviceScalarBlockLayoutFeatures scalarBlockLayoutFeatures = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES};
+		VkPhysicalDeviceExtendedDynamicStateFeaturesEXT edsFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT };
+		VkPhysicalDeviceExtendedDynamicState3FeaturesEXT eds3Features{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_3_FEATURES_EXT };
 
 		ChainStruct(features2, &multiViewFeatures);
 		if (extensionsLookup_.KHR_present_wait) {
@@ -790,11 +798,23 @@ VkResult VulkanContext::CreateDevice(int physical_device, const std::vector<cons
 		if (extensionsLookup_.EXT_scalar_block_layout) {
 			ChainStruct(features2, &scalarBlockLayoutFeatures);
 		}
+		if (extensionsLookup_.EXT_extended_dynamic_state || vulkanDeviceApiVersion_ >= VK_API_VERSION_1_3) {
+			ChainStruct(features2, &edsFeatures);
+		}
+		if (extensionsLookup_.EXT_extended_dynamic_state3) {
+			ChainStruct(features2, &eds3Features);
+		}
 		vkGetPhysicalDeviceFeatures2(physical_devices_[physical_device_], &features2);
 		deviceFeatures_.available.standard = features2.features;
 		deviceFeatures_.available.multiview = multiViewFeatures;
 		if (extensionsLookup_.EXT_scalar_block_layout) {
 			deviceFeatures_.available.scalarBlockLayout = scalarBlockLayoutFeatures;
+		}
+		if (extensionsLookup_.EXT_extended_dynamic_state || vulkanDeviceApiVersion_ >= VK_API_VERSION_1_3) {
+			deviceFeatures_.available.extendedDynamicState = edsFeatures;
+		}
+		if (extensionsLookup_.EXT_extended_dynamic_state3) {
+			deviceFeatures_.available.extendedDynamicState3 = eds3Features;
 		}
 		if (extensionsLookup_.KHR_present_wait) {
 			deviceFeatures_.available.presentWait = presentWaitFeatures;
@@ -867,6 +887,21 @@ VkResult VulkanContext::CreateDevice(int physical_device, const std::vector<cons
 		deviceFeatures_.enabled.scalarBlockLayout.scalarBlockLayout = deviceFeatures_.available.scalarBlockLayout.scalarBlockLayout;
 	}
 
+	deviceFeatures_.enabled.extendedDynamicState = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_FEATURES_EXT};
+	if (extensionsLookup_.EXT_extended_dynamic_state) {
+		deviceFeatures_.enabled.extendedDynamicState.extendedDynamicState = deviceFeatures_.available.extendedDynamicState.extendedDynamicState;
+	} else if (vulkanDeviceApiVersion_ >= VK_API_VERSION_1_3) {
+		// Core in Vulkan 1.3.
+		deviceFeatures_.enabled.extendedDynamicState.extendedDynamicState = deviceFeatures_.available.extendedDynamicState.extendedDynamicState;
+	}
+
+	deviceFeatures_.enabled.extendedDynamicState3 = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_EXTENDED_DYNAMIC_STATE_3_FEATURES_EXT};
+	if (extensionsLookup_.EXT_extended_dynamic_state3) {
+		deviceFeatures_.enabled.extendedDynamicState3.extendedDynamicState3ColorBlendEnable = deviceFeatures_.available.extendedDynamicState3.extendedDynamicState3ColorBlendEnable;
+		deviceFeatures_.enabled.extendedDynamicState3.extendedDynamicState3ColorBlendEquation = deviceFeatures_.available.extendedDynamicState3.extendedDynamicState3ColorBlendEquation;
+		deviceFeatures_.enabled.extendedDynamicState3.extendedDynamicState3ColorWriteMask = deviceFeatures_.available.extendedDynamicState3.extendedDynamicState3ColorWriteMask;
+	}
+
 	// deviceFeatures_.enabled.multiview.multiviewGeometryShader = deviceFeatures_.available.multiview.multiviewGeometryShader;
 
 	VkPhysicalDeviceFeatures2 features2{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2 };
@@ -894,6 +929,12 @@ VkResult VulkanContext::CreateDevice(int physical_device, const std::vector<cons
 		}
 		if (extensionsLookup_.EXT_scalar_block_layout) {
 			ChainStruct(features2, &deviceFeatures_.enabled.scalarBlockLayout);
+		}
+		if (extensionsLookup_.EXT_extended_dynamic_state || vulkanDeviceApiVersion_ >= VK_API_VERSION_1_3) {
+			ChainStruct(features2, &deviceFeatures_.enabled.extendedDynamicState);
+		}
+		if (extensionsLookup_.EXT_extended_dynamic_state3) {
+			ChainStruct(features2, &deviceFeatures_.enabled.extendedDynamicState3);
 		}
 		if (extensionsLookup_.KHR_present_mode_fifo_latest_ready) {
 			ChainStruct(features2, &deviceFeatures_.enabled.presentModeFifoProps);

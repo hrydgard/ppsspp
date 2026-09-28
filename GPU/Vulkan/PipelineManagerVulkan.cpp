@@ -262,6 +262,26 @@ static VulkanPipeline *CreateVulkanPipeline(VulkanRenderManager *renderManager, 
 		dynamicStates[numDyn++] = VK_DYNAMIC_STATE_STENCIL_REFERENCE;
 	}
 
+#if !PPSSPP_PLATFORM(IOS_APP_STORE)
+	VulkanContext *vulkan = renderManager->GetVulkanContext();
+	bool edsSupported = vulkan->GetDeviceFeatures().enabled.extendedDynamicState.extendedDynamicState;
+	if (edsSupported) {
+		dynamicStates[numDyn++] = VK_DYNAMIC_STATE_DEPTH_TEST_ENABLE_EXT;
+		dynamicStates[numDyn++] = VK_DYNAMIC_STATE_DEPTH_WRITE_ENABLE_EXT;
+		dynamicStates[numDyn++] = VK_DYNAMIC_STATE_DEPTH_COMPARE_OP_EXT;
+		dynamicStates[numDyn++] = VK_DYNAMIC_STATE_DEPTH_BOUNDS_TEST_ENABLE_EXT;
+		dynamicStates[numDyn++] = VK_DYNAMIC_STATE_STENCIL_TEST_ENABLE_EXT;
+		dynamicStates[numDyn++] = VK_DYNAMIC_STATE_STENCIL_OP_EXT;
+	}
+	const auto &eds3Feat = vulkan->GetDeviceFeatures().enabled.extendedDynamicState3;
+	bool eds3Supported = eds3Feat.extendedDynamicState3ColorBlendEnable && eds3Feat.extendedDynamicState3ColorBlendEquation && eds3Feat.extendedDynamicState3ColorWriteMask;
+	if (eds3Supported) {
+		dynamicStates[numDyn++] = VK_DYNAMIC_STATE_COLOR_BLEND_ENABLE_EXT;
+		dynamicStates[numDyn++] = VK_DYNAMIC_STATE_COLOR_BLEND_EQUATION_EXT;
+		dynamicStates[numDyn++] = VK_DYNAMIC_STATE_COLOR_WRITE_MASK_EXT;
+	}
+#endif
+
 	VkPipelineDynamicStateCreateInfo &ds = desc->ds;
 	ds.flags = 0;
 	ds.pDynamicStates = dynamicStates;

@@ -246,6 +246,19 @@ extern PFN_vkGetMemoryHostPointerPropertiesEXT vkGetMemoryHostPointerPropertiesE
 extern PFN_vkWaitForPresentKHR vkWaitForPresentKHR;
 extern PFN_vkGetPastPresentationTimingGOOGLE vkGetPastPresentationTimingGOOGLE;
 extern PFN_vkGetRefreshCycleDurationGOOGLE vkGetRefreshCycleDurationGOOGLE;
+
+// VK_EXT_extended_dynamic_state (promoted to Vulkan 1.3)
+extern PFN_vkCmdSetDepthTestEnable vkCmdSetDepthTestEnable;
+extern PFN_vkCmdSetDepthWriteEnable vkCmdSetDepthWriteEnable;
+extern PFN_vkCmdSetDepthCompareOp vkCmdSetDepthCompareOp;
+extern PFN_vkCmdSetDepthBoundsTestEnable vkCmdSetDepthBoundsTestEnable;
+extern PFN_vkCmdSetStencilTestEnable vkCmdSetStencilTestEnable;
+extern PFN_vkCmdSetStencilOp vkCmdSetStencilOp;
+
+// VK_EXT_extended_dynamic_state3 (still EXT)
+extern PFN_vkCmdSetColorBlendEnableEXT vkCmdSetColorBlendEnableEXT;
+extern PFN_vkCmdSetColorBlendEquationEXT vkCmdSetColorBlendEquationEXT;
+extern PFN_vkCmdSetColorWriteMaskEXT vkCmdSetColorWriteMaskEXT;
 #endif  // !PPSSPP_PLATFORM(IOS_APP_STORE)
 } // namespace PPSSPP_VK
 
@@ -278,6 +291,10 @@ struct VulkanExtensions {
 	bool EXT_scalar_block_layout;
 	bool EXT_full_screen_exclusive;
 	// bool EXT_depth_range_unrestricted;  // Allows depth outside [0.0, 1.0] in 32-bit float depth buffers.
+
+	// Extended dynamic state reduces pipeline variants.
+	bool EXT_extended_dynamic_state;
+	bool EXT_extended_dynamic_state3;
 };
 
 // Way to do a quick check before even attempting to load.
