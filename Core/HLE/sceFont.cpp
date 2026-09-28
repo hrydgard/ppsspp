@@ -1118,6 +1118,11 @@ void __FontDoState(PointerWrap &p) {
 		__KernelRestoreActionType(actionPostCharInfoFreeCallback, PostCharInfoFreeCallback::Create);
 	} else {
 		useAllocCallbacks = false;
+		// The state numbered the action types without these, so the slots they got at boot may now
+		// belong to other types. Give them new ones.
+		actionPostOpenAllocCallback = __KernelRegisterActionType(PostOpenAllocCallback::Create);
+		actionPostCharInfoAllocCallback = __KernelRegisterActionType(PostCharInfoAllocCallback::Create);
+		actionPostCharInfoFreeCallback = __KernelRegisterActionType(PostCharInfoFreeCallback::Create);
 	}
 }
 
