@@ -41,8 +41,7 @@ TEST_ROOT = "pspautotests/tests/"
 TIMEOUT = 5
 
 # The slower CPU backends need a longer wall clock on the CPU-heavy tests - the interpreter runs
-# gpu/rendertarget/copy in about 4.5s against the JIT's 0.15s, since that test does over a million
-# guest-side vsprintf calls. Scale the timeout per backend rather than raising it for everyone, so
+# misc/deadbeef in about 3s. Scale the timeout per backend rather than raising it for everyone, so
 # a genuine hang under the JIT is still caught in five seconds.
 CPU_TIMEOUTS = {
   'interpreter': 20,
