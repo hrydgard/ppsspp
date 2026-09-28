@@ -454,6 +454,16 @@ static int MECall(int result, const char *reason, int us) {
 	return hleDelayResult(result, reason, MEScheduleJob(PowerScaleFromDefaultClock(us)));
 }
 
+// Init and Delete take tens of milliseconds for the caller, but they don't hold the ME for that
+// long: queueing them there stalled the SAS mix behind them, and with it Jak and Daxter's sound
+// threads, whose last wake to video_sound_thread then came after the game had deleted it
+// (NOT_DORMANT, then the orphan reads a freed context). On hardware SAS keeps mixing through them:
+// pspautotests audio/timing/meshare saw ~1.3ms SAS calls throughout a 39ms sceMpegCreate and a 32ms
+// sceMpegDelete, the longest 2.2ms.
+static int CallerWait(int result, const char *reason, int us) {
+	return hleDelayResult(result, reason, PowerScaleFromDefaultClock(us));
+}
+
 static int sceVideocodecOpen(u32 ctxAddr, int type) {
 	if (!Memory::IsValidRange(ctxAddr, 96)) {
 		return hleLogError(Log::ME, -1, "bad context pointer");
@@ -480,7 +490,7 @@ static int sceVideocodecInit(u32 ctxAddr, int type) {
 	vctx.decoder = new AvcDecoder();
 	vctx.frameCount = 0;
 	vctx.type = type;
-	return MECall(hleLogInfo(Log::ME, 0, "type %d", type), "videocodec init", initUs);
+	return CallerWait(hleLogInfo(Log::ME, 0, "type %d", type), "videocodec init", initUs);
 }
 
 // See g_meRam for why this doesn't come out of the game's memory.
@@ -678,7 +688,7 @@ static int sceVideocodecDelete(u32 ctxAddr, int type) {
 		FreeContext(it->second);
 		g_videocodecCtxs.erase(it);
 	}
-	return MECall(hleLogInfo(Log::ME, 0), "videocodec delete", deleteUs);
+	return CallerWait(hleLogInfo(Log::ME, 0), "videocodec delete", deleteUs);
 }
 
 static int sceVideocodecGetVersion(u32 ctxAddr, int type) {
