@@ -551,7 +551,8 @@ void DoState(PointerWrap &p) {
 			event_types[i].callback = AntiCrashCallback;
 			event_types[i].name = "INVALID EVENT";
 		}
-		nextEventTypeRestoreId = n - 1;
+		// The state's own events are 0..n-1, so one it doesn't have gets the first id after those.
+		nextEventTypeRestoreId = n;
 		usedEventTypes.clear();
 	}
 	// Needed in every pass, or each restore would look like a duplicate and get a new id.
@@ -577,6 +578,10 @@ void DoState(PointerWrap &p) {
 	} else {
 		lastGlobalTimeTicks = 0;
 		lastGlobalTimeUs = 0;
+	}
+	if (p.mode == PointerWrap::MODE_READ) {
+		// A debugger's run-until deadline is in emulated us, and the ticks it maps to just changed.
+		RecomputeBreakDeadline();
 	}
 
 	__AudioCPUMHzChange();
