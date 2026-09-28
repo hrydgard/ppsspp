@@ -21,6 +21,9 @@ inline bool needFragmentDepthClamp() {
 	return (gstate.getDepthRangeMin() == 0 || gstate.getDepthRangeMax() == 0xFFFF) && gstate.isDepthClipEnabled();
 }
 
+// These IDs are stored in the OpenGL and Vulkan shader caches on disk. Changing the bit layout or meaning
+// requires bumping CACHE_VERSION in both ShaderManagerGLES.cpp and ShaderManagerVulkan.cpp.
+
 // VS_BIT_LIGHT_UBERSHADER indicates that some groups of these will be
 // sent to the shader and processed there. This cuts down the number of shaders ("ubershader approach").
 enum VShaderBit : uint8_t {

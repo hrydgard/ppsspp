@@ -74,6 +74,14 @@ for it:
    to forget: put it last in the array even when alphabetical or NID order would put it elsewhere,
    and even when the array is otherwise tidily sorted. The same rule governs the order of
    `Register_*()` calls in `Core/HLE/HLETables.cpp` - new modules go at the very end.
+4. **Changing a shader cache key means bumping `CACHE_VERSION`, in both the OpenGL and Vulkan
+   caches** (`GPU/GLES/ShaderManagerGLES.cpp` and `GPU/Vulkan/ShaderManagerVulkan.cpp`). Their
+   on-disk caches store raw key bits with nothing to tell an old layout from a new one. OpenGL
+   stores `VShaderID`/`FShaderID`, and Vulkan stores those plus `VulkanPipelineKey` (the raster
+   state key and the decoded vertex format ID). So adding, removing, moving or reinterpreting any
+   of those bits needs the bump, or an old cache precompiles shaders for keys that now mean
+   something else, including combinations the generators assert on. D3D11 doesn't store shader IDs
+   on disk. Keys that only live in memory, like `SamplerCacheKey`, don't need a bump.
 
 ## Build and validation
 
