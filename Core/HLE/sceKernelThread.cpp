@@ -2774,6 +2774,11 @@ int sceKernelNotifyCallback(SceUID cbId, int notifyArg) {
 	PSPCallback *cb = kernelObjects.Get<PSPCallback>(cbId, error);
 	if (cb) {
 		__KernelNotifyCallback(cbId, notifyArg);
+		// A better priority thread in a CB wait runs the callback right away.
+		PSPThread *t = kernelObjects.Get<PSPThread>(cb->nc.threadId, error);
+		if (t && t->GetUID() != currentThread && t->isWaiting() && t->isProcessingCallbacks) {
+			hleReSchedule("callback notified");
+		}
 		return hleLogDebug(Log::sceKernel, 0);
 	} else {
 		return hleLogError(Log::sceKernel, error, "bad cbId");
@@ -2785,6 +2790,10 @@ int sceKernelCancelCallback(SceUID cbId) {
 	PSPCallback *cb = kernelObjects.Get<PSPCallback>(cbId, error);
 	if (cb) {
 		// This just resets the notify count.
+		if (cb->nc.notifyCount != 0) {
+			readyCallbacksCount--;
+		}
+		cb->nc.notifyCount = 0;
 		cb->nc.notifyArg = 0;
 		return hleLogDebug(Log::sceKernel, 0);
 	} else {
@@ -3439,9 +3448,18 @@ bool __KernelCheckCallbacks() {
 
 	bool processed = false;
 
+	// A waiting thread takes its callbacks when it would get to run. While the current thread
+	// keeps running, that's only threads of better priority; the rest stay pending (and can
+	// still be counted or canceled.)
+	PSPThread *cur = __GetCurrentThread();
+	const bool curRunning = cur && cur->isRunning();
+
 	u32 error;
 	for (auto iter = threadqueue.begin(); iter != threadqueue.end(); ++iter) {
 		PSPThread *thread = kernelObjects.Get<PSPThread>(*iter, error);
+		if (thread && curRunning && thread != cur && thread->nt.currentPriority >= cur->nt.currentPriority) {
+			continue;
+		}
 		if (thread && __KernelCheckThreadCallbacks(thread, false)) {
 			processed = true;
 		}

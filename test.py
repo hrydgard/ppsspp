@@ -311,9 +311,12 @@ tests_good = [
   "threads/alarm/set/set",
   "threads/callbacks/afterwait",
   "threads/callbacks/callbacks",
+  "threads/callbacks/cancel",
   "threads/callbacks/check",
+  "threads/callbacks/count",
   "threads/callbacks/create",
   "threads/callbacks/delete",
+  "threads/callbacks/delivery",
   "threads/callbacks/exit",
   "threads/callbacks/nested",
   "threads/callbacks/notify",
@@ -441,6 +444,7 @@ tests_good = [
   "utility/savedata/makedata",
   "utility/systemparam/systemparam",
   "umd/callbacks/umd",
+  "umd/wait/wait",
   "umd/register",
   "video/mpeg/ringbuffer/avail",
   "video/mpeg/ringbuffer/construct",
@@ -581,8 +585,6 @@ tests_next = [
   "net/primary/ether",
   "power/freq",
   "sysmem/partition",
-  "threads/callbacks/cancel",
-  "threads/callbacks/count",
   # These two mbx tests only appeared to work because they papered over bugs 
 
 
@@ -594,7 +596,6 @@ tests_next = [
   "threads/vpl/create",
   "umd/io/umd_io",
   "umd/raw_access/raw_access",
-  "umd/wait/wait",
   "utility/msgdialog/dialog",
   "utility/savedata/idlist",
   # These tests appear to be broken and just hang.
