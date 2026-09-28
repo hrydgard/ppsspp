@@ -226,6 +226,32 @@ Concretely, as measured against the headless build (2026-08-16), per CPU backend
 | `memory.breakpoint.*` (memchecks) | works | **only for constant addresses** |
 | `cpu.regBreakpoint.*` | works | never trips (as documented) |
 
+## Native debuggers and the memory fault handler
+
+With fast memory on, a bad guest access from JIT code is a real host SIGSEGV/SIGBUS (an access violation on
+Windows), which `Memory::HandleFault` (`Core/MemFault.cpp`) catches and turns into a clean emulator-side
+exception. A native debugger sees the fault first and stops there, so a run that would have reported
+`Read Word: SIGSEGV at ...` looks like a crash instead. Continuing hands the fault to the handler, like a
+first-chance exception in Visual Studio. To keep the debugger out of the way when the faults are expected:
+
+- **lldb (macOS/iOS)** needs both of these, verified 2026-09-28 against `pspautotests/tests/cpu/crash`. The
+  first skips the stop on the Mach-level EXC_BAD_ACCESS, the second the stop on the signal it turns into:
+
+  ```
+  settings set platform.plugin.darwin.ignored-exceptions EXC_BAD_ACCESS
+  process launch --stop-at-entry
+  process handle SIGSEGV SIGBUS -s false -n false -p true
+  continue
+  ```
+
+  (`process handle` needs a live process, hence the `--stop-at-entry`.) The catch is that a genuine host crash
+  then kills the process without stopping in the debugger.
+- **gdb (Linux/Android)**: `handle SIGSEGV nostop noprint pass`.
+
+The `pspautotests/tests/cpu/crash/crash_*.prx` binaries each make one bad access (read, write, float, bad jump),
+which makes them the quickest check that the handler works on a platform: run one with `-j` in headless. They
+should print the guest exception and exit 0, not die with signal 11.
+
 ## Debugging a game that works on hardware but not in PPSSPP
 
 First, turn on `bAutoSaveLoadSymbols` (`--auto-save-load-symbols` in headless): when homebrew ships its

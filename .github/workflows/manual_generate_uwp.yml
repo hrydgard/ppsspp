@@ -21,7 +21,6 @@ on:
         - Bundle
         - x64
         - ARM64
-        - ARM
 
       signedPackage:
         type: boolean
@@ -101,7 +100,7 @@ jobs:
         if: github.event.inputs.buildPlatform == 'Bundle'
         run: |
           echo "include symbols = ${{ env.INCLUDE_SYMBOLS }}"
-          msbuild UWP/PPSSPP_UWP.sln /m /p:TrackFileAccess=false /p:Configuration=${{ github.event.inputs.buildConfiguration }} /p:Platform=x64 /p:IncludeSymbols=${{ env.INCLUDE_SYMBOLS }} /p:AppxSymbolPackageEnabled=${{ env.INCLUDE_SYMBOLS }} /p:AppxPackageSigningEnabled=${{ github.event.inputs.signedPackage }} /p:PackageCertificateKeyFile=PPSSPP_UWP_TemporaryKey.pfx /p:AppxBundle=Always /p:UapAppxPackageBuildMode=SideloadOnly /p:AppxBundlePlatforms="x64|ARM64|ARM"
+          msbuild UWP/PPSSPP_UWP.sln /m /p:TrackFileAccess=false /p:Configuration=${{ github.event.inputs.buildConfiguration }} /p:Platform=x64 /p:IncludeSymbols=${{ env.INCLUDE_SYMBOLS }} /p:AppxSymbolPackageEnabled=${{ env.INCLUDE_SYMBOLS }} /p:AppxPackageSigningEnabled=${{ github.event.inputs.signedPackage }} /p:PackageCertificateKeyFile=PPSSPP_UWP_TemporaryKey.pfx /p:AppxBundle=Always /p:UapAppxPackageBuildMode=SideloadOnly /p:AppxBundlePlatforms="x64|ARM64"
           
       - name: Package build
         working-directory: ${{ github.workspace }}

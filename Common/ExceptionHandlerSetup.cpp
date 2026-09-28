@@ -10,13 +10,11 @@
 #include <cstdlib>
 #include <cstring>
 #include <vector>
-#include <thread>
 
 #include "Common/CommonFuncs.h"
 #include "Common/CommonTypes.h"
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
-#include "Common/Thread/ThreadUtil.h"
 #include "Common/MachineContext.h"
 #include "Common/ExceptionHandlerSetup.h"
 
@@ -186,123 +184,6 @@ void UninstallExceptionHandler() {
 	g_badAccessHandler = nullptr;
 }
 
-#elif defined(__APPLE__)
-
-static void CheckKR(const char* name, kern_return_t kr) {
-	_assert_msg_(kr == 0, "%s failed: kr=%x", name, kr);
-}
-
-static void ExceptionThread(mach_port_t port) {
-	SetCurrentThreadName("Mach exception thread");
-#pragma pack(4)
-	struct {
-		mach_msg_header_t Head;
-		NDR_record_t NDR;
-		exception_type_t exception;
-		mach_msg_type_number_t codeCnt;
-		int64_t code[2];
-		int flavor;
-		mach_msg_type_number_t old_stateCnt;
-		natural_t old_state[x86_THREAD_STATE64_COUNT];
-		mach_msg_trailer_t trailer;
-	} msg_in;
-
-	struct {
-		mach_msg_header_t Head;
-		NDR_record_t NDR;
-		kern_return_t RetCode;
-		int flavor;
-		mach_msg_type_number_t new_stateCnt;
-		natural_t new_state[x86_THREAD_STATE64_COUNT];
-	} msg_out;
-#pragma pack()
-	memset(&msg_in, 0xee, sizeof(msg_in));
-	memset(&msg_out, 0xee, sizeof(msg_out));
-	mach_msg_header_t* send_msg = &msg_out.Head;
-	mach_msg_size_t send_size = 0;
-	mach_msg_option_t option = MACH_RCV_MSG;
-	while (true) {
-		// If this isn't the first run, send the reply message.  Then, receive
-		// a message: either a mach_exception_raise_state RPC due to
-		// thread_set_exception_ports, or MACH_NOTIFY_NO_SENDERS due to
-		// mach_port_request_notification.
-		CheckKR("mach_msg_overwrite",
-			mach_msg_overwrite(send_msg, option, send_size, sizeof(msg_in), port,
-				MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL, &msg_in.Head, 0));
-
-		if (msg_in.Head.msgh_id == MACH_NOTIFY_NO_SENDERS) {
-			// the other thread exited
-			mach_port_destroy(mach_task_self(), port);
-			return;
-		}
-
-		_assert_msg_(msg_in.Head.msgh_id == 2406, "unknown message received");
-		_assert_msg_(msg_in.flavor == x86_THREAD_STATE64, "unknown flavor %d (expected %d)", msg_in.flavor, x86_THREAD_STATE64);
-
-		x86_thread_state64_t* state = (x86_thread_state64_t*)msg_in.old_state;
-
-		bool ok = g_badAccessHandler((uintptr_t)msg_in.code[1], state);
-
-		// Set up the reply.
-		msg_out.Head.msgh_bits = MACH_MSGH_BITS(MACH_MSGH_BITS_REMOTE(msg_in.Head.msgh_bits), 0);
-		msg_out.Head.msgh_remote_port = msg_in.Head.msgh_remote_port;
-		msg_out.Head.msgh_local_port = MACH_PORT_NULL;
-		msg_out.Head.msgh_id = msg_in.Head.msgh_id + 100;
-		msg_out.NDR = msg_in.NDR;
-		if (ok) {
-			msg_out.RetCode = KERN_SUCCESS;
-			msg_out.flavor = x86_THREAD_STATE64;
-			msg_out.new_stateCnt = x86_THREAD_STATE64_COUNT;
-			memcpy(msg_out.new_state, msg_in.old_state, x86_THREAD_STATE64_COUNT * sizeof(natural_t));
-		} else {
-			// Pass the exception to the next handler (debugger or crash).
-			msg_out.RetCode = KERN_FAILURE;
-			msg_out.flavor = 0;
-			msg_out.new_stateCnt = 0;
-		}
-		msg_out.Head.msgh_size =
-			offsetof(__typeof__(msg_out), new_state) + msg_out.new_stateCnt * sizeof(natural_t);
-
-		send_msg = &msg_out.Head;
-		send_size = msg_out.Head.msgh_size;
-		option |= MACH_SEND_MSG;
-	}
-}
-
-void InstallExceptionHandler(BadAccessHandler badAccessHandler, bool logStackTraceOnCrash) {
-	if (g_badAccessHandler) {
-		// The rest of the setup we don't need to do again.
-		g_badAccessHandler = badAccessHandler;
-		return;
-	}
-	g_badAccessHandler = badAccessHandler;
-
-	INFO_LOG(Log::System, "Installing exception handler");
-	mach_port_t port;
-	CheckKR("mach_port_allocate",
-		mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &port));
-	std::thread exc_thread(ExceptionThread, port);
-	exc_thread.detach();
-	// Obtain a send right for thread_set_exception_ports to copy...
-	CheckKR("mach_port_insert_right",
-		mach_port_insert_right(mach_task_self(), port, port, MACH_MSG_TYPE_MAKE_SEND));
-	// Mach tries the following exception ports in order: thread, task, host.
-	// Debuggers set the task port, so we grab the thread port.
-	CheckKR("thread_set_exception_ports",
-		thread_set_exception_ports(mach_thread_self(), EXC_MASK_BAD_ACCESS, port,
-			EXCEPTION_STATE | MACH_EXCEPTION_CODES, x86_THREAD_STATE64));
-	// ...and get rid of our copy so that MACH_NOTIFY_NO_SENDERS works.
-	CheckKR("mach_port_mod_refs",
-		mach_port_mod_refs(mach_task_self(), port, MACH_PORT_RIGHT_SEND, -1));
-	mach_port_t previous;
-	CheckKR("mach_port_request_notification",
-		mach_port_request_notification(mach_task_self(), port, MACH_NOTIFY_NO_SENDERS, 0, port,
-			MACH_MSG_TYPE_MAKE_SEND_ONCE, &previous));
-}
-
-void UninstallExceptionHandler() {
-}
-
 #else
 
 #include <signal.h>
@@ -341,7 +222,9 @@ static void sigsegv_handler(int sig, siginfo_t* info, void* raw_context) {
 	}
 	ucontext_t* context = (ucontext_t*)raw_context;
 	int sicode = info->si_code;
-	if (sicode != SEGV_MAPERR && sicode != SEGV_ACCERR) {
+	// Darwin reports some faults (e.g. on PROT_NONE pages) as SIGBUS.
+	bool addressFault = sig == SIGSEGV ? (sicode == SEGV_MAPERR || sicode == SEGV_ACCERR) : (sicode == BUS_ADRERR || sicode == BUS_ADRALN);
+	if (!addressFault) {
 		// Not an address fault we can do anything with - an MTE, protection-key or shadow
 		// stack fault, or a signal sent with kill(). Returning here would re-run the
 		// faulting instruction forever at 100% CPU, and would also swallow the signal from
@@ -354,17 +237,13 @@ static void sigsegv_handler(int sig, siginfo_t* info, void* raw_context) {
 	// Get all the information we can out of the context.
 #ifdef __OpenBSD__
 	ucontext_t* ctx = context;
+#elif defined(__APPLE__)
+	// uc_mcontext is a pointer here, and the registers are in its thread state.
+	SContext* ctx = &context->uc_mcontext->__ss;
 #else
 	mcontext_t* ctx = &context->uc_mcontext;
 #endif
-	// assume it's not a write
-	if (!g_badAccessHandler(bad_address,
-#ifdef __APPLE__
-		*ctx
-#else
-		ctx
-#endif
-	)) {
+	if (!g_badAccessHandler(bad_address, ctx)) {
 		// retry and crash
 		// According to the sigaction man page, if sa_flags "SA_SIGINFO" is set to the sigaction
 		// function pointer, otherwise sa_handler contains one of:
@@ -424,6 +303,10 @@ void UninstallExceptionHandler() {
 		return;
 	}
 	if (old_signal_stack_valid) {
+		// Darwin fails with ENOMEM on a size below MINSIGSTKSZ, even with SS_DISABLE.
+		if ((old_signal_stack.ss_flags & SS_DISABLE) && old_signal_stack.ss_size < MINSIGSTKSZ) {
+			old_signal_stack.ss_size = MINSIGSTKSZ;
+		}
 		if (0 != sigaltstack(&old_signal_stack, nullptr)) {
 			ERROR_LOG(Log::System, "Could not restore previous signal altstack");
 		}

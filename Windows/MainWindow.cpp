@@ -63,9 +63,7 @@
 #include "Common/GPU/GraphicsContext.h"
 
 #include "Windows/main.h"
-#ifndef _M_ARM
 #include "Windows/DinputDevice.h"
-#endif
 #include "Windows/resource.h"
 
 #include "Windows/MainWindow.h"
@@ -1002,9 +1000,7 @@ namespace MainWindow {
 			return WindowsRawInput::ProcessChar(hWnd, wParam, lParam);
 
 		case WM_DEVICECHANGE:
-#ifndef _M_ARM
 			DinputDevice::CheckDevices();
-#endif
 			if (winCamera)
 				winCamera->CheckDevices();
 			if (winMic)
