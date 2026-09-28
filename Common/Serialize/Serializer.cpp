@@ -363,7 +363,8 @@ CChunkFileReader::Error CChunkFileReader::LoadFileHeader(File::IOFile &pFile, SC
 		}
 
 		if (title) {
-			*title = titleFixed;
+			// Not necessarily terminated in the file.
+			*title = std::string(titleFixed, strnlen(titleFixed, sizeof(titleFixed)));
 		}
 
 		headerSize += 128;
