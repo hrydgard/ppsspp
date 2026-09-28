@@ -32,7 +32,7 @@
 struct AT3BitrateMeta {
 	u16 sampleSize;
 	u8 dataByte;
-	u8 jointStereo;  // I think?
+	u8 jointStereo;
 };
 
 static const AT3BitrateMeta g_at3BitrateMeta[5] = {
@@ -242,12 +242,13 @@ int InitContextFromTrackInfo(SceAtracContext *ctx, const TrackInfo *wave, u32 bu
 			(ctx->codec).fmt.at3.formatByte2 = wave->tailFlag;
 			return 0;
 		}
-		// At3. Set up the hardware codec (hopefully we can correctly support this in sceAudiocodec and thus sceAtrac LLE in the future)
-		// This is not actually necessary since we don't use the actual hardware codec.
+		// At3. Set up the hardware codec parameter as libatrac3plus.prx's SetData (0880645c) does:
+		// keyed by frame size and the joint-stereo flag (sampleSizeMaybe, for Atrac3), it stores the
+		// data byte, as a word. We don't decode through it, but it's what the game sees.
 		for (int counter = 4; counter >= 0; counter--) {
 			if ((g_at3BitrateMeta[counter].sampleSize == (ctx->info).sampleSize) &&
-				((int)g_at3BitrateMeta[counter].dataByte == wave->sampleSizeMaybe)) {
-				(ctx->codec).fmt.at3.formatByte1 = (char)g_at3BitrateMeta[counter].jointStereo;
+				((int)g_at3BitrateMeta[counter].jointStereo == wave->sampleSizeMaybe)) {
+				(ctx->codec).fmt.at3.formatByte1 = g_at3BitrateMeta[counter].dataByte;
 				(ctx->codec).fmt.at3.formatByte2 = 0;
 				(ctx->codec).fmt.at3.unk2a = 0;
 				(ctx->codec).fmt.at3.unk2b = 0;
