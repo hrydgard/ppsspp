@@ -230,7 +230,9 @@ void MpegContext::DoState(PointerWrap &p) {
 		}
 	}
 	DoClass(p, mediaengine);
-	ringbufferNeedsReverse = s < 2;
+	if (p.mode == p.MODE_READ) {
+		ringbufferNeedsReverse = s < 2;
+	}
 }
 
 static MpegContext *getMpegCtx(u32 mpegAddr) {

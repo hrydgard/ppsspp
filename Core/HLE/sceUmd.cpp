@@ -106,7 +106,7 @@ void __UmdDoState(PointerWrap &p)
 
 	if (s > 1) {
 		Do(p, g_UMDReplacePermit);
-		if (g_UMDReplacePermit) {
+		if (g_UMDReplacePermit && p.mode == p.MODE_READ) {
 			System_Notify(SystemNotification::UI);
 		}
 	}

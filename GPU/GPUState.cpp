@@ -301,7 +301,9 @@ void GPUStateCache::DoState(PointerWrap &p) {
 
 		uint8_t textureChanged = 0;
 		Do(p, textureChanged);  // legacy
-		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
+		if (p.mode == p.MODE_READ) {
+			gstate_c.Dirty(DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
+		}
 		Do(p, textureSolidAlpha);
 		Do(p, vertexFullAlpha);
 		bool framebufChanged = false;  // legacy
