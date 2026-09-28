@@ -337,8 +337,9 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 			if (gstate_c.needShaderTexClamp) {
 				// 4 bits total.
 				id.SetBit(FS_BIT_SHADER_TEX_CLAMP);
-				id.SetBit(FS_BIT_CLAMP_S, gstate.isTexCoordClampedS());
-				id.SetBit(FS_BIT_CLAMP_T, gstate.isTexCoordClampedT());
+				// Video is always clamped, so it can't wrap around into the garbage outside the frame.
+				id.SetBit(FS_BIT_CLAMP_S, gstate.isTexCoordClampedS() || gstate_c.textureIsVideo);
+				id.SetBit(FS_BIT_CLAMP_T, gstate.isTexCoordClampedT() || gstate_c.textureIsVideo);
 			}
 			id.SetBits(FS_BIT_SHADER_DEPAL_MODE, 2, (int)shaderDepalMode);
 			id.SetBits(FS_BIT_SHADER_DEPAL_FORMAT, 3, (int)shaderDepalFormat);
