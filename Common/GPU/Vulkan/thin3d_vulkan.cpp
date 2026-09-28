@@ -1072,7 +1072,8 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 			}
 		} else if (deviceProps.deviceID >= 0x06000000 && deviceProps.deviceID < 0x07000000) {
 			// Some Adreno 6xx with very old drivers also exhibit this bug.
-			if (deviceProps.driverVersion < 0x60000000) {
+			// Turnip reports a Mesa-packed driver version, so exclude it by name (same as below).
+			if (!turnip && deviceProps.driverVersion < 0x60000000) {
 				bugs_.Infest(Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL_ADRENO);
 			}
 		}
