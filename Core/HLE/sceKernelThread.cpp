@@ -1919,7 +1919,13 @@ int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32
 	// Creating a thread resumes dispatch automatically.  Probably can't create without it.
 	dispatchEnabled = true;
 
-	hleEatCycles(32000);
+	// Measured by tests/threads/scheduling/costs: about 150us, plus filling the stack with 0xFF at
+	// around a cycle per byte - 1.3ms for a 256KB stack.
+	int createCycles = 32000;
+	if ((attr & PSP_THREAD_ATTR_NO_FILLSTACK) == 0 && stacksize > 0) {
+		createCycles += stacksize - stacksize / 64;
+	}
+	hleEatCycles(createCycles);
 	// This won't schedule to the new thread, but it may to one woken from eating cycles.
 	// Technically, this should not eat all at once, and reschedule in the middle, but that's hard.
 	hleReSchedule("thread created");
@@ -2240,6 +2246,8 @@ int sceKernelDeleteThread(int threadID) {
 			return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_NOT_DORMANT);
 		}
 
+		// 50-100us whatever the stack size, per tests/threads/scheduling/costs.
+		hleEatCycles(15000);
 		return hleLogDebug(Log::sceKernel, __KernelDeleteThread(threadID, SCE_KERNEL_ERROR_THREAD_TERMINATED, "thread deleted"));
 	}
 }
