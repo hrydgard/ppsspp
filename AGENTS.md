@@ -133,6 +133,14 @@ differently from what you asked for, or one that never reached the code, produce
 a clean one, so assert the exit code and a positive "we got here" counter before believing any error count.
 The traps in full: [docs/debugging.md](docs/debugging.md).
 
+Keep game runs short and fast, so nobody has to watch them: always pass `--timeout-wall=30` (alongside any
+`--timeout-emulated`) unless there's a real reason for longer, use `--graphics=vulkan` rather than
+`--graphics=software` (if Vulkan doesn't work in headless, fix that), prefer a Release build, and leave out
+debug-level `--log` unless you need it. Each of those can cost an order of magnitude: Outrun loading a state
+took minutes with a Debug build, software rendering and a 300MB log, and about a second without them. To
+check that a game renders, `--screenshot-save=FILE.png` beats grepping the log. (pspautotests through
+`test.py` are different: they have their own per-test timeouts and use `--graphics=software` like CI.)
+
 New unit tests are added to `availableTests`; large ones go in their own file in `unittest/`, which has
 to be listed in **three** build files, not two: `CMakeLists.txt`, `unittest/UnitTests.vcxproj` (and its
 `.filters`), and `android/jni/Android.mk`, which builds a unit test executable of its own. Miss the last
