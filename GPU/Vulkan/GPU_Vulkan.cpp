@@ -258,8 +258,10 @@ void GPU_Vulkan::BeginHostFrame(const DisplayLayoutConfig &config) {
 		WARN_LOG(Log::G3D, "Shader use flags changed, clearing all shaders and depth buffers");
 		// TODO: Not all shaders need to be recompiled. In fact, quite few? Of course, depends on
 		// the use flag change.. This is a major frame rate hitch in the start of a race in Outrun.
-		shaderManager_->ClearShaders();
+		// Pipelines first: their deletion callbacks block on in-flight compiles, which use the shader modules
+		// that the shaders' own (later) deletion callbacks free.
 		pipelineManager_->Clear();
+		shaderManager_->ClearShaders();
 		framebufferManager_->ClearAllDepthBuffers();
 		gstate_c.useFlagsChanged = false;
 	}
