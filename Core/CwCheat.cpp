@@ -270,10 +270,13 @@ void __CheatDoState(PointerWrap &p) {
 		// CoreTiming::DoState has already replaced the queue with the state's, which has no cheat
 		// event in it, so without scheduling one here hleCheat never runs again and cheats (plus
 		// the enable/disable polling) stay dead for the rest of the session.
-		CheatEvent = -1;
-		CoreTiming::RestoreRegisterEvent(CheatEvent, "CheatEvent", &hleCheat);
-		CoreTiming::RemoveEvent(CheatEvent);
-		CoreTiming::ScheduleEvent(msToCycles(GetRefreshMs()), CheatEvent, 0);
+		// (Not when a save failed earlier and every section after comes back missing.)
+		if (p.mode == PointerWrap::MODE_READ) {
+			CheatEvent = -1;
+			CoreTiming::RestoreRegisterEvent(CheatEvent, "CheatEvent", &hleCheat);
+			CoreTiming::RemoveEvent(CheatEvent);
+			CoreTiming::ScheduleEvent(msToCycles(GetRefreshMs()), CheatEvent, 0);
+		}
 		return;
 	}
 

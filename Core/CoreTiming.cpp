@@ -544,13 +544,17 @@ void DoState(PointerWrap &p) {
 		return;
 	}
 
-	// These (should) be filled in later by the modules.
-	for (int i = 0; i < current; ++i) {
-		event_types[i].callback = AntiCrashCallback;
-		event_types[i].name = "INVALID EVENT";
+	// These (should) be filled in later by the modules. Only when loading: a save that fails partway
+	// wouldn't get to all the restores, and would leave the running game with broken events.
+	if (p.mode == PointerWrap::MODE_READ) {
+		for (int i = 0; i < current; ++i) {
+			event_types[i].callback = AntiCrashCallback;
+			event_types[i].name = "INVALID EVENT";
+		}
+		nextEventTypeRestoreId = n - 1;
+		usedEventTypes.clear();
 	}
-	nextEventTypeRestoreId = n - 1;
-	usedEventTypes.clear();
+	// Needed in every pass, or each restore would look like a duplicate and get a new id.
 	restoredEventTypes.clear();
 
 	if (s >= 3) {

@@ -877,7 +877,10 @@ void Idle() {
 void DoState(PointerWrap &p) {
 	auto sw = p.Section("Achievements", 0, 1);
 	if (!sw) {
-		// Save state is missing the section.
+		// Save state is missing the section, or this is a save that failed earlier.
+		if (p.mode != PointerWrap::MODE_READ) {
+			return;
+		}
 		// Reset the runtime.
 		if (HasAchievementsOrLeaderboards()) {
 			auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
