@@ -13,6 +13,8 @@
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/GPU/Vulkan/VulkanDebug.h"
 #include "Common/StringUtils.h"
+#include "Common/File/FileUtil.h"
+#include "ext/xxhash.h"
 
 #ifdef USE_CRT_DBG
 #undef new
@@ -1778,8 +1780,180 @@ EShLanguage FindLanguage(const VkShaderStageFlagBits shader_type) {
 
 // Compile a given string containing GLSL into SPV for use by VK
 // Return value of false means an error was encountered.
+// Bump when glslang or its options change, so that nothing it compiled differently is used.
+static const uint32_t SPIRV_CACHE_VERSION = 2;
+static const uint32_t SPIRV_CACHE_MAGIC = 0x43565053;  // "SPVC"
+static const uint32_t SPIRV_MAGIC = 0x07230203;
+
+struct SPIRVCacheHeader {
+	uint32_t magic;
+	uint32_t version;
+	uint32_t count;
+};
+
+struct SPIRVCacheEntryHeader {
+	uint32_t keyHash;
+	uint32_t keyLength;
+	uint32_t numWords;
+	uint32_t checksum;
+};
+
+SPIRVCache g_spirvCache;
+
+SPIRVCache::Key SPIRVCache::MakeKey(VkShaderStageFlagBits stage, GLSLVariant variant, const char *source) {
+	const size_t length = strlen(source);
+	const uint32_t seed = (SPIRV_CACHE_VERSION << 16) | ((uint32_t)stage << 4) | (uint32_t)variant;
+	return Key{ XXH32(source, length, seed), (uint32_t)length };
+}
+
+bool SPIRVCache::Lookup(VkShaderStageFlagBits stage, GLSLVariant variant, const char *source, std::vector<uint32_t> *spirv) {
+	const Key key = MakeKey(stage, variant, source);
+	std::lock_guard<std::mutex> guard(mutex_);
+	LoadIfNeededLocked();
+	auto iter = entries_.find(key);
+	if (iter == entries_.end()) {
+		return false;
+	}
+	iter->second.used = true;
+	*spirv = iter->second.spirv;
+	return true;
+}
+
+void SPIRVCache::Insert(VkShaderStageFlagBits stage, GLSLVariant variant, const char *source, const std::vector<uint32_t> &spirv) {
+	const Key key = MakeKey(stage, variant, source);
+	std::lock_guard<std::mutex> guard(mutex_);
+	Entry &entry = entries_[key];
+	entry.spirv = spirv;
+	entry.used = true;
+	dirty_ = true;
+}
+
+void SPIRVCache::Clear() {
+	std::lock_guard<std::mutex> guard(mutex_);
+	entries_.clear();
+	dirty_ = false;
+}
+
+bool SPIRVCache::Read(FILE *f) {
+	std::lock_guard<std::mutex> guard(mutex_);
+	return ReadLocked(f);
+}
+
+// A bad entry is dropped rather than failing the whole read: it's only a cache, and the shader
+// gets compiled again. A truncated file keeps what came before the damage.
+bool SPIRVCache::ReadLocked(FILE *f) {
+	entries_.clear();
+	dirty_ = false;
+	SPIRVCacheHeader header{};
+	if (fread(&header, sizeof(header), 1, f) != 1 || header.magic != SPIRV_CACHE_MAGIC) {
+		return false;
+	}
+	if (header.version != SPIRV_CACHE_VERSION) {
+		INFO_LOG(Log::G3D, "SPIR-V cache version %d, expected %d - starting over", header.version, SPIRV_CACHE_VERSION);
+		return false;
+	}
+	for (uint32_t i = 0; i < header.count; i++) {
+		SPIRVCacheEntryHeader entryHeader{};
+		if (fread(&entryHeader, sizeof(entryHeader), 1, f) != 1 || entryHeader.numWords == 0 || entryHeader.numWords > 1024 * 1024) {
+			WARN_LOG(Log::G3D, "SPIR-V cache truncated or damaged after %d entries", i);
+			return false;
+		}
+		std::vector<uint32_t> spirv(entryHeader.numWords);
+		if (fread(spirv.data(), sizeof(uint32_t), spirv.size(), f) != spirv.size()) {
+			WARN_LOG(Log::G3D, "SPIR-V cache truncated after %d entries", i);
+			return false;
+		}
+		if (spirv[0] != SPIRV_MAGIC || (uint32_t)XXH3_64bits(spirv.data(), spirv.size() * sizeof(uint32_t)) != entryHeader.checksum) {
+			WARN_LOG(Log::G3D, "Bad entry in SPIR-V cache, skipping");
+			continue;
+		}
+		entries_[Key{ entryHeader.keyHash, entryHeader.keyLength }].spirv = std::move(spirv);
+	}
+	return true;
+}
+
+bool SPIRVCache::Write(FILE *f, bool onlyUsed) {
+	std::lock_guard<std::mutex> guard(mutex_);
+	SPIRVCacheHeader header{ SPIRV_CACHE_MAGIC, SPIRV_CACHE_VERSION, 0 };
+	for (const auto &[key, entry] : entries_) {
+		if (entry.used || !onlyUsed) {
+			header.count++;
+		}
+	}
+	bool ok = fwrite(&header, sizeof(header), 1, f) == 1;
+	for (const auto &[key, entry] : entries_) {
+		if (!ok) {
+			break;
+		}
+		if (!entry.used && onlyUsed) {
+			continue;
+		}
+		SPIRVCacheEntryHeader entryHeader{};
+		entryHeader.keyHash = key.hash;
+		entryHeader.keyLength = key.length;
+		entryHeader.numWords = (uint32_t)entry.spirv.size();
+		entryHeader.checksum = (uint32_t)XXH3_64bits(entry.spirv.data(), entry.spirv.size() * sizeof(uint32_t));
+		ok = fwrite(&entryHeader, sizeof(entryHeader), 1, f) == 1 &&
+			fwrite(entry.spirv.data(), sizeof(uint32_t), entry.spirv.size(), f) == entry.spirv.size();
+	}
+	if (ok) {
+		dirty_ = false;
+	}
+	return ok;
+}
+
+void SPIRVCache::SetPath(const Path &path, int maxEntries) {
+	std::lock_guard<std::mutex> guard(mutex_);
+	path_ = path;
+	maxEntries_ = maxEntries;
+	loaded_ = false;
+}
+
+void SPIRVCache::LoadIfNeededLocked() {
+	if (loaded_ || path_.empty()) {
+		return;
+	}
+	loaded_ = true;
+	FILE *f = File::OpenCFile(path_, "rb");
+	if (f) {
+		ReadLocked(f);
+		fclose(f);
+		INFO_LOG(Log::G3D, "Loaded %d shaders from the SPIR-V cache", (int)entries_.size());
+	}
+	// Entries for shaders that have since changed pile up, so start over once there are a lot of
+	// them. A few shaders compiling once more doesn't matter.
+	if (maxEntries_ > 0 && (int)entries_.size() >= maxEntries_) {
+		INFO_LOG(Log::G3D, "SPIR-V cache has %d entries, flushing it", (int)entries_.size());
+		entries_.clear();
+		dirty_ = true;
+	}
+}
+
+void SPIRVCache::SaveIfDirty() {
+	Path path;
+	{
+		std::lock_guard<std::mutex> guard(mutex_);
+		if (!dirty_ || path_.empty()) {
+			return;
+		}
+		path = path_;
+	}
+	FILE *f = File::OpenCFile(path, "wb");
+	if (!f) {
+		return;
+	}
+	// A small fixed set of shaders, so keep everything - including ones this run didn't need.
+	if (!Write(f, false)) {
+		ERROR_LOG(Log::G3D, "Failed to write the SPIR-V cache, disk full?");
+	}
+	fclose(f);
+}
+
 bool GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char *sourceCode, GLSLVariant variant,
-			   std::vector<unsigned int> &spirv, std::string *errorMessage) {
+			   std::vector<unsigned int> &spirv, std::string *errorMessage, SPIRVCache *cache) {
+	if (cache && cache->Lookup(shader_type, variant, sourceCode, &spirv)) {
+		return true;
+	}
 
 	glslang::TProgram program;
 	const char *shaderStrings[1];
@@ -1848,6 +2022,9 @@ bool GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char *sourceCode, 
 	options.optimizeSize = false;
 	options.generateDebugInfo = false;
 	glslang::GlslangToSpv(*program.getIntermediate(stage), spirv, &options);
+	if (cache && !spirv.empty()) {
+		cache->Insert(shader_type, variant, sourceCode, spirv);
+	}
 	return true;
 }
 

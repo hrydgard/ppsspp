@@ -62,6 +62,7 @@
 #include "Common/Render/Text/draw_text.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/GPU/thin3d.h"
+#include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/UI/UI.h"
 #include "Common/UI/Screen.h"
 #include "Common/UI/ScreenManager.h"
@@ -798,6 +799,16 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 
 	g_DownloadManager.SetCacheDir(GetSysDirectory(DIRECTORY_APP_CACHE));
 
+#if !PPSSPP_PLATFORM(UWP)
+	// The SPIR-V of thin3d's shaders and other fixed ones. Only read on first use, so only by Vulkan.
+	if (g_Config.bShaderCache) {
+		File::CreateFullPath(GetSysDirectory(DIRECTORY_APP_CACHE));
+		// About twice what a session compiles (menu and a game: 10, a few more with post-processing
+		// or texture upscaling), so it's flushed once outdated entries have piled up.
+		g_spirvCache.SetPath(GetSysDirectory(DIRECTORY_APP_CACHE) / "vulkan_spirv.cache", 32);
+	}
+#endif
+
 	ApplyAchievementsHostOverride();
 
 	g_screenManager = new ScreenManager();
@@ -966,6 +977,10 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 		ImGui_ImplThin3d_CreateDeviceObjects(g_draw);
 	}
 
+#if !PPSSPP_PLATFORM(UWP)
+	// Now, rather than only at shutdown: on mobile the app can be killed without one.
+	g_spirvCache.SaveIfDirty();
+#endif
 
 	INFO_LOG(Log::System, "NativeInitGraphics completed");
 
@@ -1026,6 +1041,10 @@ bool CreateGlobalPipelines() {
 
 void NativeShutdownGraphics(GraphicsContext *graphicsContext) {
 	INFO_LOG(Log::System, "NativeShutdownGraphics begin");
+
+#if !PPSSPP_PLATFORM(UWP)
+	g_spirvCache.SaveIfDirty();
+#endif
 
 	graphicsContext->NotifyEmuThreadExit();
 
