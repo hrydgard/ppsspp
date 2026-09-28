@@ -266,6 +266,8 @@ void __AtracDoState(PointerWrap &p) {
 		Do(p, g_atracOutputEvent);
 	} else if (p.mode == PointerWrap::MODE_READ) {
 		g_pendingOutput.clear();
+		// The state doesn't have it, so the id it got at boot may belong to another event in there.
+		g_atracOutputEvent = -1;
 	}
 	CoreTiming::RestoreRegisterEvent(g_atracOutputEvent, "AtracOutput", AtracOutputEvent);
 }
