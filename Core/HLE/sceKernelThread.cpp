@@ -2559,7 +2559,13 @@ static int __KernelSleepThread(bool doCallbacks) {
 		return hleNoLog(-1);
 	}
 
-	if (thread->nt.wakeupCount > 0) {
+	if (doCallbacks && thread->nt.wakeupCount > 0 && __KernelCurHasReadyCallbacks()) {
+		// Pending callbacks run first, then the sleep end callback consumes the wakeup.
+		// Log first, the callback starts running right away.
+		(void)hleLogDebug(Log::sceKernel, 0, "running callbacks before wakeup");
+		__KernelWaitCallbacksCurThread(WAITTYPE_SLEEP, 0, 0, 0);
+		return 0;
+	} else if (thread->nt.wakeupCount > 0) {
 		thread->nt.wakeupCount--;
 		return hleLogDebug(Log::sceKernel, 0, "wakeupCount decremented to %i", thread->nt.wakeupCount);
 	} else {
@@ -3064,8 +3070,18 @@ const char *ThreadStatusToString(ThreadStatus status) {
 	return "(unk)";
 }
 
+// Set while a returning mipscall's after-action runs, which may queue the next callback.
+static bool g_inMipsCallReturn = false;
+
+static bool __KernelIsInCallbackOnThread(const PSPThread *thread) {
+	return g_inCbCount > 0 && thread && thread->GetUID() == currentCallbackThreadID;
+}
+
 static bool __CanExecuteCallbackNow(PSPThread *thread) {
-	return currentCallbackThreadID == 0 && g_inCbCount == 0;
+	if (currentCallbackThreadID == 0 && g_inCbCount == 0)
+		return true;
+	// A thread inside a callback runs its own pending callbacks nested, from a CB wait.
+	return !g_inMipsCallReturn && __KernelIsInCallbackOnThread(thread);
 }
 
 // Takes ownership of afterAction.
@@ -3103,6 +3119,10 @@ void __KernelCallAddress(PSPThread *thread, u32 entryPoint, PSPAction *afterActi
 			// Release thread from waiting
 			thread->nt.waitType = WAITTYPE_NONE;
 		}
+
+		// A wait paused by a callback nested in this one is keyed by this callback's id.
+		if (cbId > 0)
+			thread->currentCallbackId = cbId;
 
 		__KernelChangeThreadState(thread, THREADSTATUS_READY);
 	}
@@ -3152,7 +3172,7 @@ bool __KernelExecuteMipsCallOnCurrentThread(u32 callId, bool reschedAfter)
 		return false;
 	}
 
-	if (g_inCbCount > 0) {
+	if (g_inCbCount > 0 && !__KernelIsInCallbackOnThread(cur)) {
 		WARN_LOG_REPORT(Log::sceKernel, "__KernelExecuteMipsCallOnCurrentThread(): Already in a callback!");
 	}
 	DEBUG_LOG(Log::sceKernel, "Executing mipscall %i", callId);
@@ -3216,7 +3236,9 @@ void __KernelReturnFromMipsCall() {
 
 	// TODO: Should also save/restore wait state here?
 	if (call->doAfter) {
+		g_inMipsCallReturn = true;
 		call->doAfter->run(*call);
+		g_inMipsCallReturn = false;
 		delete call->doAfter;
 		call->doAfter = nullptr;
 	}
@@ -3249,13 +3271,20 @@ void __KernelReturnFromMipsCall() {
 	if (call->cbId != 0 && g_inCbCount > 0) {
 		g_inCbCount--;
 	}
-	currentCallbackThreadID = 0;
+	// Returning from a nested callback leaves us inside the outer one.
+	currentCallbackThreadID = g_inCbCount > 0 ? cur->GetUID() : 0;
 
 	if (cur->nt.waitType != WAITTYPE_NONE && (cur->nt.status & THREADSTATUS_WAIT) != 0 && call->cbId > 0) {
 		if (waitTypeFuncs[cur->nt.waitType].endFunc != NULL)
 			waitTypeFuncs[cur->nt.waitType].endFunc(cur->GetUID(), cur->currentCallbackId);
 		else
 			ERROR_LOG_REPORT(Log::HLE, "Missing begin/restore funcs for wait type %d", cur->nt.waitType);
+	}
+
+	// If the wait ended (or there was none), the thread never gave up the CPU, so it shouldn't
+	// queue behind threads of the same priority.
+	if (cur->isReady()) {
+		__KernelChangeThreadState(cur, THREADSTATUS_RUNNING);
 	}
 
 	// yeah! back in the real world, let's keep going. Should we process more callbacks?
@@ -3395,10 +3424,16 @@ bool __KernelCheckCallbacks() {
 	if (readyCallbacksCount < 0) {
 		ERROR_LOG_REPORT(Log::sceKernel, "readyCallbacksCount became negative: %i", readyCallbacksCount);
 	}
-	if (__IsInInterrupt() || !__KernelIsDispatchEnabled() || __KernelInCallback()) {
-		// TODO: Technically, other callbacks can run when a thread within a callback is waiting.
-		// However, callbacks that were pending before the current callback started won't be run.
-		// This is pretty uncommon, and not yet handled correctly.
+	if (__IsInInterrupt() || !__KernelIsDispatchEnabled()) {
+		return false;
+	}
+	if (__KernelInCallback()) {
+		// A thread inside a callback runs its own callbacks nested, from a CB wait.
+		// TODO: Technically, other threads' callbacks can also run when a thread within a callback is waiting.
+		PSPThread *thread = __GetCurrentThread();
+		if (__KernelIsInCallbackOnThread(thread) && thread->isWaiting() && __KernelCheckThreadCallbacks(thread, false)) {
+			return __KernelExecutePendingMipsCalls(thread, true);
+		}
 		return false;
 	}
 
@@ -3445,6 +3480,15 @@ bool __KernelForceCallbacks() {
 
 // Not wrapped because it has special return logic.
 void sceKernelCheckCallback() {
+	// Unlike CB waits, this refuses to run callbacks from inside one.
+	if (__KernelIsInCallbackOnThread(__GetCurrentThread())) {
+		DEBUG_LOG(Log::sceKernel, "sceKernelCheckCallback() - in a callback, refused.");
+		RETURN(SCE_KERNEL_ERROR_ILLEGAL_CONTEXT);
+		hleEatCycles(230);
+		hleNoLogVoid();
+		return;
+	}
+
 	// Start with yes.
 	RETURN(1);
 

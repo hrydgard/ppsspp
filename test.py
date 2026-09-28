@@ -309,11 +309,14 @@ tests_good = [
   "threads/alarm/cancel/cancel",
   "threads/alarm/refer/refer",
   "threads/alarm/set/set",
+  "threads/callbacks/afterwait",
   "threads/callbacks/callbacks",
   "threads/callbacks/check",
   "threads/callbacks/create",
   "threads/callbacks/delete",
   "threads/callbacks/exit",
+  "threads/callbacks/nested",
+  "threads/callbacks/notify",
   "threads/callbacks/refer",
   "threads/events/events",
   "threads/events/cancel/cancel",
@@ -580,7 +583,6 @@ tests_next = [
   "sysmem/partition",
   "threads/callbacks/cancel",
   "threads/callbacks/count",
-  "threads/callbacks/notify",
   # These two mbx tests only appeared to work because they papered over bugs 
 
 
