@@ -113,6 +113,9 @@ uint32_t PackDepalBits(bool pixelMapped);
 
 void UpdateFogCoef(const GEState &state, float fogCoef[2]);
 
+// Computes u_texclamp and u_texclampoff. Only meaningful when gstate_c.needShaderTexClamp is set.
+void CalcTexClamp(float texClamp[4], float texClampOffset[2]);
+
 // This happens so much that I want it inline.
 inline void UpdateUVScaleOff(const GEState &state, float uvScaleOff[4]) {
 	if (gstate_c.textureIsFramebuffer) {

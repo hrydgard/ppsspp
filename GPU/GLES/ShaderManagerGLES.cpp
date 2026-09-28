@@ -453,24 +453,9 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, const ShaderLanguageDesc
 	}
 
 	if ((dirty & DIRTY_TEXCLAMP) && u_texclamp != -1) {
-		const float invW = 1.0f / (float)gstate_c.curTextureWidth;
-		const float invH = 1.0f / (float)gstate_c.curTextureHeight;
-		const int w = gstate.getTextureWidth(0);
-		const int h = gstate.getTextureHeight(0);
-		const float widthFactor = (float)w * invW;
-		const float heightFactor = (float)h * invH;
-
-		// First wrap xy, then half texel xy (for clamp.)
-		const float texclamp[4] = {
-			widthFactor,
-			heightFactor,
-			invW * 0.5f,
-			invH * 0.5f,
-		};
-		const float texclampoff[2] = {
-			gstate_c.curTextureXOffset * invW,
-			gstate_c.curTextureYOffset * invH,
-		};
+		float texclamp[4];
+		float texclampoff[2];
+		CalcTexClamp(texclamp, texclampoff);
 		render_->SetUniformF(&u_texclamp, 4, texclamp);
 		if (u_texclampoff != -1) {
 			render_->SetUniformF(&u_texclampoff, 2, texclampoff);

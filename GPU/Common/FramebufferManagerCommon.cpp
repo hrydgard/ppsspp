@@ -1546,7 +1546,9 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 bool FramebufferManagerCommon::DrawFramebufferToOutput(const DisplayLayoutConfig &config, const u8 *srcPixels, int srcStride, GEBufferFormat srcPixelFormat) {
 	textureCache_->ForgetLastTexture();
 
-	Draw::Texture *pixelsTex = MakePixelTexture(srcPixels, srcPixelFormat, srcStride, 512, 272);
+	// Upload exactly the displayed 480x272, so that filtering (and post shaders) clamp at the edge of the
+	// image instead of pulling in what's past it in memory - often garbage, like when this is video.
+	Draw::Texture *pixelsTex = MakePixelTexture(srcPixels, srcPixelFormat, srcStride, 480, 272);
 	if (!pixelsTex) {
 		return false;
 	}
@@ -1557,12 +1559,12 @@ bool FramebufferManagerCommon::DrawFramebufferToOutput(const DisplayLayoutConfig
 		flags |= OutputFlags::BACKBUFFER_FLIPPED;
 	}
 
-	constexpr float u0 = 0.0f, u1 = 480.0f / 512.0f;
+	constexpr float u0 = 0.0f, u1 = 1.0f;
 	constexpr float v0 = 0.0f, v1 = 1.0f;
 
 	if (useBufferedRendering_) {
 		presentation_->UpdateUniforms(gpu->VideoIsPlaying());
-		presentation_->SourceTexture(pixelsTex, 512, 272);
+		presentation_->SourceTexture(pixelsTex, 480, 272);
 		presentation_->RunPostshaderPasses(config, flags, uvRotation, u0, v0, u1, v1);
 	}
 

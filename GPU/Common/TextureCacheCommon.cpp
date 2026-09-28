@@ -937,7 +937,15 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 TextureApplyResult TextureCacheCommon::ApplyTextureFinish(TexCacheEntry *entry, bool doBind) {
 	_dbg_assert_(entry);
 
-	gstate_c.SetTextureIsVideo((entry->status & TexStatus::VIDEO) != 0);
+	const bool isVideo = (entry->status & TexStatus::VIDEO) != 0;
+	gstate_c.SetTextureIsVideo(isVideo);
+	if (isVideo) {
+		// Restrict sampling to the 480x272 frame (see CalcTexClamp), since with the forced linear
+		// filtering, whatever is next to it in memory bleeds in at the edges.
+		gstate_c.curTextureXOffset = 0;
+		gstate_c.curTextureYOffset = 0;
+		gstate_c.SetNeedShaderTexclamp(true);
+	}
 	gstate_c.SetTextureIsArray(false);  // Ordinary 2D textures still aren't used by array view in VK. We probably might as well, though, at this point..
 	gstate_c.SetTextureIsFramebuffer(false);
 	entry->lastFrame = gpuStats.totals.numFlips;
