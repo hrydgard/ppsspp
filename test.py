@@ -180,6 +180,7 @@ tests_good = [
   "ctrl/sampling2/sampling2",
   "ctrl/vblank",
   "display/display",
+  "display/hcount",
   "display/vblankmulti",
   "display/isstate",
   "display/setframebuf",
@@ -293,6 +294,7 @@ tests_good = [
   "mstick/mstick",
   "power/cpu",
   "power/power",
+  "power/freq",
   "power/volatile/lock",
   "power/volatile/trylock",
   "power/volatile/unlock",
@@ -532,7 +534,6 @@ tests_next = [
   "audio/output2/frequency",
   "audio/output2/rest",
   "ccc/convertstring",
-  "display/hcount",
   "font/fonttest",
   "font/charinfo",
   "font/newlib",
@@ -593,7 +594,6 @@ tests_next = [
   #"modules/loadexec/loader",
   "net/http/http",
   "net/primary/ether",
-  "power/freq",
   "sysmem/partition",
   # These two mbx tests only appeared to work because they papered over bugs 
 
