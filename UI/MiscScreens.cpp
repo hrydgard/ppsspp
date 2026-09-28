@@ -717,7 +717,6 @@ void CreditsScroller::Draw(UIContext &dc) {
 		"zstd",
 		"glew",
 		"libchdr",
-		"minimp3",
 		"xxhash",
 		"naett-http",
 		"PSP SDK",
