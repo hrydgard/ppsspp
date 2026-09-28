@@ -826,8 +826,8 @@ void SoftGPU::Execute_BlockTransferStart(u32 op, u32 diff) {
 
 	// Need to flush both source and target, so we overwrite properly.
 	if (Memory::IsValidRange(src, srcSize) && Memory::IsValidRange(dst, dstSize)) {
-		drawEngine_->transformUnit.FlushIfOverlap(this, "blockxfer", false, src, srcStride, width * bpp, height);
-		drawEngine_->transformUnit.FlushIfOverlap(this, "blockxfer", true, dst, dstStride, width * bpp, height);
+		drawEngine_->transformUnit.FlushIfOverlap(this, "blockxfer", false, src, srcStride * bpp, width * bpp, height);
+		drawEngine_->transformUnit.FlushIfOverlap(this, "blockxfer", true, dst, dstStride * bpp, width * bpp, height);
 	} else {
 		drawEngine_->transformUnit.Flush(this, "blockxfer_wrap");
 	}
