@@ -397,6 +397,11 @@ void ViewSearch::ApplySearchFilter(UI::ViewGroup *viewGroup, bool setKeyboardFoc
 			if (v->CanBeFocused() && !firstMatch) {
 				firstMatch = v;
 			}
+		} else if (v->CanBeFocused() && NormalizeForSearch(v->SearchAlias()).find(filter) != std::string::npos) {
+			match = true;
+			if (!firstMatch) {
+				firstMatch = v;
+			}
 		} else {
 			std::string label = v->DescribeText();
 			// This is a bit of a hack to recognize a pending game title.
