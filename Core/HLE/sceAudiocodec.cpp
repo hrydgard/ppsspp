@@ -232,15 +232,16 @@ void __AudioCodecShutdown() {
 //   Atrac3          80         56     210        56           3
 //   MP3             79         57     517        57          82
 //   AAC             57         57     230        55           3
-// A GetInfo of 3us didn't reach the ME. Calls that fail in the ME take time too; how long a failed
-// decode takes isn't measured.
+// A GetInfo of 3us didn't reach the ME. Initializing a mono Atrac3+ decoder (as InitMono does for
+// libatrac3plus.prx's MOut functions) takes 524us. Failed decodes take 214us for an Atrac3+
+// bitstream error, 142us for a bad Atrac3+ frame header, and 169us for an Atrac3 bitstream error.
 static int MECall(int result, int us) {
 	return hleDelayResult(result, "audiocodec", MEScheduleJob(PowerScaleFromDefaultClock(us)));
 }
 
-static int InitUs(int codec) {
+static int InitUs(int codec, const SceAudiocodecCodec *ctx) {
 	switch (codec) {
-	case PSP_CODEC_AT3PLUS: return 646;
+	case PSP_CODEC_AT3PLUS: return ((ctx->fmt.at3.formatByte1 >> 2) & 7) == 1 ? 524 : 646;
 	case PSP_CODEC_AT3: return 210;
 	case PSP_CODEC_MP3: return 517;
 	default: return 230;
@@ -336,7 +337,7 @@ static int __AudioCodecInitCommon(u32 ctxPtr, int codec, bool mono) {
 		break;
 	case PSP_CODEC_AAC:
 		if (!AacSampleRateFromContext(ctx)) {
-			return MECall(hleLogError(Log::ME, SCE_AVCODEC_ERROR_UNSUPPORTED, "bad AAC sample rate %d", ctx->fmt.aac.sampleRate), InitUs(codec));
+			return MECall(hleLogError(Log::ME, SCE_AVCODEC_ERROR_UNSUPPORTED, "bad AAC sample rate %d", ctx->fmt.aac.sampleRate), InitUs(codec, ctx));
 		}
 		primingFrames = 2;
 		break;
@@ -346,7 +347,7 @@ static int __AudioCodecInitCommon(u32 ctxPtr, int codec, bool mono) {
 		CalculateInputBytesAndChannelsAt3Plus(ctx, &bytesPerFrame, &channels);
 		if (channels == 0) {
 			ctx->err = 0x202;
-			return MECall(hleLogError(Log::ME, SCE_AVCODEC_ERROR_INVALID_DATA, "bad Atrac3+ format byte %02x", ctx->fmt.at3.formatByte1), InitUs(codec));
+			return MECall(hleLogError(Log::ME, SCE_AVCODEC_ERROR_INVALID_DATA, "bad Atrac3+ format byte %02x", ctx->fmt.at3.formatByte1), InitUs(codec, ctx));
 		}
 		primingFrames = 1;
 		break;
@@ -357,7 +358,7 @@ static int __AudioCodecInitCommon(u32 ctxPtr, int codec, bool mono) {
 		bool jointStereo;
 		if (!Atrac3LayoutFromContext(ctx, &bytesPerFrame, &channels, &jointStereo)) {
 			ctx->err = 0x186;
-			return MECall(hleLogError(Log::ME, SCE_AVCODEC_ERROR_INVALID_DATA, "bad Atrac3 parameter %08x", *(const u32_le *)ctx->fmt.raw), InitUs(codec));
+			return MECall(hleLogError(Log::ME, SCE_AVCODEC_ERROR_INVALID_DATA, "bad Atrac3 parameter %08x", *(const u32_le *)ctx->fmt.raw), InitUs(codec, ctx));
 		}
 		break;
 	}
@@ -368,7 +369,7 @@ static int __AudioCodecInitCommon(u32 ctxPtr, int codec, bool mono) {
 	CreateDecoderForContext(ctxPtr, audioType);
 	// Not in CreateDecoderForContext: a state load restores what's left of it instead.
 	g_primingFrames[ctxPtr] = primingFrames;
-	return MECall(hleLogDebug(Log::ME, 0), InitUs(codec));
+	return MECall(hleLogDebug(Log::ME, 0), InitUs(codec, ctx));
 }
 
 // How long the ME takes over one frame, in microseconds at the default 222MHz clock. Fitted to
@@ -377,7 +378,8 @@ static int __AudioCodecInitCommon(u32 ctxPtr, int codec, bool mono) {
 //   Atrac3 stereo: 1138 at 0x180, 1063 at 0xC0 joint stereo. Mono: 685 at 0x98.
 //   MP3 MPEG1 (1152 samples): 2575 at 418 bytes, 2698 at 1045. MPEG2 (576): 1411 at 104, 1464 at 209.
 //   AAC-LC stereo 44.1kHz: 1651 at ~190 bytes, 1990 at ~373, 2042 at ~559.
-// The mono Atrac3+ slope is a guess from its one data point.
+// The mono Atrac3+ slope is a guess from its one data point. Content matters as well as size: the
+// synthetic two-tone AAC in video/mp4 decodes about 15% faster than music at the same bitrate.
 static int EstimateDecodeUs(int codec, int channels, int frameBytes, const SceAudiocodecCodec *ctx) {
 	switch (codec) {
 	case PSP_CODEC_AT3PLUS:
@@ -429,7 +431,7 @@ static int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 			ctx->err = frameError;
 			ctx->srcBytesRead = 0;
 			ctx->dstBytesWritten = 0;
-			return MECall(hleLogWarning(Log::ME, SCE_AVCODEC_ERROR_INVALID_DATA, "Atrac3+ frame doesn't match the context: err %03x", frameError), 100);
+			return MECall(hleLogWarning(Log::ME, SCE_AVCODEC_ERROR_INVALID_DATA, "Atrac3+ frame doesn't match the context: err %03x", frameError), 142);
 		}
 		break;
 	}
@@ -517,7 +519,7 @@ static int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 			ctx->err = codec == PSP_CODEC_AT3PLUS ? 0x20a : 0x182;
 			ctx->srcBytesRead = 0;
 			ctx->dstBytesWritten = 0;
-			return MECall(hleLogWarning(Log::ME, SCE_AVCODEC_ERROR_INVALID_DATA, "%s frame failed to decode", GetCodecName(codec)), 100);
+			return MECall(hleLogWarning(Log::ME, SCE_AVCODEC_ERROR_INVALID_DATA, "%s frame failed to decode", GetCodecName(codec)), codec == PSP_CODEC_AT3PLUS ? 214 : 169);
 		}
 		if (!result) {
 			ctx->err = 0x20b;
