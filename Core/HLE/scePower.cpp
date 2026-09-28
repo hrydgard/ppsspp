@@ -511,6 +511,10 @@ static u32 scePowerSetCpuClockFrequency(u32 cpufreq) {
 	if (cpufreq == 0 || cpufreq > 333) {
 		return hleLogWarning(Log::sceMisc, SCE_KERNEL_ERROR_INVALID_VALUE, "invalid frequency");
 	}
+	// The CPU can't run faster than the PLL it's divided from.
+	if ((u64)cpufreq * 1000000 > (u64)pllFreq) {
+		return hleLogWarning(Log::sceMisc, SCE_KERNEL_ERROR_INVALID_VALUE, "above the pll frequency");
+	}
 	if (GetLockedCPUSpeedMhz() > 0) {
 		return hleLogDebug(Log::sceMisc, 0, "locked by user config at %i", GetLockedCPUSpeedMhz());
 	}
@@ -557,7 +561,13 @@ static u32 scePowerGetBusClockFrequencyInt() {
 }
 
 static float scePowerGetCpuClockFrequencyFloat() {
-	float cpuFreq = CoreTiming::GetClockFrequencyHz() / 1000000.0f;
+	// The CPU runs at a multiple of pll/511, and the firmware works the value out in single
+	// precision, as pll * n / 511, rather than from whole Hz - which is off in the last digit
+	// (power/freq).
+	const double step = (double)pllFreq / 511.0;
+	const float steps = (float)std::round(CoreTiming::GetClockFrequencyHz() / step);
+	const float pllMhz = (float)(pllFreq / 1000000.0);
+	float cpuFreq = (pllMhz * steps) / 511.0f;
 	DEBUG_LOG(Log::sceMisc, "%f=scePowerGetCpuClockFrequencyFloat()", (float)cpuFreq);
 	return cpuFreq;
 }
