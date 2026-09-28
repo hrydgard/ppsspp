@@ -51,6 +51,8 @@ CPU_TIMEOUTS = {
   'jit-ir': 5,
 }
 
+DEBUG_TIMEOUT_SCALE = 3
+
 class Command(object):
   def __init__(self, cmd, data = None):
     self.cmd = cmd
@@ -668,6 +670,9 @@ def run_tests(test_list, args):
   global PPSSPP_EXE, TIMEOUT
   returncode = 0
   timeout = CPU_TIMEOUTS.get(cpu_backend(args), TIMEOUT)
+  # Debug builds are several times slower, enough for the heavier tests to brush the limit.
+  if 'Debug' in os.path.normpath(PPSSPP_EXE).split(os.sep):
+    timeout *= DEBUG_TIMEOUT_SCALE
 
   test_filenames = []
   for test in test_list:
