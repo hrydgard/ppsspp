@@ -29,11 +29,6 @@
 #undef realloc
 #endif
 
-// Weird issue
-#if PPSSPP_PLATFORM(WINDOWS) && PPSSPP_ARCH(ARM)
-#undef free
-#endif
-
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 #include "Common/GPU/Shader.h"

@@ -328,8 +328,6 @@ namespace Reporting
 		return "Windows ARM64";
 #elif defined(_WIN64)
 		return "Windows 64";
-#elif defined(_WIN32) && defined(_M_ARM)
-		return "Windows ARM32";
 #elif defined(_WIN32)
 		return "Windows";
 #elif PPSSPP_PLATFORM(IOS)
