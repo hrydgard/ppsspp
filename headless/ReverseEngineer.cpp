@@ -393,6 +393,57 @@ int RunDecryptFile(const std::string &inPath, const std::string &outPath) {
 	return 0;
 }
 
+int RunDumpDiscFile(const std::string &discPath, const std::string &inPath, const std::string &outPath) {
+	std::string insideDisc = inPath;
+	const size_t colon = insideDisc.find(':');
+	if (colon != std::string::npos) {
+		insideDisc = insideDisc.substr(colon + 1);
+	}
+	if (insideDisc.empty() || insideDisc[0] != '/') {
+		insideDisc = "/" + insideDisc;
+	}
+
+	std::unique_ptr<FileLoader> loader(ConstructFileLoader(Path(discPath)));
+	std::string blockError;
+	std::shared_ptr<BlockDevice> device(loader ? ConstructBlockDevice(loader.get(), &blockError) : nullptr);
+	if (!device) {
+		fprintf(stderr, "dump-file: %s isn't a disc image we can read: %s\n", discPath.c_str(), blockError.c_str());
+		return 1;
+	}
+	// The ISO filesystem takes ownership of the block device, which owns the loader.
+	loader.release();
+	ISOFileSystem isoFs(&pspFileSystem, device);
+
+	// A directory gets listed instead.
+	const PSPFileInfo dirInfo = isoFs.GetFileInfo(insideDisc);
+	if (dirInfo.exists && dirInfo.type == FILETYPE_DIRECTORY) {
+		for (const PSPFileInfo &entry : isoFs.GetDirListing(insideDisc)) {
+			printf("%s %10lld %s\n", entry.type == FILETYPE_DIRECTORY ? "d" : "-", (long long)entry.size, entry.name.c_str());
+		}
+		return 0;
+	}
+
+	const int handle = isoFs.OpenFile(insideDisc, FILEACCESS_READ);
+	if (handle < 0) {
+		fprintf(stderr, "dump-file: no such file on the disc: %s\n", insideDisc.c_str());
+		return 1;
+	}
+	const PSPFileInfo info = isoFs.GetFileInfoByHandle(handle);
+	std::vector<u8> data((size_t)info.size);
+	const size_t readBytes = data.empty() ? 0 : isoFs.ReadFile(handle, data.data(), (s64)data.size());
+	isoFs.CloseFile(handle);
+	if (readBytes != data.size()) {
+		fprintf(stderr, "dump-file: short read, %d of %d bytes\n", (int)readBytes, (int)data.size());
+		return 1;
+	}
+	if (!File::WriteDataToFile(false, data.data(), data.size(), Path(outPath))) {
+		fprintf(stderr, "dump-file: couldn't write %s\n", outPath.c_str());
+		return 1;
+	}
+	printf("dump-file: wrote %d bytes of %s to %s\n", (int)data.size(), insideDisc.c_str(), outPath.c_str());
+	return 0;
+}
+
 int RunReverseEngineer(const ReverseEngineerOptions &opts) {
 	// A module inside a disc image rather than on the host - see ReverseEngineerOptions.
 	const bool fromDisc = startsWithNoCase(opts.modulePath, "disc0:") || startsWithNoCase(opts.modulePath, "umd0:");

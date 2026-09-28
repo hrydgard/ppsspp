@@ -49,6 +49,11 @@ void VideocodecGetCtxInfo(std::vector<VideocodecCtxInfo> *infos);
 
 // The Media Engine's address space. Separate from Allegrex's memory.
 bool MEIsValidRange(u32 addr, u32 size);
+
+// Runs a job of the given length on the Media Engine, after whatever it's already busy with -
+// video decode, audio decode and SAS mixing all share it. Returns how long the caller waits for it
+// to finish, in microseconds.
+int MEScheduleJob(int us);
 u8 *MEGetPointerRange(u32 addr, u32 size);
 
 // The eight buffers of the frame starting at `firstBuffer`, and its size. Returns false if that

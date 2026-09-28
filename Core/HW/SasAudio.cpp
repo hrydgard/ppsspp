@@ -22,6 +22,7 @@
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/HLE/sceAtrac.h"
+#include "Core/HLE/scePower.h"
 #include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "Core/Util/AudioFormat.h"
@@ -450,20 +451,34 @@ void SasInstance::SetGrainSize(int newGrainSize) {
 	memset(sendBufferProcessed, 0, sizeof(s16) * grainSize * 2);
 }
 
+// How long the Media Engine takes to mix one grain. Measured on a PSP (pspautotests
+// audio/timing/sastiming) at 222MHz: a fixed 110us plus 0.49us per sample of grain, plus per
+// playing voice and sample 0.445us + 0.0675us per unit of pitch ratio for VAG (a faster voice
+// decodes more ADPCM), 0.405us + 0.0675us for PCM and 0.41us for noise, plus 0.64us per sample
+// when a reverb type is set (the type doesn't matter; wet with no reverb type is free). Linear to
+// within 1% from 64 to 2048 samples and 0 to 32 voices - 32 VAG voices at 512 samples take 8.7ms.
 int SasInstance::EstimateMixUs() {
-	int voicesPlayingCount = 0;
-
+	float us = 110.0f + 0.49f * grainSize;
 	for (int v = 0; v < PSP_SAS_VOICES_MAX; v++) {
-		SasVoice &voice = voices[v];
-		if (!voice.playing || voice.paused)
+		const SasVoice &voice = voices[v];
+		if (!voice.playing || voice.paused) {
 			continue;
-		voicesPlayingCount++;
+		}
+		const float pitchRatio = voice.pitch / (float)PSP_SAS_PITCH_BASE;
+		float perSample;
+		switch (voice.type) {
+		case VOICETYPE_PCM: perSample = 0.405f + 0.0675f * pitchRatio; break;
+		case VOICETYPE_NOISE:
+		case VOICETYPE_TRIWAVE:
+		case VOICETYPE_PULSEWAVE: perSample = 0.41f; break;
+		default: perSample = 0.445f + 0.0675f * pitchRatio; break;
+		}
+		us += perSample * grainSize;
 	}
-
-	// Each voice costs extra time, and each byte of grain costs extra time.
-	int cycles = 20 + voicesPlayingCount * 68 + (grainSize * 60) / 100;
-	// Cap to 1200 to fix FFT, see issue #9956.
-	return std::min(cycles, 1200);
+	if (waveformEffect.type >= 0 && waveformEffect.isWetOn) {
+		us += 0.64f * grainSize;
+	}
+	return PowerScaleFromDefaultClock((int)us);
 }
 
 void SasVoice::ReadSamples(s16 *output, int numSamples) {

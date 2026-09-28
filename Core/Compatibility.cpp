@@ -167,7 +167,6 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "SpriteBorderFix", &flags_.SpriteBorderFix);
 	CheckSetting(iniFile, gameID, "TextureCLUTInShader", &flags_.TextureCLUTInShader);
 	CheckSetting(iniFile, gameID, "DisableRangeCulling", &flags_.DisableRangeCulling);
-	CheckSetting(iniFile, gameID, "PaceVideocodecDecode", &flags_.PaceVideocodecDecode);
 }
 
 void Compatibility::CheckVRSettings(IniFile &iniFile, const std::string &gameID) {

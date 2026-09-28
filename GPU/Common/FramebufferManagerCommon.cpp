@@ -1561,7 +1561,7 @@ bool FramebufferManagerCommon::DrawFramebufferToOutput(const DisplayLayoutConfig
 	constexpr float v0 = 0.0f, v1 = 1.0f;
 
 	if (useBufferedRendering_) {
-		presentation_->UpdateUniforms(textureCache_->VideoIsPlaying());
+		presentation_->UpdateUniforms(gpu->VideoIsPlaying());
 		presentation_->SourceTexture(pixelsTex, 512, 272);
 		presentation_->RunPostshaderPasses(config, flags, uvRotation, u0, v0, u1, v1);
 	}
@@ -1728,7 +1728,7 @@ void FramebufferManagerCommon::PrepareCopyDisplayToOutput(const DisplayLayoutCon
 
 		int actualWidth = (vfb->bufferWidth * vfb->renderWidth) / vfb->width;
 		int actualHeight = (vfb->bufferHeight * vfb->renderHeight) / vfb->height;
-		presentation_->UpdateUniforms(textureCache_->VideoIsPlaying());
+		presentation_->UpdateUniforms(gpu->VideoIsPlaying());
 		presentation_->SourceFramebuffer(vfb->fbo, actualWidth, actualHeight);
 		presentation_->RunPostshaderPasses(config, flags, uvRotation, u0, v0, u1, v1);
 	}

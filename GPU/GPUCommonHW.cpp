@@ -982,6 +982,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 			gstate_c.AdvanceVerts(vertexType, count, bytesRead);
 			return;
 		}
+		cyclesExecuted += EstimateFillCycles(prim, verts, inds, count, decoder, vertexType);
 	}
 
 #define MAX_CULL_CHECK_COUNT 2500
@@ -1097,6 +1098,9 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 				}
 			}
 			if (passCulling) {
+				if (vertexType & GE_VTYPE_THROUGH_MASK) {
+					cyclesExecuted += EstimateFillCycles(newPrim, verts, inds, count, decoder, vertexType);
+				}
 				if (!drawEngineCommon_->SubmitPrim(verts, inds, newPrim, count, decoder, vertTypeID, clockwise, &bytesRead, flags)) {
 					canExtend = false;
 				}

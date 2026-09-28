@@ -362,8 +362,6 @@ public:
 	// FramebufferManager keeps TextureCache updated about what regions of memory are being rendered to,
 	// so that it can invalidate TexCacheEntries pointed at those addresses.
 	void NotifyFramebuffer(VirtualFramebuffer *framebuffer, FramebufferNotification msg);
-	void NotifyWriteFormattedFromMemory(u32 addr, int size, int width, GEBufferFormat fmt);
-	void NotifyVideoCopy(u32 dst, u32 src, int size);
 
 	int NumLoadedTextures() const {
 		return (int)cache_.size();
@@ -373,9 +371,6 @@ public:
 	}
 	bool IsFakeMipmapChange() {
 		return PSP_CoreParameter().compat.flags().FakeMipmapChange && gstate.getTexLevelMode() == GE_TEXLEVEL_MODE_CONST;
-	}
-	bool VideoIsPlaying() {
-		return !videos_.empty();
 	}
 	virtual bool GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) { return false; }
 
@@ -393,15 +388,6 @@ public:
 	const size_t CacheSizeEstimate() const;
 	const size_t SecondCacheSizeEstimate() const;
 
-	struct VideoInfo {
-		u32 addr;
-		u32 size;
-		int flips;
-	};
-
-	const std::vector<VideoInfo> &Videos() const {
-		return videos_;
-	}
 
 protected:
 	bool PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEntry *entry);
@@ -446,7 +432,6 @@ protected:
 	virtual void BoundFramebufferTexture() {}
 
 	bool IsVideo(u32 texaddr) const;
-	void NoteVideoRange(u32 addr, u32 size);
 
 	static TextureAlpha CheckCLUTAlpha(const uint8_t *pixelData, GEPaletteFormat clutFmt, int w);
 
@@ -473,7 +458,6 @@ protected:
 	// The secondary cache uses the texture hash and clut hash as the key.
 	TexCache secondCache_;
 
-	std::vector<VideoInfo> videos_;
 
 	AlignedVector<u32, 16> tmpTexBuf32_;
 	AlignedVector<u32, 16> tmpTexBufRearrange_;

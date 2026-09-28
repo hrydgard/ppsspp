@@ -47,6 +47,7 @@
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceSas.h"
+#include "Core/HLE/sceVideocodec.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelThread.h"
 
@@ -256,7 +257,8 @@ static u32 sceSasGetEndFlag(u32 core) {
 }
 
 static int delaySasResult(int result) {
-	const int usec = sas->EstimateMixUs();
+	// The mix runs on the Media Engine, after anything else it's busy with.
+	const int usec = MEScheduleJob(sas->EstimateMixUs());
 
 	// No event, fall back.
 	if (sasMixEvent == -1) {

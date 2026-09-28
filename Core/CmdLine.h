@@ -126,6 +126,10 @@ struct CommandLineOptions {
 	std::optional<std::string> reDecrypt;
 	// Where the plaintext goes. Defaults to "decrypted.bin".
 	std::optional<std::string> reDecryptOut;
+	// Headless: copy one file out of the disc image given as the positional argument, to
+	// --dump-file-out, and exit.
+	std::optional<std::string> dumpFile;
+	std::optional<std::string> dumpFileOut;
 
 	std::optional<int> memReadAction;
 	std::optional<int> memWriteAction;

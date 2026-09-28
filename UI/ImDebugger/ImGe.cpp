@@ -243,9 +243,9 @@ void DrawTexturesWindow(ImConfig &cfg, TextureCacheCommon *textureCache) {
 				replacementStateCounts[(int)ReplacementState::ACTIVE],
 				replacementStateCounts[(int)ReplacementState::CANCEL_INIT]);
 		}
-		if (textureCache->Videos().size()) {
+		if (gpu->Videos().size()) {
 			if (ImGui::CollapsingHeader("Tracked video playback memory")) {
-				for (auto &video : textureCache->Videos()) {
+				for (auto &video : gpu->Videos()) {
 					ImGui::Text("%08x: %d flips, size = %d", video.addr, video.flips, video.size);
 				}
 			}

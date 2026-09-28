@@ -1065,6 +1065,14 @@ int main(int argc, const char* argv[]) {
 	if (cmdLineOptions.reDecrypt.has_value()) {
 		return RunDecryptFile(cmdLineOptions.reDecrypt.value(), cmdLineOptions.reDecryptOut.value_or("decrypted.bin"));
 	}
+	if (cmdLineOptions.dumpFile.has_value()) {
+		if (cmdLineOptions.bootFilenames.empty()) {
+			fprintf(stderr, "--dump-file needs the disc image as the positional argument\n");
+			return 1;
+		}
+		const std::string &inPath = cmdLineOptions.dumpFile.value();
+		return RunDumpDiscFile(cmdLineOptions.bootFilenames[0], inPath, cmdLineOptions.dumpFileOut.value_or(Path(inPath.substr(inPath.find(':') + 1)).GetFilename()));
+	}
 	if (cmdLineOptions.reModule.has_value()) {
 		ReverseEngineerOptions reOptions;
 		reOptions.modulePath = cmdLineOptions.reModule.value();

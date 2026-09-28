@@ -224,6 +224,8 @@ static const CommandLineParam g_autoParams[] = {
 	{POFF(reRawBase), CmdParamType::String, "re-raw-base", '\0', "Treat --re-module as a raw code image loaded at this address, e.g. 0x08300000", CmdLineMode::Headless},
 	{POFF(reDecrypt), CmdParamType::String, "re-decrypt", '\0', "Decrypt one encrypted PSP file (PRX or ME image) and exit", CmdLineMode::Headless},
 	{POFF(reDecryptOut), CmdParamType::String, "re-decrypt-out", '\0', "Output file for --re-decrypt (default: decrypted.bin)", CmdLineMode::Headless},
+	{POFF(dumpFile), CmdParamType::String, "dump-file", '\0', "Copy one file out of the disc image, e.g. disc0:/PSP_GAME/USRDIR/MOVIE.PMF, or list a directory, and exit", CmdLineMode::Headless},
+	{POFF(dumpFileOut), CmdParamType::String, "dump-file-out", '\0', "Output file for --dump-file (default: the file's own name)", CmdLineMode::Headless},
 	{POFF(odsLog), CmdParamType::Bool, "odslog", 'o', "Also log through OutputDebugString (Windows)", CmdLineMode::Headless},
 	{POFF(generateInterpreterDispatch), CmdParamType::Bool, "generate-interpreter-dispatch", '\0', "Generate C++ interpreter dispatch code (ExecInstruction) to stdout and exit", CmdLineMode::Headless},
 	{POFF(resolutionScale), CmdParamType::Int, "resolution-scale", '\0', "Set the resolution scale factor"},

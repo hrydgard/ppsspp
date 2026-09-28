@@ -42,11 +42,11 @@
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Debugger/Record.h"
+#include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 #include "Core/Util/PPGeDraw.h"
 
 // Videos should be updated every few frames, so we forget quickly.
-#define VIDEO_DECIMATE_AGE 4
 
 // If a texture hasn't been seen for this many frames, get rid of it.
 #define TEXTURE_KILL_AGE 200
@@ -153,7 +153,7 @@ void TextureCacheCommon::StartFrame() {
 		gpuStats.perFrame.numReplacerTrackedTex = replacer_.GetNumTrackedTextures();
 		gpuStats.perFrame.numCachedReplacedTextures = replacer_.GetNumCachedReplacedTextures();
 	}
-	gpuStats.perFrame.numVideoTextures = (int)videos_.size();
+	gpuStats.perFrame.numVideoTextures = (int)gpu->Videos().size();
 
 	if (texelsScaledThisFrame_) {
 		VERBOSE_LOG(Log::TexCache, "Scaled %d texels", texelsScaledThisFrame_);
@@ -1134,26 +1134,11 @@ void TextureCacheCommon::Decimate(const TexCacheEntry *const exceptThisOne, bool
 		}
 	}
 
-	// Decimate known videos (so the list doesn't grow unboundedly or we start to misidentify textures as video).
-	for (auto iter = videos_.begin(); iter != videos_.end(); ) {
-		if (iter->flips + VIDEO_DECIMATE_AGE < gpuStats.totals.numFlips) {
-			iter = videos_.erase(iter);
-		} else {
-			++iter;
-		}
-	}
-
 	replacer_.Decimate(forcePressure ? ReplacerDecimateMode::FORCE_PRESSURE : ReplacerDecimateMode::NEW_FRAME);
 }
 
 bool TextureCacheCommon::IsVideo(u32 texaddr) const {
-	texaddr &= 0x3FFFFFFF;
-	for (const VideoInfo &info : videos_) {
-		if (texaddr >= info.addr && texaddr < info.addr + info.size) {
-			return true;
-		}
-	}
-	return false;
+	return gpu->IsVideo(texaddr);
 }
 
 void TextureCacheCommon::NotifyFramebuffer(VirtualFramebuffer *framebuffer, FramebufferNotification msg) {
@@ -1507,37 +1492,6 @@ void TextureCacheCommon::NotifyConfigChanged() {
 	standardScaleFactor_ = scaleFactor;
 
 	replacer_.NotifyConfigChanged();
-}
-
-void TextureCacheCommon::NoteVideoRange(u32 addr, u32 size) {
-	addr &= 0x3FFFFFFF;
-	// A game blits its video frame every displayed frame while waiting for the next one, so the
-	// same few buffers arrive over and over. Refresh the one we already have rather than stacking
-	// a duplicate per frame - IsVideo() scans this linearly.
-	for (VideoInfo &info : videos_) {
-		if (info.addr == addr) {
-			info.size = size;
-			info.flips = gpuStats.totals.numFlips;
-			return;
-		}
-	}
-	videos_.push_back({ addr, size, gpuStats.totals.numFlips });
-}
-
-void TextureCacheCommon::NotifyWriteFormattedFromMemory(u32 addr, int size, int width, GEBufferFormat fmt) {
-	NoteVideoRange(addr, (u32)size);
-}
-
-// A block copy of a video frame is still a video frame, and games do move them around: Dragon Ball
-// Z - Shin Budokai: Another Road colour-converts into RAM, sceDmacMemcpy's the result into VRAM and
-// textures from there, never sampling the converted buffer itself. Without carrying the status
-// across the copy, what we actually sample looks like an ordinary texture that happens to have new
-// contents every frame, so we hash it, miss, and rebuild it - forever.
-void TextureCacheCommon::NotifyVideoCopy(u32 dst, u32 src, int size) {
-	if (size <= 0 || !IsVideo(src)) {
-		return;
-	}
-	NoteVideoRange(dst, (u32)size);
 }
 
 void TextureCacheCommon::LoadClut(u32 clutAddr, u32 loadBytes, GPURecord::Recorder *recorder) {
@@ -2769,7 +2723,6 @@ void TextureCacheCommon::Clear(bool delete_them) {
 		cache_.clear();
 		secondCache_.clear();
 	}
-	videos_.clear();
 
 	if (dynamicClutFbo_) {
 		dynamicClutFbo_->Release();
