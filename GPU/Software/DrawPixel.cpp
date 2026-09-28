@@ -41,6 +41,10 @@ void FlushJit() {
 	jitCache->Flush();
 }
 
+int JitClearGeneration() {
+	return PixelJitCache::ClearGeneration();
+}
+
 void Shutdown() {
 	delete jitCache;
 	jitCache = nullptr;
@@ -850,6 +854,10 @@ void PixelJitCache::Flush() {
 }
 
 SingleFunc PixelJitCache::GetSingle(const PixelFuncID &id, BinManager *binner) {
+#if !(PPSSPP_ARCH(AMD64) && !PPSSPP_PLATFORM(UWP))
+	// Compile() is a no-op here, so don't flush the binner for nothing.
+	return nullptr;
+#endif
 	if (!g_Config.bSoftwareRenderingJit)
 		return nullptr;
 

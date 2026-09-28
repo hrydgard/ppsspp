@@ -49,6 +49,10 @@ void FlushJit() {
 	jitCache->Flush();
 }
 
+int JitClearGeneration() {
+	return SamplerJitCache::ClearGeneration();
+}
+
 void Shutdown() {
 	delete jitCache;
 	jitCache = nullptr;
@@ -160,6 +164,10 @@ void SamplerJitCache::Flush() {
 }
 
 NearestFunc SamplerJitCache::GetByID(const SamplerID &id, size_t key, BinManager *binner) {
+#if !(PPSSPP_ARCH(AMD64) && !PPSSPP_PLATFORM(UWP))
+	// Compile() is a no-op here, so don't flush the binner for nothing.
+	return nullptr;
+#endif
 	std::unique_lock<std::mutex> guard(jitCacheLock);
 	
 	NearestFunc func;

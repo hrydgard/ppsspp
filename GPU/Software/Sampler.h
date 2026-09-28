@@ -48,6 +48,7 @@ LinearFunc GetLinearFunc(SamplerID id, BinManager *binner);
 
 void Init();
 void FlushJit();
+int JitClearGeneration();
 void Shutdown();
 
 bool DescribeCodePtr(const u8 *ptr, std::string &name);
@@ -62,6 +63,8 @@ public:
 	FetchFunc GetFetch(const SamplerID &id, BinManager *binner);
 	void Clear() override;
 	void Flush();
+	// Changes whenever the code space is cleared, which frees all previously returned functions.
+	static int ClearGeneration() { return clearGen_; }
 
 	std::string DescribeCodePtr(const u8 *ptr) override;
 
