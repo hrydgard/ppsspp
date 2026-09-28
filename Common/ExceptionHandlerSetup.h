@@ -7,7 +7,7 @@
 #include <cstdint>
 
 // On Windows, context is a CONTEXT object.
-// On Apple, context is a x86_thread_state64_t.
+// On Apple, context is the thread state from the signal context (x86_thread_state64_t or arm_thread_state64_t).
 // On Unix/Linux, context is a mcontext_t.
 // On OpenBSD, context is a ucontext_t.
 // Ugh, might need to abstract this better.
