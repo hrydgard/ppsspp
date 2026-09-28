@@ -436,6 +436,34 @@ static void WriteTiledYCbCr(const u32 *buffers, const AvcDecoder &dec, int width
 	}
 }
 
+// Every call here that reaches the ME blocks while it answers. Measured at 222MHz in pspautotests
+// video/mp4/mp4timing: Open, GetEDRAM, GetVersion and ReleaseEDRAM called directly, the rest through
+// mpeg.prx's thin wrappers. sceMpegCreate (Open, Init, GetVersion, SetMemory) took 26.9-28.0ms,
+// nearly all of it Init and SetMemory, which are charged together to Init here. sceMpegDelete took
+// 21.2ms, and 35.9ms in a run that had stopped the decoder twice first. An sceMpegAvcDecodeStop with
+// nothing held back took 132us (with three pictures to hand over, 4.9ms, the rest being their output).
+static const int openUs = 96;
+static const int getEdramUs = 146;
+static const int getVersionUs = 94;
+static const int releaseEdramUs = 66;
+static const int initUs = 26600;
+static const int stopUs = 132;
+static const int deleteUs = 21000;
+
+static int MECall(int result, const char *reason, int us) {
+	return hleDelayResult(result, reason, MEScheduleJob(PowerScaleFromDefaultClock(us)));
+}
+
+// Init and Delete take tens of milliseconds for the caller, but they don't hold the ME for that
+// long: queueing them there stalled the SAS mix behind them, and with it Jak and Daxter's sound
+// threads, whose last wake to video_sound_thread then came after the game had deleted it
+// (NOT_DORMANT, then the orphan reads a freed context). On hardware SAS keeps mixing through them:
+// pspautotests audio/timing/meshare saw ~1.3ms SAS calls throughout a 39ms sceMpegCreate and a 32ms
+// sceMpegDelete, the longest 2.2ms.
+static int CallerWait(int result, const char *reason, int us) {
+	return hleDelayResult(result, reason, PowerScaleFromDefaultClock(us));
+}
+
 static int sceVideocodecOpen(u32 ctxAddr, int type) {
 	if (!Memory::IsValidRange(ctxAddr, 96)) {
 		return hleLogError(Log::ME, -1, "bad context pointer");
@@ -445,7 +473,11 @@ static int sceVideocodecOpen(u32 ctxAddr, int type) {
 		return hleLogError(Log::ME, -1, "built without ffmpeg, can't decode video");
 	}
 	g_videocodecCtxs[ctxAddr].type = type;
-	return hleLogInfo(Log::ME, 0, "type %d", type);
+	if (type == 0) {
+		// The EDRAM the decoder needs, which mpeg.prx reads back and passes to GetEDRAM.
+		Memory::WriteUnchecked_U32(0x3c2c, ctxAddr + CTX_EDRAM_SIZE);
+	}
+	return MECall(hleLogInfo(Log::ME, 0, "type %d", type), "videocodec open", openUs);
 }
 
 static int sceVideocodecInit(u32 ctxAddr, int type) {
@@ -458,7 +490,7 @@ static int sceVideocodecInit(u32 ctxAddr, int type) {
 	vctx.decoder = new AvcDecoder();
 	vctx.frameCount = 0;
 	vctx.type = type;
-	return hleLogInfo(Log::ME, 0, "type %d", type);
+	return CallerWait(hleLogInfo(Log::ME, 0, "type %d", type), "videocodec init", initUs);
 }
 
 // See g_meRam for why this doesn't come out of the game's memory.
@@ -483,7 +515,7 @@ static int sceVideocodecGetEDRAM(u32 ctxAddr, int type) {
 	// works in 64-byte grains, so the two only differ in what they mean, not in value.
 	Memory::WriteUnchecked_U32(addr, ctxAddr + CTX_EDRAM);
 	Memory::WriteUnchecked_U32(addr, ctxAddr + CTX_EDRAM_RAW);
-	return hleLogInfo(Log::ME, 0, "%u bytes at %08x in ME memory", size, addr);
+	return MECall(hleLogInfo(Log::ME, 0, "%u bytes at %08x in ME memory", size, addr), "videocodec getedram", getEdramUs);
 }
 
 static int sceVideocodecReleaseEDRAM(u32 ctxAddr) {
@@ -502,7 +534,7 @@ static int sceVideocodecReleaseEDRAM(u32 ctxAddr) {
 	}
 	Memory::WriteUnchecked_U32(0, ctxAddr + CTX_EDRAM);
 	Memory::WriteUnchecked_U32(0, ctxAddr + CTX_EDRAM_RAW);
-	return hleLogInfo(Log::ME, 0, "released %08x", token);
+	return MECall(hleLogInfo(Log::ME, 0, "released %08x", token), "videocodec releaseedram", releaseEdramUs);
 }
 
 static int sceVideocodecDecode(u32 ctxAddr, int type) {
@@ -616,34 +648,38 @@ static int sceVideocodecDecode(u32 ctxAddr, int type) {
 	// sceMpegAvcDecode (5.8ms) less sceMpegAvcCsc alone (2.4ms), in pspautotests
 	// video/mpeg/playertiming. Movie players that present every decoded frame after a single
 	// vblank wait rely on decode, colour conversion and blit adding up to more than a vblank.
+	// It takes as long when the decoder holds the picture back: the first sceMpegAvcDecode calls of
+	// a stream, which return none, took 4.2-5.4ms in video/mp4/mp4timing. Until a picture has told
+	// us the size, assume full screen.
 	int delayUs = 0;
-	if (gotFrame && width > 0 && height > 0) {
-		delayUs = MEScheduleJob(PowerScaleFromDefaultClock((int)(3400LL * width * height / (480 * 272))));
+	if (auBytes > 0) {
+		const int w = vctx.decoder->Width() > 0 ? vctx.decoder->Width() : 480;
+		const int h = vctx.decoder->Height() > 0 ? vctx.decoder->Height() : 272;
+		delayUs = MEScheduleJob(PowerScaleFromDefaultClock((int)(3400LL * w * h / (480 * 272))));
 	}
 
 	if (delayUs > 0) {
-		return hleDelayResult(hleLogDebug(Log::ME, 0, "type %d, %d bytes -> frame %dx%d",
-			type, auBytes, width, height), "videocodec decode", delayUs);
+		return hleDelayResult(hleLogDebug(Log::ME, 0, "type %d, %d bytes -> %s %dx%d",
+			type, auBytes, gotFrame ? "frame" : "no frame yet", width, height), "videocodec decode", delayUs);
 	}
 	return hleLogDebug(Log::ME, 0, "type %d, %d bytes -> %s %dx%d",
 		type, auBytes, gotFrame ? "frame" : "no frame yet", width, height);
 }
 
-// Stopping or deleting the decoder is an ME round-trip and takes real time on hardware. Returning
-// immediately is not correct, because a game can be relying on a thread of its own getting to run
-// once more before it tears things down. Jak and Daxter deletes its video_sound_thread straight
-// after sceVideocodecDelete without waiting for it to exit, and with no time passing here the audio
-// thread never gets to deliver the wake that would let it exit - so the delete fails with
-// NOT_DORMANT and the thread lives on, reading a context the game has already freed.
-// One audio mix block is 64 samples at 44100Hz, about 1.45ms, so stay above that.
-static const int videocodecTeardownDelayUs = 2000;
+// Returning immediately from Stop or Delete is not correct, because a game can be relying on a
+// thread of its own getting to run once more before it tears things down. Jak and Daxter deletes
+// its video_sound_thread straight after sceVideocodecDelete without waiting for it to exit, and
+// with no time passing here the audio thread never gets to deliver the wake that would let it exit
+// - so the delete fails with NOT_DORMANT and the thread lives on, reading a context the game has
+// already freed. One audio mix block is 64 samples at 44100Hz, about 1.45ms, which Delete's
+// measured time is well above.
 
 static int sceVideocodecStop(u32 ctxAddr, int type) {
 	auto it = g_videocodecCtxs.find(ctxAddr);
 	if (it != g_videocodecCtxs.end() && it->second.decoder) {
 		it->second.decoder->Flush();
 	}
-	return hleDelayResult(hleLogInfo(Log::ME, 0), "videocodec stop", videocodecTeardownDelayUs);
+	return MECall(hleLogInfo(Log::ME, 0), "videocodec stop", stopUs);
 }
 
 static int sceVideocodecDelete(u32 ctxAddr, int type) {
@@ -652,7 +688,7 @@ static int sceVideocodecDelete(u32 ctxAddr, int type) {
 		FreeContext(it->second);
 		g_videocodecCtxs.erase(it);
 	}
-	return hleDelayResult(hleLogInfo(Log::ME, 0), "videocodec delete", videocodecTeardownDelayUs);
+	return CallerWait(hleLogInfo(Log::ME, 0), "videocodec delete", deleteUs);
 }
 
 static int sceVideocodecGetVersion(u32 ctxAddr, int type) {
@@ -661,7 +697,7 @@ static int sceVideocodecGetVersion(u32 ctxAddr, int type) {
 	}
 	// The value a real PSP returns, read with JpcspTrace.
 	Memory::WriteUnchecked_U32(0x78, ctxAddr + CTX_VERSION);
-	return hleLogInfo(Log::ME, 0);
+	return MECall(hleLogInfo(Log::ME, 0), "videocodec getversion", getVersionUs);
 }
 
 static int sceVideocodecGetSEI(u32 ctxAddr, int type) {

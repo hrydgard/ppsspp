@@ -902,7 +902,9 @@ ATRAC3Context *atrac3_alloc(int channels, int *block_align, const uint8_t *extra
     q->decoded_bytes_buffer = (uint8_t *)av_mallocz(FFALIGN(q->block_align, 4) + AV_INPUT_BUFFER_PADDING_SIZE);
 
     /* initialize the MDCT transform */
-    if ((ret = ff_mdct_init(&q->mdct_ctx, 9, 1, 1.0 / 32768)) < 0) {
+    /* Negative scale: the PSP's decoder outputs the opposite polarity to ffmpeg's, in mono,
+     * stereo and joint stereo alike (compared on hardware through sceAudiocodec). */
+    if ((ret = ff_mdct_init(&q->mdct_ctx, 9, 1, -1.0 / 32768)) < 0) {
         av_log(AV_LOG_ERROR, "Error initializing MDCT");
         av_freep(&q->decoded_bytes_buffer);
 
