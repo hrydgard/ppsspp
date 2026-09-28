@@ -717,6 +717,7 @@ void Core_Resume() {
 
 	// Handle resuming from GE.
 	if (coreState == CORE_STEPPING_GE) {
+		GPUStepping::ResumeFromStepping();
 		coreState = CORE_RUNNING_GE;
 		Core_WakeIdleCPUThread();
 		return;

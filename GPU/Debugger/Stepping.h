@@ -30,6 +30,8 @@ namespace GPUStepping {
 	bool EnterStepping(CoreState coreState);
 	bool IsStepping();
 	void ResumeFromStepping();
+	// Clears all stepping state, for game shutdown.
+	void Reset();
 
 	int GetSteppingCounter();
 

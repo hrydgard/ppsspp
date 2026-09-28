@@ -24,6 +24,7 @@
 
 #include "GPU/GPU.h"
 #include "GPU/GPUCommon.h"
+#include "GPU/Debugger/Stepping.h"
 
 #if PPSSPP_API(ANY_GL)
 #include "GPU/GLES/GPU_GLES.h"
@@ -89,6 +90,7 @@ bool GPU_Init(GPUCore gpuCore, GraphicsContext *ctx, Draw::DrawContext *draw) {
 #endif
 
 void GPU_Shutdown() {
+	GPUStepping::Reset();
 	delete gpu;
 	gpu = nullptr;
 }
