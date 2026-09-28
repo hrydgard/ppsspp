@@ -108,6 +108,16 @@ public:
 
 	void Draw(UIContext &dc) override;
 	std::string DescribeText() const override;
+	std::string SearchAlias() const override {
+		// Without the extension, or searching for "iso" would match every ISO. Only three or more
+		// letters counts as one, so a folder like "Game v1.2" keeps its version number.
+		std::string filename = gamePath_.GetFilename();
+		const std::string ext = gamePath_.GetFileExtension();
+		if (ext.size() >= 4 && ext.size() <= filename.size() && std::all_of(ext.begin() + 1, ext.end(), [](char c) { return c >= 'a' && c <= 'z'; })) {
+			filename.resize(filename.size() - ext.size());
+		}
+		return filename;
+	}
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
 		if (gridStyle_) {
 			w = 144 * g_Config.fGameGridScale;

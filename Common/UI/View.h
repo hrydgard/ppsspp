@@ -396,6 +396,8 @@ public:
 	virtual std::string DescribeLog() const;
 	// Accessible/searchable description.
 	virtual std::string DescribeText() const { return ""; }
+	// Extra text that search also matches against, available even before DescribeText is (like a filename).
+	virtual std::string SearchAlias() const { return ""; }
 
 	virtual void FocusChanged(FocusFlags focusFlags) {}
 	virtual void PersistData(PersistStatus status, std::string anonId, PersistMap &storage);
