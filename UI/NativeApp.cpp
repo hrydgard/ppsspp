@@ -37,6 +37,7 @@
 #include <memory>
 #include <mutex>
 #include <thread>
+#include <vector>
 
 
 #include "ext/imgui/imgui.h"
@@ -872,15 +873,12 @@ bool CreateGlobalPipelines();
 
 // TODO: Add faster special case for channels == 2.
 static void NativeMixWrapper(float *dest, int framesToWrite, int sampleRateHz, void *userdata) {
-	static int16_t *buffer;
-	static int bufSize;
-	if (bufSize < framesToWrite * 2) {
-		// This one leaks on exit. Oh well.
-		buffer = new int16_t[framesToWrite * 2];
-		bufSize = framesToWrite * 2;
+	static std::vector<int16_t> buffer;
+	if ((int)buffer.size() < framesToWrite * 2) {
+		buffer.resize(framesToWrite * 2);
 	}
 
-	NativeMix(buffer, framesToWrite, sampleRateHz, userdata);
+	NativeMix(buffer.data(), framesToWrite, sampleRateHz, userdata);
 
 	for (int i = 0; i < framesToWrite * 2; i++) {
 		dest[i] = (float)buffer[i] * (float)(1.0f / 32767.0f);

@@ -40,7 +40,12 @@ struct NaettBodySink {
 // while a callback might still be in flight, and neither can these, so both are deliberately
 // leaked. Allocated with new and never deleted, so it can't be destroyed out from under a late
 // callback during static destruction either.
-static std::vector<std::unique_ptr<NaettBodySink>> *g_abandonedSinks = new std::vector<std::unique_ptr<NaettBodySink>>();
+static std::vector<std::unique_ptr<NaettBodySink>> *g_abandonedSinks = nullptr;
+
+void HTTPSShutdown() {
+	delete g_abandonedSinks;
+	g_abandonedSinks = nullptr;
+}
 
 int HTTPSRequest::WriteBodyThunk(const void *source, int bytes, void *userData) {
 	NaettBodySink *sink = (NaettBodySink *)userData;
@@ -141,6 +146,9 @@ void HTTPSRequest::Join() {
 		WARN_LOG(Log::HTTP, "Abandoning an unfinished request to '%s' - shutting down", url_.c_str());
 		if (sink_) {
 			sink_->cancelled = true;
+			if (!g_abandonedSinks) {
+				g_abandonedSinks = new std::vector<std::unique_ptr<NaettBodySink>>();
+			}
 			g_abandonedSinks->push_back(std::move(sink_));
 		}
 		res_ = nullptr;
