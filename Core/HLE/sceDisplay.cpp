@@ -319,8 +319,8 @@ void __DisplayShutdown() {
 void __DisplayVblankBeginCallback(SceUID threadID, SceUID prevCallbackId) {
 	SceUID pauseKey = prevCallbackId == 0 ? threadID : prevCallbackId;
 
-	// This means two callbacks in a row.  PSP crashes if the same callback waits inside itself (may need more testing.)
-	// TODO: Handle this better?
+	// Shouldn't happen: each nesting level pauses under its own key, and on hardware a callback can
+	// nest only one level (a CB wait that would go deeper never returns.)
 	if (vblankPausedWaits.find(pauseKey) != vblankPausedWaits.end()) {
 		return;
 	}
