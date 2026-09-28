@@ -450,6 +450,7 @@ tests_good = [
   "utility/savedata/getsize",
   "utility/savedata/makedata",
   "utility/systemparam/systemparam",
+  "umd/api/api",
   "umd/callbacks/umd",
   "umd/wait/wait",
   "umd/register",
