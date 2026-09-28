@@ -826,7 +826,8 @@ static void __KernelWaitLwMutex(LwMutex *mutex, u32 timeoutPtr) {
 
 static bool __KernelUnlockLwMutexForThreadCheck(LwMutex *mutex, SceUID threadID, u32 &error, int result, bool &wokeThreads)
 {
-	if (mutex->nm.lockThread == -1 && __KernelUnlockLwMutexForThread(mutex, mutex->nm.workarea, threadID, error, 0))
+	// The lock state lives in the workarea, nm.lockThread is only refreshed when referred.
+	if (mutex->nm.workarea->lockLevel == 0 && __KernelUnlockLwMutexForThread(mutex, mutex->nm.workarea, threadID, error, 0))
 		return true;
 	return false;
 }

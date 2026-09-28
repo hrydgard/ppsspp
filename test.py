@@ -345,6 +345,7 @@ tests_good = [
   "threads/fpl/refer",
   "threads/fpl/tryallocate",
   "threads/k0/k0",
+  "threads/lwmutex/callbacks",
   "threads/lwmutex/create",
   "threads/lwmutex/delete",
   "threads/lwmutex/lock",
