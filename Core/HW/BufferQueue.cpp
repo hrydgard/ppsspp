@@ -22,9 +22,27 @@
 void BufferQueue::DoState(PointerWrap &p) {
 	auto s = p.Section("BufferQueue", 0, 2);
 
+	const int allocatedSize = bufQueueSize;
 	Do(p, bufQueueSize);
 	Do(p, start);
 	Do(p, end);
+	if (p.mode == PointerWrap::MODE_READ && bufQueue) {
+		// Normally the owner allocated the same size, but don't write past the buffer if not.
+		const int size = bufQueueSize;
+		if (size <= 0 || start < 0 || end < 0 || start > size || end > size || !p.CheckRead(size)) {
+			bufQueueSize = allocatedSize;
+			clear();
+			p.SetError(PointerWrap::ERROR_FAILURE);
+			return;
+		}
+		if (size != allocatedSize) {
+			const int savedStart = start;
+			const int savedEnd = end;
+			alloc(size);
+			start = savedStart;
+			end = savedEnd;
+		}
+	}
 	if (bufQueue) {
 		DoArray(p, bufQueue, bufQueueSize);
 	}

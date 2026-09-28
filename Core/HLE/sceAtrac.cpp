@@ -255,6 +255,10 @@ void __AtracDoState(PointerWrap &p) {
 		u32 count = (u32)g_pendingOutput.size();
 		Do(p, count);
 		if (p.mode == PointerWrap::MODE_READ) {
+			if (!p.CheckRead((size_t)count * sizeof(u32) * 2)) {
+				g_pendingOutput.clear();
+				return;
+			}
 			g_pendingOutput.resize(count);
 		}
 		for (AtracPendingOutput &pending : g_pendingOutput) {

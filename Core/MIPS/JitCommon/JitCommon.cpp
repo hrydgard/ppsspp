@@ -70,7 +70,9 @@ namespace MIPSComp {
 		if (!s)
 			return;
 
-		bool dummy = false;
+		// This is startDefaultPrefix. Writing false made a JIT loading the state assume an uneaten
+		// prefix for the rest of the session.
+		bool dummy = currentMIPS->HasDefaultPrefix();
 		Do(p, dummy);
 		if (s >= 2) {
 			dummy = true;
