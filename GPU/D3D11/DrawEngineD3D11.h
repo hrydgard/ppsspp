@@ -63,7 +63,9 @@ public:
 	void Flush() override;
 
 	void FinishDeferred() {
-		DecodeVerts(dec_, decoded_);
+		// Decoding only the vertices isn't enough: the indices are still read from PSP memory at flush
+		// time, and the game may change them once it regains control (#10095).
+		Flush();
 	}
 
 	void NotifyConfigChanged() override;

@@ -550,6 +550,7 @@ void DrawEngineVulkan::ResetAfterSkippedDraw() {
 	numDrawVerts_ = 0;
 	numDrawInds_ = 0;
 	vertexCountInDrawCalls_ = 0;
+	numVertsToDecode_ = 0;
 	decodeIndsCounter_ = 0;
 	decodeVertsCounter_ = 0;
 	gstate_c.vertexFullAlpha = true;

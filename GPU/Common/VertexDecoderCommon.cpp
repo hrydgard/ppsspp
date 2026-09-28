@@ -170,8 +170,9 @@ void GetIndexBounds(const void *inds, int count, u32 vertType, u16 *indexLowerBo
 		bool oob = false;
 		const u32_le *ind32 = (const u32_le *)inds;
 		for (int i = 0; i < count; i++) {
+			// The PSP ignores the upper 16 bits, so only the low ones count.
 			const u16 value = (u16)ind32[i];
-			// These aren't documented and should be rare.  Let's bounds check each one.
+			// Games setting the upper bits should be rare, so report them.
 			if (ind32[i] != value) {
 				oob = true;
 			}
@@ -1373,6 +1374,12 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 	// Attempt to JIT as well. But only do that if the main CPU JIT is enabled, in order to aid
 	// debugging attempts - if the main JIT doesn't work, this one won't do any better, probably.
 	if (jitCache) {
+		// Compile doesn't check for space. We can't clear the cache here since other decoders point into it,
+		// so when it's full (only seen with garbage display lists), new decoders use the interpreter.
+		if (jitCache->GetSpaceLeft() < 4096) {
+			WARN_LOG(Log::G3D, "Vertex decoder JIT cache full, using the interpreter for %08x", fmt_);
+			return;
+		}
 		jitted_ = jitCache->Compile(*this, &jittedSize_);
 		if (!jitted_) {
 			WARN_LOG(Log::G3D, "Vertex decoder JIT failed! fmt = %08x (%s)", fmt_, GetString(SHADER_STRING_SHORT_DESC).c_str());
