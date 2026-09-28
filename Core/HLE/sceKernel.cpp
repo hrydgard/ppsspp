@@ -170,6 +170,7 @@ void __KernelInit()
 	__HttpInit();
 	__NpInit();
 	__RegInit();
+	__NpDrmInit();
 	
 	SaveState::Init();  // Must be after IO, as it may create a directory
 	Reporting::Init();
@@ -314,6 +315,10 @@ void __KernelDoState(PointerWrap &p)
 		__UsbGpsDoState(p);
 		__UsbMicDoState(p);
 		__RegDoState(p);
+		// These two were written long ago but never called, so older states lack them.
+		__DmacDoState(p);
+		__UsbCamDoState(p);
+		__NpDrmDoState(p);
 
 		// IMPORTANT! Add new sections last!
 	}
