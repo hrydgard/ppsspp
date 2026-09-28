@@ -1373,8 +1373,9 @@ void PSPSaveDialog::DoState(PointerWrap &p) {
 	// value is never SAVEIO_PENDING. Without this, loading a state taken
 	// while a savedata operation was in flight would restart the operation
 	// instead of resuming from its recorded status. Version 4 keeps the
-	// results of a finished operation that haven't been taken yet.
-	auto s = p.Section("PSPSaveDialog", 1, 5);
+	// results of a finished operation that haven't been taken yet. Version 6 keeps originalRequest,
+	// or the first Update after a load would reload the request and lose results kept in request.
+	auto s = p.Section("PSPSaveDialog", 1, 6);
 	if (!s) {
 		return;
 	}
@@ -1406,6 +1407,18 @@ void PSPSaveDialog::DoState(PointerWrap &p) {
 	}
 	if (s == 4) {
 		DoStateOldPendingWrites(p);
+	}
+	if (s >= 6) {
+		Do(p, originalRequest);
+	} else if (p.mode == p.MODE_READ) {
+		// Best guess: what the game's request holds now, the way Update reads it.
+		memset(&originalRequest, 0, sizeof(originalRequest));
+		if (Memory::IsValidRange(requestAddr, 4)) {
+			const u32 size = std::min((u32)sizeof(originalRequest), Memory::ReadUnchecked_U32(requestAddr));
+			if (Memory::IsValidRange(requestAddr, size)) {
+				Memory::Memcpy(&originalRequest, requestAddr, size);
+			}
+		}
 	}
 }
 
