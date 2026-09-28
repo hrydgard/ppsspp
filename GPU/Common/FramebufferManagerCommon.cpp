@@ -103,10 +103,8 @@ bool FramebufferManagerCommon::UpdateRenderSize(int msaaLevel) {
 
 	presentation_->UpdateRenderSize(renderWidth_, renderHeight_);
 
-	// If just switching TO buffered rendering, no need to pause the threads. In fact this causes problems due to the open backbuffer renderpass.
-	if (!useBufferedRendering_ && newBuffered) {
-		return false;
-	}
+	// Switching to buffered rendering must also recreate the framebuffers: the existing VFBs have no fbo,
+	// and nothing else gives them one.
 	return newRender || newSettings;
 }
 
@@ -1531,6 +1529,7 @@ Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, G
 	Draw::Texture *tex = draw_->CreateTexture(desc);
 	if (!tex) {
 		ERROR_LOG(Log::G3D, "Failed to create DrawPixels texture");
+		return nullptr;
 	}
 	// We don't need to count here, already counted by numUploads by the caller.
 
@@ -1876,7 +1875,7 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 		}
 		return;
 	}
-	if (!old.fbo && vfb->last_frame_failed != 0 && vfb->last_frame_failed - gpuStats.totals.numFlips < 63) {
+	if (!old.fbo && vfb->last_frame_failed != 0 && gpuStats.totals.numFlips - vfb->last_frame_failed < 63) {
 		// Don't constantly retry FBOs which failed to create.
 		return;
 	}

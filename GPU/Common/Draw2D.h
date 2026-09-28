@@ -49,7 +49,9 @@ struct Draw2DPipeline {
 	Draw2DPipelineInfo info;
 	char *code;
 	void Release() {
-		pipeline->Release();
+		if (pipeline) {
+			pipeline->Release();
+		}
 		delete[] code;
 		delete this;
 	}
