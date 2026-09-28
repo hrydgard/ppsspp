@@ -86,6 +86,8 @@ struct SamplerCacheKey {
 			bool tClamp : 1;
 			bool aniso : 1;
 			bool texture3d : 1;
+			// Baked into the sampler objects, so it has to be part of the key, or a change wouldn't apply.
+			uint8_t anisoLevel;
 		};
 	};
 	bool operator < (const SamplerCacheKey &other) const {

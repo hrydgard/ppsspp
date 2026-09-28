@@ -3354,7 +3354,8 @@ void FramebufferManagerCommon::FlushBeforeCopy() {
 // TODO: Replace with with depal, reading the palette from the texture on the GPU directly.
 void FramebufferManagerCommon::DownloadFramebufferForClut(u32 fb_address, u32 loadBytes) {
 	VirtualFramebuffer *vfb = GetVFBAt(fb_address);
-	if (vfb && vfb->fb_stride != 0) {
+	// Without an fbo there's nothing to read back (ReadbackFramebuffer would read the backbuffer instead).
+	if (vfb && vfb->fb_stride != 0 && vfb->fbo) {
 		const u32 bpp = BufferFormatBytesPerPixel(vfb->fb_format);
 		int x = 0;
 		int y = 0;

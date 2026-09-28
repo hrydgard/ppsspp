@@ -198,7 +198,7 @@ SoftwareTransformAction RunSoftwareTransform(SoftwareTransformParams &params, in
 				float depth = std::clamp(transformed[1].z, 0.0f, 65535.0f) / 65535.0f;
 				// Non-zero depth clears are unusual, but some drivers don't match drawn depth values to cleared values.
 				// Games sometimes expect exact matches (see #12626, for example) for equal comparisons.
-				if (!(params.everUsedEqualDepth && gstate.isClearModeDepthMask() && result->depth > 0.0f && result->depth < 1.0f)) {
+				if (!(params.everUsedEqualDepth && gstate.isClearModeDepthMask() && depth > 0.0f && depth < 1.0f)) {
 					result->color = transformed[1].color0_32;
 					result->depth = depth;
 					gpuStats.perFrame.numClears++;

@@ -252,7 +252,9 @@ ClutTexture ClutTextureCache::GetClutTexture(GEPaletteFormat clutFormat, const u
 
 void ClutTextureCache::Clear() {
 	for (auto tex = texCache_.begin(); tex != texCache_.end(); ++tex) {
-		tex->second->texture->Release();
+		if (tex->second->texture) {
+			tex->second->texture->Release();
+		}
 		delete tex->second;
 	}
 	texCache_.clear();
@@ -261,7 +263,9 @@ void ClutTextureCache::Clear() {
 void ClutTextureCache::Decimate() {
 	for (auto tex = texCache_.begin(); tex != texCache_.end(); ) {
 		if (tex->second->lastFrame + DEPAL_TEXTURE_OLD_AGE < gpuStats.totals.numFlips) {
-			tex->second->texture->Release();
+			if (tex->second->texture) {
+				tex->second->texture->Release();
+			}
 			delete tex->second;
 			texCache_.erase(tex++);
 		} else {
