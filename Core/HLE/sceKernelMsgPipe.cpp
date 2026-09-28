@@ -566,7 +566,11 @@ static void __KernelMsgPipeEndCallback(SceUID threadID, SceUID prevCallbackId) {
 	MsgPipe *ko = uid == 0 ? NULL : kernelObjects.Get<MsgPipe>(uid, error);
 
 	if (ko == NULL) {
-		ERROR_LOG_REPORT(Log::sceKernel, "__KernelMsgPipeEndCallback: Invalid object");
+		// Deleted during the callback.
+		u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
+		if (timeoutPtr != 0 && waitTimer != -1)
+			Memory::WriteOrException_U32(0, timeoutPtr);
+		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_DELETE);
 		return;
 	}
 

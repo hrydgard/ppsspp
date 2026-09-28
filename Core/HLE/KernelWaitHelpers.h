@@ -150,8 +150,8 @@ template <typename WaitInfoType, typename PauseType>
 WaitBeginEndCallbackResult WaitBeginCallback(SceUID threadID, SceUID prevCallbackId, int waitTimer, std::vector<WaitInfoType> &waitingThreads, std::map<SceUID, PauseType> &pausedWaits, bool doTimeout = true) {
 	SceUID pauseKey = prevCallbackId == 0 ? threadID : prevCallbackId;
 
-	// This means two callbacks in a row.  PSP crashes if the same callback waits inside itself (may need more testing.)
-	// TODO: Handle this better?
+	// Shouldn't happen: each nesting level pauses under its own key, and on hardware a callback can
+	// nest only one level (a CB wait that would go deeper never returns.)
 	if (pausedWaits.find(pauseKey) != pausedWaits.end()) {
 		return WAIT_CB_SUCCESS;
 	}
@@ -222,6 +222,14 @@ WaitBeginEndCallbackResult WaitEndCallback(SceUID threadID, SceUID prevCallbackI
 
 	// TODO: Don't wake up if __KernelCurHasReadyCallbacks()?
 
+	// The timeout kept running during the callback. Put the timer back first, so that an unlock
+	// reports the time that's left.
+	s64 cyclesLeft = waitDeadline - CoreTiming::GetTicks(currentMIPS);
+	const bool hasTimer = timeoutPtr != 0 && waitTimer != -1 && waitDeadline != 0;
+	if (hasTimer) {
+		CoreTiming::ScheduleEvent(cyclesLeft < 0 ? 0 : cyclesLeft, waitTimer, threadID);
+	}
+
 	bool wokeThreads;
 	// Attempt to unlock.
 	if (TryUnlock(ko, waitData, error, 0, wokeThreads)) {
@@ -229,20 +237,18 @@ WaitBeginEndCallbackResult WaitEndCallback(SceUID threadID, SceUID prevCallbackI
 	}
 
 	// We only check if it timed out if it couldn't unlock.
-	s64 cyclesLeft = waitDeadline - CoreTiming::GetTicks(currentMIPS);
 	if (cyclesLeft < 0 && waitDeadline != 0) {
+		if (hasTimer) {
+			CoreTiming::UnscheduleEvent(waitTimer, threadID);
+		}
 		if (timeoutPtr != 0 && waitTimer != -1) {
 			Memory::WriteOrException_U32(0, timeoutPtr);
 		}
 
 		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
 		return WAIT_CB_TIMED_OUT;
-	} else {
-		if (timeoutPtr != 0 && waitTimer != -1) {
-			CoreTiming::ScheduleEvent(cyclesLeft, waitTimer, __KernelGetCurThread());
-		}
-		return WAIT_CB_RESUMED_WAIT;
 	}
+	return WAIT_CB_RESUMED_WAIT;
 }
 
 // Meant to be called in a registered end callback function for a wait type.

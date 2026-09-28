@@ -782,7 +782,8 @@ void __KernelThreadingInit() {
 	u32 blockSize = sizeof(idleThreadCode) + ARRAY_SIZE(threadHacks) * 2 * 4;  // The thread code above plus 8 bytes per "hack"
 
 	dispatchEnabled = true;
-	memset(waitTypeFuncs, 0, sizeof(waitTypeFuncs));
+	// Don't clear waitTypeFuncs here: __KernelMemoryInit() registers VPL and FPL before this runs.
+	// Every entry is set again by its module's init anyway.
 
 	__SetCurrentThread(NULL, 0, NULL);
 	g_inCbCount = 0;
