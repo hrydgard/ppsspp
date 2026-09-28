@@ -1070,7 +1070,13 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 			if (deviceProps.driverVersion < 0x80180000) {
 				bugs_.Infest(Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL_ADRENO);
 			}
+		} else if (deviceProps.deviceID >= 0x06000000 && deviceProps.deviceID < 0x07000000) {
+			// Some Adreno 6xx with very old drivers also exhibit this bug.
+			if (deviceProps.driverVersion < 0x60000000) {
+				bugs_.Infest(Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL_ADRENO);
+			}
 		}
+
 		// Color write mask not masking write in certain scenarios with a depth test, see #10421.
 		// Known still present on driver 0x80180000 and Adreno 5xx (possibly more.)
 		// Known working on driver 0x801EA000 and Adreno 620.

@@ -993,17 +993,21 @@ VkResult VulkanContext::CreateDevice(int physical_device, const std::vector<cons
 		break;
 
 	case VULKAN_VENDOR_QUALCOMM:
-		devicePerfClass_ = PerfClass::SLOW;
-#if PPSSPP_PLATFORM(ANDROID)
-		// The roughest heuristic ever, this needs improvement.
-		if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) >= 30) {
-			devicePerfClass_ = PerfClass::FAST;
-		}
-#elif PPSSPP_PLATFORM(WINDOWS)
+	{
+#if PPSSPP_PLATFORM(WINDOWS)
 		// All the modern Qualcomm PC laptops are fast enough to be called FAST.
 		devicePerfClass_ = PerfClass::FAST;
+#else
+		// The deviceID family encodes the generation: 0x05xxxxxx = Adreno 5xx, etc.
+		uint32_t adrenoFamily = props.deviceID >> 24;
+		if (adrenoFamily >= 6) {
+			devicePerfClass_ = PerfClass::FAST;
+		} else {
+			devicePerfClass_ = PerfClass::SLOW;
+		}
 #endif
 		break;
+	}
 
 	case VULKAN_VENDOR_IMGTEC:
 	default:
