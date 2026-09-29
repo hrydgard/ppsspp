@@ -496,6 +496,8 @@ struct BusySyscall {
 	bool counting;
 };
 static std::vector<BusySyscall> busySyscalls;
+// See __KernelChance().
+static int g_chanceAccumulator = 50;
 static int eventBusySyscallDone = -1;
 static void __KernelBusySyscallDone(u64 userdata, int cyclesLate);
 static SceUID currentThread;
@@ -707,6 +709,7 @@ static bool __KernelCheckResumeThreadEnd(PSPThread *t, SceUID waitingThreadID, u
 		u32 timeoutPtr = __KernelGetWaitTimeoutPtr(waitingThreadID, error);
 		// Note: unlike the helper in KernelWaitHelpers.h, we unschedule even without a timeout ptr.
 		s64 cyclesLeft = CoreTiming::UnscheduleEvent(eventThreadEndTimeout, waitingThreadID);
+		cyclesLeft -= usToCycles(WAIT_TIMEOUT_LATENCY_US);
 		if (cyclesLeft < 0)
 			cyclesLeft = 0;
 		if (timeoutPtr != 0)
@@ -771,6 +774,7 @@ u32 HLEMipsCallReturnAddress() {
 }
 
 void __KernelThreadingInit() {
+	g_chanceAccumulator = 50;
 	struct ThreadHack {
 		u32 nid;
 		u32 *addr;
@@ -844,7 +848,7 @@ void __KernelThreadingDoState(PointerWrap &p)
 		g_exitCallbackPending = false;
 	}
 
-	auto s = p.Section("sceKernelThread", 1, 6);
+	auto s = p.Section("sceKernelThread", 1, 7);
 	if (!s)
 		return;
 
@@ -906,6 +910,11 @@ void __KernelThreadingDoState(PointerWrap &p)
 		busySyscalls.clear();
 	}
 	CoreTiming::RestoreRegisterEvent(eventBusySyscallDone, "BusySyscallDone", &__KernelBusySyscallDone);
+	if (s >= 7) {
+		Do(p, g_chanceAccumulator);
+	} else {
+		g_chanceAccumulator = 50;
+	}
 
 	__SetCurrentThread(kernelObjects.GetFast<PSPThread>(currentThread), currentThread, __KernelGetThreadName(currentThread));
 	lastSwitchCycles = CoreTiming::GetTicks(currentMIPS);
@@ -1503,6 +1512,42 @@ void __KernelCancelWakeup(SceUID threadID)
 	CoreTiming::UnscheduleEvent(eventScheduledWakeup, threadID);
 }
 
+// On hardware these outcomes depend on the phase of the clock. We go with the likelier one, except
+// that always taking a likely-but-not-certain one could lock a polling loop into never yielding.
+// Those are true for the given share of calls, spread evenly: 60 is true three times in five.
+static bool __KernelChance(int percent) {
+	if (percent < 50) {
+		return false;
+	} else if (percent >= 100) {
+		return true;
+	}
+	g_chanceAccumulator += percent;
+	if (g_chanceAccumulator >= 100) {
+		g_chanceAccumulator -= 100;
+		return true;
+	}
+	return false;
+}
+
+// How a wait's timeout plays out on hardware (pspautotests threads/scheduling/waittimeouts). The
+// deadline is taken, and the alarm set up a moment later. If the deadline has passed by then, the
+// wait fails with SCE_KERNEL_ERROR_WAIT_TIMEOUT at once, without giving up the CPU or writing the
+// timeout back. For most calls that happens about 85% of the time for 0us, half the time for 1us,
+// 15% for 2us and never from 3us on. sceKernelAllocateVpl does more first: always up to 1us, then
+// about 17% less per us. Longer ones end max(timeout, 205us) plus about 35us after the call, the
+// last few of which we already spend around the event.
+bool __KernelWaitTimesOutAtOnce(u32 timeoutPtr, int basePercent, int stepPercent) {
+	if (!Memory::IsValid4AlignedAddress(timeoutPtr)) {
+		return false;
+	}
+	const u32 micro = std::min(Memory::ReadUnchecked_U32(timeoutPtr), 100U);
+	return __KernelChance(basePercent - (int)micro * stepPercent);
+}
+
+s64 __KernelWaitTimeoutUs(u32 micro) {
+	return (s64)std::max(micro, 205U) + WAIT_TIMEOUT_LATENCY_US;
+}
+
 void hleThreadEndTimeout(u64 userdata, int cyclesLate)
 {
 	SceUID threadID = (SceUID) userdata;
@@ -1546,7 +1591,7 @@ void __KernelStopThread(SceUID threadID, int exitStatus, const char *reason)
 			u32 timeoutPtr = __KernelGetWaitTimeoutPtr(waitingThread, error);
 			if (HLEKernel::VerifyWait(waitingThread, WAITTYPE_THREADEND, threadID))
 			{
-				s64 cyclesLeft = CoreTiming::UnscheduleEvent(eventThreadEndTimeout, waitingThread);
+				s64 cyclesLeft = CoreTiming::UnscheduleEvent(eventThreadEndTimeout, waitingThread) - usToCycles(WAIT_TIMEOUT_LATENCY_US);
 				if (cyclesLeft < 0)
 					cyclesLeft = 0;
 				if (timeoutPtr != 0)
@@ -2614,22 +2659,15 @@ static s64 __KernelDelayThreadUs(u64 usec) {
 }
 
 // A delay's deadline is now + usec, and the clock is read again when the alarm is set. If the
-// deadline has passed by then, the call returns 0 at once without giving up the CPU. The two reads are about 0.6us apart, so a delay of 0 returns at
-// once about 60% of the time, and 1 almost never. On a thread's first wait after it starts, when the
-// code is presumably out of the cache, they're about 1.65us apart: a delay of 1 returns at once
-// about two times in three, and 2 never (pspautotests threads/scheduling/delayzero).
-// Our cycle counts are too regular to use the tick phase (a polling loop could lock into never
-// yielding), so it's pseudo-random off the tick count instead.
+// deadline has passed by then, the call returns 0 at once without giving up the CPU. The two reads
+// are about 0.6us apart, so a delay of 0 returns at once about 60% of the time, and 1 almost never.
+// On a thread's first wait after it starts, when the code is presumably out of the cache, they're
+// about 1.65us apart: a delay of 1 returns at once about two times in three, and 2 never
+// (pspautotests threads/scheduling/delayzero).
 static bool __KernelDelayReturnsAtOnce(u32 usec) {
 	const PSPThread *thread = __GetCurrentThread();
 	const int gapPercent = thread && !thread->hasWaited ? 165 : 60;
-	const int chancePercent = gapPercent - (int)std::min(usec, 2U) * 100;
-	if (chancePercent <= 0) {
-		return false;
-	}
-	u64 x = (u64)CoreTiming::GetTicks(currentMIPS) * 0x9E3779B97F4A7C15ULL;
-	x ^= x >> 29;
-	return (int)(x % 100) < chancePercent;
+	return __KernelChance(gapPercent - (int)std::min(usec, 2U) * 100);
 }
 
 int sceKernelDelayThreadCB(u32 usec) {
@@ -2796,8 +2834,10 @@ int sceKernelWaitThreadEnd(SceUID threadID, u32 timeoutPtr) {
 	} else {
 		if (t->nt.status != THREADSTATUS_DORMANT)
 		{
+			if (__KernelWaitTimesOutAtOnce(timeoutPtr))
+				return hleLogDebug(Log::sceKernel, SCE_KERNEL_ERROR_WAIT_TIMEOUT, "timed out at once");
 			if (Memory::IsValidAddress(timeoutPtr))
-				__KernelScheduleThreadEndTimeout(currentThread, threadID, Memory::ReadUnchecked_U32(timeoutPtr));
+				__KernelScheduleThreadEndTimeout(currentThread, threadID, __KernelWaitTimeoutUs(Memory::ReadUnchecked_U32(timeoutPtr)));
 			if (std::find(t->waitingThreads.begin(), t->waitingThreads.end(), currentThread) == t->waitingThreads.end())
 				t->waitingThreads.push_back(currentThread);
 			__KernelWaitCurThread(WAITTYPE_THREADEND, threadID, 0, timeoutPtr, false, "thread wait end");
@@ -2823,8 +2863,10 @@ int sceKernelWaitThreadEndCB(SceUID threadID, u32 timeoutPtr) {
 	} else {
 		if (t->nt.status != THREADSTATUS_DORMANT)
 		{
+			if (__KernelWaitTimesOutAtOnce(timeoutPtr))
+				return hleLogDebug(Log::sceKernel, SCE_KERNEL_ERROR_WAIT_TIMEOUT, "timed out at once");
 			if (Memory::IsValidAddress(timeoutPtr))
-				__KernelScheduleThreadEndTimeout(currentThread, threadID, Memory::ReadUnchecked_U32(timeoutPtr));
+				__KernelScheduleThreadEndTimeout(currentThread, threadID, __KernelWaitTimeoutUs(Memory::ReadUnchecked_U32(timeoutPtr)));
 			if (std::find(t->waitingThreads.begin(), t->waitingThreads.end(), currentThread) == t->waitingThreads.end())
 				t->waitingThreads.push_back(currentThread);
 			__KernelWaitCurThread(WAITTYPE_THREADEND, threadID, 0, timeoutPtr, true, "thread wait end");

@@ -393,6 +393,8 @@ tests_good = [
   "threads/mutex/unlock2",
   "threads/scheduling/dispatch",
   "threads/scheduling/delayzero",
+  "threads/scheduling/readyqueue",
+  "threads/scheduling/waittimeouts",
   "threads/semaphores/semaphores",
   "threads/semaphores/cancel",
   "threads/semaphores/create",

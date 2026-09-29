@@ -302,16 +302,8 @@ static void __KernelSetEventFlagTimeout(EventFlag *e, u32 timeoutPtr) {
 	if (timeoutPtr == 0 || eventFlagWaitTimer == -1)
 		return;
 
-	int micro = (int) Memory::ReadOrException_U32(timeoutPtr);
-
-	// This seems like the actual timing of timeouts on hardware.
-	if (micro <= 1)
-		micro = 25;
-	else if (micro <= 209)
-		micro = 240;
-
-	// This should call __KernelEventFlagTimeout() later, unless we cancel it.
-	CoreTiming::ScheduleEvent(usToCycles(micro), eventFlagWaitTimer, __KernelGetCurThread());
+	u32 micro = Memory::ReadOrException_U32(timeoutPtr);
+	CoreTiming::ScheduleEvent(usToCycles(__KernelWaitTimeoutUs(micro)), eventFlagWaitTimer, __KernelGetCurThread());
 }
 
 int sceKernelWaitEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 timeoutPtr) {
@@ -345,6 +337,8 @@ int sceKernelWaitEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 ti
 				return hleLogDebug(Log::sceKernel, SCE_KERNEL_ERROR_EVF_MULTI);
 			}
 
+			if (__KernelWaitTimesOutAtOnce(timeoutPtr))
+				return hleLogDebug(Log::sceKernel, SCE_KERNEL_ERROR_WAIT_TIMEOUT, "timed out at once");
 			(void)hleLogDebug(Log::sceKernel, 0, "waiting");
 
 			// No match - must wait.
@@ -408,6 +402,8 @@ int sceKernelWaitEventFlagCB(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 
 				return hleLogDebug(Log::sceKernel, SCE_KERNEL_ERROR_EVF_MULTI);
 			}
 
+			if (!doCallbackWait && __KernelWaitTimesOutAtOnce(timeoutPtr))
+				return hleLogDebug(Log::sceKernel, SCE_KERNEL_ERROR_WAIT_TIMEOUT, "timed out at once");
 			(void)hleLogDebug(Log::sceKernel, 0, "waiting");
 
 			// No match - must wait.

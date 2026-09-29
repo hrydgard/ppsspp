@@ -434,16 +434,10 @@ static void __KernelWaitMutex(PSPMutex *mutex, u32 timeoutPtr) {
 	if (timeoutPtr == 0 || mutexWaitTimer == -1)
 		return;
 
-	int micro = (int) Memory::ReadUnchecked_U32(timeoutPtr);
-
-	// This happens to be how the hardware seems to time things.
-	if (micro <= 3)
-		micro = 25;
-	else if (micro <= 249)
-		micro = 250;
+	u32 micro = Memory::ReadUnchecked_U32(timeoutPtr);
 
 	// This should call __KernelMutexTimeout() later, unless we cancel it.
-	CoreTiming::ScheduleEvent(usToCycles(micro), mutexWaitTimer, __KernelGetCurThread());
+	CoreTiming::ScheduleEvent(usToCycles(__KernelWaitTimeoutUs(micro)), mutexWaitTimer, __KernelGetCurThread());
 }
 
 int sceKernelCancelMutex(SceUID uid, int count, u32 numWaitThreadsPtr) {
@@ -513,6 +507,8 @@ int sceKernelLockMutex(SceUID id, int count, u32 timeoutPtr) {
 		}
 	}
 
+	if (__KernelWaitTimesOutAtOnce(timeoutPtr))
+		return hleLogDebug(Log::sceKernel, SCE_KERNEL_ERROR_WAIT_TIMEOUT, "timed out at once");
 	SceUID threadID = __KernelGetCurThread();
 	// May be in a tight loop timing out (where we don't remove from waitingThreads yet), don't want to add duplicates.
 	if (std::find(mutex->waitingThreads.begin(), mutex->waitingThreads.end(), threadID) == mutex->waitingThreads.end())
@@ -533,6 +529,8 @@ int sceKernelLockMutexCB(SceUID id, int count, u32 timeoutPtr) {
 		if (error)
 			return hleLogError(Log::sceKernel, error);
 
+		if (__KernelWaitTimesOutAtOnce(timeoutPtr))
+			return hleLogDebug(Log::sceKernel, SCE_KERNEL_ERROR_WAIT_TIMEOUT, "timed out at once");
 		SceUID threadID = __KernelGetCurThread();
 		// May be in a tight loop timing out (where we don't remove from waitingThreads yet), don't want to add duplicates.
 		if (std::find(mutex->waitingThreads.begin(), mutex->waitingThreads.end(), threadID) == mutex->waitingThreads.end())
@@ -812,16 +810,10 @@ static void __KernelWaitLwMutex(LwMutex *mutex, u32 timeoutPtr) {
 	if (timeoutPtr == 0 || lwMutexWaitTimer == -1)
 		return;
 
-	int micro = (int) Memory::ReadUnchecked_U32(timeoutPtr);
-
-	// This happens to be how the hardware seems to time things.
-	if (micro <= 3)
-		micro = 25;
-	else if (micro <= 249)
-		micro = 250;
+	u32 micro = Memory::ReadUnchecked_U32(timeoutPtr);
 
 	// This should call __KernelLwMutexTimeout() later, unless we cancel it.
-	CoreTiming::ScheduleEvent(usToCycles(micro), lwMutexWaitTimer, __KernelGetCurThread());
+	CoreTiming::ScheduleEvent(usToCycles(__KernelWaitTimeoutUs(micro)), lwMutexWaitTimer, __KernelGetCurThread());
 }
 
 static bool __KernelUnlockLwMutexForThreadCheck(LwMutex *mutex, SceUID threadID, u32 &error, int result, bool &wokeThreads)
@@ -901,6 +893,8 @@ int sceKernelLockLwMutex(u32 workareaPtr, int count, u32 timeoutPtr) {
 		if (!mutex) {
 			return hleLogError(Log::sceKernel, error);
 		} else {
+			if (__KernelWaitTimesOutAtOnce(timeoutPtr))
+				return hleLogDebug(Log::sceKernel, SCE_KERNEL_ERROR_WAIT_TIMEOUT, "timed out at once");
 			SceUID threadID = __KernelGetCurThread();
 			// May be in a tight loop timing out (where we don't remove from waitingThreads yet), don't want to add duplicates.
 			if (std::find(mutex->waitingThreads.begin(), mutex->waitingThreads.end(), threadID) == mutex->waitingThreads.end())
@@ -932,6 +926,8 @@ int sceKernelLockLwMutexCB(u32 workareaPtr, int count, u32 timeoutPtr) {
 		if (!mutex) {
 			return hleLogError(Log::sceKernel, error);
 		} else {
+			if (__KernelWaitTimesOutAtOnce(timeoutPtr))
+				return hleLogDebug(Log::sceKernel, SCE_KERNEL_ERROR_WAIT_TIMEOUT, "timed out at once");
 			SceUID threadID = __KernelGetCurThread();
 			// May be in a tight loop timing out (where we don't remove from waitingThreads yet), don't want to add duplicates.
 			if (std::find(mutex->waitingThreads.begin(), mutex->waitingThreads.end(), threadID) == mutex->waitingThreads.end())

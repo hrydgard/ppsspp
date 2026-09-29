@@ -269,15 +269,16 @@ static bool __KernelSetMsgPipeTimeout(u32 timeoutPtr) {
 	if (timeoutPtr == 0 || waitTimer == -1)
 		return true;
 
-	int micro = (int)Memory::ReadOrException_U32(timeoutPtr);
-	if (micro <= 2) {
+	// Always at once up to 2us, never from 3us: what threads/msgpipe/send and receive record, where
+	// each call comes straight after a checkpoint and the code is presumably cold. Back to back the
+	// hardware does 2us at once less often, as other waits do.
+	if (__KernelWaitTimesOutAtOnce(timeoutPtr, 210, 55)) {
 		// Don't wait or reschedule, just timeout immediately.
 		return false;
 	}
 
-	if (micro <= 210)
-		micro = 250;
-	CoreTiming::ScheduleEvent(usToCycles(micro), waitTimer, __KernelGetCurThread());
+	const u32 micro = Memory::ReadOrException_U32(timeoutPtr);
+	CoreTiming::ScheduleEvent(usToCycles(__KernelWaitTimeoutUs(micro)), waitTimer, __KernelGetCurThread());
 	return true;
 }
 

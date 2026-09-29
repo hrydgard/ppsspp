@@ -641,19 +641,8 @@ static void __KernelSetFplTimeout(u32 timeoutPtr)
 	if (timeoutPtr == 0 || fplWaitTimer == -1)
 		return;
 
-	int micro = (int) Memory::ReadOrException_U32(timeoutPtr);
-
-	// TODO: test for fpls.
-	// This happens to be how the hardware seems to time things.
-	if (micro <= 5)
-		micro = 20;
-	// Yes, this 7 is reproducible.  6 is (a lot) longer than 7.
-	else if (micro == 7)
-		micro = 25;
-	else if (micro <= 215)
-		micro = 250;
-
-	CoreTiming::ScheduleEvent(usToCycles(micro), fplWaitTimer, __KernelGetCurThread());
+	u32 micro = Memory::ReadOrException_U32(timeoutPtr);
+	CoreTiming::ScheduleEvent(usToCycles(__KernelWaitTimeoutUs(micro)), fplWaitTimer, __KernelGetCurThread());
 }
 
 int sceKernelAllocateFpl(SceUID uid, u32 blockPtrAddr, u32 timeoutPtr) {
@@ -671,6 +660,8 @@ int sceKernelAllocateFpl(SceUID uid, u32 blockPtrAddr, u32 timeoutPtr) {
 	} else {
 		SceUID threadID = __KernelGetCurThread();
 		HLEKernel::RemoveWaitingThread(fpl->waitingThreads, threadID);
+		if (__KernelWaitTimesOutAtOnce(timeoutPtr))
+			return hleLogDebug(Log::sceKernel, SCE_KERNEL_ERROR_WAIT_TIMEOUT, "timed out at once");
 		FplWaitingThread waiting = {threadID, blockPtrAddr};
 		fpl->waitingThreads.push_back(waiting);
 
@@ -696,6 +687,8 @@ int sceKernelAllocateFplCB(SceUID uid, u32 blockPtrAddr, u32 timeoutPtr) {
 	} else {
 		SceUID threadID = __KernelGetCurThread();
 		HLEKernel::RemoveWaitingThread(fpl->waitingThreads, threadID);
+		if (__KernelWaitTimesOutAtOnce(timeoutPtr))
+			return hleLogDebug(Log::sceKernel, SCE_KERNEL_ERROR_WAIT_TIMEOUT, "timed out at once");
 		FplWaitingThread waiting = {threadID, blockPtrAddr};
 		fpl->waitingThreads.push_back(waiting);
 
@@ -1492,18 +1485,8 @@ static void __KernelSetVplTimeout(u32 timeoutPtr)
 	if (timeoutPtr == 0 || vplWaitTimer == -1)
 		return;
 
-	int micro = (int) Memory::ReadOrException_U32(timeoutPtr);
-
-	// This happens to be how the hardware seems to time things.
-	if (micro <= 5)
-		micro = 20;
-	// Yes, this 7 is reproducible.  6 is (a lot) longer than 7.
-	else if (micro == 7)
-		micro = 25;
-	else if (micro <= 215)
-		micro = 250;
-
-	CoreTiming::ScheduleEvent(usToCycles(micro), vplWaitTimer, __KernelGetCurThread());
+	u32 micro = Memory::ReadOrException_U32(timeoutPtr);
+	CoreTiming::ScheduleEvent(usToCycles(__KernelWaitTimeoutUs(micro)), vplWaitTimer, __KernelGetCurThread());
 }
 
 int sceKernelAllocateVpl(SceUID uid, u32 size, u32 addrPtr, u32 timeoutPtr)
@@ -1514,8 +1497,9 @@ int sceKernelAllocateVpl(SceUID uid, u32 size, u32 addrPtr, u32 timeoutPtr)
 		VPL *vpl = kernelObjects.Get<VPL>(uid, ignore);
 		if (error == SCE_KERNEL_ERROR_NO_MEMORY)
 		{
-			if (timeoutPtr != 0 && Memory::ReadOrException_U32(timeoutPtr) == 0)
-				return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
+			// Allocating does more before setting up the timeout, so short ones time out at once more often.
+			if (__KernelWaitTimesOutAtOnce(timeoutPtr, 117, 17))
+				return hleLogDebug(Log::sceKernel, SCE_KERNEL_ERROR_WAIT_TIMEOUT, "timed out at once");
 
 			if (vpl) {
 				SceUID threadID = __KernelGetCurThread();
@@ -1544,8 +1528,9 @@ int sceKernelAllocateVplCB(SceUID uid, u32 size, u32 addrPtr, u32 timeoutPtr)
 		VPL *vpl = kernelObjects.Get<VPL>(uid, ignore);
 		if (error == SCE_KERNEL_ERROR_NO_MEMORY)
 		{
-			if (timeoutPtr != 0 && Memory::ReadOrException_U32(timeoutPtr) == 0)
-				return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_WAIT_TIMEOUT);
+			// Allocating does more before setting up the timeout, so short ones time out at once more often.
+			if (__KernelWaitTimesOutAtOnce(timeoutPtr, 117, 17))
+				return hleLogDebug(Log::sceKernel, SCE_KERNEL_ERROR_WAIT_TIMEOUT, "timed out at once");
 
 			if (vpl)
 			{

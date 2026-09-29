@@ -294,16 +294,9 @@ static void __KernelSetSemaTimeout(PSPSemaphore *s, u32 timeoutPtr) {
 	if (timeoutPtr == 0 || semaWaitTimer == -1)
 		return;
 
-	int micro = (int)Memory::ReadOrException_U32(timeoutPtr);
-
-	// This happens to be how the hardware seems to time things.
-	if (micro <= 3)
-		micro = 24;
-	else if (micro <= 249)
-		micro = 245;
-
+	u32 micro = Memory::ReadOrException_U32(timeoutPtr);
 	// This should call __KernelSemaTimeout() later, unless we cancel it.
-	CoreTiming::ScheduleEvent(usToCycles(micro), semaWaitTimer, __KernelGetCurThread());
+	CoreTiming::ScheduleEvent(usToCycles(__KernelWaitTimeoutUs(micro)), semaWaitTimer, __KernelGetCurThread());
 }
 
 static int __KernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr, bool processCallbacks) {
@@ -327,6 +320,8 @@ static int __KernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr, bool pro
 		if (s->ns.currentCount >= wantedCount && s->waitingThreads.size() == 0 && !hasCallbacks) {
 			s->ns.currentCount -= wantedCount;
 		} else {
+			if (!hasCallbacks && __KernelWaitTimesOutAtOnce(timeoutPtr))
+				return SCE_KERNEL_ERROR_WAIT_TIMEOUT;
 			SceUID threadID = __KernelGetCurThread();
 			// May be in a tight loop timing out (where we don't remove from waitingThreads yet), don't want to add duplicates.
 			if (std::find(s->waitingThreads.begin(), s->waitingThreads.end(), threadID) == s->waitingThreads.end())

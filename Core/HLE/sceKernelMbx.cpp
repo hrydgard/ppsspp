@@ -253,16 +253,8 @@ static void __KernelWaitMbx(Mbx *m, u32 timeoutPtr)
 	if (timeoutPtr == 0 || mbxWaitTimer == -1)
 		return;
 
-	int micro = (int) Memory::ReadOrException_U32(timeoutPtr);
-
-	// This seems to match the actual timing.
-	if (micro <= 2)
-		micro = 20;
-	else if (micro <= 209)
-		micro = 250;
-
-	// This should call __KernelMbxTimeout() later, unless we cancel it.
-	CoreTiming::ScheduleEvent(usToCycles(micro), mbxWaitTimer, __KernelGetCurThread());
+	u32 micro = Memory::ReadOrException_U32(timeoutPtr);
+	CoreTiming::ScheduleEvent(usToCycles(__KernelWaitTimeoutUs(micro)), mbxWaitTimer, __KernelGetCurThread());
 }
 
 static std::vector<MbxWaitingThread>::iterator __KernelMbxFindPriority(std::vector<MbxWaitingThread> &waiting)
@@ -441,6 +433,8 @@ int sceKernelReceiveMbx(SceUID id, u32 packetAddrPtr, u32 timeoutPtr) {
 		return hleLogDebug(Log::sceKernel, m->ReceiveMessage(packetAddrPtr), "sending first queue message");
 	} else {
 		HLEKernel::RemoveWaitingThread(m->waitingThreads, __KernelGetCurThread());
+		if (__KernelWaitTimesOutAtOnce(timeoutPtr))
+			return hleLogDebug(Log::sceKernel, SCE_KERNEL_ERROR_WAIT_TIMEOUT, "timed out at once");
 		m->AddWaitingThread(__KernelGetCurThread(), packetAddrPtr);
 		__KernelWaitMbx(m, timeoutPtr);
 		__KernelWaitCurThread(WAITTYPE_MBX, id, 0, timeoutPtr, false, "mbx waited");
@@ -460,6 +454,8 @@ int sceKernelReceiveMbxCB(SceUID id, u32 packetAddrPtr, u32 timeoutPtr) {
 		return hleLogDebug(Log::sceKernel, m->ReceiveMessage(packetAddrPtr), "sending first queue message");
 	} else {
 		HLEKernel::RemoveWaitingThread(m->waitingThreads, __KernelGetCurThread());
+		if (__KernelWaitTimesOutAtOnce(timeoutPtr))
+			return hleLogDebug(Log::sceKernel, SCE_KERNEL_ERROR_WAIT_TIMEOUT, "timed out at once");
 		m->AddWaitingThread(__KernelGetCurThread(), packetAddrPtr);
 		__KernelWaitMbx(m, timeoutPtr);
 		__KernelWaitCurThread(WAITTYPE_MBX, id, 0, timeoutPtr, true, "mbx waited");
