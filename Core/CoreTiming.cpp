@@ -549,9 +549,16 @@ void DoState(PointerWrap &p) {
 	int current = n;
 	Do(p, n);
 	if (n > current) {
-		WARN_LOG(Log::SaveState, "Savestate failure: more events than current (can't ever remove an event)");
-		p.SetError(p.ERROR_FAILURE);
-		return;
+		if (p.mode != PointerWrap::MODE_READ) {
+			WARN_LOG(Log::SaveState, "Savestate failure: more events than current");
+			p.SetError(p.ERROR_FAILURE);
+			return;
+		}
+		// An older state can have event types that have since been merged or removed, like the
+		// per-object wait timeouts. Keep their slots: modules that still know them restore them
+		// below, and the rest stay harmless placeholders.
+		event_types.resize(n);
+		current = n;
 	}
 
 	// These (should) be filled in later by the modules. Only when loading: a save that fails partway
