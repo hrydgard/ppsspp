@@ -128,10 +128,19 @@ void DrawEngineD3D11::DestroyDeviceObjects() {
 void DrawEngineD3D11::DeviceLost() {
 	DestroyDeviceObjects();
 	draw_ = nullptr;
+	device_ = nullptr;
+	context_ = nullptr;
+	device1_ = nullptr;
+	context1_ = nullptr;
 }
 
 void DrawEngineD3D11::DeviceRestore(Draw::DrawContext *draw) {
+	// The restored context can be a new device, so don't keep the old pointers.
 	draw_ = draw;
+	device_ = (ID3D11Device *)draw->GetNativeObject(Draw::NativeObject::DEVICE);
+	context_ = (ID3D11DeviceContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT);
+	device1_ = (ID3D11Device1 *)draw->GetNativeObject(Draw::NativeObject::DEVICE_EX);
+	context1_ = (ID3D11DeviceContext1 *)draw->GetNativeObject(Draw::NativeObject::CONTEXT_EX);
 	InitDeviceObjects();
 }
 

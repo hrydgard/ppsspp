@@ -89,6 +89,9 @@ void GPU_D3D11::DeviceLost() {
 }
 
 void GPU_D3D11::DeviceRestore(Draw::DrawContext *draw) {
+	// The restored context can be a new device, so don't keep the old pointers.
+	device_ = (ID3D11Device *)draw->GetNativeObject(Draw::NativeObject::DEVICE);
+	context_ = (ID3D11DeviceContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT);
 	GPUCommonHW::DeviceRestore(draw);
 }
 
