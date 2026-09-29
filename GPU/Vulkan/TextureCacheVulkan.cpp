@@ -858,7 +858,18 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 				VkImageView view = entry->vkTex->CreateViewForMip(i);
 				VK_PROFILE_BEGIN(vulkan, cmdInit, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT,
 					"Compute Upload: %dx%d->%dx%d", mipUnscaledWidth, mipUnscaledHeight, mipWidth, mipHeight);
-				ScaleBufferToImage(vulkan, cmdInit, view, texBuf, bufferOffset, srcSize, mipUnscaledWidth, mipUnscaledHeight, mipWidth, mipHeight);
+				if (!ScaleBufferToImage(vulkan, cmdInit, view, texBuf, bufferOffset, srcSize, mipUnscaledWidth, mipUnscaledHeight, mipWidth, mipHeight)) {
+					// Nothing was written to this level. Clear it rather than leave garbage in it.
+					WARN_LOG_ONCE(vkscalefail, Log::G3D, "Hardware texture scaling failed, clearing the texture");
+					VkClearColorValue clear{};
+					VkImageSubresourceRange range{ VK_IMAGE_ASPECT_COLOR_BIT, (uint32_t)i, 1, 0, 1 };
+					vkCmdClearColorImage(cmdInit, entry->vkTex->GetImage(), VK_IMAGE_LAYOUT_GENERAL, &clear, 1, &range);
+					// The barrier at the end of the upload waits on compute, so order the clear before that.
+					VkMemoryBarrier barrier{ VK_STRUCTURE_TYPE_MEMORY_BARRIER };
+					barrier.srcAccessMask = VK_ACCESS_TRANSFER_WRITE_BIT;
+					barrier.dstAccessMask = VK_ACCESS_SHADER_READ_BIT | VK_ACCESS_SHADER_WRITE_BIT;
+					vkCmdPipelineBarrier(cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT, 0, 1, &barrier, 0, nullptr, 0, nullptr);
+				}
 				VK_PROFILE_END(vulkan, cmdInit, VK_PIPELINE_STAGE_COMPUTE_SHADER_BIT);
 				vulkan->Delete().QueueDeleteImageView(view);
 			} else {
