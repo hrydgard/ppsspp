@@ -1401,8 +1401,7 @@ int friendFinder() {
 	}
 	g_adhocServerIP.in.sin_port = htons(SERVER_PORT);
 
-	// Finder Loop
-	friendFinderRunning = true;
+	// Finder Loop. The flag was set by whoever started us, and cleared to stop us.
 	while (friendFinderRunning) {
 		// Acquire Network Lock
 		//_acquireNetworkLock();

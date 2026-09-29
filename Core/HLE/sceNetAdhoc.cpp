@@ -1921,9 +1921,14 @@ void __NetAdhocInit() {
 	__AdhocNotifInit();
 	__AdhocServerInit();
 
-	// Create built-in AdhocServer Thread
+	// Create built-in AdhocServer Thread. The flag is set here rather than by the thread, so that a
+	// shutdown that clears it before the thread gets going can't be undone (see friendFinder).
 	adhocServerRunning = false;
+	if (adhocServerThread.joinable()) {
+		adhocServerThread.join();
+	}
 	if (g_Config.bEnableWlan && g_Config.bEnableAdhocServer) {
+		adhocServerRunning = true;
 		adhocServerThread = std::thread(proAdhocServerThread, SERVER_PORT);
 	}
 }
@@ -2008,6 +2013,12 @@ int sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr) {
 
 	// TODO: Merging friendFinder (real) thread to AdhocThread (fake) thread on PSP side
 	if (!friendFinderRunning) {
+		// Set before the thread starts, not by it: shutting down before it got going used to clear
+		// the flag first, and then the thread set it again and never stopped, hanging the join.
+		if (friendFinderThread.joinable()) {
+			friendFinderThread.join();
+		}
+		friendFinderRunning = true;
 		friendFinderThread = std::thread(friendFinder);
 	}
 

@@ -1865,9 +1865,7 @@ int create_listen_socket(uint16_t port)
  */
 int server_loop(int server)
 {
-	// Set Running Status
-	//_status = 1;
-	adhocServerRunning = true;
+	// adhocServerRunning was set by whoever started the thread, and is cleared to stop it.
 
 	// Create Empty Status Logfile
 	update_status();
