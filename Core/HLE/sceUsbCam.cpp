@@ -27,6 +27,7 @@
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/sceUsbCam.h"
 #include "Core/HLE/sceUsbMic.h"
+#include "Core/CoreTiming.h"
 #include "Core/HW/Camera.h"
 #include "Core/MemMapHelpers.h"
 
@@ -43,6 +44,8 @@ Camera::Config *config;
 
 unsigned int videoBufferLength = 0;
 unsigned int nextVideoFrame = 0;
+// When video capture started, which the frame clock counts from. Not saved in states, it only sets the phase.
+static u64 videoStartUs = 0;
 uint8_t *videoBuffer;
 std::mutex videoBufferMutex;
 
@@ -206,6 +209,7 @@ static int sceUsbCamStartVideo() {
 		jpegData = nullptr;
 	}
 
+	videoStartUs = CoreTiming::GetGlobalTimeUs();
 	Camera::startCapture();
 	return 0;
 }
@@ -215,13 +219,29 @@ static int sceUsbCamStopVideo() {
 	return 0;
 }
 
+// How often the camera delivers a frame, from the framerate in the setup params
+// (PSPSDK's PSP_USBCAM_FRAMERATE_*: 3.75, 5, 7.5, 10, 15, 20, 30 and 60 fps).
+static int getFrameIntervalUs() {
+	static const int intervalsUs[] = { 266667, 200000, 133333, 100000, 66667, 50000, 33333, 16667 };
+	int framerate = config->type == Camera::ConfigType::CfVideoEx ? config->videoExParam.framerate : config->videoParam.framerate;
+	if (framerate < 0 || framerate >= (int)ARRAY_SIZE(intervalsUs)) {
+		framerate = 6;  // 30 fps
+	}
+	return intervalsUs[framerate];
+}
+
 static int sceUsbCamReadVideoFrameBlocking(u32 bufAddr, u32 size) {
 	std::lock_guard<std::mutex> lock(videoBufferMutex);
 	u32 transferSize = std::min(videoBufferLength, size);
 	if (Memory::IsValidRange(bufAddr, size)) {
 		Memory::Memcpy(bufAddr, videoBuffer, transferSize);
 	}
-	return transferSize;
+	// This blocks until the camera's next frame. Returning at once lets a high-priority capture thread
+	// (Go!Edit's bhCameraGetJpeg) spin in its read loop and starve the rest of the game.
+	const int intervalUs = getFrameIntervalUs();
+	const u64 sinceStartUs = CoreTiming::GetGlobalTimeUs() - videoStartUs;
+	const int waitUs = intervalUs - (int)(sinceStartUs % intervalUs);
+	return hleDelayResult(hleLogDebug(Log::HLE, transferSize), "camera frame", waitUs);
 }
 
 static int sceUsbCamReadVideoFrame(u32 bufAddr, u32 size) {
