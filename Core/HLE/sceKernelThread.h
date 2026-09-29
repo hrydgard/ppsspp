@@ -38,7 +38,12 @@ class BlockAllocator;
 
 int sceKernelChangeThreadPriority(SceUID threadID, int priority);
 SceUID __KernelCreateThreadInternal(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr);
-int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr, bool allowKernel);
+// With busyCyclesOut, the cost of filling the stack is left for the caller to take (see
+// __KernelBusyDelayResult) instead of being eaten here.
+int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr, bool allowKernel, int *busyCyclesOut = nullptr);
+// For a syscall that keeps the CPU busy for a long time. The caller gets the result after the
+// given cycles, but better threads that wake meanwhile run first, and worse ones don't run.
+u32 __KernelBusyDelayResult(u32 result, int cycles, const char *reason);
 int sceKernelCreateThread(const char *threadName, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr);
 int sceKernelDelayThread(u32 usec);
 int sceKernelDelayThreadCB(u32 usec);
@@ -300,6 +305,8 @@ public:
 	KernelThreadDebugInterface debug;
 
 	bool isProcessingCallbacks = false;
+	// False until the thread first waits after being started (see __KernelDelayReturnsAtOnce).
+	bool hasWaited = true;
 	u32 currentMipscallId = -1;
 	SceUID currentCallbackId = -1;
 

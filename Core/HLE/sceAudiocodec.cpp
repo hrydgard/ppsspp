@@ -239,13 +239,17 @@ static int MECall(int result, int us) {
 	return hleDelayResult(result, "audiocodec", MEScheduleJob(PowerScaleFromDefaultClock(us)));
 }
 
-static int InitUs(int codec, const SceAudiocodecCodec *ctx) {
+int AudioCodecInitUs(int codec, bool monoAt3Plus) {
 	switch (codec) {
-	case PSP_CODEC_AT3PLUS: return ((ctx->fmt.at3.formatByte1 >> 2) & 7) == 1 ? 524 : 646;
+	case PSP_CODEC_AT3PLUS: return monoAt3Plus ? 524 : 646;
 	case PSP_CODEC_AT3: return 210;
 	case PSP_CODEC_MP3: return 517;
 	default: return 230;
 	}
+}
+
+static int InitUs(int codec, const SceAudiocodecCodec *ctx) {
+	return AudioCodecInitUs(codec, codec == PSP_CODEC_AT3PLUS && ((ctx->fmt.at3.formatByte1 >> 2) & 7) == 1);
 }
 
 // libmp4.prx puts the sample rate here. On hardware 22050 and 44100 are accepted, 0 and 12345
@@ -393,6 +397,11 @@ static int EstimateDecodeUs(int codec, int channels, int frameBytes, const SceAu
 	default:
 		return 0;
 	}
+}
+
+int AudioCodecDecodeUs(int codec, int channels, int frameBytes) {
+	_dbg_assert_(codec == PSP_CODEC_AT3PLUS || codec == PSP_CODEC_AT3);
+	return EstimateDecodeUs(codec, channels, frameBytes, nullptr);
 }
 
 static int sceAudiocodecInit(u32 ctxPtr, int codec) {

@@ -431,9 +431,9 @@ void ArmJit::Comp_mxc1(MIPSOpcode op)
 				gpr.MapDirtyIn(MIPS_REG_FPCOND, rt);
 			}
 
-			// Update MIPS state
-			// TODO: Technically, should mask by 0x0181FFFF.  Maybe just put all of FCR31 in the reg?
-			STR(gpr.R(rt), CTXREG, offsetof(MIPSState, fcr31));
+			// Update MIPS state. Only these bits can be written (pspautotests cpu/fpu/fcr).
+			ANDI2R(SCRATCHREG1, gpr.R(rt), 0x0181FFFF, SCRATCHREG2);
+			STR(SCRATCHREG1, CTXREG, offsetof(MIPSState, fcr31));
 			if (!wasImm) {
 #if PPSSPP_ARCH(ARMV7)
 				UBFX(gpr.R(MIPS_REG_FPCOND), gpr.R(rt), 23, 1);

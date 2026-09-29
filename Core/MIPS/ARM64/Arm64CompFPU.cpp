@@ -396,9 +396,9 @@ void Arm64Jit::Comp_mxc1(MIPSOpcode op)
 				gpr.MapDirtyIn(MIPS_REG_FPCOND, rt);
 			}
 
-			// Update MIPS state
-			// TODO: Technically, should mask by 0x0181FFFF.  Maybe just put all of FCR31 in the reg?
-			STR(INDEX_UNSIGNED, gpr.R(rt), CTXREG, offsetof(MIPSState, fcr31));
+			// Update MIPS state. Only these bits can be written (pspautotests cpu/fpu/fcr).
+			ANDI2R(SCRATCH1, gpr.R(rt), 0x0181FFFF, SCRATCH2);
+			STR(INDEX_UNSIGNED, SCRATCH1, CTXREG, offsetof(MIPSState, fcr31));
 			if (!wasImm) {
 				UBFX(gpr.R(MIPS_REG_FPCOND), gpr.R(rt), 23, 1);
 				// TODO: We do have the fcr31 value in a register here, could use that in UpdateRoundingMode to avoid reloading it.

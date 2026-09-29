@@ -222,6 +222,8 @@ public:
 	virtual int ResetPlayPosition(int sample, int bytesWrittenFirstBuf, int bytesWrittenSecondBuf, bool *delay) = 0;
 	virtual int GetBufferInfoForResetting(AtracResetBufferInfo *bufferInfo, int sample, bool *delay) = 0;  // NOTE: Not const! This can cause SkipFrames!
 	virtual int SetData(const Track &track, u32 buffer, u32 readSize, u32 bufferSize, u32 fileSize, int outputChannels, bool isAA3) = 0;
+	// How many frames the last SetData decoded and threw away, to get to the first sample.
+	int SkippedFramesOnSetData() const { return setDataSkippedFrames_; }
 
 	virtual int GetSecondBufferInfo(u32 *fileOffset, u32 *desiredSize) const = 0;
 	virtual int SetSecondBuffer(u32 secondBuffer, u32 secondBufferSize) = 0;
@@ -242,6 +244,7 @@ public:
 
 protected:
 	u16 outputChannels_ = 2;
+	int setDataSkippedFrames_ = 0;
 
 	// TODO: Save the internal state of this, now technically possible.
 	AudioDecoder *decoder_ = nullptr;

@@ -1019,8 +1019,9 @@ int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 buffer
 		info.fileDataEnd, info.decodePos, info.numSkipFrames, info.numChan
 	);
 
-	int skipCount = 0;  // TODO: use for delay
+	int skipCount = 0;
 	retval = SkipFrames(&skipCount);
+	setDataSkippedFrames_ = skipCount;
 
 	// Seen in Mui Mui house. Things go very wrong after this..
 	if (retval == SCE_ERROR_ATRAC_API_FAIL) {

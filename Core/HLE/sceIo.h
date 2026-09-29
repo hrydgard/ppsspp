@@ -38,6 +38,9 @@ u32 sceIoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 ou
 int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 outlen, int &usec);
 
 u32 __IoGetFileHandleFromId(u32 id, u32 &outError);
+// What sceIoOpen and sceIoRead charge, for loaders that read whole files without going through them.
+int __IoOpenDelayUs(const char *filename);
+int __IoReadDelayUs(int size);
 void ConvertTmToPspDateTime(ScePspDateTime& date_out, const tm& date_in, int microSeconds);
 
 KernelObject *__KernelFileNodeObject();
