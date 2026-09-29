@@ -628,6 +628,8 @@ private:
 	std::condition_variable compileCond_;
 	std::mutex compileQueueMutex_;
 	std::vector<CompileQueueEntry> compileQueue_;
+	// Set while the compile thread turns a batch it took off compileQueue_ into tasks.
+	bool compileScheduling_ = false;
 
 	// Thread for measuring presentation delay.
 	std::thread presentWaitThread_;
