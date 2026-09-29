@@ -83,6 +83,9 @@ extern u8 *base;
 // This replaces RAM_NORMAL_SIZE at runtime.
 extern u32 g_MemorySize;
 extern u32 g_PSPModel;
+// Size of RAM (from 0x08000000) that the user partition may extend into. 0 means all of g_MemorySize.
+// Smaller only for homebrew on a PSP-2000+ that doesn't ask for the extra RAM (see CPU_Init).
+extern u32 g_UserPartitionSize;
 
 // UWP has such limited memory management that we need to mask
 // even in 64-bit mode. Also, when using the sanitizer, we need to mask as well.
@@ -673,6 +676,8 @@ constexpr u32 PSP_GetScratchpadMemoryEnd() { return 0x00014000;}
 
 constexpr u32 PSP_GetKernelMemoryBase() { return 0x08000000;}
 inline u32 PSP_GetUserMemoryEnd() { return PSP_GetKernelMemoryBase() + Memory::g_MemorySize;}
+// Where the user memory partition ends. Usually PSP_GetUserMemoryEnd(), which is the end of mapped RAM.
+inline u32 PSP_GetUserPartitionEnd() { return PSP_GetKernelMemoryBase() + (Memory::g_UserPartitionSize ? Memory::g_UserPartitionSize : Memory::g_MemorySize); }
 constexpr u32 PSP_GetKernelMemoryEnd() { return 0x08400000;}
 
 // "Volatile" RAM is between 0x08400000 and 0x08800000, can be requested by the

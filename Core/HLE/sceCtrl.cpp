@@ -589,6 +589,9 @@ static const HLEFunction sceCtrl[] =
 	{0X239A6BA7, nullptr,                                  "sceCtrlPeekBufferNegative2",       '?', ""  },
 	{0X1098030B, nullptr,                                  "sceCtrlReadBufferPositive2",       '?', ""  },
 	{0X7C3675AB, nullptr,                                  "sceCtrlReadBufferNegative2",       '?', ""  },
+	// sceCtrl_driver's NID for sceCtrlPeekBufferPositive in 3.71. Imported by NJEMU's SystemButtons.prx
+	// kernel plugin, which picks it when sceKernelDevkitVersion() is 3.71 or newer (#8925).
+	{0XC4AAD55F, &WrapI_UU<sceCtrlPeekBufferPositive>,     "sceCtrlPeekBufferPositive",        'i', "xx"},
 };
 
 void Register_sceCtrl()

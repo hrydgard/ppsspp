@@ -84,6 +84,7 @@ static u8 *m_pUncachedVRAM[4];
 u32 g_MemorySize;
 // Used to store the PSP model on game startup.
 u32 g_PSPModel;
+u32 g_UserPartitionSize;
 
 static MemMapSetupFlags g_setupFlags;
 
