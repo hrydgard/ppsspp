@@ -515,6 +515,13 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 		gpu->EndHostFrame();
 	}
 
+	// Before EndDrawFrame: Vulkan can only read back a framebuffer inside a frame.
+	if (!g_screenshotSavePath.empty() && !g_screenshotSaved) {
+		// SendDebugScreenshot ignores the descriptor and reads the display framebuffer from the GPU
+		// itself, so there's nothing to fill in here.
+		SendDebugScreenshot(DebugScreenshotDesc{});
+	}
+
 	if (draw) {
 		// Vulkan may get angry if we don't do a final present.
 		if (gpu) {
@@ -525,12 +532,6 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 		}
 
 		EndDrawFrame(draw);
-	}
-
-	if (!g_screenshotSavePath.empty() && !g_screenshotSaved) {
-		// SendDebugScreenshot ignores the descriptor and reads the display framebuffer from the GPU
-		// itself, so there's nothing to fill in here.
-		SendDebugScreenshot(DebugScreenshotDesc{});
 	}
 
 	PSP_Shutdown(true);
