@@ -319,6 +319,8 @@ void GPUBreakpoints::AddAddressBreakpoint(u32 addr, bool temp) {
 }
 
 void GPUBreakpoints::AddCmdBreakpoint(u8 cmd, bool temp) {
+	// Debuggers call this from their own threads, racing ClearTempBreakpoints on the emu thread.
+	std::lock_guard<std::mutex> guard(breaksLock);
 	if (temp) {
 		if (!breakCmds[cmd]) {
 			breakCmdsTemp[cmd] = true;
@@ -374,6 +376,7 @@ void GPUBreakpoints::AddRenderTargetBreakpoint(u32 addr, bool temp) {
 }
 
 void GPUBreakpoints::AddTextureChangeTempBreakpoint() {
+	std::lock_guard<std::mutex> guard(breaksLock);
 	textureChangeTemp = true;
 	hasBreakpoints_ = true;
 }
