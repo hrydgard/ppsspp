@@ -53,6 +53,7 @@ public:
 	u32 GetBlockSizeFromAddress(u32 addr) const;
 	u32 GetLargestFreeBlockSize() const;
 	u32 GetTotalFreeBytes() const;
+	u32 GetRangeSize() const { return rangeSize_; }
 
 	const char *GetBlockTag(u32 addr) const;
 

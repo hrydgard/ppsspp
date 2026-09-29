@@ -345,6 +345,7 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 	// Default memory settings
 	// Seems to be the safest place currently..
 	Memory::g_MemorySize = Memory::RAM_NORMAL_SIZE; // 32 MB of ram by default
+	Memory::g_UserPartitionSize = 0;
 
 	g_RemasterMode = false;
 	g_DoubleTextureCoordinates = false;
@@ -396,10 +397,27 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 	case IdentifiedFileType::PSP_PBP_DIRECTORY:
 		// This is normal for homebrew.
 		// ERROR_LOG(Log::Loader, "PBP directory resolution failed.");
-		if (LoadParamSFOFromPBP(fileLoader)) {
+	{
+		const bool hasSFO = LoadParamSFOFromPBP(fileLoader);
+		if (hasSFO) {
 			InitMemorySizeForGame();
 		}
+		// Homebrew written for a PSP-2000+ under custom firmware (e.g. 3.71 M33) can use the top
+		// 32MB of RAM (0x0A000000-0x0C000000) directly, without MEMSIZE=1 in its PARAM.SFO. There
+		// the user partition stays at its normal size, so the heap and thread stacks stay below
+		// 0x0A000000 and the top of RAM is left to the program. NJEMU's slim builds (MVSPSP, CPS2PSP)
+		// work this way (#8925). Map the memory, but don't grow the partition into it: MEMSIZE=1
+		// would, and the program would then overwrite its own heap and stacks.
+		// Homebrew is identified by the MG ("memory stick game") category, or no PARAM.SFO at all.
+		// (g_paramSFO only gets a few keys copied over for a PBP, so the category is in the raw copy.)
+		const bool homebrew = !hasSFO || g_paramSFORaw.GetValueString("CATEGORY") == "MG";
+		if (homebrew && Memory::g_PSPModel != PSP_MODEL_FAT && Memory::g_MemorySize == Memory::RAM_NORMAL_SIZE) {
+			INFO_LOG(Log::Loader, "Homebrew PBP: mapping the PSP-2000 extra RAM, outside the user partition");
+			Memory::g_MemorySize = Memory::RAM_DOUBLE_SIZE;
+			Memory::g_UserPartitionSize = Memory::RAM_NORMAL_SIZE;
+		}
 		break;
+	}
 	case IdentifiedFileType::PSP_ELF:
 		if (Memory::g_PSPModel != PSP_MODEL_FAT) {
 			INFO_LOG(Log::Loader, "ELF, using full PSP-2000 memory access");

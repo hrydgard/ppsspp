@@ -321,7 +321,7 @@ void __KernelMemoryInit()
 {
 	MemBlockInfoInit();
 	kernelMemory.Init(PSP_GetKernelMemoryBase(), PSP_GetKernelMemoryEnd() - PSP_GetKernelMemoryBase(), false);
-	userMemory.Init(PSP_GetUserMemoryBase(), PSP_GetUserMemoryEnd() - PSP_GetUserMemoryBase(), false);
+	userMemory.Init(PSP_GetUserMemoryBase(), PSP_GetUserPartitionEnd() - PSP_GetUserMemoryBase(), false);
 	volatileMemory.Init(PSP_GetVolatileMemoryStart(), PSP_GetVolatileMemoryEnd() - PSP_GetVolatileMemoryStart(), false);
 
 	Memory::Memset(PSP_GetKernelMemoryBase(), 0, PSP_GetKernelMemoryEnd() - PSP_GetKernelMemoryBase());
@@ -1712,7 +1712,8 @@ static u32 SysMemUserForUser_D8DE5C1E() {
 // Real name per uofw's src/kd/sysmem/exports.exp: sceKernelTotalMemSize - the total size (not
 // free size, see sceKernelMaxFreeMemSize above) of the user memory partition.
 static u32 sceKernelTotalMemSize() {
-	return hleLogDebug(Log::sceKernel, PSP_GetUserMemoryEnd() - PSP_GetUserMemoryBase());
+	// The partition's own range, which survives savestates (see PSP_GetUserPartitionEnd).
+	return hleLogDebug(Log::sceKernel, userMemory.GetRangeSize());
 }
 
 static u32 SysMemUserForUser_945E45DA() {
