@@ -44,6 +44,11 @@ inline void WriteRemainingTimeout(int waitTimer, SceUID threadID, u32 timeoutPtr
 	Memory::WriteOrException_U32((u32)cyclesToUs(cyclesLeft), timeoutPtr);
 }
 
+// For kernel object waits, which all time out on the same event (see __KernelWaitCurThreadWithTimeout).
+inline void WriteRemainingTimeout(SceUID threadID, u32 timeoutPtr) {
+	WriteRemainingTimeout(__KernelWaitTimeoutEvent(), threadID, timeoutPtr);
+}
+
 // Should be called from the CoreTiming handler for the wait func.
 template <typename KO, WaitType waitType>
 inline void WaitExecTimeout(SceUID threadID) {
@@ -188,6 +193,12 @@ WaitBeginEndCallbackResult WaitBeginCallback(SceUID threadID, SceUID prevCallbac
 	}
 }
 
+// The same, for a kernel object wait timing out on the shared event.
+template <typename KO, WaitType waitType, typename WaitInfoType>
+WaitBeginEndCallbackResult WaitBeginCallback(SceUID threadID, SceUID prevCallbackId) {
+	return WaitBeginCallback<KO, waitType, WaitInfoType>(threadID, prevCallbackId, __KernelWaitTimeoutEvent());
+}
+
 // Meant to be called in a registered end callback function for a wait type.
 //
 // The goal of this function is to resume the wait, or to complete it if a wait is no longer needed.
@@ -282,6 +293,12 @@ WaitBeginEndCallbackResult WaitEndCallback(SceUID threadID, SceUID prevCallbackI
 		ko->waitingThreads.push_back(waitData);
 	}
 	return result;
+}
+
+// The same, for a kernel object wait timing out on the shared event.
+template <typename KO, WaitType waitType, typename WaitInfoType, class TryUnlockFunc>
+WaitBeginEndCallbackResult WaitEndCallback(SceUID threadID, SceUID prevCallbackId, TryUnlockFunc TryUnlock) {
+	return WaitEndCallback<KO, waitType, WaitInfoType>(threadID, prevCallbackId, __KernelWaitTimeoutEvent(), TryUnlock);
 }
 
 // Verify that a thread has not been released from waiting, e.g. by sceKernelReleaseWaitThread().

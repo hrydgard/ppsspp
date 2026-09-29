@@ -47,7 +47,6 @@ struct MbxWaitingThread {
 };
 void __KernelMbxTimeout(u64 userdata, int cyclesLate);
 
-static int mbxWaitTimer = -1;
 
 struct NativeMbx {
 	SceSize_le size;
@@ -182,18 +181,20 @@ void __KernelMbxEndCallback(SceUID threadID, SceUID prevCallbackId);
 
 void __KernelMbxInit()
 {
-	mbxWaitTimer = CoreTiming::RegisterEvent("MbxTimeout", __KernelMbxTimeout);
-	__KernelRegisterWaitTypeFuncs(WAITTYPE_MBX, __KernelMbxBeginCallback, __KernelMbxEndCallback);
+	__KernelRegisterWaitTypeFuncs(WAITTYPE_MBX, __KernelMbxBeginCallback, __KernelMbxEndCallback, __KernelMbxTimeout);
 }
 
 void __KernelMbxDoState(PointerWrap &p)
 {
-	auto s = p.Section("sceKernelMbx", 1);
+	auto s = p.Section("sceKernelMbx", 1, 2);
 	if (!s)
 		return;
 
-	Do(p, mbxWaitTimer);
-	CoreTiming::RestoreRegisterEvent(mbxWaitTimer, "MbxTimeout", __KernelMbxTimeout);
+	if (s < 2) {
+		int oldTimeoutEvent = -1;
+		Do(p, oldTimeoutEvent);
+		__KernelRestoreOldWaitTimeoutEvent(oldTimeoutEvent, "MbxTimeout");
+	}
 }
 
 KernelObject *__KernelMbxObject()
@@ -207,7 +208,7 @@ static bool __KernelUnlockMbxForThread(Mbx *m, MbxWaitingThread &th, u32 &error,
 		return true;
 
 	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(th.threadID, error);
-	HLEKernel::WriteRemainingTimeout(mbxWaitTimer, th.threadID, timeoutPtr);
+	HLEKernel::WriteRemainingTimeout(th.threadID, timeoutPtr);
 
 	__KernelResumeThreadFromWait(th.threadID, result);
 	wokeThreads = true;
@@ -226,7 +227,7 @@ static bool __KernelUnlockMbxForThreadCheck(Mbx *m, MbxWaitingThread &waitData, 
 
 void __KernelMbxBeginCallback(SceUID threadID, SceUID prevCallbackId)
 {
-	auto result = HLEKernel::WaitBeginCallback<Mbx, WAITTYPE_MBX, MbxWaitingThread>(threadID, prevCallbackId, mbxWaitTimer);
+	auto result = HLEKernel::WaitBeginCallback<Mbx, WAITTYPE_MBX, MbxWaitingThread>(threadID, prevCallbackId);
 	if (result == HLEKernel::WAIT_CB_SUCCESS)
 		DEBUG_LOG(Log::sceKernel, "sceKernelReceiveMbxCB: Suspending mbx wait for callback");
 	else if (result == HLEKernel::WAIT_CB_BAD_WAIT_DATA)
@@ -237,7 +238,7 @@ void __KernelMbxBeginCallback(SceUID threadID, SceUID prevCallbackId)
 
 void __KernelMbxEndCallback(SceUID threadID, SceUID prevCallbackId)
 {
-	auto result = HLEKernel::WaitEndCallback<Mbx, WAITTYPE_MBX, MbxWaitingThread>(threadID, prevCallbackId, mbxWaitTimer, __KernelUnlockMbxForThreadCheck);
+	auto result = HLEKernel::WaitEndCallback<Mbx, WAITTYPE_MBX, MbxWaitingThread>(threadID, prevCallbackId, __KernelUnlockMbxForThreadCheck);
 	if (result == HLEKernel::WAIT_CB_RESUMED_WAIT)
 		DEBUG_LOG(Log::sceKernel, "sceKernelReceiveMbxCB: Resuming mbx wait from callback");
 }
@@ -246,15 +247,6 @@ void __KernelMbxTimeout(u64 userdata, int cyclesLate)
 {
 	SceUID threadID = (SceUID)userdata;
 	HLEKernel::WaitExecTimeout<Mbx, WAITTYPE_MBX>(threadID);
-}
-
-static void __KernelWaitMbx(Mbx *m, u32 timeoutPtr)
-{
-	if (timeoutPtr == 0 || mbxWaitTimer == -1)
-		return;
-
-	u32 micro = Memory::ReadOrException_U32(timeoutPtr);
-	CoreTiming::ScheduleEvent(usToCycles(__KernelWaitTimeoutUs(micro)), mbxWaitTimer, __KernelGetCurThread());
 }
 
 static std::vector<MbxWaitingThread>::iterator __KernelMbxFindPriority(std::vector<MbxWaitingThread> &waiting)
@@ -436,8 +428,7 @@ int sceKernelReceiveMbx(SceUID id, u32 packetAddrPtr, u32 timeoutPtr) {
 		if (__KernelWaitTimesOutAtOnce(timeoutPtr))
 			return hleLogDebug(Log::sceKernel, SCE_KERNEL_ERROR_WAIT_TIMEOUT, "timed out at once");
 		m->AddWaitingThread(__KernelGetCurThread(), packetAddrPtr);
-		__KernelWaitMbx(m, timeoutPtr);
-		__KernelWaitCurThread(WAITTYPE_MBX, id, 0, timeoutPtr, false, "mbx waited");
+		__KernelWaitCurThreadWithTimeout(WAITTYPE_MBX, id, 0, timeoutPtr, false, "mbx waited");
 		return hleLogDebug(Log::sceKernel, 0, "no message in queue, waiting");
 	}
 }
@@ -457,8 +448,7 @@ int sceKernelReceiveMbxCB(SceUID id, u32 packetAddrPtr, u32 timeoutPtr) {
 		if (__KernelWaitTimesOutAtOnce(timeoutPtr))
 			return hleLogDebug(Log::sceKernel, SCE_KERNEL_ERROR_WAIT_TIMEOUT, "timed out at once");
 		m->AddWaitingThread(__KernelGetCurThread(), packetAddrPtr);
-		__KernelWaitMbx(m, timeoutPtr);
-		__KernelWaitCurThread(WAITTYPE_MBX, id, 0, timeoutPtr, true, "mbx waited");
+		__KernelWaitCurThreadWithTimeout(WAITTYPE_MBX, id, 0, timeoutPtr, true, "mbx waited");
 		return hleLogDebug(Log::sceKernel, 0, "no message in queue, waiting");
 	}
 }

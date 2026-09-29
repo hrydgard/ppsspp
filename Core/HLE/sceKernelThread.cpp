@@ -477,6 +477,7 @@ struct WaitTypeFuncs
 {
 	WaitBeginCallbackFunc beginFunc;
 	WaitEndCallbackFunc endFunc;
+	WaitTimeoutFunc timeoutFunc;
 };
 
 bool __KernelExecuteMipsCallOnCurrentThread(u32 callId, bool reschedAfter);
@@ -534,7 +535,7 @@ static ThreadQueueList threadReadyQueue;
 static SceUID threadIdleID[2];
 
 static int eventScheduledWakeup;
-static int eventThreadEndTimeout;
+static int eventWaitTimeout;
 
 static bool dispatchEnabled = true;
 
@@ -697,7 +698,7 @@ static void __KernelSleepEndCallback(SceUID threadID, SceUID prevCallbackId) {
 }
 
 static void __KernelThreadEndBeginCallback(SceUID threadID, SceUID prevCallbackId) {
-	auto result = HLEKernel::WaitBeginCallback<PSPThread, WAITTYPE_THREADEND, SceUID>(threadID, prevCallbackId, eventThreadEndTimeout);
+	auto result = HLEKernel::WaitBeginCallback<PSPThread, WAITTYPE_THREADEND, SceUID>(threadID, prevCallbackId, eventWaitTimeout);
 	if (result == HLEKernel::WAIT_CB_SUCCESS)
 		DEBUG_LOG(Log::sceKernel, "sceKernelWaitThreadEndCB: Suspending wait for callback");
 	else if (result == HLEKernel::WAIT_CB_BAD_WAIT_DATA)
@@ -713,7 +714,7 @@ static bool __KernelCheckResumeThreadEnd(PSPThread *t, SceUID waitingThreadID, u
 	if (t->nt.status == THREADSTATUS_DORMANT) {
 		u32 timeoutPtr = __KernelGetWaitTimeoutPtr(waitingThreadID, error);
 		// Note: unlike the helper in KernelWaitHelpers.h, we unschedule even without a timeout ptr.
-		s64 cyclesLeft = CoreTiming::UnscheduleEvent(eventThreadEndTimeout, waitingThreadID);
+		s64 cyclesLeft = CoreTiming::UnscheduleEvent(eventWaitTimeout, waitingThreadID);
 		cyclesLeft -= usToCycles(WAIT_TIMEOUT_LATENCY_US);
 		if (cyclesLeft < 0)
 			cyclesLeft = 0;
@@ -729,7 +730,7 @@ static bool __KernelCheckResumeThreadEnd(PSPThread *t, SceUID waitingThreadID, u
 
 static void __KernelThreadEndEndCallback(SceUID threadID, SceUID prevCallbackId)
 {
-	auto result = HLEKernel::WaitEndCallback<PSPThread, WAITTYPE_THREADEND, SceUID>(threadID, prevCallbackId, eventThreadEndTimeout, __KernelCheckResumeThreadEnd);
+	auto result = HLEKernel::WaitEndCallback<PSPThread, WAITTYPE_THREADEND, SceUID>(threadID, prevCallbackId, eventWaitTimeout, __KernelCheckResumeThreadEnd);
 	if (result == HLEKernel::WAIT_CB_RESUMED_WAIT)
 		DEBUG_LOG(Log::sceKernel, "sceKernelWaitThreadEndCB: Resuming wait from callback");
 }
@@ -761,6 +762,7 @@ u32 __KernelSetThreadRA(SceUID threadID, u32 nid) {
 
 void hleScheduledWakeup(u64 userdata, int cyclesLate);
 void hleThreadEndTimeout(u64 userdata, int cyclesLate);
+static void __KernelWaitTimeoutFired(u64 userdata, int cyclesLate);
 
 static void __KernelWriteFakeSysCall(u32 nid, u32 *ptr, u32 &pos) {
 	*ptr = pos;
@@ -824,7 +826,7 @@ void __KernelThreadingInit() {
 	}
 
 	eventScheduledWakeup = CoreTiming::RegisterEvent("ScheduledWakeup", &hleScheduledWakeup);
-	eventThreadEndTimeout = CoreTiming::RegisterEvent("ThreadEndTimeout", &hleThreadEndTimeout);
+	eventWaitTimeout = CoreTiming::RegisterEvent("WaitTimeout", &__KernelWaitTimeoutFired);
 	eventBusySyscallDone = CoreTiming::RegisterEvent("BusySyscallDone", &__KernelBusySyscallDone);
 	busySyscalls.clear();
 	actionAfterMipsCall = __KernelRegisterActionType(ActionAfterMipsCall::Create);
@@ -843,7 +845,7 @@ void __KernelThreadingInit() {
 
 	__KernelRegisterWaitTypeFuncs(WAITTYPE_DELAY, __KernelDelayBeginCallback, __KernelDelayEndCallback);
 	__KernelRegisterWaitTypeFuncs(WAITTYPE_SLEEP, __KernelSleepBeginCallback, __KernelSleepEndCallback);
-	__KernelRegisterWaitTypeFuncs(WAITTYPE_THREADEND, __KernelThreadEndBeginCallback, __KernelThreadEndEndCallback);
+	__KernelRegisterWaitTypeFuncs(WAITTYPE_THREADEND, __KernelThreadEndBeginCallback, __KernelThreadEndEndCallback, &hleThreadEndTimeout);
 }
 
 void __KernelThreadingDoState(PointerWrap &p)
@@ -883,8 +885,8 @@ void __KernelThreadingDoState(PointerWrap &p)
 
 	Do(p, eventScheduledWakeup);
 	CoreTiming::RestoreRegisterEvent(eventScheduledWakeup, "ScheduledWakeup", &hleScheduledWakeup);
-	Do(p, eventThreadEndTimeout);
-	CoreTiming::RestoreRegisterEvent(eventThreadEndTimeout, "ThreadEndTimeout", &hleThreadEndTimeout);
+	Do(p, eventWaitTimeout);
+	CoreTiming::RestoreRegisterEvent(eventWaitTimeout, "WaitTimeout", &__KernelWaitTimeoutFired);
 	Do(p, actionAfterMipsCall);
 	__KernelRestoreActionType(actionAfterMipsCall, ActionAfterMipsCall::Create);
 	Do(p, actionAfterCallback);
@@ -1560,15 +1562,44 @@ void hleThreadEndTimeout(u64 userdata, int cyclesLate)
 	HLEKernel::WaitExecTimeout<PSPThread, WAITTYPE_THREADEND>(threadID);
 }
 
-static void __KernelScheduleThreadEndTimeout(SceUID threadID, SceUID waitForID, s64 usFromNow)
-{
-	s64 cycles = usToCycles(usFromNow);
-	CoreTiming::ScheduleEvent(cycles, eventThreadEndTimeout, threadID);
+// One event times out every kernel object wait (the thread only has one wait at a time), and hands
+// over to the timeout function registered for the thread's wait type.
+static void __KernelWaitTimeoutFired(u64 userdata, int cyclesLate) {
+	u32 error;
+	const PSPThread *thread = kernelObjects.Get<PSPThread>((SceUID)userdata, error);
+	if (!thread) {
+		return;
+	}
+	const WaitTimeoutFunc func = waitTypeFuncs[thread->nt.waitType].timeoutFunc;
+	if (func) {
+		func(userdata, cyclesLate);
+	}
+}
+
+int __KernelWaitTimeoutEvent() {
+	return eventWaitTimeout;
+}
+
+void __KernelScheduleWaitTimeout(SceUID threadID, u32 timeoutPtr) {
+	if (timeoutPtr == 0) {
+		return;
+	}
+	const u32 micro = Memory::ReadOrException_U32(timeoutPtr);
+	CoreTiming::ScheduleEvent(usToCycles(__KernelWaitTimeoutUs(micro)), eventWaitTimeout, threadID);
+}
+
+void __KernelWaitCurThreadWithTimeout(WaitType type, SceUID waitID, u32 waitValue, u32 timeoutPtr, bool processCallbacks, const char *reason) {
+	__KernelScheduleWaitTimeout(__KernelGetCurThread(), timeoutPtr);
+	__KernelWaitCurThread(type, waitID, waitValue, timeoutPtr, processCallbacks, reason);
+}
+
+void __KernelRestoreOldWaitTimeoutEvent(int &eventType, const char *name) {
+	CoreTiming::RestoreRegisterEvent(eventType, name, &__KernelWaitTimeoutFired);
 }
 
 void __KernelCancelThreadEndTimeout(SceUID threadID)
 {
-	CoreTiming::UnscheduleEvent(eventThreadEndTimeout, threadID);
+	CoreTiming::UnscheduleEvent(eventWaitTimeout, threadID);
 }
 
 static void __KernelRemoveFromThreadQueue(SceUID threadID) {
@@ -1597,7 +1628,7 @@ void __KernelStopThread(SceUID threadID, int exitStatus, const char *reason)
 			u32 timeoutPtr = __KernelGetWaitTimeoutPtr(waitingThread, error);
 			if (HLEKernel::VerifyWait(waitingThread, WAITTYPE_THREADEND, threadID))
 			{
-				s64 cyclesLeft = CoreTiming::UnscheduleEvent(eventThreadEndTimeout, waitingThread) - usToCycles(WAIT_TIMEOUT_LATENCY_US);
+				s64 cyclesLeft = CoreTiming::UnscheduleEvent(eventWaitTimeout, waitingThread) - usToCycles(WAIT_TIMEOUT_LATENCY_US);
 				if (cyclesLeft < 0)
 					cyclesLeft = 0;
 				if (timeoutPtr != 0)
@@ -2852,8 +2883,7 @@ int sceKernelWaitThreadEnd(SceUID threadID, u32 timeoutPtr) {
 		{
 			if (__KernelWaitTimesOutAtOnce(timeoutPtr))
 				return hleLogDebug(Log::sceKernel, SCE_KERNEL_ERROR_WAIT_TIMEOUT, "timed out at once");
-			if (Memory::IsValidAddress(timeoutPtr))
-				__KernelScheduleThreadEndTimeout(currentThread, threadID, __KernelWaitTimeoutUs(Memory::ReadUnchecked_U32(timeoutPtr)));
+			__KernelScheduleWaitTimeout(currentThread, Memory::IsValidAddress(timeoutPtr) ? timeoutPtr : 0);
 			if (std::find(t->waitingThreads.begin(), t->waitingThreads.end(), currentThread) == t->waitingThreads.end())
 				t->waitingThreads.push_back(currentThread);
 			__KernelWaitCurThread(WAITTYPE_THREADEND, threadID, 0, timeoutPtr, false, "thread wait end");
@@ -2881,8 +2911,7 @@ int sceKernelWaitThreadEndCB(SceUID threadID, u32 timeoutPtr) {
 		{
 			if (__KernelWaitTimesOutAtOnce(timeoutPtr))
 				return hleLogDebug(Log::sceKernel, SCE_KERNEL_ERROR_WAIT_TIMEOUT, "timed out at once");
-			if (Memory::IsValidAddress(timeoutPtr))
-				__KernelScheduleThreadEndTimeout(currentThread, threadID, __KernelWaitTimeoutUs(Memory::ReadUnchecked_U32(timeoutPtr)));
+			__KernelScheduleWaitTimeout(currentThread, Memory::IsValidAddress(timeoutPtr) ? timeoutPtr : 0);
 			if (std::find(t->waitingThreads.begin(), t->waitingThreads.end(), currentThread) == t->waitingThreads.end())
 				t->waitingThreads.push_back(currentThread);
 			__KernelWaitCurThread(WAITTYPE_THREADEND, threadID, 0, timeoutPtr, true, "thread wait end");
@@ -3844,10 +3873,11 @@ void __KernelNotifyCallback(SceUID cbId, int notifyArg)
 	}
 }
 
-void __KernelRegisterWaitTypeFuncs(WaitType type, WaitBeginCallbackFunc beginFunc, WaitEndCallbackFunc endFunc)
+void __KernelRegisterWaitTypeFuncs(WaitType type, WaitBeginCallbackFunc beginFunc, WaitEndCallbackFunc endFunc, WaitTimeoutFunc timeoutFunc)
 {
 	waitTypeFuncs[type].beginFunc = beginFunc;
 	waitTypeFuncs[type].endFunc = endFunc;
+	waitTypeFuncs[type].timeoutFunc = timeoutFunc;
 }
 
 std::vector<DebugThreadInfo> GetThreadsInfo() {

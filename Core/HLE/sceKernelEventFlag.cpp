@@ -66,23 +66,23 @@ enum PspEventFlagWaitTypes {
 	PSP_EVENT_WAITKNOWN = PSP_EVENT_WAITCLEAR | PSP_EVENT_WAITCLEARALL | PSP_EVENT_WAITOR,
 };
 
-static int eventFlagWaitTimer = -1;
-
 void __KernelEventFlagBeginCallback(SceUID threadID, SceUID prevCallbackId);
 void __KernelEventFlagEndCallback(SceUID threadID, SceUID prevCallbackId);
 
 void __KernelEventFlagInit() {
-	eventFlagWaitTimer = CoreTiming::RegisterEvent("EventFlagTimeout", __KernelEventFlagTimeout);
-	__KernelRegisterWaitTypeFuncs(WAITTYPE_EVENTFLAG, __KernelEventFlagBeginCallback, __KernelEventFlagEndCallback);
+	__KernelRegisterWaitTypeFuncs(WAITTYPE_EVENTFLAG, __KernelEventFlagBeginCallback, __KernelEventFlagEndCallback, __KernelEventFlagTimeout);
 }
 
 void __KernelEventFlagDoState(PointerWrap &p) {
-	auto s = p.Section("sceKernelEventFlag", 1);
+	auto s = p.Section("sceKernelEventFlag", 1, 2);
 	if (!s)
 		return;
 
-	Do(p, eventFlagWaitTimer);
-	CoreTiming::RestoreRegisterEvent(eventFlagWaitTimer, "EventFlagTimeout", __KernelEventFlagTimeout);
+	if (s < 2) {
+		int oldTimeoutEvent = -1;
+		Do(p, oldTimeoutEvent);
+		__KernelRestoreOldWaitTimeoutEvent(oldTimeoutEvent, "EventFlagTimeout");
+	}
 }
 
 KernelObject *__KernelEventFlagObject() {
@@ -128,7 +128,7 @@ static bool __KernelUnlockEventFlagForThread(EventFlag *e, EventFlagTh &th, u32 
 	}
 
 	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(th.threadID, error);
-	HLEKernel::WriteRemainingTimeout(eventFlagWaitTimer, th.threadID, timeoutPtr);
+	HLEKernel::WriteRemainingTimeout(th.threadID, timeoutPtr);
 
 	__KernelResumeThreadFromWait(th.threadID, result);
 	wokeThreads = true;
@@ -146,7 +146,7 @@ static bool __KernelClearEventFlagThreads(EventFlag *e, int reason) {
 }
 
 void __KernelEventFlagBeginCallback(SceUID threadID, SceUID prevCallbackId) {
-	auto result = HLEKernel::WaitBeginCallback<EventFlag, WAITTYPE_EVENTFLAG, EventFlagTh>(threadID, prevCallbackId, eventFlagWaitTimer);
+	auto result = HLEKernel::WaitBeginCallback<EventFlag, WAITTYPE_EVENTFLAG, EventFlagTh>(threadID, prevCallbackId);
 	if (result == HLEKernel::WAIT_CB_SUCCESS)
 		DEBUG_LOG(Log::sceKernel, "sceKernelWaitEventFlagCB: Suspending lock wait for callback");
 	else if (result == HLEKernel::WAIT_CB_BAD_WAIT_DATA)
@@ -156,7 +156,7 @@ void __KernelEventFlagBeginCallback(SceUID threadID, SceUID prevCallbackId) {
 }
 
 void __KernelEventFlagEndCallback(SceUID threadID, SceUID prevCallbackId) {
-	auto result = HLEKernel::WaitEndCallback<EventFlag, WAITTYPE_EVENTFLAG, EventFlagTh>(threadID, prevCallbackId, eventFlagWaitTimer, __KernelUnlockEventFlagForThread);
+	auto result = HLEKernel::WaitEndCallback<EventFlag, WAITTYPE_EVENTFLAG, EventFlagTh>(threadID, prevCallbackId, __KernelUnlockEventFlagForThread);
 	if (result == HLEKernel::WAIT_CB_RESUMED_WAIT)
 		DEBUG_LOG(Log::sceKernel, "sceKernelWaitEventFlagCB: Resuming lock wait from callback");
 }
@@ -298,14 +298,6 @@ void __KernelEventFlagTimeout(u64 userdata, int cycleslate) {
 	}
 }
 
-static void __KernelSetEventFlagTimeout(EventFlag *e, u32 timeoutPtr) {
-	if (timeoutPtr == 0 || eventFlagWaitTimer == -1)
-		return;
-
-	u32 micro = Memory::ReadOrException_U32(timeoutPtr);
-	CoreTiming::ScheduleEvent(usToCycles(__KernelWaitTimeoutUs(micro)), eventFlagWaitTimer, __KernelGetCurThread());
-}
-
 int sceKernelWaitEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 timeoutPtr) {
 	if ((wait & ~PSP_EVENT_WAITKNOWN) != 0) {
 		return hleReportWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_MODE, "invalid mode parameter: %08x", wait);
@@ -349,8 +341,7 @@ int sceKernelWaitEventFlag(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 ti
 			th.outAddr = timeout == 0 ? 0 : outBitsPtr;
 			e->waitingThreads.push_back(th);
 
-			__KernelSetEventFlagTimeout(e, timeoutPtr);
-			__KernelWaitCurThread(WAITTYPE_EVENTFLAG, id, 0, timeoutPtr, false, "event flag waited");
+			__KernelWaitCurThreadWithTimeout(WAITTYPE_EVENTFLAG, id, 0, timeoutPtr, false, "event flag waited");
 		} else {
 			(void)hleLogDebug(Log::sceKernel, 0);
 		}
@@ -414,7 +405,7 @@ int sceKernelWaitEventFlagCB(SceUID id, u32 bits, u32 wait, u32 outBitsPtr, u32 
 			th.outAddr = timeout == 0 ? 0 : outBitsPtr;
 			e->waitingThreads.push_back(th);
 
-			__KernelSetEventFlagTimeout(e, timeoutPtr);
+			__KernelScheduleWaitTimeout(__KernelGetCurThread(), timeoutPtr);
 			if (doCallbackWait)
 				__KernelWaitCallbacksCurThread(WAITTYPE_EVENTFLAG, id, 0, timeoutPtr);
 			else
