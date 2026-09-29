@@ -54,11 +54,6 @@ private:
 	ManagedTexture::LoadState *state_;
 };
 
-TempImage::~TempImage() {
-	// Make sure you haven't forgotten to call Free.
-	_dbg_assert_(levels[0] == nullptr);
-}
-
 static Draw::DataFormat ZimToT3DFormat(int zim) {
 	switch (zim) {
 	case ZIM_RGBA8888: return Draw::DataFormat::R8G8B8A8_UNORM;

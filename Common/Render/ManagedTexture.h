@@ -23,7 +23,13 @@ class LimitedWaitable;
 // The reason for the separation is so that the image can be loaded and decompressed on a thread,
 // and then only uploaded to the GPU on the main thread.
 struct TempImage {
-	~TempImage();
+	TempImage() = default;
+	// Owns levels[0], so no copies.
+	TempImage(const TempImage &) = delete;
+	TempImage &operator=(const TempImage &) = delete;
+	~TempImage() {
+		Free();
+	}
 	Draw::DataFormat fmt = Draw::DataFormat::UNDEFINED;
 	ImageFileType type = ImageFileType::UNKNOWN;
 	uint8_t *levels[16]{};   // only free the first pointer, they all point to the same buffer.
