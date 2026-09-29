@@ -582,6 +582,10 @@ void PresentationCommon::DestroyPostShader() {
 	DoReleaseVector(previousFramebuffers_);
 	postShaderInfo_.clear();
 	postShaderFBOUsage_.clear();
+
+	DoRelease(inPlaceFramebuffer_);
+	inPlaceWidth_ = 0;
+	inPlaceHeight_ = 0;
 }
 
 void PresentationCommon::DestroyStereoShader() {
@@ -676,7 +680,10 @@ void PresentationCommon::RunPostshaderPasses(const DisplayLayoutConfig &config, 
 	bool useNearest = flags & OutputFlags::NEAREST;
 	bool useStereo = gstate_c.Use(GPU_USE_SIMPLE_STEREO_PERSPECTIVE) && stereoPipeline_ != nullptr;  // TODO: Also check that the backend has support for it.
 
-	const bool usePostShader = usePostShader_ && !useStereo && !(flags & OutputFlags::RB_SWIZZLE);
+	// The world of the frame has been post processed where the guest said it ends, see RunPostShadersInPlace:
+	// the chain of the frame is then run over it no longer, and the UI that came after that point stays as
+	// the game drew it.
+	const bool usePostShader = usePostShader_ && !PostShadersRanInPlaceForThisFrame() && !useStereo && !(flags & OutputFlags::RB_SWIZZLE);
 	const bool isFinalAtOutputResolution = usePostShader && postShaderFramebuffers_.size() < postShaderPipelines_.size();
 	int lastWidth = srcWidth_;
 	int lastHeight = srcHeight_;
@@ -893,7 +900,9 @@ void PresentationCommon::CopyToOutput(const DisplayLayoutConfig &config) {
 	bool useNearest = outputFlags_ & OutputFlags::NEAREST;
 	bool useStereo = gstate_c.Use(GPU_USE_SIMPLE_STEREO_PERSPECTIVE) && stereoPipeline_ != nullptr;  // TODO: Also check that the backend has support for it.
 
-	const bool usePostShader = usePostShader_ && !useStereo && !(outputFlags_ & OutputFlags::RB_SWIZZLE);
+	// Same as in RunPostshaderPasses: what the guest called the world of the frame has been post processed
+	// already, and what follows it is its UI.
+	const bool usePostShader = usePostShader_ && !PostShadersRanInPlaceForThisFrame() && !useStereo && !(outputFlags_ & OutputFlags::RB_SWIZZLE);
 	const bool isFinalAtOutputResolution = usePostShader && postShaderFramebuffers_.size() < postShaderPipelines_.size();
 	int lastWidth = srcWidth_;
 	int lastHeight = srcHeight_;
@@ -979,6 +988,136 @@ void PresentationCommon::CopyToOutput(const DisplayLayoutConfig &config) {
 	draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 
 	presentedThisFrame_ = true;
+}
+
+// A guest can say where its frame is between its world and its UI, see PPSSPPBeforeUIDrawTarget. The drawing
+// of the emulator itself - its post shaders - can use that too: run over the world here, they end up under the
+// UI of the game instead of over it, where the present would otherwise put them.
+Draw::Framebuffer *PresentationCommon::RunPostShadersInPlace(const DisplayLayoutConfig &config, Draw::Framebuffer *fb) {
+	if (!usePostShader_ || postShaderPipelines_.empty() || !fb) {
+		return nullptr;
+	}
+
+	// A chain of the stereo shader brings along state only the present has, so it is left with the present,
+	// over the UI. A chain that reads the frame before this one keeps its framebuffers here and is run like
+	// any other, see the passes below.
+	if (stereoPipeline_ && gstate_c.Use(GPU_USE_SIMPLE_STEREO_PERSPECTIVE)) {
+		return nullptr;
+	}
+
+	int width = 0;
+	int height = 0;
+	draw_->GetFramebufferDimensions(fb, &width, &height);
+
+	if (width <= 0 || height <= 0) {
+		return nullptr;
+	}
+
+	// What the present of the frame looks at is not this frame, and the present still has it, so it is held
+	// here and put back once the chain has run.
+	Draw::Framebuffer *presentFramebuffer = srcFramebuffer_;
+	Draw::Texture *presentTexture = srcTexture_;
+	const int presentWidth = srcWidth_;
+	const int presentHeight = srcHeight_;
+	if (presentFramebuffer) {
+		presentFramebuffer->AddRef();
+	}
+	if (presentTexture) {
+		presentTexture->AddRef();
+	}
+
+	// The chain of this frame is run here, so it is not the present's to leave out, whatever the chain of the
+	// frame before this one did: the age that says so is for the present, and would otherwise have this run
+	// pass the chain over as one that has been run already. It is set again once the chain is over.
+	postShadersInPlaceAge_ = -1;
+
+	// The world of the frame is in the framebuffer and its UI is not drawn yet. The chain is run over it as the
+	// present of the frame would run it, except that the rectangle the passes work out is the one of the window
+	// and is not used here: the frame is one to one with itself.
+	SourceFramebuffer(fb, width, height);
+	RunPostshaderPasses(config, OutputFlags::LINEAR, ROTATION_LOCKED_HORIZONTAL, 0.0f, 0.0f, 1.0f, 1.0f);
+
+	Draw::Framebuffer *result = postShaderOutput_;
+
+	// A chain that ends in a pass the present runs straight into the window has no framebuffer of its own, and
+	// that pass has to run here, where the frame takes the place of the window. A chain that reads the frame
+	// before this one has already had its last pass run, into the framebuffer it keeps that frame in, and that
+	// is where the result of the chain is.
+	if (postShaderFramebuffers_.size() < postShaderPipelines_.size() && previousFramebuffers_.empty()) {
+		result = nullptr;
+
+		if (EnsureInPlaceFramebuffer(width, height)) {
+			const ShaderInfo *shaderInfo = &postShaderInfo_.back();
+			PostShaderUniforms uniforms;
+			CalculatePostShaderUniforms(width, height, width, height, shaderInfo, &uniforms);
+
+			// The pass lands in a framebuffer of the size of the frame rather than in the frame itself, and the
+			// frame is what the chain reads - the chain is a single pass here, and its framebuffer is the frame.
+			// The one it renders to is bound first: a backend that keeps render targets and textures apart does
+			// not have a framebuffer as a texture of its own, see BindFramebufferAsTexture.
+			draw_->BindFramebufferAsRenderTarget(inPlaceFramebuffer_, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "PostShaderInPlace");
+
+			if (postShaderOutput_) {
+				draw_->BindFramebufferAsTexture(postShaderOutput_, 0, Draw::Aspect::COLOR_BIT, 0);
+			} else {
+				// The chain is a single pass, and reads the frame itself.
+				BindSource(0, false);
+			}
+			BindSource(1, false);
+
+			Draw::Viewport viewport{ 0.0f, 0.0f, (float)width, (float)height, 0.0f, 1.0f };
+			draw_->SetViewport(viewport);
+			draw_->SetScissorRect(0, 0, width, height);
+			draw_->BindPipeline(postShaderPipelines_.back());
+			draw_->UpdateDynamicUniformBuffer(&uniforms, sizeof(uniforms));
+
+			Draw::SamplerState *sampler = samplerLinear_;
+			draw_->BindSamplerStates(0, 1, &sampler);
+			draw_->BindSamplerStates(1, 1, &sampler);
+
+			// The vertices of the passes between the first and the last one, one to one with the frame.
+			draw_->BindVertexBuffer(vdata_, (int)sizeof(Vertex) * 4);
+			draw_->Draw(4, 0);
+
+			result = inPlaceFramebuffer_;
+		}
+	}
+
+	// The chain is done with the frame, and the source of the present goes back to what it was.
+	DoRelease(srcFramebuffer_);
+	DoRelease(srcTexture_);
+	srcFramebuffer_ = presentFramebuffer;
+	srcTexture_ = presentTexture;
+	srcWidth_ = presentWidth;
+	srcHeight_ = presentHeight;
+
+	if (!result) {
+		return nullptr;
+	}
+
+	// The frame holds the post processed world from here on, and what the game draws next is drawn over it.
+	postShadersInPlaceAge_ = 0;
+	return result;
+}
+
+bool PresentationCommon::EnsureInPlaceFramebuffer(int w, int h) {
+	if (inPlaceFramebuffer_ && inPlaceWidth_ == w && inPlaceHeight_ == h) {
+		return true;
+	}
+
+	DoRelease(inPlaceFramebuffer_);
+	inPlaceWidth_ = 0;
+	inPlaceHeight_ = 0;
+
+	// No depth/stencil, like the framebuffers of the post shaders.
+	inPlaceFramebuffer_ = draw_->CreateFramebuffer({ w, h, 1, 1, 0, false, "postshader_inplace" });
+	if (!inPlaceFramebuffer_) {
+		return false;
+	}
+
+	inPlaceWidth_ = w;
+	inPlaceHeight_ = h;
+	return true;
 }
 
 void PresentationCommon::CalculateRenderResolution(const DisplayLayoutConfig &config, int *width, int *height, int *scaleFactor, bool *upscaling, bool *ssaa) const {

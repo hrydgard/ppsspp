@@ -246,6 +246,43 @@ void GPU_GLES::FinishDeferred() {
 	drawEngine_.FinishDeferred();
 }
 
+// The drawing of this backend is recorded and run on a thread of its own, so the mark has to be
+// part of the recording of the frame to land in the right place of it, see
+// GPUCommon::MarkBeforeUIDraw.
+void GPU_GLES::MarkBeforeUIDraw() {
+	GLRenderManager *render = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+
+	if (!render) {
+		return;
+	}
+
+	if (!beforeUIDrawMarkTexture_) {
+		static const uint8_t markPixel[4] = { 0, 0, 0, 0 };
+		Draw::TextureDesc desc{};
+		desc.type = Draw::TextureType::LINEAR2D;
+		desc.format = Draw::DataFormat::R8G8B8A8_UNORM;
+		desc.width = 1;
+		desc.height = 1;
+		desc.depth = 1;
+		desc.mipLevels = 1;
+		desc.tag = "before UI mark";
+		desc.initData.push_back(markPixel);
+
+		beforeUIDrawMarkTexture_ = draw_->CreateTexture(desc);
+
+		if (!beforeUIDrawMarkTexture_) {
+			ERROR_LOG(Log::G3D, "Failed to create the before UI mark texture");
+			return;
+		}
+	}
+
+	// A slot a game leaves empty, so a plugin can tell the mark from the drawing of the game. Unbound
+	// again right away: that leaves the slot as a game leaves it, and makes the binding a change of
+	// the slot in every frame, so the mark reaches every frame and not some of them.
+	draw_->BindTexture(BEFORE_UI_MARK_SLOT, beforeUIDrawMarkTexture_);
+	draw_->BindTexture(BEFORE_UI_MARK_SLOT, nullptr);
+}
+
 void GPU_GLES::GetStats(StringWriter &w) {
 	w.F("Vertex, Fragment, Programs loaded: %d, %d, %d\n",
 		shaderManagerGL_->GetNumVertexShaders(),

@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <atomic>
+
 #include "Common/Common.h"
 #include "Common/GPU/Shader.h"
 
@@ -108,6 +110,12 @@ public:
 			UpdatePostShader(config);
 			restorePostShader_ = false;
 		}
+		// The chain of a frame runs where the guest said the world of that frame ends, see RunPostShadersInPlace,
+		// or at the present of the frame when the guest did not say.
+		if (postShadersInPlaceAge_ >= 0 && ++postShadersInPlaceAge_ > 1) {
+			// No frame point any more, so the chain is the present's again.
+			postShadersInPlaceAge_ = -1;
+		}
 		presentedThisFrame_ = false;
 	}
 	bool PresentedThisFrame() const {
@@ -132,6 +140,17 @@ public:
 	void RunPostshaderPasses(const DisplayLayoutConfig &config, OutputFlags flags, int uvRotation, float u0, float v0, float u1, float v1);
 	void CopyToOutput(const DisplayLayoutConfig &config);
 
+	// Runs the post shader chain of the moment over what has been drawn into `fb` so far, at the point a guest
+	// said the frame of the game is between its world and its UI (see PPSSPPBeforeUIDrawTarget), and returns
+	// the framebuffer the result is in, or nothing when the chain did not run. The caller puts the result back
+	// into `fb`, see FramebufferManagerCommon::RunPostShadersInPlace: a pass that read the frame it wrote to
+	// would be undefined where render targets and textures are kept apart.
+	//
+	// What the game draws after that point is its UI, and lands on top of the processed frame instead of being
+	// processed with it. The present of the frame then no longer runs the chain over the frame, see
+	// postShadersRanInPlace_.
+	Draw::Framebuffer *RunPostShadersInPlace(const DisplayLayoutConfig &config, Draw::Framebuffer *fb);
+
 	void CalculateRenderResolution(const DisplayLayoutConfig &config, int *width, int *height, int *scaleFactor, bool *upscaling, bool *ssaa) const;
 
 protected:
@@ -148,6 +167,7 @@ protected:
 	bool CompilePostShader(const ShaderInfo *shaderInfo, Draw::Pipeline **outPipeline) const;
 	bool BuildPostShader(const DisplayLayoutConfig &config, const ShaderInfo *shaderInfo, const ShaderInfo *next, Draw::Pipeline **outPipeline);
 	bool AllocateFramebuffer(int w, int h);
+	bool EnsureInPlaceFramebuffer(int w, int h);
 
 	bool BindSource(int binding, bool bindStereo);
 
@@ -199,4 +219,23 @@ protected:
 	Draw::Framebuffer *postShaderOutput_ = nullptr;
 	FRect rc_;
 	OutputFlags outputFlags_ = OutputFlags::DEFAULT;
+
+	// Set where the frame of a game is drawn, at the point its world is done, and read where that frame is
+	// presented, hence atomic.
+	std::atomic<int> postShadersInPlaceAge_{ -1 };
+
+	// Whether the chain of the frame at hand has run where the guest said the world of that frame ends. The
+	// frame point and the present of a frame are different points of the frame loop and either can come first,
+	// so the chain of the frame before this one counts as well - a chain that ran there, over the frame being
+	// drawn then, is the frame the present is over now.
+	bool PostShadersRanInPlaceForThisFrame() const {
+		const int age = postShadersInPlaceAge_;
+		return age >= 0 && age <= 1;
+	}
+
+	// Where the last pass of a chain lands when that pass would otherwise run straight into the window, of the
+	// size of the frame it is run over, see RunPostShadersInPlace.
+	Draw::Framebuffer *inPlaceFramebuffer_ = nullptr;
+	int inPlaceWidth_ = 0;
+	int inPlaceHeight_ = 0;
 };

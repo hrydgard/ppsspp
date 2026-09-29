@@ -48,9 +48,12 @@ public:
 	void EndHostFrame() override;
 
 protected:
+	void MarkBeforeUIDraw() override;
 	void FinishDeferred() override;
 
 private:
+	// The texture the mark of a frame of a game is made of, made once, see MarkBeforeUIDraw.
+	Draw::Texture *beforeUIDrawMarkTexture_ = nullptr;
 	void BuildReportingInfo() override;
 
 	FramebufferManagerGLES *framebufferManagerGL_;

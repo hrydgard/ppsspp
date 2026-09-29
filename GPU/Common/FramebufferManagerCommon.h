@@ -339,6 +339,12 @@ public:
 	void PrepareCopyDisplayToOutput(const DisplayLayoutConfig &config, bool reallyDirty);
 	void CopyDisplayToOutput(const DisplayLayoutConfig &config);
 
+	// Runs the post shaders of the emulator over the frame the game is drawing at the moment, at the point the
+	// guest said its world ends and its UI begins, so that the UI is drawn over the processed frame instead of
+	// being processed with it. Returns true when they ran, in which case the present of that frame leaves them
+	// out - see PresentationCommon::RunPostShadersInPlace.
+	bool RunPostShadersInPlace(VirtualFramebuffer *vfb);
+
 	bool NotifyFramebufferCopy(u32 src, u32 dest, int size, GPUCopyFlag flags, u32 skipDrawReason);
 	void PerformWriteFormattedFromMemory(u32 addr, int size, int width, GEBufferFormat fmt);
 	void UpdateFromMemory(u32 addr, int size);
