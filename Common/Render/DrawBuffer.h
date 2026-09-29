@@ -51,6 +51,8 @@ class TextDrawer;
 
 class DrawBuffer {
 public:
+	DrawBuffer(const DrawBuffer &) = delete;
+	DrawBuffer &operator=(const DrawBuffer &) = delete;
 	DrawBuffer();
 	~DrawBuffer();
 

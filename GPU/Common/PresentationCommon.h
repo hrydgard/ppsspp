@@ -80,6 +80,8 @@ ENUM_CLASS_BITOPS(OutputFlags);
 
 class PresentationCommon {
 public:
+	PresentationCommon(const PresentationCommon &) = delete;
+	PresentationCommon &operator=(const PresentationCommon &) = delete;
 	PresentationCommon(Draw::DrawContext *draw);
 	~PresentationCommon();
 

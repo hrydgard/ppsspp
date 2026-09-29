@@ -96,6 +96,9 @@ struct AtlasFontHeader {
 };
 
 struct AtlasFont {
+	AtlasFont() = default;
+	AtlasFont(const AtlasFont &) = delete;
+	AtlasFont &operator=(const AtlasFont &) = delete;
 	~AtlasFont();
 
 	float padding;
@@ -126,6 +129,9 @@ struct AtlasHeader {
 };
 
 struct Atlas {
+	Atlas() = default;
+	Atlas(const Atlas &) = delete;
+	Atlas &operator=(const Atlas &) = delete;
 	~Atlas();
 	bool LoadMeta(const uint8_t *data, size_t data_size);
 	bool IsMetadataLoaded() const {

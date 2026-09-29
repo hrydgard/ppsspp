@@ -12,6 +12,8 @@ struct VKRImage;
 
 class VulkanBarrierBatch {
 public:
+	VulkanBarrierBatch(const VulkanBarrierBatch &) = delete;
+	VulkanBarrierBatch &operator=(const VulkanBarrierBatch &) = delete;
 	VulkanBarrierBatch() : imageBarriers_(4) {}
 	~VulkanBarrierBatch();
 

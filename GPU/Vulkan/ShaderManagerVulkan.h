@@ -40,6 +40,8 @@ class VulkanPushPool;
 
 class VulkanFragmentShader {
 public:
+	VulkanFragmentShader(const VulkanFragmentShader &) = delete;
+	VulkanFragmentShader &operator=(const VulkanFragmentShader &) = delete;
 	VulkanFragmentShader(VulkanContext *vulkan, FShaderID id, FragmentShaderFlags flags, const char *code, SPIRVCache *cache);
 	~VulkanFragmentShader();
 
@@ -63,6 +65,8 @@ protected:
 
 class VulkanVertexShader {
 public:
+	VulkanVertexShader(const VulkanVertexShader &) = delete;
+	VulkanVertexShader &operator=(const VulkanVertexShader &) = delete;
 	VulkanVertexShader(VulkanContext *vulkan, VShaderID id, VertexShaderFlags flags, const char *code, bool useHWTransform, SPIRVCache *cache);
 	~VulkanVertexShader();
 

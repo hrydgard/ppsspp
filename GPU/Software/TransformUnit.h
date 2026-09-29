@@ -111,6 +111,8 @@ class StringWriter;
 
 class TransformUnit {
 public:
+	TransformUnit(const TransformUnit &) = delete;
+	TransformUnit &operator=(const TransformUnit &) = delete;
 	TransformUnit();
 	~TransformUnit();
 

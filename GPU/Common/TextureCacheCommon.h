@@ -160,6 +160,9 @@ ENUM_CLASS_BITOPS(TexStatus);
 
 // TODO: Shrink this struct. There is some fluff.
 struct TexCacheEntry {
+	TexCacheEntry() = default;
+	TexCacheEntry(const TexCacheEntry &) = delete;
+	TexCacheEntry &operator=(const TexCacheEntry &) = delete;
 	~TexCacheEntry() {
 #ifdef _DEBUG
 		if (texturePtr || textureName || vkTex)
@@ -338,6 +341,8 @@ struct TextureApplyResult {
 
 class TextureCacheCommon {
 public:
+	TextureCacheCommon(const TextureCacheCommon &) = delete;
+	TextureCacheCommon &operator=(const TextureCacheCommon &) = delete;
 	TextureCacheCommon(Draw::DrawContext *draw, Draw2D *draw2D);
 	virtual ~TextureCacheCommon();
 

@@ -73,6 +73,8 @@ struct alignas(16) Plane8 {
 
 class DrawEngineCommon {
 public:
+	DrawEngineCommon(const DrawEngineCommon &) = delete;
+	DrawEngineCommon &operator=(const DrawEngineCommon &) = delete;
 	DrawEngineCommon();
 	virtual ~DrawEngineCommon();
 

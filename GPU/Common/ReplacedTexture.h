@@ -140,6 +140,8 @@ struct ReplacedTextureLevel {
 
 class ReplacedTexture {
 public:
+	ReplacedTexture(const ReplacedTexture &) = delete;
+	ReplacedTexture &operator=(const ReplacedTexture &) = delete;
 	ReplacedTexture(VFSBackend *vfs, const ReplacementDesc &desc);
 	~ReplacedTexture();
 
