@@ -412,7 +412,6 @@ void PSPSaveDialog::DisplaySaveList(bool canMove) {
 
 	for (int displayCount = 0; displayCount < param.GetFilenameCount(); displayCount++) {
 		PPGeImageStyle imageStyle = FadedImageStyle();
-		imageStyle.alphaBlend = false;
 		auto fileInfo = param.GetFileInfo(displayCount);
 
 		if (fileInfo.size == 0 && fileInfo.texture && fileInfo.texture->IsValid())
@@ -449,6 +448,8 @@ void PSPSaveDialog::DisplaySaveList(bool canMove) {
 			pad = (w - scaledW) / 2;
 			w = scaledW;
 
+			// The PSP draws save icons over black, so their transparent parts come out black (#22280).
+			PPGeDrawRect(x + pad, y, x + pad + w, y + h, CalcFadedColor(0xFF000000));
 			PPGeDrawImage(x + pad, y, w, h, 0, 0, 1, 1, tw, th, imageStyle);
 		} else {
 			PPGeDrawRect(x, y, x + w, y + h, 0x88666666);
@@ -476,8 +477,6 @@ void PSPSaveDialog::DisplaySaveList(bool canMove) {
 void PSPSaveDialog::DisplaySaveIcon(bool checkExists) {
 	std::lock_guard<std::mutex> guard(paramLock);
 	PPGeImageStyle imageStyle = FadedImageStyle();
-	imageStyle.alphaBlend = false;
-
 	auto curSave = param.GetFileInfo(currentSelectedSave);
 
 	if (curSave.size == 0 && checkExists)
@@ -499,6 +498,8 @@ void PSPSaveDialog::DisplaySaveIcon(bool checkExists) {
 		int scaledW = (int)(tw * scale);
 		x += (w - scaledW) / 2;
 		w = scaledW;
+		// Over black, as in DisplaySaveList.
+		PPGeDrawRect(x, y, x + w, y + h, CalcFadedColor(0xFF000000));
 	} else {
 		PPGeDisableTexture();
 	}
