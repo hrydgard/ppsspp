@@ -508,6 +508,11 @@ CommandLineParseResult CommandLineOptions::Parse(int argc, const char *argv[], C
 		i++;
 	}
 
+	if (debuggerPort.has_value() && debuggerRunPort.has_value()) {
+		PRINT_STDERR("Error: --debugger and --debugger-run can't be used together.\n");
+		return CommandLineParseResult::Error;
+	}
+
 	// Final adjustments to adjust for old inconsistent code
 	if (log.has_value()) {
 		enableLogging = true;
