@@ -516,6 +516,7 @@ int __ReleaseSubIntrHandler(int intrNumber, int subIntrNumber) {
 // has installed a handler for the interrupt at all, whether it has sub-interrupt slots, and whether
 // user handlers are allowed in them. This is system state rather than a rule, read back from
 // intr/registersub and intr/releasesub on a 6.61 PSP (running PSPLink, whose USB drivers may count.)
+// Interrupt 8 had a handler in an older recording and doesn't now, so treat this as approximate.
 enum class IntrUserAccess : u8 {
 	NO_HANDLER,   // SCE_KERNEL_ERROR_NOTFOUND_HANDLER
 	NO_SUBS,      // SCE_KERNEL_ERROR_ILLEGAL_INTRCODE, the sub number is always out of range
@@ -528,7 +529,7 @@ static IntrUserAccess GetIntrUserAccess(u32 intrNumber) {
 	case PSP_GE_INTR:
 	case PSP_VBLANK_INTR:
 		return IntrUserAccess::USER;
-	case 4: case 6: case 8: case 21:
+	case 4: case 6: case 21:
 		return IntrUserAccess::KERNEL_SUBS;
 	case 7: case 10: case 12: case 15: case 16: case 17: case 18: case 19: case 20: case 22:
 	case 23: case 24: case 26: case 31: case 36: case 50: case 56: case 57: case 58: case 59:
