@@ -903,6 +903,8 @@ int main(int argc, const char* argv[]) {
 	g_Config.bMemStickInserted = true;
 	g_Config.iMemStickSizeGB = 16;
 	g_Config.bEnableWlan = true;
+	// The net tests want WLAN on, but a test run shouldn't depend on reaching a real adhoc server.
+	g_Config.sProAdhocServer = "localhost";
 	g_Config.sMACAddress = "12:34:56:78:9A:BC";
 	g_Config.iFirmwareVersion = PSP_DEFAULT_FIRMWARE;
 	g_Config.iPSPModel = PSP_MODEL_SLIM;
