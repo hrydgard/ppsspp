@@ -2714,7 +2714,9 @@ static u32 sceKernelUnloadModule(u32 moduleId) {
 
 	module->Cleanup();
 	kernelObjects.Destroy<PSPModule>(moduleId);
-	return hleDelayResult(hleLogDebug(Log::sceModule, moduleId), "module unloaded", 500);
+	// About 400us of work that better threads can preempt, and worse ones don't get in on
+	// (tests/threads/scheduling/syscallkinds).
+	return __KernelBusyDelayResult(hleLogDebug(Log::sceModule, moduleId), (int)usToCycles(400), "module unloaded");
 }
 
 u32 __KernelStopUnloadSelfModuleWithOrWithoutStatus(u32 exitCode, u32 argSize, u32 argp, u32 statusAddr, u32 optionAddr, bool WithStatus) {
