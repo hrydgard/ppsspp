@@ -69,16 +69,22 @@ static void __MicBlockingResume(u64 userdata, int cyclesLate) {
 		}
 
 		if (Microphone::isHaveDevice()) {
-			if (Microphone::getReadMicDataLength() >= iter->needSize) {
-				u32 ret = __KernelGetWaitValue(threadID, error);
-				DEBUG_LOG(Log::HLE, "sceUsbMic: Waking up thread(%d)", (int)iter->threadID);
-				__KernelResumeThreadFromWait(threadID, ret);
-				iter = waitingThreads.erase(iter);
-			} else {
-				u64 waitTimeus = (iter->needSize - Microphone::getReadMicDataLength()) * 1000000 / 2 / iter->sampleRate;
-				CoreTiming::ScheduleEvent(usToCycles(waitTimeus), eventMicBlockingResume, userdata);
-				iter++;
+			// The PSP's mic delivers in real time, so the read completes when the samples are due in
+			// emulated time. Waiting for the host instead hangs the game if its mic never delivers
+			// (Go!Edit's recording stalled that way), so fill what's missing with silence.
+			const u32 needSize = (u32)iter->needSize;
+			const u32 have = std::min((u32)Microphone::getReadMicDataLength(), needSize);
+			if (have < needSize) {
+				DEBUG_LOG(Log::HLE, "sceUsbMic: host mic only delivered %d of %d bytes, padding with silence", have, needSize);
+				if (Memory::IsValidRange(iter->addr + have, needSize - have)) {
+					Memory::Memset(iter->addr + have, 0, needSize - have, "MicSilence");
+				}
+				readMicDataLength = needSize;
 			}
+			u32 ret = __KernelGetWaitValue(threadID, error);
+			DEBUG_LOG(Log::HLE, "sceUsbMic: Waking up thread(%d)", (int)iter->threadID);
+			__KernelResumeThreadFromWait(threadID, ret);
+			iter = waitingThreads.erase(iter);
 		} else {
 			for (int i = 0; i < iter->needSize; i++) {
 				if (Memory::IsValidAddress(iter->addr + i)) {
@@ -346,7 +352,8 @@ int Microphone::stopMic() {
 
 bool Microphone::isHaveDevice() {
 #ifdef HAVE_WIN32_MICROPHONE
-	return winMic->getDeviceCounts() >= 1;
+	// Only the app creates winMic, headless doesn't.
+	return winMic && winMic->getDeviceCounts() >= 1;
 #elif PPSSPP_PLATFORM(ANDROID)
 	return System_AudioRecordingIsAvailable();
 #endif

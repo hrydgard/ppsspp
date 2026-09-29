@@ -16,7 +16,9 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <atomic>
 #include <mutex>
+#include <vector>
 
 #include "ppsspp_config.h"
 
@@ -27,8 +29,11 @@
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/sceUsbCam.h"
 #include "Core/HLE/sceUsbMic.h"
+#include "Core/CoreTiming.h"
 #include "Core/HW/Camera.h"
 #include "Core/MemMapHelpers.h"
+#include "ext/jpge/jpgd.h"
+#include "ext/jpge/jpge.h"
 
 #if defined(_WIN32) && !PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
 #define HAVE_WIN32_CAMERA
@@ -43,6 +48,8 @@ Camera::Config *config;
 
 unsigned int videoBufferLength = 0;
 unsigned int nextVideoFrame = 0;
+// When video capture started, which the frame clock counts from. Not saved in states, it only sets the phase.
+static u64 videoStartUs = 0;
 uint8_t *videoBuffer;
 std::mutex videoBufferMutex;
 
@@ -206,6 +213,7 @@ static int sceUsbCamStartVideo() {
 		jpegData = nullptr;
 	}
 
+	videoStartUs = CoreTiming::GetGlobalTimeUs();
 	Camera::startCapture();
 	return 0;
 }
@@ -215,13 +223,29 @@ static int sceUsbCamStopVideo() {
 	return 0;
 }
 
+// How often the camera delivers a frame, from the framerate in the setup params
+// (PSPSDK's PSP_USBCAM_FRAMERATE_*: 3.75, 5, 7.5, 10, 15, 20, 30 and 60 fps).
+static int getFrameIntervalUs() {
+	static const int intervalsUs[] = { 266667, 200000, 133333, 100000, 66667, 50000, 33333, 16667 };
+	int framerate = config->type == Camera::ConfigType::CfVideoEx ? config->videoExParam.framerate : config->videoParam.framerate;
+	if (framerate < 0 || framerate >= (int)ARRAY_SIZE(intervalsUs)) {
+		framerate = 6;  // 30 fps
+	}
+	return intervalsUs[framerate];
+}
+
 static int sceUsbCamReadVideoFrameBlocking(u32 bufAddr, u32 size) {
 	std::lock_guard<std::mutex> lock(videoBufferMutex);
 	u32 transferSize = std::min(videoBufferLength, size);
 	if (Memory::IsValidRange(bufAddr, size)) {
 		Memory::Memcpy(bufAddr, videoBuffer, transferSize);
 	}
-	return transferSize;
+	// This blocks until the camera's next frame. Returning at once lets a high-priority capture thread
+	// (Go!Edit's bhCameraGetJpeg) spin in its read loop and starve the rest of the game.
+	const int intervalUs = getFrameIntervalUs();
+	const u64 sinceStartUs = CoreTiming::GetGlobalTimeUs() - videoStartUs;
+	const int waitUs = intervalUs - (int)(sinceStartUs % intervalUs);
+	return hleDelayResult(hleLogDebug(Log::HLE, transferSize), "camera frame", waitUs);
 }
 
 static int sceUsbCamReadVideoFrame(u32 bufAddr, u32 size) {
@@ -398,7 +422,71 @@ void Camera::onCameraDeviceChange() {
 	}
 }
 
+int Camera::getMaxFrameSize() {
+	int framesize = 0;
+	if (config) {
+		if (config->type == Camera::ConfigType::CfVideoEx) {
+			framesize = config->videoExParam.framesize;
+		} else if (config->type == Camera::ConfigType::CfVideo) {
+			framesize = config->videoParam.framesize;
+		}
+	}
+	if (framesize <= 0 || framesize > VIDEO_BUFFER_SIZE) {
+		return VIDEO_BUFFER_SIZE;
+	}
+	return framesize;
+}
+
+// The JPEG quality that fit the last frame. Frames of one scene are similar in size, so it's usually
+// right first time. Only the capture thread uses it, but atomic in case a platform has several.
+static std::atomic<int> g_jpegQuality{ 80 };
+
+int Camera::encodeToFit(int maxSize, const std::function<int(int quality)> &encode) {
+	int quality = g_jpegQuality;
+	int size = encode(quality);
+	while ((size < 0 || size > maxSize) && quality > 10) {
+		quality = std::max(10, quality - 10);
+		size = encode(quality);
+	}
+	// Way under the limit: try a better quality next time.
+	if (size >= 0 && size < maxSize / 2 && quality < 90) {
+		quality += 10;
+	}
+	g_jpegQuality = quality;
+	return size;
+}
+
+// Re-encodes a frame until it fits maxSize, like the PSP camera compresses to the game's framesize.
+// Most platforms' capture code encodes at a fixed quality, so this is the common fallback.
+static bool RecompressToFit(const unsigned char *image, long long length, int maxSize, std::vector<uint8_t> *out) {
+	int width = 0, height = 0, comps = 0;
+	unsigned char *rgb = jpgd::decompress_jpeg_image_from_memory(image, (int)length, &width, &height, &comps, 3);
+	if (!rgb) {
+		return false;
+	}
+	out->resize(width * height * 3 + 1024);
+	int size = Camera::encodeToFit(maxSize, [&](int quality) {
+		jpge::params params;
+		params.m_quality = quality;
+		int outSize = (int)out->size();
+		return jpge::compress_image_to_jpeg_file_in_memory(out->data(), outSize, width, height, 3, rgb, params) ? outSize : -1;
+	});
+	free(rgb);
+	if (size < 0 || size > maxSize) {
+		return false;
+	}
+	out->resize(size);
+	return true;
+}
+
 void Camera::pushCameraImage(long long length, unsigned char* image) {
+	std::vector<uint8_t> recompressed;
+	const int maxSize = getMaxFrameSize();
+	if (length > maxSize && RecompressToFit(image, length, maxSize, &recompressed)) {
+		image = recompressed.data();
+		length = (long long)recompressed.size();
+	}
+
 	std::lock_guard<std::mutex> lock(videoBufferMutex);
 	if (!videoBuffer) {
 		return;

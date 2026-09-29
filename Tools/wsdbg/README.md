@@ -90,8 +90,10 @@ trips would otherwise hang the script forever, so it gives up after `--sync-time
 (default 30), reports it, and makes the run exit non-zero.
 
 Matching is by ticket, always - `--sync` never waits for "whatever message arrives next", which is
-what used to quietly desynchronise a script. A raw JSON line (the only way to send nested
-parameters) is sent exactly as written, so it's waited for only if *you* gave it a `ticket`;
+what used to quietly desynchronise a script. So prefer the `key=value` form for nested parameters
+too: values are parsed as JSON, and single quotes keep the inner double quotes intact, as in
+`input.buttons.send buttons='{"cross":true}'`. A raw JSON line is sent exactly as written, so it's
+waited for only if *you* gave it a `ticket`;
 without one there is nothing to match and `--sync` moves straight on to the next line. Raw lines
 are rejected up front, rather than sent and left to fail somewhere downstream, if they aren't valid
 JSON, aren't an object, have no string `event`, or carry a `ticket` that isn't an integer.
@@ -115,6 +117,7 @@ way took minutes per run. These run inside the one session instead:
 |---|---|
 | `:sleep <seconds>` | Wall-clock pause. Keeps draining and printing messages while it waits. |
 | `:wait <event> [timeout]` | Blocks until a message with that event name arrives. Exits non-zero if it never does. |
+| `:screenshot <file.png>` | Saves `gpu.buffer.screenshot` as a PNG, without printing the image data. Needs the CPU stopped. Use a native path (`C:/...`) on Windows. With headless, use `--graphics=software`: the Vulkan backend has no output image to read back there. |
 | `:echo <text>` | Prints text, for marking up a script's output. |
 | `# comment` | Ignored. |
 
