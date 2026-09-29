@@ -9,9 +9,11 @@
 #include <vector>
 #include <utility>
 #include <functional>
+#include <unordered_map>
 
 #include "Common/Common.h"
 #include "Common/Log.h"
+#include "Common/File/Path.h"
 #include "Common/GPU/MiscTypes.h"
 #include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/GPU/Vulkan/VulkanDebug.h"
@@ -613,7 +615,57 @@ enum class GLSLVariant {
 	GLES300,
 };
 
-bool GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char *sourceCode, GLSLVariant variant, std::vector<uint32_t> &spirv, std::string *errorMessage);
+// Compiled SPIR-V, keyed on the GLSL source, stage and variant, so that a shader compiled in an earlier
+// run doesn't have to go through glslang again. Thread safe.
+class SPIRVCache {
+public:
+	bool Lookup(VkShaderStageFlagBits stage, GLSLVariant variant, const char *source, std::vector<uint32_t> *spirv);
+	void Insert(VkShaderStageFlagBits stage, GLSLVariant variant, const char *source, const std::vector<uint32_t> &spirv);
+	void Clear();
+
+	// For a cache stored inside another file. Read replaces the contents; Write can skip entries that
+	// haven't been looked up or inserted since, so that ones nothing uses anymore age out.
+	bool Read(FILE *f);
+	bool Write(FILE *f, bool onlyUsed);
+
+	// For a cache with a file of its own, loaded on the first lookup. If it has grown to maxEntries,
+	// it's flushed on load and starts over.
+	void SetPath(const Path &path, int maxEntries);
+	void SaveIfDirty();
+
+private:
+	// The source length along with the hash makes a collision, which would hand a shader the wrong
+	// SPIR-V, far less likely than a 32-bit hash alone.
+	struct Key {
+		uint32_t hash;
+		uint32_t length;
+		bool operator==(const Key &other) const { return hash == other.hash && length == other.length; }
+	};
+	struct KeyHash {
+		size_t operator()(const Key &key) const { return key.hash; }
+	};
+	struct Entry {
+		std::vector<uint32_t> spirv;
+		bool used = false;
+	};
+	static Key MakeKey(VkShaderStageFlagBits stage, GLSLVariant variant, const char *source);
+	bool ReadLocked(FILE *f);
+	void LoadIfNeededLocked();
+
+	std::mutex mutex_;
+	std::unordered_map<Key, Entry, KeyHash> entries_;
+	Path path_;
+	int maxEntries_ = 0;
+	bool loaded_ = false;
+	bool dirty_ = false;
+};
+
+// For thin3d's and other fixed shaders. Game shaders use a cache of their own, stored with the rest of
+// the game's shader cache.
+extern SPIRVCache g_spirvCache;
+
+// With a cache, a shader found there skips glslang, and a newly compiled one is added to it.
+bool GLSLtoSPV(const VkShaderStageFlagBits shader_type, const char *sourceCode, GLSLVariant variant, std::vector<uint32_t> &spirv, std::string *errorMessage, SPIRVCache *cache = nullptr);
 
 const char *VulkanColorSpaceToString(VkColorSpaceKHR colorSpace);
 const char *VulkanFormatToString(VkFormat format);

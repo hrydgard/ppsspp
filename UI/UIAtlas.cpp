@@ -521,6 +521,9 @@ Draw::Texture *GenerateUIAtlas(Draw::DrawContext *draw, Atlas *atlas, float dpiS
 	return draw->CreateTexture(desc);
 }
 
+static TempImage g_cachedFontImage;
+static bool g_fontAtlasLoaded = false;
+
 static void LoadAtlasMetadata(Atlas &metadata, const char *filename) {
 	size_t atlas_data_size = 0;
 	const uint8_t *atlas_data = g_VFS.ReadFile(filename, &atlas_data_size);
@@ -545,20 +548,31 @@ AtlasData AtlasProvider(Draw::DrawContext *draw, AtlasChoice atlas, float dpiSca
 	}
 	case AtlasChoice::Font:
 	{
-		Draw::Texture *fontTexture = nullptr;
 #if PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
 		// Load the smaller ascii font only, like on Android. For debug ui etc.
 		// NOTE: We better be sure here that the correct metadata is loaded..
-		LoadAtlasMetadata(font_atlas, "asciifont_atlas.meta");
-		fontTexture = CreateTextureFromFile(draw, "asciifont_atlas.zim", ImageFileType::ZIM, false);
-		if (!fontTexture) {
-			WARN_LOG(Log::System, "Failed to load font_atlas.zim or asciifont_atlas.zim");
-		}
+		const char *metaName = "asciifont_atlas.meta";
+		const char *zimName = "asciifont_atlas.zim";
 #else
 		// Load the full font texture.
-		LoadAtlasMetadata(font_atlas, "font_atlas.meta");
-		fontTexture = CreateTextureFromFile(draw, "font_atlas.zim", ImageFileType::ZIM, false);
+		const char *metaName = "font_atlas.meta";
+		const char *zimName = "font_atlas.zim";
 #endif
+		// Like the UI atlas, read and decode it once, and only recreate the texture after that.
+		if (!g_fontAtlasLoaded) {
+			g_fontAtlasLoaded = true;
+			LoadAtlasMetadata(font_atlas, metaName);
+			size_t size = 0;
+			uint8_t *data = g_VFS.ReadFile(zimName, &size);
+			if (!data || !g_cachedFontImage.LoadTextureLevelsFromFileData(data, size, ImageFileType::ZIM)) {
+				WARN_LOG(Log::System, "Failed to load %s", zimName);
+			}
+			delete[] data;
+		}
+		Draw::Texture *fontTexture = nullptr;
+		if (g_cachedFontImage.levels[0]) {
+			fontTexture = CreateTextureFromTempImage(draw, g_cachedFontImage, false, zimName);
+		}
 		return {
 			&font_atlas,
 			fontTexture,

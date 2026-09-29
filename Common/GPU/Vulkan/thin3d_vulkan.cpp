@@ -219,7 +219,7 @@ bool VKShaderModule::Compile(VulkanContext *vulkan, const uint8_t *data, size_t 
 	source_ = (const char *)data;
 	std::vector<uint32_t> spirv;
 	std::string errorMessage;
-	if (!GLSLtoSPV(vkstage_, source_.c_str(), GLSLVariant::VULKAN, spirv, &errorMessage)) {
+	if (!GLSLtoSPV(vkstage_, source_.c_str(), GLSLVariant::VULKAN, spirv, &errorMessage, &g_spirvCache)) {
 		WARN_LOG(Log::G3D, "Shader compile to module failed (%s): %s", tag_.c_str(), errorMessage.c_str());
 		return false;
 	}

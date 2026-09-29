@@ -84,7 +84,7 @@ void InitVulkanCreateInfoFromConfig(VulkanContext::CreateInfo *info) {
 
 VkShaderModule CompileShaderModule(VulkanContext *vulkan, VkShaderStageFlagBits stage, const char *code, std::string *error) {
 	std::vector<uint32_t> spirv;
-	bool success = GLSLtoSPV(stage, code, GLSLVariant::VULKAN, spirv, error);
+	bool success = GLSLtoSPV(stage, code, GLSLVariant::VULKAN, spirv, error, &g_spirvCache);
 	if (!error->empty()) {
 		if (success) {
 			ERROR_LOG(Log::G3D, "Warnings in shader compilation!");

@@ -171,6 +171,9 @@ void GPU_Vulkan::SaveCache(const Path &filename) {
 	pipelineManager_->SavePipelineCache(f, false, shaderManagerVulkan_, draw_);
 	INFO_LOG(Log::G3D, "Saved Vulkan pipeline cache");
 	fclose(f);
+
+	// And the fixed shaders the GPU compiled along the way.
+	g_spirvCache.SaveIfDirty();
 }
 
 GPU_Vulkan::~GPU_Vulkan() {

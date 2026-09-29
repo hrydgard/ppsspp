@@ -179,6 +179,7 @@ add_library(Common STATIC
 	GPU/Vulkan/VulkanDebug.h
 	GPU/Vulkan/VulkanContext.cpp
 	GPU/Vulkan/VulkanContext.h
+	GPU/Vulkan/FixedSPIRVCache.h
 	GPU/Vulkan/VulkanDescSet.cpp
 	GPU/Vulkan/VulkanDescSet.h
 	GPU/Vulkan/VulkanFramebuffer.cpp

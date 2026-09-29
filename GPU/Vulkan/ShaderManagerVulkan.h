@@ -40,7 +40,7 @@ class VulkanPushPool;
 
 class VulkanFragmentShader {
 public:
-	VulkanFragmentShader(VulkanContext *vulkan, FShaderID id, FragmentShaderFlags flags, const char *code);
+	VulkanFragmentShader(VulkanContext *vulkan, FShaderID id, FragmentShaderFlags flags, const char *code, SPIRVCache *cache);
 	~VulkanFragmentShader();
 
 	const std::string &source() const { return source_; }
@@ -63,7 +63,7 @@ protected:
 
 class VulkanVertexShader {
 public:
-	VulkanVertexShader(VulkanContext *vulkan, VShaderID id, VertexShaderFlags flags, const char *code, bool useHWTransform);
+	VulkanVertexShader(VulkanContext *vulkan, VShaderID id, VertexShaderFlags flags, const char *code, bool useHWTransform, SPIRVCache *cache);
 	~VulkanVertexShader();
 
 	const std::string &source() const { return source_; }
@@ -144,6 +144,9 @@ private:
 	VSCache vsCache_;
 
 	char *codeBuffer_;
+
+	// The SPIR-V of this game's shaders, saved with the rest of its shader cache.
+	SPIRVCache spirvCache_;
 
 	uint64_t uboAlignment_;
 
