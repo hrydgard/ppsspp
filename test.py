@@ -561,6 +561,7 @@ tests_next = [
   "gpu/primitives/bezier",
   "gpu/primitives/continue",
   "gpu/primitives/immediate",
+  "gpu/primitives/indices32",
   "gpu/primitives/lines",
   "gpu/primitives/linestrip",
   "gpu/primitives/spline",
