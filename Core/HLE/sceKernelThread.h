@@ -386,7 +386,10 @@ void __KernelWaitCurThread(WaitType type, SceUID waitId, u32 waitValue, u32 time
 bool __KernelWaitTimesOutAtOnce(u32 timeoutPtr, int basePercent = 85, int stepPercent = 35);
 s64 __KernelWaitTimeoutUs(u32 micro);
 // How long after its deadline a wait's timeout goes off. Not part of the time left written back.
-const int WAIT_TIMEOUT_LATENCY_US = 30;
+const int WAIT_TIMEOUT_LATENCY_US = 18;
+// The deadline is taken this far into the call, after what we already charge before scheduling.
+// threads/semaphores/wait and threads/fpl/cancel pin it between about 10 and 15us.
+const int WAIT_TIMEOUT_DEADLINE_US = 12;
 void __KernelWaitCallbacksCurThread(WaitType type, SceUID waitID, u32 waitValue, u32 timeoutPtr);
 void __KernelReSchedule(const char *reason = "no reason");
 void __KernelReSchedule(bool doCallbacks, const char *reason);

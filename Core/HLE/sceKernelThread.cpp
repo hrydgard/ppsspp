@@ -1539,8 +1539,9 @@ static bool __KernelChance(int percent) {
 // wait fails with SCE_KERNEL_ERROR_WAIT_TIMEOUT at once, without giving up the CPU or writing the
 // timeout back. For most calls that happens about 85% of the time for 0us, half the time for 1us,
 // 15% for 2us and never from 3us on. sceKernelAllocateVpl does more first: always up to 1us, then
-// about 17% less per us. Longer ones end max(timeout, 205us) plus about 35us after the call, the
-// last few of which we already spend around the event.
+// about 17% less per us. Longer ones end max(timeout, 205us) plus about 35us after the call. The
+// deadline is taken late in the call, so the time left written back when something else ends the
+// wait counts from there.
 bool __KernelWaitTimesOutAtOnce(u32 timeoutPtr, int basePercent, int stepPercent) {
 	if (!Memory::IsValid4AlignedAddress(timeoutPtr)) {
 		return false;
@@ -1550,7 +1551,7 @@ bool __KernelWaitTimesOutAtOnce(u32 timeoutPtr, int basePercent, int stepPercent
 }
 
 s64 __KernelWaitTimeoutUs(u32 micro) {
-	return (s64)std::max(micro, 205U) + WAIT_TIMEOUT_LATENCY_US;
+	return (s64)std::max(micro, 205U) + WAIT_TIMEOUT_DEADLINE_US + WAIT_TIMEOUT_LATENCY_US;
 }
 
 void hleThreadEndTimeout(u64 userdata, int cyclesLate)
@@ -2199,6 +2200,9 @@ int __KernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr, bo
 		KernelValidateThreadTarget(startThread->context.pc);
 		__KernelChangeReadyState(cur, currentThread, true);
 		if (__InterruptsEnabled()) {
+			// Handing over costs more: about 30us from the call to the new thread's entry on
+			// hardware, where starting a worse one takes 10-25us.
+			hleEatCycles(2000);
 			g_startThreadHandoff = threadToStartID;
 			hleReSchedule("thread started");
 		}
@@ -2278,6 +2282,9 @@ int sceKernelGetThreadStackFreeSize(SceUID threadID) {
 	return hleLogDebug(Log::sceKernel, sz & ~3);
 }
 
+// What a thread ending costs, besides the switch away from it.
+static const int THREAD_EXIT_CYCLES = 3300;
+
 void __KernelReturnFromThread()
 {
 	hleSkipDeadbeef();
@@ -2287,6 +2294,8 @@ void __KernelReturnFromThread()
 	_dbg_assert_msg_(thread != NULL, "Returned from a NULL thread.");
 
 	DEBUG_LOG(Log::sceKernel, "__KernelReturnFromThread: %d", exitStatus);
+	// About 20us from a thread ending to a thread waiting on it running, on hardware.
+	hleEatCycles(THREAD_EXIT_CYCLES);
 	__KernelStopThread(currentThread, exitStatus, "thread returned");
 
 	hleReSchedule("thread returned");
@@ -2308,6 +2317,7 @@ int sceKernelExitThread(int exitStatus) {
 	if (exitStatus < 0) {
 		exitStatus = SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT;
 	}
+	hleEatCycles(THREAD_EXIT_CYCLES);
 	__KernelStopThread(currentThread, exitStatus, "thread exited");
 
 	hleReSchedule("thread exited");
@@ -2343,6 +2353,7 @@ int sceKernelExitDeleteThread(int exitStatus) {
 		INFO_LOG(Log::sceKernel,"sceKernelExitDeleteThread(%d)", exitStatus);
 		uint32_t thread_attr = thread->nt.attr;
 		uint32_t uid = thread->GetUID();
+		hleEatCycles(THREAD_EXIT_CYCLES);
 		__KernelDeleteThread(currentThread, exitStatus, "thread exited with delete");
 
 		hleReSchedule("thread exited with delete");
@@ -3265,13 +3276,15 @@ void __KernelSwitchContext(PSPThread *target, const char *reason) {
 	}
 #endif
 
-	// Switching threads eats some cycles.  This is a low approximation.
+	// Switching threads eats some cycles. Between two threads it's about 5us: rotating the ready
+	// queue to an equal thread, or waking a better one and having it block again, each take
+	// 7-10us on hardware including the calls themselves (pspautotests threads/scheduling/handoff).
 	if (fromIdle && toIdle) {
 		// Don't eat any cycles going between idle.
 	} else if (fromIdle || toIdle) {
 		currentMIPS->downcount -= 1200;
 	} else {
-		currentMIPS->downcount -= 2700;
+		currentMIPS->downcount -= 1150;
 	}
 
 	__KernelUpdateBusySyscalls(target);
@@ -3620,6 +3633,10 @@ static void __KernelRunCallbackOnThread(SceUID cbId, PSPThread *thread, bool res
 	// Clear the notify count / arg
 	cb->nc.notifyCount = 0;
 	cb->nc.notifyArg = 0;
+
+	// Setting up the call costs about 8us on top of the switch: 14us from a notify to a better
+	// thread's callback running on hardware (pspautotests threads/callbacks/combos).
+	currentMIPS->downcount -= 1800;
 
 	ActionAfterCallback *action = (ActionAfterCallback *) __KernelCreateAction(actionAfterCallback);
 	if (action != NULL)
