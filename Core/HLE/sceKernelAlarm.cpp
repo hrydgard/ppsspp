@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include <list>
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
@@ -171,7 +172,14 @@ static SceUID __KernelSetAlarm(u64 micro, u32 handlerPtr, u32 commonPtr)
 	alarm->alm.handlerPtr = handlerPtr;
 	alarm->alm.commonPtr = commonPtr;
 
-	__KernelScheduleAlarm(alarm, micro);
+	// On hardware the call takes about 40us, most of it before the deadline is taken, and the
+	// alarm doesn't go off sooner than about 215us after that however short it's asked to be
+	// (pspautotests threads/scheduling/alarmcosts). The status still shows the time asked for.
+	hleEatCycles(usToCycles(36));
+	alarm->alm.schedule = CoreTiming::GetGlobalTimeUs() + micro;
+	// Clamped to a few thousand years, so the conversion to cycles doesn't overflow.
+	CoreTiming::ScheduleEvent(usToCycles((s64)std::clamp(micro, (u64)215, (u64)1 << 52)), alarmTimer, alarm->GetUID());
+	hleEatCycles(usToCycles(4));
 	return uid;
 }
 
