@@ -96,16 +96,19 @@ A working invocation, and the traps around it:
 - Some events deliberately never respond while the CPU is stepping, so `--sync` will burn its full timeout on them:
   `gpu.stats.get` and `gpu.stats.feed` (documented - they answer after the next flip), `gpu.record.dump`, and
   `input.buttons.press` (waits for N frames). Resume the CPU first, or skip them in scripted runs.
-- Log broadcasts drown scripted output. Send this first:
-  `{"event":"broadcast.config.set","disallowed":{"logger":true,"input":true}}`. Note `wsdbg`'s `key=value` shorthand
-  can't build nested objects - paste raw JSON lines (any line starting with `{` is sent verbatim) for those.
+- Log broadcasts drown scripted output. Pass `--quiet` to wsdbg, which turns them off.
+- **Nested parameters work in wsdbg's `key=value` shorthand**: values are parsed as JSON, and single quotes keep
+  the inner double quotes, e.g. `input.buttons.send buttons='{"cross":true}'`. Prefer that over a raw JSON line,
+  which gets no ticket (see below).
 - Keep wsdbg scripts in files and pipe them in, rather than building JSON inline in a shell command - inline
   `{"event":...}` in a bash heredoc trips Claude Code's command analyzer ("brace with quote character") and forces a
   manual approval prompt for every single invocation.
 - **`--sync` can only match a response to a request that carries a ticket**, and wsdbg only assigns tickets to its
-  `key=value` shorthand. A raw JSON line (needed for nested params) gets no ticket, so `--sync` just waits for the
-  next message and treats whatever broadcast arrives first as the answer, silently desynchronising the rest of the
-  script. Use the shorthand wherever the parameters are flat. Hex works there: `memory.disasm address=0x08804000`.
+  `key=value` shorthand. A raw JSON line without a `ticket` isn't waited for at all, so use the shorthand (nested
+  values included, see above). Hex works there: `memory.disasm address=0x08804000`.
+- **To see the screen from a script, use wsdbg's `:screenshot <file.png>`** while the CPU is stopped, e.g. after a
+  `cpu.runUntilTime`. With headless, run `--graphics=software` for it: headless Vulkan has no output image to read
+  back and asserts. Give a native path on Windows (`C:/...`, not `/c/...`).
 - **Headless reports `SYSPROP_HAS_DEBUGGER` as false** (only `Windows/main.cpp` implements it), so anything gated on
   it does nothing there - `LoadSymbolsIfSupported()` in `Core/System.cpp`, for instance, doesn't load `.ppmap`/`.sym`
   at all under headless. Gate new debugger-adjacent features on their own config flag, not on that property.

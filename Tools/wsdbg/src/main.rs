@@ -528,6 +528,8 @@ fn print_help() {
     println!("wsdbg - connected. Type an event name and optional key=value params, e.g.:");
     println!("    game.status");
     println!("    cpu.setReg thread=0 name=4 value=1000");
+    println!("Values are parsed as JSON where possible. Single-quote nested ones, which keeps the ticket:");
+    println!("    input.buttons.send buttons='{{\"cross\":true}}'");
     println!("Or paste a full JSON message starting with '{{' to send it verbatim.");
     println!("A numeric 'ticket' is auto-assigned to shorthand commands so you can match up responses.");
     println!(":help                              show this message");
@@ -535,6 +537,7 @@ fn print_help() {
     println!(":snapshot <name> <addr> <size>     memory.read into a locally-named byte buffer");
     println!(":snapshots                         list saved snapshots");
     println!(":diff <name1> <name2>              byte-compare two snapshots");
+    println!(":screenshot <file.png>             save gpu.buffer.screenshot to a PNG file");
     println!(":sleep <seconds>                   pause, still printing anything that arrives");
     println!(":wait <event> [timeout]            block until that event arrives (e.g. cpu.stepping)");
     println!(":echo <text>                       print text, for marking up a script's output");
@@ -678,6 +681,7 @@ fn send_and_wait(
     event: &str,
     params: &[String],
     timeout_secs: f64,
+    print_response: bool,
 ) -> Result<serde_json::Value> {
     let ticket = next_ticket();
     let json_text = build_event_json(event, params, Some(ticket))?;
@@ -688,11 +692,13 @@ fn send_and_wait(
     while Instant::now() < deadline {
         match socket.read() {
             Ok(Message::Text(text)) => {
-                print_incoming(&text);
-                if let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) {
-                    if v.get("ticket").and_then(|t| t.as_u64()) == Some(ticket) {
-                        return Ok(v);
-                    }
+                let v = serde_json::from_str::<serde_json::Value>(&text).ok();
+                let is_ours = v.as_ref().and_then(|v| v.get("ticket")).and_then(|t| t.as_u64()) == Some(ticket);
+                if !is_ours || print_response {
+                    print_incoming(&text);
+                }
+                if is_ours {
+                    return Ok(v.unwrap());
                 }
             }
             Ok(Message::Close(frame)) => return Err(anyhow!("connection closed by PPSSPP: {frame:?}")),
@@ -724,7 +730,7 @@ fn cmd_snapshot(socket: &mut WebSocket<TcpStream>, snapshots: &mut Snapshots, ar
     }
     let name = args[0];
     let params = vec![format!("address={}", args[1]), format!("size={}", args[2])];
-    match send_and_wait(socket, "memory.read", &params, timeout_secs) {
+    match send_and_wait(socket, "memory.read", &params, timeout_secs, true) {
         Ok(resp) => {
             if resp.get("event").and_then(|e| e.as_str()) == Some("error") {
                 let msg = resp.get("message").and_then(|m| m.as_str()).unwrap_or("unknown error");
@@ -749,6 +755,51 @@ fn cmd_snapshot(socket: &mut WebSocket<TcpStream>, snapshots: &mut Snapshots, ar
         }
         Err(e) => eprintln!("! {e}"),
     }
+}
+
+// :screenshot <file.png> - saves what gpu.buffer.screenshot returns as a PNG file. The response
+// (a data: URI of the whole image) isn't printed, it would bury everything else in the output.
+fn cmd_screenshot(socket: &mut WebSocket<TcpStream>, args: &[&str], timeout_secs: f64) -> bool {
+    if args.len() != 1 {
+        eprintln!("! Usage: :screenshot <file.png>");
+        return false;
+    }
+    let path = args[0];
+    let resp = match send_and_wait(socket, "gpu.buffer.screenshot", &["type=uri".to_string()], timeout_secs, false) {
+        Ok(resp) => resp,
+        Err(e) => {
+            eprintln!("! {e}");
+            return false;
+        }
+    };
+    if resp.get("event").and_then(|e| e.as_str()) == Some("error") {
+        let msg = resp.get("message").and_then(|m| m.as_str()).unwrap_or("unknown error");
+        eprintln!("! gpu.buffer.screenshot failed: {msg}");
+        return false;
+    }
+    let uri = resp.get("uri").and_then(|u| u.as_str()).unwrap_or("");
+    let b64 = match uri.split_once(";base64,") {
+        Some((_, b)) => b,
+        None => {
+            eprintln!("! Response had no base64 data: URI");
+            return false;
+        }
+    };
+    let bytes = match base64::engine::general_purpose::STANDARD.decode(b64) {
+        Ok(b) => b,
+        Err(e) => {
+            eprintln!("! Could not decode the image: {e}");
+            return false;
+        }
+    };
+    if let Err(e) = std::fs::write(path, &bytes) {
+        eprintln!("! Could not write {path}: {e}");
+        return false;
+    }
+    let w = resp.get("width").and_then(|w| w.as_u64()).unwrap_or(0);
+    let h = resp.get("height").and_then(|h| h.as_u64()).unwrap_or(0);
+    println!("screenshot saved: {path} ({w}x{h})");
+    true
 }
 
 // :snapshots - list what's been captured so far in this session.
@@ -914,6 +965,12 @@ fn run_repl(mut socket: WebSocket<TcpStream>, sync: bool, sync_timeout: f64) -> 
                         cmd_snapshot(&mut socket, &mut snapshots, &args, sync_timeout);
                     }
                     Some(":snapshots") => cmd_list_snapshots(&snapshots),
+                    Some(":screenshot") => {
+                        let args: Vec<&str> = words.collect();
+                        if !cmd_screenshot(&mut socket, &args, sync_timeout) {
+                            failed = true;
+                        }
+                    }
                     Some(":diff") => {
                         let args: Vec<&str> = words.collect();
                         cmd_diff(&snapshots, &args);
