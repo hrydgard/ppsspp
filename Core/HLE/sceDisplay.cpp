@@ -135,8 +135,10 @@ std::map<SceUID, int> vblankPausedWaits;
 
 // STATE END
 
-// The vblank period is 731.5 us (0.7315 ms)
-const double vblankMs = 0.7315;
+// tests/display/vblanklen measures 730-770us from sceDisplayWaitVblankStart returning until
+// vblank ends, and an hcount of up to 14 inside it. The wait's own latency is in that, so this is
+// the upper end.
+const double vblankMs = 0.770;
 // These are guesses based on tests.
 const double vsyncStartMs = 0.5925;
 const double vsyncEndMs = 0.7265;

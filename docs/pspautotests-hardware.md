@@ -141,15 +141,23 @@ python3 test.py --graphics=software io/shortname/shortname
   builds with pspdev GCC 15 as of the "Make the tests build with a current pspdev toolchain"
   commit; if you hit a broken one anyway, `gentest.py -k` (`--keep`) skips `make` entirely and
   you can build your own target by hand with `make yourtest.prx`.
-- **Rebuilding a `.prx` is not free, so don't regenerate one you didn't change.** The binaries are
-  committed and were built with a much older SDK. Rebuilding with the current toolchain grows them
-  by roughly a third (`testgp.prx`: 117 KB to 191 KB), and it can change what a test *does*:
-  `time_t` is 64-bit now, so `rtc/convert`'s `sceRtcSetTime_t(&pt, 62135596800ULL)` marshals
-  differently than the committed binary and stops matching its own `.expected`. Check
-  `git status` and revert any `.prx` you didn't mean to touch.
-- **A `.prx` you did rebuild deserves a hardware run before you commit it.** Build it, run it, and
-  diff the output against the committed `.expected` - if it differs, decide whether the test
-  genuinely changed or whether the toolchain did. Note the committed `.expected` files have CRLF
+- **When you touch one test, rebuild every `.prx` in its directory and re-record them all.** Many
+  committed binaries were built with a much older SDK, and a rebuild with the current toolchain can
+  change what a test *does*: `time_t` is 64-bit now, so `rtc/convert`'s
+  `sceRtcSetTime_t(&pt, 62135596800ULL)` marshals differently, and in `tests/intr` the SDK's
+  `ModuleMgrForUser` stubs, linked next to the directory's own import of that library, silently did
+  nothing - `waits` printed `sceKernelGetModuleId`'s result for `sceKernelStartModule`. Rebuilding
+  a whole directory at once turns such surprises up while you're there to explain them, rather
+  than one at a time whenever someone happens to touch a neighbour. So run a plain `make` in the
+  directory, record each test on hardware, and commit the binaries and `.expected` files together.
+  (The binaries also grow by roughly a third: `testgp.prx` went from 117 KB to 191 KB.)
+- **Diff every re-recorded `.expected` against the old one before committing.** A difference means
+  the test changed on purpose, the toolchain changed what it does (fix the test), or the firmware
+  did. Many old recordings are likely from a PSP on an earlier firmware than today's 6.61, and a
+  driver change or a bug fix between versions shows up regardless of `sceKernelSetCompiledSdkVersion`
+  (`intr/registersub` depends on which drivers have hooked which interrupts: interrupt 8 had a
+  handler in the old recording and has none on 6.61). Say which in the commit message, and keep
+  the 6.61 result, since that's the firmware PPSSPP models. Note the committed `.expected` files have CRLF
   line endings (they were recorded on Windows) while a fresh run writes LF, so compare with
   `diff <(tr -d '\r' < __testoutput.txt) <(tr -d '\r' < the.expected)`.
 - **Each test PRX stays resident after it runs.** Run a handful back to back and the next

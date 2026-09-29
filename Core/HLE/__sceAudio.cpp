@@ -42,6 +42,7 @@
 #include "Core/HLE/sceAudio.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/Util/AudioFormat.h"
 
 // Should be used to lock anything related to the outAudioQueue.
@@ -87,7 +88,12 @@ void __AudioCPUMHzChange() {
 	audioHostIntervalCycles = (int)(usToCycles(1000000ULL) * 512 / hwSampleRate);
 }
 
+// The mixer's DMA is still playing out the last block it was handed, which had samples in it.
+// A buffer arriving then doesn't restart the DMA or get read early: it waits for the next block.
+static bool mixerDMABusy;
+
 void __AudioInit() {
+	mixerDMABusy = false;
 	System_AudioResetStatCounters();
 	mixFrequency = 44100;
 	srcFrequency = 0;
@@ -113,7 +119,7 @@ void __AudioInit() {
 }
 
 void __AudioDoState(PointerWrap &p) {
-	auto s = p.Section("sceAudio", 1, 3);
+	auto s = p.Section("sceAudio", 1, 4);
 	if (!s)
 		return;
 
@@ -180,6 +186,11 @@ void __AudioDoState(PointerWrap &p) {
 		g_audioSRC.DoState(p);
 		__AudioRoutingDoState(p);
 	}
+	if (s >= 4) {
+		Do(p, mixerDMABusy);
+	} else {
+		mixerDMABusy = false;
+	}
 	// For older states the routing modes were read back once per channel, above.
 
 	__AudioCPUMHzChange();
@@ -234,7 +245,7 @@ static void __AudioReScheduleAfterWake() {
 }
 
 // Only channels 0-7. The SRC channel is on its own DMA that the mixer never touches, so the
-// two start independently of each other.
+// two start independently of each other. See mixerDMABusy for the block after the last one.
 static bool __AudioAnyChannelPlaying() {
 	for (const AudioChannel &chan : g_audioChans) {
 		if (chan.sampleAddress != 0) {
@@ -294,7 +305,7 @@ u32 __AudioEnqueue(AudioChannel &chan, u32 samplePtr, int leftVol, int rightVol)
 		chan.rightVolume = rightVol;
 	}
 	// Handing over a buffer while nothing was playing is what starts the DMA.
-	const bool startsDMA = samplePtr != 0 && !__AudioAnyChannelPlaying();
+	const bool startsDMA = samplePtr != 0 && !__AudioAnyChannelPlaying() && !mixerDMABusy;
 	// A null pointer is accepted and leaves the channel idle, but still counts as a buffer's
 	// worth of remaining samples - which is the one case where the two rest-length calls
 	// disagree with each other.
@@ -314,7 +325,7 @@ void __AudioEnqueueOneshot(AudioChannel &chan, u32 samplePtr, u32 sampleCount, u
 	chan.rightVolume = rightVol;
 	chan.remainingSamples = sampleCount;
 
-	const bool startsDMA = samplePtr != 0 && !__AudioAnyChannelPlaying();
+	const bool startsDMA = samplePtr != 0 && !__AudioAnyChannelPlaying() && !mixerDMABusy;
 	chan.sampleAddress = samplePtr;
 	if (startsDMA) {
 		__AudioStartMixerDMA();
@@ -334,8 +345,13 @@ u32 __AudioEnqueueBlocking(AudioChannel &chan, u32 samplePtr, int leftVol, int r
 	if (chan.waitingThread != 0) {
 		return SCE_ERROR_AUDIO_CHANNEL_BUSY;
 	}
-	if (!__KernelIsDispatchEnabled()) {
-		return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+	// The event flag wait fails at once with interrupts or dispatch disabled, or inside an
+	// interrupt. The driver returns that error without clearing the waiting flag it set, which
+	// leaves the channel busy for good (audio.prx, sceAudioOutputBlocking). That's deliberately not
+	// emulated: whether the channel was busy at that moment is timing, and a small difference in
+	// ours would drop a channel for the rest of the game where hardware wouldn't.
+	if (__IsInInterrupt() || !__KernelIsDispatchEnabled()) {
+		return __IsInInterrupt() ? SCE_KERNEL_ERROR_ILLEGAL_CONTEXT : SCE_KERNEL_ERROR_CAN_NOT_WAIT;
 	}
 
 	chan.waitingThread = __KernelGetCurThread();
@@ -414,12 +430,17 @@ u32 __AudioSRCEnqueueBlocking(AudioSRCChannel &chan, u32 samplePtr, int vol) {
 		return 0;
 	}
 
-	if (chan.completion) {
-		chan.completion = false;
-		return result;
+	// The event flag wait refuses before looking at the flag, so even a completion that's
+	// already there isn't taken - the buffer stays armed and the error comes back.
+	if (__IsInInterrupt()) {
+		return SCE_KERNEL_ERROR_ILLEGAL_CONTEXT;
 	}
 	if (!__KernelIsDispatchEnabled()) {
 		return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+	}
+	if (chan.completion) {
+		chan.completion = false;
+		return result;
 	}
 
 	chan.waitingThreads.push_back(__KernelGetCurThread());
@@ -608,6 +629,7 @@ void __AudioUpdate(bool resetRecording) {
 	memset(mixBuffer, 0, hwBlockSize * 2 * sizeof(s32));
 
 	audioMixing = true;
+	mixerDMABusy = __AudioAnyChannelPlaying();
 	bool woke = false;
 	for (AudioChannel &chan : g_audioChans) {
 		// Deliberately not gated on `reserved`: sceAudioChRelease only clears the

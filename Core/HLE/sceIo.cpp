@@ -474,6 +474,9 @@ static void __IoAsyncNotify(u64 userdata, int cyclesLate) {
 		if (f->closePending) {
 			__IoFreeFd(fd, error);
 		}
+		// Like any interrupt that wakes a thread, this dispatches right away, so a better
+		// priority waiter doesn't sit ready until something else happens to reschedule.
+		__KernelReSchedule("async io completed");
 	}
 }
 
@@ -522,6 +525,7 @@ static void __IoSyncNotify(u64 userdata, int cyclesLate) {
 
 	HLEKernel::ResumeFromWait(threadID, WAITTYPE_IO, fd, result);
 	f->waitingSyncThreads.erase(std::remove(f->waitingSyncThreads.begin(), f->waitingSyncThreads.end(), threadID), f->waitingSyncThreads.end());
+	__KernelReSchedule("io completed");
 }
 
 static void __IoAsyncBeginCallback(SceUID threadID, SceUID prevCallbackId) {

@@ -59,10 +59,26 @@ r = enqueue(...);
 if (r != BUSY)         return r;
 if (channel->waiting)  return BUSY;      // somebody else is already parked here
 channel->waiting = 1;
-wait for this channel's bit in the driver's event flag;
+r = wait for this channel's bit in the driver's event flag;
+if (r < 0)             return r;         // waiting is left set! (not emulated)
 retry the enqueue;
 channel->waiting = 0;
 ```
+
+The error path is a real firmware bug. The event flag wait fails at once with interrupts or
+dispatch disabled (`800201a7`) or inside an interrupt (`80020064`), and the driver returns that
+without clearing `waiting`. Nothing ever clears it after that, so the channel stays busy for
+good, and `sceAudioChRelease` refuses to release it.
+
+**The emulator returns the same errors but doesn't leave the flag set.** Whether the channel was
+busy at that moment is a question of timing, and ours is close but not exact: emulating the bug
+means a small scheduling difference could drop a channel for the rest of the game where hardware
+wouldn't. No game can depend on losing a channel, so the risk only runs one way.
+`tests/intr/waits` leaves the case out for this reason.
+
+The SRC channel's wait fails the same way, and since the flag is never looked at, even a
+completion that was already there isn't taken: the buffer stays armed and the error comes back.
+That one is emulated, since nothing is lost - the buffer plays out as usual.
 
 **Only one thread can be parked on a channel.** That single flag is why a game that runs a movie
 thread and a sound-effect thread over one output gets sensible behavior on hardware and did not
@@ -120,6 +136,11 @@ the moment the mixer's DMA starts and runs one block right then. The SRC channel
 reset but no early read, since its DMA feeds the codec directly. Without this the answer to
 `sceAudioGetChannelRestLen` right after an output would depend on where the timer happened to
 be, and would differ from run to run.
+
+That only happens when the DMA is actually idle. After a block that had samples in it, the DMA
+is still playing that block out, so a buffer handed over within it is not read early: it waits
+for the next block like any other. (Also from `tests/intr/waits`, where a second 64-sample buffer
+is still in the channel when the next call looks.)
 
 Two things are still approximate, both below one mix block:
 

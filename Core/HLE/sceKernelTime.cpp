@@ -74,7 +74,6 @@ int sceKernelGetSystemTime(u32 sysclockPtr)
 	}
 	VERBOSE_LOG(Log::sceKernel, "sceKernelGetSystemTime(out:%16llx)", t);
 	hleEatCycles(265);
-	hleReSchedule("system time");
 	return hleNoLog(0);
 }
 
@@ -87,7 +86,6 @@ u32 sceKernelGetSystemTimeLow()
 	if (PSP_CoreParameter().compat.flags().KernelGetSystemTimeLowEatMoreCycles) {
 		hleEatCycles(70000);
 	}
-	hleReSchedule("system time");
 	return hleNoLog((u32)t);
 }
 
@@ -96,7 +94,6 @@ u64 sceKernelGetSystemTimeWide()
 	u64 t = CoreTiming::GetGlobalTimeUsScaled();
 	VERBOSE_LOG(Log::sceKernel,"%i=sceKernelGetSystemTimeWide()",(u32)t);
 	hleEatCycles(250);
-	hleReSchedule("system time");
 	return hleNoLog(t);
 }
 
@@ -153,7 +150,6 @@ u32 sceKernelLibcClock()
 {
 	u32 retVal = (u32) CoreTiming::GetGlobalTimeUs();
 	hleEatCycles(330);
-	hleReSchedule("libc clock");
 	return hleLogDebug(Log::sceKernel, retVal);
 }
 
@@ -169,7 +165,6 @@ u32 sceKernelLibcTime(u32 outPtr)
 	else if (outPtr != 0)
 		return 0;
 
-	hleReSchedule("libc time");
 	return hleLogDebug(Log::sceKernel, t);
 }
 
@@ -185,7 +180,6 @@ u32 sceKernelLibcGettimeofday(u32 timeAddr, u32 tzAddr)
 	DEBUG_LOG(Log::sceKernel,"sceKernelLibcGettimeofday(%08x, %08x)", timeAddr, tzAddr);
 	hleEatCycles(1885);
 
-	hleReSchedule("libc timeofday");
 	return hleNoLog(0);
 }
 

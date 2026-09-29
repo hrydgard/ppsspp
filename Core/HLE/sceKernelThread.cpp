@@ -1629,8 +1629,17 @@ static PSPThread *__KernelNextThread() {
 		return 0;
 }
 
+// Set by sceKernelStartThread when the new thread outranks the caller, for the reschedule right
+// after it. The firmware hands the CPU straight to the new thread, even when a thread of better
+// priority is ready but hasn't been dispatched (say, one that a sceKernelTerminateThread woke.)
+// See tests/threads/threads/termsuspended.
+static SceUID g_startThreadHandoff = 0;
+
 void __KernelReSchedule(const char *reason)
 {
+	const SceUID handoff = g_startThreadHandoff;
+	g_startThreadHandoff = 0;
+
 	// First, let's check if there are any pending callbacks to trigger.
 	// TODO: Could probably take this out of __KernelReSchedule() which is a bit hot.
 	__KernelCheckCallbacks();
@@ -1641,6 +1650,16 @@ void __KernelReSchedule(const char *reason)
 		// Threads don't get changed within interrupts or while dispatch is disabled.
 		reason = "In Interrupt Or Callback";
 		return;
+	}
+
+	if (handoff != 0) {
+		u32 error;
+		PSPThread *started = kernelObjects.Get<PSPThread>(handoff, error);
+		if (started && started->nt.status == THREADSTATUS_READY) {
+			threadReadyQueue.remove(started->nt.currentPriority, handoff);
+			__KernelSwitchContext(started, reason);
+			return;
+		}
 	}
 
 	PSPThread *nextThread = __KernelNextThread();
@@ -1900,7 +1919,13 @@ int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32
 	// Creating a thread resumes dispatch automatically.  Probably can't create without it.
 	dispatchEnabled = true;
 
-	hleEatCycles(32000);
+	// Measured by tests/threads/scheduling/costs: about 150us, plus filling the stack with 0xFF at
+	// around a cycle per byte - 1.3ms for a 256KB stack.
+	int createCycles = 32000;
+	if ((attr & PSP_THREAD_ATTR_NO_FILLSTACK) == 0 && stacksize > 0) {
+		createCycles += stacksize - stacksize / 64;
+	}
+	hleEatCycles(createCycles);
 	// This won't schedule to the new thread, but it may to one woken from eating cycles.
 	// Technically, this should not eat all at once, and reschedule in the middle, but that's hard.
 	hleReSchedule("thread created");
@@ -1971,8 +1996,10 @@ int __KernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr, bo
 	if (cur && cur->nt.currentPriority > startThread->nt.currentPriority) {
 		KernelValidateThreadTarget(startThread->context.pc);
 		__KernelChangeReadyState(cur, currentThread, true);
-		if (__InterruptsEnabled())
+		if (__InterruptsEnabled()) {
+			g_startThreadHandoff = threadToStartID;
 			hleReSchedule("thread started");
+		}
 	}
 
 	// Starting a thread automatically resumes the dispatch thread if the new thread has worse priority.
@@ -2219,6 +2246,8 @@ int sceKernelDeleteThread(int threadID) {
 			return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_NOT_DORMANT);
 		}
 
+		// 50-100us whatever the stack size, per tests/threads/scheduling/costs.
+		hleEatCycles(15000);
 		return hleLogDebug(Log::sceKernel, __KernelDeleteThread(threadID, SCE_KERNEL_ERROR_THREAD_TERMINATED, "thread deleted"));
 	}
 }

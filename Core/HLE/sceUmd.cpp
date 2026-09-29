@@ -252,7 +252,9 @@ static void __UmdEndCallback(SceUID threadID, SceUID prevCallbackId)
 	else
 	{
 		_dbg_assert_msg_(umdStatTimeoutEvent != -1, "Must have a umd timer");
-		CoreTiming::ScheduleEvent(cyclesLeft, umdStatTimeoutEvent, __KernelGetCurThread());
+		// A deadline of 0 means the wait has no timeout.
+		if (waitDeadline != 0)
+			CoreTiming::ScheduleEvent(cyclesLeft, umdStatTimeoutEvent, __KernelGetCurThread());
 
 		umdWaitingThreads.push_back(threadID);
 
@@ -268,10 +270,15 @@ static int sceUmdCheckMedium() {
 	return hleLogDebug(Log::sceKernel, retVal);
 }
 	
+// A user mode caller can't pass a kernel address. (mediaman.prx checks these with k1.)
+static bool IsUserAddress(u32 addr) {
+	return (addr & 0x80000000) == 0;
+}
+
 static u32 sceUmdGetDiscInfo(u32 infoAddr) {
 	DEBUG_LOG(Log::sceIo, "sceUmdGetDiscInfo(%08x)", infoAddr);
 
-	if (Memory::IsValidAddress(infoAddr)) {
+	if (Memory::IsValidRange(infoAddr, 8) && IsUserAddress(infoAddr) && IsUserAddress(infoAddr + 4)) {
 		auto info = PSPPointer<PspUmdInfo>::Create(infoAddr);
 		if (info->size != 8)
 			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
@@ -283,9 +290,13 @@ static u32 sceUmdGetDiscInfo(u32 infoAddr) {
 	}
 }
 
-static int sceUmdActivate(u32 mode, const char *name) {
+static int sceUmdActivate(u32 mode, u32 namePtr) {
 	if (mode < 1 || mode > 2)
 		return hleLogWarning(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
+	// The firmware compares the name before checking the pointer, so a bad one crashes there.
+	const char *name = namePtr != 0 && Memory::IsValidAddress(namePtr) ? Memory::GetCharPointer(namePtr) : nullptr;
+	if (!name || strncmp(name, "disc0:", 7) != 0 || !IsUserAddress(namePtr))
+		return hleLogWarning(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad name");
 
 	__KernelUmdActivate();
 
@@ -295,11 +306,14 @@ static int sceUmdActivate(u32 mode, const char *name) {
 	return hleLogDebug(Log::sceIo, 0);
 }
 
-static int sceUmdDeactivate(u32 mode, const char *name)
+static int sceUmdDeactivate(u32 mode, u32 namePtr)
 {
 	// Why 18?  No idea.
 	if (mode > 18)
 		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT);
+	// Unlike sceUmdActivate(), the name isn't compared, and only mode 2 requires one.
+	if ((mode == 2 && namePtr == 0) || !IsUserAddress(namePtr))
+		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad name");
 
 	__KernelUmdDeactivate();
 
@@ -314,8 +328,7 @@ static u32 sceUmdRegisterUMDCallBack(u32 cbId)
 {
 	int retVal = 0;
 
-	// TODO: If the callback is invalid, return SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT.
-	if (!kernelObjects.IsValid(cbId)) {
+	if (!kernelObjects.Is<PSPCallback>(cbId)) {
 		retVal = SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT;
 	} else {
 		// There's only ever one.
@@ -363,13 +376,18 @@ static void __UmdStatTimeout(u64 userdata, int cyclesLate)
 	HLEKernel::RemoveWaitingThread(umdWaitingThreads, threadID);
 }
 
-static void __UmdWaitStat(u32 timeout)
+// The firmware waits on an event flag holding the drive state (mediaman.prx), and passes no
+// timeout at all for 0, so that waits forever.
+static void __UmdWaitStat(u32 timeout, bool callbacks)
 {
-	// This happens to be how the hardware seems to time things.
-	if (timeout <= 4)
-		timeout = 15;
-	else if (timeout <= 215)
-		timeout = 250;
+	if (timeout == 0)
+		return;
+
+	// Measured on hardware. Oddly, the CB version doesn't have the shortest step.
+	if (timeout <= 1 && !callbacks)
+		timeout = 25;
+	else if (timeout <= 209)
+		timeout = 240;
 
 	CoreTiming::ScheduleEvent(usToCycles((int) timeout), umdStatTimeoutEvent, __KernelGetCurThread());
 }
@@ -416,7 +434,7 @@ static int sceUmdWaitDriveStatWithTimer(u32 stat, u32 timeout) {
 
 	hleEatCycles(520);
 	if ((stat & __KernelUmdGetState()) == 0) {
-		__UmdWaitStat(timeout);
+		__UmdWaitStat(timeout, false);
 		umdWaitingThreads.push_back(__KernelGetCurThread());
 		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, false, "umd stat waited with timer");
 		return hleLogDebug(Log::sceIo, 0, "waiting");
@@ -441,11 +459,7 @@ static int sceUmdWaitDriveStatCB(u32 stat, u32 timeout) {
 	hleEatCycles(520);
 	hleCheckCurrentCallbacks();
 	if ((stat & __KernelUmdGetState()) == 0) {
-		if (timeout == 0) {
-			timeout = 8000;
-		}
-
-		__UmdWaitStat(timeout);
+		__UmdWaitStat(timeout, true);
 		umdWaitingThreads.push_back(__KernelGetCurThread());
 		__KernelWaitCurThread(WAITTYPE_UMD, 1, stat, 0, true, "umd stat waited");
 		return hleLogDebug(Log::sceIo, 0, "waiting");
@@ -519,10 +533,10 @@ static u32 sceUmdReplacePermit() {
 
 const HLEFunction sceUmdUser[] = 
 {
-	{0XC6183D47, &WrapI_UC<sceUmdActivate>,               "sceUmdActivate",               'i', "is"},
+	{0XC6183D47, &WrapI_UU<sceUmdActivate>,               "sceUmdActivate",               'i', "is"},
 	{0X6B4A146C, &WrapU_V<sceUmdGetDriveStat>,            "sceUmdGetDriveStat",           'x', ""  },
 	{0X46EBB729, &WrapI_V<sceUmdCheckMedium>,             "sceUmdCheckMedium",            'i', ""  },
-	{0XE83742BA, &WrapI_UC<sceUmdDeactivate>,             "sceUmdDeactivate",             'i', "xs"},
+	{0XE83742BA, &WrapI_UU<sceUmdDeactivate>,             "sceUmdDeactivate",             'i', "xs"},
 	{0X8EF08FCE, &WrapI_U<sceUmdWaitDriveStat>,           "sceUmdWaitDriveStat",          'i', "x" },
 	{0X56202973, &WrapI_UU<sceUmdWaitDriveStatWithTimer>, "sceUmdWaitDriveStatWithTimer", 'i', "xx"},
 	{0X4A9E5E29, &WrapI_UU<sceUmdWaitDriveStatCB>,        "sceUmdWaitDriveStatCB",        'i', "xx"},
