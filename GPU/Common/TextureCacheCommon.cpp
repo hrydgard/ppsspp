@@ -431,8 +431,9 @@ static u32 ComputeTextureHash(TextureReplacer &replacer, u32 addr, int bufw, int
 	if (Memory::IsValidRange(addr, sizeInRAM)) {
 		gpuStats.perFrame.numTextureDataBytesHashed += sizeInRAM;
 
-		// return XXH64(checkp, sizeInRAM, 0xBACD7814);
-		return StableQuickTexHash(checkp, sizeInRAM);
+		// XXH3 is faster than StableQuickTexHash on ARM64 and doesn't collide the way it did (#8249).
+		// Texture replacement keeps its own hash setting above, so this doesn't affect texture packs.
+		return (u32)XXH3_64bits(checkp, sizeInRAM);
 	} else {
 		return 0;
 	}
