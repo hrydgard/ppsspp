@@ -418,6 +418,21 @@ void Camera::onCameraDeviceChange() {
 	}
 }
 
+int Camera::getMaxFrameSize() {
+	int framesize = 0;
+	if (config) {
+		if (config->type == Camera::ConfigType::CfVideoEx) {
+			framesize = config->videoExParam.framesize;
+		} else if (config->type == Camera::ConfigType::CfVideo) {
+			framesize = config->videoParam.framesize;
+		}
+	}
+	if (framesize <= 0 || framesize > VIDEO_BUFFER_SIZE) {
+		return VIDEO_BUFFER_SIZE;
+	}
+	return framesize;
+}
+
 void Camera::pushCameraImage(long long length, unsigned char* image) {
 	std::lock_guard<std::mutex> lock(videoBufferMutex);
 	if (!videoBuffer) {
