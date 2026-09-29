@@ -193,18 +193,21 @@ void IntrHandler::clear()
 	subIntrHandlers.clear();
 }
 
-void IntrHandler::queueUp(int subintr) {
+int IntrHandler::queueUp(int subintr) {
 	if (subintr == PSP_INTR_SUB_NONE) {
 		pendingInterrupts.push_back(PendingInterrupt(intrNumber, subintr));
-	} else {
-		// Just call execute on all the subintr handlers for this interrupt.
-		// They will get queued up.
-		for (auto iter = subIntrHandlers.begin(); iter != subIntrHandlers.end(); ++iter) {
-			if ((subintr == PSP_INTR_SUB_ALL || iter->first == subintr) && iter->second.enabled && iter->second.handlerAddress != 0) {
-				pendingInterrupts.push_back(PendingInterrupt(intrNumber, iter->first));
-			}
+		return 1;
+	}
+	// Just call execute on all the subintr handlers for this interrupt.
+	// They will get queued up.
+	int count = 0;
+	for (auto iter = subIntrHandlers.begin(); iter != subIntrHandlers.end(); ++iter) {
+		if ((subintr == PSP_INTR_SUB_ALL || iter->first == subintr) && iter->second.enabled && iter->second.handlerAddress != 0) {
+			pendingInterrupts.push_back(PendingInterrupt(intrNumber, iter->first));
+			count++;
 		}
 	}
+	return count;
 }
 
 void IntrHandler::DoState(PointerWrap &p)
@@ -360,6 +363,7 @@ retry:
 			inInterrupt = false;
 			goto retry;
 		}
+		currentMIPS->downcount -= handler->entryCycles();
 
 		currentMIPS->r[MIPS_REG_RA] = __KernelInterruptReturnAddress();
 		return true;
@@ -383,9 +387,10 @@ static void __TriggerRunInterrupts(int type)
 			// "Always" only means if dispatch is enabled.
 			if (!__RunOnePendingInterrupt() && __KernelIsDispatchEnabled())
 			{
-				SceUID savedThread = __KernelGetCurThread();
-				if (__KernelSwitchOffThread("interrupt"))
-					threadBeforeInterrupt = savedThread;
+				// With no handler to run and return from, just pick a thread again. This used to
+				// switch to idle, and the interrupted thread sat there until some later event
+				// rescheduled: ~775us of every frame at a vblank with no handler registered.
+				__KernelReSchedule("interrupt");
 			}
 		}
 		else
@@ -393,14 +398,18 @@ static void __TriggerRunInterrupts(int type)
 	}
 }
 
-void __TriggerInterrupt(int type, PSPInterrupt intno, int subintr)
+int __TriggerInterrupt(int type, PSPInterrupt intno, int subintr)
 {
 	if (interruptsEnabled || (type & PSP_INTR_ONLY_IF_ENABLED) == 0)
 	{
-		intrHandlers[intno]->queueUp(subintr);
+		// Returning from an interrupt clears the ll bit, handler or not (pspautotests cpu/lsu/llsc).
+		currentMIPS->llBit = 0;
+		int queued = intrHandlers[intno]->queueUp(subintr);
 		VERBOSE_LOG(Log::sceIntc, "Triggering subinterrupts for interrupt %i sub %i (%i in queue)", intno, subintr, (u32)pendingInterrupts.size());
 		__TriggerRunInterrupts(type);
+		return queued;
 	}
+	return 0;
 }
 
 int __CancelRaisedInterrupts(PSPInterrupt intno) {
@@ -432,6 +441,14 @@ void __KernelReturnFromInterrupt()
 
 	if (pend.intr >= 0 && pend.intr < ARRAY_SIZE(intrHandlers)) {
 		intrHandlers[pend.intr]->handleResult(pend);
+		// Charged once the last queued handler for this interrupt is done.
+		bool moreOfThis = false;
+		for (const PendingInterrupt &other : pendingInterrupts) {
+			moreOfThis = moreOfThis || other.intr == pend.intr;
+		}
+		if (!moreOfThis) {
+			currentMIPS->downcount -= intrHandlers[pend.intr]->exitCycles();
+		}
 	} else {
 		_assert_msg_(false, "Bad pend.intr: %d", pend.intr);
 	}
@@ -451,6 +468,10 @@ void __KernelReturnFromInterrupt()
 			__KernelSwitchToThread(threadBeforeInterrupt, "left interrupt");
 	}
 	hleNoLogVoid();
+}
+
+void __SetIntrHandlerCosts(PSPInterrupt intno, int entryCycles, int exitCycles) {
+	intrHandlers[intno]->setCosts(entryCycles, exitCycles);
 }
 
 void __RegisterIntrHandler(u32 intrNumber, IntrHandler* handler)

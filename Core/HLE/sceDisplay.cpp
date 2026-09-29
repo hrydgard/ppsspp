@@ -557,15 +557,15 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 
 	CoreTiming::ScheduleEvent(msToCycles(vblankMs) - cyclesLate, leaveVblankEvent, vbCount + 1);
 
-	// Trigger VBlank interrupt handlers.
-	__TriggerInterrupt(PSP_INTR_IMMEDIATE | PSP_INTR_ONLY_IF_ENABLED | PSP_INTR_ALWAYS_RESCHED, PSP_VBLANK_INTR, PSP_INTR_SUB_ALL);
-
 	// Threads waiting for this vblank are released about 48us after it, plus ~9us for each one
-	// beyond the first: on hardware a lone waiter returns ~53us after the vblank (~58us with a
-	// vblank handler registered), and with four the first to run does so after ~85us, where we'd
-	// otherwise have it back in ~5us (pspautotests threads/scheduling/vblankwake). Which vblank a
-	// wait is for is still decided here, so a thread that starts waiting in between waits for the
-	// next one.
+	// beyond the first: on hardware a lone waiter returns ~53us after a vblank handler would run,
+	// and with four the first to run does so ~85us after the handler (pspautotests
+	// threads/scheduling/vblankwake). Which vblank a wait is for is still decided here, so a
+	// thread that starts waiting in between waits for the next one.
+	// TODO: The vblank itself takes ~62us of CPU on hardware (~70us with a handler, which runs
+	// ~28us in), and a waiter back ~90us after it still reads hcount 1. Both fit only if the
+	// interrupt comes ~40us before the line count wraps, which we don't model yet, so that cost
+	// isn't charged either.
 	for (size_t i = 0; i < vblankWaitingThreads.size(); i++) {
 		if (--vblankWaitingThreads[i].vcountUnblock == 0) {
 			vblankWakePending.push_back(vblankWaitingThreads[i].threadID);
@@ -576,6 +576,9 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 		const int releaseUs = 48 + 9 * ((int)vblankWakePending.size() - 1);
 		CoreTiming::ScheduleEvent(usToCycles(releaseUs) - cyclesLate, vblankWakeEvent, 0);
 	}
+
+	// Trigger VBlank interrupt handlers.
+	__TriggerInterrupt(PSP_INTR_IMMEDIATE | PSP_INTR_ONLY_IF_ENABLED | PSP_INTR_ALWAYS_RESCHED, PSP_VBLANK_INTR, PSP_INTR_SUB_ALL);
 
 	// We use the emulation timebase here, for auto movements to be smooth as seen from the game.
 	g_controlMapper.UpdateAutoMovements(CoreTiming::GetGlobalTimeUs() / 1000000.0);
