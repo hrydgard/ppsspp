@@ -346,7 +346,8 @@ int Microphone::stopMic() {
 
 bool Microphone::isHaveDevice() {
 #ifdef HAVE_WIN32_MICROPHONE
-	return winMic->getDeviceCounts() >= 1;
+	// Only the app creates winMic, headless doesn't.
+	return winMic && winMic->getDeviceCounts() >= 1;
 #elif PPSSPP_PLATFORM(ANDROID)
 	return System_AudioRecordingIsAvailable();
 #endif
