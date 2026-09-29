@@ -506,11 +506,16 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1, BinManager &b
 			if (g_needsClearAfterDialog) {
 				g_needsClearAfterDialog = false;
 				// Afterwards, we also need to clear the actual destination. Can do a fast rectfill.
+				// The binner's state was computed with texturing on, so recompute it around the sprite.
+				const SoftDirty texDirty = SoftDirty::SAMPLER_BASIC | SoftDirty::SAMPLER_TEXLIST | SoftDirty::RAST_TEX | SoftDirty::BINNER_OVERLAP;
 				gstate.textureMapEnable &= ~1;
+				binner.SetDirty(texDirty);
+				binner.UpdateState();
 				VertexData newV1 = v1;
 				newV1.color0 = 0xFF000000;
 				binner.AddSprite(v0, newV1);
 				gstate.textureMapEnable |= 1;
+				binner.SetDirty(texDirty);
 			}
 			return true;
 		} else {
