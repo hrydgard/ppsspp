@@ -60,6 +60,8 @@ struct VKRImage {
 
 class VKRFramebuffer {
 public:
+	VKRFramebuffer(const VKRFramebuffer &) = delete;
+	VKRFramebuffer &operator=(const VKRFramebuffer &) = delete;
 	VKRFramebuffer(VulkanContext *vk, VulkanBarrierBatch *barriers, int _width, int _height, int _numLayers, int _multiSampleLevel, bool createDepthStencilBuffer, const char *tag);
 	~VKRFramebuffer();
 

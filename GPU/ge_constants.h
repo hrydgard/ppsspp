@@ -330,7 +330,7 @@ enum GEVertexType : uint32_t {
 	GE_VTYPE_IDX_NONE  = (0<<11),
 	GE_VTYPE_IDX_8BIT  = (1<<11),
 	GE_VTYPE_IDX_16BIT = (2<<11),
-	GE_VTYPE_IDX_32BIT = (3<<11),
+	GE_VTYPE_IDX_32BIT = (3<<11),  // In name only: the hardware ignores the upper 16 bits of each index.
 	GE_VTYPE_IDX_MASK  = (3<<11),
 #define GE_VTYPE_IDX_SHIFT 11
 };

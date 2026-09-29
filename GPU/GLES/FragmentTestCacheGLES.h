@@ -68,7 +68,8 @@ public:
 	void BindTestTexture(int slot);
 
 	void DeviceLost() {
-		Clear(false);
+		// Queue the deletes anyway, the deleter frees the GLRTexture objects and skips the GL calls if needed.
+		Clear(true);
 		render_ = nullptr;
 	}
 	void DeviceRestore(Draw::DrawContext *draw);

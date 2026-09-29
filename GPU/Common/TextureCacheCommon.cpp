@@ -114,6 +114,8 @@ TextureCacheCommon::TextureCacheCommon(Draw::DrawContext *draw, Draw2D *draw2D)
 }
 
 TextureCacheCommon::~TextureCacheCommon() {
+	// Only DeviceLost cleared these, which the GLES and D3D11 backends don't go through at shutdown.
+	clutTextureCache_.Clear();
 	FreeAlignedMemory(clutBufConverted_);
 	FreeAlignedMemory(clutBufRaw_);
 	FreeAlignedMemory(expandClut_);
@@ -342,6 +344,9 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 		break;
 	}
 
+	if (key.aniso) {
+		key.anisoLevel = (uint8_t)g_Config.iAnisotropyLevel;
+	}
 	return key;
 }
 

@@ -30,6 +30,8 @@ constexpr int MAX_GL_TEXTURE_SLOTS = 8;
 
 class GLRTexture {
 public:
+	GLRTexture(const GLRTexture &) = delete;
+	GLRTexture &operator=(const GLRTexture &) = delete;
 	GLRTexture(const Draw::DeviceCaps &caps, int width, int height, int depth, int numMips);
 	~GLRTexture();
 
@@ -53,6 +55,8 @@ public:
 
 class GLRFramebuffer {
 public:
+	GLRFramebuffer(const GLRFramebuffer &) = delete;
+	GLRFramebuffer &operator=(const GLRFramebuffer &) = delete;
 	GLRFramebuffer(const Draw::DeviceCaps &caps, int _width, int _height, bool z_stencil, const char *tag)
 		: color_texture(caps, _width, _height, 1, 1), z_stencil_texture(caps, _width, _height, 1, 1),
 		width(_width), height(_height), z_stencil_(z_stencil) {
@@ -83,6 +87,8 @@ private:
 
 class GLRShader {
 public:
+	GLRShader(const GLRShader &) = delete;
+	GLRShader &operator=(const GLRShader &) = delete;
 	explicit GLRShader(std::string_view _desc) : desc(_desc) {}
 	~GLRShader() {
 		if (shader) {
@@ -116,6 +122,9 @@ public:
 
 class GLRProgram {
 public:
+	GLRProgram() = default;
+	GLRProgram(const GLRProgram &) = delete;
+	GLRProgram &operator=(const GLRProgram &) = delete;
 	~GLRProgram() {
 		if (deleteCallback_) {
 			deleteCallback_(deleteParam_);

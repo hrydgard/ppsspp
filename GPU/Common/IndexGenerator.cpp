@@ -342,6 +342,7 @@ void IndexGenerator::TranslatePrim(int prim, int numInds, const u16_le *inds, in
 	}
 }
 
+// The PSP ignores the upper 16 bits of 32-bit indices. The u16 output drops them the same way.
 void IndexGenerator::TranslatePrim(int prim, int numInds, const u32_le *inds, int indexOffset, bool clockwise) {
 	switch (prim) {
 	case GE_PRIM_POINTS: TranslatePoints<u32_le>(numInds, inds, indexOffset); break;

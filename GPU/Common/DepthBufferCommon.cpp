@@ -199,7 +199,9 @@ bool FramebufferManagerCommon::ReadbackDepthbuffer(Draw::Framebuffer *fbo, int x
 
 		auto *blitFBO = GetTempFBO(TempFBO::Z_COPY, fbo->Width() * scaleX, fbo->Height() * scaleY);
 		draw_->BindFramebufferAsRenderTarget(blitFBO, { RPAction::DONT_CARE, RPAction::DONT_CARE, RPAction::DONT_CARE }, "ReadbackDepthbufferSync");
-		Draw::Viewport viewport = { 0.0f, 0.0f, (float)destW, (float)destH, 0.0f, 1.0f };
+		// The whole fbo is drawn, so the viewport has to cover all of it at the destination scale. Not just
+		// destW x destH, which would squeeze it whenever the read rectangle is smaller than the fbo.
+		Draw::Viewport viewport = { 0.0f, 0.0f, fbo->Width() * scaleX, fbo->Height() * scaleY, 0.0f, 1.0f };
 		draw_->SetViewport(viewport);
 		draw_->SetScissorRect(0, 0, fbo->Width() * scaleX, fbo->Height() * scaleY);
 

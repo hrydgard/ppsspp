@@ -110,11 +110,11 @@ void GLRenderManager::ThreadEnd() {
 		frameData_[i].deleter_prev.Perform(this, skipGLCalls_);
 	}
 	deleter_.Perform(this, skipGLCalls_);
-	for (int i = 0; i < (int)steps_.size(); i++) {
-		delete steps_[i];
-	}
-	steps_.clear();
+	// Steps that never got submitted. A dry run frees the data they own (texture uploads etc), and the steps.
+	queueRunner_.RunInitSteps(initSteps_, true);
 	initSteps_.clear();
+	queueRunner_.RunSteps(steps_, frameData_[0], true, false, false);
+	steps_.clear();
 	INFO_LOG(Log::G3D, "GLRenderManager::ThreadEnd end");
 }
 

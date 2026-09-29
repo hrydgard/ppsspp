@@ -37,6 +37,8 @@ class StringWriter;
 
 class SamplerCache {
 public:
+	SamplerCache(const SamplerCache &) = delete;
+	SamplerCache &operator=(const SamplerCache &) = delete;
 	SamplerCache(VulkanContext *vulkan) : vulkan_(vulkan), cache_(16) {}
 	~SamplerCache();
 	VkSampler GetOrCreateSampler(const SamplerCacheKey &key);

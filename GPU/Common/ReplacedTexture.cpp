@@ -278,6 +278,14 @@ void ReplacedTexture::Prepare(VFSBackend *vfs) {
 		}
 
 		result = LoadLevelData(fileRef, desc_.filenames[i], i, &pixelFormat);
+		// A level that got loaded owns the reference. Otherwise (error, or nothing to load) it's ours to free.
+		bool kept = false;
+		for (const ReplacedTextureLevel &level : levels_) {
+			kept = kept || level.fileRef == fileRef;
+		}
+		if (!kept) {
+			vfs_->ReleaseFile(fileRef);
+		}
 		if (result == LoadLevelResult::DONE) {
 			// Loaded all the levels we're gonna get.
 			fmt = pixelFormat;
@@ -730,6 +738,7 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		}
 		if (png.width > (uint32_t)level.w || png.height > (uint32_t)level.h) {
 			ERROR_LOG(Log::TexReplacement, "Texture replacement changed since header read: %s", filename.c_str());
+			png_image_free(&png);
 			return LoadLevelResult::LOAD_ERROR;
 		}
 

@@ -126,13 +126,16 @@ void Recorder::DirtyDrawnVRAM() {
 }
 
 bool Recorder::BeginRecording() {
+	std::unique_lock<std::mutex> guard(callbackLock_);
+	nextFrame = false;
 	if (PSP_CoreParameter().fileType == IdentifiedFileType::PPSSPP_GE_DUMP) {
-		// Can't record a GE dump.
+		// Can't record a GE dump. RecordNextFrame refuses this too.
+		writeCallback = nullptr;
 		return false;
 	}
 
 	active = true;
-	nextFrame = false;
+	guard.unlock();
 	lastTextures.clear();
 	lastRenderTargets.clear();
 	flipLastAction = gpuStats.totals.numFlips;
@@ -180,6 +183,10 @@ Path Recorder::WriteRecording() {
 	NOTICE_LOG(Log::G3D, "Recording filename: %s", filename.c_str());
 
 	FILE *fp = File::OpenCFile(filename, "wb");
+	if (!fp) {
+		ERROR_LOG(Log::G3D, "Failed to open '%s' for writing the recording", filename.c_str());
+		return Path();
+	}
 	Header header{};
 	memcpy(header.magic, HEADER_MAGIC, sizeof(header.magic));
 	header.version = VERSION;
@@ -574,14 +581,19 @@ void Recorder::EmitBezierSpline(u32 op) {
 }
 
 bool Recorder::RecordNextFrame(const std::function<void(const Path &)> callback) {
-	if (!nextFrame) {
-		flipLastAction = gpuStats.totals.numFlips;
-		flipFinishAt = -1;
-		writeCallback = callback;
-		nextFrame = true;
-		return true;
+	if (PSP_CoreParameter().fileType == IdentifiedFileType::PPSSPP_GE_DUMP) {
+		return false;
 	}
-	return false;
+	std::lock_guard<std::mutex> guard(callbackLock_);
+	// Don't take over a recording in progress, it would get the wrong callback and end point.
+	if (nextFrame || active) {
+		return false;
+	}
+	flipLastAction = gpuStats.totals.numFlips;
+	flipFinishAt = -1;
+	writeCallback = callback;
+	nextFrame = true;
+	return true;
 }
 
 void Recorder::FinishRecording() {
@@ -596,15 +608,21 @@ void Recorder::FinishRecording() {
 	lastVRAM.clear();
 
 	NOTICE_LOG(Log::System, "Recording finished");
-	active = false;
 	flipLastAction = gpuStats.totals.numFlips;
 	flipFinishAt = -1;
 	lastEdramTrans = 0x400;
 
-	if (writeCallback) {
-		writeCallback(filename);
+	std::function<void(const Path &)> callback;
+	{
+		std::lock_guard<std::mutex> guard(callbackLock_);
+		callback = std::move(writeCallback);
+		writeCallback = nullptr;
+		active = false;
 	}
-	writeCallback = nullptr;
+
+	if (callback && !filename.empty()) {
+		callback(filename);
+	}
 }
 
 void Recorder::CheckEdramTrans() {

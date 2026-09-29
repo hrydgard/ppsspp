@@ -76,6 +76,8 @@ enum class ReplacerDecimateMode {
 
 class TextureReplacer {
 public:
+	TextureReplacer(const TextureReplacer &) = delete;
+	TextureReplacer &operator=(const TextureReplacer &) = delete;
 	// The draw context is checked for supported texture formats.
 	TextureReplacer(Draw::DrawContext *draw);
 	~TextureReplacer();

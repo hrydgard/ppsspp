@@ -63,6 +63,9 @@ private:
 
 // Simply wraps a Vulkan pipeline, providing some metadata.
 struct VulkanPipeline {
+	VulkanPipeline() = default;
+	VulkanPipeline(const VulkanPipeline &) = delete;
+	VulkanPipeline &operator=(const VulkanPipeline &) = delete;
 	~VulkanPipeline() {
 		desc->Release();
 	}

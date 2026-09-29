@@ -30,6 +30,8 @@ static inline int operator &(const GLBufferStrategy &lhs, const GLBufferStrategy
 
 class GLRBuffer {
 public:
+	GLRBuffer(const GLRBuffer &) = delete;
+	GLRBuffer &operator=(const GLRBuffer &) = delete;
 	GLRBuffer(GLuint target, size_t size) : target_(target), size_((int)size) {}
 	~GLRBuffer() {
 		if (buffer_) {

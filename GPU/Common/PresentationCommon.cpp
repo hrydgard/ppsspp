@@ -555,8 +555,12 @@ static void DoRelease(T *&obj) {
 
 template <typename T>
 static void DoReleaseVector(std::vector<T *> &list) {
-	for (auto &obj : list)
-		obj->Release();
+	for (auto &obj : list) {
+		// Can be null when a creation failed partway.
+		if (obj) {
+			obj->Release();
+		}
+	}
 	list.clear();
 }
 

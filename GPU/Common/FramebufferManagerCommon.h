@@ -291,6 +291,8 @@ struct DisplayLayoutConfig;
 
 class FramebufferManagerCommon {
 public:
+	FramebufferManagerCommon(const FramebufferManagerCommon &) = delete;
+	FramebufferManagerCommon &operator=(const FramebufferManagerCommon &) = delete;
 	FramebufferManagerCommon(Draw::DrawContext *draw);
 	virtual ~FramebufferManagerCommon();
 

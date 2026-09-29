@@ -56,6 +56,8 @@ inline bool IsTrianglePrim(GEPrimitiveType prim) {
 struct TransformStats;
 class GPUCommon {
 public:
+	GPUCommon(const GPUCommon &) = delete;
+	GPUCommon &operator=(const GPUCommon &) = delete;
 	// The constructor might run on the loader thread.
 	GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
 	virtual ~GPUCommon() = default;
@@ -452,4 +454,5 @@ protected:
 private:
 	void DoExecuteCall(u32 target);
 	void PopDLQueue();
+	void CompleteFailedList(DisplayList &list);
 };

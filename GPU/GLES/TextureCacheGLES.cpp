@@ -51,10 +51,10 @@ void TextureCacheGLES::SetFramebufferManager(FramebufferManagerGLES *fbManager) 
 }
 
 void TextureCacheGLES::ReleaseTexture(TexCacheEntry *entry, bool delete_them) {
-	if (delete_them) {
-		if (entry->textureName) {
-			render_->DeleteTexture(entry->textureName);
-		}
+	// Delete even when !delete_them (device lost): the GLRTexture is a heap object that only the deleter
+	// frees, and the deleter skips the GL calls itself once the context is gone.
+	if (entry->textureName && render_) {
+		render_->DeleteTexture(entry->textureName);
 	}
 	entry->textureName = nullptr;
 }

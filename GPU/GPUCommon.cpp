@@ -957,6 +957,7 @@ DLResult GPUCommon::ProcessDLQueue() {
 				// Nothing to execute here, and leaving it at the head of the queue would block everything
 				// behind it for good.  Treat it like a list that ran into an error.
 				ERROR_LOG(Log::G3D, "Display list %d has a bad pc %08x (state %d), dropping it", listIndex, list.pc, (int)list.state);
+				CompleteFailedList(list);
 				dlQueue.erase(std::remove(dlQueue.begin(), dlQueue.end(), listIndex), dlQueue.end());
 				continue;
 			}
@@ -1045,7 +1046,8 @@ DLResult GPUCommon::ProcessDLQueue() {
 			}
 			break;
 		case GPUSTATE_ERROR:
-			// don't do anything - though dunno about error...
+			// The list can't continue. It's removed from the queue below.
+			CompleteFailedList(list);
 			break;
 		case GPUSTATE_STALL:
 			// Resume work on this same display list later. The GE is still busy with what it has
@@ -1390,6 +1392,20 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 	}
 }
 
+// A list dropped on an error still has to complete like a finished one, or its ID is never freed and
+// sceGeListSync on it never returns.
+void GPUCommon::CompleteFailedList(DisplayList &list) {
+	if (list.started && list.context.IsValid()) {
+		gstate.Restore(list.context);
+		ReapplyGfxState();
+		list.started = false;
+	}
+	list.state = PSP_GE_DL_STATE_COMPLETED;
+	list.waitUntilTicks = startingTicks + cyclesExecuted;
+	busyTicks = std::max(busyTicks, list.waitUntilTicks);
+	__GeTriggerSync(GPU_SYNC_LIST, list.id, list.waitUntilTicks);
+}
+
 void GPUCommon::Execute_BoundingBox(u32 op, u32 diff) {
 	// Just resetting, nothing to check bounds for.
 	const u32 count = op & 0xFFFF;
@@ -1552,8 +1568,10 @@ void GPUCommon::FlushImm() {
 
 	bool changed = texturing != prevTexturing || cullEnable != prevCullEnable || dither != prevDither;
 	changed = changed || prevShading != shading || prevFog != fog;
+	// Always flush, even if the flags match: DispatchSubmitImm switches to through mode and a different
+	// vertex decoder, which would otherwise apply to the draws already queued.
+	Flush();
 	if (changed) {
-		Flush();
 		gstate.antiAliasEnable = (GE_CMD_ANTIALIASENABLE << 24) | (int)antialias;
 		gstate.shademodel = (GE_CMD_SHADEMODE << 24) | (int)shading;
 		gstate.cullfaceEnable = (GE_CMD_CULLFACEENABLE << 24) | (int)cullEnable;
@@ -2290,12 +2308,16 @@ bool GPUCommon::NeedsSlowInterpreter() const {
 void GPUCommon::ClearBreakNext() {
 	breakNext_ = GPUDebug::BreakNext::NONE;
 	breakAtCount_ = -1;
+	// A step that never reached its target leaves these behind, and they'd trip unexpectedly later.
+	breakpoints_.ClearTempBreakpoints();
 	GPUStepping::ResumeFromStepping();
 }
 
 void GPUCommon::SetBreakNext(GPUDebug::BreakNext next) {
 	breakNext_ = next;
 	breakAtCount_ = -1;
+	// Drop the ones from a previous step that didn't get there, before adding this one's.
+	breakpoints_.ClearTempBreakpoints();
 	switch (next) {
 	case GPUDebug::BreakNext::TEX:
 		breakpoints_.AddTextureChangeTempBreakpoint();

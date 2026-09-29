@@ -38,6 +38,11 @@ enum {
 	VERTEX_BUFFER_MAX = 65536,
 	DECODED_VERTEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * 2 * 36,  // 36 == sizeof(SimpleVertex)
 	DECODED_INDEX_BUFFER_SIZE = VERTEX_BUFFER_MAX * 6 * 6 * 2,   // * 6 for spline tessellation, then * 6 again for converting into points/lines, and * 2 for 2 bytes per index
+	// TestBoundingBox handles up to 1025 vertices: corners (SimpleVertex), then positions, then decoded vertices.
+	BBOX_SCRATCH_CORNERS_OFFSET = 0,
+	BBOX_SCRATCH_VERTS_OFFSET = 64 * 1024,
+	BBOX_SCRATCH_TEMP_OFFSET = 128 * 1024,
+	BBOX_SCRATCH_SIZE = 256 * 1024,
 };
 
 enum {
@@ -68,6 +73,8 @@ struct alignas(16) Plane8 {
 
 class DrawEngineCommon {
 public:
+	DrawEngineCommon(const DrawEngineCommon &) = delete;
+	DrawEngineCommon &operator=(const DrawEngineCommon &) = delete;
 	DrawEngineCommon();
 	virtual ~DrawEngineCommon();
 
@@ -161,6 +168,11 @@ protected:
 	void DecodeVerts(const VertexDecoder *dec, u8 *dest);
 	int DecodeInds();
 
+	// Whether an indexed draw can share the previous draw's vertex decode, by widening its index range.
+	bool CanExtendDecode(const void *verts, const void *inds, const VertexDecoder *dec) const {
+		return inds && numDrawVerts_ > decodeVertsCounter_ && drawVerts_[numDrawVerts_ - 1].verts == verts && !dec->skinInDecode;
+	}
+
 	int ComputeNumVertsToDecode() const;
 
 	void ApplyFramebufferRead(FBOTexState *fboTexState);
@@ -211,6 +223,7 @@ protected:
 		numDrawVerts_ = 0;
 		numDrawInds_ = 0;
 		vertexCountInDrawCalls_ = 0;
+		numVertsToDecode_ = 0;
 		decodeIndsCounter_ = 0;
 		decodeVertsCounter_ = 0;
 		seenPrims_ = 0;
@@ -273,6 +286,8 @@ protected:
 	// Vertex collector buffers
 	u8 *decoded_ = nullptr;
 	u16 *decIndex_ = nullptr;
+	// Separate from decoded_, which can hold decoded vertices that haven't been flushed yet.
+	u8 *bboxScratch_ = nullptr;
 
 	// Cached vertex decoders
 	DenseHashMap<u32, VertexDecoder *> decoderMap_;
@@ -312,6 +327,8 @@ protected:
 	int numDrawVerts_ = 0;
 	int numDrawInds_ = 0;
 	int vertexCountInDrawCalls_ = 0;
+	// How many vertices DecodeVerts will produce for the queued draws. Must stay <= VERTEX_BUFFER_MAX.
+	int numVertsToDecode_ = 0;
 
 	int decodeVertsCounter_ = 0;
 	int decodeIndsCounter_ = 0;

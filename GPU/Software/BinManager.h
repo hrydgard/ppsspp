@@ -57,6 +57,8 @@ struct BinItem {
 
 template <typename T, size_t N>
 struct BinQueue {
+	BinQueue(const BinQueue &) = delete;
+	BinQueue &operator=(const BinQueue &) = delete;
 	BinQueue() {
 		Reset();
 	}
@@ -185,6 +187,8 @@ struct BinDirtyRange {
 class StringWriter;
 class BinManager {
 public:
+	BinManager(const BinManager &) = delete;
+	BinManager &operator=(const BinManager &) = delete;
 	BinManager();
 	~BinManager();
 

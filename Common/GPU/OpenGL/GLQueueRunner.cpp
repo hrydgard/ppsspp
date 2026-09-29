@@ -147,6 +147,7 @@ void GLQueueRunner::RunInitSteps(const FastVec<GLRInitStep> &steps, bool skipGLC
 			case GLRInitStepType::CREATE_SHADER:
 			{
 				WARN_LOG(Log::G3D, "CREATE_SHADER found with skipGLCalls, not good");
+				delete[] step.create_shader.code;
 				break;
 			}
 			default:
@@ -677,6 +678,9 @@ void GLQueueRunner::RunSteps(const std::vector<GLRStep *> &steps, GLFrameData &f
 								delete[] c.texture_subimage.data;
 							}
 						}
+						break;
+					case GLRRenderCommand::UNIFORMSTEREOMATRIX:
+						delete[] c.uniformStereoMatrix4.mData;
 						break;
 					default:
 						break;

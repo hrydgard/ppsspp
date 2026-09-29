@@ -22,6 +22,8 @@ struct TextureCopyBatch {
 // ALWAYS use an allocator when calling CreateDirect.
 class VulkanTexture {
 public:
+	VulkanTexture(const VulkanTexture &) = delete;
+	VulkanTexture &operator=(const VulkanTexture &) = delete;
 	VulkanTexture(VulkanContext *vulkan, const char *tag);
 	~VulkanTexture() {
 		Destroy();

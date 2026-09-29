@@ -37,6 +37,8 @@ class IOFile;
 
 class LinkedShader {
 public:
+	LinkedShader(const LinkedShader &) = delete;
+	LinkedShader &operator=(const LinkedShader &) = delete;
 	LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, FShaderID FSID, Shader *fs, bool useHWTransform, bool preloading = false);
 	~LinkedShader();
 
@@ -139,6 +141,8 @@ struct ShaderDescGLES {
 
 class Shader {
 public:
+	Shader(const Shader &) = delete;
+	Shader &operator=(const Shader &) = delete;
 	Shader(GLRenderManager *render, const char *code, const std::string &desc, const ShaderDescGLES &params);
 	~Shader();
 	GLRShader *shader;

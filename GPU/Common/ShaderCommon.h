@@ -123,6 +123,8 @@ enum : uint64_t {
 
 class ShaderManagerCommon {
 public:
+	ShaderManagerCommon(const ShaderManagerCommon &) = delete;
+	ShaderManagerCommon &operator=(const ShaderManagerCommon &) = delete;
 	ShaderManagerCommon(Draw::DrawContext *draw) : draw_(draw) {}
 	virtual ~ShaderManagerCommon() {}
 

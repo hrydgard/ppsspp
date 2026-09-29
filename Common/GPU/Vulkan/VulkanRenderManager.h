@@ -115,6 +115,8 @@ public:
 
 // Wrapped pipeline. Does own desc!
 struct VKRGraphicsPipeline {
+	VKRGraphicsPipeline(const VKRGraphicsPipeline &) = delete;
+	VKRGraphicsPipeline &operator=(const VKRGraphicsPipeline &) = delete;
 	VKRGraphicsPipeline(PipelineFlags flags, const char *tag) : flags_(flags), tag_(tag) {}
 	~VKRGraphicsPipeline();
 
@@ -195,6 +197,9 @@ static_assert(sizeof(PackedDescriptor::buffer) == 16, "PackedDescriptor should b
 // Note that we only support a single descriptor set due to compatibility with some ancient devices.
 // We should probably eventually give that up eventually.
 struct VKRPipelineLayout {
+	VKRPipelineLayout() = default;
+	VKRPipelineLayout(const VKRPipelineLayout &) = delete;
+	VKRPipelineLayout &operator=(const VKRPipelineLayout &) = delete;
 	~VKRPipelineLayout();
 
 	enum { MAX_DESC_SET_BINDINGS = 5 };

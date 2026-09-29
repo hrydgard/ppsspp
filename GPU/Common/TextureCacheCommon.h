@@ -86,6 +86,8 @@ struct SamplerCacheKey {
 			bool tClamp : 1;
 			bool aniso : 1;
 			bool texture3d : 1;
+			// Baked into the sampler objects, so it has to be part of the key, or a change wouldn't apply.
+			uint8_t anisoLevel;
 		};
 	};
 	bool operator < (const SamplerCacheKey &other) const {
@@ -158,6 +160,9 @@ ENUM_CLASS_BITOPS(TexStatus);
 
 // TODO: Shrink this struct. There is some fluff.
 struct TexCacheEntry {
+	TexCacheEntry() = default;
+	TexCacheEntry(const TexCacheEntry &) = delete;
+	TexCacheEntry &operator=(const TexCacheEntry &) = delete;
 	~TexCacheEntry() {
 #ifdef _DEBUG
 		if (texturePtr || textureName || vkTex)
@@ -336,6 +341,8 @@ struct TextureApplyResult {
 
 class TextureCacheCommon {
 public:
+	TextureCacheCommon(const TextureCacheCommon &) = delete;
+	TextureCacheCommon &operator=(const TextureCacheCommon &) = delete;
 	TextureCacheCommon(Draw::DrawContext *draw, Draw2D *draw2D);
 	virtual ~TextureCacheCommon();
 

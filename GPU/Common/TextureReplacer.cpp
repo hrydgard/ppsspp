@@ -230,6 +230,7 @@ bool TextureReplacer::LoadIni(std::string *error, bool notify) {
 
 			if (filenameMap.empty()) {
 				WARN_LOG(Log::TexReplacement, "No replacement textures found.");
+				delete dir;
 				return false;
 			}
 

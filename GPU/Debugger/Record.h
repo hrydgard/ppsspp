@@ -19,6 +19,7 @@
 
 #include <functional>
 #include <atomic>
+#include <mutex>
 #include <vector>
 #include <set>
 
@@ -50,7 +51,7 @@ public:
 	}
 	bool RecordNextFrame(const std::function<void(const Path &)> callback);
 	void ClearCallback() {
-		// Not super thread safe..
+		std::lock_guard<std::mutex> guard(callbackLock_);
 		writeCallback = nullptr;
 	}
 
@@ -95,6 +96,8 @@ private:
 	int flipFinishAt = -1;
 	uint32_t lastEdramTrans = 0x400;
 	std::function<void(const Path &)> writeCallback;
+	// RecordNextFrame is called from other threads. Guards writeCallback, nextFrame and the writes to active.
+	std::mutex callbackLock_;
 
 	std::vector<u8> pushbuf;
 	std::vector<Command> commands;

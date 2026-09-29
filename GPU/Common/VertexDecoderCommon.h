@@ -115,7 +115,8 @@ public:
 		case GE_VTYPE_IDX_16BIT:
 			return indices16[index];
 		case GE_VTYPE_IDX_32BIT:
-			return indices32[index];
+			// The PSP supports 32-bit indices in name only: it ignores the upper 16 bits.
+			return indices32[index] & 0xFFFF;
 		default:
 			return index;
 		}

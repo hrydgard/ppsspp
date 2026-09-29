@@ -18,6 +18,8 @@ enum class BindingType {
 // Only appropriate for use in a per-frame pool.
 class VulkanDescSetPool {
 public:
+	VulkanDescSetPool(const VulkanDescSetPool &) = delete;
+	VulkanDescSetPool &operator=(const VulkanDescSetPool &) = delete;
 	VulkanDescSetPool(const char *tag, bool grow = true) : tag_(tag), grow_(grow) {}
 	~VulkanDescSetPool();
 

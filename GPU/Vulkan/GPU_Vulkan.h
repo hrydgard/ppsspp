@@ -69,7 +69,7 @@ private:
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();
 
-	void LoadCache(const Path &filename);
+	void LoadCache(const Path &filename, bool waitForPipelines);
 	void SaveCache(const Path &filename);
 
 	FramebufferManagerVulkan *framebufferManagerVulkan_;
