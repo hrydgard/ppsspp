@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include <atomic>
 #include <climits>
 #include <cstdio>
@@ -289,6 +290,15 @@ void ScheduleEvent(s64 cyclesIntoFuture, int event_type, u64 userdata)
 	ne->type = event_type;
 	ne->time = GetTicks(currentMIPS) + cyclesIntoFuture;
 	AddEventToQueue(ne);
+
+	// The slice was sized to end at the next event. If this one is due sooner, end it there, or it
+	// fires late: an alarm set by a thread that keeps running went off hundreds of us late
+	// (pspautotests threads/scheduling/alarmcosts).
+	if (cyclesIntoFuture < currentMIPS->downcount) {
+		const int diff = (int)std::max<s64>(cyclesIntoFuture, 0) - currentMIPS->downcount;
+		slicelength += diff;
+		currentMIPS->downcount += diff;
+	}
 }
 
 // Returns cycles left in timer.
