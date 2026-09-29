@@ -307,6 +307,9 @@ public:
 	bool isProcessingCallbacks = false;
 	// False until the thread first waits after being started (see __KernelDelayReturnsAtOnce).
 	bool hasWaited = true;
+	// A callback was notified while this thread was in a CB wait, which pauses the wait right away
+	// (see __KernelNotifyCallback). The thread is still waiting until its callbacks run.
+	bool waitPausedForCallback = false;
 	u32 currentMipscallId = -1;
 	SceUID currentCallbackId = -1;
 

@@ -606,6 +606,7 @@ tests_next = [
   # These two mbx tests only appeared to work because they papered over bugs 
 
 
+  "threads/callbacks/combos",
   "threads/scheduling/scheduling",
   "threads/threads/create",
   "threads/tls/memory",

@@ -419,7 +419,7 @@ void PSPThread::Cleanup() {
 }
 
 void PSPThread::DoState(PointerWrap &p) {
-	auto s = p.Section("Thread", 1, 6);
+	auto s = p.Section("Thread", 1, 7);
 	if (!s)
 		return;
 
@@ -464,6 +464,11 @@ void PSPThread::DoState(PointerWrap &p) {
 		Do(p, hasWaited);
 	} else {
 		hasWaited = true;
+	}
+	if (s >= 7) {
+		Do(p, waitPausedForCallback);
+	} else {
+		waitPausedForCallback = false;
 	}
 }
 
@@ -3176,6 +3181,7 @@ void PSPThread::setReturnValue(u64 retval) {
 
 void PSPThread::resumeFromWait() {
 	nt.status &= ~THREADSTATUS_WAIT;
+	waitPausedForCallback = false;
 	if (!(nt.status & (THREADSTATUS_WAITSUSPEND | THREADSTATUS_DORMANT | THREADSTATUS_DEAD)))
 		__KernelChangeReadyState(this, GetUID(), true);
 
@@ -3381,7 +3387,10 @@ void __KernelCallAddress(PSPThread *thread, u32 entryPoint, PSPAction *afterActi
 		if (thread->nt.waitType != WAITTYPE_NONE) {
 			// If it's a callback, tell the wait to stop.  A thread that already returned from its
 			// wait keeps a stale waitType until it's switched out, so check that it's waiting.
-			if (cbId > 0 && (thread->nt.status & THREADSTATUS_WAIT) != 0) {
+			if (cbId > 0 && (thread->nt.status & THREADSTATUS_WAIT) != 0 && thread->waitPausedForCallback) {
+				// Already paused when the callback was notified.
+				thread->waitPausedForCallback = false;
+			} else if (cbId > 0 && (thread->nt.status & THREADSTATUS_WAIT) != 0) {
 				if (waitTypeFuncs[thread->nt.waitType].beginFunc != NULL) {
 					waitTypeFuncs[thread->nt.waitType].beginFunc(after->threadID, thread->currentCallbackId);
 				} else {
@@ -3718,6 +3727,12 @@ bool __KernelCheckCallbacks() {
 			continue;
 		if (__KernelCheckThreadCallbacks(thread, false)) {
 			processed = true;
+		} else if (thread->waitPausedForCallback) {
+			// Its turn came, but the callbacks were canceled meanwhile: back to the wait, which
+			// may well be satisfied by now.
+			thread->waitPausedForCallback = false;
+			if (waitTypeFuncs[thread->nt.waitType].endFunc != NULL)
+				waitTypeFuncs[thread->nt.waitType].endFunc(thread->GetUID(), thread->currentCallbackId);
 		}
 	}
 
@@ -3798,6 +3813,18 @@ void __KernelNotifyCallback(SceUID cbId, int notifyArg)
 	}
 	cb->nc.notifyCount++;
 	cb->nc.notifyArg = notifyArg;
+
+	// A thread in a CB wait is taken out of the wait as soon as one of its callbacks is notified,
+	// even though the callback only runs when the thread would get to run. Whatever happens to the
+	// object in between is seen when the wait resumes after the callbacks: releasing it doesn't
+	// end the wait, and doesn't stop the callbacks running (pspautotests threads/callbacks/combos).
+	PSPThread *t = kernelObjects.Get<PSPThread>(cb->nc.threadId, error);
+	if (t && t->isWaiting() && t->isProcessingCallbacks && !t->waitPausedForCallback && t->nt.waitType != WAITTYPE_NONE) {
+		if (waitTypeFuncs[t->nt.waitType].beginFunc != NULL) {
+			waitTypeFuncs[t->nt.waitType].beginFunc(t->GetUID(), t->currentCallbackId);
+			t->waitPausedForCallback = true;
+		}
+	}
 }
 
 void __KernelRegisterWaitTypeFuncs(WaitType type, WaitBeginCallbackFunc beginFunc, WaitEndCallbackFunc endFunc)
