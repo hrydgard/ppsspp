@@ -91,7 +91,6 @@ void DrawEngineGLES::InitDeviceObjects() {
 	entries.push_back({ ATTR_NORMAL, 1, GL_FLOAT, GL_FALSE, offsetof(TransformedVertex, fog) });
 	softwareInputLayout_ = render_->CreateInputLayout(entries, stride);
 
-	draw_->SetInvalidationCallback(std::bind(&DrawEngineGLES::Invalidate, this, std::placeholders::_1));
 }
 
 void DrawEngineGLES::DestroyDeviceObjects() {
@@ -99,6 +98,7 @@ void DrawEngineGLES::DestroyDeviceObjects() {
 		return;
 	}
 	draw_->SetInvalidationCallback(InvalidationCallback());
+	invalidationCallbackInstalled_ = false;
 
 	// Beware: this could be called twice in a row, sometimes.
 	for (int i = 0; i < GLRenderManager::MAX_INFLIGHT_FRAMES; i++) {
@@ -129,6 +129,10 @@ void DrawEngineGLES::ClearInputLayoutMap() {
 
 void DrawEngineGLES::BeginFrame() {
 	DrawEngineCommon::BeginFrame();
+	if (!invalidationCallbackInstalled_) {
+		draw_->SetInvalidationCallback(std::bind(&DrawEngineGLES::Invalidate, this, std::placeholders::_1));
+		invalidationCallbackInstalled_ = true;
+	}
 
 	FrameData &frameData = frameData_[render_->GetCurFrame()];
 	frameData.pushIndex->Begin();

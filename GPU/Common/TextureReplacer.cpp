@@ -147,6 +147,10 @@ bool TextureReplacer::LoadIni(std::string *error, bool notify) {
 	hashranges_.clear();
 	filtering_.clear();
 	reducehashranges_.clear();
+	// These hold what the old ini said about each texture, including "no replacement" markers.
+	// Only references go, the textures stay in levelCache_.
+	cache_.clear();
+	savedCache_.clear();
 
 	ignoreAddress_ = false;
 	reduceHash_ = false;
@@ -670,15 +674,18 @@ ReplacedTexture *TextureReplacer::FindReplacement(ReplacementCacheKey replacemen
 	desc.cacheKey = replacementKey;
 	desc.forceFiltering = (TextureFiltering)0;  // invalid value
 
+	// Hash ranges are per address even with ignoreAddress, since ComputeHash applies them.
+	LookupHashRange(replacementKey.Address(), w, h, &desc.newW, &desc.newH);
+
+	// cache_ stays keyed by the full key. ignoreAddress only affects finding the files.
+	ReplacementCacheKey lookupKey = replacementKey;
 	if (ignoreAddress_) {
-		replacementKey.ZeroAddress();
-	} else {
-		LookupHashRange(replacementKey.Address(), w, h, &desc.newW, &desc.newH);
+		lookupKey.ZeroAddress();
 	}
 
 	bool foundAlias = false;
 	bool ignored = false;
-	std::string hashfiles = LookupHashFile(replacementKey, &foundAlias, &ignored);
+	std::string hashfiles = LookupHashFile(lookupKey, &foundAlias, &ignored);
 
 	// Early-out for ignored textures, let's not bother even starting a thread task.
 	if (ignored) {
@@ -689,7 +696,7 @@ ReplacedTexture *TextureReplacer::FindReplacement(ReplacementCacheKey replacemen
 		return nullptr;
 	}
 
-	FindFiltering(replacementKey, &desc.forceFiltering);
+	FindFiltering(lookupKey, &desc.forceFiltering);
 
 	if (foundAlias) {
 		desc.logId = hashfiles;
@@ -707,12 +714,14 @@ ReplacedTexture *TextureReplacer::FindReplacement(ReplacementCacheKey replacemen
 	}
 
 	_dbg_assert_(!hashfiles.empty());
-	// OK, we might already have a matching texture, we use hashfiles as a key. Look it up in the level cache.
-	auto iter = levelCache_.find(hashfiles);
+	// OK, we might already have a matching texture. Textures sharing files can still differ in how
+	// they're scaled and filtered, so those go in the level cache key too.
+	std::string levelKey = StringFromFormat("%s#%dx%d>%dx%d#%d", hashfiles.c_str(), desc.w, desc.h, desc.newW, desc.newH, (int)desc.forceFiltering);
+	auto iter = levelCache_.find(levelKey);
 	if (iter != levelCache_.end()) {
 		// Insert an entry into the cache for faster lookup next time.
 		ReplacedTextureRef ref;
-		ref.hashfiles = hashfiles;
+		ref.hashfiles = levelKey;
 		ref.texture = iter->second;
 		cache_.emplace(std::make_pair(replacementKey, ref));
 		return iter->second;
@@ -725,12 +734,11 @@ ReplacedTexture *TextureReplacer::FindReplacement(ReplacementCacheKey replacemen
 	ReplacedTexture *texture = new ReplacedTexture(vfs_, desc);
 
 	ReplacedTextureRef ref;
-	ref.hashfiles = hashfiles;
+	ref.hashfiles = levelKey;
 	ref.texture = texture;
 	cache_.emplace(std::make_pair(replacementKey, ref));
 
-	// Also, insert the level in the level cache so we can look up by desc_->hashfiles again.
-	levelCache_.emplace(std::make_pair(hashfiles, texture));
+	levelCache_.emplace(std::make_pair(levelKey, texture));
 	return texture;
 }
 

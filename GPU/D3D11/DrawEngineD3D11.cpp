@@ -83,13 +83,12 @@ DrawEngineD3D11::~DrawEngineD3D11() {
 void DrawEngineD3D11::InitDeviceObjects() {
 	pushVerts_ = new PushBufferD3D11(device_, VERTEX_PUSH_SIZE, D3D11_BIND_VERTEX_BUFFER);
 	pushInds_ = new PushBufferD3D11(device_, INDEX_PUSH_SIZE, D3D11_BIND_INDEX_BUFFER);
-
-	draw_->SetInvalidationCallback(std::bind(&DrawEngineD3D11::Invalidate, this, std::placeholders::_1));
 }
 
 void DrawEngineD3D11::DestroyDeviceObjects() {
 	if (draw_) {
 		draw_->SetInvalidationCallback(InvalidationCallback());
+		invalidationCallbackInstalled_ = false;
 	}
 
 	ClearInputLayoutMap();
@@ -129,10 +128,19 @@ void DrawEngineD3D11::DestroyDeviceObjects() {
 void DrawEngineD3D11::DeviceLost() {
 	DestroyDeviceObjects();
 	draw_ = nullptr;
+	device_ = nullptr;
+	context_ = nullptr;
+	device1_ = nullptr;
+	context1_ = nullptr;
 }
 
 void DrawEngineD3D11::DeviceRestore(Draw::DrawContext *draw) {
+	// The restored context can be a new device, so don't keep the old pointers.
 	draw_ = draw;
+	device_ = (ID3D11Device *)draw->GetNativeObject(Draw::NativeObject::DEVICE);
+	context_ = (ID3D11DeviceContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT);
+	device1_ = (ID3D11Device1 *)draw->GetNativeObject(Draw::NativeObject::DEVICE_EX);
+	context1_ = (ID3D11DeviceContext1 *)draw->GetNativeObject(Draw::NativeObject::CONTEXT_EX);
 	InitDeviceObjects();
 }
 
@@ -251,6 +259,10 @@ HRESULT DrawEngineD3D11::SetupDecFmtForDraw(D3D11VertexShader *vshader, const De
 
 void DrawEngineD3D11::BeginFrame() {
 	DrawEngineCommon::BeginFrame();
+	if (!invalidationCallbackInstalled_) {
+		draw_->SetInvalidationCallback(std::bind(&DrawEngineD3D11::Invalidate, this, std::placeholders::_1));
+		invalidationCallbackInstalled_ = true;
+	}
 
 	pushVerts_->Reset();
 	pushInds_->Reset();
@@ -355,6 +367,9 @@ void DrawEngineD3D11::Flush() {
 			UINT vOffset;
 			int vSize = numDecodedVerts_ * dec_->GetDecVtxFmt().stride;
 			uint8_t *vptr = pushVerts_->BeginPush(context_, &vOffset, vSize);
+			if (!vptr) {
+				goto bail;
+			}
 			memcpy(vptr, decoded_, vSize);
 			pushVerts_->EndPush(context_);
 			ID3D11Buffer *buf = pushVerts_->Buf();
@@ -363,6 +378,9 @@ void DrawEngineD3D11::Flush() {
 				UINT iOffset;
 				int iSize = 2 * vertexCount;
 				uint8_t *iptr = pushInds_->BeginPush(context_, &iOffset, iSize);
+				if (!iptr) {
+					goto bail;
+				}
 				memcpy(iptr, decIndex_, iSize);
 				pushInds_->EndPush(context_);
 				context_->IASetIndexBuffer(pushInds_->Buf(), DXGI_FORMAT_R16_UINT, iOffset);
@@ -474,6 +492,9 @@ void DrawEngineD3D11::Flush() {
 			UINT vOffset = 0;
 			int vSize = result.drawVertexCount * stride;
 			uint8_t *vptr = pushVerts_->BeginPush(context_, &vOffset, vSize);
+			if (!vptr) {
+				goto bail;
+			}
 			memcpy(vptr, result.drawBuffer, vSize);
 			pushVerts_->EndPush(context_);
 			ID3D11Buffer *buf = pushVerts_->Buf();
@@ -481,6 +502,9 @@ void DrawEngineD3D11::Flush() {
 			UINT iOffset;
 			int iSize = sizeof(uint16_t) * result.drawIndexCount;
 			uint8_t *iptr = pushInds_->BeginPush(context_, &iOffset, iSize);
+			if (!iptr) {
+				goto bail;
+			}
 			memcpy(iptr, inds, iSize);
 			pushInds_->EndPush(context_);
 			context_->IASetIndexBuffer(pushInds_->Buf(), DXGI_FORMAT_R16_UINT, iOffset);

@@ -75,6 +75,11 @@ void GPUCommon::BeginHostFrame(const DisplayLayoutConfig &config) {
 	CheckConfigChanged(config);
 	CheckDisplayResized();
 	CheckRenderResized(config);
+
+	// After the resizes, which ask for the post shaders to be rebuilt at the new size.
+	if (framebufferManager_) {
+		framebufferManager_->CheckPostShaders(config);
+	}
 }
 
 void GPUCommon::EndHostFrame() {

@@ -111,10 +111,16 @@ void ShaderManagerD3D11::DestroyDeviceObjects() {
 void ShaderManagerD3D11::DeviceLost() {
 	DestroyDeviceObjects();
 	draw_ = nullptr;
+	device_ = nullptr;
+	context_ = nullptr;
 }
 
 void ShaderManagerD3D11::DeviceRestore(Draw::DrawContext *draw) {
+	// The restored context can be a new device, so don't keep the old pointers.
 	draw_ = draw;
+	device_ = (ID3D11Device *)draw->GetNativeObject(Draw::NativeObject::DEVICE);
+	context_ = (ID3D11DeviceContext *)draw->GetNativeObject(Draw::NativeObject::CONTEXT);
+	featureLevel_ = (D3D_FEATURE_LEVEL)draw->GetNativeObject(Draw::NativeObject::FEATURE_LEVEL);
 	InitDeviceObjects();
 }
 
@@ -147,15 +153,18 @@ uint64_t ShaderManagerD3D11::UpdateUniforms(bool useBufferedRendering, bool pixe
 		D3D11_MAPPED_SUBRESOURCE map;
 		if (dirty & DIRTY_BASE_UNIFORMS) {
 			BaseUpdateUniforms(&ub_base, dirty, useBufferedRendering, pixelMapped);
-			context_->Map(push_base.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
-			memcpy(map.pData, &ub_base, sizeof(ub_base));
-			context_->Unmap(push_base.Get(), 0);
+			// Map fails after device removal, and map.pData is garbage then.
+			if (SUCCEEDED(context_->Map(push_base.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &map))) {
+				memcpy(map.pData, &ub_base, sizeof(ub_base));
+				context_->Unmap(push_base.Get(), 0);
+			}
 		}
 		if (dirty & DIRTY_LIGHT_UNIFORMS) {
 			LightUpdateUniforms(&ub_lights, dirty);
-			context_->Map(push_lights.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
-			memcpy(map.pData, &ub_lights, sizeof(ub_lights));
-			context_->Unmap(push_lights.Get(), 0);
+			if (SUCCEEDED(context_->Map(push_lights.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &map))) {
+				memcpy(map.pData, &ub_lights, sizeof(ub_lights));
+				context_->Unmap(push_lights.Get(), 0);
+			}
 		}
 	}
 	gstate_c.CleanUniforms();

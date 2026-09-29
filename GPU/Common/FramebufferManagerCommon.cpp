@@ -1557,14 +1557,19 @@ bool FramebufferManagerCommon::DrawFramebufferToOutput(const DisplayLayoutConfig
 	if (needBackBufferYSwap_) {
 		flags |= OutputFlags::BACKBUFFER_FLIPPED;
 	}
+	if (!useBufferedRendering_) {
+		// We're inside the backbuffer pass, where nothing else will draw this image.
+		flags |= OutputFlags::NO_POST_SHADER;
+	}
 
 	constexpr float u0 = 0.0f, u1 = 1.0f;
 	constexpr float v0 = 0.0f, v1 = 1.0f;
 
-	if (useBufferedRendering_) {
-		presentation_->UpdateUniforms(gpu->VideoIsPlaying());
-		presentation_->SourceTexture(pixelsTex, 480, 272);
-		presentation_->RunPostshaderPasses(config, flags, uvRotation, u0, v0, u1, v1);
+	presentation_->UpdateUniforms(gpu->VideoIsPlaying());
+	presentation_->SourceTexture(pixelsTex, 480, 272);
+	presentation_->RunPostshaderPasses(config, flags, uvRotation, u0, v0, u1, v1);
+	if (!useBufferedRendering_) {
+		presentation_->CopyToOutput(config);
 	}
 
 	// PresentationCommon sets all kinds of state, we can't rely on anything.
@@ -2863,9 +2868,7 @@ void FramebufferManagerCommon::NotifyBlockTransferAfter(u32 dstBasePtr, int dstS
 		if (isPrevDisplayBuffer || isDisplayBuffer) {
 			FlushBeforeCopy();
 			// HACK
-			if (DrawFramebufferToOutput(displayLayoutConfigCopy_, Memory::GetPointerUnchecked(dstBasePtr), dstStride, displayFormat_)) {
-				presentation_->CopyToOutput(displayLayoutConfigCopy_);
-			}
+			DrawFramebufferToOutput(displayLayoutConfigCopy_, Memory::GetPointerUnchecked(dstBasePtr), dstStride, displayFormat_);
 			return;
 		}
 	}

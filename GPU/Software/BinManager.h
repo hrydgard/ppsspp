@@ -132,7 +132,7 @@ struct BinQueue {
 	}
 
 	bool Full() const {
-		return size_ == N - 1;
+		return size_ >= N - 1;
 	}
 
 	bool NearFull() const {
@@ -278,13 +278,16 @@ private:
 	const char *slowestFlushReason_ = nullptr;
 	double slowestFlushTime_ = 0.0;
 	int lastFlipstats_ = 0;
+	// The framebuffer the queued draws render to. A framebuffer change flushes first, so it's one for all
+	// of them, and during that flush gstate already has the new one.
+	u32 drawTargetAddr_ = 0;
 	int enqueues_ = 0;
 	int mostThreads_ = 0;
 
 	void MarkPendingReads(const Rasterizer::RasterizerState &state);
 	void MarkPendingWrites(const Rasterizer::RasterizerState &state);
 	bool HasTextureWrite(const Rasterizer::RasterizerState &state);
-	static bool IsExactSelfRender(const Rasterizer::RasterizerState &state, const BinItem &item);
+	bool IsExactSelfRender(const Rasterizer::RasterizerState &state, const BinItem &item) const;
 	void OptimizePendingStates(uint16_t first, uint16_t last);
 	BinCoords Scissor(BinCoords range);
 	BinCoords Range(const VertexData &v0, const VertexData &v1, const VertexData &v2);

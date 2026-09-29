@@ -68,6 +68,15 @@ struct SurfaceInfo {
 			break;
 		}
 	}
+
+	// Only the larger factor, so a lopsided patch keeps at least one step along its short axis.
+	void ReduceLargerTess() {
+		if (tess_u >= tess_v) {
+			tess_u--;
+		} else {
+			tess_v--;
+		}
+	}
 };
 
 struct BezierSurface : public SurfaceInfo {
@@ -78,9 +87,8 @@ struct BezierSurface : public SurfaceInfo {
 	void Init(int maxVertices) {
 		SurfaceInfo::BaseInit();
 		// Downsample until it fits, in case crazy tessellation factors are sent.
-		while ((tess_u + 1) * (tess_v + 1) * num_patches_u * num_patches_v > maxVertices) {
-			tess_u--;
-			tess_v--;
+		while ((tess_u + 1) * (tess_v + 1) * num_patches_u * num_patches_v > maxVertices && (tess_u > 1 || tess_v > 1)) {
+			ReduceLargerTess();
 		}
 		num_verts_per_patch = (tess_u + 1) * (tess_v + 1);
 	}
@@ -116,9 +124,8 @@ struct SplineSurface : public SurfaceInfo {
 	void Init(int maxVertices) {
 		SurfaceInfo::BaseInit();
 		// Downsample until it fits, in case crazy tessellation factors are sent.
-		while ((num_patches_u * tess_u + 1) * (num_patches_v * tess_v + 1) > maxVertices) {
-			tess_u--;
-			tess_v--;
+		while ((num_patches_u * tess_u + 1) * (num_patches_v * tess_v + 1) > maxVertices && (tess_u > 1 || tess_v > 1)) {
+			ReduceLargerTess();
 		}
 		num_vertices_u = num_patches_u * tess_u + 1;
 	}
