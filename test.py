@@ -396,6 +396,7 @@ tests_good = [
   "threads/scheduling/delayzero",
   "threads/scheduling/dispatchwake",
   "threads/scheduling/mutexhandoff",
+  "threads/scheduling/vblankwake",
   "threads/scheduling/readyqueue",
   "threads/scheduling/waittimeouts",
   "threads/semaphores/semaphores",
