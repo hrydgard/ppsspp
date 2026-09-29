@@ -305,6 +305,8 @@ public:
 	KernelThreadDebugInterface debug;
 
 	bool isProcessingCallbacks = false;
+	// False until the thread first waits after being started (see __KernelDelayReturnsAtOnce).
+	bool hasWaited = true;
 	u32 currentMipscallId = -1;
 	SceUID currentCallbackId = -1;
 

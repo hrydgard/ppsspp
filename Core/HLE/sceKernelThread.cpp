@@ -419,7 +419,7 @@ void PSPThread::Cleanup() {
 }
 
 void PSPThread::DoState(PointerWrap &p) {
-	auto s = p.Section("Thread", 1, 5);
+	auto s = p.Section("Thread", 1, 6);
 	if (!s)
 		return;
 
@@ -459,6 +459,11 @@ void PSPThread::DoState(PointerWrap &p) {
 	if (s >= 2) {
 		Do(p, waitingThreads);
 		Do(p, pausedWaits);
+	}
+	if (s >= 6) {
+		Do(p, hasWaited);
+	} else {
+		hasWaited = true;
 	}
 }
 
@@ -1443,6 +1448,7 @@ void __KernelWaitCurThread(WaitType type, SceUID waitID, u32 waitValue, u32 time
 		WARN_LOG_REPORT(Log::sceKernel, "Waiting thread for %d that was already waiting for %d", type, thread->nt.waitType);
 	thread->nt.waitID = waitID;
 	thread->nt.waitType = type;
+	thread->hasWaited = true;
 	__KernelChangeThreadState(thread, ThreadStatus(THREADSTATUS_WAIT | (thread->nt.status & THREADSTATUS_SUSPEND)));
 	thread->nt.numReleases++;
 	thread->waitInfo.waitValue = waitValue;
@@ -1884,6 +1890,7 @@ void __KernelResetThread(PSPThread *t, int lowestPriority) {
 
 	t->nt.exitStatus = SCE_KERNEL_ERROR_NOT_DORMANT;
 	t->isProcessingCallbacks = false;
+	t->hasWaited = false;
 	t->currentCallbackId = 0;
 	t->currentMipscallId = 0;
 	t->pendingMipsCalls.clear();
@@ -2606,10 +2613,30 @@ static s64 __KernelDelayThreadUs(u64 usec) {
 	return usec + 10;
 }
 
+// A delay's deadline is now + usec, and the clock is read again when the alarm is set. If the
+// deadline has passed by then, the call returns 0 at once without giving up the CPU. The two reads are about 0.6us apart, so a delay of 0 returns at
+// once about 60% of the time, and 1 almost never. On a thread's first wait after it starts, when the
+// code is presumably out of the cache, they're about 1.65us apart: a delay of 1 returns at once
+// about two times in three, and 2 never (pspautotests threads/scheduling/delayzero).
+// Our cycle counts are too regular to use the tick phase (a polling loop could lock into never
+// yielding), so it's pseudo-random off the tick count instead.
+static bool __KernelDelayReturnsAtOnce(u32 usec) {
+	const PSPThread *thread = __GetCurrentThread();
+	const int gapPercent = thread && !thread->hasWaited ? 165 : 60;
+	const int chancePercent = gapPercent - (int)std::min(usec, 2U) * 100;
+	if (chancePercent <= 0) {
+		return false;
+	}
+	u64 x = (u64)CoreTiming::GetTicks(currentMIPS) * 0x9E3779B97F4A7C15ULL;
+	x ^= x >> 29;
+	return (int)(x % 100) < chancePercent;
+}
+
 int sceKernelDelayThreadCB(u32 usec) {
 	hleEatCycles(2000);
-	// Note: Sometimes (0) won't delay, potentially based on how much the thread is doing.
-	// But a loop with just 0 often does delay, and games depend on this.  So we err on that side.
+	if (__KernelDelayReturnsAtOnce(usec) && !__KernelCurHasReadyCallbacks()) {
+		return hleLogDebug(Log::sceKernel, 0, "deadline already passed");
+	}
 	SceUID curThread = __KernelGetCurThread();
 	s64 delayUs = __KernelDelayThreadUs(usec);
 	__KernelScheduleWakeup(curThread, delayUs);
@@ -2619,8 +2646,9 @@ int sceKernelDelayThreadCB(u32 usec) {
 
 int sceKernelDelayThread(u32 usec) {
 	hleEatCycles(2000);
-	// Note: Sometimes (0) won't delay, potentially based on how much the thread is doing.
-	// But a loop with just 0 often does delay, and games depend on this.  So we err on that side.
+	if (__KernelDelayReturnsAtOnce(usec)) {
+		return hleLogDebug(Log::sceKernel, 0, "deadline already passed");
+	}
 	SceUID curThread = __KernelGetCurThread();
 	s64 delayUs = __KernelDelayThreadUs(usec);
 	__KernelScheduleWakeup(curThread, delayUs);
