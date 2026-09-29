@@ -63,6 +63,10 @@ void AudioChannel::DoState(PointerWrap &p) {
 	if (s >= 4) {
 		Do(p, remainingSamples);
 		Do(p, waitingThread);
+		// Briefly, a failed blocking wait left -1 here to keep the channel busy for good.
+		if (waitingThread < 0) {
+			waitingThread = 0;
+		}
 		Do(p, waitingAddress);
 		Do(p, waitingLeftVolume);
 		Do(p, waitingRightVolume);

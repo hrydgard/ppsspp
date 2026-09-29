@@ -32,8 +32,6 @@ const u32 PSP_AUDIO_CHANNEL_MAX = 8;
 
 // Mixer channels wait on their own index plus one, so the SRC channel takes the id after them.
 const int PSP_AUDIO_SRC_WAIT_ID = PSP_AUDIO_CHANNEL_MAX + 1;
-// In AudioChannel::waitingThread: the flag was set by a wait that failed, and nobody will clear it.
-const SceUID AUDIO_WAITING_ABANDONED = -1;
 
 // One buffer handed over and not yet fully played.
 struct AudioPendingBuffer {
@@ -65,7 +63,6 @@ struct AudioChannel {
 	// A second thread arriving while one is parked here is told the channel is busy rather than
 	// queueing up behind it. These remember what the parked one wanted to hand over, so the
 	// enqueue can be retried once the buffer finishes.
-	// AUDIO_WAITING_ABANDONED: see __AudioEnqueueBlocking().
 	SceUID waitingThread = 0;
 	u32 waitingAddress = 0;
 	int waitingLeftVolume = 0;

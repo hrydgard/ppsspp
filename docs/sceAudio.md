@@ -60,17 +60,25 @@ if (r != BUSY)         return r;
 if (channel->waiting)  return BUSY;      // somebody else is already parked here
 channel->waiting = 1;
 r = wait for this channel's bit in the driver's event flag;
-if (r < 0)             return r;         // waiting is left set!
+if (r < 0)             return r;         // waiting is left set! (not emulated)
 retry the enqueue;
 channel->waiting = 0;
 ```
 
-The error path is a real firmware quirk, pinned down by `tests/intr/waits`. The event flag wait
-fails at once with interrupts or dispatch disabled (`800201a7`) or inside an interrupt
-(`80020064`), and the driver returns that without clearing `waiting`. Nothing ever clears it
-after that, so the channel stays busy for good, and `sceAudioChRelease` refuses to release it.
+The error path is a real firmware bug. The event flag wait fails at once with interrupts or
+dispatch disabled (`800201a7`) or inside an interrupt (`80020064`), and the driver returns that
+without clearing `waiting`. Nothing ever clears it after that, so the channel stays busy for
+good, and `sceAudioChRelease` refuses to release it.
+
+**The emulator returns the same errors but doesn't leave the flag set.** Whether the channel was
+busy at that moment is a question of timing, and ours is close but not exact: emulating the bug
+means a small scheduling difference could drop a channel for the rest of the game where hardware
+wouldn't. No game can depend on losing a channel, so the risk only runs one way.
+`tests/intr/waits` leaves the case out for this reason.
+
 The SRC channel's wait fails the same way, and since the flag is never looked at, even a
 completion that was already there isn't taken: the buffer stays armed and the error comes back.
+That one is emulated, since nothing is lost - the buffer plays out as usual.
 
 **Only one thread can be parked on a channel.** That single flag is why a game that runs a movie
 thread and a sound-effect thread over one output gets sensible behavior on hardware and did not

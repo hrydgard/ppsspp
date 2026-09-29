@@ -345,12 +345,12 @@ u32 __AudioEnqueueBlocking(AudioChannel &chan, u32 samplePtr, int leftVol, int r
 	if (chan.waitingThread != 0) {
 		return SCE_ERROR_AUDIO_CHANNEL_BUSY;
 	}
-	// The driver sets the channel's waiting flag before its event flag wait, and if that wait
-	// fails at once (interrupts or dispatch disabled, inside an interrupt), it returns the error
-	// without clearing it. From then on the channel is busy for good: only a successful wait
-	// clears the flag, and release is refused while it's set. (audio.prx, sceAudioOutputBlocking.)
+	// The event flag wait fails at once with interrupts or dispatch disabled, or inside an
+	// interrupt. The driver returns that error without clearing the waiting flag it set, which
+	// leaves the channel busy for good (audio.prx, sceAudioOutputBlocking). That's deliberately not
+	// emulated: whether the channel was busy at that moment is timing, and a small difference in
+	// ours would drop a channel for the rest of the game where hardware wouldn't.
 	if (__IsInInterrupt() || !__KernelIsDispatchEnabled()) {
-		chan.waitingThread = AUDIO_WAITING_ABANDONED;
 		return __IsInInterrupt() ? SCE_KERNEL_ERROR_ILLEGAL_CONTEXT : SCE_KERNEL_ERROR_CAN_NOT_WAIT;
 	}
 
@@ -367,7 +367,7 @@ u32 __AudioEnqueueBlocking(AudioChannel &chan, u32 samplePtr, int leftVol, int r
 static bool __AudioChannelFinished(AudioChannel &chan) {
 	chan.sampleAddress = 0;
 	chan.remainingSamples = 0;
-	if (chan.waitingThread == 0 || chan.waitingThread == AUDIO_WAITING_ABANDONED) {
+	if (chan.waitingThread == 0) {
 		return false;
 	}
 
