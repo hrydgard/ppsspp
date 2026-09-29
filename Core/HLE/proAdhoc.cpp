@@ -1420,6 +1420,7 @@ int friendFinder() {
 				} 
 				else {
 					g_adhocServerConnected = false;
+					g_adhocServerLoginFailed = true;
 					shutdown((int)metasocket, SD_BOTH);
 					closesocket((int)metasocket);
 					metasocket = (int)INVALID_SOCKET;
@@ -2251,6 +2252,16 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 				return iResult;
 
 			done = (IsSocketReady((int)metasocket, false, true) > 0);
+			if (done) {
+				// Writable can also mean the attempt failed (refused, say). Then there's no point
+				// waiting out the timeout.
+				int soError = 0;
+				socklen_t soErrorLen = sizeof(soError);
+				if (getsockopt((int)metasocket, SOL_SOCKET, SO_ERROR, (char *)&soError, &soErrorLen) == 0 && soError != 0) {
+					errorcode = soError;
+					break;
+				}
+			}
 			struct sockaddr_in sin;
 			socklen_t sinlen = sizeof(sin);
 			memset(&sin, 0, sinlen);

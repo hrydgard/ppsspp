@@ -45,3 +45,4 @@ u32 matchingThreadHackAddr = 0;
 u32_le matchingThreadCode[3];
 
 bool g_adhocServerConnected = false;
+std::atomic<bool> g_adhocServerLoginFailed(false);
