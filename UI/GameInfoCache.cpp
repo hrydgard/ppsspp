@@ -541,8 +541,8 @@ static bool LoadReplacementImage(GameInfo *info, GameInfoTex *tex, const char *f
 
 class GameInfoWorkItem : public Task {
 public:
-	GameInfoWorkItem(const Path &gamePath, std::shared_ptr<GameInfo> &info, GameInfoFlags flags)
-		: gamePath_(gamePath), info_(info), flags_(flags) {}
+	GameInfoWorkItem(const Path &gamePath, std::shared_ptr<GameInfo> &info, GameInfoFlags flags, TaskPriority priority)
+		: gamePath_(gamePath), info_(info), flags_(flags), priority_(priority) {}
 
 	~GameInfoWorkItem() {
 		info_->DisposeFileLoader();
@@ -553,10 +553,14 @@ public:
 	}
 
 	TaskPriority Priority() const override {
+		if (priority_ == TaskPriority::HIGH) {
+			// Someone's waiting on this, wherever it is.
+			return TaskPriority::HIGH;
+		}
 		switch (gamePath_.Type()) {
 		case PathType::NATIVE:
 		case PathType::CONTENT_URI:
-			return TaskPriority::NORMAL;
+			return priority_;
 
 		default:
 			// Remote/network access.
@@ -997,6 +1001,7 @@ private:
 	Path gamePath_;
 	std::shared_ptr<GameInfo> info_;
 	GameInfoFlags flags_{};
+	TaskPriority priority_;
 
 	DISALLOW_COPY_AND_ASSIGN(GameInfoWorkItem);
 };
@@ -1110,7 +1115,7 @@ void GameInfoCache::PurgeType(IdentifiedFileType fileType) {
 
 // Call on the main thread ONLY - that is from stuff called from NativeFrame.
 // Can also be called from the audio thread for menu background music, but that cannot request images!
-std::shared_ptr<GameInfo> GameInfoCache::GetInfo(Draw::DrawContext *draw, const Path &gamePath, GameInfoFlags wantFlags, GameInfoFlags *outHasFlags, GameInfoFlags refetchFlags) {
+std::shared_ptr<GameInfo> GameInfoCache::GetInfo(Draw::DrawContext *draw, const Path &gamePath, GameInfoFlags wantFlags, GameInfoFlags *outHasFlags, GameInfoFlags refetchFlags, TaskPriority priority) {
 	const std::string &pathStr = gamePath.ToString();
 
 	// _dbg_assert_(gamePath != GetSysDirectory(DIRECTORY_SAVEDATA));
@@ -1139,6 +1144,11 @@ std::shared_ptr<GameInfo> GameInfoCache::GetInfo(Draw::DrawContext *draw, const 
 				info->hasFlags &= ~refetchFlags;
 			}
 			GameInfoFlags willHaveFlags = info->hasFlags | info->pendingFlags;  // We don't want to re-fetch data that we have, so or in pendingFlags.
+			if (priority == TaskPriority::HIGH) {
+				// A pending load may be sitting at the back of the queue (a search over a big list
+				// queues one per game), and the caller is about to block. Fetch it ourselves.
+				willHaveFlags = info->hasFlags;
+			}
 			wanted = (GameInfoFlags)((int)wantFlags & ~(int)willHaveFlags);  // & is reserved for testing so we have to cast to int. ugh.
 			// FILE_TYPE is special: every work item switches on info->fileType, so it's not enough that
 			// some *pending* item is going to compute it - that item may not have got there yet, and we'd
@@ -1154,7 +1164,7 @@ std::shared_ptr<GameInfo> GameInfoCache::GetInfo(Draw::DrawContext *draw, const 
 
 		if (wanted != (GameInfoFlags)0) {
 			// We're missing info that we want. Go get it!
-			GameInfoWorkItem *item = new GameInfoWorkItem(gamePath, info, wanted);
+			GameInfoWorkItem *item = new GameInfoWorkItem(gamePath, info, wanted, priority);
 			g_threadManager.EnqueueTask(item);
 		}
 		return info;
@@ -1170,7 +1180,7 @@ std::shared_ptr<GameInfo> GameInfoCache::GetInfo(Draw::DrawContext *draw, const 
 	mapLock_.unlock();
 
 	// Just get all the stuff we wanted.
-	GameInfoWorkItem *item = new GameInfoWorkItem(gamePath, info, wantFlags);
+	GameInfoWorkItem *item = new GameInfoWorkItem(gamePath, info, wantFlags, priority);
 	g_threadManager.EnqueueTask(item);
 	return info;
 }
