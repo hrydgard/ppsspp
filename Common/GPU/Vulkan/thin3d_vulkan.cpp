@@ -1891,6 +1891,10 @@ bool VKContext::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1, int sr
 
 bool VKContext::CopyFramebufferToMemory(Framebuffer *srcfb, Aspect aspects, int x, int y, int w, int h, Draw::DataFormat format, void *pixels, int pixelStride, ReadbackMode mode, const char *tag) {
 	VKFramebuffer *src = (VKFramebuffer *)srcfb;
+	if (!src && vulkan_->GetSwapchain() == VK_NULL_HANDLE) {
+		// No backbuffer to read, as in headless.
+		return false;
+	}
 
 	int aspectMask = 0;
 	if (aspects & Aspect::COLOR_BIT) aspectMask |= VK_IMAGE_ASPECT_COLOR_BIT;
