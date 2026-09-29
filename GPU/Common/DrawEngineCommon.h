@@ -283,6 +283,10 @@ protected:
 	bool everUsedEqualDepth_ = false;
 	bool everUsedExactEqualDepth_ = false;
 
+	// The draw context's invalidation callback is installed from BeginFrame, on the emu thread. The draw
+	// engine is created on the loader thread, while the UI thread may already be rendering and calling it.
+	bool invalidationCallbackInstalled_ = false;
+
 	// Vertex collector buffers
 	u8 *decoded_ = nullptr;
 	u16 *decIndex_ = nullptr;

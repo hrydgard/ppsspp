@@ -83,13 +83,12 @@ DrawEngineD3D11::~DrawEngineD3D11() {
 void DrawEngineD3D11::InitDeviceObjects() {
 	pushVerts_ = new PushBufferD3D11(device_, VERTEX_PUSH_SIZE, D3D11_BIND_VERTEX_BUFFER);
 	pushInds_ = new PushBufferD3D11(device_, INDEX_PUSH_SIZE, D3D11_BIND_INDEX_BUFFER);
-
-	draw_->SetInvalidationCallback(std::bind(&DrawEngineD3D11::Invalidate, this, std::placeholders::_1));
 }
 
 void DrawEngineD3D11::DestroyDeviceObjects() {
 	if (draw_) {
 		draw_->SetInvalidationCallback(InvalidationCallback());
+		invalidationCallbackInstalled_ = false;
 	}
 
 	ClearInputLayoutMap();
@@ -251,6 +250,10 @@ HRESULT DrawEngineD3D11::SetupDecFmtForDraw(D3D11VertexShader *vshader, const De
 
 void DrawEngineD3D11::BeginFrame() {
 	DrawEngineCommon::BeginFrame();
+	if (!invalidationCallbackInstalled_) {
+		draw_->SetInvalidationCallback(std::bind(&DrawEngineD3D11::Invalidate, this, std::placeholders::_1));
+		invalidationCallbackInstalled_ = true;
+	}
 
 	pushVerts_->Reset();
 	pushInds_->Reset();
