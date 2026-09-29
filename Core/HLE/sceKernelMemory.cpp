@@ -2087,6 +2087,8 @@ int _sceKernelAllocateTlspl(SceUID uid, u32 addrPtr, u32 timeoutPtr) {
 
 	u32 allocAddress = __KernelAllocateTls(tls);
 	if (allocAddress == 0) {
+		if (__KernelWaitTimesOutAtOnce(timeoutPtr))
+			return hleLogDebug(Log::sceKernel, SCE_KERNEL_ERROR_WAIT_TIMEOUT, "timed out at once");
 		SceUID threadID = __KernelGetCurThread();
 		tls->waitingThreads.push_back(threadID);
 		__KernelWaitCurThreadWithTimeout(WAITTYPE_TLSPL, uid, addrPtr, timeoutPtr, false, "allocate tls");

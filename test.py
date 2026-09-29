@@ -433,6 +433,7 @@ tests_good = [
   "threads/tls/free",
   "threads/tls/priority",
   "threads/tls/refer",
+  "threads/tls/timeout",
   "threads/vpl/allocate",
   "threads/vpl/cancel",
   "threads/vpl/create",
