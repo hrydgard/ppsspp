@@ -128,3 +128,8 @@ class AudioDecoder;
 extern std::map<u32, AudioDecoder *> g_audioDecoderContexts;
 
 bool IsAtrac3StreamJointStereo(int codecType, int bytesPerFrame, int channels);
+
+// ME time at the default clock, for sceAtrac too (it drives the same decoder): setting up a decoder,
+// and decoding one frame. AudioCodecDecodeUs takes Atrac3 and Atrac3+ only.
+int AudioCodecInitUs(int codec, bool monoAt3Plus);
+int AudioCodecDecodeUs(int codec, int channels, int frameBytes);
