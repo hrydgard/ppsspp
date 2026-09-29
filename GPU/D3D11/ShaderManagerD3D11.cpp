@@ -147,15 +147,18 @@ uint64_t ShaderManagerD3D11::UpdateUniforms(bool useBufferedRendering, bool pixe
 		D3D11_MAPPED_SUBRESOURCE map;
 		if (dirty & DIRTY_BASE_UNIFORMS) {
 			BaseUpdateUniforms(&ub_base, dirty, useBufferedRendering, pixelMapped);
-			context_->Map(push_base.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
-			memcpy(map.pData, &ub_base, sizeof(ub_base));
-			context_->Unmap(push_base.Get(), 0);
+			// Map fails after device removal, and map.pData is garbage then.
+			if (SUCCEEDED(context_->Map(push_base.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &map))) {
+				memcpy(map.pData, &ub_base, sizeof(ub_base));
+				context_->Unmap(push_base.Get(), 0);
+			}
 		}
 		if (dirty & DIRTY_LIGHT_UNIFORMS) {
 			LightUpdateUniforms(&ub_lights, dirty);
-			context_->Map(push_lights.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &map);
-			memcpy(map.pData, &ub_lights, sizeof(ub_lights));
-			context_->Unmap(push_lights.Get(), 0);
+			if (SUCCEEDED(context_->Map(push_lights.Get(), 0, D3D11_MAP_WRITE_DISCARD, 0, &map))) {
+				memcpy(map.pData, &ub_lights, sizeof(ub_lights));
+				context_->Unmap(push_lights.Get(), 0);
+			}
 		}
 	}
 	gstate_c.CleanUniforms();

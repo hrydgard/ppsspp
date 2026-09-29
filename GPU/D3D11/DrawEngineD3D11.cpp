@@ -358,6 +358,9 @@ void DrawEngineD3D11::Flush() {
 			UINT vOffset;
 			int vSize = numDecodedVerts_ * dec_->GetDecVtxFmt().stride;
 			uint8_t *vptr = pushVerts_->BeginPush(context_, &vOffset, vSize);
+			if (!vptr) {
+				goto bail;
+			}
 			memcpy(vptr, decoded_, vSize);
 			pushVerts_->EndPush(context_);
 			ID3D11Buffer *buf = pushVerts_->Buf();
@@ -366,6 +369,9 @@ void DrawEngineD3D11::Flush() {
 				UINT iOffset;
 				int iSize = 2 * vertexCount;
 				uint8_t *iptr = pushInds_->BeginPush(context_, &iOffset, iSize);
+				if (!iptr) {
+					goto bail;
+				}
 				memcpy(iptr, decIndex_, iSize);
 				pushInds_->EndPush(context_);
 				context_->IASetIndexBuffer(pushInds_->Buf(), DXGI_FORMAT_R16_UINT, iOffset);
@@ -477,6 +483,9 @@ void DrawEngineD3D11::Flush() {
 			UINT vOffset = 0;
 			int vSize = result.drawVertexCount * stride;
 			uint8_t *vptr = pushVerts_->BeginPush(context_, &vOffset, vSize);
+			if (!vptr) {
+				goto bail;
+			}
 			memcpy(vptr, result.drawBuffer, vSize);
 			pushVerts_->EndPush(context_);
 			ID3D11Buffer *buf = pushVerts_->Buf();
@@ -484,6 +493,9 @@ void DrawEngineD3D11::Flush() {
 			UINT iOffset;
 			int iSize = sizeof(uint16_t) * result.drawIndexCount;
 			uint8_t *iptr = pushInds_->BeginPush(context_, &iOffset, iSize);
+			if (!iptr) {
+				goto bail;
+			}
 			memcpy(iptr, inds, iSize);
 			pushInds_->EndPush(context_);
 			context_->IASetIndexBuffer(pushInds_->Buf(), DXGI_FORMAT_R16_UINT, iOffset);
