@@ -247,22 +247,17 @@ HRESULT ReaderCallback::OnReadSample(
 						}
 					}
 
-					// Compress image to jpeg from RGB24. Like the PSP camera, lower the quality until the frame
-					// fits the size the game asked for: Go!Edit stores frames in fixed 15KB slots.
-					const int maxFrameSize = Camera::getMaxFrameSize();
-					jpge::params params;
-					for (int quality = 85; ; quality -= 10) {
-						imgJpegSize = device->imgJpegSize;
+					// Compress image to jpeg from RGB24. Like the PSP camera, fit the size the game asked for:
+					// Go!Edit stores frames in fixed 15KB slots.
+					imgJpegSize = Camera::encodeToFit(Camera::getMaxFrameSize(), [&](int quality) {
+						jpge::params params;
 						params.m_quality = quality;
-						jpge::compress_image_to_jpeg_file_in_memory(
-							device->imageJpeg, imgJpegSize,
-							dstW,
-							dstH,
-							3,
-							device->imageRGB, params);
-						if (imgJpegSize <= maxFrameSize || quality <= 15) {
-							break;
-						}
+						int size = device->imgJpegSize;
+						return jpge::compress_image_to_jpeg_file_in_memory(
+							device->imageJpeg, size, dstW, dstH, 3, device->imageRGB, params) ? size : -1;
+					});
+					if (imgJpegSize < 0) {
+						imgJpegSize = 0;
 					}
 				}
 #endif

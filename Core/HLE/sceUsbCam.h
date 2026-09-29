@@ -18,6 +18,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <functional>
 #include <string>
 #include <vector>
 #include "Core/HLE/FunctionWrappers.h"
@@ -124,4 +125,7 @@ namespace Camera {
 	// The largest JPEG frame the game accepts (framesize in the video setup). The PSP camera compresses
 	// to fit it, so capture code should too.
 	int getMaxFrameSize();
+	// Calls encode(quality), which returns the JPEG size or -1, starting from the quality that fit the
+	// previous frame and going down until the result fits maxSize. Returns the final size (or -1).
+	int encodeToFit(int maxSize, const std::function<int(int quality)> &encode);
 }

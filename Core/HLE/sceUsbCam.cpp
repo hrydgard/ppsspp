@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <atomic>
 #include <mutex>
 #include <vector>
 
@@ -436,28 +437,46 @@ int Camera::getMaxFrameSize() {
 	return framesize;
 }
 
-// Re-encodes a frame at lower quality until it fits maxSize, like the PSP camera compresses to the
-// game's framesize. Most platforms' capture code encodes at a fixed quality, so this is the common fallback.
+// The JPEG quality that fit the last frame. Frames of one scene are similar in size, so it's usually
+// right first time. Only the capture thread uses it, but atomic in case a platform has several.
+static std::atomic<int> g_jpegQuality{ 80 };
+
+int Camera::encodeToFit(int maxSize, const std::function<int(int quality)> &encode) {
+	int quality = g_jpegQuality;
+	int size = encode(quality);
+	while ((size < 0 || size > maxSize) && quality > 10) {
+		quality = std::max(10, quality - 10);
+		size = encode(quality);
+	}
+	// Way under the limit: try a better quality next time.
+	if (size >= 0 && size < maxSize / 2 && quality < 90) {
+		quality += 10;
+	}
+	g_jpegQuality = quality;
+	return size;
+}
+
+// Re-encodes a frame until it fits maxSize, like the PSP camera compresses to the game's framesize.
+// Most platforms' capture code encodes at a fixed quality, so this is the common fallback.
 static bool RecompressToFit(const unsigned char *image, long long length, int maxSize, std::vector<uint8_t> *out) {
 	int width = 0, height = 0, comps = 0;
 	unsigned char *rgb = jpgd::decompress_jpeg_image_from_memory(image, (int)length, &width, &height, &comps, 3);
 	if (!rgb) {
 		return false;
 	}
-	bool fits = false;
 	out->resize(width * height * 3 + 1024);
-	jpge::params params;
-	for (int quality = 70; quality >= 10; quality -= 15) {
-		int size = (int)out->size();
+	int size = Camera::encodeToFit(maxSize, [&](int quality) {
+		jpge::params params;
 		params.m_quality = quality;
-		if (jpge::compress_image_to_jpeg_file_in_memory(out->data(), size, width, height, 3, rgb, params) && size <= maxSize) {
-			out->resize(size);
-			fits = true;
-			break;
-		}
-	}
+		int outSize = (int)out->size();
+		return jpge::compress_image_to_jpeg_file_in_memory(out->data(), outSize, width, height, 3, rgb, params) ? outSize : -1;
+	});
 	free(rgb);
-	return fits;
+	if (size < 0 || size > maxSize) {
+		return false;
+	}
+	out->resize(size);
+	return true;
 }
 
 void Camera::pushCameraImage(long long length, unsigned char* image) {
