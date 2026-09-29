@@ -108,6 +108,10 @@ $msbuild = "$installPath\MSBuild\Current\Bin\MSBuild.exe"
 - **A stale binary lies consistently.** After a `git stash` cycle that touched a header, do a
   `/t:Rebuild`; when bisecting a behavioural change, confirm the binary actually changed before you
   believe the result.
+- **If a savestate fails to load, first suspect the branch, not the loader.** Either your branch is
+  behind the build that made the state (rebase it on `origin/master` and rebuild), or the state was
+  made on a branch that hasn't been merged yet. Only once you've ruled out both is it a savestate
+  compatibility bug.
 
 UWP, the legacy Android NDK build and the libretro core have their own build systems.
 

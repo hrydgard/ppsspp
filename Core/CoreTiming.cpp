@@ -193,16 +193,11 @@ void RestoreRegisterEvent(int &event_type, const char *name, TimedCallback callb
 	if (event_type == -1)
 		event_type = nextEventTypeRestoreId++;
 	if (event_type >= (int)event_types.size()) {
-		// Give it any unused event id starting from the end.
-		// Older save states with messed up ids have gaps near the end.
-		for (int i = (int)event_types.size() - 1; i >= 0; --i) {
-			if (usedEventTypes.count(i) == 0) {
-				event_type = i;
-				break;
-			}
-		}
+		// An event the state doesn't have. Grow the table: an unused slot below may still belong to
+		// a state event whose module restores it later.
+		event_types.resize(event_type + 1, EventType{ AntiCrashCallback, "INVALID EVENT" });
 	}
-	_assert_msg_(event_type >= 0 && event_type < (int)event_types.size(), "Invalid event type %d", event_type);
+	_assert_msg_(event_type >= 0 && event_type < (int)event_types.size(), "Invalid event type %d (%s, of %d)", event_type, name, (int)event_types.size());
 	event_types[event_type] = EventType{ callback, name };
 	usedEventTypes.insert(event_type);
 	restoredEventTypes.insert(event_type);
