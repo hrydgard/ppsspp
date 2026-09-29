@@ -489,6 +489,7 @@ tests_good = [
   "threads/scheduling/vblankwake",
   "threads/scheduling/readyqueue",
   "threads/scheduling/waittimeouts",
+  "threads/scheduling/alarmcosts",
   "threads/semaphores/semaphores",
   "threads/semaphores/cancel",
   "threads/semaphores/create",
