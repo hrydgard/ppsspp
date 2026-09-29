@@ -337,7 +337,7 @@ void Atrac2::DumpBufferToFile() {
 }
 
 void Atrac2::DoState(PointerWrap &p) {
-	auto s = p.Section("Atrac2", 1, 3);
+	auto s = p.Section("Atrac2", 1, 4);
 	if (!s)
 		return;
 
@@ -362,8 +362,14 @@ void Atrac2::DoState(PointerWrap &p) {
 	}
 
 	const SceAtracIdInfo &info = context_->info;
+	if (s >= 4) {
+		Do(p, jointStereo_);
+	} else if (p.mode == p.MODE_READ) {
+		jointStereo_ = IsAtrac3StreamJointStereo(info.codec, info.sampleSize, info.numChan);
+	}
+
 	if (p.mode == p.MODE_READ && info.state != ATRAC_STATUS_NO_DATA) {
-		CreateDecoder(info.codec, info.sampleSize, info.numChan);
+		CreateDecoder(info.codec, info.sampleSize, info.numChan, jointStereo_);
 	}
 }
 
@@ -1004,7 +1010,8 @@ int Atrac2::SetData(const Track &track, u32 bufferAddr, u32 readSize, u32 buffer
 
 	SceAtracIdInfo &info = context_->info;
 
-	CreateDecoder(info.codec, info.sampleSize, info.numChan);
+	jointStereo_ = track.jointStereo != 0;
+	CreateDecoder(info.codec, info.sampleSize, info.numChan, jointStereo_);
 
 	outputChannels_ = outputChannels;
 
@@ -1140,7 +1147,9 @@ void Atrac2::InitLowLevel(const Atrac3LowLevelParams &params, int codecType) {
 	info.dataOff = 0;
 	info.decodePos = 0;
 	info.state = ATRAC_STATUS_LOW_LEVEL;
-	CreateDecoder(codecType, info.sampleSize, info.numChan);
+	// There's no track header here, so go by the bitrate.
+	jointStereo_ = IsAtrac3StreamJointStereo(codecType, info.sampleSize, info.numChan);
+	CreateDecoder(codecType, info.sampleSize, info.numChan, jointStereo_);
 }
 
 int Atrac2::DecodeLowLevel(const u8 *srcData, int *bytesConsumed, s16 *dstData, int *bytesWritten) {
