@@ -199,26 +199,6 @@ static void __KernelMutexEraseLock(PSPMutex *mutex) {
 	mutex->nm.lockThread = -1;
 }
 
-static std::vector<SceUID>::iterator __KernelMutexFindPriority(std::vector<SceUID> &waiting)
-{
-	_dbg_assert_msg_(!waiting.empty(), "__KernelMutexFindPriority: Trying to find best of no threads.");
-
-	std::vector<SceUID>::iterator iter, end, best = waiting.end();
-	u32 best_prio = 0xFFFFFFFF;
-	for (iter = waiting.begin(), end = waiting.end(); iter != end; ++iter)
-	{
-		u32 iter_prio = __KernelGetThreadPrio(*iter);
-		if (iter_prio < best_prio)
-		{
-			best = iter;
-			best_prio = iter_prio;
-		}
-	}
-
-	_dbg_assert_msg_(best != waiting.end(), "__KernelMutexFindPriority: Returning invalid best thread.");
-	return best;
-}
-
 static bool __KernelUnlockMutexForThread(PSPMutex *mutex, SceUID threadID, u32 &error, int result) {
 	if (!HLEKernel::VerifyWait(threadID, WAITTYPE_MUTEX, mutex->GetUID()))
 		return false;
@@ -379,7 +359,7 @@ static bool __KernelUnlockMutex(PSPMutex *mutex, u32 &error) {
 	while (!wokeThreads && !mutex->waitingThreads.empty())
 	{
 		if ((mutex->nm.attr & PSP_MUTEX_ATTR_PRIORITY) != 0)
-			iter = __KernelMutexFindPriority(mutex->waitingThreads);
+			iter = HLEKernel::FindBestPriorityWaiter(mutex->waitingThreads);
 		else
 			iter = mutex->waitingThreads.begin();
 
@@ -770,7 +750,7 @@ bool __KernelUnlockLwMutex(T workarea, u32 &error) {
 	while (!wokeThreads && !mutex->waitingThreads.empty())
 	{
 		if ((mutex->nm.attr & PSP_MUTEX_ATTR_PRIORITY) != 0)
-			iter = __KernelMutexFindPriority(mutex->waitingThreads);
+			iter = HLEKernel::FindBestPriorityWaiter(mutex->waitingThreads);
 		else
 			iter = mutex->waitingThreads.begin();
 

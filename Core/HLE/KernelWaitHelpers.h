@@ -345,6 +345,54 @@ inline void CleanupWaitingThreads(WaitType waitType, SceUID uid, std::vector<T> 
 	waitingThreads.resize(size);
 }
 
+// Ends every wait on an object with the given result (for cancel and delete), through the object's
+// function for releasing one waiter:
+// bool Unlock(KO *ko, WaitInfoType &waitingThreadInfo, u32 &error, int result, bool &wokeThreads)
+template <typename KO, class UnlockFunc>
+inline bool ClearWaitingThreads(KO *ko, int result, UnlockFunc Unlock) {
+	u32 error;
+	bool wokeThreads = false;
+	for (auto &waiting : ko->waitingThreads) {
+		Unlock(ko, waiting, error, result, wokeThreads);
+	}
+	ko->waitingThreads.clear();
+	return wokeThreads;
+}
+
+// A waiting list holds either thread ids or structs with a threadID.
+inline SceUID WaitingThreadID(const SceUID &threadID) {
+	return threadID;
+}
+template <typename T>
+inline SceUID WaitingThreadID(const T &waitInfo) {
+	return waitInfo.threadID;
+}
+
+// For objects created with the priority attribute: best priority first, and among equals the order
+// they started waiting in.
+template <typename T>
+inline void SortWaitingThreadsByPriority(std::vector<T> &waitingThreads) {
+	std::stable_sort(waitingThreads.begin(), waitingThreads.end(), [](const T &a, const T &b) {
+		return __KernelThreadSortPriority(WaitingThreadID(a), WaitingThreadID(b));
+	});
+}
+
+// The first waiter with the best priority, without reordering the list.
+template <typename T>
+inline typename std::vector<T>::iterator FindBestPriorityWaiter(std::vector<T> &waitingThreads) {
+	_dbg_assert_msg_(!waitingThreads.empty(), "FindBestPriorityWaiter: no threads");
+	auto best = waitingThreads.end();
+	u32 bestPriority = 0xFFFFFFFF;
+	for (auto iter = waitingThreads.begin(); iter != waitingThreads.end(); ++iter) {
+		const u32 priority = __KernelGetThreadPrio(WaitingThreadID(*iter));
+		if (priority < bestPriority) {
+			best = iter;
+			bestPriority = priority;
+		}
+	}
+	return best;
+}
+
 template <typename T>
 inline void RemoveWaitingThread(std::vector<T> &waitingThreads, const SceUID threadID) {
 	waitingThreads.erase(std::remove(waitingThreads.begin(), waitingThreads.end(), threadID), waitingThreads.end());

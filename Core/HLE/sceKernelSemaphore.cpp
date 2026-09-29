@@ -119,17 +119,6 @@ void __KernelSemaEndCallback(SceUID threadID, SceUID prevCallbackId)
 
 // Resume all waiting threads (for delete / cancel.)
 // Returns true if it woke any threads.
-static bool __KernelClearSemaThreads(PSPSemaphore *s, int reason) {
-	u32 error;
-	bool wokeThreads = false;
-	std::vector<SceUID>::iterator iter, end;
-	for (iter = s->waitingThreads.begin(), end = s->waitingThreads.end(); iter != end; ++iter)
-		__KernelUnlockSemaForThread(s, *iter, error, reason, wokeThreads);
-	s->waitingThreads.clear();
-
-	return wokeThreads;
-}
-
 int sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr)
 {
 	u32 error;
@@ -152,7 +141,7 @@ int sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr)
 		else
 			s->ns.currentCount = newCount;
 
-		if (__KernelClearSemaThreads(s, SCE_KERNEL_ERROR_WAIT_CANCEL))
+		if (HLEKernel::ClearWaitingThreads(s, SCE_KERNEL_ERROR_WAIT_CANCEL, __KernelUnlockSemaForThread))
 			hleReSchedule("semaphore canceled");
 
 		return hleNoLog(0);
@@ -203,7 +192,7 @@ int sceKernelDeleteSema(SceUID id) {
 	} else {
 		DEBUG_LOG(Log::sceKernel, "sceKernelDeleteSema(%i)", id);
 
-		bool wokeThreads = __KernelClearSemaThreads(s, SCE_KERNEL_ERROR_WAIT_DELETE);
+		bool wokeThreads = HLEKernel::ClearWaitingThreads(s, SCE_KERNEL_ERROR_WAIT_DELETE, __KernelUnlockSemaForThread);
 		if (wokeThreads)
 			hleReSchedule("semaphore deleted");
 
@@ -252,7 +241,7 @@ int sceKernelSignalSema(SceUID id, int signal) {
 		s->ns.currentCount += signal;
 
 		if ((s->ns.attr & PSP_SEMA_ATTR_PRIORITY) != 0)
-			std::stable_sort(s->waitingThreads.begin(), s->waitingThreads.end(), __KernelThreadSortPriority);
+			HLEKernel::SortWaitingThreadsByPriority(s->waitingThreads);
 
 		bool wokeThreads = false;
 retry:

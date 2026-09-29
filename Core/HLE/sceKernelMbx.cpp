@@ -249,24 +249,6 @@ void __KernelMbxTimeout(u64 userdata, int cyclesLate)
 	HLEKernel::WaitExecTimeout<Mbx, WAITTYPE_MBX>(threadID);
 }
 
-static std::vector<MbxWaitingThread>::iterator __KernelMbxFindPriority(std::vector<MbxWaitingThread> &waiting)
-{
-	_dbg_assert_msg_(!waiting.empty(), "__KernelMutexFindPriority: Trying to find best of no threads.");
-
-	std::vector<MbxWaitingThread>::iterator iter, end, best = waiting.end();
-	u32 best_prio = 0xFFFFFFFF;
-	for (iter = waiting.begin(), end = waiting.end(); iter != end; ++iter) {
-		u32 iter_prio = __KernelGetThreadPrio(iter->threadID);
-		if (iter_prio < best_prio) {
-			best = iter;
-			best_prio = iter_prio;
-		}
-	}
-
-	_dbg_assert_msg_(best != waiting.end(), "__KernelMutexFindPriority: Returning invalid best thread.");
-	return best;
-}
-
 SceUID sceKernelCreateMbx(const char *name, u32 attr, u32 optAddr)
 {
 	if (!name)
@@ -353,7 +335,7 @@ int sceKernelSendMbx(SceUID id, u32 packetAddr)
 		while (!wokeThreads && !m->waitingThreads.empty())
 		{
 			if ((m->nmb.attr & SCE_KERNEL_MBA_THPRI) != 0)
-				iter = __KernelMbxFindPriority(m->waitingThreads);
+				iter = HLEKernel::FindBestPriorityWaiter(m->waitingThreads);
 			else
 				iter = m->waitingThreads.begin();
 

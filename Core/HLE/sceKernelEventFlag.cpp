@@ -135,16 +135,6 @@ static bool __KernelUnlockEventFlagForThread(EventFlag *e, EventFlagTh &th, u32 
 	return true;
 }
 
-static bool __KernelClearEventFlagThreads(EventFlag *e, int reason) {
-	u32 error;
-	bool wokeThreads = false;
-	for (auto &event : e->waitingThreads)
-		__KernelUnlockEventFlagForThread(e, event, error, reason, wokeThreads);
-	e->waitingThreads.clear();
-
-	return wokeThreads;
-}
-
 void __KernelEventFlagBeginCallback(SceUID threadID, SceUID prevCallbackId) {
 	auto result = HLEKernel::WaitBeginCallback<EventFlag, WAITTYPE_EVENTFLAG, EventFlagTh>(threadID, prevCallbackId);
 	if (result == HLEKernel::WAIT_CB_SUCCESS)
@@ -206,7 +196,7 @@ u32 sceKernelCancelEventFlag(SceUID uid, u32 pattern, u32 numWaitThreadsPtr) {
 
 		e->nef.currentPattern = pattern;
 
-		if (__KernelClearEventFlagThreads(e, SCE_KERNEL_ERROR_WAIT_CANCEL))
+		if (HLEKernel::ClearWaitingThreads(e, SCE_KERNEL_ERROR_WAIT_CANCEL, __KernelUnlockEventFlagForThread))
 			hleReSchedule("event flag canceled");
 
 		hleEatCycles(580);
@@ -233,7 +223,7 @@ u32 sceKernelDeleteEventFlag(SceUID uid) {
 	u32 error;
 	EventFlag *e = kernelObjects.Get<EventFlag>(uid, error);
 	if (e) {
-		bool wokeThreads = __KernelClearEventFlagThreads(e, SCE_KERNEL_ERROR_WAIT_DELETE);
+		bool wokeThreads = HLEKernel::ClearWaitingThreads(e, SCE_KERNEL_ERROR_WAIT_DELETE, __KernelUnlockEventFlagForThread);
 		if (wokeThreads)
 			hleReSchedule("event flag deleted");
 

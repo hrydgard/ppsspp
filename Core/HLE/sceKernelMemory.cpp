@@ -509,22 +509,6 @@ void __KernelFplEndCallback(SceUID threadID, SceUID prevCallbackId)
 		DEBUG_LOG(Log::sceKernel, "sceKernelAllocateFplCB: Resuming mbx wait from callback");
 }
 
-static bool __FplThreadSortPriority(FplWaitingThread thread1, FplWaitingThread thread2)
-{
-	return __KernelThreadSortPriority(thread1.threadID, thread2.threadID);
-}
-
-static bool __KernelClearFplThreads(FPL *fpl, int reason)
-{
-	u32 error;
-	bool wokeThreads = false;
-	for (auto iter = fpl->waitingThreads.begin(), end = fpl->waitingThreads.end(); iter != end; ++iter)
-		__KernelUnlockFplForThread(fpl, *iter, error, reason, wokeThreads);
-	fpl->waitingThreads.clear();
-
-	return wokeThreads;
-}
-
 static void __KernelSortFplThreads(FPL *fpl)
 {
 	// Remove any that are no longer waiting.
@@ -532,7 +516,7 @@ static void __KernelSortFplThreads(FPL *fpl)
 	HLEKernel::CleanupWaitingThreads(WAITTYPE_FPL, uid, fpl->waitingThreads);
 
 	if ((fpl->nf.attr & PSP_FPL_ATTR_PRIORITY) != 0)
-		std::stable_sort(fpl->waitingThreads.begin(), fpl->waitingThreads.end(), __FplThreadSortPriority);
+		HLEKernel::SortWaitingThreadsByPriority(fpl->waitingThreads);
 }
 
 int sceKernelCreateFpl(const char *name, u32 mpid, u32 attr, u32 blockSize, u32 numBlocks, u32 optPtr) {
@@ -616,7 +600,7 @@ int sceKernelDeleteFpl(SceUID uid)
 		return hleLogDebug(Log::sceKernel, error, "invalid fpl");
 	}
 
-	bool wokeThreads = __KernelClearFplThreads(fpl, SCE_KERNEL_ERROR_WAIT_DELETE);
+	bool wokeThreads = HLEKernel::ClearWaitingThreads(fpl, SCE_KERNEL_ERROR_WAIT_DELETE, __KernelUnlockFplForThread);
 	if (wokeThreads)
 		hleReSchedule("fpl deleted");
 
@@ -758,7 +742,7 @@ int sceKernelCancelFpl(SceUID uid, u32 numWaitThreadsPtr) {
 	if (Memory::IsValid4AlignedAddress(numWaitThreadsPtr)) {
 		Memory::WriteUnchecked_U32(fpl->nf.numWaitThreads, numWaitThreadsPtr);
 	}
-	bool wokeThreads = __KernelClearFplThreads(fpl, SCE_KERNEL_ERROR_WAIT_CANCEL);
+	bool wokeThreads = HLEKernel::ClearWaitingThreads(fpl, SCE_KERNEL_ERROR_WAIT_CANCEL, __KernelUnlockFplForThread);
 	if (wokeThreads)
 		hleReSchedule("fpl canceled");
 	return hleLogDebug(Log::sceKernel, 0);
@@ -1286,22 +1270,6 @@ void __KernelVplEndCallback(SceUID threadID, SceUID prevCallbackId)
 		DEBUG_LOG(Log::sceKernel, "sceKernelAllocateVplCB: Resuming mbx wait from callback");
 }
 
-static bool __VplThreadSortPriority(VplWaitingThread thread1, VplWaitingThread thread2)
-{
-	return __KernelThreadSortPriority(thread1.threadID, thread2.threadID);
-}
-
-static bool __KernelClearVplThreads(VPL *vpl, int reason)
-{
-	u32 error;
-	bool wokeThreads = false;
-	for (auto iter = vpl->waitingThreads.begin(), end = vpl->waitingThreads.end(); iter != end; ++iter)
-		__KernelUnlockVplForThread(vpl, *iter, error, reason, wokeThreads);
-	vpl->waitingThreads.clear();
-
-	return wokeThreads;
-}
-
 static void __KernelSortVplThreads(VPL *vpl)
 {
 	// Remove any that are no longer waiting.
@@ -1309,7 +1277,7 @@ static void __KernelSortVplThreads(VPL *vpl)
 	HLEKernel::CleanupWaitingThreads(WAITTYPE_VPL, uid, vpl->waitingThreads);
 
 	if ((vpl->nv.attr & PSP_VPL_ATTR_PRIORITY) != 0)
-		std::stable_sort(vpl->waitingThreads.begin(), vpl->waitingThreads.end(), __VplThreadSortPriority);
+		HLEKernel::SortWaitingThreadsByPriority(vpl->waitingThreads);
 }
 
 SceUID sceKernelCreateVpl(const char *name, int partition, u32 attr, u32 vplSize, u32 optPtr) {
@@ -1383,7 +1351,7 @@ int sceKernelDeleteVpl(SceUID uid) {
 		return hleLogError(Log::sceKernel, error);
 	} else {
 		DEBUG_LOG(Log::sceKernel, "sceKernelDeleteVpl(%i)", uid);
-		bool wokeThreads = __KernelClearVplThreads(vpl, SCE_KERNEL_ERROR_WAIT_DELETE);
+		bool wokeThreads = HLEKernel::ClearWaitingThreads(vpl, SCE_KERNEL_ERROR_WAIT_DELETE, __KernelUnlockVplForThread);
 		if (wokeThreads)
 			hleReSchedule("vpl deleted");
 
@@ -1588,7 +1556,7 @@ int sceKernelCancelVpl(SceUID uid, u32 numWaitThreadsPtr)
 		if (Memory::IsValid4AlignedAddress(numWaitThreadsPtr))
 			Memory::WriteUnchecked_U32(vpl->nv.numWaitThreads, numWaitThreadsPtr);
 
-		bool wokeThreads = __KernelClearVplThreads(vpl, SCE_KERNEL_ERROR_WAIT_CANCEL);
+		bool wokeThreads = HLEKernel::ClearWaitingThreads(vpl, SCE_KERNEL_ERROR_WAIT_CANCEL, __KernelUnlockVplForThread);
 		if (wokeThreads)
 			hleReSchedule("vpl canceled");
 
@@ -1750,7 +1718,7 @@ static void __KernelSortTlsplThreads(TLSPL *tls)
 	HLEKernel::CleanupWaitingThreads(WAITTYPE_TLSPL, uid, tls->waitingThreads);
 
 	if ((tls->ntls.attr & PSP_FPL_ATTR_PRIORITY) != 0)
-		std::stable_sort(tls->waitingThreads.begin(), tls->waitingThreads.end(), __KernelThreadSortPriority);
+		HLEKernel::SortWaitingThreadsByPriority(tls->waitingThreads);
 }
 
 int __KernelFreeTls(TLSPL *tls, SceUID threadID)

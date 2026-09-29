@@ -50,11 +50,6 @@ static const u32 MSGPIPE_WAIT_VALUE_RECV = 1;
 // NativeMsgPipe/MsgPipeWaitingThread/MsgPipe itself now live in sceKernelMsgPipe.h - see the
 // comment on the class there for why.
 
-static bool __KernelMsgPipeThreadSortPriority(const MsgPipeWaitingThread &thread1, const MsgPipeWaitingThread &thread2)
-{
-	return __KernelThreadSortPriority(thread1.threadID, thread2.threadID);
-}
-
 bool MsgPipeWaitingThread::IsStillWaiting(SceUID waitID) const
 {
 	return HLEKernel::VerifyWait(threadID, WAITTYPE_MSGPIPE, waitID);
@@ -213,7 +208,7 @@ void MsgPipe::SortThreads(std::vector<MsgPipeWaitingThread> &waitingThreads, boo
 	HLEKernel::CleanupWaitingThreads(WAITTYPE_MSGPIPE, GetUID(), waitingThreads);
 
 	if (usePrio)
-		std::stable_sort(waitingThreads.begin(), waitingThreads.end(), __KernelMsgPipeThreadSortPriority);
+		HLEKernel::SortWaitingThreadsByPriority(waitingThreads);
 }
 
 void MsgPipe::SortReceiveThreads()
