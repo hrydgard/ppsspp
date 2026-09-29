@@ -22,6 +22,10 @@ static const u64 KEY_D = 0xA0000004C0000004ULL;  // ignored (empty filename)
 static const u32 HASH_D = 0x10000004;
 static const u64 KEY_E = 0xA0000005C0000005ULL;  // file missing
 static const u32 HASH_E = 0x10000005;
+static const u64 KEY_F = 0xA0000006C0000006ULL;  // same file as A, own hashrange
+static const u32 HASH_F = 0x10000006;
+static const u64 KEY_G = 0xA0000007C0000007ULL;  // ignoreAddress pack, hashrange
+static const u32 HASH_G = 0x10000007;
 
 static bool CreateTestPNG(const Path &filename, int w, int h, u32 color) {
 	std::vector<u8> buf((size_t)w * h * 4);
@@ -32,6 +36,16 @@ static bool CreateTestPNG(const Path &filename, int w, int h, u32 color) {
 		buf[i * 4 + 3] = color & 0xFF;
 	}
 	return pngSave(filename, buf.data(), w, h, 4);
+}
+
+static bool WriteIni(const Path &packDir, const char *iniContent) {
+	FILE *f = File::OpenCFile(packDir / "textures.ini", "w");
+	if (!f) {
+		return false;
+	}
+	fwrite(iniContent, 1, strlen(iniContent), f);
+	fclose(f);
+	return true;
 }
 
 static bool CreateTestPack(const Path &packDir) {
@@ -52,19 +66,18 @@ static bool CreateTestPack(const Path &packDir) {
 		"A0000003C000000310000003 = tex_c.png\n"
 		"A0000004C000000410000004 =\n"
 		"A0000005C000000510000005 = missing.png\n"
+		"A0000006C000000610000006 = tex_a.png\n"
 		"\n"
 		"[hashranges]\n"
 		"A0000003,512,512 = 256,256\n"
+		"A0000006,64,64 = 32,32\n"
 		"\n"
 		"[filtering]\n"
 		"A0000001C000000110000001 = nearest\n";
 
-	FILE *f = File::OpenCFile(packDir / "textures.ini", "w");
-	if (!f) {
+	if (!WriteIni(packDir, iniContent)) {
 		return false;
 	}
-	fwrite(iniContent, 1, strlen(iniContent), f);
-	fclose(f);
 
 	if (!CreateTestPNG(packDir / "tex_a.png", 64, 64, 0xFF0000FF)) return false;
 	if (!CreateTestPNG(packDir / "tex_b0.png", 64, 64, 0x00FF00FF)) return false;
@@ -94,11 +107,16 @@ static bool TestLookups(TextureReplacer *replacer) {
 	ReplacedTexture *texE = replacer->FindReplacement(ReplacementCacheKey(KEY_E, HASH_E), 16, 16);
 	EXPECT_TRUE(texE != nullptr);
 
+	// Key F: the same file as A, but its own hashrange and no filtering, so it can't share A's texture.
+	ReplacedTexture *texF = replacer->FindReplacement(ReplacementCacheKey(KEY_F, HASH_F), 64, 64);
+	EXPECT_TRUE(texF != nullptr);
+	EXPECT_TRUE(texF != texA);
+
 	// Unknown key: not in the ini at all.
 	ReplacementCacheKey unknownKey(0x2000000020000000ULL, 0x20000000);
 	EXPECT_TRUE(replacer->FindReplacement(unknownKey, 16, 16) == nullptr);
 
-	if (!texA || !texB || !texC || !texE) {
+	if (!texA || !texB || !texC || !texE || !texF) {
 		return false;
 	}
 
@@ -133,10 +151,58 @@ static bool TestLookups(TextureReplacer *replacer) {
 	EXPECT_EQ_INT(w, 512);
 	EXPECT_EQ_INT(h, 512);
 
+	// Key F: hashrange maps 64x64 -> 32x32, so the 64x64 image covers 128x128.
+	EXPECT_TRUE(texF->Poll(1.0));
+	texF->GetSize(0, &w, &h);
+	EXPECT_EQ_INT(w, 128);
+	EXPECT_EQ_INT(h, 128);
+	EXPECT_FALSE(texF->ForceFiltering(&filtering));
+
 	// Key E: missing file should end up NOT_FOUND.
 	EXPECT_TRUE(texE->Poll(1.0));
 	EXPECT_TRUE(texE->State() == ReplacementState::NOT_FOUND);
 
+	g_threadManager.Teardown();
+	return true;
+}
+
+// ignoreAddress matches files without the address, but hash ranges still apply per address.
+static bool TestIgnoreAddress(const Path &packDir) {
+	static const char *iniContent =
+		"[options]\n"
+		"hash = xxh32\n"
+		"ignoreAddress = true\n"
+		"version = 1\n"
+		"\n"
+		"[hashes]\n"
+		"00000000C000000710000007 = tex_c.png\n"
+		"\n"
+		"[hashranges]\n"
+		"A0000007,512,512 = 256,256\n";
+	if (!WriteIni(packDir, iniContent)) {
+		return false;
+	}
+
+	TextureReplacer replacer(nullptr);
+	std::string error;
+	if (!replacer.LoadPackForTesting(packDir, &error)) {
+		return false;
+	}
+
+	ReplacementCacheKey key(KEY_G, HASH_G);
+	ReplacedTexture *texG = replacer.FindReplacement(key, 512, 512);
+	EXPECT_TRUE(texG != nullptr);
+	if (!texG) {
+		return false;
+	}
+	EXPECT_TRUE(replacer.FindReplacement(key, 512, 512) == texG);
+
+	g_threadManager.Init(1, 1);
+	EXPECT_TRUE(texG->Poll(1.0));
+	int w = 0, h = 0;
+	texG->GetSize(0, &w, &h);
+	EXPECT_EQ_INT(w, 512);
+	EXPECT_EQ_INT(h, 512);
 	g_threadManager.Teardown();
 	return true;
 }
@@ -156,6 +222,16 @@ bool TestTextureReplacer() {
 	}
 
 	if (!TestLookups(&replacer)) {
+		File::DeleteDirRecursively(packDir);
+		return false;
+	}
+
+	// Reloading the ini forgets what the old one said about each texture.
+	EXPECT_TRUE(replacer.GetNumTrackedTextures() != 0);
+	EXPECT_TRUE(replacer.LoadPackForTesting(packDir, &error));
+	EXPECT_EQ_INT(replacer.GetNumTrackedTextures(), 0);
+
+	if (!TestIgnoreAddress(packDir)) {
 		File::DeleteDirRecursively(packDir);
 		return false;
 	}
