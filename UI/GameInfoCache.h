@@ -25,6 +25,7 @@
 #include <condition_variable>
 
 #include "Common/Thread/Event.h"
+#include "Common/Thread/ThreadManager.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/Util/PSARUnpack.h"
 #include "Common/File/Path.h"
@@ -227,7 +228,11 @@ public:
 	// because they're big. bgTextures and sound may be discarded over time as well.
 	// NOTE: This never returns null, so you don't need to check for that. Do check Ready() flags though.
 	// It's OK to pass in nullptr for draw if you don't need the actual texture right now.
-	std::shared_ptr<GameInfo> GetInfo(Draw::DrawContext *draw, const Path &gamePath, GameInfoFlags wantFlags, GameInfoFlags *outHasFlags = nullptr, GameInfoFlags refetchFlags = GameInfoFlags::EMPTY);
+	// priority orders the background loads: NORMAL for what's on screen, LOW for speculative work like
+	// search. HIGH is for a one-off request you're about to block on: it doesn't wait behind a
+	// lower-priority load that's already queued for the same data, it queues its own - so don't use it
+	// every frame.
+	std::shared_ptr<GameInfo> GetInfo(Draw::DrawContext *draw, const Path &gamePath, GameInfoFlags wantFlags, GameInfoFlags *outHasFlags = nullptr, GameInfoFlags refetchFlags = GameInfoFlags::EMPTY, TaskPriority priority = TaskPriority::NORMAL);
 	void FlushBGs();  // Gets rid of all BG textures. Also gets rid of bg sounds.
 
 	void CancelAll();

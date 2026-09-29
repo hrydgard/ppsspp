@@ -72,9 +72,10 @@ static void LaunchFile(ScreenManager *screenManager, Screen *currentScreen, cons
 		// Check if we already know that this game isn't playable.
 		// If coming from the main screen, the info will already be computed here since the icon is displayed etc.
 		// Otherwise (launching from a file association, a shortcut, drag-and-drop...) we have to block until
-		// it's available - we can't decide what to do below without it.
+		// it's available - we can't decide what to do below without it. HIGH, so we don't wait behind
+		// whatever else is queued, like a search's loads for every game in a big list.
 		const GameInfoFlags neededFlags = GameInfoFlags::FILE_TYPE | GameInfoFlags::PARAM_SFO;
-		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, path, neededFlags);
+		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, path, neededFlags, nullptr, GameInfoFlags::EMPTY, TaskPriority::HIGH);
 		info->WaitUntilReady(neededFlags);
 
 		switch (info->fileType) {

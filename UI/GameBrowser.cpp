@@ -473,7 +473,8 @@ void GameButton::Draw(UIContext &dc) {
 }
 
 std::string GameButton::DescribeText() const {
-	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(nullptr, gamePath_, GameInfoFlags::PARAM_SFO);
+	// LOW: search calls this for every game in the list, which mustn't hold up the visible ones.
+	std::shared_ptr<GameInfo> ginfo = g_gameInfoCache->GetInfo(nullptr, gamePath_, GameInfoFlags::PARAM_SFO, nullptr, GameInfoFlags::EMPTY, TaskPriority::LOW);
 	if (!ginfo->Ready(GameInfoFlags::PARAM_SFO))
 		return "...";
 	auto u = GetI18NCategory(I18NCat::UI_ELEMENTS);
