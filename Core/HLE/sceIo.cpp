@@ -1053,6 +1053,19 @@ static u32 npdrmRead(FileNode *f, u8 *data, int size) {
 	return size;
 }
 
+// With dispatch suspended, a call fails in the driver when it tries to wait. The memory stick driver
+// returns SCE_KERNEL_ERROR_CAN_NOT_WAIT, while usbhostfs (host0: under PSPLink, what homebrew
+// developers run from) returns -1, which is what host0: does here too.
+static u32 IoDispatchDisabledError(const std::string &filename) {
+	std::string outPath;
+	IFileSystem *system = nullptr;
+	IFileSystem *host = pspFileSystem.GetSystem("host0:");
+	if (host && pspFileSystem.MapFilePath(filename, &outPath, &system) == 0 && system == host) {
+		return (u32)-1;
+	}
+	return SCE_KERNEL_ERROR_CAN_NOT_WAIT;
+}
+
 int __IoOpenDelayUs(const char *filename) {
 	// UMD: Speed varies from 1-6ms.
 	// Card: Path depth matters, but typically between 10-13ms on a standard Pro Duo.
@@ -1153,8 +1166,11 @@ static u32 sceIoRead(int id, u32 data_addr, int size) {
 	}
 
 	if (id > 2) {
+		if (f->asyncBusy()) {
+			return hleLogWarning(Log::sceIo, SCE_KERNEL_ERROR_ASYNC_BUSY, "async busy");
+		}
 		if (!__KernelIsDispatchEnabled()) {
-			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
+			return hleLogError(Log::sceIo, IoDispatchDisabledError(f->fullpath), "dispatch disabled");
 		}
 		if (__IsInInterrupt()) {
 			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "inside interrupt");
@@ -1296,7 +1312,7 @@ static u32 sceIoWrite(int id, u32 data_addr, int size) {
 	FileNode *f = __IoGetFd(id, error);
 	if (id > 2 && f != NULL) {
 		if (!__KernelIsDispatchEnabled()) {
-			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
+			return hleLogError(Log::sceIo, IoDispatchDisabledError(f->fullpath), "dispatch disabled");
 		}
 		if (__IsInInterrupt()) {
 			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "inside interrupt");
@@ -1320,6 +1336,10 @@ static u32 sceIoWrite(int id, u32 data_addr, int size) {
 			// On actual hardware, it would just return this... we just want the log output.
 			if (__IsInInterrupt()) {
 				return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT);
+			}
+			if (id <= 2) {
+				// A write to stdout or stderr doesn't give up the CPU (pspautotests threads/scheduling/dispatch).
+				return hleLogDebug(Log::sceIo, result);
 			}
 			return hleDelayResult(hleLogDebug(Log::sceIo, result), "io write", us);
 		} else {
@@ -1612,7 +1632,7 @@ static u32 sceIoOpen(const char *filename, int flags, int mode) {
 
 	if (!__KernelIsDispatchEnabled()) {
 		hleEatCycles(48000);
-		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_CAN_NOT_WAIT, "dispatch disabled");
+		return hleLogError(Log::sceIo, IoDispatchDisabledError(filename), "dispatch disabled");
 	}
 
 	int error;

@@ -388,6 +388,7 @@ tests_good = [
   "threads/mutex/try",
   "threads/mutex/unlock",
   "threads/mutex/unlock2",
+  "threads/scheduling/dispatch",
   "threads/semaphores/semaphores",
   "threads/semaphores/cancel",
   "threads/semaphores/create",
@@ -598,7 +599,6 @@ tests_next = [
   # These two mbx tests only appeared to work because they papered over bugs 
 
 
-  "threads/scheduling/dispatch",
   "threads/scheduling/scheduling",
   "threads/threads/create",
   "threads/tls/memory",
