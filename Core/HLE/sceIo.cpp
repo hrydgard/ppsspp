@@ -1053,20 +1053,26 @@ static u32 npdrmRead(FileNode *f, u8 *data, int size) {
 	return size;
 }
 
+int __IoOpenDelayUs(const char *filename) {
+	// UMD: Speed varies from 1-6ms.
+	// Card: Path depth matters, but typically between 10-13ms on a standard Pro Duo.
+	return pspFileSystem.FlagsFromFilename(filename) & FileSystemFlags::UMD ? 4000 : 10000;
+}
+
+int __IoReadDelayUs(int size) {
+	int us;
+	if (PSP_CoreParameter().compat.flags().ForceUMDReadSpeed || g_Config.iIOTimingMethod == IOTIMING_UMDSLOWREALISTIC) {
+		us = size / 4.2;
+	} else {
+		us = size / 100;
+	}
+	return std::max(us, 100);
+}
+
 static bool __IoRead(int &result, int id, u32 data_addr, int size, int &us) {
 	PROFILE_THIS_SCOPE("io_rw");
 	// Low estimate, may be improved later from the ReadFile result.
-
-	if (PSP_CoreParameter().compat.flags().ForceUMDReadSpeed || g_Config.iIOTimingMethod == IOTIMING_UMDSLOWREALISTIC) {
-		us = size / 4.2;
-	}
-	else {
-		us = size / 100;
-	}
-
-	if (us < 100) {
-		us = 100;
-	}
+	us = __IoReadDelayUs(size);
 
 	if (id == PSP_STDIN) {
 		DEBUG_LOG(Log::sceIo, "sceIoRead STDIN");
@@ -1641,10 +1647,7 @@ static u32 sceIoOpen(const char *filename, int flags, int mode) {
 			// These are fast to open, no delay or even rescheduling happens.
 			return hleLogDebug(Log::sceIo, id);
 		}
-		// UMD: Speed varies from 1-6ms.
-		// Card: Path depth matters, but typically between 10-13ms on a standard Pro Duo.
-		int delay = pspFileSystem.FlagsFromFilename(filename) & FileSystemFlags::UMD ? 4000 : 10000;
-		return hleDelayResult(hleLogDebug(Log::sceIo, id), "file opened", delay);
+		return hleDelayResult(hleLogDebug(Log::sceIo, id), "file opened", __IoOpenDelayUs(filename));
 	}
 }
 
