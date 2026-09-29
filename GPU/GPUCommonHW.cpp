@@ -416,11 +416,6 @@ void GPUCommonHW::CheckConfigChanged(const DisplayLayoutConfig &config) {
 		BuildReportingInfo();
 		configChanged_ = false;
 	}
-
-	// Check needed when running tests.
-	if (framebufferManager_) {
-		framebufferManager_->CheckPostShaders(config);
-	}
 }
 
 void GPUCommonHW::CheckDisplayResized() {
