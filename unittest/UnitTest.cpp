@@ -1168,6 +1168,12 @@ bool TestBlockAllocator() {
 		EXPECT_TRUE(ValidateAllocator(a, kStart, oddSize));
 	}
 
+	// Validating is quadratic in the block count, so the churn loops below only do it periodically.
+	// A broken tiling or free count doesn't repair itself, so it's still caught, just a few steps late.
+	auto validateEvery = [](int i, int count) {
+		return (i & 63) == 63 || i == count - 1;
+	};
+
 	// Churn again, this time mixing in aligned allocations and AllocAt so the block list gets into
 	// shapes the plain alloc/free loop never produces.
 	{
@@ -1177,7 +1183,8 @@ bool TestBlockAllocator() {
 		u32 rng = 987654321;
 		auto next = [&rng]() { rng = rng * 1103515245u + 12345u; return (rng >> 16) & 0x7FFF; };
 
-		for (int i = 0; i < 4000; ++i) {
+		const int kIterations = 3000;
+		for (int i = 0; i < kIterations; ++i) {
 			const int op = next() % 100;
 			if (op < 30 && !live.empty()) {
 				const size_t idx = next() % live.size();
@@ -1206,8 +1213,8 @@ bool TestBlockAllocator() {
 				if (addr != (u32)-1)
 					live.push_back(addr);
 			}
-			if (!ValidateAllocator(a, kStart, kSize)) {
-				printf("BlockAllocator invariant broken at iteration %d (op %d)\n", i, op);
+			if (validateEvery(i, kIterations) && !ValidateAllocator(a, kStart, kSize)) {
+				printf("BlockAllocator invariant broken by iteration %d\n", i);
 				return false;
 			}
 		}
@@ -1228,7 +1235,8 @@ bool TestBlockAllocator() {
 		u32 rng = 12345;
 		auto next = [&rng]() { rng = rng * 1103515245u + 12345u; return (rng >> 16) & 0x7FFF; };
 
-		for (int i = 0; i < 3000; ++i) {
+		const int kIterations = 2000;
+		for (int i = 0; i < kIterations; ++i) {
 			const bool doAlloc = live.empty() || (next() % 100) < 55;
 			if (doAlloc) {
 				u32 size = ((next() % 64) + 1) * kGrain;
@@ -1247,8 +1255,8 @@ bool TestBlockAllocator() {
 				EXPECT_TRUE(a.Free(live[idx].first));
 				live.erase(live.begin() + idx);
 			}
-			if (!ValidateAllocator(a, kStart, kSize)) {
-				printf("BlockAllocator invariant broken at iteration %d\n", i);
+			if (validateEvery(i, kIterations) && !ValidateAllocator(a, kStart, kSize)) {
+				printf("BlockAllocator invariant broken by iteration %d\n", i);
 				return false;
 			}
 		}

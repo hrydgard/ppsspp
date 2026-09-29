@@ -40,6 +40,7 @@ class VulkanFragmentShader;
 class ShaderManagerVulkan;
 class DrawEngineCommon;
 
+// Stored in the shader cache on disk: changing it requires bumping CACHE_VERSION in ShaderManagerVulkan.cpp.
 struct VulkanPipelineKey {
 	VulkanPipelineRasterStateKey raster;  // prim is included here
 	VShaderID vid;

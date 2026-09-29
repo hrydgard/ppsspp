@@ -44,6 +44,7 @@ SingleFunc GetSingleFunc(const PixelFuncID &id, BinManager *binner);
 
 void Init();
 void FlushJit();
+int JitClearGeneration();
 void Shutdown();
 
 bool CheckDepthTestPassed(GEComparison func, int x, int y, int stride, u16 z);
@@ -69,6 +70,8 @@ public:
 	static SingleFunc GenericSingle(const PixelFuncID &id);
 	void Clear() override;
 	void Flush();
+	// Changes whenever the code space is cleared, which frees all previously returned functions.
+	static int ClearGeneration() { return clearGen_; }
 
 	std::string DescribeCodePtr(const u8 *ptr) override;
 

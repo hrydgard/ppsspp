@@ -757,12 +757,14 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 							DEBUG_LOG(Log::TexCache, "%08x: Second cache already had one with hash %08x (tex has addr %08x)! (%dx%d)", texaddr, entry->fullhash, entry->addr, w, h);
 							// Just release the old entry, drop it on the ground.
 							ReleaseTexture(entry, true);
+							delete entry;
 							entry = nullptr;
 						}
 					} else {
 						// Just release the old video entry, drop it on the ground.
 						VERBOSE_LOG(Log::TexCache, "%08x: Dropping old invalidated video image (%dx%d)", texaddr, w, h);
 						ReleaseTexture(entry, true);
+						delete entry;
 						entry = nullptr;
 					}
 
@@ -802,9 +804,9 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 							// other stuff like Gran Turismo or Gods Eater font rendering unless there are hash collisions..
 							DEBUG_LOG(Log::TexCache, "%08x: No entry for hash %08x in secondary cache, creating new in main cache.", texaddr, newFullHash);
 						}
-						// Well, not found, so we need to create a new entry.
-						cache_.erase(entryIter);
 					}
+					// The slot was released above. Erase it, since the framebuffer match below can return before it's refilled.
+					cache_.erase(entryIter);
 					entry = nullptr;
 					entryIter = cache_.end();
 				} else {
@@ -2740,6 +2742,8 @@ void TextureCacheCommon::Clear(bool delete_them) {
 		dynamicClutTemp_->Release();
 		dynamicClutTemp_ = nullptr;
 	}
+	// The dynamic CLUT lived in the framebuffers released above. Fall back to the RAM copy until the next LoadClut.
+	clutRenderAddress_ = 0xFFFFFFFF;
 }
 
 // One type of texture update can happen without the involvement of the CPU: Block transfers.

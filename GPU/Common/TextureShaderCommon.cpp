@@ -79,10 +79,7 @@ Draw::SamplerState *TextureShaderCache::GetSampler(bool linearFilter) {
 
 void TextureShaderCache::Clear() {
 	for (auto shader = pipelineCache_.begin(); shader != pipelineCache_.end(); ++shader) {
-		if (shader->second->pipeline) {
-			shader->second->pipeline->Release();
-		}
-		delete shader->second;
+		shader->second->Release();
 	}
 	pipelineCache_.clear();
 	if (nearestSampler_) {
@@ -99,7 +96,7 @@ Draw2DPipeline *TextureShaderCache::GetDepalettizeShader(uint32_t clutMode, GETe
 	using namespace Draw;
 
 	// Generate an ID for depal shaders.
-	u64 id = ((u64)depthUpperBits << 32) | (clutMode & 0xFFFFFF) | (textureFormat << 24) | (bufferFormat << 28);
+	u64 id = ((u64)smoothedDepal << 63) | ((u64)depthUpperBits << 32) | (clutMode & 0xFFFFFF) | (textureFormat << 24) | (bufferFormat << 28);
 
 	auto shader = pipelineCache_.find(id);
 	if (shader != pipelineCache_.end()) {
@@ -135,14 +132,14 @@ Draw2DPipeline *TextureShaderCache::GetDepalettizeShader(uint32_t clutMode, GETe
 std::vector<std::string> TextureShaderCache::DebugGetShaderIDs(DebugShaderType type) const {
 	std::vector<std::string> ids;
 	for (auto &entry : pipelineCache_) {
-		ids.push_back(StringFromFormat("%08x", entry.first));
+		ids.push_back(StringFromFormat("%016llx", (unsigned long long)entry.first));
 	}
 	return ids;
 }
 
 std::string TextureShaderCache::DebugGetShaderString(const std::string &idstr, DebugShaderType type, DebugShaderStringType stringType) const {
-	uint32_t id = 0;
-	if (sscanf(idstr.c_str(), "%08x", &id) == 0) {
+	unsigned long long id = 0;
+	if (sscanf(idstr.c_str(), "%llx", &id) != 1) {
 		return "";
 	}
 	auto iter = pipelineCache_.find(id);

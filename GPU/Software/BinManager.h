@@ -265,6 +265,8 @@ private:
 
 	bool pendingOverlap_ = false;
 	bool creatingState_ = false;
+	// JIT clear generations when the current state was computed.
+	int jitGen_ = -1;
 	uint16_t pendingStateIndex_ = 0;
 
 	std::unordered_map<const char *, double> flushReasonTimes_;

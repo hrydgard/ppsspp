@@ -49,6 +49,10 @@ void FlushJit() {
 	jitCache->Flush();
 }
 
+int JitClearGeneration() {
+	return SamplerJitCache::ClearGeneration();
+}
+
 void Shutdown() {
 	delete jitCache;
 	jitCache = nullptr;

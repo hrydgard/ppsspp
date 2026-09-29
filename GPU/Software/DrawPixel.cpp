@@ -41,6 +41,10 @@ void FlushJit() {
 	jitCache->Flush();
 }
 
+int JitClearGeneration() {
+	return PixelJitCache::ClearGeneration();
+}
+
 void Shutdown() {
 	delete jitCache;
 	jitCache = nullptr;
