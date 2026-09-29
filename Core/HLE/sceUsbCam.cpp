@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <mutex>
+#include <vector>
 
 #include "ppsspp_config.h"
 
@@ -30,6 +31,8 @@
 #include "Core/CoreTiming.h"
 #include "Core/HW/Camera.h"
 #include "Core/MemMapHelpers.h"
+#include "ext/jpge/jpgd.h"
+#include "ext/jpge/jpge.h"
 
 #if defined(_WIN32) && !PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
 #define HAVE_WIN32_CAMERA
@@ -433,7 +436,38 @@ int Camera::getMaxFrameSize() {
 	return framesize;
 }
 
+// Re-encodes a frame at lower quality until it fits maxSize, like the PSP camera compresses to the
+// game's framesize. Most platforms' capture code encodes at a fixed quality, so this is the common fallback.
+static bool RecompressToFit(const unsigned char *image, long long length, int maxSize, std::vector<uint8_t> *out) {
+	int width = 0, height = 0, comps = 0;
+	unsigned char *rgb = jpgd::decompress_jpeg_image_from_memory(image, (int)length, &width, &height, &comps, 3);
+	if (!rgb) {
+		return false;
+	}
+	bool fits = false;
+	out->resize(width * height * 3 + 1024);
+	jpge::params params;
+	for (int quality = 70; quality >= 10; quality -= 15) {
+		int size = (int)out->size();
+		params.m_quality = quality;
+		if (jpge::compress_image_to_jpeg_file_in_memory(out->data(), size, width, height, 3, rgb, params) && size <= maxSize) {
+			out->resize(size);
+			fits = true;
+			break;
+		}
+	}
+	free(rgb);
+	return fits;
+}
+
 void Camera::pushCameraImage(long long length, unsigned char* image) {
+	std::vector<uint8_t> recompressed;
+	const int maxSize = getMaxFrameSize();
+	if (length > maxSize && RecompressToFit(image, length, maxSize, &recompressed)) {
+		image = recompressed.data();
+		length = (long long)recompressed.size();
+	}
+
 	std::lock_guard<std::mutex> lock(videoBufferMutex);
 	if (!videoBuffer) {
 		return;
