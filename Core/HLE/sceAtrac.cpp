@@ -96,6 +96,17 @@ static int AtracSetDataDelay(const AtracBase *atrac) {
 	return MEScheduleJob(PowerScaleFromDefaultClock(us));
 }
 
+// SetData fails with API_FAIL when the first frame (decoded and thrown away during setup) doesn't
+// decode. Unlike the other errors, that comes after setting up the codec and trying the frame on
+// the ME, so the thread waits for both (audio/atrac/c0mono).
+static int AtracSetDataError(int ret, const Track &track) {
+	if (ret != SCE_ERROR_ATRAC_API_FAIL) {
+		return hleLogError(Log::Atrac, ret);
+	}
+	const int us = AudioCodecInitUs(track.codecType, track.channels == 1) + (track.codecType == PSP_CODEC_AT3PLUS ? 214 : 169);
+	return hleDelayResult(hleLogError(Log::Atrac, ret, "first frame didn't decode"), "atrac set data", MEScheduleJob(PowerScaleFromDefaultClock(us)));
+}
+
 static int AtracDecodeDelay(const AtracBase *atrac) {
 	return MEScheduleJob(PowerScaleFromDefaultClock(AtracFrameUs(atrac)));
 }
@@ -766,8 +777,7 @@ static u32 sceAtracSetHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u32 b
 
 	ret = atrac->SetData(track, buffer, readSize, bufferSize, 0, 2, false);
 	if (ret < 0) {
-		// Must not delay.
-		return hleLogError(Log::Atrac, ret);
+		return AtracSetDataError(ret, track);
 	}
 
 	// not sure the real delay time
@@ -802,8 +812,7 @@ static u32 sceAtracSetData(int atracID, u32 buffer, u32 bufferSize) {
 
 	ret = atrac->SetData(track, buffer, bufferSize, bufferSize, 0, 2, false);
 	if (ret < 0) {
-		// Must not delay.
-		return hleLogError(Log::Atrac, ret);
+		return AtracSetDataError(ret, track);
 	}
 
 	return hleDelayResult(hleLogDebug(Log::Atrac, ret), "atrac set data", AtracSetDataDelay(atrac));
@@ -834,7 +843,7 @@ static int sceAtracSetDataAndGetID(u32 buffer, int bufferSize) {
 	ret = atracContexts[atracID]->SetData(track, buffer, bufferSize, bufferSize, 0, 2, false);
 	if (ret < 0) {
 		UnregisterAndDeleteAtrac(atracID);
-		return hleLogError(Log::Atrac, ret);
+		return AtracSetDataError(ret, track);
 	}
 
 	return hleDelayResult(hleLogDebug(Log::Atrac, atracID), "atrac set data", AtracSetDataDelay(atracContexts[atracID]));
@@ -860,7 +869,7 @@ static int sceAtracSetHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 buffer
 	ret = atracContexts[atracID]->SetData(track, buffer, readSize, bufferSize, 0, 2, false);
 	if (ret < 0) {
 		UnregisterAndDeleteAtrac(atracID);
-		return hleLogError(Log::Atrac, ret);
+		return AtracSetDataError(ret, track);
 	}
 
 	return hleDelayResult(hleLogDebug(Log::Atrac, atracID), "atrac set data", AtracSetDataDelay(atracContexts[atracID]));
@@ -974,8 +983,7 @@ static int sceAtracSetMOutHalfwayBuffer(int atracID, u32 buffer, u32 readSize, u
 
 	ret = atrac->SetData(track, buffer, readSize, bufferSize, 0, 1, false);
 	if (ret < 0 && ret != SCE_ERROR_ATRAC_NOT_MONO) {
-		// Must not delay.
-		return hleLogError(Log::Atrac, ret);
+		return AtracSetDataError(ret, track);
 	}
 	return hleDelayResult(hleLogDebugOrError(Log::Atrac, ret), "atrac set data mono", AtracSetDataDelay(atrac));
 }
@@ -999,8 +1007,7 @@ static u32 sceAtracSetMOutData(int atracID, u32 buffer, u32 bufferSize) {
 
 	ret = atrac->SetData(track, buffer, bufferSize, bufferSize, 0, 1, false);
 	if (ret < 0 && ret != SCE_ERROR_ATRAC_NOT_MONO) {
-		// Must not delay.
-		return hleLogError(Log::Atrac, ret);
+		return AtracSetDataError(ret, track);
 	}
 	// It's OK if this fails, at least with NO_MONO...
 	return hleDelayResult(hleLogDebugOrError(Log::Atrac, ret), "atrac set data mono", AtracSetDataDelay(atrac));
@@ -1028,7 +1035,7 @@ static int sceAtracSetMOutDataAndGetID(u32 buffer, u32 bufferSize) {
 	ret = atracContexts[atracID]->SetData(track, buffer, bufferSize, bufferSize, 0, 1, false);
 	if (ret < 0 && ret != SCE_ERROR_ATRAC_NOT_MONO) {
 		UnregisterAndDeleteAtrac(atracID);
-		return hleLogError(Log::Atrac, ret);
+		return AtracSetDataError(ret, track);
 	}
 	return hleDelayResult(hleLogDebugOrError(Log::Atrac, atracID), "atrac set data", AtracSetDataDelay(atracContexts[atracID]));
 }
@@ -1057,7 +1064,7 @@ static int sceAtracSetMOutHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 bu
 	ret = atracContexts[atracID]->SetData(track, buffer, readSize, bufferSize, 0, 1, false);
 	if (ret < 0 && ret != SCE_ERROR_ATRAC_NOT_MONO) {
 		UnregisterAndDeleteAtrac(atracID);
-		return hleLogError(Log::Atrac, ret);
+		return AtracSetDataError(ret, track);
 	}
 	return hleDelayResult(hleLogDebug(Log::Atrac, atracID), "atrac set data", AtracSetDataDelay(atracContexts[atracID]));
 }
@@ -1078,7 +1085,7 @@ static int sceAtracSetAA3DataAndGetID(u32 buffer, u32 bufferSize, u32 fileSize, 
 	ret = atracContexts[atracID]->SetData(track, buffer, bufferSize, bufferSize, fileSize, 2, true);
 	if (ret < 0) {
 		UnregisterAndDeleteAtrac(atracID);
-		return hleLogError(Log::Atrac, ret);
+		return AtracSetDataError(ret, track);
 	}
 
 	return hleDelayResult(hleLogDebug(Log::Atrac, atracID), "atrac set aa3 data", AtracSetDataDelay(atracContexts[atracID]));
@@ -1104,7 +1111,7 @@ static int sceAtracSetAA3HalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 buf
 	ret = atracContexts[atracID]->SetData(track, buffer, readSize, bufferSize, fileSize, 2, true);
 	if (ret < 0) {
 		UnregisterAndDeleteAtrac(atracID);
-		return hleLogError(Log::Atrac, ret);
+		return AtracSetDataError(ret, track);
 	}
 
 	return hleDelayResult(hleLogDebug(Log::Atrac, atracID), "atrac set data", AtracSetDataDelay(atracContexts[atracID]));
