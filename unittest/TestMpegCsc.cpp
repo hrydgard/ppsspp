@@ -154,18 +154,11 @@ static double MeasureMegapixelsPerSecond(const TestFrame &frame, int pixelMode, 
 	CscFunc fn = &MpegCscRange) {
 	const int destStride = 512;
 	// Long enough to swamp the clock's own resolution, short enough not to pad the test run.
-	const double seconds = 0.2;
-	int frames = 0;
-	const double start = time_now_d();
-	do {
-		for (int i = 0; i < 4; i++) {
-			fn(dest.data(), destStride, pixelMode, frame.luma.data(), frame.cb.data(),
-				frame.cr.data(), frame.width, 0, 0, frame.width, frame.height);
-			frames++;
-		}
-	} while (time_now_d() - start < seconds);
-	const double elapsed = time_now_d() - start;
-	return (double)frames * frame.width * frame.height / elapsed / 1000000.0;
+	const double framesPerSecond = CallsPerSecond([&] {
+		fn(dest.data(), destStride, pixelMode, frame.luma.data(), frame.cb.data(),
+			frame.cr.data(), frame.width, 0, 0, frame.width, frame.height);
+	}, 0.2, 4);
+	return framesPerSecond * frame.width * frame.height / 1000000.0;
 }
 
 // The de-tiling as it was originally written, straight from the description of the layout: bounds
@@ -243,17 +236,10 @@ static double MeasureUntileMegapixelsPerSecond(const TiledFrame &tiled, int widt
 	u8 *luma = planes.data();
 	u8 *cb = luma + (size_t)width * height;
 	u8 *cr = cb + (size_t)(width / 2) * (height / 2);
-	const double seconds = 0.2;
-	int frames = 0;
-	const double start = time_now_d();
-	do {
-		for (int i = 0; i < 4; i++) {
-			fn(luma, cb, cr, tiled.src, tiled.sizes, width, height);
-			frames++;
-		}
-	} while (time_now_d() - start < seconds);
-	const double elapsed = time_now_d() - start;
-	return (double)frames * width * height / elapsed / 1000000.0;
+	const double framesPerSecond = CallsPerSecond([&] {
+		fn(luma, cb, cr, tiled.src, tiled.sizes, width, height);
+	}, 0.2, 4);
+	return framesPerSecond * width * height / 1000000.0;
 }
 
 bool TestMpegCsc() {

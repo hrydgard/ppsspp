@@ -170,12 +170,6 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 		queries.push_back({ &u_lightspecular[i], lightspecular_names[i] });
 	}
 
-	// We need to fetch these unconditionally, gstate_c.spline or bezier will not be set if we
-	// create this shader at load time from the shader cache.
-	queries.push_back({ &u_tess_points, "u_tess_points" });
-	queries.push_back({ &u_tess_weights_u, "u_tess_weights_u" });
-	queries.push_back({ &u_tess_weights_v, "u_tess_weights_v" });
-	queries.push_back({ &u_spline_counts, "u_spline_counts" });
 	queries.push_back({ &u_depal_mask_shift_off_fmt, "u_depal_mask_shift_off_fmt" });
 	queries.push_back({ &u_mipBias, "u_mipBias" });
 
@@ -183,14 +177,11 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 	availableUniforms = vs->GetUniformMask() | fs->GetUniformMask();
 
 	std::vector<GLRProgram::Initializer> initialize;
-	initialize.reserve(7);
+	initialize.reserve(4);
 	initialize.push_back({ &u_tex,          0, TEX_SLOT_PSP_TEXTURE });
 	initialize.push_back({ &u_fbotex,       0, TEX_SLOT_SHADERBLEND_SRC });
 	initialize.push_back({ &u_testtex,      0, TEX_SLOT_ALPHATEST });
 	initialize.push_back({ &u_pal,          0, TEX_SLOT_CLUT }); // CLUT
-	initialize.push_back({ &u_tess_points,  0, TEX_SLOT_SPLINE_POINTS }); // Control Points
-	initialize.push_back({ &u_tess_weights_u, 0, TEX_SLOT_SPLINE_WEIGHTS_U });
-	initialize.push_back({ &u_tess_weights_v, 0, TEX_SLOT_SPLINE_WEIGHTS_V });
 
 	GLRProgramFlags flags{};
 	flags.supportDualSource = gstate_c.Use(GPU_USE_DUALSOURCE_BLEND);

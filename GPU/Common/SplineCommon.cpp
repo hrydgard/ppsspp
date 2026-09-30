@@ -150,7 +150,8 @@ private:
 			//	knots[n + 2] = (float)n; // Got rid of this line optimized with KnotDiv
 			//	knots[n + 3] = (float)n; // Got rid of this line optimized with KnotDiv
 			//	knots[n + 4] = (float)n; // Got rid of this line optimized with KnotDiv
-			divs[n - 1]._4_1 = 1.0f / 2.0f;
+			// With a single patch whose first edge is open too, that knot interval is 1, not 2.
+			divs[n - 1]._4_1 = (n == 1 && (type & 1) != 0) ? 1.0f : 1.0f / 2.0f;
 			divs[n - 1]._5_2 = 1.0f;
 			divs[n - 1]._4_2 = 1.0f;
 			if (n > 1)
@@ -391,7 +392,29 @@ public:
 							const Vec3f derivU = tess_nrm.SampleV(wv.basis);
 							const Vec3f derivV = tess_pos.SampleV(wv.deriv);
 
-							vert.nrm = Cross(derivU, derivV).Normalized(useSSE4);
+							Vec3f nrm = Cross(derivU, derivV);
+							const float lenU2 = derivU.Length2();
+							const float lenV2 = derivV.Length2();
+							if (std::min(lenU2, lenV2) <= 1e-8f * std::max(lenU2, lenV2)) {
+								// A pole: a patch edge whose control points all meet at one point, like the top
+								// of a dome. One derivative vanishes there, so the cross product is zero, or with
+								// animated control points just rounding noise, and the normal would be NaN or
+								// random (dark patches on Pac-Man Arrangement's ghosts, #12354). Use the limit
+								// instead: next to an edge where dP/dv = 0, dP/dv ~ (u - u_edge) * d2P/dudv.
+								const Vec3f derivUV = tess_nrm.SampleV(wv.deriv);
+								if (lenV2 <= lenU2) {
+									nrm = Cross(derivU, derivUV);
+									if (tile_u * 2 > surface.tess_u) {
+										nrm = -nrm;
+									}
+								} else {
+									nrm = Cross(derivUV, derivV);
+									if (tile_v * 2 > surface.tess_v) {
+										nrm = -nrm;
+									}
+								}
+							}
+							vert.nrm = nrm.NormalizedOr001(useSSE4);
 							if constexpr (patchFacing)
 								vert.nrm *= -1.0f;
 						} else {

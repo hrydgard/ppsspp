@@ -37,6 +37,7 @@
 #include "Core/CoreTiming.h"
 #include "Core/Config.h"
 #include "Core/HLE/HLE.h"
+#include "unittest/UnitTest.h"
 
 void UnitTestTerminator() {
 	// Bails out of jit so we can time things.
@@ -50,27 +51,20 @@ HLEFunction UnitTestFakeSyscalls[] = {
 
 double ExecCPUTest(bool clearCache = true) {
 	int blockTicks = 1000000;
-	int total = 0;
 
 	if (MIPSComp::jit) {
 		currentMIPS->pc = PSP_GetUserMemoryBase();
 		MIPSComp::JitAt(currentMIPS);
 	}
 
-	double st = time_now_d();
-	do {
-		for (int j = 0; j < 1000; ++j) {
-			currentMIPS->pc = PSP_GetUserMemoryBase();
-			coreState = CORE_RUNNING_CPU;
+	const double callsPerSecond = CallsPerSecond([&] {
+		currentMIPS->pc = PSP_GetUserMemoryBase();
+		coreState = CORE_RUNNING_CPU;
 
-			while (coreState == CORE_RUNNING_CPU) {
-				mipsr4k.RunLoopUntil(blockTicks);
-			}
-			++total;
+		while (coreState == CORE_RUNNING_CPU) {
+			mipsr4k.RunLoopUntil(blockTicks);
 		}
-	}
-	while (time_now_d() - st < 0.5);
-	double elapsed = time_now_d() - st;
+	}, 0.5, 1000);
 
 	if (MIPSComp::jit) {
 		JitBlockCacheDebugInterface *cache = MIPSComp::jit->GetBlockCacheDebugInterface();
@@ -83,7 +77,7 @@ double ExecCPUTest(bool clearCache = true) {
 			MIPSComp::jit->ClearCache();
 	}
 
-	return total / elapsed;
+	return callsPerSecond;
 }
 
 static void SetupJitHarness() {

@@ -122,12 +122,6 @@ public:
 	int u_lightdiffuse[4];  // each light consist of vec4[3]
 	int u_lightspecular[4];  // attenuation
 	int u_lightambient[4];  // attenuation
-
-	// Spline Tessellation
-	int u_tess_points; // Control Points
-	int u_tess_weights_u;
-	int u_tess_weights_v;
-	int u_spline_counts;
 };
 
 // Real public interface

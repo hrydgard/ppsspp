@@ -81,17 +81,7 @@ public:
 	double ExecuteTimed(int vtype, int count, bool useJit) {
 		SetupExecute(vtype, useJit);
 
-		int total = 0;
-		double st = time_now_d();
-		do {
-			for (int j = 0; j < ROUNDS; ++j) {
-				dec_->DecodeVerts(dst_, src_, &g_uvScale, count);
-				++total;
-			}
-		} while (time_now_d() - st < 0.5);
-		double elapsed = time_now_d() - st;
-
-		return total / elapsed;
+		return CallsPerSecond([&] { dec_->DecodeVerts(dst_, src_, &g_uvScale, count); }, 0.5, ROUNDS);
 	}
 
 	void Add8(u8 x) {
