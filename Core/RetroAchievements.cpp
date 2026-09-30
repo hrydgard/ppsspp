@@ -936,14 +936,6 @@ bool Shutdown(bool waitForRequests) {
 	return true;
 }
 
-void ResetRuntime() {
-	if (!g_rcClient)
-		return;
-	INFO_LOG(Log::Achievements, "Resetting rcheevos state...");
-	rc_client_reset(g_rcClient);
-	g_activeChallenges.clear();
-}
-
 void FrameUpdate() {
 	if (!g_rcClient)
 		return;
