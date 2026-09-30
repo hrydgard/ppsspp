@@ -23,6 +23,7 @@
 #include "Common/CommonTypes.h"
 #include "GPU/Math3D.h"
 #include "GPU/GPU.h"
+#include "GPU/GPUState.h"
 
 struct Color4 {
 	float r, g, b, a;
@@ -88,6 +89,26 @@ inline float PSPSpecularCoef(float e) {
 // The viewer is at infinity along view space +z, so in world space it's the view matrix's third column.
 inline Vec3f PSPViewDirection(const float viewMatrix[12]) {
 	return Vec3f(viewMatrix[2], viewMatrix[5], viewMatrix[8]).NormalizedOr001(false);
+}
+
+inline Vec3f NormalizedOr000(const Vec3f &v) {
+	float len2 = v.Length2();
+	return len2 > 0.0f ? v * (1.0f / sqrtf(len2)) : Vec3f(0.0f, 0.0f, 0.0f);
+}
+
+// Shade mapping (environment map UV gen) coordinate from light l: (N.L + 1) / 2, with L the light's
+// direction as lighting sees it (a zero vector stays zero), or the half vector if the light does
+// specular. Lighting and light enables don't matter (gpu/lighting/shademap).
+inline float PSPShadeMapCoord(int l, const Vec3f &worldpos, const Vec3f &worldnormal, const Vec3f &viewDir) {
+	Vec3f L(getFloat24(gstate.lpos[l * 3]), getFloat24(gstate.lpos[l * 3 + 1]), getFloat24(gstate.lpos[l * 3 + 2]));
+	if (gstate.getLightType(l) != GE_LIGHTTYPE_DIRECTIONAL) {
+		L -= worldpos;
+	}
+	L = NormalizedOr000(L);
+	if (gstate.isUsingSpecularLight(l)) {
+		L = NormalizedOr000(L + viewDir);
+	}
+	return (Dot(L, worldnormal) + 1.0f) * 0.5f;
 }
 
 // Convenient way to do precomputation to save the parts of the lighting calculation

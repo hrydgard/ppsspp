@@ -111,7 +111,7 @@ const SoftwareCommandTableEntry softgpuCommandTable[] = {
 	{ GE_CMD_FOGENABLE, 0, SoftDirty::PIXEL_BASIC | SoftDirty::PIXEL_CACHED | SoftDirty::TRANSFORM_BASIC | SoftDirty::TRANSFORM_FOG | SoftDirty::TRANSFORM_MATRIX },
 	{ GE_CMD_TEXMODE, 0, SoftDirty::SAMPLER_BASIC | SoftDirty::SAMPLER_TEXLIST | SoftDirty::RAST_TEX },
 	// Currently this doesn't affect any state, but maybe it should.
-	{ GE_CMD_TEXSHADELS },
+	{ GE_CMD_TEXSHADELS, 0, SoftDirty::TRANSFORM_BASIC },
 	{ GE_CMD_SHADEMODE, 0, SoftDirty::RAST_BASIC },
 	{ GE_CMD_TEXFUNC, 0, SoftDirty::SAMPLER_BASIC },
 	{ GE_CMD_COLORTEST, 0, SoftDirty::PIXEL_BASIC | SoftDirty::PIXEL_CACHED },

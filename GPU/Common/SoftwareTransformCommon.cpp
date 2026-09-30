@@ -333,23 +333,11 @@ SoftwareTransformAction RunSoftwareTransform(SoftwareTransformParams &params, in
 			case GE_TEXMAP_ENVIRONMENT_MAP:
 				// Shade mapping - use two light sources to generate U and V.
 				{
-					auto getLPosFloat = [&](int l, int i) {
-						return getFloat24(gstate.lpos[l * 3 + i]);
-					};
-					auto getLPos = [&](int l) {
-						return Vec3f(getLPosFloat(l, 0), getLPosFloat(l, 1), getLPosFloat(l, 2));
-					};
-					auto calcShadingLPos = [&](int l) {
-						Vec3f pos = getLPos(l);
-						return pos.NormalizedOr001(cpu_info.bSSE4_1);
-					};
-
 					// Might not have lighting enabled, so don't use lighter.
-					Vec3f lightpos0 = calcShadingLPos(gstate.getUVLS0());
-					Vec3f lightpos1 = calcShadingLPos(gstate.getUVLS1());
-
-					uv[0] = (1.0f + Dot(lightpos0, worldnormal))/2.0f;
-					uv[1] = (1.0f + Dot(lightpos1, worldnormal))/2.0f;
+					const Vec3f viewDir = PSPViewDirection(gstate.viewMatrix);
+					const Vec3f worldpos(out[0], out[1], out[2]);
+					uv[0] = PSPShadeMapCoord(gstate.getUVLS0(), worldpos, worldnormal, viewDir);
+					uv[1] = PSPShadeMapCoord(gstate.getUVLS1(), worldpos, worldnormal, viewDir);
 					uv[2] = 1.0f;
 				}
 				break;

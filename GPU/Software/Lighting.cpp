@@ -194,20 +194,11 @@ void ComputeState(State *state, bool hasColor0) {
 	state->usesWorldNormal = gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP || anyDiffuse || anySpecular;
 }
 
-static inline float GenerateLightCoord(VertexData &vertex, const WorldCoords &worldnormal, int light) {
-	// TODO: Should specular lighting should affect this, too?  Doesn't in GLES.
-	Vec3<float> L = GetLightVec(gstate.lpos, light);
-	// In other words, L.Length2() == 0.0f means Dot({0, 0, 1}, worldnormal).
-	float diffuse_factor = Dot(L.NormalizedOr001(cpu_info.bSSE4_1), worldnormal);
-
-	return (diffuse_factor + 1.0f) / 2.0f;
-}
-
-void GenerateLightST(VertexData &vertex, const WorldCoords &worldnormal) {
+void GenerateLightST(VertexData &vertex, const WorldCoords &worldpos, const WorldCoords &worldnormal, const Vec3f &viewDir) {
 	// Always calculate texture coords from lighting results if environment mapping is active
 	// This should be done even if lighting is disabled altogether.
-	vertex.texturecoords.s() = GenerateLightCoord(vertex, worldnormal, gstate.getUVLS0());
-	vertex.texturecoords.t() = GenerateLightCoord(vertex, worldnormal, gstate.getUVLS1());
+	vertex.texturecoords.s() = PSPShadeMapCoord(gstate.getUVLS0(), worldpos, worldnormal, viewDir);
+	vertex.texturecoords.t() = PSPShadeMapCoord(gstate.getUVLS1(), worldpos, worldnormal, viewDir);
 }
 
 #if defined(_M_SSE)

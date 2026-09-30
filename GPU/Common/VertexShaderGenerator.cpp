@@ -135,7 +135,9 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	int matUpdate = id.Bits(VS_BIT_MATERIAL_UPDATE, 3);
 
 	bool lightUberShader = id.Bit(VS_BIT_LIGHT_UBERSHADER) && enableLighting;  // checking lighting here for the shader test's benefit, in reality if ubershader is set, lighting is set.
-	if (lightUberShader && !compat.bitwiseOps) {
+	// With the ubershader, shade mapping reads its lights' type and computation from u_lightControl.
+	bool shadeUberShader = id.Bit(VS_BIT_LIGHT_UBERSHADER) && doShadeMapping;
+	if ((lightUberShader || shadeUberShader) && !compat.bitwiseOps) {
 		*errorString = "Light ubershader requires bitwise ops in shader language";
 		return false;
 	}
@@ -349,7 +351,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "uniform vec4 u_uvscaleoffset;\n");
 			*uniformMask |= DIRTY_UVSCALEOFFSET;
 
-			if (lightUberShader) {
+			if (lightUberShader || shadeUberShader) {
 				p.C("uniform uint u_lightControl;\n");
 				*uniformMask |= DIRTY_LIGHT_CONTROL;
 			}
@@ -428,6 +430,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "   float len2 = dot(v, v);\n");
 		WRITE(p, "   return len2 == 0.0 ? vec3(0.0, 0.0, 1.0) : (v * inversesqrt(len2));\n");
 		WRITE(p, "}\n");
+		WRITE(p, "vec3 normalizeOr000(vec3 v) {\n");
+		WRITE(p, "   float len2 = dot(v, v);\n");
+		WRITE(p, "   return len2 == 0.0 ? splat3(0.0) : (v * inversesqrt(len2));\n");
+		WRITE(p, "}\n");
 		// The GE's pow for lighting: exp2(e * log2(x)), with log2 and exp2 each a straight line
 		// between powers of two. Continuous, so floor() landing on the wrong side of a power of
 		// two is harmless.
@@ -500,7 +506,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		} else {
 			WRITE(p, "  mediump vec3 worldnormal = normalizeOr001(mul(vec4(0.0, 0.0, %s1.0, 0.0), u_world).xyz);\n", flipNormal ? "-" : "");
 		}
-		if (enableLighting) {
+		if (enableLighting || doShadeMapping) {
 			// The viewer is at infinity along view space +z: in world space, the view matrix's third column.
 			if (compat.shaderLanguage == HLSL_D3D11) {
 				WRITE(p, "  mediump vec3 viewDir = normalizeOr001(vec3(u_view[0].z, u_view[1].z, u_view[2].z));\n");
@@ -869,9 +875,31 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 						snprintf(ls0Str, sizeof(ls0Str), "%d", ls0);
 						snprintf(ls1Str, sizeof(ls1Str), "%d", ls1);
 					}
-					std::string lightFactor0 = StringFromFormat("(length(u_lightpos%s) == 0.0 ? worldnormal.z : dot(normalize(u_lightpos%s), worldnormal))", ls0Str, ls0Str);
-					std::string lightFactor1 = StringFromFormat("(length(u_lightpos%s) == 0.0 ? worldnormal.z : dot(normalize(u_lightpos%s), worldnormal))", ls1Str, ls1Str);
-					WRITE(p, "  %sv_texcoord = vec3(u_uvscaleoffset.xy * vec2(1.0 + %s, 1.0 + %s) * 0.5, 1.0);\n", compat.vsOutPrefix, lightFactor0.c_str(), lightFactor1.c_str());
+					// N.L with L the light vector as lighting sees it (zero stays zero), or the half vector
+					// if the light does specular. Whether lighting or the light is on doesn't matter.
+					auto shadeLight = [&](int ls, const char *lsStr, const char *name) {
+						if (shadeUberShader) {
+							p.F("  vec3 %s = u_lightpos%s;\n", name, lsStr);
+							p.F("  if (((u_lightControl >> 0x%02xu) & 0x3u) != 0x0u) %s = u_lightpos%s - worldpos;\n", 4 + 4 * ls + 2, name, lsStr);
+							p.F("  %s = normalizeOr000(%s);\n", name, name);
+							p.F("  if (((u_lightControl >> 0x%02xu) & 0x3u) == 0x1u) %s = normalizeOr000(%s + viewDir);\n", 4 + 4 * ls, name, name);
+							return;
+						}
+						GELightType type = static_cast<GELightType>(id.Bits(VS_BIT_LIGHT0_TYPE + 4 * ls, 2));
+						GELightComputation comp = static_cast<GELightComputation>(id.Bits(VS_BIT_LIGHT0_COMP + 4 * ls, 2));
+						if (type == GE_LIGHTTYPE_DIRECTIONAL) {
+							// Prenormalized.
+							p.F("  vec3 %s = u_lightpos%s;\n", name, lsStr);
+						} else {
+							p.F("  vec3 %s = normalizeOr000(u_lightpos%s - worldpos);\n", name, lsStr);
+						}
+						if (comp == GE_LIGHTCOMP_BOTH) {
+							p.F("  %s = normalizeOr000(%s + viewDir);\n", name, name);
+						}
+					};
+					shadeLight(ls0, ls0Str, "shadeL0");
+					shadeLight(ls1, ls1Str, "shadeL1");
+					WRITE(p, "  %sv_texcoord = vec3(u_uvscaleoffset.xy * vec2(1.0 + dot(shadeL0, worldnormal), 1.0 + dot(shadeL1, worldnormal)) * 0.5, 1.0);\n", compat.vsOutPrefix);
 				}
 				break;
 
