@@ -16,6 +16,7 @@
 // Then just place it next to PPSSPP and enable RAIntegration in PPSSPP achivement settings, then restart it.
 
 #include <algorithm>
+#include <map>
 #include <set>
 #include <string>
 #include <vector>
@@ -169,6 +170,20 @@ double g_lastLoginAttemptTime;
 
 // rc_client implementation
 static rc_client_t *g_rcClient;
+
+// rc_client keeps raw pointers to itself in the callback data of some requests (award achievement,
+// submit leaderboard entry, ping), so it can't be destroyed while those are in flight. Shutdown()
+// retires a busy client instead, and it's destroyed when its last request completes, or after
+// RETIRED_CLIENT_TIMEOUT, from which point its late callbacks are dropped. Keyed by an ID rather
+// than the pointer, so a new client allocated at the same address doesn't get an old client's callbacks.
+struct TrackedClient {
+	rc_client_t *client;
+	int outstandingRequests;
+	double retireTime;  // 0.0 while the client is live.
+};
+static std::map<uint32_t, TrackedClient> g_trackedClients;
+static uint32_t g_nextClientId = 1;
+constexpr double RETIRED_CLIENT_TIMEOUT = 60.0;
 static const std::string g_RAImageID = "I_RETROACHIEVEMENTS_LOGO";
 constexpr double LOGIN_ATTEMPT_INTERVAL_S = 10.0;
 
@@ -290,7 +305,20 @@ static uint32_t read_memory_callback(uint32_t address, uint8_t *buffer, uint32_t
 	return num_bytes;
 }
 
-static void complete_server_call(http::Request &download, rc_client_server_callback_t callback, void *callback_data) {
+static void destroy_client(rc_client_t *client) {
+#ifdef RC_CLIENT_SUPPORTS_RAINTEGRATION
+	rc_client_unload_raintegration(client);
+#endif
+	rc_client_destroy(client);
+}
+
+static void complete_server_call(uint32_t clientId, http::Request &download, rc_client_server_callback_t callback, void *callback_data) {
+	if (g_trackedClients.find(clientId) == g_trackedClients.end()) {
+		// The client timed out after being retired and is gone. callback_data belongs to it, and leaks.
+		WARN_LOG(Log::Achievements, "Dropping a server response for a destroyed client");
+		return;
+	}
+
 	std::string buffer;
 	download.buffer().TakeAll(&buffer);
 	rc_api_server_response_t response{};
@@ -307,6 +335,15 @@ static void complete_server_call(http::Request &download, rc_client_server_callb
 	response.body = buffer.c_str();
 	response.body_length = buffer.size();
 	callback(&response, callback_data);
+
+	// Look it up again, the callback may have issued new requests.
+	auto iter = g_trackedClients.find(clientId);
+	iter->second.outstandingRequests--;
+	if (iter->second.retireTime != 0.0 && iter->second.outstandingRequests == 0) {
+		INFO_LOG(Log::Achievements, "Destroying retired client, its requests are done");
+		destroy_client(iter->second.client);
+		g_trackedClients.erase(iter);
+	}
 }
 
 // This is the HTTP request dispatcher that is provided to the rc_client. Whenever the client
@@ -317,16 +354,27 @@ static void server_call_callback(const rc_api_request_t *request,
 	// If post data is provided, we need to make a POST request, otherwise, a GET request will suffice.
 	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 	std::string url = http::RemoveHttpsIfNeeded(request->url);
+
+	uint32_t clientId = 0;
+	for (auto &iter : g_trackedClients) {
+		if (iter.second.client == client) {
+			clientId = iter.first;
+			iter.second.outstandingRequests++;
+			break;
+		}
+	}
+	_dbg_assert_(clientId != 0);
+
 	if (request->post_data) {
 		std::shared_ptr<http::Request> download = g_DownloadManager.AsyncPostWithCallback(url, std::string(request->post_data), "application/x-www-form-urlencoded", http::RequestFlags::ProgressBar | http::RequestFlags::ProgressBarDelayed,
-			[callback, callback_data](http::Request &download) {
-			complete_server_call(download, callback, callback_data);
+			[clientId, callback, callback_data](http::Request &download) {
+			complete_server_call(clientId, download, callback, callback_data);
 		}, ac->T("Contacting RetroAchievements server..."));
 	} else {
 		std::shared_ptr<http::Request> download = g_DownloadManager.StartDownload(url, Path(), http::RequestFlags::ProgressBar | http::RequestFlags::ProgressBarDelayed, nullptr,
 			ac->T("Contacting RetroAchievements server..."),
-			[callback, callback_data](http::Request &download) {
-			complete_server_call(download, callback, callback_data);
+			[clientId, callback, callback_data](http::Request &download) {
+			complete_server_call(clientId, download, callback, callback_data);
 		});
 	}
 }
@@ -650,13 +698,7 @@ static void load_integration_callback(int result, const char *error_message, rc_
 void Initialize() {
 	if (!g_Config.bAchievementsEnable) {
 		INFO_LOG(Log::Achievements, "Achievements are disabled, not initializing.");
-		if (g_rcClient) {
-#ifdef RC_CLIENT_SUPPORTS_RAINTEGRATION
-			rc_client_unload_raintegration(g_rcClient);
-#endif
-			rc_client_destroy(g_rcClient);
-			g_rcClient = nullptr;
-		}
+		Shutdown();
 		return;
 	}
 	if (g_rcClient) {
@@ -669,6 +711,7 @@ void Initialize() {
 		// Shouldn't happen really.
 		return;
 	}
+	g_trackedClients[g_nextClientId++] = TrackedClient{ g_rcClient, 0, 0.0 };
 
 	// Provide a logging function to simplify debugging
 	rc_client_enable_logging(g_rcClient, RC_CLIENT_LOG_LEVEL_VERBOSE, log_message_callback);
@@ -832,15 +875,33 @@ void UpdateSettings() {
 	}
 }
 
-bool Shutdown() {
+bool Shutdown(bool waitForRequests) {
 	g_activeChallenges.clear();
 	if (g_rcClient) {
-#ifdef RC_CLIENT_SUPPORTS_RAINTEGRATION
-		rc_client_unload_raintegration(g_rcClient);
-#endif
-		rc_client_destroy(g_rcClient);
+		for (auto iter = g_trackedClients.begin(); iter != g_trackedClients.end(); ++iter) {
+			if (iter->second.client != g_rcClient) {
+				continue;
+			}
+			if (waitForRequests && iter->second.outstandingRequests > 0) {
+				INFO_LOG(Log::Achievements, "Retiring client with %d requests in flight", iter->second.outstandingRequests);
+				// Events from here on would reach code that expects g_rcClient.
+				rc_client_set_event_handler(g_rcClient, [](const rc_client_event_t *, rc_client_t *) {});
+				iter->second.retireTime = time_now_d();
+			} else {
+				destroy_client(g_rcClient);
+				g_trackedClients.erase(iter);
+			}
+			break;
+		}
 		g_rcClient = nullptr;
 		INFO_LOG(Log::Achievements, "Achievements shut down.");
+	}
+	if (!waitForRequests) {
+		// Any requests still pending are about to be cancelled, so their callbacks won't run.
+		for (auto &iter : g_trackedClients) {
+			destroy_client(iter.second.client);
+		}
+		g_trackedClients.clear();
 	}
 	// A destroyed client doesn't call back for pending logins or game loads.
 	g_isLoggingIn = false;
@@ -866,6 +927,15 @@ void Idle() {
 	rc_client_idle(g_rcClient);
 
 	double now = time_now_d();
+	for (auto iter = g_trackedClients.begin(); iter != g_trackedClients.end(); ) {
+		if (iter->second.retireTime != 0.0 && now > iter->second.retireTime + RETIRED_CLIENT_TIMEOUT) {
+			WARN_LOG(Log::Achievements, "Destroying retired client with %d requests still in flight", iter->second.outstandingRequests);
+			destroy_client(iter->second.client);
+			iter = g_trackedClients.erase(iter);
+		} else {
+			++iter;
+		}
+	}
 
 	// If failed to log in, occasionally try again while the user is at the menu.
 	// Do not try if if in-game, that could get confusing.
