@@ -188,7 +188,7 @@ static inline void CalculateRasterStateFlags(RasterizerState *state, const Verte
 		if (alpha != 0xFF)
 			state->flags |= RasterizerStateFlags::VERTEX_ALPHA_NON_FULL;
 	}
-	if (!(v0.fogdepth >= 1.0f))
+	if (!(v0.fogdepth >= 255.0f / 256.0f))
 		state->flags |= RasterizerStateFlags::VERTEX_HAS_FOG;
 }
 
@@ -1008,7 +1008,7 @@ void DrawTriangleSlice(
 	const bool flatColorAll = !state.shadeGouraud;
 	const bool flatColor0 = flatColorAll || (v0.color0 == v1.color0 && v0.color0 == v2.color0);
 	const bool flatColor1 = flatColorAll || (v0.color1 == v1.color1 && v0.color1 == v2.color1);
-	const bool noFog = clearMode || !pixelID.applyFog || (v0.fogdepth >= 1.0f && v1.fogdepth >= 1.0f && v2.fogdepth >= 1.0f);
+	const bool noFog = clearMode || !pixelID.applyFog || (v0.fogdepth >= 255.0f / 256.0f && v1.fogdepth >= 255.0f / 256.0f && v2.fogdepth >= 255.0f / 256.0f);
 
 	if (pixelID.applyDepthRange && flatZ) {
 		if (v0.screenpos.z < pixelID.cached.minz || v0.screenpos.z > pixelID.cached.maxz)

@@ -523,7 +523,7 @@ ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const Tran
 		}
 
 		if (state.enableFog) {
-			vertex.v.fogdepth = Dot43(state.posToFog, pos);
+			vertex.v.fogdepth = GEFogFactor(Dot43(state.posToFog, pos)) * (1.0f / 256.0f);
 		} else {
 			vertex.v.fogdepth = 1.0f;
 		}
