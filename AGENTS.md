@@ -63,6 +63,15 @@ for it:
    just a patch that quietly did nothing. Use the Edit tool, or write the script to a file and run it.
    Details and the other two failure shapes: [docs/patching-files.md](docs/patching-files.md).
 
+7. **NEVER run more than one PSP hardware operation at a time.** There is one PSP. Every
+   `gentest.py`, `pspsh` or other PSPLink call gets its own message, containing that one tool call
+   and nothing else, and the next one starts only after the previous one has returned. Never put two
+   of them in the same message as parallel tool calls, never background one and start another, and
+   never loop over tests in one shell command. Re-recording a directory means one test, wait,
+   the next test. Concurrent runs collide in PSPLink and `host0:`: they time out, their results are
+   garbage, and the PSP wedges until someone resets it by hand. This has happened repeatedly; there
+   is no case where it is acceptable.
+
 ## Core Safety Checks
 
 1. For HLE, CPU, GPU, timing, threading, and memory changes, call out regression risks explicitly.
@@ -82,6 +91,12 @@ for it:
    of those bits needs the bump, or an old cache precompiles shaders for keys that now mean
    something else, including combinations the generators assert on. D3D11 doesn't store shader IDs
    on disk. Keys that only live in memory, like `SamplerCacheKey`, don't need a bump.
+5. **"As on hardware" needs a hardware test behind it.** A commit message or comment that says the
+   PSP does something names the pspautotests test that shows it, recorded before the change. And the
+   test has to reach the code path the change is about: when the HLE code handles the same call
+   differently by dialog type, mode or size, cover each of those. A dialog fix once claimed
+   hardware behaviour that the test recorded an hour later contradicted, and the test ran a message
+   dialog, which took a different branch from the savedata dialog that then hung Freak Out.
 
 ## Build and validation
 
@@ -144,6 +159,11 @@ about a game's behaviour. A run configured
 differently from what you asked for, or one that never reached the code, produces the same all-zero counts as
 a clean one, so assert the exit code and a positive "we got here" counter before believing any error count.
 The traps in full: [docs/debugging.md](docs/debugging.md).
+
+Unresolved-import errors early in a game run, for `scePsmfPlayer` in particular, are expected and not a
+problem: many games ship libpsmfplayer (and similar libraries) on the disc, and the imports resolve when the
+game loads the module. Don't change the setup (dropping `--memstick`, turning HLE back on) to make them go
+away; a run should be as close to a real one as possible, with firmware modules running as LLE.
 
 Keep game runs short and fast, so nobody has to watch them: always pass `--timeout-wall=30` (alongside any
 `--timeout-emulated`) unless there's a real reason for longer, use `--graphics=vulkan` rather than
