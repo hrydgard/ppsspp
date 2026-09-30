@@ -406,6 +406,10 @@ inline Vec4F32 Select(Vec4S32 mask, Vec4F32 ifTrue, Vec4F32 ifFalse) {
 	const __m128 m = _mm_castsi128_ps(mask.v);
 	return Vec4F32{ _mm_or_ps(_mm_and_ps(m, ifTrue.v), _mm_andnot_ps(m, ifFalse.v)) };
 }
+// a * b + c. Fused where the ISA always has it (ARM64, LoongArch), so the rounding differs between platforms.
+inline Vec4F32 MulAdd(Vec4F32 a, Vec4F32 b, Vec4F32 c) { return Vec4F32{ _mm_add_ps(_mm_mul_ps(a.v, b.v), c.v) }; }
+// Rounds to nearest, with ties to even except on ARM32 (away from zero).
+inline Vec4S32 Vec4S32FromF32Round(Vec4F32 f) { return Vec4S32{ _mm_cvtps_epi32(f.v) }; }
 
 inline bool AnyZeroSignBit(Vec4F32 value) {
 	return _mm_movemask_ps(value.v) != 0xF;
@@ -886,6 +890,25 @@ inline Vec4F32 Vec4F32FromBits(Vec4S32 bits) { return Vec4F32{ vreinterpretq_f32
 // Per lane, ifTrue where the mask (from a compare) is set, otherwise ifFalse.
 inline Vec4F32 Select(Vec4S32 mask, Vec4F32 ifTrue, Vec4F32 ifFalse) {
 	return Vec4F32{ vbslq_f32(vreinterpretq_u32_s32(mask.v), ifTrue.v, ifFalse.v) };
+}
+// a * b + c. Fused where the ISA always has it (ARM64, LoongArch), so the rounding differs between platforms.
+inline Vec4F32 MulAdd(Vec4F32 a, Vec4F32 b, Vec4F32 c) {
+#if PPSSPP_ARCH(ARM64_NEON)
+	return Vec4F32{ vfmaq_f32(c.v, a.v, b.v) };
+#else
+	return Vec4F32{ vmlaq_f32(c.v, a.v, b.v) };
+#endif
+}
+// Rounds to nearest, with ties to even except on ARM32 (away from zero).
+inline Vec4S32 Vec4S32FromF32Round(Vec4F32 f) {
+#if PPSSPP_ARCH(ARM64_NEON)
+	return Vec4S32{ vcvtnq_s32_f32(f.v) };
+#else
+	// Add 0.5 with the sign of the value, then truncate.
+	const uint32x4_t sign = vandq_u32(vreinterpretq_u32_f32(f.v), vdupq_n_u32(0x80000000));
+	const float32x4_t half = vreinterpretq_f32_u32(vorrq_u32(sign, vreinterpretq_u32_f32(vdupq_n_f32(0.5f))));
+	return Vec4S32{ vcvtq_s32_f32(vaddq_f32(f.v, half)) };
+#endif
 }
 
 // Make sure the W component of scale is 1.0f.
@@ -1413,6 +1436,10 @@ inline Vec4F32 Vec4F32FromBits(Vec4S32 bits) { return Vec4F32{ (__m128)bits.v };
 inline Vec4F32 Select(Vec4S32 mask, Vec4F32 ifTrue, Vec4F32 ifFalse) {
 	return Vec4F32{ (__m128)__lsx_vbitsel_v((__m128i)ifFalse.v, (__m128i)ifTrue.v, mask.v) };
 }
+// a * b + c. Fused where the ISA always has it (ARM64, LoongArch), so the rounding differs between platforms.
+inline Vec4F32 MulAdd(Vec4F32 a, Vec4F32 b, Vec4F32 c) { return Vec4F32{ (__m128)__lsx_vfmadd_s(a.v, b.v, c.v) }; }
+// Rounds to nearest, with ties to even except on ARM32 (away from zero).
+inline Vec4S32 Vec4S32FromF32Round(Vec4F32 f) { return Vec4S32{ __lsx_vftint_w_s(f.v) }; }
 
 // Make sure the W component of scale is 1.0f.
 inline void ScaleInplace(Mat4F32 &m, Vec4F32 scale) {
@@ -2086,6 +2113,16 @@ inline Vec4F32 Select(Vec4S32 mask, Vec4F32 ifTrue, Vec4F32 ifFalse) {
 		temp.v[i] = mask.v[i] ? ifTrue.v[i] : ifFalse.v[i];
 	}
 	return temp;
+}
+
+// a * b + c. Fused where the ISA always has it (ARM64, LoongArch), so the rounding differs between platforms.
+inline Vec4F32 MulAdd(Vec4F32 a, Vec4F32 b, Vec4F32 c) {
+	return Vec4F32{ { a.v[0] * b.v[0] + c.v[0], a.v[1] * b.v[1] + c.v[1], a.v[2] * b.v[2] + c.v[2], a.v[3] * b.v[3] + c.v[3] } };
+}
+
+// Rounds to nearest, with ties to even except on ARM32 (away from zero).
+inline Vec4S32 Vec4S32FromF32Round(Vec4F32 f) {
+	return Vec4S32{ { (int32_t)lrintf(f.v[0]), (int32_t)lrintf(f.v[1]), (int32_t)lrintf(f.v[2]), (int32_t)lrintf(f.v[3]) } };
 }
 
 // Make sure the W component of scale is 1.0f.
