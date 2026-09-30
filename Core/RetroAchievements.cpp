@@ -351,11 +351,11 @@ static void event_handler_callback(const rc_client_event_t *event, rc_client_t *
 		const rc_client_game_t *gameInfo = rc_client_get_game_info(g_rcClient);
 
 		std::string setTitle = gameInfo->title;
-		std::string badgeUrl = gameInfo->badge_url;
+		std::string badgeUrl = http::RemoveHttpsIfNeeded(gameInfo->badge_url);
 		if (event->type == RC_CLIENT_EVENT_SUBSET_COMPLETED) {
 			const rc_client_subset_t *subset = event->subset;
 			setTitle = subset->title;
-			badgeUrl = subset->badge_url;
+			badgeUrl = http::RemoveHttpsIfNeeded(subset->badge_url);
 		}
 
 		DownloadImageIfMissing(badgeUrl);
@@ -964,10 +964,15 @@ void DownloadImageIfMissing(std::string_view url) {
 	if (g_iconCache.MarkPending(url)) {
 		INFO_LOG(Log::Achievements, "Downloading image: %.*s", STR_VIEW(url));
 		g_DownloadManager.StartDownload(url, Path(), http::RequestFlags::Default, nullptr, "", [](http::Request &download) {
-			if (download.ResultCode() != 200)
-				return;
 			std::string data;
-			download.buffer().TakeAll(&data);
+			if (download.ResultCode() == 200) {
+				download.buffer().TakeAll(&data);
+			}
+			if (data.empty()) {
+				WARN_LOG(Log::Achievements, "Failed to download image (%d): %s", download.ResultCode(), download.url().c_str());
+				g_iconCache.MarkFailed(download.url());
+				return;
+			}
 			g_iconCache.InsertIcon(download.url(), IconFormat::PNG, std::move(data));
 		});
 	}

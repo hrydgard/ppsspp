@@ -14,6 +14,9 @@
 #define MAX_RUNTIME_CACHE_SIZE (1024 * 1024 * 4)
 #define MAX_SAVED_CACHE_SIZE (1024 * 1024 * 1)
 
+// Seconds before MarkPending accepts a key whose download failed.
+constexpr double FAILED_RETRY_DELAY = 30.0;
+
 constexpr uint32_t ICON_CACHE_MAGIC = MK_FOURCC("pICN");
 
 IconCache g_iconCache;
@@ -127,6 +130,7 @@ void IconCache::ClearData() {
 	ClearTextures();
 	std::unique_lock<std::mutex> lock(lock_);
 	cache_.clear();
+	failed_.clear();
 }
 
 void IconCache::FrameUpdate() {
@@ -231,8 +235,24 @@ bool IconCache::MarkPending(std::string_view key) {
 	if (pending_.find(key) != pending_.end()) {
 		return false;
 	}
+	auto failedIter = failed_.find(key);
+	if (failedIter != failed_.end()) {
+		if (time_now_d() < failedIter->second + FAILED_RETRY_DELAY) {
+			return false;
+		}
+		failed_.erase(failedIter);
+	}
 	pending_.emplace(key);
 	return true;
+}
+
+void IconCache::MarkFailed(std::string_view key) {
+	std::unique_lock<std::mutex> lock(lock_);
+	auto iter = pending_.find(key);
+	if (iter != pending_.end()) {
+		pending_.erase(iter);
+	}
+	failed_[std::string(key)] = time_now_d();
 }
 
 void IconCache::CancelPending(std::string_view key) {

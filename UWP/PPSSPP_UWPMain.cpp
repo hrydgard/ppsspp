@@ -494,6 +494,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	}
 	case SYSPROP_DEBUGGER_PRESENT:
 		return IsDebuggerPresent();
+	case SYSPROP_SUPPORTS_HTTPS:
+		return !g_Config.bDisableHTTPS;
 	case SYSPROP_OK_BUTTON_LEFT:
 		return true;
 	case SYSPROP_CAN_GET_FREE_SPACE_FAST:

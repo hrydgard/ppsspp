@@ -37,6 +37,8 @@ public:
 	// It's okay to call these from any thread.
 	bool MarkPending(std::string_view key);  // returns false if already pending or loaded
 	void CancelPending(std::string_view key);
+	// Like CancelPending, but MarkPending refuses the key for a while, so a failing download isn't retried every frame.
+	void MarkFailed(std::string_view key);
 	bool InsertIcon(std::string_view key, IconFormat format, std::string &&pngData);
 	bool GetDimensions(std::string_view key, int *width, int *height);
 	bool Contains(std::string_view key);
@@ -65,6 +67,7 @@ private:
 
 	std::map<std::string, Entry, std::less<>> cache_;
 	std::set<std::string, std::less<>> pending_;
+	std::map<std::string, double, std::less<>> failed_;  // key -> time of failure
 
 	std::mutex lock_;
 
