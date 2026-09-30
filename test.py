@@ -134,6 +134,7 @@ tests_good = [
   "audio/audiocodec/basic",
   "audio/audiocodec/at3param",
   "audio/audiocodec/at3errors",
+  "audio/audiocodec/context",
   "audio/mp3/checkneeded",
   "audio/mp3/getbitrate",
   "audio/mp3/getchannel",
