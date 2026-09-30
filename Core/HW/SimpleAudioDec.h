@@ -35,6 +35,8 @@ public:
 	// TODO: Implement that in the other decoders too, if needed.
 	virtual bool Decode(const uint8_t *inbuf, int inbytes, int *inbytesConsumed, int outputChannels, int16_t *outbuf, int *outSamples) = 0;
 	virtual bool IsOK() const = 0;
+	// The decoder's own code for why the last Decode failed, or 0.
+	virtual int LastError() const { return 0; }
 
 	// NOTE: This can come late (MediaEngine::getAudioSample)! But it will come before the first Decode.
 	virtual void SetChannels(int channels) = 0;

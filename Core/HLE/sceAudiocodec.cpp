@@ -29,6 +29,7 @@
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
 #include "Core/HW/SimpleAudioDec.h"
+#include "ext/at3_standalone/at3_decoders.h"
 
 // Following kaien_fr's sample code https://github.com/hrydgard/ppsspp/issues/5620#issuecomment-37086024
 // Should probably store the EDRAM get/release status somewhere within here, etc.
@@ -310,7 +311,8 @@ static AudioDecoder *CreateDecoderForContext(u32 ctxPtr, PSPAudioType audioType)
 	return decoder;
 }
 
-// TODO: Actually support mono output.
+// For Atrac3, InitMono only differs in what it writes to the context. For Atrac3+ it only changes
+// the setup time so far.
 static int __AudioCodecInitCommon(u32 ctxPtr, int codec, bool mono) {
 	const PSPAudioType audioType = (PSPAudioType)codec;
 	if (!IsValidCodec(audioType)) {
@@ -364,6 +366,13 @@ static int __AudioCodecInitCommon(u32 ctxPtr, int codec, bool mono) {
 			ctx->err = 0x186;
 			return MECall(hleLogError(Log::ME, SCE_AVCODEC_ERROR_INVALID_DATA, "bad Atrac3 parameter %08x", *(const u32_le *)ctx->fmt.raw), InitUs(codec, ctx));
 		}
+		// InitMono only takes the mono layouts (0x0E, 0x0F) (pspautotests audio/audiocodec/at3errors).
+		if (mono && channels != 1) {
+			return hleLogError(Log::ME, SCE_AVCODEC_ERROR_UNSUPPORTED, "InitMono with stereo Atrac3 parameter %08x", *(const u32_le *)ctx->fmt.raw);
+		}
+		ctx->fmt.atrac3.sampleRate = 44100;
+		ctx->fmt.atrac3.frameBytes = bytesPerFrame;
+		ctx->fmt.atrac3.outputChannels = mono ? 1 : 2;
 		break;
 	}
 	default:
@@ -521,11 +530,18 @@ static int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 			return hleLogError(Log::ME, 0, "%d bytes at %08x isn't readable", bytesPerFrame, inAddr);
 		}
 
-		bool result = decoder->Decode(inBuf, bytesPerFrame, &inDataConsumed, 2, outBuf, &outSamples);
+		const int outputChannels = (codec == PSP_CODEC_AT3 && channels == 1 && ctx->fmt.atrac3.outputChannels != 2) ? 1 : 2;
+		bool result = decoder->Decode(inBuf, bytesPerFrame, &inDataConsumed, outputChannels, outBuf, &outSamples);
 		if (!result && (codec == PSP_CODEC_AT3PLUS || codec == PSP_CODEC_AT3)) {
 			// What the hardware reports for a frame that doesn't decode (0x208 is also possible for
-			// Atrac3+, depending on how far into the frame the problem is).
-			ctx->err = codec == PSP_CODEC_AT3PLUS ? 0x20a : 0x182;
+			// Atrac3+, depending on how far into the frame the problem is). For Atrac3, 0x183 is a
+			// joint stereo frame whose second part lacks its marker, and 0x182 anything else
+			// (pspautotests audio/audiocodec/at3errors).
+			if (codec == PSP_CODEC_AT3PLUS) {
+				ctx->err = 0x20a;
+			} else {
+				ctx->err = decoder->LastError() == ATRAC3_ERROR_JOINT_STEREO_MARKER ? 0x183 : 0x182;
+			}
 			ctx->srcBytesRead = 0;
 			ctx->dstBytesWritten = 0;
 			return MECall(hleLogWarning(Log::ME, SCE_AVCODEC_ERROR_INVALID_DATA, "%s frame failed to decode", GetCodecName(codec)), codec == PSP_CODEC_AT3PLUS ? 214 : 169);
@@ -546,8 +562,9 @@ static int sceAudiocodecDecode(u32 ctxPtr, int codec) {
 		// In bytes, not samples. sceAudiocodecGetOutputBytes describes the same quantity in bytes
 		// (0x1200 for MPEG1 MP3), and libmp3.prx takes this as the length of the PCM to hand on -
 		// reporting the sample count instead gave it a quarter of every frame, which played back
-		// fast and metallic. The decoder always writes stereo 16-bit, whatever the source is.
-		ctx->dstBytesWritten = outSamples * 2 * (int)sizeof(int16_t);
+		// fast and metallic. The decoder writes stereo 16-bit, whatever the source is, except for
+		// mono Atrac3 whose context asks for mono output.
+		ctx->dstBytesWritten = outSamples * outputChannels * (int)sizeof(int16_t);
 
 		decodeUs = EstimateDecodeUs(codec, channels, inDataConsumed, ctx);
 	}
