@@ -165,6 +165,7 @@ bool g_isIdentifying = false;
 bool g_isLoggingIn = false;
 bool g_hasRichPresence = false;
 int g_loginResult;
+std::string g_loginError;  // The server's message for g_loginResult.
 
 double g_lastLoginAttemptTime;
 
@@ -579,26 +580,30 @@ static void login_token_callback(int result, const char *error_message, rc_clien
 	case RC_INVALID_JSON:
 	default:
 	{
-		ERROR_LOG(Log::Achievements, "Callback: Failure logging in via token: %d, %s", result, error_message);
-		if (isInitialAttempt) {
+		ERROR_LOG(Log::Achievements, "Callback: Failure logging in via token: %d, %s", result, error_message ? error_message : "");
+		// The server rejecting the token isn't retried, so say so even if this was a background retry.
+		const bool rejected = result == RC_INVALID_CREDENTIALS || result == RC_EXPIRED_TOKEN || result == RC_ACCESS_DENIED;
+		if (isInitialAttempt || rejected) {
 			auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 			char message[512];
-			snprintf(message, sizeof(message), "%d: %s", result, error_message);
+			snprintf(message, sizeof(message), "%d: %s", result, error_message ? error_message : "");
 			g_OSD.Show(OSDType::MESSAGE_WARNING, ac->T("Failed logging in to RetroAchievements"), message, g_RAImageID);
 		}
 
 		// Take some action.
 		switch (result) {
 		case RC_INVALID_CREDENTIALS:
-			g_loginResult = RC_OK;  // why?
-			break;
 		case RC_EXPIRED_TOKEN:
-			WARN_LOG(Log::Achievements, "Clearing token since it was expired");
+			// The token is no good, the user has to log in with their password again. Clearing it
+			// stops Idle() retrying it, and with no login problem recorded, the settings show the login form.
+			WARN_LOG(Log::Achievements, "Clearing token since the server rejected it");
 			NativeClearSecret(RA_TOKEN_SECRET_NAME);
-			g_loginResult = RC_OK;  // why?
+			g_loginResult = RC_OK;
 			break;
 		default:
+			// Includes RC_ACCESS_DENIED, which Idle() doesn't retry. The settings show the message, and Log out.
 			g_loginResult = result;
+			g_loginError = error_message ? error_message : "";
 			break;
 		}
 		OnAchievementsLoginStateChange();
@@ -607,6 +612,7 @@ static void login_token_callback(int result, const char *error_message, rc_clien
 	}
 	}
 	g_loginResult = result;
+	g_loginError = error_message ? error_message : "";
 	g_isLoggingIn = false;
 }
 
@@ -786,8 +792,11 @@ bool HasToken() {
 }
 
 bool LoginProblems(std::string *errorString) {
-	// TODO: Set error string.
-	return g_loginResult != RC_OK;
+	if (g_loginResult == RC_OK) {
+		return false;
+	}
+	*errorString = g_loginError;
+	return true;
 }
 
 static void TryLoginByToken(bool isInitialAttempt) {
@@ -949,7 +958,7 @@ void Idle() {
 		if (g_rcClient && IsLoggedIn()) {
 			return;  // All good.
 		}
-		if (g_Config.sAchievementsUserName.empty() || g_isLoggingIn || !HasToken()) {
+		if (g_Config.sAchievementsUserName.empty() || g_isLoggingIn || !HasToken() || g_loginResult == RC_ACCESS_DENIED) {
 			// Didn't try to login yet or is in the process of logging in. Also OK.
 			return;
 		}
