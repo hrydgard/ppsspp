@@ -1061,11 +1061,11 @@ bool HasAchievementsOrLeaderboards() {
 	return IsActive();
 }
 
-void DownloadImageIfMissing(std::string_view url) {
+void DownloadImageIfMissing(std::string_view url, double maxAge) {
 	// On Linux for example, we currently have no way of doing a HTTPS request.
 	if (g_iconCache.MarkPending(url)) {
 		INFO_LOG(Log::Achievements, "Downloading image: %.*s", STR_VIEW(url));
-		g_DownloadManager.StartDownload(url, Path(), http::RequestFlags::Default, nullptr, "", [](http::Request &download) {
+		g_DownloadManager.StartDownload(url, Path(), http::RequestFlags::Default, nullptr, "", [maxAge](http::Request &download) {
 			std::string data;
 			if (download.ResultCode() == 200) {
 				download.buffer().TakeAll(&data);
@@ -1075,7 +1075,7 @@ void DownloadImageIfMissing(std::string_view url) {
 				g_iconCache.MarkFailed(download.url());
 				return;
 			}
-			g_iconCache.InsertIcon(download.url(), IconFormat::PNG, std::move(data));
+			g_iconCache.InsertIcon(download.url(), IconFormat::PNG, std::move(data), maxAge);
 		});
 	}
 }

@@ -796,7 +796,7 @@ static void RenderLeaderboardEntry(UIContext &dc, const rc_client_leaderboard_en
 	char userImageUrl[512];
 	if (RC_OK == rc_client_leaderboard_entry_get_user_image_url(entry, userImageUrl, sizeof(userImageUrl))) {
 		std::string imageUrl = http::RemoveHttpsIfNeeded(userImageUrl);
-		Achievements::DownloadImageIfMissing(imageUrl);
+		Achievements::DownloadImageIfMissing(imageUrl, ICON_MAX_AGE_AVATAR);
 		if (g_iconCache.BindIconTexture(&dc, imageUrl)) {
 			dc.Draw()->DrawTexRect(Bounds(bounds.x + iconLeft, bounds.y + 4.0f, 64.0f, 64.0f), 0.0f, 0.0f, 1.0f, 1.0f, whiteAlpha(alpha));
 		}

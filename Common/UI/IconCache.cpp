@@ -9,8 +9,8 @@
 #include "Common/GPU/thin3d.h"
 #include "Common/File/FileUtil.h"
 
-// 2: insertedTimestamp became wall-clock time.
-#define ICON_CACHE_VERSION 2
+// 3: Entries store a wall-clock expiry time.
+#define ICON_CACHE_VERSION 3
 #define MK_FOURCC(str) (str[0] | ((uint8_t)str[1] << 8) | ((uint8_t)str[2] << 16) | ((uint8_t)str[3] << 24))
 
 #define MAX_RUNTIME_CACHE_SIZE (1024 * 1024 * 4)
@@ -18,8 +18,6 @@
 
 // Seconds before MarkPending accepts a key whose download failed.
 constexpr double FAILED_RETRY_DELAY = 30.0;
-// Seconds a saved icon is kept across sessions, so that ones that change (user avatars) get refreshed.
-constexpr double MAX_SAVED_ICON_AGE = 24 * 60 * 60.0;
 // Seconds before BindIconTexture tries again to create a texture that failed.
 constexpr double UPLOAD_RETRY_DELAY = 5.0;
 
@@ -38,7 +36,7 @@ struct DiskCacheEntry {
 	uint32_t dataLen;
 	IconFormat format;
 	uint32_t padding;  // Explicit, so that 32-bit x86 Linux (which aligns double to 4) has the same layout.
-	double insertedTimestamp;
+	double expireTimestamp;
 };
 static_assert(sizeof(DiskCacheEntry) == 24, "DiskCacheEntry is written to disk as is");
 
@@ -75,7 +73,7 @@ void IconCache::SaveToFile(FILE *file) {
 		const auto &entry = iter.second;
 		entryHeader.dataLen = (uint32_t)entry.data.size();
 		entryHeader.format = entry.format;
-		entryHeader.insertedTimestamp = entry.insertedTimeStamp;
+		entryHeader.expireTimestamp = entry.expireTimeStamp;
 		fwrite(&entryHeader, 1, sizeof(entryHeader), file);
 		fwrite(iter.first.c_str(), 1, iter.first.size(), file);
 		fwrite(entry.data.data(), 1, entry.data.size(), file);
@@ -114,8 +112,8 @@ bool IconCache::LoadFromFile(FILE *file) {
 			break;
 		}
 
-		// Skip it if we already have the entry somehow, or it's too old.
-		if (cache_.find(key) != cache_.end() || nowUnix - entryHeader.insertedTimestamp > MAX_SAVED_ICON_AGE) {
+		// Skip it if we already have the entry somehow, or it has expired.
+		if (cache_.find(key) != cache_.end() || nowUnix > entryHeader.expireTimestamp) {
 			// Seek past the data and go to the next entry.
 			File::Fseek(file, entryHeader.dataLen, SEEK_CUR);
 			continue;
@@ -132,7 +130,7 @@ bool IconCache::LoadFromFile(FILE *file) {
 		Entry entry{};
 		entry.data = data;
 		entry.format = entryHeader.format;
-		entry.insertedTimeStamp = entryHeader.insertedTimestamp;
+		entry.expireTimeStamp = entryHeader.expireTimestamp;
 		entry.usedTimeStamp = now;
 		PeekIconSize(entry.data, entry.format, &entry.width, &entry.height);
 		cache_.emplace(key, entry);
@@ -295,7 +293,7 @@ void IconCache::CancelPending(std::string_view key) {
 	pending_.erase(iter);
 }
 
-bool IconCache::InsertIcon(std::string_view key, IconFormat format, std::string &&data) {
+bool IconCache::InsertIcon(std::string_view key, IconFormat format, std::string &&data, double maxAge) {
 	if (key.empty()) {
 		return false;
 	}
@@ -323,7 +321,7 @@ bool IconCache::InsertIcon(std::string_view key, IconFormat format, std::string 
 	}
 
 	double now = time_now_d();
-	Entry entry{ std::move(data), format, nullptr, time_now_unix_utc(), now };
+	Entry entry{ std::move(data), format, nullptr, time_now_unix_utc() + maxAge, now };
 	PeekIconSize(entry.data, entry.format, &entry.width, &entry.height);
 	cache_.emplace(key, std::move(entry));
 	return true;
