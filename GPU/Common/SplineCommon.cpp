@@ -22,7 +22,10 @@
 #include <vector>
 
 #include "Common/Common.h"
-#include "Common/CPUDetect.h"
+#include <algorithm>
+#include <cstddef>
+
+#include "Common/Math/CrossSIMD.h"
 #include "Common/Profiler/Profiler.h"
 #include "GPU/Common/SplineCommon.h"
 #include "GPU/Common/DrawEngineCommon.h"
@@ -221,6 +224,25 @@ struct GEBezierColumn {
 	int col[4];  // 15 bits
 };
 
+struct Weight {
+	float basis[4];
+	float deriv[4];
+};
+
+static WeightTable AllocateWeightTable(int count) {
+	WeightTable table;
+	table.stride = count + WeightTable::WEIGHT_PADDING;
+	table.data = new float[8 * table.stride]();
+	return table;
+}
+
+static void SetWeight(WeightTable &table, int index, const Weight &w) {
+	for (int k = 0; k < 4; k++) {
+		table.data[k * table.stride + index] = w.basis[k];
+		table.data[(4 + k) * table.stride + index] = w.deriv[k];
+	}
+}
+
 class Bezier3DWeight {
 private:
 	static void CalcWeights(float t, Weight &w) {
@@ -237,13 +259,15 @@ private:
 		w.deriv[3] = 3 * t * t;
 	}
 public:
-	static Weight *CalcWeightsAll(u32 key) {
+	static WeightTable CalcWeightsAll(u32 key) {
 		int tess = (int)key;
-		Weight *weights = new Weight[tess + 1];
+		WeightTable weights = AllocateWeightTable(tess + 1);
 		const float inv_tess = 1.0f / (float)tess;
 		for (int i = 0; i < tess + 1; ++i) {
 			const float t = (float)i * inv_tess;
-			CalcWeights(t, weights[i]);
+			Weight w;
+			CalcWeights(t, w);
+			SetWeight(weights, i, w);
 		}
 		return weights;
 	}
@@ -272,7 +296,7 @@ private:
 
 	// knot should be an array sized n + 5  (n + 1 + 1 + degree (cubic))
 	static void CalcKnots(int n, int type, float *knots, KnotDiv *divs) {
-		// Basic theory (-2 to +3), optimized with KnotDiv (-2 to +0) 
+		// Basic theory (-2 to +3), optimized with KnotDiv (-2 to +0)
 	//	for (int i = 0; i < n + 5; ++i) {
 		for (int i = 0; i < n + 2; ++i) {
 			knots[i] = (float)i - 2;
@@ -304,43 +328,6 @@ private:
 	}
 
 	static void CalcWeights(float t, const float *knots, const KnotDiv &div, Weight &w) {
-		// TODO: This SSE code doesn't look like it's worth it. We need to parallelize across another
-		// dimension.
-#ifdef _M_SSE
-		const __m128 knot012 = _mm_loadu_ps(knots);
-		const __m128 t012 = _mm_sub_ps(_mm_set_ps1(t), knot012);
-		const __m128 f30_41_52 = _mm_mul_ps(t012, _mm_loadu_ps(&div._3_0));
-		const __m128 f52_31_42 = _mm_mul_ps(t012, _mm_loadu_ps(&div._5_2));
-
-		// Following comments are for explains order of the multiply.
-	//	float a = (1-f30)*(1-f31);
-	//	float c = (1-f41)*(1-f42);
-	//	float b = (  f31 *   f41);
-	//	float d = (  f42 *   f52);
-		const __m128 f30_41_31_42 = _mm_shuffle_ps(f30_41_52, f52_31_42, _MM_SHUFFLE(2, 1, 1, 0));
-		const __m128 f31_42_41_52 = _mm_shuffle_ps(f52_31_42, f30_41_52, _MM_SHUFFLE(2, 1, 2, 1));
-		const __m128 c1_1_0_0 = { 1, 1, 0, 0 };
-		const __m128 acbd = _mm_mul_ps(_mm_sub_ps(c1_1_0_0, f30_41_31_42), _mm_sub_ps(c1_1_0_0, f31_42_41_52));
-
-		alignas(16) float f_t012[4];
-		alignas(16) float f_acbd[4];
-		alignas(16) float f_f30_41_31_42[4];
-		_mm_store_ps(f_t012, t012);
-		_mm_store_ps(f_acbd, acbd);
-		_mm_store_ps(f_f30_41_31_42, f30_41_31_42);
-
-		const float &f32 = f_t012[2];
-
-		const float &a = f_acbd[0];
-		const float &b = f_acbd[2];
-		const float &c = f_acbd[1];
-		const float &d = f_acbd[3];
-
-		// For derivative
-		const float &f31 = f_f30_41_31_42[2];
-		const float &f42 = f_f30_41_31_42[3];
-#else
-		// TODO: Maybe compilers could be coaxed into vectorizing this code without the above explicitly...
 		float t0 = (t - knots[0]);
 		float t1 = (t - knots[1]);
 		float t2 = (t - knots[2]);
@@ -356,7 +343,7 @@ private:
 		float b = (f31 * f41);
 		float c = (1 - f41) * (1 - f42);
 		float d = (f42 * f52);
-#endif
+
 		w.basis[0] = a * (1 - f32); // (1-f30)*(1-f31)*(1-f32)
 		w.basis[1] = 1 - a - b + ((a + b + c - 1) * f32);
 		w.basis[2] = b + ((1 - b - c - d) * f32);
@@ -377,14 +364,14 @@ private:
 		w.deriv[3] = 3 * (f352 - 0);
 	}
 public:
-	Weight *CalcWeightsAll(u32 key) {
+	WeightTable CalcWeightsAll(u32 key) {
 		int tess, count, type;
 		FromKey(key, tess, count, type);
 		const int num_patches = count - 3;
-		Weight *weights = new Weight[tess * num_patches + 1];
+		WeightTable weights = AllocateWeightTable(tess * num_patches + 1);
 
 	//	float *knots = new float[num_patches + 5];
-		float *knots = new float[num_patches + 2]; // Optimized with KnotDiv, must use +5 in theory 
+		float *knots = new float[num_patches + 2]; // Optimized with KnotDiv, must use +5 in theory
 		KnotDiv *divs = new KnotDiv[num_patches];
 		CalcKnots(num_patches, type, knots, divs);
 
@@ -394,7 +381,9 @@ public:
 			for (int j = start; j <= tess; ++j) {
 				const int index = i * tess + j;
 				const float t = (float)index * inv_tess;
-				CalcWeights(t, knots + i, divs[i], weights[index]);
+				Weight w;
+				CalcWeights(t, knots + i, divs[i], w);
+				SetWeight(weights, index, w);
 			}
 		}
 
@@ -422,60 +411,71 @@ public:
 WeightCache<Bezier3DWeight> Bezier3DWeight::weightsCache;
 WeightCache<Spline3DWeight> Spline3DWeight::weightsCache;
 
-// Tessellate single patch (4x4 control points)
-template<typename T>
-class Tessellator {
-private:
-	const T *const p[4]; // T p[v][u]; 4x4 control points
-	T u[4]; // Pre-tessellated U lines
-public:
-	Tessellator(const T *p, const int idx[4]) : p{ p + idx[0], p + idx[1], p + idx[2], p + idx[3] } {}
-
-	// Linear combination
-	T Sample(const T p[4], const float w[4]) {
-		return p[0] * w[0] + p[1] * w[1] + p[2] * w[2] + p[3] * w[3];
-	}
-
-	void SampleEdgeU(int idx) {
-		u[0] = p[0][idx];
-		u[1] = p[1][idx];
-		u[2] = p[2][idx];
-		u[3] = p[3][idx];
-	}
-
-	void SampleU(const float weights[4]) {
-		if (weights[0] == 1.0f) { SampleEdgeU(0); return; } // weights = {1,0,0,0}, first edge is open.
-		if (weights[3] == 1.0f) { SampleEdgeU(3); return; } // weights = {0,0,0,1}, last edge is open.
-
-		u[0] = Sample(p[0], weights);
-		u[1] = Sample(p[1], weights);
-		u[2] = Sample(p[2], weights);
-		u[3] = Sample(p[3], weights);
-	}
-
-	T SampleV(const float weights[4]) {
-		if (weights[0] == 1.0f) return u[0]; // weights = {1,0,0,0}, first edge is open.
-		if (weights[3] == 1.0f) return u[3]; // weights = {0,0,0,1}, last edge is open.
-
-		return Sample(u, weights);
-	}
-};
-
-ControlPoints::ControlPoints(const SimpleVertex *const *points, int size, SimpleBufferManager &managedBuf) {
-	pos = (Vec3f *)managedBuf.Allocate(sizeof(Vec3f) * size);
-	tex = (Vec2f *)managedBuf.Allocate(sizeof(Vec2f) * size);
-	col = (Vec4f *)managedBuf.Allocate(sizeof(Vec4f) * size);
-	if (pos && tex && col)
-		Convert(points, size);
+ControlPoints::ControlPoints(const SimpleVertex *const *src, int size, SimpleBufferManager &managedBuf) {
+	points = (ControlPoint *)managedBuf.Allocate(sizeof(ControlPoint) * size);
+	if (points)
+		Convert(src, size);
 }
 
-void ControlPoints::Convert(const SimpleVertex *const *points, int size) {
+void ControlPoints::Convert(const SimpleVertex *const *src, int size) {
 	for (int i = 0; i < size; ++i) {
-		pos[i] = Vec3f(points[i]->pos);
-		tex[i] = Vec2f(points[i]->uv);
-		col[i] = Vec4f::FromRGBA(points[i]->color_32);
+		const SimpleVertex &v = *src[i];
+		ControlPoint &p = points[i];
+		p.pos[0] = v.pos.x;
+		p.pos[1] = v.pos.y;
+		p.pos[2] = v.pos.z;
+		p.pos[3] = 0.0f;
+		for (int c = 0; c < 4; c++) {
+			p.col[c] = (float)v.color[c];
+		}
+		p.uv[0] = v.uv[0];
+		p.uv[1] = v.uv[1];
+		p.uv[2] = 0.0f;
+		p.uv[3] = 0.0f;
 	}
-	defcolor = points[0]->color_32;
+	defcolor = src[0]->color_32;
+}
+
+// Four vertices' worth of a 3-component attribute, one component per register.
+struct Vec3x4 {
+	Vec4F32 x, y, z;
+};
+
+static inline Vec3x4 Cross(const Vec3x4 &a, const Vec3x4 &b) {
+	return { a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x };
+}
+
+static inline Vec4F32 Dot(const Vec3x4 &a, const Vec3x4 &b) {
+	return a.x * b.x + a.y * b.y + a.z * b.z;
+}
+
+static inline Vec3x4 Select(Vec4S32 mask, const Vec3x4 &ifTrue, const Vec3x4 &ifFalse) {
+	return { Select(mask, ifTrue.x, ifFalse.x), Select(mask, ifTrue.y, ifFalse.y), Select(mask, ifTrue.z, ifFalse.z) };
+}
+
+static inline Vec3x4 operator *(const Vec3x4 &a, Vec4F32 f) {
+	return { a.x * f, a.y * f, a.z * f };
+}
+
+// Component c of the four columns, weighted along u.
+static inline Vec4F32 SampleU(const float cols[4][4], int c, const Vec4F32 w[4]) {
+	return Vec4F32::Splat(cols[0][c]) * w[0] + Vec4F32::Splat(cols[1][c]) * w[1] + Vec4F32::Splat(cols[2][c]) * w[2] + Vec4F32::Splat(cols[3][c]) * w[3];
+}
+
+static inline Vec3x4 SampleU3(const float cols[4][4], const Vec4F32 w[4]) {
+	return { SampleU(cols, 0, w), SampleU(cols, 1, w), SampleU(cols, 2, w) };
+}
+
+// Folds the four rows of control points into the four columns of one row of vertices.
+static inline void SampleV(const ControlPoint *const rows[4], size_t offset, const float w[4], float cols[4][4]) {
+	for (int k = 0; k < 4; k++) {
+		const float *r0 = (const float *)((const u8 *)&rows[0][k] + offset);
+		const float *r1 = (const float *)((const u8 *)&rows[1][k] + offset);
+		const float *r2 = (const float *)((const u8 *)&rows[2][k] + offset);
+		const float *r3 = (const float *)((const u8 *)&rows[3][k] + offset);
+		Vec4F32 sum = Vec4F32::Load(r0) * w[0] + Vec4F32::Load(r1) * w[1] + Vec4F32::Load(r2) * w[2] + Vec4F32::Load(r3) * w[3];
+		sum.Store(cols[k]);
+	}
 }
 
 // The GE's spline: each control column at the vertex's v, then the row of those at its u (as for Bezier).
@@ -497,12 +497,12 @@ static void TessellateSplineGE(OutputBuffers &output, const SplineSurface &surfa
 			for (int r = 0; r < 4; ++r)
 				idx[r] = (pv.seg + r) * pointsU + c;
 			for (int j = 0; j < 3; ++j) {
-				const float p[4] = { points.pos[idx[0]][j], points.pos[idx[1]][j], points.pos[idx[2]][j], points.pos[idx[3]][j] };
+				const float p[4] = { points.points[idx[0]].pos[j], points.points[idx[1]].pos[j], points.points[idx[2]].pos[j], points.points[idx[3]].pos[j] };
 				column.pos[j] = GESplineEval(p, pv.alpha, &column.ab[j], &column.bc[j]);
 			}
 			if constexpr (sampleTex) {
 				for (int j = 0; j < 2; ++j) {
-					const float p[4] = { points.tex[idx[0]][j], points.tex[idx[1]][j], points.tex[idx[2]][j], points.tex[idx[3]][j] };
+					const float p[4] = { points.points[idx[0]].uv[j], points.points[idx[1]].uv[j], points.points[idx[2]].uv[j], points.points[idx[3]].uv[j] };
 					column.tex[j] = GESplineEval(p, pv.alpha);
 				}
 			}
@@ -510,7 +510,7 @@ static void TessellateSplineGE(OutputBuffers &output, const SplineSurface &surfa
 				for (int j = 0; j < 4; ++j) {
 					int p[4];
 					for (int r = 0; r < 4; ++r)
-						p[r] = ((int)(points.col[idx[r]][j] * 255.0f + 0.5f) << 7) | 0x7F;
+						p[r] = ((int)points.points[idx[r]].col[j] << 7) | 0x7F;
 					column.col[j] = GESplineEvalColor(p, pv.alpha);
 				}
 			}
@@ -567,10 +567,107 @@ static void TessellateSplineGE(OutputBuffers &output, const SplineSurface &surfa
 	}
 }
 
+// The GE's Bezier patches: each patch's four control columns at every v step, then each row of those at u.
+template <bool sampleNrm, bool sampleCol, bool sampleTex, bool patchFacing>
+static void TessellateBezierGE(OutputBuffers &output, const BezierSurface &surface, const ControlPoints &points) {
+	std::vector<GEBezierColumn> columns((surface.tess_v + 1) * 4);
+	for (int patch_u = 0; patch_u < surface.num_patches_u; ++patch_u) {
+		const int start_u = surface.GetTessStart(patch_u);
+		for (int patch_v = 0; patch_v < surface.num_patches_v; ++patch_v) {
+			const int start_v = surface.GetTessStart(patch_v);
+			const ControlPoint *patch = points.points + surface.GetPointIndex(patch_u, patch_v);
+			const ControlPoint *const rows[4] = { patch, patch + surface.num_points_u, patch + surface.num_points_u * 2, patch + surface.num_points_u * 3 };
+
+			for (int tile_v = start_v; tile_v <= surface.tess_v; ++tile_v) {
+				const int kv = BezierParam256(tile_v, surface.tess_v);
+				for (int c = 0; c < 4; ++c) {
+					GEBezierColumn &column = columns[tile_v * 4 + c];
+					for (int j = 0; j < 3; ++j) {
+						const float p[4] = { rows[0][c].pos[j], rows[1][c].pos[j], rows[2][c].pos[j], rows[3][c].pos[j] };
+						column.pos[j] = GEBezierEval(p, kv, &column.ab[j], &column.bc[j]);
+					}
+					if constexpr (sampleTex) {
+						for (int j = 0; j < 2; ++j) {
+							const float p[4] = { rows[0][c].uv[j], rows[1][c].uv[j], rows[2][c].uv[j], rows[3][c].uv[j] };
+							column.tex[j] = GEBezierEval(p, kv);
+						}
+					}
+					if constexpr (sampleCol) {
+						for (int j = 0; j < 4; ++j) {
+							int p[4];
+							for (int r = 0; r < 4; ++r)
+								p[r] = ((int)rows[r][c].col[j] << 7) | 0x7F;
+							column.col[j] = GEBezierEvalColor(p, kv);
+						}
+					}
+				}
+			}
+
+			for (int tile_u = start_u; tile_u <= surface.tess_u; ++tile_u) {
+				const int index_u = surface.GetIndexU(patch_u, tile_u);
+				const int ku = BezierParam256(tile_u, surface.tess_u);
+				for (int tile_v = start_v; tile_v <= surface.tess_v; ++tile_v) {
+					const int index_v = surface.GetIndexV(patch_v, tile_v);
+					SimpleVertex &vert = output.vertices[surface.GetIndex(index_u, index_v, patch_u, patch_v)];
+					const GEBezierColumn *cols = &columns[tile_v * 4];
+					Vec3f tangentU, tangentV;
+					for (int j = 0; j < 3; ++j) {
+						const float row[4] = { cols[0].pos[j], cols[1].pos[j], cols[2].pos[j], cols[3].pos[j] };
+						float ab, bc;
+						vert.pos[j] = GEBezierEval(row, ku, &ab, &bc);
+						if constexpr (sampleNrm) {
+							tangentU[j] = GEAdd(bc, -ab);
+							const float abRow[4] = { cols[0].ab[j], cols[1].ab[j], cols[2].ab[j], cols[3].ab[j] };
+							const float bcRow[4] = { cols[0].bc[j], cols[1].bc[j], cols[2].bc[j], cols[3].bc[j] };
+							tangentV[j] = GEAdd(GEBezierEval(bcRow, ku), -GEBezierEval(abRow, ku));
+						}
+					}
+					if constexpr (sampleCol) {
+						u32 color = 0;
+						for (int j = 0; j < 4; ++j) {
+							const int row[4] = { cols[0].col[j], cols[1].col[j], cols[2].col[j], cols[3].col[j] };
+							color |= (u32)(GEBezierEvalColor(row, ku) >> 7) << (8 * j);
+						}
+						vert.color_32 = color;
+					} else {
+						vert.color_32 = points.defcolor;
+					}
+					if constexpr (sampleTex) {
+						for (int j = 0; j < 2; ++j) {
+							const float row[4] = { cols[0].tex[j], cols[1].tex[j], cols[2].tex[j], cols[3].tex[j] };
+							vert.uv[j] = GEBezierEval(row, ku);
+						}
+					} else {
+						// Generated: the parameter itself (exp140).
+						vert.uv[0] = patch_u + ku * (1.0f / 256.0f);
+						vert.uv[1] = patch_v + BezierParam256(tile_v, surface.tess_v) * (1.0f / 256.0f);
+					}
+					if constexpr (sampleNrm) {
+						// Unnormalized: lighting normalizes it. Vertex normals are unused (exp142).
+						for (int j = 0; j < 3; ++j) {
+							const int j1 = (j + 1) % 3, j2 = (j + 2) % 3;
+							const GERowTerm terms[2] = { GEProduct(tangentU[j1], tangentV[j2]), GEProduct(-tangentU[j2], tangentV[j1]) };
+							vert.nrm[j] = GERowSum(terms, 2);
+						}
+						if constexpr (patchFacing)
+							vert.nrm *= -1.0f;
+					} else {
+						vert.nrm.SetZero();
+						vert.nrm.z = 1.0f;
+					}
+				}
+			}
+		}
+	}
+}
+
+// Each patch is evaluated one row of vertices (fixed v) at a time, four vertices along u at once,
+// one attribute component per register: first the four control point rows are folded into four
+// columns with the v weights, then those are weighted along u.
 template<class Surface>
 class SubdivisionSurface {
 public:
-	template <bool sampleNrm, bool sampleCol, bool sampleTex, bool useSSE4, bool patchFacing>
+	template <bool sampleNrm, bool sampleCol, bool sampleTex, bool patchFacing>
 	static void Tessellate(OutputBuffers &output, const Surface &surface, const ControlPoints &points, const Weight2D &weights) {
 		if constexpr (std::is_same_v<Surface, SplineSurface>) {
 			if (surface.geExact) {
@@ -578,170 +675,132 @@ public:
 				surface.BuildIndex(output.indices, output.count);
 				return;
 			}
+		} else {
+			if (surface.geExact) {
+				TessellateBezierGE<sampleNrm, sampleCol, sampleTex, patchFacing>(output, surface, points);
+				surface.BuildIndex(output.indices, output.count);
+				return;
+			}
 		}
 		const float inv_u = 1.0f / (float)surface.tess_u;
 		const float inv_v = 1.0f / (float)surface.tess_v;
-		bool exactBezier = false;
-		if constexpr (std::is_same_v<Surface, BezierSurface>) {
-			exactBezier = surface.geExact;
-		}
-		// Bezier: the GE's columns at each v step, for the current patch.
-		std::vector<GEBezierColumn> columns(exactBezier ? (surface.tess_v + 1) * 4 : 0);
+		const WeightTable &wu = *weights.u;
+		const WeightTable &wv = *weights.v;
+
+		static const int laneOffsets[4] = { 0, 1, 2, 3 };
+		const Vec4S32 lanes = Vec4S32::Load(laneOffsets);
+		const Vec4F32 one = Vec4F32::Splat(1.0f);
+		const Vec4F32 minusOne = Vec4F32::Splat(-1.0f);
+		const Vec4F32 zero = Vec4F32::Zero();
+		const Vec4F32 defcolor = Vec4F32FromBits(Vec4S32::Splat((int)points.defcolor));
 
 		for (int patch_u = 0; patch_u < surface.num_patches_u; ++patch_u) {
 			const int start_u = surface.GetTessStart(patch_u);
 			for (int patch_v = 0; patch_v < surface.num_patches_v; ++patch_v) {
 				const int start_v = surface.GetTessStart(patch_v);
 
-				// Prepare 4x4 control points to tessellate
-				const int idx = surface.GetPointIndex(patch_u, patch_v);
-				const int idx_v[4] = { idx, idx + surface.num_points_u, idx + surface.num_points_u * 2, idx + surface.num_points_u * 3 };
-				Tessellator<Vec3f> tess_pos(points.pos, idx_v);
-				Tessellator<Vec4f> tess_col(points.col, idx_v);
-				Tessellator<Vec2f> tess_tex(points.tex, idx_v);
-				Tessellator<Vec3f> tess_nrm(points.pos, idx_v);
+				// The 4x4 control points of this patch.
+				const ControlPoint *patch = points.points + surface.GetPointIndex(patch_u, patch_v);
+				const ControlPoint *const rows[4] = { patch, patch + surface.num_points_u, patch + surface.num_points_u * 2, patch + surface.num_points_u * 3 };
 
-				if (exactBezier) {
-					for (int tile_v = 0; tile_v <= surface.tess_v; ++tile_v) {
-						const int kv = BezierParam256(tile_v, surface.tess_v);
-						for (int c = 0; c < 4; ++c) {
-							GEBezierColumn &column = columns[tile_v * 4 + c];
-							for (int j = 0; j < 3; ++j) {
-								const float p[4] = { points.pos[idx_v[0] + c][j], points.pos[idx_v[1] + c][j], points.pos[idx_v[2] + c][j], points.pos[idx_v[3] + c][j] };
-								column.pos[j] = GEBezierEval(p, kv, &column.ab[j], &column.bc[j]);
-							}
-							if constexpr (sampleTex) {
-								for (int j = 0; j < 2; ++j) {
-									const float p[4] = { points.tex[idx_v[0] + c][j], points.tex[idx_v[1] + c][j], points.tex[idx_v[2] + c][j], points.tex[idx_v[3] + c][j] };
-									column.tex[j] = GEBezierEval(p, kv);
-								}
-							}
-							if constexpr (sampleCol) {
-								for (int j = 0; j < 4; ++j) {
-									int p[4];
-									for (int r = 0; r < 4; ++r) {
-										p[r] = ((int)(points.col[idx_v[r] + c][j] * 255.0f + 0.5f) << 7) | 0x7F;
-									}
-									column.col[j] = GEBezierEvalColor(p, kv);
-								}
-							}
-						}
-					}
-				}
+				for (int tile_v = start_v; tile_v <= surface.tess_v; ++tile_v) {
+					const int index_v = surface.GetIndexV(patch_v, tile_v);
+					const float bv[4] = { wv.Basis(0)[index_v], wv.Basis(1)[index_v], wv.Basis(2)[index_v], wv.Basis(3)[index_v] };
+					const float dv[4] = { wv.Deriv(0)[index_v], wv.Deriv(1)[index_v], wv.Deriv(2)[index_v], wv.Deriv(3)[index_v] };
 
-				for (int tile_u = start_u; tile_u <= surface.tess_u; ++tile_u) {
-					const int index_u = surface.GetIndexU(patch_u, tile_u);
-					const Weight &wu = weights.u[index_u];
+					alignas(16) float pos[4][4];
+					alignas(16) float posDV[4][4];
+					alignas(16) float col[4][4];
+					alignas(16) float tex[4][4];
+					SampleV(rows, offsetof(ControlPoint, pos), bv, pos);
+					if constexpr (sampleNrm)
+						SampleV(rows, offsetof(ControlPoint, pos), dv, posDV);
+					if constexpr (sampleCol)
+						SampleV(rows, offsetof(ControlPoint, col), bv, col);
+					if constexpr (sampleTex)
+						SampleV(rows, offsetof(ControlPoint, uv), bv, tex);
 
-					// Pre-tessellate U lines (the exact path evaluates its own columns).
-					if (!exactBezier) {
-						tess_pos.SampleU(wu.basis);
-						if constexpr (sampleCol)
-							tess_col.SampleU(wu.basis);
-						if constexpr (sampleTex)
-							tess_tex.SampleU(wu.basis);
-						if constexpr (sampleNrm)
-							tess_nrm.SampleU(wu.deriv);
-					}
+					// Which way a pole's limit normal points, when the pole is along v.
+					const Vec4F32 signV = (tile_v * 2 > surface.tess_v) ? minusOne : one;
 
-					for (int tile_v = start_v; tile_v <= surface.tess_v; ++tile_v) {
-						const int index_v = surface.GetIndexV(patch_v, tile_v);
-						const Weight &wv = weights.v[index_v];
+					for (int tile_u = start_u; tile_u <= surface.tess_u; tile_u += 4) {
+						const int index_u = surface.GetIndexU(patch_u, tile_u);
+						const Vec4F32 bu[4] = { Vec4F32::Load(wu.Basis(0) + index_u), Vec4F32::Load(wu.Basis(1) + index_u), Vec4F32::Load(wu.Basis(2) + index_u), Vec4F32::Load(wu.Basis(3) + index_u) };
+						const Vec4S32 tiles = Vec4S32::Splat(tile_u) + lanes;
 
-						SimpleVertex &vert = output.vertices[surface.GetIndex(index_u, index_v, patch_u, patch_v)];
+						Vec3x4 p = SampleU3(pos, bu);
 
-						// Tessellate
-						Vec3f tangentU, tangentV;
-						if (exactBezier) {
-							const int ku = BezierParam256(tile_u, surface.tess_u);
-							const GEBezierColumn *cols = &columns[tile_v * 4];
-							for (int j = 0; j < 3; ++j) {
-								const float row[4] = { cols[0].pos[j], cols[1].pos[j], cols[2].pos[j], cols[3].pos[j] };
-								float ab, bc;
-								vert.pos[j] = GEBezierEval(row, ku, &ab, &bc);
-								if constexpr (sampleNrm) {
-									tangentU[j] = GEAdd(bc, -ab);
-									const float abRow[4] = { cols[0].ab[j], cols[1].ab[j], cols[2].ab[j], cols[3].ab[j] };
-									const float bcRow[4] = { cols[0].bc[j], cols[1].bc[j], cols[2].bc[j], cols[3].bc[j] };
-									tangentV[j] = GEAdd(GEBezierEval(bcRow, ku), -GEBezierEval(abRow, ku));
-								}
-							}
-							if constexpr (sampleCol) {
-								u32 color = 0;
-								for (int j = 0; j < 4; ++j) {
-									const int row[4] = { cols[0].col[j], cols[1].col[j], cols[2].col[j], cols[3].col[j] };
-									color |= (u32)(GEBezierEvalColor(row, ku) >> 7) << (8 * j);
-								}
-								vert.color_32 = color;
-							} else {
-								vert.color_32 = points.defcolor;
-							}
-							if constexpr (sampleTex) {
-								for (int j = 0; j < 2; ++j) {
-									const float row[4] = { cols[0].tex[j], cols[1].tex[j], cols[2].tex[j], cols[3].tex[j] };
-									vert.uv[j] = GEBezierEval(row, ku);
-								}
-							} else {
-								// Generated: the parameter itself (exp140).
-								vert.uv[0] = patch_u + ku * (1.0f / 256.0f);
-								vert.uv[1] = patch_v + BezierParam256(tile_v, surface.tess_v) * (1.0f / 256.0f);
-							}
-						} else {
-							vert.pos = tess_pos.SampleV(wv.basis);
-							if constexpr (sampleCol) {
-								vert.color_32 = tess_col.SampleV(wv.basis).ToRGBA();
-							} else {
-								vert.color_32 = points.defcolor;
-							}
-							if constexpr (sampleTex) {
-								tess_tex.SampleV(wv.basis).Write(vert.uv);
-							} else {
-								// Generate texcoord
-								vert.uv[0] = patch_u + tile_u * inv_u;
-								vert.uv[1] = patch_v + tile_v * inv_v;
-							}
-						}
-						if (sampleNrm && exactBezier) {
-							// Unnormalized: lighting normalizes it. Vertex normals are unused (exp142).
-							for (int j = 0; j < 3; ++j) {
-								const int j1 = (j + 1) % 3, j2 = (j + 2) % 3;
-								const GERowTerm terms[2] = { GEProduct(tangentU[j1], tangentV[j2]), GEProduct(-tangentU[j2], tangentV[j1]) };
-								vert.nrm[j] = GERowSum(terms, 2);
-							}
-							if constexpr (patchFacing)
-								vert.nrm *= -1.0f;
-						} else if constexpr (sampleNrm) {
-							const Vec3f derivU = tess_nrm.SampleV(wv.basis);
-							const Vec3f derivV = tess_pos.SampleV(wv.deriv);
+						Vec3x4 nrm;
+						if constexpr (sampleNrm) {
+							const Vec4F32 du[4] = { Vec4F32::Load(wu.Deriv(0) + index_u), Vec4F32::Load(wu.Deriv(1) + index_u), Vec4F32::Load(wu.Deriv(2) + index_u), Vec4F32::Load(wu.Deriv(3) + index_u) };
+							const Vec3x4 derivU = SampleU3(pos, du);
+							const Vec3x4 derivV = SampleU3(posDV, bu);
 
-							Vec3f nrm = Cross(derivU, derivV);
-							const float lenU2 = derivU.Length2();
-							const float lenV2 = derivV.Length2();
-							if (std::min(lenU2, lenV2) <= 1e-8f * std::max(lenU2, lenV2)) {
+							nrm = Cross(derivU, derivV);
+							const Vec4F32 lenU2 = Dot(derivU, derivU);
+							const Vec4F32 lenV2 = Dot(derivV, derivV);
+							const Vec4S32 pole = lenU2.Min(lenV2).CompareLe(lenU2.Max(lenV2) * 1e-8f);
+							if (AnyCompareBitsSet(pole)) {
 								// A pole: a patch edge whose control points all meet at one point, like the top
 								// of a dome. One derivative vanishes there, so the cross product is zero, or with
 								// animated control points just rounding noise, and the normal would be NaN or
 								// random (dark patches on Pac-Man Arrangement's ghosts, #12354). Use the limit
 								// instead: next to an edge where dP/dv = 0, dP/dv ~ (u - u_edge) * d2P/dudv.
-								const Vec3f derivUV = tess_nrm.SampleV(wv.deriv);
-								if (lenV2 <= lenU2) {
-									nrm = Cross(derivU, derivUV);
-									if (tile_u * 2 > surface.tess_u) {
-										nrm = -nrm;
-									}
-								} else {
-									nrm = Cross(derivUV, derivV);
-									if (tile_v * 2 > surface.tess_v) {
-										nrm = -nrm;
-									}
-								}
+								const Vec3x4 derivUV = SampleU3(posDV, du);
+								const Vec4F32 signU = Select(tiles.Shl<1>().CompareGt(Vec4S32::Splat(surface.tess_u)), minusOne, one);
+								const Vec3x4 limitU = Cross(derivU, derivUV) * signU;
+								const Vec3x4 limitV = Cross(derivUV, derivV) * signV;
+								nrm = Select(pole, Select(lenV2.CompareLe(lenU2), limitU, limitV), nrm);
 							}
-							vert.nrm = nrm.NormalizedOr001(useSSE4);
+
+							// Normalize, or 0,0,1 if there's nothing to normalize.
+							const Vec4F32 len2 = Dot(nrm, nrm);
+							const Vec4S32 valid = len2.CompareGt(zero);
+							const Vec4F32 scale = len2.RecipSqrt();
+							nrm = { Select(valid, nrm.x * scale, zero), Select(valid, nrm.y * scale, zero), Select(valid, nrm.z * scale, one) };
 							if constexpr (patchFacing)
-								vert.nrm *= -1.0f;
+								nrm = nrm * minusOne;
 						} else {
-							vert.nrm.SetZero();
-							vert.nrm.z = 1.0f;
+							nrm = { zero, zero, one };
+						}
+
+						Vec4F32 color;
+						if constexpr (sampleCol) {
+							Vec4S32 c[4];
+							for (int i = 0; i < 4; i++) {
+								// Rounded to nearest.
+								c[i] = Vec4S32FromF32(SampleU(col, i, bu).Clamp(0.0f, 255.0f) + Vec4F32::Splat(0.5f));
+							}
+							color = Vec4F32FromBits(c[0] | c[1].Shl<8>() | c[2].Shl<16>() | c[3].Shl<24>());
+						} else {
+							color = defcolor;
+						}
+
+						Vec4F32 uvU, uvV;
+						if constexpr (sampleTex) {
+							uvU = SampleU(tex, 0, bu);
+							uvV = SampleU(tex, 1, bu);
+						} else {
+							// Generate texcoord
+							uvU = Vec4F32FromS32(tiles) * inv_u + Vec4F32::Splat((float)patch_u);
+							uvV = Vec4F32::Splat(patch_v + tile_v * inv_v);
+						}
+
+						// Transpose into SimpleVertex order: uv, color, nrm, pos.
+						Vec4F32 lo[4] = { uvU, uvV, color, nrm.x };
+						Vec4F32 hi[4] = { nrm.y, nrm.z, p.x, p.y };
+						Vec4F32::Transpose(lo[0], lo[1], lo[2], lo[3]);
+						Vec4F32::Transpose(hi[0], hi[1], hi[2], hi[3]);
+						alignas(16) float posZ[4];
+						p.z.Store(posZ);
+
+						SimpleVertex *dst = output.vertices + surface.GetIndex(index_u, index_v, patch_u, patch_v);
+						const int count = std::min(4, surface.tess_u - tile_u + 1);
+						for (int i = 0; i < count; i++) {
+							float *out = (float *)&dst[i];
+							lo[i].Store(out);
+							hi[i].Store(out + 4);
+							out[8] = posZ[i];
 						}
 					}
 				}
@@ -760,7 +819,6 @@ public:
 			(origVertType & GE_VTYPE_NRM_MASK) != 0 || gstate.isLightingEnabled() || gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP,
 			(origVertType & GE_VTYPE_COL_MASK) != 0,
 			(origVertType & GE_VTYPE_TC_MASK) != 0,
-			cpu_info.bSSE4_1,
 			surface.patchFacing,
 		};
 		static TemplateParameterDispatcher<TessFunc, ARRAY_SIZE(params), Tess> dispatcher; // Initialize only once
