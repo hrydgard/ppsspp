@@ -5,6 +5,24 @@
 #include <cstring>
 #include <algorithm>
 
+#include "Common/TimeUtil.h"
+
+// For benchmarks: calls fn over and over, callsPerBatch at a time between reads of the clock, for at
+// least the given number of seconds, and returns how many calls per second that came to. Multiply by
+// the work one call does (pixels, vertices) for a throughput.
+template <typename Func>
+double CallsPerSecond(Func fn, double seconds, int callsPerBatch) {
+	int calls = 0;
+	const double start = time_now_d();
+	do {
+		for (int i = 0; i < callsPerBatch; i++) {
+			fn();
+		}
+		calls += callsPerBatch;
+	} while (time_now_d() - start < seconds);
+	return calls / (time_now_d() - start);
+}
+
 inline bool rel_equal(float a, float b, float precision) {
 	float diff = fabsf(a - b);
 	if (diff == 0.0f) {
