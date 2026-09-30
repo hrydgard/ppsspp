@@ -62,19 +62,23 @@ struct Color4 {
 	}
 };
 
-// The GE's pow() for specular, powered diffuse and the spot exponent: exp2(e * log2(x)), with log2
-// and exp2 each a straight line between powers of two (Mitchell's approximation). Matches hardware
-// within one step of 255 (gpu/lighting/specular).
+// The GE's pow() for specular, powered diffuse and the spot exponent: 1 for e <= 0, else 0 for
+// x <= 0. Otherwise exp2(e * log2(x)) with log2 and exp2 each a straight line between powers of two
+// (Mitchell's approximation), which is what reading a float's bits as an integer gives: exponent
+// plus mantissa, scaled by 2^23. Matches hardware within one step of 255 (gpu/lighting/specular).
 inline float PSPLightPow(float x, float e) {
 	if (!(x > 0.0f)) {
-		return 0.0f;
+		return e > 0.0f ? 0.0f : 1.0f;
 	}
-	int ex;
-	float m = frexpf(x, &ex);  // x = m * 2^ex, m in [0.5, 1)
-	float y = e * ((float)(ex - 1) + (2.0f * m - 1.0f));
-	y = y < -64.0f ? -64.0f : (y > 64.0f ? 64.0f : y);
-	float fl = floorf(y);
-	return ldexpf(1.0f + (y - fl), (int)fl);
+	int32_t ix;
+	memcpy(&ix, &x, sizeof(ix));
+	float t = (e > 0.0f ? e : 0.0f) * (float)(ix - 0x3F800000) + 1065353216.0f;
+	// Also turns NaN into 0, and stays below infinity's bits.
+	t = t >= 0.0f ? (t < 2139095039.0f ? t : 2139095039.0f) : 0.0f;
+	int32_t iy = (int32_t)t;
+	float y;
+	memcpy(&y, &iy, sizeof(y));
+	return y;
 }
 
 // The GE only uses the top 4 bits of the specular coefficient's mantissa.

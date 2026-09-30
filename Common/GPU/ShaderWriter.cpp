@@ -37,6 +37,8 @@ const char * const hlsl_preamble_fs =
 "#define inversesqrt rsqrt\n"
 "#define floatBitsToUint asuint\n"
 "#define uintBitsToFloat asfloat\n"
+"#define floatBitsToInt asint\n"
+"#define intBitsToFloat asfloat\n"
 "\n";
 
 static const char * const hlsl_d3d11_preamble_fs =
@@ -71,6 +73,8 @@ static const char * const hlsl_preamble_vs =
 "#define inversesqrt rsqrt\n"
 "#define floatBitsToUint asuint\n"
 "#define uintBitsToFloat asfloat\n"
+"#define floatBitsToInt asint\n"
+"#define intBitsToFloat asfloat\n"
 "\n";
 
 static const char * const semanticNames[] = {

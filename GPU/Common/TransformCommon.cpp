@@ -123,7 +123,7 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 		if (dot < 0.0f) dot = 0.0f;
 
 		if (poweredDiffuse)
-			dot = specCoef_ <= 0.0f ? 1.0f : PSPLightPow(dot, specCoef_);
+			dot = PSPLightPow(dot, specCoef_);
 
 		// Attenuation
 		switch (type) {
@@ -138,7 +138,7 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 			lightDir = ldir[l];
 			angle = Dot(toLight.NormalizedOr001(cpu_info.bSSE4_1), lightDir.NormalizedOr001(cpu_info.bSSE4_1));
 			if (angle >= lcutoff[l])
-				lightScale = clamp(1.0f / (latt[l].x + latt[l].y * distanceToLight + latt[l].z * distanceToLight*distanceToLight), 0.0f, 1.0f) * (lconv[l] <= 0.0f ? 1.0f : PSPLightPow(angle, lconv[l]));
+				lightScale = clamp(1.0f / (latt[l].x + latt[l].y * distanceToLight + latt[l].z * distanceToLight*distanceToLight), 0.0f, 1.0f) * PSPLightPow(angle, lconv[l]);
 			break;
 		default:
 			// ILLEGAL
@@ -154,8 +154,7 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 			dot = Dot(halfVec, norm);
 			if (dot > 0.0f) {
 				Color4 lightSpec(lcolor[2][l], 0.0f);
-				float specFactor = specCoef_ <= 0.0f ? 1.0f : PSPLightPow(dot, specCoef_);
-				lightSum1 += (lightSpec * *specular * (specFactor * lightScale));
+				lightSum1 += (lightSpec * *specular * (PSPLightPow(dot, specCoef_) * lightScale));
 			}
 		}
 
