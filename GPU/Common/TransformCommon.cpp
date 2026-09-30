@@ -40,8 +40,8 @@ Lighter::Lighter(int vertType) {
 	materialDiffuse.a = 1.0f;
 	materialSpecular.GetFromRGB(gstate.materialspecular);
 	materialSpecular.a = 1.0f;
-	specCoef_ = getFloat24(gstate.materialspecularcoef);
-	// viewer_ = Vec3f(-gstate.viewMatrix[9], -gstate.viewMatrix[10], -gstate.viewMatrix[11]);
+	specCoef_ = PSPSpecularCoef(getFloat24(gstate.materialspecularcoef));
+	viewDir_ = PSPViewDirection(gstate.viewMatrix);
 	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0;
 	materialUpdate_ = hasColor ? (gstate.materialupdate & 7) : 0;
 
@@ -117,11 +117,13 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 			toLight /= distanceToLight;
 			dot = Dot(toLight, norm);
 		}
+		// Specular only applies when the light is in front of the surface.
+		const bool facingLight = dot >= 0.0f;
 		// Clamp dot to zero.
 		if (dot < 0.0f) dot = 0.0f;
 
 		if (poweredDiffuse)
-			dot = powf(dot, specCoef_);
+			dot = PSPLightPow(dot, specCoef_);
 
 		// Attenuation
 		switch (type) {
@@ -136,7 +138,7 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 			lightDir = ldir[l];
 			angle = Dot(toLight.NormalizedOr001(cpu_info.bSSE4_1), lightDir.NormalizedOr001(cpu_info.bSSE4_1));
 			if (angle >= lcutoff[l])
-				lightScale = clamp(1.0f / (latt[l].x + latt[l].y * distanceToLight + latt[l].z * distanceToLight*distanceToLight), 0.0f, 1.0f) * powf(angle, lconv[l]);
+				lightScale = clamp(1.0f / (latt[l].x + latt[l].y * distanceToLight + latt[l].z * distanceToLight*distanceToLight), 0.0f, 1.0f) * PSPLightPow(angle, lconv[l]);
 			break;
 		default:
 			// ILLEGAL
@@ -146,18 +148,13 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 		Color4 lightDiff(lcolor[1][l], 0.0f);
 		Color4 diff = (lightDiff * *diffuse) * dot;
 
-		// Real PSP specular
-		static const Vec3f toViewer(0, 0, 1);
-		// Better specular
-		// Vec3f toViewer = (viewer - pos).NormalizedOr001(cpu_info.bSSE4_1);
-
-		if (doSpecular) {
-			Vec3f halfVec = (toLight + toViewer).NormalizedOr001(cpu_info.bSSE4_1);
+		if (doSpecular && facingLight) {
+			Vec3f halfVec = (toLight + viewDir_).NormalizedOr001(cpu_info.bSSE4_1);
 
 			dot = Dot(halfVec, norm);
 			if (dot > 0.0f) {
 				Color4 lightSpec(lcolor[2][l], 0.0f);
-				lightSum1 += (lightSpec * *specular * (powf(dot, specCoef_) * lightScale));
+				lightSum1 += (lightSpec * *specular * (PSPLightPow(dot, specCoef_) * lightScale));
 			}
 		}
 

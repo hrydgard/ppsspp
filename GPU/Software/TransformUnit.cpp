@@ -28,6 +28,7 @@
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/SoftwareTransformCommon.h"
+#include "GPU/Common/TransformCommon.h"
 #include "GPU/Common/VertexReader.h"
 #include "GPU/GPUStateSIMDUtil.h"
 #include "Common/Math/SIMDHeaders.h"
@@ -259,6 +260,13 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 		} else {
 			state->lightingState.usesWorldNormal = state->uvGenMode == GE_TEXMAP_ENVIRONMENT_MAP;
 		}
+		if (state->uvGenMode == GE_TEXMAP_ENVIRONMENT_MAP) {
+			// Shade mapping uses the light vector as lighting sees it, which depends on position for other lights.
+			if (!gstate.isDirectionalLight(gstate.getUVLS0()) || !gstate.isDirectionalLight(gstate.getUVLS1())) {
+				canSkipWorldPos = false;
+			}
+		}
+		state->lightingState.viewDir = PSPViewDirection(gstate.viewMatrix);
 
 		float world[16];
 		float view[16];
@@ -446,7 +454,7 @@ ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const Tran
 			Vec3<float> stq = Vec3ByMatrix43(source, gstate.tgenMatrix);
 			vertex.v.texturecoords = Vec3Packedf(stq.x, stq.y, stq.z);
 		} else if (state.uvGenMode == GE_TEXMAP_ENVIRONMENT_MAP) {
-			Lighting::GenerateLightST(vertex.v, worldnormal);
+			Lighting::GenerateLightST(vertex.v, worldpos, worldnormal, state.lightingState.viewDir);
 		}
 
 		PROFILE_THIS_SCOPE("light");

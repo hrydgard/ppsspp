@@ -230,6 +230,8 @@ tests_good = [
   "gpu/ge/intrsuspend",
   "gpu/ge/queue",
   "gpu/ge/queue2",
+  "gpu/lighting/shademap",
+  "gpu/lighting/specular",
   "gpu/primitives/indices",
   "gpu/primitives/invalidprim",
   "gpu/primitives/points",
@@ -510,17 +512,9 @@ known_failures = {
     # The ISA returns the canonical NaN (0x7fc00000) from every operation, never the operand's
     # NaN, so a negative or signaling NaN input loses its sign and payload. Everything else passes.
     "cpu/fpu/roundmode",
-    # The software renderer's output differs from the reference by the same amount on both of
-    # these architectures, despite them using completely different SIMD paths. Unexplained.
-    "gpu/clipping/homogeneous",
-    "gpu/commands/cull",
-    "gpu/primitives/triangles",
   ],
   "loongarch64": [
     "cpu/fpu/fpu",
-    "gpu/clipping/homogeneous",
-    "gpu/commands/cull",
-    "gpu/primitives/triangles",
   ],
 }
 

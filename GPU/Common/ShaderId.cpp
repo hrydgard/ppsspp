@@ -116,8 +116,22 @@ void ComputeVertexShaderID(VShaderID *id_out, u32 vertType, bool useHWTransform,
 			id.SetBits(VS_BIT_LS1, 2, gstate.getUVLS1());
 		}
 
+		if (doShadeMapping) {
+			// Shade mapping depends on the type of its lights and whether they do specular, even when
+			// they're off. The ubershader reads that from u_lightControl instead.
+			if (gstate_c.Use(GPU_USE_LIGHT_UBERSHADER)) {
+				id.SetBit(VS_BIT_LIGHT_UBERSHADER);
+			} else {
+				const int shadeLights[2] = { gstate.getUVLS0(), gstate.getUVLS1() };
+				for (int l : shadeLights) {
+					id.SetBits(VS_BIT_LIGHT0_COMP + 4 * l, 2, gstate.getLightComputation(l));
+					id.SetBits(VS_BIT_LIGHT0_TYPE + 4 * l, 2, gstate.getLightType(l));
+				}
+			}
+		}
+
 		if (gstate.isLightingEnabled()) {
-			// doShadeMapping is stored as UVGenMode, and light type doesn't matter for shade mapping.
+			// doShadeMapping is stored as UVGenMode.
 			id.SetBit(VS_BIT_LIGHTING_ENABLE);
 			if (gstate_c.Use(GPU_USE_LIGHT_UBERSHADER)) {
 				id.SetBit(VS_BIT_LIGHT_UBERSHADER);

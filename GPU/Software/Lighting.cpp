@@ -21,6 +21,7 @@
 #include "Common/CPUDetect.h"
 #include "Common/Math/SIMDHeaders.h"
 #include "GPU/GPUState.h"
+#include "GPU/Common/TransformCommon.h"
 #include "GPU/Software/Lighting.h"
 
 #if PPSSPP_ARCH(SSE2)
@@ -49,7 +50,7 @@ static inline float pspLightPow(float v, float e) {
 		return 1.0f;
 	}
 	if (v > 0.0f) {
-		return pow(v, e);
+		return PSPLightPow(v, e);
 	}
 	// Negative stays negative, so let's just return the original.
 	return v;
@@ -179,7 +180,7 @@ void ComputeState(State *state, bool hasColor0) {
 	}
 
 	if (anyDiffuse || anySpecular) {
-		state->specularExp = gstate.getMaterialSpecularCoef();
+		state->specularExp = PSPSpecularCoef(gstate.getMaterialSpecularCoef());
 		if (state->specularExp <= 0.0f)
 			state->specularExp = 0.0f;
 		else if (std::isnan(state->specularExp))
@@ -193,20 +194,11 @@ void ComputeState(State *state, bool hasColor0) {
 	state->usesWorldNormal = gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP || anyDiffuse || anySpecular;
 }
 
-static inline float GenerateLightCoord(VertexData &vertex, const WorldCoords &worldnormal, int light) {
-	// TODO: Should specular lighting should affect this, too?  Doesn't in GLES.
-	Vec3<float> L = GetLightVec(gstate.lpos, light);
-	// In other words, L.Length2() == 0.0f means Dot({0, 0, 1}, worldnormal).
-	float diffuse_factor = Dot(L.NormalizedOr001(cpu_info.bSSE4_1), worldnormal);
-
-	return (diffuse_factor + 1.0f) / 2.0f;
-}
-
-void GenerateLightST(VertexData &vertex, const WorldCoords &worldnormal) {
+void GenerateLightST(VertexData &vertex, const WorldCoords &worldpos, const WorldCoords &worldnormal, const Vec3f &viewDir) {
 	// Always calculate texture coords from lighting results if environment mapping is active
 	// This should be done even if lighting is disabled altogether.
-	vertex.texturecoords.s() = GenerateLightCoord(vertex, worldnormal, gstate.getUVLS0());
-	vertex.texturecoords.t() = GenerateLightCoord(vertex, worldnormal, gstate.getUVLS1());
+	vertex.texturecoords.s() = PSPShadeMapCoord(gstate.getUVLS0(), worldpos, worldnormal, viewDir);
+	vertex.texturecoords.t() = PSPShadeMapCoord(gstate.getUVLS1(), worldpos, worldnormal, viewDir);
 }
 
 #if defined(_M_SSE)
@@ -368,7 +360,7 @@ static void ProcessSIMD(VertexData &vertex, const WorldCoords &worldpos, const W
 		}
 
 		if (lstate.specular && diffuse_factor >= 0.0f) {
-			Vec3<float> H = L + Vec3<float>(0.f, 0.f, 1.f);
+			Vec3<float> H = L + state.viewDir;
 
 			float specular_factor = Dot33(H.NormalizedOr001(useSSE4), worldnormal);
 			specular_factor = pspLightPow(specular_factor, state.specularExp);

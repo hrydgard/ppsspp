@@ -46,6 +46,7 @@
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Common/ShaderUniforms.h"
+#include "GPU/Common/TransformCommon.h"
 #include "GPU/GLES/ShaderManagerGLES.h"
 #include "GPU/GLES/DrawEngineGLES.h"
 
@@ -549,7 +550,7 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, const ShaderLanguageDesc
 		SetColorUniform3(render_, &u_matemissive, gstate.materialemissive);
 	}
 	if (dirty & DIRTY_MATSPECULAR) {
-		SetColorUniform3ExtraFloat(render_, &u_matspecular, gstate.materialspecular, getFloat24(gstate.materialspecularcoef));
+		SetColorUniform3ExtraFloat(render_, &u_matspecular, gstate.materialspecular, PSPSpecularCoef(getFloat24(gstate.materialspecularcoef)));
 	}
 
 	for (int i = 0; i < 4; i++) {
@@ -855,7 +856,7 @@ enum class CacheDetectFlags {
 };
 
 #define CACHE_HEADER_MAGIC 0x83277592
-#define CACHE_VERSION 43
+#define CACHE_VERSION 44
 
 struct CacheHeader {
 	uint32_t magic;
