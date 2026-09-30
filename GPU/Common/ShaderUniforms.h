@@ -58,7 +58,7 @@ R"(  mat4 u_proj;
   vec2 u_rasterOffset; vec2 u_minZmaxZ;
   vec4 u_uvscaleoffset;
   vec4 u_matambientalpha;
-  uint u_spline_counts;
+  uint pad0;
   uint u_depal_mask_shift_off_fmt;
   uint u_colorWriteMask;
   float u_mipBias;
