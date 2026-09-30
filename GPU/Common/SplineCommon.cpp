@@ -302,7 +302,7 @@ static inline Vec3x4 Cross(const Vec3x4 &a, const Vec3x4 &b) {
 }
 
 static inline Vec4F32 Dot(const Vec3x4 &a, const Vec3x4 &b) {
-	return a.x * b.x + a.y * b.y + a.z * b.z;
+	return MulAdd(a.x, b.x, MulAdd(a.y, b.y, a.z * b.z));
 }
 
 static inline Vec3x4 Select(Vec4S32 mask, const Vec3x4 &ifTrue, const Vec3x4 &ifFalse) {
@@ -315,7 +315,10 @@ static inline Vec3x4 operator *(const Vec3x4 &a, Vec4F32 f) {
 
 // Component c of the four columns, weighted along u.
 static inline Vec4F32 SampleU(const float cols[4][4], int c, const Vec4F32 w[4]) {
-	return Vec4F32::Splat(cols[0][c]) * w[0] + Vec4F32::Splat(cols[1][c]) * w[1] + Vec4F32::Splat(cols[2][c]) * w[2] + Vec4F32::Splat(cols[3][c]) * w[3];
+	Vec4F32 sum = Vec4F32::Splat(cols[0][c]) * w[0];
+	sum = MulAdd(Vec4F32::Splat(cols[1][c]), w[1], sum);
+	sum = MulAdd(Vec4F32::Splat(cols[2][c]), w[2], sum);
+	return MulAdd(Vec4F32::Splat(cols[3][c]), w[3], sum);
 }
 
 static inline Vec3x4 SampleU3(const float cols[4][4], const Vec4F32 w[4]) {
@@ -324,12 +327,16 @@ static inline Vec3x4 SampleU3(const float cols[4][4], const Vec4F32 w[4]) {
 
 // Folds the four rows of control points into the four columns of one row of vertices.
 static inline void SampleV(const ControlPoint *const rows[4], size_t offset, const float w[4], float cols[4][4]) {
+	const Vec4F32 w0 = Vec4F32::Splat(w[0]), w1 = Vec4F32::Splat(w[1]), w2 = Vec4F32::Splat(w[2]), w3 = Vec4F32::Splat(w[3]);
 	for (int k = 0; k < 4; k++) {
 		const float *r0 = (const float *)((const u8 *)&rows[0][k] + offset);
 		const float *r1 = (const float *)((const u8 *)&rows[1][k] + offset);
 		const float *r2 = (const float *)((const u8 *)&rows[2][k] + offset);
 		const float *r3 = (const float *)((const u8 *)&rows[3][k] + offset);
-		Vec4F32 sum = Vec4F32::Load(r0) * w[0] + Vec4F32::Load(r1) * w[1] + Vec4F32::Load(r2) * w[2] + Vec4F32::Load(r3) * w[3];
+		Vec4F32 sum = Vec4F32::Load(r0) * w0;
+		sum = MulAdd(Vec4F32::Load(r1), w1, sum);
+		sum = MulAdd(Vec4F32::Load(r2), w2, sum);
+		sum = MulAdd(Vec4F32::Load(r3), w3, sum);
 		sum.Store(cols[k]);
 	}
 }
@@ -428,8 +435,7 @@ public:
 						if constexpr (sampleCol) {
 							Vec4S32 c[4];
 							for (int i = 0; i < 4; i++) {
-								// Rounded to nearest.
-								c[i] = Vec4S32FromF32(SampleU(col, i, bu).Clamp(0.0f, 255.0f) + Vec4F32::Splat(0.5f));
+								c[i] = Vec4S32FromF32Round(SampleU(col, i, bu).Clamp(0.0f, 255.0f));
 							}
 							color = Vec4F32FromBits(c[0] | c[1].Shl<8>() | c[2].Shl<16>() | c[3].Shl<24>());
 						} else {
@@ -442,7 +448,7 @@ public:
 							uvV = SampleU(tex, 1, bu);
 						} else {
 							// Generate texcoord
-							uvU = Vec4F32FromS32(tiles) * inv_u + Vec4F32::Splat((float)patch_u);
+							uvU = MulAdd(Vec4F32FromS32(tiles), Vec4F32::Splat(inv_u), Vec4F32::Splat((float)patch_u));
 							uvV = Vec4F32::Splat(patch_v + tile_v * inv_v);
 						}
 
