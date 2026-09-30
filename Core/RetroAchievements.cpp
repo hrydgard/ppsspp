@@ -238,7 +238,12 @@ size_t GetRichPresenceMessage(char *buffer, size_t bufSize) {
 	if (!IsLoggedIn() || !rc_client_has_rich_presence(g_rcClient)) {
 		return (size_t)-1;
 	}
-	return rc_client_get_rich_presence_message(g_rcClient, buffer, bufSize);
+	size_t length = rc_client_get_rich_presence_message(g_rcClient, buffer, bufSize);
+	if (length >= bufSize) {
+		// On truncation, rcheevos returns the length it needed rather than what it wrote.
+		length = strnlen(buffer, bufSize);
+	}
+	return length;
 }
 
 bool WarnUserIfHardcoreModeActive(bool isSaveStateAction, std::string_view message) {
