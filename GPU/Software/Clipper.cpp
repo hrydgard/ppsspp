@@ -39,6 +39,12 @@ static inline int CalcClipMask(const ClipCoords &v) {
 	return 0;
 }
 
+// With depth clip on, a vertex beyond the near plane is clipped away before the viewport, so its screen
+// position being out of range doesn't matter (the new vertices get checked after clipping).
+static inline bool OutsideRangeBeforeClip(const ClipVertexData &v, bool depthClip) {
+	return v.OutsideRange() && !(depthClip && CalcClipMask(v.clippos) != 0);
+}
+
 inline bool different_signs(float x, float y) {
 	return ((x <= 0 && y > 0) || (x > 0 && y <= 0));
 }
@@ -208,6 +214,9 @@ void ProcessRect(const ClipVertexData &v0, const ClipVertexData &v1, BinManager 
 
 		if (outsidePos >= 2 || outsideNeg >= 2)
 			return;
+		// Rects aren't clipped: one with a vertex behind the camera is culled, with depth clip on or off.
+		if (!(v0.clippos.w > 0.0f && v1.clippos.w > 0.0f))
+			return;
 
 		bool splitFog = v0.v.fogdepth != v1.v.fogdepth;
 		if (splitFog) {
@@ -278,8 +287,9 @@ void ProcessLine(const ClipVertexData &v0, const ClipVertexData &v1, BinManager 
 		return;
 	}
 
+	const bool depthClip = gstate.isDepthClipEnabled();
 	// If any verts were outside range, throw the entire prim away.
-	if (v0.OutsideRange() || v1.OutsideRange())
+	if (OutsideRangeBeforeClip(v0, depthClip) || OutsideRangeBeforeClip(v1, depthClip))
 		return;
 
 	int outsidePos = 0, outsideNeg = 0;
@@ -292,6 +302,12 @@ void ProcessLine(const ClipVertexData &v0, const ClipVertexData &v1, BinManager 
 	int mask0 = CalcClipMask(v0.clippos);
 	int mask1 = CalcClipMask(v1.clippos);
 	int mask = mask0 | mask1;
+	// See ProcessTriangle.
+	if (!depthClip) {
+		if (!(v0.clippos.w > 0.0f && v1.clippos.w > 0.0f))
+			return;
+		mask = 0;
+	}
 	if ((mask & CLIP_NEG_Z_BIT) == 0) {
 		binner.AddLine(v0.v, v1.v);
 		return;
@@ -309,8 +325,9 @@ void ProcessLine(const ClipVertexData &v0, const ClipVertexData &v1, BinManager 
 void ProcessTriangle(const ClipVertexData &v0, const ClipVertexData &v1, const ClipVertexData &v2, const ClipVertexData &provoking, BinManager &binner) {
 	int mask = 0;
 	if (!binner.State().throughMode) {
+		const bool depthClip = gstate.isDepthClipEnabled();
 		// If any verts were outside range, throw the entire prim away.
-		if (v0.OutsideRange() || v1.OutsideRange() || v2.OutsideRange())
+		if (OutsideRangeBeforeClip(v0, depthClip) || OutsideRangeBeforeClip(v1, depthClip) || OutsideRangeBeforeClip(v2, depthClip))
 			return;
 		// If all verts have negative W, we also cull.
 		if (v0.clippos.w < 0.0f && v1.clippos.w < 0.0f && v2.clippos.w < 0.0f)
@@ -328,6 +345,14 @@ void ProcessTriangle(const ClipVertexData &v0, const ClipVertexData &v1, const C
 
 		if (outsidePos >= 3 || outsideNeg >= 3)
 			return;
+
+		// With depth clip off, the GE doesn't clip at the near plane: the part beyond it is drawn with
+		// extrapolated depth. A vertex behind the camera (w <= 0) culls the whole triangle instead.
+		if (!depthClip) {
+			if (!(v0.clippos.w > 0.0f && v1.clippos.w > 0.0f && v2.clippos.w > 0.0f))
+				return;
+			mask = 0;
+		}
 	}
 
 	// No clipping is common, let's skip processing if we can.
