@@ -79,12 +79,13 @@ bool IconCache::LoadFromFile(FILE *file) {
 			break;
 		}
 
-		std::string key;
-		key.resize(entryHeader.keyLen, 0);
-		if (entryHeader.keyLen > 0x1000) {
-			// Let's say this is invalid, probably a corrupted file.
+		if (entryHeader.keyLen > 0x1000 || entryHeader.dataLen > MAX_SAVED_CACHE_SIZE) {
+			// Let's say this is invalid, probably a corrupted file. Check before allocating.
 			break;
 		}
+
+		std::string key;
+		key.resize(entryHeader.keyLen, 0);
 
 		if (fread(&key[0], 1, entryHeader.keyLen, file) != entryHeader.keyLen) {
 			break;
