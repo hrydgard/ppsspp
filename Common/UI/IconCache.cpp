@@ -293,7 +293,7 @@ bool IconCache::InsertIcon(std::string_view key, IconFormat format, std::string 
 	}
 
 	double now = time_now_d();
-	cache_.emplace(key, Entry{ std::move(data), format, nullptr, now, now, false });
+	cache_.emplace(key, Entry{ std::move(data), format, nullptr, now, now });
 	return true;
 }
 
@@ -318,10 +318,6 @@ Draw::Texture *IconCache::BindIconTexture(UIContext *context, std::string_view k
 		return entry.texture;
 	}
 
-	if (entry.badData) {
-		return nullptr;
-	}
-
 	// OK, don't have a texture. Upload it!
 	int width = 0;
 	int height = 0;
@@ -336,7 +332,9 @@ Draw::Texture *IconCache::BindIconTexture(UIContext *context, std::string_view k
 
 		if (result != 1) {
 			ERROR_LOG(Log::G3D, "IconCache: Failed to load png (%d bytes) for key %.*s", (int)data.size(), STR_VIEW(key));
-			entry.badData = true;
+			// Drop it, so it isn't saved to disk, and MarkPending allows downloading it again later.
+			failed_[std::string(key)] = time_now_d();
+			cache_.erase(iter);
 			return nullptr;
 		}
 		dataFormat = Draw::DataFormat::R8G8B8A8_UNORM;

@@ -62,7 +62,6 @@ private:
 		Draw::Texture *texture;
 		double insertedTimeStamp;
 		double usedTimeStamp;
-		bool badData;
 	};
 
 	std::map<std::string, Entry, std::less<>> cache_;
