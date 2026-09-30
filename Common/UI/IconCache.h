@@ -62,6 +62,7 @@ private:
 		Draw::Texture *texture;
 		double insertedTimeStamp;
 		double usedTimeStamp;
+		double uploadFailedTime;  // When CreateTexture last failed, or 0.
 	};
 
 	std::map<std::string, Entry, std::less<>> cache_;

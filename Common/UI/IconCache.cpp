@@ -16,6 +16,8 @@
 
 // Seconds before MarkPending accepts a key whose download failed.
 constexpr double FAILED_RETRY_DELAY = 30.0;
+// Seconds before BindIconTexture tries again to create a texture that failed.
+constexpr double UPLOAD_RETRY_DELAY = 5.0;
 
 constexpr uint32_t ICON_CACHE_MAGIC = MK_FOURCC("pICN");
 
@@ -31,8 +33,10 @@ struct DiskCacheEntry {
 	uint32_t keyLen;
 	uint32_t dataLen;
 	IconFormat format;
+	uint32_t padding;  // Explicit, so that 32-bit x86 Linux (which aligns double to 4) has the same layout.
 	double insertedTimestamp;
 };
+static_assert(sizeof(DiskCacheEntry) == 24, "DiskCacheEntry is written to disk as is");
 
 void IconCache::SaveToFile(FILE *file) {
 	std::unique_lock<std::mutex> lock(lock_);
@@ -149,6 +153,13 @@ void IconCache::FrameUpdate() {
 					entry.texture->Release();
 					entry.texture = nullptr;
 				}
+			}
+		}
+		for (auto iter = failed_.begin(); iter != failed_.end(); ) {
+			if (now > iter->second + FAILED_RETRY_DELAY) {
+				iter = failed_.erase(iter);  // MarkPending would accept it anyway.
+			} else {
+				++iter;
 			}
 		}
 		lastUpdate_ = now;
@@ -319,6 +330,10 @@ Draw::Texture *IconCache::BindIconTexture(UIContext *context, std::string_view k
 		return entry.texture;
 	}
 
+	if (entry.uploadFailedTime != 0.0 && time_now_d() < entry.uploadFailedTime + UPLOAD_RETRY_DELAY) {
+		return nullptr;
+	}
+
 	// OK, don't have a texture. Upload it!
 	int width = 0;
 	int height = 0;
@@ -358,11 +373,16 @@ Draw::Texture *IconCache::BindIconTexture(UIContext *context, std::string_view k
 	iconDesc.type = Draw::TextureType::LINEAR2D;
 
 	Draw::Texture *texture = context->GetDrawContext()->CreateTexture(iconDesc);
+	free(buffer);
+	if (!texture) {
+		ERROR_LOG(Log::G3D, "IconCache: Failed to create a %dx%d texture for key %.*s", width, height, STR_VIEW(key));
+		entry.uploadFailedTime = time_now_d();
+		return nullptr;
+	}
 	entry.texture = texture;
 	entry.usedTimeStamp = time_now_d();
-
-	free(buffer);
-
+	// The caller draws with it right away, same as with an existing texture.
+	context->GetDrawContext()->BindTexture(0, texture);
 	return texture;
 }
 
