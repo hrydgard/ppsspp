@@ -219,7 +219,12 @@ callback(HINTERNET request, DWORD_PTR context, DWORD status, LPVOID statusInform
             int bytesRead = res->request->options.bodyReader(
                 res->buffer, sizeof(res->buffer), res->request->options.bodyReaderData);
             if (bytesRead) {
-                WinHttpWriteData(request, res->buffer, bytesRead, NULL);
+                // PPSSPP: upstream ignored a failure here, and with no further callback coming,
+                // the request never completed.
+                if (!WinHttpWriteData(request, res->buffer, bytesRead, NULL)) {
+                    res->code = naettWriteError;
+                    naettSetComplete(res);
+                }
             } else {
                 if (!WinHttpReceiveResponse(request, NULL)) {
                     res->code = naettReadError;
