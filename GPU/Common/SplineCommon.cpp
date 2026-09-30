@@ -393,13 +393,16 @@ public:
 							const Vec3f derivV = tess_pos.SampleV(wv.deriv);
 
 							Vec3f nrm = Cross(derivU, derivV);
-							if (nrm.Length2() < 1e-20f) {
+							const float lenU2 = derivU.Length2();
+							const float lenV2 = derivV.Length2();
+							if (std::min(lenU2, lenV2) <= 1e-8f * std::max(lenU2, lenV2)) {
 								// A pole: a patch edge whose control points all meet at one point, like the top
-								// of a dome. One derivative vanishes there, so the cross product is zero and the
-								// normal would be NaN (dark spots on Pac-Man Arrangement's ghosts, #12354). Use
-								// the limit instead: next to an edge where dP/dv = 0, dP/dv ~ (u - u_edge) * d2P/dudv.
+								// of a dome. One derivative vanishes there, so the cross product is zero, or with
+								// animated control points just rounding noise, and the normal would be NaN or
+								// random (dark patches on Pac-Man Arrangement's ghosts, #12354). Use the limit
+								// instead: next to an edge where dP/dv = 0, dP/dv ~ (u - u_edge) * d2P/dudv.
 								const Vec3f derivUV = tess_nrm.SampleV(wv.deriv);
-								if (derivV.Length2() <= derivU.Length2()) {
+								if (lenV2 <= lenU2) {
 									nrm = Cross(derivU, derivUV);
 									if (tile_u * 2 > surface.tess_u) {
 										nrm = -nrm;

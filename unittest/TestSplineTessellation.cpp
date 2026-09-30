@@ -193,6 +193,7 @@ struct TestCase {
 	u32 vertType = GE_VTYPE_POS_FLOAT | GE_VTYPE_NRM_FLOAT | GE_VTYPE_TC_FLOAT | GE_VTYPE_COL_8888;
 	bool patchFacing = false;
 	int poleEdge = -1;  // Collapse this edge to one point: 0 = first row (v = 0), 1 = first column (u = 0).
+	float poleNoise = 0.0f;  // ...but only nearly, the way animated control points come out.
 };
 
 // A bumpy, uneven grid of control points with varying UVs and colors, so that a mixed-up weight or
@@ -214,11 +215,11 @@ std::vector<SimpleVertex> MakeControlPoints(const TestCase &tc) {
 	}
 	if (tc.poleEdge == 0) {
 		for (int i = 1; i < tc.pointsU; i++) {
-			points[i].pos = points[0].pos;
+			points[i].pos = Vec3Packedf(points[0].pos.x + i * tc.poleNoise, points[0].pos.y - i * tc.poleNoise, points[0].pos.z);
 		}
 	} else if (tc.poleEdge == 1) {
 		for (int j = 1; j < tc.pointsV; j++) {
-			points[j * tc.pointsU].pos = points[0].pos;
+			points[j * tc.pointsU].pos = Vec3Packedf(points[0].pos.x, points[0].pos.y + j * tc.poleNoise, points[0].pos.z - j * tc.poleNoise);
 		}
 	}
 	return points;
@@ -439,6 +440,8 @@ bool TestSplineTessellation() {
 		{ "bezier, pole at v = 0", true, 4, 4, 8, 8, 0, 0, posNrm, false, 0 },
 		{ "bezier, pole at u = 0", true, 4, 4, 8, 8, 0, 0, posNrm, false, 1 },
 		{ "spline, pole at v = 0, open", false, 5, 6, 4, 4, 3, 3, posNrm, false, 0 },
+		{ "bezier, pole at u = 0 with rounding noise", true, 4, 4, 8, 8, 0, 0, posNrm, false, 1, 1e-7f },
+		{ "spline, pole at v = 0 with rounding noise", false, 5, 6, 4, 4, 3, 3, posNrm, false, 0, 1e-7f },
 	};
 	// Each edge type on each axis, one axis with three patches and the other with two.
 	cases.push_back({ "spline, closed/open", false, 6, 5, 4, 6, 0, 3 });
