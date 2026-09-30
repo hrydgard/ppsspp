@@ -58,6 +58,8 @@ TransformUnit::~TransformUnit() {
 
 SoftwareDrawEngine::SoftwareDrawEngine() {
 	flushOnParams_ = false;
+	// Our DispatchSubmitPrim decodes by itself.
+	curvesPredecoded_ = false;
 }
 
 SoftwareDrawEngine::~SoftwareDrawEngine() {}

@@ -24,12 +24,16 @@
 // out as the limit at a pole. It shares nothing with the tessellator on purpose.
 
 #include <cmath>
+#include <cstddef>
 #include <cstdio>
+#include <cstring>
 #include <vector>
 
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "GPU/Common/SplineCommon.h"
+#include "GPU/Common/VertexDecoderCommon.h"
+#include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 
 #include "unittest/UnitTest.h"
@@ -255,6 +259,8 @@ struct Output {
 	int indexCount = 0;
 	int tessU = 0, tessV = 0;  // As the surface ended up, after Init.
 	int patchesU = 0, patchesV = 0;
+	UVScale uvScale{ 1.0f, 1.0f, 0.0f, 0.0f };  // In: passed to the tessellator.
+	bool fullAlpha = false;
 };
 
 template <class Surface>
@@ -275,8 +281,10 @@ void Tessellate(Surface &surface, u32 vertType, const std::vector<SimpleVertex> 
 	buffers.vertices = out.vertices.data();
 	buffers.indices = out.indices.data();
 	buffers.count = 0;
+	buffers.uvScale = out.uvScale;
 	SoftwareTessellation(buffers, surface, vertType, cpoints);
 	out.indexCount = buffers.count;
+	out.fullAlpha = buffers.fullAlpha;
 	out.tessU = surface.tess_u;
 	out.tessV = surface.tess_v;
 	out.patchesU = surface.num_patches_u;
@@ -420,6 +428,56 @@ bool CheckCase(const TestCase &tc) {
 	return CheckIndices(tc, out, divU * divV * 6);
 }
 
+// The tessellator writes vertices in the form the vertex decoder would decode them to, so that SubmitCurve can
+// skip that decode. Check it against the decoders themselves.
+bool CheckDecodedForm(const TestCase &tc, bool opaque) {
+	std::vector<SimpleVertex> points = MakeControlPoints(tc);
+	if (opaque) {
+		for (SimpleVertex &p : points) {
+			p.color[3] = 255;
+		}
+	}
+	Output plain;
+	RunTessellator(tc, points, plain);
+	Output decodedForm;
+	decodedForm.uvScale = { 1.5f, -0.75f, 0.25f, -2.0f };
+	RunTessellator(tc, points, decodedForm);
+
+	const u32 vtype = GE_VTYPE_TC_FLOAT | GE_VTYPE_COL_8888 | GE_VTYPE_NRM_FLOAT | GE_VTYPE_POS_FLOAT;
+	const int count = (int)plain.vertices.size();
+	VertexDecoderJitCache cache;
+	for (bool jit : { false, true }) {
+		VertexDecoder dec;
+		dec.SetVertexType(GetVertTypeID(vtype, GE_TEXMAP_TEXTURE_COORDS), VertexDecoderOptions{}, jit ? &cache : nullptr);
+		const DecVtxFormat &fmt = dec.GetDecVtxFmt();
+		if (fmt.stride != sizeof(SimpleVertex) || fmt.uvoff != offsetof(SimpleVertex, uv) || fmt.c0off != offsetof(SimpleVertex, color) ||
+			fmt.nrmoff != offsetof(SimpleVertex, nrm) || fmt.posoff != offsetof(SimpleVertex, pos)) {
+			printf("%s: the decoded format isn't laid out like SimpleVertex\n", tc.name);
+			return false;
+		}
+		// The decoder may write a vertex and 16 bytes past the end.
+		std::vector<SimpleVertex> decoded(count + 2);
+		gstate_c.vertexFullAlpha = true;
+		dec.DecodeVerts((u8 *)decoded.data(), (const u8 *)plain.vertices.data(), &decodedForm.uvScale, count);
+		if (gstate_c.vertexFullAlpha != decodedForm.fullAlpha) {
+			printf("%s%s: full alpha %d, the %s decoder says %d\n", tc.name, opaque ? ", opaque" : "", decodedForm.fullAlpha, jit ? "jit" : "interpreted", gstate_c.vertexFullAlpha);
+			return false;
+		}
+		for (int i = 0; i < count; i++) {
+			const SimpleVertex &want = decoded[i];
+			const SimpleVertex &got = decodedForm.vertices[i];
+			// The UV scale may or may not be fused, depending on the decoder and the platform.
+			const bool uvMatch = fabsf(got.uv[0] - want.uv[0]) <= 1e-6f * (1.0f + fabsf(want.uv[0])) && fabsf(got.uv[1] - want.uv[1]) <= 1e-6f * (1.0f + fabsf(want.uv[1]));
+			if (!uvMatch || got.color_32 != want.color_32 || memcmp(&got.nrm, &want.nrm, sizeof(got.nrm)) != 0 || memcmp(&got.pos, &want.pos, sizeof(got.pos)) != 0) {
+				printf("%s: vertex %d differs from the %s decoder: uv %f %f color %08x, want uv %f %f color %08x\n", tc.name, i, jit ? "jit" : "interpreted",
+					got.uv[0], got.uv[1], (u32)got.color_32, want.uv[0], want.uv[1], (u32)want.color_32);
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
 }  // namespace
 
 bool TestSplineTessellation() {
@@ -458,6 +516,20 @@ bool TestSplineTessellation() {
 	for (const TestCase &tc : cases) {
 		if (!CheckCase(tc)) {
 			ok = false;
+		}
+	}
+
+	// Uneven tessellation, so that rows end partway through a vector.
+	const TestCase decodedCases[] = {
+		{ "decoded form, bezier", true, 7, 4, 5, 3 },
+		{ "decoded form, spline", false, 6, 5, 3, 5, 1, 2 },
+		{ "decoded form, generated UVs, no color", false, 5, 5, 6, 2, 0, 3, posNrm },
+	};
+	for (const TestCase &tc : decodedCases) {
+		for (bool opaque : { false, true }) {
+			if (!CheckDecodedForm(tc, opaque)) {
+				ok = false;
+			}
 		}
 	}
 

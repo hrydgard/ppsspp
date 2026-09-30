@@ -23,6 +23,7 @@
 #include "Core/ConfigValues.h"
 #include "GPU/Math3D.h"
 #include "GPU/ge_constants.h"
+#include "GPU/GPUState.h"
 #include "GPU/Common/TransformCommon.h"
 
 #include "Core/Config.h"
@@ -211,6 +212,10 @@ struct OutputBuffers {
 	SimpleVertex *vertices;
 	u16 *indices;
 	int count;
+	// Applied to the UVs, so the vertices come out the way the vertex decoder would decode them.
+	UVScale uvScale{ 1.0f, 1.0f, 0.0f, 0.0f };
+	// Out: whether every vertex has alpha 255, which the vertex decoder tracks in gstate_c.vertexFullAlpha.
+	bool fullAlpha = true;
 };
 
 template<class Surface>

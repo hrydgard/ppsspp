@@ -27,6 +27,7 @@
 #include "GPU/Common/SoftwareTransformCommon.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"  // only needed for UVScale stuff
+#include "GPU/GPUStateSIMDUtil.h"
 
 class SimpleBufferManager {
 private:
@@ -360,6 +361,10 @@ public:
 		const Vec4F32 minusOne = Vec4F32::Splat(-1.0f);
 		const Vec4F32 zero = Vec4F32::Zero();
 		const Vec4F32 defcolor = Vec4F32FromBits(Vec4S32::Splat((int)points.defcolor));
+		const Vec4F32 uScale = Vec4F32::Splat(output.uvScale.uScale), uOff = Vec4F32::Splat(output.uvScale.uOff);
+		const Vec4F32 vScale = Vec4F32::Splat(output.uvScale.vScale), vOff = Vec4F32::Splat(output.uvScale.vOff);
+		// Lanes that had an alpha below 255, among those that are stored.
+		Vec4S32 partialAlpha = Vec4S32::Zero();
 
 		for (int patch_u = 0; patch_u < surface.num_patches_u; ++patch_u) {
 			const int start_u = surface.GetTessStart(patch_u);
@@ -438,6 +443,8 @@ public:
 								c[i] = Vec4S32FromF32Round(SampleU(col, i, bu).Clamp(0.0f, 255.0f));
 							}
 							color = Vec4F32FromBits(c[0] | c[1].Shl<8>() | c[2].Shl<16>() | c[3].Shl<24>());
+							const Vec4S32 stored = Vec4S32::Splat(surface.tess_u - tile_u + 1).CompareGt(lanes);
+							partialAlpha = partialAlpha | (c[3].CompareLt(Vec4S32::Splat(255)) & stored);
 						} else {
 							color = defcolor;
 						}
@@ -451,6 +458,8 @@ public:
 							uvU = MulAdd(Vec4F32FromS32(tiles), Vec4F32::Splat(inv_u), Vec4F32::Splat((float)patch_u));
 							uvV = Vec4F32::Splat(patch_v + tile_v * inv_v);
 						}
+						uvU = MulAdd(uvU, uScale, uOff);
+						uvV = MulAdd(uvV, vScale, vOff);
 
 						// Transpose into SimpleVertex order: uv, color, nrm, pos.
 						Vec4F32 lo[4] = { uvU, uvV, color, nrm.x };
@@ -471,6 +480,12 @@ public:
 					}
 				}
 			}
+		}
+
+		if constexpr (sampleCol) {
+			output.fullAlpha = !AnyCompareBitsSet(partialAlpha);
+		} else {
+			output.fullAlpha = (points.defcolor >> 24) == 0xFF;
 		}
 
 		surface.BuildIndex(output.indices, output.count);
@@ -528,7 +543,13 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 	if (surface.num_points_u < 4 || surface.num_points_v < 4)
 		return;
 
-	SimpleBufferManager managedBuf(decoded_, DECODED_VERTEX_BUFFER_SIZE / 2);
+	// Where we can, tessellate straight into decoded form, where DecodeVerts would put it, so there's no second
+	// decode. Through mode is left to the decoder, which also tracks the UV bounds there. Anything already
+	// queued would decode on top of the output, but with flushOnParams_ nothing is.
+	const bool predecoded = curvesPredecoded_ && !(vertType & GE_VTYPE_THROUGH) && numDrawVerts_ == 0;
+	// The output goes in one half of decoded_, the control points and other temporaries in the other.
+	u8 *const outputBuf = predecoded ? decoded_ : decoded_ + DECODED_VERTEX_BUFFER_SIZE / 2;
+	SimpleBufferManager managedBuf(predecoded ? decoded_ + DECODED_VERTEX_BUFFER_SIZE / 2 : decoded_, DECODED_VERTEX_BUFFER_SIZE / 2);
 
 	const int num_points = surface.num_points_u * surface.num_points_v;
 	u16 index_lower_bound = 0;
@@ -578,13 +599,19 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 	}
 
 	OutputBuffers output;
-	output.vertices = (SimpleVertex *)(decoded_ + DECODED_VERTEX_BUFFER_SIZE / 2);
+	output.vertices = (SimpleVertex *)outputBuf;
 	output.indices = decIndex_;
 	output.count = 0;
 
 	const int maxVerts = DECODED_VERTEX_BUFFER_SIZE / 2 / vertexSize;
 
 	surface.Init(maxVerts);
+	if (predecoded) {
+		const GETexMapMode uvGenMode = gstate.getUVGenMode();
+		if (uvGenMode == GE_TEXMAP_TEXTURE_COORDS || uvGenMode == GE_TEXMAP_UNKNOWN) {
+			output.uvScale = LoadUVScaleOffset(gstate);
+		}
+	}
 
 	ControlPoints cpoints(points, num_points, managedBuf);
 	if (cpoints.IsValid()) {
@@ -600,7 +627,17 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 	int generatedBytesRead;
 	if (output.count) {
 		ClipInfoFlags flags{};  // Don't need any special processing.
-		DispatchSubmitPrim(output.vertices, output.indices, PatchPrimToPrim(surface.primType), output.count, vertTypeID, true, &generatedBytesRead, flags);
+		if (predecoded) {
+			VertexDecoder *dec = GetVertexDecoder(vertTypeID);
+			if (SubmitPrim(output.vertices, output.indices, PatchPrimToPrim(surface.primType), output.count, dec, vertTypeID, true, &generatedBytesRead, flags)) {
+				drawVerts_[numDrawVerts_ - 1].predecoded = true;
+				if (!output.fullAlpha) {
+					gstate_c.vertexFullAlpha = false;
+				}
+			}
+		} else {
+			DispatchSubmitPrim(output.vertices, output.indices, PatchPrimToPrim(surface.primType), output.count, vertTypeID, true, &generatedBytesRead, flags);
+		}
 	}
 
 	if (flushOnParams_) {
