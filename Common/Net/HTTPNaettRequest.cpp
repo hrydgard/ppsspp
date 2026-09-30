@@ -31,6 +31,8 @@ HTTPSRequest::~HTTPSRequest() {
 // still exists instead of in a destroyed object.
 struct NaettBodySink {
 	Buffer buffer;
+	// naett reads the POST body in place while uploading, so it lives here too.
+	std::string postData;
 	// Written by us, read by the transfer thread.
 	std::atomic<bool> cancelled{false};
 };
@@ -43,8 +45,11 @@ struct NaettBodySink {
 static std::vector<std::unique_ptr<NaettBodySink>> *g_abandonedSinks = nullptr;
 
 void HTTPSShutdown() {
-	delete g_abandonedSinks;
-	g_abandonedSinks = nullptr;
+	// Free the list only if it's empty. An abandoned sink can still be written to.
+	if (g_abandonedSinks && g_abandonedSinks->empty()) {
+		delete g_abandonedSinks;
+		g_abandonedSinks = nullptr;
+	}
 }
 
 int HTTPSRequest::WriteBodyThunk(const void *source, int bytes, void *userData) {
@@ -73,6 +78,13 @@ void HTTPSRequest::Start() {
 	_dbg_assert_(!req_);
 	_dbg_assert_(!res_);
 
+	// Our own writer, so that Cancel() can actually stop a transfer rather than just relabelling
+	// it once it finishes.
+	sink_ = std::make_unique<NaettBodySink>();
+	// In case someone managed to cancel us between construction and here.
+	sink_->cancelled = cancelled_;
+	sink_->postData = postData_;
+
 	std::vector<naettOption *> options;
 	options.push_back(naettMethod(method_ == RequestMethod::GET ? "GET" : "POST"));
 	options.push_back(naettHeader("Accept", acceptMime_));
@@ -83,18 +95,13 @@ void HTTPSRequest::Start() {
 	if (method_ == RequestMethod::POST) {
 		if (!postData_.empty()) {
 			// Note: Naett does not take ownership over the body.
-			options.push_back(naettBody(postData_.data(), (int)postData_.size()));
+			options.push_back(naettBody(sink_->postData.data(), (int)sink_->postData.size()));
 		}
 	} else {
 		_dbg_assert_(postData_.empty());
 	}
 	// 30 s timeout - not sure what's reasonable?
 	options.push_back(naettTimeout(30 * 1000));  // milliseconds
-	// Our own writer, so that Cancel() can actually stop a transfer rather than just relabelling
-	// it once it finishes.
-	sink_ = std::make_unique<NaettBodySink>();
-	// In case someone managed to cancel us between construction and here.
-	sink_->cancelled = cancelled_;
 	options.push_back(naettBodyWriter(&HTTPSRequest::WriteBodyThunk, sink_.get()));
 
 	const naettOption **opts = (const naettOption **)options.data();
