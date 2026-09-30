@@ -70,12 +70,12 @@ protected:
 		std::string ticket;
 		uint32_t button;
 		uint32_t duration;
+		int pressId;
 
 		std::string Event();
 	};
 
 	std::vector<PressInfo> pressTickets_;
-	int lastCounter_ = -1;
 };
 
 std::string WebSocketInputState::PressInfo::Event() {
@@ -170,7 +170,8 @@ void WebSocketInputState::ButtonsSend(DebuggerRequest &req) {
 //
 // Parameters:
 //  - button: required string indicating button name (see input.buttons.send.)
-//  - duration: optional integer indicating frames to press for, defaults to 1.
+//  - duration: optional integer indicating frames to press for, defaults to 1. Counted in emulated
+//    vblanks: the game sees the button in exactly that many vblank samples.
 //
 // Response (same event name) with no extra data once released.
 void WebSocketInputState::ButtonsPress(DebuggerRequest &req) {
@@ -193,27 +194,24 @@ void WebSocketInputState::ButtonsPress(DebuggerRequest &req) {
 	}
 	press.button = info->second;
 
-	__CtrlUpdateButtons(press.button, 0);
+	// Released by sceCtrl after that many vblanks of emulated time, so a scripted press lasts the
+	// same however fast the emulator runs. This thread only reports when it's over.
+	press.pressId = __CtrlPressFor(press.button, (int)press.duration);
 	pressTickets_.push_back(press);
 }
 
 void WebSocketInputState::Broadcast(net::WebSocketServer *ws) {
-	int counter = __DisplayGetNumVblanks();
-	if (pressTickets_.empty() || lastCounter_ == counter)
+	if (pressTickets_.empty())
 		return;
-	lastCounter_ = counter;
-
+	auto done = [](const PressInfo &press) -> bool {
+		return !__CtrlPressActive(press.pressId);
+	};
 	for (PressInfo &press : pressTickets_) {
-		press.duration--;
-		if (press.duration == -1) {
-			__CtrlUpdateButtons(0, press.button);
+		if (done(press)) {
 			ws->Send(press.Event());
 		}
 	}
-	auto negative = [](const PressInfo &press) -> bool {
-		return press.duration < 0;
-	};
-	pressTickets_.erase(std::remove_if(pressTickets_.begin(), pressTickets_.end(), negative), pressTickets_.end());
+	pressTickets_.erase(std::remove_if(pressTickets_.begin(), pressTickets_.end(), done), pressTickets_.end());
 }
 
 static bool AnalogValue(DebuggerRequest &req, float *value, const char *name) {
