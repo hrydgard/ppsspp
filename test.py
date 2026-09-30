@@ -469,6 +469,8 @@ tests_good = [
   "utility/msgdialog/abort",
   "utility/savedata/autosave",
   "utility/savedata/shutdownstatus",
+  "utility/savedata/noupdate",
+  "utility/savedata/initstatus",
   "utility/savedata/filelist",
   "utility/savedata/getsize",
   "utility/savedata/makedata",
