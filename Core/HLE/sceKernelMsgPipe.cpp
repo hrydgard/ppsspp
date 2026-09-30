@@ -46,15 +46,9 @@ static const u32 MSGPIPE_WAIT_VALUE_SEND = 0;
 static const u32 MSGPIPE_WAIT_VALUE_RECV = 1;
 
 // State: the timer for MsgPipe timeouts.
-static int waitTimer = -1;
 
 // NativeMsgPipe/MsgPipeWaitingThread/MsgPipe itself now live in sceKernelMsgPipe.h - see the
 // comment on the class there for why.
-
-static bool __KernelMsgPipeThreadSortPriority(const MsgPipeWaitingThread &thread1, const MsgPipeWaitingThread &thread2)
-{
-	return __KernelThreadSortPriority(thread1.threadID, thread2.threadID);
-}
 
 bool MsgPipeWaitingThread::IsStillWaiting(SceUID waitID) const
 {
@@ -67,7 +61,7 @@ void MsgPipeWaitingThread::WriteCurrentTimeout(SceUID waitID) const
 	if (IsStillWaiting(waitID))
 	{
 		u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
-		HLEKernel::WriteRemainingTimeout(waitTimer, threadID, timeoutPtr);
+		HLEKernel::WriteRemainingTimeout(threadID, timeoutPtr);
 	}
 }
 
@@ -214,7 +208,7 @@ void MsgPipe::SortThreads(std::vector<MsgPipeWaitingThread> &waitingThreads, boo
 	HLEKernel::CleanupWaitingThreads(WAITTYPE_MSGPIPE, GetUID(), waitingThreads);
 
 	if (usePrio)
-		std::stable_sort(waitingThreads.begin(), waitingThreads.end(), __KernelMsgPipeThreadSortPriority);
+		HLEKernel::SortWaitingThreadsByPriority(waitingThreads);
 }
 
 void MsgPipe::SortReceiveThreads()
@@ -266,18 +260,18 @@ static void __KernelMsgPipeTimeout(u64 userdata, int cyclesLate)
 }
 
 static bool __KernelSetMsgPipeTimeout(u32 timeoutPtr) {
-	if (timeoutPtr == 0 || waitTimer == -1)
+	if (timeoutPtr == 0)
 		return true;
 
-	int micro = (int)Memory::ReadOrException_U32(timeoutPtr);
-	if (micro <= 2) {
+	// Always at once up to 2us, never from 3us: what threads/msgpipe/send and receive record, where
+	// each call comes straight after a checkpoint and the code is presumably cold. Back to back the
+	// hardware does 2us at once less often, as other waits do.
+	if (__KernelWaitTimesOutAtOnce(timeoutPtr, 210, 55)) {
 		// Don't wait or reschedule, just timeout immediately.
 		return false;
 	}
 
-	if (micro <= 210)
-		micro = 250;
-	CoreTiming::ScheduleEvent(usToCycles(micro), waitTimer, __KernelGetCurThread());
+	__KernelScheduleWaitTimeout(__KernelGetCurThread(), timeoutPtr);
 	return true;
 }
 
@@ -488,7 +482,7 @@ static void __KernelMsgPipeBeginCallback(SceUID threadID, SceUID prevCallbackId)
 	case MSGPIPE_WAIT_VALUE_SEND:
 		if (ko)
 		{
-			auto result = HLEKernel::WaitBeginCallback<MsgPipeWaitingThread>(threadID, prevCallbackId, waitTimer, ko->sendWaitingThreads, ko->pausedSendWaits, timeoutPtr != 0);
+			auto result = HLEKernel::WaitBeginCallback<MsgPipeWaitingThread>(threadID, prevCallbackId, __KernelWaitTimeoutEvent(), ko->sendWaitingThreads, ko->pausedSendWaits, timeoutPtr != 0);
 			if (result == HLEKernel::WAIT_CB_SUCCESS)
 				DEBUG_LOG(Log::sceKernel, "sceKernelSendMsgPipeCB: Suspending wait for callback");
 			else if (result == HLEKernel::WAIT_CB_BAD_WAIT_DATA)
@@ -501,7 +495,7 @@ static void __KernelMsgPipeBeginCallback(SceUID threadID, SceUID prevCallbackId)
 	case MSGPIPE_WAIT_VALUE_RECV:
 		if (ko)
 		{
-			auto result = HLEKernel::WaitBeginCallback<MsgPipeWaitingThread>(threadID, prevCallbackId, waitTimer, ko->receiveWaitingThreads, ko->pausedReceiveWaits, timeoutPtr != 0);
+			auto result = HLEKernel::WaitBeginCallback<MsgPipeWaitingThread>(threadID, prevCallbackId, __KernelWaitTimeoutEvent(), ko->receiveWaitingThreads, ko->pausedReceiveWaits, timeoutPtr != 0);
 			if (result == HLEKernel::WAIT_CB_SUCCESS)
 				DEBUG_LOG(Log::sceKernel, "sceKernelReceiveMsgPipeCB: Suspending wait for callback");
 			else if (result == HLEKernel::WAIT_CB_BAD_WAIT_DATA)
@@ -568,7 +562,7 @@ static void __KernelMsgPipeEndCallback(SceUID threadID, SceUID prevCallbackId) {
 	if (ko == NULL) {
 		// Deleted during the callback.
 		u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
-		if (timeoutPtr != 0 && waitTimer != -1)
+		if (timeoutPtr != 0)
 			Memory::WriteOrException_U32(0, timeoutPtr);
 		__KernelResumeThreadFromWait(threadID, SCE_KERNEL_ERROR_WAIT_DELETE);
 		return;
@@ -578,7 +572,7 @@ static void __KernelMsgPipeEndCallback(SceUID threadID, SceUID prevCallbackId) {
 	case MSGPIPE_WAIT_VALUE_SEND:
 		{
 			MsgPipeWaitingThread dummy;
-			auto result = HLEKernel::WaitEndCallback<MsgPipe, WAITTYPE_MSGPIPE, MsgPipeWaitingThread>(threadID, prevCallbackId, waitTimer, __KernelCheckResumeMsgPipeSend, dummy, ko->sendWaitingThreads, ko->pausedSendWaits);
+			auto result = HLEKernel::WaitEndCallback<MsgPipe, WAITTYPE_MSGPIPE, MsgPipeWaitingThread>(threadID, prevCallbackId, __KernelWaitTimeoutEvent(), __KernelCheckResumeMsgPipeSend, dummy, ko->sendWaitingThreads, ko->pausedSendWaits);
 			if (result == HLEKernel::WAIT_CB_RESUMED_WAIT) {
 				DEBUG_LOG(Log::sceKernel, "sceKernelSendMsgPipeCB: Resuming wait from callback");
 			} else if (result == HLEKernel::WAIT_CB_TIMED_OUT) {
@@ -591,7 +585,7 @@ static void __KernelMsgPipeEndCallback(SceUID threadID, SceUID prevCallbackId) {
 	case MSGPIPE_WAIT_VALUE_RECV:
 		{
 			MsgPipeWaitingThread dummy;
-			auto result = HLEKernel::WaitEndCallback<MsgPipe, WAITTYPE_MSGPIPE, MsgPipeWaitingThread>(threadID, prevCallbackId, waitTimer, __KernelCheckResumeMsgPipeReceive, dummy, ko->receiveWaitingThreads, ko->pausedReceiveWaits);
+			auto result = HLEKernel::WaitEndCallback<MsgPipe, WAITTYPE_MSGPIPE, MsgPipeWaitingThread>(threadID, prevCallbackId, __KernelWaitTimeoutEvent(), __KernelCheckResumeMsgPipeReceive, dummy, ko->receiveWaitingThreads, ko->pausedReceiveWaits);
 			if (result == HLEKernel::WAIT_CB_RESUMED_WAIT) {
 				DEBUG_LOG(Log::sceKernel, "sceKernelReceiveMsgPipeCB: Resuming wait from callback");
 			} else if (result == HLEKernel::WAIT_CB_TIMED_OUT) {
@@ -608,19 +602,21 @@ static void __KernelMsgPipeEndCallback(SceUID threadID, SceUID prevCallbackId) {
 
 void __KernelMsgPipeInit()
 {
-	waitTimer = CoreTiming::RegisterEvent("MsgPipeTimeout", __KernelMsgPipeTimeout);
 
-	__KernelRegisterWaitTypeFuncs(WAITTYPE_MSGPIPE, __KernelMsgPipeBeginCallback, __KernelMsgPipeEndCallback);
+	__KernelRegisterWaitTypeFuncs(WAITTYPE_MSGPIPE, __KernelMsgPipeBeginCallback, __KernelMsgPipeEndCallback, __KernelMsgPipeTimeout);
 }
 
 void __KernelMsgPipeDoState(PointerWrap &p)
 {
-	auto s = p.Section("sceKernelMsgPipe", 1);
+	auto s = p.Section("sceKernelMsgPipe", 1, 2);
 	if (!s)
 		return;
 
-	Do(p, waitTimer);
-	CoreTiming::RestoreRegisterEvent(waitTimer, "MsgPipeTimeout", __KernelMsgPipeTimeout);
+	if (s < 2) {
+		int oldTimeoutEvent = -1;
+		Do(p, oldTimeoutEvent);
+		__KernelRestoreOldWaitTimeoutEvent(oldTimeoutEvent, "MsgPipeTimeout");
+	}
 }
 
 int sceKernelCreateMsgPipe(const char *name, int partition, u32 attr, u32 size, u32 optionsPtr) {

@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include <list>
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
@@ -135,6 +136,9 @@ void __KernelAlarmInit()
 {
 	triggeredAlarm.clear();
 	__RegisterIntrHandler(PSP_SYSTIMER0_INTR, new AlarmIntrHandler());
+	// On hardware a thread that keeps running loses ~70us to an alarm handler, and one the handler
+	// wakes runs ~50us after it (pspautotests threads/scheduling/alarmcosts).
+	__SetIntrHandlerCosts(PSP_SYSTIMER0_INTR, (int)usToCycles(17), (int)usToCycles(40));
 	alarmTimer = CoreTiming::RegisterEvent("Alarm", __KernelTriggerAlarm);
 }
 
@@ -154,9 +158,14 @@ KernelObject *__KernelAlarmObject() {
 	return new PSPAlarm();
 }
 
+// Re-arms an alarm from its handler's return value. That counts from the previous deadline, so a
+// repeating alarm doesn't drift by the time it takes to get into and out of the handler
+// (pspautotests threads/alarm/set) - unless that's already gone by, say with interrupts suspended
+// for a while, when it counts from now instead of firing to catch up (threads/alarm/alarm).
 void __KernelScheduleAlarm(PSPAlarm *alarm, u64 micro) {
-	alarm->alm.schedule = CoreTiming::GetGlobalTimeUs() + micro;
-	CoreTiming::ScheduleEvent(usToCycles(micro), alarmTimer, alarm->GetUID());
+	const u64 now = CoreTiming::GetGlobalTimeUs();
+	alarm->alm.schedule = alarm->alm.schedule + micro > now ? alarm->alm.schedule + micro : now + micro;
+	CoreTiming::ScheduleEvent(usToCycles(alarm->alm.schedule - now), alarmTimer, alarm->GetUID());
 }
 
 static SceUID __KernelSetAlarm(u64 micro, u32 handlerPtr, u32 commonPtr)
@@ -171,7 +180,14 @@ static SceUID __KernelSetAlarm(u64 micro, u32 handlerPtr, u32 commonPtr)
 	alarm->alm.handlerPtr = handlerPtr;
 	alarm->alm.commonPtr = commonPtr;
 
-	__KernelScheduleAlarm(alarm, micro);
+	// On hardware the call takes about 40us, and the alarm doesn't go off sooner than about 215us
+	// after the deadline is taken however short it's asked to be (pspautotests
+	// threads/scheduling/alarmcosts). The status still shows the time asked for.
+	hleEatCycles(usToCycles(20));
+	alarm->alm.schedule = CoreTiming::GetGlobalTimeUs() + micro;
+	// Clamped to a few thousand years, so the conversion to cycles doesn't overflow.
+	CoreTiming::ScheduleEvent(usToCycles((s64)std::clamp(micro, (u64)215, (u64)1 << 52)), alarmTimer, alarm->GetUID());
+	hleEatCycles(usToCycles(20));
 	return uid;
 }
 

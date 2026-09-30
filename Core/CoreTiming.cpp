@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
 #include <atomic>
 #include <climits>
 #include <cstdio>
@@ -192,16 +193,11 @@ void RestoreRegisterEvent(int &event_type, const char *name, TimedCallback callb
 	if (event_type == -1)
 		event_type = nextEventTypeRestoreId++;
 	if (event_type >= (int)event_types.size()) {
-		// Give it any unused event id starting from the end.
-		// Older save states with messed up ids have gaps near the end.
-		for (int i = (int)event_types.size() - 1; i >= 0; --i) {
-			if (usedEventTypes.count(i) == 0) {
-				event_type = i;
-				break;
-			}
-		}
+		// An event the state doesn't have. Grow the table: an unused slot below may still belong to
+		// a state event whose module restores it later.
+		event_types.resize(event_type + 1, EventType{ AntiCrashCallback, "INVALID EVENT" });
 	}
-	_assert_msg_(event_type >= 0 && event_type < (int)event_types.size(), "Invalid event type %d", event_type);
+	_assert_msg_(event_type >= 0 && event_type < (int)event_types.size(), "Invalid event type %d (%s, of %d)", event_type, name, (int)event_types.size());
 	event_types[event_type] = EventType{ callback, name };
 	usedEventTypes.insert(event_type);
 	restoredEventTypes.insert(event_type);
@@ -289,6 +285,15 @@ void ScheduleEvent(s64 cyclesIntoFuture, int event_type, u64 userdata)
 	ne->type = event_type;
 	ne->time = GetTicks(currentMIPS) + cyclesIntoFuture;
 	AddEventToQueue(ne);
+
+	// The slice was sized to end at the next event. If this one is due sooner, end it there, or it
+	// fires late: an alarm set by a thread that keeps running went off hundreds of us late
+	// (pspautotests threads/scheduling/alarmcosts).
+	if (cyclesIntoFuture < currentMIPS->downcount) {
+		const int diff = (int)std::max<s64>(cyclesIntoFuture, 0) - currentMIPS->downcount;
+		slicelength += diff;
+		currentMIPS->downcount += diff;
+	}
 }
 
 // Returns cycles left in timer.
@@ -539,9 +544,16 @@ void DoState(PointerWrap &p) {
 	int current = n;
 	Do(p, n);
 	if (n > current) {
-		WARN_LOG(Log::SaveState, "Savestate failure: more events than current (can't ever remove an event)");
-		p.SetError(p.ERROR_FAILURE);
-		return;
+		if (p.mode != PointerWrap::MODE_READ) {
+			WARN_LOG(Log::SaveState, "Savestate failure: more events than current");
+			p.SetError(p.ERROR_FAILURE);
+			return;
+		}
+		// An older state can have event types that have since been merged or removed, like the
+		// per-object wait timeouts. Keep their slots: modules that still know them restore them
+		// below, and the rest stay harmless placeholders.
+		event_types.resize(n);
+		current = n;
 	}
 
 	// These (should) be filled in later by the modules. Only when loading: a save that fails partway

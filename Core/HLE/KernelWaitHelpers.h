@@ -30,7 +30,7 @@ namespace HLEKernel
 {
 
 // Cancels the pending timeout event for a wait that's being satisfied, and writes the time
-// remaining back to the game.
+// remaining back to the game. The event goes off WAIT_TIMEOUT_LATENCY_US after the deadline.
 // Note the clamp: UnscheduleEvent returns the scheduled time minus the current time, which goes
 // negative when the event is already overdue but hasn't been processed yet. Without the clamp we'd
 // write a huge bogus timeout back into the game's variable.
@@ -38,10 +38,15 @@ inline void WriteRemainingTimeout(int waitTimer, SceUID threadID, u32 timeoutPtr
 	if (timeoutPtr == 0 || waitTimer == -1)
 		return;
 
-	s64 cyclesLeft = CoreTiming::UnscheduleEvent(waitTimer, threadID);
+	s64 cyclesLeft = CoreTiming::UnscheduleEvent(waitTimer, threadID) - usToCycles(WAIT_TIMEOUT_LATENCY_US);
 	if (cyclesLeft < 0)
 		cyclesLeft = 0;
 	Memory::WriteOrException_U32((u32)cyclesToUs(cyclesLeft), timeoutPtr);
+}
+
+// For kernel object waits, which all time out on the same event (see __KernelWaitCurThreadWithTimeout).
+inline void WriteRemainingTimeout(SceUID threadID, u32 timeoutPtr) {
+	WriteRemainingTimeout(__KernelWaitTimeoutEvent(), threadID, timeoutPtr);
 }
 
 // Should be called from the CoreTiming handler for the wait func.
@@ -188,6 +193,12 @@ WaitBeginEndCallbackResult WaitBeginCallback(SceUID threadID, SceUID prevCallbac
 	}
 }
 
+// The same, for a kernel object wait timing out on the shared event.
+template <typename KO, WaitType waitType, typename WaitInfoType>
+WaitBeginEndCallbackResult WaitBeginCallback(SceUID threadID, SceUID prevCallbackId) {
+	return WaitBeginCallback<KO, waitType, WaitInfoType>(threadID, prevCallbackId, __KernelWaitTimeoutEvent());
+}
+
 // Meant to be called in a registered end callback function for a wait type.
 //
 // The goal of this function is to resume the wait, or to complete it if a wait is no longer needed.
@@ -284,6 +295,12 @@ WaitBeginEndCallbackResult WaitEndCallback(SceUID threadID, SceUID prevCallbackI
 	return result;
 }
 
+// The same, for a kernel object wait timing out on the shared event.
+template <typename KO, WaitType waitType, typename WaitInfoType, class TryUnlockFunc>
+WaitBeginEndCallbackResult WaitEndCallback(SceUID threadID, SceUID prevCallbackId, TryUnlockFunc TryUnlock) {
+	return WaitEndCallback<KO, waitType, WaitInfoType>(threadID, prevCallbackId, __KernelWaitTimeoutEvent(), TryUnlock);
+}
+
 // Verify that a thread has not been released from waiting, e.g. by sceKernelReleaseWaitThread().
 // For a waiting thread info struct.
 template <typename T>
@@ -326,6 +343,54 @@ inline void CleanupWaitingThreads(WaitType waitType, SceUID uid, std::vector<T> 
 		}
 	}
 	waitingThreads.resize(size);
+}
+
+// Ends every wait on an object with the given result (for cancel and delete), through the object's
+// function for releasing one waiter:
+// bool Unlock(KO *ko, WaitInfoType &waitingThreadInfo, u32 &error, int result, bool &wokeThreads)
+template <typename KO, class UnlockFunc>
+inline bool ClearWaitingThreads(KO *ko, int result, UnlockFunc Unlock) {
+	u32 error;
+	bool wokeThreads = false;
+	for (auto &waiting : ko->waitingThreads) {
+		Unlock(ko, waiting, error, result, wokeThreads);
+	}
+	ko->waitingThreads.clear();
+	return wokeThreads;
+}
+
+// A waiting list holds either thread ids or structs with a threadID.
+inline SceUID WaitingThreadID(const SceUID &threadID) {
+	return threadID;
+}
+template <typename T>
+inline SceUID WaitingThreadID(const T &waitInfo) {
+	return waitInfo.threadID;
+}
+
+// For objects created with the priority attribute: best priority first, and among equals the order
+// they started waiting in.
+template <typename T>
+inline void SortWaitingThreadsByPriority(std::vector<T> &waitingThreads) {
+	std::stable_sort(waitingThreads.begin(), waitingThreads.end(), [](const T &a, const T &b) {
+		return __KernelThreadSortPriority(WaitingThreadID(a), WaitingThreadID(b));
+	});
+}
+
+// The first waiter with the best priority, without reordering the list.
+template <typename T>
+inline typename std::vector<T>::iterator FindBestPriorityWaiter(std::vector<T> &waitingThreads) {
+	_dbg_assert_msg_(!waitingThreads.empty(), "FindBestPriorityWaiter: no threads");
+	auto best = waitingThreads.end();
+	u32 bestPriority = 0xFFFFFFFF;
+	for (auto iter = waitingThreads.begin(); iter != waitingThreads.end(); ++iter) {
+		const u32 priority = __KernelGetThreadPrio(WaitingThreadID(*iter));
+		if (priority < bestPriority) {
+			best = iter;
+			bestPriority = priority;
+		}
+	}
+	return best;
 }
 
 template <typename T>

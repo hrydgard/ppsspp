@@ -39,6 +39,12 @@ ioreg -p IOUSB -l -w 0 | grep -i "USB Product Name"     # macOS; want "PSP Type 
 - **`gentest.py`** builds a test, runs it through `pspsh`, waits for it to finish and copies the
   output over the `.expected` file. It starts `usbhostfs_pc` itself if the port isn't already open.
 
+**One PSP, one test at a time.** Never start a second `gentest.py` or `pspsh` while one is still
+running, and that includes an agent issuing several as parallel tool calls. They share the one
+PSPLink session and the output files in `host0:/`, so they collide: tests that pass alone "time out
+after 10 seconds", or the PSP hangs. Re-recording a directory means running its tests one after
+another.
+
 Bringing it up, once, from the repo root:
 
 ```bash

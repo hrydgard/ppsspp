@@ -51,25 +51,26 @@ void PSPSemaphore::DoState(PointerWrap &p) {
 	Do(p, pausedWaits);
 }
 
-static int semaWaitTimer = -1;
 
 void __KernelSemaBeginCallback(SceUID threadID, SceUID prevCallbackId);
 void __KernelSemaEndCallback(SceUID threadID, SceUID prevCallbackId);
 
 void __KernelSemaInit()
 {
-	semaWaitTimer = CoreTiming::RegisterEvent("SemaphoreTimeout", __KernelSemaTimeout);
-	__KernelRegisterWaitTypeFuncs(WAITTYPE_SEMA, __KernelSemaBeginCallback, __KernelSemaEndCallback);
+	__KernelRegisterWaitTypeFuncs(WAITTYPE_SEMA, __KernelSemaBeginCallback, __KernelSemaEndCallback, __KernelSemaTimeout);
 }
 
 void __KernelSemaDoState(PointerWrap &p)
 {
-	auto s = p.Section("sceKernelSema", 1);
+	auto s = p.Section("sceKernelSema", 1, 2);
 	if (!s)
 		return;
 
-	Do(p, semaWaitTimer);
-	CoreTiming::RestoreRegisterEvent(semaWaitTimer, "SemaphoreTimeout", __KernelSemaTimeout);
+	if (s < 2) {
+		int oldTimeoutEvent = -1;
+		Do(p, oldTimeoutEvent);
+		__KernelRestoreOldWaitTimeoutEvent(oldTimeoutEvent, "SemaphoreTimeout");
+	}
 }
 
 KernelObject *__KernelSemaphoreObject()
@@ -93,7 +94,7 @@ static bool __KernelUnlockSemaForThread(PSPSemaphore *s, SceUID threadID, u32 &e
 	}
 
 	u32 timeoutPtr = __KernelGetWaitTimeoutPtr(threadID, error);
-	HLEKernel::WriteRemainingTimeout(semaWaitTimer, threadID, timeoutPtr);
+	HLEKernel::WriteRemainingTimeout(threadID, timeoutPtr);
 
 	__KernelResumeThreadFromWait(threadID, result);
 	wokeThreads = true;
@@ -102,7 +103,7 @@ static bool __KernelUnlockSemaForThread(PSPSemaphore *s, SceUID threadID, u32 &e
 
 void __KernelSemaBeginCallback(SceUID threadID, SceUID prevCallbackId)
 {
-	auto result = HLEKernel::WaitBeginCallback<PSPSemaphore, WAITTYPE_SEMA, SceUID>(threadID, prevCallbackId, semaWaitTimer);
+	auto result = HLEKernel::WaitBeginCallback<PSPSemaphore, WAITTYPE_SEMA, SceUID>(threadID, prevCallbackId);
 	if (result == HLEKernel::WAIT_CB_SUCCESS)
 		DEBUG_LOG(Log::sceKernel, "sceKernelWaitSemaCB: Suspending sema wait for callback");
 	else
@@ -111,24 +112,13 @@ void __KernelSemaBeginCallback(SceUID threadID, SceUID prevCallbackId)
 
 void __KernelSemaEndCallback(SceUID threadID, SceUID prevCallbackId)
 {
-	auto result = HLEKernel::WaitEndCallback<PSPSemaphore, WAITTYPE_SEMA, SceUID>(threadID, prevCallbackId, semaWaitTimer, __KernelUnlockSemaForThread);
+	auto result = HLEKernel::WaitEndCallback<PSPSemaphore, WAITTYPE_SEMA, SceUID>(threadID, prevCallbackId, __KernelUnlockSemaForThread);
 	if (result == HLEKernel::WAIT_CB_RESUMED_WAIT)
 		DEBUG_LOG(Log::sceKernel, "sceKernelWaitSemaCB: Resuming sema wait for callback");
 }
 
 // Resume all waiting threads (for delete / cancel.)
 // Returns true if it woke any threads.
-static bool __KernelClearSemaThreads(PSPSemaphore *s, int reason) {
-	u32 error;
-	bool wokeThreads = false;
-	std::vector<SceUID>::iterator iter, end;
-	for (iter = s->waitingThreads.begin(), end = s->waitingThreads.end(); iter != end; ++iter)
-		__KernelUnlockSemaForThread(s, *iter, error, reason, wokeThreads);
-	s->waitingThreads.clear();
-
-	return wokeThreads;
-}
-
 int sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr)
 {
 	u32 error;
@@ -151,7 +141,7 @@ int sceKernelCancelSema(SceUID id, int newCount, u32 numWaitThreadsPtr)
 		else
 			s->ns.currentCount = newCount;
 
-		if (__KernelClearSemaThreads(s, SCE_KERNEL_ERROR_WAIT_CANCEL))
+		if (HLEKernel::ClearWaitingThreads(s, SCE_KERNEL_ERROR_WAIT_CANCEL, __KernelUnlockSemaForThread))
 			hleReSchedule("semaphore canceled");
 
 		return hleNoLog(0);
@@ -202,7 +192,7 @@ int sceKernelDeleteSema(SceUID id) {
 	} else {
 		DEBUG_LOG(Log::sceKernel, "sceKernelDeleteSema(%i)", id);
 
-		bool wokeThreads = __KernelClearSemaThreads(s, SCE_KERNEL_ERROR_WAIT_DELETE);
+		bool wokeThreads = HLEKernel::ClearWaitingThreads(s, SCE_KERNEL_ERROR_WAIT_DELETE, __KernelUnlockSemaForThread);
 		if (wokeThreads)
 			hleReSchedule("semaphore deleted");
 
@@ -251,7 +241,7 @@ int sceKernelSignalSema(SceUID id, int signal) {
 		s->ns.currentCount += signal;
 
 		if ((s->ns.attr & PSP_SEMA_ATTR_PRIORITY) != 0)
-			std::stable_sort(s->waitingThreads.begin(), s->waitingThreads.end(), __KernelThreadSortPriority);
+			HLEKernel::SortWaitingThreadsByPriority(s->waitingThreads);
 
 		bool wokeThreads = false;
 retry:
@@ -290,22 +280,6 @@ void __KernelSemaTimeout(u64 userdata, int cycleslate) {
 	}
 }
 
-static void __KernelSetSemaTimeout(PSPSemaphore *s, u32 timeoutPtr) {
-	if (timeoutPtr == 0 || semaWaitTimer == -1)
-		return;
-
-	int micro = (int)Memory::ReadOrException_U32(timeoutPtr);
-
-	// This happens to be how the hardware seems to time things.
-	if (micro <= 3)
-		micro = 24;
-	else if (micro <= 249)
-		micro = 245;
-
-	// This should call __KernelSemaTimeout() later, unless we cancel it.
-	CoreTiming::ScheduleEvent(usToCycles(micro), semaWaitTimer, __KernelGetCurThread());
-}
-
 static int __KernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr, bool processCallbacks) {
 	hleEatCycles(900);
 
@@ -327,12 +301,13 @@ static int __KernelWaitSema(SceUID id, int wantedCount, u32 timeoutPtr, bool pro
 		if (s->ns.currentCount >= wantedCount && s->waitingThreads.size() == 0 && !hasCallbacks) {
 			s->ns.currentCount -= wantedCount;
 		} else {
+			if (!hasCallbacks && __KernelWaitTimesOutAtOnce(timeoutPtr))
+				return SCE_KERNEL_ERROR_WAIT_TIMEOUT;
 			SceUID threadID = __KernelGetCurThread();
 			// May be in a tight loop timing out (where we don't remove from waitingThreads yet), don't want to add duplicates.
 			if (std::find(s->waitingThreads.begin(), s->waitingThreads.end(), threadID) == s->waitingThreads.end())
 				s->waitingThreads.push_back(threadID);
-			__KernelSetSemaTimeout(s, timeoutPtr);
-			__KernelWaitCurThread(WAITTYPE_SEMA, id, wantedCount, timeoutPtr, processCallbacks, "sema waited");
+			__KernelWaitCurThreadWithTimeout(WAITTYPE_SEMA, id, wantedCount, timeoutPtr, processCallbacks, "sema waited");
 		}
 
 		return 0;
