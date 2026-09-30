@@ -64,7 +64,7 @@ static void* curlWorker(void* data) {
             long responseCode = 0;
             curl_easy_getinfo(handle, CURLINFO_RESPONSE_CODE, &responseCode);
             res->code = (int)responseCode;
-            res->complete = 1;
+            naettSetComplete(res);
             // PPSSPP: curl wants the easy handle out of the multi before it's cleaned up.
             curl_multi_remove_handle(mc, handle);
             curl_easy_cleanup(handle);
@@ -237,14 +237,14 @@ void naettPlatformMakeRequest(InternalResponse* res) {
         // No libcurl, or the worker died. Complete the request as failed rather than
         // leaving the caller waiting forever on a request nobody is going to run.
         res->code = naettGenericError;
-        res->complete = 1;
+        naettSetComplete(res);
         return;
     }
 
     CURL* c = curl_easy_init();
     if (c == NULL) {
         res->code = naettGenericError;
-        res->complete = 1;
+        naettSetComplete(res);
         return;
     }
     curl_easy_setopt(c, CURLOPT_URL, req->url);
@@ -303,7 +303,7 @@ void naettPlatformMakeRequest(InternalResponse* res) {
         res->headerList = NULL;
         curl_easy_cleanup(c);
         res->code = naettGenericError;
-        res->complete = 1;
+        naettSetComplete(res);
     }
 }
 

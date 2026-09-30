@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <functional>
 #include <memory>
 #include <thread>
@@ -124,7 +125,9 @@ private:
 	std::string postData_;
 	std::thread thread_;
 	std::string postMime_;
-	bool completed_ = false;
+	// Set last on the download thread, after the result code and buffer. Atomic, so that once
+	// Done() sees it, those are visible too.
+	std::atomic<bool> completed_{false};
 	bool failed_ = false;
 	net::ResolveFunc customResolve_;
 };
