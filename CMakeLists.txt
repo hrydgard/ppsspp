@@ -1373,6 +1373,7 @@ if(UNITTEST)
 		unittest/TestZipSlip.cpp
 		unittest/TestLzrc.cpp
 		unittest/TestMpegCsc.cpp
+		unittest/TestSplineTessellation.cpp
 		unittest/TestDemangle.cpp
 		unittest/TestTextureReplacer.cpp
 		unittest/TestRiscVEmitter.cpp
