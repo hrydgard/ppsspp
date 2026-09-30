@@ -21,6 +21,7 @@
 #include "Common/CPUDetect.h"
 #include "Common/Math/SIMDHeaders.h"
 #include "GPU/GPUState.h"
+#include "GPU/Common/TransformCommon.h"
 #include "GPU/Software/Lighting.h"
 
 #if PPSSPP_ARCH(SSE2)
@@ -49,7 +50,7 @@ static inline float pspLightPow(float v, float e) {
 		return 1.0f;
 	}
 	if (v > 0.0f) {
-		return pow(v, e);
+		return PSPLightPow(v, e);
 	}
 	// Negative stays negative, so let's just return the original.
 	return v;
@@ -179,7 +180,7 @@ void ComputeState(State *state, bool hasColor0) {
 	}
 
 	if (anyDiffuse || anySpecular) {
-		state->specularExp = gstate.getMaterialSpecularCoef();
+		state->specularExp = PSPSpecularCoef(gstate.getMaterialSpecularCoef());
 		if (state->specularExp <= 0.0f)
 			state->specularExp = 0.0f;
 		else if (std::isnan(state->specularExp))

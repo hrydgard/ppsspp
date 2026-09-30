@@ -428,6 +428,16 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "   float len2 = dot(v, v);\n");
 		WRITE(p, "   return len2 == 0.0 ? vec3(0.0, 0.0, 1.0) : (v * inversesqrt(len2));\n");
 		WRITE(p, "}\n");
+		// The GE's pow for lighting: exp2(e * log2(x)), with log2 and exp2 each a straight line
+		// between powers of two. Continuous, so floor() landing on the wrong side of a power of
+		// two is harmless.
+		WRITE(p, "float pspPow(float x, float e) {\n");
+		WRITE(p, "   if (x <= 0.0) return 0.0;\n");
+		WRITE(p, "   float ex = floor(log2(x));\n");
+		WRITE(p, "   float y = e * (ex + x * exp2(-ex) - 1.0);\n");
+		WRITE(p, "   float fl = floor(y);\n");
+		WRITE(p, "   return exp2(fl) * (1.0 + y - fl);\n");
+		WRITE(p, "}\n");
 	}
 
 	if (ShaderLanguageIsOpenGL(compat.shaderLanguage) || compat.shaderLanguage == GLSL_VULKAN) {
@@ -643,7 +653,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				p.C("      } else {\n");  // type must be 0x02 - GE_LIGHTTYPE_SPOT
 				p.F("        angle = dot(u_lightdir%s, toLight);\n", iStr);
 				p.F("        if (angle >= u_lightangle_spotCoef%s.x) {\n", iStr);
-				p.F("          lightScale = attenuation * (u_lightangle_spotCoef%s.y <= 0.0 ? 1.0 : pow(angle, u_lightangle_spotCoef%s.y));\n", iStr, iStr, iStr);
+				p.F("          lightScale = attenuation * (u_lightangle_spotCoef%s.y <= 0.0 ? 1.0 : pspPow(angle, u_lightangle_spotCoef%s.y));\n", iStr, iStr, iStr);
 				p.C("        } else {\n");
 				p.C("          lightScale = 0.0;\n");
 				p.C("        }\n");
@@ -653,14 +663,14 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				p.C("    }\n");
 				p.C("    ldot = dot(toLight, worldnormal);\n");
 				p.C("    if (comp == 0x2u) {\n");  // GE_LIGHTCOMP_ONLYPOWDIFFUSE
-				p.C("      ldot = u_matspecular.a > 0.0 ? pow(max(ldot, 0.0), u_matspecular.a) : 1.0;\n");
+				p.C("      ldot = u_matspecular.a > 0.0 ? pspPow(ldot, u_matspecular.a) : 1.0;\n");
 				p.C("    }\n");
 				p.F("    diffuse = (u_lightdiffuse%s * diffuseColor) * max(ldot, 0.0);\n", iStr);
 				p.C("    if (comp == 0x1u && ldot >= 0.0) {\n");  // do specular. note - must allow for the >= case, since the u_matspecular.a <= 0.0 case relies on it.
 				p.C("      if (u_matspecular.a > 0.0) {\n");
 				p.C("        vec3 halfVec = toLight + vec3(0.0, 0.0, 1.0);\n");
 				p.C("        float halfInvLen = inversesqrt(dot(halfVec, halfVec));\n");
-				p.C("        ldot = pow(max(dot(halfVec, worldnormal) * halfInvLen, 0.0), u_matspecular.a);\n");
+				p.C("        ldot = pspPow(dot(halfVec, worldnormal) * halfInvLen, u_matspecular.a);\n");
 				p.C("      } else {\n");
 				p.C("        ldot = 1.0;\n");
 				p.C("      }\n");
@@ -704,7 +714,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 					// pow(0.0, 0.0) may be undefined, but the PSP seems to treat it as 1.0.
 					// Seen in Tales of the World: Radiant Mythology (#2424.)
 					p.C("  if (u_matspecular.a > 0.0) {\n");
-					p.C("    ldot = pow(max(ldot, 0.0), u_matspecular.a);\n");
+					p.C("    ldot = pspPow(ldot, u_matspecular.a);\n");
 					p.C("  } else {\n");
 					p.C("    ldot = 1.0;\n");
 					p.C("  }\n");
@@ -724,7 +734,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				case GE_LIGHTTYPE_UNKNOWN:
 					p.F("  angle = dot(u_lightdir%s, toLight);\n", iStr, iStr);
 					p.F("  if (angle >= u_lightangle_spotCoef%s.x) {\n", iStr);
-					p.F("    lightScale = clamp(1.0 / dot(u_lightatt%s, vec3(1.0, distance, distSq)), 0.0, 1.0) * (u_lightangle_spotCoef%s.y <= 0.0 ? 1.0 : pow(max(angle, 0.0), u_lightangle_spotCoef%s.y));\n", iStr, iStr, iStr);
+					p.F("    lightScale = clamp(1.0 / dot(u_lightatt%s, vec3(1.0, distance, distSq)), 0.0, 1.0) * (u_lightangle_spotCoef%s.y <= 0.0 ? 1.0 : pspPow(angle, u_lightangle_spotCoef%s.y));\n", iStr, iStr, iStr);
 					p.C("  } else {\n");
 					p.C("    lightScale = 0.0;\n");
 					p.C("  }\n");
@@ -740,7 +750,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 					p.C("    if (u_matspecular.a > 0.0) {\n");
 					p.C("      vec3 halfVec = toLight + vec3(0.0, 0.0, 1.0);\n");
 					p.C("      float halfInvLen = inversesqrt(dot(halfVec, halfVec));\n");
-					p.C("      ldot = pow(max(dot(halfVec, worldnormal) * halfInvLen, 0.0), u_matspecular.a);\n");
+					p.C("      ldot = pspPow(dot(halfVec, worldnormal) * halfInvLen, u_matspecular.a);\n");
 					p.C("    } else {\n");
 					p.C("      ldot = 1.0;\n");
 					p.C("    }\n");
