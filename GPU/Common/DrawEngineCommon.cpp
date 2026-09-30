@@ -732,6 +732,17 @@ int DrawEngineCommon::ComputeNumVertsToDecode() const {
 
 
 
+// How many vertices software transform turns a prim into, for the prims it expands to quads.
+static int ExpandedVertexCount(GEPrimitiveType prim, int vertexCount) {
+	switch (prim) {
+	case GE_PRIM_POINTS: return vertexCount * 4;
+	case GE_PRIM_LINES: return (vertexCount / 2) * 4;
+	case GE_PRIM_LINE_STRIP: return vertexCount > 1 ? (vertexCount - 1) * 4 : 0;
+	case GE_PRIM_RECTANGLES: return (vertexCount / 2) * 4;
+	default: return 0;
+	}
+}
+
 // Takes a list of consecutive PRIM opcodes, and extends the current draw call to include them.
 // This is just a performance optimization. NOTE: This isn't compatible with really accurate culling,
 // unless we refactor things a bit.
@@ -762,9 +773,11 @@ int DrawEngineCommon::ExtendNonIndexedPrim(const uint32_t *cmd, const uint32_t *
 		if (IsTrianglePrim(newPrim) != isTriangle)
 			break;
 		int vertexCount = data & 0xFFFF;
-		if (numDrawInds >= MAX_DEFERRED_DRAW_INDS || vertexCountInDrawCalls_ + offset + vertexCount > VERTEX_BUFFER_MAX || numVertsToDecode_ + (offset - dv.vertexCount) + vertexCount > VERTEX_BUFFER_MAX) {
+		const int expanded = ExpandedVertexCount(newPrim, vertexCount);
+		if (numDrawInds >= MAX_DEFERRED_DRAW_INDS || vertexCountInDrawCalls_ + offset + vertexCount > VERTEX_BUFFER_MAX || numVertsToDecode_ + (offset - dv.vertexCount) + vertexCount > VERTEX_BUFFER_MAX || expandedVertsInDrawCalls_ + expanded > VERTEX_BUFFER_MAX) {
 			break;
 		}
+		expandedVertsInDrawCalls_ += expanded;
 		DeferredInds &di = drawInds_[numDrawInds++];
 		di.indexType = 0;
 		di.prim = newPrim;
@@ -809,6 +822,27 @@ void DrawEngineCommon::SkipPrim(GEPrimitiveType prim, int vertexCount, const Ver
 
 // vertTypeID is the vertex type but with the UVGen mode smashed into the top bits.
 bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, const VertexDecoder *dec, u32 vertTypeID, bool clockwise, int *bytesRead, ClipInfoFlags clipInfoFlags) {
+	const GEPrimitiveType realPrim = prim != GE_PRIM_KEEP_PREVIOUS ? prim : (prevPrim_ == GE_PRIM_INVALID ? GE_PRIM_POINTS : prevPrim_);
+	const int expanded = ExpandedVertexCount(realPrim, vertexCount);
+	if (expanded > VERTEX_BUFFER_MAX) {
+		// Software transform can't expand this many in one draw, so submit it in parts. Points, lines
+		// and rectangles are independent of each other; consecutive parts of a line strip share a vertex.
+		const bool strip = realPrim == GE_PRIM_LINE_STRIP;
+		const int partSize = (realPrim == GE_PRIM_POINTS || strip) ? VERTEX_BUFFER_MAX / 4 : VERTEX_BUFFER_MAX / 2;
+		static const int indexSizes[4] = { 0, 1, 2, 4 };
+		const int indexSize = indexSizes[(vertTypeID & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT];
+		bool any = false;
+		for (int start = 0; start < vertexCount - (strip ? 1 : 0); start += partSize) {
+			const int count = std::min(partSize + (strip ? 1 : 0), vertexCount - start);
+			const void *partVerts = inds ? verts : (const void *)((const u8 *)verts + start * dec->VertexSize());
+			const void *partInds = inds ? (const void *)((const u8 *)inds + start * indexSize) : nullptr;
+			int partBytesRead = 0;
+			any = SubmitPrim(partVerts, partInds, realPrim, count, dec, vertTypeID, clockwise, &partBytesRead, clipInfoFlags) || any;
+		}
+		*bytesRead = vertexCount * dec->VertexSize();
+		return any;
+	}
+
 	// The index count doesn't bound how many vertices DecodeVerts will produce (the index range can be
 	// sparse), so track that separately, as the growth of the range to decode.
 	u16 lowerBound = 0;
@@ -823,7 +857,7 @@ bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 		}
 	}
 
-	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawVerts_ >= MAX_DEFERRED_DRAW_VERTS || numDrawInds_ >= MAX_DEFERRED_DRAW_INDS || vertexCountInDrawCalls_ + vertexCount > VERTEX_BUFFER_MAX || numVertsToDecode_ + decodeGrowth > VERTEX_BUFFER_MAX) {
+	if (!indexGen.PrimCompatible(prevPrim_, prim) || numDrawVerts_ >= MAX_DEFERRED_DRAW_VERTS || numDrawInds_ >= MAX_DEFERRED_DRAW_INDS || vertexCountInDrawCalls_ + vertexCount > VERTEX_BUFFER_MAX || numVertsToDecode_ + decodeGrowth > VERTEX_BUFFER_MAX || expandedVertsInDrawCalls_ + expanded > VERTEX_BUFFER_MAX) {
 		Flush();
 	}
 
@@ -923,6 +957,7 @@ bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 	}
 
 	vertexCountInDrawCalls_ += vertexCount;
+	expandedVertsInDrawCalls_ += ExpandedVertexCount(prim, vertexCount);
 	seenPrims_ |= (1 << prim);
 
 	if (prim == GE_PRIM_RECTANGLES && (gstate.getTextureAddress(0) & 0x3FFFFFFF) == (gstate.getFrameBufAddress() & 0x3FFFFFFF)) {

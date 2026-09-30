@@ -223,6 +223,7 @@ protected:
 		numDrawVerts_ = 0;
 		numDrawInds_ = 0;
 		vertexCountInDrawCalls_ = 0;
+		expandedVertsInDrawCalls_ = 0;
 		numVertsToDecode_ = 0;
 		decodeIndsCounter_ = 0;
 		decodeVertsCounter_ = 0;
@@ -331,6 +332,9 @@ protected:
 	int numDrawVerts_ = 0;
 	int numDrawInds_ = 0;
 	int vertexCountInDrawCalls_ = 0;
+	// How many vertices software transform expands the queued points, lines and rectangles to (4 per
+	// point, line or rectangle). Must stay <= VERTEX_BUFFER_MAX, or the expansion drops the whole draw.
+	int expandedVertsInDrawCalls_ = 0;
 	// How many vertices DecodeVerts will produce for the queued draws. Must stay <= VERTEX_BUFFER_MAX.
 	int numVertsToDecode_ = 0;
 
