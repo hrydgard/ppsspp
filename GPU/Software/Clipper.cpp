@@ -127,14 +127,14 @@ inline void clip_interpolate(ClipVertexData &dest, float t, const ClipVertexData
 	}															\
 }
 
+// The GE compares the (float24) clip coordinates directly, no division: outside when |z| > w.
+// A primitive is culled only when all its vertices are outside, with depth clamp on or off.
 static inline bool CheckOutsideZ(ClipCoords p, int &pos, int &neg) {
-	constexpr float outsideValue = 1.000030517578125f;
-	float z = p.z / p.w;
-	if (z >= outsideValue) {
+	if (p.z > p.w) {
 		pos++;
 		return true;
 	}
-	if (-z >= outsideValue) {
+	if (-p.z > p.w) {
 		neg++;
 		return true;
 	}
@@ -206,11 +206,7 @@ void ProcessRect(const ClipVertexData &v0, const ClipVertexData &v1, BinManager 
 		CheckOutsideZ(v0.clippos, outsidePos, outsideNeg);
 		CheckOutsideZ(v1.clippos, outsidePos, outsideNeg);
 
-		// With depth clamp off, we discard the rectangle if even one vert is outside.
-		if (outsidePos + outsideNeg > 0 && !gstate.isDepthClipEnabled())
-			return;
-		// With it on, both must be outside in the same direction.
-		else if (outsidePos >= 2 || outsideNeg >= 2)
+		if (outsidePos >= 2 || outsideNeg >= 2)
 			return;
 
 		bool splitFog = v0.v.fogdepth != v1.v.fogdepth;
@@ -266,6 +262,9 @@ void ProcessPoint(const ClipVertexData &v0, BinManager &binner) {
 	if (!binner.State().throughMode) {
 		if (v0.OutsideRange())
 			return;
+		int outsidePos = 0, outsideNeg = 0;
+		if (CheckOutsideZ(v0.clippos, outsidePos, outsideNeg))
+			return;
 	}
 
 	// Points need no clipping. Will be bounds checked in the rasterizer (which seems backwards?)
@@ -287,11 +286,7 @@ void ProcessLine(const ClipVertexData &v0, const ClipVertexData &v1, BinManager 
 	CheckOutsideZ(v0.clippos, outsidePos, outsideNeg);
 	CheckOutsideZ(v1.clippos, outsidePos, outsideNeg);
 
-	// With depth clamp off, we discard the line if even one vert is outside.
-	if (outsidePos + outsideNeg > 0 && !gstate.isDepthClipEnabled())
-		return;
-	// With it on, both must be outside in the same direction.
-	else if (outsidePos >= 2 || outsideNeg >= 2)
+	if (outsidePos >= 2 || outsideNeg >= 2)
 		return;
 
 	int mask0 = CalcClipMask(v0.clippos);
@@ -331,11 +326,7 @@ void ProcessTriangle(const ClipVertexData &v0, const ClipVertexData &v1, const C
 		CheckOutsideZ(v1.clippos, outsidePos, outsideNeg);
 		CheckOutsideZ(v2.clippos, outsidePos, outsideNeg);
 
-		// With depth clamp off, we discard the triangle if even one vert is outside.
-		if (outsidePos + outsideNeg > 0 && !gstate.isDepthClipEnabled())
-			return;
-		// With it on, all three must be outside in the same direction.
-		else if (outsidePos >= 3 || outsideNeg >= 3)
+		if (outsidePos >= 3 || outsideNeg >= 3)
 			return;
 	}
 
