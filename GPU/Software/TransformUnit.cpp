@@ -154,15 +154,24 @@ WorldCoords TransformUnit::ModelToWorldNormal(const ModelCoords &coords) {
 	return Norm3ByMatrix43(coords, gstate.worldMatrix);
 }
 
-static inline double TruncateToFloat24(double d) {
-	if (!std::isfinite(d)) {
-		return d;
-	}
+static inline float TruncateToFloat24(float f) {
+	uint32_t bits;
+	memcpy(&bits, &f, sizeof(bits));
+	bits &= 0xFFFFFF00;
+	memcpy(&f, &bits, sizeof(f));
+	return f;
+}
+
+// A product of two float24s has up to 32 significant bits: form it in a double, and truncate it
+// there, since rounding it to a float first could round up across the truncation.
+static inline float ProductToFloat24(double d) {
 	uint64_t bits;
 	memcpy(&bits, &d, sizeof(bits));
-	bits &= ~((1ULL << (52 - 15)) - 1);
+	if (((bits >> 52) & 0x7FF) != 0x7FF) {
+		bits &= ~((1ULL << (52 - 15)) - 1);
+	}
 	memcpy(&d, &bits, sizeof(d));
-	return d;
+	return (float)d;
 }
 
 // The GE's reciprocal: the top 7 bits of w's 15-bit float24 mantissa pick a segment, which the low
@@ -192,45 +201,55 @@ static const GERecipSegment geRecipSegments[128] = {
 	{ 67650, -68 }, { 67378, -67 }, { 67109, -67 }, { 66841, -66 }, { 66577, -66 }, { 66313, -65 }, { 66052, -65 }, { 65793, -64 },
 };
 
-static inline double GERecip(double w) {
-	int e;
-	const double m = frexp(fabs(w), &e);  // |w| = m * 2^e, m in [0.5, 1)
-	const uint32_t i = (uint32_t)((m * 2.0 - 1.0) * 32768.0);
+// w must be a normal float24. Returns a float24 (q has 16 significant bits, or is 2^16).
+static inline float GERecip(float w) {
+	uint32_t bits;
+	memcpy(&bits, &w, sizeof(bits));
+	const uint32_t i = (bits >> 8) & 0x7FFF;
+	const int e = (int)((bits >> 23) & 0xFF) - 127;  // |w| = 1.i * 2^e
 	const GERecipSegment &seg = geRecipSegments[i >> 8];
-	const int64_t q = (64 * (int64_t)seg.b + 63 + (int64_t)seg.m * (i & 255)) >> 7;
-	return copysign(ldexp((double)q, -15 - e), w);
+	const int32_t q = (64 * seg.b + 63 + seg.m * (int32_t)(i & 255)) >> 7;  // 1 / 1.i in units of 2^-16
+	return copysign(ldexpf((float)q, -16 - e), w);
 }
 
-// How the GE adds a constant (a matrix translation, the viewport center) to a product: the product
-// is a float24, and the adder has no guard bits, so the smaller term is truncated to the precision of
-// the larger one before adding. Exact in doubles.
-static inline double GEAddConstant(double product, double constant) {
-	product = TruncateToFloat24(product);
-	if (product == 0.0 || constant == 0.0) {
-		return product + constant;
+// How the GE adds two float24s, such as a product and a matrix translation or the viewport center:
+// the adder has no guard bits, so the smaller term is truncated to the precision of the larger one.
+// Clearing the low 8 + (exponent difference) bits of each does that, and the float sum is then exact.
+static inline float GEAdd(float a, float b) {
+	uint32_t ba, bb;
+	memcpy(&ba, &a, sizeof(ba));
+	memcpy(&bb, &b, sizeof(bb));
+	const int ea = (ba >> 23) & 0xFF;
+	const int eb = (bb >> 23) & 0xFF;
+	if (ea == 0 || eb == 0) {
+		// Zero (or denormal, which the GE treats as zero) leaves the other term alone.
+		return ea == 0 ? (eb == 0 ? 0.0f : TruncateToFloat24(b)) : TruncateToFloat24(a);
 	}
-	int ep, ec;
-	frexp(product, &ep);
-	frexp(constant, &ec);
-	const double ulp = ldexp(1.0, std::max(ep, ec) - 16);
-	return trunc(product / ulp) * ulp + trunc(constant / ulp) * ulp;
+	const int emax = std::max(ea, eb);
+	const int na = 8 + emax - ea;
+	const int nb = 8 + emax - eb;
+	ba = na >= 24 ? (ba & 0x80000000) : (ba & ~((1U << na) - 1));
+	bb = nb >= 24 ? (bb & 0x80000000) : (bb & ~((1U << nb) - 1));
+	memcpy(&a, &ba, sizeof(a));
+	memcpy(&b, &bb, sizeof(b));
+	return a + b;
 }
 
 // Clip Z or W from the combined matrix, kept as a float24.
 static inline float GEClipComponent(const Vec3f &v, const float m[16], int c) {
-	const double product = (double)v.x * m[c] + (double)v.y * m[4 + c] + (double)v.z * m[8 + c];
-	return (float)TruncateToFloat24(GEAddConstant(product, m[12 + c]));
+	const float product = ProductToFloat24((double)v.x * m[c] + (double)v.y * m[4 + c] + (double)v.z * m[8 + c]);
+	return TruncateToFloat24(GEAdd(product, m[12 + c]));
 }
 
 // Screen Z as the GE computes it (gpu/depth/transformprecision): z/w is z times the reciprocal above,
-// truncated to a float24, then scaled and offset with the constant add above. The sum is floored.
+// truncated to a float24, then scaled and offset with GEAdd. The sum is floored.
 static inline float GEScreenZ(float clipZ, float clipW, float zScale, float zCenter) {
-	if (!std::isfinite(clipW) || !std::isfinite(clipZ) || fabsf(clipW) < FLT_MIN) {
+	const float w = TruncateToFloat24(clipW);
+	if (!std::isfinite(w) || !std::isfinite(clipZ) || fabsf(w) < FLT_MIN) {
 		return clipZ * zScale / clipW + zCenter;
 	}
-	const double z = TruncateToFloat24((double)clipZ);
-	const double ndc = TruncateToFloat24(z * GERecip(TruncateToFloat24((double)clipW)));
-	return (float)floor(GEAddConstant(ndc * zScale, zCenter));
+	const float ndc = ProductToFloat24((double)TruncateToFloat24(clipZ) * GERecip(w));
+	return floorf(GEAdd(ProductToFloat24((double)ndc * zScale), zCenter));
 }
 
 template <bool depthClamp, bool alwaysCheckRange>
