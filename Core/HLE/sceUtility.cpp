@@ -763,8 +763,8 @@ void UtilityDialogShutdown(UtilityDialogType type, int delayUs, int accessPriori
 		(u32_le)MIPS_MAKE_SYSCALL("sceUtility", "__UtilityFinishDialog"),
 	};
 
-	// Starting the thread reschedules normally, so a caller with worse priority than both phases sees
-	// NONE by the time ShutdownStart returns.
+	// Starting the thread reschedules normally. Each phase waits, so the caller sees SHUTDOWN after
+	// ShutdownStart whatever its priority, as on hardware.
 	CleanupDialogThreads(true);
 	accessThread = new HLEHelperThread("ScePafJob", insts, (uint32_t)ARRAY_SIZE(insts), accessPriority, 0x200);
 	accessThread->Start(partDelay, 0);
@@ -773,15 +773,11 @@ void UtilityDialogShutdown(UtilityDialogType type, int delayUs, int accessPriori
 }
 
 static int UtilityWorkUs(int us) {
-	// This blocks, but other better priority threads can get time.
-	// Simulate this by allowing a reschedule.
-	if (us > 1000) {
-		hleEatMicro(1000);
-		return hleDelayResult(hleNoLog(0), "utility work", us - 1000);
-	}
-	hleEatMicro(us);
-	hleReSchedule("utility work");
-	return hleNoLog(0);
+	// The firmware's init and shutdown threads spend most of this time waiting (module loading, I/O),
+	// so threads of any priority get to run meanwhile. Eating the time instead only let better-priority
+	// threads in, and with the short savedata delays a worse-priority caller never saw SHUTDOWN after
+	// ShutdownStart - which it does on hardware (utility/dialog/priority), and which Freak Out waits for.
+	return hleDelayResult(hleNoLog(0), "utility work", us);
 }
 
 static int UtilityInitDialog(int type) {
