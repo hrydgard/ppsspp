@@ -954,6 +954,7 @@ bool DrawEngineCommon::SubmitPrim(const void *verts, const void *inds, GEPrimiti
 		dv.uvScale = LoadUVScaleOffset(gstate);
 		dv.indexLowerBound = lowerBound;
 		dv.indexUpperBound = upperBound;
+		dv.predecoded = false;
 		numVertsToDecode_ += upperBound - lowerBound + 1;
 	}
 
@@ -991,9 +992,18 @@ void DrawEngineCommon::DecodeVerts(const VertexDecoder *dec, u8 *dest) {
 			break;
 		}
 
-		// Decode the verts (and at the same time apply morphing/skinning). Simple.
-		const u8 *startPos = (const u8 *)dv.verts + indexLowerBound * dec->VertexSize();
-		dec->DecodeVerts(dest + numDecodedVerts * stride, startPos, &dv.uvScale, count);
+		u8 *decodedPos = dest + numDecodedVerts * stride;
+		if (dv.predecoded) {
+			const u8 *startPos = (const u8 *)dv.verts + indexLowerBound * stride;
+			// SubmitCurve puts it in place in decoded_ when it can, but a backend may decode elsewhere.
+			if (startPos != decodedPos) {
+				memcpy(decodedPos, startPos, count * stride);
+			}
+		} else {
+			// Decode the verts (and at the same time apply morphing/skinning). Simple.
+			const u8 *startPos = (const u8 *)dv.verts + indexLowerBound * dec->VertexSize();
+			dec->DecodeVerts(decodedPos, startPos, &dv.uvScale, count);
+		}
 		numDecodedVerts += count;
 	}
 	numDecodedVerts_ = numDecodedVerts;
