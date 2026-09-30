@@ -225,6 +225,22 @@ static bool TestVec4F32Arith() {
 	b.RecipApprox().Store(result);
 	if (!CompareFloatsApprox(result, expected, 4, 0.01f, __LINE__)) return false;
 
+	const float sq_values[4] = { 4.0f, 0.25f, 2.0f, 100.0f };
+	Vec4F32::Load(sq_values).RecipSqrt().Store(result);
+	for (int i = 0; i < 4; i++) expected[i] = 1.0f / sqrtf(sq_values[i]);
+	if (!CompareFloatsApprox(result, expected, 4, 1e-6f, __LINE__)) return false;
+
+	// Select picks per lane by the mask, and FromBits keeps the bits as they are.
+	const int mask_values[4] = { -1, 0, 0, -1 };
+	Select(Vec4S32::Load(mask_values), a, b).Store(result);
+	for (int i = 0; i < 4; i++) expected[i] = mask_values[i] ? a_values[i] : b_values[i];
+	if (!CompareFloats(result, expected, 4, __LINE__)) return false;
+
+	const int bits_values[4] = { 0x3F800000, (int)0xC0000000, 0, 0x40490FDB };
+	Vec4F32FromBits(Vec4S32::Load(bits_values)).Store(result);
+	static const float known_bits[4] = { 1.0f, -2.0f, 0.0f, 3.14159274f };
+	if (!CompareFloats(result, known_bits, 4, __LINE__)) return false;
+
 	Vec4F32::Splat(1.5f).Store(result);
 	static const float known_splat[4] = { 1.5f, 1.5f, 1.5f, 1.5f };
 	if (!CompareFloats(result, known_splat, 4, __LINE__)) return false;
