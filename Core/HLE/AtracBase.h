@@ -206,7 +206,8 @@ public:
 		return decoder_;
 	}
 
-	void CreateDecoder(int codecType, int bytesPerFrame, int channels);
+	// jointStereo only matters for Atrac3. Take it from the track header where there is one.
+	void CreateDecoder(int codecType, int bytesPerFrame, int channels, bool jointStereo);
 
 	virtual void NotifyGetContextAddress() = 0;
 

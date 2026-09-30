@@ -77,6 +77,9 @@ private:
 	// But it doesn't really matter whether it's here or there.
 	AtracSasStreamState sas_;
 
+	// From the track header (RIFF fmt or OMA). The bitrate alone doesn't determine it (#8647).
+	bool jointStereo_ = false;
+
 	std::vector<u8> dumpBuffer_;  // Used for dumping audio data to files.
 	bool dumped_ = false;  // Whether we already dumped the audio data to a file.
 };
