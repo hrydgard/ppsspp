@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cstring>
 
 #include "Common/UI/IconCache.h"
 #include "Common/UI/Context.h"
@@ -37,6 +38,20 @@ struct DiskCacheEntry {
 	double insertedTimestamp;
 };
 static_assert(sizeof(DiskCacheEntry) == 24, "DiskCacheEntry is written to disk as is");
+
+// Reads the size from the header, so layout can use it before there's a texture. 0x0 if unknown.
+static void PeekIconSize(const std::string &data, IconFormat format, int *width, int *height) {
+	*width = 0;
+	*height = 0;
+	if (format == IconFormat::PNG && data.size() >= sizeof(PNGHeaderPeek)) {
+		PNGHeaderPeek peek;
+		memcpy(&peek, data.data(), sizeof(peek));
+		if (peek.IsValidPNGHeader()) {
+			*width = peek.Width();
+			*height = peek.Height();
+		}
+	}
+}
 
 void IconCache::SaveToFile(FILE *file) {
 	std::unique_lock<std::mutex> lock(lock_);
@@ -115,6 +130,7 @@ bool IconCache::LoadFromFile(FILE *file) {
 		entry.format = entryHeader.format;
 		entry.insertedTimeStamp = entryHeader.insertedTimestamp;
 		entry.usedTimeStamp = now;
+		PeekIconSize(entry.data, entry.format, &entry.width, &entry.height);
 		cache_.emplace(key, entry);
 	}
 
@@ -224,14 +240,12 @@ bool IconCache::GetDimensions(std::string_view key, int *width, int *height) {
 	}
 
 	const auto &entry = iter->second;
-	if (entry.texture) {
-		// TODO: Store the width/height in the cache.
-		*width = entry.texture->Width();
-		*height = entry.texture->Height();
-		return true;
-	} else {
+	if (entry.width <= 0 || entry.height <= 0) {
 		return false;
 	}
+	*width = entry.width;
+	*height = entry.height;
+	return true;
 }
 
 bool IconCache::Contains(std::string_view key) {
@@ -305,7 +319,9 @@ bool IconCache::InsertIcon(std::string_view key, IconFormat format, std::string 
 	}
 
 	double now = time_now_d();
-	cache_.emplace(key, Entry{ std::move(data), format, nullptr, now, now });
+	Entry entry{ std::move(data), format, nullptr, now, now };
+	PeekIconSize(entry.data, entry.format, &entry.width, &entry.height);
+	cache_.emplace(key, std::move(entry));
 	return true;
 }
 
