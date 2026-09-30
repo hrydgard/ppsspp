@@ -236,7 +236,21 @@ static bool TestVec4F32Arith() {
 	for (int i = 0; i < 4; i++) expected[i] = mask_values[i] ? a_values[i] : b_values[i];
 	if (!CompareFloats(result, expected, 4, __LINE__)) return false;
 
-	const int bits_values[4] = { 0x3F800000, (int)0xC0000000, 0, 0x40490FDB };
+	// Exact in float, so fused and unfused agree.
+	MulAdd(a, b, Vec4F32::Splat(0.5f)).Store(result);
+	for (int i = 0; i < 4; i++) expected[i] = a_values[i] * b_values[i] + 0.5f;
+	if (!CompareFloats(result, expected, 4, __LINE__)) return false;
+
+	// No ties, which round differently on ARM32.
+	const float round_values[4] = { 1.4f, -1.6f, 2.6f, -0.4f };
+	int rounded[4];
+	Vec4S32FromF32Round(Vec4F32::Load(round_values)).Store(rounded);
+	EXPECT_EQ_INT(rounded[0], 1);
+	EXPECT_EQ_INT(rounded[1], -2);
+	EXPECT_EQ_INT(rounded[2], 3);
+	EXPECT_EQ_INT(rounded[3], 0);
+
+	const int bits_values[4] ={ 0x3F800000, (int)0xC0000000, 0, 0x40490FDB };
 	Vec4F32FromBits(Vec4S32::Load(bits_values)).Store(result);
 	static const float known_bits[4] = { 1.0f, -2.0f, 0.0f, 3.14159274f };
 	if (!CompareFloats(result, known_bits, 4, __LINE__)) return false;
