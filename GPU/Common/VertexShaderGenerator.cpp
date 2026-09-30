@@ -76,6 +76,10 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 	const bool clipNearPlane = gstate_c.Use(GPU_USE_CLIP_DISTANCE) && useHWTransform;
 	const bool clipMinMax = gstate_c.Use(GPU_USE_CLIP_DISTANCE) && !isModeThrough;  // If clip planes are available, we want to use them for min/max. We skip the min/max culling in software transform (not yet implemented).
+	// Compute each vertex's screen Z the way the GE does (float24 math, see geAdd). Needs integers, and
+	// only for the games flagged for depth rounding, which are the ones sensitive to depth precision.
+	const bool geDepth = useHWTransform && !isModeThrough && compat.bitwiseOps &&
+		(PSP_CoreParameter().compat.flags().VertexDepthRounding || PSP_CoreParameter().compat.flags().PixelDepthRounding);
 
 	const bool rangeCulling = id.Bit(VS_BIT_VERTEX_RANGE_CULLING);
 	const bool depthCullEnable = gstate_c.Use(GPU_USE_CULL_DISTANCE) && !isModeThrough && rangeCulling && useHWTransform;  // Range culling is gated on draw type, we don't want to do this culling for splines apparently.
@@ -434,6 +438,20 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "   float len2 = dot(v, v);\n");
 		WRITE(p, "   return len2 == 0.0 ? splat3(0.0) : (v * inversesqrt(len2));\n");
 		WRITE(p, "}\n");
+		if (geDepth) {
+			// The GE's float math: float24s (the low 8 bits of a float cleared), truncated. Its adder has no
+			// guard bits: the smaller term is truncated to the larger one's ulp first.
+			WRITE(p, "float geTrunc(float f, int bits) {\n");
+			WRITE(p, "   int i = floatBitsToInt(f);\n");
+			WRITE(p, "   return intBitsToFloat(bits >= 24 ? (i & (-1 << 31)) : (i & (-1 << bits)));\n");
+			WRITE(p, "}\n");
+			WRITE(p, "float geAdd(float a, float b) {\n");
+			WRITE(p, "   int ea = (floatBitsToInt(a) >> 23) & 255;\n");
+			WRITE(p, "   int eb = (floatBitsToInt(b) >> 23) & 255;\n");
+			WRITE(p, "   int e = max(ea, eb);\n");
+			WRITE(p, "   return geTrunc(a, 8 + e - ea) + geTrunc(b, 8 + e - eb);\n");
+			WRITE(p, "}\n");
+		}
 		// The GE's pow for lighting: 1 for e <= 0, else 0 for x <= 0. Otherwise exp2(e * log2(x)) with
 		// log2 and exp2 each a straight line between powers of two, which is what reading a float's
 		// bits as an integer gives: exponent plus mantissa, scaled by 2^23. Without integers, a true
@@ -556,8 +574,23 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 
 		// Perform the perspective projection and viewport transform. (We'll have to undo the division before passing the coordinate along).
 		// In software transform mode, this is performed in on the CPU.
+		if (geDepth) {
+			// Clip Z and W as the GE computes them from the combined matrix: the product truncated to a
+			// float24, plus the translation (where the model origin lands). Then screen Z from those.
+			// The product is transformed on its own, as a direction, rather than recovered from outPos, which
+			// would cancel badly with a large translation. This does properly what the min/max rounding
+			// below approximates for the Test Drive map (#12786).
+			WRITE(p, "  vec4 geT = mul(u_proj, vec4(mul(vec4(mul(vec4(0.0, 0.0, 0.0, 1.0), u_world).xyz, 1.0), u_view).xyz, 1.0));\n");
+			WRITE(p, "  vec4 geP = mul(u_proj, vec4(mul(vec4(mul(vec4(position, 0.0), u_world).xyz, 0.0), u_view).xyz, 0.0));\n");
+			WRITE(p, "  float geZ = geTrunc(geAdd(geTrunc(geP.z, 8), geT.z), 8);\n");
+			WRITE(p, "  float geW = geTrunc(geAdd(geTrunc(geP.w, 8), geT.w), 8);\n");
+			WRITE(p, "  float geScreenZ = floor(geAdd(geTrunc(geZ / geW * u_vpScale.z, 8), u_vpOffset.z));\n");
+		}
 		WRITE(p, "  float recip = 1.0 / outPos.w;\n");
 		WRITE(p, "  outPos.xyz = (outPos.xyz * u_vpScale.xyz) * recip + u_vpOffset.xyz;\n");
+		if (geDepth) {
+			WRITE(p, "  outPos.z = geScreenZ;\n");
+		}
 
 		if (fsMinmaxDiscard || fsDepthClamp) {
 			WRITE(p, "  %sv_zw = vec2(outPos.z * outPos.w, outPos.w);\n", compat.vsOutPrefix);
@@ -933,8 +966,14 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		// Due to us having a bit too much precision, we round the value up for the min check and down for the max check.
 		// Will test this on hardware more carefully soon.
 		// The min check rounded down fixes the Test Drive map problem, and the max check rounded down fixes Taiko no Tatsujin.
-		WRITE(p, "  float clipZNear = floor(outPos.z * 0.5 + 0.5) * 2.0;\n");
-		WRITE(p, "  float clipZFar = floor(outPos.z * 0.5) * 2.0;\n");
+		if (geDepth) {
+			// Already the GE's value.
+			WRITE(p, "  float clipZNear = outPos.z;\n");
+			WRITE(p, "  float clipZFar = outPos.z;\n");
+		} else {
+			WRITE(p, "  float clipZNear = floor(outPos.z * 0.5 + 0.5) * 2.0;\n");
+			WRITE(p, "  float clipZFar = floor(outPos.z * 0.5) * 2.0;\n");
+		}
 
 		WRITE(p, "  %sgl_ClipDistance%s = u_minZmaxZ.x > 0.0 ? (clipZNear - u_minZmaxZ.x) * outPos.w : 1.0;\n", compat.vsOutPrefix, minZClipPlaneSuffix);
 		WRITE(p, "  %sgl_ClipDistance%s = u_minZmaxZ.y < 65535.0 ? (u_minZmaxZ.y - clipZFar) * outPos.w : 1.0;\n", compat.vsOutPrefix, maxZClipPlaneSuffix);
