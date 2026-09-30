@@ -150,7 +150,8 @@ private:
 			//	knots[n + 2] = (float)n; // Got rid of this line optimized with KnotDiv
 			//	knots[n + 3] = (float)n; // Got rid of this line optimized with KnotDiv
 			//	knots[n + 4] = (float)n; // Got rid of this line optimized with KnotDiv
-			divs[n - 1]._4_1 = 1.0f / 2.0f;
+			// With a single patch whose first edge is open too, that knot interval is 1, not 2.
+			divs[n - 1]._4_1 = (n == 1 && (type & 1) != 0) ? 1.0f : 1.0f / 2.0f;
 			divs[n - 1]._5_2 = 1.0f;
 			divs[n - 1]._4_2 = 1.0f;
 			if (n > 1)
