@@ -17,6 +17,7 @@
 
 #include "ppsspp_config.h"
 
+#include <cfloat>
 #include <cmath>
 
 #include "Common/Common.h"
@@ -153,6 +154,85 @@ WorldCoords TransformUnit::ModelToWorldNormal(const ModelCoords &coords) {
 	return Norm3ByMatrix43(coords, gstate.worldMatrix);
 }
 
+static inline double TruncateToFloat24(double d) {
+	if (!std::isfinite(d)) {
+		return d;
+	}
+	uint64_t bits;
+	memcpy(&bits, &d, sizeof(bits));
+	bits &= ~((1ULL << (52 - 15)) - 1);
+	memcpy(&d, &bits, sizeof(d));
+	return d;
+}
+
+// The GE's reciprocal: the top 7 bits of w's 15-bit float24 mantissa pick a segment, which the low
+// 8 bits interpolate linearly. b is the segment's start in units of 2^-17, m its slope in units of
+// 2^-23 per step, and 63 a rounding bias below half. Measured for every mantissa on hardware.
+struct GERecipSegment {
+	int32_t b;
+	int32_t m;
+};
+
+static const GERecipSegment geRecipSegments[128] = {
+	{ 131072, -254 }, { 130055, -250 }, { 129054, -246 }, { 128071, -243 }, { 127099, -239 }, { 126143, -235 }, { 125203, -232 }, { 124274, -228 },
+	{ 123361, -225 }, { 122461, -222 }, { 121574, -219 }, { 120700, -216 }, { 119836, -212 }, { 118986, -209 }, { 118150, -207 }, { 117323, -204 },
+	{ 116508, -201 }, { 115704, -198 }, { 114913, -196 }, { 114130, -193 }, { 113358, -190 }, { 112599, -188 }, { 111847, -185 }, { 111107, -183 },
+	{ 110375, -180 }, { 109654, -178 }, { 108943, -176 }, { 108239, -173 }, { 107545, -171 }, { 106861, -169 }, { 106184, -167 }, { 105517, -165 },
+	{ 104858, -163 }, { 104206, -161 }, { 103563, -159 }, { 102927, -157 }, { 102300, -155 }, { 101680, -153 }, { 101067, -151 }, { 100463, -150 },
+	{ 99865, -148 }, { 99273, -146 }, { 98689, -144 }, { 98113, -143 }, { 97542, -141 }, { 96977, -139 }, { 96421, -138 }, { 95869, -136 },
+	{ 95326, -135 }, { 94786, -133 }, { 94255, -132 }, { 93727, -130 }, { 93207, -129 }, { 92691, -127 }, { 92182, -126 }, { 91680, -125 },
+	{ 91180, -123 }, { 90688, -122 }, { 90201, -121 }, { 89717, -119 }, { 89240, -118 }, { 88769, -117 }, { 88302, -116 }, { 87838, -114 },
+	{ 87381, -113 }, { 86928, -112 }, { 86481, -111 }, { 86037, -110 }, { 85599, -109 }, { 85164, -108 }, { 84732, -106 }, { 84307, -105 },
+	{ 83885, -104 }, { 83468, -103 }, { 83055, -102 }, { 82646, -101 }, { 82241, -100 }, { 81839, -99 }, { 81442, -98 }, { 81049, -97 },
+	{ 80659, -96 }, { 80275, -96 }, { 79892, -95 }, { 79513, -94 }, { 79138, -93 }, { 78766, -92 }, { 78398, -91 }, { 78033, -90 },
+	{ 77673, -90 }, { 77315, -89 }, { 76960, -88 }, { 76608, -87 }, { 76260, -86 }, { 75914, -85 }, { 75574, -85 }, { 75234, -84 },
+	{ 74898, -83 }, { 74564, -82 }, { 74236, -82 }, { 73908, -81 }, { 73584, -80 }, { 73264, -80 }, { 72944, -79 }, { 72628, -78 },
+	{ 72316, -78 }, { 72005, -77 }, { 71697, -76 }, { 71393, -76 }, { 71090, -75 }, { 70789, -74 }, { 70493, -74 }, { 70197, -73 },
+	{ 69906, -73 }, { 69615, -72 }, { 69327, -71 }, { 69042, -71 }, { 68759, -70 }, { 68479, -70 }, { 68200, -69 }, { 67925, -69 },
+	{ 67650, -68 }, { 67378, -67 }, { 67109, -67 }, { 66841, -66 }, { 66577, -66 }, { 66313, -65 }, { 66052, -65 }, { 65793, -64 },
+};
+
+static inline double GERecip(double w) {
+	int e;
+	const double m = frexp(fabs(w), &e);  // |w| = m * 2^e, m in [0.5, 1)
+	const uint32_t i = (uint32_t)((m * 2.0 - 1.0) * 32768.0);
+	const GERecipSegment &seg = geRecipSegments[i >> 8];
+	const int64_t q = (64 * (int64_t)seg.b + 63 + (int64_t)seg.m * (i & 255)) >> 7;
+	return copysign(ldexp((double)q, -15 - e), w);
+}
+
+// How the GE adds a constant (a matrix translation, the viewport center) to a product: the product
+// is a float24, and the adder has no guard bits, so the smaller term is truncated to the precision of
+// the larger one before adding. Exact in doubles.
+static inline double GEAddConstant(double product, double constant) {
+	product = TruncateToFloat24(product);
+	if (product == 0.0 || constant == 0.0) {
+		return product + constant;
+	}
+	int ep, ec;
+	frexp(product, &ep);
+	frexp(constant, &ec);
+	const double ulp = ldexp(1.0, std::max(ep, ec) - 16);
+	return trunc(product / ulp) * ulp + trunc(constant / ulp) * ulp;
+}
+
+// Clip Z or W from the combined matrix, kept as a float24.
+static inline float GEClipComponent(const Vec3f &v, const float m[16], int c) {
+	const double product = (double)v.x * m[c] + (double)v.y * m[4 + c] + (double)v.z * m[8 + c];
+	return (float)TruncateToFloat24(GEAddConstant(product, m[12 + c]));
+}
+
+// Screen Z as the GE computes it (gpu/depth/transformprecision): z/w is z times the reciprocal above,
+// truncated to a float24, then scaled and offset with the constant add above. The sum is floored.
+static inline float GEScreenZ(float clipZ, float clipW, float zScale, float zCenter) {
+	if (!std::isfinite(clipW) || !std::isfinite(clipZ) || fabsf(clipW) < FLT_MIN) {
+		return clipZ * zScale / clipW + zCenter;
+	}
+	const double z = TruncateToFloat24((double)clipZ);
+	const double ndc = TruncateToFloat24(z * GERecip(TruncateToFloat24((double)clipW)));
+	return (float)floor(GEAddConstant(ndc * zScale, zCenter));
+}
+
 template <bool depthClamp, bool alwaysCheckRange>
 static ScreenCoords ClipToScreenInternal(Vec3f scaled, const ClipCoords &coords, bool *outside_range_flag) {
 	// Account for rounding for X and Y.
@@ -195,7 +275,7 @@ static inline ScreenCoords ClipToScreenInternal(const ClipCoords &coords, bool *
 
 	float x = coords.x * xScale / coords.w + xCenter;
 	float y = coords.y * yScale / coords.w + yCenter;
-	float z = coords.z * zScale / coords.w + zCenter;
+	float z = GEScreenZ(coords.z, coords.w, zScale, zCenter);
 
 	if (gstate.isDepthClipEnabled()) {
 		return ClipToScreenInternal<true, true>(Vec3f(x, y, z), coords, outside_range_flag);
@@ -398,6 +478,13 @@ ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const Tran
 			vertex.clippos = Vec3ByMatrix44(worldpos, state.matrix);
 			break;
 		}
+		// Clip Z and W with the GE's precision; the Test Drive map depends on it together with the
+		// depth math below (#12786).
+		{
+			const Vec3f &src = MatrixMode(state.matrixMode) == MatrixMode::POS_TO_CLIP ? pos : worldpos;
+			vertex.clippos.z = GEClipComponent(src, state.matrix, 2);
+			vertex.clippos.w = GEClipComponent(src, state.matrix, 3);
+		}
 
 		Vec3f screenScaled;
 #ifdef _M_SSE
@@ -407,6 +494,7 @@ ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const Tran
 #else
 		screenScaled = vertex.clippos.xyz() * state.screenScale / vertex.clippos.w + state.screenAdd;
 #endif
+		screenScaled.z = GEScreenZ(vertex.clippos.z, vertex.clippos.w, state.screenScale.z, state.screenAdd.z);
 		bool outside_range_flag = false;
 		vertex.v.screenpos = state.roundToScreen(screenScaled, vertex.clippos, &outside_range_flag);
 		if (outside_range_flag) {
