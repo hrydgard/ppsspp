@@ -1015,7 +1015,7 @@ void DoState(PointerWrap &p) {
 		case PointerWrap::MODE_WRITE:
 		case PointerWrap::MODE_VERIFY:
 		{
-			int retval = rc_client_serialize_progress(g_rcClient, buffer);
+			int retval = rc_client_serialize_progress_sized(g_rcClient, buffer, data_size);
 			if (retval != RC_OK) {
 				ERROR_LOG(Log::Achievements, "Error %d serializing achievement data. Ignoring.", retval);
 			}
@@ -1030,7 +1030,7 @@ void DoState(PointerWrap &p) {
 		switch (p.mode) {
 		case PointerWrap::MODE_READ:
 		{
-			int retval = rc_client_deserialize_progress(g_rcClient, buffer);
+			int retval = rc_client_deserialize_progress_sized(g_rcClient, buffer, data_size);
 			if (retval != RC_OK) {
 				// TODO: What should we really do here?
 				ERROR_LOG(Log::Achievements, "Error %d deserializing achievement data. Ignoring.", retval);
