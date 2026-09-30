@@ -853,7 +853,8 @@ static void login_password_callback(int result, const char *error_message, rc_cl
 
 bool LoginAsync(const char *username, const char *password) {
 	auto di = GetI18NCategory(I18NCat::DIALOG);
-	if (IsLoggedIn() || std::strlen(username) == 0 || std::strlen(password) == 0)
+	// While a token login is pending, rc_client refuses another login, and the callback for that would clear g_isLoggingIn early.
+	if (IsLoggedIn() || g_isLoggingIn || std::strlen(username) == 0 || std::strlen(password) == 0)
 		return false;
 
 	g_OSD.SetProgressBar("cheevos_async_login", di->T("Logging in..."), 0, 0, 0, 0.0f);
