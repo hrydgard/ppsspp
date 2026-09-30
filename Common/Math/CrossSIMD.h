@@ -319,6 +319,7 @@ struct Vec4F32 {
 	Vec4F32 Mul(float f) const { return Vec4F32{ _mm_mul_ps(v, _mm_set1_ps(f)) }; }
 	Vec4F32 RecipApprox() const { return Vec4F32{ _mm_rcp_ps(v) }; }
 	Vec4F32 Recip() const { return Vec4F32{ _mm_div_ps(_mm_set1_ps(1.0f), v) }; }
+	Vec4F32 RecipSqrt() const { return Vec4F32{ _mm_div_ps(_mm_set1_ps(1.0f), _mm_sqrt_ps(v)) }; }
 
 	Vec4F32 Clamp(float lower, float higher) const {
 		return Vec4F32{
@@ -399,6 +400,12 @@ struct Vec4F32 {
 
 inline Vec4S32 Vec4S32FromF32(Vec4F32 f) { return Vec4S32{ _mm_cvttps_epi32(f.v) }; }
 inline Vec4F32 Vec4F32FromS32(Vec4S32 f) { return Vec4F32{ _mm_cvtepi32_ps(f.v) }; }
+inline Vec4F32 Vec4F32FromBits(Vec4S32 bits) { return Vec4F32{ _mm_castsi128_ps(bits.v) }; }
+// Per lane, ifTrue where the mask (from a compare) is set, otherwise ifFalse.
+inline Vec4F32 Select(Vec4S32 mask, Vec4F32 ifTrue, Vec4F32 ifFalse) {
+	const __m128 m = _mm_castsi128_ps(mask.v);
+	return Vec4F32{ _mm_or_ps(_mm_and_ps(m, ifTrue.v), _mm_andnot_ps(m, ifFalse.v)) };
+}
 
 inline bool AnyZeroSignBit(Vec4F32 value) {
 	return _mm_movemask_ps(value.v) != 0xF;
@@ -737,6 +744,17 @@ struct Vec4F32 {
 		return Vec4F32{ recip };
 	}
 
+	Vec4F32 RecipSqrt() const {
+#if PPSSPP_ARCH(ARM64_NEON)
+		return Vec4F32{ vdivq_f32(vdupq_n_f32(1.0f), vsqrtq_f32(v)) };
+#else
+		float32x4_t e = vrsqrteq_f32(v);
+		e = vmulq_f32(vrsqrtsq_f32(vmulq_f32(e, e), v), e);
+		e = vmulq_f32(vrsqrtsq_f32(vmulq_f32(e, e), v), e);
+		return Vec4F32{ e };
+#endif
+	}
+
 	Vec4F32 Clamp(float lower, float higher) const {
 		return Vec4F32{
 			vminq_f32(vmaxq_f32(v, vdupq_n_f32(lower)), vdupq_n_f32(higher))
@@ -864,6 +882,11 @@ struct Vec4F32 {
 
 inline Vec4S32 Vec4S32FromF32(Vec4F32 f) { return Vec4S32{ vcvtq_s32_f32(f.v) }; }
 inline Vec4F32 Vec4F32FromS32(Vec4S32 s) { return Vec4F32{ vcvtq_f32_s32(s.v) }; }
+inline Vec4F32 Vec4F32FromBits(Vec4S32 bits) { return Vec4F32{ vreinterpretq_f32_s32(bits.v) }; }
+// Per lane, ifTrue where the mask (from a compare) is set, otherwise ifFalse.
+inline Vec4F32 Select(Vec4S32 mask, Vec4F32 ifTrue, Vec4F32 ifFalse) {
+	return Vec4F32{ vbslq_f32(vreinterpretq_u32_s32(mask.v), ifTrue.v, ifFalse.v) };
+}
 
 // Make sure the W component of scale is 1.0f.
 inline void ScaleInplace(Mat4F32 &m, Vec4F32 scale) {
@@ -1244,6 +1267,10 @@ struct Vec4F32 {
 		return Vec4F32{ (__m128)__lsx_vfrecip_s(v) };
 	}
 
+	Vec4F32 RecipSqrt() const {
+		return Vec4F32{ (__m128)__lsx_vfdiv_s(__lsx_vreplfr2vr_s(1.0f), (__m128)__lsx_vfsqrt_s(v)) };
+	}
+
 	Vec4F32 Clamp(float lower, float higher) const {
 		return Vec4F32{
 			(__m128)__lsx_vfmin_s((__m128)__lsx_vfmax_s(v, __lsx_vreplfr2vr_s(lower)), __lsx_vreplfr2vr_s(higher))
@@ -1381,6 +1408,11 @@ struct Vec4F32 {
 
 inline Vec4S32 Vec4S32FromF32(Vec4F32 f) { return Vec4S32{ __lsx_vftintrz_w_s(f.v) }; }
 inline Vec4F32 Vec4F32FromS32(Vec4S32 s) { return Vec4F32{ (__m128)__lsx_vffint_s_w(s.v) }; }
+inline Vec4F32 Vec4F32FromBits(Vec4S32 bits) { return Vec4F32{ (__m128)bits.v }; }
+// Per lane, ifTrue where the mask (from a compare) is set, otherwise ifFalse.
+inline Vec4F32 Select(Vec4S32 mask, Vec4F32 ifTrue, Vec4F32 ifFalse) {
+	return Vec4F32{ (__m128)__lsx_vbitsel_v((__m128i)ifFalse.v, (__m128i)ifTrue.v, mask.v) };
+}
 
 // Make sure the W component of scale is 1.0f.
 inline void ScaleInplace(Mat4F32 &m, Vec4F32 scale) {
@@ -1803,6 +1835,10 @@ struct Vec4F32 {
 		return Vec4F32{ { 1.0f / v[0], 1.0f / v[1], 1.0f / v[2], 1.0f / v[3] } };
 	}
 
+	Vec4F32 RecipSqrt() const {
+		return Vec4F32{ { 1.0f / sqrtf(v[0]), 1.0f / sqrtf(v[1]), 1.0f / sqrtf(v[2]), 1.0f / sqrtf(v[3]) } };
+	}
+
 	Vec4F32 Clamp(float lower, float higher) const {
 		Vec4F32 temp;
 		for (int i = 0; i < 4; i++) {
@@ -2035,6 +2071,21 @@ inline Vec4S32 Vec4S32FromF32(Vec4F32 f) {
 
 inline Vec4F32 Vec4F32FromS32(Vec4S32 f) {
 	return Vec4F32{ { (float)f.v[0], (float)f.v[1], (float)f.v[2], (float)f.v[3] } };
+}
+
+inline Vec4F32 Vec4F32FromBits(Vec4S32 bits) {
+	Vec4F32 temp;
+	memcpy(temp.v, bits.v, sizeof(temp.v));
+	return temp;
+}
+
+// Per lane, ifTrue where the mask (from a compare) is set, otherwise ifFalse.
+inline Vec4F32 Select(Vec4S32 mask, Vec4F32 ifTrue, Vec4F32 ifFalse) {
+	Vec4F32 temp;
+	for (int i = 0; i < 4; i++) {
+		temp.v[i] = mask.v[i] ? ifTrue.v[i] : ifFalse.v[i];
+	}
+	return temp;
 }
 
 // Make sure the W component of scale is 1.0f.
