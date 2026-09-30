@@ -1135,7 +1135,7 @@ void ShowNotLoggedInMessage() {
 void identify_and_load_callback(int result, const char *error_message, rc_client_t *client, void *userdata) {
 	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
 
-	NOTICE_LOG(Log::Achievements, "Load callback: %d (%s)", result, error_message);
+	NOTICE_LOG(Log::Achievements, "Load callback: %d (%s)", result, error_message ? error_message : "");
 
 	switch (result) {
 	case RC_OK:
@@ -1273,7 +1273,7 @@ void UnloadGame() {
 
 void change_media_callback(int result, const char *error_message, rc_client_t *client, void *userdata) {
 	auto ac = GetI18NCategory(I18NCat::ACHIEVEMENTS);
-	NOTICE_LOG(Log::Achievements, "Change media callback: %d (%s)", result, error_message);
+	NOTICE_LOG(Log::Achievements, "Change media callback: %d (%s)", result, error_message ? error_message : "");
 	g_isIdentifying = false;
 
 	switch (result) {
