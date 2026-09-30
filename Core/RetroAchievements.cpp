@@ -801,6 +801,9 @@ bool LoginAsync(const char *username, const char *password) {
 
 void Logout() {
 	rc_client_logout(g_rcClient);
+	// An aborted login or game load doesn't always call back, so clear the flags here.
+	g_isLoggingIn = false;
+	g_isIdentifying = false;
 	// remove secret from config
 	NativeClearSecret(RA_TOKEN_SECRET_NAME);
 	g_Config.Save("Achievements logout");
@@ -832,6 +835,9 @@ bool Shutdown() {
 		g_rcClient = nullptr;
 		INFO_LOG(Log::Achievements, "Achievements shut down.");
 	}
+	// A destroyed client doesn't call back for pending logins or game loads.
+	g_isLoggingIn = false;
+	g_isIdentifying = false;
 	return true;
 }
 
@@ -1157,6 +1163,8 @@ void UnloadGame() {
 		g_gamePath.clear();
 		s_game_hash.clear();
 	}
+	// Unloading aborts a pending load, and rc_client doesn't call back for an aborted load.
+	g_isIdentifying = false;
 }
 
 void change_media_callback(int result, const char *error_message, rc_client_t *client, void *userdata) {
