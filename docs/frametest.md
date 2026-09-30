@@ -217,3 +217,30 @@ new flag combinations, as long as the headless binary supports them.
 The CI test set (dumps and references) is maintained separately from the
 runner; the `frametests/` submodule is just one of several possible test sets
 - custom machines can use their own (possibly much larger) ones.
+
+## Replaying a dump on a real PSP
+
+The references above are PPSSPP's own renders, so they catch regressions, not
+wrong output. To see what the hardware draws, replay the dump on a PSP:
+`pspautotests/utils/ppdmp-playback` is a PSP program that runs a `.ppdmp` natively
+(all dump versions PPSSPP writes), and its `run.py` drives it over PSPLink from
+the host:
+
+```bash
+cd pspautotests
+python3 utils/ppdmp-playback/run.py --out /tmp/shots \
+	--headless ../build/PPSSPPHeadless "../frametests/dumps/Depth/21391 Coded arms ULUS10019_0001.zip"
+```
+
+It saves what the PSP displays as `NAME-psp.png`, and with `--headless` renders
+the same dump in PPSSPPHeadless (`--graphics=software` by default), saves
+`NAME-ppsspp.png` and prints the MSE between the two. Each frame stays on the
+PSP's screen for 1.5 seconds (`--hold`). It needs the PSPSDK (it rebuilds the PRX) and a PSP in
+PSPLink with `usbhostfs_pc` serving the pspautotests root, the same setup as
+[pspautotests-hardware.md](pspautotests-hardware.md); like every hardware run,
+one at a time. See its README for replaying a subset of the primitives.
+
+The PSP render doesn't match PPSSPP's to the bit even where PPSSPP is right
+(dithering, texture filtering and edge rules differ slightly), so compare MSEs
+between versions rather than expecting zero: the Coded Arms dump above went from
+108 to 33 when the software renderer got the GE's depth precision.
