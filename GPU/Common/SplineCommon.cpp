@@ -391,7 +391,26 @@ public:
 							const Vec3f derivU = tess_nrm.SampleV(wv.basis);
 							const Vec3f derivV = tess_pos.SampleV(wv.deriv);
 
-							vert.nrm = Cross(derivU, derivV).Normalized(useSSE4);
+							Vec3f nrm = Cross(derivU, derivV);
+							if (nrm.Length2() < 1e-20f) {
+								// A pole: a patch edge whose control points all meet at one point, like the top
+								// of a dome. One derivative vanishes there, so the cross product is zero and the
+								// normal would be NaN (dark spots on Pac-Man Arrangement's ghosts, #12354). Use
+								// the limit instead: next to an edge where dP/dv = 0, dP/dv ~ (u - u_edge) * d2P/dudv.
+								const Vec3f derivUV = tess_nrm.SampleV(wv.deriv);
+								if (derivV.Length2() <= derivU.Length2()) {
+									nrm = Cross(derivU, derivUV);
+									if (tile_u * 2 > surface.tess_u) {
+										nrm = -nrm;
+									}
+								} else {
+									nrm = Cross(derivUV, derivV);
+									if (tile_v * 2 > surface.tess_v) {
+										nrm = -nrm;
+									}
+								}
+							}
+							vert.nrm = nrm.NormalizedOr001(useSSE4);
 							if constexpr (patchFacing)
 								vert.nrm *= -1.0f;
 						} else {
