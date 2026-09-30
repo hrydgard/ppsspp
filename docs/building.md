@@ -69,6 +69,21 @@ bug, since CI runs the equivalent of `UnitTest.exe all` on every commit across m
 platforms without apparent issue. If `all`/`Jit` hangs in your environment, run every other
 test by name instead (skip `Jit`) to still get real coverage.
 
+## UWP build
+
+UWP has its own solution, `UWP\PPSSPP_UWP.sln`. Build the app with `/t:PPSSPP_UWP` (or a single
+library such as `/t:CoreUWP`), same MSBuild setup as above:
+
+```powershell
+& $msbuild "UWP\PPSSPP_UWP.sln" /t:PPSSPP_UWP /p:Configuration=Debug /p:Platform=<platform> /p:PreferredToolArchitecture=arm64 /m
+```
+
+On an ARM64 host, pass `/p:PreferredToolArchitecture=arm64`. Without it the UWP
+projects use the 32-bit x86-hosted compiler (`bin\HostX86\arm64\CL.exe`), which runs emulated and
+can't map the precompiled headers into its address space. Every file then fails at line 1 with
+`C3859: Failed to create virtual memory for PCH` and `C1076: compiler limit: internal heap limit
+reached`. That looks like running out of memory, but lowering `/m` or `CL_MPCount` doesn't help.
+
 ## Android assets
 
 The APK's `assets/` directory is the repo-root `assets/` directory, wired up by
