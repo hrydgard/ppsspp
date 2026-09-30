@@ -117,6 +117,8 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 			toLight /= distanceToLight;
 			dot = Dot(toLight, norm);
 		}
+		// Specular only applies when the light is in front of the surface.
+		const bool facingLight = dot >= 0.0f;
 		// Clamp dot to zero.
 		if (dot < 0.0f) dot = 0.0f;
 
@@ -151,7 +153,7 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 		// Better specular
 		// Vec3f toViewer = (viewer - pos).NormalizedOr001(cpu_info.bSSE4_1);
 
-		if (doSpecular) {
+		if (doSpecular && facingLight) {
 			Vec3f halfVec = (toLight + toViewer).NormalizedOr001(cpu_info.bSSE4_1);
 
 			dot = Dot(halfVec, norm);
