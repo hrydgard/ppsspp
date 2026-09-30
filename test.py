@@ -230,6 +230,8 @@ tests_good = [
   "gpu/ge/intrsuspend",
   "gpu/ge/queue",
   "gpu/ge/queue2",
+  "gpu/lighting/shademap",
+  "gpu/lighting/specular",
   "gpu/primitives/indices",
   "gpu/primitives/invalidprim",
   "gpu/primitives/points",
