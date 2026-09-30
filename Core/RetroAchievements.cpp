@@ -290,6 +290,25 @@ static uint32_t read_memory_callback(uint32_t address, uint8_t *buffer, uint32_t
 	return num_bytes;
 }
 
+static void complete_server_call(http::Request &download, rc_client_server_callback_t callback, void *callback_data) {
+	std::string buffer;
+	download.buffer().TakeAll(&buffer);
+	rc_api_server_response_t response{};
+	int resultCode = download.ResultCode();
+	if (resultCode <= 0) {
+		// No HTTP status: the request failed in transport (naett's codes are negative, and
+		// naettConnectionError is -1, which rcheevos reads as a non-retryable client error).
+		// Report it as retryable so that unlocks and leaderboard submissions aren't dropped.
+		buffer = StringFromFormat("Network error (%d)", resultCode);
+		response.http_status_code = RC_API_SERVER_RESPONSE_RETRYABLE_CLIENT_ERROR;
+	} else {
+		response.http_status_code = resultCode;
+	}
+	response.body = buffer.c_str();
+	response.body_length = buffer.size();
+	callback(&response, callback_data);
+}
+
 // This is the HTTP request dispatcher that is provided to the rc_client. Whenever the client
 // needs to talk to the server, it will call this function.
 static void server_call_callback(const rc_api_request_t *request,
@@ -301,25 +320,13 @@ static void server_call_callback(const rc_api_request_t *request,
 	if (request->post_data) {
 		std::shared_ptr<http::Request> download = g_DownloadManager.AsyncPostWithCallback(url, std::string(request->post_data), "application/x-www-form-urlencoded", http::RequestFlags::ProgressBar | http::RequestFlags::ProgressBarDelayed,
 			[callback, callback_data](http::Request &download) {
-			std::string buffer;
-			download.buffer().TakeAll(&buffer);
-			rc_api_server_response_t response{};
-			response.body = buffer.c_str();
-			response.body_length = buffer.size();
-			response.http_status_code = download.ResultCode();
-			callback(&response, callback_data);
+			complete_server_call(download, callback, callback_data);
 		}, ac->T("Contacting RetroAchievements server..."));
 	} else {
 		std::shared_ptr<http::Request> download = g_DownloadManager.StartDownload(url, Path(), http::RequestFlags::ProgressBar | http::RequestFlags::ProgressBarDelayed, nullptr,
 			ac->T("Contacting RetroAchievements server..."),
 			[callback, callback_data](http::Request &download) {
-			std::string buffer;
-			download.buffer().TakeAll(&buffer);
-			rc_api_server_response_t response{};
-			response.body = buffer.c_str();
-			response.body_length = buffer.size();
-			response.http_status_code = download.ResultCode();
-			callback(&response, callback_data);
+			complete_server_call(download, callback, callback_data);
 		});
 	}
 }
