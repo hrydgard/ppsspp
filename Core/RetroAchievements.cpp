@@ -185,6 +185,11 @@ struct TrackedClient {
 static std::map<uint32_t, TrackedClient> g_trackedClients;
 static uint32_t g_nextClientId = 1;
 constexpr double RETIRED_CLIENT_TIMEOUT = 60.0;
+
+#ifdef RC_CLIENT_SUPPORTS_RAINTEGRATION
+// The main window, once InitializeRAIntegration has been called, so Initialize can load the DLL again.
+static void *g_raIntegrationWindow;
+#endif
 static const std::string g_RAImageID = "I_RETROACHIEVEMENTS_LOGO";
 constexpr double LOGIN_ATTEMPT_INTERVAL_S = 10.0;
 
@@ -744,6 +749,12 @@ void Initialize() {
 #ifdef RC_CLIENT_SUPPORTS_RAINTEGRATION
 	if (!g_Config.bAchievementsEnableRAIntegration) {
 		TryLoginByToken(true);
+	} else if (g_raIntegrationWindow) {
+		// Re-enabled after startup. WinMain only calls InitializeRAIntegration once, and Shutdown
+		// unloaded the DLL, so load it again (it logs in when loaded). It builds menus, so do it on the window's thread.
+		System_RunCallbackInWndProc([](void *hWnd, void *) {
+			InitializeRAIntegration(hWnd);
+		}, nullptr);
 	}
 #else
 	TryLoginByToken(true);
@@ -752,6 +763,7 @@ void Initialize() {
 
 void InitializeRAIntegration(void *windowHandle) {
 #ifdef RC_CLIENT_SUPPORTS_RAINTEGRATION
+	g_raIntegrationWindow = windowHandle;
 	if (g_rcClient && g_Config.bAchievementsEnableRAIntegration) {
 		wchar_t szFilePath[MAX_PATH];
 		GetModuleFileNameW(NULL, szFilePath, MAX_PATH);
