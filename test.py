@@ -553,6 +553,7 @@ tests_next = [
   "gpu/clipping/guardband",
   "gpu/commands/light",
   "gpu/depth/precision",
+  "gpu/depth/transformprecision",
   "gpu/displaylist/state",
   "gpu/filtering/linear",
   "gpu/filtering/nearest",
