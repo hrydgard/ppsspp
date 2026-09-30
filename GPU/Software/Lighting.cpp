@@ -369,7 +369,7 @@ static void ProcessSIMD(VertexData &vertex, const WorldCoords &worldpos, const W
 		}
 
 		if (lstate.specular && diffuse_factor >= 0.0f) {
-			Vec3<float> H = L + Vec3<float>(0.f, 0.f, 1.f);
+			Vec3<float> H = L + state.viewDir;
 
 			float specular_factor = Dot33(H.NormalizedOr001(useSSE4), worldnormal);
 			specular_factor = pspLightPow(specular_factor, state.specularExp);

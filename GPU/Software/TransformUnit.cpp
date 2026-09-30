@@ -28,6 +28,7 @@
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/Common/SoftwareTransformCommon.h"
+#include "GPU/Common/TransformCommon.h"
 #include "GPU/Common/VertexReader.h"
 #include "GPU/GPUStateSIMDUtil.h"
 #include "Common/Math/SIMDHeaders.h"
@@ -259,6 +260,7 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 		} else {
 			state->lightingState.usesWorldNormal = state->uvGenMode == GE_TEXMAP_ENVIRONMENT_MAP;
 		}
+		state->lightingState.viewDir = PSPViewDirection(gstate.viewMatrix);
 
 		float world[16];
 		float view[16];

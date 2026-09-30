@@ -85,6 +85,11 @@ inline float PSPSpecularCoef(float e) {
 	return e;
 }
 
+// The viewer is at infinity along view space +z, so in world space it's the view matrix's third column.
+inline Vec3f PSPViewDirection(const float viewMatrix[12]) {
+	return Vec3f(viewMatrix[2], viewMatrix[5], viewMatrix[8]).NormalizedOr001(false);
+}
+
 // Convenient way to do precomputation to save the parts of the lighting calculation
 // that's common between the many vertices of a draw call.
 class Lighter {
@@ -106,7 +111,7 @@ private:
 	Color4 materialDiffuse;
 	Color4 materialSpecular;
 	float specCoef_;
-	// Vec3f viewer_;
+	Vec3f viewDir_;
 	bool doShadeMapping_;
 	int materialUpdate_;
 

@@ -500,6 +500,14 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		} else {
 			WRITE(p, "  mediump vec3 worldnormal = normalizeOr001(mul(vec4(0.0, 0.0, %s1.0, 0.0), u_world).xyz);\n", flipNormal ? "-" : "");
 		}
+		if (enableLighting) {
+			// The viewer is at infinity along view space +z: in world space, the view matrix's third column.
+			if (compat.shaderLanguage == HLSL_D3D11) {
+				WRITE(p, "  mediump vec3 viewDir = normalizeOr001(vec3(u_view[0].z, u_view[1].z, u_view[2].z));\n");
+			} else {
+				WRITE(p, "  mediump vec3 viewDir = normalizeOr001(u_view[2].xyz);\n");
+			}
+		}
 
 		WRITE(p, "  vec4 viewPos = vec4(mul(vec4(worldpos, 1.0), u_view).xyz, 1.0);\n");
 		if (useSimpleStereo) {
@@ -668,7 +676,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				p.F("    diffuse = (u_lightdiffuse%s * diffuseColor) * max(ldot, 0.0);\n", iStr);
 				p.C("    if (comp == 0x1u && ldot >= 0.0) {\n");  // do specular. note - must allow for the >= case, since the u_matspecular.a <= 0.0 case relies on it.
 				p.C("      if (u_matspecular.a > 0.0) {\n");
-				p.C("        vec3 halfVec = toLight + vec3(0.0, 0.0, 1.0);\n");
+				p.C("        vec3 halfVec = toLight + viewDir;\n");
 				p.C("        float halfInvLen = inversesqrt(dot(halfVec, halfVec));\n");
 				p.C("        ldot = pspPow(dot(halfVec, worldnormal) * halfInvLen, u_matspecular.a);\n");
 				p.C("      } else {\n");
@@ -748,7 +756,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				if (doSpecular) {
 					p.C("  if (ldot >= 0.0) {\n");
 					p.C("    if (u_matspecular.a > 0.0) {\n");
-					p.C("      vec3 halfVec = toLight + vec3(0.0, 0.0, 1.0);\n");
+					p.C("      vec3 halfVec = toLight + viewDir;\n");
 					p.C("      float halfInvLen = inversesqrt(dot(halfVec, halfVec));\n");
 					p.C("      ldot = pspPow(dot(halfVec, worldnormal) * halfInvLen, u_matspecular.a);\n");
 					p.C("    } else {\n");

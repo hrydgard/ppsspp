@@ -41,7 +41,7 @@ Lighter::Lighter(int vertType) {
 	materialSpecular.GetFromRGB(gstate.materialspecular);
 	materialSpecular.a = 1.0f;
 	specCoef_ = PSPSpecularCoef(getFloat24(gstate.materialspecularcoef));
-	// viewer_ = Vec3f(-gstate.viewMatrix[9], -gstate.viewMatrix[10], -gstate.viewMatrix[11]);
+	viewDir_ = PSPViewDirection(gstate.viewMatrix);
 	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0;
 	materialUpdate_ = hasColor ? (gstate.materialupdate & 7) : 0;
 
@@ -148,13 +148,8 @@ void Lighter::Light(float colorOut0[4], float colorOut1[4], const float colorIn[
 		Color4 lightDiff(lcolor[1][l], 0.0f);
 		Color4 diff = (lightDiff * *diffuse) * dot;
 
-		// Real PSP specular
-		static const Vec3f toViewer(0, 0, 1);
-		// Better specular
-		// Vec3f toViewer = (viewer - pos).NormalizedOr001(cpu_info.bSSE4_1);
-
 		if (doSpecular && facingLight) {
-			Vec3f halfVec = (toLight + toViewer).NormalizedOr001(cpu_info.bSSE4_1);
+			Vec3f halfVec = (toLight + viewDir_).NormalizedOr001(cpu_info.bSSE4_1);
 
 			dot = Dot(halfVec, norm);
 			if (dot > 0.0f) {

@@ -53,6 +53,7 @@ struct State {
 
 	Vec4<int> baseAmbientColorFactor;
 	float specularExp;
+	Vec3f viewDir;
 
 	struct {
 		bool colorForAmbient : 1;
