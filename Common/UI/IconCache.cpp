@@ -9,7 +9,8 @@
 #include "Common/GPU/thin3d.h"
 #include "Common/File/FileUtil.h"
 
-#define ICON_CACHE_VERSION 1
+// 2: insertedTimestamp became wall-clock time.
+#define ICON_CACHE_VERSION 2
 #define MK_FOURCC(str) (str[0] | ((uint8_t)str[1] << 8) | ((uint8_t)str[2] << 16) | ((uint8_t)str[3] << 24))
 
 #define MAX_RUNTIME_CACHE_SIZE (1024 * 1024 * 4)
@@ -17,6 +18,8 @@
 
 // Seconds before MarkPending accepts a key whose download failed.
 constexpr double FAILED_RETRY_DELAY = 30.0;
+// Seconds a saved icon is kept across sessions, so that ones that change (user avatars) get refreshed.
+constexpr double MAX_SAVED_ICON_AGE = 24 * 60 * 60.0;
 // Seconds before BindIconTexture tries again to create a texture that failed.
 constexpr double UPLOAD_RETRY_DELAY = 5.0;
 
@@ -91,6 +94,7 @@ bool IconCache::LoadFromFile(FILE *file) {
 	}
 
 	double now = time_now_d();
+	double nowUnix = time_now_unix_utc();
 
 	for (uint32_t i = 0; i < header.entryCount; i++) {
 		DiskCacheEntry entryHeader{};
@@ -110,8 +114,8 @@ bool IconCache::LoadFromFile(FILE *file) {
 			break;
 		}
 
-		// Check if we already have the entry somehow.
-		if (cache_.find(key) != cache_.end()) {
+		// Skip it if we already have the entry somehow, or it's too old.
+		if (cache_.find(key) != cache_.end() || nowUnix - entryHeader.insertedTimestamp > MAX_SAVED_ICON_AGE) {
 			// Seek past the data and go to the next entry.
 			File::Fseek(file, entryHeader.dataLen, SEEK_CUR);
 			continue;
@@ -319,7 +323,7 @@ bool IconCache::InsertIcon(std::string_view key, IconFormat format, std::string 
 	}
 
 	double now = time_now_d();
-	Entry entry{ std::move(data), format, nullptr, now, now };
+	Entry entry{ std::move(data), format, nullptr, time_now_unix_utc(), now };
 	PeekIconSize(entry.data, entry.format, &entry.width, &entry.height);
 	cache_.emplace(key, std::move(entry));
 	return true;

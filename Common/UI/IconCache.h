@@ -60,7 +60,7 @@ private:
 		std::string data;
 		IconFormat format;
 		Draw::Texture *texture;
-		double insertedTimeStamp;
+		double insertedTimeStamp;  // Wall-clock (time_now_unix_utc), since it's saved.
 		double usedTimeStamp;
 		double uploadFailedTime;  // When CreateTexture last failed, or 0.
 		int width;  // From the image header, 0 if unknown.
