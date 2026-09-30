@@ -264,13 +264,9 @@ void Tessellate(Surface &surface, u32 vertType, const std::vector<SimpleVertex> 
 	for (int i = 0; i < numPoints; i++) {
 		pointers[i] = &points[i];
 	}
-	std::vector<Vec3f> pos(numPoints);
-	std::vector<Vec2f> tex(numPoints);
-	std::vector<Vec4f> col(numPoints);
+	std::vector<ControlPoint> controlPoints(numPoints);
 	ControlPoints cpoints;
-	cpoints.pos = pos.data();
-	cpoints.tex = tex.data();
-	cpoints.col = col.data();
+	cpoints.points = controlPoints.data();
 	cpoints.Convert(pointers.data(), numPoints);
 
 	out.vertices.assign(numVerts, SimpleVertex{});

@@ -742,19 +742,14 @@ static void ExpandBezier(int &count, int op, const std::vector<SimpleVertex> &si
 	output.indices = generatedInds.data();
 	output.count = 0;
 
+	std::vector<ControlPoint> controlPoints(num_points);
 	ControlPoints cpoints;
-	cpoints.pos = new Vec3f[num_points];
-	cpoints.tex = new Vec2f[num_points];
-	cpoints.col = new Vec4f[num_points];
+	cpoints.points = controlPoints.data();
 	cpoints.Convert(points.data(), num_points);
 
 	surface.Init((int)generatedVerts.size());
 	SoftwareTessellation(output, surface, gstate.vertType, cpoints);
 	count = output.count;
-
-	delete[] cpoints.pos;
-	delete[] cpoints.tex;
-	delete[] cpoints.col;
 }
 
 static void ExpandSpline(int &count, int op, const std::vector<SimpleVertex> &simpleVerts, const std::vector<u16> &indices, std::vector<SimpleVertex> &generatedVerts, std::vector<u16> &generatedInds) {
@@ -794,19 +789,14 @@ static void ExpandSpline(int &count, int op, const std::vector<SimpleVertex> &si
 	output.indices = generatedInds.data();
 	output.count = 0;
 
+	std::vector<ControlPoint> controlPoints(num_points);
 	ControlPoints cpoints;
-	cpoints.pos = (Vec3f *)AllocateAlignedMemory(sizeof(Vec3f) * num_points, 16);
-	cpoints.tex = (Vec2f *)AllocateAlignedMemory(sizeof(Vec2f) * num_points, 16);
-	cpoints.col = (Vec4f *)AllocateAlignedMemory(sizeof(Vec4f) * num_points, 16);
+	cpoints.points = controlPoints.data();
 	cpoints.Convert(points.data(), num_points);
 
 	surface.Init((int)generatedVerts.size());
 	SoftwareTessellation(output, surface, gstate.vertType, cpoints);
 	count = output.count;
-
-	FreeAlignedMemory(cpoints.pos);
-	FreeAlignedMemory(cpoints.tex);
-	FreeAlignedMemory(cpoints.col);
 }
 
 bool GetPrimPreview(u32 op, GEPrimitiveType *prim, std::vector<GPUDebugVertex> *vertices, std::vector<u16> *indices, int *lowerIndexBound, bool transformed) {
