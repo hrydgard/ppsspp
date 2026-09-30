@@ -54,7 +54,7 @@ struct SceAudiocodecCodec {
 
 	// Codec-specific, 0x28..0x67.
 	union {
-		// Atrac3plus and Atrac3. libatrac3plus.prx writes formatByte1/formatByte2 at init
+		// Atrac3plus. libatrac3plus.prx writes formatByte1/formatByte2 at init
 		// (0x28/0x5c for the worst case it sizes EDRAM against) and zeroes at3Related before
 		// every Atrac3plus decode.
 		struct {
@@ -67,6 +67,17 @@ struct SceAudiocodecCodec {
 			s32 unk34;       // 0x34
 			s32 unk38[12];   // 0x38..0x67
 		} at3;
+
+		// Atrac3. Init fills in 0x2c-0x34 (pspautotests audio/audiocodec/at3errors).
+		struct {
+			u32 param;           // 0x28  the layout, from libatrac3plus.prx's table (see at3Params)
+			u32 sampleRate;      // 0x2c  44100
+			u32 frameBytes;      // 0x30
+			// 0x34  Init writes 2, InitMono 1. Read at every decode: a mono layout is written as
+			// stereo only when this is 2. Stereo layouts are always written as stereo.
+			u32 outputChannels;
+			s32 unk38[12];       // 0x38..0x67
+		} atrac3;
 
 		// MP3. Field meanings are from avcodec.prx's frame-size calculator, which indexes the
 		// standard MPEG bitrate and sample-rate tables with them, and from libmp3.prx reading

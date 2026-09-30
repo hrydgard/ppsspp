@@ -47,6 +47,10 @@ public:
 		return codecOpen_;
 	}
 
+	int LastError() const override {
+		return lastError_;
+	}
+
 	void FlushBuffers() override {
 		if (at3Ctx_) {
 			atrac3_flush_buffers(at3Ctx_);
@@ -94,6 +98,7 @@ public:
 		} else {
 			result = atrac3_decode_frame(at3Ctx_, buffers_, &nb_samples, inbuf, inbytes);
 		}
+		lastError_ = result < 0 ? result : 0;
 		if (result < 0) {
 			// NOTE: Here, to recover from single bad packets, we update inBytesConsumed/outSamples with the regular packet size.
 			// Otherwise we might try to decode the same packet over and over.
@@ -170,6 +175,7 @@ private:
 
 	bool codecOpen_ = false;
 	bool codecFailed_ = false;
+	int lastError_ = 0;
 
 	PSPAudioType audioType_;
 };

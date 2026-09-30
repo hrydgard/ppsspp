@@ -45,6 +45,7 @@
 #include "get_bits.h"
 
 #include "atrac.h"
+#include "at3_decoders.h"
 #include "atrac3data.h"
 
 #define FFALIGN(x, a) (((x)+(a)-1)&~((a)-1))
@@ -580,7 +581,7 @@ static int decode_channel_sound_unit(ATRAC3Context *q, GetBitContext *gb,
         int bits = get_bits(gb, 2);
         if (bits != 3) {
             av_log(AV_LOG_ERROR,"Joint Stereo mono Sound Unit id %d != 3.", bits);
-            return AVERROR_INVALIDDATA;
+            return ATRAC3_ERROR_JOINT_STEREO_MARKER;
         }
     } else {
         int bits = get_bits(gb, 6);
