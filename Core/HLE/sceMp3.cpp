@@ -514,6 +514,9 @@ static int sceMp3Init(u32 mp3) {
 
 	// Based on bitrate, we can calculate the frame size in bytes.
 	// Note: this doesn't correctly handle padding or slot size, but the PSP doesn't either.
+	// TODO: VBR. For a game built with SDK 6.00 or later, libmp3.prx takes the frame count from a
+	// Xing header (not "Info") or a VBRI header instead, when the first frame has one. See
+	// AuResetPlayPositionByFrame(), whose seek needs the same headers.
 	uint32_t bytesPerSecond = (ctx->MaxOutputSample / 8) * ctx->BitRate * 1000;
 	// The frame count ignores the upper bits of these sizes, although they are used in cases.
 	uint64_t totalBytes = (ctx->endPos & 0xFFFFFFFF) - (ctx->startPos & 0xFFFFFFFF);

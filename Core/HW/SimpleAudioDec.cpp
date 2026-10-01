@@ -89,6 +89,8 @@ private:
 	AVCodec *codec_ = nullptr;
 	AVCodecContext  *codecCtx_ = nullptr;
 	SwrContext      *swrCtx_ = nullptr;
+	// The channel count swrCtx_ was set up for.
+	int swrInChannels_ = 0;
 
 	bool codecOpen_ = false;
 };
@@ -314,6 +316,17 @@ bool FFmpegAudioDecoder::Decode(const uint8_t *inbuf, int inbytes, int *inbytesC
 		int64_t wanted_channel_layout = AV_CH_LAYOUT_STEREO; // we want stereo output layout
 		int64_t dec_channel_layout = frame_->channel_layout; // decoded channel layout
 #endif
+#if LIBAVUTIL_VERSION_MAJOR >= 59
+		const int frameChannels = frame_->ch_layout.nb_channels;
+#else
+		const int frameChannels = frame_->channels;
+#endif
+
+		// A frame can decode with a different channel count than the first one did - a false sync
+		// after a seek did this - and converting it with the old context reads a missing plane.
+		if (swrCtx_ && frameChannels != swrInChannels_) {
+			swr_free(&swrCtx_);
+		}
 
 		if (!swrCtx_) {
 			// TODO: Allow these to differ.
@@ -353,6 +366,7 @@ bool FFmpegAudioDecoder::Decode(const uint8_t *inbuf, int inbytes, int *inbytesC
 				codec_ = 0;
 				return false;
 			}
+			swrInChannels_ = frameChannels;
 		}
 
 		// convert audio to AV_SAMPLE_FMT_S16
@@ -433,7 +447,19 @@ size_t AuCtx::FindNextMp3Sync() {
 		return 0;
 	}
 	for (size_t i = 0; i < sourcebuff.size() - 2; ++i) {
-		if ((sourcebuff[i] & 0xFF) == 0xFF && (sourcebuff[i + 1] & 0xC0) == 0xC0) {
+		const u8 b1 = sourcebuff[i + 1];
+		const u8 b2 = sourcebuff[i + 2];
+		if ((u8)sourcebuff[i] != 0xFF || (b1 & 0xE0) != 0xE0) {
+			continue;
+		}
+		// Skip sync bits that can't start a layer III header (a reserved version, another layer,
+		// or a reserved bitrate or sample rate). After a seek into the middle of the stream, data
+		// that only looks like a sync is common, and the decoder trips over it.
+		const int version = (b1 >> 3) & 3;
+		const int layer = (b1 >> 1) & 3;
+		const int bitrateIndex = b2 >> 4;
+		const int sampleRateIndex = (b2 >> 2) & 3;
+		if (version != 1 && layer == 1 && bitrateIndex != 15 && sampleRateIndex != 3) {
 			return i;
 		}
 	}
@@ -651,8 +677,14 @@ u32 AuCtx::AuGetInfoToAddStreamData(u32 bufPtr, u32 sizePtr, u32 srcPosPtr) {
 
 u32 AuCtx::AuResetPlayPositionByFrame(int frame) {
 	// Note: this doesn't correctly handle padding or slot size, but the PSP doesn't either.
-	uint32_t bytesPerSecond = (MaxOutputSample / 8) * BitRate * 1000;
-	readPos = startPos + (frame * bytesPerSecond) / SamplingRate;
+	// TODO: VBR. For a game built with SDK 6.00 or later, libmp3.prx seeks with the Xing TOC or
+	// the VBRI table when the first frame has one, and only falls back to this formula without.
+	// libmp3 (6.60): sceMp3ResetPlayPositionByFrame -> 08806168 picks 08806224 (Xing),
+	// 08806308 (VBRI) or 08806434 (this formula); sceMp3Init parses the headers in 08805c60 and
+	// 08805e5c. Neither path subtracts 1 the way this one does.
+	// 64-bit, since frame * bytesPerSecond overflows 32 bits about 6 seconds into a 128kbps stream.
+	uint64_t bytesPerSecond = (MaxOutputSample / 8) * BitRate * 1000;
+	readPos = (int)(startPos + ((uint64_t)frame * bytesPerSecond) / SamplingRate);
 	// Not sure why, but it seems to consistently seek 1 before, maybe in case it's off slightly.
 	if (frame != 0)
 		readPos -= 1;
