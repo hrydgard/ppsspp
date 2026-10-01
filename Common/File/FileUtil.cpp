@@ -703,7 +703,9 @@ bool CreateDir(const Path &path, bool quiet) {
 	}
 	return false;
 #else
-	if (mkdir(path.ToString().c_str(), 0755) == 0) {
+	if (mkdir(path.ToString().c_str(), 0775) == 0) {
+		// mkdir's mode is masked by the umask, chmod's isn't.
+		chmod(path.ToString().c_str(), 0775);
 		return true;
 	}
 
@@ -711,6 +713,11 @@ bool CreateDir(const Path &path, bool quiet) {
 	if (err == EEXIST) {
 		if (!quiet) {
 			DEBUG_LOG(Log::IO, "CreateDir: mkdir failed on %s: already exists", path.c_str());
+		}
+		// Repair directories created with older, narrower permissions.
+		struct stat info;
+		if (stat(path.c_str(), &info) == 0 && S_ISDIR(info.st_mode)) {
+			chmod(path.c_str(), 0775);
 		}
 		return true;
 	}
