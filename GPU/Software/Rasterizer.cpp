@@ -1488,7 +1488,10 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 
 	if (minX < entireX1 - 2)
 		minX += SCREEN_SCALE_FACTOR;
-	if (minY < entireY1 - 1)
+	// A sprite drawn bottom-left to top-right is rotated, and its first row rounds like a column
+	// (gpu/probe exp122).
+	const bool rotated = v0.screenpos.x < v1.screenpos.x && v0.screenpos.y > v1.screenpos.y;
+	if (minY < entireY1 - (rotated ? 2 : 1))
 		minY += SCREEN_SCALE_FACTOR;
 
 	RasterizerState state = OptimizeFlatRasterizerState(rastState, v1);
@@ -1565,7 +1568,17 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 		const int64_t left = std::min(v0.screenpos.x, v1.screenpos.x), top = std::min(v0.screenpos.y, v1.screenpos.y);
 		const int64_t X[3] = { left, std::max(v0.screenpos.x, v1.screenpos.x), left };
 		const int64_t Y[3] = { top, top, std::max(v0.screenpos.y, v1.screenpos.y) };
-		uvPlanes = ComputeUVPlanes(X, Y, u, v, ws);
+		if (!(right && !down)) {
+			uvPlanes = ComputeUVPlanes(X, Y, u, v, ws);
+		} else {
+			// Drawn bottom left to top right (rotated), the plane comes from v0, v1 and the bottom right
+			// corner, which anchors it at the bottom left (gpu/probe exp122).
+			const float ubr = u[1] + u[2] - u[0], vbr = v[1] + v[2] - v[0];
+			const int64_t rightX = std::max(v0.screenpos.x, v1.screenpos.x), bottom = std::max(v0.screenpos.y, v1.screenpos.y);
+			const float ur[3] = { u[2], u[1], ubr }, vr[3] = { v[2], v[1], vbr };
+			const int64_t XR[3] = { left, rightX, rightX }, YR[3] = { bottom, top, bottom };
+			uvPlanes = ComputeUVPlanes(XR, YR, ur, vr, ws);
+		}
 	}
 	// Sprite planes are built from normalized coordinates, also in through mode.
 	const float autoGrad = UVPlaneGradient(uvPlanes, state, false);
