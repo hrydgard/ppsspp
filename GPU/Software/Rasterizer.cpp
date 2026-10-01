@@ -2096,7 +2096,8 @@ static void LinePixels(int64_t x0, int64_t y0, int64_t x1, int64_t y1, std::vect
 	out.clear();
 	if (x0 == x1 && y0 == y1)
 		return;
-	const bool xMajor = std::abs(x1 - x0) >= std::abs(y1 - y0);
+	// A diagonal line (|dx| == |dy|) is y-major (gpu/probe exp137).
+	const bool xMajor = std::abs(x1 - x0) > std::abs(y1 - y0);
 	const int64_t a0 = xMajor ? x0 : y0, a1 = xMajor ? x1 : y1;
 	const int64_t b0 = xMajor ? y0 : x0, b1 = xMajor ? y1 : x1;
 	const int dir = a1 >= a0 ? 1 : -1;
@@ -2124,6 +2125,23 @@ static void LinePixels(int64_t x0, int64_t y0, int64_t x1, int64_t y1, std::vect
 			}
 		}
 	}
+}
+
+// Gouraud color along a line (gpu/probe exp137, exact): the gradient along the major axis comes from the
+// setup reciprocal like a triangle plane's, with 14 fraction bits per subpixel and floored, and a pixel's value
+// is the start color plus the gradient times the signed distance of its center from v0 along the line's
+// direction, floored.
+static int LineColorAt(int c0, int c1, int64_t x0, int64_t y0, int64_t x1, int64_t y1, int px, int py) {
+	const bool xMajor = std::abs(x1 - x0) > std::abs(y1 - y0);
+	const int64_t a0 = xMajor ? x0 : y0, a1 = xMajor ? x1 : y1;
+	const int64_t ac = (int64_t)(xMajor ? px : py) * SCREEN_SCALE_FACTOR + SCREEN_SCALE_FACTOR / 2;
+	if (a1 == a0)
+		return c1;
+	int e;
+	const int64_t q = GESetupRecip((uint64_t)std::abs(a1 - a0), &e);
+	const int64_t k = ((int64_t)(c1 - c0) * q) >> (e + 2);
+	const int64_t walk = a1 > a0 ? ac - a0 : a0 - ac;
+	return std::clamp((int)((((int64_t)c0 << 14) + k * walk) >> 14), 0, 255);
 }
 
 void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range, const RasterizerState &state) {
@@ -2194,8 +2212,11 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 			Vec4<int> prim_color;
 			Vec3<int> sec_color;
 			if (interpolateColor) {
-				prim_color = (v0_c0 * (steps - i) + v1_c0 * i) / steps1;
-				sec_color = (v0_c1 * (steps - i) + v1_c1 * i) / steps1;
+				for (int c = 0; c < 4; ++c) {
+					prim_color[c] = LineColorAt(v0_c0[c], v1_c0[c], a.x, a.y, b.x, b.y, lp.x, lp.y);
+					if (c < 3)
+						sec_color[c] = LineColorAt(v0_c1[c], v1_c1[c], a.x, a.y, b.x, b.y, lp.x, lp.y);
+				}
 			} else {
 				prim_color = v1_c0;
 				sec_color = v1_c1;
