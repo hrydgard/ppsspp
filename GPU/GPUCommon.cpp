@@ -355,6 +355,19 @@ u32 GPUCommon::DrawSync(int mode) {
 				}
 			}
 		}
+
+		// When this returns, the game considers framebuffer memory readable, and some games
+		// (Everybody's Golf, The Sims 2) immediately CPU-readback what was just rendered.
+		// Download the rendered framebuffer so that read sees the real pixels, and invalidate
+		// any cached textures overlapping it so they rehash from the fresh data.
+		// SoftGPU renders straight into memory, so this only applies to hardware backends.
+		if (framebufferManager_ && PSP_CoreParameter().compat.flags().ForceEnableGPUReadback) {
+			VirtualFramebuffer *vfb = framebufferManager_->GetCurrentRenderVFB();
+			if (vfb && vfb->fbo && vfb->last_frame_render == gpuStats.totals.numFlips && !vfb->memoryUpdated) {
+				framebufferManager_->ReadFramebufferToMemory(vfb, 0, 0, vfb->width, vfb->height, RASTER_COLOR, Draw::ReadbackMode::BLOCK);
+				InvalidateCache(vfb->fb_address, vfb->fb_stride * 2 * vfb->height, GPU_INVALIDATE_HINT);
+			}
+		}
 		return 0;
 	}
 
@@ -419,6 +432,16 @@ int GPUCommon::ListSync(int listid, int mode) {
 
 	if (dl.waitUntilTicks > CoreTiming::GetTicks(currentMIPS)) {
 		__GeWaitCurrentThread(GPU_SYNC_LIST, listid, "GeListSync");
+	}
+
+	// Same as in DrawSync: when this returns, the list's output is considered readable by the
+	// CPU, and games using ForceEnableGPUReadback may immediately read it back.
+	if (framebufferManager_ && PSP_CoreParameter().compat.flags().ForceEnableGPUReadback) {
+		VirtualFramebuffer *vfb = framebufferManager_->GetCurrentRenderVFB();
+		if (vfb && vfb->fbo && vfb->last_frame_render == gpuStats.totals.numFlips && !vfb->memoryUpdated) {
+			framebufferManager_->ReadFramebufferToMemory(vfb, 0, 0, vfb->width, vfb->height, RASTER_COLOR, Draw::ReadbackMode::BLOCK);
+			InvalidateCache(vfb->fb_address, vfb->fb_stride * 2 * vfb->height, GPU_INVALIDATE_HINT);
+		}
 	}
 
 	return PSP_GE_LIST_COMPLETED;

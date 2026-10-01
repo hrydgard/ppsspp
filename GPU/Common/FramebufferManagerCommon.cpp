@@ -34,6 +34,7 @@
 #include "Core/Debugger/MemBlockInfo.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
+#include <numeric>
 #include "GPU/Common/PresentationCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Common/ReinterpretFramebuffer.h"
@@ -3275,6 +3276,31 @@ void FramebufferManagerCommon::ReadbackFramebuffer(VirtualFramebuffer *vfb, int 
 			w * vfb->renderScaleFactor, h * vfb->renderScaleFactor, (uint16_t *)destPtr, stride, w, h, mode);
 	} else {
 		draw_->CopyFramebufferToMemory(vfb->fbo, channel == RASTER_COLOR ? Draw::Aspect::COLOR_BIT : Draw::Aspect::DEPTH_BIT, x, y, w, h, destFormat, destPtr, stride, mode, "ReadbackFramebufferSync");
+
+		// In 5551 framebuffers, the alpha bit and the stencil bit are the same bit of memory
+		// (which is also why softgpu writes stencil results straight into the alpha bit.)
+		// Stencil writes on hardware backends go to the depth-stencil attachment instead, so
+		// games that use stencil to set the alpha bit (Everybody's Golf's character portrait)
+		// would read back zero alpha. Merge the stencil bits into the alpha bits here.
+		// TODO: The same sharing applies to 4444, but with 4 bits each.
+		if (channel == RASTER_COLOR && vfb->fb_format == GE_FORMAT_5551 && vfb->renderScaleFactor == 1) {
+			std::unique_ptr<u8[]> stencil(new u8[w * h]);
+			bool hasStencil = draw_->CopyFramebufferToMemory(vfb->fbo, Draw::Aspect::STENCIL_BIT, x, y, w, h, Draw::DataFormat::S8, stencil.get(), w, mode, "Readback5551Stencil");
+			if (!hasStencil) {
+				hasStencil = ReadbackStencilbuffer(vfb->fbo, x, y, w, h, stencil.get(), w, mode);
+			}
+			NOTICE_LOG(Log::FrameBuf, "5551 stencil merge: hasStencil=%d sum=%d", (int)hasStencil, hasStencil ? (int)std::accumulate(stencil.get(), stencil.get() + w * h, 0) : -1);
+			if (hasStencil) {
+				uint16_t *pixels = (uint16_t *)destPtr;
+				for (int yy = 0; yy < h; ++yy) {
+					for (int xx = 0; xx < w; ++xx) {
+						if (stencil[yy * w + xx] & 0x80) {
+							pixels[yy * stride + xx] |= 0x8000;
+						}
+					}
+				}
+			}
+		}
 	}
 
 	char tag[128];

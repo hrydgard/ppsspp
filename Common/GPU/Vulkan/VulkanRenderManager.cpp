@@ -1226,6 +1226,11 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 bool VulkanRenderManager::CopyFramebufferToMemory(VKRFramebuffer *src, VkImageAspectFlags aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, Draw::ReadbackMode mode, const char *tag) {
 	_dbg_assert_(insideFrame_);
 
+	if (src && (aspectBits & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) && src->depth.image == VK_NULL_HANDLE) {
+		// No depth-stencil attachment to read from (can happen for framebuffers that never use depth).
+		return false;
+	}
+
 	for (int i = (int)steps_.size() - 1; i >= 0; i--) {
 		if (steps_[i]->stepType == VKRStepType::RENDER && steps_[i]->render.framebuffer == src) {
 			steps_[i]->render.numReads++;
