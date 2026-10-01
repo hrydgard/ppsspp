@@ -1268,6 +1268,13 @@ void DrawTriangleSlice(
 	// Through mode too, where w is 1 (gpu/probe exp73).
 	const UVPlanes uvPlanes = state.enableTextures ? ComputeUVPlanes(v0, v1, v2, state.textureProj && !state.throughMode) : UVPlanes{};
 	DepthPlane color0Planes[4], color1Planes[3];
+	DepthPlane fogPlane{};
+	if (!noFog) {
+		const int64_t X[3] = { v0.screenpos.x, v1.screenpos.x, v2.screenpos.x };
+		const int64_t Y[3] = { v0.screenpos.y, v1.screenpos.y, v2.screenpos.y };
+		const int64_t F[3] = { ClampFogDepth(v0.fogdepth), ClampFogDepth(v1.fogdepth), ClampFogDepth(v2.fogdepth) };
+		fogPlane = ComputePlane(X, Y, F);
+	}
 	if (!flatColor0)
 		ComputeColorPlanes<4>(v0, v1, v2, v0.color0, v1.color0, v2.color0, color0Planes);
 	if (!flatColor1)
@@ -1414,11 +1421,9 @@ void DrawTriangleSlice(
 
 				Vec4<int> fog = Vec4<int>::AssignToAll(255);
 				if (!noFog) {
-					Vec4<float> fogdepths = w0.Cast<float>() * v0.fogdepth + w1.Cast<float>() * v1.fogdepth + w2.Cast<float>() * v2.fogdepth;
-					fogdepths = fogdepths * wsum_recip;
-					for (int i = 0; i < 4; ++i) {
-						fog[i] = ClampFogDepth(fogdepths[i]);
-					}
+					// The 8-bit fog of each vertex through the depth plane, like Gouraud color (gpu/probe exp21).
+					for (int i = 0; i < 4; ++i)
+						fog[i] = std::clamp((int)fogPlane.At(centerX + (i & 1) * SCREEN_SCALE_FACTOR, centerY + (i >> 1) * SCREEN_SCALE_FACTOR), 0, 255);
 				}
 
 				PROFILE_THIS_SCOPE("draw_tri_px");
