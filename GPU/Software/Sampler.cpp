@@ -730,12 +730,14 @@ static Vec4IntResult SOFTRAST_CALL SampleLinearLevel(float s, float t, const u8 
 	__m128i mul_u =	_mm_set1_epi16(frac_u);
 	mul_u = _mm_xor_si128(mul_u, _mm_setr_epi16(0xF, 0xF, 0xF, 0xF, 0x0, 0x0, 0x0, 0x0));
 	mul_u = _mm_add_epi16(mul_u, _mm_setr_epi16(0x1, 0x1, 0x1, 0x1, 0x0, 0x0, 0x0, 0x0));
+	// Like the GE: horizontal lerps truncated to 8 bits, then the vertical one (gpu/probe exp52).
+	top = _mm_mullo_epi16(top, mul_u);
+	bot = _mm_mullo_epi16(bot, mul_u);
+	top = _mm_srli_epi16(_mm_add_epi16(top, _mm_shuffle_epi32(top, _MM_SHUFFLE(3, 2, 3, 2))), 4);
+	bot = _mm_srli_epi16(_mm_add_epi16(bot, _mm_shuffle_epi32(bot, _MM_SHUFFLE(3, 2, 3, 2))), 4);
 	top = _mm_mullo_epi16(top, _mm_set1_epi16(0x10 - frac_v));
 	bot = _mm_mullo_epi16(bot, _mm_set1_epi16(frac_v));
-	__m128i sum = _mm_add_epi16(top, bot);
-	sum = _mm_mullo_epi16(sum, mul_u);
-	sum = _mm_add_epi16(sum, _mm_shuffle_epi32(sum, _MM_SHUFFLE(3, 2, 3, 2)));
-	sum = _mm_srli_epi16(sum, 8);
+	__m128i sum = _mm_srli_epi16(_mm_add_epi16(top, bot), 4);
 	sum = _mm_unpacklo_epi16(sum, zero);
 	return sum;
 #else
@@ -743,9 +745,10 @@ static Vec4IntResult SOFTRAST_CALL SampleLinearLevel(float s, float t, const u8 
 	Vec4<int> texcolor_tr = Vec4<int>::FromRGBA(c.v[1]);
 	Vec4<int> texcolor_bl = Vec4<int>::FromRGBA(c.v[2]);
 	Vec4<int> texcolor_br = Vec4<int>::FromRGBA(c.v[3]);
-	Vec4<int> top = texcolor_tl * (0x10 - frac_u) + texcolor_tr * frac_u;
-	Vec4<int> bot = texcolor_bl * (0x10 - frac_u) + texcolor_br * frac_u;
-	return ToVec4IntResult((top * (0x10 - frac_v) + bot * frac_v) >> (4 + 4));
+	// Like the GE: horizontal lerps truncated to 8 bits, then the vertical one (gpu/probe exp52).
+	Vec4<int> top = (texcolor_tl * (0x10 - frac_u) + texcolor_tr * frac_u) >> 4;
+	Vec4<int> bot = (texcolor_bl * (0x10 - frac_u) + texcolor_br * frac_u) >> 4;
+	return ToVec4IntResult((top * (0x10 - frac_v) + bot * frac_v) >> 4);
 #endif
 }
 
