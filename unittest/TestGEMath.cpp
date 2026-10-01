@@ -128,6 +128,8 @@ static bool TestGESetupRecip() {
 	// exp54's Gouraud triangle (det 854491) needs at least 40211 here; exp39 and exp41 bound it from above.
 	int e = 0;
 	EXPECT_EQ_INT(GESetupRecip(65536 + 41275, &e), 40211);
+	// Blade Dancer's large triangle (det 9668772) needs at least 56859 for its depth (frame dump, index 10001).
+	EXPECT_EQ_INT(GESetupRecip(9668772, &e), 56859);
 	return true;
 }
 
