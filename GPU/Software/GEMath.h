@@ -171,14 +171,14 @@ float GELightPow(float v, float e);
 
 // How the GE scales light by a factor (gpu/probe exp61-63): the light and material colors make an
 // 8-bit product x = ((2l + 1) * (2m + 1)) >> 10, and each factor (N.L or the specular power, then the
-// attenuation and spot) becomes an 8-bit s = floor(256 * f) that is expanded like a color:
+// attenuation and spot) becomes an 8-bit s = floor(256 * f), 0 for a negative f, that is expanded like a color:
 // ((2x + 1) * (2s + 1)) >> 10. A factor of 1 (s = 256) leaves x as it is.
 inline Vec4<int> GELightColorProduct(const Vec4<int> &lightFactor, const Vec4<int> &materialFactor) {
 	return (lightFactor * materialFactor) >> 10;
 }
 
 inline Vec4<int> GELightColorScale(const Vec4<int> &x, float f) {
-	const int s = std::min((int)(256.0f * f), 256);
+	const int s = std::clamp((int)(256.0f * f), 0, 256);
 	return ((x * 2 + Vec4<int>::AssignToAll(1)) * (2 * s + 1)) >> 10;
 }
 

@@ -189,11 +189,32 @@ void ComputeState(State *state, bool hasColor0) {
 	state->usesWorldNormal = gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP || anyDiffuse || anySpecular;
 }
 
-void GenerateLightST(VertexData &vertex, const WorldCoords &worldpos, const WorldCoords &worldnormal, const Vec3f &viewDir) {
+// PSPShadeMapCoord in the GE's arithmetic, with L as lighting computes it.
+// v . N for the unnormalized normal N, scaled by its reciprocal length (the spot direction works the same).
+static inline float GENormalDot(const Vec3f &v, const Vec3f &n, float nRsqrt) {
+	return ProductToFloat24((double)GEDot(v, n) * nRsqrt);
+}
+
+static float GEShadeMapCoord(int l, const WorldCoords &worldpos, const WorldCoords &worldnormal, float normalRsqrt, const Vec3f &viewDir) {
+	Vec3f L(getFloat24(gstate.lpos[l * 3]), getFloat24(gstate.lpos[l * 3 + 1]), getFloat24(gstate.lpos[l * 3 + 2]));
+	if (gstate.getLightType(l) != GE_LIGHTTYPE_DIRECTIONAL) {
+		for (int i = 0; i < 3; ++i)
+			L[i] = GEAddFloat24(L[i], -worldpos[i]);
+	}
+	GENormalize(L);
+	if (gstate.isUsingSpecularLight(l)) {
+		for (int i = 0; i < 3; ++i)
+			L[i] = GEAddFloat24(L[i], viewDir[i]);
+		GENormalize(L);
+	}
+	return GEAddFloat24(GENormalDot(L, worldnormal, normalRsqrt), 1.0f) * 0.5f;
+}
+
+void GenerateLightST(VertexData &vertex, const WorldCoords &worldpos, const WorldCoords &worldnormal, float normalRsqrt, const Vec3f &viewDir) {
 	// Always calculate texture coords from lighting results if environment mapping is active
 	// This should be done even if lighting is disabled altogether.
-	vertex.texturecoords.s() = PSPShadeMapCoord(gstate.getUVLS0(), worldpos, worldnormal, viewDir);
-	vertex.texturecoords.t() = PSPShadeMapCoord(gstate.getUVLS1(), worldpos, worldnormal, viewDir);
+	vertex.texturecoords.s() = GEShadeMapCoord(gstate.getUVLS0(), worldpos, worldnormal, normalRsqrt, viewDir);
+	vertex.texturecoords.t() = GEShadeMapCoord(gstate.getUVLS1(), worldpos, worldnormal, normalRsqrt, viewDir);
 }
 
 
@@ -225,7 +246,7 @@ static inline float Dot33(const Vec3f &a, const Vec3f &b) {
 }
 
 template <bool useSSE4>
-static void ProcessSIMD(VertexData &vertex, const WorldCoords &worldpos, const WorldCoords &worldnormal, const State &state) {
+static void ProcessSIMD(VertexData &vertex, const WorldCoords &worldpos, const WorldCoords &worldnormal, float normalRsqrt, const State &state) {
 	// Lighting blending rounds using the half offset method (like alpha blend.)
 	Vec4<int> colorFactor;
 	if (state.colorForAmbient || state.colorForDiffuse || state.colorForSpecular) {
@@ -302,7 +323,7 @@ static void ProcessSIMD(VertexData &vertex, const WorldCoords &worldpos, const W
 		// diffuse lighting
 		float diffuse_factor;
 		if (lstate.diffuse || lstate.specular) {
-			diffuse_factor = GEDot(L, worldnormal);
+			diffuse_factor = GENormalDot(L, worldnormal, normalRsqrt);
 			if (lstate.poweredDiffuse) {
 				diffuse_factor = GELightPow(diffuse_factor, state.specularExp);
 			}
@@ -316,11 +337,13 @@ static void ProcessSIMD(VertexData &vertex, const WorldCoords &worldpos, const W
 		}
 
 		if (lstate.specular && diffuse_factor >= 0.0f) {
-			Vec3<float> H = L + state.viewDir;
+			Vec3<float> H;
+			for (int i = 0; i < 3; ++i)
+				H[i] = GEAddFloat24(L[i], state.viewDir[i]);
 			if (GENormalize(H) == 0.0f)
 				H = Vec3f(0.0f, 0.0f, 1.0f);
 
-			float specular_factor = GEDot(H, worldnormal);
+			float specular_factor = GENormalDot(H, worldnormal, normalRsqrt);
 			specular_factor = GELightPow(specular_factor, state.specularExp);
 
 			if (specular_factor > 0.0f) {
@@ -343,14 +366,14 @@ static void ProcessSIMD(VertexData &vertex, const WorldCoords &worldpos, const W
 	}
 }
 
-void Process(VertexData &vertex, const WorldCoords &worldpos, const WorldCoords &worldnormal, const State &state) {
+void Process(VertexData &vertex, const WorldCoords &worldpos, const WorldCoords &worldnormal, float normalRsqrt, const State &state) {
 #ifdef _M_SSE
 	if (cpu_info.bSSE4_1) {
-		ProcessSIMD<true>(vertex, worldpos, worldnormal, state);
+		ProcessSIMD<true>(vertex, worldpos, worldnormal, normalRsqrt, state);
 		return;
 	}
 #endif
-	ProcessSIMD<false>(vertex, worldpos, worldnormal, state);
+	ProcessSIMD<false>(vertex, worldpos, worldnormal, normalRsqrt, state);
 }
 
 } // namespace

@@ -550,11 +550,18 @@ ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const Tran
 		}
 		vertex.v.clipw = vertex.clippos.w;
 
+		// The normal stays as the world matrix leaves it: lighting scales its dot products by the
+		// reciprocal length instead (gpu/probe exp3, world matrix cases).
 		Vec3<float> worldnormal;
+		float normalRsqrt = 1.0f;
 		if (state.lightingState.usesWorldNormal) {
 			worldnormal = TransformUnit::ModelToWorldNormal(normal);
-			if (GENormalize(worldnormal) == 0.0f)
+			const float len2 = GEDot(worldnormal, worldnormal);
+			if (len2 > 0.0f && std::isfinite(len2)) {
+				normalRsqrt = GERsqrt(len2);
+			} else {
 				worldnormal = Vec3f(0.0f, 0.0f, 1.0f);
+			}
 		}
 
 		// Time to generate some texture coords.  Lighting will handle shade mapping.
@@ -583,12 +590,12 @@ ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const Tran
 			// Note that UV scale/offset are not used in this mode.
 			vertex.v.texturecoords = Vec3Packedf(GETexGenComponent(source, gstate.tgenMatrix, 0), GETexGenComponent(source, gstate.tgenMatrix, 1), GETexGenComponent(source, gstate.tgenMatrix, 2));
 		} else if (state.uvGenMode == GE_TEXMAP_ENVIRONMENT_MAP) {
-			Lighting::GenerateLightST(vertex.v, worldpos, worldnormal, state.lightingState.viewDir);
+			Lighting::GenerateLightST(vertex.v, worldpos, worldnormal, normalRsqrt, state.lightingState.viewDir);
 		}
 
 		PROFILE_THIS_SCOPE("light");
 		if (state.enableLighting)
-			Lighting::Process(vertex.v, worldpos, worldnormal, state.lightingState);
+			Lighting::Process(vertex.v, worldpos, worldnormal, normalRsqrt, state.lightingState);
 	} else {
 		vertex.v.screenpos.x = (int)(pos[0] * SCREEN_SCALE_FACTOR);
 		vertex.v.screenpos.y = (int)(pos[1] * SCREEN_SCALE_FACTOR);
