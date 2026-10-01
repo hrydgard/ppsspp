@@ -849,6 +849,14 @@ static u32 sceDisplayIsVblank() {
 }
 
 void __DisplayWaitForVblanks(const char *reason, int vblanks, bool callbacks) {
+	// Nothing can wait in an interrupt handler or with dispatch disabled, and sceDisplaySetMode
+	// then returns 0 without waiting (pspautotests intr/waits). Gods Eater Burst calls it from its
+	// vblank handler, and the wait went to the idle thread the handler runs on. Once both idle
+	// threads were waiting there was nothing left to schedule.
+	if (__IsInInterrupt() || !__KernelIsDispatchEnabled()) {
+		return;
+	}
+
 	const s64 ticksIntoFrame = CoreTiming::GetTicks(currentMIPS) - DisplayFrameStartTicks();
 	const s64 cyclesToNextVblank = msToCycles(frameMs) - ticksIntoFrame;
 
