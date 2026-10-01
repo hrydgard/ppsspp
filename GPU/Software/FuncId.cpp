@@ -476,8 +476,10 @@ void ComputeSamplerID(SamplerID *id_out) {
 
 	id.texfmt = fmt;
 	id.swizzle = gstate.isTextureSwizzled();
-	// Only CLUT4 can use separate CLUTs per mimap.
-	id.useSharedClut = fmt != GE_TFMT_CLUT4 || maxLevel == 0 || !gstate.isMipmapEnabled() || gstate.isClutSharedForMipmaps();
+	// With separate CLUTs, level n puts n above the index bits, wrapped to the CLUT: CLUT4 adds n * 16,
+	// CLUT8 with a 16-bit palette (512 entries) adds (n & 1) * 256, and the rest wrap back to 0 (gpu/probe exp90).
+	const bool clutPerLevel = fmt == GE_TFMT_CLUT4 || (fmt == GE_TFMT_CLUT8 && gstate.getClutPaletteFormat() != GE_CMODE_32BIT_ABGR8888);
+	id.useSharedClut = !clutPerLevel || maxLevel == 0 || !gstate.isMipmapEnabled() || gstate.isClutSharedForMipmaps();
 	if (gstate.isTextureFormatIndexed()) {
 		id.clutfmt = gstate.getClutPaletteFormat();
 		id.hasClutMask = gstate.getClutIndexMask() != 0xFF;

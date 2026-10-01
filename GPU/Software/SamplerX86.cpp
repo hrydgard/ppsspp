@@ -1236,8 +1236,13 @@ bool SamplerJitCache::Jit_ReadClutQuad(const SamplerID &id, bool level1) {
 #endif
 		}
 
-		// Now we multiply by 16, and add.
-		PSLLD(vecLevelReg, 4);
+		// Now we multiply by 16 (CLUT4) or take (level & 1) * 256 (CLUT8), and add.
+		if (id.TexFmt() == GE_TFMT_CLUT4) {
+			PSLLD(vecLevelReg, 4);
+		} else {
+			PSLLD(vecLevelReg, 31);
+			PSRLD(vecLevelReg, 23);
+		}
 		PADDD(indexReg, R(vecLevelReg));
 		regCache_.Release(vecLevelReg, RegCache::VEC_TEMP0);
 	}
@@ -3659,8 +3664,7 @@ bool SamplerJitCache::Jit_ReadClutColor(const SamplerID &id) {
 
 		if (regCache_.Has(RegCache::GEN_ARG_LEVEL)) {
 			X64Reg levelReg = regCache_.Find(RegCache::GEN_ARG_LEVEL);
-			// We need to multiply by 16 and add, LEA allows us to copy too.
-			LEA(32, temp2Reg, MScaled(levelReg, SCALE_4, 0));
+			MOV(32, R(temp2Reg), R(levelReg));
 			regCache_.Unlock(levelReg, RegCache::GEN_ARG_LEVEL);
 			if (id.fetch)
 				regCache_.ForceRelease(RegCache::GEN_ARG_LEVEL);
@@ -3668,11 +3672,16 @@ bool SamplerJitCache::Jit_ReadClutColor(const SamplerID &id) {
 			_assert_(stackLevelOffset_ != -1);
 			// The argument was saved on the stack.
 			MOV(32, R(temp2Reg), MDisp(RSP, stackArgPos_ + stackLevelOffset_));
-			LEA(32, temp2Reg, MScaled(temp2Reg, SCALE_4, 0));
 		}
 
-		// Second step of the multiply by 16 (since we only multiplied by 4 before.)
-		LEA(64, resultReg, MComplex(resultReg, temp2Reg, SCALE_4, 0));
+		// CLUT4 adds level * 16, CLUT8 (level & 1) * 256.
+		if (id.TexFmt() == GE_TFMT_CLUT4) {
+			SHL(32, R(temp2Reg), Imm8(4));
+		} else {
+			SHL(32, R(temp2Reg), Imm8(31));
+			SHR(32, R(temp2Reg), Imm8(23));
+		}
+		ADD(64, R(resultReg), R(temp2Reg));
 		regCache_.Release(temp2Reg, RegCache::GEN_TEMP2);
 	}
 

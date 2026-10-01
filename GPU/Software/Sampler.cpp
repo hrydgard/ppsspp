@@ -289,7 +289,9 @@ static inline int GetPixelDataOffset(uint32_t row_pitch_pixels, uint32_t u, uint
 }
 
 static inline u32 LookupColor(unsigned int index, unsigned int level, const SamplerID &samplerID) {
-	const int clutSharingOffset = samplerID.useSharedClut ? 0 : level * 16;
+	int clutSharingOffset = 0;
+	if (!samplerID.useSharedClut)
+		clutSharingOffset = samplerID.TexFmt() == GE_TFMT_CLUT4 ? level * 16 : (level & 1) * 256;
 
 	switch (samplerID.ClutFmt()) {
 	case GE_CMODE_16BIT_BGR5650:
@@ -390,7 +392,7 @@ inline static Nearest4 SOFTRAST_CALL SampleNearest(const int u[N], const int v[N
 		for (int i = 0; i < N; ++i) {
 			const u8 *src = srcptr + GetPixelDataOffset<8>(texbufw, u[i], v[i], samplerID.swizzle);
 			u8 val = *src;
-			res.v[i] = LookupColor(TransformClutIndex(val, samplerID), 0, samplerID);
+			res.v[i] = LookupColor(TransformClutIndex(val, samplerID), level, samplerID);
 		}
 		return res;
 
@@ -398,7 +400,6 @@ inline static Nearest4 SOFTRAST_CALL SampleNearest(const int u[N], const int v[N
 		for (int i = 0; i < N; ++i) {
 			const u8 *src = srcptr + GetPixelDataOffset<4>(texbufw, u[i], v[i], samplerID.swizzle);
 			u8 val = (u[i] & 1) ? (src[0] >> 4) : (src[0] & 0xF);
-			// Only CLUT4 uses separate mipmap palettes.
 			res.v[i] = LookupColor(TransformClutIndex(val, samplerID), level, samplerID);
 		}
 		return res;
