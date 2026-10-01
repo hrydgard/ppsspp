@@ -614,6 +614,11 @@ static inline float TruncateTexCoord(float f) {
 	return f;
 }
 
+// Color doubling applies to the specular (secondary) color too (gpu/probe exp86).
+static inline bool DoubleSecondaryColor(const RasterizerState &state) {
+	return state.enableTextures && state.samplerID.useColorDoubling;
+}
+
 static inline Vec4IntResult SOFTRAST_CALL ApplyTexturing(float s, float t, Vec4IntArg prim_color, int texlevel, int frac_texlevel, bool bilinear, const RasterizerState &state) {
 	const u8 **tptr0 = const_cast<const u8 **>(&state.texptr[texlevel]);
 	const uint16_t *bufw0 = &state.texbufw[texlevel];
@@ -1389,6 +1394,11 @@ void DrawTriangleSlice(
 						sec_color[i] = v2_c1;
 					}
 				}
+				if (DoubleSecondaryColor(state)) {
+					for (int i = 0; i < 4; ++i) {
+						sec_color[i] = sec_color[i] + sec_color[i];
+					}
+				}
 
 				if (state.enableTextures) {
 					if constexpr (!clearMode) {
@@ -1599,7 +1609,7 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 	const Vec4<int> fog = Vec4<int>::AssignToAll(ClampFogDepth(v1.fogdepth));
 	const Vec4<int> z = Vec4<int>::AssignToAll(v1.screenpos.z);
 	const Vec4<int> c0 = Vec4<int>::FromRGBA(v1.color0);
-	const Vec3<int> sec_color = Vec3<int>::FromRGB(v1.color1);
+	const Vec3<int> sec_color = Vec3<int>::FromRGB(v1.color1) * (DoubleSecondaryColor(state) ? 2 : 1);
 
 	if (state.pixelID.applyDepthRange) {
 		// We can bail early since the Z is flat.
@@ -1763,7 +1773,7 @@ void DrawPoint(const VertexData &v0, const BinCoords &range, const RasterizerSta
 	}
 
 	if (!pixelID.clearMode) {
-		Vec3<int> sec_color = Vec3<int>::FromRGB(v0.color1);
+		Vec3<int> sec_color = Vec3<int>::FromRGB(v0.color1) * (DoubleSecondaryColor(state) ? 2 : 1);
 		prim_color += Vec4<int>(sec_color, 0);
 	}
 
