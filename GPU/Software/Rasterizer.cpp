@@ -634,7 +634,8 @@ static int TexLog2(float delta) {
 	return useful - 127 * 16;
 }
 
-static inline void CalculateSamplingParams(const float ds, const float dt, float w, const RasterizerState &state, int &level, int &levelFrac, bool &filt) {
+// q is 1 / w at the pixel, as the GE interpolates it (UVPlanes).
+static inline void CalculateSamplingParams(const float ds, const float dt, float q, const RasterizerState &state, int &level, int &levelFrac, bool &filt) {
 	const int width = 1 << state.samplerID.width0Shift;
 	const int height = 1 << state.samplerID.height0Shift;
 
@@ -645,8 +646,9 @@ static inline void CalculateSamplingParams(const float ds, const float dt, float
 		detail = TexLog2(std::max(std::abs(ds * width), std::abs(dt * height)));
 		break;
 	case GE_TEXLEVEL_MODE_SLOPE:
-		// This is always offset by an extra texlevel.
-		detail = TexLog2(2.0f * w * state.textureLodSlope);
+		// The GE takes the same float-bits log2 of q and of the slope, and adds a level (gpu/probe
+		// exp58-60, bit exact).
+		detail = 16 + TexLog2(state.textureLodSlope) - TexLog2(q);
 		break;
 	case GE_TEXLEVEL_MODE_CONST:
 	default:
@@ -679,19 +681,24 @@ static inline void CalculateSamplingParams(const float ds, const float dt, float
 		filt = state.magFilt;
 }
 
-static inline void ApplyTexturing(const RasterizerState &state, Vec4<int> *prim_color, const Vec4<int> &mask, const Vec4<float> &s, const Vec4<float> &t, float w) {
+static inline void ApplyTexturing(const RasterizerState &state, Vec4<int> *prim_color, const Vec4<int> &mask, const Vec4<float> &s, const Vec4<float> &t, const Vec4<float> &q) {
 	float ds = s[1] - s[0];
 	float dt = t[2] - t[0];
 
 	int level;
 	int levelFrac;
 	bool bilinear;
-	CalculateSamplingParams(ds, dt, w, state, level, levelFrac, bilinear);
+	const bool perPixel = state.TexLevelMode() == GE_TEXLEVEL_MODE_SLOPE;
+	if (!perPixel)
+		CalculateSamplingParams(ds, dt, 0.0f, state, level, levelFrac, bilinear);
 
 	PROFILE_THIS_SCOPE("sampler");
 	for (int i = 0; i < 4; ++i) {
-		if (mask[i] >= 0)
+		if (mask[i] >= 0) {
+			if (perPixel)
+				CalculateSamplingParams(ds, dt, q[i], state, level, levelFrac, bilinear);
 			prim_color[i] = ApplyTexturing(s[i], t[i], ToVec4IntArg(prim_color[i]), level, levelFrac, bilinear, state);
+		}
 	}
 }
 
@@ -1190,10 +1197,11 @@ static UVPlanes ComputeUVPlanes(const VertexData &v0, const VertexData &v1, cons
 	return ComputeUVPlanes(X, Y, u, v, w);
 }
 
-static inline void GetTextureCoordinatesGE(const UVPlanes &planes, int64_t centerX, int64_t centerY, Vec4<float> &s, Vec4<float> &t) {
+static inline void GetTextureCoordinatesGE(const UVPlanes &planes, int64_t centerX, int64_t centerY, Vec4<float> &s, Vec4<float> &t, Vec4<float> &qOut) {
 	for (int i = 0; i < 4; ++i) {
 		const int64_t x = centerX + (i & 1) * SCREEN_SCALE_FACTOR, y = centerY + (i >> 1) * SCREEN_SCALE_FACTOR;
 		const float q = TruncateToFloat24((float)std::ldexp((double)planes.q.At(x, y), -planes.shiftQ));
+		qOut[i] = q;
 		if (!(q > 0.0f)) {
 			s[i] = 0.0f;
 			t[i] = 0.0f;
@@ -1353,6 +1361,7 @@ void DrawTriangleSlice(
 				if (state.enableTextures) {
 					if constexpr (!clearMode) {
 						Vec4<float> s, t;
+						Vec4<float> q = Vec4<float>::AssignToAll(1.0f);
 						if (state.throughMode) {
 							s = Interpolate(v0.texturecoords.s(), v1.texturecoords.s(), v2.texturecoords.s(), w0, w1,
 											w2, wsum_recip);
@@ -1366,19 +1375,17 @@ void DrawTriangleSlice(
 							// Texture coordinate interpolation must definitely be perspective-correct.
 							GetTextureCoordinatesProj(v0, v1, v2, w0, w1, w2, wsum_recip, s, t);
 						} else if (uvPlanes.valid) {
-							GetTextureCoordinatesGE(uvPlanes, centerX, centerY, s, t);
+							GetTextureCoordinatesGE(uvPlanes, centerX, centerY, s, t, q);
 						} else {
 							// Texture coordinate interpolation must definitely be perspective-correct.
 							GetTextureCoordinates(v0, v1, v2, w0, w1, w2, wsum_recip, s, t);
 						}
 
-						if (state.TexLevelMode() == GE_TEXLEVEL_MODE_SLOPE) {
-							// Not sure what's right, but we need one value for the slope.
-							float clipw = (v0.clipw * w0.x + v1.clipw * w1.x + v2.clipw * w2.x) * wsum_recip.x;
-							ApplyTexturing(state, prim_color, mask, s, t, clipw);
-						} else {
-							ApplyTexturing(state, prim_color, mask, s, t, 0.0f);
+						if (state.TexLevelMode() == GE_TEXLEVEL_MODE_SLOPE && !uvPlanes.valid) {
+							const float clipw = (v0.clipw * w0.x + v1.clipw * w1.x + v2.clipw * w2.x) * wsum_recip.x;
+							q = Vec4<float>::AssignToAll(1.0f / clipw);
 						}
+						ApplyTexturing(state, prim_color, mask, s, t, q);
 					}
 				}
 
@@ -1606,15 +1613,16 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 
 			if (state.enableTextures) {
 				Vec4<float> s, t;
+				Vec4<float> q = Vec4<float>::AssignToAll(1.0f / v1.clipw);
 				if (uvPlanes.valid) {
 					// Pixel centers are at 16k + 7 here, the GE's at 16k + 8.
-					GetTextureCoordinatesGE(uvPlanes, curX + 1, curY + 1, s, t);
+					GetTextureCoordinatesGE(uvPlanes, curX + 1, curY + 1, s, t, q);
 				} else {
 					s = Vec4<float>::AssignToAll(st.s()) + sto4;
 					t = Vec4<float>::AssignToAll(st.t()) + tto4;
 				}
 
-				ApplyTexturing(state, prim_color, mask, s, t, v1.clipw);
+				ApplyTexturing(state, prim_color, mask, s, t, q);
 			}
 
 			if (!state.pixelID.clearMode) {
@@ -1707,7 +1715,7 @@ void DrawPoint(const VertexData &v0, const BinCoords &range, const RasterizerSta
 		int texLevel;
 		int texLevelFrac;
 		bool bilinear;
-		CalculateSamplingParams(0.0f, 0.0f, v0.clipw, state, texLevel, texLevelFrac, bilinear);
+		CalculateSamplingParams(0.0f, 0.0f, 1.0f / v0.clipw, state, texLevel, texLevelFrac, bilinear);
 		PROFILE_THIS_SCOPE("sampler");
 		prim_color = ApplyTexturingSingle(s, t, ToVec4IntArg(prim_color), texLevel, texLevelFrac, bilinear, state);
 	}
@@ -2043,7 +2051,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 				int texLevel;
 				int texLevelFrac;
 				bool texBilinear;
-				CalculateSamplingParams(ds, dt, w, state, texLevel, texLevelFrac, texBilinear);
+				CalculateSamplingParams(ds, dt, 1.0f / w, state, texLevel, texLevelFrac, texBilinear);
 
 				if (state.antialiasLines) {
 					// TODO: This is a naive and wrong implementation.
