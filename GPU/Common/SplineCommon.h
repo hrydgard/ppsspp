@@ -83,6 +83,8 @@ struct BezierSurface : public SurfaceInfo {
 	using WeightType = Bezier3DWeight;
 
 	int num_verts_per_patch;
+	// Evaluate as the GE does, bit exact but slower (the software renderer).
+	bool geExact = false;
 
 	void Init(int maxVertices) {
 		SurfaceInfo::BaseInit();

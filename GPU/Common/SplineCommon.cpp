@@ -16,6 +16,11 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 
+#include <cmath>
+#include <cstring>
+#include <type_traits>
+#include <vector>
+
 #include "Common/Common.h"
 #include "Common/CPUDetect.h"
 #include "Common/Profiler/Profiler.h"
@@ -76,6 +81,73 @@ void BuildIndex(u16 *indices, int &count, int num_u, int num_v, GEPatchPrimType 
 		}
 	}
 }
+
+// Bezier patches as the GE evaluates them (gpu/probe exp48-51, exp139-140, bit exact). The parameter is k/256,
+// rounded toward the middle of the patch, and columns (v) are evaluated before rows (u), by de Casteljau.
+// Positions and texture coordinates: each lerp in 16-bit fixed point at the larger operand's exponent, both
+// operands truncated toward zero to that grid, then a + floor((b - a) k / 256). The patch edges (k = 0 or 256)
+// are the control points unchanged. Colors: the same lerp on (c << 7) | 0x7F per channel, result >> 7.
+static int BezierParam256(int i, int n) {
+	return 2 * i <= n ? (256 * i) / n : 256 - (256 * (n - i)) / n;
+}
+
+static float GEBezierLerp(float a, float b, int k) {
+	uint32_t ba, bb;
+	memcpy(&ba, &a, 4);
+	memcpy(&bb, &b, 4);
+	const int ea = (ba >> 23) & 0xFF;
+	const int eb = (bb >> 23) & 0xFF;
+	const int e = std::max(ea, eb);
+	if (e == 0) {
+		return 0.0f;
+	}
+	// Mantissas (24 bits) shifted to 16 bits at exponent e, truncated toward zero.
+	auto toFixed = [e](uint32_t bits, int ex) -> int {
+		if (ex == 0 || e - ex >= 16) {
+			return 0;
+		}
+		const int m = (int)(((bits & 0x7FFFFF) | 0x800000) >> (e - ex + 8));
+		return (bits & 0x80000000) ? -m : m;
+	};
+	const int fa = toFixed(ba, ea);
+	const int fb = toFixed(bb, eb);
+	const int r = fa + (((fb - fa) * k) >> 8);
+	// r * 2^(e - 127 - 15), exact.
+	if (e <= 15) {
+		return ldexpf((float)r, e - 127 - 15);
+	}
+	const uint32_t scaleBits = (uint32_t)(e - 15) << 23;
+	float scale;
+	memcpy(&scale, &scaleBits, 4);
+	return (float)r * scale;
+}
+
+static float GEBezierEval(const float p[4], int k) {
+	if (k == 0) {
+		return p[0];
+	} else if (k == 256) {
+		return p[3];
+	}
+	const float a = GEBezierLerp(p[0], p[1], k);
+	const float b = GEBezierLerp(p[1], p[2], k);
+	const float c = GEBezierLerp(p[2], p[3], k);
+	return GEBezierLerp(GEBezierLerp(a, b, k), GEBezierLerp(b, c, k), k);
+}
+
+static int GEBezierEvalColor(const int p[4], int k) {
+	auto lerp = [k](int a, int b) { return a + (((b - a) * k) >> 8); };
+	const int a = lerp(p[0], p[1]);
+	const int b = lerp(p[1], p[2]);
+	const int c = lerp(p[2], p[3]);
+	return lerp(lerp(a, b), lerp(b, c));
+}
+
+// One control column of a patch evaluated at some v.
+struct GEBezierColumn {
+	float pos[3];
+	float tex[2];
+	int col[4];  // 15 bits
+};
 
 class Bezier3DWeight {
 private:
@@ -341,6 +413,12 @@ public:
 	static void Tessellate(OutputBuffers &output, const Surface &surface, const ControlPoints &points, const Weight2D &weights) {
 		const float inv_u = 1.0f / (float)surface.tess_u;
 		const float inv_v = 1.0f / (float)surface.tess_v;
+		bool exactBezier = false;
+		if constexpr (std::is_same_v<Surface, BezierSurface>) {
+			exactBezier = surface.geExact;
+		}
+		// Bezier: the GE's columns at each v step, for the current patch.
+		std::vector<GEBezierColumn> columns(exactBezier ? (surface.tess_v + 1) * 4 : 0);
 
 		for (int patch_u = 0; patch_u < surface.num_patches_u; ++patch_u) {
 			const int start_u = surface.GetTessStart(patch_u);
@@ -354,6 +432,34 @@ public:
 				Tessellator<Vec4f> tess_col(points.col, idx_v);
 				Tessellator<Vec2f> tess_tex(points.tex, idx_v);
 				Tessellator<Vec3f> tess_nrm(points.pos, idx_v);
+
+				if (exactBezier) {
+					for (int tile_v = 0; tile_v <= surface.tess_v; ++tile_v) {
+						const int kv = BezierParam256(tile_v, surface.tess_v);
+						for (int c = 0; c < 4; ++c) {
+							GEBezierColumn &column = columns[tile_v * 4 + c];
+							for (int j = 0; j < 3; ++j) {
+								const float p[4] = { points.pos[idx_v[0] + c][j], points.pos[idx_v[1] + c][j], points.pos[idx_v[2] + c][j], points.pos[idx_v[3] + c][j] };
+								column.pos[j] = GEBezierEval(p, kv);
+							}
+							if constexpr (sampleTex) {
+								for (int j = 0; j < 2; ++j) {
+									const float p[4] = { points.tex[idx_v[0] + c][j], points.tex[idx_v[1] + c][j], points.tex[idx_v[2] + c][j], points.tex[idx_v[3] + c][j] };
+									column.tex[j] = GEBezierEval(p, kv);
+								}
+							}
+							if constexpr (sampleCol) {
+								for (int j = 0; j < 4; ++j) {
+									int p[4];
+									for (int r = 0; r < 4; ++r) {
+										p[r] = ((int)(points.col[idx_v[r] + c][j] * 255.0f + 0.5f) << 7) | 0x7F;
+									}
+									column.col[j] = GEBezierEvalColor(p, kv);
+								}
+							}
+						}
+					}
+				}
 
 				for (int tile_u = start_u; tile_u <= surface.tess_u; ++tile_u) {
 					const int index_u = surface.GetIndexU(patch_u, tile_u);
@@ -375,18 +481,47 @@ public:
 						SimpleVertex &vert = output.vertices[surface.GetIndex(index_u, index_v, patch_u, patch_v)];
 
 						// Tessellate
-						vert.pos = tess_pos.SampleV(wv.basis);
-						if constexpr (sampleCol) {
-							vert.color_32 = tess_col.SampleV(wv.basis).ToRGBA();
+						if (exactBezier) {
+							const int ku = BezierParam256(tile_u, surface.tess_u);
+							const GEBezierColumn *cols = &columns[tile_v * 4];
+							for (int j = 0; j < 3; ++j) {
+								const float row[4] = { cols[0].pos[j], cols[1].pos[j], cols[2].pos[j], cols[3].pos[j] };
+								vert.pos[j] = GEBezierEval(row, ku);
+							}
+							if constexpr (sampleCol) {
+								u32 color = 0;
+								for (int j = 0; j < 4; ++j) {
+									const int row[4] = { cols[0].col[j], cols[1].col[j], cols[2].col[j], cols[3].col[j] };
+									color |= (u32)(GEBezierEvalColor(row, ku) >> 7) << (8 * j);
+								}
+								vert.color_32 = color;
+							} else {
+								vert.color_32 = points.defcolor;
+							}
+							if constexpr (sampleTex) {
+								for (int j = 0; j < 2; ++j) {
+									const float row[4] = { cols[0].tex[j], cols[1].tex[j], cols[2].tex[j], cols[3].tex[j] };
+									vert.uv[j] = GEBezierEval(row, ku);
+								}
+							} else {
+								// Generated: the parameter itself (exp140).
+								vert.uv[0] = patch_u + ku * (1.0f / 256.0f);
+								vert.uv[1] = patch_v + BezierParam256(tile_v, surface.tess_v) * (1.0f / 256.0f);
+							}
 						} else {
-							vert.color_32 = points.defcolor;
-						}
-						if constexpr (sampleTex) {
-							tess_tex.SampleV(wv.basis).Write(vert.uv);
-						} else {
-							// Generate texcoord
-							vert.uv[0] = patch_u + tile_u * inv_u;
-							vert.uv[1] = patch_v + tile_v * inv_v;
+							vert.pos = tess_pos.SampleV(wv.basis);
+							if constexpr (sampleCol) {
+								vert.color_32 = tess_col.SampleV(wv.basis).ToRGBA();
+							} else {
+								vert.color_32 = points.defcolor;
+							}
+							if constexpr (sampleTex) {
+								tess_tex.SampleV(wv.basis).Write(vert.uv);
+							} else {
+								// Generate texcoord
+								vert.uv[0] = patch_u + tile_u * inv_u;
+								vert.uv[1] = patch_v + tile_v * inv_v;
+							}
 						}
 						if constexpr (sampleNrm) {
 							const Vec3f derivU = tess_nrm.SampleV(wv.basis);

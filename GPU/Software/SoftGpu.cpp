@@ -966,6 +966,7 @@ void SoftGPU::Execute_Bezier(u32 op, u32 diff) {
 	surface.num_patches_v = (surface.num_points_v - 1) / 3;
 	surface.primType = gstate.getPatchPrimitiveType();
 	surface.patchFacing = gstate.patchfacing & 1;
+	surface.geExact = true;
 
 	SetDrawType(DRAW_BEZIER, PatchPrimToPrim(surface.primType));
 
