@@ -19,6 +19,7 @@
 #include <cstring>
 #include <functional>
 #include <mutex>
+#include <set>
 #include <condition_variable>
 #include <vector>
 #include <thread>
@@ -396,6 +397,10 @@ private:
 	u32 lastTex_[8]{};
 	int prims_ = 0;
 	u32 lastBase_ = 0;
+	// VRAM offsets of the framebuffers drawn to so far, and the current one's registers.
+	std::set<u32> drawnTargets_;
+	u32 fbPtr_ = 0;
+	u32 fbWidth_ = 0;
 
 	const std::vector<u8> &pushbuf_;
 	const std::vector<Command> &commands_;
@@ -493,7 +498,12 @@ void DumpExecute::Registers(u32 ptr, u32 sz) {
 			lastBufw_[level] = bufw;
 		}
 
+		if (cmd == GE_CMD_FRAMEBUFPTR)
+			fbPtr_ = ops[i] & 0x00FFFFFF;
+		if (cmd == GE_CMD_FRAMEBUFWIDTH)
+			fbWidth_ = ops[i] & 0x00FFFFFF;
 		if (cmd == GE_CMD_PRIM || cmd == GE_CMD_BEZIER || cmd == GE_CMD_SPLINE) {
+			drawnTargets_.insert(((fbPtr_ & 0xFFFFF0) | ((fbWidth_ & 0xFF0000) << 8)) & 0x001FFFFF);
 			prims_++;
 			if (g_drawLimit > 0 && prims_ > g_drawLimit)
 				ops[i] = GE_CMD_NOP << 24;
@@ -697,7 +707,10 @@ void DumpExecute::Framebuf(int level, u32 ptr, u32 sz) {
 	const bool unchangedVRAM = version_ >= 6 && (framebuf->flags & 2) != 0;
 	// TODO: Could use drawnVRAM flag, but it can be wrong.
 	// Could potentially always skip if !isTarget, but playing it safe for offset texture behavior.
-	if (Memory::IsValidRange(framebuf->addr, pspSize) && !unchangedVRAM && (!isTarget || !g_Config.bSoftwareRendering)) {
+	// The software renderer has the real contents of a buffer this replay drew to, while the dump's copy
+	// can be stale (a hardware backend that didn't read it back, GTA LCS).
+	const bool drawnHere = g_Config.bSoftwareRendering && drawnTargets_.count(framebuf->addr & 0x001FFFFF) != 0;
+	if (Memory::IsValidRange(framebuf->addr, pspSize) && !unchangedVRAM && !drawnHere && (!isTarget || !g_Config.bSoftwareRendering)) {
 		// Intentionally don't trigger an upload here.
 		Memory::MemcpyUnchecked(framebuf->addr, pushbuf_.data() + ptr + headerSize, pspSize);
 		NotifyMemInfo(MemBlockFlags::WRITE, framebuf->addr, pspSize, "ReplayTex");
