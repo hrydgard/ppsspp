@@ -531,6 +531,8 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1, BinManager &b
 	bool coord_check = true;
 	if (state.enableTextures) {
 		state_check = state_check && NoClampOrWrap(state, v0.texturecoords.uv()) && NoClampOrWrap(state, v1.texturecoords.uv());
+		// DrawSprite samples texel centers, but bilinear 1:1 sprites don't land on them (gpu/probe exp87).
+		state_check = state_check && !state.minFilt && !state.magFilt;
 		coord_check = (xdiff == udiff || xdiff == -udiff) && (ydiff == vdiff || ydiff == -vdiff);
 	}
 	// This doesn't work well with offset drawing, see #15876.  Through never has a subpixel offset.
