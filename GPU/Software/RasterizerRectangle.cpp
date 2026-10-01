@@ -597,10 +597,15 @@ static bool AreCoordsRectangleCompatible(const RasterizerState &state, const Cli
 	return true;
 }
 
-// A rectangle drawn as triangles samples pixel centers, so its first column is (x + 7) >> 4; a sprite's
-// is (x + 6) >> 4 (gpu/probe exp30). They differ only for a left edge at 9/16 into a pixel, where the
-// triangles must stay triangles (NBA 2K13's menu boxes). Rows and the far edges agree.
-bool RectangleCoverageMatchesTriangles(const VertexData &a, const VertexData &b) {
+// Whether triangles forming a rectangle can be drawn as a sprite with the same result. A rectangle drawn
+// as triangles samples pixel centers, so its first column is (x + 7) >> 4; a sprite's is (x + 6) >> 4
+// (gpu/probe exp30). They differ only for a left edge at 9/16 into a pixel, where the triangles must stay
+// triangles (NBA 2K13's menu boxes). Rows and the far edges agree. Each triangle also has its own UV
+// planes, which a sprite's corners don't reproduce, so textured ones only qualify in through mode with
+// nearest filtering (Gears of Destiny's text boxes).
+bool RectangleMatchesTriangles(const RasterizerState &state, const VertexData &a, const VertexData &b) {
+	if (state.enableTextures && (!state.throughMode || state.minFilt || state.magFilt))
+		return false;
 	return (std::min(a.screenpos.x, b.screenpos.x) & (SCREEN_SCALE_FACTOR - 1)) != 9;
 }
 
