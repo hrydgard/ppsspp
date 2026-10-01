@@ -1961,8 +1961,8 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords 
 #endif
 }
 
-// Which pixels a line lights, as the GE does it (gpu/probe exp72: 312 of 320 random lines exact; a few
-// lines with an end exactly on a diamond's edge differ): diamond exit. A pixel is lit when the line
+// Which pixels a line lights, as the GE does it (gpu/probe exp72: one pixel of 320 random lines differs,
+// a y-major line starting on a top corner): diamond exit. A pixel is lit when the line
 // passes through the inside of its diamond |x - cx| + |y - cy| < 1/2 and doesn't end inside it (see
 // InLineDiamond for points exactly on the edge). In 1/16 pixel units, exact.
 struct LinePixel {
@@ -1970,18 +1970,25 @@ struct LinePixel {
 	float t;  // where the pixel's center falls along the line, 0 to 1
 };
 
-static bool InLineDiamond(int64_t cx, int64_t cy, int64_t x, int64_t y) {
+// A point on a diamond's edge counts as inside on the top corner, the edges either side of it, and the left
+// corner, for x-major lines. Y-major lines swap x and y: the left corner, its edges and the top corner.
+static bool LineDiamondEdgeInside(int64_t dx, int64_t dy, bool yMajor) {
+	if (yMajor)
+		std::swap(dx, dy);
+	return dy < 0 || (dy == 0 && dx < 0);
+}
+
+static bool InLineDiamond(int64_t cx, int64_t cy, int64_t x, int64_t y, bool yMajor) {
 	const int64_t dx = x - cx, dy = y - cy;
 	const int64_t d = std::abs(dx) + std::abs(dy);
 	if (d != SCREEN_SCALE_FACTOR / 2)
 		return d < SCREEN_SCALE_FACTOR / 2;
-	// On the edge: the top corner, the edges either side of it, and the left corner are inside.
-	return dy < 0 || (dy == 0 && dx < 0);
+	return LineDiamondEdgeInside(dx, dy, yMajor);
 }
 
 // Whether the line reaches the diamond's inside, or touches its boundary where InLineDiamond counts it
 // as inside (a horizontal line along the top corners of a row, for example).
-static bool LineCrossesDiamond(int64_t cx, int64_t cy, int64_t x0, int64_t y0, int64_t x1, int64_t y1) {
+static bool LineCrossesDiamond(int64_t cx, int64_t cy, int64_t x0, int64_t y0, int64_t x1, int64_t y1, bool yMajor) {
 	// Clip t in [0, 1] against the four half-planes sx (x - cx) + sy (y - cy) <= 8, as fractions lo..hi,
 	// noting whether any of them is only met with equality.
 	int64_t loN = 0, loD = 1, hiN = 1, hiD = 1;
@@ -2011,7 +2018,7 @@ static bool LineCrossesDiamond(int64_t cx, int64_t cy, int64_t x0, int64_t y0, i
 	const int64_t dN = std::abs(dxN) + std::abs(dyN);
 	if (dN < (SCREEN_SCALE_FACTOR / 2) * td)
 		return true;
-	return dyN < 0 || (dyN == 0 && dxN < 0);
+	return LineDiamondEdgeInside(dxN, dyN, yMajor);
 }
 
 static void LinePixels(int64_t x0, int64_t y0, int64_t x1, int64_t y1, std::vector<LinePixel> &out) {
@@ -2038,9 +2045,9 @@ static void LinePixels(int64_t x0, int64_t y0, int64_t x1, int64_t y1, std::vect
 			const int64_t px = xMajor ? c : rr, py = xMajor ? rr : c;
 			const int64_t cx = px * SCREEN_SCALE_FACTOR + SCREEN_SCALE_FACTOR / 2;
 			const int64_t cy = py * SCREEN_SCALE_FACTOR + SCREEN_SCALE_FACTOR / 2;
-			if (InLineDiamond(cx, cy, x1, y1))
+			if (InLineDiamond(cx, cy, x1, y1, !xMajor))
 				continue;
-			if (InLineDiamond(cx, cy, x0, y0) || LineCrossesDiamond(cx, cy, x0, y0, x1, y1)) {
+			if (InLineDiamond(cx, cy, x0, y0, !xMajor) || LineCrossesDiamond(cx, cy, x0, y0, x1, y1, !xMajor)) {
 				const float t = std::clamp((float)(ac - a0) / (float)(a1 - a0), 0.0f, 1.0f);
 				out.push_back({ (int)px, (int)py, t });
 			}
