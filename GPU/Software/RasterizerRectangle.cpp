@@ -364,18 +364,11 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 	bool isWhite = v1.color0 == 0xFFFFFFFF;
 
 	if (state.enableTextures) {
-		// 1:1 (but with mirror support) texture mapping!
-		int s_start = v0.texturecoords.x;
-		int t_start = v0.texturecoords.y;
+		// 1:1 (but with mirror support) texture mapping! The texel is the one at the first pixel's center.
 		int ds = v1.texturecoords.x > v0.texturecoords.x ? 1 : -1;
 		int dt = v1.texturecoords.y > v0.texturecoords.y ? 1 : -1;
-
-		if (ds < 0) {
-			s_start += ds;
-		}
-		if (dt < 0) {
-			t_start += dt;
-		}
+		int s_start = (int)floorf(v0.texturecoords.x + 0.5f * ds);
+		int t_start = (int)floorf(v0.texturecoords.y + 0.5f * dt);
 
 		// First clip the right and bottom sides, since we don't need to adjust the deltas.
 		if (pos1.x > scissorBR.x) pos1.x = scissorBR.x + 1;
