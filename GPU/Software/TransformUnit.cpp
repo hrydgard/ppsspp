@@ -509,6 +509,12 @@ struct TransformState {
 
 	float matrix[16];
 	Vec4f posToFog;
+	// With finite fog parameters, the GE's own arithmetic (gpu/probe exp20): the view z as a row of the
+	// combined world-view matrix, then float24(GEAdd(z, end) * slope).
+	bool fogGE;
+	float viewZColumn[4];
+	float fogEnd;
+	float fogSlope;
 	Vec3f screenScale;
 	Vec3f screenAdd;
 
@@ -585,6 +591,11 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 
 			// We bake fog end and slope into the dot product.
 			state->posToFog = Vec4f(worldview[2], worldview[6], worldview[10], worldview[14] + fogEnd);
+			state->fogGE = !my_isnanorinf(fogEnd) && !my_isnanorinf(fogSlope);
+			for (int i = 0; i < 4; ++i)
+				state->viewZColumn[i] = worldview[2 + 4 * i];
+			state->fogEnd = TruncateToFloat24(fogEnd);
+			state->fogSlope = TruncateToFloat24(fogSlope);
 
 			// If either are NAN/INF, we simplify so there's no inf + -inf muddying things.
 			// This is required for Outrun to render proper skies, for example.
@@ -712,7 +723,17 @@ ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const Tran
 			return vertex;
 		}
 
-		if (state.enableFog) {
+		if (state.enableFog && state.fogGE) {
+			GERowTerm terms[4] = {
+				GEProduct(TruncateToFloat24(pos.x), state.viewZColumn[0]),
+				GEProduct(TruncateToFloat24(pos.y), state.viewZColumn[1]),
+				GEProduct(TruncateToFloat24(pos.z), state.viewZColumn[2]),
+				GEProduct(1.0f, state.viewZColumn[3]),
+			};
+			const float viewZ = GERowSum(terms, 4);
+			const float f = ProductToFloat24((double)TruncateToFloat24(GEAdd(viewZ, state.fogEnd)) * state.fogSlope);
+			vertex.v.fogdepth = GEFogFactor(f) * (1.0f / 256.0f);
+		} else if (state.enableFog) {
 			vertex.v.fogdepth = GEFogFactor(Dot43(state.posToFog, pos)) * (1.0f / 256.0f);
 		} else {
 			vertex.v.fogdepth = 1.0f;
