@@ -283,6 +283,17 @@ static inline float GEClipComponent(const Vec3f &v, const float m[16], int c) {
 	return GERowSum(terms, 4);
 }
 
+// A texture coordinate from the 4x3 texture matrix, summed like a clip space row (gpu/probe exp64).
+static inline float GETexGenComponent(const Vec3f &v, const float m[12], int c) {
+	GERowTerm terms[4] = {
+		GEProduct(TruncateToFloat24(v.x), m[c]),
+		GEProduct(TruncateToFloat24(v.y), m[3 + c]),
+		GEProduct(TruncateToFloat24(v.z), m[6 + c]),
+		GEProduct(1.0f, m[9 + c]),
+	};
+	return GERowSum(terms, 4);
+}
+
 // Multiplies two matrices the way the GE combines world, view and projection (gpu/probe exp35, exp42):
 // in the order (world * view) * projection, each entry summed like a row in GEClipComponent.
 static void GECombineMatrices(float out[16], const float a[16], const float b[16]) {
@@ -620,8 +631,7 @@ ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const Tran
 			}
 
 			// Note that UV scale/offset are not used in this mode.
-			Vec3<float> stq = Vec3ByMatrix43(source, gstate.tgenMatrix);
-			vertex.v.texturecoords = Vec3Packedf(stq.x, stq.y, stq.z);
+			vertex.v.texturecoords = Vec3Packedf(GETexGenComponent(source, gstate.tgenMatrix, 0), GETexGenComponent(source, gstate.tgenMatrix, 1), GETexGenComponent(source, gstate.tgenMatrix, 2));
 		} else if (state.uvGenMode == GE_TEXMAP_ENVIRONMENT_MAP) {
 			Lighting::GenerateLightST(vertex.v, worldpos, worldnormal, state.lightingState.viewDir);
 		}

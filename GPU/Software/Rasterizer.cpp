@@ -1166,17 +1166,19 @@ static DepthPlane FixedPlane(const int64_t X[3], const int64_t Y[3], const doubl
 	return ComputePlane(X, Y, V);
 }
 
-// u, v and w at three screen points. A w of 1 (through mode) leaves u and v as they are.
-static UVPlanes ComputeUVPlanes(const int64_t X[3], const int64_t Y[3], const float u[3], const float v[3], const float w[3]) {
+// u, v and w at three screen points. A w of 1 (through mode) leaves u and v as they are. With texture
+// projection, uq is the texture matrix's q, and u and v come out divided by it (gpu/probe exp64).
+static UVPlanes ComputeUVPlanes(const int64_t X[3], const int64_t Y[3], const float u[3], const float v[3], const float w[3], const float *uq = nullptr) {
 	UVPlanes planes{};
 	double s[3], t[3], q[3];
 	for (int i = 0; i < 3; ++i) {
 		const float w24 = TruncateToFloat24(w[i]);
 		if (!(w24 > 0.0f) || !std::isfinite(w24))
 			return planes;
-		q[i] = GERecip(w24);
-		s[i] = ProductToFloat24((double)TruncateToFloat24(u[i]) * q[i]);
-		t[i] = ProductToFloat24((double)TruncateToFloat24(v[i]) * q[i]);
+		const double r = GERecip(w24);
+		q[i] = uq ? ProductToFloat24((double)TruncateToFloat24(uq[i]) * r) : r;
+		s[i] = ProductToFloat24((double)TruncateToFloat24(u[i]) * r);
+		t[i] = ProductToFloat24((double)TruncateToFloat24(v[i]) * r);
 	}
 	planes.shiftS = SharedShift(s);
 	planes.shiftT = SharedShift(t);
@@ -1188,13 +1190,14 @@ static UVPlanes ComputeUVPlanes(const int64_t X[3], const int64_t Y[3], const fl
 	return planes;
 }
 
-static UVPlanes ComputeUVPlanes(const VertexData &v0, const VertexData &v1, const VertexData &v2) {
+static UVPlanes ComputeUVPlanes(const VertexData &v0, const VertexData &v1, const VertexData &v2, bool textureProj) {
 	const int64_t X[3] = { v0.screenpos.x, v1.screenpos.x, v2.screenpos.x };
 	const int64_t Y[3] = { v0.screenpos.y, v1.screenpos.y, v2.screenpos.y };
 	const float u[3] = { v0.texturecoords.s(), v1.texturecoords.s(), v2.texturecoords.s() };
 	const float v[3] = { v0.texturecoords.t(), v1.texturecoords.t(), v2.texturecoords.t() };
 	const float w[3] = { v0.clipw, v1.clipw, v2.clipw };
-	return ComputeUVPlanes(X, Y, u, v, w);
+	const float q[3] = { v0.texturecoords.q(), v1.texturecoords.q(), v2.texturecoords.q() };
+	return ComputeUVPlanes(X, Y, u, v, w, textureProj ? q : nullptr);
 }
 
 static inline void GetTextureCoordinatesGE(const UVPlanes &planes, int64_t centerX, int64_t centerY, Vec4<float> &s, Vec4<float> &t, Vec4<float> &qOut) {
@@ -1262,7 +1265,7 @@ void DrawTriangleSlice(
 	const Vec3<int> v2_c1 = Vec3<int>::FromRGB(v2.color1);
 
 	const DepthPlane depthPlane = flatZ ? DepthPlane{} : ComputeDepthPlane(v0, v1, v2);
-	const UVPlanes uvPlanes = state.enableTextures && !state.throughMode && !state.textureProj ? ComputeUVPlanes(v0, v1, v2) : UVPlanes{};
+	const UVPlanes uvPlanes = state.enableTextures && !state.throughMode ? ComputeUVPlanes(v0, v1, v2, state.textureProj) : UVPlanes{};
 	DepthPlane color0Planes[4], color1Planes[3];
 	if (!flatColor0)
 		ComputeColorPlanes<4>(v0, v1, v2, v0.color0, v1.color0, v2.color0, color0Planes);
@@ -1371,11 +1374,11 @@ void DrawTriangleSlice(
 							// For levels > 0, mipmapping is always based on level 0.  Simpler to scale first.
 							s *= 1.0f / (float) (1 << state.samplerID.width0Shift);
 							t *= 1.0f / (float) (1 << state.samplerID.height0Shift);
+						} else if (uvPlanes.valid) {
+							GetTextureCoordinatesGE(uvPlanes, centerX, centerY, s, t, q);
 						} else if (state.textureProj) {
 							// Texture coordinate interpolation must definitely be perspective-correct.
 							GetTextureCoordinatesProj(v0, v1, v2, w0, w1, w2, wsum_recip, s, t);
-						} else if (uvPlanes.valid) {
-							GetTextureCoordinatesGE(uvPlanes, centerX, centerY, s, t, q);
 						} else {
 							// Texture coordinate interpolation must definitely be perspective-correct.
 							GetTextureCoordinates(v0, v1, v2, w0, w1, w2, wsum_recip, s, t);
@@ -1705,11 +1708,19 @@ void DrawPoint(const VertexData &v0, const BinCoords &range, const RasterizerSta
 		if (state.throughMode) {
 			s *= 1.0f / (float)(1 << state.samplerID.width0Shift);
 			t *= 1.0f / (float)(1 << state.samplerID.height0Shift);
-		} else if (state.textureProj) {
-			GetTextureCoordinatesProj(v0, v0, 0.0f, s, t);
 		} else {
-			// Texture coordinate interpolation must definitely be perspective-correct.
-			GetTextureCoordinates(v0, v0, 0.0f, s, t);
+			// The same planes as triangles, flat (gpu/probe exp64).
+			const UVPlanes planes = ComputeUVPlanes(v0, v0, v0, state.textureProj);
+			if (planes.valid) {
+				Vec4<float> s4, t4, q4;
+				GetTextureCoordinatesGE(planes, v0.screenpos.x, v0.screenpos.y, s4, t4, q4);
+				s = s4[0];
+				t = t4[0];
+			} else if (state.textureProj) {
+				GetTextureCoordinatesProj(v0, v0, 0.0f, s, t);
+			} else {
+				GetTextureCoordinates(v0, v0, 0.0f, s, t);
+			}
 		}
 
 		int texLevel;
