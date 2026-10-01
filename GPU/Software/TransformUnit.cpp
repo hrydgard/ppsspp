@@ -155,7 +155,7 @@ WorldCoords TransformUnit::ModelToWorldNormal(const ModelCoords &coords) {
 	return Norm3ByMatrix43(coords, gstate.worldMatrix);
 }
 
-static inline float TruncateToFloat24(float f) {
+float TruncateToFloat24(float f) {
 	uint32_t bits;
 	memcpy(&bits, &f, sizeof(bits));
 	bits &= 0xFFFFFF00;
@@ -165,7 +165,7 @@ static inline float TruncateToFloat24(float f) {
 
 // A product of two float24s has up to 32 significant bits: form it in a double, and truncate it
 // there, since rounding it to a float first could round up across the truncation.
-static inline float ProductToFloat24(double d) {
+float ProductToFloat24(double d) {
 	uint64_t bits;
 	memcpy(&bits, &d, sizeof(bits));
 	if (((bits >> 52) & 0x7FF) != 0x7FF) {
@@ -203,7 +203,7 @@ static const GERecipSegment geRecipSegments[128] = {
 };
 
 // w must be a normal float24. Returns a float24 (q has 16 significant bits, or is 2^16).
-static inline float GERecip(float w) {
+float GERecip(float w) {
 	uint32_t bits;
 	memcpy(&bits, &w, sizeof(bits));
 	const uint32_t i = (bits >> 8) & 0x7FFF;

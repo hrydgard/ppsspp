@@ -16,6 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ppsspp_config.h"
+#include <algorithm>
+#include <climits>
 #include <cmath>
 
 #include "Common/Common.h"
@@ -1050,20 +1052,22 @@ static const GESetupRecipSegment geSetupRecip[256] = {
 	{ 4227328, -65 }, { 4219008, -64 }, { 4210752, -64 }, { 4202496, -64 },
 };
 
-// The depth plane as the GE rasterizes it (gpu/probe exp36-41, bit exact): the gradients are fixed
+// The plane the GE interpolates depth and Gouraud color with (gpu/probe exp36-41 for depth, exp54
+// for color, bit exact; color is screen-linear in transform mode too): the gradients are fixed
 // point with 14 fractional bits per subpixel, from the exact edge cross products and the reciprocal
 // above, and the plane is anchored at one vertex: the leftmost, unless the long edge (top to bottom)
-// is strictly the right side, then the rightmost. A pixel's depth is the plane at its center, floored.
+// is strictly the right side, then the rightmost. A pixel's value is the plane at its center, floored.
 struct DepthPlane {
-	int64_t base;  // depth << 14 at screen (0, 0)
+	int64_t base;  // value << 14 at screen (0, 0)
 	int64_t kx;    // per subpixel, << 14
 	int64_t ky;
+
+	int64_t At(int64_t x, int64_t y) const {
+		return (base + kx * x + ky * y) >> 14;
+	}
 };
 
-static DepthPlane ComputeDepthPlane(const VertexData &v0, const VertexData &v1, const VertexData &v2) {
-	const int64_t X[3] = { v0.screenpos.x, v1.screenpos.x, v2.screenpos.x };
-	const int64_t Y[3] = { v0.screenpos.y, v1.screenpos.y, v2.screenpos.y };
-	const int64_t Z[3] = { v0.screenpos.z, v1.screenpos.z, v2.screenpos.z };
+static DepthPlane ComputePlane(const int64_t X[3], const int64_t Y[3], const int64_t Z[3]) {
 	DepthPlane plane{};
 	const int64_t det = (X[1] - X[0]) * (Y[2] - Y[0]) - (X[2] - X[0]) * (Y[1] - Y[0]);
 	if (det == 0) {
@@ -1103,6 +1107,95 @@ static DepthPlane ComputeDepthPlane(const VertexData &v0, const VertexData &v1, 
 	}
 	plane.base = (Z[anchor] << 14) - plane.kx * X[anchor] - plane.ky * Y[anchor];
 	return plane;
+}
+
+static DepthPlane ComputeDepthPlane(const VertexData &v0, const VertexData &v1, const VertexData &v2) {
+	const int64_t X[3] = { v0.screenpos.x, v1.screenpos.x, v2.screenpos.x };
+	const int64_t Y[3] = { v0.screenpos.y, v1.screenpos.y, v2.screenpos.y };
+	const int64_t Z[3] = { v0.screenpos.z, v1.screenpos.z, v2.screenpos.z };
+	return ComputePlane(X, Y, Z);
+}
+
+// Planes for each channel of a color (8 bits per channel, packed as in VertexData).
+template <int channels>
+static void ComputeColorPlanes(const VertexData &v0, const VertexData &v1, const VertexData &v2, u32 c0, u32 c1, u32 c2, DepthPlane *planes) {
+	const int64_t X[3] = { v0.screenpos.x, v1.screenpos.x, v2.screenpos.x };
+	const int64_t Y[3] = { v0.screenpos.y, v1.screenpos.y, v2.screenpos.y };
+	for (int i = 0; i < channels; ++i) {
+		const int64_t C[3] = { (c0 >> (i * 8)) & 0xFF, (c1 >> (i * 8)) & 0xFF, (c2 >> (i * 8)) & 0xFF };
+		planes[i] = ComputePlane(X, Y, C);
+	}
+}
+
+template <int channels>
+static Vec4<int> ColorFromPlanes(const DepthPlane *planes, int64_t x, int64_t y) {
+	Vec4<int> c(0, 0, 0, 0);
+	for (int i = 0; i < channels; ++i)
+		c[i] = std::clamp((int)planes[i].At(x, y), 0, 255);
+	return c;
+}
+
+// Perspective texture coordinates as the GE interpolates them (gpu/probe exp55-56, bit exact at 1/16
+// texel): per vertex q = 1/w with the GE's reciprocal and s = u * q, as float24s. s, t and q each become
+// 15-bit integers at the largest exponent of the three vertices, go through the same plane as depth,
+// and a pixel's u is s * 1/q, again with the GE's reciprocal.
+struct UVPlanes {
+	DepthPlane s, t, q;
+	int shiftS, shiftT, shiftQ;
+	bool valid;
+};
+
+static int SharedShift(const double v[3]) {
+	int e = INT_MIN;
+	for (int i = 0; i < 3; ++i) {
+		if (v[i] != 0.0)
+			e = std::max(e, std::ilogb(v[i]));
+	}
+	return e == INT_MIN ? 0 : 14 - e;
+}
+
+static DepthPlane FixedPlane(const int64_t X[3], const int64_t Y[3], const double v[3], int shift) {
+	const int64_t V[3] = { (int64_t)std::ldexp(v[0], shift), (int64_t)std::ldexp(v[1], shift), (int64_t)std::ldexp(v[2], shift) };
+	return ComputePlane(X, Y, V);
+}
+
+static UVPlanes ComputeUVPlanes(const VertexData &v0, const VertexData &v1, const VertexData &v2) {
+	UVPlanes planes{};
+	const VertexData *v[3] = { &v0, &v1, &v2 };
+	double s[3], t[3], q[3];
+	for (int i = 0; i < 3; ++i) {
+		const float w = TruncateToFloat24(v[i]->clipw);
+		if (!(w > 0.0f) || !std::isfinite(w))
+			return planes;
+		q[i] = GERecip(w);
+		s[i] = ProductToFloat24((double)TruncateToFloat24(v[i]->texturecoords.s()) * q[i]);
+		t[i] = ProductToFloat24((double)TruncateToFloat24(v[i]->texturecoords.t()) * q[i]);
+	}
+	const int64_t X[3] = { v0.screenpos.x, v1.screenpos.x, v2.screenpos.x };
+	const int64_t Y[3] = { v0.screenpos.y, v1.screenpos.y, v2.screenpos.y };
+	planes.shiftS = SharedShift(s);
+	planes.shiftT = SharedShift(t);
+	planes.shiftQ = SharedShift(q);
+	planes.s = FixedPlane(X, Y, s, planes.shiftS);
+	planes.t = FixedPlane(X, Y, t, planes.shiftT);
+	planes.q = FixedPlane(X, Y, q, planes.shiftQ);
+	planes.valid = true;
+	return planes;
+}
+
+static inline void GetTextureCoordinatesGE(const UVPlanes &planes, int64_t centerX, int64_t centerY, Vec4<float> &s, Vec4<float> &t) {
+	for (int i = 0; i < 4; ++i) {
+		const int64_t x = centerX + (i & 1) * SCREEN_SCALE_FACTOR, y = centerY + (i >> 1) * SCREEN_SCALE_FACTOR;
+		const float q = TruncateToFloat24((float)std::ldexp((double)planes.q.At(x, y), -planes.shiftQ));
+		if (!(q > 0.0f)) {
+			s[i] = 0.0f;
+			t[i] = 0.0f;
+			continue;
+		}
+		const double r = GERecip(q);
+		s[i] = ProductToFloat24((double)TruncateToFloat24((float)std::ldexp((double)planes.s.At(x, y), -planes.shiftS)) * r);
+		t[i] = ProductToFloat24((double)TruncateToFloat24((float)std::ldexp((double)planes.t.At(x, y), -planes.shiftT)) * r);
+	}
 }
 
 template <bool clearMode, bool useSSE4>
@@ -1150,14 +1243,16 @@ void DrawTriangleSlice(
 	std::string ztag = StringFromFormat("DisplayListTZ_%08x", state.listPC);
 #endif
 
-	const Vec4<int> v0_c0 = Vec4<int>::FromRGBA(v0.color0);
-	const Vec4<int> v1_c0 = Vec4<int>::FromRGBA(v1.color0);
 	const Vec4<int> v2_c0 = Vec4<int>::FromRGBA(v2.color0);
-	const Vec3<int> v0_c1 = Vec3<int>::FromRGB(v0.color1);
-	const Vec3<int> v1_c1 = Vec3<int>::FromRGB(v1.color1);
 	const Vec3<int> v2_c1 = Vec3<int>::FromRGB(v2.color1);
 
 	const DepthPlane depthPlane = flatZ ? DepthPlane{} : ComputeDepthPlane(v0, v1, v2);
+	const UVPlanes uvPlanes = state.enableTextures && !state.throughMode && !state.textureProj ? ComputeUVPlanes(v0, v1, v2) : UVPlanes{};
+	DepthPlane color0Planes[4], color1Planes[3];
+	if (!flatColor0)
+		ComputeColorPlanes<4>(v0, v1, v2, v0.color0, v1.color0, v2.color0, color0Planes);
+	if (!flatColor1)
+		ComputeColorPlanes<3>(v0, v1, v2, v0.color1, v1.color1, v2.color1, color1Planes);
 	const Vec4<int> minz = Vec4<int>::AssignToAll(pixelID.cached.minz);
 	const Vec4<int> maxz = Vec4<int>::AssignToAll(pixelID.cached.maxz);
 
@@ -1224,11 +1319,12 @@ void DrawTriangleSlice(
 				}
 
 				// Color interpolation is not perspective corrected on the PSP.
+				const int64_t centerX = curX + SCREEN_SCALE_FACTOR / 2, centerY = curY + SCREEN_SCALE_FACTOR / 2;
 				Vec4<int> prim_color[4];
 				if (!flatColor0) {
 					for (int i = 0; i < 4; ++i) {
 						if (mask[i] >= 0)
-							prim_color[i] = Interpolate(v0_c0, v1_c0, v2_c0, w0[i], w1[i], w2[i], wsum_recip[i]);
+							prim_color[i] = ColorFromPlanes<4>(color0Planes, centerX + (i & 1) * SCREEN_SCALE_FACTOR, centerY + (i >> 1) * SCREEN_SCALE_FACTOR);
 					}
 				} else {
 					for (int i = 0; i < 4; ++i) {
@@ -1239,7 +1335,7 @@ void DrawTriangleSlice(
 				if (!flatColor1) {
 					for (int i = 0; i < 4; ++i) {
 						if (mask[i] >= 0)
-							sec_color[i] = Interpolate(v0_c1, v1_c1, v2_c1, w0[i], w1[i], w2[i], wsum_recip[i]);
+							sec_color[i] = ColorFromPlanes<3>(color1Planes, centerX + (i & 1) * SCREEN_SCALE_FACTOR, centerY + (i >> 1) * SCREEN_SCALE_FACTOR).rgb();
 					}
 				} else {
 					for (int i = 0; i < 4; ++i) {
@@ -1262,6 +1358,8 @@ void DrawTriangleSlice(
 						} else if (state.textureProj) {
 							// Texture coordinate interpolation must definitely be perspective-correct.
 							GetTextureCoordinatesProj(v0, v1, v2, w0, w1, w2, wsum_recip, s, t);
+						} else if (uvPlanes.valid) {
+							GetTextureCoordinatesGE(uvPlanes, centerX, centerY, s, t);
 						} else {
 							// Texture coordinate interpolation must definitely be perspective-correct.
 							GetTextureCoordinates(v0, v1, v2, w0, w1, w2, wsum_recip, s, t);

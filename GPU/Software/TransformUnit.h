@@ -105,6 +105,11 @@ struct ClipVertexData {
 
 class VertexReader;
 
+// The GE's float24 arithmetic, also used by the rasterizer (TransformUnit.cpp has the details).
+float TruncateToFloat24(float f);
+float ProductToFloat24(double d);
+float GERecip(float w);
+
 class SoftwareDrawEngine;
 class SoftwareVertexReader;
 class StringWriter;
