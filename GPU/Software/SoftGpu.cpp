@@ -495,6 +495,55 @@ void SoftGPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat for
 
 DSStretch g_DarkStalkerStretch;
 
+// With the DarkStalkers hack, the game's stretch blit is skipped and we present its 384x224 source image directly.
+static const u32 DS_SOURCE_ADDR = 0x04088000;
+
+bool SoftGPU::DarkStalkersStretchActive() const {
+	return PSP_CoreParameter().compat.flags().DarkStalkersPresentHack && displayFormat_ == GE_FORMAT_5551 && g_DarkStalkerStretch != DSStretch::Off;
+}
+
+// Does the stretch blit we skipped, so screenshots see what the game would have displayed.
+void SoftGPU::GetDarkStalkersDisplay(GPUDebugBuffer &buffer) {
+	const u16 *src = (const u16 *)Memory::GetPointerOrException(DS_SOURCE_ADDR);
+	const int srcStride = displayStride_ == 0 ? 512 : displayStride_;
+	const int srcX = 64, srcY = 16, srcW = 384, srcH = 224;
+	// Same rectangles as the game's own blits (see RectangleFastPath).
+	const int dstX = g_DarkStalkerStretch == DSStretch::Normal ? 48 : 0;
+	const int dstW = g_DarkStalkerStretch == DSStretch::Normal ? 384 : 480;
+
+	buffer.Allocate(480, 272, GE_FORMAT_8888);
+	u32 *dst = (u32 *)buffer.GetData();
+	for (int y = 0; y < 272; ++y) {
+		float sy = std::clamp((y + 0.5f) * srcH / 272.0f - 0.5f, 0.0f, (float)(srcH - 1));
+		int y0 = (int)sy;
+		int y1 = std::min(y0 + 1, srcH - 1);
+		float fy = sy - y0;
+		const u16 *row0 = src + (srcY + y0) * srcStride + srcX;
+		const u16 *row1 = src + (srcY + y1) * srcStride + srcX;
+		for (int x = 0; x < 480; ++x) {
+			if (x < dstX || x >= dstX + dstW) {
+				dst[y * 480 + x] = 0xFF000000;
+				continue;
+			}
+			float sx = std::clamp((x - dstX + 0.5f) * srcW / dstW - 0.5f, 0.0f, (float)(srcW - 1));
+			int x0 = (int)sx;
+			int x1 = std::min(x0 + 1, srcW - 1);
+			float fx = sx - x0;
+			const u32 c00 = RGBA5551ToRGBA8888(row0[x0]);
+			const u32 c01 = RGBA5551ToRGBA8888(row0[x1]);
+			const u32 c10 = RGBA5551ToRGBA8888(row1[x0]);
+			const u32 c11 = RGBA5551ToRGBA8888(row1[x1]);
+			u32 result = 0xFF000000;
+			for (int shift = 0; shift < 24; shift += 8) {
+				float top = ((c00 >> shift) & 0xFF) * (1.0f - fx) + ((c01 >> shift) & 0xFF) * fx;
+				float bottom = ((c10 >> shift) & 0xFF) * (1.0f - fx) + ((c11 >> shift) & 0xFF) * fx;
+				result |= (u32)(top * (1.0f - fy) + bottom * fy + 0.5f) << shift;
+			}
+			dst[y * 480 + x] = result;
+		}
+	}
+}
+
 void SoftGPU::ConvertTextureDescFrom16(Draw::TextureDesc &desc, int srcwidth, int srcheight, const uint16_t *overrideData) {
 	// TODO: This should probably be converted in a shader instead..
 	fbTexBuffer_.resize(srcwidth * srcheight);
@@ -563,8 +612,8 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(const DisplayLayoutConfig &config, 
 	OutputFlags outputFlags = config.iDisplayFilter == SCALE_NEAREST ? OutputFlags::NEAREST : OutputFlags::LINEAR;
 	bool hasPostShader = presentation_ && presentation_->HasPostShader();
 
-	if (PSP_CoreParameter().compat.flags().DarkStalkersPresentHack && displayFormat_ == GE_FORMAT_5551 && g_DarkStalkerStretch != DSStretch::Off) {
-		const u8 *data = Memory::GetPointerWriteOrException(0x04088000);
+	if (DarkStalkersStretchActive()) {
+		const u8 *data = Memory::GetPointerWriteOrException(DS_SOURCE_ADDR);
 		bool fillDesc = true;
 		if (draw_->GetDataFormatSupport(Draw::DataFormat::A1B5G5R5_UNORM_PACK16) & Draw::FMT_TEXTURE) {
 			// The perfect one.
@@ -1363,6 +1412,11 @@ bool SoftGPU::GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferT
 
 	if (!Memory::IsValidAddress(displayFramebuf_))
 		return false;
+
+	if (type == GPU_DBG_FRAMEBUF_DISPLAY && DarkStalkersStretchActive()) {
+		GetDarkStalkersDisplay(buffer);
+		return true;
+	}
 
 	if (type == GPU_DBG_FRAMEBUF_DISPLAY) {
 		size.x = 480;

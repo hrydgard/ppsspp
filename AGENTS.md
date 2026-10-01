@@ -35,7 +35,9 @@ for it:
 
 1. Keep style changes minimal unless requested. Follow existing code patterns and conventions.
 2. Keep cross-platform parity in mind when changing shared code. See below for more multiplatform tips
-3. Never `git push` (to any remote) without asking the user first. Committing locally is fine when asked; pushing requires explicit approval.
+3. **Commit freely, push only when asked.** Once a change is done and tested, commit it on its
+   branch without waiting to be told. Never `git push` (to any remote) without the user's explicit
+   approval.
 4. **Don't write code on `master`.** When asked to make a code change while on `master`, create an
    appropriately named branch first (`git checkout -b some-descriptive-name`) and do the work there.
    If you're already on a topic branch, just keep working on it.
