@@ -1096,6 +1096,7 @@ struct DepthPlane {
 	int64_t base;  // value << 14 at screen (0, 0)
 	int64_t kx;    // per subpixel, << 14
 	int64_t ky;
+	bool rightAnchored = false;  // the long edge is the right side: the GE walks rows right to left
 
 	int64_t At(int64_t x, int64_t y) const {
 		return (base + kx * x + ky * y) >> 14;
@@ -1132,6 +1133,7 @@ static DepthPlane ComputePlane(const int64_t X[3], const int64_t Y[3], const int
 	const bool flat = Y[top] == Y[mid] || Y[mid] == Y[bot];
 	int anchor = 0;
 	if (cross > 0 && !flat) {
+		plane.rightAnchored = true;
 		for (int i = 1; i < 3; ++i)
 			if (X[i] > X[anchor] || (X[i] == X[anchor] && Y[i] < Y[anchor]))
 				anchor = i;
@@ -1255,6 +1257,36 @@ static float UVPlaneGradient(const UVPlanes &planes, const RasterizerState &stat
 	return (float)std::max(gs, gt);
 }
 
+// The q the mip level comes from: the GE picks it once per span of four pixels in a row, at the span's
+// second pixel in the direction it walks the row, or when that one is outside the triangle, at the
+// span's first pixel inside. Left to right that's x = 4k + 1; right to left (when the long edge is the
+// right side, as for the plane anchor) 4k + 2 (gpu/probe exp93, exp103-106). quadX is the quad's left
+// column in drawing coordinates, centerX/Y its first pixel's center in screen subpixels, and
+// covered(x, y) the triangle's coverage there.
+template <typename Covered>
+static inline Vec4<float> LodQFromPlanes(const UVPlanes &planes, int64_t centerX, int64_t centerY, int quadX, const Covered &covered) {
+	const bool rtl = planes.q.rightAnchored;
+	Vec4<float> q;
+	for (int i = 0; i < 4; ++i) {
+		const int px = quadX + (i & 1);
+		const int64_t y = centerY + (i >> 1) * SCREEN_SCALE_FACTOR;
+		const int spanX = px & ~3;
+		int pick = spanX + (rtl ? 2 : 1);
+		if (!covered(centerX + (pick - quadX) * SCREEN_SCALE_FACTOR, y)) {
+			for (int j = 0; j < 4; ++j) {
+				const int c = rtl ? spanX + 3 - j : spanX + j;
+				if (covered(centerX + (c - quadX) * SCREEN_SCALE_FACTOR, y)) {
+					pick = c;
+					break;
+				}
+			}
+		}
+		const int64_t x = centerX + (pick - quadX) * SCREEN_SCALE_FACTOR;
+		q[i] = TruncateToFloat24((float)std::ldexp((double)planes.q.At(x, y), -planes.shiftQ));
+	}
+	return q;
+}
+
 static inline void GetTextureCoordinatesGE(const UVPlanes &planes, int64_t centerX, int64_t centerY, Vec4<float> &s, Vec4<float> &t, Vec4<float> &qOut) {
 	for (int i = 0; i < 4; ++i) {
 		const int64_t x = centerX + (i & 1) * SCREEN_SCALE_FACTOR, y = centerY + (i >> 1) * SCREEN_SCALE_FACTOR;
@@ -1290,6 +1322,14 @@ void DrawTriangleSlice(
 	int64_t minX = x1, maxX = x2, minY = y1, maxY = y2;
 
 	ScreenCoords pprime(minX, minY, 0);
+	// Coverage of any pixel center, for picking the mip level's q (LodQFromPlanes), when it matters.
+	const bool lodUsesQ = state.TexLevelMode() != GE_TEXLEVEL_MODE_CONST && (state.maxTexLevel > 0 || state.minFilt != state.magFilt);
+	auto edgeAt = [](const ScreenCoords &a, const ScreenCoords &b, int64_t x, int64_t y) {
+		return (int64_t)(a.y - b.y) * x + (int64_t)(b.x - a.x) * y + ((int64_t)b.y * a.x - (int64_t)b.x * a.y);
+	};
+	auto coveredAt = [&](int64_t x, int64_t y) {
+		return edgeAt(v1.screenpos, v2.screenpos, x, y) + bias0[0] >= 0 && edgeAt(v2.screenpos, v0.screenpos, x, y) + bias1[0] >= 0 && edgeAt(v0.screenpos, v1.screenpos, x, y) + bias2[0] >= 0;
+	};
 	Vec4<int> w0_base = e0.Start(v1.screenpos, v2.screenpos, pprime);
 	Vec4<int> w1_base = e1.Start(v2.screenpos, v0.screenpos, pprime);
 	Vec4<int> w2_base = e2.Start(v0.screenpos, v1.screenpos, pprime);
@@ -1449,6 +1489,8 @@ void DrawTriangleSlice(
 							t *= 1.0f / (float) (1 << state.samplerID.height0Shift);
 						} else if (uvPlanes.valid) {
 							GetTextureCoordinatesGE(uvPlanes, centerX, centerY, s, t, q);
+							if (lodUsesQ)
+								q = LodQFromPlanes(uvPlanes, centerX, centerY, p.x, coveredAt);
 						} else if (state.textureProj) {
 							// Texture coordinate interpolation must definitely be perspective-correct.
 							GetTextureCoordinatesProj(v0, v1, v2, w0, w1, w2, wsum_recip, s, t);
