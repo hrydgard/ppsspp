@@ -1170,6 +1170,12 @@ int main(int argc, const char* argv[]) {
 			ShutdownWebServer();
 			return 1;
 		}
+		// With port 0 the OS picks one, and a client (wsdbg --launch) can only learn it from our
+		// output. Print it outside the log system so it doesn't depend on --log.
+		if (cmdLineOptions.DebuggerPort().value() == 0) {
+			fprintf(stderr, "Debugger listening on port %d\n", WebServerPort());
+			fflush(stderr);
+		}
 	}
 
 	if (cmdLineOptions.stateToSave.has_value()) {

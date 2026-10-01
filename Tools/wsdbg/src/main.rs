@@ -294,10 +294,10 @@ fn launch_ppsspp(cmd: &[String]) -> Result<(std::process::Child, u16)> {
             child.kill().ok();
             child.wait().ok();
             Err(anyhow!(
-                "PPSSPP never reported a debugger port. It logs that line at NOTICE, so it should \
-                 survive any --loglevel - but a build predating that change logs it at INFO, where \
-                 --loglevel=3 hides it. Check the forwarded output above for 'Listening on port'; \
-                 if it isn't there, either raise --loglevel or pass an explicit --debugger=PORT."
+                "PPSSPP never reported a debugger port. Headless prints 'Debugger listening on port N' \
+                 to stderr whenever --debugger=0, with or without --log; other builds (and older \
+                 headless builds) only log it, so they need --log. Check the forwarded output above, \
+                 or pass an explicit --debugger=PORT."
             ))
         }
     }
