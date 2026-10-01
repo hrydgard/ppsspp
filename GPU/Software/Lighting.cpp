@@ -351,11 +351,13 @@ static void ProcessSIMD(VertexData &vertex, const WorldCoords &worldpos, const W
 		}
 
 		if (lstate.diffuse && diffuse_factor > 0.0f) {
-			int diffuse_attspot = (int)LightCeil<useSSE4>(256 * 2 * attspot * diffuse_factor + 1);
-			if (diffuse_attspot > 512)
-				diffuse_attspot = 512;
+			// The GE (gpu/probe exp61-62): the light and material colors make an 8-bit product
+			// x = ((2l + 1) * (2m + 1)) >> 10, and the factor an 8-bit s = floor(256 * f), which is then
+			// expanded like a color: ((2x + 1) * (2s + 1)) >> 10.
+			const int s = (int)(256.0f * attspot * diffuse_factor);
 			Vec4<int> mdc = state.colorForDiffuse ? colorFactor : state.material.diffuseColorFactor;
-			Vec4<int> ldiffuse = LightColorScaleBy512<useSSE4>(lstate.diffuseColorFactor, mdc, diffuse_attspot);
+			const Vec4<int> x = (lstate.diffuseColorFactor * mdc) >> 10;
+			const Vec4<int> ldiffuse = ((x * 2 + Vec4<int>::AssignToAll(1)) * (2 * s + 1)) >> 10;
 			LightColorSum(final_color, ldiffuse);
 		}
 
