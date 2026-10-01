@@ -361,7 +361,8 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 	if (pixelID.applyDepthRange && (z < pixelID.cached.minz || z > pixelID.cached.maxz))
 		return;
 
-	bool isWhite = v1.color0 == 0xFFFFFFFF;
+	// White doesn't change the texel, unless color doubling doubles it (gpu/probe exp53).
+	bool isWhite = v1.color0 == 0xFFFFFFFF && !samplerID.useColorDoubling;
 
 	if (state.enableTextures) {
 		// 1:1 (but with mirror support) texture mapping! The texel is the one at the first pixel's center.
@@ -383,7 +384,8 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 			pos0.y = scissorTL.y;
 		}
 
-		if (UseDrawSinglePixel(pixelID) && (samplerID.TexFunc() == GE_TEXFUNC_MODULATE || samplerID.TexFunc() == GE_TEXFUNC_REPLACE) && samplerID.useTextureAlpha) {
+		const bool fastFunc = samplerID.TexFunc() == GE_TEXFUNC_MODULATE || (samplerID.TexFunc() == GE_TEXFUNC_REPLACE && !samplerID.useColorDoubling);
+		if (UseDrawSinglePixel(pixelID) && fastFunc && samplerID.useTextureAlpha) {
 			if (isWhite || samplerID.TexFunc() == GE_TEXFUNC_REPLACE) {
 				DrawSpriteTex<true>(pos0, pos1, s_start, t_start, ds, dt, v1.color0, state, fetchFunc);
 			} else {
