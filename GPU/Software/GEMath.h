@@ -81,19 +81,26 @@ inline float GEAdd(float a, float b) {
 // One term of a matrix row as the GE keeps it: the exact product, truncated at a fixed bit weight,
 // 2^-15 below the inputs' exponents combined. A significand product of 2 or more keeps a 17th bit.
 struct GERowTerm {
-	double value;
+	int32_t mantissa;  // The term is mantissa * 2^lsbExp.
 	int lsbExp;
+	float Value() const { return ldexpf((float)mantissa, lsbExp); }
 };
 
+// Zero and denormals (which the GE treats as zero) give a zero term.
 inline GERowTerm GEProduct(float a, float b) {
-	if (a == 0.0f || b == 0.0f) {
-		return { 0.0, INT_MIN };
+	uint32_t ba, bb;
+	memcpy(&ba, &a, sizeof(ba));
+	memcpy(&bb, &b, sizeof(bb));
+	const int ea = (ba >> 23) & 0xFF;
+	const int eb = (bb >> 23) & 0xFF;
+	if (ea == 0 || eb == 0) {
+		return { 0, INT_MIN };
 	}
-	int ea, eb;
-	frexpf(a, &ea);
-	frexpf(b, &eb);
-	const int lsbExp = (ea - 1) + (eb - 1) - 15;
-	return { ldexp(trunc(ldexp((double)a * b, -lsbExp)), lsbExp), lsbExp };
+	// The 24-bit significands make a 48-bit product with 46 fraction bits, of which we keep 15.
+	const uint64_t ma = (ba & 0x007FFFFF) | 0x00800000;
+	const uint64_t mb = (bb & 0x007FFFFF) | 0x00800000;
+	const int32_t m = (int32_t)((ma * mb) >> 31);
+	return { ((ba ^ bb) & 0x80000000) ? -m : m, (ea - 127) + (eb - 127) - 15 };
 }
 
 // The GE sums a matrix row in one go, with no order: every term is truncated to the bit weight of the
@@ -103,14 +110,18 @@ inline float GERowSum(const GERowTerm *terms, int count) {
 	for (int i = 0; i < count; ++i) {
 		lsbExp = std::max(lsbExp, terms[i].lsbExp);
 	}
-	if (lsbExp == INT_MIN) {
+	int32_t sum = 0;
+	for (int i = 0; i < count; ++i) {
+		const int32_t m = terms[i].mantissa;
+		const int shift = lsbExp - terms[i].lsbExp;
+		if (m != 0 && shift < 32) {
+			sum += m < 0 ? -(-m >> shift) : (m >> shift);
+		}
+	}
+	if (sum == 0) {
 		return 0.0f;
 	}
-	double sum = 0.0;
-	for (int i = 0; i < count; ++i) {
-		sum += ldexp(trunc(ldexp(terms[i].value, -lsbExp)), lsbExp);
-	}
-	return TruncateToFloat24((float)sum);
+	return TruncateToFloat24(ldexpf((float)sum, lsbExp));
 }
 
 float GEAddFloat24(float a, float b);

@@ -15,6 +15,7 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include "Common/BitScan.h"
 #include "GPU/Software/GEMath.h"
 
 // The GE's reciprocal: the top 7 bits of w's 15-bit float24 mantissa pick a segment, which the low
@@ -209,9 +210,8 @@ static const GESetupRecipSegment geSetupRecip[256] = {
 };
 
 int64_t GESetupRecip(uint64_t absDet, int *e) {
-	int ex = 63;
-	while (!(absDet >> ex))
-		--ex;
+	const uint32_t hi = (uint32_t)(absDet >> 32);
+	const int ex = hi ? 63 - (int)clz32_nonzero(hi) : 31 - (int)clz32_nonzero((uint32_t)absDet);
 	*e = ex;
 	const int index = (int)((absDet << 16) >> ex) - 65536;
 	const GESetupRecipSegment &seg = geSetupRecip[index >> 8];

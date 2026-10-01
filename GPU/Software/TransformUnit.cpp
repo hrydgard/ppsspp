@@ -669,7 +669,7 @@ static void ApplyGESkinning(u8 *decoded, const VertexDecoder &dec, const u8 *raw
 					if (translate)
 						add(bones[b][9 + c]);
 					for (int j = 0; j < 3; ++j)
-						add(GEProduct(TruncateToFloat24(src[j]), bones[b][j * 3 + c]).value);
+						add(GEProduct(TruncateToFloat24(src[j]), bones[b][j * 3 + c]).Value());
 				}
 				dst[c] = acc;
 			}
