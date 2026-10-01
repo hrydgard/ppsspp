@@ -100,6 +100,11 @@ static Operation g_opToExec;
 static u32 g_retVal;
 static bool g_opDone = true;
 static bool g_cancelled = false;
+static int g_drawLimit = 0;
+
+void SetReplayDrawLimit(int lastPrim) {
+	g_drawLimit = lastPrim;
+}
 
 // Runs on operation thread
 u32 ExecuteOnMain(Operation opToExec) {
@@ -389,6 +394,7 @@ private:
 	std::vector<u32> execListQueue;
 	u16 lastBufw_[8]{};
 	u32 lastTex_[8]{};
+	int prims_ = 0;
 	u32 lastBase_ = 0;
 
 	const std::vector<u8> &pushbuf_;
@@ -485,6 +491,12 @@ void DumpExecute::Registers(u32 ptr, u32 sz) {
 			else
 				ops[i] = lastTexHigh[level] | bufw;
 			lastBufw_[level] = bufw;
+		}
+
+		if (cmd == GE_CMD_PRIM || cmd == GE_CMD_BEZIER || cmd == GE_CMD_SPLINE) {
+			prims_++;
+			if (g_drawLimit > 0 && prims_ > g_drawLimit)
+				ops[i] = GE_CMD_NOP << 24;
 		}
 
 		// Since we're here anyway, also NOP out texture addresses.
