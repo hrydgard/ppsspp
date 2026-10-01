@@ -51,7 +51,16 @@ static inline float pspLightPow(float v, float e) {
 		return 1.0f;
 	}
 	if (v > 0.0f) {
-		return PSPLightPow(v, e);
+		// PSPLightPow, but the product is exact and floored rather than a rounded float multiply
+		// (gpu/probe exp102: e = 1.1).
+		int32_t ix;
+		memcpy(&ix, &v, sizeof(ix));
+		double t = std::floor((double)e * (double)(ix - 0x3F800000)) + 1065353216.0;
+		t = t >= 0.0 ? (t < 2139095039.0 ? t : 2139095039.0) : 0.0;
+		int32_t iy = (int32_t)t;
+		float y;
+		memcpy(&y, &iy, sizeof(y));
+		return y;
 	}
 	// Negative stays negative, so let's just return the original.
 	return v;
