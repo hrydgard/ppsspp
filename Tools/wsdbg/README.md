@@ -118,6 +118,7 @@ way took minutes per run. These run inside the one session instead:
 | `:sleep <seconds>` | Wall-clock pause. Keeps draining and printing messages while it waits. |
 | `:wait <event> [timeout]` | Blocks until a message with that event name arrives. Exits non-zero if it never does. |
 | `:screenshot <file.png>` | Saves `gpu.buffer.screenshot` as a PNG, without printing the image data. Needs the CPU stopped. Use a native path (`C:/...`) on Windows. Works in headless with `--graphics=vulkan`. |
+| `:nowait <command>` | Sends the command and moves straight on, even under `--sync`; its reply prints whenever it arrives. For requests that only answer once the CPU has run, like `input.buttons.press`. |
 | `:echo <text>` | Prints text, for marking up a script's output. |
 | `# comment` | Ignored. |
 

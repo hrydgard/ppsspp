@@ -7,11 +7,11 @@
 //   wsdbg 12345 game.status            # one-shot: send an event, print responses, exit
 //   wsdbg 12345 cpu.setReg thread=0 name=0 value=42
 
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap};
 use std::io::{self, BufRead, Write};
 use std::net::TcpStream;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::mpsc;
+use std::sync::{Mutex, mpsc};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -122,6 +122,19 @@ static COMPACT: AtomicBool = AtomicBool::new(false);
 
 fn compact() -> bool {
     COMPACT.load(Ordering::Relaxed)
+}
+
+// Tickets of requests sent without waiting, whose reply hasn't arrived yet, so :quit can wait for
+// them. Global for the same reason as COMPACT: a reply can turn up inside any of the loops that
+// read the socket (a --sync wait, :sleep, ...), and they all go through print_incoming.
+static PENDING: Mutex<BTreeSet<u64>> = Mutex::new(BTreeSet::new());
+
+fn add_pending(ticket: u64) {
+    PENDING.lock().unwrap().insert(ticket);
+}
+
+fn pending_count() -> usize {
+    PENDING.lock().unwrap().len()
 }
 
 // The "> " prompt is noise in a piped script, and interleaves with incoming messages.
@@ -383,6 +396,9 @@ fn request_deferred_acks(socket: &mut WebSocket<TcpStream>) -> Result<()> {
 
 fn print_incoming(text: &str) {
     let parsed = serde_json::from_str::<serde_json::Value>(text);
+    if let Some(t) = parsed.as_ref().ok().and_then(|v| v.get("ticket")).and_then(|t| t.as_u64()) {
+        PENDING.lock().unwrap().remove(&t);
+    }
     if compact() {
         // One line per message, event name first so a script can grep for it without having to
         // reassemble pretty-printed JSON spread over twenty lines.
@@ -540,6 +556,7 @@ fn print_help() {
     println!(":screenshot <file.png>             save gpu.buffer.screenshot to a PNG file");
     println!(":sleep <seconds>                   pause, still printing anything that arrives");
     println!(":wait <event> [timeout]            block until that event arrives (e.g. cpu.stepping)");
+    println!(":nowait <command>                  send a command without waiting for it, even with --sync");
     println!(":echo <text>                       print text, for marking up a script's output");
     println!("# ...                              comment line, ignored");
     println!("See docs/WebSocketDebugger.md in the ppsspp repo for the full event catalog.");
@@ -880,30 +897,24 @@ fn cmd_diff(snapshots: &Snapshots, args: &[&str]) {
 // away. Without this, a script whose last line is a request followed by :quit exits before the
 // answer arrives and looks exactly like the request silently doing nothing - which is a trap
 // worth removing rather than documenting.
-fn drain_pending(socket: &mut WebSocket<TcpStream>, pending: &mut HashSet<u64>, secs: f64) {
-    if pending.is_empty() {
+fn drain_pending(socket: &mut WebSocket<TcpStream>, secs: f64) {
+    if pending_count() == 0 {
         return;
     }
     let deadline = Instant::now() + Duration::from_secs_f64(secs);
-    while !pending.is_empty() && Instant::now() < deadline {
+    while pending_count() > 0 && Instant::now() < deadline {
         match socket.read() {
-            Ok(Message::Text(text)) => {
-                print_incoming(&text);
-                if let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) {
-                    if let Some(t) = v.get("ticket").and_then(|t| t.as_u64()) {
-                        pending.remove(&t);
-                    }
-                }
-            }
+            // print_incoming takes the ticket off PENDING.
+            Ok(Message::Text(text)) => print_incoming(&text),
             Ok(_) => {}
             Err(ref e) if is_would_block(e) => {}
             Err(_) => return,
         }
     }
-    if !pending.is_empty() {
+    if pending_count() > 0 {
         eprintln!(
             "! exiting with {} request(s) still unanswered after {}s - their replies were lost",
-            pending.len(),
+            pending_count(),
             secs
         );
     }
@@ -946,9 +957,6 @@ fn run_repl(mut socket: WebSocket<TcpStream>, sync: bool, sync_timeout: f64) -> 
 
     let mut snapshots: Snapshots = Snapshots::new();
     let mut failed = false;
-    // Requests sent whose reply hasn't been seen yet, so :quit can wait for them.
-    let mut pending: HashSet<u64> = HashSet::new();
-
     loop {
         match rx.try_recv() {
             Ok(line) => {
@@ -956,7 +964,7 @@ fn run_repl(mut socket: WebSocket<TcpStream>, sync: bool, sync_timeout: f64) -> 
                 let mut words = line.split_whitespace();
                 match words.next() {
                     Some(":quit") | Some(":q") | Some(":exit") => {
-                        drain_pending(&mut socket, &mut pending, 10.0);
+                        drain_pending(&mut socket, 10.0);
                         return Ok(!failed);
                     }
                     Some(":help") | Some(":h") => print_help(),
@@ -985,6 +993,20 @@ fn run_repl(mut socket: WebSocket<TcpStream>, sync: bool, sync_timeout: f64) -> 
                             failed = true;
                         }
                     }
+                    Some(":nowait") => {
+                        // Send without waiting, even under --sync. For a request that only answers
+                        // once the CPU has run, like input.buttons.press, so the next line can be
+                        // the one that runs it.
+                        let rest = line[":nowait".len()..].trim();
+                        match handle_repl_line(&mut socket, rest) {
+                            Err(e) => {
+                                eprintln!("! {e}");
+                                failed = true;
+                            }
+                            Ok(Some((ticket, _))) => add_pending(ticket),
+                            Ok(_) => {}
+                        }
+                    }
                     Some(":echo") => println!("{}", words.collect::<Vec<&str>>().join(" ")),
                     Some("#") => {}
                     Some(w) if w.starts_with('#') => {}
@@ -1001,9 +1023,7 @@ fn run_repl(mut socket: WebSocket<TcpStream>, sync: bool, sync_timeout: f64) -> 
                                 failed = true;
                             }
                         }
-                        Ok(Some((ticket, _))) => {
-                            pending.insert(ticket);
-                        }
+                        Ok(Some((ticket, _))) => add_pending(ticket),
                         Ok(_) => {}
                     },
                 }
@@ -1011,7 +1031,7 @@ fn run_repl(mut socket: WebSocket<TcpStream>, sync: bool, sync_timeout: f64) -> 
             }
             Err(mpsc::TryRecvError::Disconnected) => {
                 // Piped script hit EOF - same race as :quit.
-                drain_pending(&mut socket, &mut pending, 10.0);
+                drain_pending(&mut socket, 10.0);
                 return Ok(!failed);
             }
             Err(mpsc::TryRecvError::Empty) => {}
@@ -1019,11 +1039,6 @@ fn run_repl(mut socket: WebSocket<TcpStream>, sync: bool, sync_timeout: f64) -> 
 
         match socket.read() {
             Ok(Message::Text(text)) => {
-                if let Ok(v) = serde_json::from_str::<serde_json::Value>(&text) {
-                    if let Some(t) = v.get("ticket").and_then(|t| t.as_u64()) {
-                        pending.remove(&t);
-                    }
-                }
                 print_incoming(&text);
                 print_prompt();
             }
