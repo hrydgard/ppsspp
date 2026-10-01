@@ -23,6 +23,7 @@
 
 #include "Common/Common.h"
 #include "Common/CPUDetect.h"
+#include "Common/Data/Convert/ColorConv.h"
 #include "Common/Math/math_util.h"
 #include "Common/MemoryUtil.h"
 #include "Common/Profiler/Profiler.h"
@@ -815,19 +816,38 @@ static float ReadRawWeight(const u8 *p, int fmt, int i) {
 	}
 }
 
+// One morphed component as the GE computes it (gpu/probe exp67, exp107): each frame's value times its
+// weight as a float24, summed in frame order with the GE's adder.
+template <typename Read>
+static float GEMorphComponent(const VertexDecoder &dec, const u8 *in, int off, int c, Read read) {
+	float acc = 0.0f;
+	for (int k = 0; k < dec.morphcount; ++k) {
+		const float v = TruncateToFloat24(read(in + k * dec.onesize_ + off, c));
+		const float w = TruncateToFloat24(gstate_c.morphWeights[k]);
+		const float term = v == 0.0f || w == 0.0f ? 0.0f : ProductToFloat24((double)v * w);
+		if (term != 0.0f)
+			acc = acc == 0.0f ? term : TruncateToFloat24(GEAdd(acc, term));
+	}
+	return acc;
+}
+
 // Skinning as the GE does it (gpu/probe exp68, exp70, exp71, bit exact): each bone matrix is scaled by
 // its weight, every entry a float24 product, and one accumulator then runs through all the bones in
 // order, adding each bone's translation, then x, y and z times its column, with the GE's adder.
-// Normals the same without the translation. Overwrites what the vertex decoder skinned in float.
+// Normals the same without the translation. With morph targets, the morph comes first, weights included
+// (gpu/probe exp108). Overwrites what the vertex decoder skinned in float.
 static void ApplyGESkinning(u8 *decoded, const VertexDecoder &dec, const u8 *raw, int count) {
 	const DecVtxFormat &fmt = dec.GetDecVtxFmt();
 	const int nweights = dec.nweights;
 	for (int v = 0; v < count; ++v) {
 		const u8 *in = raw + v * dec.VertexSize();
 		u8 *out = decoded + v * fmt.stride;
+		auto component = [&](int off, int c, auto read) {
+			return dec.morphcount > 1 ? GEMorphComponent(dec, in, off, c, read) : read(in + off, c);
+		};
 		float bones[8][12];
 		for (int b = 0; b < nweights; ++b) {
-			const float w = TruncateToFloat24(ReadRawWeight(in + dec.weightoff, dec.weighttype, b));
+			const float w = TruncateToFloat24(component(dec.weightoff, b, [&](const u8 *p, int i) { return ReadRawWeight(p, dec.weighttype, i); }));
 			for (int k = 0; k < 12; ++k) {
 				const float m = gstate.boneMatrix[b * 12 + k];
 				bones[b][k] = m == 0.0f || w == 0.0f ? 0.0f : ProductToFloat24((double)TruncateToFloat24(m) * w);
@@ -852,37 +872,56 @@ static void ApplyGESkinning(u8 *decoded, const VertexDecoder &dec, const u8 *raw
 		if (dec.pos) {
 			float pos[3], skinned[3];
 			for (int i = 0; i < 3; ++i)
-				pos[i] = ReadRawComponent(in + dec.posoff, dec.pos, i);
+				pos[i] = component(dec.posoff, i, [&](const u8 *p, int c) { return ReadRawComponent(p, dec.pos, c); });
 			skin(pos, true, skinned);
 			memcpy(out + fmt.posoff, skinned, sizeof(skinned));
 		}
 		if (dec.nrm && fmt.nrmfmt == DEC_FLOAT_3) {
 			float nrm[3], skinned[3];
 			for (int i = 0; i < 3; ++i)
-				nrm[i] = ReadRawComponent(in + dec.nrmoff, dec.nrm, i);
+				nrm[i] = component(dec.nrmoff, i, [&](const u8 *p, int c) { return ReadRawComponent(p, dec.nrm, c); });
 			skin(nrm, false, skinned);
 			memcpy(out + fmt.nrmoff, skinned, sizeof(skinned));
 		}
 	}
 }
 
-// Morphing as the GE does it (gpu/probe exp67, bit exact for positions): each frame's value times its
-// weight as a float24, summed in frame order with the GE's adder. Overwrites the decoder's float result
-// for positions and normals.
+// A vertex color channel (0 r, 1 g, 2 b, 3 a) expanded to 8 bits.
+static float ReadRawColorChannel(const u8 *p, int fmt, int c) {
+	u16 v16;
+	memcpy(&v16, p, 2);
+	switch (fmt) {
+	case GE_VTYPE_COL_565 >> GE_VTYPE_COL_SHIFT: {
+		const u32 c8 = RGB565ToRGBA8888(v16);
+		return (float)((c8 >> (8 * c)) & 0xFF);
+	}
+	case GE_VTYPE_COL_5551 >> GE_VTYPE_COL_SHIFT: {
+		const u32 c8 = RGBA5551ToRGBA8888(v16);
+		return (float)((c8 >> (8 * c)) & 0xFF);
+	}
+	case GE_VTYPE_COL_4444 >> GE_VTYPE_COL_SHIFT: {
+		const u32 c8 = RGBA4444ToRGBA8888(v16);
+		return (float)((c8 >> (8 * c)) & 0xFF);
+	}
+	case GE_VTYPE_COL_8888 >> GE_VTYPE_COL_SHIFT:
+		return (float)p[c];
+	default:
+		return 0.0f;
+	}
+}
+
+// Morphing as the GE does it (gpu/probe exp67, exp107): each frame's value times its weight as a
+// float24, summed in frame order with the GE's adder. Positions and normals as read; UVs too (8 and
+// 16 bit ones unsigned); colors per channel expanded to 8 bits, the sum floored. Overwrites the
+// decoder's float result.
 static void ApplyGEMorph(u8 *decoded, const VertexDecoder &dec, const u8 *raw, int count) {
 	const DecVtxFormat &fmt = dec.GetDecVtxFmt();
+	auto morphWith = [&](const u8 *in, int off, int n, float *dst, auto read) {
+		for (int c = 0; c < n; ++c)
+			dst[c] = GEMorphComponent(dec, in, off, c, read);
+	};
 	auto morph = [&](const u8 *in, int off, int cfmt, float dst[3]) {
-		for (int c = 0; c < 3; ++c) {
-			float acc = 0.0f;
-			for (int k = 0; k < dec.morphcount; ++k) {
-				const float v = TruncateToFloat24(ReadRawComponent(in + k * dec.onesize_ + off, cfmt, c));
-				const float w = TruncateToFloat24(gstate_c.morphWeights[k]);
-				const float term = v == 0.0f || w == 0.0f ? 0.0f : ProductToFloat24((double)v * w);
-				if (term != 0.0f)
-					acc = acc == 0.0f ? term : TruncateToFloat24(GEAdd(acc, term));
-			}
-			dst[c] = acc;
-		}
+		morphWith(in, off, 3, dst, [&](const u8 *p, int c) { return ReadRawComponent(p, cfmt, c); });
 	};
 	for (int v = 0; v < count; ++v) {
 		const u8 *in = raw + v * dec.VertexSize();
@@ -895,6 +934,17 @@ static void ApplyGEMorph(u8 *decoded, const VertexDecoder &dec, const u8 *raw, i
 		if (dec.nrm && fmt.nrmfmt == DEC_FLOAT_3) {
 			morph(in, dec.nrmoff, dec.nrm, r);
 			memcpy(out + fmt.nrmoff, r, sizeof(r));
+		}
+		if (dec.tc && fmt.uvfmt == DEC_FLOAT_2) {
+			float uv[2];
+			morphWith(in, dec.tcoff, 2, uv, [&](const u8 *p, int c) { return ReadRawWeight(p, dec.tc, c); });
+			memcpy(out + fmt.uvoff, uv, sizeof(uv));
+		}
+		if (dec.col && fmt.c0fmt == DEC_U8_4) {
+			float ch[4];
+			morphWith(in, dec.coloff, 4, ch, [&](const u8 *p, int c) { return ReadRawColorChannel(p, dec.col, c); });
+			for (int c = 0; c < 4; ++c)
+				out[fmt.c0off + c] = (u8)std::clamp((int)std::floor(ch[c]), 0, 255);
 		}
 	}
 }
@@ -914,10 +964,10 @@ public:
 			const UVScale uvScale = UsesGEUVScale(vertex_type) ? UVScale{ 1.0f, 1.0f, 0.0f, 0.0f } : LoadUVScaleOffset(gstate);
 			vdecoder.DecodeVerts(base, (const u8 *)vertices + vdecoder.VertexSize() * lowerBound_, &uvScale, count);
 			const u8 *raw = (const u8 *)vertices + vdecoder.VertexSize() * lowerBound_;
-			if (vdecoder.weighttype != 0 && !vdecoder.throughmode && vdecoder.morphcount == 1)
-				ApplyGESkinning(base, vdecoder, raw, count);
-			else if (vdecoder.morphcount > 1 && vdecoder.weighttype == 0 && !vdecoder.throughmode)
+			if (vdecoder.morphcount > 1 && !vdecoder.throughmode)
 				ApplyGEMorph(base, vdecoder, raw, count);
+			if (vdecoder.weighttype != 0 && !vdecoder.throughmode)
+				ApplyGESkinning(base, vdecoder, raw, count);
 		}
 
 		// If we're only using a subset of verts, it's better to decode with random access (usually.)
