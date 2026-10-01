@@ -1104,6 +1104,8 @@ static DepthPlane FixedPlane(const int64_t X[3], const int64_t Y[3], const doubl
 
 // u, v and w at three screen points. A w of 1 (through mode) leaves u and v as they are. With texture
 // projection, uq is the texture matrix's q, and u and v come out divided by it (gpu/probe exp64).
+static UVPlanes ComputeUVPlanesSTQ(const int64_t X[3], const int64_t Y[3], const double s[3], const double t[3], const double q[3]);
+
 static UVPlanes ComputeUVPlanes(const int64_t X[3], const int64_t Y[3], const float u[3], const float v[3], const float w[3], const float *uq = nullptr) {
 	UVPlanes planes{};
 	double s[3], t[3], q[3];
@@ -1116,6 +1118,11 @@ static UVPlanes ComputeUVPlanes(const int64_t X[3], const int64_t Y[3], const fl
 		s[i] = ProductToFloat24((double)TruncateToFloat24(u[i]) * r);
 		t[i] = ProductToFloat24((double)TruncateToFloat24(v[i]) * r);
 	}
+	return ComputeUVPlanesSTQ(X, Y, s, t, q);
+}
+
+static UVPlanes ComputeUVPlanesSTQ(const int64_t X[3], const int64_t Y[3], const double s[3], const double t[3], const double q[3]) {
+	UVPlanes planes{};
 	planes.shiftS = SharedShift(s);
 	planes.shiftT = SharedShift(t);
 	planes.shiftQ = SharedShift(q);
@@ -1550,35 +1557,36 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 		rowST += (stx / (float)(SCREEN_SCALE_FACTOR * 2)) * (minX - entireX1 + 1);
 		rowST += (sty / (float)(SCREEN_SCALE_FACTOR * 2)) * (minY - entireY1 + 1);
 
-		// The GE interpolates sprite UVs with the same planes as triangles (gpu/probe exp57: exact in
-		// through mode and at w = 1, 96.7% at other w). Corners: top left, top right, bottom left.
+		// The GE interpolates sprite UVs with the same planes as triangles, from three corners whose s, t and q
+		// it takes component by component from the two vertices: s from the vertex that supplies the corner's
+		// x, t from the one that supplies its y (swapped for a rotated sprite, drawn bottom left to top right
+		// or top right to bottom left), and q from the one that supplies its x. So different w at the two
+		// vertices bend the mapping (gpu/probe exp57, exp122, exp129). The corners are top left, top right
+		// and bottom left, or for bottom left to top right, bottom left, top right and bottom right, which
+		// anchors that plane at the bottom left.
 		const bool right = v0.screenpos.x < v1.screenpos.x, down = v0.screenpos.y < v1.screenpos.y;
-		const float u[3] = {
-			right == down ? (right ? tc0.s() : tc1.s()) : (right ? tc1.s() : tc0.s()),
-			right == down ? (right ? tc1.s() : tc0.s()) : (right ? tc1.s() : tc0.s()),
-			right == down ? (right ? tc0.s() : tc1.s()) : (right ? tc0.s() : tc1.s()),
-		};
-		const float v[3] = {
-			right == down ? (right ? tc0.t() : tc1.t()) : (right ? tc0.t() : tc1.t()),
-			right == down ? (right ? tc0.t() : tc1.t()) : (right ? tc1.t() : tc0.t()),
-			right == down ? (right ? tc1.t() : tc0.t()) : (right ? tc0.t() : tc1.t()),
-		};
-		const float w = state.throughMode ? 1.0f : v1.clipw;
-		const float ws[3] = { w, w, w };
-		const int64_t left = std::min(v0.screenpos.x, v1.screenpos.x), top = std::min(v0.screenpos.y, v1.screenpos.y);
-		const int64_t X[3] = { left, std::max(v0.screenpos.x, v1.screenpos.x), left };
-		const int64_t Y[3] = { top, top, std::max(v0.screenpos.y, v1.screenpos.y) };
-		if (!(right && !down)) {
-			uvPlanes = ComputeUVPlanes(X, Y, u, v, ws);
-		} else {
-			// Drawn bottom left to top right (rotated), the plane comes from v0, v1 and the bottom right
-			// corner, which anchors it at the bottom left (gpu/probe exp122).
-			const float ubr = u[1] + u[2] - u[0], vbr = v[1] + v[2] - v[0];
-			const int64_t rightX = std::max(v0.screenpos.x, v1.screenpos.x), bottom = std::max(v0.screenpos.y, v1.screenpos.y);
-			const float ur[3] = { u[2], u[1], ubr }, vr[3] = { v[2], v[1], vbr };
-			const int64_t XR[3] = { left, rightX, rightX }, YR[3] = { bottom, top, bottom };
-			uvPlanes = ComputeUVPlanes(XR, YR, ur, vr, ws);
+		const bool swapST = right != down;
+		const VertexData *vs[2] = { &v0, &v1 };
+		double S[2], T[2], Q[2];
+		for (int k = 0; k < 2; ++k) {
+			const double r = state.throughMode ? 1.0 : GERecip(TruncateToFloat24(vs[k]->clipw));
+			Q[k] = r;
+			S[k] = ProductToFloat24((double)TruncateToFloat24(k == 0 ? tc0.s() : tc1.s()) * r);
+			T[k] = ProductToFloat24((double)TruncateToFloat24(k == 0 ? tc0.t() : tc1.t()) * r);
 		}
+		const int64_t left = std::min(v0.screenpos.x, v1.screenpos.x), top = std::min(v0.screenpos.y, v1.screenpos.y);
+		const int64_t rightX = std::max(v0.screenpos.x, v1.screenpos.x), bottom = std::max(v0.screenpos.y, v1.screenpos.y);
+		const bool bottomLeftFirst = right && !down;
+		const int64_t CX[3] = { left, rightX, bottomLeftFirst ? rightX : left };
+		const int64_t CY[3] = { bottomLeftFirst ? bottom : top, top, bottom };
+		double cs[3], ct[3], cq[3];
+		for (int k = 0; k < 3; ++k) {
+			const int xs = CX[k] == v0.screenpos.x ? 0 : 1, ys = CY[k] == v0.screenpos.y ? 0 : 1;
+			cs[k] = S[swapST ? ys : xs];
+			ct[k] = T[swapST ? xs : ys];
+			cq[k] = Q[xs];
+		}
+		uvPlanes = ComputeUVPlanesSTQ(CX, CY, cs, ct, cq);
 	}
 	// Sprite planes are built from normalized coordinates, also in through mode.
 	const float autoGrad = UVPlaneGradient(uvPlanes, state, false);
