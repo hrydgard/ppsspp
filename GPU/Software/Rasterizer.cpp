@@ -1951,6 +1951,93 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords 
 #endif
 }
 
+// Which pixels a line lights, as the GE does it (gpu/probe exp72: 312 of 320 random lines exact; a few
+// lines with an end exactly on a diamond's edge differ): diamond exit. A pixel is lit when the line
+// passes through the inside of its diamond |x - cx| + |y - cy| < 1/2 and doesn't end inside it (see
+// InLineDiamond for points exactly on the edge). In 1/16 pixel units, exact.
+struct LinePixel {
+	int x, y;
+	float t;  // where the pixel's center falls along the line, 0 to 1
+};
+
+static bool InLineDiamond(int64_t cx, int64_t cy, int64_t x, int64_t y) {
+	const int64_t dx = x - cx, dy = y - cy;
+	const int64_t d = std::abs(dx) + std::abs(dy);
+	if (d != SCREEN_SCALE_FACTOR / 2)
+		return d < SCREEN_SCALE_FACTOR / 2;
+	// On the edge: the top corner, the edges either side of it, and the left corner are inside.
+	return dy < 0 || (dy == 0 && dx < 0);
+}
+
+// Whether the line reaches the diamond's inside, or touches its boundary where InLineDiamond counts it
+// as inside (a horizontal line along the top corners of a row, for example).
+static bool LineCrossesDiamond(int64_t cx, int64_t cy, int64_t x0, int64_t y0, int64_t x1, int64_t y1) {
+	// Clip t in [0, 1] against the four half-planes sx (x - cx) + sy (y - cy) <= 8, as fractions lo..hi,
+	// noting whether any of them is only met with equality.
+	int64_t loN = 0, loD = 1, hiN = 1, hiD = 1;
+	static const int signs[4][2] = { { 1, 1 }, { 1, -1 }, { -1, 1 }, { -1, -1 } };
+	for (const auto &s : signs) {
+		const int64_t a = s[0] * (x1 - x0) + s[1] * (y1 - y0);
+		const int64_t b = SCREEN_SCALE_FACTOR / 2 - (s[0] * (x0 - cx) + s[1] * (y0 - cy));
+		if (a == 0) {
+			if (b < 0)
+				return false;
+		} else if (a > 0) {
+			if (b * hiD < hiN * a) {
+				hiN = b;
+				hiD = a;
+			}
+		} else if ((-b) * loD > loN * (-a)) {
+			loN = -b;
+			loD = -a;
+		}
+	}
+	if (loN * hiD > hiN * loD)
+		return false;
+	// Classify the middle of the overlap: inside, or a boundary point that counts.
+	const int64_t tn = loN * hiD + hiN * loD, td = 2 * loD * hiD;
+	const int64_t dxN = (x0 - cx) * td + (x1 - x0) * tn;
+	const int64_t dyN = (y0 - cy) * td + (y1 - y0) * tn;
+	const int64_t dN = std::abs(dxN) + std::abs(dyN);
+	if (dN < (SCREEN_SCALE_FACTOR / 2) * td)
+		return true;
+	return dyN < 0 || (dyN == 0 && dxN < 0);
+}
+
+static void LinePixels(int64_t x0, int64_t y0, int64_t x1, int64_t y1, std::vector<LinePixel> &out) {
+	out.clear();
+	if (x0 == x1 && y0 == y1)
+		return;
+	const bool xMajor = std::abs(x1 - x0) >= std::abs(y1 - y0);
+	const int64_t a0 = xMajor ? x0 : y0, a1 = xMajor ? x1 : y1;
+	const int64_t b0 = xMajor ? y0 : x0, b1 = xMajor ? y1 : x1;
+	const int dir = a1 >= a0 ? 1 : -1;
+	const int bdir = b1 >= b0 ? 1 : -1;
+	const int64_t first = (a0 / SCREEN_SCALE_FACTOR) - dir, last = (a1 / SCREEN_SCALE_FACTOR) + dir;
+	for (int64_t c = first; c != last + dir; c += dir) {
+		const int64_t ac = c * SCREEN_SCALE_FACTOR + SCREEN_SCALE_FACTOR / 2;
+		// The minor coordinate at this column's center, floored to a pixel.
+		const int64_t num = b0 * (a1 - a0) + (ac - a0) * (b1 - b0);
+		const int64_t den = a1 - a0;
+		int64_t bc = num / den;
+		if ((num % den != 0) && ((num < 0) != (den < 0)))
+			bc--;
+		const int64_t r = bc >= 0 ? bc / SCREEN_SCALE_FACTOR : -((-bc + SCREEN_SCALE_FACTOR - 1) / SCREEN_SCALE_FACTOR);
+		for (int k = -1; k <= 1; ++k) {
+			const int64_t rr = r + k * bdir;
+			const int64_t px = xMajor ? c : rr, py = xMajor ? rr : c;
+			const int64_t cx = px * SCREEN_SCALE_FACTOR + SCREEN_SCALE_FACTOR / 2;
+			const int64_t cy = py * SCREEN_SCALE_FACTOR + SCREEN_SCALE_FACTOR / 2;
+			if (InLineDiamond(cx, cy, x1, y1))
+				continue;
+			if (InLineDiamond(cx, cy, x0, y0) || LineCrossesDiamond(cx, cy, x0, y0, x1, y1)) {
+				const float t = std::clamp((float)(ac - a0) / (float)(a1 - a0), 0.0f, 1.0f);
+				out.push_back({ (int)px, (int)py, t });
+			}
+		}
+	}
+}
+
 void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range, const RasterizerState &state) {
 	// TODO: Use a proper line drawing algorithm that handles fractional endpoints correctly.
 	Vec3<int> a(v0.screenpos.x, v0.screenpos.y, v0.screenpos.z);
@@ -1990,11 +2077,14 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 	std::string ztag = StringFromFormat("DisplayListLZ_%08x", state.listPC);
 #endif
 
-	double x = a.x > b.x ? a.x - 1 : a.x;
-	double y = a.y > b.y ? a.y - 1 : a.y;
-	double z = a.z;
 	const int steps1 = steps == 0 ? 1 : steps;
-	for (int i = 0; i < steps; i++) {
+	static thread_local std::vector<LinePixel> pixels;
+	LinePixels(a.x, a.y, b.x, b.y, pixels);
+	for (const LinePixel &lp : pixels) {
+		const int i = std::clamp((int)lroundf(lp.t * steps), 0, steps);
+		const double x = lp.x * SCREEN_SCALE_FACTOR + SCREEN_SCALE_FACTOR / 2;
+		const double y = lp.y * SCREEN_SCALE_FACTOR + SCREEN_SCALE_FACTOR / 2;
+		const double z = a.z + lp.t * dz;
 		DrawingCoords p = TransformUnit::ScreenToDrawing(x, y);
 
 		bool maskOK = x >= range.x1 && y >= range.y1 && x <= range.x2 && y <= range.y2;
@@ -2095,9 +2185,6 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 #endif
 		}
 
-		x += xinc;
-		y += yinc;
-		z += zinc;
 	}
 }
 
