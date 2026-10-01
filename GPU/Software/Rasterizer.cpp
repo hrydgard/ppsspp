@@ -1232,6 +1232,38 @@ void DrawTriangleSlice(
 	auto coveredAt = [&](int64_t x, int64_t y) {
 		return edgeAt(v1.screenpos, v2.screenpos, x, y) + bias0[0] >= 0 && edgeAt(v2.screenpos, v0.screenpos, x, y) + bias1[0] >= 0 && edgeAt(v0.screenpos, v1.screenpos, x, y) + bias2[0] >= 0;
 	};
+	// A very tall triangle's long edge (top to bottom vertex): when 3 dy > 2^17 (in subpixels), the first pixel
+	// of each 4-pixel span (for a left edge, the last for a right edge) is inside it when any of the span is
+	// (gpu/probe exp131-135).
+	int snapEdge = -1;
+	bool snapLeft = false;
+	{
+		const VertexData *vs[3] = { &v0, &v1, &v2 };
+		int top = 0, bot = 0;
+		for (int i = 1; i < 3; ++i) {
+			if (vs[i]->screenpos.y < vs[top]->screenpos.y)
+				top = i;
+			// On a tie for the bottom, the long edge ends at the left one (gpu/probe exp131).
+			if (vs[i]->screenpos.y > vs[bot]->screenpos.y || (vs[i]->screenpos.y == vs[bot]->screenpos.y && vs[i]->screenpos.x < vs[bot]->screenpos.x))
+				bot = i;
+		}
+		const int64_t dy = (int64_t)vs[bot]->screenpos.y - vs[top]->screenpos.y;
+		if (top != bot && 3 * dy > (1 << 17)) {
+			const int third = 3 - top - bot;
+			snapEdge = third;  // e_k is the edge opposite vertex k
+			// Left edge when the third vertex is to the right of the long edge at its height.
+			const int64_t ex = (int64_t)(vs[bot]->screenpos.x - vs[top]->screenpos.x) * (vs[third]->screenpos.y - vs[top]->screenpos.y);
+			snapLeft = (int64_t)(vs[third]->screenpos.x - vs[top]->screenpos.x) * dy > ex;
+		}
+	}
+	auto edgeK = [&](int k, int64_t x, int64_t y) {
+		switch (k) {
+		case 0: return edgeAt(v1.screenpos, v2.screenpos, x, y) + bias0[0];
+		case 1: return edgeAt(v2.screenpos, v0.screenpos, x, y) + bias1[0];
+		default: return edgeAt(v0.screenpos, v1.screenpos, x, y) + bias2[0];
+		}
+	};
+
 	Vec4<int> w0_base = e0.Start(v1.screenpos, v2.screenpos, pprime);
 	Vec4<int> w1_base = e1.Start(v2.screenpos, v0.screenpos, pprime);
 	Vec4<int> w2_base = e2.Start(v0.screenpos, v1.screenpos, pprime);
@@ -1291,9 +1323,13 @@ void DrawTriangleSlice(
 		DrawingCoords p = TransformUnit::ScreenToDrawing(minX, curY);
 
 		int64_t rowMinX = minX, rowMaxX = maxX;
-		e0.NarrowMinMaxX(w0, minX, rowMinX, rowMaxX);
-		e1.NarrowMinMaxX(w1, minX, rowMinX, rowMaxX);
-		e2.NarrowMinMaxX(w2, minX, rowMinX, rowMaxX);
+		// A snapping edge can light pixels up to three past it.
+		if (snapEdge != 0)
+			e0.NarrowMinMaxX(w0, minX, rowMinX, rowMaxX);
+		if (snapEdge != 1)
+			e1.NarrowMinMaxX(w1, minX, rowMinX, rowMaxX);
+		if (snapEdge != 2)
+			e2.NarrowMinMaxX(w2, minX, rowMinX, rowMaxX);
 
 		int skipX = (rowMinX - minX) / (SCREEN_SCALE_FACTOR * 2);
 		w0 = e0.StepXTimes(w0, skipX);
@@ -1315,6 +1351,20 @@ void DrawTriangleSlice(
 
 			// If p is on or inside all edges, render pixel
 			Vec4<int> mask = MakeMask(w0, w1, w2, bias0, bias1, bias2, scissor_mask);
+			if (snapEdge >= 0) {
+				for (int i = 0; i < 4; ++i) {
+					const int64_t x = curX + SCREEN_SCALE_FACTOR / 2 + (i & 1) * SCREEN_SCALE_FACTOR;
+					const int64_t y = curY + SCREEN_SCALE_FACTOR / 2 + (i >> 1) * SCREEN_SCALE_FACTOR;
+					const int px = p.x + (i & 1);
+					// Only the span's first pixel (left edge) or last (right edge) takes the edge at the other end.
+					const int spanX = snapLeft ? ((px & 3) == 0 ? (px | 3) : px) : ((px & 3) == 3 ? (px & ~3) : px);
+					const int64_t xs = x + (int64_t)(spanX - px) * SCREEN_SCALE_FACTOR;
+					bool inside = true;
+					for (int k = 0; k < 3; ++k)
+						inside = inside && edgeK(k, k == snapEdge ? xs : x, y) >= 0;
+					mask[i] = (inside ? 0 : -1) | scissor_mask[i];
+				}
+			}
 			if (AnyMask<useSSE4>(mask)) {
 				Vec4<int> z;
 				if (flatZ) {
