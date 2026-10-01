@@ -339,6 +339,11 @@ void ProcessTriangle(const ClipVertexData &v0, const ClipVertexData &v1, const C
 		const float t = TransformUnit::NearPlaneT(in.clippos, out.clippos);
 		dest.Lerp(t, in, out);
 		dest.clippos = TransformUnit::NearPlanePoint(in.clippos, out.clippos, t);
+		// Texture coordinates go through the same arithmetic as the position (gpu/probe exp136).
+		for (int c = 0; c < 3; ++c) {
+			const float delta = TruncateToFloat24(GEAdd(out.v.texturecoords[c], -in.v.texturecoords[c]));
+			dest.v.texturecoords[c] = TruncateToFloat24(GEAdd(ProductToFloat24((double)t * delta), in.v.texturecoords[c]));
+		}
 		bool outsideRange = false;
 		dest.v.screenpos = TransformUnit::ClipToScreen(dest.clippos, &outsideRange);
 		dest.v.clipw = dest.clippos.w;
