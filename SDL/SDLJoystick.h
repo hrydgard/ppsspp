@@ -14,6 +14,7 @@ public:
 
 	void registerEventHandler();
 	void ProcessInput(const SDL_Event &event);
+	void Rumble(int padIndex, bool start);
 
 private:
 	void setUpController(SDL_JoystickID deviceID);
