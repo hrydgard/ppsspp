@@ -13,6 +13,7 @@
 #include <set>
 
 #include "Common/CommonTypes.h"
+#include "Common/UI/IconCache.h"  // for ICON_MAX_AGE_DEFAULT
 #include "Core/Loaders.h"  // for IdentifiedFileType
 
 class Path;
@@ -78,9 +79,11 @@ bool LoginProblems(std::string *errorString);
 bool HasToken();
 
 /// Called when the system is being shut down. If Shutdown() returns false, the shutdown should be aborted if possible.
-bool Shutdown();
+/// With waitForRequests, a client with requests in flight is kept alive until they complete (see Idle()).
+/// Pass false only when pending requests are about to be cancelled, as at app exit.
+bool Shutdown(bool waitForRequests = true);
 
-void DownloadImageIfMissing(std::string_view url);
+void DownloadImageIfMissing(std::string_view url, double maxAge = ICON_MAX_AGE_DEFAULT);
 
 /// Called once a frame at vsync time on the CPU thread, during gameplay.
 void FrameUpdate();

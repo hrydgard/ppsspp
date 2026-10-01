@@ -161,7 +161,7 @@ void didReceiveData(id self, SEL _sel, id session, id dataTask, id data) {
     int written = res->request->options.bodyWriter(bytes, (int)length, res->request->options.bodyWriterData);
     if (written != (int)length) {
         res->code = naettReadError;
-        res->complete = 1;
+        naettSetComplete(res);
         objc_msgSend_void(dataTask, sel("cancel"));
         release(p);
         return;
@@ -183,7 +183,7 @@ static void didComplete(id self, SEL _sel, id session, id dataTask, id error) {
         if (error != nil) {
             res->code = naettConnectionError;
         }
-        res->complete = 1;
+        naettSetComplete(res);
     }
 }
 

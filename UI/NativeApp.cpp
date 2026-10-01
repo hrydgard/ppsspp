@@ -1853,7 +1853,7 @@ void NativeShutdown() {
 
 	g_controlMapper.RemoveListener(&g_globalListener);
 
-	Achievements::Shutdown();
+	Achievements::Shutdown(false);  // CancelAll below drops the pending requests.
 
 	if (g_Config.bAchievementsEnable) {
 		FILE *iconCacheFile = File::OpenCFile(GetSysDirectory(DIRECTORY_CACHE) / "icon.cache", "wb");

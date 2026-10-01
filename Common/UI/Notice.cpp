@@ -54,7 +54,6 @@ void MeasureNotice(const UIContext &dc, NoticeLevel level, std::string_view text
 		// Normal entry but with a cached icon.
 		int iconWidth, iconHeight;
 		if (g_iconCache.GetDimensions(iconName, &iconWidth, &iconHeight)) {
-			*width += 5.0f + iconWidth;
 			iconW = iconWidth;
 			iconH = iconHeight;
 		}

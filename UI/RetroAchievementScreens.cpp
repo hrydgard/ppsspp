@@ -258,20 +258,28 @@ RetroAchievementsLeaderboardScreen::RetroAchievementsLeaderboardScreen(const Pat
 
 void RetroAchievementsLeaderboardScreen::FetchEntries() {
 	auto callback = [](int result, const char *error_message, rc_client_leaderboard_entry_list_t *list, rc_client_t *client, void *userdata) {
+		RetroAchievementsLeaderboardScreen *thiz = (RetroAchievementsLeaderboardScreen *)userdata;
+		// rc_client frees the handle after this returns, so it must not be aborted later.
+		thiz->pendingAsyncCall_ = nullptr;
 		if (result != RC_OK) {
 			g_OSD.Show(OSDType::MESSAGE_ERROR, error_message, 10.0f);
 			return;
 		}
-
-		RetroAchievementsLeaderboardScreen *thiz = (RetroAchievementsLeaderboardScreen *)userdata;
+		if (thiz->pendingEntryList_) {
+			rc_client_destroy_leaderboard_entry_list(thiz->pendingEntryList_);
+		}
 		thiz->pendingEntryList_ = list;
-		thiz->pendingAsyncCall_ = nullptr;
 	};
+
+	// An aborted request doesn't call back, so only the latest request can reach the callback.
+	if (pendingAsyncCall_) {
+		rc_client_abort_async(Achievements::GetClient(), pendingAsyncCall_);
+		pendingAsyncCall_ = nullptr;
+	}
 
 	// Store the handle so the destructor can abort it if we're closed before the
 	// response arrives - without this, the callback above would run later against
-	// a freed `this` (its pendingAsyncCall_ null-check in the destructor was
-	// otherwise always a no-op since this was never assigned).
+	// a freed `this`.
 	if (nearMe_) {
 		pendingAsyncCall_ = rc_client_begin_fetch_leaderboard_entries_around_user(Achievements::GetClient(), leaderboardID_, 10, callback, this);
 	} else {
@@ -788,7 +796,7 @@ static void RenderLeaderboardEntry(UIContext &dc, const rc_client_leaderboard_en
 	char userImageUrl[512];
 	if (RC_OK == rc_client_leaderboard_entry_get_user_image_url(entry, userImageUrl, sizeof(userImageUrl))) {
 		std::string imageUrl = http::RemoveHttpsIfNeeded(userImageUrl);
-		Achievements::DownloadImageIfMissing(imageUrl);
+		Achievements::DownloadImageIfMissing(imageUrl, ICON_MAX_AGE_AVATAR);
 		if (g_iconCache.BindIconTexture(&dc, imageUrl)) {
 			dc.Draw()->DrawTexRect(Bounds(bounds.x + iconLeft, bounds.y + 4.0f, 64.0f, 64.0f), 0.0f, 0.0f, 1.0f, 1.0f, whiteAlpha(alpha));
 		}

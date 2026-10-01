@@ -21,6 +21,14 @@ $msbuild = "$installPath\MSBuild\Current\Bin\MSBuild.exe"
 
 (swap `/t:UnitTest` for `/t:PPSSPPWindows` or another project name as needed; drop it entirely to build the whole solution).
 
+On an ARM64 host, use `$installPath\MSBuild\Current\Bin\arm64\MSBuild.exe` instead. The MSBuild in
+`Bin\` itself runs emulated and picks the 32-bit x86-hosted compiler (`bin\HostX86\arm64\CL.exe`),
+which can't always map the precompiled headers into its address space. Builds then fail
+intermittently, every file of a project at line 1, with `C3859: Failed to create virtual memory for
+PCH` and `C1076: compiler limit: internal heap limit reached`. That looks like running out of
+memory, but lowering `/m` or `CL_MPCount` doesn't help, and `/p:PreferredToolArchitecture=arm64`
+has no effect. The build log's `CL.exe` path shows which host compiler ran.
+
 `<platform>` is `ARM64` or `x64` - whichever the machine actually is, so look it up rather than
 picking a default. The output directory follows it (`Windows\<platform>\<configuration>\`), which
 makes building one and running the other an easy mistake. It is easiest to make on Windows-on-ARM,
@@ -68,6 +76,15 @@ in that environment) but is very likely specific to that sandbox rather than a r
 bug, since CI runs the equivalent of `UnitTest.exe all` on every commit across multiple
 platforms without apparent issue. If `all`/`Jit` hangs in your environment, run every other
 test by name instead (skip `Jit`) to still get real coverage.
+
+## UWP build
+
+UWP has its own solution, `UWP\PPSSPP_UWP.sln`. Build the app with `/t:PPSSPP_UWP` (or a single
+library such as `/t:CoreUWP`), same MSBuild setup as above:
+
+```powershell
+& $msbuild "UWP\PPSSPP_UWP.sln" /t:PPSSPP_UWP /p:Configuration=Debug /p:Platform=<platform> /m
+```
 
 ## Android assets
 

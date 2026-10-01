@@ -390,7 +390,7 @@ naettReq* naettGetRequest(naettRes* response) {
 int naettComplete(const naettRes* response) {
     assert(response != NULL);
     InternalResponse* res = (InternalResponse*)response;
-    return res->complete;
+    return naettLoadComplete(res);
 }
 
 int naettGetStatus(const naettRes* response) {

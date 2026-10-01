@@ -314,7 +314,7 @@ static void* processRequest(void* data) {
     res->code = statusCode;
 
 finally:
-    res->complete = 1;
+    naettSetComplete(res);
     (*env)->PopLocalFrame(env, NULL);
     JavaVM* vm = getVM();
     (*env)->ExceptionClear(env);
@@ -332,7 +332,7 @@ static void startWorkerThread(InternalResponse* res) {
         LOGE("Failed to start the request worker thread");
         res->workerThread = 0;
         res->code = naettGenericError;
-        res->complete = 1;
+        naettSetComplete(res);
     } else {
         pthread_setname_np(res->workerThread, "naett worker thread");
     }
