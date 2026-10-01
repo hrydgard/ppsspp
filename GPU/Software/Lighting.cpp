@@ -201,52 +201,17 @@ void GenerateLightST(VertexData &vertex, const WorldCoords &worldpos, const Worl
 	vertex.texturecoords.t() = PSPShadeMapCoord(gstate.getUVLS1(), worldpos, worldnormal, viewDir);
 }
 
-#if defined(_M_SSE)
-#if defined(__GNUC__) || defined(__clang__) || defined(__INTEL_COMPILER)
-[[gnu::target("sse4.1")]]
-#endif
-static inline int LightCeilSSE4(float f) {
-	__m128 v = _mm_set_ss(f);
-	// This isn't terribly fast, but seems to be better than calling ceilf().
-	return _mm_cvt_ss2si(_mm_ceil_ss(v, v));
+// How the GE scales light by a factor (gpu/probe exp61-63): the light and material colors make an
+// 8-bit product x = ((2l + 1) * (2m + 1)) >> 10, and each factor (N.L or the specular power, then the
+// attenuation and spot) becomes an 8-bit s = floor(256 * f) that is expanded like a color:
+// ((2x + 1) * (2s + 1)) >> 10. A factor of 1 (s = 256) leaves x as it is.
+static inline Vec4<int> LightColorProduct(const Vec4<int> &lightFactor, const Vec4<int> &materialFactor) {
+	return (lightFactor * materialFactor) >> 10;
 }
 
-#if defined(__GNUC__) || defined(__clang__) || defined(__INTEL_COMPILER)
-[[gnu::target("sse4.1")]]
-#endif
-static inline __m128i LightColorScaleBy512SSE4(__m128i factor, __m128i color, __m128i scale) {
-	// We can use 16-bit multiply here (faster than 32-bit multiply) since our top bits are zero.
-	__m128i result18 = _mm_madd_epi16(factor, color);
-	// But now with 18 bits, we need a full multiply.
-	__m128i multiplied = _mm_mullo_epi32(result18, scale);
-	return _mm_srai_epi32(multiplied, 10 + 9);
-}
-#endif
-
-template <bool useSSE4>
-static inline int LightCeil(float f) {
-#if defined(_M_SSE)
-	if (useSSE4)
-		return LightCeilSSE4(f);
-#elif PPSSPP_ARCH(ARM64_NEON)
-	return vcvtps_s32_f32(f);
-#endif
-	return (int)ceilf(f);
-}
-
-template <bool useSSE4>
-static Vec4<int> LightColorScaleBy512(const Vec4<int> &factor, const Vec4<int> &color, int scale) {
-	// We multiply s9 * s9 * s9, resulting in s27, then shift off 19 to get 8-bit.
-	// The reason all factors are s9 is to account for rounding.
-	// Also note that all values are positive, so can be treated as unsigned.
-#if defined(_M_SSE) && !PPSSPP_ARCH(X86)
-	if (useSSE4)
-		return LightColorScaleBy512SSE4(factor.ivec, color.ivec, _mm_set1_epi32(scale));
-#elif PPSSPP_ARCH(ARM64_NEON)
-	int32x4_t multiplied = vmulq_n_s32(vmulq_s32(factor.ivec, color.ivec), scale);
-	return vshrq_n_s32(multiplied, 10 + 9);
-#endif
-	return (factor * color * scale) >> (10 + 9);
+static inline Vec4<int> LightColorScale(const Vec4<int> &x, float f) {
+	const int s = std::min((int)(256.0f * f), 256);
+	return ((x * 2 + Vec4<int>::AssignToAll(1)) * (2 * s + 1)) >> 10;
 }
 
 static inline void LightColorSum(Vec4<int> &sum, const Vec4<int> &src) {
@@ -334,10 +299,9 @@ static void ProcessSIMD(VertexData &vertex, const WorldCoords &worldpos, const W
 
 		// ambient lighting
 		if (lstate.ambient) {
-			int attspot512 = (int)LightCeil<useSSE4>(256 * 2 * attspot + 1);
-			if (attspot512 > 512)
-				attspot512 = 512;
-			Vec4<int> lambient = LightColorScaleBy512<useSSE4>(lstate.ambientColorFactor, mac, attspot512);
+			Vec4<int> lambient = LightColorProduct(lstate.ambientColorFactor, mac);
+			if (attspot < 1.0f)
+				lambient = LightColorScale(lambient, attspot);
 			LightColorSum(final_color, lambient);
 		}
 
@@ -351,13 +315,10 @@ static void ProcessSIMD(VertexData &vertex, const WorldCoords &worldpos, const W
 		}
 
 		if (lstate.diffuse && diffuse_factor > 0.0f) {
-			// The GE (gpu/probe exp61-62): the light and material colors make an 8-bit product
-			// x = ((2l + 1) * (2m + 1)) >> 10, and the factor an 8-bit s = floor(256 * f), which is then
-			// expanded like a color: ((2x + 1) * (2s + 1)) >> 10.
-			const int s = (int)(256.0f * attspot * diffuse_factor);
 			Vec4<int> mdc = state.colorForDiffuse ? colorFactor : state.material.diffuseColorFactor;
-			const Vec4<int> x = (lstate.diffuseColorFactor * mdc) >> 10;
-			const Vec4<int> ldiffuse = ((x * 2 + Vec4<int>::AssignToAll(1)) * (2 * s + 1)) >> 10;
+			Vec4<int> ldiffuse = LightColorScale(LightColorProduct(lstate.diffuseColorFactor, mdc), diffuse_factor);
+			if (attspot < 1.0f)
+				ldiffuse = LightColorScale(ldiffuse, attspot);
 			LightColorSum(final_color, ldiffuse);
 		}
 
@@ -368,12 +329,10 @@ static void ProcessSIMD(VertexData &vertex, const WorldCoords &worldpos, const W
 			specular_factor = pspLightPow(specular_factor, state.specularExp);
 
 			if (specular_factor > 0.0f) {
-				int specular_attspot = (int)LightCeil<useSSE4>(256 * 2 * attspot * specular_factor + 1);
-				if (specular_attspot > 512)
-					specular_attspot = 512;
-
 				Vec4<int> msc = state.colorForSpecular ? colorFactor : state.material.specularColorFactor;
-				Vec4<int> lspecular = LightColorScaleBy512<useSSE4>(lstate.specularColorFactor, msc, specular_attspot);
+				Vec4<int> lspecular = LightColorScale(LightColorProduct(lstate.specularColorFactor, msc), specular_factor);
+				if (attspot < 1.0f)
+					lspecular = LightColorScale(lspecular, attspot);
 				LightColorSum(specular_color, lspecular);
 			}
 		}
