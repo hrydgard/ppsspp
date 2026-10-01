@@ -468,13 +468,19 @@ static inline void ApplyTexelClamp(int out_u[N], int out_v[N], const int u[N], c
 	}
 }
 
+// A texel coordinate in 1/16 texel, truncated. Out of int range it's INT_MIN, as the x86 sampler JIT's
+// conversion gives (gpu/probe exp5: s >= 2^18 on a 512 wide repeating texture reads texel 0 on a PSP).
+static inline int TexelFixed(float f) {
+	return f >= -2147483648.0f && f < 2147483648.0f ? (int)f : INT_MIN;
+}
+
 static inline void GetTexelCoordinates(int level, float s, float t, int &out_u, int &out_v, const SamplerID &samplerID) {
 	int width = samplerID.cached.sizes[level].w;
 	int height = samplerID.cached.sizes[level].h;
 
 	// The GE truncates to 1/16 texel, toward zero (gpu/probe exp57).
-	int base_u = (int)(s * width * 16.0f);
-	int base_v = (int)(t * height * 16.0f);
+	int base_u = TexelFixed(s * width * 16.0f);
+	int base_v = TexelFixed(t * height * 16.0f);
 
 	base_u >>= 4;
 	base_v >>= 4;
@@ -696,7 +702,7 @@ static inline Vec4IntResult SOFTRAST_CALL GetTexelCoordinatesQuadS(int level, fl
 	int width = samplerID.cached.sizes[level].w;
 
 	// The GE truncates to 1/16 texel, toward zero (gpu/probe exp57).
-	int base_u = (int)(in_s * width * 16) - 8;
+	int base_u = TexelFixed(in_s * width * 16) - 8;
 	frac_u = base_u & 0x0F;
 	base_u >>= 4;
 
@@ -707,7 +713,7 @@ static inline Vec4IntResult SOFTRAST_CALL GetTexelCoordinatesQuadS(int level, fl
 static inline Vec4IntResult SOFTRAST_CALL GetTexelCoordinatesQuadT(int level, float in_t, int &frac_v, const SamplerID &samplerID) {
 	int height = samplerID.cached.sizes[level].h;
 
-	int base_v = (int)(in_t * height * 16) - 8;
+	int base_v = TexelFixed(in_t * height * 16) - 8;
 	frac_v = base_v & 0x0F;
 	base_v >>= 4;
 

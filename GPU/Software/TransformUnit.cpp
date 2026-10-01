@@ -377,7 +377,11 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 				canSkipWorldPos = false;
 			}
 		}
-		state->lightingState.viewDir = PSPViewDirection(gstate.viewMatrix);
+		// The viewer direction (see PSPViewDirection), normalized like the GE does.
+		Vec3f viewDir(gstate.viewMatrix[2], gstate.viewMatrix[5], gstate.viewMatrix[8]);
+		if (GENormalize(viewDir) == 0.0f)
+			viewDir = Vec3f(0.0f, 0.0f, 1.0f);
+		state->lightingState.viewDir = viewDir;
 
 		float world[16];
 		float view[16];
