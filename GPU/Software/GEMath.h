@@ -183,7 +183,7 @@ inline Vec4<int> GELightColorScale(const Vec4<int> &x, float f) {
 }
 
 // The alpha of pixel (px, py) of an antialiased line between two points in screen subpixels (gpu/probe
-// exp112, 99%; the rest look like the GE's stepper). Antialiased lines light the same pixels as plain
-// ones, and this replaces the vertex alpha: 128 - |v|, v the largest integer below 256 times the pixel
-// center's offset from the line along the minor axis, in pixels.
+// exp112, 1735 of 1744 pixels). Antialiased lines light the same pixels as plain ones, and this replaces the
+// vertex alpha: 128 - |v|, v the floor of 16 times the pixel center's offset from the line along the minor
+// axis in subpixels, with the line's minor position from the triangle setup's reciprocal of its length.
 int GELineCoverageAlpha(int64_t x0, int64_t y0, int64_t x1, int64_t y1, int px, int py);

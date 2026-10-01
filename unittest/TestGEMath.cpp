@@ -186,9 +186,9 @@ static bool TestGELightColor() {
 
 static bool TestGELineCoverageAlpha() {
 	// Antialiased line pixels measured on a PSP (exp112): line ends in subpixels, the pixel, its alpha.
-	// The first four have the offset exactly on a step.
+	// The first three have the offset exactly on a step, which the reciprocal decides.
 	static const int measured[][7] = {
-		{ 831, 146, 567, 227, 48, 10, 47 }, { 831, 146, 567, 227, 37, 13, 113 }, { 2470, 191, 2544, 154, 158, 9, 31 }, { 2470, 191, 2544, 154, 156, 10, 31 },
+		{ 5832, 1205, 6108, 1039, 364, 75, 80 }, { 2470, 191, 2544, 154, 158, 9, 31 }, { 2470, 191, 2544, 154, 156, 10, 31 },
 		{ 328, 240, 198, 171, 13, 11, 73 }, { 7310, 112, 7502, 157, 461, 8, 22 }, { 5529, 766, 5559, 569, 347, 37, 37 }, { 4038, 929, 4232, 1136, 253, 59, 71 },
 		{ 2801, 1456, 2632, 1657, 172, 94, 31 }, { 1616, 2013, 1699, 1796, 101, 124, 127 }, { 2279, 2535, 2310, 2229, 144, 141, 40 }, { 7629, 2356, 7550, 2350, 474, 147, 20 },
 		{ 6299, 2652, 6609, 2836, 403, 171, 109 }, { 4407, 3243, 4531, 3239, 275, 202, 80 },

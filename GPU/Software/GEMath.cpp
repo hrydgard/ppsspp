@@ -244,21 +244,21 @@ float GELightPow(float v, float e) {
 int GELineCoverageAlpha(int64_t x0, int64_t y0, int64_t x1, int64_t y1, int px, int py) {
 	int64_t PX = (int64_t)px * 16 + 16 / 2;
 	int64_t PY = (int64_t)py * 16 + 16 / 2;
-	if (std::abs(x1 - x0) < std::abs(y1 - y0)) {
+	// A diagonal line is y-major (gpu/probe exp137).
+	if (std::abs(x1 - x0) <= std::abs(y1 - y0)) {
 		std::swap(x0, y0);
 		std::swap(x1, y1);
 		std::swap(PX, PY);
 	}
-	int64_t den = x1 - x0;
+	const int64_t den = x1 - x0;
 	if (den == 0)
 		return 128;
-	// o = 16 * (offset in subpixels) = num / den.
-	int64_t num = 16 * ((PY - y0) * den - (y1 - y0) * (PX - x0));
-	if (den < 0) {
-		num = -num;
-		den = -den;
-	}
-	const int64_t ceilQ = num >= 0 ? (num + den - 1) / den : -((-num) / den);
-	const int64_t v = ceilQ - 1;
-	return (int)std::clamp<int64_t>(128 - (v < 0 ? -v : v), 0, 255);
+	// The minor position at the pixel's major coordinate uses the triangle setup's reciprocal of the major
+	// length, walking from v0, and v = floor(o) (gpu/probe exp112: 1735 of 1744).
+	int e;
+	const int64_t q = GESetupRecip((uint64_t)std::abs(den), &e);
+	const int64_t walk = den > 0 ? PX - x0 : x0 - PX;
+	const int sh = e + 16;
+	const int64_t o = ((16 * (PY - y0)) * ((int64_t)1 << sh) - 16 * (y1 - y0) * walk * q) >> sh;
+	return (int)std::clamp<int64_t>(128 - (o < 0 ? -o : o), 0, 255);
 }
