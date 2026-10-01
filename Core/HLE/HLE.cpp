@@ -758,6 +758,9 @@ u32 hleDelayResult(u32 result, const char *reason, int usec) {
 
 	if (!__KernelIsDispatchEnabled()) {
 		WARN_LOG(Log::HLE, "%s: Dispatch disabled, not delaying HLE result (right thing to do?)", g_stackSize ? g_stack[0]->name : "?");
+	} else if (__IsInInterrupt()) {
+		// Nothing can wait in an interrupt handler. The wait would go to the idle thread it runs on.
+		WARN_LOG(Log::HLE, "%s: In interrupt, not delaying HLE result", g_stackSize ? g_stack[0]->name : "?");
 	} else {
 		SceUID thread = __KernelGetCurThread();
 		if (KernelIsThreadWaiting(thread))
@@ -774,6 +777,8 @@ u64 hleDelayResult(u64 result, const char *reason, int usec) {
 	// _dbg_assert_(g_stackSize == 0);
 	if (!__KernelIsDispatchEnabled()) {
 		WARN_LOG(Log::HLE, "%s: Dispatch disabled, not delaying HLE result (right thing to do?)", g_stack[0]->name ? g_stack[0]->name : "N/A");
+	} else if (__IsInInterrupt()) {
+		WARN_LOG(Log::HLE, "%s: In interrupt, not delaying HLE result", g_stack[0]->name ? g_stack[0]->name : "N/A");
 	} else {
 		// TODO: Defer this, so you can call this multiple times, in case of syscalls calling syscalls? Although, return values are tricky.
 		SceUID thread = __KernelGetCurThread();

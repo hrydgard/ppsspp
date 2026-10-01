@@ -276,6 +276,7 @@ tests_good = [
   "intr/releasesub",
   "intr/suspended",
   "intr/vblank/vblank",
+  "intr/delays/delays",
   "io/cwd/cwd",
   "io/file/rename",
   "io/directory/directory",

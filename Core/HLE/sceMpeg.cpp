@@ -26,6 +26,7 @@
 #include "Core/HLE/sceMpegbase.h"
 #include "Core/HLE/sceKernelModule.h"
 #include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/Config.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
@@ -513,6 +514,11 @@ static u32 MpegRequiredMem() {
 
 // ddrTop is currently ignored.
 static u32 sceMpegCreate(u32 mpegAddr, u32 dataPtr, u32 size, u32 ringbufferAddr, u32 frameWidth, u32 mode, u32 ddrTop) {
+	// pspautotests intr/delays.
+	if (__IsInInterrupt()) {
+		return hleLogError(Log::Mpeg, SCE_MPEG_ERROR_IN_INTERRUPT, "in interrupt");
+	}
+
 	if (!Memory::IsValidAddress(mpegAddr)) {
 		return hleLogWarning(Log::Mpeg, -1, "invalid addresses");
 	}

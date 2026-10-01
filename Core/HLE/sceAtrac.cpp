@@ -34,6 +34,7 @@
 #include "Core/HLE/sceUtility.h"
 #include "Core/HLE/sceVideocodec.h"
 #include "Core/HLE/sceKernelMemory.h"
+#include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/scePower.h"
 #include "Core/HLE/sceAtrac.h"
 #include "Core/HLE/sceAudiocodec.h"
@@ -900,6 +901,12 @@ static int sceAtracReinit(int at3Count, int at3plusCount) {
 		if (atracContexts[i] != nullptr) {
 			return hleReportError(Log::Atrac, SCE_KERNEL_ERROR_BUSY, "cannot reinit while IDs in use");
 		}
+	}
+
+	// Setting up the codec fails in an interrupt handler, while deinit still works
+	// (pspautotests intr/delays).
+	if (!atracInited && (at3Count > 0 || at3plusCount > 0) && __IsInInterrupt()) {
+		return hleLogError(Log::Atrac, SCE_AVCODEC_ERROR_INVALID_DATA, "in interrupt");
 	}
 
 	memset(atracContextTypes, 0, sizeof(atracContextTypes));
