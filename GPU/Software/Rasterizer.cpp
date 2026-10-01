@@ -649,7 +649,8 @@ static int TexLog2(float delta) {
 }
 
 // q is 1 / w at the pixel, as the GE interpolates it (UVPlanes).
-static inline void CalculateSamplingParams(const float ds, const float dt, float q, const RasterizerState &state, int &level, int &levelFrac, bool &filt) {
+// autoGrad: the largest UV plane gradient in texels per pixel, when there are planes (or negative).
+static inline void CalculateSamplingParams(const float ds, const float dt, float q, const RasterizerState &state, int &level, int &levelFrac, bool &filt, float autoGrad = -1.0f) {
 	const int width = 1 << state.samplerID.width0Shift;
 	const int height = 1 << state.samplerID.height0Shift;
 
@@ -657,7 +658,13 @@ static inline void CalculateSamplingParams(const float ds, const float dt, float
 	int detail;
 	switch (state.TexLevelMode()) {
 	case GE_TEXLEVEL_MODE_AUTO:
-		detail = TexLog2(std::max(std::abs(ds * width), std::abs(dt * height)));
+		if (autoGrad >= 0.0f) {
+			// The largest gradient of the s and t planes over the pixel's q, both through the float-bits
+			// log2, like slope mode (gpu/probe exp92-93).
+			detail = TexLog2(autoGrad) - TexLog2(q);
+		} else {
+			detail = TexLog2(std::max(std::abs(ds * width), std::abs(dt * height)));
+		}
 		break;
 	case GE_TEXLEVEL_MODE_SLOPE:
 		// The GE takes the same float-bits log2 of q and of the slope, and adds a level (gpu/probe
@@ -695,14 +702,15 @@ static inline void CalculateSamplingParams(const float ds, const float dt, float
 		filt = state.magFilt;
 }
 
-static inline void ApplyTexturing(const RasterizerState &state, Vec4<int> *prim_color, const Vec4<int> &mask, const Vec4<float> &s, const Vec4<float> &t, const Vec4<float> &q) {
-	float ds = s[1] - s[0];
-	float dt = t[2] - t[0];
+static inline void ApplyTexturing(const RasterizerState &state, Vec4<int> *prim_color, const Vec4<int> &mask, const Vec4<float> &s, const Vec4<float> &t, const Vec4<float> &q, float autoGrad = -1.0f) {
+	// Auto LOD takes the largest of all four UV derivatives (gpu/probe exp92, exact for affine mappings).
+	float ds = std::max(std::abs(s[1] - s[0]), std::abs(s[2] - s[0]));
+	float dt = std::max(std::abs(t[1] - t[0]), std::abs(t[2] - t[0]));
 
 	int level;
 	int levelFrac;
 	bool bilinear;
-	const bool perPixel = state.TexLevelMode() == GE_TEXLEVEL_MODE_SLOPE;
+	const bool perPixel = state.TexLevelMode() == GE_TEXLEVEL_MODE_SLOPE || (state.TexLevelMode() == GE_TEXLEVEL_MODE_AUTO && autoGrad >= 0.0f);
 	if (!perPixel)
 		CalculateSamplingParams(ds, dt, 0.0f, state, level, levelFrac, bilinear);
 
@@ -710,7 +718,7 @@ static inline void ApplyTexturing(const RasterizerState &state, Vec4<int> *prim_
 	for (int i = 0; i < 4; ++i) {
 		if (mask[i] >= 0) {
 			if (perPixel)
-				CalculateSamplingParams(ds, dt, q[i], state, level, levelFrac, bilinear);
+				CalculateSamplingParams(ds, dt, q[i], state, level, levelFrac, bilinear, autoGrad);
 			prim_color[i] = ApplyTexturing(s[i], t[i], ToVec4IntArg(prim_color[i]), level, levelFrac, bilinear, state);
 		}
 	}
@@ -1226,6 +1234,21 @@ static inline float UVProduct(double d) {
 	return (float)d;
 }
 
+// The largest of the s and t planes' gradients, in texels per pixel (auto mip level selection).
+// inTexels: the planes hold texel coordinates (through-mode triangles) rather than normalized ones.
+static float UVPlaneGradient(const UVPlanes &planes, const RasterizerState &state, bool inTexels) {
+	if (!planes.valid)
+		return -1.0f;
+	const double perPixel = (double)SCREEN_SCALE_FACTOR / 16384.0;
+	double gs = std::ldexp((double)std::max(std::abs(planes.s.kx), std::abs(planes.s.ky)) * perPixel, -planes.shiftS);
+	double gt = std::ldexp((double)std::max(std::abs(planes.t.kx), std::abs(planes.t.ky)) * perPixel, -planes.shiftT);
+	if (!inTexels) {
+		gs *= 1 << state.samplerID.width0Shift;
+		gt *= 1 << state.samplerID.height0Shift;
+	}
+	return (float)std::max(gs, gt);
+}
+
 static inline void GetTextureCoordinatesGE(const UVPlanes &planes, int64_t centerX, int64_t centerY, Vec4<float> &s, Vec4<float> &t, Vec4<float> &qOut) {
 	for (int i = 0; i < 4; ++i) {
 		const int64_t x = centerX + (i & 1) * SCREEN_SCALE_FACTOR, y = centerY + (i >> 1) * SCREEN_SCALE_FACTOR;
@@ -1293,6 +1316,7 @@ void DrawTriangleSlice(
 	const DepthPlane depthPlane = flatZ ? DepthPlane{} : ComputeDepthPlane(v0, v1, v2);
 	// Through mode too, where w is 1 (gpu/probe exp73).
 	const UVPlanes uvPlanes = state.enableTextures ? ComputeUVPlanes(v0, v1, v2, state.textureProj && !state.throughMode) : UVPlanes{};
+	const float autoGrad = UVPlaneGradient(uvPlanes, state, state.throughMode);
 	DepthPlane color0Planes[4], color1Planes[3];
 	DepthPlane fogPlane{};
 	if (!noFog) {
@@ -1431,7 +1455,7 @@ void DrawTriangleSlice(
 							const float clipw = (v0.clipw * w0.x + v1.clipw * w1.x + v2.clipw * w2.x) * wsum_recip.x;
 							q = Vec4<float>::AssignToAll(1.0f / clipw);
 						}
-						ApplyTexturing(state, prim_color, mask, s, t, q);
+						ApplyTexturing(state, prim_color, mask, s, t, q, autoGrad);
 					}
 				}
 
@@ -1600,6 +1624,8 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 		const int64_t Y[3] = { top, top, std::max(v0.screenpos.y, v1.screenpos.y) };
 		uvPlanes = ComputeUVPlanes(X, Y, u, v, ws);
 	}
+	// Sprite planes are built from normalized coordinates, also in through mode.
+	const float autoGrad = UVPlaneGradient(uvPlanes, state, false);
 
 	// And now what we add to spread out to 4 values.
 	const Vec4f sto4(0.0f, 0.5f * stx.s(), 0.5f * sty.s(), 0.5f * stx.s() + 0.5f * sty.s());
@@ -1666,7 +1692,7 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 					t = Vec4<float>::AssignToAll(st.t()) + tto4;
 				}
 
-				ApplyTexturing(state, prim_color, mask, s, t, q);
+				ApplyTexturing(state, prim_color, mask, s, t, q, autoGrad);
 			}
 
 			if (!state.pixelID.clearMode) {
