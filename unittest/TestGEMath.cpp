@@ -125,6 +125,9 @@ static bool TestGESetupRecip() {
 		EXPECT_EQ_INT(q2, m[1]);
 		EXPECT_EQ_INT(e, 21);
 	}
+	// exp54's Gouraud triangle (det 854491) needs at least 40211 here; exp39 and exp41 bound it from above.
+	int e = 0;
+	EXPECT_EQ_INT(GESetupRecip(65536 + 41275, &e), 40211);
 	return true;
 }
 
