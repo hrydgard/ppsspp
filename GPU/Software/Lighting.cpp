@@ -277,11 +277,13 @@ static void ProcessSIMD(VertexData &vertex, const WorldCoords &worldpos, const W
 			for (int i = 0; i < 3; ++i)
 				L[i] = GEAddFloat24(L[i], -worldpos[i]);
 			// TODO: Should this normalize (0, 0, 0) to (0, 0, 1)?
+			// The quadratic term takes the squared length from the normalization, not d * d (gpu/probe exp63).
+			const float d2 = GEDot(L, L);
 			float d = GENormalize(L);
 			if (d == 0.0f)
 				L = Vec3f(0.0f, 0.0f, 1.0f);
 
-			const float den = GEDot(lstate.att, Vec3f(1.0f, d, ProductToFloat24((double)d * d)));
+			const float den = GEDot(lstate.att, Vec3f(1.0f, d, d2));
 			att = den > 0.0f ? GERecip(den) : 0.0f;
 			if (!(att > 0.0f))
 				att = 0.0f;
