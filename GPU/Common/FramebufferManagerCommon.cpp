@@ -506,7 +506,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 			vfb->lastFrameNewSize = gpuStats.totals.numFlips;
 		}
 
-		if (!resized && renderScaleFactor_ != 1 && vfb->renderScaleFactor == 1) {
+		if (!resized && renderScaleFactor_ != 1 && vfb->renderScaleFactor == 1 && !ShouldDownloadFramebufferColor(vfb)) {
 			// Might be time to change this framebuffer - have we used depth?
 			if ((vfb->usageFlags & FB_USAGE_COLOR_MIXED_DEPTH) && !PSP_CoreParameter().compat.flags().ForceLowerResolutionForEffectsOn) {
 				ResizeFramebufFBO(vfb, vfb->width, vfb->height, true);
