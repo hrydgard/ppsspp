@@ -605,6 +605,15 @@ static inline bool IsRightSideOrFlatBottomLine(const Vec2<int>& vertex, const Ve
 	}
 }
 
+// 15 significant bits, truncated: what a UV plane keeps of a lone value (gpu/probe exp83).
+static inline float TruncateTexCoord(float f) {
+	u32 bits;
+	memcpy(&bits, &f, 4);
+	bits &= 0xFFFFFE00;
+	memcpy(&f, &bits, 4);
+	return f;
+}
+
 static inline Vec4IntResult SOFTRAST_CALL ApplyTexturing(float s, float t, Vec4IntArg prim_color, int texlevel, int frac_texlevel, bool bilinear, const RasterizerState &state) {
 	const u8 **tptr0 = const_cast<const u8 **>(&state.texptr[texlevel]);
 	const uint16_t *bufw0 = &state.texbufw[texlevel];
@@ -1145,7 +1154,7 @@ static Vec4<int> ColorFromPlanes(const DepthPlane *planes, int64_t x, int64_t y)
 // Perspective texture coordinates as the GE interpolates them (gpu/probe exp55-56, bit exact at 1/16
 // texel): per vertex q = 1/w with the GE's reciprocal and s = u * q, as float24s. s, t and q each become
 // 15-bit integers at the largest exponent of the three vertices, go through the same plane as depth,
-// and a pixel's u is s * 1/q, again with the GE's reciprocal.
+// and a pixel's u is s * 1/q, again with the GE's reciprocal (UVProduct).
 struct UVPlanes {
 	DepthPlane s, t, q;
 	int shiftS, shiftT, shiftQ;
@@ -1200,6 +1209,18 @@ static UVPlanes ComputeUVPlanes(const VertexData &v0, const VertexData &v1, cons
 	return ComputeUVPlanes(X, Y, u, v, w, textureProj ? q : nullptr);
 }
 
+// u = s * R(q) keeps 24 significant bits, truncated: a float32 product without rounding, not a float24
+// (gpu/probe exp82: 23 or 24 bits match, 22 and 25 don't).
+static inline float UVProduct(double d) {
+	uint64_t bits;
+	memcpy(&bits, &d, sizeof(bits));
+	if (((bits >> 52) & 0x7FF) != 0x7FF) {
+		bits &= ~((1ULL << (52 - 23)) - 1);
+	}
+	memcpy(&d, &bits, sizeof(d));
+	return (float)d;
+}
+
 static inline void GetTextureCoordinatesGE(const UVPlanes &planes, int64_t centerX, int64_t centerY, Vec4<float> &s, Vec4<float> &t, Vec4<float> &qOut) {
 	for (int i = 0; i < 4; ++i) {
 		const int64_t x = centerX + (i & 1) * SCREEN_SCALE_FACTOR, y = centerY + (i >> 1) * SCREEN_SCALE_FACTOR;
@@ -1211,8 +1232,8 @@ static inline void GetTextureCoordinatesGE(const UVPlanes &planes, int64_t cente
 			continue;
 		}
 		const double r = GERecip(q);
-		s[i] = ProductToFloat24((double)TruncateToFloat24((float)std::ldexp((double)planes.s.At(x, y), -planes.shiftS)) * r);
-		t[i] = ProductToFloat24((double)TruncateToFloat24((float)std::ldexp((double)planes.t.At(x, y), -planes.shiftT)) * r);
+		s[i] = UVProduct((double)TruncateToFloat24((float)std::ldexp((double)planes.s.At(x, y), -planes.shiftS)) * r);
+		t[i] = UVProduct((double)TruncateToFloat24((float)std::ldexp((double)planes.t.At(x, y), -planes.shiftT)) * r);
 	}
 }
 
@@ -1716,8 +1737,8 @@ void DrawPoint(const VertexData &v0, const BinCoords &range, const RasterizerSta
 		float s = v0.texturecoords.s();
 		float t = v0.texturecoords.t();
 		if (state.throughMode) {
-			s *= 1.0f / (float)(1 << state.samplerID.width0Shift);
-			t *= 1.0f / (float)(1 << state.samplerID.height0Shift);
+			s = TruncateTexCoord(s) * (1.0f / (float)(1 << state.samplerID.width0Shift));
+			t = TruncateTexCoord(t) * (1.0f / (float)(1 << state.samplerID.height0Shift));
 		} else {
 			// The same planes as triangles, flat (gpu/probe exp64).
 			const UVPlanes planes = ComputeUVPlanes(v0, v0, v0, state.textureProj);
