@@ -109,6 +109,10 @@ class VertexReader;
 float TruncateToFloat24(float f);
 float ProductToFloat24(double d);
 float GERecip(float w);
+float GERsqrt(float d);
+float GEDot(const Vec3f &a, const Vec3f &b);
+float GENormalize(Vec3f &v);
+float GEAddFloat24(float a, float b);
 
 class SoftwareDrawEngine;
 class SoftwareVertexReader;

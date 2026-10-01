@@ -23,6 +23,7 @@
 #include "GPU/GPUState.h"
 #include "GPU/Common/TransformCommon.h"
 #include "GPU/Software/Lighting.h"
+#include "GPU/Software/TransformUnit.h"
 
 #if PPSSPP_ARCH(SSE2)
 // For the SSE4 stuff.
@@ -126,7 +127,8 @@ void ComputeState(State *state, bool hasColor0) {
 		lstate.pos = GetLightVec(gstate.lpos, light);
 		lstate.directional = gstate.isDirectionalLight(light);
 		if (lstate.directional) {
-			lstate.pos.NormalizeOr001();
+			if (GENormalize(lstate.pos) == 0.0f)
+				lstate.pos = Vec3f(0.0f, 0.0f, 1.0f);
 		} else {
 			lstate.att = GetLightVec(gstate.latt, light);
 			anyNonDirectional = true;
@@ -135,7 +137,7 @@ void ComputeState(State *state, bool hasColor0) {
 		lstate.spot = gstate.isSpotLight(light);
 		if (lstate.spot) {
 			lstate.spotDir = GetLightVec(gstate.ldir, light);
-			lstate.spotDir.Normalize();
+			GENormalize(lstate.spotDir);
 			lstate.spotCutoff = getFloat24(gstate.lcutoff[light]);
 			if (std::isnan(lstate.spotCutoff) && std::signbit(lstate.spotCutoff))
 				lstate.spotCutoff = 0.0f;
@@ -268,11 +270,15 @@ static void ProcessSIMD(VertexData &vertex, const WorldCoords &worldpos, const W
 		Vec3<float> L = lstate.pos;
 		float attspot = 1.0f;
 		if (!lstate.directional) {
-			L -= worldpos;
+			for (int i = 0; i < 3; ++i)
+				L[i] = GEAddFloat24(L[i], -worldpos[i]);
 			// TODO: Should this normalize (0, 0, 0) to (0, 0, 1)?
-			float d = L.NormalizeOr001();
+			float d = GENormalize(L);
+			if (d == 0.0f)
+				L = Vec3f(0.0f, 0.0f, 1.0f);
 
-			float att = 1.0f / Dot33(lstate.att, Vec3f(1.0f, d, d * d));
+			const float den = GEDot(lstate.att, Vec3f(1.0f, d, ProductToFloat24((double)d * d)));
+			float att = den > 0.0f ? GERecip(den) : 0.0f;
 			if (!(att > 0.0f))
 				att = 0.0f;
 			else if (att > 1.0f)
@@ -281,7 +287,7 @@ static void ProcessSIMD(VertexData &vertex, const WorldCoords &worldpos, const W
 		}
 
 		if (lstate.spot) {
-			float rawSpot = Dot33(lstate.spotDir, L);
+			float rawSpot = GEDot(lstate.spotDir, L);
 			if (std::isnan(rawSpot))
 				rawSpot = std::signbit(rawSpot) ? 0.0f : 1.0f;
 
@@ -308,7 +314,7 @@ static void ProcessSIMD(VertexData &vertex, const WorldCoords &worldpos, const W
 		// diffuse lighting
 		float diffuse_factor;
 		if (lstate.diffuse || lstate.specular) {
-			diffuse_factor = Dot33(L, worldnormal);
+			diffuse_factor = GEDot(L, worldnormal);
 			if (lstate.poweredDiffuse) {
 				diffuse_factor = pspLightPow(diffuse_factor, state.specularExp);
 			}
@@ -324,8 +330,10 @@ static void ProcessSIMD(VertexData &vertex, const WorldCoords &worldpos, const W
 
 		if (lstate.specular && diffuse_factor >= 0.0f) {
 			Vec3<float> H = L + state.viewDir;
+			if (GENormalize(H) == 0.0f)
+				H = Vec3f(0.0f, 0.0f, 1.0f);
 
-			float specular_factor = Dot33(H.NormalizedOr001(useSSE4), worldnormal);
+			float specular_factor = GEDot(H, worldnormal);
 			specular_factor = pspLightPow(specular_factor, state.specularExp);
 
 			if (specular_factor > 0.0f) {

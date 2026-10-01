@@ -147,12 +147,16 @@ VertexDecoder *SoftwareDrawEngine::FindVertexDecoder(u32 vtype) {
 	return DrawEngineCommon::GetVertexDecoder(vertTypeID);
 }
 
+static float GEWorldComponent(const Vec3f &v, int c);
+
 WorldCoords TransformUnit::ModelToWorld(const ModelCoords &coords) {
-	return Vec3ByMatrix43(coords, gstate.worldMatrix);
+	return WorldCoords(GEWorldComponent(coords, 0), GEWorldComponent(coords, 1), GEWorldComponent(coords, 2));
 }
 
 WorldCoords TransformUnit::ModelToWorldNormal(const ModelCoords &coords) {
-	return Norm3ByMatrix43(coords, gstate.worldMatrix);
+	// Each component summed like a matrix row (gpu/probe exp61).
+	const float *m = gstate.worldMatrix;
+	return WorldCoords(GEDot(coords, Vec3f(m[0], m[3], m[6])), GEDot(coords, Vec3f(m[1], m[4], m[7])), GEDot(coords, Vec3f(m[2], m[5], m[8])));
 }
 
 float TruncateToFloat24(float f) {
@@ -213,6 +217,59 @@ float GERecip(float w) {
 	return copysign(ldexpf((float)q, -16 - e), w);
 }
 
+// The GE's reciprocal square root (gpu/probe exp69, bit exact): for d = 1.i * 2^E, segment i >> 8 of the
+// table for E's parity, linearly interpolated like GERecip by the low 8 bits. Even E stores 1 / sqrt(1.i),
+// odd E 1 / sqrt(2 * 1.i), both in units of 2^-16.
+static const GERecipSegment geRsqrtSegments[2][128] = {
+	{
+		{ 131072, -127 }, { 130562, -125 }, { 130059, -124 }, { 129562, -122 }, { 129070, -121 }, { 128584, -120 }, { 128103, -118 }, { 127628, -117 },
+		{ 127158, -116 }, { 126693, -114 }, { 126233, -113 }, { 125778, -112 }, { 125328, -111 }, { 124883, -110 }, { 124443, -108 }, { 124007, -107 },
+		{ 123575, -106 }, { 123149, -105 }, { 122726, -104 }, { 122308, -103 }, { 121894, -102 }, { 121484, -101 }, { 121079, -100 }, { 120677, -99 },
+		{ 120279, -98 }, { 119886, -97 }, { 119496, -96 }, { 119110, -95 }, { 118727, -94 }, { 118349, -93 }, { 117974, -92 }, { 117602, -92 },
+		{ 117234, -91 }, { 116869, -90 }, { 116508, -89 }, { 116150, -88 }, { 115795, -87 }, { 115444, -87 }, { 115096, -86 }, { 114751, -85 },
+		{ 114409, -84 }, { 114070, -83 }, { 113734, -83 }, { 113400, -82 }, { 113070, -81 }, { 112743, -81 }, { 112419, -80 }, { 112097, -79 },
+		{ 111778, -79 }, { 111462, -78 }, { 111148, -77 }, { 110837, -77 }, { 110529, -76 }, { 110223, -75 }, { 109920, -75 }, { 109619, -74 },
+		{ 109321, -73 }, { 109025, -73 }, { 108732, -72 }, { 108441, -72 }, { 108152, -71 }, { 107865, -71 }, { 107581, -70 }, { 107299, -69 },
+		{ 107019, -69 }, { 106742, -68 }, { 106466, -68 }, { 106193, -67 }, { 105922, -67 }, { 105652, -66 }, { 105385, -66 }, { 105120, -65 },
+		{ 104857, -65 }, { 104596, -64 }, { 104337, -64 }, { 104079, -63 }, { 103824, -63 }, { 103570, -62 }, { 103319, -62 }, { 103069, -62 },
+		{ 102821, -61 }, { 102575, -61 }, { 102330, -60 }, { 102087, -60 }, { 101846, -59 }, { 101607, -59 }, { 101369, -59 }, { 101133, -58 },
+		{ 100899, -58 }, { 100666, -57 }, { 100435, -57 }, { 100205, -56 }, { 99977, -56 }, { 99751, -56 }, { 99526, -55 }, { 99303, -55 },
+		{ 99081, -55 }, { 98860, -54 }, { 98641, -54 }, { 98424, -54 }, { 98208, -53 }, { 97993, -53 }, { 97780, -52 }, { 97568, -52 },
+		{ 97357, -52 }, { 97148, -51 }, { 96940, -51 }, { 96734, -51 }, { 96529, -50 }, { 96325, -50 }, { 96122, -50 }, { 95921, -50 },
+		{ 95721, -49 }, { 95522, -49 }, { 95325, -49 }, { 95128, -48 }, { 94933, -48 }, { 94739, -48 }, { 94546, -47 }, { 94355, -47 },
+		{ 94164, -47 }, { 93975, -47 }, { 93787, -46 }, { 93600, -46 }, { 93414, -46 }, { 93229, -45 }, { 93046, -45 }, { 92863, -45 }
+	},
+	{
+		{ 92681, -89 }, { 92321, -88 }, { 91966, -87 }, { 91614, -86 }, { 91266, -85 }, { 90923, -84 }, { 90583, -84 }, { 90247, -83 },
+		{ 89914, -82 }, { 89585, -81 }, { 89260, -80 }, { 88939, -79 }, { 88620, -78 }, { 88306, -77 }, { 87994, -77 }, { 87686, -76 },
+		{ 87381, -75 }, { 87079, -74 }, { 86780, -73 }, { 86485, -73 }, { 86192, -72 }, { 85902, -71 }, { 85615, -70 }, { 85331, -70 },
+		{ 85050, -69 }, { 84772, -68 }, { 84496, -68 }, { 84223, -67 }, { 83953, -66 }, { 83685, -66 }, { 83420, -65 }, { 83157, -65 },
+		{ 82897, -64 }, { 82639, -63 }, { 82383, -63 }, { 82130, -62 }, { 81880, -62 }, { 81631, -61 }, { 81385, -61 }, { 81141, -60 },
+		{ 80899, -59 }, { 80659, -59 }, { 80422, -58 }, { 80186, -58 }, { 79953, -57 }, { 79721, -57 }, { 79492, -56 }, { 79264, -56 },
+		{ 79039, -55 }, { 78815, -55 }, { 78594, -54 }, { 78374, -54 }, { 78156, -54 }, { 77940, -53 }, { 77725, -53 }, { 77512, -52 },
+		{ 77302, -52 }, { 77092, -51 }, { 76885, -51 }, { 76679, -51 }, { 76475, -50 }, { 76272, -50 }, { 76071, -49 }, { 75872, -49 },
+		{ 75674, -49 }, { 75478, -48 }, { 75283, -48 }, { 75090, -47 }, { 74898, -47 }, { 74707, -47 }, { 74519, -46 }, { 74331, -46 },
+		{ 74145, -46 }, { 73960, -45 }, { 73777, -45 }, { 73595, -45 }, { 73415, -44 }, { 73235, -44 }, { 73057, -44 }, { 72881, -43 },
+		{ 72705, -43 }, { 72531, -43 }, { 72358, -42 }, { 72186, -42 }, { 72016, -42 }, { 71847, -42 }, { 71679, -41 }, { 71512, -41 },
+		{ 71346, -41 }, { 71181, -40 }, { 71018, -40 }, { 70856, -40 }, { 70694, -40 }, { 70534, -39 }, { 70375, -39 }, { 70217, -39 },
+		{ 70060, -38 }, { 69905, -38 }, { 69750, -38 }, { 69596, -38 }, { 69443, -37 }, { 69291, -37 }, { 69141, -37 }, { 68991, -37 },
+		{ 68842, -36 }, { 68694, -36 }, { 68547, -36 }, { 68401, -36 }, { 68256, -36 }, { 68112, -35 }, { 67969, -35 }, { 67826, -35 },
+		{ 67685, -35 }, { 67544, -34 }, { 67405, -34 }, { 67266, -34 }, { 67128, -34 }, { 66991, -34 }, { 66854, -33 }, { 66719, -33 },
+		{ 66584, -33 }, { 66450, -33 }, { 66317, -33 }, { 66185, -32 }, { 66054, -32 }, { 65923, -32 }, { 65793, -32 }, { 65664, -32 }
+	},
+};
+
+// d must be a positive normal float24.
+float GERsqrt(float d) {
+	uint32_t bits;
+	memcpy(&bits, &d, sizeof(bits));
+	const uint32_t i = (bits >> 8) & 0x7FFF;
+	const int e = (int)((bits >> 23) & 0xFF) - 127;
+	const GERecipSegment &seg = geRsqrtSegments[e & 1][i >> 8];
+	const int32_t q = (64 * seg.b + 63 + seg.m * (int32_t)(i & 255)) >> 7;
+	return ldexpf((float)q, -16 - (e >> 1));
+}
+
 // How the GE adds two float24s, such as a product and a matrix translation or the viewport center:
 // the adder has no guard bits, so the smaller term is truncated to the precision of the larger one.
 // Clearing the low 8 + (exponent difference) bits of each does that, and the float sum is then exact.
@@ -271,6 +328,32 @@ static inline float GERowSum(const GERowTerm *terms, int count) {
 	return TruncateToFloat24((float)sum);
 }
 
+float GEAddFloat24(float a, float b) {
+	return TruncateToFloat24(GEAdd(a, b));
+}
+
+// A dot product as the GE's dot product unit sums it (like a matrix row without translation).
+float GEDot(const Vec3f &a, const Vec3f &b) {
+	GERowTerm terms[3] = {
+		GEProduct(TruncateToFloat24(a.x), TruncateToFloat24(b.x)),
+		GEProduct(TruncateToFloat24(a.y), TruncateToFloat24(b.y)),
+		GEProduct(TruncateToFloat24(a.z), TruncateToFloat24(b.z)),
+	};
+	return GERowSum(terms, 3);
+}
+
+// Normalizes like the GE (gpu/probe exp69, exp61): the squared length summed like a dot product, then
+// each component times GERsqrt of it, as a float24. Returns the length, d2 * GERsqrt(d2) (0 leaves v alone).
+float GENormalize(Vec3f &v) {
+	const float d2 = GEDot(v, v);
+	if (!(d2 > 0.0f) || !std::isfinite(d2))
+		return 0.0f;
+	const float r = GERsqrt(d2);
+	for (int i = 0; i < 3; ++i)
+		v[i] = ProductToFloat24((double)TruncateToFloat24(v[i]) * r);
+	return ProductToFloat24((double)d2 * r);
+}
+
 // A clip space component from the combined matrix (gpu/probe exp32, exp34, exp42). The position is a
 // float24; the translation is a term of its own.
 static inline float GEClipComponent(const Vec3f &v, const float m[16], int c) {
@@ -279,6 +362,18 @@ static inline float GEClipComponent(const Vec3f &v, const float m[16], int c) {
 		GEProduct(TruncateToFloat24(v.y), m[4 + c]),
 		GEProduct(TruncateToFloat24(v.z), m[8 + c]),
 		GEProduct(1.0f, m[12 + c]),
+	};
+	return GERowSum(terms, 4);
+}
+
+// A world space component, summed like a clip space row.
+static float GEWorldComponent(const Vec3f &v, int c) {
+	const float *m = gstate.worldMatrix;
+	GERowTerm terms[4] = {
+		GEProduct(TruncateToFloat24(v.x), m[c]),
+		GEProduct(TruncateToFloat24(v.y), m[3 + c]),
+		GEProduct(TruncateToFloat24(v.z), m[6 + c]),
+		GEProduct(1.0f, m[9 + c]),
 	};
 	return GERowSum(terms, 4);
 }
@@ -627,7 +722,8 @@ ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const Tran
 		Vec3<float> worldnormal;
 		if (state.lightingState.usesWorldNormal) {
 			worldnormal = TransformUnit::ModelToWorldNormal(normal);
-			worldnormal.NormalizeOr001();
+			if (GENormalize(worldnormal) == 0.0f)
+				worldnormal = Vec3f(0.0f, 0.0f, 1.0f);
 		}
 
 		// Time to generate some texture coords.  Lighting will handle shade mapping.
@@ -644,7 +740,8 @@ ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const Tran
 
 			case GE_PROJMAP_NORMALIZED_NORMAL:
 				// This does not use 0, 0, 1 if length is zero.
-				source = normal.Normalized(cpu_info.bSSE4_1);
+				source = normal;
+				GENormalize(source);
 				break;
 
 			case GE_PROJMAP_NORMAL:
