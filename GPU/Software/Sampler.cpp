@@ -120,7 +120,7 @@ void SamplerJitCache::Clear() {
 	const10Low_ = nullptr;
 	const10All8_ = nullptr;
 
-	constWidthHeight256f_ = nullptr;
+	constWidthHeight16f_ = nullptr;
 	constWidthMinus1i_ = nullptr;
 	constHeightMinus1i_ = nullptr;
 
@@ -471,11 +471,12 @@ static inline void GetTexelCoordinates(int level, float s, float t, int &out_u, 
 	int width = samplerID.cached.sizes[level].w;
 	int height = samplerID.cached.sizes[level].h;
 
-	int base_u = (int)(s * width * 256.0f);
-	int base_v = (int)(t * height * 256.0f);
+	// The GE truncates to 1/16 texel, toward zero (gpu/probe exp57).
+	int base_u = (int)(s * width * 16.0f);
+	int base_v = (int)(t * height * 16.0f);
 
-	base_u >>= 8;
-	base_v >>= 8;
+	base_u >>= 4;
+	base_v >>= 4;
 
 	ApplyTexelClamp<1>(&out_u, &out_v, &base_u, &base_v, width, height, samplerID);
 }
@@ -693,9 +694,10 @@ static inline Vec4IntResult SOFTRAST_CALL ApplyTexelClampQuadT(bool clamp, int v
 static inline Vec4IntResult SOFTRAST_CALL GetTexelCoordinatesQuadS(int level, float in_s, int &frac_u, const SamplerID &samplerID) {
 	int width = samplerID.cached.sizes[level].w;
 
-	int base_u = (int)(in_s * width * 256) - 128;
-	frac_u = (int)(base_u >> 4) & 0x0F;
-	base_u >>= 8;
+	// The GE truncates to 1/16 texel, toward zero (gpu/probe exp57).
+	int base_u = (int)(in_s * width * 16) - 8;
+	frac_u = base_u & 0x0F;
+	base_u >>= 4;
 
 	// Need to generate and individually wrap/clamp the four sample coordinates. Ugh.
 	return ApplyTexelClampQuadS(samplerID.clampS, base_u, width);
@@ -704,9 +706,9 @@ static inline Vec4IntResult SOFTRAST_CALL GetTexelCoordinatesQuadS(int level, fl
 static inline Vec4IntResult SOFTRAST_CALL GetTexelCoordinatesQuadT(int level, float in_t, int &frac_v, const SamplerID &samplerID) {
 	int height = samplerID.cached.sizes[level].h;
 
-	int base_v = (int)(in_t * height * 256) - 128;
-	frac_v = (int)(base_v >> 4) & 0x0F;
-	base_v >>= 8;
+	int base_v = (int)(in_t * height * 16) - 8;
+	frac_v = base_v & 0x0F;
+	base_v >>= 4;
 
 	// Need to generate and individually wrap/clamp the four sample coordinates. Ugh.
 	return ApplyTexelClampQuadT(samplerID.clampT, base_v, height);

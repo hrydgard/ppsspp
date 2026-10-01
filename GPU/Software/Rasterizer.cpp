@@ -1159,20 +1159,18 @@ static DepthPlane FixedPlane(const int64_t X[3], const int64_t Y[3], const doubl
 	return ComputePlane(X, Y, V);
 }
 
-static UVPlanes ComputeUVPlanes(const VertexData &v0, const VertexData &v1, const VertexData &v2) {
+// u, v and w at three screen points. A w of 1 (through mode) leaves u and v as they are.
+static UVPlanes ComputeUVPlanes(const int64_t X[3], const int64_t Y[3], const float u[3], const float v[3], const float w[3]) {
 	UVPlanes planes{};
-	const VertexData *v[3] = { &v0, &v1, &v2 };
 	double s[3], t[3], q[3];
 	for (int i = 0; i < 3; ++i) {
-		const float w = TruncateToFloat24(v[i]->clipw);
-		if (!(w > 0.0f) || !std::isfinite(w))
+		const float w24 = TruncateToFloat24(w[i]);
+		if (!(w24 > 0.0f) || !std::isfinite(w24))
 			return planes;
-		q[i] = GERecip(w);
-		s[i] = ProductToFloat24((double)TruncateToFloat24(v[i]->texturecoords.s()) * q[i]);
-		t[i] = ProductToFloat24((double)TruncateToFloat24(v[i]->texturecoords.t()) * q[i]);
+		q[i] = GERecip(w24);
+		s[i] = ProductToFloat24((double)TruncateToFloat24(u[i]) * q[i]);
+		t[i] = ProductToFloat24((double)TruncateToFloat24(v[i]) * q[i]);
 	}
-	const int64_t X[3] = { v0.screenpos.x, v1.screenpos.x, v2.screenpos.x };
-	const int64_t Y[3] = { v0.screenpos.y, v1.screenpos.y, v2.screenpos.y };
 	planes.shiftS = SharedShift(s);
 	planes.shiftT = SharedShift(t);
 	planes.shiftQ = SharedShift(q);
@@ -1181,6 +1179,15 @@ static UVPlanes ComputeUVPlanes(const VertexData &v0, const VertexData &v1, cons
 	planes.q = FixedPlane(X, Y, q, planes.shiftQ);
 	planes.valid = true;
 	return planes;
+}
+
+static UVPlanes ComputeUVPlanes(const VertexData &v0, const VertexData &v1, const VertexData &v2) {
+	const int64_t X[3] = { v0.screenpos.x, v1.screenpos.x, v2.screenpos.x };
+	const int64_t Y[3] = { v0.screenpos.y, v1.screenpos.y, v2.screenpos.y };
+	const float u[3] = { v0.texturecoords.s(), v1.texturecoords.s(), v2.texturecoords.s() };
+	const float v[3] = { v0.texturecoords.t(), v1.texturecoords.t(), v2.texturecoords.t() };
+	const float w[3] = { v0.clipw, v1.clipw, v2.clipw };
+	return ComputeUVPlanes(X, Y, u, v, w);
 }
 
 static inline void GetTextureCoordinatesGE(const UVPlanes &planes, int64_t centerX, int64_t centerY, Vec4<float> &s, Vec4<float> &t) {
@@ -1468,6 +1475,7 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 
 	RasterizerState state = OptimizeFlatRasterizerState(rastState, v1);
 
+	UVPlanes uvPlanes{};
 	Vec2f rowST(0.0f, 0.0f);
 	// Note: this is double the x or y movement.
 	Vec2f stx(0.0f, 0.0f);
@@ -1520,6 +1528,26 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 		// Okay, now move ST to the minX, minY position.
 		rowST += (stx / (float)(SCREEN_SCALE_FACTOR * 2)) * (minX - entireX1 + 1);
 		rowST += (sty / (float)(SCREEN_SCALE_FACTOR * 2)) * (minY - entireY1 + 1);
+
+		// The GE interpolates sprite UVs with the same planes as triangles (gpu/probe exp57: exact in
+		// through mode and at w = 1, 96.7% at other w). Corners: top left, top right, bottom left.
+		const bool right = v0.screenpos.x < v1.screenpos.x, down = v0.screenpos.y < v1.screenpos.y;
+		const float u[3] = {
+			right == down ? (right ? tc0.s() : tc1.s()) : (right ? tc1.s() : tc0.s()),
+			right == down ? (right ? tc1.s() : tc0.s()) : (right ? tc1.s() : tc0.s()),
+			right == down ? (right ? tc0.s() : tc1.s()) : (right ? tc0.s() : tc1.s()),
+		};
+		const float v[3] = {
+			right == down ? (right ? tc0.t() : tc1.t()) : (right ? tc0.t() : tc1.t()),
+			right == down ? (right ? tc0.t() : tc1.t()) : (right ? tc1.t() : tc0.t()),
+			right == down ? (right ? tc1.t() : tc0.t()) : (right ? tc0.t() : tc1.t()),
+		};
+		const float w = state.throughMode ? 1.0f : v1.clipw;
+		const float ws[3] = { w, w, w };
+		const int64_t left = std::min(v0.screenpos.x, v1.screenpos.x), top = std::min(v0.screenpos.y, v1.screenpos.y);
+		const int64_t X[3] = { left, std::max(v0.screenpos.x, v1.screenpos.x), left };
+		const int64_t Y[3] = { top, top, std::max(v0.screenpos.y, v1.screenpos.y) };
+		uvPlanes = ComputeUVPlanes(X, Y, u, v, ws);
 	}
 
 	// And now what we add to spread out to 4 values.
@@ -1578,8 +1606,13 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 
 			if (state.enableTextures) {
 				Vec4<float> s, t;
-				s = Vec4<float>::AssignToAll(st.s()) + sto4;
-				t = Vec4<float>::AssignToAll(st.t()) + tto4;
+				if (uvPlanes.valid) {
+					// Pixel centers are at 16k + 7 here, the GE's at 16k + 8.
+					GetTextureCoordinatesGE(uvPlanes, curX + 1, curY + 1, s, t);
+				} else {
+					s = Vec4<float>::AssignToAll(st.s()) + sto4;
+					t = Vec4<float>::AssignToAll(st.t()) + tto4;
+				}
 
 				ApplyTexturing(state, prim_color, mask, s, t, v1.clipw);
 			}

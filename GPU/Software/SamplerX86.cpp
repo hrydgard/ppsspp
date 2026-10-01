@@ -924,18 +924,18 @@ void SamplerJitCache::WriteConstantPool(const SamplerID &id) {
 
 	// These are unique to the sampler ID.
 	if (!id.hasAnyMips) {
-		float w256f = (1 << id.width0Shift) * 256;
-		float h256f = (1 << id.height0Shift) * 256;
-		constWidthHeight256f_ = AlignCode16();
-		Write32(*(uint32_t *)&w256f);
-		Write32(*(uint32_t *)&h256f);
-		Write32(*(uint32_t *)&w256f);
-		Write32(*(uint32_t *)&h256f);
+		float w16f = (1 << id.width0Shift) * 16;
+		float h16f = (1 << id.height0Shift) * 16;
+		constWidthHeight16f_ = AlignCode16();
+		Write32(*(uint32_t *)&w16f);
+		Write32(*(uint32_t *)&h16f);
+		Write32(*(uint32_t *)&w16f);
+		Write32(*(uint32_t *)&h16f);
 
 		WriteDynamicConst4x32(constWidthMinus1i_, id.width0Shift > 9 ? 511 : (1 << id.width0Shift) - 1);
 		WriteDynamicConst4x32(constHeightMinus1i_, id.height0Shift > 9 ? 511 : (1 << id.height0Shift) - 1);
 	} else {
-		constWidthHeight256f_ = nullptr;
+		constWidthHeight16f_ = nullptr;
 		constWidthMinus1i_ = nullptr;
 		constHeightMinus1i_ = nullptr;
 	}
@@ -2617,16 +2617,17 @@ bool SamplerJitCache::Jit_GetTexelCoords(const SamplerID &id) {
 			regCache_.Unlock(zeroReg, RegCache::VEC_ZERO);
 		}
 
-		// We just want this value as a float, times 256.
-		PSLLD(sizesReg, 8);
+		// We just want this value as a float, times 16.
+		PSLLD(sizesReg, 4);
 		CVTDQ2PS(sizesReg, R(sizesReg));
 
-		// Okay, we can multiply now, and convert back to integer.
+		// Okay, we can multiply now, and convert back to integer: the GE truncates to 1/16 texel,
+		// toward zero (gpu/probe exp57).
 		MULPS(sReg, R(sizesReg));
 		CVTTPS2DQ(sReg, R(sReg));
 		regCache_.Release(sizesReg, RegCache::VEC_TEMP0);
 
-		PSRAD(sReg, 8);
+		PSRAD(sReg, 4);
 
 		// Reuse tempXYReg for the level1 values.
 		if (!cpu_info.bSSE4_1)
@@ -2681,12 +2682,12 @@ bool SamplerJitCache::Jit_GetTexelCoords(const SamplerID &id) {
 		regCache_.Release(tempReg, RegCache::GEN_TEMP0);
 		regCache_.Unlock(levelReg, RegCache::GEN_ARG_LEVEL);
 	} else {
-		// Multiply, then convert to integer...
+		// Multiply, then convert to integer (1/16 texel, truncated toward zero like the GE)...
 		UNPCKLPS(sReg, R(tReg));
-		MULPS(sReg, M(constWidthHeight256f_));
+		MULPS(sReg, M(constWidthHeight16f_));
 		CVTTPS2DQ(sReg, R(sReg));
 		// Great, shift out the fraction.
-		PSRAD(sReg, 8);
+		PSRAD(sReg, 4);
 
 		// Square textures are kinda common.
 		bool clampApplied = false;
@@ -2793,17 +2794,17 @@ bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 			regCache_.Unlock(levelReg, RegCache::GEN_ARG_LEVEL);
 		UnlockSamplerID(idReg);
 
-		// Now make a float version of sizesReg, times 256.
-		X64Reg sizes256Reg = regCache_.Alloc(RegCache::VEC_TEMP0);
-		PSLLD(sizes256Reg, sizesReg, 8);
-		CVTDQ2PS(sizes256Reg, R(sizes256Reg));
+		// Now make a float version of sizesReg, times 16.
+		X64Reg sizes16Reg = regCache_.Alloc(RegCache::VEC_TEMP0);
+		PSLLD(sizes16Reg, sizesReg, 4);
+		CVTDQ2PS(sizes16Reg, R(sizes16Reg));
 
 		// Next off, move S and T into a single reg, which will become U0 V0 U1 V1.
 		UNPCKLPS(sReg, R(tReg));
 		SHUFPS(sReg, R(sReg), _MM_SHUFFLE(1, 0, 1, 0));
 		// And multiply by the sizes, all lined up already.
-		MULPS(sReg, R(sizes256Reg));
-		regCache_.Release(sizes256Reg, RegCache::VEC_TEMP0);
+		MULPS(sReg, R(sizes16Reg));
+		regCache_.Release(sizes16Reg, RegCache::VEC_TEMP0);
 
 		// For wrap/clamp purposes, we want width or height minus one.  Do that now.
 		PSUBD(sizesReg, M(constOnes32_));
@@ -2811,17 +2812,18 @@ bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 	} else {
 		// Easy mode.
 		UNPCKLPS(sReg, R(tReg));
-		MULPS(sReg, M(constWidthHeight256f_));
+		MULPS(sReg, M(constWidthHeight16f_));
 	}
 
-	// And now, convert to integers for all later processing.
-	CVTPS2DQ(sReg, R(sReg));
+	// And now, convert to integers for all later processing: 1/16 texel, truncated toward zero like
+	// the GE (gpu/probe exp57).
+	CVTTPS2DQ(sReg, R(sReg));
 
-	// Now adjust X and Y...
+	// Now adjust X and Y by half a texel...
 	X64Reg tempXYReg = regCache_.Alloc(RegCache::VEC_TEMP0);
-	// Product a -128 constant.
+	// Product a -8 constant.
 	PCMPEQD(tempXYReg, R(tempXYReg));
-	PSLLD(tempXYReg, 7);
+	PSLLD(tempXYReg, 3);
 	PADDD(sReg, R(tempXYReg));
 	regCache_.Release(tempXYReg, RegCache::VEC_TEMP0);
 
@@ -2831,8 +2833,8 @@ bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 		allFracReg = regCache_.Find(RegCache::VEC_FRAC);
 	else
 		allFracReg = regCache_.Alloc(RegCache::VEC_FRAC);
-	// We only want the four bits after the first four, though.
-	PSLLD(allFracReg, sReg, 24);
+	// We only want the low four bits, though.
+	PSLLD(allFracReg, sReg, 28);
 	PSRLD(allFracReg, 28);
 	// It's convenient later if this is in the low words only.
 	PACKSSDW(allFracReg, R(allFracReg));
@@ -2840,7 +2842,7 @@ bool SamplerJitCache::Jit_GetTexelCoordsQuad(const SamplerID &id) {
 	regCache_.ForceRetain(RegCache::VEC_FRAC);
 
 	// With those extracted, we can now get rid of the fractional bits.
-	PSRAD(sReg, 8);
+	PSRAD(sReg, 4);
 
 	// Now it's time to separate the lanes into separate registers and add next UV offsets.
 	if (id.hasAnyMips) {
