@@ -976,6 +976,135 @@ static inline Vec4<float> EdgeRecip(const Vec4<int> &w0, const Vec4<int> &w1, co
 #endif
 }
 
+// The GE's reciprocal for triangle setup (gpu/probe exp38-41): a 16-bit significand index, 256 segments,
+// each linear over its low 8 bits, q = (2K + M * x) >> 8. Not the same table as the one for z/w.
+struct GESetupRecipSegment {
+	int32_t k;
+	int32_t m;
+};
+
+static const GESetupRecipSegment geSetupRecip[256] = {
+	{ 8388735, -257 }, { 8355952, -254 }, { 8323568, -252 }, { 8291440, -250 },
+	{ 8259552, -248 }, { 8227904, -246 }, { 8196496, -244 }, { 8165328, -242 },
+	{ 8134400, -240 }, { 8103696, -238 }, { 8073232, -237 }, { 8043008, -235 },
+	{ 8012992, -233 }, { 7983200, -231 }, { 7953632, -230 }, { 7924288, -228 },
+	{ 7895152, -226 }, { 7866240, -225 }, { 7837520, -223 }, { 7809024, -221 },
+	{ 7780736, -220 }, { 7752640, -218 }, { 7724752, -217 }, { 7697072, -215 },
+	{ 7669584, -213 }, { 7642288, -212 }, { 7615184, -210 }, { 7588272, -209 },
+	{ 7561552, -208 }, { 7535024, -206 }, { 7508672, -205 }, { 7482512, -203 },
+	{ 7456528, -202 }, { 7430736, -200 }, { 7405104, -199 }, { 7379664, -198 },
+	{ 7354384, -196 }, { 7329280, -195 }, { 7304352, -194 }, { 7279552, -192 },
+	{ 7255008, -191 }, { 7230576, -190 }, { 7206320, -188 }, { 7182208, -187 },
+	{ 7158272, -186 }, { 7134496, -185 }, { 7110864, -183 }, { 7087392, -182 },
+	{ 7064080, -181 }, { 7040928, -180 }, { 7017920, -179 }, { 6995056, -178 },
+	{ 6972336, -176 }, { 6949776, -175 }, { 6927360, -174 }, { 6905088, -173 },
+	{ 6882960, -172 }, { 6860960, -171 }, { 6839104, -170 }, { 6817408, -169 },
+	{ 6795824, -168 }, { 6774384, -166 }, { 6753088, -165 }, { 6731920, -164 },
+	{ 6710880, -163 }, { 6689968, -162 }, { 6669200, -161 }, { 6648544, -160 },
+	{ 6628032, -159 }, { 6607632, -158 }, { 6587360, -157 }, { 6567216, -156 },
+	{ 6547200, -155 }, { 6527296, -154 }, { 6507520, -154 }, { 6487856, -153 },
+	{ 6468320, -152 }, { 6448896, -151 }, { 6429584, -150 }, { 6410384, -149 },
+	{ 6391312, -148 }, { 6372352, -147 }, { 6353488, -146 }, { 6334752, -145 },
+	{ 6316128, -145 }, { 6297600, -144 }, { 6279184, -143 }, { 6260880, -142 },
+	{ 6242672, -141 }, { 6224576, -140 }, { 6206592, -140 }, { 6188704, -139 },
+	{ 6170928, -138 }, { 6153248, -137 }, { 6135664, -136 }, { 6118176, -136 },
+	{ 6100800, -135 }, { 6083520, -134 }, { 6066336, -133 }, { 6049248, -133 },
+	{ 6032256, -132 }, { 6015360, -131 }, { 5998544, -130 }, { 5981840, -130 },
+	{ 5965232, -129 }, { 5948799, -129 }, { 5932287, -129 }, { 5915920, -127 },
+	{ 5899680, -126 }, { 5883504, -125 }, { 5867440, -125 }, { 5851440, -124 },
+	{ 5835552, -123 }, { 5819728, -123 }, { 5804000, -122 }, { 5788352, -121 },
+	{ 5772800, -121 }, { 5757328, -120 }, { 5741920, -119 }, { 5726608, -119 },
+	{ 5711392, -118 }, { 5696240, -118 }, { 5681168, -117 }, { 5666176, -116 },
+	{ 5651264, -116 }, { 5636432, -115 }, { 5621680, -114 }, { 5606992, -114 },
+	{ 5592400, -113 }, { 5577872, -113 }, { 5563424, -112 }, { 5549040, -112 },
+	{ 5534736, -111 }, { 5520512, -110 }, { 5506368, -110 }, { 5492272, -109 },
+	{ 5478272, -109 }, { 5464320, -108 }, { 5450464, -108 }, { 5436656, -107 },
+	{ 5422928, -106 }, { 5409264, -106 }, { 5395680, -105 }, { 5382160, -105 },
+	{ 5368704, -104 }, { 5355312, -104 }, { 5341984, -103 }, { 5328736, -103 },
+	{ 5315552, -102 }, { 5302416, -102 }, { 5289360, -101 }, { 5276368, -101 },
+	{ 5263440, -100 }, { 5250560, -100 }, { 5237760, -99 }, { 5225008, -99 },
+	{ 5212336, -98 }, { 5199712, -98 }, { 5187152, -97 }, { 5174656, -97 },
+	{ 5162208, -96 }, { 5149824, -96 }, { 5137504, -96 }, { 5125248, -95 },
+	{ 5113056, -95 }, { 5100896, -94 }, { 5088816, -94 }, { 5076784, -93 },
+	{ 5064816, -93 }, { 5052896, -92 }, { 5041040, -92 }, { 5029232, -92 },
+	{ 5017472, -91 }, { 5005776, -91 }, { 4994144, -90 }, { 4982560, -90 },
+	{ 4971024, -89 }, { 4959536, -89 }, { 4948112, -89 }, { 4936736, -88 },
+	{ 4925408, -88 }, { 4914144, -87 }, { 4902928, -87 }, { 4891760, -87 },
+	{ 4880640, -86 }, { 4869568, -86 }, { 4858560, -85 }, { 4847584, -85 },
+	{ 4836672, -85 }, { 4825792, -84 }, { 4814976, -84 }, { 4804208, -83 },
+	{ 4793488, -83 }, { 4782800, -83 }, { 4772176, -82 }, { 4761600, -82 },
+	{ 4751056, -82 }, { 4740576, -81 }, { 4730128, -81 }, { 4719744, -81 },
+	{ 4709392, -80 }, { 4699088, -80 }, { 4688816, -79 }, { 4678608, -79 },
+	{ 4668432, -79 }, { 4658304, -78 }, { 4648224, -78 }, { 4638192, -78 },
+	{ 4628192, -77 }, { 4618240, -77 }, { 4608320, -77 }, { 4598464, -76 },
+	{ 4588640, -76 }, { 4578848, -76 }, { 4569104, -75 }, { 4559408, -75 },
+	{ 4549744, -75 }, { 4540128, -74 }, { 4530544, -74 }, { 4521008, -74 },
+	{ 4511520, -74 }, { 4502048, -73 }, { 4492640, -73 }, { 4483264, -73 },
+	{ 4473920, -72 }, { 4464608, -72 }, { 4455360, -72 }, { 4446128, -71 },
+	{ 4436944, -71 }, { 4427792, -71 }, { 4418688, -71 }, { 4409616, -70 },
+	{ 4400576, -70 }, { 4391568, -70 }, { 4382608, -69 }, { 4373680, -69 },
+	{ 4364800, -69 }, { 4355936, -69 }, { 4347120, -68 }, { 4338336, -68 },
+	{ 4329600, -68 }, { 4320880, -67 }, { 4312208, -67 }, { 4303568, -67 },
+	{ 4294960, -67 }, { 4286384, -66 }, { 4277840, -66 }, { 4269344, -66 },
+	{ 4260880, -66 }, { 4252432, -65 }, { 4244032, -65 }, { 4235664, -65 },
+	{ 4227328, -65 }, { 4219008, -64 }, { 4210752, -64 }, { 4202496, -64 },
+};
+
+// The depth plane as the GE rasterizes it (gpu/probe exp36-41, bit exact): the gradients are fixed
+// point with 14 fractional bits per subpixel, from the exact edge cross products and the reciprocal
+// above, and the plane is anchored at one vertex: the leftmost, unless the long edge (top to bottom)
+// is strictly the right side, then the rightmost. A pixel's depth is the plane at its center, floored.
+struct DepthPlane {
+	int64_t base;  // depth << 14 at screen (0, 0)
+	int64_t kx;    // per subpixel, << 14
+	int64_t ky;
+};
+
+static DepthPlane ComputeDepthPlane(const VertexData &v0, const VertexData &v1, const VertexData &v2) {
+	const int64_t X[3] = { v0.screenpos.x, v1.screenpos.x, v2.screenpos.x };
+	const int64_t Y[3] = { v0.screenpos.y, v1.screenpos.y, v2.screenpos.y };
+	const int64_t Z[3] = { v0.screenpos.z, v1.screenpos.z, v2.screenpos.z };
+	DepthPlane plane{};
+	const int64_t det = (X[1] - X[0]) * (Y[2] - Y[0]) - (X[2] - X[0]) * (Y[1] - Y[0]);
+	if (det == 0) {
+		plane.base = Z[0] << 14;
+		return plane;
+	}
+	const int64_t nx = (Z[1] - Z[0]) * (Y[2] - Y[0]) - (Z[2] - Z[0]) * (Y[1] - Y[0]);
+	const int64_t ny = (Z[2] - Z[0]) * (X[1] - X[0]) - (Z[1] - Z[0]) * (X[2] - X[0]);
+	const uint64_t absDet = (uint64_t)(det < 0 ? -det : det);
+	int e = 63;
+	while (!(absDet >> e))
+		--e;
+	const int index = (int)((absDet << 16) >> e) - 65536;
+	const GESetupRecipSegment &seg = geSetupRecip[index >> 8];
+	const int64_t q = (2 * (int64_t)seg.k + seg.m * (index & 255)) >> 8;
+	const int64_t sign = det < 0 ? -1 : 1;
+	// n / det * 2^14, as floor(n * q / 2^(e + 2)).
+	plane.kx = (sign * nx * q) >> (e + 2);
+	plane.ky = (sign * ny * q) >> (e + 2);
+
+	int top = 0, mid = 1, bot = 2;
+	auto above = [&](int a, int b) { return Y[a] < Y[b] || (Y[a] == Y[b] && X[a] < X[b]); };
+	if (above(mid, top)) std::swap(mid, top);
+	if (above(bot, mid)) std::swap(bot, mid);
+	if (above(mid, top)) std::swap(mid, top);
+	const int64_t cross = (X[bot] - X[top]) * (Y[mid] - Y[top]) - (Y[bot] - Y[top]) * (X[mid] - X[top]);
+	const bool flat = Y[top] == Y[mid] || Y[mid] == Y[bot];
+	int anchor = 0;
+	if (cross > 0 && !flat) {
+		for (int i = 1; i < 3; ++i)
+			if (X[i] > X[anchor] || (X[i] == X[anchor] && Y[i] < Y[anchor]))
+				anchor = i;
+	} else {
+		for (int i = 1; i < 3; ++i)
+			if (X[i] < X[anchor] || (X[i] == X[anchor] && Y[i] < Y[anchor]))
+				anchor = i;
+	}
+	plane.base = (Z[anchor] << 14) - plane.kx * X[anchor] - plane.ky * Y[anchor];
+	return plane;
+}
+
 template <bool clearMode, bool useSSE4>
 void DrawTriangleSlice(
 	const VertexData& v0, const VertexData& v1, const VertexData& v2,
@@ -1028,9 +1157,7 @@ void DrawTriangleSlice(
 	const Vec3<int> v1_c1 = Vec3<int>::FromRGB(v1.color1);
 	const Vec3<int> v2_c1 = Vec3<int>::FromRGB(v2.color1);
 
-	const Vec4<float> v0_z4 = Vec4<int>::AssignToAll(v0.screenpos.z).Cast<float>();
-	const Vec4<float> v1_z4 = Vec4<int>::AssignToAll(v1.screenpos.z).Cast<float>();
-	const Vec4<float> v2_z4 = Vec4<int>::AssignToAll(v2.screenpos.z).Cast<float>();
+	const DepthPlane depthPlane = flatZ ? DepthPlane{} : ComputeDepthPlane(v0, v1, v2);
 	const Vec4<int> minz = Vec4<int>::AssignToAll(pixelID.cached.minz);
 	const Vec4<int> maxz = Vec4<int>::AssignToAll(pixelID.cached.maxz);
 
@@ -1074,9 +1201,10 @@ void DrawTriangleSlice(
 				if (flatZ) {
 					z = Vec4<int>::AssignToAll(v2.screenpos.z);
 				} else {
-					// Z is interpolated pretty much directly.
-					Vec4<float> zfloats = w0.Cast<float>() * v0_z4 + w1.Cast<float>() * v1_z4 + w2.Cast<float>() * v2_z4;
-					z = (zfloats * wsum_recip).Cast<int>();
+					// The GE's fixed point depth plane at the four pixel centers.
+					const int64_t z00 = depthPlane.base + depthPlane.kx * (curX + SCREEN_SCALE_FACTOR / 2) + depthPlane.ky * (curY + SCREEN_SCALE_FACTOR / 2);
+					const int64_t dx = depthPlane.kx * SCREEN_SCALE_FACTOR, dy = depthPlane.ky * SCREEN_SCALE_FACTOR;
+					z = Vec4<int>((int)(z00 >> 14), (int)((z00 + dx) >> 14), (int)((z00 + dy) >> 14), (int)((z00 + dx + dy) >> 14));
 				}
 
 				if (pixelID.earlyZChecks) {
