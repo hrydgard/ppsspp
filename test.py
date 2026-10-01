@@ -146,6 +146,7 @@ tests_good = [
   "audio/mp3/mp3test",
   "audio/mp3/notifyadd",
   "audio/mp3/release",
+  "audio/mp3/resetposbyframe",
   "audio/mp3/reserve",
   "audio/mp3/setloopnum",
   "audio/mp3/stream",

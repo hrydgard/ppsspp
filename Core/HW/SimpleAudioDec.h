@@ -108,6 +108,7 @@ public:
 
 private:
 	size_t FindNextMp3Sync();
+	int64_t StreamBufferBase() const { return bufferBase_ >= 0 ? bufferBase_ : (int64_t)startPos; }
 
 	std::vector<u8> sourcebuff; // source buffer
 
@@ -116,6 +117,9 @@ private:
 	int readPos = 0; // read position in audio source file
 	int askedReadSize = 0; // the size of data requied to be read from file by the game
 	int nextOutputHalf = 0;
+	// Stream position the input buffer's halves are counted from, -1 for startPos. A seek by frame
+	// starts the buffer over from the new position (audio/mp3/resetposbyframe).
+	int64_t bufferBase_ = -1;
 };
 
 

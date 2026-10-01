@@ -488,7 +488,9 @@ static int sceMp3Init(u32 mp3) {
 	ctx->freq = ctx->SamplingRate;
 
 	if (versionBits != 3) {
-		// TODO: Should return 0x80671301 (unsupported version?)
+		// Also more lenient than a PSP: libmp3 (088058b8, called from sceMp3Init) refuses MPEG-2
+		// and 2.5 with 0x80671301 from a game built with an SDK before 6.00, and takes them from
+		// 6.00 on. audio/mp3/resetposbyframe runs them with 6.06.
 		WARN_LOG_REPORT(Log::ME, "sceMp3Init: invalid data: not MPEG v1");
 	}
 	// DELIBERATELY MORE LENIENT THAN A PSP.

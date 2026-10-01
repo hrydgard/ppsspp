@@ -574,7 +574,7 @@ int AuCtx::AuStreamBytesNeeded() {
 		int half = AuStreamHalfSize();
 		if (half <= 0)
 			return 0;
-		int64_t written = (int64_t)readPos - (int64_t)startPos;
+		int64_t written = (int64_t)readPos - StreamBufferBase();
 		int64_t consumed = written - AuBufAvailable;
 		// Floor division - consumed can go negative if a game notifies a negative size.
 		int64_t halvesDone = consumed / half - ((consumed % half < 0) ? 1 : 0);
@@ -605,7 +605,7 @@ int AuCtx::AuStreamWriteOffset() {
 	int size = AuStreamHalfSize() * 2;
 	if (size <= 0)
 		return 0;
-	int64_t pos = ((int64_t)readPos - (int64_t)startPos) % size;
+	int64_t pos = ((int64_t)readPos - StreamBufferBase()) % size;
 	if (pos < 0)
 		pos += size;
 	return (int)pos;
@@ -681,16 +681,17 @@ u32 AuCtx::AuResetPlayPositionByFrame(int frame) {
 	// the VBRI table when the first frame has one, and only falls back to this formula without.
 	// libmp3 (6.60): sceMp3ResetPlayPositionByFrame -> 08806168 picks 08806224 (Xing),
 	// 08806308 (VBRI) or 08806434 (this formula); sceMp3Init parses the headers in 08805c60 and
-	// 08805e5c. Neither path subtracts 1 the way this one does.
+	// 08805e5c.
 	// 64-bit, since frame * bytesPerSecond overflows 32 bits about 6 seconds into a 128kbps stream.
 	uint64_t bytesPerSecond = (MaxOutputSample / 8) * BitRate * 1000;
 	readPos = (int)(startPos + ((uint64_t)frame * bytesPerSecond) / SamplingRate);
-	// Not sure why, but it seems to consistently seek 1 before, maybe in case it's off slightly.
+	// The hardware lands one byte before that too, at any rate and frame (audio/mp3/resetposbyframe).
 	if (frame != 0)
 		readPos -= 1;
 	SumDecodedSamples = frame * MaxOutputSample;
 	AuBufAvailable = 0;
 	sourcebuff.clear();
+	bufferBase_ = readPos;
 	return 0;
 }
 
@@ -699,11 +700,12 @@ u32 AuCtx::AuResetPlayPosition() {
 	SumDecodedSamples = 0;
 	AuBufAvailable = 0;
 	sourcebuff.clear();
+	bufferBase_ = -1;
 	return 0;
 }
 
 void AuCtx::DoState(PointerWrap &p) {
-	auto s = p.Section("AuContext", 0, 2);
+	auto s = p.Section("AuContext", 0, 3);
 	if (!s)
 		return;
 
@@ -736,6 +738,11 @@ void AuCtx::DoState(PointerWrap &p) {
 		Do(p, AuBufAvailable);
 		Do(p, sourcebuff);
 		Do(p, nextOutputHalf);
+	}
+	if (s >= 3) {
+		Do(p, bufferBase_);
+	} else {
+		bufferBase_ = -1;
 	}
 
 	if (p.mode == p.MODE_READ) {
