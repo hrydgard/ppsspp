@@ -240,6 +240,14 @@ PSPLink with `usbhostfs_pc` serving the pspautotests root, the same setup as
 [pspautotests-hardware.md](pspautotests-hardware.md); like every hardware run,
 one at a time. See its README for replaying a subset of the primitives.
 
+To find the draw where the two diverge, stop both at the same primitive:
+`run.py --end=N` on the PSP and `--replay-end=N` on PPSSPPHeadless. A draw into
+an offscreen buffer can be compared directly: `run.py --display=ADDR,STRIDE,FMT`
+shows and screenshots that buffer instead of the display (e.g.
+`--display=04000000,512,3` for an 8888 target at the start of VRAM), and
+PPSSPPHeadless takes `--screenshot-render-target` to save the current render
+target.
+
 The PSP render doesn't match PPSSPP's to the bit even where PPSSPP is right
 (dithering, texture filtering and edge rules differ slightly), so compare MSEs
 between versions rather than expecting zero: the Coded Arms dump above went from

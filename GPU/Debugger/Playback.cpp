@@ -498,6 +498,10 @@ void DumpExecute::Registers(u32 ptr, u32 sz) {
 			if (g_drawLimit > 0 && prims_ > g_drawLimit)
 				ops[i] = GE_CMD_NOP << 24;
 		}
+		// Past the limit, keep the render target too, for --screenshot-render-target.
+		if (g_drawLimit > 0 && prims_ >= g_drawLimit && (cmd == GE_CMD_FRAMEBUFPTR || cmd == GE_CMD_FRAMEBUFWIDTH || cmd == GE_CMD_FRAMEBUFPIXFORMAT)) {
+			ops[i] = GE_CMD_NOP << 24;
+		}
 
 		// Since we're here anyway, also NOP out texture addresses.
 		// This makes Step Tex not hit phantom textures, but we rely on it for lastTex_[].

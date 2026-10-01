@@ -81,6 +81,7 @@
 static Path g_comparisonScreenshot;
 static Path g_screenshotSavePath;
 static Path g_depthSavePath;
+static bool g_screenshotRenderTarget = false;
 static Path g_screenshotDiffPath;
 static bool g_screenshotSaveKeepAlpha = false;
 static bool g_screenshotSaved = false;
@@ -225,7 +226,7 @@ void SendDebugScreenshot(const DebugScreenshotDesc &desc) {
 	const static u32 FRAME_HEIGHT = 272;
 
 	GPUDebugBuffer buffer;
-	gpu->GetCurrentFramebuffer(buffer, GPU_DBG_FRAMEBUF_DISPLAY);
+	gpu->GetCurrentFramebuffer(buffer, g_screenshotRenderTarget ? GPU_DBG_FRAMEBUF_RENDER : GPU_DBG_FRAMEBUF_DISPLAY);
 	const std::vector<u32> pixels = TranslateDebugBufferToCompare(&buffer, FRAME_STRIDE, FRAME_HEIGHT);
 
 	// If a screenshot save path is set, save unconditionally.
@@ -1135,6 +1136,7 @@ int main(int argc, const char* argv[]) {
 	if (cmdLineOptions.replayEnd.has_value()) {
 		GPURecord::SetReplayDrawLimit(cmdLineOptions.replayEnd.value());
 	}
+	g_screenshotRenderTarget = cmdLineOptions.screenshotRenderTarget.value_or(false);
 	if (cmdLineOptions.depthFilenameSave.has_value()) {
 		g_depthSavePath = Path(std::string(cmdLineOptions.depthFilenameSave.value()));
 	}
