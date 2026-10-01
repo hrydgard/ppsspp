@@ -589,6 +589,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Software/Clipper.cpp \
   $(SRC)/GPU/Software/DrawPixel.cpp.arm \
   $(SRC)/GPU/Software/FuncId.cpp \
+  $(SRC)/GPU/Software/GEMath.cpp \
   $(SRC)/GPU/Software/Lighting.cpp \
   $(SRC)/GPU/Software/Rasterizer.cpp.arm \
   $(SRC)/GPU/Software/RasterizerRectangle.cpp.arm \

@@ -22,6 +22,7 @@
 #include "Common/Math/SIMDHeaders.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/TransformCommon.h"
+#include "GPU/Software/GEMath.h"
 #include "GPU/Software/Lighting.h"
 #include "GPU/Software/TransformUnit.h"
 
@@ -46,25 +47,6 @@ static inline Vec3f GetLightVec(const u32 lparams[12], int light) {
 #endif
 }
 
-static inline float pspLightPow(float v, float e) {
-	if (e <= 0.0f) {
-		return 1.0f;
-	}
-	if (v > 0.0f) {
-		// PSPLightPow, but the product is exact and floored rather than a rounded float multiply
-		// (gpu/probe exp102: e = 1.1).
-		int32_t ix;
-		memcpy(&ix, &v, sizeof(ix));
-		double t = std::floor((double)e * (double)(ix - 0x3F800000)) + 1065353216.0;
-		t = t >= 0.0 ? (t < 2139095039.0 ? t : 2139095039.0) : 0.0;
-		int32_t iy = (int32_t)t;
-		float y;
-		memcpy(&y, &iy, sizeof(y));
-		return y;
-	}
-	// Negative stays negative, so let's just return the original.
-	return v;
-}
 
 static inline Vec4<int> LightColorFactor(const Vec4<int> &expanded, const Vec4<int> &ones) {
 #if defined(_M_SSE) && !PPSSPP_ARCH(X86)
@@ -214,18 +196,6 @@ void GenerateLightST(VertexData &vertex, const WorldCoords &worldpos, const Worl
 	vertex.texturecoords.t() = PSPShadeMapCoord(gstate.getUVLS1(), worldpos, worldnormal, viewDir);
 }
 
-// How the GE scales light by a factor (gpu/probe exp61-63): the light and material colors make an
-// 8-bit product x = ((2l + 1) * (2m + 1)) >> 10, and each factor (N.L or the specular power, then the
-// attenuation and spot) becomes an 8-bit s = floor(256 * f) that is expanded like a color:
-// ((2x + 1) * (2s + 1)) >> 10. A factor of 1 (s = 256) leaves x as it is.
-static inline Vec4<int> LightColorProduct(const Vec4<int> &lightFactor, const Vec4<int> &materialFactor) {
-	return (lightFactor * materialFactor) >> 10;
-}
-
-static inline Vec4<int> LightColorScale(const Vec4<int> &x, float f) {
-	const int s = std::min((int)(256.0f * f), 256);
-	return ((x * 2 + Vec4<int>::AssignToAll(1)) * (2 * s + 1)) >> 10;
-}
 
 static inline void LightColorSum(Vec4<int> &sum, const Vec4<int> &src) {
 #if defined(_M_SSE) && !PPSSPP_ARCH(X86)
@@ -306,7 +276,7 @@ static void ProcessSIMD(VertexData &vertex, const WorldCoords &worldpos, const W
 				rawSpot = std::signbit(rawSpot) ? 0.0f : 1.0f;
 
 			if (rawSpot >= lstate.spotCutoff) {
-				spot = pspLightPow(rawSpot, lstate.spotExp);
+				spot = GELightPow(rawSpot, lstate.spotExp);
 				if (std::isnan(spot))
 					spot = 0.0f;
 			} else {
@@ -316,15 +286,15 @@ static void ProcessSIMD(VertexData &vertex, const WorldCoords &worldpos, const W
 		}
 		auto scaleAttSpot = [&](Vec4<int> c) {
 			if (att < 1.0f)
-				c = LightColorScale(c, att);
+				c = GELightColorScale(c, att);
 			if (spot < 1.0f)
-				c = LightColorScale(c, spot);
+				c = GELightColorScale(c, spot);
 			return c;
 		};
 
 		// ambient lighting
 		if (lstate.ambient) {
-			Vec4<int> lambient = LightColorProduct(lstate.ambientColorFactor, mac);
+			Vec4<int> lambient = GELightColorProduct(lstate.ambientColorFactor, mac);
 			lambient = scaleAttSpot(lambient);
 			LightColorSum(final_color, lambient);
 		}
@@ -334,13 +304,13 @@ static void ProcessSIMD(VertexData &vertex, const WorldCoords &worldpos, const W
 		if (lstate.diffuse || lstate.specular) {
 			diffuse_factor = GEDot(L, worldnormal);
 			if (lstate.poweredDiffuse) {
-				diffuse_factor = pspLightPow(diffuse_factor, state.specularExp);
+				diffuse_factor = GELightPow(diffuse_factor, state.specularExp);
 			}
 		}
 
 		if (lstate.diffuse && diffuse_factor > 0.0f) {
 			Vec4<int> mdc = state.colorForDiffuse ? colorFactor : state.material.diffuseColorFactor;
-			Vec4<int> ldiffuse = LightColorScale(LightColorProduct(lstate.diffuseColorFactor, mdc), diffuse_factor);
+			Vec4<int> ldiffuse = GELightColorScale(GELightColorProduct(lstate.diffuseColorFactor, mdc), diffuse_factor);
 			ldiffuse = scaleAttSpot(ldiffuse);
 			LightColorSum(final_color, ldiffuse);
 		}
@@ -351,11 +321,11 @@ static void ProcessSIMD(VertexData &vertex, const WorldCoords &worldpos, const W
 				H = Vec3f(0.0f, 0.0f, 1.0f);
 
 			float specular_factor = GEDot(H, worldnormal);
-			specular_factor = pspLightPow(specular_factor, state.specularExp);
+			specular_factor = GELightPow(specular_factor, state.specularExp);
 
 			if (specular_factor > 0.0f) {
 				Vec4<int> msc = state.colorForSpecular ? colorFactor : state.material.specularColorFactor;
-				Vec4<int> lspecular = LightColorScale(LightColorProduct(lstate.specularColorFactor, msc), specular_factor);
+				Vec4<int> lspecular = GELightColorScale(GELightColorProduct(lstate.specularColorFactor, msc), specular_factor);
 				lspecular = scaleAttSpot(lspecular);
 				LightColorSum(specular_color, lspecular);
 			}

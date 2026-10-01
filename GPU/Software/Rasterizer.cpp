@@ -34,6 +34,7 @@
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Software/BinManager.h"
 #include "GPU/Software/DrawPixel.h"
+#include "GPU/Software/GEMath.h"
 #include "GPU/Software/Rasterizer.h"
 #include "GPU/Software/Sampler.h"
 #include "GPU/Software/SoftGpu.h"
@@ -614,14 +615,6 @@ static inline bool IsRightSideOrFlatBottomLine(const Vec2<int>& vertex, const Ve
 	}
 }
 
-// 15 significant bits, truncated: what a UV plane keeps of a lone value (gpu/probe exp83).
-static inline float TruncateTexCoord(float f) {
-	u32 bits;
-	memcpy(&bits, &f, 4);
-	bits &= 0xFFFFFE00;
-	memcpy(&f, &bits, 4);
-	return f;
-}
 
 // Color doubling applies to the specular (secondary) color too (gpu/probe exp86).
 static inline bool DoubleSecondaryColor(const RasterizerState &state) {
@@ -642,20 +635,6 @@ static inline Vec4IntResult SOFTRAST_CALL ApplyTexturingSingle(float s, float t,
 	return ApplyTexturing(s, t, prim_color, texlevel, frac_texlevel, bilinear, state);
 }
 
-// Produces a signed 1.27.4 value.
-static int TexLog2(float delta) {
-	union FloatBits {
-		float f;
-		u32 u;
-	};
-	FloatBits f;
-	f.f = delta;
-	// Use the exponent as the tex level, and the top mantissa bits for a frac.
-	// We can't support more than 4 bits of frac, so truncate.
-	int useful = (f.u >> 19) & 0x0FFF;
-	// Now offset so the exponent aligns with log2f (exp=127 is 0.)
-	return useful - 127 * 16;
-}
 
 // q is 1 / w at the pixel, as the GE interpolates it (UVPlanes).
 // autoGrad: the largest UV plane gradient in texels per pixel, when there are planes (or negative).
@@ -670,15 +649,15 @@ static inline void CalculateSamplingParams(const float ds, const float dt, float
 		if (autoGrad >= 0.0f) {
 			// The largest gradient of the s and t planes over the pixel's q, both through the float-bits
 			// log2, like slope mode (gpu/probe exp92-93).
-			detail = TexLog2(autoGrad) - TexLog2(q);
+			detail = GELog16(autoGrad) - GELog16(q);
 		} else {
-			detail = TexLog2(std::max(std::abs(ds * width), std::abs(dt * height)));
+			detail = GELog16(std::max(std::abs(ds * width), std::abs(dt * height)));
 		}
 		break;
 	case GE_TEXLEVEL_MODE_SLOPE:
 		// The GE takes the same float-bits log2 of q and of the slope, and adds a level (gpu/probe
 		// exp58-60, bit exact).
-		detail = 16 + TexLog2(state.textureLodSlope) - TexLog2(q);
+		detail = 16 + GELog16(state.textureLodSlope) - GELog16(q);
 		break;
 	case GE_TEXLEVEL_MODE_CONST:
 	default:
@@ -1016,84 +995,12 @@ static inline Vec4<float> EdgeRecip(const Vec4<int> &w0, const Vec4<int> &w1, co
 #endif
 }
 
-// The GE's reciprocal for triangle setup (gpu/probe exp38-41): a 16-bit significand index, 256 segments,
-// each linear over its low 8 bits, q = (2K + M * x) >> 8. Not the same table as the one for z/w.
-struct GESetupRecipSegment {
-	int32_t k;
-	int32_t m;
-};
 
-static const GESetupRecipSegment geSetupRecip[256] = {
-	{ 8388735, -257 }, { 8355952, -254 }, { 8323568, -252 }, { 8291440, -250 },
-	{ 8259552, -248 }, { 8227904, -246 }, { 8196496, -244 }, { 8165328, -242 },
-	{ 8134400, -240 }, { 8103696, -238 }, { 8073232, -237 }, { 8043008, -235 },
-	{ 8012992, -233 }, { 7983200, -231 }, { 7953632, -230 }, { 7924288, -228 },
-	{ 7895152, -226 }, { 7866240, -225 }, { 7837520, -223 }, { 7809024, -221 },
-	{ 7780736, -220 }, { 7752640, -218 }, { 7724752, -217 }, { 7697072, -215 },
-	{ 7669584, -213 }, { 7642288, -212 }, { 7615184, -210 }, { 7588272, -209 },
-	{ 7561552, -208 }, { 7535024, -206 }, { 7508672, -205 }, { 7482512, -203 },
-	{ 7456528, -202 }, { 7430736, -200 }, { 7405104, -199 }, { 7379664, -198 },
-	{ 7354384, -196 }, { 7329280, -195 }, { 7304352, -194 }, { 7279552, -192 },
-	{ 7255008, -191 }, { 7230576, -190 }, { 7206320, -188 }, { 7182208, -187 },
-	{ 7158272, -186 }, { 7134496, -185 }, { 7110864, -183 }, { 7087392, -182 },
-	{ 7064080, -181 }, { 7040928, -180 }, { 7017920, -179 }, { 6995056, -178 },
-	{ 6972336, -176 }, { 6949776, -175 }, { 6927360, -174 }, { 6905088, -173 },
-	{ 6882960, -172 }, { 6860960, -171 }, { 6839104, -170 }, { 6817408, -169 },
-	{ 6795824, -168 }, { 6774384, -166 }, { 6753088, -165 }, { 6731920, -164 },
-	{ 6710880, -163 }, { 6689968, -162 }, { 6669200, -161 }, { 6648544, -160 },
-	{ 6628032, -159 }, { 6607632, -158 }, { 6587360, -157 }, { 6567216, -156 },
-	{ 6547200, -155 }, { 6527296, -154 }, { 6507520, -154 }, { 6487856, -153 },
-	{ 6468320, -152 }, { 6448896, -151 }, { 6429584, -150 }, { 6410384, -149 },
-	{ 6391312, -148 }, { 6372352, -147 }, { 6353488, -146 }, { 6334752, -145 },
-	{ 6316128, -145 }, { 6297600, -144 }, { 6279184, -143 }, { 6260880, -142 },
-	{ 6242672, -141 }, { 6224576, -140 }, { 6206592, -140 }, { 6188704, -139 },
-	{ 6170928, -138 }, { 6153248, -137 }, { 6135664, -136 }, { 6118176, -136 },
-	{ 6100800, -135 }, { 6083520, -134 }, { 6066336, -133 }, { 6049248, -133 },
-	{ 6032256, -132 }, { 6015360, -131 }, { 5998544, -130 }, { 5981840, -130 },
-	{ 5965232, -129 }, { 5948799, -129 }, { 5932287, -129 }, { 5915920, -127 },
-	{ 5899680, -126 }, { 5883504, -125 }, { 5867440, -125 }, { 5851440, -124 },
-	{ 5835552, -123 }, { 5819728, -123 }, { 5804000, -122 }, { 5788352, -121 },
-	{ 5772800, -121 }, { 5757328, -120 }, { 5741920, -119 }, { 5726608, -119 },
-	{ 5711392, -118 }, { 5696240, -118 }, { 5681168, -117 }, { 5666176, -116 },
-	{ 5651264, -116 }, { 5636432, -115 }, { 5621680, -114 }, { 5606992, -114 },
-	{ 5592400, -113 }, { 5577872, -113 }, { 5563424, -112 }, { 5549040, -112 },
-	{ 5534736, -111 }, { 5520512, -110 }, { 5506368, -110 }, { 5492272, -109 },
-	{ 5478272, -109 }, { 5464320, -108 }, { 5450464, -108 }, { 5436656, -107 },
-	{ 5422928, -106 }, { 5409264, -106 }, { 5395680, -105 }, { 5382160, -105 },
-	{ 5368704, -104 }, { 5355312, -104 }, { 5341984, -103 }, { 5328736, -103 },
-	{ 5315552, -102 }, { 5302416, -102 }, { 5289360, -101 }, { 5276368, -101 },
-	{ 5263440, -100 }, { 5250560, -100 }, { 5237760, -99 }, { 5225008, -99 },
-	{ 5212336, -98 }, { 5199712, -98 }, { 5187152, -97 }, { 5174656, -97 },
-	{ 5162208, -96 }, { 5149824, -96 }, { 5137504, -96 }, { 5125248, -95 },
-	{ 5113056, -95 }, { 5100896, -94 }, { 5088816, -94 }, { 5076784, -93 },
-	{ 5064816, -93 }, { 5052896, -92 }, { 5041040, -92 }, { 5029232, -92 },
-	{ 5017472, -91 }, { 5005776, -91 }, { 4994144, -90 }, { 4982560, -90 },
-	{ 4971024, -89 }, { 4959536, -89 }, { 4948112, -89 }, { 4936736, -88 },
-	{ 4925408, -88 }, { 4914144, -87 }, { 4902928, -87 }, { 4891760, -87 },
-	{ 4880640, -86 }, { 4869568, -86 }, { 4858560, -85 }, { 4847584, -85 },
-	{ 4836672, -85 }, { 4825792, -84 }, { 4814976, -84 }, { 4804208, -83 },
-	{ 4793488, -83 }, { 4782800, -83 }, { 4772176, -82 }, { 4761600, -82 },
-	{ 4751056, -82 }, { 4740576, -81 }, { 4730128, -81 }, { 4719744, -81 },
-	{ 4709392, -80 }, { 4699088, -80 }, { 4688816, -79 }, { 4678608, -79 },
-	{ 4668432, -79 }, { 4658304, -78 }, { 4648224, -78 }, { 4638192, -78 },
-	{ 4628192, -77 }, { 4618240, -77 }, { 4608320, -77 }, { 4598464, -76 },
-	{ 4588640, -76 }, { 4578848, -76 }, { 4569104, -75 }, { 4559408, -75 },
-	{ 4549744, -75 }, { 4540128, -74 }, { 4530544, -74 }, { 4521008, -74 },
-	{ 4511520, -74 }, { 4502048, -73 }, { 4492640, -73 }, { 4483264, -73 },
-	{ 4473920, -72 }, { 4464608, -72 }, { 4455360, -72 }, { 4446128, -71 },
-	{ 4436944, -71 }, { 4427792, -71 }, { 4418688, -71 }, { 4409616, -70 },
-	{ 4400576, -70 }, { 4391568, -70 }, { 4382608, -69 }, { 4373680, -69 },
-	{ 4364800, -69 }, { 4355936, -69 }, { 4347120, -68 }, { 4338336, -68 },
-	{ 4329600, -68 }, { 4320880, -67 }, { 4312208, -67 }, { 4303568, -67 },
-	{ 4294960, -67 }, { 4286384, -66 }, { 4277840, -66 }, { 4269344, -66 },
-	{ 4260880, -66 }, { 4252432, -65 }, { 4244032, -65 }, { 4235664, -65 },
-	{ 4227328, -65 }, { 4219008, -64 }, { 4210752, -64 }, { 4202496, -64 },
-};
 
 // The plane the GE interpolates depth and Gouraud color with (gpu/probe exp36-41 for depth, exp54
 // for color, bit exact; color is screen-linear in transform mode too): the gradients are fixed
-// point with 14 fractional bits per subpixel, from the exact edge cross products and the reciprocal
-// above, and the plane is anchored at one vertex: the leftmost, unless the long edge (top to bottom)
+// point with 14 fractional bits per subpixel, from the exact edge cross products and GESetupRecip,
+// and the plane is anchored at one vertex: the leftmost, unless the long edge (top to bottom)
 // is strictly the right side, then the rightmost. A pixel's value is the plane at its center, floored.
 struct DepthPlane {
 	int64_t base;  // value << 14 at screen (0, 0)
@@ -1116,12 +1023,8 @@ static DepthPlane ComputePlane(const int64_t X[3], const int64_t Y[3], const int
 	const int64_t nx = (Z[1] - Z[0]) * (Y[2] - Y[0]) - (Z[2] - Z[0]) * (Y[1] - Y[0]);
 	const int64_t ny = (Z[2] - Z[0]) * (X[1] - X[0]) - (Z[1] - Z[0]) * (X[2] - X[0]);
 	const uint64_t absDet = (uint64_t)(det < 0 ? -det : det);
-	int e = 63;
-	while (!(absDet >> e))
-		--e;
-	const int index = (int)((absDet << 16) >> e) - 65536;
-	const GESetupRecipSegment &seg = geSetupRecip[index >> 8];
-	const int64_t q = (2 * (int64_t)seg.k + seg.m * (index & 255)) >> 8;
+	int e;
+	const int64_t q = GESetupRecip(absDet, &e);
 	const int64_t sign = det < 0 ? -1 : 1;
 	// n / det * 2^14, as floor(n * q / 2^(e + 2)).
 	plane.kx = (sign * nx * q) >> (e + 2);
@@ -1233,17 +1136,6 @@ static UVPlanes ComputeUVPlanes(const VertexData &v0, const VertexData &v1, cons
 	return ComputeUVPlanes(X, Y, u, v, w, textureProj ? q : nullptr);
 }
 
-// u = s * R(q) keeps 24 significant bits, truncated: a float32 product without rounding, not a float24
-// (gpu/probe exp82: 23 or 24 bits match, 22 and 25 don't).
-static inline float UVProduct(double d) {
-	uint64_t bits;
-	memcpy(&bits, &d, sizeof(bits));
-	if (((bits >> 52) & 0x7FF) != 0x7FF) {
-		bits &= ~((1ULL << (52 - 23)) - 1);
-	}
-	memcpy(&d, &bits, sizeof(d));
-	return (float)d;
-}
 
 // The largest of the s and t planes' gradients, in texels per pixel (auto mip level selection).
 // inTexels: the planes hold texel coordinates (through-mode triangles) rather than normalized ones.
@@ -1301,8 +1193,8 @@ static inline void GetTextureCoordinatesGE(const UVPlanes &planes, int64_t cente
 			continue;
 		}
 		const double r = GERecip(q);
-		s[i] = UVProduct((double)TruncateToFloat24((float)std::ldexp((double)planes.s.At(x, y), -planes.shiftS)) * r);
-		t[i] = UVProduct((double)TruncateToFloat24((float)std::ldexp((double)planes.t.At(x, y), -planes.shiftT)) * r);
+		s[i] = GEUVProduct((double)TruncateToFloat24((float)std::ldexp((double)planes.s.At(x, y), -planes.shiftS)) * r);
+		t[i] = GEUVProduct((double)TruncateToFloat24((float)std::ldexp((double)planes.t.At(x, y), -planes.shiftT)) * r);
 	}
 }
 
@@ -1824,8 +1716,8 @@ void DrawPoint(const VertexData &v0, const BinCoords &range, const RasterizerSta
 		float s = v0.texturecoords.s();
 		float t = v0.texturecoords.t();
 		if (state.throughMode) {
-			s = TruncateTexCoord(s) * (1.0f / (float)(1 << state.samplerID.width0Shift));
-			t = TruncateTexCoord(t) * (1.0f / (float)(1 << state.samplerID.height0Shift));
+			s = GETruncateTexCoord(s) * (1.0f / (float)(1 << state.samplerID.width0Shift));
+			t = GETruncateTexCoord(t) * (1.0f / (float)(1 << state.samplerID.height0Shift));
 		} else {
 			// The same planes as triangles, flat (gpu/probe exp64).
 			const UVPlanes planes = ComputeUVPlanes(v0, v0, v0, state.textureProj);
@@ -2073,31 +1965,6 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords 
 // lines with an end exactly on a diamond's edge differ): diamond exit. A pixel is lit when the line
 // passes through the inside of its diamond |x - cx| + |y - cy| < 1/2 and doesn't end inside it (see
 // InLineDiamond for points exactly on the edge). In 1/16 pixel units, exact.
-// Antialiased lines light the same pixels, and the pixel's alpha (replacing the vertex alpha) comes
-// from its distance to the line along the minor axis: 128 - |v|, v the largest integer below 256 times
-// that offset in pixels (gpu/probe exp112, 99%; the rest look like the GE's stepper).
-static int LineCoverageAlpha(int64_t x0, int64_t y0, int64_t x1, int64_t y1, int px, int py) {
-	int64_t PX = (int64_t)px * SCREEN_SCALE_FACTOR + SCREEN_SCALE_FACTOR / 2;
-	int64_t PY = (int64_t)py * SCREEN_SCALE_FACTOR + SCREEN_SCALE_FACTOR / 2;
-	if (std::abs(x1 - x0) < std::abs(y1 - y0)) {
-		std::swap(x0, y0);
-		std::swap(x1, y1);
-		std::swap(PX, PY);
-	}
-	int64_t den = x1 - x0;
-	if (den == 0)
-		return 128;
-	// o = 16 * (offset in subpixels) = num / den.
-	int64_t num = 16 * ((PY - y0) * den - (y1 - y0) * (PX - x0));
-	if (den < 0) {
-		num = -num;
-		den = -den;
-	}
-	const int64_t ceilQ = num >= 0 ? (num + den - 1) / den : -((-num) / den);
-	const int64_t v = ceilQ - 1;
-	return (int)std::clamp<int64_t>(128 - (v < 0 ? -v : v), 0, 255);
-}
-
 struct LinePixel {
 	int x, y;
 	float t;  // where the pixel's center falls along the line, 0 to 1
@@ -2263,7 +2130,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 
 			if (state.antialiasLines) {
 				// TODO: Clearmode?
-				prim_color.a() = LineCoverageAlpha(a.x, a.y, b.x, b.y, lp.x, lp.y);
+				prim_color.a() = GELineCoverageAlpha(a.x, a.y, b.x, b.y, lp.x, lp.y);
 			}
 
 			if (state.enableTextures) {
