@@ -57,6 +57,7 @@
 #include "Core/CoreTiming.h"
 #include "Core/EmuThread.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/__sceAudio.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/System.h"
 #include "Core/Util/PSARUnpack.h"
@@ -84,6 +85,7 @@ static bool g_screenshotSaveKeepAlpha = false;
 static bool g_screenshotSaved = false;
 static double g_maxScreenshotError = 0.0;
 static bool g_screenshotFailed = false;
+static Path g_audioDumpPath;
 static std::string g_debugOutputBuffer;
 // Set when a run was asked for a configuration that couldn't be honoured. That isn't a test result,
 // so it fails the process whether or not this run was comparing anything.
@@ -405,6 +407,14 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 	}
 
 	System_Notify(SystemNotification::BOOT_DONE);
+
+#ifndef MOBILE_DEVICE
+	// Started here so the file gets our name, not the mixer's auto-generated one. __AudioShutdown()
+	// closes it, since bDumpAudio is set.
+	if (!g_audioDumpPath.empty()) {
+		__StartLogAudio(g_audioDumpPath);
+	}
+#endif
 
 	PSP_UpdateDebugStats((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS || g_Config.bLogFrameDrops);
 
@@ -1114,6 +1124,12 @@ int main(int argc, const char* argv[]) {
 	}
 	if (cmdLineOptions.screenshotFilenameSave.has_value()) {
 		SetScreenshotSavePath(Path(std::string(cmdLineOptions.screenshotFilenameSave.value())));
+	}
+	if (cmdLineOptions.audioDumpFilename.has_value()) {
+		g_audioDumpPath = Path(std::string(cmdLineOptions.audioDumpFilename.value()));
+		// The mixer only runs, and so only records, with sound enabled.
+		g_Config.bEnableSound = true;
+		g_Config.bDumpAudio = true;
 	}
 	if (cmdLineOptions.screenshotFilenameDiff.has_value()) {
 		g_screenshotDiffPath = Path(std::string(cmdLineOptions.screenshotFilenameDiff.value()));
