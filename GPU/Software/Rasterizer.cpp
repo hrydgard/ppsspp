@@ -201,6 +201,9 @@ void CalculateRasterStateFlags(RasterizerState *state, const VertexData &v0) {
 void CalculateRasterStateFlags(RasterizerState *state, const VertexData &v0, const VertexData &v1, bool forceFlat) {
 	CalculateRasterStateFlags(state, v0, !forceFlat && state->shadeGouraud);
 	CalculateRasterStateFlags(state, v1, true);
+	// Antialiased lines replace the alpha with their coverage (DrawLine), anywhere from 0 to 128.
+	if (state->antialiasLines && !forceFlat)
+		state->flags |= RasterizerStateFlags::VERTEX_ALPHA_NON_FULL;
 }
 
 void CalculateRasterStateFlags(RasterizerState *state, const VertexData &v0, const VertexData &v1, const VertexData &v2) {
@@ -2070,6 +2073,31 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords 
 // lines with an end exactly on a diamond's edge differ): diamond exit. A pixel is lit when the line
 // passes through the inside of its diamond |x - cx| + |y - cy| < 1/2 and doesn't end inside it (see
 // InLineDiamond for points exactly on the edge). In 1/16 pixel units, exact.
+// Antialiased lines light the same pixels, and the pixel's alpha (replacing the vertex alpha) comes
+// from its distance to the line along the minor axis: 128 - |v|, v the largest integer below 256 times
+// that offset in pixels (gpu/probe exp112, 99%; the rest look like the GE's stepper).
+static int LineCoverageAlpha(int64_t x0, int64_t y0, int64_t x1, int64_t y1, int px, int py) {
+	int64_t PX = (int64_t)px * SCREEN_SCALE_FACTOR + SCREEN_SCALE_FACTOR / 2;
+	int64_t PY = (int64_t)py * SCREEN_SCALE_FACTOR + SCREEN_SCALE_FACTOR / 2;
+	if (std::abs(x1 - x0) < std::abs(y1 - y0)) {
+		std::swap(x0, y0);
+		std::swap(x1, y1);
+		std::swap(PX, PY);
+	}
+	int64_t den = x1 - x0;
+	if (den == 0)
+		return 128;
+	// o = 16 * (offset in subpixels) = num / den.
+	int64_t num = 16 * ((PY - y0) * den - (y1 - y0) * (PX - x0));
+	if (den < 0) {
+		num = -num;
+		den = -den;
+	}
+	const int64_t ceilQ = num >= 0 ? (num + den - 1) / den : -((-num) / den);
+	const int64_t v = ceilQ - 1;
+	return (int)std::clamp<int64_t>(128 - (v < 0 ? -v : v), 0, 255);
+}
+
 struct LinePixel {
 	int x, y;
 	float t;  // where the pixel's center falls along the line, 0 to 1
@@ -2235,8 +2263,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 
 			if (state.antialiasLines) {
 				// TODO: Clearmode?
-				// TODO: Calculate.
-				prim_color.a() = 0x7F;
+				prim_color.a() = LineCoverageAlpha(a.x, a.y, b.x, b.y, lp.x, lp.y);
 			}
 
 			if (state.enableTextures) {
