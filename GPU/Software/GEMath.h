@@ -166,7 +166,7 @@ inline float GEUVProduct(double d) {
 }
 
 // The lighting pow (gpu/probe exp98, exp102): Mitchell's approximation on the float's bits, with the
-// product exact and floored. e <= 0 gives 1, and a non-positive v is returned as is.
+// product exact and truncated toward zero to units of 16 in the bits. e <= 0 gives 1, and a non-positive v is returned as is.
 float GELightPow(float v, float e);
 
 // How the GE scales light by a factor (gpu/probe exp61-63): the light and material colors make an

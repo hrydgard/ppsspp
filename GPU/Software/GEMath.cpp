@@ -223,11 +223,11 @@ float GELightPow(float v, float e) {
 		return 1.0f;
 	}
 	if (v > 0.0f) {
-		// PSPLightPow, but the product is exact and floored rather than a rounded float multiply
-		// (gpu/probe exp102: e = 1.1).
+		// PSPLightPow, but the product is exact, and keeps 19 fraction bits of the log (units of 16 in
+		// the float's bits), truncated toward zero (gpu/probe exp102: e = 1.1 and 0.3, exp4: e = 0.05).
 		int32_t ix;
 		memcpy(&ix, &v, sizeof(ix));
-		double t = std::floor((double)e * (double)(ix - 0x3F800000)) + 1065353216.0;
+		double t = std::trunc((double)e * (double)(ix - 0x3F800000) * (1.0 / 16.0)) * 16.0 + 1065353216.0;
 		t = t >= 0.0 ? (t < 2139095039.0 ? t : 2139095039.0) : 0.0;
 		int32_t iy = (int32_t)t;
 		float y;

@@ -157,8 +157,10 @@ static bool TestGELightPow() {
 	EXPECT_EQ_FLOAT(GELightPow(0.75f, 2.0f), 0.5f);
 	EXPECT_EQ_FLOAT(GELightPow(0.3f, 0.0f), 1.0f);
 	EXPECT_EQ_FLOAT(GELightPow(-0.5f, 2.0f), -0.5f);
-	// The exponent times the bits is exact and floored; a rounded float multiply gives 0x3DA64400.
+	// The exponent times the bits is exact, truncated toward zero to units of 16: a rounded float
+	// multiply gives 0x3DA64400, and flooring 0x3F69FFFC (one step lower in the 8-bit factor, exp102).
 	EXPECT_EQ_HEX(ToBits(GELightPow(FromBits(0x3DC22200), 1.0625f)), 0x3DA64420U);
+	EXPECT_EQ_HEX(ToBits(GELightPow(FromBits(0x3F35E500), 0.296875f)), 0x3F6A0000U);
 	return true;
 }
 
