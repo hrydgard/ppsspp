@@ -41,6 +41,19 @@ static inline GEComparison OptimizeRefByteCompare(GEComparison func, u8 ref) {
 	return func;
 }
 
+// The stencil test compares the other way around, ref against the buffer's value.
+static inline GEComparison OptimizeStencilRefCompare(GEComparison func, u8 ref) {
+	if (ref == 0 && func == GE_COMP_GREATER)
+		return GE_COMP_NEVER;
+	if (ref == 0xFF && func == GE_COMP_LESS)
+		return GE_COMP_NEVER;
+	if (ref == 0 && func == GE_COMP_LEQUAL)
+		return GE_COMP_ALWAYS;
+	if (ref == 0xFF && func == GE_COMP_GEQUAL)
+		return GE_COMP_ALWAYS;
+	return func;
+}
+
 static inline PixelBlendFactor OptimizeAlphaFactor(uint32_t color) {
 	if (color == 0x00000000)
 		return PixelBlendFactor::ZERO;
@@ -84,7 +97,7 @@ void ComputePixelFuncID(PixelFuncID *id) {
 
 		if (id->stencilTest) {
 			id->stencilTestRef = gstate.getStencilTestRef() & gstate.getStencilTestMask();
-			id->stencilTestFunc = OptimizeRefByteCompare(gstate.getStencilTestFunction(), id->stencilTestRef);
+			id->stencilTestFunc = OptimizeStencilRefCompare(gstate.getStencilTestFunction(), id->stencilTestRef);
 			id->hasStencilTestMask = gstate.getStencilTestMask() != 0xFF && gstate.FrameBufFormat() != GE_FORMAT_565;
 
 			// Stencil can't be written on 565, and any invalid op acts like KEEP, which is 0.
