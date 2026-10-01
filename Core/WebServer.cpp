@@ -854,9 +854,10 @@ static void WebServerThread() {
 		}
 	}
 
+	// Before RUNNING, so WebServerWaitForStartup() callers can read the port.
+	g_Config.iRemoteISOPort = http->Port();
 	UpdateStatus(ServerStatus::RUNNING);
 
-	g_Config.iRemoteISOPort = http->Port();
 	RegisterServer(http->Port());
 	double lastRegister = time_now_d();
 

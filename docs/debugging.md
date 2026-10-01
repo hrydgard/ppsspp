@@ -95,7 +95,12 @@ A working invocation, and the traps around it:
   and the game ran to completion - not a transport problem.
 - Some events deliberately never respond while the CPU is stepping, so `--sync` will burn its full timeout on them:
   `gpu.stats.get` and `gpu.stats.feed` (documented - they answer after the next flip), `gpu.record.dump`, and
-  `input.buttons.press` (waits for N frames). Resume the CPU first, or skip them in scripted runs.
+  `input.buttons.press` (waits for N frames). Send them with wsdbg's `:nowait`, and let the next line
+  (a `cpu.runUntilTime`) run the CPU:
+  `:nowait input.buttons.press button=circle duration=4`. `duration` counts vblanks, not seconds.
+- **Don't send a bare `cpu.resume` in a `--sync` script.** `--sync` waits for the CPU to stop again, which
+  a free run never does, so it burns the whole `--sync-timeout` while headless runs unthrottled, which can
+  be hundreds of emulated seconds. Use `cpu.runUntilTime`.
 - Log broadcasts drown scripted output. Pass `--quiet` to wsdbg, which turns them off.
 - **Nested parameters work in wsdbg's `key=value` shorthand**: values are parsed as JSON, and single quotes keep
   the inner double quotes, e.g. `input.buttons.send buttons='{"cross":true}'`. Prefer that over a raw JSON line,
