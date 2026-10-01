@@ -257,25 +257,31 @@ static bool CheckClutAlphaFull(RasterizerState *state) {
 	}
 
 	bool onlyFull = true;
+	// alphaSum ANDs every entry: alpha bits all entries share mean no entry has zero alpha.
+	u32 alphaBits = 1;
 	switch (samplerID.ClutFmt()) {
 	case GE_CMODE_16BIT_BGR5650:
 		break;
 
 	case GE_CMODE_16BIT_ABGR5551:
-		onlyFull = (alphaSum & 0x8000) != 0;
+		alphaBits = alphaSum & 0x8000;
+		onlyFull = alphaBits != 0;
 		break;
 
 	case GE_CMODE_16BIT_ABGR4444:
-		onlyFull = (alphaSum & 0xF000) == 0xF000;
+		alphaBits = alphaSum & 0xF000;
+		onlyFull = alphaBits == 0xF000;
 		break;
 
 	case GE_CMODE_32BIT_ABGR8888:
-		onlyFull = (alphaSum & 0xFF000000) == 0xFF000000;
+		alphaBits = alphaSum & 0xFF000000;
+		onlyFull = alphaBits == 0xFF000000;
 		break;
 	}
 
-	// Might just be different patterns, but if alphaSum != 0, it can't contain zero.
-	if (alphaSum != 0)
+	// Only the alpha bits count: a palette of white with alphas 0, 0x10, ... shares all its RGB bits but
+	// still contains zero (Ace Combat's subtitle glyphs).
+	if (alphaBits != 0)
 		state->flags |= RasterizerStateFlags::CLUT_ALPHA_NON_ZERO;
 	if (!onlyFull)
 		state->flags |= RasterizerStateFlags::CLUT_ALPHA_NON_FULL;
