@@ -163,10 +163,10 @@ const SoftwareCommandTableEntry softgpuCommandTable[] = {
 	{ GE_CMD_TEXMAPMODE, 0, SoftDirty::TRANSFORM_BASIC | SoftDirty::RAST_TEX },
 
 	// These are read on every SubmitPrim, no need for dirtying or flushing.
-	{ GE_CMD_TEXSCALEU },
-	{ GE_CMD_TEXSCALEV },
-	{ GE_CMD_TEXOFFSETU },
-	{ GE_CMD_TEXOFFSETV },
+	{ GE_CMD_TEXSCALEU, 0, SoftDirty::TRANSFORM_BASIC },
+	{ GE_CMD_TEXSCALEV, 0, SoftDirty::TRANSFORM_BASIC },
+	{ GE_CMD_TEXOFFSETU, 0, SoftDirty::TRANSFORM_BASIC },
+	{ GE_CMD_TEXOFFSETV, 0, SoftDirty::TRANSFORM_BASIC },
 
 	{ GE_CMD_TEXSIZE0, 0, SoftDirty::SAMPLER_TEXLIST | SoftDirty::BINNER_OVERLAP },
 	{ GE_CMD_TEXSIZE1, 0, SoftDirty::SAMPLER_TEXLIST | SoftDirty::BINNER_OVERLAP },

@@ -428,13 +428,28 @@ struct TransformState {
 		uint8_t uvGenMode : 2;
 		uint8_t matrixMode : 2;
 	};
+	// The UV scale and offset, applied in ReadVertex with the GE's arithmetic (the vertex decoder leaves
+	// them out then, see UsesGEUVScale).
+	bool geUVScale;
+	float uvScale[2];
+	float uvOffset[2];
 };
+
+// UV gen mode 0 in transform mode: u * scale + offset as the GE computes it (gpu/probe exp66).
+static bool UsesGEUVScale(u32 vertexType) {
+	return (vertexType & GE_VTYPE_THROUGH_MASK) == 0 && gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_COORDS;
+}
 
 void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 	state->enableTransform = !vreader.isThrough();
 	state->enableLighting = gstate.isLightingEnabled();
 	state->enableFog = gstate.isFogEnabled();
 	state->readUV = !gstate.isModeClear() && gstate.isTextureMapEnabled() && vreader.hasUV();
+	state->geUVScale = !vreader.isThrough() && gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_COORDS;
+	state->uvScale[0] = TruncateToFloat24(getFloat24(gstate.texscaleu));
+	state->uvScale[1] = TruncateToFloat24(getFloat24(gstate.texscalev));
+	state->uvOffset[0] = TruncateToFloat24(getFloat24(gstate.texoffsetu));
+	state->uvOffset[1] = TruncateToFloat24(getFloat24(gstate.texoffsetv));
 	state->negateNormals = gstate.areNormalsReversed();
 
 	state->uvGenMode = gstate.getUVGenMode();
@@ -549,6 +564,13 @@ ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const Tran
 	if (state.readUV) {
 		vreader.ReadUV(vertex.v.texturecoords.AsArray());
 		vertex.v.texturecoords.q() = 0.0f;
+		if (state.geUVScale) {
+			// The decoder only normalized them (8 and 16 bit UVs are unsigned).
+			for (int i = 0; i < 2; ++i) {
+				const float scaled = ProductToFloat24((double)TruncateToFloat24(vertex.v.texturecoords[i]) * state.uvScale[i]);
+				vertex.v.texturecoords[i] = TruncateToFloat24(GEAdd(scaled, state.uvOffset[i]));
+			}
+		}
 		lastTC = vertex.v.texturecoords;
 	} else {
 		vertex.v.texturecoords = lastTC;
@@ -669,7 +691,7 @@ public:
 			GetIndexBounds(indices, vertex_count, vertex_type, &lowerBound_, &upperBound_);
 		if (vertex_count != 0) {
 			const int count = upperBound_ - lowerBound_ + 1;
-			const UVScale uvScale = LoadUVScaleOffset(gstate);
+			const UVScale uvScale = UsesGEUVScale(vertex_type) ? UVScale{ 1.0f, 1.0f, 0.0f, 0.0f } : LoadUVScaleOffset(gstate);
 			vdecoder.DecodeVerts(base, (const u8 *)vertices + vdecoder.VertexSize() * lowerBound_, &uvScale, count);
 		}
 
