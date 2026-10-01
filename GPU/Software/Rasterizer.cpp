@@ -361,7 +361,8 @@ static RasterizerStateFlags DetectStateOptimizations(RasterizerState *state) {
 					couldHaveZeroTexAlpha = false;
 
 				// Blending is expensive, since we read the target.  Force alpha testing on.
-				if (!pixelID.depthWrite && !pixelID.stencilTest && couldHaveZeroTexAlpha)
+				// Not with dithering: the GE still adds the dither to a zero alpha pixel (Test Drive).
+				if (!pixelID.depthWrite && !pixelID.stencilTest && !pixelID.dithering && couldHaveZeroTexAlpha)
 					optimize |= RasterizerStateFlags::OPTIMIZED_ALPHATEST_ON;
 			}
 		}
