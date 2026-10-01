@@ -89,9 +89,9 @@ struct ClipVertexData {
 		clippos = ::Lerp(a.clippos, b.clippos, t);
 		// Ignore screenpos because Lerp() is only used pre-calculation of screenpos.
 		v.texturecoords = ::Lerp(a.v.texturecoords, b.v.texturecoords, t);
-		v.fogdepth = ::Lerp(a.v.fogdepth, b.v.fogdepth, t);
-
-		u16 t_int = (u16)(t * 256);
+		// Colors and fog (already 8-bit per vertex) take t rounded to 1/256 (gpu/probe exp136).
+		const int t_int = (int)(t * 256.0f + 0.5f);
+		v.fogdepth = (float)(((int)(a.v.fogdepth * 256.0f) * (256 - t_int) + (int)(b.v.fogdepth * 256.0f) * t_int) >> 8) * (1.0f / 256.0f);
 		v.color0 = LerpInt<Vec4<int>, 256>(Vec4<int>::FromRGBA(a.v.color0), Vec4<int>::FromRGBA(b.v.color0), t_int).ToRGBA();
 		v.color1 = LerpInt<Vec3<int>, 256>(Vec3<int>::FromRGB(a.v.color1), Vec3<int>::FromRGB(b.v.color1), t_int).ToRGB();
 	}
