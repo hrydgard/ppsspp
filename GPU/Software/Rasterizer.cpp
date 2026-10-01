@@ -1265,7 +1265,8 @@ void DrawTriangleSlice(
 	const Vec3<int> v2_c1 = Vec3<int>::FromRGB(v2.color1);
 
 	const DepthPlane depthPlane = flatZ ? DepthPlane{} : ComputeDepthPlane(v0, v1, v2);
-	const UVPlanes uvPlanes = state.enableTextures && !state.throughMode ? ComputeUVPlanes(v0, v1, v2, state.textureProj) : UVPlanes{};
+	// Through mode too, where w is 1 (gpu/probe exp73).
+	const UVPlanes uvPlanes = state.enableTextures ? ComputeUVPlanes(v0, v1, v2, state.textureProj && !state.throughMode) : UVPlanes{};
 	DepthPlane color0Planes[4], color1Planes[3];
 	if (!flatColor0)
 		ComputeColorPlanes<4>(v0, v1, v2, v0.color0, v1.color0, v2.color0, color0Planes);
@@ -1366,10 +1367,14 @@ void DrawTriangleSlice(
 						Vec4<float> s, t;
 						Vec4<float> q = Vec4<float>::AssignToAll(1.0f);
 						if (state.throughMode) {
-							s = Interpolate(v0.texturecoords.s(), v1.texturecoords.s(), v2.texturecoords.s(), w0, w1,
-											w2, wsum_recip);
-							t = Interpolate(v0.texturecoords.t(), v1.texturecoords.t(), v2.texturecoords.t(), w0, w1,
-											w2, wsum_recip);
+							if (uvPlanes.valid) {
+								GetTextureCoordinatesGE(uvPlanes, centerX, centerY, s, t, q);
+							} else {
+								s = Interpolate(v0.texturecoords.s(), v1.texturecoords.s(), v2.texturecoords.s(), w0, w1,
+												w2, wsum_recip);
+								t = Interpolate(v0.texturecoords.t(), v1.texturecoords.t(), v2.texturecoords.t(), w0, w1,
+												w2, wsum_recip);
+							}
 
 							// For levels > 0, mipmapping is always based on level 0.  Simpler to scale first.
 							s *= 1.0f / (float) (1 << state.samplerID.width0Shift);
