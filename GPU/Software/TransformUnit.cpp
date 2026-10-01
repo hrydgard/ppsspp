@@ -776,6 +776,108 @@ SoftDirty TransformUnit::GetDirty() {
 	return binner_->GetDirty();
 }
 
+static float ReadRawComponent(const u8 *p, int fmt, int i) {
+	switch (fmt) {
+	case 1: return ((const s8 *)p)[i] * (1.0f / 128.0f);
+	case 2: { s16 v; memcpy(&v, p + 2 * i, 2); return v * (1.0f / 32768.0f); }
+	case 3: { float v; memcpy(&v, p + 4 * i, 4); return v; }
+	default: return 0.0f;
+	}
+}
+
+static float ReadRawWeight(const u8 *p, int fmt, int i) {
+	switch (fmt) {
+	case 1: return p[i] * (1.0f / 128.0f);
+	case 2: { u16 v; memcpy(&v, p + 2 * i, 2); return v * (1.0f / 32768.0f); }
+	case 3: { float v; memcpy(&v, p + 4 * i, 4); return v; }
+	default: return 0.0f;
+	}
+}
+
+// Skinning as the GE does it (gpu/probe exp68, exp70, exp71, bit exact): each bone matrix is scaled by
+// its weight, every entry a float24 product, and one accumulator then runs through all the bones in
+// order, adding each bone's translation, then x, y and z times its column, with the GE's adder.
+// Normals the same without the translation. Overwrites what the vertex decoder skinned in float.
+static void ApplyGESkinning(u8 *decoded, const VertexDecoder &dec, const u8 *raw, int count) {
+	const DecVtxFormat &fmt = dec.GetDecVtxFmt();
+	const int nweights = dec.nweights;
+	for (int v = 0; v < count; ++v) {
+		const u8 *in = raw + v * dec.VertexSize();
+		u8 *out = decoded + v * fmt.stride;
+		float bones[8][12];
+		for (int b = 0; b < nweights; ++b) {
+			const float w = TruncateToFloat24(ReadRawWeight(in + dec.weightoff, dec.weighttype, b));
+			for (int k = 0; k < 12; ++k) {
+				const float m = gstate.boneMatrix[b * 12 + k];
+				bones[b][k] = m == 0.0f || w == 0.0f ? 0.0f : ProductToFloat24((double)TruncateToFloat24(m) * w);
+			}
+		}
+		auto skin = [&](const float src[3], bool translate, float dst[3]) {
+			for (int c = 0; c < 3; ++c) {
+				float acc = 0.0f;
+				auto add = [&](float term) {
+					if (term != 0.0f)
+						acc = acc == 0.0f ? TruncateToFloat24(term) : TruncateToFloat24(GEAdd(acc, term));
+				};
+				for (int b = 0; b < nweights; ++b) {
+					if (translate)
+						add(bones[b][9 + c]);
+					for (int j = 0; j < 3; ++j)
+						add(GEProduct(TruncateToFloat24(src[j]), bones[b][j * 3 + c]).value);
+				}
+				dst[c] = acc;
+			}
+		};
+		if (dec.pos) {
+			float pos[3], skinned[3];
+			for (int i = 0; i < 3; ++i)
+				pos[i] = ReadRawComponent(in + dec.posoff, dec.pos, i);
+			skin(pos, true, skinned);
+			memcpy(out + fmt.posoff, skinned, sizeof(skinned));
+		}
+		if (dec.nrm && fmt.nrmfmt == DEC_FLOAT_3) {
+			float nrm[3], skinned[3];
+			for (int i = 0; i < 3; ++i)
+				nrm[i] = ReadRawComponent(in + dec.nrmoff, dec.nrm, i);
+			skin(nrm, false, skinned);
+			memcpy(out + fmt.nrmoff, skinned, sizeof(skinned));
+		}
+	}
+}
+
+// Morphing as the GE does it (gpu/probe exp67, bit exact for positions): each frame's value times its
+// weight as a float24, summed in frame order with the GE's adder. Overwrites the decoder's float result
+// for positions and normals.
+static void ApplyGEMorph(u8 *decoded, const VertexDecoder &dec, const u8 *raw, int count) {
+	const DecVtxFormat &fmt = dec.GetDecVtxFmt();
+	auto morph = [&](const u8 *in, int off, int cfmt, float dst[3]) {
+		for (int c = 0; c < 3; ++c) {
+			float acc = 0.0f;
+			for (int k = 0; k < dec.morphcount; ++k) {
+				const float v = TruncateToFloat24(ReadRawComponent(in + k * dec.onesize_ + off, cfmt, c));
+				const float w = TruncateToFloat24(gstate_c.morphWeights[k]);
+				const float term = v == 0.0f || w == 0.0f ? 0.0f : ProductToFloat24((double)v * w);
+				if (term != 0.0f)
+					acc = acc == 0.0f ? term : TruncateToFloat24(GEAdd(acc, term));
+			}
+			dst[c] = acc;
+		}
+	};
+	for (int v = 0; v < count; ++v) {
+		const u8 *in = raw + v * dec.VertexSize();
+		u8 *out = decoded + v * fmt.stride;
+		float r[3];
+		if (dec.pos) {
+			morph(in, dec.posoff, dec.pos, r);
+			memcpy(out + fmt.posoff, r, sizeof(r));
+		}
+		if (dec.nrm && fmt.nrmfmt == DEC_FLOAT_3) {
+			morph(in, dec.nrmoff, dec.nrm, r);
+			memcpy(out + fmt.nrmoff, r, sizeof(r));
+		}
+	}
+}
+
 class SoftwareVertexReader {
 public:
 	SoftwareVertexReader(u8 *base, VertexDecoder &vdecoder, u32 vertex_type, int vertex_count, const void *vertices, const void *indices, const TransformState &transformState, TransformUnit &transform)
@@ -790,6 +892,11 @@ public:
 			const int count = upperBound_ - lowerBound_ + 1;
 			const UVScale uvScale = UsesGEUVScale(vertex_type) ? UVScale{ 1.0f, 1.0f, 0.0f, 0.0f } : LoadUVScaleOffset(gstate);
 			vdecoder.DecodeVerts(base, (const u8 *)vertices + vdecoder.VertexSize() * lowerBound_, &uvScale, count);
+			const u8 *raw = (const u8 *)vertices + vdecoder.VertexSize() * lowerBound_;
+			if (vdecoder.weighttype != 0 && !vdecoder.throughmode && vdecoder.morphcount == 1)
+				ApplyGESkinning(base, vdecoder, raw, count);
+			else if (vdecoder.morphcount > 1 && vdecoder.weighttype == 0 && !vdecoder.throughmode)
+				ApplyGEMorph(base, vdecoder, raw, count);
 		}
 
 		// If we're only using a subset of verts, it's better to decode with random access (usually.)
