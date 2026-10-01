@@ -18,6 +18,7 @@
 #include "ppsspp_config.h"
 
 #include <cfloat>
+#include <climits>
 #include <cmath>
 
 #include "Common/Common.h"
@@ -235,10 +236,65 @@ static inline float GEAdd(float a, float b) {
 	return a + b;
 }
 
-// A clip space component from the combined matrix, kept as a float24.
+// One term of a matrix row as the GE keeps it: the exact product, truncated at a fixed bit weight,
+// 2^-15 below the inputs' exponents combined. A significand product of 2 or more keeps a 17th bit.
+struct GERowTerm {
+	double value;
+	int lsbExp;
+};
+
+static inline GERowTerm GEProduct(float a, float b) {
+	if (a == 0.0f || b == 0.0f) {
+		return { 0.0, INT_MIN };
+	}
+	int ea, eb;
+	frexpf(a, &ea);
+	frexpf(b, &eb);
+	const int lsbExp = (ea - 1) + (eb - 1) - 15;
+	return { ldexp(trunc(ldexp((double)a * b, -lsbExp)), lsbExp), lsbExp };
+}
+
+// The GE sums a matrix row in one go, with no order: every term is truncated to the bit weight of the
+// term with the largest one, then they're added exactly, and the result becomes a float24.
+static inline float GERowSum(const GERowTerm *terms, int count) {
+	int lsbExp = INT_MIN;
+	for (int i = 0; i < count; ++i) {
+		lsbExp = std::max(lsbExp, terms[i].lsbExp);
+	}
+	if (lsbExp == INT_MIN) {
+		return 0.0f;
+	}
+	double sum = 0.0;
+	for (int i = 0; i < count; ++i) {
+		sum += ldexp(trunc(ldexp(terms[i].value, -lsbExp)), lsbExp);
+	}
+	return TruncateToFloat24((float)sum);
+}
+
+// A clip space component from the combined matrix (gpu/probe exp32, exp34, exp42). The position is a
+// float24; the translation is a term of its own.
 static inline float GEClipComponent(const Vec3f &v, const float m[16], int c) {
-	const float product = ProductToFloat24((double)v.x * m[c] + (double)v.y * m[4 + c] + (double)v.z * m[8 + c]);
-	return TruncateToFloat24(GEAdd(product, m[12 + c]));
+	GERowTerm terms[4] = {
+		GEProduct(TruncateToFloat24(v.x), m[c]),
+		GEProduct(TruncateToFloat24(v.y), m[4 + c]),
+		GEProduct(TruncateToFloat24(v.z), m[8 + c]),
+		GEProduct(1.0f, m[12 + c]),
+	};
+	return GERowSum(terms, 4);
+}
+
+// Multiplies two matrices the way the GE combines world, view and projection (gpu/probe exp35, exp42):
+// in the order (world * view) * projection, each entry summed like a row in GEClipComponent.
+static void GECombineMatrices(float out[16], const float a[16], const float b[16]) {
+	for (int r = 0; r < 4; ++r) {
+		for (int c = 0; c < 4; ++c) {
+			GERowTerm terms[4];
+			for (int k = 0; k < 4; ++k) {
+				terms[k] = GEProduct(a[r * 4 + k], b[k * 4 + c]);
+			}
+			out[r * 4 + c] = GERowSum(terms, 4);
+		}
+	}
 }
 
 // A screen coordinate as the GE computes it (gpu/depth/transformprecision for Z, gpu/probe for X and Y):
@@ -377,12 +433,12 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 		float worldview[16];
 		ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
 		ConvertMatrix4x3To4x4(world, gstate.worldMatrix);
-		Matrix4ByMatrix4(worldview, world, view);
+		GECombineMatrices(worldview, world, view);
 
-		// Clip coordinates always come from the model position and the combined matrix, like on the GE.
-		// The world position is only needed for lighting.
+		// Clip coordinates always come from the model position and the matrices combined like the GE does
+		// it, in the order (world * view) * projection. The world position is only needed for lighting.
 		state->matrixMode = (uint8_t)(canSkipWorldPos ? MatrixMode::POS_TO_CLIP : MatrixMode::WORLD_TO_CLIP);
-		Matrix4ByMatrix4(state->matrix, worldview, gstate.projMatrix);
+		GECombineMatrices(state->matrix, worldview, gstate.projMatrix);
 
 		if (state->enableFog) {
 			float fogEnd = getFloat24(gstate.fog1);
