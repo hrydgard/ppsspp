@@ -235,21 +235,27 @@ static inline float GEAdd(float a, float b) {
 	return a + b;
 }
 
-// Clip Z or W from the combined matrix, kept as a float24.
+// A clip space component from the combined matrix, kept as a float24.
 static inline float GEClipComponent(const Vec3f &v, const float m[16], int c) {
 	const float product = ProductToFloat24((double)v.x * m[c] + (double)v.y * m[4 + c] + (double)v.z * m[8 + c]);
 	return TruncateToFloat24(GEAdd(product, m[12 + c]));
 }
 
-// Screen Z as the GE computes it (gpu/depth/transformprecision): z/w is z times the reciprocal above,
-// truncated to a float24, then scaled and offset with GEAdd. The sum is floored.
-static inline float GEScreenZ(float clipZ, float clipW, float zScale, float zCenter) {
+// A screen coordinate as the GE computes it (gpu/depth/transformprecision for Z, gpu/probe for X and Y):
+// the component divided by w is it times the reciprocal above, truncated to a float24, then scaled and
+// offset with GEAdd. Around a center of 2048, that lands X and Y on the 1/16 subpixel grid.
+static inline float GEViewport(float clipC, float clipW, float scale, float center) {
 	const float w = TruncateToFloat24(clipW);
-	if (!std::isfinite(w) || !std::isfinite(clipZ) || fabsf(w) < FLT_MIN) {
-		return clipZ * zScale / clipW + zCenter;
+	if (!std::isfinite(w) || !std::isfinite(clipC) || fabsf(w) < FLT_MIN) {
+		return clipC * scale / clipW + center;
 	}
-	const float ndc = ProductToFloat24((double)TruncateToFloat24(clipZ) * GERecip(w));
-	return floorf(GEAdd(ProductToFloat24((double)ndc * zScale), zCenter));
+	const float ndc = ProductToFloat24((double)TruncateToFloat24(clipC) * GERecip(w));
+	return GEAdd(ProductToFloat24((double)ndc * scale), center);
+}
+
+// Screen Z is floored.
+static inline float GEScreenZ(float clipZ, float clipW, float zScale, float zCenter) {
+	return floorf(GEViewport(clipZ, clipW, zScale, zCenter));
 }
 
 template <bool depthClamp, bool alwaysCheckRange>
@@ -274,10 +280,9 @@ static ScreenCoords ClipToScreenInternal(Vec3f scaled, const ClipCoords &coords,
 	}
 
 	// 16 = 0xFFFF / 4095.9375
-	// Round up at 0.625 to the nearest subpixel.
 	static_assert(SCREEN_SCALE_FACTOR == 16, "Currently only supports scale 16");
-	int x = (int)(scaled.x * 16.0f + 0.375f - gstate.getOffsetX16());
-	int y = (int)(scaled.y * 16.0f + 0.375f - gstate.getOffsetY16());
+	int x = (int)floorf(scaled.x * 16.0f) - gstate.getOffsetX16();
+	int y = (int)floorf(scaled.y * 16.0f) - gstate.getOffsetY16();
 	return ScreenCoords(x, y, scaled.z);
 }
 
@@ -292,8 +297,8 @@ static inline ScreenCoords ClipToScreenInternal(const ClipCoords &coords, bool *
 	float zScale = gstate.getViewportZScale();
 	float zCenter = gstate.getViewportZCenter();
 
-	float x = coords.x * xScale / coords.w + xCenter;
-	float y = coords.y * yScale / coords.w + yCenter;
+	float x = GEViewport(coords.x, coords.w, xScale, xCenter);
+	float y = GEViewport(coords.y, coords.w, yScale, yCenter);
 	float z = GEScreenZ(coords.z, coords.w, zScale, zCenter);
 
 	if (gstate.isDepthClipEnabled()) {
@@ -371,18 +376,13 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 		float view[16];
 		float worldview[16];
 		ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
-		if (state->enableFog || canSkipWorldPos) {
-			ConvertMatrix4x3To4x4(world, gstate.worldMatrix);
-			Matrix4ByMatrix4(worldview, world, view);
-		}
+		ConvertMatrix4x3To4x4(world, gstate.worldMatrix);
+		Matrix4ByMatrix4(worldview, world, view);
 
-		if (canSkipWorldPos) {
-			state->matrixMode = (uint8_t)MatrixMode::POS_TO_CLIP;
-			Matrix4ByMatrix4(state->matrix, worldview, gstate.projMatrix);
-		} else {
-			state->matrixMode = (uint8_t)MatrixMode::WORLD_TO_CLIP;
-			Matrix4ByMatrix4(state->matrix, view, gstate.projMatrix);
-		}
+		// Clip coordinates always come from the model position and the combined matrix, like on the GE.
+		// The world position is only needed for lighting.
+		state->matrixMode = (uint8_t)(canSkipWorldPos ? MatrixMode::POS_TO_CLIP : MatrixMode::WORLD_TO_CLIP);
+		Matrix4ByMatrix4(state->matrix, worldview, gstate.projMatrix);
 
 		if (state->enableFog) {
 			float fogEnd = getFloat24(gstate.fog1);
@@ -487,32 +487,20 @@ ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const Tran
 	if (state.enableTransform) {
 		WorldCoords worldpos;
 
-		switch (MatrixMode(state.matrixMode)) {
-		case MatrixMode::POS_TO_CLIP:
-			vertex.clippos = Vec3ByMatrix44(pos, state.matrix);
-			break;
-
-		case MatrixMode::WORLD_TO_CLIP:
+		if (MatrixMode(state.matrixMode) == MatrixMode::WORLD_TO_CLIP) {
 			worldpos = TransformUnit::ModelToWorld(pos);
-			vertex.clippos = Vec3ByMatrix44(worldpos, state.matrix);
-			break;
 		}
-		// Clip Z and W with the GE's precision; the Test Drive map depends on it together with the
+		// Clip coordinates with the GE's precision; the Test Drive map depends on it together with the
 		// depth math below (#12786).
 		{
-			const Vec3f &src = MatrixMode(state.matrixMode) == MatrixMode::POS_TO_CLIP ? pos : worldpos;
-			vertex.clippos.z = GEClipComponent(src, state.matrix, 2);
-			vertex.clippos.w = GEClipComponent(src, state.matrix, 3);
+			for (int c = 0; c < 4; ++c) {
+				vertex.clippos[c] = GEClipComponent(pos, state.matrix, c);
+			}
 		}
 
 		Vec3f screenScaled;
-#ifdef _M_SSE
-		screenScaled.vec = _mm_mul_ps(vertex.clippos.vec, state.screenScale.vec);
-		screenScaled.vec = _mm_div_ps(screenScaled.vec, _mm_shuffle_ps(vertex.clippos.vec, vertex.clippos.vec, _MM_SHUFFLE(3, 3, 3, 3)));
-		screenScaled.vec = _mm_add_ps(screenScaled.vec, state.screenAdd.vec);
-#else
-		screenScaled = vertex.clippos.xyz() * state.screenScale / vertex.clippos.w + state.screenAdd;
-#endif
+		screenScaled.x = GEViewport(vertex.clippos.x, vertex.clippos.w, state.screenScale.x, state.screenAdd.x);
+		screenScaled.y = GEViewport(vertex.clippos.y, vertex.clippos.w, state.screenScale.y, state.screenAdd.y);
 		screenScaled.z = GEScreenZ(vertex.clippos.z, vertex.clippos.w, state.screenScale.z, state.screenAdd.z);
 		bool outside_range_flag = false;
 		vertex.v.screenpos = state.roundToScreen(screenScaled, vertex.clippos, &outside_range_flag);

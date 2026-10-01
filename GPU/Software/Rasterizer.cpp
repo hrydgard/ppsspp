@@ -814,8 +814,8 @@ static inline __m128i SOFTRAST_CALL TriangleEdgeStartSSE4(__m128i initX, __m128i
 
 template <bool useSSE4>
 Vec4<int> TriangleEdge<useSSE4>::Start(const ScreenCoords &v0, const ScreenCoords &v1, const ScreenCoords &origin) {
-	// Start at pixel centers.
-	static constexpr int centerOff = (SCREEN_SCALE_FACTOR / 2) - 1;
+	// Start at pixel centers. The GE samples exactly there, with left and top edges inclusive (gpu/probe).
+	static constexpr int centerOff = SCREEN_SCALE_FACTOR / 2;
 	static constexpr int centerPlus1 = SCREEN_SCALE_FACTOR + centerOff;
 	Vec4<int> initX = Vec4<int>::AssignToAll(origin.x) + Vec4<int>(centerOff, centerPlus1, centerOff, centerPlus1);
 	Vec4<int> initY = Vec4<int>::AssignToAll(origin.y) + Vec4<int>(centerOff, centerOff, centerPlus1, centerPlus1);
@@ -1228,14 +1228,14 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 	int entireY1 = std::min(v0.screenpos.y, v1.screenpos.y);
 	int entireX2 = std::max(v0.screenpos.x, v1.screenpos.x) - 1;
 	int entireY2 = std::max(v0.screenpos.y, v1.screenpos.y) - 1;
+	// Pixel centers are at 16k + 7 here. The GE's sprite edges (gpu/probe): the first column is
+	// (x1 + 6) >> 4, the first row (y1 + 7) >> 4, and both end at (x2 + 7) >> 4, exclusive.
 	int minX = std::max(entireX1 & ~(SCREEN_SCALE_FACTOR - 1), range.x1) | (SCREEN_SCALE_FACTOR / 2 - 1);
 	int minY = std::max(entireY1 & ~(SCREEN_SCALE_FACTOR - 1), range.y1) | (SCREEN_SCALE_FACTOR / 2 - 1);
-	int maxX = std::min(entireX2, range.x2);
-	int maxY = std::min(entireY2, range.y2);
+	int maxX = std::min(entireX2 - 1, range.x2);
+	int maxY = std::min(entireY2 - 1, range.y2);
 
-	// If TL x or y was after the half, we don't draw the pixel.
-	// TODO: Verify what center is used, allowing slight offset makes gpu/primitives/trianglefan pass.
-	if (minX < entireX1 - 1)
+	if (minX < entireX1 - 2)
 		minX += SCREEN_SCALE_FACTOR;
 	if (minY < entireY1 - 1)
 		minY += SCREEN_SCALE_FACTOR;
@@ -1318,7 +1318,7 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 	std::string ztag = StringFromFormat("DisplayListRZ_%08x", state.listPC);
 #endif
 
-	for (int64_t curY = minY; curY < maxY; curY += SCREEN_SCALE_FACTOR * 2, rowST += sty) {
+	for (int64_t curY = minY; curY <= maxY; curY += SCREEN_SCALE_FACTOR * 2, rowST += sty) {
 		DrawingCoords p = TransformUnit::ScreenToDrawing(minX, curY);
 
 		int scissorY2 = curY + SCREEN_SCALE_FACTOR > maxY ? -1 : 0;
@@ -1326,7 +1326,7 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 		Vec4<int> scissor_step = Vec4<int>(0, -(SCREEN_SCALE_FACTOR * 2), 0, -(SCREEN_SCALE_FACTOR * 2));
 		Vec2f st = rowST;
 
-		for (int64_t curX = minX; curX < maxX; curX += SCREEN_SCALE_FACTOR * 2,
+		for (int64_t curX = minX; curX <= maxX; curX += SCREEN_SCALE_FACTOR * 2,
 			st += stx,
 			scissor_mask += scissor_step,
 			p.x = (p.x + 2) & 0x3FF) {
