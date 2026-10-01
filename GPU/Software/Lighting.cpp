@@ -136,8 +136,10 @@ void ComputeState(State *state, bool hasColor0) {
 
 		lstate.spot = gstate.isSpotLight(light);
 		if (lstate.spot) {
+			// The direction isn't normalized: the dot with L is scaled by its rsqrt (gpu/probe exp100).
 			lstate.spotDir = GetLightVec(gstate.ldir, light);
-			GENormalize(lstate.spotDir);
+			const float dirLen2 = GEDot(lstate.spotDir, lstate.spotDir);
+			lstate.spotDirRsqrt = dirLen2 > 0.0f && std::isfinite(dirLen2) ? GERsqrt(dirLen2) : 0.0f;
 			lstate.spotCutoff = getFloat24(gstate.lcutoff[light]);
 			if (std::isnan(lstate.spotCutoff) && std::signbit(lstate.spotCutoff))
 				lstate.spotCutoff = 0.0f;
@@ -268,7 +270,9 @@ static void ProcessSIMD(VertexData &vertex, const WorldCoords &worldpos, const W
 		// L =  vector from vertex to light source
 		// TODO: Should transfer the light positions to world/view space for these calculations?
 		Vec3<float> L = lstate.pos;
-		float attspot = 1.0f;
+		// Attenuation and spot each scale the light's colors as their own 8-bit factor (gpu/probe exp100).
+		float att = 1.0f;
+		float spot = 1.0f;
 		if (!lstate.directional) {
 			for (int i = 0; i < 3; ++i)
 				L[i] = GEAddFloat24(L[i], -worldpos[i]);
@@ -278,20 +282,18 @@ static void ProcessSIMD(VertexData &vertex, const WorldCoords &worldpos, const W
 				L = Vec3f(0.0f, 0.0f, 1.0f);
 
 			const float den = GEDot(lstate.att, Vec3f(1.0f, d, ProductToFloat24((double)d * d)));
-			float att = den > 0.0f ? GERecip(den) : 0.0f;
+			att = den > 0.0f ? GERecip(den) : 0.0f;
 			if (!(att > 0.0f))
 				att = 0.0f;
 			else if (att > 1.0f)
 				att = 1.0f;
-			attspot = att;
 		}
 
 		if (lstate.spot) {
-			float rawSpot = GEDot(lstate.spotDir, L);
+			float rawSpot = ProductToFloat24((double)GEDot(lstate.spotDir, L) * lstate.spotDirRsqrt);
 			if (std::isnan(rawSpot))
 				rawSpot = std::signbit(rawSpot) ? 0.0f : 1.0f;
 
-			float spot = 1.0f;
 			if (rawSpot >= lstate.spotCutoff) {
 				spot = pspLightPow(rawSpot, lstate.spotExp);
 				if (std::isnan(spot))
@@ -300,14 +302,19 @@ static void ProcessSIMD(VertexData &vertex, const WorldCoords &worldpos, const W
 				spot = 0.0f;
 			}
 
-			attspot *= spot;
 		}
+		auto scaleAttSpot = [&](Vec4<int> c) {
+			if (att < 1.0f)
+				c = LightColorScale(c, att);
+			if (spot < 1.0f)
+				c = LightColorScale(c, spot);
+			return c;
+		};
 
 		// ambient lighting
 		if (lstate.ambient) {
 			Vec4<int> lambient = LightColorProduct(lstate.ambientColorFactor, mac);
-			if (attspot < 1.0f)
-				lambient = LightColorScale(lambient, attspot);
+			lambient = scaleAttSpot(lambient);
 			LightColorSum(final_color, lambient);
 		}
 
@@ -323,8 +330,7 @@ static void ProcessSIMD(VertexData &vertex, const WorldCoords &worldpos, const W
 		if (lstate.diffuse && diffuse_factor > 0.0f) {
 			Vec4<int> mdc = state.colorForDiffuse ? colorFactor : state.material.diffuseColorFactor;
 			Vec4<int> ldiffuse = LightColorScale(LightColorProduct(lstate.diffuseColorFactor, mdc), diffuse_factor);
-			if (attspot < 1.0f)
-				ldiffuse = LightColorScale(ldiffuse, attspot);
+			ldiffuse = scaleAttSpot(ldiffuse);
 			LightColorSum(final_color, ldiffuse);
 		}
 
@@ -339,8 +345,7 @@ static void ProcessSIMD(VertexData &vertex, const WorldCoords &worldpos, const W
 			if (specular_factor > 0.0f) {
 				Vec4<int> msc = state.colorForSpecular ? colorFactor : state.material.specularColorFactor;
 				Vec4<int> lspecular = LightColorScale(LightColorProduct(lstate.specularColorFactor, msc), specular_factor);
-				if (attspot < 1.0f)
-					lspecular = LightColorScale(lspecular, attspot);
+				lspecular = scaleAttSpot(lspecular);
 				LightColorSum(specular_color, lspecular);
 			}
 		}

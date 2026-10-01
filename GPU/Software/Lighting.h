@@ -27,6 +27,7 @@ struct State {
 		Vec3f pos;
 		Vec3f att;
 		Vec3f spotDir;
+		float spotDirRsqrt;
 		float spotCutoff;
 		float spotExp;
 
