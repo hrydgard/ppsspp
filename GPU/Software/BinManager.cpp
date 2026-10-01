@@ -414,7 +414,8 @@ void BinManager::AddTriangle(const VertexData &v0, const VertexData &v1, const V
 	// Drop primitives which are not in CCW order by checking the cross product, and ones with zero
 	// area, which light no pixels even on an edge through pixel centers (gpu/probe exp118).
 	static_assert(SCREEN_SCALE_FACTOR <= 16, "Fails if scale factor is too high");
-	if (d01.x * d02.y - d01.y * d02.x <= 0)
+	// In 64 bits: with vertices far apart in the 4096 pixel space the products overflow 32 (gpu/probe exp132).
+	if ((int64_t)d01.x * d02.y - (int64_t)d01.y * d02.x <= 0)
 		return;
 
 	// Was it fully outside the scissor?
