@@ -595,6 +595,13 @@ static bool AreCoordsRectangleCompatible(const RasterizerState &state, const Cli
 	return true;
 }
 
+// A rectangle drawn as triangles samples pixel centers, so its first column is (x + 7) >> 4; a sprite's
+// is (x + 6) >> 4 (gpu/probe exp30). They differ only for a left edge at 9/16 into a pixel, where the
+// triangles must stay triangles (NBA 2K13's menu boxes). Rows and the far edges agree.
+bool RectangleCoverageMatchesTriangles(const VertexData &a, const VertexData &b) {
+	return (std::min(a.screenpos.x, b.screenpos.x) & (SCREEN_SCALE_FACTOR - 1)) != 9;
+}
+
 bool DetectRectangleFromStrip(const RasterizerState &state, const ClipVertexData data[4], int *tlIndex, int *brIndex) {
 	if (!IsCoordRectangleCompatible(state, data[0]))
 		return false;

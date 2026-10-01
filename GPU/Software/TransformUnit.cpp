@@ -1025,7 +1025,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 				continue;
 
 			int tl = -1, br = -1;
-			if (Rasterizer::DetectRectangleFromPair(binner_->State(), buf, &tl, &br)) {
+			if (Rasterizer::DetectRectangleFromPair(binner_->State(), buf, &tl, &br) && Rasterizer::RectangleCoverageMatchesTriangles(buf[tl].v, buf[br].v)) {
 				Clipper::ProcessRect(buf[tl], buf[br], *binner_);
 			} else {
 				SendTriangle(cullType, &buf[0]);
@@ -1159,7 +1159,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 
 					// If a strip is effectively a rectangle, draw it as such!
 					int tl = -1, br = -1;
-					if (Rasterizer::DetectRectangleFromStrip(binner_->State(), data_, &tl, &br)) {
+					if (Rasterizer::DetectRectangleFromStrip(binner_->State(), data_, &tl, &br) && Rasterizer::RectangleCoverageMatchesTriangles(data_[tl].v, data_[br].v)) {
 						Clipper::ProcessRect(data_[tl], data_[br], *binner_);
 						start_vtx += 2;
 						skip_count = 2;
@@ -1228,7 +1228,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 				}
 
 				int tl = -1, br = -1;
-				if (Rasterizer::DetectRectangleFromFan(binner_->State(), data_, &tl, &br)) {
+				if (Rasterizer::DetectRectangleFromFan(binner_->State(), data_, &tl, &br) && Rasterizer::RectangleCoverageMatchesTriangles(data_[tl].v, data_[br].v)) {
 					Clipper::ProcessRect(data_[tl], data_[br], *binner_);
 					break;
 				}

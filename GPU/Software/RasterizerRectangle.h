@@ -24,4 +24,5 @@ namespace Rasterizer {
 	bool DetectRectangleFromFan(const RasterizerState &state, const ClipVertexData *data, int *tlIndex, int *brIndex);
 	bool DetectRectangleFromPair(const RasterizerState &state, const ClipVertexData data[6], int *tlIndex, int *brIndex);
 	bool DetectRectangleThroughModeSlices(const RasterizerState &state, const ClipVertexData data[4]);
+	bool RectangleCoverageMatchesTriangles(const VertexData &a, const VertexData &b);
 }
