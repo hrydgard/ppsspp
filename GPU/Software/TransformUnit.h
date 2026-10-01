@@ -119,6 +119,9 @@ public:
 	static WorldCoords ModelToWorldNormal(const ModelCoords& coords);
 	static WorldCoords ModelToWorld(const ModelCoords& coords);
 	static ScreenCoords ClipToScreen(const ClipCoords &coords, bool *outsideRangeFlag);
+	// Where an edge from an inside vertex crosses the near plane, as the GE computes it.
+	static float NearPlaneT(const ClipCoords &in, const ClipCoords &out);
+	static ClipCoords NearPlanePoint(const ClipCoords &in, const ClipCoords &out, float t);
 	static inline DrawingCoords ScreenToDrawing(int x, int y) {
 		DrawingCoords ret;
 		// When offset > coord, this is negative and force-scissors.
@@ -145,7 +148,8 @@ public:
 
 private:
 	ClipVertexData ReadVertex(const VertexReader &vreader, const TransformState &state);
-	void SendTriangle(CullType cullType, const ClipVertexData *verts, int provoking = 2);
+	// orderReversed: verts are in the opposite order of how the GE takes the triangle (matters for clipping).
+	void SendTriangle(CullType cullType, const ClipVertexData *verts, int provoking = 2, bool orderReversed = false);
 
 	u8 *decoded_ = nullptr;
 	BinManager *binner_ = nullptr;

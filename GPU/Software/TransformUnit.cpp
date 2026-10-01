@@ -367,6 +367,24 @@ ScreenCoords TransformUnit::ClipToScreen(const ClipCoords &coords, bool *outside
 	return ClipToScreenInternal(coords, outsideRangeFlag);
 }
 
+// Near plane clipping (gpu/probe exp43-46): from the inside vertex, t = d_in / (d_in - d_out) with
+// d = z + w, using the GE's reciprocal, and each coordinate is in + t * (out - in), all in float24 math.
+float TransformUnit::NearPlaneT(const ClipCoords &in, const ClipCoords &out) {
+	const float dIn = GEAdd(in.z, in.w);
+	const float dOut = GEAdd(out.z, out.w);
+	const float den = TruncateToFloat24(GEAdd(dIn, -dOut));
+	return ProductToFloat24((double)TruncateToFloat24(dIn) * GERecip(den));
+}
+
+ClipCoords TransformUnit::NearPlanePoint(const ClipCoords &in, const ClipCoords &out, float t) {
+	ClipCoords result;
+	for (int c = 0; c < 4; ++c) {
+		const float delta = TruncateToFloat24(GEAdd(out[c], -in[c]));
+		result[c] = TruncateToFloat24(GEAdd(ProductToFloat24((double)t * delta), in[c]));
+	}
+	return result;
+}
+
 ScreenCoords TransformUnit::DrawingToScreen(const DrawingCoords &coords, u16 z) {
 	ScreenCoords ret;
 	ret.x = (u32)coords.x * SCREEN_SCALE_FACTOR;
@@ -918,7 +936,8 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 
 				int wind = (data_index_ - 1) % 2;
 				CullType altCullType = cullType == CullType::OFF ? cullType : CullType((int)cullType ^ wind);
-				SendTriangle(altCullType, &data_[0], provoking_index);
+				// Odd triangles reach us in the opposite order from the GE's (gpu/probe exp45).
+				SendTriangle(altCullType, &data_[0], provoking_index, wind != 0);
 			}
 
 			// If this is from immediate-mode drawing, we always had one new vert (already in data_.)
@@ -926,7 +945,8 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 				int provoking_index = (data_index_ - 1) % 3;
 				int wind = (data_index_ - 1) % 2;
 				CullType altCullType = cullType == CullType::OFF ? cullType : CullType((int)cullType ^ wind);
-				SendTriangle(altCullType, &data_[0], provoking_index);
+				// Odd triangles reach us in the opposite order from the GE's (gpu/probe exp45).
+				SendTriangle(altCullType, &data_[0], provoking_index, wind != 0);
 			}
 			break;
 		}
@@ -970,7 +990,8 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 
 				int wind = (data_index_ - 1) % 2;
 				CullType altCullType = cullType == CullType::OFF ? cullType : CullType((int)cullType ^ wind);
-				SendTriangle(altCullType, &data_[0], provoking_index);
+				// Odd triangles reach us in the opposite order from the GE's (gpu/probe exp45).
+				SendTriangle(altCullType, &data_[0], provoking_index, wind != 0);
 			}
 
 			// If this is from immediate-mode drawing, we always had one new vert (already in data_.)
@@ -978,7 +999,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 				int wind = (data_index_ - 1) % 2;
 				int provoking_index = 2 - wind;
 				CullType altCullType = cullType == CullType::OFF ? cullType : CullType((int)cullType ^ wind);
-				SendTriangle(altCullType, &data_[0], provoking_index);
+				SendTriangle(altCullType, &data_[0], provoking_index, wind != 0);
 			}
 			break;
 		}
@@ -1031,14 +1052,14 @@ void TransformUnit::SubmitImmVertex(const ClipVertexData &vert, SoftwareDrawEngi
 	isImmDraw_ = false;
 }
 
-void TransformUnit::SendTriangle(CullType cullType, const ClipVertexData *verts, int provoking) {
+void TransformUnit::SendTriangle(CullType cullType, const ClipVertexData *verts, int provoking, bool orderReversed) {
 	if (cullType == CullType::OFF) {
-		Clipper::ProcessTriangle(verts[0], verts[1], verts[2], verts[provoking], *binner_);
-		Clipper::ProcessTriangle(verts[2], verts[1], verts[0], verts[provoking], *binner_);
+		Clipper::ProcessTriangle(verts[0], verts[1], verts[2], verts[provoking], *binner_, orderReversed);
+		Clipper::ProcessTriangle(verts[2], verts[1], verts[0], verts[provoking], *binner_, !orderReversed);
 	} else if (cullType == CullType::CW) {
-		Clipper::ProcessTriangle(verts[2], verts[1], verts[0], verts[provoking], *binner_);
+		Clipper::ProcessTriangle(verts[2], verts[1], verts[0], verts[provoking], *binner_, !orderReversed);
 	} else {
-		Clipper::ProcessTriangle(verts[0], verts[1], verts[2], verts[provoking], *binner_);
+		Clipper::ProcessTriangle(verts[0], verts[1], verts[2], verts[provoking], *binner_, orderReversed);
 	}
 }
 
