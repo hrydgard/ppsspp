@@ -562,7 +562,7 @@ void GamePauseScreen::CreateViews() {
 		// TODO: active subset?
 		saveDataScrollItems->Add(new GameAchievementSummaryView(0));
 
-		char buf[512];
+		char buf[256];
 		size_t sz = Achievements::GetRichPresenceMessage(buf, sizeof(buf));
 		if (sz != (size_t)-1) {
 			saveDataScrollItems->Add(new TextView(std::string_view(buf, sz), FLAG_WRAP_TEXT, true, new UI::LinearLayoutParams(Margins(5, 5))));
