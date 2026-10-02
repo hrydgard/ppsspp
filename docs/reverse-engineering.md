@@ -14,6 +14,10 @@ This is a developer tool for understanding the PSP, not something a user ever ru
     --re-out /tmp/re
 ```
 
+To copy a file out of a disc image as it is (a movie, a data archive), use `--dump-file
+disc0:/PSP_GAME/USRDIR/X.PMF --dump-file-out OUT game.iso`, which also lists a directory. Use it, or
+`--re-module` for the game's own binaries, rather than writing an ISO or CSO reader.
+
 `--re-module` takes either a host path or a PSP-style `flash0:/kd/foo.prx`, which is resolved
 against the configured NAND directory - so `--memstick` (or `--nand`) has to point at a dump.
 PPSSPP can produce one itself from a firmware updater with `--unpack-updater`; see

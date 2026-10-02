@@ -240,6 +240,15 @@ PSPLink with `usbhostfs_pc` serving the pspautotests root, the same setup as
 [pspautotests-hardware.md](pspautotests-hardware.md); like every hardware run,
 one at a time. See its README for replaying a subset of the primitives.
 
+A zip holding several dumps plays its last `.ppdmp`, in PPSSPP and in the replayer, so extract that one
+when you need the file itself.
+
+If a replay hangs, `run.py` resets the PSP and prints the last lines the replayer wrote. `--progress=N`
+prints a line every N dump commands and `--trace-from=N` every command from N on, and `--cmds=N` replays
+only the first N dump commands, which bisects a hang in a few runs. The replayer's Makefile has no header
+dependencies: after changing `replay.h`, delete the `.o` files, or a stale object corrupts the `Replay`
+object.
+
 To find the draw where the two diverge, stop both at the same primitive:
 `run.py --end=N` on the PSP and `--replay-end=N` on PPSSPPHeadless. A draw into
 an offscreen buffer can be compared directly: `run.py --display=ADDR,STRIDE,FMT`
@@ -248,7 +257,17 @@ shows and screenshots that buffer instead of the display (e.g.
 PPSSPPHeadless takes `--screenshot-render-target` to save the current render
 target.
 
-The PSP render doesn't match PPSSPP's to the bit even where PPSSPP is right
-(dithering, texture filtering and edge rules differ slightly), so compare MSEs
-between versions rather than expecting zero: the Coded Arms dump above went from
-108 to 33 when the software renderer got the GE's depth precision.
+PPSSPP's software renderer now matches the PSP bit for bit on nearly every dump
+here, so a difference is worth chasing. Hardware backends still differ slightly
+(filtering, edge rules), so compare their MSEs between versions instead.
+
+To record a dump from a running game without the UI, use the WebSocket debugger's
+`gpu.record.dump` through `Tools/wsdbg`. Its reply comes later, so wait for it:
+
+```bash
+printf ':sleep 6\ngpu.record.dump\n:wait gpu.record.dump 60\n:quit\n' | \
+	Tools/wsdbg/target/release/wsdbg --sync --compact --quiet --launch \
+	build/PPSSPPHeadless game.iso --state=STATE.ppst --graphics=software --debugger-run=0 > out.txt
+```
+
+The reply's `uri` is a base64 `data:` URI holding the `.ppdmp`.
