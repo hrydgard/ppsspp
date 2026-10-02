@@ -62,6 +62,8 @@ static inline Vec4<int> LightColorFactor(uint32_t c, const Vec4<int> &ones) {
 	return LightColorFactor(Vec4<int>::FromRGBA(c), ones);
 }
 
+// Whether a color factor (2c + 1 per channel, see LightColorFactor) has any channel above zero. The alpha
+// lane is 1 (light colors have no alpha), so the sum is above 4 exactly then, and so is the maximum above 1.
 static inline bool IsLargerThanHalf(const Vec4<int> &v) {
 #if defined(_M_SSE) && !PPSSPP_ARCH(X86)
 	__m128i add23 = _mm_add_epi32(v.ivec, _mm_shuffle_epi32(v.ivec, _MM_SHUFFLE(3, 2, 3, 2)));
@@ -70,12 +72,9 @@ static inline bool IsLargerThanHalf(const Vec4<int> &v) {
 #elif PPSSPP_ARCH(ARM64_NEON)
 	int32x2_t add02 = vpmax_s32(vget_low_s32(v.ivec), vget_high_s32(v.ivec));
 	int32x2_t add1 = vpmax_s32(add02, add02);
-	return vget_lane_s32(add1, 0) > 4;
+	return vget_lane_s32(add1, 0) > 1;
 #else
-	bool larger = false;
-	for (int i = 0; i < 3; ++i)
-		larger = v[i] > 1;
-	return larger;
+	return v[0] > 1 || v[1] > 1 || v[2] > 1;
 #endif
 }
 
