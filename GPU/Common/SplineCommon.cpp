@@ -29,6 +29,7 @@
 #include "GPU/Common/SoftwareTransformCommon.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"  // only needed for UVScale stuff
+#include "GPU/Software/GEMath.h"
 
 class SimpleBufferManager {
 private:
@@ -85,13 +86,20 @@ void BuildIndex(u16 *indices, int &count, int num_u, int num_v, GEPatchPrimType 
 // Bezier patches as the GE evaluates them (gpu/probe exp48-51, exp139-140, bit exact). The parameter is k/256,
 // rounded toward the middle of the patch, and columns (v) are evaluated before rows (u), by de Casteljau.
 // Positions and texture coordinates: each lerp in 16-bit fixed point at the larger operand's exponent, both
-// operands truncated toward zero to that grid, then a + floor((b - a) k / 256). The patch edges (k = 0 or 256)
-// are the control points unchanged. Colors: the same lerp on (c << 7) | 0x7F per channel, result >> 7.
+// operands truncated toward zero to that grid, then a + floor((b - a) k / 256). At k = 0 or 256 a lerp passes
+// its operand through unchanged. Colors: the same lerp on (c << 7) | 0x7F per channel, result >> 7.
+// Normals (exp142-143): the cross product (as the matrix unit sums it) of two tangents, each the difference of
+// the de Casteljau's last two points: along u, the row's; along v, those of the columns evaluated along u.
 static int BezierParam256(int i, int n) {
 	return 2 * i <= n ? (256 * i) / n : 256 - (256 * (n - i)) / n;
 }
 
 static float GEBezierLerp(float a, float b, int k) {
+	if (k == 0) {
+		return a;
+	} else if (k == 256) {
+		return b;
+	}
 	uint32_t ba, bb;
 	memcpy(&ba, &a, 4);
 	memcpy(&bb, &b, 4);
@@ -122,16 +130,18 @@ static float GEBezierLerp(float a, float b, int k) {
 	return (float)r * scale;
 }
 
-static float GEBezierEval(const float p[4], int k) {
-	if (k == 0) {
-		return p[0];
-	} else if (k == 256) {
-		return p[3];
-	}
+// Also returns the de Casteljau's last two points, which the normal's tangents come from.
+static float GEBezierEval(const float p[4], int k, float *ab = nullptr, float *bc = nullptr) {
 	const float a = GEBezierLerp(p[0], p[1], k);
 	const float b = GEBezierLerp(p[1], p[2], k);
 	const float c = GEBezierLerp(p[2], p[3], k);
-	return GEBezierLerp(GEBezierLerp(a, b, k), GEBezierLerp(b, c, k), k);
+	const float l = GEBezierLerp(a, b, k);
+	const float r = GEBezierLerp(b, c, k);
+	if (ab) {
+		*ab = l;
+		*bc = r;
+	}
+	return GEBezierLerp(l, r, k);
 }
 
 static int GEBezierEvalColor(const int p[4], int k) {
@@ -145,6 +155,7 @@ static int GEBezierEvalColor(const int p[4], int k) {
 // One control column of a patch evaluated at some v.
 struct GEBezierColumn {
 	float pos[3];
+	float ab[3], bc[3];  // for the normal
 	float tex[2];
 	int col[4];  // 15 bits
 };
@@ -440,7 +451,7 @@ public:
 							GEBezierColumn &column = columns[tile_v * 4 + c];
 							for (int j = 0; j < 3; ++j) {
 								const float p[4] = { points.pos[idx_v[0] + c][j], points.pos[idx_v[1] + c][j], points.pos[idx_v[2] + c][j], points.pos[idx_v[3] + c][j] };
-								column.pos[j] = GEBezierEval(p, kv);
+								column.pos[j] = GEBezierEval(p, kv, &column.ab[j], &column.bc[j]);
 							}
 							if constexpr (sampleTex) {
 								for (int j = 0; j < 2; ++j) {
@@ -481,12 +492,20 @@ public:
 						SimpleVertex &vert = output.vertices[surface.GetIndex(index_u, index_v, patch_u, patch_v)];
 
 						// Tessellate
+						Vec3f tangentU, tangentV;
 						if (exactBezier) {
 							const int ku = BezierParam256(tile_u, surface.tess_u);
 							const GEBezierColumn *cols = &columns[tile_v * 4];
 							for (int j = 0; j < 3; ++j) {
 								const float row[4] = { cols[0].pos[j], cols[1].pos[j], cols[2].pos[j], cols[3].pos[j] };
-								vert.pos[j] = GEBezierEval(row, ku);
+								float ab, bc;
+								vert.pos[j] = GEBezierEval(row, ku, &ab, &bc);
+								if constexpr (sampleNrm) {
+									tangentU[j] = GEAdd(bc, -ab);
+									const float abRow[4] = { cols[0].ab[j], cols[1].ab[j], cols[2].ab[j], cols[3].ab[j] };
+									const float bcRow[4] = { cols[0].bc[j], cols[1].bc[j], cols[2].bc[j], cols[3].bc[j] };
+									tangentV[j] = GEAdd(GEBezierEval(bcRow, ku), -GEBezierEval(abRow, ku));
+								}
 							}
 							if constexpr (sampleCol) {
 								u32 color = 0;
@@ -523,7 +542,16 @@ public:
 								vert.uv[1] = patch_v + tile_v * inv_v;
 							}
 						}
-						if constexpr (sampleNrm) {
+						if (sampleNrm && exactBezier) {
+							// Unnormalized: lighting normalizes it. Vertex normals are unused (exp142).
+							for (int j = 0; j < 3; ++j) {
+								const int j1 = (j + 1) % 3, j2 = (j + 2) % 3;
+								const GERowTerm terms[2] = { GEProduct(tangentU[j1], tangentV[j2]), GEProduct(-tangentU[j2], tangentV[j1]) };
+								vert.nrm[j] = GERowSum(terms, 2);
+							}
+							if constexpr (patchFacing)
+								vert.nrm *= -1.0f;
+						} else if constexpr (sampleNrm) {
 							const Vec3f derivU = tess_nrm.SampleV(wv.basis);
 							const Vec3f derivV = tess_pos.SampleV(wv.deriv);
 
@@ -569,7 +597,8 @@ public:
 
 	static void Tessellate(OutputBuffers &output, const Surface &surface, const ControlPoints &points, const Weight2D &weights, u32 origVertType) {
 		const bool params[] = {
-			(origVertType & GE_VTYPE_NRM_MASK) != 0 || gstate.isLightingEnabled(),
+			// Shade mapping uses the normal even with lighting off (gpu/probe exp143).
+			(origVertType & GE_VTYPE_NRM_MASK) != 0 || gstate.isLightingEnabled() || gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP,
 			(origVertType & GE_VTYPE_COL_MASK) != 0,
 			(origVertType & GE_VTYPE_TC_MASK) != 0,
 			cpu_info.bSSE4_1,
