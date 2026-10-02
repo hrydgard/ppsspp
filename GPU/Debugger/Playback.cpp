@@ -16,10 +16,11 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <climits>
 #include <cstring>
 #include <functional>
 #include <mutex>
-#include <set>
+#include <map>
 #include <condition_variable>
 #include <vector>
 #include <thread>
@@ -41,6 +42,7 @@
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/MemMap.h"
+#include "Core/MemMapHelpers.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/System.h"
@@ -397,10 +399,37 @@ private:
 	u32 lastTex_[8]{};
 	int prims_ = 0;
 	u32 lastBase_ = 0;
-	// VRAM offsets of the framebuffers drawn to so far, and the current one's registers.
-	std::set<u32> drawnTargets_;
+	// The framebuffers drawn to so far by VRAM offset, with the areas the draws could reach, and the
+	// current one's registers.
+	struct DrawnRect {
+		int x1, y1, x2, y2;
+		bool Contains(int x, int y) const {
+			return x >= x1 && x <= x2 && y >= y1 && y <= y2;
+		}
+	};
+	struct DrawnTarget {
+		u32 strideBytes;
+		u32 bpp;
+		std::vector<DrawnRect> rects;
+	};
+	std::map<u32, DrawnTarget> drawnTargets_;
 	u32 fbPtr_ = 0;
 	u32 fbWidth_ = 0;
+	u32 fbFormat_ = 0;
+	u32 region2_ = 0;
+	u32 scissor2_ = 0;
+	u32 vertType_ = 0;
+	u32 zbPtr_ = 0;
+	u32 zbWidth_ = 0;
+	bool zTest_ = false;
+	bool zWriteDisable_ = false;
+	u32 clearMode_ = 0;
+	// The vertices recorded for the next draw.
+	u32 lastVertsPtr_ = 0;
+	u32 lastVertsSize_ = 0;
+
+	void MarkDrawn(u32 prim);
+	void CopyAroundDrawn(u32 addr, const u8 *data, u32 size);
 
 	const std::vector<u8> &pushbuf_;
 	const std::vector<Command> &commands_;
@@ -502,8 +531,26 @@ void DumpExecute::Registers(u32 ptr, u32 sz) {
 			fbPtr_ = ops[i] & 0x00FFFFFF;
 		if (cmd == GE_CMD_FRAMEBUFWIDTH)
 			fbWidth_ = ops[i] & 0x00FFFFFF;
+		if (cmd == GE_CMD_FRAMEBUFPIXFORMAT)
+			fbFormat_ = ops[i] & 3;
+		if (cmd == GE_CMD_REGION2)
+			region2_ = ops[i] & 0x000FFFFF;
+		if (cmd == GE_CMD_SCISSOR2)
+			scissor2_ = ops[i] & 0x000FFFFF;
+		if (cmd == GE_CMD_VERTEXTYPE)
+			vertType_ = ops[i] & 0x00FFFFFF;
+		if (cmd == GE_CMD_ZBUFPTR)
+			zbPtr_ = ops[i] & 0x00FFFFFF;
+		if (cmd == GE_CMD_ZBUFWIDTH)
+			zbWidth_ = ops[i] & 0x00FFFFFF;
+		if (cmd == GE_CMD_ZTESTENABLE)
+			zTest_ = (ops[i] & 1) != 0;
+		if (cmd == GE_CMD_ZWRITEDISABLE)
+			zWriteDisable_ = (ops[i] & 1) != 0;
+		if (cmd == GE_CMD_CLEARMODE)
+			clearMode_ = ops[i] & 0xFFFF;
 		if (cmd == GE_CMD_PRIM || cmd == GE_CMD_BEZIER || cmd == GE_CMD_SPLINE) {
-			drawnTargets_.insert(((fbPtr_ & 0xFFFFF0) | ((fbWidth_ & 0xFF0000) << 8)) & 0x001FFFFF);
+			MarkDrawn(cmd == GE_CMD_PRIM ? ops[i] & 0x00FFFFFF : 0);
 			prims_++;
 			if (g_drawLimit > 0 && prims_ > g_drawLimit)
 				ops[i] = GE_CMD_NOP << 24;
@@ -547,6 +594,17 @@ void DumpExecute::SubmitListEnd() {
 void DumpExecute::Init(u32 ptr, u32 sz) {
 	gstate.Restore((u32_le *)(pushbuf_.data() + ptr));
 	ExecuteOnMain(Operation{ OpType::ReapplyGfxState });
+	fbPtr_ = gstate.fbptr & 0x00FFFFFF;
+	fbWidth_ = gstate.fbwidth & 0x00FFFFFF;
+	fbFormat_ = gstate.framebufpixformat & 3;
+	region2_ = gstate.region2 & 0x000FFFFF;
+	scissor2_ = gstate.scissor2 & 0x000FFFFF;
+	vertType_ = gstate.vertType & 0x00FFFFFF;
+	zbPtr_ = gstate.zbptr & 0x00FFFFFF;
+	zbWidth_ = gstate.zbwidth & 0x00FFFFFF;
+	zTest_ = (gstate.zTestEnable & 1) != 0;
+	zWriteDisable_ = (gstate.zmsk & 1) != 0;
+	clearMode_ = gstate.clearmode & 0xFFFF;
 
 	// Hm, why are we doing this here? Should it be before?
 	for (int i = 0; i < 8; ++i) {
@@ -556,7 +614,107 @@ void DumpExecute::Init(u32 ptr, u32 sz) {
 	lastBase_ = 0xFFFFFFFF;
 }
 
+// The drawing-space bounds of a through mode draw's vertices, or false if they aren't simple to read
+// (indexed, morphed, or not through mode).
+static bool ThroughModeBounds(u32 vtype, const u8 *data, u32 size, u32 count, int &x1, int &y1, int &x2, int &y2) {
+	if ((vtype & GE_VTYPE_THROUGH) == 0 || (vtype & GE_VTYPE_IDX_MASK) != 0 || (vtype & GE_VTYPE_MORPHCOUNT_MASK) != 0 || count == 0)
+		return false;
+
+	// Each component is aligned to its own size, and the vertex to the largest.
+	static const u8 compSizes[4] = { 0, 1, 2, 4 };
+	static const u8 colorSizes[8] = { 0, 0, 0, 0, 2, 2, 2, 4 };
+	u32 offset = 0, align = 1;
+	auto add = [&](u32 elemSize, u32 n) {
+		if (elemSize == 0)
+			return;
+		offset = (offset + elemSize - 1) & ~(elemSize - 1);
+		offset += elemSize * n;
+		align = std::max(align, elemSize);
+	};
+	add(compSizes[(vtype & GE_VTYPE_WEIGHT_MASK) >> GE_VTYPE_WEIGHT_SHIFT], ((vtype & GE_VTYPE_WEIGHTCOUNT_MASK) >> GE_VTYPE_WEIGHTCOUNT_SHIFT) + 1);
+	add(compSizes[(vtype & GE_VTYPE_TC_MASK) >> GE_VTYPE_TC_SHIFT], 2);
+	add(colorSizes[(vtype & GE_VTYPE_COL_MASK) >> GE_VTYPE_COL_SHIFT], 1);
+	add(compSizes[(vtype & GE_VTYPE_NRM_MASK) >> GE_VTYPE_NRM_SHIFT], 3);
+	const u32 posSize = compSizes[(vtype & GE_VTYPE_POS_MASK) >> GE_VTYPE_POS_SHIFT];
+	if (posSize == 0)
+		return false;
+	offset = (offset + posSize - 1) & ~(posSize - 1);
+	const u32 posOffset = offset;
+	add(posSize, 3);
+	const u32 stride = (offset + align - 1) & ~(align - 1);
+	if (stride * count > size)
+		return false;
+
+	x1 = y1 = INT_MAX;
+	x2 = y2 = INT_MIN;
+	for (u32 i = 0; i < count; ++i) {
+		const u8 *p = data + i * stride + posOffset;
+		int x, y;
+		if (posSize == 4) {
+			float fx, fy;
+			memcpy(&fx, p, 4);
+			memcpy(&fy, p + 4, 4);
+			if (!(fx >= -4096.0f && fx <= 4096.0f && fy >= -4096.0f && fy <= 4096.0f))
+				return false;
+			x = (int)fx;
+			y = (int)fy;
+		} else if (posSize == 2) {
+			x = (s16)(p[0] | (p[1] << 8));
+			y = (s16)(p[2] | (p[3] << 8));
+		} else {
+			x = (s8)p[0];
+			y = (s8)p[1];
+		}
+		// Truncation can be a pixel short at either end; the bounds only need to be generous.
+		x1 = std::min(x1, x - 1);
+		y1 = std::min(y1, y - 1);
+		x2 = std::max(x2, x + 1);
+		y2 = std::max(y2, y + 1);
+	}
+	return true;
+}
+
+void DumpExecute::MarkDrawn(u32 prim) {
+	const u32 start = ((fbPtr_ & 0xFFFFF0) | ((fbWidth_ & 0xFF0000) << 8)) & 0x001FFFFF;
+	const u32 bpp = fbFormat_ == GE_FORMAT_8888 ? 4 : 2;
+	int x1 = 0, y1 = 0;
+	int x2 = std::min(region2_ & 0x3FF, scissor2_ & 0x3FF);
+	int y2 = std::min((region2_ >> 10) & 0x3FF, (scissor2_ >> 10) & 0x3FF);
+	// A 2D draw (a sprite into a small buffer whose nominal area overlaps textures, Burnout) can say where
+	// it is exactly.
+	int vx1, vy1, vx2, vy2;
+	if (prim != 0 && lastVertsSize_ != 0 && ThroughModeBounds(vertType_, pushbuf_.data() + lastVertsPtr_, lastVertsSize_, prim & 0xFFFF, vx1, vy1, vx2, vy2)) {
+		x1 = std::max(x1, vx1);
+		y1 = std::max(y1, vy1);
+		x2 = std::min(x2, vx2);
+		y2 = std::min(y2, vy2);
+		if (x1 > x2 || y1 > y2)
+			return;
+	}
+
+	auto add = [&](u32 base, u32 strideBytes, u32 bytesPerPixel, const DrawnRect &rect) {
+		DrawnTarget &t = drawnTargets_[base];
+		t.strideBytes = strideBytes;
+		t.bpp = bytesPerPixel;
+		for (const DrawnRect &r : t.rects) {
+			if (r.Contains(rect.x1, rect.y1) && r.Contains(rect.x2, rect.y2))
+				return;
+		}
+		t.rects.push_back(rect);
+	};
+	add(start, (fbWidth_ & 0x07FC) * bpp, bpp, DrawnRect{ x1, y1, x2, y2 });
+	const bool writesDepth = (clearMode_ & 1) ? (clearMode_ & 0x400) != 0 : (zTest_ && !zWriteDisable_);
+	const int zbw = zbWidth_ & 0x07FC;
+	if (writesDepth && zbw != 0) {
+		// The PSP stores depth swizzled, so what lands in a drawn area is spread over whole rows in bands
+		// (SOCOM's frame texture copy ran into its depth buffer's columns 480-511).
+		add(zbPtr_ & 0x001FFFF0, zbw * 2, 2, DrawnRect{ 0, y1 & ~7, zbw - 1, y2 | 7 });
+	}
+}
+
 void DumpExecute::Vertices(u32 ptr, u32 sz) {
+	lastVertsPtr_ = ptr;
+	lastVertsSize_ = sz;
 	u32 psp = mapping_.Map(ptr, sz, std::bind(&DumpExecute::SyncStall, this));
 	if (psp == 0) {
 		ERROR_LOG(Log::GeDebugger, "Unable to allocate for vertices");
@@ -645,8 +803,12 @@ void DumpExecute::Memset(u32 ptr, u32 sz) {
 
 	if (Memory::IsVRAMAddress(data->dest)) {
 		SyncStall();
+		// Draws the software renderer still has queued come before the write.
+		gpu->Flush();
 		// TODO: should probably do this as an operation.
-		gpu->PerformMemorySet(data->dest, (u8)data->value, data->sz);
+		// The software renderer leaves the memset to the caller, like sceKernelMemset does.
+		if (!gpu->PerformMemorySet(data->dest, (u8)data->value, data->sz))
+			Memory::Memset(data->dest, (u8)data->value, data->sz);
 	}
 }
 
@@ -658,6 +820,7 @@ void DumpExecute::Memcpy(u32 ptr, u32 sz) {
 	PROFILE_THIS_SCOPE("ReplayMemcpy");
 	if (Memory::IsVRAMAddress(execMemcpyDest)) {
 		SyncStall();
+		gpu->Flush();
 		Memory::MemcpyUnchecked(execMemcpyDest, pushbuf_.data() + ptr, sz);
 		NotifyMemInfo(MemBlockFlags::WRITE, execMemcpyDest, sz, "ReplayMemcpy");
 		gpu->PerformWriteColorFromMemory(execMemcpyDest, sz);
@@ -707,14 +870,58 @@ void DumpExecute::Framebuf(int level, u32 ptr, u32 sz) {
 	const bool unchangedVRAM = version_ >= 6 && (framebuf->flags & 2) != 0;
 	// TODO: Could use drawnVRAM flag, but it can be wrong.
 	// Could potentially always skip if !isTarget, but playing it safe for offset texture behavior.
-	// The software renderer has the real contents of a buffer this replay drew to, while the dump's copy
-	// can be stale (a hardware backend that didn't read it back, GTA LCS).
-	const bool drawnHere = g_Config.bSoftwareRendering && drawnTargets_.count(framebuf->addr & 0x001FFFFF) != 0;
-	if (Memory::IsValidRange(framebuf->addr, pspSize) && !unchangedVRAM && !drawnHere && (!isTarget || !g_Config.bSoftwareRendering)) {
+	if (Memory::IsValidRange(framebuf->addr, pspSize) && !unchangedVRAM && (!isTarget || !g_Config.bSoftwareRendering)) {
+		// After the draws before it, which the software renderer may still have queued.
+		SyncStall();
+		gpu->Flush();
 		// Intentionally don't trigger an upload here.
-		Memory::MemcpyUnchecked(framebuf->addr, pushbuf_.data() + ptr + headerSize, pspSize);
-		NotifyMemInfo(MemBlockFlags::WRITE, framebuf->addr, pspSize, "ReplayTex");
+		CopyAroundDrawn(framebuf->addr, pushbuf_.data() + ptr + headerSize, pspSize);
 	}
+}
+
+// The software renderer has the real contents of what this replay drew, while the dump's copy can be stale
+// (a hardware backend that didn't read it back, GTA LCS). So a copy leaves out the areas the replay's draws
+// could reach: a texture inside one (Princess Maker 5 textures from the right half of its 1024 wide
+// framebuffer), or one whose recorded size runs over a buffer drawn next to it (Rainbow Six copies its
+// 512x512 frame texture before each strip it draws into the display buffer inside that range). A texture
+// beside the drawn area still comes through (Burnout keeps one in columns 480-511).
+void DumpExecute::CopyAroundDrawn(u32 addr, const u8 *data, u32 size) {
+	// A texture recorded at its full size can run past the end of VRAM, into the depth swizzle mirror
+	// (Princess Maker 5's 1024x1024 one at 0x04000400). That isn't the game's data.
+	if (Memory::IsVRAMAddress(addr))
+		size = std::min(size, 0x00200000 - (addr & 0x001FFFFF));
+	std::vector<std::pair<int64_t, int64_t>> skip;
+	const int64_t start = addr & 0x001FFFFF, end = start + size;
+	if (g_Config.bSoftwareRendering) {
+		for (const auto &it : drawnTargets_) {
+			const DrawnTarget &t = it.second;
+			if (t.strideBytes == 0)
+				continue;
+			for (const DrawnRect &r : t.rects) {
+				for (int y = std::max(r.y1, 0); y <= r.y2; ++y) {
+					const int64_t row = (int64_t)it.first + (int64_t)y * t.strideBytes;
+					const int64_t a = row + (int64_t)std::max(r.x1, 0) * t.bpp;
+					const int64_t b = row + (int64_t)(r.x2 + 1) * t.bpp;
+					if (b > start && a < end)
+						skip.emplace_back(std::max(a, start), std::min(b, end));
+				}
+			}
+		}
+		std::sort(skip.begin(), skip.end());
+	}
+
+	int64_t pos = start;
+	auto copyTo = [&](int64_t until) {
+		if (until > pos) {
+			Memory::MemcpyUnchecked(addr + (u32)(pos - start), data + (pos - start), (u32)(until - pos));
+			NotifyMemInfo(MemBlockFlags::WRITE, addr + (u32)(pos - start), (u32)(until - pos), "ReplayTex");
+		}
+	};
+	for (const auto &s : skip) {
+		copyTo(s.first);
+		pos = std::max(pos, s.second);
+	}
+	copyTo(end);
 }
 
 void DumpExecute::Display(u32 ptr, u32 sz, bool allowFlip) {
