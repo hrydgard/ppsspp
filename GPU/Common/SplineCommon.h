@@ -222,6 +222,9 @@ struct OutputBuffers {
 	bool fullAlpha = true;
 };
 
+// Set to evaluate the GE's Bezier patches with the scalar code, which the vectorized code is tested against.
+extern bool g_splineGEScalar;
+
 template<class Surface>
 void SoftwareTessellation(OutputBuffers &output, const Surface &surface, u32 origVertType, const ControlPoints &points);
 

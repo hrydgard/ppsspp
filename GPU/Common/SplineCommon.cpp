@@ -575,6 +575,323 @@ static void TessellateSplineGE(OutputBuffers &output, const SplineSurface &surfa
 	}
 }
 
+// Four of the GE's lerps at once (GEBezierLerp). Both operands go to 16-bit fixed point at the larger
+// exponent by scaling with a power of two and truncating, which truncates toward zero like the GE, then
+// the integer lerp, then back by the inverse power of two (exact). (d * k) >> 8 is split into the high and
+// low bytes of d, so both multiplies fit 16 bits. Lanes whose larger exponent field is below 16 (values
+// under 2^-111, or zero) take the scalar lerp.
+// The lanes GELerp4 can't do: the larger exponent field below 16.
+static NO_INLINE Vec4F32 GELerp4Small(Vec4F32 a, Vec4F32 b, Vec4S32 k, Vec4S32 small, Vec4F32 r) {
+	alignas(16) float av[4], bv[4], rv[4];
+	alignas(16) int kv[4], sv[4];
+	a.Store(av);
+	b.Store(bv);
+	r.Store(rv);
+	k.Store(kv);
+	small.Store(sv);
+	for (int i = 0; i < 4; ++i) {
+		if (sv[i])
+			rv[i] = GEBezierLerp(av[i], bv[i], kv[i]);
+	}
+	return Vec4F32::Load(rv);
+}
+
+// The operands mustn't be denormal (FlushDenormals4 on inputs; a lerp never makes one).
+static __forceinline Vec4F32 GELerp4(Vec4F32 a, Vec4F32 b, Vec4S32 k, Vec4S32 k0, Vec4S32 k256) {
+	const Vec4S32 expMask = Vec4S32::Splat(0x7F800000);
+	const Vec4S32 absMask = Vec4S32::Splat(0x7FFFFFFF);
+	const Vec4S32 ba = Vec4S32FromBits(a);
+	const Vec4S32 bb = Vec4S32FromBits(b);
+	const Vec4F32 za = a;
+	const Vec4F32 zb = b;
+	const Vec4S32 e = Vec4S32FromBits(Vec4F32FromBits(ba & absMask).Max(Vec4F32FromBits(bb & absMask))) & expMask;
+	// 2^(142 - e) and 2^(e - 142), with e the biased exponent.
+	const Vec4F32 down = Vec4F32FromBits(Vec4S32::Splat((int)(269u << 23)) - e);
+	const Vec4F32 up = Vec4F32FromBits(e - Vec4S32::Splat(15 << 23));
+	const Vec4S32 fa = Vec4S32FromF32(za * down);
+	const Vec4S32 fb = Vec4S32FromF32(zb * down);
+	const Vec4S32 diff = fb - fa;
+	const Vec4S32 q = diff.Shr<8>().Mul16(k) + (diff & Vec4S32::Splat(255)).Mul16(k).Shr<8>();
+	const Vec4F32 r = Select(k0, a, Select(k256, b, Vec4F32FromS32(fa + q) * up));
+	const Vec4S32 small = e.CompareLt(Vec4S32::Splat(16 << 23));
+	if (AnyCompareBitsSet(small))
+		return GELerp4Small(a, b, k, small, r);
+	return r;
+}
+
+// Denormals, which the GE treats as zero, become zero.
+static inline Vec4F32 FlushDenormals4(Vec4F32 v) {
+	return Select((Vec4S32FromBits(v) & Vec4S32::Splat(0x7F800000)).CompareEq(Vec4S32::Zero()), Vec4F32::Zero(), v);
+}
+
+// A lerp between two fixed operands at four ks, with the operands' conversion done once (GELerp4).
+struct GELerpFixed {
+	Vec4S32 fa, dh, dl;
+	Vec4F32 a, b, up;
+	bool slow;
+	float sa, sb;
+
+	void Init(float x, float y) {
+		uint32_t bx, by;
+		memcpy(&bx, &x, 4);
+		memcpy(&by, &y, 4);
+		const int e = std::max((bx >> 23) & 0xFF, (by >> 23) & 0xFF);
+		sa = x;
+		sb = y;
+		a = Vec4F32::Splat(x);
+		b = Vec4F32::Splat(y);
+		slow = e < 16;
+		if (slow)
+			return;
+		const uint32_t downBits = (uint32_t)(269 - e) << 23;
+		const uint32_t upBits = (uint32_t)(e - 15) << 23;
+		float down, upf;
+		memcpy(&down, &downBits, 4);
+		memcpy(&upf, &upBits, 4);
+		const int ia = (int)(x * down);
+		const int ib = (int)(y * down);
+		fa = Vec4S32::Splat(ia);
+		dh = Vec4S32::Splat((ib - ia) >> 8);
+		dl = Vec4S32::Splat((ib - ia) & 255);
+		up = Vec4F32::Splat(upf);
+	}
+
+	Vec4F32 At(Vec4S32 k, Vec4S32 k0, Vec4S32 k256) const {
+		if (slow)
+			return GELerp4(a, b, k, k0, k256);
+		const Vec4S32 q = dh.Mul16(k) + dl.Mul16(k).Shr<8>();
+		return Select(k0, a, Select(k256, b, Vec4F32FromS32(fa + q) * up));
+	}
+};
+
+// GEBezierEval4 of four fixed points: the first level from GELerpFixed.
+struct GEBezierFixed {
+	GELerpFixed l[3];
+	void Init(const float p[4]) {
+		for (int i = 0; i < 3; ++i)
+			l[i].Init(p[i], p[i + 1]);
+	}
+	Vec4F32 Eval(Vec4S32 k, Vec4S32 k0, Vec4S32 k256, Vec4F32 *ab = nullptr, Vec4F32 *bc = nullptr) const {
+		const Vec4F32 a = l[0].At(k, k0, k256);
+		const Vec4F32 b = l[1].At(k, k0, k256);
+		const Vec4F32 c = l[2].At(k, k0, k256);
+		const Vec4F32 x = GELerp4(a, b, k, k0, k256);
+		const Vec4F32 y = GELerp4(b, c, k, k0, k256);
+		if (ab) {
+			*ab = x;
+			*bc = y;
+		}
+		return GELerp4(x, y, k, k0, k256);
+	}
+};
+
+static NO_INLINE Vec4F32 GEAdd4Small(Vec4F32 a, Vec4F32 b, Vec4S32 small, Vec4F32 r) {
+	alignas(16) float av[4], bv[4], rv[4];
+	alignas(16) int sv[4];
+	a.Store(av);
+	b.Store(bv);
+	r.Store(rv);
+	small.Store(sv);
+	for (int i = 0; i < 4; ++i) {
+		if (sv[i])
+			rv[i] = GEAdd(av[i], bv[i]);
+	}
+	return Vec4F32::Load(rv);
+}
+
+// Four of GEAdd at once: both terms truncated to the precision of the larger one, then added exactly.
+static __forceinline Vec4F32 GEAdd4(Vec4F32 a, Vec4F32 b) {
+	const Vec4S32 expMask = Vec4S32::Splat(0x7F800000);
+	const Vec4S32 absMask = Vec4S32::Splat(0x7FFFFFFF);
+	const Vec4S32 ba = Vec4S32FromBits(a);
+	const Vec4S32 bb = Vec4S32FromBits(b);
+	const Vec4F32 za = Select((ba & expMask).CompareEq(Vec4S32::Zero()), Vec4F32::Zero(), a);
+	const Vec4F32 zb = Select((bb & expMask).CompareEq(Vec4S32::Zero()), Vec4F32::Zero(), b);
+	const Vec4S32 e = Vec4S32FromBits(Vec4F32FromBits(ba & absMask).Max(Vec4F32FromBits(bb & absMask))) & expMask;
+	const Vec4F32 down = Vec4F32FromBits(Vec4S32::Splat((int)(269u << 23)) - e);
+	const Vec4F32 up = Vec4F32FromBits(e - Vec4S32::Splat(15 << 23));
+	const Vec4F32 r = Vec4F32FromS32(Vec4S32FromF32(za * down) + Vec4S32FromF32(zb * down)) * up;
+	const Vec4S32 small = e.CompareLt(Vec4S32::Splat(16 << 23));
+	if (AnyCompareBitsSet(small))
+		return GEAdd4Small(a, b, small, r);
+	return r;
+}
+
+// Four de Casteljau evaluations (GEBezierEval), with the last two points for the tangents.
+static inline Vec4F32 GEBezierEval4(const Vec4F32 p[4], Vec4S32 k, Vec4S32 k0, Vec4S32 k256, Vec4F32 *ab = nullptr, Vec4F32 *bc = nullptr) {
+	const Vec4F32 a = GELerp4(p[0], p[1], k, k0, k256);
+	const Vec4F32 b = GELerp4(p[1], p[2], k, k0, k256);
+	const Vec4F32 c = GELerp4(p[2], p[3], k, k0, k256);
+	const Vec4F32 l = GELerp4(a, b, k, k0, k256);
+	const Vec4F32 r = GELerp4(b, c, k, k0, k256);
+	if (ab) {
+		*ab = l;
+		*bc = r;
+	}
+	return GELerp4(l, r, k, k0, k256);
+}
+
+// Colors: the same lerp on 15-bit integers, so (b - a) * k fits 16-bit multiplies as is.
+static inline Vec4S32 GEBezierEvalColor4(const Vec4S32 p[4], Vec4S32 k) {
+	auto lerp = [k](Vec4S32 a, Vec4S32 b) { return a + (b - a).Mul16(k).Shr<8>(); };
+	const Vec4S32 a = lerp(p[0], p[1]);
+	const Vec4S32 b = lerp(p[1], p[2]);
+	const Vec4S32 c = lerp(p[2], p[3]);
+	return lerp(lerp(a, b), lerp(b, c));
+}
+
+// Set to evaluate the GE's Bezier patches with the scalar code, which the vectorized code is tested against.
+bool g_splineGEScalar = false;
+
+// TessellateBezierGE four lanes at a time: at each v step the patch's four control columns in the four
+// lanes, then each row of those at four u steps.
+template <bool sampleNrm, bool sampleCol, bool sampleTex, bool patchFacing>
+static void TessellateBezierGESIMD(OutputBuffers &output, const BezierSurface &surface, const ControlPoints &points) {
+	const int tessU = surface.tess_u;
+	const int tessV = surface.tess_v;
+	// Per v step: pos, ab, bc (3 each) and uv (2), one vector of four columns each; colors likewise.
+	enum { POS = 0, AB = 3, BC = 6, TEX = 9, COMPS = 11 };
+	std::vector<Vec4F32> columns((tessV + 1) * COMPS);
+	std::vector<Vec4S32> columnColors(sampleCol ? (tessV + 1) * 4 : 0);
+	// k for each u step, padded to whole vectors.
+	const int groupsU = (tessU + 1 + 3) / 4;
+	std::vector<int> ku(groupsU * 4);
+	for (int i = 0; i < (int)ku.size(); ++i)
+		ku[i] = BezierParam256(std::min(i, tessU), tessU);
+
+	for (int patch_u = 0; patch_u < surface.num_patches_u; ++patch_u) {
+		const int start_u = surface.GetTessStart(patch_u);
+		for (int patch_v = 0; patch_v < surface.num_patches_v; ++patch_v) {
+			const int start_v = surface.GetTessStart(patch_v);
+			const ControlPoint *patch = points.points + surface.GetPointIndex(patch_u, patch_v);
+			const ControlPoint *const rows[4] = { patch, patch + surface.num_points_u, patch + surface.num_points_u * 2, patch + surface.num_points_u * 3 };
+
+			for (int tile_v = start_v; tile_v <= tessV; ++tile_v) {
+				const int kvs = BezierParam256(tile_v, tessV);
+				const Vec4S32 kv = Vec4S32::Splat(kvs);
+				const Vec4S32 kv0 = kv.CompareEq(Vec4S32::Zero());
+				const Vec4S32 kv256 = kv.CompareEq(Vec4S32::Splat(256));
+				Vec4F32 *col = &columns[tile_v * COMPS];
+				for (int j = 0; j < 3; ++j) {
+					Vec4F32 p[4];
+					for (int r = 0; r < 4; ++r) {
+						alignas(16) const float v[4] = { rows[r][0].pos[j], rows[r][1].pos[j], rows[r][2].pos[j], rows[r][3].pos[j] };
+						p[r] = FlushDenormals4(Vec4F32::Load(v));
+					}
+					col[POS + j] = GEBezierEval4(p, kv, kv0, kv256, &col[AB + j], &col[BC + j]);
+				}
+				if constexpr (sampleTex) {
+					for (int j = 0; j < 2; ++j) {
+						Vec4F32 p[4];
+						for (int r = 0; r < 4; ++r) {
+							alignas(16) const float v[4] = { rows[r][0].uv[j], rows[r][1].uv[j], rows[r][2].uv[j], rows[r][3].uv[j] };
+							p[r] = FlushDenormals4(Vec4F32::Load(v));
+						}
+						col[TEX + j] = GEBezierEval4(p, kv, kv0, kv256);
+					}
+				}
+				if constexpr (sampleCol) {
+					for (int j = 0; j < 4; ++j) {
+						Vec4S32 p[4];
+						for (int r = 0; r < 4; ++r) {
+							alignas(16) const int v[4] = { (int)rows[r][0].col[j], (int)rows[r][1].col[j], (int)rows[r][2].col[j], (int)rows[r][3].col[j] };
+							p[r] = Vec4S32::Load(v).Shl<7>() | Vec4S32::Splat(0x7F);
+						}
+						columnColors[tile_v * 4 + j] = GEBezierEvalColor4(p, kv);
+					}
+				}
+			}
+
+			for (int tile_v = start_v; tile_v <= tessV; ++tile_v) {
+				const int index_v = surface.GetIndexV(patch_v, tile_v);
+				const int kvs = BezierParam256(tile_v, tessV);
+				alignas(16) float cols[COMPS][4];
+				for (int c = 0; c < COMPS; ++c)
+					columns[tile_v * COMPS + c].Store(cols[c]);
+				alignas(16) int colColors[4][4];
+				if constexpr (sampleCol) {
+					for (int j = 0; j < 4; ++j)
+						columnColors[tile_v * 4 + j].Store(colColors[j]);
+				}
+				GEBezierFixed rowPos[3], rowAB[3], rowBC[3], rowTex[2];
+				for (int j = 0; j < 3; ++j) {
+					rowPos[j].Init(cols[POS + j]);
+					if constexpr (sampleNrm) {
+						rowAB[j].Init(cols[AB + j]);
+						rowBC[j].Init(cols[BC + j]);
+					}
+				}
+				if constexpr (sampleTex) {
+					for (int j = 0; j < 2; ++j)
+						rowTex[j].Init(cols[TEX + j]);
+				}
+
+				for (int tile_u = start_u; tile_u <= tessU; tile_u += 4) {
+					const Vec4S32 k = Vec4S32::Load(&ku[tile_u]);
+					const Vec4S32 k0 = k.CompareEq(Vec4S32::Zero());
+					const Vec4S32 k256 = k.CompareEq(Vec4S32::Splat(256));
+					const int lanes = std::min(4, tessU + 1 - tile_u);
+
+					alignas(16) float pos[3][4], uv[2][4], tu[3][4], tv[3][4];
+					alignas(16) int color[4][4];
+					for (int j = 0; j < 3; ++j) {
+						Vec4F32 ab, bc;
+						rowPos[j].Eval(k, k0, k256, &ab, &bc).Store(pos[j]);
+						if constexpr (sampleNrm) {
+							GEAdd4(bc, Vec4F32::Zero() - ab).Store(tu[j]);
+							const Vec4F32 eab = rowAB[j].Eval(k, k0, k256);
+							const Vec4F32 ebc = rowBC[j].Eval(k, k0, k256);
+							GEAdd4(ebc, Vec4F32::Zero() - eab).Store(tv[j]);
+						}
+					}
+					if constexpr (sampleTex) {
+						for (int j = 0; j < 2; ++j)
+							rowTex[j].Eval(k, k0, k256).Store(uv[j]);
+					}
+					if constexpr (sampleCol) {
+						for (int j = 0; j < 4; ++j) {
+							const Vec4S32 p[4] = { Vec4S32::Splat(colColors[j][0]), Vec4S32::Splat(colColors[j][1]), Vec4S32::Splat(colColors[j][2]), Vec4S32::Splat(colColors[j][3]) };
+							GEBezierEvalColor4(p, k).Shr<7>().Store(color[j]);
+						}
+					}
+
+					for (int i = 0; i < lanes; ++i) {
+						const int index_u = surface.GetIndexU(patch_u, tile_u + i);
+						SimpleVertex &vert = output.vertices[surface.GetIndex(index_u, index_v, patch_u, patch_v)];
+						vert.pos = Vec3f(pos[0][i], pos[1][i], pos[2][i]);
+						if constexpr (sampleCol) {
+							vert.color_32 = (u32)color[0][i] | ((u32)color[1][i] << 8) | ((u32)color[2][i] << 16) | ((u32)color[3][i] << 24);
+						} else {
+							vert.color_32 = points.defcolor;
+						}
+						if constexpr (sampleTex) {
+							vert.uv[0] = uv[0][i];
+							vert.uv[1] = uv[1][i];
+						} else {
+							// Generated: the parameter itself (exp140).
+							vert.uv[0] = patch_u + ku[tile_u + i] * (1.0f / 256.0f);
+							vert.uv[1] = patch_v + kvs * (1.0f / 256.0f);
+						}
+						if constexpr (sampleNrm) {
+							// Unnormalized: lighting normalizes it. Vertex normals are unused (exp142).
+							for (int j = 0; j < 3; ++j) {
+								const int j1 = (j + 1) % 3, j2 = (j + 2) % 3;
+								const GERowTerm terms[2] = { GEProduct(tu[j1][i], tv[j2][i]), GEProduct(-tu[j2][i], tv[j1][i]) };
+								vert.nrm[j] = GERowSum(terms, 2);
+							}
+							if constexpr (patchFacing)
+								vert.nrm *= -1.0f;
+						} else {
+							vert.nrm.SetZero();
+							vert.nrm.z = 1.0f;
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
 // The GE's Bezier patches: each patch's four control columns at every v step, then each row of those at u.
 template <bool sampleNrm, bool sampleCol, bool sampleTex, bool patchFacing>
 static void TessellateBezierGE(OutputBuffers &output, const BezierSurface &surface, const ControlPoints &points) {
@@ -685,7 +1002,10 @@ public:
 			}
 		} else {
 			if (surface.geExact) {
-				TessellateBezierGE<sampleNrm, sampleCol, sampleTex, patchFacing>(output, surface, points);
+				if (g_splineGEScalar)
+					TessellateBezierGE<sampleNrm, sampleCol, sampleTex, patchFacing>(output, surface, points);
+				else
+					TessellateBezierGESIMD<sampleNrm, sampleCol, sampleTex, patchFacing>(output, surface, points);
 				surface.BuildIndex(output.indices, output.count);
 				return;
 			}

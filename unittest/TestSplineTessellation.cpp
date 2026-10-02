@@ -198,6 +198,7 @@ struct TestCase {
 	bool patchFacing = false;
 	int poleEdge = -1;  // Collapse this edge to one point: 0 = first row (v = 0), 1 = first column (u = 0).
 	float poleNoise = 0.0f;  // ...but only nearly, the way animated control points come out.
+	bool geExact = false;  // The GE's own fixed-point evaluation, as the software renderer uses.
 };
 
 // A bumpy, uneven grid of control points with varying UVs and colors, so that a mixed-up weight or
@@ -303,6 +304,7 @@ void RunTessellator(const TestCase &tc, const std::vector<SimpleVertex> &points,
 		surface.num_patches_v = (tc.pointsV - 1) / 3;
 		surface.primType = GE_PATCHPRIM_TRIANGLES;
 		surface.patchFacing = tc.patchFacing;
+		surface.geExact = tc.geExact;
 		surface.Init(maxVertices);
 		const int patches = surface.num_patches_u * surface.num_patches_v;
 		Tessellate(surface, tc.vertType, points, (surface.tess_u + 1) * (surface.tess_v + 1) * patches, surface.tess_u * surface.tess_v * 6 * patches, out);
@@ -318,6 +320,7 @@ void RunTessellator(const TestCase &tc, const std::vector<SimpleVertex> &points,
 		surface.num_patches_v = tc.pointsV - 3;
 		surface.primType = GE_PATCHPRIM_TRIANGLES;
 		surface.patchFacing = tc.patchFacing;
+		surface.geExact = tc.geExact;
 		surface.Init(maxVertices);
 		const int divU = surface.num_patches_u * surface.tess_u;
 		const int divV = surface.num_patches_v * surface.tess_v;
@@ -478,6 +481,50 @@ bool CheckDecodedForm(const TestCase &tc, bool opaque) {
 	return true;
 }
 
+// The vectorized GE-exact Bezier path against the scalar one, bit for bit. Random control points mix signs
+// and exponents (the lerps work at the larger operand's), and include zeros and values small enough for the
+// scalar fallback.
+bool CheckGEExactSIMD(const TestCase &tc, uint32_t seed) {
+	std::vector<SimpleVertex> points = MakeControlPoints(tc);
+	if (seed != 0) {
+		uint32_t state = seed;
+		auto next = [&]() {
+			state = state * 1664525u + 1013904223u;
+			return state;
+		};
+		auto randomFloat = [&]() {
+			const uint32_t r = next();
+			if ((r & 15) == 0)
+				return 0.0f;
+			const int exponent = (r & 16) ? (int)(next() % 40) - 20 : (int)(next() % 240) - 125;
+			const float mantissa = 1.0f + (next() & 0xFFFFFF) / 16777216.0f;
+			return ldexpf((r & 32) ? -mantissa : mantissa, exponent);
+		};
+		for (SimpleVertex &p : points) {
+			p.pos = Vec3Packedf(randomFloat(), randomFloat(), randomFloat());
+			p.uv[0] = randomFloat();
+			p.uv[1] = randomFloat();
+			p.color_32 = next();
+		}
+	}
+	Output simd, scalar;
+	g_splineGEScalar = false;
+	RunTessellator(tc, points, simd);
+	g_splineGEScalar = true;
+	RunTessellator(tc, points, scalar);
+	g_splineGEScalar = false;
+	for (size_t i = 0; i < simd.vertices.size(); i++) {
+		if (memcmp(&simd.vertices[i], &scalar.vertices[i], sizeof(SimpleVertex)) != 0) {
+			const SimpleVertex &a = simd.vertices[i], &b = scalar.vertices[i];
+			printf("%s, seed %u: vertex %d differs: pos %a %a %a nrm %a %a %a uv %a %a color %08x, scalar pos %a %a %a nrm %a %a %a uv %a %a color %08x\n",
+				tc.name, seed, (int)i, a.pos.x, a.pos.y, a.pos.z, a.nrm.x, a.nrm.y, a.nrm.z, a.uv[0], a.uv[1], (u32)a.color_32,
+				b.pos.x, b.pos.y, b.pos.z, b.nrm.x, b.nrm.y, b.nrm.z, b.uv[0], b.uv[1], (u32)b.color_32);
+			return false;
+		}
+	}
+	return true;
+}
+
 }  // namespace
 
 bool TestSplineTessellation() {
@@ -519,6 +566,25 @@ bool TestSplineTessellation() {
 		}
 	}
 
+	// The vectorized GE-exact Bezier path matches the scalar one.
+	const TestCase exactCases[] = {
+		{ "GE exact, bezier, one patch", true, 4, 4, 8, 8 },
+		{ "GE exact, bezier, 2x3 patches, uneven tessellation", true, 7, 10, 5, 3 },
+		{ "GE exact, bezier, normals only", true, 4, 7, 6, 2, 0, 0, posNrm },
+		{ "GE exact, bezier, patch facing", true, 4, 4, 5, 5, 0, 0, posNrm, true },
+		{ "GE exact, bezier, tessellation 1", true, 7, 4, 1, 1 },
+		{ "GE exact, bezier, tessellation 13", true, 4, 4, 13, 7 },
+	};
+	for (TestCase tc : exactCases) {
+		tc.geExact = true;
+		for (uint32_t seed = 0; seed < 40; seed++) {
+			if (!CheckGEExactSIMD(tc, seed)) {
+				ok = false;
+				break;
+			}
+		}
+	}
+
 	// Uneven tessellation, so that rows end partway through a vector.
 	const TestCase decodedCases[] = {
 		{ "decoded form, bezier", true, 7, 4, 5, 3 },
@@ -538,7 +604,13 @@ bool TestSplineTessellation() {
 	{
 		TestCase spline = { "speed, spline", false, 10, 10, 8, 8, 3, 3 };
 		TestCase bezier = { "speed, bezier", true, 10, 10, 8, 8 };
-		for (const TestCase *tc : { &spline, &bezier }) {
+		TestCase splineExact = spline;
+		splineExact.name = "speed, spline, GE exact";
+		splineExact.geExact = true;
+		TestCase bezierExact = bezier;
+		bezierExact.name = "speed, bezier, GE exact";
+		bezierExact.geExact = true;
+		for (const TestCase *tc : { &spline, &bezier, &splineExact, &bezierExact }) {
 			const std::vector<SimpleVertex> points = MakeControlPoints(*tc);
 			Output out;
 			const double callsPerSecond = CallsPerSecond([&] { RunTessellator(*tc, points, out); }, 0.1, 1);
