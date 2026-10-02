@@ -612,7 +612,12 @@ static inline bool IsRightSideOrFlatBottomLine(const Vec2<int>& vertex, const Ve
 		return vertex.y < line1.y;
 	} else {
 		// check if vertex is on our left => right side
-		return vertex.x < line1.x + (line2.x - line1.x) * (vertex.y - line1.y) / (line2.y - line1.y);
+		// Exactly: a truncating divide put a vertex 0.2 subpixels left of the line on it, so a pixel center
+		// on such a thin triangle's right edge counted as inside (Peace Walker ULUS10509).
+		const int64_t dy = line2.y - line1.y;
+		const int64_t lhs = (int64_t)(vertex.x - line1.x) * dy;
+		const int64_t rhs = (int64_t)(line2.x - line1.x) * (vertex.y - line1.y);
+		return dy > 0 ? lhs < rhs : lhs > rhs;
 	}
 }
 
