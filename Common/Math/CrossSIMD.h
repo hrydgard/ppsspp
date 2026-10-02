@@ -170,6 +170,9 @@ struct Vec4S32 {
 	// Arithmetic: shifts in copies of the sign bit.
 	template<int imm>
 	Vec4S32 Shr() const { return Vec4S32{ imm == 0 ? v : _mm_srai_epi32(v, imm) }; }
+	// Every lane set to this one's lane.
+	template<int lane>
+	Vec4S32 SplatLane() const { return Vec4S32{ _mm_shuffle_epi32(v, _MM_SHUFFLE(lane, lane, lane, lane)) }; }
 	Vec4S32 Max(Vec4S32 other) const {
 		const __m128i gt = _mm_cmpgt_epi32(v, other.v);
 		return Vec4S32{ _mm_or_si128(_mm_and_si128(gt, v), _mm_andnot_si128(gt, other.v)) };
@@ -631,6 +634,9 @@ struct Vec4S32 {
 	// Arithmetic: shifts in copies of the sign bit.
 	template<int imm>
 	Vec4S32 Shr() const { return Vec4S32{ vshrq_n_s32(v, imm) }; }
+	// Every lane set to this one's lane.
+	template<int lane>
+	Vec4S32 SplatLane() const { return Vec4S32{ vdupq_laneq_s32(v, lane) }; }
 	Vec4S32 Max(Vec4S32 other) const { return Vec4S32{ vmaxq_s32(v, other.v) }; }
 
 	void operator +=(Vec4S32 other) { v = vaddq_s32(v, other.v); }
@@ -1174,6 +1180,9 @@ struct Vec4S32 {
 	// Arithmetic: shifts in copies of the sign bit.
 	template<int imm>
 	Vec4S32 Shr() const { return Vec4S32{ __lsx_vsrai_w(v, imm) }; }
+	// Every lane set to this one's lane.
+	template<int lane>
+	Vec4S32 SplatLane() const { return Vec4S32{ __lsx_vreplvei_w(v, lane) }; }
 	Vec4S32 Max(Vec4S32 other) const { return Vec4S32{ __lsx_vmax_w(v, other.v) }; }
 
 	void operator +=(Vec4S32 other) { v = __lsx_vadd_w(v, other.v); }
@@ -1670,6 +1679,9 @@ struct Vec4S32 {
 	// Arithmetic: shifts in copies of the sign bit.
 	template<int imm>
 	Vec4S32 Shr() const { return Vec4S32{ { v[0] >> imm, v[1] >> imm, v[2] >> imm, v[3] >> imm } }; }
+	// Every lane set to this one's lane.
+	template<int lane>
+	Vec4S32 SplatLane() const { return Vec4S32{ { v[lane], v[lane], v[lane], v[lane] } }; }
 	Vec4S32 Max(Vec4S32 other) const {
 		Vec4S32 tmp;
 		for (int i = 0; i < 4; i++) {

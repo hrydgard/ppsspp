@@ -26,6 +26,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <type_traits>
 
 #include "Common/CommonTypes.h"
 #include "Common/Math/CrossSIMD.h"
@@ -170,38 +171,55 @@ inline float GEScreenZ(float clipZ, float clipW, float zScale, float zCenter) {
 }
 
 // GERowSum4's lanes that it can't do itself: a result that isn't a normal float.
-Vec4F32 GERowSum4Fallback(const float a[4], const Vec4F32 b[4], int count, Vec4S32 lanes, Vec4F32 result);
+Vec4F32 GERowSum4Fallback(Vec4F32 a, const Vec4F32 b[4], int count, Vec4S32 lanes, Vec4F32 result);
 
 // Four row sums at once: lane i is GERowSum of the products a[k] * b[k][i], k < count, so four rows
-// sharing their left operands, like the four rows of a vertex transform. Every operand must be a float24
-// (its low 8 mantissa bits zero), as matrix entries and truncated coordinates are. That makes each exact
-// product a 32-bit integer: (1.a' * 1.b') >> 15 = 32768 + a' + b' + (a' b' >> 15), a' and b' being the 15
-// fraction bits, and a' b' fits a 16-bit multiply. The terms are aligned to the largest lsb by scaling
-// with a power of two and truncating, which drops low bits toward zero as GERowSum's shifts do.
-inline Vec4F32 GERowSum4(const float a[4], const Vec4F32 b[4], int count) {
+// sharing their left operands (the lanes of a), like the four rows of a vertex transform. a is truncated
+// to float24s here; every b must be one already (its low 8 mantissa bits zero), as matrix entries are.
+// That makes each exact product a 32-bit integer: (1.a' * 1.b') >> 15 = 32768 + a' + b' + (a' b' >> 15),
+// a' and b' being the 15 fraction bits, and a' b' fits a 16-bit multiply. The terms are aligned to the
+// largest lsb by scaling with a power of two and truncating, which drops low bits toward zero as
+// GERowSum's shifts do.
+template <int count>
+inline Vec4F32 GERowSum4(Vec4F32 a, const Vec4F32 b[4]) {
+	static_assert(count >= 1 && count <= 4, "GERowSum4 sums up to four terms");
 	const Vec4S32 expMask = Vec4S32::Splat(0x7F800000);
 	const Vec4S32 fracMask = Vec4S32::Splat(0x7FFF);
 	// Below any real lsb, without overflowing the differences below.
-	const int noTerm = -100000;
+	const Vec4S32 noTerm = Vec4S32::Splat(-100000);
+
+	// The left operands' parts, for all terms at once; each term takes its lane.
+	const Vec4S32 aBits = Vec4S32FromBits(a) & Vec4S32::Splat((int)0xFFFFFF00);
+	const Vec4S32 ea = (aBits & expMask).Shr<23>();
+	const Vec4S32 af = aBits.Shr<8>() & fracMask;
+	const Vec4S32 aNone = ea.CompareEq(Vec4S32::Zero());
+	const Vec4S32 aLsb = ea - Vec4S32::Splat(254 + 15);
+
 	Vec4S32 m[4], lsb[4];
-	Vec4S32 lsbMax = Vec4S32::Splat(noTerm);
-	for (int k = 0; k < count; ++k) {
-		uint32_t abits;
-		memcpy(&abits, &a[k], sizeof(abits));
-		const int ea = (abits >> 23) & 0xFF;
-		const int af = (abits >> 8) & 0x7FFF;
+	Vec4S32 lsbMax = noTerm;
+	auto term = [&](auto lane) {
+		constexpr int k = decltype(lane)::value;
 		const Vec4S32 bb = Vec4S32FromBits(b[k]);
 		const Vec4S32 eb = (bb & expMask).Shr<23>();
 		const Vec4S32 bf = bb.Shr<8>() & fracMask;
-		Vec4S32 prod = Vec4S32::Splat(32768 + af) + bf + bf.Mul16(Vec4S32::Splat(af)).Shr<15>();
-		const Vec4S32 sign = (bb ^ Vec4S32::Splat((int)abits)).Shr<31>();
+		const Vec4S32 afk = af.template SplatLane<k>();
+		Vec4S32 prod = afk + Vec4S32::Splat(32768) + bf + bf.Mul16(afk).template Shr<15>();
+		const Vec4S32 sign = (bb ^ aBits.template SplatLane<k>()).template Shr<31>();
 		prod = (prod ^ sign) - sign;
 		// Zero and denormals give no term.
-		const Vec4S32 none = ea == 0 ? Vec4S32::Splat(-1) : eb.CompareEq(Vec4S32::Zero());
+		const Vec4S32 none = aNone.template SplatLane<k>() | eb.CompareEq(Vec4S32::Zero());
 		m[k] = prod.AndNot(none);
-		lsb[k] = (eb + Vec4S32::Splat(ea - 254 - 15)).AndNot(none) | (Vec4S32::Splat(noTerm) & none);
+		lsb[k] = (eb + aLsb.template SplatLane<k>()).AndNot(none) | (noTerm & none);
 		lsbMax = lsbMax.Max(lsb[k]);
-	}
+	};
+	term(std::integral_constant<int, 0>{});
+	if constexpr (count > 1)
+		term(std::integral_constant<int, 1>{});
+	if constexpr (count > 2)
+		term(std::integral_constant<int, 2>{});
+	if constexpr (count > 3)
+		term(std::integral_constant<int, 3>{});
+
 	Vec4S32 sum = Vec4S32::Zero();
 	for (int k = 0; k < count; ++k) {
 		// 2^(lsb - lsbMax), or zero once that's below the float range (a shift of 127 or more drops it anyway).

@@ -136,7 +136,7 @@ static bool TestGERowSum4() {
 		const int count = 1 + (i & 3);
 		const int spread = (i % 7 == 0) ? 120 : ((i % 3 == 0) ? 20 : 3);
 		const int center = (i % 11 == 0) ? (int)(next() % 254) + 1 : 127;
-		float a[4];
+		alignas(16) float a[4] = {};
 		alignas(16) float b[4][4];
 		Vec4F32 bv[4];
 		for (int k = 0; k < count; ++k) {
@@ -146,7 +146,14 @@ static bool TestGERowSum4() {
 			bv[k] = Vec4F32::Load(b[k]);
 		}
 		alignas(16) float got[4];
-		GERowSum4(a, bv, count).Store(got);
+		Vec4F32 av = Vec4F32::Load(a);
+		switch (count) {
+		case 1: av = GERowSum4<1>(av, bv); break;
+		case 2: av = GERowSum4<2>(av, bv); break;
+		case 3: av = GERowSum4<3>(av, bv); break;
+		default: av = GERowSum4<4>(av, bv); break;
+		}
+		av.Store(got);
 		for (int l = 0; l < 4; ++l) {
 			GERowTerm terms[4];
 			for (int k = 0; k < count; ++k)
@@ -175,7 +182,7 @@ static bool TestGERowSum4() {
 		const double simd = CallsPerSecond([&] {
 			Vec4F32 acc = Vec4F32::Zero();
 			for (int i = 0; i < count; ++i)
-				acc = acc + GERowSum4(&pos[i * 4], rows, 4);
+				acc = acc + GERowSum4<4>(Vec4F32::Load(&pos[i * 4]), rows);
 			alignas(16) float out[4];
 			acc.Store(out);
 			sink = out[0];

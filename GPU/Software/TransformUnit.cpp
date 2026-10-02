@@ -154,31 +154,31 @@ WorldCoords TransformUnit::ModelToWorldNormal(const ModelCoords &coords) {
 	// Each component summed like a matrix row (gpu/probe exp61), the three at once. Matrix row k is m[3k..3k+2];
 	// the fourth lane reads the next row's first entry and goes unused.
 	const float *m = gstate.worldMatrix;
-	const float a[3] = { TruncateToFloat24(coords.x), TruncateToFloat24(coords.y), TruncateToFloat24(coords.z) };
+	alignas(16) const float a[4] = { coords.x, coords.y, coords.z, 0.0f };
 	const Vec4F32 b[3] = { Vec4F32::Load(m), Vec4F32::Load(m + 3), Vec4F32::Load(m + 6) };
 	alignas(16) float out[4];
-	GERowSum4(a, b, 3).Store(out);
+	GERowSum4<3>(Vec4F32::Load(a), b).Store(out);
 	return WorldCoords(out[0], out[1], out[2]);
 }
 
 // The clip space position from the combined matrix (gpu/probe exp32, exp34, exp42), each component summed
 // like a matrix row, the four at once. The position is a float24; the translation is a term of its own.
 static inline Vec4F32 GEClipPosition(const Vec3f &v, const float m[16]) {
-	const float a[4] = { TruncateToFloat24(v.x), TruncateToFloat24(v.y), TruncateToFloat24(v.z), 1.0f };
+	alignas(16) const float a[4] = { v.x, v.y, v.z, 1.0f };
 	const Vec4F32 b[4] = { Vec4F32::Load(m), Vec4F32::Load(m + 4), Vec4F32::Load(m + 8), Vec4F32::Load(m + 12) };
-	return GERowSum4(a, b, 4);
+	return GERowSum4<4>(Vec4F32::Load(a), b);
 }
 
 // The texture coordinates from the 4x3 texture matrix, summed like clip space rows (gpu/probe exp64).
 static inline Vec3Packedf GETexGen(const Vec3f &v, const float m[12]) {
-	const float a[4] = { TruncateToFloat24(v.x), TruncateToFloat24(v.y), TruncateToFloat24(v.z), 1.0f };
+	alignas(16) const float a[4] = { v.x, v.y, v.z, 1.0f };
 	// Row k is m[3k..3k+2], padded so the last load stays inside.
 	alignas(16) float padded[13];
 	memcpy(padded, m, 12 * sizeof(float));
 	padded[12] = 0.0f;
 	const Vec4F32 b[4] = { Vec4F32::Load(padded), Vec4F32::Load(padded + 3), Vec4F32::Load(padded + 6), Vec4F32::Load(padded + 9) };
 	alignas(16) float out[4];
-	GERowSum4(a, b, 4).Store(out);
+	GERowSum4<4>(Vec4F32::Load(a), b).Store(out);
 	return Vec3Packedf(out[0], out[1], out[2]);
 }
 
