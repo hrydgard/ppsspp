@@ -95,6 +95,7 @@ struct JNIEnv {};
 #include "Core/CmdLine.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
+#include "Core/RefinedRumble.h"
 #include "Core/Loaders.h"
 #include "Core/KeyMap.h"
 #include "Core/System.h"
@@ -1236,6 +1237,15 @@ extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_keyUp(JNIEnv *, jclass, jin
 	return NativeKey(keyInput);
 }
 
+extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_canStartRefinedRumble(JNIEnv *, jclass, jint input, jboolean isAxis, jint direction) {
+	const InputMapping mapping = isAxis
+		? InputMapping(DEVICE_ID_PAD_0, input, direction)
+		: InputMapping(DEVICE_ID_PAD_0, input);
+	return IsRefinedRumbleInputAllowed(mapping);
+}
+extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_isRefinedRumbleEnabled(JNIEnv *, jclass) {
+	return IsRefinedRumbleEnabled();
+}
 extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_keyChar(JNIEnv *, jclass, jint deviceId, jint unicodeChar) {
 	if (!renderer_inited) {
 		return false; // could probably return true here too..

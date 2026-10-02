@@ -8,10 +8,15 @@
 #include "Common/Log.h"
 
 #include "Core/Config.h"
+#include "Core/Core.h"
 #include "Core/KeyMap.h"
+#include "Core/RefinedRumble.h"
 #include "SDL/SDLJoystick.h"
 
 using namespace std;
+
+static constexpr Uint32 CONTROLLER_RUMBLE_DURATION_MS = 4000;
+static constexpr Uint64 CONTROLLER_RUMBLE_REFRESH_INTERVAL_MS = 2000;
 
 static bool SDLJoystickEventHandlerWrapper(void* userdata, SDL_Event* event) {
 	static_cast<SDLJoystick *>(userdata)->ProcessInput(*event);
@@ -107,8 +112,87 @@ SDLJoystick::~SDLJoystick() {
 	if (registeredAsEventHandler) {
 		SDL_RemoveEventWatch(SDLJoystickEventHandlerWrapper, this);
 	}
+	stopAllRumble();
 	for (auto & controller : controllers) {
 		SDL_CloseGamepad(controller);
+	}
+}
+
+SDL_Gamepad *SDLJoystick::findController(SDL_JoystickID instanceId) const {
+	for (SDL_Gamepad *controller : controllers) {
+		if (SDL_GetJoystickID(SDL_GetGamepadJoystick(controller)) == instanceId)
+			return controller;
+	}
+	return nullptr;
+}
+
+bool SDLJoystick::shouldRumble(const InputMapping &mapping) const {
+	return IsRefinedRumbleInputAllowed(mapping);
+}
+
+void SDLJoystick::updateRumble(SDL_JoystickID instanceId, int inputId, bool down, const InputMapping &mapping) {
+	SDL_Gamepad *controller = findController(instanceId);
+	if (!controller || !SDL_GetBooleanProperty(SDL_GetGamepadProperties(controller), SDL_PROP_GAMEPAD_CAP_RUMBLE_BOOLEAN, false))
+		return;
+
+	auto active = activeRumbleInputs_.find(instanceId);
+	if (!down) {
+		if (active == activeRumbleInputs_.end())
+			return;
+		active->second.erase(inputId);
+		if (active->second.empty()) {
+			SDL_RumbleGamepad(controller, 0, 0, 0);
+			activeRumbleInputs_.erase(active);
+			rumbleRefreshTicks_.erase(instanceId);
+		}
+		return;
+	}
+
+	if (!shouldRumble(mapping))
+		return;
+	auto &inputs = activeRumbleInputs_[instanceId];
+	if (inputs.insert(inputId).second && inputs.size() == 1) {
+		if (!SDL_RumbleGamepad(controller, 0x8000, 0x8000, CONTROLLER_RUMBLE_DURATION_MS))
+			WARN_LOG(Log::System, "Unable to start controller rumble: %s", SDL_GetError());
+		rumbleRefreshTicks_[instanceId] = SDL_GetTicks();
+	}
+}
+
+void SDLJoystick::stopRumble(SDL_JoystickID instanceId) {
+	auto active = activeRumbleInputs_.find(instanceId);
+	if (active == activeRumbleInputs_.end())
+		return;
+	if (SDL_Gamepad *controller = findController(instanceId))
+		SDL_RumbleGamepad(controller, 0, 0, 0);
+	activeRumbleInputs_.erase(active);
+	rumbleRefreshTicks_.erase(instanceId);
+}
+
+void SDLJoystick::stopAllRumble() {
+	for (const auto &[instanceId, active] : activeRumbleInputs_) {
+		if (SDL_Gamepad *controller = findController(instanceId))
+			SDL_RumbleGamepad(controller, 0, 0, 0);
+	}
+	activeRumbleInputs_.clear();
+	rumbleRefreshTicks_.clear();
+}
+
+void SDLJoystick::UpdateRumble() {
+	if (!IsRefinedRumbleEnabled()) {
+		stopAllRumble();
+		return;
+	}
+
+	const Uint64 now = SDL_GetTicks();
+	for (const auto &[instanceId, active] : activeRumbleInputs_) {
+		if (active.empty())
+			continue;
+		auto lastRefresh = rumbleRefreshTicks_.find(instanceId);
+		if (lastRefresh == rumbleRefreshTicks_.end() || now - lastRefresh->second < CONTROLLER_RUMBLE_REFRESH_INTERVAL_MS)
+			continue;
+		if (SDL_Gamepad *controller = findController(instanceId))
+			SDL_RumbleGamepad(controller, 0x8000, 0x8000, CONTROLLER_RUMBLE_DURATION_MS);
+		rumbleRefreshTicks_[instanceId] = now;
 	}
 }
 
@@ -169,6 +253,7 @@ InputKeyCode SDLJoystick::getKeycodeForButton(SDL_GamepadButton button) {
 
 // Called when a pad is disconnected - we won't be getting any more up events from it.
 void SDLJoystick::releaseAllKeys() {
+	stopAllRumble();
 	for (int i = 0; i < SDL_GAMEPAD_BUTTON_COUNT; i++) {
 		const InputKeyCode code = getKeycodeForButton((SDL_GamepadButton)i);
 		if (code == NKCODE_UNKNOWN) {
@@ -195,27 +280,42 @@ void SDLJoystick::releaseAllKeys() {
 void SDLJoystick::ProcessInput(const SDL_Event &event){
 	switch (event.type) {
 	case SDL_EVENT_GAMEPAD_BUTTON_DOWN:
-	case SDL_EVENT_GAMEPAD_BUTTON_UP:
-	{
-		auto code = getKeycodeForButton((SDL_GamepadButton)event.gbutton.button);
+	case SDL_EVENT_GAMEPAD_BUTTON_UP: {
+		const auto code = getKeycodeForButton((SDL_GamepadButton)event.gbutton.button);
+		const bool down = event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN;
+		const int padId = 0;  // All pads currently share pad 0 for mapping compatibility.
+		const InputMapping mapping(DEVICE_ID_PAD_0 + padId, code);
+		updateRumble(event.gbutton.which, (int)event.gbutton.button, down, mapping);
 		if (code != NKCODE_UNKNOWN) {
-			const int padId = 0;  // previously getDeviceIndex(event.gbutton.which), but for now we force all pads to pad0 for config compatibility.
 			KeyInput key;
-			key.flags = event.type == SDL_EVENT_GAMEPAD_BUTTON_DOWN ? KeyInputFlags::DOWN : KeyInputFlags::UP;
+			key.flags = down ? KeyInputFlags::DOWN : KeyInputFlags::UP;
 			key.keyCode = code;
 			key.deviceId = DEVICE_ID_PAD_0 + padId;
 			NativeKey(key);
 		}
 		break;
 	}
-	case SDL_EVENT_GAMEPAD_AXIS_MOTION:
-	{
+	case SDL_EVENT_GAMEPAD_AXIS_MOTION: {
 		const int padId = 0;  // previously getDeviceIndex(event.gaxis.which), but for now we force all pads to pad0 for config compatibility.
 		InputDeviceID deviceId = DEVICE_ID_PAD_0 + padId;
 		InputAxis axisId = (InputAxis)event.gaxis.axis;
+		if (event.gaxis.axis == SDL_GAMEPAD_AXIS_LEFT_TRIGGER)
+			axisId = JOYSTICK_AXIS_LTRIGGER;
+		else if (event.gaxis.axis == SDL_GAMEPAD_AXIS_RIGHT_TRIGGER)
+			axisId = JOYSTICK_AXIS_RTRIGGER;
 		float value = event.gaxis.value * (1.f / 32767.f);
 		if (value > 1.0f) value = 1.0f;
 		if (value < -1.0f) value = -1.0f;
+		if (event.gaxis.axis == SDL_GAMEPAD_AXIS_LEFT_TRIGGER || event.gaxis.axis == SDL_GAMEPAD_AXIS_RIGHT_TRIGGER) {
+			const int rumbleInput = SDL_GAMEPAD_BUTTON_COUNT + event.gaxis.axis;
+			auto active = activeRumbleInputs_.find(event.gaxis.which);
+			const bool triggerDown = active != activeRumbleInputs_.end() && active->second.find(rumbleInput) != active->second.end();
+			const InputMapping mapping(deviceId, axisId, 1);
+			if (!triggerDown && value >= 0.5f)
+				updateRumble(event.gaxis.which, rumbleInput, true, mapping);
+			else if (triggerDown && value <= 0.4f)
+				updateRumble(event.gaxis.which, rumbleInput, false, mapping);
+		}
 		auto key = std::pair<InputDeviceID, InputAxis>(deviceId, axisId);
 		auto iter = prevAxisValue_.find(key);
 		if (iter == prevAxisValue_.end()) {
@@ -233,6 +333,7 @@ void SDLJoystick::ProcessInput(const SDL_Event &event){
 	case SDL_EVENT_GAMEPAD_REMOVED:
 		for (auto it = controllers.begin(); it != controllers.end(); ++it) {
 			if (SDL_GetJoystickID(SDL_GetGamepadJoystick(*it)) == event.gdevice.which) {
+				stopRumble(event.gdevice.which);
 				SDL_CloseGamepad(*it);
 				controllerDeviceMap.erase(event.gdevice.which);
 				controllers.erase(it);
@@ -245,8 +346,7 @@ void SDLJoystick::ProcessInput(const SDL_Event &event){
 			}
 		}
 		break;
-	case SDL_EVENT_GAMEPAD_ADDED:
-	{
+	case SDL_EVENT_GAMEPAD_ADDED: {
 		int prevNumControllers = controllers.size();
 		setUpController(event.gdevice.which);
 		if (prevNumControllers == 0 && controllers.size() > 0) {

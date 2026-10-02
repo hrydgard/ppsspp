@@ -818,7 +818,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 
 							// Notify Native layer that this specific device is gone
 							// This is important so the C++ side can clear button states
-							NativeApp.sendMessageFromJava("inputDeviceDisconnectedID", String.valueOf(state.getDeviceId()));
+							state.Disconnect();
 							inputPlayers.remove(i);
 							break;
 						}
@@ -1024,6 +1024,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	protected void onPause() {
 		super.onPause();
 		lifeCycle.onPause();
+		for (InputDeviceState input : inputPlayers) {
+			input.StopRumble();
+		}
 
 		InputManager inputManager = (InputManager)getSystemService(Context.INPUT_SERVICE);
 		inputManager.unregisterInputDeviceListener(inputDeviceListener);

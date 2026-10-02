@@ -522,6 +522,8 @@ public:
 	bool bShowTouchPause;
 
 	bool bHapticFeedback;
+	bool bControllerHapticFeedback;
+	std::string sControllerVibrationPauseButton[5];
 
 	// We also use the XInput settings as analog settings on other platforms like Android.
 	float fAnalogDeadzone;

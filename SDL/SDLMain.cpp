@@ -2236,6 +2236,8 @@ int main(int argc, char *argv[]) {
 			if (g_QuitRequested || g_RestartRequested)
 				break;
 
+			if (joystick)
+				joystick->UpdateRumble();
 			UpdateTextFocus(window);
 			UpdateSDLCursor();
 #if !PPSSPP_PLATFORM(MAC)
@@ -2270,6 +2272,8 @@ int main(int argc, char *argv[]) {
 			if (g_QuitRequested || g_RestartRequested)
 				break;
 
+			if (joystick)
+				joystick->UpdateRumble();
 			UpdateTextFocus(window);
 			UpdateSDLCursor();
 #if !PPSSPP_PLATFORM(MAC)
