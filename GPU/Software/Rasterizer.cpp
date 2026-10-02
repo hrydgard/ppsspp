@@ -2141,7 +2141,7 @@ static void LinePixels(int64_t x0, int64_t y0, int64_t x1, int64_t y1, std::vect
 // setup reciprocal like a triangle plane's, with 14 fraction bits per subpixel and floored, and a pixel's value
 // is the start color plus the gradient times the signed distance of its center from v0 along the line's
 // direction, floored.
-static int LineColorAt(int c0, int c1, int64_t x0, int64_t y0, int64_t x1, int64_t y1, int px, int py) {
+static int LineValueAt(int c0, int c1, int64_t x0, int64_t y0, int64_t x1, int64_t y1, int px, int py, int maxValue) {
 	const bool xMajor = std::abs(x1 - x0) > std::abs(y1 - y0);
 	const int64_t a0 = xMajor ? x0 : y0, a1 = xMajor ? x1 : y1;
 	const int64_t ac = (int64_t)(xMajor ? px : py) * SCREEN_SCALE_FACTOR + SCREEN_SCALE_FACTOR / 2;
@@ -2151,7 +2151,11 @@ static int LineColorAt(int c0, int c1, int64_t x0, int64_t y0, int64_t x1, int64
 	const int64_t q = GESetupRecip((uint64_t)std::abs(a1 - a0), &e);
 	const int64_t k = ((int64_t)(c1 - c0) * q) >> (e + 2);
 	const int64_t walk = a1 > a0 ? ac - a0 : a0 - ac;
-	return std::clamp((int)((((int64_t)c0 << 14) + k * walk) >> 14), 0, 255);
+	return (int)std::clamp<int64_t>((((int64_t)c0 << 14) + k * walk) >> 14, 0, maxValue);
+}
+
+static int LineColorAt(int c0, int c1, int64_t x0, int64_t y0, int64_t x1, int64_t y1, int px, int py) {
+	return LineValueAt(c0, c1, x0, y0, x1, y1, px, py, 255);
 }
 
 void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range, const RasterizerState &state) {
@@ -2177,7 +2181,6 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 
 	double xinc = (double)dx / steps;
 	double yinc = (double)dy / steps;
-	double zinc = (double)dz / steps;
 
 	auto &pixelID = state.pixelID;
 	auto &samplerID = state.samplerID;
@@ -2200,7 +2203,9 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 		const int i = std::clamp((int)lroundf(lp.t * steps), 0, steps);
 		const double x = lp.x * SCREEN_SCALE_FACTOR + SCREEN_SCALE_FACTOR / 2;
 		const double y = lp.y * SCREEN_SCALE_FACTOR + SCREEN_SCALE_FACTOR / 2;
-		const double z = a.z + lp.t * dz;
+		// Depth the same way as Gouraud color, so an endpoint's pixel extrapolates to its center (Coded Arms'
+		// short lines passed a GEQUAL test there).
+		const int z = LineValueAt(a.z, b.z, a.x, a.y, b.x, b.y, lp.x, lp.y, 65535);
 		DrawingCoords p = TransformUnit::ScreenToDrawing(x, y);
 
 		bool maskOK = x >= range.x1 && y >= range.y1 && x <= range.x2 && y <= range.y2;
