@@ -1375,6 +1375,9 @@ void DrawTriangleSlice(
 					const int64_t z00 = depthPlane.base + depthPlane.kx * (curX + SCREEN_SCALE_FACTOR / 2) + depthPlane.ky * (curY + SCREEN_SCALE_FACTOR / 2);
 					const int64_t dx = depthPlane.kx * SCREEN_SCALE_FACTOR, dy = depthPlane.ky * SCREEN_SCALE_FACTOR;
 					z = Vec4<int>((int)(z00 >> 14), (int)((z00 + dx) >> 14), (int)((z00 + dy) >> 14), (int)((z00 + dx + dy) >> 14));
+					// A value floored below 0 (next to an edge of z = 0 vertices) is 0 (gpu/probe exp148).
+					for (int i = 0; i < 4; ++i)
+						z[i] = std::max(z[i], 0);
 				}
 
 				if (pixelID.earlyZChecks) {
