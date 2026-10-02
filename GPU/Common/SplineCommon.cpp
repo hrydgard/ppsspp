@@ -55,12 +55,14 @@ namespace Spline {
 
 static void CopyQuadIndex(u16 *&indices, GEPatchPrimType type, const int idx0, const int idx1, const int idx2, const int idx3) {
 	if (type == GE_PATCHPRIM_LINES) {
+		// A zigzag per quad: left edge down, the diagonal up to the top right, right edge down (gpu/probe exp175,
+		// exact: line colors and lit start pixels show the directions, and overlapping pixels the order).
 		*(indices++) = idx0;
 		*(indices++) = idx2;
+		*(indices++) = idx2;
+		*(indices++) = idx1;
 		*(indices++) = idx1;
 		*(indices++) = idx3;
-		*(indices++) = idx1;
-		*(indices++) = idx2;
 	} else {
 		*(indices++) = idx0;
 		*(indices++) = idx2;
