@@ -253,12 +253,13 @@ int GELineCoverageAlpha(int64_t x0, int64_t y0, int64_t x1, int64_t y1, int px, 
 	const int64_t den = x1 - x0;
 	if (den == 0)
 		return 128;
-	// The minor position at the pixel's major coordinate uses the triangle setup's reciprocal of the major
-	// length, walking from v0, and v = floor(o) (gpu/probe exp112: 1735 of 1744).
+	// The minor offset at the pixel walks from v0 along the major axis with a slope like a triangle plane's
+	// gradient: the setup reciprocal of the major length, 14 fraction bits per subpixel, floored
+	// (gpu/probe exp112, exact).
 	int e;
 	const int64_t q = GESetupRecip((uint64_t)std::abs(den), &e);
 	const int64_t walk = den > 0 ? PX - x0 : x0 - PX;
-	const int sh = e + 16;
-	const int64_t o = ((16 * (PY - y0)) * ((int64_t)1 << sh) - 16 * (y1 - y0) * walk * q) >> sh;
+	const int64_t slope = (-16 * (y1 - y0) * q) >> (e + 2);
+	const int64_t o = ((16 * (PY - y0)) * (1 << 14) + slope * walk) >> 14;
 	return (int)std::clamp<int64_t>(128 - (o < 0 ? -o : o), 0, 255);
 }
