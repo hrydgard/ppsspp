@@ -491,7 +491,14 @@ void DumpExecute::Registers(u32 ptr, u32 sz) {
 		Memory::WriteUnchecked_U32((GE_CMD_JUMP << 24) | (execListBuf & 0x00FFFFFF), execListPos + 4);
 
 		execListPos = execListBuf;
-		lastBase_ = execListBuf & 0xFF000000;
+		// The queued vertex, index and texture addresses were made for the previous base, which the jump
+		// just replaced (Tiger Woods ULUS10420 then read draw 21026's indices from 16 MB away).
+		if (lastBase_ != 0xFFFFFFFF && lastBase_ != (execListBuf & 0xFF000000)) {
+			Memory::WriteUnchecked_U32((GE_CMD_BASE << 24) | ((lastBase_ >> 8) & 0x00FF0000), execListPos);
+			execListPos += 4;
+		} else {
+			lastBase_ = execListBuf & 0xFF000000;
+		}
 
 		// Don't continue until we've stalled.
 		// TODO: Is this really needed? It seems fine without it.
