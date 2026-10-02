@@ -28,6 +28,7 @@
 #include <cstring>
 
 #include "Common/CommonTypes.h"
+#include "Common/Math/CrossSIMD.h"
 #include "GPU/Math3D.h"
 
 using namespace Math3D;
@@ -166,6 +167,59 @@ inline float GEViewport(float clipC, float clipW, float scale, float center) {
 // Screen Z is floored.
 inline float GEScreenZ(float clipZ, float clipW, float zScale, float zCenter) {
 	return floorf(GEViewport(clipZ, clipW, zScale, zCenter));
+}
+
+// GERowSum4's lanes that it can't do itself: a result exponent past what one float scale reaches.
+Vec4F32 GERowSum4Fallback(const float a[4], const Vec4F32 b[4], int count, Vec4S32 lanes, Vec4F32 result);
+
+// Four row sums at once: lane i is GERowSum of the products a[k] * b[k][i], k < count, so four rows
+// sharing their left operands, like the four rows of a vertex transform. Every operand must be a float24
+// (its low 8 mantissa bits zero), as matrix entries and truncated coordinates are. That makes each exact
+// product a 32-bit integer: (1.a' * 1.b') >> 15 = 32768 + a' + b' + (a' b' >> 15), a' and b' being the 15
+// fraction bits, and a' b' fits a 16-bit multiply. The terms are aligned to the largest lsb by scaling
+// with a power of two and truncating, which drops low bits toward zero as GERowSum's shifts do.
+inline Vec4F32 GERowSum4(const float a[4], const Vec4F32 b[4], int count) {
+	const Vec4S32 expMask = Vec4S32::Splat(0x7F800000);
+	const Vec4S32 fracMask = Vec4S32::Splat(0x7FFF);
+	// Below any real lsb, without overflowing the differences below.
+	const int noTerm = -100000;
+	Vec4S32 m[4], lsb[4];
+	Vec4S32 lsbMax = Vec4S32::Splat(noTerm);
+	for (int k = 0; k < count; ++k) {
+		uint32_t abits;
+		memcpy(&abits, &a[k], sizeof(abits));
+		const int ea = (abits >> 23) & 0xFF;
+		const int af = (abits >> 8) & 0x7FFF;
+		const Vec4S32 bb = Vec4S32FromBits(b[k]);
+		const Vec4S32 eb = (bb & expMask).Shr<23>();
+		const Vec4S32 bf = bb.Shr<8>() & fracMask;
+		Vec4S32 prod = Vec4S32::Splat(32768 + af) + bf + bf.Mul16(Vec4S32::Splat(af)).Shr<15>();
+		const Vec4S32 sign = (bb ^ Vec4S32::Splat((int)abits)).Shr<31>();
+		prod = (prod ^ sign) - sign;
+		// Zero and denormals give no term.
+		const Vec4S32 none = ea == 0 ? Vec4S32::Splat(-1) : eb.CompareEq(Vec4S32::Zero());
+		m[k] = prod.AndNot(none);
+		lsb[k] = (eb + Vec4S32::Splat(ea - 254 - 15)).AndNot(none) | (Vec4S32::Splat(noTerm) & none);
+		const Vec4S32 greater = lsb[k].CompareGt(lsbMax);
+		lsbMax = (lsb[k] & greater) | lsbMax.AndNot(greater);
+	}
+	Vec4S32 sum = Vec4S32::Zero();
+	for (int k = 0; k < count; ++k) {
+		// 2^(lsb - lsbMax), or zero once that's below the float range (a shift of 127 or more drops it anyway).
+		Vec4S32 field = lsb[k] - lsbMax + Vec4S32::Splat(127);
+		field = field.AndNot(field.Shr<31>());
+		const Vec4F32 scale = Vec4F32FromBits(field.Shl<23>());
+		sum += Vec4S32FromF32(Vec4F32FromS32(m[k]) * scale);
+	}
+	const Vec4S32 resultField = lsbMax + Vec4S32::Splat(127);
+	const Vec4S32 zero = sum.CompareEq(Vec4S32::Zero());
+	Vec4F32 result = Vec4F32FromS32(sum) * Vec4F32FromBits(resultField.Shl<23>());
+	result = Vec4F32FromBits((Vec4S32FromBits(result) & Vec4S32::Splat((int)0xFFFFFF00)).AndNot(zero));
+	// sum * 2^lsbMax only takes one float multiply while 2^lsbMax is a normal float.
+	const Vec4S32 outside = (resultField.CompareLt(Vec4S32::Splat(1)) | resultField.CompareGt(Vec4S32::Splat(254))).AndNot(zero);
+	if (AnyCompareBitsSet(outside))
+		return GERowSum4Fallback(a, b, count, outside, result);
+	return result;
 }
 
 float GEAddFloat24(float a, float b);

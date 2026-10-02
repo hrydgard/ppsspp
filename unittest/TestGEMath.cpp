@@ -106,6 +106,62 @@ static bool TestGEDot() {
 	return true;
 }
 
+// GERowSum4 against GERowSum, bit for bit, on random float24s: mixed signs, zeros and denormals, exponents
+// close together (so the terms' alignment matters) and far apart, including ones past the vector path.
+static bool TestGERowSum4() {
+	uint32_t state = 12345;
+	auto next = [&]() {
+		state = state * 1664525u + 1013904223u;
+		return state;
+	};
+	auto randomFloat24 = [&](int center, int spread) {
+		const uint32_t r = next();
+		if ((r & 31) == 0)
+			return 0.0f;
+		uint32_t bits;
+		if ((r & 31) == 1) {
+			bits = next() & 0x007FFF00;  // denormal
+		} else {
+			const int e = std::clamp(center + (int)(next() % (2 * spread + 1)) - spread, 1, 254);
+			bits = ((uint32_t)e << 23) | (next() & 0x007FFF00);
+		}
+		if (r & 64)
+			bits |= 0x80000000;
+		float f;
+		memcpy(&f, &bits, sizeof(f));
+		return f;
+	};
+	for (int i = 0; i < 200000; ++i) {
+		const int count = 1 + (i & 3);
+		const int spread = (i % 7 == 0) ? 120 : ((i % 3 == 0) ? 20 : 3);
+		const int center = (i % 11 == 0) ? (int)(next() % 254) + 1 : 127;
+		float a[4];
+		alignas(16) float b[4][4];
+		Vec4F32 bv[4];
+		for (int k = 0; k < count; ++k) {
+			a[k] = randomFloat24(center, spread);
+			for (int l = 0; l < 4; ++l)
+				b[k][l] = randomFloat24(center, spread);
+			bv[k] = Vec4F32::Load(b[k]);
+		}
+		alignas(16) float got[4];
+		GERowSum4(a, bv, count).Store(got);
+		for (int l = 0; l < 4; ++l) {
+			GERowTerm terms[4];
+			for (int k = 0; k < count; ++k)
+				terms[k] = GEProduct(a[k], b[k][l]);
+			const float want = GERowSum(terms, count);
+			if (memcmp(&got[l], &want, sizeof(float)) != 0) {
+				printf("GERowSum4: case %d lane %d: %a, want %a (count %d)\n", i, l, got[l], want, count);
+				for (int k = 0; k < count; ++k)
+					printf("  %a * %a\n", a[k], b[k][l]);
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
 static bool TestGESetupRecip() {
 	// The triangle setup's reciprocal for 16-bit significand indices, measured on a PSP (exp38-41).
 	static const int measured[][2] = {
@@ -219,6 +275,7 @@ bool TestGEMath() {
 	ok = TestGERsqrt() && ok;
 	ok = TestGEAdd() && ok;
 	ok = TestGEDot() && ok;
+	ok = TestGERowSum4() && ok;
 	ok = TestGESetupRecip() && ok;
 	ok = TestGELog16() && ok;
 	ok = TestTexCoordPrecision() && ok;

@@ -114,6 +114,24 @@ float GEAddFloat24(float a, float b) {
 }
 
 // A dot product as the GE's dot product unit sums it (like a matrix row without translation).
+Vec4F32 GERowSum4Fallback(const float a[4], const Vec4F32 b[4], int count, Vec4S32 lanes, Vec4F32 result) {
+	alignas(16) float bv[4][4], rv[4];
+	alignas(16) int lv[4];
+	for (int k = 0; k < count; ++k)
+		Vec4F32(b[k]).Store(bv[k]);
+	result.Store(rv);
+	lanes.Store(lv);
+	for (int i = 0; i < 4; ++i) {
+		if (!lv[i])
+			continue;
+		GERowTerm terms[4];
+		for (int k = 0; k < count; ++k)
+			terms[k] = GEProduct(a[k], bv[k][i]);
+		rv[i] = GERowSum(terms, count);
+	}
+	return Vec4F32::Load(rv);
+}
+
 float GEDot(const Vec3f &a, const Vec3f &b) {
 	GERowTerm terms[3] = {
 		GEProduct(TruncateToFloat24(a.x), TruncateToFloat24(b.x)),
