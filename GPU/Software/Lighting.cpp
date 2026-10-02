@@ -33,20 +33,12 @@
 
 namespace Lighting {
 
-static inline Vec3f GetLightVec(const u32 lparams[12], int light) {
-#if defined(_M_SSE) && !PPSSPP_ARCH(X86)
-	__m128i values = _mm_loadu_si128((__m128i *)&lparams[3 * light]);
-	__m128i from24 = _mm_slli_epi32(values, 8);
-	return _mm_castsi128_ps(from24);
-#elif PPSSPP_ARCH(ARM64_NEON)
-	uint32x4_t values = vld1q_u32((uint32_t *)&lparams[3 * light]);
-	uint32x4_t from24 = vshlq_n_u32(values, 8);
-	return vreinterpretq_f32_u32(from24);
-#else
-	return Vec3<float>(getFloat24(lparams[3 * light]), getFloat24(lparams[3 * light + 1]), getFloat24(lparams[3 * light + 2]));
-#endif
+// Lane 3 is zero.
+static inline Vec4F32 GetLightVec(const u32 lparams[12], int light) {
+	return Vec4F32::LoadF24x3_One(&lparams[3 * light]).WithLane3Zero();
 }
 
+static const float zAxis[4] = { 0.0f, 0.0f, 1.0f, 0.0f };
 
 static inline Vec4<int> LightColorFactor(const Vec4<int> &expanded, const Vec4<int> &ones) {
 #if defined(_M_SSE) && !PPSSPP_ARCH(X86)
@@ -60,6 +52,15 @@ static inline Vec4<int> LightColorFactor(const Vec4<int> &expanded, const Vec4<i
 
 static inline Vec4<int> LightColorFactor(uint32_t c, const Vec4<int> &ones) {
 	return LightColorFactor(Vec4<int>::FromRGBA(c), ones);
+}
+
+// The light vector's constant term (GELightVector): the light position minus the world translation, with the
+// GE's adder, both float24s.
+static inline Vec4F32 GELightTranslation(Vec4F32 lpos) {
+	// m[9..11], the world translation (lane 3 reads past the matrix).
+	const Vec4F32 t = Vec4F32::Load(gstate.worldMatrix + 9).WithLane3Zero();
+	const Vec4F32 negT = Vec4F32FromBits(Vec4S32FromBits(TruncateToFloat24x4(t)) ^ Vec4S32::Splat((int)0x80000000));
+	return GEAddFloat24x4(lpos, negT);
 }
 
 // Whether a color factor (2c + 1 per channel, see LightColorFactor) has any channel above zero. The alpha
@@ -118,9 +119,10 @@ void ComputeState(State *state, bool hasColor0) {
 		lstate.directional = gstate.isDirectionalLight(light);
 		if (lstate.directional) {
 			// A zero direction stays zero: no diffuse, and the half vector is just the eye's (gpu/probe exp164).
-			GENormalize(lstate.pos);
+			GENormalize4(lstate.pos);
 		} else {
 			lstate.att = GetLightVec(gstate.latt, light);
+			lstate.translated = GELightTranslation(lstate.pos);
 			anyNonDirectional = true;
 		}
 
@@ -131,11 +133,14 @@ void ComputeState(State *state, bool hasColor0) {
 			// A component with exponent 255 (inf or NaN) acts as the largest value of its sign, so after the
 			// scaling below the finite ones vanish next to it (gpu/commands/light: -NAN and -INFINITY light
 			// like (-1, -1, -1), NAN and INFINITY like (1, 1, 1)).
-			if (!std::isfinite(lstate.spotDir.x) || !std::isfinite(lstate.spotDir.y) || !std::isfinite(lstate.spotDir.z)) {
+			alignas(16) float dir[4];
+			lstate.spotDir.Store(dir);
+			if (!std::isfinite(dir[0]) || !std::isfinite(dir[1]) || !std::isfinite(dir[2])) {
 				for (int i = 0; i < 3; ++i)
-					lstate.spotDir[i] = std::isfinite(lstate.spotDir[i]) ? 0.0f : (std::signbit(lstate.spotDir[i]) ? -1.0f : 1.0f);
+					dir[i] = std::isfinite(dir[i]) ? 0.0f : (std::signbit(dir[i]) ? -1.0f : 1.0f);
+				lstate.spotDir = Vec4F32::Load(dir);
 			}
-			const float dirLen2 = GEDot(lstate.spotDir, lstate.spotDir);
+			const float dirLen2 = GEDot3(lstate.spotDir, lstate.spotDir);
 			lstate.spotDirRsqrt = dirLen2 > 0.0f && std::isfinite(dirLen2) ? GERsqrt(dirLen2) : 0.0f;
 			lstate.spotCutoff = getFloat24(gstate.lcutoff[light]);
 			if (std::isnan(lstate.spotCutoff) && std::signbit(lstate.spotCutoff))
@@ -193,42 +198,37 @@ void ComputeState(State *state, bool hasColor0) {
 
 // PSPShadeMapCoord in the GE's arithmetic, with L as lighting computes it.
 // v . N for the unnormalized normal N, scaled by its reciprocal length (the spot direction works the same).
-static inline float GENormalDot(const Vec3f &v, const Vec3f &n, float nRsqrt) {
-	return ProductToFloat24((double)GEDot(v, n) * nRsqrt);
+static inline float GENormalDot(Vec4F32 v, Vec4F32 n, float nRsqrt) {
+	return ProductToFloat24((double)GEDot3(v, n) * nRsqrt);
 }
 
 // The vector from a vertex to a point light as the GE computes it (gpu/probe exp153-158): the light position
 // minus the world translation (with the GE's adder), minus the model position times the world matrix, summed
 // like a matrix row. No world space position is formed; lighting with one in float24 loses the products' low
 // bits to a large translation (Syphon Filter #13568).
-static Vec3f GELightVector(const Vec3f &lpos, const Vec3f &modelpos) {
+static Vec4F32 GELightVector(Vec4F32 translated, Vec4F32 modelpos) {
 	const float *m = gstate.worldMatrix;
 	// The three components at once; matrix row k is m[3k..3k+2], negated.
-	alignas(16) const float a[4] = { modelpos.x, modelpos.y, modelpos.z, 1.0f };
-	alignas(16) const float translated[4] = { GEAddFloat24(lpos[0], -TruncateToFloat24(m[9])), GEAddFloat24(lpos[1], -TruncateToFloat24(m[10])), GEAddFloat24(lpos[2], -TruncateToFloat24(m[11])), 0.0f };
 	// Negated by the sign bit, as -m is (a subtraction from zero wouldn't flip a NaN's).
 	const Vec4S32 sign = Vec4S32::Splat((int)0x80000000);
 	auto negate = [&](const float *p) { return Vec4F32FromBits(Vec4S32FromBits(Vec4F32::Load(p)) ^ sign); };
-	const Vec4F32 b[4] = { negate(m), negate(m + 3), negate(m + 6), Vec4F32::Load(translated) };
-	alignas(16) float out[4];
-	GERowSum4<4>(Vec4F32::Load(a), b).Store(out);
-	return Vec3f(out[0], out[1], out[2]);
+	const Vec4F32 b[4] = { negate(m), negate(m + 3), negate(m + 6), translated };
+	return GERowSum4<4>(modelpos, b);
 }
 
-static float GEShadeMapCoord(int l, const Vec3f &modelpos, const WorldCoords &worldnormal, float normalRsqrt, const Vec3f &viewDir) {
-	Vec3f L(getFloat24(gstate.lpos[l * 3]), getFloat24(gstate.lpos[l * 3 + 1]), getFloat24(gstate.lpos[l * 3 + 2]));
+static float GEShadeMapCoord(int l, Vec4F32 modelpos, Vec4F32 worldnormal, float normalRsqrt, Vec4F32 viewDir) {
+	Vec4F32 L = GetLightVec(gstate.lpos, l);
 	if (gstate.getLightType(l) != GE_LIGHTTYPE_DIRECTIONAL)
-		L = GELightVector(L, modelpos);
-	GENormalize(L);
+		L = GELightVector(GELightTranslation(L), modelpos);
+	GENormalize4(L);
 	if (gstate.isUsingSpecularLight(l)) {
-		for (int i = 0; i < 3; ++i)
-			L[i] = GEAddFloat24(L[i], viewDir[i]);
-		GENormalize(L);
+		L = GEAddFloat24x4(L, viewDir);
+		GENormalize4(L);
 	}
 	return GEAddFloat24(GENormalDot(L, worldnormal, normalRsqrt), 1.0f) * 0.5f;
 }
 
-void GenerateLightST(VertexData &vertex, const Vec3f &modelpos, const WorldCoords &worldnormal, float normalRsqrt, const Vec3f &viewDir) {
+void GenerateLightST(VertexData &vertex, Vec4F32 modelpos, Vec4F32 worldnormal, float normalRsqrt, Vec4F32 viewDir) {
 	// Always calculate texture coords from lighting results if environment mapping is active
 	// This should be done even if lighting is disabled altogether.
 	vertex.texturecoords.s() = GEShadeMapCoord(gstate.getUVLS0(), modelpos, worldnormal, normalRsqrt, viewDir);
@@ -264,7 +264,7 @@ static inline float Dot33(const Vec3f &a, const Vec3f &b) {
 }
 
 template <bool useSSE4>
-static void ProcessSIMD(VertexData &vertex, const Vec3f &modelpos, const WorldCoords &worldnormal, float normalRsqrt, const State &state) {
+static void ProcessSIMD(VertexData &vertex, Vec4F32 modelpos, Vec4F32 worldnormal, float normalRsqrt, const State &state) {
 	// Lighting blending rounds using the half offset method (like alpha blend.)
 	Vec4<int> colorFactor;
 	if (state.colorForAmbient || state.colorForDiffuse || state.colorForSpecular) {
@@ -287,20 +287,21 @@ static void ProcessSIMD(VertexData &vertex, const Vec3f &modelpos, const WorldCo
 
 		// L =  vector from vertex to light source
 		// TODO: Should transfer the light positions to world/view space for these calculations?
-		Vec3<float> L = lstate.pos;
+		Vec4F32 L = lstate.pos;
 		// Attenuation and spot each scale the light's colors as their own 8-bit factor (gpu/probe exp100).
 		float att = 1.0f;
 		float spot = 1.0f;
 		if (!lstate.directional) {
-			L = GELightVector(L, modelpos);
+			L = GELightVector(lstate.translated, modelpos);
 			// TODO: Should this normalize (0, 0, 0) to (0, 0, 1)?
 			// The quadratic term takes the squared length from the normalization, not d * d (gpu/probe exp63).
-			const float d2 = GEDot(L, L);
-			float d = GENormalize(L);
+			const float d2 = GEDot3(L, L);
+			float d = GENormalize4(L, d2);
 			if (d == 0.0f)
-				L = Vec3f(0.0f, 0.0f, 1.0f);
+				L = Vec4F32::Load(zAxis);
 
-			const float den = GEDot(lstate.att, Vec3f(1.0f, d, d2));
+			alignas(16) const float factors[4] = { 1.0f, d, d2, 0.0f };
+			const float den = GEDot3(lstate.att, Vec4F32::Load(factors));
 			att = den > 0.0f ? GERecip(den) : 0.0f;
 			if (!(att > 0.0f))
 				att = 0.0f;
@@ -309,7 +310,7 @@ static void ProcessSIMD(VertexData &vertex, const Vec3f &modelpos, const WorldCo
 		}
 
 		if (lstate.spot) {
-			float rawSpot = ProductToFloat24((double)GEDot(lstate.spotDir, L) * lstate.spotDirRsqrt);
+			float rawSpot = ProductToFloat24((double)GEDot3(lstate.spotDir, L) * lstate.spotDirRsqrt);
 			if (std::isnan(rawSpot))
 				rawSpot = std::signbit(rawSpot) ? 0.0f : 1.0f;
 
@@ -354,11 +355,9 @@ static void ProcessSIMD(VertexData &vertex, const Vec3f &modelpos, const WorldCo
 		}
 
 		if (lstate.specular && diffuse_factor >= 0.0f) {
-			Vec3<float> H;
-			for (int i = 0; i < 3; ++i)
-				H[i] = GEAddFloat24(L[i], state.viewDir[i]);
-			if (GENormalize(H) == 0.0f)
-				H = Vec3f(0.0f, 0.0f, 1.0f);
+			Vec4F32 H = GEAddFloat24x4(L, state.viewDir);
+			if (GENormalize4(H) == 0.0f)
+				H = Vec4F32::Load(zAxis);
 
 			float specular_factor = GENormalDot(H, worldnormal, normalRsqrt);
 			specular_factor = GELightPow(specular_factor, state.specularExp);
@@ -383,7 +382,7 @@ static void ProcessSIMD(VertexData &vertex, const Vec3f &modelpos, const WorldCo
 	}
 }
 
-void Process(VertexData &vertex, const Vec3f &modelpos, const WorldCoords &worldnormal, float normalRsqrt, const State &state) {
+void Process(VertexData &vertex, Vec4F32 modelpos, Vec4F32 worldnormal, float normalRsqrt, const State &state) {
 #ifdef _M_SSE
 	if (cpu_info.bSSE4_1) {
 		ProcessSIMD<true>(vertex, modelpos, worldnormal, normalRsqrt, state);

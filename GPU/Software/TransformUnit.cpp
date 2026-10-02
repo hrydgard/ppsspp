@@ -150,35 +150,26 @@ VertexDecoder *SoftwareDrawEngine::FindVertexDecoder(u32 vtype) {
 	return DrawEngineCommon::GetVertexDecoder(vertTypeID);
 }
 
-WorldCoords TransformUnit::ModelToWorldNormal(const ModelCoords &coords) {
+Vec4F32 TransformUnit::ModelToWorldNormal(Vec4F32 normal) {
 	// Each component summed like a matrix row (gpu/probe exp61), the three at once. Matrix row k is m[3k..3k+2];
-	// the fourth lane reads the next row's first entry and goes unused.
+	// the fourth lane reads the next row's first entry and goes unused, as does the normal's.
 	const float *m = gstate.worldMatrix;
-	alignas(16) const float a[4] = { coords.x, coords.y, coords.z, 0.0f };
 	const Vec4F32 b[3] = { Vec4F32::Load(m), Vec4F32::Load(m + 3), Vec4F32::Load(m + 6) };
-	alignas(16) float out[4];
-	GERowSum4<3>(Vec4F32::Load(a), b).Store(out);
-	return WorldCoords(out[0], out[1], out[2]);
+	return GERowSum4<3>(normal, b);
 }
 
 // The clip space position from the combined matrix (gpu/probe exp32, exp34, exp42), each component summed
-// like a matrix row, the four at once. The position is a float24; the translation is a term of its own.
-static inline Vec4F32 GEClipPosition(const Vec3f &v, const float m[16]) {
-	alignas(16) const float a[4] = { v.x, v.y, v.z, 1.0f };
+// like a matrix row, the four at once. The position is (x, y, z, 1); the translation is a term of its own.
+static inline Vec4F32 GEClipPosition(Vec4F32 pos, const float m[16]) {
 	const Vec4F32 b[4] = { Vec4F32::Load(m), Vec4F32::Load(m + 4), Vec4F32::Load(m + 8), Vec4F32::Load(m + 12) };
-	return GERowSum4<4>(Vec4F32::Load(a), b);
+	return GERowSum4<4>(pos, b);
 }
 
-// The texture coordinates from the 4x3 texture matrix, summed like clip space rows (gpu/probe exp64).
-static inline Vec3Packedf GETexGen(const Vec3f &v, const float m[12]) {
-	alignas(16) const float a[4] = { v.x, v.y, v.z, 1.0f };
-	// Row k is m[3k..3k+2], padded so the last load stays inside.
-	alignas(16) float padded[13];
-	memcpy(padded, m, 12 * sizeof(float));
-	padded[12] = 0.0f;
-	const Vec4F32 b[4] = { Vec4F32::Load(padded), Vec4F32::Load(padded + 3), Vec4F32::Load(padded + 6), Vec4F32::Load(padded + 9) };
+// The texture coordinates from the 4x3 texture matrix's rows, summed like clip space rows (gpu/probe exp64).
+// The source is (x, y, z, 1).
+static inline Vec3Packedf GETexGen(Vec4F32 source, const Vec4F32 rows[4]) {
 	alignas(16) float out[4];
-	GERowSum4<4>(Vec4F32::Load(a), b).Store(out);
+	GERowSum4<4>(source, rows).Store(out);
 	return Vec3Packedf(out[0], out[1], out[2]);
 }
 
@@ -277,13 +268,16 @@ struct TransformState {
 	// With finite fog parameters, the GE's own arithmetic (gpu/probe exp20): the view z as a row of the
 	// combined world-view matrix, then float24(GEAdd(z, end) * slope).
 	bool fogGE;
-	float viewZColumn[4];
+	Vec4F32 viewZRows[4];
 	float fogEnd;
 	float fogSlope;
 	Vec3f screenScale;
 	Vec3f screenAdd;
 
 	ScreenCoords(*roundToScreen)(Vec3f scaled, const ClipCoords &coords, bool *outside_range_flag);
+
+	// The texture matrix's rows, for GETexGen.
+	Vec4F32 tgenRows[4];
 
 	struct {
 		bool enableTransform : 1;
@@ -335,10 +329,23 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 			}
 		}
 		// The viewer direction (see PSPViewDirection), normalized like the GE does.
-		Vec3f viewDir(gstate.viewMatrix[2], gstate.viewMatrix[5], gstate.viewMatrix[8]);
-		if (GENormalize(viewDir) == 0.0f)
-			viewDir = Vec3f(0.0f, 0.0f, 1.0f);
-		state->lightingState.viewDir = viewDir;
+		alignas(16) float viewDir[4] = { gstate.viewMatrix[2], gstate.viewMatrix[5], gstate.viewMatrix[8], 0.0f };
+		Vec4F32 dir = Vec4F32::Load(viewDir);
+		if (GENormalize4(dir) == 0.0f) {
+			viewDir[0] = viewDir[1] = 0.0f;
+			viewDir[2] = 1.0f;
+			dir = Vec4F32::Load(viewDir);
+		}
+		state->lightingState.viewDir = dir;
+
+		if (state->uvGenMode == GE_TEXMAP_TEXTURE_MATRIX) {
+			// Row k is m[3k..3k+2], padded so the last load stays inside.
+			alignas(16) float padded[13];
+			memcpy(padded, gstate.tgenMatrix, 12 * sizeof(float));
+			padded[12] = 0.0f;
+			for (int k = 0; k < 4; ++k)
+				state->tgenRows[k] = Vec4F32::Load(padded + 3 * k);
+		}
 
 		float world[16];
 		float view[16];
@@ -360,7 +367,7 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 			state->posToFog = Vec4f(worldview[2], worldview[6], worldview[10], worldview[14] + fogEnd);
 			state->fogGE = !my_isnanorinf(fogEnd) && !my_isnanorinf(fogSlope);
 			for (int i = 0; i < 4; ++i)
-				state->viewZColumn[i] = worldview[2 + 4 * i];
+				state->viewZRows[i] = Vec4F32::Splat(worldview[2 + 4 * i]);
 			state->fogEnd = TruncateToFloat24(fogEnd);
 			state->fogSlope = TruncateToFloat24(fogSlope);
 
@@ -429,8 +436,11 @@ ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const Tran
 	PROFILE_THIS_SCOPE("read_vert");
 	ClipVertexData vertex;
 
-	ModelCoords pos;
-	vreader.ReadPosThrough(pos.AsArray());
+	// (x, y, z, 1), the left operands of the transform's rows.
+	alignas(16) float posv[4];
+	vreader.ReadPosThrough(posv);
+	posv[3] = 1.0f;
+	const Vec4F32 pos = Vec4F32::Load(posv);
 
 	// A format without UVs uses the last ones read, by any draw, textured or not. They're kept as read, and
 	// scaled with the scale and offset of the draw using them (gpu/vertices/carry).
@@ -447,12 +457,12 @@ ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const Tran
 		}
 	}
 
-	// Carried the same way (gpu/vertices/carry).
+	// Carried the same way (gpu/vertices/carry). Lane 3 is undefined.
 	if (vreader.hasNormal())
-		vreader.ReadNrm(carry.normal);
-	Vec3f normal(carry.normal[0], carry.normal[1], carry.normal[2]);
+		vreader.ReadNrmF32().Store(carry.normal);
+	Vec4F32 normal = Vec4F32::Load(carry.normal);
 	if (state.negateNormals)
-		normal = -normal;
+		normal = Vec4F32FromBits(Vec4S32FromBits(normal) ^ Vec4S32::Splat((int)0x80000000));
 
 	if (vreader.hasColor0()) {
 		vertex.v.color0 = vreader.ReadColor0_8888();
@@ -484,17 +494,11 @@ ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const Tran
 		}
 
 		if (state.enableFog && state.fogGE) {
-			GERowTerm terms[4] = {
-				GEProduct(TruncateToFloat24(pos.x), state.viewZColumn[0]),
-				GEProduct(TruncateToFloat24(pos.y), state.viewZColumn[1]),
-				GEProduct(TruncateToFloat24(pos.z), state.viewZColumn[2]),
-				GEProduct(1.0f, state.viewZColumn[3]),
-			};
-			const float viewZ = GERowSum(terms, 4);
+			const float viewZ = GERowSum4<4>(pos, state.viewZRows).GetLane<0>();
 			const float f = ProductToFloat24((double)TruncateToFloat24(GEAdd(viewZ, state.fogEnd)) * state.fogSlope);
 			vertex.v.fogdepth = GEFogFactor(f) * (1.0f / 256.0f);
 		} else if (state.enableFog) {
-			vertex.v.fogdepth = GEFogFactor(Dot43(state.posToFog, pos)) * (1.0f / 256.0f);
+			vertex.v.fogdepth = GEFogFactor(Dot43(state.posToFog, Vec3f(posv[0], posv[1], posv[2]))) * (1.0f / 256.0f);
 		} else {
 			vertex.v.fogdepth = 1.0f;
 		}
@@ -502,15 +506,16 @@ ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const Tran
 
 		// The normal stays as the world matrix leaves it: lighting scales its dot products by the
 		// reciprocal length instead (gpu/probe exp3, world matrix cases).
-		Vec3<float> worldnormal;
+		Vec4F32 worldnormal = Vec4F32::Zero();
 		float normalRsqrt = 1.0f;
 		if (state.lightingState.usesWorldNormal) {
 			worldnormal = TransformUnit::ModelToWorldNormal(normal);
-			const float len2 = GEDot(worldnormal, worldnormal);
+			const float len2 = GEDot3(worldnormal, worldnormal);
 			if (len2 > 0.0f && std::isfinite(len2)) {
 				normalRsqrt = GERsqrt(len2);
 			} else if (len2 != 0.0f) {
-				worldnormal = Vec3f(0.0f, 0.0f, 1.0f);
+				static const float zAxis[4] = { 0.0f, 0.0f, 1.0f, 0.0f };
+				worldnormal = Vec4F32::Load(zAxis);
 			}
 			// A zero normal stays zero: no diffuse or specular from any light (gpu/probe exp173; SOCOM
 			// UCES01242 has meshes without normals but lit).
@@ -518,29 +523,33 @@ ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const Tran
 
 		// Time to generate some texture coords.  Lighting will handle shade mapping.
 		if (state.uvGenMode == GE_TEXMAP_TEXTURE_MATRIX) {
-			Vec3f source;
+			Vec4F32 source = pos;
 			switch (gstate.getUVProjMode()) {
 			case GE_PROJMAP_POSITION:
 				source = pos;
 				break;
 
 			case GE_PROJMAP_UV:
-				source = Vec3f(vertex.v.texturecoords.uv(), 0.0f);
+			{
+				alignas(16) const float uv[4] = { vertex.v.texturecoords.u(), vertex.v.texturecoords.v(), 0.0f, 1.0f };
+				source = Vec4F32::Load(uv);
 				break;
+			}
 
 			case GE_PROJMAP_NORMALIZED_NORMAL:
 				// This does not use 0, 0, 1 if length is zero.
 				source = normal;
-				GENormalize(source);
+				GENormalize4(source);
+				source = source.WithLane3One();
 				break;
 
 			case GE_PROJMAP_NORMAL:
-				source = normal;
+				source = normal.WithLane3One();
 				break;
 			}
 
 			// Note that UV scale/offset are not used in this mode.
-			vertex.v.texturecoords = GETexGen(source, gstate.tgenMatrix);
+			vertex.v.texturecoords = GETexGen(source, state.tgenRows);
 		} else if (state.uvGenMode == GE_TEXMAP_ENVIRONMENT_MAP) {
 			Lighting::GenerateLightST(vertex.v, pos, worldnormal, normalRsqrt, state.lightingState.viewDir);
 		}
@@ -549,9 +558,9 @@ ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const Tran
 		if (state.enableLighting)
 			Lighting::Process(vertex.v, pos, worldnormal, normalRsqrt, state.lightingState);
 	} else {
-		vertex.v.screenpos.x = (int)(pos[0] * SCREEN_SCALE_FACTOR);
-		vertex.v.screenpos.y = (int)(pos[1] * SCREEN_SCALE_FACTOR);
-		vertex.v.screenpos.z = pos[2];
+		vertex.v.screenpos.x = (int)(posv[0] * SCREEN_SCALE_FACTOR);
+		vertex.v.screenpos.y = (int)(posv[1] * SCREEN_SCALE_FACTOR);
+		vertex.v.screenpos.z = posv[2];
 		vertex.v.clipw = 1.0f;
 		vertex.v.fogdepth = 1.0f;
 	}
