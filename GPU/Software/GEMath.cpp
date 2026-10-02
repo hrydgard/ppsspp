@@ -169,7 +169,7 @@ static const GESetupRecipSegment geSetupRecip[256] = {
 	{ 6170928, -138 }, { 6153248, -137 }, { 6135664, -136 }, { 6118176, -136 },
 	{ 6100800, -135 }, { 6083520, -134 }, { 6066336, -133 }, { 6049248, -133 },
 	{ 6032256, -132 }, { 6015360, -131 }, { 5998544, -130 }, { 5981840, -130 },
-	{ 5965232, -129 }, { 5948799, -129 }, { 5932287, -129 }, { 5915920, -127 },
+	{ 5965232, -129 }, { 5948704, -128 }, { 5932272, -128 }, { 5915920, -127 },
 	{ 5899680, -126 }, { 5883504, -125 }, { 5867440, -125 }, { 5851440, -124 },
 	{ 5835552, -123 }, { 5819728, -123 }, { 5804000, -122 }, { 5788352, -121 },
 	{ 5772800, -121 }, { 5757328, -120 }, { 5741920, -119 }, { 5726608, -119 },
@@ -209,9 +209,9 @@ static const GESetupRecipSegment geSetupRecip[256] = {
 	{ 4227328, -65 }, { 4219024, -64 }, { 4210752, -64 }, { 4202512, -64 },
 };
 
-// Nearly every K is floor(2^39 / (65536 + 256 i) / 16) * 16, the start of segment i in 1/8ths. The table was fit
-// to probe data; segments it left loose (39, 161, 162, 253, 255) use that formula, which games confirmed for 39
-// and 161. 105 and 106 differ from it, measured.
+// Every K but segment 0's is floor(2^39 / (65536 + 256 i) / 16) * 16, the start of segment i in 1/8ths. The table
+// was fit to probe data; segments it left loose (39, 161, 162, 253, 255) use that formula, which games confirmed
+// for 39 and 161, and large-w UV planes (gpu/probe exp136, exp138) for 105 and 106.
 int64_t GESetupRecip(uint64_t absDet, int *e) {
 	const uint32_t hi = (uint32_t)(absDet >> 32);
 	const int ex = hi ? 63 - (int)clz32_nonzero(hi) : 31 - (int)clz32_nonzero((uint32_t)absDet);
