@@ -90,6 +90,8 @@ struct RasterizerState {
 		bool magFilt : 1;
 		bool antialiasLines : 1;
 		bool textureProj : 1;
+		// Textures from the buffer it draws to (BinManager::SelfTextureSnapshot).
+		bool selfTexture : 1;
 	};
 
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)

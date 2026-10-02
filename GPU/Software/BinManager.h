@@ -268,6 +268,14 @@ private:
 	std::unordered_map<uint32_t, BinDirtyRange> pendingReads_;
 
 	bool pendingOverlap_ = false;
+	// Whether the current state textures from what it draws to, and the texture as it was before the
+	// primitive being drawn for one that does.
+	bool selfRender_ = false;
+	Rasterizer::RasterizerState selfTexState_;
+	std::vector<u8> selfTexBuf_[8];
+	uint32_t selfTexAddr_[8]{};
+	bool selfTexValid_ = false;
+	BinCoords selfTexLastRange_{};
 	bool creatingState_ = false;
 	// JIT clear generations when the current state was computed.
 	int jitGen_ = -1;
@@ -288,6 +296,7 @@ private:
 	void MarkPendingWrites(const Rasterizer::RasterizerState &state);
 	bool HasTextureWrite(const Rasterizer::RasterizerState &state);
 	bool IsExactSelfRender(const Rasterizer::RasterizerState &state, const BinItem &item) const;
+	const Rasterizer::RasterizerState &SelfTextureSnapshot(const BinItem &item, const Rasterizer::RasterizerState &state);
 	void OptimizePendingStates(uint16_t first, uint16_t last);
 	BinCoords Scissor(BinCoords range);
 	BinCoords Range(const VertexData &v0, const VertexData &v1, const VertexData &v2);

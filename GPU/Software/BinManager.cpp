@@ -273,8 +273,51 @@ void BinManager::UpdateState() {
 			ClearDirty(SoftDirty::BINNER_RANGE);
 		}
 		pendingOverlap_ = pendingOverlap_ || selfRender;
+		selfRender_ = selfRender;
 		ClearDirty(SoftDirty::BINNER_OVERLAP);
 	}
+	states_[stateIndex_].selfTexture = selfRender_;
+}
+
+// The GE samples through its texture cache, so a primitive that textures from the buffer it draws to
+// mostly sees that buffer as it was before the primitive (exp81, exp159, exp160). The cache actually
+// fills 8-row blocks as the primitive first reads them, so rows drawn before then show through; this
+// doesn't model that.
+const RasterizerState &BinManager::SelfTextureSnapshot(const BinItem &item, const RasterizerState &state) {
+	constexpr uint32_t mirrorMask = 0x041FFFFF;
+	const uint32_t bits = textureBitsPerPixel[state.samplerID.texfmt];
+	const uint32_t fbBpp = state.pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
+	const uint32_t fbStrideBytes = state.pixelID.cached.framebufStride * fbBpp;
+
+	selfTexState_ = state;
+	for (int i = 0; i <= state.maxTexLevel; ++i) {
+		const u8 *src = state.texptr[i];
+		const uint32_t bytes = state.texbufw[i] * bits / 8 * state.samplerID.cached.sizes[i].h;
+		if (!src || !Memory::IsValidRange(state.texaddr[i], bytes))
+			continue;
+		std::vector<u8> &buf = selfTexBuf_[i];
+		if (!selfTexValid_ || selfTexAddr_[i] != state.texaddr[i] || buf.size() != bytes) {
+			buf.assign(src, src + bytes);
+			selfTexAddr_[i] = state.texaddr[i];
+		} else {
+			// Only the rows the previous primitive drew have changed.
+			const DrawingCoords tl = TransformUnit::ScreenToDrawing(selfTexLastRange_.x1, selfTexLastRange_.y1);
+			const DrawingCoords br = TransformUnit::ScreenToDrawing(selfTexLastRange_.x2, selfTexLastRange_.y2);
+			const int64_t rowsStart = (int64_t)(drawTargetAddr_ & mirrorMask) + tl.y * fbStrideBytes;
+			const int64_t rowsEnd = (int64_t)(drawTargetAddr_ & mirrorMask) + (br.y + 1) * fbStrideBytes;
+			const int64_t texStart = state.texaddr[i] & mirrorMask;
+			const int64_t start = std::max(rowsStart, texStart) - texStart;
+			const int64_t end = std::min(rowsEnd, texStart + bytes) - texStart;
+			if (start < end)
+				memcpy(buf.data() + start, src + start, (size_t)(end - start));
+		}
+		selfTexState_.texptr[i] = buf.data();
+	}
+
+	// A depth write could change the texture outside the color rows, so then copy all of it each time.
+	selfTexValid_ = !state.pixelID.depthWrite;
+	selfTexLastRange_ = item.range;
+	return selfTexState_;
 }
 
 bool BinManager::HasTextureWrite(const RasterizerState &state) {
@@ -536,9 +579,17 @@ void BinManager::Drain(bool flushing) {
 
 	if (taskRanges_.size() <= 1) {
 		PROFILE_THIS_SCOPE("bin_drain_single");
+		// Anything (transfers, the CPU) may have written memory since the last drain.
+		selfTexValid_ = false;
 		while (!queue_.Empty()) {
 			const BinItem &item = queue_.PeekNext();
-			DrawBinItem(item, states_[item.stateIndex]);
+			const RasterizerState &state = states_[item.stateIndex];
+			if (state.selfTexture) {
+				DrawBinItem(item, SelfTextureSnapshot(item, state));
+			} else {
+				selfTexValid_ = false;
+				DrawBinItem(item, state);
+			}
 			queue_.SkipNext();
 		}
 	} else {
