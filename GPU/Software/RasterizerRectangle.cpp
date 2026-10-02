@@ -791,6 +791,11 @@ bool DetectRectangleThroughModeSlices(const RasterizerState &state, const ClipVe
 		if (br1.x == tl2.x && tl1.x < br1.x && tl2.x < br2.x) {
 			if (!state.enableTextures)
 				return true;
+			// Each sprite gets its own UV planes, and only a power of two area makes their gradient exact,
+			// so bilinear samples land differently in the pieces than in one joined sprite (gpu/probe
+			// exp163, ULJM05302's track map).
+			if (state.minFilt || state.magFilt)
+				return false;
 
 			const auto &textl1 = data[0].v.texturecoords, &texbr1 = data[1].v.texturecoords;
 			const auto &textl2 = data[2].v.texturecoords, &texbr2 = data[3].v.texturecoords;
