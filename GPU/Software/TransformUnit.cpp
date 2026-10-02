@@ -148,12 +148,6 @@ VertexDecoder *SoftwareDrawEngine::FindVertexDecoder(u32 vtype) {
 	return DrawEngineCommon::GetVertexDecoder(vertTypeID);
 }
 
-static float GEWorldComponent(const Vec3f &v, int c);
-
-WorldCoords TransformUnit::ModelToWorld(const ModelCoords &coords) {
-	return WorldCoords(GEWorldComponent(coords, 0), GEWorldComponent(coords, 1), GEWorldComponent(coords, 2));
-}
-
 WorldCoords TransformUnit::ModelToWorldNormal(const ModelCoords &coords) {
 	// Each component summed like a matrix row (gpu/probe exp61).
 	const float *m = gstate.worldMatrix;
@@ -172,17 +166,6 @@ static inline float GEClipComponent(const Vec3f &v, const float m[16], int c) {
 	return GERowSum(terms, 4);
 }
 
-// A world space component, summed like a clip space row.
-static float GEWorldComponent(const Vec3f &v, int c) {
-	const float *m = gstate.worldMatrix;
-	GERowTerm terms[4] = {
-		GEProduct(TruncateToFloat24(v.x), m[c]),
-		GEProduct(TruncateToFloat24(v.y), m[3 + c]),
-		GEProduct(TruncateToFloat24(v.z), m[6 + c]),
-		GEProduct(1.0f, m[9 + c]),
-	};
-	return GERowSum(terms, 4);
-}
 
 // A texture coordinate from the 4x3 texture matrix, summed like a clip space row (gpu/probe exp64).
 static inline float GETexGenComponent(const Vec3f &v, const float m[12], int c) {
@@ -508,11 +491,6 @@ ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const Tran
 	vertex.v.color1 = 0;
 
 	if (state.enableTransform) {
-		WorldCoords worldpos;
-
-		if (MatrixMode(state.matrixMode) == MatrixMode::WORLD_TO_CLIP) {
-			worldpos = TransformUnit::ModelToWorld(pos);
-		}
 		// Clip coordinates with the GE's precision; the Test Drive map depends on it together with the
 		// depth math below (#12786).
 		{
@@ -590,12 +568,12 @@ ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const Tran
 			// Note that UV scale/offset are not used in this mode.
 			vertex.v.texturecoords = Vec3Packedf(GETexGenComponent(source, gstate.tgenMatrix, 0), GETexGenComponent(source, gstate.tgenMatrix, 1), GETexGenComponent(source, gstate.tgenMatrix, 2));
 		} else if (state.uvGenMode == GE_TEXMAP_ENVIRONMENT_MAP) {
-			Lighting::GenerateLightST(vertex.v, worldpos, worldnormal, normalRsqrt, state.lightingState.viewDir);
+			Lighting::GenerateLightST(vertex.v, pos, worldnormal, normalRsqrt, state.lightingState.viewDir);
 		}
 
 		PROFILE_THIS_SCOPE("light");
 		if (state.enableLighting)
-			Lighting::Process(vertex.v, worldpos, worldnormal, normalRsqrt, state.lightingState);
+			Lighting::Process(vertex.v, pos, worldnormal, normalRsqrt, state.lightingState);
 	} else {
 		vertex.v.screenpos.x = (int)(pos[0] * SCREEN_SCALE_FACTOR);
 		vertex.v.screenpos.y = (int)(pos[1] * SCREEN_SCALE_FACTOR);

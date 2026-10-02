@@ -119,7 +119,6 @@ public:
 	~TransformUnit();
 
 	static WorldCoords ModelToWorldNormal(const ModelCoords& coords);
-	static WorldCoords ModelToWorld(const ModelCoords& coords);
 	static ScreenCoords ClipToScreen(const ClipCoords &coords, bool *outsideRangeFlag);
 	// Where an edge from an inside vertex crosses the near plane, as the GE computes it.
 	static float NearPlaneT(const ClipCoords &in, const ClipCoords &out);

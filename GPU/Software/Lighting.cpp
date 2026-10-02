@@ -195,12 +195,29 @@ static inline float GENormalDot(const Vec3f &v, const Vec3f &n, float nRsqrt) {
 	return ProductToFloat24((double)GEDot(v, n) * nRsqrt);
 }
 
-static float GEShadeMapCoord(int l, const WorldCoords &worldpos, const WorldCoords &worldnormal, float normalRsqrt, const Vec3f &viewDir) {
-	Vec3f L(getFloat24(gstate.lpos[l * 3]), getFloat24(gstate.lpos[l * 3 + 1]), getFloat24(gstate.lpos[l * 3 + 2]));
-	if (gstate.getLightType(l) != GE_LIGHTTYPE_DIRECTIONAL) {
-		for (int i = 0; i < 3; ++i)
-			L[i] = GEAddFloat24(L[i], -worldpos[i]);
+// The vector from a vertex to a point light as the GE computes it (gpu/probe exp153-158): the light position
+// minus the world translation (with the GE's adder), minus the model position times the world matrix, summed
+// like a matrix row. No world space position is formed; lighting with one in float24 loses the products' low
+// bits to a large translation (Syphon Filter #13568).
+static Vec3f GELightVector(const Vec3f &lpos, const Vec3f &modelpos) {
+	const float *m = gstate.worldMatrix;
+	Vec3f L;
+	for (int i = 0; i < 3; ++i) {
+		const GERowTerm terms[4] = {
+			GEProduct(1.0f, GEAddFloat24(lpos[i], -TruncateToFloat24(m[9 + i]))),
+			GEProduct(TruncateToFloat24(modelpos.x), -m[i]),
+			GEProduct(TruncateToFloat24(modelpos.y), -m[3 + i]),
+			GEProduct(TruncateToFloat24(modelpos.z), -m[6 + i]),
+		};
+		L[i] = GERowSum(terms, 4);
 	}
+	return L;
+}
+
+static float GEShadeMapCoord(int l, const Vec3f &modelpos, const WorldCoords &worldnormal, float normalRsqrt, const Vec3f &viewDir) {
+	Vec3f L(getFloat24(gstate.lpos[l * 3]), getFloat24(gstate.lpos[l * 3 + 1]), getFloat24(gstate.lpos[l * 3 + 2]));
+	if (gstate.getLightType(l) != GE_LIGHTTYPE_DIRECTIONAL)
+		L = GELightVector(L, modelpos);
 	GENormalize(L);
 	if (gstate.isUsingSpecularLight(l)) {
 		for (int i = 0; i < 3; ++i)
@@ -210,11 +227,11 @@ static float GEShadeMapCoord(int l, const WorldCoords &worldpos, const WorldCoor
 	return GEAddFloat24(GENormalDot(L, worldnormal, normalRsqrt), 1.0f) * 0.5f;
 }
 
-void GenerateLightST(VertexData &vertex, const WorldCoords &worldpos, const WorldCoords &worldnormal, float normalRsqrt, const Vec3f &viewDir) {
+void GenerateLightST(VertexData &vertex, const Vec3f &modelpos, const WorldCoords &worldnormal, float normalRsqrt, const Vec3f &viewDir) {
 	// Always calculate texture coords from lighting results if environment mapping is active
 	// This should be done even if lighting is disabled altogether.
-	vertex.texturecoords.s() = GEShadeMapCoord(gstate.getUVLS0(), worldpos, worldnormal, normalRsqrt, viewDir);
-	vertex.texturecoords.t() = GEShadeMapCoord(gstate.getUVLS1(), worldpos, worldnormal, normalRsqrt, viewDir);
+	vertex.texturecoords.s() = GEShadeMapCoord(gstate.getUVLS0(), modelpos, worldnormal, normalRsqrt, viewDir);
+	vertex.texturecoords.t() = GEShadeMapCoord(gstate.getUVLS1(), modelpos, worldnormal, normalRsqrt, viewDir);
 }
 
 
@@ -246,7 +263,7 @@ static inline float Dot33(const Vec3f &a, const Vec3f &b) {
 }
 
 template <bool useSSE4>
-static void ProcessSIMD(VertexData &vertex, const WorldCoords &worldpos, const WorldCoords &worldnormal, float normalRsqrt, const State &state) {
+static void ProcessSIMD(VertexData &vertex, const Vec3f &modelpos, const WorldCoords &worldnormal, float normalRsqrt, const State &state) {
 	// Lighting blending rounds using the half offset method (like alpha blend.)
 	Vec4<int> colorFactor;
 	if (state.colorForAmbient || state.colorForDiffuse || state.colorForSpecular) {
@@ -274,8 +291,7 @@ static void ProcessSIMD(VertexData &vertex, const WorldCoords &worldpos, const W
 		float att = 1.0f;
 		float spot = 1.0f;
 		if (!lstate.directional) {
-			for (int i = 0; i < 3; ++i)
-				L[i] = GEAddFloat24(L[i], -worldpos[i]);
+			L = GELightVector(L, modelpos);
 			// TODO: Should this normalize (0, 0, 0) to (0, 0, 1)?
 			// The quadratic term takes the squared length from the normalization, not d * d (gpu/probe exp63).
 			const float d2 = GEDot(L, L);
@@ -366,14 +382,14 @@ static void ProcessSIMD(VertexData &vertex, const WorldCoords &worldpos, const W
 	}
 }
 
-void Process(VertexData &vertex, const WorldCoords &worldpos, const WorldCoords &worldnormal, float normalRsqrt, const State &state) {
+void Process(VertexData &vertex, const Vec3f &modelpos, const WorldCoords &worldnormal, float normalRsqrt, const State &state) {
 #ifdef _M_SSE
 	if (cpu_info.bSSE4_1) {
-		ProcessSIMD<true>(vertex, worldpos, worldnormal, normalRsqrt, state);
+		ProcessSIMD<true>(vertex, modelpos, worldnormal, normalRsqrt, state);
 		return;
 	}
 #endif
-	ProcessSIMD<false>(vertex, worldpos, worldnormal, normalRsqrt, state);
+	ProcessSIMD<false>(vertex, modelpos, worldnormal, normalRsqrt, state);
 }
 
 } // namespace
