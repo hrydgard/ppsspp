@@ -16,6 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ppsspp_config.h"
+#include <algorithm>
+#include <climits>
 #include <cmath>
 
 #include "Common/Common.h"
@@ -32,6 +34,7 @@
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Software/BinManager.h"
 #include "GPU/Software/DrawPixel.h"
+#include "GPU/Software/GEMath.h"
 #include "GPU/Software/Rasterizer.h"
 #include "GPU/Software/Sampler.h"
 #include "GPU/Software/SoftGpu.h"
@@ -188,7 +191,7 @@ static inline void CalculateRasterStateFlags(RasterizerState *state, const Verte
 		if (alpha != 0xFF)
 			state->flags |= RasterizerStateFlags::VERTEX_ALPHA_NON_FULL;
 	}
-	if (!(v0.fogdepth >= 1.0f))
+	if (!(v0.fogdepth >= 255.0f / 256.0f))
 		state->flags |= RasterizerStateFlags::VERTEX_HAS_FOG;
 }
 
@@ -199,6 +202,9 @@ void CalculateRasterStateFlags(RasterizerState *state, const VertexData &v0) {
 void CalculateRasterStateFlags(RasterizerState *state, const VertexData &v0, const VertexData &v1, bool forceFlat) {
 	CalculateRasterStateFlags(state, v0, !forceFlat && state->shadeGouraud);
 	CalculateRasterStateFlags(state, v1, true);
+	// Antialiased lines replace the alpha with their coverage (DrawLine), anywhere from 0 to 128.
+	if (state->antialiasLines && !forceFlat)
+		state->flags |= RasterizerStateFlags::VERTEX_ALPHA_NON_FULL;
 }
 
 void CalculateRasterStateFlags(RasterizerState *state, const VertexData &v0, const VertexData &v1, const VertexData &v2) {
@@ -255,25 +261,31 @@ static bool CheckClutAlphaFull(RasterizerState *state) {
 	}
 
 	bool onlyFull = true;
+	// alphaSum ANDs every entry: alpha bits all entries share mean no entry has zero alpha.
+	u32 alphaBits = 1;
 	switch (samplerID.ClutFmt()) {
 	case GE_CMODE_16BIT_BGR5650:
 		break;
 
 	case GE_CMODE_16BIT_ABGR5551:
-		onlyFull = (alphaSum & 0x8000) != 0;
+		alphaBits = alphaSum & 0x8000;
+		onlyFull = alphaBits != 0;
 		break;
 
 	case GE_CMODE_16BIT_ABGR4444:
-		onlyFull = (alphaSum & 0xF000) == 0xF000;
+		alphaBits = alphaSum & 0xF000;
+		onlyFull = alphaBits == 0xF000;
 		break;
 
 	case GE_CMODE_32BIT_ABGR8888:
-		onlyFull = (alphaSum & 0xFF000000) == 0xFF000000;
+		alphaBits = alphaSum & 0xFF000000;
+		onlyFull = alphaBits == 0xFF000000;
 		break;
 	}
 
-	// Might just be different patterns, but if alphaSum != 0, it can't contain zero.
-	if (alphaSum != 0)
+	// Only the alpha bits count: a palette of white with alphas 0, 0x10, ... shares all its RGB bits but
+	// still contains zero (Ace Combat's subtitle glyphs).
+	if (alphaBits != 0)
 		state->flags |= RasterizerStateFlags::CLUT_ALPHA_NON_ZERO;
 	if (!onlyFull)
 		state->flags |= RasterizerStateFlags::CLUT_ALPHA_NON_FULL;
@@ -349,7 +361,8 @@ static RasterizerStateFlags DetectStateOptimizations(RasterizerState *state) {
 					couldHaveZeroTexAlpha = false;
 
 				// Blending is expensive, since we read the target.  Force alpha testing on.
-				if (!pixelID.depthWrite && !pixelID.stencilTest && couldHaveZeroTexAlpha)
+				// Not with dithering: the GE still adds the dither to a zero alpha pixel (Test Drive).
+				if (!pixelID.depthWrite && !pixelID.stencilTest && !pixelID.dithering && couldHaveZeroTexAlpha)
 					optimize |= RasterizerStateFlags::OPTIMIZED_ALPHATEST_ON;
 			}
 		}
@@ -599,8 +612,19 @@ static inline bool IsRightSideOrFlatBottomLine(const Vec2<int>& vertex, const Ve
 		return vertex.y < line1.y;
 	} else {
 		// check if vertex is on our left => right side
-		return vertex.x < line1.x + (line2.x - line1.x) * (vertex.y - line1.y) / (line2.y - line1.y);
+		// Exactly: a truncating divide put a vertex 0.2 subpixels left of the line on it, so a pixel center
+		// on such a thin triangle's right edge counted as inside (Peace Walker ULUS10509).
+		const int64_t dy = line2.y - line1.y;
+		const int64_t lhs = (int64_t)(vertex.x - line1.x) * dy;
+		const int64_t rhs = (int64_t)(line2.x - line1.x) * (vertex.y - line1.y);
+		return dy > 0 ? lhs < rhs : lhs > rhs;
 	}
+}
+
+
+// Color doubling applies to the specular (secondary) color too (gpu/probe exp86).
+static inline bool DoubleSecondaryColor(const RasterizerState &state) {
+	return state.enableTextures && state.samplerID.useColorDoubling;
 }
 
 static inline Vec4IntResult SOFTRAST_CALL ApplyTexturing(float s, float t, Vec4IntArg prim_color, int texlevel, int frac_texlevel, bool bilinear, const RasterizerState &state) {
@@ -617,22 +641,10 @@ static inline Vec4IntResult SOFTRAST_CALL ApplyTexturingSingle(float s, float t,
 	return ApplyTexturing(s, t, prim_color, texlevel, frac_texlevel, bilinear, state);
 }
 
-// Produces a signed 1.27.4 value.
-static int TexLog2(float delta) {
-	union FloatBits {
-		float f;
-		u32 u;
-	};
-	FloatBits f;
-	f.f = delta;
-	// Use the exponent as the tex level, and the top mantissa bits for a frac.
-	// We can't support more than 4 bits of frac, so truncate.
-	int useful = (f.u >> 19) & 0x0FFF;
-	// Now offset so the exponent aligns with log2f (exp=127 is 0.)
-	return useful - 127 * 16;
-}
 
-static inline void CalculateSamplingParams(const float ds, const float dt, float w, const RasterizerState &state, int &level, int &levelFrac, bool &filt) {
+// q is 1 / w at the pixel, as the GE interpolates it (UVPlanes).
+// autoGrad: the largest UV plane gradient in texels per pixel, when there are planes (or negative).
+static inline void CalculateSamplingParams(const float ds, const float dt, float q, const RasterizerState &state, int &level, int &levelFrac, bool &filt, float autoGrad = -1.0f) {
 	const int width = 1 << state.samplerID.width0Shift;
 	const int height = 1 << state.samplerID.height0Shift;
 
@@ -640,11 +652,18 @@ static inline void CalculateSamplingParams(const float ds, const float dt, float
 	int detail;
 	switch (state.TexLevelMode()) {
 	case GE_TEXLEVEL_MODE_AUTO:
-		detail = TexLog2(std::max(std::abs(ds * width), std::abs(dt * height)));
+		if (autoGrad >= 0.0f) {
+			// The largest gradient of the s and t planes over the pixel's q, both through the float-bits
+			// log2, like slope mode (gpu/probe exp92-93).
+			detail = GELog16(autoGrad) - GELog16(q);
+		} else {
+			detail = GELog16(std::max(std::abs(ds * width), std::abs(dt * height)));
+		}
 		break;
 	case GE_TEXLEVEL_MODE_SLOPE:
-		// This is always offset by an extra texlevel.
-		detail = TexLog2(2.0f * w * state.textureLodSlope);
+		// The GE takes the same float-bits log2 of q and of the slope, and adds a level (gpu/probe
+		// exp58-60, bit exact).
+		detail = 16 + GELog16(state.textureLodSlope) - GELog16(q);
 		break;
 	case GE_TEXLEVEL_MODE_CONST:
 	default:
@@ -677,19 +696,25 @@ static inline void CalculateSamplingParams(const float ds, const float dt, float
 		filt = state.magFilt;
 }
 
-static inline void ApplyTexturing(const RasterizerState &state, Vec4<int> *prim_color, const Vec4<int> &mask, const Vec4<float> &s, const Vec4<float> &t, float w) {
-	float ds = s[1] - s[0];
-	float dt = t[2] - t[0];
+static inline void ApplyTexturing(const RasterizerState &state, Vec4<int> *prim_color, const Vec4<int> &mask, const Vec4<float> &s, const Vec4<float> &t, const Vec4<float> &q, float autoGrad = -1.0f) {
+	// Auto LOD takes the largest of all four UV derivatives (gpu/probe exp92, exact for affine mappings).
+	float ds = std::max(std::abs(s[1] - s[0]), std::abs(s[2] - s[0]));
+	float dt = std::max(std::abs(t[1] - t[0]), std::abs(t[2] - t[0]));
 
 	int level;
 	int levelFrac;
 	bool bilinear;
-	CalculateSamplingParams(ds, dt, w, state, level, levelFrac, bilinear);
+	const bool perPixel = state.TexLevelMode() == GE_TEXLEVEL_MODE_SLOPE || (state.TexLevelMode() == GE_TEXLEVEL_MODE_AUTO && autoGrad >= 0.0f);
+	if (!perPixel)
+		CalculateSamplingParams(ds, dt, 0.0f, state, level, levelFrac, bilinear);
 
 	PROFILE_THIS_SCOPE("sampler");
 	for (int i = 0; i < 4; ++i) {
-		if (mask[i] >= 0)
+		if (mask[i] >= 0) {
+			if (perPixel)
+				CalculateSamplingParams(ds, dt, q[i], state, level, levelFrac, bilinear, autoGrad);
 			prim_color[i] = ApplyTexturing(s[i], t[i], ToVec4IntArg(prim_color[i]), level, levelFrac, bilinear, state);
+		}
 	}
 }
 
@@ -814,8 +839,8 @@ static inline __m128i SOFTRAST_CALL TriangleEdgeStartSSE4(__m128i initX, __m128i
 
 template <bool useSSE4>
 Vec4<int> TriangleEdge<useSSE4>::Start(const ScreenCoords &v0, const ScreenCoords &v1, const ScreenCoords &origin) {
-	// Start at pixel centers.
-	static constexpr int centerOff = (SCREEN_SCALE_FACTOR / 2) - 1;
+	// Start at pixel centers. The GE samples exactly there, with left and top edges inclusive (gpu/probe).
+	static constexpr int centerOff = SCREEN_SCALE_FACTOR / 2;
 	static constexpr int centerPlus1 = SCREEN_SCALE_FACTOR + centerOff;
 	Vec4<int> initX = Vec4<int>::AssignToAll(origin.x) + Vec4<int>(centerOff, centerPlus1, centerOff, centerPlus1);
 	Vec4<int> initY = Vec4<int>::AssignToAll(origin.y) + Vec4<int>(centerOff, centerOff, centerPlus1, centerPlus1);
@@ -976,6 +1001,216 @@ static inline Vec4<float> EdgeRecip(const Vec4<int> &w0, const Vec4<int> &w1, co
 #endif
 }
 
+
+
+// The plane the GE interpolates depth and Gouraud color with (gpu/probe exp36-41 for depth, exp54
+// for color, bit exact; color is screen-linear in transform mode too): the gradients are fixed
+// point with 14 fractional bits per subpixel, from the exact edge cross products and GESetupRecip,
+// and the plane is anchored at one vertex: the leftmost, unless the long edge (top to bottom)
+// is strictly the right side, then the rightmost. A pixel's value is the plane at its center, floored.
+struct DepthPlane {
+	int64_t base;  // value << 14 at screen (0, 0)
+	int64_t kx;    // per subpixel, << 14
+	int64_t ky;
+	bool rightAnchored = false;  // the long edge is the right side: the GE walks rows right to left
+
+	int64_t At(int64_t x, int64_t y) const {
+		return (base + kx * x + ky * y) >> 14;
+	}
+};
+
+static DepthPlane ComputePlane(const int64_t X[3], const int64_t Y[3], const int64_t Z[3]) {
+	DepthPlane plane{};
+	const int64_t det = (X[1] - X[0]) * (Y[2] - Y[0]) - (X[2] - X[0]) * (Y[1] - Y[0]);
+	if (det == 0) {
+		plane.base = Z[0] << 14;
+		return plane;
+	}
+	const int64_t nx = (Z[1] - Z[0]) * (Y[2] - Y[0]) - (Z[2] - Z[0]) * (Y[1] - Y[0]);
+	const int64_t ny = (Z[2] - Z[0]) * (X[1] - X[0]) - (Z[1] - Z[0]) * (X[2] - X[0]);
+	const uint64_t absDet = (uint64_t)(det < 0 ? -det : det);
+	int e;
+	const int64_t q = GESetupRecip(absDet, &e);
+	const int64_t sign = det < 0 ? -1 : 1;
+	// n / det * 2^14, as floor(n * q / 2^(e + 2)).
+	plane.kx = (sign * nx * q) >> (e + 2);
+	plane.ky = (sign * ny * q) >> (e + 2);
+
+	int top = 0, mid = 1, bot = 2;
+	auto above = [&](int a, int b) { return Y[a] < Y[b] || (Y[a] == Y[b] && X[a] < X[b]); };
+	if (above(mid, top)) std::swap(mid, top);
+	if (above(bot, mid)) std::swap(bot, mid);
+	if (above(mid, top)) std::swap(mid, top);
+	const int64_t cross = (X[bot] - X[top]) * (Y[mid] - Y[top]) - (Y[bot] - Y[top]) * (X[mid] - X[top]);
+	const bool flat = Y[top] == Y[mid] || Y[mid] == Y[bot];
+	int anchor = 0;
+	if (cross > 0 && !flat) {
+		plane.rightAnchored = true;
+		for (int i = 1; i < 3; ++i)
+			if (X[i] > X[anchor] || (X[i] == X[anchor] && Y[i] < Y[anchor]))
+				anchor = i;
+	} else {
+		for (int i = 1; i < 3; ++i)
+			if (X[i] < X[anchor] || (X[i] == X[anchor] && Y[i] < Y[anchor]))
+				anchor = i;
+	}
+	plane.base = (Z[anchor] << 14) - plane.kx * X[anchor] - plane.ky * Y[anchor];
+	return plane;
+}
+
+static DepthPlane ComputeDepthPlane(const VertexData &v0, const VertexData &v1, const VertexData &v2) {
+	const int64_t X[3] = { v0.screenpos.x, v1.screenpos.x, v2.screenpos.x };
+	const int64_t Y[3] = { v0.screenpos.y, v1.screenpos.y, v2.screenpos.y };
+	const int64_t Z[3] = { v0.screenpos.z, v1.screenpos.z, v2.screenpos.z };
+	return ComputePlane(X, Y, Z);
+}
+
+// Planes for each channel of a color (8 bits per channel, packed as in VertexData).
+template <int channels>
+static void ComputeColorPlanes(const VertexData &v0, const VertexData &v1, const VertexData &v2, u32 c0, u32 c1, u32 c2, DepthPlane *planes) {
+	const int64_t X[3] = { v0.screenpos.x, v1.screenpos.x, v2.screenpos.x };
+	const int64_t Y[3] = { v0.screenpos.y, v1.screenpos.y, v2.screenpos.y };
+	for (int i = 0; i < channels; ++i) {
+		const int64_t C[3] = { (c0 >> (i * 8)) & 0xFF, (c1 >> (i * 8)) & 0xFF, (c2 >> (i * 8)) & 0xFF };
+		planes[i] = ComputePlane(X, Y, C);
+	}
+}
+
+template <int channels>
+static Vec4<int> ColorFromPlanes(const DepthPlane *planes, int64_t x, int64_t y) {
+	Vec4<int> c(0, 0, 0, 0);
+	for (int i = 0; i < channels; ++i)
+		c[i] = std::clamp((int)planes[i].At(x, y), 0, 255);
+	return c;
+}
+
+// Perspective texture coordinates as the GE interpolates them (gpu/probe exp55-56, bit exact at 1/16
+// texel): per vertex q = 1/w with the GE's reciprocal and s = u * q, as float24s. s, t and q each become
+// 15-bit integers at the largest exponent of the three vertices, go through the same plane as depth,
+// and a pixel's u is s * 1/q, again with the GE's reciprocal (UVProduct).
+struct UVPlanes {
+	DepthPlane s, t, q;
+	int shiftS, shiftT, shiftQ;
+	bool valid;
+};
+
+static int SharedShift(const double v[3]) {
+	int e = INT_MIN;
+	for (int i = 0; i < 3; ++i) {
+		if (v[i] != 0.0)
+			e = std::max(e, std::ilogb(v[i]));
+	}
+	return e == INT_MIN ? 0 : 14 - e;
+}
+
+static DepthPlane FixedPlane(const int64_t X[3], const int64_t Y[3], const double v[3], int shift) {
+	const int64_t V[3] = { (int64_t)std::ldexp(v[0], shift), (int64_t)std::ldexp(v[1], shift), (int64_t)std::ldexp(v[2], shift) };
+	return ComputePlane(X, Y, V);
+}
+
+// u, v and w at three screen points. A w of 1 (through mode) leaves u and v as they are. With texture
+// projection, uq is the texture matrix's q, and u and v come out divided by it (gpu/probe exp64).
+static UVPlanes ComputeUVPlanesSTQ(const int64_t X[3], const int64_t Y[3], const double s[3], const double t[3], const double q[3]);
+
+static UVPlanes ComputeUVPlanes(const int64_t X[3], const int64_t Y[3], const float u[3], const float v[3], const float w[3], const float *uq = nullptr) {
+	UVPlanes planes{};
+	double s[3], t[3], q[3];
+	for (int i = 0; i < 3; ++i) {
+		const float w24 = TruncateToFloat24(w[i]);
+		if (!(w24 > 0.0f) || !std::isfinite(w24))
+			return planes;
+		const double r = GERecip(w24);
+		q[i] = uq ? ProductToFloat24((double)TruncateToFloat24(uq[i]) * r) : r;
+		s[i] = ProductToFloat24((double)TruncateToFloat24(u[i]) * r);
+		t[i] = ProductToFloat24((double)TruncateToFloat24(v[i]) * r);
+	}
+	return ComputeUVPlanesSTQ(X, Y, s, t, q);
+}
+
+static UVPlanes ComputeUVPlanesSTQ(const int64_t X[3], const int64_t Y[3], const double s[3], const double t[3], const double q[3]) {
+	UVPlanes planes{};
+	planes.shiftS = SharedShift(s);
+	planes.shiftT = SharedShift(t);
+	planes.shiftQ = SharedShift(q);
+	planes.s = FixedPlane(X, Y, s, planes.shiftS);
+	planes.t = FixedPlane(X, Y, t, planes.shiftT);
+	planes.q = FixedPlane(X, Y, q, planes.shiftQ);
+	planes.valid = true;
+	return planes;
+}
+
+static UVPlanes ComputeUVPlanes(const VertexData &v0, const VertexData &v1, const VertexData &v2, bool textureProj) {
+	const int64_t X[3] = { v0.screenpos.x, v1.screenpos.x, v2.screenpos.x };
+	const int64_t Y[3] = { v0.screenpos.y, v1.screenpos.y, v2.screenpos.y };
+	const float u[3] = { v0.texturecoords.s(), v1.texturecoords.s(), v2.texturecoords.s() };
+	const float v[3] = { v0.texturecoords.t(), v1.texturecoords.t(), v2.texturecoords.t() };
+	const float w[3] = { v0.clipw, v1.clipw, v2.clipw };
+	const float q[3] = { v0.texturecoords.q(), v1.texturecoords.q(), v2.texturecoords.q() };
+	return ComputeUVPlanes(X, Y, u, v, w, textureProj ? q : nullptr);
+}
+
+
+// The largest of the s and t planes' gradients, in texels per pixel (auto mip level selection).
+// inTexels: the planes hold texel coordinates (through-mode triangles) rather than normalized ones.
+static float UVPlaneGradient(const UVPlanes &planes, const RasterizerState &state, bool inTexels) {
+	if (!planes.valid)
+		return -1.0f;
+	const double perPixel = (double)SCREEN_SCALE_FACTOR / 16384.0;
+	double gs = std::ldexp((double)std::max(std::abs(planes.s.kx), std::abs(planes.s.ky)) * perPixel, -planes.shiftS);
+	double gt = std::ldexp((double)std::max(std::abs(planes.t.kx), std::abs(planes.t.ky)) * perPixel, -planes.shiftT);
+	if (!inTexels) {
+		gs *= 1 << state.samplerID.width0Shift;
+		gt *= 1 << state.samplerID.height0Shift;
+	}
+	return (float)std::max(gs, gt);
+}
+
+// The q the mip level comes from: the GE picks it once per span of four pixels in a row, at the span's
+// second pixel in the direction it walks the row, or when that one is outside the triangle, at the
+// span's first pixel inside. Left to right that's x = 4k + 1; right to left (when the long edge is the
+// right side, as for the plane anchor) 4k + 2 (gpu/probe exp93, exp103-106). quadX is the quad's left
+// column in drawing coordinates, centerX/Y its first pixel's center in screen subpixels, and
+// covered(x, y) the triangle's coverage there.
+template <typename Covered>
+static inline Vec4<float> LodQFromPlanes(const UVPlanes &planes, int64_t centerX, int64_t centerY, int quadX, const Covered &covered) {
+	const bool rtl = planes.q.rightAnchored;
+	Vec4<float> q;
+	for (int i = 0; i < 4; ++i) {
+		const int px = quadX + (i & 1);
+		const int64_t y = centerY + (i >> 1) * SCREEN_SCALE_FACTOR;
+		const int spanX = px & ~3;
+		int pick = spanX + (rtl ? 2 : 1);
+		if (!covered(centerX + (pick - quadX) * SCREEN_SCALE_FACTOR, y)) {
+			for (int j = 0; j < 4; ++j) {
+				const int c = rtl ? spanX + 3 - j : spanX + j;
+				if (covered(centerX + (c - quadX) * SCREEN_SCALE_FACTOR, y)) {
+					pick = c;
+					break;
+				}
+			}
+		}
+		const int64_t x = centerX + (pick - quadX) * SCREEN_SCALE_FACTOR;
+		q[i] = TruncateToFloat24((float)std::ldexp((double)planes.q.At(x, y), -planes.shiftQ));
+	}
+	return q;
+}
+
+static inline void GetTextureCoordinatesGE(const UVPlanes &planes, int64_t centerX, int64_t centerY, Vec4<float> &s, Vec4<float> &t, Vec4<float> &qOut) {
+	for (int i = 0; i < 4; ++i) {
+		const int64_t x = centerX + (i & 1) * SCREEN_SCALE_FACTOR, y = centerY + (i >> 1) * SCREEN_SCALE_FACTOR;
+		const float q = TruncateToFloat24((float)std::ldexp((double)planes.q.At(x, y), -planes.shiftQ));
+		qOut[i] = q;
+		if (!(q > 0.0f)) {
+			s[i] = 0.0f;
+			t[i] = 0.0f;
+			continue;
+		}
+		const double r = GERecip(q);
+		s[i] = GEUVProduct((double)TruncateToFloat24((float)std::ldexp((double)planes.s.At(x, y), -planes.shiftS)) * r);
+		t[i] = GEUVProduct((double)TruncateToFloat24((float)std::ldexp((double)planes.t.At(x, y), -planes.shiftT)) * r);
+	}
+}
+
 template <bool clearMode, bool useSSE4>
 void DrawTriangleSlice(
 	const VertexData& v0, const VertexData& v1, const VertexData& v2,
@@ -995,6 +1230,46 @@ void DrawTriangleSlice(
 	int64_t minX = x1, maxX = x2, minY = y1, maxY = y2;
 
 	ScreenCoords pprime(minX, minY, 0);
+	// Coverage of any pixel center, for picking the mip level's q (LodQFromPlanes), when it matters.
+	const bool lodUsesQ = state.TexLevelMode() != GE_TEXLEVEL_MODE_CONST && (state.maxTexLevel > 0 || state.minFilt != state.magFilt);
+	auto edgeAt = [](const ScreenCoords &a, const ScreenCoords &b, int64_t x, int64_t y) {
+		return (int64_t)(a.y - b.y) * x + (int64_t)(b.x - a.x) * y + ((int64_t)b.y * a.x - (int64_t)b.x * a.y);
+	};
+	auto coveredAt = [&](int64_t x, int64_t y) {
+		return edgeAt(v1.screenpos, v2.screenpos, x, y) + bias0[0] >= 0 && edgeAt(v2.screenpos, v0.screenpos, x, y) + bias1[0] >= 0 && edgeAt(v0.screenpos, v1.screenpos, x, y) + bias2[0] >= 0;
+	};
+	// A very tall triangle's long edge (top to bottom vertex): when 3 dy > 2^17 (in subpixels), the first pixel
+	// of each 4-pixel span (for a left edge, the last for a right edge) is inside it when any of the span is
+	// (gpu/probe exp131-135).
+	int snapEdge = -1;
+	bool snapLeft = false;
+	{
+		const VertexData *vs[3] = { &v0, &v1, &v2 };
+		int top = 0, bot = 0;
+		for (int i = 1; i < 3; ++i) {
+			if (vs[i]->screenpos.y < vs[top]->screenpos.y)
+				top = i;
+			// On a tie for the bottom, the long edge ends at the left one (gpu/probe exp131).
+			if (vs[i]->screenpos.y > vs[bot]->screenpos.y || (vs[i]->screenpos.y == vs[bot]->screenpos.y && vs[i]->screenpos.x < vs[bot]->screenpos.x))
+				bot = i;
+		}
+		const int64_t dy = (int64_t)vs[bot]->screenpos.y - vs[top]->screenpos.y;
+		if (top != bot && 3 * dy > (1 << 17)) {
+			const int third = 3 - top - bot;
+			snapEdge = third;  // e_k is the edge opposite vertex k
+			// Left edge when the third vertex is to the right of the long edge at its height.
+			const int64_t ex = (int64_t)(vs[bot]->screenpos.x - vs[top]->screenpos.x) * (vs[third]->screenpos.y - vs[top]->screenpos.y);
+			snapLeft = (int64_t)(vs[third]->screenpos.x - vs[top]->screenpos.x) * dy > ex;
+		}
+	}
+	auto edgeK = [&](int k, int64_t x, int64_t y) {
+		switch (k) {
+		case 0: return edgeAt(v1.screenpos, v2.screenpos, x, y) + bias0[0];
+		case 1: return edgeAt(v2.screenpos, v0.screenpos, x, y) + bias1[0];
+		default: return edgeAt(v0.screenpos, v1.screenpos, x, y) + bias2[0];
+		}
+	};
+
 	Vec4<int> w0_base = e0.Start(v1.screenpos, v2.screenpos, pprime);
 	Vec4<int> w1_base = e1.Start(v2.screenpos, v0.screenpos, pprime);
 	Vec4<int> w2_base = e2.Start(v0.screenpos, v1.screenpos, pprime);
@@ -1008,7 +1283,7 @@ void DrawTriangleSlice(
 	const bool flatColorAll = !state.shadeGouraud;
 	const bool flatColor0 = flatColorAll || (v0.color0 == v1.color0 && v0.color0 == v2.color0);
 	const bool flatColor1 = flatColorAll || (v0.color1 == v1.color1 && v0.color1 == v2.color1);
-	const bool noFog = clearMode || !pixelID.applyFog || (v0.fogdepth >= 1.0f && v1.fogdepth >= 1.0f && v2.fogdepth >= 1.0f);
+	const bool noFog = clearMode || !pixelID.applyFog || (v0.fogdepth >= 255.0f / 256.0f && v1.fogdepth >= 255.0f / 256.0f && v2.fogdepth >= 255.0f / 256.0f);
 
 	if (pixelID.applyDepthRange && flatZ) {
 		if (v0.screenpos.z < pixelID.cached.minz || v0.screenpos.z > pixelID.cached.maxz)
@@ -1021,16 +1296,25 @@ void DrawTriangleSlice(
 	std::string ztag = StringFromFormat("DisplayListTZ_%08x", state.listPC);
 #endif
 
-	const Vec4<int> v0_c0 = Vec4<int>::FromRGBA(v0.color0);
-	const Vec4<int> v1_c0 = Vec4<int>::FromRGBA(v1.color0);
 	const Vec4<int> v2_c0 = Vec4<int>::FromRGBA(v2.color0);
-	const Vec3<int> v0_c1 = Vec3<int>::FromRGB(v0.color1);
-	const Vec3<int> v1_c1 = Vec3<int>::FromRGB(v1.color1);
 	const Vec3<int> v2_c1 = Vec3<int>::FromRGB(v2.color1);
 
-	const Vec4<float> v0_z4 = Vec4<int>::AssignToAll(v0.screenpos.z).Cast<float>();
-	const Vec4<float> v1_z4 = Vec4<int>::AssignToAll(v1.screenpos.z).Cast<float>();
-	const Vec4<float> v2_z4 = Vec4<int>::AssignToAll(v2.screenpos.z).Cast<float>();
+	const DepthPlane depthPlane = flatZ ? DepthPlane{} : ComputeDepthPlane(v0, v1, v2);
+	// Through mode too, where w is 1 (gpu/probe exp73).
+	const UVPlanes uvPlanes = state.enableTextures ? ComputeUVPlanes(v0, v1, v2, state.textureProj && !state.throughMode) : UVPlanes{};
+	const float autoGrad = UVPlaneGradient(uvPlanes, state, state.throughMode);
+	DepthPlane color0Planes[4], color1Planes[3];
+	DepthPlane fogPlane{};
+	if (!noFog) {
+		const int64_t X[3] = { v0.screenpos.x, v1.screenpos.x, v2.screenpos.x };
+		const int64_t Y[3] = { v0.screenpos.y, v1.screenpos.y, v2.screenpos.y };
+		const int64_t F[3] = { ClampFogDepth(v0.fogdepth), ClampFogDepth(v1.fogdepth), ClampFogDepth(v2.fogdepth) };
+		fogPlane = ComputePlane(X, Y, F);
+	}
+	if (!flatColor0)
+		ComputeColorPlanes<4>(v0, v1, v2, v0.color0, v1.color0, v2.color0, color0Planes);
+	if (!flatColor1)
+		ComputeColorPlanes<3>(v0, v1, v2, v0.color1, v1.color1, v2.color1, color1Planes);
 	const Vec4<int> minz = Vec4<int>::AssignToAll(pixelID.cached.minz);
 	const Vec4<int> maxz = Vec4<int>::AssignToAll(pixelID.cached.maxz);
 
@@ -1045,9 +1329,13 @@ void DrawTriangleSlice(
 		DrawingCoords p = TransformUnit::ScreenToDrawing(minX, curY);
 
 		int64_t rowMinX = minX, rowMaxX = maxX;
-		e0.NarrowMinMaxX(w0, minX, rowMinX, rowMaxX);
-		e1.NarrowMinMaxX(w1, minX, rowMinX, rowMaxX);
-		e2.NarrowMinMaxX(w2, minX, rowMinX, rowMaxX);
+		// A snapping edge can light pixels up to three past it.
+		if (snapEdge != 0)
+			e0.NarrowMinMaxX(w0, minX, rowMinX, rowMaxX);
+		if (snapEdge != 1)
+			e1.NarrowMinMaxX(w1, minX, rowMinX, rowMaxX);
+		if (snapEdge != 2)
+			e2.NarrowMinMaxX(w2, minX, rowMinX, rowMaxX);
 
 		int skipX = (rowMinX - minX) / (SCREEN_SCALE_FACTOR * 2);
 		w0 = e0.StepXTimes(w0, skipX);
@@ -1069,14 +1357,32 @@ void DrawTriangleSlice(
 
 			// If p is on or inside all edges, render pixel
 			Vec4<int> mask = MakeMask(w0, w1, w2, bias0, bias1, bias2, scissor_mask);
+			if (snapEdge >= 0) {
+				for (int i = 0; i < 4; ++i) {
+					const int64_t x = curX + SCREEN_SCALE_FACTOR / 2 + (i & 1) * SCREEN_SCALE_FACTOR;
+					const int64_t y = curY + SCREEN_SCALE_FACTOR / 2 + (i >> 1) * SCREEN_SCALE_FACTOR;
+					const int px = p.x + (i & 1);
+					// Only the span's first pixel (left edge) or last (right edge) takes the edge at the other end.
+					const int spanX = snapLeft ? ((px & 3) == 0 ? (px | 3) : px) : ((px & 3) == 3 ? (px & ~3) : px);
+					const int64_t xs = x + (int64_t)(spanX - px) * SCREEN_SCALE_FACTOR;
+					bool inside = true;
+					for (int k = 0; k < 3; ++k)
+						inside = inside && edgeK(k, k == snapEdge ? xs : x, y) >= 0;
+					mask[i] = (inside ? 0 : -1) | scissor_mask[i];
+				}
+			}
 			if (AnyMask<useSSE4>(mask)) {
 				Vec4<int> z;
 				if (flatZ) {
 					z = Vec4<int>::AssignToAll(v2.screenpos.z);
 				} else {
-					// Z is interpolated pretty much directly.
-					Vec4<float> zfloats = w0.Cast<float>() * v0_z4 + w1.Cast<float>() * v1_z4 + w2.Cast<float>() * v2_z4;
-					z = (zfloats * wsum_recip).Cast<int>();
+					// The GE's fixed point depth plane at the four pixel centers.
+					const int64_t z00 = depthPlane.base + depthPlane.kx * (curX + SCREEN_SCALE_FACTOR / 2) + depthPlane.ky * (curY + SCREEN_SCALE_FACTOR / 2);
+					const int64_t dx = depthPlane.kx * SCREEN_SCALE_FACTOR, dy = depthPlane.ky * SCREEN_SCALE_FACTOR;
+					z = Vec4<int>((int)(z00 >> 14), (int)((z00 + dx) >> 14), (int)((z00 + dy) >> 14), (int)((z00 + dx + dy) >> 14));
+					// A value floored below 0 (next to an edge of z = 0 vertices) is 0 (gpu/probe exp148).
+					for (int i = 0; i < 4; ++i)
+						z[i] = std::max(z[i], 0);
 				}
 
 				if (pixelID.earlyZChecks) {
@@ -1096,11 +1402,12 @@ void DrawTriangleSlice(
 				}
 
 				// Color interpolation is not perspective corrected on the PSP.
+				const int64_t centerX = curX + SCREEN_SCALE_FACTOR / 2, centerY = curY + SCREEN_SCALE_FACTOR / 2;
 				Vec4<int> prim_color[4];
 				if (!flatColor0) {
 					for (int i = 0; i < 4; ++i) {
 						if (mask[i] >= 0)
-							prim_color[i] = Interpolate(v0_c0, v1_c0, v2_c0, w0[i], w1[i], w2[i], wsum_recip[i]);
+							prim_color[i] = ColorFromPlanes<4>(color0Planes, centerX + (i & 1) * SCREEN_SCALE_FACTOR, centerY + (i >> 1) * SCREEN_SCALE_FACTOR);
 					}
 				} else {
 					for (int i = 0; i < 4; ++i) {
@@ -1111,26 +1418,40 @@ void DrawTriangleSlice(
 				if (!flatColor1) {
 					for (int i = 0; i < 4; ++i) {
 						if (mask[i] >= 0)
-							sec_color[i] = Interpolate(v0_c1, v1_c1, v2_c1, w0[i], w1[i], w2[i], wsum_recip[i]);
+							sec_color[i] = ColorFromPlanes<3>(color1Planes, centerX + (i & 1) * SCREEN_SCALE_FACTOR, centerY + (i >> 1) * SCREEN_SCALE_FACTOR).rgb();
 					}
 				} else {
 					for (int i = 0; i < 4; ++i) {
 						sec_color[i] = v2_c1;
 					}
 				}
+				if (DoubleSecondaryColor(state)) {
+					for (int i = 0; i < 4; ++i) {
+						sec_color[i] = sec_color[i] + sec_color[i];
+					}
+				}
 
 				if (state.enableTextures) {
 					if constexpr (!clearMode) {
 						Vec4<float> s, t;
+						Vec4<float> q = Vec4<float>::AssignToAll(1.0f);
 						if (state.throughMode) {
-							s = Interpolate(v0.texturecoords.s(), v1.texturecoords.s(), v2.texturecoords.s(), w0, w1,
-											w2, wsum_recip);
-							t = Interpolate(v0.texturecoords.t(), v1.texturecoords.t(), v2.texturecoords.t(), w0, w1,
-											w2, wsum_recip);
+							if (uvPlanes.valid) {
+								GetTextureCoordinatesGE(uvPlanes, centerX, centerY, s, t, q);
+							} else {
+								s = Interpolate(v0.texturecoords.s(), v1.texturecoords.s(), v2.texturecoords.s(), w0, w1,
+												w2, wsum_recip);
+								t = Interpolate(v0.texturecoords.t(), v1.texturecoords.t(), v2.texturecoords.t(), w0, w1,
+												w2, wsum_recip);
+							}
 
 							// For levels > 0, mipmapping is always based on level 0.  Simpler to scale first.
 							s *= 1.0f / (float) (1 << state.samplerID.width0Shift);
 							t *= 1.0f / (float) (1 << state.samplerID.height0Shift);
+						} else if (uvPlanes.valid) {
+							GetTextureCoordinatesGE(uvPlanes, centerX, centerY, s, t, q);
+							if (lodUsesQ)
+								q = LodQFromPlanes(uvPlanes, centerX, centerY, p.x, coveredAt);
 						} else if (state.textureProj) {
 							// Texture coordinate interpolation must definitely be perspective-correct.
 							GetTextureCoordinatesProj(v0, v1, v2, w0, w1, w2, wsum_recip, s, t);
@@ -1139,13 +1460,11 @@ void DrawTriangleSlice(
 							GetTextureCoordinates(v0, v1, v2, w0, w1, w2, wsum_recip, s, t);
 						}
 
-						if (state.TexLevelMode() == GE_TEXLEVEL_MODE_SLOPE) {
-							// Not sure what's right, but we need one value for the slope.
-							float clipw = (v0.clipw * w0.x + v1.clipw * w1.x + v2.clipw * w2.x) * wsum_recip.x;
-							ApplyTexturing(state, prim_color, mask, s, t, clipw);
-						} else {
-							ApplyTexturing(state, prim_color, mask, s, t, 0.0f);
+						if (state.TexLevelMode() == GE_TEXLEVEL_MODE_SLOPE && !uvPlanes.valid) {
+							const float clipw = (v0.clipw * w0.x + v1.clipw * w1.x + v2.clipw * w2.x) * wsum_recip.x;
+							q = Vec4<float>::AssignToAll(1.0f / clipw);
 						}
+						ApplyTexturing(state, prim_color, mask, s, t, q, autoGrad);
 					}
 				}
 
@@ -1166,11 +1485,9 @@ void DrawTriangleSlice(
 
 				Vec4<int> fog = Vec4<int>::AssignToAll(255);
 				if (!noFog) {
-					Vec4<float> fogdepths = w0.Cast<float>() * v0.fogdepth + w1.Cast<float>() * v1.fogdepth + w2.Cast<float>() * v2.fogdepth;
-					fogdepths = fogdepths * wsum_recip;
-					for (int i = 0; i < 4; ++i) {
-						fog[i] = ClampFogDepth(fogdepths[i]);
-					}
+					// The 8-bit fog of each vertex through the depth plane, like Gouraud color (gpu/probe exp21).
+					for (int i = 0; i < 4; ++i)
+						fog[i] = std::clamp((int)fogPlane.At(centerX + (i & 1) * SCREEN_SCALE_FACTOR, centerY + (i >> 1) * SCREEN_SCALE_FACTOR), 0, 255);
 				}
 
 				PROFILE_THIS_SCOPE("draw_tri_px");
@@ -1228,20 +1545,24 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 	int entireY1 = std::min(v0.screenpos.y, v1.screenpos.y);
 	int entireX2 = std::max(v0.screenpos.x, v1.screenpos.x) - 1;
 	int entireY2 = std::max(v0.screenpos.y, v1.screenpos.y) - 1;
+	// Pixel centers are at 16k + 7 here. The GE's sprite edges (gpu/probe): the first column is
+	// (x1 + 6) >> 4, the first row (y1 + 7) >> 4, and both end at (x2 + 7) >> 4, exclusive.
 	int minX = std::max(entireX1 & ~(SCREEN_SCALE_FACTOR - 1), range.x1) | (SCREEN_SCALE_FACTOR / 2 - 1);
 	int minY = std::max(entireY1 & ~(SCREEN_SCALE_FACTOR - 1), range.y1) | (SCREEN_SCALE_FACTOR / 2 - 1);
-	int maxX = std::min(entireX2, range.x2);
-	int maxY = std::min(entireY2, range.y2);
+	int maxX = std::min(entireX2 - 1, range.x2);
+	int maxY = std::min(entireY2 - 1, range.y2);
 
-	// If TL x or y was after the half, we don't draw the pixel.
-	// TODO: Verify what center is used, allowing slight offset makes gpu/primitives/trianglefan pass.
-	if (minX < entireX1 - 1)
+	if (minX < entireX1 - 2)
 		minX += SCREEN_SCALE_FACTOR;
-	if (minY < entireY1 - 1)
+	// A sprite drawn bottom-left to top-right is rotated, and its first row rounds like a column
+	// (gpu/probe exp122).
+	const bool rotated = v0.screenpos.x < v1.screenpos.x && v0.screenpos.y > v1.screenpos.y;
+	if (minY < entireY1 - (rotated ? 2 : 1))
 		minY += SCREEN_SCALE_FACTOR;
 
 	RasterizerState state = OptimizeFlatRasterizerState(rastState, v1);
 
+	UVPlanes uvPlanes{};
 	Vec2f rowST(0.0f, 0.0f);
 	// Note: this is double the x or y movement.
 	Vec2f stx(0.0f, 0.0f);
@@ -1294,7 +1615,40 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 		// Okay, now move ST to the minX, minY position.
 		rowST += (stx / (float)(SCREEN_SCALE_FACTOR * 2)) * (minX - entireX1 + 1);
 		rowST += (sty / (float)(SCREEN_SCALE_FACTOR * 2)) * (minY - entireY1 + 1);
+
+		// The GE interpolates sprite UVs with the same planes as triangles, from three corners whose s, t and q
+		// it takes component by component from the two vertices: s from the vertex that supplies the corner's
+		// x, t from the one that supplies its y (swapped for a rotated sprite, drawn bottom left to top right
+		// or top right to bottom left), and q from the one that supplies its x. So different w at the two
+		// vertices bend the mapping (gpu/probe exp57, exp122, exp129). The corners are top left, top right
+		// and bottom left, or for bottom left to top right, bottom left, top right and bottom right, which
+		// anchors that plane at the bottom left.
+		const bool right = v0.screenpos.x < v1.screenpos.x, down = v0.screenpos.y < v1.screenpos.y;
+		const bool swapST = right != down;
+		const VertexData *vs[2] = { &v0, &v1 };
+		double S[2], T[2], Q[2];
+		for (int k = 0; k < 2; ++k) {
+			const double r = state.throughMode ? 1.0 : GERecip(TruncateToFloat24(vs[k]->clipw));
+			Q[k] = r;
+			S[k] = ProductToFloat24((double)TruncateToFloat24(k == 0 ? tc0.s() : tc1.s()) * r);
+			T[k] = ProductToFloat24((double)TruncateToFloat24(k == 0 ? tc0.t() : tc1.t()) * r);
+		}
+		const int64_t left = std::min(v0.screenpos.x, v1.screenpos.x), top = std::min(v0.screenpos.y, v1.screenpos.y);
+		const int64_t rightX = std::max(v0.screenpos.x, v1.screenpos.x), bottom = std::max(v0.screenpos.y, v1.screenpos.y);
+		const bool bottomLeftFirst = right && !down;
+		const int64_t CX[3] = { left, rightX, bottomLeftFirst ? rightX : left };
+		const int64_t CY[3] = { bottomLeftFirst ? bottom : top, top, bottom };
+		double cs[3], ct[3], cq[3];
+		for (int k = 0; k < 3; ++k) {
+			const int xs = CX[k] == v0.screenpos.x ? 0 : 1, ys = CY[k] == v0.screenpos.y ? 0 : 1;
+			cs[k] = S[swapST ? ys : xs];
+			ct[k] = T[swapST ? xs : ys];
+			cq[k] = Q[xs];
+		}
+		uvPlanes = ComputeUVPlanesSTQ(CX, CY, cs, ct, cq);
 	}
+	// Sprite planes are built from normalized coordinates, also in through mode.
+	const float autoGrad = UVPlaneGradient(uvPlanes, state, false);
 
 	// And now what we add to spread out to 4 values.
 	const Vec4f sto4(0.0f, 0.5f * stx.s(), 0.5f * sty.s(), 0.5f * stx.s() + 0.5f * sty.s());
@@ -1304,7 +1658,7 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 	const Vec4<int> fog = Vec4<int>::AssignToAll(ClampFogDepth(v1.fogdepth));
 	const Vec4<int> z = Vec4<int>::AssignToAll(v1.screenpos.z);
 	const Vec4<int> c0 = Vec4<int>::FromRGBA(v1.color0);
-	const Vec3<int> sec_color = Vec3<int>::FromRGB(v1.color1);
+	const Vec3<int> sec_color = Vec3<int>::FromRGB(v1.color1) * (DoubleSecondaryColor(state) ? 2 : 1);
 
 	if (state.pixelID.applyDepthRange) {
 		// We can bail early since the Z is flat.
@@ -1318,7 +1672,7 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 	std::string ztag = StringFromFormat("DisplayListRZ_%08x", state.listPC);
 #endif
 
-	for (int64_t curY = minY; curY < maxY; curY += SCREEN_SCALE_FACTOR * 2, rowST += sty) {
+	for (int64_t curY = minY; curY <= maxY; curY += SCREEN_SCALE_FACTOR * 2, rowST += sty) {
 		DrawingCoords p = TransformUnit::ScreenToDrawing(minX, curY);
 
 		int scissorY2 = curY + SCREEN_SCALE_FACTOR > maxY ? -1 : 0;
@@ -1326,7 +1680,7 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 		Vec4<int> scissor_step = Vec4<int>(0, -(SCREEN_SCALE_FACTOR * 2), 0, -(SCREEN_SCALE_FACTOR * 2));
 		Vec2f st = rowST;
 
-		for (int64_t curX = minX; curX < maxX; curX += SCREEN_SCALE_FACTOR * 2,
+		for (int64_t curX = minX; curX <= maxX; curX += SCREEN_SCALE_FACTOR * 2,
 			st += stx,
 			scissor_mask += scissor_step,
 			p.x = (p.x + 2) & 0x3FF) {
@@ -1352,10 +1706,16 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 
 			if (state.enableTextures) {
 				Vec4<float> s, t;
-				s = Vec4<float>::AssignToAll(st.s()) + sto4;
-				t = Vec4<float>::AssignToAll(st.t()) + tto4;
+				Vec4<float> q = Vec4<float>::AssignToAll(1.0f / v1.clipw);
+				if (uvPlanes.valid) {
+					// Pixel centers are at 16k + 7 here, the GE's at 16k + 8.
+					GetTextureCoordinatesGE(uvPlanes, curX + 1, curY + 1, s, t, q);
+				} else {
+					s = Vec4<float>::AssignToAll(st.s()) + sto4;
+					t = Vec4<float>::AssignToAll(st.t()) + tto4;
+				}
 
-				ApplyTexturing(state, prim_color, mask, s, t, v1.clipw);
+				ApplyTexturing(state, prim_color, mask, s, t, q, autoGrad);
 			}
 
 			if (!state.pixelID.clearMode) {
@@ -1436,25 +1796,33 @@ void DrawPoint(const VertexData &v0, const BinCoords &range, const RasterizerSta
 		float s = v0.texturecoords.s();
 		float t = v0.texturecoords.t();
 		if (state.throughMode) {
-			s *= 1.0f / (float)(1 << state.samplerID.width0Shift);
-			t *= 1.0f / (float)(1 << state.samplerID.height0Shift);
-		} else if (state.textureProj) {
-			GetTextureCoordinatesProj(v0, v0, 0.0f, s, t);
+			s = GETruncateTexCoord(s) * (1.0f / (float)(1 << state.samplerID.width0Shift));
+			t = GETruncateTexCoord(t) * (1.0f / (float)(1 << state.samplerID.height0Shift));
 		} else {
-			// Texture coordinate interpolation must definitely be perspective-correct.
-			GetTextureCoordinates(v0, v0, 0.0f, s, t);
+			// The same planes as triangles, flat (gpu/probe exp64).
+			const UVPlanes planes = ComputeUVPlanes(v0, v0, v0, state.textureProj);
+			if (planes.valid) {
+				Vec4<float> s4, t4, q4;
+				GetTextureCoordinatesGE(planes, v0.screenpos.x, v0.screenpos.y, s4, t4, q4);
+				s = s4[0];
+				t = t4[0];
+			} else if (state.textureProj) {
+				GetTextureCoordinatesProj(v0, v0, 0.0f, s, t);
+			} else {
+				GetTextureCoordinates(v0, v0, 0.0f, s, t);
+			}
 		}
 
 		int texLevel;
 		int texLevelFrac;
 		bool bilinear;
-		CalculateSamplingParams(0.0f, 0.0f, v0.clipw, state, texLevel, texLevelFrac, bilinear);
+		CalculateSamplingParams(0.0f, 0.0f, 1.0f / v0.clipw, state, texLevel, texLevelFrac, bilinear);
 		PROFILE_THIS_SCOPE("sampler");
 		prim_color = ApplyTexturingSingle(s, t, ToVec4IntArg(prim_color), texLevel, texLevelFrac, bilinear, state);
 	}
 
 	if (!pixelID.clearMode) {
-		Vec3<int> sec_color = Vec3<int>::FromRGB(v0.color1);
+		Vec3<int> sec_color = Vec3<int>::FromRGB(v0.color1) * (DoubleSecondaryColor(state) ? 2 : 1);
 		prim_color += Vec4<int>(sec_color, 0);
 	}
 
@@ -1673,6 +2041,178 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords 
 #endif
 }
 
+// Which pixels a line lights, as the GE does it (gpu/probe exp72: one pixel of 320 random lines differs,
+// a y-major line starting on a top corner): diamond exit. A pixel is lit when the line
+// passes through the inside of its diamond |x - cx| + |y - cy| < 1/2 and doesn't end inside it (see
+// InLineDiamond for points exactly on the edge). In 1/16 pixel units, exact.
+struct LinePixel {
+	int x, y;
+	float t;  // where the pixel's center falls along the line, 0 to 1
+};
+
+// A point on a diamond's edge counts as inside on the top corner and the edges either side of it, for
+// x-major lines; not on the left or right corner (gpu/probe exp149). Y-major lines swap x and y: the left
+// corner and its edges.
+static bool LineDiamondEdgeInside(int64_t dx, int64_t dy, bool yMajor) {
+	if (yMajor)
+		std::swap(dx, dy);
+	return dy < 0;
+}
+
+static bool InLineDiamond(int64_t cx, int64_t cy, int64_t x, int64_t y, bool yMajor) {
+	const int64_t dx = x - cx, dy = y - cy;
+	const int64_t d = std::abs(dx) + std::abs(dy);
+	if (d != SCREEN_SCALE_FACTOR / 2)
+		return d < SCREEN_SCALE_FACTOR / 2;
+	return LineDiamondEdgeInside(dx, dy, yMajor);
+}
+
+// Whether the line reaches the diamond's inside, or touches its boundary where InLineDiamond counts it
+// as inside (a horizontal line along the top corners of a row, for example).
+static bool LineCrossesDiamond(int64_t cx, int64_t cy, int64_t x0, int64_t y0, int64_t x1, int64_t y1, bool yMajor) {
+	// Clip t in [0, 1] against the four half-planes sx (x - cx) + sy (y - cy) <= 8, as fractions lo..hi,
+	// noting whether any of them is only met with equality.
+	int64_t loN = 0, loD = 1, hiN = 1, hiD = 1;
+	static const int signs[4][2] = { { 1, 1 }, { 1, -1 }, { -1, 1 }, { -1, -1 } };
+	for (const auto &s : signs) {
+		const int64_t a = s[0] * (x1 - x0) + s[1] * (y1 - y0);
+		const int64_t b = SCREEN_SCALE_FACTOR / 2 - (s[0] * (x0 - cx) + s[1] * (y0 - cy));
+		if (a == 0) {
+			if (b < 0)
+				return false;
+		} else if (a > 0) {
+			if (b * hiD < hiN * a) {
+				hiN = b;
+				hiD = a;
+			}
+		} else if ((-b) * loD > loN * (-a)) {
+			loN = -b;
+			loD = -a;
+		}
+	}
+	if (loN * hiD > hiN * loD)
+		return false;
+	// Classify the middle of the overlap: inside, or a boundary point that counts.
+	const int64_t tn = loN * hiD + hiN * loD, td = 2 * loD * hiD;
+	const int64_t dxN = (x0 - cx) * td + (x1 - x0) * tn;
+	const int64_t dyN = (y0 - cy) * td + (y1 - y0) * tn;
+	const int64_t dN = std::abs(dxN) + std::abs(dyN);
+	if (dN < (SCREEN_SCALE_FACTOR / 2) * td)
+		return true;
+	return LineDiamondEdgeInside(dxN, dyN, yMajor);
+}
+
+static void LinePixels(int64_t x0, int64_t y0, int64_t x1, int64_t y1, std::vector<LinePixel> &out) {
+	out.clear();
+	if (x0 == x1 && y0 == y1)
+		return;
+	// A diagonal line (|dx| == |dy|) is y-major (gpu/probe exp137).
+	const bool xMajor = std::abs(x1 - x0) > std::abs(y1 - y0);
+	const int64_t a0 = xMajor ? x0 : y0, a1 = xMajor ? x1 : y1;
+	const int64_t b0 = xMajor ? y0 : x0, b1 = xMajor ? y1 : x1;
+	const int dir = a1 >= a0 ? 1 : -1;
+	const int bdir = b1 >= b0 ? 1 : -1;
+	const int64_t first = (a0 / SCREEN_SCALE_FACTOR) - dir, last = (a1 / SCREEN_SCALE_FACTOR) + dir;
+	for (int64_t c = first; c != last + dir; c += dir) {
+		const int64_t ac = c * SCREEN_SCALE_FACTOR + SCREEN_SCALE_FACTOR / 2;
+		// The minor coordinate at this column's center, floored to a pixel.
+		const int64_t num = b0 * (a1 - a0) + (ac - a0) * (b1 - b0);
+		const int64_t den = a1 - a0;
+		int64_t bc = num / den;
+		if ((num % den != 0) && ((num < 0) != (den < 0)))
+			bc--;
+		const int64_t r = bc >= 0 ? bc / SCREEN_SCALE_FACTOR : -((-bc + SCREEN_SCALE_FACTOR - 1) / SCREEN_SCALE_FACTOR);
+		for (int k = -1; k <= 1; ++k) {
+			const int64_t rr = r + k * bdir;
+			const int64_t px = xMajor ? c : rr, py = xMajor ? rr : c;
+			const int64_t cx = px * SCREEN_SCALE_FACTOR + SCREEN_SCALE_FACTOR / 2;
+			const int64_t cy = py * SCREEN_SCALE_FACTOR + SCREEN_SCALE_FACTOR / 2;
+			if (InLineDiamond(cx, cy, x1, y1, !xMajor))
+				continue;
+			if (InLineDiamond(cx, cy, x0, y0, !xMajor) || LineCrossesDiamond(cx, cy, x0, y0, x1, y1, !xMajor)) {
+				const float t = std::clamp((float)(ac - a0) / (float)(a1 - a0), 0.0f, 1.0f);
+				out.push_back({ (int)px, (int)py, t });
+			}
+		}
+	}
+}
+
+// Gouraud color along a line (gpu/probe exp137, exact): the gradient along the major axis comes from the
+// setup reciprocal like a triangle plane's, with 14 fraction bits per subpixel and floored, and a pixel's value
+// is the start color plus the gradient times the signed distance of its center from v0 along the line's
+// direction, floored.
+static int64_t LineFixedAt(int64_t c0, int64_t c1, int64_t x0, int64_t y0, int64_t x1, int64_t y1, int px, int py) {
+	const bool xMajor = std::abs(x1 - x0) > std::abs(y1 - y0);
+	const int64_t a0 = xMajor ? x0 : y0, a1 = xMajor ? x1 : y1;
+	const int64_t ac = (int64_t)(xMajor ? px : py) * SCREEN_SCALE_FACTOR + SCREEN_SCALE_FACTOR / 2;
+	if (a1 == a0)
+		return c1;
+	int e;
+	const int64_t q = GESetupRecip((uint64_t)std::abs(a1 - a0), &e);
+	const int64_t k = ((c1 - c0) * q) >> (e + 2);
+	const int64_t walk = a1 > a0 ? ac - a0 : a0 - ac;
+	return ((c0 << 14) + k * walk) >> 14;
+}
+
+static int LineValueAt(int c0, int c1, int64_t x0, int64_t y0, int64_t x1, int64_t y1, int px, int py, int maxValue) {
+	return (int)std::clamp<int64_t>(LineFixedAt(c0, c1, x0, y0, x1, y1, px, py), 0, maxValue);
+}
+
+// Texture coordinates along a transform-mode line: s, t and q as for a triangle's planes (15-bit at the
+// two vertices' largest exponent), along the line like its color, then u = s / q with the GE's reciprocal
+// (gpu/texmtx/prims: a pixel just inside a line's end samples v just below 1, not the end vertex's 1.0).
+struct LineUV {
+	double s[2], t[2], q[2];
+	int shiftS, shiftT, shiftQ;
+	bool valid;
+};
+
+static int SharedShift2(const double v[2]) {
+	const double v3[3] = { v[0], v[1], 0.0 };
+	return SharedShift(v3);
+}
+
+static LineUV ComputeLineUV(const VertexData &v0, const VertexData &v1, bool textureProj) {
+	LineUV uv{};
+	const VertexData *v[2] = { &v0, &v1 };
+	for (int i = 0; i < 2; ++i) {
+		const float w24 = TruncateToFloat24(v[i]->clipw);
+		if (!(w24 > 0.0f) || !std::isfinite(w24))
+			return uv;
+		const double r = GERecip(w24);
+		uv.q[i] = textureProj ? ProductToFloat24((double)TruncateToFloat24(v[i]->texturecoords.q()) * r) : r;
+		uv.s[i] = ProductToFloat24((double)TruncateToFloat24(v[i]->texturecoords.s()) * r);
+		uv.t[i] = ProductToFloat24((double)TruncateToFloat24(v[i]->texturecoords.t()) * r);
+	}
+	uv.shiftS = SharedShift2(uv.s);
+	uv.shiftT = SharedShift2(uv.t);
+	uv.shiftQ = SharedShift2(uv.q);
+	uv.valid = true;
+	return uv;
+}
+
+static float LineUVComponentAt(const double c[2], int shift, const VertexData &v0, const VertexData &v1, int px, int py) {
+	const int64_t c0 = (int64_t)std::ldexp(c[0], shift), c1 = (int64_t)std::ldexp(c[1], shift);
+	const int64_t value = LineFixedAt(c0, c1, v0.screenpos.x, v0.screenpos.y, v1.screenpos.x, v1.screenpos.y, px, py);
+	return TruncateToFloat24((float)std::ldexp((double)value, -shift));
+}
+
+static void LineTextureCoordinatesAt(const LineUV &uv, const VertexData &v0, const VertexData &v1, int px, int py, float &s, float &t, float &q) {
+	q = LineUVComponentAt(uv.q, uv.shiftQ, v0, v1, px, py);
+	if (!(q > 0.0f)) {
+		s = 0.0f;
+		t = 0.0f;
+		return;
+	}
+	const double r = GERecip(q);
+	s = GEUVProduct((double)LineUVComponentAt(uv.s, uv.shiftS, v0, v1, px, py) * r);
+	t = GEUVProduct((double)LineUVComponentAt(uv.t, uv.shiftT, v0, v1, px, py) * r);
+}
+
+static int LineColorAt(int c0, int c1, int64_t x0, int64_t y0, int64_t x1, int64_t y1, int px, int py) {
+	return LineValueAt(c0, c1, x0, y0, x1, y1, px, py, 255);
+}
+
 void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range, const RasterizerState &state) {
 	// TODO: Use a proper line drawing algorithm that handles fractional endpoints correctly.
 	Vec3<int> a(v0.screenpos.x, v0.screenpos.y, v0.screenpos.z);
@@ -1696,7 +2236,6 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 
 	double xinc = (double)dx / steps;
 	double yinc = (double)dy / steps;
-	double zinc = (double)dz / steps;
 
 	auto &pixelID = state.pixelID;
 	auto &samplerID = state.samplerID;
@@ -1712,11 +2251,17 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 	std::string ztag = StringFromFormat("DisplayListLZ_%08x", state.listPC);
 #endif
 
-	double x = a.x > b.x ? a.x - 1 : a.x;
-	double y = a.y > b.y ? a.y - 1 : a.y;
-	double z = a.z;
 	const int steps1 = steps == 0 ? 1 : steps;
-	for (int i = 0; i < steps; i++) {
+	const LineUV lineUV = state.enableTextures && !state.throughMode ? ComputeLineUV(v0, v1, state.textureProj) : LineUV{};
+	static thread_local std::vector<LinePixel> pixels;
+	LinePixels(a.x, a.y, b.x, b.y, pixels);
+	for (const LinePixel &lp : pixels) {
+		const int i = std::clamp((int)lroundf(lp.t * steps), 0, steps);
+		const double x = lp.x * SCREEN_SCALE_FACTOR + SCREEN_SCALE_FACTOR / 2;
+		const double y = lp.y * SCREEN_SCALE_FACTOR + SCREEN_SCALE_FACTOR / 2;
+		// Depth the same way as Gouraud color, so an endpoint's pixel extrapolates to its center (Coded Arms'
+		// short lines passed a GEQUAL test there).
+		const int z = LineValueAt(a.z, b.z, a.x, a.y, b.x, b.y, lp.x, lp.y, 65535);
 		DrawingCoords p = TransformUnit::ScreenToDrawing(x, y);
 
 		bool maskOK = x >= range.x1 && y >= range.y1 && x <= range.x2 && y <= range.y2;
@@ -1738,8 +2283,11 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 			Vec4<int> prim_color;
 			Vec3<int> sec_color;
 			if (interpolateColor) {
-				prim_color = (v0_c0 * (steps - i) + v1_c0 * i) / steps1;
-				sec_color = (v0_c1 * (steps - i) + v1_c1 * i) / steps1;
+				for (int c = 0; c < 4; ++c) {
+					prim_color[c] = LineColorAt(v0_c0[c], v1_c0[c], a.x, a.y, b.x, b.y, lp.x, lp.y);
+					if (c < 3)
+						sec_color[c] = LineColorAt(v0_c1[c], v1_c1[c], a.x, a.y, b.x, b.y, lp.x, lp.y);
+				}
 			} else {
 				prim_color = v1_c0;
 				sec_color = v1_c1;
@@ -1747,33 +2295,40 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 
 			u8 fog = 255;
 			if (pixelID.applyFog) {
-				fog = ClampFogDepth((v0.fogdepth * (float)(steps - i) + v1.fogdepth * (float)i) / steps1);
+				// steps1, so a line shorter than a pixel keeps v0's fog rather than none (SOCOM's radar).
+				fog = ClampFogDepth((v0.fogdepth * (float)(steps1 - i) + v1.fogdepth * (float)i) / steps1);
 			}
 
 			if (state.antialiasLines) {
 				// TODO: Clearmode?
-				// TODO: Calculate.
-				prim_color.a() = 0x7F;
+				prim_color.a() = GELineCoverageAlpha(a.x, a.y, b.x, b.y, lp.x, lp.y);
 			}
 
 			if (state.enableTextures) {
 				float s, s1;
 				float t, t1;
 				if (state.throughMode) {
-					Vec2<float> tc = (v0.texturecoords.uv() * (float)(steps - i) + v1.texturecoords.uv() * (float)i) / steps1;
-					Vec2<float> tc1 = (v0.texturecoords.uv() * (float)(steps - i - 1) + v1.texturecoords.uv() * (float)(i + 1)) / steps1;
+					Vec2<float> tc = (v0.texturecoords.uv() * (float)(steps1 - i) + v1.texturecoords.uv() * (float)i) / steps1;
+					Vec2<float> tc1 = (v0.texturecoords.uv() * (float)(steps1 - i - 1) + v1.texturecoords.uv() * (float)(i + 1)) / steps1;
 
 					s = tc.s() * (1.0f / (float)(1 << state.samplerID.width0Shift));
 					s1 = tc1.s() * (1.0f / (float)(1 << state.samplerID.width0Shift));
 					t = tc.t() * (1.0f / (float)(1 << state.samplerID.height0Shift));
 					t1 = tc1.t() * (1.0f / (float)(1 << state.samplerID.height0Shift));
+				} else if (lineUV.valid) {
+					float q, q1;
+					LineTextureCoordinatesAt(lineUV, v0, v1, lp.x, lp.y, s, t, q);
+					// The next pixel along the major axis, for the derivatives below.
+					const bool xMajor = std::abs(dx) > std::abs(dy);
+					const int stepX = xMajor ? (dx >= 0 ? 1 : -1) : 0, stepY = xMajor ? 0 : (dy >= 0 ? 1 : -1);
+					LineTextureCoordinatesAt(lineUV, v0, v1, lp.x + stepX, lp.y + stepY, s1, t1, q1);
 				} else if (state.textureProj) {
-					GetTextureCoordinatesProj(v0, v1, (float)(steps - i) / steps1, s, t);
-					GetTextureCoordinatesProj(v0, v1, (float)(steps - i - 1) / steps1, s1, t1);
+					GetTextureCoordinatesProj(v0, v1, (float)(steps1 - i) / steps1, s, t);
+					GetTextureCoordinatesProj(v0, v1, (float)(steps1 - i - 1) / steps1, s1, t1);
 				} else {
 					// Texture coordinate interpolation must definitely be perspective-correct.
-					GetTextureCoordinates(v0, v1, (float)(steps - i) / steps1, s, t);
-					GetTextureCoordinates(v0, v1, (float)(steps - i - 1) / steps1, s1, t1);
+					GetTextureCoordinates(v0, v1, (float)(steps1 - i) / steps1, s, t);
+					GetTextureCoordinates(v0, v1, (float)(steps1 - i - 1) / steps1, s1, t1);
 				}
 
 				// If inc is 0, force the delta to zero.
@@ -1784,7 +2339,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 				int texLevel;
 				int texLevelFrac;
 				bool texBilinear;
-				CalculateSamplingParams(ds, dt, w, state, texLevel, texLevelFrac, texBilinear);
+				CalculateSamplingParams(ds, dt, 1.0f / w, state, texLevel, texLevelFrac, texBilinear);
 
 				if (state.antialiasLines) {
 					// TODO: This is a naive and wrong implementation.
@@ -1817,9 +2372,6 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 #endif
 		}
 
-		x += xinc;
-		y += yinc;
-		z += zinc;
 	}
 }
 

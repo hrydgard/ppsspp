@@ -27,6 +27,7 @@ struct State {
 		Vec3f pos;
 		Vec3f att;
 		Vec3f spotDir;
+		float spotDirRsqrt;
 		float spotCutoff;
 		float spotExp;
 
@@ -68,7 +69,8 @@ struct State {
 
 void ComputeState(State *state, bool hasColor0);
 
-void GenerateLightST(VertexData &vertex, const WorldCoords &worldpos, const WorldCoords &worldnormal, const Vec3f &viewDir);
-void Process(VertexData &vertex, const WorldCoords &worldpos, const WorldCoords &worldnormal, const State &state);
+// worldnormal isn't normalized; normalRsqrt is its reciprocal length.
+void GenerateLightST(VertexData &vertex, const Vec3f &modelpos, const WorldCoords &worldnormal, float normalRsqrt, const Vec3f &viewDir);
+void Process(VertexData &vertex, const Vec3f &modelpos, const WorldCoords &worldnormal, float normalRsqrt, const State &state);
 
 }

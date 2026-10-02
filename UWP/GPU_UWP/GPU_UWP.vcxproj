@@ -148,6 +148,7 @@
     <ClInclude Include="..\..\GPU\Software\Sampler.h" />
     <ClInclude Include="..\..\GPU\Software\SoftGpu.h" />
     <ClInclude Include="..\..\GPU\Software\TransformUnit.h" />
+    <ClInclude Include="..\..\GPU\Software\GEMath.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="targetver.h" />
   </ItemGroup>
@@ -216,6 +217,7 @@
     <ClCompile Include="..\..\GPU\Software\Sampler.cpp" />
     <ClCompile Include="..\..\GPU\Software\SoftGpu.cpp" />
     <ClCompile Include="..\..\GPU\Software\TransformUnit.cpp" />
+    <ClCompile Include="..\..\GPU\Software\GEMath.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader>Create</PrecompiledHeader>
     </ClCompile>

@@ -1374,6 +1374,7 @@ if(UNITTEST)
 		unittest/TestLzrc.cpp
 		unittest/TestMpegCsc.cpp
 		unittest/TestSplineTessellation.cpp
+		unittest/TestGEMath.cpp
 		unittest/TestDemangle.cpp
 		unittest/TestTextureReplacer.cpp
 		unittest/TestRiscVEmitter.cpp

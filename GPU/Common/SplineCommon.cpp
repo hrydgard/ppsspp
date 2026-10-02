@@ -16,6 +16,11 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 
+#include <cmath>
+#include <cstring>
+#include <type_traits>
+#include <vector>
+
 #include "Common/Common.h"
 #include "Common/CPUDetect.h"
 #include "Common/Profiler/Profiler.h"
@@ -24,6 +29,7 @@
 #include "GPU/Common/SoftwareTransformCommon.h"
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"  // only needed for UVScale stuff
+#include "GPU/Software/GEMath.h"
 
 class SimpleBufferManager {
 private:
@@ -49,12 +55,14 @@ namespace Spline {
 
 static void CopyQuadIndex(u16 *&indices, GEPatchPrimType type, const int idx0, const int idx1, const int idx2, const int idx3) {
 	if (type == GE_PATCHPRIM_LINES) {
+		// A zigzag per quad: left edge down, the diagonal up to the top right, right edge down (gpu/probe exp175,
+		// exact: line colors and lit start pixels show the directions, and overlapping pixels the order).
 		*(indices++) = idx0;
 		*(indices++) = idx2;
+		*(indices++) = idx2;
+		*(indices++) = idx1;
 		*(indices++) = idx1;
 		*(indices++) = idx3;
-		*(indices++) = idx1;
-		*(indices++) = idx2;
 	} else {
 		*(indices++) = idx0;
 		*(indices++) = idx2;
@@ -76,6 +84,142 @@ void BuildIndex(u16 *indices, int &count, int num_u, int num_v, GEPatchPrimType 
 		}
 	}
 }
+
+// Bezier patches as the GE evaluates them (gpu/probe exp48-51, exp139-140, bit exact). The parameter is k/256,
+// rounded toward the middle of the patch, and columns (v) are evaluated before rows (u), by de Casteljau.
+// Positions and texture coordinates: each lerp in 16-bit fixed point at the larger operand's exponent, both
+// operands truncated toward zero to that grid, then a + floor((b - a) k / 256). At k = 0 or 256 a lerp passes
+// its operand through unchanged. Colors: the same lerp on (c << 7) | 0x7F per channel, result >> 7.
+// Normals (exp142-143): the cross product (as the matrix unit sums it) of two tangents, each the difference of
+// the de Casteljau's last two points: along u, the row's; along v, those of the columns evaluated along u.
+static int BezierParam256(int i, int n) {
+	return 2 * i <= n ? (256 * i) / n : 256 - (256 * (n - i)) / n;
+}
+
+static float GEBezierLerp(float a, float b, int k) {
+	if (k == 0) {
+		return a;
+	} else if (k == 256) {
+		return b;
+	}
+	uint32_t ba, bb;
+	memcpy(&ba, &a, 4);
+	memcpy(&bb, &b, 4);
+	const int ea = (ba >> 23) & 0xFF;
+	const int eb = (bb >> 23) & 0xFF;
+	const int e = std::max(ea, eb);
+	if (e == 0) {
+		return 0.0f;
+	}
+	// Mantissas (24 bits) shifted to 16 bits at exponent e, truncated toward zero.
+	auto toFixed = [e](uint32_t bits, int ex) -> int {
+		if (ex == 0 || e - ex >= 16) {
+			return 0;
+		}
+		const int m = (int)(((bits & 0x7FFFFF) | 0x800000) >> (e - ex + 8));
+		return (bits & 0x80000000) ? -m : m;
+	};
+	const int fa = toFixed(ba, ea);
+	const int fb = toFixed(bb, eb);
+	const int r = fa + (((fb - fa) * k) >> 8);
+	// r * 2^(e - 127 - 15), exact.
+	if (e <= 15) {
+		return ldexpf((float)r, e - 127 - 15);
+	}
+	const uint32_t scaleBits = (uint32_t)(e - 15) << 23;
+	float scale;
+	memcpy(&scale, &scaleBits, 4);
+	return (float)r * scale;
+}
+
+// Also returns the de Casteljau's last two points, which the normal's tangents come from.
+static float GEBezierEval(const float p[4], int k, float *ab = nullptr, float *bc = nullptr) {
+	const float a = GEBezierLerp(p[0], p[1], k);
+	const float b = GEBezierLerp(p[1], p[2], k);
+	const float c = GEBezierLerp(p[2], p[3], k);
+	const float l = GEBezierLerp(a, b, k);
+	const float r = GEBezierLerp(b, c, k);
+	if (ab) {
+		*ab = l;
+		*bc = r;
+	}
+	return GEBezierLerp(l, r, k);
+}
+
+static int GEBezierEvalColor(const int p[4], int k) {
+	auto lerp = [k](int a, int b) { return a + (((b - a) * k) >> 8); };
+	const int a = lerp(p[0], p[1]);
+	const int b = lerp(p[1], p[2]);
+	const int c = lerp(p[2], p[3]);
+	return lerp(lerp(a, b), lerp(b, c));
+}
+
+// Splines as the GE evaluates them (gpu/probe exp144-145, bit exact): de Boor at t = k/256 (k as for Bezier)
+// with the lerps above. Each blending factor (t - K[i]) / span comes from the nearer of its two knots, in 1/256:
+// floor(d / span) from the left one, 256 - floor(d / span) from the right. A segment's last point is the next
+// one's first (k = 0). An open end repeats its knot four times, a closed one keeps the unit spacing.
+struct GESplineParam {
+	int seg;
+	int alpha[6];  // level 1 for knots l-2, l-1, l, level 2 for l-1, l, level 3 for l (l = seg + 3)
+	int k;
+};
+
+static GESplineParam GESplineParamAt(int index, int tess, int numPatches, int type) {
+	GESplineParam p;
+	p.seg = index / tess;
+	p.k = BezierParam256(index % tess, tess);
+	if (p.seg == numPatches) {
+		p.seg = numPatches - 1;
+		p.k = 256;
+	}
+	auto knot = [&](int i) {
+		if (i < 3 && (type & 1))
+			return 0;
+		if (i > numPatches + 3 && (type & 2))
+			return numPatches;
+		return i - 3;
+	};
+	const int l = p.seg + 3;
+	const int is[6] = { l - 2, l - 1, l, l - 1, l, l };
+	const int rs[6] = { 1, 1, 1, 2, 2, 3 };
+	for (int n = 0; n < 6; ++n) {
+		const int i = is[n];
+		const int span = knot(i + 4 - rs[n]) - knot(i);
+		const int dl = 256 * (p.seg - knot(i)) + p.k;
+		const int dr = 256 * span - dl;
+		p.alpha[n] = span == 0 ? 0 : (dl <= dr ? dl / span : 256 - dr / span);
+	}
+	return p;
+}
+
+static float GESplineEval(const float d[4], const int a[6], float *ab = nullptr, float *bc = nullptr) {
+	const float l0 = GEBezierLerp(d[0], d[1], a[0]);
+	const float l1 = GEBezierLerp(d[1], d[2], a[1]);
+	const float l2 = GEBezierLerp(d[2], d[3], a[2]);
+	const float m0 = GEBezierLerp(l0, l1, a[3]);
+	const float m1 = GEBezierLerp(l1, l2, a[4]);
+	if (ab) {
+		*ab = m0;
+		*bc = m1;
+	}
+	return GEBezierLerp(m0, m1, a[5]);
+}
+
+static int GESplineEvalColor(const int d[4], const int a[6]) {
+	auto lerp = [](int x, int y, int k) { return x + (((y - x) * k) >> 8); };
+	const int l0 = lerp(d[0], d[1], a[0]);
+	const int l1 = lerp(d[1], d[2], a[1]);
+	const int l2 = lerp(d[2], d[3], a[2]);
+	return lerp(lerp(l0, l1, a[3]), lerp(l1, l2, a[4]), a[5]);
+}
+
+// One control column of a patch evaluated at some v.
+struct GEBezierColumn {
+	float pos[3];
+	float ab[3], bc[3];  // for the normal
+	float tex[2];
+	int col[4];  // 15 bits
+};
 
 class Bezier3DWeight {
 private:
@@ -334,13 +478,115 @@ void ControlPoints::Convert(const SimpleVertex *const *points, int size) {
 	defcolor = points[0]->color_32;
 }
 
+// The GE's spline: each control column at the vertex's v, then the row of those at its u (as for Bezier).
+template <bool sampleNrm, bool sampleCol, bool sampleTex, bool patchFacing>
+static void TessellateSplineGE(OutputBuffers &output, const SplineSurface &surface, const ControlPoints &points) {
+	const int nu = surface.num_patches_u * surface.tess_u + 1;
+	const int nv = surface.num_patches_v * surface.tess_v + 1;
+	const int pointsU = surface.num_points_u;
+	std::vector<GESplineParam> paramsU(nu);
+	for (int i = 0; i < nu; ++i)
+		paramsU[i] = GESplineParamAt(i, surface.tess_u, surface.num_patches_u, surface.type_u);
+	std::vector<GEBezierColumn> columns(pointsU);
+
+	for (int iv = 0; iv < nv; ++iv) {
+		const GESplineParam pv = GESplineParamAt(iv, surface.tess_v, surface.num_patches_v, surface.type_v);
+		for (int c = 0; c < pointsU; ++c) {
+			GEBezierColumn &column = columns[c];
+			int idx[4];
+			for (int r = 0; r < 4; ++r)
+				idx[r] = (pv.seg + r) * pointsU + c;
+			for (int j = 0; j < 3; ++j) {
+				const float p[4] = { points.pos[idx[0]][j], points.pos[idx[1]][j], points.pos[idx[2]][j], points.pos[idx[3]][j] };
+				column.pos[j] = GESplineEval(p, pv.alpha, &column.ab[j], &column.bc[j]);
+			}
+			if constexpr (sampleTex) {
+				for (int j = 0; j < 2; ++j) {
+					const float p[4] = { points.tex[idx[0]][j], points.tex[idx[1]][j], points.tex[idx[2]][j], points.tex[idx[3]][j] };
+					column.tex[j] = GESplineEval(p, pv.alpha);
+				}
+			}
+			if constexpr (sampleCol) {
+				for (int j = 0; j < 4; ++j) {
+					int p[4];
+					for (int r = 0; r < 4; ++r)
+						p[r] = ((int)(points.col[idx[r]][j] * 255.0f + 0.5f) << 7) | 0x7F;
+					column.col[j] = GESplineEvalColor(p, pv.alpha);
+				}
+			}
+		}
+
+		for (int iu = 0; iu < nu; ++iu) {
+			const GESplineParam &pu = paramsU[iu];
+			const GEBezierColumn *cols = &columns[pu.seg];
+			SimpleVertex &vert = output.vertices[surface.GetIndex(iu, iv, 0, 0)];
+			Vec3f tangentU, tangentV;
+			for (int j = 0; j < 3; ++j) {
+				const float row[4] = { cols[0].pos[j], cols[1].pos[j], cols[2].pos[j], cols[3].pos[j] };
+				float ab, bc;
+				vert.pos[j] = GESplineEval(row, pu.alpha, &ab, &bc);
+				if constexpr (sampleNrm) {
+					tangentU[j] = GEAdd(bc, -ab);
+					const float abRow[4] = { cols[0].ab[j], cols[1].ab[j], cols[2].ab[j], cols[3].ab[j] };
+					const float bcRow[4] = { cols[0].bc[j], cols[1].bc[j], cols[2].bc[j], cols[3].bc[j] };
+					tangentV[j] = GEAdd(GESplineEval(bcRow, pu.alpha), -GESplineEval(abRow, pu.alpha));
+				}
+			}
+			if constexpr (sampleCol) {
+				u32 color = 0;
+				for (int j = 0; j < 4; ++j) {
+					const int row[4] = { cols[0].col[j], cols[1].col[j], cols[2].col[j], cols[3].col[j] };
+					color |= (u32)(GESplineEvalColor(row, pu.alpha) >> 7) << (8 * j);
+				}
+				vert.color_32 = color;
+			} else {
+				vert.color_32 = points.defcolor;
+			}
+			if constexpr (sampleTex) {
+				for (int j = 0; j < 2; ++j) {
+					const float row[4] = { cols[0].tex[j], cols[1].tex[j], cols[2].tex[j], cols[3].tex[j] };
+					vert.uv[j] = GESplineEval(row, pu.alpha);
+				}
+			} else {
+				vert.uv[0] = pu.seg + pu.k * (1.0f / 256.0f);
+				vert.uv[1] = pv.seg + pv.k * (1.0f / 256.0f);
+			}
+			if constexpr (sampleNrm) {
+				for (int j = 0; j < 3; ++j) {
+					const int j1 = (j + 1) % 3, j2 = (j + 2) % 3;
+					const GERowTerm terms[2] = { GEProduct(tangentU[j1], tangentV[j2]), GEProduct(-tangentU[j2], tangentV[j1]) };
+					vert.nrm[j] = GERowSum(terms, 2);
+				}
+				if constexpr (patchFacing)
+					vert.nrm *= -1.0f;
+			} else {
+				vert.nrm.SetZero();
+				vert.nrm.z = 1.0f;
+			}
+		}
+	}
+}
+
 template<class Surface>
 class SubdivisionSurface {
 public:
 	template <bool sampleNrm, bool sampleCol, bool sampleTex, bool useSSE4, bool patchFacing>
 	static void Tessellate(OutputBuffers &output, const Surface &surface, const ControlPoints &points, const Weight2D &weights) {
+		if constexpr (std::is_same_v<Surface, SplineSurface>) {
+			if (surface.geExact) {
+				TessellateSplineGE<sampleNrm, sampleCol, sampleTex, patchFacing>(output, surface, points);
+				surface.BuildIndex(output.indices, output.count);
+				return;
+			}
+		}
 		const float inv_u = 1.0f / (float)surface.tess_u;
 		const float inv_v = 1.0f / (float)surface.tess_v;
+		bool exactBezier = false;
+		if constexpr (std::is_same_v<Surface, BezierSurface>) {
+			exactBezier = surface.geExact;
+		}
+		// Bezier: the GE's columns at each v step, for the current patch.
+		std::vector<GEBezierColumn> columns(exactBezier ? (surface.tess_v + 1) * 4 : 0);
 
 		for (int patch_u = 0; patch_u < surface.num_patches_u; ++patch_u) {
 			const int start_u = surface.GetTessStart(patch_u);
@@ -355,18 +601,48 @@ public:
 				Tessellator<Vec2f> tess_tex(points.tex, idx_v);
 				Tessellator<Vec3f> tess_nrm(points.pos, idx_v);
 
+				if (exactBezier) {
+					for (int tile_v = 0; tile_v <= surface.tess_v; ++tile_v) {
+						const int kv = BezierParam256(tile_v, surface.tess_v);
+						for (int c = 0; c < 4; ++c) {
+							GEBezierColumn &column = columns[tile_v * 4 + c];
+							for (int j = 0; j < 3; ++j) {
+								const float p[4] = { points.pos[idx_v[0] + c][j], points.pos[idx_v[1] + c][j], points.pos[idx_v[2] + c][j], points.pos[idx_v[3] + c][j] };
+								column.pos[j] = GEBezierEval(p, kv, &column.ab[j], &column.bc[j]);
+							}
+							if constexpr (sampleTex) {
+								for (int j = 0; j < 2; ++j) {
+									const float p[4] = { points.tex[idx_v[0] + c][j], points.tex[idx_v[1] + c][j], points.tex[idx_v[2] + c][j], points.tex[idx_v[3] + c][j] };
+									column.tex[j] = GEBezierEval(p, kv);
+								}
+							}
+							if constexpr (sampleCol) {
+								for (int j = 0; j < 4; ++j) {
+									int p[4];
+									for (int r = 0; r < 4; ++r) {
+										p[r] = ((int)(points.col[idx_v[r] + c][j] * 255.0f + 0.5f) << 7) | 0x7F;
+									}
+									column.col[j] = GEBezierEvalColor(p, kv);
+								}
+							}
+						}
+					}
+				}
+
 				for (int tile_u = start_u; tile_u <= surface.tess_u; ++tile_u) {
 					const int index_u = surface.GetIndexU(patch_u, tile_u);
 					const Weight &wu = weights.u[index_u];
 
-					// Pre-tessellate U lines
-					tess_pos.SampleU(wu.basis);
-					if constexpr (sampleCol)
-						tess_col.SampleU(wu.basis);
-					if constexpr (sampleTex)
-						tess_tex.SampleU(wu.basis);
-					if constexpr (sampleNrm)
-						tess_nrm.SampleU(wu.deriv);
+					// Pre-tessellate U lines (the exact path evaluates its own columns).
+					if (!exactBezier) {
+						tess_pos.SampleU(wu.basis);
+						if constexpr (sampleCol)
+							tess_col.SampleU(wu.basis);
+						if constexpr (sampleTex)
+							tess_tex.SampleU(wu.basis);
+						if constexpr (sampleNrm)
+							tess_nrm.SampleU(wu.deriv);
+					}
 
 					for (int tile_v = start_v; tile_v <= surface.tess_v; ++tile_v) {
 						const int index_v = surface.GetIndexV(patch_v, tile_v);
@@ -375,20 +651,66 @@ public:
 						SimpleVertex &vert = output.vertices[surface.GetIndex(index_u, index_v, patch_u, patch_v)];
 
 						// Tessellate
-						vert.pos = tess_pos.SampleV(wv.basis);
-						if constexpr (sampleCol) {
-							vert.color_32 = tess_col.SampleV(wv.basis).ToRGBA();
+						Vec3f tangentU, tangentV;
+						if (exactBezier) {
+							const int ku = BezierParam256(tile_u, surface.tess_u);
+							const GEBezierColumn *cols = &columns[tile_v * 4];
+							for (int j = 0; j < 3; ++j) {
+								const float row[4] = { cols[0].pos[j], cols[1].pos[j], cols[2].pos[j], cols[3].pos[j] };
+								float ab, bc;
+								vert.pos[j] = GEBezierEval(row, ku, &ab, &bc);
+								if constexpr (sampleNrm) {
+									tangentU[j] = GEAdd(bc, -ab);
+									const float abRow[4] = { cols[0].ab[j], cols[1].ab[j], cols[2].ab[j], cols[3].ab[j] };
+									const float bcRow[4] = { cols[0].bc[j], cols[1].bc[j], cols[2].bc[j], cols[3].bc[j] };
+									tangentV[j] = GEAdd(GEBezierEval(bcRow, ku), -GEBezierEval(abRow, ku));
+								}
+							}
+							if constexpr (sampleCol) {
+								u32 color = 0;
+								for (int j = 0; j < 4; ++j) {
+									const int row[4] = { cols[0].col[j], cols[1].col[j], cols[2].col[j], cols[3].col[j] };
+									color |= (u32)(GEBezierEvalColor(row, ku) >> 7) << (8 * j);
+								}
+								vert.color_32 = color;
+							} else {
+								vert.color_32 = points.defcolor;
+							}
+							if constexpr (sampleTex) {
+								for (int j = 0; j < 2; ++j) {
+									const float row[4] = { cols[0].tex[j], cols[1].tex[j], cols[2].tex[j], cols[3].tex[j] };
+									vert.uv[j] = GEBezierEval(row, ku);
+								}
+							} else {
+								// Generated: the parameter itself (exp140).
+								vert.uv[0] = patch_u + ku * (1.0f / 256.0f);
+								vert.uv[1] = patch_v + BezierParam256(tile_v, surface.tess_v) * (1.0f / 256.0f);
+							}
 						} else {
-							vert.color_32 = points.defcolor;
+							vert.pos = tess_pos.SampleV(wv.basis);
+							if constexpr (sampleCol) {
+								vert.color_32 = tess_col.SampleV(wv.basis).ToRGBA();
+							} else {
+								vert.color_32 = points.defcolor;
+							}
+							if constexpr (sampleTex) {
+								tess_tex.SampleV(wv.basis).Write(vert.uv);
+							} else {
+								// Generate texcoord
+								vert.uv[0] = patch_u + tile_u * inv_u;
+								vert.uv[1] = patch_v + tile_v * inv_v;
+							}
 						}
-						if constexpr (sampleTex) {
-							tess_tex.SampleV(wv.basis).Write(vert.uv);
-						} else {
-							// Generate texcoord
-							vert.uv[0] = patch_u + tile_u * inv_u;
-							vert.uv[1] = patch_v + tile_v * inv_v;
-						}
-						if constexpr (sampleNrm) {
+						if (sampleNrm && exactBezier) {
+							// Unnormalized: lighting normalizes it. Vertex normals are unused (exp142).
+							for (int j = 0; j < 3; ++j) {
+								const int j1 = (j + 1) % 3, j2 = (j + 2) % 3;
+								const GERowTerm terms[2] = { GEProduct(tangentU[j1], tangentV[j2]), GEProduct(-tangentU[j2], tangentV[j1]) };
+								vert.nrm[j] = GERowSum(terms, 2);
+							}
+							if constexpr (patchFacing)
+								vert.nrm *= -1.0f;
+						} else if constexpr (sampleNrm) {
 							const Vec3f derivU = tess_nrm.SampleV(wv.basis);
 							const Vec3f derivV = tess_pos.SampleV(wv.deriv);
 
@@ -434,7 +756,8 @@ public:
 
 	static void Tessellate(OutputBuffers &output, const Surface &surface, const ControlPoints &points, const Weight2D &weights, u32 origVertType) {
 		const bool params[] = {
-			(origVertType & GE_VTYPE_NRM_MASK) != 0 || gstate.isLightingEnabled(),
+			// Shade mapping uses the normal even with lighting off (gpu/probe exp143).
+			(origVertType & GE_VTYPE_NRM_MASK) != 0 || gstate.isLightingEnabled() || gstate.getUVGenMode() == GE_TEXMAP_ENVIRONMENT_MAP,
 			(origVertType & GE_VTYPE_COL_MASK) != 0,
 			(origVertType & GE_VTYPE_TC_MASK) != 0,
 			cpu_info.bSSE4_1,

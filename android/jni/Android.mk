@@ -589,6 +589,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Software/Clipper.cpp \
   $(SRC)/GPU/Software/DrawPixel.cpp.arm \
   $(SRC)/GPU/Software/FuncId.cpp \
+  $(SRC)/GPU/Software/GEMath.cpp \
   $(SRC)/GPU/Software/Lighting.cpp \
   $(SRC)/GPU/Software/Rasterizer.cpp.arm \
   $(SRC)/GPU/Software/RasterizerRectangle.cpp.arm \
@@ -1059,6 +1060,7 @@ ifeq ($(UNITTEST),1)
     $(SRC)/unittest/TestLzrc.cpp \
     $(SRC)/unittest/TestMpegCsc.cpp \
     $(SRC)/unittest/TestSplineTessellation.cpp \
+    $(SRC)/unittest/TestGEMath.cpp \
     $(SRC)/unittest/TestZipSlip.cpp \
     $(SRC)/unittest/UnitTest.cpp
 

@@ -28,7 +28,6 @@
 namespace Clipper {
 
 enum {
-	SKIP_FLAG = -1,
 	CLIP_NEG_Z_BIT = 0x20,
 };
 
@@ -37,6 +36,12 @@ static inline int CalcClipMask(const ClipCoords &v) {
 	if (v.z < -v.w)
 		return -1;
 	return 0;
+}
+
+// With depth clip on, a vertex beyond the near plane is clipped away before the viewport, so its screen
+// position being out of range doesn't matter (the new vertices get checked after clipping).
+static inline bool OutsideRangeBeforeClip(const ClipVertexData &v, bool depthClip) {
+	return v.OutsideRange() && !(depthClip && CalcClipMask(v.clippos) != 0);
 }
 
 inline bool different_signs(float x, float y) {
@@ -57,51 +62,6 @@ inline void clip_interpolate(ClipVertexData &dest, float t, const ClipVertexData
 	// This prevents a lot of inversions that shouldn't be drawn.
 	if (outsideRange)
 		dest.v.screenpos.x = 0x7FFFFFFF;
-}
-
-#define CLIP_POLY( PLANE_BIT, A, B, C, D )							\
-{																	\
-	if (mask & PLANE_BIT) {											\
-		int idxPrev = inlist[0];									\
-		float dpPrev = clip_dotprod(*Vertices[idxPrev], A, B, C, D );\
-		int outcount = 0;											\
-																	\
-		inlist[n] = inlist[0];										\
-		for (int j = 1; j <= n; j++) { 								\
-			int idx = inlist[j];									\
-			float dp = clip_dotprod(*Vertices[idx], A, B, C, D );	\
-			if (dpPrev >= 0) {										\
-				outlist[outcount++] = idxPrev;						\
-			}														\
-																	\
-			/* Skipping w sign mismatches avoids inversions, but is incorrect.  See #16131. */ \
-			/* For now, it's better to avoid inversions as they usually are undesired. */ \
-			if (different_signs(dp, dpPrev)) { \
-				auto &vert = Vertices[numVertices++];				\
-				if (dp < 0) {										\
-					float t = dp / (dp - dpPrev);					\
-					clip_interpolate(*vert, t, *Vertices[idx], *Vertices[idxPrev]);		\
-				} else {											\
-					float t = dpPrev / (dpPrev - dp);				\
-					clip_interpolate(*vert, t, *Vertices[idxPrev], *Vertices[idx]);		\
-				}													\
-				outlist[outcount++] = numVertices - 1;				\
-			}														\
-																	\
-			idxPrev = idx;											\
-			dpPrev = dp;											\
-		}															\
-																	\
-		if (outcount < 3)											\
-			continue;												\
-																	\
-		{															\
-			int *tmp = inlist;										\
-			inlist = outlist;										\
-			outlist = tmp;											\
-			n = outcount;											\
-		}															\
-	}																\
 }
 
 #define CLIP_LINE(PLANE_BIT, A, B, C, D)						\
@@ -127,18 +87,27 @@ inline void clip_interpolate(ClipVertexData &dest, float t, const ClipVertexData
 	}															\
 }
 
-static inline bool CheckOutsideZ(ClipCoords p, int &pos, int &neg) {
-	constexpr float outsideValue = 1.000030517578125f;
-	float z = p.z / p.w;
-	if (z >= outsideValue) {
-		pos++;
-		return true;
+// The GE compares the (float24) clip coordinates directly, no division: outside a plane when |c| > w. A
+// primitive is culled when all its vertices are outside the same plane, x, y or z, for every primitive type
+// and with clipping and depth clamp on or off (gpu/probe exp176 for x and y: a vertex exactly on the plane is
+// inside, one a float24 step past it outside).
+static bool cullXY = true;
+
+void SetCullXY(bool cull) {
+	cullXY = cull;
+}
+
+static inline int OutsideMask(const ClipCoords &p) {
+	int mask = 0;
+	if (cullXY) {
+		if (p.x > p.w) mask |= 1;
+		if (-p.x > p.w) mask |= 2;
+		if (p.y > p.w) mask |= 4;
+		if (-p.y > p.w) mask |= 8;
 	}
-	if (-z >= outsideValue) {
-		neg++;
-		return true;
-	}
-	return false;
+	if (p.z > p.w) mask |= 16;
+	if (-p.z > p.w) mask |= 32;
+	return mask;
 }
 
 static void RotateUV(const VertexData &tl, const VertexData &br, VertexData &tr, VertexData &bl) {
@@ -201,16 +170,10 @@ void ProcessRect(const ClipVertexData &v0, const ClipVertexData &v1, BinManager 
 		if (v0.OutsideRange() || v1.OutsideRange())
 			return;
 
-		// We may discard the entire rect based on depth values.
-		int outsidePos = 0, outsideNeg = 0;
-		CheckOutsideZ(v0.clippos, outsidePos, outsideNeg);
-		CheckOutsideZ(v1.clippos, outsidePos, outsideNeg);
-
-		// With depth clamp off, we discard the rectangle if even one vert is outside.
-		if (outsidePos + outsideNeg > 0 && !gstate.isDepthClipEnabled())
+		if (OutsideMask(v0.clippos) & OutsideMask(v1.clippos))
 			return;
-		// With it on, both must be outside in the same direction.
-		else if (outsidePos >= 2 || outsideNeg >= 2)
+		// Rects aren't clipped: one with a vertex behind the camera is culled, with depth clip on or off.
+		if (!(v0.clippos.w > 0.0f && v1.clippos.w > 0.0f))
 			return;
 
 		bool splitFog = v0.v.fogdepth != v1.v.fogdepth;
@@ -266,6 +229,8 @@ void ProcessPoint(const ClipVertexData &v0, BinManager &binner) {
 	if (!binner.State().throughMode) {
 		if (v0.OutsideRange())
 			return;
+		if (OutsideMask(v0.clippos))
+			return;
 	}
 
 	// Points need no clipping. Will be bounds checked in the rasterizer (which seems backwards?)
@@ -279,24 +244,23 @@ void ProcessLine(const ClipVertexData &v0, const ClipVertexData &v1, BinManager 
 		return;
 	}
 
+	const bool depthClip = gstate.isDepthClipEnabled();
 	// If any verts were outside range, throw the entire prim away.
-	if (v0.OutsideRange() || v1.OutsideRange())
+	if (OutsideRangeBeforeClip(v0, depthClip) || OutsideRangeBeforeClip(v1, depthClip))
 		return;
 
-	int outsidePos = 0, outsideNeg = 0;
-	CheckOutsideZ(v0.clippos, outsidePos, outsideNeg);
-	CheckOutsideZ(v1.clippos, outsidePos, outsideNeg);
-
-	// With depth clamp off, we discard the line if even one vert is outside.
-	if (outsidePos + outsideNeg > 0 && !gstate.isDepthClipEnabled())
-		return;
-	// With it on, both must be outside in the same direction.
-	else if (outsidePos >= 2 || outsideNeg >= 2)
+	if (OutsideMask(v0.clippos) & OutsideMask(v1.clippos))
 		return;
 
 	int mask0 = CalcClipMask(v0.clippos);
 	int mask1 = CalcClipMask(v1.clippos);
 	int mask = mask0 | mask1;
+	// See ProcessTriangle.
+	if (!depthClip) {
+		if (!(v0.clippos.w > 0.0f && v1.clippos.w > 0.0f))
+			return;
+		mask = 0;
+	}
 	if ((mask & CLIP_NEG_Z_BIT) == 0) {
 		binner.AddLine(v0.v, v1.v);
 		return;
@@ -311,11 +275,12 @@ void ProcessLine(const ClipVertexData &v0, const ClipVertexData &v1, BinManager 
 		binner.AddLine(data[0].v, data[1].v);
 }
 
-void ProcessTriangle(const ClipVertexData &v0, const ClipVertexData &v1, const ClipVertexData &v2, const ClipVertexData &provoking, BinManager &binner) {
+void ProcessTriangle(const ClipVertexData &v0, const ClipVertexData &v1, const ClipVertexData &v2, const ClipVertexData &provoking, BinManager &binner, bool reversed) {
 	int mask = 0;
 	if (!binner.State().throughMode) {
+		const bool depthClip = gstate.isDepthClipEnabled();
 		// If any verts were outside range, throw the entire prim away.
-		if (v0.OutsideRange() || v1.OutsideRange() || v2.OutsideRange())
+		if (OutsideRangeBeforeClip(v0, depthClip) || OutsideRangeBeforeClip(v1, depthClip) || OutsideRangeBeforeClip(v2, depthClip))
 			return;
 		// If all verts have negative W, we also cull.
 		if (v0.clippos.w < 0.0f && v1.clippos.w < 0.0f && v2.clippos.w < 0.0f)
@@ -325,18 +290,16 @@ void ProcessTriangle(const ClipVertexData &v0, const ClipVertexData &v1, const C
 		mask |= CalcClipMask(v1.clippos);
 		mask |= CalcClipMask(v2.clippos);
 
-		// We may discard the entire triangle based on depth values.  First check what's outside.
-		int outsidePos = 0, outsideNeg = 0;
-		CheckOutsideZ(v0.clippos, outsidePos, outsideNeg);
-		CheckOutsideZ(v1.clippos, outsidePos, outsideNeg);
-		CheckOutsideZ(v2.clippos, outsidePos, outsideNeg);
+		if (OutsideMask(v0.clippos) & OutsideMask(v1.clippos) & OutsideMask(v2.clippos))
+			return;
 
-		// With depth clamp off, we discard the triangle if even one vert is outside.
-		if (outsidePos + outsideNeg > 0 && !gstate.isDepthClipEnabled())
-			return;
-		// With it on, all three must be outside in the same direction.
-		else if (outsidePos >= 3 || outsideNeg >= 3)
-			return;
+		// With depth clip off, the GE doesn't clip at the near plane: the part beyond it is drawn with
+		// extrapolated depth. A vertex behind the camera (w <= 0) culls the whole triangle instead.
+		if (!depthClip) {
+			if (!(v0.clippos.w > 0.0f && v1.clippos.w > 0.0f && v2.clippos.w > 0.0f))
+				return;
+			mask = 0;
+		}
 	}
 
 	// No clipping is common, let's skip processing if we can.
@@ -353,65 +316,71 @@ void ProcessTriangle(const ClipVertexData &v0, const ClipVertexData &v1, const C
 		return;
 	}
 
-	enum { NUM_CLIPPED_VERTICES = 3, NUM_INDICES = NUM_CLIPPED_VERTICES + 3 };
-
-	ClipVertexData* Vertices[NUM_INDICES];
-	ClipVertexData ClippedVertices[NUM_INDICES];
-	for (int i = 0; i < NUM_INDICES; ++i)
-		Vertices[i] = &ClippedVertices[i];
-
-	// TODO: Change logic when it's a backface (why? In what way?)
-	ClippedVertices[0] = v0;
-	ClippedVertices[1] = v1;
-	ClippedVertices[2] = v2;
-
-	int indices[NUM_INDICES] = { 0, 1, 2, SKIP_FLAG, SKIP_FLAG, SKIP_FLAG };
-	int numIndices = 3;
-
-	for (int i = 0; i < 3; i += 3) {
-		int vlist[2][2*6+1];
-		int *inlist = vlist[0], *outlist = vlist[1];
-		int n = 3;
-		int numVertices = 3;
-
-		inlist[0] = 0;
-		inlist[1] = 1;
-		inlist[2] = 2;
-
-		// mark this triangle as unused in case it should be completely clipped
-		indices[0] = SKIP_FLAG;
-		indices[1] = SKIP_FLAG;
-		indices[2] = SKIP_FLAG;
-
-		// The PSP only clips on negative Z (importantly, regardless of viewport.)
-		CLIP_POLY(CLIP_NEG_Z_BIT, 0, 0, 1, 1);
-
-		// transform the poly in inlist into triangles
-		indices[0] = inlist[0];
-		indices[1] = inlist[1];
-		indices[2] = inlist[2];
-		for (int j = 3; j < n; ++j) {
-			indices[numIndices++] = inlist[0];
-			indices[numIndices++] = inlist[j - 1];
-			indices[numIndices++] = inlist[j];
-		}
+	// Clip at the near plane like the GE (gpu/probe exp43, exp44): new vertices are interpolated from
+	// the inside vertex with the GE's math, and with one vertex outside (o), the quad is split from the
+	// vertex before it (p) in the submitted order: (p, a, b) and (p, b, n), a and b being the new
+	// vertices on p-o and o-n. reversed means we got the vertices in the opposite order.
+	const ClipVertexData *src[3] = { &v0, &v1, &v2 };
+	bool outside[3];
+	int numOutside = 0;
+	for (int i = 0; i < 3; ++i) {
+		outside[i] = src[i]->clippos.z < -src[i]->clippos.w;
+		numOutside += outside[i] ? 1 : 0;
 	}
 
-	for (int i = 0; i + 3 <= numIndices; i += 3) {
-		if (indices[i] != SKIP_FLAG) {
-			ClipVertexData &subv0 = *Vertices[indices[i + 0]];
-			ClipVertexData &subv1 = *Vertices[indices[i + 1]];
-			ClipVertexData &subv2 = *Vertices[indices[i + 2]];
+	auto nearPoint = [](ClipVertexData &dest, const ClipVertexData &in, const ClipVertexData &out) {
+		const float t = TransformUnit::NearPlaneT(in.clippos, out.clippos);
+		dest.Lerp(t, in, out);
+		dest.clippos = TransformUnit::NearPlanePoint(in.clippos, out.clippos, t);
+		// Texture coordinates go through the same arithmetic as the position (gpu/probe exp136).
+		for (int c = 0; c < 3; ++c) {
+			const float delta = TruncateToFloat24(GEAdd(out.v.texturecoords[c], -in.v.texturecoords[c]));
+			dest.v.texturecoords[c] = TruncateToFloat24(GEAdd(ProductToFloat24((double)t * delta), in.v.texturecoords[c]));
+		}
+		bool outsideRange = false;
+		dest.v.screenpos = TransformUnit::ClipToScreen(dest.clippos, &outsideRange);
+		dest.v.clipw = dest.clippos.w;
+		if (outsideRange)
+			dest.v.screenpos.x = 0x7FFFFFFF;
+	};
 
-			if (subv0.OutsideRange() || subv1.OutsideRange() || subv2.OutsideRange())
-				continue;
+	ClipVertexData made[2];
+	const ClipVertexData *tris[2][3];
+	int numTris = 0;
+	if (numOutside == 1) {
+		const int o = outside[0] ? 0 : (outside[1] ? 1 : 2);
+		const int p = reversed ? (o + 1) % 3 : (o + 2) % 3;
+		const int n = reversed ? (o + 2) % 3 : (o + 1) % 3;
+		nearPoint(made[0], *src[p], *src[o]);
+		nearPoint(made[1], *src[n], *src[o]);
+		// Keep the winding we were given.
+		const int first = reversed ? 2 : 1, second = reversed ? 1 : 2;
+		tris[0][0] = src[p]; tris[0][first] = &made[0]; tris[0][second] = &made[1];
+		tris[1][0] = src[p]; tris[1][first] = &made[1]; tris[1][second] = src[n];
+		numTris = 2;
+	} else if (numOutside == 2) {
+		const int i = !outside[0] ? 0 : (!outside[1] ? 1 : 2);
+		const int n = (i + 1) % 3, p = (i + 2) % 3;
+		nearPoint(made[0], *src[i], *src[n]);
+		nearPoint(made[1], *src[i], *src[p]);
+		tris[0][0] = src[i]; tris[0][1] = &made[0]; tris[0][2] = &made[1];
+		numTris = 1;
+	}
 
-			if (gstate.getShadeMode() == GE_SHADE_FLAT) {
-				// So that the order of clipping doesn't matter...
-				subv2.v.color0 = provoking.v.color0;
-				subv2.v.color1 = provoking.v.color1;
-			}
+	for (int t = 0; t < numTris; ++t) {
+		const ClipVertexData &subv0 = *tris[t][0];
+		const ClipVertexData &subv1 = *tris[t][1];
+		const ClipVertexData &subv2 = *tris[t][2];
+		if (subv0.OutsideRange() || subv1.OutsideRange() || subv2.OutsideRange())
+			continue;
 
+		if (gstate.getShadeMode() == GE_SHADE_FLAT) {
+			// So that the order of clipping doesn't matter...
+			VertexData corrected2 = subv2.v;
+			corrected2.color0 = provoking.v.color0;
+			corrected2.color1 = provoking.v.color1;
+			binner.AddTriangle(subv0.v, subv1.v, corrected2);
+		} else {
 			binner.AddTriangle(subv0.v, subv1.v, subv2.v);
 		}
 	}

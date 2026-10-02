@@ -347,6 +347,7 @@
     <ClInclude Include="Software\Sampler.h" />
     <ClInclude Include="Software\SoftGpu.h" />
     <ClInclude Include="Software\TransformUnit.h" />
+    <ClInclude Include="Software\GEMath.h" />
     <ClInclude Include="Common\TextureDecoder.h" />
     <ClInclude Include="Vulkan\DebugVisVulkan.h" />
     <ClInclude Include="Vulkan\DrawEngineVulkan.h" />
@@ -473,6 +474,7 @@
     <ClCompile Include="Software\SamplerX86.cpp" />
     <ClCompile Include="Software\SoftGpu.cpp" />
     <ClCompile Include="Software\TransformUnit.cpp" />
+    <ClCompile Include="Software\GEMath.cpp" />
     <ClCompile Include="Common\TextureDecoder.cpp" />
     <ClCompile Include="Vulkan\DebugVisVulkan.cpp" />
     <ClCompile Include="Vulkan\DrawEngineVulkan.cpp" />

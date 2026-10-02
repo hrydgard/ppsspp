@@ -163,10 +163,10 @@ const SoftwareCommandTableEntry softgpuCommandTable[] = {
 	{ GE_CMD_TEXMAPMODE, 0, SoftDirty::TRANSFORM_BASIC | SoftDirty::RAST_TEX },
 
 	// These are read on every SubmitPrim, no need for dirtying or flushing.
-	{ GE_CMD_TEXSCALEU },
-	{ GE_CMD_TEXSCALEV },
-	{ GE_CMD_TEXOFFSETU },
-	{ GE_CMD_TEXOFFSETV },
+	{ GE_CMD_TEXSCALEU, 0, SoftDirty::TRANSFORM_BASIC },
+	{ GE_CMD_TEXSCALEV, 0, SoftDirty::TRANSFORM_BASIC },
+	{ GE_CMD_TEXOFFSETU, 0, SoftDirty::TRANSFORM_BASIC },
+	{ GE_CMD_TEXOFFSETV, 0, SoftDirty::TRANSFORM_BASIC },
 
 	{ GE_CMD_TEXSIZE0, 0, SoftDirty::SAMPLER_TEXLIST | SoftDirty::BINNER_OVERLAP },
 	{ GE_CMD_TEXSIZE1, 0, SoftDirty::SAMPLER_TEXLIST | SoftDirty::BINNER_OVERLAP },
@@ -317,8 +317,9 @@ const SoftwareCommandTableEntry softgpuCommandTable[] = {
 	{ GE_CMD_LDC3, 0, SoftDirty::LIGHT_BASIC | SoftDirty::LIGHT_MATERIAL | SoftDirty::LIGHT_3 },
 	{ GE_CMD_LSC3, 0, SoftDirty::LIGHT_BASIC | SoftDirty::LIGHT_MATERIAL | SoftDirty::LIGHT_3 },
 
+	{ GE_CMD_TEXFLUSH, FLAG_EXECUTE, SoftDirty::NONE, &SoftGPU::Execute_TexFlush },
+
 	// These are currently ignored, but might do flushing later.
-	{ GE_CMD_TEXFLUSH },
 	{ GE_CMD_TEXSYNC },
 
 	// These are just nop or part of other later commands.
@@ -966,6 +967,7 @@ void SoftGPU::Execute_Bezier(u32 op, u32 diff) {
 	surface.num_patches_v = (surface.num_points_v - 1) / 3;
 	surface.primType = gstate.getPatchPrimitiveType();
 	surface.patchFacing = gstate.patchfacing & 1;
+	surface.geExact = true;
 
 	SetDrawType(DRAW_BEZIER, PatchPrimToPrim(surface.primType));
 
@@ -1020,6 +1022,7 @@ void SoftGPU::Execute_Spline(u32 op, u32 diff) {
 	surface.num_patches_v = surface.num_points_v - 3;
 	surface.primType = gstate.getPatchPrimitiveType();
 	surface.patchFacing = gstate.patchfacing & 1;
+	surface.geExact = true;
 
 	SetDrawType(DRAW_SPLINE, PatchPrimToPrim(surface.primType));
 
@@ -1081,6 +1084,10 @@ void SoftGPU::Execute_FramebufFormat(u32 op, u32 diff) {
 	// We should flush, because ranges within bins may change.
 	if (diff)
 		drawEngine_->transformUnit.Flush(this, "framebuf");
+}
+
+void SoftGPU::Execute_TexFlush(u32 op, u32 diff) {
+	drawEngine_->transformUnit.NotifyTexFlush();
 }
 
 void SoftGPU::Execute_ZbufPtr(u32 op, u32 diff) {

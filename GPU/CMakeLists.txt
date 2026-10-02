@@ -173,6 +173,8 @@ set(GPU_SOURCES
 	Software/DrawPixel.h
 	Software/FuncId.cpp
 	Software/FuncId.h
+	Software/GEMath.cpp
+	Software/GEMath.h
 	Software/Lighting.cpp
 	Software/Lighting.h
 	Software/Rasterizer.cpp

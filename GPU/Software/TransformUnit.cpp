@@ -17,10 +17,13 @@
 
 #include "ppsspp_config.h"
 
+#include <cfloat>
+#include <climits>
 #include <cmath>
 
 #include "Common/Common.h"
 #include "Common/CPUDetect.h"
+#include "Common/Data/Convert/ColorConv.h"
 #include "Common/Math/math_util.h"
 #include "Common/MemoryUtil.h"
 #include "Common/Profiler/Profiler.h"
@@ -145,12 +148,65 @@ VertexDecoder *SoftwareDrawEngine::FindVertexDecoder(u32 vtype) {
 	return DrawEngineCommon::GetVertexDecoder(vertTypeID);
 }
 
-WorldCoords TransformUnit::ModelToWorld(const ModelCoords &coords) {
-	return Vec3ByMatrix43(coords, gstate.worldMatrix);
+WorldCoords TransformUnit::ModelToWorldNormal(const ModelCoords &coords) {
+	// Each component summed like a matrix row (gpu/probe exp61).
+	const float *m = gstate.worldMatrix;
+	return WorldCoords(GEDot(coords, Vec3f(m[0], m[3], m[6])), GEDot(coords, Vec3f(m[1], m[4], m[7])), GEDot(coords, Vec3f(m[2], m[5], m[8])));
 }
 
-WorldCoords TransformUnit::ModelToWorldNormal(const ModelCoords &coords) {
-	return Norm3ByMatrix43(coords, gstate.worldMatrix);
+// A clip space component from the combined matrix (gpu/probe exp32, exp34, exp42). The position is a
+// float24; the translation is a term of its own.
+static inline float GEClipComponent(const Vec3f &v, const float m[16], int c) {
+	GERowTerm terms[4] = {
+		GEProduct(TruncateToFloat24(v.x), m[c]),
+		GEProduct(TruncateToFloat24(v.y), m[4 + c]),
+		GEProduct(TruncateToFloat24(v.z), m[8 + c]),
+		GEProduct(1.0f, m[12 + c]),
+	};
+	return GERowSum(terms, 4);
+}
+
+
+// A texture coordinate from the 4x3 texture matrix, summed like a clip space row (gpu/probe exp64).
+static inline float GETexGenComponent(const Vec3f &v, const float m[12], int c) {
+	GERowTerm terms[4] = {
+		GEProduct(TruncateToFloat24(v.x), m[c]),
+		GEProduct(TruncateToFloat24(v.y), m[3 + c]),
+		GEProduct(TruncateToFloat24(v.z), m[6 + c]),
+		GEProduct(1.0f, m[9 + c]),
+	};
+	return GERowSum(terms, 4);
+}
+
+// Multiplies two matrices the way the GE combines world, view and projection (gpu/probe exp35, exp42):
+// in the order (world * view) * projection, each entry summed like a row in GEClipComponent.
+static void GECombineMatrices(float out[16], const float a[16], const float b[16]) {
+	for (int r = 0; r < 4; ++r) {
+		for (int c = 0; c < 4; ++c) {
+			GERowTerm terms[4];
+			for (int k = 0; k < 4; ++k) {
+				terms[k] = GEProduct(a[r * 4 + k], b[k * 4 + c]);
+			}
+			out[r * 4 + c] = GERowSum(terms, 4);
+		}
+	}
+}
+
+// A screen coordinate as the GE computes it (gpu/depth/transformprecision for Z, gpu/probe for X and Y):
+// the component divided by w is it times the reciprocal above, truncated to a float24, then scaled and
+// offset with GEAdd. Around a center of 2048, that lands X and Y on the 1/16 subpixel grid.
+static inline float GEViewport(float clipC, float clipW, float scale, float center) {
+	const float w = TruncateToFloat24(clipW);
+	if (!std::isfinite(w) || !std::isfinite(clipC) || fabsf(w) < FLT_MIN) {
+		return clipC * scale / clipW + center;
+	}
+	const float ndc = ProductToFloat24((double)TruncateToFloat24(clipC) * GERecip(w));
+	return GEAdd(ProductToFloat24((double)ndc * scale), center);
+}
+
+// Screen Z is floored.
+static inline float GEScreenZ(float clipZ, float clipW, float zScale, float zCenter) {
+	return floorf(GEViewport(clipZ, clipW, zScale, zCenter));
 }
 
 template <bool depthClamp, bool alwaysCheckRange>
@@ -161,8 +217,9 @@ static ScreenCoords ClipToScreenInternal(Vec3f scaled, const ClipCoords &coords,
 
 	// This matches hardware tests - depth is clamped when this flag is on.
 	if constexpr (depthClamp) {
-		// Note: if the depth is clipped (z/w <= -1.0), the outside_range_flag should NOT be set, even for x and y.
-		if ((alwaysCheckRange || coords.z > -coords.w) && (scaled.x >= SCREEN_BOUND || scaled.y >= SCREEN_BOUND || scaled.x < 0 || scaled.y < 0)) {
+		// A vertex the near plane clips away (z < -w) doesn't set the flag, even for x and y. One exactly on
+		// the plane isn't clipped, so its range counts (gpu/clipping/guardband).
+		if ((alwaysCheckRange || !(coords.z < -coords.w)) && (scaled.x >= SCREEN_BOUND || scaled.y >= SCREEN_BOUND || scaled.x < 0 || scaled.y < 0)) {
 			*outside_range_flag = true;
 		}
 
@@ -175,10 +232,9 @@ static ScreenCoords ClipToScreenInternal(Vec3f scaled, const ClipCoords &coords,
 	}
 
 	// 16 = 0xFFFF / 4095.9375
-	// Round up at 0.625 to the nearest subpixel.
 	static_assert(SCREEN_SCALE_FACTOR == 16, "Currently only supports scale 16");
-	int x = (int)(scaled.x * 16.0f + 0.375f - gstate.getOffsetX16());
-	int y = (int)(scaled.y * 16.0f + 0.375f - gstate.getOffsetY16());
+	int x = (int)floorf(scaled.x * 16.0f) - gstate.getOffsetX16();
+	int y = (int)floorf(scaled.y * 16.0f) - gstate.getOffsetY16();
 	return ScreenCoords(x, y, scaled.z);
 }
 
@@ -193,9 +249,9 @@ static inline ScreenCoords ClipToScreenInternal(const ClipCoords &coords, bool *
 	float zScale = gstate.getViewportZScale();
 	float zCenter = gstate.getViewportZCenter();
 
-	float x = coords.x * xScale / coords.w + xCenter;
-	float y = coords.y * yScale / coords.w + yCenter;
-	float z = coords.z * zScale / coords.w + zCenter;
+	float x = GEViewport(coords.x, coords.w, xScale, xCenter);
+	float y = GEViewport(coords.y, coords.w, yScale, yCenter);
+	float z = GEScreenZ(coords.z, coords.w, zScale, zCenter);
 
 	if (gstate.isDepthClipEnabled()) {
 		return ClipToScreenInternal<true, true>(Vec3f(x, y, z), coords, outside_range_flag);
@@ -205,6 +261,24 @@ static inline ScreenCoords ClipToScreenInternal(const ClipCoords &coords, bool *
 
 ScreenCoords TransformUnit::ClipToScreen(const ClipCoords &coords, bool *outsideRangeFlag) {
 	return ClipToScreenInternal(coords, outsideRangeFlag);
+}
+
+// Near plane clipping (gpu/probe exp43-46): from the inside vertex, t = d_in / (d_in - d_out) with
+// d = z + w, using the GE's reciprocal, and each coordinate is in + t * (out - in), all in float24 math.
+float TransformUnit::NearPlaneT(const ClipCoords &in, const ClipCoords &out) {
+	const float dIn = GEAdd(in.z, in.w);
+	const float dOut = GEAdd(out.z, out.w);
+	const float den = TruncateToFloat24(GEAdd(dIn, -dOut));
+	return ProductToFloat24((double)TruncateToFloat24(dIn) * GERecip(den));
+}
+
+ClipCoords TransformUnit::NearPlanePoint(const ClipCoords &in, const ClipCoords &out, float t) {
+	ClipCoords result;
+	for (int c = 0; c < 4; ++c) {
+		const float delta = TruncateToFloat24(GEAdd(out[c], -in[c]));
+		result[c] = TruncateToFloat24(GEAdd(ProductToFloat24((double)t * delta), in[c]));
+	}
+	return result;
 }
 
 ScreenCoords TransformUnit::DrawingToScreen(const DrawingCoords &coords, u16 z) {
@@ -225,6 +299,12 @@ struct TransformState {
 
 	float matrix[16];
 	Vec4f posToFog;
+	// With finite fog parameters, the GE's own arithmetic (gpu/probe exp20): the view z as a row of the
+	// combined world-view matrix, then float24(GEAdd(z, end) * slope).
+	bool fogGE;
+	float viewZColumn[4];
+	float fogEnd;
+	float fogSlope;
 	Vec3f screenScale;
 	Vec3f screenAdd;
 
@@ -239,13 +319,28 @@ struct TransformState {
 		uint8_t uvGenMode : 2;
 		uint8_t matrixMode : 2;
 	};
+	// The UV scale and offset, applied in ReadVertex with the GE's arithmetic (the vertex decoder leaves
+	// them out then, see UsesGEUVScale).
+	bool geUVScale;
+	float uvScale[2];
+	float uvOffset[2];
 };
+
+// UV gen mode 0 in transform mode: u * scale + offset as the GE computes it (gpu/probe exp66).
+static bool UsesGEUVScale(u32 vertexType) {
+	return (vertexType & GE_VTYPE_THROUGH_MASK) == 0 && gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_COORDS;
+}
 
 void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 	state->enableTransform = !vreader.isThrough();
 	state->enableLighting = gstate.isLightingEnabled();
 	state->enableFog = gstate.isFogEnabled();
 	state->readUV = !gstate.isModeClear() && gstate.isTextureMapEnabled() && vreader.hasUV();
+	state->geUVScale = !vreader.isThrough() && gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_COORDS;
+	state->uvScale[0] = TruncateToFloat24(getFloat24(gstate.texscaleu));
+	state->uvScale[1] = TruncateToFloat24(getFloat24(gstate.texscalev));
+	state->uvOffset[0] = TruncateToFloat24(getFloat24(gstate.texoffsetu));
+	state->uvOffset[1] = TruncateToFloat24(getFloat24(gstate.texoffsetv));
 	state->negateNormals = gstate.areNormalsReversed();
 
 	state->uvGenMode = gstate.getUVGenMode();
@@ -266,24 +361,23 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 				canSkipWorldPos = false;
 			}
 		}
-		state->lightingState.viewDir = PSPViewDirection(gstate.viewMatrix);
+		// The viewer direction (see PSPViewDirection), normalized like the GE does.
+		Vec3f viewDir(gstate.viewMatrix[2], gstate.viewMatrix[5], gstate.viewMatrix[8]);
+		if (GENormalize(viewDir) == 0.0f)
+			viewDir = Vec3f(0.0f, 0.0f, 1.0f);
+		state->lightingState.viewDir = viewDir;
 
 		float world[16];
 		float view[16];
 		float worldview[16];
 		ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
-		if (state->enableFog || canSkipWorldPos) {
-			ConvertMatrix4x3To4x4(world, gstate.worldMatrix);
-			Matrix4ByMatrix4(worldview, world, view);
-		}
+		ConvertMatrix4x3To4x4(world, gstate.worldMatrix);
+		GECombineMatrices(worldview, world, view);
 
-		if (canSkipWorldPos) {
-			state->matrixMode = (uint8_t)MatrixMode::POS_TO_CLIP;
-			Matrix4ByMatrix4(state->matrix, worldview, gstate.projMatrix);
-		} else {
-			state->matrixMode = (uint8_t)MatrixMode::WORLD_TO_CLIP;
-			Matrix4ByMatrix4(state->matrix, view, gstate.projMatrix);
-		}
+		// Clip coordinates always come from the model position and the matrices combined like the GE does
+		// it, in the order (world * view) * projection. The world position is only needed for lighting.
+		state->matrixMode = (uint8_t)(canSkipWorldPos ? MatrixMode::POS_TO_CLIP : MatrixMode::WORLD_TO_CLIP);
+		GECombineMatrices(state->matrix, worldview, gstate.projMatrix);
 
 		if (state->enableFog) {
 			float fogEnd = getFloat24(gstate.fog1);
@@ -291,6 +385,11 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 
 			// We bake fog end and slope into the dot product.
 			state->posToFog = Vec4f(worldview[2], worldview[6], worldview[10], worldview[14] + fogEnd);
+			state->fogGE = !my_isnanorinf(fogEnd) && !my_isnanorinf(fogSlope);
+			for (int i = 0; i < 4; ++i)
+				state->viewZColumn[i] = worldview[2 + 4 * i];
+			state->fogEnd = TruncateToFloat24(fogEnd);
+			state->fogSlope = TruncateToFloat24(fogSlope);
 
 			// If either are NAN/INF, we simplify so there's no inf + -inf muddying things.
 			// This is required for Outrun to render proper skies, for example.
@@ -365,6 +464,13 @@ ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const Tran
 	if (state.readUV) {
 		vreader.ReadUV(vertex.v.texturecoords.AsArray());
 		vertex.v.texturecoords.q() = 0.0f;
+		if (state.geUVScale) {
+			// The decoder only normalized them (8 and 16 bit UVs are unsigned).
+			for (int i = 0; i < 2; ++i) {
+				const float scaled = ProductToFloat24((double)TruncateToFloat24(vertex.v.texturecoords[i]) * state.uvScale[i]);
+				vertex.v.texturecoords[i] = TruncateToFloat24(GEAdd(scaled, state.uvOffset[i]));
+			}
+		}
 		lastTC = vertex.v.texturecoords;
 	} else {
 		vertex.v.texturecoords = lastTC;
@@ -386,27 +492,18 @@ ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const Tran
 	vertex.v.color1 = 0;
 
 	if (state.enableTransform) {
-		WorldCoords worldpos;
-
-		switch (MatrixMode(state.matrixMode)) {
-		case MatrixMode::POS_TO_CLIP:
-			vertex.clippos = Vec3ByMatrix44(pos, state.matrix);
-			break;
-
-		case MatrixMode::WORLD_TO_CLIP:
-			worldpos = TransformUnit::ModelToWorld(pos);
-			vertex.clippos = Vec3ByMatrix44(worldpos, state.matrix);
-			break;
+		// Clip coordinates with the GE's precision; the Test Drive map depends on it together with the
+		// depth math below (#12786).
+		{
+			for (int c = 0; c < 4; ++c) {
+				vertex.clippos[c] = GEClipComponent(pos, state.matrix, c);
+			}
 		}
 
 		Vec3f screenScaled;
-#ifdef _M_SSE
-		screenScaled.vec = _mm_mul_ps(vertex.clippos.vec, state.screenScale.vec);
-		screenScaled.vec = _mm_div_ps(screenScaled.vec, _mm_shuffle_ps(vertex.clippos.vec, vertex.clippos.vec, _MM_SHUFFLE(3, 3, 3, 3)));
-		screenScaled.vec = _mm_add_ps(screenScaled.vec, state.screenAdd.vec);
-#else
-		screenScaled = vertex.clippos.xyz() * state.screenScale / vertex.clippos.w + state.screenAdd;
-#endif
+		screenScaled.x = GEViewport(vertex.clippos.x, vertex.clippos.w, state.screenScale.x, state.screenAdd.x);
+		screenScaled.y = GEViewport(vertex.clippos.y, vertex.clippos.w, state.screenScale.y, state.screenAdd.y);
+		screenScaled.z = GEScreenZ(vertex.clippos.z, vertex.clippos.w, state.screenScale.z, state.screenAdd.z);
 		bool outside_range_flag = false;
 		vertex.v.screenpos = state.roundToScreen(screenScaled, vertex.clippos, &outside_range_flag);
 		if (outside_range_flag) {
@@ -415,17 +512,37 @@ ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const Tran
 			return vertex;
 		}
 
-		if (state.enableFog) {
-			vertex.v.fogdepth = Dot43(state.posToFog, pos);
+		if (state.enableFog && state.fogGE) {
+			GERowTerm terms[4] = {
+				GEProduct(TruncateToFloat24(pos.x), state.viewZColumn[0]),
+				GEProduct(TruncateToFloat24(pos.y), state.viewZColumn[1]),
+				GEProduct(TruncateToFloat24(pos.z), state.viewZColumn[2]),
+				GEProduct(1.0f, state.viewZColumn[3]),
+			};
+			const float viewZ = GERowSum(terms, 4);
+			const float f = ProductToFloat24((double)TruncateToFloat24(GEAdd(viewZ, state.fogEnd)) * state.fogSlope);
+			vertex.v.fogdepth = GEFogFactor(f) * (1.0f / 256.0f);
+		} else if (state.enableFog) {
+			vertex.v.fogdepth = GEFogFactor(Dot43(state.posToFog, pos)) * (1.0f / 256.0f);
 		} else {
 			vertex.v.fogdepth = 1.0f;
 		}
 		vertex.v.clipw = vertex.clippos.w;
 
+		// The normal stays as the world matrix leaves it: lighting scales its dot products by the
+		// reciprocal length instead (gpu/probe exp3, world matrix cases).
 		Vec3<float> worldnormal;
+		float normalRsqrt = 1.0f;
 		if (state.lightingState.usesWorldNormal) {
 			worldnormal = TransformUnit::ModelToWorldNormal(normal);
-			worldnormal.NormalizeOr001();
+			const float len2 = GEDot(worldnormal, worldnormal);
+			if (len2 > 0.0f && std::isfinite(len2)) {
+				normalRsqrt = GERsqrt(len2);
+			} else if (len2 != 0.0f) {
+				worldnormal = Vec3f(0.0f, 0.0f, 1.0f);
+			}
+			// A zero normal stays zero: no diffuse or specular from any light (gpu/probe exp173; SOCOM
+			// UCES01242 has meshes without normals but lit).
 		}
 
 		// Time to generate some texture coords.  Lighting will handle shade mapping.
@@ -442,7 +559,8 @@ ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const Tran
 
 			case GE_PROJMAP_NORMALIZED_NORMAL:
 				// This does not use 0, 0, 1 if length is zero.
-				source = normal.Normalized(cpu_info.bSSE4_1);
+				source = normal;
+				GENormalize(source);
 				break;
 
 			case GE_PROJMAP_NORMAL:
@@ -451,15 +569,14 @@ ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const Tran
 			}
 
 			// Note that UV scale/offset are not used in this mode.
-			Vec3<float> stq = Vec3ByMatrix43(source, gstate.tgenMatrix);
-			vertex.v.texturecoords = Vec3Packedf(stq.x, stq.y, stq.z);
+			vertex.v.texturecoords = Vec3Packedf(GETexGenComponent(source, gstate.tgenMatrix, 0), GETexGenComponent(source, gstate.tgenMatrix, 1), GETexGenComponent(source, gstate.tgenMatrix, 2));
 		} else if (state.uvGenMode == GE_TEXMAP_ENVIRONMENT_MAP) {
-			Lighting::GenerateLightST(vertex.v, worldpos, worldnormal, state.lightingState.viewDir);
+			Lighting::GenerateLightST(vertex.v, pos, worldnormal, normalRsqrt, state.lightingState.viewDir);
 		}
 
 		PROFILE_THIS_SCOPE("light");
 		if (state.enableLighting)
-			Lighting::Process(vertex.v, worldpos, worldnormal, state.lightingState);
+			Lighting::Process(vertex.v, pos, worldnormal, normalRsqrt, state.lightingState);
 	} else {
 		vertex.v.screenpos.x = (int)(pos[0] * SCREEN_SCALE_FACTOR);
 		vertex.v.screenpos.y = (int)(pos[1] * SCREEN_SCALE_FACTOR);
@@ -478,6 +595,157 @@ SoftDirty TransformUnit::GetDirty() {
 	return binner_->GetDirty();
 }
 
+static float ReadRawComponent(const u8 *p, int fmt, int i) {
+	switch (fmt) {
+	case 1: return ((const s8 *)p)[i] * (1.0f / 128.0f);
+	case 2: { s16 v; memcpy(&v, p + 2 * i, 2); return v * (1.0f / 32768.0f); }
+	case 3: { float v; memcpy(&v, p + 4 * i, 4); return v; }
+	default: return 0.0f;
+	}
+}
+
+static float ReadRawWeight(const u8 *p, int fmt, int i) {
+	switch (fmt) {
+	case 1: return p[i] * (1.0f / 128.0f);
+	case 2: { u16 v; memcpy(&v, p + 2 * i, 2); return v * (1.0f / 32768.0f); }
+	case 3: { float v; memcpy(&v, p + 4 * i, 4); return v; }
+	default: return 0.0f;
+	}
+}
+
+// One morphed component as the GE computes it (gpu/probe exp67, exp107): each frame's value times its
+// weight as a float24, summed in frame order with the GE's adder.
+template <typename Read>
+static float GEMorphComponent(const VertexDecoder &dec, const u8 *in, int off, int c, Read read) {
+	float acc = 0.0f;
+	for (int k = 0; k < dec.morphcount; ++k) {
+		const float v = TruncateToFloat24(read(in + k * dec.onesize_ + off, c));
+		const float w = TruncateToFloat24(gstate_c.morphWeights[k]);
+		const float term = v == 0.0f || w == 0.0f ? 0.0f : ProductToFloat24((double)v * w);
+		if (term != 0.0f)
+			acc = acc == 0.0f ? term : TruncateToFloat24(GEAdd(acc, term));
+	}
+	return acc;
+}
+
+// Skinning as the GE does it (gpu/probe exp68, exp70, exp71, bit exact): each bone matrix is scaled by
+// its weight, every entry a float24 product, and one accumulator then runs through all the bones in
+// order, adding each bone's translation, then x, y and z times its column, with the GE's adder.
+// Normals the same without the translation. With morph targets, the morph comes first, weights included
+// (gpu/probe exp108). Overwrites what the vertex decoder skinned in float.
+static void ApplyGESkinning(u8 *decoded, const VertexDecoder &dec, const u8 *raw, int count) {
+	const DecVtxFormat &fmt = dec.GetDecVtxFmt();
+	const int nweights = dec.nweights;
+	for (int v = 0; v < count; ++v) {
+		const u8 *in = raw + v * dec.VertexSize();
+		u8 *out = decoded + v * fmt.stride;
+		auto component = [&](int off, int c, auto read) {
+			return dec.morphcount > 1 ? GEMorphComponent(dec, in, off, c, read) : read(in + off, c);
+		};
+		float bones[8][12];
+		for (int b = 0; b < nweights; ++b) {
+			const float w = TruncateToFloat24(component(dec.weightoff, b, [&](const u8 *p, int i) { return ReadRawWeight(p, dec.weighttype, i); }));
+			for (int k = 0; k < 12; ++k) {
+				const float m = gstate.boneMatrix[b * 12 + k];
+				bones[b][k] = m == 0.0f || w == 0.0f ? 0.0f : ProductToFloat24((double)TruncateToFloat24(m) * w);
+			}
+		}
+		auto skin = [&](const float src[3], bool translate, float dst[3]) {
+			for (int c = 0; c < 3; ++c) {
+				float acc = 0.0f;
+				auto add = [&](float term) {
+					if (term != 0.0f)
+						acc = acc == 0.0f ? TruncateToFloat24(term) : TruncateToFloat24(GEAdd(acc, term));
+				};
+				for (int b = 0; b < nweights; ++b) {
+					if (translate)
+						add(bones[b][9 + c]);
+					for (int j = 0; j < 3; ++j)
+						add(GEProduct(TruncateToFloat24(src[j]), bones[b][j * 3 + c]).Value());
+				}
+				dst[c] = acc;
+			}
+		};
+		if (dec.pos) {
+			float pos[3], skinned[3];
+			for (int i = 0; i < 3; ++i)
+				pos[i] = component(dec.posoff, i, [&](const u8 *p, int c) { return ReadRawComponent(p, dec.pos, c); });
+			skin(pos, true, skinned);
+			memcpy(out + fmt.posoff, skinned, sizeof(skinned));
+		}
+		if (dec.nrm && fmt.nrmfmt == DEC_FLOAT_3) {
+			float nrm[3], skinned[3];
+			for (int i = 0; i < 3; ++i)
+				nrm[i] = component(dec.nrmoff, i, [&](const u8 *p, int c) { return ReadRawComponent(p, dec.nrm, c); });
+			skin(nrm, false, skinned);
+			memcpy(out + fmt.nrmoff, skinned, sizeof(skinned));
+		}
+	}
+}
+
+// A vertex color channel (0 r, 1 g, 2 b, 3 a) expanded to 8 bits.
+static float ReadRawColorChannel(const u8 *p, int fmt, int c) {
+	u16 v16;
+	memcpy(&v16, p, 2);
+	switch (fmt) {
+	case GE_VTYPE_COL_565 >> GE_VTYPE_COL_SHIFT: {
+		const u32 c8 = RGB565ToRGBA8888(v16);
+		return (float)((c8 >> (8 * c)) & 0xFF);
+	}
+	case GE_VTYPE_COL_5551 >> GE_VTYPE_COL_SHIFT: {
+		const u32 c8 = RGBA5551ToRGBA8888(v16);
+		return (float)((c8 >> (8 * c)) & 0xFF);
+	}
+	case GE_VTYPE_COL_4444 >> GE_VTYPE_COL_SHIFT: {
+		const u32 c8 = RGBA4444ToRGBA8888(v16);
+		return (float)((c8 >> (8 * c)) & 0xFF);
+	}
+	case GE_VTYPE_COL_8888 >> GE_VTYPE_COL_SHIFT:
+		return (float)p[c];
+	default:
+		return 0.0f;
+	}
+}
+
+// Morphing as the GE does it (gpu/probe exp67, exp107): each frame's value times its weight as a
+// float24, summed in frame order with the GE's adder. Positions and normals as read; UVs too (8 and
+// 16 bit ones unsigned); colors per channel expanded to 8 bits, the sum floored. Overwrites the
+// decoder's float result.
+static void ApplyGEMorph(u8 *decoded, const VertexDecoder &dec, const u8 *raw, int count) {
+	const DecVtxFormat &fmt = dec.GetDecVtxFmt();
+	auto morphWith = [&](const u8 *in, int off, int n, float *dst, auto read) {
+		for (int c = 0; c < n; ++c)
+			dst[c] = GEMorphComponent(dec, in, off, c, read);
+	};
+	auto morph = [&](const u8 *in, int off, int cfmt, float dst[3]) {
+		morphWith(in, off, 3, dst, [&](const u8 *p, int c) { return ReadRawComponent(p, cfmt, c); });
+	};
+	for (int v = 0; v < count; ++v) {
+		const u8 *in = raw + v * dec.VertexSize();
+		u8 *out = decoded + v * fmt.stride;
+		float r[3];
+		if (dec.pos) {
+			morph(in, dec.posoff, dec.pos, r);
+			memcpy(out + fmt.posoff, r, sizeof(r));
+		}
+		if (dec.nrm && fmt.nrmfmt == DEC_FLOAT_3) {
+			morph(in, dec.nrmoff, dec.nrm, r);
+			memcpy(out + fmt.nrmoff, r, sizeof(r));
+		}
+		if (dec.tc && fmt.uvfmt == DEC_FLOAT_2) {
+			float uv[2];
+			morphWith(in, dec.tcoff, 2, uv, [&](const u8 *p, int c) { return ReadRawWeight(p, dec.tc, c); });
+			memcpy(out + fmt.uvoff, uv, sizeof(uv));
+		}
+		if (dec.col && fmt.c0fmt == DEC_U8_4) {
+			float ch[4];
+			morphWith(in, dec.coloff, 4, ch, [&](const u8 *p, int c) { return ReadRawColorChannel(p, dec.col, c); });
+			for (int c = 0; c < 4; ++c)
+				out[fmt.c0off + c] = (u8)std::clamp((int)std::floor(ch[c]), 0, 255);
+		}
+	}
+}
+
 class SoftwareVertexReader {
 public:
 	SoftwareVertexReader(u8 *base, VertexDecoder &vdecoder, u32 vertex_type, int vertex_count, const void *vertices, const void *indices, const TransformState &transformState, TransformUnit &transform)
@@ -490,8 +758,13 @@ public:
 			GetIndexBounds(indices, vertex_count, vertex_type, &lowerBound_, &upperBound_);
 		if (vertex_count != 0) {
 			const int count = upperBound_ - lowerBound_ + 1;
-			const UVScale uvScale = LoadUVScaleOffset(gstate);
+			const UVScale uvScale = UsesGEUVScale(vertex_type) ? UVScale{ 1.0f, 1.0f, 0.0f, 0.0f } : LoadUVScaleOffset(gstate);
 			vdecoder.DecodeVerts(base, (const u8 *)vertices + vdecoder.VertexSize() * lowerBound_, &uvScale, count);
+			const u8 *raw = (const u8 *)vertices + vdecoder.VertexSize() * lowerBound_;
+			if (vdecoder.morphcount > 1 && !vdecoder.throughmode)
+				ApplyGEMorph(base, vdecoder, raw, count);
+			if (vdecoder.weighttype != 0 && !vdecoder.throughmode)
+				ApplyGESkinning(base, vdecoder, raw, count);
 		}
 
 		// If we're only using a subset of verts, it's better to decode with random access (usually.)
@@ -599,7 +872,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 				continue;
 
 			int tl = -1, br = -1;
-			if (Rasterizer::DetectRectangleFromPair(binner_->State(), buf, &tl, &br)) {
+			if (Rasterizer::DetectRectangleFromPair(binner_->State(), buf, &tl, &br) && Rasterizer::RectangleMatchesTriangles(binner_->State(), buf[tl].v, buf[br].v)) {
 				Clipper::ProcessRect(buf[tl], buf[br], *binner_);
 			} else {
 				SendTriangle(cullType, &buf[0]);
@@ -733,7 +1006,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 
 					// If a strip is effectively a rectangle, draw it as such!
 					int tl = -1, br = -1;
-					if (Rasterizer::DetectRectangleFromStrip(binner_->State(), data_, &tl, &br)) {
+					if (Rasterizer::DetectRectangleFromStrip(binner_->State(), data_, &tl, &br) && Rasterizer::RectangleMatchesTriangles(binner_->State(), data_[tl].v, data_[br].v)) {
 						Clipper::ProcessRect(data_[tl], data_[br], *binner_);
 						start_vtx += 2;
 						skip_count = 2;
@@ -767,7 +1040,8 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 
 				int wind = (data_index_ - 1) % 2;
 				CullType altCullType = cullType == CullType::OFF ? cullType : CullType((int)cullType ^ wind);
-				SendTriangle(altCullType, &data_[0], provoking_index);
+				// Odd triangles reach us in the opposite order from the GE's (gpu/probe exp45).
+				SendTriangle(altCullType, &data_[0], provoking_index, wind != 0);
 			}
 
 			// If this is from immediate-mode drawing, we always had one new vert (already in data_.)
@@ -775,7 +1049,8 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 				int provoking_index = (data_index_ - 1) % 3;
 				int wind = (data_index_ - 1) % 2;
 				CullType altCullType = cullType == CullType::OFF ? cullType : CullType((int)cullType ^ wind);
-				SendTriangle(altCullType, &data_[0], provoking_index);
+				// Odd triangles reach us in the opposite order from the GE's (gpu/probe exp45).
+				SendTriangle(altCullType, &data_[0], provoking_index, wind != 0);
 			}
 			break;
 		}
@@ -800,7 +1075,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 				}
 
 				int tl = -1, br = -1;
-				if (Rasterizer::DetectRectangleFromFan(binner_->State(), data_, &tl, &br)) {
+				if (Rasterizer::DetectRectangleFromFan(binner_->State(), data_, &tl, &br) && Rasterizer::RectangleMatchesTriangles(binner_->State(), data_[tl].v, data_[br].v)) {
 					Clipper::ProcessRect(data_[tl], data_[br], *binner_);
 					break;
 				}
@@ -819,7 +1094,8 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 
 				int wind = (data_index_ - 1) % 2;
 				CullType altCullType = cullType == CullType::OFF ? cullType : CullType((int)cullType ^ wind);
-				SendTriangle(altCullType, &data_[0], provoking_index);
+				// Odd triangles reach us in the opposite order from the GE's (gpu/probe exp45).
+				SendTriangle(altCullType, &data_[0], provoking_index, wind != 0);
 			}
 
 			// If this is from immediate-mode drawing, we always had one new vert (already in data_.)
@@ -827,7 +1103,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 				int wind = (data_index_ - 1) % 2;
 				int provoking_index = 2 - wind;
 				CullType altCullType = cullType == CullType::OFF ? cullType : CullType((int)cullType ^ wind);
-				SendTriangle(altCullType, &data_[0], provoking_index);
+				SendTriangle(altCullType, &data_[0], provoking_index, wind != 0);
 			}
 			break;
 		}
@@ -876,18 +1152,20 @@ void TransformUnit::SubmitImmVertex(const ClipVertexData &vert, SoftwareDrawEngi
 	uint32_t vertTypeID = GetVertTypeID(gstate.vertType | GE_VTYPE_POS_FLOAT, gstate.getUVGenMode());
 	// This now processes the step with shared logic, given the existing data_.
 	isImmDraw_ = true;
+	Clipper::SetCullXY(false);
 	SubmitPrimitive(nullptr, nullptr, GE_PRIM_KEEP_PREVIOUS, 0, vertTypeID, nullptr, drawEngine);
+	Clipper::SetCullXY(true);
 	isImmDraw_ = false;
 }
 
-void TransformUnit::SendTriangle(CullType cullType, const ClipVertexData *verts, int provoking) {
+void TransformUnit::SendTriangle(CullType cullType, const ClipVertexData *verts, int provoking, bool orderReversed) {
 	if (cullType == CullType::OFF) {
-		Clipper::ProcessTriangle(verts[0], verts[1], verts[2], verts[provoking], *binner_);
-		Clipper::ProcessTriangle(verts[2], verts[1], verts[0], verts[provoking], *binner_);
+		Clipper::ProcessTriangle(verts[0], verts[1], verts[2], verts[provoking], *binner_, orderReversed);
+		Clipper::ProcessTriangle(verts[2], verts[1], verts[0], verts[provoking], *binner_, !orderReversed);
 	} else if (cullType == CullType::CW) {
-		Clipper::ProcessTriangle(verts[2], verts[1], verts[0], verts[provoking], *binner_);
+		Clipper::ProcessTriangle(verts[2], verts[1], verts[0], verts[provoking], *binner_, !orderReversed);
 	} else {
-		Clipper::ProcessTriangle(verts[0], verts[1], verts[2], verts[provoking], *binner_);
+		Clipper::ProcessTriangle(verts[0], verts[1], verts[2], verts[provoking], *binner_, orderReversed);
 	}
 }
 
@@ -913,6 +1191,10 @@ void TransformUnit::FlushIfOverlap(GPUCommon *common, const char *reason, bool m
 		Flush(common, reason);
 	if (modifying && binner_->HasPendingRead(addr, stride, w, h))
 		Flush(common, reason);
+}
+
+void TransformUnit::NotifyTexFlush() {
+	binner_->NotifyTexFlush();
 }
 
 void TransformUnit::NotifyClutUpdate(const void *src) {

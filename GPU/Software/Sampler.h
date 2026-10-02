@@ -117,7 +117,7 @@ private:
 	int stackUV1Offset_ = 0;
 #endif
 
-	const u8 *constWidthHeight256f_ = nullptr;
+	const u8 *constWidthHeight16f_ = nullptr;
 	const u8 *constWidthMinus1i_ = nullptr;
 	const u8 *constHeightMinus1i_ = nullptr;
 	const u8 *constUNext_ = nullptr;

@@ -41,6 +41,19 @@ static inline GEComparison OptimizeRefByteCompare(GEComparison func, u8 ref) {
 	return func;
 }
 
+// The stencil test compares the other way around, ref against the buffer's value.
+static inline GEComparison OptimizeStencilRefCompare(GEComparison func, u8 ref) {
+	if (ref == 0 && func == GE_COMP_GREATER)
+		return GE_COMP_NEVER;
+	if (ref == 0xFF && func == GE_COMP_LESS)
+		return GE_COMP_NEVER;
+	if (ref == 0 && func == GE_COMP_LEQUAL)
+		return GE_COMP_ALWAYS;
+	if (ref == 0xFF && func == GE_COMP_GEQUAL)
+		return GE_COMP_ALWAYS;
+	return func;
+}
+
 static inline PixelBlendFactor OptimizeAlphaFactor(uint32_t color) {
 	if (color == 0x00000000)
 		return PixelBlendFactor::ZERO;
@@ -84,7 +97,7 @@ void ComputePixelFuncID(PixelFuncID *id) {
 
 		if (id->stencilTest) {
 			id->stencilTestRef = gstate.getStencilTestRef() & gstate.getStencilTestMask();
-			id->stencilTestFunc = OptimizeRefByteCompare(gstate.getStencilTestFunction(), id->stencilTestRef);
+			id->stencilTestFunc = OptimizeStencilRefCompare(gstate.getStencilTestFunction(), id->stencilTestRef);
 			id->hasStencilTestMask = gstate.getStencilTestMask() != 0xFF && gstate.FrameBufFormat() != GE_FORMAT_565;
 
 			// Stencil can't be written on 565, and any invalid op acts like KEEP, which is 0.
@@ -476,8 +489,10 @@ void ComputeSamplerID(SamplerID *id_out) {
 
 	id.texfmt = fmt;
 	id.swizzle = gstate.isTextureSwizzled();
-	// Only CLUT4 can use separate CLUTs per mimap.
-	id.useSharedClut = fmt != GE_TFMT_CLUT4 || maxLevel == 0 || !gstate.isMipmapEnabled() || gstate.isClutSharedForMipmaps();
+	// With separate CLUTs, level n puts n above the index bits, wrapped to the CLUT: CLUT4 adds n * 16,
+	// CLUT8 with a 16-bit palette (512 entries) adds (n & 1) * 256, and the rest wrap back to 0 (gpu/probe exp90).
+	const bool clutPerLevel = fmt == GE_TFMT_CLUT4 || (fmt == GE_TFMT_CLUT8 && gstate.getClutPaletteFormat() != GE_CMODE_32BIT_ABGR8888);
+	id.useSharedClut = !clutPerLevel || maxLevel == 0 || !gstate.isMipmapEnabled() || gstate.isClutSharedForMipmaps();
 	if (gstate.isTextureFormatIndexed()) {
 		id.clutfmt = gstate.getClutPaletteFormat();
 		id.hasClutMask = gstate.getClutIndexMask() != 0xFF;
