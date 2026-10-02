@@ -42,6 +42,10 @@ inline float TruncateToFloat24(float f) {
 	return f;
 }
 
+inline Vec4F32 TruncateToFloat24x4(Vec4F32 v) {
+	return Vec4F32FromBits(Vec4S32FromBits(v) & Vec4S32::Splat((int)0xFFFFFF00));
+}
+
 // A product of two float24s has up to 32 significant bits: form it in a double, and truncate it
 // there, since rounding it to a float first could round up across the truncation.
 inline float ProductToFloat24(double d) {
@@ -304,10 +308,56 @@ inline Vec4F32 GEMulFloat24x4(Vec4F32 a, Vec4F32 b) {
 
 // Four of GEAddFloat24 at once.
 inline Vec4F32 GEAddFloat24x4(Vec4F32 a, Vec4F32 b) {
-	return Vec4F32FromBits(Vec4S32FromBits(GEAdd4(a, b)) & Vec4S32::Splat((int)0xFFFFFF00));
+	return TruncateToFloat24x4(GEAdd4(a, b));
 }
 float GEDot(const Vec3f &a, const Vec3f &b);
 float GENormalize(Vec3f &v);
+
+// GEDot of lanes 0-2: GERowSum4's terms, one per lane, summed across the lanes.
+inline float GEDot3(Vec4F32 a, Vec4F32 b) {
+	const Vec4S32 expMask = Vec4S32::Splat(0x7F800000);
+	const Vec4S32 fracMask = Vec4S32::Splat(0x7FFF);
+	const Vec4S32 noTerm = Vec4S32::Splat(-100000);
+	alignas(16) static const int lane3[4] = { 0, 0, 0, -1 };
+
+	const Vec4S32 aBits = Vec4S32FromBits(a) & Vec4S32::Splat((int)0xFFFFFF00);
+	const Vec4S32 bBits = Vec4S32FromBits(b) & Vec4S32::Splat((int)0xFFFFFF00);
+	const Vec4S32 ea = (aBits & expMask).Shr<23>();
+	const Vec4S32 eb = (bBits & expMask).Shr<23>();
+	const Vec4S32 af = aBits.Shr<8>() & fracMask;
+	const Vec4S32 bf = bBits.Shr<8>() & fracMask;
+	Vec4S32 prod = af + Vec4S32::Splat(32768) + bf + bf.Mul16(af).Shr<15>();
+	const Vec4S32 sign = (aBits ^ bBits).Shr<31>();
+	prod = (prod ^ sign) - sign;
+	const Vec4S32 none = ea.CompareEq(Vec4S32::Zero()) | eb.CompareEq(Vec4S32::Zero()) | Vec4S32::LoadAligned(lane3);
+	const Vec4S32 m = prod.AndNot(none);
+	const Vec4S32 lsb = (ea + eb - Vec4S32::Splat(254 + 15)).AndNot(none) | (noTerm & none);
+	const Vec4S32 lsbMax = lsb.SplatLane<0>().Max(lsb.SplatLane<1>()).Max(lsb.SplatLane<2>());
+
+	// Aligned to the largest lsb as in GERowSum4.
+	Vec4S32 field = lsb - lsbMax + Vec4S32::Splat(127);
+	field = field.AndNot(field.Shr<31>());
+	const Vec4S32 aligned = Vec4S32FromF32(Vec4F32FromS32(m) * Vec4F32FromBits(field.Shl<23>()));
+	const int sum = (aligned + aligned.SplatLane<1>() + aligned.SplatLane<2>()).GetLane<0>();
+	if (sum == 0)
+		return 0.0f;
+	return TruncateToFloat24(ldexpf((float)sum, lsbMax.GetLane<0>()));
+}
+
+// GENormalize of lanes 0-2, which zeroes lane 3. Denormal components (in or out) become zero, as in GEProduct. d2 is the squared length, GEDot3(v, v).
+inline float GENormalize4(Vec4F32 &v, float d2) {
+	if (!(d2 > 0.0f) || !std::isfinite(d2))
+		return 0.0f;
+	const float r = GERsqrt(d2);
+	// A one-term row sum is the truncated product.
+	const Vec4F32 rows[1] = { TruncateToFloat24x4(v.WithLane3Zero()) };
+	v = GERowSum4<1>(Vec4F32::Splat(r), rows);
+	return ProductToFloat24((double)d2 * r);
+}
+
+inline float GENormalize4(Vec4F32 &v) {
+	return GENormalize4(v, GEDot3(v, v));
+}
 
 // The reciprocal triangle setup uses for its planes: q ~ 2^(e + 16) / absDet, e = floor(log2(absDet)).
 int64_t GESetupRecip(uint64_t absDet, int *e);
