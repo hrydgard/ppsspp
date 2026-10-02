@@ -122,6 +122,8 @@ struct SplineSurface : public SurfaceInfo {
 	using WeightType = Spline3DWeight;
 
 	int num_vertices_u;
+	// Evaluate as the GE does, bit exact but slower (the software renderer).
+	bool geExact = false;
 
 	void Init(int maxVertices) {
 		SurfaceInfo::BaseInit();
