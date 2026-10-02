@@ -1190,6 +1190,10 @@ void TransformUnit::FlushIfOverlap(GPUCommon *common, const char *reason, bool m
 		Flush(common, reason);
 }
 
+void TransformUnit::NotifyTexFlush() {
+	binner_->NotifyTexFlush();
+}
+
 void TransformUnit::NotifyClutUpdate(const void *src) {
 	binner_->UpdateClut(src);
 }

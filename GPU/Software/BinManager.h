@@ -194,6 +194,11 @@ public:
 
 	void UpdateState();
 	void UpdateClut(const void *src);
+	// TEXFLUSH empties the GE's texture cache, which self-texturing can see.
+	void NotifyTexFlush() {
+		texFlushGen_++;
+		dirty_ |= SoftDirty::SAMPLER_TEXLIST;
+	}
 
 	const Rasterizer::RasterizerState &State() {
 		return states_[stateIndex_];
@@ -277,6 +282,10 @@ private:
 	std::vector<u8> selfTexBuf_[8];
 	uint32_t selfTexAddr_[8]{};
 	bool selfTexValid_ = false;
+	uint32_t texFlushGen_ = 0;
+	uint32_t selfTexFlushGen_ = 0;
+	// The snapshot is of a texture small enough to stay in the GE's 8 KB texture cache.
+	bool selfTexCached_ = false;
 	BinCoords selfTexLastRange_{};
 	bool creatingState_ = false;
 	// JIT clear generations when the current state was computed.

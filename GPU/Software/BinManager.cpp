@@ -285,12 +285,15 @@ void BinManager::UpdateState() {
 		ClearDirty(SoftDirty::BINNER_OVERLAP);
 	}
 	states_[stateIndex_].selfTexture = selfRender_;
+	states_[stateIndex_].texFlushGen = texFlushGen_;
 }
 
 // The GE samples through its texture cache, so a primitive that textures from the buffer it draws to
 // mostly sees that buffer as it was before the primitive (exp81, exp159, exp160). The cache actually
 // fills 8-row blocks as the primitive first reads them, so rows drawn before then show through; this
-// doesn't model that.
+// doesn't model that. A texture that fits in the 8 KB cache stays there until TEXFLUSH, so later
+// primitives and draws see it as it was when first read (FF Type-0's 16x16 4444 blur, three passes over
+// one buffer without a flush).
 const RasterizerState &BinManager::SelfTextureSnapshot(const BinItem &item, const RasterizerState &state) {
 	constexpr uint32_t mirrorMask = 0x041FFFFF;
 	const uint32_t bits = textureBitsPerPixel[state.samplerID.texfmt];
@@ -298,6 +301,26 @@ const RasterizerState &BinManager::SelfTextureSnapshot(const BinItem &item, cons
 	const uint32_t fbStrideBytes = state.pixelID.cached.framebufStride * fbBpp;
 
 	selfTexState_ = state;
+	uint32_t totalBytes = 0;
+	bool sameTexture = true;
+	for (int i = 0; i <= state.maxTexLevel; ++i) {
+		const uint32_t bytes = state.samplerID.cached.sizes[i].w * bits / 8 * state.samplerID.cached.sizes[i].h;
+		totalBytes += bytes;
+		sameTexture = sameTexture && selfTexAddr_[i] == state.texaddr[i] && selfTexBuf_[i].size() == state.texbufw[i] * bits / 8 * state.samplerID.cached.sizes[i].h;
+	}
+	const bool cacheSized = totalBytes <= 8192;
+	if (cacheSized && selfTexCached_ && sameTexture && selfTexFlushGen_ == state.texFlushGen) {
+		for (int i = 0; i <= state.maxTexLevel; ++i) {
+			if (!selfTexBuf_[i].empty())
+				selfTexState_.texptr[i] = selfTexBuf_[i].data();
+		}
+		return selfTexState_;
+	}
+	if (cacheSized && !(selfTexCached_ && sameTexture))
+		selfTexValid_ = false;
+	selfTexCached_ = cacheSized;
+	selfTexFlushGen_ = state.texFlushGen;
+
 	for (int i = 0; i <= state.maxTexLevel; ++i) {
 		const u8 *src = state.texptr[i];
 		const uint32_t bytes = state.texbufw[i] * bits / 8 * state.samplerID.cached.sizes[i].h;

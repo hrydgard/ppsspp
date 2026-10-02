@@ -183,6 +183,7 @@ public:
 	void Execute_FramebufPtr(u32 op, u32 diff);
 	void Execute_FramebufFormat(u32 op, u32 diff);
 	void Execute_ZbufPtr(u32 op, u32 diff);
+	void Execute_TexFlush(u32 op, u32 diff);
 	void Execute_VertexType(u32 op, u32 diff);
 
 	// Overridden to change flushing behavior.

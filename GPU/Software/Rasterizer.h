@@ -75,6 +75,8 @@ struct RasterizerState {
 	uint16_t texbufw[8]{};
 	const u8 *texptr[8]{};
 	float textureLodSlope;
+	// TEXFLUSHes before this state (BinManager::SelfTextureSnapshot).
+	uint32_t texFlushGen = 0;
 	RasterizerStateFlags flags = RasterizerStateFlags::NONE;
 	RasterizerStateFlags lastFlags = RasterizerStateFlags::INVALID;
 

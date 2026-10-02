@@ -317,8 +317,9 @@ const SoftwareCommandTableEntry softgpuCommandTable[] = {
 	{ GE_CMD_LDC3, 0, SoftDirty::LIGHT_BASIC | SoftDirty::LIGHT_MATERIAL | SoftDirty::LIGHT_3 },
 	{ GE_CMD_LSC3, 0, SoftDirty::LIGHT_BASIC | SoftDirty::LIGHT_MATERIAL | SoftDirty::LIGHT_3 },
 
+	{ GE_CMD_TEXFLUSH, FLAG_EXECUTE, SoftDirty::NONE, &SoftGPU::Execute_TexFlush },
+
 	// These are currently ignored, but might do flushing later.
-	{ GE_CMD_TEXFLUSH },
 	{ GE_CMD_TEXSYNC },
 
 	// These are just nop or part of other later commands.
@@ -1083,6 +1084,10 @@ void SoftGPU::Execute_FramebufFormat(u32 op, u32 diff) {
 	// We should flush, because ranges within bins may change.
 	if (diff)
 		drawEngine_->transformUnit.Flush(this, "framebuf");
+}
+
+void SoftGPU::Execute_TexFlush(u32 op, u32 diff) {
+	drawEngine_->transformUnit.NotifyTexFlush();
 }
 
 void SoftGPU::Execute_ZbufPtr(u32 op, u32 diff) {

@@ -141,6 +141,7 @@ public:
 	void Flush(GPUCommon *common, const char *reason);
 	void FlushIfOverlap(GPUCommon *common, const char *reason, bool modifying, uint32_t addr, uint32_t stride, uint32_t w, uint32_t h);
 	void NotifyClutUpdate(const void *src);
+	void NotifyTexFlush();
 
 	void GetStats(StringWriter &w);
 
