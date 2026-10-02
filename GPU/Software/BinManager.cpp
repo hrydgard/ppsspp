@@ -220,6 +220,14 @@ void BinManager::UpdateState() {
 		scissor_.x2 = screenScissorBR.x + SCREEN_SCALE_FACTOR - 1;
 		scissor_.y2 = screenScissorBR.y + SCREEN_SCALE_FACTOR - 1;
 
+		// Pixels past the stride land in the next row, which another task may be drawing (Tokimeki
+		// Memorial's 128 wide blur buffer under a full screen scissor).
+		const bool pastStride = scissorBR.x >= gstate.FrameBufStride();
+		if (pastStride != pastStride_) {
+			pastStride_ = pastStride;
+			dirty_ |= SoftDirty::BINNER_OVERLAP;
+		}
+
 		// If we're about to texture from something still pending (i.e. depth), flush.
 		if (HasTextureWrite(state))
 			Flush("tex");
@@ -243,7 +251,7 @@ void BinManager::UpdateState() {
 
 		// Disallow threads when rendering to the target, even offset.
 		bool selfRender = HasTextureWrite(state);
-		int newMaxTasks = selfRender || FORCE_SINGLE_THREAD ? 1 : g_threadManager.GetNumLooperThreads();
+		int newMaxTasks = selfRender || pastStride_ || FORCE_SINGLE_THREAD ? 1 : g_threadManager.GetNumLooperThreads();
 		if (newMaxTasks > MAX_POSSIBLE_TASKS)
 			newMaxTasks = MAX_POSSIBLE_TASKS;
 		// We don't want to overlap wrong, so flush any pending.

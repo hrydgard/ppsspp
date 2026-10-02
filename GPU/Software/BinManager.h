@@ -271,6 +271,8 @@ private:
 	// Whether the current state textures from what it draws to, and the texture as it was before the
 	// primitive being drawn for one that does.
 	bool selfRender_ = false;
+	// The scissor reaches past the framebuffer's stride.
+	bool pastStride_ = false;
 	Rasterizer::RasterizerState selfTexState_;
 	std::vector<u8> selfTexBuf_[8];
 	uint32_t selfTexAddr_[8]{};
