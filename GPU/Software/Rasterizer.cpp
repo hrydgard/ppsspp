@@ -2141,7 +2141,7 @@ static void LinePixels(int64_t x0, int64_t y0, int64_t x1, int64_t y1, std::vect
 // setup reciprocal like a triangle plane's, with 14 fraction bits per subpixel and floored, and a pixel's value
 // is the start color plus the gradient times the signed distance of its center from v0 along the line's
 // direction, floored.
-static int LineValueAt(int c0, int c1, int64_t x0, int64_t y0, int64_t x1, int64_t y1, int px, int py, int maxValue) {
+static int64_t LineFixedAt(int64_t c0, int64_t c1, int64_t x0, int64_t y0, int64_t x1, int64_t y1, int px, int py) {
 	const bool xMajor = std::abs(x1 - x0) > std::abs(y1 - y0);
 	const int64_t a0 = xMajor ? x0 : y0, a1 = xMajor ? x1 : y1;
 	const int64_t ac = (int64_t)(xMajor ? px : py) * SCREEN_SCALE_FACTOR + SCREEN_SCALE_FACTOR / 2;
@@ -2149,9 +2149,64 @@ static int LineValueAt(int c0, int c1, int64_t x0, int64_t y0, int64_t x1, int64
 		return c1;
 	int e;
 	const int64_t q = GESetupRecip((uint64_t)std::abs(a1 - a0), &e);
-	const int64_t k = ((int64_t)(c1 - c0) * q) >> (e + 2);
+	const int64_t k = ((c1 - c0) * q) >> (e + 2);
 	const int64_t walk = a1 > a0 ? ac - a0 : a0 - ac;
-	return (int)std::clamp<int64_t>((((int64_t)c0 << 14) + k * walk) >> 14, 0, maxValue);
+	return ((c0 << 14) + k * walk) >> 14;
+}
+
+static int LineValueAt(int c0, int c1, int64_t x0, int64_t y0, int64_t x1, int64_t y1, int px, int py, int maxValue) {
+	return (int)std::clamp<int64_t>(LineFixedAt(c0, c1, x0, y0, x1, y1, px, py), 0, maxValue);
+}
+
+// Texture coordinates along a transform-mode line: s, t and q as for a triangle's planes (15-bit at the
+// two vertices' largest exponent), along the line like its color, then u = s / q with the GE's reciprocal
+// (gpu/texmtx/prims: a pixel just inside a line's end samples v just below 1, not the end vertex's 1.0).
+struct LineUV {
+	double s[2], t[2], q[2];
+	int shiftS, shiftT, shiftQ;
+	bool valid;
+};
+
+static int SharedShift2(const double v[2]) {
+	const double v3[3] = { v[0], v[1], 0.0 };
+	return SharedShift(v3);
+}
+
+static LineUV ComputeLineUV(const VertexData &v0, const VertexData &v1, bool textureProj) {
+	LineUV uv{};
+	const VertexData *v[2] = { &v0, &v1 };
+	for (int i = 0; i < 2; ++i) {
+		const float w24 = TruncateToFloat24(v[i]->clipw);
+		if (!(w24 > 0.0f) || !std::isfinite(w24))
+			return uv;
+		const double r = GERecip(w24);
+		uv.q[i] = textureProj ? ProductToFloat24((double)TruncateToFloat24(v[i]->texturecoords.q()) * r) : r;
+		uv.s[i] = ProductToFloat24((double)TruncateToFloat24(v[i]->texturecoords.s()) * r);
+		uv.t[i] = ProductToFloat24((double)TruncateToFloat24(v[i]->texturecoords.t()) * r);
+	}
+	uv.shiftS = SharedShift2(uv.s);
+	uv.shiftT = SharedShift2(uv.t);
+	uv.shiftQ = SharedShift2(uv.q);
+	uv.valid = true;
+	return uv;
+}
+
+static float LineUVComponentAt(const double c[2], int shift, const VertexData &v0, const VertexData &v1, int px, int py) {
+	const int64_t c0 = (int64_t)std::ldexp(c[0], shift), c1 = (int64_t)std::ldexp(c[1], shift);
+	const int64_t value = LineFixedAt(c0, c1, v0.screenpos.x, v0.screenpos.y, v1.screenpos.x, v1.screenpos.y, px, py);
+	return TruncateToFloat24((float)std::ldexp((double)value, -shift));
+}
+
+static void LineTextureCoordinatesAt(const LineUV &uv, const VertexData &v0, const VertexData &v1, int px, int py, float &s, float &t, float &q) {
+	q = LineUVComponentAt(uv.q, uv.shiftQ, v0, v1, px, py);
+	if (!(q > 0.0f)) {
+		s = 0.0f;
+		t = 0.0f;
+		return;
+	}
+	const double r = GERecip(q);
+	s = GEUVProduct((double)LineUVComponentAt(uv.s, uv.shiftS, v0, v1, px, py) * r);
+	t = GEUVProduct((double)LineUVComponentAt(uv.t, uv.shiftT, v0, v1, px, py) * r);
 }
 
 static int LineColorAt(int c0, int c1, int64_t x0, int64_t y0, int64_t x1, int64_t y1, int px, int py) {
@@ -2197,6 +2252,7 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 #endif
 
 	const int steps1 = steps == 0 ? 1 : steps;
+	const LineUV lineUV = state.enableTextures && !state.throughMode ? ComputeLineUV(v0, v1, state.textureProj) : LineUV{};
 	static thread_local std::vector<LinePixel> pixels;
 	LinePixels(a.x, a.y, b.x, b.y, pixels);
 	for (const LinePixel &lp : pixels) {
@@ -2259,6 +2315,13 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 					s1 = tc1.s() * (1.0f / (float)(1 << state.samplerID.width0Shift));
 					t = tc.t() * (1.0f / (float)(1 << state.samplerID.height0Shift));
 					t1 = tc1.t() * (1.0f / (float)(1 << state.samplerID.height0Shift));
+				} else if (lineUV.valid) {
+					float q, q1;
+					LineTextureCoordinatesAt(lineUV, v0, v1, lp.x, lp.y, s, t, q);
+					// The next pixel along the major axis, for the derivatives below.
+					const bool xMajor = std::abs(dx) > std::abs(dy);
+					const int stepX = xMajor ? (dx >= 0 ? 1 : -1) : 0, stepY = xMajor ? 0 : (dy >= 0 ? 1 : -1);
+					LineTextureCoordinatesAt(lineUV, v0, v1, lp.x + stepX, lp.y + stepY, s1, t1, q1);
 				} else if (state.textureProj) {
 					GetTextureCoordinatesProj(v0, v1, (float)(steps1 - i) / steps1, s, t);
 					GetTextureCoordinatesProj(v0, v1, (float)(steps1 - i - 1) / steps1, s1, t1);
