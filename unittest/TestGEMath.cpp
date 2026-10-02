@@ -22,6 +22,7 @@
 #include <cmath>
 #include <cstdio>
 #include <cstring>
+#include <vector>
 
 #include "GPU/Common/TransformCommon.h"
 #include "GPU/Software/GEMath.h"
@@ -158,6 +159,40 @@ static bool TestGERowSum4() {
 				return false;
 			}
 		}
+	}
+
+	// Speed: a vertex transform's four rows, as GERowSum4 and as four scalar GERowSums.
+	{
+		const int count = 1024;
+		std::vector<float> pos(count * 4);
+		for (float &f : pos)
+			f = TruncateToFloat24(randomFloat24(127, 8));
+		alignas(16) float m[16];
+		for (float &f : m)
+			f = randomFloat24(127, 4);
+		const Vec4F32 rows[4] = { Vec4F32::Load(m), Vec4F32::Load(m + 4), Vec4F32::Load(m + 8), Vec4F32::Load(m + 12) };
+		volatile float sink = 0.0f;
+		const double simd = CallsPerSecond([&] {
+			Vec4F32 acc = Vec4F32::Zero();
+			for (int i = 0; i < count; ++i)
+				acc = acc + GERowSum4(&pos[i * 4], rows, 4);
+			alignas(16) float out[4];
+			acc.Store(out);
+			sink = out[0];
+		}, 0.5, 1);
+		const double scalar = CallsPerSecond([&] {
+			float acc = 0.0f;
+			for (int i = 0; i < count; ++i) {
+				for (int c = 0; c < 4; ++c) {
+					GERowTerm terms[4];
+					for (int k = 0; k < 4; ++k)
+						terms[k] = GEProduct(pos[i * 4 + k], m[k * 4 + c]);
+					acc += GERowSum(terms, 4);
+				}
+			}
+			sink = acc;
+		}, 0.5, 1);
+		printf("GERowSum4: %.1f M transforms/s, scalar GERowSum: %.1f M/s\n", simd * count / 1e6, scalar * count / 1e6);
 	}
 	return true;
 }

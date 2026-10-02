@@ -203,17 +203,16 @@ static inline float GENormalDot(const Vec3f &v, const Vec3f &n, float nRsqrt) {
 // bits to a large translation (Syphon Filter #13568).
 static Vec3f GELightVector(const Vec3f &lpos, const Vec3f &modelpos) {
 	const float *m = gstate.worldMatrix;
-	Vec3f L;
-	for (int i = 0; i < 3; ++i) {
-		const GERowTerm terms[4] = {
-			GEProduct(1.0f, GEAddFloat24(lpos[i], -TruncateToFloat24(m[9 + i]))),
-			GEProduct(TruncateToFloat24(modelpos.x), -m[i]),
-			GEProduct(TruncateToFloat24(modelpos.y), -m[3 + i]),
-			GEProduct(TruncateToFloat24(modelpos.z), -m[6 + i]),
-		};
-		L[i] = GERowSum(terms, 4);
-	}
-	return L;
+	// The three components at once; matrix row k is m[3k..3k+2], negated.
+	const float a[4] = { 1.0f, TruncateToFloat24(modelpos.x), TruncateToFloat24(modelpos.y), TruncateToFloat24(modelpos.z) };
+	alignas(16) const float translated[4] = { GEAddFloat24(lpos[0], -TruncateToFloat24(m[9])), GEAddFloat24(lpos[1], -TruncateToFloat24(m[10])), GEAddFloat24(lpos[2], -TruncateToFloat24(m[11])), 0.0f };
+	// Negated by the sign bit, as -m is (a subtraction from zero wouldn't flip a NaN's).
+	const Vec4S32 sign = Vec4S32::Splat((int)0x80000000);
+	auto negate = [&](const float *p) { return Vec4F32FromBits(Vec4S32FromBits(Vec4F32::Load(p)) ^ sign); };
+	const Vec4F32 b[4] = { Vec4F32::Load(translated), negate(m), negate(m + 3), negate(m + 6) };
+	alignas(16) float out[4];
+	GERowSum4(a, b, 4).Store(out);
+	return Vec3f(out[0], out[1], out[2]);
 }
 
 static float GEShadeMapCoord(int l, const Vec3f &modelpos, const WorldCoords &worldnormal, float normalRsqrt, const Vec3f &viewDir) {

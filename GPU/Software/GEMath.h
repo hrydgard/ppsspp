@@ -169,7 +169,7 @@ inline float GEScreenZ(float clipZ, float clipW, float zScale, float zCenter) {
 	return floorf(GEViewport(clipZ, clipW, zScale, zCenter));
 }
 
-// GERowSum4's lanes that it can't do itself: a result exponent past what one float scale reaches.
+// GERowSum4's lanes that it can't do itself: a result that isn't a normal float.
 Vec4F32 GERowSum4Fallback(const float a[4], const Vec4F32 b[4], int count, Vec4S32 lanes, Vec4F32 result);
 
 // Four row sums at once: lane i is GERowSum of the products a[k] * b[k][i], k < count, so four rows
@@ -200,8 +200,7 @@ inline Vec4F32 GERowSum4(const float a[4], const Vec4F32 b[4], int count) {
 		const Vec4S32 none = ea == 0 ? Vec4S32::Splat(-1) : eb.CompareEq(Vec4S32::Zero());
 		m[k] = prod.AndNot(none);
 		lsb[k] = (eb + Vec4S32::Splat(ea - 254 - 15)).AndNot(none) | (Vec4S32::Splat(noTerm) & none);
-		const Vec4S32 greater = lsb[k].CompareGt(lsbMax);
-		lsbMax = (lsb[k] & greater) | lsbMax.AndNot(greater);
+		lsbMax = lsbMax.Max(lsb[k]);
 	}
 	Vec4S32 sum = Vec4S32::Zero();
 	for (int k = 0; k < count; ++k) {
@@ -211,12 +210,12 @@ inline Vec4F32 GERowSum4(const float a[4], const Vec4F32 b[4], int count) {
 		const Vec4F32 scale = Vec4F32FromBits(field.Shl<23>());
 		sum += Vec4S32FromF32(Vec4F32FromS32(m[k]) * scale);
 	}
-	const Vec4S32 resultField = lsbMax + Vec4S32::Splat(127);
+	// float(sum) * 2^lsbMax, by adding lsbMax to the exponent, which works while the result stays normal.
 	const Vec4S32 zero = sum.CompareEq(Vec4S32::Zero());
-	Vec4F32 result = Vec4F32FromS32(sum) * Vec4F32FromBits(resultField.Shl<23>());
-	result = Vec4F32FromBits((Vec4S32FromBits(result) & Vec4S32::Splat((int)0xFFFFFF00)).AndNot(zero));
-	// sum * 2^lsbMax only takes one float multiply while 2^lsbMax is a normal float.
-	const Vec4S32 outside = (resultField.CompareLt(Vec4S32::Splat(1)) | resultField.CompareGt(Vec4S32::Splat(254))).AndNot(zero);
+	const Vec4S32 fbits = Vec4S32FromBits(Vec4F32FromS32(sum));
+	const Vec4S32 resultExp = ((fbits & expMask).Shr<23>()) + lsbMax;
+	const Vec4F32 result = Vec4F32FromBits(((fbits + lsbMax.Shl<23>()) & Vec4S32::Splat((int)0xFFFFFF00)).AndNot(zero));
+	const Vec4S32 outside = (resultExp.CompareLt(Vec4S32::Splat(1)) | resultExp.CompareGt(Vec4S32::Splat(254))).AndNot(zero);
 	if (AnyCompareBitsSet(outside))
 		return GERowSum4Fallback(a, b, count, outside, result);
 	return result;

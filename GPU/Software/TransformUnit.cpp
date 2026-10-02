@@ -151,20 +151,35 @@ VertexDecoder *SoftwareDrawEngine::FindVertexDecoder(u32 vtype) {
 }
 
 WorldCoords TransformUnit::ModelToWorldNormal(const ModelCoords &coords) {
-	// Each component summed like a matrix row (gpu/probe exp61).
+	// Each component summed like a matrix row (gpu/probe exp61), the three at once. Matrix row k is m[3k..3k+2];
+	// the fourth lane reads the next row's first entry and goes unused.
 	const float *m = gstate.worldMatrix;
-	return WorldCoords(GEDot(coords, Vec3f(m[0], m[3], m[6])), GEDot(coords, Vec3f(m[1], m[4], m[7])), GEDot(coords, Vec3f(m[2], m[5], m[8])));
+	const float a[3] = { TruncateToFloat24(coords.x), TruncateToFloat24(coords.y), TruncateToFloat24(coords.z) };
+	const Vec4F32 b[3] = { Vec4F32::Load(m), Vec4F32::Load(m + 3), Vec4F32::Load(m + 6) };
+	alignas(16) float out[4];
+	GERowSum4(a, b, 3).Store(out);
+	return WorldCoords(out[0], out[1], out[2]);
 }
 
-// A texture coordinate from the 4x3 texture matrix, summed like a clip space row (gpu/probe exp64).
-static inline float GETexGenComponent(const Vec3f &v, const float m[12], int c) {
-	GERowTerm terms[4] = {
-		GEProduct(TruncateToFloat24(v.x), m[c]),
-		GEProduct(TruncateToFloat24(v.y), m[3 + c]),
-		GEProduct(TruncateToFloat24(v.z), m[6 + c]),
-		GEProduct(1.0f, m[9 + c]),
-	};
-	return GERowSum(terms, 4);
+// The clip space position from the combined matrix (gpu/probe exp32, exp34, exp42), each component summed
+// like a matrix row, the four at once. The position is a float24; the translation is a term of its own.
+static inline Vec4F32 GEClipPosition(const Vec3f &v, const float m[16]) {
+	const float a[4] = { TruncateToFloat24(v.x), TruncateToFloat24(v.y), TruncateToFloat24(v.z), 1.0f };
+	const Vec4F32 b[4] = { Vec4F32::Load(m), Vec4F32::Load(m + 4), Vec4F32::Load(m + 8), Vec4F32::Load(m + 12) };
+	return GERowSum4(a, b, 4);
+}
+
+// The texture coordinates from the 4x3 texture matrix, summed like clip space rows (gpu/probe exp64).
+static inline Vec3Packedf GETexGen(const Vec3f &v, const float m[12]) {
+	const float a[4] = { TruncateToFloat24(v.x), TruncateToFloat24(v.y), TruncateToFloat24(v.z), 1.0f };
+	// Row k is m[3k..3k+2], padded so the last load stays inside.
+	alignas(16) float padded[13];
+	memcpy(padded, m, 12 * sizeof(float));
+	padded[12] = 0.0f;
+	const Vec4F32 b[4] = { Vec4F32::Load(padded), Vec4F32::Load(padded + 3), Vec4F32::Load(padded + 6), Vec4F32::Load(padded + 9) };
+	alignas(16) float out[4];
+	GERowSum4(a, b, 4).Store(out);
+	return Vec3Packedf(out[0], out[1], out[2]);
 }
 
 template <bool depthClamp, bool alwaysCheckRange>
@@ -451,9 +466,9 @@ ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const Tran
 		// Clip coordinates with the GE's precision; the Test Drive map depends on it together with the
 		// depth math below (#12786).
 		{
-			for (int c = 0; c < 4; ++c) {
-				vertex.clippos[c] = GEClipComponent(pos, state.matrix, c);
-			}
+			alignas(16) float clip[4];
+			GEClipPosition(pos, state.matrix).Store(clip);
+			vertex.clippos = ClipCoords(clip[0], clip[1], clip[2], clip[3]);
 		}
 
 		Vec3f screenScaled;
@@ -525,7 +540,7 @@ ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const Tran
 			}
 
 			// Note that UV scale/offset are not used in this mode.
-			vertex.v.texturecoords = Vec3Packedf(GETexGenComponent(source, gstate.tgenMatrix, 0), GETexGenComponent(source, gstate.tgenMatrix, 1), GETexGenComponent(source, gstate.tgenMatrix, 2));
+			vertex.v.texturecoords = GETexGen(source, gstate.tgenMatrix);
 		} else if (state.uvGenMode == GE_TEXMAP_ENVIRONMENT_MAP) {
 			Lighting::GenerateLightST(vertex.v, pos, worldnormal, normalRsqrt, state.lightingState.viewDir);
 		}
