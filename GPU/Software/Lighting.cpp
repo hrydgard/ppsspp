@@ -118,8 +118,8 @@ void ComputeState(State *state, bool hasColor0) {
 		lstate.pos = GetLightVec(gstate.lpos, light);
 		lstate.directional = gstate.isDirectionalLight(light);
 		if (lstate.directional) {
-			if (GENormalize(lstate.pos) == 0.0f)
-				lstate.pos = Vec3f(0.0f, 0.0f, 1.0f);
+			// A zero direction stays zero: no diffuse, and the half vector is just the eye's (gpu/probe exp164).
+			GENormalize(lstate.pos);
 		} else {
 			lstate.att = GetLightVec(gstate.latt, light);
 			anyNonDirectional = true;
