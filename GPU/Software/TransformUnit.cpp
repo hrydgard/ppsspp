@@ -1152,7 +1152,9 @@ void TransformUnit::SubmitImmVertex(const ClipVertexData &vert, SoftwareDrawEngi
 	uint32_t vertTypeID = GetVertTypeID(gstate.vertType | GE_VTYPE_POS_FLOAT, gstate.getUVGenMode());
 	// This now processes the step with shared logic, given the existing data_.
 	isImmDraw_ = true;
+	Clipper::SetCullXY(false);
 	SubmitPrimitive(nullptr, nullptr, GE_PRIM_KEEP_PREVIOUS, 0, vertTypeID, nullptr, drawEngine);
+	Clipper::SetCullXY(true);
 	isImmDraw_ = false;
 }
 

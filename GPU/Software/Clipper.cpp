@@ -87,18 +87,27 @@ inline void clip_interpolate(ClipVertexData &dest, float t, const ClipVertexData
 	}															\
 }
 
-// The GE compares the (float24) clip coordinates directly, no division: outside when |z| > w.
-// A primitive is culled only when all its vertices are outside, with depth clamp on or off.
-static inline bool CheckOutsideZ(ClipCoords p, int &pos, int &neg) {
-	if (p.z > p.w) {
-		pos++;
-		return true;
+// The GE compares the (float24) clip coordinates directly, no division: outside a plane when |c| > w. A
+// primitive is culled when all its vertices are outside the same plane, x, y or z, for every primitive type
+// and with clipping and depth clamp on or off (gpu/probe exp176 for x and y: a vertex exactly on the plane is
+// inside, one a float24 step past it outside).
+static bool cullXY = true;
+
+void SetCullXY(bool cull) {
+	cullXY = cull;
+}
+
+static inline int OutsideMask(const ClipCoords &p) {
+	int mask = 0;
+	if (cullXY) {
+		if (p.x > p.w) mask |= 1;
+		if (-p.x > p.w) mask |= 2;
+		if (p.y > p.w) mask |= 4;
+		if (-p.y > p.w) mask |= 8;
 	}
-	if (-p.z > p.w) {
-		neg++;
-		return true;
-	}
-	return false;
+	if (p.z > p.w) mask |= 16;
+	if (-p.z > p.w) mask |= 32;
+	return mask;
 }
 
 static void RotateUV(const VertexData &tl, const VertexData &br, VertexData &tr, VertexData &bl) {
@@ -161,12 +170,7 @@ void ProcessRect(const ClipVertexData &v0, const ClipVertexData &v1, BinManager 
 		if (v0.OutsideRange() || v1.OutsideRange())
 			return;
 
-		// We may discard the entire rect based on depth values.
-		int outsidePos = 0, outsideNeg = 0;
-		CheckOutsideZ(v0.clippos, outsidePos, outsideNeg);
-		CheckOutsideZ(v1.clippos, outsidePos, outsideNeg);
-
-		if (outsidePos >= 2 || outsideNeg >= 2)
+		if (OutsideMask(v0.clippos) & OutsideMask(v1.clippos))
 			return;
 		// Rects aren't clipped: one with a vertex behind the camera is culled, with depth clip on or off.
 		if (!(v0.clippos.w > 0.0f && v1.clippos.w > 0.0f))
@@ -225,8 +229,7 @@ void ProcessPoint(const ClipVertexData &v0, BinManager &binner) {
 	if (!binner.State().throughMode) {
 		if (v0.OutsideRange())
 			return;
-		int outsidePos = 0, outsideNeg = 0;
-		if (CheckOutsideZ(v0.clippos, outsidePos, outsideNeg))
+		if (OutsideMask(v0.clippos))
 			return;
 	}
 
@@ -246,11 +249,7 @@ void ProcessLine(const ClipVertexData &v0, const ClipVertexData &v1, BinManager 
 	if (OutsideRangeBeforeClip(v0, depthClip) || OutsideRangeBeforeClip(v1, depthClip))
 		return;
 
-	int outsidePos = 0, outsideNeg = 0;
-	CheckOutsideZ(v0.clippos, outsidePos, outsideNeg);
-	CheckOutsideZ(v1.clippos, outsidePos, outsideNeg);
-
-	if (outsidePos >= 2 || outsideNeg >= 2)
+	if (OutsideMask(v0.clippos) & OutsideMask(v1.clippos))
 		return;
 
 	int mask0 = CalcClipMask(v0.clippos);
@@ -291,13 +290,7 @@ void ProcessTriangle(const ClipVertexData &v0, const ClipVertexData &v1, const C
 		mask |= CalcClipMask(v1.clippos);
 		mask |= CalcClipMask(v2.clippos);
 
-		// We may discard the entire triangle based on depth values.  First check what's outside.
-		int outsidePos = 0, outsideNeg = 0;
-		CheckOutsideZ(v0.clippos, outsidePos, outsideNeg);
-		CheckOutsideZ(v1.clippos, outsidePos, outsideNeg);
-		CheckOutsideZ(v2.clippos, outsidePos, outsideNeg);
-
-		if (outsidePos >= 3 || outsideNeg >= 3)
+		if (OutsideMask(v0.clippos) & OutsideMask(v1.clippos) & OutsideMask(v2.clippos))
 			return;
 
 		// With depth clip off, the GE doesn't clip at the near plane: the part beyond it is drawn with
