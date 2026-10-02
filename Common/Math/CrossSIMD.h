@@ -167,6 +167,9 @@ struct Vec4S32 {
 
 	template<int imm>
 	Vec4S32 Shl() const { return Vec4S32{ imm == 0 ? v : _mm_slli_epi32(v, imm) }; }
+	// Arithmetic: shifts in copies of the sign bit.
+	template<int imm>
+	Vec4S32 Shr() const { return Vec4S32{ imm == 0 ? v : _mm_srai_epi32(v, imm) }; }
 
 	// NOTE: May be slow.
 	int operator[](size_t index) const { return ((int *)&v)[index]; }
@@ -401,6 +404,7 @@ struct Vec4F32 {
 inline Vec4S32 Vec4S32FromF32(Vec4F32 f) { return Vec4S32{ _mm_cvttps_epi32(f.v) }; }
 inline Vec4F32 Vec4F32FromS32(Vec4S32 f) { return Vec4F32{ _mm_cvtepi32_ps(f.v) }; }
 inline Vec4F32 Vec4F32FromBits(Vec4S32 bits) { return Vec4F32{ _mm_castsi128_ps(bits.v) }; }
+inline Vec4S32 Vec4S32FromBits(Vec4F32 f) { return Vec4S32{ _mm_castps_si128(f.v) }; }
 // Per lane, ifTrue where the mask (from a compare) is set, otherwise ifFalse.
 inline Vec4F32 Select(Vec4S32 mask, Vec4F32 ifTrue, Vec4F32 ifFalse) {
 	const __m128 m = _mm_castsi128_ps(mask.v);
@@ -620,6 +624,9 @@ struct Vec4S32 {
 
 	template<int imm>
 	Vec4S32 Shl() const { return Vec4S32{ vshlq_n_s32(v, imm) }; }
+	// Arithmetic: shifts in copies of the sign bit.
+	template<int imm>
+	Vec4S32 Shr() const { return Vec4S32{ vshrq_n_s32(v, imm) }; }
 
 	void operator +=(Vec4S32 other) { v = vaddq_s32(v, other.v); }
 	void operator -=(Vec4S32 other) { v = vsubq_s32(v, other.v); }
@@ -887,6 +894,7 @@ struct Vec4F32 {
 inline Vec4S32 Vec4S32FromF32(Vec4F32 f) { return Vec4S32{ vcvtq_s32_f32(f.v) }; }
 inline Vec4F32 Vec4F32FromS32(Vec4S32 s) { return Vec4F32{ vcvtq_f32_s32(s.v) }; }
 inline Vec4F32 Vec4F32FromBits(Vec4S32 bits) { return Vec4F32{ vreinterpretq_f32_s32(bits.v) }; }
+inline Vec4S32 Vec4S32FromBits(Vec4F32 f) { return Vec4S32{ vreinterpretq_s32_f32(f.v) }; }
 // Per lane, ifTrue where the mask (from a compare) is set, otherwise ifFalse.
 inline Vec4F32 Select(Vec4S32 mask, Vec4F32 ifTrue, Vec4F32 ifFalse) {
 	return Vec4F32{ vbslq_f32(vreinterpretq_u32_s32(mask.v), ifTrue.v, ifFalse.v) };
@@ -1158,6 +1166,9 @@ struct Vec4S32 {
 
 	template<int imm>
 	Vec4S32 Shl() const { return Vec4S32{ __lsx_vslli_w(v, imm) }; }
+	// Arithmetic: shifts in copies of the sign bit.
+	template<int imm>
+	Vec4S32 Shr() const { return Vec4S32{ __lsx_vsrai_w(v, imm) }; }
 
 	void operator +=(Vec4S32 other) { v = __lsx_vadd_w(v, other.v); }
 	void operator -=(Vec4S32 other) { v = __lsx_vsub_w(v, other.v); }
@@ -1432,6 +1443,7 @@ struct Vec4F32 {
 inline Vec4S32 Vec4S32FromF32(Vec4F32 f) { return Vec4S32{ __lsx_vftintrz_w_s(f.v) }; }
 inline Vec4F32 Vec4F32FromS32(Vec4S32 s) { return Vec4F32{ (__m128)__lsx_vffint_s_w(s.v) }; }
 inline Vec4F32 Vec4F32FromBits(Vec4S32 bits) { return Vec4F32{ (__m128)bits.v }; }
+inline Vec4S32 Vec4S32FromBits(Vec4F32 f) { return Vec4S32{ (__m128i)f.v }; }
 // Per lane, ifTrue where the mask (from a compare) is set, otherwise ifFalse.
 inline Vec4F32 Select(Vec4S32 mask, Vec4F32 ifTrue, Vec4F32 ifFalse) {
 	return Vec4F32{ (__m128)__lsx_vbitsel_v((__m128i)ifFalse.v, (__m128i)ifTrue.v, mask.v) };
@@ -1649,6 +1661,9 @@ struct Vec4S32 {
 
 	template<int imm>
 	Vec4S32 Shl() const { return Vec4S32{ { v[0] << imm, v[1] << imm, v[2] << imm, v[3] << imm } }; }
+	// Arithmetic: shifts in copies of the sign bit.
+	template<int imm>
+	Vec4S32 Shr() const { return Vec4S32{ { v[0] >> imm, v[1] >> imm, v[2] >> imm, v[3] >> imm } }; }
 
 	Vec4S32 CompareEq(Vec4S32 other) const {
 		Vec4S32 out;
@@ -2103,6 +2118,11 @@ inline Vec4F32 Vec4F32FromS32(Vec4S32 f) {
 inline Vec4F32 Vec4F32FromBits(Vec4S32 bits) {
 	Vec4F32 temp;
 	memcpy(temp.v, bits.v, sizeof(temp.v));
+	return temp;
+}
+inline Vec4S32 Vec4S32FromBits(Vec4F32 f) {
+	Vec4S32 temp;
+	memcpy(temp.v, f.v, sizeof(temp.v));
 	return temp;
 }
 
