@@ -950,6 +950,12 @@ static const ConfigSetting touchControlSettings[] = {
 
 static const ConfigSetting controlSettings[] = {
 	ConfigSetting("HapticFeedback", SETTING(g_Config, bHapticFeedback), false, CfgFlag::PER_GAME),
+	ConfigSetting("ControllerHapticFeedback", SETTING(g_Config, bControllerHapticFeedback), false, CfgFlag::PER_GAME),
+	ConfigSetting("VibrationPauseButton1", SETTING(g_Config, sControllerVibrationPauseButton[0]), "", CfgFlag::PER_GAME),
+	ConfigSetting("VibrationPauseButton2", SETTING(g_Config, sControllerVibrationPauseButton[1]), "", CfgFlag::PER_GAME),
+	ConfigSetting("VibrationPauseButton3", SETTING(g_Config, sControllerVibrationPauseButton[2]), "", CfgFlag::PER_GAME),
+	ConfigSetting("VibrationPauseButton4", SETTING(g_Config, sControllerVibrationPauseButton[3]), "", CfgFlag::PER_GAME),
+	ConfigSetting("VibrationPauseButton5", SETTING(g_Config, sControllerVibrationPauseButton[4]), "", CfgFlag::PER_GAME),
 	
 #if PPSSPP_PLATFORM(WINDOWS)
 	ConfigSetting("IgnoreWindowsKey", SETTING(g_Config, bIgnoreWindowsKey), false, CfgFlag::PER_GAME),

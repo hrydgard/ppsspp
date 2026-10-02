@@ -1,5 +1,10 @@
 package org.ppsspp.ppsspp;
 
+import android.os.Build;
+import android.os.Handler;
+import android.os.Looper;
+import android.os.VibrationEffect;
+import android.os.Vibrator;
 import android.util.Log;
 import android.view.InputDevice;
 import android.view.InputDevice.MotionRange;
@@ -12,6 +17,9 @@ import java.util.HashSet;
 
 public class InputDeviceState {
 	private static final String TAG = "InputDeviceState";
+	private static final int CONTROLLER_RUMBLE_DURATION_MS = 4000;
+	private static final int CONTROLLER_RUMBLE_REFRESH_MS = 2000;
+	private static final int RUMBLE_AXIS_INPUT_BASE = 0x10000;
 
 	private final int deviceId;
 
@@ -26,6 +34,23 @@ public class InputDeviceState {
 	private final int sources;
 
 	private final Set<Integer> pressedKeys = new HashSet<>();
+	private final Set<Integer> activeRumbleInputs = new HashSet<>();
+	private final Vibrator controllerVibrator;
+	private final Handler rumbleHandler = new Handler(Looper.getMainLooper());
+	private final Runnable rumbleRefresh = new Runnable() {
+		@Override
+		public void run() {
+			if (activeRumbleInputs.isEmpty()) {
+				return;
+			}
+			if (!NativeApp.isRefinedRumbleEnabled()) {
+				stopControllerRumble();
+				return;
+			}
+			vibrateController();
+			rumbleHandler.postDelayed(this, CONTROLLER_RUMBLE_REFRESH_MS);
+		}
+	};
 
 
 	InputDevice getDevice() {
@@ -127,6 +152,7 @@ public class InputDeviceState {
 		}
 
 		mDevice = device;
+		controllerVibrator = device.getVibrator();
 		final int numAxes = device.getMotionRanges().size();
 
 		mAxes = new int[numAxes];
@@ -148,9 +174,8 @@ public class InputDeviceState {
 	}
 
 	public void Disconnect() {
-		if (deviceId == NativeApp.DEVICE_ID_PAD_0) {
-			NativeApp.sendMessageFromJava("inputDeviceDisconnectedID", String.valueOf(this.deviceId));
-		}
+		stopControllerRumble();
+		NativeApp.sendMessageFromJava("inputDeviceDisconnectedID", String.valueOf(this.deviceId));
 		// Also reset all the buttons and axes.
 		for (int value : pressedKeys) {
 			NativeApp.keyUp(deviceId, value);
@@ -170,13 +195,17 @@ public class InputDeviceState {
 		if (isInvalidKeyCode(keyCode) && isEventSentByNintendoSwitchLeftJoyCon(event)) {
 			int remappedKeyCode = remapNintendoSwitchLeftJoyConKeyCodeFromScanCode(event.getScanCode());
 			if (remappedKeyCode != 0) {
-				pressedKeys.add(remappedKeyCode);
+				if (pressedKeys.add(remappedKeyCode) && !repeat) {
+					updateControllerRumble(remappedKeyCode, remappedKeyCode, false, 1, true);
+				}
 				// need to pass false for the repeat flag, otherwise pressing two adjacent dpad buttons simultaneously to move diagonally does not work.
 				return NativeApp.keyDown(deviceId, remappedKeyCode, false);
 			}
 		}
 
-		pressedKeys.add(keyCode);
+		if (pressedKeys.add(keyCode) && !repeat) {
+			updateControllerRumble(keyCode, keyCode, false, 1, true);
+		}
 		return NativeApp.keyDown(deviceId, keyCode, repeat);
 	}
 
@@ -187,10 +216,12 @@ public class InputDeviceState {
 		if (isInvalidKeyCode(keyCode) && isEventSentByNintendoSwitchLeftJoyCon(event)) {
 			int remappedKeyCode = remapNintendoSwitchLeftJoyConKeyCodeFromScanCode(event.getScanCode());
 			if (remappedKeyCode != 0) {
+				updateControllerRumble(remappedKeyCode, remappedKeyCode, false, 1, false);
 				return NativeApp.keyUp(deviceId, remappedKeyCode);
 			}
 		}
 
+		updateControllerRumble(keyCode, keyCode, false, 1, false);
 		return NativeApp.keyUp(deviceId, keyCode);
 	}
 
@@ -203,6 +234,15 @@ public class InputDeviceState {
 		for (int i = 0; i < mAxes.length; i++) {
 			int axisId = mAxes[i];
 			float value = event.getAxisValue(axisId);
+			if (axisId == MotionEvent.AXIS_LTRIGGER || axisId == MotionEvent.AXIS_RTRIGGER) {
+				int rumbleInput = RUMBLE_AXIS_INPUT_BASE + axisId;
+				boolean triggerDown = activeRumbleInputs.contains(rumbleInput);
+				if (!triggerDown && value >= 0.5f) {
+					updateControllerRumble(rumbleInput, axisId, true, 1, true);
+				} else if (triggerDown && value <= 0.4f) {
+					updateControllerRumble(rumbleInput, axisId, true, 1, false);
+				}
+			}
 			if (value != mAxisPrevValue[i]) {
 				mAxisIds[count] = axisId;
 				mValues[count] = value;
@@ -211,6 +251,47 @@ public class InputDeviceState {
 			}
 		}
 		NativeApp.joystickAxis(deviceId, mAxisIds, mValues, count);
+	}
+
+	public void StopRumble() {
+		stopControllerRumble();
+	}
+
+	private void updateControllerRumble(int rumbleInput, int input, boolean isAxis, int direction, boolean down) {
+		if (deviceId < NativeApp.DEVICE_ID_PAD_0 || deviceId > NativeApp.DEVICE_ID_PAD_0 + 9 || controllerVibrator == null || !controllerVibrator.hasVibrator()) {
+			return;
+		}
+		if (down) {
+			if (!NativeApp.canStartRefinedRumble(input, isAxis, direction)) {
+				return;
+			}
+			if (activeRumbleInputs.add(rumbleInput) && activeRumbleInputs.size() == 1) {
+				vibrateController();
+				rumbleHandler.removeCallbacks(rumbleRefresh);
+				rumbleHandler.postDelayed(rumbleRefresh, CONTROLLER_RUMBLE_REFRESH_MS);
+			}
+		} else if (activeRumbleInputs.remove(rumbleInput) && activeRumbleInputs.isEmpty()) {
+			stopControllerRumble();
+		}
+	}
+
+	private void vibrateController() {
+		if (controllerVibrator == null || !controllerVibrator.hasVibrator()) {
+			return;
+		}
+		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+			controllerVibrator.vibrate(VibrationEffect.createOneShot(CONTROLLER_RUMBLE_DURATION_MS, VibrationEffect.DEFAULT_AMPLITUDE));
+		} else {
+			controllerVibrator.vibrate(CONTROLLER_RUMBLE_DURATION_MS);
+		}
+	}
+
+	private void stopControllerRumble() {
+		activeRumbleInputs.clear();
+		rumbleHandler.removeCallbacks(rumbleRefresh);
+		if (controllerVibrator != null && controllerVibrator.hasVibrator()) {
+			controllerVibrator.cancel();
+		}
 	}
 
 	private boolean isInvalidKeyCode(int keyCode) {
