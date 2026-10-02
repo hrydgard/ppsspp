@@ -537,9 +537,11 @@ ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const Tran
 			const float len2 = GEDot(worldnormal, worldnormal);
 			if (len2 > 0.0f && std::isfinite(len2)) {
 				normalRsqrt = GERsqrt(len2);
-			} else {
+			} else if (len2 != 0.0f) {
 				worldnormal = Vec3f(0.0f, 0.0f, 1.0f);
 			}
+			// A zero normal stays zero: no diffuse or specular from any light (gpu/probe exp173; SOCOM
+			// UCES01242 has meshes without normals but lit).
 		}
 
 		// Time to generate some texture coords.  Lighting will handle shade mapping.
