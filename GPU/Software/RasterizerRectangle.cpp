@@ -602,10 +602,18 @@ static bool AreCoordsRectangleCompatible(const RasterizerState &state, const Cli
 // (gpu/probe exp30). They differ only for a left edge at 9/16 into a pixel, where the triangles must stay
 // triangles (NBA 2K13's menu boxes). Rows and the far edges agree. Each triangle also has its own UV
 // planes, which a sprite's corners don't reproduce, so textured ones only qualify in through mode with
-// nearest filtering (Gears of Destiny's text boxes).
+// nearest filtering (Gears of Destiny's text boxes), and 1:1, where every sample is half a texel from an
+// edge: a scaled one can land right on a texel edge, where the planes' anchors decide the side (Tokiden's
+// 480x33 bar over 280x20 texels, gpu/probe exp167).
 bool RectangleMatchesTriangles(const RasterizerState &state, const VertexData &a, const VertexData &b) {
-	if (state.enableTextures && (!state.throughMode || state.minFilt || state.magFilt))
-		return false;
+	if (state.enableTextures) {
+		if (!state.throughMode || state.minFilt || state.magFilt)
+			return false;
+		const float du = std::fabs(b.texturecoords.x - a.texturecoords.x) * (float)SCREEN_SCALE_FACTOR;
+		const float dv = std::fabs(b.texturecoords.y - a.texturecoords.y) * (float)SCREEN_SCALE_FACTOR;
+		if (du != (float)std::abs(b.screenpos.x - a.screenpos.x) || dv != (float)std::abs(b.screenpos.y - a.screenpos.y))
+			return false;
+	}
 	return (std::min(a.screenpos.x, b.screenpos.x) & (SCREEN_SCALE_FACTOR - 1)) != 9;
 }
 
