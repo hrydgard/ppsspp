@@ -2229,7 +2229,8 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 
 			u8 fog = 255;
 			if (pixelID.applyFog) {
-				fog = ClampFogDepth((v0.fogdepth * (float)(steps - i) + v1.fogdepth * (float)i) / steps1);
+				// steps1, so a line shorter than a pixel keeps v0's fog rather than none (SOCOM's radar).
+				fog = ClampFogDepth((v0.fogdepth * (float)(steps1 - i) + v1.fogdepth * (float)i) / steps1);
 			}
 
 			if (state.antialiasLines) {
@@ -2241,20 +2242,20 @@ void DrawLine(const VertexData &v0, const VertexData &v1, const BinCoords &range
 				float s, s1;
 				float t, t1;
 				if (state.throughMode) {
-					Vec2<float> tc = (v0.texturecoords.uv() * (float)(steps - i) + v1.texturecoords.uv() * (float)i) / steps1;
-					Vec2<float> tc1 = (v0.texturecoords.uv() * (float)(steps - i - 1) + v1.texturecoords.uv() * (float)(i + 1)) / steps1;
+					Vec2<float> tc = (v0.texturecoords.uv() * (float)(steps1 - i) + v1.texturecoords.uv() * (float)i) / steps1;
+					Vec2<float> tc1 = (v0.texturecoords.uv() * (float)(steps1 - i - 1) + v1.texturecoords.uv() * (float)(i + 1)) / steps1;
 
 					s = tc.s() * (1.0f / (float)(1 << state.samplerID.width0Shift));
 					s1 = tc1.s() * (1.0f / (float)(1 << state.samplerID.width0Shift));
 					t = tc.t() * (1.0f / (float)(1 << state.samplerID.height0Shift));
 					t1 = tc1.t() * (1.0f / (float)(1 << state.samplerID.height0Shift));
 				} else if (state.textureProj) {
-					GetTextureCoordinatesProj(v0, v1, (float)(steps - i) / steps1, s, t);
-					GetTextureCoordinatesProj(v0, v1, (float)(steps - i - 1) / steps1, s1, t1);
+					GetTextureCoordinatesProj(v0, v1, (float)(steps1 - i) / steps1, s, t);
+					GetTextureCoordinatesProj(v0, v1, (float)(steps1 - i - 1) / steps1, s1, t1);
 				} else {
 					// Texture coordinate interpolation must definitely be perspective-correct.
-					GetTextureCoordinates(v0, v1, (float)(steps - i) / steps1, s, t);
-					GetTextureCoordinates(v0, v1, (float)(steps - i - 1) / steps1, s1, t1);
+					GetTextureCoordinates(v0, v1, (float)(steps1 - i) / steps1, s, t);
+					GetTextureCoordinates(v0, v1, (float)(steps1 - i - 1) / steps1, s1, t1);
 				}
 
 				// If inc is 0, force the delta to zero.
