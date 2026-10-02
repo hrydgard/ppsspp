@@ -201,6 +201,10 @@ python3 test.py --graphics=software io/shortname/shortname
   known version reporting which ones behave differently - a fast way to find version-gated
   behavior. A test can also call `sceKernelSetCompiledSdkVersion*()` mid-run to cover several
   versions in one `.expected`.
+- **On a PSP, printed output is also drawn on the screen**, into the display framebuffer. A GPU test that
+  renders into that framebuffer and prints between draws reads its own text back: each line changed the
+  alpha of a few pixels under it in the next draw, deterministically on the PSP and never in PPSSPP. Set
+  `HAS_DISPLAY = 0` (`extern "C" int HAS_DISPLAY;`, from `common.c`) after setting up the display.
 - **The module must be named `TESTMODULE`** (`common.c` does this) or `gentest.py` prints the load
   line as an unexpected result.
 
