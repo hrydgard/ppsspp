@@ -2045,12 +2045,13 @@ struct LinePixel {
 	float t;  // where the pixel's center falls along the line, 0 to 1
 };
 
-// A point on a diamond's edge counts as inside on the top corner, the edges either side of it, and the left
-// corner, for x-major lines. Y-major lines swap x and y: the left corner, its edges and the top corner.
+// A point on a diamond's edge counts as inside on the top corner and the edges either side of it, for
+// x-major lines; not on the left or right corner (gpu/probe exp149). Y-major lines swap x and y: the left
+// corner and its edges.
 static bool LineDiamondEdgeInside(int64_t dx, int64_t dy, bool yMajor) {
 	if (yMajor)
 		std::swap(dx, dy);
-	return dy < 0 || (dy == 0 && dx < 0);
+	return dy < 0;
 }
 
 static bool InLineDiamond(int64_t cx, int64_t cy, int64_t x, int64_t y, bool yMajor) {
