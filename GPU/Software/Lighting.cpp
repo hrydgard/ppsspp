@@ -129,6 +129,13 @@ void ComputeState(State *state, bool hasColor0) {
 		if (lstate.spot) {
 			// The direction isn't normalized: the dot with L is scaled by its rsqrt (gpu/probe exp100).
 			lstate.spotDir = GetLightVec(gstate.ldir, light);
+			// A component with exponent 255 (inf or NaN) acts as the largest value of its sign, so after the
+			// scaling below the finite ones vanish next to it (gpu/commands/light: -NAN and -INFINITY light
+			// like (-1, -1, -1), NAN and INFINITY like (1, 1, 1)).
+			if (!std::isfinite(lstate.spotDir.x) || !std::isfinite(lstate.spotDir.y) || !std::isfinite(lstate.spotDir.z)) {
+				for (int i = 0; i < 3; ++i)
+					lstate.spotDir[i] = std::isfinite(lstate.spotDir[i]) ? 0.0f : (std::signbit(lstate.spotDir[i]) ? -1.0f : 1.0f);
+			}
 			const float dirLen2 = GEDot(lstate.spotDir, lstate.spotDir);
 			lstate.spotDirRsqrt = dirLen2 > 0.0f && std::isfinite(dirLen2) ? GERsqrt(dirLen2) : 0.0f;
 			lstate.spotCutoff = getFloat24(gstate.lcutoff[light]);
