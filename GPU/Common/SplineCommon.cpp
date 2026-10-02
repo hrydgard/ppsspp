@@ -633,14 +633,16 @@ public:
 					const int index_u = surface.GetIndexU(patch_u, tile_u);
 					const Weight &wu = weights.u[index_u];
 
-					// Pre-tessellate U lines
-					tess_pos.SampleU(wu.basis);
-					if constexpr (sampleCol)
-						tess_col.SampleU(wu.basis);
-					if constexpr (sampleTex)
-						tess_tex.SampleU(wu.basis);
-					if constexpr (sampleNrm)
-						tess_nrm.SampleU(wu.deriv);
+					// Pre-tessellate U lines (the exact path evaluates its own columns).
+					if (!exactBezier) {
+						tess_pos.SampleU(wu.basis);
+						if constexpr (sampleCol)
+							tess_col.SampleU(wu.basis);
+						if constexpr (sampleTex)
+							tess_tex.SampleU(wu.basis);
+						if constexpr (sampleNrm)
+							tess_nrm.SampleU(wu.deriv);
+					}
 
 					for (int tile_v = start_v; tile_v <= surface.tess_v; ++tile_v) {
 						const int index_v = surface.GetIndexV(patch_v, tile_v);
