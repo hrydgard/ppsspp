@@ -607,49 +607,57 @@ static float GEMorphComponent(const VertexDecoder &dec, const u8 *in, int off, i
 static void ApplyGESkinning(u8 *decoded, const VertexDecoder &dec, const u8 *raw, int count) {
 	const DecVtxFormat &fmt = dec.GetDecVtxFmt();
 	const int nweights = dec.nweights;
+	// The x, y and z components go in lanes 0-2. Each one is a chain of GEAdds in a fixed order: per bone, the
+	// translation, then the three products. GEAdd drops a GEProduct's 17th bit, so float24 products (one-term
+	// row sums) give the same sums.
+	auto product = [](float a, Vec4F32 b) {
+		return GERowSum4<1>(Vec4F32::Splat(a), &b);
+	};
 	for (int v = 0; v < count; ++v) {
 		const u8 *in = raw + v * dec.VertexSize();
 		u8 *out = decoded + v * fmt.stride;
 		auto component = [&](int off, int c, auto read) {
 			return dec.morphcount > 1 ? GEMorphComponent(dec, in, off, c, read) : read(in + off, c);
 		};
-		float bones[8][12];
+		// Each bone's rows (matrix entries 3j..3j+2, the translation j = 3), times its weight. Lane 3 reads past
+		// the row (and past the matrices, for the last translation).
+		Vec4F32 bones[8][4];
+		bool used[8];
 		for (int b = 0; b < nweights; ++b) {
 			const float w = TruncateToFloat24(component(dec.weightoff, b, [&](const u8 *p, int i) { return ReadRawWeight(p, dec.weighttype, i); }));
-			for (int k = 0; k < 12; ++k) {
-				const float m = gstate.boneMatrix[b * 12 + k];
-				bones[b][k] = m == 0.0f || w == 0.0f ? 0.0f : ProductToFloat24((double)TruncateToFloat24(m) * w);
+			used[b] = w != 0.0f;
+			if (!used[b])
+				continue;
+			const float *m = gstate.boneMatrix + b * 12;
+			for (int j = 0; j < 4; ++j) {
+				bones[b][j] = GEMulFloat24x4(Vec4F32::Splat(w), Vec4F32::Load(m + 3 * j).WithLane3Zero());
 			}
 		}
-		auto skin = [&](const float src[3], bool translate, float dst[3]) {
-			for (int c = 0; c < 3; ++c) {
-				float acc = 0.0f;
-				auto add = [&](float term) {
-					if (term != 0.0f)
-						acc = acc == 0.0f ? TruncateToFloat24(term) : TruncateToFloat24(GEAdd(acc, term));
-				};
-				for (int b = 0; b < nweights; ++b) {
-					if (translate)
-						add(bones[b][9 + c]);
-					for (int j = 0; j < 3; ++j)
-						add(GEProduct(TruncateToFloat24(src[j]), bones[b][j * 3 + c]).Value());
-				}
-				dst[c] = acc;
+		auto skin = [&](const float src[3], bool translate, u8 *dst) {
+			Vec4F32 acc = Vec4F32::Zero();
+			for (int b = 0; b < nweights; ++b) {
+				if (!used[b])
+					continue;
+				if (translate)
+					acc = GEAddFloat24x4(acc, bones[b][3]);
+				for (int j = 0; j < 3; ++j)
+					acc = GEAddFloat24x4(acc, product(src[j], bones[b][j]));
 			}
+			alignas(16) float result[4];
+			acc.Store(result);
+			memcpy(dst, result, 3 * sizeof(float));
 		};
 		if (dec.pos) {
-			float pos[3], skinned[3];
+			float pos[3];
 			for (int i = 0; i < 3; ++i)
 				pos[i] = component(dec.posoff, i, [&](const u8 *p, int c) { return ReadRawComponent(p, dec.pos, c); });
-			skin(pos, true, skinned);
-			memcpy(out + fmt.posoff, skinned, sizeof(skinned));
+			skin(pos, true, out + fmt.posoff);
 		}
 		if (dec.nrm && fmt.nrmfmt == DEC_FLOAT_3) {
-			float nrm[3], skinned[3];
+			float nrm[3];
 			for (int i = 0; i < 3; ++i)
 				nrm[i] = component(dec.nrmoff, i, [&](const u8 *p, int c) { return ReadRawComponent(p, dec.nrm, c); });
-			skin(nrm, false, skinned);
-			memcpy(out + fmt.nrmoff, skinned, sizeof(skinned));
+			skin(nrm, false, out + fmt.nrmoff);
 		}
 	}
 }

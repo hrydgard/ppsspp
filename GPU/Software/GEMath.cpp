@@ -122,6 +122,34 @@ float GERsqrt(float d) {
 	return ScaleByPow2((float)q, -16 - (e >> 1), 0);
 }
 
+Vec4F32 GEAdd4Fallback(Vec4F32 a, Vec4F32 b, Vec4S32 lanes, Vec4F32 result) {
+	alignas(16) float av[4], bv[4], rv[4];
+	alignas(16) int lv[4];
+	a.Store(av);
+	b.Store(bv);
+	result.Store(rv);
+	lanes.Store(lv);
+	for (int i = 0; i < 4; ++i) {
+		if (lv[i])
+			rv[i] = GEAdd(av[i], bv[i]);
+	}
+	return Vec4F32::Load(rv);
+}
+
+Vec4F32 GEMulFloat24x4Fallback(Vec4F32 a, Vec4F32 b, Vec4S32 lanes, Vec4F32 result) {
+	alignas(16) float av[4], bv[4], rv[4];
+	alignas(16) int lv[4];
+	a.Store(av);
+	b.Store(bv);
+	result.Store(rv);
+	lanes.Store(lv);
+	for (int i = 0; i < 4; ++i) {
+		if (lv[i])
+			rv[i] = ProductToFloat24((double)TruncateToFloat24(av[i]) * TruncateToFloat24(bv[i]));
+	}
+	return Vec4F32::Load(rv);
+}
+
 float GEAddFloat24(float a, float b) {
 	return TruncateToFloat24(GEAdd(a, b));
 }

@@ -240,6 +240,72 @@ inline Vec4F32 GERowSum4(Vec4F32 a, const Vec4F32 b[4]) {
 }
 
 float GEAddFloat24(float a, float b);
+
+// GEAdd4's lanes that it can't do itself: the larger exponent field from 1 to 15 (values under 2^-111) or
+// 255 (inf and NaN).
+Vec4F32 GEAdd4Fallback(Vec4F32 a, Vec4F32 b, Vec4S32 lanes, Vec4F32 result);
+
+// Four of GEAdd at once: each term goes to 16-bit fixed point at the larger exponent by scaling with a power
+// of two and truncating toward zero, which drops what GEAdd's masks clear, then the sum is exact.
+inline Vec4F32 GEAdd4(Vec4F32 a, Vec4F32 b) {
+	const Vec4S32 expMask = Vec4S32::Splat(0x7F800000);
+	const Vec4S32 ba = Vec4S32FromBits(a);
+	const Vec4S32 bb = Vec4S32FromBits(b);
+	const Vec4S32 ea = ba & expMask;
+	const Vec4S32 eb = bb & expMask;
+	// Denormals count as zero.
+	const Vec4F32 za = Vec4F32FromBits(ba.AndNot(ea.CompareEq(Vec4S32::Zero())));
+	const Vec4F32 zb = Vec4F32FromBits(bb.AndNot(eb.CompareEq(Vec4S32::Zero())));
+	// The larger exponent field, as integers: a float maximum's NaN handling differs between platforms.
+	const Vec4S32 e = ea.Max(eb);
+	// 2^(142 - e) and 2^(e - 142), e being the biased exponent.
+	const Vec4F32 down = Vec4F32FromBits(Vec4S32::Splat((int)(269u << 23)) - e);
+	const Vec4F32 up = Vec4F32FromBits(e - Vec4S32::Splat(15 << 23));
+	// Both zero (or denormal) makes zero.
+	const Vec4S32 none = e.CompareEq(Vec4S32::Zero());
+	const Vec4F32 sum = Vec4F32FromS32(Vec4S32FromF32(za * down) + Vec4S32FromF32(zb * down)) * up;
+	const Vec4F32 result = Vec4F32FromBits(Vec4S32FromBits(sum).AndNot(none));
+	const Vec4S32 outside = e.CompareLt(Vec4S32::Splat(16 << 23)).AndNot(none) | e.CompareEq(expMask);
+	if (AnyCompareBitsSet(outside))
+		return GEAdd4Fallback(a, b, outside, result);
+	return result;
+}
+
+// GEMulFloat24x4's lanes that it can't do itself: a denormal, inf or NaN operand, or a result outside the
+// normal range.
+Vec4F32 GEMulFloat24x4Fallback(Vec4F32 a, Vec4F32 b, Vec4S32 lanes, Vec4F32 result);
+
+// Per lane, the product of a and b truncated to float24, as ProductToFloat24((double)a * b) with both
+// truncated to float24 first, except that a zero operand gives +0. With 15 fraction bits each, the
+// significand product truncated to 17 bits is 32768 + a' + b' + (a' b' >> 15), as in GERowSum4.
+inline Vec4F32 GEMulFloat24x4(Vec4F32 a, Vec4F32 b) {
+	const Vec4S32 expMask = Vec4S32::Splat(0x7F800000);
+	const Vec4S32 fracMask = Vec4S32::Splat(0x7FFF);
+	const Vec4S32 aBits = Vec4S32FromBits(a) & Vec4S32::Splat((int)0xFFFFFF00);
+	const Vec4S32 bBits = Vec4S32FromBits(b) & Vec4S32::Splat((int)0xFFFFFF00);
+	const Vec4S32 ea = (aBits & expMask).Shr<23>();
+	const Vec4S32 eb = (bBits & expMask).Shr<23>();
+	const Vec4S32 af = aBits.Shr<8>() & fracMask;
+	const Vec4S32 bf = bBits.Shr<8>() & fracMask;
+	const Vec4S32 prod = af + Vec4S32::Splat(32768) + bf + bf.Mul16(af).Shr<15>();
+	// prod * 2^(ea + eb - 254 - 15), by adding to the exponent of the exact float(prod), then truncated.
+	const Vec4S32 lsb = ea + eb - Vec4S32::Splat(254 + 15);
+	const Vec4S32 fbits = Vec4S32FromBits(Vec4F32FromS32(prod));
+	const Vec4S32 resultExp = (fbits & expMask).Shr<23>() + lsb;
+	const Vec4S32 sign = (aBits ^ bBits) & Vec4S32::Splat((int)0x80000000);
+	const Vec4S32 zero = (aBits & Vec4S32::Splat(0x7FFFFFFF)).CompareEq(Vec4S32::Zero()) | (bBits & Vec4S32::Splat(0x7FFFFFFF)).CompareEq(Vec4S32::Zero());
+	const Vec4F32 result = Vec4F32FromBits((((fbits + lsb.Shl<23>()) & Vec4S32::Splat((int)0xFFFFFF00)) | sign).AndNot(zero));
+	const Vec4S32 special = ea.CompareEq(Vec4S32::Zero()) | eb.CompareEq(Vec4S32::Zero()) | ea.CompareEq(Vec4S32::Splat(255)) | eb.CompareEq(Vec4S32::Splat(255));
+	const Vec4S32 outside = (special | resultExp.CompareLt(Vec4S32::Splat(1)) | resultExp.CompareGt(Vec4S32::Splat(254))).AndNot(zero);
+	if (AnyCompareBitsSet(outside))
+		return GEMulFloat24x4Fallback(a, b, outside, result);
+	return result;
+}
+
+// Four of GEAddFloat24 at once.
+inline Vec4F32 GEAddFloat24x4(Vec4F32 a, Vec4F32 b) {
+	return Vec4F32FromBits(Vec4S32FromBits(GEAdd4(a, b)) & Vec4S32::Splat((int)0xFFFFFF00));
+}
 float GEDot(const Vec3f &a, const Vec3f &b);
 float GENormalize(Vec3f &v);
 

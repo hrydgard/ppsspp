@@ -685,38 +685,6 @@ struct GEBezierFixed {
 	}
 };
 
-static NO_INLINE Vec4F32 GEAdd4Small(Vec4F32 a, Vec4F32 b, Vec4S32 small, Vec4F32 r) {
-	alignas(16) float av[4], bv[4], rv[4];
-	alignas(16) int sv[4];
-	a.Store(av);
-	b.Store(bv);
-	r.Store(rv);
-	small.Store(sv);
-	for (int i = 0; i < 4; ++i) {
-		if (sv[i])
-			rv[i] = GEAdd(av[i], bv[i]);
-	}
-	return Vec4F32::Load(rv);
-}
-
-// Four of GEAdd at once: both terms truncated to the precision of the larger one, then added exactly.
-static __forceinline Vec4F32 GEAdd4(Vec4F32 a, Vec4F32 b) {
-	const Vec4S32 expMask = Vec4S32::Splat(0x7F800000);
-	const Vec4S32 absMask = Vec4S32::Splat(0x7FFFFFFF);
-	const Vec4S32 ba = Vec4S32FromBits(a);
-	const Vec4S32 bb = Vec4S32FromBits(b);
-	const Vec4F32 za = Select((ba & expMask).CompareEq(Vec4S32::Zero()), Vec4F32::Zero(), a);
-	const Vec4F32 zb = Select((bb & expMask).CompareEq(Vec4S32::Zero()), Vec4F32::Zero(), b);
-	const Vec4S32 e = Vec4S32FromBits(Vec4F32FromBits(ba & absMask).Max(Vec4F32FromBits(bb & absMask))) & expMask;
-	const Vec4F32 down = Vec4F32FromBits(Vec4S32::Splat((int)(269u << 23)) - e);
-	const Vec4F32 up = Vec4F32FromBits(e - Vec4S32::Splat(15 << 23));
-	const Vec4F32 r = Vec4F32FromS32(Vec4S32FromF32(za * down) + Vec4S32FromF32(zb * down)) * up;
-	const Vec4S32 small = e.CompareLt(Vec4S32::Splat(16 << 23));
-	if (AnyCompareBitsSet(small))
-		return GEAdd4Small(a, b, small, r);
-	return r;
-}
-
 // Four de Casteljau evaluations (GEBezierEval), with the last two points for the tangents.
 static inline Vec4F32 GEBezierEval4(const Vec4F32 p[4], Vec4S32 k, Vec4S32 k0, Vec4S32 k256, Vec4F32 *ab = nullptr, Vec4F32 *bc = nullptr) {
 	const Vec4F32 a = GELerp4(p[0], p[1], k, k0, k256);

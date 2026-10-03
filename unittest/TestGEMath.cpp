@@ -107,6 +107,89 @@ static bool TestGEDot() {
 	return true;
 }
 
+// GEAdd4 against GEAdd, bit for bit: any bits (not just float24s), close and distant exponents, signs,
+// zeros, denormals, inf and NaN.
+static bool TestGEAdd4() {
+	uint32_t state = 777;
+	auto next = [&]() {
+		state = state * 1664525u + 1013904223u;
+		return state;
+	};
+	auto randomBits = [&](int center, int spread) {
+		const uint32_t r = next();
+		uint32_t e;
+		switch (r & 15) {
+		case 0: e = 0; break;
+		case 1: e = 255; break;
+		default: e = (uint32_t)std::clamp(center + (int)(next() % (2 * spread + 1)) - spread, 1, 254); break;
+		}
+		const uint32_t bits = (e << 23) | (next() & 0x007FFFFF) | ((r & 16) ? 0x80000000 : 0);
+		float f;
+		memcpy(&f, &bits, sizeof(f));
+		return f;
+	};
+	for (int i = 0; i < 200000; ++i) {
+		const int spread = (i % 5 == 0) ? 120 : 20;
+		const int center = (i % 7 == 0) ? (int)(next() % 254) + 1 : 127;
+		alignas(16) float a[4], b[4], got[4];
+		for (int l = 0; l < 4; ++l) {
+			a[l] = randomBits(center, spread);
+			b[l] = randomBits(center, spread);
+		}
+		GEAdd4(Vec4F32::Load(a), Vec4F32::Load(b)).Store(got);
+		for (int l = 0; l < 4; ++l) {
+			const float want = GEAdd(a[l], b[l]);
+			if (memcmp(&got[l], &want, sizeof(float)) != 0) {
+				printf("GEAdd4: %a + %a = %a, want %a\n", a[l], b[l], got[l], want);
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
+// GEMulFloat24x4 against ProductToFloat24, bit for bit, on the same kind of bits as TestGEAdd4.
+static bool TestGEMulFloat24x4() {
+	uint32_t state = 4321;
+	auto next = [&]() {
+		state = state * 1664525u + 1013904223u;
+		return state;
+	};
+	auto randomBits = [&](int center, int spread) {
+		const uint32_t r = next();
+		uint32_t e;
+		switch (r & 15) {
+		case 0: e = 0; break;
+		case 1: e = 255; break;
+		default: e = (uint32_t)std::clamp(center + (int)(next() % (2 * spread + 1)) - spread, 1, 254); break;
+		}
+		const uint32_t mant = (r & 32) ? 0 : (next() & 0x007FFFFF);
+		const uint32_t bits = (e << 23) | mant | ((r & 16) ? 0x80000000 : 0);
+		float f;
+		memcpy(&f, &bits, sizeof(f));
+		return f;
+	};
+	for (int i = 0; i < 200000; ++i) {
+		const int spread = (i % 5 == 0) ? 120 : 20;
+		const int center = (i % 7 == 0) ? (int)(next() % 254) + 1 : 127;
+		alignas(16) float a[4], b[4], got[4];
+		for (int l = 0; l < 4; ++l) {
+			a[l] = randomBits(center, spread);
+			b[l] = randomBits(center, spread);
+		}
+		GEMulFloat24x4(Vec4F32::Load(a), Vec4F32::Load(b)).Store(got);
+		for (int l = 0; l < 4; ++l) {
+			const float ta = TruncateToFloat24(a[l]), tb = TruncateToFloat24(b[l]);
+			const float want = ta == 0.0f || tb == 0.0f ? 0.0f : ProductToFloat24((double)ta * tb);
+			if (memcmp(&got[l], &want, sizeof(float)) != 0) {
+				printf("GEMulFloat24x4: %a * %a = %a, want %a\n", a[l], b[l], got[l], want);
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
 // GERowSum4 against GERowSum, bit for bit, on random float24s: mixed signs, zeros and denormals, exponents
 // close together (so the terms' alignment matters) and far apart, including ones past the vector path.
 static bool TestGERowSum4() {
@@ -318,6 +401,8 @@ bool TestGEMath() {
 	ok = TestGEAdd() && ok;
 	ok = TestGEDot() && ok;
 	ok = TestGERowSum4() && ok;
+	ok = TestGEAdd4() && ok;
+	ok = TestGEMulFloat24x4() && ok;
 	ok = TestGESetupRecip() && ok;
 	ok = TestGELog16() && ok;
 	ok = TestTexCoordPrecision() && ok;
