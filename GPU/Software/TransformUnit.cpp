@@ -274,7 +274,6 @@ struct TransformState {
 		bool enableTransform : 1;
 		bool enableLighting : 1;
 		bool enableFog : 1;
-		bool readUV : 1;
 		bool negateNormals : 1;
 		uint8_t uvGenMode : 2;
 		uint8_t matrixMode : 2;
@@ -295,8 +294,7 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 	state->enableTransform = !vreader.isThrough();
 	state->enableLighting = gstate.isLightingEnabled();
 	state->enableFog = gstate.isFogEnabled();
-	state->readUV = !gstate.isModeClear() && gstate.isTextureMapEnabled() && vreader.hasUV();
-	state->geUVScale = !vreader.isThrough() && gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_COORDS;
+	state->geUVScale = !vreader.isThrough() && gstate.getUVGenMode() == GE_TEXMAP_TEXTURE_COORDS && !gstate.isModeClear() && gstate.isTextureMapEnabled();
 	state->uvScale[0] = TruncateToFloat24(getFloat24(gstate.texscaleu));
 	state->uvScale[1] = TruncateToFloat24(getFloat24(gstate.texscalev));
 	state->uvOffset[0] = TruncateToFloat24(getFloat24(gstate.texoffsetu));
@@ -412,34 +410,32 @@ static inline float Dot43(const Vec4f &a, const Vec3f &b) {
 	return Dot(a, Vec4f(b, 1.0f));
 }
 
-ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const TransformState &state) {
+ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const TransformState &state, VertexCarry &carry) {
 	PROFILE_THIS_SCOPE("read_vert");
-	// If we ever thread this, we'll have to change this.
 	ClipVertexData vertex;
 
 	ModelCoords pos;
 	vreader.ReadPosThrough(pos.AsArray());
 
-	static Vec3Packedf lastTC;
-	if (state.readUV) {
-		vreader.ReadUV(vertex.v.texturecoords.AsArray());
-		vertex.v.texturecoords.q() = 0.0f;
-		if (state.geUVScale) {
-			// The decoder only normalized them (8 and 16 bit UVs are unsigned).
-			for (int i = 0; i < 2; ++i) {
-				const float scaled = ProductToFloat24((double)TruncateToFloat24(vertex.v.texturecoords[i]) * state.uvScale[i]);
-				vertex.v.texturecoords[i] = TruncateToFloat24(GEAdd(scaled, state.uvOffset[i]));
-			}
+	// A format without UVs uses the last ones read, by any draw, textured or not. They're kept as read, and
+	// scaled with the scale and offset of the draw using them (gpu/vertices/carry).
+	if (vreader.hasUV()) {
+		vreader.ReadUV(carry.tc.AsArray());
+		carry.tc.q() = 0.0f;
+	}
+	vertex.v.texturecoords = carry.tc;
+	if (state.geUVScale) {
+		// The decoder only normalized them (8 and 16 bit UVs are unsigned).
+		for (int i = 0; i < 2; ++i) {
+			const float scaled = ProductToFloat24((double)TruncateToFloat24(vertex.v.texturecoords[i]) * state.uvScale[i]);
+			vertex.v.texturecoords[i] = TruncateToFloat24(GEAdd(scaled, state.uvOffset[i]));
 		}
-		lastTC = vertex.v.texturecoords;
-	} else {
-		vertex.v.texturecoords = lastTC;
 	}
 
-	static Vec3f lastnormal;
+	// Carried the same way (gpu/vertices/carry).
 	if (vreader.hasNormal())
-		vreader.ReadNrm(lastnormal.AsArray());
-	Vec3f normal = lastnormal;
+		vreader.ReadNrm(carry.normal);
+	Vec3f normal(carry.normal[0], carry.normal[1], carry.normal[2]);
 	if (state.negateNormals)
 		normal = -normal;
 
@@ -711,6 +707,7 @@ public:
 	SoftwareVertexReader(u8 *base, VertexDecoder &vdecoder, u32 vertex_type, int vertex_count, const void *vertices, const void *indices, const TransformState &transformState, TransformUnit &transform)
 	: vreader_(base, vdecoder.GetDecVtxFmt(), vertex_type), conv_(vertex_type, indices), transformState_(transformState), transform_(transform) {
 		useIndices_ = indices != nullptr;
+		vertexCount_ = vertex_count;
 		lowerBound_ = 0;
 		upperBound_ = vertex_count == 0 ? 0 : vertex_count - 1;
 
@@ -746,9 +743,17 @@ public:
 		if (!useCache_)
 			return;
 
+		// Within a draw, the format has UVs and a normal for every vertex or for none, so the order the
+		// cache is filled in doesn't matter.
+		TransformUnit::VertexCarry carry = transform_.carry_;
 		for (int i = 0; i < upperBound_ - lowerBound_ + 1; ++i) {
 			vreader_.Goto(i);
-			cached_[i] = transform_.ReadVertex(vreader_, transformState_);
+			cached_[i] = transform_.ReadVertex(vreader_, transformState_, carry);
+		}
+		// What the next draw carries is the last vertex in draw order (gpu/vertices/carry).
+		if (vertexCount_ != 0) {
+			vreader_.Goto(useIndices_ ? conv_(vertexCount_ - 1) - lowerBound_ : vertexCount_ - 1);
+			transform_.ReadVertex(vreader_, transformState_, transform_.carry_);
 		}
 	}
 
@@ -762,7 +767,7 @@ public:
 			vreader_.Goto(vtx);
 		}
 
-		return transform_.ReadVertex(vreader_, transformState_);
+		return transform_.ReadVertex(vreader_, transformState_, transform_.carry_);
 	};
 
 protected:
@@ -770,6 +775,7 @@ protected:
 	const IndexConverter conv_;
 	const TransformState &transformState_;
 	TransformUnit &transform_;
+	int vertexCount_ = 0;
 	uint16_t lowerBound_;
 	uint16_t upperBound_;
 	static std::vector<ClipVertexData> cached_;
