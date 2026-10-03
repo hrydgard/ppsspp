@@ -116,6 +116,7 @@ static inline Vec4<float> Interpolate(const float &c0, const float &c1, const fl
 void ComputeRasterizerState(RasterizerState *state, BinManager *binner) {
 	ComputePixelFuncID(&state->pixelID);
 	state->drawPixel = Rasterizer::GetSingleFunc(state->pixelID, binner);
+	state->drawSpan = Rasterizer::GetSpanFunc(state->pixelID, state->drawPixel);
 
 	state->enableTextures = gstate.isTextureMapEnabled() && !state->pixelID.clearMode;
 	if (state->enableTextures) {
@@ -456,6 +457,7 @@ static bool ApplyStateOptimizations(RasterizerState *state, const RasterizerStat
 		// Can't compile during runtime.  This failing is a bit of a problem when undoing...
 		if (drawPixel) {
 			state->drawPixel = drawPixel;
+			state->drawSpan = Rasterizer::GetSpanFunc(pixelID, drawPixel);
 			memcpy(&state->pixelID, &pixelID, sizeof(PixelFuncID));
 			state->flags = ReplacePixelIDFlags(state->flags, optimize) | RasterizerStateFlags::OPTIMIZED;
 			changed = true;
@@ -1560,6 +1562,12 @@ void DrawTriangleSlice(
 				}
 
 				PROFILE_THIS_SCOPE("draw_tri_px");
+#if !defined(SOFTGPU_MEMORY_TAGGING_DETAILED)
+				if (state.drawSpan) {
+					state.drawSpan(p.x, p.y, mask.AsArray(), z.AsArray(), fog.AsArray(), prim_color, pixelID);
+					continue;
+				}
+#endif
 				DrawingCoords subp = p;
 				for (int i = 0; i < 4; ++i) {
 					if (mask[i] < 0) {
@@ -1748,6 +1756,13 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 			}
 
 			PROFILE_THIS_SCOPE("draw_rect_px");
+#if !defined(SOFTGPU_MEMORY_TAGGING_DETAILED)
+			if (state.drawSpan) {
+				Vec4<int> fogs = fog, zs = z;
+				state.drawSpan(p.x, p.y, mask.AsArray(), zs.AsArray(), fogs.AsArray(), prim_color, state.pixelID);
+				continue;
+			}
+#endif
 			DrawingCoords subp = p;
 			for (int i = 0; i < 4; ++i) {
 				if (mask[i] < 0) {

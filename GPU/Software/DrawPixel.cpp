@@ -19,6 +19,7 @@
 #include <mutex>
 #include "Common/Common.h"
 #include "Common/Data/Convert/ColorConv.h"
+#include "Common/Math/CrossSIMD.h"
 #include "Core/Config.h"
 #include "GPU/Software/BinManager.h"
 #include "GPU/Software/DrawPixel.h"
@@ -697,7 +698,7 @@ static Vec3<int> AlphaBlendingResult(const PixelFuncID &pixelID, const Vec4<int>
 }
 
 template <bool clearMode, GEBufferFormat fbFormat>
-void SOFTRAST_CALL DrawSinglePixel(int x, int y, int z, int fog, Vec4IntArg color_in, const PixelFuncID &pixelID) {
+static __forceinline void DrawPixelInline(int x, int y, int z, int fog, Vec4IntArg color_in, const PixelFuncID &pixelID) {
 	Vec4<int> prim_color = Vec4<int>(color_in).Clamp(0, 255);
 	// Depth range test - applied in clear mode, if not through mode.
 	if (pixelID.applyDepthRange && !pixelID.earlyZChecks)
@@ -797,6 +798,192 @@ void SOFTRAST_CALL DrawSinglePixel(int x, int y, int z, int fog, Vec4IntArg colo
 	}
 
 	SetPixelColor(fbFormat, pixelID.cached.framebufStride, x, y, new_color, old_color, targetWriteMask);
+}
+
+template <bool clearMode, GEBufferFormat fbFormat>
+void SOFTRAST_CALL DrawSinglePixel(int x, int y, int z, int fog, Vec4IntArg color_in, const PixelFuncID &pixelID) {
+	DrawPixelInline<clearMode, fbFormat>(x, y, z, fog, color_in, pixelID);
+}
+
+// The pixels of a span one per vector lane, for what most states need: everything but stencil and color
+// tests, logic ops and the signed blend factors. As DrawPixelInline does it per pixel. False when the state
+// needs that instead.
+template <GEBufferFormat fbFormat>
+static inline bool DrawSpanVector(int x, int y, const int *maskIn, const int *zIn, const int *fogIn, const Vec4<int> *colors, const PixelFuncID &pixelID) {
+	if (pixelID.colorTest || pixelID.stencilTest || pixelID.applyLogicOp)
+		return false;
+	if (pixelID.alphaBlend && (IsSignedBlendFactor(pixelID.AlphaBlendSrc()) || IsSignedBlendFactor(pixelID.AlphaBlendDst())))
+		return false;
+
+	const Vec4S32 zero = Vec4S32::Zero();
+	const Vec4S32 c255 = Vec4S32::Splat(255);
+	auto clamp255 = [&](Vec4S32 v) {
+		return v.Max(zero).Min(c255);
+	};
+	alignas(16) int ch[4][4];
+	for (int i = 0; i < 4; ++i) {
+		ch[0][i] = colors[i].x;
+		ch[1][i] = colors[i].y;
+		ch[2][i] = colors[i].z;
+		ch[3][i] = colors[i].w;
+	}
+	Vec4S32 r = clamp255(Vec4S32::Load(ch[0])), g = clamp255(Vec4S32::Load(ch[1])), b = clamp255(Vec4S32::Load(ch[2]));
+	const Vec4S32 a = clamp255(Vec4S32::Load(ch[3]));
+	const Vec4S32 z = Vec4S32::Load(zIn);
+	// -1 for the pixels that aren't drawn.
+	Vec4S32 dead = Vec4S32::Load(maskIn).Shr<31>();
+
+	if (pixelID.applyDepthRange && !pixelID.earlyZChecks)
+		dead = dead | z.CompareLt(Vec4S32::Splat(pixelID.cached.minz)) | z.CompareGt(Vec4S32::Splat(pixelID.cached.maxz));
+
+	auto compare = [](GEComparison func, Vec4S32 v, Vec4S32 ref) {
+		// -1 where it fails.
+		switch (func) {
+		case GE_COMP_NEVER: return Vec4S32::Splat(-1);
+		case GE_COMP_EQUAL: return v.CompareEq(ref) ^ Vec4S32::Splat(-1);
+		case GE_COMP_NOTEQUAL: return v.CompareEq(ref);
+		case GE_COMP_LESS: return v.CompareLt(ref) ^ Vec4S32::Splat(-1);
+		case GE_COMP_LEQUAL: return v.CompareGt(ref);
+		case GE_COMP_GREATER: return v.CompareGt(ref) ^ Vec4S32::Splat(-1);
+		case GE_COMP_GEQUAL: return v.CompareLt(ref);
+		default: return Vec4S32::Zero();
+		}
+	};
+	if (pixelID.AlphaTestFunc() != GE_COMP_ALWAYS) {
+		const Vec4S32 av = pixelID.hasAlphaTestMask ? a & Vec4S32::Splat(pixelID.cached.alphaTestMask) : a;
+		dead = dead | compare(pixelID.AlphaTestFunc(), av, Vec4S32::Splat(pixelID.alphaTestRef));
+	}
+
+	if (pixelID.applyFog) {
+		// Like the BLEND texfunc, always rounding up.
+		const Vec4S32 f = Vec4S32::Load(fogIn), invF = c255 - f;
+		const uint32_t fc = pixelID.cached.fogColor;
+		r = (r.Mul(f) + Vec4S32::Splat(fc & 0xFF).Mul(invF) + c255).Shr<8>();
+		g = (g.Mul(f) + Vec4S32::Splat((fc >> 8) & 0xFF).Mul(invF) + c255).Shr<8>();
+		b = (b.Mul(f) + Vec4S32::Splat((fc >> 16) & 0xFF).Mul(invF) + c255).Shr<8>();
+	}
+
+	const int depthStride = pixelID.cached.depthbufStride;
+	if (!pixelID.earlyZChecks && pixelID.DepthTestFunc() != GE_COMP_ALWAYS) {
+		alignas(16) int ref[4];
+		for (int i = 0; i < 4; ++i)
+			ref[i] = depthbuf.Get16(x + i, y, depthStride);
+		dead = dead | compare(pixelID.DepthTestFunc(), z, Vec4S32::Load(ref));
+	}
+	alignas(16) int deadLanes[4];
+	dead.Store(deadLanes);
+	if ((deadLanes[0] & deadLanes[1] & deadLanes[2] & deadLanes[3]) != 0)
+		return true;
+	if (pixelID.depthWrite) {
+		for (int i = 0; i < 4; ++i) {
+			if (!deadLanes[i])
+				depthbuf.Set16(x + i, y, depthStride, (u16)zIn[i]);
+		}
+	}
+
+	const int fbStride = pixelID.cached.framebufStride;
+	alignas(16) int old[4];
+	for (int i = 0; i < 4; ++i)
+		old[i] = (int)GetPixelColor(fbFormat, fbStride, x + i, y);
+	const Vec4S32 oldV = Vec4S32::Load(old);
+	const Vec4S32 byteMask = Vec4S32::Splat(0xFF);
+	const Vec4S32 dr = oldV & byteMask, dg = oldV.Shr<8>() & byteMask, db = oldV.Shr<16>() & byteMask;
+	// The old alpha, which is also the stencil kept (GetPixelStencil).
+	const Vec4S32 da = oldV.Shr<24>() & byteMask;
+
+	if (pixelID.alphaBlend) {
+		auto factor = [&](PixelBlendFactor f, const Vec4S32 other[3], Vec4S32 srcA, Vec4S32 dstA, uint32_t fix, Vec4S32 out[3]) {
+			switch (f) {
+			case PixelBlendFactor::OTHERCOLOR: for (int c = 0; c < 3; ++c) out[c] = other[c]; break;
+			case PixelBlendFactor::INVOTHERCOLOR: for (int c = 0; c < 3; ++c) out[c] = c255 - other[c]; break;
+			case PixelBlendFactor::SRCALPHA: out[0] = out[1] = out[2] = srcA; break;
+			case PixelBlendFactor::INVSRCALPHA: out[0] = out[1] = out[2] = c255 - srcA; break;
+			case PixelBlendFactor::DSTALPHA: out[0] = out[1] = out[2] = dstA; break;
+			case PixelBlendFactor::INVDSTALPHA: out[0] = out[1] = out[2] = c255 - dstA; break;
+			case PixelBlendFactor::DOUBLESRCALPHA: out[0] = out[1] = out[2] = srcA.Shl<1>(); break;
+			case PixelBlendFactor::DOUBLEDSTALPHA: out[0] = out[1] = out[2] = dstA.Shl<1>(); break;
+			case PixelBlendFactor::ZERO: out[0] = out[1] = out[2] = zero; break;
+			case PixelBlendFactor::ONE: out[0] = out[1] = out[2] = c255; break;
+			default:
+				// FIX, and everything above it.
+				out[0] = Vec4S32::Splat(fix & 0xFF);
+				out[1] = Vec4S32::Splat((fix >> 8) & 0xFF);
+				out[2] = Vec4S32::Splat((fix >> 16) & 0xFF);
+				break;
+			}
+		};
+		const Vec4S32 src[3] = { r, g, b }, dst[3] = { dr, dg, db };
+		Vec4S32 sf[3], df[3];
+		// The source factor's "other" color is the destination's, and the other way around.
+		factor(pixelID.AlphaBlendSrc(), dst, a, da, pixelID.cached.alphaBlendSrc, sf);
+		factor(pixelID.AlphaBlendDst(), src, a, da, pixelID.cached.alphaBlendDst, df);
+		const Vec4S32 one = Vec4S32::Splat(1);
+		Vec4S32 out[3];
+		for (int c = 0; c < 3; ++c) {
+			auto term = [&](Vec4S32 v, Vec4S32 f) {
+				return (v.Shl<1>() + one).Mul(f.Shl<1>() + one).Shr<10>();
+			};
+			switch (pixelID.AlphaBlendEq()) {
+			case GE_BLENDMODE_MUL_AND_ADD: out[c] = term(src[c], sf[c]) + term(dst[c], df[c]); break;
+			case GE_BLENDMODE_MUL_AND_SUBTRACT: out[c] = term(src[c], sf[c]) - term(dst[c], df[c]); break;
+			case GE_BLENDMODE_MUL_AND_SUBTRACT_REVERSE: out[c] = term(dst[c], df[c]) - term(src[c], sf[c]); break;
+			case GE_BLENDMODE_MIN: out[c] = src[c].Min(dst[c]); break;
+			case GE_BLENDMODE_MAX: out[c] = src[c].Max(dst[c]); break;
+			case GE_BLENDMODE_ABSDIFF: out[c] = (src[c] - dst[c]).Max(dst[c] - src[c]); break;
+			default: out[c] = src[c]; break;
+			}
+		}
+		r = out[0];
+		g = out[1];
+		b = out[2];
+	}
+	if (pixelID.dithering) {
+		alignas(16) int dither[4];
+		for (int i = 0; i < 4; ++i)
+			dither[i] = pixelID.cached.ditherMatrix[(y & 3) * 4 + ((x + i) & 3)];
+		const Vec4S32 dv = Vec4S32::Load(dither);
+		r = r + dv;
+		g = g + dv;
+		b = b + dv;
+	}
+	const Vec4S32 cr = clamp255(r), cg = clamp255(g), cb = clamp255(b);
+	Vec4S32 color = cr | cg.Shl<8>() | cb.Shl<16>() | da.Shl<24>();
+	alignas(16) int newColor[4];
+	color.Store(newColor);
+
+	const uint32_t targetWriteMask = pixelID.applyColorWriteMask ? pixelID.cached.colorWriteMask : 0;
+	for (int i = 0; i < 4; ++i) {
+		if (!deadLanes[i])
+			SetPixelColor(fbFormat, fbStride, x + i, y, (u32)newColor[i], (u32)old[i], targetWriteMask);
+	}
+	return true;
+}
+
+template <bool clearMode, GEBufferFormat fbFormat>
+static void SOFTRAST_CALL DrawSpanPixels(int x, int y, const int *mask, const int *z, const int *fog, const Vec4<int> *colors, const PixelFuncID &pixelID) {
+	if constexpr (!clearMode) {
+		if (DrawSpanVector<fbFormat>(x, y, mask, z, fog, colors, pixelID))
+			return;
+	}
+	for (int i = 0; i < 4; ++i) {
+		if (mask[i] >= 0)
+			DrawPixelInline<clearMode, fbFormat>(x + i, y, z[i], fog[i], ToVec4IntArg(colors[i]), pixelID);
+	}
+}
+
+SpanFunc GetSpanFunc(const PixelFuncID &id, SingleFunc single) {
+	if (single != PixelJitCache::GenericSingle(id))
+		return nullptr;
+	switch (id.fbFormat) {
+	case GE_FORMAT_565:
+		return id.clearMode ? &DrawSpanPixels<true, GE_FORMAT_565> : &DrawSpanPixels<false, GE_FORMAT_565>;
+	case GE_FORMAT_5551:
+		return id.clearMode ? &DrawSpanPixels<true, GE_FORMAT_5551> : &DrawSpanPixels<false, GE_FORMAT_5551>;
+	case GE_FORMAT_4444:
+		return id.clearMode ? &DrawSpanPixels<true, GE_FORMAT_4444> : &DrawSpanPixels<false, GE_FORMAT_4444>;
+	default:
+		return id.clearMode ? &DrawSpanPixels<true, GE_FORMAT_8888> : &DrawSpanPixels<false, GE_FORMAT_8888>;
+	}
 }
 
 SingleFunc GetSingleFunc(const PixelFuncID &id, BinManager *binner) {
