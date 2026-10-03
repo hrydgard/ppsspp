@@ -1098,7 +1098,9 @@ static Vec4<int> ColorFromPlanes(const DepthPlane *planes, int64_t x, int64_t y)
 // and a pixel's u is s * 1/q, again with the GE's reciprocal (UVProduct).
 struct UVPlanes {
 	DepthPlane s, t, q;
-	int shiftS, shiftT, shiftQ;
+	// 2^-shift for each plane's shift (SharedShift), which takes a plane value back to a float. The values
+	// are float24s, so the shift is within [-114, 163] and multiplying by the scale is exact, as ldexp is.
+	double scaleS, scaleT, scaleQ;
 	bool valid;
 };
 
@@ -1137,12 +1139,14 @@ static UVPlanes ComputeUVPlanes(const int64_t X[3], const int64_t Y[3], const fl
 
 static UVPlanes ComputeUVPlanesSTQ(const int64_t X[3], const int64_t Y[3], const double s[3], const double t[3], const double q[3]) {
 	UVPlanes planes{};
-	planes.shiftS = SharedShift(s);
-	planes.shiftT = SharedShift(t);
-	planes.shiftQ = SharedShift(q);
-	planes.s = FixedPlane(X, Y, s, planes.shiftS);
-	planes.t = FixedPlane(X, Y, t, planes.shiftT);
-	planes.q = FixedPlane(X, Y, q, planes.shiftQ);
+	auto fixed = [&](const double v[3], DepthPlane *plane, double *scale) {
+		const int shift = SharedShift(v);
+		*plane = FixedPlane(X, Y, v, shift);
+		*scale = std::ldexp(1.0, -shift);
+	};
+	fixed(s, &planes.s, &planes.scaleS);
+	fixed(t, &planes.t, &planes.scaleT);
+	fixed(q, &planes.q, &planes.scaleQ);
 	planes.valid = true;
 	return planes;
 }
@@ -1164,8 +1168,8 @@ static float UVPlaneGradient(const UVPlanes &planes, const RasterizerState &stat
 	if (!planes.valid)
 		return -1.0f;
 	const double perPixel = (double)SCREEN_SCALE_FACTOR / 16384.0;
-	double gs = std::ldexp((double)std::max(std::abs(planes.s.kx), std::abs(planes.s.ky)) * perPixel, -planes.shiftS);
-	double gt = std::ldexp((double)std::max(std::abs(planes.t.kx), std::abs(planes.t.ky)) * perPixel, -planes.shiftT);
+	double gs = (double)std::max(std::abs(planes.s.kx), std::abs(planes.s.ky)) * perPixel * planes.scaleS;
+	double gt = (double)std::max(std::abs(planes.t.kx), std::abs(planes.t.ky)) * perPixel * planes.scaleT;
 	if (!inTexels) {
 		gs *= 1 << state.samplerID.width0Shift;
 		gt *= 1 << state.samplerID.height0Shift;
@@ -1198,7 +1202,7 @@ static inline Vec4<float> LodQFromPlanes(const UVPlanes &planes, int64_t centerX
 			}
 		}
 		const int64_t x = centerX + (pick - quadX) * SCREEN_SCALE_FACTOR;
-		q[i] = TruncateToFloat24((float)std::ldexp((double)planes.q.At(x, y), -planes.shiftQ));
+		q[i] = TruncateToFloat24((float)((double)planes.q.At(x, y) * planes.scaleQ));
 	}
 	return q;
 }
@@ -1206,7 +1210,7 @@ static inline Vec4<float> LodQFromPlanes(const UVPlanes &planes, int64_t centerX
 static inline void GetTextureCoordinatesGE(const UVPlanes &planes, int64_t centerX, int64_t centerY, Vec4<float> &s, Vec4<float> &t, Vec4<float> &qOut) {
 	for (int i = 0; i < 4; ++i) {
 		const int64_t x = centerX + (i & 1) * SCREEN_SCALE_FACTOR, y = centerY + (i >> 1) * SCREEN_SCALE_FACTOR;
-		const float q = TruncateToFloat24((float)std::ldexp((double)planes.q.At(x, y), -planes.shiftQ));
+		const float q = TruncateToFloat24((float)((double)planes.q.At(x, y) * planes.scaleQ));
 		qOut[i] = q;
 		if (!(q > 0.0f)) {
 			s[i] = 0.0f;
@@ -1214,8 +1218,8 @@ static inline void GetTextureCoordinatesGE(const UVPlanes &planes, int64_t cente
 			continue;
 		}
 		const double r = GERecip(q);
-		s[i] = GEUVProduct((double)TruncateToFloat24((float)std::ldexp((double)planes.s.At(x, y), -planes.shiftS)) * r);
-		t[i] = GEUVProduct((double)TruncateToFloat24((float)std::ldexp((double)planes.t.At(x, y), -planes.shiftT)) * r);
+		s[i] = GEUVProduct((double)TruncateToFloat24((float)((double)planes.s.At(x, y) * planes.scaleS)) * r);
+		t[i] = GEUVProduct((double)TruncateToFloat24((float)((double)planes.t.At(x, y) * planes.scaleT)) * r);
 	}
 }
 
@@ -2175,8 +2179,10 @@ static int LineValueAt(int c0, int c1, int64_t x0, int64_t y0, int64_t x1, int64
 // two vertices' largest exponent), along the line like its color, then u = s / q with the GE's reciprocal
 // (gpu/texmtx/prims: a pixel just inside a line's end samples v just below 1, not the end vertex's 1.0).
 struct LineUV {
-	double s[2], t[2], q[2];
-	int shiftS, shiftT, shiftQ;
+	// Each component at the two ends, as integers at the shared shift.
+	int64_t s[2], t[2], q[2];
+	// 2^-shift, as in UVPlanes.
+	double scaleS, scaleT, scaleQ;
 	bool valid;
 };
 
@@ -2187,39 +2193,45 @@ static int SharedShift2(const double v[2]) {
 
 static LineUV ComputeLineUV(const VertexData &v0, const VertexData &v1, bool textureProj) {
 	LineUV uv{};
+	double s[2], t[2], q[2];
 	const VertexData *v[2] = { &v0, &v1 };
 	for (int i = 0; i < 2; ++i) {
 		const float w24 = TruncateToFloat24(v[i]->clipw);
 		if (!(w24 > 0.0f) || !std::isfinite(w24))
 			return uv;
 		const double r = GERecip(w24);
-		uv.q[i] = textureProj ? ProductToFloat24((double)TruncateToFloat24(v[i]->texturecoords.q()) * r) : r;
-		uv.s[i] = ProductToFloat24((double)TruncateToFloat24(v[i]->texturecoords.s()) * r);
-		uv.t[i] = ProductToFloat24((double)TruncateToFloat24(v[i]->texturecoords.t()) * r);
+		q[i] = textureProj ? ProductToFloat24((double)TruncateToFloat24(v[i]->texturecoords.q()) * r) : r;
+		s[i] = ProductToFloat24((double)TruncateToFloat24(v[i]->texturecoords.s()) * r);
+		t[i] = ProductToFloat24((double)TruncateToFloat24(v[i]->texturecoords.t()) * r);
 	}
-	uv.shiftS = SharedShift2(uv.s);
-	uv.shiftT = SharedShift2(uv.t);
-	uv.shiftQ = SharedShift2(uv.q);
+	auto fixed = [](const double c[2], int64_t out[2], double *scale) {
+		const int shift = SharedShift2(c);
+		out[0] = (int64_t)std::ldexp(c[0], shift);
+		out[1] = (int64_t)std::ldexp(c[1], shift);
+		*scale = std::ldexp(1.0, -shift);
+	};
+	fixed(s, uv.s, &uv.scaleS);
+	fixed(t, uv.t, &uv.scaleT);
+	fixed(q, uv.q, &uv.scaleQ);
 	uv.valid = true;
 	return uv;
 }
 
-static float LineUVComponentAt(const double c[2], int shift, const VertexData &v0, const VertexData &v1, int px, int py) {
-	const int64_t c0 = (int64_t)std::ldexp(c[0], shift), c1 = (int64_t)std::ldexp(c[1], shift);
-	const int64_t value = LineFixedAt(c0, c1, v0.screenpos.x, v0.screenpos.y, v1.screenpos.x, v1.screenpos.y, px, py);
-	return TruncateToFloat24((float)std::ldexp((double)value, -shift));
+static float LineUVComponentAt(const int64_t c[2], double scale, const VertexData &v0, const VertexData &v1, int px, int py) {
+	const int64_t value = LineFixedAt(c[0], c[1], v0.screenpos.x, v0.screenpos.y, v1.screenpos.x, v1.screenpos.y, px, py);
+	return TruncateToFloat24((float)((double)value * scale));
 }
 
 static void LineTextureCoordinatesAt(const LineUV &uv, const VertexData &v0, const VertexData &v1, int px, int py, float &s, float &t, float &q) {
-	q = LineUVComponentAt(uv.q, uv.shiftQ, v0, v1, px, py);
+	q = LineUVComponentAt(uv.q, uv.scaleQ, v0, v1, px, py);
 	if (!(q > 0.0f)) {
 		s = 0.0f;
 		t = 0.0f;
 		return;
 	}
 	const double r = GERecip(q);
-	s = GEUVProduct((double)LineUVComponentAt(uv.s, uv.shiftS, v0, v1, px, py) * r);
-	t = GEUVProduct((double)LineUVComponentAt(uv.t, uv.shiftT, v0, v1, px, py) * r);
+	s = GEUVProduct((double)LineUVComponentAt(uv.s, uv.scaleS, v0, v1, px, py) * r);
+	t = GEUVProduct((double)LineUVComponentAt(uv.t, uv.scaleT, v0, v1, px, py) * r);
 }
 
 static int LineColorAt(int c0, int c1, int64_t x0, int64_t y0, int64_t x1, int64_t y1, int px, int py) {
