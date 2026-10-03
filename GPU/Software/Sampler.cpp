@@ -77,6 +77,8 @@ NearestFunc GetNearestFunc(SamplerID id, BinManager *binner) {
 	return &SampleNearest;
 }
 
+static LinearFunc GetLinearFallback(const SamplerID &id);
+
 LinearFunc GetLinearFunc(SamplerID id, BinManager *binner) {
 	id.linear = true;
 	LinearFunc jitted = jitCache->GetLinear(id, binner);
@@ -84,7 +86,7 @@ LinearFunc GetLinearFunc(SamplerID id, BinManager *binner) {
 		return jitted;
 	}
 
-	return &SampleLinear;
+	return GetLinearFallback(id);
 }
 
 FetchFunc GetFetchFunc(SamplerID id, BinManager *binner) {
@@ -781,6 +783,140 @@ static Vec4IntResult SOFTRAST_CALL SampleLinear(float s, float t, Vec4IntArg pri
 		c0 = (c1 * levelFrac + c0 * (16 - levelFrac)) >> 4;
 	}
 	return GetTextureFunctionOutput(prim_color, ToVec4IntArg(c0), samplerID);
+}
+
+// Where there's no JIT: SampleLinear specialized for the texture format, swizzling and CLUT format, so
+// those aren't checked per texel. The filter works on all four channels at once, as 16-bit lanes of a
+// uint64_t (a channel times a weight of at most 16 fits).
+static inline uint64_t SpreadRGBA(uint32_t c) {
+	uint64_t x = c;
+	x = (x | (x << 16)) & 0x0000FFFF0000FFFFULL;
+	return (x | (x << 8)) & 0x00FF00FF00FF00FFULL;
+}
+
+// (a * (16 - f) + b * f) >> 4 per channel.
+static inline uint64_t LerpSpread(uint64_t a, uint64_t b, int f) {
+	return ((a * (uint64_t)(16 - f) + b * (uint64_t)f) >> 4) & 0x00FF00FF00FF00FFULL;
+}
+
+template <GEPaletteFormat clutFmt>
+static inline uint32_t LookupClutT(uint32_t index, int level, const SamplerID &samplerID, bool clut4) {
+	if (!samplerID.useSharedClut)
+		index += clut4 ? level * 16 : (level & 1) * 256;
+	switch (clutFmt) {
+	case GE_CMODE_16BIT_BGR5650: return RGB565ToRGBA8888(samplerID.cached.clut16[index]);
+	case GE_CMODE_16BIT_ABGR5551: return RGBA5551ToRGBA8888(samplerID.cached.clut16[index]);
+	case GE_CMODE_16BIT_ABGR4444: return RGBA4444ToRGBA8888(samplerID.cached.clut16[index]);
+	default: return samplerID.cached.clut32[index];
+	}
+}
+
+template <GETextureFormat fmt, bool swizzled, GEPaletteFormat clutFmt>
+static inline uint32_t ReadTexelT(const u8 *src, int bufw, int u, int v, int level, const SamplerID &samplerID) {
+	switch (fmt) {
+	case GE_TFMT_4444: return RGBA4444ToRGBA8888(*(const u16 *)(src + GetPixelDataOffset<16>(bufw, u, v, swizzled)));
+	case GE_TFMT_5551: return RGBA5551ToRGBA8888(*(const u16 *)(src + GetPixelDataOffset<16>(bufw, u, v, swizzled)));
+	case GE_TFMT_5650: return RGB565ToRGBA8888(*(const u16 *)(src + GetPixelDataOffset<16>(bufw, u, v, swizzled)));
+	case GE_TFMT_8888: return *(const u32 *)(src + GetPixelDataOffset<32>(bufw, u, v, swizzled));
+	case GE_TFMT_CLUT32: {
+		const u8 *p = src + GetPixelDataOffset<32>(bufw, u, v, swizzled);
+		const u32 val = p[0] + (p[1] << 8) + (p[2] << 16) + (p[3] << 24);
+		return LookupClutT<clutFmt>(TransformClutIndex(val, samplerID), 0, samplerID, false);
+	}
+	case GE_TFMT_CLUT16: {
+		const u8 *p = src + GetPixelDataOffset<16>(bufw, u, v, swizzled);
+		return LookupClutT<clutFmt>(TransformClutIndex(p[0] + (p[1] << 8), samplerID), 0, samplerID, false);
+	}
+	case GE_TFMT_CLUT8:
+		return LookupClutT<clutFmt>(TransformClutIndex(src[GetPixelDataOffset<8>(bufw, u, v, swizzled)], samplerID), level, samplerID, false);
+	case GE_TFMT_CLUT4: {
+		const u8 b = src[GetPixelDataOffset<4>(bufw, u, v, swizzled)];
+		return LookupClutT<clutFmt>(TransformClutIndex((u & 1) ? (b >> 4) : (b & 0xF), samplerID), level, samplerID, true);
+	}
+	case GE_TFMT_DXT1: return GetDXT1Texel((const DXT1Block *)src + (v >> 2) * (bufw >> 2) + (u >> 2), u & 3, v & 3);
+	case GE_TFMT_DXT3: return GetDXT3Texel((const DXT3Block *)src + (v >> 2) * (bufw >> 2) + (u >> 2), u & 3, v & 3);
+	case GE_TFMT_DXT5: return GetDXT5Texel((const DXT5Block *)src + (v >> 2) * (bufw >> 2) + (u >> 2), u & 3, v & 3);
+	default: return 0;
+	}
+}
+
+// The two texel coordinates along one axis (as ApplyTexelClampQuad wraps or clamps them) and the fraction.
+static inline void TexelPairT(float st, int size, bool clamp, int &c0, int &c1, int &frac) {
+	int base = TexelFixed(st * size * 16) - 8;
+	frac = base & 0x0F;
+	base >>= 4;
+	if (clamp) {
+		const int hi = size > 512 ? 511 : size - 1;
+		c0 = std::max(std::min(base, hi), 0);
+		c1 = std::max(std::min(base + 1, hi), 0);
+	} else {
+		const int mask = (size - 1) & 511;
+		c0 = base & mask;
+		c1 = (base + 1) & mask;
+	}
+}
+
+template <GETextureFormat fmt, bool swizzled, GEPaletteFormat clutFmt>
+static inline uint64_t SampleLinearLevelT(float s, float t, const u8 *tptr, int bufw, int level, const SamplerID &samplerID) {
+	if (!tptr)
+		return 0;
+	int u0, u1, v0, v1, fracU, fracV;
+	TexelPairT(s, samplerID.cached.sizes[level].w, samplerID.clampS, u0, u1, fracU);
+	TexelPairT(t, samplerID.cached.sizes[level].h, samplerID.clampT, v0, v1, fracV);
+	const uint64_t tl = SpreadRGBA(ReadTexelT<fmt, swizzled, clutFmt>(tptr, bufw, u0, v0, level, samplerID));
+	const uint64_t tr = SpreadRGBA(ReadTexelT<fmt, swizzled, clutFmt>(tptr, bufw, u1, v0, level, samplerID));
+	const uint64_t bl = SpreadRGBA(ReadTexelT<fmt, swizzled, clutFmt>(tptr, bufw, u0, v1, level, samplerID));
+	const uint64_t br = SpreadRGBA(ReadTexelT<fmt, swizzled, clutFmt>(tptr, bufw, u1, v1, level, samplerID));
+	// Like the GE: horizontal lerps truncated to 8 bits, then the vertical one (gpu/probe exp52).
+	return LerpSpread(LerpSpread(tl, tr, fracU), LerpSpread(bl, br, fracU), fracV);
+}
+
+template <GETextureFormat fmt, bool swizzled, GEPaletteFormat clutFmt>
+static Vec4IntResult SOFTRAST_CALL SampleLinearT(float s, float t, Vec4IntArg prim_color, const u8 *const *tptr, const uint16_t *bufw, int texlevel, int levelFrac, const SamplerID &samplerID) {
+	uint64_t c = SampleLinearLevelT<fmt, swizzled, clutFmt>(s, t, tptr[0], bufw[0], texlevel, samplerID);
+	if (levelFrac) {
+		const uint64_t c1 = SampleLinearLevelT<fmt, swizzled, clutFmt>(s, t, tptr[1], bufw[1], texlevel + 1, samplerID);
+		c = LerpSpread(c, c1, levelFrac);
+	}
+	const Vec4<int> texcolor((int)(c & 0xFFFF), (int)((c >> 16) & 0xFFFF), (int)((c >> 32) & 0xFFFF), (int)(c >> 48));
+	return GetTextureFunctionOutput(prim_color, ToVec4IntArg(texcolor), samplerID);
+}
+
+template <GETextureFormat fmt, bool swizzled>
+static LinearFunc PickLinearClut(GEPaletteFormat clutFmt) {
+	switch (clutFmt) {
+	case GE_CMODE_16BIT_BGR5650: return &SampleLinearT<fmt, swizzled, GE_CMODE_16BIT_BGR5650>;
+	case GE_CMODE_16BIT_ABGR5551: return &SampleLinearT<fmt, swizzled, GE_CMODE_16BIT_ABGR5551>;
+	case GE_CMODE_16BIT_ABGR4444: return &SampleLinearT<fmt, swizzled, GE_CMODE_16BIT_ABGR4444>;
+	default: return &SampleLinearT<fmt, swizzled, GE_CMODE_32BIT_ABGR8888>;
+	}
+}
+
+template <GETextureFormat fmt>
+static LinearFunc PickLinearDirect(bool swizzled) {
+	return swizzled ? &SampleLinearT<fmt, true, GE_CMODE_32BIT_ABGR8888> : &SampleLinearT<fmt, false, GE_CMODE_32BIT_ABGR8888>;
+}
+
+template <GETextureFormat fmt>
+static LinearFunc PickLinearIndexed(const SamplerID &id) {
+	return id.swizzle ? PickLinearClut<fmt, true>(id.ClutFmt()) : PickLinearClut<fmt, false>(id.ClutFmt());
+}
+
+static LinearFunc GetLinearFallback(const SamplerID &id) {
+	switch (id.TexFmt()) {
+	case GE_TFMT_5650: return PickLinearDirect<GE_TFMT_5650>(id.swizzle);
+	case GE_TFMT_5551: return PickLinearDirect<GE_TFMT_5551>(id.swizzle);
+	case GE_TFMT_4444: return PickLinearDirect<GE_TFMT_4444>(id.swizzle);
+	case GE_TFMT_8888: return PickLinearDirect<GE_TFMT_8888>(id.swizzle);
+	case GE_TFMT_CLUT4: return PickLinearIndexed<GE_TFMT_CLUT4>(id);
+	case GE_TFMT_CLUT8: return PickLinearIndexed<GE_TFMT_CLUT8>(id);
+	case GE_TFMT_CLUT16: return PickLinearIndexed<GE_TFMT_CLUT16>(id);
+	case GE_TFMT_CLUT32: return PickLinearIndexed<GE_TFMT_CLUT32>(id);
+	case GE_TFMT_DXT1: return &SampleLinearT<GE_TFMT_DXT1, false, GE_CMODE_32BIT_ABGR8888>;
+	case GE_TFMT_DXT3: return &SampleLinearT<GE_TFMT_DXT3, false, GE_CMODE_32BIT_ABGR8888>;
+	case GE_TFMT_DXT5: return &SampleLinearT<GE_TFMT_DXT5, false, GE_CMODE_32BIT_ABGR8888>;
+	default: return &SampleLinear;
+	}
 }
 
 };
