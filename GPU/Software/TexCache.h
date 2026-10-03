@@ -66,20 +66,25 @@ public:
 	}
 
 	// Copies of state's texture levels with what the last Access read from the cache laid over memory, for
-	// drawing that primitive. Points state's texptr at them.
+	// drawing that primitive. Points state's texptr at them (for DXT, at 8888 decodes, and samples 8888).
 	void Image(Rasterizer::RasterizerState &state);
 
 private:
+	void DecodedImage(Rasterizer::RasterizerState &state);
+
 	struct Source {
 		// Where the line's bytes came from: the level's address, its row stride in bytes, swizzled or not.
 		uint32_t addr = 0;
+		// For DXT, the bytes of a row of blocks.
 		uint32_t strideBytes = 0;
 		bool swizzled = false;
 		// 0x00200000 or 0x00600000 for a level read through a swizzled VRAM mirror: memory through the depth
 		// layout (Memory::DepthMirrored16), so its bytes lie anywhere in their 64 KB page.
 		uint32_t mirror = 0;
+		// The DXT format (the GE caches DXT decoded, as 8888 texels), or 0.
+		uint8_t dxt = 0;
 		bool operator==(const Source &o) const {
-			return addr == o.addr && strideBytes == o.strideBytes && swizzled == o.swizzled && mirror == o.mirror;
+			return addr == o.addr && strideBytes == o.strideBytes && swizzled == o.swizzled && mirror == o.mirror && dxt == o.dxt;
 		}
 	};
 	// What a primitive's footprint depends on, besides its texture coordinates.

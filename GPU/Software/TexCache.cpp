@@ -19,10 +19,13 @@
 #include <cmath>
 #include <cstring>
 
+#include "Core/Config.h"
 #include "Core/MemMap.h"
+#include "GPU/Common/TextureDecoder.h"
 #include "GPU/GPUState.h"
 #include "GPU/Software/BinManager.h"
 #include "GPU/Software/Rasterizer.h"
+#include "GPU/Software/Sampler.h"
 #include "GPU/Software/TexCache.h"
 
 // VRAM's mirrors are one memory.
@@ -39,8 +42,14 @@ static int TexelBits(GETextureFormat fmt) {
 	case GE_TFMT_CLUT8: return 8;
 	case GE_TFMT_5650: case GE_TFMT_5551: case GE_TFMT_4444: case GE_TFMT_CLUT16: return 16;
 	case GE_TFMT_8888: case GE_TFMT_CLUT32: return 32;
-	default: return 0;  // DXT: not simulated.
+	// DXT is cached decoded (exp203).
+	case GE_TFMT_DXT1: case GE_TFMT_DXT3: case GE_TFMT_DXT5: return 32;
+	default: return 0;
 	}
+}
+
+static uint32_t DXTBlockBytes(uint8_t dxt) {
+	return dxt == GE_TFMT_DXT1 ? 8 : 16;
 }
 
 TexCache::TexCache() {
@@ -98,6 +107,28 @@ void TexCache::CopyFrom(const Source &src, uint32_t addr, uint8_t *out, uint32_t
 }
 
 void TexCache::ReadLine(const Source &src, int col, int band, uint8_t out[128]) {
+	if (src.dxt) {
+		// Two blocks, decoded: the line's 4 x 8 texels as 8888 (as the sampler decodes them).
+		const uint32_t blockBytes = DXTBlockBytes(src.dxt);
+		for (int r = 0; r < 8; ++r) {
+			const int v = band * 8 + r;
+			const uint32_t addr = src.addr + (uint32_t)(v >> 2) * src.strideBytes + col * blockBytes;
+			uint32_t texels[4]{};
+			if (Memory::IsValidRange(addr, blockBytes)) {
+				alignas(16) u8 block[16];
+				CopyFrom(src, addr, block, blockBytes);
+				for (int x = 0; x < 4; ++x) {
+					switch (src.dxt) {
+					case GE_TFMT_DXT1: texels[x] = GetDXT1Texel((const DXT1Block *)block, x, v & 3); break;
+					case GE_TFMT_DXT3: texels[x] = GetDXT3Texel((const DXT3Block *)block, x, v & 3); break;
+					default: texels[x] = GetDXT5Texel((const DXT5Block *)block, x, v & 3); break;
+					}
+				}
+			}
+			memcpy(out + r * 16, texels, 16);
+		}
+		return;
+	}
 	if (src.swizzled) {
 		// A swizzle block is the line: 16 bytes x 8 rows, contiguous.
 		CopyFrom(src, src.addr + (uint32_t)(band * (src.strideBytes / 16) + col) * 128, out, 128);
@@ -116,6 +147,12 @@ void TexCache::MemoryRange(const Source &src, int col, int band, uint32_t &start
 }
 
 void TexCache::LineRange(const Source &src, int col, int band, uint32_t &start, uint32_t &end) {
+	if (src.dxt) {
+		const uint32_t blockBytes = DXTBlockBytes(src.dxt);
+		start = src.addr + (uint32_t)band * 2 * src.strideBytes + col * blockBytes;
+		end = start + src.strideBytes + blockBytes;
+		return;
+	}
 	if (src.swizzled) {
 		start = src.addr + (uint32_t)(band * (src.strideBytes / 16) + col) * 128;
 		end = start + 128;
@@ -146,7 +183,7 @@ void TexCache::Touch(int bits, int level, int col, int band, const Source &src) 
 	Line *line = Find(bits, level, col, band);
 	if (line) {
 		line->lru = ++clock_;
-		if (line->captured || line->src.addr != src.addr || line->src.strideBytes != src.strideBytes || line->src.swizzled != src.swizzled) {
+		if (line->captured || !(line->src == src)) {
 			Delivered d{ (uint8_t)level, (uint16_t)col, (uint16_t)band };
 			uint8_t mem[128];
 			Bytes(*line, d.data);
@@ -267,10 +304,18 @@ bool TexCache::MakeConfig(const Rasterizer::RasterizerState &state, Config &cfg)
 		cfg.h[i] = (uint16_t)state.samplerID.cached.sizes[i].h;
 		Source &src = cfg.src[i];
 		src.addr = MaskAddress(state.texaddr[i]);
-		src.strideBytes = state.texbufw[i] * cfg.bits / 8;
 		src.swizzled = state.samplerID.swizzle;
 		src.mirror = Memory::DepthMirrorsActive() && Memory::IsDepthTexVRAMAddress(state.texaddr[i]) ? (state.texaddr[i] & 0x00600000) : 0;
-		uint32_t lo = src.addr, hi = src.addr + (uint32_t)((cfg.h[i] + 7) & ~7) * src.strideBytes + (uint32_t)cfg.w[i] * cfg.bits / 8;
+		const GETextureFormat fmt = state.samplerID.TexFmt();
+		src.dxt = fmt == GE_TFMT_DXT1 || fmt == GE_TFMT_DXT3 || fmt == GE_TFMT_DXT5 ? (uint8_t)fmt : 0;
+		uint32_t lo = src.addr, hi;
+		if (src.dxt) {
+			src.strideBytes = (state.texbufw[i] / 4) * DXTBlockBytes(src.dxt);
+			hi = src.addr + (uint32_t)((cfg.h[i] + 7) / 4) * src.strideBytes;
+		} else {
+			src.strideBytes = state.texbufw[i] * cfg.bits / 8;
+			hi = src.addr + (uint32_t)((cfg.h[i] + 7) & ~7) * src.strideBytes + (uint32_t)cfg.w[i] * cfg.bits / 8;
+		}
 		if (src.mirror) {
 			lo &= ~0xFFFFu;
 			hi = (hi + 0xFFFF) & ~0xFFFFu;
@@ -513,6 +558,10 @@ bool TexCache::FootprintReads(uint32_t base, int bpp, int stride, int x1, int y1
 }
 
 void TexCache::Image(Rasterizer::RasterizerState &state) {
+	if (current_.src[0].dxt) {
+		DecodedImage(state);
+		return;
+	}
 	for (int level = 0; level <= state.maxTexLevel; ++level) {
 		const Source &cur = current_.src[level];
 		const int w = state.samplerID.cached.sizes[level].w;
@@ -542,4 +591,49 @@ void TexCache::Image(Rasterizer::RasterizerState &state) {
 		}
 		state.texptr[level] = img.data();
 	}
+}
+
+// The cache holds DXT decoded, so a stale line is 8888 texels: the levels are decoded to 8888, the lines laid
+// over that, and the state switched to sample 8888.
+void TexCache::DecodedImage(Rasterizer::RasterizerState &state) {
+	for (int level = 0; level <= state.maxTexLevel; ++level) {
+		const Source &cur = current_.src[level];
+		const int w = state.samplerID.cached.sizes[level].w;
+		const int h = state.samplerID.cached.sizes[level].h;
+		const int cols = (std::max(w, (int)state.texbufw[level]) + 3) / 4;
+		const int bands = (h + 7) / 8;
+		const uint32_t strideBytes = cols * 16;
+		std::vector<uint8_t> &img = images_[level];
+		img.assign(strideBytes * bands * 8 + 16, 0);
+		uint8_t line[128];
+		for (int band = 0; band < bands; ++band) {
+			for (int col = 0; col < cols; ++col) {
+				ReadLine(cur, col, band, line);
+				for (int r = 0; r < 8; ++r)
+					memcpy(img.data() + (band * 8 + r) * strideBytes + col * 16, line + r * 16, 16);
+			}
+		}
+		for (const Delivered &d : delivered_) {
+			if (d.level != level || d.col >= cols || d.band >= bands)
+				continue;
+			for (int r = 0; r < 8; ++r)
+				memcpy(img.data() + (d.band * 8 + r) * strideBytes + d.col * 16, d.data + r * 16, 16);
+		}
+		state.texptr[level] = img.data();
+		state.texbufw[level] = (uint16_t)(cols * 4);
+	}
+	state.samplerID.texfmt = GE_TFMT_8888;
+	state.samplerID.swizzle = false;
+	state.samplerID.useStandardBufw = false;
+	state.samplerID.hasInvalidPtr = false;
+	state.samplerID.overReadSafe = true;
+	// No binner: a sampler not compiled yet falls back to C++ (compiling here would flush mid draw).
+	state.linear = Sampler::GetLinearFunc(state.samplerID, nullptr);
+	state.nearest = Sampler::GetNearestFunc(state.samplerID, nullptr);
+	if (g_Config.iTexFiltering == TEX_FILTER_FORCE_LINEAR) {
+		state.nearest = state.linear;
+	} else if (g_Config.iTexFiltering == TEX_FILTER_FORCE_NEAREST) {
+		state.linear = state.nearest;
+	}
+	state.linearQuad = Sampler::GetLinearQuadFunc(state.samplerID, state.linear);
 }
