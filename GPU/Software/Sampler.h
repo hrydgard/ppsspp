@@ -47,8 +47,9 @@ typedef Rasterizer::Vec4IntResult (SOFTRAST_CALL *LinearFunc)(float s, float t, 
 LinearFunc GetLinearFunc(SamplerID id, BinManager *binner);
 
 // Bilinear samples for the pixels of a quad with bit i of active set, each at its own level, through the
-// texture function: colors goes in as the primitive's colors and comes out textured.
-typedef void (SOFTRAST_CALL *LinearQuadFunc)(const float *s, const float *t, const int *level, const int *levelFrac, int active, const u8 *const *texptr, const uint16_t *texbufw, Math3D::Vec4<int> *colors, const SamplerID &samplerID);
+// texture function: colors goes in as the primitive's colors and comes out textured. A channel at a time,
+// as for SpanFunc.
+typedef void (SOFTRAST_CALL *LinearQuadFunc)(const float *s, const float *t, const int *level, const int *levelFrac, int active, const u8 *const *texptr, const uint16_t *texbufw, int *colors, int colorStride, const SamplerID &samplerID);
 // Only for the samplers without a JIT (linear is what GetLinearFunc returned), nullptr otherwise.
 LinearQuadFunc GetLinearQuadFunc(const SamplerID &id, LinearFunc linear);
 

@@ -702,7 +702,20 @@ static inline void CalculateSamplingParams(const float ds, const float dt, float
 
 // Four pixels in a row. ds and dt are the largest UV derivatives along x and y, for auto LOD without planes
 // (gpu/probe exp92, exact for affine mappings). sameQ: the pixels share their q, so also their level.
-static inline void ApplyTexturing(const RasterizerState &state, Vec4<int> *prim_color, const Vec4<int> &mask, const Vec4<float> &s, const Vec4<float> &t, const Vec4<float> &q, float ds, float dt, bool sameQ, float autoGrad = -1.0f) {
+// A span's colors a channel at a time (as SpanFunc takes them), from per pixel ones.
+static inline void ColorsToLanes(const Vec4<int> in[4], int out[16]) {
+	for (int i = 0; i < 4; ++i) {
+		for (int c = 0; c < 4; ++c)
+			out[c * 4 + i] = in[i][c];
+	}
+}
+
+static inline Vec4<int> LaneColor(const int *colors, int stride, int i) {
+	return Vec4<int>(colors[i], colors[stride + i], colors[2 * stride + i], colors[3 * stride + i]);
+}
+
+// colors a channel at a time, as SpanFunc takes them.
+static inline void ApplyTexturing(const RasterizerState &state, int *colors, int colorStride, const Vec4<int> &mask, const Vec4<float> &s, const Vec4<float> &t, const Vec4<float> &q, float ds, float dt, bool sameQ, float autoGrad = -1.0f) {
 	int level;
 	int levelFrac;
 	bool bilinear;
@@ -730,7 +743,7 @@ static inline void ApplyTexturing(const RasterizerState &state, Vec4<int> *prim_
 			active |= 1 << i;
 		}
 		if (allBilinear) {
-			state.linearQuad(s.AsArray(), t.AsArray(), levels, fracs, active, state.texptr, state.texbufw, prim_color, state.samplerID);
+			state.linearQuad(s.AsArray(), t.AsArray(), levels, fracs, active, state.texptr, state.texbufw, colors, colorStride, state.samplerID);
 			return;
 		}
 	}
@@ -738,7 +751,9 @@ static inline void ApplyTexturing(const RasterizerState &state, Vec4<int> *prim_
 		if (mask[i] >= 0) {
 			if (perPixel)
 				CalculateSamplingParams(ds, dt, q[i], state, level, levelFrac, bilinear, autoGrad);
-			prim_color[i] = ApplyTexturing(s[i], t[i], ToVec4IntArg(prim_color[i]), level, levelFrac, bilinear, state);
+			const Vec4<int> out = ApplyTexturing(s[i], t[i], ToVec4IntArg(LaneColor(colors, colorStride, i)), level, levelFrac, bilinear, state);
+			for (int c = 0; c < 4; ++c)
+				colors[c * colorStride + i] = out[c];
 		}
 	}
 }
@@ -1236,6 +1251,9 @@ static inline void GetTextureCoordinatesGE(const UVPlanes &planes, int64_t cente
 
 // The staged rows' last stage (DrawTriangleSlice): texturing, the secondary color and the pixels, span by
 // span. Specialized for what's fixed per triangle.
+// Pixels per stage of a staged row.
+static constexpr int STAGED_CHUNK = 64;
+
 struct StagedSpans {
 	const RasterizerState *state;
 	const UVPlanes *uvPlanes;
@@ -1250,7 +1268,7 @@ struct StagedSpans {
 };
 
 template <bool textured, bool uvFast, bool lodQ, bool through>
-static void DrawStagedSpans(const StagedSpans &ctx, int count, int chunkX, int64_t qv, int64_t sv, int64_t tv, int *maskBuf, int *zBuf, int *fogBuf, Vec4<int> *colorBuf, const Vec3<int> *secBuf) {
+static void DrawStagedSpans(const StagedSpans &ctx, int count, int chunkX, int64_t qv, int64_t sv, int64_t tv, int *maskBuf, int *zBuf, int *fogBuf, int *colorBuf, const int *secBuf) {
 	const RasterizerState &state = *ctx.state;
 	const UVPlanes &uvPlanes = *ctx.uvPlanes;
 	const int64_t qdx = uvPlanes.q.kx * SCREEN_SCALE_FACTOR, sdx = uvPlanes.s.kx * SCREEN_SCALE_FACTOR, tdx = uvPlanes.t.kx * SCREEN_SCALE_FACTOR;
@@ -1258,7 +1276,7 @@ static void DrawStagedSpans(const StagedSpans &ctx, int count, int chunkX, int64
 		const Vec4<int> mask(maskBuf[k], maskBuf[k + 1], maskBuf[k + 2], maskBuf[k + 3]);
 		if (!AnyMask<false>(mask))
 			continue;
-		Vec4<int> *prim_color = &colorBuf[k];
+		int *prim_color = &colorBuf[k];
 		const int spanPX = (chunkX + k) & 0x3FF;
 		if constexpr (textured) {
 			Vec4<float> s, t, q;
@@ -1283,17 +1301,19 @@ static void DrawStagedSpans(const StagedSpans &ctx, int count, int chunkX, int64
 				s *= 1.0f / (float)(1 << state.samplerID.width0Shift);
 				t *= 1.0f / (float)(1 << state.samplerID.height0Shift);
 			}
-			ApplyTexturing(state, prim_color, mask, s, t, q, 0.0f, 0.0f, ctx.sameQ, ctx.autoGrad);
+			ApplyTexturing(state, prim_color, STAGED_CHUNK, mask, s, t, q, 0.0f, 0.0f, ctx.sameQ, ctx.autoGrad);
 		}
 		if (ctx.addSecondary) {
-			for (int i = 0; i < 4; ++i)
-				prim_color[i] += Vec4<int>(secBuf[k + i], 0);
+			for (int c = 0; c < 3; ++c) {
+				int *channel = prim_color + c * STAGED_CHUNK;
+				(Vec4S32::Load(channel) + Vec4S32::Load(secBuf + c * STAGED_CHUNK + k)).Store(channel);
+			}
 		}
-		state.drawSpan(spanPX, ctx.y, &maskBuf[k], &zBuf[k], &fogBuf[k], prim_color, state.pixelID);
+		state.drawSpan(spanPX, ctx.y, &maskBuf[k], &zBuf[k], &fogBuf[k], prim_color, STAGED_CHUNK, state.pixelID);
 	}
 }
 
-typedef void (*StagedSpansFunc)(const StagedSpans &ctx, int count, int chunkX, int64_t qv, int64_t sv, int64_t tv, int *maskBuf, int *zBuf, int *fogBuf, Vec4<int> *colorBuf, const Vec3<int> *secBuf);
+typedef void (*StagedSpansFunc)(const StagedSpans &ctx, int count, int chunkX, int64_t qv, int64_t sv, int64_t tv, int *maskBuf, int *zBuf, int *fogBuf, int *colorBuf, const int *secBuf);
 
 template <bool textured, bool uvFast>
 static StagedSpansFunc PickStagedSpans(bool lodQ, bool through) {
@@ -1501,10 +1521,11 @@ void DrawTriangleSlice(
 		// The usual case, a row at a time in stages: coverage, depth and the early depth test, then colors and
 		// fog for all its pixels, then texturing and the pixels span by span. Each stage keeps little state.
 		if (staged) {
-			constexpr int CHUNK = 64;
+			constexpr int CHUNK = STAGED_CHUNK;
 			alignas(16) int maskBuf[CHUNK], zBuf[CHUNK], fogBuf[CHUNK];
-			Vec4<int> colorBuf[CHUNK];
-			Vec3<int> secBuf[CHUNK];
+			// A channel at a time.
+			alignas(16) int colorBuf[4][CHUNK];
+			alignas(16) int secBuf[3][CHUNK];
 			int chunkX = p.x;
 			for (int64_t chunk = firstSpan; chunk <= hi; chunk += CHUNK, chunkX = (chunkX + CHUNK) & 0x3FF) {
 				const int count = (int)std::min<int64_t>(CHUNK, ((hi - chunk) / 4 + 1) * 4);
@@ -1549,23 +1570,22 @@ void DrawTriangleSlice(
 					}
 				}
 
-				if (!flatColor0) {
-					for (int c = 0; c < 4; ++c)
-						walk(color0Planes[c], [&](int k, int64_t v) { colorBuf[k][c] = std::clamp((int)v, 0, 255); });
-				} else {
-					for (int k = 0; k < count; ++k)
-						colorBuf[k] = v2_c0;
+				for (int c = 0; c < 4; ++c) {
+					if (!flatColor0) {
+						walk(color0Planes[c], [&](int k, int64_t v) { colorBuf[c][k] = std::clamp((int)v, 0, 255); });
+					} else {
+						for (int k = 0; k < count; ++k)
+							colorBuf[c][k] = v2_c0[c];
+					}
 				}
-				if (!flatColor1) {
-					for (int c = 0; c < 3; ++c)
-						walk(color1Planes[c], [&](int k, int64_t v) { secBuf[k][c] = std::clamp((int)v, 0, 255); });
-				} else {
-					for (int k = 0; k < count; ++k)
-						secBuf[k] = v2_c1;
-				}
-				if (DoubleSecondaryColor(state)) {
-					for (int k = 0; k < count; ++k)
-						secBuf[k] = secBuf[k] + secBuf[k];
+				const int secScale = DoubleSecondaryColor(state) ? 2 : 1;
+				for (int c = 0; c < 3; ++c) {
+					if (!flatColor1) {
+						walk(color1Planes[c], [&](int k, int64_t v) { secBuf[c][k] = std::clamp((int)v, 0, 255) * secScale; });
+					} else {
+						for (int k = 0; k < count; ++k)
+							secBuf[c][k] = v2_c1[c] * secScale;
+					}
 				}
 				if (!noFog) {
 					// The 8-bit fog of each vertex through the depth plane, like Gouraud color (gpu/probe exp21).
@@ -1584,7 +1604,7 @@ void DrawTriangleSlice(
 				stagedCtx.coverLo = coverLo;
 				stagedCtx.coverHi = coverHi;
 				stagedCtx.y = p.y;
-				drawStagedSpans(stagedCtx, count, chunkX, qv, sv, tv, maskBuf, zBuf, fogBuf, colorBuf, secBuf);
+				drawStagedSpans(stagedCtx, count, chunkX, qv, sv, tv, maskBuf, zBuf, fogBuf, colorBuf[0], secBuf[0]);
 			}
 			continue;
 		}
@@ -1745,7 +1765,11 @@ void DrawTriangleSlice(
 							q = Vec4<float>::AssignToAll(1.0f / clipw);
 						}
 						// A span shares its q, except for the planes' per-pixel q when it doesn't matter.
-						ApplyTexturing(state, prim_color, mask, s, t, q, ds, dt, !uvPlanes.valid || lodUsesQ, autoGrad);
+						alignas(16) int lanes[16];
+						ColorsToLanes(prim_color, lanes);
+						ApplyTexturing(state, lanes, 4, mask, s, t, q, ds, dt, !uvPlanes.valid || lodUsesQ, autoGrad);
+						for (int i = 0; i < 4; ++i)
+							prim_color[i] = LaneColor(lanes, 4, i);
 					}
 				}
 
@@ -1774,7 +1798,9 @@ void DrawTriangleSlice(
 				PROFILE_THIS_SCOPE("draw_tri_px");
 #if !defined(SOFTGPU_MEMORY_TAGGING_DETAILED)
 				if (state.drawSpan) {
-					state.drawSpan(p.x, p.y, mask.AsArray(), z.AsArray(), fog.AsArray(), prim_color, pixelID);
+					alignas(16) int lanes[16];
+					ColorsToLanes(prim_color, lanes);
+					state.drawSpan(p.x, p.y, mask.AsArray(), z.AsArray(), fog.AsArray(), lanes, 4, pixelID);
 					continue;
 				}
 #endif
@@ -1926,10 +1952,10 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 			p.x = (p.x + 4) & 0x3FF) {
 			Vec4<int> mask = scissor_mask;
 
-			Vec4<int> prim_color[4];
-			for (int i = 0; i < 4; ++i) {
-				prim_color[i] = c0;
-			}
+			// A channel at a time, as SpanFunc takes them.
+			alignas(16) int prim_color[16];
+			for (int c = 0; c < 4; ++c)
+				Vec4S32::Splat(c0[c]).Store(prim_color + c * 4);
 
 			if (state.pixelID.earlyZChecks) {
 				for (int i = 0; i < 4; ++i) {
@@ -1947,29 +1973,19 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 				// Pixel centers are at 16k + 7 here, the GE's at 16k + 8. A sprite always has planes, so the LOD
 				// comes from their gradient and q.
 				GetTextureCoordinatesGE(uvPlanes, curX + 1, curY + 1, s, t, q);
-				ApplyTexturing(state, prim_color, mask, s, t, q, 0.0f, 0.0f, false, autoGrad);
+				ApplyTexturing(state, prim_color, 4, mask, s, t, q, 0.0f, 0.0f, false, autoGrad);
 			}
 
 			if (!state.pixelID.clearMode) {
-				for (int i = 0; i < 4; ++i) {
-#if defined(_M_SSE)
-					// TODO: Tried making Vec4 do this, but things got slower.
-					const __m128i sec = _mm_and_si128(sec_color.ivec, _mm_set_epi32(0, -1, -1, -1));
-					prim_color[i].ivec = _mm_add_epi32(prim_color[i].ivec, sec);
-#elif PPSSPP_ARCH(ARM64_NEON)
-					int32x4_t sec = vsetq_lane_s32(0, sec_color.ivec, 3);
-					prim_color[i].ivec = vaddq_s32(prim_color[i].ivec, sec);
-#else
-					prim_color[i] += Vec4<int>(sec_color, 0);
-#endif
-				}
+				for (int c = 0; c < 3; ++c)
+					(Vec4S32::Load(prim_color + c * 4) + Vec4S32::Splat(sec_color[c])).Store(prim_color + c * 4);
 			}
 
 			PROFILE_THIS_SCOPE("draw_rect_px");
 #if !defined(SOFTGPU_MEMORY_TAGGING_DETAILED)
 			if (state.drawSpan) {
 				Vec4<int> fogs = fog, zs = z;
-				state.drawSpan(p.x, p.y, mask.AsArray(), zs.AsArray(), fogs.AsArray(), prim_color, state.pixelID);
+				state.drawSpan(p.x, p.y, mask.AsArray(), zs.AsArray(), fogs.AsArray(), prim_color, 4, state.pixelID);
 				continue;
 			}
 #endif
@@ -1980,7 +1996,7 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 				}
 				subp.x = p.x + i;
 
-				state.drawPixel(subp.x, subp.y, z[i], fog[i], ToVec4IntArg(prim_color[i]), state.pixelID);
+				state.drawPixel(subp.x, subp.y, z[i], fog[i], ToVec4IntArg(LaneColor(prim_color, 4, i)), state.pixelID);
 
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED)
 				uint32_t row = gstate.getFrameBufAddress() + subp.y * state.pixelID.cached.framebufStride * bpp;

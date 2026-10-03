@@ -42,8 +42,9 @@ namespace Rasterizer {
 typedef void (SOFTRAST_CALL *SingleFunc)(int x, int y, int z, int fog, Vec4IntArg color_in, const PixelFuncID &pixelID);
 SingleFunc GetSingleFunc(const PixelFuncID &id, BinManager *binner);
 
-// The pixels x to x + 3 of row y with mask[i] >= 0. z, fog and colors are per pixel.
-typedef void (SOFTRAST_CALL *SpanFunc)(int x, int y, const int *mask, const int *z, const int *fog, const Math3D::Vec4<int> *colors, const PixelFuncID &pixelID);
+// The pixels x to x + 3 of row y with mask[i] >= 0. z and fog are per pixel, colors a channel at a time:
+// channel c of pixel i is colors[c * colorStride + i].
+typedef void (SOFTRAST_CALL *SpanFunc)(int x, int y, const int *mask, const int *z, const int *fog, const int *colors, int colorStride, const PixelFuncID &pixelID);
 // Only where single is the C++ one (as GetSingleFunc returned it), nullptr otherwise.
 SpanFunc GetSpanFunc(const PixelFuncID &id, SingleFunc single);
 

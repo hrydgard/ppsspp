@@ -901,7 +901,7 @@ static inline Vec4S32 SpanStencilOp(GEStencilOp op, Vec4S32 old, Vec4S32 replace
 // The pixels of a span one per vector lane, as DrawPixelInline does them one at a time. Everything but logic
 // ops and the signed blend factors; false when the state needs those.
 template <bool clearMode, GEBufferFormat fbFormat>
-static inline bool DrawSpanVector(int x, int y, const int *maskIn, const int *zIn, const int *fogIn, const Vec4<int> *colors, const PixelFuncID &pixelID) {
+static inline bool DrawSpanVector(int x, int y, const int *maskIn, const int *zIn, const int *fogIn, const int *colors, int colorStride, const PixelFuncID &pixelID) {
 	if constexpr (!clearMode) {
 		if (pixelID.applyLogicOp)
 			return false;
@@ -918,15 +918,8 @@ static inline bool DrawSpanVector(int x, int y, const int *maskIn, const int *zI
 	auto select = [](Vec4S32 m, Vec4S32 a, Vec4S32 b) {
 		return (a & m) | b.AndNot(m);
 	};
-	alignas(16) int ch[4][4];
-	for (int i = 0; i < 4; ++i) {
-		ch[0][i] = colors[i].x;
-		ch[1][i] = colors[i].y;
-		ch[2][i] = colors[i].z;
-		ch[3][i] = colors[i].w;
-	}
-	Vec4S32 r = clamp255(Vec4S32::Load(ch[0])), g = clamp255(Vec4S32::Load(ch[1])), b = clamp255(Vec4S32::Load(ch[2]));
-	const Vec4S32 a = clamp255(Vec4S32::Load(ch[3]));
+	Vec4S32 r = clamp255(Vec4S32::Load(colors)), g = clamp255(Vec4S32::Load(colors + colorStride)), b = clamp255(Vec4S32::Load(colors + 2 * colorStride));
+	const Vec4S32 a = clamp255(Vec4S32::Load(colors + 3 * colorStride));
 	const Vec4S32 z = Vec4S32::Load(zIn);
 	// -1 for the pixels that aren't drawn.
 	Vec4S32 dead = Vec4S32::Load(maskIn).Shr<31>();
@@ -1142,12 +1135,14 @@ static inline bool DrawSpanVector(int x, int y, const int *maskIn, const int *zI
 }
 
 template <bool clearMode, GEBufferFormat fbFormat>
-static void SOFTRAST_CALL DrawSpanPixels(int x, int y, const int *mask, const int *z, const int *fog, const Vec4<int> *colors, const PixelFuncID &pixelID) {
-	if (DrawSpanVector<clearMode, fbFormat>(x, y, mask, z, fog, colors, pixelID))
+static void SOFTRAST_CALL DrawSpanPixels(int x, int y, const int *mask, const int *z, const int *fog, const int *colors, int colorStride, const PixelFuncID &pixelID) {
+	if (DrawSpanVector<clearMode, fbFormat>(x, y, mask, z, fog, colors, colorStride, pixelID))
 		return;
 	for (int i = 0; i < 4; ++i) {
-		if (mask[i] >= 0)
-			DrawPixelInline<clearMode, fbFormat>(x + i, y, z[i], fog[i], ToVec4IntArg(colors[i]), pixelID);
+		if (mask[i] >= 0) {
+			const Vec4<int> color(colors[i], colors[colorStride + i], colors[2 * colorStride + i], colors[3 * colorStride + i]);
+			DrawPixelInline<clearMode, fbFormat>(x + i, y, z[i], fog[i], ToVec4IntArg(color), pixelID);
+		}
 	}
 }
 

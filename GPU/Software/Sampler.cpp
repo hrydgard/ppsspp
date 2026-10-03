@@ -1073,7 +1073,7 @@ static inline void TextureFunction4(const Vec4S32 prim[4], const Vec4S32 tex[4],
 }
 
 template <GETextureFormat fmt, bool swizzled, GEPaletteFormat clutFmt>
-static void SOFTRAST_CALL SampleLinearQuadT(const float *s, const float *t, const int *level, const int *levelFrac, int active, const u8 *const *texptr, const uint16_t *texbufw, Vec4<int> *colors, const SamplerID &samplerID) {
+static void SOFTRAST_CALL SampleLinearQuadT(const float *s, const float *t, const int *level, const int *levelFrac, int active, const u8 *const *texptr, const uint16_t *texbufw, int *colors, int colorStride, const SamplerID &samplerID) {
 	if (!active)
 		return;
 	uint64_t c[4];
@@ -1095,25 +1095,21 @@ static void SOFTRAST_CALL SampleLinearQuadT(const float *s, const float *t, cons
 				c[i] = LerpSpread(c[i], c1[i], levelFrac[first]);
 		}
 		// The texture function, in lanes too.
-		alignas(16) int lanes[2][4][4];
+		alignas(16) int texLanes[4][4];
 		for (int i = 0; i < 4; ++i) {
-			for (int ch = 0; ch < 4; ++ch) {
-				lanes[0][ch][i] = colors[i][ch];
-				lanes[1][ch][i] = (int)((c[i] >> (16 * ch)) & 0xFFFF);
-			}
+			for (int ch = 0; ch < 4; ++ch)
+				texLanes[ch][i] = (int)((c[i] >> (16 * ch)) & 0xFFFF);
 		}
 		Vec4S32 prim[4], tex[4], out[4];
 		for (int ch = 0; ch < 4; ++ch) {
-			prim[ch] = Vec4S32::Load(lanes[0][ch]);
-			tex[ch] = Vec4S32::Load(lanes[1][ch]);
+			prim[ch] = Vec4S32::Load(colors + ch * colorStride);
+			tex[ch] = Vec4S32::Load(texLanes[ch]);
 		}
 		TextureFunction4(prim, tex, samplerID, out);
+		alignas(16) static const int laneBits[4] = { 1, 2, 4, 8 };
+		const Vec4S32 keep = (Vec4S32::Splat(active) & Vec4S32::LoadAligned(laneBits)).CompareEq(Vec4S32::Zero());
 		for (int ch = 0; ch < 4; ++ch)
-			out[ch].Store(lanes[0][ch]);
-		for (int i = 0; i < 4; ++i) {
-			if (active & (1 << i))
-				colors[i] = Vec4<int>(lanes[0][0][i], lanes[0][1][i], lanes[0][2][i], lanes[0][3][i]);
-		}
+			(out[ch].AndNot(keep) | (prim[ch] & keep)).Store(colors + ch * colorStride);
 		return;
 	}
 
@@ -1130,7 +1126,10 @@ static void SOFTRAST_CALL SampleLinearQuadT(const float *s, const float *t, cons
 		if (!(active & (1 << i)))
 			continue;
 		const Vec4<int> texcolor((int)(c[i] & 0xFFFF), (int)((c[i] >> 16) & 0xFFFF), (int)((c[i] >> 32) & 0xFFFF), (int)(c[i] >> 48));
-		colors[i] = GetTextureFunctionOutput(ToVec4IntArg(colors[i]), ToVec4IntArg(texcolor), samplerID);
+		const Vec4<int> prim(colors[i], colors[colorStride + i], colors[2 * colorStride + i], colors[3 * colorStride + i]);
+		const Vec4<int> out = GetTextureFunctionOutput(ToVec4IntArg(prim), ToVec4IntArg(texcolor), samplerID);
+		for (int ch = 0; ch < 4; ++ch)
+			colors[ch * colorStride + i] = out[ch];
 	}
 }
 
