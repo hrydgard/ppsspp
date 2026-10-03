@@ -262,11 +262,33 @@ private:
 	SoftDirty dirty_ = SoftDirty::NONE;
 
 	int maxTasks_ = 1;
-	bool tasksSplit_ = false;
-	std::vector<BinCoords> taskRanges_;
-	BinItemQueue taskQueues_[MAX_POSSIBLE_TASKS];
 	BinTaskList taskLists_[MAX_POSSIBLE_TASKS];
 	std::atomic<bool> taskStatus_[MAX_POSSIBLE_TASKS];
+
+	// With threads, queued items are binned into screen tiles. Any thread can take a tile with work and
+	// draws its items in order; only one at a time, so each pixel still sees the primitives in order.
+	static constexpr int TILE_W = 64;
+	static constexpr int TILE_H = 16;
+	static constexpr int TILES_X = 1024 / TILE_W;
+	static constexpr int TILES_Y = 1024 / TILE_H;
+	struct Tile {
+		// Indices into queue_, as a ring: head_ is how many have been drawn, tail_ how many were pushed.
+		std::atomic<uint32_t> head;
+		std::atomic<uint32_t> tail;
+		std::atomic<bool> busy;
+		uint16_t items[QUEUED_PRIMS];
+	};
+	Tile *tiles_ = nullptr;
+	// For each queued item, how many tiles still have to draw it. It's reclaimed at zero.
+	std::atomic<int> itemRefs_[QUEUED_PRIMS];
+	// The tiles given work since the last flush, for the threads to look through.
+	uint16_t activeTiles_[TILES_X * TILES_Y];
+	std::atomic<int> activeCount_{ 0 };
+	bool tileActive_[TILES_X * TILES_Y]{};
+	// The queue_ index of the first item not yet put in tiles, and how many have been added since.
+	size_t distributePos_ = 0;
+	int undistributed_ = 0;
+	int entriesSinceWake_ = 0;
 	BinWaitable *waitable_ = nullptr;
 
 	BinDirtyRange pendingWrites_[2]{};
@@ -314,6 +336,11 @@ private:
 	BinCoords Range(const VertexData &v0, const VertexData &v1);
 	BinCoords Range(const VertexData &v0);
 	void Expand(const BinCoords &range);
+	void MakeRoom();
+	void DistributeItems();
+	void ReclaimItems();
+	void WakeTasks();
+	bool ProcessTiles(int start);
 
 	friend class DrawBinItemsTask;
 };
