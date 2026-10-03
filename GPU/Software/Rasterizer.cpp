@@ -1530,12 +1530,30 @@ void DrawTriangleSlice(
 			for (int64_t chunk = firstSpan; chunk <= hi; chunk += CHUNK, chunkX = (chunkX + CHUNK) & 0x3FF) {
 				const int count = (int)std::min<int64_t>(CHUNK, ((hi - chunk) / 4 + 1) * 4);
 				const int64_t centerX = chunk * SCREEN_SCALE_FACTOR + SCREEN_SCALE_FACTOR / 2;
-				// The sums of a plane along the chunk, as a walker steps them.
-				auto walk = [&](const DepthPlane &plane, auto store) {
-					int64_t v = plane.base + plane.kx * centerX + plane.ky * yc;
+				// The sums of a plane along the chunk, as a walker steps them, four pixels at a time: store(k, v)
+				// with v the four values from k on, clamped to [lo, hi]. In 32 bits when both ends fit (and so
+				// all between, which wrapping arithmetic then gets exactly).
+				alignas(16) static const int ramp[4] = { 0, 1, 2, 3 };
+				auto walk = [&](const DepthPlane &plane, int lo, int hi, auto store) {
+					const int64_t v0 = plane.base + plane.kx * centerX + plane.ky * yc;
 					const int64_t dx = plane.kx * SCREEN_SCALE_FACTOR;
-					for (int k = 0; k < count; ++k, v += dx)
-						store(k, v >> 14);
+					const int64_t vEnd = v0 + dx * (count - 1);
+					const Vec4S32 loV = Vec4S32::Splat(lo), hiV = Vec4S32::Splat(hi);
+					if (v0 == (int32_t)v0 && vEnd == (int32_t)vEnd) {
+						const int32_t dx32 = (int32_t)(uint32_t)dx;
+						Vec4S32 v = Vec4S32::Splat((int32_t)v0) + Vec4S32::LoadAligned(ramp) * Vec4S32::Splat(dx32);
+						const Vec4S32 step = Vec4S32::Splat((int32_t)(uint32_t)(dx * 4));
+						for (int k = 0; k < count; k += 4, v = v + step)
+							store(k, v.Shr<14>().Max(loV).Min(hiV));
+						return;
+					}
+					int64_t v = v0;
+					for (int k = 0; k < count; k += 4) {
+						alignas(16) int lanes[4];
+						for (int i = 0; i < 4; ++i, v += dx)
+							lanes[i] = (int)std::clamp<int64_t>(v >> 14, lo, hi);
+						store(k, Vec4S32::LoadAligned(lanes));
+					}
 				};
 
 				{
@@ -1564,7 +1582,7 @@ void DrawTriangleSlice(
 						zBuf[k] = v2.screenpos.z;
 				} else {
 					// A value floored below 0 (next to an edge of z = 0 vertices) is 0 (gpu/probe exp148).
-					walk(depthPlane, [&](int k, int64_t v) { zBuf[k] = std::max((int)v, 0); });
+					walk(depthPlane, 0, INT_MAX, [&](int k, Vec4S32 v) { v.StoreAligned(&zBuf[k]); });
 				}
 				if (pixelID.earlyZChecks) {
 					for (int k = 0; k < count; k += 4) {
@@ -1584,7 +1602,7 @@ void DrawTriangleSlice(
 
 				for (int c = 0; c < 4; ++c) {
 					if (!flatColor0) {
-						walk(color0Planes[c], [&](int k, int64_t v) { colorBuf[c][k] = std::clamp((int)v, 0, 255); });
+						walk(color0Planes[c], 0, 255, [&](int k, Vec4S32 v) { v.StoreAligned(&colorBuf[c][k]); });
 					} else {
 						for (int k = 0; k < count; ++k)
 							colorBuf[c][k] = v2_c0[c];
@@ -1593,7 +1611,7 @@ void DrawTriangleSlice(
 				const int secScale = DoubleSecondaryColor(state) ? 2 : 1;
 				for (int c = 0; c < 3; ++c) {
 					if (!flatColor1) {
-						walk(color1Planes[c], [&](int k, int64_t v) { secBuf[c][k] = std::clamp((int)v, 0, 255) * secScale; });
+						walk(color1Planes[c], 0, 255, [&](int k, Vec4S32 v) { (secScale == 2 ? v.Shl<1>() : v).StoreAligned(&secBuf[c][k]); });
 					} else {
 						for (int k = 0; k < count; ++k)
 							secBuf[c][k] = v2_c1[c] * secScale;
@@ -1601,7 +1619,7 @@ void DrawTriangleSlice(
 				}
 				if (!noFog) {
 					// The 8-bit fog of each vertex through the depth plane, like Gouraud color (gpu/probe exp21).
-					walk(fogPlane, [&](int k, int64_t v) { fogBuf[k] = std::clamp((int)v, 0, 255); });
+					walk(fogPlane, 0, 255, [&](int k, Vec4S32 v) { v.StoreAligned(&fogBuf[k]); });
 				} else {
 					for (int k = 0; k < count; ++k)
 						fogBuf[k] = 255;
