@@ -21,6 +21,7 @@
 #include "Common/Common.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/LogReporting.h"
+#include "Common/Math/CrossSIMD.h"
 #include "Common/Math/SIMDHeaders.h"
 #include "Core/Config.h"
 #include "GPU/Common/TextureDecoder.h"
@@ -920,10 +921,133 @@ static Vec4IntResult SOFTRAST_CALL SampleLinearT(float s, float t, Vec4IntArg pr
 	return GetTextureFunctionOutput(prim_color, ToVec4IntArg(texcolor), samplerID);
 }
 
+// TexelPairT for four pixels at once.
+static inline void TexelPairs4(Vec4F32 st, int size, bool clamp, Vec4S32 &c0, Vec4S32 &c1, Vec4S32 &frac) {
+	const Vec4F32 f = st * Vec4F32::Splat((float)size) * Vec4F32::Splat(16.0f);
+	// TexelFixed: INT_MIN out of int range (and for NaN). Those lanes are zeroed before the conversion.
+	const Vec4S32 inRange = f.CompareLt(Vec4F32::Splat(2147483648.0f)).AndNot(f.CompareLt(Vec4F32::Splat(-2147483648.0f)));
+	const Vec4S32 fixed = Vec4S32FromF32(f & inRange) | Vec4S32::Splat(INT_MIN).AndNot(inRange);
+	const Vec4S32 base = fixed - Vec4S32::Splat(8);
+	frac = base & Vec4S32::Splat(0x0F);
+	const Vec4S32 b0 = base.Shr<4>();
+	const Vec4S32 b1 = b0 + Vec4S32::Splat(1);
+	if (clamp) {
+		const Vec4S32 hi = Vec4S32::Splat(size > 512 ? 511 : size - 1);
+		c0 = b0.Min(hi).Max(Vec4S32::Zero());
+		c1 = b1.Min(hi).Max(Vec4S32::Zero());
+	} else {
+		const Vec4S32 mask = Vec4S32::Splat((size - 1) & 511);
+		c0 = b0 & mask;
+		c1 = b1 & mask;
+	}
+}
+
+// RowOffsetT and ColumnOffsetT for four texels at once.
+template <uint32_t bits, bool swizzled>
+static inline Vec4S32 RowOffsets4(int bufw, Vec4S32 v) {
+	if (!swizzled)
+		return v.Mul(Vec4S32::Splat(bufw * bits >> 3));
+	return v.Shr<3>().Mul(Vec4S32::Splat((bufw * bits / 32) * 32)) + (v & Vec4S32::Splat(7)).Shl<4>();
+}
+
+template <uint32_t bits, bool swizzled>
+static inline Vec4S32 ColumnOffsets4(Vec4S32 u) {
+	Vec4S32 b;
+	switch (bits) {
+	case 32: b = u.Shl<2>(); break;
+	case 16: b = u.Shl<1>(); break;
+	case 8: b = u; break;
+	default: b = u.Shr<1>(); break;
+	}
+	return swizzled ? b.Shr<4>().Shl<7>() + (b & Vec4S32::Splat(15)) : b;
+}
+
+// SampleLinearLevelT for four pixels at the same level: the coordinates and offsets in vector lanes, the
+// texel reads one by one.
+template <GETextureFormat fmt, bool swizzled, GEPaletteFormat clutFmt>
+static inline void SampleLinearLevel4T(Vec4F32 s, Vec4F32 t, const u8 *tptr, int bufw, int level, const SamplerID &samplerID, uint64_t out[4]) {
+	if (!tptr) {
+		out[0] = out[1] = out[2] = out[3] = 0;
+		return;
+	}
+	Vec4S32 u0, u1, v0, v1, fracU, fracV;
+	TexelPairs4(s, samplerID.cached.sizes[level].w, samplerID.clampS, u0, u1, fracU);
+	TexelPairs4(t, samplerID.cached.sizes[level].h, samplerID.clampT, v0, v1, fracV);
+	alignas(16) int us0[4], us1[4], fu[4], fv[4];
+	u0.Store(us0);
+	u1.Store(us1);
+	fracU.Store(fu);
+	fracV.Store(fv);
+	uint32_t texels[4][4];
+	if constexpr (fmt == GE_TFMT_DXT1 || fmt == GE_TFMT_DXT3 || fmt == GE_TFMT_DXT5) {
+		alignas(16) int vs0[4], vs1[4];
+		v0.Store(vs0);
+		v1.Store(vs1);
+		for (int i = 0; i < 4; ++i) {
+			texels[i][0] = ReadDXTTexelT<fmt>(tptr, bufw, us0[i], vs0[i]);
+			texels[i][1] = ReadDXTTexelT<fmt>(tptr, bufw, us1[i], vs0[i]);
+			texels[i][2] = ReadDXTTexelT<fmt>(tptr, bufw, us0[i], vs1[i]);
+			texels[i][3] = ReadDXTTexelT<fmt>(tptr, bufw, us1[i], vs1[i]);
+		}
+	} else {
+		constexpr uint32_t bits = TexelBitsT<fmt>();
+		uint32_t clutOffset = 0;
+		if ((fmt == GE_TFMT_CLUT4 || fmt == GE_TFMT_CLUT8) && !samplerID.useSharedClut)
+			clutOffset = fmt == GE_TFMT_CLUT4 ? level * 16 : (level & 1) * 256;
+		const Vec4S32 row0 = RowOffsets4<bits, swizzled>(bufw, v0), row1 = RowOffsets4<bits, swizzled>(bufw, v1);
+		const Vec4S32 col0 = ColumnOffsets4<bits, swizzled>(u0), col1 = ColumnOffsets4<bits, swizzled>(u1);
+		alignas(16) int tl[4], tr[4], bl[4], br[4];
+		(row0 + col0).Store(tl);
+		(row0 + col1).Store(tr);
+		(row1 + col0).Store(bl);
+		(row1 + col1).Store(br);
+		for (int i = 0; i < 4; ++i) {
+			texels[i][0] = ReadTexelT<fmt, clutFmt>(tptr + (uint32_t)tl[i], us0[i], clutOffset, samplerID);
+			texels[i][1] = ReadTexelT<fmt, clutFmt>(tptr + (uint32_t)tr[i], us1[i], clutOffset, samplerID);
+			texels[i][2] = ReadTexelT<fmt, clutFmt>(tptr + (uint32_t)bl[i], us0[i], clutOffset, samplerID);
+			texels[i][3] = ReadTexelT<fmt, clutFmt>(tptr + (uint32_t)br[i], us1[i], clutOffset, samplerID);
+		}
+	}
+	for (int i = 0; i < 4; ++i) {
+		// Like the GE: horizontal lerps truncated to 8 bits, then the vertical one (gpu/probe exp52).
+		const uint64_t top = LerpSpread(SpreadRGBA(texels[i][0]), SpreadRGBA(texels[i][1]), fu[i]);
+		const uint64_t bot = LerpSpread(SpreadRGBA(texels[i][2]), SpreadRGBA(texels[i][3]), fu[i]);
+		out[i] = LerpSpread(top, bot, fv[i]);
+	}
+}
+
 template <GETextureFormat fmt, bool swizzled, GEPaletteFormat clutFmt>
 static void SOFTRAST_CALL SampleLinearQuadT(const float *s, const float *t, const int *level, const int *levelFrac, int active, const u8 *const *texptr, const uint16_t *texbufw, Vec4<int> *colors, const SamplerID &samplerID) {
-	// The four samples' loads and arithmetic are independent, so they can overlap.
+	if (!active)
+		return;
 	uint64_t c[4];
+	// Usually all at one level (a span of a triangle always is): then in vector lanes.
+	const int first = active & 1 ? 0 : active & 2 ? 1 : active & 4 ? 2 : 3;
+	bool sameLevel = true;
+	for (int i = first + 1; i < 4; ++i) {
+		if ((active & (1 << i)) && (level[i] != level[first] || levelFrac[i] != levelFrac[first]))
+			sameLevel = false;
+	}
+	if (sameLevel) {
+		const int l = level[first];
+		const Vec4F32 sv = Vec4F32::Load(s), tv = Vec4F32::Load(t);
+		SampleLinearLevel4T<fmt, swizzled, clutFmt>(sv, tv, texptr[l], texbufw[l], l, samplerID, c);
+		if (levelFrac[first]) {
+			uint64_t c1[4];
+			SampleLinearLevel4T<fmt, swizzled, clutFmt>(sv, tv, texptr[l + 1], texbufw[l + 1], l + 1, samplerID, c1);
+			for (int i = 0; i < 4; ++i)
+				c[i] = LerpSpread(c[i], c1[i], levelFrac[first]);
+		}
+		for (int i = 0; i < 4; ++i) {
+			if (!(active & (1 << i)))
+				continue;
+			const Vec4<int> texcolor((int)(c[i] & 0xFFFF), (int)((c[i] >> 16) & 0xFFFF), (int)((c[i] >> 32) & 0xFFFF), (int)(c[i] >> 48));
+			colors[i] = GetTextureFunctionOutput(ToVec4IntArg(colors[i]), ToVec4IntArg(texcolor), samplerID);
+		}
+		return;
+	}
+
+	// The four samples' loads and arithmetic are independent, so they can overlap.
 	for (int i = 0; i < 4; ++i) {
 		if (!(active & (1 << i)))
 			continue;

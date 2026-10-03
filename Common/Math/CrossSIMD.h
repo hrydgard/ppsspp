@@ -179,6 +179,10 @@ struct Vec4S32 {
 		const __m128i gt = _mm_cmpgt_epi32(v, other.v);
 		return Vec4S32{ _mm_or_si128(_mm_and_si128(gt, v), _mm_andnot_si128(gt, other.v)) };
 	}
+	Vec4S32 Min(Vec4S32 other) const {
+		const __m128i lt = _mm_cmplt_epi32(v, other.v);
+		return Vec4S32{ _mm_or_si128(_mm_and_si128(lt, v), _mm_andnot_si128(lt, other.v)) };
+	}
 
 	// NOTE: May be slow.
 	int operator[](size_t index) const { return ((int *)&v)[index]; }
@@ -642,6 +646,7 @@ struct Vec4S32 {
 	template<int lane>
 	int GetLane() const { return vgetq_lane_s32(v, lane); }
 	Vec4S32 Max(Vec4S32 other) const { return Vec4S32{ vmaxq_s32(v, other.v) }; }
+	Vec4S32 Min(Vec4S32 other) const { return Vec4S32{ vminq_s32(v, other.v) }; }
 
 	void operator +=(Vec4S32 other) { v = vaddq_s32(v, other.v); }
 	void operator -=(Vec4S32 other) { v = vsubq_s32(v, other.v); }
@@ -1190,6 +1195,7 @@ struct Vec4S32 {
 	template<int lane>
 	int GetLane() const { return __lsx_vpickve2gr_w(v, lane); }
 	Vec4S32 Max(Vec4S32 other) const { return Vec4S32{ __lsx_vmax_w(v, other.v) }; }
+	Vec4S32 Min(Vec4S32 other) const { return Vec4S32{ __lsx_vmin_w(v, other.v) }; }
 
 	void operator +=(Vec4S32 other) { v = __lsx_vadd_w(v, other.v); }
 	void operator -=(Vec4S32 other) { v = __lsx_vsub_w(v, other.v); }
@@ -1697,6 +1703,13 @@ struct Vec4S32 {
 		}
 		return tmp;
 	}
+	Vec4S32 Min(Vec4S32 other) const {
+		Vec4S32 tmp;
+		for (int i = 0; i < 4; i++) {
+			tmp.v[i] = other.v[i] < v[i] ? other.v[i] : v[i];
+		}
+		return tmp;
+	}
 
 	Vec4S32 CompareEq(Vec4S32 other) const {
 		Vec4S32 out;
@@ -1893,6 +1906,11 @@ struct Vec4F32 {
 			val &= other.v[i];
 			memcpy(&v[i], &val, 4);
 		}
+	}
+	Vec4F32 operator &(Vec4S32 other) const {
+		Vec4F32 result = *this;
+		result &= other;
+		return result;
 	}
 	Vec4F32 operator *(float f) const {
 		return Vec4F32{ { v[0] * f, v[1] * f, v[2] * f, v[3] * f } };
