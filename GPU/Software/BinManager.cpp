@@ -932,8 +932,8 @@ bool BinManager::PendingWriteIn(const BinDirtyRange &range, uint32_t start, uint
 		int32_t rangeY = offset / (int32_t)range.strideBytes;
 		uint32_t rangeX = offset % (int32_t)range.strideBytes;
 		if (rangeY >= 0 && (uint32_t)rangeY < range.height) {
-			// If this row is either within width, or extends beyond stride, overlap.
-			if (rangeX < range.widthBytes || rangeX + w >= range.strideBytes)
+			// If this row is either within width, or extends beyond stride (into the next row), overlap.
+			if (rangeX < range.widthBytes || rangeX + w > range.strideBytes)
 				return true;
 		}
 
