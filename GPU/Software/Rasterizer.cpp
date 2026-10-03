@@ -1234,6 +1234,74 @@ static inline void GetTextureCoordinatesGE(const UVPlanes &planes, int64_t cente
 	GetTextureCoordinatesGE(planes, qs, ss, ts, s, t, qOut);
 }
 
+// The staged rows' last stage (DrawTriangleSlice): texturing, the secondary color and the pixels, span by
+// span. Specialized for what's fixed per triangle.
+struct StagedSpans {
+	const RasterizerState *state;
+	const UVPlanes *uvPlanes;
+	Vec4S32 qRamp, sRamp, tRamp;
+	float autoGrad;
+	// The mip level's q is the same for the span (ApplyTexturing's sameQ).
+	bool sameQ;
+	// Not in clear mode.
+	bool addSecondary;
+	int64_t coverLo, coverHi;
+	int y;
+};
+
+template <bool textured, bool uvFast, bool lodQ, bool through>
+static void DrawStagedSpans(const StagedSpans &ctx, int count, int chunkX, int64_t qv, int64_t sv, int64_t tv, int *maskBuf, int *zBuf, int *fogBuf, Vec4<int> *colorBuf, const Vec3<int> *secBuf) {
+	const RasterizerState &state = *ctx.state;
+	const UVPlanes &uvPlanes = *ctx.uvPlanes;
+	const int64_t qdx = uvPlanes.q.kx * SCREEN_SCALE_FACTOR, sdx = uvPlanes.s.kx * SCREEN_SCALE_FACTOR, tdx = uvPlanes.t.kx * SCREEN_SCALE_FACTOR;
+	for (int k = 0; k < count; k += 4, qv += 4 * qdx, sv += 4 * sdx, tv += 4 * tdx) {
+		const Vec4<int> mask(maskBuf[k], maskBuf[k + 1], maskBuf[k + 2], maskBuf[k + 3]);
+		if (!AnyMask<false>(mask))
+			continue;
+		Vec4<int> *prim_color = &colorBuf[k];
+		const int spanPX = (chunkX + k) & 0x3FF;
+		if constexpr (textured) {
+			Vec4<float> s, t, q;
+			if constexpr (uvFast) {
+				const Vec4S32 ql = (Vec4S32::Splat((int)qv) + ctx.qRamp).Shr<14>();
+				const Vec4S32 sl = (Vec4S32::Splat((int)sv) + ctx.sRamp).Shr<14>();
+				const Vec4S32 tl = (Vec4S32::Splat((int)tv) + ctx.tRamp).Shr<14>();
+				GEUVSpanCore<false>(ql, sl, tl, uvPlanes.expQ, uvPlanes.expS, uvPlanes.expT, s.AsArray(), t.AsArray(), q.AsArray());
+			} else {
+				int64_t qs[4], ss[4], ts[4];
+				for (int i = 0; i < 4; ++i) {
+					qs[i] = (qv + i * qdx) >> 14;
+					ss[i] = (sv + i * sdx) >> 14;
+					ts[i] = (tv + i * tdx) >> 14;
+				}
+				GetTextureCoordinatesGE(uvPlanes, qs, ss, ts, s, t, q);
+			}
+			if constexpr (lodQ)
+				q = LodQFromPlanes(uvPlanes, [&](int i) { return (qv + i * qdx) >> 14; }, spanPX, ctx.coverLo, ctx.coverHi);
+			// For levels > 0, mipmapping is always based on level 0.  Simpler to scale first.
+			if constexpr (through) {
+				s *= 1.0f / (float)(1 << state.samplerID.width0Shift);
+				t *= 1.0f / (float)(1 << state.samplerID.height0Shift);
+			}
+			ApplyTexturing(state, prim_color, mask, s, t, q, 0.0f, 0.0f, ctx.sameQ, ctx.autoGrad);
+		}
+		if (ctx.addSecondary) {
+			for (int i = 0; i < 4; ++i)
+				prim_color[i] += Vec4<int>(secBuf[k + i], 0);
+		}
+		state.drawSpan(spanPX, ctx.y, &maskBuf[k], &zBuf[k], &fogBuf[k], prim_color, state.pixelID);
+	}
+}
+
+typedef void (*StagedSpansFunc)(const StagedSpans &ctx, int count, int chunkX, int64_t qv, int64_t sv, int64_t tv, int *maskBuf, int *zBuf, int *fogBuf, Vec4<int> *colorBuf, const Vec3<int> *secBuf);
+
+template <bool textured, bool uvFast>
+static StagedSpansFunc PickStagedSpans(bool lodQ, bool through) {
+	if (lodQ)
+		return through ? &DrawStagedSpans<textured, uvFast, true, true> : &DrawStagedSpans<textured, uvFast, true, false>;
+	return through ? &DrawStagedSpans<textured, uvFast, false, true> : &DrawStagedSpans<textured, uvFast, false, false>;
+}
+
 template <bool clearMode, bool useSSE4>
 void DrawTriangleSlice(
 	const VertexData& v0, const VertexData& v1, const VertexData& v2,
@@ -1354,6 +1422,14 @@ void DrawTriangleSlice(
 			tRamp = ramp(uvPlanes.t);
 		}
 	}
+	StagedSpans stagedCtx{ &state, &uvPlanes, qRamp, sRamp, tRamp, autoGrad, lodUsesQ, !clearMode };
+	StagedSpansFunc drawStagedSpans;
+	if (clearMode || !state.enableTextures)
+		drawStagedSpans = &DrawStagedSpans<false, false, false, false>;
+	else if (uvFast)
+		drawStagedSpans = PickStagedSpans<true, true>(lodUsesQ && !state.throughMode, state.throughMode);
+	else
+		drawStagedSpans = PickStagedSpans<true, false>(lodUsesQ && !state.throughMode, state.throughMode);
 
 	// The edges as A x + B y + C + bias >= 0 at pixel centers, in 64 bits.
 	struct RowEdge {
@@ -1499,52 +1575,16 @@ void DrawTriangleSlice(
 						fogBuf[k] = 255;
 				}
 
-				int64_t qv = 0, sv = 0, tv = 0, qdx = 0, sdx = 0, tdx = 0;
+				int64_t qv = 0, sv = 0, tv = 0;
 				if (uvPlanes.valid) {
 					qv = uvPlanes.q.base + uvPlanes.q.kx * centerX + uvPlanes.q.ky * yc;
 					sv = uvPlanes.s.base + uvPlanes.s.kx * centerX + uvPlanes.s.ky * yc;
 					tv = uvPlanes.t.base + uvPlanes.t.kx * centerX + uvPlanes.t.ky * yc;
-					qdx = uvPlanes.q.kx * SCREEN_SCALE_FACTOR;
-					sdx = uvPlanes.s.kx * SCREEN_SCALE_FACTOR;
-					tdx = uvPlanes.t.kx * SCREEN_SCALE_FACTOR;
 				}
-				for (int k = 0; k < count; k += 4, qv += 4 * qdx, sv += 4 * sdx, tv += 4 * tdx) {
-					const Vec4<int> mask(maskBuf[k], maskBuf[k + 1], maskBuf[k + 2], maskBuf[k + 3]);
-					if (!AnyMask<useSSE4>(mask))
-						continue;
-					Vec4<int> *prim_color = &colorBuf[k];
-					const int spanPX = (chunkX + k) & 0x3FF;
-					if constexpr (!clearMode) {
-						if (state.enableTextures) {
-							Vec4<float> s, t, q;
-							if (uvFast) {
-								const Vec4S32 ql = (Vec4S32::Splat((int)qv) + qRamp).Shr<14>();
-								const Vec4S32 sl = (Vec4S32::Splat((int)sv) + sRamp).Shr<14>();
-								const Vec4S32 tl = (Vec4S32::Splat((int)tv) + tRamp).Shr<14>();
-								GEUVSpanCore<false>(ql, sl, tl, uvPlanes.expQ, uvPlanes.expS, uvPlanes.expT, s.AsArray(), t.AsArray(), q.AsArray());
-							} else {
-								int64_t qs[4], ss[4], ts[4];
-								for (int i = 0; i < 4; ++i) {
-									qs[i] = (qv + i * qdx) >> 14;
-									ss[i] = (sv + i * sdx) >> 14;
-									ts[i] = (tv + i * tdx) >> 14;
-								}
-								GetTextureCoordinatesGE(uvPlanes, qs, ss, ts, s, t, q);
-							}
-							if (lodUsesQ && !state.throughMode)
-								q = LodQFromPlanes(uvPlanes, [&](int i) { return (qv + i * qdx) >> 14; }, spanPX, coverLo, coverHi);
-							// For levels > 0, mipmapping is always based on level 0.  Simpler to scale first.
-							if (state.throughMode) {
-								s *= 1.0f / (float)(1 << state.samplerID.width0Shift);
-								t *= 1.0f / (float)(1 << state.samplerID.height0Shift);
-							}
-							ApplyTexturing(state, prim_color, mask, s, t, q, 0.0f, 0.0f, lodUsesQ, autoGrad);
-						}
-						for (int i = 0; i < 4; ++i)
-							prim_color[i] += Vec4<int>(secBuf[k + i], 0);
-					}
-					state.drawSpan(spanPX, p.y, &maskBuf[k], &zBuf[k], &fogBuf[k], prim_color, pixelID);
-				}
+				stagedCtx.coverLo = coverLo;
+				stagedCtx.coverHi = coverHi;
+				stagedCtx.y = p.y;
+				drawStagedSpans(stagedCtx, count, chunkX, qv, sv, tv, maskBuf, zBuf, fogBuf, colorBuf, secBuf);
 			}
 			continue;
 		}
