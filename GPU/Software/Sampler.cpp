@@ -920,6 +920,67 @@ static Vec4IntResult SOFTRAST_CALL SampleLinearT(float s, float t, Vec4IntArg pr
 	return GetTextureFunctionOutput(prim_color, ToVec4IntArg(texcolor), samplerID);
 }
 
+template <GETextureFormat fmt, bool swizzled, GEPaletteFormat clutFmt>
+static void SOFTRAST_CALL SampleLinearQuadT(const float *s, const float *t, const int *level, const int *levelFrac, int active, const u8 *const *texptr, const uint16_t *texbufw, Vec4<int> *colors, const SamplerID &samplerID) {
+	// The four samples' loads and arithmetic are independent, so they can overlap.
+	uint64_t c[4];
+	for (int i = 0; i < 4; ++i) {
+		if (!(active & (1 << i)))
+			continue;
+		const int l = level[i];
+		c[i] = SampleLinearLevelT<fmt, swizzled, clutFmt>(s[i], t[i], texptr[l], texbufw[l], l, samplerID);
+		if (levelFrac[i])
+			c[i] = LerpSpread(c[i], SampleLinearLevelT<fmt, swizzled, clutFmt>(s[i], t[i], texptr[l + 1], texbufw[l + 1], l + 1, samplerID), levelFrac[i]);
+	}
+	for (int i = 0; i < 4; ++i) {
+		if (!(active & (1 << i)))
+			continue;
+		const Vec4<int> texcolor((int)(c[i] & 0xFFFF), (int)((c[i] >> 16) & 0xFFFF), (int)((c[i] >> 32) & 0xFFFF), (int)(c[i] >> 48));
+		colors[i] = GetTextureFunctionOutput(ToVec4IntArg(colors[i]), ToVec4IntArg(texcolor), samplerID);
+	}
+}
+
+template <GETextureFormat fmt, bool swizzled>
+static LinearQuadFunc PickLinearQuadClut(GEPaletteFormat clutFmt) {
+	switch (clutFmt) {
+	case GE_CMODE_16BIT_BGR5650: return &SampleLinearQuadT<fmt, swizzled, GE_CMODE_16BIT_BGR5650>;
+	case GE_CMODE_16BIT_ABGR5551: return &SampleLinearQuadT<fmt, swizzled, GE_CMODE_16BIT_ABGR5551>;
+	case GE_CMODE_16BIT_ABGR4444: return &SampleLinearQuadT<fmt, swizzled, GE_CMODE_16BIT_ABGR4444>;
+	default: return &SampleLinearQuadT<fmt, swizzled, GE_CMODE_32BIT_ABGR8888>;
+	}
+}
+
+template <GETextureFormat fmt>
+static LinearQuadFunc PickLinearQuad(const SamplerID &id) {
+	switch (fmt) {
+	case GE_TFMT_CLUT4: case GE_TFMT_CLUT8: case GE_TFMT_CLUT16: case GE_TFMT_CLUT32:
+		return id.swizzle ? PickLinearQuadClut<fmt, true>(id.ClutFmt()) : PickLinearQuadClut<fmt, false>(id.ClutFmt());
+	case GE_TFMT_DXT1: case GE_TFMT_DXT3: case GE_TFMT_DXT5:
+		return &SampleLinearQuadT<fmt, false, GE_CMODE_32BIT_ABGR8888>;
+	default:
+		return id.swizzle ? &SampleLinearQuadT<fmt, true, GE_CMODE_32BIT_ABGR8888> : &SampleLinearQuadT<fmt, false, GE_CMODE_32BIT_ABGR8888>;
+	}
+}
+
+LinearQuadFunc GetLinearQuadFunc(const SamplerID &id, LinearFunc linear) {
+	if (linear != GetLinearFallback(id))
+		return nullptr;
+	switch (id.TexFmt()) {
+	case GE_TFMT_5650: return PickLinearQuad<GE_TFMT_5650>(id);
+	case GE_TFMT_5551: return PickLinearQuad<GE_TFMT_5551>(id);
+	case GE_TFMT_4444: return PickLinearQuad<GE_TFMT_4444>(id);
+	case GE_TFMT_8888: return PickLinearQuad<GE_TFMT_8888>(id);
+	case GE_TFMT_CLUT4: return PickLinearQuad<GE_TFMT_CLUT4>(id);
+	case GE_TFMT_CLUT8: return PickLinearQuad<GE_TFMT_CLUT8>(id);
+	case GE_TFMT_CLUT16: return PickLinearQuad<GE_TFMT_CLUT16>(id);
+	case GE_TFMT_CLUT32: return PickLinearQuad<GE_TFMT_CLUT32>(id);
+	case GE_TFMT_DXT1: return PickLinearQuad<GE_TFMT_DXT1>(id);
+	case GE_TFMT_DXT3: return PickLinearQuad<GE_TFMT_DXT3>(id);
+	case GE_TFMT_DXT5: return PickLinearQuad<GE_TFMT_DXT5>(id);
+	default: return nullptr;
+	}
+}
+
 template <GETextureFormat fmt, bool swizzled>
 static LinearFunc PickLinearClut(GEPaletteFormat clutFmt) {
 	switch (clutFmt) {

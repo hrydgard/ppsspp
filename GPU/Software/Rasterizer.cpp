@@ -129,6 +129,7 @@ void ComputeRasterizerState(RasterizerState *state, BinManager *binner) {
 		} else if (g_Config.iTexFiltering == TEX_FILTER_FORCE_NEAREST) {
 			state->linear = state->nearest;
 		}
+		state->linearQuad = Sampler::GetLinearQuadFunc(state->samplerID, state->linear);
 
 		state->maxTexLevel = state->samplerID.hasAnyMips ? gstate.getTextureMaxLevel() : 0;
 
@@ -484,6 +485,7 @@ static bool ApplyStateOptimizations(RasterizerState *state, const RasterizerStat
 				state->linear = linear;
 			}
 			memcpy(&state->samplerID, &samplerID, sizeof(SamplerID));
+			state->linearQuad = Sampler::GetLinearQuadFunc(state->samplerID, state->linear);
 			state->flags = ReplaceSamplerIDFlags(state->flags, optimize) | RasterizerStateFlags::OPTIMIZED;
 			changed = true;
 		}
@@ -696,19 +698,40 @@ static inline void CalculateSamplingParams(const float ds, const float dt, float
 		filt = state.magFilt;
 }
 
-static inline void ApplyTexturing(const RasterizerState &state, Vec4<int> *prim_color, const Vec4<int> &mask, const Vec4<float> &s, const Vec4<float> &t, const Vec4<float> &q, float autoGrad = -1.0f) {
-	// Auto LOD takes the largest of all four UV derivatives (gpu/probe exp92, exact for affine mappings).
-	float ds = std::max(std::abs(s[1] - s[0]), std::abs(s[2] - s[0]));
-	float dt = std::max(std::abs(t[1] - t[0]), std::abs(t[2] - t[0]));
-
+// Four pixels in a row. ds and dt are the largest UV derivatives along x and y, for auto LOD without planes
+// (gpu/probe exp92, exact for affine mappings). sameQ: the pixels share their q, so also their level.
+static inline void ApplyTexturing(const RasterizerState &state, Vec4<int> *prim_color, const Vec4<int> &mask, const Vec4<float> &s, const Vec4<float> &t, const Vec4<float> &q, float ds, float dt, bool sameQ, float autoGrad = -1.0f) {
 	int level;
 	int levelFrac;
 	bool bilinear;
-	const bool perPixel = state.TexLevelMode() == GE_TEXLEVEL_MODE_SLOPE || (state.TexLevelMode() == GE_TEXLEVEL_MODE_AUTO && autoGrad >= 0.0f);
-	if (!perPixel)
+	bool perPixel = state.TexLevelMode() == GE_TEXLEVEL_MODE_SLOPE || (state.TexLevelMode() == GE_TEXLEVEL_MODE_AUTO && autoGrad >= 0.0f);
+	if (!perPixel) {
 		CalculateSamplingParams(ds, dt, 0.0f, state, level, levelFrac, bilinear);
+	} else if (sameQ) {
+		CalculateSamplingParams(ds, dt, q[0], state, level, levelFrac, bilinear, autoGrad);
+		perPixel = false;
+	}
 
 	PROFILE_THIS_SCOPE("sampler");
+	if (state.linearQuad) {
+		// All four at once, when they're all bilinear.
+		int levels[4], fracs[4], active = 0;
+		bool allBilinear = true;
+		for (int i = 0; i < 4; ++i) {
+			if (mask[i] < 0)
+				continue;
+			if (perPixel)
+				CalculateSamplingParams(ds, dt, q[i], state, level, levelFrac, bilinear, autoGrad);
+			levels[i] = level;
+			fracs[i] = levelFrac;
+			allBilinear = allBilinear && bilinear;
+			active |= 1 << i;
+		}
+		if (allBilinear) {
+			state.linearQuad(s.AsArray(), t.AsArray(), levels, fracs, active, state.texptr, state.texbufw, prim_color, state.samplerID);
+			return;
+		}
+	}
 	for (int i = 0; i < 4; ++i) {
 		if (mask[i] >= 0) {
 			if (perPixel)
@@ -718,14 +741,21 @@ static inline void ApplyTexturing(const RasterizerState &state, Vec4<int> *prim_
 	}
 }
 
-// Depth at (x, y) and (x + 1, y). They're stored together unless x is last in a 16-pixel run.
-static inline u32 ReadDepthPair(int x, int y, int stride) {
+// Depth at x to x + 3 in row y. They're stored together unless they cross the end of a 16-pixel run.
+static inline u64 ReadDepth4(int x, int y, int stride) {
 	const uint32_t offset = depthbuf.base + (uint32_t)(x + y * stride) * 2;
-	if ((offset & 31) != 30)
-		return *(const u32 *)depthbuf.Get16Ptr(x, y, stride);
-	return depthbuf.Get16(x, y, stride) | ((u32)depthbuf.Get16(x + 1, y, stride) << 16);
+	if ((offset & 31) <= 24) {
+		u64 v;
+		memcpy(&v, depthbuf.Get16Ptr(x, y, stride), sizeof(v));
+		return v;
+	}
+	u64 v = 0;
+	for (int i = 0; i < 4; ++i)
+		v |= (u64)depthbuf.Get16(x + i, y, stride) << (16 * i);
+	return v;
 }
 
+// For a span of four pixels in a row from x.
 static inline Vec4<int> SOFTRAST_CALL CheckDepthTestPassed4(const Vec4<int> &mask, GEComparison func, int x, int y, int stride, Vec4<int> z) {
 	// Skip the depth buffer read if we're masked already.
 #if defined(_M_SSE)
@@ -741,12 +771,10 @@ static inline Vec4<int> SOFTRAST_CALL CheckDepthTestPassed4(const Vec4<int> &mas
 
 	// Read in the existing depth values.
 #if defined(_M_SSE)
-	// Tried using flags from maskbits to skip dwords... seemed neutral.
-	__m128i refz = _mm_cvtsi32_si128(ReadDepthPair(x, y, stride));
-	refz = _mm_unpacklo_epi32(refz, _mm_cvtsi32_si128(ReadDepthPair(x, y + 1, stride)));
-	refz = _mm_unpacklo_epi16(refz, _mm_setzero_si128());
+	const u64 depth4 = ReadDepth4(x, y, stride);
+	__m128i refz = _mm_unpacklo_epi16(_mm_loadl_epi64((const __m128i *)&depth4), _mm_setzero_si128());
 #else
-	Vec4<int> refz(depthbuf.Get16(x, y, stride), depthbuf.Get16(x + 1, y, stride), depthbuf.Get16(x, y + 1, stride), depthbuf.Get16(x + 1, y + 1, stride));
+	Vec4<int> refz(depthbuf.Get16(x, y, stride), depthbuf.Get16(x + 1, y, stride), depthbuf.Get16(x + 2, y, stride), depthbuf.Get16(x + 3, y, stride));
 #endif
 
 	switch (func) {
@@ -848,18 +876,18 @@ static inline __m128i SOFTRAST_CALL TriangleEdgeStartSSE4(__m128i initX, __m128i
 template <bool useSSE4>
 Vec4<int> TriangleEdge<useSSE4>::Start(const ScreenCoords &v0, const ScreenCoords &v1, const ScreenCoords &origin) {
 	// Start at pixel centers. The GE samples exactly there, with left and top edges inclusive (gpu/probe).
+	// Four pixels in a row.
 	static constexpr int centerOff = SCREEN_SCALE_FACTOR / 2;
-	static constexpr int centerPlus1 = SCREEN_SCALE_FACTOR + centerOff;
-	Vec4<int> initX = Vec4<int>::AssignToAll(origin.x) + Vec4<int>(centerOff, centerPlus1, centerOff, centerPlus1);
-	Vec4<int> initY = Vec4<int>::AssignToAll(origin.y) + Vec4<int>(centerOff, centerOff, centerPlus1, centerPlus1);
+	Vec4<int> initX = Vec4<int>::AssignToAll(origin.x) + Vec4<int>(centerOff, centerOff + SCREEN_SCALE_FACTOR, centerOff + SCREEN_SCALE_FACTOR * 2, centerOff + SCREEN_SCALE_FACTOR * 3);
+	Vec4<int> initY = Vec4<int>::AssignToAll(origin.y + centerOff);
 
 	// orient2d refactored.
 	int xf = v0.y - v1.y;
 	int yf = v1.x - v0.x;
 	int c = v1.y * v0.x - v1.x * v0.y;
 
-	stepX = Vec4<int>::AssignToAll(xf * SCREEN_SCALE_FACTOR * 2);
-	stepY = Vec4<int>::AssignToAll(yf * SCREEN_SCALE_FACTOR * 2);
+	stepX = Vec4<int>::AssignToAll(xf * SCREEN_SCALE_FACTOR * 4);
+	stepY = Vec4<int>::AssignToAll(yf * SCREEN_SCALE_FACTOR);
 
 #if defined(_M_SSE) && !PPSSPP_ARCH(X86)
 	if constexpr (useSSE4)
@@ -919,7 +947,7 @@ void TriangleEdge<useSSE4>::NarrowMinMaxX(const Vec4<int> &w, int64_t minX, int6
 	if (wmax < 0) {
 		if (stepX.x > 0) {
 			int steps = -wmax / stepX.x;
-			rowMinX = std::max(rowMinX, minX + steps * SCREEN_SCALE_FACTOR * 2);
+			rowMinX = std::max(rowMinX, minX + steps * SCREEN_SCALE_FACTOR * 4);
 		} else if (stepX.x <= 0) {
 			rowMinX = rowMaxX + 1;
 		}
@@ -927,7 +955,7 @@ void TriangleEdge<useSSE4>::NarrowMinMaxX(const Vec4<int> &w, int64_t minX, int6
 
 	if (wmax >= 0 && stepX.x < 0) {
 		int steps = (-wmax / stepX.x) + 1;
-		rowMaxX = std::min(rowMaxX, minX + steps * SCREEN_SCALE_FACTOR * 2);
+		rowMaxX = std::min(rowMaxX, minX + steps * SCREEN_SCALE_FACTOR * 4);
 	}
 }
 
@@ -1180,9 +1208,9 @@ static float UVPlaneGradient(const UVPlanes &planes, const RasterizerState &stat
 // The q the mip level comes from: the GE picks it once per span of four pixels in a row, at the span's
 // second pixel in the direction it walks the row, or when that one is outside the triangle, at the
 // span's first pixel inside. Left to right that's x = 4k + 1; right to left (when the long edge is the
-// right side, as for the plane anchor) 4k + 2 (gpu/probe exp93, exp103-106). quadX is the quad's left
-// column in drawing coordinates, centerX/Y its first pixel's center in screen subpixels, and
-// covered(x, y) the triangle's coverage there.
+// right side, as for the plane anchor) 4k + 2 (gpu/probe exp93, exp103-106). quadX is the first of four
+// pixels in a row in drawing coordinates, centerX/Y its center in screen subpixels, and covered(x, y) the
+// triangle's coverage there.
 template <typename Covered>
 static inline Vec4<float> LodQFromPlanes(const UVPlanes &planes, int64_t centerX, int64_t centerY, int quadX, const Covered &covered) {
 	const bool rtl = planes.q.rightAnchored;
@@ -1200,32 +1228,31 @@ static inline Vec4<float> LodQFromPlanes(const UVPlanes &planes, int64_t centerX
 		const int64_t x = centerX + (pick - quadX) * SCREEN_SCALE_FACTOR;
 		return TruncateToFloat24((float)((double)planes.q.At(x, y) * planes.scaleQ));
 	};
+	// A span of four pixels in a row: one q per span they're in.
 	Vec4<float> q;
-	// The quad's two columns usually share a span, and then a q.
-	const bool sameSpan = (quadX & 3) != 3;
-	for (int i = 0; i < 4; i += 2) {
-		const int64_t y = centerY + (i >> 1) * SCREEN_SCALE_FACTOR;
-		q[i] = spanQ(quadX & ~3, y);
-		q[i + 1] = sameSpan ? q[i] : spanQ((quadX + 1) & ~3, y);
-	}
+	q[0] = spanQ(quadX & ~3, centerY);
+	for (int i = 1; i < 4; ++i)
+		q[i] = ((quadX + i) & 3) == 0 ? spanQ(quadX + i, centerY) : q[i - 1];
 	return q;
 }
 
-// A plane's values at a quad's four pixel centers: a pixel's step adds k * 16 to the sum before the shift.
-static inline void PlaneQuad(const DepthPlane &plane, int64_t centerX, int64_t centerY, int64_t out[4]) {
+// A plane's values at the centers of four pixels in a row: a pixel's step adds k * 16 to the sum before the
+// shift.
+static inline void PlaneSpan(const DepthPlane &plane, int64_t centerX, int64_t centerY, int64_t out[4]) {
 	const int64_t v = plane.base + plane.kx * centerX + plane.ky * centerY;
-	const int64_t dx = plane.kx * SCREEN_SCALE_FACTOR, dy = plane.ky * SCREEN_SCALE_FACTOR;
+	const int64_t dx = plane.kx * SCREEN_SCALE_FACTOR;
 	out[0] = v >> 14;
 	out[1] = (v + dx) >> 14;
-	out[2] = (v + dy) >> 14;
-	out[3] = (v + dx + dy) >> 14;
+	out[2] = (v + 2 * dx) >> 14;
+	out[3] = (v + 3 * dx) >> 14;
 }
 
+// For four pixels in a row.
 static inline void GetTextureCoordinatesGE(const UVPlanes &planes, int64_t centerX, int64_t centerY, Vec4<float> &s, Vec4<float> &t, Vec4<float> &qOut) {
 	int64_t qs[4], ss[4], ts[4];
-	PlaneQuad(planes.q, centerX, centerY, qs);
-	PlaneQuad(planes.s, centerX, centerY, ss);
-	PlaneQuad(planes.t, centerX, centerY, ts);
+	PlaneSpan(planes.q, centerX, centerY, qs);
+	PlaneSpan(planes.s, centerX, centerY, ss);
+	PlaneSpan(planes.t, centerX, centerY, ts);
 	for (int i = 0; i < 4; ++i) {
 		const float q = TruncateToFloat24((float)((double)qs[i] * planes.scaleQ));
 		qOut[i] = q;
@@ -1256,7 +1283,8 @@ void DrawTriangleSlice(
 	TriangleEdge<useSSE4> e1;
 	TriangleEdge<useSSE4> e2;
 
-	int64_t minX = x1, maxX = x2, minY = y1, maxY = y2;
+	// Spans of four pixels in a row, aligned like the GE's (which pick the mip level's q).
+	int64_t minX = x1 & ~(SCREEN_SCALE_FACTOR * 4 - 1), maxX = x2, minY = y1, maxY = y2;
 
 	ScreenCoords pprime(minX, minY, 0);
 	// Coverage of any pixel center, for picking the mip level's q (LodQFromPlanes), when it matters.
@@ -1347,7 +1375,7 @@ void DrawTriangleSlice(
 	const Vec4<int> minz = Vec4<int>::AssignToAll(pixelID.cached.minz);
 	const Vec4<int> maxz = Vec4<int>::AssignToAll(pixelID.cached.maxz);
 
-	for (int64_t curY = minY; curY <= maxY; curY += SCREEN_SCALE_FACTOR * 2,
+	for (int64_t curY = minY; curY <= maxY; curY += SCREEN_SCALE_FACTOR,
 										w0_base = e0.StepY(w0_base),
 										w1_base = e1.StepY(w1_base),
 										w2_base = e2.StepY(w2_base)) {
@@ -1366,31 +1394,33 @@ void DrawTriangleSlice(
 		if (snapEdge != 2)
 			e2.NarrowMinMaxX(w2, minX, rowMinX, rowMaxX);
 
-		int skipX = (rowMinX - minX) / (SCREEN_SCALE_FACTOR * 2);
+		int skipX = (rowMinX - minX) / (SCREEN_SCALE_FACTOR * 4);
 		w0 = e0.StepXTimes(w0, skipX);
 		w1 = e1.StepXTimes(w1, skipX);
 		w2 = e2.StepXTimes(w2, skipX);
-		p.x = (p.x + 2 * skipX) & 0x3FF;
+		p.x = (p.x + 4 * skipX) & 0x3FF;
 
-		// TODO: Maybe we can clip the edges instead?
-		int scissorYPlus1 = curY + SCREEN_SCALE_FACTOR > maxY ? -1 : 0;
-		Vec4<int> scissor_mask = Vec4<int>(0, rowMaxX - rowMinX - SCREEN_SCALE_FACTOR, scissorYPlus1, (rowMaxX - rowMinX - SCREEN_SCALE_FACTOR) | scissorYPlus1);
-		Vec4<int> scissor_step = Vec4<int>(0, -(SCREEN_SCALE_FACTOR * 2), 0, -(SCREEN_SCALE_FACTOR * 2));
+		// Negative for pixels left of x1 or right of x2.
+		Vec4<int> scissorLeft = Vec4<int>::AssignToAll((int)(rowMinX - x1)) + Vec4<int>(0, SCREEN_SCALE_FACTOR, SCREEN_SCALE_FACTOR * 2, SCREEN_SCALE_FACTOR * 3);
+		Vec4<int> scissorRight = Vec4<int>::AssignToAll((int)(x2 - rowMinX)) - Vec4<int>(0, SCREEN_SCALE_FACTOR, SCREEN_SCALE_FACTOR * 2, SCREEN_SCALE_FACTOR * 3);
+		const Vec4<int> scissorStep = Vec4<int>::AssignToAll(SCREEN_SCALE_FACTOR * 4);
 
-		for (int64_t curX = rowMinX; curX <= rowMaxX; curX += SCREEN_SCALE_FACTOR * 2,
+		for (int64_t curX = rowMinX; curX <= rowMaxX; curX += SCREEN_SCALE_FACTOR * 4,
 			w0 = e0.StepX(w0),
 			w1 = e1.StepX(w1),
 			w2 = e2.StepX(w2),
-			scissor_mask = scissor_mask + scissor_step,
-			p.x = (p.x + 2) & 0x3FF) {
+			scissorLeft = scissorLeft + scissorStep,
+			scissorRight = scissorRight - scissorStep,
+			p.x = (p.x + 4) & 0x3FF) {
+			const Vec4<int> scissor_mask = scissorLeft | scissorRight;
 
 			// If p is on or inside all edges, render pixel
 			Vec4<int> mask = MakeMask(w0, w1, w2, bias0, bias1, bias2, scissor_mask);
 			if (snapEdge >= 0) {
 				for (int i = 0; i < 4; ++i) {
-					const int64_t x = curX + SCREEN_SCALE_FACTOR / 2 + (i & 1) * SCREEN_SCALE_FACTOR;
-					const int64_t y = curY + SCREEN_SCALE_FACTOR / 2 + (i >> 1) * SCREEN_SCALE_FACTOR;
-					const int px = p.x + (i & 1);
+					const int64_t x = curX + SCREEN_SCALE_FACTOR / 2 + i * SCREEN_SCALE_FACTOR;
+					const int64_t y = curY + SCREEN_SCALE_FACTOR / 2;
+					const int px = p.x + i;
 					// Only the span's first pixel (left edge) or last (right edge) takes the edge at the other end.
 					const int spanX = snapLeft ? ((px & 3) == 0 ? (px | 3) : px) : ((px & 3) == 3 ? (px & ~3) : px);
 					const int64_t xs = x + (int64_t)(spanX - px) * SCREEN_SCALE_FACTOR;
@@ -1406,9 +1436,9 @@ void DrawTriangleSlice(
 					z = Vec4<int>::AssignToAll(v2.screenpos.z);
 				} else {
 					// The GE's fixed point depth plane at the four pixel centers.
-					const int64_t z00 = depthPlane.base + depthPlane.kx * (curX + SCREEN_SCALE_FACTOR / 2) + depthPlane.ky * (curY + SCREEN_SCALE_FACTOR / 2);
-					const int64_t dx = depthPlane.kx * SCREEN_SCALE_FACTOR, dy = depthPlane.ky * SCREEN_SCALE_FACTOR;
-					z = Vec4<int>((int)(z00 >> 14), (int)((z00 + dx) >> 14), (int)((z00 + dy) >> 14), (int)((z00 + dx + dy) >> 14));
+					int64_t zs[4];
+					PlaneSpan(depthPlane, curX + SCREEN_SCALE_FACTOR / 2, curY + SCREEN_SCALE_FACTOR / 2, zs);
+					z = Vec4<int>((int)zs[0], (int)zs[1], (int)zs[2], (int)zs[3]);
 					// A value floored below 0 (next to an edge of z = 0 vertices) is 0 (gpu/probe exp148).
 					for (int i = 0; i < 4; ++i)
 						z[i] = std::max(z[i], 0);
@@ -1436,7 +1466,7 @@ void DrawTriangleSlice(
 				if (!flatColor0) {
 					for (int i = 0; i < 4; ++i) {
 						if (mask[i] >= 0)
-							prim_color[i] = ColorFromPlanes<4>(color0Planes, centerX + (i & 1) * SCREEN_SCALE_FACTOR, centerY + (i >> 1) * SCREEN_SCALE_FACTOR);
+							prim_color[i] = ColorFromPlanes<4>(color0Planes, centerX + i * SCREEN_SCALE_FACTOR, centerY);
 					}
 				} else {
 					for (int i = 0; i < 4; ++i) {
@@ -1447,7 +1477,7 @@ void DrawTriangleSlice(
 				if (!flatColor1) {
 					for (int i = 0; i < 4; ++i) {
 						if (mask[i] >= 0)
-							sec_color[i] = ColorFromPlanes<3>(color1Planes, centerX + (i & 1) * SCREEN_SCALE_FACTOR, centerY + (i >> 1) * SCREEN_SCALE_FACTOR).rgb();
+							sec_color[i] = ColorFromPlanes<3>(color1Planes, centerX + i * SCREEN_SCALE_FACTOR, centerY).rgb();
 					}
 				} else {
 					for (int i = 0; i < 4; ++i) {
@@ -1464,36 +1494,51 @@ void DrawTriangleSlice(
 					if constexpr (!clearMode) {
 						Vec4<float> s, t;
 						Vec4<float> q = Vec4<float>::AssignToAll(1.0f);
-						if (state.throughMode) {
-							if (uvPlanes.valid) {
-								GetTextureCoordinatesGE(uvPlanes, centerX, centerY, s, t, q);
+						// Without planes, from the edge weights (of these pixels, or the row below).
+						auto interpolatedST = [&](const Vec4<int> &a, const Vec4<int> &b, const Vec4<int> &c, Vec4<float> &os, Vec4<float> &ot) {
+							if (state.throughMode) {
+								os = Interpolate(v0.texturecoords.s(), v1.texturecoords.s(), v2.texturecoords.s(), a, b, c, wsum_recip);
+								ot = Interpolate(v0.texturecoords.t(), v1.texturecoords.t(), v2.texturecoords.t(), a, b, c, wsum_recip);
+							} else if (state.textureProj) {
+								// Texture coordinate interpolation must definitely be perspective-correct.
+								GetTextureCoordinatesProj(v0, v1, v2, a, b, c, wsum_recip, os, ot);
 							} else {
-								s = Interpolate(v0.texturecoords.s(), v1.texturecoords.s(), v2.texturecoords.s(), w0, w1,
-												w2, wsum_recip);
-								t = Interpolate(v0.texturecoords.t(), v1.texturecoords.t(), v2.texturecoords.t(), w0, w1,
-												w2, wsum_recip);
+								GetTextureCoordinates(v0, v1, v2, a, b, c, wsum_recip, os, ot);
 							}
-
-							// For levels > 0, mipmapping is always based on level 0.  Simpler to scale first.
+						};
+						if (uvPlanes.valid) {
+							GetTextureCoordinatesGE(uvPlanes, centerX, centerY, s, t, q);
+							if (lodUsesQ && !state.throughMode)
+								q = LodQFromPlanes(uvPlanes, centerX, centerY, p.x, coveredAt);
+						} else {
+							interpolatedST(w0, w1, w2, s, t);
+						}
+						// For levels > 0, mipmapping is always based on level 0.  Simpler to scale first.
+						if (state.throughMode) {
 							s *= 1.0f / (float) (1 << state.samplerID.width0Shift);
 							t *= 1.0f / (float) (1 << state.samplerID.height0Shift);
-						} else if (uvPlanes.valid) {
-							GetTextureCoordinatesGE(uvPlanes, centerX, centerY, s, t, q);
-							if (lodUsesQ)
-								q = LodQFromPlanes(uvPlanes, centerX, centerY, p.x, coveredAt);
-						} else if (state.textureProj) {
-							// Texture coordinate interpolation must definitely be perspective-correct.
-							GetTextureCoordinatesProj(v0, v1, v2, w0, w1, w2, wsum_recip, s, t);
-						} else {
-							// Texture coordinate interpolation must definitely be perspective-correct.
-							GetTextureCoordinates(v0, v1, v2, w0, w1, w2, wsum_recip, s, t);
+						}
+
+						// Auto LOD without planes: the derivatives along x and y, from the pixel to the right and the
+						// one below.
+						float ds = 0.0f, dt = 0.0f;
+						if (!uvPlanes.valid && state.TexLevelMode() == GE_TEXLEVEL_MODE_AUTO) {
+							Vec4<float> sb, tb;
+							interpolatedST(e0.StepY(w0), e1.StepY(w1), e2.StepY(w2), sb, tb);
+							if (state.throughMode) {
+								sb *= 1.0f / (float)(1 << state.samplerID.width0Shift);
+								tb *= 1.0f / (float)(1 << state.samplerID.height0Shift);
+							}
+							ds = std::max(std::abs(s[1] - s[0]), std::abs(sb[0] - s[0]));
+							dt = std::max(std::abs(t[1] - t[0]), std::abs(tb[0] - t[0]));
 						}
 
 						if (state.TexLevelMode() == GE_TEXLEVEL_MODE_SLOPE && !uvPlanes.valid) {
 							const float clipw = (v0.clipw * w0.x + v1.clipw * w1.x + v2.clipw * w2.x) * wsum_recip.x;
 							q = Vec4<float>::AssignToAll(1.0f / clipw);
 						}
-						ApplyTexturing(state, prim_color, mask, s, t, q, autoGrad);
+						// A span shares its q, except for the planes' per-pixel q when it doesn't matter.
+						ApplyTexturing(state, prim_color, mask, s, t, q, ds, dt, !uvPlanes.valid || lodUsesQ, autoGrad);
 					}
 				}
 
@@ -1516,7 +1561,7 @@ void DrawTriangleSlice(
 				if (!noFog) {
 					// The 8-bit fog of each vertex through the depth plane, like Gouraud color (gpu/probe exp21).
 					for (int i = 0; i < 4; ++i)
-						fog[i] = std::clamp((int)fogPlane.At(centerX + (i & 1) * SCREEN_SCALE_FACTOR, centerY + (i >> 1) * SCREEN_SCALE_FACTOR), 0, 255);
+						fog[i] = std::clamp((int)fogPlane.At(centerX + i * SCREEN_SCALE_FACTOR, centerY), 0, 255);
 				}
 
 				PROFILE_THIS_SCOPE("draw_tri_px");
@@ -1525,8 +1570,7 @@ void DrawTriangleSlice(
 					if (mask[i] < 0) {
 						continue;
 					}
-					subp.x = p.x + (i & 1);
-					subp.y = p.y + (i / 2);
+					subp.x = p.x + i;
 
 					state.drawPixel(subp.x, subp.y, z[i], fog[i], ToVec4IntArg(prim_color[i]), pixelID);
 
@@ -1592,10 +1636,6 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 	RasterizerState state = OptimizeFlatRasterizerState(rastState, v1);
 
 	UVPlanes uvPlanes{};
-	Vec2f rowST(0.0f, 0.0f);
-	// Note: this is double the x or y movement.
-	Vec2f stx(0.0f, 0.0f);
-	Vec2f sty(0.0f, 0.0f);
 	if (state.enableTextures) {
 		// Note: texture projection is not handled here, those always turn into triangles.
 		Vec2f tc0 = v0.texturecoords.uv();
@@ -1607,43 +1647,6 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 			tc0.t() *= 1.0f / (float)(1 << state.samplerID.height0Shift);
 			tc1.t() *= 1.0f / (float)(1 << state.samplerID.height0Shift);
 		}
-
-		float diffX = (entireX2 - entireX1 + 1) / (float)SCREEN_SCALE_FACTOR;
-		float diffY = (entireY2 - entireY1 + 1) / (float)SCREEN_SCALE_FACTOR;
-		float diffS = tc1.s() - tc0.s();
-		float diffT = tc1.t() - tc0.t();
-
-		if (v0.screenpos.x < v1.screenpos.x) {
-			if (v0.screenpos.y < v1.screenpos.y) {
-				// Okay, simple, TL -> BR.  S and T move toward v1 with X and Y.
-				rowST = tc0;
-				stx = Vec2f(2.0f * diffS / diffX, 0.0f);
-				sty = Vec2f(0.0f, 2.0f * diffT / diffY);
-			} else {
-				// BL to TR, rotated.  We start at TL still.
-				// X moves T (not S) toward v1, and Y moves S away from v1.
-				rowST = Vec2f(tc1.s(), tc0.t());
-				stx = Vec2f(0.0f, 2.0f * diffT / diffX);
-				sty = Vec2f(2.0f * -diffS / diffY, 0.0f);
-			}
-		} else {
-			if (v0.screenpos.y < v1.screenpos.y) {
-				// TR to BL.  Like BL to TR, rotated.
-				// X moves T (not s) away from v1, and Y moves S toward v1.
-				rowST = Vec2f(tc0.s(), tc1.t());
-				stx = Vec2f(0.0f, 2.0f * -diffT / diffX);
-				sty = Vec2f(2.0f * diffS / diffY, 0.0f);
-			} else {
-				// BR to TL, just inverse of TL to BR.
-				rowST = Vec2f(tc1.s(), tc1.t());
-				stx = Vec2f(2.0f * -diffS / diffX, 0.0f);
-				sty = Vec2f(0.0f, 2.0f * -diffT / diffY);
-			}
-		}
-
-		// Okay, now move ST to the minX, minY position.
-		rowST += (stx / (float)(SCREEN_SCALE_FACTOR * 2)) * (minX - entireX1 + 1);
-		rowST += (sty / (float)(SCREEN_SCALE_FACTOR * 2)) * (minY - entireY1 + 1);
 
 		// The GE interpolates sprite UVs with the same planes as triangles, from three corners whose s, t and q
 		// it takes component by component from the two vertices: s from the vertex that supplies the corner's
@@ -1679,10 +1682,6 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 	// Sprite planes are built from normalized coordinates, also in through mode.
 	const float autoGrad = UVPlaneGradient(uvPlanes, state, false);
 
-	// And now what we add to spread out to 4 values.
-	const Vec4f sto4(0.0f, 0.5f * stx.s(), 0.5f * sty.s(), 0.5f * stx.s() + 0.5f * sty.s());
-	const Vec4f tto4(0.0f, 0.5f * stx.t(), 0.5f * sty.t(), 0.5f * stx.t() + 0.5f * sty.t());
-
 	ScreenCoords pprime(minX, minY, 0);
 	const Vec4<int> fog = Vec4<int>::AssignToAll(ClampFogDepth(v1.fogdepth));
 	const Vec4<int> z = Vec4<int>::AssignToAll(v1.screenpos.z);
@@ -1701,18 +1700,17 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 	std::string ztag = StringFromFormat("DisplayListRZ_%08x", state.listPC);
 #endif
 
-	for (int64_t curY = minY; curY <= maxY; curY += SCREEN_SCALE_FACTOR * 2, rowST += sty) {
+	// Spans of four pixels in a row, as triangles.
+	for (int64_t curY = minY; curY <= maxY; curY += SCREEN_SCALE_FACTOR) {
 		DrawingCoords p = TransformUnit::ScreenToDrawing(minX, curY);
 
-		int scissorY2 = curY + SCREEN_SCALE_FACTOR > maxY ? -1 : 0;
-		Vec4<int> scissor_mask = Vec4<int>(0, maxX - minX - SCREEN_SCALE_FACTOR, scissorY2, (maxX - minX - SCREEN_SCALE_FACTOR) | scissorY2);
-		Vec4<int> scissor_step = Vec4<int>(0, -(SCREEN_SCALE_FACTOR * 2), 0, -(SCREEN_SCALE_FACTOR * 2));
-		Vec2f st = rowST;
+		// Negative past the right end.
+		Vec4<int> scissor_mask = Vec4<int>::AssignToAll(maxX - minX) - Vec4<int>(0, SCREEN_SCALE_FACTOR, SCREEN_SCALE_FACTOR * 2, SCREEN_SCALE_FACTOR * 3);
+		const Vec4<int> scissor_step = Vec4<int>::AssignToAll(SCREEN_SCALE_FACTOR * 4);
 
-		for (int64_t curX = minX; curX <= maxX; curX += SCREEN_SCALE_FACTOR * 2,
-			st += stx,
-			scissor_mask += scissor_step,
-			p.x = (p.x + 2) & 0x3FF) {
+		for (int64_t curX = minX; curX <= maxX; curX += SCREEN_SCALE_FACTOR * 4,
+			scissor_mask -= scissor_step,
+			p.x = (p.x + 4) & 0x3FF) {
 			Vec4<int> mask = scissor_mask;
 
 			Vec4<int> prim_color[4];
@@ -1725,26 +1723,18 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 					if (mask[i] < 0)
 						continue;
 
-					int x = p.x + (i & 1);
-					int y = p.y + (i / 2);
-					if (!CheckDepthTestPassed(state.pixelID.DepthTestFunc(), x, y, state.pixelID.cached.depthbufStride, z[i])) {
+					if (!CheckDepthTestPassed(state.pixelID.DepthTestFunc(), p.x + i, p.y, state.pixelID.cached.depthbufStride, z[i])) {
 						mask[i] = -1;
 					}
 				}
 			}
 
 			if (state.enableTextures) {
-				Vec4<float> s, t;
-				Vec4<float> q = Vec4<float>::AssignToAll(1.0f / v1.clipw);
-				if (uvPlanes.valid) {
-					// Pixel centers are at 16k + 7 here, the GE's at 16k + 8.
-					GetTextureCoordinatesGE(uvPlanes, curX + 1, curY + 1, s, t, q);
-				} else {
-					s = Vec4<float>::AssignToAll(st.s()) + sto4;
-					t = Vec4<float>::AssignToAll(st.t()) + tto4;
-				}
-
-				ApplyTexturing(state, prim_color, mask, s, t, q, autoGrad);
+				Vec4<float> s, t, q;
+				// Pixel centers are at 16k + 7 here, the GE's at 16k + 8. A sprite always has planes, so the LOD
+				// comes from their gradient and q.
+				GetTextureCoordinatesGE(uvPlanes, curX + 1, curY + 1, s, t, q);
+				ApplyTexturing(state, prim_color, mask, s, t, q, 0.0f, 0.0f, false, autoGrad);
 			}
 
 			if (!state.pixelID.clearMode) {
@@ -1768,8 +1758,7 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 				if (mask[i] < 0) {
 					continue;
 				}
-				subp.x = p.x + (i & 1);
-				subp.y = p.y + (i / 2);
+				subp.x = p.x + i;
 
 				state.drawPixel(subp.x, subp.y, z[i], fog[i], ToVec4IntArg(prim_color[i]), state.pixelID);
 
