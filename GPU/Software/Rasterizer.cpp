@@ -1311,6 +1311,12 @@ void DrawTriangleSlice(
 		ComputeColorPlanes<3>(v0, v1, v2, v0.color1, v1.color1, v2.color1, color1Planes);
 	const Vec4<int> minz = Vec4<int>::AssignToAll(pixelID.cached.minz);
 	const Vec4<int> maxz = Vec4<int>::AssignToAll(pixelID.cached.maxz);
+#if defined(SOFTGPU_MEMORY_TAGGING_DETAILED)
+	const bool staged = false;
+#else
+	// Textures without planes take the edge weights, which only the span loop below has.
+	const bool staged = state.drawSpan && (!state.enableTextures || clearMode || uvPlanes.valid);
+#endif
 
 	// The edges as A x + B y + C + bias >= 0 at pixel centers, in 64 bits.
 	struct RowEdge {
@@ -1378,6 +1384,126 @@ void DrawTriangleSlice(
 		const int64_t firstSpan = lo & ~3;
 		const int skipX = (int)((firstSpan * SCREEN_SCALE_FACTOR - minX) / (SCREEN_SCALE_FACTOR * 4));
 		p.x = (p.x + 4 * skipX) & 0x3FF;
+
+		// The usual case, a row at a time in stages: coverage, depth and the early depth test, then colors and
+		// fog for all its pixels, then texturing and the pixels span by span. Each stage keeps little state.
+		if (staged) {
+			constexpr int CHUNK = 64;
+			alignas(16) int maskBuf[CHUNK], zBuf[CHUNK], fogBuf[CHUNK];
+			Vec4<int> colorBuf[CHUNK];
+			Vec3<int> secBuf[CHUNK];
+			int chunkX = p.x;
+			for (int64_t chunk = firstSpan; chunk <= hi; chunk += CHUNK, chunkX = (chunkX + CHUNK) & 0x3FF) {
+				const int count = (int)std::min<int64_t>(CHUNK, ((hi - chunk) / 4 + 1) * 4);
+				const int64_t centerX = chunk * SCREEN_SCALE_FACTOR + SCREEN_SCALE_FACTOR / 2;
+				// The sums of a plane along the chunk, as a walker steps them.
+				auto walk = [&](const DepthPlane &plane, auto store) {
+					int64_t v = plane.base + plane.kx * centerX + plane.ky * yc;
+					const int64_t dx = plane.kx * SCREEN_SCALE_FACTOR;
+					for (int k = 0; k < count; ++k, v += dx)
+						store(k, v >> 14);
+				};
+
+				for (int k = 0; k < count; ++k) {
+					const int64_t px = chunk + k;
+					bool inside = px >= lo && px <= hi;
+					if (inside && snapEdge >= 0) {
+						const int64_t at = snapLeft ? ((px & 3) == 0 ? (px | 3) : px) : ((px & 3) == 3 ? (px & ~3) : px);
+						inside = at >= snapLo && at <= snapHi;
+					}
+					maskBuf[k] = inside ? 0 : -1;
+				}
+				if (flatZ) {
+					for (int k = 0; k < count; ++k)
+						zBuf[k] = v2.screenpos.z;
+				} else {
+					// A value floored below 0 (next to an edge of z = 0 vertices) is 0 (gpu/probe exp148).
+					walk(depthPlane, [&](int k, int64_t v) { zBuf[k] = std::max((int)v, 0); });
+				}
+				if (pixelID.earlyZChecks) {
+					for (int k = 0; k < count; k += 4) {
+						Vec4<int> mask(maskBuf[k], maskBuf[k + 1], maskBuf[k + 2], maskBuf[k + 3]);
+						const Vec4<int> z(zBuf[k], zBuf[k + 1], zBuf[k + 2], zBuf[k + 3]);
+						if (pixelID.applyDepthRange) {
+							for (int i = 0; i < 4; ++i) {
+								if (z[i] < minz[i] || z[i] > maxz[i])
+									mask[i] = -1;
+							}
+						}
+						mask = CheckDepthTestPassed4(mask, pixelID.DepthTestFunc(), (chunkX + k) & 0x3FF, p.y, pixelID.cached.depthbufStride, z);
+						for (int i = 0; i < 4; ++i)
+							maskBuf[k + i] = mask[i];
+					}
+				}
+
+				if (!flatColor0) {
+					for (int c = 0; c < 4; ++c)
+						walk(color0Planes[c], [&](int k, int64_t v) { colorBuf[k][c] = std::clamp((int)v, 0, 255); });
+				} else {
+					for (int k = 0; k < count; ++k)
+						colorBuf[k] = v2_c0;
+				}
+				if (!flatColor1) {
+					for (int c = 0; c < 3; ++c)
+						walk(color1Planes[c], [&](int k, int64_t v) { secBuf[k][c] = std::clamp((int)v, 0, 255); });
+				} else {
+					for (int k = 0; k < count; ++k)
+						secBuf[k] = v2_c1;
+				}
+				if (DoubleSecondaryColor(state)) {
+					for (int k = 0; k < count; ++k)
+						secBuf[k] = secBuf[k] + secBuf[k];
+				}
+				if (!noFog) {
+					// The 8-bit fog of each vertex through the depth plane, like Gouraud color (gpu/probe exp21).
+					walk(fogPlane, [&](int k, int64_t v) { fogBuf[k] = std::clamp((int)v, 0, 255); });
+				} else {
+					for (int k = 0; k < count; ++k)
+						fogBuf[k] = 255;
+				}
+
+				int64_t qv = 0, sv = 0, tv = 0, qdx = 0, sdx = 0, tdx = 0;
+				if (uvPlanes.valid) {
+					qv = uvPlanes.q.base + uvPlanes.q.kx * centerX + uvPlanes.q.ky * yc;
+					sv = uvPlanes.s.base + uvPlanes.s.kx * centerX + uvPlanes.s.ky * yc;
+					tv = uvPlanes.t.base + uvPlanes.t.kx * centerX + uvPlanes.t.ky * yc;
+					qdx = uvPlanes.q.kx * SCREEN_SCALE_FACTOR;
+					sdx = uvPlanes.s.kx * SCREEN_SCALE_FACTOR;
+					tdx = uvPlanes.t.kx * SCREEN_SCALE_FACTOR;
+				}
+				for (int k = 0; k < count; k += 4, qv += 4 * qdx, sv += 4 * sdx, tv += 4 * tdx) {
+					const Vec4<int> mask(maskBuf[k], maskBuf[k + 1], maskBuf[k + 2], maskBuf[k + 3]);
+					if (!AnyMask<useSSE4>(mask))
+						continue;
+					Vec4<int> *prim_color = &colorBuf[k];
+					const int spanPX = (chunkX + k) & 0x3FF;
+					if constexpr (!clearMode) {
+						if (state.enableTextures) {
+							int64_t qs[4], ss[4], ts[4];
+							for (int i = 0; i < 4; ++i) {
+								qs[i] = (qv + i * qdx) >> 14;
+								ss[i] = (sv + i * sdx) >> 14;
+								ts[i] = (tv + i * tdx) >> 14;
+							}
+							Vec4<float> s, t, q;
+							GetTextureCoordinatesGE(uvPlanes, qs, ss, ts, s, t, q);
+							if (lodUsesQ && !state.throughMode)
+								q = LodQFromPlanes(uvPlanes, [&](int i) { return (qv + i * qdx) >> 14; }, spanPX, coverLo, coverHi);
+							// For levels > 0, mipmapping is always based on level 0.  Simpler to scale first.
+							if (state.throughMode) {
+								s *= 1.0f / (float)(1 << state.samplerID.width0Shift);
+								t *= 1.0f / (float)(1 << state.samplerID.height0Shift);
+							}
+							ApplyTexturing(state, prim_color, mask, s, t, q, 0.0f, 0.0f, lodUsesQ, autoGrad);
+						}
+						for (int i = 0; i < 4; ++i)
+							prim_color[i] += Vec4<int>(secBuf[k + i], 0);
+					}
+					state.drawSpan(spanPX, p.y, &maskBuf[k], &zBuf[k], &fogBuf[k], prim_color, pixelID);
+				}
+			}
+			continue;
+		}
 
 		// The planes from the first span on.
 		const int64_t firstCenterX = firstSpan * SCREEN_SCALE_FACTOR + SCREEN_SCALE_FACTOR / 2;
