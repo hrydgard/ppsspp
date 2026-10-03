@@ -852,10 +852,8 @@ static inline Vec4<int> SOFTRAST_CALL CheckDepthTestPassed4(const Vec4<int> &mas
 template <bool useSSE4>
 struct TriangleEdge {
 	Vec4<int> Start(const ScreenCoords &v0, const ScreenCoords &v1, const ScreenCoords &origin);
-	inline Vec4<int> StepX(const Vec4<int> &w);
 	inline Vec4<int> StepY(const Vec4<int> &w);
 
-	inline void NarrowMinMaxX(const Vec4<int> &w, int64_t minX, int64_t &rowMinX, int64_t &rowMaxX);
 	inline Vec4<int> StepXTimes(const Vec4<int> &w, int c);
 
 	Vec4<int> stepX;
@@ -897,17 +895,6 @@ Vec4<int> TriangleEdge<useSSE4>::Start(const ScreenCoords &v0, const ScreenCoord
 }
 
 template <bool useSSE4>
-inline Vec4<int> TriangleEdge<useSSE4>::StepX(const Vec4<int> &w) {
-#if defined(_M_SSE) && !PPSSPP_ARCH(X86)
-	return _mm_add_epi32(w.ivec, stepX.ivec);
-#elif PPSSPP_ARCH(ARM64_NEON)
-	return vaddq_s32(w.ivec, stepX.ivec);
-#else
-	return w + stepX;
-#endif
-}
-
-template <bool useSSE4>
 inline Vec4<int> TriangleEdge<useSSE4>::StepY(const Vec4<int> &w) {
 #if defined(_M_SSE) && !PPSSPP_ARCH(X86)
 	return _mm_add_epi32(w.ivec, stepY.ivec);
@@ -916,47 +903,6 @@ inline Vec4<int> TriangleEdge<useSSE4>::StepY(const Vec4<int> &w) {
 #else
 	return w + stepY;
 #endif
-}
-
-#if defined(_M_SSE) && !PPSSPP_ARCH(X86)
-#if defined(__GNUC__) || defined(__clang__) || defined(__INTEL_COMPILER)
-[[gnu::target("sse4.1")]]
-#endif
-static inline int SOFTRAST_CALL MaxWeightSSE4(__m128i w) {
-	__m128i max2 = _mm_max_epi32(w, _mm_shuffle_epi32(w, _MM_SHUFFLE(3, 2, 3, 2)));
-	__m128i max1 = _mm_max_epi32(max2, _mm_shuffle_epi32(max2, _MM_SHUFFLE(1, 1, 1, 1)));
-	return _mm_cvtsi128_si32(max1);
-}
-#endif
-
-template <bool useSSE4>
-void TriangleEdge<useSSE4>::NarrowMinMaxX(const Vec4<int> &w, int64_t minX, int64_t &rowMinX, int64_t &rowMaxX) {
-	int wmax;
-#if defined(_M_SSE) && !PPSSPP_ARCH(X86)
-	if constexpr (useSSE4) {
-		wmax = MaxWeightSSE4(w.ivec);
-	} else {
-		wmax = std::max(std::max(w.x, w.y), std::max(w.z, w.w));
-	}
-#elif PPSSPP_ARCH(ARM64_NEON)
-	int32x2_t wmax_temp = vpmax_s32(vget_low_s32(w.ivec), vget_high_s32(w.ivec));
-	wmax = vget_lane_s32(vpmax_s32(wmax_temp, wmax_temp), 0);
-#else
-	wmax = std::max(std::max(w.x, w.y), std::max(w.z, w.w));
-#endif
-	if (wmax < 0) {
-		if (stepX.x > 0) {
-			int steps = -wmax / stepX.x;
-			rowMinX = std::max(rowMinX, minX + steps * SCREEN_SCALE_FACTOR * 4);
-		} else if (stepX.x <= 0) {
-			rowMinX = rowMaxX + 1;
-		}
-	}
-
-	if (wmax >= 0 && stepX.x < 0) {
-		int steps = (-wmax / stepX.x) + 1;
-		rowMaxX = std::min(rowMaxX, minX + steps * SCREEN_SCALE_FACTOR * 4);
-	}
 }
 
 #if defined(_M_SSE) && !PPSSPP_ARCH(X86)
@@ -977,24 +923,6 @@ inline Vec4<int> TriangleEdge<useSSE4>::StepXTimes(const Vec4<int> &w, int c) {
 	return vaddq_s32(w.ivec, vmulq_s32(vdupq_n_s32(c), stepX.ivec));
 #endif
 	return w + stepX * c;
-}
-
-static inline Vec4<int> MakeMask(const Vec4<int> &w0, const Vec4<int> &w1, const Vec4<int> &w2, const Vec4<int> &bias0, const Vec4<int> &bias1, const Vec4<int> &bias2, const Vec4<int> &scissor) {
-#if defined(_M_SSE) && !PPSSPP_ARCH(X86)
-	__m128i biased0 = _mm_add_epi32(w0.ivec, bias0.ivec);
-	__m128i biased1 = _mm_add_epi32(w1.ivec, bias1.ivec);
-	__m128i biased2 = _mm_add_epi32(w2.ivec, bias2.ivec);
-
-	return _mm_or_si128(_mm_or_si128(biased0, _mm_or_si128(biased1, biased2)), scissor.ivec);
-#elif PPSSPP_ARCH(ARM64_NEON)
-	int32x4_t biased0 = vaddq_s32(w0.ivec, bias0.ivec);
-	int32x4_t biased1 = vaddq_s32(w1.ivec, bias1.ivec);
-	int32x4_t biased2 = vaddq_s32(w2.ivec, bias2.ivec);
-
-	return vorrq_s32(vorrq_s32(biased0, vorrq_s32(biased1, biased2)), scissor.ivec);
-#else
-	return (w0 + bias0) | (w1 + bias1) | (w2 + bias2) | scissor;
-#endif
 }
 
 #if defined(_M_SSE) && !PPSSPP_ARCH(X86)
@@ -1212,21 +1140,17 @@ static float UVPlaneGradient(const UVPlanes &planes, const RasterizerState &stat
 // second pixel in the direction it walks the row, or when that one is outside the triangle, at the
 // span's first pixel inside. Left to right that's x = 4k + 1; right to left (when the long edge is the
 // right side, as for the plane anchor) 4k + 2 (gpu/probe exp93, exp103-106). quadX is the first of four
-// pixels in a row in drawing coordinates, centerX/Y its center in screen subpixels, and covered(x, y) the
-// triangle's coverage there.
-template <typename Covered>
-static inline Vec4<float> LodQFromPlanes(const UVPlanes &planes, int64_t centerX, int64_t centerY, int quadX, const Covered &covered) {
+// pixels in a row in drawing coordinates, centerX/Y its center in screen subpixels, and the triangle covers
+// the row's pixels coverLo to coverHi.
+static inline Vec4<float> LodQFromPlanes(const UVPlanes &planes, int64_t centerX, int64_t centerY, int quadX, int64_t coverLo, int64_t coverHi) {
 	const bool rtl = planes.q.rightAnchored;
 	auto spanQ = [&](int spanX, int64_t y) {
-		int pick = spanX + (rtl ? 2 : 1);
-		if (!covered(centerX + (pick - quadX) * SCREEN_SCALE_FACTOR, y)) {
-			for (int j = 0; j < 4; ++j) {
-				const int c = rtl ? spanX + 3 - j : spanX + j;
-				if (covered(centerX + (c - quadX) * SCREEN_SCALE_FACTOR, y)) {
-					pick = c;
-					break;
-				}
-			}
+		int64_t pick = spanX + (rtl ? 2 : 1);
+		if (pick < coverLo || pick > coverHi) {
+			// The first pixel inside, in the direction the row is walked.
+			const int64_t first = rtl ? std::min<int64_t>(spanX + 3, coverHi) : std::max<int64_t>(spanX, coverLo);
+			if (first >= std::max<int64_t>(spanX, coverLo) && first <= std::min<int64_t>(spanX + 3, coverHi))
+				pick = first;
 		}
 		const int64_t x = centerX + (pick - quadX) * SCREEN_SCALE_FACTOR;
 		return TruncateToFloat24((float)((double)planes.q.At(x, y) * planes.scaleQ));
@@ -1292,14 +1216,8 @@ void DrawTriangleSlice(
 	int64_t minX = x1 & ~(SCREEN_SCALE_FACTOR * 4 - 1), maxX = x2, minY = y1, maxY = y2;
 
 	ScreenCoords pprime(minX, minY, 0);
-	// Coverage of any pixel center, for picking the mip level's q (LodQFromPlanes), when it matters.
+	// Whether the mip level's q matters (LodQFromPlanes).
 	const bool lodUsesQ = state.TexLevelMode() != GE_TEXLEVEL_MODE_CONST && (state.maxTexLevel > 0 || state.minFilt != state.magFilt);
-	auto edgeAt = [](const ScreenCoords &a, const ScreenCoords &b, int64_t x, int64_t y) {
-		return (int64_t)(a.y - b.y) * x + (int64_t)(b.x - a.x) * y + ((int64_t)b.y * a.x - (int64_t)b.x * a.y);
-	};
-	auto coveredAt = [&](int64_t x, int64_t y) {
-		return edgeAt(v1.screenpos, v2.screenpos, x, y) + bias0[0] >= 0 && edgeAt(v2.screenpos, v0.screenpos, x, y) + bias1[0] >= 0 && edgeAt(v0.screenpos, v1.screenpos, x, y) + bias2[0] >= 0;
-	};
 	// A very tall triangle's long edge (top to bottom vertex): when 3 dy > 2^17 (in subpixels), the first pixel
 	// of each 4-pixel span (for a left edge, the last for a right edge) is inside it when any of the span is
 	// (gpu/probe exp131-135).
@@ -1324,13 +1242,6 @@ void DrawTriangleSlice(
 			snapLeft = (int64_t)(vs[third]->screenpos.x - vs[top]->screenpos.x) * dy > ex;
 		}
 	}
-	auto edgeK = [&](int k, int64_t x, int64_t y) {
-		switch (k) {
-		case 0: return edgeAt(v1.screenpos, v2.screenpos, x, y) + bias0[0];
-		case 1: return edgeAt(v2.screenpos, v0.screenpos, x, y) + bias1[0];
-		default: return edgeAt(v0.screenpos, v1.screenpos, x, y) + bias2[0];
-		}
-	};
 
 	Vec4<int> w0_base = e0.Start(v1.screenpos, v2.screenpos, pprime);
 	Vec4<int> w1_base = e1.Start(v2.screenpos, v0.screenpos, pprime);
@@ -1380,60 +1291,84 @@ void DrawTriangleSlice(
 	const Vec4<int> minz = Vec4<int>::AssignToAll(pixelID.cached.minz);
 	const Vec4<int> maxz = Vec4<int>::AssignToAll(pixelID.cached.maxz);
 
+	// The edges as A x + B y + C + bias >= 0 at pixel centers, in 64 bits.
+	struct RowEdge {
+		int64_t a, b, c;
+	};
+	const ScreenCoords *edgeEnds[3][2] = { { &v1.screenpos, &v2.screenpos }, { &v2.screenpos, &v0.screenpos }, { &v0.screenpos, &v1.screenpos } };
+	const int biases[3] = { bias0[0], bias1[0], bias2[0] };
+	RowEdge edges[3];
+	for (int k = 0; k < 3; ++k) {
+		const ScreenCoords &a = *edgeEnds[k][0], &b = *edgeEnds[k][1];
+		edges[k] = { (int64_t)(a.y - b.y), (int64_t)(b.x - a.x), (int64_t)b.y * a.x - (int64_t)b.x * a.y + biases[k] };
+	}
+	auto floorDiv = [](int64_t n, int64_t m) {
+		return n >= 0 ? n / m : -((-n + m - 1) / m);
+	};
+	// An edge's pixels in a row (x centers 16 px + 8): px from lo up, or up to hi, or all or none.
+	auto edgeBounds = [&](const RowEdge &edge, int64_t yc, int64_t &lo, int64_t &hi) {
+		const int64_t rest = edge.b * yc + edge.c;
+		if (edge.a > 0) {
+			// x >= -rest / a, so px >= (x - 8) / 16.
+			const int64_t x = -floorDiv(rest, edge.a);
+			lo = std::max(lo, -floorDiv(SCREEN_SCALE_FACTOR / 2 - x, SCREEN_SCALE_FACTOR));
+		} else if (edge.a < 0) {
+			const int64_t x = floorDiv(rest, -edge.a);
+			hi = std::min(hi, floorDiv(x - SCREEN_SCALE_FACTOR / 2, SCREEN_SCALE_FACTOR));
+		} else if (rest < 0) {
+			lo = INT64_MAX / 2;
+		}
+	};
+	// The scissor's pixels.
+	const int64_t scissorLo = -floorDiv(-(int64_t)x1, SCREEN_SCALE_FACTOR), scissorHi = floorDiv(x2, SCREEN_SCALE_FACTOR);
+
 	for (int64_t curY = minY; curY <= maxY; curY += SCREEN_SCALE_FACTOR,
 										w0_base = e0.StepY(w0_base),
 										w1_base = e1.StepY(w1_base),
 										w2_base = e2.StepY(w2_base)) {
-		Vec4<int> w0 = w0_base;
-		Vec4<int> w1 = w1_base;
-		Vec4<int> w2 = w2_base;
+		const int64_t yc = curY + SCREEN_SCALE_FACTOR / 2;
+		// The triangle's pixels in this row (lo to hi), and those drawn, within the scissor. A snapping edge
+		// is checked per pixel, the rest by bounds.
+		int64_t coverLo = INT64_MIN / 2, coverHi = INT64_MAX / 2;
+		for (int k = 0; k < 3; ++k)
+			edgeBounds(edges[k], yc, coverLo, coverHi);
+		int64_t lo = scissorLo, hi = scissorHi;
+		for (int k = 0; k < 3; ++k) {
+			if (k != snapEdge)
+				edgeBounds(edges[k], yc, lo, hi);
+		}
+		int64_t snapLo = INT64_MIN / 2, snapHi = INT64_MAX / 2;
+		if (snapEdge >= 0) {
+			edgeBounds(edges[snapEdge], yc, snapLo, snapHi);
+			// The span's first pixel (left edge) or last (right edge) is checked at the span's other end.
+			int64_t walkLo = lo, walkHi = hi;
+			walkLo = std::max(walkLo, snapLo - 3);
+			walkHi = std::min(walkHi, snapHi + 3);
+			lo = std::max(lo, walkLo);
+			hi = std::min(hi, walkHi);
+		} else {
+			lo = std::max(lo, coverLo);
+			hi = std::min(hi, coverHi);
+		}
+		if (lo > hi)
+			continue;
 
 		DrawingCoords p = TransformUnit::ScreenToDrawing(minX, curY);
-
-		int64_t rowMinX = minX, rowMaxX = maxX;
-		// A snapping edge can light pixels up to three past it.
-		if (snapEdge != 0)
-			e0.NarrowMinMaxX(w0, minX, rowMinX, rowMaxX);
-		if (snapEdge != 1)
-			e1.NarrowMinMaxX(w1, minX, rowMinX, rowMaxX);
-		if (snapEdge != 2)
-			e2.NarrowMinMaxX(w2, minX, rowMinX, rowMaxX);
-
-		int skipX = (rowMinX - minX) / (SCREEN_SCALE_FACTOR * 4);
-		w0 = e0.StepXTimes(w0, skipX);
-		w1 = e1.StepXTimes(w1, skipX);
-		w2 = e2.StepXTimes(w2, skipX);
+		const int64_t firstSpan = lo & ~3;
+		const int skipX = (int)((firstSpan * SCREEN_SCALE_FACTOR - minX) / (SCREEN_SCALE_FACTOR * 4));
 		p.x = (p.x + 4 * skipX) & 0x3FF;
 
-		// Negative for pixels left of x1 or right of x2.
-		Vec4<int> scissorLeft = Vec4<int>::AssignToAll((int)(rowMinX - x1)) + Vec4<int>(0, SCREEN_SCALE_FACTOR, SCREEN_SCALE_FACTOR * 2, SCREEN_SCALE_FACTOR * 3);
-		Vec4<int> scissorRight = Vec4<int>::AssignToAll((int)(x2 - rowMinX)) - Vec4<int>(0, SCREEN_SCALE_FACTOR, SCREEN_SCALE_FACTOR * 2, SCREEN_SCALE_FACTOR * 3);
-		const Vec4<int> scissorStep = Vec4<int>::AssignToAll(SCREEN_SCALE_FACTOR * 4);
-
-		for (int64_t curX = rowMinX; curX <= rowMaxX; curX += SCREEN_SCALE_FACTOR * 4,
-			w0 = e0.StepX(w0),
-			w1 = e1.StepX(w1),
-			w2 = e2.StepX(w2),
-			scissorLeft = scissorLeft + scissorStep,
-			scissorRight = scissorRight - scissorStep,
-			p.x = (p.x + 4) & 0x3FF) {
-			const Vec4<int> scissor_mask = scissorLeft | scissorRight;
-
-			// If p is on or inside all edges, render pixel
-			Vec4<int> mask = MakeMask(w0, w1, w2, bias0, bias1, bias2, scissor_mask);
-			if (snapEdge >= 0) {
-				for (int i = 0; i < 4; ++i) {
-					const int64_t x = curX + SCREEN_SCALE_FACTOR / 2 + i * SCREEN_SCALE_FACTOR;
-					const int64_t y = curY + SCREEN_SCALE_FACTOR / 2;
-					const int px = p.x + i;
-					// Only the span's first pixel (left edge) or last (right edge) takes the edge at the other end.
-					const int spanX = snapLeft ? ((px & 3) == 0 ? (px | 3) : px) : ((px & 3) == 3 ? (px & ~3) : px);
-					const int64_t xs = x + (int64_t)(spanX - px) * SCREEN_SCALE_FACTOR;
-					bool inside = true;
-					for (int k = 0; k < 3; ++k)
-						inside = inside && edgeK(k, k == snapEdge ? xs : x, y) >= 0;
-					mask[i] = (inside ? 0 : -1) | scissor_mask[i];
+		for (int64_t spanX = firstSpan; spanX <= hi; spanX += 4, p.x = (p.x + 4) & 0x3FF) {
+			const int64_t curX = spanX * SCREEN_SCALE_FACTOR;
+			Vec4<int> mask;
+			for (int i = 0; i < 4; ++i) {
+				const int64_t px = spanX + i;
+				bool inside = px >= lo && px <= hi;
+				if (inside && snapEdge >= 0) {
+					const int64_t at = snapLeft ? ((px & 3) == 0 ? (px | 3) : px) : ((px & 3) == 3 ? (px & ~3) : px);
+					inside = at >= snapLo && at <= snapHi;
 				}
+				mask[i] = inside ? 0 : -1;
 			}
 			if (AnyMask<useSSE4>(mask)) {
 				Vec4<int> z;
@@ -1500,6 +1435,13 @@ void DrawTriangleSlice(
 						Vec4<float> s, t;
 						Vec4<float> q = Vec4<float>::AssignToAll(1.0f);
 						// Without planes, from the edge weights (of these pixels, or the row below).
+						Vec4<int> w0, w1, w2;
+						if (!uvPlanes.valid) {
+							const int steps = (int)((curX - minX) / (SCREEN_SCALE_FACTOR * 4));
+							w0 = e0.StepXTimes(w0_base, steps);
+							w1 = e1.StepXTimes(w1_base, steps);
+							w2 = e2.StepXTimes(w2_base, steps);
+						}
 						auto interpolatedST = [&](const Vec4<int> &a, const Vec4<int> &b, const Vec4<int> &c, Vec4<float> &os, Vec4<float> &ot) {
 							if (state.throughMode) {
 								os = Interpolate(v0.texturecoords.s(), v1.texturecoords.s(), v2.texturecoords.s(), a, b, c, wsum_recip);
@@ -1514,7 +1456,7 @@ void DrawTriangleSlice(
 						if (uvPlanes.valid) {
 							GetTextureCoordinatesGE(uvPlanes, centerX, centerY, s, t, q);
 							if (lodUsesQ && !state.throughMode)
-								q = LodQFromPlanes(uvPlanes, centerX, centerY, p.x, coveredAt);
+								q = LodQFromPlanes(uvPlanes, centerX, centerY, p.x, coverLo, coverHi);
 						} else {
 							interpolatedST(w0, w1, w2, s, t);
 						}
