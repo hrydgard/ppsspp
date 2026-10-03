@@ -163,10 +163,17 @@ void SamplerJitCache::Flush() {
 	compileQueue_.clear();
 }
 
+// Without a backend nothing ever compiles, and a lookup would flush the binner for nothing.
+#if PPSSPP_ARCH(AMD64) && !PPSSPP_PLATFORM(UWP)
+static constexpr bool HAS_SAMPLER_JIT = true;
+#else
+static constexpr bool HAS_SAMPLER_JIT = false;
+#endif
+
 // A texture level whose address isn't valid has no pointer, and the generic samplers read its texels as zero
 // (then apply the texture function). The JIT leaves those to them.
 static bool CanJit(const SamplerID &id) {
-	return g_Config.bSoftwareRenderingJit && !id.hasInvalidPtr;
+	return HAS_SAMPLER_JIT && g_Config.bSoftwareRenderingJit && !id.hasInvalidPtr;
 }
 
 NearestFunc SamplerJitCache::GetByID(const SamplerID &id, size_t key, BinManager *binner) {

@@ -887,8 +887,15 @@ void PixelJitCache::Flush() {
 	compileQueue_.clear();
 }
 
+// Without a backend nothing ever compiles, and a lookup would flush the binner for nothing.
+#if PPSSPP_ARCH(AMD64) && !PPSSPP_PLATFORM(UWP)
+static constexpr bool HAS_PIXEL_JIT = true;
+#else
+static constexpr bool HAS_PIXEL_JIT = false;
+#endif
+
 SingleFunc PixelJitCache::GetSingle(const PixelFuncID &id, BinManager *binner) {
-	if (!g_Config.bSoftwareRenderingJit)
+	if (!HAS_PIXEL_JIT || !g_Config.bSoftwareRenderingJit)
 		return nullptr;
 
 	const size_t key = std::hash<PixelFuncID>()(id);
