@@ -347,7 +347,8 @@ static void ProcessSIMD(VertexData &vertex, Vec4F32 modelpos, Vec4F32 worldnorma
 			}
 		}
 
-		if (lstate.diffuse && diffuse_factor > 0.0f) {
+		// Branchless on the factor, whose sign varies from vertex to vertex: one that isn't positive scales to 0.
+		if (lstate.diffuse) {
 			Vec4<int> mdc = state.colorForDiffuse ? colorFactor : state.material.diffuseColorFactor;
 			Vec4<int> ldiffuse = GELightColorScale(GELightColorProduct(lstate.diffuseColorFactor, mdc), diffuse_factor);
 			ldiffuse = scaleAttSpot(ldiffuse);
