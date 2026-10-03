@@ -1040,14 +1040,6 @@ static void ComputeColorPlanes(const VertexData &v0, const VertexData &v1, const
 	}
 }
 
-template <int channels>
-static Vec4<int> ColorFromPlanes(const DepthPlane *planes, int64_t x, int64_t y) {
-	Vec4<int> c(0, 0, 0, 0);
-	for (int i = 0; i < channels; ++i)
-		c[i] = std::clamp((int)planes[i].At(x, y), 0, 255);
-	return c;
-}
-
 // Perspective texture coordinates as the GE interpolates them (gpu/probe exp55-56, bit exact at 1/16
 // texel): per vertex q = 1/w with the GE's reciprocal and s = u * q, as float24s. s, t and q each become
 // 15-bit integers at the largest exponent of the three vertices, go through the same plane as depth,
@@ -1140,11 +1132,12 @@ static float UVPlaneGradient(const UVPlanes &planes, const RasterizerState &stat
 // second pixel in the direction it walks the row, or when that one is outside the triangle, at the
 // span's first pixel inside. Left to right that's x = 4k + 1; right to left (when the long edge is the
 // right side, as for the plane anchor) 4k + 2 (gpu/probe exp93, exp103-106). quadX is the first of four
-// pixels in a row in drawing coordinates, centerX/Y its center in screen subpixels, and the triangle covers
+// pixels in a row in drawing coordinates, qAt(i) the q plane's value i pixels on, and the triangle covers
 // the row's pixels coverLo to coverHi.
-static inline Vec4<float> LodQFromPlanes(const UVPlanes &planes, int64_t centerX, int64_t centerY, int quadX, int64_t coverLo, int64_t coverHi) {
+template <typename QAt>
+static inline Vec4<float> LodQFromPlanes(const UVPlanes &planes, const QAt &qAt, int quadX, int64_t coverLo, int64_t coverHi) {
 	const bool rtl = planes.q.rightAnchored;
-	auto spanQ = [&](int spanX, int64_t y) {
+	auto spanQ = [&](int spanX) {
 		int64_t pick = spanX + (rtl ? 2 : 1);
 		if (pick < coverLo || pick > coverHi) {
 			// The first pixel inside, in the direction the row is walked.
@@ -1152,14 +1145,13 @@ static inline Vec4<float> LodQFromPlanes(const UVPlanes &planes, int64_t centerX
 			if (first >= std::max<int64_t>(spanX, coverLo) && first <= std::min<int64_t>(spanX + 3, coverHi))
 				pick = first;
 		}
-		const int64_t x = centerX + (pick - quadX) * SCREEN_SCALE_FACTOR;
-		return TruncateToFloat24((float)((double)planes.q.At(x, y) * planes.scaleQ));
+		return TruncateToFloat24((float)((double)qAt((int)(pick - quadX)) * planes.scaleQ));
 	};
 	// A span of four pixels in a row: one q per span they're in.
 	Vec4<float> q;
-	q[0] = spanQ(quadX & ~3, centerY);
+	q[0] = spanQ(quadX & ~3);
 	for (int i = 1; i < 4; ++i)
-		q[i] = ((quadX + i) & 3) == 0 ? spanQ(quadX + i, centerY) : q[i - 1];
+		q[i] = ((quadX + i) & 3) == 0 ? spanQ(quadX + i) : q[i - 1];
 	return q;
 }
 
@@ -1174,12 +1166,30 @@ static inline void PlaneSpan(const DepthPlane &plane, int64_t centerX, int64_t c
 	out[3] = (v + 3 * dx) >> 14;
 }
 
-// For four pixels in a row.
-static inline void GetTextureCoordinatesGE(const UVPlanes &planes, int64_t centerX, int64_t centerY, Vec4<float> &s, Vec4<float> &t, Vec4<float> &qOut) {
-	int64_t qs[4], ss[4], ts[4];
-	PlaneSpan(planes.q, centerX, centerY, qs);
-	PlaneSpan(planes.s, centerX, centerY, ss);
-	PlaneSpan(planes.t, centerX, centerY, ts);
+// A plane along a row of spans: its sum (the value << 14) at the span's first pixel center, stepped a span
+// at a time.
+struct PlaneWalk {
+	int64_t v = 0;
+	int64_t dx = 0;
+
+	void Start(const DepthPlane &plane, int64_t centerX, int64_t centerY) {
+		v = plane.base + plane.kx * centerX + plane.ky * centerY;
+		dx = plane.kx * SCREEN_SCALE_FACTOR;
+	}
+	int64_t At(int i) const {
+		return (v + i * dx) >> 14;
+	}
+	void Span(int64_t out[4]) const {
+		for (int i = 0; i < 4; ++i)
+			out[i] = At(i);
+	}
+	void Next() {
+		v += 4 * dx;
+	}
+};
+
+// From the planes' values at four pixels.
+static inline void GetTextureCoordinatesGE(const UVPlanes &planes, const int64_t qs[4], const int64_t ss[4], const int64_t ts[4], Vec4<float> &s, Vec4<float> &t, Vec4<float> &qOut) {
 	if (GEUVSpan(qs, ss, ts, planes.expQ, planes.expS, planes.expT, s.AsArray(), t.AsArray(), qOut.AsArray()))
 		return;
 	for (int i = 0; i < 4; ++i) {
@@ -1194,6 +1204,15 @@ static inline void GetTextureCoordinatesGE(const UVPlanes &planes, int64_t cente
 		s[i] = GEUVProduct((double)TruncateToFloat24((float)((double)ss[i] * planes.scaleS)) * r);
 		t[i] = GEUVProduct((double)TruncateToFloat24((float)((double)ts[i] * planes.scaleT)) * r);
 	}
+}
+
+// For four pixels in a row.
+static inline void GetTextureCoordinatesGE(const UVPlanes &planes, int64_t centerX, int64_t centerY, Vec4<float> &s, Vec4<float> &t, Vec4<float> &qOut) {
+	int64_t qs[4], ss[4], ts[4];
+	PlaneSpan(planes.q, centerX, centerY, qs);
+	PlaneSpan(planes.s, centerX, centerY, ss);
+	PlaneSpan(planes.t, centerX, centerY, ts);
+	GetTextureCoordinatesGE(planes, qs, ss, ts, s, t, qOut);
 }
 
 template <bool clearMode, bool useSSE4>
@@ -1358,7 +1377,35 @@ void DrawTriangleSlice(
 		const int skipX = (int)((firstSpan * SCREEN_SCALE_FACTOR - minX) / (SCREEN_SCALE_FACTOR * 4));
 		p.x = (p.x + 4 * skipX) & 0x3FF;
 
-		for (int64_t spanX = firstSpan; spanX <= hi; spanX += 4, p.x = (p.x + 4) & 0x3FF) {
+		// The planes from the first span on.
+		const int64_t firstCenterX = firstSpan * SCREEN_SCALE_FACTOR + SCREEN_SCALE_FACTOR / 2;
+		PlaneWalk zWalk, fogWalk, color0Walk[4], color1Walk[3], qWalk, sWalk, tWalk;
+		if (!flatZ)
+			zWalk.Start(depthPlane, firstCenterX, yc);
+		if (!noFog)
+			fogWalk.Start(fogPlane, firstCenterX, yc);
+		for (int c = 0; c < 4 && !flatColor0; ++c)
+			color0Walk[c].Start(color0Planes[c], firstCenterX, yc);
+		for (int c = 0; c < 3 && !flatColor1; ++c)
+			color1Walk[c].Start(color1Planes[c], firstCenterX, yc);
+		if (uvPlanes.valid) {
+			qWalk.Start(uvPlanes.q, firstCenterX, yc);
+			sWalk.Start(uvPlanes.s, firstCenterX, yc);
+			tWalk.Start(uvPlanes.t, firstCenterX, yc);
+		}
+		auto nextSpan = [&]() {
+			zWalk.Next();
+			fogWalk.Next();
+			for (int c = 0; c < 4; ++c)
+				color0Walk[c].Next();
+			for (int c = 0; c < 3; ++c)
+				color1Walk[c].Next();
+			qWalk.Next();
+			sWalk.Next();
+			tWalk.Next();
+		};
+
+		for (int64_t spanX = firstSpan; spanX <= hi; spanX += 4, p.x = (p.x + 4) & 0x3FF, nextSpan()) {
 			const int64_t curX = spanX * SCREEN_SCALE_FACTOR;
 			Vec4<int> mask;
 			for (int i = 0; i < 4; ++i) {
@@ -1376,9 +1423,7 @@ void DrawTriangleSlice(
 					z = Vec4<int>::AssignToAll(v2.screenpos.z);
 				} else {
 					// The GE's fixed point depth plane at the four pixel centers.
-					int64_t zs[4];
-					PlaneSpan(depthPlane, curX + SCREEN_SCALE_FACTOR / 2, curY + SCREEN_SCALE_FACTOR / 2, zs);
-					z = Vec4<int>((int)zs[0], (int)zs[1], (int)zs[2], (int)zs[3]);
+					z = Vec4<int>((int)zWalk.At(0), (int)zWalk.At(1), (int)zWalk.At(2), (int)zWalk.At(3));
 					// A value floored below 0 (next to an edge of z = 0 vertices) is 0 (gpu/probe exp148).
 					for (int i = 0; i < 4; ++i)
 						z[i] = std::max(z[i], 0);
@@ -1401,12 +1446,11 @@ void DrawTriangleSlice(
 				}
 
 				// Color interpolation is not perspective corrected on the PSP.
-				const int64_t centerX = curX + SCREEN_SCALE_FACTOR / 2, centerY = curY + SCREEN_SCALE_FACTOR / 2;
 				Vec4<int> prim_color[4];
 				if (!flatColor0) {
 					for (int i = 0; i < 4; ++i) {
 						if (mask[i] >= 0)
-							prim_color[i] = ColorFromPlanes<4>(color0Planes, centerX + i * SCREEN_SCALE_FACTOR, centerY);
+							prim_color[i] = Vec4<int>(std::clamp((int)color0Walk[0].At(i), 0, 255), std::clamp((int)color0Walk[1].At(i), 0, 255), std::clamp((int)color0Walk[2].At(i), 0, 255), std::clamp((int)color0Walk[3].At(i), 0, 255));
 					}
 				} else {
 					for (int i = 0; i < 4; ++i) {
@@ -1417,7 +1461,7 @@ void DrawTriangleSlice(
 				if (!flatColor1) {
 					for (int i = 0; i < 4; ++i) {
 						if (mask[i] >= 0)
-							sec_color[i] = ColorFromPlanes<3>(color1Planes, centerX + i * SCREEN_SCALE_FACTOR, centerY).rgb();
+							sec_color[i] = Vec3<int>(std::clamp((int)color1Walk[0].At(i), 0, 255), std::clamp((int)color1Walk[1].At(i), 0, 255), std::clamp((int)color1Walk[2].At(i), 0, 255));
 					}
 				} else {
 					for (int i = 0; i < 4; ++i) {
@@ -1454,9 +1498,13 @@ void DrawTriangleSlice(
 							}
 						};
 						if (uvPlanes.valid) {
-							GetTextureCoordinatesGE(uvPlanes, centerX, centerY, s, t, q);
+							int64_t qs[4], ss[4], ts[4];
+							qWalk.Span(qs);
+							sWalk.Span(ss);
+							tWalk.Span(ts);
+							GetTextureCoordinatesGE(uvPlanes, qs, ss, ts, s, t, q);
 							if (lodUsesQ && !state.throughMode)
-								q = LodQFromPlanes(uvPlanes, centerX, centerY, p.x, coverLo, coverHi);
+								q = LodQFromPlanes(uvPlanes, [&](int i) { return qWalk.At(i); }, p.x, coverLo, coverHi);
 						} else {
 							interpolatedST(w0, w1, w2, s, t);
 						}
@@ -1508,7 +1556,7 @@ void DrawTriangleSlice(
 				if (!noFog) {
 					// The 8-bit fog of each vertex through the depth plane, like Gouraud color (gpu/probe exp21).
 					for (int i = 0; i < 4; ++i)
-						fog[i] = std::clamp((int)fogPlane.At(centerX + i * SCREEN_SCALE_FACTOR, centerY), 0, 255);
+						fog[i] = std::clamp((int)fogWalk.At(i), 0, 255);
 				}
 
 				PROFILE_THIS_SCOPE("draw_tri_px");
