@@ -1016,6 +1016,62 @@ static inline void SampleLinearLevel4T(Vec4F32 s, Vec4F32 t, const u8 *tptr, int
 	}
 }
 
+// GetTextureFunctionOutput for four pixels, one per lane: prim and tex are R, G, B and A (all 0 to 255).
+static inline void TextureFunction4(const Vec4S32 prim[4], const Vec4S32 tex[4], const SamplerID &samplerID, Vec4S32 out[4]) {
+	const bool rgba = samplerID.useTextureAlpha;
+	const bool doubling = samplerID.useColorDoubling;
+	const Vec4S32 one = Vec4S32::Splat(1), c255 = Vec4S32::Splat(255);
+	// The alpha blended the common way: (prim + 1) * tex / 256.
+	const Vec4S32 modulatedA = rgba ? (prim[3] + one).Mul(tex[3]).Shr<8>() : prim[3];
+	switch (samplerID.TexFunc()) {
+	case GE_TEXFUNC_MODULATE:
+		for (int c = 0; c < 3; ++c)
+			out[c] = (prim[c] + one).Mul(doubling ? tex[c].Shl<1>() : tex[c]).Shr<8>();
+		out[3] = modulatedA;
+		break;
+
+	case GE_TEXFUNC_DECAL:
+		if (rgba) {
+			// Both colors are boosted here, making the alpha have more weight.
+			const Vec4S32 t = tex[3], invt = c255 - tex[3];
+			for (int c = 0; c < 3; ++c) {
+				const Vec4S32 sum = (prim[c] + one).Mul(invt) + (tex[c] + one).Mul(t);
+				out[c] = doubling ? sum.Shr<7>() : sum.Shr<8>();
+			}
+		} else {
+			for (int c = 0; c < 3; ++c)
+				out[c] = doubling ? tex[c].Shl<1>() : tex[c];
+		}
+		out[3] = prim[3];
+		break;
+
+	case GE_TEXFUNC_BLEND:
+	{
+		// Unlike the others (and even alpha), this one always rounds up.
+		const uint32_t env = samplerID.cached.texBlendColor;
+		for (int c = 0; c < 3; ++c) {
+			const Vec4S32 sum = (c255 - tex[c]).Mul(prim[c]) + tex[c].Mul(Vec4S32::Splat((env >> (8 * c)) & 0xFF)) + c255;
+			out[c] = doubling ? sum.Shr<7>() : sum.Shr<8>();
+		}
+		out[3] = modulatedA;
+		break;
+	}
+
+	case GE_TEXFUNC_REPLACE:
+		for (int c = 0; c < 3; ++c)
+			out[c] = doubling ? tex[c].Shl<1>() : tex[c];
+		out[3] = rgba ? tex[3] : prim[3];
+		break;
+
+	default:
+		// ADD and the unknown ones.
+		for (int c = 0; c < 3; ++c)
+			out[c] = doubling ? (prim[c] + tex[c]).Shl<1>() : prim[c] + tex[c];
+		out[3] = modulatedA;
+		break;
+	}
+}
+
 template <GETextureFormat fmt, bool swizzled, GEPaletteFormat clutFmt>
 static void SOFTRAST_CALL SampleLinearQuadT(const float *s, const float *t, const int *level, const int *levelFrac, int active, const u8 *const *texptr, const uint16_t *texbufw, Vec4<int> *colors, const SamplerID &samplerID) {
 	if (!active)
@@ -1038,11 +1094,25 @@ static void SOFTRAST_CALL SampleLinearQuadT(const float *s, const float *t, cons
 			for (int i = 0; i < 4; ++i)
 				c[i] = LerpSpread(c[i], c1[i], levelFrac[first]);
 		}
+		// The texture function, in lanes too.
+		alignas(16) int lanes[2][4][4];
 		for (int i = 0; i < 4; ++i) {
-			if (!(active & (1 << i)))
-				continue;
-			const Vec4<int> texcolor((int)(c[i] & 0xFFFF), (int)((c[i] >> 16) & 0xFFFF), (int)((c[i] >> 32) & 0xFFFF), (int)(c[i] >> 48));
-			colors[i] = GetTextureFunctionOutput(ToVec4IntArg(colors[i]), ToVec4IntArg(texcolor), samplerID);
+			for (int ch = 0; ch < 4; ++ch) {
+				lanes[0][ch][i] = colors[i][ch];
+				lanes[1][ch][i] = (int)((c[i] >> (16 * ch)) & 0xFFFF);
+			}
+		}
+		Vec4S32 prim[4], tex[4], out[4];
+		for (int ch = 0; ch < 4; ++ch) {
+			prim[ch] = Vec4S32::Load(lanes[0][ch]);
+			tex[ch] = Vec4S32::Load(lanes[1][ch]);
+		}
+		TextureFunction4(prim, tex, samplerID, out);
+		for (int ch = 0; ch < 4; ++ch)
+			out[ch].Store(lanes[0][ch]);
+		for (int i = 0; i < 4; ++i) {
+			if (active & (1 << i))
+				colors[i] = Vec4<int>(lanes[0][0][i], lanes[0][1][i], lanes[0][2][i], lanes[0][3][i]);
 		}
 		return;
 	}
