@@ -1211,10 +1211,23 @@ static inline Vec4<float> LodQFromPlanes(const UVPlanes &planes, int64_t centerX
 	return q;
 }
 
+// A plane's values at a quad's four pixel centers: a pixel's step adds k * 16 to the sum before the shift.
+static inline void PlaneQuad(const DepthPlane &plane, int64_t centerX, int64_t centerY, int64_t out[4]) {
+	const int64_t v = plane.base + plane.kx * centerX + plane.ky * centerY;
+	const int64_t dx = plane.kx * SCREEN_SCALE_FACTOR, dy = plane.ky * SCREEN_SCALE_FACTOR;
+	out[0] = v >> 14;
+	out[1] = (v + dx) >> 14;
+	out[2] = (v + dy) >> 14;
+	out[3] = (v + dx + dy) >> 14;
+}
+
 static inline void GetTextureCoordinatesGE(const UVPlanes &planes, int64_t centerX, int64_t centerY, Vec4<float> &s, Vec4<float> &t, Vec4<float> &qOut) {
+	int64_t qs[4], ss[4], ts[4];
+	PlaneQuad(planes.q, centerX, centerY, qs);
+	PlaneQuad(planes.s, centerX, centerY, ss);
+	PlaneQuad(planes.t, centerX, centerY, ts);
 	for (int i = 0; i < 4; ++i) {
-		const int64_t x = centerX + (i & 1) * SCREEN_SCALE_FACTOR, y = centerY + (i >> 1) * SCREEN_SCALE_FACTOR;
-		const float q = TruncateToFloat24((float)((double)planes.q.At(x, y) * planes.scaleQ));
+		const float q = TruncateToFloat24((float)((double)qs[i] * planes.scaleQ));
 		qOut[i] = q;
 		if (!(q > 0.0f)) {
 			s[i] = 0.0f;
@@ -1222,8 +1235,8 @@ static inline void GetTextureCoordinatesGE(const UVPlanes &planes, int64_t cente
 			continue;
 		}
 		const double r = GERecip(q);
-		s[i] = GEUVProduct((double)TruncateToFloat24((float)((double)planes.s.At(x, y) * planes.scaleS)) * r);
-		t[i] = GEUVProduct((double)TruncateToFloat24((float)((double)planes.t.At(x, y) * planes.scaleT)) * r);
+		s[i] = GEUVProduct((double)TruncateToFloat24((float)((double)ss[i] * planes.scaleS)) * r);
+		t[i] = GEUVProduct((double)TruncateToFloat24((float)((double)ts[i] * planes.scaleT)) * r);
 	}
 }
 

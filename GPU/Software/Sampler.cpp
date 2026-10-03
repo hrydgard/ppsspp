@@ -800,9 +800,7 @@ static inline uint64_t LerpSpread(uint64_t a, uint64_t b, int f) {
 }
 
 template <GEPaletteFormat clutFmt>
-static inline uint32_t LookupClutT(uint32_t index, int level, const SamplerID &samplerID, bool clut4) {
-	if (!samplerID.useSharedClut)
-		index += clut4 ? level * 16 : (level & 1) * 256;
+static inline uint32_t LookupClutT(uint32_t index, const SamplerID &samplerID) {
 	switch (clutFmt) {
 	case GE_CMODE_16BIT_BGR5650: return RGB565ToRGBA8888(samplerID.cached.clut16[index]);
 	case GE_CMODE_16BIT_ABGR5551: return RGBA5551ToRGBA8888(samplerID.cached.clut16[index]);
@@ -811,32 +809,54 @@ static inline uint32_t LookupClutT(uint32_t index, int level, const SamplerID &s
 	}
 }
 
-template <GETextureFormat fmt, bool swizzled, GEPaletteFormat clutFmt>
-static inline uint32_t ReadTexelT(const u8 *src, int bufw, int u, int v, int level, const SamplerID &samplerID) {
+template <GETextureFormat fmt>
+static constexpr uint32_t TexelBitsT() {
 	switch (fmt) {
-	case GE_TFMT_4444: return RGBA4444ToRGBA8888(*(const u16 *)(src + GetPixelDataOffset<16>(bufw, u, v, swizzled)));
-	case GE_TFMT_5551: return RGBA5551ToRGBA8888(*(const u16 *)(src + GetPixelDataOffset<16>(bufw, u, v, swizzled)));
-	case GE_TFMT_5650: return RGB565ToRGBA8888(*(const u16 *)(src + GetPixelDataOffset<16>(bufw, u, v, swizzled)));
-	case GE_TFMT_8888: return *(const u32 *)(src + GetPixelDataOffset<32>(bufw, u, v, swizzled));
-	case GE_TFMT_CLUT32: {
-		const u8 *p = src + GetPixelDataOffset<32>(bufw, u, v, swizzled);
-		const u32 val = p[0] + (p[1] << 8) + (p[2] << 16) + (p[3] << 24);
-		return LookupClutT<clutFmt>(TransformClutIndex(val, samplerID), 0, samplerID, false);
+	case GE_TFMT_8888: case GE_TFMT_CLUT32: return 32;
+	case GE_TFMT_CLUT8: return 8;
+	case GE_TFMT_CLUT4: return 4;
+	default: return 16;
 	}
-	case GE_TFMT_CLUT16: {
-		const u8 *p = src + GetPixelDataOffset<16>(bufw, u, v, swizzled);
-		return LookupClutT<clutFmt>(TransformClutIndex(p[0] + (p[1] << 8), samplerID), 0, samplerID, false);
+}
+
+// A texel's byte offset is the sum of one for its row and one for its column (as GetPixelDataOffset), so
+// the four texels of a bilinear sample only need two of each.
+template <uint32_t bits, bool swizzled>
+static inline uint32_t RowOffsetT(int bufw, int v) {
+	if (!swizzled)
+		return v * (bufw * bits >> 3);
+	// Blocks of 16 bytes by 8 rows.
+	return (v >> 3) * ((bufw * bits / 32) * 32) + (v & 7) * 16;
+}
+
+template <uint32_t bits, bool swizzled>
+static inline uint32_t ColumnOffsetT(int u) {
+	const uint32_t b = u * bits >> 3;
+	return swizzled ? (b >> 4) * 128 + (b & 15) : b;
+}
+
+// The texel at p (u picks the nibble of CLUT4). clutOffset is where the level's palette starts.
+template <GETextureFormat fmt, GEPaletteFormat clutFmt>
+static inline uint32_t ReadTexelT(const u8 *p, int u, uint32_t clutOffset, const SamplerID &samplerID) {
+	switch (fmt) {
+	case GE_TFMT_4444: return RGBA4444ToRGBA8888(*(const u16 *)p);
+	case GE_TFMT_5551: return RGBA5551ToRGBA8888(*(const u16 *)p);
+	case GE_TFMT_5650: return RGB565ToRGBA8888(*(const u16 *)p);
+	case GE_TFMT_8888: return *(const u32 *)p;
+	case GE_TFMT_CLUT32: return LookupClutT<clutFmt>(TransformClutIndex(p[0] + (p[1] << 8) + (p[2] << 16) + (p[3] << 24), samplerID) + clutOffset, samplerID);
+	case GE_TFMT_CLUT16: return LookupClutT<clutFmt>(TransformClutIndex(p[0] + (p[1] << 8), samplerID) + clutOffset, samplerID);
+	case GE_TFMT_CLUT8: return LookupClutT<clutFmt>(TransformClutIndex(*p, samplerID) + clutOffset, samplerID);
+	case GE_TFMT_CLUT4: return LookupClutT<clutFmt>(TransformClutIndex((u & 1) ? (*p >> 4) : (*p & 0xF), samplerID) + clutOffset, samplerID);
+	default: return 0;
 	}
-	case GE_TFMT_CLUT8:
-		return LookupClutT<clutFmt>(TransformClutIndex(src[GetPixelDataOffset<8>(bufw, u, v, swizzled)], samplerID), level, samplerID, false);
-	case GE_TFMT_CLUT4: {
-		const u8 b = src[GetPixelDataOffset<4>(bufw, u, v, swizzled)];
-		return LookupClutT<clutFmt>(TransformClutIndex((u & 1) ? (b >> 4) : (b & 0xF), samplerID), level, samplerID, true);
-	}
+}
+
+template <GETextureFormat fmt>
+static inline uint32_t ReadDXTTexelT(const u8 *src, int bufw, int u, int v) {
+	switch (fmt) {
 	case GE_TFMT_DXT1: return GetDXT1Texel((const DXT1Block *)src + (v >> 2) * (bufw >> 2) + (u >> 2), u & 3, v & 3);
 	case GE_TFMT_DXT3: return GetDXT3Texel((const DXT3Block *)src + (v >> 2) * (bufw >> 2) + (u >> 2), u & 3, v & 3);
-	case GE_TFMT_DXT5: return GetDXT5Texel((const DXT5Block *)src + (v >> 2) * (bufw >> 2) + (u >> 2), u & 3, v & 3);
-	default: return 0;
+	default: return GetDXT5Texel((const DXT5Block *)src + (v >> 2) * (bufw >> 2) + (u >> 2), u & 3, v & 3);
 	}
 }
 
@@ -863,10 +883,28 @@ static inline uint64_t SampleLinearLevelT(float s, float t, const u8 *tptr, int 
 	int u0, u1, v0, v1, fracU, fracV;
 	TexelPairT(s, samplerID.cached.sizes[level].w, samplerID.clampS, u0, u1, fracU);
 	TexelPairT(t, samplerID.cached.sizes[level].h, samplerID.clampT, v0, v1, fracV);
-	const uint64_t tl = SpreadRGBA(ReadTexelT<fmt, swizzled, clutFmt>(tptr, bufw, u0, v0, level, samplerID));
-	const uint64_t tr = SpreadRGBA(ReadTexelT<fmt, swizzled, clutFmt>(tptr, bufw, u1, v0, level, samplerID));
-	const uint64_t bl = SpreadRGBA(ReadTexelT<fmt, swizzled, clutFmt>(tptr, bufw, u0, v1, level, samplerID));
-	const uint64_t br = SpreadRGBA(ReadTexelT<fmt, swizzled, clutFmt>(tptr, bufw, u1, v1, level, samplerID));
+	uint64_t tl, tr, bl, br;
+	if constexpr (fmt == GE_TFMT_DXT1 || fmt == GE_TFMT_DXT3 || fmt == GE_TFMT_DXT5) {
+		tl = SpreadRGBA(ReadDXTTexelT<fmt>(tptr, bufw, u0, v0));
+		tr = SpreadRGBA(ReadDXTTexelT<fmt>(tptr, bufw, u1, v0));
+		bl = SpreadRGBA(ReadDXTTexelT<fmt>(tptr, bufw, u0, v1));
+		br = SpreadRGBA(ReadDXTTexelT<fmt>(tptr, bufw, u1, v1));
+	} else {
+		constexpr uint32_t bits = TexelBitsT<fmt>();
+		// Levels past the first have their own palette unless it's shared: 16 entries on for CLUT4, 256 on for
+		// CLUT8 at odd levels.
+		uint32_t clutOffset = 0;
+		if ((fmt == GE_TFMT_CLUT4 || fmt == GE_TFMT_CLUT8) && !samplerID.useSharedClut)
+			clutOffset = fmt == GE_TFMT_CLUT4 ? level * 16 : (level & 1) * 256;
+		const u8 *row0 = tptr + RowOffsetT<bits, swizzled>(bufw, v0);
+		const u8 *row1 = tptr + RowOffsetT<bits, swizzled>(bufw, v1);
+		const uint32_t col0 = ColumnOffsetT<bits, swizzled>(u0);
+		const uint32_t col1 = ColumnOffsetT<bits, swizzled>(u1);
+		tl = SpreadRGBA(ReadTexelT<fmt, clutFmt>(row0 + col0, u0, clutOffset, samplerID));
+		tr = SpreadRGBA(ReadTexelT<fmt, clutFmt>(row0 + col1, u1, clutOffset, samplerID));
+		bl = SpreadRGBA(ReadTexelT<fmt, clutFmt>(row1 + col0, u0, clutOffset, samplerID));
+		br = SpreadRGBA(ReadTexelT<fmt, clutFmt>(row1 + col1, u1, clutOffset, samplerID));
+	}
 	// Like the GE: horizontal lerps truncated to 8 bits, then the vertical one (gpu/probe exp52).
 	return LerpSpread(LerpSpread(tl, tr, fracU), LerpSpread(bl, br, fracU), fracV);
 }
