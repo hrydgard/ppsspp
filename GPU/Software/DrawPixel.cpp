@@ -104,6 +104,18 @@ static inline void SetPixelDepth(int x, int y, int stride, u16 value) {
 }
 
 // NOTE: These likely aren't endian safe
+// The depths of a span's four pixels from x.
+static inline void ReadSpanDepth(int x, int y, int stride, int out[4]) {
+	if (depthbuf.Contiguous4(x, y, stride)) {
+		const u16 *zp = depthbuf.Get16Ptr(x, y, stride);
+		for (int i = 0; i < 4; ++i)
+			out[i] = zp[i];
+	} else {
+		for (int i = 0; i < 4; ++i)
+			out[i] = depthbuf.Get16(x + i, y, stride);
+	}
+}
+
 static inline u32 GetPixelColor(GEBufferFormat fmt, int fbStride, int x, int y) {
 	switch (fmt) {
 	case GE_FORMAT_565:
@@ -805,20 +817,106 @@ void SOFTRAST_CALL DrawSinglePixel(int x, int y, int z, int fog, Vec4IntArg colo
 	DrawPixelInline<clearMode, fbFormat>(x, y, z, fog, color_in, pixelID);
 }
 
-// The pixels of a span one per vector lane, for what most states need: everything but stencil and color
-// tests, logic ops and the signed blend factors. As DrawPixelInline does it per pixel. False when the state
-// needs that instead.
+// A framebuffer pixel as stored, from its 8 bit channels, as SetPixelColor converts them.
 template <GEBufferFormat fbFormat>
+static inline Vec4S32 PackSpanColor(Vec4S32 r, Vec4S32 g, Vec4S32 b, Vec4S32 a) {
+	switch (fbFormat) {
+	case GE_FORMAT_565: return r.Shr<3>() | g.Shr<2>().Shl<5>() | b.Shr<3>().Shl<11>();
+	case GE_FORMAT_5551: return r.Shr<3>() | g.Shr<3>().Shl<5>() | b.Shr<3>().Shl<10>() | a.Shr<7>().Shl<15>();
+	case GE_FORMAT_4444: return r.Shr<4>() | g.Shr<4>().Shl<4>() | b.Shr<4>().Shl<8>() | a.Shr<4>().Shl<12>();
+	default: return r | g.Shl<8>() | b.Shl<16>() | a.Shl<24>();
+	}
+}
+
+// The 8 bit channels of a stored pixel, as GetPixelColor expands them (565 has alpha 0).
+template <GEBufferFormat fbFormat>
+static inline void UnpackSpanColor(Vec4S32 raw, Vec4S32 ch[4]) {
+	const Vec4S32 m5 = Vec4S32::Splat(0x1F), m4 = Vec4S32::Splat(0xF);
+	auto from5 = [](Vec4S32 v) { return v.Shl<3>() | v.Shr<2>(); };
+	auto from4 = [](Vec4S32 v) { return v.Shl<4>() | v; };
+	switch (fbFormat) {
+	case GE_FORMAT_565: {
+		const Vec4S32 g6 = raw.Shr<5>() & Vec4S32::Splat(0x3F);
+		ch[0] = from5(raw & m5);
+		ch[1] = g6.Shl<2>() | g6.Shr<4>();
+		ch[2] = from5(raw.Shr<11>() & m5);
+		ch[3] = Vec4S32::Zero();
+		break;
+	}
+	case GE_FORMAT_5551:
+		ch[0] = from5(raw & m5);
+		ch[1] = from5(raw.Shr<5>() & m5);
+		ch[2] = from5(raw.Shr<10>() & m5);
+		ch[3] = raw.Shl<16>().Shr<31>() & Vec4S32::Splat(0xFF);
+		break;
+	case GE_FORMAT_4444:
+		ch[0] = from4(raw & m4);
+		ch[1] = from4(raw.Shr<4>() & m4);
+		ch[2] = from4(raw.Shr<8>() & m4);
+		ch[3] = from4(raw.Shr<12>() & m4);
+		break;
+	default: {
+		const Vec4S32 m8 = Vec4S32::Splat(0xFF);
+		ch[0] = raw & m8;
+		ch[1] = raw.Shr<8>() & m8;
+		ch[2] = raw.Shr<16>() & m8;
+		ch[3] = raw.Shr<24>() & m8;
+		break;
+	}
+	}
+}
+
+// ApplyStencilOp per lane.
+template <GEBufferFormat fbFormat>
+static inline Vec4S32 SpanStencilOp(GEStencilOp op, Vec4S32 old, Vec4S32 replace) {
+	const Vec4S32 c255 = Vec4S32::Splat(255);
+	switch (op) {
+	case GE_STENCILOP_KEEP: return old;
+	case GE_STENCILOP_ZERO: return Vec4S32::Zero();
+	case GE_STENCILOP_REPLACE: return replace;
+	case GE_STENCILOP_INVERT: return old ^ c255;
+	case GE_STENCILOP_INCR:
+		switch (fbFormat) {
+		case GE_FORMAT_8888: return (old + Vec4S32::Splat(1)).Min(c255);
+		case GE_FORMAT_5551: return c255;
+		case GE_FORMAT_4444: {
+			const Vec4S32 below = old.CompareLt(Vec4S32::Splat(0xF0));
+			return old + (Vec4S32::Splat(0x10) & below);
+		}
+		default: return old;
+		}
+	case GE_STENCILOP_DECR:
+		switch (fbFormat) {
+		case GE_FORMAT_4444: {
+			const Vec4S32 above = old.CompareGt(Vec4S32::Splat(0x0F));
+			return old - (Vec4S32::Splat(0x10) & above);
+		}
+		case GE_FORMAT_5551: return Vec4S32::Zero();
+		default: return (old - Vec4S32::Splat(1)).Max(Vec4S32::Zero());
+		}
+	default: return old;
+	}
+}
+
+// The pixels of a span one per vector lane, as DrawPixelInline does them one at a time. Everything but logic
+// ops and the signed blend factors; false when the state needs those.
+template <bool clearMode, GEBufferFormat fbFormat>
 static inline bool DrawSpanVector(int x, int y, const int *maskIn, const int *zIn, const int *fogIn, const Vec4<int> *colors, const PixelFuncID &pixelID) {
-	if (pixelID.colorTest || pixelID.stencilTest || pixelID.applyLogicOp)
-		return false;
-	if (pixelID.alphaBlend && (IsSignedBlendFactor(pixelID.AlphaBlendSrc()) || IsSignedBlendFactor(pixelID.AlphaBlendDst())))
-		return false;
+	if constexpr (!clearMode) {
+		if (pixelID.applyLogicOp)
+			return false;
+		if (pixelID.alphaBlend && (IsSignedBlendFactor(pixelID.AlphaBlendSrc()) || IsSignedBlendFactor(pixelID.AlphaBlendDst())))
+			return false;
+	}
 
 	const Vec4S32 zero = Vec4S32::Zero();
 	const Vec4S32 c255 = Vec4S32::Splat(255);
+	const Vec4S32 allOnes = Vec4S32::Splat(-1);
 	auto clamp255 = [&](Vec4S32 v) {
 		return v.Max(zero).Min(c255);
+	};
+	auto select = [](Vec4S32 m, Vec4S32 a, Vec4S32 b) {
+		return (a & m) | b.AndNot(m);
 	};
 	alignas(16) int ch[4][4];
 	for (int i = 0; i < 4; ++i) {
@@ -836,62 +934,111 @@ static inline bool DrawSpanVector(int x, int y, const int *maskIn, const int *zI
 	if (pixelID.applyDepthRange && !pixelID.earlyZChecks)
 		dead = dead | z.CompareLt(Vec4S32::Splat(pixelID.cached.minz)) | z.CompareGt(Vec4S32::Splat(pixelID.cached.maxz));
 
-	auto compare = [](GEComparison func, Vec4S32 v, Vec4S32 ref) {
-		// -1 where it fails.
+	auto compare = [&](GEComparison func, Vec4S32 v, Vec4S32 ref) {
+		// -1 where v func ref fails.
 		switch (func) {
-		case GE_COMP_NEVER: return Vec4S32::Splat(-1);
-		case GE_COMP_EQUAL: return v.CompareEq(ref) ^ Vec4S32::Splat(-1);
+		case GE_COMP_NEVER: return allOnes;
+		case GE_COMP_EQUAL: return v.CompareEq(ref) ^ allOnes;
 		case GE_COMP_NOTEQUAL: return v.CompareEq(ref);
-		case GE_COMP_LESS: return v.CompareLt(ref) ^ Vec4S32::Splat(-1);
+		case GE_COMP_LESS: return v.CompareLt(ref) ^ allOnes;
 		case GE_COMP_LEQUAL: return v.CompareGt(ref);
-		case GE_COMP_GREATER: return v.CompareGt(ref) ^ Vec4S32::Splat(-1);
+		case GE_COMP_GREATER: return v.CompareGt(ref) ^ allOnes;
 		case GE_COMP_GEQUAL: return v.CompareLt(ref);
-		default: return Vec4S32::Zero();
+		default: return zero;
 		}
 	};
-	if (pixelID.AlphaTestFunc() != GE_COMP_ALWAYS) {
-		const Vec4S32 av = pixelID.hasAlphaTestMask ? a & Vec4S32::Splat(pixelID.cached.alphaTestMask) : a;
-		dead = dead | compare(pixelID.AlphaTestFunc(), av, Vec4S32::Splat(pixelID.alphaTestRef));
-	}
 
-	if (pixelID.applyFog) {
-		// Like the BLEND texfunc, always rounding up.
-		const Vec4S32 f = Vec4S32::Load(fogIn), invF = c255 - f;
-		const uint32_t fc = pixelID.cached.fogColor;
-		r = (r.Mul(f) + Vec4S32::Splat(fc & 0xFF).Mul(invF) + c255).Shr<8>();
-		g = (g.Mul(f) + Vec4S32::Splat((fc >> 8) & 0xFF).Mul(invF) + c255).Shr<8>();
-		b = (b.Mul(f) + Vec4S32::Splat((fc >> 16) & 0xFF).Mul(invF) + c255).Shr<8>();
-	}
+	if constexpr (!clearMode) {
+		if (pixelID.AlphaTestFunc() != GE_COMP_ALWAYS) {
+			const Vec4S32 av = pixelID.hasAlphaTestMask ? a & Vec4S32::Splat(pixelID.cached.alphaTestMask) : a;
+			dead = dead | compare(pixelID.AlphaTestFunc(), av, Vec4S32::Splat(pixelID.alphaTestRef));
+		}
 
-	const int depthStride = pixelID.cached.depthbufStride;
-	if (!pixelID.earlyZChecks && pixelID.DepthTestFunc() != GE_COMP_ALWAYS) {
-		alignas(16) int ref[4];
-		for (int i = 0; i < 4; ++i)
-			ref[i] = depthbuf.Get16(x + i, y, depthStride);
-		dead = dead | compare(pixelID.DepthTestFunc(), z, Vec4S32::Load(ref));
-	}
-	alignas(16) int deadLanes[4];
-	dead.Store(deadLanes);
-	if ((deadLanes[0] & deadLanes[1] & deadLanes[2] & deadLanes[3]) != 0)
-		return true;
-	if (pixelID.depthWrite) {
-		for (int i = 0; i < 4; ++i) {
-			if (!deadLanes[i])
-				depthbuf.Set16(x + i, y, depthStride, (u16)zIn[i]);
+		if (pixelID.applyFog) {
+			// Like the BLEND texfunc, always rounding up.
+			const Vec4S32 f = Vec4S32::Load(fogIn), invF = c255 - f;
+			const uint32_t fc = pixelID.cached.fogColor;
+			r = (r.Mul(f) + Vec4S32::Splat(fc & 0xFF).Mul(invF) + c255).Shr<8>();
+			g = (g.Mul(f) + Vec4S32::Splat((fc >> 8) & 0xFF).Mul(invF) + c255).Shr<8>();
+			b = (b.Mul(f) + Vec4S32::Splat((fc >> 16) & 0xFF).Mul(invF) + c255).Shr<8>();
+		}
+
+		if (pixelID.colorTest) {
+			const Vec4S32 rgb = (r | g.Shl<8>() | b.Shl<16>()) & Vec4S32::Splat(pixelID.cached.colorTestMask);
+			const Vec4S32 ref = Vec4S32::Splat(pixelID.cached.colorTestRef);
+			switch (pixelID.cached.colorTestFunc) {
+			case GE_COMP_NEVER: dead = allOnes; break;
+			case GE_COMP_EQUAL: dead = dead | (rgb.CompareEq(ref) ^ allOnes); break;
+			case GE_COMP_NOTEQUAL: dead = dead | rgb.CompareEq(ref); break;
+			default: break;
+			}
 		}
 	}
 
 	const int fbStride = pixelID.cached.framebufStride;
+	const int depthStride = pixelID.cached.depthbufStride;
 	alignas(16) int old[4];
-	for (int i = 0; i < 4; ++i)
-		old[i] = (int)GetPixelColor(fbFormat, fbStride, x + i, y);
-	const Vec4S32 oldV = Vec4S32::Load(old);
-	const Vec4S32 byteMask = Vec4S32::Splat(0xFF);
-	const Vec4S32 dr = oldV & byteMask, dg = oldV.Shr<8>() & byteMask, db = oldV.Shr<16>() & byteMask;
-	// The old alpha, which is also the stencil kept (GetPixelStencil).
-	const Vec4S32 da = oldV.Shr<24>() & byteMask;
+	if (fbFormat == GE_FORMAT_8888) {
+		memcpy(old, fb.Get32Ptr(x, y, fbStride), sizeof(old));
+	} else {
+		const u16 *p = fb.Get16Ptr(x, y, fbStride);
+		for (int i = 0; i < 4; ++i)
+			old[i] = p[i];
+	}
+	const Vec4S32 oldRaw = Vec4S32::Load(old);
+	// The old channels; the alpha is also the stencil (GetPixelStencil).
+	Vec4S32 dst[4];
+	UnpackSpanColor<fbFormat>(oldRaw, dst);
 
-	if (pixelID.alphaBlend) {
+	// Lanes that only get a new stencil (stencil or depth test failed), and the stencil written.
+	Vec4S32 stencilOnly = zero;
+	Vec4S32 stencil = clearMode ? a : dst[3];
+	if (!clearMode && pixelID.stencilTest) {
+		const Vec4S32 sv = pixelID.hasStencilTestMask ? dst[3] & Vec4S32::Splat(pixelID.cached.stencilTestMask) : dst[3];
+		const Vec4S32 replace = Vec4S32::Splat(pixelID.hasStencilTestMask ? pixelID.cached.stencilRef : pixelID.stencilTestRef);
+		// The test is ref func stencil.
+		const Vec4S32 sfail = compare(pixelID.StencilTestFunc(), Vec4S32::Splat(pixelID.stencilTestRef), sv).AndNot(dead);
+		Vec4S32 zfail = zero;
+		if (!pixelID.earlyZChecks && pixelID.DepthTestFunc() != GE_COMP_ALWAYS) {
+			alignas(16) int ref[4];
+			ReadSpanDepth(x, y, depthStride, ref);
+			zfail = compare(pixelID.DepthTestFunc(), z, Vec4S32::Load(ref)).AndNot(dead | sfail);
+		}
+		const Vec4S32 old = dst[3];
+		stencil = select(sfail, SpanStencilOp<fbFormat>(pixelID.SFail(), old, replace),
+			select(zfail, SpanStencilOp<fbFormat>(pixelID.ZFail(), old, replace), SpanStencilOp<fbFormat>(pixelID.ZPass(), old, replace)));
+		stencilOnly = sfail | zfail;
+	} else if (!clearMode && !pixelID.earlyZChecks && pixelID.DepthTestFunc() != GE_COMP_ALWAYS) {
+		alignas(16) int ref[4];
+		ReadSpanDepth(x, y, depthStride, ref);
+		dead = dead | compare(pixelID.DepthTestFunc(), z, Vec4S32::Load(ref));
+	}
+
+	alignas(16) int deadLanes[4];
+	dead.Store(deadLanes);
+	if ((deadLanes[0] & deadLanes[1] & deadLanes[2] & deadLanes[3]) != 0)
+		return true;
+	// Lanes whose color is written.
+	Vec4S32 colorDead = dead | stencilOnly;
+	alignas(16) int colorDeadLanes[4];
+	colorDead.Store(colorDeadLanes);
+
+	if (clearMode ? pixelID.DepthClear() : pixelID.depthWrite) {
+		if (depthbuf.Contiguous4(x, y, depthStride)) {
+			u16 *zp = depthbuf.Get16Ptr(x, y, depthStride);
+			for (int i = 0; i < 4; ++i) {
+				if (!colorDeadLanes[i])
+					zp[i] = (u16)zIn[i];
+			}
+		} else {
+			for (int i = 0; i < 4; ++i) {
+				if (!colorDeadLanes[i])
+					depthbuf.Set16(x + i, y, depthStride, (u16)zIn[i]);
+			}
+		}
+	}
+
+	if (!clearMode && pixelID.alphaBlend) {
 		auto factor = [&](PixelBlendFactor f, const Vec4S32 other[3], Vec4S32 srcA, Vec4S32 dstA, uint32_t fix, Vec4S32 out[3]) {
 			switch (f) {
 			case PixelBlendFactor::OTHERCOLOR: for (int c = 0; c < 3; ++c) out[c] = other[c]; break;
@@ -912,11 +1059,11 @@ static inline bool DrawSpanVector(int x, int y, const int *maskIn, const int *zI
 				break;
 			}
 		};
-		const Vec4S32 src[3] = { r, g, b }, dst[3] = { dr, dg, db };
+		const Vec4S32 src[3] = { r, g, b };
 		Vec4S32 sf[3], df[3];
 		// The source factor's "other" color is the destination's, and the other way around.
-		factor(pixelID.AlphaBlendSrc(), dst, a, da, pixelID.cached.alphaBlendSrc, sf);
-		factor(pixelID.AlphaBlendDst(), src, a, da, pixelID.cached.alphaBlendDst, df);
+		factor(pixelID.AlphaBlendSrc(), dst, a, dst[3], pixelID.cached.alphaBlendSrc, sf);
+		factor(pixelID.AlphaBlendDst(), src, a, dst[3], pixelID.cached.alphaBlendDst, df);
 		const Vec4S32 one = Vec4S32::Splat(1);
 		Vec4S32 out[3];
 		for (int c = 0; c < 3; ++c) {
@@ -946,25 +1093,58 @@ static inline bool DrawSpanVector(int x, int y, const int *maskIn, const int *zI
 		g = g + dv;
 		b = b + dv;
 	}
-	const Vec4S32 cr = clamp255(r), cg = clamp255(g), cb = clamp255(b);
-	Vec4S32 color = cr | cg.Shl<8>() | cb.Shl<16>() | da.Shl<24>();
-	alignas(16) int newColor[4];
-	color.Store(newColor);
+	r = clamp255(r);
+	g = clamp255(g);
+	b = clamp255(b);
+	if constexpr (clearMode) {
+		if (!pixelID.ColorClear()) {
+			r = dst[0];
+			g = dst[1];
+			b = dst[2];
+		}
+		if (!pixelID.StencilClear())
+			stencil = dst[3];
+	} else {
+		// Where only the stencil changes, the old color.
+		r = select(stencilOnly, dst[0], r);
+		g = select(stencilOnly, dst[1], g);
+		b = select(stencilOnly, dst[2], b);
+	}
+	Vec4S32 value = PackSpanColor<fbFormat>(r, g, b, stencil);
+	if (pixelID.applyColorWriteMask) {
+		const Vec4S32 writeMask = Vec4S32::Splat((int)pixelID.cached.colorWriteMask);
+		value = value.AndNot(writeMask) | (oldRaw & writeMask);
+	}
 
-	const uint32_t targetWriteMask = pixelID.applyColorWriteMask ? pixelID.cached.colorWriteMask : 0;
-	for (int i = 0; i < 4; ++i) {
-		if (!deadLanes[i])
-			SetPixelColor(fbFormat, fbStride, x + i, y, (u32)newColor[i], (u32)old[i], targetWriteMask);
+	alignas(16) int out[4];
+	value.Store(out);
+	// Only the drawn pixels: a span is aligned in screen coordinates, so with an offset it can reach into a
+	// tile another thread draws. And a depth buffer can overlap the colors (Wipeout's bloom).
+	const bool allLive = (deadLanes[0] | deadLanes[1] | deadLanes[2] | deadLanes[3]) == 0;
+	if (fbFormat == GE_FORMAT_8888) {
+		u32 *p = fb.Get32Ptr(x, y, fbStride);
+		if (allLive) {
+			memcpy(p, out, sizeof(out));
+		} else {
+			for (int i = 0; i < 4; ++i) {
+				if (!deadLanes[i])
+					p[i] = (u32)out[i];
+			}
+		}
+	} else {
+		u16 *p = fb.Get16Ptr(x, y, fbStride);
+		for (int i = 0; i < 4; ++i) {
+			if (!deadLanes[i])
+				p[i] = (u16)out[i];
+		}
 	}
 	return true;
 }
 
 template <bool clearMode, GEBufferFormat fbFormat>
 static void SOFTRAST_CALL DrawSpanPixels(int x, int y, const int *mask, const int *z, const int *fog, const Vec4<int> *colors, const PixelFuncID &pixelID) {
-	if constexpr (!clearMode) {
-		if (DrawSpanVector<fbFormat>(x, y, mask, z, fog, colors, pixelID))
-			return;
-	}
+	if (DrawSpanVector<clearMode, fbFormat>(x, y, mask, z, fog, colors, pixelID))
+		return;
 	for (int i = 0; i < 4; ++i) {
 		if (mask[i] >= 0)
 			DrawPixelInline<clearMode, fbFormat>(x + i, y, z[i], fog[i], ToVec4IntArg(colors[i]), pixelID);
