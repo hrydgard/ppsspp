@@ -266,6 +266,8 @@ private:
 
 	BinDirtyRange pendingWrites_[2]{};
 	std::unordered_map<uint32_t, BinDirtyRange> pendingReads_;
+	// Translated depth reads use page envelopes independently of texture read ranges.
+	BinDirtyRange pendingDepthReads_{};
 
 	bool pendingOverlap_ = false;
 	bool creatingState_ = false;

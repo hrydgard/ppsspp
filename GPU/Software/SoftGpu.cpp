@@ -18,6 +18,7 @@
 #include <set>
 
 #include "Common/System/Display.h"
+#include "Common/Serialize/Serializer.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 
 #include "GPU/GPUState.h"
@@ -54,7 +55,7 @@ constexpr int FB_HEIGHT = 272;
 
 uint8_t clut[1024];
 FormatBuffer fb;
-FormatBuffer depthbuf;
+DepthBuffer depthbuf;
 
 struct CommandInfo {
 	uint64_t flags;
@@ -397,6 +398,8 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 {
 	fb.data = Memory::GetPointerWriteOrException(0x44000000); // TODO: correct default address?
 	depthbuf.data = Memory::GetPointerWriteOrException(0x44000000); // TODO: correct default address?
+	depthbuf.baseOffset = 0;
+	depthbuf.translated = false;
 
 	memset(softgpuCmdInfo, 0, sizeof(softgpuCmdInfo));
 
@@ -435,6 +438,7 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	drawEngine_->SetGPUCommon(this);
 	drawEngine_->Init();
 	drawEngineCommon_ = drawEngine_;
+	UpdateDepthBuffer();
 
 	// Push the initial CLUT buffer in case it's all zero (we push only on change.)
 	drawEngine_->transformUnit.NotifyClutUpdate(clut);
@@ -1087,10 +1091,36 @@ void SoftGPU::Execute_ZbufPtr(u32 op, u32 diff) {
 	// We assume depthbuf.data won't change while we're drawing.
 	if (diff) {
 		drawEngine_->transformUnit.Flush(this, "depthbuf");
-		// For the pointer, ignore memory mirrors.  This also gives some buffer for draws that go outside.
-		// TODO: Confirm how wrapping is handled in drawing.  Adjust if we ever handle VRAM mirrors more accurately.
-		depthbuf.data = Memory::GetPointerWriteOrException(gstate.getDepthBufAddress() & 0x041FFFF0);
+		UpdateDepthBuffer();
 	}
+}
+
+void SoftGPU::UpdateDepthBuffer() {
+	// Call with no pending draws, since both generic and generated pixel functions share this binding.
+	const bool translated = GetAddrTranslation() == 0x1000;
+	if (depthbuf.translated != translated) {
+		depthbuf.translated = translated;
+		Rasterizer::ResetJit();
+		const SoftDirty dirty = SoftDirty::PIXEL_ALL | SoftDirty::BINNER_RANGE | SoftDirty::BINNER_OVERLAP;
+		dirtyFlags_ |= dirty;
+		drawEngine_->transformUnit.SetDirty(dirty);
+	}
+	depthbuf.baseOffset = gstate.getDepthBufRawAddress();
+	// For the pointer, ignore memory mirrors.  This also gives some buffer for draws that go outside.
+	// TODO: Confirm how wrapping is handled in drawing.  Adjust if we ever handle VRAM mirrors more accurately.
+	depthbuf.data = Memory::GetPointerWriteOrException(0x04000000 | depthbuf.baseOffset);
+}
+
+uint32_t SoftGPU::SetAddrTranslation(uint32_t value) {
+	if (value != GetAddrTranslation()) {
+		// Finish all old-layout depth accesses before rebinding or invalidating their generated code.
+		FlushImm();
+		drawEngine_->transformUnit.Flush(this, "edramTranslation");
+		const uint32_t previous = GPUCommon::SetAddrTranslation(value);
+		UpdateDepthBuffer();
+		return previous;
+	}
+	return GPUCommon::SetAddrTranslation(value);
 }
 
 void SoftGPU::Execute_VertexType(u32 op, u32 diff) {
@@ -1404,6 +1434,16 @@ static DrawingCoords GetTargetSize(int stride) {
 	return DrawingCoords((s16)w, (s16)h);
 }
 
+void SoftGPU::DoState(PointerWrap &p) {
+	if (p.mode == p.MODE_READ) {
+		drawEngine_->transformUnit.Flush(this, "state");
+	}
+	GPUCommon::DoState(p);
+	if (p.mode == p.MODE_READ) {
+		UpdateDepthBuffer();
+	}
+}
+
 bool SoftGPU::GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes) {
 	int stride = gstate.FrameBufStride();
 	DrawingCoords size = GetTargetSize(stride);
@@ -1451,7 +1491,15 @@ bool SoftGPU::GetCurrentDepthbuffer(GPUDebugBuffer &buffer) {
 	const u8 *src = depthbuf.data;
 	u8 *dst = buffer.GetData();
 	for (int16_t y = 0; y < size.y; ++y) {
-		memcpy(dst, src, size.x * depth);
+		if (depthbuf.translated) {
+			// Debugger rows stay in logical depth coordinates, not the permuted physical layout.
+			u16 *row = reinterpret_cast<u16 *>(dst);
+			for (int x = 0; x < size.x; ++x) {
+				row[x] = depthbuf.Get16(x, y, gstate.DepthBufStride());
+			}
+		} else {
+			memcpy(dst, src, size.x * depth);
+		}
 		dst += size.x * depth;
 		src += gstate.DepthBufStride() * depth;
 	}

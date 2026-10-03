@@ -56,6 +56,33 @@ struct FormatBuffer {
 	}
 };
 
+inline u32 TranslateDepthAddress1000(u32 j) {
+	// Provisional inverse of mirror 3 for translation 0x1000; GE depth placement is not hardware-confirmed.
+	return ((j ^ 0x8000) & ~0x0FE0) | ((j & 0x07C0) << 1) | ((~j & 0x0020) << 1) | ((j & 0x0800) >> 6);
+}
+
+struct DepthBuffer : FormatBuffer {
+	u32 baseOffset = 0;
+	bool translated = false;
+
+	inline u16 *Get16Ptr(int x, int y, int stride) const {
+		if (!translated) {
+			return FormatBuffer::Get16Ptr(x, y, stride);
+		}
+		// Translate the absolute logical offset, then address it relative to the bound ordinary-view pointer.
+		const u32 logical = baseOffset + (x + y * stride) * 2;
+		return reinterpret_cast<u16 *>(data + static_cast<s32>(TranslateDepthAddress1000(logical) - baseOffset));
+	}
+
+	inline u16 Get16(int x, int y, int stride) const {
+		return *Get16Ptr(x, y, stride);
+	}
+
+	inline void Set16(int x, int y, int stride, u16 v) const {
+		*Get16Ptr(x, y, stride) = v;
+	}
+};
+
 enum class SoftDirty : uint64_t {
 	NONE = 0,
 
@@ -134,6 +161,7 @@ public:
 	int ListSync(int listid, int mode) override;
 	u32 DrawSync(int mode) override;
 	void UpdateCmdInfo() override {}
+	uint32_t SetAddrTranslation(uint32_t value) override;
 
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) override;
 	void SetCurFramebufferDirty(bool dirty) override {}
@@ -172,6 +200,7 @@ public:
 	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer) override;
 	bool GetCurrentTexture(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) override;
 	bool GetCurrentClut(GPUDebugBuffer &buffer) override;
+	void DoState(PointerWrap &p) override;
 
 	bool DescribeCodePtr(const u8 *ptr, std::string &name) override;
 
@@ -220,6 +249,7 @@ protected:
 	void BuildReportingInfo() override {}
 
 private:
+	void UpdateDepthBuffer();
 	void MarkDirty(uint32_t addr, uint32_t stride, uint32_t height, GEBufferFormat fmt, SoftGPUVRAMDirty value);
 	void MarkDirty(uint32_t addr, uint32_t bytes, SoftGPUVRAMDirty value);
 	bool ClearDirty(uint32_t addr, uint32_t stride, uint32_t height, GEBufferFormat fmt, SoftGPUVRAMDirty value);
@@ -245,7 +275,7 @@ private:
 // TODO: These shouldn't be global.
 extern uint8_t clut[1024];
 extern FormatBuffer fb;
-extern FormatBuffer depthbuf;
+extern DepthBuffer depthbuf;
 
 // Type for the DarkStalkers stretch replacement.
 enum class DSStretch {

@@ -137,7 +137,7 @@ void PixelJitCache::UnlockPixelID(RegCache::Reg &r) {
 RegCache::Reg PixelJitCache::GetColorOff(const PixelFuncID &id) {
 	if (!regCache_.Has(RegCache::GEN_COLOR_OFF)) {
 		Describe("GetColorOff");
-		if (id.useStandardStride && !id.dithering) {
+		if (id.useStandardStride && !id.dithering && !depthbuf.translated) {
 			bool loadDepthOff = id.depthWrite || (id.DepthTestFunc() != GE_COMP_ALWAYS && !id.earlyZChecks);
 			X64Reg depthTemp = INVALID_REG;
 			X64Reg argYReg = regCache_.Find(RegCache::GEN_ARG_Y);
@@ -235,8 +235,8 @@ RegCache::Reg PixelJitCache::GetColorOff(const PixelFuncID &id) {
 
 RegCache::Reg PixelJitCache::GetDepthOff(const PixelFuncID &id) {
 	if (!regCache_.Has(RegCache::GEN_DEPTH_OFF)) {
-		// If both color and depth use 512, the offsets are the same.
-		if (id.useStandardStride && !id.dithering) {
+		// In a linear layout, if both color and depth use 512, the offsets are the same.
+		if (id.useStandardStride && !id.dithering && !depthbuf.translated) {
 			// Calculate once inside GetColorOff().
 			X64Reg colorOffReg = GetColorOff(id);
 			regCache_.Unlock(colorOffReg, RegCache::GEN_COLOR_OFF);
@@ -269,13 +269,44 @@ RegCache::Reg PixelJitCache::GetDepthOff(const PixelFuncID &id) {
 		regCache_.Unlock(argXReg, RegCache::GEN_ARG_X);
 
 		X64Reg temp = regCache_.Alloc(RegCache::GEN_TEMP_HELPER);
+		if (depthbuf.translated) {
+			// Include the dynamic ZBP before applying the byte-address permutation.
+			SHL(32, R(r), Imm8(1));
+			if (RipAccessible(&depthbuf.baseOffset)) {
+				ADD(32, R(r), M(&depthbuf.baseOffset));
+			} else {
+				MOV(PTRBITS, R(temp), ImmPtr(&depthbuf.baseOffset));
+				ADD(32, R(r), MatR(temp));
+			}
+
+			// The inverse rotates bits 5..11 left once, then flips bits 6 and 15.
+			MOV(32, R(temp), R(r));
+			AND(32, R(temp), Imm32(~0x0FE0));
+			SHR(32, R(r), Imm8(5));
+			AND(32, R(r), Imm8(0x7F));
+			SHL(32, R(r), Imm8(1));
+			BTR(32, R(r), Imm8(7));
+			ADC(32, R(r), Imm8(0));
+			SHL(32, R(r), Imm8(5));
+			OR(32, R(r), R(temp));
+			XOR(32, R(r), Imm32(0x8040));
+
+			// The mapped byte can precede ZBP, so sign-extend the relative pointer offset.
+			if (RipAccessible(&depthbuf.baseOffset)) {
+				SUB(32, R(r), M(&depthbuf.baseOffset));
+			} else {
+				MOV(PTRBITS, R(temp), ImmPtr(&depthbuf.baseOffset));
+				SUB(32, R(r), MatR(temp));
+			}
+			MOVSX(PTRBITS, 32, r, R(r));
+		}
 		if (RipAccessible(&depthbuf.data)) {
 			MOV(PTRBITS, R(temp), M(&depthbuf.data));
 		} else {
 			MOV(PTRBITS, R(temp), ImmPtr(&depthbuf.data));
 			MOV(PTRBITS, R(temp), MatR(temp));
 		}
-		LEA(PTRBITS, r, MComplex(temp, r, 2, 0));
+		LEA(PTRBITS, r, MComplex(temp, r, depthbuf.translated ? 1 : 2, 0));
 		regCache_.Release(temp, RegCache::GEN_TEMP_HELPER);
 
 		return r;
