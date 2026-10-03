@@ -45,6 +45,15 @@ static const GERecipSegment geRecipSegments[128] = {
 	{ 67650, -68 }, { 67378, -67 }, { 67109, -67 }, { 66841, -66 }, { 66577, -66 }, { 66313, -65 }, { 66052, -65 }, { 65793, -64 },
 };
 
+// f * 2^n with the given sign bit, by adding n to f's exponent: f must be positive, and the result normal.
+static inline float ScaleByPow2(float f, int n, uint32_t sign) {
+	uint32_t bits;
+	memcpy(&bits, &f, sizeof(bits));
+	bits = (uint32_t)((int32_t)bits + n * (1 << 23)) | sign;
+	memcpy(&f, &bits, sizeof(f));
+	return f;
+}
+
 // w must be a normal float24. Returns a float24 (q has 16 significant bits, or is 2^16).
 float GERecip(float w) {
 	uint32_t bits;
@@ -53,7 +62,11 @@ float GERecip(float w) {
 	const int e = (int)((bits >> 23) & 0xFF) - 127;  // |w| = 1.i * 2^e
 	const GERecipSegment &seg = geRecipSegments[i >> 8];
 	const int32_t q = (64 * seg.b + 63 + seg.m * (int32_t)(i & 255)) >> 7;  // 1 / 1.i in units of 2^-16
-	return copysign(ldexpf((float)q, -16 - e), w);
+	if (e >= 126) {
+		// The result can be a denormal (q is at most 2^16).
+		return copysign(ldexpf((float)q, -16 - e), w);
+	}
+	return ScaleByPow2((float)q, -16 - e, bits & 0x80000000);
 }
 
 // The GE's reciprocal square root (gpu/probe exp69, bit exact): for d = 1.i * 2^E, segment i >> 8 of the
@@ -106,7 +119,7 @@ float GERsqrt(float d) {
 	const int e = (int)((bits >> 23) & 0xFF) - 127;
 	const GERecipSegment &seg = geRsqrtSegments[e & 1][i >> 8];
 	const int32_t q = (64 * seg.b + 63 + seg.m * (int32_t)(i & 255)) >> 7;
-	return ldexpf((float)q, -16 - (e >> 1));
+	return ScaleByPow2((float)q, -16 - (e >> 1), 0);
 }
 
 float GEAddFloat24(float a, float b) {
