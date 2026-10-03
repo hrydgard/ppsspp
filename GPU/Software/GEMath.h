@@ -58,8 +58,41 @@ inline float ProductToFloat24(double d) {
 	return (float)d;
 }
 
-// The GE's reciprocal and reciprocal square root (TransformUnit, depth, UVs, lighting).
-float GERecip(float w);
+// The GE's reciprocal: the top 7 bits of w's 15-bit float24 mantissa pick a segment, which the low
+// 8 bits interpolate linearly. b is the segment's start in units of 2^-17, m its slope in units of
+// 2^-23 per step, and 63 a rounding bias below half. Measured for every mantissa on hardware.
+struct GERecipSegment {
+	int32_t b;
+	int32_t m;
+};
+extern const GERecipSegment geRecipSegments[128];
+
+// f * 2^n with the given sign bit, by adding n to f's exponent: f must be positive, and the result normal.
+inline float ScaleByPow2(float f, int n, uint32_t sign) {
+	uint32_t bits;
+	memcpy(&bits, &f, sizeof(bits));
+	bits = (uint32_t)((int32_t)bits + n * (1 << 23)) | sign;
+	memcpy(&f, &bits, sizeof(f));
+	return f;
+}
+
+// The GE's reciprocal (TransformUnit, depth, UVs, lighting): inline, since the rasterizer takes one per pixel.
+// w must be a normal float24. Returns a float24 (q has 16 significant bits, or is 2^16).
+inline float GERecip(float w) {
+	uint32_t bits;
+	memcpy(&bits, &w, sizeof(bits));
+	const uint32_t i = (bits >> 8) & 0x7FFF;
+	const int e = (int)((bits >> 23) & 0xFF) - 127;  // |w| = 1.i * 2^e
+	const GERecipSegment &seg = geRecipSegments[i >> 8];
+	const int32_t q = (64 * seg.b + 63 + seg.m * (int32_t)(i & 255)) >> 7;  // 1 / 1.i in units of 2^-16
+	if (e >= 126) {
+		// The result can be a denormal (q is at most 2^16).
+		return copysign(ldexpf((float)q, -16 - e), w);
+	}
+	return ScaleByPow2((float)q, -16 - e, bits & 0x80000000);
+}
+
+// The GE's reciprocal square root.
 float GERsqrt(float d);
 
 // How the GE adds two float24s, such as a product and a matrix translation or the viewport center:

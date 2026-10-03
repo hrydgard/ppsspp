@@ -1186,11 +1186,7 @@ static float UVPlaneGradient(const UVPlanes &planes, const RasterizerState &stat
 template <typename Covered>
 static inline Vec4<float> LodQFromPlanes(const UVPlanes &planes, int64_t centerX, int64_t centerY, int quadX, const Covered &covered) {
 	const bool rtl = planes.q.rightAnchored;
-	Vec4<float> q;
-	for (int i = 0; i < 4; ++i) {
-		const int px = quadX + (i & 1);
-		const int64_t y = centerY + (i >> 1) * SCREEN_SCALE_FACTOR;
-		const int spanX = px & ~3;
+	auto spanQ = [&](int spanX, int64_t y) {
 		int pick = spanX + (rtl ? 2 : 1);
 		if (!covered(centerX + (pick - quadX) * SCREEN_SCALE_FACTOR, y)) {
 			for (int j = 0; j < 4; ++j) {
@@ -1202,7 +1198,15 @@ static inline Vec4<float> LodQFromPlanes(const UVPlanes &planes, int64_t centerX
 			}
 		}
 		const int64_t x = centerX + (pick - quadX) * SCREEN_SCALE_FACTOR;
-		q[i] = TruncateToFloat24((float)((double)planes.q.At(x, y) * planes.scaleQ));
+		return TruncateToFloat24((float)((double)planes.q.At(x, y) * planes.scaleQ));
+	};
+	Vec4<float> q;
+	// The quad's two columns usually share a span, and then a q.
+	const bool sameSpan = (quadX & 3) != 3;
+	for (int i = 0; i < 4; i += 2) {
+		const int64_t y = centerY + (i >> 1) * SCREEN_SCALE_FACTOR;
+		q[i] = spanQ(quadX & ~3, y);
+		q[i + 1] = sameSpan ? q[i] : spanQ((quadX + 1) & ~3, y);
 	}
 	return q;
 }
