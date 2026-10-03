@@ -293,6 +293,42 @@ static bool TestGEUVSpan() {
 			}
 		}
 	}
+	// The unchecked core, wherever GEUVSpanSafe allows it, on values below 2^17 (what 32-bit plane sums give).
+	int safe = 0;
+	for (int i = 0; i < 500000; ++i) {
+		const int expQ = (int)(next() % 260) - 140;
+		const int expS = expQ + (int)(next() % 220) - 110;
+		const int expT = expQ + (int)(next() % 220) - 110;
+		if (!GEUVSpanSafe(expQ, expS, expT))
+			continue;
+		safe++;
+		alignas(16) int32_t qv[4], sv[4], tv[4];
+		for (int l = 0; l < 4; ++l) {
+			qv[l] = (int32_t)(next() % (1u << 18)) - (1 << 17) + 1;
+			sv[l] = (int32_t)(next() % (1u << 18)) - (1 << 17) + 1;
+			tv[l] = (int32_t)(next() % (1u << 18)) - (1 << 17) + 1;
+		}
+		alignas(16) float s[4], t[4], q[4];
+		GEUVSpanCore<false>(Vec4S32::Load(qv), Vec4S32::Load(sv), Vec4S32::Load(tv), expQ, expS, expT, s, t, q);
+		for (int l = 0; l < 4; ++l) {
+			const float wq = TruncateToFloat24((float)ldexp((double)qv[l], expQ));
+			float ws = 0.0f, wt = 0.0f;
+			if (wq > 0.0f) {
+				const double r = GERecip(wq);
+				ws = GEUVProduct((double)TruncateToFloat24((float)ldexp((double)sv[l], expS)) * r);
+				wt = GEUVProduct((double)TruncateToFloat24((float)ldexp((double)tv[l], expT)) * r);
+			}
+			if (memcmp(&q[l], &wq, 4) != 0 || memcmp(&s[l], &ws, 4) != 0 || memcmp(&t[l], &wt, 4) != 0) {
+				printf("GEUVSpanCore<false>: q %d*2^%d s %d*2^%d t %d*2^%d: got %a %a %a, want %a %a %a\n", qv[l], expQ, sv[l], expS, tv[l], expT, q[l], s[l], t[l], wq, ws, wt);
+				return false;
+			}
+		}
+	}
+	if (safe < 100000) {
+		printf("GEUVSpanCore: only %d safe cases\n", safe);
+		return false;
+	}
+
 	// Most of these should take the vector path.
 	if (fast < 100000) {
 		printf("GEUVSpan: only %d of 500000 on the vector path\n", fast);

@@ -1190,6 +1190,23 @@ struct PlaneWalk {
 	}
 };
 
+// Whether a plane's sums at pixel centers stay within 32 bits from x0 to x1 and y0 to y1 (inclusive, in
+// subpixels), and its steps of up to three pixels in x. It's linear, so the corners are the extremes.
+static bool PlaneFits32(const DepthPlane &plane, int64_t x0, int64_t x1, int64_t y0, int64_t y1) {
+	constexpr int64_t limit = (int64_t)1 << 31;
+	if (std::abs(plane.kx) >= limit / (3 * SCREEN_SCALE_FACTOR))
+		return false;
+	const int64_t xs[2] = { x0, x1 }, ys[2] = { y0, y1 };
+	for (int64_t x : xs) {
+		for (int64_t y : ys) {
+			const int64_t v = plane.base + plane.kx * x + plane.ky * y;
+			if (v >= limit || v < -limit)
+				return false;
+		}
+	}
+	return true;
+}
+
 // From the planes' values at four pixels.
 static inline void GetTextureCoordinatesGE(const UVPlanes &planes, const int64_t qs[4], const int64_t ss[4], const int64_t ts[4], Vec4<float> &s, Vec4<float> &t, Vec4<float> &qOut) {
 	if (GEUVSpan(qs, ss, ts, planes.expQ, planes.expS, planes.expT, s.AsArray(), t.AsArray(), qOut.AsArray()))
@@ -1317,6 +1334,26 @@ void DrawTriangleSlice(
 	// Textures without planes take the edge weights, which only the span loop below has.
 	const bool staged = state.drawSpan && (!state.enableTextures || clearMode || uvPlanes.valid);
 #endif
+	// The UV planes' sums fit 32 bits wherever spans are walked (up to three pixels outside x1 to x2), and
+	// GEUVSpanCore needs no checks for them: then a span's values are one vector add per plane.
+	bool uvFast = false;
+	Vec4S32 qRamp, sRamp, tRamp;
+	if (uvPlanes.valid && GEUVSpanSafe(uvPlanes.expQ, uvPlanes.expS, uvPlanes.expT)) {
+		auto fits = [&](const DepthPlane &plane) {
+			return PlaneFits32(plane, x1 - SCREEN_SCALE_FACTOR * 4, x2 + SCREEN_SCALE_FACTOR * 4, y1, y2 + SCREEN_SCALE_FACTOR);
+		};
+		uvFast = fits(uvPlanes.q) && fits(uvPlanes.s) && fits(uvPlanes.t);
+		auto ramp = [](const DepthPlane &plane) {
+			const int dx = (int)(plane.kx * SCREEN_SCALE_FACTOR);
+			alignas(16) const int steps[4] = { 0, dx, 2 * dx, 3 * dx };
+			return Vec4S32::Load(steps);
+		};
+		if (uvFast) {
+			qRamp = ramp(uvPlanes.q);
+			sRamp = ramp(uvPlanes.s);
+			tRamp = ramp(uvPlanes.t);
+		}
+	}
 
 	// The edges as A x + B y + C + bias >= 0 at pixel centers, in 64 bits.
 	struct RowEdge {
@@ -1479,14 +1516,21 @@ void DrawTriangleSlice(
 					const int spanPX = (chunkX + k) & 0x3FF;
 					if constexpr (!clearMode) {
 						if (state.enableTextures) {
-							int64_t qs[4], ss[4], ts[4];
-							for (int i = 0; i < 4; ++i) {
-								qs[i] = (qv + i * qdx) >> 14;
-								ss[i] = (sv + i * sdx) >> 14;
-								ts[i] = (tv + i * tdx) >> 14;
-							}
 							Vec4<float> s, t, q;
-							GetTextureCoordinatesGE(uvPlanes, qs, ss, ts, s, t, q);
+							if (uvFast) {
+								const Vec4S32 ql = (Vec4S32::Splat((int)qv) + qRamp).Shr<14>();
+								const Vec4S32 sl = (Vec4S32::Splat((int)sv) + sRamp).Shr<14>();
+								const Vec4S32 tl = (Vec4S32::Splat((int)tv) + tRamp).Shr<14>();
+								GEUVSpanCore<false>(ql, sl, tl, uvPlanes.expQ, uvPlanes.expS, uvPlanes.expT, s.AsArray(), t.AsArray(), q.AsArray());
+							} else {
+								int64_t qs[4], ss[4], ts[4];
+								for (int i = 0; i < 4; ++i) {
+									qs[i] = (qv + i * qdx) >> 14;
+									ss[i] = (sv + i * sdx) >> 14;
+									ts[i] = (tv + i * tdx) >> 14;
+								}
+								GetTextureCoordinatesGE(uvPlanes, qs, ss, ts, s, t, q);
+							}
 							if (lodUsesQ && !state.throughMode)
 								q = LodQFromPlanes(uvPlanes, [&](int i) { return (qv + i * qdx) >> 14; }, spanPX, coverLo, coverHi);
 							// For levels > 0, mipmapping is always based on level 0.  Simpler to scale first.

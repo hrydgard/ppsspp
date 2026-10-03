@@ -451,37 +451,34 @@ inline float GEUVProduct(double d) {
 // planes' values at them (each times 2^scaleExp), q as a float24, and s and t as GEUVProduct(float24 *
 // GERecip(q)), or 0 where q isn't positive. False, with the outputs untouched, when a lane needs more than
 // the vector path does (a value of 2^24 or more, a denormal or out of range result): then do it scalar.
-inline bool GEUVSpan(const int64_t qs[4], const int64_t ss[4], const int64_t ts[4], int expQ, int expS, int expT, float *s, float *t, float *q) {
-	alignas(16) int32_t vals[3][4];
-	for (int i = 0; i < 4; ++i) {
-		if (qs[i] <= -(1 << 24) || qs[i] >= (1 << 24) || ss[i] <= -(1 << 24) || ss[i] >= (1 << 24) || ts[i] <= -(1 << 24) || ts[i] >= (1 << 24))
-			return false;
-		vals[0][i] = (int32_t)qs[i];
-		vals[1][i] = (int32_t)ss[i];
-		vals[2][i] = (int32_t)ts[i];
-	}
+// The core takes the values as lanes, each below 2^24; with check false, the caller knows they're inside
+// what the vector path covers (GEUVSpanSafe).
+template <bool check>
+inline bool GEUVSpanCore(Vec4S32 qv, Vec4S32 sv, Vec4S32 tv, int expQ, int expS, int expT, float *s, float *t, float *q) {
 	const Vec4S32 expMask = Vec4S32::Splat(0x7F800000);
 	Vec4S32 bad = Vec4S32::Zero();
 	// value * 2^exp, exactly (24 bits fit a float), truncated to a float24.
-	auto toFloat24 = [&](const int32_t *v, int exp) {
-		const Vec4S32 vi = Vec4S32::Load(v);
+	auto toFloat24 = [&](Vec4S32 vi, int exp) {
 		const Vec4S32 fb = Vec4S32FromBits(Vec4F32FromS32(vi));
 		const Vec4S32 zero = vi.CompareEq(Vec4S32::Zero());
 		const Vec4S32 field = (fb & expMask).Shr<23>() + Vec4S32::Splat(exp);
-		bad = bad | (field.CompareLt(Vec4S32::Splat(1)) | field.CompareGt(Vec4S32::Splat(254))).AndNot(zero);
+		if constexpr (check)
+			bad = bad | (field.CompareLt(Vec4S32::Splat(1)) | field.CompareGt(Vec4S32::Splat(254))).AndNot(zero);
 		return ((fb + Vec4S32::Splat(exp).Shl<23>()) & Vec4S32::Splat((int)0xFFFFFF00)).AndNot(zero);
 	};
-	const Vec4S32 qb = toFloat24(vals[0], expQ);
+	const Vec4S32 qb = toFloat24(qv, expQ);
 	// A bad q matters in any lane (it's also for the mip level), the rest only where q > 0.
 	const Vec4S32 badQ = bad;
 	bad = Vec4S32::Zero();
-	const Vec4S32 sb = toFloat24(vals[1], expS);
-	const Vec4S32 tb = toFloat24(vals[2], expT);
+	(void)badQ;
+	const Vec4S32 sb = toFloat24(sv, expS);
+	const Vec4S32 tb = toFloat24(tv, expT);
 
 	// GERecip, where q > 0.
 	const Vec4S32 valid = qb.CompareGt(Vec4S32::Zero());
 	const Vec4S32 qe = (qb & expMask).Shr<23>() - Vec4S32::Splat(127);
-	bad = bad | qe.CompareGt(Vec4S32::Splat(125));
+	if constexpr (check)
+		bad = bad | qe.CompareGt(Vec4S32::Splat(125));
 	alignas(16) int32_t qbits[4], segB[4], segM[4];
 	Vec4S32(qb).Store(qbits);
 	for (int i = 0; i < 4; ++i) {
@@ -500,7 +497,8 @@ inline bool GEUVSpan(const int64_t qs[4], const int64_t ss[4], const int64_t ts[
 		const Vec4S32 xe = (xb & expMask).Shr<23>();
 		const Vec4S32 xZero = xe.CompareEq(Vec4S32::Zero());
 		// A denormal (not zero) isn't handled.
-		bad = bad | (xZero & (xb & Vec4S32::Splat(0x7FFFFFFF)).CompareGt(Vec4S32::Zero()));
+		if constexpr (check)
+			bad = bad | (xZero & (xb & Vec4S32::Splat(0x7FFFFFFF)).CompareGt(Vec4S32::Zero()));
 		const Vec4S32 xA = (xb.Shr<8>() & Vec4S32::Splat(0x7FFF)) | Vec4S32::Splat(0x8000);
 		const Vec4S32 p = xA.Mul(rA);
 		// The product is 2^30 to 2^32: keep 24 bits from bit 31 or 30.
@@ -510,7 +508,8 @@ inline bool GEUVSpan(const int64_t qs[4], const int64_t ss[4], const int64_t ts[
 		// m * 2^(xe + re - 254 - 30 + shift); float(m) has the exponent field 150.
 		const Vec4S32 adjust = xe + re + shift - Vec4S32::Splat(254 + 30);
 		const Vec4S32 field = Vec4S32::Splat(150) + adjust;
-		bad = bad | (field.CompareLt(Vec4S32::Splat(1)) | field.CompareGt(Vec4S32::Splat(254))).AndNot(xZero);
+		if constexpr (check)
+			bad = bad | (field.CompareLt(Vec4S32::Splat(1)) | field.CompareGt(Vec4S32::Splat(254))).AndNot(xZero);
 		const Vec4S32 sign = xb & Vec4S32::Splat((int)0x80000000);
 		const Vec4S32 result = (Vec4S32FromBits(Vec4F32FromS32(m)) + adjust.Shl<23>()) | sign;
 		// Zero stays as it is, with its sign.
@@ -518,12 +517,35 @@ inline bool GEUVSpan(const int64_t qs[4], const int64_t ss[4], const int64_t ts[
 	};
 	const Vec4S32 so = product(sb);
 	const Vec4S32 to = product(tb);
-	if (AnyCompareBitsSet(badQ | (bad & valid)))
-		return false;
+	if constexpr (check) {
+		if (AnyCompareBitsSet(badQ | (bad & valid)))
+			return false;
+	}
 	Vec4F32FromBits(qb).Store(q);
 	Vec4F32FromBits(so).Store(s);
 	Vec4F32FromBits(to).Store(t);
 	return true;
+}
+
+// From 64-bit plane values, checked.
+inline bool GEUVSpan(const int64_t qs[4], const int64_t ss[4], const int64_t ts[4], int expQ, int expS, int expT, float *s, float *t, float *q) {
+	alignas(16) int32_t vals[3][4];
+	for (int i = 0; i < 4; ++i) {
+		if (qs[i] <= -(1 << 24) || qs[i] >= (1 << 24) || ss[i] <= -(1 << 24) || ss[i] >= (1 << 24) || ts[i] <= -(1 << 24) || ts[i] >= (1 << 24))
+			return false;
+		vals[0][i] = (int32_t)qs[i];
+		vals[1][i] = (int32_t)ss[i];
+		vals[2][i] = (int32_t)ts[i];
+	}
+	return GEUVSpanCore<true>(Vec4S32::Load(vals[0]), Vec4S32::Load(vals[1]), Vec4S32::Load(vals[2]), expQ, expS, expT, s, t, q);
+}
+
+// Whether GEUVSpanCore<false> covers any values below 2^24 with these plane exponents: the float24s, the
+// reciprocal and the products all stay normal.
+inline bool GEUVSpanSafe(int expQ, int expS, int expT) {
+	auto inRange = [](int exp) { return exp >= -126 && exp <= 104; };
+	return inRange(expQ) && inRange(expS) && inRange(expT) && expQ <= 102 &&
+		expS - expQ >= -102 && expS - expQ <= 103 && expT - expQ >= -102 && expT - expQ <= 103;
 }
 
 // The lighting pow (gpu/probe exp98, exp102): Mitchell's approximation on the float's bits, with the
