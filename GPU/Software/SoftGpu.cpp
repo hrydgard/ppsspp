@@ -1313,8 +1313,16 @@ void SoftGPU::Execute_Call(u32 op, u32 diff) {
 }
 
 void SoftGPU::FinishDeferred() {
-	// Need to flush before going back to CPU, so drawing is appropriately visible.
+	// Need to flush before going back to CPU, so drawing is appropriately visible. Not at a stall: the list
+	// isn't done, and games that build theirs as they go (Wipeout Pure) stall a hundred times a frame. Syncs,
+	// the display, and memory copies, sets and transfers that overlap the queued drawing still flush.
+	if (gpuState == GPUSTATE_STALL)
+		return;
 	drawEngine_->transformUnit.Flush(this, "finish");
+}
+
+void SoftGPU::FlushPendingDrawing() {
+	drawEngine_->transformUnit.Flush(this, "pending");
 }
 
 int SoftGPU::ListSync(int listid, int mode) {
@@ -1345,7 +1353,9 @@ void SoftGPU::PerformWriteFormattedFromMemory(u32 addr, int size, int width, GEB
 }
 
 bool SoftGPU::PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags) {
-	// Nothing to update.
+	// Drawing can still be queued after a list stalled (FinishDeferred).
+	drawEngine_->transformUnit.FlushIfOverlap(this, "memcpy", false, src, size, size, 1);
+	drawEngine_->transformUnit.FlushIfOverlap(this, "memcpy", true, dest, size, size, 1);
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
 	if (!(flags & GPUCopyFlag::DEBUG_NOTIFIED))
 		recorder_.NotifyMemcpy(dest, src, size);
@@ -1356,7 +1366,7 @@ bool SoftGPU::PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags) 
 
 bool SoftGPU::PerformMemorySet(u32 dest, u8 v, int size)
 {
-	// Nothing to update.
+	drawEngine_->transformUnit.FlushIfOverlap(this, "memset", true, dest, size, size, 1);
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
 	recorder_.NotifyMemset(dest, v, size);
 	// Let's just be safe.
@@ -1366,14 +1376,14 @@ bool SoftGPU::PerformMemorySet(u32 dest, u8 v, int size)
 
 bool SoftGPU::PerformReadbackToMemory(u32 dest, int size)
 {
-	// Nothing to update.
+	drawEngine_->transformUnit.FlushIfOverlap(this, "readback", false, dest, size, size, 1);
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
 	return false;
 }
 
 bool SoftGPU::PerformWriteColorFromMemory(u32 dest, int size)
 {
-	// Nothing to update.
+	drawEngine_->transformUnit.FlushIfOverlap(this, "upload", true, dest, size, size, 1);
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
 	recorder_.NotifyUpload(dest, size);
 	return false;

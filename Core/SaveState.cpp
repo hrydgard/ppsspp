@@ -52,6 +52,8 @@
 #include "Core/HLE/sceSas.h"
 #include "Core/HLE/sceIo.h"
 #include "Core/MemMap.h"
+#include "GPU/GPU.h"
+#include "GPU/GPUCommon.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/RetroAchievements.h"
 #include "HW/MemoryStick.h"
@@ -143,6 +145,8 @@ int g_screenshotFailures;
 		__UtilityWaitForIO();
 		__SasWaitForMix();
 		__IoWaitForAsync();
+		if (gpu)
+			gpu->FlushPendingDrawing();
 
 		auto s = p.Section("SaveStart", 1, 3);
 		if (!s)
