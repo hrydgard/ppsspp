@@ -787,11 +787,11 @@ static inline Vec4<int> SOFTRAST_CALL CheckDepthTestPassed4(const Vec4<int> &mas
 #endif
 
 	// Read in the existing depth values.
-#if defined(_M_SSE)
 	const u64 depth4 = ReadDepth4(x, y, stride);
+#if defined(_M_SSE)
 	__m128i refz = _mm_unpacklo_epi16(_mm_loadl_epi64((const __m128i *)&depth4), _mm_setzero_si128());
 #else
-	Vec4<int> refz(depthbuf.Get16(x, y, stride), depthbuf.Get16(x + 1, y, stride), depthbuf.Get16(x + 2, y, stride), depthbuf.Get16(x + 3, y, stride));
+	Vec4<int> refz((int)(depth4 & 0xFFFF), (int)((depth4 >> 16) & 0xFFFF), (int)((depth4 >> 32) & 0xFFFF), (int)(depth4 >> 48));
 #endif
 
 	switch (func) {
@@ -1538,14 +1538,26 @@ void DrawTriangleSlice(
 						store(k, v >> 14);
 				};
 
-				for (int k = 0; k < count; ++k) {
-					const int64_t px = chunk + k;
-					bool inside = px >= lo && px <= hi;
-					if (inside && snapEdge >= 0) {
-						const int64_t at = snapLeft ? ((px & 3) == 0 ? (px | 3) : px) : ((px & 3) == 3 ? (px & ~3) : px);
-						inside = at >= snapLo && at <= snapHi;
+				{
+					// Relative to the chunk, which starts a span: the snap edge's pixel is a lane's own, or for
+					// the span's first (snapping left) or last lane the span's other end.
+					auto rel = [&](int64_t v, int pad) {
+						return Vec4S32::Splat((int)std::clamp<int64_t>(v - chunk, -1 - pad, CHUNK + pad));
+					};
+					const Vec4S32 loV = rel(lo, 0), hiV = rel(hi, 0);
+					const Vec4S32 snapLoV = rel(snapLo, 4), snapHiV = rel(snapHi, 4);
+					alignas(16) static const int ramp[4] = { 0, 1, 2, 3 };
+					alignas(16) static const int snapOffsets[2][4] = { { 0, 0, 0, -3 }, { 3, 0, 0, 0 } };
+					const Vec4S32 snapOffset = Vec4S32::LoadAligned(snapOffsets[snapLeft ? 1 : 0]);
+					Vec4S32 kv = Vec4S32::LoadAligned(ramp);
+					for (int k = 0; k < count; k += 4, kv = kv + Vec4S32::Splat(4)) {
+						Vec4S32 dead = kv.CompareLt(loV) | kv.CompareGt(hiV);
+						if (snapEdge >= 0) {
+							const Vec4S32 at = kv + snapOffset;
+							dead = dead | at.CompareLt(snapLoV) | at.CompareGt(snapHiV);
+						}
+						dead.StoreAligned(&maskBuf[k]);
 					}
-					maskBuf[k] = inside ? 0 : -1;
 				}
 				if (flatZ) {
 					for (int k = 0; k < count; ++k)
