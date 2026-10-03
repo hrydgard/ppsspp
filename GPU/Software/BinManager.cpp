@@ -218,6 +218,7 @@ void BinManager::PushState() {
 		}
 	}
 	states_[stateIndex_].samplerID.cached.clut = cluts_[clutIndex_].readable;
+	states_[stateIndex_].serial = ++stateSerial_;
 	if (states_[stateIndex_].enableTextures)
 		DeswizzleMirrorTextures(states_[stateIndex_]);
 	creatingState_ = false;
@@ -333,74 +334,64 @@ void BinManager::UpdateState() {
 		ClearDirty(SoftDirty::BINNER_OVERLAP);
 	}
 	states_[stateIndex_].selfTexture = selfRender_;
-	states_[stateIndex_].texFlushGen = texFlushGen_;
 }
 
-// The GE samples through its texture cache, so a primitive that textures from the buffer it draws to
-// mostly sees that buffer as it was before the primitive (exp81, exp159, exp160). The cache actually
-// fills 8-row blocks as the primitive first reads them, so rows drawn before then show through; this
-// doesn't model that. A texture that fits in the 8 KB cache stays there until TEXFLUSH, so later
-// primitives and draws see it as it was when first read (FF Type-0's 16x16 4444 blur, three passes over
-// one buffer without a flush).
-const RasterizerState &BinManager::SelfTextureSnapshot(const BinItem &item, const RasterizerState &state) {
+// The texture cache simulation for one primitive, in submission order: its reads, then the memory it
+// writes, whose cached lines keep what they held. Memory must be current for what it reads (queued
+// primitives that write there drawn first).
+void BinManager::CacheStep(BinItem &item) {
+	item.cacheStepped = true;
+	const RasterizerState &state = states_[item.stateIndex];
+	const bool stale = texCache_.Access(item, state);
+	bool selfWrite = false;
+	if (state.serial != overlapSerial_) {
+		// Whether this state's texture can be in its color or depth buffer at all: then each primitive is
+		// checked for drawing over what it reads.
+		overlapSerial_ = state.serial;
+		mayOverlap_ = state.enableTextures && (HasTextureWrite(state) || TextureOverlapsTarget(state));
+	}
+	// The rows it draws to, color and depth, as memory.
 	constexpr uint32_t mirrorMask = 0x041FFFFF;
-	const uint32_t bits = textureBitsPerPixel[state.samplerID.texfmt];
-	const uint32_t fbBpp = state.pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
-	const uint32_t fbStrideBytes = state.pixelID.cached.framebufStride * fbBpp;
-
-	selfTexState_ = state;
-	uint32_t totalBytes = 0;
-	bool sameTexture = true;
-	for (int i = 0; i <= state.maxTexLevel; ++i) {
-		const uint32_t bytes = state.samplerID.cached.sizes[i].w * bits / 8 * state.samplerID.cached.sizes[i].h;
-		totalBytes += bytes;
-		sameTexture = sameTexture && selfTexAddr_[i] == state.texaddr[i] && selfTexBuf_[i].size() == state.texbufw[i] * bits / 8 * state.samplerID.cached.sizes[i].h;
+	const DrawingCoords tl = TransformUnit::ScreenToDrawing(item.range.x1, item.range.y1);
+	const DrawingCoords br = TransformUnit::ScreenToDrawing(item.range.x2, item.range.y2);
+	auto writes = [&](uint32_t base, uint32_t bpp, uint32_t stride) {
+		base &= mirrorMask;
+		const uint32_t start = base + ((uint32_t)tl.y * stride + (uint32_t)tl.x) * bpp;
+		const uint32_t end = base + ((uint32_t)br.y * stride + (uint32_t)br.x + 1) * bpp;
+		if (mayOverlap_ && !selfWrite)
+			selfWrite = texCache_.FootprintReads(base, bpp, stride, tl.x, tl.y, br.x, br.y);
+		if (texCache_.MayHold(start, end))
+			texCache_.BeforeWrite(start, end);
+	};
+	if (!texCache_.IsEmpty()) {
+		const uint32_t bpp = state.pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
+		writes(drawTargetAddr_, bpp, state.pixelID.cached.framebufStride);
+		if (state.pixelID.depthWrite || (state.pixelID.clearMode && state.pixelID.DepthClear()))
+			writes(gstate.getDepthBufAddress(), 2, state.pixelID.cached.depthbufStride);
 	}
-	const bool cacheSized = totalBytes <= 8192;
-	if (cacheSized && selfTexCached_ && sameTexture && selfTexFlushGen_ == state.texFlushGen) {
-		for (int i = 0; i <= state.maxTexLevel; ++i) {
-			if (!selfTexBuf_[i].empty())
-				selfTexState_.texptr[i] = selfTexBuf_[i].data();
-		}
-		return selfTexState_;
-	}
-	if (cacheSized && !(selfTexCached_ && sameTexture))
-		selfTexValid_ = false;
-	selfTexCached_ = cacheSized;
-	selfTexFlushGen_ = state.texFlushGen;
+	cacheImage_ = stale || selfWrite;
+}
 
-	for (int i = 0; i <= state.maxTexLevel; ++i) {
-		const u8 *src = state.texptr[i];
-		const uint32_t bytes = state.texbufw[i] * bits / 8 * state.samplerID.cached.sizes[i].h;
-		if (!src || !Memory::IsValidRange(state.texaddr[i], bytes))
-			continue;
-		std::vector<u8> &buf = selfTexBuf_[i];
-		if (!selfTexValid_ || selfTexAddr_[i] != state.texaddr[i] || buf.size() != bytes) {
-			buf.assign(src, src + bytes);
-			selfTexAddr_[i] = state.texaddr[i];
-		} else {
-			// Only what the previous primitive drew has changed: its columns, in its rows (by address, so a
-			// pixel past the stride is in the next row's bytes).
-			const DrawingCoords tl = TransformUnit::ScreenToDrawing(selfTexLastRange_.x1, selfTexLastRange_.y1);
-			const DrawingCoords br = TransformUnit::ScreenToDrawing(selfTexLastRange_.x2, selfTexLastRange_.y2);
-			const int64_t texStart = state.texaddr[i] & mirrorMask;
-			const int64_t texEnd = texStart + bytes;
-			const int64_t colStart = (int64_t)tl.x * fbBpp, colEnd = (int64_t)(br.x + 1) * fbBpp;
-			for (int y = tl.y; y <= br.y; ++y) {
-				const int64_t row = (int64_t)(drawTargetAddr_ & mirrorMask) + (int64_t)y * fbStrideBytes;
-				const int64_t start = std::max(row + colStart, texStart) - texStart;
-				const int64_t end = std::min(row + colEnd, texEnd) - texStart;
-				if (start < end)
-					memcpy(buf.data() + start, src + start, (size_t)(end - start));
-			}
-		}
-		selfTexState_.texptr[i] = buf.data();
-	}
+// The state to draw the primitive last stepped with: with its texture as the GE's texture cache gives it, when
+// that differs from memory or the primitive draws over what it reads.
+const RasterizerState &BinManager::CacheView(const BinItem &item, const RasterizerState &state) {
+	if (!cacheImage_ || !state.enableTextures)
+		return state;
+	cacheState_ = state;
+	texCache_.Image(cacheState_);
+	return cacheState_;
+}
 
-	// A depth write could change the texture outside the color rows, so then copy all of it each time.
-	selfTexValid_ = !state.pixelID.depthWrite;
-	selfTexLastRange_ = item.range;
-	return selfTexState_;
+void BinManager::NotifyMemoryWrite(uint32_t start, uint32_t end) {
+	constexpr uint32_t mirrorMask = 0x041FFFFF;
+	if (Memory::IsVRAMAddress(start)) {
+		start &= mirrorMask;
+		end = start + (end - start);
+	} else {
+		start &= 0x3FFFFFFF;
+		end &= 0x3FFFFFFF;
+	}
+	texCache_.BeforeWrite(start, end);
 }
 
 bool BinManager::HasTextureWrite(const RasterizerState &state) {
@@ -445,6 +436,27 @@ void BinManager::MarkPendingReads(const Rasterizer::RasterizerState &state) {
 			range.height = h;
 		}
 	}
+}
+
+// Whether the state's texture is anywhere in the color or depth buffer it draws to, by address.
+bool BinManager::TextureOverlapsTarget(const RasterizerState &state) const {
+	constexpr uint32_t mirrorMask = 0x041FFFFF;
+	const uint32_t bits = textureBitsPerPixel[state.samplerID.texfmt];
+	uint32_t texLo = UINT32_MAX, texHi = 0;
+	for (int i = 0; i <= state.maxTexLevel; ++i) {
+		const uint32_t addr = state.texaddr[i] & mirrorMask;
+		texLo = std::min(texLo, addr);
+		texHi = std::max(texHi, addr + state.texbufw[i] * bits / 8 * (uint32_t)((state.samplerID.cached.sizes[i].h + 7) & ~7) + state.samplerID.cached.sizes[i].w * bits / 8);
+	}
+	const uint32_t rows = (uint32_t)gstate.getRegionY2() + 1;
+	auto overlaps = [&](uint32_t base, uint32_t bytes) {
+		base &= mirrorMask;
+		return base < texHi && base + bytes > texLo;
+	};
+	const uint32_t bpp = state.pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
+	if (overlaps(drawTargetAddr_, rows * state.pixelID.cached.framebufStride * bpp + 1024 * bpp))
+		return true;
+	return state.pixelID.depthWrite && overlaps(gstate.getDepthBufAddress(), rows * state.pixelID.cached.depthbufStride * 2 + 2048);
 }
 
 void BinManager::MarkPendingWrites(const Rasterizer::RasterizerState &state) {
@@ -516,10 +528,8 @@ void BinManager::AddFlags(F calculate) {
 		return;
 	state.flags = old;
 	const bool selfTexture = state.selfTexture;
-	const uint32_t texFlushGen = state.texFlushGen;
 	PushState();
 	states_[stateIndex_].selfTexture = selfTexture;
-	states_[stateIndex_].texFlushGen = texFlushGen;
 	calculate(&states_[stateIndex_]);
 }
 
@@ -626,24 +636,21 @@ void BinManager::Drain() {
 	pendingStateIndex_ = stateIndex_;
 
 	PROFILE_THIS_SCOPE("bin_drain_single");
-	// Anything (transfers, the CPU) may have written memory since the last drain.
-	selfTexValid_ = false;
 	while (!queue_.Empty()) {
-		const BinItem &item = queue_.PeekNext();
+		BinItem &item = queue_[queue_.head_];
 		const RasterizerState &state = states_[item.stateIndex];
-		if (state.selfTexture) {
-			DrawSplit(item, SelfTextureSnapshot(item, state));
-		} else {
-			selfTexValid_ = false;
-			DrawSplit(item, state);
-		}
+		if (!item.cacheStepped)
+			CacheStep(item);
+		else
+			cacheImage_ = false;
+		DrawSplit(item, CacheView(item, state));
 		queue_.SkipNext();
 	}
 	distributePos_ = queue_.tail_;
 }
 
-// One thread draws in order, primitive after primitive, for one that textures from what it draws to (from a
-// snapshot taken before it, see SelfTextureSnapshot). Within a primitive each pixel only reads the snapshot
+// One thread draws in order, primitive after primitive, for one that textures from what it draws to (from its
+// texture as the texture cache holds it, see CacheView). Within a primitive each pixel only reads that
 // and its own pixel, so a large one is still drawn by several threads, in bands of rows. Not when pixels
 // can wrap past the stride into a row another band draws.
 void BinManager::DrawSplit(const BinItem &item, const RasterizerState &state) {
@@ -850,8 +857,6 @@ void BinManager::Flush(const char *reason) {
 	ResetTiles();
 	distributePos_ = 0;
 	undistributed_ = 0;
-	// The CPU and transfers may write memory after a flush.
-	selfTexValid_ = false;
 	ClearTileMarks();
 
 	queue_.Reset();
@@ -1054,7 +1059,16 @@ void BinManager::ItemQueued() {
 
 	if (maxTasks_ == 1) {
 		Drain();
-	} else if (NeedsOrder(queue_[(queue_.tail_ + QUEUED_PRIMS - 1) % QUEUED_PRIMS])) {
+		return;
+	}
+	BinItem &item = queue_[(queue_.tail_ + QUEUED_PRIMS - 1) % QUEUED_PRIMS];
+	if (NeedsOrder(item)) {
+		// Drawn after what's queued, which it may read: stepped through the texture cache then.
+		DrainDependent();
+		return;
+	}
+	CacheStep(item);
+	if (cacheImage_) {
 		DrainDependent();
 	} else if (++undistributed_ >= DISTRIBUTE_BATCH) {
 		Drain();
@@ -1196,8 +1210,7 @@ bool BinManager::SelfReadRegion(const BinItem &item, TexelRegion &region) {
 	const int w = state.samplerID.cached.sizes[0].w;
 	const int h = state.samplerID.cached.sizes[0].h;
 	const uint32_t bits = textureBitsPerPixel[fmt];
-	// A texture that fits the GE's texture cache can stay cached across draws (SelfTextureSnapshot).
-	if (w > 512 || h > 512 || (uint32_t)w * h * bits / 8 <= 8192)
+	if (w > 512 || h > 512)
 		return false;
 
 	int count;
@@ -1264,18 +1277,13 @@ void BinManager::DrainDependent() {
 		}
 		waitable_->Wait();
 		ResetTiles();
-		// The tiles drew what the snapshot may have seen before.
-		selfTexValid_ = false;
 	}
 
-	const BinItem &item = queue_[last];
+	BinItem &item = queue_[last];
 	const RasterizerState &state = states_[item.stateIndex];
-	if (state.selfTexture) {
-		DrawSplit(item, SelfTextureSnapshot(item, state));
-	} else {
-		selfTexValid_ = false;
-		DrawSplit(item, state);
-	}
+	if (!item.cacheStepped)
+		CacheStep(item);
+	DrawSplit(item, CacheView(item, state));
 	queue_.Reset();
 	distributePos_ = 0;
 	undistributed_ = 0;

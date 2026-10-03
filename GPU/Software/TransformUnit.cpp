@@ -1203,6 +1203,14 @@ void TransformUnit::NotifyTexFlush() {
 	binner_->NotifyTexFlush();
 }
 
+void TransformUnit::NotifyMemoryWrite(uint32_t start, uint32_t end) {
+	binner_->NotifyMemoryWrite(start, end);
+}
+
+void TransformUnit::NotifyCPURun() {
+	binner_->NotifyCPURun();
+}
+
 void TransformUnit::NotifyClutUpdate(const void *src) {
 	binner_->UpdateClut(src);
 }

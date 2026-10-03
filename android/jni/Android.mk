@@ -586,6 +586,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/GLES/ShaderManagerGLES.cpp.arm \
   $(SRC)/GPU/GLES/FragmentTestCacheGLES.cpp.arm \
   $(SRC)/GPU/Software/BinManager.cpp \
+  $(SRC)/GPU/Software/TexCache.cpp \
   $(SRC)/GPU/Software/Clipper.cpp \
   $(SRC)/GPU/Software/DrawPixel.cpp.arm \
   $(SRC)/GPU/Software/FuncId.cpp \

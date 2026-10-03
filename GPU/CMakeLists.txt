@@ -167,7 +167,9 @@ set(GPU_SOURCES
 	Math3D.cpp
 	Math3D.h
 	Software/BinManager.cpp
+	Software/TexCache.cpp
 	Software/BinManager.h
+	Software/TexCache.h
 	Software/Clipper.cpp
 	Software/Clipper.h
 	Software/DrawPixel.cpp

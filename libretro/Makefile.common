@@ -596,6 +596,7 @@ SOURCES_CXX += \
 	$(GPUDIR)/GPUState.cpp \
 	$(GPUDIR)/Math3D.cpp \
 	$(GPUDIR)/Software/BinManager.cpp \
+	$(GPUDIR)/Software/TexCache.cpp \
 	$(GPUDIR)/Software/Clipper.cpp \
 	$(GPUDIR)/Software/DrawPixel.cpp \
 	$(GPUDIR)/Software/FuncId.cpp \

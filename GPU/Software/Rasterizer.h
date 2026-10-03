@@ -79,8 +79,8 @@ struct RasterizerState {
 	uint16_t texbufw[8]{};
 	const u8 *texptr[8]{};
 	float textureLodSlope;
-	// TEXFLUSHes before this state (BinManager::SelfTextureSnapshot).
-	uint32_t texFlushGen = 0;
+	// Unique per state the binner creates (the texture cache simulation's per state work keys on it).
+	uint32_t serial = 0;
 	RasterizerStateFlags flags = RasterizerStateFlags::NONE;
 	RasterizerStateFlags lastFlags = RasterizerStateFlags::INVALID;
 	// The binner's tile generation in which threads may be drawing with it (BinManager::DistributeItems).
@@ -98,7 +98,7 @@ struct RasterizerState {
 		bool magFilt : 1;
 		bool antialiasLines : 1;
 		bool textureProj : 1;
-		// Textures from the buffer it draws to (BinManager::SelfTextureSnapshot).
+		// Textures from what queued primitives draw (BinManager::NeedsOrder).
 		bool selfTexture : 1;
 	};
 

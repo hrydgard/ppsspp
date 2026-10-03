@@ -889,6 +889,8 @@ void SoftGPU::Execute_BlockTransferStart(u32 op, u32 diff) {
 		drawEngine_->transformUnit.Flush(this, "blockxfer_wrap");
 	}
 
+	// The texture cache keeps what it loaded from the destination.
+	drawEngine_->transformUnit.NotifyMemoryWrite(dst, dst + (height - 1) * dstStride * bpp + width * bpp);
 	DoBlockTransfer(gstate_c.skipDrawReason);
 
 	// Could theoretically dirty the framebuffer.
@@ -1392,6 +1394,8 @@ void SoftGPU::Execute_Call(u32 op, u32 diff) {
 }
 
 void SoftGPU::FinishDeferred() {
+	// What the GE has cached stays as it is whatever the CPU writes.
+	drawEngine_->transformUnit.NotifyCPURun();
 	// Need to flush before going back to CPU, so drawing is appropriately visible. Not at a stall: the list
 	// isn't done, and games that build theirs as they go (Wipeout Pure) stall a hundred times a frame. Syncs,
 	// the display, and memory copies, sets and transfers that overlap the queued drawing still flush.
@@ -1435,6 +1439,7 @@ bool SoftGPU::PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags) 
 	// Drawing can still be queued after a list stalled (FinishDeferred).
 	drawEngine_->transformUnit.FlushIfOverlap(this, "memcpy", false, src, size, size, 1);
 	drawEngine_->transformUnit.FlushIfOverlap(this, "memcpy", true, dest, size, size, 1);
+	drawEngine_->transformUnit.NotifyMemoryWrite(dest, dest + size);
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
 	if (!(flags & GPUCopyFlag::DEBUG_NOTIFIED))
 		recorder_.NotifyMemcpy(dest, src, size);
@@ -1446,6 +1451,7 @@ bool SoftGPU::PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags) 
 bool SoftGPU::PerformMemorySet(u32 dest, u8 v, int size)
 {
 	drawEngine_->transformUnit.FlushIfOverlap(this, "memset", true, dest, size, size, 1);
+	drawEngine_->transformUnit.NotifyMemoryWrite(dest, dest + size);
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
 	recorder_.NotifyMemset(dest, v, size);
 	// Let's just be safe.
@@ -1463,6 +1469,7 @@ bool SoftGPU::PerformReadbackToMemory(u32 dest, int size)
 bool SoftGPU::PerformWriteColorFromMemory(u32 dest, int size)
 {
 	drawEngine_->transformUnit.FlushIfOverlap(this, "upload", true, dest, size, size, 1);
+	drawEngine_->transformUnit.NotifyMemoryWrite(dest, dest + size);
 	InvalidateCache(dest, size, GPU_INVALIDATE_HINT);
 	recorder_.NotifyUpload(dest, size);
 	return false;

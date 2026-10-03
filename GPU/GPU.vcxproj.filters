@@ -237,6 +237,9 @@
     <ClInclude Include="Software\BinManager.h">
       <Filter>Software</Filter>
     </ClInclude>
+    <ClInclude Include="Software\TexCache.h">
+      <Filter>Software</Filter>
+    </ClInclude>
     <ClInclude Include="Common\Draw2D.h">
       <Filter>Common</Filter>
     </ClInclude>
@@ -498,6 +501,9 @@
       <Filter>Software</Filter>
     </ClCompile>
     <ClCompile Include="Software\BinManager.cpp">
+      <Filter>Software</Filter>
+    </ClCompile>
+    <ClCompile Include="Software\TexCache.cpp">
       <Filter>Software</Filter>
     </ClCompile>
     <ClCompile Include="Common\Draw2D.cpp">

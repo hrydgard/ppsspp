@@ -142,6 +142,9 @@ public:
 	void FlushIfOverlap(GPUCommon *common, const char *reason, bool modifying, uint32_t addr, uint32_t stride, uint32_t w, uint32_t h);
 	void NotifyClutUpdate(const void *src);
 	void NotifyTexFlush();
+	// Memory from start to end is about to be written other than by drawing (the texture cache keeps its lines).
+	void NotifyMemoryWrite(uint32_t start, uint32_t end);
+	void NotifyCPURun();
 
 	void GetStats(StringWriter &w);
 

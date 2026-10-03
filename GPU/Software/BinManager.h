@@ -20,6 +20,7 @@
 #include <atomic>
 #include <unordered_map>
 #include "GPU/Software/Rasterizer.h"
+#include "GPU/Software/TexCache.h"
 
 struct BinWaitable;
 class DrawBinItemsTask;
@@ -53,6 +54,8 @@ struct BinItem {
 	VertexData v0;
 	VertexData v1;
 	VertexData v2;
+	// Its texture reads went through the texture cache simulation (BinManager::CacheStep).
+	bool cacheStepped = false;
 };
 
 template <typename T, size_t N>
@@ -211,10 +214,15 @@ public:
 
 	void UpdateState();
 	void UpdateClut(const void *src);
-	// TEXFLUSH empties the GE's texture cache, which self-texturing can see.
+	// TEXFLUSH empties the GE's texture cache.
 	void NotifyTexFlush() {
-		texFlushGen_++;
-		dirty_ |= SoftDirty::SAMPLER_TEXLIST;
+		texCache_.Clear();
+	}
+	// Memory from start to end is about to be written other than by drawing (block transfers, copies).
+	void NotifyMemoryWrite(uint32_t start, uint32_t end);
+	// The CPU is about to run (and may write texture memory).
+	void NotifyCPURun() {
+		texCache_.CaptureAll();
 	}
 
 	const Rasterizer::RasterizerState &State() {
@@ -336,17 +344,17 @@ private:
 	bool selfRender_ = false;
 	// The scissor reaches past the framebuffer's stride.
 	bool pastStride_ = false;
-	Rasterizer::RasterizerState selfTexState_;
-	std::vector<u8> selfTexBuf_[8];
+	// The GE's texture cache, simulated a primitive at a time. When the primitive last stepped through it
+	// reads cached bytes that differ from memory, or textures from what it draws, it's drawn alone from
+	// cacheState_, whose texture is memory with the cached lines over it.
+	TexCache texCache_;
+	bool cacheImage_ = false;
+	uint32_t stateSerial_ = 0;
+	uint32_t overlapSerial_ = 0;
+	bool mayOverlap_ = false;
+	Rasterizer::RasterizerState cacheState_;
 	// Linear copies of texture levels read through a swizzled VRAM mirror (DeswizzleMirrorTextures).
 	std::vector<u8> depthViews_[8];
-	uint32_t selfTexAddr_[8]{};
-	bool selfTexValid_ = false;
-	uint32_t texFlushGen_ = 0;
-	uint32_t selfTexFlushGen_ = 0;
-	// The snapshot is of a texture small enough to stay in the GE's 8 KB texture cache.
-	bool selfTexCached_ = false;
-	BinCoords selfTexLastRange_{};
 	bool creatingState_ = false;
 	// JIT clear generations when the current state was computed.
 	int jitGen_ = -1;
@@ -369,7 +377,9 @@ private:
 	void MarkPendingReads(const Rasterizer::RasterizerState &state);
 	void MarkPendingWrites(const Rasterizer::RasterizerState &state);
 	bool HasTextureWrite(const Rasterizer::RasterizerState &state);
-	const Rasterizer::RasterizerState &SelfTextureSnapshot(const BinItem &item, const Rasterizer::RasterizerState &state);
+	void CacheStep(BinItem &item);
+	bool TextureOverlapsTarget(const Rasterizer::RasterizerState &state) const;
+	const Rasterizer::RasterizerState &CacheView(const BinItem &item, const Rasterizer::RasterizerState &state);
 	void OptimizePendingStates(uint16_t first, uint16_t last);
 	void PushState();
 	void DeswizzleMirrorTextures(Rasterizer::RasterizerState &state);
