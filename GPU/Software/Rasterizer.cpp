@@ -1963,6 +1963,80 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 			return;
 	}
 
+#if !defined(SOFTGPU_MEMORY_TAGGING_DETAILED)
+	// In stages, as triangle rows: every pixel takes its own q for the mip level (sameQ false), and the planes
+	// already hold the through mode scale.
+	if (state.drawSpan) {
+		const bool clearMode = state.pixelID.clearMode;
+		const bool textured = state.enableTextures && !clearMode;
+		bool uvFast = false;
+		Vec4S32 qRamp, sRamp, tRamp;
+		if (textured && uvPlanes.valid && GEUVSpanSafe(uvPlanes.expQ, uvPlanes.expS, uvPlanes.expT)) {
+			auto fits = [&](const DepthPlane &plane) {
+				return PlaneFits32(plane, minX - SCREEN_SCALE_FACTOR * 4, maxX + SCREEN_SCALE_FACTOR * (STAGED_CHUNK + 4), minY, maxY + SCREEN_SCALE_FACTOR);
+			};
+			uvFast = fits(uvPlanes.q) && fits(uvPlanes.s) && fits(uvPlanes.t);
+			auto ramp = [](const DepthPlane &plane) {
+				const int dx = (int)(plane.kx * SCREEN_SCALE_FACTOR);
+				alignas(16) const int steps[4] = { 0, dx, 2 * dx, 3 * dx };
+				return Vec4S32::Load(steps);
+			};
+			if (uvFast) {
+				qRamp = ramp(uvPlanes.q);
+				sRamp = ramp(uvPlanes.s);
+				tRamp = ramp(uvPlanes.t);
+			}
+		}
+		StagedSpans ctx{ &state, &uvPlanes, qRamp, sRamp, tRamp, autoGrad, false, !clearMode };
+		StagedSpansFunc drawStagedSpans = !textured ? &DrawStagedSpans<false, false, false, false> :
+			uvFast ? &DrawStagedSpans<true, true, false, false> : &DrawStagedSpans<true, false, false, false>;
+
+		constexpr int CHUNK = STAGED_CHUNK;
+		alignas(16) int maskBuf[CHUNK], zBuf[CHUNK], fogBuf[CHUNK];
+		alignas(16) int colorBuf[4][CHUNK];
+		alignas(16) int secBuf[3][CHUNK];
+		for (int k = 0; k < CHUNK; ++k) {
+			zBuf[k] = z[0];
+			fogBuf[k] = fog[0];
+			for (int c = 0; c < 3; ++c)
+				secBuf[c][k] = sec_color[c];
+		}
+		const int width = maxX >= minX ? (maxX - minX) / SCREEN_SCALE_FACTOR + 1 : 0;
+		for (int64_t curY = minY; curY <= maxY; curY += SCREEN_SCALE_FACTOR) {
+			const DrawingCoords p = TransformUnit::ScreenToDrawing(minX, curY);
+			ctx.y = p.y;
+			for (int first = 0; first < width; first += CHUNK) {
+				const int count = std::min(CHUNK, (width - first + 3) & ~3);
+				const int chunkX = (p.x + first) & 0x3FF;
+				for (int k = 0; k < count; ++k) {
+					maskBuf[k] = first + k < width ? 0 : -1;
+					// The spans write their colors in place.
+					for (int c = 0; c < 4; ++c)
+						colorBuf[c][k] = c0[c];
+				}
+				if (state.pixelID.earlyZChecks) {
+					for (int k = 0; k < count; k += 4) {
+						Vec4<int> mask(maskBuf[k], maskBuf[k + 1], maskBuf[k + 2], maskBuf[k + 3]);
+						mask = CheckDepthTestPassed4(mask, state.pixelID.DepthTestFunc(), (chunkX + k) & 0x3FF, p.y, state.pixelID.cached.depthbufStride, z);
+						for (int i = 0; i < 4; ++i)
+							maskBuf[k + i] = mask[i];
+					}
+				}
+				// Pixel centers are at 16k + 7 here, the GE's at 16k + 8.
+				const int64_t cx = minX + 1 + (int64_t)first * SCREEN_SCALE_FACTOR, cy = curY + 1;
+				int64_t qv = 0, sv = 0, tv = 0;
+				if (uvPlanes.valid) {
+					qv = uvPlanes.q.base + uvPlanes.q.kx * cx + uvPlanes.q.ky * cy;
+					sv = uvPlanes.s.base + uvPlanes.s.kx * cx + uvPlanes.s.ky * cy;
+					tv = uvPlanes.t.base + uvPlanes.t.kx * cx + uvPlanes.t.ky * cy;
+				}
+				drawStagedSpans(ctx, count, chunkX, qv, sv, tv, maskBuf, zBuf, fogBuf, colorBuf[0], secBuf[0]);
+			}
+		}
+		return;
+	}
+#endif
+
 #if defined(SOFTGPU_MEMORY_TAGGING_DETAILED) || defined(SOFTGPU_MEMORY_TAGGING_BASIC)
 	uint32_t bpp = state.pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
 	std::string tag = StringFromFormat("DisplayListR_%08x", state.listPC);
