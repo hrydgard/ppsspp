@@ -709,9 +709,15 @@ static inline Vec4<int> SOFTRAST_CALL CheckDepthTestPassed4(const Vec4<int> &mas
 	// Read in the existing depth values.
 #if defined(_M_SSE)
 	// Tried using flags from maskbits to skip dwords... seemed neutral.
-	__m128i refz = _mm_cvtsi32_si128(*(u32 *)depthbuf.Get16Ptr(x, y, stride));
-	refz = _mm_unpacklo_epi32(refz, _mm_cvtsi32_si128(*(u32 *)depthbuf.Get16Ptr(x, y + 1, stride)));
-	refz = _mm_unpacklo_epi16(refz, _mm_setzero_si128());
+	__m128i refz;
+	if (depthbuf.translated) {
+		// Logical neighbors can cross a physical permutation boundary, so gather each sample.
+		refz = _mm_setr_epi32(depthbuf.Get16(x, y, stride), depthbuf.Get16(x + 1, y, stride), depthbuf.Get16(x, y + 1, stride), depthbuf.Get16(x + 1, y + 1, stride));
+	} else {
+		refz = _mm_cvtsi32_si128(*(u32 *)depthbuf.Get16Ptr(x, y, stride));
+		refz = _mm_unpacklo_epi32(refz, _mm_cvtsi32_si128(*(u32 *)depthbuf.Get16Ptr(x, y + 1, stride)));
+		refz = _mm_unpacklo_epi16(refz, _mm_setzero_si128());
+	}
 #else
 	Vec4<int> refz(depthbuf.Get16(x, y, stride), depthbuf.Get16(x + 1, y, stride), depthbuf.Get16(x, y + 1, stride), depthbuf.Get16(x + 1, y + 1, stride));
 #endif
@@ -1511,8 +1517,8 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords 
 		const u16 z = v1.screenpos.z;
 		const int stride = pixelID.cached.depthbufStride;
 
-		// If both bytes of Z equal, we can just use memset directly which is faster.
-		if ((z & 0xFF) == (z >> 8)) {
+		// With linear depth, if both bytes of Z equal, we can just use memset directly which is faster.
+		if (!depthbuf.translated && (z & 0xFF) == (z >> 8)) {
 			DrawingCoords p = pprime;
 			for (p.y = pprime.y; p.y <= pend.y; ++p.y) {
 				u16 *row = depthbuf.Get16Ptr(p.x, p.y, stride);

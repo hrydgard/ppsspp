@@ -28,6 +28,7 @@
 #include "GPU/Software/BinManager.h"
 #include "GPU/Software/Rasterizer.h"
 #include "GPU/Software/RasterizerRectangle.h"
+#include "GPU/Software/SoftGpu.h"
 
 // Sometimes useful for debugging.
 static constexpr bool FORCE_SINGLE_THREAD = false;
@@ -298,6 +299,10 @@ bool BinManager::IsExactSelfRender(const Rasterizer::RasterizerState &state, con
 		return false;
 	if (state.textureProj || state.maxTexLevel > 0)
 		return false;
+	// A matching color copy does not establish independence from translated depth writes.
+	if (depthbuf.translated && state.pixelID.depthWrite) {
+		return false;
+	}
 
 	// Only possible if the texture is 1:1.
 	if ((state.texaddr[0] & 0x0F1FFFFF) != (drawTargetAddr_ & 0x0F1FFFFF))
@@ -355,6 +360,30 @@ void BinManager::MarkPendingReads(const Rasterizer::RasterizerState &state) {
 	}
 }
 
+static void ExpandTranslatedDepthRange(BinDirtyRange &range, const DrawingCoords &tl, const DrawingCoords &br) {
+	if (tl.x > br.x || tl.y > br.y) {
+		return;
+	}
+	// The permutation stays inside each 64 KiB page; include whole touched pages conservatively.
+	uint32_t begin = (depthbuf.baseOffset + (tl.y * gstate.DepthBufStride() + tl.x) * 2) & ~0xFFFF;
+	uint32_t end = (depthbuf.baseOffset + (br.y * gstate.DepthBufStride() + br.x + 1) * 2 + 0xFFFF) & ~0xFFFF;
+	if (end > 0x00200000) {
+		// Out-of-range logical accesses can wrap through the existing VRAM mirrors.
+		begin = 0;
+		end = 0x00200000;
+	}
+	begin |= 0x04000000;
+	end += 0x04000000;
+	if (range.base != 0) {
+		begin = std::min(begin, range.base);
+		end = std::max(end, range.base + range.height * range.strideBytes);
+	}
+	range.base = begin;
+	range.strideBytes = end - begin;
+	range.widthBytes = range.strideBytes;
+	range.height = 1;
+}
+
 void BinManager::MarkPendingWrites(const Rasterizer::RasterizerState &state) {
 	DrawingCoords scissorTL(gstate.getScissorX1(), gstate.getScissorY1());
 	DrawingCoords scissorBR(std::min(gstate.getScissorX2(), gstate.getRegionX2()), std::min(gstate.getScissorY2(), gstate.getRegionY2()));
@@ -363,11 +392,19 @@ void BinManager::MarkPendingWrites(const Rasterizer::RasterizerState &state) {
 	const uint32_t bpp = state.pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
 	pendingWrites_[0].Expand(gstate.getFrameBufAddress() & mirrorMask, bpp, gstate.FrameBufStride(), scissorTL, scissorBR);
 	if (state.pixelID.depthWrite) {
-		pendingWrites_[1].Expand(gstate.getDepthBufAddress() & mirrorMask, 2, gstate.DepthBufStride(), scissorTL, scissorBR);
+		if (depthbuf.translated) {
+			ExpandTranslatedDepthRange(pendingWrites_[1], scissorTL, scissorBR);
+		} else {
+			pendingWrites_[1].Expand(gstate.getDepthBufAddress() & mirrorMask, 2, gstate.DepthBufStride(), scissorTL, scissorBR);
+		}
 	} else if (gstate.isDepthTestEnabled() && !gstate.isModeClear()) {
 		// Testing without writing still reads the depth buffer, so a transfer into it has to wait.
-		const uint32_t depthAddr = gstate.getDepthBufAddress() & mirrorMask;
-		pendingReads_[depthAddr].Expand(depthAddr, 2, gstate.DepthBufStride(), scissorTL, scissorBR);
+		if (depthbuf.translated) {
+			ExpandTranslatedDepthRange(pendingDepthReads_, scissorTL, scissorBR);
+		} else {
+			const uint32_t depthAddr = gstate.getDepthBufAddress() & mirrorMask;
+			pendingReads_[depthAddr].Expand(depthAddr, 2, gstate.DepthBufStride(), scissorTL, scissorBR);
+		}
 	}
 }
 
@@ -631,6 +668,7 @@ void BinManager::Flush(const char *reason) {
 	}
 	pendingOverlap_ = false;
 	pendingReads_.clear();
+	pendingDepthReads_.base = 0;
 
 	// We'll need to set the pending writes and reads again, since we just flushed it.
 	dirty_ |= SoftDirty::BINNER_RANGE | SoftDirty::BINNER_OVERLAP;
@@ -661,6 +699,17 @@ void BinManager::OptimizePendingStates(uint16_t first, uint16_t last) {
 	}
 }
 
+static bool HasTranslatedDepthOverlap(const BinDirtyRange &range, uint32_t start, uint32_t size) {
+	if (range.base == 0) {
+		return false;
+	}
+	// Query envelopes include reads or transfers crossing a VRAM mirror boundary.
+	if (size >= 0x00200000 || start + size > 0x04200000) {
+		return true;
+	}
+	return start < range.base + range.widthBytes && start + size > range.base;
+}
+
 bool BinManager::HasPendingWrite(uint32_t start, uint32_t stride, uint32_t w, uint32_t h) {
 	// We can only write to VRAM.
 	if (!Memory::IsVRAMAddress(start))
@@ -669,6 +718,9 @@ bool BinManager::HasPendingWrite(uint32_t start, uint32_t stride, uint32_t w, ui
 	start &= 0x041FFFFF;
 
 	uint32_t size = stride * (h - 1) + w;
+	if (depthbuf.translated && HasTranslatedDepthOverlap(pendingWrites_[1], start, size)) {
+		return true;
+	}
 	for (const auto &range : pendingWrites_) {
 		if (range.base == 0 || range.strideBytes == 0)
 			continue;
@@ -704,6 +756,9 @@ bool BinManager::HasPendingRead(uint32_t start, uint32_t stride, uint32_t w, uin
 	}
 
 	uint32_t size = stride * (h - 1) + w;
+	if (depthbuf.translated && Memory::IsVRAMAddress(start) && HasTranslatedDepthOverlap(pendingDepthReads_, start, size)) {
+		return true;
+	}
 	for (const auto &pair : pendingReads_) {
 		const auto &range = pair.second;
 		if (start >= range.base + range.height * range.strideBytes || start + size <= range.base)

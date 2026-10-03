@@ -45,6 +45,11 @@ int JitClearGeneration() {
 	return PixelJitCache::ClearGeneration();
 }
 
+void ResetJit() {
+	// Call only after rasterizer workers have finished using the generated code.
+	jitCache->Reset();
+}
+
 void Shutdown() {
 	delete jitCache;
 	jitCache = nullptr;
@@ -821,6 +826,13 @@ void PixelJitCache::Clear() {
 
 	constBlendHalf_11_4s_ = nullptr;
 	constBlendInvert_11_4s_ = nullptr;
+}
+
+void PixelJitCache::Reset() {
+	std::unique_lock<std::mutex> guard(jitCacheLock);
+	// Queued IDs and thread-local function pointers must not survive a depth-layout change.
+	compileQueue_.clear();
+	Clear();
 }
 
 std::string PixelJitCache::DescribeCodePtr(const u8 *ptr) {

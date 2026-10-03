@@ -142,7 +142,7 @@ public:
 	// For example, a debugger is active.
 	bool ShouldSplitOverGe() const;
 
-	uint32_t SetAddrTranslation(uint32_t value);
+	virtual uint32_t SetAddrTranslation(uint32_t value);
 	uint32_t GetAddrTranslation();
 
 	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) = 0;
