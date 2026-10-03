@@ -251,7 +251,8 @@ Vec4F32 GEAdd4Fallback(Vec4F32 a, Vec4F32 b, Vec4S32 lanes, Vec4F32 result);
 
 // Four of GEAdd at once: each term goes to 16-bit fixed point at the larger exponent by scaling with a power
 // of two and truncating toward zero, which drops what GEAdd's masks clear, then the sum is exact.
-inline Vec4F32 GEAdd4(Vec4F32 a, Vec4F32 b) {
+// GEAdd4 without its fallback: the lanes that need it are added to bad, and their results are wrong.
+inline Vec4F32 GEAdd4Unchecked(Vec4F32 a, Vec4F32 b, Vec4S32 &bad) {
 	const Vec4S32 expMask = Vec4S32::Splat(0x7F800000);
 	const Vec4S32 ba = Vec4S32FromBits(a);
 	const Vec4S32 bb = Vec4S32FromBits(b);
@@ -269,7 +270,13 @@ inline Vec4F32 GEAdd4(Vec4F32 a, Vec4F32 b) {
 	const Vec4S32 none = e.CompareEq(Vec4S32::Zero());
 	const Vec4F32 sum = Vec4F32FromS32(Vec4S32FromF32(za * down) + Vec4S32FromF32(zb * down)) * up;
 	const Vec4F32 result = Vec4F32FromBits(Vec4S32FromBits(sum).AndNot(none));
-	const Vec4S32 outside = e.CompareLt(Vec4S32::Splat(16 << 23)).AndNot(none) | e.CompareEq(expMask);
+	bad = bad | e.CompareLt(Vec4S32::Splat(16 << 23)).AndNot(none) | e.CompareEq(expMask);
+	return result;
+}
+
+inline Vec4F32 GEAdd4(Vec4F32 a, Vec4F32 b) {
+	Vec4S32 outside = Vec4S32::Zero();
+	const Vec4F32 result = GEAdd4Unchecked(a, b, outside);
 	if (AnyCompareBitsSet(outside))
 		return GEAdd4Fallback(a, b, outside, result);
 	return result;
@@ -282,7 +289,8 @@ Vec4F32 GEMulFloat24x4Fallback(Vec4F32 a, Vec4F32 b, Vec4S32 lanes, Vec4F32 resu
 // Per lane, the product of a and b truncated to float24, as ProductToFloat24((double)a * b) with both
 // truncated to float24 first, except that a zero operand gives +0. With 15 fraction bits each, the
 // significand product truncated to 17 bits is 32768 + a' + b' + (a' b' >> 15), as in GERowSum4.
-inline Vec4F32 GEMulFloat24x4(Vec4F32 a, Vec4F32 b) {
+// GEMulFloat24x4 without its fallback, as GEAdd4Unchecked.
+inline Vec4F32 GEMulFloat24x4Unchecked(Vec4F32 a, Vec4F32 b, Vec4S32 &bad) {
 	const Vec4S32 expMask = Vec4S32::Splat(0x7F800000);
 	const Vec4S32 fracMask = Vec4S32::Splat(0x7FFF);
 	const Vec4S32 aBits = Vec4S32FromBits(a) & Vec4S32::Splat((int)0xFFFFFF00);
@@ -300,7 +308,13 @@ inline Vec4F32 GEMulFloat24x4(Vec4F32 a, Vec4F32 b) {
 	const Vec4S32 zero = (aBits & Vec4S32::Splat(0x7FFFFFFF)).CompareEq(Vec4S32::Zero()) | (bBits & Vec4S32::Splat(0x7FFFFFFF)).CompareEq(Vec4S32::Zero());
 	const Vec4F32 result = Vec4F32FromBits((((fbits + lsb.Shl<23>()) & Vec4S32::Splat((int)0xFFFFFF00)) | sign).AndNot(zero));
 	const Vec4S32 special = ea.CompareEq(Vec4S32::Zero()) | eb.CompareEq(Vec4S32::Zero()) | ea.CompareEq(Vec4S32::Splat(255)) | eb.CompareEq(Vec4S32::Splat(255));
-	const Vec4S32 outside = (special | resultExp.CompareLt(Vec4S32::Splat(1)) | resultExp.CompareGt(Vec4S32::Splat(254))).AndNot(zero);
+	bad = bad | (special | resultExp.CompareLt(Vec4S32::Splat(1)) | resultExp.CompareGt(Vec4S32::Splat(254))).AndNot(zero);
+	return result;
+}
+
+inline Vec4F32 GEMulFloat24x4(Vec4F32 a, Vec4F32 b) {
+	Vec4S32 outside = Vec4S32::Zero();
+	const Vec4F32 result = GEMulFloat24x4Unchecked(a, b, outside);
 	if (AnyCompareBitsSet(outside))
 		return GEMulFloat24x4Fallback(a, b, outside, result);
 	return result;
@@ -309,6 +323,10 @@ inline Vec4F32 GEMulFloat24x4(Vec4F32 a, Vec4F32 b) {
 // Four of GEAddFloat24 at once.
 inline Vec4F32 GEAddFloat24x4(Vec4F32 a, Vec4F32 b) {
 	return TruncateToFloat24x4(GEAdd4(a, b));
+}
+
+inline Vec4F32 GEAddFloat24x4Unchecked(Vec4F32 a, Vec4F32 b, Vec4S32 &bad) {
+	return TruncateToFloat24x4(GEAdd4Unchecked(a, b, bad));
 }
 float GEDot(const Vec3f &a, const Vec3f &b);
 float GENormalize(Vec3f &v);
