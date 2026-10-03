@@ -1228,8 +1228,8 @@ bail:
 	const int cmdCount = src - start;
 	// Skip over the commands we just read out manually.
 	if (cmdCount > 0) {
-		UpdatePC(currentList->pc, currentList->pc + cmdCount * 4);
 		currentList->pc += cmdCount * 4;
+		UpdatePC(currentList->pc, currentList->pc);
 		// flush back cull mode
 		if (cullMode != gstate.getCullMode()) {
 			// We rewrote everything to the old cull mode, so flush first.
@@ -1477,8 +1477,8 @@ void GPUCommonHW::Execute_WorldMtxNum(u32 op, u32 diff) {
 	gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | ((op & 0xF) + count);
 
 	// Skip over the loaded data, it's done now.
-	UpdatePC(currentList->pc, currentList->pc + count * 4);
 	currentList->pc += count * 4;
+	UpdatePC(currentList->pc, currentList->pc);
 }
 
 void GPUCommonHW::Execute_WorldMtxData(u32 op, u32 diff) {
@@ -1530,8 +1530,8 @@ void GPUCommonHW::Execute_ViewMtxNum(u32 op, u32 diff) {
 	gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | ((op & 0xF) + count);
 
 	// Skip over the loaded data, it's done now.
-	UpdatePC(currentList->pc, currentList->pc + count * 4);
 	currentList->pc += count * 4;
+	UpdatePC(currentList->pc, currentList->pc);
 }
 
 void GPUCommonHW::Execute_ViewMtxData(u32 op, u32 diff) {
@@ -1583,8 +1583,8 @@ void GPUCommonHW::Execute_ProjMtxNum(u32 op, u32 diff) {
 	gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | ((op & 0xF) + count);
 
 	// Skip over the loaded data, it's done now.
-	UpdatePC(currentList->pc, currentList->pc + count * 4);
 	currentList->pc += count * 4;
+	UpdatePC(currentList->pc, currentList->pc);
 }
 
 void GPUCommonHW::Execute_ProjMtxData(u32 op, u32 diff) {
@@ -1638,8 +1638,8 @@ void GPUCommonHW::Execute_TgenMtxNum(u32 op, u32 diff) {
 	gstate.texmtxnum = (GE_CMD_TGENMATRIXNUMBER << 24) | ((op & 0xF) + count);
 
 	// Skip over the loaded data, it's done now.
-	UpdatePC(currentList->pc, currentList->pc + count * 4);
 	currentList->pc += count * 4;
+	UpdatePC(currentList->pc, currentList->pc);
 }
 
 void GPUCommonHW::Execute_TgenMtxData(u32 op, u32 diff) {
@@ -1686,8 +1686,8 @@ void GPUCommonHW::Execute_BoneMtxNum(u32 op, u32 diff) {
 	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | ((op & 0x7F) + count);
 
 	// Skip over the loaded data, it's done now.
-	UpdatePC(currentList->pc, currentList->pc + count * 4);
 	currentList->pc += count * 4;
+	UpdatePC(currentList->pc, currentList->pc);
 }
 
 void GPUCommonHW::Execute_BoneMtxData(u32 op, u32 diff) {
