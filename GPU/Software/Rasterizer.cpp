@@ -1129,6 +1129,8 @@ struct UVPlanes {
 	// 2^-shift for each plane's shift (SharedShift), which takes a plane value back to a float. The values
 	// are float24s, so the shift is within [-114, 163] and multiplying by the scale is exact, as ldexp is.
 	double scaleS, scaleT, scaleQ;
+	// The same as exponents, -shift.
+	int expS, expT, expQ;
 	bool valid;
 };
 
@@ -1167,14 +1169,15 @@ static UVPlanes ComputeUVPlanes(const int64_t X[3], const int64_t Y[3], const fl
 
 static UVPlanes ComputeUVPlanesSTQ(const int64_t X[3], const int64_t Y[3], const double s[3], const double t[3], const double q[3]) {
 	UVPlanes planes{};
-	auto fixed = [&](const double v[3], DepthPlane *plane, double *scale) {
+	auto fixed = [&](const double v[3], DepthPlane *plane, double *scale, int *exp) {
 		const int shift = SharedShift(v);
 		*plane = FixedPlane(X, Y, v, shift);
 		*scale = std::ldexp(1.0, -shift);
+		*exp = -shift;
 	};
-	fixed(s, &planes.s, &planes.scaleS);
-	fixed(t, &planes.t, &planes.scaleT);
-	fixed(q, &planes.q, &planes.scaleQ);
+	fixed(s, &planes.s, &planes.scaleS, &planes.expS);
+	fixed(t, &planes.t, &planes.scaleT, &planes.expT);
+	fixed(q, &planes.q, &planes.scaleQ, &planes.expQ);
 	planes.valid = true;
 	return planes;
 }
@@ -1253,6 +1256,8 @@ static inline void GetTextureCoordinatesGE(const UVPlanes &planes, int64_t cente
 	PlaneSpan(planes.q, centerX, centerY, qs);
 	PlaneSpan(planes.s, centerX, centerY, ss);
 	PlaneSpan(planes.t, centerX, centerY, ts);
+	if (GEUVSpan(qs, ss, ts, planes.expQ, planes.expS, planes.expT, s.AsArray(), t.AsArray(), qOut.AsArray()))
+		return;
 	for (int i = 0; i < 4; ++i) {
 		const float q = TruncateToFloat24((float)((double)qs[i] * planes.scaleQ));
 		qOut[i] = q;

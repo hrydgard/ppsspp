@@ -246,6 +246,61 @@ static bool TestGEDot3() {
 	return true;
 }
 
+// GEUVSpan against the scalar texture coordinates (Rasterizer's GetTextureCoordinatesGE), bit for bit, on
+// plane values around the 15-bit range they're normally in and past it, and scales over the float range.
+static bool TestGEUVSpan() {
+	uint32_t state = 777777;
+	auto next = [&]() {
+		state = state * 1664525u + 1013904223u;
+		return state;
+	};
+	auto value = [&]() -> int64_t {
+		const uint32_t r = next();
+		switch (r & 7) {
+		case 0: return 0;
+		case 1: return (int64_t)(next() % (1u << 25)) - (1 << 24);
+		case 2: return -(int64_t)(next() % (1 << 15));
+		default: return (int64_t)(next() % (1 << 16));
+		}
+	};
+	int fast = 0;
+	for (int i = 0; i < 500000; ++i) {
+		int64_t qs[4], ss[4], ts[4];
+		for (int l = 0; l < 4; ++l) {
+			qs[l] = value();
+			ss[l] = value();
+			ts[l] = value();
+		}
+		const int range = (i % 5 == 0) ? 150 : 20;
+		const int expQ = (int)(next() % (2 * range + 1)) - range - 15;
+		const int expS = (int)(next() % (2 * range + 1)) - range - 15;
+		const int expT = (int)(next() % (2 * range + 1)) - range - 15;
+		alignas(16) float s[4], t[4], q[4];
+		if (!GEUVSpan(qs, ss, ts, expQ, expS, expT, s, t, q))
+			continue;
+		fast++;
+		for (int l = 0; l < 4; ++l) {
+			const float wq = TruncateToFloat24((float)ldexp((double)qs[l], expQ));
+			float ws = 0.0f, wt = 0.0f;
+			if (wq > 0.0f) {
+				const double r = GERecip(wq);
+				ws = GEUVProduct((double)TruncateToFloat24((float)ldexp((double)ss[l], expS)) * r);
+				wt = GEUVProduct((double)TruncateToFloat24((float)ldexp((double)ts[l], expT)) * r);
+			}
+			if (memcmp(&q[l], &wq, 4) != 0 || memcmp(&s[l], &ws, 4) != 0 || memcmp(&t[l], &wt, 4) != 0) {
+				printf("GEUVSpan: q %lld*2^%d s %lld*2^%d t %lld*2^%d: got %a %a %a, want %a %a %a\n", (long long)qs[l], expQ, (long long)ss[l], expS, (long long)ts[l], expT, q[l], s[l], t[l], wq, ws, wt);
+				return false;
+			}
+		}
+	}
+	// Most of these should take the vector path.
+	if (fast < 100000) {
+		printf("GEUVSpan: only %d of 500000 on the vector path\n", fast);
+		return false;
+	}
+	return true;
+}
+
 // GERowSum4 against GERowSum, bit for bit, on random float24s: mixed signs, zeros and denormals, exponents
 // close together (so the terms' alignment matters) and far apart, including ones past the vector path.
 static bool TestGERowSum4() {
@@ -474,6 +529,7 @@ bool TestGEMath() {
 	ok = TestGEAdd4() && ok;
 	ok = TestGEMulFloat24x4() && ok;
 	ok = TestGEDot3() && ok;
+	ok = TestGEUVSpan() && ok;
 	ok = TestGESetupRecip() && ok;
 	ok = TestGELog16() && ok;
 	ok = TestTexCoordPrecision() && ok;
