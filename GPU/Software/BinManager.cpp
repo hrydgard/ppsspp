@@ -20,6 +20,7 @@
 #include <condition_variable>
 #include <thread>
 
+#include "Common/BitSet.h"
 #include "Common/Profiler/Profiler.h"
 #include "Common/Thread/ParallelLoop.h"
 #include "Common/Thread/ThreadManager.h"
@@ -126,6 +127,7 @@ public:
 	}
 
 	void Run() override {
+		binner_->WakeChained();
 		binner_->ProcessTiles(index_);
 		status_ = false;
 		// Work queued after the last look, but before status_ said we were done, would otherwise wait.
@@ -652,18 +654,47 @@ void BinManager::ReclaimItems() {
 }
 
 void BinManager::WakeTasks() {
-	int threads = 0;
-	for (int i = 0; i < maxTasks_; ++i) {
-		threads++;
-		if (taskStatus_[i])
+	// No more threads than tiles with work.
+	int pending = 0;
+	const int count = activeCount_.load(std::memory_order_relaxed);
+	for (int n = 0; n < count && pending < maxTasks_; ++n) {
+		const Tile &tile = tiles_[activeTiles_[n]];
+		if (tile.head.load(std::memory_order_relaxed) != tile.tail.load(std::memory_order_relaxed))
+			pending++;
+	}
+
+	int first = -1;
+	uint64_t chain = 0;
+	for (int i = 0; i < maxTasks_ && pending > 0; ++i) {
+		if (taskStatus_[i]) {
+			pending--;
 			continue;
+		}
 
 		waitable_->Fill();
 		taskStatus_[i] = true;
-		g_threadManager.EnqueueTaskOnThread(i, taskLists_[i].Next());
+		if (first < 0)
+			first = i;
+		else
+			chain |= 1ULL << i;
+		pending--;
 		enqueues_++;
 	}
-	mostThreads_ = std::max(mostThreads_, threads);
+	if (first < 0)
+		return;
+	if (chain != 0)
+		chainWake_.fetch_or(chain, std::memory_order_release);
+	g_threadManager.EnqueueTaskOnThread(first, taskLists_[first].Next());
+	mostThreads_ = std::max(mostThreads_, maxTasks_);
+}
+
+void BinManager::WakeChained() {
+	uint64_t chain = chainWake_.exchange(0, std::memory_order_acquire);
+	while (chain != 0) {
+		const int i = LeastSignificantSetBit(chain);
+		chain &= chain - 1;
+		g_threadManager.EnqueueTaskOnThread(i, taskLists_[i].Next());
+	}
 }
 
 // The queue is full: with threads, wait for drawn items to free up, helping with the drawing.

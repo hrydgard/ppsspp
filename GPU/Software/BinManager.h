@@ -264,6 +264,8 @@ private:
 	int maxTasks_ = 1;
 	BinTaskList taskLists_[MAX_POSSIBLE_TASKS];
 	std::atomic<bool> taskStatus_[MAX_POSSIBLE_TASKS];
+	// Threads whose tasks the first one woken enqueues: waking a thread is a system call, kept off this one.
+	std::atomic<uint64_t> chainWake_{ 0 };
 
 	// With threads, queued items are binned into screen tiles. Any thread can take a tile with work and
 	// draws its items in order; only one at a time, so each pixel still sees the primitives in order.
@@ -359,6 +361,7 @@ private:
 	bool NeedsOrder(const BinItem &item);
 	void ReclaimItems();
 	void WakeTasks();
+	void WakeChained();
 	bool ProcessTiles(int start);
 
 	friend class DrawBinItemsTask;
