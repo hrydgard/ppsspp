@@ -211,7 +211,7 @@ public:
 	void AddLine(const VertexData &v0, const VertexData &v1);
 	void AddPoint(const VertexData &v0);
 
-	void Drain(bool flushing = false);
+	void Drain();
 	void Flush(const char *reason);
 	bool HasPendingWrite(uint32_t start, uint32_t stride, uint32_t w, uint32_t h);
 	// Assumes you've also checked for a write (writes are partial so are automatically reads.)
@@ -289,12 +289,16 @@ private:
 	size_t distributePos_ = 0;
 	int undistributed_ = 0;
 	int entriesSinceWake_ = 0;
+	// The tiles queued primitives write, and that queued primitives texturing from the target read
+	// (NeedsOrder). Cleared when the queue is empty.
+	uint8_t tileWrites_[TILES_X * TILES_Y]{};
+	uint8_t tileReads_[TILES_X * TILES_Y]{};
+	bool anyTileReads_ = false;
 	BinWaitable *waitable_ = nullptr;
 
 	BinDirtyRange pendingWrites_[2]{};
 	std::unordered_map<uint32_t, BinDirtyRange> pendingReads_;
 
-	bool pendingOverlap_ = false;
 	// Whether the current state textures from what it draws to, and the texture as it was before the
 	// primitive being drawn for one that does.
 	bool selfRender_ = false;
@@ -328,7 +332,6 @@ private:
 	void MarkPendingReads(const Rasterizer::RasterizerState &state);
 	void MarkPendingWrites(const Rasterizer::RasterizerState &state);
 	bool HasTextureWrite(const Rasterizer::RasterizerState &state);
-	bool IsExactSelfRender(const Rasterizer::RasterizerState &state, const BinItem &item) const;
 	const Rasterizer::RasterizerState &SelfTextureSnapshot(const BinItem &item, const Rasterizer::RasterizerState &state);
 	void OptimizePendingStates(uint16_t first, uint16_t last);
 	BinCoords Scissor(BinCoords range);
@@ -337,7 +340,23 @@ private:
 	BinCoords Range(const VertexData &v0);
 	void Expand(const BinCoords &range);
 	void MakeRoom();
+	void DrawSplit(const BinItem &item, const Rasterizer::RasterizerState &state);
 	void DistributeItems();
+	void DistributeItems(size_t end);
+	void ResetTiles();
+	void DrainDependent();
+	struct TexelRegion {
+		uint32_t start;
+		uint32_t stride;
+		uint32_t widthBytes;
+		uint32_t rows;
+	};
+	bool SelfReadRegion(const BinItem &item, TexelRegion &region);
+	template <typename F>
+	void ForTargetTiles(const Rasterizer::RasterizerState &state, const TexelRegion &region, F f);
+	void ClearTileMarks();
+	bool PendingWriteIn(const BinDirtyRange &range, uint32_t start, uint32_t stride, uint32_t w, uint32_t h);
+	bool NeedsOrder(const BinItem &item);
 	void ReclaimItems();
 	void WakeTasks();
 	bool ProcessTiles(int start);

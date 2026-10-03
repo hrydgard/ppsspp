@@ -21,6 +21,7 @@
 #include <thread>
 
 #include "Common/Profiler/Profiler.h"
+#include "Common/Thread/ParallelLoop.h"
 #include "Common/Thread/ThreadManager.h"
 #include "Common/Data/Text/StringWriter.h"
 #include "Common/TimeUtil.h"
@@ -34,6 +35,9 @@
 static constexpr bool FORCE_SINGLE_THREAD = false;
 // With threads, how many queued items are put in tiles at once.
 static constexpr int DISTRIBUTE_BATCH = 16;
+// How large a primitive drawn in order (DrawSplit) has to be for threads to share it.
+static constexpr int SPLIT_MIN_ROW_PAIRS = 8;
+static constexpr int SPLIT_MIN_PIXELS = 128 * 64;
 // How many tile pieces of work are worth waking the threads for.
 static constexpr int WAKE_ENTRIES = 48;
 
@@ -153,6 +157,7 @@ BinManager::BinManager() {
 		s = false;
 
 	int maxInitTasks = std::min(g_threadManager.GetNumLooperThreads(), MAX_POSSIBLE_TASKS);
+	maxTasks_ = FORCE_SINGLE_THREAD ? 1 : maxInitTasks;
 	for (int i = 0; i < maxInitTasks; ++i) {
 		for (DrawBinItemsTask *&task : taskLists_[i].tasks)
 			task = new DrawBinItemsTask(waitable_, this, i, taskStatus_[i]);
@@ -258,22 +263,14 @@ void BinManager::UpdateState() {
 		// This is a good place to record any dependencies for block transfer overlap.
 		MarkPendingReads(state);
 
-		// Disallow threads when rendering to the target, even offset.
+		// Drawing that textures from its target, or with a scissor past the stride, stays threaded: a
+		// primitive that reads what's being drawn or reaches past the stride is drawn alone, in order (Expand).
 		bool selfRender = HasTextureWrite(state);
-		int newMaxTasks = selfRender || pastStride_ || FORCE_SINGLE_THREAD ? 1 : g_threadManager.GetNumLooperThreads();
-		if (newMaxTasks > MAX_POSSIBLE_TASKS)
-			newMaxTasks = MAX_POSSIBLE_TASKS;
-		// We don't want to overlap wrong, so flush any pending.
-		bool flushed = false;
-		if (maxTasks_ != newMaxTasks) {
-			maxTasks_ = newMaxTasks;
-			Flush("selfrender");
-			flushed = true;
-		}
 
 		// Lastly, we have to check if we're newly writing depth we were texturing before.
 		// This happens in Call of Duty (depth clear after depth texture), for example.
-		if (!flushed && !hadDepth && state.pixelID.depthWrite) {
+		bool flushed = false;
+		if (!hadDepth && state.pixelID.depthWrite) {
 			for (size_t i = 0; i < states_.Size(); ++i) {
 				if (HasTextureWrite(states_.Peek(i))) {
 					Flush("selfdepth");
@@ -289,7 +286,6 @@ void BinManager::UpdateState() {
 			MarkPendingReads(state);
 			ClearDirty(SoftDirty::BINNER_RANGE);
 		}
-		pendingOverlap_ = pendingOverlap_ || selfRender;
 		selfRender_ = selfRender;
 		ClearDirty(SoftDirty::BINNER_OVERLAP);
 	}
@@ -340,16 +336,20 @@ const RasterizerState &BinManager::SelfTextureSnapshot(const BinItem &item, cons
 			buf.assign(src, src + bytes);
 			selfTexAddr_[i] = state.texaddr[i];
 		} else {
-			// Only the rows the previous primitive drew have changed.
+			// Only what the previous primitive drew has changed: its columns, in its rows (by address, so a
+			// pixel past the stride is in the next row's bytes).
 			const DrawingCoords tl = TransformUnit::ScreenToDrawing(selfTexLastRange_.x1, selfTexLastRange_.y1);
 			const DrawingCoords br = TransformUnit::ScreenToDrawing(selfTexLastRange_.x2, selfTexLastRange_.y2);
-			const int64_t rowsStart = (int64_t)(drawTargetAddr_ & mirrorMask) + tl.y * fbStrideBytes;
-			const int64_t rowsEnd = (int64_t)(drawTargetAddr_ & mirrorMask) + (br.y + 1) * fbStrideBytes;
 			const int64_t texStart = state.texaddr[i] & mirrorMask;
-			const int64_t start = std::max(rowsStart, texStart) - texStart;
-			const int64_t end = std::min(rowsEnd, texStart + bytes) - texStart;
-			if (start < end)
-				memcpy(buf.data() + start, src + start, (size_t)(end - start));
+			const int64_t texEnd = texStart + bytes;
+			const int64_t colStart = (int64_t)tl.x * fbBpp, colEnd = (int64_t)(br.x + 1) * fbBpp;
+			for (int y = tl.y; y <= br.y; ++y) {
+				const int64_t row = (int64_t)(drawTargetAddr_ & mirrorMask) + (int64_t)y * fbStrideBytes;
+				const int64_t start = std::max(row + colStart, texStart) - texStart;
+				const int64_t end = std::min(row + colEnd, texEnd) - texStart;
+				if (start < end)
+					memcpy(buf.data() + start, src + start, (size_t)(end - start));
+			}
 		}
 		selfTexState_.texptr[i] = buf.data();
 	}
@@ -374,40 +374,6 @@ bool BinManager::HasTextureWrite(const RasterizerState &state) {
 	}
 
 	return false;
-}
-
-bool BinManager::IsExactSelfRender(const Rasterizer::RasterizerState &state, const BinItem &item) const {
-	if (item.type != BinItemType::SPRITE && item.type != BinItemType::RECT)
-		return false;
-	if (state.textureProj || state.maxTexLevel > 0)
-		return false;
-
-	// Only possible if the texture is 1:1.
-	if ((state.texaddr[0] & 0x0F1FFFFF) != (drawTargetAddr_ & 0x0F1FFFFF))
-		return false;
-	int bufferPixelWidth = BufferFormatBytesPerPixel(state.pixelID.FBFormat());
-	int texturePixelWidth = textureBitsPerPixel[state.samplerID.texfmt] / 8;
-	if (bufferPixelWidth != texturePixelWidth)
-		return false;
-
-	Vec4f tc = Vec4f(item.v0.texturecoords.x, item.v0.texturecoords.y, item.v1.texturecoords.x, item.v1.texturecoords.y);
-	if (state.throughMode) {
-		// Already at texels, convert to screen.
-		tc = tc * SCREEN_SCALE_FACTOR;
-	} else {
-		// Need to also multiply by width/height in transform mode.
-		int w = state.samplerID.cached.sizes[0].w * SCREEN_SCALE_FACTOR;
-		int h = state.samplerID.cached.sizes[0].h * SCREEN_SCALE_FACTOR;
-		tc = tc * Vec4f(w, h, w, h);
-	}
-
-	Vec4<int> tci = tc.Cast<int>();
-	if (tci.x != item.v0.screenpos.x || tci.y != item.v0.screenpos.y)
-		return false;
-	if (tci.z != item.v1.screenpos.x || tci.w != item.v1.screenpos.y)
-		return false;
-
-	return true;
 }
 
 void BinManager::MarkPendingReads(const Rasterizer::RasterizerState &state) {
@@ -573,16 +539,8 @@ void BinManager::AddPoint(const VertexData &v0) {
 	Expand(range);
 }
 
-void BinManager::Drain(bool flushing) {
+void BinManager::Drain() {
 	PROFILE_THIS_SCOPE("bin_drain");
-
-	if (pendingOverlap_ && maxTasks_ == 1 && flushing && queue_.Size() == 1 && !FORCE_SINGLE_THREAD) {
-		// If the drawing is 1:1, we can potentially use threads.  It's worth checking.
-		const auto &item = queue_.PeekNext();
-		const auto &state = states_[item.stateIndex];
-		if (IsExactSelfRender(state, item))
-			maxTasks_ = std::min(g_threadManager.GetNumLooperThreads(), MAX_POSSIBLE_TASKS);
-	}
 
 	// Also when switching to one thread: what's left goes to the tiles, which hold the earlier items.
 	if (maxTasks_ > 1 || activeCount_ != 0) {
@@ -606,22 +564,47 @@ void BinManager::Drain(bool flushing) {
 		const BinItem &item = queue_.PeekNext();
 		const RasterizerState &state = states_[item.stateIndex];
 		if (state.selfTexture) {
-			DrawBinItem(item, SelfTextureSnapshot(item, state));
+			DrawSplit(item, SelfTextureSnapshot(item, state));
 		} else {
 			selfTexValid_ = false;
-			DrawBinItem(item, state);
+			DrawSplit(item, state);
 		}
 		queue_.SkipNext();
 	}
 	distributePos_ = queue_.tail_;
 }
 
+// One thread draws in order, primitive after primitive, for one that textures from what it draws to (from a
+// snapshot taken before it, see SelfTextureSnapshot). Within a primitive each pixel only reads the snapshot
+// and its own pixel, so a large one is still drawn by several threads, in bands of rows. Not when pixels
+// can wrap past the stride into a row another band draws.
+void BinManager::DrawSplit(const BinItem &item, const RasterizerState &state) {
+	const BinCoords &range = item.range;
+	const int rowPairs = (range.y2 - range.y1 + SCREEN_SCALE_FACTOR * 2) / (SCREEN_SCALE_FACTOR * 2);
+	const int width = (range.x2 - range.x1 + SCREEN_SCALE_FACTOR) / SCREEN_SCALE_FACTOR;
+	const bool splittable = item.type == BinItemType::TRIANGLE || item.type == BinItemType::RECT || item.type == BinItemType::SPRITE || item.type == BinItemType::CLEAR_RECT;
+	if (!splittable || pastStride_ || FORCE_SINGLE_THREAD || rowPairs < 2 * SPLIT_MIN_ROW_PAIRS || width * rowPairs * 2 < SPLIT_MIN_PIXELS) {
+		DrawBinItem(item, state);
+		return;
+	}
+	// Bands start an even number of rows from the top, so the 2x2 quads are the same as unsplit.
+	ParallelRangeLoop(&g_threadManager, [&](int lower, int upper) {
+		BinCoords band = range;
+		band.y1 = range.y1 + lower * SCREEN_SCALE_FACTOR * 2;
+		band.y2 = std::min(range.y1 + upper * SCREEN_SCALE_FACTOR * 2 - 1, range.y2);
+		DrawBinItem(item, band, state);
+	}, 0, rowPairs, SPLIT_MIN_ROW_PAIRS, TaskPriority::HIGH);
+}
+
 void BinManager::DistributeItems() {
 	OptimizePendingStates(pendingStateIndex_, stateIndex_);
 	pendingStateIndex_ = stateIndex_;
+	DistributeItems(queue_.tail_);
+}
+
+void BinManager::DistributeItems(size_t end) {
 	undistributed_ = 0;
 
-	const size_t end = queue_.tail_;
 	while (distributePos_ != end) {
 		const size_t index = distributePos_;
 		const BinItem &item = queue_[index];
@@ -649,6 +632,18 @@ void BinManager::DistributeItems() {
 		}
 		distributePos_ = index + 1 == QUEUED_PRIMS ? 0 : index + 1;
 	}
+}
+
+void BinManager::ResetTiles() {
+	const int activeCount = activeCount_;
+	for (int i = 0; i < activeCount; ++i) {
+		const int t = activeTiles_[i];
+		tiles_[t].head = 0;
+		tiles_[t].tail = 0;
+		tileActive_[t] = false;
+	}
+	activeCount_ = 0;
+	entriesSinceWake_ = 0;
 }
 
 void BinManager::ReclaimItems() {
@@ -745,24 +740,19 @@ void BinManager::Flush(const char *reason) {
 	if (collectDebugStats) {
 		st = time_now_d();
 	}
-	Drain(true);
+	Drain();
 	if (maxTasks_ > 1 || activeCount_ != 0) {
 		// Help with the drawing, then wait for what the threads are still on.
 		while (ProcessTiles(0)) {
 		}
 	}
 	waitable_->Wait();
-	const int activeCount = activeCount_;
-	for (int i = 0; i < activeCount; ++i) {
-		const int t = activeTiles_[i];
-		tiles_[t].head = 0;
-		tiles_[t].tail = 0;
-		tileActive_[t] = false;
-	}
-	activeCount_ = 0;
+	ResetTiles();
 	distributePos_ = 0;
 	undistributed_ = 0;
-	entriesSinceWake_ = 0;
+	// The CPU and transfers may write memory after a flush.
+	selfTexValid_ = false;
+	ClearTileMarks();
 
 	queue_.Reset();
 	while (states_.Size() > 1)
@@ -781,7 +771,6 @@ void BinManager::Flush(const char *reason) {
 	for (BinDirtyRange &pending : pendingWrites_) {
 		pending.base = 0;
 	}
-	pendingOverlap_ = false;
 	pendingReads_.clear();
 
 	// We'll need to set the pending writes and reads again, since we just flushed it.
@@ -820,29 +809,35 @@ bool BinManager::HasPendingWrite(uint32_t start, uint32_t stride, uint32_t w, ui
 	// Ignore mirrors for overlap detection.
 	start &= 0x041FFFFF;
 
-	uint32_t size = stride * (h - 1) + w;
 	for (const auto &range : pendingWrites_) {
-		if (range.base == 0 || range.strideBytes == 0)
-			continue;
-		if (start >= range.base + range.height * range.strideBytes || start + size <= range.base)
-			continue;
-
-		// Let's simply go through each line.  Might be in the stride gap.
-		uint32_t row = start;
-		for (uint32_t y = 0; y < h; ++y) {
-			int32_t offset = row - range.base;
-			int32_t rangeY = offset / (int32_t)range.strideBytes;
-			uint32_t rangeX = offset % (int32_t)range.strideBytes;
-			if (rangeY >= 0 && (uint32_t)rangeY < range.height) {
-				// If this row is either within width, or extends beyond stride, overlap.
-				if (rangeX < range.widthBytes || rangeX + w >= range.strideBytes)
-					return true;
-			}
-
-			row += stride;
-		}
+		if (PendingWriteIn(range, start, stride, w, h))
+			return true;
 	}
+	return false;
+}
 
+bool BinManager::PendingWriteIn(const BinDirtyRange &range, uint32_t start, uint32_t stride, uint32_t w, uint32_t h) {
+	start &= 0x041FFFFF;
+	if (range.base == 0 || range.strideBytes == 0)
+		return false;
+	uint32_t size = stride * (h - 1) + w;
+	if (start >= range.base + range.height * range.strideBytes || start + size <= range.base)
+		return false;
+
+	// Let's simply go through each line.  Might be in the stride gap.
+	uint32_t row = start;
+	for (uint32_t y = 0; y < h; ++y) {
+		int32_t offset = row - range.base;
+		int32_t rangeY = offset / (int32_t)range.strideBytes;
+		uint32_t rangeX = offset % (int32_t)range.strideBytes;
+		if (rangeY >= 0 && (uint32_t)rangeY < range.height) {
+			// If this row is either within width, or extends beyond stride, overlap.
+			if (rangeX < range.widthBytes || rangeX + w >= range.strideBytes)
+				return true;
+		}
+
+		row += stride;
+	}
 	return false;
 }
 
@@ -959,11 +954,205 @@ void BinManager::Expand(const BinCoords &range) {
 	queueRange_.y2 = std::max(queueRange_.y2, range.y2);
 
 	if (maxTasks_ == 1) {
-		if (pendingOverlap_)
-			Flush("expand");
-		else
-			Drain();
+		Drain();
+	} else if (NeedsOrder(queue_[(queue_.tail_ + QUEUED_PRIMS - 1) % QUEUED_PRIMS])) {
+		DrainDependent();
 	} else if (++undistributed_ >= DISTRIBUTE_BATCH) {
 		Drain();
 	}
+}
+
+// Whether a primitive has to be drawn after all queued ones and before the next: one whose pixels past the
+// stride land in the next row (which another tile may be drawing), one that writes what a queued primitive
+// still has to read, and one that textures from what's drawn, reading texels a queued primitive (or itself)
+// writes. Otherwise it's queued, and what it writes and reads is noted for the next ones.
+bool BinManager::NeedsOrder(const BinItem &item) {
+	const RasterizerState &state = states_[item.stateIndex];
+	if (pastStride_ && item.range.x2 / SCREEN_SCALE_FACTOR >= (int)state.pixelID.cached.framebufStride)
+		return true;
+
+	const int tx1 = std::clamp(item.range.x1 / (SCREEN_SCALE_FACTOR * TILE_W), 0, TILES_X - 1);
+	const int tx2 = std::clamp(item.range.x2 / (SCREEN_SCALE_FACTOR * TILE_W), 0, TILES_X - 1);
+	const int ty1 = std::clamp(item.range.y1 / (SCREEN_SCALE_FACTOR * TILE_H), 0, TILES_Y - 1);
+	const int ty2 = std::clamp(item.range.y2 / (SCREEN_SCALE_FACTOR * TILE_H), 0, TILES_Y - 1);
+	if (anyTileReads_) {
+		for (int ty = ty1; ty <= ty2; ++ty) {
+			for (int tx = tx1; tx <= tx2; ++tx) {
+				if (tileReads_[ty * TILES_X + tx])
+					return true;
+			}
+		}
+	}
+	for (int ty = ty1; ty <= ty2; ++ty)
+		memset(tileWrites_ + ty * TILES_X + tx1, 1, tx2 - tx1 + 1);
+
+	if (!selfRender_)
+		return false;
+	TexelRegion region;
+	if (!SelfReadRegion(item, region))
+		return true;
+	// The depth buffer isn't in the tile marks.
+	if (pendingWrites_[1].base != 0 && PendingWriteIn(pendingWrites_[1], region.start, region.stride, region.widthBytes, region.rows))
+		return true;
+	bool written = false;
+	ForTargetTiles(state, region, [&](int t) {
+		written = written || tileWrites_[t] != 0;
+	});
+	if (written)
+		return true;
+	ForTargetTiles(state, region, [&](int t) {
+		tileReads_[t] = 1;
+	});
+	anyTileReads_ = true;
+	return false;
+}
+
+void BinManager::ClearTileMarks() {
+	memset(tileWrites_, 0, sizeof(tileWrites_));
+	if (anyTileReads_)
+		memset(tileReads_, 0, sizeof(tileReads_));
+	anyTileReads_ = false;
+}
+
+// Calls f(tile) for the tiles of the render target that a texel region's memory falls in.
+template <typename F>
+void BinManager::ForTargetTiles(const RasterizerState &state, const TexelRegion &region, F f) {
+	constexpr uint32_t mirrorMask = 0x041FFFFF;
+	const uint32_t bpp = state.pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
+	const uint32_t fbStrideBytes = state.pixelID.cached.framebufStride * bpp;
+	if (fbStrideBytes == 0)
+		return;
+	const int64_t fbBase = drawTargetAddr_ & mirrorMask;
+	int lastTy = -1, lastTx1 = -1, lastTx2 = -1;
+	for (uint32_t r = 0; r < region.rows; ++r) {
+		const int64_t a0 = (int64_t)(region.start & mirrorMask) + (int64_t)r * region.stride;
+		const int64_t a1 = a0 + region.widthBytes - 1;
+		if (a1 < fbBase)
+			continue;
+		const int64_t off0 = std::max(a0, fbBase) - fbBase;
+		const int64_t off1 = a1 - fbBase;
+		const int64_t y0 = off0 / fbStrideBytes, y1 = off1 / fbStrideBytes;
+		if (y0 >= TILES_Y * TILE_H)
+			break;
+		int x0 = 0, x1 = 1023;
+		if (y0 == y1) {
+			x0 = (int)((off0 % fbStrideBytes) / bpp);
+			x1 = (int)((off1 % fbStrideBytes) / bpp);
+		}
+		const int tx1 = std::min(x0 / TILE_W, TILES_X - 1), tx2 = std::min(x1 / TILE_W, TILES_X - 1);
+		for (int64_t y = y0; y <= y1 && y < TILES_Y * TILE_H; ++y) {
+			const int ty = (int)(y / TILE_H);
+			if (ty == lastTy && tx1 == lastTx1 && tx2 == lastTx2)
+				continue;
+			lastTy = ty;
+			lastTx1 = tx1;
+			lastTx2 = tx2;
+			for (int tx = tx1; tx <= tx2; ++tx)
+				f(ty * TILES_X + tx);
+		}
+	}
+}
+
+// The texels a primitive that textures from what's being drawn reads, as memory rows: within its vertices'
+// coordinates (also with perspective), plus the bilinear neighbors. False for anything less simple, which is
+// then treated as reading what's drawn.
+bool BinManager::SelfReadRegion(const BinItem &item, TexelRegion &region) {
+
+	const RasterizerState &state = states_[item.stateIndex];
+	if (!state.enableTextures || state.maxTexLevel != 0 || state.textureProj || state.samplerID.swizzle)
+		return false;
+	const GETextureFormat fmt = state.samplerID.TexFmt();
+	if (fmt == GE_TFMT_DXT1 || fmt == GE_TFMT_DXT3 || fmt == GE_TFMT_DXT5)
+		return false;
+	// Plain VRAM, not the depth mirrors.
+	const uint32_t addr = state.texaddr[0];
+	if ((addr & 0x0FE00000) != 0x04000000)
+		return false;
+	const int w = state.samplerID.cached.sizes[0].w;
+	const int h = state.samplerID.cached.sizes[0].h;
+	const uint32_t bits = textureBitsPerPixel[fmt];
+	// A texture that fits the GE's texture cache can stay cached across draws (SelfTextureSnapshot).
+	if (w > 512 || h > 512 || (uint32_t)w * h * bits / 8 <= 8192)
+		return false;
+
+	int count;
+	switch (item.type) {
+	case BinItemType::TRIANGLE: count = 3; break;
+	case BinItemType::RECT:
+	case BinItemType::SPRITE: count = 2; break;
+	default: return false;
+	}
+	const VertexData *vs[3] = { &item.v0, &item.v1, &item.v2 };
+	float umin = vs[0]->texturecoords.s(), umax = umin, vmin = vs[0]->texturecoords.t(), vmax = vmin;
+	for (int i = 1; i < count; ++i) {
+		umin = std::min(umin, vs[i]->texturecoords.s());
+		umax = std::max(umax, vs[i]->texturecoords.s());
+		vmin = std::min(vmin, vs[i]->texturecoords.t());
+		vmax = std::max(vmax, vs[i]->texturecoords.t());
+	}
+	if (!state.throughMode) {
+		umin *= w;
+		umax *= w;
+		vmin *= h;
+		vmax *= h;
+	}
+	if (!(umin >= -1024.0f && umax <= 1024.0f && vmin >= -1024.0f && vmax <= 1024.0f))
+		return false;
+	auto texels = [](float lo, float hi, int size, bool clamp, int &first, int &last) {
+		first = (int)floorf(lo) - 1;
+		last = (int)floorf(hi) + 1;
+		if (clamp) {
+			first = std::max(first, 0);
+			last = std::min(last, size - 1);
+		} else if (first < 0 || last >= size) {
+			first = 0;
+			last = size - 1;
+		}
+	};
+	int u0, u1, v0, v1;
+	texels(umin, umax, w, state.samplerID.clampS, u0, u1);
+	texels(vmin, vmax, h, state.samplerID.clampT, v0, v1);
+	if (u0 > u1 || v0 > v1)
+		return false;
+
+	region.stride = state.texbufw[0] * bits / 8;
+	const uint32_t startByte = u0 * bits / 8;
+	region.widthBytes = ((u1 + 1) * bits + 7) / 8 - startByte;
+	region.start = addr + v0 * region.stride + startByte;
+	region.rows = v1 - v0 + 1;
+	return true;
+}
+
+// The newest queued primitive needs order (NeedsOrder): draw everything before it, then it alone (one that
+// textures from what's drawn sees a snapshot of the texture as it was before it).
+void BinManager::DrainDependent() {
+	const size_t last = (queue_.tail_ + QUEUED_PRIMS - 1) % QUEUED_PRIMS;
+	// Also for this primitive's flags.
+	OptimizePendingStates(pendingStateIndex_, stateIndex_);
+	pendingStateIndex_ = stateIndex_;
+	if (distributePos_ != last)
+		DistributeItems(last);
+	if (activeCount_ != 0) {
+		if (entriesSinceWake_ >= WAKE_ENTRIES)
+			WakeTasks();
+		while (ProcessTiles(0)) {
+		}
+		waitable_->Wait();
+		ResetTiles();
+		// The tiles drew what the snapshot may have seen before.
+		selfTexValid_ = false;
+	}
+
+	const BinItem &item = queue_[last];
+	const RasterizerState &state = states_[item.stateIndex];
+	if (state.selfTexture) {
+		DrawSplit(item, SelfTextureSnapshot(item, state));
+	} else {
+		selfTexValid_ = false;
+		DrawSplit(item, state);
+	}
+	queue_.Reset();
+	distributePos_ = 0;
+	undistributed_ = 0;
+	ClearTileMarks();
 }
