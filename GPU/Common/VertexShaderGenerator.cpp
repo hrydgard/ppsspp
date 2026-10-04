@@ -439,12 +439,12 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		// bits as an integer gives: exponent plus mantissa, scaled by 2^23. Without integers, a true
 		// pow is close enough.
 		WRITE(p, "float pspPow(float x, float e) {\n");
-		if (compat.bitwiseOps) {
-			WRITE(p, "   float t = max(e, 0.0) * float(floatBitsToInt(max(x, 1e-30)) - 0x3F800000) + 1065353216.0;\n");
-			WRITE(p, "   return x > 0.0 || e <= 0.0 ? intBitsToFloat(int(max(t, 0.0))) : 0.0;\n");
-		} else {
-			WRITE(p, "   return e <= 0.0 ? 1.0 : pow(max(x, 0.0), e);\n");
-		}
+		WRITE(p, "   if (e <= 0.0) return 1.0;\n");
+		WRITE(p, "   if (x <= 0.0) return 0.0;\n");
+		WRITE(p, "   float ex = floor(log2(x));\n");
+		WRITE(p, "   float y = e * (ex + x * exp2(-ex) - 1.0);\n");
+		WRITE(p, "   float fl = floor(y);\n");
+		WRITE(p, "   return exp2(fl) * (1.0 + y - fl);\n");
 		WRITE(p, "}\n");
 	}
 
