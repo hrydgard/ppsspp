@@ -1181,6 +1181,29 @@ static LinearQuadFunc PickLinearQuad(const SamplerID &id) {
 	}
 }
 
+int SampleTexels(float s, float t, int level, int levelFrac, bool linear, const SamplerID &id, int u[8], int v[8], int levels[8]) {
+	int n = 0;
+	for (int l = level; l <= level + (levelFrac ? 1 : 0); ++l) {
+		const int w = id.cached.sizes[l].w, h = id.cached.sizes[l].h;
+		if (linear) {
+			int u0, u1, v0, v1, fracU, fracV;
+			TexelPairT(s, w, id.clampS, u0, u1, fracU);
+			TexelPairT(t, h, id.clampT, v0, v1, fracV);
+			const int us[4] = { u0, u1, u0, u1 }, vs[4] = { v0, v0, v1, v1 };
+			for (int i = 0; i < 4; ++i) {
+				u[n] = us[i];
+				v[n] = vs[i];
+				levels[n] = l;
+				++n;
+			}
+		} else {
+			GetTexelCoordinates(l, s, t, u[n], v[n], id);
+			levels[n++] = l;
+		}
+	}
+	return n;
+}
+
 LinearQuadFunc GetLinearQuadFunc(const SamplerID &id, LinearFunc linear) {
 	if (linear != GetLinearFallback(id))
 		return nullptr;

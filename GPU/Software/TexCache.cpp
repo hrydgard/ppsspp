@@ -19,6 +19,7 @@
 #include <cmath>
 #include <cstring>
 
+#include "Common/Log.h"
 #include "Core/Config.h"
 #include "Core/MemMap.h"
 #include "GPU/Common/TextureDecoder.h"
@@ -193,7 +194,11 @@ void TexCache::Touch(int bits, int level, int col, int band, const Source &src) 
 		}
 		return;
 	}
-	// A miss loads from memory, over the least recently used way.
+	Load(bits, level, col, band, src);
+}
+
+// A miss loads from memory, over the least recently used way.
+TexCache::Line *TexCache::Load(int bits, int level, int col, int band, const Source &src) {
 	const int s = SetIndex(bits, col, band);
 	Line *set = lines_[s];
 	int way = 0;
@@ -220,6 +225,7 @@ void TexCache::Touch(int bits, int level, int col, int band, const Source &src) 
 	MemoryRange(src, col, band, start, end);
 	uncapturedLo_ = std::min(uncapturedLo_, start);
 	uncapturedHi_ = std::max(uncapturedHi_, end);
+	return victim;
 }
 
 bool TexCache::Config::SameSources(const Config &o) const {
@@ -455,7 +461,7 @@ void TexCache::ReplayLog() {
 	loggedSerial_ = 0;
 }
 
-bool TexCache::Access(const BinItem &item, const Rasterizer::RasterizerState &state) {
+bool TexCache::Prepare(const BinItem &item, const Rasterizer::RasterizerState &state) {
 	delivered_.clear();
 	footprintValid_ = false;
 	currentValid_ = false;
@@ -468,6 +474,12 @@ bool TexCache::Access(const BinItem &item, const Rasterizer::RasterizerState &st
 	if (!configOk_ || !MakeBounds(item, state, bounds_))
 		return false;
 	currentValid_ = true;
+	return true;
+}
+
+bool TexCache::Access() {
+	if (!currentValid_)
+		return false;
 	if (coherent_) {
 		if (!epochStarted_) {
 			epoch_ = current_;
@@ -562,6 +574,12 @@ void TexCache::Image(Rasterizer::RasterizerState &state) {
 		DecodedImage(state);
 		return;
 	}
+	CopyLevels(state);
+	for (const Delivered &line : delivered_)
+		PutLine(line.level, line.col, line.band, line.data);
+}
+
+void TexCache::CopyLevels(Rasterizer::RasterizerState &state) {
 	for (int level = 0; level <= state.maxTexLevel; ++level) {
 		const Source &cur = current_.src[level];
 		const int w = state.samplerID.cached.sizes[level].w;
@@ -572,25 +590,99 @@ void TexCache::Image(Rasterizer::RasterizerState &state) {
 		std::vector<uint8_t> &img = images_[level];
 		img.resize(bytes);
 		CopyFrom(cur, cur.addr, img.data(), bytes);
-		for (const Delivered &line : delivered_) {
-			if (line.level != level)
-				continue;
-			uint32_t start, end;
-			LineRange(cur, line.col, line.band, start, end);
-			if (cur.swizzled) {
-				const uint32_t off = start - cur.addr;
-				if (off + 128 <= bytes)
-					memcpy(img.data() + off, line.data, 128);
-			} else {
-				for (int r = 0; r < 8; ++r) {
-					const uint32_t off = start - cur.addr + r * cur.strideBytes;
-					if (off + 16 <= bytes)
-						memcpy(img.data() + off, line.data + r * 16, 16);
-				}
-			}
-		}
 		state.texptr[level] = img.data();
 	}
+}
+
+void TexCache::PutLine(int level, int col, int band, const uint8_t data[128]) {
+	const Source &cur = current_.src[level];
+	std::vector<uint8_t> &img = images_[level];
+	uint32_t start, end;
+	LineRange(cur, col, band, start, end);
+	if (cur.swizzled) {
+		const uint32_t off = start - cur.addr;
+		if (off + 128 <= img.size())
+			memcpy(img.data() + off, data, 128);
+		return;
+	}
+	for (int r = 0; r < 8; ++r) {
+		const uint32_t off = start - cur.addr + r * cur.strideBytes;
+		if (off + 16 <= img.size())
+			memcpy(img.data() + off, data + r * 16, 16);
+	}
+}
+
+void TexCache::BeginSerial(Rasterizer::RasterizerState &state) {
+	CopyLevels(state);
+	unflushedCount_ = 0;
+	// A new generation: no line is in the copies yet.
+	if (++serialGen_ == 0) {
+		for (auto &set : lines_) {
+			for (Line &line : set)
+				line.viewGen = 0;
+		}
+		serialGen_ = 1;
+	}
+}
+
+void TexCache::Defer() {
+	ReplayLog();
+	delivered_.clear();
+}
+
+void TexCache::PushUnflushed(uint32_t addr, const uint8_t old[16]) {
+	_dbg_assert_(unflushedCount_ < MAX_UNFLUSHED);
+	Unflushed &u = unflushed_[unflushedCount_++];
+	u.addr = MaskAddress(addr);
+	memcpy(u.old, old, 16);
+}
+
+void TexCache::RemoveUnflushed(int index) {
+	if (index < 0 || index >= unflushedCount_)
+		return;
+	memmove(unflushed_ + index, unflushed_ + index + 1, sizeof(Unflushed) * (unflushedCount_ - index - 1));
+	unflushedCount_--;
+}
+
+void TexCache::SerialRead(int level, int u, int v) {
+	const int col = u * current_.bits / 128, band = v >> 3;
+	Line *line = Find(current_.bits, level, col, band);
+	if (line) {
+		line->lru = ++clock_;
+		if (line->viewGen != serialGen_) {
+			uint8_t data[128];
+			Bytes(*line, data);
+			PutLine(level, col, band, data);
+			line->viewGen = serialGen_;
+		}
+		return;
+	}
+	// Loaded now: memory as it is, but for the pixels still in the output block.
+	const Source &src = current_.src[level];
+	line = Load(current_.bits, level, col, band, src);
+	ReadLine(src, col, band, line->data);
+	uint32_t start, end;
+	LineRange(src, col, band, start, end);
+	for (int k = 0; k < unflushedCount_; ++k) {
+		const Unflushed &u = unflushed_[k];
+		if (end <= u.addr || start >= u.addr + 16)
+			continue;
+		auto patch = [&](uint32_t addr, uint8_t *dst, uint32_t n) {
+			const uint32_t lo = std::max(addr, u.addr), hi = std::min(addr + n, u.addr + 16);
+			if (lo < hi)
+				memcpy(dst + (lo - addr), u.old + (lo - u.addr), hi - lo);
+		};
+		if (src.swizzled) {
+			patch(start, line->data, 128);
+		} else {
+			for (int r = 0; r < 8; ++r)
+				patch(start + r * src.strideBytes, line->data + r * 16, 16);
+		}
+	}
+	line->captured = true;
+	coherent_ = false;
+	PutLine(level, col, band, line->data);
+	line->viewGen = serialGen_;
 }
 
 // The cache holds DXT decoded, so a stale line is 8888 texels: the levels are decoded to 8888, the lines laid

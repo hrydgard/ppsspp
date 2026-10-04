@@ -26,6 +26,7 @@
 #include "Common/Thread/ThreadManager.h"
 #include "Common/Data/Text/StringWriter.h"
 #include "Common/TimeUtil.h"
+#include "Core/Config.h"
 #include "Core/MemMap.h"
 #include "Core/System.h"
 #include "GPU/Common/TextureDecoder.h"
@@ -342,7 +343,7 @@ void BinManager::UpdateState() {
 void BinManager::CacheStep(BinItem &item) {
 	item.cacheStepped = true;
 	const RasterizerState &state = states_[item.stateIndex];
-	const bool stale = texCache_.Access(item, state);
+	const bool reads = texCache_.Prepare(item, state);
 	bool selfWrite = false;
 	if (state.serial != overlapSerial_) {
 		// Whether this state's texture can be in its color or depth buffer at all: then each primitive is
@@ -354,22 +355,188 @@ void BinManager::CacheStep(BinItem &item) {
 	constexpr uint32_t mirrorMask = 0x041FFFFF;
 	const DrawingCoords tl = TransformUnit::ScreenToDrawing(item.range.x1, item.range.y1);
 	const DrawingCoords br = TransformUnit::ScreenToDrawing(item.range.x2, item.range.y2);
+	const uint32_t bpp = state.pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
+	const bool depthWrites = state.pixelID.depthWrite || (state.pixelID.clearMode && state.pixelID.DepthClear());
+	if (reads && mayOverlap_) {
+		selfWrite = texCache_.FootprintReads(drawTargetAddr_ & mirrorMask, bpp, state.pixelID.cached.framebufStride, tl.x, tl.y, br.x, br.y);
+		if (!selfWrite && depthWrites)
+			selfWrite = texCache_.FootprintReads(gstate.getDepthBufAddress() & mirrorMask, 2, state.pixelID.cached.depthbufStride, tl.x, tl.y, br.x, br.y);
+	}
+	serialDraw_ = selfWrite && CanDrawSerial(item, state);
+	bool stale = false;
+	if (serialDraw_) {
+		texCache_.Defer();
+		serialFb_ = drawTargetAddr_ & mirrorMask;
+	} else if (reads) {
+		stale = texCache_.Access();
+	}
 	auto writes = [&](uint32_t base, uint32_t bpp, uint32_t stride) {
 		base &= mirrorMask;
 		const uint32_t start = base + ((uint32_t)tl.y * stride + (uint32_t)tl.x) * bpp;
 		const uint32_t end = base + ((uint32_t)br.y * stride + (uint32_t)br.x + 1) * bpp;
-		if (mayOverlap_ && !selfWrite)
-			selfWrite = texCache_.FootprintReads(base, bpp, stride, tl.x, tl.y, br.x, br.y);
 		if (texCache_.MayHold(start, end))
 			texCache_.BeforeWrite(start, end);
 	};
 	if (!texCache_.IsEmpty()) {
-		const uint32_t bpp = state.pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
 		writes(drawTargetAddr_, bpp, state.pixelID.cached.framebufStride);
-		if (state.pixelID.depthWrite || (state.pixelID.clearMode && state.pixelID.DepthClear()))
+		if (depthWrites)
 			writes(gstate.getDepthBufAddress(), 2, state.pixelID.cached.depthbufStride);
 	}
 	cacheImage_ = stale || selfWrite;
+}
+
+// The serial draw's samplers: a sample's texels go through the texture cache, then the sampler reads them
+// from its copies of the levels.
+static struct {
+	TexCache *cache;
+	Sampler::NearestFunc nearest;
+	Sampler::LinearFunc linear;
+	Sampler::FetchFunc fetch;
+	// Forced by the texture filtering setting.
+	bool nearestIsLinear, linearIsNearest;
+} serialSampler;
+
+static void SerialReads(float s, float t, int level, int levelFrac, bool linear, const SamplerID &samplerID) {
+	int u[8], v[8], levels[8];
+	const int n = Sampler::SampleTexels(s, t, level, levelFrac, linear, samplerID, u, v, levels);
+	for (int i = 0; i < n; ++i)
+		serialSampler.cache->SerialRead(levels[i], u[i], v[i]);
+}
+
+static Vec4IntResult SOFTRAST_CALL SerialNearest(float s, float t, Vec4IntArg prim_color, const u8 *const *tptr, const uint16_t *bufw, int level, int levelFrac, const SamplerID &samplerID) {
+	SerialReads(s, t, level, levelFrac, serialSampler.nearestIsLinear, samplerID);
+	return serialSampler.nearest(s, t, prim_color, tptr, bufw, level, levelFrac, samplerID);
+}
+
+static Vec4IntResult SOFTRAST_CALL SerialLinear(float s, float t, Vec4IntArg prim_color, const u8 *const *tptr, const uint16_t *bufw, int level, int levelFrac, const SamplerID &samplerID) {
+	SerialReads(s, t, level, levelFrac, !serialSampler.linearIsNearest, samplerID);
+	return serialSampler.linear(s, t, prim_color, tptr, bufw, level, levelFrac, samplerID);
+}
+
+static Vec4IntResult SOFTRAST_CALL SerialFetch(int u, int v, const u8 *tptr, int bufw, int level, const SamplerID &samplerID) {
+	serialSampler.cache->SerialRead(level, u, v);
+	return serialSampler.fetch(u, v, tptr, bufw, level, samplerID);
+}
+
+bool BinManager::CanDrawSerial(const BinItem &item, const RasterizerState &state) {
+	if (item.type != BinItemType::SPRITE && item.type != BinItemType::RECT)
+		return false;
+	const GETextureFormat fmt = state.samplerID.TexFmt();
+	return fmt != GE_TFMT_DXT1 && fmt != GE_TFMT_DXT3 && fmt != GE_TFMT_DXT5;
+}
+
+// A primitive that textures from what it draws, as the GE draws it (ppsspp-re's geprobe exp204, exp205 and
+// exp81): a sprite's rows top down, each left to right, its texture lines loaded as samples first read
+// them, and its pixels reaching memory a 16-byte block at a time, a pixel after the next block starts (four
+// with bilinear filtering, whose reads run further ahead).
+void BinManager::DrawSerial(const BinItem &item, const RasterizerState &state) {
+	cacheState_ = item.type == BinItemType::RECT ? OptimizeFlatRasterizerState(state, item.v1) : state;
+	texCache_.BeginSerial(cacheState_);
+	serialSampler.cache = &texCache_;
+	serialSampler.nearest = cacheState_.nearest;
+	serialSampler.linear = cacheState_.linear;
+	serialSampler.fetch = Sampler::GetFetchFunc(cacheState_.samplerID, nullptr);
+	serialSampler.nearestIsLinear = g_Config.iTexFiltering == TEX_FILTER_FORCE_LINEAR;
+	serialSampler.linearIsNearest = g_Config.iTexFiltering == TEX_FILTER_FORCE_NEAREST;
+	cacheState_.nearest = &SerialNearest;
+	cacheState_.linear = &SerialLinear;
+	cacheState_.linearQuad = nullptr;
+	cacheState_.fetch = &SerialFetch;
+
+	// The sprite's pixels (as DrawRectangle finds them), within the range.
+	const int x1 = std::min(item.v0.screenpos.x, item.v1.screenpos.x), x2 = std::max(item.v0.screenpos.x, item.v1.screenpos.x);
+	const int y1 = std::min(item.v0.screenpos.y, item.v1.screenpos.y), y2 = std::max(item.v0.screenpos.y, item.v1.screenpos.y);
+	const int px0 = std::max((x1 + 6) / SCREEN_SCALE_FACTOR, item.range.x1 / SCREEN_SCALE_FACTOR);
+	const int px1 = std::min((x2 + 7) / SCREEN_SCALE_FACTOR - 1, item.range.x2 / SCREEN_SCALE_FACTOR);
+	const int py0 = std::max((y1 + 7) / SCREEN_SCALE_FACTOR, item.range.y1 / SCREEN_SCALE_FACTOR);
+	const int py1 = std::min((y2 + 7) / SCREEN_SCALE_FACTOR - 1, item.range.y2 / SCREEN_SCALE_FACTOR);
+
+	const int bpp = state.pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
+	const int stride = state.pixelID.cached.framebufStride;
+	const int64_t latency = state.minFilt || state.magFilt ? 4 : 1;
+	// Rows that start and end inside 64-byte groups and span at most four (exp207-exp209): there the first
+	// block of the row above reads as it was before this primitive to a row's first pixel (though in its own
+	// row it reached memory as usual, exp204), and the last block of the row above reaches memory a block
+	// into the row (exp174).
+	const int64_t rowStart = (int64_t)serialFb_ + (int64_t)px0 * bpp, rowEnd = (int64_t)serialFb_ + (int64_t)(px1 + 1) * bpp;
+	const bool holdFirst = (rowStart & 63) != 0 && (rowEnd & 63) != 0 && ((rowEnd + 63) >> 6) - (rowStart >> 6) <= 4;
+	auto draw = [&](int xa, int xb, int y) {
+		BinCoords r{ xa * SCREEN_SCALE_FACTOR, y * SCREEN_SCALE_FACTOR, xb * SCREEN_SCALE_FACTOR + SCREEN_SCALE_FACTOR - 1, y * SCREEN_SCALE_FACTOR + SCREEN_SCALE_FACTOR - 1 };
+		DrawBinItem(item, r.Intersect(item.range), cacheState_);
+	};
+	// The pixels drawn so far, and when each block in the output buffer (as texCache_ holds them) reaches
+	// memory, never yet for the one being drawn.
+	constexpr int64_t NOT_YET = INT64_MAX;
+	int64_t drawn = 0;
+	int64_t visibleAt[TexCache::MAX_UNFLUSHED];
+	int count = 0;
+	uint32_t firstAddr = 0;
+	uint8_t firstOld[16];
+	bool haveFirst = false;
+	auto reachMemory = [&]() {
+		for (int k = 0; k < count;) {
+			if (visibleAt[k] <= drawn) {
+				texCache_.RemoveUnflushed(k);
+				memmove(visibleAt + k, visibleAt + k + 1, sizeof(visibleAt[0]) * (count - k - 1));
+				count--;
+			} else {
+				k++;
+			}
+		}
+	};
+	for (int y = py0; y <= py1; ++y) {
+		const int64_t rowAddr = (int64_t)serialFb_ + (int64_t)y * stride * bpp;
+		int x = px0;
+		while (x <= px1) {
+			const uint32_t blockAddr = (uint32_t)(rowAddr + x * bpp) & ~15;
+			const int blockStart = (int)(((int64_t)blockAddr - rowAddr) / bpp);
+			const int hi = std::min(px1, blockStart + 16 / bpp - 1);
+			// The previous block is finished now.
+			if (count > 0 && visibleAt[count - 1] == NOT_YET)
+				visibleAt[count - 1] = drawn + (x == px0 && holdFirst ? std::max<int64_t>(latency, 16 / bpp) : latency);
+			// Room for two more (a row's held first block and this one). A sprite a pixel or two wide can outrun
+			// its blocks reaching memory: then the oldest go now.
+			while (count >= TexCache::MAX_UNFLUSHED - 1) {
+				drawn = std::max(drawn, *std::min_element(visibleAt, visibleAt + count));
+				reachMemory();
+			}
+			uint8_t old[16]{};
+			if (Memory::IsValidRange(blockAddr, 16))
+				memcpy(old, Memory::GetPointerUnchecked(blockAddr), 16);
+			// The row above's first block again, but not the primitive's first row's (exp206).
+			if (x == px0 && holdFirst && y > py0) {
+				if (haveFirst) {
+					texCache_.PushUnflushed(firstAddr, firstOld);
+					visibleAt[count++] = drawn + 1;
+				}
+				firstAddr = blockAddr;
+				memcpy(firstOld, old, 16);
+				haveFirst = true;
+			}
+			texCache_.PushUnflushed(blockAddr, old);
+			visibleAt[count++] = NOT_YET;
+			// Its pixels, in runs between the times blocks reach memory.
+			while (x <= hi) {
+				reachMemory();
+				int64_t next = NOT_YET;
+				for (int k = 0; k < count; ++k)
+					next = std::min(next, visibleAt[k]);
+				const int end = next != NOT_YET ? (int)std::min<int64_t>(hi, x + next - drawn - 1) : hi;
+				draw(x, end, y);
+				drawn += end - x + 1;
+				x = end + 1;
+			}
+		}
+	}
+}
+
+void BinManager::DrawStepped(const BinItem &item, const RasterizerState &state) {
+	if (serialDraw_) {
+		serialDraw_ = false;
+		DrawSerial(item, state);
+	} else {
+		DrawSplit(item, CacheView(item, state));
+	}
 }
 
 // The state to draw the primitive last stepped with: with its texture as the GE's texture cache gives it, when
@@ -639,11 +806,13 @@ void BinManager::Drain() {
 	while (!queue_.Empty()) {
 		BinItem &item = queue_[queue_.head_];
 		const RasterizerState &state = states_[item.stateIndex];
-		if (!item.cacheStepped)
+		if (!item.cacheStepped) {
 			CacheStep(item);
-		else
+		} else {
 			cacheImage_ = false;
-		DrawSplit(item, CacheView(item, state));
+			serialDraw_ = false;
+		}
+		DrawStepped(item, state);
 		queue_.SkipNext();
 	}
 	distributePos_ = queue_.tail_;
@@ -1283,7 +1452,7 @@ void BinManager::DrainDependent() {
 	const RasterizerState &state = states_[item.stateIndex];
 	if (!item.cacheStepped)
 		CacheStep(item);
-	DrawSplit(item, CacheView(item, state));
+	DrawStepped(item, state);
 	queue_.Reset();
 	distributePos_ = 0;
 	undistributed_ = 0;

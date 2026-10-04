@@ -349,6 +349,10 @@ private:
 	// cacheState_, whose texture is memory with the cached lines over it.
 	TexCache texCache_;
 	bool cacheImage_ = false;
+	// It draws over what it reads, and is drawn in the GE's pixel order (DrawSerial) to the framebuffer at
+	// serialFb_ (stride and bytes per pixel as for its state).
+	bool serialDraw_ = false;
+	uint32_t serialFb_ = 0;
 	uint32_t stateSerial_ = 0;
 	uint32_t overlapSerial_ = 0;
 	bool mayOverlap_ = false;
@@ -380,6 +384,10 @@ private:
 	void CacheStep(BinItem &item);
 	bool TextureOverlapsTarget(const Rasterizer::RasterizerState &state) const;
 	const Rasterizer::RasterizerState &CacheView(const BinItem &item, const Rasterizer::RasterizerState &state);
+	static bool CanDrawSerial(const BinItem &item, const Rasterizer::RasterizerState &state);
+	void DrawSerial(const BinItem &item, const Rasterizer::RasterizerState &state);
+	// The primitive last stepped through the texture cache, as that says.
+	void DrawStepped(const BinItem &item, const Rasterizer::RasterizerState &state);
 	void OptimizePendingStates(uint16_t first, uint16_t last);
 	void PushState();
 	void DeswizzleMirrorTextures(Rasterizer::RasterizerState &state);

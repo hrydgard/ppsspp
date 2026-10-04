@@ -75,6 +75,8 @@ struct RasterizerState {
 	Sampler::NearestFunc nearest;
 	// Four pixels at once, where linear is the C++ fallback.
 	Sampler::LinearQuadFunc linearQuad = nullptr;
+	// Replaces the fetch function DrawSprite gets for samplerID (the texture cache simulation's, BinManager::DrawSerial).
+	Sampler::FetchFunc fetch = nullptr;
 	uint32_t texaddr[8]{};
 	uint16_t texbufw[8]{};
 	const u8 *texptr[8]{};
@@ -116,6 +118,8 @@ void CalculateRasterStateFlags(RasterizerState *state, const VertexData &v0);
 void CalculateRasterStateFlags(RasterizerState *state, const VertexData &v0, const VertexData &v1, bool forceFlat);
 void CalculateRasterStateFlags(RasterizerState *state, const VertexData &v0, const VertexData &v1, const VertexData &v2);
 bool OptimizeRasterState(RasterizerState *state);
+// The state DrawRectangle draws a flat sprite with (from its last vertex).
+RasterizerState OptimizeFlatRasterizerState(const RasterizerState &origState, const VertexData &v1);
 
 // Draws a triangle if its vertices are specified in counter-clockwise order
 void DrawTriangle(const VertexData &v0, const VertexData &v1, const VertexData &v2, const BinCoords &range, const RasterizerState &state);

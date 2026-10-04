@@ -53,6 +53,10 @@ typedef void (SOFTRAST_CALL *LinearQuadFunc)(const float *s, const float *t, con
 // Only for the samplers without a JIT (linear is what GetLinearFunc returned), nullptr otherwise.
 LinearQuadFunc GetLinearQuadFunc(const SamplerID &id, LinearFunc linear);
 
+// The texels a sample reads, after clamping or wrapping: nearest or the bilinear 2x2, at level and (with
+// levelFrac) level + 1. Returns how many (at most 8).
+int SampleTexels(float s, float t, int level, int levelFrac, bool linear, const SamplerID &id, int u[8], int v[8], int levels[8]);
+
 void Init();
 void FlushJit();
 int JitClearGeneration();

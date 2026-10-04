@@ -45,9 +45,23 @@ public:
 	// TEXFLUSH.
 	void Clear();
 
-	// Simulates the reads of a textured primitive. Returns true when it would read cached bytes that differ
+	// What a primitive reads (for FootprintReads, Access or Defer). False when it reads nothing.
+	bool Prepare(const BinItem &item, const Rasterizer::RasterizerState &state);
+	// Simulates the reads of the prepared primitive. Returns true when it would read cached bytes that differ
 	// from what its texture holds in memory now (then draw it from Image()).
-	bool Access(const BinItem &item, const Rasterizer::RasterizerState &state);
+	bool Access();
+	// Instead of Access, for a primitive drawn in the GE's pixel order (one that reads what it draws): its
+	// lines go through the cache as its samples first read them, loading memory as it is then. Defer when
+	// it's stepped, BeginSerial when it's drawn (pointing state's texptr at copies of its levels), then
+	// SerialRead each texel before it's sampled.
+	void Defer();
+	void BeginSerial(Rasterizer::RasterizerState &state);
+	void SerialRead(int level, int u, int v);
+	// The output buffer: memory doesn't have its blocks' new bytes yet (still old). Push a block as drawing it
+	// starts, remove it (by its index in push order) when it reaches memory.
+	static constexpr int MAX_UNFLUSHED = 6;
+	void PushUnflushed(uint32_t addr, const uint8_t old[16]);
+	void RemoveUnflushed(int index);
 	// The bytes from start to end (masked addresses) are about to change: lines loaded from them keep the old.
 	void BeforeWrite(uint32_t start, uint32_t end);
 	// The CPU is about to run, and may write anything: every line keeps its bytes.
@@ -71,6 +85,9 @@ public:
 
 private:
 	void DecodedImage(Rasterizer::RasterizerState &state);
+	void CopyLevels(Rasterizer::RasterizerState &state);
+	// Lays a line's bytes over the copy of its level.
+	void PutLine(int level, int col, int band, const uint8_t data[128]);
 
 	struct Source {
 		// Where the line's bytes came from: the level's address, its row stride in bytes, swizzled or not.
@@ -116,6 +133,8 @@ private:
 		uint16_t col = 0;
 		uint16_t band = 0;
 		uint32_t lru = 0;
+		// The serial draw whose level copies have its bytes.
+		uint32_t viewGen = 0;
 		Source src;
 		uint8_t data[128];
 	};
@@ -143,6 +162,7 @@ private:
 	static void MakeFootprint(const Config &cfg, const Bounds &b, std::vector<Footprint> &out);
 	Line *Find(int bits, int level, int col, int band);
 	void Touch(int bits, int level, int col, int band, const Source &src);
+	Line *Load(int bits, int level, int col, int band, const Source &src);
 	void Step(const Config &cfg, const std::vector<Footprint> &fp);
 	void ReplayLog();
 	// The line's bytes as the GE holds them.
@@ -188,4 +208,12 @@ private:
 	std::vector<Footprint> footprint_;
 	std::vector<Delivered> delivered_;
 	std::vector<uint8_t> images_[8];
+
+	uint32_t serialGen_ = 0;
+	struct Unflushed {
+		uint32_t addr;
+		uint8_t old[16];
+	};
+	Unflushed unflushed_[MAX_UNFLUSHED];
+	int unflushedCount_ = 0;
 };
