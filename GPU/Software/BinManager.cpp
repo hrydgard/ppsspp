@@ -245,21 +245,12 @@ void BinManager::UpdateState() {
 			dirty_ |= SoftDirty::BINNER_OVERLAP;
 		}
 
-		// If we're about to texture from something still pending (i.e. depth), flush.
-		if (HasTextureWrite(state))
-			Flush("tex");
-
-		// Okay, now update what's pending.
+		// Okay, now update what's pending. Texturing from it is ordered per primitive (NeedsOrder), so
+		// whether the texture overlaps has to be decided again.
 		MarkPendingWrites(state);
+		dirty_ |= SoftDirty::BINNER_OVERLAP;
 
 		ClearDirty(SoftDirty::BINNER_RANGE);
-	} else if (pendingOverlap_) {
-		if (HasTextureWrite(state)) {
-			Flush("tex");
-
-			// We need the pending writes set, which flushing cleared.  Set them again.
-			MarkPendingWrites(state);
-		}
 	}
 
 	if (HasDirty(SoftDirty::BINNER_OVERLAP)) {
