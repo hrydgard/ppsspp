@@ -1482,6 +1482,24 @@ void DrawTriangleSlice(
 	// The scissor's pixels.
 	const int64_t scissorLo = -floorDiv(-(int64_t)x1, SCREEN_SCALE_FACTOR), scissorHi = floorDiv(x2, SCREEN_SCALE_FACTOR);
 
+	// The staged path's per pixel secondary colors and fog, filled once here when they're constant (and the
+	// secondary color left out when it's zero).
+	alignas(16) int stagedSecBuf[3][STAGED_CHUNK];
+	alignas(16) int stagedFogBuf[STAGED_CHUNK];
+	const bool secZero = flatColor1 && (v2.color1 & 0xFFFFFF) == 0;
+	if (staged) {
+		stagedCtx.addSecondary = !clearMode && !secZero;
+		const int secScale = DoubleSecondaryColor(state) ? 2 : 1;
+		for (int k = 0; k < STAGED_CHUNK; ++k) {
+			if (flatColor1) {
+				for (int c = 0; c < 3; ++c)
+					stagedSecBuf[c][k] = v2_c1[c] * secScale;
+			}
+			if (noFog)
+				stagedFogBuf[k] = 255;
+		}
+	}
+
 	for (int64_t curY = minY; curY <= maxY; curY += SCREEN_SCALE_FACTOR,
 										w0_base = e0.StepY(w0_base),
 										w1_base = e1.StepY(w1_base),
@@ -1522,10 +1540,11 @@ void DrawTriangleSlice(
 		// fog for all its pixels, then texturing and the pixels span by span. Each stage keeps little state.
 		if (staged) {
 			constexpr int CHUNK = STAGED_CHUNK;
-			alignas(16) int maskBuf[CHUNK], zBuf[CHUNK], fogBuf[CHUNK];
+			alignas(16) int maskBuf[CHUNK], zBuf[CHUNK];
+			int *fogBuf = stagedFogBuf;
 			// A channel at a time.
 			alignas(16) int colorBuf[4][CHUNK];
-			alignas(16) int secBuf[3][CHUNK];
+			int (*secBuf)[CHUNK] = stagedSecBuf;
 			int chunkX = p.x;
 			for (int64_t chunk = firstSpan; chunk <= hi; chunk += CHUNK, chunkX = (chunkX + CHUNK) & 0x3FF) {
 				const int count = (int)std::min<int64_t>(CHUNK, ((hi - chunk) / 4 + 1) * 4);
@@ -1608,21 +1627,14 @@ void DrawTriangleSlice(
 							colorBuf[c][k] = v2_c0[c];
 					}
 				}
-				const int secScale = DoubleSecondaryColor(state) ? 2 : 1;
-				for (int c = 0; c < 3; ++c) {
-					if (!flatColor1) {
+				if (!flatColor1) {
+					const int secScale = DoubleSecondaryColor(state) ? 2 : 1;
+					for (int c = 0; c < 3; ++c)
 						walk(color1Planes[c], 0, 255, [&](int k, Vec4S32 v) { (secScale == 2 ? v.Shl<1>() : v).StoreAligned(&secBuf[c][k]); });
-					} else {
-						for (int k = 0; k < count; ++k)
-							secBuf[c][k] = v2_c1[c] * secScale;
-					}
 				}
 				if (!noFog) {
 					// The 8-bit fog of each vertex through the depth plane, like Gouraud color (gpu/probe exp21).
 					walk(fogPlane, 0, 255, [&](int k, Vec4S32 v) { v.StoreAligned(&fogBuf[k]); });
-				} else {
-					for (int k = 0; k < count; ++k)
-						fogBuf[k] = 255;
 				}
 
 				int64_t qv = 0, sv = 0, tv = 0;
@@ -1987,7 +1999,7 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 				tRamp = ramp(uvPlanes.t);
 			}
 		}
-		StagedSpans ctx{ &state, &uvPlanes, qRamp, sRamp, tRamp, autoGrad, false, !clearMode };
+		StagedSpans ctx{ &state, &uvPlanes, qRamp, sRamp, tRamp, autoGrad, false, !clearMode && (sec_color[0] | sec_color[1] | sec_color[2]) != 0 };
 		StagedSpansFunc drawStagedSpans = !textured ? &DrawStagedSpans<false, false, false, false> :
 			uvFast ? &DrawStagedSpans<true, true, false, false> : &DrawStagedSpans<true, false, false, false>;
 
