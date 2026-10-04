@@ -365,24 +365,7 @@ u32 GPUCommon::DrawSync(int mode) {
 			VirtualFramebuffer *vfb = framebufferManager_->GetCurrentRenderVFB();
 			if (vfb && vfb->fbo && vfb->last_frame_render == gpuStats.totals.numFlips && !vfb->memoryUpdated) {
 				framebufferManager_->ReadFramebufferToMemory(vfb, 0, 0, vfb->width, vfb->height, RASTER_COLOR, Draw::ReadbackMode::BLOCK);
-			}
-		}
-		// Everybody's Golf's character portrait (64x64 5551 at 040e89c0) is built by the game's
-		// CPU downscale of its model preview render. The downscale derives each texel's alpha bit
-		// from whether the source color is non-black, but the render's own alpha is zero on the
-		// hardware backends (the model's material alpha is 0 during the load fade), so the
-		// portrait ends up transparent. Emulate the chroma key: non-black texels opaque.
-		if (framebufferManager_ && PSP_CoreParameter().compat.flags().ForceEnableGPUReadback) {
-			uint16_t *ptex = (uint16_t *)Memory::GetPointerUnchecked(0x040E89C0);
-			bool changed = false;
-			for (int i = 0; i < 4096; i++) {
-				if ((ptex[i] & 0x7FFF) != 0 && (ptex[i] & 0x8000) == 0) {
-					ptex[i] |= 0x8000;
-					changed = true;
-				}
-			}
-			if (changed) {
-				InvalidateCache(0x040E89C0, 0x2000, GPU_INVALIDATE_HINT);
+				InvalidateCache(vfb->fb_address, vfb->fb_stride * 2 * vfb->height, GPU_INVALIDATE_HINT);
 			}
 		}
 		return 0;
@@ -2226,7 +2209,8 @@ void GPUCommon::NotifyVideoCopy(u32 dest, u32 src, int size) {
 	}
 }
 
-bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags) {	if (size == 0) {
+bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags) {	
+	if (size == 0) {
 		_dbg_assert_msg_(false, "Zero-sized PerformMemoryCopy: %08x -> %08x, size %d (flag: %d)", src, dest, size, (int)flags);
 		return false;
 	}

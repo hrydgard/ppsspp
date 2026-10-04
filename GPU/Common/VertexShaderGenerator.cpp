@@ -569,14 +569,14 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		if (lightUberShader && hasColor) {
 			p.F("  vec4 ambientColor = ((u_lightControl & (1u << 0x14u)) != 0x0u) ? %s : u_matambientalpha;\n", srcCol);
 			if (enableLighting) {
-				p.F("  vec4 diffuseColor = ((u_lightControl & (1u << 0x15u)) != 0x0u) ? %s : vec4(u_matdiffuse, 1.0);\n", srcCol);
+				p.F("  vec3 diffuseColor = ((u_lightControl & (1u << 0x15u)) != 0x0u) ? %s.rgb : u_matdiffuse;\n", srcCol);
 				p.F("  vec3 specularColor = ((u_lightControl & (1u << 0x16u)) != 0x0u) ? %s.rgb : u_matspecular.rgb;\n", srcCol);
 			}
 		} else {
 			// This path also takes care of the lightUberShader && !hasColor path, because all comparisons fail.
 			p.F("  vec4 ambientColor = %s;\n", (matUpdate & 1) && hasColor ? srcCol : "u_matambientalpha");
 			if (enableLighting) {
-				p.F("  vec4 diffuseColor = %s;\n", (matUpdate & 2) && hasColor ? srcCol : "u_matdiffuse");
+				p.F("  vec3 diffuseColor = %s.rgb;\n", (matUpdate & 2) && hasColor ? srcCol : "u_matdiffuse");
 				p.F("  vec3 specularColor = %s.rgb;\n", (matUpdate & 4) && hasColor ? srcCol : "u_matspecular");
 			}
 		}
@@ -681,7 +681,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				p.C("    if (comp == 0x2u) {\n");  // GE_LIGHTCOMP_ONLYPOWDIFFUSE
 				p.C("      ldot = pspPow(ldot, u_matspecular.a);\n");
 				p.C("    }\n");
-				p.F("    diffuse = (u_lightdiffuse%s * diffuseColor.rgb) * max(ldot, 0.0);\n", iStr);
+				p.F("    diffuse = (u_lightdiffuse%s * diffuseColor) * max(ldot, 0.0);\n", iStr);
 				p.C("    if (comp == 0x1u && ldot >= 0.0) {\n");  // do specular. note - must allow for the >= case, since the u_matspecular.a <= 0.0 case relies on it.
 				p.C("      vec3 halfVec = toLight + viewDir;\n");
 				p.C("      float halfInvLen = inversesqrt(dot(halfVec, halfVec));\n");
@@ -689,7 +689,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				p.F("      lightSum1 += u_lightspecular%s * specularColor * ldot * lightScale;\n", iStr);
 				p.C("    }\n");
 				p.F("    lightSum0.rgb += (u_lightambient%s * ambientColor.rgb + diffuse) * lightScale;\n", iStr);
-				p.F("    lightSum0.a += (ambientColor.a + diffuseColor.a * max(ldot, 0.0)) * lightScale;\n", iStr);
 				p.C("  }\n");
 			}
 			if (useIndexing) {
@@ -753,7 +752,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 					break;
 				}
 
-				p.F("  diffuse = (u_lightdiffuse%s * diffuseColor.rgb) * max(ldot, 0.0);\n", iStr);
+				p.F("  diffuse = (u_lightdiffuse%s * diffuseColor) * max(ldot, 0.0);\n", iStr);
 				if (doSpecular) {
 					p.C("  if (ldot >= 0.0) {\n");
 					p.C("    vec3 halfVec = toLight + viewDir;\n");
@@ -764,7 +763,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 					p.C("  }\n");
 				}
 				p.F("  lightSum0.rgb += (u_lightambient%s * ambientColor.rgb + diffuse)%s;\n", iStr, timesLightScale);
-				p.F("  lightSum0.a += (ambientColor.a + diffuseColor.a * max(ldot, 0.0))%s;\n", iStr, timesLightScale);
 			}
 		}
 
