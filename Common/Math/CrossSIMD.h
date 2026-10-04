@@ -123,6 +123,8 @@ struct Vec4S32 {
 
 	static Vec4S32 Load(const int *src) { return Vec4S32{ _mm_loadu_si128((const __m128i *)src) }; }
 	static Vec4S32 LoadAligned(const int *src) { return Vec4S32{ _mm_load_si128((const __m128i *)src) }; }
+	// Four 16-bit values, zero extended.
+	static Vec4S32 LoadU16(const uint16_t *src) { return Vec4S32{ _mm_unpacklo_epi16(_mm_loadl_epi64((const __m128i *)src), _mm_setzero_si128()) }; }
 	void Store(int *dst) { _mm_storeu_si128((__m128i *)dst, v); }
 	void Store2(int *dst) { _mm_storel_epi64((__m128i *)dst, v); }
 	void StoreAligned(int *dst) { _mm_store_si128((__m128i *)dst, v);}
@@ -607,6 +609,8 @@ struct Vec4S32 {
 
 	static Vec4S32 Load(const int *src) { return Vec4S32{ vld1q_s32(src) }; }
 	static Vec4S32 LoadAligned(const int *src) { return Vec4S32{ vld1q_s32(src) }; }
+	// Four 16-bit values, zero extended.
+	static Vec4S32 LoadU16(const uint16_t *src) { return Vec4S32{ vreinterpretq_s32_u32(vmovl_u16(vld1_u16(src))) }; }
 	void Store(int *dst) { vst1q_s32(dst, v); }
 	void Store2(int *dst) { vst1_s32(dst, vget_low_s32(v)); }
 	void StoreAligned(int *dst) { vst1q_s32(dst, v); }
@@ -1156,6 +1160,8 @@ struct Vec4S32 {
 
 	static Vec4S32 Load(const int *src) { return Vec4S32{ __lsx_vld(src, 0) }; }
 	static Vec4S32 LoadAligned(const int *src) { return Vec4S32{ __lsx_vld(src, 0) }; }
+	// Four 16-bit values, zero extended.
+	static Vec4S32 LoadU16(const uint16_t *src) { return Vec4S32{ __lsx_vilvl_h(__lsx_vldi(0), __lsx_vldrepl_d(src, 0)) }; }
 	void Store(int *dst) { __lsx_vst(v, dst, 0); }
 	void Store2(int *dst) { __lsx_vstelm_d(v, dst, 0, 0); }
 	void StoreAligned(int *dst) { __lsx_vst(v, dst, 0); }
@@ -1623,6 +1629,8 @@ struct Vec4S32 {
 
 	static Vec4S32 Load(const int *src) { return Vec4S32{ { src[0], src[1], src[2], src[3] }}; }
 	static Vec4S32 LoadAligned(const int *src) { return Load(src); }
+	// Four 16-bit values, zero extended.
+	static Vec4S32 LoadU16(const uint16_t *src) { return Vec4S32{ { src[0], src[1], src[2], src[3] } }; }
 	void Store(int *dst) { memcpy(dst, v, sizeof(v)); }
 	void Store2(int *dst) { memcpy(dst, v, sizeof(v[0]) * 2); }
 	void StoreAligned(int *dst) { memcpy(dst, v, sizeof(v)); }

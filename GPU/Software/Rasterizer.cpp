@@ -1604,18 +1604,28 @@ void DrawTriangleSlice(
 					walk(depthPlane, 0, INT_MAX, [&](int k, Vec4S32 v) { v.StoreAligned(&zBuf[k]); });
 				}
 				if (pixelID.earlyZChecks) {
+					const GEComparison func = pixelID.DepthTestFunc();
+					const Vec4S32 minzV = Vec4S32::Splat(pixelID.cached.minz), maxzV = Vec4S32::Splat(pixelID.cached.maxz);
+					const Vec4S32 allOnes = Vec4S32::Splat(-1);
 					for (int k = 0; k < count; k += 4) {
-						Vec4<int> mask(maskBuf[k], maskBuf[k + 1], maskBuf[k + 2], maskBuf[k + 3]);
-						const Vec4<int> z(zBuf[k], zBuf[k + 1], zBuf[k + 2], zBuf[k + 3]);
-						if (pixelID.applyDepthRange) {
-							for (int i = 0; i < 4; ++i) {
-								if (z[i] < minz[i] || z[i] > maxz[i])
-									mask[i] = -1;
-							}
+						Vec4S32 dead = Vec4S32::LoadAligned(&maskBuf[k]);
+						const Vec4S32 z = Vec4S32::LoadAligned(&zBuf[k]);
+						if (pixelID.applyDepthRange)
+							dead = dead | z.CompareLt(minzV) | z.CompareGt(maxzV);
+						// -1 where z func ref fails.
+						const u64 depth4 = ReadDepth4((chunkX + k) & 0x3FF, p.y, pixelID.cached.depthbufStride);
+						const Vec4S32 ref = Vec4S32::LoadU16((const u16 *)&depth4);
+						switch (func) {
+						case GE_COMP_NEVER: dead = allOnes; break;
+						case GE_COMP_ALWAYS: break;
+						case GE_COMP_EQUAL: dead = dead | (z.CompareEq(ref) ^ allOnes); break;
+						case GE_COMP_NOTEQUAL: dead = dead | z.CompareEq(ref); break;
+						case GE_COMP_LESS: dead = dead | (z.CompareLt(ref) ^ allOnes); break;
+						case GE_COMP_LEQUAL: dead = dead | z.CompareGt(ref); break;
+						case GE_COMP_GREATER: dead = dead | (z.CompareGt(ref) ^ allOnes); break;
+						case GE_COMP_GEQUAL: dead = dead | z.CompareLt(ref); break;
 						}
-						mask = CheckDepthTestPassed4(mask, pixelID.DepthTestFunc(), (chunkX + k) & 0x3FF, p.y, pixelID.cached.depthbufStride, z);
-						for (int i = 0; i < 4; ++i)
-							maskBuf[k + i] = mask[i];
+						dead.StoreAligned(&maskBuf[k]);
 					}
 				}
 
