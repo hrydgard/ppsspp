@@ -1966,6 +1966,64 @@ void GPUCommon::SetCmdValue(u32 op) {
 	downcount = 0;
 }
 
+// One row of a block transfer whose source and destination overlap, as the GE copies it (ppsspp-re geprobe
+// exp219, exp220: 562 of 570 cases exact). The source is read in whole aligned 16-byte blocks, four at a
+// time from the row's first block, and each byte placed at its destination address in a buffer of four
+// 16-byte slots (indexed by destination address bits 4-5, tagged by destination block), only the bytes
+// inside the transfer marked written. Placing into a slot tagged with another block writes that block's
+// written bytes to memory and retags the slot, keeping its bytes. Reading a source block that its slot is
+// tagged with takes the slot's bytes as they are, stale ones included. The slots are written out after the row.
+static void BlockTransferOverlappingRow(u32 srcAddr, u32 dstAddr, u32 bytes) {
+	struct Slot {
+		u32 block;
+		bool used;
+		u16 written;
+		u8 data[16];
+	};
+	Slot slots[4]{};
+	auto writeOut = [](const Slot &slot) {
+		if (!slot.used || !slot.written)
+			return;
+		u8 *p = Memory::GetPointerWriteUnchecked(slot.block << 4);
+		for (int k = 0; k < 16; ++k) {
+			if (slot.written & (1 << k))
+				p[k] = slot.data[k];
+		}
+	};
+	const u32 firstBlock = srcAddr >> 4, lastBlock = (srcAddr + bytes - 1) >> 4;
+	const u32 delta = dstAddr - srcAddr;
+	for (u32 group = firstBlock; group <= lastBlock; group += 4) {
+		const u32 count = std::min(4u, lastBlock - group + 1);
+		u8 read[4][16];
+		for (u32 i = 0; i < count; ++i) {
+			const u32 block = group + i;
+			const Slot &slot = slots[block & 3];
+			if (slot.used && slot.block == block && slot.written)
+				memcpy(read[i], slot.data, 16);
+			else
+				memcpy(read[i], Memory::GetPointerUnchecked(block << 4), 16);
+		}
+		for (u32 i = 0; i < count; ++i) {
+			for (u32 k = 0; k < 16; ++k) {
+				const u32 addr = ((group + i) << 4) + k;
+				const u32 dst = addr + delta;
+				Slot &slot = slots[(dst >> 4) & 3];
+				if (!slot.used || slot.block != dst >> 4) {
+					writeOut(slot);
+					slot.used = true;
+					slot.block = dst >> 4;
+					slot.written = 0;
+				}
+				slot.data[dst & 15] = read[i][k];
+				if (addr - srcAddr < bytes)
+					slot.written |= 1 << (dst & 15);
+			}
+		}
+	}
+	for (const Slot &slot : slots)
+		writeOut(slot);
+}
+
 void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 	u32 srcBasePtr = gstate.getTransferSrcAddress();
 	u32 srcStride = gstate.getTransferSrcStride();
@@ -2064,11 +2122,16 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 				bool dstLineWrap = !Memory::IsValidRange(dstLineStartAddr, bytesToCopy);
 
 				if (!srcLineWrap && !dstLineWrap) {
-					const u8 *srcp = Memory::GetPointerOrException(srcLineStartAddr);
-					u8 *dstp = Memory::GetPointerWriteOrException(dstLineStartAddr);
-					for (u32 i = 0; i < bytesToCopy; i += 64) {
-						u32 chunk = i + 64 > bytesToCopy ? bytesToCopy - i : 64;
-						memmove(dstp + i, srcp + i, chunk);
+					const bool lineOverlap = srcLineStartAddr < dstLineStartAddr + bytesToCopy && dstLineStartAddr < srcLineStartAddr + bytesToCopy;
+					// The whole blocks the GE reads and writes.
+					const u32 srcBlocksStart = srcLineStartAddr & ~15, dstBlocksStart = dstLineStartAddr & ~15;
+					if (lineOverlap && Memory::IsValidRange(srcBlocksStart, ((srcLineStartAddr + bytesToCopy + 15) & ~15) - srcBlocksStart) &&
+						Memory::IsValidRange(dstBlocksStart, ((dstLineStartAddr + bytesToCopy + 15) & ~15) - dstBlocksStart)) {
+						BlockTransferOverlappingRow(srcLineStartAddr, dstLineStartAddr, bytesToCopy);
+					} else {
+						const u8 *srcp = Memory::GetPointerOrException(srcLineStartAddr);
+						u8 *dstp = Memory::GetPointerWriteOrException(dstLineStartAddr);
+						memmove(dstp, srcp, bytesToCopy);
 					}
 
 					// If we're tracking detail, it's useful to have the gaps illustrated properly.
