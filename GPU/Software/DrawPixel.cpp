@@ -898,17 +898,34 @@ static inline Vec4S32 SpanStencilOp(GEStencilOp op, Vec4S32 old, Vec4S32 replace
 	}
 }
 
-// The pixels of a span one per vector lane, as DrawPixelInline does them one at a time. Everything but logic
-// ops and the signed blend factors; false when the state needs those.
-template <bool clearMode, GEBufferFormat fbFormat>
-static inline bool DrawSpanVector(int x, int y, const int *maskIn, const int *zIn, const int *fogIn, const int *colors, int colorStride, const PixelFuncID &pixelID) {
-	if constexpr (!clearMode) {
-		if (pixelID.applyLogicOp)
-			return false;
-		if (pixelID.alphaBlend && (IsSignedBlendFactor(pixelID.AlphaBlendSrc()) || IsSignedBlendFactor(pixelID.AlphaBlendDst())))
-			return false;
-	}
+// What DrawSpanVector's blending does: none, source alpha over the destination, or as the state says.
+enum class SpanBlend {
+	NONE,
+	SRC_ALPHA,
+	GENERIC,
+};
 
+// Whether DrawSpanVector can draw the state: everything but logic ops and the signed blend factors.
+static bool SpanVectorHandles(const PixelFuncID &pixelID) {
+	if (pixelID.clearMode)
+		return true;
+	if (pixelID.applyLogicOp)
+		return false;
+	return !(pixelID.alphaBlend && (IsSignedBlendFactor(pixelID.AlphaBlendSrc()) || IsSignedBlendFactor(pixelID.AlphaBlendDst())));
+}
+
+static SpanBlend SpanBlendFor(const PixelFuncID &pixelID) {
+	if (pixelID.clearMode || !pixelID.alphaBlend)
+		return SpanBlend::NONE;
+	if (pixelID.AlphaBlendSrc() == PixelBlendFactor::SRCALPHA && pixelID.AlphaBlendDst() == PixelBlendFactor::INVSRCALPHA && pixelID.AlphaBlendEq() == GE_BLENDMODE_MUL_AND_ADD)
+		return SpanBlend::SRC_ALPHA;
+	return SpanBlend::GENERIC;
+}
+
+// The pixels of a span one per vector lane, as DrawPixelInline does them one at a time, for a state
+// SpanVectorHandles and whose blending is blend.
+template <bool clearMode, GEBufferFormat fbFormat, SpanBlend blend>
+static inline void DrawSpanVector(int x, int y, const int *maskIn, const int *zIn, const int *fogIn, const int *colors, int colorStride, const PixelFuncID &pixelID) {
 	const Vec4S32 zero = Vec4S32::Zero();
 	const Vec4S32 c255 = Vec4S32::Splat(255);
 	const Vec4S32 allOnes = Vec4S32::Splat(-1);
@@ -1010,7 +1027,7 @@ static inline bool DrawSpanVector(int x, int y, const int *maskIn, const int *zI
 	alignas(16) int deadLanes[4];
 	dead.Store(deadLanes);
 	if ((deadLanes[0] & deadLanes[1] & deadLanes[2] & deadLanes[3]) != 0)
-		return true;
+		return;
 	// Lanes whose color is written.
 	Vec4S32 colorDead = dead | stencilOnly;
 	alignas(16) int colorDeadLanes[4];
@@ -1031,7 +1048,16 @@ static inline bool DrawSpanVector(int x, int y, const int *maskIn, const int *zI
 		}
 	}
 
-	if (!clearMode && pixelID.alphaBlend) {
+	if constexpr (blend == SpanBlend::SRC_ALPHA) {
+		const Vec4S32 one = Vec4S32::Splat(1);
+		auto term = [&](Vec4S32 v, Vec4S32 f) {
+			return (v.Shl<1>() + one).Mul(f.Shl<1>() + one).Shr<10>();
+		};
+		const Vec4S32 invA = c255 - a;
+		r = term(r, a) + term(dst[0], invA);
+		g = term(g, a) + term(dst[1], invA);
+		b = term(b, a) + term(dst[2], invA);
+	} else if constexpr (blend == SpanBlend::GENERIC) {
 		auto factor = [&](PixelBlendFactor f, const Vec4S32 other[3], Vec4S32 srcA, Vec4S32 dstA, uint32_t fix, Vec4S32 out[3]) {
 			switch (f) {
 			case PixelBlendFactor::OTHERCOLOR: for (int c = 0; c < 3; ++c) out[c] = other[c]; break;
@@ -1131,13 +1157,16 @@ static inline bool DrawSpanVector(int x, int y, const int *maskIn, const int *zI
 				p[i] = (u16)out[i];
 		}
 	}
-	return true;
 }
 
-template <bool clearMode, GEBufferFormat fbFormat>
+template <bool clearMode, GEBufferFormat fbFormat, SpanBlend blend>
 static void SOFTRAST_CALL DrawSpanPixels(int x, int y, const int *mask, const int *z, const int *fog, const int *colors, int colorStride, const PixelFuncID &pixelID) {
-	if (DrawSpanVector<clearMode, fbFormat>(x, y, mask, z, fog, colors, colorStride, pixelID))
-		return;
+	DrawSpanVector<clearMode, fbFormat, blend>(x, y, mask, z, fog, colors, colorStride, pixelID);
+}
+
+// A pixel at a time, for what DrawSpanVector doesn't handle.
+template <bool clearMode, GEBufferFormat fbFormat>
+static void SOFTRAST_CALL DrawSpanScalar(int x, int y, const int *mask, const int *z, const int *fog, const int *colors, int colorStride, const PixelFuncID &pixelID) {
 	for (int i = 0; i < 4; ++i) {
 		if (mask[i] >= 0) {
 			const Vec4<int> color(colors[i], colors[colorStride + i], colors[2 * colorStride + i], colors[3 * colorStride + i]);
@@ -1146,18 +1175,27 @@ static void SOFTRAST_CALL DrawSpanPixels(int x, int y, const int *mask, const in
 	}
 }
 
+template <GEBufferFormat fbFormat>
+static SpanFunc PickSpanFunc(const PixelFuncID &id) {
+	if (id.clearMode)
+		return &DrawSpanPixels<true, fbFormat, SpanBlend::NONE>;
+	if (!SpanVectorHandles(id))
+		return &DrawSpanScalar<false, fbFormat>;
+	switch (SpanBlendFor(id)) {
+	case SpanBlend::NONE: return &DrawSpanPixels<false, fbFormat, SpanBlend::NONE>;
+	case SpanBlend::SRC_ALPHA: return &DrawSpanPixels<false, fbFormat, SpanBlend::SRC_ALPHA>;
+	default: return &DrawSpanPixels<false, fbFormat, SpanBlend::GENERIC>;
+	}
+}
+
 SpanFunc GetSpanFunc(const PixelFuncID &id, SingleFunc single) {
 	if (single != PixelJitCache::GenericSingle(id))
 		return nullptr;
 	switch (id.fbFormat) {
-	case GE_FORMAT_565:
-		return id.clearMode ? &DrawSpanPixels<true, GE_FORMAT_565> : &DrawSpanPixels<false, GE_FORMAT_565>;
-	case GE_FORMAT_5551:
-		return id.clearMode ? &DrawSpanPixels<true, GE_FORMAT_5551> : &DrawSpanPixels<false, GE_FORMAT_5551>;
-	case GE_FORMAT_4444:
-		return id.clearMode ? &DrawSpanPixels<true, GE_FORMAT_4444> : &DrawSpanPixels<false, GE_FORMAT_4444>;
-	default:
-		return id.clearMode ? &DrawSpanPixels<true, GE_FORMAT_8888> : &DrawSpanPixels<false, GE_FORMAT_8888>;
+	case GE_FORMAT_565: return PickSpanFunc<GE_FORMAT_565>(id);
+	case GE_FORMAT_5551: return PickSpanFunc<GE_FORMAT_5551>(id);
+	case GE_FORMAT_4444: return PickSpanFunc<GE_FORMAT_4444>(id);
+	default: return PickSpanFunc<GE_FORMAT_8888>(id);
 	}
 }
 
