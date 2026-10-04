@@ -1228,6 +1228,7 @@ bool VulkanRenderManager::CopyFramebufferToMemory(VKRFramebuffer *src, VkImageAs
 
 	if (src && (aspectBits & (VK_IMAGE_ASPECT_DEPTH_BIT | VK_IMAGE_ASPECT_STENCIL_BIT)) && src->depth.image == VK_NULL_HANDLE) {
 		// No depth-stencil attachment to read from (can happen for framebuffers that never use depth).
+		WARN_LOG(Log::G3D, "STENCREAD guard: no depth image (fb %dx%d tag=%s aspect=%d)", src->width, src->height, src->Tag(), (int)aspectBits);
 		return false;
 	}
 

@@ -34,7 +34,6 @@
 #include "Core/Debugger/MemBlockInfo.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
-#include <numeric>
 #include "GPU/Common/PresentationCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Common/ReinterpretFramebuffer.h"
@@ -3277,29 +3276,31 @@ void FramebufferManagerCommon::ReadbackFramebuffer(VirtualFramebuffer *vfb, int 
 	} else {
 		draw_->CopyFramebufferToMemory(vfb->fbo, channel == RASTER_COLOR ? Draw::Aspect::COLOR_BIT : Draw::Aspect::DEPTH_BIT, x, y, w, h, destFormat, destPtr, stride, mode, "ReadbackFramebufferSync");
 
-		// In 5551 framebuffers, the alpha bit and the stencil bit are the same bit of memory
-		// (which is also why softgpu writes stencil results straight into the alpha bit.)
-		// Stencil writes on hardware backends go to the depth-stencil attachment instead, so
-		// games that use stencil to set the alpha bit (Everybody's Golf's character portrait)
-		// would read back zero alpha. Merge the stencil bits into the alpha bits here.
-		// TODO: The same sharing applies to 4444, but with 4 bits each.
-		if (channel == RASTER_COLOR && vfb->fb_format == GE_FORMAT_5551 && vfb->renderScaleFactor == 1) {
-			std::unique_ptr<u8[]> stencil(new u8[w * h]);
-			bool hasStencil = draw_->CopyFramebufferToMemory(vfb->fbo, Draw::Aspect::STENCIL_BIT, x, y, w, h, Draw::DataFormat::S8, stencil.get(), w, mode, "Readback5551Stencil");
-			if (!hasStencil) {
-				hasStencil = ReadbackStencilbuffer(vfb->fbo, x, y, w, h, stencil.get(), w, mode);
-			}
-			NOTICE_LOG(Log::FrameBuf, "5551 stencil merge: hasStencil=%d sum=%d", (int)hasStencil, hasStencil ? (int)std::accumulate(stencil.get(), stencil.get() + w * h, 0) : -1);
-			if (hasStencil) {
-				uint16_t *pixels = (uint16_t *)destPtr;
-				for (int yy = 0; yy < h; ++yy) {
-					for (int xx = 0; xx < w; ++xx) {
-						if (stencil[yy * w + xx] & 0x80) {
-							pixels[yy * stride + xx] |= 0x8000;
-						}
-					}
+		// In 5551 framebuffers the alpha bit is a 1-bit channel that the game's own compositing
+		// can leave set for pixels it treats as opaque (Everybody's Golf's character portrait:
+		// the game CPU-writes the portrait texture after reading the framebuffer back, and its
+		// chroma keying expects the framebuffer alpha to be set by its sprite draws). On
+		// hardware backends the blend can leave the color attachment's alpha at zero where the
+		// game expects it set, breaking the CPU readback. Force the alpha bit opaque under the
+		// compat flag so the readback matches what the game expects.
+
+		if (channel == RASTER_COLOR && vfb->fb_format == GE_FORMAT_5551 &&
+			PSP_CoreParameter().compat.flags().ForceEnableGPUReadback) {
+
+			uint16_t *pixels = (uint16_t *)destPtr;
+
+			for (int yy = 0; yy < h; ++yy) {
+
+				uint16_t *destRow = pixels + yy * stride;
+
+				for (int xx = 0; xx < w; ++xx) {
+
+					destRow[x + xx] |= 0x8000;
+
 				}
+
 			}
+
 		}
 	}
 
