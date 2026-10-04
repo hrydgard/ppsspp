@@ -2570,7 +2570,11 @@ int __KernelStartModule(SceUID moduleId, u32 argsize, u32 argAddr, u32 returnVal
 	}
 
 	u32 priority = 0x20;
-	u32 stacksize = 0x40000;
+	// Firmware's modulemgr defaults the start thread stacksize to 0x1000 (see the
+	// movz against 0x1000 right before the sceKernelCreateThread call in its
+	// StartModule path), not 0x40000. The 0x40000 root thread is a loadexec thing,
+	// applied by the boot path which passes an explicit option further down.
+	u32 stacksize = 0x1000;
 	int attribute = module->nm.attribute;
 	u32 entryAddr = module->nm.entry_addr;
 
@@ -2644,8 +2648,9 @@ u32 sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValue
 
 static u32 sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 returnValueAddr, u32 optionAddr)
 {
+	// Same firmware modulemgr default as the start thread: 0x1000 (0800446c in modulemgr).
 	u32 priority = 0x20;
-	u32 stacksize = 0x40000;
+	u32 stacksize = 0x1000;
 	u32 attr = 0;
 
 	// TODO: In a lot of cases (even for errors), this should resched.  Needs testing.
@@ -2733,8 +2738,9 @@ u32 __KernelStopUnloadSelfModuleWithOrWithoutStatus(u32 exitCode, u32 argSize, u
 			WARN_LOG(Log::sceModule, "sceKernelSelfStopUnloadModule(%08x, %08x, %08x)", exitCode, argSize, argp);
 		}
 		SceUID moduleID = __KernelGetCurThreadModuleId();
+		// Same firmware modulemgr default as the start thread: 0x1000.
 		u32 priority = 0x20;
-		u32 stacksize = 0x40000;
+		u32 stacksize = 0x1000;
 		u32 attr = 0;
 		// TODO: In a lot of cases (even for errors), this should resched.  Needs testing.
 
