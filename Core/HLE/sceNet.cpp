@@ -1558,7 +1558,10 @@ bool __NetApctlConnected() {
 }
 
 static int sceNetApctlGetState(u32 pStateAddr) {
-	//if (!netApctlInited) return hleLogError(Log::sceNet, SCE_NET_APCTL_ERROR_NOT_IN_BSS, "apctl not in bss");
+	// Before sceNetApctlInit, the firmware returns an error here. Some games probe with this call and only
+	// call sceNetApctlInit (and AddHandler) when they get 0x80410a0d (PES 2009 / ULES01176 does this).
+	if (!g_netApctlInited)
+		return hleLogError(Log::sceNet, (int)0x80410a0d, "apctl not initialized");
 
 	// Valid Arguments
 	if (Memory::IsValidAddress(pStateAddr)) {
