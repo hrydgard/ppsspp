@@ -2209,7 +2209,7 @@ void GPUCommon::NotifyVideoCopy(u32 dest, u32 src, int size) {
 	}
 }
 
-bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags) {	
+bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags) {
 	if (size == 0) {
 		_dbg_assert_msg_(false, "Zero-sized PerformMemoryCopy: %08x -> %08x, size %d (flag: %d)", src, dest, size, (int)flags);
 		return false;
