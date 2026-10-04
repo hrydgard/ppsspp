@@ -1507,17 +1507,25 @@ void DrawTriangleSlice(
 		const int64_t yc = curY + SCREEN_SCALE_FACTOR / 2;
 		// The triangle's pixels in this row (lo to hi), and those drawn, within the scissor. A snapping edge
 		// is checked per pixel, the rest by bounds.
+		// Each edge's bounds once, for both.
+		int64_t edgeLo[3], edgeHi[3];
 		int64_t coverLo = INT64_MIN / 2, coverHi = INT64_MAX / 2;
-		for (int k = 0; k < 3; ++k)
-			edgeBounds(edges[k], yc, coverLo, coverHi);
 		int64_t lo = scissorLo, hi = scissorHi;
 		for (int k = 0; k < 3; ++k) {
-			if (k != snapEdge)
-				edgeBounds(edges[k], yc, lo, hi);
+			edgeLo[k] = INT64_MIN / 2;
+			edgeHi[k] = INT64_MAX / 2;
+			edgeBounds(edges[k], yc, edgeLo[k], edgeHi[k]);
+			coverLo = std::max(coverLo, edgeLo[k]);
+			coverHi = std::min(coverHi, edgeHi[k]);
+			if (k != snapEdge) {
+				lo = std::max(lo, edgeLo[k]);
+				hi = std::min(hi, edgeHi[k]);
+			}
 		}
 		int64_t snapLo = INT64_MIN / 2, snapHi = INT64_MAX / 2;
 		if (snapEdge >= 0) {
-			edgeBounds(edges[snapEdge], yc, snapLo, snapHi);
+			snapLo = edgeLo[snapEdge];
+			snapHi = edgeHi[snapEdge];
 			// The span's first pixel (left edge) or last (right edge) is checked at the span's other end.
 			int64_t walkLo = lo, walkHi = hi;
 			walkLo = std::max(walkLo, snapLo - 3);
