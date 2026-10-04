@@ -3284,27 +3284,16 @@ void FramebufferManagerCommon::ReadbackFramebuffer(VirtualFramebuffer *vfb, int 
 		// becomes opaque while keeping the black background transparent.
 		if (channel == RASTER_COLOR && vfb->fb_format == GE_FORMAT_5551 &&
 			PSP_CoreParameter().compat.flags().ForceEnableGPUReadback) {
-
 			uint16_t *pixels = (uint16_t *)destPtr;
-
 			for (int yy = 0; yy < h; ++yy) {
-
 				uint16_t *destRow = pixels + yy * stride;
-
 				for (int xx = 0; xx < w; ++xx) {
-
 					uint16_t px = destRow[x + xx];
-
 					if ((px & 0x7FFF) != 0) {
-
 						destRow[x + xx] = px | 0x8000;
-
 					}
-
 				}
-
 			}
-
 		}
 	}
 
