@@ -962,7 +962,7 @@ static inline Vec4S32 ColumnOffsets4(Vec4S32 u) {
 	return swizzled ? b.Shr<4>().Shl<7>() + (b & Vec4S32::Splat(15)) : b;
 }
 
-// The four texels of SampleLinearLevelT for four pixels at the same level (texels[pixel][tl, tr, bl, br]),
+// The four texels of SampleLinearLevelT for four pixels at the same level (texels[tl, tr, bl, br][pixel]),
 // the coordinates and offsets in vector lanes, the texel reads one by one.
 template <GETextureFormat fmt, bool swizzled, GEPaletteFormat clutFmt>
 static inline void ReadTexels4T(Vec4F32 s, Vec4F32 t, const u8 *tptr, int bufw, int level, const SamplerID &samplerID, uint32_t texels[4][4], Vec4S32 &fracU, Vec4S32 &fracV) {
@@ -977,10 +977,10 @@ static inline void ReadTexels4T(Vec4F32 s, Vec4F32 t, const u8 *tptr, int bufw, 
 		v0.Store(vs0);
 		v1.Store(vs1);
 		for (int i = 0; i < 4; ++i) {
-			texels[i][0] = ReadDXTTexelT<fmt>(tptr, bufw, us0[i], vs0[i]);
-			texels[i][1] = ReadDXTTexelT<fmt>(tptr, bufw, us1[i], vs0[i]);
-			texels[i][2] = ReadDXTTexelT<fmt>(tptr, bufw, us0[i], vs1[i]);
-			texels[i][3] = ReadDXTTexelT<fmt>(tptr, bufw, us1[i], vs1[i]);
+			texels[0][i] = ReadDXTTexelT<fmt>(tptr, bufw, us0[i], vs0[i]);
+			texels[1][i] = ReadDXTTexelT<fmt>(tptr, bufw, us1[i], vs0[i]);
+			texels[2][i] = ReadDXTTexelT<fmt>(tptr, bufw, us0[i], vs1[i]);
+			texels[3][i] = ReadDXTTexelT<fmt>(tptr, bufw, us1[i], vs1[i]);
 		}
 	} else {
 		constexpr uint32_t bits = TexelBitsT<fmt>();
@@ -995,10 +995,10 @@ static inline void ReadTexels4T(Vec4F32 s, Vec4F32 t, const u8 *tptr, int bufw, 
 		(row1 + col0).Store(bl);
 		(row1 + col1).Store(br);
 		for (int i = 0; i < 4; ++i) {
-			texels[i][0] = ReadTexelT<fmt, clutFmt>(tptr + (uint32_t)tl[i], us0[i], clutOffset, samplerID);
-			texels[i][1] = ReadTexelT<fmt, clutFmt>(tptr + (uint32_t)tr[i], us1[i], clutOffset, samplerID);
-			texels[i][2] = ReadTexelT<fmt, clutFmt>(tptr + (uint32_t)bl[i], us0[i], clutOffset, samplerID);
-			texels[i][3] = ReadTexelT<fmt, clutFmt>(tptr + (uint32_t)br[i], us1[i], clutOffset, samplerID);
+			texels[0][i] = ReadTexelT<fmt, clutFmt>(tptr + (uint32_t)tl[i], us0[i], clutOffset, samplerID);
+			texels[1][i] = ReadTexelT<fmt, clutFmt>(tptr + (uint32_t)tr[i], us1[i], clutOffset, samplerID);
+			texels[2][i] = ReadTexelT<fmt, clutFmt>(tptr + (uint32_t)bl[i], us0[i], clutOffset, samplerID);
+			texels[3][i] = ReadTexelT<fmt, clutFmt>(tptr + (uint32_t)br[i], us1[i], clutOffset, samplerID);
 		}
 	}
 }
@@ -1018,29 +1018,30 @@ static inline void SampleLinearLevel4LanesT(Vec4F32 s, Vec4F32 t, const u8 *tptr
 	alignas(16) uint32_t texels[4][4];
 	Vec4S32 fracU, fracV;
 	ReadTexels4T<fmt, swizzled, clutFmt>(s, t, tptr, bufw, level, samplerID, texels, fracU, fracV);
-	// Texels by corner, each vector a corner's texel for the four pixels.
-	alignas(16) int corners[4][4];
-	for (int i = 0; i < 4; ++i) {
-		for (int k = 0; k < 4; ++k)
-			corners[k][i] = (int)texels[i][k];
-	}
-	const Vec4S32 tl = Vec4S32::LoadAligned(corners[0]), tr = Vec4S32::LoadAligned(corners[1]);
-	const Vec4S32 bl = Vec4S32::LoadAligned(corners[2]), br = Vec4S32::LoadAligned(corners[3]);
-	const Vec4S32 byteMask = Vec4S32::Splat(0xFF);
-	auto channel = [&](Vec4S32 v, int c) {
-		switch (c) {
-		case 0: return v & byteMask;
-		case 1: return v.Shr<8>() & byteMask;
-		case 2: return v.Shr<16>() & byteMask;
-		default: return v.Shr<24>() & byteMask;
-		}
+	// Two channels per lane, R and B (G and A) as 16-bit halves: no lerp of 8-bit values exceeds 16 bits,
+	// so the halves don't carry into each other, and masking after each shift truncates both to 8 bits.
+	const Vec4S32 tl = Vec4S32::LoadAligned((const int *)texels[0]), tr = Vec4S32::LoadAligned((const int *)texels[1]);
+	const Vec4S32 bl = Vec4S32::LoadAligned((const int *)texels[2]), br = Vec4S32::LoadAligned((const int *)texels[3]);
+	const Vec4S32 halves = Vec4S32::Splat(0x00FF00FF);
+	const Vec4S32 invU = Vec4S32::Splat(16) - fracU, invV = Vec4S32::Splat(16) - fracV;
+	auto lerp = [&](Vec4S32 a, Vec4S32 b, Vec4S32 inv, Vec4S32 f) {
+		return (a.Mul(inv) + b.Mul(f)).Shr<4>() & halves;
 	};
-	for (int c = 0; c < 4; ++c) {
+	Vec4S32 pairs[2];
+	for (int h = 0; h < 2; ++h) {
+		auto part = [&](Vec4S32 v) {
+			return (h == 0 ? v : v.Shr<8>()) & halves;
+		};
 		// Like the GE: horizontal lerps truncated to 8 bits, then the vertical one (gpu/probe exp52).
-		const Vec4S32 top = LerpLanes(channel(tl, c), channel(tr, c), fracU);
-		const Vec4S32 bot = LerpLanes(channel(bl, c), channel(br, c), fracU);
-		out[c] = LerpLanes(top, bot, fracV);
+		const Vec4S32 top = lerp(part(tl), part(tr), invU, fracU);
+		const Vec4S32 bot = lerp(part(bl), part(br), invU, fracU);
+		pairs[h] = lerp(top, bot, invV, fracV);
 	}
+	const Vec4S32 byteMask = Vec4S32::Splat(0xFF);
+	out[0] = pairs[0] & byteMask;
+	out[1] = pairs[1] & byteMask;
+	out[2] = pairs[0].Shr<16>();
+	out[3] = pairs[1].Shr<16>();
 }
 
 
