@@ -1092,7 +1092,8 @@ static u32 sceWlanGetEtherAddr(u32 addrAddr) {
 
 static u32 sceNetGetLocalEtherAddr(u32 addrAddr) {
 	// FIXME: Return 0x80410180 (pspnet[_core] error code?) before successful attempt to Create/Connect/Join a Group? (ie. adhocctlCurrentMode == ADHOCCTL_MODE_NONE)
-	if (adhocctlCurrentMode == ADHOCCTL_MODE_NONE)
+	// Infrastructure games (e.g. PES 2009) poll this until it succeeds, so it must also work once apctl is connected.
+	if (adhocctlCurrentMode == ADHOCCTL_MODE_NONE && !__NetApctlConnected())
 		return hleLogDebug(Log::sceNet, 0x80410180, "address not available?");
 
 	return sceWlanGetEtherAddr(addrAddr);
