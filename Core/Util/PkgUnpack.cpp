@@ -310,6 +310,23 @@ bool PkgReader::Open(FileLoader *loader, std::string *error) {
 	return true;
 }
 
+static bool IsSafePkgDiscID(std::string_view discId) {
+	if (discId.empty() || discId == "." || discId == "..") {
+		return false;
+	}
+	// Win32 strips trailing spaces and periods from path components. Reject them here so a
+	// component cannot turn into "." or ".." when the destination reaches the filesystem.
+	if (discId.back() == ' ' || discId.back() == '.') {
+		return false;
+	}
+	for (unsigned char c : discId) {
+		if (c < 0x20 || c == 0x7F || c == '/' || c == '\\' || c == ':') {
+			return false;
+		}
+	}
+	return true;
+}
+
 // The PBOOT is a normal PBP - only its DATA.PSP is encrypted, and its PARAM.SFO is the one that
 // says which disc and disc version this patches. That's what makes matching an installed update
 // against a game at boot time possible without decrypting anything.
@@ -353,8 +370,9 @@ bool PkgReader::ReadPBOOTInfo(const PkgItem &pboot) {
 	if (info_.discVersion.empty()) {
 		info_.discVersion = "1.00";
 	}
-	// A disc ID is what the install is keyed on, so without one there's nowhere to put this.
-	info_.isGameUpdate = !info_.discId.empty();
+	// A disc ID is what the install is keyed on, so without a safe directory name there's nowhere
+	// to put this.
+	info_.isGameUpdate = IsSafePkgDiscID(info_.discId);
 	return info_.isGameUpdate;
 }
 
