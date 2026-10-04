@@ -1106,19 +1106,22 @@ static void SOFTRAST_CALL SampleLinearQuadT(const float *s, const float *t, cons
 	if (!active)
 		return;
 	uint64_t c[4];
-	// Usually all at one level (a span of a triangle always is): then in vector lanes.
+	// Usually all at one level (a span of a triangle always is): then in vector lanes. No level arrays: all at
+	// level 0, without a fraction.
 	const int first = active & 1 ? 0 : active & 2 ? 1 : active & 4 ? 2 : 3;
 	bool sameLevel = true;
-	for (int i = first + 1; i < 4; ++i) {
-		if ((active & (1 << i)) && (level[i] != level[first] || levelFrac[i] != levelFrac[first]))
-			sameLevel = false;
+	if (level) {
+		for (int i = first + 1; i < 4; ++i) {
+			if ((active & (1 << i)) && (level[i] != level[first] || levelFrac[i] != levelFrac[first]))
+				sameLevel = false;
+		}
 	}
 	if (sameLevel) {
-		const int l = level[first];
+		const int l = level ? level[first] : 0;
 		const Vec4F32 sv = Vec4F32::Load(s), tv = Vec4F32::Load(t);
 		Vec4S32 prim[4], tex[4], out[4];
 		SampleLinearLevel4LanesT<fmt, swizzled, clutFmt>(sv, tv, texptr[l], texbufw[l], l, samplerID, tex);
-		if (levelFrac[first]) {
+		if (level && levelFrac[first]) {
 			Vec4S32 tex1[4];
 			SampleLinearLevel4LanesT<fmt, swizzled, clutFmt>(sv, tv, texptr[l + 1], texbufw[l + 1], l + 1, samplerID, tex1);
 			const Vec4S32 f = Vec4S32::Splat(levelFrac[first]);

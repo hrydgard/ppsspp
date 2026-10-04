@@ -1280,7 +1280,6 @@ static void DrawStagedSpans(const StagedSpans &ctx, int count, int chunkX, int64
 	const int64_t qdx = uvPlanes.q.kx * SCREEN_SCALE_FACTOR, sdx = uvPlanes.s.kx * SCREEN_SCALE_FACTOR, tdx = uvPlanes.t.kx * SCREEN_SCALE_FACTOR;
 	// No mip levels and one filter, bilinear: what ApplyTexturing comes to is the quad sampler at level 0.
 	const bool directQuad = textured && state.linearQuad && state.maxTexLevel == 0 && state.minFilt == state.magFilt && state.magFilt;
-	alignas(16) static const int zeros[4] = {};
 	for (int k = 0; k < count; k += 4, qv += 4 * qdx, sv += 4 * sdx, tv += 4 * tdx) {
 		const Vec4<int> mask(maskBuf[k], maskBuf[k + 1], maskBuf[k + 2], maskBuf[k + 3]);
 		if (!AnyMask<false>(mask))
@@ -1312,7 +1311,7 @@ static void DrawStagedSpans(const StagedSpans &ctx, int count, int chunkX, int64
 			}
 			if (directQuad) {
 				const int active = (mask[0] >= 0 ? 1 : 0) | (mask[1] >= 0 ? 2 : 0) | (mask[2] >= 0 ? 4 : 0) | (mask[3] >= 0 ? 8 : 0);
-				state.linearQuad(s.AsArray(), t.AsArray(), zeros, zeros, active, state.texptr, state.texbufw, prim_color, STAGED_CHUNK, state.samplerID);
+				state.linearQuad(s.AsArray(), t.AsArray(), nullptr, nullptr, active, state.texptr, state.texbufw, prim_color, STAGED_CHUNK, state.samplerID);
 			} else {
 				ApplyTexturing(state, prim_color, STAGED_CHUNK, mask, s, t, q, 0.0f, 0.0f, ctx.sameQ, ctx.autoGrad);
 			}
