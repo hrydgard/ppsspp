@@ -613,7 +613,7 @@ void actOnHelloPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * se
 		// Extract Optional Data Length
 		int optlen = 0; memcpy(&optlen, context->rxbuf + 1, sizeof(optlen));
 
-		if (optlen < 0 || length < (5 + optlen)) {
+		if (optlen < 0 || optlen > length - 5) {
 			// Invalid packet
 			return;
 		}
@@ -686,7 +686,7 @@ void actOnJoinPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sen
 			int optlen = 0; memcpy(&optlen, context->rxbuf + 1, sizeof(optlen));
 
 			// Complete Valid Packet available
-			if (optlen >= 0 && length >= (5 + optlen)) {
+			if (optlen >= 0 && optlen <= length - 5) {
 				// Set Default Null Data
 				void * opt = NULL;
 
@@ -785,7 +785,9 @@ void actOnAcceptPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * s
 		// Extract Sibling Count
 		int siblingcount = 0; memcpy(&siblingcount, context->rxbuf + 5, sizeof(siblingcount));
 
-		if (optlen < 0 || length < (9LL + optlen + static_cast<long long>(sizeof(SceNetEtherAddr)) * siblingcount)) {
+		if (optlen < 0 || siblingcount < 0 ||
+			static_cast<uint64_t>(length) < 9ULL + static_cast<uint64_t>(optlen) +
+				sizeof(SceNetEtherAddr) * static_cast<uint64_t>(siblingcount)) {
 			// Invalid packet
 			return;
 		}
@@ -867,7 +869,7 @@ void actOnCancelPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * s
 	// Extract Optional Data Length
 	int optlen = 0; memcpy(&optlen, context->rxbuf + 1, sizeof(optlen));
 
-	if (optlen < 0 || length < (5 + optlen)) {
+	if (optlen < 0 || optlen > length - 5) {
 		// Invalid packet
 		return;
 	}
@@ -995,7 +997,7 @@ void actOnBulkDataPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr *
 			int datalen = 0; memcpy(&datalen, context->rxbuf + 1, sizeof(datalen));
 
 			// Complete Valid Packet available
-			if (datalen > 0 && length >= (5 + datalen)) {
+			if (datalen > 0 && datalen <= length - 5) {
 				// Extract Data
 				void * data = context->rxbuf + 5;
 
