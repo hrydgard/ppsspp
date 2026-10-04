@@ -446,7 +446,6 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 			WRITE(p, "   float y = e * (ex + x * exp2(-ex) - 1.0);\n");
 			WRITE(p, "   float fl = floor(y);\n");
 			WRITE(p, "   return exp2(fl) * (1.0 + y - fl);\n");
-			WRITE(p, "}\n");
 		}
 		else {
 			if (compat.bitwiseOps) {
@@ -457,6 +456,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				WRITE(p, "   return e <= 0.0 ? 1.0 : pow(max(x, 0.0), e);\n");
 			}
 		}
+		WRITE(p, "}\n");
 	}
 
 	if (ShaderLanguageIsOpenGL(compat.shaderLanguage) || compat.shaderLanguage == GLSL_VULKAN) {
