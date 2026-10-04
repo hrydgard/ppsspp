@@ -454,6 +454,23 @@ void GameManager::InstallZipContents(ZipFileTask task) {
 	}
 }
 
+static bool IsSafeTextureGameID(std::string_view gameID) {
+	if (gameID.empty() || gameID == "." || gameID == "..") {
+		return false;
+	}
+	// Win32 strips trailing spaces and periods from path components. Reject them here so a
+	// component cannot turn into "." or ".." when the destination reaches the filesystem.
+	if (gameID.back() == ' ' || gameID.back() == '.') {
+		return false;
+	}
+	for (unsigned char c : gameID) {
+		if (c < 0x20 || c == 0x7F || c == '/' || c == '\\' || c == ':') {
+			return false;
+		}
+	}
+	return true;
+}
+
 bool GameManager::DetectTexturePackDest(struct zip *z, int iniIndex, Path &dest) {
 	auto iz = GetI18NCategory(I18NCat::INSTALLZIP);
 
@@ -495,6 +512,10 @@ bool GameManager::DetectTexturePackDest(struct zip *z, int iniIndex, Path &dest)
 				break;
 			}
 		}
+	}
+	if (!IsSafeTextureGameID(gameID)) {
+		SetInstallError(iz->T("Texture pack doesn't support install"));
+		return false;
 	}
 
 	Path pspTextures = GetSysDirectory(DIRECTORY_TEXTURES);
