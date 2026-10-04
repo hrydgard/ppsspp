@@ -164,8 +164,9 @@ BinManager::BinManager() {
 		for (DrawBinItemsTask *&task : taskLists_[i].tasks)
 			task = new DrawBinItemsTask(waitable_, this, i, taskStatus_[i]);
 	}
-	tiles_ = (Tile *)AllocateAlignedMemory(sizeof(Tile) * TILES_X * TILES_Y, 64);
-	for (int i = 0; i < TILES_X * TILES_Y; ++i) {
+	PickTileSize(maxInitTasks);
+	tiles_ = (Tile *)AllocateAlignedMemory(sizeof(Tile) * tilesX_ * tilesY_, 64);
+	for (int i = 0; i < tilesX_ * tilesY_; ++i) {
 		tiles_[i].head = 0;
 		tiles_[i].tail = 0;
 		tiles_[i].busy = false;
@@ -610,15 +611,15 @@ void BinManager::DistributeItems(size_t end) {
 	while (distributePos_ != end) {
 		const size_t index = distributePos_;
 		const BinItem &item = queue_[index];
-		const int tx1 = std::clamp(item.range.x1 / (SCREEN_SCALE_FACTOR * TILE_W), 0, TILES_X - 1);
-		const int tx2 = std::clamp(item.range.x2 / (SCREEN_SCALE_FACTOR * TILE_W), 0, TILES_X - 1);
-		const int ty1 = std::clamp(item.range.y1 / (SCREEN_SCALE_FACTOR * TILE_H), 0, TILES_Y - 1);
-		const int ty2 = std::clamp(item.range.y2 / (SCREEN_SCALE_FACTOR * TILE_H), 0, TILES_Y - 1);
+		const int tx1 = std::clamp(item.range.x1 >> tileShiftX_, 0, tilesX_ - 1);
+		const int tx2 = std::clamp(item.range.x2 >> tileShiftX_, 0, tilesX_ - 1);
+		const int ty1 = std::clamp(item.range.y1 >> tileShiftY_, 0, tilesY_ - 1);
+		const int ty2 = std::clamp(item.range.y2 >> tileShiftY_, 0, tilesY_ - 1);
 		// Set before any tile can draw it.
 		itemRefs_[index].store((tx2 - tx1 + 1) * (ty2 - ty1 + 1), std::memory_order_relaxed);
 		for (int ty = ty1; ty <= ty2; ++ty) {
 			for (int tx = tx1; tx <= tx2; ++tx) {
-				const int t = ty * TILES_X + tx;
+				const int t = ty * tilesX_ + tx;
 				Tile &tile = tiles_[t];
 				const uint32_t tail = tile.tail.load(std::memory_order_relaxed);
 				tile.items[tail % QUEUED_PRIMS] = (uint16_t)index;
@@ -726,10 +727,10 @@ bool BinManager::ProcessTiles(int start) {
 			if (tile.busy.load(std::memory_order_relaxed) || tile.busy.exchange(true, std::memory_order_acquire))
 				continue;
 
-			const int tx = t % TILES_X, ty = t / TILES_X;
+			const int tx = t % tilesX_, ty = t / tilesX_;
 			const BinCoords tileRange{
-				tx * TILE_W * SCREEN_SCALE_FACTOR, ty * TILE_H * SCREEN_SCALE_FACTOR,
-				(tx + 1) * TILE_W * SCREEN_SCALE_FACTOR - 1, (ty + 1) * TILE_H * SCREEN_SCALE_FACTOR - 1,
+				tx << tileShiftX_, ty << tileShiftY_,
+				((tx + 1) << tileShiftX_) - 1, ((ty + 1) << tileShiftY_) - 1,
 			};
 			uint32_t head = tile.head.load(std::memory_order_relaxed);
 			uint32_t tail;
@@ -1002,20 +1003,20 @@ bool BinManager::NeedsOrder(const BinItem &item) {
 	if (pastStride_ && item.range.x2 / SCREEN_SCALE_FACTOR >= (int)state.pixelID.cached.framebufStride)
 		return true;
 
-	const int tx1 = std::clamp(item.range.x1 / (SCREEN_SCALE_FACTOR * TILE_W), 0, TILES_X - 1);
-	const int tx2 = std::clamp(item.range.x2 / (SCREEN_SCALE_FACTOR * TILE_W), 0, TILES_X - 1);
-	const int ty1 = std::clamp(item.range.y1 / (SCREEN_SCALE_FACTOR * TILE_H), 0, TILES_Y - 1);
-	const int ty2 = std::clamp(item.range.y2 / (SCREEN_SCALE_FACTOR * TILE_H), 0, TILES_Y - 1);
+	const int tx1 = std::clamp(item.range.x1 >> tileShiftX_, 0, tilesX_ - 1);
+	const int tx2 = std::clamp(item.range.x2 >> tileShiftX_, 0, tilesX_ - 1);
+	const int ty1 = std::clamp(item.range.y1 >> tileShiftY_, 0, tilesY_ - 1);
+	const int ty2 = std::clamp(item.range.y2 >> tileShiftY_, 0, tilesY_ - 1);
 	if (anyTileReads_) {
 		for (int ty = ty1; ty <= ty2; ++ty) {
 			for (int tx = tx1; tx <= tx2; ++tx) {
-				if (tileReads_[ty * TILES_X + tx])
+				if (tileReads_[ty * tilesX_ + tx])
 					return true;
 			}
 		}
 	}
 	for (int ty = ty1; ty <= ty2; ++ty)
-		memset(tileWrites_ + ty * TILES_X + tx1, 1, tx2 - tx1 + 1);
+		memset(tileWrites_ + ty * tilesX_ + tx1, 1, tx2 - tx1 + 1);
 
 	if (!selfRender_)
 		return false;
@@ -1036,6 +1037,33 @@ bool BinManager::NeedsOrder(const BinItem &item) {
 	});
 	anyTileReads_ = true;
 	return false;
+}
+
+// Each extra tile a triangle touches sets it up again, so tiles are as large as they can be with plenty to
+// spare for every thread: at least sixteen per thread over a 480x272 screen. With fewer, a scene whose
+// drawing is concentrated on part of the screen leaves threads idle (LocoRoco took a third longer with four
+// per thread on eight threads).
+// The multiplier trades the repeated setup against the load balance, so the best one depends on what drawing
+// a pixel costs. When that gets cheaper, larger tiles can win: with faster span drawing, four per thread was
+// as fast in wall time and used less CPU. Measure again (Tools/headless_bench.py, wall and CPU time on
+// several games) after changes to the per-pixel cost.
+void BinManager::PickTileSize(int threads) {
+	static const int sizes[][2] = { { 128, 32 }, { 64, 32 }, { 64, 16 } };
+	int w = MIN_TILE_W, h = MIN_TILE_H;
+	for (const auto &size : sizes) {
+		const int tiles = ((480 + size[0] - 1) / size[0]) * ((272 + size[1] - 1) / size[1]);
+		if (tiles >= 16 * threads) {
+			w = size[0];
+			h = size[1];
+			break;
+		}
+	}
+	tileW_ = w;
+	tileH_ = h;
+	tileShiftX_ = LeastSignificantSetBit((u32)(w * SCREEN_SCALE_FACTOR));
+	tileShiftY_ = LeastSignificantSetBit((u32)(h * SCREEN_SCALE_FACTOR));
+	tilesX_ = 1024 / w;
+	tilesY_ = 1024 / h;
 }
 
 void BinManager::ClearTileMarks() {
@@ -1063,23 +1091,23 @@ void BinManager::ForTargetTiles(const RasterizerState &state, const TexelRegion 
 		const int64_t off0 = std::max(a0, fbBase) - fbBase;
 		const int64_t off1 = a1 - fbBase;
 		const int64_t y0 = off0 / fbStrideBytes, y1 = off1 / fbStrideBytes;
-		if (y0 >= TILES_Y * TILE_H)
+		if (y0 >= tilesY_ * tileH_)
 			break;
 		int x0 = 0, x1 = 1023;
 		if (y0 == y1) {
 			x0 = (int)((off0 % fbStrideBytes) / bpp);
 			x1 = (int)((off1 % fbStrideBytes) / bpp);
 		}
-		const int tx1 = std::min(x0 / TILE_W, TILES_X - 1), tx2 = std::min(x1 / TILE_W, TILES_X - 1);
-		for (int64_t y = y0; y <= y1 && y < TILES_Y * TILE_H; ++y) {
-			const int ty = (int)(y / TILE_H);
+		const int tx1 = std::min(x0 / tileW_, tilesX_ - 1), tx2 = std::min(x1 / tileW_, tilesX_ - 1);
+		for (int64_t y = y0; y <= y1 && y < tilesY_ * tileH_; ++y) {
+			const int ty = (int)(y / tileH_);
 			if (ty == lastTy && tx1 == lastTx1 && tx2 == lastTx2)
 				continue;
 			lastTy = ty;
 			lastTx1 = tx1;
 			lastTx2 = tx2;
 			for (int tx = tx1; tx <= tx2; ++tx)
-				f(ty * TILES_X + tx);
+				f(ty * tilesX_ + tx);
 		}
 	}
 }

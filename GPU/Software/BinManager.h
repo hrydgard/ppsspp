@@ -269,10 +269,20 @@ private:
 
 	// With threads, queued items are binned into screen tiles. Any thread can take a tile with work and
 	// draws its items in order; only one at a time, so each pixel still sees the primitives in order.
-	static constexpr int TILE_W = 64;
-	static constexpr int TILE_H = 16;
-	static constexpr int TILES_X = 1024 / TILE_W;
-	static constexpr int TILES_Y = 1024 / TILE_H;
+	// Larger tiles set up fewer triangles more than once, smaller ones spread the work over more threads.
+	// The size is picked at startup for the thread count (PickTileSize); the arrays fit the smallest.
+	static constexpr int MIN_TILE_W = 64;
+	static constexpr int MIN_TILE_H = 16;
+	static constexpr int TILES_X = 1024 / MIN_TILE_W;
+	static constexpr int TILES_Y = 1024 / MIN_TILE_H;
+	// In subpixels.
+	int tileShiftX_ = 0;
+	int tileShiftY_ = 0;
+	// Pixels.
+	int tileW_ = MIN_TILE_W;
+	int tileH_ = MIN_TILE_H;
+	int tilesX_ = TILES_X;
+	int tilesY_ = TILES_Y;
 	struct Tile {
 		// Indices into queue_, as a ring: head_ is how many have been drawn, tail_ how many were pushed.
 		std::atomic<uint32_t> head;
@@ -356,6 +366,7 @@ private:
 	bool SelfReadRegion(const BinItem &item, TexelRegion &region);
 	template <typename F>
 	void ForTargetTiles(const Rasterizer::RasterizerState &state, const TexelRegion &region, F f);
+	void PickTileSize(int threads);
 	void ClearTileMarks();
 	bool PendingWriteIn(const BinDirtyRange &range, uint32_t start, uint32_t stride, uint32_t w, uint32_t h);
 	bool NeedsOrder(const BinItem &item);
