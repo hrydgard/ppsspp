@@ -268,6 +268,7 @@ u32 sceKernelFindModuleByUID(u32 uid);
 
 void Register_ModuleMgrForUser();
 void Register_ModuleMgrForKernel();
+void Register_SystemCtrlForKernel();
 
 // Expose for use by KUBridge.
 u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr);

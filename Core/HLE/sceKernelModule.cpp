@@ -145,6 +145,10 @@ static void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting, con
 static void ExportFuncSymbol(const FuncSymbolExport &func);
 static void UnexportFuncSymbol(const FuncSymbolExport &func);
 
+// Custom-firmware "SystemControl" (SystemCtrlForKernel) start-module handler, registered by
+// Chinese-patch loaders (see sctrlHENSetStartModuleHandler below).
+static u32 g_startModuleHandler = 0;
+
 static bool KernelImportModuleFuncs(PSPModule *module, u32 *firstImportStubAddr, bool reimporting = false);
 
 // by QueryModuleInfo
@@ -482,7 +486,7 @@ static void __KernelModuleInit() {
 }
 
 void __KernelModuleDoState(PointerWrap &p) {
-	auto s = p.Section("sceKernelModule", 1, 3);
+	auto s = p.Section("sceKernelModule", 1, 4);
 	if (!s)
 		return;
 
@@ -506,6 +510,12 @@ void __KernelModuleDoState(PointerWrap &p) {
 				g_runningVSH = true;
 			}
 		}
+	}
+
+	if (s >= 4) {
+		Do(p, g_startModuleHandler);
+	} else if (p.mode == p.MODE_READ) {
+		g_startModuleHandler = 0;
 	}
 
 	if (p.mode == p.MODE_READ) {
@@ -2623,6 +2633,16 @@ static int ResolveModuleThreadParams(const PSPModule *module, u32 priority, u32 
 	return 0;
 }
 
+// Custom-firmware "SystemControl" (SystemCtrlForKernel) support. Translation-patch loaders like
+// Utawarerumono Portable's run as the game's EBOOT loader and hook module startup through this to
+// patch each module (e.g. the Exillusion engine's JIS table) before it starts. NID and behavior
+// per JPCSP's SystemCtrlForKernel module and its sceKernelLoadModuleDisc commit.
+static u32 sctrlHENSetStartModuleHandler(u32 handlerAddr) {
+	u32 previous = g_startModuleHandler;
+	g_startModuleHandler = handlerAddr;
+	return hleLogInfo(Log::sceModule, previous, "handler %08x", handlerAddr);
+}
+
 int __KernelStartModule(SceUID moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, SceKernelSMOption *smoption, bool *needsWait) {
 	if (needsWait) {
 		*needsWait = false;
@@ -2652,6 +2672,40 @@ int __KernelStartModule(SceUID moduleId, u32 argsize, u32 argAddr, u32 returnVal
 		}
 		__KernelStartThreadValidate(threadID, argsize, argAddr);
 		__KernelSetThreadRA(threadID, NID_MODULERETURN);
+
+		if (g_startModuleHandler != 0 && module->modulePtr.IsValid()) {
+			// A custom-firmware loader registered a start-module handler (sctrlHENSetStartModuleHandler).
+			// Run it just before module_start with a pointer to the module's native struct, from a
+			// trampoline the way the CFW and JPCSP's ModuleMgrForUser do. It goes in the unused lower
+			// part of the thread's k0 exception-scratch area: above the initial stack pointer (so the
+			// handler's own frames can't reach it) and below the fields FillStack wrote at k0 + 0xC0.
+			u32 threadError;
+			PSPThread *startThread = kernelObjects.Get<PSPThread>(threadID, threadError);
+			u32 k0 = startThread ? startThread->context.r[MIPS_REG_K0] : 0;
+			if (startThread && Memory::IsValidRange(k0 + 0x80, 0x30)) {
+				u32 tramp = k0 + 0x80;
+				// Split the module struct pointer into LUI/ADDIU halves (ADDIU sign-extends).
+				const u32 modPtr = module->modulePtr.ptr;
+				s32 lo = (s16)(modPtr & 0xFFFF);
+				u32 hi = ((u32)(modPtr - lo)) >> 16;
+				Memory::WriteUnchecked_U32(MIPS_MAKE_ADDIU(MIPS_REG_SP, MIPS_REG_SP, -16), tramp + 0x00);
+				Memory::WriteUnchecked_U32(0xAC000000 | (MIPS_REG_A0 << 16) | (MIPS_REG_SP << 21) | 0x0, tramp + 0x04);  // sw a0, 0(sp)
+				Memory::WriteUnchecked_U32(0xAC000000 | (MIPS_REG_A1 << 16) | (MIPS_REG_SP << 21) | 0x4, tramp + 0x08);  // sw a1, 4(sp)
+				Memory::WriteUnchecked_U32(0xAC000000 | (MIPS_REG_RA << 16) | (MIPS_REG_SP << 21) | 0x8, tramp + 0x0C);  // sw ra, 8(sp)
+				Memory::WriteUnchecked_U32(MIPS_MAKE_LUI(MIPS_REG_A0, hi), tramp + 0x10);
+				Memory::WriteUnchecked_U32(MIPS_MAKE_JAL(g_startModuleHandler), tramp + 0x14);
+				Memory::WriteUnchecked_U32(MIPS_MAKE_ADDIU(MIPS_REG_A0, MIPS_REG_A0, lo & 0xFFFF), tramp + 0x18);
+				Memory::WriteUnchecked_U32(MIPS_MAKE_LW(MIPS_REG_A0, MIPS_REG_SP, 0), tramp + 0x1C);
+				Memory::WriteUnchecked_U32(MIPS_MAKE_LW(MIPS_REG_A1, MIPS_REG_SP, 4), tramp + 0x20);
+				Memory::WriteUnchecked_U32(MIPS_MAKE_LW(MIPS_REG_RA, MIPS_REG_SP, 8), tramp + 0x24);
+				Memory::WriteUnchecked_U32(MIPS_MAKE_J(entryAddr), tramp + 0x28);
+				Memory::WriteUnchecked_U32(MIPS_MAKE_ADDIU(MIPS_REG_SP, MIPS_REG_SP, 16), tramp + 0x2C);
+				NotifyMemInfo(MemBlockFlags::WRITE, tramp, 0x30, "ModuleStartTrampoline");
+				startThread->context.pc = tramp;
+				startThread->nt.entrypoint = tramp;
+				DEBUG_LOG(Log::sceModule, "Installed start module handler %08x for %s (module struct %08x) at %08x", g_startModuleHandler, module->nm.name, modPtr, tramp);
+			}
+		}
 
 		if (needsWait) {
 			*needsWait = true;
@@ -3318,5 +3372,13 @@ void Register_ModuleMgrForUser() {
 }
 
 void Register_ModuleMgrForKernel() {
-	RegisterHLEModule("ModuleMgrForKernel", ARRAY_SIZE(ModuleMgrForKernel), ModuleMgrForKernel);		
+	RegisterHLEModule("ModuleMgrForKernel", ARRAY_SIZE(ModuleMgrForKernel), ModuleMgrForKernel);
+}
+
+static const HLEFunction SystemCtrlForKernel[] = {
+	{0x1C90BECB, &WrapU_U<sctrlHENSetStartModuleHandler>, "sctrlHENSetStartModuleHandler", 'x', "x", HLE_KERNEL_SYSCALL},
+};
+
+void Register_SystemCtrlForKernel() {
+	RegisterHLEModule("SystemCtrlForKernel", ARRAY_SIZE(SystemCtrlForKernel), SystemCtrlForKernel);
 }
