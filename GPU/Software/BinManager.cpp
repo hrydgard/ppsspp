@@ -427,17 +427,19 @@ inline void BinDirtyRange::Expand(uint32_t newBase, uint32_t bpp, uint32_t strid
 		return;
 	}
 
-	height = std::max(height, h);
 	if (base == newBase && strideBytes == stride * bpp) {
+		height = std::max(height, h);
 		widthBytes = std::max(widthBytes, w * bpp);
 		return;
 	}
 
-	if (stride != 0)
-		height += ((int)base - (int)newBase) / (stride * bpp);
+	// Otherwise whole rows from the lower start to the higher end, which covers both.
+	const uint64_t end = std::max((uint64_t)base + (uint64_t)(height - 1) * strideBytes + widthBytes, (uint64_t)newBase + (uint64_t)(h - 1) * stride * bpp + w * bpp);
 	base = std::min(base, newBase);
 	strideBytes = std::max(strideBytes, stride * bpp);
 	widthBytes = strideBytes;
+	if (strideBytes != 0)
+		height = (uint32_t)((end - base + strideBytes - 1) / strideBytes);
 }
 
 void BinManager::UpdateClut(const void *src) {
