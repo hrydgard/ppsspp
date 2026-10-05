@@ -274,6 +274,7 @@ void RegisterAllModules() {
 	Register_sceImpose();
 	Register_sceSuspendForUser();
 	Register_sceGe_user();
+	Register_sceGe_driver();
 	Register_sceUmdUser();
 	Register_sceDmac();
 	Register_sceUtility();

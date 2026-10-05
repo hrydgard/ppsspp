@@ -670,3 +670,9 @@ const HLEFunction sceGe_user[] = {
 void Register_sceGe_user() {
 	RegisterHLEModule("sceGe_user", ARRAY_SIZE(sceGe_user), sceGe_user);
 }
+
+void Register_sceGe_driver() {
+	// Same function set as sceGe_user; imported by kernel modules like chfont.prx
+	// using the driver NIDs (e.g. 0xE47E40E4 = sceGeEdramGetAddr).
+	RegisterHLEModule("sceGe_driver", ARRAY_SIZE(sceGe_user), sceGe_user);
+}

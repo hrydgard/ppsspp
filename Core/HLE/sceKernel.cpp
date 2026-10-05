@@ -976,6 +976,16 @@ const HLEFunction ThreadManForKernel[] =
 	{0xC11BA8C4, &WrapI_II<sceKernelNotifyCallback>,                 "sceKernelNotifyCallback",                   'i', "ii",     HLE_KERNEL_SYSCALL },
 	{0xF6427665, &WrapI_V<sceKernelGetUserLevel>,                    "sceKernelGetUserLevel",                     'i', "",       HLE_KERNEL_SYSCALL },
 	{0x85A2A5BF, &WrapI_V<sceKernelIsUserModeThread>,                "sceKernelIsUserModeThread",                 'i', "",       HLE_KERNEL_SYSCALL },
+	// Refer*Status functions that ThreadManForUser also exports, imported from kernel context by
+	// translation-patch loaders like CLANNAD's HookIO.prx. NIDs per JPCSP's ThreadManForUser.
+	{0x17C1684E, &WrapU_UU<sceKernelReferThreadStatus>,              "sceKernelReferThreadStatus",                'i', "xp",     HLE_KERNEL_SYSCALL },
+	{0x369EEB6B, &WrapI_IU<sceKernelReferThreadEventHandlerStatus>,  "sceKernelReferThreadEventHandlerStatus",    'i', "ip",     HLE_KERNEL_SYSCALL },
+	{0x730ED8BC, &WrapI_IU<sceKernelReferCallbackStatus>,            "sceKernelReferCallbackStatus",              'i', "ip",     HLE_KERNEL_SYSCALL },
+	{0xBC6FEBC5, &WrapI_IU<sceKernelReferSemaStatus>,                "sceKernelReferSemaStatus",                  'i', "ip",     HLE_KERNEL_SYSCALL },
+	{0xA66B0120, &WrapU_IU<sceKernelReferEventFlagStatus>,           "sceKernelReferEventFlagStatus",             'x', "ix",     HLE_KERNEL_SYSCALL },
+	{0x33BE4024, &WrapI_IU<sceKernelReferMsgPipeStatus>,             "sceKernelReferMsgPipeStatus",               'i', "ip",     HLE_KERNEL_SYSCALL },
+	{0xD8199E4C, &WrapI_IU<sceKernelReferFplStatus>,                 "sceKernelReferFplStatus",                   'i', "ip",     HLE_KERNEL_SYSCALL },
+	{0x5F32BEAA, &WrapU_IU<sceKernelReferVTimerStatus>,              "sceKernelReferVTimerStatus",                'x', "ix",     HLE_KERNEL_SYSCALL },
 	// NOT added on purpose, even though we implement all four for user mode already:
 	// sceKernelCreateMutex (0xB7D098C6), sceKernelLockMutex (0xB011B11F), sceKernelUnlockMutex
 	// (0x6B30100F) and sceKernelAllocateFpl (0xD979E9BF). They are what the real flash0 NAND and
