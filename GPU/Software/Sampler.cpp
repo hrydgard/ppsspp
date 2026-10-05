@@ -163,6 +163,12 @@ void SamplerJitCache::Flush() {
 	compileQueue_.clear();
 }
 
+// A texture level whose address isn't valid has no pointer, and the generic samplers read its texels as zero
+// (then apply the texture function). The JIT leaves those to them.
+static bool CanJit(const SamplerID &id) {
+	return g_Config.bSoftwareRenderingJit && !id.hasInvalidPtr;
+}
+
 NearestFunc SamplerJitCache::GetByID(const SamplerID &id, size_t key, BinManager *binner) {
 	std::unique_lock<std::mutex> guard(jitCacheLock);
 	
@@ -201,7 +207,7 @@ NearestFunc SamplerJitCache::GetByID(const SamplerID &id, size_t key, BinManager
 }
 
 NearestFunc SamplerJitCache::GetNearest(const SamplerID &id, BinManager *binner) {
-	if (!g_Config.bSoftwareRenderingJit)
+	if (!CanJit(id))
 		return nullptr;
 
 	const size_t key = std::hash<SamplerID>()(id);
@@ -214,7 +220,7 @@ NearestFunc SamplerJitCache::GetNearest(const SamplerID &id, BinManager *binner)
 }
 
 LinearFunc SamplerJitCache::GetLinear(const SamplerID &id, BinManager *binner) {
-	if (!g_Config.bSoftwareRenderingJit)
+	if (!CanJit(id))
 		return nullptr;
 
 	const size_t key = std::hash<SamplerID>()(id);
@@ -227,7 +233,7 @@ LinearFunc SamplerJitCache::GetLinear(const SamplerID &id, BinManager *binner) {
 }
 
 FetchFunc SamplerJitCache::GetFetch(const SamplerID &id, BinManager *binner) {
-	if (!g_Config.bSoftwareRenderingJit)
+	if (!CanJit(id))
 		return nullptr;
 
 	const size_t key = std::hash<SamplerID>()(id);
