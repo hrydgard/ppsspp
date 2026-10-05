@@ -22,6 +22,7 @@
 #include "GPU/GPUCommon.h"
 #include "GPU/Software/SoftGpu.h"
 #include "GPU/Math3D.h"
+#include "GPU/Software/GEMath.h"
 
 using namespace Math3D;
 
@@ -88,9 +89,9 @@ struct ClipVertexData {
 		clippos = ::Lerp(a.clippos, b.clippos, t);
 		// Ignore screenpos because Lerp() is only used pre-calculation of screenpos.
 		v.texturecoords = ::Lerp(a.v.texturecoords, b.v.texturecoords, t);
-		v.fogdepth = ::Lerp(a.v.fogdepth, b.v.fogdepth, t);
-
-		u16 t_int = (u16)(t * 256);
+		// Colors and fog (already 8-bit per vertex) take t rounded to 1/256 (gpu/probe exp136).
+		const int t_int = (int)(t * 256.0f + 0.5f);
+		v.fogdepth = (float)(((int)(a.v.fogdepth * 256.0f) * (256 - t_int) + (int)(b.v.fogdepth * 256.0f) * t_int) >> 8) * (1.0f / 256.0f);
 		v.color0 = LerpInt<Vec4<int>, 256>(Vec4<int>::FromRGBA(a.v.color0), Vec4<int>::FromRGBA(b.v.color0), t_int).ToRGBA();
 		v.color1 = LerpInt<Vec3<int>, 256>(Vec3<int>::FromRGB(a.v.color1), Vec3<int>::FromRGB(b.v.color1), t_int).ToRGB();
 	}
@@ -105,6 +106,7 @@ struct ClipVertexData {
 
 class VertexReader;
 
+
 class SoftwareDrawEngine;
 class SoftwareVertexReader;
 class StringWriter;
@@ -117,8 +119,10 @@ public:
 	~TransformUnit();
 
 	static WorldCoords ModelToWorldNormal(const ModelCoords& coords);
-	static WorldCoords ModelToWorld(const ModelCoords& coords);
 	static ScreenCoords ClipToScreen(const ClipCoords &coords, bool *outsideRangeFlag);
+	// Where an edge from an inside vertex crosses the near plane, as the GE computes it.
+	static float NearPlaneT(const ClipCoords &in, const ClipCoords &out);
+	static ClipCoords NearPlanePoint(const ClipCoords &in, const ClipCoords &out, float t);
 	static inline DrawingCoords ScreenToDrawing(int x, int y) {
 		DrawingCoords ret;
 		// When offset > coord, this is negative and force-scissors.
@@ -137,6 +141,7 @@ public:
 	void Flush(GPUCommon *common, const char *reason);
 	void FlushIfOverlap(GPUCommon *common, const char *reason, bool modifying, uint32_t addr, uint32_t stride, uint32_t w, uint32_t h);
 	void NotifyClutUpdate(const void *src);
+	void NotifyTexFlush();
 
 	void GetStats(StringWriter &w);
 
@@ -145,7 +150,8 @@ public:
 
 private:
 	ClipVertexData ReadVertex(const VertexReader &vreader, const TransformState &state);
-	void SendTriangle(CullType cullType, const ClipVertexData *verts, int provoking = 2);
+	// orderReversed: verts are in the opposite order of how the GE takes the triangle (matters for clipping).
+	void SendTriangle(CullType cullType, const ClipVertexData *verts, int provoking = 2, bool orderReversed = false);
 
 	u8 *decoded_ = nullptr;
 	BinManager *binner_ = nullptr;

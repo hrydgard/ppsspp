@@ -220,6 +220,14 @@ void BinManager::UpdateState() {
 		scissor_.x2 = screenScissorBR.x + SCREEN_SCALE_FACTOR - 1;
 		scissor_.y2 = screenScissorBR.y + SCREEN_SCALE_FACTOR - 1;
 
+		// Pixels past the stride land in the next row, which another task may be drawing (Tokimeki
+		// Memorial's 128 wide blur buffer under a full screen scissor).
+		const bool pastStride = scissorBR.x >= gstate.FrameBufStride();
+		if (pastStride != pastStride_) {
+			pastStride_ = pastStride;
+			dirty_ |= SoftDirty::BINNER_OVERLAP;
+		}
+
 		// If we're about to texture from something still pending (i.e. depth), flush.
 		if (HasTextureWrite(state))
 			Flush("tex");
@@ -243,7 +251,7 @@ void BinManager::UpdateState() {
 
 		// Disallow threads when rendering to the target, even offset.
 		bool selfRender = HasTextureWrite(state);
-		int newMaxTasks = selfRender || FORCE_SINGLE_THREAD ? 1 : g_threadManager.GetNumLooperThreads();
+		int newMaxTasks = selfRender || pastStride_ || FORCE_SINGLE_THREAD ? 1 : g_threadManager.GetNumLooperThreads();
 		if (newMaxTasks > MAX_POSSIBLE_TASKS)
 			newMaxTasks = MAX_POSSIBLE_TASKS;
 		// We don't want to overlap wrong, so flush any pending.
@@ -273,8 +281,74 @@ void BinManager::UpdateState() {
 			ClearDirty(SoftDirty::BINNER_RANGE);
 		}
 		pendingOverlap_ = pendingOverlap_ || selfRender;
+		selfRender_ = selfRender;
 		ClearDirty(SoftDirty::BINNER_OVERLAP);
 	}
+	states_[stateIndex_].selfTexture = selfRender_;
+	states_[stateIndex_].texFlushGen = texFlushGen_;
+}
+
+// The GE samples through its texture cache, so a primitive that textures from the buffer it draws to
+// mostly sees that buffer as it was before the primitive (exp81, exp159, exp160). The cache actually
+// fills 8-row blocks as the primitive first reads them, so rows drawn before then show through; this
+// doesn't model that. A texture that fits in the 8 KB cache stays there until TEXFLUSH, so later
+// primitives and draws see it as it was when first read (FF Type-0's 16x16 4444 blur, three passes over
+// one buffer without a flush).
+const RasterizerState &BinManager::SelfTextureSnapshot(const BinItem &item, const RasterizerState &state) {
+	constexpr uint32_t mirrorMask = 0x041FFFFF;
+	const uint32_t bits = textureBitsPerPixel[state.samplerID.texfmt];
+	const uint32_t fbBpp = state.pixelID.FBFormat() == GE_FORMAT_8888 ? 4 : 2;
+	const uint32_t fbStrideBytes = state.pixelID.cached.framebufStride * fbBpp;
+
+	selfTexState_ = state;
+	uint32_t totalBytes = 0;
+	bool sameTexture = true;
+	for (int i = 0; i <= state.maxTexLevel; ++i) {
+		const uint32_t bytes = state.samplerID.cached.sizes[i].w * bits / 8 * state.samplerID.cached.sizes[i].h;
+		totalBytes += bytes;
+		sameTexture = sameTexture && selfTexAddr_[i] == state.texaddr[i] && selfTexBuf_[i].size() == state.texbufw[i] * bits / 8 * state.samplerID.cached.sizes[i].h;
+	}
+	const bool cacheSized = totalBytes <= 8192;
+	if (cacheSized && selfTexCached_ && sameTexture && selfTexFlushGen_ == state.texFlushGen) {
+		for (int i = 0; i <= state.maxTexLevel; ++i) {
+			if (!selfTexBuf_[i].empty())
+				selfTexState_.texptr[i] = selfTexBuf_[i].data();
+		}
+		return selfTexState_;
+	}
+	if (cacheSized && !(selfTexCached_ && sameTexture))
+		selfTexValid_ = false;
+	selfTexCached_ = cacheSized;
+	selfTexFlushGen_ = state.texFlushGen;
+
+	for (int i = 0; i <= state.maxTexLevel; ++i) {
+		const u8 *src = state.texptr[i];
+		const uint32_t bytes = state.texbufw[i] * bits / 8 * state.samplerID.cached.sizes[i].h;
+		if (!src || !Memory::IsValidRange(state.texaddr[i], bytes))
+			continue;
+		std::vector<u8> &buf = selfTexBuf_[i];
+		if (!selfTexValid_ || selfTexAddr_[i] != state.texaddr[i] || buf.size() != bytes) {
+			buf.assign(src, src + bytes);
+			selfTexAddr_[i] = state.texaddr[i];
+		} else {
+			// Only the rows the previous primitive drew have changed.
+			const DrawingCoords tl = TransformUnit::ScreenToDrawing(selfTexLastRange_.x1, selfTexLastRange_.y1);
+			const DrawingCoords br = TransformUnit::ScreenToDrawing(selfTexLastRange_.x2, selfTexLastRange_.y2);
+			const int64_t rowsStart = (int64_t)(drawTargetAddr_ & mirrorMask) + tl.y * fbStrideBytes;
+			const int64_t rowsEnd = (int64_t)(drawTargetAddr_ & mirrorMask) + (br.y + 1) * fbStrideBytes;
+			const int64_t texStart = state.texaddr[i] & mirrorMask;
+			const int64_t start = std::max(rowsStart, texStart) - texStart;
+			const int64_t end = std::min(rowsEnd, texStart + bytes) - texStart;
+			if (start < end)
+				memcpy(buf.data() + start, src + start, (size_t)(end - start));
+		}
+		selfTexState_.texptr[i] = buf.data();
+	}
+
+	// A depth write could change the texture outside the color rows, so then copy all of it each time.
+	selfTexValid_ = !state.pixelID.depthWrite;
+	selfTexLastRange_ = item.range;
+	return selfTexState_;
 }
 
 bool BinManager::HasTextureWrite(const RasterizerState &state) {
@@ -411,12 +485,11 @@ void BinManager::AddTriangle(const VertexData &v0, const VertexData &v1, const V
 	Vec2<int> d02((int)v0.screenpos.x - (int)v2.screenpos.x, (int)v0.screenpos.y - (int)v2.screenpos.y);
 	Vec2<int> d12((int)v1.screenpos.x - (int)v2.screenpos.x, (int)v1.screenpos.y - (int)v2.screenpos.y);
 
-	// Drop primitives which are not in CCW order by checking the cross product.
+	// Drop primitives which are not in CCW order by checking the cross product, and ones with zero
+	// area, which light no pixels even on an edge through pixel centers (gpu/probe exp118).
 	static_assert(SCREEN_SCALE_FACTOR <= 16, "Fails if scale factor is too high");
-	if (d01.x * d02.y - d01.y * d02.x < 0)
-		return;
-	// If all points have identical coords, we'll have 0 weights and not skip properly, so skip here.
-	if ((d01.x == 0 && d02.x == 0) || (d01.y == 0 && d02.y == 0))
+	// In 64 bits: with vertices far apart in the 4096 pixel space the products overflow 32 (gpu/probe exp132).
+	if ((int64_t)d01.x * d02.y - (int64_t)d01.y * d02.x <= 0)
 		return;
 
 	// Was it fully outside the scissor?
@@ -537,9 +610,17 @@ void BinManager::Drain(bool flushing) {
 
 	if (taskRanges_.size() <= 1) {
 		PROFILE_THIS_SCOPE("bin_drain_single");
+		// Anything (transfers, the CPU) may have written memory since the last drain.
+		selfTexValid_ = false;
 		while (!queue_.Empty()) {
 			const BinItem &item = queue_.PeekNext();
-			DrawBinItem(item, states_[item.stateIndex]);
+			const RasterizerState &state = states_[item.stateIndex];
+			if (state.selfTexture) {
+				DrawBinItem(item, SelfTextureSnapshot(item, state));
+			} else {
+				selfTexValid_ = false;
+				DrawBinItem(item, state);
+			}
 			queue_.SkipNext();
 		}
 	} else {

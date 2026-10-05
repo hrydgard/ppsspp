@@ -361,21 +361,15 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 	if (pixelID.applyDepthRange && (z < pixelID.cached.minz || z > pixelID.cached.maxz))
 		return;
 
-	bool isWhite = v1.color0 == 0xFFFFFFFF;
+	// White doesn't change the texel, unless color doubling doubles it (gpu/probe exp53).
+	bool isWhite = v1.color0 == 0xFFFFFFFF && !samplerID.useColorDoubling;
 
 	if (state.enableTextures) {
-		// 1:1 (but with mirror support) texture mapping!
-		int s_start = v0.texturecoords.x;
-		int t_start = v0.texturecoords.y;
+		// 1:1 (but with mirror support) texture mapping! The texel is the one at the first pixel's center.
 		int ds = v1.texturecoords.x > v0.texturecoords.x ? 1 : -1;
 		int dt = v1.texturecoords.y > v0.texturecoords.y ? 1 : -1;
-
-		if (ds < 0) {
-			s_start += ds;
-		}
-		if (dt < 0) {
-			t_start += dt;
-		}
+		int s_start = (int)floorf(v0.texturecoords.x + 0.5f * ds);
+		int t_start = (int)floorf(v0.texturecoords.y + 0.5f * dt);
 
 		// First clip the right and bottom sides, since we don't need to adjust the deltas.
 		if (pos1.x > scissorBR.x) pos1.x = scissorBR.x + 1;
@@ -390,7 +384,8 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 			pos0.y = scissorTL.y;
 		}
 
-		if (UseDrawSinglePixel(pixelID) && (samplerID.TexFunc() == GE_TEXFUNC_MODULATE || samplerID.TexFunc() == GE_TEXFUNC_REPLACE) && samplerID.useTextureAlpha) {
+		const bool fastFunc = samplerID.TexFunc() == GE_TEXFUNC_MODULATE || (samplerID.TexFunc() == GE_TEXFUNC_REPLACE && !samplerID.useColorDoubling);
+		if (UseDrawSinglePixel(pixelID) && fastFunc && samplerID.useTextureAlpha) {
 			if (isWhite || samplerID.TexFunc() == GE_TEXFUNC_REPLACE) {
 				DrawSpriteTex<true>(pos0, pos1, s_start, t_start, ds, dt, v1.color0, state, fetchFunc);
 			} else {
@@ -536,6 +531,8 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1, BinManager &b
 	bool coord_check = true;
 	if (state.enableTextures) {
 		state_check = state_check && NoClampOrWrap(state, v0.texturecoords.uv()) && NoClampOrWrap(state, v1.texturecoords.uv());
+		// DrawSprite samples texel centers, but bilinear 1:1 sprites don't land on them (gpu/probe exp87).
+		state_check = state_check && !state.minFilt && !state.magFilt;
 		coord_check = (xdiff == udiff || xdiff == -udiff) && (ydiff == vdiff || ydiff == -vdiff);
 	}
 	// This doesn't work well with offset drawing, see #15876.  Through never has a subpixel offset.
@@ -598,6 +595,26 @@ static bool AreCoordsRectangleCompatible(const RasterizerState &state, const Cli
 		}
 	}
 	return true;
+}
+
+// Whether triangles forming a rectangle can be drawn as a sprite with the same result. A rectangle drawn
+// as triangles samples pixel centers, so its first column is (x + 7) >> 4; a sprite's is (x + 6) >> 4
+// (gpu/probe exp30). They differ only for a left edge at 9/16 into a pixel, where the triangles must stay
+// triangles (NBA 2K13's menu boxes). Rows and the far edges agree. Each triangle also has its own UV
+// planes, which a sprite's corners don't reproduce, so textured ones only qualify in through mode with
+// nearest filtering (Gears of Destiny's text boxes), and 1:1, where every sample is half a texel from an
+// edge: a scaled one can land right on a texel edge, where the planes' anchors decide the side (Tokiden's
+// 480x33 bar over 280x20 texels, gpu/probe exp167).
+bool RectangleMatchesTriangles(const RasterizerState &state, const VertexData &a, const VertexData &b) {
+	if (state.enableTextures) {
+		if (!state.throughMode || state.minFilt || state.magFilt)
+			return false;
+		const float du = std::fabs(b.texturecoords.x - a.texturecoords.x) * (float)SCREEN_SCALE_FACTOR;
+		const float dv = std::fabs(b.texturecoords.y - a.texturecoords.y) * (float)SCREEN_SCALE_FACTOR;
+		if (du != (float)std::abs(b.screenpos.x - a.screenpos.x) || dv != (float)std::abs(b.screenpos.y - a.screenpos.y))
+			return false;
+	}
+	return (std::min(a.screenpos.x, b.screenpos.x) & (SCREEN_SCALE_FACTOR - 1)) != 9;
 }
 
 bool DetectRectangleFromStrip(const RasterizerState &state, const ClipVertexData data[4], int *tlIndex, int *brIndex) {
@@ -782,6 +799,11 @@ bool DetectRectangleThroughModeSlices(const RasterizerState &state, const ClipVe
 		if (br1.x == tl2.x && tl1.x < br1.x && tl2.x < br2.x) {
 			if (!state.enableTextures)
 				return true;
+			// Each sprite gets its own UV planes, and only a power of two area makes their gradient exact,
+			// so bilinear samples land differently in the pieces than in one joined sprite (gpu/probe
+			// exp163, ULJM05302's track map).
+			if (state.minFilt || state.magFilt)
+				return false;
 
 			const auto &textl1 = data[0].v.texturecoords, &texbr1 = data[1].v.texturecoords;
 			const auto &textl2 = data[2].v.texturecoords, &texbr2 = data[3].v.texturecoords;

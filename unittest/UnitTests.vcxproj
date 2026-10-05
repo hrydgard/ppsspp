@@ -297,6 +297,7 @@
     <ClCompile Include="TestLzrc.cpp" />
     <ClCompile Include="TestMpegCsc.cpp" />
     <ClCompile Include="TestSplineTessellation.cpp" />
+    <ClCompile Include="TestGEMath.cpp" />
     <ClCompile Include="TestThreadManager.cpp" />
     <ClCompile Include="TestTextureReplacer.cpp" />
     <ClCompile Include="TestVertexJit.cpp" />

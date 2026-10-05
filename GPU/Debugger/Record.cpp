@@ -48,13 +48,21 @@
 
 namespace GPURecord {
 
+// Appends data (or zeroes, for a null p) at a 4-byte aligned offset, zero padded: players read register blocks and headers as
+// words, which a PSP can't do unaligned.
+static u32 AppendToPushbuf(std::vector<u8> &pushbuf, const void *p, u32 sz) {
+	const u32 ptr = ((u32)pushbuf.size() + 3) & ~3;
+	pushbuf.resize(ptr + sz, 0);
+	if (p && sz)
+		memcpy(pushbuf.data() + ptr, p, sz);
+	return ptr;
+}
+
 void Recorder::FlushRegisters() {
 	if (!lastRegisters.empty()) {
 		Command last{ CommandType::REGISTERS };
-		last.ptr = (u32)pushbuf.size();
 		last.sz = (u32)(lastRegisters.size() * sizeof(u32));
-		pushbuf.resize(pushbuf.size() + last.sz);
-		memcpy(pushbuf.data() + last.ptr, lastRegisters.data(), last.sz);
+		last.ptr = AppendToPushbuf(pushbuf, lastRegisters.data(), last.sz);
 		lastRegisters.clear();
 
 		commands.push_back(last);
@@ -141,9 +149,8 @@ bool Recorder::BeginRecording() {
 	flipLastAction = gpuStats.totals.numFlips;
 	flipFinishAt = -1;
 
-	u32 ptr = (u32)pushbuf.size();
 	u32 sz = 512 * 4;
-	pushbuf.resize(pushbuf.size() + sz);
+	u32 ptr = AppendToPushbuf(pushbuf, nullptr, sz);
 	gstate.Save((u32_le *)(pushbuf.data() + ptr));
 	commands.push_back({ CommandType::INIT, sz, ptr });
 	lastVRAM.resize(2 * 1024 * 1024);
@@ -153,9 +160,7 @@ bool Recorder::BeginRecording() {
 	if (gpu->GetCurrentClut(clut)) {
 		sz = clut.GetStride() * clut.PixelSize();
 		_assert_msg_(sz == 1024, "CLUT should be 1024 bytes");
-		ptr = (u32)pushbuf.size();
-		pushbuf.resize(pushbuf.size() + sz);
-		memcpy(pushbuf.data() + ptr, clut.GetData(), sz);
+		ptr = AppendToPushbuf(pushbuf, clut.GetData(), sz);
 		commands.push_back({ CommandType::CLUT, sz, ptr });
 	}
 
@@ -283,6 +288,7 @@ Command Recorder::EmitCommandWithRAM(CommandType t, const void *p, u32 sz, u32 a
 	FlushRegisters();
 
 	Command cmd{ t, sz, 0 };
+	align = std::max(align, 4U);
 
 	if (sz) {
 		// If at all possible, try to find it already in the buffer.
@@ -550,9 +556,7 @@ void Recorder::EmitClut(u32 op) {
 			ClutAddrData data{ addr, flags };
 
 			FlushRegisters();
-			Command cmd{ CommandType::CLUTADDR, sizeof(data), (u32)pushbuf.size() };
-			pushbuf.resize(pushbuf.size() + sizeof(data));
-			memcpy(pushbuf.data() + cmd.ptr, &data, sizeof(data));
+			Command cmd{ CommandType::CLUTADDR, sizeof(data), AppendToPushbuf(pushbuf, &data, sizeof(data)) };
 			commands.push_back(cmd);
 
 			if ((flags & 2) == 0)
@@ -635,9 +639,7 @@ void Recorder::CheckEdramTrans() {
 	lastEdramTrans = value;
 
 	FlushRegisters();
-	Command cmd{ CommandType::EDRAMTRANS, sizeof(value), (u32)pushbuf.size() };
-	pushbuf.resize(pushbuf.size() + sizeof(value));
-	memcpy(pushbuf.data() + cmd.ptr, &value, sizeof(value));
+	Command cmd{ CommandType::EDRAMTRANS, sizeof(value), AppendToPushbuf(pushbuf, &value, sizeof(value)) };
 	commands.push_back(cmd);
 }
 
@@ -708,9 +710,7 @@ void Recorder::NotifyMemcpy(u32 dest, u32 src, u32 sz) {
 	CheckEdramTrans();
 	if (Memory::IsVRAMAddress(dest)) {
 		FlushRegisters();
-		Command cmd{ CommandType::MEMCPYDEST, sizeof(dest), (u32)pushbuf.size() };
-		pushbuf.resize(pushbuf.size() + sizeof(dest));
-		memcpy(pushbuf.data() + cmd.ptr, &dest, sizeof(dest));
+		Command cmd{ CommandType::MEMCPYDEST, sizeof(dest), AppendToPushbuf(pushbuf, &dest, sizeof(dest)) };
 		commands.push_back(cmd);
 
 		sz = Memory::ClampValidSizeAt(dest, sz);
@@ -739,9 +739,7 @@ void Recorder::NotifyMemset(u32 dest, int v, u32 sz) {
 		MemsetCommand data{ dest, v, sz };
 
 		FlushRegisters();
-		Command cmd{ CommandType::MEMSET, sizeof(data), (u32)pushbuf.size() };
-		pushbuf.resize(pushbuf.size() + sizeof(data));
-		memcpy(pushbuf.data() + cmd.ptr, &data, sizeof(data));
+		Command cmd{ CommandType::MEMSET, sizeof(data), AppendToPushbuf(pushbuf, &data, sizeof(data)) };
 		commands.push_back(cmd);
 		ClearLastVRAM(dest, v, sz);
 		DirtyVRAM(dest, sz, DirtyVRAMFlag::CLEAN);
@@ -794,10 +792,8 @@ void Recorder::NotifyDisplay(u32 framebuf, int stride, int fmt) {
 	DisplayBufData disp{ { framebuf }, stride, fmt };
 
 	FlushRegisters();
-	u32 ptr = (u32)pushbuf.size();
 	u32 sz = (u32)sizeof(disp);
-	pushbuf.resize(pushbuf.size() + sz);
-	memcpy(pushbuf.data() + ptr, &disp, sz);
+	u32 ptr = AppendToPushbuf(pushbuf, &disp, sz);
 
 	commands.push_back({ CommandType::DISPLAY, sz, ptr });
 
@@ -824,10 +820,8 @@ void Recorder::NotifyBeginFrame() {
 		__DisplayGetFramebuf(&disp.topaddr, &disp.linesize, &disp.pixelFormat, 0);
 
 		FlushRegisters();
-		u32 ptr = (u32)pushbuf.size();
 		u32 sz = (u32)sizeof(disp);
-		pushbuf.resize(pushbuf.size() + sz);
-		memcpy(pushbuf.data() + ptr, &disp, sz);
+		u32 ptr = AppendToPushbuf(pushbuf, &disp, sz);
 
 		commands.push_back({ CommandType::DISPLAY, sz, ptr });
 

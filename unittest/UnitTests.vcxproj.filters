@@ -20,6 +20,7 @@
     <ClCompile Include="TestLzrc.cpp" />
     <ClCompile Include="TestMpegCsc.cpp" />
     <ClCompile Include="TestSplineTessellation.cpp" />
+    <ClCompile Include="TestGEMath.cpp" />
     <ClCompile Include="TestTextureReplacer.cpp" />
     <ClCompile Include="TestRiscVEmitter.cpp" />
     <ClCompile Include="TestVFS.cpp" />

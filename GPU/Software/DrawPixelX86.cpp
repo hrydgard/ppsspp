@@ -1998,7 +1998,7 @@ bool PixelJitCache::Jit_ApplyLogicOp(const PixelFuncID &id, RegCache::Reg colorR
 	skipStandardWrites_.push_back(J(true));
 
 	tableValues[GE_LOGIC_NAND] = GetCodePointer();
-	AND(bits, R(temp1Reg), MatR(colorOff));
+	AND(bits, R(colorReg), MatR(colorOff));
 	NOT(32, R(colorReg));
 	if (stencilReg != INVALID_REG) {
 		AND(bits, R(colorReg), notStencilMask);

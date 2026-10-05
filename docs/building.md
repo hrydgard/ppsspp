@@ -211,6 +211,23 @@ binary, or it runs your native build instead. The full suite takes a couple of m
 qemu reports LSX and LASX as present, so CI only exercises the LoongArch vector paths.
 The scalar fallbacks never run here, so passing tells you nothing about them.
 
+Without a cross toolchain (on macOS, say) two things still help:
+
+- **A syntax check of the other JITs.** The RISC-V and LoongArch backends (`Core/MIPS/RiscV`,
+  `Core/MIPS/LoongArch64` and their emitters) have no architecture guards, so the host compiler can check
+  them: `clang++ -fsyntax-only` per file, with the `-I`/`-D`/`-std`/`-isystem` flags of any Core file from
+  `compile_commands.json`, plus `-I<repo> -I<repo>/ext -I<repo>/Common` (the database's include paths are
+  relative to the build directory). Check that a copy with a deliberate syntax error does report errors: zsh
+  doesn't word-split a `$FLAGS` variable, which once made a broken check look clean. This proves the code
+  compiles, nothing about its output.
+- **The portable software-renderer paths.** riscv64 and loongarch64 run the software renderer's non-SSE,
+  non-NEON C++ paths, so their test failures reproduce natively: wrap the two NEON defines in the
+  `__aarch64__` block of `ppsspp_config.h` in `#ifndef PPSSPP_TEST_NO_SIMD`, configure a separate
+  `build-nosimd` with `-DHEADLESS=ON` and `-DPPSSPP_TEST_NO_SIMD` in `CMAKE_C_FLAGS` and `CMAKE_CXX_FLAGS`,
+  and build `PPSSPPHeadless` there. Delete it and revert `ppsspp_config.h` afterwards, since `test.py` keeps
+  picking the newest binary. A failure that's the same on both architectures points at the portable path, not
+  the JITs.
+
 ## Quick rebuild on Linux
 
 You don't need to do ./b.sh --debug to verify every single little change, instead use this shortcut:

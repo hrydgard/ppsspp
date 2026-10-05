@@ -51,6 +51,9 @@
     <ClInclude Include="Software\TransformUnit.h">
       <Filter>Software</Filter>
     </ClInclude>
+    <ClInclude Include="Software\GEMath.h">
+      <Filter>Software</Filter>
+    </ClInclude>
     <ClInclude Include="Common\VertexDecoderCommon.h">
       <Filter>Common</Filter>
     </ClInclude>
@@ -294,6 +297,9 @@
       <Filter>Software</Filter>
     </ClCompile>
     <ClCompile Include="Software\TransformUnit.cpp">
+      <Filter>Software</Filter>
+    </ClCompile>
+    <ClCompile Include="Software\GEMath.cpp">
       <Filter>Software</Filter>
     </ClCompile>
     <ClCompile Include="Common\VertexDecoderCommon.cpp">

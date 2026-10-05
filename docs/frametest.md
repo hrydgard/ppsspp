@@ -217,3 +217,57 @@ new flag combinations, as long as the headless binary supports them.
 The CI test set (dumps and references) is maintained separately from the
 runner; the `frametests/` submodule is just one of several possible test sets
 - custom machines can use their own (possibly much larger) ones.
+
+## Replaying a dump on a real PSP
+
+The references above are PPSSPP's own renders, so they catch regressions, not
+wrong output. To see what the hardware draws, replay the dump on a PSP:
+`pspautotests/utils/ppdmp-playback` is a PSP program that runs a `.ppdmp` natively
+(all dump versions PPSSPP writes), and its `run.py` drives it over PSPLink from
+the host:
+
+```bash
+cd pspautotests
+python3 utils/ppdmp-playback/run.py --out /tmp/shots \
+	--headless ../build/PPSSPPHeadless "../frametests/dumps/Depth/21391 Coded arms ULUS10019_0001.zip"
+```
+
+It saves what the PSP displays as `NAME-psp.png`, and with `--headless` renders
+the same dump in PPSSPPHeadless (`--graphics=software` by default), saves
+`NAME-ppsspp.png` and prints the MSE between the two. Each frame stays on the
+PSP's screen for 1.5 seconds (`--hold`). It needs the PSPSDK (it rebuilds the PRX) and a PSP in
+PSPLink with `usbhostfs_pc` serving the pspautotests root, the same setup as
+[pspautotests-hardware.md](pspautotests-hardware.md); like every hardware run,
+one at a time. See its README for replaying a subset of the primitives.
+
+A zip holding several dumps plays its last `.ppdmp`, in PPSSPP and in the replayer, so extract that one
+when you need the file itself.
+
+If a replay hangs, `run.py` resets the PSP and prints the last lines the replayer wrote. `--progress=N`
+prints a line every N dump commands and `--trace-from=N` every command from N on, and `--cmds=N` replays
+only the first N dump commands, which bisects a hang in a few runs. The replayer's Makefile has no header
+dependencies: after changing `replay.h`, delete the `.o` files, or a stale object corrupts the `Replay`
+object.
+
+To find the draw where the two diverge, stop both at the same primitive:
+`run.py --end=N` on the PSP and `--replay-end=N` on PPSSPPHeadless. A draw into
+an offscreen buffer can be compared directly: `run.py --display=ADDR,STRIDE,FMT`
+shows and screenshots that buffer instead of the display (e.g.
+`--display=04000000,512,3` for an 8888 target at the start of VRAM), and
+PPSSPPHeadless takes `--screenshot-render-target` to save the current render
+target.
+
+PPSSPP's software renderer now matches the PSP bit for bit on nearly every dump
+here, so a difference is worth chasing. Hardware backends still differ slightly
+(filtering, edge rules), so compare their MSEs between versions instead.
+
+To record a dump from a running game without the UI, use the WebSocket debugger's
+`gpu.record.dump` through `Tools/wsdbg`. Its reply comes later, so wait for it:
+
+```bash
+printf ':sleep 6\ngpu.record.dump\n:wait gpu.record.dump 60\n:quit\n' | \
+	Tools/wsdbg/target/release/wsdbg --sync --compact --quiet --launch \
+	build/PPSSPPHeadless game.iso --state=STATE.ppst --graphics=software --debugger-run=0 > out.txt
+```
+
+The reply's `uri` is a base64 `data:` URI holding the `.ppdmp`.

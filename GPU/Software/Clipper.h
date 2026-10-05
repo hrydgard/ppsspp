@@ -28,7 +28,10 @@ namespace Clipper {
 
 void ProcessPoint(const ClipVertexData &v0, BinManager &binner);
 void ProcessLine(const ClipVertexData &v0, const ClipVertexData &v1, BinManager &binner);
-void ProcessTriangle(const ClipVertexData &v0, const ClipVertexData &v1, const ClipVertexData &v2, const ClipVertexData &provoking, BinManager &binner);
+void ProcessTriangle(const ClipVertexData &v0, const ClipVertexData &v1, const ClipVertexData &v2, const ClipVertexData &provoking, BinManager &binner, bool reversed = false);
 void ProcessRect(const ClipVertexData &v0, const ClipVertexData &v1, BinManager &binner);
+
+// Immediate-mode vertices carry screen x and y in their clip position, so only z culls them.
+void SetCullXY(bool cull);
 
 }  // namespace

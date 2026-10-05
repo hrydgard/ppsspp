@@ -585,6 +585,7 @@ SOURCES_CXX += \
 	$(GPUDIR)/Common/DepthRaster.cpp \
 	$(GPUDIR)/Common/StencilCommon.cpp \
 	$(GPUDIR)/Software/TransformUnit.cpp \
+	$(GPUDIR)/Software/GEMath.cpp \
 	$(GPUDIR)/Software/SoftGpu.cpp \
 	$(GPUDIR)/Software/Sampler.cpp \
 	$(GPUDIR)/GeConstants.cpp \

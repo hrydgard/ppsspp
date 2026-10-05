@@ -176,6 +176,9 @@ struct CommandLineOptions {
 
 	std::optional<std::string> screenshotFilename;
 	std::optional<std::string> screenshotFilenameSave;
+	std::optional<std::string> depthFilenameSave;
+	std::optional<int> replayEnd;
+	std::optional<bool> screenshotRenderTarget;
 	std::optional<std::string> screenshotFilenameDiff;
 	// Headless: preserve the alpha channel when saving PNG screenshots.
 	std::optional<bool> screenshotSaveKeepAlpha;

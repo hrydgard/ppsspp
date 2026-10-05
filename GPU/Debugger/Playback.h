@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "Common/CommonTypes.h"
+
 #include <cstdlib>
 #include <string>
 
@@ -29,6 +31,9 @@ enum class ReplayResult {
 };
 
 void WriteRunDumpCode(u32 addr);
+// Only draws primitives up to this one (1-based, counting PRIM, BEZIER and SPLINE), like the PSP side's
+// pspautotests/utils/ppdmp-playback --end. 0 draws everything.
+void SetReplayDrawLimit(int lastPrim);
 ReplayResult RunMountedReplay(const std::string &filename);
 
 // Will also cancel a currently running replay.

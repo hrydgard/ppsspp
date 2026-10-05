@@ -43,6 +43,7 @@
 #include "Common/File/VFS/ZipFileReader.h"
 #include "Common/File/VFS/DirectoryReader.h"
 #include "Common/File/FileUtil.h"
+#include "GPU/Debugger/Playback.h"
 #include "Common/GPU/GraphicsContext.h"
 #include "Common/Net/Resolve.h"
 #include "Common/TimeUtil.h"
@@ -79,6 +80,8 @@
 
 static Path g_comparisonScreenshot;
 static Path g_screenshotSavePath;
+static Path g_depthSavePath;
+static bool g_screenshotRenderTarget = false;
 static Path g_screenshotDiffPath;
 static bool g_screenshotSaveKeepAlpha = false;
 static bool g_screenshotSaved = false;
@@ -223,7 +226,7 @@ void SendDebugScreenshot(const DebugScreenshotDesc &desc) {
 	const static u32 FRAME_HEIGHT = 272;
 
 	GPUDebugBuffer buffer;
-	gpu->GetCurrentFramebuffer(buffer, GPU_DBG_FRAMEBUF_DISPLAY);
+	gpu->GetCurrentFramebuffer(buffer, g_screenshotRenderTarget ? GPU_DBG_FRAMEBUF_RENDER : GPU_DBG_FRAMEBUF_DISPLAY);
 	const std::vector<u32> pixels = TranslateDebugBufferToCompare(&buffer, FRAME_STRIDE, FRAME_HEIGHT);
 
 	// If a screenshot save path is set, save unconditionally.
@@ -233,6 +236,21 @@ void SendDebugScreenshot(const DebugScreenshotDesc &desc) {
 		g_screenshotSaved = g_screenshotSaved || saved;
 		if (saved)
 			SendAndCollectOutput("Screenshot saved to: " + g_screenshotSavePath.ToVisualString() + "\n");
+	}
+
+	if (!g_depthSavePath.empty()) {
+		GPUDebugBuffer depth;
+		if (gpu->GetCurrentDepthbuffer(depth) && depth.GetFormat() == GPU_DBG_FORMAT_16BIT) {
+			FILE *f = File::OpenCFile(g_depthSavePath, "wb");
+			if (f) {
+				const u32 header[2] = { depth.GetStride(), depth.GetHeight() };
+				fwrite(header, sizeof(header), 1, f);
+				fwrite(depth.GetData(), 2, depth.GetStride() * depth.GetHeight(), f);
+				fclose(f);
+			}
+		} else {
+			SendAndCollectOutput("Depth buffer not saved: needs a 16-bit depth buffer (the software renderer)\n");
+		}
 	}
 
 	// Only compare if we have a reference.
@@ -1114,6 +1132,13 @@ int main(int argc, const char* argv[]) {
 	}
 	if (cmdLineOptions.screenshotFilenameSave.has_value()) {
 		SetScreenshotSavePath(Path(std::string(cmdLineOptions.screenshotFilenameSave.value())));
+	}
+	if (cmdLineOptions.replayEnd.has_value()) {
+		GPURecord::SetReplayDrawLimit(cmdLineOptions.replayEnd.value());
+	}
+	g_screenshotRenderTarget = cmdLineOptions.screenshotRenderTarget.value_or(false);
+	if (cmdLineOptions.depthFilenameSave.has_value()) {
+		g_depthSavePath = Path(std::string(cmdLineOptions.depthFilenameSave.value()));
 	}
 	if (cmdLineOptions.screenshotFilenameDiff.has_value()) {
 		g_screenshotDiffPath = Path(std::string(cmdLineOptions.screenshotFilenameDiff.value()));

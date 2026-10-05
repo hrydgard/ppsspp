@@ -215,6 +215,11 @@ For game runs, prefer a hardware backend: 30 emulated seconds of God of War take
 The pspautotests pass on Vulkan and OpenGL except for 17 GPU tests, whose references are hardware screenshots
 that the hardware backends don't match exactly.
 
+To smoke-test a CPU or GPU change on real games, run the old and the new binary on the same games with
+`--timeout-emulated` and `--screenshot-save=`, and compare the screenshots. Most games are deterministic from
+run to run, so a different screenshot means different behaviour. God of War: Chains of Olympus isn't: its menu
+animation follows wall-clock time, so even the same binary lands on different frames.
+
 Pass `--graphics` explicitly even when you want the default, so a copied command line doesn't depend on it. If a
 run goes silent with no CPU use, a host thread is blocked, and neither `--timeout-wall` nor `--timeout-emulated`
 will end it, as both are only checked when the emulation loop comes around.
