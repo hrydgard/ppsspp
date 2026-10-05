@@ -18,6 +18,7 @@
 #include <set>
 
 #include "Common/System/Display.h"
+#include "Common/Serialize/Serializer.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 
 #include "GPU/GPUState.h"
@@ -54,7 +55,7 @@ constexpr int FB_HEIGHT = 272;
 
 uint8_t clut[1024];
 FormatBuffer fb;
-FormatBuffer depthbuf;
+DepthBuffer depthbuf;
 
 struct CommandInfo {
 	uint64_t flags;
@@ -397,7 +398,8 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	: GPUCommon(gfxCtx, draw)
 {
 	fb.data = Memory::GetPointerWriteOrException(0x44000000); // TODO: correct default address?
-	depthbuf.data = Memory::GetPointerWriteOrException(0x44000000); // TODO: correct default address?
+	depthbuf.vram = Memory::GetPointerWriteOrException(0x04000000);
+	UpdateDepthBuffer();
 
 	memset(softgpuCmdInfo, 0, sizeof(softgpuCmdInfo));
 
@@ -875,7 +877,10 @@ void SoftGPU::Execute_BlockTransferStart(u32 op, u32 diff) {
 	const uint32_t dstSize = (height - 1) * (dstStride + width) * bpp;
 
 	// Need to flush both source and target, so we overwrite properly.
-	if (Memory::IsValidRange(src, srcSize) && Memory::IsValidRange(dst, dstSize)) {
+	if (Memory::IsDepthTexVRAMAddress(srcBasePtr) || Memory::IsDepthTexVRAMAddress(dstBasePtr)) {
+		// Through the depth layout (CopyBlockTransfer), which the ranges don't follow.
+		drawEngine_->transformUnit.Flush(this, "blockxfer_depth");
+	} else if (Memory::IsValidRange(src, srcSize) && Memory::IsValidRange(dst, dstSize)) {
 		drawEngine_->transformUnit.FlushIfOverlap(this, "blockxfer", false, src, srcStride * bpp, width * bpp, height);
 		drawEngine_->transformUnit.FlushIfOverlap(this, "blockxfer", true, dst, dstStride * bpp, width * bpp, height);
 	} else {
@@ -886,6 +891,47 @@ void SoftGPU::Execute_BlockTransferStart(u32 op, u32 diff) {
 
 	// Could theoretically dirty the framebuffer.
 	MarkDirty(dst, dstSize, SoftGPUVRAMDirty::DIRTY | SoftGPUVRAMDirty::REALLY_DIRTY);
+}
+
+// A block transfer from or to VRAM's 0x04200000 or 0x04600000 mirror goes through the depth layout there, as the
+// CPU's accesses do: Hayate no Gotoku restores its depth buffer through 0x04600000 (#17878).
+bool SoftGPU::CopyBlockTransfer(u32 srcBasePtr, u32 srcStride, int srcX, int srcY, u32 dstBasePtr, u32 dstStride, int dstX, int dstY, int width, int height, int bpp) {
+	if (!Memory::IsDepthTexVRAMAddress(srcBasePtr) && !Memory::IsDepthTexVRAMAddress(dstBasePtr))
+		return false;
+	const DepthLayout layout16 = GetDepthLayout(GetAddrTranslation(), false);
+	const DepthLayout layout32 = GetDepthLayout(GetAddrTranslation(), true);
+	// The memory of each run of a row, which the layout keeps together within 32 aligned bytes. Past VRAM's end, a
+	// transfer wraps to its start, which isn't a swizzled mirror.
+	auto run = [&](u32 addr) -> u8 * {
+		if ((addr & 0x04800000) == 0x04800000)
+			addr &= ~0x00800000;
+		if (Memory::IsDepthTexVRAMAddress(addr))
+			return depthbuf.vram + ((addr & 0x00400000) ? layout32 : layout16).Stored(addr & 0x001FFFFF);
+		return Memory::IsValidAddress(addr) ? Memory::GetPointerWriteUnchecked(addr) : nullptr;
+	};
+	const u32 bytes = width * bpp;
+	std::vector<u8> row(bytes);
+	for (int y = 0; y < height; ++y) {
+		const u32 srcRow = srcBasePtr + ((y + srcY) * srcStride + srcX) * bpp;
+		const u32 dstRow = dstBasePtr + ((y + dstY) * dstStride + dstX) * bpp;
+		for (u32 pos = 0; pos < bytes; ) {
+			const u32 n = std::min(32 - ((srcRow + pos) & 31), bytes - pos);
+			const u8 *p = run(srcRow + pos);
+			if (p)
+				memcpy(row.data() + pos, p, n);
+			else
+				memset(row.data() + pos, 0, n);
+			pos += n;
+		}
+		for (u32 pos = 0; pos < bytes; ) {
+			const u32 n = std::min(32 - ((dstRow + pos) & 31), bytes - pos);
+			u8 *p = run(dstRow + pos);
+			if (p)
+				memcpy(p, row.data() + pos, n);
+			pos += n;
+		}
+	}
+	return true;
 }
 
 void SoftGPU::Execute_Prim(u32 op, u32 diff) {
@@ -1082,8 +1128,11 @@ void SoftGPU::Execute_FramebufPtr(u32 op, u32 diff) {
 
 void SoftGPU::Execute_FramebufFormat(u32 op, u32 diff) {
 	// We should flush, because ranges within bins may change.
-	if (diff)
+	if (diff) {
 		drawEngine_->transformUnit.Flush(this, "framebuf");
+		// The depth layout depends on the color format.
+		UpdateDepthBuffer();
+	}
 }
 
 void SoftGPU::Execute_TexFlush(u32 op, u32 diff) {
@@ -1091,13 +1140,40 @@ void SoftGPU::Execute_TexFlush(u32 op, u32 diff) {
 }
 
 void SoftGPU::Execute_ZbufPtr(u32 op, u32 diff) {
-	// We assume depthbuf.data won't change while we're drawing.
+	// We assume depthbuf won't change while we're drawing.
 	if (diff) {
 		drawEngine_->transformUnit.Flush(this, "depthbuf");
-		// For the pointer, ignore memory mirrors.  This also gives some buffer for draws that go outside.
-		// TODO: Confirm how wrapping is handled in drawing.  Adjust if we ever handle VRAM mirrors more accurately.
-		depthbuf.data = Memory::GetPointerWriteOrException(gstate.getDepthBufAddress() & 0x041FFFF0);
+		UpdateDepthBuffer();
 	}
+}
+
+// Call with nothing queued: the threads draw with depthbuf.
+void SoftGPU::UpdateDepthBuffer() {
+	// The GE ignores the mirror bits of its own pointers (exp89). Draws that go outside reach the mirrors,
+	// which map back to VRAM.
+	depthbuf.base = gstate.getDepthBufAddress() & 0x001FFFF0;
+	depthbuf.translation = GetAddrTranslation();
+	depthbuf.layout = GetDepthLayout(depthbuf.translation, gstate.FrameBufFormat() == GE_FORMAT_8888);
+}
+
+void SoftGPU::DoState(PointerWrap &p) {
+	GPUCommon::DoState(p);
+	// The translation comes back without SetAddrTranslation.
+	if (p.mode == PointerWrap::MODE_READ)
+		UpdateDepthBuffer();
+}
+
+uint32_t SoftGPU::SetAddrTranslation(uint32_t value) {
+	if (value != GetAddrTranslation()) {
+		// Queued drawing uses the old layout.
+		drawEngine_->transformUnit.Flush(this, "translation");
+		const uint32_t previous = GPUCommon::SetAddrTranslation(value);
+		UpdateDepthBuffer();
+		dirtyFlags_ |= SoftDirty::PIXEL_BASIC;
+		drawEngine_->transformUnit.SetDirty(SoftDirty::PIXEL_BASIC);
+		return previous;
+	}
+	return GPUCommon::SetAddrTranslation(value);
 }
 
 void SoftGPU::Execute_VertexType(u32 op, u32 diff) {
@@ -1464,13 +1540,10 @@ bool SoftGPU::GetCurrentDepthbuffer(GPUDebugBuffer &buffer) {
 	DrawingCoords size = GetTargetSize(gstate.DepthBufStride());
 	buffer.Allocate(size.x, size.y, GPU_DBG_FORMAT_16BIT);
 
-	const int depth = 2;
-	const u8 *src = depthbuf.data;
-	u8 *dst = buffer.GetData();
+	u16 *dst = (u16 *)buffer.GetData();
 	for (int16_t y = 0; y < size.y; ++y) {
-		memcpy(dst, src, size.x * depth);
-		dst += size.x * depth;
-		src += gstate.DepthBufStride() * depth;
+		for (int16_t x = 0; x < size.x; ++x)
+			*dst++ = depthbuf.Get16(x, y, gstate.DepthBufStride());
 	}
 	return true;
 }

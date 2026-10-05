@@ -20,6 +20,7 @@
 #if PPSSPP_ARCH(AMD64)
 
 #include "Common/x64Emitter.h"
+#include "Common/BitSet.h"
 #include "Common/CPUDetect.h"
 #include "Common/LogReporting.h"
 #include "Common/Math/SIMDHeaders.h"
@@ -148,22 +149,13 @@ RegCache::Reg PixelJitCache::GetColorOff(const PixelFuncID &id) {
 			ADD(32, R(argXReg), R(argYReg));
 
 			// Now add the pointer for the color buffer.
-			if (loadDepthOff) {
-				_assert_msg_(Accessible(&fb.data, &depthbuf.data), "fb.data and depthbuf.data too far apart: %p %p (fb=%08x d=%08x)", fb.data, depthbuf.data, gstate.getFrameBufAddress(), gstate.getDepthBufAddress());
+			if (loadDepthOff)
 				depthTemp = regCache_.Alloc(RegCache::GEN_DEPTH_OFF);
-				if (RipAccessible(&fb.data) && RipAccessible(&depthbuf.data)) {
-					MOV(PTRBITS, R(argYReg), M(&fb.data));
-				} else {
-					MOV(PTRBITS, R(depthTemp), ImmPtr(&fb.data));
-					MOV(PTRBITS, R(argYReg), MatR(depthTemp));
-				}
+			if (RipAccessible(&fb.data)) {
+				MOV(PTRBITS, R(argYReg), M(&fb.data));
 			} else {
-				if (RipAccessible(&fb.data)) {
-					MOV(PTRBITS, R(argYReg), M(&fb.data));
-				} else {
-					MOV(PTRBITS, R(argYReg), ImmPtr(&fb.data));
-					MOV(PTRBITS, R(argYReg), MatR(argYReg));
-				}
+				MOV(PTRBITS, R(argYReg), ImmPtr(&fb.data));
+				MOV(PTRBITS, R(argYReg), MatR(argYReg));
 			}
 			LEA(PTRBITS, argYReg, MComplex(argYReg, argXReg, id.FBFormat() == GE_FORMAT_8888 ? 4 : 2, 0));
 			// With that, argYOff is now GEN_COLOR_OFF.
@@ -174,12 +166,7 @@ RegCache::Reg PixelJitCache::GetColorOff(const PixelFuncID &id) {
 
 			// Next, also calculate the depth offset, unless we won't need it at all.
 			if (loadDepthOff) {
-				if (RipAccessible(&fb.data) && RipAccessible(&depthbuf.data)) {
-					MOV(PTRBITS, R(depthTemp), M(&depthbuf.data));
-				} else {
-					MOV(PTRBITS, R(depthTemp), MAccessibleDisp(depthTemp, &fb.data, &depthbuf.data));
-				}
-				LEA(PTRBITS, argXReg, MComplex(depthTemp, argXReg, 2, 0));
+				EmitDepthPointer(id, argXReg, depthTemp);
 				regCache_.Release(depthTemp, RegCache::GEN_DEPTH_OFF);
 
 				// Okay, same deal - release as GEN_DEPTH_OFF and force retain it.
@@ -269,18 +256,47 @@ RegCache::Reg PixelJitCache::GetDepthOff(const PixelFuncID &id) {
 		regCache_.Unlock(argXReg, RegCache::GEN_ARG_X);
 
 		X64Reg temp = regCache_.Alloc(RegCache::GEN_TEMP_HELPER);
-		if (RipAccessible(&depthbuf.data)) {
-			MOV(PTRBITS, R(temp), M(&depthbuf.data));
-		} else {
-			MOV(PTRBITS, R(temp), ImmPtr(&depthbuf.data));
-			MOV(PTRBITS, R(temp), MatR(temp));
-		}
-		LEA(PTRBITS, r, MComplex(temp, r, 2, 0));
+		EmitDepthPointer(id, r, temp);
 		regCache_.Release(temp, RegCache::GEN_TEMP_HELPER);
 
 		return r;
 	}
 	return regCache_.Find(RegCache::GEN_DEPTH_OFF);
+}
+
+// Turns a pixel index (y * stride + x) into a pointer to its depth, stored as the GE stores it
+// (GPU/Common/DepthSwizzle.h). The layout's constants come from the ID.
+void PixelJitCache::EmitDepthPointer(const PixelFuncID &id, X64Reg index, X64Reg temp) {
+	const DepthLayout layout = GetDepthLayout(DepthTranslationFromIndex(id.depthLayout), id.FBFormat() == GE_FORMAT_8888);
+	SHL(32, R(index), Imm8(1));
+	if (RipAccessible(&depthbuf.base)) {
+		ADD(32, R(index), M(&depthbuf.base));
+	} else {
+		MOV(PTRBITS, R(temp), ImmPtr(&depthbuf.base));
+		ADD(32, R(index), MatR(temp));
+	}
+	if (layout.rotMask != 0) {
+		// Rotate the field left by one: shifted to the bottom, its top bit carried around.
+		const int low = LeastSignificantSetBit(layout.rotMask);
+		const int width = layout.rotShift + 1;
+		MOV(32, R(temp), R(index));
+		AND(32, R(index), Imm32(~layout.rotMask));
+		SHR(32, R(temp), Imm8(low));
+		AND(32, R(temp), Imm32((1 << width) - 1));
+		SHL(32, R(temp), Imm8(1));
+		BTR(32, R(temp), Imm8(width));
+		ADC(32, R(temp), Imm8(0));
+		SHL(32, R(temp), Imm8(low));
+		OR(32, R(index), R(temp));
+	}
+	XOR(32, R(index), Imm32(layout.xorBits));
+	if (RipAccessible(&depthbuf.vram)) {
+		MOV(PTRBITS, R(temp), M(&depthbuf.vram));
+	} else {
+		MOV(PTRBITS, R(temp), ImmPtr(&depthbuf.vram));
+		MOV(PTRBITS, R(temp), MatR(temp));
+	}
+	LEA(PTRBITS, index, MRegSum(temp, index));
 }
 
 

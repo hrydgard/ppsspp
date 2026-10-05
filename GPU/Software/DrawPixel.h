@@ -84,6 +84,7 @@ private:
 	// Note: these may require a temporary reg.
 	RegCache::Reg GetColorOff(const PixelFuncID &id);
 	RegCache::Reg GetDepthOff(const PixelFuncID &id);
+	void EmitDepthPointer(const PixelFuncID &id, RegCache::Reg index, RegCache::Reg temp);
 	RegCache::Reg GetDestStencil(const PixelFuncID &id);
 
 	void WriteConstantPool(const PixelFuncID &id);

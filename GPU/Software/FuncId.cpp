@@ -22,6 +22,7 @@
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/GPUState.h"
 #include "GPU/Software/FuncId.h"
+#include "GPU/Software/SoftGpu.h"
 
 static_assert(sizeof(SamplerID) == sizeof(SamplerID::fullKey) + sizeof(SamplerID::cached) + sizeof(SamplerID::pad), "Bad sampler ID size");
 static_assert(sizeof(PixelFuncID) == sizeof(PixelFuncID::fullKey) + sizeof(PixelFuncID::cached), "Bad pixel func ID size");
@@ -201,6 +202,8 @@ void ComputePixelFuncID(PixelFuncID *id) {
 		}
 	}
 
+	if (id->depthTestFunc != GE_COMP_ALWAYS || id->depthWrite)
+		id->depthLayout = DepthTranslationIndex(depthbuf.translation);
 	if (id->useStandardStride && (id->depthTestFunc != GE_COMP_ALWAYS || id->depthWrite))
 		id->useStandardStride = gstate.DepthBufStride() == 512;
 
@@ -445,6 +448,12 @@ std::string DescribePixelFuncID(const PixelFuncID &id) {
 		desc += "Fog:";
 	else if (id.clearMode)
 		desc = "INVALID:" + desc;
+
+	// DepthTranslationIndex() only gives 0 to 4.
+	if (id.depthLayout > 4)
+		desc = "INVALID:" + desc;
+	else if (id.depthLayout != 0)
+		desc += StringFromFormat("ZLayout%d:", (int)id.depthLayout);
 
 	if (desc.empty())
 		return "INVALID";

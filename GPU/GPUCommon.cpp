@@ -2015,8 +2015,10 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 		// Can use GetPointerUnchecked because we checked the addresses above. We could also avoid them
 		// entirely by walking a couple of pointers...
 
-		// Simple case: just a straight copy, no overlap or wrapping.
-		if (srcStride == dstStride && (u32)width == srcStride && !srcDstOverlap && srcValid && dstValid) {
+		if (CopyBlockTransfer(srcBasePtr, srcStride, srcX, srcY, dstBasePtr, dstStride, dstX, dstY, width, height, bpp)) {
+			// The backend copied it.
+		} else if (srcStride == dstStride && (u32)width == srcStride && !srcDstOverlap && srcValid && dstValid) {
+			// Simple case: just a straight copy, no overlap or wrapping.
 			u32 srcLineStartAddr = srcBasePtr + (srcY * srcStride + srcX) * bpp;
 			u32 dstLineStartAddr = dstBasePtr + (dstY * dstStride + dstX) * bpp;
 			u32 bytesToCopy = width * height * bpp;

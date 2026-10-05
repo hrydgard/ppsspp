@@ -98,17 +98,20 @@ struct PixelFuncID {
 			bool hasStencilTestMask : 1;
 			bool dithering : 1;
 			bool applyLogicOp : 1;
-			// 48 bits before applyFog.
+			// 48 bits. MSVC doesn't let a bit field straddle a byte, so each byte below is filled exactly.
+			uint8_t sFail : 3;
+			uint8_t zFail : 3;
 			bool applyFog : 1;
 			// Meaning: fb_stride == 512 && z_stride == 512
 			bool useStandardStride : 1;
+			uint8_t zPass : 3;
 			// Meaning: maskRGB != 0 || maskA != 0
 			bool applyColorWriteMask : 1;
-			uint8_t sFail : 3;
-			uint8_t zFail : 3;
-			uint8_t zPass : 3;
 			bool earlyZChecks : 1;
-			// 61 bits, 3 free.
+			// The EDRAM address translation, as DepthTranslationIndex(), which with fbFormat picks how depth is
+			// stored (GPU/Common/DepthSwizzle.h).
+			uint8_t depthLayout : 3;
+			// 64 bits.
 		};
 	};
 

@@ -144,7 +144,7 @@ public:
 	// For example, a debugger is active.
 	bool ShouldSplitOverGe() const;
 
-	uint32_t SetAddrTranslation(uint32_t value);
+	virtual uint32_t SetAddrTranslation(uint32_t value);
 	uint32_t GetAddrTranslation();
 
 	virtual void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) = 0;
@@ -344,6 +344,10 @@ protected:
 	void FastLoadBoneMatrix(u32 target);
 	void FlushImm();
 	void DoBlockTransfer(u32 skipDrawReason);
+	// Does a block transfer's copy itself and returns true, when the backend needs to.
+	virtual bool CopyBlockTransfer(u32 srcBasePtr, u32 srcStride, int srcX, int srcY, u32 dstBasePtr, u32 dstStride, int dstX, int dstY, int width, int height, int bpp) {
+		return false;
+	}
 
 	// TODO: Unify this. Vulkan and OpenGL are different due to how they buffer data.
 	virtual void FinishDeferred() {}

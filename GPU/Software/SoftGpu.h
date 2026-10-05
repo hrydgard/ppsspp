@@ -20,7 +20,7 @@
 #include <cstdint>
 
 #include "GPU/GPUCommon.h"
-#include "GPU/GPUCommon.h"
+#include "GPU/Common/DepthSwizzle.h"
 #include "Common/GPU/thin3d.h"
 
 struct FormatBuffer {
@@ -55,6 +55,40 @@ struct FormatBuffer {
 		return &as32[x + y * stride];
 	}
 };
+
+// The depth buffer, stored in VRAM as the GE stores it (GPU/Common/DepthSwizzle.h).
+struct DepthBuffer {
+	// VRAM's start, and the buffer's offset in it.
+	u8 *vram = nullptr;
+	uint32_t base = 0;
+	DepthLayout layout;
+	// sceGeEdramSetAddrTranslation's value, which with the color format picks the layout.
+	uint32_t translation = 0x400;
+
+	inline u16 *Get16Ptr(int x, int y, int stride) const {
+		return (u16 *)(vram + layout.Stored(base + (uint32_t)(x + y * stride) * 2));
+	}
+	inline u16 Get16(int x, int y, int stride) const {
+		return *Get16Ptr(x, y, stride);
+	}
+	inline void Set16(int x, int y, int stride, u16 v) const {
+		*Get16Ptr(x, y, stride) = v;
+	}
+};
+
+// The index PixelFuncID::depthLayout keeps a translation as (0, 0x200, 0x400, 0x800, 0x1000).
+inline int DepthTranslationIndex(uint32_t translation) {
+	int index = 0;
+	while (translation >= 0x200 && index < 4) {
+		translation >>= 1;
+		index++;
+	}
+	return index;
+}
+
+inline uint32_t DepthTranslationFromIndex(int index) {
+	return index == 0 ? 0 : 0x100 << index;
+}
 
 enum class SoftDirty : uint64_t {
 	NONE = 0,
@@ -137,6 +171,9 @@ public:
 	void UpdateCmdInfo() override {}
 
 	void SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) override;
+	uint32_t SetAddrTranslation(uint32_t value) override;
+	bool CopyBlockTransfer(u32 srcBasePtr, u32 srcStride, int srcX, int srcY, u32 dstBasePtr, u32 dstStride, int dstX, int dstY, int width, int height, int bpp) override;
+	void DoState(PointerWrap &p) override;
 	void SetCurFramebufferDirty(bool dirty) override {}
 	void PrepareCopyDisplayToOutput(const DisplayLayoutConfig &config) override;
 	void CopyDisplayToOutput(const DisplayLayoutConfig &config) override;
@@ -184,6 +221,7 @@ public:
 	void Execute_FramebufPtr(u32 op, u32 diff);
 	void Execute_FramebufFormat(u32 op, u32 diff);
 	void Execute_ZbufPtr(u32 op, u32 diff);
+	void UpdateDepthBuffer();
 	void Execute_TexFlush(u32 op, u32 diff);
 	void Execute_VertexType(u32 op, u32 diff);
 
@@ -247,7 +285,7 @@ private:
 // TODO: These shouldn't be global.
 extern uint8_t clut[1024];
 extern FormatBuffer fb;
-extern FormatBuffer depthbuf;
+extern DepthBuffer depthbuf;
 
 // Type for the DarkStalkers stretch replacement.
 enum class DSStretch {
