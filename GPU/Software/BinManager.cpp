@@ -362,6 +362,8 @@ void BinManager::CacheStep(BinItem &item) {
 		if (!selfWrite && depthWrites)
 			selfWrite = texCache_.FootprintReads(gstate.getDepthBufAddress() & mirrorMask, 2, state.pixelID.cached.depthbufStride, tl.x, tl.y, br.x, br.y);
 	}
+	if (selfWrite && !depthWrites && ReadsOwnPixels(item, state, drawTargetAddr_ & mirrorMask))
+		selfWrite = false;
 	serialDraw_ = selfWrite && CanDrawSerial(item, state);
 	bool stale = false;
 	if (serialDraw_) {
@@ -416,6 +418,32 @@ static Vec4IntResult SOFTRAST_CALL SerialLinear(float s, float t, Vec4IntArg pri
 static Vec4IntResult SOFTRAST_CALL SerialFetch(int u, int v, const u8 *tptr, int bufw, int level, const SamplerID &samplerID) {
 	serialSampler.cache->SerialRead(level, u, v);
 	return serialSampler.fetch(u, v, tptr, bufw, level, samplerID);
+}
+
+// Whether each pixel of a sprite reads only its own texel, the one it then writes (a framebuffer copied onto
+// itself: Burnout Dominator does it in 32-pixel strips, twice a frame). Then the order the GE draws pixels
+// in can't change what any of them reads, so it doesn't need DrawSerial.
+bool BinManager::ReadsOwnPixels(const BinItem &item, const RasterizerState &state, uint32_t fb) {
+	constexpr uint32_t mirrorMask = 0x041FFFFF;
+	if (item.type != BinItemType::SPRITE && item.type != BinItemType::RECT)
+		return false;
+	if (!state.throughMode || state.maxTexLevel != 0 || state.minFilt || state.magFilt || g_Config.iTexFiltering == TEX_FILTER_FORCE_LINEAR)
+		return false;
+	// The texture formats 5650, 5551, 4444 and 8888 number like the framebuffer's.
+	if (state.samplerID.swizzle || (int)state.samplerID.TexFmt() != (int)state.pixelID.FBFormat())
+		return false;
+	if ((state.texaddr[0] & mirrorMask) != fb || state.texbufw[0] != state.pixelID.cached.framebufStride)
+		return false;
+	// Corners on whole pixels, their texture coordinates the same pixels, within the texture.
+	const int w = state.samplerID.cached.sizes[0].w, h = state.samplerID.cached.sizes[0].h;
+	for (const VertexData *v : { &item.v0, &item.v1 }) {
+		if ((v->screenpos.x & (SCREEN_SCALE_FACTOR - 1)) != 0 || (v->screenpos.y & (SCREEN_SCALE_FACTOR - 1)) != 0)
+			return false;
+		const int x = v->screenpos.x / SCREEN_SCALE_FACTOR, y = v->screenpos.y / SCREEN_SCALE_FACTOR;
+		if (v->texturecoords.x != (float)x || v->texturecoords.y != (float)y || x > w || y > h)
+			return false;
+	}
+	return true;
 }
 
 bool BinManager::CanDrawSerial(const BinItem &item, const RasterizerState &state) {

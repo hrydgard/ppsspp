@@ -385,6 +385,7 @@ private:
 	bool TextureOverlapsTarget(const Rasterizer::RasterizerState &state) const;
 	const Rasterizer::RasterizerState &CacheView(const BinItem &item, const Rasterizer::RasterizerState &state);
 	static bool CanDrawSerial(const BinItem &item, const Rasterizer::RasterizerState &state);
+	static bool ReadsOwnPixels(const BinItem &item, const Rasterizer::RasterizerState &state, uint32_t fb);
 	void DrawSerial(const BinItem &item, const Rasterizer::RasterizerState &state);
 	// The primitive last stepped through the texture cache, as that says.
 	void DrawStepped(const BinItem &item, const Rasterizer::RasterizerState &state);
