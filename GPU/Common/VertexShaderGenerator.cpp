@@ -440,7 +440,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		// pow is close enough.
 		WRITE(p, "float pspPow(float x, float e) {\n");
 		if (compat.bitwiseOps) {
-			WRITE(p, "   float t = max(e, 0.0) * float(floatBitsToInt(max(x, 1e-30)) - 0x3F800000) + 1065353216.0;\n");
+			// 1065353216 is 1.0's bits. Not written in hex: HLSL makes 0x3F800000 a uint, and the subtraction wraps.
+			WRITE(p, "   float t = max(e, 0.0) * float(floatBitsToInt(max(x, 1e-30)) - 1065353216) + 1065353216.0;\n");
 			WRITE(p, "   return x > 0.0 || e <= 0.0 ? intBitsToFloat(int(max(t, 0.0))) : 0.0;\n");
 		} else {
 			WRITE(p, "   return e <= 0.0 ? 1.0 : pow(max(x, 0.0), e);\n");
