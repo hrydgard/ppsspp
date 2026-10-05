@@ -329,6 +329,9 @@ private:
 	// JIT clear generations when the current state was computed.
 	int jitGen_ = -1;
 	uint16_t pendingStateIndex_ = 0;
+	// Advances when every tile has been drawn and reset: a state whose liveGen is this one can be in use by
+	// the threads, so it isn't changed (AddFlags).
+	uint32_t tileGen_ = 1;
 
 	std::unordered_map<const char *, double> flushReasonTimes_;
 	std::unordered_map<const char *, double> lastFlushReasonTimes_;
@@ -346,6 +349,9 @@ private:
 	bool HasTextureWrite(const Rasterizer::RasterizerState &state);
 	const Rasterizer::RasterizerState &SelfTextureSnapshot(const BinItem &item, const Rasterizer::RasterizerState &state);
 	void OptimizePendingStates(uint16_t first, uint16_t last);
+	void PushState();
+	template <typename F>
+	void AddFlags(F calculate);
 	BinCoords Scissor(BinCoords range);
 	BinCoords Range(const VertexData &v0, const VertexData &v1, const VertexData &v2);
 	BinCoords Range(const VertexData &v0, const VertexData &v1);

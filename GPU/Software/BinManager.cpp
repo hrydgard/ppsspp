@@ -188,32 +188,38 @@ BinManager::~BinManager() {
 	}
 }
 
+static int JitGeneration() {
+	return Rasterizer::JitClearGeneration() + Sampler::JitClearGeneration();
+}
+
+// A new current state, from gstate, unoptimized and without primitives yet.
+void BinManager::PushState() {
+	if (states_.Full())
+		Flush("states");
+	creatingState_ = true;
+	stateIndex_ = (uint16_t)states_.Push(RasterizerState());
+	// When new funcs are compiled, we need to flush if WX exclusive. Compiling can also clear the caches,
+	// losing the funcs picked before it, so then compute it again.
+	for (int tries = 0; tries < 3; ++tries) {
+		jitGen_ = JitGeneration();
+		ComputeRasterizerState(&states_[stateIndex_], this);
+		if (jitGen_ == JitGeneration()) {
+			break;
+		}
+	}
+	states_[stateIndex_].samplerID.cached.clut = cluts_[clutIndex_].readable;
+	creatingState_ = false;
+}
+
 void BinManager::UpdateState() {
 	PROFILE_THIS_SCOPE("bin_state");
-	auto jitGen = []() {
-		return Rasterizer::JitClearGeneration() + Sampler::JitClearGeneration();
-	};
+	auto jitGen = JitGeneration;
 	// A JIT clear frees the code the current state's function pointers point into.
 	if (jitGen_ != jitGen()) {
 		dirty_ |= SoftDirty::PIXEL_ALL | SoftDirty::SAMPLER_ALL | SoftDirty::RAST_ALL;
 	}
 	if (HasDirty(SoftDirty::PIXEL_ALL | SoftDirty::SAMPLER_ALL | SoftDirty::RAST_ALL)) {
-		if (states_.Full())
-			Flush("states");
-		creatingState_ = true;
-		stateIndex_ = (uint16_t)states_.Push(RasterizerState());
-		// When new funcs are compiled, we need to flush if WX exclusive. Compiling can also clear the caches,
-		// losing the funcs picked before it, so then compute it again.
-		for (int tries = 0; tries < 3; ++tries) {
-			jitGen_ = jitGen();
-			ComputeRasterizerState(&states_[stateIndex_], this);
-			if (jitGen_ == jitGen()) {
-				break;
-			}
-		}
-		states_[stateIndex_].samplerID.cached.clut = cluts_[clutIndex_].readable;
-		creatingState_ = false;
-
+		PushState();
 		ClearDirty(SoftDirty::PIXEL_ALL | SoftDirty::SAMPLER_ALL | SoftDirty::RAST_ALL);
 	}
 
@@ -451,6 +457,29 @@ void BinManager::UpdateClut(const void *src) {
 	clutIndex_ = (uint16_t)cluts_.PushPeeked();
 }
 
+// Adds a primitive's vertex flags to the current state. The threads may already be drawing with that one, and
+// changing its flags would change how it's optimized: then the primitive starts a new, unoptimized state instead.
+template <typename F>
+void BinManager::AddFlags(F calculate) {
+	RasterizerState &state = states_[stateIndex_];
+	if (state.liveGen != tileGen_) {
+		calculate(&state);
+		return;
+	}
+	// The threads don't read the flags.
+	const RasterizerStateFlags old = state.flags;
+	calculate(&state);
+	if (state.flags == old)
+		return;
+	state.flags = old;
+	const bool selfTexture = state.selfTexture;
+	const uint32_t texFlushGen = state.texFlushGen;
+	PushState();
+	states_[stateIndex_].selfTexture = selfTexture;
+	states_[stateIndex_].texFlushGen = texFlushGen;
+	calculate(&states_[stateIndex_]);
+}
+
 void BinManager::AddTriangle(const VertexData &v0, const VertexData &v1, const VertexData &v2) {
 	Vec2<int> d01((int)v0.screenpos.x - (int)v1.screenpos.x, (int)v0.screenpos.y - (int)v1.screenpos.y);
 	Vec2<int> d02((int)v0.screenpos.x - (int)v2.screenpos.x, (int)v0.screenpos.y - (int)v2.screenpos.y);
@@ -470,8 +499,8 @@ void BinManager::AddTriangle(const VertexData &v0, const VertexData &v1, const V
 
 	if (queue_.Full())
 		MakeRoom();
+	AddFlags([&](RasterizerState *state) { CalculateRasterStateFlags(state, v0, v1, v2); });
 	queue_.Push(BinItem{ BinItemType::TRIANGLE, stateIndex_, range, v0, v1, v2 });
-	CalculateRasterStateFlags(&states_[stateIndex_], v0, v1, v2);
 	Expand(range);
 }
 
@@ -482,8 +511,8 @@ void BinManager::AddClearRect(const VertexData &v0, const VertexData &v1) {
 
 	if (queue_.Full())
 		MakeRoom();
+	AddFlags([&](RasterizerState *state) { CalculateRasterStateFlags(state, v0, v1, true); });
 	queue_.Push(BinItem{ BinItemType::CLEAR_RECT, stateIndex_, range, v0, v1 });
-	CalculateRasterStateFlags(&states_[stateIndex_], v0, v1, true);
 	Expand(range);
 }
 
@@ -494,8 +523,8 @@ void BinManager::AddRect(const VertexData &v0, const VertexData &v1) {
 
 	if (queue_.Full())
 		MakeRoom();
+	AddFlags([&](RasterizerState *state) { CalculateRasterStateFlags(state, v0, v1, true); });
 	queue_.Push(BinItem{ BinItemType::RECT, stateIndex_, range, v0, v1 });
-	CalculateRasterStateFlags(&states_[stateIndex_], v0, v1, true);
 	Expand(range);
 }
 
@@ -506,8 +535,8 @@ void BinManager::AddSprite(const VertexData &v0, const VertexData &v1) {
 
 	if (queue_.Full())
 		MakeRoom();
+	AddFlags([&](RasterizerState *state) { CalculateRasterStateFlags(state, v0, v1, true); });
 	queue_.Push(BinItem{ BinItemType::SPRITE, stateIndex_, range, v0, v1 });
-	CalculateRasterStateFlags(&states_[stateIndex_], v0, v1, true);
 	Expand(range);
 }
 
@@ -518,8 +547,8 @@ void BinManager::AddLine(const VertexData &v0, const VertexData &v1) {
 
 	if (queue_.Full())
 		MakeRoom();
+	AddFlags([&](RasterizerState *state) { CalculateRasterStateFlags(state, v0, v1, false); });
 	queue_.Push(BinItem{ BinItemType::LINE, stateIndex_, range, v0, v1 });
-	CalculateRasterStateFlags(&states_[stateIndex_], v0, v1, false);
 	Expand(range);
 }
 
@@ -530,8 +559,8 @@ void BinManager::AddPoint(const VertexData &v0) {
 
 	if (queue_.Full())
 		MakeRoom();
+	AddFlags([&](RasterizerState *state) { CalculateRasterStateFlags(state, v0); });
 	queue_.Push(BinItem{ BinItemType::POINT, stateIndex_, range, v0 });
-	CalculateRasterStateFlags(&states_[stateIndex_], v0);
 	Expand(range);
 }
 
@@ -604,6 +633,8 @@ void BinManager::DistributeItems(size_t end) {
 	while (distributePos_ != end) {
 		const size_t index = distributePos_;
 		const BinItem &item = queue_[index];
+		// From now on the threads may draw with it, so it doesn't change (AddedFlags).
+		states_[item.stateIndex].liveGen = tileGen_;
 		const int tx1 = std::clamp(item.range.x1 >> tileShiftX_, 0, tilesX_ - 1);
 		const int tx2 = std::clamp(item.range.x2 >> tileShiftX_, 0, tilesX_ - 1);
 		const int ty1 = std::clamp(item.range.y1 >> tileShiftY_, 0, tilesY_ - 1);
@@ -640,6 +671,7 @@ void BinManager::ResetTiles() {
 	}
 	activeCount_ = 0;
 	entriesSinceWake_ = 0;
+	tileGen_++;
 }
 
 void BinManager::ReclaimItems() {
@@ -823,6 +855,9 @@ void BinManager::OptimizePendingStates(uint16_t first, uint16_t last) {
 	const int count = (QUEUED_STATES + last - first) % QUEUED_STATES + 1;
 	for (int i = 0; i < count; ++i) {
 		size_t pos = (first + i) % QUEUED_STATES;
+		// The threads may be drawing with it.
+		if (states_[pos].liveGen == tileGen_)
+			continue;
 		OptimizeRasterState(&states_[pos]);
 	}
 }
