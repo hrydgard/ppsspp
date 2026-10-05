@@ -33,13 +33,13 @@ struct DepthLayout {
 	int rotShift = 0;
 	uint32_t xorBits = 0;
 
-	uint32_t Stored(uint32_t offset) const {
+	constexpr uint32_t Stored(uint32_t offset) const {
 		const uint32_t f = offset & rotMask;
 		return ((offset & ~rotMask) | (((f << 1) | (f >> rotShift)) & rotMask)) ^ xorBits;
 	}
 };
 
-inline DepthLayout GetDepthLayout(uint32_t translation, bool color32) {
+constexpr DepthLayout GetDepthLayout(uint32_t translation, bool color32) {
 	DepthLayout layout;
 	if (translation == 0) {
 		layout.xorBits = 0x600;
@@ -60,3 +60,27 @@ inline DepthLayout GetDepthLayout(uint32_t translation, bool color32) {
 	}
 	return layout;
 }
+
+// The translations as an index 0 to 4: 0, 0x200, 0x400, 0x800, 0x1000.
+constexpr int DepthTranslationIndex(uint32_t translation) {
+	int index = 0;
+	while (translation >= 0x200 && index < 4) {
+		translation >>= 1;
+		index++;
+	}
+	return index;
+}
+
+constexpr uint32_t DepthTranslationFromIndex(int index) {
+	return index == 0 ? 0 : 0x100 << index;
+}
+
+// Every layout there is, by [color32][translation index].
+inline constexpr DepthLayout DEPTH_LAYOUTS[2][5] = {
+	{ GetDepthLayout(0, false), GetDepthLayout(0x200, false), GetDepthLayout(0x400, false), GetDepthLayout(0x800, false), GetDepthLayout(0x1000, false) },
+	{ GetDepthLayout(0, true), GetDepthLayout(0x200, true), GetDepthLayout(0x400, true), GetDepthLayout(0x800, true), GetDepthLayout(0x1000, true) },
+};
+
+// A couple of exp8-exp10's measurements (TestDepthSwizzle has more).
+static_assert(DEPTH_LAYOUTS[0][2].Stored(0x088000) == 0x08a040, "16-bit layout at the default translation");
+static_assert(DEPTH_LAYOUTS[1][0].Stored(0x03171e) == 0x03111e, "32-bit layout at translation 0");

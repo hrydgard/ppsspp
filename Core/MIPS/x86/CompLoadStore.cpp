@@ -302,6 +302,10 @@ namespace MIPSComp {
 		MIPSGPReg rs = _RS;
 		MIPSGPReg rt = _RT;
 		int o = op>>26;
+		// 16-bit accesses can go through the depth layout (Memory::DepthMirrored16).
+		if (Memory::DepthMirrorsActive() && (o == 33 || o == 37 || o == 41)) {
+			DISABLE;
+		}
 		if (((op >> 29) & 1) == 0 && rt == MIPS_REG_ZERO) {
 			// Don't load anything into $zr
 			return;

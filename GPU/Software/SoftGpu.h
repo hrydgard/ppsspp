@@ -76,20 +76,6 @@ struct DepthBuffer {
 	}
 };
 
-// The index PixelFuncID::depthLayout keeps a translation as (0, 0x200, 0x400, 0x800, 0x1000).
-inline int DepthTranslationIndex(uint32_t translation) {
-	int index = 0;
-	while (translation >= 0x200 && index < 4) {
-		translation >>= 1;
-		index++;
-	}
-	return index;
-}
-
-inline uint32_t DepthTranslationFromIndex(int index) {
-	return index == 0 ? 0 : 0x100 << index;
-}
-
 enum class SoftDirty : uint64_t {
 	NONE = 0,
 

@@ -280,10 +280,17 @@ void IRNativeBackend::CompileIRInst(IRInst inst) {
 		CompIR_Div(inst);
 		break;
 
-	case IROp::Load8:
-	case IROp::Load8Ext:
 	case IROp::Load16:
 	case IROp::Load16Ext:
+		// 16-bit accesses can go through the depth layout (Memory::DepthMirrored16).
+		if (Memory::DepthMirrorsActive())
+			CompIR_Generic(inst);
+		else
+			CompIR_Load(inst);
+		break;
+
+	case IROp::Load8:
+	case IROp::Load8Ext:
 	case IROp::Load32:
 	case IROp::Load32Linked:
 		CompIR_Load(inst);
@@ -302,8 +309,14 @@ void IRNativeBackend::CompileIRInst(IRInst inst) {
 		CompIR_VecLoad(inst);
 		break;
 
-	case IROp::Store8:
 	case IROp::Store16:
+		if (Memory::DepthMirrorsActive())
+			CompIR_Generic(inst);
+		else
+			CompIR_Store(inst);
+		break;
+
+	case IROp::Store8:
 	case IROp::Store32:
 		CompIR_Store(inst);
 		break;

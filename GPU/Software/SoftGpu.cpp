@@ -475,6 +475,8 @@ void SoftGPU::DeviceRestore(Draw::DrawContext *draw) {
 }
 
 SoftGPU::~SoftGPU() {
+	// The firmware's default, until the next software renderer sets it.
+	Memory::g_depthTranslationIndex = DepthTranslationIndex(0x400);
 	if (fbTex) {
 		fbTex->Release();
 		fbTex = nullptr;
@@ -1154,6 +1156,7 @@ void SoftGPU::UpdateDepthBuffer() {
 	depthbuf.base = gstate.getDepthBufAddress() & 0x001FFFF0;
 	depthbuf.translation = GetAddrTranslation();
 	depthbuf.layout = GetDepthLayout(depthbuf.translation, gstate.FrameBufFormat() == GE_FORMAT_8888);
+	Memory::g_depthTranslationIndex = DepthTranslationIndex(depthbuf.translation);
 }
 
 void SoftGPU::DoState(PointerWrap &p) {
