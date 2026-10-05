@@ -60,21 +60,6 @@ FetchFunc SamplerJitCache::CompileFetch(const SamplerID &id) {
 	stackLevelOffset_ = -1;
 #endif
 
-	// Early exit on !srcPtr.
-	FixupBranch zeroSrc;
-	if (id.hasInvalidPtr) {
-		X64Reg srcReg = regCache_.Find(RegCache::GEN_ARG_TEXPTR);
-		CMP(PTRBITS, R(srcReg), Imm8(0));
-		regCache_.Unlock(srcReg, RegCache::GEN_ARG_TEXPTR);
-
-		FixupBranch nonZeroSrc = J_CC(CC_NZ);
-		X64Reg vecResultReg = regCache_.Find(RegCache::VEC_RESULT);
-		PXOR(vecResultReg, R(vecResultReg));
-		regCache_.Unlock(vecResultReg, RegCache::VEC_RESULT);
-		zeroSrc = J(true);
-		SetJumpTarget(nonZeroSrc);
-	}
-
 	// This reads the pixel data into resultReg from the args.
 	if (!Jit_ReadTextureFormat(id)) {
 		regCache_.Reset(false);
@@ -108,9 +93,6 @@ FetchFunc SamplerJitCache::CompileFetch(const SamplerID &id) {
 	regCache_.Unlock(vecResultReg, RegCache::VEC_RESULT);
 
 	Describe("Init");
-	if (id.hasInvalidPtr) {
-		SetJumpTarget(zeroSrc);
-	}
 
 	RET();
 
@@ -213,30 +195,6 @@ NearestFunc SamplerJitCache::CompileNearest(const SamplerID &id) {
 	X64Reg resultReg = regCache_.Alloc(RegCache::GEN_RESULT);
 	regCache_.Unlock(resultReg, RegCache::GEN_RESULT);
 	regCache_.ForceRetain(RegCache::GEN_RESULT);
-
-	// Early exit on !srcPtr (either one.)
-	FixupBranch zeroSrc;
-	if (id.hasInvalidPtr) {
-		Describe("NullCheck");
-		X64Reg srcReg = regCache_.Find(RegCache::GEN_ARG_TEXPTR_PTR);
-
-		if (id.hasAnyMips) {
-			X64Reg tempReg = regCache_.Alloc(RegCache::GEN_TEMP0);
-			MOV(64, R(tempReg), MDisp(srcReg, 0));
-			AND(64, R(tempReg), MDisp(srcReg, 8));
-
-			CMP(PTRBITS, R(tempReg), Imm8(0));
-			regCache_.Release(tempReg, RegCache::GEN_TEMP0);
-		} else {
-			CMP(PTRBITS, MatR(srcReg), Imm8(0));
-		}
-		FixupBranch nonZeroSrc = J_CC(CC_NZ);
-		PXOR(XMM0, R(XMM0));
-		zeroSrc = J(true);
-		SetJumpTarget(nonZeroSrc);
-
-		regCache_.Unlock(srcReg, RegCache::GEN_ARG_TEXPTR_PTR);
-	}
 
 	auto loadPtrs = [&](bool level1) {
 		X64Reg bufwReg = regCache_.Alloc(RegCache::GEN_ARG_BUFW);
@@ -417,10 +375,6 @@ NearestFunc SamplerJitCache::CompileNearest(const SamplerID &id) {
 		ResetCodePtr(GetOffset(start));
 		ERROR_LOG(Log::G3D, "Failed to compile nearest %s", DescribeSamplerID(id).c_str());
 		return nullptr;
-	}
-
-	if (id.hasInvalidPtr) {
-		SetJumpTarget(zeroSrc);
 	}
 
 	POP(R12);
@@ -617,30 +571,6 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 
 	// Our first goal is to convert S/T and X/Y into U/V and frac_u/frac_v.
 	success = success && Jit_GetTexelCoordsQuad(id);
-
-	// Early exit on !srcPtr (either one.)
-	FixupBranch zeroSrc;
-	if (id.hasInvalidPtr) {
-		Describe("NullCheck");
-		X64Reg srcReg = regCache_.Find(RegCache::GEN_ARG_TEXPTR_PTR);
-
-		if (id.hasAnyMips) {
-			X64Reg tempReg = regCache_.Alloc(RegCache::GEN_TEMP0);
-			MOV(64, R(tempReg), MDisp(srcReg, 0));
-			AND(64, R(tempReg), MDisp(srcReg, 8));
-
-			CMP(PTRBITS, R(tempReg), Imm8(0));
-			regCache_.Release(tempReg, RegCache::GEN_TEMP0);
-		} else {
-			CMP(PTRBITS, MatR(srcReg), Imm8(0));
-		}
-		FixupBranch nonZeroSrc = J_CC(CC_NZ);
-		PXOR(XMM0, R(XMM0));
-		zeroSrc = J(true);
-		SetJumpTarget(nonZeroSrc);
-
-		regCache_.Unlock(srcReg, RegCache::GEN_ARG_TEXPTR_PTR);
-	}
 
 	auto prepareDataOffsets = [&](RegCache::Purpose uPurpose, RegCache::Purpose vPurpose, bool level1) {
 		X64Reg uReg = regCache_.Find(uPurpose);
@@ -880,10 +810,6 @@ LinearFunc SamplerJitCache::CompileLinear(const SamplerID &id) {
 		ResetCodePtr(GetOffset(nearest ? nearest : linearResetPos));
 		ERROR_LOG(Log::G3D, "Failed to compile linear %s", DescribeSamplerID(id).c_str());
 		return nullptr;
-	}
-
-	if (id.hasInvalidPtr) {
-		SetJumpTarget(zeroSrc);
 	}
 
 	const u8 *start = WriteFinalizedEpilog();

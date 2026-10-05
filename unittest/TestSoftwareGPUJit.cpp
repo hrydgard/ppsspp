@@ -65,6 +65,8 @@ static bool TestSamplerJit() {
 		SamplerID id;
 		memset(&id, 0, sizeof(id));
 		id.fullKey = rng.R32();
+		// Textures with an invalid level address are left to the generic samplers.
+		id.hasInvalidPtr = false;
 		id.cached.clut = clut;
 
 		for (int i = 0; i < 8; ++i) {

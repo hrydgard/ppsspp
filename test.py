@@ -289,6 +289,7 @@ tests_good = [
   "gpu/texmtx/prims",
   "gpu/texmtx/source",
   "gpu/texmtx/uvs",
+  "gpu/textures/mipinvalid",
   "gpu/textures/mipmap",
   "gpu/textures/rotate",
   "gpu/textures/size",
