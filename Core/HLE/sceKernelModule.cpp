@@ -1230,11 +1230,8 @@ static std::string ResolveVshModelModule(const char *path) {
 
 static void LoadAndStartVshKernelModules() {
 	// These 11 are small, simple kernel drivers (a few KB to ~100KB of code each) that don't
-	// declare their own smaller module_start_thread_stacksize, so __KernelStartModule's
-	// generic 0x40000 (256KB) default applies to every one of them. 11 of
-	// them at 256KB each (2.75MB) is a lot relative to the 4MB kernel memory pool.
-	//
-	// If we run out of kernel memory for some reason, we can force these to a smaller stack size.
+	// declare their own module_start_thread_stacksize, so each start thread gets the kernel
+	// module default of 0x1000.
 	static const char *const vshSmallKernelModulePaths[] = {
 		"flash0:/kd/dmacman.prx",
 		"flash0:/kd/systimer.prx",
@@ -1248,11 +1245,6 @@ static void LoadAndStartVshKernelModules() {
 		"flash0:/kd/wlanfirm_01g.prx",
 		"flash0:/kd/utility.prx",
 	};
-	/*
-	SceKernelSMOption smallStackOption{};
-	smallStackOption.size = sizeof(smallStackOption);
-	smallStackOption.stacksize = 0x40000;
-	*/
 	for (const char *path : vshSmallKernelModulePaths) {
 		const std::string resolved = ResolveVshModelModule(path);
 		if (!pspFileSystem.GetFileInfo(resolved).exists) {
@@ -2558,6 +2550,12 @@ static u32 sceKernelLoadModuleNpDrm(const char *name, u32 flags, u32 optionAddr)
 	return sceKernelLoadModule(name, flags, optionAddr);
 }
 
+// Stack size of a module_start/module_stop thread when neither the option nor the module's
+// thread parameter export gives one: 0x40000 for a user module, 0x1000 for a kernel module.
+static u32 ModuleThreadDefaultStackSize(const PSPModule *module) {
+	return (module->nm.attribute & 0x1000) != 0 ? 0x1000 : 0x40000;
+}
+
 int __KernelStartModule(SceUID moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, SceKernelSMOption *smoption, bool *needsWait) {
 	if (needsWait) {
 		*needsWait = false;
@@ -2570,7 +2568,7 @@ int __KernelStartModule(SceUID moduleId, u32 argsize, u32 argAddr, u32 returnVal
 	}
 
 	u32 priority = 0x20;
-	u32 stacksize = 0x40000;
+	u32 stacksize = ModuleThreadDefaultStackSize(module);
 	int attribute = module->nm.attribute;
 	u32 entryAddr = module->nm.entry_addr;
 
@@ -2645,7 +2643,6 @@ u32 sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValue
 static u32 sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 returnValueAddr, u32 optionAddr)
 {
 	u32 priority = 0x20;
-	u32 stacksize = 0x40000;
 	u32 attr = 0;
 
 	// TODO: In a lot of cases (even for errors), this should resched.  Needs testing.
@@ -2667,6 +2664,7 @@ static u32 sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 retur
 	}
 
 	u32 stopFunc = module->nm.module_stop_func;
+	u32 stacksize = ModuleThreadDefaultStackSize(module);
 	if (module->nm.module_stop_thread_priority != 0)
 		priority = module->nm.module_stop_thread_priority;
 	if (module->nm.module_stop_thread_stacksize != 0)
@@ -2734,7 +2732,6 @@ u32 __KernelStopUnloadSelfModuleWithOrWithoutStatus(u32 exitCode, u32 argSize, u
 		}
 		SceUID moduleID = __KernelGetCurThreadModuleId();
 		u32 priority = 0x20;
-		u32 stacksize = 0x40000;
 		u32 attr = 0;
 		// TODO: In a lot of cases (even for errors), this should resched.  Needs testing.
 
@@ -2749,6 +2746,7 @@ u32 __KernelStopUnloadSelfModuleWithOrWithoutStatus(u32 exitCode, u32 argSize, u
 		}
 
 		u32 stopFunc = module->nm.module_stop_func;
+		u32 stacksize = ModuleThreadDefaultStackSize(module);
 		if (module->nm.module_stop_thread_priority != 0)
 			priority = module->nm.module_stop_thread_priority;
 		if (module->nm.module_stop_thread_stacksize != 0)
