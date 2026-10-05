@@ -23,6 +23,7 @@
 #include <cstdio>
 #include <cstring>
 
+#include "GPU/Common/TransformCommon.h"
 #include "GPU/Software/GEMath.h"
 
 #include "unittest/UnitTest.h"
@@ -166,6 +167,14 @@ static bool TestGELightPow() {
 	// multiply gives 0x3DA64400, and flooring 0x3F69FFFC (one step lower in the 8-bit factor, exp102).
 	EXPECT_EQ_HEX(ToBits(GELightPow(FromBits(0x3DC22200), 1.0625f)), 0x3DA64420U);
 	EXPECT_EQ_HEX(ToBits(GELightPow(FromBits(0x3F35E500), 0.296875f)), 0x3F6A0000U);
+	// The exponent keeps 5 significant bits, truncated, and saturates below 512 (exp221-223).
+	EXPECT_EQ_FLOAT(PSPLightExponent(127.0f), 124.0f);
+	EXPECT_EQ_FLOAT(PSPLightExponent(150.0f), 144.0f);
+	EXPECT_EQ_FLOAT(PSPLightExponent(511.0f), 496.0f);
+	EXPECT_EQ_FLOAT(PSPLightExponent(512.0f), 496.0f);
+	EXPECT_EQ_FLOAT(PSPLightExponent(INFINITY), 496.0f);
+	EXPECT_EQ_FLOAT(PSPLightExponent(NAN), 496.0f);
+	EXPECT_EQ_FLOAT(PSPLightExponent(-2.0f), -2.0f);
 	return true;
 }
 

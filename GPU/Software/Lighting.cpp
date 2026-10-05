@@ -141,11 +141,9 @@ void ComputeState(State *state, bool hasColor0) {
 			if (std::isnan(lstate.spotCutoff) && std::signbit(lstate.spotCutoff))
 				lstate.spotCutoff = 0.0f;
 
-			lstate.spotExp = getFloat24(gstate.lconv[light]);
+			lstate.spotExp = PSPLightExponent(getFloat24(gstate.lconv[light]));
 			if (lstate.spotExp <= 0.0f)
 				lstate.spotExp = 0.0f;
-			else if (std::isnan(lstate.spotExp))
-				lstate.spotExp = std::signbit(lstate.spotExp) ? 0.0f : INFINITY;
 		}
 	}
 
@@ -181,11 +179,9 @@ void ComputeState(State *state, bool hasColor0) {
 	}
 
 	if (anyDiffuse || anySpecular) {
-		state->specularExp = PSPSpecularCoef(gstate.getMaterialSpecularCoef());
+		state->specularExp = PSPLightExponent(gstate.getMaterialSpecularCoef());
 		if (state->specularExp <= 0.0f)
 			state->specularExp = 0.0f;
-		else if (std::isnan(state->specularExp))
-			state->specularExp = std::signbit(state->specularExp) ? 0.0f : INFINITY;
 	}
 
 	state->baseAmbientColorFactor = LightColorFactor(gstate.getAmbientRGBA(), ones);
