@@ -189,8 +189,21 @@ static int JitGeneration() {
 
 // A new current state, from gstate, unoptimized and without primitives yet.
 void BinManager::PushState() {
-	if (states_.Full())
+	if (states_.Full()) {
 		Flush("states");
+		// Nothing's drawing now, so the ring can move.
+		if (states_.Capacity() < MAX_QUEUED_STATES) {
+			const size_t oldHead = states_.head_;
+			const size_t oldCapacity = states_.Capacity();
+			states_.Grow(oldCapacity * 2);
+			auto moved = [&](uint16_t index) {
+				return (uint16_t)((index + oldCapacity - oldHead) % oldCapacity);
+			};
+			stateIndex_ = moved(stateIndex_);
+			pendingStateIndex_ = moved(pendingStateIndex_);
+			INFO_LOG(Log::G3D, "Software: state ring grown to %d", (int)states_.Capacity());
+		}
+	}
 	creatingState_ = true;
 	stateIndex_ = (uint16_t)states_.Push(RasterizerState());
 	// When new funcs are compiled, we need to flush if WX exclusive. Compiling can also clear the caches,
@@ -844,9 +857,10 @@ void BinManager::OptimizePendingStates(uint16_t first, uint16_t last) {
 		last--;
 	}
 
-	const int count = (QUEUED_STATES + last - first) % QUEUED_STATES + 1;
+	const size_t capacity = states_.Capacity();
+	const int count = (int)((capacity + last - first) % capacity + 1);
 	for (int i = 0; i < count; ++i) {
-		size_t pos = (first + i) % QUEUED_STATES;
+		size_t pos = (first + i) % capacity;
 		// The threads may be drawing with it.
 		if (states_[pos].liveGen == tileGen_)
 			continue;

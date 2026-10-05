@@ -67,7 +67,20 @@ struct BinQueue {
 	}
 
 	void Setup() {
-		items_ = (T *)AllocateAlignedMemory(sizeof_, 16);
+		items_ = (T *)AllocateAlignedMemory(sizeof(T) * capacity_, 16);
+	}
+
+	// Only when no other thread uses it: room for newCapacity, the items in order from index 0.
+	void Grow(size_t newCapacity) {
+		T *items = (T *)AllocateAlignedMemory(sizeof(T) * newCapacity, 16);
+		const size_t size = size_;
+		for (size_t i = 0; i < size; ++i)
+			items[i] = Peek(i);
+		FreeAlignedMemory(items_);
+		items_ = items;
+		capacity_ = newCapacity;
+		head_ = 0;
+		tail_ = size;
 	}
 
 	void Reset() {
@@ -78,8 +91,8 @@ struct BinQueue {
 
 	size_t Push(const T &item) {
 		size_t i = tail_++;
-		if (i + 1 == N)
-			tail_ -= N;
+		if (i + 1 == capacity_)
+			tail_ -= capacity_;
 		items_[i] = item;
 		size_++;
 		return i;
@@ -87,8 +100,8 @@ struct BinQueue {
 
 	T Pop() {
 		size_t i = head_++;
-		if (i + 1 == N)
-			head_ -= N;
+		if (i + 1 == capacity_)
+			head_ -= capacity_;
 		T item = items_[i];
 		size_--;
 		return item;
@@ -101,16 +114,16 @@ struct BinQueue {
 
 	void SkipNext() {
 		size_t i = head_++;
-		if (i + 1 == N)
-			head_ -= N;
+		if (i + 1 == capacity_)
+			head_ -= capacity_;
 		size_--;
 	}
 
 	// Only safe if you're the only one reading.
 	const T &Peek(size_t offset) const {
 		size_t i = head_ + offset;
-		if (i >= N)
-			i -= N;
+		if (i >= capacity_)
+			i -= capacity_;
 		return items_[i];
 	}
 
@@ -121,8 +134,8 @@ struct BinQueue {
 
 	size_t PushPeeked() {
 		size_t i = tail_++;
-		if (i + 1 == N)
-			tail_ -= N;
+		if (i + 1 == capacity_)
+			tail_ -= capacity_;
 		size_++;
 		return i;
 	}
@@ -132,11 +145,15 @@ struct BinQueue {
 	}
 
 	bool Full() const {
-		return size_ >= N - 1;
+		return size_ >= capacity_ - 1;
 	}
 
 	bool NearFull() const {
-		return size_ >= N - 2;
+		return size_ >= capacity_ - 2;
+	}
+
+	size_t Capacity() const {
+		return capacity_;
 	}
 
 	bool Empty() const {
@@ -155,7 +172,7 @@ struct BinQueue {
 	std::atomic<size_t> head_;
 	std::atomic<size_t> tail_ ;
 	std::atomic<size_t> size_;
-	static constexpr size_t sizeof_ = sizeof(T) * N;
+	size_t capacity_ = N;
 };
 
 union BinClut {
@@ -240,8 +257,10 @@ protected:
 #else
 	static constexpr int MAX_POSSIBLE_TASKS = 64;
 #endif
-	// This is about 1MB of state data.
+	// States to start with, about 1 MB. A full ring flushes, then doubles, up to MAX_QUEUED_STATES (stateIndex is
+	// 16 bits).
 	static constexpr int QUEUED_STATES = 4096;
+	static constexpr int MAX_QUEUED_STATES = 32768;
 	// These are 1KB each, so half an MB.
 	static constexpr int QUEUED_CLUTS = 512;
 	// About 360 KB, but we have usually 16 or less of them, so 5 MB - 22 MB.
