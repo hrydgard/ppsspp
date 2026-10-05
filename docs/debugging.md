@@ -224,6 +224,25 @@ Pass `--graphics` explicitly even when you want the default, so a copied command
 run goes silent with no CPU use, a host thread is blocked, and neither `--timeout-wall` nor `--timeout-emulated`
 will end it, as both are only checked when the emulation loop comes around.
 
+### Measuring speed
+
+`Tools/headless_bench.py` compares the speed of headless binaries on savestates or frame dumps. It alternates
+the binaries from round to round and reports medians of four numbers per binary:
+
+- **Wall time** is what a player sees, but it swings by several percent between identical runs (heat, the
+  scheduler moving threads between performance and efficiency cores).
+- **CPU time** (all threads) says how much work was done. A change that keeps it but cuts wall time spreads
+  the work better, and one that cuts it while wall time stays has left the threads waiting.
+- **Instructions retired** vary by well under 0.1% between identical runs, so they show changes too small for
+  wall time.
+- **Cycles** also count stalls (a division, a missed cache line) that instructions don't.
+
+The last two come from `/usr/bin/time -l` on macOS and `perf stat` on Linux. The tool checks for mains power
+first: on battery (or in macOS low power mode) the clock speed varies and the numbers aren't comparable. Stop
+anything else that uses the CPU, including a forgotten `usbhostfs_pc`, which can spin a core indefinitely. A run
+that exits with an error, misses `TIMEOUT (emulated)` or doesn't load its savestate stops the tool rather than
+passing as a fast run.
+
 ## Debugging and breakpoint considerations
 
 It might be worth trying the interpreter - all types of breakpoints are the most reliable with this CPU backend.

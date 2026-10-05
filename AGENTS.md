@@ -12,7 +12,7 @@ for it:
 | Doc | When you need it |
 |---|---|
 | [docs/building.md](docs/building.md) | Build commands for every target (VS/MSBuild, CMake, UWP, legacy Android NDK, libretro), unit tests, pspautotests |
-| [docs/debugging.md](docs/debugging.md) | Driving the WebSocket debugger and PPSSPPHeadless from a script, measuring a commercial game with headless, breakpoint reliability per CPU backend, debugging a game that works on hardware |
+| [docs/debugging.md](docs/debugging.md) | Driving the WebSocket debugger and PPSSPPHeadless from a script, measuring a commercial game with headless, comparing binaries' speed (`Tools/headless_bench.py`), breakpoint reliability per CPU backend, debugging a game that works on hardware |
 | [docs/DebuggerThreading.md](docs/DebuggerThreading.md) | `Core_RunOnCPUThread` / `g_frameMutex` / shutdown-lock rules - required reading before touching debugger code |
 | [docs/HLEModules.md](docs/HLEModules.md) | Adding an HLE module or function, and the seven build files a new source file goes in |
 | [docs/translations.md](docs/translations.md) | Translating UI strings with Tools/langtool |
