@@ -37,10 +37,11 @@ class DebugInterface;
 class BlockAllocator;
 
 int sceKernelChangeThreadPriority(SceUID threadID, int priority);
-SceUID __KernelCreateThreadInternal(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr);
+SceUID __KernelCreateThreadInternal(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr, BlockAllocator *stackAllocator = nullptr);
 // With busyCyclesOut, the cost of filling the stack is left for the caller to take (see
 // __KernelBusyDelayResult) instead of being eaten here.
-int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr, bool allowKernel, int *busyCyclesOut = nullptr);
+// stackAllocator picks the partition for the stack; by default it follows the thread's attr.
+int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr, bool allowKernel, int *busyCyclesOut = nullptr, BlockAllocator *stackAllocator = nullptr);
 // For a syscall that keeps the CPU busy for a long time. The caller gets the result after the
 // given cycles, but better threads that wake meanwhile run first, and worse ones don't run.
 u32 __KernelBusyDelayResult(u32 result, int cycles, const char *reason);
@@ -272,7 +273,7 @@ public:
 	static int GetStaticIDType() { return SCE_KERNEL_TMID_Thread; }
 	int GetIDType() const override { return SCE_KERNEL_TMID_Thread; }
 
-	bool AllocateStack(u32 &stackSize);
+	bool AllocateStack(u32 &stackSize, BlockAllocator *allocator = nullptr);
 	bool FillStack();
 	void FreeStack();
 

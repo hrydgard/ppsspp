@@ -2550,10 +2550,77 @@ static u32 sceKernelLoadModuleNpDrm(const char *name, u32 flags, u32 optionAddr)
 	return sceKernelLoadModule(name, flags, optionAddr);
 }
 
-// Stack size of a module_start/module_stop thread when neither the option nor the module's
-// thread parameter export gives one: 0x40000 for a user module, 0x1000 for a kernel module.
-static u32 ModuleThreadDefaultStackSize(const PSPModule *module) {
-	return (module->nm.attribute & 0x1000) != 0 ? 0x1000 : 0x40000;
+// The only thread attributes a SceKernelSMOption may carry (VFPU, SCRATCH_SRAM and 0x00F00000).
+static const u32 SM_OPTION_ATTR_MASK = 0x00F06000;
+
+// What sceKernelStartModule, sceKernelStopModule and the self-stop calls check in their option
+// before anything else.
+static int ValidateSMOption(const SceKernelSMOption *option) {
+	if ((u32)(sceKernelGetCompiledSdkVersion() & 0xFFFF0000) > 0x0207FFFF && option->size != sizeof(SceKernelSMOption)) {
+		return SCE_KERNEL_ERROR_ILLEGAL_SIZE;
+	}
+	if ((option->attribute & ~SM_OPTION_ATTR_MASK) != 0) {
+		return SCE_KERNEL_ERROR_ERROR;
+	}
+	return 0;
+}
+
+struct ModuleThreadParams {
+	u32 priority;
+	u32 stacksize;
+	u32 attr;
+	// nullptr leaves the stack where the attr puts it, which is where the module itself lives.
+	BlockAllocator *stackAllocator;
+};
+
+// A module_start/module_stop thread's parameters: a nonzero option field wins, then the module's
+// thread parameter export, then the defaults. The default stack is 0x40000 for a user module and
+// 0x1000 for a kernel module. The option's attribute bits are added to the module's, and its stack
+// partition has to be one the module could use itself (user-accessible for a user module,
+// kernel-only for a kernel module); any other, including one that doesn't exist, is a mismatch.
+static int ResolveModuleThreadParams(const PSPModule *module, u32 priority, u32 stacksize, u32 attr, const SceKernelSMOption *option, ModuleThreadParams &params) {
+	const bool kernelModule = (module->nm.attribute & 0x1000) != 0;
+	params.priority = priority != 0 ? priority : 0x20;
+	params.stacksize = stacksize != 0 ? stacksize : (kernelModule ? 0x1000 : 0x40000);
+	params.attr = attr;
+	params.stackAllocator = nullptr;
+
+	if (option) {
+		if (option->priority != 0) {
+			params.priority = option->priority;
+		}
+		if (option->stacksize != 0) {
+			params.stacksize = option->stacksize;
+		}
+		params.attr |= option->attribute & SM_OPTION_ATTR_MASK;
+
+		switch (option->mpidstack) {
+		case 0:
+			break;
+		case KERNEL_PARTITION_ID:
+		case 3:
+		case 4:
+			if (!kernelModule) {
+				return SCE_KERNEL_ERROR_PARTITION_MISMATCH;
+			}
+			params.stackAllocator = &kernelMemory;
+			break;
+		case USER_PARTITION_ID:
+		case VSHELL_PARTITION_ID:
+		case 6:
+			if (kernelModule) {
+				return SCE_KERNEL_ERROR_PARTITION_MISMATCH;
+			}
+			params.stackAllocator = option->mpidstack == VSHELL_PARTITION_ID ? &volatileMemory : &userMemory;
+			break;
+		default:
+			return SCE_KERNEL_ERROR_PARTITION_MISMATCH;
+		}
+	}
+
+	// The top four bits (user mode and its privilege level) are cleared, and threadman sets them.
+	params.attr &= 0x0FFFFFFF;
+	return 0;
 }
 
 int __KernelStartModule(SceUID moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, SceKernelSMOption *smoption, bool *needsWait) {
@@ -2567,35 +2634,22 @@ int __KernelStartModule(SceUID moduleId, u32 argsize, u32 argAddr, u32 returnVal
 		return error;
 	}
 
-	u32 priority = 0x20;
-	u32 stacksize = ModuleThreadDefaultStackSize(module);
-	int attribute = module->nm.attribute;
 	u32 entryAddr = module->nm.entry_addr;
-
 	if (module->nm.module_start_func != 0 && module->nm.module_start_func != (u32)-1) {
 		entryAddr = module->nm.module_start_func;
-		if (module->nm.module_start_thread_attr != 0)
-			attribute = module->nm.module_start_thread_attr;
 	}
 
 	if (Memory::IsValidAddress(entryAddr)) {
-		if (smoption && smoption->priority > 0) {
-			priority = smoption->priority;
-		} else if (module->nm.module_start_thread_priority > 0) {
-			priority = module->nm.module_start_thread_priority;
+		ModuleThreadParams params;
+		int result = ResolveModuleThreadParams(module, module->nm.module_start_thread_priority, module->nm.module_start_thread_stacksize, module->nm.module_start_thread_attr, smoption, params);
+		if (result < 0) {
+			return result;
 		}
 
-		if (smoption && smoption->stacksize > 0) {
-			stacksize = smoption->stacksize;
-		} else if (module->nm.module_start_thread_stacksize > 0) {
-			stacksize = module->nm.module_start_thread_stacksize;
+		SceUID threadID = __KernelCreateThread(module->nm.name, moduleId, entryAddr, params.priority, params.stacksize, params.attr, 0, (module->nm.attribute & 0x1000) != 0, nullptr, params.stackAllocator);
+		if (threadID < 0) {
+			return threadID;
 		}
-
-		// TODO: Why do we skip smoption->attribute here?
-
-		SceUID threadID = __KernelCreateThread(module->nm.name, moduleId, entryAddr, priority, stacksize, attribute, 0, (module->nm.attribute & 0x1000) != 0);
-		_dbg_assert_msg_(threadID > 0, "__KernelCreateThread returned %08x", threadID);
-		// TOOD: Check the return value and bail?
 		__KernelStartThreadValidate(threadID, argsize, argAddr);
 		__KernelSetThreadRA(threadID, NID_MODULERETURN);
 
@@ -2613,6 +2667,14 @@ int __KernelStartModule(SceUID moduleId, u32 argsize, u32 argAddr, u32 returnVal
 }
 
 u32 sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, u32 optionAddr) {
+	auto smoption = PSPPointer<SceKernelSMOption>::Create(optionAddr);
+	if (smoption.IsValid()) {
+		int result = ValidateSMOption(smoption.PtrOrNull());
+		if (result < 0) {
+			return hleLogError(Log::sceModule, result, "bad option");
+		}
+	}
+
 	u32 error;
 	PSPModule *module = kernelObjects.Get<PSPModule>(moduleId, error);
 	if (!module) {
@@ -2627,7 +2689,6 @@ u32 sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValue
 		return hleLogError(Log::sceModule, SCE_KERNEL_ERROR_ERROR);
 	} else {
 		bool needsWait;
-		auto smoption = PSPPointer<SceKernelSMOption>::Create(optionAddr);
 		int ret = __KernelStartModule(moduleId, argsize, argAddr, returnValueAddr, smoption.PtrOrNull(), &needsWait);
 		if (needsWait) {
 			__KernelWaitCurThread(WAITTYPE_MODULE, moduleId, 1, 0, false, "started module");
@@ -2642,8 +2703,13 @@ u32 sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValue
 
 static u32 sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 returnValueAddr, u32 optionAddr)
 {
-	u32 priority = 0x20;
-	u32 attr = 0;
+	auto smoption = PSPPointer<SceKernelSMOption>::Create(optionAddr);
+	if (smoption.IsValid()) {
+		int result = ValidateSMOption(smoption.PtrOrNull());
+		if (result < 0) {
+			return hleLogError(Log::sceModule, result, "bad option");
+		}
+	}
 
 	// TODO: In a lot of cases (even for errors), this should resched.  Needs testing.
 
@@ -2664,33 +2730,16 @@ static u32 sceKernelStopModule(u32 moduleId, u32 argSize, u32 argAddr, u32 retur
 	}
 
 	u32 stopFunc = module->nm.module_stop_func;
-	u32 stacksize = ModuleThreadDefaultStackSize(module);
-	if (module->nm.module_stop_thread_priority != 0)
-		priority = module->nm.module_stop_thread_priority;
-	if (module->nm.module_stop_thread_stacksize != 0)
-		stacksize = module->nm.module_stop_thread_stacksize;
-	if (module->nm.module_stop_thread_attr != 0)
-		attr = module->nm.module_stop_thread_attr;
-
-	// TODO: Need to test how this really works.  Let's assume it's an override.
-	if (Memory::IsValidRange(optionAddr, sizeof(SceKernelSMOption))) {
-		auto options = PSPPointer<SceKernelSMOption>::Create(optionAddr);
-		// TODO: Check how size handling actually works.
-		if (options->size != 0 && options->priority != 0)
-			priority = options->priority;
-		if (options->size != 0 && options->stacksize != 0)
-			stacksize = options->stacksize;
-		if (options->size != 0 && options->attribute != 0)
-			attr = options->attribute;
-		// TODO: Maybe based on size?
-		else if (attr != 0)
-			WARN_LOG_REPORT(Log::sceModule, "Stopping module with attr=%x, but options specify 0", attr);
-	}
-
 	if (Memory::IsValid4AlignedAddress(stopFunc)) {
-		SceUID threadID = __KernelCreateThread(module->nm.name, moduleId, stopFunc, priority, stacksize, attr, 0, (module->nm.attribute & 0x1000) != 0);
-		_dbg_assert_(threadID > 0);
-		// TODO: Check the return value and bail?
+		ModuleThreadParams params;
+		int result = ResolveModuleThreadParams(module, module->nm.module_stop_thread_priority, module->nm.module_stop_thread_stacksize, module->nm.module_stop_thread_attr, smoption.PtrOrNull(), params);
+		if (result < 0) {
+			return hleLogError(Log::sceModule, result, "bad stack partition");
+		}
+		SceUID threadID = __KernelCreateThread(module->nm.name, moduleId, stopFunc, params.priority, params.stacksize, params.attr, 0, (module->nm.attribute & 0x1000) != 0, nullptr, params.stackAllocator);
+		if (threadID < 0) {
+			return hleLogError(Log::sceModule, threadID, "couldn't create stop thread");
+		}
 		__KernelStartThreadValidate(threadID, argSize, argAddr);
 		__KernelSetThreadRA(threadID, NID_MODULERETURN);
 		__KernelWaitCurThread(WAITTYPE_MODULE, moduleId, 1, 0, false, "stopped module");
@@ -2722,6 +2771,14 @@ static u32 sceKernelUnloadModule(u32 moduleId) {
 }
 
 u32 __KernelStopUnloadSelfModuleWithOrWithoutStatus(u32 exitCode, u32 argSize, u32 argp, u32 statusAddr, u32 optionAddr, bool WithStatus) {
+	auto smoption = PSPPointer<SceKernelSMOption>::Create(optionAddr);
+	if (smoption.IsValid()) {
+		int result = ValidateSMOption(smoption.PtrOrNull());
+		if (result < 0) {
+			return hleLogError(Log::sceModule, result, "bad option");
+		}
+	}
+
 	if (loadedModules.size() > 1) {
 		if (WithStatus) {
 			ERROR_LOG_REPORT(Log::sceModule, "UNIMPL sceKernelStopUnloadSelfModuleWithStatus(%08x, %08x, %08x, %08x, %08x): game may have crashed", exitCode, argSize, argp, statusAddr, optionAddr);
@@ -2731,8 +2788,6 @@ u32 __KernelStopUnloadSelfModuleWithOrWithoutStatus(u32 exitCode, u32 argSize, u
 			WARN_LOG(Log::sceModule, "sceKernelSelfStopUnloadModule(%08x, %08x, %08x)", exitCode, argSize, argp);
 		}
 		SceUID moduleID = __KernelGetCurThreadModuleId();
-		u32 priority = 0x20;
-		u32 attr = 0;
 		// TODO: In a lot of cases (even for errors), this should resched.  Needs testing.
 
 		u32 error;
@@ -2746,33 +2801,16 @@ u32 __KernelStopUnloadSelfModuleWithOrWithoutStatus(u32 exitCode, u32 argSize, u
 		}
 
 		u32 stopFunc = module->nm.module_stop_func;
-		u32 stacksize = ModuleThreadDefaultStackSize(module);
-		if (module->nm.module_stop_thread_priority != 0)
-			priority = module->nm.module_stop_thread_priority;
-		if (module->nm.module_stop_thread_stacksize != 0)
-			stacksize = module->nm.module_stop_thread_stacksize;
-		if (module->nm.module_stop_thread_attr != 0)
-			attr = module->nm.module_stop_thread_attr;
-
-		// TODO: Need to test how this really works.  Let's assume it's an override.
-		if (Memory::IsValidAddress(optionAddr)) {
-			auto options = PSPPointer<SceKernelSMOption>::Create(optionAddr);
-			// TODO: Check how size handling actually works.
-			if (options->size != 0 && options->priority != 0)
-				priority = options->priority;
-			if (options->size != 0 && options->stacksize != 0)
-				stacksize = options->stacksize;
-			if (options->size != 0 && options->attribute != 0)
-				attr = options->attribute;
-			// TODO: Maybe based on size?
-			else if (attr != 0)
-				WARN_LOG_REPORT(Log::sceModule, "Stopping module with attr=%x, but options specify 0", attr);
-		}
-
 		if (Memory::IsValidAddress(stopFunc)) {
-			SceUID threadID = __KernelCreateThread(module->nm.name, moduleID, stopFunc, priority, stacksize, attr, 0, (module->nm.attribute & 0x1000) != 0);
-			_dbg_assert_(threadID > 0);
-			// TODO: Check the return value and bail?
+			ModuleThreadParams params;
+			int result = ResolveModuleThreadParams(module, module->nm.module_stop_thread_priority, module->nm.module_stop_thread_stacksize, module->nm.module_stop_thread_attr, smoption.PtrOrNull(), params);
+			if (result < 0) {
+				return hleLogError(Log::sceModule, result, "bad stack partition");
+			}
+			SceUID threadID = __KernelCreateThread(module->nm.name, moduleID, stopFunc, params.priority, params.stacksize, params.attr, 0, (module->nm.attribute & 0x1000) != 0, nullptr, params.stackAllocator);
+			if (threadID < 0) {
+				return hleLogError(Log::sceModule, threadID, "couldn't create stop thread");
+			}
 			__KernelStartThreadValidate(threadID, argSize, argp);
 			__KernelSetThreadRA(threadID, NID_MODULERETURN);
 			__KernelWaitCurThread(WAITTYPE_MODULE, moduleID, 1, 0, false, "unloadstopped module");
