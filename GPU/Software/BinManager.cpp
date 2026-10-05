@@ -723,7 +723,7 @@ void BinManager::WakeTasks() {
 }
 
 void BinManager::WakeChained() {
-	uint64_t chain = chainWake_.exchange(0, std::memory_order_acquire);
+	u64 chain = chainWake_.exchange(0, std::memory_order_acquire);
 	while (chain != 0) {
 		const int i = LeastSignificantSetBit(chain);
 		chain &= chain - 1;
