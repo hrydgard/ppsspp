@@ -40,14 +40,14 @@ Lighter::Lighter(int vertType) {
 	materialDiffuse.a = 1.0f;
 	materialSpecular.GetFromRGB(gstate.materialspecular);
 	materialSpecular.a = 1.0f;
-	specCoef_ = PSPSpecularCoef(getFloat24(gstate.materialspecularcoef));
+	specCoef_ = PSPLightExponent(getFloat24(gstate.materialspecularcoef));
 	viewDir_ = PSPViewDirection(gstate.viewMatrix);
 	bool hasColor = (vertType & GE_VTYPE_COL_MASK) != 0;
 	materialUpdate_ = hasColor ? (gstate.materialupdate & 7) : 0;
 
 	for (int l = 0; l < 4; l++) {
 		lcutoff[l] = getFloat24(gstate.lcutoff[l]);
-		lconv[l] = getFloat24(gstate.lconv[l]);
+		lconv[l] = PSPLightExponent(getFloat24(gstate.lconv[l]));
 		int i = l * 3;
 		if (gstate.isLightChanEnabled(l)) {
 			lpos[l] = Vec3fFromGE(&gstate.lpos[i]);

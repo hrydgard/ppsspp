@@ -81,8 +81,15 @@ inline float PSPLightPow(float x, float e) {
 	return y;
 }
 
-// The GE only uses the top 4 bits of the specular coefficient's mantissa.
-inline float PSPSpecularCoef(float e) {
+// The exponent of the GE's lighting pow (specular and spot): the top 4 bits of the mantissa, truncated, and
+// saturated below 512, so 512 and up, infinity and NaN all act as 496 (gpu/probe exp221-223).
+inline float PSPLightExponent(float e) {
+	if (std::isnan(e)) {
+		return std::signbit(e) ? 0.0f : 496.0f;
+	}
+	if (e >= 512.0f) {
+		return 496.0f;
+	}
 	u32 bits;
 	memcpy(&bits, &e, sizeof(bits));
 	bits &= 0xFFF80000;

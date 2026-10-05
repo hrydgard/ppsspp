@@ -550,7 +550,7 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, const ShaderLanguageDesc
 		SetColorUniform3(render_, &u_matemissive, gstate.materialemissive);
 	}
 	if (dirty & DIRTY_MATSPECULAR) {
-		SetColorUniform3ExtraFloat(render_, &u_matspecular, gstate.materialspecular, PSPSpecularCoef(getFloat24(gstate.materialspecularcoef)));
+		SetColorUniform3ExtraFloat(render_, &u_matspecular, gstate.materialspecular, PSPLightExponent(getFloat24(gstate.materialspecularcoef)));
 	}
 
 	for (int i = 0; i < 4; i++) {
@@ -564,7 +564,7 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, const ShaderLanguageDesc
 			if (u_lightdir[i] != -1) SetFloat24Uniform3Normalized(render_, &u_lightdir[i], &gstate.ldir[i * 3]);
 			if (u_lightatt[i] != -1) SetFloat24Uniform3(render_, &u_lightatt[i], &gstate.latt[i * 3]);
 			if (u_lightangle_spotCoef[i] != -1) {
-				float lightangle_spotCoef[2] = { getFloat24(gstate.lcutoff[i]), getFloat24(gstate.lconv[i]) };
+				float lightangle_spotCoef[2] = { getFloat24(gstate.lcutoff[i]), PSPLightExponent(getFloat24(gstate.lconv[i])) };
 				SetFloatUniform2(render_, &u_lightangle_spotCoef[i], lightangle_spotCoef);
 			}
 			if (u_lightambient[i] != -1) SetColorUniform3(render_, &u_lightambient[i], gstate.lcolor[i * 3]);

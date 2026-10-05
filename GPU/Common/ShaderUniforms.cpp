@@ -223,7 +223,7 @@ void LightUpdateUniforms(UB_VS_Lights *ub, uint64_t dirtyUniforms) {
 		Uint8x3ToFloat4(ub->materialDiffuse, gstate.materialdiffuse);
 	}
 	if (dirtyUniforms & DIRTY_MATSPECULAR) {
-		Uint8x3ToFloat4_Alpha(ub->materialSpecular, gstate.materialspecular, std::max(0.0f, PSPSpecularCoef(getFloat24(gstate.materialspecularcoef))));
+		Uint8x3ToFloat4_Alpha(ub->materialSpecular, gstate.materialspecular, std::max(0.0f, PSPLightExponent(getFloat24(gstate.materialspecularcoef))));
 	}
 	if (dirtyUniforms & DIRTY_MATEMISSIVE) {
 		// We're not touching the fourth f32 here, because we store an u32 of control bits in it.
@@ -243,7 +243,7 @@ void LightUpdateUniforms(UB_VS_Lights *ub, uint64_t dirtyUniforms) {
 			// ldir is only used for spotlights. Prenormalize it.
 			ExpandFloat24x3ToFloat4AndNormalize(ub->ldir[i], &gstate.ldir[i * 3]);
 			ExpandFloat24x3ToFloat4(ub->latt[i], &gstate.latt[i * 3]);
-			float lightAngle_spotCoef[2] = { getFloat24(gstate.lcutoff[i]), getFloat24(gstate.lconv[i]) };
+			float lightAngle_spotCoef[2] = { getFloat24(gstate.lcutoff[i]), PSPLightExponent(getFloat24(gstate.lconv[i])) };
 			CopyFloat2To4(ub->lightAngle_SpotCoef[i], lightAngle_spotCoef);
 			Uint8x3ToFloat4(ub->lightAmbient[i], gstate.lcolor[i * 3]);
 			Uint8x3ToFloat4(ub->lightDiffuse[i], gstate.lcolor[i * 3 + 1]);
