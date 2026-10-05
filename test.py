@@ -326,6 +326,7 @@ tests_good = [
   "malloc/malloc",
   "misc/dcache",
   "misc/deadbeef",
+  "modules/startoptions/startoptions",
   "modules/unresolved/unresolved",
   "misc/libc",
   "misc/sdkver",

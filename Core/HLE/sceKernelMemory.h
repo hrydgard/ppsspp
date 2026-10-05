@@ -44,6 +44,7 @@ enum {
 
 extern BlockAllocator userMemory;
 extern BlockAllocator kernelMemory;
+extern BlockAllocator volatileMemory;
 
 void __KernelMemoryInit();
 void __KernelMemoryDoState(PointerWrap &p);

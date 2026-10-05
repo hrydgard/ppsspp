@@ -322,13 +322,16 @@ BlockAllocator &PSPThread::StackAllocator() {
 	return userMemory;
 }
 
-bool PSPThread::AllocateStack(u32 &stackSize) {
+bool PSPThread::AllocateStack(u32 &stackSize, BlockAllocator *allocator) {
 	_assert_msg_(stackSize >= 0x200, "thread stack should be 256 bytes or larger");
 
 	FreeStack();
 
 	bool fromTop = (nt.attr & PSP_THREAD_ATTR_LOW_STACK) == 0;
-	currentStack.start = StackAllocator().Alloc(stackSize, fromTop, StringFromFormat("stack/%s", nt.name).c_str());
+	if (!allocator) {
+		allocator = &StackAllocator();
+	}
+	currentStack.start = allocator->Alloc(stackSize, fromTop, StringFromFormat("stack/%s", nt.name).c_str());
 	if (currentStack.start == (u32)-1) {
 		currentStack.start = 0;
 		nt.initialStack = 0;
@@ -371,7 +374,9 @@ void PSPThread::FreeStack() {
 			Memory::Memset(nt.initialStack, 0, nt.stackSize, "ThreadFreeStack");
 		}
 
-		StackAllocator().Free(currentStack.start);
+		// The stack may be in a partition other than the one the attr implies.
+		BlockAllocator *allocator = BlockAllocatorFromAddr(currentStack.start);
+		(allocator ? *allocator : StackAllocator()).Free(currentStack.start);
 		currentStack.start = 0;
 	}
 }
@@ -482,7 +487,7 @@ struct WaitTypeFuncs
 
 bool __KernelExecuteMipsCallOnCurrentThread(u32 callId, bool reschedAfter);
 
-PSPThread *__KernelCreateThreadObject(SceUID &id, SceUID moduleID, const char *name, u32 entryPoint, u32 priority, int stacksize, u32 attr);
+PSPThread *__KernelCreateThreadObject(SceUID &id, SceUID moduleID, const char *name, u32 entryPoint, u32 priority, int stacksize, u32 attr, BlockAllocator *stackAllocator = nullptr);
 void __KernelResetThread(PSPThread *t, int lowestPriority);
 void __KernelCancelWakeup(SceUID threadID);
 void __KernelCancelThreadEndTimeout(SceUID threadID);
@@ -1987,7 +1992,7 @@ void __KernelResetThread(PSPThread *t, int lowestPriority) {
 		ERROR_LOG_REPORT(Log::sceKernel, "Resetting thread with threads waiting on end?");
 }
 
-PSPThread *__KernelCreateThreadObject(SceUID &id, SceUID moduleId, const char *name, u32 entryPoint, u32 priority, int stacksize, u32 attr) {
+PSPThread *__KernelCreateThreadObject(SceUID &id, SceUID moduleId, const char *name, u32 entryPoint, u32 priority, int stacksize, u32 attr, BlockAllocator *stackAllocator) {
 	std::lock_guard<std::mutex> guard(threadqueueLock);
 
 	PSPThread *t = new PSPThread();
@@ -2028,7 +2033,7 @@ PSPThread *__KernelCreateThreadObject(SceUID &id, SceUID moduleId, const char *n
 	t->nt.name[KERNELOBJECT_MAX_NAME_LENGTH] = '\0';
 
 	u32 stackSize = t->nt.stackSize;
-	t->AllocateStack(stackSize);  // can change the stacksize!
+	t->AllocateStack(stackSize, stackAllocator);  // can change the stacksize!
 	t->nt.stackSize = stackSize;
 	return t;
 }
@@ -2065,10 +2070,10 @@ SceUID __KernelSetupRootThread(SceUID moduleID, int args, const char *argp, int 
 	return id;
 }
 
-SceUID __KernelCreateThreadInternal(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr)
+SceUID __KernelCreateThreadInternal(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr, BlockAllocator *stackAllocator)
 {
 	SceUID id;
-	PSPThread *newThread = __KernelCreateThreadObject(id, moduleID, threadName, entry, prio, stacksize, attr);
+	PSPThread *newThread = __KernelCreateThreadObject(id, moduleID, threadName, entry, prio, stacksize, attr, stackAllocator);
 	if (newThread->currentStack.start == 0)
 		return SCE_KERNEL_ERROR_NO_MEMORY;
 
@@ -2076,7 +2081,7 @@ SceUID __KernelCreateThreadInternal(const char *threadName, SceUID moduleID, u32
 }
 
 // Note: Removed all the uses of hleReport* etc.
-int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr, bool allowKernel, int *busyCyclesOut) {
+int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32 prio, int stacksize, u32 attr, u32 optionAddr, bool allowKernel, int *busyCyclesOut, BlockAllocator *stackAllocator) {
 	if (!threadName) {
 		ERROR_LOG(Log::sceKernel, "__KernelCreateThread: NULL thread name");
 		return SCE_KERNEL_ERROR_ERROR;
@@ -2127,7 +2132,7 @@ int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32
 		}
 	}
 
-	SceUID id = __KernelCreateThreadInternal(threadName, moduleID, entry, prio, stacksize, attr);
+	SceUID id = __KernelCreateThreadInternal(threadName, moduleID, entry, prio, stacksize, attr, stackAllocator);
 	if ((u32)id == SCE_KERNEL_ERROR_NO_MEMORY) {
 		ERROR_LOG_REPORT(Log::sceKernel, "out of memory, %08x stack requested", stacksize);
 		return SCE_KERNEL_ERROR_NO_MEMORY;
