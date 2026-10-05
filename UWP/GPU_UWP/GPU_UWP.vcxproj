@@ -86,6 +86,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="..\..\GPU\Common\DepthRaster.h" />
+    <ClInclude Include="..\..\GPU\Common\DepthSwizzle.h" />
     <ClInclude Include="..\..\GPU\Common\ReplacedTexture.h" />
     <ClInclude Include="..\..\GPU\Common\TextureReplacer.h" />
     <ClInclude Include="..\..\GPU\Common\TextureShaderCommon.h" />
