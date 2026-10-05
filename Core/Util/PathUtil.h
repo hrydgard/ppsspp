@@ -40,6 +40,12 @@ bool HasParentDirComponent(std::string_view path);
 // strings that would otherwise become host filesystem path components.
 bool HasPathTraversal(std::string_view path);
 
+// Returns true if an untrusted string (a disc ID, a texture pack's game ID) can be used as a single
+// directory or file name. Stricter than HasPathTraversal: also rejects empty names, control
+// characters, ':' (drive letters, NTFS streams) and the trailing dots and spaces Win32 strips,
+// which would turn "..." into "..".
+bool IsSafePathComponent(std::string_view name);
+
 Path FindConfigFile(const Path &searchPath, std::string_view baseFilename, bool *exists);
 Path GetSysDirectory(PSPDirectories directoryType);
 bool CreateSysDirectories();

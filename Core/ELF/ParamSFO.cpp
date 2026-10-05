@@ -26,6 +26,7 @@
 #include "Common/File/Path.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/System.h"
+#include "Core/Util/PathUtil.h"
 
 struct Header
 {
@@ -218,6 +219,14 @@ bool ParamSFOData::ReadSFO(const u8 *paramsfo, size_t size) {
 		default:
 			break;
 		}
+	}
+
+	// The disc ID names host files and directories (configs, cheats, textures, savestates, updates),
+	// so one that could escape them is treated as missing.
+	const std::string discID(StripSpaces(GetValueString("DISC_ID")));
+	if (!discID.empty() && !IsSafePathComponent(discID)) {
+		WARN_LOG(Log::Loader, "Ignoring unsafe DISC_ID in PARAM.SFO: '%s'", discID.c_str());
+		values.erase("DISC_ID");
 	}
 
 	return true;

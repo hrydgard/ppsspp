@@ -30,6 +30,19 @@ bool HasPathTraversal(std::string_view path) {
 	return path == "." || path == "..";
 }
 
+bool IsSafePathComponent(std::string_view name) {
+	// The trailing dot check also catches "." and "..".
+	if (name.empty() || name.back() == ' ' || name.back() == '.') {
+		return false;
+	}
+	for (unsigned char c : name) {
+		if (c < 0x20 || c == 0x7F || c == '/' || c == '\\' || c == ':') {
+			return false;
+		}
+	}
+	return true;
+}
+
 Path FindConfigFile(const Path &searchPath, std::string_view baseFilename, bool *exists) {
 	// Don't search for an absolute path.
 	if (baseFilename.size() > 1 && baseFilename[0] == '/') {
