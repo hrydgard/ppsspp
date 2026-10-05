@@ -149,11 +149,6 @@ private:
 constexpr int BinManager::MAX_POSSIBLE_TASKS;
 
 BinManager::BinManager() {
-	queueRange_.x1 = 0x7FFFFFFF;
-	queueRange_.y1 = 0x7FFFFFFF;
-	queueRange_.x2 = 0;
-	queueRange_.y2 = 0;
-
 	waitable_ = new BinWaitable();
 	for (auto &s : taskStatus_)
 		s = false;
@@ -264,7 +259,7 @@ void BinManager::UpdateState() {
 		MarkPendingReads(state);
 
 		// Drawing that textures from its target, or with a scissor past the stride, stays threaded: a
-		// primitive that reads what's being drawn or reaches past the stride is drawn alone, in order (Expand).
+		// primitive that reads what's being drawn or reaches past the stride is drawn alone, in order (ItemQueued).
 		bool selfRender = HasTextureWrite(state);
 
 		// Lastly, we have to check if we're newly writing depth we were texturing before.
@@ -501,7 +496,7 @@ void BinManager::AddTriangle(const VertexData &v0, const VertexData &v1, const V
 		MakeRoom();
 	AddFlags([&](RasterizerState *state) { CalculateRasterStateFlags(state, v0, v1, v2); });
 	queue_.Push(BinItem{ BinItemType::TRIANGLE, stateIndex_, range, v0, v1, v2 });
-	Expand(range);
+	ItemQueued();
 }
 
 void BinManager::AddClearRect(const VertexData &v0, const VertexData &v1) {
@@ -513,7 +508,7 @@ void BinManager::AddClearRect(const VertexData &v0, const VertexData &v1) {
 		MakeRoom();
 	AddFlags([&](RasterizerState *state) { CalculateRasterStateFlags(state, v0, v1, true); });
 	queue_.Push(BinItem{ BinItemType::CLEAR_RECT, stateIndex_, range, v0, v1 });
-	Expand(range);
+	ItemQueued();
 }
 
 void BinManager::AddRect(const VertexData &v0, const VertexData &v1) {
@@ -525,7 +520,7 @@ void BinManager::AddRect(const VertexData &v0, const VertexData &v1) {
 		MakeRoom();
 	AddFlags([&](RasterizerState *state) { CalculateRasterStateFlags(state, v0, v1, true); });
 	queue_.Push(BinItem{ BinItemType::RECT, stateIndex_, range, v0, v1 });
-	Expand(range);
+	ItemQueued();
 }
 
 void BinManager::AddSprite(const VertexData &v0, const VertexData &v1) {
@@ -537,7 +532,7 @@ void BinManager::AddSprite(const VertexData &v0, const VertexData &v1) {
 		MakeRoom();
 	AddFlags([&](RasterizerState *state) { CalculateRasterStateFlags(state, v0, v1, true); });
 	queue_.Push(BinItem{ BinItemType::SPRITE, stateIndex_, range, v0, v1 });
-	Expand(range);
+	ItemQueued();
 }
 
 void BinManager::AddLine(const VertexData &v0, const VertexData &v1) {
@@ -549,7 +544,7 @@ void BinManager::AddLine(const VertexData &v0, const VertexData &v1) {
 		MakeRoom();
 	AddFlags([&](RasterizerState *state) { CalculateRasterStateFlags(state, v0, v1, false); });
 	queue_.Push(BinItem{ BinItemType::LINE, stateIndex_, range, v0, v1 });
-	Expand(range);
+	ItemQueued();
 }
 
 void BinManager::AddPoint(const VertexData &v0) {
@@ -561,7 +556,7 @@ void BinManager::AddPoint(const VertexData &v0) {
 		MakeRoom();
 	AddFlags([&](RasterizerState *state) { CalculateRasterStateFlags(state, v0); });
 	queue_.Push(BinItem{ BinItemType::POINT, stateIndex_, range, v0 });
-	Expand(range);
+	ItemQueued();
 }
 
 void BinManager::Drain() {
@@ -780,7 +775,7 @@ bool BinManager::ProcessTiles(int start) {
 }
 
 void BinManager::Flush(const char *reason) {
-	if (queueRange_.x1 == 0x7FFFFFFF) {
+	if (!queuedSinceFlush_) {
 		// Nothing queued, so nothing refers to the older states and CLUTs. Trim them anyway: callers
 		// flush because one of these rings is full, and push into it right after.
 		while (states_.Size() > 1) {
@@ -820,10 +815,7 @@ void BinManager::Flush(const char *reason) {
 	Rasterizer::FlushJit();
 	Sampler::FlushJit();
 
-	queueRange_.x1 = 0x7FFFFFFF;
-	queueRange_.y1 = 0x7FFFFFFF;
-	queueRange_.x2 = 0;
-	queueRange_.y2 = 0;
+	queuedSinceFlush_ = false;
 
 	for (BinDirtyRange &pending : pendingWrites_) {
 		pending.base = 0;
@@ -1007,11 +999,9 @@ BinCoords BinManager::Range(const VertexData &v0) {
 	return Scissor(range);
 }
 
-void BinManager::Expand(const BinCoords &range) {
-	queueRange_.x1 = std::min(queueRange_.x1, range.x1);
-	queueRange_.y1 = std::min(queueRange_.y1, range.y1);
-	queueRange_.x2 = std::max(queueRange_.x2, range.x2);
-	queueRange_.y2 = std::max(queueRange_.y2, range.y2);
+// After queuing an item: draw it now, alone, or later in a batch.
+void BinManager::ItemQueued() {
+	queuedSinceFlush_ = true;
 
 	if (maxTasks_ == 1) {
 		Drain();

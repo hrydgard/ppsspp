@@ -258,7 +258,8 @@ private:
 	uint16_t clutIndex_;
 	BinCoords scissor_;
 	BinItemQueue queue_;
-	BinCoords queueRange_;
+	// Anything was queued since the last flush (drawn or not).
+	bool queuedSinceFlush_ = false;
 	SoftDirty dirty_ = SoftDirty::NONE;
 
 	int maxTasks_ = 1;
@@ -356,7 +357,7 @@ private:
 	BinCoords Range(const VertexData &v0, const VertexData &v1, const VertexData &v2);
 	BinCoords Range(const VertexData &v0, const VertexData &v1);
 	BinCoords Range(const VertexData &v0);
-	void Expand(const BinCoords &range);
+	void ItemQueued();
 	void MakeRoom();
 	void DrawSplit(const BinItem &item, const Rasterizer::RasterizerState &state);
 	void DistributeItems();
