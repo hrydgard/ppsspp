@@ -799,6 +799,36 @@ void DumpExecute::TransferSrc(u32 ptr, u32 sz) {
 	execListQueue.push_back(((GE_CMD_TRANSFERSRC) << 24) | (psp & 0x00FFFFFF));
 }
 
+// The PSP replayer writes recorded memory with the CPU, and the PSP sends every CPU access to VRAM's 0x04200000 and
+// 0x04600000 mirrors through the depth layout. With the software renderer PPSSPP's mirrors do that for 16-bit
+// accesses only, so a write into one goes a run of 32 aligned bytes at a time, which the layout keeps together.
+// IL-2's depth texture at 0x04710000 is recorded as the game sampled it, and only comes back so.
+static void CopyToMemory(u32 addr, const u8 *data, u32 size) {
+	if (!Memory::DepthMirrorsActive() || !Memory::IsDepthTexVRAMAddress(addr)) {
+		Memory::MemcpyUnchecked(addr, data, size);
+		return;
+	}
+	for (u32 pos = 0; pos < size; ) {
+		const u32 a = addr + pos;
+		const u32 n = std::min(32 - (a & 31), size - pos);
+		Memory::MemcpyUnchecked(Memory::DepthMirrored16(a), data + pos, n);
+		pos += n;
+	}
+}
+
+static void SetMemory(u32 addr, u8 value, u32 size) {
+	if (!Memory::DepthMirrorsActive() || !Memory::IsDepthTexVRAMAddress(addr)) {
+		Memory::Memset(addr, value, size);
+		return;
+	}
+	for (u32 pos = 0; pos < size; ) {
+		const u32 a = addr + pos;
+		const u32 n = std::min(32 - (a & 31), size - pos);
+		Memory::Memset(Memory::DepthMirrored16(a), value, n);
+		pos += n;
+	}
+}
+
 void DumpExecute::Memset(u32 ptr, u32 sz) {
 	PROFILE_THIS_SCOPE("ReplayMemset");
 	struct MemsetCommand {
@@ -816,7 +846,7 @@ void DumpExecute::Memset(u32 ptr, u32 sz) {
 		// TODO: should probably do this as an operation.
 		// The software renderer leaves the memset to the caller, like sceKernelMemset does.
 		if (!gpu->PerformMemorySet(data->dest, (u8)data->value, data->sz))
-			Memory::Memset(data->dest, (u8)data->value, data->sz);
+			SetMemory(data->dest, (u8)data->value, data->sz);
 	}
 }
 
@@ -829,7 +859,7 @@ void DumpExecute::Memcpy(u32 ptr, u32 sz) {
 	if (Memory::IsVRAMAddress(execMemcpyDest)) {
 		SyncStall();
 		gpu->Flush();
-		Memory::MemcpyUnchecked(execMemcpyDest, pushbuf_.data() + ptr, sz);
+		CopyToMemory(execMemcpyDest, pushbuf_.data() + ptr, sz);
 		NotifyMemInfo(MemBlockFlags::WRITE, execMemcpyDest, sz, "ReplayMemcpy");
 		gpu->PerformWriteColorFromMemory(execMemcpyDest, sz);
 	}
@@ -921,7 +951,7 @@ void DumpExecute::CopyAroundDrawn(u32 addr, const u8 *data, u32 size) {
 	int64_t pos = start;
 	auto copyTo = [&](int64_t until) {
 		if (until > pos) {
-			Memory::MemcpyUnchecked(addr + (u32)(pos - start), data + (pos - start), (u32)(until - pos));
+			CopyToMemory(addr + (u32)(pos - start), data + (pos - start), (u32)(until - pos));
 			NotifyMemInfo(MemBlockFlags::WRITE, addr + (u32)(pos - start), (u32)(until - pos), "ReplayTex");
 		}
 	};
