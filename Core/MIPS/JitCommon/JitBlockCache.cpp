@@ -371,9 +371,10 @@ std::vector<u32> JitBlockCache::SaveAndClearEmuHackOps() {
 
 	for (int block_num = 0; block_num < num_blocks_; ++block_num) {
 		JitBlock &b = blocks_[block_num];
-		if (b.invalid)
-			continue;
-
+		// Note: also clear ops for invalid blocks.  If the game copied code around while a
+		// block was patched (self-checking code, etc.) and wrote it back after the block was
+		// invalidated, the stale emuhack survives at the block's own address, and saving it
+		// verbatim produces a savestate that poisons later sessions' dispatchers.
 		const u32 emuhack = GetEmuHackOpForBlock(block_num).encoding;
 		if (Memory::ReadUnchecked_U32(b.originalAddress) == emuhack)
 		{
@@ -395,12 +396,45 @@ void JitBlockCache::RestoreSavedEmuHackOps(const std::vector<u32> &saved) {
 
 	for (int block_num = 0; block_num < num_blocks_; ++block_num) {
 		const JitBlock &b = blocks_[block_num];
-		if (b.invalid || saved[block_num] == 0)
+		// Invalid blocks too - keep the live session's RAM exactly as it was before the save.
+		if (saved[block_num] == 0)
 			continue;
 
 		// Only if we restored it, write it back.
 		if (Memory::ReadUnchecked_U32(b.originalAddress) == b.originalFirstOpcode.encoding)
 			Memory::Write_Opcode_JIT(b.originalAddress, MIPSOpcode(saved[block_num]));
+	}
+}
+
+void JitBlockCache::ReportStrayEmuHackOps() const {
+	// Called while saving a state, after SaveAndClearEmuHackOps().  Any emuhack-looking op
+	// still in RAM is not claimed by a block at its address: either harmless data, or a stale
+	// op the game copied elsewhere (in which case the original instruction is unknowable).
+	// Report them, so savestates that would trip other sessions can be traced to a cause.
+	int reported = 0;
+	for (int i = 0; i < JITBLOCK_RANGE_COUNT; ++i) {
+		const u32 start = blockMemRanges_[i].first;
+		const u32 end = blockMemRanges_[i].second;
+		if (start >= end)
+			continue;
+
+		for (u32 addr = start; addr < end && reported < 20; addr += 4) {
+			if (!Memory::IsValid4AlignedAddress(addr))
+				continue;
+
+			const u32 op = Memory::ReadUnchecked_U32(addr);
+			if ((op & 0xFC000000) != MIPS_EMUHACK_OPCODE)
+				continue;
+
+			const int bl = GetBlockNumberFromEmuHackOp(MIPSOpcode(op), true);
+			if (bl >= 0 && blocks_[bl].originalAddress == addr)
+				continue;
+
+			WARN_LOG(Log::JIT, "SaveState: stray emuhack op %08x at %08x (block %d, owns %08x)%s",
+				op, addr, bl, bl >= 0 ? blocks_[bl].originalAddress : 0,
+				bl >= 0 ? "" : " - unresolvable, probably data");
+			++reported;
+		}
 	}
 }
 

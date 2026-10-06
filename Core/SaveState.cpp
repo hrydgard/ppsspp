@@ -180,6 +180,8 @@ int g_screenshotFailures;
 			if (MIPSComp::jit) {
 				std::vector<u32> savedBlocks;
 				savedBlocks = MIPSComp::jit->SaveAndClearEmuHackOps();
+				if (p.mode == p.MODE_WRITE)
+					MIPSComp::jit->GetBlockCache()->ReportStrayEmuHackOps();
 				Memory::DoState(p);
 				MIPSComp::jit->RestoreSavedEmuHackOps(savedBlocks);
 			} else {
