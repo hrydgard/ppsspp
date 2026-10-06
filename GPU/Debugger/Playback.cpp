@@ -498,22 +498,21 @@ void DumpExecute::Registers(u32 ptr, u32 sz) {
 	// Validate space for jump.
 	u32 allocSize = pendingSize + sz + 8;
 	if (execListPos + allocSize >= execListBuf + LIST_BUF_SIZE) {
-		Memory::WriteUnchecked_U32((GE_CMD_BASE << 24) | ((execListBuf >> 8) & 0x00FF0000), execListPos);
-		Memory::WriteUnchecked_U32((GE_CMD_JUMP << 24) | (execListBuf & 0x00FFFFFF), execListPos + 4);
+		// Finish this list, wait for the GE to run it, and start a new one at the buffer's start. Jumping
+		// back instead let the next lap overwrite commands the GE hadn't reached yet: Warriors (14660) lost
+		// half its draws. The PSP replayer does the same. GE state, BASE included, carries over.
+		Memory::WriteUnchecked_U32(GE_CMD_FINISH << 24, execListPos);
+		Memory::WriteUnchecked_U32(GE_CMD_END << 24, execListPos + 4);
+		execListPos += 8;
+		SyncStall();
+		ExecuteOnMain(Operation{ OpType::ListSync, execListID });
 
 		execListPos = execListBuf;
-		// The queued vertex, index and texture addresses were made for the previous base, which the jump
-		// just replaced (Tiger Woods ULUS10420 then read draw 21026's indices from 16 MB away).
-		if (lastBase_ != 0xFFFFFFFF && lastBase_ != (execListBuf & 0xFF000000)) {
-			Memory::WriteUnchecked_U32((GE_CMD_BASE << 24) | ((lastBase_ >> 8) & 0x00FF0000), execListPos);
-			execListPos += 4;
-		} else {
-			lastBase_ = execListBuf & 0xFF000000;
-		}
-
-		// Don't continue until we've stalled.
-		// TODO: Is this really needed? It seems fine without it.
-		SyncStall();
+		Memory::WriteUnchecked_U32(GE_CMD_NOP << 24, execListPos);
+		execListPos += 4;
+		gpu->EnableInterrupts(false);
+		execListID = ExecuteOnMain(Operation{ OpType::EnqueueList, execListBuf, execListPos });
+		gpu->EnableInterrupts(true);
 	}
 
 	Memory::MemcpyUnchecked(execListPos, execListQueue.data(), pendingSize);
