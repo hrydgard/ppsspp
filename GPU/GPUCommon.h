@@ -129,6 +129,8 @@ public:
 	virtual bool GetMatrix24(GEMatrixType type, u32_le *result, u32 cmdbits);
 	virtual void ResetMatrices();
 	virtual void DoState(PointerWrap &p);
+	// Finishes drawing still queued for PSP memory (the software renderer can hold some past a stall).
+	virtual void FlushPendingDrawing() {}
 	bool BusyDrawing();
 	u32 Continue(bool *runList);
 	u32 Break(int mode);

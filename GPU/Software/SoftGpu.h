@@ -131,6 +131,7 @@ public:
 	u32 CheckGPUFeatures() const override { return 0; }
 	void ExecuteOp(u32 op, u32 diff) override;
 	void FinishDeferred() override;
+	void FlushPendingDrawing() override;
 	int ListSync(int listid, int mode) override;
 	u32 DrawSync(int mode) override;
 	void UpdateCmdInfo() override {}

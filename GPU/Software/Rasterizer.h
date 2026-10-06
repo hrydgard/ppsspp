@@ -79,6 +79,8 @@ struct RasterizerState {
 	uint32_t texFlushGen = 0;
 	RasterizerStateFlags flags = RasterizerStateFlags::NONE;
 	RasterizerStateFlags lastFlags = RasterizerStateFlags::INVALID;
+	// The binner's tile generation in which threads may be drawing with it (BinManager::DistributeItems).
+	uint32_t liveGen = 0;
 
 	struct {
 		uint8_t maxTexLevel : 3;

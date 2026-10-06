@@ -67,7 +67,20 @@ struct BinQueue {
 	}
 
 	void Setup() {
-		items_ = (T *)AllocateAlignedMemory(sizeof_, 16);
+		items_ = (T *)AllocateAlignedMemory(sizeof(T) * capacity_, 16);
+	}
+
+	// Only when no other thread uses it: room for newCapacity, the items in order from index 0.
+	void Grow(size_t newCapacity) {
+		T *items = (T *)AllocateAlignedMemory(sizeof(T) * newCapacity, 16);
+		const size_t size = size_;
+		for (size_t i = 0; i < size; ++i)
+			items[i] = Peek(i);
+		FreeAlignedMemory(items_);
+		items_ = items;
+		capacity_ = newCapacity;
+		head_ = 0;
+		tail_ = size;
 	}
 
 	void Reset() {
@@ -78,8 +91,8 @@ struct BinQueue {
 
 	size_t Push(const T &item) {
 		size_t i = tail_++;
-		if (i + 1 == N)
-			tail_ -= N;
+		if (i + 1 == capacity_)
+			tail_ -= capacity_;
 		items_[i] = item;
 		size_++;
 		return i;
@@ -87,8 +100,8 @@ struct BinQueue {
 
 	T Pop() {
 		size_t i = head_++;
-		if (i + 1 == N)
-			head_ -= N;
+		if (i + 1 == capacity_)
+			head_ -= capacity_;
 		T item = items_[i];
 		size_--;
 		return item;
@@ -101,16 +114,16 @@ struct BinQueue {
 
 	void SkipNext() {
 		size_t i = head_++;
-		if (i + 1 == N)
-			head_ -= N;
+		if (i + 1 == capacity_)
+			head_ -= capacity_;
 		size_--;
 	}
 
 	// Only safe if you're the only one reading.
 	const T &Peek(size_t offset) const {
 		size_t i = head_ + offset;
-		if (i >= N)
-			i -= N;
+		if (i >= capacity_)
+			i -= capacity_;
 		return items_[i];
 	}
 
@@ -121,8 +134,8 @@ struct BinQueue {
 
 	size_t PushPeeked() {
 		size_t i = tail_++;
-		if (i + 1 == N)
-			tail_ -= N;
+		if (i + 1 == capacity_)
+			tail_ -= capacity_;
 		size_++;
 		return i;
 	}
@@ -132,11 +145,15 @@ struct BinQueue {
 	}
 
 	bool Full() const {
-		return size_ >= N - 1;
+		return size_ >= capacity_ - 1;
 	}
 
 	bool NearFull() const {
-		return size_ >= N - 2;
+		return size_ >= capacity_ - 2;
+	}
+
+	size_t Capacity() const {
+		return capacity_;
 	}
 
 	bool Empty() const {
@@ -155,7 +172,7 @@ struct BinQueue {
 	std::atomic<size_t> head_;
 	std::atomic<size_t> tail_ ;
 	std::atomic<size_t> size_;
-	static constexpr size_t sizeof_ = sizeof(T) * N;
+	size_t capacity_ = N;
 };
 
 union BinClut {
@@ -211,7 +228,7 @@ public:
 	void AddLine(const VertexData &v0, const VertexData &v1);
 	void AddPoint(const VertexData &v0);
 
-	void Drain(bool flushing = false);
+	void Drain();
 	void Flush(const char *reason);
 	bool HasPendingWrite(uint32_t start, uint32_t stride, uint32_t w, uint32_t h);
 	// Assumes you've also checked for a write (writes are partial so are automatically reads.)
@@ -240,8 +257,10 @@ protected:
 #else
 	static constexpr int MAX_POSSIBLE_TASKS = 64;
 #endif
-	// This is about 1MB of state data.
+	// States to start with, about 1 MB. A full ring flushes, then doubles, up to MAX_QUEUED_STATES (stateIndex is
+	// 16 bits).
 	static constexpr int QUEUED_STATES = 4096;
+	static constexpr int MAX_QUEUED_STATES = 32768;
 	// These are 1KB each, so half an MB.
 	static constexpr int QUEUED_CLUTS = 512;
 	// About 360 KB, but we have usually 16 or less of them, so 5 MB - 22 MB.
@@ -258,21 +277,60 @@ private:
 	uint16_t clutIndex_;
 	BinCoords scissor_;
 	BinItemQueue queue_;
-	BinCoords queueRange_;
+	// Anything was queued since the last flush (drawn or not).
+	bool queuedSinceFlush_ = false;
 	SoftDirty dirty_ = SoftDirty::NONE;
 
 	int maxTasks_ = 1;
-	bool tasksSplit_ = false;
-	std::vector<BinCoords> taskRanges_;
-	BinItemQueue taskQueues_[MAX_POSSIBLE_TASKS];
 	BinTaskList taskLists_[MAX_POSSIBLE_TASKS];
 	std::atomic<bool> taskStatus_[MAX_POSSIBLE_TASKS];
+	// Threads whose tasks the first one woken enqueues: waking a thread is a system call, kept off this one.
+	std::atomic<uint64_t> chainWake_{ 0 };
+
+	// With threads, queued items are binned into screen tiles. Any thread can take a tile with work and
+	// draws its items in order; only one at a time, so each pixel still sees the primitives in order.
+	// Larger tiles set up fewer triangles more than once, smaller ones spread the work over more threads.
+	// The size is picked at startup for the thread count (PickTileSize); the arrays fit the smallest.
+	static constexpr int MIN_TILE_W = 64;
+	static constexpr int MIN_TILE_H = 16;
+	static constexpr int TILES_X = 1024 / MIN_TILE_W;
+	static constexpr int TILES_Y = 1024 / MIN_TILE_H;
+	// In subpixels.
+	int tileShiftX_ = 0;
+	int tileShiftY_ = 0;
+	// Pixels.
+	int tileW_ = MIN_TILE_W;
+	int tileH_ = MIN_TILE_H;
+	int tilesX_ = TILES_X;
+	int tilesY_ = TILES_Y;
+	struct Tile {
+		// Indices into queue_, as a ring: head_ is how many have been drawn, tail_ how many were pushed.
+		std::atomic<uint32_t> head;
+		std::atomic<uint32_t> tail;
+		std::atomic<bool> busy;
+		uint16_t items[QUEUED_PRIMS];
+	};
+	Tile *tiles_ = nullptr;
+	// For each queued item, how many tiles still have to draw it. It's reclaimed at zero.
+	std::atomic<int> itemRefs_[QUEUED_PRIMS];
+	// The tiles given work since the last flush, for the threads to look through.
+	uint16_t activeTiles_[TILES_X * TILES_Y];
+	std::atomic<int> activeCount_{ 0 };
+	bool tileActive_[TILES_X * TILES_Y]{};
+	// The queue_ index of the first item not yet put in tiles, and how many have been added since.
+	size_t distributePos_ = 0;
+	int undistributed_ = 0;
+	int entriesSinceWake_ = 0;
+	// The tiles queued primitives write, and that queued primitives texturing from the target read
+	// (NeedsOrder). Cleared when the queue is empty.
+	uint8_t tileWrites_[TILES_X * TILES_Y]{};
+	uint8_t tileReads_[TILES_X * TILES_Y]{};
+	bool anyTileReads_ = false;
 	BinWaitable *waitable_ = nullptr;
 
 	BinDirtyRange pendingWrites_[2]{};
 	std::unordered_map<uint32_t, BinDirtyRange> pendingReads_;
 
-	bool pendingOverlap_ = false;
 	// Whether the current state textures from what it draws to, and the texture as it was before the
 	// primitive being drawn for one that does.
 	bool selfRender_ = false;
@@ -291,6 +349,9 @@ private:
 	// JIT clear generations when the current state was computed.
 	int jitGen_ = -1;
 	uint16_t pendingStateIndex_ = 0;
+	// Advances when every tile has been drawn and reset: a state whose liveGen is this one can be in use by
+	// the threads, so it isn't changed (AddFlags).
+	uint32_t tileGen_ = 1;
 
 	std::unordered_map<const char *, double> flushReasonTimes_;
 	std::unordered_map<const char *, double> lastFlushReasonTimes_;
@@ -306,14 +367,39 @@ private:
 	void MarkPendingReads(const Rasterizer::RasterizerState &state);
 	void MarkPendingWrites(const Rasterizer::RasterizerState &state);
 	bool HasTextureWrite(const Rasterizer::RasterizerState &state);
-	bool IsExactSelfRender(const Rasterizer::RasterizerState &state, const BinItem &item) const;
 	const Rasterizer::RasterizerState &SelfTextureSnapshot(const BinItem &item, const Rasterizer::RasterizerState &state);
 	void OptimizePendingStates(uint16_t first, uint16_t last);
+	void PushState();
+	template <typename F>
+	void AddFlags(F calculate);
 	BinCoords Scissor(BinCoords range);
 	BinCoords Range(const VertexData &v0, const VertexData &v1, const VertexData &v2);
 	BinCoords Range(const VertexData &v0, const VertexData &v1);
 	BinCoords Range(const VertexData &v0);
-	void Expand(const BinCoords &range);
+	void ItemQueued();
+	void MakeRoom();
+	void DrawSplit(const BinItem &item, const Rasterizer::RasterizerState &state);
+	void DistributeItems();
+	void DistributeItems(size_t end);
+	void ResetTiles();
+	void DrainDependent();
+	struct TexelRegion {
+		uint32_t start;
+		uint32_t stride;
+		uint32_t widthBytes;
+		uint32_t rows;
+	};
+	bool SelfReadRegion(const BinItem &item, TexelRegion &region);
+	template <typename F>
+	void ForTargetTiles(const Rasterizer::RasterizerState &state, const TexelRegion &region, F f);
+	void PickTileSize(int threads);
+	void ClearTileMarks();
+	bool PendingWriteIn(const BinDirtyRange &range, uint32_t start, uint32_t stride, uint32_t w, uint32_t h);
+	bool NeedsOrder(const BinItem &item);
+	void ReclaimItems();
+	void WakeTasks();
+	void WakeChained();
+	bool ProcessTiles(int start);
 
 	friend class DrawBinItemsTask;
 };
