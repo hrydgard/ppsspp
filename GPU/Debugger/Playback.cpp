@@ -140,8 +140,8 @@ public:
 	BufMapping(const std::vector<u8> &pushbuf) : pushbuf_(pushbuf) {
 	}
 
-	// Returns a pointer to contiguous memory for this access, or else 0 (failure).
-	u32 Map(u32 bufpos, u32 sz, const std::function<void()> &flush);
+	// Returns a pointer to contiguous memory for this access, aligned to align bytes, or else 0 (failure).
+	u32 Map(u32 bufpos, u32 sz, const std::function<void()> &flush, u32 align = 1);
 
 	// Clear and reset allocations made.
 	void Reset() {
@@ -229,9 +229,14 @@ protected:
 	const std::vector<u8> &pushbuf_;
 };
 
-u32 BufMapping::Map(u32 bufpos, u32 sz, const std::function<void()> &flush) {
+u32 BufMapping::Map(u32 bufpos, u32 sz, const std::function<void()> &flush, u32 align) {
 	int slab1 = bufpos / SLAB_SIZE;
 	int slab2 = (bufpos + sz - 1) / SLAB_SIZE;
+
+	// Older recorders could reuse data at any offset (a CLUT found one byte into another), but the GE
+	// ignores the low bits of a CLUT or texture address. The extra mappings are separate, aligned copies.
+	if ((bufpos & (align - 1)) != 0)
+		return MapExtra(bufpos, sz, flush);
 
 	if (slab1 == slab2) {
 		// Shortcut in case it's simply the most recent slab.
@@ -780,7 +785,7 @@ void DumpExecute::Clut(u32 ptr, u32 sz) {
 
 		execClutAddr = 0;
 	} else {
-		u32 psp = mapping_.Map(ptr, sz, std::bind(&DumpExecute::SyncStall, this));
+		u32 psp = mapping_.Map(ptr, sz, std::bind(&DumpExecute::SyncStall, this), 16);
 		if (psp == 0) {
 			ERROR_LOG(Log::GeDebugger, "Unable to allocate for clut");
 			return;
@@ -802,7 +807,7 @@ void DumpExecute::Clut(u32 ptr, u32 sz) {
 }
 
 void DumpExecute::TransferSrc(u32 ptr, u32 sz) {
-	u32 psp = mapping_.Map(ptr, sz, std::bind(&DumpExecute::SyncStall, this));
+	u32 psp = mapping_.Map(ptr, sz, std::bind(&DumpExecute::SyncStall, this), 16);
 	if (psp == 0) {
 		ERROR_LOG(Log::GeDebugger, "Unable to allocate for transfer");
 		return;
@@ -882,7 +887,7 @@ void DumpExecute::Memcpy(u32 ptr, u32 sz) {
 }
 
 void DumpExecute::Texture(int level, u32 ptr, u32 sz) {
-	u32 psp = mapping_.Map(ptr, sz, std::bind(&DumpExecute::SyncStall, this));
+	u32 psp = mapping_.Map(ptr, sz, std::bind(&DumpExecute::SyncStall, this), 16);
 	if (psp == 0) {
 		ERROR_LOG(Log::GeDebugger, "Unable to allocate for texture");
 		return;
