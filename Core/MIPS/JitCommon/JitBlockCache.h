@@ -162,6 +162,10 @@ public:
 	// Call after SaveAndClearEmuHackOps() to detect savestate-poisoning strays.
 	void ReportStrayEmuHackOps() const;
 
+	// Clear a stale RUNBLOCK emuhack op at addr (left by a previous session) to a NOP.
+	// Returns false if the op turns out to be a legit block start at addr.
+	bool ClearStaleEmuHackOp(u32 addr);
+
 	int GetNumBlocks() const override { return num_blocks_; }
 	bool IsValidBlock(int blockNum) const override { return blockNum >= 0 && blockNum < num_blocks_ && !blocks_[blockNum].invalid; }
 	JitBlockMeta GetBlockMeta(int blockNum) const override {

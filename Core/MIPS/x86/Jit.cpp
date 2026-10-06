@@ -19,6 +19,7 @@
 #if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 
 #include <algorithm>
+#include <set>
 #include <iterator>
 
 #include "Common/Math/math_util.h"
@@ -494,7 +495,16 @@ bool Jit::DescribeCodePtr(const u8 *ptr, std::string &name) {
 
 void Jit::Comp_RunBlock(MIPSOpcode op) {
 	// This shouldn't be necessary, the dispatcher should catch us before we get here.
-	ERROR_LOG(Log::JIT, "Comp_RunBlock");
+	// When it happens anyway, it's a stale op from a previous session (for example loaded
+	// from an old savestate): clear it in RAM so it doesn't spread, and log once per address.
+	const u32 pc = GetCompilerPC();
+	static std::set<u32> loggedStaleOps;
+	if (blocks.ClearStaleEmuHackOp(pc)) {
+		if (loggedStaleOps.insert(pc).second)
+			WARN_LOG(Log::JIT, "Cleared stale JIT block op at %08x (left over from an old savestate?)", pc);
+	} else {
+		ERROR_LOG(Log::JIT, "Comp_RunBlock");
+	}
 }
 
 void Jit::LinkBlock(u8 *exitPoint, const u8 *checkedEntry) {

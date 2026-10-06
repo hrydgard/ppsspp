@@ -406,6 +406,21 @@ void JitBlockCache::RestoreSavedEmuHackOps(const std::vector<u32> &saved) {
 	}
 }
 
+bool JitBlockCache::ClearStaleEmuHackOp(u32 addr) {
+	// Called when the compiler runs into a RUNBLOCK emuhack op as a regular instruction
+	// (Comp_RunBlock).  A legit block start would have been handled by the dispatcher, so
+	// this is a stale op left in RAM by a previous session - for example loaded from an old
+	// savestate.  The original instruction is unknowable, and we compile it as a no-op
+	// anyway: clear it in RAM too, so it can't spread into future savestates.
+	const int bl = GetBlockNumberFromEmuHackOp(MIPSOpcode(Memory::ReadUnchecked_U32(addr)), true);
+	if (bl >= 0 && blocks_[bl].originalAddress == addr)
+		return false;  // Legit block start after all - leave it alone.
+
+	if (Memory::IsValid4AlignedAddress(addr))
+		Memory::Write_Opcode_JIT(addr, MIPSOpcode(0));
+	return true;
+}
+
 void JitBlockCache::ReportStrayEmuHackOps() const {
 	// Called while saving a state, after SaveAndClearEmuHackOps().  Any emuhack-looking op
 	// still in RAM is not claimed by a block at its address: either harmless data, or a stale
