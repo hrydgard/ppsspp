@@ -1037,6 +1037,15 @@ ReplayResult DumpExecute::Run() {
 		}
 
 		const Command &cmd = commands_[i];
+		// Only the first INIT is real. Before 71210f3fa2 a second dump request during a recording started
+		// it again, writing another INIT (and initial CLUT) into the dump: the GE state of that moment,
+		// which already includes register writes the dump only has after it. Applied, it ran the last
+		// draws with the wrong state (GOD EATER BURST 13950 came out black, Street Riders 14746 garbled).
+		if (cmd.type == CommandType::INIT && i != 0) {
+			if (i + 1 < commands_.size() && commands_[i + 1].type == CommandType::CLUT)
+				++i;
+			continue;
+		}
 		switch (cmd.type) {
 		case CommandType::INIT:
 			Init(cmd.ptr, cmd.sz);
