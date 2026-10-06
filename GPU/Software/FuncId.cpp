@@ -183,16 +183,18 @@ void ComputePixelFuncID(PixelFuncID *id) {
 				id->alphaBlendDst = (uint8_t)OptimizeAlphaFactor(gstate.getFixB());
 		}
 
+		id->applyLogicOp = gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY;
+		id->applyFog = gstate.isFogEnabled() && !gstate.isModeThrough();
+
 		if (id->colorTest && gstate.getColorTestFunction() == GE_COMP_NOTEQUAL && gstate.getColorTestRef() == 0 && gstate.getColorTestMask() == 0xFFFFFF) {
 			if (!id->depthWrite && !id->stencilTest && id->alphaBlend && id->AlphaBlendEq() == GE_BLENDMODE_MUL_AND_ADD) {
-				// Might be a pointless color test (seen in Ridge Racer, for example.)
-				if (id->AlphaBlendDst() == PixelBlendFactor::ONE)
+				// Rejecting black then only skips adding nothing to the destination, unless dithering, fog
+				// or a logic op would still change it: Ridge Racer 2 (UCES00422) adds a glow with dithering,
+				// and its black pixels must not get the dither.
+				if (id->AlphaBlendDst() == PixelBlendFactor::ONE && !id->dithering && !id->applyFog && !id->applyLogicOp)
 					id->colorTest = false;
 			}
 		}
-
-		id->applyLogicOp = gstate.isLogicOpEnabled() && gstate.getLogicOp() != GE_LOGIC_COPY;
-		id->applyFog = gstate.isFogEnabled() && !gstate.isModeThrough();
 
 		id->earlyZChecks = id->DepthTestFunc() != GE_COMP_ALWAYS;
 		if (id->stencilTest && id->earlyZChecks) {
