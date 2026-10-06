@@ -261,7 +261,10 @@ int JitBlockCache::GetBlockNumberFromStartAddress(u32 addr) const {
 		return -1;
 
 	MIPSOpcode inst = MIPSOpcode(Memory::ReadUnchecked_U32(addr));
-	int bl = GetBlockNumberFromEmuHackOp(inst);
+	// ignoreBad: this lookup happens on every block-exit link opportunity, so it regularly
+	// probes addresses holding data or stale ops (e.g. captured by a game that copies its
+	// own code around).  Those aren't errors, and the -1 return is all callers care about.
+	int bl = GetBlockNumberFromEmuHackOp(inst, true);
 	if (bl < 0) {
 		return -1;
 	}
