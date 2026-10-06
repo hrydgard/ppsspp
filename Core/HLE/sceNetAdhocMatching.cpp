@@ -1015,13 +1015,6 @@ void actOnBulkDataPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr *
 * @param length Packet Length
 */
 void actOnBirthPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * sendermac, uint32_t length) {
-	// Find Peer
-	SceNetAdhocMatchingMemberInternal * peer = findPeer(context, sendermac);
-
-	if (peer == NULL || context->mode != PSP_ADHOC_MATCHING_MODE_CHILD || peer != findParent(context)) {
-		// Invalid Circumstances
-		return;
-	}
 	if (length < (1 + sizeof(SceNetEtherAddr))) {
 		// Incomplete packet
 		return;
@@ -1030,6 +1023,19 @@ void actOnBirthPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * se
 	// Extract Child MAC
 	SceNetEtherAddr mac;
 	memcpy(&mac, context->rxbuf + 1, sizeof(SceNetEtherAddr));
+
+	std::lock_guard<std::recursive_mutex> peer_guard(peerlock);
+
+	// Only the established parent can announce siblings.
+	SceNetAdhocMatchingMemberInternal * peer = findPeer(context, sendermac);
+	if (peer == NULL || context->mode != PSP_ADHOC_MATCHING_MODE_CHILD || peer != findParent(context)) {
+		return;
+	}
+
+	// Ignore duplicate announcements and do not exceed the configured group size.
+	if (findPeer(context, &mac) != NULL || countConnectedPeers(context) >= (uint32_t)context->maxpeers) {
+		return;
+	}
 
 	// Allocate Memory
 	SceNetAdhocMatchingMemberInternal * sibling = (SceNetAdhocMatchingMemberInternal *)malloc(sizeof(SceNetAdhocMatchingMemberInternal));
@@ -1051,13 +1057,9 @@ void actOnBirthPacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * se
 	// Initialize Ping Timer
 	sibling->lastping = CoreTiming::GetGlobalTimeUsScaled(); //time_now_d()*1000000.0;
 
-	peerlock.lock();
-
 	// Link Peer
 	sibling->next = context->peerlist;
 	context->peerlist = sibling;
-
-	peerlock.unlock();
 
 	// Spawn Established Event. FIXME: ESTABLISHED event should only be triggered for Parent/P2P peer?
 	//spawnLocalEvent(context, PSP_ADHOC_MATCHING_EVENT_ESTABLISHED, &sibling->mac, 0, NULL);
