@@ -425,6 +425,10 @@ private:
 	bool zTest_ = false;
 	bool zWriteDisable_ = false;
 	u32 clearMode_ = 0;
+	// Right after INIT, where a CLUT command is the CLUT the GE had loaded.
+	bool initialClut_ = false;
+	// Whether the last DISPLAY showed something (address 0 turns the display off).
+	bool haveDisplay_ = false;
 	// The vertices recorded for the next draw.
 	u32 lastVertsPtr_ = 0;
 	u32 lastVertsSize_ = 0;
@@ -463,6 +467,7 @@ void DumpExecute::SyncStall() {
 }
 
 void DumpExecute::Registers(u32 ptr, u32 sz) {
+	initialClut_ = false;
 	if (execListBuf == 0) {
 		u32 allocSize = LIST_BUF_SIZE;
 		execListBuf = userMemory.Alloc(allocSize, true, "List buf");
@@ -620,6 +625,7 @@ void DumpExecute::Init(u32 ptr, u32 sz) {
 		lastTex_[i] = 0;
 	}
 	lastBase_ = 0xFFFFFFFF;
+	initialClut_ = true;
 }
 
 // The drawing-space bounds of a through mode draw's vertices, or false if they aren't simple to read
@@ -782,6 +788,16 @@ void DumpExecute::Clut(u32 ptr, u32 sz) {
 
 		execListQueue.push_back((GE_CMD_CLUTADDRUPPER << 24) | ((psp >> 8) & 0x00FF0000));
 		execListQueue.push_back((GE_CMD_CLUTADDR << 24) | (psp & 0x00FFFFFF));
+		if (initialClut_) {
+			// The CLUT the GE had loaded when the recording started (the recorder saves it right after
+			// INIT), with no LOADCLUT to follow, unlike the CLUTs recorded at a LOADCLUT: load it here,
+			// then put the game's CLUT address back. Without this, draws used whatever CLUT was loaded
+			// before (HotBrain 16131, ULUS10268, drew its save screen background black).
+			execListQueue.push_back((GE_CMD_LOADCLUT << 24) | ((sz / 32) & 0x3F));
+			execListQueue.push_back(gstate.clutaddrupper);
+			execListQueue.push_back(gstate.clutaddr);
+			initialClut_ = false;
+		}
 	}
 }
 
@@ -973,6 +989,11 @@ void DumpExecute::Display(u32 ptr, u32 sz, bool allowFlip) {
 	// Sync up drawing.
 	SyncStall();
 
+	// A display turned off shows nothing to compare, so the result falls back to the last framebuffer
+	// drawn to, as for a dump without a DISPLAY (Auditorium 9213). The PSP replayer does the same.
+	haveDisplay_ = disp->topaddr.ptr != 0;
+	if (!haveDisplay_)
+		return;
 	__DisplaySetFramebuf(disp->topaddr.ptr, disp->linesize, disp->pixelFormat, 1);
 	if (allowFlip) {
 		__DisplaySetFramebuf(disp->topaddr.ptr, disp->linesize, disp->pixelFormat, 0);
@@ -1094,6 +1115,12 @@ ReplayResult DumpExecute::Run() {
 	}
 
 	SubmitListEnd();
+	if (!haveDisplay_ && fbWidth_ != 0) {
+		SyncStall();
+		const u32 addr = 0x04000000 | (fbPtr_ & 0x001FFFF0);
+		__DisplaySetFramebuf(addr, fbWidth_ & 0x07FC, fbFormat_, 1);
+		__DisplaySetFramebuf(addr, fbWidth_ & 0x07FC, fbFormat_, 0);
+	}
 	return ReplayResult::Done;
 }
 
