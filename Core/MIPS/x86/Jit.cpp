@@ -45,6 +45,10 @@
 
 #include "Core/Debugger/Breakpoints.h"
 
+// Defined in Asm.cpp.  End of the code generated this session, used by the dispatcher to
+// validate emuhack block-entry targets (they can be stale after loading a savestate).
+extern const u8 *g_jitValidCodeEnd;
+
 namespace MIPSComp
 {
 using namespace Gen;
@@ -323,6 +327,8 @@ void Jit::Compile(u32 em_address) {
 	_dbg_assert_(js.nextExit <= 2);
 
 	EndWrite();
+	// Mark the freshly compiled block as safe to enter via the dispatcher.
+	g_jitValidCodeEnd = GetCodePtr();
 
 	bool cleanSlate = false;
 

@@ -38,6 +38,11 @@ using namespace X64JitConstants;
 
 extern volatile CoreState coreState;
 
+// End of the code actually generated this session.  Emuhack ops left in RAM by an earlier
+// session (for example in a savestate) can point beyond this, into poisoned memory, so the
+// dispatcher must validate block entry targets against it.
+const u8 *g_jitValidCodeEnd = nullptr;
+
 namespace MIPSComp
 {
 
@@ -189,8 +194,24 @@ void Jit::GenerateFixedCode(JitOptions &jo) {
 					ADD(64, R(EAX), Imm32((u32)jitbase));
 				}
 #endif
+#if PPSSPP_ARCH(AMD64)
+				// A stale emuhack op (for example one loaded from a savestate written with a
+				// different block layout) could point into poisoned, unallocated code.  Only
+				// take the shortcut if the target is within the code compiled this session,
+				// otherwise fall through and compile the block again.
+				if (RipAccessible(&g_jitValidCodeEnd)) {
+					CMP(64, R(RAX), M(&g_jitValidCodeEnd));
+				} else {
+					MOV(64, R(RCX), ImmPtr(&g_jitValidCodeEnd));
+					CMP(64, R(RAX), MatR(RCX));
+				}
+				FixupBranch badTarget = J_CC(CC_AE);
+#endif
 				JMPptr(R(EAX));
 			SetJumpTarget(notfound);
+#if PPSSPP_ARCH(AMD64)
+			SetJumpTarget(badTarget);
+#endif
 
 			//Ok, no block, let's jit
 			RestoreRoundingMode(true);
@@ -228,6 +249,8 @@ void Jit::GenerateFixedCode(JitOptions &jo) {
 	// Let's spare the pre-generated code from unprotect-reprotect.
 	endOfPregeneratedCode = AlignCodePage();
 	EndWrite();
+
+	g_jitValidCodeEnd = GetCodePtr();
 }
 
 }  // namespace

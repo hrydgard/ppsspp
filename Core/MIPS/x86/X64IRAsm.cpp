@@ -35,6 +35,12 @@ using namespace X64IRJitConstants;
 static const bool enableDebug = false;
 static const bool enableDisasm = false;
 
+// End of the code generated this session.  Emuhack ops left in RAM by an earlier session
+// (for example in a savestate) can point beyond this, into poisoned memory, so the dispatcher
+// validates block entry targets against it.  Updated at the end of GenerateFixedCode and
+// after each CompileBlock.
+const u8 *g_irJitValidCodeEnd = nullptr;
+
 static void ShowPC(void *membase, void *jitbase) {
 	static int count = 0;
 	if (currentMIPS) {
@@ -258,9 +264,23 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 					// See above, reserveR15ForAsm is used when above 0x7FFFFFFF.
 					LEA(64, SCRATCH1, MDisp(SCRATCH1, (s32)jitbase));
 				}
+				// A stale emuhack op (for example one loaded from a savestate written with a
+				// different block layout) could point into poisoned, unallocated code.  Only
+				// take the shortcut if the target is within the code compiled this session,
+				// otherwise fall through and compile the block again.
+				if (RipAccessible(&g_irJitValidCodeEnd)) {
+					CMP(64, R(SCRATCH1), M(&g_irJitValidCodeEnd));
+				} else {
+					MOV(64, R(RCX), ImmPtr(&g_irJitValidCodeEnd));
+					CMP(64, R(SCRATCH1), MatR(RCX));
+				}
+				FixupBranch badTarget = J_CC(CC_AE);
 #endif
 				JMPptr(R(SCRATCH1));
 			SetJumpTarget(needsCompile);
+#if PPSSPP_ARCH(AMD64)
+			SetJumpTarget(badTarget);
+#endif
 
 			// No block found, let's jit.  We don't need to save static regs, they're all callee saved.
 			RestoreRoundingMode(true);
@@ -315,6 +335,8 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	AlignCodePage();
 	jitStartOffset_ = (int)(GetCodePtr() - start);
 	EndWrite();
+
+	g_irJitValidCodeEnd = GetCodePtr();
 }
 
 } // namespace MIPSComp

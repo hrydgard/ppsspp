@@ -35,6 +35,10 @@ static constexpr int MIN_BLOCK_NORMAL_LEN = 10;
 // As long as we can fit a JMP, we should be fine.
 static constexpr int MIN_BLOCK_EXIT_LEN = 5;
 
+// Defined in X64IRAsm.cpp.  End of the code generated this session, used by the dispatcher to
+// validate emuhack block-entry targets (they can be stale after loading a savestate).
+extern const u8 *g_irJitValidCodeEnd;
+
 X64JitBackend::X64JitBackend(JitOptions &jitopt, IRBlockCache &blocks)
 	: IRNativeBackend(blocks), jo(jitopt), regs_(&jo) {
 	// Automatically disable incompatible options.
@@ -170,6 +174,9 @@ bool X64JitBackend::CompileBlock(IRBlockCache *irBlockCache, int block_num) {
 	}
 
 	compilingBlockNum_ = -1;
+
+	// Mark the freshly compiled block as safe to enter via the dispatcher.
+	g_irJitValidCodeEnd = GetCodePointer();
 
 	return true;
 }
@@ -317,6 +324,8 @@ bool X64JitBackend::DescribeCodePtr(const u8 *ptr, std::string &name) const {
 void X64JitBackend::ClearAllBlocks() {
 	ClearCodeSpace(jitStartOffset_);
 	EraseAllLinks(-1);
+	// Everything below the fixed code is poison now, so the dispatcher must not shortcut into it.
+	g_irJitValidCodeEnd = GetCodePointer();
 }
 
 void X64JitBackend::InvalidateBlock(IRBlockCache *irBlockCache, int block_num) {

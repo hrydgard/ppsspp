@@ -1287,6 +1287,13 @@ namespace MIPSInt {
 	}
 
 	void Int_Emuhack(MIPSState *mips, MIPSOpcode op) {
+		if (((op >> 24) & 3) == EMUOP_RUNBLOCK) {
+			// Stale block op, e.g. loaded from a savestate written while the JIT was enabled.
+			// The block it refers to can't exist here, so just skip the instruction.
+			WARN_LOG(Log::CPU, "Ignoring stale JIT block op %08x at %08x", op.encoding, PC);
+			PC += 4;
+			return;
+		}
 		if (((op >> 24) & 3) != EMUOP_CALL_REPLACEMENT) {
 			_dbg_assert_msg_(false, "Trying to interpret emuhack instruction that can't be interpreted");
 		}
