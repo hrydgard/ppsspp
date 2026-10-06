@@ -47,6 +47,7 @@
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/System.h"
 #include "Core/Util/GameDB.h"
+#include "Core/Util/PathUtil.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
@@ -1110,13 +1111,14 @@ static u32 LoadReplay(const std::string &filename) {
 		memset(header.gameID, 0, sizeof(header.gameID));
 	}
 
-	size_t gameIDLength = strnlen(header.gameID, sizeof(header.gameID));
-	if (gameIDLength != 0) {
-		g_paramSFO.SetValue("DISC_ID", std::string(header.gameID, gameIDLength), (int)sizeof(header.gameID));
+	const std::string gameID(header.gameID, strnlen(header.gameID, sizeof(header.gameID)));
+	// The ID picks the texture pack directory, among other things.
+	if (IsSafePathComponent(gameID)) {
+		g_paramSFO.SetValue("DISC_ID", gameID, (int)sizeof(header.gameID));
 		std::vector<GameDBInfo> info;
 		std::string gameTitle = "(unknown title)";
 #if !defined(__LIBRETRO__)
-		if (g_gameDB.GetGameInfos(header.gameID, &info)) {
+		if (g_gameDB.GetGameInfos(gameID, &info)) {
 			gameTitle = info[0].title;
 			g_paramSFO.SetValue("TITLE", gameTitle, (int)gameTitle.size());
 		}

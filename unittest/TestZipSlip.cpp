@@ -80,8 +80,29 @@ static bool TestZipSlipExtraction() {
 	return true;
 }
 
+static bool TestIsSafePathComponent() {
+	EXPECT_TRUE(IsSafePathComponent("ULUS10041"));
+	EXPECT_TRUE(IsSafePathComponent("NPJH-50465"));
+	EXPECT_TRUE(IsSafePathComponent("a.b"));
+	EXPECT_TRUE(IsSafePathComponent("My Game"));
+	EXPECT_FALSE(IsSafePathComponent(""));
+	EXPECT_FALSE(IsSafePathComponent("."));
+	EXPECT_FALSE(IsSafePathComponent(".."));
+	EXPECT_FALSE(IsSafePathComponent("..."));
+	EXPECT_FALSE(IsSafePathComponent(".. "));
+	EXPECT_FALSE(IsSafePathComponent("../ULUS10041"));
+	EXPECT_FALSE(IsSafePathComponent("..\\ULUS10041"));
+	EXPECT_FALSE(IsSafePathComponent("C:"));
+	EXPECT_FALSE(IsSafePathComponent("ULUS10041:stream"));
+	EXPECT_FALSE(IsSafePathComponent(std::string_view("ULUS\0/..", 8)));
+	EXPECT_FALSE(IsSafePathComponent("ULUS\n10041"));
+	return true;
+}
+
 bool TestZipSlip() {
 	if (!TestHasParentDirComponent())
+		return false;
+	if (!TestIsSafePathComponent())
 		return false;
 	if (!TestZipSlipExtraction())
 		return false;

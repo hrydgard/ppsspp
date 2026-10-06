@@ -29,6 +29,7 @@
 #include "Core/ELF/PBPReader.h"
 #include "Core/Loaders.h"
 #include "Core/System.h"
+#include "Core/Util/PathUtil.h"
 #include "Core/Util/PkgUnpack.h"
 
 #include "ext/libkirk/AES.h"
@@ -353,8 +354,9 @@ bool PkgReader::ReadPBOOTInfo(const PkgItem &pboot) {
 	if (info_.discVersion.empty()) {
 		info_.discVersion = "1.00";
 	}
-	// A disc ID is what the install is keyed on, so without one there's nowhere to put this.
-	info_.isGameUpdate = !info_.discId.empty();
+	// The install goes in a directory named after the disc ID, so without a usable one there's
+	// nowhere to put this.
+	info_.isGameUpdate = IsSafePathComponent(info_.discId);
 	return info_.isGameUpdate;
 }
 

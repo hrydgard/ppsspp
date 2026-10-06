@@ -496,6 +496,11 @@ bool GameManager::DetectTexturePackDest(struct zip *z, int iniIndex, Path &dest)
 			}
 		}
 	}
+	// The ID comes from the archive and becomes a directory name.
+	if (!IsSafePathComponent(gameID)) {
+		SetInstallError(iz->T("Texture pack doesn't support install"));
+		return false;
+	}
 
 	Path pspTextures = GetSysDirectory(DIRECTORY_TEXTURES);
 	dest = pspTextures / gameID;
