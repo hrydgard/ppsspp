@@ -219,7 +219,9 @@ static ScreenCoords ClipToScreenInternal(Vec3f scaled, const ClipCoords &coords,
 	if constexpr (depthClamp) {
 		// A vertex the near plane clips away (z < -w) doesn't set the flag, even for x and y. One exactly on
 		// the plane isn't clipped, so its range counts (gpu/clipping/guardband).
-		if ((alwaysCheckRange || !(coords.z < -coords.w)) && (scaled.x >= SCREEN_BOUND || scaled.y >= SCREEN_BOUND || scaled.x < 0 || scaled.y < 0)) {
+		// Written as a test for inside, so a NaN coordinate is outside: converting it to an integer below differs
+		// by CPU, and on x86-64 its triangles became huge slivers.
+		if ((alwaysCheckRange || !(coords.z < -coords.w)) && !(scaled.x < SCREEN_BOUND && scaled.y < SCREEN_BOUND && scaled.x >= 0 && scaled.y >= 0)) {
 			*outside_range_flag = true;
 		}
 
@@ -227,7 +229,7 @@ static ScreenCoords ClipToScreenInternal(Vec3f scaled, const ClipCoords &coords,
 			scaled.z = 0.f;
 		else if (scaled.z > 65535.0f)
 			scaled.z = 65535.0f;
-	} else if (scaled.x > SCREEN_BOUND || scaled.y >= SCREEN_BOUND || scaled.x < 0 || scaled.y < 0 || scaled.z < 0.0f || scaled.z >= 65536.0f) {
+	} else if (!(scaled.x <= SCREEN_BOUND && scaled.y < SCREEN_BOUND && scaled.x >= 0 && scaled.y >= 0 && scaled.z >= 0.0f && scaled.z < 65536.0f)) {
 		*outside_range_flag = true;
 	}
 
