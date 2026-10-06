@@ -33,6 +33,11 @@ namespace MIPSComp {
 using namespace Arm64Gen;
 using namespace Arm64IRJitConstants;
 
+// End of the code generated this session.  Emuhack ops left in RAM by an earlier session
+// (for example in a savestate) can point beyond this, into poisoned memory, so the dispatcher
+// validates block entry targets against it.
+const u8 *g_arm64IRValidCodeEnd = nullptr;
+
 static const bool enableDebug = false;
 static const bool enableDisasm = false;
 
@@ -214,8 +219,17 @@ void Arm64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 			CMP(SCRATCH2, MIPS_EMUHACK_OPCODE >> 24);
 			FixupBranch skipJump = B(CC_NEQ);
 				ADD(SCRATCH1_64, JITBASEREG, SCRATCH1_64);
+				// A stale emuhack op (for example one loaded from a savestate written with a
+				// different block layout) could point into poisoned, unallocated code.  Only
+				// take the shortcut if the target is within the code compiled this session,
+				// otherwise fall through and compile the block again.
+				MOVP2R(SCRATCH2_64, &g_arm64IRValidCodeEnd);
+				LDR(INDEX_UNSIGNED, SCRATCH2_64, SCRATCH2_64, 0);
+				CMP(SCRATCH1_64, SCRATCH2_64);
+				FixupBranch badTarget = B(CC_HS);
 				BR(SCRATCH1_64);
 			SetJumpTarget(skipJump);
+			SetJumpTarget(badTarget);
 
 			// No block found, let's jit.  We don't need to save static regs, they're all callee saved.
 			RestoreRoundingMode(true);
@@ -279,6 +293,8 @@ void Arm64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	// Don't forget to zap the instruction cache! This must stay at the end of this function.
 	FlushIcache();
 	EndWrite();
+
+	g_arm64IRValidCodeEnd = GetCodePtr();
 
 	// Update our current cached rounding mode func, too.
 	UpdateFCR31(mipsState);

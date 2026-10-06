@@ -32,6 +32,11 @@ using namespace RiscVJitConstants;
 static const bool enableDebug = false;
 static const bool enableDisasm = false;
 
+// End of the code generated this session.  Emuhack ops left in RAM by an earlier session
+// (for example in a savestate) can point beyond this, into poisoned memory, so the dispatcher
+// validates block entry targets against it.
+const u8 *g_riscvJitValidCodeEnd = nullptr;
+
 static void ShowPC(u32 downcount, void *membase, void *jitbase) {
 	static int count = 0;
 	if (currentMIPS) {
@@ -192,8 +197,17 @@ void RiscVJitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	FixupBranch needsCompile = BNE(SCRATCH2, R_ZERO);
 	// No need to mask, JITBASEREG has already accounted for the upper bits.
 	ADD(SCRATCH1, JITBASEREG, SCRATCH1);
+	// A stale emuhack op (for example one loaded from a savestate written with a different
+	// block layout) could point into poisoned, unallocated code.  Only take the shortcut if
+	// the target is within the code compiled this session, otherwise fall through and
+	// compile the block again.
+	// X12 is a caller-saved temporary, dead at this point in the dispatcher.
+	LI(SCRATCH2, &g_riscvJitValidCodeEnd, X12);
+	LD(SCRATCH2, SCRATCH2, 0);
+	FixupBranch badTarget = BLTU(SCRATCH1, SCRATCH2);
 	JR(SCRATCH1);
 	SetJumpTarget(needsCompile);
+	SetJumpTarget(badTarget);
 
 	// No block found, let's jit.  We don't need to save static regs, they're all callee saved.
 	RestoreRoundingMode(true);
@@ -254,6 +268,8 @@ void RiscVJitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	// Don't forget to zap the instruction cache! This must stay at the end of this function.
 	FlushIcache();
 	EndWrite();
+
+	g_riscvJitValidCodeEnd = GetCodePtr();
 }
 
 } // namespace MIPSComp

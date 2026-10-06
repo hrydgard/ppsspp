@@ -29,6 +29,11 @@ namespace MIPSComp {
 using namespace LoongArch64Gen;
 using namespace LoongArch64JitConstants;
 
+// Defined in LoongArch64Asm.cpp.  End of the code generated this session, used by the
+// dispatcher to validate emuhack block-entry targets (they can be stale after loading a
+// savestate).
+extern const u8 *g_loongArchJitValidCodeEnd;
+
 // Needs space for a LI and J which might both be 32-bit offsets.
 static constexpr int MIN_BLOCK_NORMAL_LEN = 16;
 static constexpr int MIN_BLOCK_EXIT_LEN = 8;
@@ -170,6 +175,9 @@ bool LoongArch64JitBackend::CompileBlock(IRBlockCache *irBlockCache, int block_n
 	FlushIcache();
 	compilingBlockNum_ = -1;
 
+	// Mark the freshly compiled block as safe to enter via the dispatcher.
+	g_loongArchJitValidCodeEnd = GetCodePtr();
+
 	return true;
 }
 
@@ -295,6 +303,8 @@ void LoongArch64JitBackend::ClearAllBlocks() {
 	ClearCodeSpace(jitStartOffset_);
 	FlushIcacheSection(region + jitStartOffset_, region + region_size - jitStartOffset_);
 	EraseAllLinks(-1);
+	// Everything below the fixed code is poison now, so the dispatcher must not shortcut into it.
+	g_loongArchJitValidCodeEnd = GetCodePtr();
 }
 
 void LoongArch64JitBackend::InvalidateBlock(IRBlockCache *irBlockCache, int block_num) {

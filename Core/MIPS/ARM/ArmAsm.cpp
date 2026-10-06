@@ -70,6 +70,11 @@ namespace MIPSComp {
 
 using namespace ArmJitConstants;
 
+// End of the code actually generated this session.  Emuhack ops left in RAM by an earlier
+// session (for example in a savestate) can point beyond this, into poisoned memory, so the
+// dispatcher must validate block entry targets against it.
+const u8 *g_armJitValidCodeEnd = nullptr;
+
 void ArmJit::GenerateFixedCode() {
 	BeginWrite(GetMemoryProtectPageSize());
 	const u8 *start = AlignCodePage();
@@ -216,8 +221,17 @@ void ArmJit::GenerateFixedCode() {
 				MOVI2R(JITBASEREG, (u32)(uintptr_t)GetBasePtr());
 #endif
 				ADD(R0, R0, JITBASEREG);
+				// A stale emuhack op (for example one loaded from a savestate written with a
+				// different block layout) could point into poisoned, unallocated code.  Only
+				// take the shortcut if the target is within the code compiled this session,
+				// otherwise fall through and compile the block again.
+				MOVI2R(R1, (u32)(uintptr_t)&g_armJitValidCodeEnd);
+				LDR(R1, R1);
+				CMP(R0, R1);
+				FixupBranch badTarget = B_CC(CC_HS);
 				B(R0);
 			SetCC(CC_AL);
+			SetJumpTarget(badTarget);
 
 			// No block found, let's jit
 			SaveDowncount();

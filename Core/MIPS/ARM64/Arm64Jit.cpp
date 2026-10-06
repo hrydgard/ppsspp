@@ -96,6 +96,10 @@ namespace MIPSComp
 using namespace Arm64Gen;
 using namespace Arm64JitConstants;
 
+// Defined in Arm64Asm.cpp.  End of the code generated this session, used by the dispatcher to
+// validate emuhack block-entry targets (they can be stale after loading a savestate).
+extern const u8 *g_arm64JitValidCodeEnd;
+
 Arm64Jit::Arm64Jit(MIPSState *mipsState) : blocks(mipsState, this), gpr(mipsState, &js, &jo), fpr(mipsState, &js, &jo), mips_(mipsState), fp(this) {
 	// Automatically disable incompatible options.
 	if (((intptr_t)Memory::base & 0x00000000FFFFFFFFUL) != 0) {
@@ -195,6 +199,8 @@ void Arm64Jit::ClearCache() {
 	INFO_LOG(Log::JIT, "ARM64Jit: Clearing the cache!");
 	blocks.Clear();
 	ClearCodeSpace(jitStartOffset);
+	// Everything below the fixed code is poison now, so the dispatcher must not shortcut into it.
+	g_arm64JitValidCodeEnd = GetCodePtr();
 	FlushIcacheSection(region + jitStartOffset, region + region_size - jitStartOffset);
 }
 
@@ -266,6 +272,8 @@ void Arm64Jit::Compile(u32 em_address) {
 	blocks.FinalizeBlock(block_num, jo.enableBlocklink);
 	b->DoIntegrityCheck(em_address, block_num, "AfterFinalize");
 	EndWrite();
+	// Mark the freshly compiled block as safe to enter via the dispatcher.
+	g_arm64JitValidCodeEnd = GetCodePtr();
 	_dbg_assert_(js.nextExit <= 2);
 
 	// Don't forget to zap the newly written instructions in the instruction cache!

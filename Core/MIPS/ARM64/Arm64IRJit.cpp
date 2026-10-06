@@ -33,6 +33,10 @@ namespace MIPSComp {
 using namespace Arm64Gen;
 using namespace Arm64IRJitConstants;
 
+// Defined in Arm64IRAsm.cpp.  End of the code generated this session, used by the dispatcher
+// to validate emuhack block-entry targets (they can be stale after loading a savestate).
+extern const u8 *g_arm64IRValidCodeEnd;
+
 // Invalidations just need at most two MOVs and B.
 static constexpr int MIN_BLOCK_NORMAL_LEN = 12;
 // As long as we can fit a B, we should be fine.
@@ -193,6 +197,9 @@ bool Arm64JitBackend::CompileBlock(IRBlockCache *irBlockCache, int block_num) {
 	FlushIcache();
 	compilingBlockNum_ = -1;
 
+	// Mark the freshly compiled block as safe to enter via the dispatcher.
+	g_arm64IRValidCodeEnd = GetCodePtr();
+
 	return true;
 }
 
@@ -330,6 +337,8 @@ void Arm64JitBackend::ClearAllBlocks() {
 	ClearCodeSpace(jitStartOffset_);
 	FlushIcacheSection(region + jitStartOffset_, region + region_size - jitStartOffset_);
 	EraseAllLinks(-1);
+	// Everything below the fixed code is poison now, so the dispatcher must not shortcut into it.
+	g_arm64IRValidCodeEnd = GetCodePtr();
 }
 
 void Arm64JitBackend::InvalidateBlock(IRBlockCache *irBlockCache, int block_num) {

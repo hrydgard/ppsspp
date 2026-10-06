@@ -104,6 +104,10 @@ namespace MIPSComp {
 using namespace ArmGen;
 using namespace ArmJitConstants;
 
+// Defined in ArmAsm.cpp.  End of the code generated this session, used by the dispatcher to
+// validate emuhack block-entry targets (they can be stale after loading a savestate).
+extern const u8 *g_armJitValidCodeEnd;
+
 ArmJit::ArmJit(MIPSState *mipsState) : blocks(mipsState, this), gpr(mipsState, &js, &jo), fpr(mipsState, &js, &jo), mips_(mipsState) {
 	logBlocks = 0;
 	dontLogBlocks = 0;
@@ -262,6 +266,8 @@ void ArmJit::Compile(u32 em_address) {
 	blocks.FinalizeBlock(block_num, jo.enableBlocklink);
 	b->DoIntegrityCheck(em_address, block_num, "AfterFinalize");
 	EndWrite();
+	// Mark the freshly compiled block as safe to enter via the dispatcher.
+	g_armJitValidCodeEnd = GetCodePtr();
 
 	_dbg_assert_(js.nextExit <= 2);
 
