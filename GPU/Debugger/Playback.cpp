@@ -610,7 +610,18 @@ void DumpExecute::SubmitListEnd() {
 }
 
 void DumpExecute::Init(u32 ptr, u32 sz) {
-	gstate.Restore((u32_le *)(pushbuf_.data() + ptr));
+	// Dumps from before savedContextVersion 1 hold PPSSPP's old context layout, with the matrices as raw
+	// floats; the new one ends its commands with an END. Restoring an old one as new turned its matrices
+	// into garbage and the scene disappeared (4140). The PSP replayer tells them apart the same way.
+	const u32_le *context = (const u32_le *)(pushbuf_.data() + ptr);
+	bool oldLayout = true;
+	for (int i = 17; i < 512; ++i) {
+		if (context[i] == GE_CMD_END << 24) {
+			oldLayout = false;
+			break;
+		}
+	}
+	gstate.Restore(context, oldLayout);
 	ExecuteOnMain(Operation{ OpType::ReapplyGfxState });
 	fbPtr_ = gstate.fbptr & 0x00FFFFFF;
 	fbWidth_ = gstate.fbwidth & 0x00FFFFFF;

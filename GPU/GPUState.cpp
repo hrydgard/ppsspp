@@ -205,6 +205,10 @@ void GEState::FastLoadBoneMatrix(u32 addr) {
 }
 
 void GEState::Restore(const u32_le *ptr) {
+	Restore(ptr, savedContextVersion == 0);
+}
+
+void GEState::Restore(const u32_le *ptr, bool oldLayout) {
 	// Not sure what the first 10 values are, exactly, but these seem right.
 	gstate_c.vertexAddr = ptr[5];
 	gstate_c.indexAddr = ptr[6];
@@ -218,7 +222,7 @@ void GEState::Restore(const u32_le *ptr) {
 		}
 	}
 
-	if (savedContextVersion == 0) {
+	if (oldLayout) {
 		if (Memory::IsValidAddress(getClutAddress()))
 			loadclut = *cmds++;
 		boneMatrixNumber = *cmds++;

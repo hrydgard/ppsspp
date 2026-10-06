@@ -439,6 +439,8 @@ struct GEState {
 	static void Reset();
 	void Save(u32_le *ptr);
 	void Restore(const u32_le *ptr);
+	// oldLayout: PPSSPP's layout before savedContextVersion 1, with the matrices as raw floats.
+	void Restore(const u32_le *ptr, bool oldLayout);
 };
 
 bool vertTypeIsSkinningEnabled(u32 vertType);
