@@ -115,6 +115,64 @@ void SetMemStickDirDarwin(int requesterToken) {
 }
 #endif
 
+#if defined(SDL) || PPSSPP_PLATFORM(ANDROID) || (PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP))
+static bool IsControllerDeviceForHaptics(InputDeviceID deviceId) {
+	const int id = (int)deviceId;
+	return (id >= DEVICE_ID_PAD_0 && id <= DEVICE_ID_PAD_9) || (id >= DEVICE_ID_XINPUT_0 && id <= DEVICE_ID_XINPUT_3);
+}
+
+static bool IsControllerButtonExcludedFromHaptics(InputKeyCode keyCode) {
+	switch (keyCode) {
+	case NKCODE_DPAD_UP:
+	case NKCODE_DPAD_DOWN:
+	case NKCODE_DPAD_LEFT:
+	case NKCODE_DPAD_RIGHT:
+	case NKCODE_DPAD_CENTER:
+	case NKCODE_BUTTON_THUMBL:
+	case NKCODE_BUTTON_THUMBR:
+		return true;
+	default:
+		return false;
+	}
+}
+
+class ControllerHapticButtonDialog : public UI::PopupScreen {
+public:
+	explicit ControllerHapticButtonDialog(std::function<void(const InputMapping &)> callback)
+		: PopupScreen(GetI18NCategory(I18NCat::CONTROLS)->T("Assign controller button"), GetI18NCategory(I18NCat::DIALOG)->T("Cancel")), callback_(std::move(callback)) {}
+
+	bool key(const KeyInput &key) override {
+		if ((key.flags & KeyInputFlags::DOWN) && IsControllerDeviceForHaptics(key.deviceId)) {
+			if (!IsControllerButtonExcludedFromHaptics(key.keyCode)) {
+				if (callback_)
+					callback_(InputMapping(key.deviceId, key.keyCode));
+				TriggerFinish(DR_YES);
+			}
+			return true;
+		}
+		return UI::PopupScreen::key(key);
+	}
+
+	void axis(const AxisInput &axis) override {
+		if (IsControllerDeviceForHaptics(axis.deviceId) && (axis.axisId == JOYSTICK_AXIS_LTRIGGER || axis.axisId == JOYSTICK_AXIS_RTRIGGER) && axis.value >= 0.5f) {
+			if (callback_)
+				callback_(InputMapping(axis.deviceId, axis.axisId, 1));
+			TriggerFinish(DR_YES);
+		}
+	}
+
+	void CreatePopupContents(UI::ViewGroup *parent) override {
+		auto co = GetI18NCategory(I18NCat::CONTROLS);
+		parent->Add(new UI::TextView(co->T("Press a controller button or pull a trigger to exclude it. D-pad and analog sticks are always exempt.")));
+	}
+
+	const char *tag() const override { return "ControllerHapticButtonDialog"; }
+
+private:
+	std::function<void(const InputMapping &)> callback_;
+};
+#endif
+
 GameSettingsScreen::GameSettingsScreen(const Path &gamePath, std::string gameID, bool editThenRestore)
 	: UITabbedBaseDialogScreen(gamePath, &g_Config.iSettingsCurrentTab, TabDialogFlags::HorizontalOnlyIcons | TabDialogFlags::VerticalShowIcons), gameID_(gameID), editGameSpecificThenRestore_(editThenRestore) {
 	prevInflightFrames_ = g_Config.iInflightFrames;
@@ -786,6 +844,32 @@ void GameSettingsScreen::CreateControlsSettings(UI::ViewGroup *controlsSettings)
 	int deviceType = System_GetPropertyInt(SYSPROP_DEVICE_TYPE);
 
 	controlsSettings->Add(new ItemHeader(ms->T("Controls")));
+#if defined(SDL) || PPSSPP_PLATFORM(ANDROID) || (PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP))
+	controlsSettings->Add(new CheckBox(&g_Config.bControllerHapticFeedback, co->T("Refined Rumble")));
+	controlsSettings->Add(new ItemHeader(co->T("Excluded controller inputs:")));
+	for (int i = 0; i < 5; ++i) {
+		LinearLayout *row = controlsSettings->Add(new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
+		row->SetSpacing(3.0f);
+		ChoiceWithCallbackValueDisplay *button = row->Add(new ChoiceWithCallbackValueDisplay(ApplySafeSubstitutions(co->T("Excluded controller input %1"), i + 1), [i]() {
+			const std::string &value = g_Config.sControllerVibrationPauseButton[i];
+			if (value.empty()) {
+				auto co = GetI18NCategory(I18NCat::CONTROLS);
+				return std::string(co->T("Not assigned"));
+			}
+			const InputMapping mapping = InputMapping::FromConfigString(value);
+			return KeyMap::GetKeyOrAxisName(mapping);
+		}, new LinearLayoutParams(FILL_PARENT, 55.0f, 1.0f)));
+		button->OnClick.Add([this, i](EventParams &) {
+			screenManager()->push(new ControllerHapticButtonDialog([i](const InputMapping &mapping) {
+				g_Config.sControllerVibrationPauseButton[i] = mapping.ToConfigString();
+			}));
+		});
+		Choice *deleteButton = row->Add(new Choice(GetI18NCategory(I18NCat::DIALOG)->T("Delete"), new LinearLayoutParams(WRAP_CONTENT, 55.0f)));
+		deleteButton->OnClick.Add([i](EventParams &) {
+			g_Config.sControllerVibrationPauseButton[i].clear();
+		});
+	}
+#endif
 	controlsSettings->Add(new Choice(co->T("Control mapping")))->OnClick.Add([this](UI::EventParams &e) {
 		screenManager()->push(new ControlMappingScreen(gamePath_));
 	});

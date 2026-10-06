@@ -15,6 +15,7 @@
 #include "Core/Core.h"
 #include "Core/System.h"
 #include "Core/KeyMap.h"
+#include "Core/RefinedRumble.h"
 #include "Core/HLE/sceCtrl.h"
 
 // Utilities to dynamically load XInput. Adapted from SDL.
@@ -157,6 +158,12 @@ XinputDevice::XinputDevice() {
 }
 
 XinputDevice::~XinputDevice() {
+	for (int i = 0; i < XUSER_MAX_COUNT; ++i) {
+		if (padData_[i].connected) {
+			XINPUT_VIBRATION vibration{};
+			PPSSPP_XInputSetState(i, &vibration);
+		}
+	}
 	UnloadXInputDLL();
 }
 
@@ -206,6 +213,7 @@ int XinputDevice::UpdateState() {
 }
 
 void XinputDevice::ReleaseAllKeys(int pad) {
+	padData_[pad].activeRumbleInputs.clear();
 	for (int i = 0; i < ARRAY_SIZE(xinput_ctrl_map); i++) {
 		const auto &mapping = xinput_ctrl_map[i];
 		KeyInput key;
@@ -236,6 +244,21 @@ void XinputDevice::UpdatePad(int pad, const XINPUT_STATE &state, XINPUT_VIBRATIO
 
 	if (sendInput) {
 		ApplyButtons(pad, state);
+		auto updateTrigger = [&](InputAxis axis, float value, int inputId) {
+			const bool triggerDown = padData_[pad].activeRumbleInputs.find(inputId) != padData_[pad].activeRumbleInputs.end();
+			if (!triggerDown && value >= 0.5f) {
+				UpdateRefinedRumble(pad, inputId, true, InputMapping(DEVICE_ID_XINPUT_0 + pad, axis, 1));
+			} else if (triggerDown && value <= 0.4f) {
+				UpdateRefinedRumble(pad, inputId, false, InputMapping(DEVICE_ID_XINPUT_0 + pad, axis, 1));
+			}
+		};
+		updateTrigger(JOYSTICK_AXIS_LTRIGGER, (float)state.Gamepad.bLeftTrigger / 255.0f, 0x10000);
+		updateTrigger(JOYSTICK_AXIS_RTRIGGER, (float)state.Gamepad.bRightTrigger / 255.0f, 0x10001);
+	} else {
+		padData_[pad].activeRumbleInputs.clear();
+	}
+	if (!IsRefinedRumbleEnabled()) {
+		padData_[pad].activeRumbleInputs.clear();
 	}
 	ApplyVibration(pad, vibration);
 
@@ -277,6 +300,7 @@ void XinputDevice::ApplyButtons(int pad, const XINPUT_STATE &state) {
 
 	for (int i = 0; i < ARRAY_SIZE(xinput_ctrl_map); i++) {
 		if (downMask & xinput_ctrl_map[i].from) {
+			UpdateRefinedRumble(pad, xinput_ctrl_map[i].from, true, InputMapping(DEVICE_ID_XINPUT_0 + pad, xinput_ctrl_map[i].to));
 			KeyInput key;
 			key.deviceId = DEVICE_ID_XINPUT_0 + pad;
 			key.flags = KeyInputFlags::DOWN;
@@ -284,6 +308,7 @@ void XinputDevice::ApplyButtons(int pad, const XINPUT_STATE &state) {
 			NativeKey(key);
 		}
 		if (upMask & xinput_ctrl_map[i].from) {
+			UpdateRefinedRumble(pad, xinput_ctrl_map[i].from, false, InputMapping(DEVICE_ID_XINPUT_0 + pad, xinput_ctrl_map[i].to));
 			KeyInput key;
 			key.deviceId = DEVICE_ID_XINPUT_0 + pad;
 			key.flags = KeyInputFlags::UP;
@@ -293,13 +318,22 @@ void XinputDevice::ApplyButtons(int pad, const XINPUT_STATE &state) {
 	}
 }
 
+void XinputDevice::UpdateRefinedRumble(int pad, int inputId, bool down, const InputMapping &mapping) {
+	if (down) {
+		if (IsRefinedRumbleInputAllowed(mapping)) {
+			padData_[pad].activeRumbleInputs.insert(inputId);
+		}
+	} else {
+		padData_[pad].activeRumbleInputs.erase(inputId);
+	}
+}
 void XinputDevice::ApplyVibration(int pad, XINPUT_VIBRATION &vibration) {
 	if (PSP_IsInited()) {
-		newVibrationTime_ = time_now_d();
+		const double newVibrationTime = time_now_d();
 		// We have to run PPSSPP_XInputSetState at time intervals
 		// since it bugs otherwise with very high fast-forward speeds
 		// and freezes at constant vibration or no vibration at all.
-		if (newVibrationTime_ - prevVibrationTime_ >= 1.0 / 64.0) {
+		if (newVibrationTime - padData_[pad].prevVibrationTime >= 1.0 / 64.0) {
 			if (GetUIState() == UISTATE_INGAME) {
 				vibration.wLeftMotorSpeed = sceCtrlGetLeftVibration(); // use any value between 0-65535 here
 				vibration.wRightMotorSpeed = sceCtrlGetRightVibration(); // use any value between 0-65535 here
@@ -307,17 +341,28 @@ void XinputDevice::ApplyVibration(int pad, XINPUT_VIBRATION &vibration) {
 				vibration.wLeftMotorSpeed = 0;
 				vibration.wRightMotorSpeed = 0;
 			}
+			if (IsRefinedRumbleEnabled() && !padData_[pad].activeRumbleInputs.empty()) {
+				vibration.wLeftMotorSpeed = std::max<WORD>(vibration.wLeftMotorSpeed, 0x8000);
+				vibration.wRightMotorSpeed = std::max<WORD>(vibration.wRightMotorSpeed, 0x8000);
+			}
 
 			if (padData_[pad].prevVibration.wLeftMotorSpeed != vibration.wLeftMotorSpeed || padData_[pad].prevVibration.wRightMotorSpeed != vibration.wRightMotorSpeed) {
 				PPSSPP_XInputSetState(pad, &vibration);
 				padData_[pad].prevVibration = vibration;
 			}
-			prevVibrationTime_ = newVibrationTime_;
+			padData_[pad].prevVibrationTime = newVibrationTime;
 		}
 	} else {
-		DWORD dwResult = PPSSPP_XInputSetState(pad, &vibration);
-		if (dwResult != ERROR_SUCCESS) {
-			padData_[pad].checkDelayUpdates = 30;
+		if (IsRefinedRumbleEnabled() && !padData_[pad].activeRumbleInputs.empty()) {
+			vibration.wLeftMotorSpeed = 0x8000;
+			vibration.wRightMotorSpeed = 0x8000;
+		}
+		if (padData_[pad].prevVibration.wLeftMotorSpeed != vibration.wLeftMotorSpeed || padData_[pad].prevVibration.wRightMotorSpeed != vibration.wRightMotorSpeed) {
+			DWORD dwResult = PPSSPP_XInputSetState(pad, &vibration);
+			if (dwResult != ERROR_SUCCESS) {
+				padData_[pad].checkDelayUpdates = 30;
+			}
+			padData_[pad].prevVibration = vibration;
 		}
 	}
 }
