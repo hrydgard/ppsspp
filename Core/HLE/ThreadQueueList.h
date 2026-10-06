@@ -200,6 +200,17 @@ struct ThreadQueueList {
 			int capacity = cur->capacity;
 			Do(p, capacity);
 
+			if (p.mode == p.MODE_READ) {
+				const int maxCapacity = KernelObjectPool::maxCount * 2;
+				if (size < 0 || size > KernelObjectPool::maxCount || capacity < 0 ||
+					capacity > maxCapacity || size > capacity ||
+					!p.CheckRead((size_t)size * sizeof(SceUID))) {
+					ERROR_LOG(Log::sceKernel, "Savestate loading error: invalid thread queue data");
+					p.SetError(p.ERROR_FAILURE);
+					return;
+				}
+			}
+
 			if (capacity == 0)
 				continue;
 
