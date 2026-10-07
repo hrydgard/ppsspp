@@ -641,9 +641,11 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		sizeManager.checkDisplayMeasurements();
 	}
 
-	public native boolean runVulkanRenderLoop(Surface surface);
+	// Starts the native render loop thread. Used by Vulkan, and by OpenGL when the native side
+	// owns EGL rather than the GLSurfaceView in the javaGL path.
+	public native boolean runRenderLoop(Surface surface);
 	// Tells the render loop thread to exit, so we can restart it.
-	public native void requestExitVulkanRenderLoop();
+	public native void requestExitRenderLoop();
 
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
@@ -942,7 +944,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		Log.w(TAG, "startRenderLoopThread: Starting thread");
 
 		applyFrameRate(mSurface, 60.0f);
-		runVulkanRenderLoop(mSurface);
+		runRenderLoop(mSurface);
 	}
 
 	private synchronized void joinRenderLoopThread() {
@@ -952,8 +954,8 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		}
 
 		// This will wait until the thread has exited.
-		Log.i(TAG, "requestExitVulkanRenderLoop");
-		requestExitVulkanRenderLoop();
+		Log.i(TAG, "requestExitRenderLoop");
+		requestExitRenderLoop();
 	}
 
 	void setupSystemUiCallback() {
