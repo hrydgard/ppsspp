@@ -16,6 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <cstring>
+#include <vector>
 
 #include "ppsspp_config.h"
 
@@ -155,6 +157,22 @@ bool TestJit() {
 	*p++ = MIPS_MAKE_BREAK(1);
 	*p++ = MIPS_MAKE_JR_RA();
 
+	// The cores keep their block lookup and hooks out of PSP memory, so the code has to read back
+	// as assembled while its blocks are live.
+	const u8 *code = Memory::GetPointerOrException(currentMIPS->pc);
+	const std::vector<u8> assembled(code, (const u8 *)p);
+	bool memoryClean = true;
+	auto checkMemoryClean = [&](const char *core) {
+		if (memcmp(code, assembled.data(), assembled.size()) != 0) {
+			printf("%s modified the code in PSP memory\n", core);
+			memoryClean = false;
+		}
+		if (MIPSComp::jit && Memory::ReadBlockShadow(PSP_GetUserMemoryBase()) == 0) {
+			printf("%s didn't enter its block in the block shadow\n", core);
+			memoryClean = false;
+		}
+	};
+
 	// Dogfood.
 	addr = currentMIPS->pc;
 	for (size_t j = 0; j < ARRAY_SIZE(lines); ++j) {
@@ -169,13 +187,19 @@ bool TestJit() {
 	double jit_speed = 0.0, jit_ir_speed = 0.0, ir_speed = 0.0, interp_speed = 0.0;
 	if (compileSuccess) {
 		interp_speed = ExecCPUTest();
+		checkMemoryClean("Interpreter");
 		mipsr4k.UpdateCore(CPUCore::IR_INTERPRETER);
-		ir_speed = ExecCPUTest();
+		ir_speed = ExecCPUTest(false);
+		checkMemoryClean("IR interpreter");
+		MIPSComp::jit->ClearCache();
 		mipsr4k.UpdateCore(CPUCore::JIT);
-		jit_speed = ExecCPUTest();
+		jit_speed = ExecCPUTest(false);
+		checkMemoryClean("JIT");
+		MIPSComp::jit->ClearCache();
 #if !PPSSPP_PLATFORM(MAC)
 		mipsr4k.UpdateCore(CPUCore::JIT_IR);
 		jit_ir_speed = ExecCPUTest(false);  // not clearing, so the below can do things.
+		checkMemoryClean("JIT IR");
 #endif
 
 		// Disassemble
@@ -198,5 +222,5 @@ bool TestJit() {
 
 	DestroyJitHarness();
 
-	return jit_speed >= interp_speed;
+	return memoryClean && jit_speed >= interp_speed;
 }

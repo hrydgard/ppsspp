@@ -343,12 +343,7 @@ int ExecInstruction(MIPSState *mips, MIPSOpcode op) {
     case 26:
     {
         switch ((op.encoding >> 24) & 0x3) {
-        // RUNBLOCK
-        case 0:
-            MIPSInt::Int_Emuhack(mips, op);
-            return 2;
-        // RetKrnl, CallRepl
-        case 1:
+        // CallRepl
         case 2:
             MIPSInt::Int_Emuhack(mips, op);
             return 1;

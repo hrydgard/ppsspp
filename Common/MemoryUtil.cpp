@@ -254,6 +254,54 @@ void *AllocateMemoryPages(size_t size, uint32_t memProtFlags) {
 	return ptr;
 }
 
+void *ReserveMemoryPages(size_t size) {
+#ifdef _WIN32
+	if (sys_info.dwPageSize == 0)
+		GetSystemInfo(&sys_info);
+	size = ppsspp_round_page(size);
+#if PPSSPP_PLATFORM(UWP)
+	void *ptr = VirtualAllocFromApp(0, size, MEM_RESERVE, PAGE_NOACCESS);
+#else
+	void *ptr = VirtualAlloc(0, size, MEM_RESERVE, PAGE_NOACCESS);
+#endif
+	if (!ptr) {
+		ERROR_LOG(Log::MemMap, "Failed to reserve %d bytes of address space", (int)size);
+		return nullptr;
+	}
+#else
+	size = ppsspp_round_page(size);
+	void *ptr = mmap(0, size, PROT_NONE, MAP_ANON | MAP_PRIVATE | MAP_NORESERVE, -1, 0);
+	if (ptr == MAP_FAILED) {
+		ERROR_LOG(Log::MemMap, "Failed to reserve %d bytes of address space: errno=%d", (int)size, errno);
+		return nullptr;
+	}
+#endif
+	return ptr;
+}
+
+bool CommitMemoryPages(void *ptr, size_t size) {
+	uintptr_t page_size = GetMemoryProtectPageSize();
+	uintptr_t start = (uintptr_t)ptr & ~(page_size - 1);
+	uintptr_t end = ((uintptr_t)ptr + size + page_size - 1) & ~(page_size - 1);
+#ifdef _WIN32
+#if PPSSPP_PLATFORM(UWP)
+	void *result = VirtualAllocFromApp((void *)start, end - start, MEM_COMMIT, PAGE_READWRITE);
+#else
+	void *result = VirtualAlloc((void *)start, end - start, MEM_COMMIT, PAGE_READWRITE);
+#endif
+	if (!result) {
+		ERROR_LOG(Log::MemMap, "CommitMemoryPages failed!\n%s", GetLastErrorMsg().c_str());
+		return false;
+	}
+#else
+	if (mprotect((void *)start, end - start, PROT_READ | PROT_WRITE) != 0) {
+		ERROR_LOG(Log::MemMap, "CommitMemoryPages failed (%p)! errno=%d (%s)", (void *)start, errno, strerror(errno));
+		return false;
+	}
+#endif
+	return true;
+}
+
 void *AllocateAlignedMemory(size_t size, size_t alignment) {
 #ifdef _WIN32
 	void* ptr = _aligned_malloc(size, alignment);

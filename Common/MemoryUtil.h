@@ -45,6 +45,11 @@ void* AllocateMemoryPages(size_t size, uint32_t memProtFlags);
 bool ProtectMemoryPages(const void* ptr, size_t size, uint32_t memProtFlags);
 void FreeMemoryPages(void* ptr, size_t size);
 
+// Reserves address space without backing it. Accessing it faults until CommitMemoryPages
+// makes a range readable and writable (zero-filled, backed lazily). Free with FreeMemoryPages.
+void *ReserveMemoryPages(size_t size);
+bool CommitMemoryPages(void *ptr, size_t size);
+
 // Regular aligned memory. Don't try to apply memory protection willy-nilly to memory allocated this way as in-page alignment is unknown (though could be checked).
 // No longer asserts, will return nullptr on failure.
 // WARNING: Not necessarily malloc-compatible!

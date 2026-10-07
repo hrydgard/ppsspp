@@ -200,17 +200,14 @@ void ArmJit::GenerateFixedCode() {
 			}
 
 			LDR(R0, CTXREG, offsetof(MIPSState, pc));
-			// TODO: In practice, do we ever run code from uncached space (| 0x40000000)? If not, we can remove this BIC.
-			BIC(R0, R0, Operand2(0xC0, 4));   // &= 0x3FFFFFFF
+			static_assert(Memory::BLOCK_SHADOW_MASK == 0x0FFFFFFF, "BIC below assumes the 32-bit shadow mask");
+			BIC(R0, R0, Operand2(0xF0, 4));   // &= 0x0FFFFFFF. Rotation is to the right, in 2-bit increments.
+			MOVI2R(R1, (u32)(uintptr_t)Memory::blockShadow);
 			dispatcherFetch = GetCodePtr();
-			LDR(R0, MEMBASEREG, R0);
-			AND(R1, R0, Operand2(0xFF, 4));   // rotation is to the right, in 2-bit increments.
-			BIC(R0, R0, Operand2(0xFF, 4));
-			CMP(R1, Operand2(MIPS_EMUHACK_OPCODE >> 24, 4));
-			SetCC(CC_EQ);
-				// IDEA - we have 26 bits, why not just use offsets from base of code?
-				// Another idea: Shift the bloc number left by two in the op, this would let us do
-				// LDR(R0, R9, R0); here, replacing the next instructions.
+			LDR(R0, R1, R0);
+			// The entry is the block's offset into the code space, or 0 for none.
+			CMP(R0, Operand2(0));
+			SetCC(CC_NEQ);
 #if PPSSPP_PLATFORM(IOS)
 				// On iOS, R9 (JITBASEREG) is volatile.  We have to reload it.
 				MOVI2R(JITBASEREG, (u32)(uintptr_t)GetBasePtr());
@@ -220,6 +217,8 @@ void ArmJit::GenerateFixedCode() {
 			SetCC(CC_AL);
 
 			// No block found, let's jit
+			// A replacement hook's block shadow entry jumps here too, see GetBlockShadowHookValue().
+			blockShadowHook = GetCodePtr();
 			SaveDowncount();
 			RestoreRoundingMode(true);
 			QuickCallFunctionR(R2, (void *)&MIPSComp::JitAt, CTXREG);

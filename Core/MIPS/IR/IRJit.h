@@ -68,8 +68,6 @@ public:
 	u32 GetIRArenaOffset() const { return arenaOffset_; }
 	int GetNumIRInstructions() const { return numIRInstructions_; }
 	MIPSOpcode GetOriginalFirstOp() const { return origFirstOpcode_; }
-	bool HasOriginalFirstOp() const;
-	bool RestoreOriginalFirstOp(int number);
 	bool IsValid() const { return origAddr_ != 0 && origFirstOpcode_.encoding != 0x68FFFFFF; }
 	void SetNativeOffset(int offset) {
 		nativeOffset_ = offset;
@@ -163,11 +161,9 @@ public:
 
 	int FindPreloadBlock(u32 em_address);
 
-	// "Cookie" means the 24 bits we inject into the first instruction of each block.
+	// "Cookie" means the value the block shadow holds for a block: its offset into the
+	// IR arena, or into the native code space when compiling to native.
 	int FindByCookie(int cookie);
-
-	std::vector<u32> SaveAndClearEmuHackOps();
-	void RestoreSavedEmuHackOps(const std::vector<u32> &saved);
 
 	JitBlockDebugInfo GetBlockDebugInfo(int blockNum) const override;
 	JitBlockMeta GetBlockMeta(int blockNum) const override {
@@ -221,10 +217,6 @@ public:
 	// Not using a regular block cache.
 	JitBlockCache *GetBlockCache() override { return nullptr; }
 	JitBlockCacheDebugInterface *GetBlockCacheDebugInterface() override { return &blocks_; }
-	MIPSOpcode GetOriginalOp(MIPSOpcode op) override;
-
-	std::vector<u32> SaveAndClearEmuHackOps() override { return blocks_.SaveAndClearEmuHackOps(); }
-	void RestoreSavedEmuHackOps(std::vector<u32> saved) override { blocks_.RestoreSavedEmuHackOps(saved); }
 
 	void ClearCache() override;
 	void InvalidateCacheAt(u32 em_address, int length = 4) override;

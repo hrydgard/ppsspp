@@ -67,7 +67,7 @@ static inline void DelayBranchTo(MIPSState *mips, u32 where) {
 }
 
 static inline void SkipLikely(MIPSState *mips) {
-	MIPSInfo delaySlot = MIPSGetInfo(Memory::Read_Instruction(PC + 4, true));
+	MIPSInfo delaySlot = MIPSGetInfo(Memory::Read_Instruction(PC + 4));
 	// Don't actually skip if it is a jump (seen in Brooktown High.)
 	if (delaySlot & IS_JUMP) {
 		PC += 4;
@@ -82,7 +82,7 @@ int MIPS_InterpretSingleStep(MIPSState *mips) {
 		Core_ExecException(mips->pc, mips->	pc, ExecExceptionType::JUMP);
 		return 0;
 	}
-	MIPSOpcode op = Memory::Read_Opcode_JIT(mips->pc);  // now unchecked
+	MIPSOpcode op = ReadExecutedOp(mips->pc);
 	// Same reason as the run loop in MIPSInterpret_RunUntil - see ApplyHostRoundingMode.
 	ApplyHostRoundingMode(mips);
 	if (mips->inDelaySlot) {
@@ -1287,11 +1287,14 @@ namespace MIPSInt {
 	}
 
 	void Int_Emuhack(MIPSState *mips, MIPSOpcode op) {
-		if (((op >> 24) & 3) != EMUOP_CALL_REPLACEMENT) {
-			_dbg_assert_msg_(false, "Trying to interpret emuhack instruction that can't be interpreted");
-		}
-
 		_assert_((PC & 3) == 0);
+
+		// The CPU cores substitute these for replaced instructions, memory never holds them.
+		// If it does, the game is executing data.
+		if (Memory::Read_Instruction(PC).encoding == op.encoding) {
+			Core_ExecException(PC, PC, ExecExceptionType::ILLEGAL);
+			return;
+		}
 
 		// It's a replacement func!
 		int index = op.encoding & 0xFFFFFF;
@@ -1304,7 +1307,7 @@ namespace MIPSInt {
 
 			if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
 				// Interpret the original instruction under the hook.
-				MIPSInterpret(mips, Memory::Read_Instruction(PC, true));
+				MIPSInterpret(mips, Memory::Read_Instruction(PC));
 			} else if (cycles < 0) {
 				// Leave PC unchanged, call the replacement again (assumes args are modified.)
 				mips->downcount += cycles;
@@ -1317,7 +1320,7 @@ namespace MIPSInt {
 				ERROR_LOG(Log::CPU, "Bad replacement function index %i", index);
 			}
 			// Interpret the original instruction under it.
-			MIPSInterpret(mips, Memory::Read_Instruction(PC, true));
+			MIPSInterpret(mips, Memory::Read_Instruction(PC));
 		}
 	}
 }

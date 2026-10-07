@@ -247,20 +247,19 @@ void Arm64Jit::GenerateFixedCode(const JitOptions &jo) {
 			}
 
 			LDR(INDEX_UNSIGNED, SCRATCH1, CTXREG, offsetof(MIPSState, pc));
-#ifdef MASKED_PSP_MEMORY
-			ANDI2R(SCRATCH1, SCRATCH1, 0x3FFFFFFF);
-#endif
+			ANDI2R(SCRATCH1, SCRATCH1, Memory::BLOCK_SHADOW_MASK);
+			MOVP2R(SCRATCH2_64, Memory::blockShadow);
 			dispatcherFetch = GetCodePtr();
-			LDR(SCRATCH1, MEMBASEREG, SCRATCH1_64);
-			LSR(SCRATCH2, SCRATCH1, 24);   // or UBFX(SCRATCH2, SCRATCH1, 24, 8)
-			ANDI2R(SCRATCH1, SCRATCH1, 0x00FFFFFF);
-			CMP(SCRATCH2, MIPS_EMUHACK_OPCODE >> 24);
-			FixupBranch skipJump = B(CC_NEQ);
+			LDR(SCRATCH1, SCRATCH2_64, SCRATCH1_64);
+			// The entry is the block's offset into the code space, or 0 for none.
+			FixupBranch skipJump = CBZ(SCRATCH1);
 				ADD(SCRATCH1_64, JITBASEREG, SCRATCH1_64);
 				BR(SCRATCH1_64);
 			SetJumpTarget(skipJump);
 
 			// No block found, let's jit. I don't think we actually need to save static regs that are in callee-save regs here but whatever.
+			// A replacement hook's block shadow entry jumps here too, see GetBlockShadowHookValue().
+			blockShadowHook = GetCodePtr();
 			// Also, rounding mode gotta be irrelevant here..
 			SaveStaticRegisters();
 			RestoreRoundingMode(true);

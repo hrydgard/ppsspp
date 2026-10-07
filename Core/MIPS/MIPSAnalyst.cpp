@@ -618,18 +618,18 @@ namespace MIPSAnalyst {
 	}
 
 	int OpMemoryAccessSize(u32 pc) {
-		const auto op = Memory::Read_Instruction(pc, true);
+		const auto op = Memory::Read_Instruction(pc);
 		return MIPSGetMemoryAccessSize(op);
 	}
 
 	bool IsOpMemoryWrite(u32 pc) {
-		const auto op = Memory::Read_Instruction(pc, true);
+		const auto op = Memory::Read_Instruction(pc);
 		MIPSInfo info = MIPSGetInfo(op);
 		return (info & OUT_MEM) != 0;
 	}
 
 	bool OpHasDelaySlot(u32 pc) {
-		const auto op = Memory::Read_Instruction(pc, true);
+		const auto op = Memory::Read_Instruction(pc);
 		MIPSInfo info = MIPSGetInfo(op);
 		return (info & DELAYSLOT) != 0;
 	}
@@ -639,7 +639,7 @@ namespace MIPSAnalyst {
 			return false;
 		}
 
-		const auto op = Memory::Read_Instruction(pc, true);
+		const auto op = Memory::Read_Instruction(pc);
 
 		// TODO: Trap sc/ll, svl.q, svr.q?
 
@@ -708,7 +708,7 @@ namespace MIPSAnalyst {
 		}
 
 		for (u32 addr = address, endAddr = address + MAX_ANALYZE; addr <= endAddr; addr += 4) {
-			MIPSOpcode op = Memory::Read_Instruction(addr, true);
+			MIPSOpcode op = Memory::Read_Instruction(addr);
 			MIPSInfo info = MIPSGetInfo(op);
 
 			MIPSGPReg rs = MIPS_GET_RS(op);
@@ -784,7 +784,7 @@ namespace MIPSAnalyst {
 		u32 end = addr + instrs * sizeof(u32);
 		bool canClobber = true;
 		while (addr < end) {
-			const MIPSOpcode op = Memory::Read_Instruction(addr, true);
+			const MIPSOpcode op = Memory::Read_Instruction(addr);
 			const MIPSInfo info = MIPSGetInfo(op);
 
 			// Yes, used.
@@ -833,7 +833,7 @@ namespace MIPSAnalyst {
 		u32 end = addr + instrs * sizeof(u32);
 		bool canClobber = true;
 		while (addr < end) {
-			const MIPSOpcode op = Memory::Read_Instruction(addr, true);
+			const MIPSOpcode op = Memory::Read_Instruction(addr);
 			const MIPSInfo info = MIPSGetInfo(op);
 
 			// Yes, used.
@@ -890,17 +890,12 @@ namespace MIPSAnalyst {
 				continue;
 			}
 
-			// This is unfortunate.  In case of emuhacks or relocs, we have to make a copy.
+			// Immediates are masked out, so relocations don't change the hash.
 			buffer.resize((f.end - f.start + 4) / 4);
 			size_t pos = 0;
 			for (u32 addr = f.start; addr <= f.end; addr += 4) {
 				u32 validbits = 0xFFFFFFFF;
-				MIPSOpcode instr = Memory::ReadUnchecked_Instruction(addr, true);
-				if (MIPS_IS_EMUHACK(instr)) {
-					f.hasHash = false;
-					goto skip;
-				}
-
+				MIPSOpcode instr = Memory::ReadUnchecked_Instruction(addr);
 				MIPSInfo flags = MIPSGetInfo(instr);
 				if (flags & IN_IMM16)
 					validbits &= ~0xFFFF;
@@ -911,8 +906,6 @@ namespace MIPSAnalyst {
 
 			f.hash = CityHash64((const char *) &buffer[0], buffer.size() * sizeof(u32));
 			f.hasHash = true;
-skip:
-			;
 		}
 	}
 
@@ -964,7 +957,7 @@ skip:
 
 		const u32 scanEnd = fromAddr + Memory::ClampValidSizeAt(fromAddr, MAX_AHEAD_SCAN);
 		for (u32 ahead = fromAddr; ahead < scanEnd; ahead += 4) {
-			MIPSOpcode aheadOp = Memory::Read_Instruction(ahead, true);
+			MIPSOpcode aheadOp = Memory::Read_Instruction(ahead);
 			u32 target = GetBranchTargetNoRA(ahead, aheadOp);
 			if (target == INVALIDTARGET && ((aheadOp & 0xFC000000) == 0x08000000)) {
 				target = GetJumpTarget(ahead);
@@ -988,7 +981,7 @@ skip:
 
 		if (closestJumpbackAddr != INVALIDTARGET && furthestJumpbackAddr == INVALIDTARGET) {
 			for (u32 behind = closestJumpbackTarget; behind < fromAddr; behind += 4) {
-				MIPSOpcode behindOp = Memory::Read_Instruction(behind, true);
+				MIPSOpcode behindOp = Memory::Read_Instruction(behind);
 				u32 target = GetBranchTargetNoRA(behind, behindOp);
 				if (target == INVALIDTARGET && ((behindOp & 0xFC000000) == 0x08000000)) {
 					target = GetJumpTarget(behind);
@@ -1024,7 +1017,7 @@ skip:
 
 		u32 addr;
 		for (addr = startAddr; addr < endAddr; addr += 4) {
-			MIPSOpcode op = Memory::Read_Instruction(addr, true);
+			MIPSOpcode op = Memory::Read_Instruction(addr);
 			u32 target = GetBranchTargetNoRA(addr, op);
 			if (target != INVALIDTARGET) {
 				isStraightLeaf = false;
@@ -1047,7 +1040,7 @@ skip:
 					// If it's a nearby forward jump, and not a stackless leaf, assume not a tail call.
 					if (sureTarget <= addr + MAX_JUMP_FORWARD && decreasedSp) {
 						// But let's check the delay slot.
-						MIPSOpcode op = Memory::Read_Instruction(addr + 4, true);
+						MIPSOpcode op = Memory::Read_Instruction(addr + 4);
 						// addiu sp, sp, +X
 						if ((op & 0xFFFF8000) != 0x27BD0000) {
 							furthestBranch = sureTarget;

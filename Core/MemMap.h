@@ -108,7 +108,41 @@ enum {
 	// This wraparound should work for PSP too.
 	MEMVIEW32_MASK  = 0x3FFFFFFF,
 #endif
+
+	// Index mask for the block shadow (see blockShadow below). Dropping bits 30-31 folds the
+	// kernel and uncached mirrors onto the same entry, the way they share physical memory.
+	// Where address space is short, bits 28-29 are dropped too, so garbage PCs with those bits
+	// set alias real code instead of faulting.
+#if PPSSPP_ARCH(64BIT) && !PPSSPP_PLATFORM(IOS) && !PPSSPP_PLATFORM(SWITCH)
+	BLOCK_SHADOW_MASK = 0x3FFFFFFF,
+#else
+	BLOCK_SHADOW_MASK = 0x0FFFFFFF,
+#endif
 };
+
+enum : u32 {
+	// The block shadow value for a replacement hook when no JIT is running, and for the IR
+	// interpreter, which keeps this offset in its arena empty.
+	BLOCK_SHADOW_HOOK_NO_JIT = 1,
+};
+
+// One u32 per guest instruction, at the same byte offset as the instruction (after masking with
+// BLOCK_SHADOW_MASK). Holds the JIT's handle for the block starting there, 0 for none, or the
+// replacement hook value (see ReplaceTables.h).
+// Only the ranges backed by PSP memory are committed, so it's never safe to touch an entry for
+// an address that isn't valid. Reallocated by Init(), along with base.
+extern u8 *blockShadow;
+
+inline u32 *GetBlockShadowEntry(u32 address) {
+	return (u32 *)(blockShadow + (address & BLOCK_SHADOW_MASK));
+}
+
+// These check the address, and are safe to call when there's no shadow (after Shutdown()).
+u32 ReadBlockShadow(u32 address);
+void WriteBlockShadow(u32 address, u32 value);
+// Clears the entry only if it still holds value, back to the hook value if the address is hooked.
+// Returns true if it did.
+bool ClearBlockShadow(u32 address, u32 value);
 
 enum {
 	MV_MIRROR_PREVIOUS = 1,
@@ -140,14 +174,9 @@ void DoState(PointerWrap &p);
 // False when shutdown has already been called.
 bool IsActive();
 
-// used by JIT to read instructions. Does not resolve replacements.
-Opcode Read_Opcode_JIT(const u32 _Address);
-// used by JIT. Reads in the "Locked cache" mode
-void Write_Opcode_JIT(const u32 _Address, const Opcode& _Value);
-
-// Should be used by analyzers, disassemblers etc. Does resolve replacements.
-Opcode Read_Instruction(const u32 _Address, bool resolveReplacements = false);
-Opcode ReadUnchecked_Instruction(const u32 _Address, bool resolveReplacements = false);
+Opcode Read_Instruction(const u32 _Address);
+// Caller checks that the address is valid.
+Opcode ReadUnchecked_Instruction(const u32 _Address);
 
 u8  ReadOrException_U8(const u32 _Address);
 u16 ReadOrException_U16(const u32 _Address);

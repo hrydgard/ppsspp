@@ -32,7 +32,7 @@ namespace MIPSCodeUtils
 #define TARGET26 (_IMM26 << 2)
 
 	u32 GetJumpTarget(u32 addr) {
-		MIPSOpcode op = Memory::Read_Instruction(addr, true);
+		MIPSOpcode op = Memory::Read_Instruction(addr);
 		if (op != 0) {
 			MIPSInfo info = MIPSGetInfo(op);
 			if ((info & IS_JUMP) && (info & IN_IMM26))
@@ -45,7 +45,7 @@ namespace MIPSCodeUtils
 	}
 
 	u32 GetBranchTarget(u32 addr) {
-		MIPSOpcode op = Memory::Read_Instruction(addr, true);
+		MIPSOpcode op = Memory::Read_Instruction(addr);
 		if (op != 0) {
 			MIPSInfo info = MIPSGetInfo(op);
 			if (info & IS_CONDBRANCH)
@@ -58,7 +58,7 @@ namespace MIPSCodeUtils
 	}
 
 	u32 GetBranchTargetNoRA(u32 addr) {
-		MIPSOpcode op = Memory::Read_Instruction(addr, true);
+		MIPSOpcode op = Memory::Read_Instruction(addr);
 		return GetBranchTargetNoRA(addr, op);
 	}
 
@@ -76,7 +76,7 @@ namespace MIPSCodeUtils
 
 	// As long as addr is aligned, this will only return aligned addresses.
 	u32 GetSureBranchTarget(u32 addr) {
-		MIPSOpcode op = Memory::Read_Instruction(addr, true);
+		MIPSOpcode op = Memory::Read_Instruction(addr);
 		if (op != 0) {
 			MIPSInfo info = MIPSGetInfo(op);
 			if ((info & IS_CONDBRANCH) && !(info & (IN_FPUFLAG | IS_VFPU))) {

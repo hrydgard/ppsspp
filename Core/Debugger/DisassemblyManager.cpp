@@ -986,7 +986,7 @@ bool GetDisasmAddressText(u32 address, char *dest, size_t bufSize, bool abbrevia
 		}
 	} else {
 		if (showData) {
-			const u32 encoding = Memory::Read_Instruction(address, true).encoding;
+			const u32 encoding = Memory::Read_Instruction(address).encoding;
 			snprintf(dest, bufSize, "%08X %08X", address, encoding);
 		} else {
 			snprintf(dest, bufSize, "%08X", address);

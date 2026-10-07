@@ -121,7 +121,7 @@ void LoongArch64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	// Fixed registers, these are always kept when in Jit context.
 	LI(MEMBASEREG, Memory::base);
 	LI(CTXREG, mipsState);
-	LI(JITBASEREG, GetBasePtr() - MIPS_EMUHACK_OPCODE);
+	LI(JITBASEREG, GetBasePtr());
 
 	LoadStaticRegisters();
 	WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
@@ -167,23 +167,21 @@ void LoongArch64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 
 	LD_WU(SCRATCH1, CTXREG, offsetof(MIPSState, pc));
 	WriteDebugPC(SCRATCH1);
-#ifdef MASKED_PSP_MEMORY
-	LI(SCRATCH2, 0x3FFFFFFF);
+	LI(SCRATCH2, (u32)Memory::BLOCK_SHADOW_MASK);
 	AND(SCRATCH1, SCRATCH1, SCRATCH2);
-#endif
-	ADD_D(SCRATCH1, SCRATCH1, MEMBASEREG);
+	LI(SCRATCH2, Memory::blockShadow);
+	ADD_D(SCRATCH1, SCRATCH1, SCRATCH2);
 	hooks_.dispatchFetch = GetCodePtr();
 	LD_WU(SCRATCH1, SCRATCH1, 0);
-	SRLI_D(SCRATCH2, SCRATCH1, 24);
-	// We're in other words comparing to the top 8 bits of MIPS_EMUHACK_OPCODE by subtracting.
-	ADDI_D(SCRATCH2, SCRATCH2, -(MIPS_EMUHACK_OPCODE >> 24));
-	FixupBranch needsCompile = BNEZ(SCRATCH2);
-	// No need to mask, JITBASEREG has already accounted for the upper bits.
+	// The entry is the block's offset into the code space, or 0 for none.
+	FixupBranch needsCompile = BEQZ(SCRATCH1);
 	ADD_D(SCRATCH1, JITBASEREG, SCRATCH1);
 	JR(SCRATCH1);
 	SetJumpTarget(needsCompile);
 
 	// No block found, let's jit.  We don't need to save static regs, they're all callee saved.
+	// A replacement hook's block shadow entry jumps here too, see GetBlockShadowHookValue().
+	hooks_.blockShadowHook = GetCodePtr();
 	RestoreRoundingMode(true);
 	WriteDebugProfilerStatus(IRProfilerStatus::COMPILING);
 	QuickCallFunctionR(&MIPSComp::JitAt, CTXREG, R20);

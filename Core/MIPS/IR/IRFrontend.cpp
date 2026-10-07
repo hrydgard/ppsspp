@@ -142,6 +142,12 @@ bool IRFrontend::CheckRounding(u32 blockAddress) {
 }
 
 void IRFrontend::Comp_ReplacementFunc(MIPSOpcode op) {
+	// Memory never holds these: if it does, the game is executing data. Let the interpreter raise it.
+	if (Memory::Read_Instruction(GetCompilerPC()).encoding == op.encoding) {
+		Comp_Generic(op);
+		return;
+	}
+
 	int index = op.encoding & MIPS_EMUHACK_VALUE_MASK;
 
 	const ReplacementTableEntry *entry = GetReplacementFunc(index);
@@ -162,7 +168,7 @@ void IRFrontend::Comp_ReplacementFunc(MIPSOpcode op) {
 	}
 
 	if (disabled) {
-		MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC(), true), this);
+		MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC()), this);
 	} else if (entry->replaceFunc) {
 		FlushAll();
 		RestoreRoundingMode();
@@ -172,7 +178,7 @@ void IRFrontend::Comp_ReplacementFunc(MIPSOpcode op) {
 		if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
 			// Compile the original instruction at this address.  We ignore cycles for hooks.
 			ApplyRoundingMode();
-			MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC(), true), this);
+			MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC()), this);
 		} else {
 			ApplyRoundingMode();
 			// If IRTEMP_0 was set to 1, it means the replacement needs to run again (sliced.)
@@ -238,7 +244,8 @@ u32 IRFrontend::GetCompilerPC() {
 }
 
 MIPSOpcode IRFrontend::GetOffsetInstruction(int offset) {
-	return Memory::Read_Instruction(GetCompilerPC() + 4 * offset);
+	const u32 addr = GetCompilerPC() + 4 * offset;
+	return Memory::IsValid4AlignedAddress(addr) ? ReadExecutedOp(addr) : Memory::Read_Instruction(addr);
 }
 
 void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes) {
@@ -264,7 +271,7 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &m
 		// Jit breakpoints are quite fast, so let's do them in release too.
 		CheckBreakpoint(GetCompilerPC());
 
-		MIPSOpcode inst = Memory::Read_Opcode_JIT(GetCompilerPC());
+		MIPSOpcode inst = ReadExecutedOp(GetCompilerPC());
 		js.downcountAmount += MIPSGetInstructionCycleEstimate(inst);
 		MIPSCompileOp(inst, this);
 		js.compilerPC += 4;
@@ -323,7 +330,7 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &m
 		NOTICE_LOG(Log::JIT, "=============== mips %08x ===============", em_address);
 		for (u32 cpc = em_address; cpc != GetCompilerPC(); cpc += 4) {
 			temp2[0] = 0;
-			MIPSDisAsm(Memory::Read_Opcode_JIT(cpc), cpc, temp2, sizeof(temp2), true);
+			MIPSDisAsm(Memory::ReadUnchecked_Instruction(cpc), cpc, temp2, sizeof(temp2), true);
 			NOTICE_LOG(Log::JIT, "M: %08x   %s", cpc, temp2);
 		}
 	}
@@ -354,11 +361,6 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &m
 		dontLogBlocks--;
 }
 
-void IRFrontend::Comp_RunBlock(MIPSOpcode op) {
-	// This shouldn't be necessary, the dispatcher should catch us before we get here.
-	ERROR_LOG(Log::JIT, "Comp_RunBlock should never be reached!");
-}
-
 void IRFrontend::CheckBreakpoint(u32 addr) {
 	if (g_breakpoints.NeedsBreakCheckAt(addr)) {
 		FlushAll();
@@ -370,8 +372,8 @@ void IRFrontend::CheckBreakpoint(u32 addr) {
 		// At this point, downcount HAS the delay slot, but not the instruction itself.
 		int downcountOffset = 0;
 		if (js.inDelaySlot) {
-			MIPSOpcode branchOp = Memory::Read_Opcode_JIT(GetCompilerPC());
-			MIPSOpcode delayOp = Memory::Read_Opcode_JIT(addr);
+			MIPSOpcode branchOp = Memory::ReadUnchecked_Instruction(GetCompilerPC());
+			MIPSOpcode delayOp = Memory::ReadUnchecked_Instruction(addr);
 			downcountOffset = -MIPSGetInstructionCycleEstimate(delayOp);
 			if ((MIPSGetInfo(branchOp) & LIKELY) != 0) {
 				// Okay, we're in a likely branch.  Also negate the branch cycles.
@@ -403,8 +405,8 @@ void IRFrontend::CheckMemoryBreakpoint(int rs, int offset) {
 		int downcountOffset = 0;
 		if (js.inDelaySlot) {
 			// We assume delay slot in compilerPC + 4.
-			MIPSOpcode branchOp = Memory::Read_Opcode_JIT(GetCompilerPC());
-			MIPSOpcode delayOp = Memory::Read_Opcode_JIT(GetCompilerPC() + 4);
+			MIPSOpcode branchOp = Memory::ReadUnchecked_Instruction(GetCompilerPC());
+			MIPSOpcode delayOp = Memory::ReadUnchecked_Instruction(GetCompilerPC() + 4);
 			downcountOffset = -MIPSGetInstructionCycleEstimate(delayOp);
 			if ((MIPSGetInfo(branchOp) & LIKELY) != 0) {
 				// Okay, we're in a likely branch.  Also negate the branch cycles.
