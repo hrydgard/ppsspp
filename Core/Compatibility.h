@@ -147,6 +147,8 @@ public:
 	const VRCompat &vrCompat() const { return vrCompat_; }
 
 	void Load(const std::string &gameID);
+	// No flags at all.
+	void Clear();
 
 	const std::string &GetActiveFlagsString() const {
 		return activeList_;
@@ -155,7 +157,6 @@ public:
 
 
 private:
-	void Clear();
 	void CheckSettings(IniFile &iniFile, const std::string &gameID);
 	void CheckVRSettings(IniFile &iniFile, const std::string &gameID);
 	void CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, bool *flag);
