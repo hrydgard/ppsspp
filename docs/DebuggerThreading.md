@@ -34,11 +34,12 @@ mechanisms now exist for doing this safely - pick based on whether you're mutati
 
 Architecture fact that makes `g_frameMutex` correct: regardless of graphics backend, `NativeFrame()`
 (and thus CPU emulation via `Core_RunLoopUntil()`, and the Dear ImGui debugger) always runs on the
-*same* thread - see `Core/EmuThread.cpp`. When a backend needs its own thread for actual graphics
-API calls (`GraphicsContext::NeedsSeparateEmuThread()` - true for OpenGL, SDL, headless, libretro,
-Qt; false for D3D11/Vulkan on Windows), the *original* thread stays behind purely to pump
-`graphicsContext->ThreadFrame()` (i.e. just executes queued graphics API calls), and a *newly
-spawned* thread takes over `NativeFrame()`/game logic/CPU duty. So `UI/ImDebugger/*.cpp` is always
+*same* thread - see `RunGraphicsLoop()` in `Core/EmuThread.cpp`, which every platform goes through
+(Windows and headless via `MainThreadFunc()`, Android from its render loop thread). When a backend
+needs its own thread for actual graphics API calls (`GraphicsContext::NeedsSeparateEmuThread()` -
+true for OpenGL, SDL, headless, libretro, Qt; false for D3D11/Vulkan on Windows), the *original*
+thread stays behind purely to pump `graphicsContext->ThreadFrame()` (i.e. just executes queued
+graphics API calls), and a *newly spawned* thread takes over `NativeFrame()`/game logic/CPU duty. So `UI/ImDebugger/*.cpp` is always
 safe to read/write this state directly, without either mechanism - it's always on the same thread
 as `Core_RunLoopUntil()`. The legacy Win32 debugger is different: its dialogs are pumped by the
 *original* `WinMain` message-loop thread, which is a genuinely separate OS thread from whichever

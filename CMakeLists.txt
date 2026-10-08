@@ -925,6 +925,8 @@ if(ANDROID)
 		android/jni/app-android.cpp
 		android/jni/AndroidAudio.cpp
 		android/jni/AndroidAudio.h
+		android/jni/AndroidEGLGraphicsContext.cpp
+		android/jni/AndroidEGLGraphicsContext.h
 		android/jni/OpenSLContext.cpp
 		android/jni/OpenSLContext.h
 	)

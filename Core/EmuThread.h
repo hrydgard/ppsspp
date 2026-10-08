@@ -50,3 +50,15 @@ void EmuThread_Join(GraphicsContext *graphicsContext, std::thread &emuThread);
 // Call from the main thread.
 // NOTE: Does take ownership over Application (which is just a wrapper for NativeInitGraphics/NativeShutdownGraphics/NativeFrame).
 bool RunMainLoop(GraphicsContext *graphicsContext, Application *application, std::function<bool(GraphicsContext *)> frame);
+
+// Runs whichever thread arrangement graphicsContext asks for, on the calling thread, and doesn't
+// return until the emu thread is done. Either this thread becomes the render thread and the emu
+// thread is spawned alongside it (OpenGL, which needs its API calls on the thread its context is
+// current on), or this thread just runs the main loop because the backend spawns its own render
+// thread (Vulkan, D3D11).
+// The surface has to be initialized already, and is left alone - use MainThreadFunc if you want
+// that taken care of too.
+// shouldExit is optional, but required if you might run this in VR: see the comment on the render
+// loop in EmuThread.cpp for why ThreadFrame() alone isn't enough to get out of there.
+// NOTE: Does take ownership over Application (which is just a wrapper for NativeInitGraphics/NativeShutdownGraphics/NativeFrame).
+void RunGraphicsLoop(GraphicsContext *graphicsContext, Application *application, std::function<bool(GraphicsContext *)> frame, std::function<bool()> shouldExit = nullptr);

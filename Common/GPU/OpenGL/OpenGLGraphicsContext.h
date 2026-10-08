@@ -33,19 +33,15 @@ public:
 		renderManager_->ThreadEnd();
 	}
 
-	void NotifyContextLost() override {
-		if (renderManager_) {
-			renderManager_->SetSkipGLCalls();
-		}
-	}
-
 	// Call from emu thread
 	void NotifyEmuThreadExit() override {
 		renderManager_->SetSkipGLCalls();
 		renderManager_->NotifyEmuThreadExit();
 	}
 
-private:
+protected:
+	// Protected rather than private so a subclass that owns the real context (see
+	// android/jni/AndroidEGLGraphicsContext.h) can hook up a swap function.
 	Draw::DrawContext *draw_ = nullptr;
 	GLRenderManager *renderManager_ = nullptr;
 };
