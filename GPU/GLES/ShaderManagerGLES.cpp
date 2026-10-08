@@ -186,12 +186,15 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 
 	GLRProgramFlags flags{};
 	flags.supportDualSource = gstate_c.Use(GPU_USE_DUALSOURCE_BLEND);
-	if (!VSID.Bit(VS_BIT_IS_THROUGH) && gstate_c.Use(GPU_USE_DEPTH_CLAMP)) {
-		flags.useClipDistance0 = true;
-		if (VSID.Bit(VS_BIT_VERTEX_RANGE_CULLING) && gstate_c.Use(GPU_USE_CLIP_DISTANCE))
+	// Must match the planes GenerateVertexShader writes: min/max Z in 0 and 1, the near plane in 2.
+	if (gstate_c.Use(GPU_USE_CLIP_DISTANCE)) {
+		if (!VSID.Bit(VS_BIT_IS_THROUGH)) {
+			flags.useClipDistance0 = true;
 			flags.useClipDistance1 = true;
-	} else if (VSID.Bit(VS_BIT_VERTEX_RANGE_CULLING) && gstate_c.Use(GPU_USE_CLIP_DISTANCE)) {
-		flags.useClipDistance0 = true;
+		}
+		if (VSID.Bit(VS_BIT_USE_HW_TRANSFORM)) {
+			flags.useClipDistance2 = true;
+		}
 	}
 
 	program = render->CreateProgram(shaders, semantics, queries, initialize, nullptr, flags);
