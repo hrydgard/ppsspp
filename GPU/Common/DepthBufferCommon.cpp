@@ -54,11 +54,17 @@ static const VaryingDef varyings[] = {
 };
 
 void GenerateDepthDownloadFs(ShaderWriter &writer) {
+	// 24 bits of depth need full precision, through the sampler too (GLES samplers default to lowp).
+	writer.HighPrecisionFloat();
+	if (ShaderLanguageIsOpenGL(writer.Lang().shaderLanguage) && writer.Lang().gles) {
+		writer.C("precision highp sampler2D;\n");
+	}
 	writer.DeclareSamplers(samplers);
 	writer.BeginFSMain(depthUniforms, varyings);
 	writer.C("  float depth = ").SampleTexture2D("tex", "v_texcoord").C(".r;\n");
-	// At this point, clamped maps [0, 1] to [0, 65535].
-	writer.C("  float clamped = clamp(depth, 0.0, 1.0);\n");
+	// Depth is stored as z / 65536 (clears as z / 65535), so the PSP's z is the top 16 of 24 bits of
+	// depth * 2^24. Clamp just below 1.0 so a cleared 65535 doesn't wrap to 0.
+	writer.C("  float clamped = clamp(depth, 0.0, 16777215.0 / 16777216.0);\n");
 	writer.C("  vec4 enc = u_depthShift * clamped;\n");
 	writer.C("  enc = floor(mod(enc, 256.0)) * u_depthTo8;\n");
 	writer.C("  vec4 outColor = enc.yzww;\n"); // Let's ignore the bits outside 16 bit precision.
@@ -214,7 +220,7 @@ bool FramebufferManagerCommon::ReadbackDepthbuffer(Draw::Framebuffer *fbo, int x
 		DepthUB ub{};
 
 		// These are for packing a float in u8x4 colors. We should support more suitable readback formats on APIs that can do it.
-		static constexpr float shifts[] = { 16777215.0f, 16777215.0f / 256.0f, 16777215.0f / 65536.0f, 16777215.0f / 16777216.0f };
+		static constexpr float shifts[] = { 16777216.0f, 65536.0f, 256.0f, 1.0f };
 		memcpy(ub.u_depthShift, shifts, sizeof(shifts));
 		static constexpr float to8[] = { 1.0f / 255.0f, 1.0f / 255.0f, 1.0f / 255.0f, 1.0f / 255.0f };
 		memcpy(ub.u_depthTo8, to8, sizeof(to8));
@@ -261,7 +267,8 @@ bool FramebufferManagerCommon::ReadbackDepthbuffer(Draw::Framebuffer *fbo, int x
 		const float *packedf = (float *)convBuf_;
 		for (int yp = 0; yp < destH; ++yp) {
 			for (int xp = 0; xp < destW; ++xp) {
-				dest[xp] = (u16)std::clamp(65535.0f * packedf[xp], 0.0f, 65535.0f);
+				// Depth is stored as z / 65536 (clears as z / 65535), and the PSP truncates.
+				dest[xp] = (u16)std::clamp(65536.0f * packedf[xp], 0.0f, 65535.0f);
 			}
 			dest += pixelsStride;
 			packedf += destW;
