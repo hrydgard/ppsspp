@@ -194,7 +194,9 @@ SoftwareTransformAction RunSoftwareTransform(SoftwareTransformParams &params, in
 			bool depthMatchesStencil = gstate.isClearModeAlphaMask() == gstate.isClearModeDepthMask();
 			bool matchingComponents = params.allowSeparateAlphaClear || (alphaMatchesColor && depthMatchesStencil);
 			bool stencilNotMasked = !gstate.isClearModeAlphaMask() || gstate.getStencilWriteMask() == 0x00;
-			if (matchingComponents && stencilNotMasked) {
+			// The color mask applies to clears too (gpu/stencil/writemask), which a hardware clear can't do.
+			bool colorNotMasked = !gstate.isClearModeColorMask() || (gstate.pmskc & 0xFFFFFF) == 0;
+			if (matchingComponents && stencilNotMasked && colorNotMasked) {
 				float depth = std::clamp(transformed[1].z, 0.0f, 65535.0f) / 65535.0f;
 				// Non-zero depth clears are unusual, but some drivers don't match drawn depth values to cleared values.
 				// Games sometimes expect exact matches (see #12626, for example) for equal comparisons.

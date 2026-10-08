@@ -835,6 +835,20 @@ enum class FBReadSetting {
 	Disallowed,
 };
 
+// The channels a clear writes (1, 2, 4, 8 for R, G, B, A). The pixel masks apply to clears too
+// (gpu/stencil/writemask); a partly masked channel goes by the same heuristic as drawing.
+int ClearModeChannelMask() {
+	const u32 writable = ~gstate.getColorMask();
+	int mask = 0;
+	for (int i = 0; i < 4; i++) {
+		const bool cleared = i < 3 ? gstate.isClearModeColorMask() : gstate.isClearModeAlphaMask();
+		if (cleared && ((writable >> (i * 8)) & 0xFF) >= 0x80) {
+			mask |= 1 << i;
+		}
+	}
+	return mask;
+}
+
 // If we can we emulate the colorMask by simply toggling the full R G B A masks offered
 // by modern hardware, we do that. This is 99.9% of the time.
 // When that's not enough, we fall back on a technique similar to shader blending,
@@ -864,8 +878,9 @@ static void ConvertMaskState(GenericMaskState &maskState, FBReadSetting useShade
 			maskState.channelMask |= 1 << i;
 			break;
 		default:
-			// Shaders can emulate masking accurately. Alpha is the stencil, which has its own write mask, so leave
-			// it to the heuristic.
+			// Shaders can emulate masking accurately. Alpha is the stencil, whose mask the stencil buffer applies
+			// itself; doing it to the alpha copy in the shader too costs a framebuffer read per draw (Gangs of
+			// London has thousands), so alpha keeps the heuristic, which is exact for 5551.
 			if (useShader != FBReadSetting::Disallowed && i < 3) {
 				maskState.applyFramebufferRead = true;
 				maskState.channelMask |= 1 << i;

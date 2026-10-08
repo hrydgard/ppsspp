@@ -64,6 +64,7 @@ inline bool CanForceBilinear(const GEState &gstate) {
 }
 
 StencilValueType ReplaceAlphaWithStencilType();
+int ClearModeChannelMask();
 ReplaceAlphaType ReplaceAlphaWithStencil(ReplaceBlendType replaceBlend);
 ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat);
 
