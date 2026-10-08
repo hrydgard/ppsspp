@@ -75,7 +75,6 @@ struct CompatFlags {
 	bool ReportSmallMemstick;
 	bool MemstickFixedFree;
 	bool DateLimited;
-	bool ShaderColorBitmask;
 	bool DisableFirstFrameReadback;
 	bool MpegAvcWarmUp;
 	bool BlueToAlpha;

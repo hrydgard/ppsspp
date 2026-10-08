@@ -140,10 +140,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 			keys_.blend.value = 0;  // full wipe
 			keys_.blend.blendEnable = false;
 			dynState_.useBlendColor = false;
-			// Color Test
-			bool alphaMask = gstate.isClearModeAlphaMask();
-			bool colorMask = gstate.isClearModeColorMask();
-			keys_.blend.colorWriteMask = (colorMask ? (1 | 2 | 4) : 0) | (alphaMask ? 8 : 0);
+			keys_.blend.colorWriteMask = ClearModeChannelMask();
 		} else {
 			keys_.blend.value = 0;
 

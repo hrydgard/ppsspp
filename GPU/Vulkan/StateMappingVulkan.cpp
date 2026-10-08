@@ -135,10 +135,8 @@ void DrawEngineVulkan::ConvertStateToVulkanKey(FramebufferManagerVulkan &fbManag
 			key.destAlpha = VK_BLEND_FACTOR_ZERO;
 			dynState.useBlendColor = false;
 
-			// Color Mask
-			bool colorMask = gstate.isClearModeColorMask();
-			bool alphaMask = gstate.isClearModeAlphaMask();
-			key.colorWriteMask = (colorMask ? (VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT) : 0) | (alphaMask ? VK_COLOR_COMPONENT_A_BIT : 0);
+			// The bits match VK_COLOR_COMPONENT_R_BIT etc.
+			key.colorWriteMask = ClearModeChannelMask();
 		} else {
 			pipelineState_.Convert(draw_->GetShaderLanguageDesc().bitwiseOps, gstate_c.Use(GPU_USE_SHADER_BLENDING));
 			GenericMaskState &maskState = pipelineState_.maskState;
