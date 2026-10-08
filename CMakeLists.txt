@@ -1548,7 +1548,8 @@ endif()
 # packaging and code signing
 if(IOS AND NOT LIBRETRO)
 	if(IOS_APP_STORE)
-		set(DEPLOYMENT_TARGET 13.0)
+		# The static MoltenVK in ios/MoltenVK needs 15.0. Keep in sync with cmake/Toolchains/ios.cmake.
+		set(DEPLOYMENT_TARGET 15.0)
 	else()
 		set(DEPLOYMENT_TARGET 11.0)
 	endif()
