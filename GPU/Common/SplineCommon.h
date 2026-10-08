@@ -222,7 +222,7 @@ struct OutputBuffers {
 	bool fullAlpha = true;
 };
 
-// Set to evaluate the GE's Bezier patches with the scalar code, which the vectorized code is tested against.
+// Set to evaluate the GE's Bezier patches and splines with the scalar code, which the vectorized code is tested against.
 extern bool g_splineGEScalar;
 
 template<class Surface>

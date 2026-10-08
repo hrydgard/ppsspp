@@ -566,7 +566,8 @@ bool TestSplineTessellation() {
 		}
 	}
 
-	// The vectorized GE-exact Bezier path matches the scalar one.
+	// The vectorized GE-exact paths match the scalar ones. Spline tessellations of 3 and 5 put a vector's
+	// u steps in two segments.
 	const TestCase exactCases[] = {
 		{ "GE exact, bezier, one patch", true, 4, 4, 8, 8 },
 		{ "GE exact, bezier, 2x3 patches, uneven tessellation", true, 7, 10, 5, 3 },
@@ -574,6 +575,13 @@ bool TestSplineTessellation() {
 		{ "GE exact, bezier, patch facing", true, 4, 4, 5, 5, 0, 0, posNrm, true },
 		{ "GE exact, bezier, tessellation 1", true, 7, 4, 1, 1 },
 		{ "GE exact, bezier, tessellation 13", true, 4, 4, 13, 7 },
+		{ "GE exact, spline, open", false, 7, 6, 4, 4, 3, 3 },
+		{ "GE exact, spline, closed, uneven tessellation", false, 6, 7, 3, 5, 0, 0 },
+		{ "GE exact, spline, open first/open last", false, 8, 5, 5, 2, 1, 2 },
+		{ "GE exact, spline, one patch", false, 4, 4, 6, 6, 3, 3 },
+		{ "GE exact, spline, normals only, patch facing", false, 5, 6, 3, 3, 2, 1, posNrm, true },
+		{ "GE exact, spline, no attributes", false, 7, 5, 2, 5, 1, 2, posOnly },
+		{ "GE exact, spline, tessellation 1", false, 9, 4, 1, 1, 3, 0 },
 	};
 	for (TestCase tc : exactCases) {
 		tc.geExact = true;

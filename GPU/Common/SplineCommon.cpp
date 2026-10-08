@@ -740,7 +740,7 @@ static inline Vec4S32 GEBezierEvalColor4(const Vec4S32 p[4], Vec4S32 k) {
 	return lerp(lerp(a, b), lerp(b, c));
 }
 
-// Set to evaluate the GE's Bezier patches with the scalar code, which the vectorized code is tested against.
+// Set to evaluate the GE's Bezier patches and splines with the scalar code, which the vectorized code is tested against.
 bool g_splineGEScalar = false;
 
 // TessellateBezierGE four lanes at a time: at each v step the patch's four control columns in the four
@@ -892,6 +892,203 @@ static void TessellateBezierGESIMD(OutputBuffers &output, const BezierSurface &s
 	}
 }
 
+// A spline's six blending factors (GESplineParam::alpha) in four lanes, with the masks GELerp4 takes.
+struct GESplineAlpha4 {
+	Vec4S32 k[6], k0[6], k256[6];
+	void Init(const int a[6][4]) {
+		for (int n = 0; n < 6; ++n) {
+			k[n] = Vec4S32::Load(a[n]);
+			k0[n] = k[n].CompareEq(Vec4S32::Zero());
+			k256[n] = k[n].CompareEq(Vec4S32::Splat(256));
+		}
+	}
+};
+
+// Four de Boor evaluations (GESplineEval).
+static inline Vec4F32 GESplineEval4(const Vec4F32 d[4], const GESplineAlpha4 &a, Vec4F32 *ab = nullptr, Vec4F32 *bc = nullptr) {
+	const Vec4F32 l0 = GELerp4(d[0], d[1], a.k[0], a.k0[0], a.k256[0]);
+	const Vec4F32 l1 = GELerp4(d[1], d[2], a.k[1], a.k0[1], a.k256[1]);
+	const Vec4F32 l2 = GELerp4(d[2], d[3], a.k[2], a.k0[2], a.k256[2]);
+	const Vec4F32 m0 = GELerp4(l0, l1, a.k[3], a.k0[3], a.k256[3]);
+	const Vec4F32 m1 = GELerp4(l1, l2, a.k[4], a.k0[4], a.k256[4]);
+	if (ab) {
+		*ab = m0;
+		*bc = m1;
+	}
+	return GELerp4(m0, m1, a.k[5], a.k0[5], a.k256[5]);
+}
+
+static inline Vec4S32 GESplineEvalColor4(const Vec4S32 d[4], const GESplineAlpha4 &a) {
+	auto lerp = [](Vec4S32 x, Vec4S32 y, Vec4S32 k) { return x + (y - x).Mul16(k).Shr<8>(); };
+	const Vec4S32 l0 = lerp(d[0], d[1], a.k[0]);
+	const Vec4S32 l1 = lerp(d[1], d[2], a.k[1]);
+	const Vec4S32 l2 = lerp(d[2], d[3], a.k[2]);
+	return lerp(lerp(l0, l1, a.k[3]), lerp(l1, l2, a.k[4]), a.k[5]);
+}
+
+// TessellateSplineGE four lanes at a time: at each v step four control columns per vector, then each row of
+// those at four u steps. The four u steps can fall in different segments, so the row's points are gathered.
+template <bool sampleNrm, bool sampleCol, bool sampleTex, bool patchFacing>
+static void TessellateSplineGESIMD(OutputBuffers &output, const SplineSurface &surface, const ControlPoints &points) {
+	const int nu = surface.num_patches_u * surface.tess_u + 1;
+	const int nv = surface.num_patches_v * surface.tess_v + 1;
+	const int pointsU = surface.num_points_u;
+	// Per u step, padded to whole vectors by repeating the last one: the segment, k and the blending factors.
+	const int groupsU = (nu + 3) / 4;
+	std::vector<int> segU(groupsU * 4), kU(groupsU * 4);
+	std::vector<GESplineAlpha4> alphaU(groupsU);
+	for (int g = 0; g < groupsU; ++g) {
+		alignas(16) int a[6][4];
+		for (int i = 0; i < 4; ++i) {
+			const GESplineParam p = GESplineParamAt(std::min(g * 4 + i, nu - 1), surface.tess_u, surface.num_patches_u, surface.type_u);
+			segU[g * 4 + i] = p.seg;
+			kU[g * 4 + i] = p.k;
+			for (int n = 0; n < 6; ++n)
+				a[n][i] = p.alpha[n];
+		}
+		alphaU[g].Init(a);
+	}
+	// The control columns at the current v step: pos, ab, bc (3 each) and uv (2), stride floats each; colors likewise.
+	enum { POS = 0, AB = 3, BC = 6, TEX = 9, COMPS = 11 };
+	const int stride = (pointsU + 3) & ~3;
+	std::vector<float> columns(COMPS * stride);
+	std::vector<int> columnColors(sampleCol ? 4 * stride : 0);
+
+	for (int iv = 0; iv < nv; ++iv) {
+		const GESplineParam pv = GESplineParamAt(iv, surface.tess_v, surface.num_patches_v, surface.type_v);
+		GESplineAlpha4 alphaV;
+		{
+			alignas(16) int a[6][4];
+			for (int n = 0; n < 6; ++n)
+				for (int i = 0; i < 4; ++i)
+					a[n][i] = pv.alpha[n];
+			alphaV.Init(a);
+		}
+		for (int c = 0; c < pointsU; c += 4) {
+			const ControlPoint *cp[4][4];  // [row][lane]
+			for (int r = 0; r < 4; ++r) {
+				for (int i = 0; i < 4; ++i)
+					cp[r][i] = &points.points[(pv.seg + r) * pointsU + std::min(c + i, pointsU - 1)];
+			}
+			for (int j = 0; j < 3; ++j) {
+				Vec4F32 p[4];
+				for (int r = 0; r < 4; ++r) {
+					alignas(16) const float v[4] = { cp[r][0]->pos[j], cp[r][1]->pos[j], cp[r][2]->pos[j], cp[r][3]->pos[j] };
+					p[r] = FlushDenormals4(Vec4F32::Load(v));
+				}
+				Vec4F32 ab, bc;
+				GESplineEval4(p, alphaV, &ab, &bc).Store(&columns[(POS + j) * stride + c]);
+				if constexpr (sampleNrm) {
+					ab.Store(&columns[(AB + j) * stride + c]);
+					bc.Store(&columns[(BC + j) * stride + c]);
+				}
+			}
+			if constexpr (sampleTex) {
+				for (int j = 0; j < 2; ++j) {
+					Vec4F32 p[4];
+					for (int r = 0; r < 4; ++r) {
+						alignas(16) const float v[4] = { cp[r][0]->uv[j], cp[r][1]->uv[j], cp[r][2]->uv[j], cp[r][3]->uv[j] };
+						p[r] = FlushDenormals4(Vec4F32::Load(v));
+					}
+					GESplineEval4(p, alphaV).Store(&columns[(TEX + j) * stride + c]);
+				}
+			}
+			if constexpr (sampleCol) {
+				for (int j = 0; j < 4; ++j) {
+					Vec4S32 p[4];
+					for (int r = 0; r < 4; ++r) {
+						alignas(16) const int v[4] = { (int)cp[r][0]->col[j], (int)cp[r][1]->col[j], (int)cp[r][2]->col[j], (int)cp[r][3]->col[j] };
+						p[r] = Vec4S32::Load(v).Shl<7>() | Vec4S32::Splat(0x7F);
+					}
+					GESplineEvalColor4(p, alphaV).Store(&columnColors[j * stride + c]);
+				}
+			}
+		}
+
+		for (int g = 0; g < groupsU; ++g) {
+			const int *seg = &segU[g * 4];
+			const bool oneSegment = seg[0] == seg[3];
+			const GESplineAlpha4 &a = alphaU[g];
+			// A component's four control points for each lane.
+			auto row = [&](int comp, Vec4F32 d[4]) {
+				const float *src = &columns[comp * stride];
+				for (int r = 0; r < 4; ++r) {
+					if (oneSegment) {
+						d[r] = Vec4F32::Splat(src[seg[0] + r]);
+					} else {
+						alignas(16) const float v[4] = { src[seg[0] + r], src[seg[1] + r], src[seg[2] + r], src[seg[3] + r] };
+						d[r] = Vec4F32::Load(v);
+					}
+				}
+			};
+
+			alignas(16) float pos[3][4], uv[2][4], tu[3][4], tv[3][4];
+			alignas(16) int color[4][4];
+			for (int j = 0; j < 3; ++j) {
+				Vec4F32 d[4], ab, bc;
+				row(POS + j, d);
+				GESplineEval4(d, a, &ab, &bc).Store(pos[j]);
+				if constexpr (sampleNrm) {
+					GEAdd4(bc, Vec4F32::Zero() - ab).Store(tu[j]);
+					row(AB + j, d);
+					const Vec4F32 eab = GESplineEval4(d, a);
+					row(BC + j, d);
+					const Vec4F32 ebc = GESplineEval4(d, a);
+					GEAdd4(ebc, Vec4F32::Zero() - eab).Store(tv[j]);
+				}
+			}
+			if constexpr (sampleTex) {
+				for (int j = 0; j < 2; ++j) {
+					Vec4F32 d[4];
+					row(TEX + j, d);
+					GESplineEval4(d, a).Store(uv[j]);
+				}
+			}
+			if constexpr (sampleCol) {
+				for (int j = 0; j < 4; ++j) {
+					const int *src = &columnColors[j * stride];
+					Vec4S32 d[4];
+					for (int r = 0; r < 4; ++r) {
+						alignas(16) const int v[4] = { src[seg[0] + r], src[seg[1] + r], src[seg[2] + r], src[seg[3] + r] };
+						d[r] = Vec4S32::Load(v);
+					}
+					GESplineEvalColor4(d, a).Shr<7>().Store(color[j]);
+				}
+			}
+
+			const int lanes = std::min(4, nu - g * 4);
+			for (int i = 0; i < lanes; ++i) {
+				SimpleVertex &vert = output.vertices[surface.GetIndex(g * 4 + i, iv, 0, 0)];
+				vert.pos = Vec3f(pos[0][i], pos[1][i], pos[2][i]);
+				if constexpr (sampleCol) {
+					vert.color_32 = (u32)color[0][i] | ((u32)color[1][i] << 8) | ((u32)color[2][i] << 16) | ((u32)color[3][i] << 24);
+				} else {
+					vert.color_32 = points.defcolor;
+				}
+				if constexpr (sampleTex) {
+					vert.uv[0] = uv[0][i];
+					vert.uv[1] = uv[1][i];
+				} else {
+					vert.uv[0] = seg[i] + kU[g * 4 + i] * (1.0f / 256.0f);
+					vert.uv[1] = pv.seg + pv.k * (1.0f / 256.0f);
+				}
+				if constexpr (sampleNrm) {
+					for (int j = 0; j < 3; ++j) {
+						const int j1 = (j + 1) % 3, j2 = (j + 2) % 3;
+						const GERowTerm terms[2] = { GEProduct(tu[j1][i], tv[j2][i]), GEProduct(-tu[j2][i], tv[j1][i]) };
+						vert.nrm[j] = GERowSum(terms, 2);
+					}
+					if constexpr (patchFacing)
+						vert.nrm *= -1.0f;
+				} else {
+					vert.nrm.SetZero();
+					vert.nrm.z = 1.0f;
+				}
+			}
+		}
+	}
+}
+
 // The GE's Bezier patches: each patch's four control columns at every v step, then each row of those at u.
 template <bool sampleNrm, bool sampleCol, bool sampleTex, bool patchFacing>
 static void TessellateBezierGE(OutputBuffers &output, const BezierSurface &surface, const ControlPoints &points) {
@@ -996,7 +1193,10 @@ public:
 	static void Tessellate(OutputBuffers &output, const Surface &surface, const ControlPoints &points, const Weight2D &weights) {
 		if constexpr (std::is_same_v<Surface, SplineSurface>) {
 			if (surface.geExact) {
-				TessellateSplineGE<sampleNrm, sampleCol, sampleTex, patchFacing>(output, surface, points);
+				if (g_splineGEScalar)
+					TessellateSplineGE<sampleNrm, sampleCol, sampleTex, patchFacing>(output, surface, points);
+				else
+					TessellateSplineGESIMD<sampleNrm, sampleCol, sampleTex, patchFacing>(output, surface, points);
 				surface.BuildIndex(output.indices, output.count);
 				return;
 			}
