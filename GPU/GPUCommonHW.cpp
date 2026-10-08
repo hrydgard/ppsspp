@@ -1204,6 +1204,10 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 			if ((data & 3) != GE_TEXLEVEL_MODE_AUTO && (0x00FF0000 & data) != 0) {
 				goto bail;
 			}
+			if ((data ^ gstate.cmdmem[GE_CMD_TEXLEVEL]) & 0x00FF0000) {
+				// Like Execute_TexLevel. The bias is a uniform with GPU_USE_SHADER_LOD_BIAS.
+				gstate_c.Dirty(DIRTY_MIPBIAS);
+			}
 			gstate.cmdmem[GE_CMD_TEXLEVEL] = data;
 			break;
 		case GE_CMD_CALL:
