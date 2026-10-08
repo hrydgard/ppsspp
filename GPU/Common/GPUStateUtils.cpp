@@ -864,8 +864,9 @@ static void ConvertMaskState(GenericMaskState &maskState, FBReadSetting useShade
 			maskState.channelMask |= 1 << i;
 			break;
 		default:
-			if (useShader != FBReadSetting::Disallowed && PSP_CoreParameter().compat.flags().ShaderColorBitmask) {
-				// Shaders can emulate masking accurately. Let's make use of that.
+			// Shaders can emulate masking accurately. Alpha is the stencil, which has its own write mask, so leave
+			// it to the heuristic.
+			if (useShader != FBReadSetting::Disallowed && i < 3) {
 				maskState.applyFramebufferRead = true;
 				maskState.channelMask |= 1 << i;
 			} else {
