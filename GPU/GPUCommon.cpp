@@ -1543,6 +1543,7 @@ void GPUCommon::FlushImm() {
 	}
 
 	SetDrawType(DRAW_PRIM, immPrim_);
+	gstate_c.framebufFormat = gstate.FrameBufFormat();
 
 	VirtualFramebuffer *vfb = nullptr;
 	if (framebufferManager_) {
