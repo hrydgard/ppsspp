@@ -587,6 +587,9 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 
 	if (draw_->GetDeviceCaps().samplerLodControl) {
 		features |= GPU_USE_SAMPLER_LOD_CONTROL;
+		if (!draw_->GetDeviceCaps().samplerLodBias) {
+			features |= GPU_USE_SHADER_LOD_BIAS;
+		}
 	}
 
 	if (draw_->GetDeviceCaps().framebufferFetchSupported) {

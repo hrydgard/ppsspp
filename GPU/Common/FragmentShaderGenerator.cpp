@@ -635,10 +635,11 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 							WRITE(p, "  vec4 t = %s(tex, vec3(%s.xy, %s));\n", compat.texture, texcoord, arrayIndex);
 						}
 					} else {
+						const char *lodBias = gstate_c.Use(GPU_USE_SHADER_LOD_BIAS) ? ", u_texLodBias" : "";
 						if (doTextureProjection) {
-							WRITE(p, "  vec4 t = %sProj(tex, %s);\n", compat.texture, texcoord);
+							WRITE(p, "  vec4 t = %sProj(tex, %s%s);\n", compat.texture, texcoord, lodBias);
 						} else {
-							WRITE(p, "  vec4 t = %s(tex, %s.xy);\n", compat.texture, texcoord);
+							WRITE(p, "  vec4 t = %s(tex, %s.xy%s);\n", compat.texture, texcoord, lodBias);
 						}
 					}
 				}

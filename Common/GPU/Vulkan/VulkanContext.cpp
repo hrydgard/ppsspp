@@ -756,6 +756,8 @@ VkResult VulkanContext::CreateDevice(int physical_device, const std::vector<cons
 	}
 
 	extensionsLookup_.EXT_provoking_vertex = EnableDeviceExtension(VK_EXT_PROVOKING_VERTEX_EXTENSION_NAME, 0);
+	// Required to be enabled where it exists (MoltenVK). Tells what Metal can't do.
+	extensionsLookup_.KHR_portability_subset = EnableDeviceExtension(VK_KHR_PORTABILITY_SUBSET_EXTENSION_NAME, 0);
 	if (extensionsLookup_.KHR_get_surface_capabilities2) {
 #ifdef VK_EXT_full_screen_exclusive
 		extensionsLookup_.EXT_full_screen_exclusive = EnableDeviceExtension(VK_EXT_FULL_SCREEN_EXCLUSIVE_EXTENSION_NAME, 0);
@@ -777,6 +779,7 @@ VkResult VulkanContext::CreateDevice(int physical_device, const std::vector<cons
 		VkPhysicalDeviceProvokingVertexFeaturesEXT provokingVertexFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROVOKING_VERTEX_FEATURES_EXT };
 		VkPhysicalDevicePresentModeFifoLatestReadyFeaturesKHR presentModeFifoProps{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_MODE_FIFO_LATEST_READY_FEATURES_KHR};
 		VkPhysicalDeviceScalarBlockLayoutFeatures scalarBlockLayoutFeatures = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES};
+		VkPhysicalDevicePortabilitySubsetFeaturesKHR portabilitySubsetFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PORTABILITY_SUBSET_FEATURES_KHR };
 
 		ChainStruct(features2, &multiViewFeatures);
 		if (extensionsLookup_.KHR_present_wait) {
@@ -793,6 +796,9 @@ VkResult VulkanContext::CreateDevice(int physical_device, const std::vector<cons
 		}
 		if (extensionsLookup_.EXT_scalar_block_layout) {
 			ChainStruct(features2, &scalarBlockLayoutFeatures);
+		}
+		if (extensionsLookup_.KHR_portability_subset) {
+			ChainStruct(features2, &portabilitySubsetFeatures);
 		}
 		vkGetPhysicalDeviceFeatures2(physical_devices_[physical_device_], &features2);
 		deviceFeatures_.available.standard = features2.features;
@@ -811,6 +817,9 @@ VkResult VulkanContext::CreateDevice(int physical_device, const std::vector<cons
 		}
 		if (extensionsLookup_.KHR_present_mode_fifo_latest_ready) {
 			deviceFeatures_.available.presentModeFifoProps = presentModeFifoProps;
+		}
+		if (extensionsLookup_.KHR_portability_subset) {
+			deviceFeatures_.available.portabilitySubset = portabilitySubsetFeatures;
 		}
 	} else {
 		vkGetPhysicalDeviceFeatures(physical_devices_[physical_device_], &deviceFeatures_.available.standard);
