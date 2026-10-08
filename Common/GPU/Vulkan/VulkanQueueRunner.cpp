@@ -270,11 +270,11 @@ void VulkanQueueRunner::PreprocessSteps(std::vector<VKRStep *> &steps) {
 					// Cheaply skip the first step.
 					steps[j]->stepType = VKRStepType::RENDER_SKIP;
 					break;
-				} else if (steps[i]->stepType == VKRStepType::COPY &&
-					steps[i]->copy.src == render_j.framebuffer) {
-					// Can't eliminate the clear if a game copies from it before it's
-					// rendered to. However this should be rare.
-					// TODO: This should never happen when we check numReads now.
+				} else if ((steps[i]->stepType == VKRStepType::COPY && (steps[i]->copy.src == render_j.framebuffer || steps[i]->copy.dst == render_j.framebuffer)) ||
+					(steps[i]->stepType == VKRStepType::BLIT && (steps[i]->blit.src == render_j.framebuffer || steps[i]->blit.dst == render_j.framebuffer)) ||
+					(steps[i]->stepType == VKRStepType::READBACK && steps[i]->readback.src == render_j.framebuffer)) {
+					// Can't move the clear past a copy or blit from or into the framebuffer. Into it is common:
+					// resizing a framebuffer clears the new one and copies the old contents in (Asphalt Urban GT 2).
 					break;
 				}
 			}
