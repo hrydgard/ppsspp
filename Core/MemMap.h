@@ -29,6 +29,7 @@
 #include "Common/CommonTypes.h"
 #include "Common/Swap.h"
 #include "Core/Opcode.h"
+#include "GPU/Common/DepthSwizzle.h"
 
 // PPSSPP is very aggressive about trying to do memory accesses directly, for speed.
 // This can be a problem when debugging though, as stray memory reads and writes will
@@ -192,7 +193,25 @@ inline float ReadUnchecked_Float(const u32 address) {
 #endif
 }
 
-inline u16 ReadUnchecked_U16(const u32 address) {
+// With the software renderer, which stores depth as the GE does, VRAM's 0x04200000 and 0x04600000 mirrors show it
+// through the GE's 16-bit and 32-bit color layouts (GPU/Common/DepthSwizzle.h, ppsspp-re geprobe exp88). Only 16-bit
+// accesses go through them: games read and write depth with nothing else. The layouts are fixed but for the EDRAM
+// address translation, which the software renderer keeps here as DepthTranslationIndex().
+extern int g_depthTranslationIndex;
+
+// Whether the depth mirrors apply the layouts: only with the software renderer. Hardware renderers keep depth
+// plain and handle the games that need the layout their own way.
+bool DepthMirrorsActive();
+u32 DepthMirroredSlow(u32 address);
+
+inline u32 DepthMirrored16(u32 address) {
+	if ((address & 0xBFA00000) == 0x04200000)
+		return DepthMirroredSlow(address);
+	return address;
+}
+
+inline u16 ReadUnchecked_U16(u32 address) {
+	address = DepthMirrored16(address);
 #ifdef MASKED_PSP_MEMORY
 	return *(u16_le *)(base + (address & MEMVIEW32_MASK));
 #else
@@ -233,6 +252,7 @@ inline void WriteUnchecked_Float(float data, u32 address) {
 }
 
 inline void WriteUnchecked_U16(u16 data, u32 address) {
+	address = DepthMirrored16(address);
 #ifdef MASKED_PSP_MEMORY
 	*(u16_le *)(base + (address & MEMVIEW32_MASK)) = data;
 #else

@@ -6,6 +6,7 @@
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Log.h"
 #include "Core/Config.h"
+#include "Core/MemMap.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
 #include "Core/MIPS/IR/IRAnalysis.h"
 #include "Core/MIPS/IR/IRInterpreter.h"
@@ -1357,7 +1358,10 @@ bool ReduceLoads(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 	for (int i = 0, n = (int)in.GetInstructions().size(); i < n; i++) {
 		IRInst inst = in.GetInstructions()[i];
 
-		if (inst.op == IROp::Load32 || inst.op == IROp::Load16 || inst.op == IROp::Load16Ext) {
+		// With the depth mirrors, a load's width decides whether it goes through the depth layout
+		// (Memory::DepthMirrored16), so 16-bit loads keep theirs, and no load becomes one.
+		const bool depthMirrors = Memory::DepthMirrorsActive();
+		if (inst.op == IROp::Load32 || ((inst.op == IROp::Load16 || inst.op == IROp::Load16Ext) && !depthMirrors)) {
 			int dest = IRDestGPR(GetIRMeta(inst));
 			for (int j = i + 1; j < n; j++) {
 				const IRInstMeta laterInst = GetIRMeta(in.GetInstructions()[j]);
@@ -1375,7 +1379,7 @@ bool ReduceLoads(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 							if (mask == 0xff) {
 								nextSkip = j;
 							}
-						} else if ((mask & 0xffff0000) == 0 && inst.op == IROp::Load32) {
+						} else if ((mask & 0xffff0000) == 0 && inst.op == IROp::Load32 && !depthMirrors) {
 							inst.op = IROp::Load16;
 							if (mask == 0xffff) {
 								nextSkip = j;

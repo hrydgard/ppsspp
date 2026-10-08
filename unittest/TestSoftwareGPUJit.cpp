@@ -129,11 +129,14 @@ static bool TestPixelJit() {
 	bool header = false;
 
 	u32 *fb_data = new u32[512 * 2];
-	u16 *zb_data = new u16[512 * 2];
+	// Random IDs pick random depth layouts, which reach up to 0x8040 bytes past the pixel's offset.
+	const size_t zbSize = 0x10000;
+	u16 *zb_data = new u16[zbSize];
 	fb.as32 = fb_data;
-	depthbuf.as16 = zb_data;
+	depthbuf.vram = (u8 *)zb_data;
+	depthbuf.base = 0;
 	memset(fb_data, 0, sizeof(u32) * 512 * 2);
-	memset(zb_data, 0, sizeof(u16) * 512 * 2);
+	memset(zb_data, 0, sizeof(u16) * zbSize);
 
 	for (int i = 0; i < count; ) {
 		PixelFuncID id;

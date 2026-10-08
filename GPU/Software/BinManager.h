@@ -338,6 +338,8 @@ private:
 	bool pastStride_ = false;
 	Rasterizer::RasterizerState selfTexState_;
 	std::vector<u8> selfTexBuf_[8];
+	// Linear copies of texture levels read through a swizzled VRAM mirror (DeswizzleMirrorTextures).
+	std::vector<u8> depthViews_[8];
 	uint32_t selfTexAddr_[8]{};
 	bool selfTexValid_ = false;
 	uint32_t texFlushGen_ = 0;
@@ -370,6 +372,7 @@ private:
 	const Rasterizer::RasterizerState &SelfTextureSnapshot(const BinItem &item, const Rasterizer::RasterizerState &state);
 	void OptimizePendingStates(uint16_t first, uint16_t last);
 	void PushState();
+	void DeswizzleMirrorTextures(Rasterizer::RasterizerState &state);
 	template <typename F>
 	void AddFlags(F calculate);
 	BinCoords Scissor(BinCoords range);

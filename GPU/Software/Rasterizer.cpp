@@ -718,6 +718,14 @@ static inline void ApplyTexturing(const RasterizerState &state, Vec4<int> *prim_
 	}
 }
 
+// Depth at (x, y) and (x + 1, y). They're stored together unless x is last in a 16-pixel run.
+static inline u32 ReadDepthPair(int x, int y, int stride) {
+	const uint32_t offset = depthbuf.base + (uint32_t)(x + y * stride) * 2;
+	if ((offset & 31) != 30)
+		return *(const u32 *)depthbuf.Get16Ptr(x, y, stride);
+	return depthbuf.Get16(x, y, stride) | ((u32)depthbuf.Get16(x + 1, y, stride) << 16);
+}
+
 static inline Vec4<int> SOFTRAST_CALL CheckDepthTestPassed4(const Vec4<int> &mask, GEComparison func, int x, int y, int stride, Vec4<int> z) {
 	// Skip the depth buffer read if we're masked already.
 #if defined(_M_SSE)
@@ -734,8 +742,8 @@ static inline Vec4<int> SOFTRAST_CALL CheckDepthTestPassed4(const Vec4<int> &mas
 	// Read in the existing depth values.
 #if defined(_M_SSE)
 	// Tried using flags from maskbits to skip dwords... seemed neutral.
-	__m128i refz = _mm_cvtsi32_si128(*(u32 *)depthbuf.Get16Ptr(x, y, stride));
-	refz = _mm_unpacklo_epi32(refz, _mm_cvtsi32_si128(*(u32 *)depthbuf.Get16Ptr(x, y + 1, stride)));
+	__m128i refz = _mm_cvtsi32_si128(ReadDepthPair(x, y, stride));
+	refz = _mm_unpacklo_epi32(refz, _mm_cvtsi32_si128(ReadDepthPair(x, y + 1, stride)));
 	refz = _mm_unpacklo_epi16(refz, _mm_setzero_si128());
 #else
 	Vec4<int> refz(depthbuf.Get16(x, y, stride), depthbuf.Get16(x + 1, y, stride), depthbuf.Get16(x, y + 1, stride), depthbuf.Get16(x + 1, y + 1, stride));
@@ -1879,12 +1887,17 @@ void ClearRectangle(const VertexData &v0, const VertexData &v1, const BinCoords 
 		const u16 z = v1.screenpos.z;
 		const int stride = pixelID.cached.depthbufStride;
 
-		// If both bytes of Z equal, we can just use memset directly which is faster.
+		// If both bytes of Z equal, we can just use memset directly which is faster. Depth is stored in runs of
+		// 16 pixels, each 32 bytes aligned.
 		if ((z & 0xFF) == (z >> 8)) {
 			DrawingCoords p = pprime;
 			for (p.y = pprime.y; p.y <= pend.y; ++p.y) {
-				u16 *row = depthbuf.Get16Ptr(p.x, p.y, stride);
-				memset(row, z, w * 2);
+				for (int x = 0; x < w; ) {
+					const uint32_t offset = depthbuf.base + (uint32_t)(pprime.x + x + p.y * stride) * 2;
+					const int n = std::min(w - x, 16 - (int)((offset >> 1) & 15));
+					memset(depthbuf.Get16Ptr(pprime.x + x, p.y, stride), z, n * 2);
+					x += n;
+				}
 			}
 		} else {
 			DrawingCoords p = pprime;

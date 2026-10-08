@@ -165,6 +165,7 @@
       <Filter>Debugger</Filter>
     </ClInclude>
     <ClInclude Include="..\..\GPU\Common\DepthRaster.h" />
+    <ClInclude Include="..\..\GPU\Common\DepthSwizzle.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Debugger">

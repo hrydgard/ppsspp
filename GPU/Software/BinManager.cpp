@@ -26,11 +26,13 @@
 #include "Common/Thread/ThreadManager.h"
 #include "Common/Data/Text/StringWriter.h"
 #include "Common/TimeUtil.h"
+#include "Core/MemMap.h"
 #include "Core/System.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Software/BinManager.h"
 #include "GPU/Software/Rasterizer.h"
 #include "GPU/Software/RasterizerRectangle.h"
+#include "GPU/Software/SoftGpu.h"
 
 // Sometimes useful for debugging.
 static constexpr bool FORCE_SINGLE_THREAD = false;
@@ -216,7 +218,40 @@ void BinManager::PushState() {
 		}
 	}
 	states_[stateIndex_].samplerID.cached.clut = cluts_[clutIndex_].readable;
+	if (states_[stateIndex_].enableTextures)
+		DeswizzleMirrorTextures(states_[stateIndex_]);
 	creatingState_ = false;
+}
+
+// Texturing from VRAM's 0x04200000 and 0x04600000 mirrors reads it as the CPU does there: depth stored in the
+// GE's layout comes out linear (16-bit and 32-bit color layouts). Such levels are drawn from a linear copy,
+// made after everything queued is drawn. Since each such state flushes, one set of copies is enough.
+void BinManager::DeswizzleMirrorTextures(RasterizerState &state) {
+	bool flushed = false;
+	for (int i = 0; i <= state.maxTexLevel; ++i) {
+		const uint32_t addr = state.texaddr[i];
+		if (!state.texptr[i] || !Memory::IsDepthTexVRAMAddress(addr))
+			continue;
+		if (!flushed) {
+			// Queued drawing may still write what this reads. This state is the last in the ring, which
+			// survives the flush.
+			Flush("depth view");
+			flushed = true;
+		}
+		const DepthLayout layout = GetDepthLayout(depthbuf.translation, (addr & 0x00400000) != 0);
+		const uint32_t bytes = state.texbufw[i] * textureBitsPerPixel[state.samplerID.texfmt] / 8 * state.samplerID.cached.sizes[i].h;
+		std::vector<u8> &view = depthViews_[i];
+		view.resize(bytes);
+		const uint32_t start = addr & 0x001FFFFF;
+		for (uint32_t pos = 0; pos < bytes; ) {
+			// Stored in runs of 32 aligned bytes.
+			const uint32_t offset = start + pos;
+			const uint32_t n = std::min(32 - (offset & 31), bytes - pos);
+			memcpy(view.data() + pos, depthbuf.vram + layout.Stored(offset), n);
+			pos += n;
+		}
+		state.texptr[i] = view.data();
+	}
 }
 
 void BinManager::UpdateState() {

@@ -82,6 +82,18 @@ static u8 *m_pUncachedVRAM[4];
 // Required for HD Remasters to work properly.
 // This replaces RAM_NORMAL_SIZE at runtime.
 u32 g_MemorySize;
+int g_depthTranslationIndex = DepthTranslationIndex(0x400);
+
+bool DepthMirrorsActive() {
+	return PSP_CoreParameter().gpuCore == GPUCORE_SOFTWARE;
+}
+
+u32 DepthMirroredSlow(u32 address) {
+	if (!DepthMirrorsActive())
+		return address;
+	const DepthLayout &layout = DEPTH_LAYOUTS[(address >> 22) & 1][g_depthTranslationIndex];
+	return (address & 0x40000000) | 0x04000000 | layout.Stored(address & 0x001FFFFF);
+}
 // Used to store the PSP model on game startup.
 u32 g_PSPModel;
 u32 g_UserPartitionSize;
