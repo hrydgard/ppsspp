@@ -31,6 +31,8 @@ public:
 	}
 	virtual void SwapBuffers() = 0;
 	void Resize() override {}
+	// True if ThreadFrame() has queued work to run (emu thread backends only).
+	virtual bool ThreadFramePending() { return false; }
 
 	virtual void GotBackbuffer();
 	virtual void LostBackbuffer();

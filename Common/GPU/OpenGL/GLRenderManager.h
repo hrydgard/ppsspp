@@ -249,6 +249,11 @@ public:
 	void ThreadStart(Draw::DrawContext *draw);
 	void ThreadEnd();
 	bool ThreadFrame();  // False means it's time to exit.
+	// True if ThreadFrame() has queued work and will not block on an empty queue.
+	bool HasQueuedThreadWork() {
+		std::lock_guard<std::mutex> lock(pushMutex_);
+		return !renderThreadQueue_.empty();
+	}
 
 	void NotifyEmuThreadExit();
 
