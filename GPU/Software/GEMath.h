@@ -21,6 +21,7 @@
 // float24s are floats with the low 8 mantissa bits clear.
 
 #include <algorithm>
+#include <cfloat>
 #include <climits>
 #include <cmath>
 #include <cstdint>
@@ -122,6 +123,49 @@ inline float GERowSum(const GERowTerm *terms, int count) {
 		return 0.0f;
 	}
 	return TruncateToFloat24(ldexpf((float)sum, lsbExp));
+}
+
+// A clip space component from the combined matrix (gpu/probe exp32, exp34, exp42). The position is a
+// float24; the translation is a term of its own.
+inline float GEClipComponent(const Vec3f &v, const float m[16], int c) {
+	GERowTerm terms[4] = {
+		GEProduct(TruncateToFloat24(v.x), m[c]),
+		GEProduct(TruncateToFloat24(v.y), m[4 + c]),
+		GEProduct(TruncateToFloat24(v.z), m[8 + c]),
+		GEProduct(1.0f, m[12 + c]),
+	};
+	return GERowSum(terms, 4);
+}
+
+// Multiplies two matrices the way the GE combines world, view and projection (gpu/probe exp35, exp42):
+// in the order (world * view) * projection, each entry summed like a row in GEClipComponent.
+inline void GECombineMatrices(float out[16], const float a[16], const float b[16]) {
+	for (int r = 0; r < 4; ++r) {
+		for (int c = 0; c < 4; ++c) {
+			GERowTerm terms[4];
+			for (int k = 0; k < 4; ++k) {
+				terms[k] = GEProduct(a[r * 4 + k], b[k * 4 + c]);
+			}
+			out[r * 4 + c] = GERowSum(terms, 4);
+		}
+	}
+}
+
+// A screen coordinate as the GE computes it (gpu/depth/transformprecision for Z, gpu/probe for X and Y):
+// the component divided by w is it times the reciprocal above, truncated to a float24, then scaled and
+// offset with GEAdd. Around a center of 2048, that lands X and Y on the 1/16 subpixel grid.
+inline float GEViewport(float clipC, float clipW, float scale, float center) {
+	const float w = TruncateToFloat24(clipW);
+	if (!std::isfinite(w) || !std::isfinite(clipC) || fabsf(w) < FLT_MIN) {
+		return clipC * scale / clipW + center;
+	}
+	const float ndc = ProductToFloat24((double)TruncateToFloat24(clipC) * GERecip(w));
+	return GEAdd(ProductToFloat24((double)ndc * scale), center);
+}
+
+// Screen Z is floored.
+inline float GEScreenZ(float clipZ, float clipW, float zScale, float zCenter) {
+	return floorf(GEViewport(clipZ, clipW, zScale, zCenter));
 }
 
 float GEAddFloat24(float a, float b);
