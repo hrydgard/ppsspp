@@ -37,6 +37,7 @@
 #include "GPU/Common/VertexReader.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Software/Clipper.h"
+#include "GPU/Software/GEMath.h"
 
 static bool ExpandRectangles(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int *drawIndexCount, bool throughmode, bool *pixelMappedExactly);
 static bool ExpandLines(int vertexCount, int &numDecodedVerts, int vertsSize, u16 *&inds, int indsSize, const TransformedVertex *transformed, TransformedVertex *transformedExpanded, int *drawIndexCount, bool throughmode);
@@ -221,6 +222,33 @@ SoftwareTransformAction RunSoftwareTransform(SoftwareTransformParams &params, in
 		const float heightFactor = (float)texH / (float)gstate_c.curTextureHeight;
 
 		const Vec4f materialAmbientRGBA = Vec4f::FromRGBA(gstate.getMaterialAmbientRGBA());
+
+		// A rectangle's depth is flat, so when it's right at a depth range limit, rounding can drop or keep
+		// all of it (Mana Khemia 2 draws a background at screen Z 1 with minz 1, and we computed 0).
+		// There, check the depth the GE would compute, and if it disagrees about the range, use it.
+		// Otherwise keep ours, which matches the hardware-transformed draws the rectangle might be tested against.
+		const int minZ = gstate.getDepthRangeMin();
+		const int maxZ = gstate.getDepthRangeMax();
+		const bool checkGEDepth = prim == GE_PRIM_RECTANGLES && (minZ > 0 || maxZ < 65535);
+		// Like the clip planes in the vertex shader.
+		auto inDepthRange = [=](float z) {
+			if (minZ > 0 && floorf(z * 0.5f + 0.5f) * 2.0f < minZ)
+				return false;
+			if (maxZ < 65535 && floorf(z * 0.5f) * 2.0f > maxZ)
+				return false;
+			return true;
+		};
+		const float zScale = gstate.getViewportZScale();
+		const float zCenter = gstate.getViewportZCenter();
+		float geMatrix[16];
+		if (checkGEDepth) {
+			float world[16], view[16], worldView[16];
+			ConvertMatrix4x3To4x4(world, gstate.worldMatrix);
+			ConvertMatrix4x3To4x4(view, gstate.viewMatrix);
+			GECombineMatrices(worldView, world, view);
+			GECombineMatrices(geMatrix, worldView, gstate.projMatrix);
+		}
+
 		// Okay, need to actually perform the full transform.
 		for (int index = 0; index < numDecodedVerts; index++) {
 			reader.Goto(index);
@@ -356,6 +384,15 @@ SoftwareTransformAction RunSoftwareTransform(SoftwareTransformParams &params, in
 
 			// Then transform by the projection.
 			Vec3ByMatrix44(transformed[index].pos, v, gstate.projMatrix);
+			if (checkGEDepth) {
+				TransformedVertex &t = transformed[index];
+				const Vec3f modelPos(pos[0], pos[1], pos[2]);
+				const float geZ = GEScreenZ(GEClipComponent(modelPos, geMatrix, 2), GEClipComponent(modelPos, geMatrix, 3), zScale, zCenter);
+				if (inDepthRange(geZ) != inDepthRange(t.z * zScale / t.pos_w + zCenter)) {
+					// Set clip Z so the projection lands on it.
+					t.z = (geZ - zCenter) * t.pos_w / zScale;
+				}
+			}
 
 			transformed[index].fog = fogCoef;
 			memcpy(&transformed[index].uv, uv, 3 * sizeof(float));
