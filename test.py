@@ -274,6 +274,7 @@ tests_good = [
   "gpu/signals/pause2",
   "gpu/signals/suspend",
   "gpu/signals/sync",
+  "gpu/stencil/writemask",
   "gpu/texcolors/dxt1",
   "gpu/texcolors/dxt3",
   "gpu/texcolors/dxt5",
