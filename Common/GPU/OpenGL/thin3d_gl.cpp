@@ -738,6 +738,10 @@ OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameT
 		}
 	}
 
+	// With clip control, clip-space Z runs 0..W like Vulkan's, so shaders skip the -1..1 conversion.
+	// GLQueueRunner::CreateDeviceObjects turns it on.
+	shaderLanguageDesc_.depthMinusOneToOne = !GLClipControlSupported();
+
 	// NOTE: We only support framebuffer fetch on ES3 due to past issues..
 	if (gl_extensions.IsGLES && gl_extensions.GLES3) {
 		caps_.framebufferFetchSupported = (gl_extensions.EXT_shader_framebuffer_fetch || gl_extensions.ARM_shader_framebuffer_fetch);

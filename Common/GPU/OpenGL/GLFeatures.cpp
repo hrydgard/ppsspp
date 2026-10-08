@@ -37,6 +37,11 @@ PFNGLISVERTEXARRAYOESPROC glIsVertexArrayOES;
 #endif
 
 GLExtensions gl_extensions;
+
+#if defined(USING_GLES2) && defined(__ANDROID__)
+typedef void (GL_APIENTRYP PFNGLCLIPCONTROLEXTPROC_PPSSPP)(GLenum origin, GLenum depth);
+static PFNGLCLIPCONTROLEXTPROC_PPSSPP glClipControlEXT_ptr;
+#endif
 std::string g_all_gl_extensions;
 static std::set<std::string> g_set_gl_extensions;
 std::string g_all_egl_extensions;
@@ -381,6 +386,7 @@ bool CheckGLExtensions() {
 	gl_extensions.ARB_draw_instanced = g_set_gl_extensions.count("GL_ARB_draw_instanced") != 0;
 	gl_extensions.ARB_cull_distance = g_set_gl_extensions.count("GL_ARB_cull_distance") != 0;
 	gl_extensions.ARB_depth_clamp = g_set_gl_extensions.count("GL_ARB_depth_clamp") != 0;
+	gl_extensions.ARB_clip_control = g_set_gl_extensions.count("GL_ARB_clip_control") != 0;
 	gl_extensions.ARB_uniform_buffer_object = g_set_gl_extensions.count("GL_ARB_uniform_buffer_object") != 0;
 	gl_extensions.ARB_explicit_attrib_location = g_set_gl_extensions.count("GL_ARB_explicit_attrib_location") != 0;
 	gl_extensions.ARB_texture_non_power_of_two = g_set_gl_extensions.count("GL_ARB_texture_non_power_of_two") != 0;
@@ -407,6 +413,7 @@ bool CheckGLExtensions() {
 		gl_extensions.EXT_buffer_storage = g_set_gl_extensions.count("GL_EXT_buffer_storage") != 0;
 		gl_extensions.EXT_clip_cull_distance = g_set_gl_extensions.count("GL_EXT_clip_cull_distance") != 0;
 		gl_extensions.EXT_depth_clamp = g_set_gl_extensions.count("GL_EXT_depth_clamp") != 0;
+		gl_extensions.EXT_clip_control = g_set_gl_extensions.count("GL_EXT_clip_control") != 0;
 		gl_extensions.EXT_disjoint_timer_query = g_set_gl_extensions.count("GL_EXT_disjoint_timer_query") != 0;
 		gl_extensions.APPLE_clip_distance = g_set_gl_extensions.count("GL_APPLE_clip_distance") != 0;
 
@@ -430,6 +437,10 @@ bool CheckGLExtensions() {
 
 		if (gl_extensions.NV_framebuffer_blit) {
 			glBlitFramebufferNV = (PFNGLBLITFRAMEBUFFERNVPROC)eglGetProcAddress("glBlitFramebufferNV");
+		}
+
+		if (gl_extensions.EXT_clip_control) {
+			glClipControlEXT_ptr = (PFNGLCLIPCONTROLEXTPROC_PPSSPP)eglGetProcAddress("glClipControlEXT");
 		}
 
 		gl_extensions.OES_vertex_array_object = g_set_gl_extensions.count("GL_OES_vertex_array_object") != 0;
@@ -574,6 +585,9 @@ bool CheckGLExtensions() {
 			gl_extensions.ARB_buffer_storage = true;
 		}
 		if (gl_extensions.VersionGEThan(4, 5)) {
+			gl_extensions.ARB_clip_control = true;
+		}
+		if (gl_extensions.VersionGEThan(4, 5)) {
 			gl_extensions.ARB_cull_distance = true;
 		}
 		if (gl_extensions.VersionGEThan(4, 6)) {
@@ -703,5 +717,33 @@ std::string ApplyGLSLPrelude(const std::string &source, uint32_t stage) {
 	return temp;
 #else
 	return source;
+#endif
+}
+
+bool GLClipControlSupported() {
+#if !PPSSPP_API(ANY_GL)
+	return false;
+#elif defined(USING_GLES2)
+#if defined(__ANDROID__)
+	return gl_extensions.EXT_clip_control && glClipControlEXT_ptr != nullptr;
+#else
+	return false;
+#endif
+#else
+	return gl_extensions.ARB_clip_control && glClipControl != nullptr;
+#endif
+}
+
+void GLSetClipControlZeroToOne() {
+	// The EXT and ARB enums have the same values.
+	constexpr GLenum LOWER_LEFT = 0x8CA1;
+	constexpr GLenum ZERO_TO_ONE = 0x935F;
+#if !PPSSPP_API(ANY_GL)
+#elif defined(USING_GLES2)
+#if defined(__ANDROID__)
+	glClipControlEXT_ptr(LOWER_LEFT, ZERO_TO_ONE);
+#endif
+#else
+	glClipControl(LOWER_LEFT, ZERO_TO_ONE);
 #endif
 }

@@ -54,6 +54,11 @@ void GLQueueRunner::CreateDeviceObjects() {
 		glGenVertexArrays(1, &globalVAO_);
 	}
 
+	// Must match ShaderLanguageDesc::depthMinusOneToOne, which thin3d sets from the same check.
+	if (GLClipControlSupported()) {
+		GLSetClipControlZeroToOne();
+	}
+
 	// An eternal optimist.
 	sawOutOfMemory_ = false;
 
