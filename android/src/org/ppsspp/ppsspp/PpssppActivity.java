@@ -78,9 +78,6 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	// Allows us to skip a lot of initialization on secondary calls to onCreate.
 	private static boolean initialized = false;
 
-	// Lifecycle tracker, to detect erroneous states.
-	private final LifeCycle lifeCycle = new LifeCycle();
-
 	// The surface we hand to the native render loop thread, for both OpenGL and Vulkan.
 	private NativeSurfaceView mSurfaceView;
 	private Surface mSurface;
@@ -667,8 +664,6 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			Log.i(TAG, "Found achievements host override");
 		}
 
-		lifeCycle.onCreate();
-
 		mSensorManager = (SensorManager)getSystemService(Activity.SENSOR_SERVICE);
 		mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
 
@@ -908,7 +903,6 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	@Override
 	protected void onDestroy() {
 		super.onDestroy();
-		lifeCycle.onDestroy();
 
 		mSurfaceView = null;
 		mSurface = null;
@@ -947,21 +941,8 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	}
 
 	@Override
-	protected void onStart() {
-		super.onStart();
-		lifeCycle.onStart();
-	}
-
-	@Override
-	protected void onStop() {
-		super.onStop();
-		lifeCycle.onStop();
-	}
-
-	@Override
 	protected void onPause() {
 		super.onPause();
-		lifeCycle.onPause();
 
 		InputManager inputManager = (InputManager)getSystemService(Context.INPUT_SERVICE);
 		inputManager.unregisterInputDeviceListener(inputDeviceListener);
@@ -987,7 +968,6 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	@Override
 	protected void onResume() {
 		super.onResume();
-		lifeCycle.onResume();
 
 		updateSustainedPerformanceMode();
 		sizeManager.onResume();
