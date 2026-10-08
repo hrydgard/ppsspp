@@ -83,9 +83,6 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	private static int latestInstance = 0;
 	private int instance;
 
-	// Lifecycle tracker, to detect erroneous states.
-	private final LifeCycle lifeCycle = new LifeCycle();
-
 	// The surface we hand to the native render loop thread, for both OpenGL and Vulkan.
 	private NativeSurfaceView mSurfaceView;
 	private Surface mSurface;
@@ -678,7 +675,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			Log.i(TAG, "Found achievements host override");
 		}
 
-		lifeCycle.onCreate();
+		Log.i(TAG, "onCreate begin");
 
 		mSensorManager = (SensorManager)getSystemService(Activity.SENSOR_SERVICE);
 		mAccelerometer = mSensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER);
@@ -936,7 +933,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		if (m_hasNoNativeBinary) {
 			return;
 		}
-		lifeCycle.onDestroy();
+		Log.i(TAG, "onDestroy begin");
 
 		mSurfaceView = null;
 		mSurface = null;
@@ -986,19 +983,13 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	@Override
 	protected void onStart() {
 		super.onStart();
-		if (m_hasNoNativeBinary) {
-			return;
-		}
-		lifeCycle.onStart();
+		Log.i(TAG, "onStart");
 	}
 
 	@Override
 	protected void onStop() {
 		super.onStop();
-		if (m_hasNoNativeBinary) {
-			return;
-		}
-		lifeCycle.onStop();
+		Log.i(TAG, "onStop");
 	}
 
 	@Override
@@ -1007,7 +998,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		if (m_hasNoNativeBinary) {
 			return;
 		}
-		lifeCycle.onPause();
+		Log.i(TAG, "onPause begin");
 
 		InputManager inputManager = (InputManager)getSystemService(Context.INPUT_SERVICE);
 		inputManager.unregisterInputDeviceListener(inputDeviceListener);
@@ -1039,7 +1030,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		if (m_hasNoNativeBinary) {
 			return;
 		}
-		lifeCycle.onResume();
+		Log.i(TAG, "onResume begin");
 
 		updateSustainedPerformanceMode();
 		sizeManager.onResume();
