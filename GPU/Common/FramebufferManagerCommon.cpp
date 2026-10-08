@@ -604,8 +604,10 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 
 	vfb->colorBindSeq = GetBindSeqCount();
 
-	gstate_c.curRTWidth = vfb->width;
-	gstate_c.curRTHeight = vfb->height;
+	// The whole buffer, not the guessed drawing size: that sizes the viewport, and the GE draws anywhere the
+	// scissor lets it. Tokimeki Memorial 4 draws to y 271 with a viewport (so a guessed height) of 256 (#6379).
+	gstate_c.curRTWidth = vfb->bufferWidth;
+	gstate_c.curRTHeight = vfb->bufferHeight;
 	gstate_c.curRTRenderWidth = vfb->renderWidth;
 	gstate_c.curRTRenderHeight = vfb->renderHeight;
 	return vfb;
@@ -1042,7 +1044,7 @@ void FramebufferManagerCommon::NotifyRenderFramebufferCreated(VirtualFramebuffer
 }
 
 void FramebufferManagerCommon::NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb) {
-	if (gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) {
+	if (gstate_c.curRTWidth != vfb->bufferWidth || gstate_c.curRTHeight != vfb->bufferHeight) {
 		gstate_c.Dirty(DIRTY_FRAMEBUFFER_DIM | DIRTY_VIEWPORTSCISSOR_STATE);
 	}
 	if (gstate_c.curRTRenderWidth != vfb->renderWidth || gstate_c.curRTRenderHeight != vfb->renderHeight) {
