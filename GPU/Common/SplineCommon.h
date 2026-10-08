@@ -23,6 +23,7 @@
 #include "Core/ConfigValues.h"
 #include "GPU/Math3D.h"
 #include "GPU/ge_constants.h"
+#include "GPU/GPUState.h"
 #include "GPU/Common/TransformCommon.h"
 
 #include "Core/Config.h"
@@ -150,52 +151,64 @@ struct SplineSurface : public SurfaceInfo {
 	}
 };
 
-struct Weight {
-	float basis[4];
-	float deriv[4];
+// The four basis weights and their derivatives at each tessellation step along one axis, one row
+// per term, so that four neighbouring steps load as one vector. Each row has WEIGHT_PADDING zeros
+// past the end, for a vector that starts at one of the last steps.
+struct WeightTable {
+	enum { WEIGHT_PADDING = 3 };
+
+	float *data = nullptr;
+	int stride = 0;
+
+	const float *Basis(int k) const { return data + k * stride; }
+	const float *Deriv(int k) const { return data + (4 + k) * stride; }
 };
 
 template<class T>
 class WeightCache : public T {
 private:
-	std::unordered_map<u32, Weight*> weightsCache;
+	std::unordered_map<u32, WeightTable> weightsCache;
 public:
-	Weight* operator [] (u32 key) {
-		Weight *&weights = weightsCache[key];
-		if (!weights)
+	const WeightTable &operator [] (u32 key) {
+		WeightTable &weights = weightsCache[key];
+		if (!weights.data)
 			weights = T::CalcWeightsAll(key);
 		return weights;
 	}
 
 	void Clear() {
-		for (auto it : weightsCache)
-			delete[] it.second;
+		for (auto &it : weightsCache)
+			delete[] it.second.data;
 		weightsCache.clear();
 	}
 };
 
 struct Weight2D {
-	const Weight *u, *v;
-	int size_u, size_v;
+	const WeightTable *u, *v;
 
 	template<class T>
 	Weight2D(WeightCache<T> &cache, u32 key_u, u32 key_v) {
-		u = cache[key_u];
-		v = (key_u != key_v) ? cache[key_v] : u; // Use same weights if u == v
+		u = &cache[key_u];
+		v = (key_u != key_v) ? &cache[key_v] : u; // Use same weights if u == v
 	}
 };
 
+// Everything the tessellator reads from one control point, each attribute padded to a full vector.
+struct alignas(16) ControlPoint {
+	float pos[4];  // w is 0.
+	float col[4];  // 0-255.
+	float uv[4];  // zw are 0.
+};
+
 struct ControlPoints {
-	Vec3f *pos = nullptr;
-	Vec2f *tex = nullptr;
-	Vec4f *col = nullptr;
+	ControlPoint *points = nullptr;
 	u32_le defcolor;
 
 	ControlPoints() {}
 	ControlPoints(const SimpleVertex *const *points, int size, SimpleBufferManager &managedBuf);
 	void Convert(const SimpleVertex *const *points, int size);
 	bool IsValid() const {
-		return pos && tex && col;
+		return points != nullptr;
 	}
 };
 
@@ -203,7 +216,14 @@ struct OutputBuffers {
 	SimpleVertex *vertices;
 	u16 *indices;
 	int count;
+	// Applied to the UVs, so the vertices come out the way the vertex decoder would decode them.
+	UVScale uvScale{ 1.0f, 1.0f, 0.0f, 0.0f };
+	// Out: whether every vertex has alpha 255, which the vertex decoder tracks in gstate_c.vertexFullAlpha.
+	bool fullAlpha = true;
 };
+
+// Set to evaluate the GE's Bezier patches and splines with the scalar code, which the vectorized code is tested against.
+extern bool g_splineGEScalar;
 
 template<class Surface>
 void SoftwareTessellation(OutputBuffers &output, const Surface &surface, u32 origVertType, const ControlPoints &points);

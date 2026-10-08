@@ -24,12 +24,16 @@
 // out as the limit at a pole. It shares nothing with the tessellator on purpose.
 
 #include <cmath>
+#include <cstddef>
 #include <cstdio>
+#include <cstring>
 #include <vector>
 
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "GPU/Common/SplineCommon.h"
+#include "GPU/Common/VertexDecoderCommon.h"
+#include "GPU/GPUState.h"
 #include "GPU/ge_constants.h"
 
 #include "unittest/UnitTest.h"
@@ -194,6 +198,7 @@ struct TestCase {
 	bool patchFacing = false;
 	int poleEdge = -1;  // Collapse this edge to one point: 0 = first row (v = 0), 1 = first column (u = 0).
 	float poleNoise = 0.0f;  // ...but only nearly, the way animated control points come out.
+	bool geExact = false;  // The GE's own fixed-point evaluation, as the software renderer uses.
 };
 
 // A bumpy, uneven grid of control points with varying UVs and colors, so that a mixed-up weight or
@@ -255,6 +260,8 @@ struct Output {
 	int indexCount = 0;
 	int tessU = 0, tessV = 0;  // As the surface ended up, after Init.
 	int patchesU = 0, patchesV = 0;
+	UVScale uvScale{ 1.0f, 1.0f, 0.0f, 0.0f };  // In: passed to the tessellator.
+	bool fullAlpha = false;
 };
 
 template <class Surface>
@@ -264,13 +271,9 @@ void Tessellate(Surface &surface, u32 vertType, const std::vector<SimpleVertex> 
 	for (int i = 0; i < numPoints; i++) {
 		pointers[i] = &points[i];
 	}
-	std::vector<Vec3f> pos(numPoints);
-	std::vector<Vec2f> tex(numPoints);
-	std::vector<Vec4f> col(numPoints);
+	std::vector<ControlPoint> controlPoints(numPoints);
 	ControlPoints cpoints;
-	cpoints.pos = pos.data();
-	cpoints.tex = tex.data();
-	cpoints.col = col.data();
+	cpoints.points = controlPoints.data();
 	cpoints.Convert(pointers.data(), numPoints);
 
 	out.vertices.assign(numVerts, SimpleVertex{});
@@ -279,8 +282,10 @@ void Tessellate(Surface &surface, u32 vertType, const std::vector<SimpleVertex> 
 	buffers.vertices = out.vertices.data();
 	buffers.indices = out.indices.data();
 	buffers.count = 0;
+	buffers.uvScale = out.uvScale;
 	SoftwareTessellation(buffers, surface, vertType, cpoints);
 	out.indexCount = buffers.count;
+	out.fullAlpha = buffers.fullAlpha;
 	out.tessU = surface.tess_u;
 	out.tessV = surface.tess_v;
 	out.patchesU = surface.num_patches_u;
@@ -299,6 +304,7 @@ void RunTessellator(const TestCase &tc, const std::vector<SimpleVertex> &points,
 		surface.num_patches_v = (tc.pointsV - 1) / 3;
 		surface.primType = GE_PATCHPRIM_TRIANGLES;
 		surface.patchFacing = tc.patchFacing;
+		surface.geExact = tc.geExact;
 		surface.Init(maxVertices);
 		const int patches = surface.num_patches_u * surface.num_patches_v;
 		Tessellate(surface, tc.vertType, points, (surface.tess_u + 1) * (surface.tess_v + 1) * patches, surface.tess_u * surface.tess_v * 6 * patches, out);
@@ -314,6 +320,7 @@ void RunTessellator(const TestCase &tc, const std::vector<SimpleVertex> &points,
 		surface.num_patches_v = tc.pointsV - 3;
 		surface.primType = GE_PATCHPRIM_TRIANGLES;
 		surface.patchFacing = tc.patchFacing;
+		surface.geExact = tc.geExact;
 		surface.Init(maxVertices);
 		const int divU = surface.num_patches_u * surface.tess_u;
 		const int divV = surface.num_patches_v * surface.tess_v;
@@ -424,6 +431,100 @@ bool CheckCase(const TestCase &tc) {
 	return CheckIndices(tc, out, divU * divV * 6);
 }
 
+// The tessellator writes vertices in the form the vertex decoder would decode them to, so that SubmitCurve can
+// skip that decode. Check it against the decoders themselves.
+bool CheckDecodedForm(const TestCase &tc, bool opaque) {
+	std::vector<SimpleVertex> points = MakeControlPoints(tc);
+	if (opaque) {
+		for (SimpleVertex &p : points) {
+			p.color[3] = 255;
+		}
+	}
+	Output plain;
+	RunTessellator(tc, points, plain);
+	Output decodedForm;
+	decodedForm.uvScale = { 1.5f, -0.75f, 0.25f, -2.0f };
+	RunTessellator(tc, points, decodedForm);
+
+	const u32 vtype = GE_VTYPE_TC_FLOAT | GE_VTYPE_COL_8888 | GE_VTYPE_NRM_FLOAT | GE_VTYPE_POS_FLOAT;
+	const int count = (int)plain.vertices.size();
+	VertexDecoderJitCache cache;
+	for (bool jit : { false, true }) {
+		VertexDecoder dec;
+		dec.SetVertexType(GetVertTypeID(vtype, GE_TEXMAP_TEXTURE_COORDS), VertexDecoderOptions{}, jit ? &cache : nullptr);
+		const DecVtxFormat &fmt = dec.GetDecVtxFmt();
+		if (fmt.stride != sizeof(SimpleVertex) || fmt.uvoff != offsetof(SimpleVertex, uv) || fmt.c0off != offsetof(SimpleVertex, color) ||
+			fmt.nrmoff != offsetof(SimpleVertex, nrm) || fmt.posoff != offsetof(SimpleVertex, pos)) {
+			printf("%s: the decoded format isn't laid out like SimpleVertex\n", tc.name);
+			return false;
+		}
+		// The decoder may write a vertex and 16 bytes past the end.
+		std::vector<SimpleVertex> decoded(count + 2);
+		gstate_c.vertexFullAlpha = true;
+		dec.DecodeVerts((u8 *)decoded.data(), (const u8 *)plain.vertices.data(), &decodedForm.uvScale, count);
+		if (gstate_c.vertexFullAlpha != decodedForm.fullAlpha) {
+			printf("%s%s: full alpha %d, the %s decoder says %d\n", tc.name, opaque ? ", opaque" : "", decodedForm.fullAlpha, jit ? "jit" : "interpreted", gstate_c.vertexFullAlpha);
+			return false;
+		}
+		for (int i = 0; i < count; i++) {
+			const SimpleVertex &want = decoded[i];
+			const SimpleVertex &got = decodedForm.vertices[i];
+			// The UV scale may or may not be fused, depending on the decoder and the platform.
+			const bool uvMatch = fabsf(got.uv[0] - want.uv[0]) <= 1e-6f * (1.0f + fabsf(want.uv[0])) && fabsf(got.uv[1] - want.uv[1]) <= 1e-6f * (1.0f + fabsf(want.uv[1]));
+			if (!uvMatch || got.color_32 != want.color_32 || memcmp(&got.nrm, &want.nrm, sizeof(got.nrm)) != 0 || memcmp(&got.pos, &want.pos, sizeof(got.pos)) != 0) {
+				printf("%s: vertex %d differs from the %s decoder: uv %f %f color %08x, want uv %f %f color %08x\n", tc.name, i, jit ? "jit" : "interpreted",
+					got.uv[0], got.uv[1], (u32)got.color_32, want.uv[0], want.uv[1], (u32)want.color_32);
+				return false;
+			}
+		}
+	}
+	return true;
+}
+
+// The vectorized GE-exact Bezier path against the scalar one, bit for bit. Random control points mix signs
+// and exponents (the lerps work at the larger operand's), and include zeros and values small enough for the
+// scalar fallback.
+bool CheckGEExactSIMD(const TestCase &tc, uint32_t seed) {
+	std::vector<SimpleVertex> points = MakeControlPoints(tc);
+	if (seed != 0) {
+		uint32_t state = seed;
+		auto next = [&]() {
+			state = state * 1664525u + 1013904223u;
+			return state;
+		};
+		auto randomFloat = [&]() {
+			const uint32_t r = next();
+			if ((r & 15) == 0)
+				return 0.0f;
+			const int exponent = (r & 16) ? (int)(next() % 40) - 20 : (int)(next() % 240) - 125;
+			const float mantissa = 1.0f + (next() & 0xFFFFFF) / 16777216.0f;
+			return ldexpf((r & 32) ? -mantissa : mantissa, exponent);
+		};
+		for (SimpleVertex &p : points) {
+			p.pos = Vec3Packedf(randomFloat(), randomFloat(), randomFloat());
+			p.uv[0] = randomFloat();
+			p.uv[1] = randomFloat();
+			p.color_32 = next();
+		}
+	}
+	Output simd, scalar;
+	g_splineGEScalar = false;
+	RunTessellator(tc, points, simd);
+	g_splineGEScalar = true;
+	RunTessellator(tc, points, scalar);
+	g_splineGEScalar = false;
+	for (size_t i = 0; i < simd.vertices.size(); i++) {
+		if (memcmp(&simd.vertices[i], &scalar.vertices[i], sizeof(SimpleVertex)) != 0) {
+			const SimpleVertex &a = simd.vertices[i], &b = scalar.vertices[i];
+			printf("%s, seed %u: vertex %d differs: pos %a %a %a nrm %a %a %a uv %a %a color %08x, scalar pos %a %a %a nrm %a %a %a uv %a %a color %08x\n",
+				tc.name, seed, (int)i, a.pos.x, a.pos.y, a.pos.z, a.nrm.x, a.nrm.y, a.nrm.z, a.uv[0], a.uv[1], (u32)a.color_32,
+				b.pos.x, b.pos.y, b.pos.z, b.nrm.x, b.nrm.y, b.nrm.z, b.uv[0], b.uv[1], (u32)b.color_32);
+			return false;
+		}
+	}
+	return true;
+}
+
 }  // namespace
 
 bool TestSplineTessellation() {
@@ -465,12 +566,59 @@ bool TestSplineTessellation() {
 		}
 	}
 
+	// The vectorized GE-exact paths match the scalar ones. Spline tessellations of 3 and 5 put a vector's
+	// u steps in two segments.
+	const TestCase exactCases[] = {
+		{ "GE exact, bezier, one patch", true, 4, 4, 8, 8 },
+		{ "GE exact, bezier, 2x3 patches, uneven tessellation", true, 7, 10, 5, 3 },
+		{ "GE exact, bezier, normals only", true, 4, 7, 6, 2, 0, 0, posNrm },
+		{ "GE exact, bezier, patch facing", true, 4, 4, 5, 5, 0, 0, posNrm, true },
+		{ "GE exact, bezier, tessellation 1", true, 7, 4, 1, 1 },
+		{ "GE exact, bezier, tessellation 13", true, 4, 4, 13, 7 },
+		{ "GE exact, spline, open", false, 7, 6, 4, 4, 3, 3 },
+		{ "GE exact, spline, closed, uneven tessellation", false, 6, 7, 3, 5, 0, 0 },
+		{ "GE exact, spline, open first/open last", false, 8, 5, 5, 2, 1, 2 },
+		{ "GE exact, spline, one patch", false, 4, 4, 6, 6, 3, 3 },
+		{ "GE exact, spline, normals only, patch facing", false, 5, 6, 3, 3, 2, 1, posNrm, true },
+		{ "GE exact, spline, no attributes", false, 7, 5, 2, 5, 1, 2, posOnly },
+		{ "GE exact, spline, tessellation 1", false, 9, 4, 1, 1, 3, 0 },
+	};
+	for (TestCase tc : exactCases) {
+		tc.geExact = true;
+		for (uint32_t seed = 0; seed < 40; seed++) {
+			if (!CheckGEExactSIMD(tc, seed)) {
+				ok = false;
+				break;
+			}
+		}
+	}
+
+	// Uneven tessellation, so that rows end partway through a vector.
+	const TestCase decodedCases[] = {
+		{ "decoded form, bezier", true, 7, 4, 5, 3 },
+		{ "decoded form, spline", false, 6, 5, 3, 5, 1, 2 },
+		{ "decoded form, generated UVs, no color", false, 5, 5, 6, 2, 0, 3, posNrm },
+	};
+	for (const TestCase &tc : decodedCases) {
+		for (bool opaque : { false, true }) {
+			if (!CheckDecodedForm(tc, opaque)) {
+				ok = false;
+			}
+		}
+	}
+
 	// Speed, for whoever is optimizing this. A big spline and a batch of Bezier patches, the two
 	// shapes games send, with every attribute sampled.
 	{
 		TestCase spline = { "speed, spline", false, 10, 10, 8, 8, 3, 3 };
 		TestCase bezier = { "speed, bezier", true, 10, 10, 8, 8 };
-		for (const TestCase *tc : { &spline, &bezier }) {
+		TestCase splineExact = spline;
+		splineExact.name = "speed, spline, GE exact";
+		splineExact.geExact = true;
+		TestCase bezierExact = bezier;
+		bezierExact.name = "speed, bezier, GE exact";
+		bezierExact.geExact = true;
+		for (const TestCase *tc : { &spline, &bezier, &splineExact, &bezierExact }) {
 			const std::vector<SimpleVertex> points = MakeControlPoints(*tc);
 			Output out;
 			const double callsPerSecond = CallsPerSecond([&] { RunTessellator(*tc, points, out); }, 0.1, 1);

@@ -276,6 +276,8 @@ protected:
 	bool useHWTransform_ = false;
 	// Used to prevent unnecessary flushing in softgpu.
 	bool flushOnParams_ = true;
+	// Whether SubmitCurve may queue its output as predecoded, rather than through DispatchSubmitPrim.
+	bool curvesPredecoded_ = true;
 
 	// Set once a equal depth test is encountered.
 	bool everUsedEqualDepth_ = false;
@@ -306,6 +308,7 @@ protected:
 		u32 vertexCount;
 		u16 indexLowerBound;
 		u16 indexUpperBound;
+		bool predecoded;  // Already in decoded form (a tessellated curve), so DecodeVerts only copies it, if even that.
 	};
 
 	struct DeferredInds {
