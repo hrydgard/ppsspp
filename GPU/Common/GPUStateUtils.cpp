@@ -504,8 +504,12 @@ ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat) {
 				// We will just hope that doubling alpha for the dst factor will not clamp too badly.
 				if (gstate_c.Use(GPU_USE_FRAMEBUFFER_FETCH))
 					return REPLACE_BLEND_READ_FRAMEBUFFER;
+				// Through mode is mostly full screen passes that don't overlap themselves, so a copy is safe there.
+				// MotorStorm brightens its frame with DSTCOLOR + DOUBLESRCALPHA at alpha 0xFE, which is up to 3x the dst,
+				// and doubling alpha in the shader clamps that to 2x.
+				if (gstate.isModeThrough())
+					return REPLACE_BLEND_READ_FRAMEBUFFER;
 				// Hm, this is similar to the L.A. Rush case above. This will not be accurate.
-				// Wonder in which games we encounter this? One example is MotorStorm.
 				return REPLACE_BLEND_2X_ALPHA;
 			}
 
