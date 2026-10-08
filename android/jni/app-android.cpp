@@ -951,6 +951,8 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv
 
 	int old_w = g_display.pixel_xres;
 	int old_h = g_display.pixel_yres;
+	int old_dp_w = g_display.dp_xres;
+	int old_dp_h = g_display.dp_yres;
 
 	// pixel_*res is the backbuffer resolution.
 	backbuffer_format = format;
@@ -973,7 +975,9 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv
 		display_dpi, dpi_x, dpi_y, display_scale_x, display_scale_y, g_display.dpi_scale_x, g_display.dpi_scale_y, g_display.dp_xres, g_display.dp_yres);
 
 	if (new_size || rotated) {
-		INFO_LOG(Log::G3D, "%s detected (previously %d,%d) - calling NativeResized()", new_size ? "Size change" : "Rotation change", old_w, old_h);
+		// Note that a density change moves the dp size while the pixel size stays put.
+		INFO_LOG(Log::G3D, "%s detected (previously %dx%d px, %dx%d dp) - calling NativeResized()",
+			new_size ? "Size change" : "Rotation change", old_w, old_h, old_dp_w, old_dp_h);
 		NativeResized();
 	} else {
 		INFO_LOG(Log::G3D, "NativeApp::backbufferResize: Size didn't change.");

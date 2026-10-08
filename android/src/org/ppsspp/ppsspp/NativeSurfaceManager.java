@@ -20,6 +20,13 @@ public class NativeSurfaceManager implements SurfaceHolder.Callback {
 	// The fixed surface size we last asked for, or 0,0 for "size from layout".
 	private final Point desiredSize = new Point();
 
+	// What we last told the native side about the surface, and the density we told it with.
+	// A density change has to re-report it, see densityChanged().
+	private int reportedWidth;
+	private int reportedHeight;
+	private int reportedFormat;
+	private float reportedDensityDpi;
+
 	public NativeSurfaceManager(final PpssppActivity a) {
 		activity = a;
 	}
@@ -86,16 +93,38 @@ public class NativeSurfaceManager implements SurfaceHolder.Callback {
 			}
 		}
 
-		NativeApp.backbufferResize(width, height, format, activity.getWindowManager().getDefaultDisplay().getRotation());
+		reportSurfaceSize(width, height, format);
 		activity.notifySurface(holder.getSurface());
 	}
 
 	@Override
 	public void surfaceDestroyed(SurfaceHolder holder) {
 		activity.notifySurface(null);
+		reportedWidth = 0;
+		reportedHeight = 0;
 
 		// Autosize the next created surface.
 		holder.setSizeFromLayout();
+	}
+
+	private void reportSurfaceSize(int width, int height, int format) {
+		reportedWidth = width;
+		reportedHeight = height;
+		reportedFormat = format;
+		reportedDensityDpi = densityDpi;
+		NativeApp.backbufferResize(width, height, format, activity.getWindowManager().getDefaultDisplay().getRotation());
+	}
+
+	// A density change rescales the UI but leaves the surface size alone, so no surfaceChanged
+	// follows it to carry the new density to the native side - the DPI is only recalculated in
+	// backbufferResize. Re-report the surface we already have, or the UI keeps the old scale
+	// until the next real resize. Call after updateDisplayMeasurements has picked up the change.
+	public void densityChanged() {
+		if (reportedWidth <= 0 || densityDpi == reportedDensityDpi) {
+			return;
+		}
+		Log.i(TAG, "Density is now " + densityDpi + ", re-reporting surface " + reportedWidth + "x" + reportedHeight);
+		reportSurfaceSize(reportedWidth, reportedHeight, reportedFormat);
 	}
 
 	public void updateDisplayMeasurements() {

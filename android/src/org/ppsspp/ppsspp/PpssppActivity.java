@@ -1075,7 +1075,10 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		// The surface size change that comes with it is what actually updates the native side, except
 		// for this, which the native side was told once at init. Changes on fold/unfold.
 		NativeApp.sendMessageFromJava("smallestScreenWidthDp", String.valueOf(newConfig.smallestScreenWidthDp));
+		// This re-measures the display, so the density check below sees the new value.
 		updateSystemUiVisibility();
+		// A density change doesn't resize the surface, so it needs separate handling.
+		surfaceManager.densityChanged();
 	}
 
 	@Override
