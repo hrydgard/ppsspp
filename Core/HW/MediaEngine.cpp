@@ -847,6 +847,18 @@ inline void writeVideoLineABGR4444(void *destp, const void *srcp, int width) {
 	}
 }
 
+// Returns -1 if the size is unreasonable. Swizzling writes whole 8-row tiles, at least one.
+static int VideoImageSize(int videoLineSize, int height, bool swizzle) {
+	if (videoLineSize < 0 || height < 0) {
+		return -1;
+	}
+	if (swizzle) {
+		height = std::max(8, (height + 7) & ~7);
+	}
+	const s64 size = (s64)videoLineSize * height;
+	return size > 0x10000000 ? -1 : (int)size;
+}
+
 int MediaEngine::writeVideoImage(u32 bufferPtr, int frameWidth, int videoPixelMode) {
 	int videoLineSize = 0;
 	switch (videoPixelMode) {
@@ -860,9 +872,11 @@ int MediaEngine::writeVideoImage(u32 bufferPtr, int frameWidth, int videoPixelMo
 		break;
 	}
 
-	int videoImageSize = videoLineSize * m_desHeight;
+	const int height = m_desHeight;
+	const bool swizzle = Memory::IsVRAMAddress(bufferPtr) && (bufferPtr & 0x00200000) == 0x00200000;
+	const int videoImageSize = VideoImageSize(videoLineSize, height, swizzle);
 
-	if (!Memory::IsValidRange(bufferPtr, videoImageSize) || frameWidth > 2048) {
+	if (frameWidth <= 0 || frameWidth > 2048 || videoImageSize < 0 || !Memory::IsValidRange(bufferPtr, videoImageSize)) {
 		// Clearly invalid values.  Let's just not.
 		ERROR_LOG_REPORT(Log::ME, "Ignoring invalid video decode address %08x/%x", bufferPtr, frameWidth);
 		return 0;
@@ -875,42 +889,43 @@ int MediaEngine::writeVideoImage(u32 bufferPtr, int frameWidth, int videoPixelMo
 		return 0;
 
 	// lock the image size
-	int height = m_desHeight;
-	int width = m_desWidth;
+	// Rows can't be wider than the stride, or they'd overlap and the last would run past the end.
+	const int width = std::min(m_desWidth, frameWidth);
+	const int srcStride = m_desWidth;
 	u8 *imgbuf = buffer;
 	const u8 *data = m_pFrameRGB->data[0];
 
-	bool swizzle = Memory::IsVRAMAddress(bufferPtr) && (bufferPtr & 0x00200000) == 0x00200000;
 	if (swizzle) {
-		imgbuf = new u8[videoImageSize];
+		// Zeroed, since the padding past width (and the rows of the last tile) gets copied to the guest too.
+		imgbuf = new u8[videoImageSize]();
 	}
 
 	switch (videoPixelMode) {
 	case GE_CMODE_32BIT_ABGR8888:
 		for (int y = 0; y < height; y++) {
 			writeVideoLineRGBA(imgbuf + videoLineSize * y, data, width);
-			data += width * sizeof(u32);
+			data += srcStride * sizeof(u32);
 		}
 		break;
 
 	case GE_CMODE_16BIT_BGR5650:
 		for (int y = 0; y < height; y++) {
 			writeVideoLineABGR5650(imgbuf + videoLineSize * y, data, width);
-			data += width * sizeof(u16);
+			data += srcStride * sizeof(u16);
 		}
 		break;
 
 	case GE_CMODE_16BIT_ABGR5551:
 		for (int y = 0; y < height; y++) {
 			writeVideoLineABGR5551(imgbuf + videoLineSize * y, data, width);
-			data += width * sizeof(u16);
+			data += srcStride * sizeof(u16);
 		}
 		break;
 
 	case GE_CMODE_16BIT_ABGR4444:
 		for (int y = 0; y < height; y++) {
 			writeVideoLineABGR4444(imgbuf + videoLineSize * y, data, width);
-			data += width * sizeof(u16);
+			data += srcStride * sizeof(u16);
 		}
 		break;
 
@@ -949,9 +964,10 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 		videoLineSize = frameWidth * sizeof(u16);
 		break;
 	}
-	int videoImageSize = videoLineSize * height;
+	const bool swizzle = Memory::IsVRAMAddress(bufferPtr) && (bufferPtr & 0x00200000) == 0x00200000;
+	const int videoImageSize = VideoImageSize(videoLineSize, height, swizzle);
 
-	if (!Memory::IsValidRange(bufferPtr, videoImageSize) || frameWidth > 2048) {
+	if (frameWidth <= 0 || frameWidth > 2048 || videoImageSize < 0 || !Memory::IsValidRange(bufferPtr, videoImageSize)) {
 		// Clearly invalid values.  Let's just not.
 		ERROR_LOG_REPORT(Log::ME, "Ignoring invalid video decode address %08x/%x", bufferPtr, frameWidth);
 		return 0;
@@ -964,16 +980,15 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 		return 0;
 
 	// lock the image size
-	u8 *imgbuf = buffer;
+	// imgbuf advances per row, so keep the start for the swizzle.
+	u8 *const swizzleBuf = swizzle ? new u8[videoImageSize]() : nullptr;
+	u8 *imgbuf = swizzle ? swizzleBuf : buffer;
 	const u8 *data = m_pFrameRGB->data[0];
-
-	bool swizzle = Memory::IsVRAMAddress(bufferPtr) && (bufferPtr & 0x00200000) == 0x00200000;
-	if (swizzle) {
-		imgbuf = new u8[videoImageSize];
-	}
 
 	if (width > m_desWidth - xpos)
 		width = m_desWidth - xpos;
+	if (width > frameWidth)
+		width = frameWidth;
 	if (height > m_desHeight - ypos)
 		height = m_desHeight - ypos;
 
@@ -1027,8 +1042,8 @@ int MediaEngine::writeVideoImageWithRange(u32 bufferPtr, int frameWidth, int vid
 		if (byc == 0)
 			byc = 1;
 
-		DoSwizzleTex16((const u32 *)imgbuf, buffer, bxc, byc, videoLineSize);
-		delete [] imgbuf;
+		DoSwizzleTex16((const u32 *)swizzleBuf, buffer, bxc, byc, videoLineSize);
+		delete [] swizzleBuf;
 	}
 	NotifyMemInfo(MemBlockFlags::WRITE, bufferPtr, videoImageSize, "VideoDecodeRange");
 
