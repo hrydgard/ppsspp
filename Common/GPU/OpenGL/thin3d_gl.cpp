@@ -590,7 +590,8 @@ OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameT
 	caps_.fragmentShaderStencilWriteSupported = gl_extensions.ARB_shader_stencil_export;
 
 	// GLES has no support for logic framebuffer operations. There doesn't even seem to exist any such extensions.
-	caps_.logicOpSupported = !gl_extensions.IsGLES;
+	// Apple's OpenGL on Apple GPUs (on top of Metal, which has none either) accepts glLogicOp and ignores it.
+	caps_.logicOpSupported = !gl_extensions.IsGLES && gl_extensions.gpuVendor != GPU_VENDOR_APPLE;
 
 	// Always the case in GL (which is what we want for PSP flat shade).
 	caps_.provokingVertexLast = true;

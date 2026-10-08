@@ -138,6 +138,14 @@ The runner uses `--screenshot=<ref>` (compare), `--screenshot-save=<file>`
 `--screenshot-diff=<file>` (always write a visual comparison when comparing).
 See `headless/README.md` for details.
 
+`--depth-save=<file>` writes the current depth buffer next to the screenshot: a
+u32 width and height, then a u16 per pixel, or a float if the path ends in
+`.f32`. The software renderer gives the GE's own values. The hardware renderers
+keep depth at higher precision without the GE's rounding, so their u16 is
+`floor(d * 65536)` and usually within one of the software renderer's; the
+`.f32` version keeps the fraction, which shows whether two draws of the same
+surface meet a depth test like `>=`.
+
 ## Command line options
 
 ```
@@ -217,6 +225,23 @@ new flag combinations, as long as the headless binary supports them.
 The CI test set (dumps and references) is maintained separately from the
 runner; the `frametests/` submodule is just one of several possible test sets
 - custom machines can use their own (possibly much larger) ones.
+
+## Comparing renderers
+
+Two backends never match pixel for pixel: edges land a pixel apart, filtering and interpolation round
+differently, 16-bit framebuffers expand their colors differently. To find what really differs between,
+say, Vulkan and the software renderer (or a PSP capture), render the same dumps with each and compare the
+directories with `Tools/image_compare.py`:
+
+```bash
+python3 Tools/image_compare.py out_vulkan/ out_soft/ --sort --heatmaps heat/
+```
+
+It counts a difference only where a pixel is outside the range of the other image's 3x3 neighborhood
+(widened by a tolerance) and enough of its neighbors are too, so shifted edges and speckle drop out, and
+separately counts 8x8 blocks whose averages differ, for broad shifts. The heatmaps show both images and the
+counted pixels. On the GitHub dump set, Vulkan and OpenGL come out equivalent for 795 of 957 dumps, and
+what's left is mostly real (frames one of them renders black, missing effects).
 
 ## Replaying a dump on a real PSP
 

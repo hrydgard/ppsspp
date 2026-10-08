@@ -913,6 +913,10 @@ void FramebufferManagerCommon::CopyToColorFromOverlappingFramebuffers(VirtualFra
 				// We should also copy the depth buffer in this case!
 				BlitFramebufferDepth(src, dst, true);
 			}
+
+			if (pipeline && src->fb_format != dst->fb_format) {
+				WriteStencilFromFramebufferAlpha(dst);
+			}
 		}
 	}
 

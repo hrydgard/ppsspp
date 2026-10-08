@@ -346,6 +346,7 @@ public:
 	void UpdateFromMemory(u32 addr, int size);
 	void ApplyClearToMemory(int x1, int y1, int x2, int y2, u32 clearColor);
 	bool PerformWriteStencilFromMemory(u32 addr, int size, WriteStencil flags);
+	void WriteStencilFromFramebufferAlpha(VirtualFramebuffer *dst);
 
 	// We changed our depth mode, gotta start over.
 	// Ideally, we should convert depth buffers here, not just clear them.
@@ -543,6 +544,8 @@ protected:
 	void NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth);
 
 	void BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst, bool allowSizeMismatch = false);
+	void EnsureStencilWritePipeline(bool useExportShader);
+	void DrawStencilWritePasses(GEBufferFormat format, int values, u8 usedBits, bool useExportShader);
 
 	void ResizeFramebufFBO(VirtualFramebuffer *vfb, int w, int h, bool force = false, bool skipCopy = false);
 
