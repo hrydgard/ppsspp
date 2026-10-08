@@ -510,8 +510,8 @@ if(NOT MSVC)
 	if(IOS)
 		set(CMAKE_OSX_DEPLOYMENT_TARGET "12.0")
 	elseif(APPLE AND NOT CMAKE_CROSSCOMPILING)
-		# The oldest libc++ in current Xcode supports ("The selected platform is no longer supported" below).
-		set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0")
+		# The bundled MoltenVK (ext/vulkan/macOS) needs 12.0.
+		set(CMAKE_OSX_DEPLOYMENT_TARGET "12.0")
 		add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:-stdlib=libc++>" -U__STRICT_ANSI__)
 		set(CMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LIBRARY "libc++")
 	elseif(NOT ANDROID)
