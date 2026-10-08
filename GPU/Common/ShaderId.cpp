@@ -266,6 +266,7 @@ std::string FShaderID::Description(bool includeID) const {
 	if (Bit(FS_BIT_USE_FRAMEBUFFER_FETCH)) desc.C("(fetch)");
 	if (Bit(FS_BIT_MINMAX_DISCARD)) desc.C("FragMinMaxDiscard ");
 	if (Bit(FS_BIT_DEPTH_CLAMP)) desc.C("FragDepthClamp ");
+	if (Bit(FS_BIT_NO_DEPTH_WRITE)) desc.C("NoDepthWrite ");
 
 	const ShaderDepalMode depalMode = (ShaderDepalMode)Bits(FS_BIT_SHADER_DEPAL_MODE, 2);
 	switch (depalMode) {
@@ -438,6 +439,13 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 		if (bugs.Has(Draw::Bugs::NO_DEPTH_CANNOT_DISCARD_STENCIL_MALI) &&
 			gstate.getDepthTestFunction() == GE_COMP_NEVER && gstate.isDepthTestEnabled()) {
 			id.SetBit(FS_BIT_DEPTH_TEST_NEVER);
+		}
+
+		// With the depth test effectively off, nothing writes depth, so don't write it in the shader either.
+		// That also avoids a driver bug in Apple's OpenGL, where discard stopped writing color but not stencil
+		// once the shader writes gl_FragDepth (Tales of Phantasia, which has PixelDepthRounding).
+		if ((gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT) || id.Bit(FS_BIT_DEPTH_CLAMP)) && IsDepthTestEffectivelyDisabled()) {
+			id.SetBit(FS_BIT_NO_DEPTH_WRITE);
 		}
 
 		// In case the USE flag changes (for example, in multisampling we might disable input attachments),
