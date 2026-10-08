@@ -793,6 +793,10 @@ void GLQueueRunner::PerformBlit(const GLRStep &step) {
 	int dstX2 = step.blit.dstRect.x + step.blit.dstRect.w;
 	int dstY2 = step.blit.dstRect.y + step.blit.dstRect.h;
 
+	// Blits are scissored, and between render passes the scissor test is still on (with the last pass's rectangle).
+	if (scissorTestOn_) {
+		glDisable(GL_SCISSOR_TEST);
+	}
 	if (gl_extensions.GLES3 || gl_extensions.ARB_framebuffer_object) {
 		glBlitFramebuffer(srcX1, srcY1, srcX2, srcY2, dstX1, dstY1, dstX2, dstY2, step.blit.aspectMask, step.blit.filter ? GL_LINEAR : GL_NEAREST);
 		CHECK_GL_ERROR_IF_DEBUG();
@@ -803,6 +807,9 @@ void GLQueueRunner::PerformBlit(const GLRStep &step) {
 #endif // defined(USING_GLES2) && defined(__ANDROID__)
 	} else {
 		ERROR_LOG(Log::G3D, "GLQueueRunner: Tried to blit without the capability");
+	}
+	if (scissorTestOn_) {
+		glEnable(GL_SCISSOR_TEST);
 	}
 }
 
@@ -831,6 +838,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 		glDisable(GL_CULL_FACE);
 		glDisable(GL_DITHER);
 		glEnable(GL_SCISSOR_TEST);
+		scissorTestOn_ = true;
 #ifndef USING_GLES2
 		if (!gl_extensions.IsGLES) {
 			glDisable(GL_COLOR_LOGIC_OP);
@@ -1450,8 +1458,10 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 	if (last && gl_extensions.ARB_vertex_array_object) {
 		glBindVertexArray(0);
 	}
-	if (last)
+	if (last) {
 		glDisable(GL_SCISSOR_TEST);
+		scissorTestOn_ = false;
+	}
 	if (depthEnabled)
 		glDisable(GL_DEPTH_TEST);
 	if (stencilEnabled)
