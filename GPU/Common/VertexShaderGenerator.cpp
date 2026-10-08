@@ -937,7 +937,13 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "  float clipZNear = floor(outPos.z * 0.5 + 0.5) * 2.0;\n");
 		WRITE(p, "  float clipZFar = floor(outPos.z * 0.5) * 2.0;\n");
 
-		WRITE(p, "  %sgl_ClipDistance%s = u_minZmaxZ.x > 0.0 ? (clipZNear - u_minZmaxZ.x) * outPos.w : 1.0;\n", compat.vsOutPrefix, minZClipPlaneSuffix);
+		if (compat.depthHalfRange && !fsDepthClamp) {
+			// Clip z 0..w isn't clipped below 0 here (only below -w), so clip at Z 0 like the hardware does
+			// elsewhere. Not with depth clamp on, which ShaderManagerGLES signals with a min Z of -1.
+			WRITE(p, "  %sgl_ClipDistance%s = u_minZmaxZ.x > 0.0 ? (clipZNear - u_minZmaxZ.x) * outPos.w : (u_minZmaxZ.x == 0.0 ? outPos.z * outPos.w : 1.0);\n", compat.vsOutPrefix, minZClipPlaneSuffix);
+		} else {
+			WRITE(p, "  %sgl_ClipDistance%s = u_minZmaxZ.x > 0.0 ? (clipZNear - u_minZmaxZ.x) * outPos.w : 1.0;\n", compat.vsOutPrefix, minZClipPlaneSuffix);
+		}
 		WRITE(p, "  %sgl_ClipDistance%s = u_minZmaxZ.y < 65535.0 ? (u_minZmaxZ.y - clipZFar) * outPos.w : 1.0;\n", compat.vsOutPrefix, maxZClipPlaneSuffix);
 	}
 

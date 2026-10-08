@@ -738,9 +738,11 @@ OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameT
 		}
 	}
 
-	// With clip control, clip-space Z runs 0..W like Vulkan's, so shaders skip the -1..1 conversion.
-	// GLQueueRunner::CreateDeviceObjects turns it on.
-	shaderLanguageDesc_.depthMinusOneToOne = !GLClipControlSupported();
+	// Clip z always runs 0..w like Vulkan's. GL's -w..w would put the PSP's Z 0 at z/w = -1, which the
+	// rasterizer doesn't reproduce exactly. With clip control (GLQueueRunner::CreateDeviceObjects turns it
+	// on) that's all; without it, 0..w lands in window depth 0.5..1.
+	shaderLanguageDesc_.depthMinusOneToOne = false;
+	shaderLanguageDesc_.depthHalfRange = !GLClipControlSupported();
 
 	// NOTE: We only support framebuffer fetch on ES3 due to past issues..
 	if (gl_extensions.IsGLES && gl_extensions.GLES3) {

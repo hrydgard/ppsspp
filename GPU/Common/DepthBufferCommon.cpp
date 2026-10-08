@@ -61,7 +61,8 @@ void GenerateDepthDownloadFs(ShaderWriter &writer) {
 	}
 	writer.DeclareSamplers(samplers);
 	writer.BeginFSMain(depthUniforms, varyings);
-	writer.C("  float depth = ").SampleTexture2D("tex", "v_texcoord").C(".r;\n");
+	writer.C("  float rawDepth = ").SampleTexture2D("tex", "v_texcoord").C(".r;\n");
+	writer.F("  float depth = %s;\n", DepthFromWindow(writer.Lang(), "rawDepth").c_str());
 	// Depth is stored as z / 65536 (clears as z / 65535), so the PSP's z is the top 16 of 24 bits of
 	// depth * 2^24. Clamp just below 1.0 so a cleared 65535 doesn't wrap to 0.
 	writer.C("  float clamped = clamp(depth, 0.0, 16777215.0 / 16777216.0);\n");
@@ -265,10 +266,12 @@ bool FramebufferManagerCommon::ReadbackDepthbuffer(Draw::Framebuffer *fbo, int x
 		// We downloaded float values directly in this case.
 		uint16_t *dest = pixels;
 		const float *packedf = (float *)convBuf_;
+		const bool halfRange = draw_->GetShaderLanguageDesc().depthHalfRange;
 		for (int yp = 0; yp < destH; ++yp) {
 			for (int xp = 0; xp < destW; ++xp) {
 				// Depth is stored as z / 65536 (clears as z / 65535), and the PSP truncates.
-				dest[xp] = (u16)std::clamp(65536.0f * packedf[xp], 0.0f, 65535.0f);
+				const float depth = halfRange ? packedf[xp] * 2.0f - 1.0f : packedf[xp];
+				dest[xp] = (u16)std::clamp(65536.0f * depth, 0.0f, 65535.0f);
 			}
 			dest += pixelsStride;
 			packedf += destW;

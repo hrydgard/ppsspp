@@ -1024,13 +1024,15 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 				glClearColor(color[0], color[1], color[2], color[3]);
 			}
 			if (c.clear.clearMask & GL_DEPTH_BUFFER_BIT) {
+				// Without clip control, depth 0..1 is stored as 0.5..1 (see ShaderLanguageDesc::depthHalfRange).
+				const float clearZ = GLClipControlSupported() ? c.clear.clearZ : 0.5f + 0.5f * c.clear.clearZ;
 #if defined(USING_GLES2)
-				glClearDepthf(c.clear.clearZ);
+				glClearDepthf(clearZ);
 #else
 				if (gl_extensions.IsGLES) {
-					glClearDepthf(c.clear.clearZ);
+					glClearDepthf(clearZ);
 				} else {
-					glClearDepth(c.clear.clearZ);
+					glClearDepth(clearZ);
 				}
 #endif
 			}

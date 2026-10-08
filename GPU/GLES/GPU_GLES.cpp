@@ -139,6 +139,12 @@ u32 GPU_GLES::CheckGPUFeatures() const {
 	if ((gl_extensions.IsGLES && !gl_extensions.GLES3) || (!gl_extensions.IsGLES && !gl_extensions.VersionGEThan(1, 3)))
 		features &= ~GPU_USE_LIGHT_UBERSHADER;
 
+	if (draw_->GetShaderLanguageDesc().depthHalfRange) {
+		// The hardware clamp works in window depth, 0..1, where the PSP's Z 0 is 0.5. Clamp in the fragment
+		// shader instead (only draws that reach past 0..65535 need it).
+		features &= ~GPU_USE_DEPTH_CLAMP;
+	}
+
 	if (IsVREnabled() || g_Config.bForceVR) {
 		features |= GPU_USE_VIRTUAL_REALITY;
 		features &= ~GPU_USE_VS_RANGE_CULLING;

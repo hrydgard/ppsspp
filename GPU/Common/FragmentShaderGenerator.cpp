@@ -760,11 +760,11 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 					WRITE(p, "  }\n");
 					break;
 				case GE_FORMAT_DEPTH16:
-					WRITE(p, "  index0 = uint(t.r * 65535.99);\n");
+					WRITE(p, "  index0 = uint(%s * 65535.99);\n", DepthFromWindow(compat, "t.r").c_str());
 					WRITE(p, "  if (bilinear) {\n");
-					WRITE(p, "    index1 = uint(t1.r * 65535.99);\n");
-					WRITE(p, "    index2 = uint(t2.r * 65535.99);\n");
-					WRITE(p, "    index3 = uint(t3.r * 65535.99);\n");
+					WRITE(p, "    index1 = uint(%s * 65535.99);\n", DepthFromWindow(compat, "t1.r").c_str());
+					WRITE(p, "    index2 = uint(%s * 65535.99);\n", DepthFromWindow(compat, "t2.r").c_str());
+					WRITE(p, "    index3 = uint(%s * 65535.99);\n", DepthFromWindow(compat, "t3.r").c_str());
 					WRITE(p, "  }\n");
 					break;
 				default:
@@ -1216,15 +1216,15 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	if (writeDepth) {
 		if (gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT)) {
 			if (fsDepthClamp) {
-				WRITE(p, "  gl_FragDepth = clamp(floor(projZ), 0.0, 65535.0) / 65535.0;\n");
+				WRITE(p, "  gl_FragDepth = %s;\n", DepthToWindow(compat, "clamp(floor(projZ), 0.0, 65535.0) / 65535.0").c_str());
 			} else {
 				// gl_FragCoord.z is the PSP's Z / 65536. Flat draws land exactly on an integer Z, so floor with some
 				// room for float error, which differs with W (Patlabor's HUD redraws an icon with GEQUAL). Then store
 				// Z / 65535 like clears and the clamp path above.
-				WRITE(p, "  gl_FragDepth = floor(gl_FragCoord.z * 65536.0 + 0.01) / 65535.0;\n");
+				WRITE(p, "  gl_FragDepth = %s;\n", DepthToWindow(compat, ("floor(" + DepthFromWindow(compat, "gl_FragCoord.z") + " * 65536.0 + 0.01) / 65535.0").c_str()).c_str());
 			}
 		} else if (fsDepthClamp) {
-			WRITE(p, "  gl_FragDepth = clamp(projZ, 0.0, 65535.0) / 65535.0;\n");
+			WRITE(p, "  gl_FragDepth = %s;\n", DepthToWindow(compat, "clamp(projZ, 0.0, 65535.0) / 65536.0").c_str());
 		}
 	} else if (useDiscardStencilBugWorkaround) {
 		// Adreno and some Mali drivers apply early frag tests even with discard in the shader,

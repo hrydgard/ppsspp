@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string>
 #include <vector>
 #include <cstdint>
 #include <cstddef>  // for size_t
@@ -57,6 +58,9 @@ struct ShaderLanguageDesc {
 	const char *viewportYSign = "";
 
 	bool depthMinusOneToOne = false;
+	// Clip z 0..w lands in window depth 0.5..1 (OpenGL without clip control): what's written to or read
+	// from a depth buffer directly is 0.5 + 0.5 * depth. See DepthToWindow / DepthFromWindow.
+	bool depthHalfRange = false;
 	bool vertexIndex = false;
 	bool glslES30 = false;  // really glslES30Features. TODO: Clean this up.
 	bool bitwiseOps = false;
@@ -64,6 +68,15 @@ struct ShaderLanguageDesc {
 	bool coefsFromBuffers = false;
 	char driverInfo[256];  // Really only GL uses this.
 };
+
+// Wraps a shader expression for a depth value (0..1, the PSP's Z / 65535 or 65536) that's written to the
+// depth buffer, or read back from one, so it means the same with depthHalfRange.
+inline std::string DepthToWindow(const ShaderLanguageDesc &lang, const char *expr) {
+	return lang.depthHalfRange ? std::string("(0.5 + 0.5 * (") + expr + "))" : std::string("(") + expr + ")";
+}
+inline std::string DepthFromWindow(const ShaderLanguageDesc &lang, const char *expr) {
+	return lang.depthHalfRange ? std::string("((") + expr + ") * 2.0 - 1.0)" : std::string("(") + expr + ")";
+}
 
 enum class UniformType : int8_t {
 	FLOAT1,

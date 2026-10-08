@@ -496,6 +496,10 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, const ShaderLanguageDesc
 			(float)gstate.getDepthRangeMin(),
 			(float)gstate.getDepthRangeMax(),
 		};
+		if (shaderLanguage.depthHalfRange && gstate.isDepthClipEnabled() && minZmaxZ[0] == 0.0f) {
+			// Tells the vertex shader not to clip at Z 0, since depth clamp is on (see depthHalfRange there).
+			minZmaxZ[0] = -1.0f;
+		}
 		render_->SetUniformF(&u_minZmaxZ, 2, minZmaxZ);
 	}
 

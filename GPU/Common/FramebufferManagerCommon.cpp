@@ -3156,6 +3156,13 @@ bool FramebufferManagerCommon::GetDepthbuffer(u32 fb_address, int fb_stride, u32
 	buffer.Allocate(w, h, GPU_DBG_FORMAT_FLOAT, flipY);
 	// No need to free on failure, that's the caller's job (it likely will reuse a buffer.)
 	bool retval = draw_->CopyFramebufferToMemory(vfb->fbo, Draw::Aspect::DEPTH_BIT, 0, 0, w, h, Draw::DataFormat::D32F, buffer.GetData(), w, Draw::ReadbackMode::BLOCK, "GetDepthBuffer");
+	if (retval && draw_->GetShaderLanguageDesc().depthHalfRange) {
+		// Stored as 0.5 + 0.5 * depth.
+		float *depth = (float *)buffer.GetData();
+		for (int i = 0; i < w * h; i++) {
+			depth[i] = depth[i] * 2.0f - 1.0f;
+		}
+	}
 	if (!retval) {
 		// Try ReadbackDepthbufferSync, in case GLES.
 		buffer.Allocate(w, h, GPU_DBG_FORMAT_16BIT, flipY);

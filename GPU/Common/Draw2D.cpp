@@ -108,7 +108,7 @@ Draw2DPipelineInfo GenerateDraw2DEncodeDepthFs(ShaderWriter &writer) {
 	writer.BeginFSMain(g_draw2Duniforms, varyings);
 	writer.C("  vec4 outColor = vec4(0.0, 0.0, 0.0, 0.0);\n");
 	writer.C("  float depthValue = ").SampleTexture2D("tex", "v_texcoord.xy").C(".x;\n");
-	writer.C("  gl_FragDepth = depthValue;\n");
+	writer.F("  gl_FragDepth = %s;\n", DepthToWindow(writer.Lang(), "depthValue").c_str());
 	writer.EndFSMain("outColor");
 
 	return Draw2DPipelineInfo{
@@ -128,7 +128,7 @@ Draw2DPipelineInfo GenerateDraw2D565ToDepthFs(ShaderWriter &writer) {
 	// have to apply the scaling.
 	writer.C("  vec3 rgb = ").SampleTexture2D("tex", "v_texcoord.xy").C(".xyz;\n");
 	writer.F("  float depthValue = ((floor(rgb.x * 31.99) + floor(rgb.y * 63.99) * 32.0 + floor(rgb.z * 31.99) * 2048.0)); \n");
-	writer.C("  gl_FragDepth = depthValue / 65535.0;\n");
+	writer.F("  gl_FragDepth = %s;\n", DepthToWindow(writer.Lang(), "depthValue / 65535.0").c_str());
 	writer.EndFSMain("outColor");
 
 	return Draw2DPipelineInfo{
@@ -152,7 +152,7 @@ Draw2DPipelineInfo GenerateDraw2D565ToDepthDeswizzleFs(ShaderWriter &writer) {
 	writer.C("  coord /= tsize;\n");
 	writer.C("  highp vec3 rgb = ").SampleTexture2D("tex", "coord").C(".xyz;\n");
 	writer.F("  highp float depthValue = floor(rgb.x * 31.99) + floor(rgb.y * 63.99) * 32.0 + floor(rgb.z * 31.99) * 2048.0; \n");
-	writer.C("  gl_FragDepth = depthValue / 65535.0;\n");
+	writer.F("  gl_FragDepth = %s;\n", DepthToWindow(writer.Lang(), "depthValue / 65535.0").c_str());
 	writer.EndFSMain("outColor");
 
 	return Draw2DPipelineInfo{
