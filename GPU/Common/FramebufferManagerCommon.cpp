@@ -2907,7 +2907,11 @@ void FramebufferManagerCommon::NotifyBlockTransferAfter(u32 dstBasePtr, int dstS
 				// The buffer isn't big enough, and we have a clear hint of size. Resize.
 				// This happens in Valkyrie Profile when uploading video at the ending.
 				// Also happens to the CLUT framebuffer in the Burnout Dominator lens flare effect. See #16075
+				// Resizing makes the buffer the current render target, but the game is still drawing to its own,
+				// so keep that for the rebind below (God of War: Ghost of Sparta lost its scene to this).
+				VirtualFramebuffer *renderVfb = currentRenderVfb_;
 				ResizeFramebufFBO(dstRect.vfb, dstRect.w_bytes / bpp, dstRect.h, false, true);
+				currentRenderVfb_ = renderVfb;
 				// Make sure we don't flop back and forth.
 				dstRect.vfb->newWidth = std::max(dstRect.w_bytes / bpp, (int)dstRect.vfb->width);
 				dstRect.vfb->newHeight = std::max(dstRect.h, (int)dstRect.vfb->height);
