@@ -278,7 +278,7 @@ std::string FShaderID::Description(bool includeID) const {
 		break;
 	}
 	case ShaderDepalMode::SMOOTHED: desc.C("SmoothDepal "); break;
-	case ShaderDepalMode::CLUT8_8888: desc.C("CLUT8From8888Depal"); break;
+	case ShaderDepalMode::CLUT8: desc.C("CLUT8Depal(").W(GeBufferFormatToString((GEBufferFormat)Bits(FS_BIT_SHADER_DEPAL_FORMAT, 3))).C(") "); break;
 	}
 
 	return desc.as_string();
@@ -335,7 +335,7 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 
 		ShaderDepalMode shaderDepalMode = gstate_c.shaderDepalMode;
 		GEBufferFormat shaderDepalFormat = {};
-		if (shaderDepalMode == ShaderDepalMode::NORMAL) {
+		if (shaderDepalMode == ShaderDepalMode::NORMAL || shaderDepalMode == ShaderDepalMode::CLUT8) {
 			shaderDepalFormat = gstate_c.depalTextureFormat;
 		}
 

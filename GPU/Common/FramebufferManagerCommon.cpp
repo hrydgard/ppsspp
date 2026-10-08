@@ -1406,14 +1406,18 @@ void FramebufferManagerCommon::CopyFramebufferForColorTexture(VirtualFramebuffer
 	if ((flags & BINDFBCOLOR_MAY_COPY_WITH_UV) == BINDFBCOLOR_MAY_COPY_WITH_UV && gstate_c.vertBounds.maxU > gstate_c.vertBounds.minU) {
 		// One texel more on each side, which bilinear filtering at the edges reads. The rest of the copy holds
 		// whatever the temp FBO had before (magenta streaks in Need for Speed Shift's sun glow).
-		x = std::max(gstate_c.vertBounds.minU - 1, 0);
+		// CLUT8 counts U and the X offset in bytes, several to a pixel.
+		const int texelsPerPixel = gstate.getTextureFormat() == GE_TFMT_CLUT8 ? BufferFormatBytesPerPixel(src->fb_format) : 1;
+		const int minU = gstate_c.vertBounds.minU / texelsPerPixel;
+		const int maxU = (gstate_c.vertBounds.maxU + texelsPerPixel - 1) / texelsPerPixel;
+		x = std::max(minU - 1, 0);
 		y = std::max(gstate_c.vertBounds.minV - 1, 0);
-		w = std::min(gstate_c.vertBounds.maxU + 1, (int)src->drawnWidth) - x;
+		w = std::min(maxU + 1, (int)src->drawnWidth) - x;
 		h = std::min(gstate_c.vertBounds.maxV + 1, (int)src->drawnHeight) - y;
 
 		// If we bound a framebuffer, apply the byte offset as pixels to the copy too.
 		if (flags & BINDFBCOLOR_APPLY_TEX_OFFSET) {
-			x += gstate_c.curTextureXOffset;
+			x += gstate_c.curTextureXOffset / texelsPerPixel;
 			y += gstate_c.curTextureYOffset;
 		}
 

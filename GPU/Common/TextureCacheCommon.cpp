@@ -1293,21 +1293,13 @@ static bool MatchFramebuffer(const TextureDefinition &entry,
 			(fb_format == GE_FORMAT_DEPTH16 && entry.format == GE_TFMT_5650) ||
 			(fb_format == GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT32) ||
 			(fb_format != GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT16) ||
-			(fb_format == GE_FORMAT_8888 && entry.format == GE_TFMT_CLUT8) ||
-			(fb_format == GE_FORMAT_5551 && entry.format == GE_TFMT_CLUT8 && PSP_CoreParameter().compat.flags().SOCOMClut8Replacement);
+			(fb_format != GE_FORMAT_DEPTH16 && entry.format == GE_TFMT_CLUT8);
 
 		const int texBitsPerPixel = TextureFormatBitsPerPixel(entry.format);
 		const int byteOffset = texaddr - addr;
 		if (byteOffset > 0) {
-			int texbpp = texBitsPerPixel;
-			if (fb_format == GE_FORMAT_5551 && entry.format == GE_TFMT_CLUT8) {
-				// In this case we treat CLUT8 as if it were CLUT16, see issue #16210. So we need
-				// to compute the x offset appropriately.
-				texbpp = 16;
-			}
-
 			matchInfo->yOffset = byteOffset / fb_stride_in_bytes;
-			matchInfo->xOffset = 8 * (byteOffset % fb_stride_in_bytes) / texbpp;
+			matchInfo->xOffset = 8 * (byteOffset % fb_stride_in_bytes) / texBitsPerPixel;
 		} else if (byteOffset < 0) {
 			int texelOffset = 8 * byteOffset / texBitsPerPixel;
 			// We don't support negative Y offsets, and negative X offsets are only for the Killzone workaround.
@@ -1418,11 +1410,6 @@ VirtualFramebuffer *TextureCacheCommon::SetTextureFramebuffer(const AttachCandid
 		// We need to force it, since we may have set it on a texture before attaching.
 		int texWidth = framebuffer->bufferWidth;
 		int texHeight = framebuffer->bufferHeight;
-		if (candidate.channel == RASTER_COLOR && gstate.getTextureFormat() == GE_TFMT_CLUT8 && framebuffer->fb_format == GE_FORMAT_5551 && PSP_CoreParameter().compat.flags().SOCOMClut8Replacement) {
-			// See #16210. UV must be adjusted as if the texture was twice the width.
-			texWidth *= 2.0f;
-		}
-
 		if (needsDepthXSwizzle) {
 			texWidth = RoundToNextPowerOf2(texWidth);
 		}
@@ -2394,8 +2381,8 @@ static bool CanDepalettizeBufferAs(GETextureFormat texFormat, GEBufferFormat buf
 			if (texFormat == GE_TFMT_CLUT16) {
 				return true;
 			}
-			if (texFormat == GE_TFMT_CLUT8 && bufferFormat == GE_FORMAT_5551 && PSP_CoreParameter().compat.flags().SOCOMClut8Replacement) {
-				// Wacky case from issue #16210 (SOCOM etc).
+			if (texFormat == GE_TFMT_CLUT8 && bufferFormat != GE_FORMAT_DEPTH16) {
+				// Reads one byte of each pixel (SOCOM #16210, Resistance: Retribution).
 				return true;
 			}
 			break;
@@ -2458,12 +2445,11 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 	const bool selfRender = framebufferManager_->GetCurrentRenderVFB() == framebuffer;
 
 	// Shader depal is not supported during 3D texturing or depth texturing, and requires 32-bit integer instructions in the shader.
-	// CLUT8 from 8888 takes it even when rendering to self (through a copy): only the shader picks the byte out of each pixel,
+	// CLUT8 takes it even when rendering to self (through a copy): only the shader picks the byte out of each pixel,
 	// the depal pass can't. Star Wars: The Force Unleashed does this for a color grade.
-	bool useShaderDepal = (!selfRender || (texFormat == GE_TFMT_CLUT8 && fbFormat == GE_FORMAT_8888)) && !depth && clutRenderAddress_ == 0xFFFFFFFF &&
+	bool useShaderDepal = (!selfRender || texFormat == GE_TFMT_CLUT8) && !depth && clutRenderAddress_ == 0xFFFFFFFF &&
 		!gstate_c.curTextureIs3D &&
-		draw_->GetShaderLanguageDesc().bitwiseOps &&
-		!(texFormat == GE_TFMT_CLUT8 && fbFormat == GE_FORMAT_5551);  // socom
+		draw_->GetShaderLanguageDesc().bitwiseOps;
 
 	switch (draw_->GetShaderLanguageDesc().shaderLanguage) {
 	case ShaderLanguage::GLSL_1xx:
@@ -2525,8 +2511,8 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 			ApplySamplerByKey(samplerKey);
 
 			ShaderDepalMode mode = ShaderDepalMode::NORMAL;
-			if (texFormat == GE_TFMT_CLUT8 && fbFormat == GE_FORMAT_8888) {
-				mode = ShaderDepalMode::CLUT8_8888;
+			if (texFormat == GE_TFMT_CLUT8) {
+				mode = ShaderDepalMode::CLUT8;
 				smoothedDepal = false;  // just in case
 				// The shader picks the byte out of each pixel in PSP units, which it gets from u_texclamp.
 				gstate_c.SetNeedShaderTexclamp(true);
@@ -2563,9 +2549,9 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 			gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 		}
 
-		// CLUT8 from 5551 (SOCOM, #16210): U counts bytes, two per pixel of the depal output.
-		const bool clut8From5551 = texFormat == GE_TFMT_CLUT8 && fbFormat == GE_FORMAT_5551;
-		const float uDiv = clut8From5551 ? 2.0f : 1.0f;
+		// CLUT8 from a 16-bit format (SOCOM, #16210): U and the X offset count bytes, two per pixel of the depal output.
+		const bool clut8From16 = texFormat == GE_TFMT_CLUT8 && fbFormat != GE_FORMAT_8888;
+		const float uDiv = clut8From16 ? 2.0f : 1.0f;
 
 		// If min is not < max, then we don't have values (wasn't set during decode.)
 		const KnownVertexBounds &bounds = gstate_c.vertBounds;
@@ -2574,9 +2560,9 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		float u2 = depalWidth;
 		float v2 = framebuffer->renderHeight;
 		if (bounds.minV < bounds.maxV) {
-			u1 = (floorf(bounds.minU / uDiv) + gstate_c.curTextureXOffset) * framebuffer->renderScaleFactor;
+			u1 = floorf((bounds.minU + gstate_c.curTextureXOffset) / uDiv) * framebuffer->renderScaleFactor;
 			v1 = (bounds.minV + gstate_c.curTextureYOffset) * framebuffer->renderScaleFactor;
-			u2 = (ceilf(bounds.maxU / uDiv) + gstate_c.curTextureXOffset) * framebuffer->renderScaleFactor;
+			u2 = ceilf((bounds.maxU + gstate_c.curTextureXOffset) / uDiv) * framebuffer->renderScaleFactor;
 			v2 = (bounds.maxV + gstate_c.curTextureYOffset) * framebuffer->renderScaleFactor;
 			// We need to reapply the texture next time since we cropped UV.
 			gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
@@ -2606,7 +2592,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 
 		gpuStats.perFrame.numDepal++;
 
-		gstate_c.curTextureWidth = clut8From5551 ? texWidth * 2 : texWidth;
+		gstate_c.curTextureWidth = clut8From16 ? texWidth * 2 : texWidth;
 		gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 
 		draw_->BindTexture(0, nullptr);

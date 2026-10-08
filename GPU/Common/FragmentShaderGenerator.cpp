@@ -182,7 +182,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		return false;
 	}
 
-	bool needFragCoord = readFramebufferTex || gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);
+	bool needFragCoord = readFramebufferTex || gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT) || shaderDepalMode == ShaderDepalMode::CLUT8;
 	bool writeDepth = (gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT) || fsDepthClamp) && !forceDepthWritesOff && !id.Bit(FS_BIT_NO_DEPTH_WRITE);
 
 	// TODO: We could have a separate mechanism to support more ops using the shader blending mechanism,
@@ -792,7 +792,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				WRITE(p, "    t = mix(t, t2, fraction.y);\n");
 				WRITE(p, "  }\n");
 				break;
-			case ShaderDepalMode::CLUT8_8888:
+			case ShaderDepalMode::CLUT8:
 				if (doTextureProjection) {
 					// We don't use textureProj because we need better control and it's probably not much of a savings anyway.
 					// However it is good for precision on older hardware like PowerVR.
@@ -802,18 +802,50 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				}
 				// The texture size in PSP pixels (u counts bytes), not the scaled framebuffer's.
 				p.C("  vec2 tsize = 0.5 / u_texclamp.zw;\n");
-				p.C("  uv_round = floor(uv * tsize);\n");
-				p.C("  int component = int(uv_round.x) & 3;\n");
-				p.C("  uv_round.x = floor(uv_round.x * 0.25);\n");
+				// The GE samples a pixel at its top left corner, the GPU at its center. That's half a texel off at most
+				// when u steps by one per pixel, but a whole byte when it steps by two: SOCOM reads the high bytes of a
+				// 5551 frame with u = 1 + 2x, and the center lands on the next pixel's low byte. So step back from the
+				// center to the PSP pixel's corner, along x (which picks the byte). scale is render pixels per PSP pixel.
+				p.F("  float scale = float(textureSize(tex, 0).x) * 2.0 * u_texclamp.z;\n");
+				p.F("  uv.x -= mod(gl_FragCoord.x, scale) * %s(uv.x);\n", compat.shaderLanguage == HLSL_D3D11 ? "ddx" : "dFdx");
+				// Then the GE's fixed point lands exactly on the texel edge, which float interpolation can fall just short of.
+				p.C("  uv_round = floor(uv * tsize + 0.01);\n");
+				if (shaderDepalFmt == GE_FORMAT_8888) {
+					p.C("  int component = int(uv_round.x) & 3;\n");
+					p.C("  uv_round.x = floor(uv_round.x * 0.25);\n");
+				} else {
+					p.C("  int component = int(uv_round.x) & 1;\n");
+					p.C("  uv_round.x = floor(uv_round.x * 0.5);\n");
+				}
 				p.C("  uv_round = (uv_round + 0.5) / tsize;\n");
 				p.C("  vec4 t = ").SampleTexture2D("tex", "uv_round").C(";\n");
 				p.C("  int index;\n");
-				p.C("  switch (component) {\n");
-				p.C("  case 0: index = int(t.x * 254.99); break;\n");  // TODO: Not sure why 254.99 instead of 255.99, but it's currently needed.
-				p.C("  case 1: index = int(t.y * 254.99); break;\n");
-				p.C("  case 2: index = int(t.z * 254.99); break;\n");
-				p.C("  case 3: index = int(t.w * 254.99); break;\n");
-				p.C("  }\n");
+				switch (shaderDepalFmt) {
+				case GE_FORMAT_8888:
+					p.C("  switch (component) {\n");
+					p.C("  case 0: index = int(t.x * 254.99); break;\n");  // TODO: Not sure why 254.99 instead of 255.99, but it's currently needed.
+					p.C("  case 1: index = int(t.y * 254.99); break;\n");
+					p.C("  case 2: index = int(t.z * 254.99); break;\n");
+					p.C("  case 3: index = int(t.w * 254.99); break;\n");
+					p.C("  }\n");
+					break;
+				default:
+					// Rebuild the 16-bit pixel, truncating like the GE stores it, then take its low or high byte.
+					switch (shaderDepalFmt) {
+					case GE_FORMAT_565:
+						p.C("  int pixel = int(t.x * 31.99) | (int(t.y * 63.99) << 5) | (int(t.z * 31.99) << 11);\n");
+						break;
+					case GE_FORMAT_5551:
+						p.C("  int pixel = int(t.x * 31.99) | (int(t.y * 31.99) << 5) | (int(t.z * 31.99) << 10) | (int(t.w) << 15);\n");
+						break;
+					default:
+						p.C("  int pixel = int(t.x * 15.99) | (int(t.y * 15.99) << 4) | (int(t.z * 15.99) << 8) | (int(t.w * 15.99) << 12);\n");
+						break;
+					}
+					p.C("  index = (pixel >> (component * 8)) & 0xFF;\n");
+					break;
+				}
+				p.C("  index = int(((uint(index) >> ((u_depal_mask_shift_off_fmt >> 0x8u) & 0xFFu)) & (u_depal_mask_shift_off_fmt & 0xFFu)) | (((u_depal_mask_shift_off_fmt >> 0x10u) & 0xFFu) << 0x4u));\n");
 				p.C("  t = ").LoadTexture2D("pal", "ivec2(index, 0)", 0).C(";\n");
 				break;
 			}
