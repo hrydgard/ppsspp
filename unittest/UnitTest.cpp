@@ -97,6 +97,7 @@
 #include <set>
 #include <list>
 #include "Core/CmdLine.h"
+#include "Core/System.h"
 #include "Common/Data/Collections/Hashmaps.h"
 #include "Core/Util/BlockAllocator.h"
 #include "Core/Debugger/Breakpoints.h"
@@ -2844,6 +2845,29 @@ bool TestFriendlyPath() {
 	return true;
 }
 
+bool TestGEDumpGameID() {
+	std::string id;
+	// PPSSPP's own dump names.
+	EXPECT_TRUE(DiscIDFromGEDumpFilename("ULUS10064_0001.ppdmp", &id));
+	EXPECT_EQ_STR(id, std::string("ULUS10064"));
+	// ppsspp-framedumps: a GitHub issue number in front, a description after.
+	EXPECT_TRUE(DiscIDFromGEDumpFilename("11928 ULES00262_0003 OutRun water.ppdmp", &id));
+	EXPECT_EQ_STR(id, std::string("ULES00262"));
+	EXPECT_TRUE(DiscIDFromGEDumpFilename("21127 WPCE02025_0001 WipEout Pure.ppdmp", &id));
+	EXPECT_EQ_STR(id, std::string("WPCE02025"));
+	EXPECT_TRUE(DiscIDFromGEDumpFilename("ULUS10064.ppdmp", &id));
+	EXPECT_EQ_STR(id, std::string("ULUS10064"));
+	EXPECT_TRUE(DiscIDFromGEDumpFilename("11928 ULUS10064.ppdmp", &id));
+	EXPECT_EQ_STR(id, std::string("ULUS10064"));
+	// No ID in PPSSPP's form, even if one appears later in the name.
+	EXPECT_FALSE(DiscIDFromGEDumpFilename("11928 OutRun water ULUS10064.ppdmp", &id));
+	EXPECT_FALSE(DiscIDFromGEDumpFilename("11928 Harvest Moon Graphic Issue on Adreno.ppdmp", &id));
+	EXPECT_FALSE(DiscIDFromGEDumpFilename("ULUS1006A_0001.ppdmp", &id));
+	EXPECT_FALSE(DiscIDFromGEDumpFilename("ULUS100641_0001.ppdmp", &id));
+	EXPECT_FALSE(DiscIDFromGEDumpFilename("11928ULUS10064_0001.ppdmp", &id));
+	return true;
+}
+
 bool TestCmdLine() {
 	{
 		const char *argv[] = {
@@ -3171,6 +3195,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(TextureReplacer),
 	TEST_ITEM(UITabOrder),
 	TEST_ITEM(FatShortNames),
+	TEST_ITEM(GEDumpGameID),
 };
 
 int main(int argc, const char *argv[]) {

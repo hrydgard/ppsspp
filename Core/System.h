@@ -92,6 +92,9 @@ void PSP_ForceDebugStats(bool enable);
 
 void UpdateLoadedFile(FileLoader *fileLoader);
 
+// The game ID in a frame dump's file name (ULUS10064_0001.ppdmp, or with a GitHub issue number in front).
+bool DiscIDFromGEDumpFilename(std::string_view filename, std::string *id);
+
 // NOTE: These are almost all derived from g_Config.memStickDirectory directly -
 // they are not stored anywhere.
 Path GetSysDirectory(PSPDirectories directoryType);
