@@ -463,6 +463,7 @@ void VulkanContext::DestroySwapchain() {
 		swapchain_ = VK_NULL_HANDLE;
 	}
 	swapchainInited_ = false;
+	swapchainTransformMismatch_ = false;
 }
 
 void VulkanContext::DestroySurface() {
@@ -1608,6 +1609,8 @@ bool VulkanContext::InitSwapchain(VkPresentModeKHR desiredPresentMode) {
 		// Let the OS rotate the image (potentially slower on many Android devices)
 		preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
 	}
+
+	swapchainTransformMismatch_ = preTransform != surfCapabilities_.currentTransform;
 
 	// Only log transforms if relevant.
 	if (surfCapabilities_.supportedTransforms != VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR) {
