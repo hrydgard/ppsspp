@@ -1008,7 +1008,17 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				return false;
 			}
 
-			WRITE(p, "  v.rgb = v.rgb * %s;\n", srcFactor);
+			if (replaceBlend == REPLACE_BLEND_PRE_SRC && replaceBlendFuncA == GE_SRCBLEND_FIXA && IsGEExactFixedBlend(replaceBlendFuncB, replaceBlendEq)) {
+				// The GE's product of a color and a factor is floor((2c+1)(2f+1)/1024), and the hardware blend multiplies
+				// the dst by (2B+1)/512 (see ConvertBlendState). Lowering the src term by 0.5 - (2B+1)/1024 turns the
+				// rounding of the sum into the GE's floor, except where that would go below zero.
+				WRITE(p, "  vec3 fixA2 = floor(u_blendFixA * 510.0 + 0.5) + 1.0;\n");
+				WRITE(p, "  vec3 fixB2 = floor(u_blendFixB * 510.0 + 0.5) + 1.0;\n");
+				WRITE(p, "  v.rgb = floor((floor(v.rgb * 255.0 + 0.5) * 2.0 + 1.0) * fixA2 / 1024.0);\n");
+				WRITE(p, "  v.rgb = (v.rgb - 0.5 + fixB2 / 1024.0) / 255.0;\n");
+			} else {
+				WRITE(p, "  v.rgb = v.rgb * %s;\n", srcFactor);
+			}
 		}
 
 		if (replaceBlend == REPLACE_BLEND_READ_FRAMEBUFFER) {

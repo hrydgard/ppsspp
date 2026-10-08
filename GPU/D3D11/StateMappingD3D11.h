@@ -65,7 +65,7 @@ struct D3D11StateKeys {
 struct D3D11DynamicState {
 	int topology;
 	bool useBlendColor;
-	uint32_t blendColor;
+	float blendColor[4];
 	bool useStencil;
 	uint8_t stencilRef;
 	Draw::Viewport viewport;

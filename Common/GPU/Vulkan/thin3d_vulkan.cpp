@@ -1370,8 +1370,7 @@ void VKContext::SetViewport(const Viewport &viewport) {
 }
 
 void VKContext::SetBlendFactor(float color[4]) {
-	uint32_t col = Float4ToUint8x4(color);
-	renderManager_.SetBlendFactor(col);
+	renderManager_.SetBlendFactor(color);
 }
 
 void VKContext::SetStencilParams(uint8_t refValue, uint8_t writeMask, uint8_t compareMask) {
