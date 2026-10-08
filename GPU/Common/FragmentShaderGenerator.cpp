@@ -1204,7 +1204,10 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 			if (fsDepthClamp) {
 				WRITE(p, "  gl_FragDepth = clamp(floor(projZ), 0.0, 65535.0) / 65535.0;\n");
 			} else {
-				WRITE(p, "  gl_FragDepth = floor(gl_FragCoord.z * 65535.0) / 65535.0;\n");
+				// gl_FragCoord.z is the PSP's Z / 65536. Flat draws land exactly on an integer Z, so floor with some
+				// room for float error, which differs with W (Patlabor's HUD redraws an icon with GEQUAL). Then store
+				// Z / 65535 like clears and the clamp path above.
+				WRITE(p, "  gl_FragDepth = floor(gl_FragCoord.z * 65536.0 + 0.01) / 65535.0;\n");
 			}
 		} else if (fsDepthClamp) {
 			WRITE(p, "  gl_FragDepth = clamp(projZ, 0.0, 65535.0) / 65535.0;\n");
