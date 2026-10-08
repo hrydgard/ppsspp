@@ -430,6 +430,7 @@ void DrawEngineVulkan::Flush() {
 		params.allowSeparateAlphaClear = false;
 		params.everUsedEqualDepth = everUsedEqualDepth_;
 		params.clipInfoFlags = clipInfoFlags_;
+		params.trianglesReversed = BatchTrianglesReversed();
 
 		// The texture needs to have been applied when running RunSoftwareTransform, however we must not have applied the sampler yet since it takes
 		// result.pixelMapped as an input.

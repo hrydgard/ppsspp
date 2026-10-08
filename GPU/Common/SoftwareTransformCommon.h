@@ -63,6 +63,8 @@ struct SoftwareTransformParams {
 	bool allowSeparateAlphaClear;
 	bool everUsedEqualDepth;
 	float pointScale = 1.0f;  // Useful to increase these for debug views of bounding box corners.
+	// The index generator reversed every triangle (to flip the winding for culling), so they're not in the GE's order.
+	bool trianglesReversed = false;
 };
 
 // Converts an index buffer to make the provoking vertex the last.

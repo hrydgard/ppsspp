@@ -406,8 +406,9 @@ inline bool IsInsideNearPlane(const TransformedVertex& v) {
 	return v.z >= -v.pos_w;
 }
 
+// With the same epsilon as the cull distances in the vertex shader (z/w up to 0x3F8000XX counts as 1.0).
 inline bool IsInsideFarPlane(const TransformedVertex& v) {
-	return v.z <= v.pos_w;
+	return v.z <= v.pos_w + 0.0000304f / v.pos_w;
 }
 
 // TODO: Use CrossSIMD, should help.
@@ -430,7 +431,7 @@ inline void LerpTransformedVertex(TransformedVertex *dest, TransformedVertex &a,
 static void ClipTrianglesAgainstNearPlane(
 	TransformedVertex *transformed, int &transformedCount, int maxTransformed,
 	u16 *indicesIn, int numIndicesIn,
-	u16 *indicesOut, int &numIndicesOut, int maxIndicesOut, TransformStats *stats
+	u16 *indicesOut, int &numIndicesOut, int maxIndicesOut, bool reversed, TransformStats *stats
 ) {
 	// Process one triangle (3 indices) at a time
 	for (size_t i = 0; i < numIndicesIn; i += 3) {
@@ -453,25 +454,25 @@ static void ClipTrianglesAgainstNearPlane(
 		int insideCount = (in0 ? 1 : 0) + (in1 ? 1 : 0) + (in2 ? 1 : 0);
 		int insideFarCount = (inFar0 ? 1 : 0) + (inFar1 ? 1 : 0) + (inFar2 ? 1 : 0);
 
-		// Case 1: Entirely visible
-		if (insideCount == 3) {
+		// Case 1: Entirely beyond far plane
+		if (insideFarCount == 0) {
+			// All are beyond the far plane. Cull.
+			stats->culledTrianglesFar++;
+			continue;
+		}
+		// Case 2: Entirely visible
+		else if (insideCount == 3) {
 			indicesOut[numIndicesOut++] = idx0;
 			indicesOut[numIndicesOut++] = idx1;
 			indicesOut[numIndicesOut++] = idx2;
 		}
-		// Case 2: Entirely clipped / behind near plane
+		// Case 3: Entirely clipped / behind near plane
 		else if (insideCount == 0) {
 			// Cull, no clipping needed.
 			stats->culledTrianglesNear++;
 			continue;
 		}
-		// Case 3: Entirely beyond far plane
-		else if (insideFarCount == 0) {
-			// All are beyond the far plane. Cull.
-			stats->culledTrianglesFar++;
-			continue;
-		}
-		// Case 3: Partially clipped
+		// Case 4: Partially clipped
 		else {
 			stats->clippedTriangles++;
 
@@ -498,8 +499,9 @@ static void ClipTrianglesAgainstNearPlane(
 
 				// If we cross the clipping plane line (inside->outside or outside->inside)
 				if (triIn[j] != triIn[next]) {
-					/* const */ TransformedVertex& a = transformed[currIdx];
-					/* const */ TransformedVertex& b = transformed[nextIdx];
+					// Interpolate from the inside vertex, like the GE.
+					/* const */ TransformedVertex& a = transformed[triIn[j] ? currIdx : nextIdx];
+					/* const */ TransformedVertex& b = transformed[triIn[j] ? nextIdx : currIdx];
 
 					// Find interpolation factor 't' where: z_interpolated = -w_interpolated
 					// Lerp formulation:
@@ -541,6 +543,18 @@ static void ClipTrianglesAgainstNearPlane(
 				indicesOut[numIndicesOut++] = polyIndices[1];
 				indicesOut[numIndicesOut++] = polyIndices[2];
 			} else if (polyLength == 4) {
+				// One vertex (o) was outside. The GE splits the quad from the vertex before it (p), giving
+				// (p, a, b) and (p, b, n), which matters when a new vertex fails the range check
+				// (gpu/probe exp43, exp44; see Clipper.cpp). Rotate p to the front.
+				const int o = !in0 ? 0 : (!in1 ? 1 : 2);
+				const u16 p = triIdx[reversed ? (o + 1) % 3 : (o + 2) % 3];
+				while (polyIndices[0] != p) {
+					const u16 first = polyIndices[0];
+					polyIndices[0] = polyIndices[1];
+					polyIndices[1] = polyIndices[2];
+					polyIndices[2] = polyIndices[3];
+					polyIndices[3] = first;
+				}
 				// Triangle 1
 				indicesOut[numIndicesOut++] = polyIndices[0];
 				indicesOut[numIndicesOut++] = polyIndices[1];
@@ -831,7 +845,7 @@ static SoftwareTransformAction ProjectClipAndExpand(SoftwareTransformParams &par
 			if (gstate.isDepthClipEnabled()) {
 				const u16 *indsIn = (const u16 *)inds;
 				int newIndexCount = 0;
-				ClipTrianglesAgainstNearPlane(transformed, numDecodedVerts, 65536, inds, vertexCount, indsOut, newIndexCount, 65336, &result->stats);
+				ClipTrianglesAgainstNearPlane(transformed, numDecodedVerts, 65536, inds, vertexCount, indsOut, newIndexCount, 65336, params.trianglesReversed, &result->stats);
 				drawIndexCount = newIndexCount;
 			} else {
 				std::vector<int> outsideZ;

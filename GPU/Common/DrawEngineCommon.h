@@ -322,6 +322,9 @@ protected:
 	enum { MAX_DEFERRED_DRAW_INDS = 512 };  // Monster Hunter spams indexed calls that we end up merging.
 	DeferredVerts drawVerts_[MAX_DEFERRED_DRAW_VERTS];
 	uint32_t drawVertexOffsets_[MAX_DEFERRED_DRAW_VERTS];
+	// A cull mode change flushes, so all draws in a batch share this.
+	bool BatchTrianglesReversed() const { return numDrawInds_ > 0 && !drawInds_[0].clockwise; }
+
 	DeferredInds drawInds_[MAX_DEFERRED_DRAW_INDS];
 
 	const VertexDecoder *dec_ = nullptr;

@@ -452,6 +452,7 @@ void DrawEngineD3D11::Flush() {
 		params.allowClear = true;
 		params.allowSeparateAlphaClear = false;  // D3D11 doesn't support separate alpha clears
 		params.clipInfoFlags = clipInfoFlags_;
+		params.trianglesReversed = BatchTrianglesReversed();
 
 		const SoftwareTransformAction action = RunSoftwareTransform(params, prim, dec_->VertexType(), dec_->GetDecVtxFmt(), numDecodedVerts_, VERTEX_BUFFER_MAX, vertexCount, inds, RemainingIndices(inds), &result);
 

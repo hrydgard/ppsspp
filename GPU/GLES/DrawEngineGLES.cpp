@@ -401,6 +401,7 @@ void DrawEngineGLES::Flush() {
 		params.allowClear = true;  // Clear in OpenGL respects scissor rects, so we'll use it.
 		params.allowSeparateAlphaClear = true;
 		params.clipInfoFlags = clipInfoFlags_;
+		params.trianglesReversed = BatchTrianglesReversed();
 
 		const SoftwareTransformAction action = RunSoftwareTransform(params, prim, dec_->VertexType(), dec_->GetDecVtxFmt(), numDecodedVerts_, VERTEX_BUFFER_MAX, vertexCount, inds, RemainingIndices(inds), &result);
 		if (textureNeedsApply) {
