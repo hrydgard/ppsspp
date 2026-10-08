@@ -470,10 +470,11 @@ static bool TestBoundingBoxFast(const float *cullMatrix, const void *vdata, cons
 		}
 	}
 
-	if (AnyCompareBitsSet(anyOutsideMaskZ) && (!gstate_c.viewportNearPlaneMatchesOutput || PSP_CoreParameter().compat.flags().CorrectCullAfterClip)) {
+	if (AnyCompareBitsSet(anyOutsideMaskZ) && (!gstate_c.viewportNearPlaneMatchesOutput || PSP_CoreParameter().compat.flags().CorrectCullAfterClip || !gstate_c.Use(GPU_USE_CULL_DISTANCE))) {
 		// Some vertices were outside the Z clipping planes. Clip againt Z=-W in software (and do culling, too).
-		// TODO: With a compat flag for Flatout/Sengoku, we'll be able to avoid this in many cases, unless
-		// GPU_USE_CULL_DISTANCE is missing, in which case we need it for culling.
+		// Without cull distances the shader can't cull, and triangles entirely beyond the far plane would be
+		// depth clamped and drawn (the stands over the pitch in FIFA Soccer).
+		// TODO: With a compat flag for Flatout/Sengoku, we'll be able to avoid this in many cases.
 		flags |= ClipInfoFlags::SoftClipCull;
 	}
 
