@@ -12,7 +12,14 @@
 # PPSSPP platform flags
 set(MOBILE_DEVICE ON)
 set(USING_GLES2 ON)
-set(IPHONEOS_DEPLOYMENT_TARGET 13.0)
+# The compiler checks re-read this file without the cache, so pass IOS_APP_STORE on.
+list(APPEND CMAKE_TRY_COMPILE_PLATFORM_VARIABLES IOS_APP_STORE)
+if(IOS_APP_STORE)
+  # The static MoltenVK in ios/MoltenVK needs 15.0.
+  set(IPHONEOS_DEPLOYMENT_TARGET 15.0)
+else()
+  set(IPHONEOS_DEPLOYMENT_TARGET 13.0)
+endif()
 add_definitions(
   -DGL_ETC1_RGB8_OES=0
   -U__STRICT_ANSI__

@@ -510,8 +510,8 @@ if(NOT MSVC)
 	if(IOS)
 		set(CMAKE_OSX_DEPLOYMENT_TARGET "12.0")
 	elseif(APPLE AND NOT CMAKE_CROSSCOMPILING)
-		# The oldest libc++ in current Xcode supports ("The selected platform is no longer supported" below).
-		set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0")
+		# The bundled MoltenVK (ext/vulkan/macOS) needs 12.0.
+		set(CMAKE_OSX_DEPLOYMENT_TARGET "12.0")
 		add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:-stdlib=libc++>" -U__STRICT_ANSI__)
 		set(CMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LIBRARY "libc++")
 	elseif(NOT ANDROID)
@@ -970,6 +970,10 @@ elseif(IOS AND NOT LIBRETRO)
 	endif()
 	if(EXISTS "${CMAKE_IOS_SDK_ROOT}/System/Library/Frameworks/PhotosUI.framework")
 		list(APPEND targetExtraLibs "-weak_framework PhotosUI")
+	endif()
+	if(USE_IAP)
+		# Adding the In-App Purchase capability in Xcode did this. There's no entitlement for it on iOS.
+		list(APPEND targetExtraLibs "-framework StoreKit")
 	endif()
 
 	if(NOT ICONV_LIBRARY)
@@ -1550,7 +1554,8 @@ endif()
 # packaging and code signing
 if(IOS AND NOT LIBRETRO)
 	if(IOS_APP_STORE)
-		set(DEPLOYMENT_TARGET 13.0)
+		# The static MoltenVK in ios/MoltenVK needs 15.0. Keep in sync with cmake/Toolchains/ios.cmake.
+		set(DEPLOYMENT_TARGET 15.0)
 	else()
 		set(DEPLOYMENT_TARGET 11.0)
 	endif()
