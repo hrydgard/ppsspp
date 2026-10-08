@@ -1345,10 +1345,12 @@ void FramebufferManagerCommon::CopyFramebufferForColorTexture(VirtualFramebuffer
 	// See the vertex decoder, where this is updated.
 	// TODO: We're currently not hitting this path in Dante. See #17032
 	if ((flags & BINDFBCOLOR_MAY_COPY_WITH_UV) == BINDFBCOLOR_MAY_COPY_WITH_UV && gstate_c.vertBounds.maxU > gstate_c.vertBounds.minU) {
-		x = std::max(gstate_c.vertBounds.minU, (u16)0);
-		y = std::max(gstate_c.vertBounds.minV, (u16)0);
-		w = std::min(gstate_c.vertBounds.maxU, src->drawnWidth) - x;
-		h = std::min(gstate_c.vertBounds.maxV, src->drawnHeight) - y;
+		// One texel more on each side, which bilinear filtering at the edges reads. The rest of the copy holds
+		// whatever the temp FBO had before (magenta streaks in Need for Speed Shift's sun glow).
+		x = std::max(gstate_c.vertBounds.minU - 1, 0);
+		y = std::max(gstate_c.vertBounds.minV - 1, 0);
+		w = std::min(gstate_c.vertBounds.maxU + 1, (int)src->drawnWidth) - x;
+		h = std::min(gstate_c.vertBounds.maxV + 1, (int)src->drawnHeight) - y;
 
 		// If we bound a framebuffer, apply the byte offset as pixels to the copy too.
 		if (flags & BINDFBCOLOR_APPLY_TEX_OFFSET) {
