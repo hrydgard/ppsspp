@@ -1015,8 +1015,6 @@ static bool ExpandRectangles(int vertexCount, int &numDecodedVerts, int vertsSiz
 	u16 *newInds = inds + vertexCount;
 	u16 *indsOut = newInds;
 
-	numDecodedVerts = 4 * (vertexCount / 2);
-
 	float uScale = 1.0f;
 	float vScale = 1.0f;
 	if (throughmode) {
@@ -1069,9 +1067,35 @@ static bool ExpandRectangles(int vertexCount, int &numDecodedVerts, int vertsSiz
 	}
 
 
+	// Like the software renderer's ProcessRect: rectangles aren't clipped, one with a vertex behind the camera
+	// or outside the screen range is dropped whole. With depth clamp, a vertex past the near plane is exempt
+	// from the range check (gpu/clipping/guardband).
+	const bool depthClamp = gstate.isDepthClipEnabled();
+	const float zScale = gstate.getViewportZScale();
+	const float zCenter = gstate.getViewportZCenter();
+	auto outsideRange = [&](const TransformedVertex &v) {
+		constexpr float SCREEN_BOUND = 4095.0f + (15.5f / 16.0f);
+		if (!(v.pos_w > 0.0f)) {
+			return true;
+		}
+		if (depthClamp) {
+			// The near plane in projected terms: z/w < -1.
+			if (zScale != 0.0f && (v.z - zCenter) / zScale < -1.0f) {
+				return false;
+			}
+			return !(v.x < SCREEN_BOUND && v.y < SCREEN_BOUND && v.x >= 0.0f && v.y >= 0.0f);
+		}
+		return !(v.x <= SCREEN_BOUND && v.y < SCREEN_BOUND && v.x >= 0.0f && v.y >= 0.0f && v.z >= 0.0f && v.z < 65536.0f);
+	};
+
+	int outVerts = 0;
 	for (int i = 0; i < vertexCount; i += 2) {
 		const TransformedVertex &transVtxTL = transformed[indsIn[i + 0]];
 		const TransformedVertex &transVtxBR = transformed[indsIn[i + 1]];
+
+		if (!throughmode && (outsideRange(transVtxTL) || outsideRange(transVtxBR))) {
+			continue;
+		}
 
 		float z = transVtxBR.z;
 		// Apply Z clamping. It appears clipping/culling does not affect rectangles, see #12058.
@@ -1118,17 +1142,19 @@ static bool ExpandRectangles(int vertexCount, int &numDecodedVerts, int vertsSiz
 		RotateUV(trans);
 
 		// Triangle: BR-TR-TL
-		indsOut[0] = i * 2 + 0;
-		indsOut[1] = i * 2 + 1;
-		indsOut[2] = i * 2 + 2;
+		indsOut[0] = outVerts + 0;
+		indsOut[1] = outVerts + 1;
+		indsOut[2] = outVerts + 2;
 		// Triangle: BL-BR-TL
-		indsOut[3] = i * 2 + 3;
-		indsOut[4] = i * 2 + 0;
-		indsOut[5] = i * 2 + 2;
+		indsOut[3] = outVerts + 3;
+		indsOut[4] = outVerts + 0;
+		indsOut[5] = outVerts + 2;
 
 		trans += 4;
 		indsOut += 6;
+		outVerts += 4;
 	}
+	numDecodedVerts = outVerts;
 	inds = newInds;
 	*pixelMappedExactly = pixelMapped;
 	*drawIndexCount = indsOut - newInds;
