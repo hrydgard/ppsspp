@@ -335,6 +335,10 @@ ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat) {
 			// Using a copy isn't accurate either, though, when there's overlap.
 			if (gstate_c.Use(GPU_USE_FRAMEBUFFER_FETCH))
 				return REPLACE_BLEND_READ_FRAMEBUFFER;
+			// Through mode is mostly full screen passes that don't overlap themselves, so a copy is safe there.
+			// Super Stardust composites its bloom at alpha 0xFF, doubling the dst, which 2x alpha clamps to 1x.
+			if (gstate.isModeThrough())
+				return REPLACE_BLEND_READ_FRAMEBUFFER;
 			return REPLACE_BLEND_PRE_SRC_2X_ALPHA;
 
 		case GE_DSTBLEND_DOUBLEINVSRCALPHA:
