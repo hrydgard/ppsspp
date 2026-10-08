@@ -1012,9 +1012,13 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				// The GE's product of a color and a factor is floor((2c+1)(2f+1)/1024), and the hardware blend multiplies
 				// the dst by (2B+1)/512 (see ConvertBlendState). Lowering the src term by 0.5 - (2B+1)/1024 turns the
 				// rounding of the sum into the GE's floor, except where that would go below zero.
+				// The color is truncated too: the GE's bilinear filter truncates (4-bit weights, see the software
+				// Sampler), and rounding the GPU's finer filtered value instead makes each texel about a level
+				// brighter. That doubles God Eater Burst's faint bloom, which feeds back into itself pass after pass.
+				// The 0.01 keeps an unfiltered texel's exact integer from flooring a level down on float error.
 				WRITE(p, "  vec3 fixA2 = floor(u_blendFixA * 510.0 + 0.5) + 1.0;\n");
 				WRITE(p, "  vec3 fixB2 = floor(u_blendFixB * 510.0 + 0.5) + 1.0;\n");
-				WRITE(p, "  v.rgb = floor((floor(v.rgb * 255.0 + 0.5) * 2.0 + 1.0) * fixA2 / 1024.0);\n");
+				WRITE(p, "  v.rgb = floor((floor(v.rgb * 255.0 + 0.01) * 2.0 + 1.0) * fixA2 / 1024.0);\n");
 				WRITE(p, "  v.rgb = (v.rgb - 0.5 + fixB2 / 1024.0) / 255.0;\n");
 			} else {
 				WRITE(p, "  v.rgb = v.rgb * %s;\n", srcFactor);
