@@ -14,6 +14,7 @@ import android.util.Log;
 public class PowerSaveModeReceiver extends BroadcastReceiver {
 	private static final String TAG = PowerSaveModeReceiver.class.getSimpleName();
 	private static boolean isBatteryLow = false;
+	private final ContentObserver settingsObserver;
 
 	@Override
 	public void onReceive(final Context context, final Intent intent) {
@@ -36,7 +37,7 @@ public class PowerSaveModeReceiver extends BroadcastReceiver {
 		filter.addAction(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED);
 		activity.registerReceiver(this, filter);
 
-		activity.getContentResolver().registerContentObserver(Settings.System.CONTENT_URI, true, new ContentObserver(null) {
+		settingsObserver = new ContentObserver(null) {
 			@Override
 			public void onChange(boolean selfChange, Uri uri) {
 				super.onChange(selfChange, uri);
@@ -50,12 +51,15 @@ public class PowerSaveModeReceiver extends BroadcastReceiver {
 					sendPowerSaving(activity);
 				}
 			}
-		});
+		};
+		activity.getContentResolver().registerContentObserver(Settings.System.CONTENT_URI, true, settingsObserver);
 		sendPowerSaving(activity);
 	}
 
 	public void destroy(final Context context) {
 		context.unregisterReceiver(this);
+		// The observer holds on to the activity, and the system holds on to a registered observer.
+		context.getContentResolver().unregisterContentObserver(settingsObserver);
 	}
 
 	private static boolean getNativePowerSaving(final Context context) {

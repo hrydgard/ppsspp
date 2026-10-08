@@ -12,6 +12,7 @@ for it:
 | Doc | When you need it |
 |---|---|
 | [docs/building.md](docs/building.md) | Build commands for every target (VS/MSBuild, CMake, UWP, legacy Android NDK, libretro), unit tests, pspautotests |
+| [docs/android-device-testing.md](docs/android-device-testing.md) | Running a build on a real Android device or a Quest over adb: installing the build you think you are, forcing activity recreates, measuring retained activities, VR |
 | [docs/debugging.md](docs/debugging.md) | Driving the WebSocket debugger and PPSSPPHeadless from a script, measuring a commercial game with headless, comparing binaries' speed (`Tools/headless_bench.py`), breakpoint reliability per CPU backend, debugging a game that works on hardware |
 | [docs/DebuggerThreading.md](docs/DebuggerThreading.md) | `Core_RunOnCPUThread` / `g_frameMutex` / shutdown-lock rules - required reading before touching debugger code |
 | [docs/HLEModules.md](docs/HLEModules.md) | Adding an HLE module or function, and the seven build files a new source file goes in |
@@ -174,6 +175,13 @@ debug-level `--log` unless you need it. Each of those can cost an order of magni
 took minutes with a Debug build, software rendering and a 300MB log, and about a second without them. To
 check that a game renders, `--screenshot-save=FILE.png` beats grepping the log. (pspautotests through
 `test.py` are different: they have their own per-test timeouts and use `--graphics=software` like CI.)
+
+Testing on a real Android device has its own traps, the worst of which is silent: `adb install -r`
+of a shorter branch over a longer one fails with `INSTALL_FAILED_VERSION_DOWNGRADE`, because
+`versionCode` is the commit count. The device keeps running the old build and every measurement after
+that describes the wrong binary. Use `adb install -r -d`, don't swallow the install output, and check
+`adb shell dumpsys package org.ppsspp.ppsspp | grep versionName` afterwards. See
+[docs/android-device-testing.md](docs/android-device-testing.md).
 
 New unit tests are added to `availableTests`; large ones go in their own file in `unittest/`, which has
 to be listed in **three** build files, not two: `CMakeLists.txt`, `unittest/UnitTests.vcxproj` (and its
