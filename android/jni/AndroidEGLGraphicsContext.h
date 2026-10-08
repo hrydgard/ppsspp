@@ -23,18 +23,15 @@
 
 struct ANativeWindow;
 
-// Owns EGL for the OpenGL backend on Android, instead of letting Java's GLSurfaceView own it
-// (NativeRenderer.java / NativeGLSurfaceView.java, the "JavaGL" path).
+// Owns EGL for the OpenGL backend on Android. Until 2026 this was Java's job, through a
+// GLSurfaceView (NativeRenderer.java / NativeGLSurfaceView.java, the "JavaGL" path).
 //
-// The point is not EGL itself but who owns the render thread. With GLSurfaceView, Java creates
-// the thread and the context and calls us back, so a lost context is only ever observable after
-// the fact, as a second onSurfaceCreated - which is what forces app-android.cpp's displayInit to
-// tear down and restart the emu thread from inside a JNI callback. Owning EGL here lets the GL
-// backend use the same lifecycle as Vulkan: we start a render thread when we get a surface and
-// join it when the surface goes away, which is the whole reason this exists.
-//
-// Deliberately behaves the same as the Java path otherwise - same GLES client version, same
-// window pixel format, same separate emu thread. See Core/Config.h, bAndroidNativeEGL.
+// The point is not EGL itself but who owns the render thread. With GLSurfaceView, Java created
+// the thread and the context and called us back, so a lost context was only ever observable
+// after the fact, as a second onSurfaceCreated - which forced app-android.cpp to tear down and
+// restart the emu thread from inside a JNI callback. Owning EGL here lets the GL backend use the
+// same lifecycle as Vulkan: we start a render thread when we get a surface and join it when the
+// surface goes away, which is the whole reason this exists.
 class AndroidEGLGraphicsContext : public OpenGLGraphicsContext {
 public:
 	// Note: not just DestroyEGL(). The base destructor deletes the thin3d context, which still

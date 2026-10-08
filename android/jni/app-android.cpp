@@ -88,7 +88,6 @@ struct JNIEnv {};
 #include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/GPU/GraphicsContext.h"
 #include "Common/GPU/Vulkan/VulkanGraphicsContext.h"
-#include "Common/GPU/OpenGL/OpenGLGraphicsContext.h"
 #include "android/jni/AndroidEGLGraphicsContext.h"
 #include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
@@ -114,9 +113,6 @@ enum class EmuThreadState {
 	QUIT_REQUESTED,
 	STOPPED,
 };
-
-// OpenGL emu thread
-static std::thread g_emuThread;
 
 AndroidAudioState *g_audioState;
 
@@ -572,18 +568,6 @@ static std::string QueryConfig(std::string_view query) {
 		return g_Config.GetDisplayLayoutConfig(g_display.GetDeviceOrientation()).bImmersiveMode ? "1" : "0";
 	} else if (query == "sustainedPerformanceMode") {
 		return g_Config.bSustainedPerformanceMode ? "1" : "0";
-	} else if (query == "androidJavaGL") {
-		// If we're using Vulkan, we say no... need C++ to use Vulkan.
-		if (GetGPUBackend() == GPUBackend::VULKAN) {
-			return "false";
-		}
-		// GL with our own EGL wants the same treatment as Vulkan: a plain SurfaceView, and a
-		// render thread we start ourselves once there's a surface.
-		if (g_Config.bAndroidNativeEGL) {
-			return "false";
-		}
-		// Otherwise, some devices prefer the Java init so play it safe.
-		return "true";
 	} else if (query == "audioMixWithOthers") {
 		return g_Config.bAudioMixWithOthers ? "1" : "0";
 	} else {
@@ -780,15 +764,9 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 retry:
 	switch (g_Config.iGPUBackend) {
 	case (int)GPUBackend::OPENGL:
-		if (g_Config.bAndroidNativeEGL) {
-			INFO_LOG(Log::System, "NativeApp.init() -- creating OpenGL context (native EGL)");
-			graphicsContext = new AndroidEGLGraphicsContext();
-			// Like Vulkan, we wait for a surface before doing anything - see runRenderLoop.
-		} else {
-			INFO_LOG(Log::System, "NativeApp.init() -- creating OpenGL context (JavaGL)");
-			graphicsContext = new OpenGLGraphicsContext();
-			INFO_LOG(Log::System, "NativeApp.init() - not yet launching emuthread, waiting to displayInit");
-		}
+		INFO_LOG(Log::System, "NativeApp.init() -- creating OpenGL context");
+		graphicsContext = new AndroidEGLGraphicsContext();
+		// Like Vulkan, we wait for a surface before doing anything - see runRenderLoop.
 		break;
 	case (int)GPUBackend::VULKAN:
 	{
@@ -909,20 +887,8 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_pause(JNIEnv *, jclass) {
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 	INFO_LOG(Log::System, "NativeApp.shutdown() -- begin");
 
-	// Only the JavaGL path gets here with a thread to join: it's the one that starts the emu thread
-	// from a JNI callback and leaves it in g_emuThread. On the native-EGL and Vulkan paths the
-	// render loop thread owns its own, and has already been joined via requestExitRenderLoop.
-	if (renderer_inited && graphicsContext && graphicsContext->NeedsSeparateEmuThread() && g_emuThread.joinable()) {
-		// The join drains the render queue right here, on a thread without a GL context.
-		graphicsContext->NotifyContextLost();
-		INFO_LOG(Log::System, "Joining emuthread.");
-		EmuThread_Join(graphicsContext, g_emuThread);
-
-		INFO_LOG(Log::System, "EmuThread joined.");
-		graphicsContext->ShutdownSurface();
-		INFO_LOG(Log::System, "Graphics context now shut down from NativeApp_shutdown");
-	}
-
+	// Nothing to join here: the render loop thread owns both itself and the emu thread, and
+	// requestExitRenderLoop has already brought them down along with the surface.
 	{
 		if (graphicsContext) {
 			INFO_LOG(Log::G3D, "Shutting down renderer");
@@ -943,79 +909,6 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 		g_frameCommands.clear();
 	}
 	INFO_LOG(Log::System, "NativeApp.shutdown() -- end");
-}
-
-// JavaEGL. This doesn't get called on the Vulkan path.
-// This gets called from onSurfaceCreated.
-extern "C" jboolean Java_org_ppsspp_ppsspp_NativeRenderer_displayInit(JNIEnv * env, jobject obj) {
-	if (!graphicsContext) {
-		ERROR_LOG(Log::G3D, "NativeApp.displayInit() - graphicsContext is null!");
-		return false;
-	}
-
-	_assert_(graphicsContext->NeedsSeparateEmuThread());
-
-	INFO_LOG(Log::G3D, "NativeApp.displayInit()");
-	bool firstStart = !renderer_inited;
-
-	// We should be running on the render thread here.
-	std::string errorMessage;
-	if (!renderer_inited) {
-		INFO_LOG(Log::G3D, "NativeApp.displayInit() first time");
-		if (!graphicsContext->InitSurface(WINDOWSYSTEM_ANDROID, nullptr, nullptr, &errorMessage)) {
-			System_Toast("Graphics initialization failed. Quitting.");
-			return false;
-		}
-
-		graphicsContext->GetDrawContext()->SetErrorCallback([](const char *shortDesc, const char *details, void *userdata) {
-			g_OSD.Show(OSDType::MESSAGE_ERROR, details, 5.0);
-		}, nullptr);
-
-		// This is where we start the emuthread now - after InitFromRenderThread. This eliminates a race condition.
-		g_emuThread = EmuThread_Start(graphicsContext, new NativeApplication(), [](GraphicsContext *graphicsContext) {
-			NativeFrame(graphicsContext);
-			ProcessFrameCommands();
-			return true;
-		});
-		renderer_inited = true;
-	} else {
-		// Would be really nice if we could get something on the GL thread immediately when shutting down,
-		// but the only mechanism for handling lost devices seems to be that onSurfaceCreated is called again,
-		// which ends up calling displayInit.
-		INFO_LOG(Log::G3D, "NativeApp.displayInit(): Second time, joining the emuthread and starting it up again.");
-		// We only get here with a fresh EGL context. What's left in the render queue refers to objects
-		// from the old one, so it mustn't be run against this one when the join drains it.
-		graphicsContext->NotifyContextLost();
-		EmuThread_Join(graphicsContext, g_emuThread);
-
-		graphicsContext->ShutdownSurface();
-
-		INFO_LOG(Log::G3D, "Shut down both threads. Now let's bring it up again!");
-
-		if (!graphicsContext->InitSurface(WINDOWSYSTEM_ANDROID, nullptr, nullptr, &errorMessage)) {
-			System_Toast(("Graphics initialization failed: Quitting: " + errorMessage).c_str());
-			return false;
-		}
-
-		graphicsContext->GetDrawContext()->SetErrorCallback([](const char *shortDesc, const char *details, void *userdata) {
-			g_OSD.Show(OSDType::MESSAGE_ERROR, details, 5.0);
-		}, nullptr);
-
-		g_emuThread = EmuThread_Start(graphicsContext, new NativeApplication(), [](GraphicsContext *graphicsContext) {
-			NativeFrame(graphicsContext);
-			ProcessFrameCommands();
-			return true;
-		});
-
-		INFO_LOG(Log::G3D, "Restored.");
-	}
-
-	System_PostUIMessage(UIMessage::RECREATE_VIEWS);
-
-	if (IsVREnabled()) {
-		EnterVR(firstStart);
-	}
-	return true;
 }
 
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv *, jclass, jint pixel_xres, jint pixel_yres, jint format) {
@@ -1154,38 +1047,6 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendRequestResult(JNIEn
 		g_requestManager.PostSystemSuccess(jrequestID, value, jintValue);
 	} else {
 		g_requestManager.PostSystemFailure(jrequestID, jintValue);
-	}
-}
-
-// This doesn't get called on the Vulkan path.
-// We don't need a render thread "loop" as this gets called repeatedly by the system, by a system
-// render thread.
-extern "C" void Java_org_ppsspp_ppsspp_NativeRenderer_displayRender(JNIEnv *env, jobject obj) {
-	static bool hasSetThreadName = false;
-	if (!hasSetThreadName) {
-		hasSetThreadName = true;
-		SetCurrentThreadName("AndroidRender");
-	}
-
-	if (IsVREnabled() && !StartVRRender()) {
-		return;
-	}
-
-	// This is the "GPU thread". Call ThreadFrame.
-	if (!graphicsContext) {
-		return;
-	}
-	_assert_(graphicsContext->NeedsSeparateEmuThread());
-
-	if (!graphicsContext->ThreadFrame()) {
-		INFO_LOG(Log::G3D, "ThreadFrame returned false");
-		// TODO: We should stop calling ThreadFrame here.
-		return;
-	}
-
-	if (IsVREnabled()) {
-		UpdateVRInput(g_Config.bHapticFeedback, g_display.dpi_scale_x, g_display.dpi_scale_y);
-		FinishVRRender();
 	}
 }
 
@@ -1649,8 +1510,7 @@ std::thread g_renderLoopThread;
 
 static void RenderLoopThread(ANativeWindow *wnd, GraphicsContext *graphicsContext);
 
-// Runs on the Vulkan path, and on the OpenGL path when we own EGL (bAndroidNativeEGL). Not in
-// JavaGL mode - there, Java owns the thread and calls displayInit/displayRender instead.
+// Runs on both the Vulkan and the OpenGL path.
 // This handles the entire lifecycle of the graphics context's surface, init and exit.
 extern "C" jboolean JNICALL Java_org_ppsspp_ppsspp_PpssppActivity_runRenderLoop(JNIEnv * env, jobject obj, jobject _surf) {
 	if (!graphicsContext) {
@@ -1744,9 +1604,35 @@ static void RenderLoopThread(ANativeWindow *wnd, GraphicsContext *graphicsContex
 		// EmuThread_Start calls ThreadStart() for us, and EmuThread_Join calls ThreadEnd(), so
 		// neither is called directly here.
 		std::thread emuThread = EmuThread_Start(graphicsContext, new NativeApplication(), frame);
-		// This is the GL "GPU thread" - the loop Java's displayRender used to drive one call at a
+
+		// The views were created against the previous surface, if there was one.
+		System_PostUIMessage(UIMessage::RECREATE_VIEWS);
+
+		if (IsVREnabled()) {
+			// Only ever a GL thing, which is why it lives in this branch.
+			static bool vrFirstStart = true;
+			EnterVR(vrFirstStart);
+			vrFirstStart = false;
+		}
+
+		// This is the GL "GPU thread" - the loop Java's GLSurfaceView used to drive one call at a
 		// time. ThreadFrame returns false once the emu thread is done producing.
-		while (!exitRenderLoop && graphicsContext->ThreadFrame()) {}
+		while (!exitRenderLoop) {
+			if (IsVREnabled() && !StartVRRender()) {
+				// The session isn't active, so there's no frame to render into. Java's GL thread
+				// just missed a vsync here; we drive the loop ourselves, so pace it by hand
+				// rather than spinning.
+				sleep_ms(16, "vr-session-idle");
+				continue;
+			}
+			if (!graphicsContext->ThreadFrame()) {
+				break;
+			}
+			if (IsVREnabled()) {
+				UpdateVRInput(g_Config.bHapticFeedback, g_display.dpi_scale_x, g_display.dpi_scale_y);
+				FinishVRRender();
+			}
+		}
 		// Also drains whatever the emu thread still has queued, so it can't block on us.
 		EmuThread_Join(graphicsContext, emuThread);
 	} else {

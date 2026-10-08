@@ -19,6 +19,7 @@
 
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
+#include "Common/System/OSD.h"
 #include "Common/VR/PPSSPPVR.h"
 
 #include "android/jni/AndroidEGLGraphicsContext.h"
@@ -66,7 +67,7 @@ struct ConfigAttempt {
 // Stencil is not optional in practice: without it, non-buffered rendering has nothing to work with.
 //
 // The last entry is the fallback: ask for the bare minimum and take whatever eglChooseConfig puts
-// first, which is roughly what GLSurfaceView's default chooser does today.
+// first, which is roughly what GLSurfaceView's default chooser used to do.
 const ConfigAttempt kConfigAttempts[] = {
 	{ "RGBA8888 D24S8", 8, 8, 8, 8, 24, 8 },
 	{ "RGBA8888 D16S8", 8, 8, 8, 8, 16, 8 },
@@ -139,9 +140,9 @@ bool AndroidEGLGraphicsContext::InitSurface(WindowSystem winsys, void *data1, vo
 	INFO_LOG(Log::G3D, "EGL %d.%d initialized (vendor: %s)", eglMajor, eglMinor,
 		eglQueryString(display_, EGL_VENDOR));
 
-	// Mirrors NativeRenderer's setEGLContextClientVersion(isVRDevice() ? 3 : 2). Asking for 2 is
-	// not a cap: GLES3 is detected from GL_VERSION at runtime (see GLFeatures.cpp), which is how
-	// the Java path has always ended up using GLES3 on devices that have it.
+	// Mirrors what NativeRenderer used to ask for: setEGLContextClientVersion(isVRDevice() ? 3 : 2).
+	// Asking for 2 is not a cap: GLES3 is detected from GL_VERSION at runtime (see GLFeatures.cpp),
+	// which is how the Java path always ended up using GLES3 on devices that have it.
 	const bool wantGLES3 = IsVREnabled();
 	if (!ChooseConfig(wantGLES3, errorMessage)) {
 		DestroyEGL();
@@ -151,6 +152,7 @@ bool AndroidEGLGraphicsContext::InitSurface(WindowSystem winsys, void *data1, vo
 	// Line the window's pixel format up with the config we picked. Skipping this is how you get
 	// EGL_BAD_MATCH out of eglCreateWindowSurface on drivers that take the window format
 	// literally - historically the reason the Java path asked for no particular config at all.
+	// That is also why we can afford to be picky in kConfigAttempts where Java could not.
 	// Width and height stay 0 so whatever size Java set (see iAndroidHwScale) is left alone.
 	EGLint nativeVisualID = 0;
 	if (eglGetConfigAttrib(display_, config_, EGL_NATIVE_VISUAL_ID, &nativeVisualID)) {
@@ -192,6 +194,12 @@ bool AndroidEGLGraphicsContext::InitSurface(WindowSystem winsys, void *data1, vo
 		return false;
 	}
 
+	// As on Windows (see WindowsGLContext), surface GL errors to the user. The Java path did this
+	// from displayInit; now that the context owns its own init, it belongs here.
+	draw_->SetErrorCallback([](const char *shortDesc, const char *details, void *userdata) {
+		g_OSD.Show(OSDType::MESSAGE_ERROR, details, 5.0);
+	}, nullptr);
+
 	renderManager_->SetSwapFunction([this]() {
 		if (!eglSwapBuffers(display_, surface_)) {
 			// Most likely the surface went away under us. The render loop is about to be asked to
@@ -201,9 +209,9 @@ bool AndroidEGLGraphicsContext::InitSurface(WindowSystem winsys, void *data1, vo
 	});
 
 	// NOTE: Deliberately *not* calling SetSwapIntervalFunction. GLSurfaceView gave us no way to
-	// change the interval, so PresentMode::IMMEDIATE has always been a no-op here, and honoring it
-	// now would be a behavior change rather than a port. Worth revisiting once this path is the
-	// only one.
+	// change the interval, so PresentMode::IMMEDIATE was always a no-op on Android GL, and this
+	// class set out to behave identically. Now that it's the only path, eglSwapInterval(0) is
+	// there for the taking - but that's a behavior change, so it wants its own commit.
 
 	return true;
 }

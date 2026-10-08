@@ -33,12 +33,6 @@ public:
 		renderManager_->ThreadEnd();
 	}
 
-	void NotifyContextLost() override {
-		if (renderManager_) {
-			renderManager_->SetSkipGLCalls();
-		}
-	}
-
 	// Call from emu thread
 	void NotifyEmuThreadExit() override {
 		renderManager_->SetSkipGLCalls();

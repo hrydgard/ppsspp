@@ -539,17 +539,6 @@ void DeveloperToolsScreen::CreateGraphicsTab(UI::LinearLayout *list) {
 		});
 	}
 
-#if PPSSPP_PLATFORM(ANDROID)
-	if (g_Config.iGPUBackend == (int)GPUBackend::OPENGL) {
-		list->Add(new ItemHeader(dev->T("OpenGL")));
-		// Temporary, while the EGL path is being tested on devices - see Core/Config.h.
-		list->Add(new CheckBox(&g_Config.bAndroidNativeEGL, dev->T("Use native EGL instead of GLSurfaceView"), ""))->OnClick.Add([](UI::EventParams &e) {
-			// TODO: Not translating yet, same as the multi-threaded rendering checkbox above.
-			g_OSD.Show(OSDType::MESSAGE_WARNING, "Restart required");
-		});
-	}
-#endif
-
 	if (GetGPUBackend() == GPUBackend::VULKAN && SupportsCustomDriver()) {
 		auto driverChoice = list->Add(new Choice(gr->T("AdrenoTools driver manager")));
 		driverChoice->OnClick.Add([=](UI::EventParams &e) {

@@ -78,19 +78,12 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	// Allows us to skip a lot of initialization on secondary calls to onCreate.
 	private static boolean initialized = false;
 
-	// False to use Vulkan, queried from C++ after NativeApp.init.
-	private static boolean javaGL = true;
-
 	// Lifecycle tracker, to detect erroneous states.
 	private final LifeCycle lifeCycle = new LifeCycle();
 
-	// Graphics and audio interfaces for Vulkan (javaGL = false)
+	// The surface we hand to the native render loop thread, for both OpenGL and Vulkan.
 	private NativeSurfaceView mSurfaceView;
 	private Surface mSurface;
-
-	// Graphics and audio interfaces for Java EGL (javaGL = true)
-	private NativeGLSurfaceView mGLSurfaceView;
-	protected NativeRenderer nativeRenderer;
 
 	// For accelerometer sensing.
 	private SensorManager mSensorManager;
@@ -468,9 +461,6 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		NativeApp.audioConfig(optimalFramesPerBuffer, optimalSampleRate);
 		NativeApp.init(model, deviceType, languageRegion, apkFilePath, dataDir, extStorageDir, externalFilesDir, nativeLibDir, additionalStorageDirs, cacheDir, shortcut, installerName, Build.VERSION.SDK_INT, Build.BOARD, smallestScreenWidthDp);
 
-		// Allow C++ to tell us to use JavaGL or not.
-		javaGL = "true".equalsIgnoreCase(NativeApp.queryConfig("androidJavaGL"));
-
 		sendInitialGrants();
 
 		// OK, config should be initialized, we can query for screen rotation.
@@ -641,8 +631,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		sizeManager.checkDisplayMeasurements();
 	}
 
-	// Starts the native render loop thread. Used by Vulkan, and by OpenGL when the native side
-	// owns EGL rather than the GLSurfaceView in the javaGL path.
+	// Starts the native render loop thread, which owns the graphics context and its surface.
 	public native boolean runRenderLoop(Surface surface);
 	// Tells the render loop thread to exit, so we can restart it.
 	public native void requestExitRenderLoop();
@@ -713,49 +702,14 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		updateAudioFocus(this.audioManager, this.audioFocusChangeListener);
 		NativeApp.audioInit();
 
-		if (javaGL) {
-			mGLSurfaceView = new NativeGLSurfaceView(this);
-			nativeRenderer = new NativeRenderer();
-			mGLSurfaceView.setEGLContextClientVersion(isVRDevice() ? 3 : 2);
+		updateSystemUiVisibility();
 
-			sizeManager.setSurfaceView(mGLSurfaceView);
-			setInsetsListener(mGLSurfaceView);
+		mSurfaceView = new NativeSurfaceView(this);
+		sizeManager.setSurfaceView(mSurfaceView);
+		setInsetsListener(mSurfaceView);
+		setContentView(mSurfaceView);
 
-			// Setup the GLSurface and ask android for the correct
-			// Number of bits for r, g, b, a, depth and stencil components
-			// The PSP only has 16-bit Z so that should be enough.
-			// Might want to change this for other apps (24-bit might be useful).
-			// Actually, we might be able to do without both stencil and depth in
-			// the back buffer, but that would kill non-buffered rendering.
-
-			// It appears some gingerbread devices blow up if you use a config chooser at all ???? (Xperia Play)
-			//if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB) {
-
-			// On some (especially older devices), things blow up later (EGL_BAD_MATCH) if we don't set
-			// the format here, if we specify that we want destination alpha in the config chooser, which we do.
-			// http://grokbase.com/t/gg/android-developers/11bj40jm4w/fall-back
-
-			// Tried to mess around with config choosers (NativeEGLConfigChooser) here but fail completely on Xperia Play.
-
-			// Then I tried to require 8888/16/8 but that backfired too, does not work on Mali 450 which is
-			// used in popular TVs and boxes like Mi Box. So we'll just get what we get, I guess...
-
-			// if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH && !Build.MANUFACTURER.equals("Amazon")) {
-			// mGLSurfaceView.setEGLConfigChooser(8, 8, 8, 8, 16, 8);
-			// }
-
-			mGLSurfaceView.setRenderer(nativeRenderer);
-			setContentView(mGLSurfaceView);
-		} else {
-			updateSystemUiVisibility();
-
-			mSurfaceView = new NativeSurfaceView(this);
-			sizeManager.setSurfaceView(mSurfaceView);
-			setInsetsListener(mSurfaceView);
-			setContentView(mSurfaceView);
-
-			// render loop thread will be started once we get a surface.
-		}
+		// The render loop thread will be started once we get a surface.
 
 		if (!firstRun && shortcutParam != null && !shortcutParam.isEmpty()) {
 			// The native side is already up, so it didn't see this through NativeApp.init.
@@ -903,39 +857,27 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	public void notifySurface(Surface surface) {
 		mSurface = surface;
 
-		if (!javaGL) {
-			if (!initialized) {
-				Log.e(TAG, "notifySurface: Saving surface, but can't start/stop threads while not initialized");
-				return;
-			}
+		if (!initialized) {
+			Log.e(TAG, "notifySurface: Saving surface, but can't start/stop threads while not initialized");
+			return;
+		}
 
-			// If we got a surface, this starts the thread.
-			if (mSurface != null) {
-				// applyFramerate is called in here.
-				Log.i(TAG, "notifySurface: got surface, starting thread.");
-				startRenderLoopThread();
-			} else {
-				// The surface must not be touched once surfaceDestroyed returns. Normally onPause has
-				// already joined the thread and this does nothing, but that order isn't guaranteed.
-				Log.i(TAG, "notifySurface: Surface is gone, making sure the render thread is too.");
-				joinRenderLoopThread();
-			}
-		} else if (mSurface != null) {
-			// JavaGL path.
-			// TODO: This might not be the best place to do this. Seems to cause a surface recreation
-			// unnecessarily.
-			Log.i(TAG, "notifySurface: Applying framerate.");
-			applyFrameRate(mSurface, 60.0f);
+		// If we got a surface, this starts the thread.
+		if (mSurface != null) {
+			// applyFramerate is called in here.
+			Log.i(TAG, "notifySurface: got surface, starting thread.");
+			startRenderLoopThread();
+		} else {
+			// The surface must not be touched once surfaceDestroyed returns. Normally onPause has
+			// already joined the thread and this does nothing, but that order isn't guaranteed.
+			Log.i(TAG, "notifySurface: Surface is gone, making sure the render thread is too.");
+			joinRenderLoopThread();
 		}
 		updateSustainedPerformanceMode();
 	}
 
 	// The render loop thread (EmuThread) is now spawned from the native side.
 	protected synchronized void startRenderLoopThread() {
-		if (javaGL) {
-			Log.e(TAG, "JavaGL mode - should not get into startRenderLoopThread.");
-			return;
-		}
 		if (mSurface == null) {
 			Log.w(TAG, "startRenderLoopThread - not starting thread, needs surface");
 			return;
@@ -948,11 +890,6 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	}
 
 	private synchronized void joinRenderLoopThread() {
-		if (javaGL) {
-			Log.e(TAG, "JavaGL - should not get into joinRenderLoopThread.");
-			return;
-		}
-
 		// This will wait until the thread has exited.
 		Log.i(TAG, "requestExitRenderLoop");
 		requestExitRenderLoop();
@@ -973,13 +910,8 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		super.onDestroy();
 		lifeCycle.onDestroy();
 
-		if (javaGL) {
-			nativeRenderer = null;
-			mGLSurfaceView = null;
-		} else {
-			mSurfaceView = null;
-			mSurface = null;
-		}
+		mSurfaceView = null;
+		mSurface = null;
 
 		mSensorManager = null;
 		mAccelerometer = null;
@@ -1034,14 +966,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		InputManager inputManager = (InputManager)getSystemService(Context.INPUT_SERVICE);
 		inputManager.unregisterInputDeviceListener(inputDeviceListener);
 
-		if (!javaGL) {
-			Log.i(TAG, "Joining render thread...");
-			joinRenderLoopThread();
-			Log.i(TAG, "Joined render thread");
-		} else if (mGLSurfaceView != null) {
-			Log.i(TAG, "mGLSurfaceView.onPause...");
-			mGLSurfaceView.onPause();
-		}
+		Log.i(TAG, "Joining render thread...");
+		joinRenderLoopThread();
+		Log.i(TAG, "Joined render thread");
 
 		Log.i(TAG, "mSensorManager.unregisterListener...");
 		mSensorManager.unregisterListener(this);
@@ -1081,12 +1008,8 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			(InputManager)getSystemService(Context.INPUT_SERVICE);
 		inputManager.registerInputDeviceListener(inputDeviceListener, null);
 
-		if (!javaGL) {
-			// Restart the render loop.
-			startRenderLoopThread();
-		} else if (mGLSurfaceView != null) {
-			mGLSurfaceView.onResume();
-		}
+		// Restart the render loop.
+		startRenderLoopThread();
 		Log.i(TAG, "onResume end");
 	}
 
@@ -1475,7 +1398,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	}
 
 	public boolean processCommand(String command, String params) {
-		SurfaceView surfView = javaGL ? mGLSurfaceView : mSurfaceView;
+		SurfaceView surfView = mSurfaceView;
 		if (command.equals("launchBrowser")) {
 			// Special case for twitter
 			if (params.startsWith("https://twitter.com/#!/")) {

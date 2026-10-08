@@ -569,12 +569,6 @@ public:
 	// Use the hardware scaler to scale up the image to save fillrate. Similar to Windows' window size, really.
 	int iAndroidHwScale;  // 0 = device resolution. 1 = 480x272 (extended to correct aspect), 2 = 960x544 etc.
 
-	// Android, OpenGL backend only: own EGL and the render thread in C++ instead of letting
-	// Java's GLSurfaceView do it. Temporary, while the new path is being shaken out on devices -
-	// the intent is for it to become the only way and for the JavaGL path to go away.
-	// Only read when the activity is created, so changing it needs an app restart.
-	bool bAndroidNativeEGL;
-
 	// Risky JIT optimizations
 	bool bDiscardRegsOnJRRA;
 
