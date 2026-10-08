@@ -2457,7 +2457,9 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 	const bool selfRender = framebufferManager_->GetCurrentRenderVFB() == framebuffer;
 
 	// Shader depal is not supported during 3D texturing or depth texturing, and requires 32-bit integer instructions in the shader.
-	bool useShaderDepal = !selfRender && !depth && clutRenderAddress_ == 0xFFFFFFFF &&
+	// CLUT8 from 8888 takes it even when rendering to self (through a copy): only the shader picks the byte out of each pixel,
+	// the depal pass can't. Star Wars: The Force Unleashed does this for a color grade.
+	bool useShaderDepal = (!selfRender || (texFormat == GE_TFMT_CLUT8 && fbFormat == GE_FORMAT_8888)) && !depth && clutRenderAddress_ == 0xFFFFFFFF &&
 		!gstate_c.curTextureIs3D &&
 		draw_->GetShaderLanguageDesc().bitwiseOps &&
 		!(texFormat == GE_TFMT_CLUT8 && fbFormat == GE_FORMAT_5551);  // socom
