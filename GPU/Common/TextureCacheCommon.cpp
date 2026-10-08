@@ -2561,6 +2561,10 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 			gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 		}
 
+		// CLUT8 from 5551 (SOCOM, #16210): U counts bytes, two per pixel of the depal output.
+		const bool clut8From5551 = texFormat == GE_TFMT_CLUT8 && fbFormat == GE_FORMAT_5551;
+		const float uDiv = clut8From5551 ? 2.0f : 1.0f;
+
 		// If min is not < max, then we don't have values (wasn't set during decode.)
 		const KnownVertexBounds &bounds = gstate_c.vertBounds;
 		float u1 = 0.0f;
@@ -2568,9 +2572,9 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		float u2 = depalWidth;
 		float v2 = framebuffer->renderHeight;
 		if (bounds.minV < bounds.maxV) {
-			u1 = (bounds.minU + gstate_c.curTextureXOffset) * framebuffer->renderScaleFactor;
+			u1 = (floorf(bounds.minU / uDiv) + gstate_c.curTextureXOffset) * framebuffer->renderScaleFactor;
 			v1 = (bounds.minV + gstate_c.curTextureYOffset) * framebuffer->renderScaleFactor;
-			u2 = (bounds.maxU + gstate_c.curTextureXOffset) * framebuffer->renderScaleFactor;
+			u2 = (ceilf(bounds.maxU / uDiv) + gstate_c.curTextureXOffset) * framebuffer->renderScaleFactor;
 			v2 = (bounds.maxV + gstate_c.curTextureYOffset) * framebuffer->renderScaleFactor;
 			// We need to reapply the texture next time since we cropped UV.
 			gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
@@ -2600,7 +2604,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 
 		gpuStats.perFrame.numDepal++;
 
-		gstate_c.curTextureWidth = texWidth;
+		gstate_c.curTextureWidth = clut8From5551 ? texWidth * 2 : texWidth;
 		gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 
 		draw_->BindTexture(0, nullptr);
