@@ -969,6 +969,10 @@ elseif(IOS AND NOT LIBRETRO)
 	if(EXISTS "${CMAKE_IOS_SDK_ROOT}/System/Library/Frameworks/PhotosUI.framework")
 		list(APPEND targetExtraLibs "-weak_framework PhotosUI")
 	endif()
+	if(USE_IAP)
+		# Adding the In-App Purchase capability in Xcode did this. There's no entitlement for it on iOS.
+		list(APPEND targetExtraLibs "-framework StoreKit")
+	endif()
 
 	if(NOT ICONV_LIBRARY)
 		list(APPEND targetExtraLibs iconv)
