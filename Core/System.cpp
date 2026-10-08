@@ -226,15 +226,37 @@ bool DiscIDFromGEDumpPath(const Path &path, FileLoader *fileLoader, std::string 
 		}
 	}
 
-	// Fall back to using the filename.
-	std::string filename = path.GetFilename();
-	// Could be more discerning, but hey..
-	if (filename.size() > 10 && (filename[0] == 'U' || filename[0] == 'N') && filename[9] == '_') {
-		*id = filename.substr(0, 9);
-		return true;
+	// Fall back to the file name.
+	return DiscIDFromGEDumpFilename(path.GetFilename(), id);
+}
+
+// PPSSPP names dumps ULUS10064_0001.ppdmp; the ppsspp-framedumps collection puts the GitHub issue number in
+// front ("11928 ULUS10064_0001 OutRun water.ppdmp").
+bool DiscIDFromGEDumpFilename(std::string_view filename, std::string *id) {
+	size_t start = 0;
+	while (start < filename.size() && filename[start] >= '0' && filename[start] <= '9') {
+		start++;
+	}
+	if (start > 0 && start < filename.size() && filename[start] == ' ') {
+		start++;
 	} else {
+		start = 0;
+	}
+	// The ID is followed by _NNNN, the extension, a description, or nothing.
+	if (filename.size() < start + 9) {
 		return false;
 	}
+	if (filename.size() > start + 9 && filename[start + 9] != '_' && filename[start + 9] != '.' && filename[start + 9] != ' ') {
+		return false;
+	}
+	for (size_t i = 0; i < 9; i++) {
+		const char c = filename[start + i];
+		if (i < 4 ? !(c >= 'A' && c <= 'Z') : !(c >= '0' && c <= '9')) {
+			return false;
+		}
+	}
+	*id = std::string(filename.substr(start, 9));
+	return true;
 }
 
 static void GetBootError(IdentifiedFileType type, std::string *errorString) {
