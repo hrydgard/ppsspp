@@ -975,7 +975,8 @@ TextureApplyResult TextureCacheCommon::ApplyTextureFinish(TexCacheEntry *entry, 
 		if (entry->status & TexStatus::CLUT8_INDEXED) {
 			bool smoothedDepal = false;
 			u32 depthUpperBits = 0;
-			ClutTexture clutTexture = clutTextureCache_.GetClutTexture(gstate.getClutPaletteFormat(), clutHash_, clutBuf_);
+			// The raw CLUT: GetClutTexture converts it itself, and the GLES backend's clutBuf_ is already converted to its order.
+			ClutTexture clutTexture = clutTextureCache_.GetClutTexture(gstate.getClutPaletteFormat(), clutHash_, clutBufRaw_);
 			BindAsClutTexture(clutTexture.texture, false);
 			gstate_c.SetShaderDepal(ShaderDepalMode::NORMAL, GE_FORMAT_CLUT8);
 		} else {
