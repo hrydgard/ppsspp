@@ -454,7 +454,7 @@ u32 __MicInput(u32 maxSamples, u32 sampleRate, u32 bufAddr, MICTYPE type, bool b
 		return type == CAMERAMIC ? size : maxSamples;
 	}
 
-	u64 waitTimeus = (size - Microphone::availableAudioBufSize()) * 1000000 / 2 / sampleRate;
+	u64 waitTimeus = (size - std::min(readMicDataLength, (u32)size)) * 1000000ULL / 2 / sampleRate;
 	CoreTiming::ScheduleEvent(usToCycles(waitTimeus), eventMicBlockingResume, __KernelGetCurThread());
 	MicWaitInfo waitInfo = { __KernelGetCurThread(), bufAddr, size, sampleRate };
 	waitingThreads.push_back(waitInfo);
