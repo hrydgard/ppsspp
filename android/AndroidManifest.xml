@@ -56,6 +56,7 @@
             android:configChanges="locale|keyboard|keyboardHidden|navigation|uiMode"
             android:theme="@style/ppsspp_style"
 			android:launchMode="singleInstance"
+			android:resizeableActivity="true"
             android:exported="true">
             <property android:name="android.window.PROPERTY_COMPAT_ALLOW_RESTRICTED_RESIZABILITY" android:value="true" />
             <intent-filter>

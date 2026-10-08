@@ -107,7 +107,7 @@ public class NativeApp {
 		if ((ev.getSource() & InputDevice.SOURCE_MOUSE) == InputDevice.SOURCE_MOUSE) {
 			float dx = ev.getAxisValue(MotionEvent.AXIS_RELATIVE_X);
 			float dy = ev.getAxisValue(MotionEvent.AXIS_RELATIVE_Y);
-			Log.i(TAG, "Mouse delta: " + dx + " " + dy);
+			// Log.i(TAG, "Mouse delta: " + dx + " " + dy);
 			NativeApp.mouseDelta(dx, dy);
 		}
 	}
@@ -117,7 +117,7 @@ public class NativeApp {
 	}
 
 	private static void onMouseEventMotion(final MotionEvent ev) {
-		Log.i(TAG, "motion mouse event");
+		// Log.i(TAG, "motion mouse event");
 		switch (ev.getActionMasked()) {
 			case MotionEvent.ACTION_DOWN: {
 				if (PpssppActivity.useModernMouseEvents) {
@@ -177,11 +177,11 @@ public class NativeApp {
 						code = 4;
 					break;
 				case MotionEvent.ACTION_CANCEL:
+					// The whole gesture is over (the system took it, for example), so every pointer in the
+					// event is, not just the one at the action index. Otherwise the rest stay held down
+					// on the native side. Handle like ACTION_UP for now.
 					Log.i(TAG, "ACTION_CANCEL");
-					if (ev.getActionIndex() == i) {
-						// Handle like ACTION_UP for now.
-						code = 4;
-					}
+					code = 4;
 					break;
 				case MotionEvent.ACTION_MOVE: {
 					code = 1;

@@ -121,7 +121,7 @@ void WebSocketLogChannelSet(DebuggerRequest &req) {
 
 		// These are meant as temporary, session-only diagnostic tweaks - make sure they never
 		// get written back over the user's actual saved log settings.
-		g_logManager.NotifyChannelsChangedByDebugger();
+		g_logManager.DoNotSaveChannels();
 		if (hasLevel)
 			g_logManager.SetLogLevel(type, level);
 		if (hasEnabled)

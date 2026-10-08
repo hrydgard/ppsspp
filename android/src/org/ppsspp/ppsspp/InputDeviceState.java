@@ -187,10 +187,12 @@ public class InputDeviceState {
 		if (isInvalidKeyCode(keyCode) && isEventSentByNintendoSwitchLeftJoyCon(event)) {
 			int remappedKeyCode = remapNintendoSwitchLeftJoyConKeyCodeFromScanCode(event.getScanCode());
 			if (remappedKeyCode != 0) {
+				pressedKeys.remove(remappedKeyCode);
 				return NativeApp.keyUp(deviceId, remappedKeyCode);
 			}
 		}
 
+		pressedKeys.remove(keyCode);
 		return NativeApp.keyUp(deviceId, keyCode);
 	}
 

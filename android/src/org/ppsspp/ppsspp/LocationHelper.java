@@ -22,6 +22,9 @@ class LocationHelper implements LocationListener {
 	private static final int GPGGA_ALTITUDE_INDEX = 9;
 	private final LocationManager mLocationManager;
 	private boolean mLocationEnable;
+	// What the game has asked for, which is what we go back to on resume.
+	private boolean mLocationWanted = false;
+	private boolean mPaused = false;
 	private GpsStatus.Listener mGpsStatusListener;
 	private GnssStatus.Callback mGnssStatusCallback;
 	private OnNmeaMessageListener mNmeaMessageListener;
@@ -35,6 +38,33 @@ class LocationHelper implements LocationListener {
 	}
 
 	void startLocationUpdates() {
+		mLocationWanted = true;
+		if (mPaused) {
+			Log.d(TAG, "startLocationUpdates: paused, deferring to resume");
+			return;
+		}
+		startListening();
+	}
+
+	void stopLocationUpdates() {
+		mLocationWanted = false;
+		stopListening();
+	}
+
+	// Don't keep the GPS going while we're in the background. The game isn't running to see it anyway.
+	void pause() {
+		mPaused = true;
+		stopListening();
+	}
+
+	void resume() {
+		mPaused = false;
+		if (mLocationWanted) {
+			startListening();
+		}
+	}
+
+	private void startListening() {
 		Log.d(TAG, "startLocationUpdates");
 		if (!mLocationEnable) {
 			boolean isGPSEnabled = false;
@@ -71,7 +101,7 @@ class LocationHelper implements LocationListener {
 		}
 	}
 
-	void stopLocationUpdates() {
+	private void stopListening() {
 		Log.d(TAG, "stopLocationUpdates");
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
 			if (mGnssStatusCallback != null) {
