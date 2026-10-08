@@ -216,8 +216,8 @@ void SendAndCollectOutput(std::string_view output) {
 
 // Writes u32 width, u32 height, then a depth per PSP pixel: u16, or float with a .f32 extension.
 // The hardware backends store depth as z / 65536 (z / 65535 for clears) in a 24-bit or float buffer
-// without the PSP's rounding, so z is floor(d * 65536). Half a 24-bit step keeps an exact z from
-// landing just below. The .f32 version keeps the fraction, to see how close two draws came.
+// without the PSP's rounding, so z is floor(d * 65536), as in ReadbackDepthbuffer. The .f32 version
+// keeps the fraction, to see how close two draws came.
 static void SaveDepthBuffer(const GPUDebugBuffer &depth, const Path &path) {
 	const bool isFloat = depth.GetFormat() == GPU_DBG_FORMAT_FLOAT;
 	const bool saveFloat = path.GetFileExtension() == ".f32";
@@ -251,7 +251,7 @@ static void SaveDepthBuffer(const GPUDebugBuffer &depth, const Path &path) {
 	} else {
 		std::vector<u16> z16(values.size());
 		for (size_t i = 0; i < values.size(); i++) {
-			z16[i] = (u16)std::clamp(floorf(values[i] + 1.0f / 512.0f), 0.0f, 65535.0f);
+			z16[i] = (u16)std::clamp(floorf(values[i]), 0.0f, 65535.0f);
 		}
 		fwrite(z16.data(), sizeof(u16), z16.size(), f);
 	}
