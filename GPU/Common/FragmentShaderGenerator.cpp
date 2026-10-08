@@ -800,11 +800,12 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				} else {
 					p.F("  vec2 uv = %s.xy;\n  vec2 uv_round;\n", texcoord);
 				}
-				p.C("  vec2 tsize = vec2(textureSize(tex, 0).xy);\n");
+				// The texture size in PSP pixels (u counts bytes), not the scaled framebuffer's.
+				p.C("  vec2 tsize = 0.5 / u_texclamp.zw;\n");
 				p.C("  uv_round = floor(uv * tsize);\n");
 				p.C("  int component = int(uv_round.x) & 3;\n");
-				p.C("  uv_round.x *= 0.25;\n");
-				p.C("  uv_round /= tsize;\n");
+				p.C("  uv_round.x = floor(uv_round.x * 0.25);\n");
+				p.C("  uv_round = (uv_round + 0.5) / tsize;\n");
 				p.C("  vec4 t = ").SampleTexture2D("tex", "uv_round").C(";\n");
 				p.C("  int index;\n");
 				p.C("  switch (component) {\n");

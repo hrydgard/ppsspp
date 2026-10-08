@@ -2528,6 +2528,8 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 			if (texFormat == GE_TFMT_CLUT8 && fbFormat == GE_FORMAT_8888) {
 				mode = ShaderDepalMode::CLUT8_8888;
 				smoothedDepal = false;  // just in case
+				// The shader picks the byte out of each pixel in PSP units, which it gets from u_texclamp.
+				gstate_c.SetNeedShaderTexclamp(true);
 			} else if (smoothedDepal) {
 				mode = ShaderDepalMode::SMOOTHED;
 			}
