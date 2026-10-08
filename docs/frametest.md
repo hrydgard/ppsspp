@@ -138,6 +138,14 @@ The runner uses `--screenshot=<ref>` (compare), `--screenshot-save=<file>`
 `--screenshot-diff=<file>` (always write a visual comparison when comparing).
 See `headless/README.md` for details.
 
+`--depth-save=<file>` writes the current depth buffer next to the screenshot: a
+u32 width and height, then a u16 per pixel, or a float if the path ends in
+`.f32`. The software renderer gives the GE's own values. The hardware renderers
+keep depth at higher precision without the GE's rounding, so their u16 is
+`floor(d * 65536)` and usually within one of the software renderer's; the
+`.f32` version keeps the fraction, which shows whether two draws of the same
+surface meet a depth test like `>=`.
+
 ## Command line options
 
 ```

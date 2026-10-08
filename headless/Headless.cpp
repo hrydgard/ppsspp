@@ -214,6 +214,50 @@ void SendAndCollectOutput(std::string_view output) {
 	}
 }
 
+// Writes u32 width, u32 height, then a depth per PSP pixel: u16, or float with a .f32 extension.
+// The hardware backends store depth as z / 65536 (z / 65535 for clears) in a 24-bit or float buffer
+// without the PSP's rounding, so z is floor(d * 65536). Half a 24-bit step keeps an exact z from
+// landing just below. The .f32 version keeps the fraction, to see how close two draws came.
+static void SaveDepthBuffer(const GPUDebugBuffer &depth, const Path &path) {
+	const bool isFloat = depth.GetFormat() == GPU_DBG_FORMAT_FLOAT;
+	const bool saveFloat = path.GetFileExtension() == ".f32";
+	const int scale = std::max(1, depth.GetScaleFactor());
+	const u32 w = depth.GetStride() / scale;
+	const u32 h = depth.GetHeight() / scale;
+
+	std::vector<float> values(w * h);
+	for (u32 y = 0; y < h; y++) {
+		const u32 srcY = depth.GetFlipped() ? depth.GetHeight() - 1 - y * scale : y * scale;
+		for (u32 x = 0; x < w; x++) {
+			const u32 offset = srcY * depth.GetStride() + x * scale;
+			float z;
+			if (isFloat) {
+				z = ((const float *)depth.GetData())[offset] * 65536.0f;
+			} else {
+				z = ((const u16 *)depth.GetData())[offset];
+			}
+			values[y * w + x] = z;
+		}
+	}
+
+	FILE *f = File::OpenCFile(path, "wb");
+	if (!f) {
+		return;
+	}
+	const u32 header[2] = { w, h };
+	fwrite(header, sizeof(header), 1, f);
+	if (saveFloat) {
+		fwrite(values.data(), sizeof(float), values.size(), f);
+	} else {
+		std::vector<u16> z16(values.size());
+		for (size_t i = 0; i < values.size(); i++) {
+			z16[i] = (u16)std::clamp(floorf(values[i] + 1.0f / 512.0f), 0.0f, 65535.0f);
+		}
+		fwrite(z16.data(), sizeof(u16), z16.size(), f);
+	}
+	fclose(f);
+}
+
 void SendDebugScreenshot(const DebugScreenshotDesc &desc) {
 	const u8 *pixbuf = (const u8 *)desc.data;
 	u32 w = desc.stride;
@@ -240,16 +284,10 @@ void SendDebugScreenshot(const DebugScreenshotDesc &desc) {
 
 	if (!g_depthSavePath.empty()) {
 		GPUDebugBuffer depth;
-		if (gpu->GetCurrentDepthbuffer(depth) && depth.GetFormat() == GPU_DBG_FORMAT_16BIT) {
-			FILE *f = File::OpenCFile(g_depthSavePath, "wb");
-			if (f) {
-				const u32 header[2] = { depth.GetStride(), depth.GetHeight() };
-				fwrite(header, sizeof(header), 1, f);
-				fwrite(depth.GetData(), 2, depth.GetStride() * depth.GetHeight(), f);
-				fclose(f);
-			}
+		if (gpu->GetCurrentDepthbuffer(depth) && (depth.GetFormat() == GPU_DBG_FORMAT_16BIT || depth.GetFormat() == GPU_DBG_FORMAT_FLOAT)) {
+			SaveDepthBuffer(depth, g_depthSavePath);
 		} else {
-			SendAndCollectOutput("Depth buffer not saved: needs a 16-bit depth buffer (the software renderer)\n");
+			SendAndCollectOutput("Depth buffer not saved: couldn't read it back\n");
 		}
 	}
 
