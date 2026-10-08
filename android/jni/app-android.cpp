@@ -106,14 +106,6 @@ struct JNIEnv {};
 
 #include "app-android.h"
 
-enum class EmuThreadState {
-	DISABLED,
-	START_REQUESTED,
-	RUNNING,
-	QUIT_REQUESTED,
-	STOPPED,
-};
-
 AndroidAudioState *g_audioState;
 
 struct FrameCommand {
@@ -1558,18 +1550,13 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_PpssppActivity_requestExitRenderL
 	exitRenderLoop = false;
 }
 
-// TODO: Merge with the Win32 EmuThread and so on, and the Java EmuThread?
 // This function must release the wnd reference.
 static void RenderLoopThread(ANativeWindow *wnd, GraphicsContext *graphicsContext) {
-	// The two backends split the work in opposite directions, which is why this thread has two
-	// names. Vulkan handles its own threading: this thread runs the main loop and the render
-	// manager spawns the actual render thread. OpenGL doesn't: this thread becomes the render
-	// thread and spawns the emu thread, which is what Java's GL thread used to do for us.
-	const bool separateEmuThread = graphicsContext->NeedsSeparateEmuThread();
-	SetCurrentThreadName(separateEmuThread ? "RenderThread" : "EmuThread");
+	// Only a provisional name, so the surface init below has something to log under. RunGraphicsLoop
+	// renames this thread once it knows which of the two roles it's going to take.
+	SetCurrentThreadName("RenderLoop");
 
 	AndroidJNIThreadContext ctx;
-	JNIEnv *env = getEnv();
 	_assert_(graphicsContext);
 
 	if (exitRenderLoop) {
@@ -1600,44 +1587,13 @@ static void RenderLoopThread(ANativeWindow *wnd, GraphicsContext *graphicsContex
 		ProcessFrameCommands();
 		return !exitRenderLoop;
 	};
-	if (separateEmuThread) {
-		// EmuThread_Start calls ThreadStart() for us, and EmuThread_Join calls ThreadEnd(), so
-		// neither is called directly here.
-		std::thread emuThread = EmuThread_Start(graphicsContext, new NativeApplication(), frame);
+	// Both backends share one lifecycle now, which is the point of all this: RunGraphicsLoop picks
+	// the thread arrangement the context needs and doesn't return until emulation is done. Windows
+	// and headless go through the same function, via MainThreadFunc.
+	// We have to hand it exitRenderLoop as well as the frame callback - in VR the loop can be
+	// parked waiting for the session to come back, where the callback is never reached.
+	RunGraphicsLoop(graphicsContext, new NativeApplication(), frame, []() { return exitRenderLoop.load(); });
 
-		// The views were created against the previous surface, if there was one.
-		System_PostUIMessage(UIMessage::RECREATE_VIEWS);
-
-		if (IsVREnabled()) {
-			// Only ever a GL thing, which is why it lives in this branch.
-			static bool vrFirstStart = true;
-			EnterVR(vrFirstStart);
-			vrFirstStart = false;
-		}
-
-		// This is the GL "GPU thread" - the loop Java's GLSurfaceView used to drive one call at a
-		// time. ThreadFrame returns false once the emu thread is done producing.
-		while (!exitRenderLoop) {
-			if (IsVREnabled() && !StartVRRender()) {
-				// The session isn't active, so there's no frame to render into. Java's GL thread
-				// just missed a vsync here; we drive the loop ourselves, so pace it by hand
-				// rather than spinning.
-				sleep_ms(16, "vr-session-idle");
-				continue;
-			}
-			if (!graphicsContext->ThreadFrame()) {
-				break;
-			}
-			if (IsVREnabled()) {
-				UpdateVRInput(g_Config.bHapticFeedback, g_display.dpi_scale_x, g_display.dpi_scale_y);
-				FinishVRRender();
-			}
-		}
-		// Also drains whatever the emu thread still has queued, so it can't block on us.
-		EmuThread_Join(graphicsContext, emuThread);
-	} else {
-		RunMainLoop(graphicsContext, new NativeApplication(), frame);
-	}
 	renderer_inited = false;
 
 	// Shut the graphics context down to the same state it was in when we entered the render thread.
