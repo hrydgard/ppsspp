@@ -769,7 +769,12 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 	std::vector<std::string> micList = Microphone::getDeviceList();
 	if (!micList.empty()) {
 		audioSettings->Add(new ItemHeader(a->T("Microphone")));
-		PopupMultiChoiceDynamic *MicChoice = audioSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sMicDevice, a->T("Microphone Device"), micList, I18NCat::NONE, screenManager()));
+		std::vector<std::string> micValues = micList;
+#if defined(SDL)
+		micList.emplace(micList.begin(), a->T("Auto"));
+		micValues.insert(micValues.begin(), "");
+#endif
+		PopupMultiChoiceDynamic *MicChoice = audioSettings->Add(new PopupMultiChoiceDynamic(&g_Config.sMicDevice, a->T("Microphone Device"), micList, I18NCat::NONE, screenManager(), &micValues));
 		MicChoice->OnChoice.Add([](UI::EventParams &e) {
 			Microphone::onMicDeviceChange();
 		});
