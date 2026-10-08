@@ -556,6 +556,13 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 		if (doTexture) {
 			char texcoord[64] = "v_texcoord";
+			if (doTextureProjection) {
+				// Where q isn't positive, the GE samples the last texel instead of dividing (gpu/texmtx/negq, and
+				// GE_NONPOSITIVE_Q_UV in the software renderer). Dividing by a negative q mirrors the texture behind the
+				// projector: Fate/Extra's projected shadows ran up the walls (#18667).
+				WRITE(p, "  vec3 projTexcoord = v_texcoord.z > 0.0 ? v_texcoord : vec3(0.99998474, 0.99998474, 1.0);\n");
+				truncate_cpy(texcoord, "projTexcoord");
+			}
 			// TODO: Not sure the right way to do this for projection.
 			// This path destroys resolution on older PowerVR no matter what I do if projection is needed,
 			// so we disable it on SGX 540 and lesser, and live with the consequences.
@@ -572,8 +579,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				std::string ucoord = "v_texcoord.x";
 				std::string vcoord = "v_texcoord.y";
 				if (doTextureProjection) {
-					ucoord = "(v_texcoord.x / v_texcoord.z)";
-					vcoord = "(v_texcoord.y / v_texcoord.z)";
+					ucoord = "(projTexcoord.x / projTexcoord.z)";
+					vcoord = "(projTexcoord.y / projTexcoord.z)";
 				}
 
 				std::string modulo = (gl_extensions.bugs & BUG_PVR_SHADER_PRECISION_BAD) ? "mymod" : "mod";
@@ -602,13 +609,13 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				if (compat.shaderLanguage == HLSL_D3D11) {
 					if (texture3D) {
 						if (doTextureProjection) {
-							WRITE(p, "  vec4 t = tex.Sample(texSamp, vec3(v_texcoord.xy / v_texcoord.z, u_mipBias));\n");
+							WRITE(p, "  vec4 t = tex.Sample(texSamp, vec3(%s.xy / %s.z, u_mipBias));\n", texcoord, texcoord);
 						} else {
 							WRITE(p, "  vec4 t = tex.Sample(texSamp, vec3(%s.xy, u_mipBias));\n", texcoord);
 						}
 					} else {
 						if (doTextureProjection) {
-							WRITE(p, "  vec4 t = tex.Sample(texSamp, v_texcoord.xy / v_texcoord.z);\n");
+							WRITE(p, "  vec4 t = tex.Sample(texSamp, %s.xy / %s.z);\n", texcoord, texcoord);
 						} else {
 							WRITE(p, "  vec4 t = tex.Sample(texSamp, %s.xy);\n", texcoord);
 						}

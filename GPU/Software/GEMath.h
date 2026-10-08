@@ -451,12 +451,18 @@ inline float GEUVProduct(double d) {
 	return (float)d;
 }
 
+// Where q isn't positive, the GE samples the last texel in u and v, whatever s and t are and in both clamp
+// and wrap modes (gpu/texmtx/negq): a saturated coordinate. 1 - 2^-16 lands on texel size - 1 with the highest
+// subtexel fraction, for any texture size.
+constexpr float GE_NONPOSITIVE_Q_UV = 1.0f - 1.0f / 65536.0f;
+constexpr int32_t GE_NONPOSITIVE_Q_UV_BITS = 0x3F7FFF00;
+
 // The rasterizer's texture coordinates for four pixels (Rasterizer's GetTextureCoordinatesGE): from the UV
 // planes' values at them (each times 2^scaleExp), q as a float24, and s and t as GEUVProduct(float24 *
-// GERecip(q)), or 0 where q isn't positive. False, with the outputs untouched, when a lane needs more than
-// the vector path does (a value of 2^24 or more, a denormal or out of range result): then do it scalar.
-// The core takes the values as lanes, each below 2^24; with check false, the caller knows they're inside
-// what the vector path covers (GEUVSpanSafe).
+// GERecip(q)), or GE_NONPOSITIVE_Q_UV where q isn't positive. False, with the outputs untouched, when a lane
+// needs more than the vector path does (a value of 2^24 or more, a denormal or out of range result): then do
+// it scalar. The core takes the values as lanes, each below 2^24; with check false, the caller knows they're
+// inside what the vector path covers (GEUVSpanSafe).
 template <bool check>
 inline bool GEUVSpanCore(Vec4S32 qv, Vec4S32 sv, Vec4S32 tv, int expQ, int expS, int expT, float *s, float *t, float *q) {
 	const Vec4S32 expMask = Vec4S32::Splat(0x7F800000);
@@ -517,7 +523,7 @@ inline bool GEUVSpanCore(Vec4S32 qv, Vec4S32 sv, Vec4S32 tv, int expQ, int expS,
 		const Vec4S32 sign = xb & Vec4S32::Splat((int)0x80000000);
 		const Vec4S32 result = (Vec4S32FromBits(Vec4F32FromS32(m)) + adjust.Shl<23>()) | sign;
 		// Zero stays as it is, with its sign.
-		return ((result.AndNot(xZero) | (xb & xZero)) & valid);
+		return ((result.AndNot(xZero) | (xb & xZero)) & valid) | Vec4S32::Splat(GE_NONPOSITIVE_Q_UV_BITS).AndNot(valid);
 	};
 	const Vec4S32 so = product(sb);
 	const Vec4S32 to = product(tb);

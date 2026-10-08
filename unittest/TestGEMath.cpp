@@ -281,7 +281,7 @@ static bool TestGEUVSpan() {
 		fast++;
 		for (int l = 0; l < 4; ++l) {
 			const float wq = TruncateToFloat24((float)ldexp((double)qs[l], expQ));
-			float ws = 0.0f, wt = 0.0f;
+			float ws = GE_NONPOSITIVE_Q_UV, wt = GE_NONPOSITIVE_Q_UV;
 			if (wq > 0.0f) {
 				const double r = GERecip(wq);
 				ws = GEUVProduct((double)TruncateToFloat24((float)ldexp((double)ss[l], expS)) * r);
@@ -312,7 +312,7 @@ static bool TestGEUVSpan() {
 		GEUVSpanCore<false>(Vec4S32::Load(qv), Vec4S32::Load(sv), Vec4S32::Load(tv), expQ, expS, expT, s, t, q);
 		for (int l = 0; l < 4; ++l) {
 			const float wq = TruncateToFloat24((float)ldexp((double)qv[l], expQ));
-			float ws = 0.0f, wt = 0.0f;
+			float ws = GE_NONPOSITIVE_Q_UV, wt = GE_NONPOSITIVE_Q_UV;
 			if (wq > 0.0f) {
 				const double r = GERecip(wq);
 				ws = GEUVProduct((double)TruncateToFloat24((float)ldexp((double)sv[l], expS)) * r);
