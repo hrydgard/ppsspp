@@ -173,6 +173,11 @@ void VagDecoder::DoState(PointerWrap &p) {
 		}
 	}
 	Do(p, curSample);
+	if (curSample < 0 || curSample > (int)ARRAY_SIZE(samples)) {
+		ERROR_LOG(Log::SaveState, "Bad VAG sample position %d", curSample);
+		p.SetError(p.ERROR_FAILURE);
+		return;
+	}
 
 	Do(p, data_);
 	Do(p, read_);
@@ -787,6 +792,11 @@ void SasInstance::DoState(PointerWrap &p) {
 	}
 
 	Do(p, maxVoices);
+	if (maxVoices <= 0 || maxVoices > PSP_SAS_VOICES_MAX) {
+		ERROR_LOG(Log::SaveState, "Bad SAS voice count %d", maxVoices);
+		p.SetError(p.ERROR_FAILURE);
+		return;
+	}
 	Do(p, sampleRate);
 	Do(p, outputMode);
 
@@ -876,6 +886,14 @@ void SasVoice::DoState(PointerWrap &p) {
 
 	Do(p, sampleFrac);
 	Do(p, pitch);
+	// Mixing leaves less than a sample in sampleFrac, and indexes its temp buffer by it and pitch.
+	// ReadSamples() needs the PCM positions inside the buffer.
+	if (sampleFrac >= PSP_SAS_PITCH_BASE || pitch < PSP_SAS_PITCH_MIN || pitch > PSP_SAS_PITCH_MAX ||
+		(type == VOICETYPE_PCM && (pcmSize <= 0 || pcmIndex < 0 || pcmIndex > pcmSize || pcmLoopPos < 0 || pcmLoopPos >= pcmSize))) {
+		ERROR_LOG(Log::SaveState, "Bad SAS voice state");
+		p.SetError(p.ERROR_FAILURE);
+		return;
+	}
 	Do(p, loop);
 	if (s < 2 && type == VOICETYPE_PCM) {
 		// We set loop incorrectly before, and always looped.
