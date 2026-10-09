@@ -380,6 +380,12 @@ public:
 		targetHeight_ = height;
 	}
 
+	// Deleting a framebuffer leaves the default one bound, behind fbo_bind_fb_target's cache.
+	void ForgetBoundFramebuffers() {
+		currentDrawHandle_ = 0;
+		currentReadHandle_ = 0;
+	}
+
 	std::string GetGLString(int name) const;
 
 private:
