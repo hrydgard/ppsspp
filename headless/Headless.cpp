@@ -274,13 +274,20 @@ void SendDebugScreenshot(const DebugScreenshotDesc &desc) {
 	const static u32 FRAME_WIDTH = 480;
 	const static u32 FRAME_HEIGHT = 272;
 
+	const GPUDebugFramebufferType type = g_screenshotRenderTarget ? GPU_DBG_FRAMEBUF_RENDER : GPU_DBG_FRAMEBUF_DISPLAY;
+	// Comparisons are against PSP-sized references, so read back at 1x whatever the render scale.
 	GPUDebugBuffer buffer;
-	gpu->GetCurrentFramebuffer(buffer, g_screenshotRenderTarget ? GPU_DBG_FRAMEBUF_RENDER : GPU_DBG_FRAMEBUF_DISPLAY);
+	gpu->GetCurrentFramebuffer(buffer, type, 1);
 	const std::vector<u32> pixels = TranslateDebugBufferToCompare(&buffer, FRAME_STRIDE, FRAME_HEIGHT);
 
-	// If a screenshot save path is set, save unconditionally.
+	// If a screenshot save path is set, save unconditionally, at the render scale.
 	if (!g_screenshotSavePath.empty()) {
-		ScreenshotComparer saver(pixels, FRAME_STRIDE, FRAME_WIDTH, FRAME_HEIGHT);
+		GPUDebugBuffer full;
+		const int scale = gpu->GetCurrentFramebuffer(full, type, -1) ? std::max(full.GetScaleFactor(), 1) : 1;
+		const u32 w = FRAME_WIDTH * scale;
+		const u32 h = FRAME_HEIGHT * scale;
+		const std::vector<u32> fullPixels = scale > 1 ? TranslateDebugBufferToCompare(&full, w, h) : pixels;
+		ScreenshotComparer saver(fullPixels, scale > 1 ? w : FRAME_STRIDE, w, h);
 		bool saved = g_screenshotSavePath.GetFileExtension() == ".png" ? saver.SaveActualPNG(g_screenshotSavePath, g_screenshotSaveKeepAlpha) : saver.SaveActualBitmap(g_screenshotSavePath);
 		g_screenshotSaved = g_screenshotSaved || saved;
 		if (saved)
