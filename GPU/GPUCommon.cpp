@@ -1741,8 +1741,11 @@ void GPUCommon::DoState(PointerWrap &p) {
 		for (int id : dlQueue) {
 			valid = valid && id >= 0 && id < DisplayListMaxCount;
 		}
+		for (const DisplayList &dl : dls) {
+			valid = valid && dl.stackptr >= 0 && dl.stackptr <= (int)ARRAY_SIZE(dl.stack);
+		}
 		if (!valid) {
-			ERROR_LOG(Log::G3D, "Savestate has an invalid display list id");
+			ERROR_LOG(Log::G3D, "Savestate has an invalid display list id or stack pointer");
 			p.SetError(p.ERROR_FAILURE);
 			return;
 		}

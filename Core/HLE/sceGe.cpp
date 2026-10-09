@@ -171,7 +171,7 @@ public:
 		case PSP_GE_SIGNAL_HANDLER_SUSPEND:
 			if (sceKernelGetCompiledSdkVersion() <= 0x02000010) {
 				// uofw says dl->state = endCmd & 0xFF;
-				DisplayListState newState = static_cast<DisplayListState>(Memory::ReadUnchecked_U32(intrdata.pc - 4) & 0xFF);
+				DisplayListState newState = static_cast<DisplayListState>(Memory::IsValid4AlignedAddress(intrdata.pc - 4) ? Memory::ReadUnchecked_U32(intrdata.pc - 4) & 0xFF : 0);
 				//dl->status = static_cast<DisplayListStatus>(Memory::ReadUnchecked_U32(intrdata.pc) & 0xFF);
 				//if(dl->status < 0 || dl->status > PSP_GE_LIST_PAUSED)
 				//	ERROR_LOG(Log::sceGe, "Weird DL status after signal suspend %x", dl->status);
@@ -257,8 +257,18 @@ void __GeDoState(PointerWrap &p) {
 		ge_pending_cb.clear();
 		for (const auto &ge : old) {
 			GeInterruptData intrdata = {ge.listid, ge.pc};
-			intrdata.cmd = Memory::ReadUnchecked_U32(ge.pc - 4) >> 24;
+			intrdata.cmd = Memory::IsValid4AlignedAddress(ge.pc - 4) ? Memory::ReadUnchecked_U32(ge.pc - 4) >> 24 : 0;
 			ge_pending_cb.push_back(intrdata);
+		}
+	}
+	if (p.mode == p.MODE_READ) {
+		for (const auto &intrdata : ge_pending_cb) {
+			if (!gpu->IsValidListId(intrdata.listid)) {
+				ERROR_LOG(Log::sceGe, "Savestate failure: invalid pending GE interrupt list id %d", intrdata.listid);
+				p.SetError(p.ERROR_FAILURE);
+				ge_pending_cb.clear();
+				return;
+			}
 		}
 	}
 

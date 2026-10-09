@@ -255,6 +255,9 @@ public:
 	DisplayList* getList(int listid) {
 		return &dls[listid];
 	}
+	bool IsValidListId(int listid) const {
+		return listid >= 0 && listid < DisplayListMaxCount;
+	}
 
 	const std::list<int> &GetDisplayListQueue() {
 		return dlQueue;
