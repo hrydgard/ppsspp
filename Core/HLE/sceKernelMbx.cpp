@@ -164,6 +164,7 @@ struct Mbx : public KernelObject {
 			return;
 
 		Do(p, nmb);
+		TerminateLoadedCString(p, nmb.name);
 		MbxWaitingThread mwt = {0};
 		Do(p, waitingThreads, mwt);
 		Do(p, pausedWaits);

@@ -194,6 +194,12 @@ void VirtualDiscFileSystem::DoState(PointerWrap &p)
 	Do(p, entryCount);
 	Do(p, currentBlockIndex);
 
+	if (fileListSize < 0 || entryCount < 0 || !p.CheckRead(fileListSize)) {
+		ERROR_LOG(Log::FileSystem, "Savestate has an invalid file list size");
+		p.SetError(p.ERROR_FAILURE);
+		return;
+	}
+
 	FileListEntry dummy = {""};
 	fileList.resize(fileListSize, dummy);
 
@@ -202,6 +208,13 @@ void VirtualDiscFileSystem::DoState(PointerWrap &p)
 		Do(p, fileList[i].fileName);
 		Do(p, fileList[i].firstBlock);
 		Do(p, fileList[i].totalSize);
+		// Same check as for the index file, these get opened under basePath.
+		if (HasParentDirComponent(fileList[i].fileName)) {
+			ERROR_LOG(Log::FileSystem, "Savestate has a file name with a parent directory reference");
+			p.SetError(p.ERROR_FAILURE);
+			fileList[i].fileName.clear();
+			return;
+		}
 	}
 
 	if (p.mode == p.MODE_READ)

@@ -40,10 +40,23 @@ void MpegDemux::DoState(PointerWrap &p) {
 	if (!s)
 		return;
 
-	Do(p, m_index);
-	Do(p, m_len);
-	Do(p, m_audioChannel);
-	Do(p, m_readSize);
+	int index = m_index;
+	int len = m_len;
+	int audioChannel = m_audioChannel;
+	int readSize = m_readSize;
+	Do(p, index);
+	Do(p, len);
+	Do(p, audioChannel);
+	Do(p, readSize);
+	if ((p.mode == p.MODE_READ || p.mode == p.MODE_VERIFY) &&
+		(len != m_len || index < 0 || index > len || readSize < 0 || readSize > len)) {
+		ERROR_LOG(Log::SaveState, "Savestate loading error: invalid MPEG demux state");
+		p.SetError(p.ERROR_FAILURE);
+		return;
+	}
+	m_index = index;
+	m_audioChannel = audioChannel;
+	m_readSize = readSize;
 	if (m_buf)
 		DoArray(p, m_buf, m_len);
 	DoClass(p, m_audioStream);

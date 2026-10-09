@@ -456,6 +456,13 @@ void __CtrlDoState(PointerWrap &p)
 	}
 	Do(p, ctrlBuf);
 	Do(p, ctrlBufRead);
+	if (ctrlBuf >= NUM_CTRL_BUFFERS || ctrlBufRead >= NUM_CTRL_BUFFERS) {
+		ERROR_LOG(Log::sceCtrl, "Savestate failure: invalid ctrl buffer index");
+		p.SetError(p.ERROR_FAILURE);
+		ctrlBuf = 0;
+		ctrlBufRead = 0;
+		return;
+	}
 	Do(p, latch);
 	if (s == 1) {
 		dialogBtnMake = 0;

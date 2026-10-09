@@ -174,9 +174,9 @@ void SaveFileInfo::DoState(PointerWrap &p)
 	Do(p, saveName);
 	Do(p, idx);
 
-	DoArray(p, title, sizeof(title));
-	DoArray(p, saveTitle, sizeof(saveTitle));
-	DoArray(p, saveDetail, sizeof(saveDetail));
+	DoCString(p, title);
+	DoCString(p, saveTitle);
+	DoCString(p, saveDetail);
 
 	Do(p, modif_time);
 

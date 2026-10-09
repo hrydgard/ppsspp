@@ -252,6 +252,8 @@ void PSPModule::DoState(PointerWrap &p) {
 		memcpy(((uint8_t *)pnm) + 0x30, ((uint8_t *)ptemp) + 0x2C, 0xC0 - 0x2C);
 	}
 
+	TerminateLoadedCString(p, nm.name);
+
 	if (s >= 6)
 		Do(p, crc);
 
@@ -291,6 +293,18 @@ void PSPModule::DoState(PointerWrap &p) {
 	Do(p, exportedVars, vsx);
 	VarSymbolImport vsi = { {0} };
 	Do(p, importedVars, vsi);
+	for (auto &sym : exportedFuncs) {
+		TerminateLoadedCString(p, sym.moduleName);
+	}
+	for (auto &sym : importedFuncs) {
+		TerminateLoadedCString(p, sym.moduleName);
+	}
+	for (auto &sym : exportedVars) {
+		TerminateLoadedCString(p, sym.moduleName);
+	}
+	for (auto &sym : importedVars) {
+		TerminateLoadedCString(p, sym.moduleName);
+	}
 
 	if (p.mode == p.MODE_READ) {
 		// On load state, we re-examine in case our syscall ids changed.
@@ -1444,6 +1458,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			ptr = nullptr;
 			module->isFake = true;
 			strncpy(module->nm.name, head->modname, ARRAY_SIZE(module->nm.name));
+			module->nm.name[ARRAY_SIZE(module->nm.name) - 1] = '\0';
 			module->nm.entry_addr = -1;
 			module->nm.gp_value = -1;
 
@@ -1616,6 +1631,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	}
 	module->nm.gp_value = modinfo->gp;
 	strncpy(module->nm.name, modinfo->name, ARRAY_SIZE(module->nm.name));
+	module->nm.name[ARRAY_SIZE(module->nm.name) - 1] = '\0';
 
 	// scePaf's heap allocator expects a real memory-pool base address to already be in one of its
 	// BSS slots before any of its code runs. The module that owns the allocator fills that slot in

@@ -391,7 +391,7 @@ void PSPMsgDialog::DoState(PointerWrap &p)
 	}
 	Do(p, messageDialog);
 	Do(p, messageDialogAddr);
-	DoArray(p, msgText, sizeof(msgText));
+	DoCString(p, msgText);
 	Do(p, yesnoChoice);
 
 	// We don't save state this, you'll just have to scroll down again.

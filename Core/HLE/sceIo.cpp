@@ -275,7 +275,19 @@ public:
 			if (pgdInfo)
 				p.DoVoid(pgdInfo, sizeof(PGD_DESC));
 			if (p.mode == p.MODE_READ && pgdInfo) {
-				pgdInfo->block_buf = (u8 *)malloc(pgdInfo->block_size * 2);
+				pgdInfo->block_buf = nullptr;
+				if (pgd_valid_block_size(pgdInfo->block_size)) {
+					pgdInfo->block_buf = (u8 *)malloc(pgdInfo->block_size * 2);
+				}
+				if (!pgdInfo->block_buf) {
+					ERROR_LOG(Log::sceIo, "Savestate has an invalid PGD block size");
+					p.SetError(p.ERROR_FAILURE);
+					pgd_close(pgdInfo);
+					pgdInfo = nullptr;
+					return;
+				}
+				// The buffer isn't saved, so make the next read fill it.
+				pgdInfo->current_block = -1;
 			}
 		}
 
@@ -2510,6 +2522,13 @@ public:
 		// TODO: Is this the right way for it to wake up?
 		int count = (int) listing.size();
 		Do(p, count);
+		// sceIoDread only checks for index == count.
+		if (count < 0 || index < 0 || index > count || !p.CheckRead(count)) {
+			ERROR_LOG(Log::sceIo, "Savestate has an invalid dir listing");
+			p.SetError(p.ERROR_FAILURE);
+			index = 0;
+			return;
+		}
 		listing.resize(count);
 		for (int i = 0; i < count; ++i) {
 			listing[i].DoState(p);

@@ -258,6 +258,16 @@ void __InterruptsDoState(PointerWrap &p)
 	intState.DoState(p);
 	PendingInterrupt pi(0, 0);
 	Do(p, pendingInterrupts, pi);
+	if (p.mode == p.MODE_READ) {
+		for (const PendingInterrupt &pend : pendingInterrupts) {
+			if (pend.intr < 0 || pend.intr >= PSP_NUMBER_INTERRUPTS) {
+				p.SetError(p.ERROR_FAILURE);
+				ERROR_LOG(Log::sceIntc, "Savestate failure: invalid pending interrupt %d", pend.intr);
+				pendingInterrupts.clear();
+				return;
+			}
+		}
+	}
 	Do(p, interruptsEnabled);
 	Do(p, inInterrupt);
 	Do(p, threadBeforeInterrupt);

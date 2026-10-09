@@ -90,6 +90,22 @@ void DoArray(PointerWrap &p, T *x, int count) {
 	DoHelper_<T>::DoArray(p, x, count);
 }
 
+// For a fixed-size string inside a struct that was just loaded whole. Nothing makes a savestate
+// terminate it, and these get used as C strings.
+template<size_t N>
+void TerminateLoadedCString(PointerWrap &p, char (&str)[N]) {
+	if (p.mode == PointerWrap::MODE_READ) {
+		str[N - 1] = '\0';
+	}
+}
+
+// A fixed-size string, serialized like DoArray, and always terminated after loading.
+template<size_t N>
+void DoCString(PointerWrap &p, char (&str)[N]) {
+	p.DoVoid(str, (int)N);
+	TerminateLoadedCString(p, str);
+}
+
 // Lower bound on the bytes one element of a serialized container takes up, used to sanity check
 // element counts read from a savestate against how much buffer is actually left.
 // sizeof(T) is only valid for the types DoHelper_ writes out raw - the same condition as its

@@ -240,6 +240,7 @@ void MsgPipe::DoState(PointerWrap &p)
 		return;
 
 	Do(p, nmp);
+	TerminateLoadedCString(p, nmp.name);
 	MsgPipeWaitingThread mpwt1 = {0}, mpwt2 = {0};
 	Do(p, sendWaitingThreads, mpwt1);
 	Do(p, receiveWaitingThreads, mpwt2);
