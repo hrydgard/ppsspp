@@ -166,7 +166,7 @@ public:
 	}
 
 	PSPAction *createActionByType(int actionType) {
-		if (actionType < (int) types_.size() && types_[actionType] != NULL) {
+		if (actionType >= 0 && actionType < (int) types_.size() && types_[actionType] != NULL) {
 			PSPAction *a = types_[actionType]();
 			a->actionTypeID = actionType;
 			return a;
@@ -475,6 +475,14 @@ void PSPThread::DoState(PointerWrap &p) {
 	} else {
 		waitPausedForCallback = false;
 	}
+
+	// These index waitTypeFuncs and the ready queues.
+	if (p.mode == p.MODE_READ) {
+		if ((u32)nt.waitType >= NUM_WAITTYPES || (u32)nt.currentPriority >= ThreadQueueList::NUM_QUEUES || (u32)nt.initialPriority >= ThreadQueueList::NUM_QUEUES) {
+			ERROR_LOG(Log::sceKernel, "Savestate failure: invalid thread wait type or priority");
+			p.SetError(p.ERROR_FAILURE);
+		}
+	}
 }
 
 
@@ -585,6 +593,11 @@ void MipsCall::DoState(PointerWrap &p)
 	Do(p, cbId);
 	DoArray(p, args, ARRAY_SIZE(args));
 	Do(p, numArgs);
+	if (numArgs < 0 || numArgs > (int)ARRAY_SIZE(args)) {
+		ERROR_LOG(Log::sceKernel, "Savestate failure: invalid MipsCall arg count %d", numArgs);
+		p.SetError(p.ERROR_FAILURE);
+		return;
+	}
 	// No longer used.
 	u32 legacySavedIdRegister = 0;
 	Do(p, legacySavedIdRegister);
