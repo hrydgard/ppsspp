@@ -1053,8 +1053,12 @@ void FramebufferManagerCommon::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 void FramebufferManagerCommon::CopyDepthRect(Draw::Framebuffer *src, int srcX, int srcY, Draw::Framebuffer *dst, int dstX, int dstY, int w, int h, int scaleFactor, const char *tag) {
 	const Draw::DeviceCaps &caps = draw_->GetDeviceCaps();
 	const bool sameSamples = src->MultiSampleLevel() == dst->MultiSampleLevel();
-	if (sameSamples && (caps.framebufferSeparateDepthCopySupported || (!caps.framebufferDepthBlitSupported && caps.framebufferCopySupported))) {
+	// Only a copy takes all the samples, and blits of multisampled buffers aren't supported at all.
+	const bool multisampled = src->MultiSampleLevel() != 0 || dst->MultiSampleLevel() != 0;
+	if (sameSamples && (caps.framebufferSeparateDepthCopySupported || (!caps.framebufferDepthBlitSupported && caps.framebufferCopySupported) || (multisampled && caps.framebufferCopySupported))) {
 		draw_->CopyFramebufferImage(src, 0, srcX, srcY, 0, dst, 0, dstX, dstY, 0, w, h, 1, Draw::Aspect::DEPTH_BIT, tag);
+	} else if (multisampled) {
+		WARN_LOG_ONCE(depthRectMSAA, Log::FrameBuf, "Can't copy multisampled depth here (%s)", tag);
 	} else if (caps.framebufferDepthBlitSupported) {
 		draw_->BlitFramebuffer(src, srcX, srcY, srcX + w, srcY + h, dst, dstX, dstY, dstX + w, dstY + h, Draw::Aspect::DEPTH_BIT, Draw::FB_BLIT_NEAREST, tag);
 	} else if (caps.fragmentShaderDepthWriteSupported && caps.textureDepthSupported) {
@@ -3076,9 +3080,31 @@ static const char *TempFBOReasonToString(TempFBO reason) {
 	case TempFBO::COPY: return "copy";
 	case TempFBO::STENCIL: return "stencil";
 	case TempFBO::DEPTH_SHIFT: return "depth_shift";
+	case TempFBO::SAMPLE0: return "sample0";
 	default: break;
 	}
 	return "";
+}
+
+Draw::Framebuffer *FramebufferManagerCommon::CopyColorSample0(VirtualFramebuffer *vfb) {
+	if (!vfb->fbo || vfb->fbo->MultiSampleLevel() == 0) {
+		return nullptr;
+	}
+	Draw2DPipeline *pipeline = Get2DPipeline(DRAW2D_COPY_COLOR_SAMPLE0);
+	if (!pipeline) {
+		return nullptr;
+	}
+	const int w = vfb->fbo->Width();
+	const int h = vfb->fbo->Height();
+	Draw::Framebuffer *copy = GetTempFBO(TempFBO::SAMPLE0, w, h);
+	if (!copy) {
+		return nullptr;
+	}
+	BlitUsingRaster(vfb->fbo, 0.0f, 0.0f, w, h, copy, 0.0f, 0.0f, w, h, false, vfb->renderScaleFactor, pipeline, "CopyColorSample0");
+	draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
+	gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
+	RebindFramebuffer("After CopyColorSample0");
+	return copy;
 }
 
 Draw::Framebuffer *FramebufferManagerCommon::GetTempFBO(TempFBO reason, u16 w, u16 h) {
@@ -3090,10 +3116,12 @@ Draw::Framebuffer *FramebufferManagerCommon::GetTempFBO(TempFBO reason, u16 w, u
 	}
 
 	bool z_stencil = reason == TempFBO::STENCIL || reason == TempFBO::DEPTH_SHIFT;
+	// The depth shift copies to and from a framebuffer, which needs the same samples.
+	const int msaaLevel = reason == TempFBO::DEPTH_SHIFT ? msaaLevel_ : 0;
 	char name[128];
 	snprintf(name, sizeof(name), "tempfbo_%s_%dx%d", TempFBOReasonToString(reason), w / renderScaleFactor_, h / renderScaleFactor_);
 
-	Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ w, h, 1, GetFramebufferLayers(), 0, z_stencil, name });
+	Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ w, h, 1, GetFramebufferLayers(), msaaLevel, z_stencil, name });
 	if (!fbo) {
 		return nullptr;
 	}
@@ -3538,6 +3566,7 @@ void FramebufferManagerCommon::ReleasePipelines() {
 	DoRelease(depthReadbackPipeline_);
 	DoRelease(draw2DPipelineCopyColor_);
 	DoRelease(draw2DPipelineColorRect2Lin_);
+	DoRelease(draw2DPipelineColorSample0_);
 	DoRelease(draw2DPipelineCopyDepth_);
 	DoRelease(draw2DPipelineEncodeDepth_);
 	DoRelease(draw2DPipeline565ToDepth_);
@@ -3654,6 +3683,11 @@ void FramebufferManagerCommon::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 		useBlit = false;
 		useCopy = false;
 	}
+	// Copy depth where we can: a raster copy isn't exact (Burnout Dominator's recursive rendering, #11100), and with
+	// multisampling it reads the single-sampled depth, which is never resolved, while a copy takes all the samples.
+	if (channel == RASTER_DEPTH && src != dst && src->fbo->MultiSampleLevel() == dst->fbo->MultiSampleLevel() && draw_->GetDeviceCaps().framebufferSeparateDepthCopySupported) {
+		useCopy = true;
+	}
 
 	float srcXFactor = src->renderScaleFactor;
 	float srcYFactor = src->renderScaleFactor;
@@ -3749,7 +3783,11 @@ void FramebufferManagerCommon::BlitUsingRaster(
 	draw_->BindTexture(0, nullptr);
 	// This will get optimized away in case it's already bound (in VK and GL at least..)
 	draw_->BindFramebufferAsRenderTarget(dest, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, tag ? tag : "BlitUsingRaster");
-	draw_->BindFramebufferAsTexture(src, 0, pipeline->info.readChannel == RASTER_COLOR ? Draw::Aspect::COLOR_BIT : Draw::Aspect::DEPTH_BIT, Draw::ALL_LAYERS);
+	if (pipeline->info.readSamples) {
+		draw_->BindFramebufferSamplesAsTexture(src, 0, Draw::ALL_LAYERS);
+	} else {
+		draw_->BindFramebufferAsTexture(src, 0, pipeline->info.readChannel == RASTER_COLOR ? Draw::Aspect::COLOR_BIT : Draw::Aspect::DEPTH_BIT, Draw::ALL_LAYERS);
+	}
 
 	if (destX1 == 0.0f && destY1 == 0.0f && destX2 >= destW && destY2 >= destH) {
 		// We overwrite the whole channel of the framebuffer, so we can invalidate the current contents.

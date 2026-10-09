@@ -1550,7 +1550,7 @@ void VulkanRenderManager::BlitFramebuffer(VKRFramebuffer *src, VkRect2D srcRect,
 	steps_.push_back(step);
 }
 
-VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, int binding, VkImageAspectFlags aspectBit, int layer) {
+VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, int binding, VkImageAspectFlags aspectBit, int layer, bool samples) {
 	_dbg_assert_(curRenderStep_ != nullptr);
 	_dbg_assert_(fb != nullptr);
 
@@ -1558,6 +1558,13 @@ VkImageView VulkanRenderManager::BindFramebufferAsTexture(VKRFramebuffer *fb, in
 	_dbg_assert_(aspectBit == VK_IMAGE_ASPECT_COLOR_BIT || aspectBit == VK_IMAGE_ASPECT_DEPTH_BIT);
 
 	// Mark the dependency, check for required transitions, and return the image.
+	if (samples && fb->msaaColor.image != VK_NULL_HANDLE) {
+		_dbg_assert_(aspectBit == VK_IMAGE_ASPECT_COLOR_BIT);
+		curRenderStep_->dependencies.insert(fb);
+		TransitionRequest rq{ fb, aspectBit, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, true };
+		curRenderStep_->preTransitions.insert(rq);
+		return layer == -1 ? fb->msaaColor.texAllLayersView : fb->msaaColor.texLayerViews[layer];
+	}
 
 	// Optimization: If possible, use final*Layout to put the texture into the correct layout "early".
 	for (int i = (int)steps_.size() - 1; i >= 0; i--) {

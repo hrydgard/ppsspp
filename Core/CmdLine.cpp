@@ -233,6 +233,7 @@ static const CommandLineParam g_autoParams[] = {
 	{POFF(odsLog), CmdParamType::Bool, "odslog", 'o', "Also log through OutputDebugString (Windows)", CmdLineMode::Headless},
 	{POFF(generateInterpreterDispatch), CmdParamType::Bool, "generate-interpreter-dispatch", '\0', "Generate C++ interpreter dispatch code (ExecInstruction) to stdout and exit", CmdLineMode::Headless},
 	{POFF(resolutionScale), CmdParamType::Int, "resolution-scale", '\0', "Set the resolution scale factor"},
+	{POFF(msaa), CmdParamType::Int, "msaa", '\0', "Set the MSAA level (0 = off, 1 = 2x, 2 = 4x, 3 = 8x)"},
 	{POFF(debuggerPort), CmdParamType::Int, "debugger", '\0', "Enable the WebSocket debugger on this port (0 = pick automatically); see docs/WebSocketDebugger.md"},
 	{POFF(debuggerRunPort), CmdParamType::Int, "debugger-run", '\0', "Like --debugger, but starts running instead of waiting at the entry point", CmdLineMode::Headless},
 	{POFF(autoSaveLoadSymbols), CmdParamType::Bool, "auto-save-load-symbols", '\0', "Auto save/load per-module and per-game symbol files (see bAutoSaveLoadSymbols)", CmdLineMode::Both},
@@ -615,6 +616,11 @@ void CommandLineOptions::ApplyToConfig() const {
 	if (resolutionScale.has_value()) {
 		g_Config.iInternalResolution = resolutionScale.value();
 		g_Config.DoNotSaveSetting(&g_Config.iInternalResolution);
+	}
+
+	if (msaa.has_value()) {
+		g_Config.iMultiSampleLevel = msaa.value();
+		g_Config.DoNotSaveSetting(&g_Config.iMultiSampleLevel);
 	}
 
 	if (memReadAction.has_value()) {
