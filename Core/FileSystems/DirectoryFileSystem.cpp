@@ -131,6 +131,27 @@ Path DirectoryFileSystem::GetLocalPath(std::string_view internalPath) const {
 	return basePath / internalPath;
 }
 
+// FixPathCase walks the path component by component under basePath, so with STRIP_PSP
+// it has to skip the leading "PSP/" the same way GetLocalPath does. Otherwise it looks
+// for <memstick>/PSP/... (which doesn't exist), and every write fails with "not found"
+// on case-sensitive storage - games then report the memory stick as full.
+static bool FixPathCaseStripPSP(const Path &basePath, std::string &path, FixPathCaseBehavior behavior, FileSystemFlags flags) {
+	if (flags & FileSystemFlags::STRIP_PSP) {
+		size_t start = !path.empty() && path[0] == '/' ? 1 : 0;
+		std::string_view rest = std::string_view(path).substr(start);
+		if (equalsNoCase(rest, "PSP") || equalsNoCase(rest, "PSP/"))
+			return true;
+		if (startsWithNoCase(rest, "PSP/")) {
+			std::string sub = path.substr(start + 4);
+			if (!FixPathCase(basePath, sub, behavior))
+				return false;
+			path = path.substr(0, start + 4) + sub;
+			return true;
+		}
+	}
+	return FixPathCase(basePath, path, behavior);
+}
+
 bool DirectoryFileHandle::Open(const Path &basePath, std::string &fileName, FileAccess access, u32 &error) {
 	error = 0;
 
@@ -142,7 +163,7 @@ bool DirectoryFileHandle::Open(const Path &basePath, std::string &fileName, File
 	if (fileSystemFlags_ & FileSystemFlags::CASE_SENSITIVE) {
 		if (access & (FILEACCESS_APPEND | FILEACCESS_CREATE | FILEACCESS_WRITE)) {
 			DEBUG_LOG(Log::FileSystem, "Checking case for path %s", fileName.c_str());
-			if (!FixPathCase(basePath, fileName, FPC_PATH_MUST_EXIST)) {
+			if (!FixPathCaseStripPSP(basePath, fileName, FPC_PATH_MUST_EXIST, fileSystemFlags_)) {
 				error = SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
 				return false;  // or go on and attempt (for a better error code than just 0?)
 			}
@@ -296,7 +317,7 @@ bool DirectoryFileHandle::Open(const Path &basePath, std::string &fileName, File
 
 	if (fileSystemFlags_ & FileSystemFlags::CASE_SENSITIVE) {
 		if (!success && !(access & FILEACCESS_CREATE)) {
-			if (!FixPathCase(basePath, fileName, FPC_PATH_MUST_EXIST)) {
+			if (!FixPathCaseStripPSP(basePath, fileName, FPC_PATH_MUST_EXIST, fileSystemFlags_)) {
 				error = SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
 				return false;
 			}
@@ -529,7 +550,7 @@ bool DirectoryFileSystem::MkDir(const std::string &dirname) {
 		// Must fix case BEFORE attempting, because MkDir would create
 		// duplicate (different case) directories
 		std::string fixedCase = dirname;
-		if (!FixPathCase(basePath, fixedCase, FPC_PARTIAL_ALLOWED)) {
+		if (!FixPathCaseStripPSP(basePath, fixedCase, FPC_PARTIAL_ALLOWED, this->flags)) {
 			result = false;
 		} else {
 			result = File::CreateFullPath(GetLocalPath(fixedCase));
@@ -553,7 +574,7 @@ bool DirectoryFileSystem::RmDir(const std::string &dirname) {
 
 		// Nope, fix case and try again.  Should we try again?
 		std::string fullPath = dirname;
-		if (!FixPathCase(basePath, fullPath, FPC_FILE_MUST_EXIST))
+		if (!FixPathCaseStripPSP(basePath, fullPath, FPC_FILE_MUST_EXIST, this->flags))
 			return (bool)ReplayApplyDisk(ReplayAction::RMDIR, false, CoreTiming::GetGlobalTimeUs());
 
 		fullName = GetLocalPath(fullPath);
@@ -585,7 +606,7 @@ int DirectoryFileSystem::RenameFile(const std::string &from, const std::string &
 
 	if (flags & FileSystemFlags::CASE_SENSITIVE) {
 		// In case TO should overwrite a file with different case.  Check error code?
-		if (!FixPathCase(basePath, fullTo, FPC_PATH_MUST_EXIST))
+		if (!FixPathCaseStripPSP(basePath, fullTo, FPC_PATH_MUST_EXIST, this->flags))
 			return ReplayApplyDisk(ReplayAction::FILE_RENAME, -1, CoreTiming::GetGlobalTimeUs());
 	}
 
@@ -597,7 +618,7 @@ int DirectoryFileSystem::RenameFile(const std::string &from, const std::string &
 		if (!retValue) {
 			// May have failed due to case sensitivity on FROM, so try again.  Check error code?
 			std::string fullFromPath = from;
-			if (!FixPathCase(basePath, fullFromPath, FPC_FILE_MUST_EXIST))
+			if (!FixPathCaseStripPSP(basePath, fullFromPath, FPC_FILE_MUST_EXIST, this->flags))
 				return ReplayApplyDisk(ReplayAction::FILE_RENAME, -1, CoreTiming::GetGlobalTimeUs());
 			fullFrom = GetLocalPath(fullFromPath);
 
@@ -622,7 +643,7 @@ bool DirectoryFileSystem::RemoveFile(const std::string &filename) {
 		if (!retValue) {
 			// May have failed due to case sensitivity, so try again.  Try even if it fails?
 			std::string fullNamePath = resolved;
-			if (!FixPathCase(basePath, fullNamePath, FPC_FILE_MUST_EXIST))
+			if (!FixPathCaseStripPSP(basePath, fullNamePath, FPC_FILE_MUST_EXIST, this->flags))
 				return (bool)ReplayApplyDisk(ReplayAction::FILE_REMOVE, false, CoreTiming::GetGlobalTimeUs());
 			localPath = GetLocalPath(fullNamePath);
 
@@ -823,7 +844,7 @@ PSPFileInfo DirectoryFileSystem::GetFileInfo(std::string filename) {
 	Path fullName = GetLocalPath(filename);
 	if (!File::GetFileInfo(fullName, &info)) {
 		if (flags & FileSystemFlags::CASE_SENSITIVE) {
-			if (!FixPathCase(basePath, filename, FPC_FILE_MUST_EXIST))
+			if (!FixPathCaseStripPSP(basePath, filename, FPC_FILE_MUST_EXIST, this->flags))
 				return ReplayApplyDiskFileInfo(x, CoreTiming::GetGlobalTimeUs());
 			fullName = GetLocalPath(filename);
 
@@ -963,7 +984,7 @@ std::vector<PSPFileInfo> DirectoryFileSystem::GetDirListing(std::string_view pat
 		if (!success) {
 			// TODO: Case sensitivity should be checked on a file system basis, right?
 			std::string fixedPath(path);
-			if (FixPathCase(basePath, fixedPath, FPC_FILE_MUST_EXIST)) {
+			if (FixPathCaseStripPSP(basePath, fixedPath, FPC_FILE_MUST_EXIST, this->flags)) {
 				// May have failed due to case sensitivity, try again
 				localPath = GetLocalPath(fixedPath);
 				success = File::GetFilesInDir(localPath, &files, nullptr, flags);
@@ -1053,7 +1074,7 @@ u64 DirectoryFileSystem::FreeDiskSpace(const std::string &path) {
 
 	if (flags & FileSystemFlags::CASE_SENSITIVE) {
 		std::string fixedCase = path;
-		if (FixPathCase(basePath, fixedCase, FPC_FILE_MUST_EXIST)) {
+		if (FixPathCaseStripPSP(basePath, fixedCase, FPC_FILE_MUST_EXIST, this->flags)) {
 			// May have failed due to case sensitivity, try again.
 			if (free_disk_space(GetLocalPath(fixedCase), result)) {
 				return ReplayApplyDisk64(ReplayAction::FREESPACE, result, CoreTiming::GetGlobalTimeUs());
