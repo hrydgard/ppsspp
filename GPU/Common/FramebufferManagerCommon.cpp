@@ -2718,7 +2718,9 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 		dstBuffer = true;
 	}
 
-	if (srcBuffer && !dstBuffer) {
+	// A small copy to RAM is likely read by the CPU, which can't see a buffer we create for it.
+	const bool readbackSmall = PSP_CoreParameter().compat.flags().BlockTransferReadbackSmall && !Memory::IsVRAMAddress(dstBasePtr) && width * height <= 64;
+	if (srcBuffer && !dstBuffer && !readbackSmall) {
 		// In here, we can't read from dstRect.
 		if (PSP_CoreParameter().compat.flags().BlockTransferAllowCreateFB ||
 			GetSkipGPUReadbackMode() == SkipGPUReadbackMode::COPY_TO_TEXTURE ||
@@ -2913,7 +2915,9 @@ bool FramebufferManagerCommon::NotifyBlockTransferBefore(u32 dstBasePtr, int dst
 				if (tooTall) {
 					WARN_LOG_ONCE(btdheight, Log::G3D, "Block transfer download %08x -> %08x dangerous, %d+%d is taller than %d", srcBasePtr, dstBasePtr, srcRect.y, srcRect.h, srcRect.vfb->bufferHeight);
 				}
-				ReadFramebufferToMemory(srcRect.vfb, static_cast<int>(srcX * srcXFactor), srcY, static_cast<int>(srcRect.w_bytes * srcXFactor), srcRect.h, RASTER_COLOR, Draw::ReadbackMode::BLOCK);
+				// Data from a frame or so earlier is fine for a game that only needs it to change gradually, and doesn't stall.
+				const Draw::ReadbackMode mode = readbackSmall ? Draw::ReadbackMode::OLD_DATA_OK : Draw::ReadbackMode::BLOCK;
+				ReadFramebufferToMemory(srcRect.vfb, static_cast<int>(srcX * srcXFactor), srcY, static_cast<int>(srcRect.w_bytes * srcXFactor), srcRect.h, RASTER_COLOR, mode);
 				gstate_c.textureSyncTimeDomain++;
 				srcRect.vfb->usageFlags = (srcRect.vfb->usageFlags | FB_USAGE_DOWNLOAD) & ~FB_USAGE_DOWNLOAD_CLEAR;
 			}
