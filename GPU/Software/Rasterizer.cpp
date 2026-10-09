@@ -1438,7 +1438,8 @@ void DrawTriangleSlice(
 	// The UV planes' sums fit 32 bits wherever spans are walked (up to three pixels outside x1 to x2), and
 	// GEUVSpanCore needs no checks for them: then a span's values are one vector add per plane.
 	bool uvFast = false;
-	Vec4S32 qRamp, sRamp, tRamp;
+	// Zero-initializing to avoid a runtime warning in MSVC when constructing StagedSpans later.
+	Vec4S32 qRamp = Vec4S32::Zero(), sRamp = Vec4S32::Zero(), tRamp = Vec4S32::Zero();
 	if (uvPlanes.valid && GEUVSpanSafe(uvPlanes.expQ, uvPlanes.expS, uvPlanes.expT)) {
 		auto fits = [&](const DepthPlane &plane) {
 			return PlaneFits32(plane, x1 - SCREEN_SCALE_FACTOR * 4, x2 + SCREEN_SCALE_FACTOR * 4, y1, y2 + SCREEN_SCALE_FACTOR);
@@ -2013,7 +2014,8 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 		const bool clearMode = state.pixelID.clearMode;
 		const bool textured = state.enableTextures && !clearMode;
 		bool uvFast = false;
-		Vec4S32 qRamp, sRamp, tRamp;
+		// Zero-initializing to avoid a runtime warning in MSVC when constructing StagedSpans later.
+		Vec4S32 qRamp = Vec4S32::Zero(), sRamp = Vec4S32::Zero(), tRamp = Vec4S32::Zero();
 		if (textured && uvPlanes.valid && GEUVSpanSafe(uvPlanes.expQ, uvPlanes.expS, uvPlanes.expT)) {
 			auto fits = [&](const DepthPlane &plane) {
 				return PlaneFits32(plane, minX - SCREEN_SCALE_FACTOR * 4, maxX + SCREEN_SCALE_FACTOR * (STAGED_CHUNK + 4), minY, maxY + SCREEN_SCALE_FACTOR);
