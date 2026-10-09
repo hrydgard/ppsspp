@@ -182,7 +182,10 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		return false;
 	}
 
-	bool needFragCoord = readFramebufferTex || gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);
+	// Blue-to-alpha pretends 565 is 4444, so leave it alone.
+	const bool quantize16 = id.Bit(FS_BIT_QUANTIZE_16BIT) && compat.bitwiseOps && !blueToAlpha;
+
+	bool needFragCoord = readFramebufferTex || gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT) || quantize16;
 	bool writeDepth = (gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT) || fsDepthClamp) && !forceDepthWritesOff && !id.Bit(FS_BIT_NO_DEPTH_WRITE);
 
 	// TODO: We could have a separate mechanism to support more ops using the shader blending mechanism,
@@ -1157,6 +1160,22 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	default:
 		*errorString = "Bad logic op type, corrupt ID?";
 		return false;
+	}
+
+	if (quantize16) {
+		// Like the GE: add the dither matrix value to the 8-bit color, clamp, and truncate to the framebuffer format.
+		// The value is the exact one the target stores, so the hardware's own conversion doesn't round it.
+		// Alpha is left alone: blending needs all of it, and what's stored there is stencil, written elsewhere.
+		// The matrix is indexed by render pixel, so at higher render scales the pattern gets finer instead of larger.
+		WRITE(p, "  {\n");
+		WRITE(p, "    ivec4 c8 = ivec4(clamp(%s, 0.0, 1.0) * 255.0 + 0.5);\n", compat.fragColor0);
+		WRITE(p, "    ivec2 dpos = ivec2(gl_FragCoord.xy) & 3;\n");
+		WRITE(p, "    uint drow = (dpos.y < 2 ? u_ditherLo : u_ditherHi) >> uint((dpos.y & 1) * 16 + dpos.x * 4);\n");
+		WRITE(p, "    int d = int(drow << 28) >> 28;\n");
+		WRITE(p, "    ivec4 sh = ivec4(u_fbQuant & 0xFFu, (u_fbQuant >> 8) & 0xFFu, (u_fbQuant >> 16) & 0xFFu, u_fbQuant >> 24);\n");
+		WRITE(p, "    ivec3 rgb = clamp(c8.rgb + ivec3(d), 0, 255) >> sh.rgb;\n");
+		WRITE(p, "    %s.rgb = vec3(rgb) / vec3(ivec3(255) >> sh.rgb);\n", compat.fragColor0);
+		WRITE(p, "  }\n");
 	}
 
 	// Final color computed - apply logic ops and bitwise color write mask, through shader blending, if specified.

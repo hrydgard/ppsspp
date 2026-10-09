@@ -306,6 +306,8 @@ struct FramebufferDesc {
 	int multiSampleLevel;  // 0 = 1xaa, 1 = 2xaa, and so on.
 	bool z_stencil;
 	const char *tag;  // For graphics debuggers
+	// Only Vulkan supports anything else, for R5G6B5, A1R5G5B5 and B4G4R4A4 (check FMT_RENDERTARGET.)
+	DataFormat colorFormat = DataFormat::R8G8B8A8_UNORM;
 };
 
 // Binary compatible with D3D11 viewport.
@@ -450,12 +452,14 @@ public:
 	int Height() const { return height_; }
 	int Layers() const { return layers_; }
 	int MultiSampleLevel() const { return multiSampleLevel_; }
+	DataFormat ColorFormat() const { return colorFormat_; }
 
 	virtual void UpdateTag(const char *tag) {}
 	virtual const char *Tag() const { return "(no name)"; }
 
 protected:
 	int width_ = -1, height_ = -1, layers_ = 1, multiSampleLevel_ = 0;
+	DataFormat colorFormat_ = DataFormat::R8G8B8A8_UNORM;
 };
 
 class Buffer : public RefCountedObject {

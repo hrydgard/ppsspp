@@ -126,6 +126,19 @@ static bool IsReallyAClear(const TransformedVertex *transformed, int numVerts, f
 }
 
 // At the end, this calls ProjectClipAndExpand which will expand rectangles as necessary, or apply culling.
+// A clear color that a 16-bit target of this format stores as the GE's truncated value, despite the hardware rounding it.
+static u32 QuantizeClearColor16(u32 color, GEBufferFormat format) {
+	const int bits565[3] = { 5, 6, 5 };
+	u32 out = color & 0xFF000000;
+	for (int i = 0; i < 3; i++) {
+		const int bits = format == GE_FORMAT_565 ? bits565[i] : (format == GE_FORMAT_5551 ? 5 : 4);
+		const int maxValue = (1 << bits) - 1;
+		const int q = ((color >> (i * 8)) & 0xFF) >> (8 - bits);
+		out |= ((q * 255 + maxValue / 2) / maxValue) << (i * 8);
+	}
+	return out;
+}
+
 SoftwareTransformAction RunSoftwareTransform(SoftwareTransformParams &params, int prim, u32 vertType, const DecVtxFormat &decVtxFormat, int numDecodedVerts, int vertsSize, int vertexCount, u16 *&inds, int indsSize, SoftwareTransformResult *result) {
 	// These primitive are not handled.
 	_dbg_assert_(prim != GE_PRIM_KEEP_PREVIOUS && prim != GE_PRIM_TRIANGLE_FAN && prim != GE_PRIM_TRIANGLE_STRIP && prim != GE_PRIM_LINE_STRIP);
@@ -197,12 +210,18 @@ SoftwareTransformAction RunSoftwareTransform(SoftwareTransformParams &params, in
 			bool stencilNotMasked = !gstate.isClearModeAlphaMask() || gstate.getStencilWriteMask() == 0x00;
 			// The color mask applies to clears too (gpu/stencil/writemask), which a hardware clear can't do.
 			bool colorNotMasked = !gstate.isClearModeColorMask() || (gstate.pmskc & 0xFFFFFF) == 0;
-			if (matchingComponents && stencilNotMasked && colorNotMasked) {
+			// On a 16-bit target, the GE dithers clears too, which only the shader does.
+			const bool quantize16 = gstate_c.Use(GPU_USE_16BIT_RENDER_TARGETS) && gstate.FrameBufFormat() != GE_FORMAT_8888;
+			bool notDithered = !quantize16 || !gstate.isClearModeColorMask() || !gstate.isDitherEnabled();
+			if (matchingComponents && stencilNotMasked && colorNotMasked && notDithered) {
 				float depth = std::clamp(transformed[1].z, 0.0f, 65535.0f) / 65535.0f;
 				// Non-zero depth clears are unusual, but some drivers don't match drawn depth values to cleared values.
 				// Games sometimes expect exact matches (see #12626, for example) for equal comparisons.
 				if (!(params.everUsedEqualDepth && gstate.isClearModeDepthMask() && depth > 0.0f && depth < 1.0f)) {
 					result->color = transformed[1].color0_32;
+					if (quantize16) {
+						result->color = QuantizeClearColor16(result->color, gstate.FrameBufFormat());
+					}
 					result->depth = depth;
 					gpuStats.perFrame.numClears++;
 					return SW_CLEAR;

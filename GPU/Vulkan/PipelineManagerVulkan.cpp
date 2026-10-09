@@ -17,7 +17,7 @@
 
 using namespace PPSSPP_VK;
 
-u32 VulkanPipeline::GetVariantsBitmask() const {
+u64 VulkanPipeline::GetVariantsBitmask() const {
 	return pipeline->GetVariantsBitmask();
 }
 
@@ -185,7 +185,7 @@ static std::string CutFromMain(const std::string &str) {
 
 static VulkanPipeline *CreateVulkanPipeline(VulkanRenderManager *renderManager, VkPipelineCache pipelineCache,
 	VKRPipelineLayout *layout, PipelineFlags pipelineFlags, VkSampleCountFlagBits sampleCount, const VulkanPipelineRasterStateKey &key,
-	const DecVtxFormat *decFmt, const VulkanVertexShader *vs, const VulkanFragmentShader *fs, bool useHwTransform, u32 variantBitmask, bool cacheLoad) {
+	const DecVtxFormat *decFmt, const VulkanVertexShader *vs, const VulkanFragmentShader *fs, bool useHwTransform, u64 variantBitmask, bool cacheLoad) {
 	_assert_(fs && vs);
 
 	if (!fs || !fs->GetModule()) {
@@ -345,7 +345,7 @@ static VulkanPipeline *CreateVulkanPipeline(VulkanRenderManager *renderManager, 
 	return vulkanPipeline;
 }
 
-VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VulkanRenderManager *renderManager, ShaderManagerVulkan *shaderManager, VKRPipelineLayout *layout, const VulkanPipelineRasterStateKey &rasterKey, const DecVtxFormat *decFmt, VShaderID vid, FShaderID fid, bool useHwTransform, u32 variantBitmask, int multiSampleLevel, bool cacheLoad) {
+VulkanPipeline *PipelineManagerVulkan::GetOrCreatePipeline(VulkanRenderManager *renderManager, ShaderManagerVulkan *shaderManager, VKRPipelineLayout *layout, const VulkanPipelineRasterStateKey &rasterKey, const DecVtxFormat *decFmt, VShaderID vid, FShaderID fid, bool useHwTransform, u64 variantBitmask, int multiSampleLevel, bool cacheLoad) {
 	if (!pipelineCache_) {
 		VkPipelineCacheCreateInfo pc{ VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
 		VkResult res = vkCreatePipelineCache(vulkan_->GetDevice(), &pc, nullptr, &pipelineCache_);
@@ -508,10 +508,10 @@ std::string PipelineManagerVulkan::DebugGetObjectString(const std::string &id, D
 		return "N/A (missing)";
 	}
 	_assert_(pipeline != nullptr);
-	u32 variants = pipeline->GetVariantsBitmask();
+	u64 variants = pipeline->GetVariantsBitmask();
 
 	std::string keyDescription = pipelineKey.GetDescription(stringType);
-	return StringFromFormat("%s. v: %08x", keyDescription.c_str(), variants);
+	return StringFromFormat("%s. v: %016llx", keyDescription.c_str(), (unsigned long long)variants);
 }
 
 std::string VulkanPipelineKey::GetRasterStateDesc(bool lineBreaks) const {
@@ -609,7 +609,7 @@ struct StoredVulkanPipelineKey {
 	FShaderID fShaderID;
 	FShaderID gShaderID;  // keep the file format compatible
 	uint32_t vtxFmtId;
-	uint32_t variants;
+	uint64_t variants;
 	bool useHWTransform;  // TODO: Still needed?
 
 	// For std::set. Better zero-initialize the struct properly for this to work.
@@ -758,11 +758,11 @@ bool PipelineManagerVulkan::LoadPipelineCache(FILE *file, bool loadRawPipelineCa
 
 		// Avoid creating multisampled shaders if it's not enabled, as that results in an invalid combination.
 		// Note that variantsToBuild is NOT directly a RenderPassType! instead, it's a collection of (1 << RenderPassType).
-		u32 variantsToBuild = key.variants;
+		u64 variantsToBuild = key.variants;
 		if (multiSampleLevel == 0) {
 			for (u32 i = 0; i < (int)RenderPassType::TYPE_COUNT; i++) {
 				if (RenderPassTypeHasMultisample((RenderPassType)i)) {
-					variantsToBuild &= ~(1 << i);
+					variantsToBuild &= ~(1ULL << i);
 				}
 			}
 		}

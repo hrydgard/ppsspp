@@ -157,6 +157,24 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool useBuffe
 	if (dirtyUniforms & DIRTY_DEPAL) {
 		ub->depal_mask_shift_off_fmt = PackDepalBits(pixelMapped);
 	}
+
+	if (dirtyUniforms & DIRTY_FB_QUANT) {
+		// How far to shift each 8-bit channel right to truncate it to the framebuffer format.
+		switch (gstate.FrameBufFormat()) {
+		case GE_FORMAT_565: ub->fbQuant = BytesToUint32(3, 2, 3, 8); break;
+		case GE_FORMAT_5551: ub->fbQuant = BytesToUint32(3, 3, 3, 7); break;
+		case GE_FORMAT_4444: ub->fbQuant = BytesToUint32(4, 4, 4, 4); break;
+		default: ub->fbQuant = 0; break;
+		}
+		// The 4x4 matrix of signed 4-bit values, a row per 16 bits.
+		if (gstate.isDitherEnabled()) {
+			ub->dither[0] = (gstate.dithmtx[0] & 0xFFFF) | ((gstate.dithmtx[1] & 0xFFFF) << 16);
+			ub->dither[1] = (gstate.dithmtx[2] & 0xFFFF) | ((gstate.dithmtx[3] & 0xFFFF) << 16);
+		} else {
+			ub->dither[0] = 0;
+			ub->dither[1] = 0;
+		}
+	}
 }
 
 uint32_t PackDepalBits(bool pixelMapped) {

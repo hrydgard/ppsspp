@@ -548,6 +548,8 @@ protected:
 	void DrawStencilWritePasses(GEBufferFormat format, int values, u8 usedBits, bool useExportShader);
 
 	void ResizeFramebufFBO(VirtualFramebuffer *vfb, int w, int h, bool force = false, bool skipCopy = false);
+	// The render target format for a framebuffer of this format: its own 16-bit one with GPU_USE_16BIT_RENDER_TARGETS where supported.
+	Draw::DataFormat ColorTargetFormat(GEBufferFormat format) const;
 
 	static bool ShouldDownloadFramebufferColor(const VirtualFramebuffer *vfb);
 	static bool ShouldDownloadFramebufferDepth(const VirtualFramebuffer *vfb);

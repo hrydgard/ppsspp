@@ -15,7 +15,8 @@ static const char * const rpTypeDebugNames[] = {
 };
 
 const char *GetRPTypeName(RenderPassType rpType) {
-	uint32_t index = (uint32_t)rpType;
+	// The color format isn't in the name.
+	uint32_t index = (uint32_t)rpType & ~(uint32_t)RenderPassType::COLOR_FORMAT_MASK;
 	if (index < ARRAY_SIZE(rpTypeDebugNames)) {
 		return rpTypeDebugNames[index];
 	} else {
@@ -56,12 +57,14 @@ void VKRImage::Delete(VulkanContext *vulkan) {
 	}
 }
 
-VKRFramebuffer::VKRFramebuffer(VulkanContext *vk, VulkanBarrierBatch *barriers, int _width, int _height, int _numLayers, int _multiSampleLevel, bool createDepthStencilBuffer, const char *tag)
-	: vulkan_(vk), width(_width), height(_height), numLayers(_numLayers) {
+VKRFramebuffer::VKRFramebuffer(VulkanContext *vk, VulkanBarrierBatch *barriers, int _width, int _height, int _numLayers, int _multiSampleLevel, bool createDepthStencilBuffer, RenderPassType _colorFormat, const char *tag)
+	: vulkan_(vk), width(_width), height(_height), numLayers(_numLayers), colorFormat(_colorFormat) {
 
 	_dbg_assert_(tag);
+	_dbg_assert_(RenderPassTypeColorBits(colorFormat) == colorFormat);
+	const VkFormat vkColorFormat = RenderPassTypeColorFormat(colorFormat);
 
-	CreateImage(vulkan_, barriers, color, width, height, numLayers, VK_SAMPLE_COUNT_1_BIT, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true, tag);
+	CreateImage(vulkan_, barriers, color, width, height, numLayers, VK_SAMPLE_COUNT_1_BIT, vkColorFormat, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true, tag);
 	if (createDepthStencilBuffer) {
 		CreateImage(vulkan_, barriers, depth, width, height, numLayers, VK_SAMPLE_COUNT_1_BIT, vulkan_->GetDeviceInfo().preferredDepthStencilFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false, tag);
 	}
@@ -70,7 +73,7 @@ VKRFramebuffer::VKRFramebuffer(VulkanContext *vk, VulkanBarrierBatch *barriers, 
 		sampleCount = MultiSampleLevelToFlagBits(_multiSampleLevel);
 
 		// TODO: Create a different tag for these?
-		CreateImage(vulkan_, barriers, msaaColor, width, height, numLayers, sampleCount, VK_FORMAT_R8G8B8A8_UNORM, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true, tag);
+		CreateImage(vulkan_, barriers, msaaColor, width, height, numLayers, sampleCount, vkColorFormat, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL, true, tag);
 		if (createDepthStencilBuffer) {
 			CreateImage(vulkan_, barriers, msaaDepth, width, height, numLayers, sampleCount, vulkan_->GetDeviceInfo().preferredDepthStencilFormat, VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL, false, tag);
 		}
@@ -316,7 +319,7 @@ VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPas
 
 	int attachmentCount = 0;
 	VkAttachmentDescription attachments[4]{};
-	attachments[attachmentCount].format = isBackbuffer ? vulkan->GetSwapchainFormat() : VK_FORMAT_R8G8B8A8_UNORM;
+	attachments[attachmentCount].format = isBackbuffer ? vulkan->GetSwapchainFormat() : RenderPassTypeColorFormat(rpType);
 	attachments[attachmentCount].samples = VK_SAMPLE_COUNT_1_BIT;
 	attachments[attachmentCount].loadOp = multisample ? VK_ATTACHMENT_LOAD_OP_DONT_CARE : ConvertLoadAction(key.colorLoadAction);
 	attachments[attachmentCount].storeOp = ConvertStoreAction(key.colorStoreAction);
@@ -340,7 +343,7 @@ VkRenderPass CreateRenderPass(VulkanContext *vulkan, const RPKey &key, RenderPas
 
 	if (multisample) {
 		colorAttachmentIndex = attachmentCount;
-		attachments[attachmentCount].format = isBackbuffer ? vulkan->GetSwapchainFormat() : VK_FORMAT_R8G8B8A8_UNORM;
+		attachments[attachmentCount].format = isBackbuffer ? vulkan->GetSwapchainFormat() : RenderPassTypeColorFormat(rpType);
 		attachments[attachmentCount].samples = sampleCount;
 		attachments[attachmentCount].loadOp = ConvertLoadAction(key.colorLoadAction);
 		attachments[attachmentCount].storeOp = ConvertStoreAction(key.colorStoreAction);

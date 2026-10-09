@@ -130,7 +130,7 @@ struct VKRGraphicsPipeline {
 	// Used during game shutdown before we clear out shaders that these compiles depend on.
 	void BlockUntilCompiled();
 
-	u32 GetVariantsBitmask() const;
+	u64 GetVariantsBitmask() const;
 
 	void LogCreationFailure() const;
 
@@ -283,7 +283,7 @@ public:
 	// We delay creating pipelines until the end of the current render pass, so we can create the right type immediately.
 	// Unless a variantBitmask is passed in, in which case we can just go ahead.
 	// WARNING: desc must stick around during the lifetime of the pipeline! It's not enough to build it on the stack and drop it.
-	VKRGraphicsPipeline *CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, PipelineFlags pipelineFlags, uint32_t variantBitmask, VkSampleCountFlagBits sampleCount, bool cacheLoad, const char *tag);
+	VKRGraphicsPipeline *CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, PipelineFlags pipelineFlags, uint64_t variantBitmask, VkSampleCountFlagBits sampleCount, bool cacheLoad, const char *tag);
 
 	VKRPipelineLayout *CreatePipelineLayout(BindingType *bindingTypes, size_t bindingCount, const char *tag);
 	void DestroyPipelineLayout(VKRPipelineLayout *pipelineLayout);

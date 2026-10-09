@@ -25,7 +25,13 @@ enum class RenderPassType {
 	// so we don't bother with a non-depth version.
 	BACKBUFFER = 8,
 
-	TYPE_COUNT = BACKBUFFER + 1,
+	// Two bits for the color format, when it's not RGBA8888. Not used with BACKBUFFER.
+	COLOR_565 = 16,
+	COLOR_5551 = 32,
+	COLOR_4444 = 48,
+	COLOR_FORMAT_MASK = 48,
+
+	TYPE_COUNT = COLOR_FORMAT_MASK + 8,
 };
 ENUM_CLASS_BITOPS(RenderPassType);
 
@@ -62,7 +68,7 @@ class VKRFramebuffer {
 public:
 	VKRFramebuffer(const VKRFramebuffer &) = delete;
 	VKRFramebuffer &operator=(const VKRFramebuffer &) = delete;
-	VKRFramebuffer(VulkanContext *vk, VulkanBarrierBatch *barriers, int _width, int _height, int _numLayers, int _multiSampleLevel, bool createDepthStencilBuffer, const char *tag);
+	VKRFramebuffer(VulkanContext *vk, VulkanBarrierBatch *barriers, int _width, int _height, int _numLayers, int _multiSampleLevel, bool createDepthStencilBuffer, RenderPassType colorFormat, const char *tag);
 	~VKRFramebuffer();
 
 	VkFramebuffer Get(VKRRenderPass *compatibleRenderPass, RenderPassType rpType);
@@ -71,6 +77,8 @@ public:
 	int height = 0;
 	int numLayers = 0;
 	VkSampleCountFlagBits sampleCount;
+	// One of the COLOR_ flags of RenderPassType, or DEFAULT for RGBA8888.
+	RenderPassType colorFormat = RenderPassType::DEFAULT;
 
 	VKRImage color{};  // color.image is always there.
 	VKRImage depth{};  // depth.image is allowed to be VK_NULL_HANDLE.
@@ -117,6 +125,21 @@ inline bool RenderPassTypeHasMultiView(RenderPassType type) {
 
 inline bool RenderPassTypeHasMultisample(RenderPassType type) {
 	return (type & RenderPassType::MULTISAMPLE) != 0;
+}
+
+// The format of a non-backbuffer color attachment. Matches what the PSP formats need: the 16-bit ones
+// are the formats Vulkan requires to be renderable (only 4444 isn't, check before using it.)
+inline RenderPassType RenderPassTypeColorBits(RenderPassType type) {
+	return (RenderPassType)((int)type & (int)RenderPassType::COLOR_FORMAT_MASK);
+}
+
+inline VkFormat RenderPassTypeColorFormat(RenderPassType type) {
+	switch (RenderPassTypeColorBits(type)) {
+	case RenderPassType::COLOR_565: return VK_FORMAT_R5G6B5_UNORM_PACK16;
+	case RenderPassType::COLOR_5551: return VK_FORMAT_A1R5G5B5_UNORM_PACK16;
+	case RenderPassType::COLOR_4444: return VK_FORMAT_B4G4R4A4_UNORM_PACK16;
+	default: return VK_FORMAT_R8G8B8A8_UNORM;
+	}
 }
 
 VkSampleCountFlagBits MultiSampleLevelToFlagBits(int count);

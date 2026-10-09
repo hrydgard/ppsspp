@@ -111,7 +111,7 @@ enum FShaderBit : uint8_t {
 	FS_BIT_DEPTH_TEST_NEVER = 60,  // Only used on Mali. Set when depth == NEVER. We forcibly avoid writing to depth in this case, since it crashes the driver.
 	FS_BIT_SAMPLE_ARRAY_TEXTURE = 61,  // For multiview, framebuffers are array textures and we need to sample the two layers correctly.
 	FS_BIT_NO_DEPTH_WRITE = 62,  // Depth test effectively off, so skip the fragment depth write.
-	// Free bit: 63
+	FS_BIT_QUANTIZE_16BIT = 63,  // Dither and truncate to the 16-bit framebuffer format (u_fbQuant), like the GE.
 };
 
 static inline FShaderBit operator +(FShaderBit bit, int i) {

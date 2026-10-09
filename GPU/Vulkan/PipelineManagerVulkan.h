@@ -79,7 +79,7 @@ struct VulkanPipeline {
 	bool UsesDiscard() const { return (pipelineFlags & PipelineFlags::USES_DISCARD) != 0; }
 	bool UsesFlatShading() const { return (pipelineFlags & PipelineFlags::USES_FLAT_SHADING) != 0; }
 
-	u32 GetVariantsBitmask() const;
+	u64 GetVariantsBitmask() const;
 };
 
 class PipelineManagerVulkan {
@@ -89,7 +89,7 @@ public:
 
 	// variantMask is only used when loading pipelines from cache.
 	VulkanPipeline *GetOrCreatePipeline(VulkanRenderManager *renderManager, ShaderManagerVulkan *shaderManager, VKRPipelineLayout *layout, const VulkanPipelineRasterStateKey &rasterKey, const DecVtxFormat *decFmt,
-		VShaderID vid, FShaderID fid, bool useHwTransform, u32 variantMask, int multiSampleLevel, bool cacheLoad);
+		VShaderID vid, FShaderID fid, bool useHwTransform, u64 variantMask, int multiSampleLevel, bool cacheLoad);
 	int GetNumPipelines() const { return (int)pipelines_.size(); }
 
 	void Clear();

@@ -473,7 +473,8 @@ enum : u32 {
 	GPU_USE_VS_RANGE_CULLING = FLAG_BIT(3),
 	GPU_USE_BLEND_MINMAX = FLAG_BIT(4),
 	GPU_USE_LOGIC_OP = FLAG_BIT(5),
-	// Free bits: 6-7
+	GPU_USE_16BIT_RENDER_TARGETS = FLAG_BIT(6),  // 16-bit PSP framebuffers render to 16-bit targets, dithered like the GE.
+	// Free bit: 7
 	GPU_USE_ANISOTROPY = FLAG_BIT(8),
 	GPU_USE_CLEAR_RAM_HACK = FLAG_BIT(9),
 	// Free bit: 10-12

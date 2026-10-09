@@ -1828,12 +1828,13 @@ uint32_t VKContext::GetDataFormatSupport(DataFormat fmt) const {
 // use this frame's init command buffer.
 class VKFramebuffer : public Framebuffer {
 public:
-	VKFramebuffer(VKRFramebuffer *fb, int multiSampleLevel) : buf_(fb) {
+	VKFramebuffer(VKRFramebuffer *fb, int multiSampleLevel, DataFormat colorFormat) : buf_(fb) {
 		_assert_msg_(fb, "Null fb in VKFramebuffer constructor");
 		width_ = fb->width;
 		height_ = fb->height;
 		layers_ = fb->numLayers;
 		multiSampleLevel_ = multiSampleLevel;
+		colorFormat_ = colorFormat;
 	}
 	~VKFramebuffer() {
 		_assert_msg_(buf_, "Null buf_ in VKFramebuffer - double delete?");
@@ -1859,8 +1860,16 @@ Framebuffer *VKContext::CreateFramebuffer(const FramebufferDesc &desc) {
 	_assert_(desc.width > 0);
 	_assert_(desc.height > 0);
 
-	VKRFramebuffer *vkrfb = new VKRFramebuffer(vulkan_, &renderManager_.PostInitBarrier(), desc.width, desc.height, desc.numLayers, desc.multiSampleLevel, desc.z_stencil, desc.tag);
-	return new VKFramebuffer(vkrfb, desc.multiSampleLevel);
+	RenderPassType colorFormat = RenderPassType::DEFAULT;
+	switch (desc.colorFormat) {
+	case DataFormat::R5G6B5_UNORM_PACK16: colorFormat = RenderPassType::COLOR_565; break;
+	case DataFormat::A1R5G5B5_UNORM_PACK16: colorFormat = RenderPassType::COLOR_5551; break;
+	case DataFormat::B4G4R4A4_UNORM_PACK16: colorFormat = RenderPassType::COLOR_4444; break;
+	default: _assert_(desc.colorFormat == DataFormat::R8G8B8A8_UNORM); break;
+	}
+
+	VKRFramebuffer *vkrfb = new VKRFramebuffer(vulkan_, &renderManager_.PostInitBarrier(), desc.width, desc.height, desc.numLayers, desc.multiSampleLevel, desc.z_stencil, colorFormat, desc.tag);
+	return new VKFramebuffer(vkrfb, desc.multiSampleLevel, desc.colorFormat);
 }
 
 void VKContext::CopyFramebufferImage(Framebuffer *srcfb, int level, int x, int y, int z, Framebuffer *dstfb, int dstLevel, int dstX, int dstY, int dstZ, int width, int height, int depth, Aspect aspects, const char *tag) {

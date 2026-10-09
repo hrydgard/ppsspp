@@ -267,6 +267,7 @@ std::string FShaderID::Description(bool includeID) const {
 	if (Bit(FS_BIT_MINMAX_DISCARD)) desc.C("FragMinMaxDiscard ");
 	if (Bit(FS_BIT_DEPTH_CLAMP)) desc.C("FragDepthClamp ");
 	if (Bit(FS_BIT_NO_DEPTH_WRITE)) desc.C("NoDepthWrite ");
+	if (Bit(FS_BIT_QUANTIZE_16BIT)) desc.C("Quantize16 ");
 
 	const ShaderDepalMode depalMode = (ShaderDepalMode)Bits(FS_BIT_SHADER_DEPAL_MODE, 2);
 	switch (depalMode) {
@@ -317,6 +318,11 @@ void ComputeFragmentShaderID(FShaderID *id_out, const ComputedPipelineState &pip
 		}
 	} else {
 		_dbg_assert_(0 == (clipInfoFlags & (ClipInfoFlags::DepthClampFragment | ClipInfoFlags::MinMaxZDiscard)));
+	}
+
+	// The GE dithers and truncates in clear mode too.
+	if (gstate_c.Use(GPU_USE_16BIT_RENDER_TARGETS) && gstate_c.framebufFormat != GE_FORMAT_8888) {
+		id.SetBit(FS_BIT_QUANTIZE_16BIT);
 	}
 
 	if (gstate.isModeClear()) {

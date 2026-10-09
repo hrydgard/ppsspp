@@ -1815,6 +1815,24 @@ void FramebufferManagerCommon::DecimateFBOs() {
 }
 
 // Requires width/height to be set already.
+Draw::DataFormat FramebufferManagerCommon::ColorTargetFormat(GEBufferFormat format) const {
+	if (!gstate_c.Use(GPU_USE_16BIT_RENDER_TARGETS)) {
+		return Draw::DataFormat::R8G8B8A8_UNORM;
+	}
+	Draw::DataFormat target;
+	switch (format) {
+	case GE_FORMAT_565: target = Draw::DataFormat::R5G6B5_UNORM_PACK16; break;
+	case GE_FORMAT_5551: target = Draw::DataFormat::A1R5G5B5_UNORM_PACK16; break;
+	case GE_FORMAT_4444: target = Draw::DataFormat::B4G4R4A4_UNORM_PACK16; break;
+	default: return Draw::DataFormat::R8G8B8A8_UNORM;
+	}
+	// 4444 isn't required to be renderable. The shader still truncates to it.
+	if (!(draw_->GetDataFormatSupport(target) & Draw::FMT_RENDERTARGET)) {
+		return Draw::DataFormat::R8G8B8A8_UNORM;
+	}
+	return target;
+}
+
 void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w, int h, bool force, bool skipCopy) {
 	_dbg_assert_(w > 0);
 	_dbg_assert_(h > 0);
@@ -1899,7 +1917,9 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 
 	gpuStats.perFrame.numFBOsCreated++;
 
-	vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, GetFramebufferLayers(), msaaLevel_, true, tag });
+	Draw::FramebufferDesc desc{ vfb->renderWidth, vfb->renderHeight, 1, GetFramebufferLayers(), msaaLevel_, true, tag };
+	desc.colorFormat = ColorTargetFormat(vfb->fb_format);
+	vfb->fbo = draw_->CreateFramebuffer(desc);
 	if (Memory::IsVRAMAddress(vfb->fb_address) && vfb->fb_stride != 0) {
 		NotifyMemInfo(MemBlockFlags::ALLOC, vfb->fb_address, vfb->BufferByteSize(RASTER_COLOR), tag, len);
 	}
@@ -2459,7 +2479,9 @@ VirtualFramebuffer *FramebufferManagerCommon::CreateRAMFramebuffer(uint32_t fbAd
 	snprintf(name, sizeof(name), "%08x_%s_RAM", vfb->Address(channel), RasterChannelToString(channel));
 	textureCache_->NotifyFramebuffer(vfb, NOTIFY_FB_CREATED);
 	bool createDepthBuffer = format == GE_FORMAT_DEPTH16;
-	vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, GetFramebufferLayers(), 0, createDepthBuffer, name });
+	Draw::FramebufferDesc desc{ vfb->renderWidth, vfb->renderHeight, 1, GetFramebufferLayers(), 0, createDepthBuffer, name };
+	desc.colorFormat = ColorTargetFormat(vfb->fb_format);
+	vfb->fbo = draw_->CreateFramebuffer(desc);
 	vfbs_.push_back(vfb);
 
 	u32 byteSize = vfb->BufferByteSize(channel);
@@ -2517,7 +2539,11 @@ VirtualFramebuffer *FramebufferManagerCommon::FindDownloadTempBuffer(VirtualFram
 		snprintf(name, sizeof(name), "download_temp_%08x_%s", vfb->Address(channel), RasterChannelToString(channel));
 
 		// We always create a color-only framebuffer here - readbacks of depth convert to color while translating the values.
-		nvfb->fbo = draw_->CreateFramebuffer({ nvfb->bufferWidth, nvfb->bufferHeight, 1, 1, 0, false, name });
+		Draw::FramebufferDesc desc{ nvfb->bufferWidth, nvfb->bufferHeight, 1, 1, 0, false, name };
+		if (channel == RASTER_COLOR) {
+			desc.colorFormat = ColorTargetFormat(nvfb->fb_format);
+		}
+		nvfb->fbo = draw_->CreateFramebuffer(desc);
 		if (!nvfb->fbo) {
 			ERROR_LOG(Log::FrameBuf, "Error creating FBO! %d x %d", nvfb->renderWidth, nvfb->renderHeight);
 			delete nvfb;
@@ -3553,6 +3579,11 @@ void FramebufferManagerCommon::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 
 	bool useBlit = channel == RASTER_COLOR ? draw_->GetDeviceCaps().framebufferBlitSupported : false;
 	bool useCopy = channel == RASTER_COLOR ? draw_->GetDeviceCaps().framebufferCopySupported : false;
+	if (channel == RASTER_COLOR && src->fbo->ColorFormat() != dst->fbo->ColorFormat()) {
+		// Image copies need matching formats, so convert in a draw.
+		useBlit = false;
+		useCopy = false;
+	}
 	if (src != dst && (dst == currentRenderVfb_ || dst->fbo->MultiSampleLevel() != 0 || src->fbo->MultiSampleLevel() != 0)) {
 		// If already bound, using either a blit or a copy is unlikely to be an optimization.
 		// So we're gonna use a raster draw instead. Also multisampling has problems with copies currently.
@@ -3721,7 +3752,9 @@ VirtualFramebuffer *FramebufferManagerCommon::ResolveFramebufferColorToFormat(Vi
 
 		char tag[128];
 		FormatFramebufferName(vfb, tag, sizeof(tag));
-		vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, GetFramebufferLayers(), 0, true, tag });
+		Draw::FramebufferDesc desc{ vfb->renderWidth, vfb->renderHeight, 1, GetFramebufferLayers(), 0, true, tag };
+		desc.colorFormat = ColorTargetFormat(vfb->fb_format);
+		vfb->fbo = draw_->CreateFramebuffer(desc);
 		vfbs_.push_back(vfb);
 	}
 

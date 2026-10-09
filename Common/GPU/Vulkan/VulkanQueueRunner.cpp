@@ -1,5 +1,6 @@
 #include <unordered_map>
 
+#include "Common/Data/Convert/ColorConv.h"
 #include "Common/GPU/DataFormat.h"
 #include "Common/GPU/Vulkan/VulkanQueueRunner.h"
 #include "Common/GPU/Vulkan/VulkanRenderManager.h"
@@ -37,6 +38,7 @@ RenderPassType MergeRPTypes(RenderPassType a, RenderPassType b) {
 	}
 
 	_dbg_assert_((a & RenderPassType::MULTIVIEW) == (b & RenderPassType::MULTIVIEW));
+	_dbg_assert_(RenderPassTypeColorBits(a) == RenderPassTypeColorBits(b));
 
 	// The rest we can just OR together to get the maximum feature set.
 	return (RenderPassType)((u32)a | (u32)b);
@@ -1852,8 +1854,35 @@ bool VulkanQueueRunner::CopyReadbackBuffer(FrameData &frameData, VKRFramebuffer 
 		vmaInvalidateAllocation(vulkan_->Allocator(), readback->allocation, 0, width * height * srcPixelSize);
 	}
 
+	// The 16-bit render targets hold R and B swapped from the PSP's layout, which these names mean in thin3d
+	// (and 4444 reversed). Swap them back, and expand them if 8888 was asked for.
+	const bool is16BitColor = srcFormat == Draw::DataFormat::R5G6B5_UNORM_PACK16 || srcFormat == Draw::DataFormat::A1R5G5B5_UNORM_PACK16 || srcFormat == Draw::DataFormat::A4R4G4B4_UNORM_PACK16;
+
 	// TODO: Perform these conversions in a compute shader on the GPU.
-	if (srcFormat == Draw::DataFormat::R8G8B8A8_UNORM) {
+	if (is16BitColor && (destFormat == srcFormat || destFormat == Draw::DataFormat::R8G8B8A8_UNORM)) {
+		std::vector<u16> row(width);
+		for (int y = 0; y < height; ++y) {
+			const u16 *src = (const u16 *)mappedData + y * width;
+			for (int x = 0; x < width; ++x) {
+				const u16 c = src[x];
+				switch (srcFormat) {
+				case Draw::DataFormat::R5G6B5_UNORM_PACK16: row[x] = (c >> 11) | (c & 0x07E0) | (c << 11); break;
+				case Draw::DataFormat::A1R5G5B5_UNORM_PACK16: row[x] = ((c >> 10) & 0x1F) | (c & 0x83E0) | ((c & 0x1F) << 10); break;
+				default: row[x] = (c >> 4) | (c << 12); break;  // B4G4R4A4
+				}
+			}
+			if (destFormat == srcFormat) {
+				memcpy(pixels + y * pixelStride * 2, row.data(), width * 2);
+				continue;
+			}
+			u32 *dst = (u32 *)pixels + y * pixelStride;
+			switch (srcFormat) {
+			case Draw::DataFormat::R5G6B5_UNORM_PACK16: ConvertRGB565ToRGBA8888(dst, row.data(), width); break;
+			case Draw::DataFormat::A1R5G5B5_UNORM_PACK16: ConvertRGBA5551ToRGBA8888(dst, row.data(), width); break;
+			default: ConvertRGBA4444ToRGBA8888(dst, row.data(), width); break;
+			}
+		}
+	} else if (srcFormat == Draw::DataFormat::R8G8B8A8_UNORM) {
 		ConvertFromRGBA8888(pixels, (const uint8_t *)mappedData, pixelStride, width, width, height, destFormat);
 	} else if (srcFormat == Draw::DataFormat::B8G8R8A8_UNORM) {
 		ConvertFromBGRA8888(pixels, (const uint8_t *)mappedData, pixelStride, width, width, height, destFormat);

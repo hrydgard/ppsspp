@@ -229,11 +229,11 @@ void VKRGraphicsPipeline::QueueForDeletion(VulkanContext *vulkan) {
 	});
 }
 
-u32 VKRGraphicsPipeline::GetVariantsBitmask() const {
-	u32 bitmask = 0;
+u64 VKRGraphicsPipeline::GetVariantsBitmask() const {
+	u64 bitmask = 0;
 	for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
 		if (pipeline[i]) {
-			bitmask |= 1 << i;
+			bitmask |= 1ULL << i;
 		}
 	}
 	return bitmask;
@@ -923,7 +923,7 @@ int VulkanRenderManager::WaitForPipelines() {
 	return CreateMultiPipelinesTask::WaitForAll();
 }
 
-VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, PipelineFlags pipelineFlags, uint32_t variantBitmask, VkSampleCountFlagBits sampleCount, bool cacheLoad, const char *tag) {
+VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, PipelineFlags pipelineFlags, uint64_t variantBitmask, VkSampleCountFlagBits sampleCount, bool cacheLoad, const char *tag) {
 	if (!desc->vertexShader || !desc->fragmentShader) {
 		ERROR_LOG(Log::G3D, "Can't create graphics pipeline with missing vs/ps: %p %p", desc->vertexShader, desc->fragmentShader);
 		return nullptr;
@@ -950,7 +950,7 @@ VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipe
 		_dbg_assert_(runCompileThread_);
 		bool needsCompile = false;
 		for (size_t i = 0; i < (size_t)RenderPassType::TYPE_COUNT; i++) {
-			if (!(variantBitmask & (1 << i)))
+			if (!(variantBitmask & (1ULL << i)))
 				continue;
 			RenderPassType rpType = (RenderPassType)i;
 
@@ -1016,6 +1016,8 @@ void VulkanRenderManager::EndCurRenderStep() {
 		if (curRenderStep_->render.framebuffer->sampleCount != VK_SAMPLE_COUNT_1_BIT) {
 			rpType = (RenderPassType)(rpType | RenderPassType::MULTISAMPLE);
 		}
+
+		rpType = rpType | curRenderStep_->render.framebuffer->colorFormat;
 	}
 
 	VKRRenderPass *renderPass = queueRunner_.GetRenderPass(key);
@@ -1254,6 +1256,10 @@ bool VulkanRenderManager::CopyFramebufferToMemory(VKRFramebuffer *src, VkImageAs
 		if (src) {
 			switch (src->color.format) {
 			case VK_FORMAT_R8G8B8A8_UNORM: srcFormat = Draw::DataFormat::R8G8B8A8_UNORM; break;
+			// The 16-bit render target formats. CopyReadbackBuffer swaps them to the layout these names mean.
+			case VK_FORMAT_R5G6B5_UNORM_PACK16: srcFormat = Draw::DataFormat::R5G6B5_UNORM_PACK16; break;
+			case VK_FORMAT_A1R5G5B5_UNORM_PACK16: srcFormat = Draw::DataFormat::A1R5G5B5_UNORM_PACK16; break;
+			case VK_FORMAT_B4G4R4A4_UNORM_PACK16: srcFormat = Draw::DataFormat::A4R4G4B4_UNORM_PACK16; break;
 			default: _assert_(false);
 			}
 		} else {
