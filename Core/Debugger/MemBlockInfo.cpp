@@ -209,13 +209,29 @@ void MemSlabMap::DoState(PointerWrap &p) {
 		Slab *old = first_;
 		Slab *oldBulk = bulkStorage_;
 		Do(p, count);
+		// Every slab takes up at least one byte.
+		if (count < 1 || !p.CheckRead(count)) {
+			p.SetError(p.ERROR_FAILURE);
+			count = 1;
+		}
+
+		// The slabs must cover the address space in order, or FillHeads() writes out of bounds.
+		bool valid = true;
+		auto checkSlab = [&](const Slab *slab, uint32_t expectedStart) {
+			if (slab->start != expectedStart || slab->end <= slab->start || slab->end > MAX_SIZE) {
+				valid = false;
+			}
+			return valid;
+		};
 
 		first_ = new Slab();
 		first_->DoState(p);
 		lastFind_ = first_;
 		--count;
 
-		FillHeads(first_);
+		if (checkSlab(first_, 0)) {
+			FillHeads(first_);
+		}
 
 		bulkStorage_ = new Slab[count];
 
@@ -228,7 +244,12 @@ void MemSlabMap::DoState(PointerWrap &p) {
 			slab->next->prev = slab;
 			slab = slab->next;
 
-			FillHeads(slab);
+			if (checkSlab(slab, slab->prev->end)) {
+				FillHeads(slab);
+			}
+		}
+		if (slab->end != MAX_SIZE) {
+			valid = false;
 		}
 
 		// Now that it's entirely disconnected, delete the old slabs.
@@ -239,6 +260,13 @@ void MemSlabMap::DoState(PointerWrap &p) {
 			old = next;
 		}
 		delete [] oldBulk;
+
+		if (!valid || p.Failed()) {
+			ERROR_LOG(Log::SaveState, "Savestate loading error: invalid MemSlabMap");
+			p.SetError(p.ERROR_FAILURE);
+			// heads_ may still point to the slabs deleted above.
+			Reset();
+		}
 	} else {
 		for (Slab *slab = first_; slab != nullptr; slab = slab->next)
 			++count;
