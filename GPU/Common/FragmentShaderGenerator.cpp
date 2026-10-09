@@ -1018,10 +1018,17 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				// Sampler), and rounding the GPU's finer filtered value instead makes each texel about a level
 				// brighter. That doubles God Eater Burst's faint bloom, which feeds back into itself pass after pass.
 				// The 0.01 keeps an unfiltered texel's exact integer from flooring a level down on float error.
-				WRITE(p, "  vec3 fixA2 = floor(u_blendFixA * 510.0 + 0.5) + 1.0;\n");
-				WRITE(p, "  vec3 fixB2 = floor(u_blendFixB * 510.0 + 0.5) + 1.0;\n");
-				WRITE(p, "  v.rgb = floor((floor(v.rgb * 255.0 + 0.01) * 2.0 + 1.0) * fixA2 / 1024.0);\n");
-				WRITE(p, "  v.rgb = (v.rgb - 0.5 + fixB2 / 1024.0) / 255.0;\n");
+				// The product is computed as (c+0.5) * (2f+1)/512 to stay within fp16's range. That's exact in fp32,
+				// while in fp16 about 3% of results come out a level too bright, so use highp where we have it.
+				// The default precision is lowp, which can be fixed point, and NVIDIA's Vulkan driver runs it as fp16.
+				const char *prec = gstate_c.Use(GPU_USE_FULL_PRECISION_IN_FRAGMENT) ? "highp" : "mediump";
+				WRITE(p, "  %s vec3 fixA2 = u_blendFixA;\n", prec);
+				WRITE(p, "  %s vec3 fixB2 = u_blendFixB;\n", prec);
+				WRITE(p, "  %s vec3 srcTerm = v.rgb;\n", prec);
+				WRITE(p, "  fixA2 = floor(fixA2 * 510.0 + 0.5) + 1.0;\n");
+				WRITE(p, "  fixB2 = floor(fixB2 * 510.0 + 0.5) + 1.0;\n");
+				WRITE(p, "  srcTerm = floor((floor(srcTerm * 255.0 + 0.01) + 0.5) * (fixA2 / 512.0));\n");
+				WRITE(p, "  v.rgb = (srcTerm - 0.5 + fixB2 / 1024.0) / 255.0;\n");
 			} else {
 				WRITE(p, "  v.rgb = v.rgb * %s;\n", srcFactor);
 			}
