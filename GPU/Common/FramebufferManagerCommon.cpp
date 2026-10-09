@@ -2992,6 +2992,17 @@ void FramebufferManagerCommon::NotifyRenderResized(const DisplayLayoutConfig &co
 
 void FramebufferManagerCommon::NotifyConfigChanged() {
 	updatePostShaders_ = true;
+
+	// The framebuffers' formats depend on this, so recreate them.
+	const bool use16BitTargets = gstate_c.Use(GPU_USE_16BIT_RENDER_TARGETS);
+	if (use16BitTargets != use16BitTargets_) {
+		use16BitTargets_ = use16BitTargets;
+		if (draw_) {
+			draw_->StopThreads();
+			DestroyAllFBOs();
+			draw_->StartThreads();
+		}
+	}
 }
 
 void FramebufferManagerCommon::DestroyAllFBOs() {

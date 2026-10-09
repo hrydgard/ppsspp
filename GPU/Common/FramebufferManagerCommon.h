@@ -613,6 +613,7 @@ protected:
 	bool useBufferedRendering_ = false;
 	bool postShaderIsUpscalingFilter_ = false;
 	bool postShaderIsSupersampling_ = false;
+	bool use16BitTargets_ = false;
 
 	std::vector<VirtualFramebuffer *> vfbs_;
 	std::vector<VirtualFramebuffer *> bvfbs_; // blitting framebuffers (for download)

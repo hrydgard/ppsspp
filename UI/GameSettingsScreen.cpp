@@ -358,6 +358,17 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 		g_Config.iMultiSampleLevel = 0;
 	}
 
+	if (GetGPUBackend() == GPUBackend::VULKAN) {
+		CheckBox *use16Bit = graphicsSettings->Add(new CheckBox(&g_Config.bUse16BitRenderTargets, gr->T("16-bit color with PSP dithering")));
+		graphicsSettings->Add(new SettingHint(gr->T("16-bit color with PSP dithering Tip", "Games that use 16-bit color look like on the PSP, dither pattern included (experimental)"), use16Bit));
+		use16Bit->OnClick.Add([](UI::EventParams &e) {
+			System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
+		});
+		use16Bit->SetEnabledFunc([] {
+			return !g_Config.bSoftwareRendering && !g_Config.bSkipBufferEffects;
+		});
+	}
+
 #if PPSSPP_PLATFORM(ANDROID)
 	if ((deviceType != DEVICE_TYPE_TV) && (deviceType != DEVICE_TYPE_VR)) {
 		static const char *deviceResolutions[] = { "Native device resolution", "Same as Rendering resolution", "1x PSP", "2x PSP", "3x PSP", "4x PSP", "5x PSP" };
