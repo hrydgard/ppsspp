@@ -3076,9 +3076,31 @@ static const char *TempFBOReasonToString(TempFBO reason) {
 	case TempFBO::COPY: return "copy";
 	case TempFBO::STENCIL: return "stencil";
 	case TempFBO::DEPTH_SHIFT: return "depth_shift";
+	case TempFBO::SAMPLE0: return "sample0";
 	default: break;
 	}
 	return "";
+}
+
+Draw::Framebuffer *FramebufferManagerCommon::CopyColorSample0(VirtualFramebuffer *vfb) {
+	if (!vfb->fbo || vfb->fbo->MultiSampleLevel() == 0) {
+		return nullptr;
+	}
+	Draw2DPipeline *pipeline = Get2DPipeline(DRAW2D_COPY_COLOR_SAMPLE0);
+	if (!pipeline) {
+		return nullptr;
+	}
+	const int w = vfb->fbo->Width();
+	const int h = vfb->fbo->Height();
+	Draw::Framebuffer *copy = GetTempFBO(TempFBO::SAMPLE0, w, h);
+	if (!copy) {
+		return nullptr;
+	}
+	BlitUsingRaster(vfb->fbo, 0.0f, 0.0f, w, h, copy, 0.0f, 0.0f, w, h, false, vfb->renderScaleFactor, pipeline, "CopyColorSample0");
+	draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
+	gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
+	RebindFramebuffer("After CopyColorSample0");
+	return copy;
 }
 
 Draw::Framebuffer *FramebufferManagerCommon::GetTempFBO(TempFBO reason, u16 w, u16 h) {
@@ -3539,6 +3561,7 @@ void FramebufferManagerCommon::ReleasePipelines() {
 	DoRelease(depthReadbackPipeline_);
 	DoRelease(draw2DPipelineCopyColor_);
 	DoRelease(draw2DPipelineColorRect2Lin_);
+	DoRelease(draw2DPipelineColorSample0_);
 	DoRelease(draw2DPipelineCopyDepth_);
 	DoRelease(draw2DPipelineEncodeDepth_);
 	DoRelease(draw2DPipeline565ToDepth_);
@@ -3755,7 +3778,11 @@ void FramebufferManagerCommon::BlitUsingRaster(
 	draw_->BindTexture(0, nullptr);
 	// This will get optimized away in case it's already bound (in VK and GL at least..)
 	draw_->BindFramebufferAsRenderTarget(dest, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, tag ? tag : "BlitUsingRaster");
-	draw_->BindFramebufferAsTexture(src, 0, pipeline->info.readChannel == RASTER_COLOR ? Draw::Aspect::COLOR_BIT : Draw::Aspect::DEPTH_BIT, Draw::ALL_LAYERS);
+	if (pipeline->info.readSamples) {
+		draw_->BindFramebufferSamplesAsTexture(src, 0, Draw::ALL_LAYERS);
+	} else {
+		draw_->BindFramebufferAsTexture(src, 0, pipeline->info.readChannel == RASTER_COLOR ? Draw::Aspect::COLOR_BIT : Draw::Aspect::DEPTH_BIT, Draw::ALL_LAYERS);
+	}
 
 	if (destX1 == 0.0f && destY1 == 0.0f && destX2 >= destW && destY2 >= destH) {
 		// We overwrite the whole channel of the framebuffer, so we can invalidate the current contents.

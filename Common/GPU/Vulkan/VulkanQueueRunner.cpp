@@ -989,7 +989,11 @@ void VulkanQueueRunner::LogReadbackImage(const VKRStep &step) {
 void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer cmd, const int curFrame, QueueProfileContext &profile) {
 	for (size_t i = 0; i < step.preTransitions.size(); i++) {
 		const TransitionRequest &iter = step.preTransitions[i];
-		if (iter.aspect == VK_IMAGE_ASPECT_COLOR_BIT && iter.fb->color.layout != iter.targetLayout) {
+		if (iter.samples) {
+			if (iter.fb->msaaColor.image != VK_NULL_HANDLE && iter.fb->msaaColor.layout != iter.targetLayout) {
+				recordBarrier_.TransitionColorImageAuto(&iter.fb->msaaColor, iter.targetLayout);
+			}
+		} else if (iter.aspect == VK_IMAGE_ASPECT_COLOR_BIT && iter.fb->color.layout != iter.targetLayout) {
 			recordBarrier_.TransitionColorImageAuto(
 				&iter.fb->color,
 				iter.targetLayout
@@ -1341,6 +1345,10 @@ VKRRenderPass *VulkanQueueRunner::PerformBindFramebufferAsRenderTarget(const VKR
 		}
 
 		recordBarrier_.TransitionColorImageAuto(&fb->color, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		if (fb->msaaColor.image != VK_NULL_HANDLE) {
+			// Texturing from the samples (BindFramebufferAsTexture) moves this one out of the attachment layout.
+			recordBarrier_.TransitionColorImageAuto(&fb->msaaColor, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL);
+		}
 
 		// If the render pass doesn't touch depth, we can avoid a layout transition of the depth buffer.
 		if (fb->depth.image && RenderPassTypeHasDepth(step.render.renderPassType)) {

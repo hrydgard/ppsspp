@@ -129,9 +129,10 @@ struct TransitionRequest {
 	VKRFramebuffer *fb;
 	VkImageAspectFlags aspect;  // COLOR or DEPTH
 	VkImageLayout targetLayout;
+	bool samples = false;  // The multisampled color image, instead of the resolved one.
 
 	bool operator == (const TransitionRequest &other) const {
-		return fb == other.fb && aspect == other.aspect && targetLayout == other.targetLayout;
+		return fb == other.fb && aspect == other.aspect && targetLayout == other.targetLayout && samples == other.samples;
 	}
 };
 

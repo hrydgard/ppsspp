@@ -608,6 +608,7 @@ struct DeviceCaps {
 	bool framebufferBlitSupported;
 	bool framebufferDepthCopySupported;
 	bool framebufferSeparateDepthCopySupported;
+	bool framebufferSampleReadSupported = false;  // BindFramebufferSamplesAsTexture works.
 	bool framebufferDepthBlitSupported;
 	bool framebufferStencilBlitSupported;
 	bool framebufferFetchSupported;
@@ -824,6 +825,9 @@ public:
 
 	// binding must be < MAX_TEXTURE_SLOTS (0, 1 are okay if it's 2).
 	virtual void BindFramebufferAsTexture(Framebuffer *fbo, int binding, Aspect aspect, int layer) = 0;
+	// Binds a multisampled framebuffer's color samples, for texelFetch from a sampler with SamplerFlags::MULTISAMPLE.
+	// Check framebufferSampleReadSupported.
+	virtual void BindFramebufferSamplesAsTexture(Framebuffer *fbo, int binding, int layer) {}
 
 	// Framebuffer fetch / input attachment support, needs to be explicit in Vulkan.
 	virtual void BindCurrentFramebufferForColorInput() {}

@@ -460,6 +460,7 @@ public:
 	// These functions should be self explanatory.
 	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) override;
 	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, Aspect channelBit, int layer) override;
+	void BindFramebufferSamplesAsTexture(Framebuffer *fbo, int binding, int layer) override;
 
 	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
 
@@ -973,7 +974,8 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 	caps_.framebufferDepthBlitSupported = vulkan->GetDeviceInfo().canBlitToPreferredDepthStencilFormat;
 	caps_.framebufferStencilBlitSupported = caps_.framebufferDepthBlitSupported;
 	caps_.framebufferDepthCopySupported = true;   // Will pretty much always be the case.
-	caps_.framebufferSeparateDepthCopySupported = true;   // Will pretty much always be the case.
+	caps_.framebufferSeparateDepthCopySupported = true;
+	caps_.framebufferSampleReadSupported = true;   // Will pretty much always be the case.
 	// This doesn't affect what depth/stencil format is actually used, see VulkanQueueRunner.
 	caps_.preferredDepthBufferFormat = DataFormatFromVulkanDepth(vulkan->GetDeviceInfo().preferredDepthStencilFormat);
 	caps_.texture3DSupported = true;
@@ -1950,6 +1952,14 @@ void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, Aspect c
 
 	boundTextures_[binding].reset(nullptr);
 	boundImageView_[binding] = renderManager_.BindFramebufferAsTexture(fb->GetFB(), binding, aspect, layer);
+}
+
+void VKContext::BindFramebufferSamplesAsTexture(Framebuffer *fbo, int binding, int layer) {
+	VKFramebuffer *fb = (VKFramebuffer *)fbo;
+	_assert_(binding >= 0 && binding < MAX_BOUND_TEXTURES);
+	_assert_(fb != curFramebuffer_);
+	boundTextures_[binding].reset(nullptr);
+	boundImageView_[binding] = renderManager_.BindFramebufferAsTexture(fb->GetFB(), binding, VK_IMAGE_ASPECT_COLOR_BIT, layer, true);
 }
 
 void VKContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) {

@@ -233,6 +233,8 @@ enum class TempFBO {
 	STENCIL,
 	// Depth moved within one framebuffer, for rendering at an X offset.
 	DEPTH_SHIFT,
+	// The first samples of a multisampled framebuffer.
+	SAMPLE0,
 };
 
 inline Draw::DataFormat GEFormatToThin3D(GEBufferFormat geFormat) {
@@ -460,6 +462,9 @@ public:
 	virtual void DeviceRestore(Draw::DrawContext *draw);
 
 	Draw::Framebuffer *GetTempFBO(TempFBO reason, u16 w, u16 h);
+	// A single-sampled copy of the first sample of each pixel of a multisampled framebuffer, or null if it isn't
+	// multisampled or the backend can't. For reading colors as values, which averaging the samples would corrupt.
+	Draw::Framebuffer *CopyColorSample0(VirtualFramebuffer *vfb);
 
 	// Debug features
 	virtual bool GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat format, GPUDebugBuffer &buffer, int maxRes);
@@ -675,6 +680,7 @@ protected:
 	// Draw2D pipelines
 	Draw2DPipeline *draw2DPipelineCopyColor_ = nullptr;
 	Draw2DPipeline *draw2DPipelineColorRect2Lin_ = nullptr;
+	Draw2DPipeline *draw2DPipelineColorSample0_ = nullptr;
 	Draw2DPipeline *draw2DPipelineCopyDepth_ = nullptr;
 	Draw2DPipeline *draw2DPipelineEncodeDepth_ = nullptr;
 	Draw2DPipeline *draw2DPipeline565ToDepth_ = nullptr;
