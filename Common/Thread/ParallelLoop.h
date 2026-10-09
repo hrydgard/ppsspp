@@ -36,10 +36,12 @@ public:
 };
 
 // Note that upper bounds are non-inclusive: range is [lower, upper)
-WaitableCounter *ParallelRangeLoopWaitable(ThreadManager *threadMan, const std::function<void(int, int)> &loop, int lower, int upper, int minSize, TaskPriority priority);
+// maxThreads can be set to 0 to use the number of cores.
+WaitableCounter *ParallelRangeLoopWaitable(ThreadManager *threadMan, const std::function<void(int, int)> &loop, int lower, int upper, int minSize, int maxThreads, TaskPriority priority);
 
 // Note that upper bounds are non-inclusive: range is [lower, upper)
-void ParallelRangeLoop(ThreadManager *threadMan, const std::function<void(int, int)> &loop, int lower, int upper, int minSize, TaskPriority priority = TaskPriority::NORMAL);
+// maxThreads can be set to 0 to use the number of cores.
+void ParallelRangeLoop(ThreadManager *threadMan, const std::function<void(int, int)> &loop, int lower, int upper, int minSize, int maxThreads, TaskPriority priority = TaskPriority::NORMAL);
 
 // Common utilities for large (!) memory copies.
 // Will only fall back to threads if it seems to make sense.

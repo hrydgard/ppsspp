@@ -68,3 +68,16 @@ private:
 	double startTime_;
 	double *target_;
 };
+
+class LogScopeIfSlowMs {
+public:
+	LogScopeIfSlowMs(const char *title, int limitMs) {
+		title_ = title;
+		endTime_ = time_now_d() + 0.001 * limitMs;
+	}
+	~LogScopeIfSlowMs();
+
+private:
+	const char *title_;
+	double endTime_;
+};

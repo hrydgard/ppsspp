@@ -407,7 +407,7 @@ static bool GenerateUIAtlasImage(Atlas *atlas, float dpiScale, Image *dest, int 
 				}
 			}
 		}
-	}, 0, (int)images.size(), 2, TaskPriority::HIGH);
+	}, 0, (int)images.size(), 2, 0, TaskPriority::HIGH);
 
 	INFO_LOG(Log::G3D, " - Drop-shadowed images in %0.2f ms", shadowStart.ElapsedMs());
 
