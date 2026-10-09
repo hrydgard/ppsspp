@@ -687,6 +687,7 @@ void Core_Break(BreakReason reason, u32 relatedAddress, const BreakpointHit *hit
 		// later at an address nobody is waiting for anymore. Same as gdb dropping its step-resume
 		// breakpoint, or lldb discarding the thread plan, on any stop.
 		g_breakpoints.ClearTempBreakPoint();
+		g_breakpoints.ClearSkipFirst();
 
 		// Same reasoning for a cpu.runUntilTime deadline - it belonged to the run that just ended.
 		CoreTiming::SetBreakDeadlineUs(0);

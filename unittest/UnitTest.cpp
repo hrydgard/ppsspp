@@ -895,6 +895,55 @@ bool TestTempBreakpoints() {
 	g_breakpoints.RemoveBreakPoint(kAddrA);
 	EXPECT_FALSE(g_breakpoints.HasBreakPoints());
 
+	// Resuming from a breakpoint must not pause there again, and must not report it again if it's
+	// the one that stopped us. A breakpoint we merely stepped onto still has to log and count.
+	// Nothing retires an instruction here unless we move downcount, so the ticks stay put.
+	{
+		auto hitsAt = [](u32 addr) -> int {
+			for (const BreakPoint &bp : g_breakpoints.GetBreakpoints()) {
+				if (bp.addr == addr)
+					return (int)bp.numHits;
+			}
+			return -1;
+		};
+
+		g_breakpoints.ClearSkipFirst();
+		g_breakpoints.AddBreakPoint(kAddrA);
+		g_breakpoints.AddBreakPoint(kAddrB);
+
+		EXPECT_TRUE((g_breakpoints.ExecBreakPoint(kAddrA) & BREAK_ACTION_PAUSE) != 0);
+		EXPECT_EQ_INT(hitsAt(kAddrA), 1);
+
+		// Resuming off it. A step-over sets the skip twice for one resume, and that must not lose it.
+		g_breakpoints.SetSkipFirst(kAddrA);
+		g_breakpoints.SetSkipFirst(kAddrA);
+		EXPECT_EQ_INT((int)g_breakpoints.ExecBreakPoint(kAddrA), (int)BREAK_ACTION_NONE);
+		EXPECT_EQ_INT(hitsAt(kAddrA), 1);
+
+		// Stepped onto B, never reported there: it logs and counts, only the pause is dropped.
+		g_breakpoints.SetSkipFirst(kAddrB);
+		EXPECT_EQ_INT((int)(g_breakpoints.ExecBreakPoint(kAddrB) & BREAK_ACTION_PAUSE), 0);
+		EXPECT_EQ_INT(hitsAt(kAddrB), 1);
+
+		// An unrelated address still pauses and reports.
+		EXPECT_TRUE((g_breakpoints.ExecBreakPoint(kAddrA) & BREAK_ACTION_PAUSE) != 0);
+		EXPECT_EQ_INT(hitsAt(kAddrA), 2);
+
+		// Step off A, which runs it, and land on A again (a one-instruction loop). That's a new
+		// execution, which nothing has reported yet.
+		g_breakpoints.SetSkipFirst(kAddrA);
+		EXPECT_EQ_INT((int)g_breakpoints.ExecBreakPoint(kAddrA), (int)BREAK_ACTION_NONE);
+		currentMIPS->downcount -= 1;
+		g_breakpoints.SetSkipFirst(kAddrA);
+		EXPECT_EQ_INT((int)(g_breakpoints.ExecBreakPoint(kAddrA) & BREAK_ACTION_PAUSE), 0);
+		EXPECT_EQ_INT(hitsAt(kAddrA), 3);
+		currentMIPS->downcount += 1;
+
+		g_breakpoints.ClearSkipFirst();
+		g_breakpoints.RemoveBreakPoint(kAddrA);
+		g_breakpoints.RemoveBreakPoint(kAddrB);
+	}
+
 	g_symbolMap = nullptr;
 	return true;
 }
