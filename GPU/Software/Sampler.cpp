@@ -21,6 +21,7 @@
 #include "Common/Common.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/LogReporting.h"
+#include "Common/Math/CrossSIMD.h"
 #include "Common/Math/SIMDHeaders.h"
 #include "Core/Config.h"
 #include "GPU/Common/TextureDecoder.h"
@@ -77,6 +78,8 @@ NearestFunc GetNearestFunc(SamplerID id, BinManager *binner) {
 	return &SampleNearest;
 }
 
+static LinearFunc GetLinearFallback(const SamplerID &id);
+
 LinearFunc GetLinearFunc(SamplerID id, BinManager *binner) {
 	id.linear = true;
 	LinearFunc jitted = jitCache->GetLinear(id, binner);
@@ -84,7 +87,7 @@ LinearFunc GetLinearFunc(SamplerID id, BinManager *binner) {
 		return jitted;
 	}
 
-	return &SampleLinear;
+	return GetLinearFallback(id);
 }
 
 FetchFunc GetFetchFunc(SamplerID id, BinManager *binner) {
@@ -781,6 +784,431 @@ static Vec4IntResult SOFTRAST_CALL SampleLinear(float s, float t, Vec4IntArg pri
 		c0 = (c1 * levelFrac + c0 * (16 - levelFrac)) >> 4;
 	}
 	return GetTextureFunctionOutput(prim_color, ToVec4IntArg(c0), samplerID);
+}
+
+// Where there's no JIT: SampleLinear specialized for the texture format, swizzling and CLUT format, so
+// those aren't checked per texel. The filter works on all four channels at once, as 16-bit lanes of a
+// uint64_t (a channel times a weight of at most 16 fits).
+static inline uint64_t SpreadRGBA(uint32_t c) {
+	uint64_t x = c;
+	x = (x | (x << 16)) & 0x0000FFFF0000FFFFULL;
+	return (x | (x << 8)) & 0x00FF00FF00FF00FFULL;
+}
+
+// (a * (16 - f) + b * f) >> 4 per channel.
+static inline uint64_t LerpSpread(uint64_t a, uint64_t b, int f) {
+	return ((a * (uint64_t)(16 - f) + b * (uint64_t)f) >> 4) & 0x00FF00FF00FF00FFULL;
+}
+
+template <GEPaletteFormat clutFmt>
+static inline uint32_t LookupClutT(uint32_t index, const SamplerID &samplerID) {
+	switch (clutFmt) {
+	case GE_CMODE_16BIT_BGR5650: return RGB565ToRGBA8888(samplerID.cached.clut16[index]);
+	case GE_CMODE_16BIT_ABGR5551: return RGBA5551ToRGBA8888(samplerID.cached.clut16[index]);
+	case GE_CMODE_16BIT_ABGR4444: return RGBA4444ToRGBA8888(samplerID.cached.clut16[index]);
+	default: return samplerID.cached.clut32[index];
+	}
+}
+
+template <GETextureFormat fmt>
+static constexpr uint32_t TexelBitsT() {
+	switch (fmt) {
+	case GE_TFMT_8888: case GE_TFMT_CLUT32: return 32;
+	case GE_TFMT_CLUT8: return 8;
+	case GE_TFMT_CLUT4: return 4;
+	default: return 16;
+	}
+}
+
+// A texel's byte offset is the sum of one for its row and one for its column (as GetPixelDataOffset), so
+// the four texels of a bilinear sample only need two of each.
+template <uint32_t bits, bool swizzled>
+static inline uint32_t RowOffsetT(int bufw, int v) {
+	if (!swizzled)
+		return v * (bufw * bits >> 3);
+	// Blocks of 16 bytes by 8 rows.
+	return (v >> 3) * ((bufw * bits / 32) * 32) + (v & 7) * 16;
+}
+
+template <uint32_t bits, bool swizzled>
+static inline uint32_t ColumnOffsetT(int u) {
+	const uint32_t b = u * bits >> 3;
+	return swizzled ? (b >> 4) * 128 + (b & 15) : b;
+}
+
+// The texel at p (u picks the nibble of CLUT4). clutOffset is where the level's palette starts.
+template <GETextureFormat fmt, GEPaletteFormat clutFmt>
+static inline uint32_t ReadTexelT(const u8 *p, int u, uint32_t clutOffset, const SamplerID &samplerID) {
+	switch (fmt) {
+	case GE_TFMT_4444: return RGBA4444ToRGBA8888(*(const u16 *)p);
+	case GE_TFMT_5551: return RGBA5551ToRGBA8888(*(const u16 *)p);
+	case GE_TFMT_5650: return RGB565ToRGBA8888(*(const u16 *)p);
+	case GE_TFMT_8888: return *(const u32 *)p;
+	case GE_TFMT_CLUT32: return LookupClutT<clutFmt>(TransformClutIndex(p[0] + (p[1] << 8) + (p[2] << 16) + (p[3] << 24), samplerID) + clutOffset, samplerID);
+	case GE_TFMT_CLUT16: return LookupClutT<clutFmt>(TransformClutIndex(p[0] + (p[1] << 8), samplerID) + clutOffset, samplerID);
+	case GE_TFMT_CLUT8: return LookupClutT<clutFmt>(TransformClutIndex(*p, samplerID) + clutOffset, samplerID);
+	case GE_TFMT_CLUT4: return LookupClutT<clutFmt>(TransformClutIndex((u & 1) ? (*p >> 4) : (*p & 0xF), samplerID) + clutOffset, samplerID);
+	default: return 0;
+	}
+}
+
+template <GETextureFormat fmt>
+static inline uint32_t ReadDXTTexelT(const u8 *src, int bufw, int u, int v) {
+	switch (fmt) {
+	case GE_TFMT_DXT1: return GetDXT1Texel((const DXT1Block *)src + (v >> 2) * (bufw >> 2) + (u >> 2), u & 3, v & 3);
+	case GE_TFMT_DXT3: return GetDXT3Texel((const DXT3Block *)src + (v >> 2) * (bufw >> 2) + (u >> 2), u & 3, v & 3);
+	default: return GetDXT5Texel((const DXT5Block *)src + (v >> 2) * (bufw >> 2) + (u >> 2), u & 3, v & 3);
+	}
+}
+
+// The two texel coordinates along one axis (as ApplyTexelClampQuad wraps or clamps them) and the fraction.
+static inline void TexelPairT(float st, int size, bool clamp, int &c0, int &c1, int &frac) {
+	int base = TexelFixed(st * size * 16) - 8;
+	frac = base & 0x0F;
+	base >>= 4;
+	if (clamp) {
+		const int hi = size > 512 ? 511 : size - 1;
+		c0 = std::max(std::min(base, hi), 0);
+		c1 = std::max(std::min(base + 1, hi), 0);
+	} else {
+		const int mask = (size - 1) & 511;
+		c0 = base & mask;
+		c1 = (base + 1) & mask;
+	}
+}
+
+template <GETextureFormat fmt, bool swizzled, GEPaletteFormat clutFmt>
+static inline uint64_t SampleLinearLevelT(float s, float t, const u8 *tptr, int bufw, int level, const SamplerID &samplerID) {
+	if (!tptr)
+		return 0;
+	int u0, u1, v0, v1, fracU, fracV;
+	TexelPairT(s, samplerID.cached.sizes[level].w, samplerID.clampS, u0, u1, fracU);
+	TexelPairT(t, samplerID.cached.sizes[level].h, samplerID.clampT, v0, v1, fracV);
+	uint64_t tl, tr, bl, br;
+	if constexpr (fmt == GE_TFMT_DXT1 || fmt == GE_TFMT_DXT3 || fmt == GE_TFMT_DXT5) {
+		tl = SpreadRGBA(ReadDXTTexelT<fmt>(tptr, bufw, u0, v0));
+		tr = SpreadRGBA(ReadDXTTexelT<fmt>(tptr, bufw, u1, v0));
+		bl = SpreadRGBA(ReadDXTTexelT<fmt>(tptr, bufw, u0, v1));
+		br = SpreadRGBA(ReadDXTTexelT<fmt>(tptr, bufw, u1, v1));
+	} else {
+		constexpr uint32_t bits = TexelBitsT<fmt>();
+		// Levels past the first have their own palette unless it's shared: 16 entries on for CLUT4, 256 on for
+		// CLUT8 at odd levels.
+		uint32_t clutOffset = 0;
+		if ((fmt == GE_TFMT_CLUT4 || fmt == GE_TFMT_CLUT8) && !samplerID.useSharedClut)
+			clutOffset = fmt == GE_TFMT_CLUT4 ? level * 16 : (level & 1) * 256;
+		const u8 *row0 = tptr + RowOffsetT<bits, swizzled>(bufw, v0);
+		const u8 *row1 = tptr + RowOffsetT<bits, swizzled>(bufw, v1);
+		const uint32_t col0 = ColumnOffsetT<bits, swizzled>(u0);
+		const uint32_t col1 = ColumnOffsetT<bits, swizzled>(u1);
+		tl = SpreadRGBA(ReadTexelT<fmt, clutFmt>(row0 + col0, u0, clutOffset, samplerID));
+		tr = SpreadRGBA(ReadTexelT<fmt, clutFmt>(row0 + col1, u1, clutOffset, samplerID));
+		bl = SpreadRGBA(ReadTexelT<fmt, clutFmt>(row1 + col0, u0, clutOffset, samplerID));
+		br = SpreadRGBA(ReadTexelT<fmt, clutFmt>(row1 + col1, u1, clutOffset, samplerID));
+	}
+	// Like the GE: horizontal lerps truncated to 8 bits, then the vertical one (gpu/probe exp52).
+	return LerpSpread(LerpSpread(tl, tr, fracU), LerpSpread(bl, br, fracU), fracV);
+}
+
+template <GETextureFormat fmt, bool swizzled, GEPaletteFormat clutFmt>
+static Vec4IntResult SOFTRAST_CALL SampleLinearT(float s, float t, Vec4IntArg prim_color, const u8 *const *tptr, const uint16_t *bufw, int texlevel, int levelFrac, const SamplerID &samplerID) {
+	uint64_t c = SampleLinearLevelT<fmt, swizzled, clutFmt>(s, t, tptr[0], bufw[0], texlevel, samplerID);
+	if (levelFrac) {
+		const uint64_t c1 = SampleLinearLevelT<fmt, swizzled, clutFmt>(s, t, tptr[1], bufw[1], texlevel + 1, samplerID);
+		c = LerpSpread(c, c1, levelFrac);
+	}
+	const Vec4<int> texcolor((int)(c & 0xFFFF), (int)((c >> 16) & 0xFFFF), (int)((c >> 32) & 0xFFFF), (int)(c >> 48));
+	return GetTextureFunctionOutput(prim_color, ToVec4IntArg(texcolor), samplerID);
+}
+
+// TexelPairT for four pixels at once.
+static inline void TexelPairs4(Vec4F32 st, int size, bool clamp, Vec4S32 &c0, Vec4S32 &c1, Vec4S32 &frac) {
+	const Vec4F32 f = st * Vec4F32::Splat((float)size) * Vec4F32::Splat(16.0f);
+	// TexelFixed: INT_MIN out of int range (and for NaN). Those lanes are zeroed before the conversion.
+	const Vec4S32 inRange = f.CompareLt(Vec4F32::Splat(2147483648.0f)).AndNot(f.CompareLt(Vec4F32::Splat(-2147483648.0f)));
+	const Vec4S32 fixed = Vec4S32FromF32(f & inRange) | Vec4S32::Splat(INT_MIN).AndNot(inRange);
+	const Vec4S32 base = fixed - Vec4S32::Splat(8);
+	frac = base & Vec4S32::Splat(0x0F);
+	const Vec4S32 b0 = base.Shr<4>();
+	const Vec4S32 b1 = b0 + Vec4S32::Splat(1);
+	if (clamp) {
+		const Vec4S32 hi = Vec4S32::Splat(size > 512 ? 511 : size - 1);
+		c0 = b0.Min(hi).Max(Vec4S32::Zero());
+		c1 = b1.Min(hi).Max(Vec4S32::Zero());
+	} else {
+		const Vec4S32 mask = Vec4S32::Splat((size - 1) & 511);
+		c0 = b0 & mask;
+		c1 = b1 & mask;
+	}
+}
+
+// RowOffsetT and ColumnOffsetT for four texels at once.
+template <uint32_t bits, bool swizzled>
+static inline Vec4S32 RowOffsets4(int bufw, Vec4S32 v) {
+	if (!swizzled)
+		return v.Mul(Vec4S32::Splat(bufw * bits >> 3));
+	return v.Shr<3>().Mul(Vec4S32::Splat((bufw * bits / 32) * 32)) + (v & Vec4S32::Splat(7)).Shl<4>();
+}
+
+template <uint32_t bits, bool swizzled>
+static inline Vec4S32 ColumnOffsets4(Vec4S32 u) {
+	Vec4S32 b;
+	switch (bits) {
+	case 32: b = u.Shl<2>(); break;
+	case 16: b = u.Shl<1>(); break;
+	case 8: b = u; break;
+	default: b = u.Shr<1>(); break;
+	}
+	return swizzled ? b.Shr<4>().Shl<7>() + (b & Vec4S32::Splat(15)) : b;
+}
+
+// SampleLinearLevelT for four pixels at the same level: the coordinates and offsets in vector lanes, the
+// texel reads one by one.
+template <GETextureFormat fmt, bool swizzled, GEPaletteFormat clutFmt>
+static inline void SampleLinearLevel4T(Vec4F32 s, Vec4F32 t, const u8 *tptr, int bufw, int level, const SamplerID &samplerID, uint64_t out[4]) {
+	if (!tptr) {
+		out[0] = out[1] = out[2] = out[3] = 0;
+		return;
+	}
+	Vec4S32 u0, u1, v0, v1, fracU, fracV;
+	TexelPairs4(s, samplerID.cached.sizes[level].w, samplerID.clampS, u0, u1, fracU);
+	TexelPairs4(t, samplerID.cached.sizes[level].h, samplerID.clampT, v0, v1, fracV);
+	alignas(16) int us0[4], us1[4], fu[4], fv[4];
+	u0.Store(us0);
+	u1.Store(us1);
+	fracU.Store(fu);
+	fracV.Store(fv);
+	uint32_t texels[4][4];
+	if constexpr (fmt == GE_TFMT_DXT1 || fmt == GE_TFMT_DXT3 || fmt == GE_TFMT_DXT5) {
+		alignas(16) int vs0[4], vs1[4];
+		v0.Store(vs0);
+		v1.Store(vs1);
+		for (int i = 0; i < 4; ++i) {
+			texels[i][0] = ReadDXTTexelT<fmt>(tptr, bufw, us0[i], vs0[i]);
+			texels[i][1] = ReadDXTTexelT<fmt>(tptr, bufw, us1[i], vs0[i]);
+			texels[i][2] = ReadDXTTexelT<fmt>(tptr, bufw, us0[i], vs1[i]);
+			texels[i][3] = ReadDXTTexelT<fmt>(tptr, bufw, us1[i], vs1[i]);
+		}
+	} else {
+		constexpr uint32_t bits = TexelBitsT<fmt>();
+		uint32_t clutOffset = 0;
+		if ((fmt == GE_TFMT_CLUT4 || fmt == GE_TFMT_CLUT8) && !samplerID.useSharedClut)
+			clutOffset = fmt == GE_TFMT_CLUT4 ? level * 16 : (level & 1) * 256;
+		const Vec4S32 row0 = RowOffsets4<bits, swizzled>(bufw, v0), row1 = RowOffsets4<bits, swizzled>(bufw, v1);
+		const Vec4S32 col0 = ColumnOffsets4<bits, swizzled>(u0), col1 = ColumnOffsets4<bits, swizzled>(u1);
+		alignas(16) int tl[4], tr[4], bl[4], br[4];
+		(row0 + col0).Store(tl);
+		(row0 + col1).Store(tr);
+		(row1 + col0).Store(bl);
+		(row1 + col1).Store(br);
+		for (int i = 0; i < 4; ++i) {
+			texels[i][0] = ReadTexelT<fmt, clutFmt>(tptr + (uint32_t)tl[i], us0[i], clutOffset, samplerID);
+			texels[i][1] = ReadTexelT<fmt, clutFmt>(tptr + (uint32_t)tr[i], us1[i], clutOffset, samplerID);
+			texels[i][2] = ReadTexelT<fmt, clutFmt>(tptr + (uint32_t)bl[i], us0[i], clutOffset, samplerID);
+			texels[i][3] = ReadTexelT<fmt, clutFmt>(tptr + (uint32_t)br[i], us1[i], clutOffset, samplerID);
+		}
+	}
+	for (int i = 0; i < 4; ++i) {
+		// Like the GE: horizontal lerps truncated to 8 bits, then the vertical one (gpu/probe exp52).
+		const uint64_t top = LerpSpread(SpreadRGBA(texels[i][0]), SpreadRGBA(texels[i][1]), fu[i]);
+		const uint64_t bot = LerpSpread(SpreadRGBA(texels[i][2]), SpreadRGBA(texels[i][3]), fu[i]);
+		out[i] = LerpSpread(top, bot, fv[i]);
+	}
+}
+
+// GetTextureFunctionOutput for four pixels, one per lane: prim and tex are R, G, B and A (all 0 to 255).
+static inline void TextureFunction4(const Vec4S32 prim[4], const Vec4S32 tex[4], const SamplerID &samplerID, Vec4S32 out[4]) {
+	const bool rgba = samplerID.useTextureAlpha;
+	const bool doubling = samplerID.useColorDoubling;
+	const Vec4S32 one = Vec4S32::Splat(1), c255 = Vec4S32::Splat(255);
+	// The alpha blended the common way: (prim + 1) * tex / 256.
+	const Vec4S32 modulatedA = rgba ? (prim[3] + one).Mul(tex[3]).Shr<8>() : prim[3];
+	switch (samplerID.TexFunc()) {
+	case GE_TEXFUNC_MODULATE:
+		for (int c = 0; c < 3; ++c)
+			out[c] = (prim[c] + one).Mul(doubling ? tex[c].Shl<1>() : tex[c]).Shr<8>();
+		out[3] = modulatedA;
+		break;
+
+	case GE_TEXFUNC_DECAL:
+		if (rgba) {
+			// Both colors are boosted here, making the alpha have more weight.
+			const Vec4S32 t = tex[3], invt = c255 - tex[3];
+			for (int c = 0; c < 3; ++c) {
+				const Vec4S32 sum = (prim[c] + one).Mul(invt) + (tex[c] + one).Mul(t);
+				out[c] = doubling ? sum.Shr<7>() : sum.Shr<8>();
+			}
+		} else {
+			for (int c = 0; c < 3; ++c)
+				out[c] = doubling ? tex[c].Shl<1>() : tex[c];
+		}
+		out[3] = prim[3];
+		break;
+
+	case GE_TEXFUNC_BLEND:
+	{
+		// Unlike the others (and even alpha), this one always rounds up.
+		const uint32_t env = samplerID.cached.texBlendColor;
+		for (int c = 0; c < 3; ++c) {
+			const Vec4S32 sum = (c255 - tex[c]).Mul(prim[c]) + tex[c].Mul(Vec4S32::Splat((env >> (8 * c)) & 0xFF)) + c255;
+			out[c] = doubling ? sum.Shr<7>() : sum.Shr<8>();
+		}
+		out[3] = modulatedA;
+		break;
+	}
+
+	case GE_TEXFUNC_REPLACE:
+		for (int c = 0; c < 3; ++c)
+			out[c] = doubling ? tex[c].Shl<1>() : tex[c];
+		out[3] = rgba ? tex[3] : prim[3];
+		break;
+
+	default:
+		// ADD and the unknown ones.
+		for (int c = 0; c < 3; ++c)
+			out[c] = doubling ? (prim[c] + tex[c]).Shl<1>() : prim[c] + tex[c];
+		out[3] = modulatedA;
+		break;
+	}
+}
+
+template <GETextureFormat fmt, bool swizzled, GEPaletteFormat clutFmt>
+static void SOFTRAST_CALL SampleLinearQuadT(const float *s, const float *t, const int *level, const int *levelFrac, int active, const u8 *const *texptr, const uint16_t *texbufw, int *colors, int colorStride, const SamplerID &samplerID) {
+	if (!active)
+		return;
+	uint64_t c[4];
+	// Usually all at one level (a span of a triangle always is): then in vector lanes.
+	const int first = active & 1 ? 0 : active & 2 ? 1 : active & 4 ? 2 : 3;
+	bool sameLevel = true;
+	for (int i = first + 1; i < 4; ++i) {
+		if ((active & (1 << i)) && (level[i] != level[first] || levelFrac[i] != levelFrac[first]))
+			sameLevel = false;
+	}
+	if (sameLevel) {
+		const int l = level[first];
+		const Vec4F32 sv = Vec4F32::Load(s), tv = Vec4F32::Load(t);
+		SampleLinearLevel4T<fmt, swizzled, clutFmt>(sv, tv, texptr[l], texbufw[l], l, samplerID, c);
+		if (levelFrac[first]) {
+			uint64_t c1[4];
+			SampleLinearLevel4T<fmt, swizzled, clutFmt>(sv, tv, texptr[l + 1], texbufw[l + 1], l + 1, samplerID, c1);
+			for (int i = 0; i < 4; ++i)
+				c[i] = LerpSpread(c[i], c1[i], levelFrac[first]);
+		}
+		// The texture function, in lanes too.
+		alignas(16) int texLanes[4][4];
+		for (int i = 0; i < 4; ++i) {
+			for (int ch = 0; ch < 4; ++ch)
+				texLanes[ch][i] = (int)((c[i] >> (16 * ch)) & 0xFFFF);
+		}
+		Vec4S32 prim[4], tex[4], out[4];
+		for (int ch = 0; ch < 4; ++ch) {
+			prim[ch] = Vec4S32::Load(colors + ch * colorStride);
+			tex[ch] = Vec4S32::Load(texLanes[ch]);
+		}
+		TextureFunction4(prim, tex, samplerID, out);
+		alignas(16) static const int laneBits[4] = { 1, 2, 4, 8 };
+		const Vec4S32 keep = (Vec4S32::Splat(active) & Vec4S32::LoadAligned(laneBits)).CompareEq(Vec4S32::Zero());
+		for (int ch = 0; ch < 4; ++ch)
+			(out[ch].AndNot(keep) | (prim[ch] & keep)).Store(colors + ch * colorStride);
+		return;
+	}
+
+	// The four samples' loads and arithmetic are independent, so they can overlap.
+	for (int i = 0; i < 4; ++i) {
+		if (!(active & (1 << i)))
+			continue;
+		const int l = level[i];
+		c[i] = SampleLinearLevelT<fmt, swizzled, clutFmt>(s[i], t[i], texptr[l], texbufw[l], l, samplerID);
+		if (levelFrac[i])
+			c[i] = LerpSpread(c[i], SampleLinearLevelT<fmt, swizzled, clutFmt>(s[i], t[i], texptr[l + 1], texbufw[l + 1], l + 1, samplerID), levelFrac[i]);
+	}
+	for (int i = 0; i < 4; ++i) {
+		if (!(active & (1 << i)))
+			continue;
+		const Vec4<int> texcolor((int)(c[i] & 0xFFFF), (int)((c[i] >> 16) & 0xFFFF), (int)((c[i] >> 32) & 0xFFFF), (int)(c[i] >> 48));
+		const Vec4<int> prim(colors[i], colors[colorStride + i], colors[2 * colorStride + i], colors[3 * colorStride + i]);
+		const Vec4<int> out = GetTextureFunctionOutput(ToVec4IntArg(prim), ToVec4IntArg(texcolor), samplerID);
+		for (int ch = 0; ch < 4; ++ch)
+			colors[ch * colorStride + i] = out[ch];
+	}
+}
+
+template <GETextureFormat fmt, bool swizzled>
+static LinearQuadFunc PickLinearQuadClut(GEPaletteFormat clutFmt) {
+	switch (clutFmt) {
+	case GE_CMODE_16BIT_BGR5650: return &SampleLinearQuadT<fmt, swizzled, GE_CMODE_16BIT_BGR5650>;
+	case GE_CMODE_16BIT_ABGR5551: return &SampleLinearQuadT<fmt, swizzled, GE_CMODE_16BIT_ABGR5551>;
+	case GE_CMODE_16BIT_ABGR4444: return &SampleLinearQuadT<fmt, swizzled, GE_CMODE_16BIT_ABGR4444>;
+	default: return &SampleLinearQuadT<fmt, swizzled, GE_CMODE_32BIT_ABGR8888>;
+	}
+}
+
+template <GETextureFormat fmt>
+static LinearQuadFunc PickLinearQuad(const SamplerID &id) {
+	switch (fmt) {
+	case GE_TFMT_CLUT4: case GE_TFMT_CLUT8: case GE_TFMT_CLUT16: case GE_TFMT_CLUT32:
+		return id.swizzle ? PickLinearQuadClut<fmt, true>(id.ClutFmt()) : PickLinearQuadClut<fmt, false>(id.ClutFmt());
+	case GE_TFMT_DXT1: case GE_TFMT_DXT3: case GE_TFMT_DXT5:
+		return &SampleLinearQuadT<fmt, false, GE_CMODE_32BIT_ABGR8888>;
+	default:
+		return id.swizzle ? &SampleLinearQuadT<fmt, true, GE_CMODE_32BIT_ABGR8888> : &SampleLinearQuadT<fmt, false, GE_CMODE_32BIT_ABGR8888>;
+	}
+}
+
+LinearQuadFunc GetLinearQuadFunc(const SamplerID &id, LinearFunc linear) {
+	if (linear != GetLinearFallback(id))
+		return nullptr;
+	switch (id.TexFmt()) {
+	case GE_TFMT_5650: return PickLinearQuad<GE_TFMT_5650>(id);
+	case GE_TFMT_5551: return PickLinearQuad<GE_TFMT_5551>(id);
+	case GE_TFMT_4444: return PickLinearQuad<GE_TFMT_4444>(id);
+	case GE_TFMT_8888: return PickLinearQuad<GE_TFMT_8888>(id);
+	case GE_TFMT_CLUT4: return PickLinearQuad<GE_TFMT_CLUT4>(id);
+	case GE_TFMT_CLUT8: return PickLinearQuad<GE_TFMT_CLUT8>(id);
+	case GE_TFMT_CLUT16: return PickLinearQuad<GE_TFMT_CLUT16>(id);
+	case GE_TFMT_CLUT32: return PickLinearQuad<GE_TFMT_CLUT32>(id);
+	case GE_TFMT_DXT1: return PickLinearQuad<GE_TFMT_DXT1>(id);
+	case GE_TFMT_DXT3: return PickLinearQuad<GE_TFMT_DXT3>(id);
+	case GE_TFMT_DXT5: return PickLinearQuad<GE_TFMT_DXT5>(id);
+	default: return nullptr;
+	}
+}
+
+template <GETextureFormat fmt, bool swizzled>
+static LinearFunc PickLinearClut(GEPaletteFormat clutFmt) {
+	switch (clutFmt) {
+	case GE_CMODE_16BIT_BGR5650: return &SampleLinearT<fmt, swizzled, GE_CMODE_16BIT_BGR5650>;
+	case GE_CMODE_16BIT_ABGR5551: return &SampleLinearT<fmt, swizzled, GE_CMODE_16BIT_ABGR5551>;
+	case GE_CMODE_16BIT_ABGR4444: return &SampleLinearT<fmt, swizzled, GE_CMODE_16BIT_ABGR4444>;
+	default: return &SampleLinearT<fmt, swizzled, GE_CMODE_32BIT_ABGR8888>;
+	}
+}
+
+template <GETextureFormat fmt>
+static LinearFunc PickLinearDirect(bool swizzled) {
+	return swizzled ? &SampleLinearT<fmt, true, GE_CMODE_32BIT_ABGR8888> : &SampleLinearT<fmt, false, GE_CMODE_32BIT_ABGR8888>;
+}
+
+template <GETextureFormat fmt>
+static LinearFunc PickLinearIndexed(const SamplerID &id) {
+	return id.swizzle ? PickLinearClut<fmt, true>(id.ClutFmt()) : PickLinearClut<fmt, false>(id.ClutFmt());
+}
+
+static LinearFunc GetLinearFallback(const SamplerID &id) {
+	switch (id.TexFmt()) {
+	case GE_TFMT_5650: return PickLinearDirect<GE_TFMT_5650>(id.swizzle);
+	case GE_TFMT_5551: return PickLinearDirect<GE_TFMT_5551>(id.swizzle);
+	case GE_TFMT_4444: return PickLinearDirect<GE_TFMT_4444>(id.swizzle);
+	case GE_TFMT_8888: return PickLinearDirect<GE_TFMT_8888>(id.swizzle);
+	case GE_TFMT_CLUT4: return PickLinearIndexed<GE_TFMT_CLUT4>(id);
+	case GE_TFMT_CLUT8: return PickLinearIndexed<GE_TFMT_CLUT8>(id);
+	case GE_TFMT_CLUT16: return PickLinearIndexed<GE_TFMT_CLUT16>(id);
+	case GE_TFMT_CLUT32: return PickLinearIndexed<GE_TFMT_CLUT32>(id);
+	case GE_TFMT_DXT1: return &SampleLinearT<GE_TFMT_DXT1, false, GE_CMODE_32BIT_ABGR8888>;
+	case GE_TFMT_DXT3: return &SampleLinearT<GE_TFMT_DXT3, false, GE_CMODE_32BIT_ABGR8888>;
+	case GE_TFMT_DXT5: return &SampleLinearT<GE_TFMT_DXT5, false, GE_CMODE_32BIT_ABGR8888>;
+	default: return &SampleLinear;
+	}
 }
 
 };

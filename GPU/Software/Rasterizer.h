@@ -69,8 +69,12 @@ struct RasterizerState {
 	PixelFuncID pixelID;
 	SamplerID samplerID;
 	SingleFunc drawPixel;
+	// Four pixels in a row at once, where drawPixel is the C++ one.
+	SpanFunc drawSpan = nullptr;
 	Sampler::LinearFunc linear;
 	Sampler::NearestFunc nearest;
+	// Four pixels at once, where linear is the C++ fallback.
+	Sampler::LinearQuadFunc linearQuad = nullptr;
 	uint32_t texaddr[8]{};
 	uint16_t texbufw[8]{};
 	const u8 *texptr[8]{};

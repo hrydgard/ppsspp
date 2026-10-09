@@ -18,15 +18,8 @@
 #include "Common/BitScan.h"
 #include "GPU/Software/GEMath.h"
 
-// The GE's reciprocal: the top 7 bits of w's 15-bit float24 mantissa pick a segment, which the low
-// 8 bits interpolate linearly. b is the segment's start in units of 2^-17, m its slope in units of
-// 2^-23 per step, and 63 a rounding bias below half. Measured for every mantissa on hardware.
-struct GERecipSegment {
-	int32_t b;
-	int32_t m;
-};
-
-static const GERecipSegment geRecipSegments[128] = {
+// GERecip's segments (GEMath.h).
+const GERecipSegment geRecipSegments[128] = {
 	{ 131072, -254 }, { 130055, -250 }, { 129054, -246 }, { 128071, -243 }, { 127099, -239 }, { 126143, -235 }, { 125203, -232 }, { 124274, -228 },
 	{ 123361, -225 }, { 122461, -222 }, { 121574, -219 }, { 120700, -216 }, { 119836, -212 }, { 118986, -209 }, { 118150, -207 }, { 117323, -204 },
 	{ 116508, -201 }, { 115704, -198 }, { 114913, -196 }, { 114130, -193 }, { 113358, -190 }, { 112599, -188 }, { 111847, -185 }, { 111107, -183 },
@@ -44,30 +37,6 @@ static const GERecipSegment geRecipSegments[128] = {
 	{ 69906, -73 }, { 69615, -72 }, { 69327, -71 }, { 69042, -71 }, { 68759, -70 }, { 68479, -70 }, { 68200, -69 }, { 67925, -69 },
 	{ 67650, -68 }, { 67378, -67 }, { 67109, -67 }, { 66841, -66 }, { 66577, -66 }, { 66313, -65 }, { 66052, -65 }, { 65793, -64 },
 };
-
-// f * 2^n with the given sign bit, by adding n to f's exponent: f must be positive, and the result normal.
-static inline float ScaleByPow2(float f, int n, uint32_t sign) {
-	uint32_t bits;
-	memcpy(&bits, &f, sizeof(bits));
-	bits = (uint32_t)((int32_t)bits + n * (1 << 23)) | sign;
-	memcpy(&f, &bits, sizeof(f));
-	return f;
-}
-
-// w must be a normal float24. Returns a float24 (q has 16 significant bits, or is 2^16).
-float GERecip(float w) {
-	uint32_t bits;
-	memcpy(&bits, &w, sizeof(bits));
-	const uint32_t i = (bits >> 8) & 0x7FFF;
-	const int e = (int)((bits >> 23) & 0xFF) - 127;  // |w| = 1.i * 2^e
-	const GERecipSegment &seg = geRecipSegments[i >> 8];
-	const int32_t q = (64 * seg.b + 63 + seg.m * (int32_t)(i & 255)) >> 7;  // 1 / 1.i in units of 2^-16
-	if (e >= 126) {
-		// The result can be a denormal (q is at most 2^16).
-		return copysign(ldexpf((float)q, -16 - e), w);
-	}
-	return ScaleByPow2((float)q, -16 - e, bits & 0x80000000);
-}
 
 // The GE's reciprocal square root (gpu/probe exp69, bit exact): for d = 1.i * 2^E, segment i >> 8 of the
 // table for E's parity, linearly interpolated like GERecip by the low 8 bits. Even E stores 1 / sqrt(1.i),

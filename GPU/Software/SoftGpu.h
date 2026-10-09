@@ -74,6 +74,10 @@ struct DepthBuffer {
 	inline void Set16(int x, int y, int stride, u16 v) const {
 		*Get16Ptr(x, y, stride) = v;
 	}
+	// Whether the four depths from x in row y are stored together: unless they cross the end of a 16-pixel run.
+	inline bool Contiguous4(int x, int y, int stride) const {
+		return ((base + (uint32_t)(x + y * stride) * 2) & 31) <= 24;
+	}
 };
 
 enum class SoftDirty : uint64_t {
