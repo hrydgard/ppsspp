@@ -47,6 +47,7 @@ void PSPMutex::DoState(PointerWrap &p) {
 		return;
 
 	Do(p, nm);
+	TerminateLoadedCString(p, nm.name);
 	SceUID dv = 0;
 	Do(p, waitingThreads, dv);
 	Do(p, pausedWaits);
@@ -106,6 +107,7 @@ struct LwMutex : public KernelObject
 			return;
 
 		Do(p, nm);
+		TerminateLoadedCString(p, nm.name);
 		SceUID dv = 0;
 		Do(p, waitingThreads, dv);
 		Do(p, pausedWaits);

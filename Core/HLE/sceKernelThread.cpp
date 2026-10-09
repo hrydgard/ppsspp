@@ -116,6 +116,7 @@ void PSPCallback::DoState(PointerWrap &p)
 		return;
 
 	Do(p, nc);
+	TerminateLoadedCString(p, nc.name);
 	// Saved values were moved to mips call, ignoring here.
 	u32 legacySaved = 0;
 	Do(p, legacySaved);
@@ -429,6 +430,7 @@ void PSPThread::DoState(PointerWrap &p) {
 		return;
 
 	Do(p, nt);
+	TerminateLoadedCString(p, nt.name);
 	Do(p, waitInfo);
 	Do(p, moduleId);
 	Do(p, isProcessingCallbacks);
@@ -4066,6 +4068,7 @@ struct ThreadEventHandler : public KernelObject {
 			return;
 
 		Do(p, nteh);
+		TerminateLoadedCString(p, nteh.name);
 	}
 
 	NativeThreadEventHandler nteh;

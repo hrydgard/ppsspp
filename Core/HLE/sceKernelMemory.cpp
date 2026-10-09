@@ -102,6 +102,7 @@ void FPL::DoState(PointerWrap &p) {
 		return;
 
 	Do(p, nf);
+	TerminateLoadedCString(p, nf.name);
 	if (p.mode == p.MODE_READ) {
 		if (nf.numBlocks < 0 || !p.CheckRead(nf.numBlocks)) {
 			p.SetError(p.ERROR_FAILURE);
@@ -293,6 +294,7 @@ void VPL::DoState(PointerWrap &p) {
 	}
 
 	Do(p, nv);
+	TerminateLoadedCString(p, nv.name);
 	Do(p, address);
 	VplWaitingThread dv = { 0 };
 	Do(p, waitingThreads, dv);
@@ -828,7 +830,7 @@ public:
 			return;
 
 		Do(p, address);
-		DoArray(p, name, sizeof(name));
+		DoCString(p, name);
 		if (s >= 2) {
 			int allocType = BlockAllocatorToID(alloc);
 			Do(p, allocType);
@@ -1688,6 +1690,7 @@ struct TLSPL : public KernelObject {
 			return;
 
 		Do(p, ntls);
+		TerminateLoadedCString(p, ntls.name);
 		Do(p, address);
 		if (s >= 2)
 			Do(p, alignment);

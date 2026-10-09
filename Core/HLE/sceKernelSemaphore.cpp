@@ -46,6 +46,7 @@ void PSPSemaphore::DoState(PointerWrap &p) {
 		return;
 
 	Do(p, ns);
+	TerminateLoadedCString(p, ns.name);
 	SceUID dv = 0;
 	Do(p, waitingThreads, dv);
 	Do(p, pausedWaits);

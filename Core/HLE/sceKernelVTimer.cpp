@@ -59,6 +59,7 @@ struct VTimer : public KernelObject {
 			return;
 
 		Do(p, nvt);
+		TerminateLoadedCString(p, nvt.name);
 		if (s < 2) {
 			u32 memoryPtr;
 			Do(p, memoryPtr);

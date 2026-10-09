@@ -296,7 +296,7 @@ void MemSlabMap::Slab::DoState(PointerWrap &p) {
 	Do(p, pc);
 	Do(p, allocated);
 	if (s >= 3) {
-		Do(p, tag);
+		DoCString(p, tag);
 		tagLen = (uint8_t)strnlen(tag, sizeof(tag) - 1);
 	} else if (s >= 2) {
 		char shortTag[32];

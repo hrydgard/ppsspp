@@ -521,7 +521,7 @@ void BlockAllocator::Block::DoState(PointerWrap &p, bool compact)
 		Do(p, start);
 		Do(p, size);
 		Do(p, taken);
-		DoArray(p, tag, sizeof(tag));
+		DoCString(p, tag);
 		return;
 	}
 
@@ -536,5 +536,5 @@ void BlockAllocator::Block::DoState(PointerWrap &p, bool compact)
 	// This avoids saving uninitialized memory.
 	size_t tagLen = strlen(tag);
 	memset(tag + tagLen, 0, sizeof(tag) - tagLen);
-	DoArray(p, tag, sizeof(tag));
+	DoCString(p, tag);
 }
