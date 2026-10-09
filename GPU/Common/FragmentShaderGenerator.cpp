@@ -813,14 +813,15 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				}
 				// The texture size in PSP pixels (u counts bytes), not the scaled framebuffer's.
 				p.F("  %s vec2 tsize = 0.5 / u_texclamp.zw;\n", prec);
-				// The GE samples a pixel at its top left corner, the GPU at its center. That's half a texel off at most
-				// when u steps by one per pixel, but a whole byte when it steps by two: SOCOM reads the high bytes of a
-				// 5551 frame with u = 1 + 2x, and the center lands on the next pixel's low byte. So step back from the
-				// center to the PSP pixel's corner, along x (which picks the byte). scale is render pixels per PSP pixel.
+				// The GE samples at the pixel center too, but a sprite's fixed-point UV gradient falls just short unless its
+				// area is a power of two (gpu/probe exp87, exp163), so a center exactly on a byte edge reads the byte before:
+				// SOCOM reads the high bytes of a 5551 frame with u = 1 + 2x, though the center is on the next pixel's low
+				// byte. All the render pixels of a PSP pixel must read what its one sample does, so move to the PSP pixel's
+				// center along x (which picks the byte), and go 1/16 byte below it, the GE's smallest step (exp57).
+				// scale is render pixels per PSP pixel.
 				p.F("  %s float scale = float(textureSize(tex, 0).x) * 2.0 * u_texclamp.z;\n", prec);
-				p.F("  uv.x -= mod(gl_FragCoord.x, scale) * %s(uv.x);\n", compat.shaderLanguage == HLSL_D3D11 ? "ddx" : "dFdx");
-				// Then the GE's fixed point lands exactly on the texel edge, which float interpolation can fall just short of.
-				p.C("  uv_round = floor(uv * tsize + 0.01);\n");
+				p.F("  uv.x += (0.5 * scale - mod(gl_FragCoord.x, scale)) * %s(uv.x);\n", compat.shaderLanguage == HLSL_D3D11 ? "ddx" : "dFdx");
+				p.C("  uv_round = floor(uv * tsize - 0.0625);\n");
 				if (shaderDepalFmt == GE_FORMAT_8888) {
 					p.C("  int component = int(uv_round.x) & 3;\n");
 					p.C("  uv_round.x = floor(uv_round.x * 0.25);\n");
