@@ -149,11 +149,17 @@ public:
 	SoftDirty GetDirty();
 
 private:
-	ClipVertexData ReadVertex(const VertexReader &vreader, const TransformState &state);
+	// What a vertex format without UVs or a normal reads: the last ones read before it.
+	struct VertexCarry {
+		Vec3Packedf tc{};
+		float normal[3]{};
+	};
+	ClipVertexData ReadVertex(const VertexReader &vreader, const TransformState &state, VertexCarry &carry);
 	// orderReversed: verts are in the opposite order of how the GE takes the triangle (matters for clipping).
 	void SendTriangle(CullType cullType, const ClipVertexData *verts, int provoking = 2, bool orderReversed = false);
 
 	u8 *decoded_ = nullptr;
+	VertexCarry carry_;
 	BinManager *binner_ = nullptr;
 
 	// Normally max verts per prim is 3, but we temporarily need 4 to detect rectangles from strips.

@@ -298,6 +298,7 @@ tests_good = [
   "gpu/transfer/mirrors",
   "gpu/transfer/overlap",
   "gpu/triangle/triangle",
+  "gpu/vertices/carry",
   "gpu/vertices/colors",
   "gpu/vertices/morph",
   # "gpu/vertices/texcoords",  #  See issue #19093

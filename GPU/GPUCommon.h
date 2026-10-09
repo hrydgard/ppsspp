@@ -339,6 +339,8 @@ protected:
 	virtual void FastRunLoop(DisplayList &list) = 0;
 
 	bool SlowRunLoop(DisplayList &list);  // Returns false on breakpoint.
+	// Counts the cycles of the commands run since the last update, up to currentPC, and continues at newPC: the
+	// commands between are skipped (a jump), not run. Commands consumed by hand go before currentPC.
 	void UpdatePC(u32 currentPC, u32 newPC);
 	void UpdateState(GPURunState state);
 	void FastLoadBoneMatrix(u32 target);
