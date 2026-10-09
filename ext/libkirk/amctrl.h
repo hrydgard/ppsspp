@@ -41,6 +41,11 @@ typedef struct {
 	u32 file_offset;
 }PGD_DESC;
 
+// block_size comes from the file (or a savestate). Reads mask with block_size - 1, so it must be a power of two.
+static inline int pgd_valid_block_size(u32 block_size) {
+	return block_size >= 16 && block_size <= 0x100000 && (block_size & (block_size - 1)) == 0;
+}
+
 
 // type:
 //      2: use fuse id
