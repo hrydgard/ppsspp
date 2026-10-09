@@ -69,8 +69,9 @@ ReplaceAlphaType ReplaceAlphaWithStencil(ReplaceBlendType replaceBlend);
 ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat);
 
 // Fixed color blends (with FIXA as the src factor) that REPLACE_BLEND_PRE_SRC computes like the GE.
+// The math needs highp floats in the fragment shader, which some old GLES devices lack.
 inline bool IsGEExactFixedBlend(GEBlendDstFactor funcB, GEBlendMode eq) {
-	return funcB == GE_DSTBLEND_FIXB && eq == GE_BLENDMODE_MUL_AND_ADD;
+	return funcB == GE_DSTBLEND_FIXB && eq == GE_BLENDMODE_MUL_AND_ADD && gstate_c.Use(GPU_USE_FULL_PRECISION_IN_FRAGMENT);
 }
 
 // This is for the fallback path if real logic ops are not available.
