@@ -1658,28 +1658,10 @@ void FramebufferManagerCommon::CopyDisplayToOutput(const DisplayLayoutConfig &co
 	}
 }
 
-void FramebufferManagerCommon::PrepareCopyDisplayToOutput(const DisplayLayoutConfig &config, bool reallyDirty) {
-	DownloadFramebufferOnSwitch(currentRenderVfb_);
-
-	if (displayFramebufPtr_ == 0) {
-		if (GetUIState() != UISTATE_PAUSEMENU) {
-			if (Core_IsStepping())
-				VERBOSE_LOG(Log::FrameBuf, "Display disabled, displaying only black");
-			else
-				DEBUG_LOG(Log::FrameBuf, "Display disabled, displaying only black");
-		}
-		// No framebuffer to display! Clear to black.
-		presentation_->SourceBlank();
-		return;
-	}
-
-	u32 offsetX = 0;
-	u32 offsetY = 0;
-
-	// If it's not really dirty, we're probably frameskipping.  Use the last working one.
-	u32 fbaddr = reallyDirty ? displayFramebufPtr_ : prevDisplayFramebufPtr_;
-	prevDisplayFramebufPtr_ = fbaddr;
-
+// The framebuffer the display shows, and where in it: at its address, or inside a larger one.
+VirtualFramebuffer *FramebufferManagerCommon::FindDisplayVFB(u32 fbaddr, u32 *offsetX, u32 *offsetY) {
+	*offsetX = 0;
+	*offsetY = 0;
 	VirtualFramebuffer *vfb = ResolveVFB(fbaddr, displayStride_, displayFormat_);
 	if (!vfb) {
 		// Let's search for a framebuf within this range. Note that we also look for
@@ -1704,9 +1686,9 @@ void FramebufferManagerCommon::PrepareCopyDisplayToOutput(const DisplayLayoutCon
 					continue;
 				}
 				// Check for the closest one.
-				if (offsetY == 0 || offsetY > v_offsetY) {
-					offsetX = v_offsetX;
-					offsetY = v_offsetY;
+				if (*offsetY == 0 || *offsetY > v_offsetY) {
+					*offsetX = v_offsetX;
+					*offsetY = v_offsetY;
 					vfb = v;
 				}
 			}
@@ -1715,7 +1697,7 @@ void FramebufferManagerCommon::PrepareCopyDisplayToOutput(const DisplayLayoutCon
 		if (vfb) {
 			// Okay, we found one above.
 			// Log should be "Displaying from framebuf" but not worth changing the report.
-			DEBUG_LOG(Log::FrameBuf, "Rendering from framebuf with offset %08x -> %08x+%dx%d", addr, vfb->fb_address, offsetX, offsetY);
+			DEBUG_LOG(Log::FrameBuf, "Rendering from framebuf with offset %08x -> %08x+%dx%d", addr, vfb->fb_address, *offsetX, *offsetY);
 		}
 	}
 
@@ -1723,6 +1705,32 @@ void FramebufferManagerCommon::PrepareCopyDisplayToOutput(const DisplayLayoutCon
 	if (vfb && vfb->height < 64) {
 		vfb = nullptr;
 	}
+	return vfb;
+}
+
+void FramebufferManagerCommon::PrepareCopyDisplayToOutput(const DisplayLayoutConfig &config, bool reallyDirty) {
+	DownloadFramebufferOnSwitch(currentRenderVfb_);
+
+	if (displayFramebufPtr_ == 0) {
+		if (GetUIState() != UISTATE_PAUSEMENU) {
+			if (Core_IsStepping())
+				VERBOSE_LOG(Log::FrameBuf, "Display disabled, displaying only black");
+			else
+				DEBUG_LOG(Log::FrameBuf, "Display disabled, displaying only black");
+		}
+		// No framebuffer to display! Clear to black.
+		presentation_->SourceBlank();
+		return;
+	}
+
+	u32 offsetX = 0;
+	u32 offsetY = 0;
+
+	// If it's not really dirty, we're probably frameskipping.  Use the last working one.
+	u32 fbaddr = reallyDirty ? displayFramebufPtr_ : prevDisplayFramebufPtr_;
+	prevDisplayFramebufPtr_ = fbaddr;
+
+	VirtualFramebuffer *vfb = FindDisplayVFB(fbaddr, &offsetX, &offsetY);
 
 	if (!vfb) {
 		if (Memory::IsValidAddress(fbaddr)) {
@@ -3141,7 +3149,22 @@ bool FramebufferManagerCommon::GetFramebuffer(u32 fb_address, int fb_stride, GEB
 		return true;
 	}
 
+	return ReadFramebufferForDebug(vfb, 0, 0, 0, 0, buffer, maxScaleFactor);
+}
+
+bool FramebufferManagerCommon::GetDisplayFramebuffer(GPUDebugBuffer &buffer, int maxScaleFactor) {
+	u32 offsetX, offsetY;
+	VirtualFramebuffer *vfb = FindDisplayVFB(displayFramebufPtr_, &offsetX, &offsetY);
+	if (!vfb) {
+		return GetFramebuffer(displayFramebufPtr_, displayStride_, displayFormat_, buffer, maxScaleFactor);
+	}
+	return ReadFramebufferForDebug(vfb, offsetX, offsetY, 480, 272, buffer, maxScaleFactor);
+}
+
+// Reads back a framebuffer, or the w x h at x, y in it (in PSP pixels) if w isn't 0.
+bool FramebufferManagerCommon::ReadFramebufferForDebug(VirtualFramebuffer *vfb, int x, int y, int cropW, int cropH, GPUDebugBuffer &buffer, int maxScaleFactor) {
 	int w = vfb->renderWidth, h = vfb->renderHeight;
+	int scale = vfb->renderScaleFactor;
 
 	Draw::Framebuffer *bound = nullptr;
 
@@ -3149,6 +3172,7 @@ bool FramebufferManagerCommon::GetFramebuffer(u32 fb_address, int fb_stride, GEB
 		if (maxScaleFactor > 0 && vfb->renderWidth > vfb->width * maxScaleFactor) {
 			w = vfb->width * maxScaleFactor;
 			h = vfb->height * maxScaleFactor;
+			scale = maxScaleFactor;
 
 			Draw::Framebuffer *tempFBO = GetTempFBO(TempFBO::COPY, w, h);
 			VirtualFramebuffer tempVfb = *vfb;
@@ -3173,10 +3197,22 @@ bool FramebufferManagerCommon::GetFramebuffer(u32 fb_address, int fb_stride, GEB
 		buffer.SetIsBackbuffer(true);
 	}
 
+	int x0 = 0;
+	int y0 = 0;
+	if (cropW > 0 && useBufferedRendering_) {
+		x0 = std::min(x * scale, w);
+		y0 = std::min(y * scale, h);
+		w = std::min(cropW * scale, w - x0);
+		h = std::min(cropH * scale, h - y0);
+		if (w <= 0 || h <= 0) {
+			return false;
+		}
+	}
+
 	// TODO: Maybe should handle flipY inside CopyFramebufferToMemorySync somehow?
 	bool flipY = (GetGPUBackend() == GPUBackend::OPENGL && !useBufferedRendering_) ? true : false;
 	buffer.Allocate(w, h, GE_FORMAT_8888, flipY);
-	bool retval = draw_->CopyFramebufferToMemory(bound, Draw::Aspect::COLOR_BIT, 0, 0, w, h, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData(), w, Draw::ReadbackMode::BLOCK, "GetFramebuffer");
+	bool retval = draw_->CopyFramebufferToMemory(bound, Draw::Aspect::COLOR_BIT, x0, y0, w, h, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData(), w, Draw::ReadbackMode::BLOCK, "GetFramebuffer");
 
 	buffer.SetScaleFactor(vfb->renderScaleFactor);
 	// Don't need to increment gpu stats for readback count here, this is a debugger-only function.

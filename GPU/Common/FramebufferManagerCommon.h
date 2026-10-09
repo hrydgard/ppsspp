@@ -463,6 +463,8 @@ public:
 
 	// Debug features
 	virtual bool GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat format, GPUDebugBuffer &buffer, int maxRes);
+	// The 480x272 the display shows, wherever in a framebuffer it is.
+	bool GetDisplayFramebuffer(GPUDebugBuffer &buffer, int maxRes);
 	virtual bool GetDepthbuffer(u32 fb_address, int fb_stride, u32 z_address, int z_stride, GPUDebugBuffer &buffer);
 	virtual bool GetStencilbuffer(u32 fb_address, int fb_stride, GPUDebugBuffer &buffer);
 	virtual bool GetOutputFramebuffer(GPUDebugBuffer &buffer);
@@ -556,6 +558,8 @@ protected:
 	static bool ShouldDownloadFramebufferColor(const VirtualFramebuffer *vfb);
 	static bool ShouldDownloadFramebufferDepth(const VirtualFramebuffer *vfb);
 	void DownloadFramebufferOnSwitch(VirtualFramebuffer *vfb);
+	VirtualFramebuffer *FindDisplayVFB(u32 fbaddr, u32 *offsetX, u32 *offsetY);
+	bool ReadFramebufferForDebug(VirtualFramebuffer *vfb, int x, int y, int w, int h, GPUDebugBuffer &buffer, int maxScaleFactor);
 
 	bool FindTransferFramebuffer(u32 basePtr, int stride, int x, int y, int w, int h, int bpp, bool destination, BlockTransferRect *rect);
 

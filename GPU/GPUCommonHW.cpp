@@ -667,6 +667,9 @@ std::string GPUCommonHW::DebugGetShaderString(std::string id, DebugShaderType ty
 }
 
 bool GPUCommonHW::GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes) {
+	if (type == GPU_DBG_FRAMEBUF_DISPLAY) {
+		return framebufferManager_->GetDisplayFramebuffer(buffer, maxRes);
+	}
 	u32 fb_address = type == GPU_DBG_FRAMEBUF_RENDER ? (gstate.getFrameBufRawAddress() | 0x04000000) : framebufferManager_->DisplayFramebufAddr();
 	int fb_stride = type == GPU_DBG_FRAMEBUF_RENDER ? gstate.FrameBufStride() : framebufferManager_->DisplayFramebufStride();
 	GEBufferFormat format = type == GPU_DBG_FRAMEBUF_RENDER ? gstate_c.framebufFormat : framebufferManager_->DisplayFramebufFormat();
