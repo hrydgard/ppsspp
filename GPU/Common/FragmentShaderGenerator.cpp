@@ -182,8 +182,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		return false;
 	}
 
-	// Blue-to-alpha pretends 565 is 4444, so leave it alone.
-	const bool quantize16 = id.Bit(FS_BIT_QUANTIZE_16BIT) && compat.bitwiseOps && !blueToAlpha;
+	// Only Vulkan renders to 16-bit targets. Blue-to-alpha pretends 565 is 4444, so leave it alone.
+	const bool quantize16 = id.Bit(FS_BIT_QUANTIZE_16BIT) && compat.shaderLanguage == GLSL_VULKAN && !blueToAlpha;
 
 	bool needFragCoord = readFramebufferTex || gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT) || quantize16;
 	bool writeDepth = (gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT) || fsDepthClamp) && !forceDepthWritesOff && !id.Bit(FS_BIT_NO_DEPTH_WRITE);
