@@ -800,20 +800,24 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				WRITE(p, "  }\n");
 				break;
 			case ShaderDepalMode::CLUT8:
+			{
+				// Byte coordinates reach the thousands, past what fp16 (which NVIDIA's Vulkan driver uses for the
+				// default lowp) holds to a fraction, so use the best precision there is (#22481).
+				const char *prec = gstate_c.Use(GPU_USE_FULL_PRECISION_IN_FRAGMENT) ? "highp" : "mediump";
 				if (doTextureProjection) {
 					// We don't use textureProj because we need better control and it's probably not much of a savings anyway.
 					// However it is good for precision on older hardware like PowerVR.
-					p.F("  vec2 uv = %s.xy/%s.z;\n  vec2 uv_round;\n", texcoord, texcoord);
+					p.F("  %s vec2 uv = %s.xy/%s.z;\n  %s vec2 uv_round;\n", prec, texcoord, texcoord, prec);
 				} else {
-					p.F("  vec2 uv = %s.xy;\n  vec2 uv_round;\n", texcoord);
+					p.F("  %s vec2 uv = %s.xy;\n  %s vec2 uv_round;\n", prec, texcoord, prec);
 				}
 				// The texture size in PSP pixels (u counts bytes), not the scaled framebuffer's.
-				p.C("  vec2 tsize = 0.5 / u_texclamp.zw;\n");
+				p.F("  %s vec2 tsize = 0.5 / u_texclamp.zw;\n", prec);
 				// The GE samples a pixel at its top left corner, the GPU at its center. That's half a texel off at most
 				// when u steps by one per pixel, but a whole byte when it steps by two: SOCOM reads the high bytes of a
 				// 5551 frame with u = 1 + 2x, and the center lands on the next pixel's low byte. So step back from the
 				// center to the PSP pixel's corner, along x (which picks the byte). scale is render pixels per PSP pixel.
-				p.F("  float scale = float(textureSize(tex, 0).x) * 2.0 * u_texclamp.z;\n");
+				p.F("  %s float scale = float(textureSize(tex, 0).x) * 2.0 * u_texclamp.z;\n", prec);
 				p.F("  uv.x -= mod(gl_FragCoord.x, scale) * %s(uv.x);\n", compat.shaderLanguage == HLSL_D3D11 ? "ddx" : "dFdx");
 				// Then the GE's fixed point lands exactly on the texel edge, which float interpolation can fall just short of.
 				p.C("  uv_round = floor(uv * tsize + 0.01);\n");
@@ -855,6 +859,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				p.C("  index = int(((uint(index) >> ((u_depal_mask_shift_off_fmt >> 0x8u) & 0xFFu)) & (u_depal_mask_shift_off_fmt & 0xFFu)) | (((u_depal_mask_shift_off_fmt >> 0x10u) & 0xFFu) << 0x4u));\n");
 				p.C("  t = ").LoadTexture2D("pal", "ivec2(index, 0)", 0).C(";\n");
 				break;
+			}
 			}
 
 			WRITE(p, "  vec4 p = v_color0;\n");
