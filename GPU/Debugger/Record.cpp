@@ -102,8 +102,25 @@ void Recorder::DirtyAllVRAM(DirtyVRAMFlag flag) {
 }
 
 void Recorder::DirtyVRAM(u32 start, u32 sz, DirtyVRAMFlag flag) {
-	u32 count = (sz + DIRTY_VRAM_ROUND) >> DIRTY_VRAM_SHIFT;
+	if (sz == 0)
+		return;
+	// Every block the range touches, also when it starts partway into one. Only CLEAN (the dump has the data)
+	// leaves out partly covered blocks at the ends, since the rest of those isn't in the dump.
 	u32 first = (start >> DIRTY_VRAM_SHIFT) & DIRTY_VRAM_MASK;
+	u32 count = ((start & DIRTY_VRAM_ROUND) + sz + DIRTY_VRAM_ROUND) >> DIRTY_VRAM_SHIFT;
+	if (flag == DirtyVRAMFlag::CLEAN) {
+		if ((start & DIRTY_VRAM_ROUND) != 0) {
+			first++;
+			count--;
+		}
+		if (count > 0 && ((start + sz) & DIRTY_VRAM_ROUND) != 0)
+			count--;
+		// Past the end of VRAM, only what's inside is in the dump.
+		if (first + count > DIRTY_VRAM_SIZE)
+			count = first < DIRTY_VRAM_SIZE ? DIRTY_VRAM_SIZE - first : 0;
+		if (count == 0)
+			return;
+	}
 	if (first + count > DIRTY_VRAM_SIZE) {
 		DirtyAllVRAM(flag);
 		return;
@@ -365,7 +382,8 @@ u32 Recorder::GetTargetFlags(u32 addr, u32 sizeInRAM) {
 	bool isDirtyVRAM = false;
 	bool isDrawnVRAM = false;
 	uint32_t start = (addr >> DIRTY_VRAM_SHIFT) & DIRTY_VRAM_MASK;
-	uint32_t blocks = (sizeInRAM + DIRTY_VRAM_ROUND) >> DIRTY_VRAM_SHIFT;
+	// Every block the range touches, also when it starts partway into one.
+	uint32_t blocks = sizeInRAM == 0 ? 0 : ((addr & DIRTY_VRAM_ROUND) + sizeInRAM + DIRTY_VRAM_ROUND) >> DIRTY_VRAM_SHIFT;
 	if (start + blocks >= DIRTY_VRAM_SIZE)
 		return 0;
 	bool startEven = (addr & DIRTY_VRAM_ROUND) == 0;
@@ -376,9 +394,9 @@ u32 Recorder::GetTargetFlags(u32 addr, u32 sizeInRAM) {
 		isDirtyVRAM = isDirtyVRAM || flag != DirtyVRAMFlag::CLEAN;
 		isDrawnVRAM = isDrawnVRAM || flag == DirtyVRAMFlag::DRAWN;
 
-		// Mark the VRAM clean now that it's been copied to VRAM.
+		// Mark the VRAM clean now that it's been copied to the dump, except partly covered blocks at the ends.
 		if (flag == DirtyVRAMFlag::UNKNOWN || flag == DirtyVRAMFlag::DIRTY) {
-			if ((i > 0 || startEven) && (i < blocks || endEven))
+			if ((i > 0 || startEven) && (i + 1 < blocks || endEven))
 				dirtyVRAM[start + i] = DirtyVRAMFlag::CLEAN;
 		}
 	}
