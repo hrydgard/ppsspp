@@ -153,8 +153,12 @@ inline float GERowSum(const GERowTerm *terms, int count) {
 	int32_t sum = 0;
 	for (int i = 0; i < count; ++i) {
 		const int32_t m = terms[i].mantissa;
+		if (m == 0) {
+			// Its lsbExp may be INT_MIN.
+			continue;
+		}
 		const int shift = lsbExp - terms[i].lsbExp;
-		if (m != 0 && shift < 32) {
+		if (shift < 32) {
 			sum += m < 0 ? -(-m >> shift) : (m >> shift);
 		}
 	}

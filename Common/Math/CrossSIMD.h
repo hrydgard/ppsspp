@@ -1664,14 +1664,16 @@ struct Vec4S32 {
 
 	int operator[](size_t index) const { return v[index]; }
 
+	// Wrapping, like the SIMD versions: signed overflow would be undefined, and GCC and Clang don't agree on it.
+	static int32_t Wrap(uint32_t x) { return (int32_t)x; }
 	Vec4S32 operator +(Vec4S32 other) const {
-		return Vec4S32{ { v[0] + other.v[0], v[1] + other.v[1], v[2] + other.v[2], v[3] + other.v[3], } };
+		return Vec4S32{ { Wrap((uint32_t)v[0] + (uint32_t)other.v[0]), Wrap((uint32_t)v[1] + (uint32_t)other.v[1]), Wrap((uint32_t)v[2] + (uint32_t)other.v[2]), Wrap((uint32_t)v[3] + (uint32_t)other.v[3]), } };
 	}
 	Vec4S32 operator -(Vec4S32 other) const {
-		return Vec4S32{ { v[0] - other.v[0], v[1] - other.v[1], v[2] - other.v[2], v[3] - other.v[3], } };
+		return Vec4S32{ { Wrap((uint32_t)v[0] - (uint32_t)other.v[0]), Wrap((uint32_t)v[1] - (uint32_t)other.v[1]), Wrap((uint32_t)v[2] - (uint32_t)other.v[2]), Wrap((uint32_t)v[3] - (uint32_t)other.v[3]), } };
 	}
 	Vec4S32 operator *(Vec4S32 other) const {
-		return Vec4S32{ { v[0] * other.v[0], v[1] * other.v[1], v[2] * other.v[2], v[3] * other.v[3], } };
+		return Vec4S32{ { Wrap((uint32_t)v[0] * (uint32_t)other.v[0]), Wrap((uint32_t)v[1] * (uint32_t)other.v[1]), Wrap((uint32_t)v[2] * (uint32_t)other.v[2]), Wrap((uint32_t)v[3] * (uint32_t)other.v[3]), } };
 	}
 	// TODO: Can optimize the bitwise ones with 64-bit operations.
 	Vec4S32 operator |(Vec4S32 other) const {
@@ -1691,11 +1693,11 @@ struct Vec4S32 {
 	void operator &=(Vec4S32 other) { for (int i = 0; i < 4; i++) v[i] &= other.v[i]; }
 	void operator |=(Vec4S32 other) { for (int i = 0; i < 4; i++) v[i] |= other.v[i]; }
 	void operator ^=(Vec4S32 other) { for (int i = 0; i < 4; i++) v[i] ^= other.v[i]; }
-	void operator +=(Vec4S32 other) { for (int i = 0; i < 4; i++) v[i] += other.v[i]; }
-	void operator -=(Vec4S32 other) { for (int i = 0; i < 4; i++) v[i] -= other.v[i]; }
+	void operator +=(Vec4S32 other) { *this = *this + other; }
+	void operator -=(Vec4S32 other) { *this = *this - other; }
 
 	template<int imm>
-	Vec4S32 Shl() const { return Vec4S32{ { v[0] << imm, v[1] << imm, v[2] << imm, v[3] << imm } }; }
+	Vec4S32 Shl() const { return Vec4S32{ { Wrap((uint32_t)v[0] << imm), Wrap((uint32_t)v[1] << imm), Wrap((uint32_t)v[2] << imm), Wrap((uint32_t)v[3] << imm) } }; }
 	// Arithmetic: shifts in copies of the sign bit.
 	template<int imm>
 	Vec4S32 Shr() const { return Vec4S32{ { v[0] >> imm, v[1] >> imm, v[2] >> imm, v[3] >> imm } }; }
@@ -2166,8 +2168,13 @@ inline Vec4U16 SignBits32ToMaskU16(Vec4S32 v) {
 	return Vec4U16{ { (uint16_t)(v.v[0] >> 31), (uint16_t)(v.v[1] >> 31), (uint16_t)(v.v[2] >> 31), (uint16_t)(v.v[3] >> 31),  } };
 }
 
+// Like SSE: out of range (and NaN) gives INT_MIN. A plain cast is undefined there, and RISC-V gives INT_MAX for NaN.
+inline int32_t F32ToS32Truncate(float f) {
+	return (f >= -2147483648.0f && f < 2147483648.0f) ? (int32_t)f : INT32_MIN;
+}
+
 inline Vec4S32 Vec4S32FromF32(Vec4F32 f) {
-	return Vec4S32{ { (int32_t)f.v[0], (int32_t)f.v[1], (int32_t)f.v[2], (int32_t)f.v[3] } };
+	return Vec4S32{ { F32ToS32Truncate(f.v[0]), F32ToS32Truncate(f.v[1]), F32ToS32Truncate(f.v[2]), F32ToS32Truncate(f.v[3]) } };
 }
 
 inline Vec4F32 Vec4F32FromS32(Vec4S32 f) {
