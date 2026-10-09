@@ -898,6 +898,9 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 	};
 
 	GLRect2D scissorRc = { -1, -1, -1, -1 };
+	// GL_DEPTH_STENCIL_TEXTURE_MODE needs GL 4.3 or GLES 3.1. Without it a depth-stencil texture samples depth,
+	// and setting the mode is an error (Apple's GL 4.1).
+	const bool stencilTexturing = gl_extensions.ARB_stencil_texturing || (gl_extensions.IsGLES && gl_extensions.VersionGEThan(3, 1));
 
 	CHECK_GL_ERROR_IF_DEBUG();
 	auto &commands = step.commands;
@@ -1219,15 +1222,19 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 					glBindTexture(GL_TEXTURE_2D, c.bind_fb_texture.framebuffer->z_stencil_texture.texture);
 					curTex[slot] = &c.bind_fb_texture.framebuffer->z_stencil_texture;
 				}
-				// This should be uncommon, so always set the mode.
-				glTexParameteri(GL_TEXTURE_2D, GL_DEPTH_STENCIL_TEXTURE_MODE, GL_DEPTH_COMPONENT);
+				// This should be uncommon, so always set the mode (where it exists).
+				if (stencilTexturing) {
+					glTexParameteri(GL_TEXTURE_2D, GL_DEPTH_STENCIL_TEXTURE_MODE, GL_DEPTH_COMPONENT);
+				}
 			} else if (c.bind_fb_texture.aspect == GL_STENCIL_BUFFER_BIT) {
 				if (curTex[slot] != &c.bind_fb_texture.framebuffer->z_stencil_texture) {
 					glBindTexture(GL_TEXTURE_2D, c.bind_fb_texture.framebuffer->z_stencil_texture.texture);
 					curTex[slot] = &c.bind_fb_texture.framebuffer->z_stencil_texture;
 				}
-				// This should be uncommon, so always set the mode.
-				glTexParameteri(GL_TEXTURE_2D, GL_DEPTH_STENCIL_TEXTURE_MODE, GL_STENCIL_INDEX);
+				// This should be uncommon, so always set the mode (where it exists).
+				if (stencilTexturing) {
+					glTexParameteri(GL_TEXTURE_2D, GL_DEPTH_STENCIL_TEXTURE_MODE, GL_STENCIL_INDEX);
+				}
 			} else {
 				curTex[slot] = nullptr;
 			}
