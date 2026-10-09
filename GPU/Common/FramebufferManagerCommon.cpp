@@ -3169,20 +3169,19 @@ bool FramebufferManagerCommon::ReadFramebufferForDebug(VirtualFramebuffer *vfb, 
 	Draw::Framebuffer *bound = nullptr;
 
 	if (vfb->fbo) {
-		if (maxScaleFactor > 0 && vfb->renderWidth > vfb->width * maxScaleFactor) {
-			w = vfb->width * maxScaleFactor;
-			h = vfb->height * maxScaleFactor;
+		// Scale down the whole buffer: the crop below may be anywhere in it, past the drawn width (a display at an offset).
+		if (maxScaleFactor > 0 && vfb->renderScaleFactor > maxScaleFactor) {
+			w = vfb->bufferWidth * maxScaleFactor;
+			h = vfb->bufferHeight * maxScaleFactor;
 			scale = maxScaleFactor;
 
 			Draw::Framebuffer *tempFBO = GetTempFBO(TempFBO::COPY, w, h);
 			VirtualFramebuffer tempVfb = *vfb;
 			tempVfb.fbo = tempFBO;
-			tempVfb.bufferWidth = vfb->width;
-			tempVfb.bufferHeight = vfb->height;
 			tempVfb.renderWidth = w;
 			tempVfb.renderHeight = h;
 			tempVfb.renderScaleFactor = maxScaleFactor;
-			BlitFramebuffer(&tempVfb, 0, 0, vfb, 0, 0, vfb->width, vfb->height, 0, RASTER_COLOR, "Blit_GetFramebuffer");
+			BlitFramebuffer(&tempVfb, 0, 0, vfb, 0, 0, vfb->bufferWidth, vfb->bufferHeight, 0, RASTER_COLOR, "Blit_GetFramebuffer");
 
 			bound = tempFBO;
 		} else {
