@@ -45,6 +45,15 @@ static const GERecipSegment geRecipSegments[128] = {
 	{ 67650, -68 }, { 67378, -67 }, { 67109, -67 }, { 66841, -66 }, { 66577, -66 }, { 66313, -65 }, { 66052, -65 }, { 65793, -64 },
 };
 
+// f * 2^n with the given sign bit, by adding n to f's exponent: f must be positive, and the result normal.
+static inline float ScaleByPow2(float f, int n, uint32_t sign) {
+	uint32_t bits;
+	memcpy(&bits, &f, sizeof(bits));
+	bits = (uint32_t)((int32_t)bits + n * (1 << 23)) | sign;
+	memcpy(&f, &bits, sizeof(f));
+	return f;
+}
+
 // w must be a normal float24. Returns a float24 (q has 16 significant bits, or is 2^16).
 float GERecip(float w) {
 	uint32_t bits;
@@ -53,7 +62,11 @@ float GERecip(float w) {
 	const int e = (int)((bits >> 23) & 0xFF) - 127;  // |w| = 1.i * 2^e
 	const GERecipSegment &seg = geRecipSegments[i >> 8];
 	const int32_t q = (64 * seg.b + 63 + seg.m * (int32_t)(i & 255)) >> 7;  // 1 / 1.i in units of 2^-16
-	return copysign(ldexpf((float)q, -16 - e), w);
+	if (e >= 126) {
+		// The result can be a denormal (q is at most 2^16).
+		return copysign(ldexpf((float)q, -16 - e), w);
+	}
+	return ScaleByPow2((float)q, -16 - e, bits & 0x80000000);
 }
 
 // The GE's reciprocal square root (gpu/probe exp69, bit exact): for d = 1.i * 2^E, segment i >> 8 of the
@@ -106,7 +119,35 @@ float GERsqrt(float d) {
 	const int e = (int)((bits >> 23) & 0xFF) - 127;
 	const GERecipSegment &seg = geRsqrtSegments[e & 1][i >> 8];
 	const int32_t q = (64 * seg.b + 63 + seg.m * (int32_t)(i & 255)) >> 7;
-	return ldexpf((float)q, -16 - (e >> 1));
+	return ScaleByPow2((float)q, -16 - (e >> 1), 0);
+}
+
+Vec4F32 GEAdd4Fallback(Vec4F32 a, Vec4F32 b, Vec4S32 lanes, Vec4F32 result) {
+	alignas(16) float av[4], bv[4], rv[4];
+	alignas(16) int lv[4];
+	a.Store(av);
+	b.Store(bv);
+	result.Store(rv);
+	lanes.Store(lv);
+	for (int i = 0; i < 4; ++i) {
+		if (lv[i])
+			rv[i] = GEAdd(av[i], bv[i]);
+	}
+	return Vec4F32::Load(rv);
+}
+
+Vec4F32 GEMulFloat24x4Fallback(Vec4F32 a, Vec4F32 b, Vec4S32 lanes, Vec4F32 result) {
+	alignas(16) float av[4], bv[4], rv[4];
+	alignas(16) int lv[4];
+	a.Store(av);
+	b.Store(bv);
+	result.Store(rv);
+	lanes.Store(lv);
+	for (int i = 0; i < 4; ++i) {
+		if (lv[i])
+			rv[i] = ProductToFloat24((double)TruncateToFloat24(av[i]) * TruncateToFloat24(bv[i]));
+	}
+	return Vec4F32::Load(rv);
 }
 
 float GEAddFloat24(float a, float b) {
@@ -114,6 +155,27 @@ float GEAddFloat24(float a, float b) {
 }
 
 // A dot product as the GE's dot product unit sums it (like a matrix row without translation).
+Vec4F32 GERowSum4Fallback(Vec4F32 a, const Vec4F32 b[4], int count, Vec4S32 lanes, Vec4F32 result) {
+	alignas(16) float av[4], bv[4][4], rv[4];
+	alignas(16) int lv[4];
+	a.Store(av);
+	for (int k = 0; k < 4; ++k)
+		av[k] = TruncateToFloat24(av[k]);
+	for (int k = 0; k < count; ++k)
+		Vec4F32(b[k]).Store(bv[k]);
+	result.Store(rv);
+	lanes.Store(lv);
+	for (int i = 0; i < 4; ++i) {
+		if (!lv[i])
+			continue;
+		GERowTerm terms[4];
+		for (int k = 0; k < count; ++k)
+			terms[k] = GEProduct(av[k], bv[k][i]);
+		rv[i] = GERowSum(terms, count);
+	}
+	return Vec4F32::Load(rv);
+}
+
 float GEDot(const Vec3f &a, const Vec3f &b) {
 	GERowTerm terms[3] = {
 		GEProduct(TruncateToFloat24(a.x), TruncateToFloat24(b.x)),

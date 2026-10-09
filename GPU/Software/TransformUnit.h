@@ -118,7 +118,7 @@ public:
 	TransformUnit();
 	~TransformUnit();
 
-	static WorldCoords ModelToWorldNormal(const ModelCoords& coords);
+	static Vec4F32 ModelToWorldNormal(Vec4F32 normal);
 	static ScreenCoords ClipToScreen(const ClipCoords &coords, bool *outsideRangeFlag);
 	// Where an edge from an inside vertex crosses the near plane, as the GE computes it.
 	static float NearPlaneT(const ClipCoords &in, const ClipCoords &out);
@@ -152,7 +152,7 @@ private:
 	// What a vertex format without UVs or a normal reads: the last ones read before it.
 	struct VertexCarry {
 		Vec3Packedf tc{};
-		float normal[3]{};
+		float normal[4]{};
 	};
 	ClipVertexData ReadVertex(const VertexReader &vreader, const TransformState &state, VertexCarry &carry);
 	// orderReversed: verts are in the opposite order of how the GE takes the triangle (matters for clipping).

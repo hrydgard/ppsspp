@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include "Common/Math/CrossSIMD.h"
 #include "TransformUnit.h"
 
 namespace Lighting {
@@ -24,9 +25,11 @@ namespace Lighting {
 struct State {
 	struct {
 		// Pre-normalized if directional.
-		Vec3f pos;
-		Vec3f att;
-		Vec3f spotDir;
+		Vec4F32 pos;
+		// Point and spot lights: the position minus the world translation, the light vector's constant term.
+		Vec4F32 translated;
+		Vec4F32 att;
+		Vec4F32 spotDir;
 		float spotDirRsqrt;
 		float spotCutoff;
 		float spotExp;
@@ -54,7 +57,7 @@ struct State {
 
 	Vec4<int> baseAmbientColorFactor;
 	float specularExp;
-	Vec3f viewDir;
+	Vec4F32 viewDir;
 
 	struct {
 		bool colorForAmbient : 1;
@@ -69,8 +72,8 @@ struct State {
 
 void ComputeState(State *state, bool hasColor0);
 
-// worldnormal isn't normalized; normalRsqrt is its reciprocal length.
-void GenerateLightST(VertexData &vertex, const Vec3f &modelpos, const WorldCoords &worldnormal, float normalRsqrt, const Vec3f &viewDir);
-void Process(VertexData &vertex, const Vec3f &modelpos, const WorldCoords &worldnormal, float normalRsqrt, const State &state);
+// modelpos is (x, y, z, 1). worldnormal isn't normalized; normalRsqrt is its reciprocal length.
+void GenerateLightST(VertexData &vertex, Vec4F32 modelpos, Vec4F32 worldnormal, float normalRsqrt, Vec4F32 viewDir);
+void Process(VertexData &vertex, Vec4F32 modelpos, Vec4F32 worldnormal, float normalRsqrt, const State &state);
 
 }

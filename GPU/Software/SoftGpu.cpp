@@ -1283,8 +1283,8 @@ void SoftGPU::Execute_TgenMtxData(u32 op, u32 diff) {
 		u32 newVal = op << 8;
 		if (newVal != *target) {
 			*target = newVal;
-			// This is mainly used in vertex read, but also affects if we enable texture projection.
-			dirtyFlags_ |= SoftDirty::RAST_TEX;
+			// TransformState keeps its rows, and it also affects if we enable texture projection.
+			dirtyFlags_ |= SoftDirty::TRANSFORM_MATRIX | SoftDirty::RAST_TEX;
 		}
 	}
 
