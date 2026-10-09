@@ -2659,6 +2659,12 @@ static u32 sctrlHENSetStartModuleHandler(u32 handlerAddr) {
 	return hleLogInfo(Log::sceModule, previous, "handler %08x", handlerAddr);
 }
 
+// NID 0x78E46415, per JPCSP's SystemCtrlForKernel. Imported by CLANNAD's chfont.prx to look up
+// a driver by name; since no real driver patching is done, always report it as found.
+static u32 sctrlHENFindDriver(const char *drvname) {
+	return hleLogInfo(Log::sceModule, 0, "driver %s", drvname ? drvname : "(null)");
+}
+
 int __KernelStartModule(SceUID moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, SceKernelSMOption *smoption, bool *needsWait) {
 	if (needsWait) {
 		*needsWait = false;
@@ -3393,6 +3399,7 @@ void Register_ModuleMgrForKernel() {
 
 static const HLEFunction SystemCtrlForKernel[] = {
 	{0x1C90BECB, &WrapU_U<sctrlHENSetStartModuleHandler>, "sctrlHENSetStartModuleHandler", 'x', "x", HLE_KERNEL_SYSCALL},
+	{0x78E46415, &WrapU_C<sctrlHENFindDriver>,            "sctrlHENFindDriver",              'x', "s", HLE_KERNEL_SYSCALL},
 };
 
 void Register_SystemCtrlForKernel() {

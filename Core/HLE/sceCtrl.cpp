@@ -656,6 +656,9 @@ static const HLEFunction sceCtrl[] =
 	// sceCtrl_driver's NID for sceCtrlPeekBufferPositive in 3.71. Imported by NJEMU's SystemButtons.prx
 	// kernel plugin, which picks it when sceKernelDevkitVersion() is 3.71 or newer (#8925).
 	{0XC4AAD55F, &WrapI_UU<sceCtrlPeekBufferPositive>,     "sceCtrlPeekBufferPositive",        'i', "xx"},
+	// sceCtrl_driver NID for sceCtrlReadBufferPositive (firmware 3.71+, per JPCSP).
+	// Imported by translation-patch loaders like CLANNAD's chfont.prx.
+	{0X454455AC, &WrapI_UU<sceCtrlReadBufferPositive>,     "sceCtrlReadBufferPositive",        'i', "xx"},
 };
 
 void Register_sceCtrl()
