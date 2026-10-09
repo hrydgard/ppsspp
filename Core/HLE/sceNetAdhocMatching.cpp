@@ -1146,6 +1146,54 @@ void actOnByePacket(SceNetAdhocMatchingContext * context, SceNetEtherAddr * send
 }
 
 
+static void freeThreadMessages(ThreadMessage *msg) {
+	while (msg != NULL) {
+		ThreadMessage *next = msg->next;
+		free(msg);
+		msg = next;
+	}
+}
+
+// Sends a list detached from input_stack, and frees it. Runs without inputlock held: the send
+// functions take peerlock, and the lock order is peerlock -> inputlock.
+static int sendInputMessages(SceNetAdhocMatchingContext *context, ThreadMessage *msg) {
+	int count = 0;
+	while (msg != NULL) {
+		// Default Optional Data
+		void* opt = NULL;
+
+		// Grab Optional Data
+		if (msg->optlen > 0) opt = ((u8*)msg) + sizeof(ThreadMessage);
+
+		// Send Accept Packet
+		if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_ACCEPT) sendAcceptPacket(context, &msg->mac, msg->optlen, opt);
+
+		// Send Join Packet
+		else if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_JOIN) sendJoinPacket(context, &msg->mac, msg->optlen, opt);
+
+		// Send Cancel Packet
+		else if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_CANCEL) sendCancelPacket(context, &msg->mac, msg->optlen, opt);
+
+		// Send Bulk Data Packet
+		else if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_BULK) sendBulkDataPacket(context, &msg->mac, msg->optlen, opt);
+
+		// Send Birth Packet
+		else if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_BIRTH) sendBirthPacket(context, &msg->mac);
+
+		// Send Death Packet
+		else if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_DEATH) sendDeathPacket(context, &msg->mac);
+
+		// Cancel Bulk Data Transfer (does nothing as of now as we fire and forget anyway) // Do we need to check DeathPacket and ByePacket here?
+		//else if(msg->opcode == PSP_ADHOC_MATCHING_PACKET_BULK_ABORT) sendAbortBulkDataPacket(context, &msg->mac, msg->optlen, opt);
+
+		ThreadMessage *next = msg->next;
+		free(msg);
+		msg = next;
+		count++;
+	}
+	return count;
+}
+
 /**
 * TODO: This really should be a callback or event!
 * Matching Event Dispatcher Thread
@@ -1181,11 +1229,15 @@ int matchingEventThread(int matchingId) {
 
 			// Messages on Stack ready for processing
 			while (context != NULL && context->event_stack != NULL) {
-				// Claim Stack
+				// Pop one message and handle it unlocked. The lock order is adhocEvtMtx -> peerlock ->
+				// eventlock, and notifyMatchingHandler takes adhocEvtMtx.
 				context->eventlock->lock();
-
-				// Iterate Message List
 				ThreadMessage * msg = context->event_stack;
+				if (msg != NULL) {
+					context->event_stack = msg->next;
+				}
+				context->eventlock->unlock();
+
 				if (msg != NULL) {
 					// Default Optional Data
 					void* opt = NULL;
@@ -1196,8 +1248,6 @@ int matchingEventThread(int matchingId) {
 					// Log Matching Events
 					INFO_LOG(Log::sceNet, "EventLoop[%d]: Matching Event [%d=%s][%s] OptSize=%d", matchingId, msg->opcode, getMatchingEventStr(msg->opcode), mac2str(&msg->mac).c_str(), msg->optlen);
 
-					// Unlock to prevent race-condition with other threads due to recursive lock
-					//context->eventlock->unlock();
 					// Call Event Handler
 					//context->handler(context->id, msg->opcode, &msg->mac, msg->optlen, opt);
 					// Notify Event Handlers
@@ -1207,17 +1257,9 @@ int matchingEventThread(int matchingId) {
 					// Must Not be delayed too long to prevent desync/disconnect. Not longer than the delays on callback's HLE?
 					//sleep_ms(10); //sceKernelDelayThread(10000);
 
-					// Lock again
-					//context->eventlock->lock();
-
-					// Pop event stack from front (this should be queue instead of stack?)
-					context->event_stack = msg->next;
 					free(msg);
 					msg = NULL;
 				}
-
-				// Unlock Stack
-				context->eventlock->unlock();
 			}
 
 			// Share CPU Time
@@ -1230,12 +1272,15 @@ int matchingEventThread(int matchingId) {
 
 		// Process Last Messages
 		if (contexts != NULL && context->event_stack != NULL) {
-			// Claim Stack
+			// Detach the stack, then handle it unlocked (see above)
 			context->eventlock->lock();
+			ThreadMessage * stack = context->event_stack;
+			context->event_stack = NULL;
+			context->eventlock->unlock();
 
 			// Iterate Message List
 			int msg_count = 0;
-			ThreadMessage * msg = context->event_stack;
+			ThreadMessage * msg = stack;
 			for (; msg != NULL; msg = msg->next) {
 				// Default Optional Data
 				void * opt = NULL;
@@ -1245,20 +1290,16 @@ int matchingEventThread(int matchingId) {
 
 				INFO_LOG(Log::sceNet, "EventLoop[%d]: Matching Event [EVENT=%d]\n", matchingId, msg->opcode);
 
-				//context->eventlock->unlock();
 				// Original Call Event Handler
 				//context->handler(context->id, msg->opcode, &msg->mac, msg->optlen, opt);
 				// Notify Event Handlers
 				notifyMatchingHandler(context, msg, opt, bufAddr, bufLen, args);
-				//context->eventlock->lock();
 				msg_count++;
 			}
 
-			// Clear Event Message Stack
+			// Free the detached messages, and anything linked since
+			freeThreadMessages(stack);
 			clearStack(context, PSP_ADHOC_MATCHING_EVENT_STACK);
-
-			// Free Stack
-			context->eventlock->unlock();
 			INFO_LOG(Log::sceNet, "EventLoop[%d]: Finished (%d msg)", matchingId, msg_count);
 		}
 
@@ -1355,49 +1396,11 @@ int matchingInputThread(int matchingId) { // TODO: The MatchingInput thread is u
 				if (context->input_stack != NULL) {
 					// Claim Stack
 					context->inputlock->lock();
-
-					// Iterate Message List
-					ThreadMessage* msg = context->input_stack;
-					while (msg != NULL) {
-						// Default Optional Data
-						void* opt = NULL;
-
-						// Grab Optional Data
-						if (msg->optlen > 0) opt = ((u8*)msg) + sizeof(ThreadMessage);
-
-						//context->inputlock->unlock(); // Unlock to prevent race condition when locking peerlock
-
-						// Send Accept Packet
-						if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_ACCEPT) sendAcceptPacket(context, &msg->mac, msg->optlen, opt);
-
-						// Send Join Packet
-						else if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_JOIN) sendJoinPacket(context, &msg->mac, msg->optlen, opt);
-
-						// Send Cancel Packet
-						else if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_CANCEL) sendCancelPacket(context, &msg->mac, msg->optlen, opt);
-
-						// Send Bulk Data Packet
-						else if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_BULK) sendBulkDataPacket(context, &msg->mac, msg->optlen, opt);
-
-						// Send Birth Packet
-						else if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_BIRTH) sendBirthPacket(context, &msg->mac);
-
-						// Send Death Packet
-						else if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_DEATH) sendDeathPacket(context, &msg->mac);
-
-						// Cancel Bulk Data Transfer (does nothing as of now as we fire and forget anyway) // Do we need to check DeathPacket and ByePacket here?
-						//else if(msg->opcode == PSP_ADHOC_MATCHING_PACKET_BULK_ABORT) sendAbortBulkDataPacket(context, &msg->mac, msg->optlen, opt);
-
-						//context->inputlock->lock(); // Lock again
-
-						// Pop input stack from front (this should be queue instead of stack?)
-						context->input_stack = msg->next;
-						free(msg);
-						msg = context->input_stack;
-					}
-
-					// Free Stack
+					ThreadMessage* stack = context->input_stack;
+					context->input_stack = NULL;
 					context->inputlock->unlock();
+
+					sendInputMessages(context, stack);
 				}
 
 				// Receive PDP Datagram
@@ -1494,47 +1497,11 @@ int matchingInputThread(int matchingId) { // TODO: The MatchingInput thread is u
 			if (context->input_stack != NULL) {
 				// Claim Stack
 				context->inputlock->lock();
-
-				// Iterate Message List
-				int msg_count = 0;
-				ThreadMessage* msg = context->input_stack;
-				while (msg != NULL) {
-					// Default Optional Data
-					void* opt = NULL;
-
-					// Grab Optional Data
-					if (msg->optlen > 0) opt = ((u8*)msg) + sizeof(ThreadMessage);
-
-					// Send Accept Packet
-					if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_ACCEPT) sendAcceptPacket(context, &msg->mac, msg->optlen, opt);
-
-					// Send Join Packet
-					else if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_JOIN) sendJoinPacket(context, &msg->mac, msg->optlen, opt);
-
-					// Send Cancel Packet
-					else if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_CANCEL) sendCancelPacket(context, &msg->mac, msg->optlen, opt);
-
-					// Send Bulk Data Packet
-					else if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_BULK) sendBulkDataPacket(context, &msg->mac, msg->optlen, opt);
-
-					// Send Birth Packet
-					else if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_BIRTH) sendBirthPacket(context, &msg->mac);
-
-					// Send Death Packet
-					else if (msg->opcode == PSP_ADHOC_MATCHING_PACKET_DEATH) sendDeathPacket(context, &msg->mac);
-
-					// Cancel Bulk Data Transfer (does nothing as of now as we fire and forget anyway) // Do we need to check DeathPacket and ByePacket here?
-					//else if(msg->opcode == PSP_ADHOC_MATCHING_PACKET_BULK_ABORT) sendAbortBulkDataPacket(context, &msg->mac, msg->optlen, opt);
-
-					// Pop input stack from front (this should be queue instead of stack?)
-					context->input_stack = msg->next;
-					free(msg);
-					msg = context->input_stack;
-					msg_count++;
-				}
-
-				// Free Stack
+				ThreadMessage* stack = context->input_stack;
+				context->input_stack = NULL;
 				context->inputlock->unlock();
+
+				int msg_count = sendInputMessages(context, stack);
 				INFO_LOG(Log::sceNet, "InputLoop[%d]: Finished (%d msg)", matchingId, msg_count);
 			}
 
