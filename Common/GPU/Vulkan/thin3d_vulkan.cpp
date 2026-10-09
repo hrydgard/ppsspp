@@ -1797,6 +1797,9 @@ uint32_t VKContext::GetDataFormatSupport(DataFormat fmt) const {
 	}
 
 	VkFormat vulkan_format = DataFormatToVulkan(fmt);
+	if (vulkan_format == VK_FORMAT_UNDEFINED) {
+		return 0;
+	}
 	VkFormatProperties properties;
 	vkGetPhysicalDeviceFormatProperties(vulkan_->GetCurrentPhysicalDevice(), vulkan_format, &properties);
 	uint32_t flags = 0;

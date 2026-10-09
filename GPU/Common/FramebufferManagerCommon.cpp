@@ -1819,18 +1819,19 @@ Draw::DataFormat FramebufferManagerCommon::ColorTargetFormat(GEBufferFormat form
 	if (!gstate_c.Use(GPU_USE_16BIT_RENDER_TARGETS)) {
 		return Draw::DataFormat::R8G8B8A8_UNORM;
 	}
-	Draw::DataFormat target;
-	switch (format) {
-	case GE_FORMAT_565: target = Draw::DataFormat::R5G6B5_UNORM_PACK16; break;
-	case GE_FORMAT_5551: target = Draw::DataFormat::A1R5G5B5_UNORM_PACK16; break;
-	case GE_FORMAT_4444: target = Draw::DataFormat::B4G4R4A4_UNORM_PACK16; break;
-	default: return Draw::DataFormat::R8G8B8A8_UNORM;
-	}
-	// 4444 isn't required to be renderable. The shader still truncates to it.
-	if (!(draw_->GetDataFormatSupport(target) & Draw::FMT_RENDERTARGET)) {
+	if (format == GE_FORMAT_8888 || format == GE_FORMAT_DEPTH16) {
 		return Draw::DataFormat::R8G8B8A8_UNORM;
 	}
-	return target;
+	// The PSP's own layout (D3D11 has it), and for 4444, what Vulkan has instead.
+	const Draw::DataFormat target = GEFormatToThin3D(format);
+	if (draw_->GetDataFormatSupport(target) & Draw::FMT_RENDERTARGET) {
+		return target;
+	}
+	if (format == GE_FORMAT_4444 && (draw_->GetDataFormatSupport(Draw::DataFormat::B4G4R4A4_UNORM_PACK16) & Draw::FMT_RENDERTARGET)) {
+		return Draw::DataFormat::B4G4R4A4_UNORM_PACK16;
+	}
+	// 4444 isn't required to be renderable. The shader still truncates to it.
+	return Draw::DataFormat::R8G8B8A8_UNORM;
 }
 
 void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w, int h, bool force, bool skipCopy) {

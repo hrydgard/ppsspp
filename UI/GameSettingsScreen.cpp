@@ -358,7 +358,7 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 		g_Config.iMultiSampleLevel = 0;
 	}
 
-	if (GetGPUBackend() == GPUBackend::VULKAN) {
+	if (GetGPUBackend() == GPUBackend::VULKAN || GetGPUBackend() == GPUBackend::DIRECT3D11) {
 		CheckBox *use16Bit = graphicsSettings->Add(new CheckBox(&g_Config.bUse16BitRenderTargets, gr->T("16-bit color with PSP dithering")));
 		graphicsSettings->Add(new SettingHint(gr->T("16-bit color with PSP dithering Tip", "Games that use 16-bit color look like on the PSP, dither pattern included (experimental)"), use16Bit));
 		use16Bit->OnClick.Add([](UI::EventParams &e) {

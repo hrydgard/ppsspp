@@ -306,7 +306,7 @@ struct FramebufferDesc {
 	int multiSampleLevel;  // 0 = 1xaa, 1 = 2xaa, and so on.
 	bool z_stencil;
 	const char *tag;  // For graphics debuggers
-	// Only Vulkan supports anything else, for R5G6B5, A1R5G5B5 and B4G4R4A4 (check FMT_RENDERTARGET.)
+	// Vulkan also takes R5G6B5, A1R5G5B5 and B4G4R4A4, and D3D11 R5G6B5, A1R5G5B5 and A4R4G4B4 (check FMT_RENDERTARGET.)
 	DataFormat colorFormat = DataFormat::R8G8B8A8_UNORM;
 };
 

@@ -182,8 +182,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		return false;
 	}
 
-	// Only Vulkan renders to 16-bit targets. Blue-to-alpha pretends 565 is 4444, so leave it alone.
-	const bool quantize16 = id.Bit(FS_BIT_QUANTIZE_16BIT) && compat.shaderLanguage == GLSL_VULKAN && !blueToAlpha;
+	// Only Vulkan and D3D11 render to 16-bit targets. Blue-to-alpha pretends 565 is 4444, so leave it alone.
+	const bool quantize16 = id.Bit(FS_BIT_QUANTIZE_16BIT) && (compat.shaderLanguage == GLSL_VULKAN || compat.shaderLanguage == HLSL_D3D11) && !blueToAlpha;
 
 	bool needFragCoord = readFramebufferTex || gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT) || quantize16;
 	bool writeDepth = (gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT) || fsDepthClamp) && !forceDepthWritesOff && !id.Bit(FS_BIT_NO_DEPTH_WRITE);
@@ -1173,8 +1173,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		WRITE(p, "    uint drow = (dpos.y < 2 ? u_ditherLo : u_ditherHi) >> uint((dpos.y & 1) * 16 + dpos.x * 4);\n");
 		WRITE(p, "    int d = int(drow << 28) >> 28;\n");
 		WRITE(p, "    ivec4 sh = ivec4(u_fbQuant & 0xFFu, (u_fbQuant >> 8) & 0xFFu, (u_fbQuant >> 16) & 0xFFu, u_fbQuant >> 24);\n");
-		WRITE(p, "    ivec3 rgb = clamp(c8.rgb + ivec3(d), 0, 255) >> sh.rgb;\n");
-		WRITE(p, "    %s.rgb = vec3(rgb) / vec3(ivec3(255) >> sh.rgb);\n", compat.fragColor0);
+		WRITE(p, "    ivec3 rgb = clamp(c8.rgb + ivec3(d, d, d), 0, 255) >> sh.rgb;\n");
+		WRITE(p, "    %s.rgb = vec3(rgb) / vec3(ivec3(255, 255, 255) >> sh.rgb);\n", compat.fragColor0);
 		WRITE(p, "  }\n");
 	}
 

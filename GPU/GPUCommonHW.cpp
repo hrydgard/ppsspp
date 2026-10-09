@@ -548,6 +548,11 @@ void GPUCommonHW::BuildReportingInfo() {
 
 u32 GPUCommonHW::CheckGPUFeatures() const {
 	u32 features = 0;
+	// Only these create 16-bit render targets, and generate the shader code for them.
+	const GPUBackend backend = GetGPUBackend();
+	if (g_Config.bUse16BitRenderTargets && (backend == GPUBackend::VULKAN || backend == GPUBackend::DIRECT3D11)) {
+		features |= GPU_USE_16BIT_RENDER_TARGETS;
+	}
 	if (draw_->GetDeviceCaps().logicOpSupported) {
 		features |= GPU_USE_LOGIC_OP;
 	}

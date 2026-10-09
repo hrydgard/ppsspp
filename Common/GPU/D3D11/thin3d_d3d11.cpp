@@ -64,9 +64,10 @@ public:
 // A D3D11Framebuffer is a D3D11Framebuffer plus all the textures it owns.
 class D3D11Framebuffer : public Framebuffer {
 public:
-	D3D11Framebuffer(int width, int height) {
+	D3D11Framebuffer(int width, int height, DataFormat colorFormat) {
 		width_ = width;
 		height_ = height;
+		colorFormat_ = colorFormat;
 	}
 	~D3D11Framebuffer() {
 	}
@@ -1495,13 +1496,15 @@ uint32_t D3D11DrawContext::GetDataFormatSupport(DataFormat fmt) const {
 
 Framebuffer *D3D11DrawContext::CreateFramebuffer(const FramebufferDesc &desc) {
 	HRESULT hr;
-	D3D11Framebuffer *fb = new D3D11Framebuffer(desc.width, desc.height);
+	D3D11Framebuffer *fb = new D3D11Framebuffer(desc.width, desc.height, desc.colorFormat);
 
 	// We don't (yet?) support multiview for D3D11. Not sure if there's a way to do it.
 	// Texture arrays are supported but we don't have any other use cases yet.
 	_dbg_assert_(desc.numLayers == 1);
 
-	fb->colorFormat = DXGI_FORMAT_R8G8B8A8_UNORM;
+	// The 16-bit formats are the PSP's layout (B5G6R5, B5G5R5A1, B4G4R4A4).
+	fb->colorFormat = dataFormatToD3D11(desc.colorFormat);
+	_assert_(fb->colorFormat != DXGI_FORMAT_UNKNOWN);
 	D3D11_TEXTURE2D_DESC descColor{};
 	descColor.Width = desc.width;
 	descColor.Height = desc.height;
@@ -1726,8 +1729,12 @@ bool D3D11DrawContext::BlitFramebuffer(Framebuffer *srcfb, int srcX1, int srcY1,
 bool D3D11DrawContext::CopyFramebufferToMemory(Framebuffer *src, Aspect channelBits, int bx, int by, int bw, int bh, Draw::DataFormat destFormat, void *pixels, int pixelStride, ReadbackMode mode, const char *tag) {
 	D3D11Framebuffer *fb = (D3D11Framebuffer *)src;
 
+	// The 16-bit render targets are read back in their own format.
+	const DataFormat fbColorFormat = fb ? fb->ColorFormat() : DataFormat::R8G8B8A8_UNORM;
+	const bool is16BitColor = channelBits == Aspect::COLOR_BIT && fbColorFormat != DataFormat::R8G8B8A8_UNORM;
+
 	if (fb) {
-		_assert_(fb->colorFormat == DXGI_FORMAT_R8G8B8A8_UNORM);
+		_assert_(fb->colorFormat == DXGI_FORMAT_R8G8B8A8_UNORM || is16BitColor);
 
 		// TODO: Figure out where the badness really comes from.
 		if (bx + bw > fb->Width()) {
@@ -1741,22 +1748,23 @@ bool D3D11DrawContext::CopyFramebufferToMemory(Framebuffer *src, Aspect channelB
 	if (bh <= 0 || bw <= 0)
 		return true;
 
-	bool useGlobalPacktex = (bx + bw <= 512 && by + bh <= 512) && channelBits == Aspect::COLOR_BIT;
+	bool useGlobalPacktex = (bx + bw <= 512 && by + bh <= 512) && channelBits == Aspect::COLOR_BIT && !is16BitColor;
 
 	ComPtr<ID3D11Texture2D> packTex;
 	if (!useGlobalPacktex) {
 		D3D11_TEXTURE2D_DESC packDesc{};
 		packDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
 		packDesc.BindFlags = 0;
-		packDesc.Width = bw;
-		packDesc.Height = bh;
+		// The copy below goes to (bx, by) in it.
+		packDesc.Width = is16BitColor ? bx + bw : bw;
+		packDesc.Height = is16BitColor ? by + bh : bh;
 		packDesc.ArraySize = 1;
 		packDesc.MipLevels = 1;
 		packDesc.Usage = D3D11_USAGE_STAGING;
 		packDesc.SampleDesc.Count = 1;
 		switch (channelBits) {
 		case Aspect::COLOR_BIT:
-			packDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;  // TODO: fb->colorFormat;
+			packDesc.Format = is16BitColor ? fb->colorFormat : DXGI_FORMAT_R8G8B8A8_UNORM;
 			break;
 		case Aspect::DEPTH_BIT:
 		case Aspect::STENCIL_BIT:
@@ -1791,7 +1799,7 @@ bool D3D11DrawContext::CopyFramebufferToMemory(Framebuffer *src, Aspect channelB
 	switch (channelBits) {
 	case Aspect::COLOR_BIT:
 		context_->CopySubresourceRegion(packTex.Get(), 0, bx, by, 0, fb ? fb->colorTex.Get() : bbRenderTargetTex_, 0, &srcBox);
-		srcFormat = DataFormat::R8G8B8A8_UNORM;
+		srcFormat = fbColorFormat;
 		break;
 	case Aspect::DEPTH_BIT:
 	case Aspect::STENCIL_BIT:
@@ -1819,8 +1827,25 @@ bool D3D11DrawContext::CopyFramebufferToMemory(Framebuffer *src, Aspect channelB
 	const uint8_t *srcWithOffset = (const uint8_t *)map.pData + srcByteOffset;
 	switch ((Aspect)channelBits) {
 	case Aspect::COLOR_BIT:
-		// Pixel size always 4 here because we always request RGBA8888.
-		ConvertFromRGBA8888((uint8_t *)pixels, srcWithOffset, pixelStride, map.RowPitch / sizeof(uint32_t), bw, bh, destFormat);
+		if (is16BitColor) {
+			_assert_(destFormat == srcFormat || destFormat == DataFormat::R8G8B8A8_UNORM);
+			for (int y = 0; y < bh; ++y) {
+				const u16 *src = (const u16 *)(srcWithOffset + y * map.RowPitch);
+				if (destFormat == srcFormat) {
+					memcpy((u16 *)pixels + y * pixelStride, src, bw * sizeof(u16));
+					continue;
+				}
+				u32 *dst = (u32 *)pixels + y * pixelStride;
+				switch (srcFormat) {
+				case DataFormat::R5G6B5_UNORM_PACK16: ConvertRGB565ToRGBA8888(dst, src, bw); break;
+				case DataFormat::A1R5G5B5_UNORM_PACK16: ConvertRGBA5551ToRGBA8888(dst, src, bw); break;
+				default: ConvertRGBA4444ToRGBA8888(dst, src, bw); break;
+				}
+			}
+		} else {
+			// Pixel size always 4 here because we always request RGBA8888.
+			ConvertFromRGBA8888((uint8_t *)pixels, srcWithOffset, pixelStride, map.RowPitch / sizeof(uint32_t), bw, bh, destFormat);
+		}
 		break;
 	case Aspect::DEPTH_BIT:
 		if (srcFormat == destFormat) {
