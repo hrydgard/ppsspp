@@ -1672,11 +1672,14 @@ int friendFinder() {
 
 						if (adhocctlCurrentMode == ADHOCCTL_MODE_GAMEMODE) {
 							auto peer = findFriendByIP(packet->ip);
-							for (auto& gma : replicaGameModeAreas)
-								if (isMacMatch(&gma.mac, &peer->mac_addr)) {
-									gma.updateTimestamp = 0;
-									break;
+							if (peer) {
+								for (auto& gma : replicaGameModeAreas) {
+									if (isMacMatch(&gma.mac, &peer->mac_addr)) {
+										gma.updateTimestamp = 0;
+										break;
+									}
 								}
+							}
 						}
 
 						// Delete User by IP, should delete by MAC since IP can be shared (behind NAT) isn't?
