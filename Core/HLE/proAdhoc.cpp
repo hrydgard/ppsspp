@@ -647,7 +647,16 @@ void postAcceptAddSiblings(SceNetAdhocMatchingContext * context, int siblingcoun
 	{
 		SceNetEtherAddr* mac = (SceNetEtherAddr*)(siblings_u8 + sizeof(SceNetEtherAddr) * i);
 
+		// The list comes from the parent, don't let it turn us or the parent into a sibling.
+		if (isMacMatch(mac, &context->mac)) {
+			continue;
+		}
+
 		auto peer = findPeer(context, mac);
+		if (peer != NULL && peer->state == PSP_ADHOC_MATCHING_PEER_PARENT) {
+			continue;
+		}
+
 		// Already exist
 		if (peer != NULL) {
 			// Set Peer State
@@ -656,7 +665,7 @@ void postAcceptAddSiblings(SceNetAdhocMatchingContext * context, int siblingcoun
 			peer->lastping = CoreTiming::GetGlobalTimeUsScaled();
 			WARN_LOG(Log::sceNet, "Updating Sibling Peer %s", mac2str(mac).c_str());
 		}
-		else {
+		else if (countConnectedPeers(context) < (uint32_t)context->maxpeers) {
 			// Allocate Memory
 			SceNetAdhocMatchingMemberInternal* sibling = (SceNetAdhocMatchingMemberInternal*)malloc(sizeof(SceNetAdhocMatchingMemberInternal));
 
