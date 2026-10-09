@@ -231,6 +231,8 @@ enum class TempFBO {
 	Z_COPY,
 	// Used to copy stencil data, means we need a stencil backing.
 	STENCIL,
+	// Depth moved within one framebuffer, for rendering at an X offset.
+	DEPTH_SHIFT,
 };
 
 inline Draw::DataFormat GEFormatToThin3D(GEBufferFormat geFormat) {
@@ -544,6 +546,8 @@ protected:
 	void NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth);
 
 	void BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst, bool allowSizeMismatch = false);
+	void CopyDepthRect(Draw::Framebuffer *src, int srcX, int srcY, Draw::Framebuffer *dst, int dstX, int dstY, int w, int h, int scaleFactor, const char *tag);
+	void ShiftDepthForOffsetRendering(VirtualFramebuffer *vfb, int xOffset);
 	void EnsureStencilWritePipeline(bool useExportShader);
 	void DrawStencilWritePasses(GEBufferFormat format, int values, u8 usedBits, bool useExportShader);
 
@@ -636,6 +640,9 @@ protected:
 	};
 
 	std::unordered_map<u64, TempFBOInfo> tempFBOs_;
+	// The render target address the depth was last shifted for (see ShiftDepthForOffsetRendering).
+	u32 depthShiftedFor_ = 0;
+	u32 lastRenderAddress_ = 0;
 
 	std::vector<Draw::Framebuffer *> fbosToDelete_;
 
