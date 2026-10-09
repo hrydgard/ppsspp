@@ -1106,20 +1106,19 @@ bool BinManager::NeedsOrder(const BinItem &item) {
 	return false;
 }
 
-// Each extra tile a triangle touches sets it up again, so tiles are as large as they can be with plenty to
-// spare for every thread: at least sixteen per thread over a 480x272 screen. With fewer, a scene whose
-// drawing is concentrated on part of the screen leaves threads idle (LocoRoco took a third longer with four
-// per thread on eight threads).
+// Each extra tile a triangle touches sets it up again, so tiles are as large as they can be with enough to
+// spare for every thread: at least eight per thread over a 480x272 screen (64x32 on eight threads). With
+// fewer, a scene whose drawing is concentrated on part of the screen leaves threads idle: four per thread
+// used the least CPU but took longer in wall time than eight in most games, Wipeout longer than sixteen.
 // The multiplier trades the repeated setup against the load balance, so the best one depends on what drawing
-// a pixel costs. When that gets cheaper, larger tiles can win: with faster span drawing, four per thread was
-// as fast in wall time and used less CPU. Measure again (Tools/headless_bench.py, wall and CPU time on
-// several games) after changes to the per-pixel cost.
+// a pixel costs (sixteen was best before the span drawing got faster). Measure again
+// (Tools/headless_bench.py, wall and CPU time on several games) after changes to the per-pixel cost.
 void BinManager::PickTileSize(int threads) {
 	static const int sizes[][2] = { { 128, 32 }, { 64, 32 }, { 64, 16 } };
 	int w = MIN_TILE_W, h = MIN_TILE_H;
 	for (const auto &size : sizes) {
 		const int tiles = ((480 + size[0] - 1) / size[0]) * ((272 + size[1] - 1) / size[1]);
-		if (tiles >= 16 * threads) {
+		if (tiles >= 8 * threads) {
 			w = size[0];
 			h = size[1];
 			break;

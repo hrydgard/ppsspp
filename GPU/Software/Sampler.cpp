@@ -962,32 +962,25 @@ static inline Vec4S32 ColumnOffsets4(Vec4S32 u) {
 	return swizzled ? b.Shr<4>().Shl<7>() + (b & Vec4S32::Splat(15)) : b;
 }
 
-// SampleLinearLevelT for four pixels at the same level: the coordinates and offsets in vector lanes, the
-// texel reads one by one.
+// The four texels of SampleLinearLevelT for four pixels at the same level (texels[tl, tr, bl, br][pixel]),
+// the coordinates and offsets in vector lanes, the texel reads one by one.
 template <GETextureFormat fmt, bool swizzled, GEPaletteFormat clutFmt>
-static inline void SampleLinearLevel4T(Vec4F32 s, Vec4F32 t, const u8 *tptr, int bufw, int level, const SamplerID &samplerID, uint64_t out[4]) {
-	if (!tptr) {
-		out[0] = out[1] = out[2] = out[3] = 0;
-		return;
-	}
-	Vec4S32 u0, u1, v0, v1, fracU, fracV;
+static inline void ReadTexels4T(Vec4F32 s, Vec4F32 t, const u8 *tptr, int bufw, int level, const SamplerID &samplerID, uint32_t texels[4][4], Vec4S32 &fracU, Vec4S32 &fracV) {
+	Vec4S32 u0, u1, v0, v1;
 	TexelPairs4(s, samplerID.cached.sizes[level].w, samplerID.clampS, u0, u1, fracU);
 	TexelPairs4(t, samplerID.cached.sizes[level].h, samplerID.clampT, v0, v1, fracV);
-	alignas(16) int us0[4], us1[4], fu[4], fv[4];
+	alignas(16) int us0[4], us1[4];
 	u0.Store(us0);
 	u1.Store(us1);
-	fracU.Store(fu);
-	fracV.Store(fv);
-	uint32_t texels[4][4];
 	if constexpr (fmt == GE_TFMT_DXT1 || fmt == GE_TFMT_DXT3 || fmt == GE_TFMT_DXT5) {
 		alignas(16) int vs0[4], vs1[4];
 		v0.Store(vs0);
 		v1.Store(vs1);
 		for (int i = 0; i < 4; ++i) {
-			texels[i][0] = ReadDXTTexelT<fmt>(tptr, bufw, us0[i], vs0[i]);
-			texels[i][1] = ReadDXTTexelT<fmt>(tptr, bufw, us1[i], vs0[i]);
-			texels[i][2] = ReadDXTTexelT<fmt>(tptr, bufw, us0[i], vs1[i]);
-			texels[i][3] = ReadDXTTexelT<fmt>(tptr, bufw, us1[i], vs1[i]);
+			texels[0][i] = ReadDXTTexelT<fmt>(tptr, bufw, us0[i], vs0[i]);
+			texels[1][i] = ReadDXTTexelT<fmt>(tptr, bufw, us1[i], vs0[i]);
+			texels[2][i] = ReadDXTTexelT<fmt>(tptr, bufw, us0[i], vs1[i]);
+			texels[3][i] = ReadDXTTexelT<fmt>(tptr, bufw, us1[i], vs1[i]);
 		}
 	} else {
 		constexpr uint32_t bits = TexelBitsT<fmt>();
@@ -1002,19 +995,55 @@ static inline void SampleLinearLevel4T(Vec4F32 s, Vec4F32 t, const u8 *tptr, int
 		(row1 + col0).Store(bl);
 		(row1 + col1).Store(br);
 		for (int i = 0; i < 4; ++i) {
-			texels[i][0] = ReadTexelT<fmt, clutFmt>(tptr + (uint32_t)tl[i], us0[i], clutOffset, samplerID);
-			texels[i][1] = ReadTexelT<fmt, clutFmt>(tptr + (uint32_t)tr[i], us1[i], clutOffset, samplerID);
-			texels[i][2] = ReadTexelT<fmt, clutFmt>(tptr + (uint32_t)bl[i], us0[i], clutOffset, samplerID);
-			texels[i][3] = ReadTexelT<fmt, clutFmt>(tptr + (uint32_t)br[i], us1[i], clutOffset, samplerID);
+			texels[0][i] = ReadTexelT<fmt, clutFmt>(tptr + (uint32_t)tl[i], us0[i], clutOffset, samplerID);
+			texels[1][i] = ReadTexelT<fmt, clutFmt>(tptr + (uint32_t)tr[i], us1[i], clutOffset, samplerID);
+			texels[2][i] = ReadTexelT<fmt, clutFmt>(tptr + (uint32_t)bl[i], us0[i], clutOffset, samplerID);
+			texels[3][i] = ReadTexelT<fmt, clutFmt>(tptr + (uint32_t)br[i], us1[i], clutOffset, samplerID);
 		}
 	}
-	for (int i = 0; i < 4; ++i) {
-		// Like the GE: horizontal lerps truncated to 8 bits, then the vertical one (gpu/probe exp52).
-		const uint64_t top = LerpSpread(SpreadRGBA(texels[i][0]), SpreadRGBA(texels[i][1]), fu[i]);
-		const uint64_t bot = LerpSpread(SpreadRGBA(texels[i][2]), SpreadRGBA(texels[i][3]), fu[i]);
-		out[i] = LerpSpread(top, bot, fv[i]);
-	}
 }
+
+// LerpSpread of one channel in vector lanes.
+static inline Vec4S32 LerpLanes(Vec4S32 a, Vec4S32 b, Vec4S32 f) {
+	return (a * (Vec4S32::Splat(16) - f) + b * f).Shr<4>();
+}
+
+// SampleLinearLevelT for four pixels at the same level, a channel per vector (as TextureFunction4 takes them).
+template <GETextureFormat fmt, bool swizzled, GEPaletteFormat clutFmt>
+static inline void SampleLinearLevel4LanesT(Vec4F32 s, Vec4F32 t, const u8 *tptr, int bufw, int level, const SamplerID &samplerID, Vec4S32 out[4]) {
+	if (!tptr) {
+		out[0] = out[1] = out[2] = out[3] = Vec4S32::Zero();
+		return;
+	}
+	alignas(16) uint32_t texels[4][4];
+	Vec4S32 fracU, fracV;
+	ReadTexels4T<fmt, swizzled, clutFmt>(s, t, tptr, bufw, level, samplerID, texels, fracU, fracV);
+	// Two channels per lane, R and B (G and A) as 16-bit halves: no lerp of 8-bit values exceeds 16 bits,
+	// so the halves don't carry into each other, and masking after each shift truncates both to 8 bits.
+	const Vec4S32 tl = Vec4S32::LoadAligned((const int *)texels[0]), tr = Vec4S32::LoadAligned((const int *)texels[1]);
+	const Vec4S32 bl = Vec4S32::LoadAligned((const int *)texels[2]), br = Vec4S32::LoadAligned((const int *)texels[3]);
+	const Vec4S32 halves = Vec4S32::Splat(0x00FF00FF);
+	const Vec4S32 invU = Vec4S32::Splat(16) - fracU, invV = Vec4S32::Splat(16) - fracV;
+	auto lerp = [&](Vec4S32 a, Vec4S32 b, Vec4S32 inv, Vec4S32 f) {
+		return (a.Mul(inv) + b.Mul(f)).Shr<4>() & halves;
+	};
+	Vec4S32 pairs[2];
+	for (int h = 0; h < 2; ++h) {
+		auto part = [&](Vec4S32 v) {
+			return (h == 0 ? v : v.Shr<8>()) & halves;
+		};
+		// Like the GE: horizontal lerps truncated to 8 bits, then the vertical one (gpu/probe exp52).
+		const Vec4S32 top = lerp(part(tl), part(tr), invU, fracU);
+		const Vec4S32 bot = lerp(part(bl), part(br), invU, fracU);
+		pairs[h] = lerp(top, bot, invV, fracV);
+	}
+	const Vec4S32 byteMask = Vec4S32::Splat(0xFF);
+	out[0] = pairs[0] & byteMask;
+	out[1] = pairs[1] & byteMask;
+	out[2] = pairs[0].Shr<16>();
+	out[3] = pairs[1].Shr<16>();
+}
+
 
 // GetTextureFunctionOutput for four pixels, one per lane: prim and tex are R, G, B and A (all 0 to 255).
 static inline void TextureFunction4(const Vec4S32 prim[4], const Vec4S32 tex[4], const SamplerID &samplerID, Vec4S32 out[4]) {
@@ -1077,34 +1106,31 @@ static void SOFTRAST_CALL SampleLinearQuadT(const float *s, const float *t, cons
 	if (!active)
 		return;
 	uint64_t c[4];
-	// Usually all at one level (a span of a triangle always is): then in vector lanes.
+	// Usually all at one level (a span of a triangle always is): then in vector lanes. No level arrays: all at
+	// level 0, without a fraction.
 	const int first = active & 1 ? 0 : active & 2 ? 1 : active & 4 ? 2 : 3;
 	bool sameLevel = true;
-	for (int i = first + 1; i < 4; ++i) {
-		if ((active & (1 << i)) && (level[i] != level[first] || levelFrac[i] != levelFrac[first]))
-			sameLevel = false;
+	if (level) {
+		for (int i = first + 1; i < 4; ++i) {
+			if ((active & (1 << i)) && (level[i] != level[first] || levelFrac[i] != levelFrac[first]))
+				sameLevel = false;
+		}
 	}
 	if (sameLevel) {
-		const int l = level[first];
+		const int l = level ? level[first] : 0;
 		const Vec4F32 sv = Vec4F32::Load(s), tv = Vec4F32::Load(t);
-		SampleLinearLevel4T<fmt, swizzled, clutFmt>(sv, tv, texptr[l], texbufw[l], l, samplerID, c);
-		if (levelFrac[first]) {
-			uint64_t c1[4];
-			SampleLinearLevel4T<fmt, swizzled, clutFmt>(sv, tv, texptr[l + 1], texbufw[l + 1], l + 1, samplerID, c1);
-			for (int i = 0; i < 4; ++i)
-				c[i] = LerpSpread(c[i], c1[i], levelFrac[first]);
+		Vec4S32 prim[4], tex[4], out[4];
+		SampleLinearLevel4LanesT<fmt, swizzled, clutFmt>(sv, tv, texptr[l], texbufw[l], l, samplerID, tex);
+		if (level && levelFrac[first]) {
+			Vec4S32 tex1[4];
+			SampleLinearLevel4LanesT<fmt, swizzled, clutFmt>(sv, tv, texptr[l + 1], texbufw[l + 1], l + 1, samplerID, tex1);
+			const Vec4S32 f = Vec4S32::Splat(levelFrac[first]);
+			for (int ch = 0; ch < 4; ++ch)
+				tex[ch] = LerpLanes(tex[ch], tex1[ch], f);
 		}
 		// The texture function, in lanes too.
-		alignas(16) int texLanes[4][4];
-		for (int i = 0; i < 4; ++i) {
-			for (int ch = 0; ch < 4; ++ch)
-				texLanes[ch][i] = (int)((c[i] >> (16 * ch)) & 0xFFFF);
-		}
-		Vec4S32 prim[4], tex[4], out[4];
-		for (int ch = 0; ch < 4; ++ch) {
+		for (int ch = 0; ch < 4; ++ch)
 			prim[ch] = Vec4S32::Load(colors + ch * colorStride);
-			tex[ch] = Vec4S32::Load(texLanes[ch]);
-		}
 		TextureFunction4(prim, tex, samplerID, out);
 		alignas(16) static const int laneBits[4] = { 1, 2, 4, 8 };
 		const Vec4S32 keep = (Vec4S32::Splat(active) & Vec4S32::LoadAligned(laneBits)).CompareEq(Vec4S32::Zero());
