@@ -615,6 +615,8 @@ void login_user_data(SceNetAdhocctlUserNode * user, SceNetAdhocctlLoginPacketC2S
 
 			// Save Nickname
 			user->resolver.name = data->name;
+			// It's used as a C string from here on.
+			user->resolver.name.data[ADHOCCTL_NICKNAME_LEN - 1] = 0;
 
 			// Increase Player Count in Game Node
 			game->playercount++;
