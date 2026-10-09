@@ -165,20 +165,27 @@ Draw2DPipelineInfo GenerateReinterpretFragmentShader(ShaderWriter &writer, GEBuf
 	} else if (IsBufferFormat16Bit(from) && !IsBufferFormat16Bit(to)) {
 		// 16-to-32-bit (two pixels, draw size is halved)
 
-		// The two 16-bit pixels of the PSP pixel this is in, at their centers: at a higher render scale, the render
-		// pixels around this one's can both be in the same 16-bit pixel.
-		writer.C("  float pspX = floor(v_texcoord.x * texSize.x / (2.0 * scaleFactor));\n");
-		writer.C("  vec4 valLeft = ").SampleTexture2D("tex", "vec2((2.0 * pspX + 0.5) * scaleFactor / texSize.x, v_texcoord.y)").C(";\n");
-		writer.C("  vec4 valRight = ").SampleTexture2D("tex", "vec2((2.0 * pspX + 1.5) * scaleFactor / texSize.x, v_texcoord.y)").C(";\n");
+		// A 32-bit PSP pixel is two 16-bit ones side by side. At a higher render scale, this render pixel is k pixels
+		// into its PSP pixel, and takes its halves from the render pixels k into each of the two 16-bit PSP pixels,
+		// which keeps the detail within a PSP pixel.
+		writer.C("  float d = floor(v_texcoord.x * texSize.x * 0.5);\n");
+		writer.C("  float pspX = floor(d / scaleFactor);\n");
+		writer.C("  float k = d - pspX * scaleFactor;\n");
+		writer.C("  vec4 valLeft = ").SampleTexture2D("tex", "vec2((2.0 * pspX * scaleFactor + k + 0.5) / texSize.x, v_texcoord.y)").C(";\n");
+		writer.C("  vec4 valRight = ").SampleTexture2D("tex", "vec2(((2.0 * pspX + 1.0) * scaleFactor + k + 0.5) / texSize.x, v_texcoord.y)").C(";\n");
 		writer.C("  vec4 outColor = unpackColor(packColor(valLeft), packColor(valRight));\n");
 
 		_assert_("not yet implemented");
 	} else if (!IsBufferFormat16Bit(from) && IsBufferFormat16Bit(to)) {
 		// 32-to-16-bit (half of the pixel, draw size is doubled).
 
-		writer.C("  vec4 val = ").SampleTexture2D("tex", "v_texcoord.xy").C(";\n");
-		// Which half, by the 16-bit PSP pixel this is in (not the render pixel).
-		writer.C("  float u = mod(floor(v_texcoord.x * texSize.x * 2.0 / scaleFactor), 2.0);\n");
+		// The 16-bit PSP pixel this render pixel is k pixels into is a half of 32-bit PSP pixel pspX / 2, so read the
+		// render pixel k into that one, and pick the half by the PSP pixel (not the render pixel).
+		writer.C("  float d = floor(v_texcoord.x * texSize.x * 2.0);\n");
+		writer.C("  float pspX = floor(d / scaleFactor);\n");
+		writer.C("  float k = d - pspX * scaleFactor;\n");
+		writer.C("  vec4 val = ").SampleTexture2D("tex", "vec2((floor(pspX * 0.5) * scaleFactor + k + 0.5) / texSize.x, v_texcoord.y)").C(";\n");
+		writer.C("  float u = mod(pspX, 2.0);\n");
 		writer.C("  vec4 outColor = unpackColor(u == 0.0 ? packColor(val.rg) : packColor(val.ba));\n");
 	}
 
