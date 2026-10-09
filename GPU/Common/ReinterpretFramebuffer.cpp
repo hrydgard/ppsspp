@@ -165,8 +165,11 @@ Draw2DPipelineInfo GenerateReinterpretFragmentShader(ShaderWriter &writer, GEBuf
 	} else if (IsBufferFormat16Bit(from) && !IsBufferFormat16Bit(to)) {
 		// 16-to-32-bit (two pixels, draw size is halved)
 
-		writer.C("  vec4 valLeft = ").SampleTexture2D("tex", "v_texcoord.xy + vec2(-0.25 / texSize.x, 0.0)").C(";\n");
-		writer.C("  vec4 valRight = ").SampleTexture2D("tex", "v_texcoord.xy + vec2(0.25 / texSize.x, 0.0)").C(";\n");
+		// The two 16-bit pixels of the PSP pixel this is in, at their centers: at a higher render scale, the render
+		// pixels around this one's can both be in the same 16-bit pixel.
+		writer.C("  float pspX = floor(v_texcoord.x * texSize.x / (2.0 * scaleFactor));\n");
+		writer.C("  vec4 valLeft = ").SampleTexture2D("tex", "vec2((2.0 * pspX + 0.5) * scaleFactor / texSize.x, v_texcoord.y)").C(";\n");
+		writer.C("  vec4 valRight = ").SampleTexture2D("tex", "vec2((2.0 * pspX + 1.5) * scaleFactor / texSize.x, v_texcoord.y)").C(";\n");
 		writer.C("  vec4 outColor = unpackColor(packColor(valLeft), packColor(valRight));\n");
 
 		_assert_("not yet implemented");
@@ -174,7 +177,8 @@ Draw2DPipelineInfo GenerateReinterpretFragmentShader(ShaderWriter &writer, GEBuf
 		// 32-to-16-bit (half of the pixel, draw size is doubled).
 
 		writer.C("  vec4 val = ").SampleTexture2D("tex", "v_texcoord.xy").C(";\n");
-		writer.C("  float u = mod(floor(v_texcoord.x * texSize.x * 2.0), 2.0);\n");
+		// Which half, by the 16-bit PSP pixel this is in (not the render pixel).
+		writer.C("  float u = mod(floor(v_texcoord.x * texSize.x * 2.0 / scaleFactor), 2.0);\n");
 		writer.C("  vec4 outColor = unpackColor(u == 0.0 ? packColor(val.rg) : packColor(val.ba));\n");
 	}
 

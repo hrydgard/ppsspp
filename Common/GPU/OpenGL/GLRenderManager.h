@@ -838,6 +838,10 @@ public:
 		queueRunner_.Resize(width, height);
 	}
 
+	void ForgetBoundFramebuffers() {
+		queueRunner_.ForgetBoundFramebuffers();
+	}
+
 	void UnregisterPushBuffer(GLPushBuffer *buffer) {
 		std::lock_guard<std::mutex> lock(pushBuffersMutex_);
 		int foundCount = 0;

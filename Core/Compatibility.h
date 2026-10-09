@@ -121,6 +121,7 @@ struct CompatFlags {
 	float SpriteBorderFix;
 	bool TextureCLUTInShader;
 	bool DisableRangeCulling;
+	bool BlockTransferReadbackSmall;
 };
 
 struct VRCompat {
