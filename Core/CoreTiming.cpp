@@ -24,6 +24,7 @@
 #include <set>
 #include <vector>
 
+#include "Common/LogReporting.h"
 #include "Common/Profiler/Profiler.h"
 
 #include "Common/Serialize/Serializer.h"
@@ -101,12 +102,17 @@ u64 GetGlobalTimeUsScaled() {
 	return GetGlobalTimeUs();
 }
 
+// Exact (for a = q*c + r, a*b/c == q*b + (r*b)/c), and unlike ticks * 1000000 / freq it can't
+// overflow s64 however long it's been since the last rebase.
+static s64 TicksToUs(s64 ticks, int freq) {
+	return (ticks / freq) * 1000000 + ((ticks % freq) * 1000000) / freq;
+}
+
 u64 GetGlobalTimeUs() {
 	s64 ticksSinceLast = GetTicks(currentMIPS) - lastGlobalTimeTicks;
-	int freq = GetClockFrequencyHz();
-	s64 usSinceLast = ticksSinceLast * 1000000 / freq;
+	s64 usSinceLast = TicksToUs(ticksSinceLast, GetClockFrequencyHz());
 	if (ticksSinceLast > UINT_MAX) {
-		// Adjust the calculated value to avoid overflow errors.
+		// Fold it into the base periodically so the numbers stay small.
 		lastGlobalTimeUs += usSinceLast;
 		lastGlobalTimeTicks = GetTicks(currentMIPS);
 		usSinceLast = 0;
@@ -136,10 +142,9 @@ u64 GetBreakDeadlineUs() {
 
 u64 PeekGlobalTimeUs() {
 	// Same sum as above without the rebasing, so this stays callable from a thread that isn't the
-	// CPU thread. The rebasing exists purely to keep the multiply below from overflowing, and it
-	// happens often enough on the CPU thread that ticksSinceLast stays small here.
+	// CPU thread.
 	const s64 ticksSinceLast = GetTicks(currentMIPS) - lastGlobalTimeTicks;
-	return lastGlobalTimeUs + ticksSinceLast * 1000000 / GetClockFrequencyHz();
+	return lastGlobalTimeUs + TicksToUs(ticksSinceLast, GetClockFrequencyHz());
 }
 
 const Event *GetFirstEvent() {
@@ -296,7 +301,8 @@ void ScheduleEvent(s64 cyclesIntoFuture, int event_type, u64 userdata)
 	}
 }
 
-// Returns cycles left in timer.
+// Returns cycles left in timer. With several matches that's the latest of them, since the queue is
+// sorted and each match overwrites the result; __GeTriggerSync relies on that.
 s64 UnscheduleEvent(int event_type, u64 userdata)
 {
 	s64 result = 0;
@@ -391,8 +397,19 @@ void RemoveEvent(int event_type)
 }
 
 void ProcessEvents() {
+	// A callback that schedules its own event with a non-positive delay lands back at the head of
+	// the queue already due, and would be processed forever. Nothing legitimately fires anywhere
+	// near this many events in one go, so stop and say which event it was. The event stays due, so
+	// emulation crawls rather than recovers, but the CPU thread still returns to the frame loop.
+	const int MAX_EVENTS_PER_CALL = 10000;
+	int processed = 0;
 	while (first) {
 		if (first->time <= (s64)GetTicks(currentMIPS)) {
+			if (++processed > MAX_EVENTS_PER_CALL) {
+				const int type = first->type;
+				const char *name = type >= 0 && type < (int)event_types.size() ? event_types[type].name : "?";
+				ERROR_LOG_ONCE(runawayEvent, Log::CPU, "CoreTiming: %d events in one ProcessEvents, stopping. Does '%s' reschedule itself with no delay?", MAX_EVENTS_PER_CALL, name);				break;
+			}
 			// INFO_LOG(Log::CPU, "%s (%lld, %lld) ", first->name ? first->name : "?", (u64)GetTicks(currentMIPS), (u64)first->time);
 			Event *evt = first;
 			first = first->next;
@@ -446,10 +463,8 @@ void Advance(MIPSState *mips) {
 		}
 	} else {
 		// Note that events can eat cycles as well.
-		int target = (int)(first->time - globalTimer);
-		if (target > MAX_SLICE_LENGTH)
-			target = MAX_SLICE_LENGTH;
-
+		// Clamp in 64 bits: an event more than 2^31 cycles out doesn't fit in an int.
+		const int target = (int)std::clamp<s64>(first->time - globalTimer, 0, MAX_SLICE_LENGTH);
 		const int diff = target - slicelength;
 		slicelength += diff;
 		mips->downcount += diff;
@@ -482,10 +497,11 @@ void Idle(MIPSState *mips, int maxIdle) {
 
 	if (first && cyclesDown > 0) {
 		int cyclesExecuted = slicelength - mips->downcount;
-		int cyclesNextEvent = (int) (first->time - globalTimer);
-
-		if (cyclesNextEvent < cyclesExecuted + cyclesDown)
-			cyclesDown = cyclesNextEvent - cyclesExecuted;
+		// 64-bit, as in Advance().
+		const s64 cyclesNextEvent = first->time - globalTimer;
+		if (cyclesNextEvent < (s64)cyclesExecuted + cyclesDown) {
+			cyclesDown = (int)(cyclesNextEvent - cyclesExecuted);
+		}
 	}
 
 	// Now, now... no time machines, please.

@@ -99,7 +99,7 @@
 #include "Core/CmdLine.h"
 #include "Core/System.h"
 #include "Common/Data/Collections/Hashmaps.h"
-#include "Core/Util/BlockAllocator.h"
+#include "Core/CoreTiming.h"
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Common/UI/Root.h"
@@ -113,6 +113,7 @@
 #include "Core/KeyMap.h"
 #include "Core/ControlMapper.h"
 #include "Core/HLE/sceCtrl.h"
+#include "Core/Util/BlockAllocator.h"
 #include "Core/Util/PathUtil.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
 #include "GPU/Common/DepthSwizzle.h"
@@ -1733,6 +1734,211 @@ bool TestHashmaps() {
 			EXPECT_FALSE(m.Get(0xD1A6, &v));
 		}
 	}
+	return true;
+}
+
+// CoreTiming's model: globalTimer is the cycle count at the start of the current slice,
+// mips->downcount counts down through it, and GetTicks() = globalTimer + slicelength - downcount.
+// Everything below pins down that invariant and the event queue built on it.
+static int g_ctFired;
+static int g_ctLastLate;
+static u64 g_ctLastUserdata;
+static std::vector<u64> g_ctOrder;
+
+// Reschedules itself with no delay, which used to spin ProcessEvents() forever.
+static int g_ctRunawayType;
+static int g_ctRunawayFired;
+static void CoreTimingRunawayCallback(u64 userdata, int cyclesLate) {
+	g_ctRunawayFired++;
+	CoreTiming::ScheduleEvent(0, g_ctRunawayType, userdata);
+}
+
+static void CoreTimingTestCallback(u64 userdata, int cyclesLate) {
+	g_ctFired++;
+	g_ctLastLate = cyclesLate;
+	g_ctLastUserdata = userdata;
+	g_ctOrder.push_back(userdata);
+}
+
+// Burn cycles the way the CPU would, then let CoreTiming catch up.
+static void CoreTimingRun(MIPSState *mips, int cycles) {
+	mips->downcount -= cycles;
+	CoreTiming::Advance(mips);
+}
+
+bool TestCoreTiming() {
+	MIPSState *mips = currentMIPS;
+
+	// The EXPECTs return early, so clean up on every path: a failure here mustn't leave events
+	// queued or a huge globalTimer behind for the tests that run after this one.
+	struct Restore {
+		MIPSState *mips;
+		int downcount;
+		~Restore() {
+			CoreTiming::Shutdown();
+			CoreTiming::Init(mips);
+			mips->downcount = downcount;
+		}
+	} restore{ mips, mips->downcount };
+
+	CoreTiming::Init(mips);
+	const int ev = CoreTiming::RegisterEvent("UnitTestEvent", &CoreTimingTestCallback);
+	EXPECT_TRUE(ev >= 0);
+
+	// Ticks start at zero and follow downcount.
+	EXPECT_EQ_INT((int)CoreTiming::GetTicks(mips), 0);
+	mips->downcount -= 100;
+	EXPECT_EQ_INT((int)CoreTiming::GetTicks(mips), 100);
+
+	// Advance() must not change the tick count - it only moves the accounting between globalTimer
+	// and downcount. The breakpoint manager's skip-first relies on ticks meaning "cycles retired",
+	// so a discontinuity here would silently break stepping off a breakpoint.
+	{
+		const u64 before = CoreTiming::GetTicks(mips);
+		CoreTiming::Advance(mips);
+		EXPECT_EQ_INT((int)CoreTiming::GetTicks(mips), (int)before);
+		CoreTiming::Advance(mips);
+		EXPECT_EQ_INT((int)CoreTiming::GetTicks(mips), (int)before);
+	}
+
+	// An event fires when its time arrives, and not before.
+	g_ctFired = 0;
+	CoreTiming::ScheduleEvent(1000, ev, 0x1234);
+	EXPECT_TRUE(CoreTiming::IsScheduled(ev));
+	CoreTimingRun(mips, 999);
+	EXPECT_EQ_INT(g_ctFired, 0);
+	CoreTimingRun(mips, 1);
+	EXPECT_EQ_INT(g_ctFired, 1);
+	EXPECT_EQ_INT((int)g_ctLastUserdata, 0x1234);
+	EXPECT_EQ_INT(g_ctLastLate, 0);
+	EXPECT_FALSE(CoreTiming::IsScheduled(ev));
+
+	// Overshooting reports how late we were.
+	g_ctFired = 0;
+	CoreTiming::ScheduleEvent(1000, ev, 0);
+	CoreTimingRun(mips, 1500);
+	EXPECT_EQ_INT(g_ctFired, 1);
+	EXPECT_EQ_INT(g_ctLastLate, 500);
+
+	// Events come out in time order regardless of the order they went in, and same-time events
+	// keep insertion order.
+	g_ctFired = 0;
+	g_ctOrder.clear();
+	CoreTiming::ScheduleEvent(3000, ev, 3);
+	CoreTiming::ScheduleEvent(1000, ev, 1);
+	CoreTiming::ScheduleEvent(2000, ev, 2);
+	CoreTiming::ScheduleEvent(2000, ev, 22);
+	CoreTimingRun(mips, 5000);
+	EXPECT_EQ_INT(g_ctFired, 4);
+	EXPECT_EQ_INT((int)g_ctOrder.size(), 4);
+	EXPECT_EQ_INT((int)g_ctOrder[0], 1);
+	EXPECT_EQ_INT((int)g_ctOrder[1], 2);
+	EXPECT_EQ_INT((int)g_ctOrder[2], 22);
+	EXPECT_EQ_INT((int)g_ctOrder[3], 3);
+
+	// UnscheduleEvent removes only the matching userdata, and reports the time it had left.
+	g_ctFired = 0;
+	g_ctOrder.clear();
+	CoreTiming::ScheduleEvent(1000, ev, 10);
+	CoreTiming::ScheduleEvent(2000, ev, 20);
+	{
+		const s64 left = CoreTiming::UnscheduleEvent(ev, 10);
+		EXPECT_EQ_INT((int)left, 1000);
+	}
+	CoreTimingRun(mips, 5000);
+	EXPECT_EQ_INT(g_ctFired, 1);
+	EXPECT_EQ_INT((int)g_ctOrder[0], 20);
+
+	// RemoveEvent takes them all, including ones that aren't at the head of the queue.
+	g_ctFired = 0;
+	CoreTiming::ScheduleEvent(1000, ev, 1);
+	CoreTiming::ScheduleEvent(2000, ev, 2);
+	CoreTiming::ScheduleEvent(3000, ev, 3);
+	CoreTiming::RemoveEvent(ev);
+	EXPECT_FALSE(CoreTiming::IsScheduled(ev));
+	CoreTimingRun(mips, 5000);
+	EXPECT_EQ_INT(g_ctFired, 0);
+
+	// An event far enough out that the cycle count doesn't fit in an int used to truncate to a
+	// negative value, escape the MAX_SLICE_LENGTH clamp, and leave slicelength/downcount negative.
+	// 3 billion cycles is about 13.5 seconds at 222MHz - well within what a game can ask for.
+	{
+		g_ctFired = 0;
+		CoreTiming::ScheduleEvent(3000000000LL, ev, 0xFA12);
+		CoreTiming::Advance(mips);
+		EXPECT_TRUE(CoreTiming::slicelength > 0);
+		EXPECT_TRUE(mips->downcount > 0);
+		// And it must not have fired early.
+		EXPECT_EQ_INT(g_ctFired, 0);
+		CoreTiming::RemoveEvent(ev);
+	}
+
+	// With several matches, UnscheduleEvent removes them all and reports the latest, which
+	// __GeTriggerSync relies on.
+	{
+		CoreTiming::ScheduleEvent(5000, ev, 77);
+		CoreTiming::ScheduleEvent(1000, ev, 77);
+		const s64 left = CoreTiming::UnscheduleEvent(ev, 77);
+		EXPECT_EQ_INT((int)left, 5000);
+		EXPECT_FALSE(CoreTiming::IsScheduled(ev));
+	}
+
+	// GetGlobalTimeUs must stay sane (and monotonic) far enough out that the old
+	// ticksSinceLast * 1000000 would have overflowed s64 - that needs > ~9.2e12 ticks.
+	{
+		const u64 usBefore = CoreTiming::GetGlobalTimeUs();
+		// 1e13 ticks - about 12.5 hours at 222MHz. Has to be this big: the old code overflowed at
+		// ticksSinceLast * 1000000 > S64_MAX, i.e. beyond ~9.2e12 ticks, and GetGlobalTimeUs() is
+		// only called at the end here so nothing rebases along the way.
+		CoreTiming::Advance(mips);
+		for (int i = 0; i < 100000; ++i) {
+			mips->downcount -= 100000000;
+			CoreTiming::Advance(mips);
+		}
+		const u64 usAfter = CoreTiming::GetGlobalTimeUs();
+		EXPECT_TRUE(usAfter >= usBefore);
+		// 1e13 cycles / 222MHz = ~4.5e10 us. Overflow gave a wildly wrong (often negative) value.
+		const u64 elapsed = usAfter - usBefore;
+		EXPECT_TRUE(elapsed > 44000000000ULL && elapsed < 46000000000ULL);
+	}
+
+	// An event that reschedules itself with no delay must not hang the emulator.
+	{
+		g_ctRunawayType = CoreTiming::RegisterEvent("UnitTestRunaway", &CoreTimingRunawayCallback);
+		g_ctRunawayFired = 0;
+		CoreTiming::ScheduleEvent(0, g_ctRunawayType, 0);
+		CoreTiming::Advance(mips);
+		// Cut off at ProcessEvents()' limit, with the event still due and a sane (empty) slice.
+		EXPECT_EQ_INT(g_ctRunawayFired, 10000);
+		EXPECT_TRUE(CoreTiming::IsScheduled(g_ctRunawayType));
+		EXPECT_EQ_INT(CoreTiming::slicelength, 0);
+		EXPECT_EQ_INT(mips->downcount, 0);
+		CoreTiming::RemoveEvent(g_ctRunawayType);
+	}
+
+	// Ticks only ever move forward, across many slices.
+	{
+		u64 last = CoreTiming::GetTicks(mips);
+		for (int i = 0; i < 200; ++i) {
+			CoreTimingRun(mips, 137);
+			const u64 now = CoreTiming::GetTicks(mips);
+			EXPECT_TRUE(now >= last);
+			last = now;
+		}
+	}
+
+	// Idle() jumps to the next event rather than past it.
+	{
+		CoreTiming::Advance(mips);
+		const u64 before = CoreTiming::GetTicks(mips);
+		CoreTiming::ScheduleEvent(500, ev, 0);
+		CoreTiming::Idle(mips, 0);
+		const u64 after = CoreTiming::GetTicks(mips);
+		EXPECT_TRUE(after >= before);
+		// Idle() never leaves downcount at exactly 0, so it can land one cycle past the event.
+		EXPECT_TRUE(after - before <= 501);
+		CoreTiming::RemoveEvent(ev);
+	}
 
 	return true;
 }
@@ -3220,6 +3426,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(BlockAllocator),
 	TEST_ITEM(SymbolMap),
 	TEST_ITEM(Hashmaps),
+	TEST_ITEM(CoreTiming),
 	TEST_ITEM(Breakpoints),
 	TEST_ITEM(TempBreakpoints),
 	TEST_ITEM(Utf8),
