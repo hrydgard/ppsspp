@@ -3655,6 +3655,11 @@ void FramebufferManagerCommon::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 		useBlit = false;
 		useCopy = false;
 	}
+	// Copy depth where we can: a raster copy isn't exact (Burnout Dominator's recursive rendering, #11100), and with
+	// multisampling it reads the single-sampled depth, which is never resolved, while a copy takes all the samples.
+	if (channel == RASTER_DEPTH && src != dst && src->fbo->MultiSampleLevel() == dst->fbo->MultiSampleLevel() && draw_->GetDeviceCaps().framebufferSeparateDepthCopySupported) {
+		useCopy = true;
+	}
 
 	float srcXFactor = src->renderScaleFactor;
 	float srcYFactor = src->renderScaleFactor;
