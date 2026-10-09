@@ -2805,7 +2805,7 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 	case 0x01020006:
 		// TODO: Should not work for umd0:/, ms0:/, etc.
 		// TODO: Should probably move this to something common between ISOFileSystem and VirtualDiscSystem.
-		INFO_LOG(Log::sceIo, "sceIoIoctl: Asked for start sector of file %i", id);
+		DEBUG_LOG(Log::sceIo, "sceIoIoctl: Asked for start sector of file %i", id);
 		if (Memory::IsValidRange(outdataPtr, 4) && outlen >= 4) {
 			Memory::WriteUnchecked_U32(f->FileInfo().startSector, outdataPtr);
 		} else {
@@ -2817,7 +2817,7 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 	case 0x01020007:
 		// TODO: Should not work for umd0:/, ms0:/, etc.
 		// TODO: Should probably move this to something common between ISOFileSystem and VirtualDiscSystem.
-		INFO_LOG(Log::sceIo, "sceIoIoctl: Asked for size of file %i", id);
+		DEBUG_LOG(Log::sceIo, "sceIoIoctl: Asked for size of file %i", id);
 		if (Memory::IsValid4AlignedRange(outdataPtr, 8)) {
 			Memory::WriteUnchecked_U64(f->FileInfo().size, outdataPtr);
 		} else {

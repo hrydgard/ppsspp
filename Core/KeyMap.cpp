@@ -515,6 +515,7 @@ const KeyMap_IntStrPair psp_button_names[] = {
 	{VIRTKEY_TEXTURE_REPLACE, "Texture Replacement"},
 	{VIRTKEY_SCREENSHOT, "Screenshot"},
 	{VIRTKEY_MUTE_TOGGLE, "Mute toggle"},
+	{VIRTKEY_CREATE_FRAME_DUMP, "Create frame dump"},
 
 #ifdef OPENXR
 	{VIRTKEY_VR_CAMERA_ADJUST, "VR camera adjust"},
