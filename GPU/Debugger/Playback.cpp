@@ -440,7 +440,7 @@ private:
 	u32 lastVertsSize_ = 0;
 
 	void MarkDrawn(u32 prim);
-	void CopyAroundDrawn(u32 addr, const u8 *data, u32 size);
+	void CopyAroundDrawn(u32 addr, const u8 *data, u32 size, bool linear);
 	void MarkNeededTargets();
 	// By command: the render target snapshots holding data that a later snapshot leaves out as unchanged.
 	std::vector<bool> neededTargets_;
@@ -950,7 +950,7 @@ void DumpExecute::Framebuf(int level, u32 ptr, u32 sz, bool needed) {
 		SyncStall();
 		gpu->Flush();
 		// Intentionally don't trigger an upload here.
-		CopyAroundDrawn(framebuf->addr, pushbuf_.data() + ptr + headerSize, pspSize);
+		CopyAroundDrawn(framebuf->addr, pushbuf_.data() + ptr + headerSize, pspSize, needed);
 	}
 }
 
@@ -998,13 +998,17 @@ void DumpExecute::MarkNeededTargets() {
 // framebuffer), or one whose recorded size runs over a buffer drawn next to it (Rainbow Six copies its
 // 512x512 frame texture before each strip it draws into the display buffer inside that range). A texture
 // beside the drawn area still comes through (Burnout keeps one in columns 480-511).
-void DumpExecute::CopyAroundDrawn(u32 addr, const u8 *data, u32 size) {
+void DumpExecute::CopyAroundDrawn(u32 addr, const u8 *data, u32 size, bool linear) {
 	// A texture recorded at its full size can run past the end of VRAM, into the depth swizzle mirror
 	// (Princess Maker 5's 1024x1024 one at 0x04000400). That isn't the game's data.
 	if (Memory::IsVRAMAddress(addr))
 		size = std::min(size, 0x00200000 - (addr & 0x001FFFFF));
 	std::vector<std::pair<int64_t, int64_t>> skip;
 	const int64_t start = addr & 0x001FFFFF, end = start + size;
+	// A snapshot at a depth mirror holds what the game saw through it (PPSSPP stored depth that way), so it goes
+	// back through the mirror. Except a render target's that later snapshots rely on: those read its data at
+	// linear addresses (Me & My Katamari textures a 512x512 one through 0x04288000, past its depth buffer).
+	linear = linear && Memory::IsVRAMAddress(addr);
 	if (g_Config.bSoftwareRendering) {
 		for (const auto &it : drawnTargets_) {
 			const DrawnTarget &t = it.second;
@@ -1026,7 +1030,11 @@ void DumpExecute::CopyAroundDrawn(u32 addr, const u8 *data, u32 size) {
 	int64_t pos = start;
 	auto copyTo = [&](int64_t until) {
 		if (until > pos) {
-			CopyToMemory(addr + (u32)(pos - start), data + (pos - start), (u32)(until - pos));
+			if (linear) {
+				Memory::MemcpyUnchecked(0x04000000 + (u32)pos, data + (pos - start), (u32)(until - pos));
+			} else {
+				CopyToMemory(addr + (u32)(pos - start), data + (pos - start), (u32)(until - pos));
+			}
 			NotifyMemInfo(MemBlockFlags::WRITE, addr + (u32)(pos - start), (u32)(until - pos), "ReplayTex");
 		}
 	};
