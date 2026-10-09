@@ -388,6 +388,13 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 		WARN_LOG_ONCE(color_equal_z, Log::G3D, "Framebuffer bound with color addr == z addr, likely will not use Z in this pass: %08x", params.fb_address);
 	}
 
+	if (params.fb_address != lastRenderAddress_) {
+		lastRenderAddress_ = params.fb_address;
+		depthShiftedFor_ = 0;
+		// Moving to an X offset can keep the same framebuffer, and the depth handling has to run again for it.
+		gstate_c.usingDepth = false;
+	}
+
 	// Compatibility hack for Killzone, see issue #6207.
 	if (PSP_CoreParameter().compat.flags().SplitFramebufferMargin && params.fb_format == GE_FORMAT_8888) {
 		ApplyKillzoneFramebufferSplit(&params, &drawing_width);
@@ -604,8 +611,10 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 
 	vfb->colorBindSeq = GetBindSeqCount();
 
-	gstate_c.curRTWidth = vfb->width;
-	gstate_c.curRTHeight = vfb->height;
+	// The whole buffer, not the guessed drawing size: that sizes the viewport, and the GE draws anywhere the
+	// scissor lets it. Tokimeki Memorial 4 draws to y 271 with a viewport (so a guessed height) of 256 (#6379).
+	gstate_c.curRTWidth = vfb->bufferWidth;
+	gstate_c.curRTHeight = vfb->bufferHeight;
 	gstate_c.curRTRenderWidth = vfb->renderWidth;
 	gstate_c.curRTRenderHeight = vfb->renderHeight;
 	return vfb;
@@ -623,6 +632,7 @@ void FramebufferManagerCommon::SetDepthFrameBuffer(bool isClearingDepth) {
 
 	uint32_t boundDepthBuffer = gstate.getDepthBufRawAddress() | 0x04000000;
 	uint32_t boundDepthStride = gstate.DepthBufStride();
+	const bool sameDepthBuffer = currentRenderVfb_->z_address == boundDepthBuffer;
 	if (currentRenderVfb_->z_address != boundDepthBuffer || currentRenderVfb_->z_stride != boundDepthStride) {
 		if (currentRenderVfb_->fb_address == boundDepthBuffer) {
 			// Disallow setting depth buffer to the same address as the color buffer, usually means it's not used.
@@ -644,6 +654,15 @@ void FramebufferManagerCommon::SetDepthFrameBuffer(bool isClearingDepth) {
 			FormatFramebufferName(currentRenderVfb_, tag, sizeof(tag));
 			currentRenderVfb_->fbo->UpdateTag(tag);
 		}
+	}
+
+	// Rendering at an X offset into a wider buffer moves the depth with the color, but the GE keeps the depth address,
+	// so the pass should see the depth at the unshifted position. Silent Hill: Origins draws its flashlight's shadows
+	// into the right half of a buffer with an EQUAL test against the depth the scene left in the left half (#16126).
+	if (!isClearingDepth && useBufferedRendering_ && gstate_c.curRTOffsetX > 0 && depthShiftedFor_ != lastRenderAddress_ &&
+		sameDepthBuffer) {
+		depthShiftedFor_ = lastRenderAddress_;
+		ShiftDepthForOffsetRendering(currentRenderVfb_, gstate_c.curRTOffsetX);
 	}
 
 	// If this first draw call is anything other than a clear, "resolve" the depth buffer,
@@ -1030,6 +1049,42 @@ void FramebufferManagerCommon::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 	draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 }
 
+// Copies a rectangle of depth (in render pixels) between two framebuffers, by whichever means the device has.
+void FramebufferManagerCommon::CopyDepthRect(Draw::Framebuffer *src, int srcX, int srcY, Draw::Framebuffer *dst, int dstX, int dstY, int w, int h, int scaleFactor, const char *tag) {
+	const Draw::DeviceCaps &caps = draw_->GetDeviceCaps();
+	const bool sameSamples = src->MultiSampleLevel() == dst->MultiSampleLevel();
+	if (sameSamples && (caps.framebufferSeparateDepthCopySupported || (!caps.framebufferDepthBlitSupported && caps.framebufferCopySupported))) {
+		draw_->CopyFramebufferImage(src, 0, srcX, srcY, 0, dst, 0, dstX, dstY, 0, w, h, 1, Draw::Aspect::DEPTH_BIT, tag);
+	} else if (caps.framebufferDepthBlitSupported) {
+		draw_->BlitFramebuffer(src, srcX, srcY, srcX + w, srcY + h, dst, dstX, dstY, dstX + w, dstY + h, Draw::Aspect::DEPTH_BIT, Draw::FB_BLIT_NEAREST, tag);
+	} else if (caps.fragmentShaderDepthWriteSupported && caps.textureDepthSupported) {
+		BlitUsingRaster(src, srcX, srcY, srcX + w, srcY + h, dst, dstX, dstY, dstX + w, dstY + h, false, scaleFactor, Get2DPipeline(Draw2DShader::DRAW2D_COPY_DEPTH), tag);
+	}
+}
+
+// Copies the depth at x in [0, xOffset) to [xOffset, 2 * xOffset), through a temporary buffer.
+void FramebufferManagerCommon::ShiftDepthForOffsetRendering(VirtualFramebuffer *vfb, int xOffset) {
+	if (!vfb->fbo) {
+		return;
+	}
+	const int scale = vfb->renderScaleFactor;
+	const int w = std::min(xOffset, (int)vfb->bufferWidth - xOffset) * scale;
+	const int h = vfb->renderHeight;
+	if (w <= 0) {
+		return;
+	}
+	Draw::Framebuffer *temp = GetTempFBO(TempFBO::DEPTH_SHIFT, vfb->renderWidth, vfb->renderHeight);
+	if (!temp) {
+		return;
+	}
+	CopyDepthRect(vfb->fbo, 0, 0, temp, 0, 0, w, h, scale, "DepthShiftOut");
+	CopyDepthRect(temp, 0, 0, vfb->fbo, xOffset * scale, 0, w, h, scale, "DepthShiftIn");
+	gpuStats.perFrame.numDepthCopies++;
+	draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
+	RebindFramebuffer("After ShiftDepthForOffsetRendering");
+	gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
+}
+
 void FramebufferManagerCommon::NotifyRenderFramebufferCreated(VirtualFramebuffer *vfb) {
 	if (!useBufferedRendering_) {
 		// Let's ignore rendering to targets that have not (yet) been displayed.
@@ -1042,7 +1097,7 @@ void FramebufferManagerCommon::NotifyRenderFramebufferCreated(VirtualFramebuffer
 }
 
 void FramebufferManagerCommon::NotifyRenderFramebufferUpdated(VirtualFramebuffer *vfb) {
-	if (gstate_c.curRTWidth != vfb->width || gstate_c.curRTHeight != vfb->height) {
+	if (gstate_c.curRTWidth != vfb->bufferWidth || gstate_c.curRTHeight != vfb->bufferHeight) {
 		gstate_c.Dirty(DIRTY_FRAMEBUFFER_DIM | DIRTY_VIEWPORTSCISSOR_STATE);
 	}
 	if (gstate_c.curRTRenderWidth != vfb->renderWidth || gstate_c.curRTRenderHeight != vfb->renderHeight) {
@@ -1603,28 +1658,10 @@ void FramebufferManagerCommon::CopyDisplayToOutput(const DisplayLayoutConfig &co
 	}
 }
 
-void FramebufferManagerCommon::PrepareCopyDisplayToOutput(const DisplayLayoutConfig &config, bool reallyDirty) {
-	DownloadFramebufferOnSwitch(currentRenderVfb_);
-
-	if (displayFramebufPtr_ == 0) {
-		if (GetUIState() != UISTATE_PAUSEMENU) {
-			if (Core_IsStepping())
-				VERBOSE_LOG(Log::FrameBuf, "Display disabled, displaying only black");
-			else
-				DEBUG_LOG(Log::FrameBuf, "Display disabled, displaying only black");
-		}
-		// No framebuffer to display! Clear to black.
-		presentation_->SourceBlank();
-		return;
-	}
-
-	u32 offsetX = 0;
-	u32 offsetY = 0;
-
-	// If it's not really dirty, we're probably frameskipping.  Use the last working one.
-	u32 fbaddr = reallyDirty ? displayFramebufPtr_ : prevDisplayFramebufPtr_;
-	prevDisplayFramebufPtr_ = fbaddr;
-
+// The framebuffer the display shows, and where in it: at its address, or inside a larger one.
+VirtualFramebuffer *FramebufferManagerCommon::FindDisplayVFB(u32 fbaddr, u32 *offsetX, u32 *offsetY) {
+	*offsetX = 0;
+	*offsetY = 0;
 	VirtualFramebuffer *vfb = ResolveVFB(fbaddr, displayStride_, displayFormat_);
 	if (!vfb) {
 		// Let's search for a framebuf within this range. Note that we also look for
@@ -1649,9 +1686,9 @@ void FramebufferManagerCommon::PrepareCopyDisplayToOutput(const DisplayLayoutCon
 					continue;
 				}
 				// Check for the closest one.
-				if (offsetY == 0 || offsetY > v_offsetY) {
-					offsetX = v_offsetX;
-					offsetY = v_offsetY;
+				if (*offsetY == 0 || *offsetY > v_offsetY) {
+					*offsetX = v_offsetX;
+					*offsetY = v_offsetY;
 					vfb = v;
 				}
 			}
@@ -1660,7 +1697,7 @@ void FramebufferManagerCommon::PrepareCopyDisplayToOutput(const DisplayLayoutCon
 		if (vfb) {
 			// Okay, we found one above.
 			// Log should be "Displaying from framebuf" but not worth changing the report.
-			DEBUG_LOG(Log::FrameBuf, "Rendering from framebuf with offset %08x -> %08x+%dx%d", addr, vfb->fb_address, offsetX, offsetY);
+			DEBUG_LOG(Log::FrameBuf, "Rendering from framebuf with offset %08x -> %08x+%dx%d", addr, vfb->fb_address, *offsetX, *offsetY);
 		}
 	}
 
@@ -1668,6 +1705,32 @@ void FramebufferManagerCommon::PrepareCopyDisplayToOutput(const DisplayLayoutCon
 	if (vfb && vfb->height < 64) {
 		vfb = nullptr;
 	}
+	return vfb;
+}
+
+void FramebufferManagerCommon::PrepareCopyDisplayToOutput(const DisplayLayoutConfig &config, bool reallyDirty) {
+	DownloadFramebufferOnSwitch(currentRenderVfb_);
+
+	if (displayFramebufPtr_ == 0) {
+		if (GetUIState() != UISTATE_PAUSEMENU) {
+			if (Core_IsStepping())
+				VERBOSE_LOG(Log::FrameBuf, "Display disabled, displaying only black");
+			else
+				DEBUG_LOG(Log::FrameBuf, "Display disabled, displaying only black");
+		}
+		// No framebuffer to display! Clear to black.
+		presentation_->SourceBlank();
+		return;
+	}
+
+	u32 offsetX = 0;
+	u32 offsetY = 0;
+
+	// If it's not really dirty, we're probably frameskipping.  Use the last working one.
+	u32 fbaddr = reallyDirty ? displayFramebufPtr_ : prevDisplayFramebufPtr_;
+	prevDisplayFramebufPtr_ = fbaddr;
+
+	VirtualFramebuffer *vfb = FindDisplayVFB(fbaddr, &offsetX, &offsetY);
 
 	if (!vfb) {
 		if (Memory::IsValidAddress(fbaddr)) {
@@ -2907,7 +2970,11 @@ void FramebufferManagerCommon::NotifyBlockTransferAfter(u32 dstBasePtr, int dstS
 				// The buffer isn't big enough, and we have a clear hint of size. Resize.
 				// This happens in Valkyrie Profile when uploading video at the ending.
 				// Also happens to the CLUT framebuffer in the Burnout Dominator lens flare effect. See #16075
+				// Resizing makes the buffer the current render target, but the game is still drawing to its own,
+				// so keep that for the rebind below (God of War: Ghost of Sparta lost its scene to this).
+				VirtualFramebuffer *renderVfb = currentRenderVfb_;
 				ResizeFramebufFBO(dstRect.vfb, dstRect.w_bytes / bpp, dstRect.h, false, true);
+				currentRenderVfb_ = renderVfb;
 				// Make sure we don't flop back and forth.
 				dstRect.vfb->newWidth = std::max(dstRect.w_bytes / bpp, (int)dstRect.vfb->width);
 				dstRect.vfb->newHeight = std::max(dstRect.h, (int)dstRect.vfb->height);
@@ -3008,6 +3075,7 @@ static const char *TempFBOReasonToString(TempFBO reason) {
 	case TempFBO::BLIT: return "blit";
 	case TempFBO::COPY: return "copy";
 	case TempFBO::STENCIL: return "stencil";
+	case TempFBO::DEPTH_SHIFT: return "depth_shift";
 	default: break;
 	}
 	return "";
@@ -3021,7 +3089,7 @@ Draw::Framebuffer *FramebufferManagerCommon::GetTempFBO(TempFBO reason, u16 w, u
 		return it->second.fbo;
 	}
 
-	bool z_stencil = reason == TempFBO::STENCIL;
+	bool z_stencil = reason == TempFBO::STENCIL || reason == TempFBO::DEPTH_SHIFT;
 	char name[128];
 	snprintf(name, sizeof(name), "tempfbo_%s_%dx%d", TempFBOReasonToString(reason), w / renderScaleFactor_, h / renderScaleFactor_);
 
@@ -3081,7 +3149,22 @@ bool FramebufferManagerCommon::GetFramebuffer(u32 fb_address, int fb_stride, GEB
 		return true;
 	}
 
+	return ReadFramebufferForDebug(vfb, 0, 0, 0, 0, buffer, maxScaleFactor);
+}
+
+bool FramebufferManagerCommon::GetDisplayFramebuffer(GPUDebugBuffer &buffer, int maxScaleFactor) {
+	u32 offsetX, offsetY;
+	VirtualFramebuffer *vfb = FindDisplayVFB(displayFramebufPtr_, &offsetX, &offsetY);
+	if (!vfb) {
+		return GetFramebuffer(displayFramebufPtr_, displayStride_, displayFormat_, buffer, maxScaleFactor);
+	}
+	return ReadFramebufferForDebug(vfb, offsetX, offsetY, 480, 272, buffer, maxScaleFactor);
+}
+
+// Reads back a framebuffer, or the w x h at x, y in it (in PSP pixels) if w isn't 0.
+bool FramebufferManagerCommon::ReadFramebufferForDebug(VirtualFramebuffer *vfb, int x, int y, int cropW, int cropH, GPUDebugBuffer &buffer, int maxScaleFactor) {
 	int w = vfb->renderWidth, h = vfb->renderHeight;
+	int scale = vfb->renderScaleFactor;
 
 	Draw::Framebuffer *bound = nullptr;
 
@@ -3089,6 +3172,7 @@ bool FramebufferManagerCommon::GetFramebuffer(u32 fb_address, int fb_stride, GEB
 		if (maxScaleFactor > 0 && vfb->renderWidth > vfb->width * maxScaleFactor) {
 			w = vfb->width * maxScaleFactor;
 			h = vfb->height * maxScaleFactor;
+			scale = maxScaleFactor;
 
 			Draw::Framebuffer *tempFBO = GetTempFBO(TempFBO::COPY, w, h);
 			VirtualFramebuffer tempVfb = *vfb;
@@ -3113,10 +3197,22 @@ bool FramebufferManagerCommon::GetFramebuffer(u32 fb_address, int fb_stride, GEB
 		buffer.SetIsBackbuffer(true);
 	}
 
+	int x0 = 0;
+	int y0 = 0;
+	if (cropW > 0 && useBufferedRendering_) {
+		x0 = std::min(x * scale, w);
+		y0 = std::min(y * scale, h);
+		w = std::min(cropW * scale, w - x0);
+		h = std::min(cropH * scale, h - y0);
+		if (w <= 0 || h <= 0) {
+			return false;
+		}
+	}
+
 	// TODO: Maybe should handle flipY inside CopyFramebufferToMemorySync somehow?
 	bool flipY = (GetGPUBackend() == GPUBackend::OPENGL && !useBufferedRendering_) ? true : false;
 	buffer.Allocate(w, h, GE_FORMAT_8888, flipY);
-	bool retval = draw_->CopyFramebufferToMemory(bound, Draw::Aspect::COLOR_BIT, 0, 0, w, h, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData(), w, Draw::ReadbackMode::BLOCK, "GetFramebuffer");
+	bool retval = draw_->CopyFramebufferToMemory(bound, Draw::Aspect::COLOR_BIT, x0, y0, w, h, Draw::DataFormat::R8G8B8A8_UNORM, buffer.GetData(), w, Draw::ReadbackMode::BLOCK, "GetFramebuffer");
 
 	buffer.SetScaleFactor(vfb->renderScaleFactor);
 	// Don't need to increment gpu stats for readback count here, this is a debugger-only function.
@@ -3723,6 +3819,21 @@ VirtualFramebuffer *FramebufferManagerCommon::ResolveFramebufferColorToFormat(Vi
 		FormatFramebufferName(vfb, tag, sizeof(tag));
 		vfb->fbo = draw_->CreateFramebuffer({ vfb->renderWidth, vfb->renderHeight, 1, GetFramebufferLayers(), 0, true, tag });
 		vfbs_.push_back(vfb);
+	} else {
+		// One that's already there can be smaller than the source in the new format, and the copy below would keep
+		// only part of the source. Silent Hill: Origins reads its 256x256 565 shadow map as CLUT32 through an
+		// 8888 buffer that was only 128x128, which cut the flashlight's shadows off below row 128.
+		const float widthFactor = (float)BufferFormatBytesPerPixel(src->fb_format) / (float)BufferFormatBytesPerPixel(newFormat);
+		const int width = (int)(src->width * widthFactor);
+		if (vfb->width < width || vfb->height < src->height) {
+			vfb->width = std::max((int)vfb->width, width);
+			vfb->height = std::max(vfb->height, src->height);
+			// The copy below overwrites it. Resizing makes it the render target, but the game is drawing elsewhere.
+			VirtualFramebuffer *renderVfb = currentRenderVfb_;
+			ResizeFramebufFBO(vfb, std::max((int)vfb->bufferWidth, (int)(src->bufferWidth * widthFactor)), std::max(vfb->bufferHeight, src->bufferHeight), false, true);
+			currentRenderVfb_ = renderVfb;
+			gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE);
+		}
 	}
 
 	// OK, now resolve it so we can texture from it.

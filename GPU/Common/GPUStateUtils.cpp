@@ -1418,15 +1418,24 @@ static void ConvertStencilFunc5551(GenericStencilFuncState &state) {
 	// Decrement always zeros, so let's rewrite those to be safe (even if it's not 1.)
 	rewriteOps(GE_STENCILOP_DECR, GE_STENCILOP_ZERO);
 
+	// Where the test passed, the value is known, but not on sFail.
+	auto rewritePassOps = [&](GEStencilOp from, GEStencilOp to) {
+		if (state.zFail == from)
+			state.zFail = to;
+		if (state.zPass == from)
+			state.zPass = to;
+	};
+
 	if (state.testFunc == GE_COMP_NOTEQUAL && state.testRef == 0 && state.testMask != 0) {
 		// If it's != 0 (as optimized above), then we can rewrite INVERT to ZERO.
 		// With 1 bit of stencil, INVERT != 0 can only make it 0.
-		rewriteOps(GE_STENCILOP_INVERT, GE_STENCILOP_ZERO);
+		rewritePassOps(GE_STENCILOP_INVERT, GE_STENCILOP_ZERO);
 	}
 	if (state.testFunc == GE_COMP_EQUAL && state.testRef == 0 && state.testMask != 0) {
 		// If it's == 0 (as optimized above), then we can rewrite INCR to INVERT.
 		// Otherwise we get 1, which we mostly handle, but won't INVERT correctly.
-		rewriteOps(GE_STENCILOP_INCR, GE_STENCILOP_INVERT);
+		// On sFail it's non-zero, and INCR keeps it that way (Warriors Orochi 2 draws its sky layers once each with EQUAL 0 and INCR on both.)
+		rewritePassOps(GE_STENCILOP_INCR, GE_STENCILOP_INVERT);
 	}
 	if (!usesRef && state.testRef == 0xFF) {
 		// Safe to use REPLACE instead of INCR.

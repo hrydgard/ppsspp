@@ -231,6 +231,8 @@ enum class TempFBO {
 	Z_COPY,
 	// Used to copy stencil data, means we need a stencil backing.
 	STENCIL,
+	// Depth moved within one framebuffer, for rendering at an X offset.
+	DEPTH_SHIFT,
 };
 
 inline Draw::DataFormat GEFormatToThin3D(GEBufferFormat geFormat) {
@@ -461,6 +463,8 @@ public:
 
 	// Debug features
 	virtual bool GetFramebuffer(u32 fb_address, int fb_stride, GEBufferFormat format, GPUDebugBuffer &buffer, int maxRes);
+	// The 480x272 the display shows, wherever in a framebuffer it is.
+	bool GetDisplayFramebuffer(GPUDebugBuffer &buffer, int maxRes);
 	virtual bool GetDepthbuffer(u32 fb_address, int fb_stride, u32 z_address, int z_stride, GPUDebugBuffer &buffer);
 	virtual bool GetStencilbuffer(u32 fb_address, int fb_stride, GPUDebugBuffer &buffer);
 	virtual bool GetOutputFramebuffer(GPUDebugBuffer &buffer);
@@ -544,6 +548,8 @@ protected:
 	void NotifyRenderFramebufferSwitched(VirtualFramebuffer *prevVfb, VirtualFramebuffer *vfb, bool isClearingDepth);
 
 	void BlitFramebufferDepth(VirtualFramebuffer *src, VirtualFramebuffer *dst, bool allowSizeMismatch = false);
+	void CopyDepthRect(Draw::Framebuffer *src, int srcX, int srcY, Draw::Framebuffer *dst, int dstX, int dstY, int w, int h, int scaleFactor, const char *tag);
+	void ShiftDepthForOffsetRendering(VirtualFramebuffer *vfb, int xOffset);
 	void EnsureStencilWritePipeline(bool useExportShader);
 	void DrawStencilWritePasses(GEBufferFormat format, int values, u8 usedBits, bool useExportShader);
 
@@ -552,6 +558,8 @@ protected:
 	static bool ShouldDownloadFramebufferColor(const VirtualFramebuffer *vfb);
 	static bool ShouldDownloadFramebufferDepth(const VirtualFramebuffer *vfb);
 	void DownloadFramebufferOnSwitch(VirtualFramebuffer *vfb);
+	VirtualFramebuffer *FindDisplayVFB(u32 fbaddr, u32 *offsetX, u32 *offsetY);
+	bool ReadFramebufferForDebug(VirtualFramebuffer *vfb, int x, int y, int w, int h, GPUDebugBuffer &buffer, int maxScaleFactor);
 
 	bool FindTransferFramebuffer(u32 basePtr, int stride, int x, int y, int w, int h, int bpp, bool destination, BlockTransferRect *rect);
 
@@ -636,6 +644,9 @@ protected:
 	};
 
 	std::unordered_map<u64, TempFBOInfo> tempFBOs_;
+	// The render target address the depth was last shifted for (see ShiftDepthForOffsetRendering).
+	u32 depthShiftedFor_ = 0;
+	u32 lastRenderAddress_ = 0;
 
 	std::vector<Draw::Framebuffer *> fbosToDelete_;
 
