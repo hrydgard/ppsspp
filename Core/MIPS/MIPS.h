@@ -297,8 +297,10 @@ public:
 };
 
 // Access control ('private') break standard layout. Let's not allow it, to avoid excessive
-// compiler warnings.
+// compiler warnings. Hm, this seems to go wrong on MSVC in debug builds...
+#ifndef _MSC_VER
 static_assert(std::is_standard_layout_v<MIPSState>, "the JITs use offsetof on MIPSState");
+#endif
 
 class MIPSDebugInterface;
 
