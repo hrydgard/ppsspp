@@ -829,15 +829,16 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 					p.C("  uv_round.x = floor(uv_round.x * 0.5);\n");
 				}
 				p.C("  uv_round = (uv_round + 0.5) / tsize;\n");
-				p.C("  vec4 t = ").SampleTexture2D("tex", "uv_round").C(";\n");
+				// The byte decodes below are exact in fp32, but the product rounding in fp16 makes 16 of 256 bytes come out one low.
+				p.F("  %s vec4 t = ", prec).SampleTexture2D("tex", "uv_round").C(";\n");
 				p.C("  int index;\n");
 				switch (shaderDepalFmt) {
 				case GE_FORMAT_8888:
 					p.C("  switch (component) {\n");
-					p.C("  case 0: index = int(t.x * 254.99); break;\n");  // TODO: Not sure why 254.99 instead of 255.99, but it's currently needed.
-					p.C("  case 1: index = int(t.y * 254.99); break;\n");
-					p.C("  case 2: index = int(t.z * 254.99); break;\n");
-					p.C("  case 3: index = int(t.w * 254.99); break;\n");
+					p.C("  case 0: index = int(t.x * 255.99); break;\n");
+					p.C("  case 1: index = int(t.y * 255.99); break;\n");
+					p.C("  case 2: index = int(t.z * 255.99); break;\n");
+					p.C("  case 3: index = int(t.w * 255.99); break;\n");
 					p.C("  }\n");
 					break;
 				default:
