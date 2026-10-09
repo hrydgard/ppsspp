@@ -554,6 +554,28 @@ static bool TestGELineCoverageAlpha() {
 	return true;
 }
 
+static bool TestGESpriteUPlaneExact() {
+	// Sprite left, top, right, bottom in pixels, u at the left and right, texture width, and whether the u plane's
+	// gradient is exact. The 1:1 sizes are exp87's (64x64 samples texel centers on a PSP, the others blend);
+	// the u = 1 + 2x ones are SOCOM's and Syphon Filter's CLUT8 reads of a 5551 framebuffer.
+	static const struct { int x0, y0, x1, y1, u0, u1, texW; bool exact; } cases[] = {
+		{ 0, 0, 64, 64, 37, 101, 512, true },
+		{ 0, 0, 16, 272, 37, 53, 512, false },
+		{ 0, 0, 480, 16, 37, 517, 512, false },
+		{ 0, 0, 64, 272, 1, 129, 1024, false },
+		{ 192, 0, 240, 272, 385, 481, 1024, false },
+		{ 0, 0, 64, 128, 1, 129, 256, true },
+	};
+	for (const auto &c : cases) {
+		const bool exact = GESpriteUPlaneExact(c.x0 * 16, c.y0 * 16, c.x1 * 16, c.y1 * 16, (double)c.u0 / c.texW, (double)c.u1 / c.texW);
+		if (exact != c.exact) {
+			printf("GESpriteUPlaneExact(%dx%d, u %d-%d / %d) = %d, want %d\n", c.x1 - c.x0, c.y1 - c.y0, c.u0, c.u1, c.texW, (int)exact, (int)c.exact);
+			return false;
+		}
+	}
+	return true;
+}
+
 bool TestGEMath() {
 	bool ok = true;
 	ok = TestFloat24() && ok;
@@ -572,5 +594,6 @@ bool TestGEMath() {
 	ok = TestGELightPow() && ok;
 	ok = TestGELightColor() && ok;
 	ok = TestGELineCoverageAlpha() && ok;
+	ok = TestGESpriteUPlaneExact() && ok;
 	return ok;
 }

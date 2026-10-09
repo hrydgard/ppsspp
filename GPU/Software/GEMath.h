@@ -417,6 +417,12 @@ inline float GENormalize4(Vec4F32 &v) {
 // The reciprocal triangle setup uses for its planes: q ~ 2^(e + 16) / absDet, e = floor(log2(absDet)).
 int64_t GESetupRecip(uint64_t absDet, int *e);
 
+// Whether a through-mode sprite's u plane has an exact gradient, so a pixel center whose exact u is on a texel
+// edge lands on it rather than just below. The gradient comes from the setup reciprocal of the whole area,
+// exact only for a power of two, whatever the height (gpu/probe exp87, exp163). x and y in subpixels, s the
+// left and right u divided by the texture width.
+bool GESpriteUPlaneExact(int64_t left, int64_t top, int64_t right, int64_t bottom, double sLeft, double sRight);
+
 // The float-bits log2 the mip level selection uses, in 1/16 (a signed 1.27.4 value): the exponent and
 // the top 4 mantissa bits, a piecewise linear log2 floored to 1/16 (gpu/probe exp58-60).
 inline int GELog16(float delta) {
