@@ -369,6 +369,7 @@ class DumpExecute {
 public:
 	DumpExecute(const std::vector<u8> &pushbuf, const std::vector<Command> &commands, uint32_t version)
 		: pushbuf_(pushbuf), commands_(commands), mapping_(pushbuf), version_(version) {
+		MarkNeededTargets();
 	}
 	~DumpExecute();
 
@@ -389,7 +390,7 @@ private:
 	void MemcpyDest(u32 ptr, u32 sz);
 	void Memcpy(u32 ptr, u32 sz);
 	void Texture(int level, u32 ptr, u32 sz);
-	void Framebuf(int level, u32 ptr, u32 sz);
+	void Framebuf(int level, u32 ptr, u32 sz, bool needed);
 	void Display(u32 ptr, u32 sz, bool allowFlip);
 	void EdramTrans(u32 ptr, u32 sz);
 
@@ -440,6 +441,9 @@ private:
 
 	void MarkDrawn(u32 prim);
 	void CopyAroundDrawn(u32 addr, const u8 *data, u32 size);
+	void MarkNeededTargets();
+	// By command: the render target snapshots holding data that a later snapshot leaves out as unchanged.
+	std::vector<bool> neededTargets_;
 
 	const std::vector<u8> &pushbuf_;
 	const std::vector<Command> &commands_;
@@ -912,7 +916,7 @@ void DumpExecute::Texture(int level, u32 ptr, u32 sz) {
 	}
 }
 
-void DumpExecute::Framebuf(int level, u32 ptr, u32 sz) {
+void DumpExecute::Framebuf(int level, u32 ptr, u32 sz, bool needed) {
 	PROFILE_THIS_SCOPE("ReplayFramebuf");
 	struct FramebufData {
 		u32 addr;
@@ -939,12 +943,52 @@ void DumpExecute::Framebuf(int level, u32 ptr, u32 sz) {
 	const bool unchangedVRAM = version_ >= 6 && (framebuf->flags & 2) != 0;
 	// TODO: Could use drawnVRAM flag, but it can be wrong.
 	// Could potentially always skip if !isTarget, but playing it safe for offset texture behavior.
-	if (Memory::IsValidRange(framebuf->addr, pspSize) && !unchangedVRAM && (!isTarget || !g_Config.bSoftwareRendering)) {
+	// The software renderer skips a render target's unless something later relies on it: one drawn before the
+	// dump started holds data no other snapshot brings in (Madden's field logo, Need for Speed ProStreet).
+	if (Memory::IsValidRange(framebuf->addr, pspSize) && !unchangedVRAM && (!isTarget || !g_Config.bSoftwareRendering || needed)) {
 		// After the draws before it, which the software renderer may still have queued.
 		SyncStall();
 		gpu->Flush();
 		// Intentionally don't trigger an upload here.
 		CopyAroundDrawn(framebuf->addr, pushbuf_.data() + ptr + headerSize, pspSize);
+	}
+}
+
+// The recorder leaves VRAM out of a snapshot as unchanged when an earlier snapshot had it. Marks the render
+// target snapshots that were that earlier one, by 256-byte block as the recorder tracks it.
+void DumpExecute::MarkNeededTargets() {
+	neededTargets_.assign(commands_.size(), false);
+	if (version_ < 6) {
+		return;
+	}
+	const u32 BLOCK_SHIFT = 8;
+	const u32 VRAM_SIZE = 0x00200000;
+	// For each block, the command whose snapshot last brought data there, and whether it was a render target's.
+	std::vector<int> lastSource(VRAM_SIZE >> BLOCK_SHIFT, -1);
+	std::vector<bool> lastIsTarget(lastSource.size(), false);
+	for (size_t i = 0; i < commands_.size(); i++) {
+		const Command &cmd = commands_[i];
+		if (cmd.type < CommandType::FRAMEBUF0 || cmd.type > CommandType::FRAMEBUF7 || cmd.sz < 16) {
+			continue;
+		}
+		const u32 *header = (const u32 *)(pushbuf_.data() + cmd.ptr);
+		if (!Memory::IsVRAMAddress(header[0])) {
+			continue;
+		}
+		const bool isTarget = (header[2] & 1) != 0;
+		const bool unchangedVRAM = (header[2] & 2) != 0;
+		const u32 start = header[0] & (VRAM_SIZE - 1);
+		const u32 end = std::min(start + (cmd.sz - 16), VRAM_SIZE);
+		for (u32 b = start >> BLOCK_SHIFT; b < (end + (1 << BLOCK_SHIFT) - 1) >> BLOCK_SHIFT; b++) {
+			if (unchangedVRAM) {
+				if (lastSource[b] >= 0 && lastIsTarget[b]) {
+					neededTargets_[lastSource[b]] = true;
+				}
+			} else {
+				lastSource[b] = (int)i;
+				lastIsTarget[b] = isTarget;
+			}
+		}
 	}
 }
 
@@ -1125,7 +1169,7 @@ ReplayResult DumpExecute::Run() {
 		case CommandType::FRAMEBUF5:
 		case CommandType::FRAMEBUF6:
 		case CommandType::FRAMEBUF7:
-			Framebuf((int)cmd.type - (int)CommandType::FRAMEBUF0, cmd.ptr, cmd.sz);
+			Framebuf((int)cmd.type - (int)CommandType::FRAMEBUF0, cmd.ptr, cmd.sz, neededTargets_[i]);
 			break;
 
 		case CommandType::DISPLAY:
