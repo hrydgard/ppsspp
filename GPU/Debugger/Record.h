@@ -82,6 +82,7 @@ private:
 	int CompareLastVRAM(u32 addr, u32 bytes) const;
 
 	u32 GetTargetFlags(u32 addr, u32 sizeInRAM);
+	void ReadbackUndrawnVRAM(u32 addr, u32 bytes);
 
 	void FlushPrimState(int vcount);
 	void EmitTextureData(int level, u32 texaddr);
@@ -104,6 +105,7 @@ private:
 	std::vector<u32> lastRegisters;
 	std::vector<u32> lastTextures;
 	std::set<u32> lastRenderTargets;
+	std::set<u32> readbackAddrs;
 	std::vector<u8> lastVRAM;
 
 	DirtyVRAMFlag dirtyVRAM[DIRTY_VRAM_SIZE];

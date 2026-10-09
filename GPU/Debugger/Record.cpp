@@ -163,6 +163,7 @@ bool Recorder::BeginRecording() {
 	guard.unlock();
 	lastTextures.clear();
 	lastRenderTargets.clear();
+	readbackAddrs.clear();
 	flipLastAction = gpuStats.totals.numFlips;
 	flipFinishAt = -1;
 
@@ -421,6 +422,30 @@ u32 Recorder::GetTargetFlags(u32 addr, u32 sizeInRAM) {
 	return flags;
 }
 
+// A hardware renderer keeps framebuffers on the GPU, so RAM can hold something older than what a game
+// samples from a buffer it drew before the recording started (Silent Hill: Origins shows the previous
+// frame by copying it into its display buffer). Read such buffers back once before copying them out.
+// Anything drawn during the recording is drawn again on replay, so that doesn't need it.
+void Recorder::ReadbackUndrawnVRAM(u32 addr, u32 bytes) {
+	if (!gpu || bytes == 0 || !Memory::IsVRAMAddress(addr)) {
+		return;
+	}
+	if (!readbackAddrs.insert(addr & 0x041FFFFF).second) {
+		return;
+	}
+
+	uint32_t start = (addr >> DIRTY_VRAM_SHIFT) & DIRTY_VRAM_MASK;
+	uint32_t blocks = (bytes + DIRTY_VRAM_ROUND) >> DIRTY_VRAM_SHIFT;
+	for (uint32_t i = 0; i < blocks && start + i < DIRTY_VRAM_SIZE; ++i) {
+		if (dirtyVRAM[start + i] == DirtyVRAMFlag::DRAWN) {
+			return;
+		}
+	}
+	// Not PerformReadbackToMemory: with BlockTransferAllowCreateFB (Silent Hill: Origins) that would create a
+	// framebuffer at the destination and copy into it instead of writing RAM.
+	gpu->PerformMemoryCopy(addr, addr, bytes, GPUCopyFlag::FORCE_DST_MATCH_MEM | GPUCopyFlag::DISALLOW_CREATE_VFB);
+}
+
 void Recorder::EmitTextureData(int level, u32 texaddr) {
 	GETextureFormat format = gstate.getTextureFormat();
 	int w = gstate.getTextureWidth(level);
@@ -435,6 +460,8 @@ void Recorder::EmitTextureData(int level, u32 texaddr) {
 	std::vector<u8> framebufData;
 
 	if (Memory::IsVRAMAddress(texaddr)) {
+		ReadbackUndrawnVRAM(texaddr, bytes);
+
 		struct FramebufData {
 			u32 addr;
 			int bufw;
@@ -543,6 +570,7 @@ void Recorder::EmitTransfer(u32 op) {
 	dstBytes = Memory::ClampValidSizeAt(dstBasePtr, dstBytes);
 
 	if (srcBytes != 0) {
+		ReadbackUndrawnVRAM(srcBasePtr, srcBytes);
 		EmitCommandWithRAM(CommandType::TRANSFERSRC, Memory::GetPointerUnchecked(srcBasePtr), srcBytes, 16);
 		DirtyVRAM(dstBasePtr, dstBytes, DirtyVRAMFlag::DIRTY);
 	}
@@ -566,6 +594,8 @@ void Recorder::EmitClut(u32 op) {
 	if (bytes != 0) {
 		// Send the original address so VRAM can be reasoned about.
 		if (Memory::IsVRAMAddress(addr)) {
+			ReadbackUndrawnVRAM(addr, bytes);
+
 			struct ClutAddrData {
 				u32 addr;
 				u32 flags;
