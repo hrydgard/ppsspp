@@ -2329,6 +2329,10 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 		// Fix Oversize Request
 		if ((*buflen) > available) *buflen = available;
 
+		if (!Memory::IsValidRange(buf, *buflen)) {
+			return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_INVALID_ARG, "adhocmatching invalid arg");
+		}
+
 		// Clear Memory
 		memset(buf2, 0, *buflen);
 
@@ -2410,6 +2414,10 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 
 					// Iterate rearranged peers
 					for (const auto& peer : sortedPeers) {
+						if (filledpeers >= requestedpeers) {
+							break;
+						}
+
 						// Parent Mode
 						if (context->mode == PSP_ADHOC_MATCHING_MODE_PARENT) {
 							// Interested in Children
