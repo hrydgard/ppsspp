@@ -53,7 +53,7 @@
         <meta-data android:name="android.max_aspect" android:value="2.4" />
         <activity
             android:name=".PpssppActivity"
-            android:configChanges="locale|keyboard|keyboardHidden|navigation|uiMode"
+            android:configChanges="locale|keyboard|keyboardHidden|navigation|uiMode|orientation|screenSize|screenLayout|smallestScreenSize|density"
             android:theme="@style/ppsspp_style"
 			android:launchMode="singleInstance"
 			android:resizeableActivity="true"
