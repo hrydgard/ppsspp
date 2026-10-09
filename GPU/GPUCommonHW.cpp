@@ -730,11 +730,21 @@ void GPUCommonHW::CheckDepthUsage(VirtualFramebuffer *vfb) {
 		if (isWritingDepth || isReadingDepth) {
 			gstate_c.usingDepth = true;
 			gstate_c.clearingDepth = isClearingDepth;
-			vfb->last_frame_depth_render = gpuStats.totals.numFlips;
-			if (isWritingDepth) {
-				vfb->last_frame_depth_updated = gpuStats.totals.numFlips;
+			auto markDepthUsed = [&]() {
+				vfb->last_frame_depth_render = gpuStats.totals.numFlips;
+				if (isWritingDepth) {
+					vfb->last_frame_depth_updated = gpuStats.totals.numFlips;
+				}
+			};
+			// SetDepthFrameBuffer copies in depth from a framebuffer sharing it, if that's newer than this one's.
+			// A pass that tests against the depth it finds gets that checked before this buffer's depth counts as
+			// used this frame: Brooktown High clears depth through another framebuffer as the last thing in a frame,
+			// and the next frame tests against it (#7223). A pass that only writes depth doesn't need the copy.
+			if (!isReadingDepth) {
+				markDepthUsed();
 			}
 			framebufferManager_->SetDepthFrameBuffer(isClearingDepth);
+			markDepthUsed();
 		}
 	}
 }
