@@ -39,6 +39,7 @@
 #include "Core/Replay.h"
 #include "Core/Reporting.h"
 #include "Core/ELF/ParamSFO.h"
+#include "Core/Util/PathUtil.h"
 
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
@@ -1113,6 +1114,13 @@ void DirectoryFileSystem::DoState(PointerWrap &p) {
 			Do(p, key);
 			Do(p, entry.guestFilename);
 			Do(p, entry.access);
+			// Guest paths never contain "..", the file system resolves them before they get here.
+			// One from a savestate would be opened (and possibly created or truncated) outside basePath.
+			if (HasParentDirComponent(entry.guestFilename)) {
+				ERROR_LOG(Log::FileSystem, "Savestate has a file name with a parent directory reference");
+				p.SetError(p.ERROR_FAILURE);
+				return;
+			}
 			u32 err;
 			// The original open created the file, so an exclusive create would fail now.
 			bool opened = entry.hFile.Open(basePath, entry.guestFilename, (FileAccess)(entry.access & ~FILEACCESS_EXCL), err);
