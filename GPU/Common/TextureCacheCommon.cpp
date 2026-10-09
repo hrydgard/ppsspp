@@ -2478,6 +2478,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 	ClutTexture clutTexture{};
 	bool smoothedDepal = false;
 	u32 depthUpperBits = 0;
+	bool depthIntoHalves = false;
 
 	VirtualFramebuffer sample0Vfb;
 
@@ -2546,7 +2547,8 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 
 		depthUpperBits = (depth && framebuffer->fb_format == GE_FORMAT_8888) ? ((gstate.getTextureAddress(0) & 0x600000) >> 20) : 0;
 
-		textureShader = textureShaderCache_.GetDepalettizeShader(clutMode, texFormat, fbFormat, smoothedDepal, depthUpperBits);
+		depthIntoHalves = depth && PSP_CoreParameter().compat.flags().DepthCLUTIntoHalves;
+		textureShader = textureShaderCache_.GetDepalettizeShader(clutMode, texFormat, fbFormat, smoothedDepal, depthUpperBits, depthIntoHalves);
 		gstate_c.SetShaderDepal(ShaderDepalMode::OFF);
 	}
 
@@ -2560,12 +2562,15 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 			depalWidth = texWidth * framebuffer->renderScaleFactor;
 			gstate_c.Dirty(DIRTY_UVSCALEOFFSET);
 		}
+		// Twice as wide, so a texture stretched 2x into a 16-bit view samples one output pixel per render pixel.
+		const int halves = depthIntoHalves ? 2 : 1;
+		depalWidth *= halves;
 
 		// If min is not < max, then we don't have values (wasn't set during decode.)
 		const KnownVertexBounds &bounds = gstate_c.vertBounds;
 		float u1 = 0.0f;
 		float v1 = 0.0f;
-		float u2 = depalWidth;
+		float u2 = depalWidth / halves;
 		float v2 = framebuffer->renderHeight;
 		if (bounds.minV < bounds.maxV) {
 			u1 = (bounds.minU + gstate_c.curTextureXOffset) * framebuffer->renderScaleFactor;
@@ -2581,7 +2586,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		draw_->BindTexture(1, nullptr);
 		draw_->BindFramebufferAsRenderTarget(depalFBO, { Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE }, "Depal");
 		draw_->InvalidateFramebuffer(Draw::FB_INVALIDATION_STORE, Draw::Aspect::DEPTH_BIT | Draw::Aspect::STENCIL_BIT);
-		draw_->SetScissorRect(u1, v1, u2 - u1, v2 - v1);
+		draw_->SetScissorRect(u1 * halves, v1, (u2 - u1) * halves, v2 - v1);
 		Draw::Viewport viewport{ 0.0f, 0.0f, (float)depalWidth, (float)framebuffer->renderHeight, 0.0f, 1.0f };
 		draw_->SetViewport(viewport);
 
@@ -2596,7 +2601,7 @@ void TextureCacheCommon::ApplyTextureFramebuffer(VirtualFramebuffer *framebuffer
 		draw_->BindSamplerStates(0, 1, &nearest);
 		draw_->BindSamplerStates(1, 1, &clutSampler);
 
-		draw2D_->Blit(textureShader, u1, v1, u2, v2, u1, v1, u2, v2, framebuffer->renderWidth, framebuffer->renderHeight, depalWidth, framebuffer->renderHeight, false, framebuffer->renderScaleFactor);
+		draw2D_->Blit(textureShader, u1, v1, u2, v2, u1 * halves, v1, u2 * halves, v2, framebuffer->renderWidth, framebuffer->renderHeight, depalWidth, framebuffer->renderHeight, false, framebuffer->renderScaleFactor);
 
 		gpuStats.perFrame.numDepal++;
 
