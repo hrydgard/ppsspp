@@ -1053,8 +1053,12 @@ void FramebufferManagerCommon::BlitFramebufferDepth(VirtualFramebuffer *src, Vir
 void FramebufferManagerCommon::CopyDepthRect(Draw::Framebuffer *src, int srcX, int srcY, Draw::Framebuffer *dst, int dstX, int dstY, int w, int h, int scaleFactor, const char *tag) {
 	const Draw::DeviceCaps &caps = draw_->GetDeviceCaps();
 	const bool sameSamples = src->MultiSampleLevel() == dst->MultiSampleLevel();
-	if (sameSamples && (caps.framebufferSeparateDepthCopySupported || (!caps.framebufferDepthBlitSupported && caps.framebufferCopySupported))) {
+	// Only a copy takes all the samples, and blits of multisampled buffers aren't supported at all.
+	const bool multisampled = src->MultiSampleLevel() != 0 || dst->MultiSampleLevel() != 0;
+	if (sameSamples && (caps.framebufferSeparateDepthCopySupported || (!caps.framebufferDepthBlitSupported && caps.framebufferCopySupported) || (multisampled && caps.framebufferCopySupported))) {
 		draw_->CopyFramebufferImage(src, 0, srcX, srcY, 0, dst, 0, dstX, dstY, 0, w, h, 1, Draw::Aspect::DEPTH_BIT, tag);
+	} else if (multisampled) {
+		WARN_LOG_ONCE(depthRectMSAA, Log::FrameBuf, "Can't copy multisampled depth here (%s)", tag);
 	} else if (caps.framebufferDepthBlitSupported) {
 		draw_->BlitFramebuffer(src, srcX, srcY, srcX + w, srcY + h, dst, dstX, dstY, dstX + w, dstY + h, Draw::Aspect::DEPTH_BIT, Draw::FB_BLIT_NEAREST, tag);
 	} else if (caps.fragmentShaderDepthWriteSupported && caps.textureDepthSupported) {
@@ -3112,10 +3116,12 @@ Draw::Framebuffer *FramebufferManagerCommon::GetTempFBO(TempFBO reason, u16 w, u
 	}
 
 	bool z_stencil = reason == TempFBO::STENCIL || reason == TempFBO::DEPTH_SHIFT;
+	// The depth shift copies to and from a framebuffer, which needs the same samples.
+	const int msaaLevel = reason == TempFBO::DEPTH_SHIFT ? msaaLevel_ : 0;
 	char name[128];
 	snprintf(name, sizeof(name), "tempfbo_%s_%dx%d", TempFBOReasonToString(reason), w / renderScaleFactor_, h / renderScaleFactor_);
 
-	Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ w, h, 1, GetFramebufferLayers(), 0, z_stencil, name });
+	Draw::Framebuffer *fbo = draw_->CreateFramebuffer({ w, h, 1, GetFramebufferLayers(), msaaLevel, z_stencil, name });
 	if (!fbo) {
 		return nullptr;
 	}
