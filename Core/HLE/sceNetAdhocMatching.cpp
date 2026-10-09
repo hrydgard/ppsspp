@@ -1944,6 +1944,9 @@ static int sceNetAdhocMatchingSelectTarget(int matchingId, const char *macAddres
 		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_NOT_RUNNING, "adhocmatching not running");
 	}
 
+	// The input thread can delete peers.
+	std::lock_guard<std::recursive_mutex> peer_guard(peerlock);
+
 	// Search Result
 	SceNetAdhocMatchingMemberInternal * peer = findPeer(context, (SceNetEtherAddr *)target);
 
@@ -2075,6 +2078,9 @@ int NetAdhocMatching_CancelTargetWithOpt(int matchingId, const char* macAddress,
 		// Context not running
 		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_NOT_RUNNING, "adhocmatching not running");
 	}
+
+	// The input thread can delete peers.
+	std::lock_guard<std::recursive_mutex> peer_guard(peerlock);
 
 	// Find Peer
 	SceNetAdhocMatchingMemberInternal* peer = findPeer(context, (SceNetEtherAddr*)target);
@@ -2252,12 +2258,11 @@ static int sceNetAdhocMatchingGetMembers(int matchingId, u32 sizeAddr, u32 buf) 
 	if (!Memory::IsValidAddress(sizeAddr))
 		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_INVALID_ARG, "adhocmatching invalid arg");
 
-	// Multithreading Lock
-	peerlock.lock();
+	// Held for the whole peer list walk
+	std::lock_guard<std::recursive_mutex> peer_guard(peerlock);
+
 	// Find Matching Context
 	SceNetAdhocMatchingContext* context = findMatchingContext(matchingId);
-	// Multithreading Unlock
-	peerlock.unlock();
 
 	// Context not found
 	if (context == NULL)
@@ -2539,6 +2544,9 @@ int sceNetAdhocMatchingAbortSendData(int matchingId, const char *mac) {
 		return hleLogError(Log::sceNet, SCE_NET_ADHOC_MATCHING_ERROR_NOT_RUNNING, "adhocmatching not running");
 	}
 
+	// Lock the peer
+	std::lock_guard<std::recursive_mutex> peer_guard(peerlock);
+
 	// Find Target Peer
 	SceNetAdhocMatchingMemberInternal * peer = findPeer(context, (SceNetEtherAddr *)mac);
 
@@ -2607,6 +2615,9 @@ void __NetMatchingCallbacks() { //(int matchingId)
 
 	auto params = matchingEvents.begin();
 	if (params != matchingEvents.end()) {
+		// For findPeer (the lock order is adhocEvtMtx -> peerlock)
+		std::lock_guard<std::recursive_mutex> peer_guard(peerlock);
+
 		u32_le args[6];
 		memcpy(args, params->data, sizeof(args));
 		auto context = findMatchingContext(args[0]);
