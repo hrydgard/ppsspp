@@ -217,13 +217,15 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		}
 
 		// Note: the precision qualifiers must match the vertex shader!
-		WRITE(p, "layout (location = 1) %s in lowp vec4 v_color0;\n", shading);
+		// Centroid, matching the vertex shader.
+		const char *colorQualifier = *shading ? shading : "centroid";
+		WRITE(p, "layout (location = 1) %s in lowp vec4 v_color0;\n", colorQualifier);
 		if (lmode) {
-			WRITE(p, "layout (location = 2) %s in lowp vec3 v_color1;\n", shading);
+			WRITE(p, "layout (location = 2) %s in lowp vec3 v_color1;\n", colorQualifier);
 		}
 		WRITE(p, "layout (location = 3) in highp float v_fogdepth;\n");
 		if (doTexture) {
-			WRITE(p, "layout (location = 0) in highp vec3 v_texcoord;\n");
+			WRITE(p, "layout (location = 0) centroid in highp vec3 v_texcoord;\n");
 		}
 		if (fsMinmaxDiscard || fsDepthClamp) {
 			WRITE(p, "layout (location = 4) in highp vec2 v_zw;\n");

@@ -203,12 +203,15 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 				WRITE(p, "layout (location = %d) in vec3 color1;\n", (int)PspAttributeLocation::COLOR1);
 		}
 
-		WRITE(p, "layout (location = 1) %sout lowp vec4 v_color0;\n", shading);
+		// Centroid keeps them inside the primitive on pixels it only partly covers with MSAA, so that
+		// textures aren't sampled from outside the UV range. Without MSAA, it's the same as center.
+		const char *colorQualifier = *shading ? shading : "centroid ";
+		WRITE(p, "layout (location = 1) %sout lowp vec4 v_color0;\n", colorQualifier);
 		if (lmode) {
-			WRITE(p, "layout (location = 2) %sout lowp vec3 v_color1;\n", shading);
+			WRITE(p, "layout (location = 2) %sout lowp vec3 v_color1;\n", colorQualifier);
 		}
 
-		WRITE(p, "layout (location = 0) out highp vec3 v_texcoord;\n");
+		WRITE(p, "layout (location = 0) centroid out highp vec3 v_texcoord;\n");
 
 		WRITE(p, "layout (location = 3) out highp float v_fogdepth;\n");
 
