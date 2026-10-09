@@ -933,7 +933,7 @@ void VulkanQueueRunner::LogRenderPass(const VKRStep &pass, bool verbose) {
 				INFO_LOG(Log::G3D, "  BindGraphicsPipeline(%x)", (int)(intptr_t)cmd.graphics_pipeline.pipeline);
 				break;
 			case VKRRenderCommand::BLEND:
-				INFO_LOG(Log::G3D, "  BlendColor(%08x)", cmd.blendColor.color);
+				INFO_LOG(Log::G3D, "  BlendColor(%f, %f, %f, %f)", cmd.blendColor.color[0], cmd.blendColor.color[1], cmd.blendColor.color[2], cmd.blendColor.color[3]);
 				break;
 			case VKRRenderCommand::CLEAR:
 				INFO_LOG(Log::G3D, "  Clear");
@@ -1179,12 +1179,8 @@ void VulkanQueueRunner::PerformRenderPass(const VKRStep &step, VkCommandBuffer c
 		}
 
 		case VKRRenderCommand::BLEND:
-		{
-			float bc[4];
-			Uint8x4ToFloat4(bc, c.blendColor.color);
-			vkCmdSetBlendConstants(cmd, bc);
+			vkCmdSetBlendConstants(cmd, c.blendColor.color);
 			break;
-		}
 
 		case VKRRenderCommand::PUSH_CONSTANTS:
 			if (pipelineOK) {

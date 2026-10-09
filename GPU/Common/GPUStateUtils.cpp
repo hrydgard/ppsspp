@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <limits>
 
+#include "Common/Data/Convert/SmallDataConvert.h"
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
 #include "Core/Config.h"
@@ -262,6 +263,16 @@ StencilValueType ReplaceAlphaWithStencilType() {
 	return STENCIL_VALUE_KEEP;
 }
 
+void GenericBlendState::blendColorToFloat4(float out[4]) const {
+	Uint8x4ToFloat4(out, blendColor);
+	if (blendColorGE) {
+		for (int i = 0; i < 3; i++) {
+			const int c = (blendColor >> (i * 8)) & 0xFF;
+			out[i] = (2 * c + 1) / 512.0f;
+		}
+	}
+}
+
 ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat) {
 	if (gstate_c.blueToAlpha) {
 		return REPLACE_BLEND_BLUE_TO_ALPHA;
@@ -323,6 +334,10 @@ ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat) {
 			// We can't technically do this correctly (due to clamping) without reading the dst color.
 			// Using a copy isn't accurate either, though, when there's overlap.
 			if (gstate_c.Use(GPU_USE_FRAMEBUFFER_FETCH))
+				return REPLACE_BLEND_READ_FRAMEBUFFER;
+			// Through mode is mostly full screen passes that don't overlap themselves, so a copy is safe there.
+			// Super Stardust composites its bloom at alpha 0xFF, doubling the dst, which 2x alpha clamps to 1x.
+			if (gstate.isModeThrough())
 				return REPLACE_BLEND_READ_FRAMEBUFFER;
 			return REPLACE_BLEND_PRE_SRC_2X_ALPHA;
 
@@ -450,6 +465,11 @@ ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat) {
 			if (gstate.getFixA() == 0xFFFFFF && gstate.getFixB() == 0x000000) {
 				// Some games specify this. Some GPUs may prefer blending off entirely.
 				return REPLACE_BLEND_NO;
+			} else if (IsGEExactFixedBlend(funcB, gstate.getBlendEq())) {
+				// 0 and 0xFFFFFF are exact as blend factors. Other fixed colors need the GE's math, see ConvertBlendState.
+				const bool trivialA = gstate.getFixA() == 0xFFFFFF || gstate.getFixA() == 0x000000;
+				const bool trivialB = gstate.getFixB() == 0xFFFFFF || gstate.getFixB() == 0x000000;
+				return trivialA && trivialB ? REPLACE_BLEND_STANDARD : REPLACE_BLEND_PRE_SRC;
 			} else if (gstate.getFixA() == 0xFFFFFF || gstate.getFixA() == 0x000000 || gstate.getFixB() == 0xFFFFFF || gstate.getFixB() == 0x000000) {
 				// We can represent this with standard factors.
 				return REPLACE_BLEND_STANDARD;
@@ -488,8 +508,12 @@ ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat) {
 				// We will just hope that doubling alpha for the dst factor will not clamp too badly.
 				if (gstate_c.Use(GPU_USE_FRAMEBUFFER_FETCH))
 					return REPLACE_BLEND_READ_FRAMEBUFFER;
+				// Through mode is mostly full screen passes that don't overlap themselves, so a copy is safe there.
+				// MotorStorm brightens its frame with DSTCOLOR + DOUBLESRCALPHA at alpha 0xFE, which is up to 3x the dst,
+				// and doubling alpha in the shader clamps that to 2x.
+				if (gstate.isModeThrough())
+					return REPLACE_BLEND_READ_FRAMEBUFFER;
 				// Hm, this is similar to the L.A. Rush case above. This will not be accurate.
-				// Wonder in which games we encounter this? One example is MotorStorm.
 				return REPLACE_BLEND_2X_ALPHA;
 			}
 
@@ -1068,7 +1092,19 @@ static void ConvertBlendState(GenericBlendState &blendState, FBReadSetting useFB
 		glBlendFuncB = toDualSource(glBlendFuncB);
 	}
 
-	if (blendFuncA == GE_SRCBLEND_FIXA || blendFuncB == GE_DSTBLEND_FIXB) {
+	if (usePreSrc && replaceBlend == REPLACE_BLEND_PRE_SRC && blendFuncA == GE_SRCBLEND_FIXA && IsGEExactFixedBlend(blendFuncB, blendFuncEq)) {
+		// The shader computed the src term like the GE and lowered it so that the hardware's rounding of the
+		// sum lands on the GE's floor of it, given the dst factor (2B+1)/512 the GE multiplies with.
+		if (fixB == 0 || fixB == 0xFFFFFF) {
+			glBlendFuncB = fixB == 0 ? BlendFactor::ZERO : BlendFactor::ONE;
+			if (constantAlphaGL == BlendFactor::CONSTANT_ALPHA) {
+				blendState.defaultBlendColor(constantAlpha);
+			}
+		} else {
+			glBlendFuncB = BlendFactor::CONSTANT_COLOR;
+			blendState.setBlendColorGE(fixB, constantAlpha);
+		}
+	} else if (blendFuncA == GE_SRCBLEND_FIXA || blendFuncB == GE_DSTBLEND_FIXB) {
 		if (glBlendFuncA == BlendFactor::INVALID && glBlendFuncB != BlendFactor::INVALID) {
 			// Can use blendcolor trivially.
 			blendState.setBlendColor(fixA, constantAlpha);

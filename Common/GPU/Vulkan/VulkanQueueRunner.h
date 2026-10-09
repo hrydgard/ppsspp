@@ -99,7 +99,7 @@ struct VkRenderData {
 			uint8_t stencilRef;
 		} stencil;
 		struct {
-			uint32_t color;
+			float color[4];
 		} blendColor;
 		struct {
 			VkShaderStageFlags stages;

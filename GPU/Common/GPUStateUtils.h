@@ -68,6 +68,11 @@ int ClearModeChannelMask();
 ReplaceAlphaType ReplaceAlphaWithStencil(ReplaceBlendType replaceBlend);
 ReplaceBlendType ReplaceBlendWithShader(GEBufferFormat bufferFormat);
 
+// Fixed color blends (with FIXA as the src factor) that REPLACE_BLEND_PRE_SRC computes like the GE.
+inline bool IsGEExactFixedBlend(GEBlendDstFactor funcB, GEBlendMode eq) {
+	return funcB == GE_DSTBLEND_FIXB && eq == GE_BLENDMODE_MUL_AND_ADD;
+}
+
 // This is for the fallback path if real logic ops are not available.
 SimulateLogicOpType SimulateLogicOpShaderTypeIfNeeded();
 
@@ -143,6 +148,8 @@ struct GenericBlendState {
 
 	bool useBlendColor;
 	u32 blendColor;
+	// The color channels are a GE fixed blend factor, applied as (2c+1)/512 like the GE does.
+	bool blendColorGE;
 
 	void setFactors(BlendFactor srcC, BlendFactor dstC, BlendFactor srcA, BlendFactor dstA) {
 		srcColor = srcC;
@@ -157,11 +164,16 @@ struct GenericBlendState {
 	void setBlendColor(uint32_t color, uint8_t alpha) {
 		blendColor = color | ((uint32_t)alpha << 24);
 		useBlendColor = true;
+		blendColorGE = false;
+	}
+	void setBlendColorGE(uint32_t color, uint8_t alpha) {
+		setBlendColor(color, alpha);
+		blendColorGE = true;
 	}
 	void defaultBlendColor(uint8_t alpha) {
-		blendColor = 0xFFFFFF | ((uint32_t)alpha << 24);
-		useBlendColor = true;
+		setBlendColor(0xFFFFFF, alpha);
 	}
+	void blendColorToFloat4(float out[4]) const;
 
 	void Log();
 };

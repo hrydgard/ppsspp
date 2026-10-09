@@ -15,7 +15,7 @@ struct VulkanDynamicState {
 	VkViewport viewport;
 	ScissorRect scissor;
 	bool useBlendColor;
-	uint32_t blendColor;
+	float blendColor[4];
 	bool useStencil;
 	uint8_t stencilRef;
 	uint8_t stencilWriteMask;

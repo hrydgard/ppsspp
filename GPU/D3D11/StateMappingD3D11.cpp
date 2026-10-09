@@ -192,7 +192,7 @@ void DrawEngineD3D11::ApplyDrawState(int prim) {
 				}
 				dynState_.useBlendColor = blendState.useBlendColor;
 				if (blendState.useBlendColor) {
-					dynState_.blendColor = blendState.blendColor;
+					blendState.blendColorToFloat4(dynState_.blendColor);
 				}
 			} else {
 				keys_.blend.blendEnable = false;
@@ -437,8 +437,7 @@ void DrawEngineD3D11::ApplyDrawStateLate(bool applyStencilRef, uint8_t stencilRe
 	}
 	if (gstate_c.IsDirty(DIRTY_BLEND_STATE)) {
 		// Need to do this AFTER ApplyTexture because the process of depalettization can ruin the blend state.
-		float blendColor[4];
-		Uint8x4ToFloat4(blendColor, dynState_.blendColor);
+		const float *blendColor = dynState_.blendColor;
 		if (device1_) {
 			context1_->OMSetBlendState(blendState1_, blendColor, 0xFFFFFFFF);
 		} else {

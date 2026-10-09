@@ -498,7 +498,7 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 	// Homebrew get fake disc IDs assigned to the global paramSFO, so they shouldn't clash with real games.
 
 	std::string discId = g_paramSFO.GetDiscID();
-	if (type == IdentifiedFileType::PPSSPP_GE_DUMP && g_CoreParameter.headLess) {
+	if (type == IdentifiedFileType::PPSSPP_GE_DUMP && g_CoreParameter.headLess && !g_CoreParameter.dumpCompat) {
 		// Headless replays frame dumps to compare them with references and with the PSP, which a game's
 		// workarounds would skew: DarkStalkers' present hack replaces the game's final upscale.
 		g_CoreParameter.compat.Clear();

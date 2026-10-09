@@ -396,11 +396,11 @@ public:
 		data.stencil.stencilRef = refValue;
 	}
 
-	void SetBlendFactor(uint32_t color) {
+	void SetBlendFactor(const float color[4]) {
 		_dbg_assert_(curRenderStep_ && curRenderStep_->stepType == VKRStepType::RENDER);
 		VkRenderData &data = curRenderStep_->commands.push_uninitialized();
 		data.cmd = VKRRenderCommand::BLEND;
-		data.blendColor.color = color;
+		memcpy(data.blendColor.color, color, sizeof(data.blendColor.color));
 	}
 
 	void PushConstants(VkShaderStageFlags stages, int offset, int size, void *constants) {
