@@ -14,6 +14,37 @@
 #include "Core/System.h"
 #include "Core/Config.h"
 
+// The target of the soft keyboard. It's a view of its own so the keyboard only comes up when we ask
+// for it: UIKit hands first responder back to the view controller whenever something it presented
+// (a share sheet, a picker, an alert) goes away, and if that were the text input, up it would come.
+@interface KeyboardInputView : UIView <UIKeyInput>
+@end
+
+@implementation KeyboardInputView
+
+- (BOOL)canBecomeFirstResponder {
+	return YES;
+}
+
+- (BOOL)hasText {
+	// Otherwise the keyboard wouldn't send backspaces.
+	return YES;
+}
+
+- (void)insertText:(NSString *)text {
+	SendKeyboardChars([text UTF8String]);
+}
+
+- (void)deleteBackward {
+	KeyInput input{};
+	input.deviceId = DEVICE_ID_KEYBOARD;
+	input.flags = KeyInputFlags::DOWN | KeyInputFlags::UP;
+	input.keyCode = NKCODE_DEL;
+	NativeKey(input);
+}
+
+@end
+
 @interface PPSSPPBaseViewController () {
 	CameraHelper *cameraHelper;
 	LocationHelper *locationHelper;
@@ -30,6 +61,7 @@
 @implementation PPSSPPBaseViewController {
 	UIScreenEdgePanGestureRecognizer *mBackGestureRecognizer;
 	CGSize lastLayoutSize_;
+	KeyboardInputView *keyboardInputView_;
 }
 
 // Strange idiom for generating unique IDs (within the process, at least).
@@ -137,7 +169,8 @@ static int GetPickerRequestId(id picker) {
 - (void)viewDidAppear:(BOOL)animated {
 	[super viewDidAppear:animated];
 	INFO_LOG(Log::G3D, "viewDidAppear");
-	[self hideKeyboard];
+	// For hardware keyboard presses.
+	[self becomeFirstResponder];
 	[self updateGesture];
 
 	// This needs to be called really late during startup, unfortunately.
@@ -146,7 +179,6 @@ static int GetPickerRequestId(id picker) {
 	NSLog(@"viewDidAppear. updating icon");
 	dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(4.0 * NSEC_PER_SEC)), dispatch_get_main_queue(), ^{
 		[[IAPManager sharedIAPManager] updateIcon:false];
-		[self hideKeyboard];
 	});
 #endif  // IOS_APP_STORE
 }
@@ -248,7 +280,6 @@ static int GetPickerRequestId(id picker) {
 	if (results.count == 0) {
 		NSLog(@"User cancelled photo picker");
 		g_requestManager.PostSystemFailure(requestId);
-		[self hideKeyboard];
 		return;
 	}
 
@@ -256,7 +287,6 @@ static int GetPickerRequestId(id picker) {
 	if (![itemProvider canLoadObjectOfClass:[UIImage class]]) {
 		NSLog(@"Photo picker result does not provide UIImage");
 		g_requestManager.PostSystemFailure(requestId);
-		[self hideKeyboard];
 		return;
 	}
 
@@ -268,7 +298,6 @@ static int GetPickerRequestId(id picker) {
 			} else {
 				[self savePickedImage:image toFilename:targetFilename requestId:requestId];
 			}
-			[self hideKeyboard];
 		});
 	}];
 }
@@ -282,8 +311,6 @@ static int GetPickerRequestId(id picker) {
 	[self savePickedImage:image toFilename:targetFilename requestId:requestId];
 
 	[picker dismissViewControllerAnimated:YES completion:nil];
-
-	[self hideKeyboard];
 }
 
 - (void)imagePickerControllerDidCancel:(UIImagePickerController *)picker {
@@ -292,9 +319,7 @@ static int GetPickerRequestId(id picker) {
 
 	[picker dismissViewControllerAnimated:YES completion:nil];
 
-	// You can also call your custom callback or use the requestId here
 	g_requestManager.PostSystemFailure(requestId);
-	[self hideKeyboard];
 }
 
 - (void)handleSwipeFrom:(UIScreenEdgePanGestureRecognizer *)recognizer {
@@ -370,6 +395,9 @@ static int GetPickerRequestId(id picker) {
 	[locationHelper setDelegate:self];
 
 	self.motionManager = [[CMMotionManager alloc] init];
+
+	keyboardInputView_ = [[KeyboardInputView alloc] initWithFrame:CGRectZero];
+	[self.view addSubview:keyboardInputView_];
 }
 
 extern float g_safeInsetLeft;
@@ -427,40 +455,19 @@ extern float g_safeInsetBottom;
 	[self setNeedsUpdateOfHomeIndicatorAutoHidden];
 }
 
-// The below is inspired by https://stackoverflow.com/questions/7253477/how-to-display-the-iphone-ipad-keyboard-over-a-full-screen-opengl-es-app
-// It's a bit limited but good enough.
-
-- (void)deleteBackward {
-	KeyInput input{};
-	input.deviceId = DEVICE_ID_KEYBOARD;
-	input.flags = KeyInputFlags::DOWN | KeyInputFlags::UP;
-	input.keyCode = NKCODE_DEL;
-	NativeKey(input);
-	INFO_LOG(Log::System, "Backspace");
-}
-
-- (void)insertText:(NSString *)text {
-	std::string str([text UTF8String]);
-	INFO_LOG(Log::System, "Chars: %s", str.c_str());
-	SendKeyboardChars(str);
-}
-
-- (BOOL)hasText {
-	return true;
-}
-
+// Main thread, like the rest of these.
 - (void)showKeyboard {
-	dispatch_async(dispatch_get_main_queue(), ^{
-		INFO_LOG(Log::System, "becomeFirstResponder");
-		[self becomeFirstResponder];
-	});
+	INFO_LOG(Log::System, "showKeyboard");
+	[keyboardInputView_ becomeFirstResponder];
 }
 
 - (void)hideKeyboard {
-	dispatch_async(dispatch_get_main_queue(), ^{
-		INFO_LOG(Log::System, "resignFirstResponder");
-		[self resignFirstResponder];
-	});
+	if (keyboardInputView_.isFirstResponder) {
+		INFO_LOG(Log::System, "hideKeyboard");
+		[keyboardInputView_ resignFirstResponder];
+		// Back to us, for hardware keyboard presses. We don't take text, so no keyboard comes with it.
+		[self becomeFirstResponder];
+	}
 }
 
 - (BOOL)canBecomeFirstResponder {
@@ -528,8 +535,6 @@ extern float g_safeInsetBottom;
 	[super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
 	// The immersive mode setting is per-orientation, so the status bar may need to change along with the rotation.
 	[self setNeedsStatusBarAppearanceUpdate];
-
-	[self.view endEditing:YES]; // clears any input focus
 }
 
 // Rotations and window resizes land here. UIKit lays out at the final size at the start of a
