@@ -407,10 +407,12 @@ extern float g_safeInsetBottom;
 
 - (void)shareText:(NSString *)text {
 	NSArray *items = @[text];
-	UIActivityViewController * viewController = [[UIActivityViewController alloc] initWithActivityItems:items applicationActivities:nil];
-	dispatch_async(dispatch_get_main_queue(), ^{
-		[self presentViewController:viewController animated:YES completion:nil];
-	});
+	UIActivityViewController *viewController = [[UIActivityViewController alloc] initWithActivityItems:items applicationActivities:nil];
+	// On iPad, the share sheet is a popover and needs an anchor.
+	viewController.popoverPresentationController.sourceView = self.view;
+	viewController.popoverPresentationController.sourceRect = CGRectMake(CGRectGetMidX(self.view.bounds), CGRectGetMidY(self.view.bounds), 0, 0);
+	viewController.popoverPresentationController.permittedArrowDirections = 0;
+	[self presentViewController:viewController animated:YES completion:nil];
 }
 
 - (void)appSwitchModeChanged {

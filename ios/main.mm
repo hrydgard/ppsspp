@@ -528,43 +528,58 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		return true;
 	}
 	case SystemRequestType::CAMERA_COMMAND:
-		if (!strncmp(param1.c_str(), "startVideo", 10)) {
-			int width = 0, height = 0;
-			sscanf(param1.c_str(), "startVideo_%dx%d", &width, &height);
-			[sharedViewController startVideo:width height:height];
-		} else if (!strcmp(param1.c_str(), "stopVideo")) {
-			[sharedViewController stopVideo];
-		}
+	{
+		// These come from the emu thread. UIKit and Core Location want the main thread, and that's
+		// also the only thread that changes sharedViewController.
+		std::string command = param1;
+		dispatch_async(dispatch_get_main_queue(), ^{
+			if (!strncmp(command.c_str(), "startVideo", 10)) {
+				int width = 0, height = 0;
+				sscanf(command.c_str(), "startVideo_%dx%d", &width, &height);
+				[sharedViewController startVideo:width height:height];
+			} else if (command == "stopVideo") {
+				[sharedViewController stopVideo];
+			}
+		});
 		return true;
+	}
 	case SystemRequestType::GPS_COMMAND:
-		if (param1 == "open") {
-			[sharedViewController startLocation];
-		} else if (param1 == "close") {
-			[sharedViewController stopLocation];
-		}
+	{
+		std::string command = param1;
+		dispatch_async(dispatch_get_main_queue(), ^{
+			if (command == "open") {
+				[sharedViewController startLocation];
+			} else if (command == "close") {
+				[sharedViewController stopLocation];
+			}
+		});
 		return true;
+	}
 	case SystemRequestType::SHARE_TEXT:
 	{
 		NSString *text = [NSString stringWithUTF8String:param1.c_str()];
-		[sharedViewController shareText:text];
+		dispatch_async(dispatch_get_main_queue(), ^{
+			[sharedViewController shareText:text];
+		});
 		return true;
 	}
 	case SystemRequestType::NOTIFY_UI_EVENT:
 	{
-		switch ((UIEventNotification)param3) {
-		case UIEventNotification::POPUP_CLOSED:
-		case UIEventNotification::DIALOG_CLOSED:
-			[sharedViewController hideKeyboard];
-			break;
-		case UIEventNotification::TEXT_GOTFOCUS:
-			[sharedViewController showKeyboard];
-			break;
-		case UIEventNotification::TEXT_LOSTFOCUS:
-			[sharedViewController hideKeyboard];
-			break;
-		default:
-			break;
-		}
+		const UIEventNotification event = (UIEventNotification)param3;
+		dispatch_async(dispatch_get_main_queue(), ^{
+			switch (event) {
+			case UIEventNotification::POPUP_CLOSED:
+			case UIEventNotification::DIALOG_CLOSED:
+			case UIEventNotification::TEXT_LOSTFOCUS:
+				[sharedViewController hideKeyboard];
+				break;
+			case UIEventNotification::TEXT_GOTFOCUS:
+				[sharedViewController showKeyboard];
+				break;
+			default:
+				break;
+			}
+		});
 		return true;
 	}
 #if PPSSPP_PLATFORM(IOS_APP_STORE)
@@ -640,25 +655,28 @@ BOOL SupportsTaptic() {
 }
 
 void System_Vibrate(int mode) {
-	if (SupportsTaptic()) {
-		PPSSPPUIApplication* app = (PPSSPPUIApplication*)[UIApplication sharedApplication];
-		if(app.feedbackGenerator == nil)
-		{
-			app.feedbackGenerator = [[UISelectionFeedbackGenerator alloc] init];
-			[app.feedbackGenerator prepare];
-		}
-		[app.feedbackGenerator selectionChanged];
-	} else {
+	// Comes from the UI code on the emu thread, and UIKit wants the main thread.
+	dispatch_async(dispatch_get_main_queue(), ^{
+		if (SupportsTaptic()) {
+			PPSSPPUIApplication* app = (PPSSPPUIApplication*)[UIApplication sharedApplication];
+			if(app.feedbackGenerator == nil)
+			{
+				app.feedbackGenerator = [[UISelectionFeedbackGenerator alloc] init];
+				[app.feedbackGenerator prepare];
+			}
+			[app.feedbackGenerator selectionChanged];
+		} else {
 #if !PPSSPP_PLATFORM(IOS_APP_STORE)
-		NSMutableDictionary *dictionary = [NSMutableDictionary dictionary];
-		NSArray *pattern = @[@YES, @30, @NO, @2];
+			NSMutableDictionary *dictionary = [NSMutableDictionary dictionary];
+			NSArray *pattern = @[@YES, @30, @NO, @2];
 
-		dictionary[@"VibePattern"] = pattern;
-		dictionary[@"Intensity"] = @2;
+			dictionary[@"VibePattern"] = pattern;
+			dictionary[@"Intensity"] = @2;
 
-		AudioServicesPlaySystemSoundWithVibration(kSystemSoundID_Vibrate, nil, dictionary);
+			AudioServicesPlaySystemSoundWithVibration(kSystemSoundID_Vibrate, nil, dictionary);
 #endif
-	}
+		}
+	});
 }
 
 AudioBackend *System_CreateAudioBackend() {
