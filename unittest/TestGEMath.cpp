@@ -419,6 +419,70 @@ static bool TestGERowSum4() {
 		}
 	}
 
+	// GERowSumLanes, a lane per vertex, against GERowSum.
+	for (int i = 0; i < 100000; ++i) {
+		const int count = 1 + (i & 3);
+		const int spread = (i % 7 == 0) ? 120 : ((i % 3 == 0) ? 20 : 3);
+		const int center = (i % 11 == 0) ? (int)(next() % 254) + 1 : 127;
+		alignas(16) float a[4][4] = {};
+		float b[4] = {};
+		Vec4F32 av[4];
+		GERowSumLeft left[4];
+		for (int k = 0; k < 4; ++k) {
+			for (int l = 0; l < 4; ++l)
+				a[k][l] = k < count ? randomFloat24(center, spread) : 0.0f;
+			b[k] = k < count ? randomFloat24(center, spread) : 0.0f;
+			av[k] = Vec4F32::Load(a[k]);
+			left[k] = GERowSumLeft::From(av[k]);
+		}
+		GERowSumEntries entries;
+		entries.Set(b);
+		Vec4F32 rv;
+		switch (count) {
+		case 1: rv = GERowSumLanes<1>(left, av, entries); break;
+		case 2: rv = GERowSumLanes<2>(left, av, entries); break;
+		case 3: rv = GERowSumLanes<3>(left, av, entries); break;
+		default: rv = GERowSumLanes<4>(left, av, entries); break;
+		}
+		alignas(16) float got[4];
+		rv.Store(got);
+		for (int l = 0; l < 4; ++l) {
+			GERowTerm terms[4];
+			for (int k = 0; k < count; ++k)
+				terms[k] = GEProduct(a[k][l], b[k]);
+			const float want = GERowSum(terms, count);
+			if (memcmp(&got[l], &want, sizeof(float)) != 0) {
+				printf("GERowSumLanes: case %d lane %d: %a, want %a (count %d)\n", i, l, got[l], want, count);
+				return false;
+			}
+		}
+	}
+
+	// GERecip4 against GERecip, every mantissa, both signs, exponents across the range it covers.
+	for (int e = 1; e < 127 + 126; e += 7) {
+		for (uint32_t m = 0; m < 0x8000; m += 4) {
+			alignas(16) float w[4];
+			for (int l = 0; l < 4; ++l) {
+				const uint32_t bits = ((l & 1) ? 0x80000000 : 0) | ((uint32_t)e << 23) | ((m + l) << 8);
+				memcpy(&w[l], &bits, 4);
+			}
+			Vec4S32 bad = Vec4S32::Zero();
+			alignas(16) float got[4];
+			GERecip4(Vec4F32::Load(w), bad).Store(got);
+			if (AnyCompareBitsSet(bad)) {
+				printf("GERecip4: exponent %d flagged\n", e);
+				return false;
+			}
+			for (int l = 0; l < 4; ++l) {
+				const float want = GERecip(w[l]);
+				if (memcmp(&got[l], &want, sizeof(float)) != 0) {
+					printf("GERecip4: %a: %a, want %a\n", w[l], got[l], want);
+					return false;
+				}
+			}
+		}
+	}
+
 	// Speed: a vertex transform's four rows, as GERowSum4 and as four scalar GERowSums.
 	{
 		const int count = 1024;

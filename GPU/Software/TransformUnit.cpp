@@ -255,8 +255,9 @@ struct TransformState {
 	Lighting::State lightingState;
 
 	float matrix[16];
-	// The same, taken apart for GEClipPosition.
+	// The same, taken apart for GEClipPosition, and its columns (a clip coordinate each) for PreparePositions4.
 	GERowSumRows clipRows;
+	GERowSumEntries clipEntries[4];
 	// The world matrix's rows, for the normal: each component summed like a matrix row (gpu/probe exp61).
 	GERowSumRows worldNormalRows;
 	Vec4f posToFog;
@@ -264,6 +265,7 @@ struct TransformState {
 	// combined world-view matrix, then float24(GEAdd(z, end) * slope).
 	bool fogGE;
 	GERowSumRows viewZRows;
+	GERowSumEntries viewZEntries;
 	float fogEnd;
 	float fogSlope;
 	Vec3f screenScale;
@@ -274,6 +276,8 @@ struct TransformState {
 	Vec4F32 screenAdd4;
 
 	bool depthClamp;
+	// The position stage can be done four vertices at a time (PreparePositions4).
+	bool prepare4;
 
 	// The texture matrix's rows, for GETexGen.
 	GERowSumRows tgenRows;
@@ -362,6 +366,10 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 		const float *m = state->matrix;
 		const Vec4F32 clipRows[4] = { Vec4F32::Load(m), Vec4F32::Load(m + 4), Vec4F32::Load(m + 8), Vec4F32::Load(m + 12) };
 		state->clipRows.Set(clipRows);
+		for (int r = 0; r < 4; ++r) {
+			const float column[4] = { m[r], m[4 + r], m[8 + r], m[12 + r] };
+			state->clipEntries[r].Set(column);
+		}
 		// Row k is m[3k..3k+2]; the fourth lane reads the next row's first entry and goes unused, as does the
 		// normal's.
 		const float *w = gstate.worldMatrix;
@@ -379,6 +387,8 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 			for (int i = 0; i < 4; ++i)
 				viewZRows[i] = Vec4F32::Splat(worldview[2 + 4 * i]);
 			state->viewZRows.Set(viewZRows);
+			const float viewZ[4] = { worldview[2], worldview[6], worldview[10], worldview[14] };
+			state->viewZEntries.Set(viewZ);
 			state->fogEnd = TruncateToFloat24(fogEnd);
 			state->fogSlope = TruncateToFloat24(fogSlope);
 
@@ -422,6 +432,7 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 	}
 
 	state->depthClamp = gstate.isDepthClipEnabled();
+	state->prepare4 = state->enableTransform && state->viewport3 && (!state->enableFog || state->fogGE);
 }
 
 // GEViewport of x, y and z (lanes 0-2) at once, z not yet floored. False for the inputs GEViewport doesn't
@@ -464,9 +475,87 @@ static inline float Dot43(const Vec4f &a, const Vec3f &b) {
 	return Dot(a, Vec4f(b, 1.0f));
 }
 
+// floorf of each lane, for finite ones. A -0 comes out +0.
+static inline Vec4F32 Floor4(Vec4F32 v) {
+	const Vec4F32 t = Vec4F32FromS32(Vec4S32FromF32(v));
+	const Vec4F32 floored = t - Vec4F32FromBits(t.CompareGt(v) & Vec4S32FromBits(Vec4F32::Splat(1.0f)));
+	// From 2^23 on, every float is an integer, and the conversion may overflow.
+	const Vec4S32 big = Vec4F32FromBits(Vec4S32FromBits(v) & Vec4S32::Splat(0x7FFFFFFF)).CompareGe(Vec4F32::Splat(8388608.0f));
+	return Select(big, v, floored);
+}
+
+// ReadVertex's position stage (the clip coordinates, the screen position and fog) for four vertices at once,
+// a lane each, from their model positions (x, y, z, 1). False when a lane needs what only ReadVertex does: a
+// non-finite clip coordinate, or a w that's zero, denormal or too large for GERecip's usual path. The outputs
+// are then undefined. Only with state.prepare4.
+static bool PreparePositions4(const Vec4F32 pos[4], const TransformState &state, TransformUnit::PreparedPosition out[4]) {
+	Vec4F32 a[4] = { pos[0], pos[1], pos[2], pos[3] };
+	Vec4F32::Transpose(a[0], a[1], a[2], a[3]);
+	GERowSumLeft left[4];
+	for (int k = 0; k < 4; ++k)
+		left[k] = GERowSumLeft::From(a[k]);
+	Vec4F32 clip[4];
+	for (int r = 0; r < 4; ++r)
+		clip[r] = GERowSumLanes<4>(left, a, state.clipEntries[r]);
+
+	// GEViewport for x, y and z.
+	const Vec4S32 expMask = Vec4S32::Splat(0x7F800000);
+	Vec4S32 bad = Vec4S32::Zero();
+	for (int r = 0; r < 4; ++r)
+		bad = bad | (Vec4S32FromBits(clip[r]) & expMask).CompareEq(expMask);
+	const Vec4F32 recip = GERecip4(clip[3], bad);
+	if (AnyCompareBitsSet(bad))
+		return false;
+	Vec4F32 scaled[3];
+	for (int c = 0; c < 3; ++c) {
+		const Vec4F32 ndc = GEMulFloat24x4(clip[c], recip);
+		scaled[c] = GEAdd4(GEMulFloat24x4(ndc, Vec4F32::Splat(state.screenScale[c])), Vec4F32::Splat(state.screenAdd[c]));
+	}
+	Vec4F32 z = Floor4(scaled[2]);
+
+	// ClipToScreenInternal.
+	const Vec4F32 bound = Vec4F32::Splat(4095.0f + (15.5f / 16.0f));
+	const Vec4F32 zero = Vec4F32::Zero();
+	const Vec4S32 insideXY = scaled[0].CompareGe(zero) & scaled[1].CompareGe(zero) & scaled[1].CompareLt(bound);
+	Vec4S32 outside;
+	if (state.depthClamp) {
+		// Not for a vertex the near plane clips away.
+		const Vec4F32 negW = Vec4F32FromBits(Vec4S32FromBits(clip[3]) ^ Vec4S32::Splat((int)0x80000000));
+		outside = ((insideXY & scaled[0].CompareLt(bound)) ^ Vec4S32::Splat(-1)).AndNot(clip[2].CompareLt(negW));
+		z = z.Max(zero).Min(Vec4F32::Splat(65535.0f));
+	} else {
+		outside = (insideXY & scaled[0].CompareLe(bound) & z.CompareGe(zero) & z.CompareLt(Vec4F32::Splat(65536.0f))) ^ Vec4S32::Splat(-1);
+	}
+	alignas(16) int xs[4], ys[4], zs[4], outs[4];
+	(Vec4S32FromF32(Floor4(scaled[0] * 16.0f)) - Vec4S32::Splat(gstate.getOffsetX16())).StoreAligned(xs);
+	(Vec4S32FromF32(Floor4(scaled[1] * 16.0f)) - Vec4S32::Splat(gstate.getOffsetY16())).StoreAligned(ys);
+	(Vec4S32FromF32(z) & Vec4S32::Splat(0xFFFF)).StoreAligned(zs);
+	outside.StoreAligned(outs);
+
+	alignas(16) float fog[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+	if (state.enableFog) {
+		// The GE's fog (state.prepare4 leaves the other kind to ReadVertex).
+		const Vec4F32 viewZ = GERowSumLanes<4>(left, a, state.viewZEntries);
+		Vec4F32 f = GEMulFloat24x4(TruncateToFloat24x4(GEAdd4(viewZ, Vec4F32::Splat(state.fogEnd))), Vec4F32::Splat(state.fogSlope));
+		f.StoreAligned(fog);
+		for (int i = 0; i < 4; ++i)
+			fog[i] = GEFogFactor(fog[i]) * (1.0f / 256.0f);
+	}
+
+	Vec4F32::Transpose(clip[0], clip[1], clip[2], clip[3]);
+	for (int i = 0; i < 4; ++i) {
+		clip[i].Store(out[i].clippos.AsArray());
+		out[i].screenpos = ScreenCoords(xs[i], ys[i], (u16)zs[i]);
+		out[i].fogdepth = fog[i];
+		out[i].outside = outs[i] != 0;
+		out[i].valid = true;
+	}
+	return true;
+}
+
 // Writes straight into the destination: building the vertex in a temporary and copying it reloads its
 // fields with wider loads than they were stored with, which stalls.
-void TransformUnit::ReadVertex(const VertexReader &vreader, const TransformState &state, VertexCarry &carry, ClipVertexData &vertex) {
+void TransformUnit::ReadVertex(const VertexReader &vreader, const TransformState &state, VertexCarry &carry, ClipVertexData &vertex, const PreparedPosition *prepared) {
 	PROFILE_THIS_SCOPE("read_vert");
 
 	// (x, y, z, 1), the left operands of the transform's rows.
@@ -506,7 +595,15 @@ void TransformUnit::ReadVertex(const VertexReader &vreader, const TransformState
 
 	vertex.v.color1 = 0;
 
-	if (state.enableTransform) {
+	if (state.enableTransform && prepared && prepared->valid) {
+		vertex.clippos = prepared->clippos;
+		vertex.v.screenpos = prepared->screenpos;
+		if (prepared->outside) {
+			vertex.v.screenpos.x = 0x7FFFFFFF;
+			return;
+		}
+		vertex.v.fogdepth = prepared->fogdepth;
+	} else if (state.enableTransform) {
 		// Clip coordinates with the GE's precision; the Test Drive map depends on it together with the
 		// depth math below (#12786).
 		Vec4F32 clip = GEClipPosition(pos, state.clipRows);
@@ -541,6 +638,9 @@ void TransformUnit::ReadVertex(const VertexReader &vreader, const TransformState
 		} else {
 			vertex.v.fogdepth = 1.0f;
 		}
+	}
+
+	if (state.enableTransform) {
 		vertex.v.clipw = vertex.clippos.w;
 
 		// The normal stays as the world matrix leaves it: lighting scales its dot products by the
@@ -828,7 +928,7 @@ public:
 		TransformUnit::VertexCarry carry = transform_.carry_;
 		for (int i = 0; i < upperBound_ - lowerBound_ + 1; ++i) {
 			vreader_.Goto(i);
-			transform_.ReadVertex(vreader_, transformState_, carry, cached_[i]);
+			transform_.ReadVertex(vreader_, transformState_, carry, cached_[i], usePrepared_ ? &prepared_[i] : nullptr);
 		}
 		// What the next draw carries is the last vertex in draw order (gpu/vertices/carry).
 		if (vertexCount_ != 0) {
@@ -838,18 +938,38 @@ public:
 		}
 	}
 
+	// With the transform state computed: the position stage for all the vertices, four at a time.
+	void PreparePositions() {
+		usePrepared_ = transformState_.prepare4 && vertexCount_ != 0;
+		if (!usePrepared_)
+			return;
+		const int count = upperBound_ - lowerBound_ + 1;
+		if ((int)prepared_.size() < count + 3)
+			prepared_.resize(std::max(128, count + 3));
+		for (int i = 0; i < count; i += 4) {
+			Vec4F32 pos[4];
+			for (int j = 0; j < 4; ++j) {
+				vreader_.Goto(std::min(i + j, count - 1));
+				pos[j] = vreader_.ReadPosOne();
+			}
+			if (!PreparePositions4(pos, transformState_, &prepared_[i])) {
+				for (int j = 0; j < 4; ++j)
+					prepared_[i + j].valid = false;
+			}
+		}
+	}
+
 	inline void Read(int vtx, ClipVertexData &out) {
+		int index = vtx;
 		if (useIndices_) {
+			index = conv_(vtx) - lowerBound_;
 			if (useCache_) {
-				out = cached_[conv_(vtx) - lowerBound_];
+				out = cached_[index];
 				return;
 			}
-			vreader_.Goto(conv_(vtx) - lowerBound_);
-		} else {
-			vreader_.Goto(vtx);
 		}
-
-		transform_.ReadVertex(vreader_, transformState_, transform_.carry_, out);
+		vreader_.Goto(index);
+		transform_.ReadVertex(vreader_, transformState_, transform_.carry_, out, usePrepared_ ? &prepared_[index] : nullptr);
 	}
 
 protected:
@@ -861,12 +981,15 @@ protected:
 	uint16_t lowerBound_;
 	uint16_t upperBound_;
 	static std::vector<ClipVertexData> cached_;
+	static std::vector<TransformUnit::PreparedPosition> prepared_;
 	bool useIndices_ = false;
 	bool useCache_ = false;
+	bool usePrepared_ = false;
 };
 
 // Static to reduce allocations mid-frame.
 std::vector<ClipVertexData> SoftwareVertexReader::cached_;
+std::vector<TransformUnit::PreparedPosition> SoftwareVertexReader::prepared_;
 
 void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, GEPrimitiveType prim_type, int vertex_count, u32 vertex_type, int *bytesRead, SoftwareDrawEngine *drawEngine)
 {
@@ -901,6 +1024,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 		ComputeTransformState(&transformState, vreader.GetVertexReader());
 		binner_->ClearDirty(SoftDirty::LIGHT_ALL | SoftDirty::TRANSFORM_ALL);
 	}
+	vreader.PreparePositions();
 	vreader.UpdateCache();
 
 	bool skipCull = !gstate.isCullEnabled() || gstate.isModeClear();

@@ -147,13 +147,22 @@ public:
 	void SetDirty(SoftDirty flags);
 	SoftDirty GetDirty();
 
+	// ReadVertex's position stage, done ahead for several vertices at once.
+	struct PreparedPosition {
+		ClipCoords clippos;
+		ScreenCoords screenpos;
+		float fogdepth;
+		bool outside;
+		bool valid;
+	};
+
 private:
 	// What a vertex format without UVs or a normal reads: the last ones read before it.
 	struct VertexCarry {
 		Vec3Packedf tc{};
 		float normal[4]{};
 	};
-	void ReadVertex(const VertexReader &vreader, const TransformState &state, VertexCarry &carry, ClipVertexData &vertex);
+	void ReadVertex(const VertexReader &vreader, const TransformState &state, VertexCarry &carry, ClipVertexData &vertex, const PreparedPosition *prepared = nullptr);
 	// orderReversed: verts are in the opposite order of how the GE takes the triangle (matters for clipping).
 	void SendTriangle(CullType cullType, const ClipVertexData *verts, int provoking = 2, bool orderReversed = false);
 
