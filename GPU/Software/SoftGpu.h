@@ -80,7 +80,7 @@ struct DepthBuffer {
 	}
 };
 
-enum class SoftDirty : uint64_t {
+enum class SoftDirty : uint32_t {
 	NONE = 0,
 
 	PIXEL_BASIC = 1ULL << 0,
