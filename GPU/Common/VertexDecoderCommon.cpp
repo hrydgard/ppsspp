@@ -1211,7 +1211,8 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 		DEBUG_LOG(Log::G3D, "VTYPE: THRU=%i TC=%i COL=%i POS=%i NRM=%i WT=%i NW=%i IDX=%i MC=%i", (int)throughmode, tc, col, pos, nrm, weighttype, nweights, idx, morphcount);
 	}
 
-	skinInDecode = weighttype != 0;
+	const bool callerSkins = weighttype != 0 && !throughmode && options.callerSkins;
+	skinInDecode = weighttype != 0 && !callerSkins;
 	if (weighttype) { // && nweights?
 		weightoff = size;
 		//size = align(size, wtalign[weighttype]);	unnecessary
@@ -1221,7 +1222,8 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 
 		// No visible output, computes a matrix that is passed through the skinMatrix variable
 		// to the "nrm" and "pos" steps.
-		steps_[numSteps_++] = wtstep_skin[weighttype];
+		if (skinInDecode)
+			steps_[numSteps_++] = wtstep_skin[weighttype];
 	}
 
 	if (tc) {
@@ -1280,7 +1282,9 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 		if (nrmalign[nrm] > biggest)
 			biggest = nrmalign[nrm];
 
-		if (skinInDecode) {
+		if (callerSkins) {
+			decFmt.nrmfmt = DEC_FLOAT_3;
+		} else if (skinInDecode) {
 			steps_[numSteps_++] = morphcount == 1 ? nrmstep_skin[nrm] : nrmstep_morphskin[nrm];
 			// After skinning, we always have three floats.
 			decFmt.nrmfmt = DEC_FLOAT_3;
@@ -1329,7 +1333,7 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 		// We don't set posfmt because it's always DEC_FLOAT_3.
 		if (throughmode) {
 			steps_[numSteps_++] = posstep_through[pos];
-		} else {
+		} else if (!callerSkins) {
 			if (skinInDecode) {
 				steps_[numSteps_++] = morphcount == 1 ? posstep_skin[pos] : posstep_morph_skin[pos];
 			} else {

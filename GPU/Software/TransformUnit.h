@@ -215,6 +215,7 @@ public:
 	void DispatchSubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, bool clockwise, int *bytesRead, ClipInfoFlags clipInfoFlags) override;
 	void DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex *buffer, int vertexCount, int cullMode, bool continuation) override;
 
+	// For TransformUnit, which skins weighted vertices itself (VertexDecoderOptions::callerSkins).
 	VertexDecoder *FindVertexDecoder(u32 vtype);
 
 	TransformUnit transformUnit;
@@ -228,4 +229,8 @@ public:
 		FreeAlignedMemory(p);
 	}
 #endif
+
+private:
+	DenseHashMap<u32, VertexDecoder *> transformDecoders_;
+	void ClearTransformDecoders();
 };

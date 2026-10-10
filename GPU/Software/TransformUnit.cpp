@@ -155,16 +155,27 @@ TransformUnit::~TransformUnit() {
 	delete runJob_;
 }
 
-SoftwareDrawEngine::SoftwareDrawEngine() {
+SoftwareDrawEngine::SoftwareDrawEngine() : transformDecoders_(32) {
 	flushOnParams_ = false;
 	// Our DispatchSubmitPrim decodes by itself.
 	curvesPredecoded_ = false;
 }
 
-SoftwareDrawEngine::~SoftwareDrawEngine() {}
+SoftwareDrawEngine::~SoftwareDrawEngine() {
+	ClearTransformDecoders();
+}
 
 void SoftwareDrawEngine::NotifyConfigChanged() {
+	// That clears the decoder JIT cache, which these decoders' code is in.
 	DrawEngineCommon::NotifyConfigChanged();
+	ClearTransformDecoders();
+}
+
+void SoftwareDrawEngine::ClearTransformDecoders() {
+	transformDecoders_.Iterate([&](const uint32_t vtype, VertexDecoder *decoder) {
+		delete decoder;
+	});
+	transformDecoders_.Clear();
 }
 
 void SoftwareDrawEngine::Flush() {
@@ -241,9 +252,19 @@ void SoftwareDrawEngine::DispatchSubmitImm(GEPrimitiveType prim, TransformedVert
 	transformUnit.SetDirty(SoftDirty(-1));
 }
 
+// Skinning in the decoder was wasted (ApplyGESkinning overwrites what it skins), and in God of War it took 4% of
+// the emulation thread. The decoders for everything else (bounding boxes, splines) still skin.
 VertexDecoder *SoftwareDrawEngine::FindVertexDecoder(u32 vtype) {
 	const u32 vertTypeID = GetVertTypeID(vtype, gstate.getUVGenMode());
-	return DrawEngineCommon::GetVertexDecoder(vertTypeID);
+	VertexDecoder *dec;
+	if (transformDecoders_.Get(vertTypeID, &dec))
+		return dec;
+	VertexDecoderOptions options = decOptions_;
+	options.callerSkins = true;
+	dec = new VertexDecoder();
+	dec->SetVertexType(vertTypeID, options, decJitCache_);
+	transformDecoders_.Insert(vertTypeID, dec);
+	return dec;
 }
 
 // The clip space position from the combined matrix's rows (gpu/probe exp32, exp34, exp42), each component
