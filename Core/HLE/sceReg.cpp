@@ -1562,6 +1562,14 @@ int sceRegCreateKey(int catHandle, const char *name, int type, u32 size) {
 	if (!path.empty() && path.front() == '/') {
 		path.erase(path.begin());
 	}
+
+	// Creating a key that already exists fails, whatever its type, and leaves the key alone.
+	for (const auto &kv : GetMergedCategory(path).keyvals) {
+		if (equals(kv.name, name)) {
+			return hleLogDebug(Log::sceReg, SCE_REG_ERROR_KEY_ALREADY_EXISTS, "%s/%s already exists", path.c_str(), name);
+		}
+	}
+
 	g_overlay[path][name] = value;
 	InvalidateMergedCache();
 	return hleLogDebug(Log::sceReg, 0, "create %s/%s (type %d)", path.c_str(), name, type);
