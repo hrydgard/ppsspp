@@ -211,14 +211,12 @@ vshmain.prx has attribute `0000` - Sony only started setting the flag in 1.52 - 
 bootstrap was skipped and the shell ran with none of its support modules loaded. The check also
 accepts the module *name* `vsh_module` now.
 
-### The vsh_module alarm-category patch only 6.6x needs
+### The vsh_module alarm-category patch only 6.6x needed
 
-That offset is in rodata, so there is no gp anchor for it; instead the patch only fires when the
-word at `+0x455C4` is the `0x3F666666` it was derived from. On 6.39 that word is a different
-float, and on 6.20/6.00 it is ASCII string data (`5f746c75`, `776f6461`) - the old unconditional
-write was corrupting a string table on those. Every version below 6.60 reaches the XMB without the
-patch, which is itself a hint that whatever precondition makes that scan safe on real hardware was
-lost somewhere between 6.39 and 6.60.
+6.60 and 6.61 used to crash in vsh_module's alarm-task scan on a "count" in rodata that nothing
+initialized, and a patch zeroed it (only when the word was the `0x3F666666` it was derived from).
+It was another effect of the start order above: with the shell's modules started in order, 6.60
+and 6.61 reach the XMB without it, and it's gone.
 
 ### Kernel modules with per-model builds
 
@@ -319,9 +317,9 @@ had been missed on two earlier passes because it logs as `: error 8002012e` rath
   address mirrors (`Core/MemMap.cpp`), dummy COP0 instructions (`Core/MIPS/Interpreter.cpp`), and
   a GPIO + Syscon serial MMIO model (`Core/HW/GpioMMIO.{h,cpp}`) so `kd/syscon.prx`'s real
   handshake completes instead of spinning.
-- **`vsh_module` alarm-task SIGSEGV**: a targeted data patch zeroing an "alarm category count"
-  field nothing else initializes (`__KernelLoadELFFromPtr`). Symptom patch, not a principled fix -
-  why real firmware never reaches that path was never established.
+- **`vsh_module` alarm-task SIGSEGV**: was a targeted data patch zeroing an "alarm category count"
+  field nothing else initialized. Removed once the shell's modules started in order, which made
+  it unnecessary.
 - **`SCE_KERNEL_ERROR_NO_MEMORY` in the app build**: the 4MB kernel pool was exhausted by PPGe's
   ~2MB overlay texture (now skipped when booting VSH) plus 11 driver modules each asking for a
   256KB thread stack (now given 32KB).
