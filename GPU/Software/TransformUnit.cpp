@@ -89,6 +89,8 @@ struct TransformUnit::RunJob {
 	}
 	// A run after lastGen with chunks left to take, within the time a helper waits for one.
 	bool WaitForRun(uint32_t lastGen, uint32_t *newGen) {
+		if (!BinManager::THREADS_LINGER)
+			return false;
 		const double until = time_now_d() + LINGER_SECONDS;
 		do {
 			const uint64_t v = claim.load(std::memory_order_acquire);

@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "ppsspp_config.h"
+
 #include <atomic>
 #include <unordered_map>
 #include "GPU/Software/Rasterizer.h"
@@ -212,10 +214,22 @@ public:
 	~BinManager();
 
 	// More threads drawing slow the emulation thread down more than they help it, by taking from its core's
-	// share of power and clock speed (and with SMT, the core): in God of War and Wipeout on a 16 core Ryzen,
-	// six beat four, eight and all 31 the thread manager has. Under WSL2, where waking threads costs more than on
-	// bare metal: measure again there.
+	// share of power and clock speed (and with SMT, the core): in God of War and Wipeout on a 16 core Ryzen under
+	// WSL2, six beat four, eight and all 31 the thread manager has. An M1 does best with seven or eight.
+#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+	static constexpr int MAX_DRAW_THREADS = 8;
+#else
 	static constexpr int MAX_DRAW_THREADS = 6;
+#endif
+	// Whether drawing and transform threads out of work wait a moment for more, spinning, rather than end their
+	// tasks. Under WSL2, where waking a thread costs the waker about 15 us, it saved 4-8% of wall time; on macOS,
+	// where it's cheap, it cost wall time at every length tried. Not on Android either, where spinning costs
+	// battery. Unmeasured on native Windows and Linux.
+#if (PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(LINUX)) && !PPSSPP_PLATFORM(ANDROID)
+	static constexpr bool THREADS_LINGER = true;
+#else
+	static constexpr bool THREADS_LINGER = false;
+#endif
 
 	void UpdateState();
 	void UpdateClut(const void *src);

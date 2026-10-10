@@ -791,6 +791,8 @@ void BinManager::MakeRoom() {
 // It looks at the tiles again only when distributed_ says there's new work: reading their heads and tails over
 // and over took cache lines from the emulation thread, which writes the tails.
 void BinManager::LingerForWork(int start) {
+	if (!THREADS_LINGER)
+		return;
 	double until = time_now_d() + LINGER_SECONDS;
 	while (!waitingForIdle_.load(std::memory_order_relaxed)) {
 		// Read before the look at the tiles, so work distributed during it isn't missed.
