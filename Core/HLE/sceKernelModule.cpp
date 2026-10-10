@@ -1303,36 +1303,78 @@ static void LoadAndStartVshKernelModules() {
 // filename is only used for dumping/metadata.
 // prxSeed is the extra key a module that came out of an NPDRM container needs to decrypt - see
 // NpDrmDeriveModuleKey(). Null for everything else, which is the overwhelming majority.
-struct ModulePatch {
-	u32 offset;  // From the module base.
-	u32 expected;
-	u32 replacement;
-};
-
-// Lets the XMB launch unsigned homebrew, which it otherwise refuses with "The game cannot be
-// started. The data is corrupted." before ever calling LoadExec. These are ProCFW's vshctrl
-// patches, as JPCSP applies them (Loader.patchModule). In 6.61's vshmain.prx:
-// - +0x12058 and +0x12060: the bne's that reject a PARAM.SFO without a valid DISC_ID.
-// - +0x122B0: the beql that rejects the DATA.PSP read from the PBP, a plain ELF rather than ~PSP.
-static const ModulePatch vshHomebrewPatches661[] = {
-	{ 0x12058, 0x1440003B, 0 },
-	{ 0x12060, 0x14400039, 0 },
-	{ 0x122B0, 0x506000E0, 0 },
-};
-
-// Only patches if every expected instruction is there, since the offsets move between firmware builds.
-static void ApplyVshHomebrewPatches(u32 base) {
-	for (const ModulePatch &patch : vshHomebrewPatches661) {
-		const u32 addr = base + patch.offset;
-		if (!Memory::IsValid4AlignedAddress(addr) || Memory::ReadUnchecked_U32(addr) != patch.expected) {
-			WARN_LOG(Log::sceModule, "vsh_module isn't a build the homebrew patches are known for (+%x), leaving it alone", patch.offset);
-			return;
+// Finds the one place in [start, end) where the words match pattern (under mask), or 0 if there are
+// none or several.
+static u32 FindUniqueCode(u32 start, u32 end, const u32 *pattern, const u32 *mask, int count) {
+	u32 found = 0;
+	for (u32 addr = start; addr + count * 4 <= end; addr += 4) {
+		bool match = true;
+		for (int i = 0; i < count && match; i++) {
+			match = (Memory::ReadUnchecked_U32(addr + i * 4) & mask[i]) == pattern[i];
+		}
+		if (match) {
+			if (found) {
+				return 0;
+			}
+			found = addr;
 		}
 	}
-	for (const ModulePatch &patch : vshHomebrewPatches661) {
-		Memory::WriteUnchecked_U32(patch.replacement, base + patch.offset);
+	return found;
+}
+
+// Lets the XMB launch unsigned homebrew, which it otherwise refuses with "The game cannot be
+// started. The data is corrupted." before ever calling LoadExec. These are the checks ProCFW's
+// vshctrl patches (JPCSP applies the same three patches, at 6.61's offsets). They're found by pattern
+// rather than offset, checked against every vshmain.prx from 1.50 to 6.61:
+// - The DISC_ID check, from 2.00 on.
+// - The check of DATA.PSP's header (it wants ~PSP, homebrew is a plain ELF), from 5.00 on. 5.xx
+//   compares the bytes itself, 6.30 on look at a type a helper worked out, and 6.00 to 6.20 do both.
+// 1.50 and 1.52 have neither.
+static void ApplyVshHomebrewPatches(u32 start, u32 end) {
+	// After reading DISC_ID from PARAM.SFO into a 13 byte buffer, it gives up if that failed, or if it
+	// didn't fit (the 13th byte isn't 0). Homebrew often has none.
+	//   li a3, 13 / bne v0, zero, fail / lb v0, x(sp) / bne v0, zero, fail
+	static const u32 discIdPattern[] = { 0x2407000D, 0x14400000, 0x83A20000, 0x14400000 };
+	static const u32 discIdMask[] = { 0xFFFFFFFF, 0xFFFF0000, 0xFFFF0000, 0xFFFF0000 };
+	// The header type the helper worked out: 0 is a plain ELF.
+	//   beq(l) v1, zero, fail / (delay slot) / li v0, 3 / beq v1, v0, x
+	static const u32 headerTypePattern[] = { 0x10600000, 0x00000000, 0x24020003, 0x10620000 };
+	static const u32 headerTypeMask[] = { 0xBFFF0000, 0x00000000, 0xFFFFFFFF, 0xFFFF0000 };
+	// Checking the header bytes for ~PSP or ~SCE. If the first isn't '~', it's an error:
+	//   andi v1, a1, 0xFF / li v0, '~' / bne v1, v0, fail / lbu v1, x(sp) / li v0, 'S'
+	static const u32 headerBytesPattern[] = { 0x30A300FF, 0x2402007E, 0x14620000, 0x93A30000, 0x24020053 };
+	static const u32 headerBytesMask[] = { 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFF0000, 0xFFFF0000, 0xFFFFFFFF };
+
+	const u32 discId = FindUniqueCode(start, end, discIdPattern, discIdMask, 4);
+	if (discId) {
+		Memory::WriteUnchecked_U32(0, discId + 4);
+		Memory::WriteUnchecked_U32(0, discId + 12);
 	}
-	INFO_LOG(Log::sceModule, "Patched vsh_module to launch unsigned homebrew");
+	const u32 headerType = FindUniqueCode(start, end, headerTypePattern, headerTypeMask, 4);
+	if (headerType) {
+		Memory::WriteUnchecked_U32(0, headerType);
+	}
+	// Point the not-'~' branch where a good ~SCE header ends up instead: after its last check,
+	//   li v0, 'E' / bne v1, v0, fail / nop
+	// which has to branch to the same error path.
+	u32 headerBytesRetargeted = 0;
+	const u32 headerBytes = FindUniqueCode(start, end, headerBytesPattern, headerBytesMask, 5);
+	if (headerBytes) {
+		const u32 branch = headerBytes + 8;
+		const u32 fail = branch + 4 + (s16)(Memory::ReadUnchecked_U32(branch) & 0xFFFF) * 4;
+		for (u32 addr = headerBytes; addr < headerBytes + 40 * 4 && addr + 12 <= end; addr += 4) {
+			const u32 lastBranch = Memory::ReadUnchecked_U32(addr + 4);
+			if (Memory::ReadUnchecked_U32(addr) == 0x24020045 && (lastBranch >> 16) == 0x1462 && Memory::ReadUnchecked_U32(addr + 8) == 0 &&
+				addr + 8 + (s16)(lastBranch & 0xFFFF) * 4 == fail) {
+				const u32 success = addr + 12;
+				Memory::WriteUnchecked_U32(0x14620000 | (((success - (branch + 4)) / 4) & 0xFFFF), branch);
+				headerBytesRetargeted = branch;
+				break;
+			}
+		}
+	}
+	INFO_LOG(Log::sceModule, "vsh_module homebrew patches: DISC_ID check %s, header type check %s, header bytes check %s",
+		discId ? "patched" : "not found", headerType ? "patched" : "not found", headerBytesRetargeted ? "patched" : "not found");
 }
 
 static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAddress, bool fromTop, std::string *error_string, u32 *magic, std::string_view filename, u32 &error, const u8 *prxSeed = nullptr) {
@@ -1743,7 +1785,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 			Memory::WriteUnchecked_U32(0, patchAddr);
 		}
 
-		ApplyVshHomebrewPatches(module->memoryBlockAddr);
+		ApplyVshHomebrewPatches(module->memoryBlockAddr, module->memoryBlockAddr + module->memoryBlockSize);
 	}
 
 	// Let's also get a truncated version.
