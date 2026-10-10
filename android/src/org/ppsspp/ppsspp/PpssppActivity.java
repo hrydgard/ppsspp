@@ -46,6 +46,7 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
+import android.webkit.MimeTypeMap;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.Toast;
@@ -54,6 +55,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.FileProvider;
 import androidx.core.graphics.Insets;
 import androidx.core.view.DisplayCutoutCompat;
 import androidx.core.view.ViewCompat;
@@ -1667,6 +1669,13 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 				Log.e(TAG, e.toString());
 				return false;
 			}
+		} else if (command.equals("share_file")) {
+			String[] parts = params.split(":@:", 2);
+			if (parts.length != 2) {
+				Log.e(TAG, "share_file: bad parameter '" + params + "'");
+				return false;
+			}
+			return shareFile(parts[1], parts[0]);
 		} else if (command.equals("toast")) {
 			Toast toast = Toast.makeText(this, params, Toast.LENGTH_LONG);
 			toast.show();
@@ -1885,6 +1894,40 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			return false;
 		}
 		return false;
+	}
+
+	// Offers a file to other apps through the share sheet. The receiver gets read access to this file only.
+	private boolean shareFile(String path, String mimeType) {
+		try {
+			Uri uri;
+			if (path.startsWith("content://")) {
+				// In a folder picked through the storage access framework. Our access to it can be passed on.
+				uri = Uri.parse(path);
+			} else {
+				uri = FileProvider.getUriForFile(this, getPackageName() + ".fileprovider", new File(path));
+			}
+			if (mimeType.isEmpty()) {
+				// Document URIs have the path encoded, so decode before looking for the extension.
+				String decoded = Uri.decode(path);
+				String extension = MimeTypeMap.getFileExtensionFromUrl(Uri.encode(decoded.substring(decoded.lastIndexOf('/') + 1)));
+				String guessed = extension.isEmpty() ? null : MimeTypeMap.getSingleton().getMimeTypeFromExtension(extension.toLowerCase(Locale.ROOT));
+				mimeType = guessed != null ? guessed : "application/octet-stream";
+			}
+			Log.i(TAG, "Sharing " + uri + " as " + mimeType);
+			Intent send = new Intent(Intent.ACTION_SEND);
+			send.setType(mimeType);
+			send.putExtra(Intent.EXTRA_STREAM, uri);
+			// Through a chooser, the read grant only reaches the chosen app via the ClipData.
+			send.setClipData(ClipData.newRawUri("", uri));
+			send.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);
+			startActivity(Intent.createChooser(send, null));
+			return true;
+		} catch (Exception e) {
+			// IllegalArgumentException from FileProvider: a path outside file_paths.xml.
+			Log.e(TAG, "shareFile failed for " + path + ": " + e);
+			NativeApp.reportException(e, path);
+			return false;
+		}
 	}
 
 	public static boolean isVRDevice() {

@@ -176,6 +176,12 @@ inline void System_ShareText(std::string_view text) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::SHARE_TEXT, NO_REQUESTER_TOKEN, nullptr, nullptr, text, "", 0);
 }
 
+// Offers a file to other apps (mail, chat, cloud storage) through the system's share sheet, if
+// SYSPROP_SUPPORTS_SHARE_FILE. With an empty mimeType, it's guessed from the extension.
+inline void System_ShareFile(const Path &path, std::string_view mimeType = "") {
+	g_requestManager.MakeSystemRequest(SystemRequestType::SHARE_FILE, NO_REQUESTER_TOKEN, nullptr, nullptr, path.ToString(), mimeType, 0);
+}
+
 inline void System_NotifyUIEvent(UIEventNotification notification) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::NOTIFY_UI_EVENT, NO_REQUESTER_TOKEN, nullptr, nullptr, "", "", (int64_t)notification, 0);
 }
