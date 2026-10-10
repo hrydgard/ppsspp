@@ -317,6 +317,8 @@ private:
 	// The tiles given work since the last flush, for the threads to look through.
 	uint16_t activeTiles_[TILES_X * TILES_Y];
 	std::atomic<int> activeCount_{ 0 };
+	// The emulation thread is waiting for the drawing threads to finish (LingerForWork).
+	std::atomic<bool> waitingForIdle_{ false };
 	bool tileActive_[TILES_X * TILES_Y]{};
 	// The queue_ index of the first item not yet put in tiles, and how many have been added since.
 	size_t distributePos_ = 0;
@@ -402,6 +404,7 @@ private:
 	void WakeTasks();
 	void WakeChained();
 	bool ProcessTiles(int start);
+	void LingerForWork(int start);
 
 	friend class DrawBinItemsTask;
 };

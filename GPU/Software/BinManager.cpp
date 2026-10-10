@@ -43,6 +43,12 @@ static constexpr int SPLIT_MIN_ROW_PAIRS = 8;
 static constexpr int SPLIT_MIN_PIXELS = 128 * 64;
 // How many tile pieces of work are worth waking the threads for.
 static constexpr int WAKE_ENTRIES = 48;
+// How long a drawing thread out of work waits for more (LingerForWork).
+static constexpr double LINGER_SECONDS = 200e-6;
+// More threads drawing slow the emulation thread down more than they help it, by taking from its core's
+// share of power and clock speed (and with SMT, the core): in God of War and Wipeout on a 16 core Ryzen,
+// six beat four, eight and all 31 the thread manager has (under WSL2).
+static constexpr int MAX_DRAW_THREADS = 6;
 
 using namespace Rasterizer;
 
@@ -131,6 +137,7 @@ public:
 	void Run() override {
 		binner_->WakeChained();
 		binner_->ProcessTiles(index_);
+		binner_->LingerForWork(index_);
 		status_ = false;
 		// Work queued after the last look, but before status_ said we were done, would otherwise wait.
 		binner_->ProcessTiles(index_);
@@ -155,7 +162,7 @@ BinManager::BinManager() {
 	for (auto &s : taskStatus_)
 		s = false;
 
-	int maxInitTasks = std::min(g_threadManager.GetNumLooperThreads(), MAX_POSSIBLE_TASKS);
+	int maxInitTasks = std::min(g_threadManager.GetNumLooperThreads(), MAX_DRAW_THREADS);
 	maxTasks_ = FORCE_SINGLE_THREAD ? 1 : maxInitTasks;
 	for (int i = 0; i < maxInitTasks; ++i) {
 		for (DrawBinItemsTask *&task : taskLists_[i].tasks)
@@ -764,6 +771,23 @@ void BinManager::MakeRoom() {
 	}
 }
 
+// A drawing thread out of work stays a moment for more before its task ends: waking it again costs the
+// emulation thread a system call (about 15 us under WSL2, where lingering made God of War and Wipeout 4-8%
+// faster). Not while that thread waits for the drawing to finish.
+void BinManager::LingerForWork(int start) {
+	double until = time_now_d() + LINGER_SECONDS;
+	while (!waitingForIdle_.load(std::memory_order_relaxed)) {
+		if (ProcessTiles(start)) {
+			until = time_now_d() + LINGER_SECONDS;
+			continue;
+		}
+		if (time_now_d() >= until)
+			break;
+		for (int i = 0; i < 64; ++i)
+			std::this_thread::yield();
+	}
+}
+
 bool BinManager::ProcessTiles(int start) {
 	bool any = false;
 	bool found;
@@ -824,12 +848,14 @@ void BinManager::Flush(const char *reason) {
 		st = time_now_d();
 	}
 	Drain();
+	waitingForIdle_ = true;
 	if (maxTasks_ > 1 || activeCount_ != 0) {
 		// Help with the drawing, then wait for what the threads are still on.
 		while (ProcessTiles(0)) {
 		}
 	}
 	waitable_->Wait();
+	waitingForIdle_ = false;
 	ResetTiles();
 	distributePos_ = 0;
 	undistributed_ = 0;
@@ -1240,9 +1266,11 @@ void BinManager::DrainDependent() {
 	if (activeCount_ != 0) {
 		if (entriesSinceWake_ >= WAKE_ENTRIES)
 			WakeTasks();
+		waitingForIdle_ = true;
 		while (ProcessTiles(0)) {
 		}
 		waitable_->Wait();
+		waitingForIdle_ = false;
 		ResetTiles();
 		// The tiles drew what the snapshot may have seen before.
 		selfTexValid_ = false;
