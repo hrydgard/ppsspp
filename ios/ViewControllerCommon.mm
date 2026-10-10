@@ -406,7 +406,15 @@ extern float g_safeInsetBottom;
 }
 
 - (void)shareText:(NSString *)text {
-	NSArray *items = @[text];
+	[self shareItems:@[text]];
+}
+
+- (void)shareFile:(NSURL *)url {
+	// The share sheet works out the type from the extension.
+	[self shareItems:@[url]];
+}
+
+- (void)shareItems:(NSArray *)items {
 	UIActivityViewController *viewController = [[UIActivityViewController alloc] initWithActivityItems:items applicationActivities:nil];
 	// On iPad, the share sheet is a popover and needs an anchor.
 	viewController.popoverPresentationController.sourceView = self.view;

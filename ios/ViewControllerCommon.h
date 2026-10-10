@@ -18,6 +18,7 @@
 - (void)hideKeyboard;
 - (void)showKeyboard;
 - (void)shareText:(NSString *)text;
+- (void)shareFile:(NSURL *)url;
 - (void)shutdown;
 - (void)bindDefaultFBO;
 - (void)startLocation;

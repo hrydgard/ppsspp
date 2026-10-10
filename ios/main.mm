@@ -377,6 +377,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		case SYSPROP_HAS_KEYBOARD:
 			return true;
 		case SYSPROP_SUPPORTS_SHARE_TEXT:
+		case SYSPROP_SUPPORTS_SHARE_FILE:
 			return true;
 		case SYSPROP_KEYBOARD_IS_SOFT:
 			// If a hardware keyboard is connected, and we add support, we could return false here.
@@ -564,6 +565,20 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		NSString *text = [NSString stringWithUTF8String:param1.c_str()];
 		dispatch_async(dispatch_get_main_queue(), ^{
 			[sharedViewController shareText:text];
+		});
+		return true;
+	}
+	case SystemRequestType::SHARE_FILE:
+	{
+		// param2, the MIME type, isn't needed. The share sheet goes by the extension.
+		NSString *path = [NSString stringWithUTF8String:param1.c_str()];
+		if (![[NSFileManager defaultManager] fileExistsAtPath:path]) {
+			ERROR_LOG(Log::System, "SHARE_FILE: '%s' doesn't exist", param1.c_str());
+			return false;
+		}
+		NSURL *url = [NSURL fileURLWithPath:path];
+		dispatch_async(dispatch_get_main_queue(), ^{
+			[sharedViewController shareFile:url];
 		});
 		return true;
 	}
