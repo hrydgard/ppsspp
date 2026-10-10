@@ -673,6 +673,7 @@ void BinManager::DistributeItems() {
 void BinManager::DistributeItems(size_t end) {
 	undistributed_ = 0;
 
+	bool any = false;
 	while (distributePos_ != end) {
 		const size_t index = distributePos_;
 		const BinItem &item = queue_[index];
@@ -701,7 +702,10 @@ void BinManager::DistributeItems(size_t end) {
 			}
 		}
 		distributePos_ = index + 1 == QUEUED_PRIMS ? 0 : index + 1;
+		any = true;
 	}
+	if (any)
+		distributed_.store(distributed_.load(std::memory_order_relaxed) + 1, std::memory_order_release);
 }
 
 void BinManager::ResetTiles() {
@@ -784,17 +788,23 @@ void BinManager::MakeRoom() {
 // A drawing thread out of work stays a moment for more before its task ends: waking it again costs the
 // emulation thread a system call (about 15 us under WSL2, where lingering made God of War and Wipeout 4-8%
 // faster). Not while that thread waits for the drawing to finish.
+// It looks at the tiles again only when distributed_ says there's new work: reading their heads and tails over
+// and over took cache lines from the emulation thread, which writes the tails.
 void BinManager::LingerForWork(int start) {
 	double until = time_now_d() + LINGER_SECONDS;
 	while (!waitingForIdle_.load(std::memory_order_relaxed)) {
+		// Read before the look at the tiles, so work distributed during it isn't missed.
+		const uint32_t seen = distributed_.load(std::memory_order_acquire);
 		if (ProcessTiles(start)) {
 			until = time_now_d() + LINGER_SECONDS;
 			continue;
 		}
-		if (time_now_d() >= until)
-			break;
-		for (int i = 0; i < 64; ++i)
-			std::this_thread::yield();
+		while (distributed_.load(std::memory_order_acquire) == seen && !waitingForIdle_.load(std::memory_order_relaxed)) {
+			if (time_now_d() >= until)
+				return;
+			for (int i = 0; i < 64; ++i)
+				std::this_thread::yield();
+		}
 	}
 }
 

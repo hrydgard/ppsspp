@@ -313,10 +313,11 @@ private:
 	int tilesX_ = TILES_X;
 	int tilesY_ = TILES_Y;
 	struct Tile {
-		// Indices into queue_, as a ring: head_ is how many have been drawn, tail_ how many were pushed.
-		std::atomic<uint32_t> head;
-		std::atomic<uint32_t> tail;
+		// Indices into queue_, as a ring: head_ is how many have been drawn, tail_ how many were pushed. The
+		// drawing threads write head and busy, this thread tail, so they're on separate cache lines.
+		alignas(64) std::atomic<uint32_t> head;
 		std::atomic<bool> busy;
+		alignas(64) std::atomic<uint32_t> tail;
 		uint16_t items[QUEUED_PRIMS];
 	};
 	Tile *tiles_ = nullptr;
@@ -325,6 +326,8 @@ private:
 	// The tiles given work since the last flush, for the threads to look through.
 	uint16_t activeTiles_[TILES_X * TILES_Y];
 	std::atomic<int> activeCount_{ 0 };
+	// Counts DistributeItems calls that gave the tiles work, for threads waiting for some (LingerForWork).
+	std::atomic<uint32_t> distributed_{ 0 };
 	// The emulation thread is waiting for the drawing threads to finish (LingerForWork).
 	std::atomic<bool> waitingForIdle_{ false };
 	bool tileActive_[TILES_X * TILES_Y]{};
