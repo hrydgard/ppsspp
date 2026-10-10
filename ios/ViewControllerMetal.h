@@ -4,7 +4,6 @@
 #pragma once
 
 #import "ViewControllerCommon.h"
-#import "iCade/iCadeReaderView.h"
 
 @interface PPSSPPViewControllerMetal : PPSSPPBaseViewController
 @end

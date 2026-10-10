@@ -48,7 +48,6 @@
 @interface PPSSPPBaseViewController () {
 	CameraHelper *cameraHelper;
 	LocationHelper *locationHelper;
-	ICadeTracker g_iCadeTracker;
 	TouchTracker g_touchTracker;
 }
 
@@ -97,8 +96,6 @@ static int GetPickerRequestId(id picker) {
 	self = [super init];
 	if (self) {
 		sharedViewController = self;
-
-		g_iCadeTracker.InitKeyMap();
 
 		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(appWillTerminate:) name:UIApplicationWillTerminateNotification object:nil];
 		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(controllerDidConnect:) name:GCControllerDidConnectNotification object:nil];
@@ -472,16 +469,6 @@ extern float g_safeInsetBottom;
 
 - (BOOL)canBecomeFirstResponder {
 	return YES;
-}
-
-- (void)buttonDown:(iCadeState)button
-{
-	g_iCadeTracker.ButtonDown(button);
-}
-
-- (void)buttonUp:(iCadeState)button
-{
-	g_iCadeTracker.ButtonUp(button);
 }
 
 - (void)pressesBegan:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {

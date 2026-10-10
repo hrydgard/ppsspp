@@ -955,9 +955,6 @@ elseif(IOS AND NOT LIBRETRO)
 		ios/CameraHelper.h
 		ios/LocationHelper.mm
 		ios/LocationHelper.h
-		ios/iCade/iCadeReaderView.h
-		ios/iCade/iCadeReaderView.m
-		ios/iCade/iCadeState.h
 		Common/Battery/AppleBatteryClient.m
 	)
 
@@ -987,7 +984,6 @@ elseif(IOS AND NOT LIBRETRO)
 		ios/ViewControllerMetal.mm
 		ios/iOSCoreAudio.mm
 		ios/IAPManager.mm
-		ios/iCade/iCadeReaderView.m
 		ios/main.mm
 		ios/CameraHelper.mm
 		ios/LocationHelper.mm
