@@ -20,7 +20,6 @@
 #import <stdio.h>
 #import <stdlib.h>
 #import <sys/syscall.h>
-#import <sys/utsname.h>
 
 #import "AppDelegate.h"
 #import "ViewController.h"
@@ -81,20 +80,7 @@ static void *exception_handler(void *argument) {
 }
 
 static NSDictionary *parse_entitlements(const void *entitlements, size_t length) {
-	char *copy = (char *)malloc(length);
-	memcpy(copy, entitlements, length);
-
-	// strip out psychic paper entitlement hiding
-	if (@available(iOS 13.5, *)) {
-	} else {
-		static const char *needle = "<!---><!-->";
-		char *found = strnstr(copy, needle, length);
-		if (found) {
-			memset(found, ' ', strlen(needle));
-		}
-	}
-	NSData *data = [NSData dataWithBytes:copy length:length];
-	free(copy);
+	NSData *data = [NSData dataWithBytes:entitlements length:length];
 
 	return [NSPropertyListSerialization propertyListWithData:data
 													 options:NSPropertyListImmutable
@@ -204,43 +190,6 @@ bool jb_has_jit_entitlement(void) {
 bool jb_has_cs_disabled(void) {
 	int flags;
 	return !csops(getpid(), CS_OPS_STATUS, &flags, sizeof(flags)) && (flags & ~CS_KILL) == flags;
-}
-
-#define _COMM_PAGE_START_ADDRESS        (0x0000000FFFFFC000ULL) /* In TTBR0 */
-#define _COMM_PAGE_APRR_SUPPORT         (_COMM_PAGE_START_ADDRESS+0x10C)
-
-static bool is_device_A12_or_newer(void) {
-	// devices without APRR are definitely < A12
-	char aprr_support = *(volatile char *)_COMM_PAGE_APRR_SUPPORT;
-	if (aprr_support == 0) {
-		return false;
-	}
-	// we still have A11 devices that support APRR
-	struct utsname systemInfo;
-	if (uname(&systemInfo) != 0) {
-		return false;
-	}
-	// iPhone 8, 8 Plus, and iPhone X
-	if (strncmp("iPhone10,", systemInfo.machine, 9) == 0) {
-		return false;
-	} else {
-		return true;
-	}
-}
-
-bool jb_has_cs_execseg_allow_unsigned(void) {
-	NSDictionary *entitlements = cached_app_entitlements();
-	if (@available(iOS 14.2, *)) {
-		if (@available(iOS 14.4, *)) {
-			return false; // iOS 14.4 broke it again
-		}
-		// technically we need to check the Code Directory and make sure
-		// CS_EXECSEG_ALLOW_UNSIGNED is set but we assume that it is properly
-		// signed, which should reflect the get-task-allow entitlement
-		return is_device_A12_or_newer() && [entitlements[@"get-task-allow"] boolValue];
-	} else {
-		return false;
-	}
 }
 
 static bool jb_has_debugger_attached(void) {
@@ -701,8 +650,8 @@ AudioBackend *System_CreateAudioBackend() {
 int main(int argc, char *argv[]) {
 	version = [[[UIDevice currentDevice] systemVersion] UTF8String];
 	if (1 != sscanf(version.c_str(), "%d", &g_iosVersionMajor)) {
-		// Just set it to 14.0 if the parsing fails for whatever reason.
-		g_iosVersionMajor = 14;
+		// Just set it to the minimum if the parsing fails for whatever reason.
+		g_iosVersionMajor = 15;
 	}
 
 	g_logManager.EnableOutput(LogOutput::Stdio);
@@ -722,8 +671,6 @@ int main(int argc, char *argv[]) {
 		INFO_LOG(Log::System, "JIT: found entitlement\n");
 	} else if (jb_has_cs_disabled()) {
 		INFO_LOG(Log::System, "JIT: CS_KILL disabled\n");
-	} else if (jb_has_cs_execseg_allow_unsigned()) {
-		INFO_LOG(Log::System, "JIT: CS_EXECSEG_ALLOW_UNSIGNED set\n");
 	} else if (jb_enable_ptrace_hack()) {
 		INFO_LOG(Log::System, "JIT: ptrace() hack supported\n");
 	} else {

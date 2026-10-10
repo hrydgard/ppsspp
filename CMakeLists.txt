@@ -959,14 +959,7 @@ elseif(IOS AND NOT LIBRETRO)
 	)
 
 	list(APPEND targetExtraLibs "-framework Foundation -framework MediaPlayer -framework AudioToolbox -framework CoreGraphics -framework CoreMotion -framework QuartzCore -framework UIKit -framework GLKit -framework OpenAL -framework AVFoundation -framework CoreLocation -framework CoreText -framework CoreVideo -framework CoreMedia -framework CoreServices -framework Metal -framework IOSurface -framework Photos" )
-	if(EXISTS "${CMAKE_IOS_SDK_ROOT}/System/Library/Frameworks/GameController.framework")
-		list(APPEND targetExtraLibs "-weak_framework GameController")
-	endif()
-	if(EXISTS "${CMAKE_IOS_SDK_ROOT}/System/Library/Frameworks/PhotosUI.framework")
-		list(APPEND targetExtraLibs "-weak_framework PhotosUI")
-	endif()
-	# Weak, since it's iOS 14+ and we still run on 13.
-	list(APPEND targetExtraLibs "-weak_framework UniformTypeIdentifiers")
+	list(APPEND targetExtraLibs "-framework GameController -framework PhotosUI -framework UniformTypeIdentifiers")
 	if(USE_IAP)
 		# Adding the In-App Purchase capability in Xcode did this. There's no entitlement for it on iOS.
 		list(APPEND targetExtraLibs "-framework StoreKit")

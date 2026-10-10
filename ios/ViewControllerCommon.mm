@@ -247,28 +247,17 @@ static int GetPickerRequestId(id picker) {
 	NSLog(@"Picking photo to save to %@ (id: %d)", saveFilename, requestId);
 	NSString *targetFilename = [saveFilename copy];
 
-	if (@available(iOS 14.0, *)) {
-		PHPickerConfiguration *config = [[PHPickerConfiguration alloc] initWithPhotoLibrary:PHPhotoLibrary.sharedPhotoLibrary];
-		config.selectionLimit = 1;
-		config.filter = [PHPickerFilter imagesFilter];
+	PHPickerConfiguration *config = [[PHPickerConfiguration alloc] initWithPhotoLibrary:PHPhotoLibrary.sharedPhotoLibrary];
+	config.selectionLimit = 1;
+	config.filter = [PHPickerFilter imagesFilter];
 
-		PHPickerViewController *picker = [[PHPickerViewController alloc] initWithConfiguration:config];
-		picker.delegate = self;
-		SetPickerContext(picker, targetFilename, requestId);
-		[self presentViewController:picker animated:YES completion:nil];
-		return;
-	}
-
-	UIImagePickerController *picker = [[UIImagePickerController alloc] init];
-	picker.sourceType = UIImagePickerControllerSourceTypePhotoLibrary;
-	// Images only keeps the picker from doing extra video-related setup.
-	picker.mediaTypes = @[@"public.image"];
+	PHPickerViewController *picker = [[PHPickerViewController alloc] initWithConfiguration:config];
 	picker.delegate = self;
 	SetPickerContext(picker, targetFilename, requestId);
 	[self presentViewController:picker animated:YES completion:nil];
 }
 
-- (void)picker:(PHPickerViewController *)picker didFinishPicking:(NSArray<PHPickerResult *> *)results API_AVAILABLE(ios(14.0)) {
+- (void)picker:(PHPickerViewController *)picker didFinishPicking:(NSArray<PHPickerResult *> *)results {
 	NSString *targetFilename = GetPickerFilename(picker);
 	int requestId = GetPickerRequestId(picker);
 
@@ -297,26 +286,6 @@ static int GetPickerRequestId(id picker) {
 			}
 		});
 	}];
-}
-
-- (void)imagePickerController:(UIImagePickerController *)picker
-		didFinishPickingMediaWithInfo:(NSDictionary<UIImagePickerControllerInfoKey,id> *)info {
-	NSString *targetFilename = GetPickerFilename(picker);
-	int requestId = GetPickerRequestId(picker);
-
-	UIImage *image = info[UIImagePickerControllerOriginalImage];
-	[self savePickedImage:image toFilename:targetFilename requestId:requestId];
-
-	[picker dismissViewControllerAnimated:YES completion:nil];
-}
-
-- (void)imagePickerControllerDidCancel:(UIImagePickerController *)picker {
-	NSLog(@"User cancelled image picker");
-	int requestId = GetPickerRequestId(picker);
-
-	[picker dismissViewControllerAnimated:YES completion:nil];
-
-	g_requestManager.PostSystemFailure(requestId);
 }
 
 - (void)handleSwipeFrom:(UIScreenEdgePanGestureRecognizer *)recognizer {

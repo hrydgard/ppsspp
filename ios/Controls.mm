@@ -30,10 +30,8 @@ bool InitController(GCController *controller) {
 		return false;
 	}
 
-	if (@available(iOS 14.0, tvOS 14.0, *)) {
-		for (GCControllerElement* element in controller.physicalInputProfile.allElements) {
-			element.preferredSystemGestureState = GCSystemGestureStateDisabled;
-		}
+	for (GCControllerElement* element in controller.physicalInputProfile.allElements) {
+		element.preferredSystemGestureState = GCSystemGestureStateDisabled;
 	}
 
 	const std::string controllerName = [controller.vendorName ?: @"Gamepad" UTF8String];
@@ -112,12 +110,10 @@ bool InitController(GCController *controller) {
 		};
 	}
 
-	if (@available(iOS 14.0, *)) {
-		if (extendedProfile.buttonHome != nil) {
-			extendedProfile.buttonHome.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-				controllerButtonPressed(pressed, NKCODE_HOME);
-			};
-		}
+	if (extendedProfile.buttonHome != nil) {
+		extendedProfile.buttonHome.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+			controllerButtonPressed(pressed, NKCODE_HOME);
+		};
 	}
 
 	extendedProfile.leftThumbstick.xAxis.valueChangedHandler = ^(GCControllerAxisInput *axis, float value) {
@@ -158,10 +154,8 @@ bool InitController(GCController *controller) {
 }
 
 void ShutdownController(GCController *controller) {
-	if (@available(iOS 14.0, tvOS 14.0, *)) {
-		for (GCControllerElement* element in controller.physicalInputProfile.allElements) {
-			element.preferredSystemGestureState = GCSystemGestureStateEnabled;
-		}
+	for (GCControllerElement* element in controller.physicalInputProfile.allElements) {
+		element.preferredSystemGestureState = GCSystemGestureStateEnabled;
 	}
 	static const InputKeyCode keycodes[] = {
 		NKCODE_BUTTON_1,
@@ -308,25 +302,22 @@ void SendKeyboardChars(std::string_view str) {
 }
 
 static void SendPresses(NSSet<UIPress *> *presses, KeyInputFlags flags) {
-	// UIPress.key, and with it hardware keyboard support, needs 13.4.
-	if (@available(iOS 13.4, *)) {
-		for (UIPress *press in presses) {
-			if (!press.key) {
-				// I guess we could support remotes and stuff.
-				continue;
-			}
-			InputKeyCode code = HIDUsageToInputKeyCode(press.key.keyCode);
-			if (code != NKCODE_UNKNOWN) {
-				KeyInput input{};
-				input.deviceId = DEVICE_ID_KEYBOARD;
-				input.keyCode = code;
-				input.flags = flags;
-				NativeKey(input);
-			}
-			if ((flags & KeyInputFlags::DOWN) && press.key.characters) {
-				std::string chars([press.key.characters UTF8String]);
-				SendKeyboardChars(chars);
-			}
+	for (UIPress *press in presses) {
+		if (!press.key) {
+			// I guess we could support remotes and stuff.
+			continue;
+		}
+		InputKeyCode code = HIDUsageToInputKeyCode(press.key.keyCode);
+		if (code != NKCODE_UNKNOWN) {
+			KeyInput input{};
+			input.deviceId = DEVICE_ID_KEYBOARD;
+			input.keyCode = code;
+			input.flags = flags;
+			NativeKey(input);
+		}
+		if ((flags & KeyInputFlags::DOWN) && press.key.characters) {
+			std::string chars([press.key.characters UTF8String]);
+			SendKeyboardChars(chars);
 		}
 	}
 }
