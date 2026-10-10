@@ -91,6 +91,8 @@ static std::string g_debugOutputBuffer;
 // Set when a run was asked for a configuration that couldn't be honoured. That isn't a test result,
 // so it fails the process whether or not this run was comparing anything.
 static bool g_configRefused = false;
+// Set when a test or game failed to boot. Like g_configRefused, this fails the process even when not comparing.
+static bool g_bootFailed = false;
 static bool g_writeFailureScreenshot = true;
 static bool g_writeDebugOutput = true;
 // Whether the emulated program's stdout/stderr are forwarded to ours. On by default - just running
@@ -445,7 +447,10 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 	}
 
 	if (!PSP_IsInited()) {
+		// Without this, a failed boot outside --compare printed nothing and exited 0.
+		fprintf(stderr, "Failed to boot '%s': %s\n", coreParameter.fileToStart.c_str(), error_string.c_str());
 		GitHubActionsPrint("error", "Test init failed for %s", currentTestName.c_str());
+		g_bootFailed = true;
 		return false;
 	}
 
@@ -729,7 +734,7 @@ int RunTests(GraphicsContext *graphicsContext, CoreParameter &coreParameter, con
 		}
 	}
 
-	if (g_configRefused) {
+	if (g_configRefused || g_bootFailed) {
 		return 1;
 	}
 
