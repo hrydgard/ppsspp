@@ -221,6 +221,11 @@ struct Vec4F32 {
 	static Vec4F32 Load(const float *src) { return Vec4F32{ _mm_loadu_ps(src) }; }
 	static Vec4F32 LoadAligned(const float *src) { return Vec4F32{ _mm_load_ps(src) }; }
 	static Vec4F32 Load2(const float *src) { return Vec4F32{ _mm_castpd_ps(_mm_load_sd((const double *)src)) }; }
+	// (x, y, z, 1.0), reading only the three floats.
+	static Vec4F32 Load3One(const float *src) {
+		const __m128 z1 = _mm_unpacklo_ps(_mm_load_ss(src + 2), _mm_set_ss(1.0f));
+		return Vec4F32{ _mm_movelh_ps(_mm_castpd_ps(_mm_load_sd((const double *)src)), z1) };
+	}
 
 	static Vec4F32 LoadS8Norm(const int8_t *src) {
 		__m128i value = _mm_cvtsi32_si128(*((uint32_t *)src));
@@ -685,6 +690,10 @@ struct Vec4F32 {
 	static Vec4F32 Load2(const float *src) {
 		float32x2_t two = vld1_f32(src);
 		return Vec4F32{ vcombine_f32(two, two) };
+	}
+	// (x, y, z, 1.0), reading only the three floats.
+	static Vec4F32 Load3One(const float *src) {
+		return Vec4F32{ vcombine_f32(vld1_f32(src), vset_lane_f32(1.0f, vld1_dup_f32(src + 2), 1)) };
 	}
 
 	static Vec4F32 LoadConvertS16(const int16_t *src) {
@@ -1232,6 +1241,11 @@ struct Vec4F32 {
 	static Vec4F32 Load2(const float *src) {
 		// Not the safest. Alternatives are tricky though.
 		return Load(src);
+	}
+	// (x, y, z, 1.0), reading only the three floats.
+	static Vec4F32 Load3One(const float *src) {
+		alignas(16) const float v[4] = { src[0], src[1], src[2], 1.0f };
+		return LoadAligned(v);
 	}
 
 	static Vec4F32 LoadConvertS16(const int16_t *src) {
@@ -1781,6 +1795,8 @@ struct Vec4F32 {
 		return temp;
 	}
 	static Vec4F32 Load2(const float *src) { return Vec4F32{{ src[0], src[1], 0.0f, 0.0f }}; }
+	// (x, y, z, 1.0), reading only the three floats.
+	static Vec4F32 Load3One(const float *src) { return Vec4F32{{ src[0], src[1], src[2], 1.0f }}; }
 
 	void Store(float *dst) { memcpy(dst, v, sizeof(v)); }
 	void Store2(float *dst) { memcpy(dst, v, sizeof(v[0]) * 2); }

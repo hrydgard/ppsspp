@@ -273,8 +273,12 @@ struct TransformState {
 	float fogSlope;
 	Vec3f screenScale;
 	Vec3f screenAdd;
+	// The same in lanes 0-2 for GEViewport3, when all are finite float24s.
+	bool viewport3;
+	Vec4F32 screenScale4;
+	Vec4F32 screenAdd4;
 
-	ScreenCoords(*roundToScreen)(Vec3f scaled, const ClipCoords &coords, bool *outside_range_flag);
+	bool depthClamp;
 
 	// The texture matrix's rows, for GETexGen.
 	Vec4F32 tgenRows[4];
@@ -399,12 +403,33 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 
 		state->screenScale = Vec3f(gstate.getViewportXScale(), gstate.getViewportYScale(), gstate.getViewportZScale());
 		state->screenAdd = Vec3f(gstate.getViewportXCenter(), gstate.getViewportYCenter(), gstate.getViewportZCenter());
+		alignas(16) const float scale4[4] = { state->screenScale.x, state->screenScale.y, state->screenScale.z, 0.0f };
+		alignas(16) const float add4[4] = { state->screenAdd.x, state->screenAdd.y, state->screenAdd.z, 0.0f };
+		state->screenScale4 = Vec4F32::Load(scale4);
+		state->screenAdd4 = Vec4F32::Load(add4);
+		state->viewport3 = true;
+		for (int i = 0; i < 3; ++i) {
+			if (!std::isfinite(scale4[i]) || !std::isfinite(add4[i]) || TruncateToFloat24(scale4[i]) != scale4[i] || TruncateToFloat24(add4[i]) != add4[i])
+				state->viewport3 = false;
+		}
 	}
 
-	if (gstate.isDepthClipEnabled())
-		state->roundToScreen = &ClipToScreenInternal<true, false>;
-	else
-		state->roundToScreen = &ClipToScreenInternal<false, false>;
+	state->depthClamp = gstate.isDepthClipEnabled();
+}
+
+// GEViewport of x, y and z (lanes 0-2) at once, z not yet floored. False for the inputs GEViewport doesn't
+// take the GE's arithmetic for: a non-finite component, or a w that's zero or denormal.
+static inline bool GEViewport3(Vec4F32 clip, const TransformState &state, float out[4]) {
+	alignas(16) static const int wLane[4] = { 0, 0, 0, -1 };
+	const Vec4S32 expMask = Vec4S32::Splat(0x7F800000);
+	const Vec4S32 e = Vec4S32FromBits(clip) & expMask;
+	if (AnyCompareBitsSet(e.CompareEq(expMask) | (e.CompareEq(Vec4S32::Zero()) & Vec4S32::LoadAligned(wLane))))
+		return false;
+	const float recip = GERecip(TruncateToFloat24(clip.GetLane<3>()));
+	// A zero gives +0 rather than a signed one, which GEAdd doesn't tell apart. Lane 3 ends up zero.
+	const Vec4F32 ndc = GEMulFloat24x4(clip, Vec4F32::Splat(recip));
+	GEAdd4(GEMulFloat24x4(ndc, state.screenScale4), state.screenAdd4).Store(out);
+	return true;
 }
 
 #if defined(_M_SSE)
@@ -432,23 +457,25 @@ static inline float Dot43(const Vec4f &a, const Vec3f &b) {
 	return Dot(a, Vec4f(b, 1.0f));
 }
 
-ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const TransformState &state, VertexCarry &carry) {
+// Writes straight into the destination: building the vertex in a temporary and copying it reloads its
+// fields with wider loads than they were stored with, which stalls.
+void TransformUnit::ReadVertex(const VertexReader &vreader, const TransformState &state, VertexCarry &carry, ClipVertexData &vertex) {
 	PROFILE_THIS_SCOPE("read_vert");
-	ClipVertexData vertex;
 
 	// (x, y, z, 1), the left operands of the transform's rows.
-	alignas(16) float posv[4];
-	vreader.ReadPosThrough(posv);
-	posv[3] = 1.0f;
-	const Vec4F32 pos = Vec4F32::Load(posv);
+	Vec4F32 pos = vreader.ReadPosOne();
 
 	// A format without UVs uses the last ones read, by any draw, textured or not. They're kept as read, and
 	// scaled with the scale and offset of the draw using them (gpu/vertices/carry).
 	if (vreader.hasUV()) {
-		vreader.ReadUV(carry.tc.AsArray());
-		carry.tc.q() = 0.0f;
+		// Through a local: storing the two floats and reloading them as one stalls.
+		float uv[2];
+		vreader.ReadUV(uv);
+		carry.tc = Vec3Packedf(uv[0], uv[1], 0.0f);
+		vertex.v.texturecoords = Vec3Packedf(uv[0], uv[1], 0.0f);
+	} else {
+		vertex.v.texturecoords = carry.tc;
 	}
-	vertex.v.texturecoords = carry.tc;
 	if (state.geUVScale) {
 		// The decoder only normalized them (8 and 16 bit UVs are unsigned).
 		for (int i = 0; i < 2; ++i) {
@@ -475,22 +502,27 @@ ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const Tran
 	if (state.enableTransform) {
 		// Clip coordinates with the GE's precision; the Test Drive map depends on it together with the
 		// depth math below (#12786).
-		{
-			alignas(16) float clip[4];
-			GEClipPosition(pos, state.matrix).Store(clip);
-			vertex.clippos = ClipCoords(clip[0], clip[1], clip[2], clip[3]);
-		}
+		Vec4F32 clip = GEClipPosition(pos, state.matrix);
+		clip.Store(vertex.clippos.AsArray());
 
-		Vec3f screenScaled;
-		screenScaled.x = GEViewport(vertex.clippos.x, vertex.clippos.w, state.screenScale.x, state.screenAdd.x);
-		screenScaled.y = GEViewport(vertex.clippos.y, vertex.clippos.w, state.screenScale.y, state.screenAdd.y);
-		screenScaled.z = GEScreenZ(vertex.clippos.z, vertex.clippos.w, state.screenScale.z, state.screenAdd.z);
+		alignas(16) float scaled[4];
+		if (state.viewport3 && GEViewport3(clip, state, scaled)) {
+			scaled[2] = floorf(scaled[2]);
+		} else {
+			scaled[0] = GEViewport(vertex.clippos.x, vertex.clippos.w, state.screenScale.x, state.screenAdd.x);
+			scaled[1] = GEViewport(vertex.clippos.y, vertex.clippos.w, state.screenScale.y, state.screenAdd.y);
+			scaled[2] = GEScreenZ(vertex.clippos.z, vertex.clippos.w, state.screenScale.z, state.screenAdd.z);
+		}
+		const Vec3f screenScaled(scaled[0], scaled[1], scaled[2]);
 		bool outside_range_flag = false;
-		vertex.v.screenpos = state.roundToScreen(screenScaled, vertex.clippos, &outside_range_flag);
+		if (state.depthClamp)
+			vertex.v.screenpos = ClipToScreenInternal<true, false>(screenScaled, vertex.clippos, &outside_range_flag);
+		else
+			vertex.v.screenpos = ClipToScreenInternal<false, false>(screenScaled, vertex.clippos, &outside_range_flag);
 		if (outside_range_flag) {
 			// We use this, essentially, as the flag.
 			vertex.v.screenpos.x = 0x7FFFFFFF;
-			return vertex;
+			return;
 		}
 
 		if (state.enableFog && state.fogGE) {
@@ -498,7 +530,7 @@ ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const Tran
 			const float f = ProductToFloat24((double)TruncateToFloat24(GEAdd(viewZ, state.fogEnd)) * state.fogSlope);
 			vertex.v.fogdepth = GEFogFactor(f) * (1.0f / 256.0f);
 		} else if (state.enableFog) {
-			vertex.v.fogdepth = GEFogFactor(Dot43(state.posToFog, Vec3f(posv[0], posv[1], posv[2]))) * (1.0f / 256.0f);
+			vertex.v.fogdepth = GEFogFactor(Dot43(state.posToFog, Vec3f(pos.GetLane<0>(), pos.GetLane<1>(), pos.GetLane<2>()))) * (1.0f / 256.0f);
 		} else {
 			vertex.v.fogdepth = 1.0f;
 		}
@@ -558,6 +590,8 @@ ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const Tran
 		if (state.enableLighting)
 			Lighting::Process(vertex.v, pos, worldnormal, normalRsqrt, state.lightingState);
 	} else {
+		alignas(16) float posv[4];
+		pos.Store(posv);
 		vertex.v.screenpos.x = (int)(posv[0] * SCREEN_SCALE_FACTOR);
 		vertex.v.screenpos.y = (int)(posv[1] * SCREEN_SCALE_FACTOR);
 		vertex.v.screenpos.z = posv[2];
@@ -565,7 +599,6 @@ ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const Tran
 		vertex.v.fogdepth = 1.0f;
 	}
 
-	return vertex;
 }
 
 void TransformUnit::SetDirty(SoftDirty flags) {
@@ -788,27 +821,29 @@ public:
 		TransformUnit::VertexCarry carry = transform_.carry_;
 		for (int i = 0; i < upperBound_ - lowerBound_ + 1; ++i) {
 			vreader_.Goto(i);
-			cached_[i] = transform_.ReadVertex(vreader_, transformState_, carry);
+			transform_.ReadVertex(vreader_, transformState_, carry, cached_[i]);
 		}
 		// What the next draw carries is the last vertex in draw order (gpu/vertices/carry).
 		if (vertexCount_ != 0) {
 			vreader_.Goto(useIndices_ ? conv_(vertexCount_ - 1) - lowerBound_ : vertexCount_ - 1);
-			transform_.ReadVertex(vreader_, transformState_, transform_.carry_);
+			ClipVertexData unused;
+			transform_.ReadVertex(vreader_, transformState_, transform_.carry_, unused);
 		}
 	}
 
-	inline ClipVertexData Read(int vtx) {
+	inline void Read(int vtx, ClipVertexData &out) {
 		if (useIndices_) {
 			if (useCache_) {
-				return cached_[conv_(vtx) - lowerBound_];
+				out = cached_[conv_(vtx) - lowerBound_];
+				return;
 			}
 			vreader_.Goto(conv_(vtx) - lowerBound_);
 		} else {
 			vreader_.Goto(vtx);
 		}
 
-		return transform_.ReadVertex(vreader_, transformState_, transform_.carry_);
-	};
+		transform_.ReadVertex(vreader_, transformState_, transform_.carry_, out);
+	}
 
 protected:
 	VertexReader vreader_;
@@ -873,7 +908,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 		_assert_(data_index_ == 0);
 
 		for (int vtx = 0; vtx < vertex_count; ++vtx) {
-			buf[buf_index++] = vreader.Read(vtx);
+			vreader.Read(vtx, buf[buf_index++]);
 			if (buf_index < 6)
 				continue;
 
@@ -914,7 +949,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 			Clipper::ProcessPoint(data_[i], *binner_);
 		data_index_ = 0;
 		for (int vtx = 0; vtx < vertex_count; ++vtx) {
-			data_[0] = vreader.Read(vtx);
+			vreader.Read(vtx, data_[0]);
 			Clipper::ProcessPoint(data_[0], *binner_);
 		}
 		break;
@@ -924,7 +959,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 			Clipper::ProcessLine(data_[i + 0], data_[i + 1], *binner_);
 		data_index_ &= 1;
 		for (int vtx = 0; vtx < vertex_count; ++vtx) {
-			data_[data_index_++] = vreader.Read(vtx);
+			vreader.Read(vtx, data_[data_index_++]);
 			if (data_index_ == 2) {
 				Clipper::ProcessLine(data_[0], data_[1], *binner_);
 				data_index_ = 0;
@@ -934,7 +969,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 
 	case GE_PRIM_TRIANGLES:
 		for (int vtx = 0; vtx < vertex_count; ++vtx) {
-			data_[data_index_++] = vreader.Read(vtx);
+			vreader.Read(vtx, data_[data_index_++]);
 			if (data_index_ < 3) {
 				// Keep reading.  Note: an incomplete prim will stay read for GE_PRIM_KEEP_PREVIOUS.
 				continue;
@@ -953,7 +988,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 
 	case GE_PRIM_RECTANGLES:
 		for (int vtx = 0; vtx < vertex_count; ++vtx) {
-			data_[data_index_++] = vreader.Read(vtx);
+			vreader.Read(vtx, data_[data_index_++]);
 
 			if (data_index_ == 4 && vreader.IsThrough() && cullType == CullType::OFF) {
 				if (Rasterizer::DetectRectangleThroughModeSlices(binner_->State(), data_)) {
@@ -981,7 +1016,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 			// If data_index_ is 1 or 2, etc., it means we're continuing a line strip.
 			int skip_count = data_index_ == 0 ? 1 : 0;
 			for (int vtx = 0; vtx < vertex_count; ++vtx) {
-				data_[(data_index_++) & 1] = vreader.Read(vtx);
+				vreader.Read(vtx, data_[(data_index_++) & 1]);
 
 				if (skip_count) {
 					--skip_count;
@@ -1007,7 +1042,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 			if (data_index_ == 0 && vertex_count >= 4 && (vertex_count & 1) == 0 && cullType == CullType::OFF) {
 				for (int base = 0; base < vertex_count - 2; base += 2) {
 					for (int vtx = base == 0 ? 0 : 2; vtx < 4; ++vtx) {
-						data_[vtx] = vreader.Read(base + vtx);
+						vreader.Read(base + vtx, data_[vtx]);
 					}
 
 					// If a strip is effectively a rectangle, draw it as such!
@@ -1035,14 +1070,14 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 
 			for (int vtx = start_vtx; vtx < vertex_count && skip_count > 0; ++vtx) {
 				int provoking_index = (data_index_++) % 3;
-				data_[provoking_index] = vreader.Read(vtx);
+				vreader.Read(vtx, data_[provoking_index]);
 				--skip_count;
 				++start_vtx;
 			}
 
 			for (int vtx = start_vtx; vtx < vertex_count; ++vtx) {
 				int provoking_index = (data_index_++) % 3;
-				data_[provoking_index] = vreader.Read(vtx);
+				vreader.Read(vtx, data_[provoking_index]);
 
 				int wind = (data_index_ - 1) % 2;
 				CullType altCullType = cullType == CullType::OFF ? cullType : CullType((int)cullType ^ wind);
@@ -1070,14 +1105,14 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 
 			// Only read the central vertex if we're not continuing.
 			if (data_index_ == 0 && vertex_count > 0) {
-				data_[0] = vreader.Read(0);
+				vreader.Read(0, data_[0]);
 				data_index_++;
 				start_vtx = 1;
 			}
 
 			if (data_index_ == 1 && vertex_count == 4 && cullType == CullType::OFF) {
 				for (int vtx = start_vtx; vtx < vertex_count; ++vtx) {
-					data_[vtx] = vreader.Read(vtx);
+					vreader.Read(vtx, data_[vtx]);
 				}
 
 				int tl = -1, br = -1;
@@ -1089,14 +1124,14 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 
 			for (int vtx = start_vtx; vtx < vertex_count && skip_count > 0; ++vtx) {
 				int provoking_index = 2 - ((data_index_++) % 2);
-				data_[provoking_index] = vreader.Read(vtx);
+				vreader.Read(vtx, data_[provoking_index]);
 				--skip_count;
 				++start_vtx;
 			}
 
 			for (int vtx = start_vtx; vtx < vertex_count; ++vtx) {
 				int provoking_index = 2 - ((data_index_++) % 2);
-				data_[provoking_index] = vreader.Read(vtx);
+				vreader.Read(vtx, data_[provoking_index]);
 
 				int wind = (data_index_ - 1) % 2;
 				CullType altCullType = cullType == CullType::OFF ? cullType : CullType((int)cullType ^ wind);

@@ -154,7 +154,7 @@ private:
 		Vec3Packedf tc{};
 		float normal[4]{};
 	};
-	ClipVertexData ReadVertex(const VertexReader &vreader, const TransformState &state, VertexCarry &carry);
+	void ReadVertex(const VertexReader &vreader, const TransformState &state, VertexCarry &carry, ClipVertexData &vertex);
 	// orderReversed: verts are in the opposite order of how the GE takes the triangle (matters for clipping).
 	void SendTriangle(CullType cullType, const ClipVertexData *verts, int provoking = 2, bool orderReversed = false);
 
