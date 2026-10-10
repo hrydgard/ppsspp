@@ -1162,6 +1162,8 @@ set(WindowsFiles
 	Windows/WindowsAudio.h
 	Windows/WASAPIContext.cpp
 	Windows/WASAPIContext.h
+	Windows/WASAPIMicrophone.cpp
+	Windows/WASAPIMicrophone.h
 	Windows/Debugger/BreakpointWindow.cpp
 	Windows/Debugger/BreakpointWindow.h
 	Windows/Debugger/DumpMemoryWindow.cpp

@@ -947,7 +947,6 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 #if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 	if (IsWin7OrHigher()) {
 		winCamera = new WindowsCaptureDevice(CAPTUREDEVICE_TYPE::VIDEO);
-		winMic = new WindowsCaptureDevice(CAPTUREDEVICE_TYPE::AUDIO);
 	}
 #endif
 
@@ -1077,11 +1076,6 @@ void NativeShutdownGraphics(GraphicsContext *graphicsContext) {
 		winCamera->waitShutDown();
 		delete winCamera;
 		winCamera = nullptr;
-	}
-	if (winMic) {
-		winMic->waitShutDown();
-		delete winMic;
-		winMic = nullptr;
 	}
 #endif
 
