@@ -784,6 +784,30 @@ public:
 #undef _DEFINE_SWIZZLER3
 };
 
+// Splats in a register: the four value constructor stores the values one by one, which stalls whatever loads
+// the vector next.
+#if defined(_M_SSE)
+template<>
+inline Vec4<int> Vec4<int>::AssignToAll(const int &f) {
+	return Vec4<int>(_mm_set1_epi32(f));
+}
+
+template<>
+inline Vec4<float> Vec4<float>::AssignToAll(const float &f) {
+	return Vec4<float>(_mm_set1_ps(f));
+}
+#elif PPSSPP_ARCH(ARM_NEON)
+template<>
+inline Vec4<int> Vec4<int>::AssignToAll(const int &f) {
+	return Vec4<int>(vdupq_n_s32(f));
+}
+
+template<>
+inline Vec4<float> Vec4<float>::AssignToAll(const float &f) {
+	return Vec4<float>(vdupq_n_f32(f));
+}
+#endif
+
 
 template<typename BaseType>
 class Mat3x3

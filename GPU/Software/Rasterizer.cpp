@@ -1037,7 +1037,8 @@ struct DepthPlane {
 	}
 };
 
-static DepthPlane ComputePlane(const int64_t X[3], const int64_t Y[3], const int64_t Z[3]) {
+// Inline: returned through memory, it was then reloaded with wider loads than it was stored with.
+static inline DepthPlane ComputePlane(const int64_t X[3], const int64_t Y[3], const int64_t Z[3]) {
 	DepthPlane plane{};
 	const int64_t det = (X[1] - X[0]) * (Y[2] - Y[0]) - (X[2] - X[0]) * (Y[1] - Y[0]);
 	if (det == 0) {

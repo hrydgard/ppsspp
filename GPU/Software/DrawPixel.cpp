@@ -75,15 +75,14 @@ static inline void SetPixelDepth(int x, int y, int stride, u16 value) {
 
 // NOTE: These likely aren't endian safe
 // The depths of a span's four pixels from x.
-static inline void ReadSpanDepth(int x, int y, int stride, int out[4]) {
-	if (depthbuf.Contiguous4(x, y, stride)) {
-		const u16 *zp = depthbuf.Get16Ptr(x, y, stride);
-		for (int i = 0; i < 4; ++i)
-			out[i] = zp[i];
-	} else {
-		for (int i = 0; i < 4; ++i)
-			out[i] = depthbuf.Get16(x + i, y, stride);
-	}
+// Loaded as a vector where they're stored together (all but across a 16-pixel run).
+static inline Vec4S32 ReadSpanDepth(int x, int y, int stride) {
+	if (depthbuf.Contiguous4(x, y, stride))
+		return Vec4S32::LoadU16(depthbuf.Get16Ptr(x, y, stride));
+	alignas(16) int out[4];
+	for (int i = 0; i < 4; ++i)
+		out[i] = depthbuf.Get16(x + i, y, stride);
+	return Vec4S32::LoadAligned(out);
 }
 
 static inline u32 GetPixelColor(GEBufferFormat fmt, int fbStride, int x, int y) {
@@ -980,18 +979,14 @@ static inline void DrawSpanVector(int x, int y, const int *maskIn, const int *zI
 		const Vec4S32 sfail = compare(pixelID.StencilTestFunc(), Vec4S32::Splat(pixelID.stencilTestRef), sv).AndNot(dead);
 		Vec4S32 zfail = zero;
 		if (!pixelID.earlyZChecks && pixelID.DepthTestFunc() != GE_COMP_ALWAYS) {
-			alignas(16) int ref[4];
-			ReadSpanDepth(x, y, depthStride, ref);
-			zfail = compare(pixelID.DepthTestFunc(), z, Vec4S32::Load(ref)).AndNot(dead | sfail);
+			zfail = compare(pixelID.DepthTestFunc(), z, ReadSpanDepth(x, y, depthStride)).AndNot(dead | sfail);
 		}
 		const Vec4S32 old = dst[3];
 		stencil = select(sfail, SpanStencilOp<fbFormat>(pixelID.SFail(), old, replace),
 			select(zfail, SpanStencilOp<fbFormat>(pixelID.ZFail(), old, replace), SpanStencilOp<fbFormat>(pixelID.ZPass(), old, replace)));
 		stencilOnly = sfail | zfail;
 	} else if (!clearMode && !pixelID.earlyZChecks && pixelID.DepthTestFunc() != GE_COMP_ALWAYS) {
-		alignas(16) int ref[4];
-		ReadSpanDepth(x, y, depthStride, ref);
-		dead = dead | compare(pixelID.DepthTestFunc(), z, Vec4S32::Load(ref));
+		dead = dead | compare(pixelID.DepthTestFunc(), z, ReadSpanDepth(x, y, depthStride));
 	}
 
 	alignas(16) int deadLanes[4];
