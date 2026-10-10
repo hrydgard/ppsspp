@@ -22,6 +22,7 @@
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
+#include "Core/EmuThread.h"
 
 #include "GPU/Vulkan/VulkanUtil.h"
 
@@ -48,63 +49,31 @@ static std::thread g_renderLoopThread;
 	return self;
 }
 
-// Should be very similar to the Android one, probably mergeable.
-// This is the EmuThread for iOS.
 static void VulkanRenderLoop(GraphicsContext *graphicsContext, CAMetalLayer *metalLayer) {
-	SetCurrentThreadName("EmuThreadVulkan");
-	INFO_LOG(Log::G3D, "Entering EmuThreadVulkan");
+	// Only a provisional name, RunGraphicsLoop renames the thread once it knows its role.
+	SetCurrentThreadName("RenderLoop");
 	_assert_(graphicsContext);
 
-	if (exitRenderLoop) {
-		WARN_LOG(Log::G3D, "runVulkanRenderLoop: ExitRenderLoop requested at start, skipping the whole thing.");
-		renderLoopRunning = false;
-		exitRenderLoop = false;
-		return;
-	}
-
-	// This is up here to prevent race conditions, in case we pause during init.
-	renderLoopRunning = true;
-
-	//WARN_LOG(G3D, "runVulkanRenderLoop. desiredBackbufferSizeX=%d desiredBackbufferSizeY=%d",
-	//	desiredBackbufferSizeX, desiredBackbufferSizeY);
 	std::string errorMessage;
 	if (!graphicsContext->InitSurface(WINDOWSYSTEM_METAL_EXT, (__bridge void *)metalLayer, nullptr, &errorMessage)) {
-		// On Android, if we get here, really no point in continuing.
-		// The UI is supposed to render on any device both on OpenGL and Vulkan. If either of those don't work
-		// on a device, we blacklist it. Hopefully we should have already failed in InitAPI anyway and reverted to GL back then.
-		ERROR_LOG(Log::G3D, "Failed to initialize graphics context.");
+		ERROR_LOG(Log::G3D, "Failed to initialize graphics context for surface: %s", errorMessage.c_str());
 		System_Toast("Failed to initialize graphics context.");
-
-		delete graphicsContext;
-		graphicsContext = nullptr;
 		renderLoopRunning = false;
 		return;
 	}
 
-	if (!exitRenderLoop) {
-		if (!NativeInitGraphics(graphicsContext)) {
-			ERROR_LOG(Log::G3D, "Failed to initialize graphics.");
-			// Gonna be in a weird state here..
-		}
-		graphicsContext->ThreadStart();
-		while (!exitRenderLoop) {
-			NativeFrame(graphicsContext);
-		}
-		INFO_LOG(Log::G3D, "Leaving Vulkan main loop.");
-	} else {
-		INFO_LOG(Log::G3D, "Not entering main loop.");
-	}
-
-	NativeShutdownGraphics(graphicsContext);
-
-	graphicsContext->ThreadEnd();
+	const auto frame = [](GraphicsContext *graphicsContext) {
+		NativeFrame(graphicsContext);
+		return !exitRenderLoop;
+	};
+	RunGraphicsLoop(graphicsContext, new NativeApplication(), frame, []() { return exitRenderLoop.load(); });
 
 	// Shut the graphics context down to the same state it was in when we entered the render thread.
 	INFO_LOG(Log::G3D, "Shutting down graphics context...");
 	graphicsContext->ShutdownSurface();
-	renderLoopRunning = false;
-	exitRenderLoop = false;
 
+	// exitRenderLoop is reset by whoever set it, after joining us.
+	renderLoopRunning = false;
 	WARN_LOG(Log::G3D, "Render loop function exited.");
 }
 
@@ -117,11 +86,21 @@ static void VulkanRenderLoop(GraphicsContext *graphicsContext, CAMetalLayer *met
 	}
 
 	if (g_renderLoopThread.joinable()) {
-		ERROR_LOG(Log::G3D, "runVulkanRenderLoop: Already running");
-		return false;
+		if (renderLoopRunning) {
+			ERROR_LOG(Log::G3D, "runVulkanRenderLoop: Already running");
+			return false;
+		}
+		// The previous thread gave up by itself (failed surface init). Reap it so we can try again.
+		WARN_LOG(Log::G3D, "runVulkanRenderLoop: Joining a render thread that had already exited");
+		g_renderLoopThread.join();
+		g_renderLoopThread = std::thread();
 	}
 
+	_assert_(!exitRenderLoop);
+
 	CAMetalLayer *metalLayer = (CAMetalLayer *)self.view.layer;
+	// Set before the thread exists, so an exit request can't slip in ahead of it.
+	renderLoopRunning = true;
 	g_renderLoopThread = std::thread(VulkanRenderLoop, graphicsContext, metalLayer);
 	return true;
 }
@@ -129,15 +108,15 @@ static void VulkanRenderLoop(GraphicsContext *graphicsContext, CAMetalLayer *met
 - (void)requestExitVulkanRenderLoop {
 	INFO_LOG(Log::G3D, "requestExitVulkanRenderLoop");
 
-	if (!renderLoopRunning) {
-		ERROR_LOG(Log::System, "Render loop already exited");
+	// Don't go by renderLoopRunning - the thread might have bailed by itself, and still needs joining.
+	if (!g_renderLoopThread.joinable()) {
+		INFO_LOG(Log::G3D, "Render loop not running, nothing to join");
 		return;
 	}
-	_assert_(g_renderLoopThread.joinable());
 	exitRenderLoop = true;
 	g_renderLoopThread.join();
-
-	_assert_(!g_renderLoopThread.joinable());
+	g_renderLoopThread = std::thread();
+	exitRenderLoop = false;
 }
 
 // These two are forwarded from the appDelegate
@@ -165,7 +144,8 @@ static void VulkanRenderLoop(GraphicsContext *graphicsContext, CAMetalLayer *met
 
 	g_Config.Save("shutdown vk");
 
-	// Hopefully requestExitVulkanRenderLoop has been called from willResignActive here...
+	// Normally already done by willResignActive, but not when the app is terminated.
+	[self requestExitVulkanRenderLoop];
 
 	if (graphicsContext) {
 		graphicsContext->ShutdownAPI();

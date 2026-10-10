@@ -84,7 +84,10 @@ PPSSPPBaseViewController *sharedViewController;
 }
 
 - (void)requestExitGLRenderLoop {
-	_assert_(g_emuThread.joinable());
+	if (!g_emuThread.joinable()) {
+		INFO_LOG(Log::G3D, "requestExitGLRenderLoop: Not running");
+		return;
+	}
 	EmuThread_Join(graphicsContext, g_emuThread);
 	_assert_(!g_emuThread.joinable());
 }
@@ -240,6 +243,9 @@ PPSSPPBaseViewController *sharedViewController;
 	g_Config.Save("shutdown GL");
 
 	_dbg_assert_(graphicsContext);
+
+	// Normally already done by willResignActive, but not when the app is terminated.
+	[self requestExitGLRenderLoop];
 
 	graphicsContext->ShutdownSurface();
 	graphicsContext->ShutdownAPI();
