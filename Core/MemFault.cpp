@@ -141,6 +141,12 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 	const uintptr_t addressSpaceSize = 0x100000000ULL;
 #endif
 
+	// The dispatcher looks a jump target up in the block shadow, which faults where there's no PSP memory.
+	const uintptr_t shadowAddress = (uintptr_t)blockShadow;
+	if (hostAddress >= shadowAddress && hostAddress <= shadowAddress + BLOCK_SHADOW_MASK) {
+		baseAddress = shadowAddress;
+	}
+
 	// Check whether hostAddress is within the PSP memory space, which (likely) means it was a guest executable that did the bad access.
 	bool invalidHostAddress = hostAddress == (uintptr_t)0xFFFFFFFFFFFFFFFFULL;
 	if (hostAddress < baseAddress || hostAddress >= baseAddress + addressSpaceSize) {

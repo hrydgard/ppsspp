@@ -360,7 +360,8 @@ u32 Jit::GetCompilerPC() {
 }
 
 MIPSOpcode Jit::GetOffsetInstruction(int offset) {
-	return Memory::Read_Instruction(GetCompilerPC() + 4 * offset);
+	const u32 addr = GetCompilerPC() + 4 * offset;
+	return Memory::IsValid4AlignedAddress(addr) ? ReadExecutedOp(addr) : Memory::Read_Instruction(addr);
 }
 
 void Jit::DoJit(u32 em_address, JitBlock *b) {
@@ -384,7 +385,7 @@ void Jit::DoJit(u32 em_address, JitBlock *b) {
 		// Jit breakpoints are quite fast, so let's do them in release too.
 		CheckJitBreakpoint(GetCompilerPC(), 0);
 
-		MIPSOpcode inst = Memory::Read_Opcode_JIT(GetCompilerPC());
+		MIPSOpcode inst = ReadExecutedOp(GetCompilerPC());
 		js.downcountAmount += MIPSGetInstructionCycleEstimate(inst);
 
 		MIPSCompileOp(inst, this);
@@ -486,11 +487,6 @@ bool Jit::DescribeCodePtr(const u8 *ptr, std::string &name) {
 	return true;
 }
 
-void Jit::Comp_RunBlock(MIPSOpcode op) {
-	// This shouldn't be necessary, the dispatcher should catch us before we get here.
-	ERROR_LOG(Log::JIT, "Comp_RunBlock");
-}
-
 void Jit::LinkBlock(u8 *exitPoint, const u8 *checkedEntry) {
 	if (PlatformIsWXExclusive()) {
 		ProtectMemoryPages(exitPoint, 32, MEM_PROT_READ | MEM_PROT_WRITE);
@@ -533,6 +529,12 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op) {
 
 	// Inlined function calls (caught in jal) are handled differently.
 
+	// Memory never holds these: if it does, the game is executing data. Let the interpreter raise it.
+	if (Memory::Read_Instruction(GetCompilerPC()).encoding == op.encoding) {
+		Comp_Generic(op);
+		return;
+	}
+
 	int index = op.encoding & MIPS_EMUHACK_VALUE_MASK;
 
 	const ReplacementTableEntry *entry = GetReplacementFunc(index);
@@ -552,14 +554,7 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op) {
 		}
 	}
 
-	// Hack for old savestates: Avoid stack overflow (MIPSCompileOp/CompReplacementFunc)
-	// Not sure about the cause.
-	Memory::Opcode origInstruction = Memory::Read_Instruction(GetCompilerPC(), true);
-	if (origInstruction.encoding == op.encoding) {
-		ERROR_LOG(Log::HLE, "Replacement broken (savestate problem?): %08x at %08x", op.encoding, GetCompilerPC());
-		return;
-	}
-
+	Memory::Opcode origInstruction = Memory::Read_Instruction(GetCompilerPC());
 	if (disabled) {
 		MIPSCompileOp(origInstruction, this);
 	} else if (entry->jitReplaceFunc) {
@@ -588,7 +583,7 @@ void Jit::Comp_ReplacementFunc(MIPSOpcode op) {
 		if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
 			// Compile the original instruction at this address.  We ignore cycles for hooks.
 			ApplyRoundingMode();
-			MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC(), true), this);
+			MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC()), this);
 		} else {
 			CMP(32, R(EAX), Imm32(0));
 			FixupBranch positive = J_CC(CC_GE);
@@ -951,16 +946,6 @@ void Jit::CallProtectedLeaf(const void *func) {
 #endif
 
 void Jit::Comp_DoNothing(MIPSOpcode op) { }
-
-MIPSOpcode Jit::GetOriginalOp(MIPSOpcode op) {
-	JitBlockCache *bc = GetBlockCache();
-	int block_num = bc->GetBlockNumberFromEmuHackOp(op, true);
-	if (block_num >= 0) {
-		return bc->GetOriginalFirstOp(block_num);
-	} else {
-		return op;
-	}
-}
 
 } // namespace
 

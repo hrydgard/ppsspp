@@ -2255,6 +2255,45 @@ static bool TestMemMap() {
 	return true;
 }
 
+static bool CheckBlockShadow() {
+	// Every valid address has an entry, starting out empty. The ends of each view would fault otherwise.
+	static const u32 validAddresses[] = {
+		0x00010000, 0x00013FFC, 0x40010000,  // Scratchpad, and its uncached mirror.
+		0x04000000, 0x047FFFFC,  // VRAM and its mirrors.
+		0x08000000, 0x09F00000, 0x0BE00000, 0x0BFFFFFC,  // RAM, across the views it's mapped in.
+		0x48000000, 0x88000000, 0xC8000000,  // RAM mirrors.
+	};
+	for (u32 addr : validAddresses) {
+		EXPECT_EQ_HEX(Memory::ReadBlockShadow(addr), 0);
+	}
+
+	// The kernel and uncached mirrors share an entry, like they share memory.
+	Memory::WriteBlockShadow(0x08804000, 0x1234);
+	EXPECT_EQ_HEX(Memory::ReadBlockShadow(0x88804000), 0x1234);
+	EXPECT_EQ_HEX(Memory::ReadBlockShadow(0x48804000), 0x1234);
+
+	// Invalid addresses read as empty, and ignore writes.
+	Memory::WriteBlockShadow(0x0C000000, 0x1234);
+	EXPECT_EQ_HEX(Memory::ReadBlockShadow(0x0C000000), 0);
+
+	// Clearing leaves an entry that holds something else alone.
+	EXPECT_FALSE(Memory::ClearBlockShadow(0x08804000, 0x5678));
+	EXPECT_TRUE(Memory::ClearBlockShadow(0x88804000, 0x1234));
+	EXPECT_EQ_HEX(Memory::ReadBlockShadow(0x08804000), 0);
+	return true;
+}
+
+static bool TestBlockShadow() {
+	Memory::g_MemorySize = Memory::RAM_DOUBLE_SIZE;
+	if (!Memory::Init(Memory::MemMapSetupFlags::Default)) {
+		printf("Memory::Init failed\n");
+		return false;
+	}
+	const bool success = CheckBlockShadow();
+	Memory::Shutdown();
+	return success;
+}
+
 static bool TestPath() {
 	// Also test the Path class while we're at it.
 	Path path("/asdf/jkl/");
@@ -3254,6 +3293,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(QuickTexHash),
 	TEST_ITEM(CLZ),
 	TEST_ITEM(MemMap),
+	TEST_ITEM(BlockShadow),
 	TEST_ITEM(ShaderGenerators),
 	TEST_ITEM(Path),
 	TEST_ITEM(AndroidContentURI),

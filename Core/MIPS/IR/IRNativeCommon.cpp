@@ -605,6 +605,10 @@ const u8 *IRNativeJit::GetCodeBase() const {
 	return backend_->CodeBlock().GetBasePtr();
 }
 
+u32 IRNativeJit::GetBlockShadowHookValue() const {
+	return (u32)backend_->OffsetFromCodePtr(backend_->GetNativeHooks().blockShadowHook);
+}
+
 bool IRNativeJit::IsAtDispatchFetch(const u8 *ptr) const {
 	return ptr == backend_->GetNativeHooks().dispatchFetch;
 }

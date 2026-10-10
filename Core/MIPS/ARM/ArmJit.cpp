@@ -90,7 +90,7 @@ static u32 JitMemCheck(u32 pc) {
 		return 0;
 
 	// Note: pc may be the delay slot.
-	const auto op = Memory::Read_Instruction(pc, true);
+	const auto op = Memory::Read_Instruction(pc);
 	s32 offset = SignExtend16ToS32(op & 0xFFFF);
 	if (MIPSGetInfo(op) & IS_VFPU)
 		offset &= 0xFFFC;
@@ -199,7 +199,7 @@ void ArmJit::ClearCache()
 }
 
 void ArmJit::InvalidateCacheAt(u32 em_address, int length) {
-	if (blocks.RangeMayHaveEmuHacks(em_address, em_address + length)) {
+	if (blocks.RangeMayHaveBlocks(em_address, em_address + length)) {
 		blocks.InvalidateICache(em_address, length);
 	}
 }
@@ -301,7 +301,8 @@ u32 ArmJit::GetCompilerPC() {
 }
 
 MIPSOpcode ArmJit::GetOffsetInstruction(int offset) {
-	return Memory::Read_Instruction(GetCompilerPC() + 4 * offset);
+	const u32 addr = GetCompilerPC() + 4 * offset;
+	return Memory::IsValid4AlignedAddress(addr) ? ReadExecutedOp(addr) : Memory::Read_Instruction(addr);
 }
 
 void ArmJit::DoJit(u32 em_address, JitBlock *b) {
@@ -349,7 +350,7 @@ void ArmJit::DoJit(u32 em_address, JitBlock *b) {
 		// Jit breakpoints are quite fast, so let's do them in release too.
 		CheckJitBreakpoint(GetCompilerPC(), 0);
 
-		MIPSOpcode inst = Memory::Read_Opcode_JIT(GetCompilerPC());
+		MIPSOpcode inst = ReadExecutedOp(GetCompilerPC());
 		//MIPSInfo info = MIPSGetInfo(inst);
 		//if (info & IS_VFPU) {
 		//	logBlocks = 1;
@@ -391,7 +392,7 @@ void ArmJit::DoJit(u32 em_address, JitBlock *b) {
 	if (logBlocks > 0 && dontLogBlocks == 0) {
 		INFO_LOG(Log::JIT, "=============== mips ===============");
 		for (u32 cpc = em_address; cpc != GetCompilerPC() + 4; cpc += 4) {
-			MIPSDisAsm(Memory::Read_Opcode_JIT(cpc), cpc, temp, sizeof(temp), true);
+			MIPSDisAsm(Memory::ReadUnchecked_Instruction(cpc), cpc, temp, sizeof(temp), true);
 			INFO_LOG(Log::JIT, "M: %08x   %s", cpc, temp);
 		}
 	}
@@ -417,12 +418,6 @@ bool ArmJit::DescribeCodePtr(const u8 *ptr, std::string &name)
 {
 	// TODO: Not used by anything yet (except the modified VerySleepy on Windows)
 	return false;
-}
-
-void ArmJit::Comp_RunBlock(MIPSOpcode op)
-{
-	// This shouldn't be necessary, the dispatcher should catch us before we get here.
-	ERROR_LOG(Log::JIT, "Comp_RunBlock should never be reached!");
 }
 
 void ArmJit::LinkBlock(u8 *exitPoint, const u8 *checkedEntry) {
@@ -476,6 +471,12 @@ void ArmJit::Comp_ReplacementFunc(MIPSOpcode op)
 
 	// Inlined function calls (caught in jal) are handled differently.
 
+	// Memory never holds these: if it does, the game is executing data. Let the interpreter raise it.
+	if (Memory::Read_Instruction(GetCompilerPC()).encoding == op.encoding) {
+		Comp_Generic(op);
+		return;
+	}
+
 	int index = op.encoding & MIPS_EMUHACK_VALUE_MASK;
 
 	const ReplacementTableEntry *entry = GetReplacementFunc(index);
@@ -496,14 +497,14 @@ void ArmJit::Comp_ReplacementFunc(MIPSOpcode op)
 	}
 
 	if (disabled) {
-		MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC(), true), this);
+		MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC()), this);
 	} else if (entry->jitReplaceFunc) {
 		MIPSReplaceFunc repl = entry->jitReplaceFunc;
 		int cycles = (this->*repl)();
 
 		if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
 			// Compile the original instruction at this address.  We ignore cycles for hooks.
-			MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC(), true), this);
+			MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC()), this);
 		} else {
 			FlushAll();
 			// Flushed, so R1 is safe.
@@ -532,7 +533,7 @@ void ArmJit::Comp_ReplacementFunc(MIPSOpcode op)
 			// Compile the original instruction at this address.  We ignore cycles for hooks.
 			ApplyRoundingMode();
 			RestoreDowncount();
-			MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC(), true), this);
+			MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC()), this);
 		} else {
 			ApplyRoundingMode();
 			RestoreDowncount();
@@ -771,16 +772,6 @@ bool ArmJit::CheckMemoryBreakpoint(int instructionOffset) {
 }
 
 void ArmJit::Comp_DoNothing(MIPSOpcode op) { }
-
-MIPSOpcode ArmJit::GetOriginalOp(MIPSOpcode op) {
-	JitBlockCache *bc = GetBlockCache();
-	int block_num = bc->GetBlockNumberFromEmuHackOp(op, true);
-	if (block_num >= 0) {
-		return bc->GetOriginalFirstOp(block_num);
-	} else {
-		return op;
-	}
-}
 
 }  // namespace
 

@@ -101,7 +101,7 @@ void FakeJit::ClearCache()
 }
 
 void FakeJit::InvalidateCacheAt(u32 em_address, int length) {
-	if (blocks.RangeMayHaveEmuHacks(em_address, em_address + length)) {
+	if (blocks.RangeMayHaveBlocks(em_address, em_address + length)) {
 		blocks.InvalidateICache(em_address, length);
 	}
 }
@@ -140,12 +140,6 @@ bool FakeJit::DescribeCodePtr(const u8 *ptr, std::string &name)
 {
 	// TODO: Not used by anything yet.
 	return false;
-}
-
-void FakeJit::Comp_RunBlock(MIPSOpcode op)
-{
-	// This shouldn't be necessary, the dispatcher should catch us before we get here.
-	ERROR_LOG(Log::JIT, "Comp_RunBlock should never be reached!");
 }
 
 void FakeJit::Comp_ReplacementFunc(MIPSOpcode op)

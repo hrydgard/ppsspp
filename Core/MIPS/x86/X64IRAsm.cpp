@@ -69,8 +69,7 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 #if PPSSPP_ARCH(AMD64)
 	bool jitbaseInR15 = false;
 	int jitbaseCtxDisp = 0;
-	// We pre-bake the MIPS_EMUHACK_OPCODE subtraction into our jitbase value.
-	intptr_t jitbase = (intptr_t)GetBasePtr() - MIPS_EMUHACK_OPCODE;
+	intptr_t jitbase = (intptr_t)GetBasePtr();
 	if ((jitbase < -0x80000000LL || jitbase > 0x7FFFFFFFLL) && !Accessible((const u8 *)&mipsState->f[0], (const u8 *)jitbase)) {
 		jo.reserveR15ForAsm = true;
 		jitbaseInR15 = true;
@@ -226,29 +225,21 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 
 			MovFromPC(SCRATCH1);
 			WriteDebugPC(SCRATCH1);
-#ifdef MASKED_PSP_MEMORY
-			AND(32, R(SCRATCH1), Imm32(Memory::MEMVIEW32_MASK));
-#endif
+			// Look the block up in the shadow. Its entry is the offset into the code space, or 0 for none.
+			AND(32, R(SCRATCH1), Imm32(Memory::BLOCK_SHADOW_MASK));
+#if PPSSPP_ARCH(X86)
+			_assert_msg_(Memory::blockShadow != 0, "Block shadow bogus");
 			hooks_.dispatchFetch = GetCodePtr();
-#if PPSSPP_ARCH(X86)
-			_assert_msg_( Memory::base != 0, "Memory base bogus");
-			MOV(32, R(SCRATCH1), MDisp(SCRATCH1, (u32)Memory::base));
+			MOV(32, R(SCRATCH1), MDisp(SCRATCH1, (u32)Memory::blockShadow));
 #elif PPSSPP_ARCH(AMD64)
-			MOV(32, R(SCRATCH1), MComplex(MEMBASEREG, SCRATCH1, SCALE_1, 0));
+			MOV(64, R(RDX), ImmPtr(Memory::blockShadow));
+			hooks_.dispatchFetch = GetCodePtr();
+			MOV(32, R(SCRATCH1), MComplex(RDX, SCRATCH1, SCALE_1, 0));
 #endif
-			_assert_msg_(MIPS_JITBLOCK_MASK == 0xFF000000, "Hardcoded assumption of emuhack mask");
-			if (cpu_info.bBMI2) {
-				RORX(32, EDX, R(SCRATCH1), 24);
-				CMP(8, R(EDX), Imm8(MIPS_EMUHACK_OPCODE >> 24));
-			} else {
-				MOV(32, R(EDX), R(SCRATCH1));
-				SHR(32, R(EDX), Imm8(24));
-				CMP(32, R(EDX), Imm8(MIPS_EMUHACK_OPCODE >> 24));
-			}
-			FixupBranch needsCompile = J_CC(CC_NE);
-				// We don't mask here - that's baked into jitbase.
+			TEST(32, R(SCRATCH1), R(SCRATCH1));
+			FixupBranch needsCompile = J_CC(CC_Z);
 #if PPSSPP_ARCH(X86)
-				LEA(32, SCRATCH1, MDisp(SCRATCH1, (u32)GetBasePtr() - MIPS_EMUHACK_OPCODE));
+				LEA(32, SCRATCH1, MDisp(SCRATCH1, (u32)GetBasePtr()));
 #elif PPSSPP_ARCH(AMD64)
 				if (jitbaseInR15) {
 					ADD(64, R(SCRATCH1), R(JITBASEREG));
@@ -263,6 +254,8 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 			SetJumpTarget(needsCompile);
 
 			// No block found, let's jit.  We don't need to save static regs, they're all callee saved.
+			// A replacement hook's block shadow entry jumps here too, see GetBlockShadowHookValue().
+			hooks_.blockShadowHook = GetCodePtr();
 			RestoreRoundingMode(true);
 			WriteDebugProfilerStatus(IRProfilerStatus::COMPILING);
 			LEA(PTRBITS, ECX, MDisp(CTXREG, -(s32)offsetof(MIPSState, f[0])));

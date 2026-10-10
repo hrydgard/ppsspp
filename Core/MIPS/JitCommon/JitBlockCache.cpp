@@ -46,7 +46,6 @@ constexpr u32 SENTINEL_VAL = 0xc0ffeefe;
 static uint64_t HashJitBlock(const JitBlock &b) {
 	PROFILE_THIS_SCOPE("jithash");
 	if (JIT_USE_COMPILEDHASH) {
-		// Includes the emuhack (or emuhacks) in memory.
 		if (Memory::IsValidRange(b.originalAddress, b.originalSize * 4)) {
 			return XXH3_64bits(Memory::GetPointerUnchecked(b.originalAddress), b.originalSize * 4);
 		} else {
@@ -172,11 +171,8 @@ static void ExpandRange(std::pair<u32, u32> &range, u32 newStart, u32 newEnd) {
 void JitBlockCache::FinalizeBlock(int block_num, bool block_link) {
 	JitBlock &b = blocks_[block_num];
 
-	b.originalFirstOpcode = Memory::Read_Opcode_JIT(b.originalAddress);
-	MIPSOpcode opcode = GetEmuHackOpForBlock(block_num);
-	Memory::Write_Opcode_JIT(b.originalAddress, opcode);
-
-	// Note that this hashes the emuhack too, which is intentional.
+	b.originalFirstOpcode = Memory::ReadUnchecked_Instruction(b.originalAddress);
+	Memory::WriteBlockShadow(b.originalAddress, GetShadowValueForBlock(block_num));
 	b.compiledHash = HashJitBlock(b);
 
 	AddBlockMap(block_num);
@@ -207,7 +203,7 @@ void JitBlockCache::FinalizeBlock(int block_num, bool block_link) {
 	}
 }
 
-bool JitBlockCache::RangeMayHaveEmuHacks(u32 start, u32 end) const {
+bool JitBlockCache::RangeMayHaveBlocks(u32 start, u32 end) const {
 	for (int i = 0; i < JITBLOCK_RANGE_COUNT; ++i) {
 		if (end >= blockMemRanges_[i].first && start <= blockMemRanges_[i].second) {
 			return true;
@@ -230,16 +226,13 @@ static int binary_search(const JitBlock blocks_[], const u8 *baseoff, int imin, 
 		return -1;
 }
 
-int JitBlockCache::GetBlockNumberFromEmuHackOp(MIPSOpcode inst, bool ignoreBad) const {
-	if (!num_blocks_ || !MIPS_IS_EMUHACK(inst)) // definitely not a JIT block
+int JitBlockCache::GetBlockNumberFromShadowValue(u32 value) const {
+	if (!num_blocks_ || value == 0)
 		return -1;
-	int off = (inst & MIPS_EMUHACK_VALUE_MASK);
 
-	const u8 *baseoff = codeBlock_->GetBasePtr() + off;
-	if (baseoff < codeBlock_->GetBasePtr() || baseoff >= codeBlock_->GetCodePtr()) {
-		if (!ignoreBad) {
-			ERROR_LOG(Log::JIT, "JitBlockCache: Invalid Emuhack Op %08x", inst.encoding);
-		}
+	const u8 *baseoff = codeBlock_->GetBasePtr() + value;
+	if (baseoff >= codeBlock_->GetCodePtr()) {
+		ERROR_LOG(Log::JIT, "JitBlockCache: Invalid block shadow value %08x", value);
 		return -1;
 	}
 
@@ -251,17 +244,19 @@ int JitBlockCache::GetBlockNumberFromEmuHackOp(MIPSOpcode inst, bool ignoreBad) 
 	}
 }
 
-MIPSOpcode JitBlockCache::GetEmuHackOpForBlock(int blockNum) const {
-	int off = (int)(blocks_[blockNum].normalEntry - codeBlock_->GetBasePtr());
-	return MIPSOpcode(MIPS_EMUHACK_OPCODE | off);
+u32 JitBlockCache::GetShadowValueForBlock(int blockNum) const {
+	// Never 0, the dispatcher is at the start of the code space.
+	const u32 off = (u32)(blocks_[blockNum].normalEntry - codeBlock_->GetBasePtr());
+	_dbg_assert_(off != 0);
+	return off;
 }
 
 int JitBlockCache::GetBlockNumberFromStartAddress(u32 addr) const {
 	if (!blocks_ || !Memory::IsValid4AlignedAddress(addr))
 		return -1;
 
-	MIPSOpcode inst = MIPSOpcode(Memory::ReadUnchecked_U32(addr));
-	int bl = GetBlockNumberFromEmuHackOp(inst);
+	// A replacement hook's value is the dispatcher's compile path, which isn't any block's entry.
+	int bl = GetBlockNumberFromShadowValue(Memory::ReadBlockShadow(addr));
 	if (bl < 0) {
 		return -1;
 	}
@@ -365,45 +360,6 @@ void JitBlockCache::UnlinkBlock(int i) {
 	}
 }
 
-std::vector<u32> JitBlockCache::SaveAndClearEmuHackOps() {
-	std::vector<u32> result;
-	result.resize(num_blocks_);
-
-	for (int block_num = 0; block_num < num_blocks_; ++block_num) {
-		JitBlock &b = blocks_[block_num];
-		if (b.invalid)
-			continue;
-
-		const u32 emuhack = GetEmuHackOpForBlock(block_num).encoding;
-		if (Memory::ReadUnchecked_U32(b.originalAddress) == emuhack)
-		{
-			result[block_num] = emuhack;
-			Memory::Write_Opcode_JIT(b.originalAddress, b.originalFirstOpcode);
-		}
-		else
-			result[block_num] = 0;
-	}
-
-	return result;
-}
-
-void JitBlockCache::RestoreSavedEmuHackOps(const std::vector<u32> &saved) {
-	if (num_blocks_ != (int)saved.size()) {
-		ERROR_LOG(Log::JIT, "RestoreSavedEmuHackOps: Wrong saved block size.");
-		return;
-	}
-
-	for (int block_num = 0; block_num < num_blocks_; ++block_num) {
-		const JitBlock &b = blocks_[block_num];
-		if (b.invalid || saved[block_num] == 0)
-			continue;
-
-		// Only if we restored it, write it back.
-		if (Memory::ReadUnchecked_U32(b.originalAddress) == b.originalFirstOpcode.encoding)
-			Memory::Write_Opcode_JIT(b.originalAddress, MIPSOpcode(saved[block_num]));
-	}
-}
-
 void JitBlockCache::DestroyBlock(int block_num, DestroyType type) {
 	if (block_num < 0 || block_num >= num_blocks_) {
 		ERROR_LOG_REPORT(Log::JIT, "DestroyBlock: Invalid block number %d", block_num);
@@ -424,13 +380,12 @@ void JitBlockCache::DestroyBlock(int block_num, DestroyType type) {
 
 	b->invalid = true;
 
-	// Only restoring the original opcode needs a valid address. The unlinking below has to
+	// Only clearing the shadow entry needs a valid address. The unlinking below has to
 	// happen either way - otherwise other blocks go on jumping straight into this one, which
 	// we've just marked invalid.
 	if (Memory::IsValid4AlignedAddress(b->originalAddress)) {
-		if (Memory::ReadUnchecked_U32(b->originalAddress) == GetEmuHackOpForBlock(block_num).encoding) {
-			Memory::Write_Opcode_JIT(b->originalAddress, b->originalFirstOpcode);
-		}
+		// A mirror may have replaced the entry with its own block, leave that alone.
+		Memory::ClearBlockShadow(b->originalAddress, GetShadowValueForBlock(block_num));
 	} else {
 		_dbg_assert_msg_(false, "Destroying block with invalid original address: %08x (block num: %d)", b->originalAddress, block_num);
 	}
@@ -500,8 +455,7 @@ void JitBlockCache::InvalidateChangedBlocks() {
 		if (JIT_USE_COMPILEDHASH) {
 			changed = b.compiledHash != HashJitBlock(b);
 		} else {
-			const u32 emuhack = GetEmuHackOpForBlock(block_num).encoding;
-			changed = Memory::ReadUnchecked_U32(b.originalAddress) != emuhack;
+			changed = Memory::ReadUnchecked_U32(b.originalAddress) != b.originalFirstOpcode.encoding;
 		}
 
 		if (changed) {

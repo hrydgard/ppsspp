@@ -49,6 +49,20 @@ void *AllocateMemoryPages(size_t size, uint32_t memProtFlags) {
 	return ptr;
 }
 
+// No lazy commit here, the whole reservation is backed (and zeroed) up front.
+void *ReserveMemoryPages(size_t size) {
+	size = ppsspp_round_page(size);
+	void *ptr = memalign(MEM_PAGE_SIZE, size);
+	if (ptr) {
+		memset(ptr, 0, size);
+	}
+	return ptr;
+}
+
+bool CommitMemoryPages(void *ptr, size_t size) {
+	return true;
+}
+
 void *AllocateAlignedMemory(size_t size, size_t alignment) {
 	void* ptr = memalign(alignment, size);
 

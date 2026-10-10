@@ -159,26 +159,23 @@ void Jit::GenerateFixedCode(JitOptions &jo) {
 			MOV(32, R(EAX), MIPSSTATE_VAR(pc));
 			dispatcherInEAXNoCheck = GetCodePtr();
 
-#ifdef MASKED_PSP_MEMORY
-			AND(32, R(EAX), Imm32(Memory::MEMVIEW32_MASK));
-#endif
-			dispatcherFetch = GetCodePtr();
+			// Look the block up in the shadow. The address stays in EAX for MemFault if this faults.
+			AND(32, R(EAX), Imm32(Memory::BLOCK_SHADOW_MASK));
 #if PPSSPP_ARCH(X86)
-			_assert_msg_( Memory::base != 0, "Memory base bogus");
-			MOV(32, R(EAX), MDisp(EAX, (u32)Memory::base));
+			_assert_msg_(Memory::blockShadow != 0, "Block shadow bogus");
+			dispatcherFetch = GetCodePtr();
+			MOV(32, R(EAX), MDisp(EAX, (u32)Memory::blockShadow));
 #elif PPSSPP_ARCH(AMD64)
-			MOV(32, R(EAX), MComplex(MEMBASEREG, RAX, SCALE_1, 0));
+			MOV(64, R(RDX), ImmPtr(Memory::blockShadow));
+			dispatcherFetch = GetCodePtr();
+			MOV(32, R(EAX), MComplex(RDX, RAX, SCALE_1, 0));
 #endif
-			MOV(32, R(EDX), R(EAX));
-			_assert_msg_(MIPS_JITBLOCK_MASK == 0xFF000000, "Hardcoded assumption of emuhack mask");
-			SHR(32, R(EDX), Imm8(24));
-			CMP(32, R(EDX), Imm8(MIPS_EMUHACK_OPCODE >> 24));
-			FixupBranch notfound = J_CC(CC_NE);
+			TEST(32, R(EAX), R(EAX));
+			FixupBranch notfound = J_CC(CC_Z);
 				if (enableDebug) {
 					ADD(32, MIPSSTATE_VAR(debugCount), Imm8(1));
 				}
-				//grab from list and jump to it
-				AND(32, R(EAX), Imm32(MIPS_EMUHACK_VALUE_MASK));
+				// The entry is the block's offset into the code space.
 #if PPSSPP_ARCH(X86)
 				ADD(32, R(EAX), ImmPtr(GetBasePtr()));
 #elif PPSSPP_ARCH(AMD64)
@@ -193,6 +190,8 @@ void Jit::GenerateFixedCode(JitOptions &jo) {
 			SetJumpTarget(notfound);
 
 			//Ok, no block, let's jit
+			// A replacement hook's block shadow entry jumps here too, see GetBlockShadowHookValue().
+			blockShadowHook = GetCodePtr();
 			RestoreRoundingMode(true);
 			LEA(PTRBITS, ECX, MDisp(CTXREG, -(s32)offsetof(MIPSState, f[0])));  // Adjust to get the real pointer.
 			ABI_CallFunctionR(reinterpret_cast<void *>(&MIPSComp::JitAt), ECX);

@@ -26,6 +26,7 @@
 
 #include "Common/CommonTypes.h"
 #include "Common/MemArena.h"
+#include "Common/MemoryUtil.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 
@@ -45,6 +46,9 @@ namespace Memory {
 
 // The base pointer to the auto-mirrored arena.
 u8* base = nullptr;
+
+u8 *blockShadow = nullptr;
+static const size_t BLOCK_SHADOW_SIZE = (size_t)BLOCK_SHADOW_MASK + 1;
 
 // The MemArena class
 MemArena g_arena;
@@ -328,6 +332,27 @@ void MemoryMap_Shutdown() {
 #endif
 }
 
+// Commits the shadow under every view, so exactly the addresses that are valid PSP memory have entries.
+// Mirrors fold onto the same range under the mask, and committing it again is harmless.
+static bool BlockShadow_Setup(MemMapSetupFlags flags) {
+	blockShadow = (u8 *)ReserveMemoryPages(BLOCK_SHADOW_SIZE);
+	if (!blockShadow) {
+		return false;
+	}
+	for (size_t i = 0; i < ARRAY_SIZE(views); i++) {
+		if (views[i].size == 0 || SkipView(flags, views[i].flags))
+			continue;
+		const u32 start = views[i].virtual_address & BLOCK_SHADOW_MASK;
+		_dbg_assert_((size_t)start + views[i].size <= BLOCK_SHADOW_SIZE);
+		if (!CommitMemoryPages(blockShadow + start, views[i].size)) {
+			FreeMemoryPages(blockShadow, BLOCK_SHADOW_SIZE);
+			blockShadow = nullptr;
+			return false;
+		}
+	}
+	return true;
+}
+
 // On some 32 bit platforms (like old Android, old iOS, etc.), there are/were restrictions on memory map sizes.
 // This particular size I can't find any sources for though.
 static const int MAX_MMAP_SIZE = 31 * 1024 * 1024;
@@ -349,6 +374,12 @@ bool Init(MemMapSetupFlags flags) {
 	}
 
 	if (!MemoryMap_Setup(flags)) {
+		return false;
+	}
+
+	if (!BlockShadow_Setup(flags)) {
+		MemoryMap_Shutdown();
+		base = nullptr;
 		return false;
 	}
 
@@ -468,6 +499,8 @@ void Shutdown() {
 	u32 flags = 0;
 	MemoryMap_Shutdown();
 	base = nullptr;
+	FreeMemoryPages(blockShadow, BLOCK_SHADOW_SIZE);
+	blockShadow = nullptr;
 	DEBUG_LOG(Log::MemMap, "Memory system shut down.");
 }
 
@@ -475,78 +508,41 @@ bool IsActive() {
 	return base != nullptr;
 }
 
-static Opcode Read_Instruction(u32 address, bool resolveReplacements, Opcode inst) {
-	if (!MIPS_IS_EMUHACK(inst.encoding)) {
-		return inst;
-	}
-
-	// No mutex on jit access here, but we assume the caller has locked, if necessary.
-	if (MIPS_IS_RUNBLOCK(inst.encoding) && MIPSComp::jit) {
-		inst = MIPSComp::jit->GetOriginalOp(inst);
-		if (resolveReplacements && MIPS_IS_REPLACEMENT(inst)) {
-			u32 op;
-			if (GetReplacedOpAt(address, &op)) {
-				if (MIPS_IS_EMUHACK(op)) {
-					ERROR_LOG(Log::MemMap, "WTF 1");
-					return Opcode(op);
-				} else {
-					return Opcode(op);
-				}
-			} else {
-				ERROR_LOG(Log::MemMap, "Replacement, but no replacement op? %08x", inst.encoding);
-			}
-		}
-		return inst;
-	} else if (resolveReplacements && MIPS_IS_REPLACEMENT(inst.encoding)) {
-		u32 op;
-		if (GetReplacedOpAt(address, &op)) {
-			if (MIPS_IS_EMUHACK(op)) {
-				ERROR_LOG(Log::MemMap, "WTF 2");
-				return Opcode(op);
-			} else {
-				return Opcode(op);
-			}
-		} else {
-			return inst;
-		}
-	} else {
-		return inst;
-	}
-}
-
-Opcode Read_Instruction(u32 address, bool resolveReplacements) {
+Opcode Read_Instruction(u32 address) {
 	if (!IsValid4AlignedAddress(address)) {
 		// BAD!
 		_dbg_assert_(false);
 		return Opcode(0);
 	}
-
-	Opcode inst = Opcode(ReadUnchecked_U32(address));
-	return Read_Instruction(address, resolveReplacements, inst);
+	return Opcode(ReadUnchecked_U32(address));
 }
 
-Opcode ReadUnchecked_Instruction(u32 address, bool resolveReplacements) {
+Opcode ReadUnchecked_Instruction(u32 address) {
 	_dbg_assert_((address & 3) == 0);
-	Opcode inst = Opcode(ReadUnchecked_U32(address));
-	return Read_Instruction(address, resolveReplacements, inst);
+	return Opcode(ReadUnchecked_U32(address));
 }
 
-// WARNING! Caller checks that address is valid!
-Opcode Read_Opcode_JIT(u32 address) {
-	_dbg_assert_(Memory::IsValid4AlignedAddress(address));
-	Opcode inst = Opcode(ReadUnchecked_U32(address));
-	// No mutex around jit access here, but we assume caller has if necessary.
-	if (MIPS_IS_RUNBLOCK(inst.encoding) && MIPSComp::jit) {
-		return MIPSComp::jit->GetOriginalOp(inst);
-	} else {
-		return inst;
-	}
+u32 ReadBlockShadow(u32 address) {
+	if (!blockShadow || !IsValid4AlignedAddress(address))
+		return 0;
+	return *GetBlockShadowEntry(address);
 }
 
-// WARNING! No checks!
-void Write_Opcode_JIT(const u32 address, const Opcode& _Value) {
-	_dbg_assert_((address & 3) == 0);
-	Memory::WriteUnchecked_U32(_Value.encoding, address);
+void WriteBlockShadow(u32 address, u32 value) {
+	if (!blockShadow || !IsValid4AlignedAddress(address))
+		return;
+	*GetBlockShadowEntry(address) = value;
+}
+
+bool ClearBlockShadow(u32 address, u32 value) {
+	if (!blockShadow || !IsValid4AlignedAddress(address))
+		return false;
+	u32 *entry = GetBlockShadowEntry(address);
+	if (*entry != value)
+		return false;
+	// A replacement hook keeps the entry nonzero, see ReplaceTables.h.
+	*entry = Replacement_IsHooked(address) ? Replacement_GetBlockShadowHook() : 0;
+	return true;
 }
 
 void Memset(const u32 addr, const u8 value, const u32 size, const char *tag) {

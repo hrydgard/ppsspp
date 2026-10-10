@@ -140,7 +140,7 @@ bool IRJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 
 	_dbg_assert_(!instructions.empty());
 
 	int block_num = blocks_.AllocateBlock(em_address, mipsBytes, instructions);
-	if ((block_num & ~MIPS_EMUHACK_VALUE_MASK) != 0) {
+	if (block_num < 0) {
 		WARN_LOG(Log::JIT, "Failed to allocate block for %08x (%d instructions)", em_address, (int)instructions.size());
 		// Out of block numbers.  Caller will handle.
 		return false;
@@ -160,7 +160,7 @@ bool IRJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 
 		mipsTracer.prepare_block(b, blocks_);
 	}
 
-	// Updates stats, also patches the first MIPS instruction into an emuhack if 'preload == false'
+	// Updates stats, also enters the block in the block shadow.
 	blocks_.FinalizeBlock(block_num);
 	FinalizeNativeBlock(&blocks_, block_num);
 	return true;
@@ -185,10 +185,11 @@ void IRJit::RunLoopUntil(u64 globalticks) {
 		compilerEnabled_ = false;
 #endif
 		while (mips->downcount >= 0) {
-			u32 inst = Memory::ReadUnchecked_U32(mips->pc);
-			u32 opcode = inst & 0xFF000000;
-			if (opcode == MIPS_EMUHACK_OPCODE) {
-				u32 offset = inst & 0x00FFFFFF; // Alternatively, inst - opcode
+			// The block's offset into the IR arena, or 0 for none, or a replacement hook (handled by
+			// compiling a block).
+			const u32 offset = *Memory::GetBlockShadowEntry(mips->pc);
+			static_assert(Memory::BLOCK_SHADOW_HOOK_NO_JIT == 1, "IR arena reserves offsets 0 and 1");
+			if (offset > Memory::BLOCK_SHADOW_HOOK_NO_JIT) {
 				const IRInst *instPtr = blocks_.GetArenaPtr() + offset;
 				// First op is always, except when using breakpoints, downcount, to save one dispatch inside IRInterpret.
 				// This branch is very cpu-branch-predictor-friendly so this still beats the dispatch.
@@ -260,8 +261,12 @@ void IRBlockCache::Clear() {
 IRBlockCache::IRBlockCache(bool compileToNative) : compileToNative_(compileToNative) {}
 
 int IRBlockCache::AllocateBlock(int emAddr, u32 origSize, const std::vector<IRInst> &insts) {
-	// We have 24 bits to represent offsets with.
 	const u32 MAX_ARENA_SIZE = 0x1000000 - 1;
+	if (arena_.empty()) {
+		// Offset 0 would mean "no block" in the block shadow, and 1 a replacement hook.
+		arena_.push_back(IRInst{ IROp::Bad });
+		arena_.push_back(IRInst{ IROp::Bad });
+	}
 	int offset = (int)arena_.size();
 	if (offset >= MAX_ARENA_SIZE) {
 		WARN_LOG(Log::JIT, "Filled JIT arena, restarting");
@@ -421,39 +426,6 @@ int IRBlockCache::FindByCookie(int cookie) {
 	return -1;
 }
 
-std::vector<u32> IRBlockCache::SaveAndClearEmuHackOps() {
-	std::vector<u32> result;
-	result.resize(blocks_.size());
-
-	for (int number = 0; number < (int)blocks_.size(); ++number) {
-		IRBlock &b = blocks_[number];
-		int cookie = compileToNative_ ? b.GetNativeOffset() : b.GetIRArenaOffset();
-		if (b.IsValid() && b.RestoreOriginalFirstOp(cookie)) {
-			result[number] = number;
-		} else {
-			result[number] = 0;
-		}
-	}
-
-	return result;
-}
-
-void IRBlockCache::RestoreSavedEmuHackOps(const std::vector<u32> &saved) {
-	if ((int)blocks_.size() != (int)saved.size()) {
-		ERROR_LOG(Log::JIT, "RestoreSavedEmuHackOps: Wrong saved block size.");
-		return;
-	}
-
-	for (int number = 0; number < (int)blocks_.size(); ++number) {
-		IRBlock &b = blocks_[number];
-		// Only if we restored it, write it back.
-		if (b.IsValid() && saved[number] != 0 && b.HasOriginalFirstOp()) {
-			int cookie = compileToNative_ ? b.GetNativeOffset() : b.GetIRArenaOffset();
-			b.Finalize(cookie);
-		}
-	}
-}
-
 JitBlockDebugInfo IRBlockCache::GetBlockDebugInfo(int blockNum) const {
 	const IRBlock &ir = blocks_[blockNum];
 	JitBlockDebugInfo debugInfo{};
@@ -531,26 +503,13 @@ int IRBlockCache::GetBlockNumberFromStartAddress(u32 em_address) const {
 	return best;
 }
 
-bool IRBlock::HasOriginalFirstOp() const {
-	return Memory::ReadUnchecked_U32(origAddr_) == origFirstOpcode_.encoding;
-}
-
-bool IRBlock::RestoreOriginalFirstOp(int cookie) {
-	const u32 emuhack = MIPS_EMUHACK_OPCODE | cookie;
-	if (Memory::ReadUnchecked_U32(origAddr_) == emuhack) {
-		Memory::Write_Opcode_JIT(origAddr_, origFirstOpcode_);
-		return true;
-	}
-	return false;
-}
-
 void IRBlock::Finalize(int cookie) {
 	// Check it wasn't invalidated, in case this is after preload.
 	// TODO: Allow reusing blocks when the code matches hash_ again, instead.
 	if (origAddr_ && Memory::IsValid4AlignedAddress(origAddr_)) {
-		origFirstOpcode_ = Memory::Read_Opcode_JIT(origAddr_);
-		MIPSOpcode opcode = MIPSOpcode(MIPS_EMUHACK_OPCODE | cookie);
-		Memory::Write_Opcode_JIT(origAddr_, opcode);
+		origFirstOpcode_ = Memory::ReadUnchecked_Instruction(origAddr_);
+		_dbg_assert_(cookie != 0);
+		Memory::WriteBlockShadow(origAddr_, cookie);
 	} else {
 		WARN_LOG(Log::JIT, "Finalizing invalid block (cookie: %d)", cookie);
 	}
@@ -558,14 +517,8 @@ void IRBlock::Finalize(int cookie) {
 
 void IRBlock::Destroy(int cookie) {
 	if (origAddr_ && Memory::IsValid4AlignedAddress(origAddr_)) {
-		MIPSOpcode opcode = MIPSOpcode(MIPS_EMUHACK_OPCODE | cookie);
-		u32 memOp = Memory::ReadUnchecked_U32(origAddr_);
-		if (memOp == opcode.encoding) {
-			Memory::Write_Opcode_JIT(origAddr_, origFirstOpcode_);
-		} else {
-			// NOTE: This is not an error. Just interesting to log.
-			DEBUG_LOG(Log::JIT, "IRBlock::Destroy: Note: Block at %08x was overwritten - checked for %08x, got %08x when restoring the MIPS op to %08x", origAddr_, opcode.encoding, memOp, origFirstOpcode_.encoding);
-		}
+		// A block at a mirror may have taken over the entry, leave that alone.
+		Memory::ClearBlockShadow(origAddr_, cookie);
 		// TODO: Also wipe the block in the IR opcode arena.
 		// Let's mark this invalid so we don't try to clear it again.
 		origAddr_ = 0;
@@ -573,18 +526,8 @@ void IRBlock::Destroy(int cookie) {
 }
 
 u64 IRBlock::CalculateHash() const {
-	if (origAddr_) {
-		// This is unfortunate. In case there are emuhacks, we have to make a copy.
-		// If we could hash while reading we could avoid this.
-		std::vector<u32> buffer;
-		buffer.resize(origSize_ / 4);
-		size_t pos = 0;
-		for (u32 off = 0; off < origSize_; off += 4) {
-			// Let's actually hash the replacement, if any.
-			MIPSOpcode instr = Memory::ReadUnchecked_Instruction(origAddr_ + off, false);
-			buffer[pos++] = instr.encoding;
-		}
-		return XXH3_64bits(&buffer[0], origSize_);
+	if (origAddr_ && Memory::IsValidRange(origAddr_, origSize_)) {
+		return XXH3_64bits(Memory::GetPointerUnchecked(origAddr_), origSize_);
 	}
 	return 0;
 }
@@ -593,14 +536,6 @@ bool IRBlock::OverlapsRange(u32 addr, u32 size) const {
 	addr &= 0x3FFFFFFF;
 	u32 origAddr = origAddr_ & 0x3FFFFFFF;
 	return addr + size > origAddr && addr < origAddr + origSize_;
-}
-
-MIPSOpcode IRJit::GetOriginalOp(MIPSOpcode op) {
-	IRBlock *b = blocks_.GetBlock(blocks_.FindByCookie(op.encoding & 0xFFFFFF));
-	if (b) {
-		return b->GetOriginalFirstOp();
-	}
-	return op;
 }
 
 }  // namespace MIPSComp
