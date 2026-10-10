@@ -76,6 +76,34 @@ inline float ScaleByPow2(float f, int n, uint32_t sign) {
 	return f;
 }
 
+// f * 2^e exactly as ldexpf: by adding to the exponent field while the result stays normal, which is the usual
+// case and much cheaper than the library call.
+inline float ScaleByPow2Exact(float f, int e) {
+	uint32_t bits;
+	memcpy(&bits, &f, sizeof(bits));
+	const int field = (int)((bits >> 23) & 0xFF);
+	if (field == 0 || field == 255 || field + e < 1 || field + e > 254)
+		return ldexpf(f, e);
+	bits += (uint32_t)e << 23;
+	memcpy(&f, &bits, sizeof(f));
+	return f;
+}
+
+// 2^e as a double, for e from -1022 to 1023.
+inline double Pow2Double(int e) {
+	const uint64_t bits = (uint64_t)(e + 1023) << 52;
+	double d;
+	memcpy(&d, &bits, sizeof(d));
+	return d;
+}
+
+// ilogb of a normal double, from its exponent field.
+inline int ExponentOfNormal(double d) {
+	uint64_t bits;
+	memcpy(&bits, &d, sizeof(bits));
+	return (int)((bits >> 52) & 0x7FF) - 1023;
+}
+
 // The GE's reciprocal (TransformUnit, depth, UVs, lighting): inline, since the rasterizer takes one per pixel.
 // w must be a normal float24. Returns a float24 (q has 16 significant bits, or is 2^16).
 inline float GERecip(float w) {
@@ -165,7 +193,7 @@ inline float GERowSum(const GERowTerm *terms, int count) {
 	if (sum == 0) {
 		return 0.0f;
 	}
-	return TruncateToFloat24(ldexpf((float)sum, lsbExp));
+	return TruncateToFloat24(ScaleByPow2Exact((float)sum, lsbExp));
 }
 
 // A clip space component from the combined matrix (gpu/probe exp32, exp34, exp42). The position is a
@@ -529,7 +557,7 @@ inline float GEDot3(Vec4F32 a, Vec4F32 b) {
 	const int sum = (aligned + aligned.SplatLane<1>() + aligned.SplatLane<2>()).GetLane<0>();
 	if (sum == 0)
 		return 0.0f;
-	return TruncateToFloat24(ldexpf((float)sum, lsbMax.GetLane<0>()));
+	return TruncateToFloat24(ScaleByPow2Exact((float)sum, lsbMax.GetLane<0>()));
 }
 
 // GENormalize of lanes 0-2, which zeroes lane 3. Denormal components (in or out) become zero, as in GEProduct. d2 is the squared length, GEDot3(v, v).

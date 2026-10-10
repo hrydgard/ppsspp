@@ -1113,13 +1113,14 @@ static int SharedShift(const double v[3]) {
 	int e = INT_MIN;
 	for (int i = 0; i < 3; ++i) {
 		if (v[i] != 0.0)
-			e = std::max(e, std::ilogb(v[i]));
+			e = std::max(e, ExponentOfNormal(v[i]));
 	}
 	return e == INT_MIN ? 0 : 14 - e;
 }
 
 static DepthPlane FixedPlane(const int64_t X[3], const int64_t Y[3], const double v[3], int shift) {
-	const int64_t V[3] = { (int64_t)std::ldexp(v[0], shift), (int64_t)std::ldexp(v[1], shift), (int64_t)std::ldexp(v[2], shift) };
+	const double scale = Pow2Double(shift);
+	const int64_t V[3] = { (int64_t)(v[0] * scale), (int64_t)(v[1] * scale), (int64_t)(v[2] * scale) };
 	return ComputePlane(X, Y, V);
 }
 
@@ -1147,7 +1148,7 @@ static UVPlanes ComputeUVPlanesSTQ(const int64_t X[3], const int64_t Y[3], const
 	auto fixed = [&](const double v[3], DepthPlane *plane, double *scale, int *exp) {
 		const int shift = SharedShift(v);
 		*plane = FixedPlane(X, Y, v, shift);
-		*scale = std::ldexp(1.0, -shift);
+		*scale = Pow2Double(-shift);
 		*exp = -shift;
 	};
 	fixed(s, &planes.s, &planes.scaleS, &planes.expS);
