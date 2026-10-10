@@ -17,7 +17,7 @@
 
 #include <algorithm>
 
-#include "Common/LogReporting.h"
+#include "Common/LogOnce.h"
 
 #include "Common/GPU/OpenGL/GLDebugLog.h"
 #include "Common/Profiler/Profiler.h"
@@ -367,7 +367,7 @@ void DrawEngineGLES::Flush() {
 		if (gl_extensions.IsGLES && !gl_extensions.GLES3) {
 			constexpr int vertexCountLimit = 0x10000 / 3;
 			if (vertexCount > vertexCountLimit) {
-				WARN_LOG_REPORT_ONCE(manyVerts, Log::G3D, "Truncating vertex count from %d to %d", vertexCount, vertexCountLimit);
+				WARN_LOG_ONCE(manyVerts, Log::G3D, "Truncating vertex count from %d to %d", vertexCount, vertexCountLimit);
 				vertexCount = vertexCountLimit;
 			}
 		}

@@ -25,10 +25,10 @@ class VulkanContext;
 
 namespace Draw {
 
-DrawContext *T3DCreateGLContext(bool canChangeSwapInterval);
+DrawContext *T3DCreateGLContext();
 
 #ifdef _WIN32
-DrawContext *T3DCreateD3D11Context(Microsoft::WRL::ComPtr<ID3D11Device> device, Microsoft::WRL::ComPtr<ID3D11DeviceContext> context, Microsoft::WRL::ComPtr<ID3D11Device1> device1, Microsoft::WRL::ComPtr<ID3D11DeviceContext1> context1, Microsoft::WRL::ComPtr<IDXGISwapChain> swapChain, D3D_FEATURE_LEVEL featureLevel, HWND hWnd, const std::vector<std::string> &adapterNames, int maxInflightFrames);
+DrawContext *T3DCreateD3D11Context(Microsoft::WRL::ComPtr<ID3D11Device> device, Microsoft::WRL::ComPtr<ID3D11DeviceContext> context, Microsoft::WRL::ComPtr<ID3D11Device1> device1, Microsoft::WRL::ComPtr<ID3D11DeviceContext1> context1, Microsoft::WRL::ComPtr<IDXGISwapChain> swapChain, D3D_FEATURE_LEVEL featureLevel, HWND hWnd, const std::vector<std::string> &adapterNames);
 #endif
 
 DrawContext *T3DCreateVulkanContext(VulkanContext *context, bool useRenderThread);

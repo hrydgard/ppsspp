@@ -543,20 +543,4 @@ const char *Bugs::GetBugName(uint32_t bug) {
 	}
 }
 
-const char *PresentModeToString(PresentMode presentMode) {
-	// All 8 possible cases, with three flags, for simplicity.
-	switch ((int)presentMode) {
-	case 0: return "NONE";
-	case (int)PresentMode::FIFO: return "FIFO";
-	case (int)PresentMode::IMMEDIATE: return "IMMEDIATE";
-	case (int)PresentMode::MAILBOX: return "MAILBOX";
-	case ((int)PresentMode::FIFO | (int)PresentMode::MAILBOX) : return "FIFO|MAILBOX";
-	case ((int)PresentMode::FIFO | (int)PresentMode::IMMEDIATE) : return "FIFO|IMMEDIATE";
-	case ((int)PresentMode::MAILBOX | (int)PresentMode::IMMEDIATE) : return "MAILBOX|IMMEDIATE";  // Not gonna happen
-	case ((int)PresentMode::FIFO | (int)PresentMode::MAILBOX | (int)PresentMode::IMMEDIATE) : return "FIFO|MAILBOX|IMMEDIATE";
-	default:
-		return "INVALID";
-	}
-}
-
 }  // namespace Draw

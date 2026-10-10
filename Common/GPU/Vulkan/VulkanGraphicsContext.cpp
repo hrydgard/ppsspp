@@ -52,7 +52,6 @@
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
-#include "Core/FrameTiming.h"
 #include "Common/GPU/Vulkan/VulkanLoader.h"
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/GPU/Vulkan/VulkanPresentation.h"
@@ -244,13 +243,7 @@ bool VulkanGraphicsContext::InitSurface(WindowSystem winsys, void *data1, void *
 	draw_ = Draw::T3DCreateVulkanContext(vulkan_, useMultiThreading);
 
 	if (offscreenWidth_ == 0) {
-		VkPresentModeKHR presentMode = ConfigPresentModeToVulkan(draw_);
-
-#ifdef VK_EXT_full_screen_exclusive
-		vulkan_->SetFullScreenExclusiveMode(g_Config.bFullScreen && g_Config.bAllowFullScreenExclusive
-			? VK_FULL_SCREEN_EXCLUSIVE_ALLOWED_EXT
-			: VK_FULL_SCREEN_EXCLUSIVE_DISALLOWED_EXT);
-#endif
+		VkPresentModeKHR presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
 
 		if (!vulkan_->InitSwapchain(presentMode)) {
 			*errorMessage = vulkan_->InitError();
@@ -308,13 +301,7 @@ void VulkanGraphicsContext::Resize() {
 		return;
 	}
 	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());
-	VkPresentModeKHR presentMode = ConfigPresentModeToVulkan(draw_);
-
-#ifdef VK_EXT_full_screen_exclusive
-	vulkan_->SetFullScreenExclusiveMode(g_Config.bFullScreen && g_Config.bAllowFullScreenExclusive
-		? VK_FULL_SCREEN_EXCLUSIVE_ALLOWED_EXT
-		: VK_FULL_SCREEN_EXCLUSIVE_DISALLOWED_EXT);
-#endif
+	VkPresentModeKHR presentMode = VK_PRESENT_MODE_IMMEDIATE_KHR;
 
 	vulkan_->InitSwapchain(presentMode);
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, vulkan_->GetBackbufferWidth(), vulkan_->GetBackbufferHeight());

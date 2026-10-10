@@ -24,7 +24,7 @@
 #include "Common/System/OSD.h"
 #include "Common/StringUtils.h"
 #include "Core/Config.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/System.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/Dialog/SavedataParam.h"
@@ -414,12 +414,12 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 		return SCE_UTILITY_SAVEDATA_ERROR_SAVE_MS_NOSPACE;
 	}
 	if (param->dataSize > param->dataBufSize) {
-		ERROR_LOG_REPORT(Log::sceUtility, "Savedata buffer overflow: %d / %d", param->dataSize, param->dataBufSize);
+		ERROR_LOG(Log::sceUtility, "Savedata buffer overflow: %d / %d", param->dataSize, param->dataBufSize);
 		return SCE_UTILITY_SAVEDATA_ERROR_RW_BAD_PARAMS;
 	}
 	auto validateSize = [](const PspUtilitySavedataFileData &data) {
 		if (data.buf.IsValid() && data.bufSize < data.size) {
-			ERROR_LOG_REPORT(Log::sceUtility, "Savedata subdata buffer overflow: %d / %d", data.size, data.bufSize);
+			ERROR_LOG(Log::sceUtility, "Savedata subdata buffer overflow: %d / %d", data.size, data.bufSize);
 			return false;
 		}
 		return true;
@@ -429,10 +429,10 @@ int SavedataParam::Save(SceUtilitySavedataParam* param, const std::string &saveD
 	}
 
 	if (param->secureVersion > 3) {
-		ERROR_LOG_REPORT(Log::sceUtility, "Savedata version requested on save: %d", param->secureVersion);
+		ERROR_LOG(Log::sceUtility, "Savedata version requested on save: %d", param->secureVersion);
 		return SCE_UTILITY_SAVEDATA_ERROR_SAVE_PARAM;
 	} else if (secureMode && MissingRequiredKey(param)) {
-		ERROR_LOG_REPORT(Log::sceUtility, "Savedata version with missing key on save: %d", param->secureVersion);
+		ERROR_LOG(Log::sceUtility, "Savedata version with missing key on save: %d", param->secureVersion);
 		return SCE_UTILITY_SAVEDATA_ERROR_SAVE_PARAM;
 	} else if (param->secureVersion != 0) {
 		INFO_LOG(Log::sceUtility, "Savedata version requested on save: %d", param->secureVersion);
@@ -666,13 +666,13 @@ int SavedataParam::Load(SceUtilitySavedataParam *param, const std::string &saveD
 
 int SavedataParam::LoadSaveData(SceUtilitySavedataParam *param, const std::string &saveDirName, const std::string &dirPath, bool secureMode) {
 	if (param->secureVersion > 3) {
-		ERROR_LOG_REPORT(Log::sceUtility, "Savedata version requested: %d", param->secureVersion);
+		ERROR_LOG(Log::sceUtility, "Savedata version requested: %d", param->secureVersion);
 		return SCE_UTILITY_SAVEDATA_ERROR_LOAD_PARAM;
 	} else if (secureMode && MissingRequiredKey(param)) {
-		ERROR_LOG_REPORT(Log::sceUtility, "Savedata version with missing key: %d", param->secureVersion);
+		ERROR_LOG(Log::sceUtility, "Savedata version with missing key: %d", param->secureVersion);
 		return SCE_UTILITY_SAVEDATA_ERROR_LOAD_PARAM;
 	} else if (param->secureVersion != 0) {
-		WARN_LOG_REPORT(Log::sceUtility, "Savedata version requested: %d", param->secureVersion);
+		WARN_LOG(Log::sceUtility, "Savedata version requested: %d", param->secureVersion);
 	}
 
 	std::string filename = GetFileName(param);
@@ -790,7 +790,7 @@ u32 SavedataParam::LoadCryptedSave(SceUtilitySavedataParam *param, u8 *data, con
 			if (decryptMode == 5 && prevCryptMode == 3) {
 				WARN_LOG(Log::sceUtility, "Savedata loading with detected hashmode %d instead of file's %d", decryptMode, prevCryptMode);
 			} else {
-				WARN_LOG_REPORT(Log::sceUtility, "Savedata loading with detected hashmode %d instead of file's %d", decryptMode, prevCryptMode);
+				WARN_LOG(Log::sceUtility, "Savedata loading with detected hashmode %d instead of file's %d", decryptMode, prevCryptMode);
 			}
 
 			decryptMode = prevCryptMode;
@@ -1287,23 +1287,23 @@ int SavedataParam::GetFilesList(SceUtilitySavedataParam *param, u32 requestAddr,
 	}
 
 	if (!param->fileList.IsValid()) {
-		ERROR_LOG_REPORT(Log::sceUtility, "SavedataParam::GetFilesList(): bad fileList address %08x", param->fileList.ptr);
+		ERROR_LOG(Log::sceUtility, "SavedataParam::GetFilesList(): bad fileList address %08x", param->fileList.ptr);
 		// Should crash.
 		return -1;
 	}
 
 	PSPPointer<SceUtilitySavedataFileListInfo> fileList = param->fileList;
 	if (fileList->secureEntries.IsValid() && fileList->maxSecureEntries > 99) {
-		ERROR_LOG_REPORT(Log::sceUtility, "SavedataParam::GetFilesList(): too many secure entries, %d", fileList->maxSecureEntries);
+		ERROR_LOG(Log::sceUtility, "SavedataParam::GetFilesList(): too many secure entries, %d", fileList->maxSecureEntries);
 		return SCE_UTILITY_SAVEDATA_ERROR_RW_BAD_PARAMS;
 	}
 	if (fileList->normalEntries.IsValid() && fileList->maxNormalEntries > 8192) {
-		ERROR_LOG_REPORT(Log::sceUtility, "SavedataParam::GetFilesList(): too many normal entries, %d", fileList->maxNormalEntries);
+		ERROR_LOG(Log::sceUtility, "SavedataParam::GetFilesList(): too many normal entries, %d", fileList->maxNormalEntries);
 		return SCE_UTILITY_SAVEDATA_ERROR_RW_BAD_PARAMS;
 	}
 	if (sceKernelGetCompiledSdkVersion() >= 0x02060000) {
 		if (fileList->systemEntries.IsValid() && fileList->maxSystemEntries > 5) {
-			ERROR_LOG_REPORT(Log::sceUtility, "SavedataParam::GetFilesList(): too many system entries, %d", fileList->maxSystemEntries);
+			ERROR_LOG(Log::sceUtility, "SavedataParam::GetFilesList(): too many system entries, %d", fileList->maxSystemEntries);
 			return SCE_UTILITY_SAVEDATA_ERROR_RW_BAD_PARAMS;
 		}
 	}
@@ -2064,7 +2064,7 @@ int SavedataParam::GetSaveCryptMode(const SceUtilitySavedataParam *param, const 
 			return 5;
 		default:
 			// Well, it's not zero, so yes.
-			ERROR_LOG_REPORT(Log::sceUtility, "Unexpected SAVEDATA_PARAMS hash flag: %02x", tmpDataOrig[0]);
+			ERROR_LOG(Log::sceUtility, "Unexpected SAVEDATA_PARAMS hash flag: %02x", tmpDataOrig[0]);
 			return 1;
 		}
 	}

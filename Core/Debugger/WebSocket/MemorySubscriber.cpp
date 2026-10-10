@@ -26,7 +26,7 @@
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/System.h"
 
 DebuggerSubscriber *WebSocketMemoryInit(DebuggerEventHandlerMap &map) {
@@ -331,7 +331,6 @@ void WebSocketMemoryWriteU8(DebuggerRequest &req) {
 		AutoDisabledReplacements memLock = LockMemory(true);
 		Memory::WriteUnchecked_U8(val, addr);
 		currentMIPS->InvalidateICacheRangeDeferred(addr, 1);
-		Reporting::NotifyDebugger();
 
 		JsonWriter &json = req.Respond();
 		json.writeUint("value", Memory::ReadUnchecked_U8(addr));
@@ -370,7 +369,6 @@ void WebSocketMemoryWriteU16(DebuggerRequest &req) {
 		AutoDisabledReplacements memLock = LockMemory(true);
 		Memory::WriteUnchecked_U16(val, addr);
 		currentMIPS->InvalidateICacheRangeDeferred(addr, 2);
-		Reporting::NotifyDebugger();
 
 		JsonWriter &json = req.Respond();
 		json.writeUint("value", Memory::ReadUnchecked_U16(addr));
@@ -408,7 +406,6 @@ void WebSocketMemoryWriteU32(DebuggerRequest &req) {
 		AutoDisabledReplacements memLock = LockMemory(true);
 		Memory::WriteUnchecked_U32(val, addr);
 		currentMIPS->InvalidateICacheRangeDeferred(addr, 4);
-		Reporting::NotifyDebugger();
 
 		JsonWriter &json = req.Respond();
 		json.writeUint("value", Memory::ReadUnchecked_U32(addr));
@@ -452,7 +449,6 @@ void WebSocketMemoryWrite(DebuggerRequest &req) {
 		if (size != 0) {
 			Memory::MemcpyUnchecked(addr, &value[0], size);
 		}
-		Reporting::NotifyDebugger();
 		req.Respond();
 	});
 }

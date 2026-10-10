@@ -30,7 +30,7 @@
 #include "Core/Core.h"
 #include "Core/MemMap.h"
 #include "Core/CoreTiming.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/Config.h"
 
 #include "Core/MIPS/MIPS.h"
@@ -406,7 +406,7 @@ void JitBlockCache::RestoreSavedEmuHackOps(const std::vector<u32> &saved) {
 
 void JitBlockCache::DestroyBlock(int block_num, DestroyType type) {
 	if (block_num < 0 || block_num >= num_blocks_) {
-		ERROR_LOG_REPORT(Log::JIT, "DestroyBlock: Invalid block number %d", block_num);
+		ERROR_LOG(Log::JIT, "DestroyBlock: Invalid block number %d", block_num);
 		return;
 	}
 	JitBlock *b = &blocks_[block_num];

@@ -605,7 +605,6 @@ private:
 	retro_atomic_int_t runCompileThread_{ 0 };
 
 	bool useRenderThread_ = true;
-	bool measurePresentTime_ = false;
 
 	// This is the offset within this frame, in case of a mid-frame sync.
 	VKRStep *curRenderStep_ = nullptr;

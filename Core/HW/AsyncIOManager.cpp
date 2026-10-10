@@ -21,7 +21,7 @@
 #include "Common/Serialize/SerializeMap.h"
 #include "Common/Serialize/SerializeSet.h"
 #include "Core/MIPS/MIPS.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/HW/AsyncIOManager.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 
@@ -31,7 +31,7 @@ bool AsyncIOManager::HasOperation(u32 handle) {
 
 void AsyncIOManager::ScheduleOperation(const AsyncIOEvent &ev) {
 	if (!resultsPending_.insert(ev.handle).second) {
-		ERROR_LOG_REPORT(Log::sceIo, "Scheduling operation for file %d while one is pending (type %d)", ev.handle, ev.type);
+		ERROR_LOG(Log::sceIo, "Scheduling operation for file %d while one is pending (type %d)", ev.handle, ev.type);
 	}
 	switch (ev.type) {
 	case IO_EVENT_READ:
@@ -43,7 +43,7 @@ void AsyncIOManager::ScheduleOperation(const AsyncIOEvent &ev) {
 		break;
 
 	default:
-		ERROR_LOG_REPORT(Log::sceIo, "Unsupported IO event type");
+		ERROR_LOG(Log::sceIo, "Unsupported IO event type");
 		resultsPending_.erase(ev.handle);
 		break;
 	}
@@ -97,7 +97,7 @@ void AsyncIOManager::Write(u32 handle, const u8 *buf, size_t bytes) {
 
 void AsyncIOManager::EventResult(u32 handle, const AsyncIOResult &result) {
 	if (results_.find(handle) != results_.end()) {
-		ERROR_LOG_REPORT(Log::sceIo, "Overwriting previous result for file action on handle %d", handle);
+		ERROR_LOG(Log::sceIo, "Overwriting previous result for file action on handle %d", handle);
 	}
 	results_[handle] = result;
 }

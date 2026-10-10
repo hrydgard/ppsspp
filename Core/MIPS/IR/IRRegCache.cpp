@@ -21,7 +21,7 @@
 
 #include <cstring>
 #include "Common/Log.h"
-#include "Common/LogReporting.h"
+#include "Common/LogOnce.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/IR/IRAnalysis.h"
 #include "Core/MIPS/IR/IRRegCache.h"
@@ -235,7 +235,7 @@ uint64_t IRNativeRegCacheBase::GetGPR2Imm(IRReg base) {
 void IRNativeRegCacheBase::SetGPRImm(IRReg gpr, uint32_t immVal) {
 	_dbg_assert_(IsValidGPR(gpr));
 	if (gpr == MIPS_REG_ZERO && immVal != 0) {
-		ERROR_LOG_REPORT(Log::JIT, "Trying to set immediate %08x to r0", immVal);
+		ERROR_LOG(Log::JIT, "Trying to set immediate %08x to r0", immVal);
 		return;
 	}
 
@@ -384,7 +384,7 @@ IRNativeReg IRNativeRegCacheBase::AllocateReg(MIPSLoc type, MIPSMap flags) {
 	}
 
 	// Uh oh, we have all of them spilllocked....
-	ERROR_LOG_REPORT(Log::JIT, "Out of spillable registers in block PC %08x, index %d", irBlock_->GetOriginalStart(), irIndex_);
+	ERROR_LOG(Log::JIT, "Out of spillable registers in block PC %08x, index %d", irBlock_->GetOriginalStart(), irIndex_);
 	_assert_(bestToSpill != -1);
 	return -1;
 }
@@ -796,7 +796,7 @@ void IRNativeRegCacheBase::FlushAll(bool gprs, bool fprs) {
 	// Sanity check
 	for (int i = 0; i < config_.totalNativeRegs; i++) {
 		if (nr[i].mipsReg != IRREG_INVALID && !mr[nr[i].mipsReg].isStatic) {
-			ERROR_LOG_REPORT(Log::JIT, "Flush fail: nr[%i].mipsReg=%i", i, nr[i].mipsReg);
+			ERROR_LOG(Log::JIT, "Flush fail: nr[%i].mipsReg=%i", i, nr[i].mipsReg);
 		}
 	}
 }

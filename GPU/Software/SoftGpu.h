@@ -159,10 +159,6 @@ public:
 	void CheckDisplayResized() override;
 	void CheckConfigChanged(const DisplayLayoutConfig &config) override;
 
-	void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) const override {
-		primaryInfo = "Software";
-		fullInfo = "Software";
-	}
 
 	bool FramebufferDirty() override;
 	bool FramebufferReallyDirty() override;
@@ -219,7 +215,6 @@ protected:
 	bool DarkStalkersStretchActive() const;
 	void GetDarkStalkersDisplay(GPUDebugBuffer &buffer);
 
-	void BuildReportingInfo() override {}
 
 private:
 	void MarkDirty(uint32_t addr, uint32_t stride, uint32_t height, GEBufferFormat fmt, SoftGPUVRAMDirty value);

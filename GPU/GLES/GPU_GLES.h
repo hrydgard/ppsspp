@@ -51,7 +51,6 @@ protected:
 	void FinishDeferred() override;
 
 private:
-	void BuildReportingInfo() override;
 
 	FramebufferManagerGLES *framebufferManagerGL_;
 	TextureCacheGLES *textureCacheGL_;

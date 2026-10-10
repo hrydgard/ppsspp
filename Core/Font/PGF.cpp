@@ -24,7 +24,7 @@
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Core/MemMap.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/Font/PGF.h"
 
 #include "GPU/GPUCommon.h"
@@ -639,7 +639,7 @@ void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipW
 
 	if (((glyph.flags & FONT_PGF_BMP_OVERLAY) != FONT_PGF_BMP_H_ROWS) &&
 		((glyph.flags & FONT_PGF_BMP_OVERLAY) != FONT_PGF_BMP_V_ROWS)) {
-		ERROR_LOG_REPORT(Log::sceFont, "Nonsense glyph bitmap direction flag");
+		ERROR_LOG(Log::sceFont, "Nonsense glyph bitmap direction flag");
 		return;
 	}
 
@@ -650,7 +650,7 @@ void PGF::DrawCharacter(const GlyphImage *image, int clipX, int clipY, int clipW
 	//
 	// This was measured on a PSP-1000: 32 cases per format, every pixel left at its pre-fill value.
 	if (pixelFormat != PSP_FONT_PIXELFORMAT_4 && pixelFormat != PSP_FONT_PIXELFORMAT_8) {
-		WARN_LOG_REPORT_ONCE(pgfunsupportedfmt, Log::sceFont, "Font pixel format %d draws nothing on hardware", (int)pixelFormat);
+		WARN_LOG_ONCE(pgfunsupportedfmt, Log::sceFont, "Font pixel format %d draws nothing on hardware", (int)pixelFormat);
 		return;
 	}
 
@@ -769,7 +769,7 @@ void PGF::SetFontPixel(u32 base, int bpl, int bufWidth, int bufHeight, int x, in
 	}
 
 	if (pixelformat < 0 || pixelformat > PSP_FONT_PIXELFORMAT_32) {
-		ERROR_LOG_REPORT_ONCE(pfgbadformat, Log::sceFont, "Invalid image format in image: %d", (int)pixelformat);
+		ERROR_LOG_ONCE(pfgbadformat, Log::sceFont, "Invalid image format in image: %d", (int)pixelformat);
 		return;
 	}
 	const int pixelBytes = fontPixelSizeInBytes[pixelformat];

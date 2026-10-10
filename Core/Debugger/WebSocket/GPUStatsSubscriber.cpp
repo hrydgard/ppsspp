@@ -15,8 +15,6 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-#include <cstring>
-#include <vector>
 
 #include <retro_atomic.h>
 
@@ -28,13 +26,7 @@
 #include "Core/System.h"
 
 struct CollectedStats {
-	float vps;
-	float fps;
-	float actual_fps;
 	char statbuf[4096];
-	std::vector<float> frameTimes;
-	std::vector<float> sleepTimes;
-	int frameTimePos;
 };
 
 struct DebuggerGPUStatsEvent {
@@ -47,26 +39,7 @@ struct DebuggerGPUStatsEvent {
 		j.writeString("event", "gpu.stats.get");
 		if (!ticket.empty())
 			j.writeRaw("ticket", ticket);
-		j.pushDict("fps");
-		j.writeFloat("actual", s.actual_fps);
-		j.writeFloat("target", s.fps);
-		j.pop();
-		j.pushDict("vblanksPerSecond");
-		j.writeFloat("actual", s.vps);
-		j.writeFloat("target", 60.0 / 1.001);
-		j.pop();
 		j.writeString("info", s.statbuf);
-		j.pushDict("timing");
-		j.pushArray("frames");
-		for (double t : s.frameTimes)
-			j.writeFloat(t);
-		j.pop();
-		j.pushArray("sleep");
-		for (double t : s.sleepTimes)
-			j.writeFloat(t);
-		j.pop();
-		j.writeInt("pos", s.frameTimePos);
-		j.pop();
 		j.end();
 		return j.str();
 	}
@@ -131,21 +104,8 @@ void WebSocketGPUStatsState::FlipListener() {
 	// Okay, collect the data (we'll actually send at next Broadcast.)
 	CollectedStats stats;
 
-	__DisplayGetFPS(&stats.vps, &stats.fps, &stats.actual_fps);
-
 	StringWriter w(stats.statbuf);
 	__DisplayGetDebugStats(w);
-
-	int valid;
-	float *sleepHistory;
-	float *history = __DisplayGetFrameTimes(&valid, &stats.frameTimePos, &sleepHistory);
-
-	stats.frameTimes.resize(valid);
-	stats.sleepTimes.resize(valid);
-	if (valid > 0) {
-		memcpy(&stats.frameTimes[0], history, sizeof(float) * valid);
-		memcpy(&stats.sleepTimes[0], sleepHistory, sizeof(float) * valid);
-	}
 
 	pendingStats_.Push(std::move(stats));
 	retro_atomic_store_release_int(&sendNext_, 0);
@@ -157,16 +117,11 @@ void WebSocketGPUStatsState::FlipListener() {
 // No parameters.
 //
 // Response (same event name):
-//  - fps: object with "actual" and "target" properties, representing frames per second.
-//  - vblanksPerSecond: object with "actual" and "target" properties, for vblank cycles.
 //  - info: string, representation of backend-dependent statistics.
-//  - timing: object with properties:
-//     - frames: array of numbers, each representing the time taken for a frame.
-//     - sleep: array of numbers, each representing the delay time waiting for next frame.
-//     - pos: number, index of the current frame (not always last.)
+// Host FPS and sleep histories are owned by the frontend.
 //
 // Note: stats are returned after the next flip completes (paused if CPU or GPU in break.)
-// Note: info and timing may not be accurate if certain settings are disabled.
+// Note: info may not be accurate if certain settings are disabled.
 // Note: sending this event with no ticket will not trigger a response! (TODO: maybe fix this?)
 void WebSocketGPUStatsState::Get(DebuggerRequest &req) {
 	if (PSP_GetBootState() != BootState::Complete)
@@ -185,7 +140,7 @@ void WebSocketGPUStatsState::Get(DebuggerRequest &req) {
 // No immediate response (only a "deferred" event, if the client asked for those via
 // client.config.set).  Events sent each frame (as gpu.stats.get.)
 //
-// Note: info and timing will be accurate after the first frame.
+// Note: info will be accurate after the first frame.
 void WebSocketGPUStatsState::Feed(DebuggerRequest &req) {
 	if (PSP_GetBootState() != BootState::Complete)
 		return req.Fail("CPU not started");

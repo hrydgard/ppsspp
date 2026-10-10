@@ -37,7 +37,7 @@
 #include "Core/CoreTiming.h"
 #include "Core/System.h"
 #include "Core/Replay.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/ELF/ParamSFO.h"
 
 #ifdef _WIN32

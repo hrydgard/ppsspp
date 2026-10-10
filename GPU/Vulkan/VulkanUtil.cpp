@@ -21,7 +21,6 @@
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/Data/Text/Parsers.h"
 #include "Core/Config.h"
-#include "Core/FrameTiming.h"
 #include "GPU/Vulkan/VulkanUtil.h"
 
 // Disable this on x64 android, causes problems.
@@ -46,20 +45,6 @@ static constexpr BindingType g_bindingTypes[] = {
 	BindingType::STORAGE_IMAGE_COMPUTE,
 	BindingType::UNIFORM_BUFFER_COMPUTE,
 };
-
-VkPresentModeKHR ConfigPresentModeToVulkan(Draw::DrawContext *draw) {
-	g_frameTiming.ComputePresentMode(draw, false);
-	Draw::PresentMode presentMode = g_frameTiming.PresentMode();
-	switch (presentMode) {
-	case Draw::PresentMode::IMMEDIATE:
-		return VK_PRESENT_MODE_IMMEDIATE_KHR;
-	case Draw::PresentMode::MAILBOX:
-		return VK_PRESENT_MODE_MAILBOX_KHR;
-	case Draw::PresentMode::FIFO:
-	default:
-		return VK_PRESENT_MODE_FIFO_KHR;
-	}
-}
 
 // TODO: Share this between backends.
 static VulkanInitFlags VulkanInitFlagsFromConfig() {

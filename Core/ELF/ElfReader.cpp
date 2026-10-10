@@ -21,7 +21,7 @@
 #include "Common/File/FileUtil.h"
 
 #include "Core/MemMap.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/ELF/ElfReader.h"
 #include "Core/Debugger/MemBlockInfo.h"
@@ -59,7 +59,7 @@ void addrToHiLo(u32 addr, u16 &hi, s16 &lo)
 	u32 test = ((u32)hi << 16) + (u32)lo;
 	if (test != addr)
 	{
-		WARN_LOG_REPORT(Log::Loader, "HI16/LO16 relocation failure?");
+		WARN_LOG(Log::Loader, "HI16/LO16 relocation failure?");
 	}
 }
 
@@ -81,7 +81,7 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs) {
 			int readwrite = (info >> 8) & 0xff;
 			if (readwrite >= (int)segmentVAddr.size()) {
 				if (numErrors < 10) {
-					ERROR_LOG_REPORT(Log::Loader, "Bad segment number %i", readwrite);
+					ERROR_LOG(Log::Loader, "Bad segment number %i", readwrite);
 				}
 				numErrors++;
 				continue;
@@ -89,7 +89,7 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs) {
 			if (!SegmentIsLoaded(readwrite)) {
 				// The segment exists but isn't PT_LOAD, so there's nothing at that address to patch.
 				if (numErrors < 10) {
-					ERROR_LOG_REPORT(Log::Loader, "Relocation against segment %i, which we didn't load", readwrite);
+					ERROR_LOG(Log::Loader, "Relocation against segment %i, which we didn't load", readwrite);
 				}
 				numErrors++;
 				continue;
@@ -100,7 +100,7 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs) {
 			// It appears that misaligned relocations are allowed.
 			if (((addr & 3) && type != R_MIPS_32) || !Memory::IsValidAddress(addr)) {
 				if (numErrors < 10) {
-					WARN_LOG_REPORT(Log::Loader, "Suspicious address %08x, skipping reloc, type = %d", addr, type);
+					WARN_LOG(Log::Loader, "Suspicious address %08x, skipping reloc, type = %d", addr, type);
 				} else if (numErrors == 10) {
 					WARN_LOG(Log::Loader, "Too many bad relocations, skipping logging");
 				}
@@ -182,16 +182,16 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs) {
 						if (t_type != R_MIPS_16) {
 							// Let's play it safe for now and skip. We've only seen this type.
 							// These exists in some popular games like Assassin's Creed: Bloodlines and GTA: VCS: (https://report.ppsspp.org/logs/kind/1187)
-							ERROR_LOG_REPORT(Log::Loader, "ELF relocation HI16/%d pair (instead of LO16) at %08x / %08x", t_type, addr, corrLoAddr);
+							ERROR_LOG(Log::Loader, "ELF relocation HI16/%d pair (instead of LO16) at %08x / %08x", t_type, addr, corrLoAddr);
 							continue;
 						} else {
-							WARN_LOG_REPORT(Log::Loader, "ELF relocation HI16/%d(16) pair (instead of LO16) at %08x / %08x", t_type, addr, corrLoAddr);
+							WARN_LOG(Log::Loader, "ELF relocation HI16/%d(16) pair (instead of LO16) at %08x / %08x", t_type, addr, corrLoAddr);
 						}
 					}
 
 					// Should have matching index and segment info, according to llvm, which makes sense.
 					if ((rels[t].r_info >> 8) != (rels[r].r_info >> 8)) {
-						WARN_LOG_REPORT(Log::Loader, "ELF relocation HI16/LO16 with mismatching r_info lo=%08x, hi=%08x", rels[t].r_info, rels[r].r_info);
+						WARN_LOG(Log::Loader, "ELF relocation HI16/LO16 with mismatching r_info lo=%08x, hi=%08x", rels[t].r_info, rels[r].r_info);
 					}
 					if (log) {
 						DEBUG_LOG(Log::Loader, "Corresponding lo found at %08x", corrLoAddr);
@@ -213,7 +213,7 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs) {
 					// Leave the instruction alone rather than writing hi's initial 0 into it. We
 					// have no idea what the right immediate is, and zeroing the lui of a lui/addiu
 					// pair is a guess that's wrong in a way that's hard to trace back to here.
-					ERROR_LOG_REPORT(Log::Loader, "R_MIPS_HI16: could not find R_MIPS_LO16 (r=%d of %d, addr=%08x)", r, numRelocs, addr);
+					ERROR_LOG(Log::Loader, "R_MIPS_HI16: could not find R_MIPS_LO16 (r=%d of %d, addr=%08x)", r, numRelocs, addr);
 				}
 			}
 			break;
@@ -245,7 +245,7 @@ bool ElfReader::LoadRelocations(const Elf32_Rel *rels, int numRelocs) {
 			{
 				char temp[256];
 				MIPSDisAsm(MIPSOpcode(op), 0, temp, sizeof(temp));
-				ERROR_LOG_REPORT(Log::Loader, "ARGH IT'S AN UNKNOWN RELOCATION!!!!!!!! %08x, type=%d : %s", addr, type, temp);
+				ERROR_LOG(Log::Loader, "ARGH IT'S AN UNKNOWN RELOCATION!!!!!!!! %08x, type=%d : %s", addr, type, temp);
 			}
 			break;
 			}
@@ -281,12 +281,12 @@ void ElfReader::LoadRelocations2(int rel_seg)
 
 	buf = (u8*)GetSegmentPtr(rel_seg);
 	if (!buf) {
-		ERROR_LOG_REPORT(Log::Loader, "Rel2 segment invalid");
+		ERROR_LOG(Log::Loader, "Rel2 segment invalid");
 		return;
 	}
 	// GetSegmentPtr only vouches for where the segment starts - p_filesz comes from the file too.
 	if ((size_t)ph->p_offset + ph->p_filesz > size_) {
-		ERROR_LOG_REPORT(Log::Loader, "Rel2 segment extends past the end of the file");
+		ERROR_LOG(Log::Loader, "Rel2 segment extends past the end of the file");
 		return;
 	}
 	end = buf+ph->p_filesz;
@@ -295,7 +295,7 @@ void ElfReader::LoadRelocations2(int rel_seg)
 	// these sizes and indexes come out of the file.
 	auto haveBytes = [&buf, &end](int n) -> bool {
 		if (end - buf < n) {
-			ERROR_LOG_REPORT(Log::Loader, "Rel2: truncated relocation data");
+			ERROR_LOG(Log::Loader, "Rel2: truncated relocation data");
 			return false;
 		}
 		return true;
@@ -353,7 +353,7 @@ void ElfReader::LoadRelocations2(int rel_seg)
 		flag = ( cmd<<(16-flag_bits))&0xffff;
 		flag = (flag>>(16-flag_bits))&0xffff;
 		if (flag >= flag_table_size) {
-			ERROR_LOG_REPORT(Log::Loader, "Rel2: flag %d out of range (table has %d)", flag, flag_table_size);
+			ERROR_LOG(Log::Loader, "Rel2: flag %d out of range (table has %d)", flag, flag_table_size);
 			return;
 		}
 		flag = flag_table[flag];
@@ -364,7 +364,7 @@ void ElfReader::LoadRelocations2(int rel_seg)
 		type = ( cmd<<(16-type_bits-seg_bits-flag_bits))&0xffff;
 		type = (type>>(16-type_bits))&0xffff;
 		if (type >= type_table_size) {
-			ERROR_LOG_REPORT(Log::Loader, "Rel2: type %d out of range (table has %d)", type, type_table_size);
+			ERROR_LOG(Log::Loader, "Rel2: type %d out of range (table has %d)", type, type_table_size);
 			return;
 		}
 		type = type_table[type];
@@ -379,21 +379,21 @@ void ElfReader::LoadRelocations2(int rel_seg)
 				rel_base = buf[0] | (buf[1]<<8) | (buf[2]<<16) | (buf[3]<<24);
 				buf += 4;
 			}else{
-				ERROR_LOG_REPORT(Log::Loader, "Rel2: invalid size flag! %x", flag);
+				ERROR_LOG(Log::Loader, "Rel2: invalid size flag! %x", flag);
 				rel_base = 0;
 			}
 		}else{
 			addr_seg = seg;
 			if (!SegmentIsLoaded(addr_seg)) {
 				if (!loggedBadSegment) {
-					ERROR_LOG_REPORT(Log::Loader, "Rel2: relocating against segment %d, which we didn't load", addr_seg);
+					ERROR_LOG(Log::Loader, "Rel2: relocating against segment %d, which we didn't load", addr_seg);
 					loggedBadSegment = true;
 				}
 				continue;
 			}
 			relocate_to = segmentVAddr[addr_seg];
 			if (!Memory::IsValidAddress(relocate_to)) {
-				ERROR_LOG_REPORT(Log::Loader, "ELF: Bad address to relocate to: %08x (segment %d)", relocate_to, addr_seg);
+				ERROR_LOG(Log::Loader, "ELF: Bad address to relocate to: %08x (segment %d)", relocate_to, addr_seg);
 				continue;
 			}
 
@@ -423,21 +423,21 @@ void ElfReader::LoadRelocations2(int rel_seg)
 				rel_base = buf[0] | (buf[1]<<8) | (buf[2]<<16) | (buf[3]<<24);
 				buf += 4;
 			}else{
-				ERROR_LOG_REPORT(Log::Loader, "Rel2: invalid relocat size flag! %x", flag);
+				ERROR_LOG(Log::Loader, "Rel2: invalid relocat size flag! %x", flag);
 			}
 
 			// seg is seg_bits wide, so it can name more segments than the file actually has - and
 			// naming one we didn't load leaves nothing to write to.
 			if (!SegmentIsLoaded(off_seg)) {
 				if (!loggedBadSegment) {
-					ERROR_LOG_REPORT(Log::Loader, "Rel2: bad or unloaded offset segment %d", off_seg);
+					ERROR_LOG(Log::Loader, "Rel2: bad or unloaded offset segment %d", off_seg);
 					loggedBadSegment = true;
 				}
 				continue;
 			}
 			rel_offset = rel_base+segmentVAddr[off_seg];
 			if (!Memory::IsValidAddress(rel_offset)) {
-				ERROR_LOG_REPORT(Log::Loader, "ELF: Bad rel_offset: %08x", rel_offset);
+				ERROR_LOG(Log::Loader, "ELF: Bad rel_offset: %08x", rel_offset);
 				continue;
 			}
 
@@ -459,7 +459,7 @@ void ElfReader::LoadRelocations2(int rel_seg)
 					lo16 |= 0xffff0000;
 				buf += 2;
 			}else{
-				ERROR_LOG_REPORT(Log::Loader, "Rel2: invalid lo16 type! %x", flag);
+				ERROR_LOG(Log::Loader, "Rel2: invalid lo16 type! %x", flag);
 			}
 
 			op = Memory::Read_Instruction(rel_offset, true).encoding;
@@ -496,7 +496,7 @@ void ElfReader::LoadRelocations2(int rel_seg)
 				op = (op&0xffff0000) | (((op&0xffff)+relocate_to)&0xffff);
 				break;
 			default:
-				ERROR_LOG_REPORT(Log::Loader, "Rel2: unexpected relocation type! %x", type);
+				ERROR_LOG(Log::Loader, "Rel2: unexpected relocation type! %x", type);
 				break;
 			}
 
@@ -630,7 +630,7 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop) {
 		// The caller picked the address, so we can't move it - but say so if it doesn't meet
 		// what the module asked for, since that's how relocations end up off by 64KB.
 		if (firstSegAlign > 1 && ((loadAddress + totalStart) & (firstSegAlign - 1)) != 0) {
-			WARN_LOG_REPORT(Log::Loader, "Module %s loaded at %08x, which doesn't meet its segment alignment %08x",
+			WARN_LOG(Log::Loader, "Module %s loaded at %08x, which doesn't meet its segment alignment %08x",
 				modName.c_str(), loadAddress + totalStart, firstSegAlign);
 		}
 		vaddr = memblock.AllocAt(loadAddress + totalStart, totalSize, modName.c_str());
@@ -767,7 +767,7 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop) {
 			{
 				if (!(sections[sectionToModify].sh_flags & SHF_ALLOC))
 				{
-					ERROR_LOG_REPORT(Log::Loader, "Trying to relocate non-loaded section %s", GetSectionName(sectionToModify));
+					ERROR_LOG(Log::Loader, "Trying to relocate non-loaded section %s", GetSectionName(sectionToModify));
 					continue;
 				}
 
@@ -784,7 +784,7 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop) {
 			}
 			else
 			{
-				WARN_LOG_REPORT(Log::Loader, "sectionToModify = %i - ignoring PSP relocation sector %i", sectionToModify, i);
+				WARN_LOG(Log::Loader, "sectionToModify = %i - ignoring PSP relocation sector %i", sectionToModify, i);
 			}
 		}
 		else if (s->sh_type == SHT_REL)
@@ -809,9 +809,9 @@ int ElfReader::LoadInto(u32 loadAddress, bool fromTop) {
 				}
 				else
 				{
-					WARN_LOG_REPORT(Log::Loader, "sectionToModify = %i - ignoring relocation sector %i", sectionToModify, i);
+					WARN_LOG(Log::Loader, "sectionToModify = %i - ignoring relocation sector %i", sectionToModify, i);
 				}
-				ERROR_LOG_REPORT(Log::Loader, "Traditional relocations unsupported.");
+				ERROR_LOG(Log::Loader, "Traditional relocations unsupported.");
 			}
 		}
 	}

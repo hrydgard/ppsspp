@@ -19,7 +19,7 @@
 //#define SHADERLOG
 #endif
 
-#include "Common/LogReporting.h"
+#include "Common/LogOnce.h"
 #include "Common/Profiler/Profiler.h"
 #include "Common/GPU/thin3d.h"
 #include "Common/MemoryUtil.h"
@@ -63,7 +63,6 @@ static Promise<VkShaderModule> *CompileShaderModuleAsync(VulkanContext *vulkan, 
 			OutputDebugStringA(errorMessage.c_str());
 			OutputDebugStringA(numberedSource.c_str());
 #endif
-			Reporting::ReportMessage("Vulkan error in shader compilation: info: %s / code: %s", errorMessage.c_str(), code);
 		}
 
 		VkShaderModule shaderModule = VK_NULL_HANDLE;

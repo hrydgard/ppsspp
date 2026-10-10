@@ -159,41 +159,8 @@ emits it today (psp-gcc produces 2, Zig 4).
 
 ### Emulation speed
 
-`game.speed.set` drives two independent things:
-
-```json
--> { "event": "game.speed.set", "fastForward": true }        // unlimited
--> { "event": "game.speed.set", "percent": 200 }             // double speed
--> { "event": "game.speed.set", "percent": 25 }              // quarter speed
--> { "event": "game.speed.set", "percent": null }            // drop the override
-<- { "event": "game.speed.set", "fastForward": false, "percent": 200, "limitFps": 120 }
-```
-
-Percentages are relative to 60 FPS, matching how the in-app settings present the
-alternative speeds - so `200` means the same thing in both places. `percent`
-must be at least 1; use `fastForward` for unlimited rather than `0`, so there's
-only one way to say it. `fastForward` wins while it is on, and `percent` is
-remembered underneath it.
-
-`limitFps` in the response is the frame rate throttling is actually aiming for
-once everything - fast-forward, this override, the user's own alternative-speed
-hotkeys - has been taken into account, with `0` meaning unlimited. It comes
-straight from the function the frame timing itself consumes, so prefer reading
-it over inferring the result from the other two fields.
-
-This is a **separate channel** from the user's own alternative speeds. It
-deliberately never touches `g_Config`, whose speed settings are persisted per
-game, so a debugger session can't permanently change what the user configured.
-Clearing the override also only stands down from a limit set through this event,
-never from one the user set themselves. It resets on every game boot.
-
-The request **fails** rather than being silently ignored when something else
-owns the speed: RetroAchievements hardcore mode, or being connected to a network
-game without "allow speed control while connected".
-
-Headless sets fast-forward at startup and never turns it off on its own, so
-`game.speed.set` works there too - turning fast-forward off makes headless
-throttle to real time, which is occasionally useful for a wall-clock repro.
+`game.speed.get` and `game.speed.set` return an error: execution speed is controlled
+by the host. The core and headless tools do not pace emulation against wall time.
 
 ### Breakpoint hits
 
@@ -282,7 +249,7 @@ file - this is just an index.
 | HLE | `hle.thread.list/wake/stop`, `hle.func.list/add/remove/removeRange/rename/scan`, `hle.module.list`, `hle.module.saveSymbols/loadSymbols` (save/load one module's symbols to/from its standard `PSP/SYSTEM/SYMBOLS/<moduleName>_<crc>.ppsym` file, shared across any game that loads the same module - see `SymbolMap::GetModuleSymbolsPath`), `hle.game.saveSymbols/loadSymbols` (the same for symbols that aren't inside any module - heap, stack, scratchpad, hardware registers - which describe one game's memory layout and so go to a per-game `PSP/SYSTEM/SYMBOLS/<gameID>_syms.ppsym` instead; see `SymbolMap::GetGameSymbolsPath`), `hle.backtrace` | `HLESubscriber.cpp` |
 | Data symbols | `hle.data.list/add/remove/rename` - label discovered data (structs, tables, buffers) with a name/type, same idea as `hle.func.*` but for `ST_DATA` symbols | `HLESubscriber.cpp` |
 | Kernel objects | `hle.object.list` (every live kernel object of every type at once, with an optional `type` filter - uid/type/name/one-line summary only); `hle.eventflag.list/info`, `hle.mutex.list/info`, `hle.semaphore.list/info`, `hle.msgpipe.list/info`, `hle.callback.list/info` (per-type full detail, including waiting-thread lists) - all read-only, never mutate kernel state | `HLEKernelObjectSubscriber.cpp` |
-| GPU stats | `gpu.stats.get`, `gpu.stats.feed` | `GPUStatsSubscriber.cpp` |
+| GPU stats (backend info only; frontend owns FPS and sleep histories) | `gpu.stats.get`, `gpu.stats.feed` | `GPUStatsSubscriber.cpp` |
 | GPU recording | `gpu.record.dump` | `GPURecordSubscriber.cpp` |
 | GPU buffers | `gpu.buffer.screenshot`, `gpu.buffer.renderColor/renderDepth/renderStencil`, `gpu.buffer.texture`, `gpu.buffer.clut` | `GPUBufferSubscriber.cpp` |
 | Input injection | `input.buttons.send`, `input.buttons.press`, `input.analog.send` | `InputSubscriber.cpp` |

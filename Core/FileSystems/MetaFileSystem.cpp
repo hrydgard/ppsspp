@@ -21,7 +21,7 @@
 #include "Common/StringUtils.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/HLE/sceKernelThread.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/System.h"
 
 static bool ApplyPathStringToComponentsVector(std::vector<std::string> &vector, const std::string &pathString)
@@ -423,7 +423,7 @@ int MetaFileSystem::ChDir(const std::string &dir)
 			}
 		}
 
-		WARN_LOG_REPORT(Log::FileSystem, "ChDir failed to map device for \"%s\", failing", dir.c_str());
+		WARN_LOG(Log::FileSystem, "ChDir failed to map device for \"%s\", failing", dir.c_str());
 		return SCE_KERNEL_ERROR_NODEV;
 	}
 }

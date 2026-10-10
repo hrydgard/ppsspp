@@ -29,7 +29,7 @@
 #include "Core/HLE/sceKernel.h"
 #include "GPU/GPUCommon.h"
 #include "Core/MemMap.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 
 // Uncomment if you want to dump JPEGs loaded through sceJpeg to a file
 // #define JPEG_DEBUG
@@ -532,7 +532,7 @@ static int JpegDecodeMJpegYCbCr(u32 jpegAddr, int jpegSize, u32 yCbCrAddr, int y
 			NotifyMemInfo(MemBlockFlags::WRITE, yCbCrAddr, getYCbCrBufferSize(width, height), "JpegDecodeMJpegYCbCr");
 		} else {
 			// There's some weird behavior on the PSP where it writes data around the last passed address.
-			WARN_LOG_REPORT(Log::ME, "JpegDecodeMJpegYCbCr: Invalid output address (%08x / %08x) for %dx%d", yCbCrAddr, yCbCrSize, width, height);
+			WARN_LOG(Log::ME, "JpegDecodeMJpegYCbCr: Invalid output address (%08x / %08x) for %dx%d", yCbCrAddr, yCbCrSize, width, height);
 		}
 	}
 
@@ -569,7 +569,7 @@ static int sceJpegDecodeMJpegYCbCrSuccessively(u32 jpegAddr, int jpegSize, u32 y
 }
 
 static int sceJpeg_9B36444C() {
-	ERROR_LOG_REPORT(Log::ME, "UNIMPL sceJpeg_9B36444C()");
+	ERROR_LOG(Log::ME, "UNIMPL sceJpeg_9B36444C()");
 	return 0;
 }
 
@@ -620,12 +620,12 @@ static int sceJpegFinishMJpeg() {
 }
 
 static int sceJpegMJpegCscWithColorOption() {
-	ERROR_LOG_REPORT(Log::ME, "UNIMPL sceJpegMJpegCscWithColorOption()");
+	ERROR_LOG(Log::ME, "UNIMPL sceJpegMJpegCscWithColorOption()");
 	return 0;
 }
 
 static int sceJpegDecompressAllImage() {
-	ERROR_LOG_REPORT(Log::ME, "UNIMPL sceJpegDecompressAllImage()");
+	ERROR_LOG(Log::ME, "UNIMPL sceJpegDecompressAllImage()");
 	return 0;
 }
 

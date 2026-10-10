@@ -28,7 +28,7 @@
 #include "Common/StringUtils.h"
 
 #include "Core/Config.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/Core.h"
 #include "Core/ELF/ParamSFO.h"
 
@@ -78,7 +78,6 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 
 	UpdateCmdInfo();
 
-	BuildReportingInfo();
 
 	textureCache_->NotifyConfigChanged();
 
@@ -165,29 +164,6 @@ u32 GPU_GLES::CheckGPUFeatures() const {
 	return features;
 }
 
-void GPU_GLES::BuildReportingInfo() {
-	GLRenderManager *render = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-	if (!render) {
-		return;
-	}
-
-	std::string glVendor = render->GetGLString(GL_VENDOR);
-	std::string glRenderer = render->GetGLString(GL_RENDERER);
-	std::string glVersion = render->GetGLString(GL_VERSION);
-	std::string glSlVersion = render->GetGLString(GL_SHADING_LANGUAGE_VERSION);
-	std::string glExtensions;
-
-	if (gl_extensions.VersionGEThan(3, 0)) {
-		glExtensions = g_all_gl_extensions;
-	} else {
-		glExtensions = render->GetGLString(GL_EXTENSIONS);
-	}
-
-	reportingPrimaryInfo_ = glVendor;
-	reportingFullInfo_ = StringFromFormat("%s (%s %s), %s (extensions: %s)", glVersion.c_str(), glVendor.c_str(), glRenderer.c_str(), glSlVersion.c_str(), glExtensions.c_str());
-
-	Reporting::UpdateConfig();
-}
 
 void GPU_GLES::DeviceLost() {
 	INFO_LOG(Log::G3D, "GPU_GLES: DeviceLost");

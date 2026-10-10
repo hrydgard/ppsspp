@@ -402,17 +402,6 @@ public:
 		}
 		return list;
 	}
-	std::vector<std::string> GetPresentModeList(std::string_view currentMarkerString) const override {
-		std::vector<std::string> list;
-		for (auto mode : vulkan_->GetAvailablePresentModes()) {
-			std::string str = VulkanPresentModeToString(mode);
-			if (mode == vulkan_->GetPresentMode()) {
-				str += std::string(" (") + std::string(currentMarkerString) + ")";
-			}
-			list.push_back(str);
-		}
-		return list;
-	}
 	std::vector<std::string> GetSurfaceFormatList() const override {
 		std::vector<std::string> list;
 		for (auto &format : vulkan_->SurfaceFormats()) {
@@ -426,15 +415,6 @@ public:
 		return (uint32_t)ShaderLanguage::GLSL_VULKAN;
 	}
 	uint32_t GetDataFormatSupport(DataFormat fmt) const override;
-
-	PresentMode GetPresentMode() const {
-		switch (vulkan_->GetPresentMode()) {
-		case VK_PRESENT_MODE_FIFO_KHR: return PresentMode::FIFO;
-		case VK_PRESENT_MODE_IMMEDIATE_KHR: return PresentMode::IMMEDIATE;
-		case VK_PRESENT_MODE_MAILBOX_KHR: return PresentMode::MAILBOX;
-		default: return PresentMode::FIFO;
-		}
-	}
 
 	DepthStencilState *CreateDepthStencilState(const DepthStencilStateDesc &desc) override;
 	BlendState *CreateBlendState(const BlendStateDesc &desc) override;
@@ -504,20 +484,7 @@ public:
 	void BeginFrame(DebugFlags debugFlags) override;
 	void EndFrame() override;
 
-	void Present(PresentMode presentMode) override;
-	PresentMode GetCurrentPresentMode() const override {
-		switch (vulkan_->GetPresentMode()) {
-		case VK_PRESENT_MODE_IMMEDIATE_KHR:
-			return PresentMode::IMMEDIATE;
-		case VK_PRESENT_MODE_MAILBOX_KHR:
-			return PresentMode::MAILBOX;
-		case VK_PRESENT_MODE_FIFO_KHR:
-		case VK_PRESENT_MODE_FIFO_RELAXED_KHR:
-		case VK_PRESENT_MODE_FIFO_LATEST_READY_KHR:
-		default:
-			return PresentMode::FIFO;
-		}
-	}
+	void Present() override;
 
 	int GetFrameCount() override {
 		return frameCount_;
@@ -954,7 +921,6 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 
 	caps_.fragmentShaderFullPrecisionFloat = true;
 	caps_.coordConvention = CoordConvention::Vulkan;
-	caps_.setMaxFrameLatencySupported = true;
 	caps_.anisoSupported = vulkan->GetDeviceFeatures().enabled.standard.samplerAnisotropy != 0;
 	caps_.tesselationShaderSupported = vulkan->GetDeviceFeatures().enabled.standard.tessellationShader != 0;
 	caps_.dualSourceBlend = vulkan->GetDeviceFeatures().enabled.standard.dualSrcBlend != 0;
@@ -990,28 +956,6 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 
 	// Note that it must also be enabled on the pipelines (which we do).
 	caps_.provokingVertexLast = vulkan->GetDeviceFeatures().enabled.provokingVertex.provokingVertexLast;
-
-	caps_.fullScreenExclusiveSupported = vulkan->Extensions().EXT_full_screen_exclusive;
-	// Present mode stuff
-	caps_.presentMaxInterval = 1;
-	caps_.presentInstantModeChange = false;  // TODO: Fix this with some work in VulkanContext
-	caps_.presentModesSupported = (PresentMode)0;
-
-	if (vulkan->GetPresentation()) {
-		// No real present modes exist in this model (the host, e.g. libretro, owns real presentation
-		// and controls its own timing) - we always hand back one finished frame at a time serially,
-		// which is closest in spirit to FIFO.
-		caps_.presentModesSupported = PresentMode::FIFO;
-	} else {
-		for (auto mode : vulkan->GetAvailablePresentModes()) {
-			switch (mode) {
-			case VK_PRESENT_MODE_FIFO_KHR: caps_.presentModesSupported |= PresentMode::FIFO; break;
-			case VK_PRESENT_MODE_IMMEDIATE_KHR: caps_.presentModesSupported |= PresentMode::IMMEDIATE; break;
-			case VK_PRESENT_MODE_MAILBOX_KHR: caps_.presentModesSupported |= PresentMode::MAILBOX; break;
-			default: break;  // Ignore any other modes.
-			}
-		}
-	}
 
 	const auto &limits = vulkan->GetPhysicalDeviceProperties().properties.limits;
 
@@ -1210,7 +1154,7 @@ void VKContext::EndFrame() {
 	Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 }
 
-void VKContext::Present(PresentMode presentMode) {
+void VKContext::Present() {
 	renderManager_.Present();
 	frameCount_++;
 }
@@ -1764,8 +1708,6 @@ std::vector<std::string> VKContext::GetFeatureList() const {
 
 	AddFeature(features, "multiview", vulkan_->GetDeviceFeatures().available.multiview.multiview, vulkan_->GetDeviceFeatures().enabled.multiview.multiview);
 	AddFeature(features, "multiviewGeometryShader", vulkan_->GetDeviceFeatures().available.multiview.multiviewGeometryShader, vulkan_->GetDeviceFeatures().enabled.multiview.multiviewGeometryShader);
-	AddFeature(features, "presentId", vulkan_->GetDeviceFeatures().available.presentId.presentId, vulkan_->GetDeviceFeatures().enabled.presentId.presentId);
-	AddFeature(features, "presentWait", vulkan_->GetDeviceFeatures().available.presentWait.presentWait, vulkan_->GetDeviceFeatures().enabled.presentWait.presentWait);
 	AddFeature(features, "provokingVertexLast", vulkan_->GetDeviceFeatures().available.provokingVertex.provokingVertexLast, vulkan_->GetDeviceFeatures().enabled.provokingVertex.provokingVertexLast);
 
 	features.emplace_back(std::string("Preferred depth buffer format: ") + VulkanFormatToString(vulkan_->GetDeviceInfo().preferredDepthStencilFormat));

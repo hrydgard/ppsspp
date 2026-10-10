@@ -37,13 +37,6 @@ uint32_t __DisplayGetAccumulatedHcount();
 void DisplayAdjustAccumulatedHcount(uint32_t diff);
 
 void __DisplayGetDebugStats(StringWriter &w);
-void __DisplayGetAveragedFPS(float *out_vps, float *out_fps);
-void __DisplayGetFPS(float *out_vps, float *out_fps, float *out_actual_fps);
-void __DisplayGetVPS(float *out_vps);
-float *__DisplayGetFrameTimes(int *out_valid, int *out_pos, float **out_sleep);
-int DisplayGetSleepPos();
-void DisplayNotifySleep(double t, int pos = -1);
-bool DisplayIsRunningSlow();
 
 void DisplayFireVblankStart();
 void DisplayFireVblankEnd();

@@ -440,12 +440,6 @@ bool GLRenderManager::Run(GLRRenderThreadTask &task) {
 		bool swapRequest = false;
 		if (!frameData.skipSwap) {
 			frameTimeHistory_[frameData.frameId].queuePresent = time_now_d();
-			if (swapIntervalChanged_) {
-				swapIntervalChanged_ = false;
-				if (swapIntervalFunction_) {
-					swapIntervalFunction_(swapInterval_);
-				}
-			}
 			// This is the swapchain framebuffer flip.
 			if (swapFunction_) {
 				VLOG("  PULL: SwapFunction()");

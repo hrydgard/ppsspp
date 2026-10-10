@@ -852,17 +852,6 @@ public:
 		swapFunction_ = swapFunction;
 	}
 
-	void SetSwapIntervalFunction(std::function<void(int)> swapIntervalFunction) {
-		swapIntervalFunction_ = swapIntervalFunction;
-	}
-
-	void SwapInterval(int interval) {
-		if (interval != swapInterval_) {
-			swapInterval_ = interval;
-			swapIntervalChanged_ = true;
-		}
-	}
-
 	// Only supports a common subset.
 	std::string GetGLString(int name) const {
 		return queueRunner_.GetGLString(name);
@@ -945,14 +934,11 @@ private:
 	int curFrame_ = 0;
 
 	std::function<void()> swapFunction_;
-	std::function<void(int)> swapIntervalFunction_;
 	GLBufferStrategy bufferStrategy_ = GLBufferStrategy::SUBDATA;
 
 	int inflightFrames_ = MAX_INFLIGHT_FRAMES;
 	int newInflightFrames_ = -1;
 
-	int swapInterval_ = 0;
-	bool swapIntervalChanged_ = true;
 
 	int targetWidth_ = 0;
 	int targetHeight_ = 0;

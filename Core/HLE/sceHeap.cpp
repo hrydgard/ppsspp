@@ -21,7 +21,7 @@
 #include "Common/Serialize/SerializeMap.h"
 #include "Common/StringUtils.h"
 #include "Core/MemMap.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/FunctionWrappers.h"
@@ -87,12 +87,12 @@ void __HeapShutdown() {
 }
 
 static int sceHeapReallocHeapMemory(u32 heapAddr, u32 memPtr, int memSize) {
-	ERROR_LOG_REPORT(Log::HLE,"UNIMPL sceHeapReallocHeapMemory(%08x, %08x, %08x)", heapAddr, memPtr, memSize);
+	ERROR_LOG(Log::HLE,"UNIMPL sceHeapReallocHeapMemory(%08x, %08x, %08x)", heapAddr, memPtr, memSize);
 	return hleNoLog(0);
 }
 
 static int sceHeapReallocHeapMemoryWithOption(u32 heapPtr, u32 memPtr, int memSize, u32 paramsPtr) {
-	ERROR_LOG_REPORT(Log::HLE,"UNIMPL sceHeapReallocHeapMemoryWithOption(%08x, %08x, %08x, %08x)", heapPtr, memPtr, memSize, paramsPtr);
+	ERROR_LOG(Log::HLE,"UNIMPL sceHeapReallocHeapMemoryWithOption(%08x, %08x, %08x, %08x)", heapPtr, memPtr, memSize, paramsPtr);
 	return hleNoLog(0);
 }
 
@@ -114,7 +114,7 @@ static int sceHeapFreeHeapMemory(u32 heapAddr, u32 memAddr) {
 }
 
 static int sceHeapGetMallinfo(u32 heapAddr, u32 infoPtr) {
-	ERROR_LOG_REPORT(Log::HLE,"UNIMPL sceHeapGetMallinfo(%08x, %08x)", heapAddr, infoPtr);
+	ERROR_LOG(Log::HLE,"UNIMPL sceHeapGetMallinfo(%08x, %08x)", heapAddr, infoPtr);
 	return hleNoLog(0);
 }
 
@@ -133,7 +133,7 @@ static u32 sceHeapAllocHeapMemoryWithOption(u32 heapAddr, u32 memSize, u32 param
 				return hleLogError(Log::HLE, 0, "invalid param size");
 			}
 			if (size > 8) {
-				WARN_LOG_REPORT(Log::HLE, "sceHeapAllocHeapMemoryWithOption(): unexpected param size %d", size);
+				WARN_LOG(Log::HLE, "sceHeapAllocHeapMemoryWithOption(): unexpected param size %d", size);
 			}
 			grain = Memory::ReadUnchecked_U32(paramsPtr + 4);
 		}
@@ -188,12 +188,12 @@ static int sceHeapCreateHeap(const char* name, u32 heapSize, int attr, u32 param
 		if (Memory::IsValid4AlignedAddress(paramsPtr)) {
 			u32 size = Memory::ReadUnchecked_U32(paramsPtr);
 			if (size > 4) {
-				WARN_LOG_REPORT(Log::HLE, "sceHeapCreateHeap(): unsupported options parameter, size = %d", size);
+				WARN_LOG(Log::HLE, "sceHeapCreateHeap(): unsupported options parameter, size = %d", size);
 			}
 		}
 	}	
 	if (!name) {
-		WARN_LOG_REPORT(Log::HLE, "sceHeapCreateHeap(): name is NULL");
+		WARN_LOG(Log::HLE, "sceHeapCreateHeap(): name is NULL");
 		return hleNoLog(0);
 	}
 	int allocSize = (heapSize + 3) & ~3;

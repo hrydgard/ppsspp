@@ -327,10 +327,7 @@ public:
 	struct AllPhysicalDeviceFeatures {
 		VkPhysicalDeviceFeatures standard;
 		VkPhysicalDeviceMultiviewFeatures multiview;
-		VkPhysicalDevicePresentWaitFeaturesKHR presentWait;
-		VkPhysicalDevicePresentIdFeaturesKHR presentId;
 		VkPhysicalDeviceProvokingVertexFeaturesEXT provokingVertex;
-		VkPhysicalDevicePresentModeFifoLatestReadyFeaturesKHR presentModeFifoProps;
 		VkPhysicalDeviceScalarBlockLayoutFeatures scalarBlockLayout;
 	};
 
@@ -463,9 +460,6 @@ public:
 		return presentMode_;
 	}
 
-#ifdef VK_EXT_full_screen_exclusive
-	void SetFullScreenExclusiveMode(VkFullScreenExclusiveEXT mode) { fullScreenExclusiveMode_ = mode; }
-#endif
 
 	std::vector<VkPresentModeKHR> GetAvailablePresentModes() const {
 		return availablePresentModes_;
@@ -598,9 +592,6 @@ private:
 
 	PhysicalDeviceFeatures deviceFeatures_;
 
-#ifdef VK_EXT_full_screen_exclusive
-	VkFullScreenExclusiveEXT fullScreenExclusiveMode_ = VK_FULL_SCREEN_EXCLUSIVE_DEFAULT_EXT;
-#endif
 
 
 	VkSurfaceCapabilitiesKHR surfCapabilities_{};

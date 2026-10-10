@@ -37,7 +37,7 @@
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
 #include "Core/MIPS/IR/IRJit.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/Core.h"
 #include "Core/System.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"

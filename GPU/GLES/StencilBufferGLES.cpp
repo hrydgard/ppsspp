@@ -18,7 +18,7 @@
 #include <algorithm>
 
 #include "Common/GPU/OpenGL/GLFeatures.h"
-#include "Common/LogReporting.h"
+#include "Common/LogOnce.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/GLES/FramebufferManagerGLES.h"
@@ -100,7 +100,7 @@ bool FramebufferManagerGLES::ReadbackStencilbuffer(Draw::Framebuffer *fbo, int x
 	using namespace Draw;
 
 	if (!fbo) {
-		ERROR_LOG_REPORT_ONCE(vfbfbozero, Log::sceGe, "ReadbackStencilbufferSync: bad fbo");
+		ERROR_LOG_ONCE(vfbfbozero, Log::sceGe, "ReadbackStencilbufferSync: bad fbo");
 		return false;
 	}
 

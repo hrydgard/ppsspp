@@ -30,7 +30,7 @@
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPSAsm.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 
 class WebSocketDisasmState : public DebuggerSubscriber {
 public:
@@ -292,7 +292,6 @@ void WebSocketDisasmState::WriteBranchGuide(JsonWriter &json, const BranchLine &
 //  - addressHex: string indicating base address in hexadecimal (may be 64 bit.)
 void WebSocketDisasmState::Base(DebuggerRequest &req) {
 	JsonWriter &json = req.Respond();
-	Reporting::NotifyDebugger();
 	json.writeString("addressHex", StringFromFormat("%016llx", (uint64_t)(uintptr_t)Memory::base));
 }
 
@@ -573,6 +572,5 @@ void WebSocketDisasmState::Assemble(DebuggerRequest &req) {
 	}
 
 	JsonWriter &json = req.Respond();
-	Reporting::NotifyDebugger();
 	json.writeUint("encoding", encoding);
 }

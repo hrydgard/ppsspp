@@ -31,7 +31,7 @@
 #include "Common/System/OSD.h"
 #include "Common/Data/Text/I18n.h"
 #include "Core/Config.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/MemMapHelpers.h"
 #include "Common/Serialize/SerializeFuncs.h"
 
@@ -1552,7 +1552,7 @@ int sceNetAdhocMatchingDelete(int matchingId) {
 }
 
 int sceNetAdhocMatchingInit(u32 memsize) {
-	WARN_LOG_REPORT_ONCE(sceNetAdhocMatchingInit, Log::sceNet, "sceNetAdhocMatchingInit(%d) at %08x", memsize, currentMIPS->pc);
+	WARN_LOG_ONCE(sceNetAdhocMatchingInit, Log::sceNet, "sceNetAdhocMatchingInit(%d) at %08x", memsize, currentMIPS->pc);
 
 	// Uninitialized Library
 	if (netAdhocMatchingInited)

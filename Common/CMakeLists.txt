@@ -305,8 +305,8 @@ add_library(Common STATIC
 	Log.cpp
 	Log/LogManager.cpp
 	Log/LogManager.h
-	LogReporting.cpp
-	LogReporting.h
+	LogOnce.cpp
+	LogOnce.h
 	MemArenaAndroid.cpp
 	MemArenaDarwin.cpp
 	MemArenaPosix.cpp

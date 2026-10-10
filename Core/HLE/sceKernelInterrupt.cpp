@@ -25,7 +25,7 @@
 #include "Common/Serialize/SerializeList.h"
 #include "Common/Serialize/SerializeMap.h"
 #include "Core/MemMapHelpers.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/ErrorCodes.h"
@@ -605,7 +605,7 @@ u32 sceKernelRegisterSubIntrHandler(u32 intrNumber, u32 subIntrNumber, u32 handl
 		// Pretty common. Used to report here, but not useful.
 		return hleLogError(Log::sceIntc, error, "duplicate handler");
 	}
-	return hleReportError(Log::sceIntc, error);
+	return hleLogError(Log::sceIntc, error);
 }
 
 u32 sceKernelReleaseSubIntrHandler(u32 intrNumber, u32 subIntrNumber) {
@@ -685,7 +685,7 @@ struct PspIntrHandlerOptionParam {
 
 static int QueryIntrHandlerInfo()
 {
-	ERROR_LOG_REPORT(Log::sceIntc, "QueryIntrHandlerInfo()");
+	ERROR_LOG(Log::sceIntc, "QueryIntrHandlerInfo()");
 	return 0;
 }
 

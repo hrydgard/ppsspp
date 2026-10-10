@@ -21,7 +21,7 @@
 
 #include "Common/File/VFS/VFS.h"
 #include "Common/Data/Text/I18n.h"
-#include "Common/LogReporting.h"
+#include "Common/LogOnce.h"
 #include "Common/Math/math_util.h"
 #include "Common/Profiler/Profiler.h"
 #include "Common/GPU/thin3d.h"

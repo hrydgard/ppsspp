@@ -27,7 +27,7 @@
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMapHelpers.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/HLE/KernelWaitHelpers.h"
 
 #define SCE_KERNEL_MBA_THPRI 0x100
@@ -231,9 +231,9 @@ void __KernelMbxBeginCallback(SceUID threadID, SceUID prevCallbackId)
 	if (result == HLEKernel::WAIT_CB_SUCCESS)
 		DEBUG_LOG(Log::sceKernel, "sceKernelReceiveMbxCB: Suspending mbx wait for callback");
 	else if (result == HLEKernel::WAIT_CB_BAD_WAIT_DATA)
-		ERROR_LOG_REPORT(Log::sceKernel, "sceKernelReceiveMbxCB: wait not found to pause for callback");
+		ERROR_LOG(Log::sceKernel, "sceKernelReceiveMbxCB: wait not found to pause for callback");
 	else
-		WARN_LOG_REPORT(Log::sceKernel, "sceKernelReceiveMbxCB: beginning callback with bad wait id?");
+		WARN_LOG(Log::sceKernel, "sceKernelReceiveMbxCB: beginning callback with bad wait id?");
 }
 
 void __KernelMbxEndCallback(SceUID threadID, SceUID prevCallbackId)
@@ -253,13 +253,13 @@ SceUID sceKernelCreateMbx(const char *name, u32 attr, u32 optAddr)
 {
 	if (!name)
 	{
-		WARN_LOG_REPORT(Log::sceKernel, "%08x=sceKernelCreateMbx(): invalid name", SCE_KERNEL_ERROR_ERROR);
+		WARN_LOG(Log::sceKernel, "%08x=sceKernelCreateMbx(): invalid name", SCE_KERNEL_ERROR_ERROR);
 		return SCE_KERNEL_ERROR_ERROR;
 	}
 	// Accepts 0x000 - 0x0FF, 0x100 - 0x1FF, and 0x400 - 0x4FF.
 	if (((attr & ~SCE_KERNEL_MBA_ATTR_KNOWN) & ~0xFF) != 0)
 	{
-		WARN_LOG_REPORT(Log::sceKernel, "%08x=sceKernelCreateMbx(): invalid attr parameter: %08x", SCE_KERNEL_ERROR_ILLEGAL_ATTR, attr);
+		WARN_LOG(Log::sceKernel, "%08x=sceKernelCreateMbx(): invalid attr parameter: %08x", SCE_KERNEL_ERROR_ILLEGAL_ATTR, attr);
 		return SCE_KERNEL_ERROR_ILLEGAL_ATTR;
 	}
 
@@ -280,11 +280,11 @@ SceUID sceKernelCreateMbx(const char *name, u32 attr, u32 optAddr)
 		if (Memory::IsValidRange(optAddr, 4)) {
 			u32 size = Memory::ReadUnchecked_U32(optAddr);
 			if (size > 4)
-				WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateMbx(%s) unsupported options parameter, size = %d", name, size);
+				WARN_LOG(Log::sceKernel, "sceKernelCreateMbx(%s) unsupported options parameter, size = %d", name, size);
 		}
 	}
 	if ((attr & ~SCE_KERNEL_MBA_ATTR_KNOWN) != 0)
-		WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateMbx(%s) unsupported attr parameter: %08x", name, attr);
+		WARN_LOG(Log::sceKernel, "sceKernelCreateMbx(%s) unsupported attr parameter: %08x", name, attr);
 
 	return id;
 }

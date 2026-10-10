@@ -69,7 +69,6 @@ GPU_D3D11::GPU_D3D11(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	UpdateCmdInfo();
 	gstate_c.SetUseFlags(CheckGPUFeatures());
 
-	BuildReportingInfo();
 
 	// Some of our defaults are different from hw defaults, let's assert them.
 	// We restore each frame anyway, but here is convenient for tests.

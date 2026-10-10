@@ -72,12 +72,11 @@ struct FrameDataShared {
 	// For synchronous readbacks.
 	VkFence readbackFence = VK_NULL_HANDLE;
 	bool useMultiThreading = false;
-	bool measurePresentTime = false;
 
 	std::vector<SwapchainImageData> swapchainImages_;
 	uint32_t swapchainImageCount_ = 0;
 
-	void Init(VulkanContext *vulkan, bool useMultiThreading, bool measurePresentTime);
+	void Init(VulkanContext *vulkan, bool useMultiThreading);
 	void Destroy(VulkanContext *vulkan);
 };
 

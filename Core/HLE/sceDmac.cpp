@@ -19,7 +19,7 @@
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMapHelpers.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/sceDmac.h"

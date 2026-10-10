@@ -309,8 +309,6 @@ add_library(Core STATIC
 	CoreTiming.h
 	CwCheat.cpp
 	CwCheat.h
-	FrameTiming.cpp
-	FrameTiming.h
 	HDRemaster.cpp
 	HDRemaster.h
 	Instance.cpp
@@ -321,8 +319,6 @@ add_library(Core STATIC
 	KeyMapDefaults.h
 	LuaContext.cpp
 	LuaContext.h
-	RetroAchievements.h
-	RetroAchievements.cpp
 	Debugger/Breakpoints.cpp
 	Debugger/Breakpoints.h
 	Debugger/DebugInterface.h
@@ -659,8 +655,6 @@ add_library(Core STATIC
 	MemMapHelpers.h
 	PSPLoaders.cpp
 	PSPLoaders.h
-	Reporting.cpp
-	Reporting.h
 	Replay.cpp
 	Replay.h
 	SaveState.cpp
@@ -715,7 +709,7 @@ endif()
 
 list(APPEND CoreExtraLibs armips)
 
-target_link_libraries(Core GPU Common libretro-common kirk cityhash sfmt19937 xbrz xxhash rcheevos at3_standalone lua
+target_link_libraries(Core GPU Common libretro-common kirk cityhash sfmt19937 xbrz xxhash at3_standalone lua
 	aemu_postoffice_client ${CoreExtraLibs} ${CMAKE_DL_LIBS})
 
 # Winsock
@@ -781,16 +775,10 @@ setup_target_project(Core Core)
 # Generate git-version at build time.
 add_custom_target(GitVersion DEPENDS something_that_never_exists)
 
-set(WIN_VERSION_CMD "")
-if (WIN32)
-	set(WIN_VERSION_CMD COMMAND ${CMAKE_SOURCE_DIR}/Windows/git-version-gen.cmd PPSSPPWindows)
-endif()
-
 add_custom_command(OUTPUT something_that_never_exists
 	COMMAND ${CMAKE_COMMAND} -DSOURCE_DIR=${CMAKE_SOURCE_DIR}
 		-DOUTPUT_DIR=${CMAKE_BINARY_DIR}
-		-P ${CMAKE_SOURCE_DIR}/git-version.cmake
-	${WIN_VERSION_CMD})
+		-P ${CMAKE_SOURCE_DIR}/git-version.cmake)
 
 set_source_files_properties(${CMAKE_BINARY_DIR}/git-version.cpp
 	PROPERTIES GENERATED TRUE

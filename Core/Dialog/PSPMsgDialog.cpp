@@ -26,7 +26,7 @@
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/MemMapHelpers.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/Compatibility.h"
 #include "Core/System.h"
 #include "Common/Data/Text/I18n.h"
@@ -52,7 +52,7 @@ bool PSPMsgDialog::UseAutoStatus() {
 int PSPMsgDialog::Init(unsigned int paramAddr) {
 	// Ignore if already running
 	if (GetStatus() != SCE_UTILITY_STATUS_NONE) {
-		ERROR_LOG_REPORT(Log::sceUtility, "sceUtilityMsgDialogInitStart: invalid status");
+		ERROR_LOG(Log::sceUtility, "sceUtilityMsgDialogInitStart: invalid status");
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 
@@ -74,7 +74,7 @@ int PSPMsgDialog::Init(unsigned int paramAddr) {
 	int optionsNotCoded = messageDialog.options & ~SCE_UTILITY_MSGDIALOG_OPTION_SUPPORTED;
 	if(optionsNotCoded)
 	{
-		ERROR_LOG_REPORT(Log::sceUtility, "PSPMsgDialog options not coded : 0x%08x", optionsNotCoded);
+		ERROR_LOG(Log::sceUtility, "PSPMsgDialog options not coded : 0x%08x", optionsNotCoded);
 	}
 
 	flag = 0;

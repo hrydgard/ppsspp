@@ -26,7 +26,7 @@
 #include "Core/FileSystems/VirtualDiscFileSystem.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/HLE/sceKernel.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/Util/PathUtil.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Core/Config.h"
@@ -482,7 +482,7 @@ size_t VirtualDiscFileSystem::ReadFile(u32 handle, u8 *pointer, s64 size, int &u
 	EntryMap::iterator iter = entries.find(handle);
 	if (iter != entries.end()) {
 		if (size < 0) {
-			ERROR_LOG_REPORT(Log::FileSystem, "Invalid read for %lld bytes from virtual umd", size);
+			ERROR_LOG(Log::FileSystem, "Invalid read for %lld bytes from virtual umd", size);
 			return 0;
 		}
 

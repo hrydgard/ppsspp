@@ -27,7 +27,7 @@
 #include "Core/HLE/sceVideocodec.h"
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/MemMap.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/HW/SimpleAudioDec.h"
 
 // Following kaien_fr's sample code https://github.com/hrydgard/ppsspp/issues/5620#issuecomment-37086024

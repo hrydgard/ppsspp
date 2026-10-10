@@ -26,7 +26,7 @@
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceCcc.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 
 typedef PSPPointer<char> PSPCharPointer;
 typedef PSPPointer<char16_t> PSPWCharPointer;

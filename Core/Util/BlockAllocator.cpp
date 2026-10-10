@@ -23,7 +23,7 @@
 #include "Common/StringUtils.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/Util/BlockAllocator.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 
 // Slow freaking thing but works (eventually) :)
 
@@ -327,11 +327,11 @@ void BlockAllocator::CheckBlocks() const
 	{
 		const Block &b = *bp;
 		if (b.start > 0xc0000000) {  // probably free'd debug values
-			ERROR_LOG_REPORT(Log::HLE, "Bogus block in allocator");
+			ERROR_LOG(Log::HLE, "Bogus block in allocator");
 		}
 		// Outside the valid range, probably logic bug in allocation.
 		if (b.start + b.size > rangeStart_ + rangeSize_ || b.start < rangeStart_) {
-			ERROR_LOG_REPORT(Log::HLE, "Bogus block in allocator");
+			ERROR_LOG(Log::HLE, "Bogus block in allocator");
 		}
 	}
 }
@@ -419,7 +419,7 @@ u32 BlockAllocator::GetLargestFreeBlockSize() const
 		}
 	}
 	if (maxFreeBlock & (grain_ - 1))
-		WARN_LOG_REPORT(Log::HLE, "GetLargestFreeBlockSize: free size %08x does not align to grain %08x.", maxFreeBlock, grain_);
+		WARN_LOG(Log::HLE, "GetLargestFreeBlockSize: free size %08x does not align to grain %08x.", maxFreeBlock, grain_);
 	return maxFreeBlock;
 }
 
@@ -435,7 +435,7 @@ u32 BlockAllocator::GetTotalFreeBytes() const
 		}
 	}
 	if (sum & (grain_ - 1))
-		WARN_LOG_REPORT(Log::HLE, "GetTotalFreeBytes: free size %08x does not align to grain %08x.", sum, grain_);
+		WARN_LOG(Log::HLE, "GetTotalFreeBytes: free size %08x does not align to grain %08x.", sum, grain_);
 	return sum;
 }
 

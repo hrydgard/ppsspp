@@ -21,7 +21,7 @@
 
 #include "Common/x64Emitter.h"
 #include "Common/CPUDetect.h"
-#include "Common/LogReporting.h"
+#include "Common/LogOnce.h"
 #include "Common/Math/SIMDHeaders.h"
 #include "GPU/GPUState.h"
 #include "GPU/Software/DrawPixel.h"
@@ -102,7 +102,7 @@ SingleFunc PixelJitCache::CompileSingle(const PixelFuncID &id) {
 		regCache_.ForceRelease(RegCache::GEN_ARG_ID);
 
 	if (!success) {
-		ERROR_LOG_REPORT(Log::G3D, "Could not compile pixel func: %s", DescribePixelFuncID(id).c_str());
+		ERROR_LOG(Log::G3D, "Could not compile pixel func: %s", DescribePixelFuncID(id).c_str());
 
 		regCache_.Reset(false);
 		EndWrite();

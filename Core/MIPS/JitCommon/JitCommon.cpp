@@ -24,7 +24,7 @@
 #include "ext/udis86/udis86.h"
 #include "ext/loongarch-disasm.h"
 
-#include "Common/LogReporting.h"
+#include "Common/LogOnce.h"
 #include "Common/StringUtils.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
@@ -98,9 +98,9 @@ namespace MIPSComp {
 			// For a branch (not a jump), it actually should try the delay slot and take its target potentially.
 			// This is similar to the VFPU case and has not been seen, so just report it.
 			if (!isJump && SignExtend16ToU32(branchInfo.delaySlotOp) != SignExtend16ToU32(branchInfo.op) - 1)
-				ERROR_LOG_REPORT(Log::JIT, "Branch in branch delay slot at %08x with different target", branchInfo.compilerPC);
+				ERROR_LOG(Log::JIT, "Branch in branch delay slot at %08x with different target", branchInfo.compilerPC);
 			if (isJump && branchInfo.likely && (branchInfo.delaySlotInfo & (OUT_RA | OUT_RD)) != 0)
-				ERROR_LOG_REPORT(Log::JIT, "Jump in likely branch delay slot with link at %08x", branchInfo.compilerPC);
+				ERROR_LOG(Log::JIT, "Jump in likely branch delay slot with link at %08x", branchInfo.compilerPC);
 	}
 		return notTakenTarget;
 }

@@ -27,7 +27,7 @@
 #include "Core/Compatibility.h"
 #include "Core/Core.h"
 #include "Core/MemMap.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/System.h"
 
 #include "Core/MIPS/MIPS.h"
@@ -144,7 +144,7 @@ static void ApplyPrefixST(MIPSState *mips, float *r, u32 data, VectorSize size, 
 		if (!constants) {
 			if (regnum >= n) {
 				// We mostly handle this now, but still worth reporting.
-				ERROR_LOG_REPORT(Log::CPU, "Invalid VFPU swizzle: %08x: %i / %d at PC = %08x (%s)", data, regnum, n, mips->pc, MIPSDisasmAt(mips->pc).c_str());
+				ERROR_LOG(Log::CPU, "Invalid VFPU swizzle: %08x: %i / %d at PC = %08x (%s)", data, regnum, n, mips->pc, MIPSDisasmAt(mips->pc).c_str());
 			}
 			r[i] = origV[regnum];
 			if (abs)
@@ -941,7 +941,7 @@ namespace MIPSInt
 			break;
 
 		default:
-			ERROR_LOG_REPORT(Log::CPU, "vf2h with invalid elements");
+			ERROR_LOG(Log::CPU, "vf2h with invalid elements");
 			break;
 		}
 		ApplyPrefixD(mips, reinterpret_cast<float *>(d), outsize);
@@ -1011,7 +1011,7 @@ namespace MIPSInt
 				break;
 
 			default:
-				ERROR_LOG_REPORT(Log::CPU, "vus2i with more than 2 elements");
+				ERROR_LOG(Log::CPU, "vus2i with more than 2 elements");
 				break;
 			}
 			break;
@@ -1037,7 +1037,7 @@ namespace MIPSInt
 				break;
 
 			default:
-				ERROR_LOG_REPORT(Log::CPU, "vs2i with more than 2 elements");
+				ERROR_LOG(Log::CPU, "vs2i with more than 2 elements");
 				break;
 			}
 			break;
@@ -1296,7 +1296,7 @@ namespace MIPSInt
 
 			// Other sizes don't seem completely predictable.
 			if (sz != V_Quad) {
-				ERROR_LOG_REPORT_ONCE(vbfy2, Log::CPU, "vfby2 with incorrect size");
+				ERROR_LOG_ONCE(vbfy2, Log::CPU, "vfby2 with incorrect size");
 			}
 		} else {
 			// vbfy1
@@ -1311,7 +1311,7 @@ namespace MIPSInt
 			ApplyPrefixST(mips, t, VFPURewritePrefix(mips, VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), sz);
 
 			if (sz != V_Quad && sz != V_Pair) {
-				ERROR_LOG_REPORT_ONCE(vbfy2, Log::CPU, "vfby1 with incorrect size");
+				ERROR_LOG_ONCE(vbfy2, Log::CPU, "vfby1 with incorrect size");
 			}
 		}
 
@@ -2130,7 +2130,7 @@ namespace MIPSInt
 					d[i] = s[i];
 			}
 		} else {
-			ERROR_LOG_REPORT(Log::CPU, "Bad Imm3 in cmov: %d", imm3);
+			ERROR_LOG(Log::CPU, "Bad Imm3 in cmov: %d", imm3);
 		}
 		ApplyPrefixD(mips, d, sz);
 		WriteVector(mips, d, sz, vd);
@@ -2305,7 +2305,7 @@ namespace MIPSInt
 			break;
 
 		default:
-			ERROR_LOG_REPORT(Log::CPU, "vcrsp/vqmul with invalid elements");
+			ERROR_LOG(Log::CPU, "vcrsp/vqmul with invalid elements");
 			break;
 		}
 

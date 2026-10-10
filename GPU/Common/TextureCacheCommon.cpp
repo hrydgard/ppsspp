@@ -24,7 +24,7 @@
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Data/Collections/TinySet.h"
 #include "Common/Profiler/Profiler.h"
-#include "Common/LogReporting.h"
+#include "Common/LogOnce.h"
 #include "Common/MemoryUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/Math/SIMDHeaders.h"
@@ -126,11 +126,7 @@ void TextureCacheCommon::StartFrame() {
 	clutTextureCache_.Decimate();
 	replacementTimeThisFrame_ = 0.0;
 
-	float fps;
-	__DisplayGetFPS(nullptr, &fps, nullptr);
-	if (fps <= 5.0f) {
-		fps = 60.0f;
-	}
+	const float fps = (float)std::max(1, g_Config.iDisplayRefreshRate);
 
 	float baseValue = 0.5f;
 	switch (g_Config.iReplacementTextureLoadSpeed) {
@@ -151,7 +147,7 @@ void TextureCacheCommon::StartFrame() {
 	// Allow spending half a frame on uploading textures.
 	replacementFrameBudgetSeconds_ = baseValue / fps;
 
-	if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS) {
+	if (g_coreCollectDebugStats) {
 		gpuStats.perFrame.numReplacerTrackedTex = replacer_.GetNumTrackedTextures();
 		gpuStats.perFrame.numCachedReplacedTextures = replacer_.GetNumCachedReplacedTextures();
 	}
@@ -1012,7 +1008,7 @@ static bool GetBestFramebufferCandidate(FramebufferManagerCommon *fbManager, con
 		return true;
 	}
 
-	bool logging = Reporting::ShouldLogNTimes("multifbcandidate", 5);
+	bool logging = LocalLog::ShouldLogNTimes("multifbcandidate", 5);
 
 	// OK, multiple possible candidates. Will need to figure out which one is the most relevant.
 	int bestRelevancy = -1;
@@ -1902,7 +1898,7 @@ static TextureAlpha DecodeDXTBlocks(uint8_t *out, int outPitch, uint32_t texaddr
 	const uint32_t neededBlocks = SourceExtent(rowBlocks, blocksPerRow, blockRows);
 
 	if (!Memory::IsValidRange(texaddr, neededBlocks * sizeof(DXTBlock))) {
-		ERROR_LOG_REPORT(Log::TexCache, "DXT%d texture extends beyond valid RAM: %08x + %d x %d (w=%d)", n, texaddr, bufw, h, w);
+		ERROR_LOG(Log::TexCache, "DXT%d texture extends beyond valid RAM: %08x + %d x %d (w=%d)", n, texaddr, bufw, h, w);
 		const uint32_t limited = Memory::ClampValidSizeAt(texaddr, neededBlocks * sizeof(DXTBlock));
 		// Drop block rows until the last one's blocks fit too. This might land on 0, but try to
 		// decode what we can (might even be how the PSP behaves.)
@@ -2001,7 +1997,7 @@ TextureAlpha TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETex
 	bool swizzled = gstate.isTextureSwizzled();
 	if ((texaddr & 0x00600000) != 0 && Memory::IsVRAMAddress(texaddr)) {
 		// This means it's in a mirror, possibly a swizzled mirror.  Let's report.
-		WARN_LOG_REPORT_ONCE(texmirror, Log::TexCache, "Decoding texture from VRAM mirror at %08x swizzle=%d", texaddr, swizzled ? 1 : 0);
+		WARN_LOG_ONCE(texmirror, Log::TexCache, "Decoding texture from VRAM mirror at %08x swizzle=%d", texaddr, swizzled ? 1 : 0);
 		if ((texaddr & 0x00200000) == 0x00200000) {
 			// Technically 2 and 6 are slightly different, but this is better than nothing probably.
 			// We should only see this with depth textures anyway which we don't support uploading (yet).
@@ -2027,7 +2023,7 @@ TextureAlpha TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETex
 	const uint32_t rows = swizzled ? ((h + 7) & ~7) : h;
 	const uint32_t neededBytes = (bpp * SourceExtent(w, bufw, rows) + 7) / 8;
 	if (bytesPerRow > 0 && !isPPGE && !Memory::IsValidRange(texaddr, neededBytes)) {
-		ERROR_LOG_REPORT(Log::TexCache, "Texture extends beyond valid RAM: %08x + %d x %d (w=%d)", texaddr, bufw, h, w);
+		ERROR_LOG(Log::TexCache, "Texture extends beyond valid RAM: %08x + %d x %d (w=%d)", texaddr, bufw, h, w);
 		const uint32_t limited = Memory::ClampValidSizeAt(texaddr, neededBytes);
 		// Drop rows until the last one's w texels fit too, not just its bufw stride.
 		const uint32_t availableTexels = (limited * 8) / bpp;
@@ -2125,7 +2121,7 @@ TextureAlpha TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETex
 		break;
 
 		default:
-			ERROR_LOG_REPORT(Log::TexCache, "Unknown CLUT4 texture mode %d", gstate.getClutPaletteFormat());
+			ERROR_LOG(Log::TexCache, "Unknown CLUT4 texture mode %d", gstate.getClutPaletteFormat());
 			return TextureAlpha::Any;
 		}
 	}
@@ -2256,7 +2252,7 @@ TextureAlpha TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETex
 		return DecodeDXTBlocks<DXT5Block, 5>(out, outPitch, texaddr, texptr, w, h, bufw, reverseColors);
 
 	default:
-		ERROR_LOG_REPORT(Log::TexCache, "Unknown Texture Format %d!!!", format);
+		ERROR_LOG(Log::TexCache, "Unknown Texture Format %d!!!", format);
 		break;
 	}
 
@@ -2348,7 +2344,7 @@ TextureAlpha TextureCacheCommon::ReadIndexedTex(u8 *out, int outPitch, int w, in
 	break;
 
 	default:
-		ERROR_LOG_REPORT(Log::TexCache, "Unhandled clut texture mode %d!!!", gstate.getClutPaletteFormat());
+		ERROR_LOG(Log::TexCache, "Unhandled clut texture mode %d!!!", gstate.getClutPaletteFormat());
 		break;
 	}
 

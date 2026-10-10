@@ -24,7 +24,7 @@
 #endif
 
 #include "Common/CPUDetect.h"
-#include "Common/LogReporting.h"
+#include "Common/LogOnce.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/IR/IRInst.h"
 #include "Core/MIPS/IR/IRAnalysis.h"
@@ -816,7 +816,7 @@ ARM64Reg Arm64IRRegCache::R(IRReg mipsReg) {
 	if (mr[mipsReg].loc == MIPSLoc::REG || mr[mipsReg].loc == MIPSLoc::REG_IMM) {
 		return FromNativeReg(mr[mipsReg].nReg);
 	} else {
-		ERROR_LOG_REPORT(Log::JIT, "Reg %i not in arm64 reg", mipsReg);
+		ERROR_LOG(Log::JIT, "Reg %i not in arm64 reg", mipsReg);
 		return INVALID_REG;  // BAAAD
 	}
 }
@@ -840,7 +840,7 @@ ARM64Reg Arm64IRRegCache::RPtr(IRReg mipsReg) {
 			return INVALID_REG;
 		}
 	} else {
-		ERROR_LOG_REPORT(Log::JIT, "Reg %i not in arm64 reg", mipsReg);
+		ERROR_LOG(Log::JIT, "Reg %i not in arm64 reg", mipsReg);
 		return INVALID_REG;  // BAAAD
 	}
 }
@@ -851,7 +851,7 @@ ARM64Reg Arm64IRRegCache::F(IRReg mipsReg) {
 	if (mr[mipsReg + 32].loc == MIPSLoc::FREG) {
 		return FromNativeReg(mr[mipsReg + 32].nReg);
 	} else {
-		ERROR_LOG_REPORT(Log::JIT, "Reg %i not in arm64 reg", mipsReg);
+		ERROR_LOG(Log::JIT, "Reg %i not in arm64 reg", mipsReg);
 		return INVALID_REG;  // BAAAD
 	}
 }

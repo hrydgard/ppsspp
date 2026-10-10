@@ -9,7 +9,7 @@
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelHeap.h"
 #include "Core/HLE/sceKernelMemory.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/Util/BlockAllocator.h"
 
 static const u32 KERNEL_HEAP_BLOCK_HEADER_SIZE = 8;
@@ -142,7 +142,7 @@ static u32 sceKernelPartitionMaxFreeMemSize(int partitionId) {
 
 static u32 sceKernelGetUidmanCB()
 {
-	ERROR_LOG_REPORT(Log::sceKernel, "UNIMP sceKernelGetUidmanCB");
+	ERROR_LOG(Log::sceKernel, "UNIMP sceKernelGetUidmanCB");
 	return 0;
 }
 

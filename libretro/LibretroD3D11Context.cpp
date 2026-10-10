@@ -79,7 +79,7 @@ void LibretroD3D11Context::CreateDrawContext() {
    hwInterface_.device->QueryInterface(__uuidof(ID3D11Device1), (void **)&device1_);
    hwInterface_.context->QueryInterface(__uuidof(ID3D11DeviceContext1), (void **)&context1_);
 
-   draw_ = Draw::T3DCreateD3D11Context(hwInterface_.device, hwInterface_.context, device1_, context1_, nullptr, hwInterface_.featureLevel, nullptr, adapterNames, g_Config.iInflightFrames);
+   draw_ = Draw::T3DCreateD3D11Context(hwInterface_.device, hwInterface_.context, device1_, context1_, nullptr, hwInterface_.featureLevel, nullptr, adapterNames);
 }
 
 void LibretroD3D11Context::DestroyDrawContext() {

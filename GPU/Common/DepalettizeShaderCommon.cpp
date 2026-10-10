@@ -22,7 +22,7 @@
 
 #include "Common/StringUtils.h"
 #include "Common/Log.h"
-#include "Common/LogReporting.h"
+#include "Common/LogOnce.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/DepalettizeShaderCommon.h"
 #include "GPU/Common/Draw2D.h"
@@ -299,7 +299,7 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config) {
 	// index_multiplier -= 0.01f / texturePixels;
 
 	if (!formatOK) {
-		ERROR_LOG_REPORT_ONCE(depal, Log::G3D, "%s depal unsupported: shift=%d mask=%02x offset=%d", GeBufferFormatToString(config.bufferFormat), shift, mask, config.startPos);
+		ERROR_LOG_ONCE(depal, Log::G3D, "%s depal unsupported: shift=%d mask=%02x offset=%d", GeBufferFormatToString(config.bufferFormat), shift, mask, config.startPos);
 	}
 
 	// Offset by half a texel (plus clutBase) to turn NEAREST filtering into FLOOR.

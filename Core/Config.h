@@ -68,7 +68,6 @@ struct DisplayLayoutConfig : public ConfigBlock {
 	int iCardboardScreenSize = 50; // Screen Size (in %)
 	int iCardboardXShift = 0; // X-Shift of Screen (in %)
 	int iCardboardYShift = 0; // Y-Shift of Screen (in %)
-	bool bImmersiveMode = true;  // Mode on Android Kitkat 4.4 and later that hides the back button etc.
 
 	bool InternalRotationIsPortrait() const;
 	bool CanResetToDefault() const override { return true; }
@@ -168,20 +167,6 @@ public:
 	bool bEnableFileLogging;
 	int iLogOutputTypes;  // enum class LogOutput
 	int iDumpFileTypes;  // DumpFileType bitflag enum
-	bool bFullscreenOnDoubleclick;
-	bool bPauseOnLostFocus;
-
-	// These are Win UI only
-	bool bTopMost;
-	bool bIgnoreWindowsKey;
-	bool bRestartRequired;
-
-	bool bPauseWhenMinimized;
-
-	bool bPauseExitsEmulator;
-	bool bPauseMenuExitsEmulator;
-
-	bool bRunBehindPauseMenu;
 
 	// Core
 	bool bIgnoreBadMemAccess;
@@ -199,16 +184,11 @@ public:
 
 	bool bFastMemory;
 	int iCpuCore;
-	bool bCheckForNewVersion;
-	bool bWow64WarningDismissed;
 	bool bFuncReplacements;
-	bool bHideSlowWarnings;
-	bool bHideStateWarnings;
 	uint32_t uJitDisableFlags;
 
 	bool bDisableHTTPS;
 
-	bool bShrinkIfWindowSmall;
 	bool bSeparateSASThread;
 	int iIOTimingMethod;
 	int iLockedCPUSpeed;
@@ -237,7 +217,6 @@ public:
 
 	int iScreenRotation;  // Screen rotation lock. Only supported on Android and possibly other mobile platforms.
 
-	std::string sReportHost;
 	std::vector<std::string> vPinnedPaths;
 	std::string sLanguageIni;
 
@@ -255,15 +234,7 @@ public:
 	std::string sCameraDevice;
 	std::string sMicDevice;
 	bool bCameraMirrorHorizontal;
-	int iDisplayFramerateMode;  // enum DisplayFramerateMode. Android-only.
 	int iDisplayRefreshRate = 60;
-
-	// These two combined choose the presentation mode.
-	// vsync = false: Immediate
-	// vsync = true, low latency present = true: Mailbox
-	// vsync = true, low latency present = false: FIFO
-	bool bVSync;
-	bool bLowLatencyPresent;
 
 	bool bSoftwareRendering;
 	bool bSoftwareRenderingJit;
@@ -284,17 +255,8 @@ public:
 
 	bool bDisplayCropTo16x9;  // Crops to 16:9 if the resolution is very close.
 
-	bool bSustainedPerformanceMode;  // Android: Slows clocks down to avoid overheating/speed fluctuations.
-
-	bool bShowImDebugger;
-
 	int iFrameSkip;
-	bool bAutoFrameSkip;
 
-	int iWindowX;
-	int iWindowY;
-	int iWindowWidth;  // Windows and other windowed environments
-	int iWindowHeight;
 	int iWindowSizeState;  // WindowSizeState enum
 
 	bool bShowMenuBar;  // Windows-only
@@ -304,9 +266,6 @@ public:
 
 	bool bVertexDecoderJit;
 	int iAppSwitchMode;
-	bool bFullScreen;
-	bool bFullScreenMulti;
-	bool bAllowFullScreenExclusive;
 	int iInternalResolution;  // 0 = Auto (native), 1 = 1x (480x272), 2 = 2x, 3 = 3x, 4 = 4x and so on.
 	int iAnisotropyLevel;  // 0 - 5, powers of 2: 0 = 1x = no aniso
 	int iMultiSampleLevel;
@@ -319,9 +278,6 @@ public:
 	int iTexScalingType; // 0 = xBRZ, 1 = Hybrid
 	bool bTexDeposterize;
 	bool bTexHardwareScaling;
-	int iFpsLimit1;
-	int iFpsLimit2;
-	int iAnalogFpsLimit;
 	int iMaxRecent;
 	int iCurrentStateSlot;
 	int iRewindSnapshotInterval;
@@ -373,25 +329,15 @@ public:
 
 	// Sound
 	bool bEnableSound;
-	int iAudioBufferSize;
-	bool bFillAudioGaps;
-	int iAudioPlaybackMode;
 
 	// Legacy volume settings, 0-10. These get auto-upgraded and should not be used.
 	int iLegacyGameVolume;
 	int iLegacyReverbVolume;
-	int iLegacyAchievementVolume;
 
 	// Newer volume settings, 0-100
 	int iGameVolume;
 	int iReverbVolume;
-	int iUIVolume;
-	int iGamePreviewVolume;  // Volume for the game preview sound in the game grid.
-	int iAchievementVolume;
-	int iAltSpeedVolume;
 
-	std::string sAudioDevice;
-	bool bAutoSwitchAudioDevice;
 	bool bUseOldAtrac;
 
 	// UI
@@ -571,8 +517,6 @@ public:
 
 	int iPSPModel;
 	int iFirmwareVersion;
-	bool bBypassOSKWithKeyboard;
-
 
 	// Virtual reality
 	bool bEnableVR;
@@ -594,26 +538,8 @@ public:
 	float fHeadUpDisplayScale;
 
 	// Debugger
-	int iDisasmWindowX;
-	int iDisasmWindowY;
-	int iDisasmWindowW;
-	int iDisasmWindowH;
-	int iGEWindowX;
-	int iGEWindowY;
-	int iGEWindowW;
-	int iGEWindowH;
-	uint32_t uGETabsLeft;
-	uint32_t uGETabsRight;
-	uint32_t uGETabsTopRight;
-	int iConsoleWindowX;
-	int iConsoleWindowY;
-	int iFontWidth;
-	int iFontHeight;
-	bool bShowBottomTabTitles;
-	bool bShowDeveloperMenu;
 
 	// Double edged sword: much easier debugging, but not accurate.
-	bool bSkipDeadbeefFilling;
 
 	bool bFuncHashMap;
 	std::string sSkipFuncHashMap;
@@ -625,40 +551,6 @@ public:
 	// see SymbolMap::GetGameSymbolsPath and Load/SaveGameSymbolsIfEnabled in Core/System.cpp.
 	bool bAutoSaveLoadSymbols;
 
-	// Volatile development settings
-	// Overlays
-	int iDebugOverlay;
-
-	// Retro Achievement settings
-	// Copied from Duckstation, we might want to remove some.
-	bool bAchievementsEnable;
-	bool bAchievementsHardcoreMode;
-	bool bAchievementsEncoreMode;
-	bool bAchievementsUnofficial;
-	bool bAchievementsSoundEffects;
-	bool bAchievementsLogBadMemReads;
-	bool bAchievementsSaveStateInHardcoreMode;
-	bool bAchievementsEnableRAIntegration;
-
-	// Positioning of the various notifications
-	int iNotificationPos;
-	int iAchievementsLeaderboardTrackerPos;
-	int iAchievementsLeaderboardStartedOrFailedPos;
-	int iAchievementsLeaderboardSubmittedPos;
-	int iAchievementsProgressPos;
-	int iAchievementsChallengePos;
-	int iAchievementsUnlockedPos;
-
-	// Customizations
-	std::string sAchievementsUnlockAudioFile;
-	std::string sAchievementsLeaderboardSubmitAudioFile;
-
-	// Achivements login info. Note that password is NOT stored, only a login token.
-	// Still, we may wanna store it more securely than in PPSSPP.ini, especially on Android.
-	std::string sAchievementsUserName;
-	std::string sAchievementsToken;  // Not saved, to be used if you want to manually make your RA login persistent. See Native_SaveSecret for the normal case.
-	std::string sAchievementsHost;  // Optional custom host for debugging against alternate RA servers.
-
 	// Various directories. Autoconfigured, not read from ini.
 	Path currentDirectory;  // The directory selected in the game browsing window.
 	Path defaultCurrentDirectory;  // Platform dependent, initialized at startup.
@@ -669,11 +561,6 @@ public:
 	Path appCacheDirectory;
 
 	Path mountRoot;  // Actually, mount as host0. keeping consistent with headless args.
-
-	// Data for upgrade prompt
-	std::string sUpgradeMessage;  // The actual message from the server is currently not used, need a translation mechanism. So this just acts as a flag.
-	std::string sUpgradeVersion;
-	std::string sDismissedVersion;
 
 	void Load(const char *iniFileName = nullptr, const char *controllerIniFilename = nullptr);
 	bool Save(const char *saveReason);
@@ -697,20 +584,11 @@ public:
 
 	void UpdateIniLocation(const char *iniFileName = nullptr, const char *controllerIniFilename = nullptr);
 
-	bool SupportsUpgradeCheck() const;
-	void CheckForUpdate();
-	void VersionJsonDownloadCompleted(http::Request &download);
-	void DismissUpgrade();
-	bool ShowUpgradeReminder();
-
-	void GetReportingInfo(UrlEncoder &data) const;
-
 	int NextValidBackend();
 	bool IsBackendEnabled(GPUBackend backend);
 
 	bool LoadAppendedConfig();
 	void SetAppendedConfigIni(const Path &path) { appendedConfigFileName_ = path; }
-	void UpdateAfterSettingAutoFrameSkip();
 	void NotifyUpdatedCpuCore();
 
 	const DisplayLayoutConfig &GetDisplayLayoutConfig(DeviceOrientation orientation) const {

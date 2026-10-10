@@ -22,7 +22,7 @@
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
 #include "Core/Config.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 
 #include "GPU/ge_constants.h"
 #include "GPU/GPUState.h"
@@ -688,7 +688,7 @@ static bool SimulateLogicOpIfNeeded(BlendFactor &srcBlend, BlendFactor &dstBlend
 			return true;
 		case GE_LOGIC_AND:
 		case GE_LOGIC_AND_REVERSE:
-			WARN_LOG_REPORT_ONCE(d3dLogicOpAnd, Log::G3D, "Unsupported AND logic op: %x", gstate.getLogicOp());
+			WARN_LOG_ONCE(d3dLogicOpAnd, Log::G3D, "Unsupported AND logic op: %x", gstate.getLogicOp());
 			break;
 		case GE_LOGIC_COPY:
 			// This is the same as off.
@@ -701,13 +701,13 @@ static bool SimulateLogicOpIfNeeded(BlendFactor &srcBlend, BlendFactor &dstBlend
 		case GE_LOGIC_NAND:
 		case GE_LOGIC_EQUIV:
 			// Handled in the shader.
-			WARN_LOG_REPORT_ONCE(d3dLogicOpAndInverted, Log::G3D, "Attempted invert for logic op: %x", gstate.getLogicOp());
+			WARN_LOG_ONCE(d3dLogicOpAndInverted, Log::G3D, "Attempted invert for logic op: %x", gstate.getLogicOp());
 			break;
 		case GE_LOGIC_INVERTED:
 			srcBlend = BlendFactor::ONE;
 			dstBlend = BlendFactor::ONE;
 			blendEq = BlendEq::SUBTRACT;
-			WARN_LOG_REPORT_ONCE(d3dLogicOpInverted, Log::G3D, "Attempted inverse for logic op: %x", gstate.getLogicOp());
+			WARN_LOG_ONCE(d3dLogicOpInverted, Log::G3D, "Attempted inverse for logic op: %x", gstate.getLogicOp());
 			return true;
 		case GE_LOGIC_NOOP:
 			srcBlend = BlendFactor::ZERO;
@@ -715,7 +715,7 @@ static bool SimulateLogicOpIfNeeded(BlendFactor &srcBlend, BlendFactor &dstBlend
 			blendEq = BlendEq::ADD;
 			return true;
 		case GE_LOGIC_XOR:
-			WARN_LOG_REPORT_ONCE(d3dLogicOpOrXor, Log::G3D, "Unsupported XOR logic op: %x", gstate.getLogicOp());
+			WARN_LOG_ONCE(d3dLogicOpOrXor, Log::G3D, "Unsupported XOR logic op: %x", gstate.getLogicOp());
 			break;
 		case GE_LOGIC_OR:
 		case GE_LOGIC_OR_INVERTED:
@@ -723,16 +723,16 @@ static bool SimulateLogicOpIfNeeded(BlendFactor &srcBlend, BlendFactor &dstBlend
 			srcBlend = BlendFactor::ONE;
 			dstBlend = BlendFactor::ONE;
 			blendEq = BlendEq::ADD;
-			WARN_LOG_REPORT_ONCE(d3dLogicOpOr, Log::G3D, "Attempted or for logic op: %x", gstate.getLogicOp());
+			WARN_LOG_ONCE(d3dLogicOpOr, Log::G3D, "Attempted or for logic op: %x", gstate.getLogicOp());
 			return true;
 		case GE_LOGIC_OR_REVERSE:
-			WARN_LOG_REPORT_ONCE(d3dLogicOpOrReverse, Log::G3D, "Unsupported OR REVERSE logic op: %x", gstate.getLogicOp());
+			WARN_LOG_ONCE(d3dLogicOpOrReverse, Log::G3D, "Unsupported OR REVERSE logic op: %x", gstate.getLogicOp());
 			break;
 		case GE_LOGIC_SET:
 			srcBlend = BlendFactor::ONE;
 			dstBlend = BlendFactor::ONE;
 			blendEq = BlendEq::ADD;
-			WARN_LOG_REPORT_ONCE(d3dLogicOpSet, Log::G3D, "Attempted set for logic op: %x", gstate.getLogicOp());
+			WARN_LOG_ONCE(d3dLogicOpSet, Log::G3D, "Attempted set for logic op: %x", gstate.getLogicOp());
 			return true;
 		}
 	} else {

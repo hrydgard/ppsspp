@@ -35,7 +35,7 @@
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/PSPLoaders.h"
 #include "Core/CoreTiming.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/SaveState.h"
 #include "Core/System.h"
 #include "GPU/GPUCommon.h"
@@ -173,7 +173,7 @@ void __KernelInit()
 	__NpDrmInit();
 	
 	SaveState::Init();  // Must be after IO, as it may create a directory
-	Reporting::Init();
+	LocalLog::ResetCounts();
 
 	// "Internal" PSP libraries
 	__PPGeInit();
@@ -234,7 +234,6 @@ void __KernelShutdown()
 
 	CoreTiming::ClearPendingEvents();
 	CoreTiming::UnregisterAllEvents();
-	Reporting::Shutdown();
 	SaveState::Shutdown();
 
 	kernelRunning = false;
@@ -330,7 +329,12 @@ void __KernelDoState(PointerWrap &p)
 
 		__InterruptsDoStateLate(p);
 		__KernelThreadingDoStateLate(p);
-		Reporting::DoState(p);
+		// Legacy telemetry state, retained only to read existing savestates.
+		auto reporting = p.Section("Reporting", 0, 1);
+		if (reporting >= 1) {
+			bool unused = false;
+			Do(p, unused);
+		}
 	}
 }
 
@@ -530,7 +534,7 @@ SceUID KernelObjectPool::Create(KernelObject *obj, int rangeBottom, int rangeTop
 		}
 	}
 
-	ERROR_LOG_REPORT(Log::sceKernel, "Unable to allocate kernel object, too many objects slots in use.");
+	ERROR_LOG(Log::sceKernel, "Unable to allocate kernel object, too many objects slots in use.");
 	return 0;
 }
 

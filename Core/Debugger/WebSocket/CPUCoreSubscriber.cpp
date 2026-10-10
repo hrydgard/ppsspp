@@ -25,7 +25,7 @@
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 
 DebuggerSubscriber *WebSocketCPUCoreInit(DebuggerEventHandlerMap &map) {
 	// No need to bind or alloc state, these are all global.
@@ -404,7 +404,6 @@ void WebSocketCPUSetReg(DebuggerRequest &req) {
 			return;
 		}
 
-		Reporting::NotifyDebugger();
 
 		JsonWriter &json = req.Respond();
 		// Repeat it back just to avoid confusion on how it parsed.

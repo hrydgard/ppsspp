@@ -21,7 +21,7 @@
 #include "Common/BitScan.h"
 #include "Common/Math/SIMDHeaders.h"
 #include "Common/StringUtils.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
 
@@ -309,7 +309,7 @@ void WriteMatrix(MIPSState *mips, const float *rd, MatrixSize size, int reg) {
 	}
 
 	if (currentMIPS->VfpuWriteMask() != 0) {
-		ERROR_LOG_REPORT(Log::CPU, "Write mask used with vfpu matrix instruction.");
+		ERROR_LOG(Log::CPU, "Write mask used with vfpu matrix instruction.");
 	}
 
 	// The voffset ordering is now integrated in these formulas,

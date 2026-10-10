@@ -21,7 +21,7 @@
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"
 #include "Core/MemMapHelpers.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/System.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/HLE/HLE.h"
@@ -398,7 +398,7 @@ Psmf::Psmf(const u8 *ptr, u32 data) {
 			int type = PSMF_ATRAC_STREAM;
 			int privateStreamId = currentStreamAddr[1];
 			if ((privateStreamId & 0xF0) != 0) {
-				WARN_LOG_REPORT(Log::ME, "Unknown private stream type, assuming PCM: %02x", privateStreamId);
+				WARN_LOG(Log::ME, "Unknown private stream type, assuming PCM: %02x", privateStreamId);
 				type = PSMF_PCM_STREAM;
 			}
 			stream = new PsmfStream(type, privateStreamId & 0x0F);
@@ -767,7 +767,7 @@ static void DelayPsmfStateChange(u32 psmfPlayer, u32 newState, s64 delayUs) {
 static u32 scePsmfSetPsmf(u32 psmfStruct, u32 psmfData) {
 	if (!Memory::IsValidAddress(psmfStruct) || !Memory::IsValidAddress(psmfData)) {
 		// Crashes on a PSP.
-		return hleReportError(Log::ME, SCE_KERNEL_ERROR_ILLEGAL_ADDRESS, "bad address");
+		return hleLogError(Log::ME, SCE_KERNEL_ERROR_ILLEGAL_ADDRESS, "bad address");
 	}
 
 	Psmf *psmf = new Psmf(Memory::GetPointerOrException(psmfData), psmfData);
@@ -1128,24 +1128,24 @@ static int scePsmfPlayerCreate(u32 psmfPlayer, u32 dataPtr) {
 
 	if (!player.IsValid() || !data.IsValid()) {
 		// Crashes on a PSP.
-		return hleReportError(Log::ME, SCE_KERNEL_ERROR_ILLEGAL_ADDRESS, "bad pointers");
+		return hleLogError(Log::ME, SCE_KERNEL_ERROR_ILLEGAL_ADDRESS, "bad pointers");
 	}
 	if (!data->buffer.IsValid()) {
 		// Also crashes on a PSP.
 		*player = 0;
-		return hleReportError(Log::ME, SCE_KERNEL_ERROR_ILLEGAL_ADDRESS, "invalid buffer address %08x", data->buffer.ptr);
+		return hleLogError(Log::ME, SCE_KERNEL_ERROR_ILLEGAL_ADDRESS, "invalid buffer address %08x", data->buffer.ptr);
 	}
 	if (data->bufferSize < 0x00285800) {
 		*player = 0;
-		return hleReportError(Log::ME, SCE_PSMFPLAYER_ERROR_BUFFER_SIZE, "buffer too small %08x", data->bufferSize);
+		return hleLogError(Log::ME, SCE_PSMFPLAYER_ERROR_BUFFER_SIZE, "buffer too small %08x", data->bufferSize);
 	}
 	if (data->threadPriority < 0x10 || data->threadPriority >= 0x6E) {
 		*player = 0;
-		return hleReportError(Log::ME, SCE_PSMFPLAYER_ERROR_INVALID_PARAM, "bad thread priority %02x", data->threadPriority);
+		return hleLogError(Log::ME, SCE_PSMFPLAYER_ERROR_INVALID_PARAM, "bad thread priority %02x", data->threadPriority);
 	}
 	if (!psmfPlayerMap.empty()) {
 		*player = 0;
-		return hleReportError(Log::ME, SCE_MPEG_ERROR_ALREADY_INIT, "already have an active player");
+		return hleLogError(Log::ME, SCE_MPEG_ERROR_ALREADY_INIT, "already have an active player");
 	}
 
 	PsmfPlayer *psmfplayer = getPsmfPlayer(psmfPlayer);
@@ -1257,14 +1257,14 @@ static int _PsmfPlayerSetPsmfOffset(u32 psmfPlayer, const char *filename, int of
 	const u32 magic = *(u32_le *)buf;
 	if (magic != PSMF_MAGIC) {
 		// TODO: Let's keep trying as we were before.
-		ERROR_LOG_REPORT(Log::ME, "scePsmfPlayerSetPsmf*: incorrect PSMF magic (%08x), bad data", magic);
-		//return hleReportError(Log::ME, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "incorrect PSMF magic (%08x), bad data", magic);
+		ERROR_LOG(Log::ME, "scePsmfPlayerSetPsmf*: incorrect PSMF magic (%08x), bad data", magic);
+		//return hleLogError(Log::ME, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "incorrect PSMF magic (%08x), bad data", magic);
 	}
 
 	// TODO: Merge better with Psmf.
 	u16 numStreams = *(u16_be *)(buf + 0x80);
 	if (numStreams > 128) {
-		return hleDelayResult(hleReportError(Log::ME, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "too many streams in PSMF video, bogus data"), "psmfplayer set", delayUs);
+		return hleDelayResult(hleLogError(Log::ME, SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT, "too many streams in PSMF video, bogus data"), "psmfplayer set", delayUs);
 	}
 
 	psmfplayer->totalVideoStreams = 0;
@@ -1288,7 +1288,7 @@ static int _PsmfPlayerSetPsmfOffset(u32 psmfPlayer, const char *filename, int of
 		} else if ((streamId & PSMF_AUDIO_STREAM_ID) == PSMF_AUDIO_STREAM_ID) {
 			++psmfplayer->totalAudioStreams;
 		} else {
-			WARN_LOG_REPORT(Log::ME, "scePsmfPlayerSetPsmf*: unexpected streamID %x", streamId);
+			WARN_LOG(Log::ME, "scePsmfPlayerSetPsmf*: unexpected streamID %x", streamId);
 		}
 	}
 	// TODO: It seems like it's invalid if there's not at least 1 video stream.
@@ -1381,20 +1381,20 @@ static int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 
 	if (psmfplayer->totalAudioStreams > 0) {
 		if (playerData->audioCodec != 0x0F && playerData->audioCodec != 0x01) {
-			ERROR_LOG_REPORT(Log::ME, "scePsmfPlayerStart(%08x, %08x, %d): invalid audio codec %02x", psmfPlayer, psmfPlayerData, initPts, playerData->audioCodec);
+			ERROR_LOG(Log::ME, "scePsmfPlayerStart(%08x, %08x, %d): invalid audio codec %02x", psmfPlayer, psmfPlayerData, initPts, playerData->audioCodec);
 			return hleNoLog(SCE_PSMFPLAYER_ERROR_INVALID_STREAM);
 		}
 		if (playerData->audioStreamNum >= psmfplayer->totalAudioStreams) {
-			ERROR_LOG_REPORT(Log::ME, "scePsmfPlayerStart(%08x, %08x, %d): unable to change audio stream to %d", psmfPlayer, psmfPlayerData, initPts, playerData->audioStreamNum);
+			ERROR_LOG(Log::ME, "scePsmfPlayerStart(%08x, %08x, %d): unable to change audio stream to %d", psmfPlayer, psmfPlayerData, initPts, playerData->audioStreamNum);
 			return hleNoLog(SCE_PSMFPLAYER_ERROR_INVALID_CONFIG);
 		}
 	}
 	if (playerData->videoCodec != 0x0E && playerData->videoCodec != 0x00) {
-		ERROR_LOG_REPORT(Log::ME, "scePsmfPlayerStart(%08x, %08x, %d): invalid video codec %02x", psmfPlayer, psmfPlayerData, initPts, playerData->videoCodec);
+		ERROR_LOG(Log::ME, "scePsmfPlayerStart(%08x, %08x, %d): invalid video codec %02x", psmfPlayer, psmfPlayerData, initPts, playerData->videoCodec);
 		return hleNoLog(SCE_PSMFPLAYER_ERROR_INVALID_STREAM);
 	}
 	if (playerData->videoStreamNum < 0 || playerData->videoStreamNum >= psmfplayer->totalVideoStreams) {
-		ERROR_LOG_REPORT(Log::ME, "scePsmfPlayerStart(%08x, %08x, %d): unable to change video stream to %d", psmfPlayer, psmfPlayerData, initPts, playerData->videoStreamNum);
+		ERROR_LOG(Log::ME, "scePsmfPlayerStart(%08x, %08x, %d): unable to change video stream to %d", psmfPlayer, psmfPlayerData, initPts, playerData->videoStreamNum);
 		return hleNoLog(SCE_PSMFPLAYER_ERROR_INVALID_CONFIG);
 	}
 
@@ -1402,10 +1402,10 @@ static int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 	case PSMF_PLAYER_MODE_FORWARD:
 	case PSMF_PLAYER_MODE_REWIND:
 		if (psmfplayer->playerVersion == PSMF_PLAYER_VERSION_BASIC) {
-			WARN_LOG_REPORT(Log::ME, "scePsmfPlayerStart(%08x, %08x, %d): no EP data for FORWARD/REWIND", psmfPlayer, psmfPlayerData, initPts);
+			WARN_LOG(Log::ME, "scePsmfPlayerStart(%08x, %08x, %d): no EP data for FORWARD/REWIND", psmfPlayer, psmfPlayerData, initPts);
 			return SCE_PSMFPLAYER_ERROR_INVALID_PARAM;
 		}
-		WARN_LOG_REPORT(Log::ME, "scePsmfPlayerStart(%08x, %08x, %d): unsupported playMode", psmfPlayer, psmfPlayerData, initPts);
+		WARN_LOG(Log::ME, "scePsmfPlayerStart(%08x, %08x, %d): unsupported playMode", psmfPlayer, psmfPlayerData, initPts);
 		break;
 
 	case PSMF_PLAYER_MODE_PLAY:
@@ -1413,12 +1413,12 @@ static int scePsmfPlayerStart(u32 psmfPlayer, u32 psmfPlayerData, int initPts)
 		break;
 
 	default:
-		WARN_LOG_REPORT(Log::ME, "scePsmfPlayerStart(%08x, %08x, %d): unsupported playMode", psmfPlayer, psmfPlayerData, initPts);
+		WARN_LOG(Log::ME, "scePsmfPlayerStart(%08x, %08x, %d): unsupported playMode", psmfPlayer, psmfPlayerData, initPts);
 		break;
 	}
 
 	if (psmfplayer->playerVersion == PSMF_PLAYER_VERSION_BASIC && initPts != 0) {
-		return hleReportError(Log::ME, SCE_PSMFPLAYER_ERROR_INVALID_PARAM, "unable to seek without EPmap");
+		return hleLogError(Log::ME, SCE_PSMFPLAYER_ERROR_INVALID_PARAM, "unable to seek without EPmap");
 	}
 
 	psmfplayer->AbortFinish();
@@ -1798,10 +1798,10 @@ static int scePsmfPlayerSetTempBuf(u32 psmfPlayer, u32 tempBufAddr, u32 tempBufS
 		return hleLogError(Log::ME, SCE_PSMFPLAYER_ERROR_INVALID_STATUS);
 	}
 	if (psmfplayer->status != PSMF_PLAYER_STATUS_INIT) {
-		return hleReportError(Log::ME, SCE_PSMFPLAYER_ERROR_INVALID_STATUS, "invalid status %x", psmfplayer->status);
+		return hleLogError(Log::ME, SCE_PSMFPLAYER_ERROR_INVALID_STATUS, "invalid status %x", psmfplayer->status);
 	}
 	if (tempBufSize < 0x00010000) {
-		return hleReportError(Log::ME, SCE_PSMFPLAYER_ERROR_INVALID_PARAM, "buffer too small");
+		return hleLogError(Log::ME, SCE_PSMFPLAYER_ERROR_INVALID_PARAM, "buffer too small");
 	}
 
 	// fake it right now, use tempbuf from memory directly
@@ -1827,17 +1827,17 @@ static u32 scePsmfPlayerChangePlayMode(u32 psmfPlayer, int playMode, int playSpe
 	case PSMF_PLAYER_MODE_FORWARD:
 	case PSMF_PLAYER_MODE_REWIND:
 		if (psmfplayer->playerVersion == PSMF_PLAYER_VERSION_BASIC) {
-			ERROR_LOG_REPORT(Log::ME, "scePsmfPlayerChangePlayMode(%08x, %i, %i): no EP data for FORWARD/REWIND", psmfPlayer, playMode, playSpeed);
+			ERROR_LOG(Log::ME, "scePsmfPlayerChangePlayMode(%08x, %i, %i): no EP data for FORWARD/REWIND", psmfPlayer, playMode, playSpeed);
 			return SCE_PSMFPLAYER_ERROR_INVALID_STREAM;
 		}
 		psmfplayer->playSpeed = playSpeed;
-		WARN_LOG_REPORT(Log::ME, "scePsmfPlayerChangePlayMode(%08x, %i, %i): unsupported playMode", psmfPlayer, playMode, playSpeed);
+		WARN_LOG(Log::ME, "scePsmfPlayerChangePlayMode(%08x, %i, %i): unsupported playMode", psmfPlayer, playMode, playSpeed);
 		break;
 
 	case PSMF_PLAYER_MODE_PLAY:
 	case PSMF_PLAYER_MODE_PAUSE:
 		if (psmfplayer->playSpeed != playSpeed) {
-			WARN_LOG_REPORT(Log::ME, "scePsmfPlayerChangePlayMode(%08x, %i, %i): play speed not changed", psmfPlayer, playMode, playSpeed);
+			WARN_LOG(Log::ME, "scePsmfPlayerChangePlayMode(%08x, %i, %i): play speed not changed", psmfPlayer, playMode, playSpeed);
 		} else {
 			DEBUG_LOG(Log::ME, "scePsmfPlayerChangePlayMode(%08x, %i, %i)", psmfPlayer, playMode, playSpeed);
 		}
@@ -1845,9 +1845,9 @@ static u32 scePsmfPlayerChangePlayMode(u32 psmfPlayer, int playMode, int playSpe
 
 	default:
 		if (psmfplayer->playSpeed != playSpeed) {
-			WARN_LOG_REPORT(Log::ME, "scePsmfPlayerChangePlayMode(%08x, %i, %i): play speed not changed", psmfPlayer, playMode, playSpeed);
+			WARN_LOG(Log::ME, "scePsmfPlayerChangePlayMode(%08x, %i, %i): play speed not changed", psmfPlayer, playMode, playSpeed);
 		}
-		WARN_LOG_REPORT(Log::ME, "scePsmfPlayerChangePlayMode(%08x, %i, %i): unsupported playMode", psmfPlayer, playMode, playSpeed);
+		WARN_LOG(Log::ME, "scePsmfPlayerChangePlayMode(%08x, %i, %i): unsupported playMode", psmfPlayer, playMode, playSpeed);
 		break;
 	}
 
@@ -1870,10 +1870,10 @@ static u32 scePsmfPlayerSelectAudio(u32 psmfPlayer)
 		next = 0;
 
 	if (next == psmfplayer->audioStreamNum || !psmfplayer->mediaengine->setAudioStream(next)) {
-		return hleReportError(Log::ME, SCE_PSMFPLAYER_ERROR_INVALID_STREAM, "no stream to switch to");
+		return hleLogError(Log::ME, SCE_PSMFPLAYER_ERROR_INVALID_STREAM, "no stream to switch to");
 	}
 
-	WARN_LOG_REPORT(Log::ME, "scePsmfPlayerSelectAudio(%08x)", psmfPlayer);
+	WARN_LOG(Log::ME, "scePsmfPlayerSelectAudio(%08x)", psmfPlayer);
 	psmfplayer->audioStreamNum = next;
 	return 0;
 }
@@ -1893,10 +1893,10 @@ static u32 scePsmfPlayerSelectVideo(u32 psmfPlayer)
 		next = 0;
 
 	if (next == psmfplayer->videoStreamNum || !psmfplayer->mediaengine->setVideoStream(next)) {
-		return hleReportError(Log::ME, SCE_PSMFPLAYER_ERROR_INVALID_STREAM, "no stream to switch to");
+		return hleLogError(Log::ME, SCE_PSMFPLAYER_ERROR_INVALID_STREAM, "no stream to switch to");
 	}
 
-	WARN_LOG_REPORT(Log::ME, "scePsmfPlayerSelectVideo(%08x)", psmfPlayer);
+	WARN_LOG(Log::ME, "scePsmfPlayerSelectVideo(%08x)", psmfPlayer);
 	psmfplayer->videoStreamNum = next;
 	return 0;
 }
@@ -1911,16 +1911,16 @@ static u32 scePsmfPlayerSelectSpecificVideo(u32 psmfPlayer, int videoCodec, int 
 		return hleLogError(Log::ME, SCE_PSMFPLAYER_ERROR_INVALID_STATUS, "not playing");
 	}
 	if (psmfplayer->totalVideoStreams < 2) {
-		return hleReportError(Log::ME, SCE_PSMFPLAYER_ERROR_INVALID_STREAM, "unable to change stream");
+		return hleLogError(Log::ME, SCE_PSMFPLAYER_ERROR_INVALID_STREAM, "unable to change stream");
 	}
 	if (videoStreamNum < 0 || videoStreamNum >= psmfplayer->totalVideoStreams) {
-		return hleReportError(Log::ME, SCE_PSMFPLAYER_ERROR_INVALID_CONFIG, "bad stream num param");
+		return hleLogError(Log::ME, SCE_PSMFPLAYER_ERROR_INVALID_CONFIG, "bad stream num param");
 	}
 	if (videoCodec != 0x0E && videoCodec != 0x00) {
-		return hleReportError(Log::ME, SCE_PSMFPLAYER_ERROR_INVALID_STREAM, "invalid codec");
+		return hleLogError(Log::ME, SCE_PSMFPLAYER_ERROR_INVALID_STREAM, "invalid codec");
 	}
 	if (psmfplayer->totalVideoStreams < 2 || !psmfplayer->mediaengine->setVideoStream(videoStreamNum)) {
-		return hleReportError(Log::ME, SCE_PSMFPLAYER_ERROR_INVALID_STREAM, "unable to change stream");
+		return hleLogError(Log::ME, SCE_PSMFPLAYER_ERROR_INVALID_STREAM, "unable to change stream");
 	}
 
 	bool delay = false;
@@ -1947,16 +1947,16 @@ static u32 scePsmfPlayerSelectSpecificAudio(u32 psmfPlayer, int audioCodec, int 
 		return hleLogError(Log::ME, SCE_PSMFPLAYER_ERROR_INVALID_STATUS, "not playing");
 	}
 	if (psmfplayer->totalAudioStreams < 2) {
-		return hleReportError(Log::ME, SCE_PSMFPLAYER_ERROR_INVALID_STREAM, "unable to change stream");
+		return hleLogError(Log::ME, SCE_PSMFPLAYER_ERROR_INVALID_STREAM, "unable to change stream");
 	}
 	if (audioStreamNum < 0 || audioStreamNum >= psmfplayer->totalAudioStreams) {
-		return hleReportError(Log::ME, SCE_PSMFPLAYER_ERROR_INVALID_CONFIG, "bad stream num param");
+		return hleLogError(Log::ME, SCE_PSMFPLAYER_ERROR_INVALID_CONFIG, "bad stream num param");
 	}
 	if (audioCodec != 0x0F && audioCodec != 0x01) {
-		return hleReportError(Log::ME, SCE_PSMFPLAYER_ERROR_INVALID_STREAM, "invalid codec");
+		return hleLogError(Log::ME, SCE_PSMFPLAYER_ERROR_INVALID_STREAM, "invalid codec");
 	}
 	if (psmfplayer->totalAudioStreams < 2 || !psmfplayer->mediaengine->setAudioStream(audioStreamNum)) {
-		return hleReportError(Log::ME, SCE_PSMFPLAYER_ERROR_INVALID_STREAM, "unable to change stream");
+		return hleLogError(Log::ME, SCE_PSMFPLAYER_ERROR_INVALID_STREAM, "unable to change stream");
 	}
 
 	bool delay = false;
@@ -1983,13 +1983,13 @@ static u32 scePsmfPlayerConfigPlayer(u32 psmfPlayer, int configMode, int configA
 	switch (configMode) {
 	case PSMF_PLAYER_CONFIG_MODE_LOOP:
 		if (configAttr != 0 && configAttr != 1) {
-			return hleReportError(Log::ME, SCE_PSMFPLAYER_ERROR_INVALID_PARAM, "invalid value");
+			return hleLogError(Log::ME, SCE_PSMFPLAYER_ERROR_INVALID_PARAM, "invalid value");
 		}
 		videoLoopStatus = configAttr;
 		break;
 	case PSMF_PLAYER_CONFIG_MODE_PIXEL_TYPE:
 		if (configAttr < -1 || configAttr > 3) {
-			return hleReportError(Log::ME, SCE_PSMFPLAYER_ERROR_INVALID_PARAM, "invalid configAttr value");
+			return hleLogError(Log::ME, SCE_PSMFPLAYER_ERROR_INVALID_PARAM, "invalid configAttr value");
 		}
 		// Does -1 mean default or something?
 		if (configAttr != -1) {
@@ -2000,7 +2000,7 @@ static u32 scePsmfPlayerConfigPlayer(u32 psmfPlayer, int configMode, int configA
 		}
 		break;
 	default:
-		return hleReportError(Log::ME, SCE_PSMFPLAYER_ERROR_INVALID_CONFIG, "unknown parameter");
+		return hleLogError(Log::ME, SCE_PSMFPLAYER_ERROR_INVALID_CONFIG, "unknown parameter");
 	}
 
 	return hleLogDebug(Log::ME, 0);
@@ -2012,7 +2012,7 @@ static int __PsmfPlayerFinish(u32 psmfPlayer) {
 		return hleLogError(Log::ME, SCE_PSMFPLAYER_ERROR_INVALID_STATUS);
 	}
 	if (psmfplayer->status != PSMF_PLAYER_STATUS_PLAYING) {
-		return hleReportError(Log::ME, SCE_PSMFPLAYER_ERROR_INVALID_STATUS, "unexpected status %d", psmfplayer->status);
+		return hleLogError(Log::ME, SCE_PSMFPLAYER_ERROR_INVALID_STATUS, "unexpected status %d", psmfplayer->status);
 	}
 
 	psmfplayer->status = PSMF_PLAYER_STATUS_PLAYING_FINISHED;

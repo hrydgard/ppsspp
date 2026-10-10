@@ -17,10 +17,8 @@
 
 #pragma once
 
-#include <memory>
 #include <string_view>
 
-#include <retro_atomic.h>
 #include <string>
 
 #include "Core/Dialog/PSPDialog.h"
@@ -180,15 +178,6 @@ const OskKeyboardDisplay OskKeyboardCases[OSK_LANGUAGE_COUNT][2] =
 	{ OSK_KEYBOARD_LATIN_FW_LOWERCASE, OSK_KEYBOARD_LATIN_FW_UPPERCASE }
 };
 
-enum class PSPOskNativeStatus {
-	IDLE,
-	DONE,
-	WAITING,
-	SUCCESS,
-	FAILURE,
-	FILLING,
-};
-
 class PSPOskDialog: public PSPDialog {
 public:
 	PSPOskDialog(UtilityDialogType type);
@@ -209,7 +198,6 @@ private:
 	static void ConvertUCS2ToUTF8(std::string& _string, const PSPPointer<u16_le>& em_address);
 	static void ConvertUCS2ToUTF8(std::string& _string, const char16_t *input);
 	void RenderKeyboard();
-	int NativeKeyboard();
 
 	std::u16string CombinationString(bool isInput); // for Japanese, Korean
 	std::u16string CombinationKorean(bool isInput); // for Korea
@@ -229,28 +217,6 @@ private:
 	OskKeyboardDisplay currentKeyboard = OSK_KEYBOARD_LATIN_LOWERCASE;
 	OskKeyboardLanguage currentKeyboardLanguage = OSK_LANGUAGE_ENGLISH;
 	bool isCombinated = false;
-
-	// Shared with the native input box's callbacks, which can come after the dialog is gone and
-	// on another thread. A callback claims WAITING with a CAS (to FILLING), writes value, then
-	// publishes SUCCESS or FAILURE.
-	struct NativeInput {
-		retro_atomic_int_t status{ (int)PSPOskNativeStatus::IDLE };
-		std::string value;
-
-		PSPOskNativeStatus Status() {
-			return (PSPOskNativeStatus)retro_atomic_load_acquire_int(&status);
-		}
-		void SetStatus(PSPOskNativeStatus s) {
-			retro_atomic_store_release_int(&status, (int)s);
-		}
-		void Answer(PSPOskNativeStatus result, std::string_view v) {
-			if (retro_atomic_cas_int(&status, (int)PSPOskNativeStatus::WAITING, (int)PSPOskNativeStatus::FILLING)) {
-				value = v;
-				SetStatus(result);
-			}
-		}
-	};
-	std::shared_ptr<NativeInput> native_ = std::make_shared<NativeInput>();
 
 	int i_level = 0; // for Korean Keyboard support
 	int i_value[3]{}; // for Korean Keyboard support

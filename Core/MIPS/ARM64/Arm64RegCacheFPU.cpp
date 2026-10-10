@@ -22,7 +22,7 @@
 
 #include "Common/CPUDetect.h"
 #include "Common/Log.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/ARM64/Arm64RegCacheFPU.h"
 #include "Core/MIPS/ARM64/Arm64Jit.h"
@@ -329,7 +329,7 @@ Arm64Gen::ARM64Reg Arm64RegCacheFPU::ARM64RegForFlush(int r) {
 
 	case ML_ARMREG:
 		if (mr[r].reg == INVALID_REG) {
-			ERROR_LOG_REPORT(Log::JIT, "ARM64RegForFlush: MipsReg %d had bad ArmReg", r);
+			ERROR_LOG(Log::JIT, "ARM64RegForFlush: MipsReg %d had bad ArmReg", r);
 			return INVALID_REG;
 		}
 		// No need to flush if it's not dirty.
@@ -342,7 +342,7 @@ Arm64Gen::ARM64Reg Arm64RegCacheFPU::ARM64RegForFlush(int r) {
 		return INVALID_REG;
 
 	default:
-		ERROR_LOG_REPORT(Log::JIT, "ARM64RegForFlush: MipsReg %d with invalid location %d", r, mr[r].loc);
+		ERROR_LOG(Log::JIT, "ARM64RegForFlush: MipsReg %d with invalid location %d", r, mr[r].loc);
 		return INVALID_REG;
 	}
 }

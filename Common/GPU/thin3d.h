@@ -572,18 +572,6 @@ struct PipelineDesc {
 	const Slice<SamplerDef> samplers;
 };
 
-// Not normally used as a bitfield, but useful as a capability flag.
-enum class PresentMode {
-	FIFO = 1,
-	IMMEDIATE = 2,
-	MAILBOX = 4,
-};
-ENUM_CLASS_BITOPS(PresentMode);
-
-inline bool PresentationModeBlocks(PresentMode mode) {
-	return mode & PresentMode::FIFO;
-}
-
 struct DeviceCaps {
 	GPUVendor vendor;
 	uint32_t deviceID;  // use caution!
@@ -622,21 +610,14 @@ struct DeviceCaps {
 	bool multiViewSupported;
 	bool isTilingGPU;  // This means that it benefits from correct store-ops, msaa without backing memory, etc.
 	bool sampleRateShadingSupported;
-	bool setMaxFrameLatencySupported;
 	bool textureSwizzleSupported;
 	bool requiresHalfPixelOffset;
 	bool provokingVertexLast;  // GL behavior, what the PSP does
 	bool verySlowShaderCompiler;
-	bool fullScreenExclusiveSupported;
 	bool samplerLodControl;
 
 	// Old style, for older GL or Direct3D 9.
 	u32 clipPlanesSupported;
-
-	// Presentation caps (simplified). Note: Vulkan supports more, we handle that separately now.
-	int presentMaxInterval; // 1 on many backends
-	bool presentInstantModeChange;
-	PresentMode presentModesSupported;
 
 	u32 multiSampleLevelsMask;  // Bit n is set if (1 << n) is a valid multisample level. Bit 0 is always set.
 	std::string deviceName;  // The device name to use when creating the thin3d context, to get the same one.
@@ -748,7 +729,6 @@ public:
 	virtual std::vector<std::string> GetFeatureList() const { return std::vector<std::string>(); }
 	virtual std::vector<std::string> GetExtensionList(bool device, bool enabledOnly) const { return std::vector<std::string>(); }
 	virtual std::vector<std::string> GetDeviceList() const { return std::vector<std::string>(); }
-	virtual std::vector<std::string> GetPresentModeList(std::string_view currentMarkerString) const { return std::vector<std::string>(); }
 	virtual std::vector<std::string> GetSurfaceFormatList() const { return std::vector<std::string>(); }
 
 	virtual BackendState GetCurrentBackendState() const {
@@ -883,9 +863,8 @@ public:
 	virtual void BeginFrame(DebugFlags debugFlags) = 0;
 	virtual void EndFrame() = 0;
 
-	// Some backends also can't change presentation mode immediately.
-	virtual void Present(PresentMode presentMode) = 0;
-	virtual PresentMode GetCurrentPresentMode() const = 0;
+	// Submit the completed frame. Display pacing belongs to the host.
+	virtual void Present() = 0;
 
 	// This should be avoided as much as possible, in favor of clearing when binding a render target, which is native
 	// on Vulkan.
@@ -968,7 +947,5 @@ struct ShaderSource {
 };
 
 ShaderModule *CreateShader(DrawContext *draw, ShaderStage stage, const std::vector<ShaderSource> &sources);
-
-const char *PresentModeToString(PresentMode presentMode);
 
 }  // namespace Draw

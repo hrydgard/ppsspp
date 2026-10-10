@@ -2772,15 +2772,12 @@ bool TestCmdLine() {
 	{
 		const char *argv[] = {
 			"ppsspp",
-			"--fullscreen",
 			"--graphics=d3d11",
-			"--pause-menu-exit",
 			"My_Game.iso"
 		};
 		int argc = ARRAY_SIZE(argv);
 		CommandLineOptions options;
 		options.Parse(argc, argv, CmdLineMode::Application);
-		EXPECT_TRUE(options.fullscreen.value_or(false));
 		if (options.bootFilenames.empty()) {
 			EXPECT_TRUE(false);
 			return false;
@@ -2788,7 +2785,6 @@ bool TestCmdLine() {
 		EXPECT_EQ_STR(options.bootFilenames[0], std::string("My_Game.iso"));
 		EXPECT_TRUE(options.gpuBackend.has_value());
 		EXPECT_EQ_INT((int)options.gpuBackend.value_or((GPUBackend)-1), (int)GPUBackend::DIRECT3D11);
-		EXPECT_TRUE(options.pauseMenuExit.value_or(false));
 	}
 	// The timeouts are headless-only (only headless/Headless.cpp reads them), so they must be
 	// parsed in Headless mode. --timeout is the old name for --timeout-wall and sets the same

@@ -29,7 +29,7 @@
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMapHelpers.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/System.h"
 #include "Core/WaveFile.h"
 #include "Core/ELF/ParamSFO.h"
@@ -485,7 +485,7 @@ void __AudioWakeThreads(AudioSRCChannel &chan, int result) {
 
 void __AudioSetOutputFrequency(int freq) {
 	if (freq != 44100) {
-		WARN_LOG_REPORT(Log::sceAudio, "Switching audio frequency to %i", freq);
+		WARN_LOG(Log::sceAudio, "Switching audio frequency to %i", freq);
 	} else {
 		DEBUG_LOG(Log::sceAudio, "Switching audio frequency to %i", freq);
 	}
@@ -617,9 +617,7 @@ static bool __AudioMixSRC(AudioSRCChannel &chan) {
 
 // Mix samples from the various audio channels into a single sample queue, managed by the backend implementation.
 void __AudioUpdate(bool resetRecording) {
-	// AUDIO throttle doesn't really work on the PSP since the mixing intervals are so closely tied
-	// to the CPU. Much better to throttle the frame rate on frame display and just throw away audio
-	// if the buffer somehow gets full.
+	// Mix each hardware block on the emulated audio timeline. The host owns playback pacing.
 	memset(mixBuffer, 0, hwBlockSize * 2 * sizeof(s32));
 
 	audioMixing = true;
@@ -639,12 +637,6 @@ void __AudioUpdate(bool resetRecording) {
 
 	if (g_Config.bEnableSound) {
 		float multiplier = Volume100ToMultiplier(std::clamp(g_Config.iGameVolume, 0, VOLUMEHI_FULL));
-		if (PSP_CoreParameter().fpsLimit != FPSLimit::NORMAL || PSP_CoreParameter().fastForward) {
-			if (g_Config.iAltSpeedVolume != -1) {
-				// Multiply in the alt speed volume instead of replacing like before.
-				multiplier *= Volume100ToMultiplier(g_Config.iAltSpeedVolume);
-			}
-		}
 
 		System_AudioPushSamples(mixBuffer, hwBlockSize, multiplier);
 

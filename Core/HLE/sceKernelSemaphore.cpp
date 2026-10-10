@@ -24,7 +24,7 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMapHelpers.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelSemaphore.h"
@@ -107,7 +107,7 @@ void __KernelSemaBeginCallback(SceUID threadID, SceUID prevCallbackId)
 	if (result == HLEKernel::WAIT_CB_SUCCESS)
 		DEBUG_LOG(Log::sceKernel, "sceKernelWaitSemaCB: Suspending sema wait for callback");
 	else
-		WARN_LOG_REPORT(Log::sceKernel, "sceKernelWaitSemaCB: beginning callback with bad wait id?");
+		WARN_LOG(Log::sceKernel, "sceKernelWaitSemaCB: beginning callback with bad wait id?");
 }
 
 void __KernelSemaEndCallback(SceUID threadID, SceUID prevCallbackId)
@@ -170,7 +170,7 @@ int sceKernelCreateSema(const char* name, u32 attr, int initVal, int maxVal, u32
 	s->ns.numWaitThreads = 0;
 
 	if ((attr & ~PSP_SEMA_ATTR_PRIORITY) != 0) {
-		WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateSema(%s) unsupported attr parameter: %08x", name, attr);
+		WARN_LOG(Log::sceKernel, "sceKernelCreateSema(%s) unsupported attr parameter: %08x", name, attr);
 	}
 
 	// Many games pass garbage into optionPtr, it doesn't have any options.

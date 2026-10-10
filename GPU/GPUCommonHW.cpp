@@ -413,7 +413,6 @@ void GPUCommonHW::CheckConfigChanged(const DisplayLayoutConfig &config) {
 		drawEngineCommon_->NotifyConfigChanged();
 		textureCache_->NotifyConfigChanged();
 		framebufferManager_->NotifyConfigChanged();
-		BuildReportingInfo();
 		configChanged_ = false;
 	}
 }
@@ -455,7 +454,6 @@ void GPUCommonHW::DeviceRestore(Draw::DrawContext *draw) {
 	PPGeSetDrawContext(draw_);
 
 	gstate_c.SetUseFlags(CheckGPUFeatures());
-	BuildReportingInfo();
 	UpdateCmdInfo();
 }
 
@@ -539,12 +537,6 @@ void GPUCommonHW::ClearCacheNextFrame() {
 }
 
 // Needs to be called on GPU thread, not reporting thread.
-void GPUCommonHW::BuildReportingInfo() {
-	using namespace Draw;
-
-	reportingPrimaryInfo_ = draw_->GetInfoString(InfoField::VENDORSTRING);
-	reportingFullInfo_ = reportingPrimaryInfo_ + " - " + System_GetProperty(SYSPROP_GPUDRIVER_VERSION) + " - " + draw_->GetInfoString(InfoField::SHADELANGVERSION);
-}
 
 u32 GPUCommonHW::CheckGPUFeatures() const {
 	u32 features = 0;
@@ -1285,7 +1277,7 @@ void GPUCommonHW::Execute_Bezier(u32 op, u32 diff) {
 	}
 
 	if (vertTypeIsSkinningEnabled(vertType)) {
-		DEBUG_LOG_REPORT(Log::G3D, "Unusual bezier/spline vtype: %08x, morph: %d, bones: %d", vertType, (vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT, vertTypeGetNumBoneWeights(vertType));
+		DEBUG_LOG(Log::G3D, "Unusual bezier/spline vtype: %08x, morph: %d, bones: %d", vertType, (vertType & GE_VTYPE_MORPHCOUNT_MASK) >> GE_VTYPE_MORPHCOUNT_SHIFT, vertTypeGetNumBoneWeights(vertType));
 	}
 
 	// Can't flush after setting gstate_c.submitType below since it'll be a mess - it must be done already.

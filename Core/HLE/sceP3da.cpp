@@ -19,7 +19,7 @@
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceP3da.h"
 #include "Core/MemMap.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 
 static u32 sceP3daBridgeInit(u32 channelsNum, u32 samplesNum) {
 	WARN_LOG(Log::sceAudio, "UNIMPL sceP3daBridgeInit(%08x, %08x)", channelsNum, samplesNum);

@@ -19,7 +19,7 @@
 #include <unordered_map>
 #include "Common/Common.h"
 #include "Common/Data/Convert/ColorConv.h"
-#include "Common/LogReporting.h"
+#include "Common/LogOnce.h"
 #include "Common/Math/SIMDHeaders.h"
 #include "Core/Config.h"
 #include "GPU/Common/TextureDecoder.h"
@@ -311,7 +311,7 @@ static inline u32 LookupColor(unsigned int index, unsigned int level, const Samp
 		return samplerID.cached.clut32[index + clutSharingOffset];
 
 	default:
-		ERROR_LOG_REPORT(Log::G3D, "Software: Unsupported palette format: %x", samplerID.ClutFmt());
+		ERROR_LOG(Log::G3D, "Software: Unsupported palette format: %x", samplerID.ClutFmt());
 		return 0;
 	}
 }
@@ -430,7 +430,7 @@ inline static Nearest4 SOFTRAST_CALL SampleNearest(const int u[N], const int v[N
 		return res;
 
 	default:
-		ERROR_LOG_REPORT(Log::G3D, "Software: Unsupported texture format: %x", samplerID.TexFmt());
+		ERROR_LOG(Log::G3D, "Software: Unsupported texture format: %x", samplerID.TexFmt());
 		memset(res.v, 0, sizeof(res.v));
 		return res;
 	}

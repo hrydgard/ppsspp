@@ -23,7 +23,7 @@
 
 #include "Core/Config.h"
 #include "Core/Core.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/HLETables.h"
 #include "Core/MemMap.h"
@@ -155,7 +155,7 @@ CCFlags Jit::FlipCCFlag(CCFlags flag)
 	case CC_LE: return CC_NLE;
 	case CC_NLE: return CC_LE;
 	}
-	ERROR_LOG_REPORT(Log::JIT, "FlipCCFlag: Unexpected CC flag: %d", flag);
+	ERROR_LOG(Log::JIT, "FlipCCFlag: Unexpected CC flag: %d", flag);
 	return CC_O;
 }
 
@@ -181,7 +181,7 @@ CCFlags Jit::SwapCCFlag(CCFlags flag)
 	case CC_LE: return CC_GE;
 	case CC_NLE: return CC_NGE;
 	}
-	ERROR_LOG_REPORT(Log::JIT, "SwapCCFlag: Unexpected CC flag: %d", flag);
+	ERROR_LOG(Log::JIT, "SwapCCFlag: Unexpected CC flag: %d", flag);
 	return CC_O;
 }
 
@@ -269,7 +269,7 @@ void Jit::BranchRSRTComp(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 {
 	CONDITIONAL_LOG;
 	if (js.inDelaySlot) {
-		ERROR_LOG_REPORT(Log::JIT, "Branch in RSRTComp delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
+		ERROR_LOG(Log::JIT, "Branch in RSRTComp delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
 		return;
 	}
 	int offset = TARGET16;
@@ -328,7 +328,7 @@ void Jit::BranchRSZeroComp(MIPSOpcode op, Gen::CCFlags cc, bool andLink, bool li
 {
 	CONDITIONAL_LOG;
 	if (js.inDelaySlot) {
-		ERROR_LOG_REPORT(Log::JIT, "Branch in RSZeroComp delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
+		ERROR_LOG(Log::JIT, "Branch in RSZeroComp delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
 		return;
 	}
 	int offset = TARGET16;
@@ -423,7 +423,7 @@ void Jit::BranchFPFlag(MIPSOpcode op, Gen::CCFlags cc, bool likely)
 {
 	CONDITIONAL_LOG;
 	if (js.inDelaySlot) {
-		ERROR_LOG_REPORT(Log::JIT, "Branch in FPFlag delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
+		ERROR_LOG(Log::JIT, "Branch in FPFlag delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
 		return;
 	}
 	int offset = TARGET16;
@@ -515,7 +515,7 @@ static void HitInvalidJump(uint32_t dest) {
 void Jit::Comp_Jump(MIPSOpcode op) {
 	CONDITIONAL_LOG;
 	if (js.inDelaySlot) {
-		ERROR_LOG_REPORT(Log::JIT, "Branch in Jump delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
+		ERROR_LOG(Log::JIT, "Branch in Jump delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
 		return;
 	}
 	u32 off = TARGET26;
@@ -565,7 +565,7 @@ void Jit::Comp_Jump(MIPSOpcode op) {
 void Jit::Comp_JumpReg(MIPSOpcode op) {
 	CONDITIONAL_LOG;
 	if (js.inDelaySlot) {
-		ERROR_LOG_REPORT(Log::JIT, "Branch in JumpReg delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
+		ERROR_LOG(Log::JIT, "Branch in JumpReg delay slot at %08x in block starting at %08x", GetCompilerPC(), js.blockStart);
 		return;
 	}
 	MIPSGPReg rs = _RS;
@@ -649,7 +649,6 @@ void Jit::Comp_Syscall(MIPSOpcode op)
 		WARN_LOG(Log::JIT, "Encountered bad syscall instruction at %08x (%08x)", js.compilerPC, op.encoding);
 	}
 
-	if (!g_Config.bSkipDeadbeefFilling)
 	{
 		// All of these will be overwritten with DEADBEEF anyway.
 		gpr.DiscardR(MIPS_REG_COMPILER_SCRATCH);

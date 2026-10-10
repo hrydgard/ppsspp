@@ -18,7 +18,7 @@
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Log.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/System.h"
 #include "Core/HLE/HLE.h"
@@ -290,7 +290,7 @@ void Atrac::CalculateStreamInfo(u32 *outReadOffset) {
 
 		// If you don't think this should be here, remove it.  It's just a temporary safety check.
 		if (first_.offset + first_.writableBytes > bufferMaxSize_) {
-			ERROR_LOG_REPORT(Log::Atrac, "Somehow calculated too many writable bytes: %d + %d > %d", first_.offset, first_.writableBytes, bufferMaxSize_);
+			ERROR_LOG(Log::Atrac, "Somehow calculated too many writable bytes: %d + %d > %d", first_.offset, first_.writableBytes, bufferMaxSize_);
 			first_.offset = 0;
 			first_.writableBytes = bufferMaxSize_;
 		}

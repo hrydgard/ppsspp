@@ -13,7 +13,7 @@
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/GPU/Vulkan/VulkanRenderManager.h"
 
-#include "Common/LogReporting.h"
+#include "Common/LogOnce.h"
 #include "Common/Thread/ThreadUtil.h"
 #include "Common/Thread/Thread.h"
 
@@ -319,10 +319,7 @@ VulkanRenderManager::VulkanRenderManager(VulkanContext *vulkan, bool useThread, 
 {
 	inflightFramesAtStart_ = vulkan_->GetInflightFrames();
 
-	// For present timing experiments. Disabled for now.
-	measurePresentTime_ = false;
-
-	frameDataShared_.Init(vulkan, useThread, measurePresentTime_);
+	frameDataShared_.Init(vulkan, useThread);
 
 	for (int i = 0; i < inflightFramesAtStart_; i++) {
 		frameData_[i].Init(vulkan, i);
@@ -823,7 +820,7 @@ void VulkanRenderManager::ReportBadStateForDraw() {
 		std::string str = VulkanQueueRunner::StepToString(vulkan_, *curRenderStep_);
 		truncate_cpy(cause2, str);
 	}
-	ERROR_LOG_REPORT_ONCE(baddraw, Log::G3D, "Can't draw: %s%s. Step count: %d", cause1, cause2, (int)steps_.size());
+	ERROR_LOG_ONCE(baddraw, Log::G3D, "Can't draw: %s%s. Step count: %d", cause1, cause2, (int)steps_.size());
 }
 
 int VulkanRenderManager::WaitForPipelines() {

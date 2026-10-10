@@ -2,7 +2,7 @@
 
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Core/HW/MpegDemux.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 
 const int PACKET_START_CODE_MASK   = 0xffffff00;
 const int PACKET_START_CODE_PREFIX = 0x00000100;
@@ -286,7 +286,7 @@ bool MpegDemux::demux(int audioChannel)
 			// User data, probably same as queried by sceMpegGetUserdataAu.
 			// Not sure what exactly to do or how much to read.
 			// TODO: implement properly.
-			WARN_LOG_REPORT_ONCE(mpeguserdata, Log::ME, "MPEG user data found");
+			WARN_LOG_ONCE(mpeguserdata, Log::ME, "MPEG user data found");
 			looksValid = true;
 			break;
 		}

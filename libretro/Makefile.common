@@ -83,36 +83,6 @@ SOURCES_C += \
 	$(EXTDIR)/lua/lvm.c \
 	$(EXTDIR)/lua/lzio.c
 
-INCFLAGS += -I$(EXTDIR)/rcheevos/include
-
-# TODO: might be able to re-enable?
-COREFLAGS += -DRC_DISABLE_LUA
-
-SOURCES_C += \
-	$(EXTDIR)/rcheevos/src/rapi/rc_api_common.c \
-	$(EXTDIR)/rcheevos/src/rapi/rc_api_editor.c \
-	$(EXTDIR)/rcheevos/src/rapi/rc_api_info.c \
-	$(EXTDIR)/rcheevos/src/rapi/rc_api_runtime.c \
-	$(EXTDIR)/rcheevos/src/rapi/rc_api_user.c \
-	$(EXTDIR)/rcheevos/src/rcheevos/alloc.c \
-	$(EXTDIR)/rcheevos/src/rcheevos/condition.c \
-	$(EXTDIR)/rcheevos/src/rcheevos/condset.c \
-	$(EXTDIR)/rcheevos/src/rcheevos/consoleinfo.c \
-	$(EXTDIR)/rcheevos/src/rcheevos/format.c \
-	$(EXTDIR)/rcheevos/src/rcheevos/lboard.c \
-	$(EXTDIR)/rcheevos/src/rcheevos/memref.c \
-	$(EXTDIR)/rcheevos/src/rcheevos/operand.c \
-	$(EXTDIR)/rcheevos/src/rc_client.c \
-	$(EXTDIR)/rcheevos/src/rc_util.c \
-	$(EXTDIR)/rcheevos/src/rc_compat.c \
-	$(EXTDIR)/rcheevos/src/rcheevos/rc_validate.c \
-	$(EXTDIR)/rcheevos/src/rcheevos/richpresence.c \
-	$(EXTDIR)/rcheevos/src/rcheevos/runtime.c \
-	$(EXTDIR)/rcheevos/src/rcheevos/runtime_progress.c \
-	$(EXTDIR)/rcheevos/src/rcheevos/trigger.c \
-	$(EXTDIR)/rcheevos/src/rcheevos/value.c \
-	$(EXTDIR)/rcheevos/src/rhash/md5.c
-
 COREFLAGS += -DSTACK_LINE_READER_BUFFER_SIZE=1024
 COREFLAGS += -DHTTPS_NOT_AVAILABLE
 
@@ -342,7 +312,7 @@ SOURCES_CXX += \
 	$(COMMONDIR)/OSVersion.cpp \
 	$(COMMONDIR)/MemoryUtil.cpp \
 	$(COMMONDIR)/RiscVCPUDetect.cpp \
-	$(COMMONDIR)/LogReporting.cpp \
+	$(COMMONDIR)/LogOnce.cpp \
 	$(COMMONDIR)/SysError.cpp \
 	$(COMMONDIR)/StringUtils.cpp \
 	$(COMMONDIR)/TimeUtil.cpp
@@ -663,7 +633,6 @@ SOURCES_CXX += \
 	       $(COREDIR)/HW/SasAudio.cpp \
 	       $(COREDIR)/HW/SasReverb.cpp \
 	       $(COREDIR)/Compatibility.cpp \
-	       $(COREDIR)/FrameTiming.cpp \
 	       $(COREDIR)/Loaders.cpp \
 	       $(COREDIR)/MIPS/JitCommon/JitCommon.cpp \
 	       $(COREDIR)/MIPS/JitCommon/JitState.cpp \
@@ -699,8 +668,6 @@ SOURCES_CXX += \
 	       $(COREDIR)/MemMapFunctions.cpp \
 	       $(COREDIR)/PSPLoaders.cpp \
 	       $(COREDIR)/Replay.cpp \
-	       $(COREDIR)/Reporting.cpp \
-	       $(COREDIR)/RetroAchievements.cpp \
 	       $(COREDIR)/SaveState.cpp \
 	       $(COREDIR)/SaveStateRewind.cpp \
 	       $(COREDIR)/Screenshot.cpp \

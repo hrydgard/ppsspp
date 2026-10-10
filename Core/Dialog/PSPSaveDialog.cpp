@@ -35,7 +35,7 @@
 #include "Core/HW/MemoryStick.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Config.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/SaveState.h"
 
 void ShowSaveLoadIndicator(bool save) {
@@ -94,7 +94,7 @@ PSPSaveDialog::~PSPSaveDialog() {
 int PSPSaveDialog::Init(int paramAddr) {
 	// Ignore if already running
 	if (GetStatus() != SCE_UTILITY_STATUS_NONE) {
-		ERROR_LOG_REPORT(Log::sceUtility, "A save request is already running, not starting a new one");
+		ERROR_LOG(Log::sceUtility, "A save request is already running, not starting a new one");
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 
@@ -122,7 +122,7 @@ int PSPSaveDialog::Init(int paramAddr) {
 	if (HasPathTraversal(StringViewFromFixedSizeField(request.gameName)) ||
 		HasPathTraversal(StringViewFromFixedSizeField(request.saveName)) ||
 		HasPathTraversal(StringViewFromFixedSizeField(request.fileName))) {
-		ERROR_LOG_REPORT(Log::sceUtility, "sceUtilitySavedataInitStart: path separator in name fields");
+		ERROR_LOG(Log::sceUtility, "sceUtilitySavedataInitStart: path separator in name fields");
 		return SCE_ERROR_UTILITY_INVALID_PARAM_SIZE;
 	}
 
@@ -265,7 +265,7 @@ int PSPSaveDialog::Init(int paramAddr) {
 			break;
 		default:
 		{
-			ERROR_LOG_REPORT(Log::sceUtility, "Load/Save function %d not coded. Title: %s Save: %s File: %s", (SceUtilitySavedataType)(u32)param.GetPspParam()->mode, param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
+			ERROR_LOG(Log::sceUtility, "Load/Save function %d not coded. Title: %s Save: %s File: %s", (SceUtilitySavedataType)(u32)param.GetPspParam()->mode, param.GetGameName(param.GetPspParam()).c_str(), param.GetGameName(param.GetPspParam()).c_str(), param.GetFileName(param.GetPspParam()).c_str());
 			param.GetPspParam()->common.result = 0;
 			ChangeStatusInit(SAVEDATA_INIT_DELAY_US);
 			display = DS_NONE;
@@ -1166,7 +1166,7 @@ void PSPSaveDialog::ExecuteNotVisibleIOAction() {
 
 void PSPSaveDialog::StartIO() {
 	if (ioStatus_ == SAVEIO_READY) {
-		WARN_LOG_REPORT(Log::sceUtility, "Starting save io while the last results weren't taken, uh oh.");
+		WARN_LOG(Log::sceUtility, "Starting save io while the last results weren't taken, uh oh.");
 	}
 
 	// Show save indicator. It's strange how "display" is just as much an action as what to display.

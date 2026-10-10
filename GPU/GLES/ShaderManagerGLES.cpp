@@ -27,7 +27,7 @@
 #include "Common/Data/Text/I18n.h"
 #include "Common/GPU/OpenGL/GLDebugLog.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
-#include "Common/LogReporting.h"
+#include "Common/LogOnce.h"
 #include "Common/Math/math_util.h"
 #include "Common/Math/lin/matrix4x4.h"
 #include "Common/Profiler/Profiler.h"
@@ -630,7 +630,7 @@ Shader *ShaderManagerGLES::CompileFragmentShader(FShaderID FSID) {
 	std::string errorString;
 	FragmentShaderFlags flags;
 	if (!GenerateFragmentShader(FSID, codeBuffer_, draw_->GetShaderLanguageDesc(), draw_->GetBugs(), &uniformMask, &flags, &errorString)) {
-		ERROR_LOG_REPORT(Log::G3D, "FS shader gen error: %s (%s: %s)", errorString.c_str(), "GLES", FSID.ToDebugString().c_str());
+		ERROR_LOG(Log::G3D, "FS shader gen error: %s (%s: %s)", errorString.c_str(), "GLES", FSID.ToDebugString().c_str());
 		return nullptr;
 	}
 	_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "FS length error: %d", (int)strlen(codeBuffer_));
@@ -648,7 +648,7 @@ Shader *ShaderManagerGLES::CompileVertexShader(VShaderID VSID) {
 	std::string errorString;
 	VertexShaderFlags flags;
 	if (!GenerateVertexShader(VSID, codeBuffer_, draw_->GetShaderLanguageDesc(), draw_->GetBugs(), &attrMask, &uniformMask, &flags, &errorString)) {
-		ERROR_LOG_REPORT(Log::G3D, "VS shader gen error: %s (%s: %s)", errorString.c_str(), "GLES", VSID.ToDebugString().c_str());
+		ERROR_LOG(Log::G3D, "VS shader gen error: %s (%s: %s)", errorString.c_str(), "GLES", VSID.ToDebugString().c_str());
 		return nullptr;
 	}
 	_assert_msg_(strlen(codeBuffer_) < CODE_BUFFER_SIZE, "VS length error: %d", (int)strlen(codeBuffer_));
@@ -685,10 +685,8 @@ Shader *ShaderManagerGLES::ApplyVertexShader(bool useHWTransform, u32 vertexType
 	vs = CompileVertexShader(*VSID);
 	if (!vs) {
 		ERROR_LOG(Log::G3D, "Vertex shader generation failed, falling back to software transform");
-		if (!g_Config.bHideSlowWarnings) {
-			auto gr = GetI18NCategory(I18NCat::GRAPHICS);
-			g_OSD.Show(OSDType::MESSAGE_ERROR, gr->T("hardware transform error - falling back to software"), 2.5f);
-		}
+		auto gr = GetI18NCategory(I18NCat::GRAPHICS);
+		g_OSD.Show(OSDType::MESSAGE_ERROR, gr->T("hardware transform error - falling back to software"), 2.5f);
 
 		// TODO: Look for existing shader with the appropriate ID, use that instead of generating a new one - however, need to make sure
 		// that that shader ID is not used when computing the linked shader ID below, because then IDs won't match
@@ -972,7 +970,7 @@ bool ShaderManagerGLES::LoadCache(File::IOFile &f) {
 		if (!vsCache_.ContainsKey(id)) {
 			if (id.Bit(VS_BIT_IS_THROUGH) && id.Bit(VS_BIT_USE_HW_TRANSFORM)) {
 				// Clearly corrupt, bailing.
-				ERROR_LOG_REPORT(Log::G3D, "Corrupt shader cache: Both IS_THROUGH and USE_HW_TRANSFORM set.");
+				ERROR_LOG(Log::G3D, "Corrupt shader cache: Both IS_THROUGH and USE_HW_TRANSFORM set.");
 				pending.Clear();
 				return false;
 			}

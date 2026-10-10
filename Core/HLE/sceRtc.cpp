@@ -32,7 +32,7 @@
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMapHelpers.h"
 
@@ -593,7 +593,7 @@ static int sceRtcGetDosTime(u32 datePtr, u32 dosTime) {
 static int sceRtcSetWin32FileTime(u32 datePtr, u64 win32Time) {
 	if (!Memory::IsValidAddress(datePtr))
 	{
-		ERROR_LOG_REPORT(Log::sceRtc, "sceRtcSetWin32FileTime(%08x, %lld): invalid address", datePtr, win32Time);
+		ERROR_LOG(Log::sceRtc, "sceRtcSetWin32FileTime(%08x, %lld): invalid address", datePtr, win32Time);
 		return -1;
 	}
 
@@ -607,7 +607,7 @@ static int sceRtcSetWin32FileTime(u32 datePtr, u64 win32Time) {
 
 static int sceRtcGetWin32FileTime(u32 datePtr, u32 win32TimePtr) {
 	if (!Memory::IsValidAddress(datePtr)) {
-		ERROR_LOG_REPORT(Log::sceRtc, "sceRtcGetWin32FileTime(%08x, %08x): invalid address", datePtr, win32TimePtr);
+		ERROR_LOG(Log::sceRtc, "sceRtcGetWin32FileTime(%08x, %08x): invalid address", datePtr, win32TimePtr);
 		return -1;
 	}
 

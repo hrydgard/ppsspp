@@ -24,7 +24,7 @@
 #include "Core/HLE/sceAtrac.h"
 #include "Core/HLE/scePower.h"
 #include "Core/Config.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/Util/AudioFormat.h"
 #include "Core/System.h"
 #include "SasAudio.h"
@@ -122,7 +122,7 @@ void VagDecoder::GetSamples(s16 *outSamples, int numSamples) {
 		return;
 	}
 	if (!Memory::IsValidRange(read_, numBlocks_ * 16)) {
-		WARN_LOG_REPORT_ONCE(badvagaddr, Log::SasMix, "Bad VAG samples address? %08x / %d", read_, numBlocks_);
+		WARN_LOG_ONCE(badvagaddr, Log::SasMix, "Bad VAG samples address? %08x / %d", read_, numBlocks_);
 		return;
 	}
 
@@ -368,7 +368,7 @@ void ADSREnvelope::SetSimpleEnvelope(u32 ADSREnv1, u32 ADSREnv2) {
 	}
 
 	if (attackRate < 0 || decayRate < 0 || sustainRate < 0 || releaseRate < 0) {
-		ERROR_LOG_REPORT(Log::SasMix, "Simple ADSR resulted in invalid rates: %04x, %04x", ADSREnv1, ADSREnv2);
+		ERROR_LOG(Log::SasMix, "Simple ADSR resulted in invalid rates: %04x, %04x", ADSREnv1, ADSREnv2);
 	}
 }
 
@@ -657,7 +657,7 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol, bool m
 	s16 *outp = (s16 *)Memory::GetPointerWriteRangeOrException(outAddr, 4 * grainSize);
 	const s16 *inp = inAddr ? (const s16 *)Memory::GetPointerRangeOrException(inAddr, 4 * grainSize) : 0;
 	if (!outp) {
-		WARN_LOG_REPORT(Log::sceSas, "Bad SAS Mix output address: %08x, grain=%d", outAddr, grainSize);
+		WARN_LOG(Log::sceSas, "Bad SAS Mix output address: %08x, grain=%d", outAddr, grainSize);
 	} else if (outputMode == PSP_SAS_OUTPUTMODE_MIXED) {
 		// Okay, apply effects processing to the Send buffer.
 		WriteMixedOutput(outp, inp, leftVol, rightVol);
@@ -671,7 +671,7 @@ void SasInstance::Mix(u32 outAddr, u32 inAddr, int leftVol, int rightVol, bool m
 		s16 *outpR = outp + grainSize * 1;
 		s16 *outpSendL = outp + grainSize * 2;
 		s16 *outpSendR = outp + grainSize * 3;
-		WARN_LOG_REPORT_ONCE(sasraw, Log::SasMix, "sceSasCore: raw outputMode");
+		WARN_LOG_ONCE(sasraw, Log::SasMix, "sceSasCore: raw outputMode");
 		for (int i = 0; i < grainSize * 2; i += 2) {
 			*outpL++ = clamp_s16(mixBuffer[i + 0]);
 			*outpR++ = clamp_s16(mixBuffer[i + 1]);

@@ -29,7 +29,7 @@
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/IR/IRFrontend.h"
 #include "Core/MIPS/IR/IRRegCache.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/System.h"
 
 

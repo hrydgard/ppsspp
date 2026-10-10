@@ -186,11 +186,7 @@ const char *g_ExceptionActionValues[] = {
 
 #define POFF(member) offsetof(CommandLineOptions, member)
 static const CommandLineParam g_autoParams[] = {
-	{POFF(fullscreen), CmdParamType::Bool, "fullscreen", '\0', "Force full screen mode", CmdLineMode::Application},
-	{POFF(fullscreen), CmdParamType::BoolInverse, "windowed", '\0', "Force windowed mode", CmdLineMode::Application},
 	{POFF(startScreen), CmdParamType::String, "start-screen", '\0', "Start on a specific screen (e.g. 'gamesettings', 'touchscreentest')", CmdLineMode::Application},
-	{POFF(escapeExit), CmdParamType::Bool, "escape-exit", '\0', "Escape key exits the application", CmdLineMode::Application},
-	{POFF(pauseMenuExit), CmdParamType::Bool, "pause-menu-exit", '\0', "Change \"Exit to menu\" in pause menu to \"Exit\"", CmdLineMode::Application},
 	{POFF(appendConfig), CmdParamType::String, "appendconfig", '\0', "Merge config FILE into the current configuration"},
 	{POFF(root), CmdParamType::String, "root", 'r', "Mount directory as the root of host0:/."},
 	{POFF(memStick), CmdParamType::String, "memstick", '\0', "Memory stick root directory (contains PSP/GAME etc)"},
@@ -525,10 +521,6 @@ CommandLineParseResult CommandLineOptions::Parse(int argc, const char *argv[], C
 }
 
 void CommandLineOptions::ApplyToConfig() const {
-	if (fullscreen.has_value()) {
-		g_Config.bFullScreen = fullscreen.value();
-		g_Config.DoNotSaveSetting(&g_Config.bFullScreen);
-	}
 	if (gpuBackend.has_value()) {
 		g_Config.iGPUBackend = (int)gpuBackend.value();
 		g_Config.DoNotSaveSetting(&g_Config.iGPUBackend);
@@ -546,12 +538,6 @@ void CommandLineOptions::ApplyToConfig() const {
 	}
 	if (optionS) {
 		g_Config.bSaveSettings = false;
-	}
-	if (escapeExit.has_value()) {
-		g_Config.bPauseExitsEmulator = escapeExit.value();
-	}
-	if (pauseMenuExit.has_value()) {
-		g_Config.bPauseMenuExitsEmulator = pauseMenuExit.value();
 	}
 	if (DebuggerPort().has_value()) {
 		g_Config.iRemoteISOPort = DebuggerPort().value();

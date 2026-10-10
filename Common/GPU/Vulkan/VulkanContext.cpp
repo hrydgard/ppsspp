@@ -746,49 +746,19 @@ VkResult VulkanContext::CreateDevice(int physical_device, const std::vector<cons
 	extensionsLookup_.EXT_fragment_shader_interlock = EnableDeviceExtension(VK_EXT_FRAGMENT_SHADER_INTERLOCK_EXTENSION_NAME, 0);
 	extensionsLookup_.ARM_rasterization_order_attachment_access = EnableDeviceExtension(VK_ARM_RASTERIZATION_ORDER_ATTACHMENT_ACCESS_EXTENSION_NAME, 0);
 
-#if !PPSSPP_PLATFORM(MAC) && !PPSSPP_PLATFORM(IOS)
-	extensionsLookup_.GOOGLE_display_timing = EnableDeviceExtension(VK_GOOGLE_DISPLAY_TIMING_EXTENSION_NAME, 0);
-#endif
-	if (!extensionsLookup_.GOOGLE_display_timing) {
-		extensionsLookup_.KHR_present_id = EnableDeviceExtension(VK_KHR_PRESENT_ID_EXTENSION_NAME, 0);
-		extensionsLookup_.KHR_present_wait = EnableDeviceExtension(VK_KHR_PRESENT_WAIT_EXTENSION_NAME, 0);
-	}
-
 	extensionsLookup_.EXT_provoking_vertex = EnableDeviceExtension(VK_EXT_PROVOKING_VERTEX_EXTENSION_NAME, 0);
-	if (extensionsLookup_.KHR_get_surface_capabilities2) {
-#ifdef VK_EXT_full_screen_exclusive
-		extensionsLookup_.EXT_full_screen_exclusive = EnableDeviceExtension(VK_EXT_FULL_SCREEN_EXCLUSIVE_EXTENSION_NAME, 0);
-#endif
-	}
-	extensionsLookup_.KHR_present_mode_fifo_latest_ready = EnableDeviceExtension(VK_KHR_PRESENT_MODE_FIFO_LATEST_READY_EXTENSION_NAME, 0);
-	if (!extensionsLookup_.KHR_present_mode_fifo_latest_ready) {
-		// Enable the EXT extension instead if available, it's equivalent (was promoted).
-		extensionsLookup_.KHR_present_mode_fifo_latest_ready = EnableDeviceExtension(VK_EXT_PRESENT_MODE_FIFO_LATEST_READY_EXTENSION_NAME, 0);
-	}
 
 	// Optional features
 	if (extensionsLookup_.KHR_get_physical_device_properties2 && vkGetPhysicalDeviceFeatures2) {
 		VkPhysicalDeviceFeatures2 features2{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2_KHR };
 		// Add to chain even if not supported, GetPhysicalDeviceFeatures is supposed to ignore unknown structs.
 		VkPhysicalDeviceMultiviewFeatures multiViewFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_MULTIVIEW_FEATURES };
-		VkPhysicalDevicePresentWaitFeaturesKHR presentWaitFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_WAIT_FEATURES_KHR };
-		VkPhysicalDevicePresentIdFeaturesKHR presentIdFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_ID_FEATURES_KHR };
 		VkPhysicalDeviceProvokingVertexFeaturesEXT provokingVertexFeatures{ VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROVOKING_VERTEX_FEATURES_EXT };
-		VkPhysicalDevicePresentModeFifoLatestReadyFeaturesKHR presentModeFifoProps{VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_MODE_FIFO_LATEST_READY_FEATURES_KHR};
 		VkPhysicalDeviceScalarBlockLayoutFeatures scalarBlockLayoutFeatures = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES};
 
 		ChainStruct(features2, &multiViewFeatures);
-		if (extensionsLookup_.KHR_present_wait) {
-			ChainStruct(features2, &presentWaitFeatures);
-		}
-		if (extensionsLookup_.KHR_present_id) {
-			ChainStruct(features2, &presentIdFeatures);
-		}
 		if (extensionsLookup_.EXT_provoking_vertex) {
 			ChainStruct(features2, &provokingVertexFeatures);
-		}
-		if (extensionsLookup_.KHR_present_mode_fifo_latest_ready) {
-			ChainStruct(features2, &presentModeFifoProps);
 		}
 		if (extensionsLookup_.EXT_scalar_block_layout) {
 			ChainStruct(features2, &scalarBlockLayoutFeatures);
@@ -799,17 +769,8 @@ VkResult VulkanContext::CreateDevice(int physical_device, const std::vector<cons
 		if (extensionsLookup_.EXT_scalar_block_layout) {
 			deviceFeatures_.available.scalarBlockLayout = scalarBlockLayoutFeatures;
 		}
-		if (extensionsLookup_.KHR_present_wait) {
-			deviceFeatures_.available.presentWait = presentWaitFeatures;
-		}
-		if (extensionsLookup_.KHR_present_id) {
-			deviceFeatures_.available.presentId = presentIdFeatures;
-		}
 		if (extensionsLookup_.EXT_provoking_vertex) {
 			deviceFeatures_.available.provokingVertex = provokingVertexFeatures;
-		}
-		if (extensionsLookup_.KHR_present_mode_fifo_latest_ready) {
-			deviceFeatures_.available.presentModeFifoProps = presentModeFifoProps;
 		}
 	} else {
 		vkGetPhysicalDeviceFeatures(physical_devices_[physical_device_], &deviceFeatures_.available.standard);
@@ -848,21 +809,9 @@ VkResult VulkanContext::CreateDevice(int physical_device, const std::vector<cons
 		deviceFeatures_.enabled.multiview.multiview = deviceFeatures_.available.multiview.multiview;
 	}
 	// Strangely, on Intel, it reports these as available even though the extension isn't in the list.
-	deviceFeatures_.enabled.presentId = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_ID_FEATURES_KHR };
-	if (extensionsLookup_.KHR_present_id) {
-		deviceFeatures_.enabled.presentId.presentId = deviceFeatures_.available.presentId.presentId;
-	}
-	deviceFeatures_.enabled.presentWait = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_WAIT_FEATURES_KHR };
-	if (extensionsLookup_.KHR_present_wait) {
-		deviceFeatures_.enabled.presentWait.presentWait = deviceFeatures_.available.presentWait.presentWait;
-	}
 	deviceFeatures_.enabled.provokingVertex = { VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROVOKING_VERTEX_FEATURES_EXT };
 	if (extensionsLookup_.EXT_provoking_vertex) {
 		deviceFeatures_.enabled.provokingVertex.provokingVertexLast = true;
-	}
-	deviceFeatures_.enabled.presentModeFifoProps = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PRESENT_MODE_FIFO_LATEST_READY_FEATURES_KHR};
-	if (extensionsLookup_.KHR_present_mode_fifo_latest_ready) {
-		deviceFeatures_.enabled.presentModeFifoProps.presentModeFifoLatestReady = deviceFeatures_.available.presentModeFifoProps.presentModeFifoLatestReady;
 	}
 
 	deviceFeatures_.enabled.scalarBlockLayout = {VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_SCALAR_BLOCK_LAYOUT_FEATURES};
@@ -886,20 +835,11 @@ VkResult VulkanContext::CreateDevice(int physical_device, const std::vector<cons
 		device_info.pNext = &features2;
 		features2.features = deviceFeatures_.enabled.standard;
 		ChainStruct(features2, &deviceFeatures_.enabled.multiview);
-		if (extensionsLookup_.KHR_present_wait) {
-			ChainStruct(features2, &deviceFeatures_.enabled.presentWait);
-		}
-		if (extensionsLookup_.KHR_present_id) {
-			ChainStruct(features2, &deviceFeatures_.enabled.presentId);
-		}
 		if (extensionsLookup_.EXT_provoking_vertex) {
 			ChainStruct(features2, &deviceFeatures_.enabled.provokingVertex);
 		}
 		if (extensionsLookup_.EXT_scalar_block_layout) {
 			ChainStruct(features2, &deviceFeatures_.enabled.scalarBlockLayout);
-		}
-		if (extensionsLookup_.KHR_present_mode_fifo_latest_ready) {
-			ChainStruct(features2, &deviceFeatures_.enabled.presentModeFifoProps);
 		}
 	} else {
 		device_info.pEnabledFeatures = &deviceFeatures_.enabled.standard;
@@ -1670,18 +1610,6 @@ bool VulkanContext::InitSwapchain(VkPresentModeKHR desiredPresentMode) {
 		swap_chain_info.compositeAlpha = VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR;
 	}
 
-#ifdef VK_EXT_full_screen_exclusive
-	VkSurfaceFullScreenExclusiveInfoEXT fullScreenInfo{ VK_STRUCTURE_TYPE_SURFACE_FULL_SCREEN_EXCLUSIVE_INFO_EXT };
-	VkSurfaceFullScreenExclusiveWin32InfoEXT win32ExclusiveInfo{ VK_STRUCTURE_TYPE_SURFACE_FULL_SCREEN_EXCLUSIVE_WIN32_INFO_EXT };
-	if (extensionsLookup_.EXT_full_screen_exclusive) {
-		fullScreenInfo.fullScreenExclusive = fullScreenExclusiveMode_;
-		if (fullScreenExclusiveMode_ == VK_FULL_SCREEN_EXCLUSIVE_ALLOWED_EXT) {
-			win32ExclusiveInfo.hmonitor = MonitorFromWindow((HWND)winsysData2_, MONITOR_DEFAULTTONEAREST);
-			fullScreenInfo.pNext = &win32ExclusiveInfo;
-		}
-		swap_chain_info.pNext = &fullScreenInfo;
-	}
-#endif
 
 	res = vkCreateSwapchainKHR(device_, &swap_chain_info, NULL, &swapchain_);
 	if (res != VK_SUCCESS) {

@@ -26,7 +26,7 @@
 #include "Common/Data/Text/StringWriter.h"
 #include "Common/Math/CrossSIMD.h"
 #include "Common/Log.h"
-#include "Common/LogReporting.h"
+#include "Common/LogOnce.h"
 #include "Core/ConfigValues.h"
 #include "Core/HDRemaster.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
@@ -184,7 +184,7 @@ void GetIndexBounds(const void *inds, int count, u32 vertType, u16 *indexLowerBo
 		*indexLowerBound = (u16)lowerBound;
 		*indexUpperBound = (u16)upperBound;
 		if (oob) {
-			ERROR_LOG_REPORT_ONCE(indexBounds32Bounds, Log::G3D, "GetIndexBounds: Index outside 16-bit range");
+			ERROR_LOG_ONCE(indexBounds32Bounds, Log::G3D, "GetIndexBounds: Index outside 16-bit range");
 		}
 	} else {
 		*indexLowerBound = 0;
@@ -1206,7 +1206,7 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 	memset(&decFmt, 0, sizeof(decFmt));
 
 	if (morphcount > 1) {
-		DEBUG_LOG_REPORT_ONCE(vtypeM, Log::G3D, "VTYPE with morph used: THRU=%i TC=%i COL=%i POS=%i NRM=%i WT=%i NW=%i IDX=%i MC=%i", (int)throughmode, tc, col, pos, nrm, weighttype, nweights, idx, morphcount);
+		DEBUG_LOG_ONCE(vtypeM, Log::G3D, "VTYPE with morph used: THRU=%i TC=%i COL=%i POS=%i NRM=%i WT=%i NW=%i IDX=%i MC=%i", (int)throughmode, tc, col, pos, nrm, weighttype, nweights, idx, morphcount);
 	} else {
 		DEBUG_LOG(Log::G3D, "VTYPE: THRU=%i TC=%i COL=%i POS=%i NRM=%i WT=%i NW=%i IDX=%i MC=%i", (int)throughmode, tc, col, pos, nrm, weighttype, nweights, idx, morphcount);
 	}

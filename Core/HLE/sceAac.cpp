@@ -23,7 +23,7 @@
 #include "Common/Serialize/SerializeMap.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/HW/SimpleAudioDec.h"
 
 std::map<u32, AuCtx*> g_aacMap;
@@ -120,7 +120,7 @@ static u32 sceAacInit(u32 id)
 
 static u32 sceAacInitResource(u32 numberIds) {
 	// Do nothing here
-	WARN_LOG_REPORT(Log::ME, "sceAacInitResource(%i)", numberIds);
+	WARN_LOG(Log::ME, "sceAacInitResource(%i)", numberIds);
 	return hleNoLog(0);
 }
 

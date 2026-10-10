@@ -85,7 +85,7 @@ public:
 
 class D3D11DrawContext : public DrawContext {
 public:
-	D3D11DrawContext(ComPtr<ID3D11Device> device, ComPtr<ID3D11DeviceContext> deviceContext, ComPtr<ID3D11Device1> device1, ComPtr<ID3D11DeviceContext1> deviceContext1, ComPtr<IDXGISwapChain> swapChain, D3D_FEATURE_LEVEL featureLevel, HWND hWnd, std::vector<std::string> deviceList, int maxInflightFrames);
+	D3D11DrawContext(ComPtr<ID3D11Device> device, ComPtr<ID3D11DeviceContext> deviceContext, ComPtr<ID3D11Device1> device1, ComPtr<ID3D11DeviceContext1> deviceContext1, ComPtr<IDXGISwapChain> swapChain, D3D_FEATURE_LEVEL featureLevel, HWND hWnd, std::vector<std::string> deviceList);
 	~D3D11DrawContext();
 
 	const DeviceCaps &GetDeviceCaps() const override {
@@ -161,14 +161,7 @@ public:
 
 	void BeginFrame(DebugFlags debugFlags) override;
 	void EndFrame() override;
-	void Present(PresentMode presentMode) override;
-	PresentMode GetCurrentPresentMode() const override {
-		if (currentInterval_ == 1) {
-			return PresentMode::FIFO;
-		} else {
-			return PresentMode::IMMEDIATE;
-		}
-	}
+	void Present() override;
 
 	int GetFrameCount() override { return frameCount_; }
 
@@ -221,7 +214,6 @@ private:
 	ComPtr<ID3D11DeviceContext> context_;
 	ComPtr<ID3D11DeviceContext1> context1_;
 	ComPtr<IDXGISwapChain> swapChain_;
-	bool swapChainTearingSupported_ = false;
 
 	ID3D11Texture2D *bbRenderTargetTex_ = nullptr; // NOT OWNED
 	ID3D11RenderTargetView *bbRenderTargetView_ = nullptr ; // NOT OWNED
@@ -281,10 +273,9 @@ private:
 	std::string adapterDesc_;
 	std::vector<std::string> deviceList_;
 
-	int currentInterval_ = -1;
 };
 
-D3D11DrawContext::D3D11DrawContext(ComPtr<ID3D11Device> device, ComPtr<ID3D11DeviceContext> deviceContext, ComPtr<ID3D11Device1> device1, ComPtr<ID3D11DeviceContext1> deviceContext1, ComPtr<IDXGISwapChain> swapChain, D3D_FEATURE_LEVEL featureLevel, HWND hWnd, std::vector<std::string> deviceList, int maxInflightFrames)
+D3D11DrawContext::D3D11DrawContext(ComPtr<ID3D11Device> device, ComPtr<ID3D11DeviceContext> deviceContext, ComPtr<ID3D11Device1> device1, ComPtr<ID3D11DeviceContext1> deviceContext1, ComPtr<IDXGISwapChain> swapChain, D3D_FEATURE_LEVEL featureLevel, HWND hWnd, std::vector<std::string> deviceList)
 	: hWnd_(hWnd),
 		device_(device),
 		context_(deviceContext),
@@ -345,9 +336,6 @@ D3D11DrawContext::D3D11DrawContext(ComPtr<ID3D11Device> device, ComPtr<ID3D11Dev
 
 	caps_.provokingVertexLast = false;  // D3D has it first, unfortunately. (and no way to change it).
 
-	caps_.presentInstantModeChange = true;
-	caps_.presentMaxInterval = 4;
-	caps_.presentModesSupported = PresentMode::FIFO | PresentMode::IMMEDIATE;
 
 	D3D11_FEATURE_DATA_D3D11_OPTIONS options{};
 	HRESULT result = device_->CheckFeatureSupport(D3D11_FEATURE_D3D11_OPTIONS, &options, sizeof(options));
@@ -386,16 +374,6 @@ D3D11DrawContext::D3D11DrawContext(ComPtr<ID3D11Device> device, ComPtr<ID3D11Dev
 
 	caps_.isTilingGPU = false;
 
-#ifndef __LIBRETRO__  // their build server uses an old SDK
-	if (swapChain_) {
-		DXGI_SWAP_CHAIN_DESC swapChainDesc;
-		swapChain_->GetDesc(&swapChainDesc);
-
-		if (swapChainDesc.Flags & DXGI_SWAP_CHAIN_FLAG_ALLOW_TEARING) {
-			swapChainTearingSupported_ = true;
-		}
-	}
-#endif
 
 	// Temp texture for read-back of small images. Custom textures are created on demand for larger ones.
 	// TODO: Should really benchmark if this extra complexity has any benefit.
@@ -419,12 +397,7 @@ D3D11DrawContext::D3D11DrawContext(ComPtr<ID3D11Device> device, ComPtr<ID3D11Dev
 	upBuffer_ = D3D11DrawContext::CreateBuffer(UP_MAX_BYTES, BufferUsageFlag::DYNAMIC | BufferUsageFlag::VERTEXDATA);
 	upIBuffer_ = D3D11DrawContext::CreateBuffer(UP_MAX_BYTES, BufferUsageFlag::DYNAMIC | BufferUsageFlag::INDEXDATA);
 
-	ComPtr<IDXGIDevice1> dxgiDevice1;
-	hr = device_.As(&dxgiDevice1);
-	if (SUCCEEDED(hr)) {
-		caps_.setMaxFrameLatencySupported = true;
-		dxgiDevice1->SetMaximumFrameLatency(maxInflightFrames);
-	}
+
 }
 
 D3D11DrawContext::~D3D11DrawContext() {
@@ -520,23 +493,11 @@ void D3D11DrawContext::EndFrame() {
 	curPipeline_ = nullptr;
 }
 
-void D3D11DrawContext::Present(PresentMode presentMode) {
+void D3D11DrawContext::Present() {
 	frameTimeHistory_[frameCount_].queuePresent = time_now_d();
-
-	// Safety for libretro
-	if (swapChain_) {
-		uint32_t interval = 1;
-		uint32_t flags = 0;
-		if (presentMode != PresentMode::FIFO) {
-			interval = 0;
-#ifndef __LIBRETRO__  // their build server uses an old SDK
-			flags |= swapChainTearingSupported_ ? DXGI_PRESENT_ALLOW_TEARING : 0; // Assume "vsync off" also means "allow tearing"
-#endif
-		}
-		swapChain_->Present(interval, flags);
-		currentInterval_ = interval;
-	}
-
+	// The libretro frontend owns its device's presentation and latency policy.
+	if (swapChain_)
+		swapChain_->Present(0, 0);
 	curRenderTargetView_.Reset();
 	curDepthStencilView_.Reset();
 	frameCount_++;
@@ -1999,8 +1960,8 @@ void D3D11DrawContext::GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h
 	}
 }
 
-DrawContext *T3DCreateD3D11Context(ComPtr<ID3D11Device> device, ComPtr<ID3D11DeviceContext> context, ComPtr<ID3D11Device1> device1, ComPtr<ID3D11DeviceContext1> context1, ComPtr<IDXGISwapChain> swapChain, D3D_FEATURE_LEVEL featureLevel, HWND hWnd, const std::vector<std::string> &adapterNames, int maxInflightFrames) {
-	return new D3D11DrawContext(device, context, device1, context1, swapChain, featureLevel, hWnd, adapterNames, maxInflightFrames);
+DrawContext *T3DCreateD3D11Context(ComPtr<ID3D11Device> device, ComPtr<ID3D11DeviceContext> context, ComPtr<ID3D11Device1> device1, ComPtr<ID3D11DeviceContext1> context1, ComPtr<IDXGISwapChain> swapChain, D3D_FEATURE_LEVEL featureLevel, HWND hWnd, const std::vector<std::string> &adapterNames) {
+	return new D3D11DrawContext(device, context, device1, context1, swapChain, featureLevel, hWnd, adapterNames);
 }
 
 }  // namespace Draw

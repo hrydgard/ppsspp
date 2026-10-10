@@ -5,7 +5,7 @@
 #include "Common/Profiler/Profiler.h"
 
 #include "Common/GPU/GraphicsContext.h"
-#include "Common/LogReporting.h"
+#include "Common/LogOnce.h"
 #include "Common/Math/SIMDHeaders.h"
 #include "Common/Math/CrossSIMD.h"
 #include "Common/Serialize/Serializer.h"
@@ -21,7 +21,7 @@
 #include "Core/CoreTiming.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/MemMap.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/sceKernelMemory.h"
@@ -511,7 +511,7 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 	// Check alignment
 	// TODO Check the context and stack alignement too
 	if (((listpc | stall) & 3) != 0 || !Memory::IsValidAddress(listpc)) {
-		ERROR_LOG_REPORT(Log::G3D, "sceGeListEnqueue: invalid address %08x", listpc);
+		ERROR_LOG(Log::G3D, "sceGeListEnqueue: invalid address %08x", listpc);
 		return SCE_KERNEL_ERROR_INVALID_POINTER;
 	}
 
@@ -565,7 +565,7 @@ u32 GPUCommon::EnqueueList(u32 listpc, u32 stall, int subIntrBase, PSPPointer<Ps
 		}
 	}
 	if (id < 0) {
-		ERROR_LOG_REPORT(Log::G3D, "No DL ID available to enqueue");
+		ERROR_LOG(Log::G3D, "No DL ID available to enqueue");
 		for (int i : dlQueue) {
 			DisplayList &dl = dls[i];
 			DEBUG_LOG(Log::G3D, "DisplayList %d status %d pc %08x stall %08x", i, dl.state, dl.pc, dl.stall);
@@ -752,7 +752,7 @@ u32 GPUCommon::Break(int mode) {
 		{
 			if (currentList->signal == PSP_GE_SIGNAL_HANDLER_PAUSE)
 			{
-				ERROR_LOG_REPORT(Log::G3D, "sceGeBreak: can't break signal-pausing list");
+				ERROR_LOG(Log::G3D, "sceGeBreak: can't break signal-pausing list");
 			}
 			else
 				return SCE_KERNEL_ERROR_ALREADY;
@@ -1195,7 +1195,7 @@ void GPUCommon::Execute_Ret(u32 op, u32 diff) {
 		currentList->pc = target - 4;
 #ifdef _DEBUG
 		if (!Memory::IsValidAddress(currentList->pc)) {
-			ERROR_LOG_REPORT(Log::G3D, "Invalid DL PC %08x on return", currentList->pc);
+			ERROR_LOG(Log::G3D, "Invalid DL PC %08x on return", currentList->pc);
 			UpdateState(GPUSTATE_ERROR);
 		}
 #endif
@@ -1276,7 +1276,7 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 					}
 
 					if (!Memory::IsValidAddress(target)) {
-						ERROR_LOG_REPORT(Log::G3D, "Signal with Jump (%s): bad address. signal/end: %04x %04x", targetType, signal, enddata);
+						ERROR_LOG(Log::G3D, "Signal with Jump (%s): bad address. signal/end: %04x %04x", targetType, signal, enddata);
 						UpdateState(GPUSTATE_ERROR);
 					} else {
 						UpdatePC(currentList->pc, target);
@@ -1303,9 +1303,9 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 					}
 
 					if (currentList->stackptr == ARRAY_SIZE(currentList->stack)) {
-						ERROR_LOG_REPORT(Log::G3D, "Signal with Call (%s): stack full. signal/end: %04x %04x", targetType, signal, enddata);
+						ERROR_LOG(Log::G3D, "Signal with Call (%s): stack full. signal/end: %04x %04x", targetType, signal, enddata);
 					} else if (!Memory::IsValidAddress(target)) {
-						ERROR_LOG_REPORT(Log::G3D, "Signal with Call (%s): bad address. signal/end: %04x %04x", targetType, signal, enddata);
+						ERROR_LOG(Log::G3D, "Signal with Call (%s): bad address. signal/end: %04x %04x", targetType, signal, enddata);
 						UpdateState(GPUSTATE_ERROR);
 					} else {
 						// TODO: This might save/restore other state...
@@ -1324,7 +1324,7 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 					trigger = false;
 					currentList->signal = behaviour;
 					if (currentList->stackptr == 0) {
-						ERROR_LOG_REPORT(Log::G3D, "Signal with Return: stack empty. signal/end: %04x %04x", signal, enddata);
+						ERROR_LOG(Log::G3D, "Signal with Return: stack empty. signal/end: %04x %04x", signal, enddata);
 					} else {
 						// TODO: This might save/restore other state...
 						auto &stackEntry = currentList->stack[--currentList->stackptr];
@@ -1337,7 +1337,7 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 				}
 				break;
 			default:
-				ERROR_LOG_REPORT(Log::G3D, "UNKNOWN Signal UNIMPLEMENTED %i ! signal/end: %04x %04x", behaviour, signal, enddata);
+				ERROR_LOG(Log::G3D, "UNKNOWN Signal UNIMPLEMENTED %i ! signal/end: %04x %04x", behaviour, signal, enddata);
 				break;
 			}
 			// TODO: Technically, jump/call/ret should generate an interrupt, but before the pc change maybe?
@@ -1429,7 +1429,7 @@ void GPUCommon::Execute_BoundingBox(u32 op, u32 diff) {
 	int bytesRead = (useInds ? 1 : dec->VertexSize()) * count;
 
 	if (!Memory::IsValidRange(gstate_c.vertexAddr, bytesRead)) {
-		ERROR_LOG_REPORT_ONCE(boundingbox, Log::G3D, "Bad bounding box data: %06x", count);
+		ERROR_LOG_ONCE(boundingbox, Log::G3D, "Bad bounding box data: %06x", count);
 		// Data seems invalid. Let's assume the box test passed.
 		currentList->bboxResult = true;
 		return;
@@ -1440,7 +1440,7 @@ void GPUCommon::Execute_BoundingBox(u32 op, u32 diff) {
 	if (useInds) {
 		const int indexSizeShift = ((vertType & GE_VTYPE_IDX_MASK) >> GE_VTYPE_IDX_SHIFT) - 1;
 		if (!Memory::IsValidRange(gstate_c.indexAddr, count << indexSizeShift)) {
-			ERROR_LOG_REPORT_ONCE(boundingboxInds, Log::G3D, "Invalid inds in bounding box check");
+			ERROR_LOG_ONCE(boundingboxInds, Log::G3D, "Invalid inds in bounding box check");
 			currentList->bboxResult = true;
 			return;
 		}
@@ -1474,7 +1474,7 @@ void GPUCommon::Execute_ImmVertexAlphaPrim(u32 op, u32 diff) {
 	if (immCount_ >= MAX_IMMBUFFER_SIZE) {
 		// Only print once for each overrun.
 		if (immCount_ == MAX_IMMBUFFER_SIZE) {
-			ERROR_LOG_REPORT_ONCE(exceed_imm_buffer, Log::G3D, "Exceeded immediate draw buffer size. gstate.imm_ap=%06x , prim=%d", gstate.imm_ap & 0xFFFFFF, (int)immPrim_);
+			ERROR_LOG_ONCE(exceed_imm_buffer, Log::G3D, "Exceeded immediate draw buffer size. gstate.imm_ap=%06x , prim=%d", gstate.imm_ap & 0xFFFFFF, (int)immPrim_);
 		}
 		if (immCount_ < 0x7fffffff)  // Paranoia :)
 			immCount_++;
@@ -1521,7 +1521,7 @@ void GPUCommon::Execute_ImmVertexAlphaPrim(u32 op, u32 diff) {
 		if (immCount_ == flushPrimCount[immPrim_ & 7])
 			FlushImm();
 	} else {
-		ERROR_LOG_REPORT_ONCE(imm_draw_prim, Log::G3D, "Immediate draw: Unexpected primitive %d at count %d", prim, immCount_);
+		ERROR_LOG_ONCE(imm_draw_prim, Log::G3D, "Immediate draw: Unexpected primitive %d at count %d", prim, immCount_);
 	}
 }
 
@@ -1568,7 +1568,7 @@ void GPUCommon::FlushImm() {
 	bool prevDither = gstate.isDitherEnabled();
 
 	if ((immFlags_ & GE_IMM_CLIPMASK) != 0) {
-		WARN_LOG_REPORT_ONCE(geimmclipvalue, Log::G3D, "Imm vertex used clip value, flags=%06x", immFlags_);
+		WARN_LOG_ONCE(geimmclipvalue, Log::G3D, "Imm vertex used clip value, flags=%06x", immFlags_);
 	}
 
 	bool changed = texturing != prevTexturing || cullEnable != prevCullEnable || dither != prevDither;
@@ -1877,7 +1877,6 @@ void GPUCommon::ResetListPC(int listID, u32 pc) {
 		return;
 	}
 
-	Reporting::NotifyDebugger();
 	dls[listID].pc = pc;
 	downcount = 0;
 }
@@ -1888,7 +1887,6 @@ void GPUCommon::ResetListStall(int listID, u32 stall) {
 		return;
 	}
 
-	Reporting::NotifyDebugger();
 	dls[listID].stall = stall;
 	downcount = 0;
 }
@@ -1899,7 +1897,6 @@ void GPUCommon::ResetListState(int listID, DisplayListState state) {
 		return;
 	}
 
-	Reporting::NotifyDebugger();
 	dls[listID].state = state;
 	downcount = 0;
 }
@@ -1959,7 +1956,6 @@ void GPUCommon::SetCmdValue(u32 op) {
 	u32 cmd = op >> 24;
 	u32 diff = op ^ gstate.cmdmem[cmd];
 
-	Reporting::NotifyDebugger();
 	PreExecuteOp(op, diff);
 	gstate.cmdmem[cmd] = op;
 	ExecuteOp(op, diff);
@@ -2161,7 +2157,7 @@ void GPUCommon::DoBlockTransfer(u32 skipDrawReason) {
 		} else {
 			// This seems to cause the GE to require a break/reset on a PSP.
 			// TODO: Handle that and figure out which bytes are still copied?
-			ERROR_LOG_REPORT_ONCE(invalidtransfer, Log::G3D, "Block transfer invalid: %08x/%x -> %08x/%x, %ix%ix%i (%i,%i)->(%i,%i)", srcBasePtr, srcStride, dstBasePtr, dstStride, width, height, bpp, srcX, srcY, dstX, dstY);
+			ERROR_LOG_ONCE(invalidtransfer, Log::G3D, "Block transfer invalid: %08x/%x -> %08x/%x, %ix%ix%i (%i,%i)->(%i,%i)", srcBasePtr, srcStride, dstBasePtr, dstStride, width, height, bpp, srcX, srcY, dstX, dstY);
 		}
 
 		if (framebufferManager_) {
@@ -2200,7 +2196,7 @@ bool GPUCommon::PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags
 
 	// Check for invalid memory range. Should we reject? For now, let's clamp it.
 	if (Memory::ClampValidSizeAt(dest, size) < (u32)size) {
-		ERROR_LOG_REPORT_ONCE(invalidmemset, Log::G3D, "PerformMemorySet with invalid range: %08x, size %d", dest, size);
+		ERROR_LOG_ONCE(invalidmemset, Log::G3D, "PerformMemorySet with invalid range: %08x, size %d", dest, size);
 		size = Memory::ClampValidSizeAt(dest, size);
 	}
 
@@ -2245,7 +2241,7 @@ bool GPUCommon::PerformMemorySet(u32 dest, u8 v, int size) {
 
 	// Check for invalid memory range. Should we reject? For now, let's clamp it.
 	if (Memory::ClampValidSizeAt(dest, size) < (u32)size) {
-		ERROR_LOG_REPORT_ONCE(invalidmemset, Log::G3D, "PerformMemorySet with invalid range: %08x, size %d", dest, size);
+		ERROR_LOG_ONCE(invalidmemset, Log::G3D, "PerformMemorySet with invalid range: %08x, size %d", dest, size);
 		size = Memory::ClampValidSizeAt(dest, size);
 	}
 

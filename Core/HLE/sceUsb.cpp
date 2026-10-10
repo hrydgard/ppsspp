@@ -25,7 +25,7 @@
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceUsb.h"
 #include "Core/MIPS/MIPS.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 
 // TODO: Map by driver name
 static bool usbStarted = false;
@@ -204,12 +204,12 @@ static int sceUsbWaitState(int state, u32 waitMode, u32 timeoutPtr) {
 }
 
 static int sceUsbWaitStateCB(int state, u32 waitMode, u32 timeoutPtr) {
-	ERROR_LOG_REPORT(Log::HLE, "UNIMPL sceUsbWaitStateCB(%i, %i, %08x)", state, waitMode, timeoutPtr);
+	ERROR_LOG(Log::HLE, "UNIMPL sceUsbWaitStateCB(%i, %i, %08x)", state, waitMode, timeoutPtr);
 	return 0;
 }
 
 static int sceUsbstorBootSetCapacity(u32 capacity) {
-	return hleReportError(Log::HLE, 0, "unimplemented");
+	return hleLogError(Log::HLE, 0, "unimplemented");
 }
 
 // Purpose unknown - JPCSP names it after its NID and returns 0.

@@ -18,7 +18,7 @@
 #include <algorithm>
 
 #include "Common/GPU/OpenGL/GLFeatures.h"
-#include "Common/LogReporting.h"
+#include "Common/LogOnce.h"
 #include "GPU/Common/GPUStateUtils.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
@@ -162,7 +162,7 @@ bool FramebufferManagerCommon::ReadbackDepthbuffer(Draw::Framebuffer *fbo, int x
 	using namespace Draw;
 
 	if (!fbo) {
-		ERROR_LOG_REPORT_ONCE(vfbfbozero, Log::sceGe, "ReadbackDepthbufferSync: bad fbo");
+		ERROR_LOG_ONCE(vfbfbozero, Log::sceGe, "ReadbackDepthbufferSync: bad fbo");
 		return false;
 	}
 	// Old desktop GL can download depth, but not upload.

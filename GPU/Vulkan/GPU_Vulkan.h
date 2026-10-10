@@ -63,7 +63,6 @@ protected:
 	void CheckRenderResized(const DisplayLayoutConfig &config) override;
 
 private:
-	void BuildReportingInfo() override;
 
 	void InitDeviceObjects();
 	void DestroyDeviceObjects();

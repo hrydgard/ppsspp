@@ -40,7 +40,7 @@
 #include "Core/MIPS/IR/IRJit.h"
 #include "Core/MIPS/IR/IRNativeCommon.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Common/TimeUtil.h"
 #include "Core/MIPS/MIPSTracer.h"
 

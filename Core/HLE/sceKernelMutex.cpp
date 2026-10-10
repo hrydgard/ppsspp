@@ -28,7 +28,7 @@
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/CoreTiming.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelMutex.h"
 #include "Core/HLE/sceKernelThread.h"
@@ -229,7 +229,7 @@ void __KernelMutexBeginCallback(SceUID threadID, SceUID prevCallbackId)
 	if (result == HLEKernel::WAIT_CB_SUCCESS)
 		DEBUG_LOG(Log::sceKernel, "sceKernelLockMutexCB: Suspending lock wait for callback");
 	else
-		WARN_LOG_REPORT(Log::sceKernel, "sceKernelLockMutexCB: beginning callback with bad wait id?");
+		WARN_LOG(Log::sceKernel, "sceKernelLockMutexCB: beginning callback with bad wait id?");
 }
 
 void __KernelMutexEndCallback(SceUID threadID, SceUID prevCallbackId)
@@ -269,13 +269,13 @@ int sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optio
 		if (Memory::IsValid4AlignedAddress(optionsPtr)) {
 			u32 size = Memory::ReadUnchecked_U32(optionsPtr);
 			if (size > 4)
-				WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateMutex(%s) unsupported options parameter, size = %d", name, size);
+				WARN_LOG(Log::sceKernel, "sceKernelCreateMutex(%s) unsupported options parameter, size = %d", name, size);
 		} else {
 			Core_MemoryExceptionHLE(currentMIPS, optionsPtr, 4, MemoryExceptionType::HLE_READ);
 		}
 	}
 	if ((attr & ~PSP_MUTEX_ATTR_KNOWN) != 0)
-		WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateMutex(%s) unsupported attr parameter: %08x", name, attr);
+		WARN_LOG(Log::sceKernel, "sceKernelCreateMutex(%s) unsupported attr parameter: %08x", name, attr);
 
 	return hleLogDebug(Log::sceKernel, id);
 }
@@ -598,7 +598,7 @@ int sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int init
 		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ERROR, "invalid name");
 	}
 	if (attr >= 0x400) {
-		return hleReportError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ATTR, "invalid attr parameter: %08x", attr);
+		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ATTR, "invalid attr parameter: %08x", attr);
 	}
 	if (initialCount < 0) {
 		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_COUNT);
@@ -630,13 +630,13 @@ int sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int init
 		if (Memory::IsValid4AlignedAddress(optionsPtr)) {
 			u32 size = Memory::ReadUnchecked_U32(optionsPtr);
 			if (size > 4)
-				WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateLwMutex(%s) unsupported options parameter, size = %d", name, size);
+				WARN_LOG(Log::sceKernel, "sceKernelCreateLwMutex(%s) unsupported options parameter, size = %d", name, size);
 		} else {
 			Core_MemoryExceptionHLE(currentMIPS, optionsPtr, 4, MemoryExceptionType::HLE_READ);
 		}
 	}
 	if ((attr & ~PSP_MUTEX_ATTR_KNOWN) != 0)
-		WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateLwMutex(%s) unsupported attr parameter: %08x", name, attr);
+		WARN_LOG(Log::sceKernel, "sceKernelCreateLwMutex(%s) unsupported attr parameter: %08x", name, attr);
 
 	return hleLogDebug(Log::sceKernel, 0);
 }
@@ -785,7 +785,7 @@ void __KernelLwMutexBeginCallback(SceUID threadID, SceUID prevCallbackId)
 	if (result == HLEKernel::WAIT_CB_SUCCESS)
 		DEBUG_LOG(Log::sceKernel, "sceKernelLockLwMutexCB: Suspending lock wait for callback");
 	else
-		WARN_LOG_REPORT(Log::sceKernel, "sceKernelLockLwMutexCB: beginning callback with bad wait id?");
+		WARN_LOG(Log::sceKernel, "sceKernelLockLwMutexCB: beginning callback with bad wait id?");
 }
 
 void __KernelLwMutexEndCallback(SceUID threadID, SceUID prevCallbackId)

@@ -31,7 +31,7 @@
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/Interpreter.h"
 #include "Core/MIPS/MIPSTables.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/HLETables.h"
 #include "Core/HLE/ReplaceTables.h"
@@ -204,7 +204,7 @@ namespace MIPSInt {
 				}
 				if (alignedAddr <= PC + 4 && alignedAddr + size >= PC - 4) {
 					// This is probably rare so we don't use a static bool.
-					WARN_LOG_REPORT_ONCE(icacheInvalidatePC, Log::JIT, "Invalidating address near PC: %08x (%08x + %d) at PC=%08x", addr, R(rs), imm, PC);
+					WARN_LOG_ONCE(icacheInvalidatePC, Log::JIT, "Invalidating address near PC: %08x (%08x + %d) at PC=%08x", addr, R(rs), imm, PC);
 				}
 			}
 			break;
@@ -252,7 +252,6 @@ namespace MIPSInt {
 	}
 
 	void Int_Break(MIPSState *mips, MIPSOpcode op) {
-		Reporting::ReportMessage("BREAK instruction hit");
 		Core_BreakException(PC);
 		PC += 4;
 	}
@@ -721,7 +720,7 @@ namespace MIPSInt {
 				} else if (fs == 0) {
 					R(rt) = MIPSState::FCR0_VALUE;
 				} else {
-					WARN_LOG_REPORT(Log::CPU, "ReadFCR: Unexpected reg %d", fs);
+					WARN_LOG(Log::CPU, "ReadFCR: Unexpected reg %d", fs);
 					R(rt) = 0;
 				}
 				break;
@@ -751,7 +750,7 @@ namespace MIPSInt {
 						ApplyHostRoundingMode(mips);
 					}
 				} else {
-					WARN_LOG_REPORT(Log::CPU, "WriteFCR: Unexpected reg %d (value %08x)", fs, value);
+					WARN_LOG(Log::CPU, "WriteFCR: Unexpected reg %d (value %08x)", fs, value);
 				}
 				DEBUG_LOG(Log::CPU, "FCR%i written to, value %08x", fs, value);
 				break;
@@ -1277,7 +1276,6 @@ namespace MIPSInt {
 		case 0:
 			// unlikely to be legitimately used
 			if (!reported) {
-				Reporting::ReportMessage("INTERRUPT instruction hit (%08x) at %08x", op.encoding, mips->pc);
 				WARN_LOG(Log::CPU, "Disable/Enable Interrupt CPU instruction");
 				reported = 1;
 			}

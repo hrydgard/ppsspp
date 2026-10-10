@@ -49,7 +49,7 @@
 
 #include "Core/HLE/sceNet.h"
 #include "Core/HLE/sceNp.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/Instance.h"
 
 struct NetResolver {

@@ -22,7 +22,7 @@
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceMd5.h"
 #include "Core/MemMap.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 
 #ifdef USE_CRT_DBG
 #undef new

@@ -266,10 +266,6 @@ public:
 		return -1;
 	}
 
-	virtual void GetReportingInfo(std::string &primaryInfo, std::string &fullInfo) const {
-		primaryInfo = reportingPrimaryInfo_;
-		fullInfo = reportingFullInfo_;
-	}
 
 	void PSPFrame();
 
@@ -344,7 +340,6 @@ protected:
 	// TODO: Unify this. Vulkan and OpenGL are different due to how they buffer data.
 	virtual void FinishDeferred() {}
 
-	virtual void BuildReportingInfo() = 0;
 
 	virtual void UpdateMSAALevel(Draw::DrawContext *draw) {}
 
@@ -426,8 +421,6 @@ protected:
 		u32 all[12 * 8 + 12 + 12 + 16 + 12];
 	} matrixVisible;
 
-	std::string reportingPrimaryInfo_;
-	std::string reportingFullInfo_;
 
 	// Debugging state
 	bool debugRecording_ = false;

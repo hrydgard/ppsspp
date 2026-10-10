@@ -22,7 +22,7 @@
 #include "Common/GPU/thin3d.h"
 #include "Common/Data/Collections/TinySet.h"
 #include "Common/Data/Convert/ColorConv.h"
-#include "Common/LogReporting.h"
+#include "Common/LogOnce.h"
 #include "Common/System/Display.h"
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/CommonTypes.h"
@@ -365,7 +365,7 @@ void GetFramebufferHeuristicInputs(FramebufferHeuristicParams *params, const GES
 	params->scissorBottom = gstate.getScissorY2() + 1;
 
 	if (gstate.getRegionRateX() != 0x100 || gstate.getRegionRateY() != 0x100) {
-		WARN_LOG_REPORT_ONCE(regionRate, Log::G3D, "Drawing region rate add non-zero: %04x, %04x of %04x, %04x", gstate.getRegionRateX(), gstate.getRegionRateY(), gstate.getRegionX2(), gstate.getRegionY2());
+		WARN_LOG_ONCE(regionRate, Log::G3D, "Drawing region rate add non-zero: %04x, %04x of %04x, %04x", gstate.getRegionRateX(), gstate.getRegionRateY(), gstate.getRegionX2(), gstate.getRegionY2());
 	}
 }
 
@@ -416,7 +416,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 				const int x_offset = (params.fb_address - v->fb_address) / bpp;
 				if (x_offset < params.fb_stride && v->height >= drawing_height) {
 					// Pretty certainly a pure render-to-X-offset.
-					WARN_LOG_REPORT_ONCE(renderoffset, Log::FrameBuf, "Rendering to framebuffer offset at %08x +%dx%d (stride %d)", v->fb_address, x_offset, 0, v->fb_stride);
+					WARN_LOG_ONCE(renderoffset, Log::FrameBuf, "Rendering to framebuffer offset at %08x +%dx%d (stride %d)", v->fb_address, x_offset, 0, v->fb_stride);
 					normal_vfb = v;
 					gstate_c.SetCurRTOffset(x_offset, 0);
 					normal_vfb->width = std::max((int)normal_vfb->width, x_offset + drawing_width);
@@ -444,7 +444,7 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 		// These are prioritized over normal VFBs matches, to ensure things work even if the higher-address one
 		// is created first. Only enabled under compat flag.
 		vfb = large_offset_vfb;
-		WARN_LOG_REPORT_ONCE(tokimeki, Log::FrameBuf, "Detected FBO at Y offset %d of %08x: %08x", y_offset, large_offset_vfb->fb_address, params.fb_address);
+		WARN_LOG_ONCE(tokimeki, Log::FrameBuf, "Detected FBO at Y offset %d of %08x: %08x", y_offset, large_offset_vfb->fb_address, params.fb_address);
 		gstate_c.SetCurRTOffset(0, y_offset);
 		vfb->height = std::max((int)vfb->height, y_offset + drawing_height);
 		drawing_height += y_offset;
@@ -1318,7 +1318,7 @@ bool FramebufferManagerCommon::BindFramebufferAsColorTexture(int stage, VirtualF
 		return true;
 	} else {
 		// Here it's an error because for some reason skipCopy is true. That shouldn't really happen.
-		ERROR_LOG_REPORT_ONCE(selfTextureFail, Log::G3D, "Attempting to texture from target (src=%08x / target=%08x / flags=%d)", framebuffer->fb_address, currentRenderVfb_->fb_address, flags);
+		ERROR_LOG_ONCE(selfTextureFail, Log::G3D, "Attempting to texture from target (src=%08x / target=%08x / flags=%d)", framebuffer->fb_address, currentRenderVfb_->fb_address, flags);
 		// To do this safely in Vulkan, we need to use input attachments.
 		// Actually if the texture region and render regions don't overlap, this is safe, but we need
 		// to transition to GENERAL image layout which will take some trickery.
@@ -2143,7 +2143,7 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 	}
 
 	if (srcCandidates.size() > 1) {
-		if (Reporting::ShouldLogNTimes("mulblock", 5)) {
+		if (LocalLog::ShouldLogNTimes("mulblock", 5)) {
 			std::string log;
 			for (size_t i = 0; i < srcCandidates.size(); i++) {
 				log += " - " + srcCandidates[i].ToString(channel);
@@ -2158,7 +2158,7 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 	}
 
 	if (dstCandidates.size() > 1) {
-		if (Reporting::ShouldLogNTimes("mulblock", 5)) {
+		if (LocalLog::ShouldLogNTimes("mulblock", 5)) {
 			std::string log;
 			for (size_t i = 0; i < dstCandidates.size(); i++) {
 				log += " - " + dstCandidates[i].ToString(channel);
@@ -2391,7 +2391,7 @@ bool FramebufferManagerCommon::FindTransferFramebuffer(u32 basePtr, int stride_p
 	}
 
 	if (candidates.size() > 1) {
-		if (Reporting::ShouldLogNTimes("mulblock", 5)) {
+		if (LocalLog::ShouldLogNTimes("mulblock", 5)) {
 			std::string log;
 			for (size_t i = 0; i < candidates.size(); i++) {
 				log += " - " + candidates[i].ToString() + "\n";
@@ -3258,7 +3258,7 @@ void FramebufferManagerCommon::ReadbackFramebuffer(VirtualFramebuffer *vfb, int 
 	const int dstSize = ((h - 1) * stride + w) * dstBpp;
 
 	if (!Memory::IsValidRange(fb_address + dstByteOffset, dstSize)) {
-		ERROR_LOG_REPORT(Log::G3D, "ReadbackFramebufferSync would write outside of memory, ignoring");
+		ERROR_LOG(Log::G3D, "ReadbackFramebufferSync would write outside of memory, ignoring");
 		return;
 	}
 
@@ -3580,7 +3580,7 @@ void FramebufferManagerCommon::BlitFramebuffer(VirtualFramebuffer *dst, int dstX
 
 	if (src == dst && srcX == dstX && srcY == dstY) {
 		// Let's just skip a copy where the destination is equal to the source.
-		WARN_LOG_REPORT_ONCE(blitSame, Log::G3D, "Skipped blit with equal dst and src");
+		WARN_LOG_ONCE(blitSame, Log::G3D, "Skipped blit with equal dst and src");
 		return;
 	}
 

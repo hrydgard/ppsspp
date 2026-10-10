@@ -25,7 +25,7 @@
 #include "Core/MemMap.h"
 #include "Core/System.h"
 #include "Core/CoreTiming.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
@@ -34,7 +34,6 @@
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/KernelWaitHelpers.h"
-#include "Core/RetroAchievements.h"
 
 #include "Core/FileSystems/BlockDevices.h"
 #include "Core/FileSystems/MetaFileSystem.h"
@@ -218,7 +217,7 @@ static void __UmdBeginCallback(SceUID threadID, SceUID prevCallbackId)
 		DEBUG_LOG(Log::sceIo, "sceUmdWaitDriveStatCB: Suspending lock wait for callback");
 	}
 	else
-		WARN_LOG_REPORT(Log::sceIo, "sceUmdWaitDriveStatCB: beginning callback with bad wait id?");
+		WARN_LOG(Log::sceIo, "sceUmdWaitDriveStatCB: beginning callback with bad wait id?");
 }
 
 static void __UmdEndCallback(SceUID threadID, SceUID prevCallbackId)
@@ -229,7 +228,7 @@ static void __UmdEndCallback(SceUID threadID, SceUID prevCallbackId)
 	u32 stat = __KernelGetWaitValue(threadID, error);
 	if (umdPausedWaits.find(pauseKey) == umdPausedWaits.end())
 	{
-		WARN_LOG_REPORT(Log::sceIo, "__UmdEndCallback(): UMD paused wait missing");
+		WARN_LOG(Log::sceIo, "__UmdEndCallback(): UMD paused wait missing");
 
 		__KernelResumeThreadFromWait(threadID, 0);
 		return;
@@ -493,7 +492,6 @@ void __UmdReplace(const Path &filepath) {
 		return;
 	}
 
-	Achievements::ChangeUMD(filepath, fileLoader);
 
 	UMDInserted = false;
 	// Wake any threads waiting for the disc to be removed.

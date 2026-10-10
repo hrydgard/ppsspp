@@ -36,7 +36,7 @@
 #include "Core/HLE/sceUtility.h"
 #include "Core/HW/Display.h"
 #include "Core/Config.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 
 // These are rough, it seems to take a long time to init, and probably depends on threads.
 // TODO: This takes like 700ms on a PSP but that's annoyingly long.
@@ -206,12 +206,12 @@ static bool IsKeyboardShiftValid(s32 inputType, OskKeyboardLanguage lang, OskKey
 int PSPOskDialog::Init(u32 oskPtr) {
 	// Ignore if already running
 	if (GetStatus() != SCE_UTILITY_STATUS_NONE) {
-		ERROR_LOG_REPORT(Log::sceUtility, "sceUtilityOskInitStart: invalid status");
+		ERROR_LOG(Log::sceUtility, "sceUtilityOskInitStart: invalid status");
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 	const int check = CheckRequest(oskPtr, { 0x40, 0x44 });
 	if (check < 0) {
-		ERROR_LOG_REPORT(Log::sceUtility, "sceUtilityOskInitStart: bad request at %08x: %08x", oskPtr, check);
+		ERROR_LOG(Log::sceUtility, "sceUtilityOskInitStart: bad request at %08x: %08x", oskPtr, check);
 		return check;
 	}
 
@@ -219,14 +219,14 @@ int PSPOskDialog::Init(u32 oskPtr) {
 	// Seems to crash.
 	if (!Memory::IsValidRange(oskParams->fields.ptr, sizeof(SceUtilityOskData)))
 	{
-		ERROR_LOG_REPORT(Log::sceUtility, "sceUtilityOskInitStart: invalid field data (%08x)", oskParams->fields.ptr);
+		ERROR_LOG(Log::sceUtility, "sceUtilityOskInitStart: invalid field data (%08x)", oskParams->fields.ptr);
 		return -1;
 	}
 
 	if (oskParams->unk_60 != 0)
-		WARN_LOG_REPORT(Log::sceUtility, "sceUtilityOskInitStart: unknown param is non-zero (%08x)", oskParams->unk_60);
+		WARN_LOG(Log::sceUtility, "sceUtilityOskInitStart: unknown param is non-zero (%08x)", oskParams->unk_60);
 	if (oskParams->fieldCount != 1)
-		WARN_LOG_REPORT(Log::sceUtility, "sceUtilityOskInitStart: unsupported field count %d", oskParams->fieldCount);
+		WARN_LOG(Log::sceUtility, "sceUtilityOskInitStart: unsupported field count %d", oskParams->fieldCount);
 
 	ChangeStatusInit(OSK_INIT_DELAY_US);
 	selectedChar = 0;
@@ -245,9 +245,6 @@ int PSPOskDialog::Init(u32 oskPtr) {
 	// Eat any keys pressed before the dialog inited.
 	UpdateButtons();
 	InitCommon();
-
-	// A new one, so a callback from an earlier input box can't reach this one.
-	native_ = std::make_shared<NativeInput>();
 
 	StartFade(true);
 	return 0;
@@ -675,7 +672,7 @@ void PSPOskDialog::WriteOutput(SceUtilityOskResult fieldResult) {
 	if (end > inputChars.size())
 		end = inputChars.size() + 1;
 	if (end != 0 && !Memory::IsValidRange(addr, (u32)(end * sizeof(u16_le)))) {
-		ERROR_LOG_REPORT_ONCE(oskBadOutput, Log::sceUtility, "OSK output %08x (%d chars) isn't in memory", addr, (int)end);
+		ERROR_LOG_ONCE(oskBadOutput, Log::sceUtility, "OSK output %08x (%d chars) isn't in memory", addr, (int)end);
 	} else if (end != 0) {
 		u16_le *outText = (u16_le *)Memory::GetPointerWriteUnchecked(addr);
 		for (size_t i = 0; i < end; ++i) {
@@ -790,63 +787,6 @@ void PSPOskDialog::RenderKeyboard()
 	}
 }
 
-// TODO: Why does this have a 2 button press lag/delay when
-// re-opening the dialog box? I don't get it.
-int PSPOskDialog::NativeKeyboard() {
-	if (GetStatus() != SCE_UTILITY_STATUS_RUNNING) {
-		return SCE_ERROR_UTILITY_INVALID_STATUS;
-	}
-
-	std::shared_ptr<NativeInput> native = native_;
-	PSPOskNativeStatus status;
-	std::string value;
-	status = native->Status();
-	if (status == PSPOskNativeStatus::IDLE) {
-		native->SetStatus(PSPOskNativeStatus::WAITING);
-	} else if (status == PSPOskNativeStatus::SUCCESS || status == PSPOskNativeStatus::FAILURE) {
-		value = std::move(native->value);
-		native->SetStatus(PSPOskNativeStatus::DONE);
-	} else if (status == PSPOskNativeStatus::FILLING) {
-		// A callback is writing the answer; treat it as still waiting.
-		status = PSPOskNativeStatus::WAITING;
-	}
-
-	if (status == PSPOskNativeStatus::IDLE) {
-		std::u16string titleText;
-		GetWideStringFromPSPPointer(titleText, oskParams->fields[0].desc);
-
-		std::u16string defaultText;
-		GetWideStringFromPSPPointer(defaultText, oskParams->fields[0].intext);
-
-		// There's already ConvertUCS2ToUTF8 in this file. Should we use that instead of the global ones?
-		System_InputBoxGetString(NON_EPHEMERAL_TOKEN, ::ConvertUCS2ToUTF8(titleText), ::ConvertUCS2ToUTF8(defaultText), false,
-			[native](std::string_view value, int) {
-				// Success callback
-				native->Answer(PSPOskNativeStatus::SUCCESS, value);
-			},
-			[native](int responseValue) {
-				// Failure callback
-				native->Answer(PSPOskNativeStatus::FAILURE, std::string_view());
-			}
-		);
-	} else if (status == PSPOskNativeStatus::SUCCESS) {
-		inputChars = ConvertUTF8ToUCS2(value);
-
-		u32 maxLength = FieldMaxLength();
-		if (inputChars.length() > maxLength) {
-			ERROR_LOG(Log::sceUtility, "NativeKeyboard: input text too long(%d characters/glyphs max), truncating to game-requested length.", maxLength);
-			inputChars.erase(maxLength, std::string::npos);
-		}
-		ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
-	} else if (status == PSPOskNativeStatus::FAILURE) {
-		ChangeStatus(SCE_UTILITY_STATUS_FINISHED, 0);
-	}
-
-	// TODO: A cancelled input box leaves the input text, but should it report CANCELLED? Untested.
-	WriteOutput(PSP_UTILITY_OSK_RESULT_CHANGED);
-	return 0;
-}
-
 int PSPOskDialog::Update(int animSpeed) {
 	if (GetStatus() != SCE_UTILITY_STATUS_RUNNING) {
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
@@ -868,15 +808,6 @@ int PSPOskDialog::Update(int animSpeed) {
 	UpdateCommon();
 	int selectedRow = selectedChar / numKeyCols[currentKeyboard];
 	int selectedExtra = selectedChar % numKeyCols[currentKeyboard];
-
-#if (PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)) || PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(SWITCH)
-	// Windows: Fall back to the OSK/continue normally if we're in fullscreen.
-	// The dialog box doesn't work right if in fullscreen.
-	if (System_GetPropertyBool(SYSPROP_HAS_KEYBOARD)) {
-		if (g_Config.bBypassOSKWithKeyboard && !g_Config.bFullScreen)
-			return NativeKeyboard();
-	}
-#endif
 
 	UpdateFade(animSpeed);
 
@@ -1087,15 +1018,7 @@ void PSPOskDialog::DoState(PointerWrap &p)
 		selectedChar = std::clamp(selectedChar, 0, numKeyCols[currentKeyboard] * numKeyRows[currentKeyboard] - 1);
 		i_level = 0;
 	}
-	if (p.mode == p.MODE_READ) {
-		// A box still open can answer into the loaded state (the next Update would only open
-		// another). One that finished before mustn't block the next.
-		const PSPOskNativeStatus status = native_->Status();
-		if (status != PSPOskNativeStatus::WAITING && status != PSPOskNativeStatus::FILLING) {
-			native_ = std::make_shared<NativeInput>();
-		}
-	}
-	// Don't need to save state native status or value.
+
 }
 
 pspUtilityDialogCommon *PSPOskDialog::GetCommonParam()

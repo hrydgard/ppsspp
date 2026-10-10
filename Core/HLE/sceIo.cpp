@@ -49,7 +49,7 @@
 #include "Core/HW/MemoryStick.h"
 #include "Core/HW/AsyncIOManager.h"
 #include "Core/CoreTiming.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 
 #include "Core/FileSystems/FileSystem.h"
 #include "Core/FileSystems/MetaFileSystem.h"
@@ -427,7 +427,7 @@ static void __IoAsyncNotify(u64 userdata, int cyclesLate) {
 	u32 error;
 	FileNode *f = __IoGetFd(fd, error);
 	if (!f) {
-		ERROR_LOG_REPORT(Log::sceIo, "__IoAsyncNotify: file no longer exists?");
+		ERROR_LOG(Log::sceIo, "__IoAsyncNotify: file no longer exists?");
 		return;
 	}
 
@@ -488,7 +488,7 @@ static void __IoSyncNotify(u64 userdata, int cyclesLate) {
 	u32 error;
 	FileNode *f = __IoGetFd(fd, error);
 	if (!f) {
-		ERROR_LOG_REPORT(Log::sceIo, "__IoSyncNotify: file no longer exists?");
+		ERROR_LOG(Log::sceIo, "__IoSyncNotify: file no longer exists?");
 		return;
 	}
 
@@ -531,7 +531,7 @@ static void __IoAsyncBeginCallback(SceUID threadID, SceUID prevCallbackId) {
 	if (result == HLEKernel::WAIT_CB_SUCCESS) {
 		DEBUG_LOG(Log::sceIo, "sceIoWaitAsync: Suspending wait for callback");
 	} else if (result == HLEKernel::WAIT_CB_BAD_WAIT_ID) {
-		WARN_LOG_REPORT(Log::sceIo, "sceIoWaitAsync: beginning callback with bad wait id?");
+		WARN_LOG(Log::sceIo, "sceIoWaitAsync: beginning callback with bad wait id?");
 	}
 }
 
@@ -545,7 +545,7 @@ static bool __IoCheckAsyncWait(FileNode *f, SceUID threadID, u32 &error, int res
 		}
 	}
 	if (fd == -1) {
-		ERROR_LOG_REPORT(Log::sceIo, "__IoCheckAsyncWait: could not find io handle");
+		ERROR_LOG(Log::sceIo, "__IoCheckAsyncWait: could not find io handle");
 		return true;
 	}
 
@@ -794,7 +794,7 @@ static u32 sceIoAssign(u32 alias_addr, u32 physical_addr, u32 filesystem_addr, i
 			perm = "unhandled";
 			break;
 	}
-	WARN_LOG_REPORT(Log::sceIo, "sceIoAssign(%s, %s, %s, %s, %08x, %i)", alias.c_str(), physical_dev.c_str(), filesystem_dev.c_str(), perm.c_str(), arg_addr, argSize);
+	WARN_LOG(Log::sceIo, "sceIoAssign(%s, %s, %s, %s, %08x, %i)", alias.c_str(), physical_dev.c_str(), filesystem_dev.c_str(), perm.c_str(), arg_addr, argSize);
 	return 0;
 }
 
@@ -938,7 +938,7 @@ static u32 sceIoGetstat(const char *filename, u32 addr) {
 static u32 sceIoChstat(const char *filename, u32 iostatptr, u32 changebits) {
 	auto iostat = PSPPointer<SceIoStat>::Create(iostatptr);
 	if (!iostat.IsValid())
-		return hleReportError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad address");
+		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_INVALID_ARGUMENT, "bad address");
 
 	// On a FAT volume the write bits in st_mode and the 0x01 bit in st_attr are two views of the
 	// same read-only flag: io/stat/readonly records that setting either one produces both, and
@@ -968,7 +968,7 @@ static u32 sceIoChstat(const char *filename, u32 iostatptr, u32 changebits) {
 	if (changebits & SCE_CST_AT)
 		ERROR_LOG(Log::sceIo, "sceIoChstat: change access time requested");
 	if (changebits & SCE_CST_MT)
-		ERROR_LOG_REPORT(Log::sceIo, "sceIoChstat: change modification time to %04d-%02d-%02d requested", iostat->st_m_time.year, iostat->st_m_time.month, iostat->st_m_time.day);
+		ERROR_LOG(Log::sceIo, "sceIoChstat: change modification time to %04d-%02d-%02d requested", iostat->st_m_time.year, iostat->st_m_time.month, iostat->st_m_time.day);
 	if (changebits & SCE_CST_PRVT)
 		ERROR_LOG(Log::sceIo, "sceIoChstat: change private data requested");
 	return 0;
@@ -1361,7 +1361,7 @@ static u32 sceIoCancel(int id)
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
 		// It seems like this is unsupported for UMDs and memory sticks, based on tests.
-		return hleReportError(Log::sceIo, SCE_KERNEL_ERROR_UNSUP, "unimplemented or unsupported");
+		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_UNSUP, "unimplemented or unsupported");
 	} else {
 		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_BADF, "invalid fd");
 	}
@@ -1783,7 +1783,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 	case 0x01F100A6:
 	case 0x01F100A8:
 	case 0x01F100A9:
-		return hleReportError(Log::sceIo, 0, "UNIMPL sceIoDevctl(\"%s\", %08x, %08x, %i, %08x, %i)", name, cmd, argAddr, argLen, outPtr, outLen);
+		return hleLogError(Log::sceIo, 0, "UNIMPL sceIoDevctl(\"%s\", %08x, %08x, %i, %08x, %i)", name, cmd, argAddr, argLen, outPtr, outLen);
 	}
 
 	// This should really send it on to a FileSystem implementation instead.
@@ -2091,10 +2091,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			return hleLogDebug(Log::sceIo, 0);
 		}
 		case EMULATOR_DEVCTL__TOGGLE_FASTFORWARD:
-			if (argAddr)
-				PSP_CoreParameter().fastForward = true;
-			else
-				PSP_CoreParameter().fastForward = false;
+			// Legacy test command: execution speed belongs to the host.
 			return hleLogDebug(Log::sceIo, 0);
 		case EMULATOR_DEVCTL__GET_ASPECT_RATIO:
 			// NOTE: This currently only works correctly in landscape mode!
@@ -2140,7 +2137,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 	089c6c40 ]: HLE: sceKernelCreateCallback(name= MemoryStick Assignment ,entry= 089c7534 ) (z_un_089c6bc4)
 	*/
 	// Keeping this report intact
-	ERROR_LOG_REPORT(Log::sceIo, "UNIMPL sceIoDevctl(\"%s\", %08x, %08x, %i, %08x, %i)", name, cmd, argAddr, argLen, outPtr, outLen);
+	ERROR_LOG(Log::sceIo, "UNIMPL sceIoDevctl(\"%s\", %08x, %08x, %i, %08x, %i)", name, cmd, argAddr, argLen, outPtr, outLen);
 	return hleNoLog(SCE_KERNEL_ERROR_UNSUP);
 }
 
@@ -2858,10 +2855,6 @@ int __IoIoctl(u32 id, u32 cmd, u32 indataPtr, u32 inlen, u32 outdataPtr, u32 out
 		{
 			int result = pspFileSystem.Ioctl(f->handle, cmd, indataPtr, inlen, outdataPtr, outlen, usec);
 			if (result == (int)SCE_KERNEL_ERROR_ERRNO_FUNCTION_NOT_SUPPORTED) {
-				char temp[256];
-				// We want the reported message to include the cmd, so it's unique.
-				snprintf(temp, sizeof(temp), "sceIoIoctl(%%s, %08x, %%08x, %%x, %%08x, %%x)", cmd);
-				Reporting::ReportMessage(temp, f->fullpath.c_str(), indataPtr, inlen, outdataPtr, outlen);
 				ERROR_LOG(Log::sceIo, "UNIMPL 0=sceIoIoctl id: %08x, cmd %08x, indataPtr %08x, inlen %08x, outdataPtr %08x, outLen %08x", id,cmd,indataPtr,inlen,outdataPtr,outlen);
 			}
 			return result;
@@ -2939,12 +2932,12 @@ static u32 sceIoGetFdList(u32 outAddr, int outSize, u32 fdNumAddr) {
 
 // Presumably lets you hook up stderr to a MsgPipe.
 static u32 sceKernelRegisterStderrPipe(u32 msgPipeUID) {
-	ERROR_LOG_REPORT(Log::sceIo, "UNIMPL sceKernelRegisterStderrPipe(%08x)", msgPipeUID);
+	ERROR_LOG(Log::sceIo, "UNIMPL sceKernelRegisterStderrPipe(%08x)", msgPipeUID);
 	return 0;
 }
 
 static u32 sceKernelRegisterStdoutPipe(u32 msgPipeUID) {
-	ERROR_LOG_REPORT(Log::sceIo, "UNIMPL sceKernelRegisterStdoutPipe(%08x)", msgPipeUID);
+	ERROR_LOG(Log::sceIo, "UNIMPL sceKernelRegisterStdoutPipe(%08x)", msgPipeUID);
 	return 0;
 }
 
@@ -3031,7 +3024,7 @@ static int IoAsyncFinish(int id) {
 			break;
 
 		default:
-			ERROR_LOG_REPORT(Log::sceIo, "Unknown async op %d", (int)params.op);
+			ERROR_LOG(Log::sceIo, "Unknown async op %d", (int)params.op);
 			us = 0;
 			break;
 		}

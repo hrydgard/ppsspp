@@ -32,7 +32,7 @@
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/MIPS/MIPSStackWalk.h"
 #include "Core/HLE/sceKernelThread.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 
 // General note: Function addresses will be snapped appropriately to full instructions
 // if they are not divisible by four. Addresses downwards, sizes upwards.
@@ -204,7 +204,6 @@ void WebSocketHLEThreadWake(DebuggerRequest &req) {
 			return;
 		}
 
-		Reporting::NotifyDebugger();
 
 		JsonWriter &json = req.Respond();
 		json.writeUint("thread", threadInfo.id);
@@ -249,7 +248,6 @@ void WebSocketHLEThreadStop(DebuggerRequest &req) {
 			return;
 		}
 
-		Reporting::NotifyDebugger();
 
 		JsonWriter &json = req.Respond();
 		json.writeUint("thread", threadInfo.id);

@@ -41,7 +41,7 @@
 #include "Core/System.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/MemMapHelpers.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/Util/PortManager.h"
 #include "Core/CoreTiming.h"
 #include "Core/Instance.h"

@@ -24,7 +24,7 @@
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMap.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/Compatibility.h"
@@ -345,7 +345,7 @@ static int sceKernelVolatileMemTryLock(int type, u32 paddr, u32 psize) {
 		return hleLogDebug(Log::HLE, error, "(%i, %08x, %08x) - already locked!", type, paddr, psize);
 
 	default:
-		ERROR_LOG_REPORT(Log::HLE, "%08x=sceKernelVolatileMemTryLock(%i, %08x, %08x) - error", type, paddr, psize, error);
+		ERROR_LOG(Log::HLE, "%08x=sceKernelVolatileMemTryLock(%i, %08x, %08x) - error", type, paddr, psize, error);
 		break;
 	}
 
@@ -389,10 +389,10 @@ int KernelVolatileMemUnlock(int type) {
 static int sceKernelVolatileMemUnlock(int type) {
 	int error = KernelVolatileMemUnlock(type);
 	if (error == SCE_KERNEL_ERROR_INVALID_MODE) {
-		ERROR_LOG_REPORT(Log::HLE, "sceKernelVolatileMemUnlock(%i) - invalid mode", type);
+		ERROR_LOG(Log::HLE, "sceKernelVolatileMemUnlock(%i) - invalid mode", type);
 		return error;
 	} else if (error == SCE_KERNEL_ERROR_SEMA_OVF) {
-		ERROR_LOG_REPORT(Log::HLE, "sceKernelVolatileMemUnlock(%i) FAILED - not locked", type);
+		ERROR_LOG(Log::HLE, "sceKernelVolatileMemUnlock(%i) FAILED - not locked", type);
 		return error;
 	}
 
@@ -451,7 +451,7 @@ static int sceKernelVolatileMemLock(int type, u32 paddr, u32 psize) {
 		break;
 
 	default:
-		ERROR_LOG_REPORT(Log::HLE, "%08x=sceKernelVolatileMemLock(%i, %08x, %08x) - error", type, paddr, psize, error);
+		ERROR_LOG(Log::HLE, "%08x=sceKernelVolatileMemLock(%i, %08x, %08x) - error", type, paddr, psize, error);
 		break;
 	}
 

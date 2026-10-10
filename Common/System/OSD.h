@@ -21,16 +21,6 @@ enum class OSDType {
 	MESSAGE_CENTERED_WARNING,
 	MESSAGE_CENTERED_ERROR,
 
-	ACHIEVEMENT_UNLOCKED,
-
-	// Side entries
-	ACHIEVEMENT_PROGRESS,  // Achievement icon + "measured_progress" text, auto-hide after 2s
-	ACHIEVEMENT_CHALLENGE_INDICATOR,  // Achievement icon ONLY, no auto-hide
-
-	LEADERBOARD_TRACKER,
-	LEADERBOARD_STARTED_FAILED,
-	LEADERBOARD_SUBMITTED,
-
 	PROGRESS_BAR,
 
 	STATUS_ICON,  // Use icons from the atlas
@@ -74,14 +64,6 @@ public:
 	// Call this every frame, cleans up old entries.
 	void Update();
 
-	// Specialized achievement-related types. These go to the side notifications, not the top-middle.
-	void ShowAchievementUnlocked(int achievementID);
-	void ShowAchievementProgress(int achievementID, bool show);  // call with show=false to hide.  There can only be one of these. When hiding it's ok to not pass a valid achievementID.
-	void ShowChallengeIndicator(int achievementID, bool show);  // call with show=false to hide.
-	void ShowLeaderboardTracker(int leaderboardTrackerID, std::string_view trackerText, bool show);   // show=true is used both for create and update.
-	void ShowLeaderboardStartEnd(std::string_view title, std::string_view description, bool started);  // started = true for started, false for ended.
-	void ShowLeaderboardSubmitted(std::string_view title, std::string_view value);
-
 	// Progress bar controls
 	// Set is both create and update. If you set maxValue <= minValue, you'll create an "indeterminate" progress
 	// bar that doesn't show a specific amount of progress.
@@ -92,9 +74,6 @@ public:
 	void NudgeIngameNotifications();
 	float IngameAlpha() const;
 
-	// Fades out everything related to achievements. Should be used on game shutdown.
-	void ClearAchievementStuff();
-
 	// Can't add an infinite number of "Show" functions, so starting to offer post-modification.
 	void SetFlags(std::string_view id, OSDMessageFlags flag);
 	void SetClickCallback(std::string_view id, std::function<void()> callback);
@@ -104,7 +83,6 @@ public:
 		std::string text;
 		std::string text2;
 		std::string iconName;
-		int numericID;
 		std::string id;
 		OSDMessageFlags flags;
 
@@ -133,13 +111,8 @@ private:
 
 	void ShowNow(OSDType type, std::string_view text, std::string_view text2, std::string_view icon, float duration_s, const char *id);
 	void CancelByIdNow(std::string_view id);
-	void ShowAchievementUnlockedNow(int achievementID);
-	void ShowAchievementProgressNow(int achievementID, bool show);
-	void ShowChallengeIndicatorNow(int achievementID, bool show);
-	void ShowLeaderboardTrackerNow(int leaderboardTrackerID, std::string_view trackerText, bool show);
 	void SetProgressBarNow(std::string_view id, std::string_view message, float minValue, float maxValue, float progress, float delay_s);
 	void RemoveProgressBarNow(std::string_view id, bool success, float delay_s);
-	void ClearAchievementStuffNow();
 	void SetClickCallbackNow(std::string_view id, std::function<void()> callback);
 	void SetFlagsNow(std::string_view id, OSDMessageFlags flags);
 

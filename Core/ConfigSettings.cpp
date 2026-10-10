@@ -370,28 +370,3 @@ bool ConfigSetting::RestoreToDefault(ConfigBlock *configBlock, bool log) const {
 	}
 	return false;
 }
-
-void ConfigSetting::ReportSetting(const ConfigBlock *configBlock, UrlEncoder &data, const std::string &prefix) const {
-	if (!Report())
-		return;
-
-	_dbg_assert_(offset_ >= 0 && offset_ < configBlock->Size());
-	const char *owner = (const char *)configBlock;
-	const std::string key = join(prefix, iniKey_);
-
-	switch (type_) {
-	case Type::TYPE_BOOL:   return data.Add(key, *(const bool *)(owner + offset_));
-	case Type::TYPE_INT:    return data.Add(key, *(const int *)(owner + offset_));
-	case Type::TYPE_UINT32: return data.Add(key, *(const uint32_t *)(owner + offset_));
-	case Type::TYPE_UINT64: return data.Add(key, *(const uint64_t *)(owner + offset_));
-	case Type::TYPE_FLOAT:  return data.Add(key, *(const float *)(owner + offset_));
-	case Type::TYPE_STRING: return data.Add(key, *(const std::string *)(owner + offset_));
-	case Type::TYPE_STRING_VECTOR: return data.Add(key, *(const std::vector<std::string> *)(owner + offset_));
-	case Type::TYPE_PATH:   return data.Add(key, ((const Path *)(owner + offset_))->ToString());
-	case Type::TYPE_TOUCH_POS: return;   // Doesn't report.
-	case Type::TYPE_CUSTOM_BUTTON: return; // Doesn't report.
-	default:
-		_dbg_assert_msg_(false, "Report(%s): Unexpected ini setting type: %d", key.c_str(), (int)type_);
-		return;
-	}
-}

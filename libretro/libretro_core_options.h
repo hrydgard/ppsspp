@@ -373,30 +373,6 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "disabled"
    },
    {
-      "ppsspp_frameskiptype",
-      "Frameskip Type",
-      NULL,
-      NULL,
-      NULL,
-      "video",
-      {
-         { "Number of frames", NULL },
-         { "Percent of FPS",   NULL },
-         { NULL, NULL },
-      },
-      "Number of frames"
-   },
-   {
-      "ppsspp_auto_frameskip",
-      "Auto Frameskip",
-      NULL,
-      NULL,
-      NULL,
-      "video",
-      BOOL_OPTIONS,
-      "disabled"
-   },
-   {
       "ppsspp_frame_duplication",
       "Render Duplicate Frames to 60 Hz",
       NULL,

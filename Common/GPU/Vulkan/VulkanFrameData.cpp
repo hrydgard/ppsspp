@@ -127,25 +127,6 @@ VkResult FrameData::QueuePresent(VulkanContext *vulkan, FrameDataShared &shared)
 	present.pWaitSemaphores = &shared.swapchainImages_[curSwapchainImage].renderingCompleteSemaphore;
 	present.waitSemaphoreCount = 1;
 
-	// Can't move these into the if.
-	VkPresentIdKHR presentID{ VK_STRUCTURE_TYPE_PRESENT_ID_KHR };
-	VkPresentTimesInfoGOOGLE presentGOOGLE{ VK_STRUCTURE_TYPE_PRESENT_TIMES_INFO_GOOGLE };
-
-	uint64_t frameId = this->frameId;
-	VkPresentTimeGOOGLE presentTimeGOOGLE{ (uint32_t)frameId, 0 };  // it's ok to truncate this. it'll wrap around and work (if we ever reach 4 billion frames..)
-
-	if (shared.measurePresentTime) {
-		if (vulkan->Extensions().KHR_present_id && vulkan->GetDeviceFeatures().enabled.presentId.presentId) {
-			ChainStruct(present, &presentID);
-			presentID.pPresentIds = &frameId;
-			presentID.swapchainCount = 1;
-		} else if (vulkan->Extensions().GOOGLE_display_timing) {
-			ChainStruct(present, &presentGOOGLE);
-			presentGOOGLE.pTimes = &presentTimeGOOGLE;
-			presentGOOGLE.swapchainCount = 1;
-		}
-	}
-
 	return vkQueuePresentKHR(vulkan->GetGraphicsQueue(), &present);
 }
 
@@ -273,13 +254,12 @@ void FrameData::Submit(VulkanContext *vulkan, FrameSubmitType type, FrameDataSha
 	}
 }
 
-void FrameDataShared::Init(VulkanContext *vulkan, bool useMultiThreading, bool measurePresentTime) {
+void FrameDataShared::Init(VulkanContext *vulkan, bool useMultiThreading) {
 	// This fence is used for synchronizing readbacks. Does not need preinitialization.
 	readbackFence = vulkan->CreateFence(false);
 	vulkan->SetDebugName(readbackFence, VK_OBJECT_TYPE_FENCE, "readbackFence");
 
 	this->useMultiThreading = useMultiThreading;
-	this->measurePresentTime = measurePresentTime;
 }
 
 void FrameDataShared::Destroy(VulkanContext *vulkan) {

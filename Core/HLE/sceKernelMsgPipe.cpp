@@ -20,7 +20,7 @@
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/HLE/HLE.h"
@@ -486,10 +486,10 @@ static void __KernelMsgPipeBeginCallback(SceUID threadID, SceUID prevCallbackId)
 			if (result == HLEKernel::WAIT_CB_SUCCESS)
 				DEBUG_LOG(Log::sceKernel, "sceKernelSendMsgPipeCB: Suspending wait for callback");
 			else if (result == HLEKernel::WAIT_CB_BAD_WAIT_DATA)
-				ERROR_LOG_REPORT(Log::sceKernel, "sceKernelSendMsgPipeCB: wait not found to pause for callback");
+				ERROR_LOG(Log::sceKernel, "sceKernelSendMsgPipeCB: wait not found to pause for callback");
 		}
 		else
-			WARN_LOG_REPORT(Log::sceKernel, "sceKernelSendMsgPipeCB: beginning callback with bad wait id?");
+			WARN_LOG(Log::sceKernel, "sceKernelSendMsgPipeCB: beginning callback with bad wait id?");
 		break;
 
 	case MSGPIPE_WAIT_VALUE_RECV:
@@ -499,14 +499,14 @@ static void __KernelMsgPipeBeginCallback(SceUID threadID, SceUID prevCallbackId)
 			if (result == HLEKernel::WAIT_CB_SUCCESS)
 				DEBUG_LOG(Log::sceKernel, "sceKernelReceiveMsgPipeCB: Suspending wait for callback");
 			else if (result == HLEKernel::WAIT_CB_BAD_WAIT_DATA)
-				ERROR_LOG_REPORT(Log::sceKernel, "sceKernelReceiveMsgPipeCB: wait not found to pause for callback");
+				ERROR_LOG(Log::sceKernel, "sceKernelReceiveMsgPipeCB: wait not found to pause for callback");
 		}
 		else
-			WARN_LOG_REPORT(Log::sceKernel, "sceKernelReceiveMsgPipeCB: beginning callback with bad wait id?");
+			WARN_LOG(Log::sceKernel, "sceKernelReceiveMsgPipeCB: beginning callback with bad wait id?");
 		break;
 
 	default:
-		ERROR_LOG_REPORT(Log::sceKernel, "__KernelMsgPipeBeginCallback: Unexpected wait value");
+		ERROR_LOG(Log::sceKernel, "__KernelMsgPipeBeginCallback: Unexpected wait value");
 	}
 }
 
@@ -596,7 +596,7 @@ static void __KernelMsgPipeEndCallback(SceUID threadID, SceUID prevCallbackId) {
 		break;
 
 	default:
-		ERROR_LOG_REPORT(Log::sceKernel, "__KernelMsgPipeEndCallback: Unexpected wait value");
+		ERROR_LOG(Log::sceKernel, "__KernelMsgPipeEndCallback: Unexpected wait value");
 	}
 }
 
@@ -664,7 +664,7 @@ int sceKernelCreateMsgPipe(const char *name, int partition, u32 attr, u32 size, 
 		if (Memory::IsValid4AlignedAddress(optionsPtr)) {
 			u32 optionsSize = Memory::ReadUnchecked_U32(optionsPtr);
 			if (optionsSize > 4)
-				WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateMsgPipe(%s) unsupported options parameter, size = %d", name, optionsSize);
+				WARN_LOG(Log::sceKernel, "sceKernelCreateMsgPipe(%s) unsupported options parameter, size = %d", name, optionsSize);
 		}
 	}
 

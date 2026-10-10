@@ -340,7 +340,7 @@ struct AutoTestOptions {
 static void EndDrawFrame(Draw::DrawContext *draw) {
 	draw->EndFrame();
 	if (GetGPUBackend() == GPUBackend::VULKAN || GetGPUBackend() == GPUBackend::OPENGL) {
-		draw->Present(Draw::PresentMode::FIFO);
+		draw->Present();
 	}
 }
 
@@ -404,7 +404,7 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 
 	System_Notify(SystemNotification::BOOT_DONE);
 
-	PSP_UpdateDebugStats((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS);
+	PSP_UpdateDebugStats(g_coreCollectDebugStats);
 
 	if (gpu) {
 		gpu->BeginHostFrame(g_Config.GetDisplayLayoutConfig(DeviceOrientation::Landscape));
@@ -886,7 +886,6 @@ int main(int argc, const char* argv[]) {
 	g_Config.bFirstRun = false;
 	g_Config.bIgnoreBadMemAccess = false;
 	// Never report from tests.
-	g_Config.sReportHost.clear();
 	g_Config.bAutoSaveSymbolMap = false;
 	g_Config.bSkipBufferEffects = false;
 	g_Config.iSkipGPUReadbackMode = (int)SkipGPUReadbackMode::NO_SKIP;
@@ -930,7 +929,6 @@ int main(int argc, const char* argv[]) {
 	g_Config.iReverbVolume = VOLUMEHI_FULL;
 	g_Config.internalDataDirectory.clear();
 	g_Config.bUseOldAtrac = oldAtrac;
-	g_Config.bSkipDeadbeefFilling = false;
 
 	// ApplyToConfig() has the final say, applied after RestoreDefaults() and the headless
 	// overrides above, so a matching command line flag always wins.
@@ -1036,7 +1034,6 @@ int main(int argc, const char* argv[]) {
 	coreParameter.renderHeight = 272 * coreParameter.renderScaleFactor;
 	coreParameter.pixelWidth = 480 * coreParameter.renderScaleFactor;
 	coreParameter.pixelHeight = 272 * coreParameter.renderScaleFactor;
-	coreParameter.fastForward = true;
 
 	Path exePath = File::GetExeDirectory();
 

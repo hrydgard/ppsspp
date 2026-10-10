@@ -13,7 +13,6 @@ enum class CfgFlag : u8 {
 	DEFAULT = 0,
 	DONT_SAVE = 1,  // normally don't like negative flags, but these are really not many.
 	PER_GAME = 2,
-	REPORT = 4,
 };
 ENUM_CLASS_BITOPS(CfgFlag);
 
@@ -197,13 +196,11 @@ struct ConfigSetting {
 	// If log is true, logs if the setting changed.
 	bool RestoreToDefault(ConfigBlock *configBlock, bool log) const;
 
-	void ReportSetting(const ConfigBlock *configBlock, UrlEncoder &data, const std::string &prefix) const;
 
 	// Easy flag accessors.
 	CfgFlag Flags() const { return flags_; }
 	bool PerGame() const { return flags_ & CfgFlag::PER_GAME; }
 	bool SaveSetting() const { return !(flags_ & CfgFlag::DONT_SAVE); }
-	bool Report() const { return flags_ & CfgFlag::REPORT; }
 
 	int GetDefaultInt() const {
 		_dbg_assert_(type_ == Type::TYPE_INT);

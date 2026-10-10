@@ -27,7 +27,7 @@
 #include "Common/Data/Text/StringWriter.h"
 
 #include "Core/Config.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/System.h"
 #include "Core/ELF/ParamSFO.h"
 
@@ -76,7 +76,6 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 		ERROR_LOG(Log::G3D, "gstate has drifted out of sync!");
 	}
 
-	BuildReportingInfo();
 
 	textureCache_->NotifyConfigChanged();
 
@@ -280,53 +279,6 @@ void GPU_Vulkan::EndHostFrame() {
 }
 
 // Needs to be called on GPU thread, not reporting thread.
-void GPU_Vulkan::BuildReportingInfo() {
-	VulkanContext *vulkan = (VulkanContext *)draw_->GetNativeObject(Draw::NativeObject::CONTEXT);
-	const auto &props = vulkan->GetPhysicalDeviceProperties().properties;
-	const auto &available = vulkan->GetDeviceFeatures().available;
-
-#define CHECK_BOOL_FEATURE(n) do { if (available.standard.n) { featureNames += ", " #n; } } while (false)
-#define CHECK_BOOL_FEATURE_MULTIVIEW(n) do { if (available.multiview.n) { featureNames += ", " #n; } } while (false)
-
-	std::string featureNames = "";
-	CHECK_BOOL_FEATURE(fullDrawIndexUint32);
-	CHECK_BOOL_FEATURE(geometryShader);
-	CHECK_BOOL_FEATURE(sampleRateShading);
-	CHECK_BOOL_FEATURE(dualSrcBlend);
-	CHECK_BOOL_FEATURE(logicOp);
-	CHECK_BOOL_FEATURE(multiDrawIndirect);
-	CHECK_BOOL_FEATURE(drawIndirectFirstInstance);
-	CHECK_BOOL_FEATURE(depthClamp);
-	CHECK_BOOL_FEATURE(depthBiasClamp);
-	CHECK_BOOL_FEATURE(depthBounds);
-	CHECK_BOOL_FEATURE(samplerAnisotropy);
-	CHECK_BOOL_FEATURE(textureCompressionETC2);
-	CHECK_BOOL_FEATURE(textureCompressionASTC_LDR);
-	CHECK_BOOL_FEATURE(textureCompressionBC);
-	CHECK_BOOL_FEATURE(occlusionQueryPrecise);
-	CHECK_BOOL_FEATURE(pipelineStatisticsQuery);
-	CHECK_BOOL_FEATURE(fragmentStoresAndAtomics);
-	CHECK_BOOL_FEATURE(shaderTessellationAndGeometryPointSize);
-	CHECK_BOOL_FEATURE(shaderStorageImageMultisample);
-	CHECK_BOOL_FEATURE(shaderSampledImageArrayDynamicIndexing);
-	CHECK_BOOL_FEATURE(shaderClipDistance);
-	CHECK_BOOL_FEATURE(shaderCullDistance);
-	CHECK_BOOL_FEATURE(shaderInt64);
-	CHECK_BOOL_FEATURE(shaderInt16);
-	CHECK_BOOL_FEATURE_MULTIVIEW(multiview);
-	CHECK_BOOL_FEATURE_MULTIVIEW(multiviewGeometryShader);
-
-#undef CHECK_BOOL_FEATURE
-
-	if (!featureNames.empty()) {
-		featureNames = featureNames.substr(2);
-	}
-
-	reportingPrimaryInfo_ = props.deviceName;
-	reportingFullInfo_ = StringFromFormat("v%08x driver v%08x (%s), vendorID=%d, deviceID=%d (features: %s)", props.apiVersion, props.driverVersion, props.deviceName, props.vendorID, props.deviceID, featureNames.c_str());
-
-	Reporting::UpdateConfig();
-}
 
 void GPU_Vulkan::FinishDeferred() {
 	drawEngine_.FinishDeferred();

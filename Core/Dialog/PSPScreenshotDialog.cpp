@@ -22,7 +22,7 @@
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/MemMap.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 
 enum SceUtilityScreenshotType {
 	SCE_UTILITY_SCREENSHOT_TYPE_GUI = 0,
@@ -62,7 +62,7 @@ PSPScreenshotDialog::~PSPScreenshotDialog() {
 int PSPScreenshotDialog::Init(u32 paramAddr) {
 	// Already running
 	if (ReadStatus() != SCE_UTILITY_STATUS_NONE && ReadStatus() != SCE_UTILITY_STATUS_SHUTDOWN) {
-		ERROR_LOG_REPORT(Log::HLE, "sceUtilityScreenshotInitStart(%08x): invalid status", paramAddr);
+		ERROR_LOG(Log::HLE, "sceUtilityScreenshotInitStart(%08x): invalid status", paramAddr);
 		return SCE_ERROR_UTILITY_INVALID_STATUS;
 	}
 

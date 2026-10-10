@@ -30,17 +30,6 @@ enum GPUCore : int {
 	GPUCORE_VULKAN = 4,
 };
 
-enum class FPSLimit {
-	NORMAL = 0,
-	CUSTOM1 = 1,
-	CUSTOM2 = 2,
-	ANALOG = 3,
-	// Set over the WebSocket debugger (game.speed.set). Deliberately its own mode instead of
-	// reusing CUSTOM1/2: those read their rate from g_Config, which is persisted per game, so a
-	// debugger session would permanently overwrite the user's configured alternative speed.
-	DEBUGGER = 4,
-};
-
 class FileLoader;
 
 class GraphicsContext;
@@ -84,16 +73,6 @@ struct CoreParameter {
 	// Actual output resolution in pixels.
 	int pixelWidth = 0;
 	int pixelHeight = 0;
-
-	// Can be modified at runtime. Do not belong here.
-	bool fastForward = false;
-	FPSLimit fpsLimit = FPSLimit::NORMAL;
-	int analogFpsLimit = 0;
-	// Target FPS for FPSLimit::DEBUGGER. Lives here rather than in g_Config on purpose - see the
-	// enum. Resets with the rest of this struct on every boot, so a debugger can't leave a game
-	// permanently slowed down.
-	int debuggerFpsLimit = 0;
-
 
 	// Freeze-frame. For nvidia perfhud profiling. Developers only.
 	bool freezeNext = false;

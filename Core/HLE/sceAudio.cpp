@@ -29,7 +29,7 @@
 #include "Core/HLE/sceAudio.h"
 #include "Core/HLE/sceUsbMic.h"
 #include "Core/HLE/__sceAudio.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 
 const u32 PSP_AUDIO_SAMPLE_MAX = 65536 - 64;
 const int PSP_AUDIO_ERROR_SRC_FORMAT_4 = 0x80000003;
@@ -501,7 +501,7 @@ static u32 sceAudioSRCChReserve(u32 sampleCount, u32 freq, u32 format) {
 	// This seems to ignore the MSB, for some reason.
 	sampleCount &= 0x7FFFFFFF;
 	if (format == 4) {
-		return hleReportError(Log::sceAudio, PSP_AUDIO_ERROR_SRC_FORMAT_4, "unexpected format");
+		return hleLogError(Log::sceAudio, PSP_AUDIO_ERROR_SRC_FORMAT_4, "unexpected format");
 	} else if (format != 2) {
 		return hleLogError(Log::sceAudio, SCE_KERNEL_ERROR_INVALID_SIZE, "unexpected format");
 	} else if (sampleCount < 17 || sampleCount > 4111) {
@@ -586,26 +586,26 @@ static int sceAudioGetInputLength() {
 }
 
 static u32 sceAudioRoutingSetMode(u32 mode) {
-	ERROR_LOG_REPORT(Log::sceAudio, "sceAudioRoutingSetMode(%08x)", mode);
+	ERROR_LOG(Log::sceAudio, "sceAudioRoutingSetMode(%08x)", mode);
 	int previousMode = defaultRoutingMode;
 	defaultRoutingMode = mode;
 	return previousMode;
 }
 
 static u32 sceAudioRoutingGetMode() {
-	ERROR_LOG_REPORT(Log::sceAudio, "sceAudioRoutingGetMode()");
+	ERROR_LOG(Log::sceAudio, "sceAudioRoutingGetMode()");
 	return defaultRoutingMode;
 }
 
 static u32 sceAudioRoutingSetVolumeMode(u32 mode) {
-	ERROR_LOG_REPORT(Log::sceAudio, "sceAudioRoutingSetVolumeMode(%08x)", mode);
+	ERROR_LOG(Log::sceAudio, "sceAudioRoutingSetVolumeMode(%08x)", mode);
 	int previousMode = defaultRoutingVolMode;
 	defaultRoutingVolMode = mode;
 	return previousMode;
 }
 
 static u32 sceAudioRoutingGetVolumeMode() {
-	ERROR_LOG_REPORT(Log::sceAudio, "sceAudioRoutingGetVolumeMode()");
+	ERROR_LOG(Log::sceAudio, "sceAudioRoutingGetVolumeMode()");
 	return defaultRoutingVolMode;
 }
 

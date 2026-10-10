@@ -35,7 +35,7 @@
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMapHelpers.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/System.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
@@ -666,7 +666,7 @@ bool WriteHLESyscall(std::string_view moduleName, u32 nib, u32 address) {
 	_dbg_assert_(Memory::IsValid4AlignedAddress(address));
 	if (nib == 0)
 	{
-		WARN_LOG_REPORT(Log::HLE, "Wrote patched out nid=0 syscall (%.*s)", (int)moduleName.size(), moduleName.data());
+		WARN_LOG(Log::HLE, "Wrote patched out nid=0 syscall (%.*s)", (int)moduleName.size(), moduleName.data());
 		Memory::WriteUnchecked_U32(MIPS_MAKE_JR_RA(), address); //patched out?
 		Memory::WriteUnchecked_U32(MIPS_MAKE_NOP(), address+4); //patched out?
 		return true;
@@ -680,7 +680,7 @@ bool WriteHLESyscall(std::string_view moduleName, u32 nib, u32 address) {
 	}
 	else
 	{
-		ERROR_LOG_REPORT(Log::HLE, "Unable to write unknown syscall: %.*s/%08x", (int)moduleName.size(), moduleName.data(), nib);
+		ERROR_LOG(Log::HLE, "Unable to write unknown syscall: %.*s/%08x", (int)moduleName.size(), moduleName.data(), nib);
 		return false;
 	}
 }
@@ -957,9 +957,6 @@ inline static void SetDeadbeefRegs()
 	// Not exactly the same, but any time a syscall happens, it should clear ll.
 	currentMIPS->llBit = 0;
 
-	if (g_Config.bSkipDeadbeefFilling)
-		return;
-
 	currentMIPS->r[MIPS_REG_COMPILER_SCRATCH] = 0xDEADBEEF;
 	// Set all the arguments and temp regs. TODO: Use SIMD to just do three writes.
 	memcpy(&currentMIPS->r[MIPS_REG_A0], deadbeefRegs, sizeof(deadbeefRegs));
@@ -1204,7 +1201,7 @@ void CallSyscallWithPC(MIPSOpcode op, u32 pc) {
 	} else {
 		// We haven't incremented the stack yet.
 		RETURN(SCE_KERNEL_ERROR_LIBRARY_NOT_YET_LINKED);
-		ERROR_LOG_REPORT(Log::HLE, "Unimplemented HLE function %s", info->name ? info->name : "(\?\?\?)");
+		ERROR_LOG(Log::HLE, "Unimplemented HLE function %s", info->name ? info->name : "(\?\?\?)");
 	}
 
 	if (collectStats) {
@@ -1498,7 +1495,7 @@ const HLEFunction *HLEGetFunctionBeingCalled() {
 	return nullptr;
 }
 
-void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line, const char *reportTag, const char *reason, const char *formatted_reason) {
+void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line, const char *reason, const char *formatted_reason) {
 	char formatted_args[2048];
 	const char *funcName = "?";
 	u32 funcFlags = 0;
@@ -1588,27 +1585,5 @@ void hleDoLogInternal(Log t, LogLevel level, u64 res, const char *file, int line
 		GenericLog(t, level, file, line, fmt, kernelFlag, funcName, formatted_args, formatted_reason);
 	}
 
-	if (reportTag) {
-		// A blank string means always log, not just once.
-		if (reportTag[0] == '\0' || Reporting::ShouldLogNTimes(reportTag, 1)) {
-			// Here we want the original key, so that different args, etc. group together.
-			std::string key = std::string(kernelFlag) + std::string("%08x=") + funcName + "(%s)";
-			if (reason != nullptr) {
-				key += ": ";
-				key += reason;
-			}
 
-			char formatted_message[8192];
-			if (retmask != 'v') {
-				if (errStr) {
-					snprintf(formatted_message, sizeof(formatted_message), fmt, kernelFlag, errStr, funcName, formatted_args, formatted_reason);
-				} else {
-					snprintf(formatted_message, sizeof(formatted_message), fmt, kernelFlag, res, funcName, formatted_args, formatted_reason);
-				}
-			} else {
-				snprintf(formatted_message, sizeof(formatted_message), fmt, kernelFlag, funcName, formatted_args, formatted_reason);
-			}
-			Reporting::ReportMessageFormatted(key.c_str(), formatted_message);
-		}
-	}
 }

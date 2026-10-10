@@ -31,7 +31,7 @@
 #include "Core/Compatibility.h"
 #include "Core/Config.h"
 #include "Core/MemMap.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/System.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
@@ -122,7 +122,7 @@ void Jit::ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz) {
 			// Prefix may say "z, z, z, z" but if this is a pair, we force to x.
 			// TODO: But some ops seem to use const 0 instead?
 			if (regnum >= n) {
-				ERROR_LOG_REPORT(Log::CPU, "Invalid VFPU swizzle: %08x / %d", prefix, sz);
+				ERROR_LOG(Log::CPU, "Invalid VFPU swizzle: %08x / %d", prefix, sz);
 				regnum = 0;
 			}
 			fpr.SimpleRegV(origV[regnum], 0);
@@ -3731,7 +3731,7 @@ void Jit::Comp_VRot(MIPSOpcode op) {
 	}
 	if (!js.HasNoPrefix()) {
 		// Prefixes work strangely for this, see IRCompVFPU.
-		WARN_LOG_REPORT(Log::JIT, "vrot instruction using prefixes at %08x", GetCompilerPC());
+		WARN_LOG(Log::JIT, "vrot instruction using prefixes at %08x", GetCompilerPC());
 		DISABLE;
 	}
 

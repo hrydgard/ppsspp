@@ -12,7 +12,6 @@
 OnScreenDisplay g_OSD;
 
 // Effectively forever.
-constexpr double forever_s = 10000000000.0;
 
 namespace {
 struct OSDCommand;
@@ -89,32 +88,12 @@ void OnScreenDisplay::CancelById(std::string_view id) {
 	Post([i = std::string(id)](OnScreenDisplay &osd) { osd.CancelByIdNow(i); });
 }
 
-void OnScreenDisplay::ShowAchievementUnlocked(int achievementID) {
-	Post([=](OnScreenDisplay &osd) { osd.ShowAchievementUnlockedNow(achievementID); });
-}
-
-void OnScreenDisplay::ShowAchievementProgress(int achievementID, bool show) {
-	Post([=](OnScreenDisplay &osd) { osd.ShowAchievementProgressNow(achievementID, show); });
-}
-
-void OnScreenDisplay::ShowChallengeIndicator(int achievementID, bool show) {
-	Post([=](OnScreenDisplay &osd) { osd.ShowChallengeIndicatorNow(achievementID, show); });
-}
-
-void OnScreenDisplay::ShowLeaderboardTracker(int leaderboardTrackerID, std::string_view trackerText, bool show) {
-	Post([=, t = std::string(trackerText)](OnScreenDisplay &osd) { osd.ShowLeaderboardTrackerNow(leaderboardTrackerID, t, show); });
-}
-
 void OnScreenDisplay::SetProgressBar(std::string_view id, std::string_view message, float minValue, float maxValue, float progress, float delay_s) {
 	Post([=, i = std::string(id), m = std::string(message)](OnScreenDisplay &osd) { osd.SetProgressBarNow(i, m, minValue, maxValue, progress, delay_s); });
 }
 
 void OnScreenDisplay::RemoveProgressBar(std::string_view id, bool success, float delay_s) {
 	Post([=, i = std::string(id)](OnScreenDisplay &osd) { osd.RemoveProgressBarNow(i, success, delay_s); });
-}
-
-void OnScreenDisplay::ClearAchievementStuff() {
-	Post([](OnScreenDisplay &osd) { osd.ClearAchievementStuffNow(); });
 }
 
 void OnScreenDisplay::SetClickCallback(std::string_view id, std::function<void()> callback) {
@@ -137,7 +116,7 @@ float OnScreenDisplay::IngameAlpha() const {
 }
 
 void OnScreenDisplay::ClickEntry(size_t index, double now) {
-	if (index < entries_.size() && entries_[index].type != OSDType::ACHIEVEMENT_CHALLENGE_INDICATOR) {
+	if (index < entries_.size()) {
 		if (entries_[index].clickCallback) {
 			entries_[index].clickCallback();
 		} else {
@@ -218,120 +197,6 @@ void OnScreenDisplay::ShowOnOff(std::string_view message, bool on, float duratio
 	Show(OSDType::MESSAGE_INFO, msg, duration_s);
 }
 
-void OnScreenDisplay::ShowAchievementUnlockedNow(int achievementID) {
-	double now = time_now_d();
-
-	double duration_s = 5.0;
-
-	Entry msg{};
-	msg.numericID = achievementID;
-	msg.type = OSDType::ACHIEVEMENT_UNLOCKED;
-	msg.startTime = now;
-	msg.endTime = now + duration_s;
-	entries_.insert(entries_.begin(), msg);
-}
-
-void OnScreenDisplay::ShowAchievementProgressNow(int achievementID, bool show) {
-	double now = time_now_d();
-
-	// There can only be one of these at a time.
-	for (auto &entry : entries_) {
-		if (entry.type == OSDType::ACHIEVEMENT_PROGRESS) {
-			if (!show) {
-				// Hide and eventually delete it.
-				entry.endTime = now + (double)FadeoutTime();
-				// Found it, we're done.
-				return;
-			}
-			// Else update it.
-			entry.numericID = achievementID;
-			entry.endTime = now + forever_s;
-			return;
-		}
-	}
-
-	if (!show) {
-		// Sanity check
-		return;
-	}
-
-	// OK, let's make a new side-entry.
-	Entry entry{};
-	entry.numericID = achievementID;
-	entry.type = OSDType::ACHIEVEMENT_PROGRESS;
-	entry.startTime = now;
-	entry.endTime = now + forever_s;
-	entries_.insert(entries_.begin(), entry);
-}
-
-void OnScreenDisplay::ShowChallengeIndicatorNow(int achievementID, bool show) {
-	double now = time_now_d();
-
-	for (auto &entry : entries_) {
-		if (entry.numericID == achievementID && entry.type == OSDType::ACHIEVEMENT_CHALLENGE_INDICATOR && !show) {
-			// Hide and eventually delete it.
-			entry.endTime = now + (double)FadeoutTime();
-			// Found it, we're done.
-			return;
-		}
-	}
-
-	if (!show) {
-		// Sanity check
-		return;
-	}
-
-	// OK, let's make a new side-entry.
-	Entry entry{};
-	entry.numericID = achievementID;
-	entry.type = OSDType::ACHIEVEMENT_CHALLENGE_INDICATOR;
-	entry.startTime = now;
-	entry.endTime = now + forever_s;
-	entries_.insert(entries_.begin(), entry);
-}
-
-void OnScreenDisplay::ShowLeaderboardTrackerNow(int leaderboardTrackerID, std::string_view trackerText, bool show) {   // show=true is used both for create and update.
-	double now = time_now_d();
-
-	for (auto &entry : entries_) {
-		if (entry.numericID == leaderboardTrackerID && entry.type == OSDType::LEADERBOARD_TRACKER) {
-			if (show) {
-				// Just an update.
-				entry.text = trackerText;
-				// Bump the end-time, in case it was fading out.
-				entry.endTime = now + forever_s;
-			} else {
-				// Keep the current text, hide and eventually delete it.
-				entry.endTime = now + (double)FadeoutTime();
-			}
-			// Found it, we're done.
-			return;
-		}
-	}
-
-	if (!show) {
-		// Sanity check
-		return;
-	}
-
-	// OK, let's make a new side-entry.
-	Entry entry{};
-	entry.numericID = leaderboardTrackerID;
-	entry.type = OSDType::LEADERBOARD_TRACKER;
-	entry.startTime = now;
-	entry.endTime = now + forever_s;
-	entry.text = trackerText;
-	entries_.insert(entries_.begin(), entry);
-}
-
-void OnScreenDisplay::ShowLeaderboardStartEnd(std::string_view title, std::string_view description, bool started) {
-	g_OSD.Show(OSDType::LEADERBOARD_STARTED_FAILED, title, description, 3.0f);
-}
-
-void OnScreenDisplay::ShowLeaderboardSubmitted(std::string_view title, std::string_view value) {
-	g_OSD.Show(OSDType::LEADERBOARD_SUBMITTED, title, value, 3.0f);
-}
-
 void OnScreenDisplay::SetProgressBarNow(std::string_view id, std::string_view message, float minValue, float maxValue, float progress, float delay) {
 	_dbg_assert_(!my_isnanorinf(progress));
 	_dbg_assert_(!my_isnanorinf(minValue));
@@ -384,24 +249,6 @@ void OnScreenDisplay::RemoveProgressBarNow(std::string_view id, bool success, fl
 }
 
 // Fades out everything related to achievements. Should be used on game shutdown.
-void OnScreenDisplay::ClearAchievementStuffNow() {
-	double now = time_now_d();
-	for (auto &iter : entries_) {
-		switch (iter.type) {
-		case OSDType::ACHIEVEMENT_CHALLENGE_INDICATOR:
-		case OSDType::ACHIEVEMENT_UNLOCKED:
-		case OSDType::ACHIEVEMENT_PROGRESS:
-		case OSDType::LEADERBOARD_TRACKER:
-		case OSDType::LEADERBOARD_STARTED_FAILED:
-		case OSDType::LEADERBOARD_SUBMITTED:
-			iter.endTime = now;
-			break;
-		default:
-			break;
-		}
-	}
-}
-
 void OnScreenDisplay::SetClickCallbackNow(std::string_view id, std::function<void()> callback) {
 	_dbg_assert_(callback != nullptr);
 	for (auto &ent : entries_) {

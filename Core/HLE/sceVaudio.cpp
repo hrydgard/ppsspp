@@ -17,7 +17,7 @@
 
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/ErrorCodes.h"
@@ -122,13 +122,13 @@ static u32 sceVaudioOutputBlocking(int vol, u32 buffer) {
 }
 
 static u32 sceVaudioSetEffectType(int effectType, int vol) {
-	ERROR_LOG_REPORT(Log::sceAudio, "UNIMPL sceVaudioSetEffectType(%i, %i)", effectType, vol);
+	ERROR_LOG(Log::sceAudio, "UNIMPL sceVaudioSetEffectType(%i, %i)", effectType, vol);
 	return 0;
 }
 
 // SensMe shows that this controls the automatic audio volume normalizer
 static u32 sceVaudioSetAlcMode(int alcMode) {
-	ERROR_LOG_REPORT(Log::sceAudio, "UNIMPL sceVaudioSetAlcMode(%i)", alcMode);
+	ERROR_LOG(Log::sceAudio, "UNIMPL sceVaudioSetAlcMode(%i)", alcMode);
 	return 0;
 }
 

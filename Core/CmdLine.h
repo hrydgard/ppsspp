@@ -28,7 +28,6 @@ struct CommandLineOptions {
 
 	CmdLineMode mode;
 
-	std::optional<bool> fullscreen;
 	std::optional<GPUBackend> gpuBackend;
 	std::optional<bool> softwareRendering;
 	std::optional<bool> enableLogging;
@@ -40,8 +39,6 @@ struct CommandLineOptions {
 
 	std::optional<std::string> startScreen;
 
-	std::optional<bool> escapeExit;
-	std::optional<bool> pauseMenuExit;
 
 	// Enables the WebSocket debugger on startup, on this port (0 = pick automatically).
 	// Also breaks the CPU at start in the headless build. See docs/WebSocketDebugger.md.

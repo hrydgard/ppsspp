@@ -141,11 +141,6 @@ enum class DepthRasterMode {
 	FORCE_ON = 3,
 };
 
-enum class AudioSyncMode {
-	GRANULAR = 0,
-	CLASSIC_PITCH = 1,
-};
-
 // TODO: We can make this more fine-grained.
 enum class RestoreSettingsBits : int {
 	SETTINGS = 1,
@@ -282,14 +277,6 @@ enum class DebugOverlay : int {
 	GPU_PROFILE,
 	GPU_ALLOCATOR,
 	FRAMEBUFFER_LIST,
-};
-
-// Android-only for now
-enum class DisplayFramerateMode : int {
-	DEFAULT,
-	REQUEST_60HZ,
-	FORCE_60HZ_METHOD1,
-	FORCE_60HZ_METHOD2,
 };
 
 enum class SkipGPUReadbackMode : int {

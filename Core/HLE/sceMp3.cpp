@@ -75,7 +75,7 @@
 #include "Core/HLE/sceMp3.h"
 #include "Core/HW/SimpleAudioDec.h"
 #include "Core/MemMap.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/Serialize/SerializeMap.h"
 
@@ -466,13 +466,13 @@ static int sceMp3Init(u32 mp3) {
 
 	if (layerBits != 1) {
 		// TODO: Should return ERROR_AVCODEC_INVALID_DATA.
-		WARN_LOG_REPORT(Log::ME, "sceMp3Init: invalid data: not layer 3");
+		WARN_LOG(Log::ME, "sceMp3Init: invalid data: not layer 3");
 	}
 	if (bitrate == 0 || bitrate == -1) {
-		return hleDelayResult(hleReportError(Log::ME, SCE_AVCODEC_ERROR_INVALID_DATA, "invalid bitrate v%d l%d rate %04x", versionBits, layerBits, (header >> 12) & 0xF), "mp3 init", PARSE_DELAY_MS);
+		return hleDelayResult(hleLogError(Log::ME, SCE_AVCODEC_ERROR_INVALID_DATA, "invalid bitrate v%d l%d rate %04x", versionBits, layerBits, (header >> 12) & 0xF), "mp3 init", PARSE_DELAY_MS);
 	}
 	if (samplerate == -1) {
-		return hleDelayResult(hleReportError(Log::ME, SCE_AVCODEC_ERROR_INVALID_DATA, "invalid sample rate v%d l%d rate %02x", versionBits, layerBits, (header >> 10) & 0x3), "mp3 init", PARSE_DELAY_MS);
+		return hleDelayResult(hleLogError(Log::ME, SCE_AVCODEC_ERROR_INVALID_DATA, "invalid sample rate v%d l%d rate %02x", versionBits, layerBits, (header >> 10) & 0x3), "mp3 init", PARSE_DELAY_MS);
 	}
 
 	// Before we allow init, newer SDK versions next require at least 156 bytes.
@@ -489,7 +489,7 @@ static int sceMp3Init(u32 mp3) {
 
 	if (versionBits != 3) {
 		// TODO: Should return 0x80671301 (unsupported version?)
-		WARN_LOG_REPORT(Log::ME, "sceMp3Init: invalid data: not MPEG v1");
+		WARN_LOG(Log::ME, "sceMp3Init: invalid data: not MPEG v1");
 	}
 	// DELIBERATELY MORE LENIENT THAN A PSP.
 	//
@@ -668,12 +668,12 @@ static int sceMp3ReleaseMp3Handle(u32 mp3) {
 }
 
 static u32 sceMp3EndEntry() {
-	ERROR_LOG_REPORT(Log::ME, "UNIMPL sceMp3EndEntry(...)");
+	ERROR_LOG(Log::ME, "UNIMPL sceMp3EndEntry(...)");
 	return 0;
 }
 
 static u32 sceMp3StartEntry() {
-	ERROR_LOG_REPORT(Log::ME, "UNIMPL sceMp3StartEntry(...)");
+	ERROR_LOG(Log::ME, "UNIMPL sceMp3StartEntry(...)");
 	return 0;
 }
 

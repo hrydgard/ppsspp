@@ -55,7 +55,6 @@
 #include "GPU/GPU.h"
 #include "GPU/GPUCommon.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
-#include "Core/RetroAchievements.h"
 #include "HW/MemoryStick.h"
 
 #ifndef MOBILE_DEVICE
@@ -204,7 +203,16 @@ static retro_atomic_int_t g_screenshotFailures{ 0 };
 		currentMIPS->DoState(p);
 		HLEDoState(p);
 		__KernelDoState(p);
-		Achievements::DoState(p);
+		// RetroArch owns achievements. Consume old client data without restoring it.
+		{
+			auto achievements = p.Section("Achievements", 0, 1);
+			if (achievements) {
+				uint32_t size = 0;
+				Do(p, size);
+				if (p.mode != PointerWrap::MODE_READ || p.CheckRead(size))
+					p.SkipBytes(size);
+			}
+		}
 		// Kernel object destructors might close open files, so do the filesystem last.
 		pspFileSystem.DoState(p);
 	}
@@ -216,12 +224,6 @@ static retro_atomic_int_t g_screenshotFailures{ 0 };
 		if (NetworkWarnUserIfOnlineAndCantSavestate()) {
 			return;
 		}
-		// Hardcore mode bans loading savestates outright, and saving too unless the user opted
-		// back into that.
-		if (Achievements::WarnUserIfHardcoreModeActive(op.type == OperationType::Save)) {
-			return;
-		}
-
 		g_pendingOperations.Push(op);
 
 		// Don't actually run it until next frame.
@@ -814,9 +816,6 @@ static retro_atomic_int_t g_screenshotFailures{ 0 };
 	static Status TriggerLoadWarnings(std::string &callbackMessage) {
 		auto sc = GetI18NCategory(I18NCat::SCREEN);
 
-		if (g_Config.bHideStateWarnings)
-			return Status::SUCCESS;
-
 		if (IsStale()) {
 			// For anyone wondering why (too long to put on the screen in an osm):
 			// Using save states instead of saves simulates many hour play sessions.
@@ -866,16 +865,6 @@ static retro_atomic_int_t g_screenshotFailures{ 0 };
 		SaveStart state;
 
 		for (const auto &op : operations) {
-			// Re-check here, and not just in Enqueue: during boot, RetroAchievements is still
-			// identifying the game asynchronously, and until it's done hardcore mode doesn't
-			// read as active yet. An operation queued in that window (a hotkey press, --state,
-			// auto-load) passed the check in Enqueue and would otherwise be applied here, after
-			// identification has finished and hardcore mode has come up.
-			if (Achievements::WarnUserIfHardcoreModeActive(op.type == OperationType::Save)) {
-				WARN_LOG(Log::SaveState, "Dropping queued savestate operation - hardcore mode is active");
-				continue;
-			}
-
 			CChunkFileReader::Error result;
 			Status callbackResult;
 			std::string callbackMessage;
@@ -1012,10 +1001,6 @@ static retro_atomic_int_t g_screenshotFailures{ 0 };
 			if (op.callback) {
 				op.callback(callbackResult, callbackMessage, callbackMetadata);
 			}
-		}
-		if (operations.size()) {
-			// Avoid triggering frame skipping due to slowdown
-			__DisplaySetWasPaused();
 		}
 	}
 

@@ -31,7 +31,7 @@
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/Dialog/PSPNpSigninDialog.h"
 #include "Common/Data/Encoding/Utf8.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 
 // Needs testing.
 const static int NP_INIT_DELAY_US = 200000; 
@@ -52,7 +52,7 @@ int PSPNpSigninDialog::Init(u32 paramAddr) {
 		return SCE_KERNEL_ERROR_BAD_ARGUMENT;  // untested, it's misaligned
 	}
 	requestAddr = paramAddr;
-	WARN_LOG_REPORT_ONCE(PSPNpSigninDialogInit, Log::sceNet, "NpSignin Init Params: %08x, %08x, %08x, %08x", request.npSigninStatus, request.unknown1, request.unknown2, request.unknown3);
+	WARN_LOG_ONCE(PSPNpSigninDialogInit, Log::sceNet, "NpSignin Init Params: %08x, %08x, %08x, %08x", request.npSigninStatus, request.unknown1, request.unknown2, request.unknown3);
 	// An output. Update does nothing unless it's NONE, so a game that reuses its struct would hang.
 	request.npSigninStatus = NP_SIGNIN_STATUS_NONE;
 

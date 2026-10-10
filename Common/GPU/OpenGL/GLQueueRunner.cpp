@@ -8,7 +8,7 @@
 #include "Common/VR/PPSSPPVR.h"
 
 #include "Common/Log.h"
-#include "Common/LogReporting.h"
+#include "Common/LogOnce.h"
 #include "Common/MemoryUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
@@ -247,7 +247,6 @@ void GLQueueRunner::RunInitSteps(const FastVec<GLRInitStep> &steps, bool skipGLC
 				const char *vsCode = vs->code.c_str();
 				const char *fsCode = fs ? fs->code.c_str() : "(none)";
 				if (!anyFailed)
-					Reporting::ReportMessage("Error in shader program link: info: %s\nfs: %s\n%s\nvs: %s\n%s", infoLog.c_str(), fsDesc.c_str(), fsCode, vsDesc.c_str(), vsCode);
 
 				ERROR_LOG(Log::G3D, "Could not link program:\n %s", infoLog.c_str());
 				ERROR_LOG(Log::G3D, "VS desc:\n%s", vsDesc.c_str());
@@ -324,7 +323,6 @@ void GLQueueRunner::RunInitSteps(const FastVec<GLRInitStep> &steps, bool skipGLC
 					std::string desc = StringFromFormat("Shader compilation failed: %s", step.create_shader.stage == GL_VERTEX_SHADER ? "vertex" : "fragment");
 					errorCallback_(desc.c_str(), errorString.c_str(), errorCallbackUserData_);
 				}
-				Reporting::ReportMessage("Error in shader compilation: info: %s\n%s\n%s", infoLog.c_str(), step.create_shader.shader->desc.c_str(), (const char *)code);
 #ifdef SHADERLOG
 				OutputDebugStringUTF8(infoLog.c_str());
 #endif

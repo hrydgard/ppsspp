@@ -155,7 +155,7 @@ bool CGLHeadlessGraphicsContext::InitAPI(void *wnd, std::string *deviceName, std
 
 	CheckGLExtensions();
 	SetGPUBackend(GPUBackend::OPENGL);
-	draw_ = Draw::T3DCreateGLContext(false);
+	draw_ = Draw::T3DCreateGLContext();
 	renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	renderManager_->SetInflightFrames(g_Config.iInflightFrames);
 	bool success = draw_->CreatePresets();
@@ -234,7 +234,7 @@ bool SDLHeadlessGLGraphicsContext::InitAPI(void *wnd, std::string *deviceName, s
 
 	CheckGLExtensions();
 	SetGPUBackend(GPUBackend::OPENGL);
-	draw_ = Draw::T3DCreateGLContext(false);
+	draw_ = Draw::T3DCreateGLContext();
 	renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	renderManager_->SetInflightFrames(g_Config.iInflightFrames);
 	bool success = draw_->CreatePresets();

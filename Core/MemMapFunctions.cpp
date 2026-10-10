@@ -16,7 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "Common/CommonTypes.h"
-#include "Common/LogReporting.h"
+#include "Common/LogOnce.h"
 
 #include "Core/Core.h"
 #include "Core/MemMap.h"

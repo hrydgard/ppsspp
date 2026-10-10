@@ -320,7 +320,7 @@ class OpenGLTexture;
 
 class OpenGLContext : public DrawContext {
 public:
-	OpenGLContext(bool canChangeSwapInterval);
+	OpenGLContext();
 	~OpenGLContext();
 
 	BackendState GetCurrentBackendState() const override {
@@ -366,10 +366,7 @@ public:
 
 	void BeginFrame(DebugFlags debugFlags) override;
 	void EndFrame() override;
-	void Present(PresentMode mode) override;
-	PresentMode GetCurrentPresentMode() const override {
-		return requestedPresentMode_;
-	}
+	void Present() override;
 
 	int GetFrameCount() override {
 		return frameCount_;
@@ -531,10 +528,9 @@ private:
 	};
 	FrameData frameData_[GLRenderManager::MAX_INFLIGHT_FRAMES]{};
 
-	PresentMode requestedPresentMode_{};
 };
 
-OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameTimeHistory_) {
+OpenGLContext::OpenGLContext() : renderManager_(frameTimeHistory_) {
 	if (gl_extensions.IsGLES) {
 		if (gl_extensions.OES_packed_depth_stencil || gl_extensions.OES_depth24) {
 			caps_.preferredDepthBufferFormat = DataFormat::D24_S8;
@@ -567,7 +563,6 @@ OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameT
 
 	caps_.maxTextureSize = gl_extensions.maxTextureSize;
 	caps_.coordConvention = CoordConvention::OpenGL;
-	caps_.setMaxFrameLatencySupported = true;
 	caps_.dualSourceBlend = gl_extensions.ARB_blend_func_extended || gl_extensions.EXT_blend_func_extended;
 	caps_.anisoSupported = gl_extensions.EXT_texture_filter_anisotropic;
 	caps_.framebufferCopySupported = gl_extensions.OES_copy_image || gl_extensions.NV_copy_image || gl_extensions.EXT_copy_image || gl_extensions.ARB_copy_image;
@@ -750,16 +745,6 @@ OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameT
 		}
 	}
 
-	if (canChangeSwapInterval) {
-		caps_.presentInstantModeChange = true;
-		caps_.presentMaxInterval = 4;
-		caps_.presentModesSupported = PresentMode::FIFO | PresentMode::IMMEDIATE;
-	} else {
-		caps_.presentInstantModeChange = false;
-		caps_.presentModesSupported = PresentMode::FIFO;
-		caps_.presentMaxInterval = 1;
-	}
-
 	renderManager_.SetDeviceCaps(caps_);
 }
 
@@ -784,23 +769,9 @@ void OpenGLContext::EndFrame() {
 	Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
 }
 
-void OpenGLContext::Present(PresentMode presentMode) {
-	_dbg_assert_msg_((caps_.presentModesSupported & presentMode) != 0, "Present mode %d not supported", (int)presentMode);
-
-	// NOTE: renderManager_.SwapInterval has repeat protection: won't call glSwapInterval if the value is the same as current.
-	switch (presentMode) {
-	case PresentMode::IMMEDIATE:
-		renderManager_.SwapInterval(0);
-		break;
-	case PresentMode::FIFO:
-	default:
-		renderManager_.SwapInterval(1);
-		break;
-	}
-
+void OpenGLContext::Present() {
 	renderManager_.Present();
 	frameCount_++;
-	requestedPresentMode_ = presentMode;
 }
 
 void OpenGLContext::Invalidate(InvalidationFlags flags) {
@@ -1510,8 +1481,8 @@ void OpenGLContext::Clear(Aspect aspects, uint32_t colorval, float depthVal, int
 	renderManager_.Clear(colorval, depthVal, stencilVal, glMask, 0xF, 0, 0, targetWidth_, targetHeight_);
 }
 
-DrawContext *T3DCreateGLContext(bool canChangeSwapInterval) {
-	return new OpenGLContext(canChangeSwapInterval);
+DrawContext *T3DCreateGLContext() {
+	return new OpenGLContext();
 }
 
 OpenGLInputLayout::~OpenGLInputLayout() {

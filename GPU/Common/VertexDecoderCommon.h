@@ -25,7 +25,7 @@
 #include "Common/Data/Collections/Hashmaps.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Log.h"
-#include "Common/LogReporting.h"
+#include "Common/LogOnce.h"
 #include "GPU/ge_constants.h"
 #include "GPU/Common/ShaderCommon.h"
 #include "GPU/GPUState.h"

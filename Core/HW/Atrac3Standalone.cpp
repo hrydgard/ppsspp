@@ -1,5 +1,5 @@
 #include "SimpleAudioDec.h"
-#include "Common/LogReporting.h"
+#include "Common/LogOnce.h"
 #include "ext/at3_standalone/at3_decoders.h"
 
 inline int16_t clamp16(float f) {

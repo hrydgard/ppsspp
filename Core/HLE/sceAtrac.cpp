@@ -25,7 +25,7 @@
 #include "Core/MIPS/MIPS.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMapHelpers.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/Config.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/HW/BufferQueue.h"
@@ -345,7 +345,7 @@ static int UnregisterAndDeleteAtrac(int atracID) {
 // Useful to initialize a context for low level decode.
 static u32 sceAtracGetAtracID(int codecType) {
 	if (codecType != PSP_CODEC_AT3 && codecType != PSP_CODEC_AT3PLUS) {
-		return hleReportError(Log::Atrac, SCE_ERROR_ATRAC_INVALID_CODECTYPE, "invalid codecType");
+		return hleLogError(Log::Atrac, SCE_ERROR_ATRAC_INVALID_CODECTYPE, "invalid codecType");
 	}
 
 	int atracID = AllocAndRegisterAtrac(codecType);
@@ -636,7 +636,7 @@ static u32 sceAtracGetRemainFrame(int atracID, u32 remainAddr) {
 
 	if (!Memory::IsValidAddress(remainAddr)) {
 		// Would crash.
-		return hleReportError(Log::Atrac, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid remainingFrames pointer");
+		return hleLogError(Log::Atrac, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid remainingFrames pointer");
 	}
 
 	u32 remaining = atrac->RemainingFrames();
@@ -656,7 +656,7 @@ static u32 sceAtracGetSecondBufferInfo(int atracID, u32 fileOffsetAddr, u32 desi
 
 	if (!fileOffset.IsValid() || !desiredSize.IsValid()) {
 		// Would crash.
-		return hleReportError(Log::Atrac, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid addresses");
+		return hleLogError(Log::Atrac, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid addresses");
 	}
 
 	int result = atrac->GetSecondBufferInfo(fileOffset, desiredSize);
@@ -877,7 +877,7 @@ static int sceAtracSetHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 buffer
 }
 
 static u32 sceAtracStartEntry() {
-	ERROR_LOG_REPORT(Log::Atrac, "UNIMPL sceAtracStartEntry()");
+	ERROR_LOG(Log::Atrac, "UNIMPL sceAtracStartEntry()");
 	return 0;
 }
 
@@ -899,7 +899,7 @@ static u32 sceAtracSetLoopNum(int atracID, int loopNum) {
 static int sceAtracReinit(int at3Count, int at3plusCount) {
 	for (int i = 0; i < PSP_MAX_ATRAC_IDS; ++i) {
 		if (atracContexts[i] != nullptr) {
-			return hleReportError(Log::Atrac, SCE_KERNEL_ERROR_BUSY, "cannot reinit while IDs in use");
+			return hleLogError(Log::Atrac, SCE_KERNEL_ERROR_BUSY, "cannot reinit while IDs in use");
 		}
 	}
 
@@ -1031,7 +1031,7 @@ static int sceAtracSetMOutDataAndGetID(u32 buffer, u32 bufferSize) {
 	}
 
 	if (track.channels != 1) {
-		return hleReportError(Log::Atrac, SCE_ERROR_ATRAC_NOT_MONO, "not mono data");
+		return hleLogError(Log::Atrac, SCE_ERROR_ATRAC_NOT_MONO, "not mono data");
 	}
 
 	int atracID = AllocAndRegisterAtrac(track.codecType);
@@ -1060,7 +1060,7 @@ static int sceAtracSetMOutHalfwayBufferAndGetID(u32 buffer, u32 readSize, u32 bu
 	}
 
 	if (track.channels != 1) {
-		return hleReportError(Log::Atrac, SCE_ERROR_ATRAC_NOT_MONO, "not mono data");
+		return hleLogError(Log::Atrac, SCE_ERROR_ATRAC_NOT_MONO, "not mono data");
 	}
 
 	int atracID = AllocAndRegisterAtrac(track.codecType);
@@ -1145,7 +1145,7 @@ static int sceAtracLowLevelInitDecoder(int atracID, u32 paramsAddr) {
 
 	if (!Memory::IsValidRange(paramsAddr, 12)) {
 		// The real library will probably just crash here.
-		return hleReportError(Log::Atrac, 0, "invalid pointers");
+		return hleLogError(Log::Atrac, 0, "invalid pointers");
 	}
 
 	auto params = PSPPointer<Atrac3LowLevelParams>::Create(paramsAddr);
@@ -1172,7 +1172,7 @@ static int sceAtracLowLevelDecode(int atracID, u32 sourceAddr, u32 sourceBytesCo
 
 	if (!srcp.IsValid() || !srcConsumed.IsValid() || !outp.IsValid() || !outWritten.IsValid()) {
 		// TODO: Returning zero as code was before.  Needs testing.
-		return hleReportError(Log::Atrac, 0, "invalid pointers");
+		return hleLogError(Log::Atrac, 0, "invalid pointers");
 	}
 
 	int bytesConsumed = 0;

@@ -30,7 +30,7 @@
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MemMapHelpers.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/System.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
@@ -497,9 +497,9 @@ void __KernelFplBeginCallback(SceUID threadID, SceUID prevCallbackId)
 	if (result == HLEKernel::WAIT_CB_SUCCESS)
 		DEBUG_LOG(Log::sceKernel, "sceKernelAllocateFplCB: Suspending fpl wait for callback");
 	else if (result == HLEKernel::WAIT_CB_BAD_WAIT_DATA)
-		ERROR_LOG_REPORT(Log::sceKernel, "sceKernelAllocateFplCB: wait not found to pause for callback");
+		ERROR_LOG(Log::sceKernel, "sceKernelAllocateFplCB: wait not found to pause for callback");
 	else
-		WARN_LOG_REPORT(Log::sceKernel, "sceKernelAllocateFplCB: beginning callback with bad wait id?");
+		WARN_LOG(Log::sceKernel, "sceKernelAllocateFplCB: beginning callback with bad wait id?");
 }
 
 void __KernelFplEndCallback(SceUID threadID, SceUID prevCallbackId)
@@ -542,7 +542,7 @@ int sceKernelCreateFpl(const char *name, u32 mpid, u32 attr, u32 blockSize, u32 
 	if (!illegalMemSize && (u64) numBlocks >= 0x100000000ULL / (((u64) blockSize + 3ULL) & ~3ULL))
 		illegalMemSize = true;
 	if (illegalMemSize)
-		return hleReportWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE, "invalid blockSize/count");
+		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE, "invalid blockSize/count");
 
 	int alignment = 4;
 	if (Memory::IsValidRange(optPtr, 8)) {
@@ -562,7 +562,7 @@ int sceKernelCreateFpl(const char *name, u32 mpid, u32 attr, u32 blockSize, u32 
 	// so the aligned total can still overflow - and then we'd allocate a small block while
 	// numBlocks stays huge, handing out block addresses outside it.
 	if ((u64)(u32)alignedSize * (u64)numBlocks > 0xFFFFFFFFULL)
-		return hleReportWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE, "aligned blockSize/count overflows");
+		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_MEMSIZE, "aligned blockSize/count overflows");
 
 	u32 totalSize = alignedSize * numBlocks;
 	bool atEnd = (attr & PSP_FPL_ATTR_HIGHMEM) != 0;
@@ -1057,7 +1057,7 @@ static int sceKernelSetCompiledSdkVersion(int sdkVersion) {
 	}
 
 	if (!validSDK) {
-		WARN_LOG_REPORT(Log::sceKernel, "sceKernelSetCompiledSdkVersion unknown SDK: %x", sdkVersion);
+		WARN_LOG(Log::sceKernel, "sceKernelSetCompiledSdkVersion unknown SDK: %x", sdkVersion);
 	}
 
 	sdkVersion_ = sdkVersion;
@@ -1068,7 +1068,7 @@ static int sceKernelSetCompiledSdkVersion(int sdkVersion) {
 static int sceKernelSetCompiledSdkVersion370(int sdkVersion) {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
 	if (sdkMainVersion != 0x03070000) {
-		WARN_LOG_REPORT(Log::sceKernel, "sceKernelSetCompiledSdkVersion370 unknown SDK: %x", sdkVersion);
+		WARN_LOG(Log::sceKernel, "sceKernelSetCompiledSdkVersion370 unknown SDK: %x", sdkVersion);
 	}
 
 	sdkVersion_ = sdkVersion;
@@ -1079,7 +1079,7 @@ static int sceKernelSetCompiledSdkVersion370(int sdkVersion) {
 static int sceKernelSetCompiledSdkVersion380_390(int sdkVersion) {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
 	if (sdkMainVersion != 0x03080000 && sdkMainVersion != 0x03090000) {
-		WARN_LOG_REPORT(Log::sceKernel, "sceKernelSetCompiledSdkVersion380_390 unknown SDK: %x", sdkVersion);
+		WARN_LOG(Log::sceKernel, "sceKernelSetCompiledSdkVersion380_390 unknown SDK: %x", sdkVersion);
 		sdkVersion_ = sdkVersion;
 		flags_ |=  SCE_KERNEL_HASCOMPILEDSDKVERSION;
 	}
@@ -1096,7 +1096,7 @@ static int sceKernelSetCompiledSdkVersion395(int sdkVersion) {
 			&& sdkMainVersion != 0x04000500
 			&& sdkMainVersion != 0x03090500
 			&& sdkMainVersion != 0x03090600) {
-		WARN_LOG_REPORT(Log::sceKernel, "sceKernelSetCompiledSdkVersion395 unknown SDK: %x", sdkVersion);
+		WARN_LOG(Log::sceKernel, "sceKernelSetCompiledSdkVersion395 unknown SDK: %x", sdkVersion);
 	}
 
 	sdkVersion_ = sdkVersion;
@@ -1109,7 +1109,7 @@ static int sceKernelSetCompiledSdkVersion600_602(int sdkVersion) {
 	if (sdkMainVersion != 0x06010000
 			&& sdkMainVersion != 0x06000000
 			&& sdkMainVersion != 0x06020000) {
-		WARN_LOG_REPORT(Log::sceKernel, "sceKernelSetCompiledSdkVersion600_602 unknown SDK: %x", sdkVersion);
+		WARN_LOG(Log::sceKernel, "sceKernelSetCompiledSdkVersion600_602 unknown SDK: %x", sdkVersion);
 	}
 
 	sdkVersion_ = sdkVersion;
@@ -1122,7 +1122,7 @@ static int sceKernelSetCompiledSdkVersion500_505(int sdkVersion)
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
 	if (sdkMainVersion != 0x05000000
 			&& sdkMainVersion != 0x05050000) {
-		WARN_LOG_REPORT(Log::sceKernel, "sceKernelSetCompiledSdkVersion500_505 unknown SDK: %x", sdkVersion);
+		WARN_LOG(Log::sceKernel, "sceKernelSetCompiledSdkVersion500_505 unknown SDK: %x", sdkVersion);
 	}
 
 	sdkVersion_ = sdkVersion;
@@ -1134,7 +1134,7 @@ static int sceKernelSetCompiledSdkVersion401_402(int sdkVersion) {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
 	if (sdkMainVersion != 0x04010000
 			&& sdkMainVersion != 0x04020000) {
-		WARN_LOG_REPORT(Log::sceKernel, "sceKernelSetCompiledSdkVersion401_402 unknown SDK: %x", sdkVersion);
+		WARN_LOG(Log::sceKernel, "sceKernelSetCompiledSdkVersion401_402 unknown SDK: %x", sdkVersion);
 	}
 
 	sdkVersion_ = sdkVersion;
@@ -1145,7 +1145,7 @@ static int sceKernelSetCompiledSdkVersion401_402(int sdkVersion) {
 static int sceKernelSetCompiledSdkVersion507(int sdkVersion) {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
 	if (sdkMainVersion != 0x05070000) {
-		WARN_LOG_REPORT(Log::sceKernel, "sceKernelSetCompiledSdkVersion507 unknown SDK: %x", sdkVersion);
+		WARN_LOG(Log::sceKernel, "sceKernelSetCompiledSdkVersion507 unknown SDK: %x", sdkVersion);
 	}
 
 	sdkVersion_ = sdkVersion;
@@ -1158,7 +1158,7 @@ static int sceKernelSetCompiledSdkVersion603_605(int sdkVersion) {
 	if (sdkMainVersion != 0x06040000
 			&& sdkMainVersion != 0x06030000
 			&& sdkMainVersion != 0x06050000) {
-		WARN_LOG_REPORT(Log::sceKernel, "sceKernelSetCompiledSdkVersion603_605 unknown SDK: %x", sdkVersion);
+		WARN_LOG(Log::sceKernel, "sceKernelSetCompiledSdkVersion603_605 unknown SDK: %x", sdkVersion);
 	}
 
 	sdkVersion_ = sdkVersion;
@@ -1169,7 +1169,7 @@ static int sceKernelSetCompiledSdkVersion603_605(int sdkVersion) {
 static int sceKernelSetCompiledSdkVersion606(int sdkVersion) {
 	int sdkMainVersion = sdkVersion & 0xFFFF0000;
 	if (sdkMainVersion != 0x06060000) {
-		ERROR_LOG_REPORT(Log::sceKernel, "sceKernelSetCompiledSdkVersion606 unknown SDK: %x (would crash)", sdkVersion);
+		ERROR_LOG(Log::sceKernel, "sceKernelSetCompiledSdkVersion606 unknown SDK: %x (would crash)", sdkVersion);
 	}
 
 	sdkVersion_ = sdkVersion;
@@ -1258,9 +1258,9 @@ void __KernelVplBeginCallback(SceUID threadID, SceUID prevCallbackId)
 	if (result == HLEKernel::WAIT_CB_SUCCESS)
 		DEBUG_LOG(Log::sceKernel, "sceKernelAllocateVplCB: Suspending vpl wait for callback");
 	else if (result == HLEKernel::WAIT_CB_BAD_WAIT_DATA)
-		ERROR_LOG_REPORT(Log::sceKernel, "sceKernelAllocateVplCB: wait not found to pause for callback");
+		ERROR_LOG(Log::sceKernel, "sceKernelAllocateVplCB: wait not found to pause for callback");
 	else
-		WARN_LOG_REPORT(Log::sceKernel, "sceKernelAllocateVplCB: beginning callback with bad wait id?");
+		WARN_LOG(Log::sceKernel, "sceKernelAllocateVplCB: beginning callback with bad wait id?");
 }
 
 void __KernelVplEndCallback(SceUID threadID, SceUID prevCallbackId)
@@ -1337,7 +1337,7 @@ SceUID sceKernelCreateVpl(const char *name, int partition, u32 attr, u32 vplSize
 		if (Memory::IsValid4AlignedAddress(optPtr)) {
 			u32 size = Memory::ReadUnchecked_U32(optPtr);
 			if (size > 4)
-				WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateVpl(): unsupported options parameter, size = %d", size);
+				WARN_LOG(Log::sceKernel, "sceKernelCreateVpl(): unsupported options parameter, size = %d", size);
 		}
 	}
 
@@ -1589,19 +1589,19 @@ int sceKernelReferVplStatus(SceUID uid, u32 infoPtr) {
 
 static u32 sceKernelAllocMemoryBlock(const char *pname, u32 type, u32 size, u32 paramsAddr) {
 	if (Memory::IsValid4AlignedAddress(paramsAddr) && Memory::ReadUnchecked_U32(paramsAddr) != 4) {
-		ERROR_LOG_REPORT(Log::sceKernel, "sceKernelAllocMemoryBlock(%s): unsupported params size %d", pname, Memory::ReadUnchecked_U32(paramsAddr));
+		ERROR_LOG(Log::sceKernel, "sceKernelAllocMemoryBlock(%s): unsupported params size %d", pname, Memory::ReadUnchecked_U32(paramsAddr));
 		return hleNoLog(SCE_KERNEL_ERROR_ILLEGAL_ARGUMENT);
 	}
 	if (type != PSP_SMEM_High && type != PSP_SMEM_Low) {
-		ERROR_LOG_REPORT(Log::sceKernel, "sceKernelAllocMemoryBlock(%s): unsupported type %d", pname, type);
+		ERROR_LOG(Log::sceKernel, "sceKernelAllocMemoryBlock(%s): unsupported type %d", pname, type);
 		return hleNoLog(SCE_KERNEL_ERROR_ILLEGAL_MEMBLOCKTYPE);
 	}
 	if (size == 0) {
-		WARN_LOG_REPORT(Log::sceKernel, "sceKernelAllocMemoryBlock(%s): invalid size %x", pname, size);
+		WARN_LOG(Log::sceKernel, "sceKernelAllocMemoryBlock(%s): invalid size %x", pname, size);
 		return hleNoLog(SCE_KERNEL_ERROR_MEMBLOCK_ALLOC_FAILED);
 	}
 	if (!pname) {
-		ERROR_LOG_REPORT(Log::sceKernel, "sceKernelAllocMemoryBlock(): NULL name");
+		ERROR_LOG(Log::sceKernel, "sceKernelAllocMemoryBlock(): NULL name");
 		return hleNoLog(SCE_KERNEL_ERROR_ERROR);
 	}
 
@@ -1646,7 +1646,7 @@ static u32 sceKernelTotalMemSize() {
 
 static u32 SysMemUserForUser_945E45DA() {
 	// Called by Evangelion Jo and expected return 0 here.
-	ERROR_LOG_REPORT_ONCE(SysMemUserForUser945E45DA, Log::sceKernel, "UNIMPL SysMemUserForUser_945E45DA()");
+	ERROR_LOG_ONCE(SysMemUserForUser945E45DA, Log::sceKernel, "UNIMPL SysMemUserForUser_945E45DA()");
 	return hleNoLog(0);
 }
 

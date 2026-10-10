@@ -29,7 +29,7 @@
 #include "Core/HLE/sceNet.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Common/StringUtils.h"
-#include "Common/LogReporting.h"
+#include "Common/LogOnce.h"
 #include "Common/Net/URL.h"
 #include "Common/Net/HTTPClient.h"
 
@@ -668,7 +668,7 @@ static int sceHttpLoadSystemCookie() {
 static int sceHttpCreateTemplate(const char *userAgent, int httpVer, int autoProxyConf) {
 	WARN_LOG(Log::sceNet, "UNTESTED sceHttpCreateTemplate(%s, %d, %d) at %08x", safe_string(userAgent), httpVer, autoProxyConf, currentMIPS->pc);
 	// Reporting to find more games to be tested
-	WARN_LOG_REPORT_ONCE(sceHttpCreateTemplate, Log::sceNet, "UNTESTED sceHttpCreateTemplate(%s, %d, %d)", safe_string(userAgent), httpVer, autoProxyConf);
+	WARN_LOG_ONCE(sceHttpCreateTemplate, Log::sceNet, "UNTESTED sceHttpCreateTemplate(%s, %d, %d)", safe_string(userAgent), httpVer, autoProxyConf);
 	httpObjects.push_back(std::make_shared<HTTPTemplate>(userAgent? userAgent:"", httpVer, autoProxyConf));
 	int retid = (int)httpObjects.size();
 	return hleLogDebug(Log::sceNet, retid);

@@ -28,7 +28,7 @@
 #include "Core/MIPS/IR/IRAnalysis.h"
 #include "Core/MIPS/x86/X64IRRegCache.h"
 #include "Core/MIPS/JitCommon/JitState.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 
 using namespace Gen;
 using namespace X64IRJitConstants;
@@ -768,7 +768,7 @@ X64Reg X64IRRegCache::RX(IRReg mipsReg) {
 	if (mr[mipsReg].loc == MIPSLoc::REG || mr[mipsReg].loc == MIPSLoc::REG_IMM) {
 		return FromNativeReg(mr[mipsReg].nReg);
 	} else {
-		ERROR_LOG_REPORT(Log::JIT, "Reg %i not in x64 reg", mipsReg);
+		ERROR_LOG(Log::JIT, "Reg %i not in x64 reg", mipsReg);
 		return INVALID_REG;  // BAAAD
 	}
 }
@@ -788,7 +788,7 @@ X64Reg X64IRRegCache::RXPtr(IRReg mipsReg) {
 			return INVALID_REG;
 		}
 	} else {
-		ERROR_LOG_REPORT(Log::JIT, "Reg %i not in x64 reg", mipsReg);
+		ERROR_LOG(Log::JIT, "Reg %i not in x64 reg", mipsReg);
 		return INVALID_REG;  // BAAAD
 	}
 }
@@ -799,7 +799,7 @@ X64Reg X64IRRegCache::FX(IRReg mipsReg) {
 	if (mr[mipsReg + 32].loc == MIPSLoc::FREG) {
 		return FromNativeReg(mr[mipsReg + 32].nReg);
 	} else {
-		ERROR_LOG_REPORT(Log::JIT, "Reg %i not in x64 reg", mipsReg);
+		ERROR_LOG(Log::JIT, "Reg %i not in x64 reg", mipsReg);
 		return INVALID_REG;  // BAAAD
 	}
 }

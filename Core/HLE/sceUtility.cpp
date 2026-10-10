@@ -37,7 +37,7 @@
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/System.h"
 
 #include "Core/HLE/sceJpeg.h"
@@ -348,7 +348,7 @@ static void CleanupDialogThreads(bool force = false) {
 			accessThread = nullptr;
 			accessThreadState = "cleaned up";
 		} else if (force) {
-			ERROR_LOG_REPORT(Log::sceUtility, "Utility access thread still running, state: %s, dialog=%d/%d", accessThreadState, (int)currentDialogType, currentDialogActive);
+			ERROR_LOG(Log::sceUtility, "Utility access thread still running, state: %s, dialog=%d/%d", accessThreadState, (int)currentDialogType, currentDialogActive);
 
 			// Try to force shutdown anyway.
 			accessThread->Terminate();
@@ -806,7 +806,7 @@ static int UtilityFinishDialog(int type) {
 
 static int sceUtilitySavedataInitStart(u32 paramAddr) {
 	if (UtilityDialogBusy() && currentDialogType != UtilityDialogType::SAVEDATA && PSP_CoreParameter().compat.flags().YugiohSaveFix) {
-		WARN_LOG_REPORT(Log::sceUtility, "Yugioh Savedata Correction (state=%d)", lastSaveStateVersion);
+		WARN_LOG(Log::sceUtility, "Yugioh Savedata Correction (state=%d)", lastSaveStateVersion);
 		PSPDialog *other = CurrentDialog(currentDialogType);
 		// Its own lock first, so the unlock below only takes one its thread held.
 		other->FinishVolatile();
@@ -909,7 +909,7 @@ static int LogModuleLoadResult(int result) {
 
 static u32 sceUtilityLoadAvModule(u32 module) {
 	if (module > 7) {
-		ERROR_LOG_REPORT(Log::sceUtility, "sceUtilityLoadAvModule(%i): invalid module id", module);
+		ERROR_LOG(Log::sceUtility, "sceUtilityLoadAvModule(%i): invalid module id", module);
 		return hleLogError(Log::sceUtility, SCE_ERROR_AV_MODULE_BAD_ID);
 	}
 
@@ -919,7 +919,7 @@ static u32 sceUtilityLoadAvModule(u32 module) {
 
 static u32 sceUtilityUnloadAvModule(u32 module) {
 	if (module > 7) {
-		ERROR_LOG_REPORT(Log::sceUtility, "sceUtilityLoadAvModule(%i): invalid module id", module);
+		ERROR_LOG(Log::sceUtility, "sceUtilityLoadAvModule(%i): invalid module id", module);
 		return hleLogError(Log::sceUtility, SCE_ERROR_AV_MODULE_BAD_ID);
 	}
 
@@ -1169,7 +1169,7 @@ static int sceUtilityGetNetParam(int id, int param, u32 dataAddr) {
 
 	if (!g_netApctlInited) {
 		// Is this allowed?
-		WARN_LOG_REPORT_ONCE(getnetparam_early, Log::sceNet, "sceUtilityGetNetParam called before initializing netApctl!");
+		WARN_LOG_ONCE(getnetparam_early, Log::sceNet, "sceUtilityGetNetParam called before initializing netApctl!");
 	}
 
 	// TODO: Replace the temporary netApctlInfo with netConfInfo, since some of netApctlInfo contents supposed to be taken from netConfInfo during ApctlInit, while sceUtilityGetNetParam can be used before Apctl Initialized
@@ -1388,7 +1388,7 @@ static int sceUtilityGetNetParamLatestID(u32 idAddr) {
 //TODO: Implement all sceUtilityScreenshot* for real, it doesn't seem to be complex
 //but it requires more investigation
 static int sceUtilityScreenshotInitStart(u32 paramAddr) {
-	return hleReportWarning(Log::sceUtility, UtilityInitStart(UtilityDialogType::SCREENSHOT, screenshotDialog, paramAddr));
+	return hleLogWarning(Log::sceUtility, UtilityInitStart(UtilityDialogType::SCREENSHOT, screenshotDialog, paramAddr));
 }
 
 static int sceUtilityScreenshotShutdownStart() {
@@ -1491,7 +1491,7 @@ static const char *SystemParamToString(int param) {
 //TODO: should save to config file
 static u32 sceUtilitySetSystemParamString(u32 id, u32 strPtr)
 {
-	WARN_LOG_REPORT(Log::sceUtility, "sceUtilitySetSystemParamString(%s, %08x)", SystemParamToString(id), strPtr);
+	WARN_LOG(Log::sceUtility, "sceUtilitySetSystemParamString(%s, %08x)", SystemParamToString(id), strPtr);
 	return 0;
 }
 
@@ -1663,7 +1663,7 @@ static int sceUtilityNpSigninGetStatus() {
 }
 
 static void sceUtilityInstallInitStart(u32 unknown) {
-	WARN_LOG_REPORT(Log::sceUtility, "UNIMPL sceUtilityInstallInitStart()");
+	WARN_LOG(Log::sceUtility, "UNIMPL sceUtilityInstallInitStart()");
 	return hleNoLogVoid();
 }
 

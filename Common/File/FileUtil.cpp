@@ -42,7 +42,7 @@
 #include <sys/types.h>
 
 #include "Common/Log.h"
-#include "Common/LogReporting.h"
+#include "Common/LogOnce.h"
 #include "Common/File/AndroidContentURI.h"
 #include "Common/File/FileUtil.h"
 #include "Common/StringUtils.h"
@@ -306,7 +306,7 @@ int OpenFD(const Path &path, OpenFlag flags) {
 		// TODO: Maybe better checking of additional flags here.
 	} else {
 		// TODO: Add support for more modes if possible.
-		ERROR_LOG_REPORT_ONCE(openFlagNotSupported, Log::IO, "OpenFlag %s not yet supported", OpenFlagToString(flags).c_str());
+		ERROR_LOG_ONCE(openFlagNotSupported, Log::IO, "OpenFlag %s not yet supported", OpenFlagToString(flags).c_str());
 		return -1;
 	}
 

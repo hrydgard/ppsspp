@@ -22,7 +22,7 @@
 #include "Common/Serialize/SerializeList.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMapHelpers.h"
-#include "Core/Reporting.h"
+#include "Common/LogOnce.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceKernelMemory.h"
@@ -232,7 +232,7 @@ u32 sceKernelCreateVTimer(const char *name, u32 optParamAddr) {
 	if (optParamAddr != 0) {
 		u32 size = Memory::ReadOrException_U32(optParamAddr);
 		if (size > 4)
-			WARN_LOG_REPORT_ONCE(vtimeropt, Log::sceKernel, "sceKernelCreateVTimer(%s) unsupported options parameter, size = %d", name, size);
+			WARN_LOG_ONCE(vtimeropt, Log::sceKernel, "sceKernelCreateVTimer(%s) unsupported options parameter, size = %d", name, size);
 	}
 
 	return hleLogDebug(Log::sceKernel, id);
@@ -484,6 +484,6 @@ u32 sceKernelReferVTimerStatus(SceUID uid, u32 statusAddr) {
 
 // Not sure why this is exposed...
 void _sceKernelReturnFromTimerHandler() {
-	ERROR_LOG_REPORT(Log::sceKernel,"_sceKernelReturnFromTimerHandler - should not be called!");
+	ERROR_LOG(Log::sceKernel,"_sceKernelReturnFromTimerHandler - should not be called!");
 	return hleNoLogVoid();
 }
