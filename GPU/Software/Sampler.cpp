@@ -96,7 +96,7 @@ static inline u32 LookupColor(unsigned int index, unsigned int level, const Samp
 	}
 }
 
-uint32_t TransformClutIndex(uint32_t index, const SamplerID &samplerID) {
+static inline uint32_t TransformClutIndex(uint32_t index, const SamplerID &samplerID) {
 	if (samplerID.hasClutShift || samplerID.hasClutMask || samplerID.hasClutOffset) {
 		const uint8_t shift = (samplerID.cached.clutFormat >> 2) & 0x1F;
 		const uint8_t mask = (samplerID.cached.clutFormat >> 8) & 0xFF;
