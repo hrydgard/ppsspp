@@ -1471,32 +1471,52 @@ int sceRegSetKeyValue(int catHandle, const char *name, u32 bufAddr, u32 size) {
 		return hleLogError(Log::sceReg, 0, "Not an open category");
 	}
 
-	// chfont.prx (and other callers) pass their whole 32-byte staging buffer as size even for
-	// INT keys, so the size alone doesn't tell the value type. These are all the INT keys of
-	// the font registry entries it writes; anything else falls back to the size heuristic.
-	static const char *const knownIntKeys[] = {
-		"h_size", "v_size", "h_resolution", "v_resolution", "extra_attributes", "weight",
-		"family_code", "style", "sub_style", "language_code", "region_code", "country_code",
-		"expire_date", "shadow_option", "num_fonts",
-	};
-	bool isIntKey = size == sizeof(u32);
-	for (const char *key : knownIntKeys) {
-		if (equals(name, key)) {
-			isIntKey = true;
+	std::string path = iter->second.path;
+	if (!path.empty() && path.front() == '/') {
+		path.erase(path.begin());
+	}
+
+	// A value keeps the type of its key (from sceRegCreateKey or the static dump). The VSH's
+	// registry upgrade rewrites BIN keys like /CONFIG/NP/account_id, and reports the settings as
+	// corrupted if they read back as anything else.
+	ValueType type = ValueType::FAIL;
+	for (const auto &kv : GetMergedCategory(path).keyvals) {
+		if (equals(kv.name, name)) {
+			type = kv.type;
 			break;
 		}
 	}
 
+	if (type == ValueType::FAIL || type == ValueType::DIR) {
+		// chfont.prx (and other callers) pass their whole 32-byte staging buffer as size even for
+		// INT keys, so the size alone doesn't tell the value type. These are all the INT keys of
+		// the font registry entries it writes; anything else falls back to the size heuristic.
+		static const char *const knownIntKeys[] = {
+			"h_size", "v_size", "h_resolution", "v_resolution", "extra_attributes", "weight",
+			"family_code", "style", "sub_style", "language_code", "region_code", "country_code",
+			"expire_date", "shadow_option", "num_fonts",
+		};
+		type = size == sizeof(u32) ? ValueType::INT : ValueType::STR;
+		for (const char *key : knownIntKeys) {
+			if (equals(name, key)) {
+				type = ValueType::INT;
+				break;
+			}
+		}
+	}
+
 	OverlayValue value;
-	if (isIntKey && Memory::IsValid4AlignedAddress(bufAddr)) {
-		value.type = ValueType::INT;
+	value.type = type;
+	if (type == ValueType::INT) {
+		if (!Memory::IsValid4AlignedAddress(bufAddr)) {
+			return hleLogError(Log::sceReg, -1, "bad input addr");
+		}
 		value.intValue = (int)Memory::ReadUnchecked_U32(bufAddr);
 	} else if (Memory::IsValidRange(bufAddr, size)) {
-		value.type = ValueType::STR;
 		const char *str = (const char *)Memory::GetPointerUnchecked(bufAddr);
 		value.str.assign(str, size);
 		// Match the static dump convention: STR lengths include the null terminator.
-		if (!value.str.empty() && value.str.back() != '\0') {
+		if (type == ValueType::STR && !value.str.empty() && value.str.back() != '\0') {
 			value.str.push_back('\0');
 		}
 		value.intValue = (int)value.str.size();
@@ -1504,10 +1524,6 @@ int sceRegSetKeyValue(int catHandle, const char *name, u32 bufAddr, u32 size) {
 		return hleLogError(Log::sceReg, -1, "bad input addr");
 	}
 
-	std::string path = iter->second.path;
-	if (!path.empty() && path.front() == '/') {
-		path.erase(path.begin());
-	}
 	g_overlay[path][name] = value;
 	InvalidateMergedCache();
 	return hleLogDebug(Log::sceReg, 0, "set %s/%s", path.c_str(), name);
@@ -1546,6 +1562,14 @@ int sceRegCreateKey(int catHandle, const char *name, int type, u32 size) {
 	if (!path.empty() && path.front() == '/') {
 		path.erase(path.begin());
 	}
+
+	// Creating a key that already exists fails, whatever its type, and leaves the key alone.
+	for (const auto &kv : GetMergedCategory(path).keyvals) {
+		if (equals(kv.name, name)) {
+			return hleLogDebug(Log::sceReg, SCE_REG_ERROR_KEY_ALREADY_EXISTS, "%s/%s already exists", path.c_str(), name);
+		}
+	}
+
 	g_overlay[path][name] = value;
 	InvalidateMergedCache();
 	return hleLogDebug(Log::sceReg, 0, "create %s/%s (type %d)", path.c_str(), name, type);
