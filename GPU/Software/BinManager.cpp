@@ -185,10 +185,6 @@ BinManager::~BinManager() {
 	}
 }
 
-static int JitGeneration() {
-	return Rasterizer::JitClearGeneration() + Sampler::JitClearGeneration();
-}
-
 // A new current state, from gstate, unoptimized and without primitives yet.
 void BinManager::PushState() {
 	if (states_.Full()) {
@@ -208,15 +204,7 @@ void BinManager::PushState() {
 	}
 	creatingState_ = true;
 	stateIndex_ = (uint16_t)states_.Push(RasterizerState());
-	// When new funcs are compiled, we need to flush if WX exclusive. Compiling can also clear the caches,
-	// losing the funcs picked before it, so then compute it again.
-	for (int tries = 0; tries < 3; ++tries) {
-		jitGen_ = JitGeneration();
-		ComputeRasterizerState(&states_[stateIndex_], this);
-		if (jitGen_ == JitGeneration()) {
-			break;
-		}
-	}
+	ComputeRasterizerState(&states_[stateIndex_]);
 	states_[stateIndex_].samplerID.cached.clut = cluts_[clutIndex_].readable;
 	if (states_[stateIndex_].enableTextures)
 		DeswizzleMirrorTextures(states_[stateIndex_]);
@@ -256,11 +244,6 @@ void BinManager::DeswizzleMirrorTextures(RasterizerState &state) {
 
 void BinManager::UpdateState() {
 	PROFILE_THIS_SCOPE("bin_state");
-	auto jitGen = JitGeneration;
-	// A JIT clear frees the code the current state's function pointers point into.
-	if (jitGen_ != jitGen()) {
-		dirty_ |= SoftDirty::PIXEL_ALL | SoftDirty::SAMPLER_ALL | SoftDirty::RAST_ALL;
-	}
 	if (HasDirty(SoftDirty::PIXEL_ALL | SoftDirty::SAMPLER_ALL | SoftDirty::RAST_ALL)) {
 		PushState();
 		ClearDirty(SoftDirty::PIXEL_ALL | SoftDirty::SAMPLER_ALL | SoftDirty::RAST_ALL);
@@ -860,9 +843,6 @@ void BinManager::Flush(const char *reason) {
 	while (cluts_.Size() > 1)
 		cluts_.SkipNext();
 
-	Rasterizer::FlushJit();
-	Sampler::FlushJit();
-
 	queuedSinceFlush_ = false;
 
 	for (BinDirtyRange &pending : pendingWrites_) {
@@ -884,8 +864,8 @@ void BinManager::Flush(const char *reason) {
 }
 
 void BinManager::OptimizePendingStates(uint16_t first, uint16_t last) {
-	// We can sometimes hit this when compiling new funcs while creating a state.
-	// At that point, the state isn't loaded fully yet, so don't touch it.
+	// DeswizzleMirrorTextures flushes while the new state is being created. It isn't complete yet, so
+	// don't touch it.
 	if (creatingState_ && last == stateIndex_) {
 		if (first == last)
 			return;

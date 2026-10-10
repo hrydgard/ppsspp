@@ -341,9 +341,7 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 	GETextureFormat texfmt = state.samplerID.TexFmt();
 	uint16_t texbufw = state.texbufw[0];
 
-	// We won't flush, since we compile all samplers together.
-	Sampler::FetchFunc fetchFunc = Sampler::GetFetchFunc(state.samplerID, nullptr);
-	_dbg_assert_msg_(fetchFunc != nullptr, "Failed to get precompiled fetch func");
+	Sampler::FetchFunc fetchFunc = Sampler::GetFetchFunc(state.samplerID);
 	auto &pixelID = state.pixelID;
 	auto &samplerID = state.samplerID;
 

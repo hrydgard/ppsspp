@@ -348,8 +348,6 @@ private:
 	bool selfTexCached_ = false;
 	BinCoords selfTexLastRange_{};
 	bool creatingState_ = false;
-	// JIT clear generations when the current state was computed.
-	int jitGen_ = -1;
 	uint16_t pendingStateIndex_ = 0;
 	// Advances when every tile has been drawn and reset: a state whose liveGen is this one can be in use by
 	// the threads, so it isn't changed (AddFlags).

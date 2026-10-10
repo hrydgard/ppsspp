@@ -19,16 +19,9 @@
 
 #include "ppsspp_config.h"
 
-#include <string>
-#include <vector>
-#include <unordered_map>
-#include <unordered_set>
-#include "Common/Data/Collections/Hashmaps.h"
 #include "GPU/Math3D.h"
 #include "GPU/Software/FuncId.h"
-#include "GPU/Software/RasterizerRegCache.h"
-
-class BinManager;
+#include "GPU/Software/RasterizerTypes.h"
 
 namespace Rasterizer {
 
@@ -40,122 +33,14 @@ namespace Rasterizer {
 #endif
 
 typedef void (SOFTRAST_CALL *SingleFunc)(int x, int y, int z, int fog, Vec4IntArg color_in, const PixelFuncID &pixelID);
-SingleFunc GetSingleFunc(const PixelFuncID &id, BinManager *binner);
+SingleFunc GetSingleFunc(const PixelFuncID &id);
 
 // The pixels x to x + 3 of row y with mask[i] >= 0. z and fog are per pixel, colors a channel at a time:
 // channel c of pixel i is colors[c * colorStride + i].
 typedef void (SOFTRAST_CALL *SpanFunc)(int x, int y, const int *mask, const int *z, const int *fog, const int *colors, int colorStride, const PixelFuncID &pixelID);
-// Only where single is the C++ one (as GetSingleFunc returned it), nullptr otherwise.
-SpanFunc GetSpanFunc(const PixelFuncID &id, SingleFunc single);
-
-void Init();
-void FlushJit();
-int JitClearGeneration();
-void Shutdown();
+SpanFunc GetSpanFunc(const PixelFuncID &id);
 
 bool CheckDepthTestPassed(GEComparison func, int x, int y, int stride, u16 z);
-
-bool DescribeCodePtr(const u8 *ptr, std::string &name);
-
-struct PixelBlendState {
-	bool usesFactors = false;
-	bool usesDstAlpha = false;
-	bool dstFactorIsInverse = false;
-	bool srcColorAsFactor = false;
-	bool dstColorAsFactor = false;
-	bool readsDstPixel = true;
-};
-void ComputePixelBlendState(PixelBlendState &state, const PixelFuncID &id);
-
-class PixelJitCache : public Rasterizer::CodeBlock {
-public:
-	PixelJitCache();
-
-	// Returns a pointer to the code to run.
-	SingleFunc GetSingle(const PixelFuncID &id, BinManager *binner);
-	static SingleFunc GenericSingle(const PixelFuncID &id);
-	void Clear() override;
-	void Flush();
-	// Changes whenever the code space is cleared, which frees all previously returned functions.
-	static int ClearGeneration() { return clearGen_; }
-
-	std::string DescribeCodePtr(const u8 *ptr) override;
-
-private:
-	void Compile(const PixelFuncID &id);
-	SingleFunc CompileSingle(const PixelFuncID &id);
-
-	RegCache::Reg GetPixelID();
-	void UnlockPixelID(RegCache::Reg &r);
-	// Note: these may require a temporary reg.
-	RegCache::Reg GetColorOff(const PixelFuncID &id);
-	RegCache::Reg GetDepthOff(const PixelFuncID &id);
-	void EmitDepthPointer(const PixelFuncID &id, RegCache::Reg index, RegCache::Reg temp);
-	RegCache::Reg GetDestStencil(const PixelFuncID &id);
-
-	void WriteConstantPool(const PixelFuncID &id);
-
-	bool Jit_ApplyDepthRange(const PixelFuncID &id);
-	bool Jit_AlphaTest(const PixelFuncID &id);
-	bool Jit_ApplyFog(const PixelFuncID &id);
-	bool Jit_ColorTest(const PixelFuncID &id);
-	bool Jit_StencilAndDepthTest(const PixelFuncID &id);
-	bool Jit_StencilTest(const PixelFuncID &id, RegCache::Reg stencilReg, RegCache::Reg maskedReg);
-	bool Jit_DepthTestForStencil(const PixelFuncID &id, RegCache::Reg stencilReg);
-	bool Jit_ApplyStencilOp(const PixelFuncID &id, GEStencilOp op, RegCache::Reg stencilReg);
-	bool Jit_WriteStencilOnly(const PixelFuncID &id, RegCache::Reg stencilReg);
-	bool Jit_DepthTest(const PixelFuncID &id);
-	bool Jit_WriteDepth(const PixelFuncID &id);
-	bool Jit_AlphaBlend(const PixelFuncID &id);
-	bool Jit_BlendFactor(const PixelFuncID &id, RegCache::Reg factorReg, RegCache::Reg dstReg, PixelBlendFactor factor);
-	bool Jit_DstBlendFactor(const PixelFuncID &id, RegCache::Reg srcFactorReg, RegCache::Reg dstFactorReg, RegCache::Reg dstReg);
-	bool Jit_Dither(const PixelFuncID &id);
-	bool Jit_WriteColor(const PixelFuncID &id);
-	bool Jit_ApplyLogicOp(const PixelFuncID &id, RegCache::Reg colorReg, RegCache::Reg maskReg);
-	bool Jit_ConvertTo565(const PixelFuncID &id, RegCache::Reg colorReg, RegCache::Reg temp1Reg, RegCache::Reg temp2Reg);
-	bool Jit_ConvertTo5551(const PixelFuncID &id, RegCache::Reg colorReg, RegCache::Reg temp1Reg, RegCache::Reg temp2Reg, bool keepAlpha);
-	bool Jit_ConvertTo4444(const PixelFuncID &id, RegCache::Reg colorReg, RegCache::Reg temp1Reg, RegCache::Reg temp2Reg, bool keepAlpha);
-	bool Jit_ConvertFrom565(const PixelFuncID &id, RegCache::Reg colorReg, RegCache::Reg temp1Reg, RegCache::Reg temp2Reg);
-	bool Jit_ConvertFrom5551(const PixelFuncID &id, RegCache::Reg colorReg, RegCache::Reg temp1Reg, RegCache::Reg temp2Reg, bool keepAlpha);
-	bool Jit_ConvertFrom4444(const PixelFuncID &id, RegCache::Reg colorReg, RegCache::Reg temp1Reg, RegCache::Reg temp2Reg, bool keepAlpha);
-
-	struct LastCache {
-		size_t key;
-		SingleFunc func;
-		int gen = -1;
-
-		bool Match(size_t k, int g) const {
-			return key == k && gen == g;
-		}
-
-		void Set(size_t k, SingleFunc f, int g) {
-			key = k;
-			func = f;
-			gen = g;
-		}
-	};
-
-	DenseHashMap<size_t, SingleFunc> cache_;
-	std::unordered_map<PixelFuncID, const u8 *> addresses_;
-	std::unordered_set<PixelFuncID> compileQueue_;
-	static int clearGen_;
-	static thread_local LastCache lastSingle_;
-
-	const u8 *constBlendHalf_11_4s_ = nullptr;
-	const u8 *constBlendInvert_11_4s_ = nullptr;
-
-#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
-	void Discard();
-	void Discard(Gen::CCFlags cc);
-
-	// Used for any test failure.
-	std::vector<Gen::FixupBranch> discards_;
-	// Used in Jit_ApplyLogicOp() to skip the standard MOV/OR write.
-	std::vector<Gen::FixupBranch> skipStandardWrites_;
-	int stackIDOffset_ = 0;
-	bool colorIs16Bit_ = false;
-#endif
-};
 
 #if defined(__clang__) || defined(__GNUC__)
 #pragma GCC diagnostic pop

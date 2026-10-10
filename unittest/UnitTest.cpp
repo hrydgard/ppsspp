@@ -3030,7 +3030,6 @@ bool TestX64Emitter();
 bool TestRiscVEmitter();
 bool TestLoongArch64Emitter();
 bool TestShaderGenerators();
-bool TestSoftwareGPUJit();
 bool TestIRPassSimplify();
 bool TestThreadManager();
 bool TestVFS();
@@ -3232,7 +3231,6 @@ TestItem availableTests[] = {
 	TEST_ITEM(CLZ),
 	TEST_ITEM(MemMap),
 	TEST_ITEM(ShaderGenerators),
-	TEST_ITEM(SoftwareGPUJit),
 	TEST_ITEM(Path),
 	TEST_ITEM(AndroidContentURI),
 	TEST_ITEM(ThreadManager),

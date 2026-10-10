@@ -113,16 +113,16 @@ static inline Vec4<float> Interpolate(const float &c0, const float &c1, const fl
 	return Interpolate(c0, c1, c2, w0.Cast<float>(), w1.Cast<float>(), w2.Cast<float>(), wsum_recip);
 }
 
-void ComputeRasterizerState(RasterizerState *state, BinManager *binner) {
+void ComputeRasterizerState(RasterizerState *state) {
 	ComputePixelFuncID(&state->pixelID);
-	state->drawPixel = Rasterizer::GetSingleFunc(state->pixelID, binner);
-	state->drawSpan = Rasterizer::GetSpanFunc(state->pixelID, state->drawPixel);
+	state->drawPixel = Rasterizer::GetSingleFunc(state->pixelID);
+	state->drawSpan = Rasterizer::GetSpanFunc(state->pixelID);
 
 	state->enableTextures = gstate.isTextureMapEnabled() && !state->pixelID.clearMode;
 	if (state->enableTextures) {
 		ComputeSamplerID(&state->samplerID);
-		state->linear = Sampler::GetLinearFunc(state->samplerID, binner);
-		state->nearest = Sampler::GetNearestFunc(state->samplerID, binner);
+		state->linear = Sampler::GetLinearFunc(state->samplerID);
+		state->nearest = Sampler::GetNearestFunc(state->samplerID);
 
 		// Since the definitions are the same, just force this setting using the func pointer.
 		if (g_Config.iTexFiltering == TEX_FILTER_FORCE_LINEAR) {
@@ -453,15 +453,11 @@ static bool ApplyStateOptimizations(RasterizerState *state, const RasterizerStat
 			pixelID.alphaTestFunc = GE_COMP_ALWAYS;
 		}
 
-		SingleFunc drawPixel = Rasterizer::GetSingleFunc(pixelID, nullptr);
-		// Can't compile during runtime.  This failing is a bit of a problem when undoing...
-		if (drawPixel) {
-			state->drawPixel = drawPixel;
-			state->drawSpan = Rasterizer::GetSpanFunc(pixelID, drawPixel);
-			memcpy(&state->pixelID, &pixelID, sizeof(PixelFuncID));
-			state->flags = ReplacePixelIDFlags(state->flags, optimize) | RasterizerStateFlags::OPTIMIZED;
-			changed = true;
-		}
+		state->drawPixel = Rasterizer::GetSingleFunc(pixelID);
+		state->drawSpan = Rasterizer::GetSpanFunc(pixelID);
+		memcpy(&state->pixelID, &pixelID, sizeof(PixelFuncID));
+		state->flags = ReplacePixelIDFlags(state->flags, optimize) | RasterizerStateFlags::OPTIMIZED;
+		changed = true;
 	}
 
 	if (OptimizeSamplerIDFlags(state->flags) != OptimizeSamplerIDFlags(optimize)) {
@@ -471,26 +467,23 @@ static bool ApplyStateOptimizations(RasterizerState *state, const RasterizerStat
 		else if (state->flags & RasterizerStateFlags::OPTIMIZED_TEXREPLACE)
 			samplerID.texFunc = (uint8_t)GE_TEXFUNC_MODULATE;
 
-		Sampler::LinearFunc linear = Sampler::GetLinearFunc(samplerID, nullptr);
-		Sampler::LinearFunc nearest = Sampler::GetNearestFunc(samplerID, nullptr);
-		// Can't compile during runtime.  This failing is a bit of a problem when undoing...
-		if (linear && nearest) {
-			// Since the definitions are the same, just force this setting using the func pointer.
-			if (g_Config.iTexFiltering == TEX_FILTER_FORCE_LINEAR) {
-				state->nearest = linear;
-				state->linear = linear;
-			} else if (g_Config.iTexFiltering == TEX_FILTER_FORCE_NEAREST) {
-				state->nearest = nearest;
-				state->linear = nearest;
-			} else {
-				state->nearest = nearest;
-				state->linear = linear;
-			}
-			memcpy(&state->samplerID, &samplerID, sizeof(SamplerID));
-			state->linearQuad = Sampler::GetLinearQuadFunc(state->samplerID, state->linear);
-			state->flags = ReplaceSamplerIDFlags(state->flags, optimize) | RasterizerStateFlags::OPTIMIZED;
-			changed = true;
+		Sampler::LinearFunc linear = Sampler::GetLinearFunc(samplerID);
+		Sampler::LinearFunc nearest = Sampler::GetNearestFunc(samplerID);
+		// Since the definitions are the same, just force this setting using the func pointer.
+		if (g_Config.iTexFiltering == TEX_FILTER_FORCE_LINEAR) {
+			state->nearest = linear;
+			state->linear = linear;
+		} else if (g_Config.iTexFiltering == TEX_FILTER_FORCE_NEAREST) {
+			state->nearest = nearest;
+			state->linear = nearest;
+		} else {
+			state->nearest = nearest;
+			state->linear = linear;
 		}
+		memcpy(&state->samplerID, &samplerID, sizeof(SamplerID));
+		state->linearQuad = Sampler::GetLinearQuadFunc(state->samplerID, state->linear);
+		state->flags = ReplaceSamplerIDFlags(state->flags, optimize) | RasterizerStateFlags::OPTIMIZED;
+		changed = true;
 	}
 
 	state->lastFlags = state->flags;
@@ -2816,14 +2809,7 @@ bool GetCurrentTexture(GPUDebugBuffer &buffer, int level)
 	ComputeSamplerID(&id);
 	id.cached.clut = clut;
 
-	// Slight annoyance, we may have to force a compile.
-	Sampler::FetchFunc sampler = Sampler::GetFetchFunc(id, nullptr);
-	if (!sampler) {
-		Sampler::FlushJit();
-		sampler = Sampler::GetFetchFunc(id, nullptr);
-		if (!sampler)
-			return false;
-	}
+	Sampler::FetchFunc sampler = Sampler::GetFetchFunc(id);
 
 	u8 *texptr = Memory::GetPointerWriteOrException(texaddr);
 	u32 *row = (u32 *)buffer.GetData();

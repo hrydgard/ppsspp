@@ -201,7 +201,6 @@ public:
 	bool GetCurrentTexture(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) override;
 	bool GetCurrentClut(GPUDebugBuffer &buffer) override;
 
-	bool DescribeCodePtr(const u8 *ptr, std::string &name) override;
 
 	void Execute_BlockTransferStart(u32 op, u32 diff);
 	void Execute_Prim(u32 op, u32 diff);

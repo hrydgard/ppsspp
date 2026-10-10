@@ -17,7 +17,6 @@
 
 #include "ppsspp_config.h"
 #include <unordered_map>
-#include <mutex>
 #include "Common/Common.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/LogReporting.h"
@@ -27,7 +26,7 @@
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Software/BinManager.h"
 #include "GPU/Software/Rasterizer.h"
-#include "GPU/Software/RasterizerRegCache.h"
+#include "GPU/Software/RasterizerTypes.h"
 #include "GPU/Software/Sampler.h"
 
 using namespace Math3D;
@@ -39,249 +38,18 @@ static Vec4IntResult SOFTRAST_CALL SampleNearest(float s, float t, Vec4IntArg pr
 static Vec4IntResult SOFTRAST_CALL SampleLinear(float s, float t, Vec4IntArg prim_color, const u8 *const *tptr, const uint16_t *bufw, int level, int levelFrac, const SamplerID &samplerID);
 static Vec4IntResult SOFTRAST_CALL SampleFetch(int u, int v, const u8 *tptr, int bufw, int level, const SamplerID &samplerID);
 
-std::mutex jitCacheLock;
-SamplerJitCache *jitCache = nullptr;
+static LinearFunc GetLinearFallback(const SamplerID &id);
 
-void Init() {
-	jitCache = new SamplerJitCache();
-}
-
-void FlushJit() {
-	jitCache->Flush();
-}
-
-int JitClearGeneration() {
-	return SamplerJitCache::ClearGeneration();
-}
-
-void Shutdown() {
-	delete jitCache;
-	jitCache = nullptr;
-}
-
-bool DescribeCodePtr(const u8 *ptr, std::string &name) {
-	if (!jitCache->IsInSpace(ptr)) {
-		return false;
-	}
-
-	name = jitCache->DescribeCodePtr(ptr);
-	return true;
-}
-
-NearestFunc GetNearestFunc(SamplerID id, BinManager *binner) {
-	id.linear = false;
-	NearestFunc jitted = jitCache->GetNearest(id, binner);
-	if (jitted) {
-		return jitted;
-	}
-
+NearestFunc GetNearestFunc(const SamplerID &id) {
 	return &SampleNearest;
 }
 
-static LinearFunc GetLinearFallback(const SamplerID &id);
-
-LinearFunc GetLinearFunc(SamplerID id, BinManager *binner) {
-	id.linear = true;
-	LinearFunc jitted = jitCache->GetLinear(id, binner);
-	if (jitted) {
-		return jitted;
-	}
-
+LinearFunc GetLinearFunc(const SamplerID &id) {
 	return GetLinearFallback(id);
 }
 
-FetchFunc GetFetchFunc(SamplerID id, BinManager *binner) {
-	id.fetch = true;
-	FetchFunc jitted = jitCache->GetFetch(id, binner);
-	if (jitted) {
-		return jitted;
-	}
-
+FetchFunc GetFetchFunc(const SamplerID &id) {
 	return &SampleFetch;
-}
-
-thread_local SamplerJitCache::LastCache SamplerJitCache::lastFetch_;
-thread_local SamplerJitCache::LastCache SamplerJitCache::lastNearest_;
-thread_local SamplerJitCache::LastCache SamplerJitCache::lastLinear_;
-int SamplerJitCache::clearGen_ = 0;
-
-// 256k should be enough.
-SamplerJitCache::SamplerJitCache() : Rasterizer::CodeBlock(1024 * 64 * 4), cache_(64) {
-	lastFetch_.gen = -1;
-	lastNearest_.gen = -1;
-	lastLinear_.gen = -1;
-	clearGen_++;
-}
-
-void SamplerJitCache::Clear() {
-	clearGen_++;
-	CodeBlock::Clear();
-	cache_.Clear();
-	addresses_.clear();
-
-	const10All16_ = nullptr;
-	const10Low_ = nullptr;
-	const10All8_ = nullptr;
-
-	constWidthHeight16f_ = nullptr;
-	constWidthMinus1i_ = nullptr;
-	constHeightMinus1i_ = nullptr;
-
-	constOnes32_ = nullptr;
-	constOnes16_ = nullptr;
-	constUNext_ = nullptr;
-	constVNext_ = nullptr;
-
-	const5551Swizzle_ = nullptr;
-	const5650Swizzle_ = nullptr;
-}
-
-std::string SamplerJitCache::DescribeCodePtr(const u8 *ptr) {
-	constexpr bool USE_IDS = false;
-	ptrdiff_t dist = 0x7FFFFFFF;
-	if (USE_IDS) {
-		SamplerID found{};
-		for (const auto &it : addresses_) {
-			ptrdiff_t it_dist = ptr - it.second;
-			if (it_dist >= 0 && it_dist < dist) {
-				found = it.first;
-				dist = it_dist;
-			}
-		}
-
-		return DescribeSamplerID(found);
-	}
-
-	return CodeBlock::DescribeCodePtr(ptr);
-}
-
-void SamplerJitCache::Flush() {
-	std::unique_lock<std::mutex> guard(jitCacheLock);
-	for (const auto &queued : compileQueue_) {
-		// Might've been compiled after enqueue, but before now.
-		size_t queuedKey = std::hash<SamplerID>()(queued);
-		if (!cache_.ContainsKey(queuedKey))
-			Compile(queued);
-	}
-	compileQueue_.clear();
-}
-
-// Without a backend nothing ever compiles, and a lookup would flush the binner for nothing.
-#if PPSSPP_ARCH(AMD64) && !PPSSPP_PLATFORM(UWP)
-static constexpr bool HAS_SAMPLER_JIT = true;
-#else
-static constexpr bool HAS_SAMPLER_JIT = false;
-#endif
-
-// A texture level whose address isn't valid has no pointer, and the generic samplers read its texels as zero
-// (then apply the texture function). The JIT leaves those to them.
-static bool CanJit(const SamplerID &id) {
-	return HAS_SAMPLER_JIT && g_Config.bSoftwareRenderingJit && !id.hasInvalidPtr;
-}
-
-NearestFunc SamplerJitCache::GetByID(const SamplerID &id, size_t key, BinManager *binner) {
-	std::unique_lock<std::mutex> guard(jitCacheLock);
-	
-	NearestFunc func;
-	if (cache_.Get(key, &func)) {
-		return func;
-	}
-
-	if (!binner) {
-		// Can't compile, let's try to do it later when there's an opportunity.
-		compileQueue_.insert(id);
-		return nullptr;
-	}
-
-	guard.unlock();
-	binner->Flush("compile");
-	guard.lock();
-
-	for (const auto &queued : compileQueue_) {
-		// Might've been compiled after enqueue, but before now.
-		size_t queuedKey = std::hash<SamplerID>()(queued);
-		if (!cache_.ContainsKey(queuedKey))
-			Compile(queued);
-	}
-	compileQueue_.clear();
-
-	if (!cache_.ContainsKey(key))
-		Compile(id);
-
-	// Okay, should be there now.
-	if (cache_.Get(key, &func)) {
-		return func;
-	} else {
-		return nullptr;
-	}
-}
-
-NearestFunc SamplerJitCache::GetNearest(const SamplerID &id, BinManager *binner) {
-	if (!CanJit(id))
-		return nullptr;
-
-	const size_t key = std::hash<SamplerID>()(id);
-	if (lastNearest_.Match(key, clearGen_))
-		return (NearestFunc)lastNearest_.func;
-
-	auto func = GetByID(id, key, binner);
-	lastNearest_.Set(key, func, clearGen_);
-	return (NearestFunc)func;
-}
-
-LinearFunc SamplerJitCache::GetLinear(const SamplerID &id, BinManager *binner) {
-	if (!CanJit(id))
-		return nullptr;
-
-	const size_t key = std::hash<SamplerID>()(id);
-	if (lastLinear_.Match(key, clearGen_))
-		return (LinearFunc)lastLinear_.func;
-
-	auto func = GetByID(id, key, binner);
-	lastLinear_.Set(key, func, clearGen_);
-	return (LinearFunc)func;
-}
-
-FetchFunc SamplerJitCache::GetFetch(const SamplerID &id, BinManager *binner) {
-	if (!CanJit(id))
-		return nullptr;
-
-	const size_t key = std::hash<SamplerID>()(id);
-	if (lastFetch_.Match(key, clearGen_))
-		return (FetchFunc)lastFetch_.func;
-
-	auto func = GetByID(id, key, binner);
-	lastFetch_.Set(key, func, clearGen_);
-	return (FetchFunc)func;
-}
-
-void SamplerJitCache::Compile(const SamplerID &id) {
-	// This should be sufficient.
-	if (GetSpaceLeft() < 16384) {
-		Clear();
-	}
-
-	// We compile them together so the cache can't possibly be cleared in between.
-	// We might vary between nearest and linear, so we can't clear between.
-#if PPSSPP_ARCH(AMD64) && !PPSSPP_PLATFORM(UWP)
-	SamplerID fetchID = id;
-	fetchID.linear = false;
-	fetchID.fetch = true;
-	addresses_[fetchID] = GetCodePointer();
-	cache_.Insert(std::hash<SamplerID>()(fetchID), (NearestFunc)CompileFetch(fetchID));
-
-	SamplerID nearestID = id;
-	nearestID.linear = false;
-	nearestID.fetch = false;
-	addresses_[nearestID] = GetCodePointer();
-	cache_.Insert(std::hash<SamplerID>()(nearestID), (NearestFunc)CompileNearest(nearestID));
-
-	SamplerID linearID = id;
-	linearID.linear = true;
-	linearID.fetch = false;
-	addresses_[linearID] = GetCodePointer();
-	cache_.Insert(std::hash<SamplerID>()(linearID), (NearestFunc)CompileLinear(linearID));
-#endif
 }
 
 template <uint32_t texel_size_bits>

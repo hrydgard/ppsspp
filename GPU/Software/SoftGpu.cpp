@@ -432,8 +432,6 @@ SoftGPU::SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 	displayStride_ = 512;
 	displayFormat_ = GE_FORMAT_8888;
 
-	Rasterizer::Init();
-	Sampler::Init();
 	drawEngine_ = new SoftwareDrawEngine();
 	drawEngine_->SetGPUCommon(this);
 	drawEngine_->Init();
@@ -484,9 +482,6 @@ SoftGPU::~SoftGPU() {
 
 	delete presentation_;
 	delete drawEngine_;
-
-	Sampler::Shutdown();
-	Rasterizer::Shutdown();
 }
 
 void SoftGPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat format) {
@@ -1592,15 +1587,3 @@ bool SoftGPU::GetCurrentClut(GPUDebugBuffer &buffer) {
 	return true;
 }
 
-bool SoftGPU::DescribeCodePtr(const u8 *ptr, std::string &name) {
-	std::string subname;
-	if (Sampler::DescribeCodePtr(ptr, subname)) {
-		name = "SamplerJit:" + subname;
-		return true;
-	}
-	if (Rasterizer::DescribeCodePtr(ptr, subname)) {
-		name = "RasterizerJit:" + subname;
-		return true;
-	}
-	return GPUCommon::DescribeCodePtr(ptr, name);
-}

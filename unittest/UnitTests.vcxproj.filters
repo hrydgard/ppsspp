@@ -13,7 +13,6 @@
     </ClCompile>
     <ClCompile Include="TestShaderGenerators.cpp" />
     <ClCompile Include="TestThreadManager.cpp" />
-    <ClCompile Include="TestSoftwareGPUJit.cpp" />
     <ClCompile Include="TestCrossSIMD.cpp" />
     <ClCompile Include="TestIRPassSimplify.cpp" />
     <ClCompile Include="TestDemangle.cpp" />
