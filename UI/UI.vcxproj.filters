@@ -53,6 +53,7 @@
       <Filter>Screens</Filter>
     </ClCompile>
     <ClCompile Include="BackgroundAudio.cpp" />
+    <ClCompile Include="ShareFiles.cpp" />
     <ClCompile Include="ReportScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
@@ -213,6 +214,7 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="BackgroundAudio.h" />
+    <ClInclude Include="ShareFiles.h" />
     <ClInclude Include="ReportScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>

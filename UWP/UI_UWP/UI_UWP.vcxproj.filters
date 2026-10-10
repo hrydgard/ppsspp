@@ -3,6 +3,7 @@
   <ItemGroup>
     <ClCompile Include="pch.cpp" />
     <ClCompile Include="..\..\UI\BackgroundAudio.cpp" />
+    <ClCompile Include="..\..\UI\ShareFiles.cpp" />
     <ClCompile Include="..\..\UI\DiscordIntegration.cpp" />
     <ClCompile Include="..\..\UI\GameInfoCache.cpp" />
     <ClCompile Include="..\..\UI\GamepadEmu.cpp" />
@@ -156,6 +157,7 @@
     <ClInclude Include="pch.h" />
     <ClInclude Include="targetver.h" />
     <ClInclude Include="..\..\UI\BackgroundAudio.h" />
+    <ClInclude Include="..\..\UI\ShareFiles.h" />
     <ClInclude Include="..\..\UI\DiscordIntegration.h" />
     <ClInclude Include="..\..\UI\GameInfoCache.h" />
     <ClInclude Include="..\..\UI\GamepadEmu.h" />
