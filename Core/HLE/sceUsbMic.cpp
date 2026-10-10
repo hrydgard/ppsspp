@@ -252,14 +252,14 @@ void QueueBuf::resize(int newSize) {
 		return;
 	}
 	int availableSize = getAvailableSize();
-	u8 *oldbuf = buf_;
-
-	buf_ = new u8[newSize];
-	pop(buf_, std::min(availableSize, newSize));
+	u8 *newBuf = new u8[newSize];
+	// Unwraps what's buffered to the start of the new buffer.
+	pop(newBuf, availableSize);
+	delete[] buf_;
+	buf_ = newBuf;
 	available = availableSize;
 	end = availableSize;
 	capacity = newSize;
-	delete[] oldbuf;
 }
 
 void QueueBuf::flush() {
