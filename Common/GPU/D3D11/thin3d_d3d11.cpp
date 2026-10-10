@@ -286,7 +286,7 @@ private:
 D3D11DrawContext::D3D11DrawContext(ComPtr<ID3D11Device> device, ComPtr<ID3D11DeviceContext> deviceContext, ComPtr<ID3D11Device1> device1, ComPtr<ID3D11DeviceContext1> deviceContext1, ComPtr<IDXGISwapChain> swapChain, D3D_FEATURE_LEVEL featureLevel, HWND hWnd, std::vector<std::string> deviceList, int maxInflightFrames)
 	: hWnd_(hWnd),
 		device_(device),
-		context_(deviceContext1),
+		context_(deviceContext),
 		device1_(device1),
 		context1_(deviceContext1),
 		featureLevel_(featureLevel),
