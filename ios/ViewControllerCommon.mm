@@ -22,13 +22,14 @@
 }
 
 @property (strong, nonatomic) NSOperationQueue *accelerometerQueue;
-@property (nonatomic) GCController *gameController __attribute__((weak_import));
+@property (nonatomic) GCController *gameController;
 @property (strong, nonatomic) CMMotionManager *motionManager;
 
 @end
 
 @implementation PPSSPPBaseViewController {
 	UIScreenEdgePanGestureRecognizer *mBackGestureRecognizer;
+	CGSize lastLayoutSize_;
 }
 
 // Strange idiom for generating unique IDs (within the process, at least).
@@ -379,8 +380,8 @@ extern float g_safeInsetBottom;
 - (void)viewSafeAreaInsetsDidChange {
 	[super viewSafeAreaInsetsDidChange];
 
-	// Converts points to pixels.
-	CGFloat scale = UIScreen.mainScreen.scale;
+	// Converts points to pixels, the same way updateResolutionWithView does.
+	CGFloat scale = [self displayScaleForView:self.view];
 
 	float xInsetSum = self.view.safeAreaInsets.left + self.view.safeAreaInsets.right;
 	float yInsetSum = self.view.safeAreaInsets.top + self.view.safeAreaInsets.bottom;
@@ -406,10 +407,12 @@ extern float g_safeInsetBottom;
 
 - (void)shareText:(NSString *)text {
 	NSArray *items = @[text];
-	UIActivityViewController * viewController = [[UIActivityViewController alloc] initWithActivityItems:items applicationActivities:nil];
-	dispatch_async(dispatch_get_main_queue(), ^{
-		[self presentViewController:viewController animated:YES completion:nil];
-	});
+	UIActivityViewController *viewController = [[UIActivityViewController alloc] initWithActivityItems:items applicationActivities:nil];
+	// On iPad, the share sheet is a popover and needs an anchor.
+	viewController.popoverPresentationController.sourceView = self.view;
+	viewController.popoverPresentationController.sourceRect = CGRectMake(CGRectGetMidX(self.view.bounds), CGRectGetMidY(self.view.bounds), 0, 0);
+	viewController.popoverPresentationController.permittedArrowDirections = 0;
+	[self presentViewController:viewController animated:YES completion:nil];
 }
 
 - (void)appSwitchModeChanged {
@@ -466,9 +469,6 @@ extern float g_safeInsetBottom;
 	g_iCadeTracker.ButtonUp(button);
 }
 
-// See PPSSPPUIApplication.mm for the other method
-#if PPSSPP_PLATFORM(IOS_APP_STORE)
-
 - (void)pressesBegan:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
 	KeyboardPressesBegan(presses, event);
 }
@@ -481,18 +481,15 @@ extern float g_safeInsetBottom;
 	KeyboardPressesEnded(presses, event);
 }
 
-#endif
 #pragma mark - Status Bar Control
 
 // The immersive mode setting is per-orientation, so we need to know which way we're facing.
 // Can't just use g_display for this, since it lags behind during rotation.
 // Note: Using viewIfLoaded, since this can get called before the view exists, and we don't want to force it into existence.
 - (DeviceOrientation)currentDeviceOrientation {
-	if (@available(iOS 13.0, *)) {
-		UIWindowScene *scene = self.viewIfLoaded.window.windowScene;
-		if (scene != nil) {
-			return UIInterfaceOrientationIsPortrait(scene.interfaceOrientation) ? DeviceOrientation::Portrait : DeviceOrientation::Landscape;
-		}
+	UIWindowScene *scene = self.viewIfLoaded.window.windowScene;
+	if (scene != nil) {
+		return UIInterfaceOrientationIsPortrait(scene.interfaceOrientation) ? DeviceOrientation::Portrait : DeviceOrientation::Landscape;
 	}
 	CGSize size = self.viewIfLoaded.bounds.size;
 	return size.height > size.width ? DeviceOrientation::Portrait : DeviceOrientation::Landscape;
@@ -523,21 +520,43 @@ extern float g_safeInsetBottom;
 	[super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
 	// The immersive mode setting is per-orientation, so the status bar may need to change along with the rotation.
 	[self setNeedsStatusBarAppearanceUpdate];
+
+	[self.view endEditing:YES]; // clears any input focus
+}
+
+// Rotations and window resizes land here. UIKit lays out at the final size at the start of a
+// rotation animation, so resizing here (rather than when the rotation completes) keeps the
+// backbuffer matching the view while it animates.
+- (void)viewDidLayoutSubviews {
+	[super viewDidLayoutSubviews];
+	CGSize size = self.view.bounds.size;
+	if (size.width <= 0.0 || size.height <= 0.0 || CGSizeEqualToSize(size, lastLayoutSize_)) {
+		return;
+	}
+	lastLayoutSize_ = size;
+	if (self.view.window.windowScene) {
+		[cameraHelper setInterfaceOrientation:self.view.window.windowScene.interfaceOrientation];
+	}
+	INFO_LOG(Log::G3D, "Laid out at %dx%d", (int)size.width, (int)size.height);
+	// Resized in place: NativeFrame picks up the new size and lets the graphics context resize.
+	[self updateResolutionWithView:self.view];
+}
+
+// Pixels per point. nativeScale, not scale, since that's what the drawable is - they differ on
+// some phones, like the Plus models and the minis.
+- (CGFloat)displayScaleForView:(UIView *)view {
+	if (view.window.windowScene) {
+		return view.window.windowScene.screen.nativeScale;
+	}
+	return [UITraitCollection currentTraitCollection].displayScale;
 }
 
 - (void)updateResolutionWithView:(UIView *)view {
-	// 1. Get the scale from the window scene
-	CGFloat scale = 1.0;
-	if (view.window && view.window.windowScene) {
-		scale = view.window.windowScene.screen.nativeScale;
-	} else {
-		scale = [UITraitCollection currentTraitCollection].displayScale;
-	}
+	CGFloat scale = [self displayScaleForView:view];
 
-	// 2. Get the ACTUAL bounds of the view (already corrected for orientation)
+	// The bounds are already corrected for orientation.
 	CGSize size = view.bounds.size;
 
-	// Your existing logic
 	float dpi = (IS_IPAD() ? 200.0f : 150.0f) * scale;
 	const float dpi_scale_x = 240.0f / dpi;
 	const float dpi_scale_y = 240.0f / dpi;
@@ -548,10 +567,7 @@ extern float g_safeInsetBottom;
 
 	[view setContentScaleFactor:scale];
 
-	// PSP native resize
-	PSP_CoreParameter().pixelWidth = g_display.pixel_xres;
-	PSP_CoreParameter().pixelHeight = g_display.pixel_yres;
-
+	// NativeFrame updates the PSP_CoreParameter() size along with the rest.
 	NativeResized();
 
 	NSLog(@"Updated display resolution: (%d, %d) @%.1fx",

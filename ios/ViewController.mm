@@ -84,7 +84,10 @@ PPSSPPBaseViewController *sharedViewController;
 }
 
 - (void)requestExitGLRenderLoop {
-	_assert_(g_emuThread.joinable());
+	if (!g_emuThread.joinable()) {
+		INFO_LOG(Log::G3D, "requestExitGLRenderLoop: Not running");
+		return;
+	}
 	EmuThread_Join(graphicsContext, g_emuThread);
 	_assert_(!g_emuThread.joinable());
 }
@@ -119,12 +122,7 @@ PPSSPPBaseViewController *sharedViewController;
 
 	// 3) Setup display link
 	self.displayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(displayLinkFired:)];
-	if (@available(iOS 10.0, *)) {
-		self.displayLink.preferredFramesPerSecond = (NSInteger)self.preferredFramesPerSecond;
-	} else {
-		// older iOS: approximate with frameInterval
-		self.displayLink.frameInterval = MAX(1, (NSInteger)round(60.0 / self.preferredFramesPerSecond));
-	}
+	self.displayLink.preferredFramesPerSecond = (NSInteger)self.preferredFramesPerSecond;
 	[self.displayLink addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSDefaultRunLoopMode];
 
 	self.view.multipleTouchEnabled = YES;
@@ -181,13 +179,7 @@ PPSSPPBaseViewController *sharedViewController;
 
 - (void)setPreferredFramesPerSecond:(NSInteger)preferredFramesPerSecond {
 	_preferredFramesPerSecond = preferredFramesPerSecond;
-	if (self.displayLink) {
-		if (@available(iOS 10.0, *)) {
-			self.displayLink.preferredFramesPerSecond = (NSInteger)preferredFramesPerSecond;
-		} else {
-			self.displayLink.frameInterval = MAX(1, (NSInteger)round(60.0 / preferredFramesPerSecond));
-		}
-	}
+	self.displayLink.preferredFramesPerSecond = (NSInteger)preferredFramesPerSecond;
 }
 
 - (void)displayLinkFired:(CADisplayLink *)dl {
@@ -241,6 +233,9 @@ PPSSPPBaseViewController *sharedViewController;
 
 	_dbg_assert_(graphicsContext);
 
+	// Normally already done by willResignActive, but not when the app is terminated.
+	[self requestExitGLRenderLoop];
+
 	graphicsContext->ShutdownSurface();
 	graphicsContext->ShutdownAPI();
 	delete graphicsContext;
@@ -251,24 +246,6 @@ PPSSPPBaseViewController *sharedViewController;
 - (void)bindDefaultFBO
 {
 	[(GLKView*)self.glView bindDrawable];
-}
-
-// Can't consolidate this yet.
-- (void)viewWillTransitionToSize:(CGSize)size
-		withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator {
-	[super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
-
-	[self.view endEditing:YES]; // clears any input focus
-
-	[coordinator animateAlongsideTransition:^(id<UIViewControllerTransitionCoordinatorContext> context) {
-		NSLog(@"Rotating to size: %@", NSStringFromCGSize(size));
-	} completion:^(id<UIViewControllerTransitionCoordinatorContext> context) {
-		NSLog(@"Rotation finished");
-		// Reinitialize graphics context to match new size
-		[self requestExitGLRenderLoop];
-		[self updateResolutionWithView:self.view];
-		[self runGLRenderLoop];
-	}];
 }
 
 @end

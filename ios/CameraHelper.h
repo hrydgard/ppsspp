@@ -1,5 +1,6 @@
 #import <Foundation/Foundation.h>
 #import <AVFoundation/AVFoundation.h>
+#import <UIKit/UIKit.h>
 
 @protocol CameraFrameDelegate <NSObject>
 @required
@@ -12,5 +13,7 @@
 
 - (void) startVideo:(int)width h:(int)height;
 - (void) stopVideo;
+// Below iOS 17, frames are rotated to match this. From 17, they're kept level with the horizon instead.
+- (void) setInterfaceOrientation:(UIInterfaceOrientation)orientation;
 
 @end

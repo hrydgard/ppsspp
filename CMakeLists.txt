@@ -508,7 +508,8 @@ if(NOT MSVC)
 	endif()
 
 	if(IOS)
-		set(CMAKE_OSX_DEPLOYMENT_TARGET "12.0")
+		# Set by cmake/Toolchains/ios.cmake.
+		set(CMAKE_OSX_DEPLOYMENT_TARGET ${IPHONEOS_DEPLOYMENT_TARGET})
 	elseif(APPLE AND NOT CMAKE_CROSSCOMPILING)
 		# The bundled MoltenVK (ext/vulkan/macOS) needs 12.0.
 		set(CMAKE_OSX_DEPLOYMENT_TARGET "12.0")
@@ -954,10 +955,6 @@ elseif(IOS AND NOT LIBRETRO)
 		ios/CameraHelper.h
 		ios/LocationHelper.mm
 		ios/LocationHelper.h
-		ios/PPSSPPUIApplication.h
-		ios/PPSSPPUIApplication.mm
-		ios/SmartKeyboardMap.cpp
-		ios/SmartKeyboardMap.hpp
 		ios/iCade/iCadeReaderView.h
 		ios/iCade/iCadeReaderView.m
 		ios/iCade/iCadeState.h
@@ -971,6 +968,8 @@ elseif(IOS AND NOT LIBRETRO)
 	if(EXISTS "${CMAKE_IOS_SDK_ROOT}/System/Library/Frameworks/PhotosUI.framework")
 		list(APPEND targetExtraLibs "-weak_framework PhotosUI")
 	endif()
+	# Weak, since it's iOS 14+ and we still run on 13.
+	list(APPEND targetExtraLibs "-weak_framework UniformTypeIdentifiers")
 	if(USE_IAP)
 		# Adding the In-App Purchase capability in Xcode did this. There's no entitlement for it on iOS.
 		list(APPEND targetExtraLibs "-framework StoreKit")
@@ -988,7 +987,6 @@ elseif(IOS AND NOT LIBRETRO)
 		ios/ViewControllerMetal.mm
 		ios/iOSCoreAudio.mm
 		ios/IAPManager.mm
-		ios/PPSSPPUIApplication.mm
 		ios/iCade/iCadeReaderView.m
 		ios/main.mm
 		ios/CameraHelper.mm
@@ -1553,12 +1551,8 @@ if(NOT ANDROID)
 endif()
 # packaging and code signing
 if(IOS AND NOT LIBRETRO)
-	if(IOS_APP_STORE)
-		# The static MoltenVK in ios/MoltenVK needs 15.0. Keep in sync with cmake/Toolchains/ios.cmake.
-		set(DEPLOYMENT_TARGET 15.0)
-	else()
-		set(DEPLOYMENT_TARGET 11.0)
-	endif()
+	# Set by cmake/Toolchains/ios.cmake.
+	set(DEPLOYMENT_TARGET ${IPHONEOS_DEPLOYMENT_TARGET})
 	file(GLOB IOSAssets ios/assets/*.png)
 	list(REMOVE_ITEM IOSAssets ${CMAKE_CURRENT_SOURCE_DIR}/ios/assets/Default-568h@2x.png)
 	list(REMOVE_ITEM IOSAssets ${CMAKE_CURRENT_SOURCE_DIR}/ios/assets/Default-568h@3x.png)

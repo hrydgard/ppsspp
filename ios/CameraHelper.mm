@@ -1,3 +1,4 @@
+#include <atomic>
 #include <vector>
 #include <string>
 #include "Core/Config.h"
@@ -6,7 +7,8 @@
 
 @interface CameraHelper() {
     AVCaptureSession *captureSession;
-    AVCaptureVideoPreviewLayer *previewLayer;
+    id rotationCoordinator;  // AVCaptureDeviceRotationCoordinator, iOS 17+.
+    std::atomic<int> interfaceOrientation;
     int mWidth;
     int mHeight;
 }
@@ -14,9 +16,21 @@
 
 @implementation CameraHelper
 
+static NSArray<AVCaptureDevice *> *GetVideoDevices() {
+    NSArray<AVCaptureDeviceType> *types = @[
+        AVCaptureDeviceTypeBuiltInWideAngleCamera,
+        AVCaptureDeviceTypeBuiltInUltraWideCamera,
+        AVCaptureDeviceTypeBuiltInTelephotoCamera,
+        AVCaptureDeviceTypeBuiltInTrueDepthCamera,
+    ];
+    return [AVCaptureDeviceDiscoverySession discoverySessionWithDeviceTypes:types
+                                                                  mediaType:AVMediaTypeVideo
+                                                                   position:AVCaptureDevicePositionUnspecified].devices;
+}
+
 std::vector<std::string> System_GetCameraDeviceList() {
     std::vector<std::string> deviceList;
-    for (AVCaptureDevice *device in [AVCaptureDevice devicesWithMediaType:AVMediaTypeVideo]) {
+    for (AVCaptureDevice *device in GetVideoDevices()) {
         deviceList.push_back([device.localizedName UTF8String]);
     }
     return deviceList;
@@ -76,7 +90,7 @@ NSString *getSelectedCamera() {
 
         AVCaptureDeviceInput *videoInput = nil;
         NSString *selectedCamera = getSelectedCamera();
-        for (AVCaptureDevice *device in [AVCaptureDevice devicesWithMediaType:AVMediaTypeVideo]) {
+        for (AVCaptureDevice *device in GetVideoDevices()) {
             if ([device.localizedName isEqualToString:selectedCamera]) {
                 videoInput = [AVCaptureDeviceInput deviceInputWithDevice:device error:&error];
             }
@@ -97,6 +111,11 @@ NSString *getSelectedCamera() {
         }
         [captureSession addInput:videoInput];
 
+        rotationCoordinator = nil;
+        if (@available(iOS 17.0, *)) {
+            rotationCoordinator = [[AVCaptureDeviceRotationCoordinator alloc] initWithDevice:videoInput.device previewLayer:nil];
+        }
+
         AVCaptureVideoDataOutput *videoOutput = [[AVCaptureVideoDataOutput alloc] init];
         videoOutput.videoSettings = [NSDictionary dictionaryWithObject: [NSNumber numberWithInt:kCVPixelFormatType_32BGRA] forKey: (id)kCVPixelBufferPixelFormatTypeKey];
 
@@ -105,13 +124,12 @@ NSString *getSelectedCamera() {
         dispatch_queue_t queue = dispatch_queue_create("cameraQueue", NULL);
         [videoOutput setSampleBufferDelegate:self queue:queue];
 
-        previewLayer = [[AVCaptureVideoPreviewLayer alloc] initWithSession:captureSession];
-        previewLayer.videoGravity = AVLayerVideoGravityResizeAspectFill;
-
-        [previewLayer setFrame:CGRectMake(0, 0, mWidth, mHeight)];
-
         [captureSession startRunning];
     });
+}
+
+- (void) setInterfaceOrientation:(UIInterfaceOrientation)orientation {
+    interfaceOrientation = (int)orientation;
 }
 
 -(void) stopVideo {
@@ -123,6 +141,22 @@ NSString *getSelectedCamera() {
 - (void) captureOutput:(AVCaptureOutput *)captureOutput
          didOutputSampleBuffer:(CMSampleBufferRef)sampleBuffer
          fromConnection:(AVCaptureConnection *)connection {
+    // The sensor delivers frames in its own landscape orientation, however the phone is held.
+    // Rotating the connection makes the next frames upright.
+    if (@available(iOS 17.0, *)) {
+        AVCaptureDeviceRotationCoordinator *coordinator = rotationCoordinator;
+        CGFloat angle = coordinator ? coordinator.videoRotationAngleForHorizonLevelCapture : 0.0;
+        if (connection.videoRotationAngle != angle && [connection isVideoRotationAngleSupported:angle]) {
+            connection.videoRotationAngle = angle;
+        }
+    } else {
+        // The UIInterfaceOrientation values match AVCaptureVideoOrientation's.
+        AVCaptureVideoOrientation orientation = (AVCaptureVideoOrientation)interfaceOrientation.load();
+        if (orientation != 0 && connection.isVideoOrientationSupported && connection.videoOrientation != orientation) {
+            connection.videoOrientation = orientation;
+        }
+    }
+
     CGImageRef cgImage = [self imageFromSampleBuffer:sampleBuffer];
     UIImage *theImage = [UIImage imageWithCGImage: cgImage];
     CGImageRelease(cgImage);
@@ -144,7 +178,12 @@ NSString *getSelectedCamera() {
     CGImageRef inImage = CGBitmapContextCreateImage(inContext);
     CGContextRelease(inContext);
 
-    CGRect outRect = CGRectMake(0, 0, width, height);
+    // Scale the frame to cover the size the game asked for, cropping what doesn't fit. When the phone
+    // is held upright the frame is portrait, and stretching it to the PSP's landscape would distort it.
+    const CGFloat scale = MAX((CGFloat)mWidth / width, (CGFloat)mHeight / height);
+    const CGFloat drawWidth = width * scale;
+    const CGFloat drawHeight = height * scale;
+    CGRect outRect = CGRectMake((mWidth - drawWidth) * 0.5, (mHeight - drawHeight) * 0.5, drawWidth, drawHeight);
     CGContextRef outContext = CGBitmapContextCreate(nil, mWidth, mHeight, 8, mWidth * 4, colorSpace, kCGImageAlphaPremultipliedFirst);
     CGContextDrawImage(outContext, outRect, inImage);
     CGImageRelease(inImage);

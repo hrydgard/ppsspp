@@ -34,12 +34,6 @@
 	return self;
 }
 
-- (void)startObserving {
-#ifdef USE_IAP
-	[[SKPaymentQueue defaultQueue] addTransactionObserver:self];
-#endif
-}
-
 - (BOOL)isGoldUnlocked {
 #ifdef USE_IAP
 	return [[NSUserDefaults standardUserDefaults] boolForKey:@"isGold"];
