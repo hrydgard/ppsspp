@@ -198,7 +198,7 @@ enum SystemProperty {
 
 	// Exposed on Android. Choosing the optimal sample rate for audio
 	// will result in lower latencies. Buffer size is automatically matched
-	// by the OpenSL audio backend, only exposed here for debugging/info.
+	// by the Oboe audio backend, only exposed here for debugging/info.
 	SYSPROP_AUDIO_SAMPLE_RATE,
 	SYSPROP_AUDIO_FRAMES_PER_BUFFER,
 	SYSPROP_AUDIO_OPTIMAL_SAMPLE_RATE,

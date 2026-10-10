@@ -758,7 +758,7 @@ void GameSettingsScreen::CreateAudioSettings(UI::ViewGroup *audioSettings) {
 #if PPSSPP_PLATFORM(ANDROID)
 	CheckBox *extraAudio = audioSettings->Add(new CheckBox(&g_Config.bExtraAudioBuffering, a->T("AudioBufferingForBluetooth", "Bluetooth-friendly buffer (slower)")));
 
-	// Show OpenSL debug info
+	// Show Oboe debug info
 	const std::string audioErrorStr = AndroidAudio_GetErrorString(g_audioState);
 	if (!audioErrorStr.empty()) {
 		audioSettings->Add(new InfoItem(a->T("Audio Error"), audioErrorStr));

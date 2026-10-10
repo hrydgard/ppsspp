@@ -927,8 +927,8 @@ if(ANDROID)
 		android/jni/AndroidAudio.h
 		android/jni/AndroidEGLGraphicsContext.cpp
 		android/jni/AndroidEGLGraphicsContext.h
-		android/jni/OpenSLContext.cpp
-		android/jni/OpenSLContext.h
+		android/jni/OboeContext.cpp
+		android/jni/OboeContext.h
 	)
 	# No target
 elseif(IOS AND NOT LIBRETRO)
@@ -1141,8 +1141,9 @@ add_subdirectory(GPU)
 add_subdirectory(Core)
 
 if(ANDROID AND NOT LIBRETRO)
+	add_subdirectory(ext/oboe-build)
 	add_library(ppsspp_jni SHARED ${AndroidJniSource})
-	target_link_libraries(ppsspp_jni Core log EGL OpenSLES)
+	target_link_libraries(ppsspp_jni Core log EGL oboe)
 	if(TARGET ppsspp_ui)
 		target_link_libraries(ppsspp_jni ppsspp_ui)
 	endif()
