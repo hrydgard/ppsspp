@@ -89,30 +89,31 @@ bool InitController(GCController *controller) {
 		analogTriggerPressed(JOYSTICK_AXIS_RTRIGGER, value);
 	};
 
-	if ([extendedProfile respondsToSelector:@selector(leftThumbstickButton)] && extendedProfile.leftThumbstickButton != nil) {
+	// The optional buttons are nil on controllers that don't have them.
+	if (extendedProfile.leftThumbstickButton != nil) {
 		extendedProfile.leftThumbstickButton.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
 			controllerButtonPressed(pressed, NKCODE_BUTTON_THUMBL);
 		};
 	}
-	if ([extendedProfile respondsToSelector:@selector(rightThumbstickButton)] && extendedProfile.rightThumbstickButton != nil) {
+	if (extendedProfile.rightThumbstickButton != nil) {
 		extendedProfile.rightThumbstickButton.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
 			controllerButtonPressed(pressed, NKCODE_BUTTON_THUMBR);
 		};
 	}
 
-	if ([extendedProfile respondsToSelector:@selector(buttonOptions)] && extendedProfile.buttonOptions != nil) {
+	if (extendedProfile.buttonOptions != nil) {
 		extendedProfile.buttonOptions.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
 			controllerButtonPressed(pressed, NKCODE_BUTTON_SELECT);
 		};
 	}
-	if ([extendedProfile respondsToSelector:@selector(buttonMenu)] && extendedProfile.buttonMenu != nil) {
+	if (extendedProfile.buttonMenu != nil) {
 		extendedProfile.buttonMenu.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
 			controllerButtonPressed(pressed, NKCODE_BUTTON_START);
 		};
 	}
 
 	if (@available(iOS 14.0, *)) {
-		if ([extendedProfile respondsToSelector:@selector(buttonHome)] && extendedProfile.buttonHome != nil) {
+		if (extendedProfile.buttonHome != nil) {
 			extendedProfile.buttonHome.valueChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
 				controllerButtonPressed(pressed, NKCODE_HOME);
 			};
@@ -206,10 +207,7 @@ void ShutdownController(GCController *controller) {
 }
 
 void TouchTracker::SendTouchEvent(float x, float y, int code, int pointerId) {
-	float scale = [UIScreen mainScreen].scale;
-	if ([[UIScreen mainScreen] respondsToSelector:@selector(nativeScale)]) {
-		scale = [UIScreen mainScreen].nativeScale;
-	}
+	float scale = [UIScreen mainScreen].nativeScale;
 
 	float dp_xscale = (float)g_display.dp_xres / (float)g_display.pixel_xres;
 	float dp_yscale = (float)g_display.dp_yres / (float)g_display.pixel_yres;
@@ -436,48 +434,36 @@ void SendKeyboardChars(std::string_view str) {
 	}
 }
 
-void KeyboardPressesBegan(NSSet<UIPress *> *presses, UIPressesEvent *event) {
-	for (UIPress *press in presses) {
-		if (!press.key) {
-			// I guess we could support remotes and stuff.
-			continue;
-		}
-		if (@available(iOS 13.0, *)) {
+static void SendPresses(NSSet<UIPress *> *presses, KeyInputFlags flags) {
+	// UIPress.key, and with it hardware keyboard support, needs 13.4.
+	if (@available(iOS 13.4, *)) {
+		for (UIPress *press in presses) {
+			if (!press.key) {
+				// I guess we could support remotes and stuff.
+				continue;
+			}
 			InputKeyCode code = HIDUsageToInputKeyCode(press.key.keyCode);
 			if (code != NKCODE_UNKNOWN) {
 				KeyInput input{};
 				input.deviceId = DEVICE_ID_KEYBOARD;
 				input.keyCode = code;
-				input.flags = KeyInputFlags::DOWN;
+				input.flags = flags;
 				NativeKey(input);
-				INFO_LOG(Log::System, "pressesBegan %d", code);
 			}
-		}
-		if (press.key.characters) {
-			std::string chars([press.key.characters UTF8String]);
-			SendKeyboardChars(chars);
+			if ((flags & KeyInputFlags::DOWN) && press.key.characters) {
+				std::string chars([press.key.characters UTF8String]);
+				SendKeyboardChars(chars);
+			}
 		}
 	}
 }
 
+void KeyboardPressesBegan(NSSet<UIPress *> *presses, UIPressesEvent *event) {
+	SendPresses(presses, KeyInputFlags::DOWN);
+}
+
 void KeyboardPressesEnded(NSSet<UIPress *> *presses, UIPressesEvent *event) {
-	for (UIPress *press in presses) {
-		if (!press.key) {
-			// I guess we could support remotes and stuff.
-			continue;
-		}
-		if (@available(iOS 13.0, *)) {
-			InputKeyCode code = HIDUsageToInputKeyCode(press.key.keyCode);
-			if (code != NKCODE_UNKNOWN) {
-				KeyInput input{};
-				input.deviceId = DEVICE_ID_KEYBOARD;
-				input.keyCode = code;
-				input.flags = KeyInputFlags::UP;
-				NativeKey(input);
-				INFO_LOG(Log::System, "pressesEnded %d", code);
-			}
-		}
-	}
+	SendPresses(presses, KeyInputFlags::UP);
 }
 
 InputKeyCode HIDUsageToInputKeyCode(UIKeyboardHIDUsage usage) {

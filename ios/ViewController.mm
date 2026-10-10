@@ -122,12 +122,7 @@ PPSSPPBaseViewController *sharedViewController;
 
 	// 3) Setup display link
 	self.displayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(displayLinkFired:)];
-	if (@available(iOS 10.0, *)) {
-		self.displayLink.preferredFramesPerSecond = (NSInteger)self.preferredFramesPerSecond;
-	} else {
-		// older iOS: approximate with frameInterval
-		self.displayLink.frameInterval = MAX(1, (NSInteger)round(60.0 / self.preferredFramesPerSecond));
-	}
+	self.displayLink.preferredFramesPerSecond = (NSInteger)self.preferredFramesPerSecond;
 	[self.displayLink addToRunLoop:[NSRunLoop mainRunLoop] forMode:NSDefaultRunLoopMode];
 
 	self.view.multipleTouchEnabled = YES;
@@ -184,13 +179,7 @@ PPSSPPBaseViewController *sharedViewController;
 
 - (void)setPreferredFramesPerSecond:(NSInteger)preferredFramesPerSecond {
 	_preferredFramesPerSecond = preferredFramesPerSecond;
-	if (self.displayLink) {
-		if (@available(iOS 10.0, *)) {
-			self.displayLink.preferredFramesPerSecond = (NSInteger)preferredFramesPerSecond;
-		} else {
-			self.displayLink.frameInterval = MAX(1, (NSInteger)round(60.0 / preferredFramesPerSecond));
-		}
-	}
+	self.displayLink.preferredFramesPerSecond = (NSInteger)preferredFramesPerSecond;
 }
 
 - (void)displayLinkFired:(CADisplayLink *)dl {

@@ -508,7 +508,8 @@ if(NOT MSVC)
 	endif()
 
 	if(IOS)
-		set(CMAKE_OSX_DEPLOYMENT_TARGET "12.0")
+		# Set by cmake/Toolchains/ios.cmake.
+		set(CMAKE_OSX_DEPLOYMENT_TARGET ${IPHONEOS_DEPLOYMENT_TARGET})
 	elseif(APPLE AND NOT CMAKE_CROSSCOMPILING)
 		# The bundled MoltenVK (ext/vulkan/macOS) needs 12.0.
 		set(CMAKE_OSX_DEPLOYMENT_TARGET "12.0")
@@ -1553,12 +1554,8 @@ if(NOT ANDROID)
 endif()
 # packaging and code signing
 if(IOS AND NOT LIBRETRO)
-	if(IOS_APP_STORE)
-		# The static MoltenVK in ios/MoltenVK needs 15.0. Keep in sync with cmake/Toolchains/ios.cmake.
-		set(DEPLOYMENT_TARGET 15.0)
-	else()
-		set(DEPLOYMENT_TARGET 11.0)
-	endif()
+	# Set by cmake/Toolchains/ios.cmake.
+	set(DEPLOYMENT_TARGET ${IPHONEOS_DEPLOYMENT_TARGET})
 	file(GLOB IOSAssets ios/assets/*.png)
 	list(REMOVE_ITEM IOSAssets ${CMAKE_CURRENT_SOURCE_DIR}/ios/assets/Default-568h@2x.png)
 	list(REMOVE_ITEM IOSAssets ${CMAKE_CURRENT_SOURCE_DIR}/ios/assets/Default-568h@3x.png)

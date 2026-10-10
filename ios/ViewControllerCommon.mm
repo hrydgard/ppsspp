@@ -22,7 +22,7 @@
 }
 
 @property (strong, nonatomic) NSOperationQueue *accelerometerQueue;
-@property (nonatomic) GCController *gameController __attribute__((weak_import));
+@property (nonatomic) GCController *gameController;
 @property (strong, nonatomic) CMMotionManager *motionManager;
 
 @end
@@ -491,11 +491,9 @@ extern float g_safeInsetBottom;
 // Can't just use g_display for this, since it lags behind during rotation.
 // Note: Using viewIfLoaded, since this can get called before the view exists, and we don't want to force it into existence.
 - (DeviceOrientation)currentDeviceOrientation {
-	if (@available(iOS 13.0, *)) {
-		UIWindowScene *scene = self.viewIfLoaded.window.windowScene;
-		if (scene != nil) {
-			return UIInterfaceOrientationIsPortrait(scene.interfaceOrientation) ? DeviceOrientation::Portrait : DeviceOrientation::Landscape;
-		}
+	UIWindowScene *scene = self.viewIfLoaded.window.windowScene;
+	if (scene != nil) {
+		return UIInterfaceOrientationIsPortrait(scene.interfaceOrientation) ? DeviceOrientation::Portrait : DeviceOrientation::Landscape;
 	}
 	CGSize size = self.viewIfLoaded.bounds.size;
 	return size.height > size.width ? DeviceOrientation::Portrait : DeviceOrientation::Landscape;
