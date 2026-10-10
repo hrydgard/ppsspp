@@ -246,6 +246,9 @@ enum SystemProperty {
 
 	SYSPROP_INSTALLER_NAME,  // Useful on Android to check if we were installed from the play store.
 	SYSPROP_MICROPHONE_DEVICE_LIST,
+	// The host buffers microphone input, and hands it over on the CPU thread when sceUsbMic sends
+	// "pollRecording". Hosts that push it from their own threads leave this false.
+	SYSPROP_MICROPHONE_NEEDS_POLLING,
 };
 
 // NOTE: Unlike requests or UIMessage, these are synchronous!
