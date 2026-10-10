@@ -1165,18 +1165,18 @@ std::vector<ClipVertexData> SoftwareVertexReader::cached_;
 std::vector<TransformUnit::PreparedPosition> SoftwareVertexReader::prepared_;
 
 // Tuned on a 16 core Ryzen under WSL2, where a thread wake up costs the waker about 15 us and takes about 50 us
-// to arrive: on bare metal, more helpers and shorter runs may pay off. Below this, a run's vertices are
-// transformed a draw at a time.
-static constexpr int RUN_MIN_VERTICES = 128;
+// to arrive: on bare metal, other values may pay off. Below this, a run's vertices are transformed a draw at a
+// time. Even without helpers, a run is faster than its draws one by one (16 beat 32, 64 and 128 in God of War).
+static constexpr int RUN_MIN_VERTICES = 16;
 // Vertices per chunk of a run.
-static constexpr int RUN_CHUNK = 64;
+static constexpr int RUN_CHUNK = 32;
 // Helper threads for a run, besides this one: in God of War, two beat one, three and four.
 static constexpr int RUN_MAX_HELPERS = 2;
 
 static TransformState transformState;
 
-// Decodes and transforms a run of draws' vertices (runCount from vertices) into runVerts_, in chunks that
-// helper threads share. With the transform state as it is for all of them: the draws in between change nothing
+// Decodes and transforms a run of draws' vertices (runCount from vertices, possibly a single draw's) into
+// runVerts_, in chunks that helper threads share. With the transform state as it is for all of them: the draws in between change nothing
 // (SoftGPU::RunVertexCount). False if it doesn't apply.
 bool TransformUnit::StartRun(const void *vertices, u32 vertexType, int runCount, VertexDecoder &vdecoder, TransformState &state) {
 	const DecVtxFormat &fmt = vdecoder.GetDecVtxFmt();
@@ -1269,7 +1269,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 	bool fromRun = !indices && InRun(vertices, vertex_type) && vertex_count <= runRemaining_ && !binner_->HasDirty(SoftDirty::LIGHT_ALL | SoftDirty::TRANSFORM_ALL);
 	if (!fromRun) {
 		runRemaining_ = 0;
-		if (!indices && runCount > vertex_count)
+		if (!indices && runCount >= vertex_count)
 			fromRun = StartRun(vertices, vertex_type, runCount, vdecoder, transformState);
 	}
 	SoftwareVertexReader vreader(decoded_, vdecoder, vertex_type, vertex_count, vertices, indices, transformState, *this, fromRun ? &runVerts_[runPos_] : nullptr);
