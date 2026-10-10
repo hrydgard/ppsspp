@@ -230,9 +230,7 @@ static NSString *ExtractGameInfoScheme(NSURL *url) {
 
 	[sharedViewController willResignActive];
 
-	if (g_Config.bEnableSound) {
-		iOSCoreAudioShutdown();
-	}
+	iOSCoreAudioShutdown();
 
 	System_PostUIMessage(UIMessage::LOST_FOCUS);
 }
@@ -240,9 +238,7 @@ static NSString *ExtractGameInfoScheme(NSURL *url) {
 - (void)sceneDidBecomeActive:(UIScene *)scene {
 	INFO_LOG(Log::G3D, "sceneDidBecomeActive");
 
-	if (g_Config.bEnableSound) {
-		iOSCoreAudioInit();
-	}
+	iOSCoreAudioInit();
 
 	System_PostUIMessage(UIMessage::GOT_FOCUS);
 

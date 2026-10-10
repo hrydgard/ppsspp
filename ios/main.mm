@@ -418,6 +418,9 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		case SYSPROP_CAN_GET_FREE_SPACE_FAST:
 			return false;
 
+		case SYSPROP_MICROPHONE_NEEDS_POLLING:
+			return true;
+
 		default:
 			return false;
 	}
@@ -559,6 +562,22 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		});
 		return true;
 	}
+	case SystemRequestType::MICROPHONE_COMMAND:
+		// From the CPU thread. Polling has to happen right here, the rest moves to the main thread inside.
+		if (startsWith(param1, "startRecording:")) {
+			int sampleRate = 0;
+			if (sscanf(param1.c_str(), "startRecording:%d", &sampleRate) != 1 || sampleRate <= 0) {
+				return false;
+			}
+			iOSCoreAudioStartRecording(sampleRate);
+		} else if (param1 == "stopRecording") {
+			iOSCoreAudioStopRecording();
+		} else if (param1 == "pollRecording") {
+			iOSCoreAudioPollRecording();
+		} else {
+			return false;
+		}
+		return true;
 	case SystemRequestType::SHARE_TEXT:
 	{
 		NSString *text = [NSString stringWithUTF8String:param1.c_str()];
@@ -631,6 +650,15 @@ void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {
 	dispatch_async(dispatch_get_main_queue(), ^{
 		[[UIApplication sharedApplication] openURL:nsUrl options:@{} completionHandler:nil];
 	});
+}
+
+bool System_AudioRecordingIsAvailable() {
+	// Every iPhone and iPad has a microphone. Permission is asked for when recording starts.
+	return true;
+}
+
+bool System_AudioRecordingState() {
+	return false;  // Unused outside Android.
 }
 
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) {

@@ -41,22 +41,18 @@ __attribute__((used)) static Class _forceLinkSceneDelegate = [SceneDelegate clas
 	switch ([interruptionType unsignedIntegerValue]) {
 		case AVAudioSessionInterruptionTypeBegan:
 			INFO_LOG(Log::System, "ios audio session interruption beginning");
-			if (g_Config.bEnableSound) {
-				iOSCoreAudioShutdown();
-			}
+			iOSCoreAudioShutdown();
 			break;
 
 		case AVAudioSessionInterruptionTypeEnded:
 			INFO_LOG(Log::System, "ios audio session interruption ending");
-			if (g_Config.bEnableSound) {
-				/*
-				 * Only try to reinit audio if in the foreground, otherwise
-				 * it may fail. Instead, trust that applicationDidBecomeActive
-				 * will do it later.
-				 */
-				if ([UIApplication sharedApplication].applicationState == UIApplicationStateActive) {
-					iOSCoreAudioInit();
-				}
+			/*
+			 * Only try to reinit audio if in the foreground, otherwise
+			 * it may fail. Instead, trust that sceneDidBecomeActive
+			 * will do it later.
+			 */
+			if ([UIApplication sharedApplication].applicationState == UIApplicationStateActive) {
+				iOSCoreAudioInit();
 			}
 			break;
 
@@ -82,10 +78,8 @@ __attribute__((used)) static Class _forceLinkSceneDelegate = [SceneDelegate clas
 	 We accomplish this by shutting down and reinitializing audio
 	 */
 
-	if (g_Config.bEnableSound) {
-		iOSCoreAudioShutdown();
-		iOSCoreAudioInit();
-	}
+	iOSCoreAudioShutdown();
+	iOSCoreAudioInit();
 }
 
 -(BOOL) application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
