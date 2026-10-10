@@ -471,6 +471,9 @@ void System_Notify(SystemNotification notification) {
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4) {
 	switch (type) {
 	case SystemRequestType::RESTART_APP:
+	{
+		// A copy, since the block outlives param1.
+		std::string args = param1;
 		dispatch_async(dispatch_get_main_queue(), ^{
 			// Get the connected scenes
 			NSSet<UIScene *> *scenes = [UIApplication sharedApplication].connectedScenes;
@@ -480,13 +483,13 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 				if ([scene isKindOfClass:[UIWindowScene class]]) {
 					UIWindowScene *windowScene = (UIWindowScene *)scene;
 					SceneDelegate *sceneDelegate = (SceneDelegate *)windowScene.delegate;
-					[sceneDelegate restart:param1.c_str()];
+					[sceneDelegate restart:args.c_str()];
 					break; // call only on the first active scene
 				}
 			}
 		});
 		return true;
-
+	}
 	case SystemRequestType::EXIT_APP:
 		// NOTE: on iOS, this is considered a crash and not a valid way to exit.
 		exit(0);

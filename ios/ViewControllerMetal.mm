@@ -179,13 +179,18 @@ static void VulkanRenderLoop(GraphicsContext *graphicsContext, CAMetalLayer *met
 	graphicsContext = new VulkanGraphicsContext();
 	std::string errorMessage;
 	if (!graphicsContext->InitAPI(nullptr, &g_Config.sVulkanDevice, &errorMessage)) {
-		ERROR_LOG(Log::System, "Failed to initialize Vulkan, switching to OpenGL: %s", errorMessage.c_str());
-		g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
-		SetGPUBackend(GPUBackend::OPENGL);
 		delete graphicsContext;
 		graphicsContext = nullptr;  // The render loop and shutdown check for this.
-		// TODO: What to do here? We've switched the config over to GL, but we're still the Metal view controller,
-		// so we won't render anything until the app gets restarted.
+		if (g_Config.IsBackendEnabled(GPUBackend::OPENGL)) {
+			ERROR_LOG(Log::System, "Failed to initialize Vulkan, switching to OpenGL: %s", errorMessage.c_str());
+			g_Config.iGPUBackend = (int)GPUBackend::OPENGL;
+			SetGPUBackend(GPUBackend::OPENGL);
+			// We're still the Metal view controller, so nothing would render. Restarting brings up the GL one.
+			System_RestartApp("");
+		} else {
+			// Config loading would switch straight back to Vulkan, so restarting would just loop.
+			ERROR_LOG(Log::System, "Failed to initialize Vulkan, and OpenGL is disabled: %s", errorMessage.c_str());
+		}
 	}
 
 	[self updateResolutionWithView:self.view];

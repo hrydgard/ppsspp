@@ -18,8 +18,7 @@
 
 #import <AVFoundation/AVFoundation.h>
 #include <string>
-
-static std::string gStartupArgStorage;
+#include <vector>
 
 static NSString *ExtractDeepLinkPath(NSURL *url) {
 	if (![[url scheme] isEqualToString:@"ppsspp"]) {
@@ -118,16 +117,16 @@ static NSString *ExtractGameInfoScheme(NSURL *url) {
 		return;
 	}
 	self.windowScene = windowScene;
-	[self launchPPSSPP];
+	[self launchPPSSPP:""];
 }
 
--(void) launchPPSSPP {
+-(void) launchPPSSPP:(const std::string &)extraArgs {
 	INFO_LOG(Log::G3D, "SceneDelegate: Launching PPSSPP");
 	AppDelegate *appDelegate = (AppDelegate *)[UIApplication sharedApplication].delegate;
 	NSDictionary *launchOptions = appDelegate.launchOptions;
 
-	int argc = 1;
-	char *argv[5]{};
+	// argv[0] is never looked at.
+	std::vector<std::string> args{"ppsspp"};
 	NSString *startupPath = nil;
 	NSURL *nsUrl = [launchOptions objectForKey:UIApplicationLaunchOptionsURLKey];
 
@@ -145,13 +144,23 @@ static NSString *ExtractGameInfoScheme(NSURL *url) {
 		// Keep cold-start argv behavior aligned with processFilePath().
 		std::string startupPathUtf8(startupPath.UTF8String);
 		Path gamePath(startupPathUtf8);
-		gStartupArgStorage = gamePath.ToString();
-		argv[argc++] = (char *)gStartupArgStorage.c_str();
-		NSLog(@"SceneDelegate: startup path passed to argv: %s", gStartupArgStorage.c_str());
+		args.push_back(gamePath.ToString());
+		NSLog(@"SceneDelegate: startup path passed to argv: %s", args.back().c_str());
 	}
 
+	// From a restart, like --start-screen=touchscreentest.
+	for (const std::string &arg : SplitCommandLine(extraArgs)) {
+		args.push_back(arg);
+	}
+
+	std::vector<const char *> argv;
+	for (const std::string &arg : args) {
+		argv.push_back(arg.c_str());
+	}
+	const int argc = (int)argv.size();
+
 	CommandLineOptions cmdLineOptions;
-	CommandLineParseResult parseResult = cmdLineOptions.Parse(argc, (const char **)argv);
+	CommandLineParseResult parseResult = cmdLineOptions.Parse(argc, argv.data());
 	switch (parseResult) {
 	case CommandLineParseResult::Exit:
 		INFO_LOG(Log::System, "Command line parse said to exit - mobile, so ignoring.");
@@ -166,7 +175,7 @@ static NSString *ExtractGameInfoScheme(NSURL *url) {
 
 	NSString *documentsPath = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0];
 	NSString *bundlePath = [[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/assets/"];
-	NativeInit(argc, (const char**)argv, cmdLineOptions, documentsPath.UTF8String, bundlePath.UTF8String, NULL);
+	NativeInit(argc, argv.data(), cmdLineOptions, documentsPath.UTF8String, bundlePath.UTF8String, NULL);
 
 	// If we were cold-started by a library export request, serve it now that
 	// the config (and recent games list) has been loaded by NativeInit.
@@ -210,7 +219,7 @@ static NSString *ExtractGameInfoScheme(NSURL *url) {
 	NativeShutdown();
 
 	// Launch a fresh instance
-	[self launchPPSSPP];
+	[self launchPPSSPP:restartArgs];
 
 	// Notify new view controller
 	[sharedViewController didBecomeActive];
