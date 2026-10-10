@@ -58,6 +58,7 @@
 #include "Core/CoreTiming.h"
 #include "Core/EmuThread.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/__sceAudio.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/System.h"
 #include "Core/Util/PSARUnpack.h"
@@ -1191,6 +1192,16 @@ int main(int argc, const char* argv[]) {
 	}
 	if (cmdLineOptions.screenshotFilenameSave.has_value()) {
 		SetScreenshotSavePath(Path(std::string(cmdLineOptions.screenshotFilenameSave.value())));
+	}
+	if (cmdLineOptions.dumpAudioFilename.has_value()) {
+#ifndef MOBILE_DEVICE
+		// The mixer only feeds the dump while sound is enabled.
+		g_Config.bEnableSound = true;
+		g_Config.bDumpAudio = true;
+		__StartLogAudio(Path(std::string(cmdLineOptions.dumpAudioFilename.value())));
+#else
+		fprintf(stderr, "--dump-audio is not supported on this platform.\n");
+#endif
 	}
 	if (cmdLineOptions.replayEnd.has_value()) {
 		GPURecord::SetReplayDrawLimit(cmdLineOptions.replayEnd.value());
