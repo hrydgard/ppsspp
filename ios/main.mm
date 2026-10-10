@@ -598,16 +598,14 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		return true;
 	}
 #endif
-/*
-	// Not 100% sure the threading is right
 	case SystemRequestType::COPY_TO_CLIPBOARD:
 	{
-		@autoreleasepool {
-			[UIPasteboard generalPasteboard].string = @(param1.c_str());
-			return 0;
-		}
+		NSString *text = [NSString stringWithUTF8String:param1.c_str()];
+		dispatch_async(dispatch_get_main_queue(), ^{
+			[UIPasteboard generalPasteboard].string = text;
+		});
+		return true;
 	}
-*/
 	case SystemRequestType::SET_KEEP_SCREEN_BRIGHT:
 		dispatch_async(dispatch_get_main_queue(), ^{
 			INFO_LOG(Log::System, "SET_KEEP_SCREEN_BRIGHT: %d", (int)param3);
