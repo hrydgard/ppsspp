@@ -12,7 +12,7 @@
 @interface PPSSPPBaseViewController : UIViewController<
 	UIImagePickerControllerDelegate, UINavigationControllerDelegate,
 	PHPickerViewControllerDelegate,
-	CameraFrameDelegate, LocationHandlerDelegate, UIKeyInput,
+	CameraFrameDelegate, LocationHandlerDelegate,
 	UIGestureRecognizerDelegate, iCadeEventDelegate>
 
 - (void)hideKeyboard;

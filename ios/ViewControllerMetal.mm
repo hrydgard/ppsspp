@@ -168,7 +168,6 @@ static void VulkanRenderLoop(GraphicsContext *graphicsContext, CAMetalLayer *met
 
 - (void)viewDidLoad {
 	[super viewDidLoad];
-	[self hideKeyboard];
 
 	INFO_LOG(Log::System, "Metal viewDidLoad");
 

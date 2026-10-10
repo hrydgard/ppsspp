@@ -147,8 +147,6 @@ PPSSPPBaseViewController *sharedViewController;
 		[self setupController:[[GCController controllers] firstObject]];
 	}
 
-	[self hideKeyboard];
-
 	INFO_LOG(Log::G3D, "Done with viewDidLoad.");
 }
 
