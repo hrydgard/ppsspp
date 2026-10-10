@@ -1303,6 +1303,38 @@ static void LoadAndStartVshKernelModules() {
 // filename is only used for dumping/metadata.
 // prxSeed is the extra key a module that came out of an NPDRM container needs to decrypt - see
 // NpDrmDeriveModuleKey(). Null for everything else, which is the overwhelming majority.
+struct ModulePatch {
+	u32 offset;  // From the module base.
+	u32 expected;
+	u32 replacement;
+};
+
+// Lets the XMB launch unsigned homebrew, which it otherwise refuses with "The game cannot be
+// started. The data is corrupted." before ever calling LoadExec. These are ProCFW's vshctrl
+// patches, as JPCSP applies them (Loader.patchModule). In 6.61's vshmain.prx:
+// - +0x12058 and +0x12060: the bne's that reject a PARAM.SFO without a valid DISC_ID.
+// - +0x122B0: the beql that rejects the DATA.PSP read from the PBP, a plain ELF rather than ~PSP.
+static const ModulePatch vshHomebrewPatches661[] = {
+	{ 0x12058, 0x1440003B, 0 },
+	{ 0x12060, 0x14400039, 0 },
+	{ 0x122B0, 0x506000E0, 0 },
+};
+
+// Only patches if every expected instruction is there, since the offsets move between firmware builds.
+static void ApplyVshHomebrewPatches(u32 base) {
+	for (const ModulePatch &patch : vshHomebrewPatches661) {
+		const u32 addr = base + patch.offset;
+		if (!Memory::IsValid4AlignedAddress(addr) || Memory::ReadUnchecked_U32(addr) != patch.expected) {
+			WARN_LOG(Log::sceModule, "vsh_module isn't a build the homebrew patches are known for (+%x), leaving it alone", patch.offset);
+			return;
+		}
+	}
+	for (const ModulePatch &patch : vshHomebrewPatches661) {
+		Memory::WriteUnchecked_U32(patch.replacement, base + patch.offset);
+	}
+	INFO_LOG(Log::sceModule, "Patched vsh_module to launch unsigned homebrew");
+}
+
 static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAddress, bool fromTop, std::string *error_string, u32 *magic, std::string_view filename, u32 &error, const u8 *prxSeed = nullptr) {
 	// The magic reads below need four bytes, and the ~SCE branch another four after that. Everything
 	// downstream checks its own sizes; this is just so we can look at the magic at all. The PBP path
@@ -1710,6 +1742,8 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		} else {
 			Memory::WriteUnchecked_U32(0, patchAddr);
 		}
+
+		ApplyVshHomebrewPatches(module->memoryBlockAddr);
 	}
 
 	// Let's also get a truncated version.
