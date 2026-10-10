@@ -76,6 +76,34 @@ inline float ScaleByPow2(float f, int n, uint32_t sign) {
 	return f;
 }
 
+// f * 2^e exactly as ldexpf: by adding to the exponent field while the result stays normal, which is the usual
+// case and much cheaper than the library call.
+inline float ScaleByPow2Exact(float f, int e) {
+	uint32_t bits;
+	memcpy(&bits, &f, sizeof(bits));
+	const int field = (int)((bits >> 23) & 0xFF);
+	if (field == 0 || field == 255 || field + e < 1 || field + e > 254)
+		return ldexpf(f, e);
+	bits += (uint32_t)e << 23;
+	memcpy(&f, &bits, sizeof(f));
+	return f;
+}
+
+// 2^e as a double, for e from -1022 to 1023.
+inline double Pow2Double(int e) {
+	const uint64_t bits = (uint64_t)(e + 1023) << 52;
+	double d;
+	memcpy(&d, &bits, sizeof(d));
+	return d;
+}
+
+// ilogb of a normal double, from its exponent field.
+inline int ExponentOfNormal(double d) {
+	uint64_t bits;
+	memcpy(&bits, &d, sizeof(bits));
+	return (int)((bits >> 52) & 0x7FF) - 1023;
+}
+
 // The GE's reciprocal (TransformUnit, depth, UVs, lighting): inline, since the rasterizer takes one per pixel.
 // w must be a normal float24. Returns a float24 (q has 16 significant bits, or is 2^16).
 inline float GERecip(float w) {
@@ -165,7 +193,7 @@ inline float GERowSum(const GERowTerm *terms, int count) {
 	if (sum == 0) {
 		return 0.0f;
 	}
-	return TruncateToFloat24(ldexpf((float)sum, lsbExp));
+	return TruncateToFloat24(ScaleByPow2Exact((float)sum, lsbExp));
 }
 
 // A clip space component from the combined matrix (gpu/probe exp32, exp34, exp42). The position is a
@@ -214,6 +242,34 @@ inline float GEScreenZ(float clipZ, float clipW, float zScale, float zCenter) {
 // GERowSum4's lanes that it can't do itself: a result that isn't a normal float.
 Vec4F32 GERowSum4Fallback(Vec4F32 a, const Vec4F32 b[4], int count, Vec4S32 lanes, Vec4F32 result);
 
+// One right operand of GERowSum4 taken apart: its exponent fields and fraction bits, its sign as a mask,
+// and where it's zero or denormal.
+struct GERowSumOperand {
+	Vec4S32 eb;
+	Vec4S32 bf;
+	Vec4S32 sign;
+	Vec4S32 none;
+
+	static GERowSumOperand From(Vec4F32 b) {
+		const Vec4S32 bb = Vec4S32FromBits(b);
+		const Vec4S32 eb = (bb & Vec4S32::Splat(0x7F800000)).Shr<23>();
+		return { eb, bb.Shr<8>() & Vec4S32::Splat(0x7FFF), bb.Shr<31>(), eb.CompareEq(Vec4S32::Zero()) };
+	}
+};
+
+// GERowSum4's right operands taken apart once, for ones that stay the same over many sums (a matrix's rows).
+struct GERowSumRows {
+	Vec4F32 rows[4];
+	GERowSumOperand parts[4];
+
+	void Set(const Vec4F32 b[4]) {
+		for (int k = 0; k < 4; ++k) {
+			rows[k] = b[k];
+			parts[k] = GERowSumOperand::From(b[k]);
+		}
+	}
+};
+
 // Four row sums at once: lane i is GERowSum of the products a[k] * b[k][i], k < count, so four rows
 // sharing their left operands (the lanes of a), like the four rows of a vertex transform. a is truncated
 // to float24s here; every b must be one already (its low 8 mantissa bits zero), as matrix entries are.
@@ -221,36 +277,48 @@ Vec4F32 GERowSum4Fallback(Vec4F32 a, const Vec4F32 b[4], int count, Vec4S32 lane
 // a' and b' being the 15 fraction bits, and a' b' fits a 16-bit multiply. The terms are aligned to the
 // largest lsb by scaling with a power of two and truncating, which drops low bits toward zero as
 // GERowSum's shifts do.
-template <int count>
-inline Vec4F32 GERowSum4(Vec4F32 a, const Vec4F32 b[4]) {
+// A left operand of GERowSum4's terms taken apart, per lane: its 15 fraction bits, its sign as a mask, where
+// it's zero or denormal, and the bit weight of a product's lsb without the right operand's exponent field.
+struct GERowSumLeft {
+	Vec4S32 f;
+	Vec4S32 sign;
+	Vec4S32 none;
+	Vec4S32 lsb;
+
+	// Truncated to float24s first.
+	static GERowSumLeft From(Vec4F32 a) {
+		const Vec4S32 bits = Vec4S32FromBits(a) & Vec4S32::Splat((int)0xFFFFFF00);
+		const Vec4S32 e = (bits & Vec4S32::Splat(0x7F800000)).Shr<23>();
+		return { bits.Shr<8>() & Vec4S32::Splat(0x7FFF), bits.Shr<31>(), e.CompareEq(Vec4S32::Zero()), e - Vec4S32::Splat(254 + 15) };
+	}
+	template <int lane>
+	GERowSumLeft SplatLane() const {
+		return { f.template SplatLane<lane>(), sign.template SplatLane<lane>(), none.template SplatLane<lane>(), lsb.template SplatLane<lane>() };
+	}
+};
+
+// GERowSum4's sums, term k's operands per lane from left(k) and right(k); fallback(lanes, result) redoes the
+// lanes it can't do.
+template <int count, typename Left, typename Right, typename Fallback>
+inline Vec4F32 GERowSumTerms(Left left, Right right, Fallback fallback) {
 	static_assert(count >= 1 && count <= 4, "GERowSum4 sums up to four terms");
 	const Vec4S32 expMask = Vec4S32::Splat(0x7F800000);
-	const Vec4S32 fracMask = Vec4S32::Splat(0x7FFF);
 	// Below any real lsb, without overflowing the differences below.
 	const Vec4S32 noTerm = Vec4S32::Splat(-100000);
-
-	// The left operands' parts, for all terms at once; each term takes its lane.
-	const Vec4S32 aBits = Vec4S32FromBits(a) & Vec4S32::Splat((int)0xFFFFFF00);
-	const Vec4S32 ea = (aBits & expMask).Shr<23>();
-	const Vec4S32 af = aBits.Shr<8>() & fracMask;
-	const Vec4S32 aNone = ea.CompareEq(Vec4S32::Zero());
-	const Vec4S32 aLsb = ea - Vec4S32::Splat(254 + 15);
 
 	Vec4S32 m[4], lsb[4];
 	Vec4S32 lsbMax = noTerm;
 	auto term = [&](auto lane) {
 		constexpr int k = decltype(lane)::value;
-		const Vec4S32 bb = Vec4S32FromBits(b[k]);
-		const Vec4S32 eb = (bb & expMask).Shr<23>();
-		const Vec4S32 bf = bb.Shr<8>() & fracMask;
-		const Vec4S32 afk = af.template SplatLane<k>();
-		Vec4S32 prod = afk + Vec4S32::Splat(32768) + bf + bf.Mul16(afk).template Shr<15>();
-		const Vec4S32 sign = (bb ^ aBits.template SplatLane<k>()).template Shr<31>();
+		const GERowSumLeft ak = left(lane);
+		const GERowSumOperand bk = right(k);
+		Vec4S32 prod = ak.f + Vec4S32::Splat(32768) + bk.bf + bk.bf.Mul16(ak.f).template Shr<15>();
+		const Vec4S32 sign = bk.sign ^ ak.sign;
 		prod = (prod ^ sign) - sign;
 		// Zero and denormals give no term.
-		const Vec4S32 none = aNone.template SplatLane<k>() | eb.CompareEq(Vec4S32::Zero());
+		const Vec4S32 none = ak.none | bk.none;
 		m[k] = prod.AndNot(none);
-		lsb[k] = (eb + aLsb.template SplatLane<k>()).AndNot(none) | (noTerm & none);
+		lsb[k] = (bk.eb + ak.lsb).AndNot(none) | (noTerm & none);
 		lsbMax = lsbMax.Max(lsb[k]);
 	};
 	term(std::integral_constant<int, 0>{});
@@ -276,8 +344,69 @@ inline Vec4F32 GERowSum4(Vec4F32 a, const Vec4F32 b[4]) {
 	const Vec4F32 result = Vec4F32FromBits(((fbits + lsbMax.Shl<23>()) & Vec4S32::Splat((int)0xFFFFFF00)).AndNot(zero));
 	const Vec4S32 outside = (resultExp.CompareLt(Vec4S32::Splat(1)) | resultExp.CompareGt(Vec4S32::Splat(254))).AndNot(zero);
 	if (AnyCompareBitsSet(outside))
-		return GERowSum4Fallback(a, b, count, outside, result);
+		return fallback(outside, result);
 	return result;
+}
+
+template <int count, typename Operand>
+inline Vec4F32 GERowSum4Core(Vec4F32 a, const Vec4F32 b[4], Operand operand) {
+	const GERowSumLeft left = GERowSumLeft::From(a);
+	return GERowSumTerms<count>([&](auto lane) { return left.template SplatLane<decltype(lane)::value>(); }, operand,
+		[&](Vec4S32 lanes, Vec4F32 result) { return GERowSum4Fallback(a, b, count, lanes, result); });
+}
+
+template <int count>
+inline Vec4F32 GERowSum4(Vec4F32 a, const Vec4F32 b[4]) {
+	return GERowSum4Core<count>(a, b, [&](int k) { return GERowSumOperand::From(b[k]); });
+}
+
+// With the right operands taken apart beforehand.
+template <int count>
+inline Vec4F32 GERowSum4(Vec4F32 a, const GERowSumRows &b) {
+	return GERowSum4Core<count>(a, b.rows, [&](int k) { return b.parts[k]; });
+}
+
+// One matrix row's entries, for GERowSumLanes: as given, and each taken apart in all lanes.
+struct GERowSumEntries {
+	float values[4];
+	GERowSumOperand parts[4];
+
+	void Set(const float v[4]) {
+		for (int k = 0; k < 4; ++k) {
+			values[k] = v[k];
+			parts[k] = GERowSumOperand::From(Vec4F32::Splat(v[k]));
+		}
+	}
+};
+
+// GERowSumLanes' lanes that it can't do itself.
+Vec4F32 GERowSumLanesFallback(const Vec4F32 a[4], const float b[4], int count, Vec4S32 lanes, Vec4F32 result);
+
+// GERowSum4 the other way around: lane i is GERowSum of the products a[k][i] * b[k], k < count, so one row of a
+// transform for four vertices, a vector of theirs per component. left holds a's parts (GERowSumLeft::From),
+// shared by all the rows.
+template <int count>
+inline Vec4F32 GERowSumLanes(const GERowSumLeft left[4], const Vec4F32 a[4], const GERowSumEntries &b) {
+	return GERowSumTerms<count>([&](auto lane) { return left[decltype(lane)::value]; }, [&](int k) { return b.parts[k]; },
+		[&](Vec4S32 lanes, Vec4F32 result) { return GERowSumLanesFallback(a, b.values, count, lanes, result); });
+}
+
+// GERecip of four float24s. Lanes that are zero, denormal or have an exponent of 126 or more (which GERecip
+// takes another path for) are added to bad, with undefined results.
+inline Vec4F32 GERecip4(Vec4F32 w, Vec4S32 &bad) {
+	const Vec4S32 bits = Vec4S32FromBits(w) & Vec4S32::Splat((int)0xFFFFFF00);
+	const Vec4S32 field = (bits & Vec4S32::Splat(0x7F800000)).Shr<23>();
+	const Vec4S32 e = field - Vec4S32::Splat(127);
+	bad = bad | field.CompareEq(Vec4S32::Zero()) | e.CompareGt(Vec4S32::Splat(125));
+	alignas(16) int32_t index[4];
+	(bits.Shr<16>() & Vec4S32::Splat(0x7F)).StoreAligned(index);
+	Vec4S32 segB, segM;
+	Vec4S32::LoadPairs(&geRecipSegments[index[0]].b, &geRecipSegments[index[1]].b, &geRecipSegments[index[2]].b, &geRecipSegments[index[3]].b, segB, segM);
+	const Vec4S32 i = bits.Shr<8>() & Vec4S32::Splat(0xFF);
+	const Vec4S32 q = (segB.Shl<6>() + Vec4S32::Splat(63) + segM.Mul(i)).Shr<7>();
+	// q * 2^(-16 - e), with w's sign.
+	const Vec4S32 r = Vec4S32FromBits(Vec4F32FromS32(q)) - (Vec4S32::Splat(16) + e).Shl<23>();
+	return Vec4F32FromBits(r | (bits & Vec4S32::Splat((int)0x80000000)));
 }
 
 float GEAddFloat24(float a, float b);
@@ -349,6 +478,38 @@ inline Vec4F32 GEMulFloat24x4Unchecked(Vec4F32 a, Vec4F32 b, Vec4S32 &bad) {
 	return result;
 }
 
+// A GEMulFloat24x4 operand taken apart, for one used in several products.
+struct GEMulOperand {
+	Vec4S32 bits;
+	Vec4S32 e;
+	Vec4S32 f;
+	// Zero, and zero, denormal, inf or NaN.
+	Vec4S32 zero;
+	Vec4S32 special;
+
+	// Truncated to float24s.
+	static GEMulOperand From(Vec4F32 v) {
+		const Vec4S32 bits = Vec4S32FromBits(v) & Vec4S32::Splat((int)0xFFFFFF00);
+		const Vec4S32 e = (bits & Vec4S32::Splat(0x7F800000)).Shr<23>();
+		return { bits, e, bits.Shr<8>() & Vec4S32::Splat(0x7FFF), (bits & Vec4S32::Splat(0x7FFFFFFF)).CompareEq(Vec4S32::Zero()),
+			e.CompareEq(Vec4S32::Zero()) | e.CompareEq(Vec4S32::Splat(255)) };
+	}
+};
+
+// GEMulFloat24x4Unchecked from operands taken apart.
+inline Vec4F32 GEMulFloat24x4Unchecked(const GEMulOperand &a, const GEMulOperand &b, Vec4S32 &bad) {
+	const Vec4S32 expMask = Vec4S32::Splat(0x7F800000);
+	const Vec4S32 prod = a.f + Vec4S32::Splat(32768) + b.f + b.f.Mul16(a.f).Shr<15>();
+	const Vec4S32 lsb = a.e + b.e - Vec4S32::Splat(254 + 15);
+	const Vec4S32 fbits = Vec4S32FromBits(Vec4F32FromS32(prod));
+	const Vec4S32 resultExp = (fbits & expMask).Shr<23>() + lsb;
+	const Vec4S32 sign = (a.bits ^ b.bits) & Vec4S32::Splat((int)0x80000000);
+	const Vec4S32 zero = a.zero | b.zero;
+	const Vec4F32 result = Vec4F32FromBits((((fbits + lsb.Shl<23>()) & Vec4S32::Splat((int)0xFFFFFF00)) | sign).AndNot(zero));
+	bad = bad | (a.special | b.special | resultExp.CompareLt(Vec4S32::Splat(1)) | resultExp.CompareGt(Vec4S32::Splat(254))).AndNot(zero);
+	return result;
+}
+
 inline Vec4F32 GEMulFloat24x4(Vec4F32 a, Vec4F32 b) {
 	Vec4S32 outside = Vec4S32::Zero();
 	const Vec4F32 result = GEMulFloat24x4Unchecked(a, b, outside);
@@ -396,7 +557,7 @@ inline float GEDot3(Vec4F32 a, Vec4F32 b) {
 	const int sum = (aligned + aligned.SplatLane<1>() + aligned.SplatLane<2>()).GetLane<0>();
 	if (sum == 0)
 		return 0.0f;
-	return TruncateToFloat24(ldexpf((float)sum, lsbMax.GetLane<0>()));
+	return TruncateToFloat24(ScaleByPow2Exact((float)sum, lsbMax.GetLane<0>()));
 }
 
 // GENormalize of lanes 0-2, which zeroes lane 3. Denormal components (in or out) become zero, as in GEProduct. d2 is the squared length, GEDot3(v, v).
@@ -495,15 +656,14 @@ inline bool GEUVSpanCore(Vec4S32 qv, Vec4S32 sv, Vec4S32 tv, int expQ, int expS,
 	const Vec4S32 qe = (qb & expMask).Shr<23>() - Vec4S32::Splat(127);
 	if constexpr (check)
 		bad = bad | qe.CompareGt(Vec4S32::Splat(125));
-	alignas(16) int32_t qbits[4], segB[4], segM[4];
+	alignas(16) int32_t qbits[4];
 	Vec4S32(qb).Store(qbits);
-	for (int i = 0; i < 4; ++i) {
-		const GERecipSegment &seg = geRecipSegments[(qbits[i] >> 16) & 0x7F];
-		segB[i] = seg.b;
-		segM[i] = seg.m;
-	}
+	// Gathered in registers: stored to an array one by one and loaded as a vector, they'd stall.
+	Vec4S32 segB, segM;
+	auto seg = [&](int i) { return &geRecipSegments[(qbits[i] >> 16) & 0x7F].b; };
+	Vec4S32::LoadPairs(seg(0), seg(1), seg(2), seg(3), segB, segM);
 	const Vec4S32 qi = qb.Shr<8>() & Vec4S32::Splat(0xFF);
-	const Vec4S32 recip = (Vec4S32::Load(segB).Shl<6>() + Vec4S32::Splat(63) + Vec4S32::Load(segM).Mul(qi)).Shr<7>();
+	const Vec4S32 recip = (segB.Shl<6>() + Vec4S32::Splat(63) + segM.Mul(qi)).Shr<7>();
 	const Vec4S32 rb = Vec4S32FromBits(Vec4F32FromS32(recip)) - (Vec4S32::Splat(16) + qe).Shl<23>();
 
 	// GEUVProduct(x * r): the 16-bit significands' product, cut to 24 bits.
@@ -545,15 +705,12 @@ inline bool GEUVSpanCore(Vec4S32 qv, Vec4S32 sv, Vec4S32 tv, int expQ, int expS,
 
 // From 64-bit plane values, checked.
 inline bool GEUVSpan(const int64_t qs[4], const int64_t ss[4], const int64_t ts[4], int expQ, int expS, int expT, float *s, float *t, float *q) {
-	alignas(16) int32_t vals[3][4];
 	for (int i = 0; i < 4; ++i) {
 		if (qs[i] <= -(1 << 24) || qs[i] >= (1 << 24) || ss[i] <= -(1 << 24) || ss[i] >= (1 << 24) || ts[i] <= -(1 << 24) || ts[i] >= (1 << 24))
 			return false;
-		vals[0][i] = (int32_t)qs[i];
-		vals[1][i] = (int32_t)ss[i];
-		vals[2][i] = (int32_t)ts[i];
 	}
-	return GEUVSpanCore<true>(Vec4S32::Load(vals[0]), Vec4S32::Load(vals[1]), Vec4S32::Load(vals[2]), expQ, expS, expT, s, t, q);
+	// Picked in registers: storing them one by one and loading them as a vector stalls.
+	return GEUVSpanCore<true>(Vec4S32::LoadS64Low(qs), Vec4S32::LoadS64Low(ss), Vec4S32::LoadS64Low(ts), expQ, expS, expT, s, t, q);
 }
 
 // Whether GEUVSpanCore<false> covers any values below 2^24 with these plane exponents: the float24s, the
@@ -572,13 +729,22 @@ float GELightPow(float v, float e);
 // 8-bit product x = ((2l + 1) * (2m + 1)) >> 10, and each factor (N.L or the specular power, then the
 // attenuation and spot) becomes an 8-bit s = floor(256 * f), 0 for a negative f, that is expanded like a color:
 // ((2x + 1) * (2s + 1)) >> 10. A factor of 1 (s = 256) leaves x as it is.
+// a * b for values below 2^15, as the light color factors are: with Mul16, since SSE2 has no 32-bit lane multiply.
+inline Vec4<int> MulSmall(const Vec4<int> &a, const Vec4<int> &b) {
+#if defined(_M_SSE) || PPSSPP_ARCH(ARM_NEON)
+	return Vec4<int>(Vec4S32{ a.ivec }.Mul16(Vec4S32{ b.ivec }).v);
+#else
+	return a * b;
+#endif
+}
+
 inline Vec4<int> GELightColorProduct(const Vec4<int> &lightFactor, const Vec4<int> &materialFactor) {
-	return (lightFactor * materialFactor) >> 10;
+	return MulSmall(lightFactor, materialFactor) >> 10;
 }
 
 inline Vec4<int> GELightColorScale(const Vec4<int> &x, float f) {
 	const int s = std::clamp((int)(256.0f * f), 0, 256);
-	return ((x * 2 + Vec4<int>::AssignToAll(1)) * (2 * s + 1)) >> 10;
+	return MulSmall(x + x + Vec4<int>::AssignToAll(1), Vec4<int>::AssignToAll(2 * s + 1)) >> 10;
 }
 
 // The alpha of pixel (px, py) of an antialiased line between two points in screen subpixels (gpu/probe

@@ -301,7 +301,6 @@ public:
 	bool bLowLatencyPresent;
 
 	bool bSoftwareRendering;
-	bool bSoftwareRenderingJit;
 	bool bSoftwareDisableDithering;
 	bool bHardwareTransform;
 	bool bVendorBugChecksEnabled;

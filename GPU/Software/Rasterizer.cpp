@@ -113,16 +113,16 @@ static inline Vec4<float> Interpolate(const float &c0, const float &c1, const fl
 	return Interpolate(c0, c1, c2, w0.Cast<float>(), w1.Cast<float>(), w2.Cast<float>(), wsum_recip);
 }
 
-void ComputeRasterizerState(RasterizerState *state, BinManager *binner) {
+void ComputeRasterizerState(RasterizerState *state) {
 	ComputePixelFuncID(&state->pixelID);
-	state->drawPixel = Rasterizer::GetSingleFunc(state->pixelID, binner);
-	state->drawSpan = Rasterizer::GetSpanFunc(state->pixelID, state->drawPixel);
+	state->drawPixel = Rasterizer::GetSingleFunc(state->pixelID);
+	state->drawSpan = Rasterizer::GetSpanFunc(state->pixelID);
 
 	state->enableTextures = gstate.isTextureMapEnabled() && !state->pixelID.clearMode;
 	if (state->enableTextures) {
 		ComputeSamplerID(&state->samplerID);
-		state->linear = Sampler::GetLinearFunc(state->samplerID, binner);
-		state->nearest = Sampler::GetNearestFunc(state->samplerID, binner);
+		state->linear = Sampler::GetLinearFunc(state->samplerID);
+		state->nearest = Sampler::GetNearestFunc(state->samplerID);
 
 		// Since the definitions are the same, just force this setting using the func pointer.
 		if (g_Config.iTexFiltering == TEX_FILTER_FORCE_LINEAR) {
@@ -453,15 +453,11 @@ static bool ApplyStateOptimizations(RasterizerState *state, const RasterizerStat
 			pixelID.alphaTestFunc = GE_COMP_ALWAYS;
 		}
 
-		SingleFunc drawPixel = Rasterizer::GetSingleFunc(pixelID, nullptr);
-		// Can't compile during runtime.  This failing is a bit of a problem when undoing...
-		if (drawPixel) {
-			state->drawPixel = drawPixel;
-			state->drawSpan = Rasterizer::GetSpanFunc(pixelID, drawPixel);
-			memcpy(&state->pixelID, &pixelID, sizeof(PixelFuncID));
-			state->flags = ReplacePixelIDFlags(state->flags, optimize) | RasterizerStateFlags::OPTIMIZED;
-			changed = true;
-		}
+		state->drawPixel = Rasterizer::GetSingleFunc(pixelID);
+		state->drawSpan = Rasterizer::GetSpanFunc(pixelID);
+		memcpy(&state->pixelID, &pixelID, sizeof(PixelFuncID));
+		state->flags = ReplacePixelIDFlags(state->flags, optimize) | RasterizerStateFlags::OPTIMIZED;
+		changed = true;
 	}
 
 	if (OptimizeSamplerIDFlags(state->flags) != OptimizeSamplerIDFlags(optimize)) {
@@ -471,26 +467,23 @@ static bool ApplyStateOptimizations(RasterizerState *state, const RasterizerStat
 		else if (state->flags & RasterizerStateFlags::OPTIMIZED_TEXREPLACE)
 			samplerID.texFunc = (uint8_t)GE_TEXFUNC_MODULATE;
 
-		Sampler::LinearFunc linear = Sampler::GetLinearFunc(samplerID, nullptr);
-		Sampler::LinearFunc nearest = Sampler::GetNearestFunc(samplerID, nullptr);
-		// Can't compile during runtime.  This failing is a bit of a problem when undoing...
-		if (linear && nearest) {
-			// Since the definitions are the same, just force this setting using the func pointer.
-			if (g_Config.iTexFiltering == TEX_FILTER_FORCE_LINEAR) {
-				state->nearest = linear;
-				state->linear = linear;
-			} else if (g_Config.iTexFiltering == TEX_FILTER_FORCE_NEAREST) {
-				state->nearest = nearest;
-				state->linear = nearest;
-			} else {
-				state->nearest = nearest;
-				state->linear = linear;
-			}
-			memcpy(&state->samplerID, &samplerID, sizeof(SamplerID));
-			state->linearQuad = Sampler::GetLinearQuadFunc(state->samplerID, state->linear);
-			state->flags = ReplaceSamplerIDFlags(state->flags, optimize) | RasterizerStateFlags::OPTIMIZED;
-			changed = true;
+		Sampler::LinearFunc linear = Sampler::GetLinearFunc(samplerID);
+		Sampler::LinearFunc nearest = Sampler::GetNearestFunc(samplerID);
+		// Since the definitions are the same, just force this setting using the func pointer.
+		if (g_Config.iTexFiltering == TEX_FILTER_FORCE_LINEAR) {
+			state->nearest = linear;
+			state->linear = linear;
+		} else if (g_Config.iTexFiltering == TEX_FILTER_FORCE_NEAREST) {
+			state->nearest = nearest;
+			state->linear = nearest;
+		} else {
+			state->nearest = nearest;
+			state->linear = linear;
 		}
+		memcpy(&state->samplerID, &samplerID, sizeof(SamplerID));
+		state->linearQuad = Sampler::GetLinearQuadFunc(state->samplerID, state->linear);
+		state->flags = ReplaceSamplerIDFlags(state->flags, optimize) | RasterizerStateFlags::OPTIMIZED;
+		changed = true;
 	}
 
 	state->lastFlags = state->flags;
@@ -753,6 +746,24 @@ static inline void ApplyTexturing(const RasterizerState &state, int *colors, int
 			return;
 		}
 	}
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(ARM64_NEON)
+	// The pixels' colors by transposing the channel rows in registers: gathering them a value at a time
+	// and loading them as a vector stalls.
+	Vec4F32 pixels[4];
+	for (int c = 0; c < 4; ++c)
+		pixels[c] = Vec4F32FromBits(Vec4S32::Load(colors + c * colorStride));
+	Vec4F32::Transpose(pixels[0], pixels[1], pixels[2], pixels[3]);
+	for (int i = 0; i < 4; ++i) {
+		if (mask[i] >= 0) {
+			if (perPixel)
+				CalculateSamplingParams(ds, dt, q[i], state, level, levelFrac, bilinear, autoGrad);
+			pixels[i] = Vec4F32FromBits(Vec4S32{ ApplyTexturing(s[i], t[i], Vec4S32FromBits(pixels[i]).v, level, levelFrac, bilinear, state) });
+		}
+	}
+	Vec4F32::Transpose(pixels[0], pixels[1], pixels[2], pixels[3]);
+	for (int c = 0; c < 4; ++c)
+		Vec4S32FromBits(pixels[c]).Store(colors + c * colorStride);
+#else
 	for (int i = 0; i < 4; ++i) {
 		if (mask[i] >= 0) {
 			if (perPixel)
@@ -762,6 +773,7 @@ static inline void ApplyTexturing(const RasterizerState &state, int *colors, int
 				colors[c * colorStride + i] = out[c];
 		}
 	}
+#endif
 }
 
 // Depth at x to x + 3 in row y. They're stored together unless they cross the end of a 16-pixel run.
@@ -894,12 +906,31 @@ static inline __m128i SOFTRAST_CALL TriangleEdgeStartSSE4(__m128i initX, __m128i
 }
 #endif
 
+// A Vec4<int> loaded as one vector: its four value constructor stores them one by one, and loading them as
+// a vector then stalls.
+static inline Vec4<int> LoadVec4Int(const int v[4]) {
+#if defined(_M_SSE) || PPSSPP_ARCH(ARM_NEON)
+	return Vec4<int>(Vec4S32::LoadAligned(v).v);
+#else
+	return Vec4<int>(v);
+#endif
+}
+
+// {0, d, 2d, 3d}, without a stack array or a 32-bit multiply.
+static inline Vec4S32 RampLanes(int d) {
+	alignas(16) static const int odd[4] = { 0, -1, 0, -1 };
+	alignas(16) static const int high[4] = { 0, 0, -1, -1 };
+	const Vec4S32 dv = Vec4S32::Splat(d);
+	return (dv & Vec4S32::LoadAligned(odd)) + (dv.Shl<1>() & Vec4S32::LoadAligned(high));
+}
+
 template <bool useSSE4>
 Vec4<int> TriangleEdge<useSSE4>::Start(const ScreenCoords &v0, const ScreenCoords &v1, const ScreenCoords &origin) {
 	// Start at pixel centers. The GE samples exactly there, with left and top edges inclusive (gpu/probe).
 	// Four pixels in a row.
 	static constexpr int centerOff = SCREEN_SCALE_FACTOR / 2;
-	Vec4<int> initX = Vec4<int>::AssignToAll(origin.x) + Vec4<int>(centerOff, centerOff + SCREEN_SCALE_FACTOR, centerOff + SCREEN_SCALE_FACTOR * 2, centerOff + SCREEN_SCALE_FACTOR * 3);
+	alignas(16) static const int centers[4] = { centerOff, centerOff + SCREEN_SCALE_FACTOR, centerOff + SCREEN_SCALE_FACTOR * 2, centerOff + SCREEN_SCALE_FACTOR * 3 };
+	Vec4<int> initX = Vec4<int>::AssignToAll(origin.x) + LoadVec4Int(centers);
 	Vec4<int> initY = Vec4<int>::AssignToAll(origin.y + centerOff);
 
 	// orient2d refactored.
@@ -1006,7 +1037,8 @@ struct DepthPlane {
 	}
 };
 
-static DepthPlane ComputePlane(const int64_t X[3], const int64_t Y[3], const int64_t Z[3]) {
+// Inline: returned through memory, it was then reloaded with wider loads than it was stored with.
+static inline DepthPlane ComputePlane(const int64_t X[3], const int64_t Y[3], const int64_t Z[3]) {
 	DepthPlane plane{};
 	const int64_t det = (X[1] - X[0]) * (Y[2] - Y[0]) - (X[2] - X[0]) * (Y[1] - Y[0]);
 	if (det == 0) {
@@ -1081,13 +1113,14 @@ static int SharedShift(const double v[3]) {
 	int e = INT_MIN;
 	for (int i = 0; i < 3; ++i) {
 		if (v[i] != 0.0)
-			e = std::max(e, std::ilogb(v[i]));
+			e = std::max(e, ExponentOfNormal(v[i]));
 	}
 	return e == INT_MIN ? 0 : 14 - e;
 }
 
 static DepthPlane FixedPlane(const int64_t X[3], const int64_t Y[3], const double v[3], int shift) {
-	const int64_t V[3] = { (int64_t)std::ldexp(v[0], shift), (int64_t)std::ldexp(v[1], shift), (int64_t)std::ldexp(v[2], shift) };
+	const double scale = Pow2Double(shift);
+	const int64_t V[3] = { (int64_t)(v[0] * scale), (int64_t)(v[1] * scale), (int64_t)(v[2] * scale) };
 	return ComputePlane(X, Y, V);
 }
 
@@ -1115,7 +1148,7 @@ static UVPlanes ComputeUVPlanesSTQ(const int64_t X[3], const int64_t Y[3], const
 	auto fixed = [&](const double v[3], DepthPlane *plane, double *scale, int *exp) {
 		const int shift = SharedShift(v);
 		*plane = FixedPlane(X, Y, v, shift);
-		*scale = std::ldexp(1.0, -shift);
+		*scale = Pow2Double(-shift);
 		*exp = -shift;
 	};
 	fixed(s, &planes.s, &planes.scaleS, &planes.expS);
@@ -1273,13 +1306,17 @@ struct StagedSpans {
 	int y;
 };
 
-template <bool textured, bool uvFast, bool lodQ, bool through>
+// sharedLevel: the triangle's q is the same everywhere, and so the mip level of its pixels (LocoRoco).
+template <bool textured, bool uvFast, bool lodQ, bool through, bool sharedLevel = false>
 static void DrawStagedSpans(const StagedSpans &ctx, int count, int chunkX, int64_t qv, int64_t sv, int64_t tv, int *maskBuf, int *zBuf, int *fogBuf, int *colorBuf, const int *secBuf) {
 	const RasterizerState &state = *ctx.state;
 	const UVPlanes &uvPlanes = *ctx.uvPlanes;
 	const int64_t qdx = uvPlanes.q.kx * SCREEN_SCALE_FACTOR, sdx = uvPlanes.s.kx * SCREEN_SCALE_FACTOR, tdx = uvPlanes.t.kx * SCREEN_SCALE_FACTOR;
 	// No mip levels and one filter, bilinear: what ApplyTexturing comes to is the quad sampler at level 0.
 	const bool directQuad = textured && state.linearQuad && state.maxTexLevel == 0 && state.minFilt == state.magFilt && state.magFilt;
+	// With sharedLevel, ApplyTexturing's level for the pixels, once.
+	int sharedLevels[4], sharedFracs[4];
+	bool sharedBilinear = false, sharedKnown = false;
 	for (int k = 0; k < count; k += 4, qv += 4 * qdx, sv += 4 * sdx, tv += 4 * tdx) {
 		const Vec4<int> mask(maskBuf[k], maskBuf[k + 1], maskBuf[k + 2], maskBuf[k + 3]);
 		if (!AnyMask<false>(mask))
@@ -1309,7 +1346,23 @@ static void DrawStagedSpans(const StagedSpans &ctx, int count, int chunkX, int64
 				s *= 1.0f / (float)(1 << state.samplerID.width0Shift);
 				t *= 1.0f / (float)(1 << state.samplerID.height0Shift);
 			}
-			if (directQuad) {
+			if constexpr (sharedLevel) {
+				if (!sharedKnown) {
+					int level, levelFrac;
+					CalculateSamplingParams(0.0f, 0.0f, q[0], state, level, levelFrac, sharedBilinear, ctx.autoGrad);
+					for (int i = 0; i < 4; ++i) {
+						sharedLevels[i] = level;
+						sharedFracs[i] = levelFrac;
+					}
+					sharedKnown = true;
+				}
+				if (sharedBilinear) {
+					const int active = (mask[0] >= 0 ? 1 : 0) | (mask[1] >= 0 ? 2 : 0) | (mask[2] >= 0 ? 4 : 0) | (mask[3] >= 0 ? 8 : 0);
+					state.linearQuad(s.AsArray(), t.AsArray(), sharedLevels, sharedFracs, active, state.texptr, state.texbufw, prim_color, STAGED_CHUNK, state.samplerID);
+				} else {
+					ApplyTexturing(state, prim_color, STAGED_CHUNK, mask, s, t, q, 0.0f, 0.0f, ctx.sameQ, ctx.autoGrad);
+				}
+			} else if (directQuad) {
 				const int active = (mask[0] >= 0 ? 1 : 0) | (mask[1] >= 0 ? 2 : 0) | (mask[2] >= 0 ? 4 : 0) | (mask[3] >= 0 ? 8 : 0);
 				state.linearQuad(s.AsArray(), t.AsArray(), nullptr, nullptr, active, state.texptr, state.texbufw, prim_color, STAGED_CHUNK, state.samplerID);
 			} else {
@@ -1329,7 +1382,9 @@ static void DrawStagedSpans(const StagedSpans &ctx, int count, int chunkX, int64
 typedef void (*StagedSpansFunc)(const StagedSpans &ctx, int count, int chunkX, int64_t qv, int64_t sv, int64_t tv, int *maskBuf, int *zBuf, int *fogBuf, int *colorBuf, const int *secBuf);
 
 template <bool textured, bool uvFast>
-static StagedSpansFunc PickStagedSpans(bool lodQ, bool through) {
+static StagedSpansFunc PickStagedSpans(bool lodQ, bool through, bool sharedLevel = false) {
+	if (lodQ && sharedLevel && !through)
+		return &DrawStagedSpans<textured, uvFast, true, false, true>;
 	if (lodQ)
 		return through ? &DrawStagedSpans<textured, uvFast, true, true> : &DrawStagedSpans<textured, uvFast, true, false>;
 	return through ? &DrawStagedSpans<textured, uvFast, false, true> : &DrawStagedSpans<textured, uvFast, false, false>;
@@ -1446,9 +1501,7 @@ void DrawTriangleSlice(
 		};
 		uvFast = fits(uvPlanes.q) && fits(uvPlanes.s) && fits(uvPlanes.t);
 		auto ramp = [](const DepthPlane &plane) {
-			const int dx = (int)(plane.kx * SCREEN_SCALE_FACTOR);
-			alignas(16) const int steps[4] = { 0, dx, 2 * dx, 3 * dx };
-			return Vec4S32::Load(steps);
+			return RampLanes((int)(plane.kx * SCREEN_SCALE_FACTOR));
 		};
 		if (uvFast) {
 			qRamp = ramp(uvPlanes.q);
@@ -1460,10 +1513,16 @@ void DrawTriangleSlice(
 	StagedSpansFunc drawStagedSpans;
 	if (clearMode || !state.enableTextures)
 		drawStagedSpans = &DrawStagedSpans<false, false, false, false>;
-	else if (uvFast)
-		drawStagedSpans = PickStagedSpans<true, true>(lodUsesQ && !state.throughMode, state.throughMode);
-	else
-		drawStagedSpans = PickStagedSpans<true, false>(lodUsesQ && !state.throughMode, state.throughMode);
+	else {
+		// The pixels share a level picked by q (ApplyTexturing's sameQ case), and q is the same everywhere.
+		const bool levelByQ = state.TexLevelMode() == GE_TEXLEVEL_MODE_SLOPE || (state.TexLevelMode() == GE_TEXLEVEL_MODE_AUTO && autoGrad >= 0.0f);
+		const bool bilinearQuad = state.maxTexLevel == 0 && state.minFilt == state.magFilt && state.magFilt;
+		const bool sharedLevel = state.linearQuad && !bilinearQuad && levelByQ && uvPlanes.valid && uvPlanes.q.kx == 0 && uvPlanes.q.ky == 0;
+		if (uvFast)
+			drawStagedSpans = PickStagedSpans<true, true>(lodUsesQ && !state.throughMode, state.throughMode, sharedLevel);
+		else
+			drawStagedSpans = PickStagedSpans<true, false>(lodUsesQ && !state.throughMode, state.throughMode, sharedLevel);
+	}
 
 	// The edges as A x + B y + C + bias >= 0 at pixel centers, in 64 bits.
 	struct RowEdge {
@@ -2022,9 +2081,7 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 			};
 			uvFast = fits(uvPlanes.q) && fits(uvPlanes.s) && fits(uvPlanes.t);
 			auto ramp = [](const DepthPlane &plane) {
-				const int dx = (int)(plane.kx * SCREEN_SCALE_FACTOR);
-				alignas(16) const int steps[4] = { 0, dx, 2 * dx, 3 * dx };
-				return Vec4S32::Load(steps);
+				return RampLanes((int)(plane.kx * SCREEN_SCALE_FACTOR));
 			};
 			if (uvFast) {
 				qRamp = ramp(uvPlanes.q);
@@ -2816,14 +2873,7 @@ bool GetCurrentTexture(GPUDebugBuffer &buffer, int level)
 	ComputeSamplerID(&id);
 	id.cached.clut = clut;
 
-	// Slight annoyance, we may have to force a compile.
-	Sampler::FetchFunc sampler = Sampler::GetFetchFunc(id, nullptr);
-	if (!sampler) {
-		Sampler::FlushJit();
-		sampler = Sampler::GetFetchFunc(id, nullptr);
-		if (!sampler)
-			return false;
-	}
+	Sampler::FetchFunc sampler = Sampler::GetFetchFunc(id);
 
 	u8 *texptr = Memory::GetPointerWriteOrException(texaddr);
 	u32 *row = (u32 *)buffer.GetData();

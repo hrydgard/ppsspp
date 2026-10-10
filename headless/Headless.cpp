@@ -966,7 +966,6 @@ int main(int argc, const char* argv[]) {
 	// Defaulting this to false silently ran everything on OpenGL, which hangs games early in boot
 	// under Mesa llvmpipe on Linux/WSL.
 	g_Config.bSoftwareRendering = cmdLineOptions.softwareRendering.value_or(true);
-	g_Config.bSoftwareRenderingJit = true;
 	g_Config.iSplineBezierQuality = 2;
 	g_Config.bHighQualityDepth = true;
 	g_Config.bMemStickInserted = true;

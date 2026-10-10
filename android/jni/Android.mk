@@ -522,9 +522,7 @@ ARCH_FILES := \
   $(SRC)/Core/MIPS/x86/X64IRCompVec.cpp \
   $(SRC)/Core/MIPS/x86/X64IRJit.cpp \
   $(SRC)/Core/MIPS/x86/X64IRRegCache.cpp \
-  $(SRC)/GPU/Common/VertexDecoderX86.cpp \
-  $(SRC)/GPU/Software/DrawPixelX86.cpp \
-  $(SRC)/GPU/Software/SamplerX86.cpp
+  $(SRC)/GPU/Common/VertexDecoderX86.cpp
 else ifeq ($(findstring armeabi-v7a,$(TARGET_ARCH_ABI)),armeabi-v7a)
 ARCH_FILES := \
   $(SRC)/Core/MIPS/ARM/ArmCompALU.cpp \
@@ -666,7 +664,6 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Software/Lighting.cpp \
   $(SRC)/GPU/Software/Rasterizer.cpp.arm \
   $(SRC)/GPU/Software/RasterizerRectangle.cpp.arm \
-  $(SRC)/GPU/Software/RasterizerRegCache.cpp \
   $(SRC)/GPU/Software/Sampler.cpp \
   $(SRC)/GPU/Software/SoftGpu.cpp \
   $(SRC)/GPU/Software/TransformUnit.cpp \
@@ -1126,7 +1123,6 @@ ifeq ($(UNITTEST),1)
     $(SRC)/unittest/TestCrossSIMD.cpp \
     $(SRC)/unittest/TestIRPassSimplify.cpp \
     $(SRC)/unittest/TestShaderGenerators.cpp \
-    $(SRC)/unittest/TestSoftwareGPUJit.cpp \
     $(SRC)/unittest/TestThreadManager.cpp \
     $(SRC)/unittest/TestVertexJit.cpp \
     $(SRC)/unittest/TestTextureReplacer.cpp \

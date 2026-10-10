@@ -16,7 +16,6 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include "ppsspp_config.h"
-#include <mutex>
 #include "Common/Common.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Math/CrossSIMD.h"
@@ -30,35 +29,6 @@
 using namespace Math3D;
 
 namespace Rasterizer {
-
-std::mutex jitCacheLock;
-PixelJitCache *jitCache = nullptr;
-
-void Init() {
-	jitCache = new PixelJitCache();
-}
-
-void FlushJit() {
-	jitCache->Flush();
-}
-
-int JitClearGeneration() {
-	return PixelJitCache::ClearGeneration();
-}
-
-void Shutdown() {
-	delete jitCache;
-	jitCache = nullptr;
-}
-
-bool DescribeCodePtr(const u8 *ptr, std::string &name) {
-	if (!jitCache->IsInSpace(ptr)) {
-		return false;
-	}
-
-	name = jitCache->DescribeCodePtr(ptr);
-	return true;
-}
 
 static inline u8 GetPixelStencil(GEBufferFormat fmt, int fbStride, int x, int y) {
 	if (fmt == GE_FORMAT_565) {
@@ -105,15 +75,14 @@ static inline void SetPixelDepth(int x, int y, int stride, u16 value) {
 
 // NOTE: These likely aren't endian safe
 // The depths of a span's four pixels from x.
-static inline void ReadSpanDepth(int x, int y, int stride, int out[4]) {
-	if (depthbuf.Contiguous4(x, y, stride)) {
-		const u16 *zp = depthbuf.Get16Ptr(x, y, stride);
-		for (int i = 0; i < 4; ++i)
-			out[i] = zp[i];
-	} else {
-		for (int i = 0; i < 4; ++i)
-			out[i] = depthbuf.Get16(x + i, y, stride);
-	}
+// Loaded as a vector where they're stored together (all but across a 16-pixel run).
+static inline Vec4S32 ReadSpanDepth(int x, int y, int stride) {
+	if (depthbuf.Contiguous4(x, y, stride))
+		return Vec4S32::LoadU16(depthbuf.Get16Ptr(x, y, stride));
+	alignas(16) int out[4];
+	for (int i = 0; i < 4; ++i)
+		out[i] = depthbuf.Get16(x + i, y, stride);
+	return Vec4S32::LoadAligned(out);
 }
 
 static inline u32 GetPixelColor(GEBufferFormat fmt, int fbStride, int x, int y) {
@@ -968,9 +937,9 @@ static inline void DrawSpanVector(int x, int y, const int *maskIn, const int *zI
 			// Like the BLEND texfunc, always rounding up.
 			const Vec4S32 f = Vec4S32::Load(fogIn), invF = c255 - f;
 			const uint32_t fc = pixelID.cached.fogColor;
-			r = (r.Mul(f) + Vec4S32::Splat(fc & 0xFF).Mul(invF) + c255).Shr<8>();
-			g = (g.Mul(f) + Vec4S32::Splat((fc >> 8) & 0xFF).Mul(invF) + c255).Shr<8>();
-			b = (b.Mul(f) + Vec4S32::Splat((fc >> 16) & 0xFF).Mul(invF) + c255).Shr<8>();
+			r = (r.Mul16(f) + Vec4S32::Splat(fc & 0xFF).Mul16(invF) + c255).Shr<8>();
+			g = (g.Mul16(f) + Vec4S32::Splat((fc >> 8) & 0xFF).Mul16(invF) + c255).Shr<8>();
+			b = (b.Mul16(f) + Vec4S32::Splat((fc >> 16) & 0xFF).Mul16(invF) + c255).Shr<8>();
 		}
 
 		if (pixelID.colorTest) {
@@ -1010,18 +979,14 @@ static inline void DrawSpanVector(int x, int y, const int *maskIn, const int *zI
 		const Vec4S32 sfail = compare(pixelID.StencilTestFunc(), Vec4S32::Splat(pixelID.stencilTestRef), sv).AndNot(dead);
 		Vec4S32 zfail = zero;
 		if (!pixelID.earlyZChecks && pixelID.DepthTestFunc() != GE_COMP_ALWAYS) {
-			alignas(16) int ref[4];
-			ReadSpanDepth(x, y, depthStride, ref);
-			zfail = compare(pixelID.DepthTestFunc(), z, Vec4S32::Load(ref)).AndNot(dead | sfail);
+			zfail = compare(pixelID.DepthTestFunc(), z, ReadSpanDepth(x, y, depthStride)).AndNot(dead | sfail);
 		}
 		const Vec4S32 old = dst[3];
 		stencil = select(sfail, SpanStencilOp<fbFormat>(pixelID.SFail(), old, replace),
 			select(zfail, SpanStencilOp<fbFormat>(pixelID.ZFail(), old, replace), SpanStencilOp<fbFormat>(pixelID.ZPass(), old, replace)));
 		stencilOnly = sfail | zfail;
 	} else if (!clearMode && !pixelID.earlyZChecks && pixelID.DepthTestFunc() != GE_COMP_ALWAYS) {
-		alignas(16) int ref[4];
-		ReadSpanDepth(x, y, depthStride, ref);
-		dead = dead | compare(pixelID.DepthTestFunc(), z, Vec4S32::Load(ref));
+		dead = dead | compare(pixelID.DepthTestFunc(), z, ReadSpanDepth(x, y, depthStride));
 	}
 
 	alignas(16) int deadLanes[4];
@@ -1051,7 +1016,7 @@ static inline void DrawSpanVector(int x, int y, const int *maskIn, const int *zI
 	if constexpr (blend == SpanBlend::SRC_ALPHA) {
 		const Vec4S32 one = Vec4S32::Splat(1);
 		auto term = [&](Vec4S32 v, Vec4S32 f) {
-			return (v.Shl<1>() + one).Mul(f.Shl<1>() + one).Shr<10>();
+			return (v.Shl<1>() + one).Mul16(f.Shl<1>() + one).Shr<10>();
 		};
 		const Vec4S32 invA = c255 - a;
 		r = term(r, a) + term(dst[0], invA);
@@ -1087,7 +1052,7 @@ static inline void DrawSpanVector(int x, int y, const int *maskIn, const int *zI
 		Vec4S32 out[3];
 		for (int c = 0; c < 3; ++c) {
 			auto term = [&](Vec4S32 v, Vec4S32 f) {
-				return (v.Shl<1>() + one).Mul(f.Shl<1>() + one).Shr<10>();
+				return (v.Shl<1>() + one).Mul16(f.Shl<1>() + one).Shr<10>();
 			};
 			switch (pixelID.AlphaBlendEq()) {
 			case GE_BLENDMODE_MUL_AND_ADD: out[c] = term(src[c], sf[c]) + term(dst[c], df[c]); break;
@@ -1188,9 +1153,7 @@ static SpanFunc PickSpanFunc(const PixelFuncID &id) {
 	}
 }
 
-SpanFunc GetSpanFunc(const PixelFuncID &id, SingleFunc single) {
-	if (single != PixelJitCache::GenericSingle(id))
-		return nullptr;
+SpanFunc GetSpanFunc(const PixelFuncID &id) {
 	switch (id.fbFormat) {
 	case GE_FORMAT_565: return PickSpanFunc<GE_FORMAT_565>(id);
 	case GE_FORMAT_5551: return PickSpanFunc<GE_FORMAT_5551>(id);
@@ -1199,19 +1162,7 @@ SpanFunc GetSpanFunc(const PixelFuncID &id, SingleFunc single) {
 	}
 }
 
-SingleFunc GetSingleFunc(const PixelFuncID &id, BinManager *binner) {
-	// The jit clamps blend factors at 0.
-	if (id.alphaBlend && (IsSignedBlendFactor(id.AlphaBlendSrc()) || IsSignedBlendFactor(id.AlphaBlendDst())))
-		return jitCache->GenericSingle(id);
-	SingleFunc jitted = jitCache->GetSingle(id, binner);
-	if (jitted) {
-		return jitted;
-	}
-
-	return jitCache->GenericSingle(id);
-}
-
-SingleFunc PixelJitCache::GenericSingle(const PixelFuncID &id) {
+SingleFunc GetSingleFunc(const PixelFuncID &id) {
 	if (id.clearMode) {
 		switch (id.fbFormat) {
 		case GE_FORMAT_565:
@@ -1236,208 +1187,6 @@ SingleFunc PixelJitCache::GenericSingle(const PixelFuncID &id) {
 	}
 	_assert_(false);
 	return nullptr;
-}
-
-thread_local PixelJitCache::LastCache PixelJitCache::lastSingle_;
-int PixelJitCache::clearGen_ = 0;
-
-// 256k should be plenty of space for plenty of variations.
-PixelJitCache::PixelJitCache() : CodeBlock(1024 * 64 * 4), cache_(64) {
-	lastSingle_.gen = -1;
-	clearGen_++;
-}
-
-void PixelJitCache::Clear() {
-	clearGen_++;
-	CodeBlock::Clear();
-	cache_.Clear();
-	addresses_.clear();
-
-	constBlendHalf_11_4s_ = nullptr;
-	constBlendInvert_11_4s_ = nullptr;
-}
-
-std::string PixelJitCache::DescribeCodePtr(const u8 *ptr) {
-	constexpr bool USE_IDS = false;
-	ptrdiff_t dist = 0x7FFFFFFF;
-	if (USE_IDS) {
-		PixelFuncID found{};
-		for (const auto &it : addresses_) {
-			ptrdiff_t it_dist = ptr - it.second;
-			if (it_dist >= 0 && it_dist < dist) {
-				found = it.first;
-				dist = it_dist;
-			}
-		}
-
-		return DescribePixelFuncID(found);
-	}
-
-	return CodeBlock::DescribeCodePtr(ptr);
-}
-
-void PixelJitCache::Flush() {
-	std::unique_lock<std::mutex> guard(jitCacheLock);
-	for (const auto &queued : compileQueue_) {
-		// Might've been compiled after enqueue, but before now.
-		size_t queuedKey = std::hash<PixelFuncID>()(queued);
-		if (!cache_.ContainsKey(queuedKey))
-			Compile(queued);
-	}
-	compileQueue_.clear();
-}
-
-// Without a backend nothing ever compiles, and a lookup would flush the binner for nothing.
-#if PPSSPP_ARCH(AMD64) && !PPSSPP_PLATFORM(UWP)
-static constexpr bool HAS_PIXEL_JIT = true;
-#else
-static constexpr bool HAS_PIXEL_JIT = false;
-#endif
-
-SingleFunc PixelJitCache::GetSingle(const PixelFuncID &id, BinManager *binner) {
-	if (!HAS_PIXEL_JIT || !g_Config.bSoftwareRenderingJit)
-		return nullptr;
-
-	const size_t key = std::hash<PixelFuncID>()(id);
-	if (lastSingle_.Match(key, clearGen_))
-		return lastSingle_.func;
-
-	std::unique_lock<std::mutex> guard(jitCacheLock);
-	SingleFunc singleFunc;
-	if (cache_.Get(key, &singleFunc)) {
-		lastSingle_.Set(key, singleFunc, clearGen_);
-		return singleFunc;
-	}
-
-	if (!binner) {
-		// Can't compile, let's try to do it later when there's an opportunity.
-		compileQueue_.insert(id);
-		return nullptr;
-	}
-
-	guard.unlock();
-	binner->Flush("compile");
-	guard.lock();
-
-	for (const auto &queued : compileQueue_) {
-		// Might've been compiled after enqueue, but before now.
-		size_t queuedKey = std::hash<PixelFuncID>()(queued);
-		if (!cache_.ContainsKey(queuedKey))
-			Compile(queued);
-	}
-	compileQueue_.clear();
-
-	// Might've been in the queue.
-	if (!cache_.ContainsKey(key))
-		Compile(id);
-
-	if (cache_.Get(key, &singleFunc)) {
-		lastSingle_.Set(key, singleFunc, clearGen_);
-		return singleFunc;
-	} else {
-		return nullptr;
-	}
-}
-
-void PixelJitCache::Compile(const PixelFuncID &id) {
-	// x64 is typically 200-500 bytes, but let's be safe.
-	if (GetSpaceLeft() < 65536) {
-		Clear();
-	}
-
-#if PPSSPP_ARCH(AMD64) && !PPSSPP_PLATFORM(UWP)
-	addresses_[id] = GetCodePointer();
-	SingleFunc func = CompileSingle(id);
-	cache_.Insert(std::hash<PixelFuncID>()(id), func);
-#endif
-}
-
-void ComputePixelBlendState(PixelBlendState &state, const PixelFuncID &id) {
-	switch (id.AlphaBlendEq()) {
-	case GE_BLENDMODE_MUL_AND_ADD:
-	case GE_BLENDMODE_MUL_AND_SUBTRACT:
-	case GE_BLENDMODE_MUL_AND_SUBTRACT_REVERSE:
-		state.usesFactors = true;
-		break;
-
-	case GE_BLENDMODE_MIN:
-	case GE_BLENDMODE_MAX:
-	case GE_BLENDMODE_ABSDIFF:
-		break;
-	}
-
-	if (state.usesFactors) {
-		switch (id.AlphaBlendSrc()) {
-		case PixelBlendFactor::DSTALPHA:
-		case PixelBlendFactor::INVDSTALPHA:
-		case PixelBlendFactor::DOUBLEDSTALPHA:
-		case PixelBlendFactor::DOUBLEINVDSTALPHA:
-			state.usesDstAlpha = true;
-			break;
-
-		case PixelBlendFactor::OTHERCOLOR:
-		case PixelBlendFactor::INVOTHERCOLOR:
-			state.dstColorAsFactor = true;
-			break;
-
-		case PixelBlendFactor::SRCALPHA:
-		case PixelBlendFactor::INVSRCALPHA:
-		case PixelBlendFactor::DOUBLESRCALPHA:
-		case PixelBlendFactor::DOUBLEINVSRCALPHA:
-			state.srcColorAsFactor = true;
-			break;
-
-		default:
-			break;
-		}
-
-		switch (id.AlphaBlendDst()) {
-		case PixelBlendFactor::INVSRCALPHA:
-			state.dstFactorIsInverse = id.AlphaBlendSrc() == PixelBlendFactor::SRCALPHA;
-			state.srcColorAsFactor = true;
-			break;
-
-		case PixelBlendFactor::DOUBLEINVSRCALPHA:
-			state.dstFactorIsInverse = id.AlphaBlendSrc() == PixelBlendFactor::DOUBLESRCALPHA;
-			state.srcColorAsFactor = true;
-			break;
-
-		case PixelBlendFactor::DSTALPHA:
-			state.usesDstAlpha = true;
-			break;
-
-		case PixelBlendFactor::INVDSTALPHA:
-			state.dstFactorIsInverse = id.AlphaBlendSrc() == PixelBlendFactor::DSTALPHA;
-			state.usesDstAlpha = true;
-			break;
-
-		case PixelBlendFactor::DOUBLEDSTALPHA:
-			state.usesDstAlpha = true;
-			break;
-
-		case PixelBlendFactor::DOUBLEINVDSTALPHA:
-			state.dstFactorIsInverse = id.AlphaBlendSrc() == PixelBlendFactor::DOUBLEDSTALPHA;
-			state.usesDstAlpha = true;
-			break;
-
-		case PixelBlendFactor::OTHERCOLOR:
-		case PixelBlendFactor::INVOTHERCOLOR:
-			state.srcColorAsFactor = true;
-			break;
-
-		case PixelBlendFactor::SRCALPHA:
-		case PixelBlendFactor::DOUBLESRCALPHA:
-			state.srcColorAsFactor = true;
-			break;
-
-		case PixelBlendFactor::ZERO:
-			state.readsDstPixel = state.dstColorAsFactor || state.usesDstAlpha;
-			break;
-
-		default:
-			break;
-		}
-	}
 }
 
 };

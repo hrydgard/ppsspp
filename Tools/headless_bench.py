@@ -127,6 +127,20 @@ def counter_prefix():
     return [], None
 
 
+def windows_cpu_time(proc):
+    """A finished child's CPU time (user + system, all threads) on Windows, else None."""
+    if platform.system() != 'Windows':
+        return None
+    import ctypes
+    from ctypes import wintypes
+    times = [wintypes.FILETIME() for _ in range(4)]
+    # The Popen still holds the process handle, so the times are readable after the exit.
+    if not ctypes.windll.kernel32.GetProcessTimes(wintypes.HANDLE(int(proc._handle)), *[ctypes.byref(t) for t in times]):
+        return None
+    kernel, user = times[2], times[3]
+    return ((kernel.dwHighDateTime << 32 | kernel.dwLowDateTime) + (user.dwHighDateTime << 32 | user.dwLowDateTime)) * 1e-7
+
+
 def parse_counters(kind, stderr):
     counts = {}
     if kind == 'darwin':
@@ -170,7 +184,7 @@ def run_once(binary, game, args, prefix, kind):
         cpu = usage.ru_utime + usage.ru_stime
     else:
         stdout, stderr = proc.communicate()
-        cpu = None
+        cpu = windows_cpu_time(proc)
     wall = time.perf_counter() - start
 
     # Assert that it got where it should, so a run that never started can't pass for a fast one.

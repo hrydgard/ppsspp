@@ -341,9 +341,7 @@ void DrawSprite(const VertexData &v0, const VertexData &v1, const BinCoords &ran
 	GETextureFormat texfmt = state.samplerID.TexFmt();
 	uint16_t texbufw = state.texbufw[0];
 
-	// We won't flush, since we compile all samplers together.
-	Sampler::FetchFunc fetchFunc = Sampler::GetFetchFunc(state.samplerID, nullptr);
-	_dbg_assert_msg_(fetchFunc != nullptr, "Failed to get precompiled fetch func");
+	Sampler::FetchFunc fetchFunc = Sampler::GetFetchFunc(state.samplerID);
 	auto &pixelID = state.pixelID;
 	auto &samplerID = state.samplerID;
 
@@ -537,6 +535,15 @@ bool RectangleFastPath(const VertexData &v0, const VertexData &v1, BinManager &b
 	}
 	// This doesn't work well with offset drawing, see #15876.  Through never has a subpixel offset.
 	bool subpixel_check = ((v0.screenpos.x | v0.screenpos.y | v1.screenpos.x | v1.screenpos.y) & 0xF) == 0;
+	// DrawSprite is only fast in its single pixel paths. Otherwise it draws a pixel at a time, while
+	// DrawRectangle draws four in vector lanes.
+	if (state.enableTextures) {
+		const SamplerID &samplerID = state.samplerID;
+		const bool fastFunc = samplerID.TexFunc() == GE_TEXFUNC_MODULATE || (samplerID.TexFunc() == GE_TEXFUNC_REPLACE && !samplerID.useColorDoubling);
+		state_check = state_check && UseDrawSinglePixel(state.pixelID) && fastFunc && samplerID.useTextureAlpha;
+	} else {
+		state_check = state_check && UseDrawSinglePixel(state.pixelID);
+	}
 	if (coord_check && orient_check && state_check && subpixel_check) {
 		binner.AddSprite(v0, v1);
 		return true;

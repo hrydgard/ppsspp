@@ -292,7 +292,6 @@
     <ClCompile Include="TestLoongArch64Emitter.cpp" />
     <ClCompile Include="TestRiscVEmitter.cpp" />
     <ClCompile Include="TestShaderGenerators.cpp" />
-    <ClCompile Include="TestSoftwareGPUJit.cpp" />
     <ClCompile Include="TestDemangle.cpp" />
     <ClCompile Include="TestLzrc.cpp" />
     <ClCompile Include="TestMpegCsc.cpp" />

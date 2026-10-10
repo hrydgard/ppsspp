@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include "ppsspp_config.h"
+
 #include <atomic>
 #include <unordered_map>
 #include "GPU/Software/Rasterizer.h"
@@ -169,9 +171,11 @@ struct BinQueue {
 	}
 
 	T *items_ = nullptr;
-	std::atomic<size_t> head_;
-	std::atomic<size_t> tail_ ;
-	std::atomic<size_t> size_;
+	// Only the emulation thread uses these: the drawing threads read items, which the tiles publish. Locked
+	// increments were a fifth of AddTriangle's time.
+	size_t head_;
+	size_t tail_;
+	size_t size_;
 	size_t capacity_ = N;
 };
 
@@ -208,6 +212,31 @@ public:
 	BinManager &operator=(const BinManager &) = delete;
 	BinManager();
 	~BinManager();
+
+	// More threads drawing slow the emulation thread down more than they help it, by taking from its core's
+	// share of power and clock speed (and with SMT, the core): in God of War and Wipeout on a 16 core Ryzen under
+	// WSL2, six beat four, eight and all 31 the thread manager has. An M1 does best with seven or eight.
+#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+	static constexpr int MAX_DRAW_THREADS = 8;
+#else
+	static constexpr int MAX_DRAW_THREADS = 6;
+#endif
+	// How long drawing and transform threads out of work wait for more, spinning, rather than end their tasks
+	// (0 for not at all). Under WSL2, where waking a thread costs the waker about 15 us, it saved 4-8% of wall
+	// time. On native Windows (16 core Ryzen) only the transform helpers' lingering paid: without the drawing
+	// threads', wall time stayed within 1% in seven benchmark games, with 9-27% less CPU time. On macOS,
+	// where waking is cheap, it cost wall time at every length tried. Not on Android either, where spinning
+	// costs battery. Unmeasured on native Linux.
+#if PPSSPP_PLATFORM(WINDOWS)
+	static constexpr double DRAW_LINGER_SECONDS = 0.0;
+	static constexpr double TRANSFORM_LINGER_SECONDS = 100e-6;
+#elif PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID)
+	static constexpr double DRAW_LINGER_SECONDS = 200e-6;
+	static constexpr double TRANSFORM_LINGER_SECONDS = 300e-6;
+#else
+	static constexpr double DRAW_LINGER_SECONDS = 0.0;
+	static constexpr double TRANSFORM_LINGER_SECONDS = 0.0;
+#endif
 
 	void UpdateState();
 	void UpdateClut(const void *src);
@@ -263,8 +292,9 @@ protected:
 	static constexpr int MAX_QUEUED_STATES = 32768;
 	// These are 1KB each, so half an MB.
 	static constexpr int QUEUED_CLUTS = 512;
-	// About 360 KB, but we have usually 16 or less of them, so 5 MB - 22 MB.
-	static constexpr int QUEUED_PRIMS = 2048;
+	// About 1.5 MB, and each tile's list of items 16 KB. Enough for this thread to stay well ahead of the
+	// drawing threads: with a quarter of it, it often had to wait for room.
+	static constexpr int QUEUED_PRIMS = 8192;
 
 	typedef BinQueue<Rasterizer::RasterizerState, QUEUED_STATES> BinStateQueue;
 	typedef BinQueue<BinClut, QUEUED_CLUTS> BinClutQueue;
@@ -304,10 +334,11 @@ private:
 	int tilesX_ = TILES_X;
 	int tilesY_ = TILES_Y;
 	struct Tile {
-		// Indices into queue_, as a ring: head_ is how many have been drawn, tail_ how many were pushed.
-		std::atomic<uint32_t> head;
-		std::atomic<uint32_t> tail;
+		// Indices into queue_, as a ring: head_ is how many have been drawn, tail_ how many were pushed. The
+		// drawing threads write head and busy, this thread tail, so they're on separate cache lines.
+		alignas(64) std::atomic<uint32_t> head;
 		std::atomic<bool> busy;
+		alignas(64) std::atomic<uint32_t> tail;
 		uint16_t items[QUEUED_PRIMS];
 	};
 	Tile *tiles_ = nullptr;
@@ -316,6 +347,10 @@ private:
 	// The tiles given work since the last flush, for the threads to look through.
 	uint16_t activeTiles_[TILES_X * TILES_Y];
 	std::atomic<int> activeCount_{ 0 };
+	// Counts DistributeItems calls that gave the tiles work, for threads waiting for some (LingerForWork).
+	std::atomic<uint32_t> distributed_{ 0 };
+	// The emulation thread is waiting for the drawing threads to finish (LingerForWork).
+	std::atomic<bool> waitingForIdle_{ false };
 	bool tileActive_[TILES_X * TILES_Y]{};
 	// The queue_ index of the first item not yet put in tiles, and how many have been added since.
 	size_t distributePos_ = 0;
@@ -348,8 +383,6 @@ private:
 	bool selfTexCached_ = false;
 	BinCoords selfTexLastRange_{};
 	bool creatingState_ = false;
-	// JIT clear generations when the current state was computed.
-	int jitGen_ = -1;
 	uint16_t pendingStateIndex_ = 0;
 	// Advances when every tile has been drawn and reset: a state whose liveGen is this one can be in use by
 	// the threads, so it isn't changed (AddFlags).
@@ -379,6 +412,7 @@ private:
 	BinCoords Range(const VertexData &v0, const VertexData &v1, const VertexData &v2);
 	BinCoords Range(const VertexData &v0, const VertexData &v1);
 	BinCoords Range(const VertexData &v0);
+	void PushItem(BinItemType type, const BinCoords &range, const VertexData &v0, const VertexData *v1 = nullptr, const VertexData *v2 = nullptr);
 	void ItemQueued();
 	void MakeRoom();
 	void DrawSplit(const BinItem &item, const Rasterizer::RasterizerState &state);
@@ -403,6 +437,7 @@ private:
 	void WakeTasks();
 	void WakeChained();
 	bool ProcessTiles(int start);
+	void LingerForWork(int start);
 
 	friend class DrawBinItemsTask;
 };

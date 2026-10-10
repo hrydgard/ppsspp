@@ -17,7 +17,6 @@
 
 #include "ppsspp_config.h"
 #include <unordered_map>
-#include <mutex>
 #include "Common/Common.h"
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/LogReporting.h"
@@ -27,7 +26,7 @@
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Software/BinManager.h"
 #include "GPU/Software/Rasterizer.h"
-#include "GPU/Software/RasterizerRegCache.h"
+#include "GPU/Software/RasterizerTypes.h"
 #include "GPU/Software/Sampler.h"
 
 using namespace Math3D;
@@ -39,249 +38,18 @@ static Vec4IntResult SOFTRAST_CALL SampleNearest(float s, float t, Vec4IntArg pr
 static Vec4IntResult SOFTRAST_CALL SampleLinear(float s, float t, Vec4IntArg prim_color, const u8 *const *tptr, const uint16_t *bufw, int level, int levelFrac, const SamplerID &samplerID);
 static Vec4IntResult SOFTRAST_CALL SampleFetch(int u, int v, const u8 *tptr, int bufw, int level, const SamplerID &samplerID);
 
-std::mutex jitCacheLock;
-SamplerJitCache *jitCache = nullptr;
+static LinearFunc GetLinearFallback(const SamplerID &id);
 
-void Init() {
-	jitCache = new SamplerJitCache();
-}
-
-void FlushJit() {
-	jitCache->Flush();
-}
-
-int JitClearGeneration() {
-	return SamplerJitCache::ClearGeneration();
-}
-
-void Shutdown() {
-	delete jitCache;
-	jitCache = nullptr;
-}
-
-bool DescribeCodePtr(const u8 *ptr, std::string &name) {
-	if (!jitCache->IsInSpace(ptr)) {
-		return false;
-	}
-
-	name = jitCache->DescribeCodePtr(ptr);
-	return true;
-}
-
-NearestFunc GetNearestFunc(SamplerID id, BinManager *binner) {
-	id.linear = false;
-	NearestFunc jitted = jitCache->GetNearest(id, binner);
-	if (jitted) {
-		return jitted;
-	}
-
+NearestFunc GetNearestFunc(const SamplerID &id) {
 	return &SampleNearest;
 }
 
-static LinearFunc GetLinearFallback(const SamplerID &id);
-
-LinearFunc GetLinearFunc(SamplerID id, BinManager *binner) {
-	id.linear = true;
-	LinearFunc jitted = jitCache->GetLinear(id, binner);
-	if (jitted) {
-		return jitted;
-	}
-
+LinearFunc GetLinearFunc(const SamplerID &id) {
 	return GetLinearFallback(id);
 }
 
-FetchFunc GetFetchFunc(SamplerID id, BinManager *binner) {
-	id.fetch = true;
-	FetchFunc jitted = jitCache->GetFetch(id, binner);
-	if (jitted) {
-		return jitted;
-	}
-
+FetchFunc GetFetchFunc(const SamplerID &id) {
 	return &SampleFetch;
-}
-
-thread_local SamplerJitCache::LastCache SamplerJitCache::lastFetch_;
-thread_local SamplerJitCache::LastCache SamplerJitCache::lastNearest_;
-thread_local SamplerJitCache::LastCache SamplerJitCache::lastLinear_;
-int SamplerJitCache::clearGen_ = 0;
-
-// 256k should be enough.
-SamplerJitCache::SamplerJitCache() : Rasterizer::CodeBlock(1024 * 64 * 4), cache_(64) {
-	lastFetch_.gen = -1;
-	lastNearest_.gen = -1;
-	lastLinear_.gen = -1;
-	clearGen_++;
-}
-
-void SamplerJitCache::Clear() {
-	clearGen_++;
-	CodeBlock::Clear();
-	cache_.Clear();
-	addresses_.clear();
-
-	const10All16_ = nullptr;
-	const10Low_ = nullptr;
-	const10All8_ = nullptr;
-
-	constWidthHeight16f_ = nullptr;
-	constWidthMinus1i_ = nullptr;
-	constHeightMinus1i_ = nullptr;
-
-	constOnes32_ = nullptr;
-	constOnes16_ = nullptr;
-	constUNext_ = nullptr;
-	constVNext_ = nullptr;
-
-	const5551Swizzle_ = nullptr;
-	const5650Swizzle_ = nullptr;
-}
-
-std::string SamplerJitCache::DescribeCodePtr(const u8 *ptr) {
-	constexpr bool USE_IDS = false;
-	ptrdiff_t dist = 0x7FFFFFFF;
-	if (USE_IDS) {
-		SamplerID found{};
-		for (const auto &it : addresses_) {
-			ptrdiff_t it_dist = ptr - it.second;
-			if (it_dist >= 0 && it_dist < dist) {
-				found = it.first;
-				dist = it_dist;
-			}
-		}
-
-		return DescribeSamplerID(found);
-	}
-
-	return CodeBlock::DescribeCodePtr(ptr);
-}
-
-void SamplerJitCache::Flush() {
-	std::unique_lock<std::mutex> guard(jitCacheLock);
-	for (const auto &queued : compileQueue_) {
-		// Might've been compiled after enqueue, but before now.
-		size_t queuedKey = std::hash<SamplerID>()(queued);
-		if (!cache_.ContainsKey(queuedKey))
-			Compile(queued);
-	}
-	compileQueue_.clear();
-}
-
-// Without a backend nothing ever compiles, and a lookup would flush the binner for nothing.
-#if PPSSPP_ARCH(AMD64) && !PPSSPP_PLATFORM(UWP)
-static constexpr bool HAS_SAMPLER_JIT = true;
-#else
-static constexpr bool HAS_SAMPLER_JIT = false;
-#endif
-
-// A texture level whose address isn't valid has no pointer, and the generic samplers read its texels as zero
-// (then apply the texture function). The JIT leaves those to them.
-static bool CanJit(const SamplerID &id) {
-	return HAS_SAMPLER_JIT && g_Config.bSoftwareRenderingJit && !id.hasInvalidPtr;
-}
-
-NearestFunc SamplerJitCache::GetByID(const SamplerID &id, size_t key, BinManager *binner) {
-	std::unique_lock<std::mutex> guard(jitCacheLock);
-	
-	NearestFunc func;
-	if (cache_.Get(key, &func)) {
-		return func;
-	}
-
-	if (!binner) {
-		// Can't compile, let's try to do it later when there's an opportunity.
-		compileQueue_.insert(id);
-		return nullptr;
-	}
-
-	guard.unlock();
-	binner->Flush("compile");
-	guard.lock();
-
-	for (const auto &queued : compileQueue_) {
-		// Might've been compiled after enqueue, but before now.
-		size_t queuedKey = std::hash<SamplerID>()(queued);
-		if (!cache_.ContainsKey(queuedKey))
-			Compile(queued);
-	}
-	compileQueue_.clear();
-
-	if (!cache_.ContainsKey(key))
-		Compile(id);
-
-	// Okay, should be there now.
-	if (cache_.Get(key, &func)) {
-		return func;
-	} else {
-		return nullptr;
-	}
-}
-
-NearestFunc SamplerJitCache::GetNearest(const SamplerID &id, BinManager *binner) {
-	if (!CanJit(id))
-		return nullptr;
-
-	const size_t key = std::hash<SamplerID>()(id);
-	if (lastNearest_.Match(key, clearGen_))
-		return (NearestFunc)lastNearest_.func;
-
-	auto func = GetByID(id, key, binner);
-	lastNearest_.Set(key, func, clearGen_);
-	return (NearestFunc)func;
-}
-
-LinearFunc SamplerJitCache::GetLinear(const SamplerID &id, BinManager *binner) {
-	if (!CanJit(id))
-		return nullptr;
-
-	const size_t key = std::hash<SamplerID>()(id);
-	if (lastLinear_.Match(key, clearGen_))
-		return (LinearFunc)lastLinear_.func;
-
-	auto func = GetByID(id, key, binner);
-	lastLinear_.Set(key, func, clearGen_);
-	return (LinearFunc)func;
-}
-
-FetchFunc SamplerJitCache::GetFetch(const SamplerID &id, BinManager *binner) {
-	if (!CanJit(id))
-		return nullptr;
-
-	const size_t key = std::hash<SamplerID>()(id);
-	if (lastFetch_.Match(key, clearGen_))
-		return (FetchFunc)lastFetch_.func;
-
-	auto func = GetByID(id, key, binner);
-	lastFetch_.Set(key, func, clearGen_);
-	return (FetchFunc)func;
-}
-
-void SamplerJitCache::Compile(const SamplerID &id) {
-	// This should be sufficient.
-	if (GetSpaceLeft() < 16384) {
-		Clear();
-	}
-
-	// We compile them together so the cache can't possibly be cleared in between.
-	// We might vary between nearest and linear, so we can't clear between.
-#if PPSSPP_ARCH(AMD64) && !PPSSPP_PLATFORM(UWP)
-	SamplerID fetchID = id;
-	fetchID.linear = false;
-	fetchID.fetch = true;
-	addresses_[fetchID] = GetCodePointer();
-	cache_.Insert(std::hash<SamplerID>()(fetchID), (NearestFunc)CompileFetch(fetchID));
-
-	SamplerID nearestID = id;
-	nearestID.linear = false;
-	nearestID.fetch = false;
-	addresses_[nearestID] = GetCodePointer();
-	cache_.Insert(std::hash<SamplerID>()(nearestID), (NearestFunc)CompileNearest(nearestID));
-
-	SamplerID linearID = id;
-	linearID.linear = true;
-	linearID.fetch = false;
-	addresses_[linearID] = GetCodePointer();
-	cache_.Insert(std::hash<SamplerID>()(linearID), (NearestFunc)CompileLinear(linearID));
-#endif
 }
 
 template <uint32_t texel_size_bits>
@@ -328,7 +96,7 @@ static inline u32 LookupColor(unsigned int index, unsigned int level, const Samp
 	}
 }
 
-uint32_t TransformClutIndex(uint32_t index, const SamplerID &samplerID) {
+static inline uint32_t TransformClutIndex(uint32_t index, const SamplerID &samplerID) {
 	if (samplerID.hasClutShift || samplerID.hasClutMask || samplerID.hasClutOffset) {
 		const uint8_t shift = (samplerID.cached.clutFormat >> 2) & 0x1F;
 		const uint8_t mask = (samplerID.cached.clutFormat >> 8) & 0xFF;
@@ -942,12 +710,17 @@ static inline void TexelPairs4(Vec4F32 st, int size, bool clamp, Vec4S32 &c0, Ve
 	}
 }
 
-// RowOffsetT and ColumnOffsetT for four texels at once.
+// v times k, both from 0 to 32767 for Mul16 (a 32-bit multiply is slow on SSE2).
+static inline Vec4S32 MulRow(Vec4S32 v, int k) {
+	return k < 32768 ? v.Mul16(Vec4S32::Splat(k)) : v.Mul(Vec4S32::Splat(k));
+}
+
+// RowOffsetT and ColumnOffsetT for four texels at once. The rows are below 512.
 template <uint32_t bits, bool swizzled>
 static inline Vec4S32 RowOffsets4(int bufw, Vec4S32 v) {
 	if (!swizzled)
-		return v.Mul(Vec4S32::Splat(bufw * bits >> 3));
-	return v.Shr<3>().Mul(Vec4S32::Splat((bufw * bits / 32) * 32)) + (v & Vec4S32::Splat(7)).Shl<4>();
+		return MulRow(v, bufw * bits >> 3);
+	return MulRow(v.Shr<3>(), bufw * bits / 32).Shl<5>() + (v & Vec4S32::Splat(7)).Shl<4>();
 }
 
 template <uint32_t bits, bool swizzled>
@@ -962,13 +735,51 @@ static inline Vec4S32 ColumnOffsets4(Vec4S32 u) {
 	return swizzled ? b.Shr<4>().Shl<7>() + (b & Vec4S32::Splat(15)) : b;
 }
 
-// The four texels of SampleLinearLevelT for four pixels at the same level (texels[tl, tr, bl, br][pixel]),
+// The four texels of SampleLinearLevelT for four pixels at the same level (texels[tl, tr, bl, br], a pixel per lane),
 // the coordinates and offsets in vector lanes, the texel reads one by one.
 template <GETextureFormat fmt, bool swizzled, GEPaletteFormat clutFmt>
-static inline void ReadTexels4T(Vec4F32 s, Vec4F32 t, const u8 *tptr, int bufw, int level, const SamplerID &samplerID, uint32_t texels[4][4], Vec4S32 &fracU, Vec4S32 &fracV) {
+static inline void ReadTexels4T(Vec4F32 s, Vec4F32 t, const u8 *tptr, int bufw, int level, const SamplerID &samplerID, Vec4S32 out[4], Vec4S32 &fracU, Vec4S32 &fracV) {
 	Vec4S32 u0, u1, v0, v1;
 	TexelPairs4(s, samplerID.cached.sizes[level].w, samplerID.clampS, u0, u1, fracU);
 	TexelPairs4(t, samplerID.cached.sizes[level].h, samplerID.clampT, v0, v1, fracV);
+	constexpr uint32_t bits = TexelBitsT<fmt>();
+	// The common formats in lanes: the texels (and their CLUT entries) gathered, and the CLUT index in between.
+	constexpr bool clutLanes = (fmt == GE_TFMT_CLUT4 || fmt == GE_TFMT_CLUT8) && clutFmt == GE_CMODE_32BIT_ABGR8888;
+	if constexpr (clutLanes || fmt == GE_TFMT_8888) {
+		if (fmt == GE_TFMT_8888 || !samplerID.hasClutShift) {
+			const Vec4S32 row0 = RowOffsets4<bits, swizzled>(bufw, v0), row1 = RowOffsets4<bits, swizzled>(bufw, v1);
+			const Vec4S32 col0 = ColumnOffsets4<bits, swizzled>(u0), col1 = ColumnOffsets4<bits, swizzled>(u1);
+			const Vec4S32 offsets[4] = { row0 + col0, row0 + col1, row1 + col0, row1 + col1 };
+			if constexpr (fmt == GE_TFMT_8888) {
+				for (int i = 0; i < 4; ++i)
+					out[i] = Vec4S32::Gather((const int32_t *)tptr, offsets[i].Shr<2>());
+			} else {
+				// TransformClutIndex without a shift. Levels past the first have their own palette unless it's
+				// shared: 16 entries on for CLUT4, 256 on for CLUT8.
+				uint32_t clutOffset = 0;
+				if (!samplerID.useSharedClut)
+					clutOffset = fmt == GE_TFMT_CLUT4 ? level * 16 : (level & 1) * 256;
+				const bool transform = samplerID.hasClutMask || samplerID.hasClutOffset;
+				const int mask = transform ? (samplerID.cached.clutFormat >> 8) & 0xFF : 0xFF;
+				const int start = transform ? (((samplerID.cached.clutFormat >> 16) & 0x1F) << 4) & 0xFF : 0;
+				const Vec4S32 maskV = Vec4S32::Splat(mask), add = Vec4S32::Splat((int)clutOffset);
+				const Vec4S32 startV = Vec4S32::Splat(start);
+				const Vec4S32 one = Vec4S32::Splat(1);
+				const Vec4S32 odd[2] = { (u0 & one).CompareEq(one), (u1 & one).CompareEq(one) };
+				for (int i = 0; i < 4; ++i) {
+					Vec4S32 index = Vec4S32::GatherU8(tptr, offsets[i]);
+					if constexpr (fmt == GE_TFMT_CLUT4) {
+						// The high nibble for odd u.
+						const Vec4S32 high = odd[i & 1];
+						index = (index.Shr<4>() & high) | (index & Vec4S32::Splat(0xF)).AndNot(high);
+					}
+					out[i] = Vec4S32::Gather((const int32_t *)samplerID.cached.clut32, ((index & maskV) | startV) + add);
+				}
+			}
+			return;
+		}
+	}
+	alignas(16) uint32_t texels[4][4];
 	alignas(16) int us0[4], us1[4];
 	u0.Store(us0);
 	u1.Store(us1);
@@ -983,7 +794,6 @@ static inline void ReadTexels4T(Vec4F32 s, Vec4F32 t, const u8 *tptr, int bufw, 
 			texels[3][i] = ReadDXTTexelT<fmt>(tptr, bufw, us1[i], vs1[i]);
 		}
 	} else {
-		constexpr uint32_t bits = TexelBitsT<fmt>();
 		uint32_t clutOffset = 0;
 		if ((fmt == GE_TFMT_CLUT4 || fmt == GE_TFMT_CLUT8) && !samplerID.useSharedClut)
 			clutOffset = fmt == GE_TFMT_CLUT4 ? level * 16 : (level & 1) * 256;
@@ -1001,6 +811,8 @@ static inline void ReadTexels4T(Vec4F32 s, Vec4F32 t, const u8 *tptr, int bufw, 
 			texels[3][i] = ReadTexelT<fmt, clutFmt>(tptr + (uint32_t)br[i], us1[i], clutOffset, samplerID);
 		}
 	}
+	for (int i = 0; i < 4; ++i)
+		out[i] = Vec4S32::LoadAligned((const int *)texels[i]);
 }
 
 // LerpSpread of one channel in vector lanes.
@@ -1015,17 +827,22 @@ static inline void SampleLinearLevel4LanesT(Vec4F32 s, Vec4F32 t, const u8 *tptr
 		out[0] = out[1] = out[2] = out[3] = Vec4S32::Zero();
 		return;
 	}
-	alignas(16) uint32_t texels[4][4];
+	Vec4S32 texels[4];
 	Vec4S32 fracU, fracV;
 	ReadTexels4T<fmt, swizzled, clutFmt>(s, t, tptr, bufw, level, samplerID, texels, fracU, fracV);
 	// Two channels per lane, R and B (G and A) as 16-bit halves: no lerp of 8-bit values exceeds 16 bits,
 	// so the halves don't carry into each other, and masking after each shift truncates both to 8 bits.
-	const Vec4S32 tl = Vec4S32::LoadAligned((const int *)texels[0]), tr = Vec4S32::LoadAligned((const int *)texels[1]);
-	const Vec4S32 bl = Vec4S32::LoadAligned((const int *)texels[2]), br = Vec4S32::LoadAligned((const int *)texels[3]);
+	const Vec4S32 tl = texels[0], tr = texels[1];
+	const Vec4S32 bl = texels[2], br = texels[3];
 	const Vec4S32 halves = Vec4S32::Splat(0x00FF00FF);
-	const Vec4S32 invU = Vec4S32::Splat(16) - fracU, invV = Vec4S32::Splat(16) - fracV;
+	// The fractions in both halves, for MulHalves: no product exceeds 16 bits either.
+	const Vec4S32 sixteen = Vec4S32::Splat(0x00100010);
+	const Vec4S32 fracU2 = fracU | fracU.Shl<16>(), fracV2 = fracV | fracV.Shl<16>();
+	const Vec4S32 invU = sixteen - fracU2, invV = sixteen - fracV2;
+	fracU = fracU2;
+	fracV = fracV2;
 	auto lerp = [&](Vec4S32 a, Vec4S32 b, Vec4S32 inv, Vec4S32 f) {
-		return (a.Mul(inv) + b.Mul(f)).Shr<4>() & halves;
+		return (a.MulHalves(inv) + b.MulHalves(f)).Shr<4>() & halves;
 	};
 	Vec4S32 pairs[2];
 	for (int h = 0; h < 2; ++h) {
@@ -1051,11 +868,11 @@ static inline void TextureFunction4(const Vec4S32 prim[4], const Vec4S32 tex[4],
 	const bool doubling = samplerID.useColorDoubling;
 	const Vec4S32 one = Vec4S32::Splat(1), c255 = Vec4S32::Splat(255);
 	// The alpha blended the common way: (prim + 1) * tex / 256.
-	const Vec4S32 modulatedA = rgba ? (prim[3] + one).Mul(tex[3]).Shr<8>() : prim[3];
+	const Vec4S32 modulatedA = rgba ? (prim[3] + one).Mul16(tex[3]).Shr<8>() : prim[3];
 	switch (samplerID.TexFunc()) {
 	case GE_TEXFUNC_MODULATE:
 		for (int c = 0; c < 3; ++c)
-			out[c] = (prim[c] + one).Mul(doubling ? tex[c].Shl<1>() : tex[c]).Shr<8>();
+			out[c] = (prim[c] + one).Mul16(doubling ? tex[c].Shl<1>() : tex[c]).Shr<8>();
 		out[3] = modulatedA;
 		break;
 
@@ -1064,7 +881,7 @@ static inline void TextureFunction4(const Vec4S32 prim[4], const Vec4S32 tex[4],
 			// Both colors are boosted here, making the alpha have more weight.
 			const Vec4S32 t = tex[3], invt = c255 - tex[3];
 			for (int c = 0; c < 3; ++c) {
-				const Vec4S32 sum = (prim[c] + one).Mul(invt) + (tex[c] + one).Mul(t);
+				const Vec4S32 sum = (prim[c] + one).Mul16(invt) + (tex[c] + one).Mul16(t);
 				out[c] = doubling ? sum.Shr<7>() : sum.Shr<8>();
 			}
 		} else {
@@ -1079,7 +896,7 @@ static inline void TextureFunction4(const Vec4S32 prim[4], const Vec4S32 tex[4],
 		// Unlike the others (and even alpha), this one always rounds up.
 		const uint32_t env = samplerID.cached.texBlendColor;
 		for (int c = 0; c < 3; ++c) {
-			const Vec4S32 sum = (c255 - tex[c]).Mul(prim[c]) + tex[c].Mul(Vec4S32::Splat((env >> (8 * c)) & 0xFF)) + c255;
+			const Vec4S32 sum = (c255 - tex[c]).Mul16(prim[c]) + tex[c].Mul16(Vec4S32::Splat((env >> (8 * c)) & 0xFF)) + c255;
 			out[c] = doubling ? sum.Shr<7>() : sum.Shr<8>();
 		}
 		out[3] = modulatedA;
