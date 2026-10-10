@@ -804,12 +804,54 @@ void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting, const char
 	}
 }
 
+// The VSH launches games through the VSH variants of LoadExecForKernel, whose NIDs most firmware
+// versions changed. Where we don't know the NID, the firmware's own loadexec.prx would run, and that
+// doesn't get anywhere. But each variant is the same small wrapper,
+// loadExecVSH(apiType, file, opt, 0x10000), so spot the ones we implement by the API type they pass
+// (li a0, apiType, in the delay slot of the call), and send them to HLE.
+static void RedirectLoadExecVSHExport(const FuncSymbolExport &func) {
+	static const struct {
+		u16 apiType;
+		u32 nid;
+	} redirects[] = {
+		{ 0x120, 0xD8320A28 },  // sceKernelLoadExecVSHDisc
+		{ 0x141, 0xD940C83C },  // sceKernelLoadExecVSHMs2
+	};
+	const u32 addr = func.symAddr;
+	if (!Memory::IsValidRange(addr, 10 * 4)) {
+		return;
+	}
+	bool hasFlags = false;
+	for (int i = 0; i < 10; i++) {
+		const u32 op = Memory::ReadUnchecked_U32(addr + i * 4);
+		if (op == 0x3C070001) {  // lui a3, 1
+			hasFlags = true;
+		} else if ((op >> 16) == 0x2404 && hasFlags) {  // li a0, imm
+			for (const auto &redirect : redirects) {
+				if ((op & 0xFFFF) == redirect.apiType) {
+					INFO_LOG(Log::Loader, "LoadExecForKernel/%08x passes API type %03x, sending it to HLE as %08x", func.nid, redirect.apiType, redirect.nid);
+					WriteHLESyscall("LoadExecForKernel", redirect.nid, addr);
+					currentMIPS->InvalidateICacheRangeDeferred(addr, 8);
+					return;
+				}
+			}
+			return;
+		} else if (op == MIPS_MAKE_JR_RA()) {
+			return;
+		}
+	}
+}
+
 void ExportFuncSymbol(const FuncSymbolExport &func) {
 	if (FuncImportIsHLE(func.moduleName, func.nid)) {
 		// HLE covers this already - let's ignore the function.
 		// This means that we loaded a module that we are HLE:ing, which is kinda unnecessary, but not harmful. And might even be good.
 		WARN_LOG(Log::Loader, "Ignoring func export %s/%08x, already implemented in HLE.", func.moduleName, func.nid);
 		return;
+	}
+
+	if (equals(func.moduleName, "LoadExecForKernel")) {
+		RedirectLoadExecVSHExport(func);
 	}
 
 	u32 error;
