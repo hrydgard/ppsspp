@@ -804,12 +804,54 @@ void ImportFuncSymbol(const FuncSymbolImport &func, bool reimporting, const char
 	}
 }
 
+// The VSH launches games through the VSH variants of LoadExecForKernel, whose NIDs most firmware
+// versions changed. Where we don't know the NID, the firmware's own loadexec.prx would run, and that
+// doesn't get anywhere. But each variant is the same small wrapper,
+// loadExecVSH(apiType, file, opt, 0x10000), so spot the ones we implement by the API type they pass
+// (li a0, apiType, in the delay slot of the call), and send them to HLE.
+static void RedirectLoadExecVSHExport(const FuncSymbolExport &func) {
+	static const struct {
+		u16 apiType;
+		u32 nid;
+	} redirects[] = {
+		{ 0x120, 0xD8320A28 },  // sceKernelLoadExecVSHDisc
+		{ 0x141, 0xD940C83C },  // sceKernelLoadExecVSHMs2
+	};
+	const u32 addr = func.symAddr;
+	if (!Memory::IsValidRange(addr, 10 * 4)) {
+		return;
+	}
+	bool hasFlags = false;
+	for (int i = 0; i < 10; i++) {
+		const u32 op = Memory::ReadUnchecked_U32(addr + i * 4);
+		if (op == 0x3C070001) {  // lui a3, 1
+			hasFlags = true;
+		} else if ((op >> 16) == 0x2404 && hasFlags) {  // li a0, imm
+			for (const auto &redirect : redirects) {
+				if ((op & 0xFFFF) == redirect.apiType) {
+					INFO_LOG(Log::Loader, "LoadExecForKernel/%08x passes API type %03x, sending it to HLE as %08x", func.nid, redirect.apiType, redirect.nid);
+					WriteHLESyscall("LoadExecForKernel", redirect.nid, addr);
+					currentMIPS->InvalidateICacheRangeDeferred(addr, 8);
+					return;
+				}
+			}
+			return;
+		} else if (op == MIPS_MAKE_JR_RA()) {
+			return;
+		}
+	}
+}
+
 void ExportFuncSymbol(const FuncSymbolExport &func) {
 	if (FuncImportIsHLE(func.moduleName, func.nid)) {
 		// HLE covers this already - let's ignore the function.
 		// This means that we loaded a module that we are HLE:ing, which is kinda unnecessary, but not harmful. And might even be good.
 		WARN_LOG(Log::Loader, "Ignoring func export %s/%08x, already implemented in HLE.", func.moduleName, func.nid);
 		return;
+	}
+
+	if (equals(func.moduleName, "LoadExecForKernel")) {
+		RedirectLoadExecVSHExport(func);
 	}
 
 	u32 error;
@@ -1303,6 +1345,80 @@ static void LoadAndStartVshKernelModules() {
 // filename is only used for dumping/metadata.
 // prxSeed is the extra key a module that came out of an NPDRM container needs to decrypt - see
 // NpDrmDeriveModuleKey(). Null for everything else, which is the overwhelming majority.
+// Finds the one place in [start, end) where the words match pattern (under mask), or 0 if there are
+// none or several.
+static u32 FindUniqueCode(u32 start, u32 end, const u32 *pattern, const u32 *mask, int count) {
+	u32 found = 0;
+	for (u32 addr = start; addr + count * 4 <= end; addr += 4) {
+		bool match = true;
+		for (int i = 0; i < count && match; i++) {
+			match = (Memory::ReadUnchecked_U32(addr + i * 4) & mask[i]) == pattern[i];
+		}
+		if (match) {
+			if (found) {
+				return 0;
+			}
+			found = addr;
+		}
+	}
+	return found;
+}
+
+// Lets the XMB launch unsigned homebrew, which it otherwise refuses with "The game cannot be
+// started. The data is corrupted." before ever calling LoadExec. These are the checks ProCFW's
+// vshctrl patches (JPCSP applies the same three patches, at 6.61's offsets). They're found by pattern
+// rather than offset, checked against every vshmain.prx from 1.50 to 6.61:
+// - The DISC_ID check, from 2.00 on.
+// - The check of DATA.PSP's header (it wants ~PSP, homebrew is a plain ELF), from 5.00 on. 5.xx
+//   compares the bytes itself, 6.30 on look at a type a helper worked out, and 6.00 to 6.20 do both.
+// 1.50 and 1.52 have neither.
+static void ApplyVshHomebrewPatches(u32 start, u32 end) {
+	// After reading DISC_ID from PARAM.SFO into a 13 byte buffer, it gives up if that failed, or if it
+	// didn't fit (the 13th byte isn't 0). Homebrew often has none.
+	//   li a3, 13 / bne v0, zero, fail / lb v0, x(sp) / bne v0, zero, fail
+	static const u32 discIdPattern[] = { 0x2407000D, 0x14400000, 0x83A20000, 0x14400000 };
+	static const u32 discIdMask[] = { 0xFFFFFFFF, 0xFFFF0000, 0xFFFF0000, 0xFFFF0000 };
+	// The header type the helper worked out: 0 is a plain ELF.
+	//   beq(l) v1, zero, fail / (delay slot) / li v0, 3 / beq v1, v0, x
+	static const u32 headerTypePattern[] = { 0x10600000, 0x00000000, 0x24020003, 0x10620000 };
+	static const u32 headerTypeMask[] = { 0xBFFF0000, 0x00000000, 0xFFFFFFFF, 0xFFFF0000 };
+	// Checking the header bytes for ~PSP or ~SCE. If the first isn't '~', it's an error:
+	//   andi v1, a1, 0xFF / li v0, '~' / bne v1, v0, fail / lbu v1, x(sp) / li v0, 'S'
+	static const u32 headerBytesPattern[] = { 0x30A300FF, 0x2402007E, 0x14620000, 0x93A30000, 0x24020053 };
+	static const u32 headerBytesMask[] = { 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFF0000, 0xFFFF0000, 0xFFFFFFFF };
+
+	const u32 discId = FindUniqueCode(start, end, discIdPattern, discIdMask, 4);
+	if (discId) {
+		Memory::WriteUnchecked_U32(0, discId + 4);
+		Memory::WriteUnchecked_U32(0, discId + 12);
+	}
+	const u32 headerType = FindUniqueCode(start, end, headerTypePattern, headerTypeMask, 4);
+	if (headerType) {
+		Memory::WriteUnchecked_U32(0, headerType);
+	}
+	// Point the not-'~' branch where a good ~SCE header ends up instead: after its last check,
+	//   li v0, 'E' / bne v1, v0, fail / nop
+	// which has to branch to the same error path.
+	u32 headerBytesRetargeted = 0;
+	const u32 headerBytes = FindUniqueCode(start, end, headerBytesPattern, headerBytesMask, 5);
+	if (headerBytes) {
+		const u32 branch = headerBytes + 8;
+		const u32 fail = branch + 4 + (s16)(Memory::ReadUnchecked_U32(branch) & 0xFFFF) * 4;
+		for (u32 addr = headerBytes; addr < headerBytes + 40 * 4 && addr + 12 <= end; addr += 4) {
+			const u32 lastBranch = Memory::ReadUnchecked_U32(addr + 4);
+			if (Memory::ReadUnchecked_U32(addr) == 0x24020045 && (lastBranch >> 16) == 0x1462 && Memory::ReadUnchecked_U32(addr + 8) == 0 &&
+				addr + 8 + (s16)(lastBranch & 0xFFFF) * 4 == fail) {
+				const u32 success = addr + 12;
+				Memory::WriteUnchecked_U32(0x14620000 | (((success - (branch + 4)) / 4) & 0xFFFF), branch);
+				headerBytesRetargeted = branch;
+				break;
+			}
+		}
+	}
+	INFO_LOG(Log::sceModule, "vsh_module homebrew patches: DISC_ID check %s, header type check %s, header bytes check %s",
+		discId ? "patched" : "not found", headerType ? "patched" : "not found", headerBytesRetargeted ? "patched" : "not found");
+}
+
 static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAddress, bool fromTop, std::string *error_string, u32 *magic, std::string_view filename, u32 &error, const u8 *prxSeed = nullptr) {
 	// The magic reads below need four bytes, and the ~SCE branch another four after that. Everything
 	// downstream checks its own sizes; this is just so we can look at the magic at all. The PBP path
@@ -1710,6 +1826,8 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		} else {
 			Memory::WriteUnchecked_U32(0, patchAddr);
 		}
+
+		ApplyVshHomebrewPatches(module->memoryBlockAddr, module->memoryBlockAddr + module->memoryBlockSize);
 	}
 
 	// Let's also get a truncated version.
