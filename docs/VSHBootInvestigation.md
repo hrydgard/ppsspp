@@ -171,35 +171,38 @@ function body - that is how the two impose calls and the 1.x LoadModuleVSH were 
 returned `SCE_KERNEL_ERROR_LIBRARY_NOT_YET_LINKED`, and the 3.0x-3.5x VSH read that as "ask the
 hardware instead" and went back to blocking on syscon.
 
-### The scePaf heap pool, and where it lives
+### The scePaf heap pool, and the order modules start in
 
 scePaf's allocator wants a pool base already written into one of its BSS slots. The module that
-owns the allocator does fill that slot in itself, from its own module_start - but that start
-thread hasn't been scheduled yet when vshmain makes its first allocation, so the pointer is still
-null and the shell writes through it. Real hardware's kernel bootstrap starts these modules one at
-a time and waits; `LoadAndStartVshKernelModules()` can't, so it pre-fills the slot instead.
+owns the allocator fills that slot in itself, from its own module_start. The kernel's bootstrap
+starts modules one at a time and waits for each module_start to return, so on hardware that has
+happened long before vshmain runs. We used to start all the modules as threads side by side, and
+vshmain's start thread ran first: the pointer was still null and the shell wrote through it. For a
+while the slot was pre-filled with an 8.3MB block (the compiled-in default size) to get past that.
 
-Which module owns it moved. **Up to 4.05 the allocator is a separate `flash0:/vsh/module/heaparea1.prx`**,
+The pre-fill made the boot work but not the game icons. vshmain's start asks paf for one block
+for game_plugin's surface pools, 12MB when `sceKernelTotalMemSize` says more than 36MB (8MB
+otherwise). paf's own start would have set up a 0xC50000 long-life heap that holds it, but hadn't
+run yet, so the request went to the 8.3MB pre-filled heap and failed. game_plugin then made
+surfaces with no memory behind them, decoded every ICON0 and PIC1 correctly, and threw them away
+(white tiles on 3.80-5.05, grey placeholders from 5.50).
+
+`LoadVshKernelModules()` now starts the shell's own modules (heaparea1 where it exists, vshbridge,
+paf, common_gui, common_util) one at a time, each when the previous module_start returns, and
+vshmain waits for the last. The kd/ drivers still start side by side: syscon's module_start blocks
+on a semaphore its hardware interrupt would signal. With the order right the pre-fill went away,
+and every version from 1.50 to 6.61 shows game icons.
+
+Which module owns the allocator moved. **Up to 4.05 it is a separate `flash0:/vsh/module/heaparea1.prx`**,
 which paf imports as `scePafHeaparea` and cannot allocate a byte without; from 5.01 it is compiled
 into paf.prx and heaparea1 is gone. Loading heaparea1 when it's present was the missing piece for
 every 3.x and 4.x version - without it `scePafHeaparea_ACCE25B2` was an unresolved import, paf
 built a heap out of an uninitialized stack pair, and vshmain died storing the null the allocator
 handed back.
 
-Either way the slot is the second of the two pool pointers that module's init fills in with
-`sceKernelTryAllocateFpl`, and either way its offset from the module base moves with every build
-while its offset from gp does not:
-
-| Module | gp - slot | Checked against |
-|---|---|---|
-| `paf.prx` | `0x7E88` | 6.00, 6.20, 6.31, 6.37, 6.39, 6.60, 6.61 (base-relative 0x18CCD8..0x18D728) |
-| `heaparea1.prx` | `0x7FCC` | 3.95, 4.05 |
-
-To re-find it in a build not listed: disassemble the module, find the one function that calls
-`sceKernelTotalMemSize`, and read the address handed to the **second** of its two
-`sceKernelTryAllocateFpl` calls as `a1`. The shape is identical in both modules - TotalMemSize, a
-`> 0x2400000` test picking 0xA00000/0xC50000 pool sizes over the compiled-in defaults, then two
-`sceKernelCreateFpl` + `sceKernelTryAllocateFpl` pairs writing to adjacent slots.
+In both modules the slot is filled by the one function that calls `sceKernelTotalMemSize`: a
+`> 0x2400000` test picks 0xA00000/0xC50000 pool sizes over the compiled-in defaults, then two
+`sceKernelCreateFpl` + `sceKernelTryAllocateFpl` pairs write to adjacent slots.
 
 ### 1.50 declares no module attributes
 
@@ -208,18 +211,16 @@ vshmain.prx has attribute `0000` - Sony only started setting the flag in 1.52 - 
 bootstrap was skipped and the shell ran with none of its support modules loaded. The check also
 accepts the module *name* `vsh_module` now.
 
-### The vsh_module alarm-category patch only 6.6x needs
+### The vsh_module alarm-category patch only 6.6x needed
 
-That offset is in rodata, so there is no gp anchor for it; instead the patch only fires when the
-word at `+0x455C4` is the `0x3F666666` it was derived from. On 6.39 that word is a different
-float, and on 6.20/6.00 it is ASCII string data (`5f746c75`, `776f6461`) - the old unconditional
-write was corrupting a string table on those. Every version below 6.60 reaches the XMB without the
-patch, which is itself a hint that whatever precondition makes that scan safe on real hardware was
-lost somewhere between 6.39 and 6.60.
+6.60 and 6.61 used to crash in vsh_module's alarm-task scan on a "count" in rodata that nothing
+initialized, and a patch zeroed it (only when the word was the `0x3F666666` it was derived from).
+It was another effect of the start order above: with the shell's modules started in order, 6.60
+and 6.61 reach the XMB without it, and it's gone.
 
 ### Kernel modules with per-model builds
 
-`LoadAndStartVshKernelModules()` asked for `memlmd_01g.prx`, `loadexec_01g.prx` and
+`LoadVshKernelModules()` asked for `memlmd_01g.prx`, `loadexec_01g.prx` and
 `wlanfirm_01g.prx` by name. A firmware unpacked for one model ships only that model's build, and
 PPSSPP's own updater unpack defaults to 02g, so all three failed to load. `ResolveVshModelModule()`
 now substitutes the emulated model's suffix when that file exists, falling back to `_01g` for a
@@ -316,9 +317,9 @@ had been missed on two earlier passes because it logs as `: error 8002012e` rath
   address mirrors (`Core/MemMap.cpp`), dummy COP0 instructions (`Core/MIPS/Interpreter.cpp`), and
   a GPIO + Syscon serial MMIO model (`Core/HW/GpioMMIO.{h,cpp}`) so `kd/syscon.prx`'s real
   handshake completes instead of spinning.
-- **`vsh_module` alarm-task SIGSEGV**: a targeted data patch zeroing an "alarm category count"
-  field nothing else initializes (`__KernelLoadELFFromPtr`). Symptom patch, not a principled fix -
-  why real firmware never reaches that path was never established.
+- **`vsh_module` alarm-task SIGSEGV**: was a targeted data patch zeroing an "alarm category count"
+  field nothing else initialized. Removed once the shell's modules started in order, which made
+  it unnecessary.
 - **`SCE_KERNEL_ERROR_NO_MEMORY` in the app build**: the 4MB kernel pool was exhausted by PPGe's
   ~2MB overlay texture (now skipped when booting VSH) plus 11 driver modules each asking for a
   256KB thread stack (now given 32KB).
@@ -371,7 +372,7 @@ so grep for both or you will undercount badly.
 Real hardware boots VSH through the kernel's own module bootstrap, launched from
 `flash0:/reboot.bin`. PPSSPP doesn't emulate that chain. `--vsh` loads
 `flash0:/vsh/module/vshmain.prx` through the normal PRX loader, and
-`LoadAndStartVshKernelModules()` (`Core/HLE/sceKernelModule.cpp`) approximates the missing
+`LoadVshKernelModules()` (`Core/HLE/sceKernelModule.cpp`) approximates the missing
 bootstrap by loading and starting `vshbridge.prx`, `paf.prx`, `common_gui.prx`, `common_util.prx`
 and 11 real `kd/` drivers first, in the order JPCSP's own `--vsh` shortcut uses.
 
