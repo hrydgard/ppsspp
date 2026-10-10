@@ -376,6 +376,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 			// on a per-folder basis.
 			return !System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE);
 		}
+	case SYSPROP_MICROPHONE_NEEDS_POLLING:
+		return true;
 	case SYSPROP_SUPPORTS_SUSTAINED_PERF_MODE:
 		return sustainedPerfSupported;  // 7.0 introduced sustained performance mode as an optional feature.
 	case SYSPROP_HAS_TEXT_INPUT_DIALOG:
@@ -836,10 +838,6 @@ bool System_AudioRecordingIsAvailable() {
 	return true;
 }
 
-bool System_AudioRecordingState() {
-	return AndroidAudio_Recording_State(g_audioState);
-}
-
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_resume(JNIEnv *, jclass) {
 	INFO_LOG(Log::System, "NativeApp.resume() - begin");
 	AndroidAudio_Resume(g_audioState);
@@ -1006,6 +1004,18 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		PushCommand("infrared_command", param1);
 		return true;
 	case SystemRequestType::MICROPHONE_COMMAND:
+		// From the CPU thread. Starting and stopping go through Java, which asks for permission.
+		if (param1 == "pollRecording") {
+			AndroidAudio_Recording_Poll();
+			return true;
+		} else if (param1 == "deviceChanged") {
+			// There's no device choice on Android.
+			return true;
+		}
+		if (startsWith(param1, "startRecording:")) {
+			// Whatever is left over is from before, maybe at another rate.
+			AndroidAudio_Recording_Clear();
+		}
 		PushCommand("microphone_command", param1);
 		return true;
 	case SystemRequestType::SHARE_TEXT:

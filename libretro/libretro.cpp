@@ -2028,7 +2028,6 @@ void System_AudioGetDebugStats(char *buf, size_t bufSize) { if (buf) buf[0] = '\
 void System_AudioClear() {}
 #if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 bool System_AudioRecordingIsAvailable() { return false; }
-bool System_AudioRecordingState() { return false; }
 #endif
 // Stub for now.
 std::vector<std::string> System_GetCameraDeviceList() { return std::vector<std::string>(); }

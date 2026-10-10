@@ -6,7 +6,6 @@
 #include <oboe/Oboe.h>
 
 #include "Common/Log.h"
-#include "Core/HLE/sceUsbMic.h"
 #include "android/jni/OboeContext.h"
 
 // Owns the streams. Held by shared_ptr since after a disconnect, Oboe calls the error
@@ -46,7 +45,8 @@ public:
 		if (stream->getDirection() == oboe::Direction::Output) {
 			audioCallback_((short *)audioData, numFrames, stream->getSampleRate(), nullptr);
 		} else {
-			Microphone::addAudioData((uint8_t *)audioData, numFrames * sizeof(int16_t));
+			// This is the audio thread, so just buffer it. The CPU thread picks it up.
+			AndroidAudio_Recording_Push((const int16_t *)audioData, numFrames);
 		}
 		return oboe::DataCallbackResult::Continue;
 	}

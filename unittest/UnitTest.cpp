@@ -184,7 +184,6 @@ jobject Android_GetActivity(JNIEnv *env) {
 }
 
 bool System_AudioRecordingIsAvailable() { return false; }
-bool System_AudioRecordingState() { return false; }
 #endif
 
 #ifndef M_PI_2

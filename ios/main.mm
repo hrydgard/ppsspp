@@ -657,10 +657,6 @@ bool System_AudioRecordingIsAvailable() {
 	return true;
 }
 
-bool System_AudioRecordingState() {
-	return false;  // Unused outside Android.
-}
-
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) {
 	 return PERMISSION_STATUS_GRANTED;
 }

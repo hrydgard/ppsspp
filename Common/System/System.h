@@ -330,7 +330,6 @@ void System_Notify(SystemNotification notification);
 std::vector<std::string> System_GetCameraDeviceList();
 
 bool System_AudioRecordingIsAvailable();
-bool System_AudioRecordingState();
 
 // This will be changed to take an enum. Replacement for the old NativeMessageReceived.
 void System_PostUIMessage(UIMessage message, std::string_view param = "");

@@ -18,7 +18,6 @@
 #pragma once
 
 #include "sceKernel.h"
-#include <mutex>
 
 void Register_sceUsbMic();
 
@@ -65,12 +64,10 @@ private:
 	int end = 0;
 	int capacity;  // set in constructor
 	u8 *buf_;
-	// TODO: Turn back to a regular mutex, will take some refactoring.
-	std::recursive_mutex mutex;
 };
 
 namespace Microphone {
-	int startMic(void *param);
+	int startMic();
 	int stopMic();
 	bool isHaveDevice();
 	bool isMicStarted();
@@ -84,9 +81,6 @@ namespace Microphone {
 
 	std::vector<std::string> getDeviceList();
 	void onMicDeviceChange();
-
-	// Deprecated.
-	bool isNeedInput();
 }
 
 u32 __MicInput(u32 maxSamples, u32 sampleRate, u32 bufAddr, MICTYPE type, bool block = true);

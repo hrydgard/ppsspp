@@ -17,7 +17,6 @@
 
 #include "ppsspp_config.h"
 #include <algorithm>
-#include <mutex>
 
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
@@ -36,9 +35,9 @@ int eventMicBlockingResume = -1;
 static QueueBuf *audioBuf = nullptr;
 static u32 numNeedSamples;
 static std::vector<MicWaitInfo> waitingThreads;
-static bool isNeedInput;
+static bool isNeedInput;  // Unused, kept for savestates.
 static u32 curSampleRate;
-static u32 curChannels;
+static u32 curChannels;  // Always 1, kept for savestates.
 static u32 readMicDataLength;
 static u32 curTargetAddr;
 static int micState; // 0 means stopped, 1 means started, for save state.
@@ -76,7 +75,7 @@ static void __MicBlockingResume(u64 userdata, int cyclesLate) {
 		}
 
 		if (Microphone::isHaveDevice()) {
-			// SDL delivers host audio in chunks. Allow 100 ms of capture jitter before padding.
+			// Hosts deliver audio in chunks. Allow 100 ms of capture jitter before padding.
 			const u64 retries = userdata >> 32;
 			if (micPolling && Microphone::getReadMicDataLength() < (u32)iter->needSize && retries < 20) {
 				CoreTiming::ScheduleEvent(usToCycles(MIC_POLL_INTERVAL_US), eventMicBlockingResume, (u32)threadID | ((retries + 1) << 32));
@@ -192,7 +191,7 @@ void __UsbMicDoState(PointerWrap &p) {
 		if (isMicStartedNow) {
 			// Ok, started.
 		} else {
-			Microphone::startMic(new std::vector<u32>({ curSampleRate, curChannels }));
+			Microphone::startMic();
 		}
 	}
 	if (p.mode == p.MODE_READ && micPolling) {
@@ -213,7 +212,6 @@ QueueBuf::~QueueBuf() {
 int QueueBuf::push(const u8 *buf, int size) {
 	int addedSize = 0;
 	// This will overwrite the old data if the size prepare to add more than remaining size.
-	std::unique_lock<std::recursive_mutex> lock(mutex);
 	if (size > capacity)
 		resize(size);
 	while (end + size > capacity) {
@@ -226,7 +224,6 @@ int QueueBuf::push(const u8 *buf, int size) {
 	addedSize += size;
 	end = (end + size) % capacity;
 	available = std::min(capacity, available + addedSize);
-	lock.unlock();
 	return addedSize;
 }
 
@@ -235,7 +232,6 @@ int QueueBuf::pop(u8 *buf, int size) {
 		return 0;
 	}
 	int ret = 0;
-	std::unique_lock<std::recursive_mutex> lock(mutex);
 	if (getAvailableSize() < size)
 		size = getAvailableSize();
 	ret = size;
@@ -248,7 +244,6 @@ int QueueBuf::pop(u8 *buf, int size) {
 		memcpy(buf + capacity - startPos, buf_, size - (capacity - startPos));
 	}
 	available -= size;
-	lock.unlock();
 	return ret;
 }
 
@@ -268,10 +263,8 @@ void QueueBuf::resize(int newSize) {
 }
 
 void QueueBuf::flush() {
-	std::unique_lock<std::recursive_mutex> lock(mutex);
 	available = 0;
 	end = 0;
-	lock.unlock();
 }
 
 int QueueBuf::getRemainingSize() const {
@@ -345,9 +338,8 @@ static int sceUsbMicWaitInputEnd() {
 	return hleDelayResult(0, "MicWait", 100);
 }
 
-int Microphone::startMic(void *param) {
-	// The rate is curSampleRate, which every caller has set. param can be null (from onMicDeviceChange).
-	delete static_cast<std::vector<u32> *>(param);
+int Microphone::startMic() {
+	// The rate is curSampleRate, which every caller has set.
 	INFO_LOG(Log::HLE, "microphone_command : sr = %d", curSampleRate);
 	System_MicrophoneCommand("startRecording:" + std::to_string(curSampleRate));
 	micPolling = System_GetPropertyBool(SYSPROP_MICROPHONE_NEEDS_POLLING);
@@ -379,11 +371,6 @@ bool Microphone::isHaveDevice() {
 
 bool Microphone::isMicStarted() {
 	return micState == 1;
-}
-
-// Deprecated.
-bool Microphone::isNeedInput() {
-	return ::isNeedInput;
 }
 
 int Microphone::numNeedSamples() {
@@ -433,12 +420,6 @@ void Microphone::onMicDeviceChange() {
 	if (micPolling) {
 		// The host reopens its capture device.
 		System_MicrophoneCommand("deviceChanged");
-		return;
-	}
-	if (Microphone::isMicStarted()) {
-		Microphone::stopMic();
-		// Just use the last rate.
-		Microphone::startMic(nullptr);
 	}
 }
 
@@ -459,8 +440,7 @@ u32 __MicInput(u32 maxSamples, u32 sampleRate, u32 bufAddr, MICTYPE type, bool b
 	numNeedSamples = maxSamples;
 	readMicDataLength = 0;
 	if (!Microphone::isMicStarted()) {
-		std::vector<u32> *param = new std::vector<u32>({ sampleRate, 1 });
-		Microphone::startMic(param);
+		Microphone::startMic();
 	}
 
 	if (Microphone::availableAudioBufSize() > 0) {
