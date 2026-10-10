@@ -1,6 +1,8 @@
 #pragma once
 
 #include <optional>
+#include <string>
+#include <vector>
 #include "Common/Log.h"
 #include "Core/ConfigValues.h"
 
@@ -203,3 +205,6 @@ struct CommandLineOptions {
 	std::optional<double> dpi;
 	std::optional<double> scale;
 };
+
+// Splits a command line string into arguments. Handles double quotes and backslash escapes.
+std::vector<std::string> SplitCommandLine(const std::string &value);

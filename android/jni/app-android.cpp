@@ -612,64 +612,6 @@ extern "C" jstring Java_org_ppsspp_ppsspp_NativeApp_queryConfig
 	return jresult;
 }
 
-static void parse_args(std::vector<std::string> &args, const std::string value) {
-	// Simple argument parser so we can take args from extra params.
-	const char *p = value.c_str();
-
-	while (*p != '\0') {
-		while (isspace(*p)) {
-			p++;
-		}
-		if (*p == '\0') {
-			break;
-		}
-
-		bool done = false;
-		bool quote = false;
-		std::string arg;
-
-		while (!done) {
-			size_t sz = strcspn(p, "\"\\ \r\n\t");
-			arg += std::string(p, sz);
-			p += sz;
-
-			switch (*p) {
-			case '"':
-				quote = !quote;
-				p++;
-				break;
-
-			case '\\':
-				p++;
-				arg += std::string(p, 1);
-				p++;
-				break;
-
-			case '\0':
-				done = true;
-				break;
-
-			default:
-				// If it's not the above, it's whitespace.
-				if (!quote) {
-					done = true;
-				} else {
-					sz = strspn(p, " \r\n\t");
-					arg += std::string(p, sz);
-					p += sz;
-				}
-				break;
-			}
-		}
-
-		args.push_back(arg);
-
-		while (isspace(*p)) {
-			p++;
-		}
-	}
-}
-
 // Need to use raw Android logging before NativeInit.
 #define EARLY_LOG(...)  __android_log_print(ANDROID_LOG_INFO, "PPSSPP", __VA_ARGS__)
 
@@ -752,7 +694,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	args.push_back(app_name.c_str());
 	if (!shortcut_param.empty()) {
 		EARLY_LOG("NativeInit shortcut param %s", shortcut_param.c_str());
-		parse_args(temp, shortcut_param);
+		temp = SplitCommandLine(shortcut_param);
 		for (const auto &arg : temp) {
 			args.push_back(arg.c_str());
 		}
@@ -1368,8 +1310,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessageFromJava(JNI
 		// file association, or raw arguments from the Args extra. We're already up and running, so any
 		// options in it are not applied. They still have to be parsed, to tell them (and their
 		// arguments) from the game to boot.
-		std::vector<std::string> parts;
-		parse_args(parts, prm);
+		std::vector<std::string> parts = SplitCommandLine(prm);
 		std::vector<const char *> args;
 		args.push_back("ppsspp");
 		for (const auto &part : parts) {

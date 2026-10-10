@@ -1,5 +1,7 @@
 #include <algorithm>
+#include <cctype>
 #include <cstdlib>
+#include <cstring>
 
 #include "Core/Config.h"
 #include "Core/CmdLine.h"
@@ -647,4 +649,63 @@ void CommandLineOptions::ApplyToConfig() const {
 
 	// Note: dpi is not applied here - it's platform-specific.
 	// Platforms should check cmdLineOptions.dpi.has_value() and handle accordingly.
+}
+
+std::vector<std::string> SplitCommandLine(const std::string &value) {
+	std::vector<std::string> args;
+	const char *p = value.c_str();
+
+	while (*p != '\0') {
+		while (isspace(*p)) {
+			p++;
+		}
+		if (*p == '\0') {
+			break;
+		}
+
+		bool done = false;
+		bool quote = false;
+		std::string arg;
+
+		while (!done) {
+			size_t sz = strcspn(p, "\"\\ \r\n\t");
+			arg += std::string(p, sz);
+			p += sz;
+
+			switch (*p) {
+			case '"':
+				quote = !quote;
+				p++;
+				break;
+
+			case '\\':
+				p++;
+				arg += std::string(p, 1);
+				p++;
+				break;
+
+			case '\0':
+				done = true;
+				break;
+
+			default:
+				// If it's not the above, it's whitespace.
+				if (!quote) {
+					done = true;
+				} else {
+					sz = strspn(p, " \r\n\t");
+					arg += std::string(p, sz);
+					p += sz;
+				}
+				break;
+			}
+		}
+
+		args.push_back(arg);
+
+		while (isspace(*p)) {
+			p++;
+		}
+	}
+	return args;
 }
