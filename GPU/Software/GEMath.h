@@ -450,6 +450,38 @@ inline Vec4F32 GEMulFloat24x4Unchecked(Vec4F32 a, Vec4F32 b, Vec4S32 &bad) {
 	return result;
 }
 
+// A GEMulFloat24x4 operand taken apart, for one used in several products.
+struct GEMulOperand {
+	Vec4S32 bits;
+	Vec4S32 e;
+	Vec4S32 f;
+	// Zero, and zero, denormal, inf or NaN.
+	Vec4S32 zero;
+	Vec4S32 special;
+
+	// Truncated to float24s.
+	static GEMulOperand From(Vec4F32 v) {
+		const Vec4S32 bits = Vec4S32FromBits(v) & Vec4S32::Splat((int)0xFFFFFF00);
+		const Vec4S32 e = (bits & Vec4S32::Splat(0x7F800000)).Shr<23>();
+		return { bits, e, bits.Shr<8>() & Vec4S32::Splat(0x7FFF), (bits & Vec4S32::Splat(0x7FFFFFFF)).CompareEq(Vec4S32::Zero()),
+			e.CompareEq(Vec4S32::Zero()) | e.CompareEq(Vec4S32::Splat(255)) };
+	}
+};
+
+// GEMulFloat24x4Unchecked from operands taken apart.
+inline Vec4F32 GEMulFloat24x4Unchecked(const GEMulOperand &a, const GEMulOperand &b, Vec4S32 &bad) {
+	const Vec4S32 expMask = Vec4S32::Splat(0x7F800000);
+	const Vec4S32 prod = a.f + Vec4S32::Splat(32768) + b.f + b.f.Mul16(a.f).Shr<15>();
+	const Vec4S32 lsb = a.e + b.e - Vec4S32::Splat(254 + 15);
+	const Vec4S32 fbits = Vec4S32FromBits(Vec4F32FromS32(prod));
+	const Vec4S32 resultExp = (fbits & expMask).Shr<23>() + lsb;
+	const Vec4S32 sign = (a.bits ^ b.bits) & Vec4S32::Splat((int)0x80000000);
+	const Vec4S32 zero = a.zero | b.zero;
+	const Vec4F32 result = Vec4F32FromBits((((fbits + lsb.Shl<23>()) & Vec4S32::Splat((int)0xFFFFFF00)) | sign).AndNot(zero));
+	bad = bad | (a.special | b.special | resultExp.CompareLt(Vec4S32::Splat(1)) | resultExp.CompareGt(Vec4S32::Splat(254))).AndNot(zero);
+	return result;
+}
+
 inline Vec4F32 GEMulFloat24x4(Vec4F32 a, Vec4F32 b) {
 	Vec4S32 outside = Vec4S32::Zero();
 	const Vec4F32 result = GEMulFloat24x4Unchecked(a, b, outside);
