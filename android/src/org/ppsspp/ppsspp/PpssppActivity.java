@@ -68,6 +68,7 @@ import java.util.List;
 import java.util.Locale;
 import java.io.File;
 import java.io.InputStream;
+import java.lang.ref.WeakReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -77,10 +78,14 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	// Allows us to skip a lot of initialization on secondary calls to onCreate.
 	private static boolean initialized = false;
 
-	// Bumped by every onCreate. An activity whose number is no longer the latest has been replaced
-	// by a newer one, which now owns the native state.
-	private static int latestInstance = 0;
-	private int instance;
+	// The activity that owns the native side (the render thread, the audio). Usually the only one alive, but
+	// not always: after a finish() and a quick relaunch, Android creates and resumes the new activity before
+	// the old one's onStop and onDestroy, which then must leave the native side alone. Weak, so this alone
+	// doesn't keep a destroyed activity around.
+	private static WeakReference<PpssppActivity> currentActivity = new WeakReference<>(null);
+	// Numbers the activities, for the log.
+	private static int activityCounter = 0;
+	private int activityNumber = 0;
 
 	// The surface we hand to the native render loop thread, for both OpenGL and Vulkan.
 	private NativeSurfaceView mSurfaceView;
@@ -108,8 +113,10 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	// switched-away from or rotated etc.
 	private boolean shuttingDown;
 
-	// surfaceChanged now also fires for rotations and resizes, where the thread just keeps going.
-	private boolean renderLoopRunning = false;
+	// There's one render loop thread. Whether it runs, and on which activity's surface (activityNumber).
+	// surfaceChanged also fires for rotations and resizes, where the thread just keeps going.
+	private static boolean renderLoopRunning = false;
+	private static int renderLoopActivity = 0;
 
 	// Allow for multiple connected gamepads but just consider them the same for now.
 	// Actually this is not entirely true, see the code.
@@ -638,6 +645,35 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		surfaceManager.updateDisplayMeasurements();
 	}
 
+	// Makes this the activity that owns the native side.
+	private void takeOver() {
+		activityNumber = ++activityCounter;
+		PpssppActivity previous = currentActivity.get();
+		currentActivity = new WeakReference<>(this);
+		if (previous == null) {
+			Log.i(TAG, "Activity #" + activityNumber + " created" + (initialized ? ", adopting the native side left running" : ""));
+		} else if (previous.isDestroyed()) {
+			Log.i(TAG, "Activity #" + activityNumber + " replaces #" + previous.activityNumber + ", which is destroyed");
+		} else {
+			// The finish() and quick relaunch case. Fine, but the old one's lifecycle calls from here on are worth seeing.
+			Log.w(TAG, "Activity #" + activityNumber + " replaces #" + previous.activityNumber + ", which is still alive (finishing: " + previous.isFinishing() + ")");
+		}
+	}
+
+	private boolean isCurrent() {
+		return currentActivity.get() == this;
+	}
+
+	// True if this activity owns the native side, otherwise logs that it skipped what.
+	private boolean checkCurrent(String what) {
+		if (isCurrent()) {
+			return true;
+		}
+		PpssppActivity current = currentActivity.get();
+		Log.w(TAG, "Activity #" + activityNumber + ": skipping " + what + ", " + (current != null ? "#" + current.activityNumber : "no activity") + " owns the native side now");
+		return false;
+	}
+
 	// Starts the native render loop thread, which owns the graphics context and its surface.
 	public native boolean runRenderLoop(Surface surface);
 	// Tells the render loop thread to exit, so we can restart it.
@@ -659,7 +695,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			return;
 		}
 
-		instance = ++latestInstance;
+		takeOver();
 
 		WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
 
@@ -884,8 +920,8 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			Log.i(TAG, "notifySurface: got surface, starting thread.");
 			startRenderLoopThread();
 		} else {
-			// The surface must not be touched once surfaceDestroyed returns. Normally onPause has
-			// already joined the thread and this does nothing, but that order isn't guaranteed.
+			// The surface must not be touched once surfaceDestroyed returns. This is what normally stops the
+			// render loop; onStop does it too, for a stopped activity that keeps its surface.
 			Log.i(TAG, "notifySurface: Surface is gone, making sure the render thread is too.");
 			joinRenderLoopThread();
 		}
@@ -893,39 +929,49 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	}
 
 	// The render loop thread (EmuThread) is now spawned from the native side.
-	protected synchronized void startRenderLoopThread() {
-		if (mSurface == null) {
-			Log.w(TAG, "startRenderLoopThread - not starting thread, needs surface");
-			return;
-		}
-		if (instance != latestInstance) {
-			Log.w(TAG, "startRenderLoopThread - not starting thread, a newer activity has taken over");
-			return;
-		}
+	protected void startRenderLoopThread() {
+		synchronized (PpssppActivity.class) {
+			if (mSurface == null) {
+				Log.i(TAG, "Activity #" + activityNumber + ": not starting the render loop yet, no surface");
+				return;
+			}
+			if (!checkCurrent("starting the render loop")) {
+				return;
+			}
+			if (renderLoopRunning) {
+				if (renderLoopActivity == activityNumber) {
+					Log.i(TAG, "Activity #" + activityNumber + ": render loop already running, surface changed in place");
+					return;
+				}
+				// The previous activity should have stopped it when it finished or lost its surface.
+				Log.e(TAG, "Activity #" + activityNumber + ": the render loop is still running on #" + renderLoopActivity + "'s surface. Stopping it first.");
+				requestExitRenderLoop();
+				renderLoopRunning = false;
+			}
 
-		if (renderLoopRunning) {
-			Log.i(TAG, "startRenderLoopThread: already running, surface changed in place");
-			return;
+			Log.i(TAG, "Activity #" + activityNumber + ": starting the render loop");
+			applyFrameRate(mSurface, 60.0f);
+			renderLoopRunning = runRenderLoop(mSurface);
+			renderLoopActivity = activityNumber;
 		}
-
-		Log.w(TAG, "startRenderLoopThread: Starting thread");
-
-		applyFrameRate(mSurface, 60.0f);
-		renderLoopRunning = runRenderLoop(mSurface);
 	}
 
-	private synchronized void joinRenderLoopThread() {
-		if (instance != latestInstance) {
-			// There's only one render thread, and it's rendering to the newer activity's surface now.
-			// We get here when our surface goes away late, after a finish() and a quick relaunch.
-			Log.w(TAG, "joinRenderLoopThread - leaving the thread alone, a newer activity has taken over");
-			return;
+	// Stops the render loop if it's running on this activity's surface. Waits until the thread has exited.
+	private void joinRenderLoopThread() {
+		synchronized (PpssppActivity.class) {
+			if (!renderLoopRunning) {
+				return;
+			}
+			if (renderLoopActivity != activityNumber) {
+				// After a finish() and a quick relaunch, the old activity's surface goes away late, with the
+				// loop already running on the new one's.
+				Log.i(TAG, "Activity #" + activityNumber + ": leaving the render loop alone, it's running on #" + renderLoopActivity + "'s surface");
+				return;
+			}
+			Log.i(TAG, "Activity #" + activityNumber + ": stopping the render loop");
+			requestExitRenderLoop();
+			renderLoopRunning = false;
 		}
-
-		// This will wait until the thread has exited.
-		Log.i(TAG, "requestExitRenderLoop");
-		requestExitRenderLoop();
-		renderLoopRunning = false;
 	}
 
 	@Override
@@ -957,14 +1003,11 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			inputDialog = null;
 		}
 
-		if (instance != latestInstance) {
-			// After finish(), Android is free to deliver onDestroy late, after it has already created
-			// and resumed a new activity if the user was quick to relaunch. That one found initialized
-			// still set and adopted the native state, so shutting down here would pull the audio and
-			// the graphics context out from under it. It's not ours to shut down anymore.
-			// (recreate() is not affected, it destroys the old activity before creating the new one.)
-			Log.w(TAG, "in onDestroy, but a newer activity has taken over. Leaving the native side alone.");
-		} else {
+		// After finish(), Android is free to deliver onDestroy late, after it has already created and resumed a
+		// new activity if the user was quick to relaunch. That one found initialized still set and adopted the
+		// native state, so shutting down here would pull the audio and the graphics context out from under it.
+		// (recreate() is not affected, it destroys the old activity before creating the new one.)
+		if (checkCurrent("shutting down audio and the native side in onDestroy")) {
 			// TODO: Can we ensure that the GL thread has stopped rendering here?
 			// I've seen crashes that seem to indicate that sometimes it hasn't...
 			NativeApp.audioShutdown();
@@ -1001,12 +1044,14 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		}
 		Log.i(TAG, "onStart begin");
 
-		if (mLocationHelper != null) {
-			mLocationHelper.resume();
+		// A replaced activity shouldn't be started again, but if it is, the native side isn't its to resume.
+		if (checkCurrent("resuming audio and location in onStart")) {
+			if (mLocationHelper != null) {
+				mLocationHelper.resume();
+			}
+			NativeApp.resume();
 		}
-
 		updateAudioFocus(this.audioManager, this.audioFocusChangeListener);
-		NativeApp.resume();
 		mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_GAME);
 
 		InputManager inputManager = (InputManager)getSystemService(Context.INPUT_SERVICE);
@@ -1030,16 +1075,14 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 
 		// Normally surfaceDestroyed has done this already, but not every device destroys the surface of a
 		// stopped activity, and an invisible game shouldn't keep running.
-		Log.i(TAG, "Joining render thread...");
 		joinRenderLoopThread();
-		Log.i(TAG, "Joined render thread");
 
 		mSensorManager.unregisterListener(this);
 		loseAudioFocus(this.audioManager, this.audioFocusChangeListener);
 
 		// After a finish() and a quick relaunch, this comes after the new activity's onStart, and the audio and
 		// the location updates are its now.
-		if (instance == latestInstance) {
+		if (checkCurrent("pausing audio and location in onStop")) {
 			Log.i(TAG, "Calling NativeApp.pause...");
 			NativeApp.pause();
 			if (mLocationHelper != null) {
