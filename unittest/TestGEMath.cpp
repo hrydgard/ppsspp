@@ -384,6 +384,27 @@ static bool TestGERowSum4() {
 		default: av = GERowSum4<4>(av, bv); break;
 		}
 		av.Store(got);
+		// The same with the right operands taken apart first.
+		{
+			Vec4F32 full[4] = { bv[0], bv[1], bv[2], bv[3] };
+			for (int k = count; k < 4; ++k)
+				full[k] = Vec4F32::Zero();
+			GERowSumRows rows;
+			rows.Set(full);
+			Vec4F32 pv = Vec4F32::Load(a);
+			switch (count) {
+			case 1: pv = GERowSum4<1>(pv, rows); break;
+			case 2: pv = GERowSum4<2>(pv, rows); break;
+			case 3: pv = GERowSum4<3>(pv, rows); break;
+			default: pv = GERowSum4<4>(pv, rows); break;
+			}
+			alignas(16) float pre[4];
+			pv.Store(pre);
+			if (memcmp(pre, got, sizeof(pre)) != 0) {
+				printf("GERowSum4 with GERowSumRows differs: case %d\n", i);
+				return false;
+			}
+		}
 		for (int l = 0; l < 4; ++l) {
 			GERowTerm terms[4];
 			for (int k = 0; k < count; ++k)
@@ -429,7 +450,17 @@ static bool TestGERowSum4() {
 			}
 			sink = acc;
 		}, 0.5, 1);
-		printf("GERowSum4: %.1f M transforms/s, scalar GERowSum: %.1f M/s\n", simd * count / 1e6, scalar * count / 1e6);
+		GERowSumRows pre;
+		pre.Set(rows);
+		const double simdPre = CallsPerSecond([&] {
+			Vec4F32 acc = Vec4F32::Zero();
+			for (int i = 0; i < count; ++i)
+				acc = acc + GERowSum4<4>(Vec4F32::Load(&pos[i * 4]), pre);
+			alignas(16) float out[4];
+			acc.Store(out);
+			sink = out[0];
+		}, 0.5, 1);
+		printf("GERowSum4: %.1f M transforms/s (%.1f M/s with GERowSumRows), scalar GERowSum: %.1f M/s\n", simd * count / 1e6, simdPre * count / 1e6, scalar * count / 1e6);
 
 		const double dot4 = CallsPerSecond([&] {
 			float acc = 0.0f;

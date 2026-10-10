@@ -118,7 +118,6 @@ public:
 	TransformUnit();
 	~TransformUnit();
 
-	static Vec4F32 ModelToWorldNormal(Vec4F32 normal);
 	static ScreenCoords ClipToScreen(const ClipCoords &coords, bool *outsideRangeFlag);
 	// Where an edge from an inside vertex crosses the near plane, as the GE computes it.
 	static float NearPlaneT(const ClipCoords &in, const ClipCoords &out);

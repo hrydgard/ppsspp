@@ -150,24 +150,15 @@ VertexDecoder *SoftwareDrawEngine::FindVertexDecoder(u32 vtype) {
 	return DrawEngineCommon::GetVertexDecoder(vertTypeID);
 }
 
-Vec4F32 TransformUnit::ModelToWorldNormal(Vec4F32 normal) {
-	// Each component summed like a matrix row (gpu/probe exp61), the three at once. Matrix row k is m[3k..3k+2];
-	// the fourth lane reads the next row's first entry and goes unused, as does the normal's.
-	const float *m = gstate.worldMatrix;
-	const Vec4F32 b[3] = { Vec4F32::Load(m), Vec4F32::Load(m + 3), Vec4F32::Load(m + 6) };
-	return GERowSum4<3>(normal, b);
-}
-
-// The clip space position from the combined matrix (gpu/probe exp32, exp34, exp42), each component summed
-// like a matrix row, the four at once. The position is (x, y, z, 1); the translation is a term of its own.
-static inline Vec4F32 GEClipPosition(Vec4F32 pos, const float m[16]) {
-	const Vec4F32 b[4] = { Vec4F32::Load(m), Vec4F32::Load(m + 4), Vec4F32::Load(m + 8), Vec4F32::Load(m + 12) };
-	return GERowSum4<4>(pos, b);
+// The clip space position from the combined matrix's rows (gpu/probe exp32, exp34, exp42), each component
+// summed like a matrix row, the four at once. The position is (x, y, z, 1); the translation is a term of its own.
+static inline Vec4F32 GEClipPosition(Vec4F32 pos, const GERowSumRows &rows) {
+	return GERowSum4<4>(pos, rows);
 }
 
 // The texture coordinates from the 4x3 texture matrix's rows, summed like clip space rows (gpu/probe exp64).
 // The source is (x, y, z, 1).
-static inline Vec3Packedf GETexGen(Vec4F32 source, const Vec4F32 rows[4]) {
+static inline Vec3Packedf GETexGen(Vec4F32 source, const GERowSumRows &rows) {
 	alignas(16) float out[4];
 	GERowSum4<4>(source, rows).Store(out);
 	return Vec3Packedf(out[0], out[1], out[2]);
@@ -264,11 +255,15 @@ struct TransformState {
 	Lighting::State lightingState;
 
 	float matrix[16];
+	// The same, taken apart for GEClipPosition.
+	GERowSumRows clipRows;
+	// The world matrix's rows, for the normal: each component summed like a matrix row (gpu/probe exp61).
+	GERowSumRows worldNormalRows;
 	Vec4f posToFog;
 	// With finite fog parameters, the GE's own arithmetic (gpu/probe exp20): the view z as a row of the
 	// combined world-view matrix, then float24(GEAdd(z, end) * slope).
 	bool fogGE;
-	Vec4F32 viewZRows[4];
+	GERowSumRows viewZRows;
 	float fogEnd;
 	float fogSlope;
 	Vec3f screenScale;
@@ -281,7 +276,7 @@ struct TransformState {
 	bool depthClamp;
 
 	// The texture matrix's rows, for GETexGen.
-	Vec4F32 tgenRows[4];
+	GERowSumRows tgenRows;
 
 	struct {
 		bool enableTransform : 1;
@@ -347,8 +342,10 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 			alignas(16) float padded[13];
 			memcpy(padded, gstate.tgenMatrix, 12 * sizeof(float));
 			padded[12] = 0.0f;
+			Vec4F32 rows[4];
 			for (int k = 0; k < 4; ++k)
-				state->tgenRows[k] = Vec4F32::Load(padded + 3 * k);
+				rows[k] = Vec4F32::Load(padded + 3 * k);
+			state->tgenRows.Set(rows);
 		}
 
 		float world[16];
@@ -362,6 +359,14 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 		// it, in the order (world * view) * projection. The world position is only needed for lighting.
 		state->matrixMode = (uint8_t)(canSkipWorldPos ? MatrixMode::POS_TO_CLIP : MatrixMode::WORLD_TO_CLIP);
 		GECombineMatrices(state->matrix, worldview, gstate.projMatrix);
+		const float *m = state->matrix;
+		const Vec4F32 clipRows[4] = { Vec4F32::Load(m), Vec4F32::Load(m + 4), Vec4F32::Load(m + 8), Vec4F32::Load(m + 12) };
+		state->clipRows.Set(clipRows);
+		// Row k is m[3k..3k+2]; the fourth lane reads the next row's first entry and goes unused, as does the
+		// normal's.
+		const float *w = gstate.worldMatrix;
+		const Vec4F32 normalRows[4] = { Vec4F32::Load(w), Vec4F32::Load(w + 3), Vec4F32::Load(w + 6), Vec4F32::Zero() };
+		state->worldNormalRows.Set(normalRows);
 
 		if (state->enableFog) {
 			float fogEnd = getFloat24(gstate.fog1);
@@ -370,8 +375,10 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 			// We bake fog end and slope into the dot product.
 			state->posToFog = Vec4f(worldview[2], worldview[6], worldview[10], worldview[14] + fogEnd);
 			state->fogGE = !my_isnanorinf(fogEnd) && !my_isnanorinf(fogSlope);
+			Vec4F32 viewZRows[4];
 			for (int i = 0; i < 4; ++i)
-				state->viewZRows[i] = Vec4F32::Splat(worldview[2 + 4 * i]);
+				viewZRows[i] = Vec4F32::Splat(worldview[2 + 4 * i]);
+			state->viewZRows.Set(viewZRows);
 			state->fogEnd = TruncateToFloat24(fogEnd);
 			state->fogSlope = TruncateToFloat24(fogSlope);
 
@@ -502,7 +509,7 @@ void TransformUnit::ReadVertex(const VertexReader &vreader, const TransformState
 	if (state.enableTransform) {
 		// Clip coordinates with the GE's precision; the Test Drive map depends on it together with the
 		// depth math below (#12786).
-		Vec4F32 clip = GEClipPosition(pos, state.matrix);
+		Vec4F32 clip = GEClipPosition(pos, state.clipRows);
 		clip.Store(vertex.clippos.AsArray());
 
 		alignas(16) float scaled[4];
@@ -541,7 +548,7 @@ void TransformUnit::ReadVertex(const VertexReader &vreader, const TransformState
 		Vec4F32 worldnormal = Vec4F32::Zero();
 		float normalRsqrt = 1.0f;
 		if (state.lightingState.usesWorldNormal) {
-			worldnormal = TransformUnit::ModelToWorldNormal(normal);
+			worldnormal = GERowSum4<3>(normal, state.worldNormalRows);
 			const float len2 = GEDot3(worldnormal, worldnormal);
 			if (len2 > 0.0f && std::isfinite(len2)) {
 				normalRsqrt = GERsqrt(len2);
