@@ -44,6 +44,9 @@ public:
 	bool InitSurface(WindowSystem winsys, void *data1, void *data2, std::string *errorMessage) override;
 	void ShutdownSurface() override;
 
+protected:
+	bool CanChangeSwapInterval() const override;
+
 private:
 	// Picks a config, from the most to the least desirable. Fills in config_.
 	bool ChooseConfig(bool wantGLES3, std::string *errorMessage);
