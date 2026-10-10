@@ -85,6 +85,7 @@
 #include "Windows/W32Util/DialogManager.h"
 #include "Windows/W32Util/DarkMode.h"
 #include "Windows/W32Util/ShellUtil.h"
+#include "Windows/XinputDevice.h"
 
 #include "Windows/Debugger/CtrlDisAsmView.h"
 #include "Windows/Debugger/CtrlMemView.h"
@@ -164,6 +165,14 @@ void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {
 void System_Vibrate(int length_ms) {
 	// Ignore on PC. TODO: Actually, we could vibrate a controller if we wanted to, but we should only do that
 	// if it was used within the last few seconds.
+}
+
+void System_ControllerRumbleStart(int deviceIndex) {
+	XinputSetButtonRumble(deviceIndex, true);
+}
+
+void System_ControllerRumbleStop(int deviceIndex) {
+	XinputSetButtonRumble(deviceIndex, false);
 }
 
 static void AddDebugRestartArgs() {

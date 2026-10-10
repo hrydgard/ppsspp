@@ -72,6 +72,7 @@ public:
 
 private:
 	void UpdateSwapAxes();
+	void UpdateButtonRumble(const KeyInput &key);
 	bool UpdatePSPState(const InputMapping &changedMapping, double now);
 	void UpdateComboSuppression();
 	bool IsSuppressedByCombo(const KeyMap::MultiInputMapping &multiMapping) const;
@@ -118,6 +119,9 @@ private:
 	std::atomic<bool> pauseTrigger_{};
 
 	bool swapAxes_ = false;
+
+	// Buttons held per pad, for the optional rumble-on-button-press.
+	int buttonsHeld_[10]{};
 
 	int iInternalScreenRotationCached_ = 0;
 
