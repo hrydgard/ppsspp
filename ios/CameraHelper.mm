@@ -6,7 +6,6 @@
 
 @interface CameraHelper() {
     AVCaptureSession *captureSession;
-    AVCaptureVideoPreviewLayer *previewLayer;
     int mWidth;
     int mHeight;
 }
@@ -117,11 +116,6 @@ NSString *getSelectedCamera() {
         dispatch_queue_t queue = dispatch_queue_create("cameraQueue", NULL);
         [videoOutput setSampleBufferDelegate:self queue:queue];
 
-        previewLayer = [[AVCaptureVideoPreviewLayer alloc] initWithSession:captureSession];
-        previewLayer.videoGravity = AVLayerVideoGravityResizeAspectFill;
-
-        [previewLayer setFrame:CGRectMake(0, 0, mWidth, mHeight)];
-
         [captureSession startRunning];
     });
 }
@@ -156,7 +150,8 @@ NSString *getSelectedCamera() {
     CGImageRef inImage = CGBitmapContextCreateImage(inContext);
     CGContextRelease(inContext);
 
-    CGRect outRect = CGRectMake(0, 0, width, height);
+    // Scale the frame to the size the game asked for.
+    CGRect outRect = CGRectMake(0, 0, mWidth, mHeight);
     CGContextRef outContext = CGBitmapContextCreate(nil, mWidth, mHeight, 8, mWidth * 4, colorSpace, kCGImageAlphaPremultipliedFirst);
     CGContextDrawImage(outContext, outRect, inImage);
     CGImageRelease(inImage);
