@@ -206,18 +206,16 @@ void ShutdownController(GCController *controller) {
 	KeyMap::NotifyPadDisconnected(DEVICE_ID_PAD_0);
 }
 
-void TouchTracker::SendTouchEvent(float x, float y, int code, int pointerId) {
-	float scale = [UIScreen mainScreen].nativeScale;
-
-	float dp_xscale = (float)g_display.dp_xres / (float)g_display.pixel_xres;
-	float dp_yscale = (float)g_display.dp_yres / (float)g_display.pixel_yres;
-
-	float scaledX = (int)(x * dp_xscale) * scale;
-	float scaledY = (int)(y * dp_yscale) * scale;
+void TouchTracker::SendTouchEvent(CGPoint point, UIView *view, int code, int pointerId) {
+	// From points to dp. The view covers the whole display.
+	CGSize size = view.bounds.size;
+	if (size.width <= 0.0 || size.height <= 0.0) {
+		return;
+	}
 
 	TouchInput input;
-	input.x = scaledX;
-	input.y = scaledY;
+	input.x = point.x * g_display.dp_xres / size.width;
+	input.y = point.y * g_display.dp_yres / size.height;
 	switch (code) {
 		case 1: input.flags = TouchInputFlags::DOWN; break;
 		case 2: input.flags = TouchInputFlags::UP; break;
@@ -255,7 +253,7 @@ void TouchTracker::Began(NSSet *touches, UIView *view) {
 	for (UITouch* touch in touches) {
 		CGPoint point = [touch locationInView:view];
 		int touchId = ToTouchID(touch, true);
-		SendTouchEvent(point.x, point.y, 1, touchId);
+		SendTouchEvent(point, view, 1, touchId);
 	}
 }
 
@@ -263,7 +261,7 @@ void TouchTracker::Moved(NSSet *touches, UIView *view) {
 	for (UITouch* touch in touches) {
 		CGPoint point = [touch locationInView:view];
 		int touchId = ToTouchID(touch, true);
-		SendTouchEvent(point.x, point.y, 0, touchId);
+		SendTouchEvent(point, view, 0, touchId);
 	}
 }
 
@@ -272,7 +270,7 @@ void TouchTracker::Ended(NSSet *touches, UIView *view) {
 		CGPoint point = [touch locationInView:view];
 		int touchId = ToTouchID(touch, false);
 		if (touchId >= 0) {
-			SendTouchEvent(point.x, point.y, 2, touchId);
+			SendTouchEvent(point, view, 2, touchId);
 			touches_[touchId] = nullptr;
 		}
 	}
@@ -283,7 +281,7 @@ void TouchTracker::Cancelled(NSSet *touches, UIView *view) {
 		CGPoint point = [touch locationInView:view];
 		int touchId = ToTouchID(touch, false);
 		if (touchId >= 0) {
-			SendTouchEvent(point.x, point.y, 2, touchId);
+			SendTouchEvent(point, view, 2, touchId);
 			touches_[touchId] = nullptr;
 		}
 	}

@@ -380,8 +380,8 @@ extern float g_safeInsetBottom;
 - (void)viewSafeAreaInsetsDidChange {
 	[super viewSafeAreaInsetsDidChange];
 
-	// Converts points to pixels.
-	CGFloat scale = UIScreen.mainScreen.scale;
+	// Converts points to pixels, the same way updateResolutionWithView does.
+	CGFloat scale = [self displayScaleForView:self.view];
 
 	float xInsetSum = self.view.safeAreaInsets.left + self.view.safeAreaInsets.right;
 	float yInsetSum = self.view.safeAreaInsets.top + self.view.safeAreaInsets.bottom;
@@ -539,19 +539,21 @@ extern float g_safeInsetBottom;
 	[self updateResolutionWithView:self.view];
 }
 
-- (void)updateResolutionWithView:(UIView *)view {
-	// 1. Get the scale from the window scene
-	CGFloat scale = 1.0;
-	if (view.window && view.window.windowScene) {
-		scale = view.window.windowScene.screen.nativeScale;
-	} else {
-		scale = [UITraitCollection currentTraitCollection].displayScale;
+// Pixels per point. nativeScale, not scale, since that's what the drawable is - they differ on
+// some phones, like the Plus models and the minis.
+- (CGFloat)displayScaleForView:(UIView *)view {
+	if (view.window.windowScene) {
+		return view.window.windowScene.screen.nativeScale;
 	}
+	return [UITraitCollection currentTraitCollection].displayScale;
+}
 
-	// 2. Get the ACTUAL bounds of the view (already corrected for orientation)
+- (void)updateResolutionWithView:(UIView *)view {
+	CGFloat scale = [self displayScaleForView:view];
+
+	// The bounds are already corrected for orientation.
 	CGSize size = view.bounds.size;
 
-	// Your existing logic
 	float dpi = (IS_IPAD() ? 200.0f : 150.0f) * scale;
 	const float dpi_scale_x = 240.0f / dpi;
 	const float dpi_scale_y = 240.0f / dpi;

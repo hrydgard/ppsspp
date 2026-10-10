@@ -22,7 +22,7 @@ public:
 	void Ended(NSSet *touches, UIView *view);
 	void Cancelled(NSSet *touches, UIView *view);
 private:
-	void SendTouchEvent(float x, float y, int code, int pointerId);
+	void SendTouchEvent(CGPoint point, UIView *view, int code, int pointerId);
 	int ToTouchID(UITouch *uiTouch, bool allowAllocate);
 	UITouch *touches_[10]{};
 };
