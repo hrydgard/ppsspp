@@ -938,9 +938,9 @@ static inline void DrawSpanVector(int x, int y, const int *maskIn, const int *zI
 			// Like the BLEND texfunc, always rounding up.
 			const Vec4S32 f = Vec4S32::Load(fogIn), invF = c255 - f;
 			const uint32_t fc = pixelID.cached.fogColor;
-			r = (r.Mul(f) + Vec4S32::Splat(fc & 0xFF).Mul(invF) + c255).Shr<8>();
-			g = (g.Mul(f) + Vec4S32::Splat((fc >> 8) & 0xFF).Mul(invF) + c255).Shr<8>();
-			b = (b.Mul(f) + Vec4S32::Splat((fc >> 16) & 0xFF).Mul(invF) + c255).Shr<8>();
+			r = (r.Mul16(f) + Vec4S32::Splat(fc & 0xFF).Mul16(invF) + c255).Shr<8>();
+			g = (g.Mul16(f) + Vec4S32::Splat((fc >> 8) & 0xFF).Mul16(invF) + c255).Shr<8>();
+			b = (b.Mul16(f) + Vec4S32::Splat((fc >> 16) & 0xFF).Mul16(invF) + c255).Shr<8>();
 		}
 
 		if (pixelID.colorTest) {
@@ -1021,7 +1021,7 @@ static inline void DrawSpanVector(int x, int y, const int *maskIn, const int *zI
 	if constexpr (blend == SpanBlend::SRC_ALPHA) {
 		const Vec4S32 one = Vec4S32::Splat(1);
 		auto term = [&](Vec4S32 v, Vec4S32 f) {
-			return (v.Shl<1>() + one).Mul(f.Shl<1>() + one).Shr<10>();
+			return (v.Shl<1>() + one).Mul16(f.Shl<1>() + one).Shr<10>();
 		};
 		const Vec4S32 invA = c255 - a;
 		r = term(r, a) + term(dst[0], invA);
@@ -1057,7 +1057,7 @@ static inline void DrawSpanVector(int x, int y, const int *maskIn, const int *zI
 		Vec4S32 out[3];
 		for (int c = 0; c < 3; ++c) {
 			auto term = [&](Vec4S32 v, Vec4S32 f) {
-				return (v.Shl<1>() + one).Mul(f.Shl<1>() + one).Shr<10>();
+				return (v.Shl<1>() + one).Mul16(f.Shl<1>() + one).Shr<10>();
 			};
 			switch (pixelID.AlphaBlendEq()) {
 			case GE_BLENDMODE_MUL_AND_ADD: out[c] = term(src[c], sf[c]) + term(dst[c], df[c]); break;

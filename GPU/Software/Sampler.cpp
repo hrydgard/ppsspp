@@ -710,12 +710,17 @@ static inline void TexelPairs4(Vec4F32 st, int size, bool clamp, Vec4S32 &c0, Ve
 	}
 }
 
-// RowOffsetT and ColumnOffsetT for four texels at once.
+// v times k, both from 0 to 32767 for Mul16 (a 32-bit multiply is slow on SSE2).
+static inline Vec4S32 MulRow(Vec4S32 v, int k) {
+	return k < 32768 ? v.Mul16(Vec4S32::Splat(k)) : v.Mul(Vec4S32::Splat(k));
+}
+
+// RowOffsetT and ColumnOffsetT for four texels at once. The rows are below 512.
 template <uint32_t bits, bool swizzled>
 static inline Vec4S32 RowOffsets4(int bufw, Vec4S32 v) {
 	if (!swizzled)
-		return v.Mul(Vec4S32::Splat(bufw * bits >> 3));
-	return v.Shr<3>().Mul(Vec4S32::Splat((bufw * bits / 32) * 32)) + (v & Vec4S32::Splat(7)).Shl<4>();
+		return MulRow(v, bufw * bits >> 3);
+	return MulRow(v.Shr<3>(), bufw * bits / 32).Shl<5>() + (v & Vec4S32::Splat(7)).Shl<4>();
 }
 
 template <uint32_t bits, bool swizzled>
@@ -791,9 +796,14 @@ static inline void SampleLinearLevel4LanesT(Vec4F32 s, Vec4F32 t, const u8 *tptr
 	const Vec4S32 tl = Vec4S32::LoadAligned((const int *)texels[0]), tr = Vec4S32::LoadAligned((const int *)texels[1]);
 	const Vec4S32 bl = Vec4S32::LoadAligned((const int *)texels[2]), br = Vec4S32::LoadAligned((const int *)texels[3]);
 	const Vec4S32 halves = Vec4S32::Splat(0x00FF00FF);
-	const Vec4S32 invU = Vec4S32::Splat(16) - fracU, invV = Vec4S32::Splat(16) - fracV;
+	// The fractions in both halves, for MulHalves: no product exceeds 16 bits either.
+	const Vec4S32 sixteen = Vec4S32::Splat(0x00100010);
+	const Vec4S32 fracU2 = fracU | fracU.Shl<16>(), fracV2 = fracV | fracV.Shl<16>();
+	const Vec4S32 invU = sixteen - fracU2, invV = sixteen - fracV2;
+	fracU = fracU2;
+	fracV = fracV2;
 	auto lerp = [&](Vec4S32 a, Vec4S32 b, Vec4S32 inv, Vec4S32 f) {
-		return (a.Mul(inv) + b.Mul(f)).Shr<4>() & halves;
+		return (a.MulHalves(inv) + b.MulHalves(f)).Shr<4>() & halves;
 	};
 	Vec4S32 pairs[2];
 	for (int h = 0; h < 2; ++h) {
@@ -819,11 +829,11 @@ static inline void TextureFunction4(const Vec4S32 prim[4], const Vec4S32 tex[4],
 	const bool doubling = samplerID.useColorDoubling;
 	const Vec4S32 one = Vec4S32::Splat(1), c255 = Vec4S32::Splat(255);
 	// The alpha blended the common way: (prim + 1) * tex / 256.
-	const Vec4S32 modulatedA = rgba ? (prim[3] + one).Mul(tex[3]).Shr<8>() : prim[3];
+	const Vec4S32 modulatedA = rgba ? (prim[3] + one).Mul16(tex[3]).Shr<8>() : prim[3];
 	switch (samplerID.TexFunc()) {
 	case GE_TEXFUNC_MODULATE:
 		for (int c = 0; c < 3; ++c)
-			out[c] = (prim[c] + one).Mul(doubling ? tex[c].Shl<1>() : tex[c]).Shr<8>();
+			out[c] = (prim[c] + one).Mul16(doubling ? tex[c].Shl<1>() : tex[c]).Shr<8>();
 		out[3] = modulatedA;
 		break;
 
@@ -832,7 +842,7 @@ static inline void TextureFunction4(const Vec4S32 prim[4], const Vec4S32 tex[4],
 			// Both colors are boosted here, making the alpha have more weight.
 			const Vec4S32 t = tex[3], invt = c255 - tex[3];
 			for (int c = 0; c < 3; ++c) {
-				const Vec4S32 sum = (prim[c] + one).Mul(invt) + (tex[c] + one).Mul(t);
+				const Vec4S32 sum = (prim[c] + one).Mul16(invt) + (tex[c] + one).Mul16(t);
 				out[c] = doubling ? sum.Shr<7>() : sum.Shr<8>();
 			}
 		} else {
@@ -847,7 +857,7 @@ static inline void TextureFunction4(const Vec4S32 prim[4], const Vec4S32 tex[4],
 		// Unlike the others (and even alpha), this one always rounds up.
 		const uint32_t env = samplerID.cached.texBlendColor;
 		for (int c = 0; c < 3; ++c) {
-			const Vec4S32 sum = (c255 - tex[c]).Mul(prim[c]) + tex[c].Mul(Vec4S32::Splat((env >> (8 * c)) & 0xFF)) + c255;
+			const Vec4S32 sum = (c255 - tex[c]).Mul16(prim[c]) + tex[c].Mul16(Vec4S32::Splat((env >> (8 * c)) & 0xFF)) + c255;
 			out[c] = doubling ? sum.Shr<7>() : sum.Shr<8>();
 		}
 		out[3] = modulatedA;

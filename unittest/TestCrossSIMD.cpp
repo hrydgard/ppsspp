@@ -445,6 +445,19 @@ static bool TestVec4F32Loads() {
 	EXPECT_EQ_FLOAT(result[2], 1e20f);
 	EXPECT_EQ_FLOAT(result[3], 1.0f);
 
+	// MulHalves: two 16-bit products per lane, each kept to 16 bits.
+	{
+		const int halvesA[4] = { 0x00FF00FF, 0x01230045, (int)0xFFFF0002, 0x7FFF8000 };
+		const int halvesB[4] = { 0x00100010, 0x00030007, 0x00020003, 0x00020002 };
+		int halvesOut[4];
+		Vec4S32::Load(halvesA).MulHalves(Vec4S32::Load(halvesB)).Store(halvesOut);
+		for (int i = 0; i < 4; i++) {
+			const uint32_t lo = ((uint32_t)halvesA[i] * (uint32_t)halvesB[i]) & 0xFFFF;
+			const uint32_t hi = (((uint32_t)halvesA[i] >> 16) * ((uint32_t)halvesB[i] >> 16)) & 0xFFFF;
+			EXPECT_EQ_HEX((uint32_t)halvesOut[i], (hi << 16) | lo);
+		}
+	}
+
 	// LoadS64Low: the low halves.
 	int iresult[4];
 	const int64_t wide[4] = { 0x123456789LL, -2, (int64_t)0x7FFFFFFF << 1, -0x100000000LL + 7 };

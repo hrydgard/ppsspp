@@ -159,6 +159,9 @@ struct Vec4S32 {
 		// in the other register.
 		return Vec4S32{ _mm_madd_epi16(v, _mm_and_si128(other.v, _mm_set1_epi32(0x0000FFFF))) };
 	}
+	// Each 16-bit half times the other's, keeping the low 16 bits of each product: two lanes of 16 bits
+	// in each 32-bit one.
+	Vec4S32 MulHalves(Vec4S32 other) const { return Vec4S32{ _mm_mullo_epi16(v, other.v) }; }
 
 	Vec4S32 SignExtend16() const { return Vec4S32{ _mm_srai_epi32(_mm_slli_epi32(v, 16), 16) }; }
 	// NOTE: These can be done in sequence, but when done, you must FixupAfterMinMax to get valid output.
@@ -647,6 +650,9 @@ struct Vec4S32 {
 
 	// Warning: Unlike on x86, this is a full 32-bit multiplication.
 	Vec4S32 Mul16(Vec4S32 other) const { return Vec4S32{ vmulq_s32(v, other.v) }; }
+	// Each 16-bit half times the other's, keeping the low 16 bits of each product: two lanes of 16 bits
+	// in each 32-bit one.
+	Vec4S32 MulHalves(Vec4S32 other) const { return Vec4S32{ vreinterpretq_s32_s16(vmulq_s16(vreinterpretq_s16_s32(v), vreinterpretq_s16_s32(other.v))) }; }
 
 	Vec4S32 SignExtend16() const { return Vec4S32{ vshrq_n_s32(vshlq_n_s32(v, 16), 16) }; }
 	// NOTE: These can be done in sequence, but when done, you must FixupAfterMinMax to get valid output (on SSE2 at least).
@@ -1214,6 +1220,9 @@ struct Vec4S32 {
 
 	// Warning: Unlike on x86, this is a full 32-bit multiplication.
 	Vec4S32 Mul16(Vec4S32 other) const { return Vec4S32{ __lsx_vmul_w(v, other.v) }; }
+	// Each 16-bit half times the other's, keeping the low 16 bits of each product: two lanes of 16 bits
+	// in each 32-bit one.
+	Vec4S32 MulHalves(Vec4S32 other) const { return Vec4S32{ __lsx_vmul_h(v, other.v) }; }
 
 	Vec4S32 SignExtend16() const { return Vec4S32{ __lsx_vsrai_w(__lsx_vslli_w(v, 16), 16) }; }
 	// NOTE: These can be done in sequence, but when done, you must FixupAfterMinMax to get valid output (on SSE2 at least).
@@ -1696,6 +1705,17 @@ struct Vec4S32 {
 
 	// Warning: Unlike on x86 SSE2, this is a full 32-bit multiplication.
 	Vec4S32 Mul16(Vec4S32 other) const { return Vec4S32{ { v[0] * other.v[0], v[1] * other.v[1], v[2] * other.v[2], v[3] * other.v[3] } }; }
+	// Each 16-bit half times the other's, keeping the low 16 bits of each product: two lanes of 16 bits
+	// in each 32-bit one.
+	Vec4S32 MulHalves(Vec4S32 other) const {
+		Vec4S32 r;
+		for (int i = 0; i < 4; ++i) {
+			const uint32_t lo = ((uint32_t)v[i] * (uint32_t)other.v[i]) & 0xFFFF;
+			const uint32_t hi = ((uint32_t)v[i] >> 16) * ((uint32_t)other.v[i] >> 16);
+			r.v[i] = (int32_t)((hi << 16) | lo);
+		}
+		return r;
+	}
 
 	Vec4S32 SignExtend16() const {
 		Vec4S32 tmp;
