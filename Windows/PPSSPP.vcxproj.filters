@@ -178,6 +178,9 @@
     <ClCompile Include="WASAPIContext.cpp">
       <Filter>Windows\System</Filter>
     </ClCompile>
+    <ClCompile Include="WASAPIMicrophone.cpp">
+      <Filter>Windows\System</Filter>
+    </ClCompile>
     <ClCompile Include="CaptureDevice.cpp">
       <Filter>Windows\Input</Filter>
     </ClCompile>
@@ -370,6 +373,9 @@
       <Filter>Windows\System</Filter>
     </ClInclude>
     <ClInclude Include="WASAPIContext.h">
+      <Filter>Windows\System</Filter>
+    </ClInclude>
+    <ClInclude Include="WASAPIMicrophone.h">
       <Filter>Windows\System</Filter>
     </ClInclude>
     <ClInclude Include="..\ppsspp_config.h" />

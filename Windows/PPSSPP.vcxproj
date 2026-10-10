@@ -666,6 +666,7 @@
     </ClCompile>
     <ClCompile Include="W32Util\UAHMenuBar.cpp" />
     <ClCompile Include="WASAPIContext.cpp" />
+    <ClCompile Include="WASAPIMicrophone.cpp" />
     <ClCompile Include="WindowsAudio.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="stdafx.cpp">
@@ -1035,6 +1036,7 @@
     <ClInclude Include="GPU\WindowsGLContext.h" />
     <ClInclude Include="W32Util\UAHMenuBar.h" />
     <ClInclude Include="WASAPIContext.h" />
+    <ClInclude Include="WASAPIMicrophone.h" />
     <ClInclude Include="WindowsAudio.h" />
     <ClInclude Include="main.h" />
     <ClInclude Include="resource.h" />

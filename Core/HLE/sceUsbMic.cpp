@@ -31,15 +31,6 @@
 #include "Core/CoreTiming.h"
 #include "Core/MemMapHelpers.h"
 
-#if defined(_WIN32) && !PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
-#define HAVE_WIN32_MICROPHONE
-#endif
-
-#ifdef HAVE_WIN32_MICROPHONE
-#include "Common/CommonWindows.h"
-#include "Windows/CaptureDevice.h"
-#endif
-
 int eventMicBlockingResume = -1;
 
 static QueueBuf *audioBuf = nullptr;
@@ -355,10 +346,6 @@ static int sceUsbMicWaitInputEnd() {
 }
 
 int Microphone::startMic(void *param) {
-#ifdef HAVE_WIN32_MICROPHONE
-	if (winMic)
-		winMic->sendMessage({ CAPTUREDEVICE_COMMAND::START, param });
-#else
 	// The rate is curSampleRate, which every caller has set. param can be null (from onMicDeviceChange).
 	delete static_cast<std::vector<u32> *>(param);
 	INFO_LOG(Log::HLE, "microphone_command : sr = %d", curSampleRate);
@@ -368,7 +355,6 @@ int Microphone::startMic(void *param) {
 		CoreTiming::UnscheduleEvent(eventMicBlockingResume, 0);
 		CoreTiming::ScheduleEvent(usToCycles(MIC_POLL_INTERVAL_US), eventMicBlockingResume, 0);
 	}
-#endif
 	micState = 1;
 	return 0;
 }
@@ -378,26 +364,17 @@ int Microphone::stopMic() {
 		micPolling = false;
 		CoreTiming::UnscheduleEvent(eventMicBlockingResume, 0);
 	}
-#ifdef HAVE_WIN32_MICROPHONE
-	if (winMic)
-		winMic->sendMessage({ CAPTUREDEVICE_COMMAND::STOP, nullptr });
-#else
 	System_MicrophoneCommand("stopRecording");
-#endif
 	micState = 0;
 	return 0;
 }
 
 bool Microphone::isHaveDevice() {
-#ifdef HAVE_WIN32_MICROPHONE
-	// Only the app creates winMic, headless doesn't.
-	return winMic && winMic->getDeviceCounts() >= 1;
-#elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
+#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
 	return System_AudioRecordingIsAvailable();
-#elif defined(SDL)
+#else
 	return micPolling || !Microphone::getDeviceList().empty();
 #endif
-	return false;
 }
 
 bool Microphone::isMicStarted() {
@@ -449,24 +426,15 @@ void Microphone::flushAudioData() {
 }
 
 std::vector<std::string> Microphone::getDeviceList() {
-#ifdef HAVE_WIN32_MICROPHONE
-	if (winMic) {
-		return winMic->getDeviceList();
-	}
-#elif defined(SDL)
 	return System_GetPropertyStringVec(SYSPROP_MICROPHONE_DEVICE_LIST);
-#endif
-	return std::vector<std::string>();
 }
 
 void Microphone::onMicDeviceChange() {
-#if !defined(HAVE_WIN32_MICROPHONE)
 	if (micPolling) {
-		// Reopen on the CPU thread when it next polls the capture stream.
+		// The host reopens its capture device.
 		System_MicrophoneCommand("deviceChanged");
 		return;
 	}
-#endif
 	if (Microphone::isMicStarted()) {
 		Microphone::stopMic();
 		// Just use the last rate.

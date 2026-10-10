@@ -71,6 +71,7 @@
 #include "Windows/InputDevice.h"
 #include "Windows/MainWindow.h"
 #include "Windows/CaptureDevice.h"
+#include "Windows/WASAPIMicrophone.h"
 #include "Windows/Debugger/Debugger_Disasm.h"
 #include "Windows/Debugger/Debugger_MemoryDlg.h"
 #include "Windows/Debugger/Debugger_VFPUDlg.h"
@@ -316,6 +317,8 @@ std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) {
 			result.push_back(getenv("TEMP"));
 		return result;
 	}
+	case SYSPROP_MICROPHONE_DEVICE_LIST:
+		return WASAPIMicrophoneGetDeviceList();
 
 	default:
 		return result;
@@ -456,6 +459,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	case SYSPROP_HAS_IMAGE_BROWSER:
 		return true;
 	case SYSPROP_HAS_BACK_BUTTON:
+		return true;
+	case SYSPROP_MICROPHONE_NEEDS_POLLING:
 		return true;
 	case SYSPROP_HAS_LOGIN_DIALOG:
 		return true;
@@ -832,6 +837,24 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		W32Util::OpenDisplaySettings();
 		return true;
 	}
+	case SystemRequestType::MICROPHONE_COMMAND:
+		// From the CPU thread.
+		if (startsWith(param1, "startRecording:")) {
+			int sampleRate = 0;
+			if (sscanf(param1.c_str(), "startRecording:%d", &sampleRate) != 1 || sampleRate <= 0) {
+				return false;
+			}
+			WASAPIMicrophoneStart(sampleRate);
+		} else if (param1 == "stopRecording") {
+			WASAPIMicrophoneStop();
+		} else if (param1 == "pollRecording") {
+			WASAPIMicrophonePoll();
+		} else if (param1 == "deviceChanged") {
+			WASAPIMicrophoneDeviceChanged();
+		} else {
+			return false;
+		}
+		return true;
 	default:
 		return false;
 	}
@@ -1320,6 +1343,8 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	// It's safe to call NativeShutdown, we've joined the main thread.
 	NativeShutdown();
+	// The game shut down the microphone with the core, but its thread mustn't outlive us either way.
+	WASAPIMicrophoneStop();
 
 	g_VFS.Clear();
 
