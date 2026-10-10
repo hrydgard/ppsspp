@@ -735,13 +735,51 @@ static inline Vec4S32 ColumnOffsets4(Vec4S32 u) {
 	return swizzled ? b.Shr<4>().Shl<7>() + (b & Vec4S32::Splat(15)) : b;
 }
 
-// The four texels of SampleLinearLevelT for four pixels at the same level (texels[tl, tr, bl, br][pixel]),
+// The four texels of SampleLinearLevelT for four pixels at the same level (texels[tl, tr, bl, br], a pixel per lane),
 // the coordinates and offsets in vector lanes, the texel reads one by one.
 template <GETextureFormat fmt, bool swizzled, GEPaletteFormat clutFmt>
-static inline void ReadTexels4T(Vec4F32 s, Vec4F32 t, const u8 *tptr, int bufw, int level, const SamplerID &samplerID, uint32_t texels[4][4], Vec4S32 &fracU, Vec4S32 &fracV) {
+static inline void ReadTexels4T(Vec4F32 s, Vec4F32 t, const u8 *tptr, int bufw, int level, const SamplerID &samplerID, Vec4S32 out[4], Vec4S32 &fracU, Vec4S32 &fracV) {
 	Vec4S32 u0, u1, v0, v1;
 	TexelPairs4(s, samplerID.cached.sizes[level].w, samplerID.clampS, u0, u1, fracU);
 	TexelPairs4(t, samplerID.cached.sizes[level].h, samplerID.clampT, v0, v1, fracV);
+	constexpr uint32_t bits = TexelBitsT<fmt>();
+	// The common formats in lanes: the texels (and their CLUT entries) gathered, and the CLUT index in between.
+	constexpr bool clutLanes = (fmt == GE_TFMT_CLUT4 || fmt == GE_TFMT_CLUT8) && clutFmt == GE_CMODE_32BIT_ABGR8888;
+	if constexpr (clutLanes || fmt == GE_TFMT_8888) {
+		if (fmt == GE_TFMT_8888 || !samplerID.hasClutShift) {
+			const Vec4S32 row0 = RowOffsets4<bits, swizzled>(bufw, v0), row1 = RowOffsets4<bits, swizzled>(bufw, v1);
+			const Vec4S32 col0 = ColumnOffsets4<bits, swizzled>(u0), col1 = ColumnOffsets4<bits, swizzled>(u1);
+			const Vec4S32 offsets[4] = { row0 + col0, row0 + col1, row1 + col0, row1 + col1 };
+			if constexpr (fmt == GE_TFMT_8888) {
+				for (int i = 0; i < 4; ++i)
+					out[i] = Vec4S32::Gather((const int32_t *)tptr, offsets[i].Shr<2>());
+			} else {
+				// TransformClutIndex without a shift. Levels past the first have their own palette unless it's
+				// shared: 16 entries on for CLUT4, 256 on for CLUT8.
+				uint32_t clutOffset = 0;
+				if (!samplerID.useSharedClut)
+					clutOffset = fmt == GE_TFMT_CLUT4 ? level * 16 : (level & 1) * 256;
+				const bool transform = samplerID.hasClutMask || samplerID.hasClutOffset;
+				const int mask = transform ? (samplerID.cached.clutFormat >> 8) & 0xFF : 0xFF;
+				const int start = transform ? (((samplerID.cached.clutFormat >> 16) & 0x1F) << 4) & 0xFF : 0;
+				const Vec4S32 maskV = Vec4S32::Splat(mask), add = Vec4S32::Splat((int)clutOffset);
+				const Vec4S32 startV = Vec4S32::Splat(start);
+				const Vec4S32 one = Vec4S32::Splat(1);
+				const Vec4S32 odd[2] = { (u0 & one).CompareEq(one), (u1 & one).CompareEq(one) };
+				for (int i = 0; i < 4; ++i) {
+					Vec4S32 index = Vec4S32::GatherU8(tptr, offsets[i]);
+					if constexpr (fmt == GE_TFMT_CLUT4) {
+						// The high nibble for odd u.
+						const Vec4S32 high = odd[i & 1];
+						index = (index.Shr<4>() & high) | (index & Vec4S32::Splat(0xF)).AndNot(high);
+					}
+					out[i] = Vec4S32::Gather((const int32_t *)samplerID.cached.clut32, ((index & maskV) | startV) + add);
+				}
+			}
+			return;
+		}
+	}
+	alignas(16) uint32_t texels[4][4];
 	alignas(16) int us0[4], us1[4];
 	u0.Store(us0);
 	u1.Store(us1);
@@ -756,7 +794,6 @@ static inline void ReadTexels4T(Vec4F32 s, Vec4F32 t, const u8 *tptr, int bufw, 
 			texels[3][i] = ReadDXTTexelT<fmt>(tptr, bufw, us1[i], vs1[i]);
 		}
 	} else {
-		constexpr uint32_t bits = TexelBitsT<fmt>();
 		uint32_t clutOffset = 0;
 		if ((fmt == GE_TFMT_CLUT4 || fmt == GE_TFMT_CLUT8) && !samplerID.useSharedClut)
 			clutOffset = fmt == GE_TFMT_CLUT4 ? level * 16 : (level & 1) * 256;
@@ -774,6 +811,8 @@ static inline void ReadTexels4T(Vec4F32 s, Vec4F32 t, const u8 *tptr, int bufw, 
 			texels[3][i] = ReadTexelT<fmt, clutFmt>(tptr + (uint32_t)br[i], us1[i], clutOffset, samplerID);
 		}
 	}
+	for (int i = 0; i < 4; ++i)
+		out[i] = Vec4S32::LoadAligned((const int *)texels[i]);
 }
 
 // LerpSpread of one channel in vector lanes.
@@ -788,13 +827,13 @@ static inline void SampleLinearLevel4LanesT(Vec4F32 s, Vec4F32 t, const u8 *tptr
 		out[0] = out[1] = out[2] = out[3] = Vec4S32::Zero();
 		return;
 	}
-	alignas(16) uint32_t texels[4][4];
+	Vec4S32 texels[4];
 	Vec4S32 fracU, fracV;
 	ReadTexels4T<fmt, swizzled, clutFmt>(s, t, tptr, bufw, level, samplerID, texels, fracU, fracV);
 	// Two channels per lane, R and B (G and A) as 16-bit halves: no lerp of 8-bit values exceeds 16 bits,
 	// so the halves don't carry into each other, and masking after each shift truncates both to 8 bits.
-	const Vec4S32 tl = Vec4S32::LoadAligned((const int *)texels[0]), tr = Vec4S32::LoadAligned((const int *)texels[1]);
-	const Vec4S32 bl = Vec4S32::LoadAligned((const int *)texels[2]), br = Vec4S32::LoadAligned((const int *)texels[3]);
+	const Vec4S32 tl = texels[0], tr = texels[1];
+	const Vec4S32 bl = texels[2], br = texels[3];
 	const Vec4S32 halves = Vec4S32::Splat(0x00FF00FF);
 	// The fractions in both halves, for MulHalves: no product exceeds 16 bits either.
 	const Vec4S32 sixteen = Vec4S32::Splat(0x00100010);

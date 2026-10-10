@@ -458,6 +458,20 @@ static bool TestVec4F32Loads() {
 		}
 	}
 
+	// Gather and GatherU8.
+	{
+		const int32_t table[8] = { 10, -20, 30, (int)0x80000001, 50, 60, 70, 80 };
+		const uint8_t bytes[8] = { 1, 255, 3, 128, 5, 6, 7, 8 };
+		const int indices[4] = { 3, 0, 7, 1 };
+		int gathered[4];
+		Vec4S32::Gather(table, Vec4S32::Load(indices)).Store(gathered);
+		for (int i = 0; i < 4; i++)
+			EXPECT_EQ_INT(gathered[i], table[indices[i]]);
+		Vec4S32::GatherU8(bytes, Vec4S32::Load(indices)).Store(gathered);
+		for (int i = 0; i < 4; i++)
+			EXPECT_EQ_INT(gathered[i], (int)bytes[indices[i]]);
+	}
+
 	// LoadS64Low: the low halves.
 	int iresult[4];
 	const int64_t wide[4] = { 0x123456789LL, -2, (int64_t)0x7FFFFFFF << 1, -0x100000000LL + 7 };

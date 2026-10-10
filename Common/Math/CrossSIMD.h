@@ -125,6 +125,21 @@ struct Vec4S32 {
 	static Vec4S32 LoadAligned(const int *src) { return Vec4S32{ _mm_load_si128((const __m128i *)src) }; }
 	// Four 16-bit values, zero extended.
 	static Vec4S32 LoadU16(const uint16_t *src) { return Vec4S32{ _mm_unpacklo_epi16(_mm_loadl_epi64((const __m128i *)src), _mm_setzero_si128()) }; }
+	// Lane i loaded from base[index[i]] (a gather: one load per lane), and the same from bytes, zero extended.
+	static Vec4S32 Gather(const int32_t *base, Vec4S32 index) {
+		alignas(16) int32_t i[4];
+		_mm_store_si128((__m128i *)i, index.v);
+		const __m128i ab = _mm_unpacklo_epi32(_mm_cvtsi32_si128(base[i[0]]), _mm_cvtsi32_si128(base[i[1]]));
+		const __m128i cd = _mm_unpacklo_epi32(_mm_cvtsi32_si128(base[i[2]]), _mm_cvtsi32_si128(base[i[3]]));
+		return Vec4S32{ _mm_unpacklo_epi64(ab, cd) };
+	}
+	static Vec4S32 GatherU8(const uint8_t *base, Vec4S32 index) {
+		alignas(16) int32_t i[4];
+		_mm_store_si128((__m128i *)i, index.v);
+		const __m128i ab = _mm_unpacklo_epi32(_mm_cvtsi32_si128(base[i[0]]), _mm_cvtsi32_si128(base[i[1]]));
+		const __m128i cd = _mm_unpacklo_epi32(_mm_cvtsi32_si128(base[i[2]]), _mm_cvtsi32_si128(base[i[3]]));
+		return Vec4S32{ _mm_unpacklo_epi64(ab, cd) };
+	}
 	// The low 32 bits of four 64-bit values.
 	static Vec4S32 LoadS64Low(const int64_t *src) {
 		const __m128 a = _mm_castsi128_ps(_mm_loadu_si128((const __m128i *)src));
@@ -633,6 +648,19 @@ struct Vec4S32 {
 	static Vec4S32 LoadAligned(const int *src) { return Vec4S32{ vld1q_s32(src) }; }
 	// Four 16-bit values, zero extended.
 	static Vec4S32 LoadU16(const uint16_t *src) { return Vec4S32{ vreinterpretq_s32_u32(vmovl_u16(vld1_u16(src))) }; }
+	// Lane i loaded from base[index[i]] (a gather: one load per lane), and the same from bytes, zero extended.
+	static Vec4S32 Gather(const int32_t *base, Vec4S32 index) {
+		int32x4_t v = vld1q_dup_s32(&base[vgetq_lane_s32(index.v, 0)]);
+		v = vld1q_lane_s32(&base[vgetq_lane_s32(index.v, 1)], v, 1);
+		v = vld1q_lane_s32(&base[vgetq_lane_s32(index.v, 2)], v, 2);
+		return Vec4S32{ vld1q_lane_s32(&base[vgetq_lane_s32(index.v, 3)], v, 3) };
+	}
+	static Vec4S32 GatherU8(const uint8_t *base, Vec4S32 index) {
+		int32x4_t v = vdupq_n_s32(base[vgetq_lane_s32(index.v, 0)]);
+		v = vsetq_lane_s32(base[vgetq_lane_s32(index.v, 1)], v, 1);
+		v = vsetq_lane_s32(base[vgetq_lane_s32(index.v, 2)], v, 2);
+		return Vec4S32{ vsetq_lane_s32(base[vgetq_lane_s32(index.v, 3)], v, 3) };
+	}
 	// The low 32 bits of four 64-bit values.
 	static Vec4S32 LoadS64Low(const int64_t *src) {
 		return Vec4S32{ vcombine_s32(vmovn_s64(vld1q_s64(src)), vmovn_s64(vld1q_s64(src + 2))) };
@@ -1202,6 +1230,19 @@ struct Vec4S32 {
 	static Vec4S32 LoadAligned(const int *src) { return Vec4S32{ __lsx_vld(src, 0) }; }
 	// Four 16-bit values, zero extended.
 	static Vec4S32 LoadU16(const uint16_t *src) { return Vec4S32{ __lsx_vilvl_h(__lsx_vldi(0), __lsx_vldrepl_d(src, 0)) }; }
+	// Lane i loaded from base[index[i]] (a gather: one load per lane), and the same from bytes, zero extended.
+	static Vec4S32 Gather(const int32_t *base, Vec4S32 index) {
+		__m128i v = __lsx_vreplgr2vr_w(base[__lsx_vpickve2gr_w(index.v, 0)]);
+		v = __lsx_vinsgr2vr_w(v, base[__lsx_vpickve2gr_w(index.v, 1)], 1);
+		v = __lsx_vinsgr2vr_w(v, base[__lsx_vpickve2gr_w(index.v, 2)], 2);
+		return Vec4S32{ __lsx_vinsgr2vr_w(v, base[__lsx_vpickve2gr_w(index.v, 3)], 3) };
+	}
+	static Vec4S32 GatherU8(const uint8_t *base, Vec4S32 index) {
+		__m128i v = __lsx_vreplgr2vr_w(base[__lsx_vpickve2gr_w(index.v, 0)]);
+		v = __lsx_vinsgr2vr_w(v, base[__lsx_vpickve2gr_w(index.v, 1)], 1);
+		v = __lsx_vinsgr2vr_w(v, base[__lsx_vpickve2gr_w(index.v, 2)], 2);
+		return Vec4S32{ __lsx_vinsgr2vr_w(v, base[__lsx_vpickve2gr_w(index.v, 3)], 3) };
+	}
 	// The low 32 bits of four 64-bit values.
 	static Vec4S32 LoadS64Low(const int64_t *src) {
 		return Vec4S32{ __lsx_vpickev_w(__lsx_vld(src + 2, 0), __lsx_vld(src, 0)) };
@@ -1691,6 +1732,13 @@ struct Vec4S32 {
 	static Vec4S32 LoadAligned(const int *src) { return Load(src); }
 	// Four 16-bit values, zero extended.
 	static Vec4S32 LoadU16(const uint16_t *src) { return Vec4S32{ { src[0], src[1], src[2], src[3] } }; }
+	// Lane i loaded from base[index[i]] (a gather: one load per lane), and the same from bytes, zero extended.
+	static Vec4S32 Gather(const int32_t *base, Vec4S32 index) {
+		return Vec4S32{ { base[index.v[0]], base[index.v[1]], base[index.v[2]], base[index.v[3]] } };
+	}
+	static Vec4S32 GatherU8(const uint8_t *base, Vec4S32 index) {
+		return Vec4S32{ { base[index.v[0]], base[index.v[1]], base[index.v[2]], base[index.v[3]] } };
+	}
 	// The low 32 bits of four 64-bit values.
 	static Vec4S32 LoadS64Low(const int64_t *src) { return Vec4S32{ { (int32_t)src[0], (int32_t)src[1], (int32_t)src[2], (int32_t)src[3] } }; }
 	// Four pairs of 32-bit values: lo gets each pair's first, hi its second.
