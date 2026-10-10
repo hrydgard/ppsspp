@@ -729,13 +729,22 @@ float GELightPow(float v, float e);
 // 8-bit product x = ((2l + 1) * (2m + 1)) >> 10, and each factor (N.L or the specular power, then the
 // attenuation and spot) becomes an 8-bit s = floor(256 * f), 0 for a negative f, that is expanded like a color:
 // ((2x + 1) * (2s + 1)) >> 10. A factor of 1 (s = 256) leaves x as it is.
+// a * b for values below 2^15, as the light color factors are: with Mul16, since SSE2 has no 32-bit lane multiply.
+inline Vec4<int> MulSmall(const Vec4<int> &a, const Vec4<int> &b) {
+#if defined(_M_SSE) || PPSSPP_ARCH(ARM_NEON)
+	return Vec4<int>(Vec4S32{ a.ivec }.Mul16(Vec4S32{ b.ivec }).v);
+#else
+	return a * b;
+#endif
+}
+
 inline Vec4<int> GELightColorProduct(const Vec4<int> &lightFactor, const Vec4<int> &materialFactor) {
-	return (lightFactor * materialFactor) >> 10;
+	return MulSmall(lightFactor, materialFactor) >> 10;
 }
 
 inline Vec4<int> GELightColorScale(const Vec4<int> &x, float f) {
 	const int s = std::clamp((int)(256.0f * f), 0, 256);
-	return ((x * 2 + Vec4<int>::AssignToAll(1)) * (2 * s + 1)) >> 10;
+	return MulSmall(x + x + Vec4<int>::AssignToAll(1), Vec4<int>::AssignToAll(2 * s + 1)) >> 10;
 }
 
 // The alpha of pixel (px, py) of an antialiased line between two points in screen subpixels (gpu/probe
