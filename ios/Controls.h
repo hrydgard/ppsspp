@@ -1,12 +1,10 @@
 #pragma once
 
-#include <map>
 #include <string_view>
 
 #import <GameController/GameController.h>
 #import <CoreMotion/CoreMotion.h>
 
-#include "iCade/iCadeState.h"
 #include "Common/Input/InputState.h"
 
 // Code extracted from ViewController.mm, in order to modularize
@@ -25,22 +23,6 @@ private:
 	void SendTouchEvent(CGPoint point, UIView *view, int code, int pointerId);
 	int ToTouchID(UITouch *uiTouch, bool allowAllocate);
 	UITouch *touches_[10]{};
-};
-
-// Can probably get rid of this, but let's keep it for now.
-struct ICadeTracker {
-public:
-	void ButtonDown(iCadeState button);
-	void ButtonUp(iCadeState button);
-	void InitKeyMap();
-private:
-	bool simulateAnalog = false;
-	bool iCadeConnectNotified = false;
-
-	std::map<uint16_t, InputKeyCode> iCadeToKeyMap;
-
-	double lastSelectPress = 0.0f;
-	double lastStartPress = 0.0f;
 };
 
 void ProcessAccelerometerData(CMAccelerometerData *accData);

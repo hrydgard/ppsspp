@@ -138,11 +138,6 @@ PPSSPPBaseViewController *sharedViewController;
 		ERROR_LOG(Log::G3D, "InitSurface failed: %s", errorMessage.c_str());
 	}
 
-	/*self.iCadeView = [[iCadeReaderView alloc] init];
-	[self.view addSubview:self.iCadeView];
-	self.iCadeView.delegate = self;
-	self.iCadeView.active = YES;*/
-
 	if ([[GCController controllers] count] > 0) {
 		[self setupController:[[GCController controllers] firstObject]];
 	}

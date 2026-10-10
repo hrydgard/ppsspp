@@ -3,7 +3,6 @@
 #import <UIKit/UIKit.h>
 #import <GLKit/GLKit.h>
 
-#import "iCade/iCadeReaderView.h"
 #import "LocationHelper.h"
 
 #import "ViewControllerCommon.h"

@@ -50,9 +50,6 @@
     <Filter Include="Build\Actions">
       <UniqueIdentifier>{14abd855-ec8b-47a5-8b4c-eadcff122dc8}</UniqueIdentifier>
     </Filter>
-    <Filter Include="Other Platforms\iOS\iCade">
-      <UniqueIdentifier>{ce617e38-1bc8-4eab-a3cb-d3d664116c91}</UniqueIdentifier>
-    </Filter>
     <Filter Include="Build\CMake">
       <UniqueIdentifier>{8f39c005-9738-41c5-a8d8-cfc05bf178e8}</UniqueIdentifier>
     </Filter>
@@ -487,12 +484,6 @@
     <ClInclude Include="..\libretro\retro_inline.h">
       <Filter>Other Platforms\libretro</Filter>
     </ClInclude>
-    <ClInclude Include="..\ios\iCade\iCadeState.h">
-      <Filter>Other Platforms\iOS\iCade</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ios\iCade\iCadeReaderView.h">
-      <Filter>Other Platforms\iOS\iCade</Filter>
-    </ClInclude>
     <ClInclude Include="W32Util\DarkMode.h">
       <Filter>Windows\W32Util</Filter>
     </ClInclude>
@@ -697,9 +688,6 @@
     </None>
     <None Include="..\ios\README.md">
       <Filter>Other Platforms\iOS</Filter>
-    </None>
-    <None Include="..\ios\iCade\iCadeReaderView.m">
-      <Filter>Other Platforms\iOS\iCade</Filter>
     </None>
     <None Include="..\cmake\Modules\FindMINIUPNPC.cmake">
       <Filter>Build\CMake</Filter>
