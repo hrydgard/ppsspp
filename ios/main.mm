@@ -452,11 +452,14 @@ void System_Notify(SystemNotification notification) {
 		});
 		break;
 	case SystemNotification::ROTATE_UPDATED:
-	    dispatch_async(dispatch_get_main_queue(), ^{
+		dispatch_async(dispatch_get_main_queue(), ^{
 			if (sharedViewController) {
-				// [sharedViewController setNeedsUpdateOfSupportedInterfaceOrientations];
 				INFO_LOG(Log::System, "Requesting device orientation update");
-				[UIViewController attemptRotationToDeviceOrientation];
+				if (@available(iOS 16.0, *)) {
+					[sharedViewController setNeedsUpdateOfSupportedInterfaceOrientations];
+				} else {
+					[UIViewController attemptRotationToDeviceOrientation];
+				}
 			}
 		});
 		break;

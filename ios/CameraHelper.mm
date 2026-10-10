@@ -14,9 +14,21 @@
 
 @implementation CameraHelper
 
+static NSArray<AVCaptureDevice *> *GetVideoDevices() {
+    NSArray<AVCaptureDeviceType> *types = @[
+        AVCaptureDeviceTypeBuiltInWideAngleCamera,
+        AVCaptureDeviceTypeBuiltInUltraWideCamera,
+        AVCaptureDeviceTypeBuiltInTelephotoCamera,
+        AVCaptureDeviceTypeBuiltInTrueDepthCamera,
+    ];
+    return [AVCaptureDeviceDiscoverySession discoverySessionWithDeviceTypes:types
+                                                                  mediaType:AVMediaTypeVideo
+                                                                   position:AVCaptureDevicePositionUnspecified].devices;
+}
+
 std::vector<std::string> System_GetCameraDeviceList() {
     std::vector<std::string> deviceList;
-    for (AVCaptureDevice *device in [AVCaptureDevice devicesWithMediaType:AVMediaTypeVideo]) {
+    for (AVCaptureDevice *device in GetVideoDevices()) {
         deviceList.push_back([device.localizedName UTF8String]);
     }
     return deviceList;
@@ -76,7 +88,7 @@ NSString *getSelectedCamera() {
 
         AVCaptureDeviceInput *videoInput = nil;
         NSString *selectedCamera = getSelectedCamera();
-        for (AVCaptureDevice *device in [AVCaptureDevice devicesWithMediaType:AVMediaTypeVideo]) {
+        for (AVCaptureDevice *device in GetVideoDevices()) {
             if ([device.localizedName isEqualToString:selectedCamera]) {
                 videoInput = [AVCaptureDeviceInput deviceInputWithDevice:device error:&error];
             }

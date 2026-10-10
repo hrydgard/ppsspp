@@ -32,6 +32,7 @@
 #if __has_include(<UIKit/UIKit.h>)
 #include "../ios/ViewControllerCommon.h"
 #include <UIKit/UIKit.h>
+#include <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 
 @interface DocumentPickerDelegate : NSObject <UIDocumentPickerDelegate>
 @property DarwinDirectoryPanelCallback panelCallback;
@@ -279,27 +280,28 @@ void DarwinFileSystemServices::presentDirectoryPanel(
 			panelCallback(false, Path());
 		}
 #elif PPSSPP_PLATFORM(IOS)
-		UIViewController *rootViewController = UIApplication.sharedApplication
-			.keyWindow
-			.rootViewController;
-
-		// get current window view controller
+		// The window's root view controller.
+		UIViewController *rootViewController = sharedViewController;
 		if (!rootViewController)
 			return;
 
-		NSMutableArray<NSString *> *types = [NSMutableArray array];
-		UIDocumentPickerMode pickerMode = UIDocumentPickerModeOpen;
-
-		if (allowDirectories)
-			[types addObject: (__bridge NSString *)kUTTypeFolder];
-		if (allowFiles) {
-			[types addObject: (__bridge NSString *)kUTTypeItem];
-			// NOTE: We do not want to copy files here - we handle it ourselves if needed.
-			// Previously this was Import mode.
-			pickerMode = UIDocumentPickerModeOpen;
+		// Open, not import - we don't want the files copied, we handle that ourselves if needed.
+		UIDocumentPickerViewController *pickerVC;
+		if (@available(iOS 14.0, *)) {
+			NSMutableArray<UTType *> *types = [NSMutableArray array];
+			if (allowDirectories)
+				[types addObject:UTTypeFolder];
+			if (allowFiles)
+				[types addObject:UTTypeItem];
+			pickerVC = [[UIDocumentPickerViewController alloc] initForOpeningContentTypes:types];
+		} else {
+			NSMutableArray<NSString *> *types = [NSMutableArray array];
+			if (allowDirectories)
+				[types addObject:(__bridge NSString *)kUTTypeFolder];
+			if (allowFiles)
+				[types addObject:(__bridge NSString *)kUTTypeItem];
+			pickerVC = [[UIDocumentPickerViewController alloc] initWithDocumentTypes:types inMode:UIDocumentPickerModeOpen];
 		}
-
-		UIDocumentPickerViewController *pickerVC = [[UIDocumentPickerViewController alloc] initWithDocumentTypes: types inMode: pickerMode];
 		// What if you wanted to go to heaven, but then God showed you the next few lines?
 		// serious note: have to do this, because __pickerDelegate has to stay retained as a class property
 		__pickerDelegate = (void *)CFBridgingRetain([[DocumentPickerDelegate alloc] initWithCallback:panelCallback]);

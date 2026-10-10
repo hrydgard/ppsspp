@@ -234,7 +234,7 @@ static std::vector<std::string> GatherGameLibrary() {
 		return UIInterfaceOrientationMaskLandscapeRight;
 	case ROTATION_LOCKED_VERTICAL:
 	case ROTATION_LOCKED_VERTICAL180:
-		if (UI_USER_INTERFACE_IDIOM() == UIUserInterfaceIdiomPad) {
+		if (IS_IPAD()) {
 			// iPad supports both portrait orientations, so allow them.
 			return UIInterfaceOrientationMaskPortrait | UIInterfaceOrientationMaskPortraitUpsideDown;
 		}
