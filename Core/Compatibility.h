@@ -121,6 +121,7 @@ struct CompatFlags {
 	bool TextureCLUTInShader;
 	bool DisableRangeCulling;
 	bool BlockTransferReadbackSmall;
+	bool DepthCLUTIntoHalves;
 };
 
 struct VRCompat {
