@@ -989,16 +989,64 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		Log.i(TAG, "onDestroy end");
 	}
 
+	// Emulation, audio and input follow visibility (onStart/onStop) rather than focus (onPause/onResume): a
+	// permission dialog on top, or the other app of a split screen having focus, leaves the game on screen,
+	// and it should keep running and playing. The render loop is really owned by the surface (notifySurface),
+	// which normally goes away with the visibility anyway.
 	@Override
 	protected void onStart() {
 		super.onStart();
-		Log.i(TAG, "onStart");
+		if (m_hasNoNativeBinary) {
+			return;
+		}
+		Log.i(TAG, "onStart begin");
+
+		if (mLocationHelper != null) {
+			mLocationHelper.resume();
+		}
+
+		updateAudioFocus(this.audioManager, this.audioFocusChangeListener);
+		NativeApp.resume();
+		mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_GAME);
+
+		InputManager inputManager = (InputManager)getSystemService(Context.INPUT_SERVICE);
+		inputManager.registerInputDeviceListener(inputDeviceListener, null);
+
+		// In case the surface outlived the stop. Otherwise this waits for surfaceCreated.
+		startRenderLoopThread();
+		Log.i(TAG, "onStart end");
 	}
 
 	@Override
 	protected void onStop() {
 		super.onStop();
-		Log.i(TAG, "onStop");
+		if (m_hasNoNativeBinary) {
+			return;
+		}
+		Log.i(TAG, "onStop begin");
+
+		InputManager inputManager = (InputManager)getSystemService(Context.INPUT_SERVICE);
+		inputManager.unregisterInputDeviceListener(inputDeviceListener);
+
+		// Normally surfaceDestroyed has done this already, but not every device destroys the surface of a
+		// stopped activity, and an invisible game shouldn't keep running.
+		Log.i(TAG, "Joining render thread...");
+		joinRenderLoopThread();
+		Log.i(TAG, "Joined render thread");
+
+		mSensorManager.unregisterListener(this);
+		loseAudioFocus(this.audioManager, this.audioFocusChangeListener);
+
+		// After a finish() and a quick relaunch, this comes after the new activity's onStart, and the audio and
+		// the location updates are its now.
+		if (instance == latestInstance) {
+			Log.i(TAG, "Calling NativeApp.pause...");
+			NativeApp.pause();
+			if (mLocationHelper != null) {
+				mLocationHelper.pause();
+			}
+		}
+		Log.i(TAG, "onStop end");
 	}
 
 	@Override
@@ -1008,26 +1056,16 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			return;
 		}
 		Log.i(TAG, "onPause begin");
-
-		InputManager inputManager = (InputManager)getSystemService(Context.INPUT_SERVICE);
-		inputManager.unregisterInputDeviceListener(inputDeviceListener);
-
-		Log.i(TAG, "Joining render thread...");
-		joinRenderLoopThread();
-		Log.i(TAG, "Joined render thread");
-
-		Log.i(TAG, "mSensorManager.unregisterListener...");
-		mSensorManager.unregisterListener(this);
-
-		loseAudioFocus(this.audioManager, this.audioFocusChangeListener);
-		Log.i(TAG, "Calling NativeApp.pause...");
-		NativeApp.pause();
+		if (isFinishing()) {
+			// Gone for good. A quick relaunch creates the next activity before this one's onStop, and the
+			// render thread has to be free for it by then.
+			Log.i(TAG, "Finishing, joining render thread...");
+			joinRenderLoopThread();
+		}
+		// The camera goes to whichever app has focus.
 		if (mCameraHelper != null) {
 			Log.i(TAG, "Calling mCameraHelper.pause");
 			mCameraHelper.pause();
-		}
-		if (mLocationHelper != null) {
-			mLocationHelper.pause();
 		}
 		Log.i(TAG, "onPause end");
 	}
@@ -1049,20 +1087,6 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		if (mCameraHelper != null) {
 			mCameraHelper.resume();
 		}
-		if (mLocationHelper != null) {
-			mLocationHelper.resume();
-		}
-
-		updateAudioFocus(this.audioManager, this.audioFocusChangeListener);
-		NativeApp.resume();
-		mSensorManager.registerListener(this, mAccelerometer, SensorManager.SENSOR_DELAY_GAME);
-
-		InputManager inputManager =
-			(InputManager)getSystemService(Context.INPUT_SERVICE);
-		inputManager.registerInputDeviceListener(inputDeviceListener, null);
-
-		// Restart the render loop.
-		startRenderLoopThread();
 		Log.i(TAG, "onResume end");
 	}
 
