@@ -125,6 +125,20 @@ struct Vec4S32 {
 	static Vec4S32 LoadAligned(const int *src) { return Vec4S32{ _mm_load_si128((const __m128i *)src) }; }
 	// Four 16-bit values, zero extended.
 	static Vec4S32 LoadU16(const uint16_t *src) { return Vec4S32{ _mm_unpacklo_epi16(_mm_loadl_epi64((const __m128i *)src), _mm_setzero_si128()) }; }
+	// The low 32 bits of four 64-bit values.
+	static Vec4S32 LoadS64Low(const int64_t *src) {
+		const __m128 a = _mm_castsi128_ps(_mm_loadu_si128((const __m128i *)src));
+		const __m128 b = _mm_castsi128_ps(_mm_loadu_si128((const __m128i *)(src + 2)));
+		return Vec4S32{ _mm_castps_si128(_mm_shuffle_ps(a, b, _MM_SHUFFLE(2, 0, 2, 0))) };
+	}
+	// Four pairs of 32-bit values: lo gets each pair's first, hi its second.
+	static void LoadPairs(const int32_t *p0, const int32_t *p1, const int32_t *p2, const int32_t *p3, Vec4S32 &lo, Vec4S32 &hi) {
+		const __m128 p01 = _mm_castsi128_ps(_mm_unpacklo_epi64(_mm_loadl_epi64((const __m128i *)p0), _mm_loadl_epi64((const __m128i *)p1)));
+		const __m128 p23 = _mm_castsi128_ps(_mm_unpacklo_epi64(_mm_loadl_epi64((const __m128i *)p2), _mm_loadl_epi64((const __m128i *)p3)));
+		lo.v = _mm_castps_si128(_mm_shuffle_ps(p01, p23, _MM_SHUFFLE(2, 0, 2, 0)));
+		hi.v = _mm_castps_si128(_mm_shuffle_ps(p01, p23, _MM_SHUFFLE(3, 1, 3, 1)));
+	}
+
 	void Store(int *dst) { _mm_storeu_si128((__m128i *)dst, v); }
 	void Store2(int *dst) { _mm_storel_epi64((__m128i *)dst, v); }
 	void StoreAligned(int *dst) { _mm_store_si128((__m128i *)dst, v);}
@@ -616,6 +630,17 @@ struct Vec4S32 {
 	static Vec4S32 LoadAligned(const int *src) { return Vec4S32{ vld1q_s32(src) }; }
 	// Four 16-bit values, zero extended.
 	static Vec4S32 LoadU16(const uint16_t *src) { return Vec4S32{ vreinterpretq_s32_u32(vmovl_u16(vld1_u16(src))) }; }
+	// The low 32 bits of four 64-bit values.
+	static Vec4S32 LoadS64Low(const int64_t *src) {
+		return Vec4S32{ vcombine_s32(vmovn_s64(vld1q_s64(src)), vmovn_s64(vld1q_s64(src + 2))) };
+	}
+	// Four pairs of 32-bit values: lo gets each pair's first, hi its second.
+	static void LoadPairs(const int32_t *p0, const int32_t *p1, const int32_t *p2, const int32_t *p3, Vec4S32 &lo, Vec4S32 &hi) {
+		const int32x4x2_t uz = vuzpq_s32(vcombine_s32(vld1_s32(p0), vld1_s32(p1)), vcombine_s32(vld1_s32(p2), vld1_s32(p3)));
+		lo.v = uz.val[0];
+		hi.v = uz.val[1];
+	}
+
 	void Store(int *dst) { vst1q_s32(dst, v); }
 	void Store2(int *dst) { vst1_s32(dst, vget_low_s32(v)); }
 	void StoreAligned(int *dst) { vst1q_s32(dst, v); }
@@ -1171,6 +1196,18 @@ struct Vec4S32 {
 	static Vec4S32 LoadAligned(const int *src) { return Vec4S32{ __lsx_vld(src, 0) }; }
 	// Four 16-bit values, zero extended.
 	static Vec4S32 LoadU16(const uint16_t *src) { return Vec4S32{ __lsx_vilvl_h(__lsx_vldi(0), __lsx_vldrepl_d(src, 0)) }; }
+	// The low 32 bits of four 64-bit values.
+	static Vec4S32 LoadS64Low(const int64_t *src) {
+		return Vec4S32{ __lsx_vpickev_w(__lsx_vld(src + 2, 0), __lsx_vld(src, 0)) };
+	}
+	// Four pairs of 32-bit values: lo gets each pair's first, hi its second.
+	static void LoadPairs(const int32_t *p0, const int32_t *p1, const int32_t *p2, const int32_t *p3, Vec4S32 &lo, Vec4S32 &hi) {
+		const __m128i p01 = __lsx_vilvl_d(__lsx_vldrepl_d(p1, 0), __lsx_vldrepl_d(p0, 0));
+		const __m128i p23 = __lsx_vilvl_d(__lsx_vldrepl_d(p3, 0), __lsx_vldrepl_d(p2, 0));
+		lo.v = __lsx_vpickev_w(p23, p01);
+		hi.v = __lsx_vpickod_w(p23, p01);
+	}
+
 	void Store(int *dst) { __lsx_vst(v, dst, 0); }
 	void Store2(int *dst) { __lsx_vstelm_d(v, dst, 0, 0); }
 	void StoreAligned(int *dst) { __lsx_vst(v, dst, 0); }
@@ -1645,6 +1682,14 @@ struct Vec4S32 {
 	static Vec4S32 LoadAligned(const int *src) { return Load(src); }
 	// Four 16-bit values, zero extended.
 	static Vec4S32 LoadU16(const uint16_t *src) { return Vec4S32{ { src[0], src[1], src[2], src[3] } }; }
+	// The low 32 bits of four 64-bit values.
+	static Vec4S32 LoadS64Low(const int64_t *src) { return Vec4S32{ { (int32_t)src[0], (int32_t)src[1], (int32_t)src[2], (int32_t)src[3] } }; }
+	// Four pairs of 32-bit values: lo gets each pair's first, hi its second.
+	static void LoadPairs(const int32_t *p0, const int32_t *p1, const int32_t *p2, const int32_t *p3, Vec4S32 &lo, Vec4S32 &hi) {
+		lo = Vec4S32{ { p0[0], p1[0], p2[0], p3[0] } };
+		hi = Vec4S32{ { p0[1], p1[1], p2[1], p3[1] } };
+	}
+
 	void Store(int *dst) { memcpy(dst, v, sizeof(v)); }
 	void Store2(int *dst) { memcpy(dst, v, sizeof(v[0]) * 2); }
 	void StoreAligned(int *dst) { memcpy(dst, v, sizeof(v)); }

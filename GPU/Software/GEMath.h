@@ -495,15 +495,14 @@ inline bool GEUVSpanCore(Vec4S32 qv, Vec4S32 sv, Vec4S32 tv, int expQ, int expS,
 	const Vec4S32 qe = (qb & expMask).Shr<23>() - Vec4S32::Splat(127);
 	if constexpr (check)
 		bad = bad | qe.CompareGt(Vec4S32::Splat(125));
-	alignas(16) int32_t qbits[4], segB[4], segM[4];
+	alignas(16) int32_t qbits[4];
 	Vec4S32(qb).Store(qbits);
-	for (int i = 0; i < 4; ++i) {
-		const GERecipSegment &seg = geRecipSegments[(qbits[i] >> 16) & 0x7F];
-		segB[i] = seg.b;
-		segM[i] = seg.m;
-	}
+	// Gathered in registers: stored to an array one by one and loaded as a vector, they'd stall.
+	Vec4S32 segB, segM;
+	auto seg = [&](int i) { return &geRecipSegments[(qbits[i] >> 16) & 0x7F].b; };
+	Vec4S32::LoadPairs(seg(0), seg(1), seg(2), seg(3), segB, segM);
 	const Vec4S32 qi = qb.Shr<8>() & Vec4S32::Splat(0xFF);
-	const Vec4S32 recip = (Vec4S32::Load(segB).Shl<6>() + Vec4S32::Splat(63) + Vec4S32::Load(segM).Mul(qi)).Shr<7>();
+	const Vec4S32 recip = (segB.Shl<6>() + Vec4S32::Splat(63) + segM.Mul(qi)).Shr<7>();
 	const Vec4S32 rb = Vec4S32FromBits(Vec4F32FromS32(recip)) - (Vec4S32::Splat(16) + qe).Shl<23>();
 
 	// GEUVProduct(x * r): the 16-bit significands' product, cut to 24 bits.
@@ -545,15 +544,12 @@ inline bool GEUVSpanCore(Vec4S32 qv, Vec4S32 sv, Vec4S32 tv, int expQ, int expS,
 
 // From 64-bit plane values, checked.
 inline bool GEUVSpan(const int64_t qs[4], const int64_t ss[4], const int64_t ts[4], int expQ, int expS, int expT, float *s, float *t, float *q) {
-	alignas(16) int32_t vals[3][4];
 	for (int i = 0; i < 4; ++i) {
 		if (qs[i] <= -(1 << 24) || qs[i] >= (1 << 24) || ss[i] <= -(1 << 24) || ss[i] >= (1 << 24) || ts[i] <= -(1 << 24) || ts[i] >= (1 << 24))
 			return false;
-		vals[0][i] = (int32_t)qs[i];
-		vals[1][i] = (int32_t)ss[i];
-		vals[2][i] = (int32_t)ts[i];
 	}
-	return GEUVSpanCore<true>(Vec4S32::Load(vals[0]), Vec4S32::Load(vals[1]), Vec4S32::Load(vals[2]), expQ, expS, expT, s, t, q);
+	// Picked in registers: storing them one by one and loading them as a vector stalls.
+	return GEUVSpanCore<true>(Vec4S32::LoadS64Low(qs), Vec4S32::LoadS64Low(ss), Vec4S32::LoadS64Low(ts), expQ, expS, expT, s, t, q);
 }
 
 // Whether GEUVSpanCore<false> covers any values below 2^24 with these plane exponents: the float24s, the

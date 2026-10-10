@@ -437,6 +437,33 @@ static bool TestVec4F32NaNInf() {
 static bool TestVec4F32Loads() {
 	float result[4];
 
+	// Load3One: three floats, lane 3 1.0f.
+	const float xyz[3] = { -1.5f, 2.0f, 1e20f };
+	Vec4F32::Load3One(xyz).Store(result);
+	EXPECT_EQ_FLOAT(result[0], -1.5f);
+	EXPECT_EQ_FLOAT(result[1], 2.0f);
+	EXPECT_EQ_FLOAT(result[2], 1e20f);
+	EXPECT_EQ_FLOAT(result[3], 1.0f);
+
+	// LoadS64Low: the low halves.
+	int iresult[4];
+	const int64_t wide[4] = { 0x123456789LL, -2, (int64_t)0x7FFFFFFF << 1, -0x100000000LL + 7 };
+	Vec4S32::LoadS64Low(wide).Store(iresult);
+	for (int i = 0; i < 4; i++)
+		EXPECT_EQ_INT(iresult[i], (int32_t)(uint32_t)(uint64_t)wide[i]);
+
+	// LoadPairs: firsts and seconds.
+	const int32_t pairs[8] = { 1, -1, 2, -2, 3, -3, 4, -4 };
+	Vec4S32 firsts, seconds;
+	Vec4S32::LoadPairs(pairs + 6, pairs, pairs + 4, pairs + 2, firsts, seconds);
+	const int32_t expectedFirsts[4] = { 4, 1, 3, 2 };
+	firsts.Store(iresult);
+	for (int i = 0; i < 4; i++)
+		EXPECT_EQ_INT(iresult[i], expectedFirsts[i]);
+	seconds.Store(iresult);
+	for (int i = 0; i < 4; i++)
+		EXPECT_EQ_INT(iresult[i], -expectedFirsts[i]);
+
 	// LoadF24x3_One: three 24-bit values shifted up into floats, lane 3 forced to 1.0f.
 	const uint32_t f24_values[4] = { 0x3F8000 >> 0, 0x400000, 0x3F0000, 0x123456 };
 	Vec4F32::LoadF24x3_One(f24_values).Store(result);
