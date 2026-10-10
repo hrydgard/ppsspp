@@ -956,9 +956,11 @@ void SoftGPU::Execute_Prim(u32 op, u32 diff) {
 		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 	}
 
-	cyclesExecuted += EstimatePerVertexCost() * count;
 	if (gstate.isModeThrough()) {
 		cyclesExecuted += EstimateFillCycles(prim, verts, indices, count, drawEngine_->FindVertexDecoder(vertType), vertType);
+	}
+	if (!PSP_CoreParameter().compat.flags().FastEmulatedGPU) {
+		cyclesExecuted += EstimatePerVertexCost() * count;
 	}
 	int bytesRead;
 	drawEngine_->transformUnit.SetDirty(dirtyFlags_);
