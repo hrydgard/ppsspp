@@ -906,12 +906,31 @@ static inline __m128i SOFTRAST_CALL TriangleEdgeStartSSE4(__m128i initX, __m128i
 }
 #endif
 
+// A Vec4<int> loaded as one vector: its four value constructor stores them one by one, and loading them as
+// a vector then stalls.
+static inline Vec4<int> LoadVec4Int(const int v[4]) {
+#if defined(_M_SSE) || PPSSPP_ARCH(ARM_NEON)
+	return Vec4<int>(Vec4S32::LoadAligned(v).v);
+#else
+	return Vec4<int>(v);
+#endif
+}
+
+// {0, d, 2d, 3d}, without a stack array or a 32-bit multiply.
+static inline Vec4S32 RampLanes(int d) {
+	alignas(16) static const int odd[4] = { 0, -1, 0, -1 };
+	alignas(16) static const int high[4] = { 0, 0, -1, -1 };
+	const Vec4S32 dv = Vec4S32::Splat(d);
+	return (dv & Vec4S32::LoadAligned(odd)) + (dv.Shl<1>() & Vec4S32::LoadAligned(high));
+}
+
 template <bool useSSE4>
 Vec4<int> TriangleEdge<useSSE4>::Start(const ScreenCoords &v0, const ScreenCoords &v1, const ScreenCoords &origin) {
 	// Start at pixel centers. The GE samples exactly there, with left and top edges inclusive (gpu/probe).
 	// Four pixels in a row.
 	static constexpr int centerOff = SCREEN_SCALE_FACTOR / 2;
-	Vec4<int> initX = Vec4<int>::AssignToAll(origin.x) + Vec4<int>(centerOff, centerOff + SCREEN_SCALE_FACTOR, centerOff + SCREEN_SCALE_FACTOR * 2, centerOff + SCREEN_SCALE_FACTOR * 3);
+	alignas(16) static const int centers[4] = { centerOff, centerOff + SCREEN_SCALE_FACTOR, centerOff + SCREEN_SCALE_FACTOR * 2, centerOff + SCREEN_SCALE_FACTOR * 3 };
+	Vec4<int> initX = Vec4<int>::AssignToAll(origin.x) + LoadVec4Int(centers);
 	Vec4<int> initY = Vec4<int>::AssignToAll(origin.y + centerOff);
 
 	// orient2d refactored.
@@ -1458,9 +1477,7 @@ void DrawTriangleSlice(
 		};
 		uvFast = fits(uvPlanes.q) && fits(uvPlanes.s) && fits(uvPlanes.t);
 		auto ramp = [](const DepthPlane &plane) {
-			const int dx = (int)(plane.kx * SCREEN_SCALE_FACTOR);
-			alignas(16) const int steps[4] = { 0, dx, 2 * dx, 3 * dx };
-			return Vec4S32::Load(steps);
+			return RampLanes((int)(plane.kx * SCREEN_SCALE_FACTOR));
 		};
 		if (uvFast) {
 			qRamp = ramp(uvPlanes.q);
@@ -2034,9 +2051,7 @@ void DrawRectangle(const VertexData &v0, const VertexData &v1, const BinCoords &
 			};
 			uvFast = fits(uvPlanes.q) && fits(uvPlanes.s) && fits(uvPlanes.t);
 			auto ramp = [](const DepthPlane &plane) {
-				const int dx = (int)(plane.kx * SCREEN_SCALE_FACTOR);
-				alignas(16) const int steps[4] = { 0, dx, 2 * dx, 3 * dx };
-				return Vec4S32::Load(steps);
+				return RampLanes((int)(plane.kx * SCREEN_SCALE_FACTOR));
 			};
 			if (uvFast) {
 				qRamp = ramp(uvPlanes.q);
