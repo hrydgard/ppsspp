@@ -529,8 +529,22 @@ void BinManager::AddTriangle(const VertexData &v0, const VertexData &v1, const V
 	if (queue_.Full())
 		MakeRoom();
 	AddFlags([&](RasterizerState *state) { CalculateRasterStateFlags(state, v0, v1, v2); });
-	queue_.Push(BinItem{ BinItemType::TRIANGLE, stateIndex_, range, v0, v1, v2 });
+	PushItem(BinItemType::TRIANGLE, range, v0, &v1, &v2);
 	ItemQueued();
+}
+
+// Built in place: a copy of one built on the stack reloads it with wider loads than it was stored with.
+void BinManager::PushItem(BinItemType type, const BinCoords &range, const VertexData &v0, const VertexData *v1, const VertexData *v2) {
+	BinItem &item = queue_.PeekPush();
+	item.type = type;
+	item.stateIndex = stateIndex_;
+	item.range = range;
+	item.v0 = v0;
+	if (v1)
+		item.v1 = *v1;
+	if (v2)
+		item.v2 = *v2;
+	queue_.PushPeeked();
 }
 
 void BinManager::AddClearRect(const VertexData &v0, const VertexData &v1) {
@@ -541,7 +555,7 @@ void BinManager::AddClearRect(const VertexData &v0, const VertexData &v1) {
 	if (queue_.Full())
 		MakeRoom();
 	AddFlags([&](RasterizerState *state) { CalculateRasterStateFlags(state, v0, v1, true); });
-	queue_.Push(BinItem{ BinItemType::CLEAR_RECT, stateIndex_, range, v0, v1 });
+	PushItem(BinItemType::CLEAR_RECT, range, v0, &v1);
 	ItemQueued();
 }
 
@@ -553,7 +567,7 @@ void BinManager::AddRect(const VertexData &v0, const VertexData &v1) {
 	if (queue_.Full())
 		MakeRoom();
 	AddFlags([&](RasterizerState *state) { CalculateRasterStateFlags(state, v0, v1, true); });
-	queue_.Push(BinItem{ BinItemType::RECT, stateIndex_, range, v0, v1 });
+	PushItem(BinItemType::RECT, range, v0, &v1);
 	ItemQueued();
 }
 
@@ -565,7 +579,7 @@ void BinManager::AddSprite(const VertexData &v0, const VertexData &v1) {
 	if (queue_.Full())
 		MakeRoom();
 	AddFlags([&](RasterizerState *state) { CalculateRasterStateFlags(state, v0, v1, true); });
-	queue_.Push(BinItem{ BinItemType::SPRITE, stateIndex_, range, v0, v1 });
+	PushItem(BinItemType::SPRITE, range, v0, &v1);
 	ItemQueued();
 }
 
@@ -577,7 +591,7 @@ void BinManager::AddLine(const VertexData &v0, const VertexData &v1) {
 	if (queue_.Full())
 		MakeRoom();
 	AddFlags([&](RasterizerState *state) { CalculateRasterStateFlags(state, v0, v1, false); });
-	queue_.Push(BinItem{ BinItemType::LINE, stateIndex_, range, v0, v1 });
+	PushItem(BinItemType::LINE, range, v0, &v1);
 	ItemQueued();
 }
 
@@ -589,7 +603,7 @@ void BinManager::AddPoint(const VertexData &v0) {
 	if (queue_.Full())
 		MakeRoom();
 	AddFlags([&](RasterizerState *state) { CalculateRasterStateFlags(state, v0); });
-	queue_.Push(BinItem{ BinItemType::POINT, stateIndex_, range, v0 });
+	PushItem(BinItemType::POINT, range, v0);
 	ItemQueued();
 }
 

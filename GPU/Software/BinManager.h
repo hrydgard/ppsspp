@@ -169,9 +169,11 @@ struct BinQueue {
 	}
 
 	T *items_ = nullptr;
-	std::atomic<size_t> head_;
-	std::atomic<size_t> tail_ ;
-	std::atomic<size_t> size_;
+	// Only the emulation thread uses these: the drawing threads read items, which the tiles publish. Locked
+	// increments were a fifth of AddTriangle's time.
+	size_t head_;
+	size_t tail_;
+	size_t size_;
 	size_t capacity_ = N;
 };
 
@@ -386,6 +388,7 @@ private:
 	BinCoords Range(const VertexData &v0, const VertexData &v1, const VertexData &v2);
 	BinCoords Range(const VertexData &v0, const VertexData &v1);
 	BinCoords Range(const VertexData &v0);
+	void PushItem(BinItemType type, const BinCoords &range, const VertexData &v0, const VertexData *v1 = nullptr, const VertexData *v2 = nullptr);
 	void ItemQueued();
 	void MakeRoom();
 	void DrawSplit(const BinItem &item, const Rasterizer::RasterizerState &state);
