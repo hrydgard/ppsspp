@@ -1306,13 +1306,17 @@ struct StagedSpans {
 	int y;
 };
 
-template <bool textured, bool uvFast, bool lodQ, bool through>
+// sharedLevel: the triangle's q is the same everywhere, and so the mip level of its pixels (LocoRoco).
+template <bool textured, bool uvFast, bool lodQ, bool through, bool sharedLevel = false>
 static void DrawStagedSpans(const StagedSpans &ctx, int count, int chunkX, int64_t qv, int64_t sv, int64_t tv, int *maskBuf, int *zBuf, int *fogBuf, int *colorBuf, const int *secBuf) {
 	const RasterizerState &state = *ctx.state;
 	const UVPlanes &uvPlanes = *ctx.uvPlanes;
 	const int64_t qdx = uvPlanes.q.kx * SCREEN_SCALE_FACTOR, sdx = uvPlanes.s.kx * SCREEN_SCALE_FACTOR, tdx = uvPlanes.t.kx * SCREEN_SCALE_FACTOR;
 	// No mip levels and one filter, bilinear: what ApplyTexturing comes to is the quad sampler at level 0.
 	const bool directQuad = textured && state.linearQuad && state.maxTexLevel == 0 && state.minFilt == state.magFilt && state.magFilt;
+	// With sharedLevel, ApplyTexturing's level for the pixels, once.
+	int sharedLevels[4], sharedFracs[4];
+	bool sharedBilinear = false, sharedKnown = false;
 	for (int k = 0; k < count; k += 4, qv += 4 * qdx, sv += 4 * sdx, tv += 4 * tdx) {
 		const Vec4<int> mask(maskBuf[k], maskBuf[k + 1], maskBuf[k + 2], maskBuf[k + 3]);
 		if (!AnyMask<false>(mask))
@@ -1342,7 +1346,23 @@ static void DrawStagedSpans(const StagedSpans &ctx, int count, int chunkX, int64
 				s *= 1.0f / (float)(1 << state.samplerID.width0Shift);
 				t *= 1.0f / (float)(1 << state.samplerID.height0Shift);
 			}
-			if (directQuad) {
+			if constexpr (sharedLevel) {
+				if (!sharedKnown) {
+					int level, levelFrac;
+					CalculateSamplingParams(0.0f, 0.0f, q[0], state, level, levelFrac, sharedBilinear, ctx.autoGrad);
+					for (int i = 0; i < 4; ++i) {
+						sharedLevels[i] = level;
+						sharedFracs[i] = levelFrac;
+					}
+					sharedKnown = true;
+				}
+				if (sharedBilinear) {
+					const int active = (mask[0] >= 0 ? 1 : 0) | (mask[1] >= 0 ? 2 : 0) | (mask[2] >= 0 ? 4 : 0) | (mask[3] >= 0 ? 8 : 0);
+					state.linearQuad(s.AsArray(), t.AsArray(), sharedLevels, sharedFracs, active, state.texptr, state.texbufw, prim_color, STAGED_CHUNK, state.samplerID);
+				} else {
+					ApplyTexturing(state, prim_color, STAGED_CHUNK, mask, s, t, q, 0.0f, 0.0f, ctx.sameQ, ctx.autoGrad);
+				}
+			} else if (directQuad) {
 				const int active = (mask[0] >= 0 ? 1 : 0) | (mask[1] >= 0 ? 2 : 0) | (mask[2] >= 0 ? 4 : 0) | (mask[3] >= 0 ? 8 : 0);
 				state.linearQuad(s.AsArray(), t.AsArray(), nullptr, nullptr, active, state.texptr, state.texbufw, prim_color, STAGED_CHUNK, state.samplerID);
 			} else {
@@ -1362,7 +1382,9 @@ static void DrawStagedSpans(const StagedSpans &ctx, int count, int chunkX, int64
 typedef void (*StagedSpansFunc)(const StagedSpans &ctx, int count, int chunkX, int64_t qv, int64_t sv, int64_t tv, int *maskBuf, int *zBuf, int *fogBuf, int *colorBuf, const int *secBuf);
 
 template <bool textured, bool uvFast>
-static StagedSpansFunc PickStagedSpans(bool lodQ, bool through) {
+static StagedSpansFunc PickStagedSpans(bool lodQ, bool through, bool sharedLevel = false) {
+	if (lodQ && sharedLevel && !through)
+		return &DrawStagedSpans<textured, uvFast, true, false, true>;
 	if (lodQ)
 		return through ? &DrawStagedSpans<textured, uvFast, true, true> : &DrawStagedSpans<textured, uvFast, true, false>;
 	return through ? &DrawStagedSpans<textured, uvFast, false, true> : &DrawStagedSpans<textured, uvFast, false, false>;
@@ -1491,10 +1513,16 @@ void DrawTriangleSlice(
 	StagedSpansFunc drawStagedSpans;
 	if (clearMode || !state.enableTextures)
 		drawStagedSpans = &DrawStagedSpans<false, false, false, false>;
-	else if (uvFast)
-		drawStagedSpans = PickStagedSpans<true, true>(lodUsesQ && !state.throughMode, state.throughMode);
-	else
-		drawStagedSpans = PickStagedSpans<true, false>(lodUsesQ && !state.throughMode, state.throughMode);
+	else {
+		// The pixels share a level picked by q (ApplyTexturing's sameQ case), and q is the same everywhere.
+		const bool levelByQ = state.TexLevelMode() == GE_TEXLEVEL_MODE_SLOPE || (state.TexLevelMode() == GE_TEXLEVEL_MODE_AUTO && autoGrad >= 0.0f);
+		const bool bilinearQuad = state.maxTexLevel == 0 && state.minFilt == state.magFilt && state.magFilt;
+		const bool sharedLevel = state.linearQuad && !bilinearQuad && levelByQ && uvPlanes.valid && uvPlanes.q.kx == 0 && uvPlanes.q.ky == 0;
+		if (uvFast)
+			drawStagedSpans = PickStagedSpans<true, true>(lodUsesQ && !state.throughMode, state.throughMode, sharedLevel);
+		else
+			drawStagedSpans = PickStagedSpans<true, false>(lodUsesQ && !state.throughMode, state.throughMode, sharedLevel);
+	}
 
 	// The edges as A x + B y + C + bias >= 0 at pixel centers, in 64 bits.
 	struct RowEdge {
