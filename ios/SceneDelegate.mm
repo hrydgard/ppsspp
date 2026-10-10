@@ -171,7 +171,9 @@ static NSString *ExtractGameInfoScheme(NSURL *url) {
 
 	NSString *documentsPath = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0];
 	NSString *bundlePath = [[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/assets/"];
-	NativeInit(argc, argv.data(), cmdLineOptions, documentsPath.UTF8String, bundlePath.UTF8String, NULL);
+	// Caches the system may clear when space runs low, and the zips ShareFilesAsZip hands to other apps.
+	NSString *cachesPath = [NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES) objectAtIndex:0];
+	NativeInit(argc, argv.data(), cmdLineOptions, documentsPath.UTF8String, bundlePath.UTF8String, cachesPath.UTF8String);
 
 	// If we were cold-started by a library export request, serve it now that
 	// the config (and recent games list) has been loaded by NativeInit.
