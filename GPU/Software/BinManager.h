@@ -263,8 +263,9 @@ protected:
 	static constexpr int MAX_QUEUED_STATES = 32768;
 	// These are 1KB each, so half an MB.
 	static constexpr int QUEUED_CLUTS = 512;
-	// About 360 KB, but we have usually 16 or less of them, so 5 MB - 22 MB.
-	static constexpr int QUEUED_PRIMS = 2048;
+	// About 1.5 MB, and each tile's list of items 16 KB. Enough for this thread to stay well ahead of the
+	// drawing threads: with a quarter of it, it often had to wait for room.
+	static constexpr int QUEUED_PRIMS = 8192;
 
 	typedef BinQueue<Rasterizer::RasterizerState, QUEUED_STATES> BinStateQueue;
 	typedef BinQueue<BinClut, QUEUED_CLUTS> BinClutQueue;
