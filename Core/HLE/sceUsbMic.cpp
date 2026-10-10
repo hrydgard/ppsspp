@@ -51,8 +51,24 @@ static u32 curChannels;
 static u32 readMicDataLength;
 static u32 curTargetAddr;
 static int micState; // 0 means stopped, 1 means started, for save state.
+static bool micPolling = false;
+static constexpr int MIC_POLL_INTERVAL_US = 5000;
+
+static void PollMicrophone() {
+	if (micPolling) {
+		System_MicrophoneCommand("pollRecording");
+	}
+}
 
 static void __MicBlockingResume(u64 userdata, int cyclesLate) {
+	PollMicrophone();
+	// Thread ID zero is reserved for polling the host capture stream.
+	if (userdata == 0) {
+		if (micPolling) {
+			CoreTiming::ScheduleEvent(usToCycles(MIC_POLL_INTERVAL_US), eventMicBlockingResume, 0);
+		}
+		return;
+	}
 	SceUID threadID = (SceUID)userdata;
 	u32 error;
 	// On each path, we must either erase-iter-idiom, or increment iter
@@ -69,9 +85,15 @@ static void __MicBlockingResume(u64 userdata, int cyclesLate) {
 		}
 
 		if (Microphone::isHaveDevice()) {
-			// The PSP's mic delivers in real time, so the read completes when the samples are due in
-			// emulated time. Waiting for the host instead hangs the game if its mic never delivers
-			// (Go!Edit's recording stalled that way), so fill what's missing with silence.
+			// SDL delivers host audio in chunks. Allow 100 ms of capture jitter before padding.
+			const u64 retries = userdata >> 32;
+			if (micPolling && Microphone::getReadMicDataLength() < (u32)iter->needSize && retries < 20) {
+				CoreTiming::ScheduleEvent(usToCycles(MIC_POLL_INTERVAL_US), eventMicBlockingResume, (u32)threadID | ((retries + 1) << 32));
+				iter++;
+				continue;
+			}
+			// A stalled host microphone must not hang the game (as happened in Go!Edit).
+			// Fill any samples still missing with silence.
 			const u32 needSize = (u32)iter->needSize;
 			const u32 have = std::min((u32)Microphone::getReadMicDataLength(), needSize);
 			if (have < needSize) {
@@ -101,6 +123,9 @@ static void __MicBlockingResume(u64 userdata, int cyclesLate) {
 }
 
 void __UsbMicInit() {
+	if (micPolling) {
+		Microphone::stopMic();
+	}
 	if (audioBuf) {
 		delete audioBuf;
 		audioBuf = nullptr;
@@ -117,11 +142,11 @@ void __UsbMicInit() {
 }
 
 void __UsbMicShutdown() {
+	Microphone::stopMic();
 	if (audioBuf) {
 		delete audioBuf;
 		audioBuf = nullptr;
 	}
-	Microphone::stopMic();
 }
 
 void __UsbMicDoState(PointerWrap &p) {
@@ -178,6 +203,11 @@ void __UsbMicDoState(PointerWrap &p) {
 		} else {
 			Microphone::startMic(new std::vector<u32>({ curSampleRate, curChannels }));
 		}
+	}
+	if (p.mode == p.MODE_READ && micPolling) {
+		System_MicrophoneCommand("startRecording:" + std::to_string(curSampleRate));
+		CoreTiming::UnscheduleEvent(eventMicBlockingResume, 0);
+		CoreTiming::ScheduleEvent(usToCycles(MIC_POLL_INTERVAL_US), eventMicBlockingResume, 0);
 	}
 }
 
@@ -334,12 +364,25 @@ int Microphone::startMic(void *param) {
 	int channels = micParam->at(1);
 	INFO_LOG(Log::HLE, "microphone_command : sr = %d", sampleRate);
 	System_MicrophoneCommand("startRecording:" + std::to_string(sampleRate));
+#elif defined(SDL)
+	delete static_cast<std::vector<u32> *>(param);
+	micPolling = !System_GetPropertyBool(SYSPROP_IS_HEADLESS);
+	if (micPolling) {
+		System_MicrophoneCommand("startRecording:" + std::to_string(curSampleRate));
+		CoreTiming::UnscheduleEvent(eventMicBlockingResume, 0);
+		CoreTiming::ScheduleEvent(usToCycles(MIC_POLL_INTERVAL_US), eventMicBlockingResume, 0);
+	}
 #endif
 	micState = 1;
 	return 0;
 }
 
 int Microphone::stopMic() {
+	if (micPolling) {
+		micPolling = false;
+		CoreTiming::UnscheduleEvent(eventMicBlockingResume, 0);
+		System_MicrophoneCommand("stopRecording");
+	}
 #ifdef HAVE_WIN32_MICROPHONE
 	if (winMic)
 		winMic->sendMessage({ CAPTUREDEVICE_COMMAND::STOP, nullptr });
@@ -356,6 +399,8 @@ bool Microphone::isHaveDevice() {
 	return winMic && winMic->getDeviceCounts() >= 1;
 #elif PPSSPP_PLATFORM(ANDROID)
 	return System_AudioRecordingIsAvailable();
+#elif defined(SDL)
+	return micPolling || !Microphone::getDeviceList().empty();
 #endif
 	return false;
 }
@@ -403,7 +448,9 @@ int Microphone::getAudioData(u8 *buf, int size) {
 }
 
 void Microphone::flushAudioData() {
-	audioBuf->flush();
+	if (audioBuf) {
+		audioBuf->flush();
+	}
 }
 
 std::vector<std::string> Microphone::getDeviceList() {
@@ -411,19 +458,29 @@ std::vector<std::string> Microphone::getDeviceList() {
 	if (winMic) {
 		return winMic->getDeviceList();
 	}
+#elif defined(SDL)
+	return System_GetPropertyStringVec(SYSPROP_MICROPHONE_DEVICE_LIST);
 #endif
 	return std::vector<std::string>();
 }
 
 void Microphone::onMicDeviceChange() {
+#if defined(SDL) && !defined(HAVE_WIN32_MICROPHONE)
+	// Reopen on the CPU thread when it next polls the capture stream.
+	System_MicrophoneCommand("deviceChanged");
+#else
 	if (Microphone::isMicStarted()) {
 		Microphone::stopMic();
 		// Just use the last param.
 		Microphone::startMic(nullptr);
 	}
+#endif
 }
 
 u32 __MicInput(u32 maxSamples, u32 sampleRate, u32 bufAddr, MICTYPE type, bool block) {
+	if (micPolling && curSampleRate != sampleRate) {
+		Microphone::stopMic();
+	}
 	curSampleRate = sampleRate;
 	curChannels = 1;
 	curTargetAddr = bufAddr;
@@ -449,12 +506,13 @@ u32 __MicInput(u32 maxSamples, u32 sampleRate, u32 bufAddr, MICTYPE type, bool b
 		}
 		readMicDataLength += addSize;
 	}
+	PollMicrophone();
 
 	if (!block) {
 		return type == CAMERAMIC ? size : maxSamples;
 	}
 
-	u64 waitTimeus = (size - Microphone::availableAudioBufSize()) * 1000000 / 2 / sampleRate;
+	u64 waitTimeus = (size - std::min(readMicDataLength, (u32)size)) * 1000000ULL / 2 / sampleRate;
 	CoreTiming::ScheduleEvent(usToCycles(waitTimeus), eventMicBlockingResume, __KernelGetCurThread());
 	MicWaitInfo waitInfo = { __KernelGetCurThread(), bufAddr, size, sampleRate };
 	waitingThreads.push_back(waitInfo);
