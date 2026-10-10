@@ -534,6 +534,9 @@ extern float g_safeInsetBottom;
 		return;
 	}
 	lastLayoutSize_ = size;
+	if (self.view.window.windowScene) {
+		[cameraHelper setInterfaceOrientation:self.view.window.windowScene.interfaceOrientation];
+	}
 	INFO_LOG(Log::G3D, "Laid out at %dx%d", (int)size.width, (int)size.height);
 	// Resized in place: NativeFrame picks up the new size and lets the graphics context resize.
 	[self updateResolutionWithView:self.view];
