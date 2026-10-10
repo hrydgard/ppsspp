@@ -1728,6 +1728,8 @@ struct DeviceSize {
 	u32_le sectorCount;
 };
 
+void BeforeUIDrawReport(u32 counterAddr, u32 listPos);  // GPU/BeforeUIDraw.h
+
 static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 outPtr, int outLen) {
 	if (strcmp(name, "emulator:")) {
 		DEBUG_LOG(Log::sceIo,"sceIoDevctl(\"%s\", %08x, %08x, %i, %08x, %i)", name, cmd, argAddr, argLen, outPtr, outLen);
@@ -2108,6 +2110,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			EMULATOR_DEVCTL__GET_SCALE,
 			EMULATOR_DEVCTL__GET_AXIS,
 			EMULATOR_DEVCTL__GET_VKEY,
+			EMULATOR_DEVCTL__BEFORE_UI_DRAW,
 		};
 
 		switch (cmd) {
@@ -2183,6 +2186,9 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 			if (Memory::IsValidAddress(outPtr) && (argAddr >= 0 && argAddr < NKCODE_MAX)) {
 				Memory::WriteUnchecked_U8(HLEPlugins::GetKey(argAddr), outPtr);
 			}
+			return hleLogDebug(Log::sceIo, 0);
+		case EMULATOR_DEVCTL__BEFORE_UI_DRAW:  // before UI draw: argAddr = counter, outPtr = display list position
+			BeforeUIDrawReport(argAddr, outPtr);
 			return hleLogDebug(Log::sceIo, 0);
 		}
 
