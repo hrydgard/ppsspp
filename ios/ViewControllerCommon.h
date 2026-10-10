@@ -7,17 +7,17 @@
 
 #import "CameraHelper.h"
 #import "LocationHelper.h"
-#import "iCade/iCadeReaderView.h"
 
 @interface PPSSPPBaseViewController : UIViewController<
 	UIImagePickerControllerDelegate, UINavigationControllerDelegate,
 	PHPickerViewControllerDelegate,
-	CameraFrameDelegate, LocationHandlerDelegate, UIKeyInput,
-	UIGestureRecognizerDelegate, iCadeEventDelegate>
+	CameraFrameDelegate, LocationHandlerDelegate,
+	UIGestureRecognizerDelegate>
 
 - (void)hideKeyboard;
 - (void)showKeyboard;
 - (void)shareText:(NSString *)text;
+- (void)shareFile:(NSURL *)url;
 - (void)shutdown;
 - (void)bindDefaultFBO;
 - (void)startLocation;

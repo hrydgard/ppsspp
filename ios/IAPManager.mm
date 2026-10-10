@@ -199,12 +199,9 @@ static bool SafeStringEqual(NSString *a, NSString *b) {
 												  completionHandler:^(NSError * _Nullable error) {
 				if (error) {
 					NSLog(@"[IAPManager] Failed to set Gold icon to %@: %@", desiredIcon, error.localizedDescription);
-					[sharedViewController hideKeyboard];
 				} else {
 					NSLog(@"Icon update succeeded.");
 					NSLog(@"Current icon name: %@", [[UIApplication sharedApplication] alternateIconName]);
-					// Here we need to call hideKeyboard.
-					[sharedViewController hideKeyboard];
 				}
 			}];
 			NSLog(@"Icon update to %@ dispatched, waiting for response.", desiredIcon);
