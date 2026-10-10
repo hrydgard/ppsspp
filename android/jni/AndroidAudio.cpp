@@ -1,10 +1,15 @@
+#include "Common/Audio/SampleRing.h"
 #include "Common/Log.h"
+#include "Core/HLE/sceUsbMic.h"
 
 #include "android/jni/AndroidAudio.h"
 #include "android/jni/OboeContext.h"
 
 std::string g_error;
 std::mutex g_errorMutex;
+
+// From the input stream's callback to the CPU thread. 0.7 s at 44.1 kHz.
+static SampleRing<32768> g_micRing;
 
 AudioContext::AudioContext(AndroidAudioCallback cb, int _FramesPerBuffer, int _SampleRate)
 	: audioCallback(cb), framesPerBuffer(_FramesPerBuffer), sampleRate(_SampleRate) {
@@ -84,11 +89,18 @@ bool AndroidAudio_Recording_Stop(AndroidAudioState *state) {
 	return true;
 }
 
-bool AndroidAudio_Recording_State(AndroidAudioState *state) {
-	if (!state) {
-		return false;
-	}
-	return state->input_enable;
+void AndroidAudio_Recording_Push(const int16_t *samples, int count) {
+	g_micRing.Push(samples, count);
+}
+
+void AndroidAudio_Recording_Poll() {
+	g_micRing.Drain([](const int16_t *samples, uint32_t count) {
+		Microphone::addAudioData((u8 *)samples, count * sizeof(int16_t));
+	});
+}
+
+void AndroidAudio_Recording_Clear() {
+	g_micRing.Clear();
 }
 
 bool AndroidAudio_Resume(AndroidAudioState *state) {

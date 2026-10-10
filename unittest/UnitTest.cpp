@@ -113,6 +113,7 @@
 #include "Core/KeyMap.h"
 #include "Core/ControlMapper.h"
 #include "Core/HLE/sceCtrl.h"
+#include "Core/HLE/sceUsbMic.h"
 #include "Core/Util/PathUtil.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
 #include "GPU/Common/DepthSwizzle.h"
@@ -184,7 +185,6 @@ jobject Android_GetActivity(JNIEnv *env) {
 }
 
 bool System_AudioRecordingIsAvailable() { return false; }
-bool System_AudioRecordingState() { return false; }
 #endif
 
 #ifndef M_PI_2
@@ -3192,6 +3192,30 @@ bool TestUITabOrder() {
 
 bool TestTextureReplacer();
 
+static bool TestQueueBuf() {
+	const u8 data[8] = { 1, 2, 3, 4, 5, 6, 7, 8 };
+	u8 out[16]{};
+
+	QueueBuf q(8);
+	q.push(data, 6);
+	EXPECT_EQ_INT(q.pop(out, 4), 4);
+	// Wraps around the end, holding 5 6 1 2 3 4 5.
+	q.push(data, 5);
+	// Growing has to keep what's buffered, in order.
+	q.resize(16);
+	EXPECT_EQ_INT(q.getCapacity(), 16);
+	EXPECT_EQ_INT(q.pop(out, 16), 7);
+	const u8 expected[7] = { 5, 6, 1, 2, 3, 4, 5 };
+	EXPECT_EQ_MEM(out, expected, sizeof(expected));
+
+	// Pushing more than the capacity grows it.
+	QueueBuf small(4);
+	small.push(data, 8);
+	EXPECT_EQ_INT(small.pop(out, 16), 8);
+	EXPECT_EQ_MEM(out, data, sizeof(data));
+	return true;
+}
+
 TestItem availableTests[] = {
 #if PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
 	TEST_ITEM(Arm64Emitter),
@@ -3266,6 +3290,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(UITabOrder),
 	TEST_ITEM(FatShortNames),
 	TEST_ITEM(GEDumpGameID),
+	TEST_ITEM(QueueBuf),
 };
 
 int main(int argc, const char *argv[]) {

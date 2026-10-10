@@ -260,6 +260,7 @@ add_library(Common STATIC
 	Render/Text/draw_text_uwp.cpp
 	Render/Text/draw_text_uwp.h
 	Audio/AudioBackend.h
+	Audio/SampleRing.h
 	System/Display.cpp
 	System/Display.h
 	System/Application.h

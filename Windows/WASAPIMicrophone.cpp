@@ -24,10 +24,9 @@
 #include <audioclient.h>
 #include <wrl/client.h>
 
-#include <algorithm>
-#include <atomic>
 #include <thread>
 
+#include "Common/Audio/SampleRing.h"
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Log.h"
 #include "Common/Thread/ThreadUtil.h"
@@ -37,12 +36,8 @@
 
 using Microsoft::WRL::ComPtr;
 
-// Single producer (the capture thread), single consumer (the CPU thread, in WASAPIMicrophonePoll).
-// Input that doesn't fit is dropped.
-static constexpr uint32_t MIC_RING_SIZE = 32768;  // Samples, a power of two. 0.7 s at 44.1 kHz.
-static int16_t g_micRing[MIC_RING_SIZE];
-static std::atomic<uint32_t> g_micWritePos{0};
-static std::atomic<uint32_t> g_micReadPos{0};
+// From the capture thread to the CPU thread. 0.7 s at 44.1 kHz.
+static SampleRing<32768> g_micRing;
 
 // Only touched on the CPU thread.
 static std::thread g_micThread;
@@ -88,16 +83,6 @@ static ComPtr<IMMDevice> FindDevice(IMMDeviceEnumerator *enumerator) {
 	}
 	enumerator->GetDefaultAudioEndpoint(eCapture, eConsole, &device);
 	return device;
-}
-
-static void PushSamples(const int16_t *samples, uint32_t frames) {
-	const uint32_t write = g_micWritePos.load(std::memory_order_relaxed);
-	const uint32_t read = g_micReadPos.load(std::memory_order_acquire);
-	const uint32_t count = std::min(frames, MIC_RING_SIZE - (write - read));
-	for (uint32_t i = 0; i < count; i++) {
-		g_micRing[(write + i) & (MIC_RING_SIZE - 1)] = samples ? samples[i] : 0;
-	}
-	g_micWritePos.store(write + count, std::memory_order_release);
 }
 
 enum class CaptureResult {
@@ -173,7 +158,7 @@ static CaptureResult RunCapture(IMMDeviceEnumerator *enumerator, int sampleRate,
 			if (FAILED(hr)) {
 				break;
 			}
-			PushSamples((bufferFlags & AUDCLNT_BUFFERFLAGS_SILENT) ? nullptr : (const int16_t *)data, frames);
+			g_micRing.Push((bufferFlags & AUDCLNT_BUFFERFLAGS_SILENT) ? nullptr : (const int16_t *)data, frames);
 			capture->ReleaseBuffer(frames);
 		}
 		if (FAILED(hr)) {
@@ -236,7 +221,7 @@ void WASAPIMicrophoneStart(int sampleRate) {
 	ResetEvent(g_reopenEvent);
 
 	// Whatever is left over is from before, maybe at another rate. We're the consumer, so we can drop it.
-	g_micReadPos.store(g_micWritePos.load(std::memory_order_acquire), std::memory_order_release);
+	g_micRing.Clear();
 
 	g_micThread = std::thread(&CaptureThread, sampleRate);
 }
@@ -251,20 +236,9 @@ void WASAPIMicrophoneStop() {
 }
 
 void WASAPIMicrophonePoll() {
-	const uint32_t read = g_micReadPos.load(std::memory_order_relaxed);
-	const uint32_t write = g_micWritePos.load(std::memory_order_acquire);
-	const uint32_t count = write - read;
-	if (count == 0) {
-		return;
-	}
-	// In up to two pieces, if it wraps around the end of the ring.
-	const uint32_t start = read & (MIC_RING_SIZE - 1);
-	const uint32_t first = std::min(count, MIC_RING_SIZE - start);
-	Microphone::addAudioData((u8 *)&g_micRing[start], first * sizeof(int16_t));
-	if (count > first) {
-		Microphone::addAudioData((u8 *)g_micRing, (count - first) * sizeof(int16_t));
-	}
-	g_micReadPos.store(read + count, std::memory_order_release);
+	g_micRing.Drain([](const int16_t *samples, uint32_t count) {
+		Microphone::addAudioData((u8 *)samples, count * sizeof(int16_t));
+	});
 }
 
 void WASAPIMicrophoneDeviceChanged() {

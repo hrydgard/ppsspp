@@ -1847,6 +1847,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			} else if (params.equals("stopRecording")) {
 				NativeApp.audioRecording_Stop();
 			}
+			return true;
 		} else if (command.equals("set_keep_screen_bright")) {
 			Window window = this.getWindow();
 			if (params.equals("on")) {
@@ -1893,7 +1894,6 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			Log.w(TAG, "Unknown string command " + command);
 			return false;
 		}
-		return false;
 	}
 
 	// Offers a file to other apps through the share sheet. The receiver gets read access to this file only.
