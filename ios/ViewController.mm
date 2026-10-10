@@ -259,24 +259,6 @@ PPSSPPBaseViewController *sharedViewController;
 	[(GLKView*)self.glView bindDrawable];
 }
 
-// Can't consolidate this yet.
-- (void)viewWillTransitionToSize:(CGSize)size
-		withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator {
-	[super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
-
-	[self.view endEditing:YES]; // clears any input focus
-
-	[coordinator animateAlongsideTransition:^(id<UIViewControllerTransitionCoordinatorContext> context) {
-		NSLog(@"Rotating to size: %@", NSStringFromCGSize(size));
-	} completion:^(id<UIViewControllerTransitionCoordinatorContext> context) {
-		NSLog(@"Rotation finished");
-		// Reinitialize graphics context to match new size
-		[self requestExitGLRenderLoop];
-		[self updateResolutionWithView:self.view];
-		[self runGLRenderLoop];
-	}];
-}
-
 @end
 
 void bindDefaultFBO()

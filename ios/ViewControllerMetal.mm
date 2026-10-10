@@ -220,36 +220,6 @@ static void VulkanRenderLoop(GraphicsContext *graphicsContext, CAMetalLayer *met
 	INFO_LOG(Log::G3D, "viewDidDisappear");
 }
 
-- (void)viewWillLayoutSubviews {
-	[super viewWillLayoutSubviews];
-
-	// This is the first reliable place where self.view.bounds
-	// matches the forced orientation.
-	CGRect bounds = self.view.bounds;
-
-	INFO_LOG(Log::G3D, "Correcting metal view layout: %dx%d",
-			 (int)bounds.size.width, (int)bounds.size.height);
-
-	// Update your Metal layer/viewport here if necessary
-}
-
-- (void)viewWillTransitionToSize:(CGSize)size
-		withTransitionCoordinator:(id<UIViewControllerTransitionCoordinator>)coordinator {
-	[super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
-
-	[self.view endEditing:YES]; // clears any input focus
-
-	[coordinator animateAlongsideTransition:^(id<UIViewControllerTransitionCoordinatorContext> context) {
-		NSLog(@"Rotating to size: %@", NSStringFromCGSize(size));
-	} completion:^(id<UIViewControllerTransitionCoordinatorContext> context) {
-		NSLog(@"Rotation finished");
-		// Reinitialize graphics context to match new size
-		[self requestExitVulkanRenderLoop];
-		[self updateResolutionWithView:self.view];
-		[self runVulkanRenderLoop];
-	}];
-}
-
 @end
 
 @implementation PPSSPPMetalView

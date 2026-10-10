@@ -29,6 +29,7 @@
 
 @implementation PPSSPPBaseViewController {
 	UIScreenEdgePanGestureRecognizer *mBackGestureRecognizer;
+	CGSize lastLayoutSize_;
 }
 
 // Strange idiom for generating unique IDs (within the process, at least).
@@ -523,6 +524,23 @@ extern float g_safeInsetBottom;
 	[super viewWillTransitionToSize:size withTransitionCoordinator:coordinator];
 	// The immersive mode setting is per-orientation, so the status bar may need to change along with the rotation.
 	[self setNeedsStatusBarAppearanceUpdate];
+
+	[self.view endEditing:YES]; // clears any input focus
+}
+
+// Rotations and window resizes land here. UIKit lays out at the final size at the start of a
+// rotation animation, so resizing here (rather than when the rotation completes) keeps the
+// backbuffer matching the view while it animates.
+- (void)viewDidLayoutSubviews {
+	[super viewDidLayoutSubviews];
+	CGSize size = self.view.bounds.size;
+	if (size.width <= 0.0 || size.height <= 0.0 || CGSizeEqualToSize(size, lastLayoutSize_)) {
+		return;
+	}
+	lastLayoutSize_ = size;
+	INFO_LOG(Log::G3D, "Laid out at %dx%d", (int)size.width, (int)size.height);
+	// Resized in place: NativeFrame picks up the new size and lets the graphics context resize.
+	[self updateResolutionWithView:self.view];
 }
 
 - (void)updateResolutionWithView:(UIView *)view {
@@ -548,10 +566,7 @@ extern float g_safeInsetBottom;
 
 	[view setContentScaleFactor:scale];
 
-	// PSP native resize
-	PSP_CoreParameter().pixelWidth = g_display.pixel_xres;
-	PSP_CoreParameter().pixelHeight = g_display.pixel_yres;
-
+	// NativeFrame updates the PSP_CoreParameter() size along with the rest.
 	NativeResized();
 
 	NSLog(@"Updated display resolution: (%d, %d) @%.1fx",
