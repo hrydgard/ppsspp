@@ -20,10 +20,9 @@
 
 #include "iOSCoreAudio.h"
 
-#include <algorithm>
-#include <atomic>
 #include <cstring>
 
+#include "Common/Audio/SampleRing.h"
 #include "Common/Log.h"
 #include "Core/Config.h"
 #include "Core/HLE/sceUsbMic.h"
@@ -44,12 +43,8 @@ static int g_micSampleRate = SAMPLE_RATE;
 static bool g_micInputOn = false;  // What the unit is actually configured with.
 static int g_micInputRate = 0;
 
-// Single producer (the input callback, on the audio thread), single consumer (the CPU thread, in
-// iOSCoreAudioPollRecording). Input that doesn't fit is dropped.
-static constexpr uint32_t MIC_RING_SIZE = 32768;  // Samples, a power of two. 0.7 s at 44.1 kHz.
-static int16_t g_micRing[MIC_RING_SIZE];
-static std::atomic<uint32_t> g_micWritePos{0};
-static std::atomic<uint32_t> g_micReadPos{0};
+// From the input callback, on the audio thread, to the CPU thread. 0.7 s at 44.1 kHz.
+static SampleRing<32768> g_micRing;
 
 // Where AudioUnitRender puts the input. The unit's slice limit is set to match, so the audio thread
 // never has to allocate.
@@ -137,13 +132,7 @@ static OSStatus iOSCoreAudioInputCallback(void *inRefCon,
 	}
 
 	const UInt32 frames = bufferList.mBuffers[0].mDataByteSize / sizeof(int16_t);
-	const uint32_t write = g_micWritePos.load(std::memory_order_relaxed);
-	const uint32_t read = g_micReadPos.load(std::memory_order_acquire);
-	const uint32_t count = std::min((uint32_t)frames, MIC_RING_SIZE - (write - read));
-	for (uint32_t i = 0; i < count; i++) {
-		g_micRing[(write + i) & (MIC_RING_SIZE - 1)] = g_micScratch[i];
-	}
-	g_micWritePos.store(write + count, std::memory_order_release);
+	g_micRing.Push(g_micScratch, frames);
 	return noErr;
 }
 
@@ -376,7 +365,7 @@ static void WithRecordPermission(void (^then)(bool granted)) {
 
 void iOSCoreAudioStartRecording(int sampleRate) {
 	// Whatever is left over is from before, maybe at another rate. We're the consumer, so we can drop it.
-	g_micReadPos.store(g_micWritePos.load(std::memory_order_acquire), std::memory_order_release);
+	g_micRing.Clear();
 
 	dispatch_async(dispatch_get_main_queue(), ^{
 		g_micWanted = true;
@@ -404,18 +393,7 @@ void iOSCoreAudioStopRecording() {
 }
 
 void iOSCoreAudioPollRecording() {
-	const uint32_t read = g_micReadPos.load(std::memory_order_relaxed);
-	const uint32_t write = g_micWritePos.load(std::memory_order_acquire);
-	const uint32_t count = write - read;
-	if (count == 0) {
-		return;
-	}
-	// In up to two pieces, if it wraps around the end of the ring.
-	const uint32_t start = read & (MIC_RING_SIZE - 1);
-	const uint32_t first = std::min(count, MIC_RING_SIZE - start);
-	Microphone::addAudioData((u8 *)&g_micRing[start], first * sizeof(int16_t));
-	if (count > first) {
-		Microphone::addAudioData((u8 *)g_micRing, (count - first) * sizeof(int16_t));
-	}
-	g_micReadPos.store(read + count, std::memory_order_release);
+	g_micRing.Drain([](const int16_t *samples, uint32_t count) {
+		Microphone::addAudioData((u8 *)samples, count * sizeof(int16_t));
+	});
 }
