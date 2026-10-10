@@ -629,6 +629,7 @@ struct DeviceCaps {
 	bool verySlowShaderCompiler;
 	bool fullScreenExclusiveSupported;
 	bool samplerLodControl;
+	bool samplerLodBias = true;  // False if a sampler's LOD bias is ignored (MoltenVK, the portability subset's samplerMipLodBias).
 
 	// Old style, for older GL or Direct3D 9.
 	u32 clipPlanesSupported;

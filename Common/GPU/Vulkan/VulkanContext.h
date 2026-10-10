@@ -317,6 +317,7 @@ public:
 		VkPhysicalDeviceProvokingVertexFeaturesEXT provokingVertex;
 		VkPhysicalDevicePresentModeFifoLatestReadyFeaturesKHR presentModeFifoProps;
 		VkPhysicalDeviceScalarBlockLayoutFeatures scalarBlockLayout;
+		VkPhysicalDevicePortabilitySubsetFeaturesKHR portabilitySubset;
 	};
 
 	const PhysicalDeviceProps &GetPhysicalDeviceProperties(int i = -1) const {

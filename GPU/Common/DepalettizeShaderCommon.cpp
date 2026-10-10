@@ -237,10 +237,9 @@ void GenerateDepalShaderFloat(ShaderWriter &writer, const DepalConfig &config) {
 		break;
 	case GE_FORMAT_5551:
 		if (config.textureFormat == GE_TFMT_CLUT8 && mask == 0xFF && shift == 0) {
-			// Follow the intent here, and ignore g (and let's not round unnecessarily).
-			snprintf(lookupMethod, sizeof(lookupMethod), "floor(floor(index.a) * 128.0 + index.b * 64.0)");
+			// SOCOM case. #16210. The index is the pixel's high byte: a << 7 | b << 2 | g >> 3.
+			snprintf(lookupMethod, sizeof(lookupMethod), "(floor(index.a) * 128.0 + floor(index.b * 31.99) * 4.0 + floor(index.g * 3.999))");
 			index_multiplier = 1.0f / 256.0f;
-			// SOCOM case. #16210
 		} else if ((mask & (mask + 1)) == 0 && shift < 16) {
 			const char *rgba = "rrrrrgggggbbbbba";
 			const u8 rgba_shift = shift % 5;

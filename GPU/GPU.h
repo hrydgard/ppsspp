@@ -46,7 +46,7 @@ enum class ShaderDepalMode {
 	OFF = 0,
 	NORMAL = 1,
 	SMOOTHED = 2,
-	CLUT8_8888 = 3,  // Read 8888 framebuffer as 8-bit CLUT.
+	CLUT8 = 3,  // Read a color framebuffer as 8-bit CLUT (the depal format bits say which format).
 };
 
 // Global GPU-related utility functions. 

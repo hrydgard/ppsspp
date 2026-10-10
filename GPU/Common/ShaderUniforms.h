@@ -13,7 +13,7 @@ enum : uint64_t {
 	DIRTY_WORLDMATRIX | DIRTY_FRAMEBUFFER_DIM | DIRTY_VIEWMATRIX | DIRTY_TEXMATRIX | DIRTY_ALPHACOLORREF |
 	DIRTY_PROJMATRIX | DIRTY_FOGCOLOR | DIRTY_FOGCOEF | DIRTY_TEXENV | DIRTY_TEX_ALPHA_MUL | DIRTY_STENCILREPLACEVALUE |
 	DIRTY_ALPHACOLORMASK | DIRTY_SHADERBLEND | DIRTY_COLORWRITEMASK | DIRTY_UVSCALEOFFSET | DIRTY_TEXCLAMP | DIRTY_MATAMBIENTALPHA |
-	DIRTY_DEPAL | DIRTY_VIEWPORT_UNIFORMS | DIRTY_RASTER_OFFSET,
+	DIRTY_DEPAL | DIRTY_VIEWPORT_UNIFORMS | DIRTY_RASTER_OFFSET | DIRTY_MIPBIAS,
 	DIRTY_LIGHT_UNIFORMS =
 	DIRTY_LIGHT_CONTROL | DIRTY_LIGHT0 | DIRTY_LIGHT1 | DIRTY_LIGHT2 | DIRTY_LIGHT3 |
 	DIRTY_MATDIFFUSE | DIRTY_MATSPECULAR | DIRTY_MATEMISSIVE | DIRTY_AMBIENT,
@@ -36,7 +36,7 @@ struct alignas(16) UB_VS_FS_Base {
 	uint32_t colorWriteMask; float mipBias;
 	// Fragment data
 	float texNoAlpha; float texMul; float texClampOffset[2];;  // this vec4 will hold ubershader stuff. We won't use integer flags in the fragment shader.
-	float fogCoef[2]; float padding4[2];
+	float fogCoef[2]; float texLodBias; float padding4;
 	float fogColor[3]; uint32_t alphaColorRef;
 	float texEnvColor[3]; uint32_t colorTestMask;
 	float texClamp[4];
@@ -63,7 +63,7 @@ R"(  mat4 u_proj;
   uint u_colorWriteMask;
   float u_mipBias;
   vec2 u_texNoAlphaMul; vec2 u_texclampoff;
-  vec2 u_fogcoef; float pad1; float pad2;
+  vec2 u_fogcoef; float u_texLodBias; float pad2;
   vec3 u_fogcolor;  uint u_alphacolorref;
   vec3 u_texenv;    uint u_alphacolormask;
   vec4 u_texclamp;

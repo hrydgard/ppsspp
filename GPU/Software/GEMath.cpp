@@ -252,6 +252,21 @@ int64_t GESetupRecip(uint64_t absDet, int *e) {
 	return (2 * (int64_t)seg.k + seg.m * (index & 255)) >> 8;
 }
 
+bool GESpriteUPlaneExact(int64_t left, int64_t top, int64_t right, int64_t bottom, double sLeft, double sRight) {
+	const int64_t det = (right - left) * (bottom - top);
+	if (det <= 0)
+		return false;
+	// The plane takes the values as integers at the larger one's exponent, 15 bits (Rasterizer's FixedPlane).
+	const double larger = std::max(std::fabs(sLeft), std::fabs(sRight));
+	const int shift = larger == 0.0 ? 0 : 14 - std::ilogb(larger);
+	const int64_t n = ((int64_t)std::ldexp(sRight, shift) - (int64_t)std::ldexp(sLeft, shift)) * (bottom - top);
+	int e;
+	const int64_t q = GESetupRecip((uint64_t)det, &e);
+	const int64_t kx = (n * q) >> (e + 2);
+	// Exact when it's n / det with its 14 fraction bits per subpixel, all there.
+	return kx * det == n * (1LL << 14);
+}
+
 float GELightPow(float v, float e) {
 	if (e <= 0.0f) {
 		return 1.0f;

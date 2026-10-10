@@ -182,7 +182,7 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		return false;
 	}
 
-	bool needFragCoord = readFramebufferTex || gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT);
+	bool needFragCoord = readFramebufferTex || gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT) || shaderDepalMode == ShaderDepalMode::CLUT8;
 	bool writeDepth = (gstate_c.Use(GPU_ROUND_FRAGMENT_DEPTH_TO_16BIT) || fsDepthClamp) && !forceDepthWritesOff && !id.Bit(FS_BIT_NO_DEPTH_WRITE);
 
 	// TODO: We could have a separate mechanism to support more ops using the shader blending mechanism,
@@ -556,6 +556,13 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 		if (doTexture) {
 			char texcoord[64] = "v_texcoord";
+			if (doTextureProjection) {
+				// Where q isn't positive, the GE samples the last texel instead of dividing (gpu/texmtx/negq, and
+				// GE_NONPOSITIVE_Q_UV in the software renderer). Dividing by a negative q mirrors the texture behind the
+				// projector: Fate/Extra's projected shadows ran up the walls (#18667).
+				WRITE(p, "  vec3 projTexcoord = v_texcoord.z > 0.0 ? v_texcoord : vec3(0.99998474, 0.99998474, 1.0);\n");
+				truncate_cpy(texcoord, "projTexcoord");
+			}
 			// TODO: Not sure the right way to do this for projection.
 			// This path destroys resolution on older PowerVR no matter what I do if projection is needed,
 			// so we disable it on SGX 540 and lesser, and live with the consequences.
@@ -572,8 +579,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				std::string ucoord = "v_texcoord.x";
 				std::string vcoord = "v_texcoord.y";
 				if (doTextureProjection) {
-					ucoord = "(v_texcoord.x / v_texcoord.z)";
-					vcoord = "(v_texcoord.y / v_texcoord.z)";
+					ucoord = "(projTexcoord.x / projTexcoord.z)";
+					vcoord = "(projTexcoord.y / projTexcoord.z)";
 				}
 
 				std::string modulo = (gl_extensions.bugs & BUG_PVR_SHADER_PRECISION_BAD) ? "mymod" : "mod";
@@ -602,13 +609,13 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				if (compat.shaderLanguage == HLSL_D3D11) {
 					if (texture3D) {
 						if (doTextureProjection) {
-							WRITE(p, "  vec4 t = tex.Sample(texSamp, vec3(v_texcoord.xy / v_texcoord.z, u_mipBias));\n");
+							WRITE(p, "  vec4 t = tex.Sample(texSamp, vec3(%s.xy / %s.z, u_mipBias));\n", texcoord, texcoord);
 						} else {
 							WRITE(p, "  vec4 t = tex.Sample(texSamp, vec3(%s.xy, u_mipBias));\n", texcoord);
 						}
 					} else {
 						if (doTextureProjection) {
-							WRITE(p, "  vec4 t = tex.Sample(texSamp, v_texcoord.xy / v_texcoord.z);\n");
+							WRITE(p, "  vec4 t = tex.Sample(texSamp, %s.xy / %s.z);\n", texcoord, texcoord);
 						} else {
 							WRITE(p, "  vec4 t = tex.Sample(texSamp, %s.xy);\n", texcoord);
 						}
@@ -635,10 +642,11 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 							WRITE(p, "  vec4 t = %s(tex, vec3(%s.xy, %s));\n", compat.texture, texcoord, arrayIndex);
 						}
 					} else {
+						const char *lodBias = gstate_c.Use(GPU_USE_SHADER_LOD_BIAS) ? ", u_texLodBias" : "";
 						if (doTextureProjection) {
-							WRITE(p, "  vec4 t = %sProj(tex, %s);\n", compat.texture, texcoord);
+							WRITE(p, "  vec4 t = %sProj(tex, %s%s);\n", compat.texture, texcoord, lodBias);
 						} else {
-							WRITE(p, "  vec4 t = %s(tex, %s.xy);\n", compat.texture, texcoord);
+							WRITE(p, "  vec4 t = %s(tex, %s.xy%s);\n", compat.texture, texcoord, lodBias);
 						}
 					}
 				}
@@ -791,29 +799,69 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				WRITE(p, "    t = mix(t, t2, fraction.y);\n");
 				WRITE(p, "  }\n");
 				break;
-			case ShaderDepalMode::CLUT8_8888:
+			case ShaderDepalMode::CLUT8:
+			{
+				// Byte coordinates reach the thousands, past what fp16 (which NVIDIA's Vulkan driver uses for the
+				// default lowp) holds to a fraction, so use the best precision there is (#22481).
+				const char *prec = gstate_c.Use(GPU_USE_FULL_PRECISION_IN_FRAGMENT) ? "highp" : "mediump";
 				if (doTextureProjection) {
 					// We don't use textureProj because we need better control and it's probably not much of a savings anyway.
 					// However it is good for precision on older hardware like PowerVR.
-					p.F("  vec2 uv = %s.xy/%s.z;\n  vec2 uv_round;\n", texcoord, texcoord);
+					p.F("  %s vec2 uv = %s.xy/%s.z;\n  %s vec2 uv_round;\n", prec, texcoord, texcoord, prec);
 				} else {
-					p.F("  vec2 uv = %s.xy;\n  vec2 uv_round;\n", texcoord);
+					p.F("  %s vec2 uv = %s.xy;\n  %s vec2 uv_round;\n", prec, texcoord, prec);
 				}
-				p.C("  vec2 tsize = vec2(textureSize(tex, 0).xy);\n");
-				p.C("  uv_round = floor(uv * tsize);\n");
-				p.C("  int component = int(uv_round.x) & 3;\n");
-				p.C("  uv_round.x *= 0.25;\n");
-				p.C("  uv_round /= tsize;\n");
-				p.C("  vec4 t = ").SampleTexture2D("tex", "uv_round").C(";\n");
+				// The texture size in PSP pixels (u counts bytes), not the scaled framebuffer's.
+				p.F("  %s vec2 tsize = 0.5 / u_texclamp.zw;\n", prec);
+				// The GE samples at the pixel center, and all the render pixels of a PSP pixel must read what its one
+				// sample does, so move to the PSP pixel's center along x (which picks the byte). scale is render pixels
+				// per PSP pixel.
+				p.F("  %s float scale = float(textureSize(tex, 0).x) * 2.0 * u_texclamp.z;\n", prec);
+				p.F("  uv.x += (0.5 * scale - mod(gl_FragCoord.x, scale)) * %s(uv.x);\n", compat.shaderLanguage == HLSL_D3D11 ? "ddx" : "dFdx");
+				// The GE truncates to 1/16 texel (gpu/probe exp57). A center exactly on a byte edge (u = 1 + 2x reading a
+				// 16-bit framebuffer) lands on it only when the sprite's u gradient is exact (exp256). For the others the
+				// CPU nudged u down 0.03 of a step (SoftwareTransformCommon's ExpandRectangles); half that covers float error.
+				p.C("  uv_round = floor(floor(uv * tsize * 16.0 + 0.015) * 0.0625);\n");
+				if (shaderDepalFmt == GE_FORMAT_8888) {
+					p.C("  int component = int(uv_round.x) & 3;\n");
+					p.C("  uv_round.x = floor(uv_round.x * 0.25);\n");
+				} else {
+					p.C("  int component = int(uv_round.x) & 1;\n");
+					p.C("  uv_round.x = floor(uv_round.x * 0.5);\n");
+				}
+				p.C("  uv_round = (uv_round + 0.5) / tsize;\n");
+				// The byte decodes below are exact in fp32, but the product rounding in fp16 makes 16 of 256 bytes come out one low.
+				p.F("  %s vec4 t = ", prec).SampleTexture2D("tex", "uv_round").C(";\n");
 				p.C("  int index;\n");
-				p.C("  switch (component) {\n");
-				p.C("  case 0: index = int(t.x * 254.99); break;\n");  // TODO: Not sure why 254.99 instead of 255.99, but it's currently needed.
-				p.C("  case 1: index = int(t.y * 254.99); break;\n");
-				p.C("  case 2: index = int(t.z * 254.99); break;\n");
-				p.C("  case 3: index = int(t.w * 254.99); break;\n");
-				p.C("  }\n");
+				switch (shaderDepalFmt) {
+				case GE_FORMAT_8888:
+					p.C("  switch (component) {\n");
+					p.C("  case 0: index = int(t.x * 255.99); break;\n");
+					p.C("  case 1: index = int(t.y * 255.99); break;\n");
+					p.C("  case 2: index = int(t.z * 255.99); break;\n");
+					p.C("  case 3: index = int(t.w * 255.99); break;\n");
+					p.C("  }\n");
+					break;
+				default:
+					// Rebuild the 16-bit pixel, truncating like the GE stores it, then take its low or high byte.
+					switch (shaderDepalFmt) {
+					case GE_FORMAT_565:
+						p.C("  int pixel = int(t.x * 31.99) | (int(t.y * 63.99) << 5) | (int(t.z * 31.99) << 11);\n");
+						break;
+					case GE_FORMAT_5551:
+						p.C("  int pixel = int(t.x * 31.99) | (int(t.y * 31.99) << 5) | (int(t.z * 31.99) << 10) | (int(t.w) << 15);\n");
+						break;
+					default:
+						p.C("  int pixel = int(t.x * 15.99) | (int(t.y * 15.99) << 4) | (int(t.z * 15.99) << 8) | (int(t.w * 15.99) << 12);\n");
+						break;
+					}
+					p.C("  index = (pixel >> (component * 8)) & 0xFF;\n");
+					break;
+				}
+				p.C("  index = int(((uint(index) >> ((u_depal_mask_shift_off_fmt >> 0x8u) & 0xFFu)) & (u_depal_mask_shift_off_fmt & 0xFFu)) | (((u_depal_mask_shift_off_fmt >> 0x10u) & 0xFFu) << 0x4u));\n");
 				p.C("  t = ").LoadTexture2D("pal", "ivec2(index, 0)", 0).C(";\n");
 				break;
+			}
 			}
 
 			WRITE(p, "  vec4 p = v_color0;\n");

@@ -1236,8 +1236,8 @@ static inline void GetTextureCoordinatesGE(const UVPlanes &planes, const int64_t
 		const float q = TruncateToFloat24((float)((double)qs[i] * planes.scaleQ));
 		qOut[i] = q;
 		if (!(q > 0.0f)) {
-			s[i] = 0.0f;
-			t[i] = 0.0f;
+			s[i] = GE_NONPOSITIVE_Q_UV;
+			t[i] = GE_NONPOSITIVE_Q_UV;
 			continue;
 		}
 		const double r = GERecip(q);
@@ -2616,8 +2616,8 @@ static float LineUVComponentAt(const int64_t c[2], double scale, const VertexDat
 static void LineTextureCoordinatesAt(const LineUV &uv, const VertexData &v0, const VertexData &v1, int px, int py, float &s, float &t, float &q) {
 	q = LineUVComponentAt(uv.q, uv.scaleQ, v0, v1, px, py);
 	if (!(q > 0.0f)) {
-		s = 0.0f;
-		t = 0.0f;
+		s = GE_NONPOSITIVE_Q_UV;
+		t = GE_NONPOSITIVE_Q_UV;
 		return;
 	}
 	const double r = GERecip(q);

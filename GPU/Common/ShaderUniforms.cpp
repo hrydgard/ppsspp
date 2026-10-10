@@ -77,6 +77,8 @@ void BaseUpdateUniforms(UB_VS_FS_Base *ub, uint64_t dirtyUniforms, bool useBuffe
 	if (dirtyUniforms & DIRTY_MIPBIAS) {
 		float mipBias = (float)gstate.getTexLevelOffset16() * (1.0 / 16.0f);
 		ub->mipBias = (mipBias + 0.5f) / (float)(gstate.getTextureMaxLevel() + 1);
+		// For GPU_USE_SHADER_LOD_BIAS. The sampler applies the bias only in auto mode, see GetSamplingParams.
+		ub->texLodBias = gstate.getTexLevelMode() == GE_TEXLEVEL_MODE_AUTO ? mipBias : 0.0f;
 	}
 
 	if (dirtyUniforms & DIRTY_PROJMATRIX) {

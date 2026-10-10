@@ -33,8 +33,8 @@
 
 #if !PPSSPP_PLATFORM(IOS_APP_STORE)
 #define VK_NO_PROTOTYPES
-#define VK_ENABLE_BETA_EXTENSIONS				1		// VK_KHR_portability_subset
 #endif
+#define VK_ENABLE_BETA_EXTENSIONS				1		// VK_KHR_portability_subset
 
 #include "ext/vulkan/vulkan.h"
 #include <string>
@@ -274,6 +274,7 @@ struct VulkanExtensions {
 	bool KHR_present_wait;  // Same
 	bool GOOGLE_display_timing;
 	bool EXT_provoking_vertex;
+	bool KHR_portability_subset;
 	bool KHR_present_mode_fifo_latest_ready;
 	bool EXT_scalar_block_layout;
 	bool EXT_full_screen_exclusive;

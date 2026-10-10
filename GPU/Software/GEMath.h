@@ -417,6 +417,12 @@ inline float GENormalize4(Vec4F32 &v) {
 // The reciprocal triangle setup uses for its planes: q ~ 2^(e + 16) / absDet, e = floor(log2(absDet)).
 int64_t GESetupRecip(uint64_t absDet, int *e);
 
+// Whether a through-mode sprite's u plane has an exact gradient, so a pixel center whose exact u is on a texel
+// edge lands on it rather than just below. The gradient comes from the setup reciprocal of the whole area,
+// exact only for a power of two, whatever the height (gpu/probe exp87, exp163). x and y in subpixels, s the
+// left and right u divided by the texture width.
+bool GESpriteUPlaneExact(int64_t left, int64_t top, int64_t right, int64_t bottom, double sLeft, double sRight);
+
 // The float-bits log2 the mip level selection uses, in 1/16 (a signed 1.27.4 value): the exponent and
 // the top 4 mantissa bits, a piecewise linear log2 floored to 1/16 (gpu/probe exp58-60).
 inline int GELog16(float delta) {
@@ -451,12 +457,18 @@ inline float GEUVProduct(double d) {
 	return (float)d;
 }
 
+// Where q isn't positive, the GE samples the last texel in u and v, whatever s and t are and in both clamp
+// and wrap modes (gpu/texmtx/negq): a saturated coordinate. 1 - 2^-16 lands on texel size - 1 with the highest
+// subtexel fraction, for any texture size.
+constexpr float GE_NONPOSITIVE_Q_UV = 1.0f - 1.0f / 65536.0f;
+constexpr int32_t GE_NONPOSITIVE_Q_UV_BITS = 0x3F7FFF00;
+
 // The rasterizer's texture coordinates for four pixels (Rasterizer's GetTextureCoordinatesGE): from the UV
 // planes' values at them (each times 2^scaleExp), q as a float24, and s and t as GEUVProduct(float24 *
-// GERecip(q)), or 0 where q isn't positive. False, with the outputs untouched, when a lane needs more than
-// the vector path does (a value of 2^24 or more, a denormal or out of range result): then do it scalar.
-// The core takes the values as lanes, each below 2^24; with check false, the caller knows they're inside
-// what the vector path covers (GEUVSpanSafe).
+// GERecip(q)), or GE_NONPOSITIVE_Q_UV where q isn't positive. False, with the outputs untouched, when a lane
+// needs more than the vector path does (a value of 2^24 or more, a denormal or out of range result): then do
+// it scalar. The core takes the values as lanes, each below 2^24; with check false, the caller knows they're
+// inside what the vector path covers (GEUVSpanSafe).
 template <bool check>
 inline bool GEUVSpanCore(Vec4S32 qv, Vec4S32 sv, Vec4S32 tv, int expQ, int expS, int expT, float *s, float *t, float *q) {
 	const Vec4S32 expMask = Vec4S32::Splat(0x7F800000);
@@ -517,7 +529,7 @@ inline bool GEUVSpanCore(Vec4S32 qv, Vec4S32 sv, Vec4S32 tv, int expQ, int expS,
 		const Vec4S32 sign = xb & Vec4S32::Splat((int)0x80000000);
 		const Vec4S32 result = (Vec4S32FromBits(Vec4F32FromS32(m)) + adjust.Shl<23>()) | sign;
 		// Zero stays as it is, with its sign.
-		return ((result.AndNot(xZero) | (xb & xZero)) & valid);
+		return ((result.AndNot(xZero) | (xb & xZero)) & valid) | Vec4S32::Splat(GE_NONPOSITIVE_Q_UV_BITS).AndNot(valid);
 	};
 	const Vec4S32 so = product(sb);
 	const Vec4S32 to = product(tb);

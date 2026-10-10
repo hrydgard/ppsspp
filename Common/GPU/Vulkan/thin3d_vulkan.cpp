@@ -989,6 +989,9 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 	caps_.sampleRateShadingSupported = vulkan->GetDeviceFeatures().enabled.standard.sampleRateShading != 0;
 	caps_.textureSwizzleSupported = true;
 	caps_.samplerLodControl = true;
+	if (vulkan->Extensions().KHR_portability_subset) {
+		caps_.samplerLodBias = vulkan->GetDeviceFeatures().available.portabilitySubset.samplerMipLodBias;
+	}
 
 	// Note that it must also be enabled on the pipelines (which we do).
 	caps_.provokingVertexLast = vulkan->GetDeviceFeatures().enabled.provokingVertex.provokingVertexLast;
