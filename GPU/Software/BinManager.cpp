@@ -43,12 +43,8 @@ static constexpr int SPLIT_MIN_ROW_PAIRS = 8;
 static constexpr int SPLIT_MIN_PIXELS = 128 * 64;
 // How many tile pieces of work are worth waking the threads for.
 static constexpr int WAKE_ENTRIES = 48;
-// How long a drawing thread out of work waits for more (LingerForWork).
+// How long a drawing thread out of work waits for more (LingerForWork). Picked under WSL2.
 static constexpr double LINGER_SECONDS = 200e-6;
-// More threads drawing slow the emulation thread down more than they help it, by taking from its core's
-// share of power and clock speed (and with SMT, the core): in God of War and Wipeout on a 16 core Ryzen,
-// six beat four, eight and all 31 the thread manager has (under WSL2).
-static constexpr int MAX_DRAW_THREADS = 6;
 
 using namespace Rasterizer;
 

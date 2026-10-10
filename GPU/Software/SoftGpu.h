@@ -204,6 +204,7 @@ public:
 
 	void Execute_BlockTransferStart(u32 op, u32 diff);
 	void Execute_Prim(u32 op, u32 diff);
+	int RunVertexCount(u32 count, u32 vertexSize);
 	void Execute_Bezier(u32 op, u32 diff);
 	void Execute_Spline(u32 op, u32 diff);
 	void Execute_LoadClut(u32 op, u32 diff);

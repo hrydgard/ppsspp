@@ -962,7 +962,11 @@ void SoftGPU::Execute_Prim(u32 op, u32 diff) {
 	}
 	int bytesRead;
 	drawEngine_->transformUnit.SetDirty(dirtyFlags_);
-	drawEngine_->transformUnit.SubmitPrimitive(verts, indices, prim, count, vertType, &bytesRead, drawEngine_);
+	// The vertices of a run of draws, for the transform to do together (when it isn't in one already).
+	int runCount = 0;
+	if (!indices && !drawEngine_->transformUnit.InRun(verts, vertType))
+		runCount = RunVertexCount(count, drawEngine_->FindVertexDecoder(vertType)->VertexSize());
+	drawEngine_->transformUnit.SubmitPrimitive(verts, indices, prim, count, vertType, &bytesRead, drawEngine_, runCount);
 	dirtyFlags_ = drawEngine_->transformUnit.GetDirty();
 
 	SoftGPUVRAMDirty mark = (gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) != 0 ? SoftGPUVRAMDirty::DIRTY : SoftGPUVRAMDirty::DIRTY | SoftGPUVRAMDirty::REALLY_DIRTY;
@@ -972,6 +976,38 @@ void SoftGPU::Execute_Prim(u32 op, u32 diff) {
 	// Some games rely on this, they don't bother reloading VADDR and IADDR.
 	// The VADDR/IADDR registers are NOT updated.
 	gstate_c.AdvanceVerts(vertType, count, bytesRead);
+}
+
+// The vertices this draw and the ones right after it read, when those continue where it leaves off with
+// nothing changed in between (God of War draws thousands of short strips like that). Only commands that can't
+// change anything are skipped over: NOPs, unchanged state, and VADDR to where the vertices continue anyway.
+int SoftGPU::RunVertexCount(u32 count, u32 vertexSize) {
+	constexpr int MAX_LOOKAHEAD = 1024;
+	u32 total = count;
+	u32 nextAddr = gstate_c.vertexAddr + count * vertexSize;
+	u32 pc = currentList->pc + 4;
+	// downcount counts this PRIM and the commands up to the stall address.
+	const int commands = std::min(downcount - 1, MAX_LOOKAHEAD);
+	if (commands <= 0 || !Memory::IsValidRange(pc, commands * 4))
+		return (int)count;
+	for (int i = 0; i < commands; ++i, pc += 4) {
+		const u32 op = Memory::ReadUnchecked_U32(pc);
+		const u32 cmd = op >> 24;
+		if (cmd == GE_CMD_PRIM) {
+			const u32 n = op & 0xFFFF;
+			total += n;
+			nextAddr += n * vertexSize;
+		} else if (cmd == GE_CMD_VADDR) {
+			if (gstate_c.getRelativeAddress(op & 0x00FFFFFF) != nextAddr)
+				break;
+		} else if (op != gstate.cmdmem[cmd] || (softgpuCmdInfo[cmd].flags & (FLAG_EXECUTE | FLAG_READS_PC | FLAG_WRITES_PC))) {
+			break;
+		}
+	}
+	// They're all read at once, so they have to be valid.
+	if (!Memory::IsValidRange(gstate_c.vertexAddr, total * vertexSize))
+		return (int)count;
+	return (int)total;
 }
 
 void SoftGPU::Execute_Bezier(u32 op, u32 diff) {

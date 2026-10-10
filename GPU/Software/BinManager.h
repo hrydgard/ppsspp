@@ -209,6 +209,12 @@ public:
 	BinManager();
 	~BinManager();
 
+	// More threads drawing slow the emulation thread down more than they help it, by taking from its core's
+	// share of power and clock speed (and with SMT, the core): in God of War and Wipeout on a 16 core Ryzen,
+	// six beat four, eight and all 31 the thread manager has. Under WSL2, where waking threads costs more than on
+	// bare metal: measure again there.
+	static constexpr int MAX_DRAW_THREADS = 6;
+
 	void UpdateState();
 	void UpdateClut(const void *src);
 	// TEXFLUSH empties the GE's texture cache, which self-texturing can see.

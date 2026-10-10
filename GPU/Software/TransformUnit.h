@@ -134,7 +134,13 @@ public:
 	}
 	static ScreenCoords DrawingToScreen(const DrawingCoords &coords, u16 z);
 
-	void SubmitPrimitive(const void* vertices, const void* indices, GEPrimitiveType prim_type, int vertex_count, u32 vertex_type, int *bytesRead, SoftwareDrawEngine *drawEngine);
+	// runCount: the vertices of this draw and the ones right after it that continue it (SoftGPU::RunVertexCount),
+	// for them to be transformed together, or 0.
+	void SubmitPrimitive(const void* vertices, const void* indices, GEPrimitiveType prim_type, int vertex_count, u32 vertex_type, int *bytesRead, SoftwareDrawEngine *drawEngine, int runCount = 0);
+	// Whether a draw from these vertices continues the run transformed together.
+	bool InRun(const void *vertices, u32 vertexType) const {
+		return runRemaining_ > 0 && vertices == runNext_ && vertexType == runType_;
+	}
 	void SubmitImmVertex(const ClipVertexData &vert, SoftwareDrawEngine *drawEngine);
 
 	void Flush(GPUCommon *common, const char *reason);
@@ -146,6 +152,8 @@ public:
 
 	void SetDirty(SoftDirty flags);
 	SoftDirty GetDirty();
+
+	struct RunJob;
 
 	// ReadVertex's position stage, done ahead for several vertices at once.
 	struct PreparedPosition {
@@ -163,6 +171,17 @@ private:
 		float normal[4]{};
 	};
 	void ReadVertex(const VertexReader &vreader, const TransformState &state, VertexCarry &carry, ClipVertexData &vertex, const PreparedPosition *prepared = nullptr);
+	bool StartRun(const void *vertices, u32 vertexType, int runCount, VertexDecoder &vdecoder, TransformState &state);
+	void TransformRunChunk(int chunk, const VertexDecoder &vdecoder, const u8 *raw, const TransformState &state, const VertexCarry &carry);
+
+	// A run of draws whose vertices are transformed together (StartRun), and the next draw's place in it.
+	std::vector<ClipVertexData> runVerts_;
+	int runCount_ = 0;
+	const u8 *runNext_ = nullptr;
+	u32 runType_ = 0;
+	int runPos_ = 0;
+	int runRemaining_ = 0;
+	RunJob *runJob_ = nullptr;
 	// orderReversed: verts are in the opposite order of how the GE takes the triangle (matters for clipping).
 	void SendTriangle(CullType cullType, const ClipVertexData *verts, int provoking = 2, bool orderReversed = false);
 
