@@ -2,9 +2,11 @@
 //
 // Overview
 //
-// main.mm: JIT enablement, starting the next step
-// AppDelegate.mm: Runs NativeInit, launches the main ViewController
-// ViewController.mm: The main application window
+// main.mm: JIT enablement, the System_ functions, starting the next step
+// AppDelegate.mm: Audio session interruptions, deep link and library export helpers
+// SceneDelegate.mm: Runs NativeInit, creates the window and the view controller
+// ViewControllerCommon.mm: Input, keyboard, pickers and sizing, shared by the two below
+// ViewController.mm / ViewControllerMetal.mm: The OpenGL and Vulkan view controllers
 
 #import <UIKit/UIKit.h>
 #import <dlfcn.h>
@@ -290,9 +292,7 @@ float g_safeInsetRight = 0.0;
 float g_safeInsetTop = 0.0;
 float g_safeInsetBottom = 0.0;
 
-// We no longer need to judge if jit is usable or not by according to the ios version.
 static bool g_jitAvailable = true;
-//static int g_iosVersionMinor;
 
 static int g_iosVersionMajor;
 static std::string version;
@@ -690,16 +690,6 @@ int main(int argc, char *argv[]) {
 
 	// Tried checking for JIT support here with AllocateExecutableMemory and ProtectMemoryPages,
 	// but it just succeeds, and then fails when you try to execute from it.
-
-	// So, we'll just resort to a version check.
-	// TODO: This seems outdated.
-/*
-	if (g_iosVersionMajor > 14 || (g_iosVersionMajor == 14 && g_iosVersionMinor >= 4)) {
-		g_jitAvailable = false;
-	} else {
-		g_jitAvailable = true;
-	}
-*/
 #endif
 
 	// Ignore sigpipe.

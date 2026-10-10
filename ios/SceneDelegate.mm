@@ -62,10 +62,6 @@ static NSString *ExtractGameInfoScheme(NSURL *url) {
 
 @implementation SceneDelegate
 
-+ (void)load {
-	NSLog(@"✅ SceneDelegate class was loaded!");
-}
-
 - (void)capturePendingPathFromURLContexts:(NSSet<UIOpenURLContext *> *)URLContexts {
 	for (UIOpenURLContext *context in URLContexts) {
 		NSString *exportScheme = ExtractGameInfoScheme(context.URL);

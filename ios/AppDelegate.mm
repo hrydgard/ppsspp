@@ -14,7 +14,6 @@
 #import "IAPManager.h"
 
 #import <AVFoundation/AVFoundation.h>
-#import <objc/runtime.h>
 
 #include <set>
 #include <string>
@@ -91,13 +90,6 @@ __attribute__((used)) static Class _forceLinkSceneDelegate = [SceneDelegate clas
 
 -(BOOL) application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
 	self.launchOptions = launchOptions;
-	// Make sure SceneDelegate class is loaded
-	Class cls = objc_getClass("SceneDelegate");
-	if (!cls) {
-		NSLog(@"⚠️ SceneDelegate not found via objc_getClass");
-	} else {
-		NSLog(@"✅ SceneDelegate loaded via objc_getClass");
-	}
 
 #if PPSSPP_PLATFORM(IOS_APP_STORE)
 	[IAPManager sharedIAPManager];  // Kick off the IAPManager early.
