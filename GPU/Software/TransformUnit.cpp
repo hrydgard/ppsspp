@@ -66,16 +66,25 @@ struct TransformUnit::RunJob {
 	uint32_t gen = 0;
 	int maxHelpers = 0;
 	std::function<void(int)> work;
+	// The run each chunk was last done for.
+	std::vector<std::atomic<uint32_t>> chunkGen;
 
-	// Takes and does chunks of run myGen until there are none left.
-	void Help(uint32_t myGen) {
+	// Takes and does a chunk of run myGen. False if there are none left to take.
+	bool HelpOne(uint32_t myGen) {
 		uint64_t v = claim.load(std::memory_order_acquire);
 		while ((uint32_t)(v >> 32) == myGen && (int)(uint32_t)v < chunks.load(std::memory_order_relaxed)) {
 			if (!claim.compare_exchange_weak(v, v + 1, std::memory_order_acq_rel))
 				continue;
-			work((int)(uint32_t)v);
+			const int chunk = (int)(uint32_t)v;
+			work(chunk);
+			chunkGen[chunk].store(myGen, std::memory_order_release);
 			done.fetch_add(1, std::memory_order_release);
-			v = claim.load(std::memory_order_acquire);
+			return true;
+		}
+		return false;
+	}
+	void Help(uint32_t myGen) {
+		while (HelpOne(myGen)) {
 		}
 	}
 	// A run after lastGen with chunks left to take, within the time a helper waits for one.
@@ -148,6 +157,7 @@ TransformUnit::TransformUnit() {
 }
 
 TransformUnit::~TransformUnit() {
+	FinishRun();
 	FreeAlignedMemory(decoded_);
 	delete binner_;
 	while (runJob_->active.load(std::memory_order_acquire) != 0)
@@ -1061,9 +1071,11 @@ static void PreparePositionRange(VertexReader &vreader, int first, int count, co
 
 class SoftwareVertexReader {
 public:
-	// With run, the vertices are already transformed there (TransformUnit::StartRun).
-	SoftwareVertexReader(u8 *base, VertexDecoder &vdecoder, u32 vertex_type, int vertex_count, const void *vertices, const void *indices, const TransformState &transformState, TransformUnit &transform, const ClipVertexData *run = nullptr)
-	: vreader_(base, vdecoder.GetDecVtxFmt(), vertex_type), conv_(vertex_type, indices), transformState_(transformState), transform_(transform), run_(run) {
+	// With runPos (not negative), the vertices are transformed as part of a run, from there in runVerts_
+	// (TransformUnit::StartRun).
+	SoftwareVertexReader(u8 *base, VertexDecoder &vdecoder, u32 vertex_type, int vertex_count, const void *vertices, const void *indices, const TransformState &transformState, TransformUnit &transform, int runPos = -1)
+	: vreader_(base, vdecoder.GetDecVtxFmt(), vertex_type), conv_(vertex_type, indices), transformState_(transformState), transform_(transform), runPos_(runPos) {
+		run_ = runPos >= 0 ? &transform.runVerts_[runPos] : nullptr;
 		useIndices_ = indices != nullptr;
 		vertexCount_ = vertex_count;
 		lowerBound_ = 0;
@@ -1129,6 +1141,7 @@ public:
 
 	inline void Read(int vtx, ClipVertexData &out) {
 		if (run_) {
+			transform_.RunNeed(runPos_ + vtx);
 			out = run_[vtx];
 			return;
 		}
@@ -1158,6 +1171,7 @@ protected:
 	bool useCache_ = false;
 	bool usePrepared_ = false;
 	const ClipVertexData *run_;
+	int runPos_;
 };
 
 // Static to reduce allocations mid-frame.
@@ -1175,9 +1189,10 @@ static constexpr int RUN_MAX_HELPERS = 2;
 
 static TransformState transformState;
 
-// Decodes and transforms a run of draws' vertices (runCount from vertices, possibly a single draw's) into
-// runVerts_, in chunks that helper threads share. With the transform state as it is for all of them: the draws in between change nothing
-// (SoftGPU::RunVertexCount). False if it doesn't apply.
+// Decodes a run of draws' vertices (runCount from vertices, possibly a single draw's), and starts transforming
+// them into runVerts_, in chunks that helper threads share. The draws take each vertex as it's done (RunNeed),
+// drawing what they can meanwhile. With the transform state as it is for all of them: the draws in between change
+// nothing (SoftGPU::RunVertexCount). False if it doesn't apply.
 bool TransformUnit::StartRun(const void *vertices, u32 vertexType, int runCount, VertexDecoder &vdecoder, TransformState &state) {
 	const DecVtxFormat &fmt = vdecoder.GetDecVtxFmt();
 	if (runCount < RUN_MIN_VERTICES || (size_t)runCount * fmt.stride > TRANSFORM_BUF_SIZE || vdecoder.throughmode)
@@ -1199,7 +1214,7 @@ bool TransformUnit::StartRun(const void *vertices, u32 vertexType, int runCount,
 		runVerts_.resize(runCount);
 	RunJob &job = *runJob_;
 	// The new run first, with no chunks to take until it's set up: a helper still looking at an earlier run could
-	// otherwise take one with this run's count and work, counted as done for this run too early.
+	// otherwise take one with this run's count, done as that run's, and RunNeed would wait for it forever.
 	job.gen++;
 	job.claim.store(((uint64_t)job.gen << 32) | 0x7FFFFFFF, std::memory_order_release);
 	const VertexCarry carry = carry_;
@@ -1209,21 +1224,47 @@ bool TransformUnit::StartRun(const void *vertices, u32 vertexType, int runCount,
 	runCount_ = runCount;
 	const int chunks = (runCount + RUN_CHUNK - 1) / RUN_CHUNK;
 	job.maxHelpers = std::min({ RUN_MAX_HELPERS, 31, g_threadManager.GetNumLooperThreads() - BinManager::MAX_DRAW_THREADS });
+	if ((int)job.chunkGen.size() < chunks) {
+		// No helper uses it: FinishRun waited for every chunk taken.
+		std::vector<std::atomic<uint32_t>> grown(chunks * 2);
+		for (auto &g : grown)
+			g.store(0, std::memory_order_relaxed);
+		job.chunkGen.swap(grown);
+	}
 	job.chunks.store(chunks, std::memory_order_relaxed);
 	job.done.store(0, std::memory_order_relaxed);
 	job.claim.store((uint64_t)job.gen << 32, std::memory_order_release);
 	// Helpers waiting for a run take this one without a wake up.
 	if (job.maxHelpers > 0 && chunks > 1)
 		job.SpawnHelper(job.gen);
-	job.Help(job.gen);
-	while (job.done.load(std::memory_order_acquire) < chunks)
-		std::this_thread::yield();
+	runActive_ = true;
 
 	runNext_ = raw;
 	runType_ = vertexType;
 	runPos_ = 0;
 	runRemaining_ = runCount;
 	return true;
+}
+
+// Makes sure a vertex of the run (an index into runVerts_) is transformed, doing other chunks while its isn't.
+void TransformUnit::RunNeed(int index) {
+	RunJob &job = *runJob_;
+	const int chunk = index / RUN_CHUNK;
+	while (job.chunkGen[chunk].load(std::memory_order_acquire) != job.gen) {
+		if (!job.HelpOne(job.gen))
+			std::this_thread::yield();
+	}
+}
+
+// Waits for all of the run's chunks: they use decoded_, the transform state and gstate.
+void TransformUnit::FinishRun() {
+	if (!runActive_)
+		return;
+	RunJob &job = *runJob_;
+	job.Help(job.gen);
+	while (job.done.load(std::memory_order_acquire) < job.chunks.load(std::memory_order_relaxed))
+		std::this_thread::yield();
+	runActive_ = false;
 }
 
 // A chunk of a run: what a draw would do with its vertices, from skinning to ReadVertex.
@@ -1256,12 +1297,14 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 	// Frame skipping.
 	if (gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) {
 		runRemaining_ = 0;
+		FinishRun();
 		return;
 	}
 	// Vertices without position are just entirely culled.
 	// Note: Throughmode does draw 8-bit primitives, but positions are always zero - handled in decode.
 	if ((vertex_type & GE_VTYPE_POS_MASK) == 0) {
 		runRemaining_ = 0;
+		FinishRun();
 		return;
 	}
 
@@ -1269,12 +1312,17 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 	bool fromRun = !indices && InRun(vertices, vertex_type) && vertex_count <= runRemaining_ && !binner_->HasDirty(SoftDirty::LIGHT_ALL | SoftDirty::TRANSFORM_ALL);
 	if (!fromRun) {
 		runRemaining_ = 0;
+		FinishRun();
 		if (!indices && runCount >= vertex_count)
 			fromRun = StartRun(vertices, vertex_type, runCount, vdecoder, transformState);
 	}
-	SoftwareVertexReader vreader(decoded_, vdecoder, vertex_type, vertex_count, vertices, indices, transformState, *this, fromRun ? &runVerts_[runPos_] : nullptr);
-	if (fromRun) {
+	SoftwareVertexReader vreader(decoded_, vdecoder, vertex_type, vertex_count, vertices, indices, transformState, *this, fromRun ? runPos_ : -1);
+	// After the draw: its last vertex is transformed the latest.
+	auto advanceRun = [&]() {
+		if (!fromRun)
+			return;
 		// What the next draw carries is this one's last vertex's (gpu/vertices/carry), as reading it would leave it.
+		RunNeed(runPos_ + vertex_count - 1);
 		VertexReader last(decoded_, vdecoder.GetDecVtxFmt(), vertex_type);
 		last.Goto(runPos_ + vertex_count - 1);
 		if (last.hasUV()) {
@@ -1287,7 +1335,9 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 		runPos_ += vertex_count;
 		runRemaining_ -= vertex_count;
 		runNext_ = (const u8 *)vertices + vertex_count * vdecoder.VertexSize();
-	}
+		if (runRemaining_ == 0)
+			FinishRun();
+	};
 
 	if (prim_type != GE_PRIM_KEEP_PREVIOUS) {
 		data_index_ = 0;
@@ -1563,6 +1613,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 		ERROR_LOG(Log::G3D, "Unexpected prim type: %d", prim_type);
 		break;
 	}
+	advanceRun();
 }
 
 void TransformUnit::SubmitImmVertex(const ClipVertexData &vert, SoftwareDrawEngine *drawEngine) {

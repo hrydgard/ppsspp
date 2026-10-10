@@ -173,6 +173,8 @@ private:
 	void ReadVertex(const VertexReader &vreader, const TransformState &state, VertexCarry &carry, ClipVertexData &vertex, const PreparedPosition *prepared = nullptr);
 	bool StartRun(const void *vertices, u32 vertexType, int runCount, VertexDecoder &vdecoder, TransformState &state);
 	void TransformRunChunk(int chunk, const VertexDecoder &vdecoder, const u8 *raw, const TransformState &state, const VertexCarry &carry);
+	void RunNeed(int index);
+	void FinishRun();
 
 	// A run of draws whose vertices are transformed together (StartRun), and the next draw's place in it.
 	std::vector<ClipVertexData> runVerts_;
@@ -181,6 +183,8 @@ private:
 	u32 runType_ = 0;
 	int runPos_ = 0;
 	int runRemaining_ = 0;
+	// Chunks of the run may still be in progress.
+	bool runActive_ = false;
 	RunJob *runJob_ = nullptr;
 	// orderReversed: verts are in the opposite order of how the GE takes the triangle (matters for clipping).
 	void SendTriangle(CullType cullType, const ClipVertexData *verts, int provoking = 2, bool orderReversed = false);
