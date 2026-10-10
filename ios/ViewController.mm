@@ -248,5 +248,3 @@ void bindDefaultFBO()
 	[sharedViewController bindDefaultFBO];
 }
 
-void EnableFZ(){};
-void DisableFZ(){};

@@ -958,7 +958,7 @@ elseif(IOS AND NOT LIBRETRO)
 		Common/Battery/AppleBatteryClient.m
 	)
 
-	list(APPEND targetExtraLibs "-framework Foundation -framework MediaPlayer -framework AudioToolbox -framework CoreGraphics -framework CoreMotion -framework QuartzCore -framework UIKit -framework GLKit -framework OpenAL -framework AVFoundation -framework CoreLocation -framework CoreText -framework CoreVideo -framework CoreMedia -framework CoreServices -framework Metal -framework IOSurface -framework Photos" )
+	list(APPEND targetExtraLibs "-framework Foundation -framework AudioToolbox -framework CoreGraphics -framework CoreMotion -framework QuartzCore -framework UIKit -framework GLKit -framework AVFoundation -framework CoreLocation -framework CoreText -framework CoreVideo -framework CoreMedia -framework CoreServices -framework Metal -framework IOSurface -framework Photos" )
 	list(APPEND targetExtraLibs "-framework GameController -framework PhotosUI -framework UniformTypeIdentifiers")
 	if(USE_IAP)
 		# Adding the In-App Purchase capability in Xcode did this. There's no entitlement for it on iOS.
@@ -1492,7 +1492,7 @@ if(TargetBin)
 
 		if(IOS)
 			set(AssetCatalog "${CMAKE_SOURCE_DIR}/ios/assets.xcassets")
-			add_executable(${TargetBin} MACOSX_BUNDLE ${NativeAssets} ${BigFontAssets} ${UIImages} ${AssetCatalog} ${SHADER_FILES} ${THEME_FILE} ${DEBUGGER_FILES} ${WEB_UPLOAD_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource} "ios/Settings.bundle" "ios/Launch Screen.storyboard")
+			add_executable(${TargetBin} MACOSX_BUNDLE ${NativeAssets} ${BigFontAssets} ${UIImages} ${AssetCatalog} ${SHADER_FILES} ${THEME_FILE} ${DEBUGGER_FILES} ${WEB_UPLOAD_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource} "ios/Launch Screen.storyboard")
 			if(NOT IOS_APP_STORE)
 				file(INSTALL "${CMAKE_SOURCE_DIR}/ext/vulkan/iOS/Frameworks/libMoltenVK.dylib" DESTINATION "${CMAKE_BINARY_DIR}/PPSSPP.app/Frameworks/")
 			endif()
@@ -1544,12 +1544,6 @@ endif()
 if(IOS AND NOT LIBRETRO)
 	# Set by cmake/Toolchains/ios.cmake.
 	set(DEPLOYMENT_TARGET ${IPHONEOS_DEPLOYMENT_TARGET})
-	file(GLOB IOSAssets ios/assets/*.png)
-	list(REMOVE_ITEM IOSAssets ${CMAKE_CURRENT_SOURCE_DIR}/ios/assets/Default-568h@2x.png)
-	list(REMOVE_ITEM IOSAssets ${CMAKE_CURRENT_SOURCE_DIR}/ios/assets/Default-568h@3x.png)
-	file(INSTALL ${IOSAssets} DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/assets)
-	file(GLOB IOSAssets ios/assets/Default-568h@*.png)
-	file(INSTALL ${IOSAssets} DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 	if(IOS_DEBUG)
 		file(INSTALL pspautotests DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/assets)
 	endif()
@@ -1600,7 +1594,7 @@ if(IOS AND NOT LIBRETRO)
 			COMMAND mkdir -p \"${APP_DIR_NAME}\"
 				# This tar command seems to be responsible for copying assets. I thought we had another step that did that..
 				# Prepend -v to the extracting command to see the files copied.
-			COMMAND tar -c -C ${CMAKE_CURRENT_BINARY_DIR} --exclude .DS_Store --exclude .git assets *.png | tar -x -C \"${APP_DIR_NAME}\"
+			COMMAND tar -c -C ${CMAKE_CURRENT_BINARY_DIR} --exclude .DS_Store --exclude .git assets | tar -x -C \"${APP_DIR_NAME}\"
 				# This updates the version in the plist.
 			COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/ios/iosbundle.sh" \"${APP_DIR_NAME}\" "${CMAKE_CURRENT_BINARY_DIR}"
 		)
@@ -1619,7 +1613,6 @@ if(IOS AND NOT LIBRETRO)
 		set_target_properties(${TargetBin} PROPERTIES
 			XCODE_GENERATE_SCHEME YES  # Avoid the scheme bloat in XCode by only setting it to YES for this target.
 			RESOURCE "ios/Launch Screen.storyboard"
-			RESOURCE "ios/Settings.bundle"
 			RESOURCE "ios/assets.xcassets"
 			XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER ${BUNDLE_IDENTIFIER}
 			XCODE_ATTRIBUTE_PRODUCT_NAME ${PRODUCT_NAME}
@@ -1654,7 +1647,7 @@ if(IOS AND NOT LIBRETRO)
 		add_custom_command(TARGET PPSSPP POST_BUILD
 			COMMAND echo "Creating ${APP_DIR_NAME} for sideload build"
 			COMMAND mkdir -p \"${APP_DIR_NAME}\"
-			COMMAND tar -c -C ${CMAKE_CURRENT_BINARY_DIR} --exclude .DS_Store --exclude .git assets *.png | tar -x -C \"${APP_DIR_NAME}\"
+			COMMAND tar -c -C ${CMAKE_CURRENT_BINARY_DIR} --exclude .DS_Store --exclude .git assets | tar -x -C \"${APP_DIR_NAME}\"
 			COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/ios/macbundle.sh" \"${APP_DIR_NAME}\"
 		)
 
@@ -1662,7 +1655,6 @@ if(IOS AND NOT LIBRETRO)
 			MACOSX_BUNDLE_INFO_PLIST ${BUNDLE_PLIST}
 			XCODE_GENERATE_SCHEME YES
 			RESOURCE "ios/Launch Screen.storyboard"
-			RESOURCE "ios/Settings.bundle"
 			RESOURCE "ext/vulkan/iOS/Frameworks"
 			XCODE_ATTRIBUTE_ASSETCATALOG_COMPILER_APPICON_NAME ${ICON_NAME}
 			XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET}
