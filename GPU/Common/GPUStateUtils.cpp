@@ -919,9 +919,14 @@ static void ConvertMaskState(GenericMaskState &maskState, FBReadSetting useShade
 
 	// Let's not write to alpha if stencil isn't enabled.
 	// Also if the stencil type is set to KEEP, we shouldn't write to the stencil/alpha channel.
-	if (IsStencilTestOutputDisabled() || ReplaceAlphaWithStencilType() == STENCIL_VALUE_KEEP) {
-		maskState.channelMask &= ~8;
-		maskState.uniformMask &= ~0xFF000000;
+	// Exception: in 5551 framebuffers the alpha bit is a plain 1-bit color channel that alpha
+	// blending writes to; it does not hold the stencil value (which has no real storage there.)
+	// Games do read it back, for example Everybody's Golf's character portrait snapshot.
+	if (gstate.FrameBufFormat() != GE_FORMAT_5551) {
+		if (IsStencilTestOutputDisabled() || ReplaceAlphaWithStencilType() == STENCIL_VALUE_KEEP) {
+			maskState.channelMask &= ~8;
+			maskState.uniformMask &= ~0xFF000000;
+		}
 	}
 
 	// For 5551, only the top alpha bit matters.  We might even want to swizzle 4444.

@@ -1853,6 +1853,24 @@ static inline void ConvertFormatToRGBA8888(GETextureFormat format, u32 *dst, con
 		ConvertRGBA4444ToRGBA8888(dst, src, numPixels);
 		break;
 	case GE_TFMT_5551:
+		if (PSP_CoreParameter().compat.flags().ForceEnableGPUReadback) {
+			bool needsFix = false;
+			for (u32 i = 0; i < numPixels; ++i) {
+				if ((src[i] & 0x7FFF) != 0 && (src[i] & 0x8000) == 0) {
+					needsFix = true;
+					break;
+				}
+			}
+			if (needsFix) {
+				std::unique_ptr<u16[]> fixedSrc(new u16[numPixels]);
+				for (u32 i = 0; i < numPixels; ++i) {
+					u16 px = src[i];
+					fixedSrc[i] = ((px & 0x7FFF) != 0) ? (px | 0x8000) : px;
+				}
+				ConvertRGBA5551ToRGBA8888(dst, fixedSrc.get(), numPixels);
+				break;
+			}
+		}
 		ConvertRGBA5551ToRGBA8888(dst, src, numPixels);
 		break;
 	case GE_TFMT_5650:
@@ -2169,6 +2187,14 @@ TextureAlpha TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETex
 			} else {
 				for (int y = 0; y < h; ++y) {
 					CopyAndSumMask16((u16 *)(out + outPitch * y), (u16 *)(texptr + bufw * sizeof(u16) * y), w, &alphaSum);
+					if (format == GE_TFMT_5551 && PSP_CoreParameter().compat.flags().ForceEnableGPUReadback) {
+						u16 *row = (u16 *)(out + outPitch * y);
+						for (int x = 0; x < w; ++x) {
+							if ((row[x] & 0x7FFF) != 0) {
+								row[x] |= 0x8000;
+							}
+						}
+					}
 				}
 			}
 		} /* else if (h >= 8 && bufw <= w && !expandTo32bit) {
@@ -2199,6 +2225,14 @@ TextureAlpha TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETex
 			} else {
 				for (int y = 0; y < h; ++y) {
 					CopyAndSumMask16((u16 *)(out + outPitch * y), (const u16 *)(unswizzled + bufw * sizeof(u16) * y), w, &alphaSum);
+					if (format == GE_TFMT_5551 && PSP_CoreParameter().compat.flags().ForceEnableGPUReadback) {
+						u16 *row = (u16 *)(out + outPitch * y);
+						for (int x = 0; x < w; ++x) {
+							if ((row[x] & 0x7FFF) != 0) {
+								row[x] |= 0x8000;
+							}
+						}
+					}
 				}
 			}
 		}

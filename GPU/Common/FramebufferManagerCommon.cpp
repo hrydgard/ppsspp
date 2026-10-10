@@ -3412,6 +3412,26 @@ void FramebufferManagerCommon::ReadbackFramebuffer(VirtualFramebuffer *vfb, int 
 			w * vfb->renderScaleFactor, h * vfb->renderScaleFactor, (uint16_t *)destPtr, stride, w, h, mode);
 	} else {
 		draw_->CopyFramebufferToMemory(vfb->fbo, channel == RASTER_COLOR ? Draw::Aspect::COLOR_BIT : Draw::Aspect::DEPTH_BIT, x, y, w, h, destFormat, destPtr, stride, mode, "ReadbackFramebufferSync");
+
+		// In 5551 framebuffers the alpha bit is a 1-bit channel used for alpha testing / masking.
+		// Games like Everybody's Golf CPU-downscale the 5551 framebuffer after reading it back
+		// to build character HUD portrait textures, copying the source pixel's alpha bit.
+		// If the render's alpha bit was 0 (e.g. during a fade), the CPU downscale produces a
+		// transparent portrait. Set alpha bit = 1 for non-black pixels so character content
+		// becomes opaque while keeping the black background transparent.
+		if (channel == RASTER_COLOR && vfb->fb_format == GE_FORMAT_5551 &&
+			PSP_CoreParameter().compat.flags().ForceEnableGPUReadback) {
+			uint16_t *pixels = (uint16_t *)destPtr;
+			for (int yy = 0; yy < h; ++yy) {
+				uint16_t *destRow = pixels + yy * stride;
+				for (int xx = 0; xx < w; ++xx) {
+					uint16_t px = destRow[x + xx];
+					if ((px & 0x7FFF) != 0) {
+						destRow[x + xx] = px | 0x8000;
+					}
+				}
+			}
+		}
 	}
 
 	char tag[128];
