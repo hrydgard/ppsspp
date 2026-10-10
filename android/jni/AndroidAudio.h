@@ -17,7 +17,7 @@ public:
 	virtual ~AudioContext() {}
 
 protected:
-	void SetErrorString(const std::string &error);
+	static void SetErrorString(const std::string &error);
 	AndroidAudioCallback audioCallback;
 
 	int framesPerBuffer;

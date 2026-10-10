@@ -1,7 +1,7 @@
 #include "Common/Log.h"
 
 #include "android/jni/AndroidAudio.h"
-#include "android/jni/OpenSLContext.h"
+#include "android/jni/OboeContext.h"
 
 std::string g_error;
 std::mutex g_errorMutex;
@@ -60,7 +60,7 @@ bool AndroidAudio_Recording_Start(AndroidAudioState *state) {
 	}
 	state->input_enable = 1;
 	if (!state->ctx) {
-		ERROR_LOG(Log::Audio, "OpenSLContext not initialized, cannot start recording!");
+		ERROR_LOG(Log::Audio, "Audio context not initialized, cannot start recording!");
 		return false;
 	}
 	state->ctx->AudioRecord_Start(state->input_sample_rate);
@@ -74,7 +74,7 @@ bool AndroidAudio_Recording_Stop(AndroidAudioState *state) {
 		return false;
 	}
 	if (!state->ctx) {
-		ERROR_LOG(Log::Audio, "OpenSLContext not initialized, cannot stop recording!");
+		ERROR_LOG(Log::Audio, "Audio context not initialized, cannot stop recording!");
 		return false;
 	}
 	state->input_enable = 0;
@@ -97,9 +97,7 @@ bool AndroidAudio_Resume(AndroidAudioState *state) {
 		return false;
 	}
 	if (!state->ctx) {
-		INFO_LOG(Log::Audio, "Calling OpenSLWrap_Init_T...");
-		state->ctx = new OpenSLContext(state->callback, state->frames_per_buffer, state->sample_rate);
-		INFO_LOG(Log::Audio, "Returned from OpenSLWrap_Init_T");
+		state->ctx = new OboeContext(state->callback, state->frames_per_buffer, state->sample_rate);
 		bool init_retval = state->ctx->Init();
 		if (!init_retval) {
 			delete state->ctx;
@@ -118,10 +116,8 @@ bool AndroidAudio_Pause(AndroidAudioState *state) {
 		return false;
 	}
 	if (state->ctx) {
-		INFO_LOG(Log::Audio, "Calling OpenSLWrap_Shutdown_T...");
 		delete state->ctx;
 		state->ctx = nullptr;
-		INFO_LOG(Log::Audio, "Returned from OpenSLWrap_Shutdown_T ...");
 		return true;
 	}
 	return false;
@@ -137,7 +133,7 @@ bool AndroidAudio_Shutdown(AndroidAudioState *state) {
 		return false;
 	}
 	delete state;
-	INFO_LOG(Log::Audio, "OpenSLWrap completely unloaded.");
+	INFO_LOG(Log::Audio, "Android audio completely unloaded.");
 	return true;
 }
 
