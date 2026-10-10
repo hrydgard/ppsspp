@@ -89,9 +89,9 @@ struct TransformUnit::RunJob {
 	}
 	// A run after lastGen with chunks left to take, within the time a helper waits for one.
 	bool WaitForRun(uint32_t lastGen, uint32_t *newGen) {
-		if (!BinManager::THREADS_LINGER)
+		if (BinManager::TRANSFORM_LINGER_SECONDS <= 0.0)
 			return false;
-		const double until = time_now_d() + LINGER_SECONDS;
+		const double until = time_now_d() + BinManager::TRANSFORM_LINGER_SECONDS;
 		do {
 			const uint64_t v = claim.load(std::memory_order_acquire);
 			if ((uint32_t)(v >> 32) != lastGen && (int)(uint32_t)v < chunks.load(std::memory_order_relaxed)) {
@@ -104,10 +104,6 @@ struct TransformUnit::RunJob {
 		return false;
 	}
 	void SpawnHelper(uint32_t myGen);
-
-	// How long a helper waits for the next run: waking it again costs the emulation thread a system call
-	// (picked under WSL2, see RUN_MIN_VERTICES).
-	static constexpr double LINGER_SECONDS = 300e-6;
 };
 
 class TransformRunTask : public Task {

@@ -221,14 +221,21 @@ public:
 #else
 	static constexpr int MAX_DRAW_THREADS = 6;
 #endif
-	// Whether drawing and transform threads out of work wait a moment for more, spinning, rather than end their
-	// tasks. Under WSL2, where waking a thread costs the waker about 15 us, it saved 4-8% of wall time; on macOS,
-	// where it's cheap, it cost wall time at every length tried. Not on Android either, where spinning costs
-	// battery. Unmeasured on native Windows and Linux.
-#if (PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(LINUX)) && !PPSSPP_PLATFORM(ANDROID)
-	static constexpr bool THREADS_LINGER = true;
+	// How long drawing and transform threads out of work wait for more, spinning, rather than end their tasks
+	// (0 for not at all). Under WSL2, where waking a thread costs the waker about 15 us, it saved 4-8% of wall
+	// time. On native Windows (16 core Ryzen) only the transform helpers' lingering paid: without the drawing
+	// threads', wall time stayed within 1% in seven benchmark games, with 9-27% less CPU time. On macOS,
+	// where waking is cheap, it cost wall time at every length tried. Not on Android either, where spinning
+	// costs battery. Unmeasured on native Linux.
+#if PPSSPP_PLATFORM(WINDOWS)
+	static constexpr double DRAW_LINGER_SECONDS = 0.0;
+	static constexpr double TRANSFORM_LINGER_SECONDS = 100e-6;
+#elif PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID)
+	static constexpr double DRAW_LINGER_SECONDS = 200e-6;
+	static constexpr double TRANSFORM_LINGER_SECONDS = 300e-6;
 #else
-	static constexpr bool THREADS_LINGER = false;
+	static constexpr double DRAW_LINGER_SECONDS = 0.0;
+	static constexpr double TRANSFORM_LINGER_SECONDS = 0.0;
 #endif
 
 	void UpdateState();

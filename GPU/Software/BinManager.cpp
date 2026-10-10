@@ -43,8 +43,6 @@ static constexpr int SPLIT_MIN_ROW_PAIRS = 8;
 static constexpr int SPLIT_MIN_PIXELS = 128 * 64;
 // How many tile pieces of work are worth waking the threads for.
 static constexpr int WAKE_ENTRIES = 48;
-// How long a drawing thread out of work waits for more (LingerForWork). Picked under WSL2.
-static constexpr double LINGER_SECONDS = 200e-6;
 
 using namespace Rasterizer;
 
@@ -791,14 +789,14 @@ void BinManager::MakeRoom() {
 // It looks at the tiles again only when distributed_ says there's new work: reading their heads and tails over
 // and over took cache lines from the emulation thread, which writes the tails.
 void BinManager::LingerForWork(int start) {
-	if (!THREADS_LINGER)
+	if (DRAW_LINGER_SECONDS <= 0.0)
 		return;
-	double until = time_now_d() + LINGER_SECONDS;
+	double until = time_now_d() + DRAW_LINGER_SECONDS;
 	while (!waitingForIdle_.load(std::memory_order_relaxed)) {
 		// Read before the look at the tiles, so work distributed during it isn't missed.
 		const uint32_t seen = distributed_.load(std::memory_order_acquire);
 		if (ProcessTiles(start)) {
-			until = time_now_d() + LINGER_SECONDS;
+			until = time_now_d() + DRAW_LINGER_SECONDS;
 			continue;
 		}
 		while (distributed_.load(std::memory_order_acquire) == seen && !waitingForIdle_.load(std::memory_order_relaxed)) {
