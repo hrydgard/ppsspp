@@ -746,6 +746,24 @@ static inline void ApplyTexturing(const RasterizerState &state, int *colors, int
 			return;
 		}
 	}
+#if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(ARM64_NEON)
+	// The pixels' colors by transposing the channel rows in registers: gathering them a value at a time
+	// and loading them as a vector stalls.
+	Vec4F32 pixels[4];
+	for (int c = 0; c < 4; ++c)
+		pixels[c] = Vec4F32FromBits(Vec4S32::Load(colors + c * colorStride));
+	Vec4F32::Transpose(pixels[0], pixels[1], pixels[2], pixels[3]);
+	for (int i = 0; i < 4; ++i) {
+		if (mask[i] >= 0) {
+			if (perPixel)
+				CalculateSamplingParams(ds, dt, q[i], state, level, levelFrac, bilinear, autoGrad);
+			pixels[i] = Vec4F32FromBits(Vec4S32{ ApplyTexturing(s[i], t[i], Vec4S32FromBits(pixels[i]).v, level, levelFrac, bilinear, state) });
+		}
+	}
+	Vec4F32::Transpose(pixels[0], pixels[1], pixels[2], pixels[3]);
+	for (int c = 0; c < 4; ++c)
+		Vec4S32FromBits(pixels[c]).Store(colors + c * colorStride);
+#else
 	for (int i = 0; i < 4; ++i) {
 		if (mask[i] >= 0) {
 			if (perPixel)
@@ -755,6 +773,7 @@ static inline void ApplyTexturing(const RasterizerState &state, int *colors, int
 				colors[c * colorStride + i] = out[c];
 		}
 	}
+#endif
 }
 
 // Depth at x to x + 3 in row y. They're stored together unless they cross the end of a 16-pixel run.
