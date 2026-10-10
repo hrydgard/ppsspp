@@ -1174,25 +1174,30 @@ void BinManager::ForTargetTiles(const RasterizerState &state, const TexelRegion 
 	if (fbStrideBytes == 0)
 		return;
 	const int64_t fbBase = drawTargetAddr_ & mirrorMask;
+	// Tiles are powers of two in size, and the offsets fit 32 bits: 64-bit divisions per row took most of
+	// NeedsOrder's time in Wipeout.
+	const int bppShift = bpp == 4 ? 2 : 1;
+	const int tileShiftX = tileShiftX_ - 4, tileShiftY = tileShiftY_ - 4;
+	const uint32_t rowsY = (uint32_t)(tilesY_ * tileH_);
 	int lastTy = -1, lastTx1 = -1, lastTx2 = -1;
 	for (uint32_t r = 0; r < region.rows; ++r) {
 		const int64_t a0 = (int64_t)(region.start & mirrorMask) + (int64_t)r * region.stride;
 		const int64_t a1 = a0 + region.widthBytes - 1;
 		if (a1 < fbBase)
 			continue;
-		const int64_t off0 = std::max(a0, fbBase) - fbBase;
-		const int64_t off1 = a1 - fbBase;
-		const int64_t y0 = off0 / fbStrideBytes, y1 = off1 / fbStrideBytes;
-		if (y0 >= tilesY_ * tileH_)
+		const uint32_t off0 = (uint32_t)(std::max(a0, fbBase) - fbBase);
+		const uint32_t off1 = (uint32_t)(a1 - fbBase);
+		const uint32_t y0 = off0 / fbStrideBytes, y1 = off1 / fbStrideBytes;
+		if (y0 >= rowsY)
 			break;
 		int x0 = 0, x1 = 1023;
 		if (y0 == y1) {
-			x0 = (int)((off0 % fbStrideBytes) / bpp);
-			x1 = (int)((off1 % fbStrideBytes) / bpp);
+			x0 = (int)((off0 - y0 * fbStrideBytes) >> bppShift);
+			x1 = (int)((off1 - y1 * fbStrideBytes) >> bppShift);
 		}
-		const int tx1 = std::min(x0 / tileW_, tilesX_ - 1), tx2 = std::min(x1 / tileW_, tilesX_ - 1);
-		for (int64_t y = y0; y <= y1 && y < tilesY_ * tileH_; ++y) {
-			const int ty = (int)(y / tileH_);
+		const int tx1 = std::min(x0 >> tileShiftX, tilesX_ - 1), tx2 = std::min(x1 >> tileShiftX, tilesX_ - 1);
+		for (uint32_t y = y0; y <= y1 && y < rowsY; ++y) {
+			const int ty = (int)(y >> tileShiftY);
 			if (ty == lastTy && tx1 == lastTx1 && tx2 == lastTx2)
 				continue;
 			lastTy = ty;
