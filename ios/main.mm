@@ -19,10 +19,8 @@
 #import <stdlib.h>
 #import <sys/syscall.h>
 #import <sys/utsname.h>
-#import <AudioToolbox/AudioToolbox.h>
 
 #import "AppDelegate.h"
-#import "PPSSPPUIApplication.h"
 #import "ViewController.h"
 #import "iOSCoreAudio.h"
 #import "IAPManager.h"
@@ -635,47 +633,16 @@ PermissionStatus System_GetPermissionStatus(SystemPermission permission) {
 	 return PERMISSION_STATUS_GRANTED;
 }
 
-#if !PPSSPP_PLATFORM(IOS_APP_STORE)
-FOUNDATION_EXTERN void AudioServicesPlaySystemSoundWithVibration(unsigned long, objc_object*, NSDictionary*);
-#endif
-
-BOOL SupportsTaptic() {
-	// we're on an iOS version that cannot instantiate UISelectionFeedbackGenerator, so no.
-	if(!NSClassFromString(@"UISelectionFeedbackGenerator")) {
-		return NO;
-	}
-
-	// http://www.mikitamanko.com/blog/2017/01/29/haptic-feedback-with-uifeedbackgenerator/
-	// use private API against UIDevice to determine the haptic stepping
-	// 2 - iPhone 7 or above, full taptic feedback
-	// 1 - iPhone 6S, limited taptic feedback
-	// 0 - iPhone 6 or below, no taptic feedback
-	NSNumber* val = (NSNumber*)[[UIDevice currentDevice] valueForKey:@"feedbackSupportLevel"];
-	return [val intValue] >= 2;
-}
-
 void System_Vibrate(int mode) {
 	// Comes from the UI code on the emu thread, and UIKit wants the main thread.
 	dispatch_async(dispatch_get_main_queue(), ^{
-		if (SupportsTaptic()) {
-			PPSSPPUIApplication* app = (PPSSPPUIApplication*)[UIApplication sharedApplication];
-			if(app.feedbackGenerator == nil)
-			{
-				app.feedbackGenerator = [[UISelectionFeedbackGenerator alloc] init];
-				[app.feedbackGenerator prepare];
-			}
-			[app.feedbackGenerator selectionChanged];
-		} else {
-#if !PPSSPP_PLATFORM(IOS_APP_STORE)
-			NSMutableDictionary *dictionary = [NSMutableDictionary dictionary];
-			NSArray *pattern = @[@YES, @30, @NO, @2];
-
-			dictionary[@"VibePattern"] = pattern;
-			dictionary[@"Intensity"] = @2;
-
-			AudioServicesPlaySystemSoundWithVibration(kSystemSoundID_Vibrate, nil, dictionary);
-#endif
+		// Does nothing on devices without a Taptic Engine.
+		static UISelectionFeedbackGenerator *feedbackGenerator;
+		if (!feedbackGenerator) {
+			feedbackGenerator = [[UISelectionFeedbackGenerator alloc] init];
+			[feedbackGenerator prepare];
 		}
+		[feedbackGenerator selectionChanged];
 	});
 }
 
@@ -742,7 +709,7 @@ int main(int argc, char *argv[]) {
 #endif
 
 	@autoreleasepool {
-		return UIApplicationMain(argc, argv, NSStringFromClass([PPSSPPUIApplication class]), NSStringFromClass([AppDelegate class]));
+		return UIApplicationMain(argc, argv, nil, NSStringFromClass([AppDelegate class]));
 	}
 }
 
