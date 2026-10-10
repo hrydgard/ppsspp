@@ -6,11 +6,11 @@ import android.graphics.Rect;
 import android.graphics.SurfaceTexture;
 import android.graphics.YuvImage;
 import android.hardware.Camera;
+import android.hardware.display.DisplayManager;
 import android.os.SystemClock;
 import android.util.Log;
 import android.view.Display;
 import android.view.Surface;
-import android.view.WindowManager;
 
 import androidx.annotation.Keep;
 
@@ -151,8 +151,10 @@ class CameraHelper {
 	};
 
 	@SuppressWarnings("unused")
+	// Static in PpssppActivity, so this gets the application context: DisplayManager, unlike WindowManager,
+	// gives a display that follows the rotation without one.
 	CameraHelper(final Context context) {
-		mDisplay = ((WindowManager)context.getSystemService(Context.WINDOW_SERVICE)).getDefaultDisplay();
+		mDisplay = ((DisplayManager)context.getSystemService(Context.DISPLAY_SERVICE)).getDisplay(Display.DEFAULT_DISPLAY);
 		mSurfaceTexture = new SurfaceTexture(10);
 	}
 

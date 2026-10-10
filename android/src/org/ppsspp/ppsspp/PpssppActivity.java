@@ -116,6 +116,8 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	private final ArrayList<InputDeviceState> inputPlayers = new ArrayList<>();
 
 	private PowerSaveModeReceiver mPowerSaveModeReceiver = null;
+	// The open input box, if any.
+	private AlertDialog inputDialog = null;
 	private NativeSurfaceManager surfaceManager = null;
 	private static LocationHelper mLocationHelper;
 	private static InfraredHelper mInfraredHelper;
@@ -366,9 +368,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		return info.reqGlEsVersion >= 0x30000;
 	}
 
-	public void Initialize() {
-		// Initialize audio classes. Do this here since detectOptimalAudioSettings()
-		// needs audioManager
+	// What every activity needs for itself, not just the first one (Initialize).
+	private void initActivityServices() {
+		// detectOptimalAudioSettings() needs audioManager.
 		this.audioManager = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
 		if (this.audioManager != null) {
 			this.audioFocusChangeListener = new AudioFocusChangeListener();
@@ -385,7 +387,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 				NativeApp.sendMessageFromJava("sustained_perf_supported", "1");
 			}
 		}
+	}
 
+	public void Initialize() {
 		// isLandscape is used to trigger GetAppInfo currently, we
 		boolean landscape = NativeApp.isLandscape();
 		Log.d(TAG, "Landscape: " + landscape);
@@ -493,8 +497,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			mInfraredHelper = null;
 			Log.i(TAG, "InfraredHelper exception: " + e);
 		}
-		// android.graphics.SurfaceTexture is not available before version 11.
-		mCameraHelper = new CameraHelper(this);
+		mCameraHelper = new CameraHelper(getApplicationContext());
 	}
 
 	@NonNull
@@ -689,6 +692,8 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		// to be able to set defaults when loading config for the first time. Like figuring out
 		// whether to start at 1x or 2x.
 		surfaceManager.updateDisplayMeasurements();
+
+		initActivityServices();
 
 		// On the first run, the shortcut parameter is passed to NativeApp.init in here.
 		final boolean firstRun = !initialized;
@@ -946,6 +951,11 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			mPowerSaveModeReceiver.destroy(this);
 			mPowerSaveModeReceiver = null;
 		}
+		// Otherwise its window leaks, and its request is never answered. Dismissing answers it as cancelled.
+		if (inputDialog != null) {
+			inputDialog.dismiss();
+			inputDialog = null;
+		}
 
 		if (instance != latestInstance) {
 			// After finish(), Android is free to deliver onDestroy late, after it has already created
@@ -963,6 +973,11 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 				NativeApp.shutdown();
 				unregisterCallbacks();
 				initialized = false;
+			} else if (!isChangingConfigurations()) {
+				// Backed out of, or destroyed by the system, with the native side left running for the next
+				// activity. Until that one registers, the native side mustn't keep this one alive or call it.
+				Log.i(TAG, "in onDestroy, but not shutting down. Letting go of the activity.");
+				unregisterCallbacks();
 			} else {
 				Log.i(TAG, "in onDestroy, but not shutting down.");
 			}
@@ -1424,7 +1439,13 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			Log.i(TAG, "input box dismissed");
 			// This will be ignored if we already sent a success.
 			NativeApp.sendRequestResult(requestId, false, "", 0);
-			updateSystemUiVisibility();
+			if (inputDialog == d) {
+				inputDialog = null;
+			}
+			// Also comes after onDestroy dismissed it.
+			if (!isDestroyed()) {
+				updateSystemUiVisibility();
+			}
 		});
 
 		AlertDialog dlg = builder.create();
@@ -1446,6 +1467,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		}
 		try {
 			dlg.show();
+			inputDialog = dlg;
 			input.requestFocus();
 		} catch (Exception e) {
 			NativeApp.reportException(e, "AlertDialog");
@@ -1881,6 +1903,19 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	@SuppressWarnings("unused")
 	public void postCommand(String command, String parameter) {
 		runOnUiThread(() -> {
+			// Posted before this activity was destroyed, but runs after.
+			if (isDestroyed()) {
+				Log.w(TAG, "Dropping command '" + command + "' for a destroyed activity");
+				if (command.equals("inputbox")) {
+					// The native side waits for an answer.
+					try {
+						NativeApp.sendRequestResult(Integer.parseInt(parameter.split(":@:", 2)[0]), false, "", 0);
+					} catch (NumberFormatException e) {
+						Log.e(TAG, "Bad inputbox parameter: " + parameter);
+					}
+				}
+				return;
+			}
 			if (!processCommand(command, parameter)) {
 				Log.e(TAG, "processCommand failed: cmd: '" + command + "' param: '" + parameter + "'");
 			}
