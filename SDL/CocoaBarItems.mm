@@ -17,6 +17,7 @@
 #include "Core/System.h"
 #include "Core/Core.h"
 #include "Core/SaveState.h"
+#include "Core/Screenshot.h"
 #include "Core/RetroAchievements.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/HLE/sceNet.h"
@@ -36,8 +37,6 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-extern bool g_TakeScreenshot;
 
 typedef BOOL (^MenuCondition)(void);
 
@@ -425,7 +424,7 @@ static bool CanUseSaveStates(bool isSaveAction) {
     [self addSeparatorTo:menu];
 
     [self addItem:DesktopUI("Take Screenshot") to:menu action:^{
-        g_TakeScreenshot = true;
+        TakeUserScreenshot();
     }].enabledWhen = inGame;
     [self addItem:DesktopUI("Save frame dump") to:menu action:^{
         System_PostUIMessage(UIMessage::SAVE_FRAME_DUMP);

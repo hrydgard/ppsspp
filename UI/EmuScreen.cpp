@@ -105,8 +105,6 @@ using namespace std::placeholders;
 static AVIDump avi;
 #endif
 
-extern bool g_TakeScreenshot;
-
 // Handles control rotation due to internal screen rotation.
 void EmuScreen::UpdatePSPButtons(uint32_t bitsToSet, uint32_t bitsToClear) {
 	if (!IsOnTop()) {

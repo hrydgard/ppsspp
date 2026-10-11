@@ -184,8 +184,6 @@ void SaveFrameDump();
 ScreenManager *g_screenManager;
 std::string config_filename;
 
-// Really need to clean this mess of globals up... but instead I add more :P
-bool g_TakeScreenshot;
 static bool resized = false;
 
 static int renderCounter = 0;
