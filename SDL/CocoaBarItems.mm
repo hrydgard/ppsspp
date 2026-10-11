@@ -394,6 +394,9 @@ static bool CanUseSaveStates(bool isSaveAction) {
     [self addToggle:DesktopUI("Ignore Illegal Reads/Writes") to:menu value:&g_Config.bIgnoreBadMemAccess then:nil];
     [self addSeparatorTo:menu];
 
+    [self addToggle:MenuString(I18NCat::DEVELOPER, "Debugger") to:menu value:&g_Config.bShowImDebugger then:nil];
+    [self addSeparatorTo:menu];
+
     [self addItem:DesktopUI("Load Map File...") to:menu action:^{
         NSURL *url = [BarItemsManager presentOpenPanelWithAllowedFileTypes:@[@"map"]];
         if (url)
@@ -425,7 +428,7 @@ static bool CanUseSaveStates(bool isSaveAction) {
 
     [self addItem:DesktopUI("Take Screenshot") to:menu action:^{
         TakeUserScreenshot();
-    }].enabledWhen = inGame;
+    }];
     [self addItem:DesktopUI("Save frame dump") to:menu action:^{
         System_PostUIMessage(UIMessage::SAVE_FRAME_DUMP);
     }].enabledWhen = inGame;
