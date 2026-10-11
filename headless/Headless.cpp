@@ -66,6 +66,7 @@
 #include "headless/ReverseEngineer.h"
 #include "Core/WebServer.h"
 #include "Core/HLE/sceUtility.h"
+#include "Core/Instance.h"
 #include "Core/SaveState.h"
 #include "GPU/GPUCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
@@ -978,6 +979,9 @@ int main(int argc, const char* argv[]) {
 	g_Config.bEnableWlan = true;
 	// The net tests want WLAN on, but a test run shouldn't depend on reaching a real adhoc server.
 	g_Config.sProAdhocServer = "localhost";
+	// Headless doesn't join the app's instance counter (InitInstanceCounter), but behaves as the only
+	// instance: with the default 0, the localhost IP derived from it is 127.0.0.0, which macOS won't bind.
+	PPSSPP_ID = 1;
 	g_Config.sMACAddress = "12:34:56:78:9A:BC";
 	g_Config.iFirmwareVersion = PSP_DEFAULT_FIRMWARE;
 	g_Config.iPSPModel = PSP_MODEL_SLIM;
