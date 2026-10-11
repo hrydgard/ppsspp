@@ -2308,8 +2308,14 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 		// TODO: srcStride here looks suspicious! Actually the whole calculation does...
 		int srcStride = channel == RASTER_DEPTH ? dstBuffer->z_stride : dstBuffer->fb_stride;
 		dstH = ClampCopyRows(src, srcStride * BufferFormatBytesPerPixel(srcFormat), dstH, "MemcpyFboUpload");
-		if (dstH > 0)
-			DrawPixels(dstBuffer, 0, dstY, srcBase, srcFormat, srcStride, dstBuffer->width, dstH, channel, "MemcpyFboUpload_DrawPixels");
+		// A copy of part of a row only covers that part. Drawing the whole width would pull in whatever
+		// follows the source, like the next rows of the sprite in Everybody's Golf's loading screen.
+		int dstW = dstBuffer->width;
+		if (dstH == 1) {
+			dstW = std::min(dstW, size / BufferFormatBytesPerPixel(srcFormat));
+		}
+		if (dstH > 0 && dstW > 0)
+			DrawPixels(dstBuffer, 0, dstY, srcBase, srcFormat, srcStride, dstW, dstH, channel, "MemcpyFboUpload_DrawPixels");
 		SetColorUpdated(dstBuffer, skipDrawReason);
 		RebindFramebuffer("RebindFramebuffer - Memcpy fbo upload");
 		// This is a memcpy, let's still copy just in case.
