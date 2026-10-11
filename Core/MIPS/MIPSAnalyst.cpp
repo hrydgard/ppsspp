@@ -121,6 +121,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x0f1e7533a546f6a1, 228, "dl_write_bone_matrix_4", },
 	{ 0x0f2a1106ad84fb74, 52, "strcmp", },
 	{ 0x0ffa5db8396d4274, 64, "memcpy_jak", }, // CRUSH
+	{ 0x11624abe9542fb01, 180, "everybodysgolf_copy_portrait", }, // Everybody's Golf (EUR)
 	{ 0x1252e902d0b49bfb, 44, "vector_sub_q_2", },
 	{ 0x12df3d33a58d0298, 52, "sceVfpuMatrix3Unit", },
 	{ 0x12feef7b017d3431, 700, "memmove", },

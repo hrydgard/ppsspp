@@ -1406,32 +1406,40 @@ static int Hook_kingdomhearts_download_frame() {
 	return 0;
 }
 
-static int Hook_everybodys_copy_portrait() {
-	// Everybody's Golf 2 and Everybody's Tennis build player portraits the same way.
-	// copy_portrait(dst, x, y, w, h) memcpys a rect of the 512-stride 5551 framebuffer into a texture,
-	// one row at a time, which memcpy's replacement can't match to a framebuffer when it's a partial row.
-	// The caller (0x0887C060 in Golf 2, 0x0889B13C in Tennis) then sets each texel's alpha bit from the
-	// depth buffer, read straight from the linear mirror at 0x04288000. So both are read back here,
-	// whole rows at a time.
-	// Hooked after the GE sync at the start, where s4 = y and s1 = h, and the framebuffer pointer is
-	// loaded 3 instructions later in both versions.
+// The Everybody's Golf games and Everybody's Tennis build player portraits the same way.
+// copy_portrait(dst, x, y, w, h) memcpys a rect of the 512-stride 5551 framebuffer into a texture,
+// one row at a time, which memcpy's replacement can't match to a framebuffer when it's a partial row.
+// The caller then sets each texel's alpha bit from the depth buffer, read straight from the linear
+// mirror at 0x04288000. So both are read back here, whole rows at a time.
+// Each version is hooked after the GE sync at the start, where y and h are in registers and the
+// framebuffer pointer is loaded from a global soon after.
+static void EverybodysCopyPortrait(u32 y, u32 h, s32 luiOffset, s32 lwOffset) {
 	u32 fb_info;
-	if (!GetMIPSStaticAddress(fb_info, 0x0C, 0x10) || !Memory::IsValid4AlignedAddress(fb_info)) {
-		return 0;
+	if (!GetMIPSStaticAddress(fb_info, luiOffset, lwOffset) || !Memory::IsValid4AlignedAddress(fb_info)) {
+		return;
 	}
 	const u32 fb_address = Memory::ReadUnchecked_U32(fb_info);
-	const u32 y = currentMIPS->r[MIPS_REG_S4];
-	const u32 h = currentMIPS->r[MIPS_REG_S1];
 	const u32 colorAddr = fb_address + y * 0x400;
 	const u32 depthAddr = 0x04288000 + y * 0x400;
 	const u32 size = h * 0x400;
 	if (!Memory::IsVRAMAddress(colorAddr) || !Memory::IsValidRange(colorAddr, size) || !Memory::IsValidRange(depthAddr, size)) {
-		return 0;
+		return;
 	}
 	gpu->PerformReadbackToMemory(colorAddr, size);
 	NotifyMemInfo(MemBlockFlags::WRITE, colorAddr, size, "everybodys_copy_portrait");
 	gpu->PerformMemoryCopy(depthAddr, depthAddr, size, GPUCopyFlag::FORCE_DST_MATCH_MEM | GPUCopyFlag::DEPTH_REQUESTED);
 	NotifyMemInfo(MemBlockFlags::WRITE, depthAddr, size, "everybodys_copy_portrait");
+}
+
+// Golf 2 (caller 0x0887C060) and Tennis (caller 0x0889B13C).
+static int Hook_everybodys_copy_portrait() {
+	EverybodysCopyPortrait(currentMIPS->r[MIPS_REG_S4], currentMIPS->r[MIPS_REG_S1], 0x0C, 0x10);
+	return 0;
+}
+
+// Golf (caller 0x088A1FEC).
+static int Hook_everybodysgolf_copy_portrait() {
+	EverybodysCopyPortrait(currentMIPS->r[MIPS_REG_S0], currentMIPS->r[MIPS_REG_S4], 0x00, 0x08);
 	return 0;
 }
 
@@ -1770,6 +1778,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "kingdomhearts_download_frame", &Hook_kingdomhearts_download_frame, 0, REPFLAG_HOOKENTER, 0},
 	{ "everybodysgolf2_copy_portrait", &Hook_everybodys_copy_portrait, 0, REPFLAG_HOOKENTER, 0x50 },
 	{ "everybodystennis_copy_portrait", &Hook_everybodys_copy_portrait, 0, REPFLAG_HOOKENTER, 0x54 },
+	{ "everybodysgolf_copy_portrait", &Hook_everybodysgolf_copy_portrait, 0, REPFLAG_HOOKENTER, 0x50 },
 	{}
 };
 
