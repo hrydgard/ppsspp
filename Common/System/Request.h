@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <vector>
 #include <deque>
 #include <mutex>
@@ -76,11 +77,12 @@ private:
 	};
 
 	// Let's start at 10 to get a recognizably valid ID in logs.
-	int idCounter_ = 10;
+	// Atomic since requests are made from several threads (the CPU thread for the OSK and the microphone).
+	std::atomic<int> idCounter_{ 10 };
 	std::deque<PendingResponse> pendingResponses_;
 	std::mutex responseMutex_;
 
-	RequesterToken tokenGen_ = 20000;
+	std::atomic<RequesterToken> tokenGen_{ 20000 };
 };
 
 const char *RequestTypeAsString(SystemRequestType type);
