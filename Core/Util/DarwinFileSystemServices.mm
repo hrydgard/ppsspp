@@ -30,7 +30,7 @@
 #endif
 
 #if __has_include(<UIKit/UIKit.h>)
-#include "../ios/ViewControllerCommon.h"
+#include "../ios/ViewController.h"
 #include <UIKit/UIKit.h>
 #include <UniformTypeIdentifiers/UniformTypeIdentifiers.h>
 

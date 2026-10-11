@@ -1,18 +1,29 @@
 #import "ios/CameraHelper.h"
-#import "ios/ViewControllerCommon.h"
+#import "ios/ViewController.h"
 #import "ios/Controls.h"
 #import "ios/IAPManager.h"
 #import <Photos/Photos.h>
+#import <QuartzCore/CAMetalLayer.h>
 #import <objc/runtime.h>
+#include <atomic>
+#include <thread>
+#include "Common/GPU/GraphicsContext.h"
+#include "Common/GPU/Vulkan/VulkanGraphicsContext.h"
 #include "Common/System/Request.h"
+#include "Common/System/System.h"
 #include "Common/Input/InputState.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/Display.h"
+#include "Common/Thread/ThreadUtil.h"
 #include "Common/Log.h"
 #include "Core/HLE/sceUsbCam.h"
 #include "Core/HLE/sceUsbGps.h"
+#include "Core/EmuThread.h"
 #include "Core/System.h"
 #include "Core/Config.h"
+
+// ViewController lifecycle:
+// https://www.progressconcepts.com/blog/ios-appdelegate-viewcontroller-method-order/
 
 // The target of the soft keyboard. It's a view of its own so the keyboard only comes up when we ask
 // for it: UIKit hands first responder back to the view controller whenever something it presented
@@ -45,9 +56,54 @@
 
 @end
 
-PPSSPPBaseViewController *sharedViewController;
+// The view, backed by the CAMetalLayer we render to.
+@interface PPSSPPMetalView : UIView
+@end
 
-@interface PPSSPPBaseViewController () {
+@implementation PPSSPPMetalView
+
++ (Class)layerClass {
+	return [CAMetalLayer class];
+}
+
+@end
+
+PPSSPPViewController *sharedViewController;
+
+static std::atomic<bool> exitRenderLoop;
+static std::atomic<bool> renderLoopRunning;
+static std::thread g_renderLoopThread;
+
+static void VulkanRenderLoop(GraphicsContext *graphicsContext, CAMetalLayer *metalLayer) {
+	// Only a provisional name, RunGraphicsLoop renames the thread once it knows its role.
+	SetCurrentThreadName("RenderLoop");
+	_assert_(graphicsContext);
+
+	std::string errorMessage;
+	if (!graphicsContext->InitSurface(WINDOWSYSTEM_METAL_EXT, (__bridge void *)metalLayer, nullptr, &errorMessage)) {
+		ERROR_LOG(Log::G3D, "Failed to initialize graphics context for surface: %s", errorMessage.c_str());
+		System_Toast("Failed to initialize graphics context.");
+		renderLoopRunning = false;
+		return;
+	}
+
+	const auto frame = [](GraphicsContext *graphicsContext) {
+		NativeFrame(graphicsContext);
+		return !exitRenderLoop;
+	};
+	RunGraphicsLoop(graphicsContext, new NativeApplication(), frame, []() { return exitRenderLoop.load(); });
+
+	// Shut the graphics context down to the same state it was in when we entered the render thread.
+	INFO_LOG(Log::G3D, "Shutting down graphics context...");
+	graphicsContext->ShutdownSurface();
+
+	// exitRenderLoop is reset by whoever set it, after joining us.
+	renderLoopRunning = false;
+	WARN_LOG(Log::G3D, "Render loop function exited.");
+}
+
+@interface PPSSPPViewController () {
+	GraphicsContext *graphicsContext;
 	CameraHelper *cameraHelper;
 	LocationHelper *locationHelper;
 	TouchTracker g_touchTracker;
@@ -59,7 +115,7 @@ PPSSPPBaseViewController *sharedViewController;
 
 @end
 
-@implementation PPSSPPBaseViewController {
+@implementation PPSSPPViewController {
 	UIScreenEdgePanGestureRecognizer *mBackGestureRecognizer;
 	CGSize lastLayoutSize_;
 	KeyboardInputView *keyboardInputView_;
@@ -122,6 +178,63 @@ static int GetPickerRequestId(id picker) {
 
 	_dbg_assert_(sharedViewController != nil);
 	sharedViewController = nil;
+
+	g_Config.Save("shutdown vk");
+
+	// Normally already done by willResignActive, but not when the app is terminated.
+	[self requestExitVulkanRenderLoop];
+
+	if (graphicsContext) {
+		graphicsContext->ShutdownAPI();
+		delete graphicsContext;
+		graphicsContext = nullptr;
+	}
+}
+
+- (void)dealloc {
+	INFO_LOG(Log::System, "dealloc VK");
+}
+
+- (bool)runVulkanRenderLoop {
+	INFO_LOG(Log::G3D, "runVulkanRenderLoop");
+
+	if (!graphicsContext) {
+		ERROR_LOG(Log::G3D, "runVulkanRenderLoop: Tried to enter without a created graphics context.");
+		return false;
+	}
+
+	if (g_renderLoopThread.joinable()) {
+		if (renderLoopRunning) {
+			ERROR_LOG(Log::G3D, "runVulkanRenderLoop: Already running");
+			return false;
+		}
+		// The previous thread gave up by itself (failed surface init). Reap it so we can try again.
+		WARN_LOG(Log::G3D, "runVulkanRenderLoop: Joining a render thread that had already exited");
+		g_renderLoopThread.join();
+		g_renderLoopThread = std::thread();
+	}
+
+	_assert_(!exitRenderLoop);
+
+	CAMetalLayer *metalLayer = (CAMetalLayer *)self.view.layer;
+	// Set before the thread exists, so an exit request can't slip in ahead of it.
+	renderLoopRunning = true;
+	g_renderLoopThread = std::thread(VulkanRenderLoop, graphicsContext, metalLayer);
+	return true;
+}
+
+- (void)requestExitVulkanRenderLoop {
+	INFO_LOG(Log::G3D, "requestExitVulkanRenderLoop");
+
+	// Don't go by renderLoopRunning - the thread might have bailed by itself, and still needs joining.
+	if (!g_renderLoopThread.joinable()) {
+		INFO_LOG(Log::G3D, "Render loop not running, nothing to join");
+		return;
+	}
+	exitRenderLoop = true;
+	g_renderLoopThread.join();
+	g_renderLoopThread = std::thread();
+	exitRenderLoop = false;
 }
 
 - (BOOL)prefersHomeIndicatorAutoHidden {
@@ -148,9 +261,15 @@ static int GetPickerRequestId(id picker) {
 	} else {
 		INFO_LOG(Log::G3D, "No accelerometer available, not starting updates.");
 	}
+
+	// Spin up the render thread, which in turn starts the emu thread.
+	[self updateResolutionWithView:self.view];
+	[self runVulkanRenderLoop];
 }
 
 - (void)willResignActive {
+	[self requestExitVulkanRenderLoop];
+
 	// Stop accelerometer updates
 	if (self.motionManager.accelerometerActive) {
 		INFO_LOG(Log::G3D, "Stopping accelerometer updates");
@@ -350,8 +469,18 @@ static int GetPickerRequestId(id picker) {
 					0 /* bearing */);
 }
 
+- (void)loadView {
+	INFO_LOG(Log::G3D, "Creating metal view");
+	// The view gets auto-resized later.
+	self.view = [[PPSSPPMetalView alloc] initWithFrame:CGRectMake(0, 0, 0, 0)];
+}
+
 - (void)viewDidLoad {
 	[super viewDidLoad];
+
+	INFO_LOG(Log::System, "viewDidLoad");
+
+	self.view.multipleTouchEnabled = YES;
 
 	cameraHelper = [[CameraHelper alloc] init];
 	[cameraHelper setDelegate:self];
@@ -363,6 +492,36 @@ static int GetPickerRequestId(id picker) {
 
 	keyboardInputView_ = [[KeyboardInputView alloc] initWithFrame:CGRectZero];
 	[self.view addSubview:keyboardInputView_];
+
+	graphicsContext = new VulkanGraphicsContext();
+	std::string errorMessage;
+	if (!graphicsContext->InitAPI(nullptr, &g_Config.sVulkanDevice, &errorMessage)) {
+		delete graphicsContext;
+		graphicsContext = nullptr;  // The render loop and shutdown check for this.
+		// There's no other backend to fall back to.
+		ERROR_LOG(Log::System, "Failed to initialize Vulkan: %s", errorMessage.c_str());
+	}
+
+	[self updateResolutionWithView:self.view];
+
+	if ([[GCController controllers] count] > 0) {
+		[self setupController:[[GCController controllers] firstObject]];
+	}
+
+	INFO_LOG(Log::G3D, "Detected size: %dx%d", g_display.pixel_xres, g_display.pixel_yres);
+}
+
+- (void)viewWillAppear:(BOOL)animated {
+	[super viewWillAppear:animated];
+	INFO_LOG(Log::G3D, "viewWillAppear");
+	// This is to make sure we get 1:1 pixels.
+	UIWindowScene *scene = self.view.window.windowScene;
+	if (scene) {
+		self.view.contentScaleFactor = scene.screen.nativeScale;
+	}
+	if (@available(iOS 16.0, *)) {
+		[self setNeedsUpdateOfSupportedInterfaceOrientations];
+	}
 }
 
 extern float g_safeInsetLeft;

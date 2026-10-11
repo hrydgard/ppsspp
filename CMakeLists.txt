@@ -947,10 +947,8 @@ elseif(IOS AND NOT LIBRETRO)
 		ios/SceneDelegate.h
 		ios/Controls.h
 		ios/Controls.mm
-		ios/ViewControllerCommon.h
-		ios/ViewControllerCommon.mm
-		ios/ViewControllerMetal.mm
-		ios/ViewControllerMetal.h
+		ios/ViewController.h
+		ios/ViewController.mm
 		ios/iOSCoreAudio.mm
 		ios/iOSCoreAudio.h
 		ios/IAPManager.mm
@@ -982,8 +980,7 @@ elseif(IOS AND NOT LIBRETRO)
 	# TODO: Enable arc globally?
 	set_source_files_properties(ios/AppDelegate.mm
 		ios/SceneDelegate.mm
-		ios/ViewControllerCommon.mm
-		ios/ViewControllerMetal.mm
+		ios/ViewController.mm
 		ios/iOSCoreAudio.mm
 		ios/IAPManager.mm
 		ios/main.mm

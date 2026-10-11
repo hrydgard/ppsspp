@@ -8,7 +8,8 @@
 #import "CameraHelper.h"
 #import "LocationHelper.h"
 
-@interface PPSSPPBaseViewController : UIViewController<
+// The one view controller. Renders with Vulkan (MoltenVK) to a CAMetalLayer.
+@interface PPSSPPViewController : UIViewController<
 	PHPickerViewControllerDelegate,
 	CameraFrameDelegate, LocationHandlerDelegate,
 	UIGestureRecognizerDelegate>
@@ -36,7 +37,7 @@
 
 @end
 
-extern PPSSPPBaseViewController *sharedViewController;
+extern PPSSPPViewController *sharedViewController;
 
 #define IS_IPAD() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad)
 #define IS_IPHONE() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPhone)

@@ -5,8 +5,7 @@
 // main.mm: JIT enablement, the System_ functions, starting the next step
 // AppDelegate.mm: Audio session interruptions, deep link and library export helpers
 // SceneDelegate.mm: Runs NativeInit, creates the window and the view controller
-// ViewControllerCommon.mm: Input, keyboard, pickers and sizing
-// ViewControllerMetal.mm: The view controller, rendering with Vulkan (MoltenVK) to a CAMetalLayer
+// ViewController.mm: The view controller. Rendering (Vulkan to a CAMetalLayer), input, keyboard, pickers and sizing
 
 #import <UIKit/UIKit.h>
 #import <dlfcn.h>
@@ -22,7 +21,7 @@
 #import <sys/syscall.h>
 
 #import "AppDelegate.h"
-#import "ViewControllerCommon.h"
+#import "ViewController.h"
 #import "iOSCoreAudio.h"
 #import "IAPManager.h"
 #import "SceneDelegate.h"

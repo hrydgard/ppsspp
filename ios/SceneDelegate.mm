@@ -4,8 +4,7 @@
 #import "AppDelegate.h"
 
 #import "iOSCoreAudio.h"
-#import "ViewControllerCommon.h"
-#import "ViewControllerMetal.h"
+#import "ViewController.h"
 #import "Common/System/NativeApp.h"
 #import "Common/System/System.h"
 #import "Core/System.h"
@@ -186,7 +185,7 @@ static NSString *ExtractGameInfoScheme(NSURL *url) {
 //	self.window = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
 
 	// sharedViewController gets initialized in the constructor.
-	self.window.rootViewController = [[PPSSPPViewControllerMetal alloc] init];
+	self.window.rootViewController = [[PPSSPPViewController alloc] init];
 
 	[self.window makeKeyAndVisible];
 }

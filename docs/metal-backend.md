@@ -9,9 +9,8 @@ MoltenVK dependency" is the weakest reason to do it - the good reason is program
 
 ## What's already in place
 
-- `ios/ViewControllerMetal.h` says, in its own comment, *"Used by both Vulkan/MoltenVK and the future
-  Metal backend"*. The presentation layer is already a `CAMetalLayer`, so the window-system half of
-  the job is done.
+- The iOS view controller (`ios/ViewController.mm`) already presents through a `CAMetalLayer`, so
+  the window-system half of the job is done.
 - `ext/SPIRV-Cross.vcxproj` already compiles `spirv_msl.cpp`. The CMake build only links
   `spirv-cross-glsl` (and `spirv-cross-hlsl` conditionally), so enabling MSL translation there is a
   one-line change.
