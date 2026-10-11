@@ -237,7 +237,7 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 	inst_info.enabledExtensionCount = (uint32_t)instance_extensions_enabled_.size();
 	inst_info.ppEnabledExtensionNames = instance_extensions_enabled_.size() ? instance_extensions_enabled_.data() : nullptr;
 
-#if PPSSPP_PLATFORM(IOS_APP_STORE)
+#if PPSSPP_VK_STATIC
 	inst_info.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
 #endif
 

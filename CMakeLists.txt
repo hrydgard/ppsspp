@@ -967,8 +967,7 @@ elseif(IOS AND NOT LIBRETRO)
 	if(EXISTS "${CMAKE_IOS_SDK_ROOT}/System/Library/Frameworks/PhotosUI.framework")
 		list(APPEND targetExtraLibs "-weak_framework PhotosUI")
 	endif()
-	# Weak, since it's iOS 14+ and we still run on 13.
-	list(APPEND targetExtraLibs "-weak_framework UniformTypeIdentifiers")
+	list(APPEND targetExtraLibs "-framework UniformTypeIdentifiers")
 	if(USE_IAP)
 		# Adding the In-App Purchase capability in Xcode did this. There's no entitlement for it on iOS.
 		list(APPEND targetExtraLibs "-framework StoreKit")
@@ -1501,9 +1500,6 @@ if(TargetBin)
 		if(IOS)
 			set(AssetCatalog "${CMAKE_SOURCE_DIR}/ios/assets.xcassets")
 			add_executable(${TargetBin} MACOSX_BUNDLE ${NativeAssets} ${BigFontAssets} ${UIImages} ${AssetCatalog} ${SHADER_FILES} ${THEME_FILE} ${DEBUGGER_FILES} ${WEB_UPLOAD_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource} "ios/Settings.bundle" "ios/Launch Screen.storyboard")
-			if(NOT IOS_APP_STORE)
-				file(INSTALL "${CMAKE_SOURCE_DIR}/ext/vulkan/iOS/Frameworks/libMoltenVK.dylib" DESTINATION "${CMAKE_BINARY_DIR}/PPSSPP.app/Frameworks/")
-			endif()
 		else()
 			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${BigFontAssets} ${UIImages} ${SHADER_FILES} ${THEME_FILE} ${DEBUGGER_FILES} ${WEB_UPLOAD_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource})
 			file(INSTALL "${CMAKE_SOURCE_DIR}/ext/vulkan/macOS/Frameworks/libMoltenVK.dylib" DESTINATION "${CMAKE_BINARY_DIR}/${TargetBin}.app/Contents/Frameworks/")
@@ -1574,6 +1570,11 @@ if(IOS AND NOT LIBRETRO)
 	set(APP_DIR_NAME "$<TARGET_FILE_DIR:PPSSPP>")
 	#endif()
 
+	# Can't figure out properly using .xcframework from CMake, so just linking directly to the .a file.
+	target_link_libraries(${TargetBin}
+		"${CMAKE_CURRENT_SOURCE_DIR}/ios/MoltenVK/MoltenVK.xcframework/ios-arm64/libMoltenVK.a"
+	)
+
 	set(MACOSX_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET})
 	set(PRODUCT_NAME "PPSSPP")
 	set(BUNDLE_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/PPSSPP-Info.plist")
@@ -1613,10 +1614,6 @@ if(IOS AND NOT LIBRETRO)
 			COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/ios/iosbundle.sh" \"${APP_DIR_NAME}\" "${CMAKE_CURRENT_BINARY_DIR}"
 		)
 
-		# Can't figure out properly using .xcframework from CMake, so just linking directly to the .a file.
-		target_link_libraries(${TargetBin}
-			"${CMAKE_CURRENT_SOURCE_DIR}/ios/MoltenVK/MoltenVK.xcframework/ios-arm64/libMoltenVK.a"
-		)
 		# https://stackoverflow.com/questions/40664125/cmake-and-code-signing-in-xcode-8-for-ios-projects
 		target_compile_options(${TargetBin} PRIVATE
 			$<$<CONFIG:Release>:-g -gline-tables-only>
@@ -1671,7 +1668,6 @@ if(IOS AND NOT LIBRETRO)
 			XCODE_GENERATE_SCHEME YES
 			RESOURCE "ios/Launch Screen.storyboard"
 			RESOURCE "ios/Settings.bundle"
-			RESOURCE "ext/vulkan/iOS/Frameworks"
 			XCODE_ATTRIBUTE_ASSETCATALOG_COMPILER_APPICON_NAME ${ICON_NAME}
 			XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET}
 			XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2"

@@ -51,13 +51,7 @@ fi
 #cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchains/ios.cmake ..
 #make -j4
 
-cp ../ext/vulkan/iOS/Frameworks/libMoltenVK.dylib PPSSPP.app/Frameworks
 ln -s ./ Payload
-#ldid -w -S -IlibMoltenVK -K../../certificate.p12 -Upassword PPSSPP.app/Frameworks/libMoltenVK.dylib
-if [ -e PPSSPP.app/Frameworks/libMoltenVK.dylib ]; then
-	echo "Signing PPSSPP.app/Frameworks/libMoltenVK.dylib ..."
-	ldid -S -IlibMoltenVK PPSSPP.app/Frameworks/libMoltenVK.dylib
-fi
 
 echo '<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
