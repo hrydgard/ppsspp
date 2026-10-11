@@ -406,7 +406,11 @@ FFMPEG_BUILD_JOBS ?= $(or $(patsubst -j%,%,$(filter -j%,$(MAKEFLAGS))),1)
 FFMPEG_SOURCE_LIBS := avformat avcodec swresample swscale avutil
 FFMPEGINCFLAGS := -I$(FFMPEGDIR) -I$(FFMPEG_SOURCE_DIR)
 ifneq (,$(findstring msvc,$(platform)))
-FFMPEG_CMAKE_TOOLCHAIN := -A $(if $(filter x86_64,$(TARGET_ARCH)),x64,Win32)
+# MSYS temp/tmp and make platform collide with Windows TEMP/TMP/Platform.
+# MSBuild rejects these case-insensitive duplicates; keep the native names.
+FFMPEG_CMAKE_ENV := env -u temp -u tmp -u platform
+# Match the core CRT: cl defaults to /MT; DEBUG=1 explicitly uses /MDd.
+FFMPEG_CMAKE_TOOLCHAIN := -A $(if $(filter x86_64,$(TARGET_ARCH)),x64,Win32) -DCMAKE_C_FLAGS_RELEASE="-O2 -Ob2 -DNDEBUG $(if $(filter 1,$(DEBUG)),-MDd,-MT)"
 FFMPEGLDFLAGS := $(foreach lib,$(FFMPEG_SOURCE_LIBS),$(FFMPEG_SOURCE_DIR)/lib/$(lib).lib)
 else
 FFMPEG_MAKE_GENERATOR := $(if $(filter win,$(platform)),MSYS Makefiles,Unix Makefiles)
@@ -506,12 +510,12 @@ FFMPEG_SOURCE_INPUTS := $(shell find $(FFMPEGDIR)/libavcodec $(FFMPEGDIR)/libavf
 endif
 ifneq ($(platform), emscripten)
 $(FFMPEG_CONFIG_STAMP): $(filter %.cmake %CMakeLists.txt,$(FFMPEG_SOURCE_INPUTS)) $(FFMPEGDIR)/UPSTREAM_COMMIT Makefile find-cmake.sh
-	@$(CMAKE) --version >/dev/null 2>&1 || { echo "A working CMake is required to build the vendored FFmpeg source."; echo "MSYS2 MINGW64: pacman -S mingw-w64-x86_64-cmake"; echo "Or pass CMAKE=/path/to/a/working/cmake."; exit 1; }
-	$(CMAKE) -S $(CORE_DIR)/ext/ffmpeg-build -B $(FFMPEG_SOURCE_DIR) -DCMAKE_BUILD_TYPE=Release $(FFMPEG_CMAKE_TOOLCHAIN) $(FFMPEG_CMAKE_ARGS)
+	@$(FFMPEG_CMAKE_ENV) $(CMAKE) --version >/dev/null 2>&1 || { echo "A working CMake is required to build the vendored FFmpeg source."; echo "MSYS2 MINGW64: pacman -S mingw-w64-x86_64-cmake"; echo "Or pass CMAKE=/path/to/a/working/cmake."; exit 1; }
+	$(FFMPEG_CMAKE_ENV) $(CMAKE) -S $(CORE_DIR)/ext/ffmpeg-build -B $(FFMPEG_SOURCE_DIR) -DCMAKE_BUILD_TYPE=Release $(FFMPEG_CMAKE_TOOLCHAIN) $(FFMPEG_CMAKE_ARGS)
 	touch $@
 
 $(FFMPEG_SOURCE_STAMP): $(FFMPEG_SOURCE_INPUTS) $(FFMPEG_CONFIG_STAMP)
-	$(CMAKE) --build $(FFMPEG_SOURCE_DIR) --config Release --parallel $(FFMPEG_BUILD_JOBS) --target avformat avcodec avutil swresample swscale
+	$(FFMPEG_CMAKE_ENV) $(CMAKE) --build $(FFMPEG_SOURCE_DIR) --config Release --parallel $(FFMPEG_BUILD_JOBS) --target avformat avcodec avutil swresample swscale
 	touch $@
 
 $(filter %.o,$(OBJECTS)): | $(FFMPEG_SOURCE_STAMP)
