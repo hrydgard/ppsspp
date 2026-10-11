@@ -165,6 +165,13 @@ namespace MainWindow {
 	static bool hasFocus = true;
 	static bool g_keepScreenBright = false;
 
+	// The simulated double-click that toggles fullscreen. Only two clicks on the running game count, so
+	// focus loss, a click outside the client area, or a UI state change in between resets it.
+	static double lastMouseDownTime = 0.0;
+	static float lastMouseDownX = -1.0f;
+	static float lastMouseDownY = -1.0f;
+	static GlobalUIState lastMouseDownUIState = UISTATE_MENU;
+
 	static bool disasmMapLoadPending = false;
 	static bool memoryMapLoadPending = false;
 	static bool g_wasMinimized = false;
@@ -825,6 +832,7 @@ namespace MainWindow {
 					trapMouse = true;
 				}
 				if (wParam == WA_INACTIVE) {
+					lastMouseDownTime = 0.0;
 					System_PostUIMessage(UIMessage::LOST_FOCUS);
 					WindowsRawInput::LoseFocus();
 					g_InputManager.LoseFocus();
@@ -1208,26 +1216,30 @@ namespace MainWindow {
 				SetCapture(hWnd);
 
 				// Simulate doubleclick, doesn't work with RawInput enabled
-				static double lastMouseDownTime;
-				static float lastMouseDownX = -1.0f;
-				static float lastMouseDownY = -1.0f;
 				const double now = time_now_d();
-				if ((now - lastMouseDownTime) < 0.001 * GetDoubleClickTime()) {
+				const GlobalUIState uiState = GetUIState();
+				if ((now - lastMouseDownTime) < 0.001 * GetDoubleClickTime() && uiState == lastMouseDownUIState) {
 					const float dx = lastMouseDownX - x;
 					const float dy = lastMouseDownY - y;
 					const float distSq = dx * dx + dy * dy;
-					if (distSq < 3.0f*3.0f && !g_Config.bShowTouchControls && !g_Config.bShowImDebugger && !g_Config.bMouseControl && GetUIState() == UISTATE_INGAME && g_Config.bFullscreenOnDoubleclick) {
+					if (distSq < 3.0f*3.0f && !g_Config.bShowTouchControls && !g_Config.bShowImDebugger && !g_Config.bMouseControl && uiState == UISTATE_INGAME && g_Config.bFullscreenOnDoubleclick) {
 						g_Config.bFullScreen = !g_Config.bFullScreen;
 						SendApplyFullscreenState();
 					}
 					lastMouseDownTime = 0.0;
 				} else {
 					lastMouseDownTime = now;
+					lastMouseDownUIState = uiState;
 				}
 				lastMouseDownX = x;
 				lastMouseDownY = y;
 			}
 			break;
+
+		case WM_NCLBUTTONDOWN:
+			// The title bar or the window's buttons, so not part of a double-click on the game.
+			lastMouseDownTime = 0.0;
+			return DefWindowProc(hWnd, message, wParam, lParam);
 
 		case WM_MOUSEMOVE:
 			if (!touchHandler.hasTouch() ||

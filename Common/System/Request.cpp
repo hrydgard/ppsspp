@@ -156,6 +156,49 @@ void RequestManager::Clear() {
 	callbackMap_.clear();
 }
 
+static std::mutex g_textInputLock;
+static bool g_textInputWanted[(size_t)TextInputUser::COUNT];
+
+static void SendUIEvent(UIEventNotification notification) {
+	g_requestManager.MakeSystemRequest(SystemRequestType::NOTIFY_UI_EVENT, NO_REQUESTER_TOKEN, nullptr, nullptr, "", "", (int64_t)notification, 0);
+}
+
+void System_SetTextInputWanted(TextInputUser user, bool wanted) {
+	bool anyWanted = false;
+	{
+		std::lock_guard<std::mutex> guard(g_textInputLock);
+		g_textInputWanted[(size_t)user] = wanted;
+		for (bool w : g_textInputWanted) {
+			anyWanted = anyWanted || w;
+		}
+	}
+	// GOTFOCUS always goes through, as platforms may need it to show a keyboard again.
+	if (wanted) {
+		SendUIEvent(UIEventNotification::TEXT_GOTFOCUS);
+	} else if (!anyWanted) {
+		SendUIEvent(UIEventNotification::TEXT_LOSTFOCUS);
+	}
+}
+
+void System_NotifyUIEvent(UIEventNotification notification) {
+	switch (notification) {
+	case UIEventNotification::TEXT_GOTFOCUS:
+		System_SetTextInputWanted(TextInputUser::UI, true);
+		break;
+	case UIEventNotification::TEXT_LOSTFOCUS:
+		System_SetTextInputWanted(TextInputUser::UI, false);
+		break;
+	case UIEventNotification::POPUP_CLOSED:
+		// Platforms may hide an on-screen keyboard on this, but text input itself goes through the above.
+		System_SetTextInputWanted(TextInputUser::UI, false);
+		SendUIEvent(notification);
+		break;
+	default:
+		SendUIEvent(notification);
+		break;
+	}
+}
+
 void System_CreateGameShortcut(const Path &path, std::string_view title) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::CREATE_GAME_SHORTCUT, NO_REQUESTER_TOKEN, nullptr, nullptr, path.ToString(), title, 0);
 }

@@ -946,9 +946,21 @@ static void __IoSchedSync(FileNode *f, int fd, int usec) {
 	f->hasAsyncResult = false;
 }
 
+// With the memory stick out, there's no device behind ms0: (pspautotests utility/savedata/nomemstick).
+static bool IsRemovedMemstickPath(const char *path) {
+	if (MemoryStick_State() == PSP_MEMORYSTICK_STATE_INSERTED) {
+		return false;
+	}
+	return startsWithNoCase(path, "ms0:") || startsWithNoCase(path, "fatms0:");
+}
+
 static u32 sceIoGetstat(const char *filename, u32 addr) {
 	// TODO: Improve timing (although this seems normally slow..)
 	int usec = 1000;
+
+	if (IsRemovedMemstickPath(filename)) {
+		return hleDelayResult(hleLogWarning(Log::sceIo, SCE_KERNEL_ERROR_NODEV, "memory stick removed"), "io getstat", usec);
+	}
 
 	// A real PSP refuses to stat the root of a volume - io/stat records sceIoGetstat("ms0:/")
 	// coming back as an invalid argument rather than describing the directory.
@@ -1571,6 +1583,10 @@ static FileNode *__IoOpen(int &error, const char *filename, int flags, int mode)
 	if (!filename) {
 		// To prevent crashes. Not sure about the correct value.
 		error = SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND;
+		return nullptr;
+	}
+	if (IsRemovedMemstickPath(filename)) {
+		error = SCE_KERNEL_ERROR_NODEV;
 		return nullptr;
 	}
 
@@ -2547,6 +2563,10 @@ static u32 sceIoDopen(const char *path) {
 	if (!path) {
 		// Not tested on the PSP. Matches sceIoOpen.
 		return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND, "nullptr file not found");
+	}
+
+	if (IsRemovedMemstickPath(path)) {
+		return hleLogWarning(Log::sceIo, SCE_KERNEL_ERROR_NODEV, "memory stick removed");
 	}
 
 	double startTime = time_now_d();

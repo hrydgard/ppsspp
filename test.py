@@ -512,6 +512,7 @@ tests_good = [
   "utility/savedata/filelist",
   "utility/savedata/getsize",
   "utility/savedata/makedata",
+  "utility/savedata/nomemstick",
   "utility/systemparam/systemparam",
   "umd/api/api",
   "umd/callbacks/umd",
@@ -656,6 +657,13 @@ tests_next = [
 ]
 
 
+# Tests that need extra headless flags, so they run in a headless process of their own. The flags
+# have to match how the .expected was recorded.
+test_flags = {
+  "utility/savedata/nomemstick": ["--no-memstick"],
+}
+
+
 # These are the tests we ignore (not important, or impossible to run)
 tests_ignored = [
   "kirk/kirk",
@@ -773,7 +781,11 @@ def main():
     if skipped:
       print("Skipping %d known failures on %s: %s" % (len(skipped), skip_arch, ", ".join(skipped)))
 
-  returncode = run_tests(tests, args)
+  plain = [t for t in tests if t not in test_flags]
+  returncode = run_tests(plain, args)
+  for test in tests:
+    if test in test_flags:
+      returncode = run_tests([test], args + test_flags[test]) or returncode
   if teamcity:
     return 0
   return returncode
