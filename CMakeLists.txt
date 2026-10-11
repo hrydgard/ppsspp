@@ -152,16 +152,18 @@ if(USE_IAP)
 	add_compile_definitions(USE_IAP)
 endif()
 
-if(IOS_APP_STORE)
-	add_compile_definitions(PPSSPP_PLATFORM_IOS_APP_STORE)
+if(IOS)
 	# Set a global default to not generate schemes for each target.
 	# Makes using XCode sligthly more sane.
 	set(CMAKE_XCODE_GENERATE_SCHEME NO)
 	set(CMAKE_XCODE_SCHEME_ENABLE_GPU_API_VALIDATION FALSE)
 	set(CMAKE_XCODE_SCHEME_ENABLE_GPU_FRAME_CAPTURE_MODE DISABLED)
-	message("iOS App Store build")
-elseif(IOS)
-	message("iOS sideload build")
+	if(IOS_APP_STORE)
+		add_compile_definitions(PPSSPP_PLATFORM_IOS_APP_STORE)
+		message("iOS App Store build")
+	else()
+		message("iOS sideload build")
+	endif()
 endif()
 
 # User-editable options (go into CMakeCache.txt)
@@ -1499,7 +1501,7 @@ if(TargetBin)
 
 		if(IOS)
 			set(AssetCatalog "${CMAKE_SOURCE_DIR}/ios/assets.xcassets")
-			add_executable(${TargetBin} MACOSX_BUNDLE ${NativeAssets} ${BigFontAssets} ${UIImages} ${AssetCatalog} ${SHADER_FILES} ${THEME_FILE} ${DEBUGGER_FILES} ${WEB_UPLOAD_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource} "ios/Settings.bundle" "ios/Launch Screen.storyboard")
+			add_executable(${TargetBin} MACOSX_BUNDLE ${NativeAssets} ${BigFontAssets} ${UIImages} ${AssetCatalog} ${SHADER_FILES} ${THEME_FILE} ${DEBUGGER_FILES} ${WEB_UPLOAD_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource} "ios/Launch Screen.storyboard")
 		else()
 			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${BigFontAssets} ${UIImages} ${SHADER_FILES} ${THEME_FILE} ${DEBUGGER_FILES} ${WEB_UPLOAD_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource})
 			file(INSTALL "${CMAKE_SOURCE_DIR}/ext/vulkan/macOS/Frameworks/libMoltenVK.dylib" DESTINATION "${CMAKE_BINARY_DIR}/${TargetBin}.app/Contents/Frameworks/")
@@ -1598,81 +1600,57 @@ if(IOS AND NOT LIBRETRO)
 	endif()
 	if(IOS_APP_STORE)
 		message(STATUS "DevTeam: ${DEVELOPMENT_TEAM_ID} Icon: ${ICON_NAME} Target: ${TargetBin} Gold: ${GOLD} IAP: ${USE_IAP}")
-		message(STATUS "CURRENT_BINARY_DIR: ${CMAKE_CURRENT_BINARY_DIR}")
+	endif()
 
-		# This is for injecting the version into the plist, and also copying resources.
-		# Should find a different way to do both these things.
-		add_custom_command(TARGET ${TargetBin} POST_BUILD
-			COMMAND echo "Creating ${APP_DIR_NAME} for app store build"
-			COMMAND echo "CURRENT_BINARY_DIR: ${CMAKE_CURRENT_BINARY_DIR}"
-			COMMAND echo "BINARY_DIR: ${CMAKE_BINARY_DIR}"
-			COMMAND mkdir -p \"${APP_DIR_NAME}\"
-				# This tar command seems to be responsible for copying assets. I thought we had another step that did that..
-				# Prepend -v to the extracting command to see the files copied.
-			COMMAND tar -c -C ${CMAKE_CURRENT_BINARY_DIR} --exclude .DS_Store --exclude .git assets *.png | tar -x -C \"${APP_DIR_NAME}\"
-				# This updates the version in the plist.
-			COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/ios/iosbundle.sh" \"${APP_DIR_NAME}\" "${CMAKE_CURRENT_BINARY_DIR}"
-		)
+	# Copies the assets into the bundle, and injects the version into the plist.
+	add_custom_command(TARGET ${TargetBin} POST_BUILD
+		COMMAND echo "Creating ${APP_DIR_NAME}"
+		COMMAND mkdir -p \"${APP_DIR_NAME}\"
+			# Prepend -v to the extracting command to see the files copied.
+		COMMAND tar -c -C ${CMAKE_CURRENT_BINARY_DIR} --exclude .DS_Store --exclude .git assets *.png | tar -x -C \"${APP_DIR_NAME}\"
+		COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/ios/iosbundle.sh" \"${APP_DIR_NAME}\" "${CMAKE_CURRENT_BINARY_DIR}"
+	)
 
+	target_compile_options(${TargetBin} PRIVATE
+		$<$<CONFIG:Release>:-g -gline-tables-only>
+	)
+	target_compile_options(${TargetBin} PRIVATE
+		$<$<CONFIG:RelWithDebInfo>:-g>
+	)
+	set_target_properties(${TargetBin} PROPERTIES
+		XCODE_GENERATE_SCHEME YES  # Avoid the scheme bloat in XCode by only setting it to YES for this target.
+		RESOURCE "ios/Launch Screen.storyboard;ios/assets.xcassets"
+		XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER ${BUNDLE_IDENTIFIER}
+		XCODE_ATTRIBUTE_PRODUCT_NAME ${PRODUCT_NAME}
+		XCODE_ATTRIBUTE_ASSETCATALOG_COMPILER_APPICON_NAME ${ICON_NAME}
+		XCODE_ATTRIBUTE_ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS YES
+		MACOSX_BUNDLE_INFO_PLIST ${BUNDLE_PLIST}
+		# Some sources say we should generate the PLIST. There's stuff in it that
+		# I don't know how to generate, though.
+		#XCODE_ATTRIBUTE_GENERATE_INFOPLIST_FILE "YES"
+		#XCODE_ATTRIBUTE_INFOPLIST_KEY_UIRequiredDeviceCapabilities arm64
+		XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET}
+		XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2"
+		XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES
+		XCODE_ATTRIBUTE_ENABLE_BITCODE NO
+
+		XCODE_ATTRIBUTE_DEBUG_INFORMATION_FORMAT "dwarf-with-dsym"
+		XCODE_ATTRIBUTE_DEPLOYMENT_POSTPROCESSING[variant=Release] "YES"
+		XCODE_ATTRIBUTE_STRIP_INSTALLED_PRODUCT[variant=Release] "YES"
+
+		XCODE_ATTRIBUTE_SKIP_INSTALL NO
+		XCODE_ATTRIBUTE_INSTALL_PATH "$(LOCAL_APPS_DIR)"
+	)
+	if(IOS_APP_STORE)
 		# https://stackoverflow.com/questions/40664125/cmake-and-code-signing-in-xcode-8-for-ios-projects
-		target_compile_options(${TargetBin} PRIVATE
-			$<$<CONFIG:Release>:-g -gline-tables-only>
-		)
-		target_compile_options(${TargetBin} PRIVATE
-			$<$<CONFIG:RelWithDebInfo>:-g>
-		)
 		set_target_properties(${TargetBin} PROPERTIES
-			XCODE_GENERATE_SCHEME YES  # Avoid the scheme bloat in XCode by only setting it to YES for this target.
-			RESOURCE "ios/Launch Screen.storyboard"
-			RESOURCE "ios/Settings.bundle"
-			RESOURCE "ios/assets.xcassets"
-			XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER ${BUNDLE_IDENTIFIER}
-			XCODE_ATTRIBUTE_PRODUCT_NAME ${PRODUCT_NAME}
-			XCODE_ATTRIBUTE_ASSETCATALOG_COMPILER_APPICON_NAME ${ICON_NAME}
-			BUILD_WITH_INSTALL_RPATH YES
-			MACOSX_BUNDLE_INFO_PLIST ${BUNDLE_PLIST}
-			# Some sources say we should generate the PLIST. There's stuff in it that
-			# I don't know how to generate, though.
-			#XCODE_ATTRIBUTE_GENERATE_INFOPLIST_FILE "YES"
-			#XCODE_ATTRIBUTE_INFOPLIST_KEY_UIRequiredDeviceCapabilities arm64
-			XCODE_ATTRIBUTE_INFOPLIST_KEY_UIFileSharingEnabled YES
-			XCODE_EMBED_FRAMEWORKS_REMOVE_HEADERS_ON_COPY YES
-			XCODE_EMBED_FRAMEWORKS_CODE_SIGN_ON_COPY YES
-			XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET}
-			XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2"
-			XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES
-			XCODE_ATTRIBUTE_ENABLE_BITCODE NO
 			XCODE_ATTRIBUTE_DEVELOPMENT_TEAM ${DEVELOPMENT_TEAM_ID}
 			XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "Apple Development"
 			XCODE_ATTRIBUTE_CODE_SIGN_STYLE "Automatic"
-			XCODE_ATTRIBUTE_ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS YES
-
-			XCODE_ATTRIBUTE_DEBUG_INFORMATION_FORMAT "dwarf-with-dsym"
-			XCODE_ATTRIBUTE_DEPLOYMENT_POSTPROCESSING[variant=Release] "YES"
-			XCODE_ATTRIBUTE_STRIP_INSTALLED_PRODUCT[variant=Release] "YES"
-
-			XCODE_ATTRIBUTE_SKIP_INSTALL NO
-			XCODE_ATTRIBUTE_INSTALL_PATH "$(LOCAL_APPS_DIR)"
 		)
 	else()
-		# This is for injecting the version into the plist.
-		add_custom_command(TARGET PPSSPP POST_BUILD
-			COMMAND echo "Creating ${APP_DIR_NAME} for sideload build"
-			COMMAND mkdir -p \"${APP_DIR_NAME}\"
-			COMMAND tar -c -C ${CMAKE_CURRENT_BINARY_DIR} --exclude .DS_Store --exclude .git assets *.png | tar -x -C \"${APP_DIR_NAME}\"
-			COMMAND /bin/bash "${CMAKE_SOURCE_DIR}/ios/macbundle.sh" \"${APP_DIR_NAME}\"
-		)
-
+		# Sideload builds are signed afterwards, with ldid (see b-ios.sh).
 		set_target_properties(${TargetBin} PROPERTIES
-			MACOSX_BUNDLE_INFO_PLIST ${BUNDLE_PLIST}
-			XCODE_GENERATE_SCHEME YES
-			RESOURCE "ios/Launch Screen.storyboard"
-			RESOURCE "ios/Settings.bundle"
-			XCODE_ATTRIBUTE_ASSETCATALOG_COMPILER_APPICON_NAME ${ICON_NAME}
-			XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET}
-			XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2"
-			XCODE_ATTRIBUTE_CLANG_ENABLE_OBJC_ARC YES
-			XCODE_ATTRIBUTE_ENABLE_BITCODE NO
 			XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "-"
 		)
 	endif()
