@@ -1406,12 +1406,15 @@ static int Hook_kingdomhearts_download_frame() {
 	return 0;
 }
 
-static int Hook_everybodysgolf2_copy_portrait() {
+static int Hook_everybodys_copy_portrait() {
+	// Everybody's Golf 2 and Everybody's Tennis build player portraits the same way.
 	// copy_portrait(dst, x, y, w, h) memcpys a rect of the 512-stride 5551 framebuffer into a texture,
-	// one partial row at a time, which memcpy's replacement can't match to a framebuffer. The caller
-	// (0x0887C060) then sets each texel's alpha bit from the depth buffer, read straight from the
-	// linear mirror at 0x04288000. So both are read back here, whole rows at a time.
-	// Hooked after the GE sync at the start, where s4 = y and s1 = h.
+	// one row at a time, which memcpy's replacement can't match to a framebuffer when it's a partial row.
+	// The caller (0x0887C060 in Golf 2, 0x0889B13C in Tennis) then sets each texel's alpha bit from the
+	// depth buffer, read straight from the linear mirror at 0x04288000. So both are read back here,
+	// whole rows at a time.
+	// Hooked after the GE sync at the start, where s4 = y and s1 = h, and the framebuffer pointer is
+	// loaded 3 instructions later in both versions.
 	u32 fb_info;
 	if (!GetMIPSStaticAddress(fb_info, 0x0C, 0x10) || !Memory::IsValid4AlignedAddress(fb_info)) {
 		return 0;
@@ -1426,9 +1429,9 @@ static int Hook_everybodysgolf2_copy_portrait() {
 		return 0;
 	}
 	gpu->PerformReadbackToMemory(colorAddr, size);
-	NotifyMemInfo(MemBlockFlags::WRITE, colorAddr, size, "everybodysgolf2_copy_portrait");
+	NotifyMemInfo(MemBlockFlags::WRITE, colorAddr, size, "everybodys_copy_portrait");
 	gpu->PerformMemoryCopy(depthAddr, depthAddr, size, GPUCopyFlag::FORCE_DST_MATCH_MEM | GPUCopyFlag::DEPTH_REQUESTED);
-	NotifyMemInfo(MemBlockFlags::WRITE, depthAddr, size, "everybodysgolf2_copy_portrait");
+	NotifyMemInfo(MemBlockFlags::WRITE, depthAddr, size, "everybodys_copy_portrait");
 	return 0;
 }
 
@@ -1765,7 +1768,8 @@ static const ReplacementTableEntry entries[] = {
 	{ "takuyo_2_download_frame", &Hook_takuyo_download_frame, 0, REPFLAG_HOOKENTER, 0},
 	{ "takuyo_3_download_frame", &Hook_takuyo_download_frame, 0, REPFLAG_HOOKENTER, 0},
 	{ "kingdomhearts_download_frame", &Hook_kingdomhearts_download_frame, 0, REPFLAG_HOOKENTER, 0},
-	{ "everybodysgolf2_copy_portrait", &Hook_everybodysgolf2_copy_portrait, 0, REPFLAG_HOOKENTER, 0x50 },
+	{ "everybodysgolf2_copy_portrait", &Hook_everybodys_copy_portrait, 0, REPFLAG_HOOKENTER, 0x50 },
+	{ "everybodystennis_copy_portrait", &Hook_everybodys_copy_portrait, 0, REPFLAG_HOOKENTER, 0x54 },
 	{}
 };
 
