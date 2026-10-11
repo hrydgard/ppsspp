@@ -125,8 +125,8 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	private final ArrayList<InputDeviceState> inputPlayers = new ArrayList<>();
 
 	private PowerSaveModeReceiver mPowerSaveModeReceiver = null;
-	// The open input box, if any.
-	private AlertDialog inputDialog = null;
+	// The open input boxes. There can be two, if a game's OSK pops up over a UI one.
+	private final ArrayList<AlertDialog> inputDialogs = new ArrayList<>();
 	private NativeSurfaceManager surfaceManager = null;
 	private static LocationHelper mLocationHelper;
 	private static InfraredHelper mInfraredHelper;
@@ -1000,10 +1000,10 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			mPowerSaveModeReceiver = null;
 		}
 		// Otherwise its window leaks, and its request is never answered. Dismissing answers it as cancelled.
-		if (inputDialog != null) {
-			inputDialog.dismiss();
-			inputDialog = null;
+		for (AlertDialog dlg : new ArrayList<>(inputDialogs)) {
+			dlg.dismiss();
 		}
+		inputDialogs.clear();
 
 		// After finish(), Android is free to deliver onDestroy late, after it has already created and resumed a
 		// new activity if the user was quick to relaunch. That one found initialized still set and adopted the
@@ -1499,22 +1499,25 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		input.selectAll();
 		//input.setSelection(input.getText().length());
 
+		// Answered exactly once: OK and Done are followed by a dismiss.
+		final boolean[] answered = { false };
 		AlertDialog.Builder builder = createDialogBuilder()
 			.setView(fl)
 			.setTitle(title)
 			.setPositiveButton(defaultAction, (d, which) -> {
 				Log.i(TAG, "input box successful");
+				answered[0] = true;
 				NativeApp.sendRequestResult(requestId, true, input.getText().toString(), 0);
 				// Dismiss happens automatically.
 			})
 			.setNegativeButton("Cancel", (d, which) -> d.cancel());
 		builder.setOnDismissListener(	d -> {
 			Log.i(TAG, "input box dismissed");
-			// This will be ignored if we already sent a success.
-			NativeApp.sendRequestResult(requestId, false, "", 0);
-			if (inputDialog == d) {
-				inputDialog = null;
+			if (!answered[0]) {
+				answered[0] = true;
+				NativeApp.sendRequestResult(requestId, false, "", 0);
 			}
+			inputDialogs.remove(d);
 			// Also comes after onDestroy dismissed it.
 			if (!isDestroyed()) {
 				updateSystemUiVisibility();
@@ -1525,7 +1528,10 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		input.setOnEditorActionListener((v, actionId, event) -> {
 			if (actionId == EditorInfo.IME_ACTION_DONE) {
 				Log.i(TAG, "input box successful via Keyboard Done");
-				NativeApp.sendRequestResult(requestId, true, input.getText().toString(), 0);
+				if (!answered[0]) {
+					answered[0] = true;
+					NativeApp.sendRequestResult(requestId, true, input.getText().toString(), 0);
+				}
 
 				// We must dismiss the dialog manually here
 				dlg.dismiss();
@@ -1540,10 +1546,15 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		}
 		try {
 			dlg.show();
-			inputDialog = dlg;
+			inputDialogs.add(dlg);
 			input.requestFocus();
 		} catch (Exception e) {
 			NativeApp.reportException(e, "AlertDialog");
+			// The dismiss listener won't run, and the native side (maybe a game's OSK) waits for an answer.
+			if (!answered[0]) {
+				answered[0] = true;
+				NativeApp.sendRequestResult(requestId, false, "", 0);
+			}
 		}
 	}
 
@@ -2013,6 +2024,19 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		}
 	}
 
+	// For commands that carry a native request ID (always first in the parameter), answers it as failed, since the
+	// native side waits for an answer.
+	private static void failRequestCommand(String command, String parameter) {
+		if (!command.equals("inputbox") && !command.equals("browse_image") && !command.startsWith("browse_file") && !command.equals("browse_folder")) {
+			return;
+		}
+		try {
+			NativeApp.sendRequestResult(Integer.parseInt(parameter.split(":@:", 2)[0]), false, "", 0);
+		} catch (NumberFormatException e) {
+			Log.e(TAG, "Bad request ID for command '" + command + "'");
+		}
+	}
+
 	// called by the C++ code through JNI. Dispatch anything we can't directly handle
 	// on the gfx thread to the UI thread.
 	@Keep
@@ -2022,18 +2046,13 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			// Posted before this activity was destroyed, but runs after.
 			if (isDestroyed()) {
 				Log.w(TAG, "Dropping command '" + command + "' for a destroyed activity");
-				if (command.equals("inputbox")) {
-					// The native side waits for an answer.
-					try {
-						NativeApp.sendRequestResult(Integer.parseInt(parameter.split(":@:", 2)[0]), false, "", 0);
-					} catch (NumberFormatException e) {
-						Log.e(TAG, "Bad inputbox parameter: " + parameter);
-					}
-				}
+				failRequestCommand(command, parameter);
 				return;
 			}
 			if (!processCommand(command, parameter)) {
-				Log.e(TAG, "processCommand failed: cmd: '" + command + "' param: '" + parameter + "'");
+				// Not logging the parameter, an inputbox one can contain a password.
+				Log.e(TAG, "processCommand failed: cmd: '" + command + "'");
+				failRequestCommand(command, parameter);
 			}
 		});
 	}
