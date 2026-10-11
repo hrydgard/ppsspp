@@ -108,6 +108,9 @@ static int g_audioFramesPerBuffer = 0;
 
 static bool g_textFocusChanged;
 static bool g_textFocus;
+// Set when SDL_StartTextInput fails, so we generate KeyInputFlags::CHAR from key events ourselves.
+// SDL 3.4.0 to 3.4.4 refuse text input on Wayland compositors without zwp_text_input_v3 (like WSLg's Weston).
+static bool g_textInputFallback;
 double g_audioStartTime = 0.0;
 
 // Window state to be transferred to the main SDL thread.
@@ -1523,6 +1526,17 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 #endif
 	case SDL_EVENT_KEY_DOWN:
 		{
+			if (g_textInputFallback && g_textFocus && !(event.key.mod & (SDL_KMOD_CTRL | SDL_KMOD_ALT | SDL_KMOD_GUI))) {
+				// Layout-aware, with shift applied. Repeats are wanted here, like real text input.
+				SDL_Keycode c = SDL_GetKeyFromScancode(event.key.scancode, event.key.mod, false);
+				if (c >= 0x20 && c != 0x7F && !(c & SDLK_SCANCODE_MASK)) {
+					KeyInput key;
+					key.flags = KeyInputFlags::CHAR;
+					key.unicodeChar = c;
+					key.deviceId = DEVICE_ID_KEYBOARD;
+					NativeKey(key);
+				}
+			}
 			if (event.key.repeat > 0) {
 				break;
 			}
@@ -1848,7 +1862,10 @@ void UpdateTextFocus(SDL_Window *window) {
 	if (g_textFocusChanged) {
 		DEBUG_LOG(Log::System, "Updating text focus: %d", g_textFocus);
 		if (g_textFocus) {
-			SDL_StartTextInput(window);
+			if (!SDL_StartTextInput(window) && !g_textInputFallback) {
+				WARN_LOG(Log::System, "SDL_StartTextInput failed (%s), generating text from key events instead. Update SDL, or set SDL_VIDEO_DRIVER=x11, for full text input.", SDL_GetError());
+				g_textInputFallback = true;
+			}
 		} else {
 			SDL_StopTextInput(window);
 		}
