@@ -1019,7 +1019,6 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 			g_textFocus = true;
 			g_textFocusChanged = true;
 			break;
-		case UIEventNotification::POPUP_CLOSED:
 		case UIEventNotification::TEXT_LOSTFOCUS:
 			g_textFocus = false;
 			g_textFocusChanged = true;

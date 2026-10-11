@@ -182,9 +182,17 @@ inline void System_ShareFile(const Path &path, std::string_view mimeType = "") {
 	g_requestManager.MakeSystemRequest(SystemRequestType::SHARE_FILE, NO_REQUESTER_TOKEN, nullptr, nullptr, path.ToString(), mimeType, 0);
 }
 
-inline void System_NotifyUIEvent(UIEventNotification notification) {
-	g_requestManager.MakeSystemRequest(SystemRequestType::NOTIFY_UI_EVENT, NO_REQUESTER_TOKEN, nullptr, nullptr, "", "", (int64_t)notification, 0);
-}
+// TEXT_GOTFOCUS/TEXT_LOSTFOCUS (and POPUP_CLOSED) sent through here count as the regular UI's use of text input.
+void System_NotifyUIEvent(UIEventNotification notification);
+
+// Several users can want text input at the same time (for example type-to-search under the imgui debugger).
+// The platform only gets TEXT_LOSTFOCUS once none of them does.
+enum class TextInputUser {
+	UI,
+	ImDebugger,
+	COUNT,
+};
+void System_SetTextInputWanted(TextInputUser user, bool wanted);
 
 inline void System_SetKeepScreenBright(bool keepScreenBright) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::SET_KEEP_SCREEN_BRIGHT, NO_REQUESTER_TOKEN, nullptr, nullptr, "", "", (int64_t)keepScreenBright);

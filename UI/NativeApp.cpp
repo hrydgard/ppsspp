@@ -212,7 +212,7 @@ static std::vector<QueuedEvent> g_inputEventQueue;
 static std::unique_ptr<ImDebugger> imDebugger_;
 static ImCommand imCmd_{};  // needed to buffer commands in case imgui wasn't created yet.
 static bool imguiInited_ = false;
-static bool lastImguiEnabled_ = false;
+static bool imguiWantTextInput_ = false;
 static ImGuiContext *ctx_ = nullptr;
 
 class GlobalListener : public ControlListener {
@@ -297,20 +297,7 @@ static void RunAchievementsOverrideUpdate(std::function<void()> func) {
 }
 
 void runImDebugger(Draw::DrawContext *draw) {
-	bool lastImguiEnabled_ = false;  // temp
-	if (lastImguiEnabled_ && g_Config.bShowImDebugger) {
-#if !defined(MOBILE_DEVICE)
-		// On mobile devices (specifically iOS) we don't want to pop the keyboard
-		// on activating imgui. Instead, we should do it when a text edit field in imgui gets focus,
-		// although we'll still have ugly overlap problems.
-		System_NotifyUIEvent(UIEventNotification::TEXT_GOTFOCUS);
-#endif
-		VERBOSE_LOG(Log::System, "activating keyboard");
-	} else if (lastImguiEnabled_ && !g_Config.bShowImDebugger) {
-		System_NotifyUIEvent(UIEventNotification::TEXT_LOSTFOCUS);
-		VERBOSE_LOG(Log::System, "deactivating keyboard");
-	}
-	lastImguiEnabled_ = g_Config.bShowImDebugger;
+	bool wantTextInput = false;
 	if (g_Config.bShowImDebugger) {
 		if (!imguiInited_) {
 			// TODO: Do this only on demand.
@@ -383,10 +370,20 @@ void runImDebugger(Draw::DrawContext *draw) {
 
 		// Convert to drawlists.
 		ImGui::Render();
+		wantTextInput = io.WantTextInput;
 	} else {
 		uiContext->SetOverrideScreenFrame(nullptr);
 		SetOverrideScreenFrame(nullptr);
 	}
+
+	// Enable text input (needed for KeyInputFlags::CHAR events) only while an imgui text field is active.
+	// On mobile devices (specifically iOS) this would pop the keyboard, with ugly overlap problems.
+#if !defined(MOBILE_DEVICE)
+	if (wantTextInput != imguiWantTextInput_) {
+		System_SetTextInputWanted(TextInputUser::ImDebugger, wantTextInput);
+		imguiWantTextInput_ = wantTextInput;
+	}
+#endif
 }
 
 void renderImDebugger(Draw::DrawContext *draw) {
