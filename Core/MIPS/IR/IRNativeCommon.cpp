@@ -529,6 +529,10 @@ void IRNativeJit::FinalizeNativeBlock(IRBlockCache *irblockCache, int block_num)
 	backend_->FinalizeBlock(irblockCache, block_num, jo);
 }
 
+void IRNativeJit::InvalidateNativeBlock(IRBlockCache *irblockCache, int block_num) {
+	backend_->InvalidateBlock(irblockCache, block_num);
+}
+
 void IRNativeJit::RunLoopUntil(u64 globalticks) {
 	if constexpr (enableDebugStats || enableDebugProfiler) {
 		LogDebugStats();

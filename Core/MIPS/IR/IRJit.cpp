@@ -106,6 +106,8 @@ void IRJit::InvalidateCacheAt(u32 em_address, int length) {
 		// INFO_LOG(Log::JIT, "Block at %08x invalidated: valid: %d", block->GetOriginalStart(), block->IsValid());
 		// If we're a native JIT (IR->JIT, not just IR interpreter), we write native offsets into the blocks.
 		int cookie = compileToNative_ ? block->GetNativeOffset() : block->GetIRArenaOffset();
+		// Before Destroy, which forgets the block's address. Blocks linked to it jump straight in.
+		InvalidateNativeBlock(&blocks_, block_num);
 		blocks_.RemoveBlockFromPageLookup(block_num);
 		block->Destroy(cookie);
 	}

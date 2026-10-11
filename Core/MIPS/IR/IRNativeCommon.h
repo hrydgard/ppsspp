@@ -202,6 +202,7 @@ protected:
 	void Init(IRNativeBackend &backend);
 	bool CompileNativeBlock(IRBlockCache *irBlockCache, int block_num) override;
 	void FinalizeNativeBlock(IRBlockCache *irBlockCache, int block_num) override;
+	void InvalidateNativeBlock(IRBlockCache *irBlockCache, int block_num) override;
 
 	IRNativeBackend *backend_ = nullptr;
 	IRNativeHooks hooks_;

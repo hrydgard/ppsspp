@@ -247,6 +247,7 @@ protected:
 	bool CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes);
 	virtual bool CompileNativeBlock(IRBlockCache *irBlockCache, int block_num) { return true; }
 	virtual void FinalizeNativeBlock(IRBlockCache *irBlockCache, int block_num) {}
+	virtual void InvalidateNativeBlock(IRBlockCache *irBlockCache, int block_num) {}
 
 	bool compileToNative_;
 
