@@ -1,7 +1,6 @@
 # Options:
 #
 # IOS_PLATFORM = OS (default)
-#   This needs to be OS as the simulator cannot use the required GLES2.0 environment.
 #   OS - the default, used to build for iPhone and iPad physical devices, which have an arm arch.
 #
 # CMAKE_IOS_SDK_ROOT = automatic(default) or /path/to/platform/Developer/SDKs/SDK folder
@@ -11,21 +10,18 @@
 
 # PPSSPP platform flags
 set(MOBILE_DEVICE ON)
-set(USING_GLES2 ON)
 # The compiler checks re-read this file without the cache, so pass IOS_APP_STORE on.
 list(APPEND CMAKE_TRY_COMPILE_PLATFORM_VARIABLES IOS_APP_STORE)
-if(IOS_APP_STORE)
-  # The static MoltenVK in ios/MoltenVK needs 15.0.
-  set(IPHONEOS_DEPLOYMENT_TARGET 15.0)
-else()
-  set(IPHONEOS_DEPLOYMENT_TARGET 13.0)
-endif()
-add_definitions(
-  -DGL_ETC1_RGB8_OES=0
-  -U__STRICT_ANSI__
-)
+# The static MoltenVK in ios/MoltenVK needs 15.0.
+set(IPHONEOS_DEPLOYMENT_TARGET 15.0)
+add_definitions(-U__STRICT_ANSI__)
 
-set(OPENGL_LIBRARIES "-framework OpenGLES")
+# Only the libretro core uses GL on iOS. The app is Vulkan (MoltenVK) only.
+if(LIBRETRO)
+  set(USING_GLES2 ON)
+  add_definitions(-DGL_ETC1_RGB8_OES=0)
+  set(OPENGL_LIBRARIES "-framework OpenGLES")
+endif()
 if(IOS_PLATFORM STREQUAL "TVOS")
   set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -mappletvos-version-min=${IPHONEOS_DEPLOYMENT_TARGET}")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -mappletvos-version-min=${IPHONEOS_DEPLOYMENT_TARGET}")

@@ -64,7 +64,10 @@ set(GPU_D3D11
 )
 
 # We build Vulkan even on Apple to avoid annoying build differences.
-set(GPU_IMPLS ${GPU_GLES} ${GPU_VULKAN})
+set(GPU_IMPLS ${GPU_VULKAN})
+if(NOT NO_OPENGL)
+	list(APPEND GPU_IMPLS ${GPU_GLES})
+endif()
 if(WIN32)
 	list(APPEND GPU_IMPLS ${GPU_D3D11})
 endif()

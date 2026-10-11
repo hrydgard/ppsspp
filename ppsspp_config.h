@@ -118,14 +118,14 @@
     #define PPSSPP_PLATFORM_OPENBSD 1
 #endif
 
-// Windows ARM/ARM64, and Windows UWP (all), are the only platform that don't do GL at all (until Apple finally removes it)
+// Windows ARM/ARM64, Windows UWP (all) and the iOS app don't do GL at all. The iOS libretro core still does.
 #if PPSSPP_PLATFORM(WINDOWS)
 #if PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(ARM) || PPSSPP_PLATFORM(UWP)
 // No GL
 #else
 #define PPSSPP_API_ANY_GL 1
 #endif
-#elif PPSSPP_PLATFORM(IOS_APP_STORE)
+#elif PPSSPP_PLATFORM(IOS) && !defined(__LIBRETRO__)
 // No GL
 #else
 // All other platforms support GL.

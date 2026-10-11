@@ -1,6 +1,6 @@
 #import "IAPManager.h"
 #import <UIKit/UIKit.h>
-#import "ViewControllerCommon.h"
+#import "ViewController.h"
 #include "Common/System/Request.h"
 #include "Common/Log.h"
 

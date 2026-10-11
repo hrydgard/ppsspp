@@ -4,9 +4,7 @@
 #import "AppDelegate.h"
 
 #import "iOSCoreAudio.h"
-#import "ViewControllerCommon.h"
 #import "ViewController.h"
-#import "ViewControllerMetal.h"
 #import "Common/System/NativeApp.h"
 #import "Common/System/System.h"
 #import "Core/System.h"
@@ -186,17 +184,8 @@ static NSString *ExtractGameInfoScheme(NSURL *url) {
 	self.window = [[UIWindow alloc] initWithWindowScene:self.windowScene];
 //	self.window = [[UIWindow alloc] initWithFrame:[[UIScreen mainScreen] bounds]];
 
-	// Choose viewcontroller depending on backend.
-	if (g_Config.iGPUBackend == (int)GPUBackend::VULKAN) {
-		PPSSPPViewControllerMetal *vc = [[PPSSPPViewControllerMetal alloc] init];
-		// sharedViewController gets initialized in the constructor.
-		self.window.rootViewController = vc;
-
-	} else {
-		PPSSPPViewControllerGL *vc = [[PPSSPPViewControllerGL alloc] init];
-		// Here we can switch viewcontroller depending on backend.
-		self.window.rootViewController = vc;
-	}
+	// sharedViewController gets initialized in the constructor.
+	self.window.rootViewController = [[PPSSPPViewController alloc] init];
 
 	[self.window makeKeyAndVisible];
 }

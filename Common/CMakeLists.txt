@@ -6,6 +6,34 @@ if(WIN32)
 	)
 endif()
 
+# GLFeatures (gl_extensions) is used by the shader generators, so it's built even without GL.
+if(NOT NO_OPENGL)
+	set(CommonGL
+		GPU/OpenGL/GLCommon.h
+		GPU/OpenGL/GLDebugLog.cpp
+		GPU/OpenGL/GLDebugLog.h
+		GPU/OpenGL/GLSLProgram.cpp
+		GPU/OpenGL/GLSLProgram.h
+		GPU/OpenGL/gl3stub.c
+		GPU/OpenGL/gl3stub.h
+		GPU/OpenGL/GLFrameData.cpp
+		GPU/OpenGL/GLFrameData.h
+		GPU/OpenGL/thin3d_gl.cpp
+		GPU/OpenGL/GLMemory.cpp
+		GPU/OpenGL/GLMemory.h
+		GPU/OpenGL/GLRenderManager.cpp
+		GPU/OpenGL/GLRenderManager.h
+		GPU/OpenGL/GLQueueRunner.cpp
+		GPU/OpenGL/GLQueueRunner.h
+		GPU/OpenGL/GLProfiler.cpp
+		GPU/OpenGL/GLProfiler.h
+		GPU/OpenGL/DataFormatGL.cpp
+		GPU/OpenGL/DataFormatGL.h
+		GPU/OpenGL/OpenGLGraphicsContext.cpp
+		GPU/OpenGL/OpenGLGraphicsContext.h
+	)
+endif()
+
 set(CommonVR
 	VR/OpenXRLoader.cpp
 	VR/OpenXRLoader.h
@@ -149,30 +177,9 @@ add_library(Common STATIC
 	GPU/ShaderWriter.h
 	GPU/ShaderTranslation.h
 	GPU/ShaderTranslation.cpp
-	GPU/OpenGL/GLCommon.h
-	GPU/OpenGL/GLDebugLog.cpp
-	GPU/OpenGL/GLDebugLog.h
-	GPU/OpenGL/GLSLProgram.cpp
-	GPU/OpenGL/GLSLProgram.h
-	GPU/OpenGL/gl3stub.c
-	GPU/OpenGL/gl3stub.h
 	GPU/OpenGL/GLFeatures.cpp
 	GPU/OpenGL/GLFeatures.h
-	GPU/OpenGL/GLFrameData.cpp
-	GPU/OpenGL/GLFrameData.h
-	GPU/OpenGL/thin3d_gl.cpp
-	GPU/OpenGL/GLMemory.cpp
-	GPU/OpenGL/GLMemory.h
-	GPU/OpenGL/GLRenderManager.cpp
-	GPU/OpenGL/GLRenderManager.h
-	GPU/OpenGL/GLQueueRunner.cpp
-	GPU/OpenGL/GLQueueRunner.h
-	GPU/OpenGL/GLProfiler.cpp
-	GPU/OpenGL/GLProfiler.h
-	GPU/OpenGL/DataFormatGL.cpp
-	GPU/OpenGL/DataFormatGL.h
-	GPU/OpenGL/OpenGLGraphicsContext.cpp
-	GPU/OpenGL/OpenGLGraphicsContext.h
+	${CommonGL}
 	GPU/Vulkan/VulkanBarrier.cpp
 	GPU/Vulkan/VulkanBarrier.h
 	GPU/Vulkan/VulkanDebug.cpp
@@ -360,7 +367,7 @@ endif()
 
 setup_target_project(Common Common)
 
-if(IOS)
+if(IOS AND NOT NO_OPENGL)
 	target_compile_definitions(Common PUBLIC GLES_SILENCE_DEPRECATION)
 endif()
 

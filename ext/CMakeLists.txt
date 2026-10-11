@@ -6,7 +6,7 @@ endif()
 
 add_subdirectory(armips)
 
-if(NOT USING_GLES2)
+if(NOT USING_GLES2 AND NOT NO_OPENGL)
 	add_subdirectory(glew)
 endif()
 
