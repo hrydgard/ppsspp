@@ -164,7 +164,9 @@ public:
 	virtual bool PerformReadbackToMemory(u32 dest, int size);
 	virtual bool PerformWriteColorFromMemory(u32 dest, int size);
 
-	virtual void PerformWriteFormattedFromMemory(u32 addr, int size, int width, GEBufferFormat format);
+	// width is the stride. rectWidth, if set, is how many pixels of each row were written, which lets
+	// a write that starts partway into a framebuffer row be uploaded without clobbering the rest.
+	virtual void PerformWriteFormattedFromMemory(u32 addr, int size, int width, GEBufferFormat format, int rectWidth = 0);
 	virtual bool PerformWriteStencilFromMemory(u32 dest, int size, WriteStencil flags);
 
 	// Tells the texture cache that a block copy moved pixels, so it can carry "this is video" from

@@ -2350,10 +2350,10 @@ bool GPUCommon::PerformWriteColorFromMemory(u32 dest, int size) {
 	return false;
 }
 
-void GPUCommon::PerformWriteFormattedFromMemory(u32 addr, int size, int frameWidth, GEBufferFormat format) {
+void GPUCommon::PerformWriteFormattedFromMemory(u32 addr, int size, int frameWidth, GEBufferFormat format, int rectWidth) {
 	NoteVideoRange(addr, (u32)size);
 	if (Memory::IsVRAMAddress(addr)) {
-		framebufferManager_->PerformWriteFormattedFromMemory(addr, size, frameWidth, format);
+		framebufferManager_->PerformWriteFormattedFromMemory(addr, size, frameWidth, format, rectWidth);
 	}
 	InvalidateCache(addr, size, GPU_INVALIDATE_SAFE);
 }

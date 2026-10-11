@@ -1458,7 +1458,7 @@ void SoftGPU::InvalidateCache(u32 addr, int size, GPUInvalidationType type)
 	// Nothing to invalidate.
 }
 
-void SoftGPU::PerformWriteFormattedFromMemory(u32 addr, int size, int width, GEBufferFormat format)
+void SoftGPU::PerformWriteFormattedFromMemory(u32 addr, int size, int width, GEBufferFormat format, int rectWidth)
 {
 	// Nothing to update, but remember it for EstimateFillCycles.
 	NoteVideoRange(addr, (u32)size);
