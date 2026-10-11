@@ -6,11 +6,20 @@
 set(CONFIG_TESTS_DIR "${CMAKE_CURRENT_BINARY_DIR}/configure_checks")
 file(MAKE_DIRECTORY ${CONFIG_TESTS_DIR})
 
+set(CMAKE_REQUIRED_QUIET TRUE)
 include(CheckIncludeFile)
 include(CheckIncludeFiles)
 
 # Rewrite of ffmpeg's check_cc function at line 866 of configure script
 function(check_cc target ARGUMENTS RESULT_VAR)
+
+	# Cache by the complete probe/toolchain inputs, including failed probes.
+	string(SHA256 CHECK_KEY "${target};${ARGUMENTS};${ARGN};${ADDL_LIB_DIRS};${ADDL_INCLUDES};${CMAKE_C_COMPILER};${CMAKE_C_COMPILER_ID};${CMAKE_C_COMPILER_VERSION};${CMAKE_C_COMPILER_TARGET};${CMAKE_C_COMPILER_ARG1};${CMAKE_C_FLAGS};${CMAKE_C_FLAGS_DEBUG};${CMAKE_C_FLAGS_RELEASE};${CMAKE_C_FLAGS_RELWITHDEBINFO};${CMAKE_C_FLAGS_MINSIZEREL};${CMAKE_EXE_LINKER_FLAGS};${CMAKE_EXE_LINKER_FLAGS_DEBUG};${CMAKE_EXE_LINKER_FLAGS_RELEASE};${CMAKE_SYSROOT};${CMAKE_OSX_SYSROOT};${CMAKE_OSX_ARCHITECTURES};${CMAKE_SYSTEM_NAME};${CMAKE_SYSTEM_PROCESSOR};${CMAKE_GENERATOR};${CMAKE_GENERATOR_PLATFORM};${CMAKE_GENERATOR_TOOLSET};${CMAKE_VS_WINDOWS_TARGET_PLATFORM_VERSION};${CMAKE_OSX_DEPLOYMENT_TARGET};${CMAKE_BUILD_TYPE};${CMAKE_TRY_COMPILE_CONFIGURATION}")
+	set(CHECK_CACHE "FFMPEG_CHECK_${CHECK_KEY}")
+	if(DEFINED ${CHECK_CACHE})
+		set(${RESULT_VAR} ${${CHECK_CACHE}} PARENT_SCOPE)
+		return()
+	endif()
 	set(EXTRA_LIBS "")
 	set(EXTRA_FLAGS "")
 	set(ADDL_LIB_DIRS_CLEAN "")
@@ -87,14 +96,12 @@ function(check_cc target ARGUMENTS RESULT_VAR)
 	)
 
 	if(COMPILE_RESULT)
-		message(STATUS "${target} check passed")
-		set(${RESULT_VAR} 1 PARENT_SCOPE)
+		set(CHECK_RESULT 1)
 	else()
-		message(STATUS "${target} check failed")	# Standard message to not clutter build logs overmuch
-#		message(STATUS "${target} check failed. Error:\n${COMPILE_OUTPUT}")
-#		message(STATUS "${target} check failed. See ${target}_error.log for details")
-#		file(WRITE "${CONFIG_TESTS_DIR}/${target}_error.log" "${COMPILE_OUTPUT}")
+		set(CHECK_RESULT 0)
 	endif()
+	set(${CHECK_CACHE} ${CHECK_RESULT} CACHE INTERNAL "FFmpeg compiler probe")
+	set(${RESULT_VAR} ${CHECK_RESULT} PARENT_SCOPE)
 endfunction()
 
 # Rewrite of fmpeg's check_ld function at line 953 of configure script

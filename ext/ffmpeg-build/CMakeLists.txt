@@ -65,7 +65,7 @@ set_target_properties(avcodec PROPERTIES POSITION_INDEPENDENT_CODE TRUE) # Enabl
 target_precompile_headers(avcodec PRIVATE ${LIBAVUTIL_SRC_DIR}/internal.h ${LIBAVUTIL_SRC_DIR}/intmath.h)
 target_link_libraries(avcodec PUBLIC avutil)
 target_include_directories(avcodec PRIVATE ${SRC_DIR} ${CMAKE_CURRENT_BINARY_DIR})
-target_include_directories(avcodec INTERFACE ${LIBAVCODEC_HEADERS})	# expose libavcodec headers to PPSSPP build
+target_include_directories(avcodec INTERFACE ${SRC_DIR} ${CMAKE_CURRENT_BINARY_DIR})	# expose libavcodec headers to PPSSPP build
 set(LIBAVCODEC_LIBRARY avcodec)
 
 # libavformat
@@ -75,7 +75,7 @@ set_target_properties(avformat PROPERTIES POSITION_INDEPENDENT_CODE TRUE) # Enab
 target_precompile_headers(avformat PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/config.h ${LIBAVUTIL_SRC_DIR}/internal.h)
 target_link_libraries(avformat PUBLIC avcodec)
 target_include_directories(avformat PRIVATE ${SRC_DIR} ${CMAKE_CURRENT_BINARY_DIR})
-target_include_directories(avformat INTERFACE ${LIBAVFORMAT_HEADERS})
+target_include_directories(avformat INTERFACE ${SRC_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 set(LIBAVFORMAT_LIBRARY avformat)
 
 # libavutil
@@ -89,7 +89,7 @@ target_precompile_headers(avutil PRIVATE
 set_target_properties(avutil PROPERTIES POSITION_INDEPENDENT_CODE TRUE) # Enable PIC
 target_link_libraries(avutil)
 target_include_directories(avutil PRIVATE ${SRC_DIR} ${CMAKE_CURRENT_BINARY_DIR})
-target_include_directories(avutil INTERFACE ${LIBAVUTIL_HEADERS})
+target_include_directories(avutil INTERFACE ${SRC_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 set(LIBAVUTIL_LIBRARY avutil)
 
 # libswresample
@@ -99,7 +99,7 @@ set_target_properties(swresample PROPERTIES POSITION_INDEPENDENT_CODE TRUE) # En
 target_precompile_headers(swresample PRIVATE ${LIBAVUTIL_SRC_DIR}/cpu.h ${LIBAVUTIL_SRC_DIR}/internal.h)
 target_link_libraries(swresample PUBLIC avutil)
 target_include_directories(swresample PUBLIC ${SRC_DIR} ${CMAKE_CURRENT_BINARY_DIR})
-target_include_directories(swresample INTERFACE ${LIBSWRESAMPLE_HEADERS})
+target_include_directories(swresample INTERFACE ${SRC_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 set(LIBSWRESAMPLE_LIBRARY swresample)
 
 # libswscale
@@ -109,5 +109,5 @@ set_target_properties(swscale PROPERTIES POSITION_INDEPENDENT_CODE TRUE) # Enabl
 target_precompile_headers(swscale PRIVATE ${LIBAVUTIL_SRC_DIR}/internal.h)
 target_link_libraries(swscale PUBLIC avutil)
 target_include_directories(swscale PRIVATE ${SRC_DIR} ${CMAKE_CURRENT_BINARY_DIR})
-target_include_directories(swscale INTERFACE ${LIBSWSCALE_HEADERS})
+target_include_directories(swscale INTERFACE ${SRC_DIR} ${CMAKE_CURRENT_BINARY_DIR})
 set(LIBSWSCALE_LIBRARY swscale)
