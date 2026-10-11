@@ -495,7 +495,7 @@ static int DefaultGPUBackend() {
 	return (int)GPUBackend::OPENGL;
 #endif
 
-#elif PPSSPP_PLATFORM(IOS_APP_STORE)
+#elif PPSSPP_PLATFORM(IOS) && !defined(__LIBRETRO__)
 	return (int)GPUBackend::VULKAN;
 #endif
 

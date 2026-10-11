@@ -154,7 +154,6 @@ endif()
 
 if(IOS_APP_STORE)
 	add_compile_definitions(PPSSPP_PLATFORM_IOS_APP_STORE)
-	add_compile_definitions(GLES_SILENCE_DEPRECATION)
 	# Set a global default to not generate schemes for each target.
 	# Makes using XCode sligthly more sane.
 	set(CMAKE_XCODE_GENERATE_SCHEME NO)
@@ -315,7 +314,12 @@ elseif(NOT OPENGL_LIBRARIES AND USING_GLES2)
 	set(OPENGL_LIBRARIES GLESv2 EGL)
 endif()
 
-if(NOT OPENGL_LIBRARIES)
+# The iOS app is Vulkan (MoltenVK) only. Must match PPSSPP_API_ANY_GL in ppsspp_config.h.
+if(IOS AND NOT LIBRETRO)
+	set(NO_OPENGL ON)
+endif()
+
+if(NOT OPENGL_LIBRARIES AND NOT NO_OPENGL)
 	if(POLICY CMP0072)
 		cmake_policy(SET CMP0072 NEW)
 	endif()
@@ -943,8 +947,6 @@ elseif(IOS AND NOT LIBRETRO)
 		ios/Controls.mm
 		ios/ViewControllerCommon.h
 		ios/ViewControllerCommon.mm
-		ios/ViewController.mm
-		ios/ViewController.h
 		ios/ViewControllerMetal.mm
 		ios/ViewControllerMetal.h
 		ios/iOSCoreAudio.mm
@@ -958,7 +960,7 @@ elseif(IOS AND NOT LIBRETRO)
 		Common/Battery/AppleBatteryClient.m
 	)
 
-	list(APPEND targetExtraLibs "-framework Foundation -framework MediaPlayer -framework AudioToolbox -framework CoreGraphics -framework CoreMotion -framework QuartzCore -framework UIKit -framework GLKit -framework OpenAL -framework AVFoundation -framework CoreLocation -framework CoreText -framework CoreVideo -framework CoreMedia -framework CoreServices -framework Metal -framework IOSurface -framework Photos" )
+	list(APPEND targetExtraLibs "-framework Foundation -framework MediaPlayer -framework AudioToolbox -framework CoreGraphics -framework CoreMotion -framework QuartzCore -framework UIKit -framework OpenAL -framework AVFoundation -framework CoreLocation -framework CoreText -framework CoreVideo -framework CoreMedia -framework CoreServices -framework Metal -framework IOSurface -framework Photos" )
 	if(EXISTS "${CMAKE_IOS_SDK_ROOT}/System/Library/Frameworks/GameController.framework")
 		list(APPEND targetExtraLibs "-weak_framework GameController")
 	endif()
@@ -980,7 +982,6 @@ elseif(IOS AND NOT LIBRETRO)
 	set_source_files_properties(ios/AppDelegate.mm
 		ios/SceneDelegate.mm
 		ios/ViewControllerCommon.mm
-		ios/ViewController.mm
 		ios/ViewControllerMetal.mm
 		ios/iOSCoreAudio.mm
 		ios/IAPManager.mm

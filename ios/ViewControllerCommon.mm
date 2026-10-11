@@ -45,6 +45,8 @@
 
 @end
 
+PPSSPPBaseViewController *sharedViewController;
+
 @interface PPSSPPBaseViewController () {
 	CameraHelper *cameraHelper;
 	LocationHelper *locationHelper;
@@ -113,9 +115,6 @@ static int GetPickerRequestId(id picker) {
 	}
 	return self;
 }
-
-// Only means anything for the GL backend, which overrides this.
-- (void)bindDefaultFBO {}
 
 - (void)shutdown {
 	self.gameController = nil;

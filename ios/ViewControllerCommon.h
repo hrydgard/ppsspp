@@ -19,7 +19,6 @@
 - (void)shareText:(NSString *)text;
 - (void)shareFile:(NSURL *)url;
 - (void)shutdown;
-- (void)bindDefaultFBO;
 - (void)startLocation;
 - (void)stopLocation;
 - (void)startVideo:(int)width height:(int)height;

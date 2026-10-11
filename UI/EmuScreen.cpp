@@ -286,12 +286,10 @@ void EmuScreen::ProcessGameBoot(const Path &filename) {
 	case GPUBackend::DIRECT3D11:
 		coreParam.gpuCore = GPUCORE_DIRECTX11;
 		break;
-#if !PPSSPP_PLATFORM(UWP)
-#if PPSSPP_API(ANY_GL)
 	case GPUBackend::OPENGL:
 		coreParam.gpuCore = GPUCORE_GLES;
 		break;
-#endif
+#if !PPSSPP_PLATFORM(UWP)
 	case GPUBackend::VULKAN:
 		coreParam.gpuCore = GPUCORE_VULKAN;
 		break;
