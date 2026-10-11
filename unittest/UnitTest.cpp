@@ -3029,6 +3029,21 @@ bool TestCmdLine() {
 		EXPECT_EQ_INT(options.timeoutWall.value_or(0), 4);
 		EXPECT_EQ_INT(options.timeoutEmulated.value_or(0), 5);
 	}
+	// Inverse booleans: --windowed turns fullscreen off, and --no-memstick removes the stick.
+	{
+		const char *argv[] = {
+			"ppsspp",
+			"--windowed",
+			"--no-memstick",
+		};
+		int argc = ARRAY_SIZE(argv);
+		CommandLineOptions options;
+		options.Parse(argc, argv, CmdLineMode::Application);
+		EXPECT_TRUE(options.fullscreen.has_value());
+		EXPECT_FALSE(options.fullscreen.value_or(true));
+		EXPECT_TRUE(options.memStickInserted.has_value());
+		EXPECT_FALSE(options.memStickInserted.value_or(true));
+	}
 	// Test GL version override
 	{
 		const char *argv[] = {

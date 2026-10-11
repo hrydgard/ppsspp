@@ -43,6 +43,8 @@ struct CommandLineOptions {
 	std::optional<std::string> startScreen;
 
 	std::optional<bool> escapeExit;
+	// Run as if no memory stick were inserted.
+	std::optional<bool> memStickInserted;
 	std::optional<bool> pauseMenuExit;
 
 	// Enables the WebSocket debugger on startup, on this port (0 = pick automatically).

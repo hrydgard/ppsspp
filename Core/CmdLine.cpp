@@ -151,12 +151,9 @@ static ParseParamResult ParseParameterStr(int argc, const char *argv[], size_t &
 		}
 
 		// Check for boolean/inverse-boolean parameter - these don't take a separate param value.
-		if (param.type == CmdParamType::Bool && equals(arg, std::string("--") + param.longName)) {
+		// SetValue() does the inverting, so both get "true".
+		if ((param.type == CmdParamType::Bool || param.type == CmdParamType::BoolInverse) && equals(arg, std::string("--") + param.longName)) {
 			ParseParamResult result = SetValue(options, param, "true");
-			i++;  // Skip --param
-			return result;
-		} else if (param.type == CmdParamType::BoolInverse && equals(arg, std::string("--") + param.longName)) {
-			ParseParamResult result = SetValue(options, param, "false");
 			i++;  // Skip --param
 			return result;
 		}
@@ -202,6 +199,7 @@ static const CommandLineParam g_autoParams[] = {
 	{POFF(compare), CmdParamType::Bool, "compare", 'c', "Enable comparison mode", CmdLineMode::Headless},
 	{POFF(bench), CmdParamType::Bool, "bench", 'b', "Enable benchmark mode", CmdLineMode::Headless},
 	{POFF(oldAtrac), CmdParamType::Bool, "old-atrac", '\0', "Use old ATRAC decoder"},
+	{POFF(memStickInserted), CmdParamType::BoolInverse, "no-memstick", '\0', "Run with the memory stick removed"},
 	{POFF(log), CmdParamType::String, "log", '\0', "Output log to FILE", CmdLineMode::Application},
 	{POFF(enableLogging), CmdParamType::Bool, "log", '\0', "Full log output, not just emulated printfs", CmdLineMode::Headless},
 	{POFF(screenshotFilename), CmdParamType::String, "screenshot", '\0', "Compare rendered output against a reference screenshot FILE", CmdLineMode::Headless},
@@ -553,6 +551,10 @@ void CommandLineOptions::ApplyToConfig() const {
 	if (optionS) {
 		g_Config.bAutoRun = false;
 		g_Config.bSaveSettings = false;
+	}
+	if (memStickInserted.has_value()) {
+		g_Config.bMemStickInserted = memStickInserted.value();
+		g_Config.DoNotSaveSetting(&g_Config.bMemStickInserted);
 	}
 	if (escapeExit.has_value()) {
 		g_Config.bPauseExitsEmulator = escapeExit.value();
