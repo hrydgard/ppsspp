@@ -8,6 +8,9 @@
 
 #include "Core/HLE/SocketManager.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/sceKernelInterrupt.h"
+#include "Core/CoreTiming.h"
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceNet.h"
@@ -57,6 +60,39 @@ static int UpdateErrnoFromHost(int threadID, int hostErrno, const char *func) {
 }
 
 bool netInetInited = false;
+
+// A sceNetInetSelect waiting for one of its sockets. The host sockets are polled rather than waited
+// on in a host select(), which would stop the whole emulator for the timeout.
+struct InetSelectWait {
+	int nfds;
+	u32 readfdsPtr;
+	u32 writefdsPtr;
+	u32 exceptfdsPtr;
+	s64 deadline;  // In ticks, or -1 to wait for as long as it takes.
+};
+// By waiting thread.
+static std::map<SceUID, InetSelectWait> g_selectWaits;
+static int eventSelectPoll = -1;
+static const int SELECT_POLL_US = 1000;
+static const SceUID SELECT_WAIT_ID = 0x53454C;
+
+static void __NetInetSelectPoll(u64 userdata, int cyclesLate);
+
+void __NetInetInit() {
+	g_selectWaits.clear();
+	eventSelectPoll = CoreTiming::RegisterEvent("NetInetSelectPoll", &__NetInetSelectPoll);
+}
+
+void __NetInetDoState(PointerWrap &p, bool hasState) {
+	if (hasState) {
+		Do(p, g_selectWaits);
+		Do(p, eventSelectPoll);
+	} else if (p.mode == p.MODE_READ) {
+		g_selectWaits.clear();
+		eventSelectPoll = -1;
+	}
+	CoreTiming::RestoreRegisterEvent(eventSelectPoll, "NetInetSelectPoll", &__NetInetSelectPoll);
+}
 
 void __NetInetShutdown() {
 	if (!netInetInited) {
@@ -217,12 +253,21 @@ static int sceNetInetGetsockname(int socket, u32 namePtr, u32 namelenPtr) {
 	return hleLogInfo(Log::sceNet, 0);
 }
 
-// FIXME: nfds is number of fd(s) as in posix poll, or was it maximum fd value as in posix select? Star Wars Battlefront Renegade seems to set the nfds to 64, while Coded Arms Contagion is using 256
-int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr, u32 timeoutPtr) {
+static void ZeroInetFdSets(u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr) {
+	for (u32 ptr : { readfdsPtr, writefdsPtr, exceptfdsPtr }) {
+		if (ptr) {
+			NetInetFD_ZERO((SceNetInetFdSet *)Memory::GetPointerWriteOrException(ptr));
+		}
+	}
+}
+
+// Checks the sockets in the guest's fd_sets without blocking, and returns what select() did. The
+// sets are only overwritten with the result when that isn't 0, so they still hold the request
+// between polls. Logs bad sockets only on the first poll of a call.
+static int PollInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr, bool firstPoll, int *hostErrno) {
 	SceNetInetFdSet	*readfds = readfdsPtr ? (SceNetInetFdSet*)Memory::GetPointerWriteOrException(readfdsPtr) : nullptr;
 	SceNetInetFdSet	*writefds = writefdsPtr ? (SceNetInetFdSet*)Memory::GetPointerWriteOrException(writefdsPtr) : nullptr;
 	SceNetInetFdSet	*exceptfds = exceptfdsPtr ? (SceNetInetFdSet*)Memory::GetPointerWriteOrException(exceptfdsPtr) : nullptr;
-	SceNetInetTimeval *timeout = timeoutPtr ? (SceNetInetTimeval*)Memory::GetPointerWriteOrException(timeoutPtr) : nullptr;
 
 	// First, translate the specified fd_sets to host sockets.
 
@@ -231,12 +276,6 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 	FD_ZERO(&wrfds);
 	FD_ZERO(&exfds);
 
-	if (nfds > 256) {
-		// Probably never happens, just for safety.
-		ERROR_LOG(Log::sceNet, "Bad nfds value, resetting to 256: %d", nfds);
-		nfds = 256;
-	}
-
 	int rdcnt = 0, wrcnt = 0, excnt = 0;
 
 	int maxHostSocket = 0;
@@ -244,59 +283,38 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 	// Save the mapping during setup.
 	SOCKET hostSockets[256]{};
 
+	struct {
+		SceNetInetFdSet *set;
+		fd_set *hostSet;
+		int *count;
+		const char *name;
+	} sets[] = {
+		{ readfds, &rdfds, &rdcnt, "read" },
+		{ writefds, &wrfds, &wrcnt, "write" },
+		{ exceptfds, &exfds, &excnt, "except" },
+	};
+
 	for (int i = SocketManager::MIN_VALID_INET_SOCKET; i < nfds; i++) {
-		if (readfds && (NetInetFD_ISSET(i, readfds))) {
+		for (auto &set : sets) {
+			if (!set.set || !NetInetFD_ISSET(i, set.set)) {
+				continue;
+			}
 			SOCKET sock = g_socketManager.GetHostSocketFromInetSocket(i);
 			_dbg_assert_(sock != 0);
 			if (sock < 0) {
-				ERROR_LOG(Log::sceNet, "Bad socket #%d in readfds", i);
+				if (firstPoll) {
+					ERROR_LOG(Log::sceNet, "Bad socket #%d in %s fds", i, set.name);
+				}
 				continue;
 			}
 			hostSockets[i] = sock;
 			if (sock > maxHostSocket)
 				maxHostSocket = sock;
-			VERBOSE_LOG(Log::sceNet, "Input Read FD #%i (host: %d)", i, sock);
-			if (rdcnt < FD_SETSIZE) {
-				FD_SET(sock, &rdfds); // This might pointed to a non-existing socket or sockets belonged to other programs on Windows, because most of the time Windows socket have an id above 1k instead of 0-255
-				rdcnt++;
-			} else {
-				ERROR_LOG(Log::sceNet, "Hit set size (rd)");
-			}
-		}
-		if (writefds && (NetInetFD_ISSET(i, writefds))) {
-			SOCKET sock = g_socketManager.GetHostSocketFromInetSocket(i);
-			_dbg_assert_(sock != 0);
-			if (sock < 0) {
-				ERROR_LOG(Log::sceNet, "Bad socket #%d in writefds", i);
-				continue;
-			}
-			hostSockets[i] = sock;
-			if (sock > maxHostSocket)
-				maxHostSocket = sock;
-			VERBOSE_LOG(Log::sceNet, "Input Write FD #%i (host: %d)", i, sock);
-			if (wrcnt < FD_SETSIZE) {
-				FD_SET(sock, &wrfds);
-				wrcnt++;
-			} else {
-				ERROR_LOG(Log::sceNet, "Hit set size (wr)");
-			}
-		}
-		if (exceptfds && (NetInetFD_ISSET(i, exceptfds))) {
-			SOCKET sock = g_socketManager.GetHostSocketFromInetSocket(i);
-			_dbg_assert_(sock != 0);
-			if (sock < 0) {
-				ERROR_LOG(Log::sceNet, "Bad socket #%d in exceptfds", i);
-				continue;
-			}
-			hostSockets[i] = sock;
-			if (sock > maxHostSocket)
-				maxHostSocket = sock;
-			VERBOSE_LOG(Log::sceNet, "Input Except FD #%i (host: %d)", i, sock);
-			if (excnt < FD_SETSIZE) {
-				FD_SET(sock, &exfds);
-				excnt++;
-			} else {
-				ERROR_LOG(Log::sceNet, "Hit set size (exc)");
+			if (*set.count < FD_SETSIZE) {
+				FD_SET(sock, set.hostSet); // This might pointed to a non-existing socket or sockets belonged to other programs on Windows, because most of the time Windows socket have an id above 1k instead of 0-255
+				(*set.count)++;
+			} else if (firstPoll) {
+				ERROR_LOG(Log::sceNet, "Hit set size (%s)", set.name);
 			}
 		}
 	}
@@ -306,23 +324,21 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 	_dbg_assert_(wrcnt < FD_SETSIZE);
 	_dbg_assert_(excnt < FD_SETSIZE);
 
-	timeval tmout = { 5, 543210 }; // Workaround timeout value when timeout = NULL
-	if (timeout) {
-		tmout.tv_sec = timeout->tv_sec;
-		tmout.tv_usec = timeout->tv_usec;
+	timeval tmout = { 0, 0 };
+	int retval = select(maxHostSocket + 1, readfds ? &rdfds : nullptr, writefds ? &wrfds : nullptr, exceptfds ? &exfds : nullptr, &tmout);
+	if (retval < 0) {
+		*hostErrno = socket_errno;
 	}
-	DEBUG_LOG(Log::sceNet, "Select(host: %d): Read count: %d, Write count: %d, Except count: %d, TimeVal: %u.%u", maxHostSocket + 1, rdcnt, wrcnt, excnt, (int)tmout.tv_sec, (int)tmout.tv_usec);
-	// TODO: Simulate blocking behaviour when timeout = NULL to prevent PPSSPP from freezing
-	// Note: select can overwrite tmout.
-	int retval = select(maxHostSocket + 1, readfds ? &rdfds : nullptr, writefds ? &wrfds : nullptr, exceptfds ? &exfds : nullptr, /*(timeout == NULL) ? NULL :*/ &tmout);
+	if (retval == 0) {
+		return 0;
+	}
 
 	// Convert the results back to PSP fd_sets.
-	if (readfds)
-		NetInetFD_ZERO(readfds);
-	if (writefds)
-		NetInetFD_ZERO(writefds);
-	if (exceptfds)
-		NetInetFD_ZERO(exceptfds);
+	for (auto &set : sets) {
+		if (set.set) {
+			NetInetFD_ZERO(set.set);
+		}
+	}
 
 	// Don't need to loop through and set any bits if the sum total returned is 0.
 	if (retval > 0) {
@@ -330,23 +346,94 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 			if (hostSockets[i] == 0) {
 				continue;
 			}
-			if (readfds && FD_ISSET(hostSockets[i], &rdfds)) {
-				NetInetFD_SET(i, readfds);
-			}
-			if (writefds && FD_ISSET(hostSockets[i], &wrfds)) {
-				NetInetFD_SET(i, writefds);
-			}
-			if (exceptfds && FD_ISSET(hostSockets[i], &exfds)) {
-				NetInetFD_SET(i, exceptfds);
+			for (auto &set : sets) {
+				if (set.set && FD_ISSET(hostSockets[i], set.hostSet)) {
+					NetInetFD_SET(i, set.set);
+				}
 			}
 		}
 	}
+	return retval;
+}
 
+// FIXME: nfds is number of fd(s) as in posix poll, or was it maximum fd value as in posix select? Star Wars Battlefront Renegade seems to set the nfds to 64, while Coded Arms Contagion is using 256
+int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr, u32 timeoutPtr) {
+	SceNetInetTimeval *timeout = timeoutPtr ? (SceNetInetTimeval*)Memory::GetPointerWriteOrException(timeoutPtr) : nullptr;
+
+	if (nfds > 256) {
+		// Probably never happens, just for safety.
+		ERROR_LOG(Log::sceNet, "Bad nfds value, resetting to 256: %d", nfds);
+		nfds = 256;
+	}
+
+	int hostErrno = 0;
+	const int retval = PollInetSelect(nfds, readfdsPtr, writefdsPtr, exceptfdsPtr, true, &hostErrno);
 	if (retval < 0) {
-		UpdateErrnoFromHost(__KernelGetCurThread(), socket_errno, __FUNCTION__);
+		UpdateErrnoFromHost(__KernelGetCurThread(), hostErrno, __FUNCTION__);
 		return hleDelayResult(hleLogDebug(Log::sceNet, retval), "workaround until blocking-socket", 500); // Using hleDelayResult as a workaround for games that need blocking-socket to be implemented (ie. Coded Arms Contagion)
 	}
-	return hleDelayResult(hleLogDebug(Log::sceNet, retval), "workaround until blocking-socket", 500); // Using hleDelayResult as a workaround for games that need blocking-socket to be implemented (ie. Coded Arms Contagion)
+
+	// A null timeout waits for as long as it takes.
+	const s64 waitUs = timeout ? (s64)timeout->tv_sec * 1000000 + timeout->tv_usec : -1;
+	if (retval > 0 || waitUs == 0 || !__KernelIsDispatchEnabled() || __IsInInterrupt()) {
+		if (retval == 0) {
+			ZeroInetFdSets(readfdsPtr, writefdsPtr, exceptfdsPtr);
+		}
+		return hleDelayResult(hleLogDebug(Log::sceNet, retval), "workaround until blocking-socket", 500); // Using hleDelayResult as a workaround for games that need blocking-socket to be implemented (ie. Coded Arms Contagion)
+	}
+
+	// Nothing ready yet: wait in emulated time, polling the sockets.
+	const SceUID threadID = __KernelGetCurThread();
+	InetSelectWait &wait = g_selectWaits[threadID];
+	wait.nfds = nfds;
+	wait.readfdsPtr = readfdsPtr;
+	wait.writefdsPtr = writefdsPtr;
+	wait.exceptfdsPtr = exceptfdsPtr;
+	wait.deadline = waitUs < 0 ? -1 : CoreTiming::GetTicks(currentMIPS) + usToCycles(waitUs);
+	s64 firstPoll = usToCycles(SELECT_POLL_US);
+	if (waitUs >= 0) {
+		firstPoll = std::min(firstPoll, (s64)usToCycles(waitUs));
+	}
+	CoreTiming::ScheduleEvent(firstPoll, eventSelectPoll, threadID);
+	__KernelWaitCurThread(WAITTYPE_NET, SELECT_WAIT_ID, 0, 0, false, "inet select");
+	return hleLogDebug(Log::sceNet, 0, "waiting, timeout %lld us", (long long)waitUs);
+}
+
+static void __NetInetSelectPoll(u64 userdata, int cyclesLate) {
+	const SceUID threadID = (SceUID)userdata;
+	auto it = g_selectWaits.find(threadID);
+	if (it == g_selectWaits.end()) {
+		return;
+	}
+	u32 error;
+	if (__KernelGetWaitID(threadID, WAITTYPE_NET, error) != SELECT_WAIT_ID || error != 0) {
+		// Woken some other way, or gone.
+		g_selectWaits.erase(it);
+		return;
+	}
+
+	const InetSelectWait wait = it->second;
+	int hostErrno = 0;
+	const int retval = PollInetSelect(wait.nfds, wait.readfdsPtr, wait.writefdsPtr, wait.exceptfdsPtr, false, &hostErrno);
+	const s64 now = CoreTiming::GetTicks(currentMIPS);
+	if (retval == 0 && (wait.deadline < 0 || now < wait.deadline)) {
+		s64 next = usToCycles(SELECT_POLL_US);
+		if (wait.deadline >= 0) {
+			next = std::min(next, wait.deadline - now);
+		}
+		CoreTiming::ScheduleEvent(next, eventSelectPoll, userdata);
+		return;
+	}
+
+	g_selectWaits.erase(it);
+	if (retval == 0) {
+		ZeroInetFdSets(wait.readfdsPtr, wait.writefdsPtr, wait.exceptfdsPtr);
+	} else if (retval < 0) {
+		UpdateErrnoFromHost(threadID, hostErrno, "sceNetInetSelect");
+	}
+	DEBUG_LOG(Log::sceNet, "sceNetInetSelect: thread %d done waiting: %d", threadID, retval);
+	__KernelResumeThreadFromWait(threadID, retval);
+	__KernelReSchedule("inet select done");
 }
 
 int sceNetInetPoll(MIPSState *mips, u32 fdsPtr, u32 nfds, int timeout) { // timeout in miliseconds just like posix poll? or in microseconds as other PSP timeout?
