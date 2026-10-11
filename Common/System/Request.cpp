@@ -86,6 +86,7 @@ bool RequestManager::MakeSystemRequest(SystemRequestType type, RequesterToken to
 }
 
 void RequestManager::ForgetRequestsWithToken(RequesterToken token) {
+	std::lock_guard<std::mutex> guard(callbackMutex_);
 	for (auto &iter : callbackMap_) {
 		if (iter.second.token == token) {
 			INFO_LOG(Log::System, "Forgetting about requester with token %d", token);
@@ -93,23 +94,28 @@ void RequestManager::ForgetRequestsWithToken(RequesterToken token) {
 			iter.second.failedCallback = nullptr;
 		}
 	}
+	// Also the ones that finished but haven't been processed yet.
+	std::lock_guard<std::mutex> responseGuard(responseMutex_);
+	for (auto &response : pendingResponses_) {
+		if (response.token == token) {
+			response.callback = nullptr;
+			response.failedCallback = nullptr;
+		}
+	}
 }
 
+// Responses can contain passwords, so we don't log them.
 void RequestManager::PostSystemSuccess(int requestId, std::string_view responseString, int responseValue) {
 	std::lock_guard<std::mutex> guard(callbackMutex_);
 	auto iter = callbackMap_.find(requestId);
 	if (iter == callbackMap_.end()) {
-		ERROR_LOG(Log::System, "PostSystemSuccess: Unexpected request ID %d (responseString=%.*s)", requestId, (int)responseString.size(), responseString.data());
+		ERROR_LOG(Log::System, "PostSystemSuccess: Unexpected request ID %d", requestId);
 		return;
 	}
 
 	std::lock_guard<std::mutex> responseGuard(responseMutex_);
-	PendingSuccess response;
-	response.callback = iter->second.callback;
-	response.responseString = responseString;
-	response.responseValue = responseValue;
-	pendingSuccesses_.push_back(response);
-	DEBUG_LOG(Log::System, "PostSystemSuccess: Request %d (%.*s, %d)", requestId, (int)responseString.size(), responseString.data(), responseValue);
+	pendingResponses_.push_back({ true, std::string(responseString), responseValue, iter->second.callback, nullptr, iter->second.token });
+	DEBUG_LOG(Log::System, "PostSystemSuccess: Request %d (%d chars, %d)", requestId, (int)responseString.size(), responseValue);
 	callbackMap_.erase(iter);
 }
 
@@ -124,35 +130,38 @@ void RequestManager::PostSystemFailure(int requestId, int responseValue) {
 	WARN_LOG(Log::System, "PostSystemFailure: Request %d failed", requestId);
 
 	std::lock_guard<std::mutex> responseGuard(responseMutex_);
-	PendingFailure response;
-	response.failedCallback = iter->second.failedCallback;
-	response.responseValue = responseValue;
-	pendingFailures_.push_back(response);
+	pendingResponses_.push_back({ false, std::string(), responseValue, nullptr, iter->second.failedCallback, iter->second.token });
 	callbackMap_.erase(iter);
 }
 
 void RequestManager::ProcessRequests() {
-	std::lock_guard<std::mutex> guard(responseMutex_);
-	for (auto &iter : pendingSuccesses_) {
-		if (iter.callback) {
-			iter.callback(iter.responseString.c_str(), iter.responseValue);
+	// One at a time, without holding the lock while calling. A callback can make new requests, or close a screen,
+	// which forgets the callbacks of the responses still in the queue.
+	while (true) {
+		PendingResponse response;
+		{
+			std::lock_guard<std::mutex> guard(responseMutex_);
+			if (pendingResponses_.empty()) {
+				break;
+			}
+			response = std::move(pendingResponses_.front());
+			pendingResponses_.pop_front();
+		}
+		if (response.success) {
+			if (response.callback) {
+				response.callback(response.responseString, response.responseValue);
+			}
+		} else if (response.failedCallback) {
+			response.failedCallback(response.responseValue);
 		}
 	}
-	pendingSuccesses_.clear();
-	for (auto &iter : pendingFailures_) {
-		if (iter.failedCallback) {
-			iter.failedCallback(iter.responseValue);
-		}
-	}
-	pendingFailures_.clear();
 }
 
 void RequestManager::Clear() {
 	std::lock_guard<std::mutex> guard(callbackMutex_);
 	std::lock_guard<std::mutex> responseGuard(responseMutex_);
 
-	pendingSuccesses_.clear();
-	pendingFailures_.clear();
+	pendingResponses_.clear();
 	callbackMap_.clear();
 }
 

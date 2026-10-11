@@ -39,9 +39,14 @@ void UIScreen::DoRecreateViews() {
 		root_->PersistData(UI::PERSIST_SAVE, "root", persisted);
 	}
 
+	// Pending requests from the views (like an open text input dialog) would call back into deleted views.
+	ForgetViewRequests();
+
 	delete root_;
 	root_ = nullptr;
+	SetCreatingViews(true);
 	CreateViews();
+	SetCreatingViews(false);
 	UI::View *defaultView = root_ ? root_->GetDefaultFocusView() : nullptr;
 	if (defaultView && defaultView->GetVisibility() == UI::V_VISIBLE) {
 		defaultView->SetFocus(UI::FocusFlags::CAUSE_OTHER);
@@ -59,9 +64,6 @@ void UIScreen::DoRecreateViews() {
 			root_->SubviewFocused(focused);
 		}
 	}
-
-	// NOTE: We also wipe the requester token. It's possible that views were created with the old token, so any pending requests from them must be invalidated.
-	WipeRequesterToken();
 }
 
 bool UIScreen::touch(const TouchInput &touch) {

@@ -122,6 +122,7 @@
 #include "GPU/Math3D.h"
 
 #include "Common/File/AndroidContentURI.h"
+#include "Common/System/Request.h"
 
 #include "unittest/JitHarness.h"
 #include "unittest/TestVertexJit.h"
@@ -158,7 +159,15 @@ std::vector<std::string> System_GetCameraDeviceList() { return std::vector<std::
 void NativeFrame(GraphicsContext *graphicsContext) {}
 void NativeResized() {}
 
-bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4) { return false; }
+// TestRequestManager answers these itself.
+static int g_lastInputBoxRequestId = -1;
+bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4) {
+	if (type == SystemRequestType::INPUT_TEXT_MODAL) {
+		g_lastInputBoxRequestId = requestId;
+		return true;
+	}
+	return false;
+}
 // Pulled in via Core/WebServer.cpp's OpenWebDebugger(), which CmdLine.cpp now references.
 void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {}
 void System_InputBoxGetString(const std::string &title, const std::string &defaultValue, std::function<void(bool, const std::string &)> cb) { cb(false, ""); }
@@ -3270,6 +3279,48 @@ static bool TestQueueBuf() {
 	return true;
 }
 
+static bool TestRequestManager() {
+	RequestManager rm;
+	std::vector<std::string> results;
+	auto ask = [&](RequesterToken token, std::string name) {
+		rm.MakeSystemRequest(SystemRequestType::INPUT_TEXT_MODAL, token, [&results, name](std::string_view value, int) {
+			results.push_back(name + "=" + std::string(value));
+		}, nullptr, "", "", 0);
+		return g_lastInputBoxRequestId;
+	};
+
+	RequesterToken tokenA = rm.GenerateRequesterToken();
+	RequesterToken tokenB = rm.GenerateRequesterToken();
+
+	// Forgotten before the answer arrives.
+	int a1 = ask(tokenA, "a1");
+	rm.ForgetRequestsWithToken(tokenA);
+	rm.PostSystemSuccess(a1, "x");
+	// Forgotten after the answer arrived, but before it was processed.
+	int a2 = ask(tokenA, "a2");
+	int b1 = ask(tokenB, "b1");
+	rm.PostSystemSuccess(a2, "y");
+	rm.PostSystemSuccess(b1, "z");
+	rm.ForgetRequestsWithToken(tokenA);
+	rm.ProcessRequests();
+	EXPECT_EQ_INT((int)results.size(), 1);
+	EXPECT_TRUE(results[0] == "b1=z");
+
+	// A callback that forgets its requester drops the rest of its responses in the same batch.
+	results.clear();
+	int b2 = rm.MakeSystemRequest(SystemRequestType::INPUT_TEXT_MODAL, tokenB, [&](std::string_view, int) {
+		results.push_back("b2");
+		rm.ForgetRequestsWithToken(tokenB);
+	}, nullptr, "", "", 0) ? g_lastInputBoxRequestId : -1;
+	int b3 = ask(tokenB, "b3");
+	rm.PostSystemSuccess(b2, "");
+	rm.PostSystemSuccess(b3, "");
+	rm.ProcessRequests();
+	EXPECT_EQ_INT((int)results.size(), 1);
+	EXPECT_TRUE(results[0] == "b2");
+	return true;
+}
+
 TestItem availableTests[] = {
 #if PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
 	TEST_ITEM(Arm64Emitter),
@@ -3347,6 +3398,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(FatShortNames),
 	TEST_ITEM(GEDumpGameID),
 	TEST_ITEM(QueueBuf),
+	TEST_ITEM(RequestManager),
 };
 
 int main(int argc, const char *argv[]) {

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <vector>
+#include <deque>
 #include <mutex>
 #include <map>
 #include <functional>
@@ -64,21 +65,19 @@ private:
 	std::map<int, CallbackPair> callbackMap_;
 	std::mutex callbackMutex_;
 
-	struct PendingSuccess {
+	// A finished request, waiting for ProcessRequests to call its callback.
+	struct PendingResponse {
+		bool success;
 		std::string responseString;
-		int responseValue;
-		RequestCallback callback;
-	};
-
-	struct PendingFailure {
-		RequestFailedCallback failedCallback;
 		int responseValue;  // can have error codes for example.
+		RequestCallback callback;
+		RequestFailedCallback failedCallback;
+		RequesterToken token;
 	};
 
 	// Let's start at 10 to get a recognizably valid ID in logs.
 	int idCounter_ = 10;
-	std::vector<PendingSuccess> pendingSuccesses_;
-	std::vector<PendingFailure> pendingFailures_;
+	std::deque<PendingResponse> pendingResponses_;
 	std::mutex responseMutex_;
 
 	RequesterToken tokenGen_ = 20000;
