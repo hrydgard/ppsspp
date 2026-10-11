@@ -608,7 +608,7 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 	return hleDelayResult(hleLogDebug(Log::sceNet, attempt.result), "workaround until blocking-socket", 500); // Using hleDelayResult as a workaround for games that need blocking-socket to be implemented (ie. Coded Arms Contagion)
 }
 
-int sceNetInetPoll(u32 fdsPtr, u32 nfds, int timeout) { // timeout in miliseconds just like posix poll? or in microseconds as other PSP timeout?
+int sceNetInetPoll(u32 fdsPtr, u32 nfds, int timeout) {
 	DEBUG_LOG(Log::sceNet, "UNTESTED sceNetInetPoll(%08x, %d, %i) at %08x", fdsPtr, nfds, timeout, currentMIPS->pc);
 	SceNetInetPollfd *fdarray = (SceNetInetPollfd*)Memory::GetPointerOrException(fdsPtr);
 
@@ -624,8 +624,8 @@ int sceNetInetPoll(u32 fdsPtr, u32 nfds, int timeout) { // timeout in milisecond
 	}
 
 	const u32 args[] = { fdsPtr, nfds };
-	// Taken as microseconds, like the other PSP timeouts. Negative waits for as long as it takes.
-	const s64 waitUs = timeout < 0 ? -1 : timeout;
+	// In milliseconds, like POSIX poll() (pspautotests net/inet/blocking). Negative waits for as long as it takes.
+	const s64 waitUs = timeout < 0 ? -1 : (s64)timeout * 1000;
 	InetTry attempt = TryPoll(__KernelGetCurThread(), args);
 	if (attempt.wouldBlock) {
 		if (StartInetWait(InetWaitOp::Poll, args, ARRAY_SIZE(args), waitUs)) {
