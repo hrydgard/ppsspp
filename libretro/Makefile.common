@@ -439,7 +439,7 @@ SOURCES_CXX += \
 
 ifeq ($(PLATFORM_EXT), win32)
 SOURCES_CXX += $(COMMONDIR)/MemArenaWin32.cpp \
-	       $(EXTDIR)/glslang/glslang/OSDependent/Windows/ossource.cpp \
+	       $(EXTDIR)/glslang/glslang/OSDependent/Windows/ossource.cpp
 else ifeq ($(PLATFORM_EXT), darwin)
 SOURCES_CXX += $(COMMONDIR)/MemArenaDarwin.cpp \
 	       $(EXTDIR)/glslang/glslang/OSDependent/Unix/ossource.cpp

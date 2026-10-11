@@ -498,7 +498,9 @@ DEPFLAGS = -MMD -MP -MF $@.d -MT $@
 DEPPOST =
 endif
 
+ifneq ($(MAKECMDGOALS),clean)
 FFMPEG_SOURCE_INPUTS := $(shell find $(FFMPEGDIR)/libavcodec $(FFMPEGDIR)/libavformat $(FFMPEGDIR)/libavutil $(FFMPEGDIR)/libswresample $(FFMPEGDIR)/libswscale $(CORE_DIR)/ext/ffmpeg-build -type f \( -name '*.c' -o -name '*.h' -o -name '*.cmake' -o -name CMakeLists.txt \))
+endif
 ifneq ($(platform), emscripten)
 $(FFMPEG_SOURCE_STAMP): $(FFMPEG_SOURCE_INPUTS) Makefile
 	$(CMAKE) -S $(CORE_DIR)/ext/ffmpeg-build -B $(FFMPEG_SOURCE_DIR) -DCMAKE_BUILD_TYPE=Release $(FFMPEG_CMAKE_TOOLCHAIN) $(FFMPEG_CMAKE_ARGS)
@@ -545,8 +547,15 @@ test/lrgltest: test/lrgltest.c
 
 test-tools: $(TARGET) test/codectest test/blocktest test/lrtest test/lrgltest
 
-clean:
-	rm -f $(OBJECTS) $(addsuffix .d,$(OBJECTS)) $(addsuffix .deps.json,$(OBJECTS)) $(TARGET) test/*.o test/*.o.d test/*.o.deps.json test/codectest test/blocktest test/lrtest test/lrgltest
+# Native Windows make cannot spawn one command containing every object and
+# dependency sidecar. Static pattern targets keep each deletion command short.
+CLEAN_OBJECT_TARGETS := $(addsuffix .clean,$(OBJECTS))
+.PHONY: $(CLEAN_OBJECT_TARGETS)
+$(CLEAN_OBJECT_TARGETS): %.clean:
+	@rm -f $* $*.d $*.deps.json
+
+clean: $(CLEAN_OBJECT_TARGETS)
+	rm -f $(TARGET) test/*.o test/*.o.d test/*.o.deps.json test/codectest test/blocktest test/lrtest test/lrgltest
 ifneq ($(platform), emscripten)
 	rm -rf $(FFMPEG_SOURCE_DIR)
 endif
