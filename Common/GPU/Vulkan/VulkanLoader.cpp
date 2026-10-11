@@ -339,7 +339,7 @@ static constexpr DriverBlackListEntry g_gpuNameBlacklist[] = {
 #if !defined(_WIN32) && !PPSSPP_VK_STATIC
 static const char * const so_names[] = {
 #if PPSSPP_PLATFORM(IOS)
-	// Only reached by the libretro core, the app links MoltenVK statically.
+	// Only reached by the libretro core and the simulator (which has none). The app links MoltenVK statically.
 	"@executable_path/Frameworks/libMoltenVK.dylib",
 	"MoltenVK",
 #elif PPSSPP_PLATFORM(MAC)
@@ -443,7 +443,7 @@ void VulkanSetNativeLibDir(std::string_view nativeLibDir) {
 }
 
 bool VulkanMayBeAvailable() {
-#if PPSSPP_PLATFORM(IOS)
+#if PPSSPP_PLATFORM(IOS) && !PPSSPP_PLATFORM(IOS_SIMULATOR)
 	// The deployment target (15.0) is above anything MoltenVK doesn't support.
 	g_vulkanAvailabilityChecked = true;
 	g_vulkanMayBeAvailable = true;

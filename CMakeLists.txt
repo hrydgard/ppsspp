@@ -1575,9 +1575,13 @@ if(IOS AND NOT LIBRETRO)
 	#endif()
 
 	# Can't figure out properly using .xcframework from CMake, so just linking directly to the .a file.
-	target_link_libraries(${TargetBin}
-		"${CMAKE_CURRENT_SOURCE_DIR}/ios/MoltenVK/MoltenVK.xcframework/${MOLTENVK_SLICE}/libMoltenVK.a"
-	)
+	# The simulator renders with Metal only, and loads no Vulkan (see PPSSPP_VK_STATIC).
+	if(IOS_PLATFORM STREQUAL "SIMULATOR")
+		set(MOLTENVK_LIB "")
+	else()
+		set(MOLTENVK_LIB "${CMAKE_CURRENT_SOURCE_DIR}/ios/MoltenVK/MoltenVK.xcframework/${MOLTENVK_SLICE}/libMoltenVK.a")
+	endif()
+	target_link_libraries(${TargetBin} ${MOLTENVK_LIB})
 
 	set(MACOSX_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET})
 	set(PRODUCT_NAME "PPSSPP")
@@ -1663,7 +1667,7 @@ if(IOS AND NOT LIBRETRO)
 	if(IOS_APP_STORE)
 		# https://stackoverflow.com/questions/40664125/cmake-and-code-signing-in-xcode-8-for-ios-projects
 		set_target_properties(${TargetBin} PROPERTIES
-			XCODE_ATTRIBUTE_DEVELOPMENT_TEAM ${DEVELOPMENT_TEAM_ID}
+			XCODE_ATTRIBUTE_DEVELOPMENT_TEAM "${DEVELOPMENT_TEAM_ID}"
 			XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "Apple Development"
 			XCODE_ATTRIBUTE_CODE_SIGN_STYLE "Automatic"
 		)
@@ -1682,7 +1686,7 @@ if(IOS AND NOT LIBRETRO)
 		# PPSSPPHeadless as an app of its own (org.ppsspp.headless), for running frame dumps on a
 		# device. Signed for development, so devicectl can copy files in and out of its container.
 		target_link_libraries(PPSSPPHeadless
-			"${CMAKE_CURRENT_SOURCE_DIR}/ios/MoltenVK/MoltenVK.xcframework/${MOLTENVK_SLICE}/libMoltenVK.a"
+			${MOLTENVK_LIB}
 			"-framework Foundation -framework UIKit -framework CoreGraphics -framework CoreText -framework QuartzCore -framework Metal -framework IOSurface -framework AudioToolbox -framework AVFoundation -framework CoreMedia -framework CoreVideo -framework UniformTypeIdentifiers"
 		)
 		if(NOT ICONV_LIBRARY)
