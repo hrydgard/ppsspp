@@ -270,7 +270,7 @@ file - this is just an index.
 
 | Category | Events | File |
 |---|---|---|
-| Game/version | `game.reset`, `game.status`, `game.speed.get/set` (emulation speed - unlimited fast-forward, or a percentage of 60 FPS; see below), `version` | `GameSubscriber.cpp` |
+| Game/version | `game.reset`, `game.status`, `game.state.load` (queue loading a `.ppst` file, applied at the end of the next frame the CPU runs), `game.speed.get/set` (emulation speed - unlimited fast-forward, or a percentage of 60 FPS; see below), `version` | `GameSubscriber.cpp` |
 | CPU core | `cpu.stepping`, `cpu.resume`, `cpu.status` (reports `ticks` plus `us`, emulated microseconds, and `clockHz` - use `us` to line up with wall-clock timings, since games change the clock frequency and the ticks-per-second ratio isn't fixed), `cpu.getAllRegs`, `cpu.getReg`, `cpu.setReg`, `cpu.evaluate` | `CPUCoreSubscriber.cpp` |
 | Stepping | `cpu.stepInto`, `cpu.stepOver`, `cpu.stepOut`, `cpu.runUntil`, `cpu.runUntilTime` (run until a point in emulated time - `us` absolute or `relativeUs` from now - and break there; this is how to get a scripted repro reproducibly "N seconds into the game" instead of polling `cpu.status` in a loop), `cpu.nextHLE` | `SteppingSubscriber.cpp` |
 | Breakpoints | `cpu.breakpoint.add/update/remove/list`, `memory.breakpoint.add/update/remove/list`, `cpu.regBreakpoint.add/update/remove/list` (break when a register is written to, by any instruction anywhere - currently GPRs only; interpreter-only, no effect under a JIT backend) | `BreakpointSubscriber.cpp` |
