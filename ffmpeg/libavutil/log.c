@@ -1,0 +1,409 @@
+/*
+ * log functions
+ * Copyright (c) 2003 Michel Bardiaux
+ *
+ * This file is part of FFmpeg.
+ *
+ * FFmpeg is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
+ *
+ * FFmpeg is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with FFmpeg; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+ */
+
+/**
+ * @file
+ * logging functions
+ */
+
+#include "config.h"
+
+#if HAVE_UNISTD_H
+#include <unistd.h>
+#endif
+#if HAVE_IO_H
+#include <io.h>
+#endif
+#include <stdarg.h>
+#include <stdlib.h>
+#include "avutil.h"
+#include "bprint.h"
+#include "common.h"
+#include "internal.h"
+#include "log.h"
+#include "retro_thread.h"
+
+
+#define LINE_SZ 1024
+
+#if HAVE_VALGRIND_VALGRIND_H
+#include <valgrind/valgrind.h>
+/* this is the log level at which valgrind will output a full backtrace */
+#define BACKTRACE_LOGLEVEL AV_LOG_ERROR
+#endif
+
+static retro_atomic_int_t log_level = RETRO_ATOMIC_INT_INITIALIZER(AV_LOG_INFO);
+#define av_log_level retro_atomic_load_acquire_int(&log_level)
+static retro_atomic_int_t log_flags = RETRO_ATOMIC_INT_INITIALIZER(0);
+#define flags retro_atomic_load_acquire_int(&log_flags)
+
+#define NB_LEVELS 8
+#if defined(_WIN32) && !defined(__MINGW32CE__) && HAVE_SETCONSOLETEXTATTRIBUTE
+#include <windows.h>
+static const uint8_t color[16 + AV_CLASS_CATEGORY_NB] = {
+    [AV_LOG_PANIC  /8] = 12,
+    [AV_LOG_FATAL  /8] = 12,
+    [AV_LOG_ERROR  /8] = 12,
+    [AV_LOG_WARNING/8] = 14,
+    [AV_LOG_INFO   /8] =  7,
+    [AV_LOG_VERBOSE/8] = 10,
+    [AV_LOG_DEBUG  /8] = 10,
+    [AV_LOG_TRACE  /8] = 8,
+    [16+AV_CLASS_CATEGORY_NA              ] =  7,
+    [16+AV_CLASS_CATEGORY_INPUT           ] = 13,
+    [16+AV_CLASS_CATEGORY_OUTPUT          ] =  5,
+    [16+AV_CLASS_CATEGORY_MUXER           ] = 13,
+    [16+AV_CLASS_CATEGORY_DEMUXER         ] =  5,
+    [16+AV_CLASS_CATEGORY_ENCODER         ] = 11,
+    [16+AV_CLASS_CATEGORY_DECODER         ] =  3,
+    [16+AV_CLASS_CATEGORY_FILTER          ] = 10,
+    [16+AV_CLASS_CATEGORY_BITSTREAM_FILTER] =  9,
+    [16+AV_CLASS_CATEGORY_SWSCALER        ] =  7,
+    [16+AV_CLASS_CATEGORY_SWRESAMPLER     ] =  7,
+    [16+AV_CLASS_CATEGORY_DEVICE_VIDEO_OUTPUT ] = 13,
+    [16+AV_CLASS_CATEGORY_DEVICE_VIDEO_INPUT  ] = 5,
+    [16+AV_CLASS_CATEGORY_DEVICE_AUDIO_OUTPUT ] = 13,
+    [16+AV_CLASS_CATEGORY_DEVICE_AUDIO_INPUT  ] = 5,
+    [16+AV_CLASS_CATEGORY_DEVICE_OUTPUT       ] = 13,
+    [16+AV_CLASS_CATEGORY_DEVICE_INPUT        ] = 5,
+};
+
+static int16_t background, attr_orig;
+static HANDLE con;
+#else
+
+static const uint32_t color[16 + AV_CLASS_CATEGORY_NB] = {
+    [AV_LOG_PANIC  /8] =  52 << 16 | 196 << 8 | 0x41,
+    [AV_LOG_FATAL  /8] = 208 <<  8 | 0x41,
+    [AV_LOG_ERROR  /8] = 196 <<  8 | 0x11,
+    [AV_LOG_WARNING/8] = 226 <<  8 | 0x03,
+    [AV_LOG_INFO   /8] = 253 <<  8 | 0x09,
+    [AV_LOG_VERBOSE/8] =  40 <<  8 | 0x02,
+    [AV_LOG_DEBUG  /8] =  34 <<  8 | 0x02,
+    [AV_LOG_TRACE  /8] =  34 <<  8 | 0x07,
+    [16+AV_CLASS_CATEGORY_NA              ] = 250 << 8 | 0x09,
+    [16+AV_CLASS_CATEGORY_INPUT           ] = 219 << 8 | 0x15,
+    [16+AV_CLASS_CATEGORY_OUTPUT          ] = 201 << 8 | 0x05,
+    [16+AV_CLASS_CATEGORY_MUXER           ] = 213 << 8 | 0x15,
+    [16+AV_CLASS_CATEGORY_DEMUXER         ] = 207 << 8 | 0x05,
+    [16+AV_CLASS_CATEGORY_ENCODER         ] =  51 << 8 | 0x16,
+    [16+AV_CLASS_CATEGORY_DECODER         ] =  39 << 8 | 0x06,
+    [16+AV_CLASS_CATEGORY_FILTER          ] = 155 << 8 | 0x12,
+    [16+AV_CLASS_CATEGORY_BITSTREAM_FILTER] = 192 << 8 | 0x14,
+    [16+AV_CLASS_CATEGORY_SWSCALER        ] = 153 << 8 | 0x14,
+    [16+AV_CLASS_CATEGORY_SWRESAMPLER     ] = 147 << 8 | 0x14,
+    [16+AV_CLASS_CATEGORY_DEVICE_VIDEO_OUTPUT ] = 213 << 8 | 0x15,
+    [16+AV_CLASS_CATEGORY_DEVICE_VIDEO_INPUT  ] = 207 << 8 | 0x05,
+    [16+AV_CLASS_CATEGORY_DEVICE_AUDIO_OUTPUT ] = 213 << 8 | 0x15,
+    [16+AV_CLASS_CATEGORY_DEVICE_AUDIO_INPUT  ] = 207 << 8 | 0x05,
+    [16+AV_CLASS_CATEGORY_DEVICE_OUTPUT       ] = 213 << 8 | 0x15,
+    [16+AV_CLASS_CATEGORY_DEVICE_INPUT        ] = 207 << 8 | 0x05,
+};
+
+#endif
+static int use_color = -1;
+
+static void check_color_terminal(void)
+{
+#if defined(_WIN32) && !defined(__MINGW32CE__) && HAVE_SETCONSOLETEXTATTRIBUTE
+    CONSOLE_SCREEN_BUFFER_INFO con_info;
+    con = GetStdHandle(STD_ERROR_HANDLE);
+    use_color = (con != INVALID_HANDLE_VALUE) && !getenv("NO_COLOR") &&
+                !getenv("AV_LOG_FORCE_NOCOLOR");
+    if (use_color) {
+        GetConsoleScreenBufferInfo(con, &con_info);
+        attr_orig  = con_info.wAttributes;
+        background = attr_orig & 0xF0;
+    }
+#elif HAVE_ISATTY
+    char *term = getenv("TERM");
+    use_color = !getenv("NO_COLOR") && !getenv("AV_LOG_FORCE_NOCOLOR") &&
+                (getenv("TERM") && isatty(2) || getenv("AV_LOG_FORCE_COLOR"));
+    if (   getenv("AV_LOG_FORCE_256COLOR")
+        || (term && strstr(term, "256color")))
+        use_color *= 256;
+#else
+    use_color = getenv("AV_LOG_FORCE_COLOR") && !getenv("NO_COLOR") &&
+               !getenv("AV_LOG_FORCE_NOCOLOR");
+#endif
+}
+
+static void colored_fputs(int level, int tint, const char *str)
+{
+    int local_use_color;
+    if (!*str)
+        return;
+
+    if (use_color < 0)
+        check_color_terminal();
+
+    if (level == AV_LOG_INFO/8) local_use_color = 0;
+    else                        local_use_color = use_color;
+
+#if defined(_WIN32) && !defined(__MINGW32CE__) && HAVE_SETCONSOLETEXTATTRIBUTE
+    if (local_use_color)
+        SetConsoleTextAttribute(con, background | color[level]);
+    fputs(str, stderr);
+    if (local_use_color)
+        SetConsoleTextAttribute(con, attr_orig);
+#else
+    if (local_use_color == 1) {
+        fprintf(stderr,
+                "\033[%d;3%dm%s\033[0m",
+                (color[level] >> 4) & 15,
+                color[level] & 15,
+                str);
+    } else if (tint && use_color == 256) {
+        fprintf(stderr,
+                "\033[48;5;%dm\033[38;5;%dm%s\033[0m",
+                (color[level] >> 16) & 0xff,
+                tint,
+                str);
+    } else if (local_use_color == 256) {
+        fprintf(stderr,
+                "\033[48;5;%dm\033[38;5;%dm%s\033[0m",
+                (color[level] >> 16) & 0xff,
+                (color[level] >> 8) & 0xff,
+                str);
+    } else
+        fputs(str, stderr);
+#endif
+
+}
+
+const char *av_default_item_name(void *ptr)
+{
+    return (*(AVClass **) ptr)->class_name;
+}
+
+AVClassCategory av_default_get_category(void *ptr)
+{
+    return (*(AVClass **) ptr)->category;
+}
+
+static void sanitize(uint8_t *line){
+    while(*line){
+        if(*line < 0x08 || (*line > 0x0D && *line < 0x20))
+            *line='?';
+        line++;
+    }
+}
+
+static int get_category(void *ptr){
+    AVClass *avc = *(AVClass **) ptr;
+    if(    !avc
+        || (avc->version&0xFF)<100
+        ||  avc->version < (51 << 16 | 59 << 8)
+        ||  avc->category >= AV_CLASS_CATEGORY_NB) return AV_CLASS_CATEGORY_NA + 16;
+
+    if(avc->get_category)
+        return avc->get_category(ptr) + 16;
+
+    return avc->category + 16;
+}
+
+static const char *get_level_str(int level)
+{
+    switch (level) {
+    case AV_LOG_QUIET:
+        return "quiet";
+    case AV_LOG_DEBUG:
+        return "debug";
+    case AV_LOG_VERBOSE:
+        return "verbose";
+    case AV_LOG_INFO:
+        return "info";
+    case AV_LOG_WARNING:
+        return "warning";
+    case AV_LOG_ERROR:
+        return "error";
+    case AV_LOG_FATAL:
+        return "fatal";
+    case AV_LOG_PANIC:
+        return "panic";
+    default:
+        return "";
+    }
+}
+
+static void format_line(void *avcl, int level, const char *fmt, va_list vl,
+                        AVBPrint part[4], int *print_prefix, int type[2])
+{
+    AVClass* avc = avcl ? *(AVClass **) avcl : NULL;
+    av_bprint_init(part+0, 0, 1);
+    av_bprint_init(part+1, 0, 1);
+    av_bprint_init(part+2, 0, 1);
+    av_bprint_init(part+3, 0, 65536);
+
+    if(type) type[0] = type[1] = AV_CLASS_CATEGORY_NA + 16;
+    if (*print_prefix && avc) {
+        if (avc->parent_log_context_offset) {
+            AVClass** parent = *(AVClass ***) (((uint8_t *) avcl) +
+                                   avc->parent_log_context_offset);
+            if (parent && *parent) {
+                av_bprintf(part+0, "[%s @ %p] ",
+                         (*parent)->item_name(parent), parent);
+                if(type) type[0] = get_category(parent);
+            }
+        }
+        av_bprintf(part+1, "[%s @ %p] ",
+                 avc->item_name(avcl), avcl);
+        if(type) type[1] = get_category(avcl);
+
+        if (flags & AV_LOG_PRINT_LEVEL)
+            av_bprintf(part+2, "[%s] ", get_level_str(level));
+    }
+
+    av_vbprintf(part+3, fmt, vl);
+
+    if(*part[0].str || *part[1].str || *part[2].str || *part[3].str) {
+        char lastc = part[3].len && part[3].len <= part[3].size ? part[3].str[part[3].len - 1] : 0;
+        *print_prefix = lastc == '\n' || lastc == '\r';
+    }
+}
+
+void av_log_format_line(void *ptr, int level, const char *fmt, va_list vl,
+                        char *line, int line_size, int *print_prefix)
+{
+    AVBPrint part[4];
+    format_line(ptr, level, fmt, vl, part, print_prefix, NULL);
+    snprintf(line, line_size, "%s%s%s%s", part[0].str, part[1].str, part[2].str, part[3].str);
+    av_bprint_finalize(part+3, NULL);
+}
+
+void av_log_default_callback(void *ptr, int level, const char *fmt, va_list vl)
+{
+    char line[LINE_SZ];
+    int prefix = 1;
+    if ((level & 0xff) > av_log_get_level()) return;
+    av_log_format_line(ptr, level & 0xff, fmt, vl, line, sizeof(line), &prefix);
+    fputs(line, stderr);
+}
+
+typedef void (*LogCallback)(void *, int, const char *, va_list);
+static retro_atomic_ptr_t log_callback_ptr;
+
+static AVOnce log_callback_once = AV_ONCE_INIT;
+static void init_log_callback(void)
+{
+    retro_atomic_store_release_ptr(&log_callback_ptr, (void *)av_log_default_callback);
+}
+
+void av_log(void* avcl, int level, const char *fmt, ...)
+{
+    AVClass* avc = avcl ? *(AVClass **) avcl : NULL;
+    va_list vl;
+    va_start(vl, fmt);
+    if (avc && avc->version >= (50 << 16 | 15 << 8 | 2) &&
+        avc->log_level_offset_offset && level >= AV_LOG_FATAL)
+        level += *(int *) (((uint8_t *) avcl) + avc->log_level_offset_offset);
+    av_vlog(avcl, level, fmt, vl);
+    va_end(vl);
+}
+
+void av_vlog(void* avcl, int level, const char *fmt, va_list vl)
+{
+    ff_thread_once(&log_callback_once, init_log_callback);
+    LogCallback log_callback = (LogCallback)retro_atomic_load_acquire_ptr(&log_callback_ptr);
+    if (log_callback)
+        log_callback(avcl, level, fmt, vl);
+}
+
+int av_log_get_level(void)
+{
+    return av_log_level;
+}
+
+void av_log_set_level(int level)
+{
+    retro_atomic_store_release_int(&log_level, level);
+}
+
+void av_log_set_flags(int arg)
+{
+    retro_atomic_store_release_int(&log_flags, arg);
+}
+
+int av_log_get_flags(void)
+{
+    return flags;
+}
+
+void av_log_set_callback(void (*callback)(void*, int, const char*, va_list))
+{
+    ff_thread_once(&log_callback_once, init_log_callback);
+    retro_atomic_store_release_ptr(&log_callback_ptr, (void *)callback);
+}
+
+static void missing_feature_sample(int sample, void *avc, const char *msg,
+                                   va_list argument_list)
+{
+    av_vlog(avc, AV_LOG_WARNING, msg, argument_list);
+    av_log(avc, AV_LOG_WARNING, " is not implemented. Update your FFmpeg "
+           "version to the newest one from Git. If the problem still "
+           "occurs, it means that your file has a feature which has not "
+           "been implemented.\n");
+    if (sample)
+        av_log(avc, AV_LOG_WARNING, "If you want to help, upload a sample "
+               "of this file to ftp://upload.ffmpeg.org/incoming/ "
+               "and contact the ffmpeg-devel mailing list. (ffmpeg-devel@ffmpeg.org)\n");
+}
+
+void avpriv_request_sample(void *avc, const char *msg, ...)
+{
+    va_list argument_list;
+
+    va_start(argument_list, msg);
+    missing_feature_sample(1, avc, msg, argument_list);
+    va_end(argument_list);
+}
+
+void avpriv_report_missing_feature(void *avc, const char *msg, ...)
+{
+    va_list argument_list;
+
+    va_start(argument_list, msg);
+    missing_feature_sample(0, avc, msg, argument_list);
+    va_end(argument_list);
+}
+
+#ifdef TEST
+// LCOV_EXCL_START
+#include <string.h>
+
+int main(int argc, char **argv)
+{
+    int i;
+    av_log_set_level(AV_LOG_DEBUG);
+    for (use_color=0; use_color<=256; use_color = 255*use_color+1) {
+        av_log(NULL, AV_LOG_FATAL, "use_color: %d\n", use_color);
+        for (i = AV_LOG_DEBUG; i>=AV_LOG_QUIET; i-=8) {
+            av_log(NULL, i, " %d", i);
+            av_log(NULL, AV_LOG_INFO, "e ");
+            av_log(NULL, i + 256*123, "C%d", i);
+            av_log(NULL, AV_LOG_INFO, "e");
+        }
+        av_log(NULL, AV_LOG_PANIC, "\n");
+    }
+    return 0;
+}
+// LCOV_EXCL_STOP
+#endif

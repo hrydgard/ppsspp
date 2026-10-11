@@ -1,0 +1,5 @@
+*.pnm -diff -text
+configure        text eol=lf
+Makefile         text eol=lf
+*.sh             text eol=lf
+*.mak            text eol=lf

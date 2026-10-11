@@ -1,9 +1,6 @@
 [submodule "pspautotests"]
 	path = pspautotests
 	url = https://github.com/hrydgard/pspautotests.git
-[submodule "ffmpeg"]
-	path = ffmpeg
-	url = https://github.com/libretro-fork/ppsspp-ffmpeg.git
 [submodule "ext/armips"]
 	path = ext/armips
 	url = https://github.com/Kingcom/armips.git

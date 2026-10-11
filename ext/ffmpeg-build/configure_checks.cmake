@@ -324,16 +324,10 @@ file(CONFIGURE
 )
 
 # Generate ffversion.h header file
-# In ffmpeg's version.sh script, 'git' is used, but that's an external dependency we don't otherwise need
-# we can just output say the first 7 digits of .git/refs/heads/master, assuming it exists, with hardcoded fallback
-set(FILE_PATH "${SRC_DIR}/.git/refs/heads/master")
-if(EXISTS ${FILE_PATH})
-	file(READ "${FILE_PATH}" GIT_HASH)
-	string(SUBSTRING "${GIT_HASH}" 0 7 GIT_HASH)
-	set(GIT_HASH \"${GIT_HASH}\")
-else()
-	set(GIT_HASH \"1e3b496\")
-endif()
+# The vendored source revision is independent of the parent repository's Git history.
+file(STRINGS "${SRC_DIR}/UPSTREAM_COMMIT" GIT_HASH LIMIT_COUNT 1)
+string(SUBSTRING "${GIT_HASH}" 0 7 GIT_HASH)
+set(GIT_HASH \"${GIT_HASH}\")
 
 file(CONFIGURE
 	OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/libavutil/ffversion.h"
