@@ -21,6 +21,7 @@
 
 #include "Core/Core.h"
 #include "Core/MemMap.h"
+#include "Core/HLE/ReplaceTables.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSDis.h"
 #include "Core/MIPS/MIPSDisVFPU.h"
@@ -804,8 +805,8 @@ static const MIPSInstruction tableALLEGREX0[32] =  // 011111 ..... ..... ..... x
 };
 
 static const MIPSInstruction tableEMU[4] = {
-	INSTR("RUNBLOCK", JITFUNC(Comp_RunBlock), Dis_Emuhack, Int_Emuhack, 0xFFFFFFFF),
-	INSTR("RetKrnl", 0, Dis_Emuhack, Int_Emuhack, 0),
+	INVALID,
+	INVALID,
 	INSTR("CallRepl", JITFUNC(Comp_ReplacementFunc), Dis_Emuhack, Int_Emuhack, 0),
 	INVALID,
 };
@@ -1099,7 +1100,7 @@ static void RunUntilDowncountZeroFast(MIPSState *mips) {
 				Core_ExecException(pc, pc, ExecExceptionType::JUMP);
 				return;
 			}
-			const MIPSOpcode op = MIPSOpcode(Memory::ReadUnchecked_U32(pc));
+			const MIPSOpcode op = ReadExecutedOp(pc);
 
 			const bool wasInDelaySlot = mips->inDelaySlot;
 			const int cycles = ExecInstruction(mips, op);
@@ -1230,8 +1231,8 @@ static void RunUntilDowncountZeroWithChecks(MIPSState *mips, u64 globalTicks) {
 				Core_ExecException(mips->pc, mips->pc, ExecExceptionType::JUMP);
 				return;
 			}
-			const MIPSOpcode op = MIPSOpcode(Memory::ReadUnchecked_U32(mips->pc));
-			// Replacements and similar are processed here, intentionally.
+			const MIPSOpcode op = ReadExecutedOp(mips->pc);
+			// Replacements are processed here, intentionally.
 			const MIPSInstruction *instr = MIPSGetInstruction(op);
 
 			// Check for breakpoint. Route through ExecBreakPoint() (also used by the JIT

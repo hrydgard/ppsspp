@@ -308,7 +308,7 @@ bool parseExpression(const DebugInterface *debug, PostfixExpression& exp, u32& d
 
 void DisAsm(u32 pc, char *out, size_t outSize) {
 	if (Memory::IsValid4AlignedAddress(pc))
-		MIPSDisAsm(Memory::Read_Opcode_JIT(pc), pc, out, outSize);
+		MIPSDisAsm(Memory::ReadUnchecked_Instruction(pc), pc, out, outSize);
 	else
 		truncate_cpy(out, outSize, "-");
 }

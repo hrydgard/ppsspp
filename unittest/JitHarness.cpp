@@ -16,6 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <cstring>
+#include <vector>
 
 #include "ppsspp_config.h"
 
@@ -37,6 +39,8 @@
 #include "Core/CoreTiming.h"
 #include "Core/Config.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/ReplaceTables.h"
+#include "Core/MIPS/MIPSAnalyst.h"
 #include "unittest/UnitTest.h"
 
 void UnitTestTerminator() {
@@ -155,6 +159,22 @@ bool TestJit() {
 	*p++ = MIPS_MAKE_BREAK(1);
 	*p++ = MIPS_MAKE_JR_RA();
 
+	// The cores keep their block lookup and hooks out of PSP memory, so the code has to read back
+	// as assembled while its blocks are live.
+	const u8 *code = Memory::GetPointerOrException(currentMIPS->pc);
+	const std::vector<u8> assembled(code, (const u8 *)p);
+	bool memoryClean = true;
+	auto checkMemoryClean = [&](const char *core) {
+		if (memcmp(code, assembled.data(), assembled.size()) != 0) {
+			printf("%s modified the code in PSP memory\n", core);
+			memoryClean = false;
+		}
+		if (MIPSComp::jit && Memory::ReadBlockShadow(PSP_GetUserMemoryBase()) == 0) {
+			printf("%s didn't enter its block in the block shadow\n", core);
+			memoryClean = false;
+		}
+	};
+
 	// Dogfood.
 	addr = currentMIPS->pc;
 	for (size_t j = 0; j < ARRAY_SIZE(lines); ++j) {
@@ -169,13 +189,19 @@ bool TestJit() {
 	double jit_speed = 0.0, jit_ir_speed = 0.0, ir_speed = 0.0, interp_speed = 0.0;
 	if (compileSuccess) {
 		interp_speed = ExecCPUTest();
+		checkMemoryClean("Interpreter");
 		mipsr4k.UpdateCore(CPUCore::IR_INTERPRETER);
-		ir_speed = ExecCPUTest();
+		ir_speed = ExecCPUTest(false);
+		checkMemoryClean("IR interpreter");
+		MIPSComp::jit->ClearCache();
 		mipsr4k.UpdateCore(CPUCore::JIT);
-		jit_speed = ExecCPUTest();
+		jit_speed = ExecCPUTest(false);
+		checkMemoryClean("JIT");
+		MIPSComp::jit->ClearCache();
 #if !PPSSPP_PLATFORM(MAC)
 		mipsr4k.UpdateCore(CPUCore::JIT_IR);
 		jit_ir_speed = ExecCPUTest(false);  // not clearing, so the below can do things.
+		checkMemoryClean("JIT IR");
 #endif
 
 		// Disassemble
@@ -198,5 +224,139 @@ bool TestJit() {
 
 	DestroyJitHarness();
 
-	return jit_speed >= interp_speed;
+	return memoryClean && jit_speed >= interp_speed;
+}
+
+// Follows a replacement hook's block shadow entry through compiling, invalidating, clearing and
+// switching cores. The hook is installed the normal way, by naming a function memcpy.
+static bool CheckReplacementHooks(u32 func, u32 size, const std::vector<u8> &code) {
+	auto compile = [&]() {
+		currentMIPS->pc = func;
+		MIPSComp::JitAt(currentMIPS);
+	};
+	auto codeIntact = [&]() {
+		return memcmp(Memory::GetPointerOrException(func), code.data(), code.size()) == 0;
+	};
+
+	EXPECT_TRUE(Replacement_IsHooked(func));
+	EXPECT_EQ_HEX(Memory::ReadBlockShadow(func), (u32)Memory::BLOCK_SHADOW_HOOK_NO_JIT);
+	EXPECT_TRUE(codeIntact());
+
+	static const CPUCore cores[] = {
+		CPUCore::JIT,
+		CPUCore::IR_INTERPRETER,
+#if !PPSSPP_PLATFORM(MAC)
+		CPUCore::JIT_IR,
+#endif
+	};
+	for (CPUCore core : cores) {
+		mipsr4k.UpdateCore(core);
+		const u32 hook = MIPSComp::jit->GetBlockShadowHookValue();
+		EXPECT_EQ_HEX(Memory::ReadBlockShadow(func), hook);
+
+		// Compiling replaces the hook value with the block's entry.
+		compile();
+		const u32 block = Memory::ReadBlockShadow(func);
+		EXPECT_TRUE(block != 0 && block != hook);
+
+		// Destroying the block puts it back, whichever way it goes.
+		MIPSComp::jit->InvalidateCacheAt(func, 4);
+		EXPECT_EQ_HEX(Memory::ReadBlockShadow(func), hook);
+		compile();
+		MIPSComp::jit->ClearCache();
+		EXPECT_EQ_HEX(Memory::ReadBlockShadow(func), MIPSComp::jit->GetBlockShadowHookValue());
+
+		// Leave a block for the core switch to destroy.
+		compile();
+		EXPECT_TRUE(codeIntact());
+	}
+	mipsr4k.UpdateCore(CPUCore::INTERPRETER);
+	EXPECT_EQ_HEX(Memory::ReadBlockShadow(func), (u32)Memory::BLOCK_SHADOW_HOOK_NO_JIT);
+
+	// Removing the hook while a block holds the entry clears it once the block is destroyed.
+	mipsr4k.UpdateCore(CPUCore::JIT);
+	compile();
+	RestoreReplacedInstructions(func, func + size);
+	EXPECT_FALSE(Replacement_IsHooked(func));
+	currentMIPS->ProcessPendingInvalidates();
+	EXPECT_EQ_HEX(Memory::ReadBlockShadow(func), 0);
+
+	// Rewriting the rest of the function drops the hook once the game invalidates the icache over it,
+	// with the cache instruction (which the JITs leave to the interpreter).
+	MIPSAnalyst::ReplaceFunctions();
+	const u32 bodyOp = Memory::ReadUnchecked_U32(func + 8);
+	Memory::WriteUnchecked_U32(MIPS_MAKE_NOP(), func + 8);
+	EXPECT_TRUE(Replacement_IsHooked(func));
+	currentMIPS->r[MIPS_REG_A0] = func + 8;
+	MIPSInterpret(currentMIPS, MIPSOpcode((0x2F << 26) | (MIPS_REG_A0 << 21) | (8 << 16)));  // cache 0x08, 0(a0)
+	EXPECT_FALSE(Replacement_IsHooked(func));
+	EXPECT_EQ_HEX(Memory::ReadBlockShadow(func), 0);
+	Memory::WriteUnchecked_U32(bodyOp, func + 8);
+
+	// Cheats and the debugger queue the invalidation before writing. The check happens when it's processed.
+	MIPSAnalyst::ReplaceFunctions();
+	currentMIPS->InvalidateICacheRangeDeferred(func + 8, 4);
+	Memory::WriteUnchecked_U32(MIPS_MAKE_NOP(), func + 8);
+	EXPECT_TRUE(Replacement_IsHooked(func));
+	currentMIPS->ProcessPendingInvalidates();
+	EXPECT_FALSE(Replacement_IsHooked(func));
+	Memory::WriteUnchecked_U32(bodyOp, func + 8);
+
+	// Changed immediates (relocations) keep the hook, as they don't stop the function from matching.
+	MIPSAnalyst::ReplaceFunctions();
+	Memory::WriteUnchecked_U32(bodyOp + 1, func + 8);
+	currentMIPS->InvalidateICacheRangeDeferred(func + 8, 4);
+	currentMIPS->ProcessPendingInvalidates();
+	EXPECT_TRUE(Replacement_IsHooked(func));
+	Memory::WriteUnchecked_U32(bodyOp, func + 8);
+
+	// The game overwriting the hooked instruction drops the hook.
+	MIPSAnalyst::ReplaceFunctions();
+	EXPECT_EQ_HEX(Memory::ReadBlockShadow(func), MIPSComp::jit->GetBlockShadowHookValue());
+	Memory::WriteUnchecked_U32(MIPS_MAKE_NOP(), func);
+	EXPECT_EQ_HEX(ReadExecutedOp(func).encoding, MIPS_MAKE_NOP());
+	EXPECT_FALSE(Replacement_IsHooked(func));
+	EXPECT_EQ_HEX(Memory::ReadBlockShadow(func), 0);
+	return true;
+}
+
+bool TestJitReplacementHooks() {
+	SetupJitHarness();
+	Replacement_Init();
+
+	const u32 func = PSP_GetUserMemoryBase() + 0x1000;
+	static const char *lines[] = {
+		"addiu v0, a0, 0",
+		"addiu t0, a1, 0",
+		"addiu t1, a2, 0",
+		"addiu t2, zero, 1",
+		"addiu t3, zero, 2",
+		"jr ra",
+		"nop",
+	};
+	u32 addr = func;
+	for (const char *line : lines) {
+		std::string error;
+		if (!MipsAssembleOpcode(line, currentDebugMIPS, addr, &error)) {
+			printf("ERROR: %s\n", error.c_str());
+			return false;
+		}
+		addr += 4;
+	}
+	const u32 size = addr - func;
+	const u8 *codePtr = Memory::GetPointerOrException(func);
+	const std::vector<u8> code(codePtr, codePtr + size);
+
+	g_symbolMap->AddFunction("memcpy", func, size);
+	MIPSAnalyst::RegisterFunction(func, size, "memcpy");
+	MIPSAnalyst::UpdateHashMap();
+	MIPSAnalyst::ReplaceFunctions();
+
+	const bool success = CheckReplacementHooks(func, size, code);
+
+	RestoreReplacedInstructions(func, func + size);
+	Replacement_Shutdown();
+	MIPSAnalyst::Reset();
+	DestroyJitHarness();
+	return success;
 }

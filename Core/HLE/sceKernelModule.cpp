@@ -581,7 +581,7 @@ struct WriteVarSymbolState {
 };
 
 static void WriteVarSymbol(WriteVarSymbolState &state, u32 exportAddress, u32 relocAddress, u8 type, bool reverse = false) {
-	u32 relocData = Memory::Read_Instruction(relocAddress, true).encoding;
+	u32 relocData = Memory::Read_Instruction(relocAddress).encoding;
 
 	switch (type) {
 	case R_MIPS_NONE:
@@ -625,7 +625,7 @@ static void WriteVarSymbol(WriteVarSymbolState &state, u32 exportAddress, u32 re
 		// The R_MIPS_LO16 and R_MIPS_HI16 will often be *different* relocAddress values.
 		HI16RelocInfo reloc;
 		reloc.addr = relocAddress;
-		reloc.data = Memory::Read_Instruction(relocAddress, true).encoding;
+		reloc.data = Memory::Read_Instruction(relocAddress).encoding;
 		state.lastHI16Relocs.push_back(reloc);
 		state.lastHI16Processed = false;
 		break;

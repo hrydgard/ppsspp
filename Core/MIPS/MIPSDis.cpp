@@ -334,7 +334,7 @@ namespace MIPSDis
 	}
 
 	void Dis_Emuhack(MIPSOpcode op, uint32_t pc, char *out, size_t outSize) {
-		auto resolved = Memory::Read_Instruction(pc, true);
+		auto resolved = Memory::Read_Instruction(pc);
 		char disasm[256];
 		if (MIPS_IS_EMUHACK(resolved)) {
 			truncate_cpy(disasm, sizeof(disasm), "(invalid emuhack)");
@@ -342,10 +342,8 @@ namespace MIPSDis
 			MIPSDisAsm(resolved, pc, disasm, sizeof(disasm), true);
 		}
 
+		// Memory doesn't hold these, but the CPU cores substitute CallRepl for a replaced instruction.
 		switch (op.encoding >> 24) {
-		case 0x68:
-			snprintf(out, outSize, "* jitblock: %s", disasm);
-			break;
 		case 0x6a:
 			snprintf(out, outSize, "* replacement: %s", disasm);
 			break;

@@ -13,7 +13,6 @@ public:
 	IRFrontend(bool startDefaultPrefix);
 	void Comp_Generic(MIPSOpcode op) override;
 
-	void Comp_RunBlock(MIPSOpcode op) override;
 	void Comp_ReplacementFunc(MIPSOpcode op) override;
 
 	// Ops

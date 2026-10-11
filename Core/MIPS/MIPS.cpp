@@ -43,6 +43,7 @@
 #include "Core/System.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/CoreTiming.h"
+#include "Core/HLE/ReplaceTables.h"
 
 MIPSState mipsr4k;
 MIPSState *currentMIPS = &mipsr4k;
@@ -252,12 +253,18 @@ MIPSState::MIPSState() {
 MIPSState::~MIPSState() {
 }
 
+// The block shadow's replacement hook entries have to match the JIT's dispatcher.
+static void UpdateBlockShadowHook() {
+	Replacement_SetBlockShadowHook(MIPSComp::jit ? MIPSComp::jit->GetBlockShadowHookValue() : Memory::BLOCK_SHADOW_HOOK_NO_JIT);
+}
+
 void MIPSState::Shutdown() {
 	MIPSComp::JitInterface *oldjit = MIPSComp::jit;
 	if (oldjit) {
 		MIPSComp::jit = nullptr;
 		delete oldjit;
 	}
+	UpdateBlockShadowHook();
 	pendingInvalidates_.clear();
 	invalidateAll_ = false;
 }
@@ -309,6 +316,7 @@ void MIPSState::Init() {
 	} else {
 		MIPSComp::jit = nullptr;
 	}
+	UpdateBlockShadowHook();
 }
 
 bool MIPSState::HasDefaultPrefix() const {
@@ -354,6 +362,7 @@ void MIPSState::UpdateCore(CPUCore desired) {
 	}
 
 	MIPSComp::jit = newjit;
+	UpdateBlockShadowHook();
 }
 
 void MIPSState::DoState(PointerWrap &p) {
@@ -433,12 +442,14 @@ int MIPSState::RunLoopUntil(u64 globalTicks) {
 		break;
 
 	case CPUCore::INTERPRETER:
+		ProcessPendingInvalidates();
 		return MIPSInterpret_RunUntil(this, globalTicks);
 	}
 	return 1;
 }
 
 void MIPSState::InvalidateICacheRangeImmediate(u32 address, u32 length) {
+	Replacement_CheckRange(address, length);
 	if (!MIPSComp::jit) {
 		// Nothing to do.
 		return;
@@ -448,45 +459,40 @@ void MIPSState::InvalidateICacheRangeImmediate(u32 address, u32 length) {
 	}
 }
 
+// The replacement hook checks happen here rather than when queued, since callers may queue the
+// invalidation before writing. Dropping a hook queues its address, hence the loop.
 void MIPSState::ProcessPendingInvalidates() {
-	if (!MIPSComp::jit) {
-		// Nothing to do. Clear any old state from CPU core switching.
-		pendingInvalidates_.clear();
-		return;
-	}
-
-	if (invalidateAll_) {
-		MIPSComp::jit->ClearCache();
-		pendingInvalidates_.clear();
+	while (invalidateAll_ || !pendingInvalidates_.empty()) {
+		const bool all = invalidateAll_;
 		invalidateAll_ = false;
-		return;
-	}
-
-	if (!pendingInvalidates_.empty()) {
-		for (const auto &p : pendingInvalidates_) {
-			MIPSComp::jit->InvalidateCacheAt(p.addr, p.size);
+		std::vector<PendingCacheOperation> pending;
+		pending.swap(pendingInvalidates_);
+		for (const auto &p : pending) {
+			Replacement_CheckRange(p.addr, p.size);
+			if (MIPSComp::jit && !all) {
+				MIPSComp::jit->InvalidateCacheAt(p.addr, p.size);
+			}
 		}
-		pendingInvalidates_.clear();
+		if (MIPSComp::jit && all) {
+			MIPSComp::jit->ClearCache();
+		}
 	}
 }
 
 void MIPSState::InvalidateICacheRangeDeferred(u32 address, u32 length) {
-	if (!MIPSComp::jit) {
-		// Nothing to do.
-		return;
-	}
-
 	// TODO: We can try to merge the invalidate with the previous one.
 	pendingInvalidates_.push_back(PendingCacheOperation{address, length});
-	Core_ReenterDispatcher();
+	if (MIPSComp::jit) {
+		Core_ReenterDispatcher();
+	}
 }
 
+// Queued ranges still get their replacement hook checks.
 void MIPSState::ClearJitCacheDeferred() {
 	if (!MIPSComp::jit) {
 		return;
 	}
 
-	pendingInvalidates_.clear();
 	invalidateAll_ = true;
 	Core_ReenterDispatcher();
 }

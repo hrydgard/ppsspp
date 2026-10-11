@@ -384,7 +384,7 @@ void Arm64JitBackend::MovToPC(ARM64Reg r) {
 void Arm64JitBackend::WriteDebugPC(uint32_t pc) {
 	if (hooks_.profilerPC) {
 		int offset = (int)((const u8 *)hooks_.profilerPC - GetBasePtr());
-		MOVI2R(SCRATCH2, MIPS_EMUHACK_OPCODE + offset);
+		MOVI2R(SCRATCH2, offset);
 		MOVI2R(SCRATCH1, pc);
 		STR(SCRATCH1, JITBASEREG, SCRATCH2);
 	}
@@ -393,7 +393,7 @@ void Arm64JitBackend::WriteDebugPC(uint32_t pc) {
 void Arm64JitBackend::WriteDebugPC(ARM64Reg r) {
 	if (hooks_.profilerPC) {
 		int offset = (int)((const u8 *)hooks_.profilerPC - GetBasePtr());
-		MOVI2R(SCRATCH2, MIPS_EMUHACK_OPCODE + offset);
+		MOVI2R(SCRATCH2, offset);
 		STR(r, JITBASEREG, SCRATCH2);
 	}
 }
@@ -401,7 +401,7 @@ void Arm64JitBackend::WriteDebugPC(ARM64Reg r) {
 void Arm64JitBackend::WriteDebugProfilerStatus(IRProfilerStatus status) {
 	if (hooks_.profilerPC) {
 		int offset = (int)((const u8 *)hooks_.profilerStatus - GetBasePtr());
-		MOVI2R(SCRATCH2, MIPS_EMUHACK_OPCODE + offset);
+		MOVI2R(SCRATCH2, offset);
 		MOVI2R(SCRATCH1, (int)status);
 		STR(SCRATCH1, JITBASEREG, SCRATCH2);
 	}

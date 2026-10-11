@@ -140,23 +140,18 @@ public:
 	void GetBlockNumbersFromAddress(u32 em_address, std::vector<int> *block_numbers) const;
 	// Similar to above, but only the first matching address.
 	int GetBlockNumberFromAddress(u32 em_address) const;
-	int GetBlockNumberFromEmuHackOp(MIPSOpcode inst, bool ignoreBad = false) const;
+	int GetBlockNumberFromShadowValue(u32 value) const;
 
 	u32 GetAddressFromBlockPtr(const u8 *ptr) const;
 
 	MIPSOpcode GetOriginalFirstOp(int block_num) const;
 
-	bool RangeMayHaveEmuHacks(u32 start, u32 end) const;
+	bool RangeMayHaveBlocks(u32 start, u32 end) const;
 
 	// DOES NOT WORK CORRECTLY WITH JIT INLINING
 	void InvalidateICache(u32 address, const u32 length);
 	void InvalidateChangedBlocks();
 	void DestroyBlock(int block_num, DestroyType type);
-
-	// No jit operations may be run between these calls.
-	// Meant to be used to make memory safe for savestates, memcpy, etc.
-	std::vector<u32> SaveAndClearEmuHackOps();
-	void RestoreSavedEmuHackOps(const std::vector<u32> &saved);
 
 	int GetNumBlocks() const override { return num_blocks_; }
 	bool IsValidBlock(int blockNum) const override { return blockNum >= 0 && blockNum < num_blocks_ && !blocks_[blockNum].invalid; }
@@ -189,7 +184,8 @@ private:
 	void AddBlockMap(int block_num);
 	void RemoveBlockMap(int block_num);
 
-	MIPSOpcode GetEmuHackOpForBlock(int block_num) const;
+	// What the block shadow holds for a block: its normal entry's offset into the code space.
+	u32 GetShadowValueForBlock(int block_num) const;
 
 	int num_blocks_ = 0;
 	CodeBlockCommon *codeBlock_;
