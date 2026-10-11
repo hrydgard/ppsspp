@@ -58,7 +58,7 @@ jobs:
       with:
         msystem: ${{ matrix.msystem }}
         path-type: inherit
-        install: make
+        install: make cmake
 
     # The Makefile can locate Visual Studio by itself, but only through "cmd //c bash VSWhere.sh",
     # which depends on COMSPEC and ProgramFiles(x86) surviving into the MSYS2 shell. Resolving it
@@ -87,7 +87,7 @@ jobs:
       uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2.33.0
       with:
         msystem: MINGW64
-        install: make diffutils mingw-w64-x86_64-gcc
+        install: make diffutils mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake
 
     - name: Build libretro core
       shell: msys2 {0}
@@ -123,325 +123,28 @@ jobs:
     - name: Run the checks
       run: libretro/test/run.sh
 
-  build:
-    name: build (${{ matrix.id }})
+  core-cmake:
     strategy:
       fail-fast: false
       matrix:
-        include:
-        - os: ubuntu-26.04
-          extra: test
-          cc: clang
-          cxx: clang++
-          args: ./b.sh --headless --unittest PPSSPPHeadless PPSSPPUnitTest
-          id: clang-normal
-        - os: ubuntu-26.04
-          cc: gcc
-          cxx: g++
-          args: ./b.sh --headless --unittest PPSSPPHeadless PPSSPPUnitTest
-          id: gcc-normal
-
-        # Gives the headless tests an arm64 host to run the CPU backends on - the arm64 JIT is a
-        # different backend from the x86-64 one, and nothing else in the matrix tests it on Linux.
-        - os: ubuntu-26.04-arm
-          extra: test
-          cc: clang
-          cxx: clang++
-          args: ./b.sh --headless --unittest PPSSPPHeadless PPSSPPUnitTest
-          id: clang-arm64
-
-        - os: ubuntu-26.04
-          extra: android
-          cc: clang
-          cxx: clang++
-          args: ./b.sh --libretro_android ppsspp_libretro
-          id: android-libretro
-
-        - os: ubuntu-26.04
-          extra: libretro
-          cc: gcc
-          cxx: g++
-          args: make -C libretro -f Makefile -j2
-          id: gcc-libretro
-        - os: ubuntu-26.04
-          extra: libretro
-          cc: clang
-          cxx: clang++
-          args: make -C libretro -f Makefile -j2
-          id: clang-libretro
-        # The core on an arm64 host: the arm64 JIT and the NEON paths in the codecs.
-        - os: ubuntu-26.04-arm
-          extra: libretro
-          cc: gcc
-          cxx: g++
-          args: make -C libretro -f Makefile -j2
-          id: gcc-libretro-arm64
-        # The CMake build of the core on Linux, which nothing else here builds.
-        - os: ubuntu-26.04
-          extra: libretro
-          cc: gcc
-          cxx: g++
-          args: ./b.sh --libretro ppsspp_libretro
-          id: cmake-libretro
-
-        - os: ubuntu-26.04
-          extra: loongarch64
-          cc: gcc
-          cxx: g++
-          args: ./b.sh --loongarch64 --unittest PPSSPPHeadless PPSSPPUnitTest
-          id: loongarch64
-
-        - os: ubuntu-26.04
-          extra: riscv64
-          cc: gcc
-          cxx: g++
-          args: ./b.sh --riscv64 --unittest PPSSPPHeadless PPSSPPUnitTest
-          id: riscv64
-
-        - os: macos-latest
-          extra: test
-          cc: clang
-          cxx: clang++
-          args: ./b.sh --headless --unittest PPSSPPHeadless PPSSPPUnitTest
-          id: macos
-        - os: macos-latest
-          extra: libretro_mac
-          cc: clang
-          cxx: clang++
-          args: ./b.sh --libretro
-          id: macos-libretro
-
+        os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v7
       with:
         submodules: recursive
-
-    - name: Fetch tags for macOS releases
-      if: runner.os == 'macOS'
-      # This is required for git describe --always to work for git-version.cpp.
-      run: |
-        git fetch --deepen=15000 --no-recurse-submodules --tags || exit 0
-
-    - name: Setup Android NDK
-      uses: nttld/setup-ndk@ed92fe6cadad69be94a966a7ee3271275e62f779 # v1.6.0
-      if: matrix.extra == 'android'
-      id: setup-ndk
-      with:
-        ndk-version: r29
-
-    - name: Install Linux dependencies
-      if: runner.os == 'Linux' && matrix.extra != 'android' && matrix.extra != 'loongarch64' && matrix.extra != 'riscv64'
-      run: |
-        sudo apt-get update -y -qq
-        sudo apt-get install libsdl3-dev libgl1-mesa-dev libglu1-mesa-dev libsdl3-ttf-dev libfontconfig1-dev libcurl4-openssl-dev
-
-    - name: Install macOS SDL3 dependencies
-      if: runner.os == 'macOS' && matrix.id == 'macos'
-      run: brew install sdl3 sdl3_ttf
-
-    - name: Install cross-compilation dependencies
-      if: matrix.extra == 'loongarch64' || matrix.extra == 'riscv64'
-      run: |
-        sudo apt-get update -y -qq
-        sudo apt-get install -y gcc-14-${{ matrix.extra }}-linux-gnu g++-14-${{ matrix.extra }}-linux-gnu binutils-${{ matrix.extra }}-linux-gnu libgl-dev libglu1-mesa-dev qemu-user
-        sudo cmake/scripts/setup-cross.sh ${{ matrix.extra }}
-
-    - name: Setup ccache
-      uses: hendrikmuhs/ccache-action@f09c25b45002a07be2955cbe52e8cee55643f89d # v1.2.24
-      # Disable ccache on macos for now, it's become buggy for some reason.
-      if: matrix.id != 'macos'
-      with:
-        key: ${{ matrix.id }}
-
-    - name: Execute build
-      env:
-        CC: ${{ matrix.cc }}
-        CXX: ${{ matrix.cxx }}
-        NDK: ${{ steps.setup-ndk.outputs.ndk-path }}
-        NDK_CCACHE: ccache
-        USE_CCACHE: 1
-      run: |
-        export PATH="/usr/lib/ccache:/usr/local/opt/ccache/libexec:$PATH"
-        export CCACHE_SLOPPINESS=clang_index_store,ivfsoverlay,include_file_ctime,include_file_mtime,modules,system_headers,time_macros
-        if [ "${{ matrix.extra }}" == "android" ]; then
-          export CCACHE_FILECLONE=true
-          export CCACHE_DEPEND=true
-          export CCACHE_COMPILERCHECK=content
-        elif [ "$RUNNER_OS" == "macOS" ]; then
-          export CCACHE_SLOPPINESS=pch_defines,$CCACHE_SLOPPINESS
-          export CCACHE_FILECLONE=true
-          export CCACHE_DEPEND=true
-          export CCACHE_COMPILERCHECK=content
-        fi
-        ${{ matrix.args }}
-
-    # These targets have no runner of their own, so the unit tests run under emulation. It's the
-    # only coverage the loongarch64 and riscv64 JITs get - a compile is not much of a test for a
-    # code generator.
-    - name: Execute unit tests under qemu
-      if: matrix.extra == 'loongarch64' || matrix.extra == 'riscv64'
-      run: |
-        qemu-${{ matrix.extra }} -L /usr/${{ matrix.extra }}-linux-gnu \
-          build-${{ matrix.extra }}/PPSSPPUnitTest all
-
-    # Only the IR JIT - it's the sole native backend these two have, and the only thing here that
-    # isn't shared code. The interpreters are portable C++ that the x86-64 and arm64 runners
-    # already cover on all four backends, and every run costs emulated wall clock.
-    - name: Execute headless tests under qemu
-      if: matrix.extra == 'loongarch64' || matrix.extra == 'riscv64'
-      run: |
-        # test.py takes the newest build*/PPSSPPHeadless, so hand it one that runs the cross build
-        # under emulation. The wall clock is raised because everything is slower under qemu.
-        mkdir -p build-qemu
-        printf '#!/bin/bash\nexec qemu-%s -L /usr/%s-linux-gnu "$(dirname "$0")/../build-%s/PPSSPPHeadless" "$@"\n' \
-          '${{ matrix.extra }}' '${{ matrix.extra }}' '${{ matrix.extra }}' > build-qemu/PPSSPPHeadless
-        chmod +x build-qemu/PPSSPPHeadless
-        python3 test.py -g --graphics=software --cpu=jit-ir --timeout=60 \
-          --known-failures=${{ matrix.extra }}
-
-    - name: Package test tools
-      if: matrix.extra == 'test'
-      run: |
-        mkdir -p ppsspp
-        if [ -e build*/$BUILD_CONFIGURATION/PPSSPPHeadless ]; then
-          cp build*/$BUILD_CONFIGURATION/PPSSPPHeadless ppsspp/
-        elif [ -e build*/PPSSPPHeadless ]; then
-          cp build*/PPSSPPHeadless ppsspp/
-        fi
-        if [ -e build*/$BUILD_CONFIGURATION/PPSSPPUnitTest ]; then
-          cp build*/$BUILD_CONFIGURATION/PPSSPPUnitTest ppsspp/
-        elif [ -e build*/PPSSPPUnitTest ]; then
-          cp build*/PPSSPPUnitTest ppsspp/
-        fi
-
-    - name: Upload build
-      uses: actions/upload-artifact@v7
-      if: matrix.extra == 'test'
-      with:
-        name: ${{ matrix.os }} build
-        path: ppsspp/
-
-  test:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-26.04, ubuntu-26.04-arm, macos-latest]
-
-    runs-on: ${{ matrix.os }}
-    needs: build
-    timeout-minutes: 30
-    steps:
-    - uses: actions/checkout@v7
-      with:
-        submodules: false
-
-    - name: Fetch tests
-      working-directory: ${{ env.GITHUB_WORKSPACE }}
-      # Doing this to avoid ffmpeg and other large submodules.
-      run: git submodule update --init pspautotests frametests
-
-    - name: Install Linux dependencies
+    - name: Linux dependencies
       if: runner.os == 'Linux'
+      run: sudo apt-get update && sudo apt-get install -y libgl1-mesa-dev python3
+    - name: Configure core and unit tests
+      run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DUNITTEST=ON
+    - name: Build
+      run: cmake --build build --config Release --target ppsspp_libretro PPSSPPUnitTest --parallel 4
+    - name: Unit tests
+      shell: bash
       run: |
-        sudo apt-get update -y -qq
-        sudo apt-get install libsdl3-dev libgl1-mesa-dev libglu1-mesa-dev libsdl3-ttf-dev libfontconfig1-dev libcurl4-openssl-dev mesa-vulkan-drivers
-
-    - name: Install macOS dependencies
-      if: runner.os == 'macOS'
-      run: brew install sdl3 sdl3_ttf
-
-    - name: Download build
-      uses: actions/download-artifact@v8
-      with:
-        name: ${{ matrix.os }} build
-        path: ppsspp/
-
-    # Not sure where it's ending up, but test.py can't find it...
-    - name: Fix headless permissions
-      working-directory: ${{ env.GITHUB_WORKSPACE }}
-      run: |
-        cp `find . -name PPSSPPHeadless` .
-        chmod +x PPSSPPHeadless
-        cp `find . -name PPSSPPUnitTest` .
-        chmod +x PPSSPPUnitTest
-
-    - name: Execute unit tests
-      working-directory: ${{ env.GITHUB_WORKSPACE }}
-      run: ./PPSSPPUnitTest ALL
-
-    - name: Execute headless tests
-      if: runner.os != 'Linux'
-      working-directory: ${{ env.GITHUB_WORKSPACE }}
-      run: python test.py -g --graphics=software
-
-    # The Linux runners carry the CPU backend coverage, on both x86-64 and arm64. Elsewhere the
-    # default (JIT) is enough - the backends are shared code, and four runs everywhere adds up.
-    # test.py picks a wall clock to match the backend, so the slower ones don't time out.
-    - name: Execute headless tests (all CPU backends)
-      if: runner.os == 'Linux'
-      working-directory: ${{ env.GITHUB_WORKSPACE }}
-      run: |
-        fail=0
-        for cpu in jit jit-ir ir interpreter; do
-          echo "::group::CPU backend: $cpu"
-          python test.py -g --graphics=software --cpu=$cpu || fail=1
-          echo "::endgroup::"
-        done
-        exit $fail
-
-    # Runs the Vulkan backend's render and compile threads on lavapipe.
-    - name: Execute headless tests (Vulkan)
-      if: matrix.os == 'ubuntu-26.04'
-      working-directory: ${{ env.GITHUB_WORKSPACE }}
-      run: python3 test.py -g --graphics=vulkan --known-failures=vulkan
-
-    # Both Linux runners: the software renderer's x86-64 and arm64 JITs have to draw the same pixels.
-    - name: Execute frametests
-      if: runner.os == 'Linux'
-      working-directory: ${{ env.GITHUB_WORKSPACE }}
-      run: python3 frametests.py frametests/frametests.json --out-mode=failures
-
-    - name: Upload frametest report
-      uses: actions/upload-artifact@v7
-      if: runner.os == 'Linux' && always()
-      with:
-        name: frametest-report-${{ matrix.os }}
-        path: frametests/out/
-
-  test-headless-alpine:
-    runs-on: ubuntu-latest
-    container: 
-      image: alpine:latest
-      options: --shm-size=8g
-    steps:
-    - name: Install Linux dependencies (Alpine)
-      run: |
-        apk add build-base wget git bash cmake python3 glu-dev sdl3-dev sdl3_ttf-dev curl-dev
-
-    - uses: actions/checkout@v7
-      with:
-        submodules: recursive
-
-    - name: Fix git detected dubious ownership in repository
-      run: |
-        chown -R $(id -u):$(id -g) $PWD
-
-    - name: Setup ccache
-      uses: hendrikmuhs/ccache-action@f09c25b45002a07be2955cbe52e8cee55643f89d # v1.2.24
-
-    - name: Compile ffmpeg
-      run: |
-        cd ffmpeg && ./linux_x86-64.sh
-
-    - name: Build for testing
-      run: |
-        ./b.sh --headless --unittest PPSSPPHeadless PPSSPPUnitTest
-
-    - name: Execute unit tests
-      run: |
-        ./build/PPSSPPUnitTest ALL
-
-    - name: Execute headless tests
-      run: |
-        python test.py -g --graphics=software
+        if [ -f build/Release/PPSSPPUnitTest.exe ]; then
+          build/Release/PPSSPPUnitTest.exe all
+        else
+          build/PPSSPPUnitTest all
+        fi

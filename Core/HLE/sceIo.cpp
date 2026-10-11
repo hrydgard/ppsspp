@@ -2058,7 +2058,7 @@ static u32 sceIoDevctl(const char *name, int cmd, u32 argAddr, int argLen, u32 o
 		switch (cmd) {
 		case EMULATOR_DEVCTL__GET_HAS_DISPLAY:
 			if (Memory::IsValidRange(outPtr, 4))
-				Memory::WriteUnchecked_U32(PSP_CoreParameter().headLess ? 0 : 1, outPtr);
+				Memory::WriteUnchecked_U32(0, outPtr);
 			return hleLogDebug(Log::sceIo, 0);
 		case EMULATOR_DEVCTL__SEND_OUTPUT:
 			if (Memory::IsValidRange(argAddr, argLen)) {

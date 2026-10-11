@@ -26,14 +26,6 @@ set(CommonVR
 # The UI framework, the HTTP/WebSocket servers, the path browser and the Windows console
 # are for the headless tools; libretro/Makefile.common leaves them out of the core too.
 set(CommonNonLibretro)
-if(NOT LIBRETRO)
-	list(APPEND CommonNonLibretro
-		Net/HTTPServer.cpp
-		Net/HTTPServer.h
-		Net/WebsocketServer.cpp
-		Net/WebsocketServer.h
-	)
-endif()
 
 add_library(Common STATIC
 	ABI.cpp
@@ -262,10 +254,6 @@ add_library(Common STATIC
 	Render/DrawBuffer.h
 	Render/Text/draw_text.cpp
 	Render/Text/draw_text.h
-	Render/Text/draw_text_win.cpp
-	Render/Text/draw_text_win.h
-	Render/Text/draw_text_uwp.cpp
-	Render/Text/draw_text_uwp.h
 	Audio/AudioBackend.h
 	System/Display.cpp
 	System/Display.h

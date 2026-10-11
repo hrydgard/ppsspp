@@ -62,9 +62,6 @@ ifneq (,$(findstring unix,$(platform)))
 	TARGET := $(TARGET_NAME)_libretro.so
 	LDFLAGS += -shared -Wl,--version-script=link.T -Wl,--no-undefined
 
-	FFMPEGINCFLAGS += -I$(FFMPEGDIR)/linux/$(TARGET_ARCH)/include
-	FFMPEGLIBDIR := $(FFMPEGDIR)/linux/$(TARGET_ARCH)/lib
-	FFMPEGLDFLAGS += -L$(FFMPEGLIBDIR) -lavformat -lavcodec -lavutil -lswresample -lswscale
 	fpic = -fPIC
 	ifneq (,$(findstring gles,$(platform)))
 		GLES = 1
@@ -97,9 +94,6 @@ else ifneq (,$(findstring arm64,$(platform)))
 	TARGET_ARCH = arm64
 	fpic := -fPIC
 	LDFLAGS += -shared -Wl,--version-script=link.T -Wl,--no-undefined
-	FFMPEGINCFLAGS += -I$(FFMPEGDIR)/linux/aarch64/include
-	FFMPEGLIBDIR := $(FFMPEGDIR)/linux/aarch64/lib
-	FFMPEGLDFLAGS += -L$(FFMPEGLIBDIR) -lavformat -lavcodec -lavutil -lswresample -lswscale
 	INCFLAGS += -I.
 	HAVE_NEON=1
 	ifneq (,$(findstring gles,$(platform)))
@@ -124,9 +118,6 @@ else ifneq (,$(findstring imx6,$(platform)))
 	PLATFORM_EXT = unix
 	TARGET_ARCH = arm
 	HAVE_NEON=1
-	FFMPEGINCFLAGS += -I$(FFMPEGDIR)/linux/$(TARGET_ARCH)/include
-	FFMPEGLIBDIR := $(FFMPEGDIR)/linux/$(TARGET_ARCH)/lib
-	FFMPEGLDFLAGS += -L$(FFMPEGLIBDIR) -lavformat -lavcodec -lavutil -lswresample -lswscale
 	LDFLAGS += -lrt -ldl
 
 # OS X
@@ -143,9 +134,6 @@ else ifneq (,$(findstring osx,$(platform)))
    LDFLAGS += -stdlib=libc++
 	fpic = -fPIC
 
-	FFMPEGINCFLAGS += -I$(FFMPEGDIR)/macosx/universal/include
-	FFMPEGLIBDIR := $(FFMPEGDIR)/macosx/universal/lib
-	FFMPEGLDFLAGS += -liconv -L$(FFMPEGLIBDIR) -lavformat -lavcodec -lavutil -lswresample -lswscale
 	PLATCFLAGS += -D__MACOSX__
 	GL_LIB := -framework OpenGL
 	PLATFORM_EXT = darwin
@@ -169,9 +157,6 @@ else ifneq (,$(findstring ios,$(platform)))
    MINVERSION :=
 	HAVE_NEON = 1
 
-	FFMPEGINCFLAGS += -I$(FFMPEGDIR)/ios/universal/include
-	FFMPEGLIBDIR := $(FFMPEGDIR)/ios/universal/lib
-	FFMPEGLDFLAGS += -L$(FFMPEGLIBDIR) -lavformat -lavcodec -lavutil -lswresample -lswscale
 
 	ifeq ($(IOSSDK),)
 		IOSSDK := $(shell xcodebuild -version -sdk iphoneos Path)
@@ -205,9 +190,6 @@ else ifeq ($(platform), tvos-arm64)
    MINVERSION :=
 	HAVE_NEON = 1
 
-	FFMPEGINCFLAGS += -I$(FFMPEGDIR)/ios/universal/include
-	FFMPEGLIBDIR := $(FFMPEGDIR)/ios/universal/lib
-	FFMPEGLDFLAGS += -L$(FFMPEGLIBDIR) -lavformat -lavcodec -lavutil -lswresample -lswscale
 
 	ifeq ($(IOSSDK),)
 		IOSSDK := $(shell xcodebuild -version -sdk appletvos Path)
@@ -240,9 +222,6 @@ else ifneq (,$(findstring android,$(platform)))
 	CFLAGS += -DANDROID
 	LDFLAGS += -llog -lGLESv2 -lEGL
 
-	FFMPEGINCFLAGS += -I$(FFMPEGDIR)/android/armv7/include
-	FFMPEGLIBDIR := $(FFMPEGDIR)/android/armv7/lib
-	FFMPEGLDFLAGS += -L$(FFMPEGLIBDIR) -lavformat -lavcodec -lavutil -lswresample -lswscale
 
 	PLATFORM_EXT = android
 
@@ -272,9 +251,6 @@ else ifneq (,$(findstring armv,$(platform)))
 	TARGET_ARCH = armv7
 	fpic := -fPIC
 	LDFLAGS += -shared -Wl,--version-script=link.T -Wl,--no-undefined
-	FFMPEGINCFLAGS += -I$(FFMPEGDIR)/linux/$(TARGET_ARCH)/include
-	FFMPEGLIBDIR := $(FFMPEGDIR)/linux/$(TARGET_ARCH)/lib
-	FFMPEGLDFLAGS += -L$(FFMPEGLIBDIR) -lavformat -lavcodec -lavutil -lswresample -lswscale
 	INCFLAGS += -I.
 	ifneq (,$(findstring gles,$(platform)))
 		GLES := 1
@@ -393,16 +369,13 @@ else ifneq (,$(findstring windows_msvc2019,$(platform)))
 	PATH := $(PATH):$(shell IFS=$$'\n'; cygpath "$(VsInstallRoot)/Common7/IDE")
 
 	export INCLUDE := $(INCLUDE);$(WindowsSDKSharedIncludeDir);$(WindowsSDKUCRTIncludeDir);$(WindowsSDKUMIncludeDir);$(WindowsSDKWinRTIncludeDir)
-	export LIB := $(LIB);$(WindowsSDKUCRTLibDir);$(WindowsSDKUMLibDir);$(FFMPEGDIR)/Windows/$(TARGET_ARCH)/lib
+	export LIB := $(LIB);$(WindowsSDKUCRTLibDir);$(WindowsSDKUMLibDir)
 	TARGET := $(TARGET_NAME)_libretro.dll
 	PSS_STYLE :=2
 	LDFLAGS += -DLL
 	PLATFORM_EXT = win32
-	FFMPEGINCFLAGS += -I$(FFMPEGDIR)/Windows/$(TARGET_ARCH)/include
-	FFMPEGLIBDIR := $(FFMPEGDIR)/Windows/$(TARGET_ARCH)/lib
-	FFMPEGLDFLAGS += -LIBPATH:$(FFMPEGLIBDIR)
 	GL_LIB := opengl32.lib
-	LDFLAGS += ws2_32.lib user32.lib shell32.lib avcodec.lib avutil.lib swresample.lib swscale.lib avformat.lib advapi32.lib winmm.lib gdi32.lib Iphlpapi.lib
+	LDFLAGS += ws2_32.lib user32.lib shell32.lib advapi32.lib winmm.lib gdi32.lib Iphlpapi.lib
 
 # Windows
 else ifneq (,$(findstring win,$(platform)))
@@ -414,7 +387,6 @@ else ifneq (,$(findstring win,$(platform)))
 	PLATFORM_EXT = win32
    # The prebuilt ffmpeg/Windows libraries are MSVC builds that GNU ld
    # mislinks, so the bundled FFmpeg source is built with this toolchain.
-   FFMPEG_MINGW = 1
    fpic = -fPIC
 	CC = gcc
 	CXX = g++
@@ -422,36 +394,24 @@ endif
 
 include Makefile.common
 
-ifeq ($(FFMPEG_MINGW), 1)
-# Same components as ffmpeg/windows_x64-build.sh, with every autodetected
-# hwaccel and external library off so the result doesn't depend on what the
-# build machine has installed. FFMPEG_CROSS_PREFIX names the binutils prefix
-# when cross-compiling (e.g. x86_64-w64-mingw32-).
-FFMPEG_MINGW_DIR    := obj-ffmpeg-mingw-$(TARGET_ARCH)
-FFMPEG_MINGW_PREFIX := $(FFMPEG_MINGW_DIR)/install
-FFMPEG_MINGW_STAMP  := $(FFMPEG_MINGW_PREFIX)/.built
-FFMPEG_MINGW_LIBS   := avformat avcodec swresample swscale avutil
-FFMPEG_MINGW_CONFIGURE := \
-	--target-os=mingw32 --arch=$(TARGET_ARCH) --enable-cross-compile \
-	$(if $(FFMPEG_CROSS_PREFIX),--cross-prefix=$(FFMPEG_CROSS_PREFIX)) \
-	--cc="$(CC)" --prefix="$(abspath $(FFMPEG_MINGW_PREFIX))" \
-	--disable-shared --enable-static --disable-debug --disable-yasm \
-	--enable-w32threads --disable-pthreads --disable-everything \
-	--disable-avdevice --disable-avfilter --disable-postproc --disable-programs \
-	--disable-network --disable-doc --disable-iconv --disable-zlib \
-	--disable-bzlib --disable-lzma --disable-sdl --disable-xlib \
-	--disable-schannel --disable-securetransport --disable-libxcb \
-	--disable-d3d11va --disable-dxva2 --disable-vaapi --disable-vda \
-	--disable-vdpau --disable-videotoolbox \
-	--enable-decoder=aac,aac_latm,atrac3,atrac3p,mp3,pcm_s16le,pcm_s8 \
-	--enable-decoder=h264,mpeg4,mpeg2video,mjpeg,mjpegb \
-	--enable-encoder=pcm_s16le,ffv1,mpeg4 \
-	--enable-muxer=avi \
-	--enable-demuxer=h264,m4v,mp3,mpegvideo,mpegps,mjpeg,avi,aac,pmp,oma,pcm_s16le,pcm_s8,wav \
-	--enable-parser=h264,mpeg4video,mpegaudio,mpegvideo,mjpeg,aac,aac_latm \
-	--enable-protocol=file
-FFMPEGINCFLAGS += -I$(FFMPEG_MINGW_PREFIX)/include
-FFMPEGLDFLAGS  += $(foreach lib,$(FFMPEG_MINGW_LIBS),$(FFMPEG_MINGW_PREFIX)/lib/lib$(lib).a)
+# Always compile the patched source; vendored binary archives still contain
+# FFmpeg's upstream mutex/condition-variable workers.
+CMAKE ?= cmake
+ifneq ($(platform), emscripten)
+FFMPEG_SOURCE_DIR := obj-ffmpeg-source-$(TARGET_ARCH)
+FFMPEG_SOURCE_STAMP := $(FFMPEG_SOURCE_DIR)/.built
+FFMPEG_SOURCE_LIBS := avformat avcodec swresample swscale avutil
+FFMPEGINCFLAGS := -I$(FFMPEGDIR) -I$(FFMPEG_SOURCE_DIR)
+ifneq (,$(findstring msvc,$(platform)))
+FFMPEG_CMAKE_TOOLCHAIN := -A $(if $(filter x86_64,$(TARGET_ARCH)),x64,Win32)
+FFMPEGLDFLAGS := $(foreach lib,$(FFMPEG_SOURCE_LIBS),$(FFMPEG_SOURCE_DIR)/lib/$(lib).lib)
+else
+FFMPEG_MAKE_GENERATOR := $(if $(filter win,$(platform)),MSYS Makefiles,Unix Makefiles)
+FFMPEG_CMAKE_TOOLCHAIN := -G "$(FFMPEG_MAKE_GENERATOR)" -DCMAKE_C_COMPILER="$(CC)" -DCMAKE_CXX_COMPILER="$(CXX)" -DCMAKE_C_FLAGS="$(CPUOPTS) $(CPUFLAGS)"
+FFMPEGLDFLAGS := $(foreach lib,$(FFMPEG_SOURCE_LIBS),$(FFMPEG_SOURCE_DIR)/lib/lib$(lib).a)
+endif
+# Cross builds can pass a CMake toolchain/sysroot through this variable.
+FFMPEG_CMAKE_ARGS ?=
 endif
 
 ifeq ($(GLES), 1)
@@ -460,7 +420,7 @@ else
 	GLFLAGS += -DHAVE_OPENGL
 endif
 
-COREFLAGS += -D__LIBRETRO__ -DPPSSPP -DWITH_UPNP -DGLEW_STATIC -DGLEW_NO_GLU -DMINIUPNP_STATICLIB
+COREFLAGS += -DPPSSPP -DGLEW_STATIC -DGLEW_NO_GLU
 ifneq ($(platform), emscripten)
 	# ffmpeg does not work with emscripten
 	COREFLAGS += -DUSE_FFMPEG
@@ -538,17 +498,17 @@ DEPFLAGS = -MMD -MP -MF $@.d -MT $@
 DEPPOST =
 endif
 
-ifeq ($(FFMPEG_MINGW), 1)
-$(FFMPEG_MINGW_STAMP):
-	rm -rf $(FFMPEG_MINGW_DIR)
-	mkdir -p $(FFMPEG_MINGW_DIR)
-	cd $(FFMPEG_MINGW_DIR) && "$(abspath $(FFMPEGDIR))/configure" $(FFMPEG_MINGW_CONFIGURE)
-	$(MAKE) -C $(FFMPEG_MINGW_DIR) install
+FFMPEG_SOURCE_INPUTS := $(shell find $(FFMPEGDIR)/libavcodec $(FFMPEGDIR)/libavformat $(FFMPEGDIR)/libavutil $(FFMPEGDIR)/libswresample $(FFMPEGDIR)/libswscale $(CORE_DIR)/ext/ffmpeg-build -type f \( -name '*.c' -o -name '*.h' -o -name '*.cmake' -o -name CMakeLists.txt \))
+ifneq ($(platform), emscripten)
+$(FFMPEG_SOURCE_STAMP): $(FFMPEG_SOURCE_INPUTS) Makefile
+	$(CMAKE) -S $(CORE_DIR)/ext/ffmpeg-build -B $(FFMPEG_SOURCE_DIR) -DCMAKE_BUILD_TYPE=Release $(FFMPEG_CMAKE_TOOLCHAIN) $(FFMPEG_CMAKE_ARGS)
+	$(CMAKE) --build $(FFMPEG_SOURCE_DIR) --config Release --target avformat avcodec avutil swresample swscale
 	touch $@
 
-# Everything that includes FFmpeg headers needs the install first.
-$(filter %.o,$(OBJECTS)): | $(FFMPEG_MINGW_STAMP)
+$(filter %.o,$(OBJECTS)): | $(FFMPEG_SOURCE_STAMP)
+$(TARGET): $(FFMPEG_SOURCE_STAMP)
 endif
+
 
 %.o: %.S
 	$(AS) $(CFLAGS) -c $(OBJOUT)$@ $<
@@ -587,8 +547,8 @@ test-tools: $(TARGET) test/codectest test/blocktest test/lrtest test/lrgltest
 
 clean:
 	rm -f $(OBJECTS) $(addsuffix .d,$(OBJECTS)) $(addsuffix .deps.json,$(OBJECTS)) $(TARGET) test/*.o test/*.o.d test/*.o.deps.json test/codectest test/blocktest test/lrtest test/lrgltest
-ifeq ($(FFMPEG_MINGW), 1)
-	rm -rf $(FFMPEG_MINGW_DIR)
+ifneq ($(platform), emscripten)
+	rm -rf $(FFMPEG_SOURCE_DIR)
 endif
 
 .PHONY: clean test-tools

@@ -35,7 +35,6 @@
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MemMapHelpers.h"
-#include "Core/Util/PortManager.h"
 
 #include "sceKernel.h"
 #include "sceKernelThread.h"
@@ -86,7 +85,7 @@ static int sceNetResolverTerm() {
 // Note: timeouts are in seconds
 static int NetResolver_StartNtoA(NetResolver *resolver, u32 hostnamePtr, u32 inAddrPtr, int timeout, int retry) {
 	std::string hostname = std::string(safe_string(Memory::GetCharPointer(hostnamePtr)));
-	
+
 	// Process hostname with infra-DNS
 	std::string processedHostname = ProcessHostnameWithInfraDNS(hostname);
 

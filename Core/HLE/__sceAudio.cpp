@@ -31,7 +31,6 @@
 #include "Core/MemMapHelpers.h"
 #include "Common/LogOnce.h"
 #include "Core/System.h"
-#include "Core/WaveFile.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/HLE/sceKernelTime.h"
 #include "Core/HLE/ErrorCodes.h"
@@ -58,11 +57,6 @@ static int audioIntervalCycles;
 static int audioHostIntervalCycles;
 
 static s32 *mixBuffer;
-static s16 *clampedMixBuffer;
-#ifndef MOBILE_DEVICE
-WaveFileWriter g_wave_writer;
-static bool m_logAudio;
-#endif
 
 static void hleAudioUpdate(u64 userdata, int cyclesLate) {
 	// Schedule the next cycle first.  __AudioUpdate() may consume cycles.
@@ -106,7 +100,6 @@ void __AudioInit() {
 	g_audioSRC.clear();
 
 	mixBuffer = new s32[hwBlockSize * 2];
-	clampedMixBuffer = new s16[hwBlockSize * 2];
 	memset(mixBuffer, 0, hwBlockSize * 2 * sizeof(s32));
 
 	System_AudioClear();
@@ -192,7 +185,6 @@ void __AudioDoState(PointerWrap &p) {
 
 void __AudioShutdown() {
 	delete [] mixBuffer;
-	delete [] clampedMixBuffer;
 
 	mixBuffer = 0;
 	for (u32 i = 0; i < PSP_AUDIO_CHANNEL_MAX; i++) {
@@ -201,11 +193,6 @@ void __AudioShutdown() {
 	}
 	g_audioSRC.clear();
 
-#ifndef MOBILE_DEVICE
-	if (g_Config.bDumpAudio) {
-		__StopLogAudio();
-	}
-#endif
 }
 
 // The audio driver never copies a buffer on the way in. It stores the pointer, and its mixer
@@ -616,7 +603,7 @@ static bool __AudioMixSRC(AudioSRCChannel &chan) {
 }
 
 // Mix samples from the various audio channels into a single sample queue, managed by the backend implementation.
-void __AudioUpdate(bool resetRecording) {
+void __AudioUpdate() {
 	// Mix each hardware block on the emulated audio timeline. The host owns playback pacing.
 	memset(mixBuffer, 0, hwBlockSize * 2 * sizeof(s32));
 
@@ -640,73 +627,6 @@ void __AudioUpdate(bool resetRecording) {
 
 		System_AudioPushSamples(mixBuffer, hwBlockSize, multiplier);
 
-#ifndef MOBILE_DEVICE
-		if (g_Config.bSaveLoadResetsAVdumping && resetRecording) {
-			__StopLogAudio();
-			std::string discID = g_paramSFO.GetDiscID();
-			Path audio_file_name = GetSysDirectory(DIRECTORY_AUDIO) / StringFromFormat("%s_%s.wav", discID.c_str(), KernelTimeNowFormatted().c_str()).c_str();
-			INFO_LOG(Log::Common, "Restarted audio recording to: %s", audio_file_name.c_str());
-			if (!File::Exists(GetSysDirectory(DIRECTORY_AUDIO)))
-				File::CreateDir(GetSysDirectory(DIRECTORY_AUDIO));
-			File::CreateEmptyFile(audio_file_name);
-			__StartLogAudio(audio_file_name);
-		}
-		if (!m_logAudio) {
-			if (g_Config.bDumpAudio) {
-				// Use gameID_EmulatedTimestamp for filename
-				std::string discID = g_paramSFO.GetDiscID();
-				Path audio_file_name = GetSysDirectory(DIRECTORY_AUDIO) / StringFromFormat("%s_%s.wav", discID.c_str(), KernelTimeNowFormatted().c_str());
-				INFO_LOG(Log::Common,"Recording audio to: %s", audio_file_name.c_str());
-				// Create the path just in case it doesn't exist
-				if (!File::Exists(GetSysDirectory(DIRECTORY_AUDIO)))
-					File::CreateDir(GetSysDirectory(DIRECTORY_AUDIO));
-				File::CreateEmptyFile(audio_file_name);
-				__StartLogAudio(audio_file_name);
-			}
-		} else {
-			if (g_Config.bDumpAudio) {
-				for (int i = 0; i < hwBlockSize * 2; i++) {
-					clampedMixBuffer[i] = clamp_s16(mixBuffer[i]);
-				}
-				g_wave_writer.AddStereoSamples(clampedMixBuffer, hwBlockSize);
-			} else {
-				__StopLogAudio();
-			}
-		}
-#endif
-	}
-}
 
-#ifndef MOBILE_DEVICE
-void __StartLogAudio(const Path& filename) {
-	if (!m_logAudio) {
-		if (!g_wave_writer.Start(filename, 44100)) {
-			// Start() logs the reason. Leave m_logAudio false, or every mixed block from here on
-			// would hand samples to a closed file - and turn the setting off too, since otherwise
-			// the caller below retries this (creating the file, opening it) once per block.
-			ERROR_LOG(Log::sceAudio, "Failed to start audio logging, disabling it");
-			g_Config.bDumpAudio = false;
-			return;
-		}
-		m_logAudio = true;
-		g_wave_writer.SetSkipSilence(false);
-		NOTICE_LOG(Log::sceAudio, "Starting Audio logging");
-	} else {
-		WARN_LOG(Log::sceAudio, "Audio logging has already been started");
 	}
-}
-
-void __StopLogAudio() {
-	if (m_logAudio)	{
-		m_logAudio = false;
-		g_wave_writer.Stop();
-		NOTICE_LOG(Log::sceAudio, "Stopping Audio logging");
-	} else {
-		WARN_LOG(Log::sceAudio, "Audio logging has already been stopped");
-	}
-}
-#endif
-
-void WAVDump::Reset() {
-	__AudioUpdate(true);
 }

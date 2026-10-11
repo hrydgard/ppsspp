@@ -127,174 +127,13 @@ list(APPEND CoreExtra
 
 if(NOT MOBILE_DEVICE)
 	list(APPEND CoreExtra
-		AVIDump.cpp
-		AVIDump.h
-		WaveFile.cpp
-		WaveFile.h
 	)
 endif()
 
-if((MACOSX OR IOS) AND NOT LIBRETRO)
-	list(APPEND CoreExtra
-		Util/DarwinFileSystemServices.mm
-		Util/DarwinFileSystemServices.h)
-endif()
-
-set(CmdLine)
-if(NOT LIBRETRO)
-	list(APPEND CmdLine
-		CmdLine.cpp
-		CmdLine.h
-	)
-endif()
-
-# Files that libretro/Makefile.common doesn't build for the libretro core (no HTTP/WebSocket
-# debugger, no standalone-app EmuThread/tilt/asm-debugger/game-download machinery there) - keep
-# this in sync with Makefile.common so the CMake-based libretro build (used on Linux/Mac) matches
-# what the Windows libretro build (driven by the Makefile) actually links.
-set(CoreNonLibretro)
-if(NOT LIBRETRO)
-	list(APPEND CoreNonLibretro
-		WebServer.cpp
-		WebServer.h
-		EmuThread.cpp
-		EmuThread.h
-		Debugger/DisassemblyManager.cpp
-		Debugger/DisassemblyManager.h
-		Debugger/WebSocket.cpp
-		Debugger/WebSocket.h
-		Debugger/WebSocket/BreakpointSubscriber.cpp
-		Debugger/WebSocket/BreakpointSubscriber.h
-		Debugger/WebSocket/CPUCoreSubscriber.cpp
-		Debugger/WebSocket/CPUCoreSubscriber.h
-		Debugger/WebSocket/DisasmSubscriber.cpp
-		Debugger/WebSocket/DisasmSubscriber.h
-		Debugger/WebSocket/GameBroadcaster.cpp
-		Debugger/WebSocket/GameBroadcaster.h
-		Debugger/WebSocket/GameSubscriber.cpp
-		Debugger/WebSocket/GameSubscriber.h
-		Debugger/WebSocket/ClientConfigSubscriber.cpp
-		Debugger/WebSocket/ClientConfigSubscriber.h
-		Debugger/WebSocket/GPUBufferSubscriber.cpp
-		Debugger/WebSocket/GPUBufferSubscriber.h
-		Debugger/WebSocket/GPUDisasmSubscriber.cpp
-		Debugger/WebSocket/GPUDisasmSubscriber.h
-		Debugger/WebSocket/GPURecordSubscriber.cpp
-		Debugger/WebSocket/GPURecordSubscriber.h
-		Debugger/WebSocket/GPUStatsSubscriber.cpp
-		Debugger/WebSocket/GPUStatsSubscriber.h
-		Debugger/WebSocket/HLEKernelObjectSubscriber.cpp
-		Debugger/WebSocket/HLEKernelObjectSubscriber.h
-		Debugger/WebSocket/HLESubscriber.cpp
-		Debugger/WebSocket/HLESubscriber.h
-		Debugger/WebSocket/InputBroadcaster.cpp
-		Debugger/WebSocket/InputBroadcaster.h
-		Debugger/WebSocket/InputSubscriber.cpp
-		Debugger/WebSocket/InputSubscriber.h
-		Debugger/WebSocket/LogBroadcaster.cpp
-		Debugger/WebSocket/LogBroadcaster.h
-		Debugger/WebSocket/LogConfigSubscriber.cpp
-		Debugger/WebSocket/LogConfigSubscriber.h
-		Debugger/WebSocket/MemoryInfoSubscriber.cpp
-		Debugger/WebSocket/MemoryInfoSubscriber.h
-		Debugger/WebSocket/MemorySubscriber.cpp
-		Debugger/WebSocket/MemorySubscriber.h
-		Debugger/WebSocket/ReplaySubscriber.cpp
-		Debugger/WebSocket/ReplaySubscriber.h
-		Debugger/WebSocket/SteppingBroadcaster.cpp
-		Debugger/WebSocket/SteppingBroadcaster.h
-		Debugger/WebSocket/SteppingSubscriber.cpp
-		Debugger/WebSocket/SteppingSubscriber.h
-		Debugger/WebSocket/WebSocketUtils.cpp
-		Debugger/WebSocket/WebSocketUtils.h
-		MIPS/MIPSAsm.cpp
-		MIPS/MIPSAsm.h
-		MIPS/fake/FakeJit.cpp
-		MIPS/fake/FakeJit.h
-	)
-endif()
-
-# miniUPnPc integration (MiniUPnPc supposed to works on any POSIX system, not sure if some of these are redundant/not needed tho)
-#
-# The add_compile_definitions()/target_link_libraries(Core ...) split below looks awkward, but it's
-# required: add_compile_definitions() only affects targets created *after* the call, and
-# target_link_libraries(Core ...) requires the Core target to already exist. So the defines have to
-# land before add_library(Core STATIC ...) further up this file, while linking miniupnpc into Core
-# has to happen after it. Previously this whole block sat after add_library(Core STATIC ...), which
-# meant Core/Util/PortManager.cpp (built as part of that same add_library call) never actually saw
-# WITH_UPNP or any of the other defines below - UPnP support was silently compiled out everywhere.
-if(USE_MINIUPNPC)
-	if(USE_SYSTEM_MINIUPNPC)
-		find_package(MINIUPNPC REQUIRED)
-		add_compile_definitions(WITH_UPNP)
-	else()
-		set (MINIUPNPC_VERSION 2.2) # used by miniupnpcstrings.h.cmake
-		set (MINIUPNPC_API_VERSION 18)
-		option(UPNPC_BUILD_STATIC "Build static library" TRUE)
-		option(NO_GETADDRINFO "Define NO_GETADDRINFO" FALSE)
-		mark_as_advanced(NO_GETADDRINFO)
-		if (NO_GETADDRINFO)
-			add_compile_definitions(NO_GETADDRINFO)
-		endif()
-
-		if (NOT WIN32)
-			add_compile_definitions (MINIUPNPC_SET_SOCKET_TIMEOUT)
-			add_compile_definitions (_BSD_SOURCE _DEFAULT_SOURCE _POSIX_C_SOURCE=200112L)
-		endif()
-		if (MACOSX)
-			add_compile_definitions (_DARWIN_C_SOURCE)
-		endif()
-		if(WIN32)
-			add_compile_definitions(WIN32 MINIUPNP_EXPORTS)
-		else()
-			add_compile_options(-fPIC)
-		endif()
-
-		add_compile_definitions(WITH_UPNP MINIUPNP_STATICLIB)
-		set(MINIUPNP_DIR "${CMAKE_SOURCE_DIR}/ext/miniupnp/miniupnpc")
-		include_directories(${CMAKE_CURRENT_BINARY_DIR})
-		include_directories(${CMAKE_SOURCE_DIR}/ext/miniupnp/miniupnpc/src)
-		include_directories(${CMAKE_SOURCE_DIR}/ext/miniupnp/miniupnpc/include)
-		configure_file(${MINIUPNP_DIR}/miniupnpcstrings.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/miniupnpcstrings.h) # by default miniupnp repo doesn't contains miniupnpcstrings.h and need to be generated
-		set(MINIUPNPC_SOURCES
-				# the needed bits of miniupnpc (no python module, no tests, no cli)
-			${MINIUPNP_DIR}/src/addr_is_reserved.c
-			${MINIUPNP_DIR}/src/connecthostport.c
-			${MINIUPNP_DIR}/src/igd_desc_parse.c
-			${MINIUPNP_DIR}/src/minisoap.c
-			${MINIUPNP_DIR}/src/minissdpc.c
-			${MINIUPNP_DIR}/src/miniupnpc.c
-				#${MINIUPNP_DIR}/miniupnpcmodule.c
-			${MINIUPNP_DIR}/src/miniwget.c
-			${MINIUPNP_DIR}/src/minixml.c
-			${MINIUPNP_DIR}/src/portlistingparse.c
-			${MINIUPNP_DIR}/src/receivedata.c
-				#${MINIUPNP_DIR}/upnpc.c # causing an error due to already existing _main()
-			${MINIUPNP_DIR}/src/upnpcommands.c
-			${MINIUPNP_DIR}/src/upnpdev.c
-			${MINIUPNP_DIR}/src/upnperrors.c
-			${MINIUPNP_DIR}/src/upnpreplyparse.c
-			${CMAKE_CURRENT_BINARY_DIR}/miniupnpcstrings.h
-		)
-		if (NOT WIN32 AND NOT CMAKE_SYSTEM_NAME STREQUAL "AmigaOS")
-			#set(MINIUPNPC_SOURCES ${MINIUPNPC_SOURCES} minissdpc.c) # causing an error due to duplication in MINIUPNPC_SOURCES?
-		endif()
-		if (WIN32)
-			set_source_files_properties(${MINIUPNPC_SOURCES} PROPERTIES  COMPILE_DEFINITIONS "MINIUPNP_STATICLIB;MINIUPNP_EXPORTS")
-			list(PREPEND LDLIBS ws2_32 iphlpapi)
-			#elseif (CMAKE_SYSTEM_NAME STREQUAL "Solaris")
-			#  find_library (SOCKET_LIBRARY NAMES socket)
-			#  find_library (NSL_LIBRARY NAMES nsl)
-			#  find_library (RESOLV_LIBRARY NAMES resolv)
-			#  set (LDLIBS ${SOCKET_LIBRARY} ${NSL_LIBRARY} ${RESOLV_LIBRARY} ${LDLIBS})
-		endif()
-	endif()
-endif()
 
 add_library(Core STATIC
 	${CoreExtra}
-	${CmdLine}
-	${CoreNonLibretro}
+
 	Config.cpp
 	Config.h
 	ConfigSettings.cpp
@@ -673,8 +512,6 @@ add_library(Core STATIC
 	Util/GameDB.h
 	Util/PathUtil.cpp
 	Util/PathUtil.h
-	Util/PortManager.cpp
-	Util/PortManager.h
 	Util/BlockAllocator.cpp
 	Util/BlockAllocator.h
 	Util/PPGeDraw.cpp
@@ -694,10 +531,6 @@ add_library(Core STATIC
 	${CMAKE_BINARY_DIR}/git-version.cpp
 )
 
-if((MACOSX OR IOS) AND NOT LIBRETRO)
-	set_source_files_properties(Util/DarwinFileSystemServices.mm
-		PROPERTIES COMPILE_FLAGS -fobjc-arc)
-endif()
 
 set(CoreExtraLibs)
 if(ANDROID)
@@ -723,21 +556,7 @@ endif()
 
 target_compile_features(Core PUBLIC cxx_std_17)
 
-if(FFmpeg_FOUND)
-	target_compile_definitions(Core PRIVATE USE_FFMPEG=1)
-	if (HAVE_LIBAVCODEC_CONST_AVCODEC)
-		target_compile_definitions(Core PRIVATE HAVE_LIBAVCODEC_CONST_AVCODEC=1)
-	endif()
-	set_target_properties(Core PROPERTIES NO_SYSTEM_FROM_IMPORTED true)
-	target_include_directories(Core BEFORE PUBLIC ${FFmpeg_INCLUDE_avcodec} ${FFmpeg_INCLUDE_avformat})
-	target_link_libraries(Core
-		FFmpeg::avcodec
-		FFmpeg::avformat
-		FFmpeg::avutil
-		FFmpeg::swresample
-		FFmpeg::swscale
-	)
-elseif(BUILD_BUNDLED_FFMPEG)
+if(USE_FFMPEG)
 	target_compile_definitions(Core PRIVATE USE_FFMPEG=1)
 	set_target_properties(Core PROPERTIES NO_SYSTEM_FROM_IMPORTED true)
 	target_link_libraries(Core
@@ -747,27 +566,6 @@ elseif(BUILD_BUNDLED_FFMPEG)
 		swresample
 		swscale
 	)
-endif()
-
-# The other half of the miniUPnPc integration above: that half sets up the compile definitions
-# (which had to happen before add_library(Core STATIC ...)), this half builds/links the library
-# (which needs the Core target to already exist).
-if(USE_MINIUPNPC)
-	if(USE_SYSTEM_MINIUPNPC)
-		target_include_directories(Core PRIVATE ${MINIUPNP_INCLUDE_DIR})
-		target_link_libraries(Core ${MINIUPNP_LIBRARY})
-	elseif(UPNPC_BUILD_STATIC)
-		add_library(miniupnpc STATIC ${MINIUPNPC_SOURCES})
-		target_link_libraries(Core miniupnpc ${LDLIBS})
-		set(UPNPC_LIBRARY miniupnpc)
-		if (MSVC)
-			# Suppress noise warnings
-			target_compile_definitions(miniupnpc PRIVATE _CRT_SECURE_NO_WARNINGS _WINSOCK_DEPRECATED_NO_WARNINGS)
-		endif()
-		if (WIN32)
-			target_link_libraries(miniupnpc ws2_32)
-		endif()
-	endif()
 endif()
 
 setup_target_project(Core Core)

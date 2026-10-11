@@ -1119,12 +1119,6 @@ static u32 LoadReplay(const std::string &filename) {
 		g_paramSFO.SetValue("DISC_ID", gameID, (int)sizeof(header.gameID));
 		std::vector<GameDBInfo> info;
 		std::string gameTitle = "(unknown title)";
-#if !defined(__LIBRETRO__)
-		if (g_gameDB.GetGameInfos(gameID, &info)) {
-			gameTitle = info[0].title;
-			g_paramSFO.SetValue("TITLE", gameTitle, (int)gameTitle.size());
-		}
-#endif
 		System_SetWindowTitle(g_paramSFO.GetValueString("DISC_ID") + " : " + gameTitle + " (GE frame dump)");
 	} else {
 		System_SetWindowTitle("(GE frame dump: old format, missing DISC_ID)");

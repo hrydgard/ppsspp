@@ -158,10 +158,7 @@ public:
 	// General
 	bool bScreenshotsAsPNG;
 	bool bUseFFV1;
-	bool bDumpFrames;
 	bool bDumpVideoOutput;
-	bool bDumpAudio;
-	bool bSaveLoadResetsAVdumping;
 	bool bShowSaveLoadIndicator;
 	bool bEnableLogging;
 	bool bEnableFileLogging;
@@ -499,8 +496,6 @@ public:
 
 	bool bEnableWlan;
 	std::map<std::string, std::string> mHostToAlias;  // Local DNS database stored in ini file
-	bool bEnableUPnP;
-	bool bUPnPUseOriginalPort;
 	bool bForcedFirstConnect;
 	int iPortOffset;
 	int iMinTimeout;

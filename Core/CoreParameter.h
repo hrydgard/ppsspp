@@ -63,7 +63,6 @@ struct CoreParameter {
 
 	bool startBreak = false;
 	std::string *collectDebugOutput = nullptr;
-	bool headLess = false;   // Try to avoid messageboxes etc
 
 	// Internal PSP rendering resolution and scale factor.
 	int renderScaleFactor = 1;

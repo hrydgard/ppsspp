@@ -440,7 +440,6 @@ SOURCES_CXX += \
 ifeq ($(PLATFORM_EXT), win32)
 SOURCES_CXX += $(COMMONDIR)/MemArenaWin32.cpp \
 	       $(EXTDIR)/glslang/glslang/OSDependent/Windows/ossource.cpp \
-	       $(COMMONDIR)/Render/Text/draw_text_win.cpp
 else ifeq ($(PLATFORM_EXT), darwin)
 SOURCES_CXX += $(COMMONDIR)/MemArenaDarwin.cpp \
 	       $(EXTDIR)/glslang/glslang/OSDependent/Unix/ossource.cpp
@@ -480,11 +479,9 @@ SOURCES_CXX += \
            $(COMMONDIR)/Render/Text/draw_text.cpp \
 	       $(EXTDIR)/jpge/jpgd.cpp \
 	       $(EXTDIR)/jpge/jpge.cpp \
-	       $(COREDIR)/AVIDump.cpp \
 	       $(COREDIR)/Config.cpp \
 	       $(COREDIR)/ConfigSettings.cpp \
 	       $(COREDIR)/Core.cpp \
-	       $(COREDIR)/WaveFile.cpp \
 	       $(COREDIR)/KeyMap.cpp \
 	       $(COREDIR)/KeyMapDefaults.cpp \
 	       $(COREDIR)/LuaContext.cpp \
@@ -680,7 +677,6 @@ SOURCES_CXX += \
 	       $(COREDIR)/Util/PkgUnpack.cpp \
 	       $(COREDIR)/Util/AudioFormat.cpp \
 	       $(COREDIR)/Util/PathUtil.cpp \
-	       $(COREDIR)/Util/PortManager.cpp \
 	       $(COREDIR)/Util/GameDB.cpp
 
 SOURCES_CXX += $(COREDIR)/HLE/__sceAudio.cpp
@@ -781,23 +777,6 @@ SOURCES_C += $(EXTDIR)/udis86/decode.c \
 			 $(EXTDIR)/udis86/syn.c \
 			 $(EXTDIR)/udis86/udis86.c
 
-INCFLAGS += -I$(EXTDIR)/miniupnp-build -I$(EXTDIR)/miniupnp/miniupnpc/include -I$(EXTDIR)/miniupnp/miniupnpc/src
-SOURCES_C += \
-    $(EXTDIR)/miniupnp/miniupnpc/src/addr_is_reserved.c \
-    $(EXTDIR)/miniupnp/miniupnpc/src/connecthostport.c \
-    $(EXTDIR)/miniupnp/miniupnpc/src/igd_desc_parse.c \
-    $(EXTDIR)/miniupnp/miniupnpc/src/minisoap.c \
-    $(EXTDIR)/miniupnp/miniupnpc/src/minissdpc.c \
-    $(EXTDIR)/miniupnp/miniupnpc/src/miniupnpc.c \
-    $(EXTDIR)/miniupnp/miniupnpc/src/miniwget.c \
-    $(EXTDIR)/miniupnp/miniupnpc/src/minixml.c \
-    $(EXTDIR)/miniupnp/miniupnpc/src/minixmlvalid.c \
-    $(EXTDIR)/miniupnp/miniupnpc/src/portlistingparse.c \
-    $(EXTDIR)/miniupnp/miniupnpc/src/receivedata.c \
-    $(EXTDIR)/miniupnp/miniupnpc/src/upnpcommands.c \
-    $(EXTDIR)/miniupnp/miniupnpc/src/upnpdev.c \
-    $(EXTDIR)/miniupnp/miniupnpc/src/upnperrors.c \
-    $(EXTDIR)/miniupnp/miniupnpc/src/upnpreplyparse.c
 
 SOURCES_CXX += \
 	$(GPUDIR)/Vulkan/DrawEngineVulkan.cpp \

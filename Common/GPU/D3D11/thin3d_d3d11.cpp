@@ -19,9 +19,6 @@
 
 #include <cfloat>
 #include <D3Dcommon.h>
-#ifndef __LIBRETRO__  // their build server uses an old SDK
-#include <dxgi1_5.h>
-#endif
 #include <d3d11.h>
 #include <d3d11_1.h>
 #include <D3Dcompiler.h>
@@ -182,10 +179,6 @@ public:
 			case D3D_FEATURE_LEVEL_11_1: return "Feature Level 11.1";
 			case D3D_FEATURE_LEVEL_12_0: return "Feature Level 12.0";
 			case D3D_FEATURE_LEVEL_12_1: return "Feature Level 12.1";
-#ifndef __LIBRETRO__
-			case D3D_FEATURE_LEVEL_1_0_CORE: return "Feature Level 1.0 Core";  // This is for compute-only devices. Useless for us.
-			case D3D_FEATURE_LEVEL_12_2: return "Feature Level 12.2";
-#endif
 			default: return "Feature Level X.X";
 			}
 			return "Unknown feature level";
@@ -714,7 +707,7 @@ public:
 
 RasterState *D3D11DrawContext::CreateRasterState(const RasterStateDesc &desc) {
 	D3D11RasterState *rs = new D3D11RasterState();
-	D3D11_RASTERIZER_DESC d3ddesc{}; 
+	D3D11_RASTERIZER_DESC d3ddesc{};
 	d3ddesc.FillMode = D3D11_FILL_SOLID;
 	switch (desc.cull) {
 	case CullMode::BACK: d3ddesc.CullMode = D3D11_CULL_BACK; break;

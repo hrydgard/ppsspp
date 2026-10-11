@@ -18,13 +18,6 @@
 #include "ppsspp_config.h"
 #include "Core/Instance.h"
 
-#if !PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(ANDROID) && !defined(__LIBRETRO__) && !PPSSPP_PLATFORM(SWITCH)
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/mman.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#endif
 
 #if PPSSPP_PLATFORM(WINDOWS)
 #include "Common/CommonWindows.h"
@@ -89,25 +82,9 @@ static bool UpdateInstanceCounter(uint32_t (*update)(uint32_t)) {
 	ApplyInstanceUpdate(buf, update);
 	UnmapViewOfFile(buf);
 	return true;
-#elif PPSSPP_PLATFORM(ANDROID) || defined(__LIBRETRO__) || PPSSPP_PLATFORM(SWITCH)
+#else
 	// TODO: replace shm_open & shm_unlink with ashmem or android-shmem
 	return false;
-#else
-	if (hIDMapFile < 0) {
-		return false;
-	}
-
-	InstanceInfo *buf = (InstanceInfo *)mmap(0, BUF_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, hIDMapFile, 0);
-	if (buf == MAP_FAILED) {
-		ERROR_LOG(Log::sceNet, "mmap(%s) failure.", ID_SHM_NAME);
-		return false;
-	}
-
-	// Two instances starting at the same moment must not get the same PPSSPP_ID, so the whole
-	// update is one CAS.
-	ApplyInstanceUpdate(buf, update);
-	munmap(buf, BUF_SIZE);
-	return true;
 #endif
 }
 
@@ -145,18 +122,8 @@ void InitInstanceCounter() {
 		PPSSPP_ID = 1;
 		return;
 	}
-#elif PPSSPP_PLATFORM(ANDROID) || defined(__LIBRETRO__) || PPSSPP_PLATFORM(SWITCH)
-	// TODO : replace shm_open & shm_unlink with ashmem or android-shmem
 #else
-	// Create shared memory object
-	hIDMapFile = shm_open(ID_SHM_NAME, O_CREAT | O_RDWR, S_IRUSR | S_IWUSR);
-	BUF_SIZE = (BUF_SIZE < sysconf(_SC_PAGE_SIZE)) ? sysconf(_SC_PAGE_SIZE) : BUF_SIZE;
-
-	if (hIDMapFile < 0 || (ftruncate(hIDMapFile, BUF_SIZE)) == -1) {    // Set the size
-		ERROR_LOG(Log::sceNet, "ftruncate(%s) failure.", ID_SHM_NAME);
-		PPSSPP_ID = 1;
-		return;
-	}
+	// TODO : replace shm_open & shm_unlink with ashmem or android-shmem
 #endif
 
 	bool success = UpdateInstanceCounter([](uint32_t word) {
@@ -186,13 +153,7 @@ void ShutdownInstanceCounter() {
 		CloseHandle(hIDMapFile); // If program exited(or crashed?) or the last handle reference closed the shared memory object will be deleted.
 		hIDMapFile = nullptr;
 	}
-#elif PPSSPP_PLATFORM(ANDROID) || defined(__LIBRETRO__) || PPSSPP_PLATFORM(SWITCH)
-	// Do nothing
 #else
-	if (hIDMapFile >= 0) {
-		close(hIDMapFile);
-		shm_unlink(ID_SHM_NAME);     // If program exited or crashed before unlinked the shared memory object and it's contents will persist.
-		hIDMapFile = -1;
-	}
+	// Do nothing
 #endif
 }

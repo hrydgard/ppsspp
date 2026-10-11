@@ -17,7 +17,7 @@
 
 #include "ppsspp_config.h"
 // In other words, PPSSPP_ARCH(ARM64) || DISASM_ALL.
-#if PPSSPP_ARCH(ARM64) || (PPSSPP_PLATFORM(WINDOWS) && !defined(__LIBRETRO__))
+#if PPSSPP_ARCH(ARM64)
 
 #ifndef offsetof
 #include <cstddef>
@@ -203,7 +203,7 @@ void Arm64IRRegCache::FlushBeforeCall() {
 			continue;
 		}
 	}
-	
+
 	// Alright, now go through any that didn't get flushed with STP.
 	for (int i = 0; i < 19; ++i) {
 		FlushNativeReg(GPRToNativeReg(ARM64Reg(W0 + i)));

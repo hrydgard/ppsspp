@@ -252,11 +252,8 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("ScreenshotMode", SETTING(g_Config, iScreenshotMode), 0, CfgFlag::DEFAULT),
 	ConfigSetting("ScreenshotsAsPNG", SETTING(g_Config, bScreenshotsAsPNG), false, CfgFlag::PER_GAME),
 	ConfigSetting("UseFFV1", SETTING(g_Config, bUseFFV1), false, CfgFlag::DEFAULT),
-	ConfigSetting("DumpFrames", SETTING(g_Config, bDumpFrames), false, CfgFlag::DEFAULT),
 	ConfigSetting("DumpVideoOutput", SETTING(g_Config, bDumpVideoOutput), false, CfgFlag::DEFAULT),
-	ConfigSetting("DumpAudio", SETTING(g_Config, bDumpAudio), false, CfgFlag::DEFAULT),
 	ConfigSetting("ShowSaveLoadIndicator", SETTING(g_Config, bShowSaveLoadIndicator), false, CfgFlag::DEFAULT),
-	ConfigSetting("SaveLoadResetsAVdumping", SETTING(g_Config, bSaveLoadResetsAVdumping), false, CfgFlag::DEFAULT),
 	ConfigSetting("StateSlot", SETTING(g_Config, iCurrentStateSlot), 0, CfgFlag::PER_GAME),
 	ConfigSetting("EnableStateUndo", SETTING(g_Config, bEnableStateUndo), &DefaultEnableStateUndo, CfgFlag::PER_GAME),
 	ConfigSetting("ConfirmLoadState", SETTING(g_Config, bConfirmLoadState), false, CfgFlag::DEFAULT),
@@ -826,7 +823,7 @@ static const ConfigSetting touchControlSettings[] = {
 
 static const ConfigSetting controlSettings[] = {
 	ConfigSetting("HapticFeedback", SETTING(g_Config, bHapticFeedback), false, CfgFlag::PER_GAME),
-	
+
 
 	ConfigSetting("ShowTouchControls", SETTING(g_Config, bShowTouchControls), &DefaultShowTouchControls, CfgFlag::PER_GAME),
 
@@ -915,8 +912,6 @@ static const ConfigSetting networkSettings[] = {
 	ConfigSetting("PrimaryDNSServer", SETTING(g_Config, sInfrastructureDNSServer), "67.222.156.250", CfgFlag::PER_GAME),
 	ConfigSetting("MinTimeout", SETTING(g_Config, iMinTimeout), 0, CfgFlag::PER_GAME),
 	ConfigSetting("ForcedFirstConnect", SETTING(g_Config, bForcedFirstConnect), false, CfgFlag::PER_GAME),
-	ConfigSetting("EnableUPnP", SETTING(g_Config, bEnableUPnP), false, CfgFlag::PER_GAME),
-	ConfigSetting("UPnPUseOriginalPort", SETTING(g_Config, bUPnPUseOriginalPort), false, CfgFlag::PER_GAME),
 	ConfigSetting("InfrastructureUsername", SETTING(g_Config, sInfrastructureUsername), &DefaultInfrastructureUsername, CfgFlag::PER_GAME),
 	ConfigSetting("InfrastructureAutoDNS", SETTING(g_Config, bInfrastructureAutoDNS), true, CfgFlag::PER_GAME),
 	ConfigSetting("AllowSavestateWhileConnected", SETTING(g_Config, bAllowSavestateWhileConnected), false, CfgFlag::DONT_SAVE),

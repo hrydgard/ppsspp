@@ -24,7 +24,6 @@
 #include "Core/System.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/MemMapHelpers.h"
-#include "Core/Util/PortManager.h"
 #include "Core/Instance.h"
 #ifdef __MINGW32__
 #include <mswsock.h>
@@ -209,7 +208,7 @@ static int sceNetInetGetsockname(int socket, u32 namePtr, u32 namelenPtr) {
 	int len = std::min(*namelen > 0 ? *namelen : 0, static_cast<int>(sizeof(saddr)));
 	name->sa_len = len;
 	memcpy(saddr.addr.sa_data, name->sa_data, sizeof(name->sa_data));
-	
+
 	int retval = getsockname(inetSock->sock, (sockaddr*)&saddr, (socklen_t*)&len);
 	DEBUG_LOG(Log::sceNet, "Getsockname: Family = %s, Address = %s, Port = %d", inetSocketDomain2str(saddr.addr.sa_family).c_str(), ip2str(saddr.in.sin_addr).c_str(), ntohs(saddr.in.sin_port));
 	*namelen = len;
@@ -794,11 +793,6 @@ static int sceNetInetBind(int socket, u32 namePtr, int namelen) {
 	changeBlockingMode(inetSock->sock, 1);
 	// Update binded port number if it was 0 (any port)
 	memcpy(name->sa_data, saddr.addr.sa_data, sizeof(name->sa_data));
-	// Enable Port-forwarding
-
-	// Check the socket type/protocol for SOCK_STREAM/SOCK_DGRAM or IPPROTO_TCP/IPPROTO_UDP instead of forwarding both protocols like in ANR2ME's original change.
-	unsigned short port = ntohs(saddr.in.sin_port);
-	UPnP_Add((inetSock->type == PSP_NET_INET_SOCK_STREAM) ? IP_PROTOCOL_TCP : IP_PROTOCOL_UDP, port, port);
 
 	// Workaround: Send a dummy 0 size message to AdhocServer IP to make sure the socket actually bound to an address when binded with INADDR_ANY before using getsockname, seems to fix sending DGRAM from incorrect port issue on Android
 	/*saddr.in.sin_addr.s_addr = g_adhocServerIP.in.sin_addr.s_addr;
@@ -847,7 +841,7 @@ static int sceNetInetConnect(int socket, u32 sockAddrPtr, int sockAddrLen) {
 			retval = hleLogDebug(Log::sceNet, retval, "errno = %s Address = %s, Port = %d", convertInetErrno2str(pspErrno), ip2str(saddr.in.sin_addr).c_str(), ntohs(saddr.in.sin_port));
 		else
 			retval = hleLogError(Log::sceNet, retval, "errno = %s Address = %s, Port = %d", convertInetErrno2str(pspErrno), ip2str(saddr.in.sin_addr).c_str(), ntohs(saddr.in.sin_port));
-		
+
 		return retval;
 	}
 

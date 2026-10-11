@@ -1704,7 +1704,7 @@ void GLQueueRunner::CopyFromReadbackBuffer(GLRFramebuffer *framebuffer, int widt
 	}
 }
 
-// On PC, we always use GL_DEPTH24_STENCIL8. 
+// On PC, we always use GL_DEPTH24_STENCIL8.
 // On Android, we try to use what's available.
 
 #ifndef USING_GLES2
@@ -1822,9 +1822,6 @@ void GLQueueRunner::fbo_unbind() {
 	glBindFramebuffer(GL_FRAMEBUFFER, g_defaultFBO);
 #endif
 
-#if PPSSPP_PLATFORM(IOS) && !defined(__LIBRETRO__)
-	bindDefaultFBO();
-#endif
 
 	currentDrawHandle_ = 0;
 	currentReadHandle_ = 0;

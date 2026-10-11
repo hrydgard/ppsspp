@@ -16,9 +16,6 @@
 [submodule "ext/rapidjson"]
 	path = ext/rapidjson
 	url = https://github.com/Tencent/rapidjson.git
-[submodule "ext/miniupnp"]
-	path = ext/miniupnp
-	url = https://github.com/miniupnp/miniupnp.git
 [submodule "ppsspp-debugger"]
 	path = assets/debugger
 	url = https://github.com/unknownbrackets/ppsspp-debugger.git

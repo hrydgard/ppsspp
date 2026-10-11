@@ -148,7 +148,7 @@ public:
 		return ringLog_;
 	}
 
-	void Init(bool *enabledSetting, bool headless = false);
+	void Init(bool *enabledSetting);
 	void Shutdown();
 
 	// A list rather than a single slot, because the WebSocket debugger registers one callback per

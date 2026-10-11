@@ -15,53 +15,7 @@
 
 typedef CONTEXT SContext;
 
-#if defined(__LIBRETRO__)
 
-#elif PPSSPP_ARCH(AMD64)
-
-#define MACHINE_CONTEXT_SUPPORTED
-
-#define CTX_RAX Rax
-#define CTX_RBX Rbx
-#define CTX_RCX Rcx
-#define CTX_RDX Rdx
-#define CTX_RDI Rdi
-#define CTX_RSI Rsi
-#define CTX_RBP Rbp
-#define CTX_RSP Rsp
-#define CTX_R8 R8
-#define CTX_R9 R9
-#define CTX_R10 R10
-#define CTX_R11 R11
-#define CTX_R12 R12
-#define CTX_R13 R13
-#define CTX_R14 R14
-#define CTX_R15 R15
-#define CTX_RIP Rip
-
-#elif PPSSPP_ARCH(X86)
-
-#define MACHINE_CONTEXT_SUPPORTED
-
-#define CTX_RAX Eax
-#define CTX_RBX Ebx
-#define CTX_RCX Ecx
-#define CTX_RDX Edx
-#define CTX_RDI Edi
-#define CTX_RSI Esi
-#define CTX_RBP Ebp
-#define CTX_RSP Esp
-#define CTX_RIP Eip
-
-#elif PPSSPP_ARCH(ARM64)
-
-#define MACHINE_CONTEXT_SUPPORTED
-
-#define CTX_REG(x) X[x]
-#define CTX_SP Sp
-#define CTX_PC Pc
-
-#endif
 
 // Not tvOS or watchOS: sigaltstack(), which the handler runs on, is unavailable there.
 #elif (PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)) && !(defined(TARGET_OS_TV) && TARGET_OS_TV) && !(defined(TARGET_OS_WATCH) && TARGET_OS_WATCH)

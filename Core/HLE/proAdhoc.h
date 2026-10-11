@@ -142,7 +142,7 @@ namespace net { class CancelToken; }
 #define PSP_ADHOCCTL_RECV_TIMEOUT	100000
 #define PSP_ADHOCCTL_PING_TIMEOUT	2000000
 
-#ifdef _MSC_VER 
+#ifdef _MSC_VER
 #pragma pack(push, 1)
 #endif
 // Ethernet Address
@@ -226,7 +226,7 @@ typedef struct SceNetAdhocctlPeerInfo {
   u16_le padding; // a copy of the padding(?) from SceNetAdhocctlPeerInfoEmu
   u32_le flags;
   u64_le last_recv; // Need to use the same method with sceKernelGetSystemTimeWide (ie. CoreTiming::GetGlobalTimeUsScaled) to prevent timing issue (ie. in game timeout)
-  
+
   u32_le ip_addr; // internal use only
   u16_le port_offset; // IP-specific port offset (internal use only)
 } PACK SceNetAdhocctlPeerInfo;
@@ -291,7 +291,7 @@ typedef struct SceNetAdhocPollSd{
 
 // PDP Socket Status
 typedef struct SceNetAdhocPdpStat {
-	u32_le next; 
+	u32_le next;
 	s32_le id; // posix socket id
 	SceNetEtherAddr laddr;
 	u16_le lport;
@@ -375,7 +375,7 @@ typedef struct SceNetAdhocctlAdhocId {
 	uint8_t data[ADHOCCTL_ADHOCID_LEN]; // Air Conflicts - Aces Of World War 2 is using "000000001" for GameSharing?
 	uint8_t padding[3];
 } PACK SceNetAdhocctlAdhocId; // should this be packed?
-#ifdef _MSC_VER 
+#ifdef _MSC_VER
 #pragma pack(pop)
 #endif
 
@@ -650,8 +650,8 @@ enum {
 // PSP Product Code
 #define PRODUCT_CODE_LENGTH 9
 
-#ifdef _MSC_VER 
-#pragma pack(push,1) 
+#ifdef _MSC_VER
+#pragma pack(push,1)
 #endif
 
 typedef struct {
@@ -734,7 +734,7 @@ typedef struct {
 	/*u32_le*/PSPPointer<SceNetEtherAddr> MACsPtr; //peers //SceNetEtherAddr * MACs
 } PACK SceNetAdhocMatchingPacketAccept;
 
-#ifdef _MSC_VER 
+#ifdef _MSC_VER
 #pragma pack(pop)
 #endif
 
@@ -801,7 +801,6 @@ union SockAddrIN4 {
 
 extern uint16_t portOffset;
 extern uint32_t minSocketTimeoutUS;
-extern bool isOriPort;
 extern bool isLocalServer;
 extern SockAddrIN4 g_adhocServerIP; // Resolved Adhoc Server IP so we don't need to repeatedly resolve the DNS again later
 extern SockAddrIN4 g_localhostIP; // Used to differentiate localhost IP on multiple-instance
@@ -812,7 +811,7 @@ extern uint32_t fakePoolSize;
 extern SceNetAdhocMatchingContext * contexts;
 extern char* dummyPeekBuf64k;
 extern int dummyPeekBuf64kSize;
-extern int one;                 
+extern int one;
 extern retro_atomic_int_t friendFinderRunning;
 extern SceNetAdhocctlPeerInfo * friends;
 extern SceNetAdhocctlScanInfo * networks;

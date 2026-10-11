@@ -42,7 +42,6 @@
 #include "Core/ELF/ParamSFO.h"
 #include "Core/MemMapHelpers.h"
 #include "Common/LogOnce.h"
-#include "Core/Util/PortManager.h"
 #include "Core/CoreTiming.h"
 #include "Core/Instance.h"
 #include "Core/HLE/sceKernel.h"
@@ -487,7 +486,7 @@ bool PollInfraJsonDownload(std::string *jsonOutput) {
 
 std::string ProcessHostnameWithInfraDNS(const std::string &hostname) {
 	std::string resolvedHostname = hostname;
-	
+
 	// Resolve any aliases. First check the ini file, then check the hardcoded DNS config.
 	auto aliasIter = g_Config.mHostToAlias.find(hostname);
 	if (aliasIter != g_Config.mHostToAlias.end()) {
@@ -627,7 +626,6 @@ void __NetInit() {
 
 	// Windows: Assuming WSAStartup already called beforehand
 	portOffset = g_Config.iPortOffset;
-	isOriPort = g_Config.bEnableUPnP && g_Config.bUPnPUseOriginalPort;
 	minSocketTimeoutUS = g_Config.iMinTimeout * 1000UL;
 
 	// Init Default AdhocServer struct
@@ -641,15 +639,6 @@ void __NetInit() {
 	SceNetEtherAddr mac;
 	getLocalMac(&mac);
 	INFO_LOG(Log::sceNet, "LocalHost IP will be %s [%s]", ip2str(g_localhostIP.in.sin_addr).c_str(), mac2str(&mac).c_str());
-
-	// For libretro we don't have a better place. On other platforms, we just init/shutdown it with the rest of the emu (NativeInit / NativeShutdown).
-#ifdef __LIBRETRO__
-	__UPnPInit(2000);
-#endif
-	// The UPnP service thread only exists while UPnP is enabled, and a per-game config (or a
-	// libretro core option) can turn it on after startup. Kick it here so discovery is already
-	// done by the time the game binds its first socket, rather than starting on that request.
-	UPnP_Notify();
 
 	__ResetInitNetLib();
 	__NetApctlInit();
@@ -681,9 +670,6 @@ void __NetShutdown() {
 	__NetApctlShutdown();
 	__ResetInitNetLib();
 
-#ifdef __LIBRETRO__
-	__UPnPShutdown();
-#endif
 
 	if (dummyPeekBuf64k) {
 		free(dummyPeekBuf64k);
@@ -909,7 +895,7 @@ void __NetApctlCallbacks()
 			actionAfterApctlMipsCall = __KernelRegisterActionType(AfterApctlMipsCall::Create);
 		}
 
-		// Run mipscall. Should we skipped executing the mipscall if oldState == newState? 
+		// Run mipscall. Should we skipped executing the mipscall if oldState == newState?
 		for (std::map<int, ApctlHandler>::iterator it = apctlHandlers.begin(); it != apctlHandlers.end(); ++it) {
 			DEBUG_LOG(Log::sceNet, "ApctlCallback [ID=%i][OldState=%d][NewState=%d][Event=%d][Error=%08x][ArgsPtr=%08x]", it->first, oldState, newState, event, error, it->second.argument);
 			args.data[4] = it->second.argument;
@@ -949,7 +935,7 @@ u32 Net_Term() {
 	NetAdhocctl_Term();
 	NetAdhocMatching_Term();
 	NetAdhoc_Term();
-	
+
 	// TODO: Not implemented yet
 	NetApctl_Term();
 	//NetInet_Term();
@@ -1036,7 +1022,7 @@ static int sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netini
 	}
 
 	INFO_LOG(Log::sceNet, "sceNetInit(poolsize=%d, calloutpri=%i, calloutstack=%d, netintrpri=%i, netintrstack=%d) at %08x", poolSize, calloutPri, calloutStack, netinitPri, netinitStack, currentMIPS->pc);
-	
+
 	netMallocStat.pool = poolSize - 0x20; // On Vantage Master Portable this is slightly (32 bytes) smaller than the poolSize arg when tested with JPCSP + prx files
 	netMallocStat.maximum = 0x4050; // Dummy maximum foot print
 	netMallocStat.free = netMallocStat.pool; // Dummy free size, we should set this high enough to prevent any issue (ie. Vantage Master Portable), this is probably the only field being checked by games?
@@ -1051,7 +1037,7 @@ static int sceNetInit(u32 poolSize, u32 calloutPri, u32 calloutStack, u32 netini
 	return hleLogDebug(Log::sceNet, 0);
 }
 
-// Free(delete) thread info / data. 
+// Free(delete) thread info / data.
 // Normal usage: sceKernelDeleteThread followed by sceNetFreeThreadInfo with the same threadID as argument
 static int sceNetFreeThreadinfo(SceUID thid) {
 	return hleLogError(Log::sceNet, 0, "UNIMPL");
@@ -1540,7 +1526,7 @@ int sceNetApctlDisconnect() {
 	// Discards any pending events so we can disconnect immediately
 	apctlEvents.clear();
 	__UpdateApctlHandlers(netApctlState, PSP_NET_APCTL_STATE_DISCONNECTED, PSP_NET_APCTL_EVENT_DISCONNECT_REQUEST, 0);
-	// TODO: Blocks current thread and wait for a state change, but the state should probably need to be changed within 1 frame-time (~16ms) 
+	// TODO: Blocks current thread and wait for a state change, but the state should probably need to be changed within 1 frame-time (~16ms)
 	return hleLogInfo(Log::sceNet, 0);
 }
 

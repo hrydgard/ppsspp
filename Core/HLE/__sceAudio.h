@@ -36,7 +36,7 @@ struct AudioDebugStats {
 
 void __AudioInit();
 void __AudioDoState(PointerWrap &p);
-void __AudioUpdate(bool resetRecording = false);
+void __AudioUpdate();
 void __AudioShutdown();
 void __AudioSetOutputFrequency(int freq);
 void __AudioSetSRCFrequency(int freq);
@@ -67,12 +67,3 @@ int __AudioSRCCallCycles(const AudioSRCChannel &chan);
 void __AudioWakeThreads(AudioSRCChannel &chan, int result);
 
 void __AudioCPUMHzChange();
-
-// AUDIO Dumping stuff
-void __StartLogAudio(const Path &filename);
-void __StopLogAudio();
-
-class WAVDump {
-public:
-	static void Reset();
-};

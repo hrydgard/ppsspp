@@ -2346,15 +2346,6 @@ int __KernelGPUReplay() {
 		Core_Stop();
 	}
 
-	if (result == GPURecord::ReplayResult::Done && PSP_CoreParameter().headLess && !PSP_CoreParameter().startBreak) {
-		DebugScreenshotDesc desc;
-		PSPPointer<u8> topaddr;
-		__DisplayGetFramebuf(&topaddr, &desc.stride, &desc.format, 0);
-		desc.data = &topaddr[0];
-		desc.height = 272;
-		Core_SendDebugScreenshot(desc);
-		Core_Stop();
-	}
 
 	// Return 0 for normal looping, 1 for break.
 	return hleNoLog(result == GPURecord::ReplayResult::Break ? 1 : 0);

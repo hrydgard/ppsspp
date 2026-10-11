@@ -17,7 +17,7 @@
 
 #include "ppsspp_config.h"
 // In other words, PPSSPP_ARCH(ARM64) || DISASM_ALL.
-#if PPSSPP_ARCH(ARM64) || (PPSSPP_PLATFORM(WINDOWS) && !defined(__LIBRETRO__))
+#if PPSSPP_ARCH(ARM64)
 
 #include <algorithm>
 #include "Common/CPUDetect.h"

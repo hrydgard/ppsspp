@@ -79,10 +79,6 @@ if(CMAKE_SYSTEM_PROCESSOR)
 	endif()
 endif()
 
-# the libraries in the ffmpeg/ directory are not compatible with mingw
-if(MINGW AND NOT USE_SYSTEM_FFMPEG AND NOT BUILD_BUNDLED_FFMPEG)
-	set(USE_SYSTEM_FFMPEG ON)
-endif()
 
 if(NOT ANDROID AND NOT IOS)
 	if(ARM_DEVICE OR SIMULATOR)
@@ -149,23 +145,16 @@ option(USE_WAYLAND_WSI "Enable or disable Wayland WSI support for Vulkan" ON)
 option(USE_VULKAN_DISPLAY_KHR "Enable or disable full screen display of Vulkan" ${USE_VULKAN_DISPLAY_KHR})
 # :: Frontends
 option(MOBILE_DEVICE "Set to ON when targeting a mobile device" ${MOBILE_DEVICE})
-option(HEADLESS "Set to OFF to not generate the PPSSPPHeadless target" ${HEADLESS})
 # Set by b.sh for the loongarch64/riscv64 cross builds, whose sysroots have no SDL3.
-option(HEADLESS_CROSS "Set to ON for a headless build without SDL" ${HEADLESS_CROSS})
 option(ATLAS_TOOL "Set to OFF to not generate the ATLAS_TOOL target" ${ATLAS_TOOL})
 option(UNITTEST "Set to ON to generate the unittest target" ${UNITTEST})
 option(SIMULATOR "Set to ON when targeting an x86 simulator of an ARM platform" ${SIMULATOR})
-option(LIBRETRO "Set to ON to generate the libretro target" OFF)
 # :: Options
 option(USE_LIBNX "Set to ON to build for Switch(libnx)" OFF)
 option(USE_FFMPEG "Build with FFMPEG support" ON)
-option(USE_MINIUPNPC "Build with miniUPnPc support" ON)
 option(USE_SYSTEM_SNAPPY "Dynamically link against system snappy" ${USE_SYSTEM_SNAPPY})
-option(USE_SYSTEM_FFMPEG "Dynamically link against system FFMPEG" ${USE_SYSTEM_FFMPEG})
-option(BUILD_BUNDLED_FFMPEG "Build bundled ffmpeg module" ${BUILD_BUNDLED_FFMPEG})
 option(USE_SYSTEM_FREETYPE "Dynamically link against system freetype" ${USE_SYSTEM_FREETYPE})
 option(USE_SYSTEM_RAPIDJSON "Build using system rapidjson" ${USE_SYSTEM_RAPIDJSON})
-option(USE_SYSTEM_MINIUPNPC "Dynamically link against system miniUPnPc" ${USE_SYSTEM_MINIUPNPC})
 option(USE_ASAN "Use address sanitizer" OFF)
 option(USE_UBSAN "Use undefined behaviour sanitizer" OFF)
 option(USE_CCACHE "Use ccache if detected" ON)
@@ -179,9 +168,6 @@ if(USE_SYSTEM_RAPIDJSON)
 	add_compile_definitions(SYSTEM_RAPIDJSON)
 endif()
 
-if(USE_SYSTEM_MINIUPNPC)
-	add_compile_definitions(USE_SYSTEM_MINIUPNPC)
-endif()
 
 if(WEBOS)
 	set(USING_X11_VULKAN OFF)
@@ -216,14 +202,12 @@ if(UNIX AND NOT (APPLE OR ANDROID) AND VULKAN)
 	endif()
 endif()
 
-if(LIBRETRO)
-	add_compile_definitions(__LIBRETRO__)
+
 	add_compile_definitions(GLEW_NO_GLU)
 	if(NOT MSVC)
 		add_compile_options(-fPIC)
 	endif()
 	add_compile_definitions(HAVE_LIBRETRO_VFS)
-endif()
 
 if(ANDROID)
 	set(MOBILE_DEVICE ON)
@@ -234,15 +218,6 @@ endif()
 # APIs on Android, NSURLSession on macOS, and libcurl elsewhere.
 if(WIN32 OR ANDROID OR (APPLE AND NOT IOS))
 	# Nothing to do, these need no external library.
-elseif(UNIX AND NOT APPLE AND NOT LIBRETRO)
-	# We only need the curl headers at build time - libcurl itself is loaded with dlopen
-	# (see ext/naett-lib/src/naett_curl.h), so it stays optional at runtime and a build made
-	# here still starts on a machine without it, just without HTTPS.
-	find_package(CURL)
-	if(NOT CURL_FOUND)
-		message(STATUS "libcurl headers not found - building without HTTPS support")
-		set(HTTPS_NOT_AVAILABLE ON)
-	endif()
 else()
 	set(HTTPS_NOT_AVAILABLE ON)
 endif()
@@ -290,36 +265,6 @@ set(SDL_LIB_TARGET "")
 set(SDL_TTF_LIB_TARGET "")
 set(FONTCONFIG_LIB_TARGET "")
 
-if(NOT LIBRETRO AND NOT IOS AND NOT HEADLESS_CROSS AND NOT ANDROID AND NOT WIN32)
-	find_package(SDL3 QUIET)
-	if(NOT SDL3_FOUND)
-		if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND (EXISTS "/usr/bin/apt" OR EXISTS "/usr/bin/apt-get" OR EXISTS "/etc/debian_version"))
-			message(FATAL_ERROR "SDL3 not found. Install dependencies with: sudo apt install libsdl3-dev libsdl3-ttf-dev")
-		else()
-			message(FATAL_ERROR "SDL3 not found. Install SDL3 development packages for your distribution and retry.")
-		endif()
-	endif()
-	set(SDL_LIB_TARGET SDL3::SDL3)
-	find_package(SDL3_ttf QUIET)
-	if(NOT SDL3_ttf_FOUND)
-		if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND (EXISTS "/usr/bin/apt" OR EXISTS "/usr/bin/apt-get" OR EXISTS "/etc/debian_version"))
-			message(FATAL_ERROR "SDL3_ttf not found. Install dependencies with: sudo apt install libsdl3-ttf-dev")
-		else()
-			message(FATAL_ERROR "SDL3_ttf not found. Install SDL3_ttf development packages for your distribution and retry.")
-		endif()
-	endif()
-	set(SDL_TTF_LIB_TARGET SDL3_ttf::SDL3_ttf)
-	message(STATUS "Using SDL3 and SDL3_ttf")
-	add_compile_definitions(USE_SDL3_TTF)
-	find_package(Fontconfig QUIET)
-	if(Fontconfig_FOUND)
-		set(FONTCONFIG_LIB_TARGET Fontconfig::Fontconfig)
-		add_compile_definitions(USE_SDL3_TTF_FONTCONFIG)
-		message(STATUS "Using Fontconfig for SDL3_ttf fallback fonts")
-	else()
-		message(WARNING "Fontconfig not found - SDL3_ttf fallback fonts for missing glyphs will be limited")
-	endif()
-endif()
 
 
 include(FindThreads)
@@ -542,7 +487,7 @@ macro(setup_target_project TargetName ProjectDir)
 endmacro()
 
 # libretro-common, as one library everything links: the VFS, threading and codecs.
-# The headless test tools link it as well as the core.
+# The unit tests link it as well as the core.
 add_library(libretro-common STATIC
 	libretro/libretro-common/compat/compat_posix_string.c
 	libretro/libretro-common/compat/fopen_utf8.c
@@ -595,97 +540,8 @@ if(USING_GLES2 OR (USING_EGL AND NOT USING_FBDEV))
 	find_package(X11)
 endif()
 
-if(USE_FFMPEG)
-	if(NOT BUILD_BUNDLED_FFMPEG)
-		if(NOT FFMPEG_DIR)
-			if(NOT USE_SYSTEM_FFMPEG)
-				if(ANDROID)
-					if(ARMV7)
-						set(PLATFORM_ARCH "android/armv7")
-					elseif(ARM64)
-						set(PLATFORM_ARCH "android/arm64")
-					elseif(X86_64)
-						set(PLATFORM_ARCH "android/x86_64")
-					elseif(X86)
-						set(PLATFORM_ARCH "android/x86")
-					endif()
-				elseif(IOS)
-					if(IOS_PLATFORM STREQUAL "TVOS")
-						set(PLATFORM_ARCH "tvos/arm64")
-					else()
-						set(PLATFORM_ARCH "ios/universal")
-					endif()
-				elseif(MACOSX)
-					set(PLATFORM_ARCH "macosx/universal")
-				elseif(LINUX)
-					if(ARMV7)
-						set(PLATFORM_ARCH "linux/armv7")
-					elseif(ARM64)
-						set(PLATFORM_ARCH "linux/aarch64")
-					elseif(ARM)
-						set(PLATFORM_ARCH "linux/arm")
-					elseif(MIPS)
-						set(PLATFORM_ARCH "linux/mips32")
-					elseif(RISCV64)
-						set(PLATFORM_ARCH "linux/riscv64")
-					elseif(LOONGARCH64)
-						set(PLATFORM_ARCH "linux/loongarch64")
-					elseif(CMAKE_SIZEOF_VOID_P EQUAL 8)
-						set(PLATFORM_ARCH "linux/x86_64")
-					elseif(X86)
-						set(PLATFORM_ARCH "linux/x86")
-					endif()
-				elseif(WIN32)
-					if(X86_64)
-						set(PLATFORM_ARCH "Windows/x86_64")
-					elseif(X86)
-						set(PLATFORM_ARCH "Windows/x86")
-					endif()
-				endif()
-				if(WEBOS AND ARMV7)
-					set(PLATFORM_ARCH "linux/webos")
-				endif()
-				if(PLATFORM_ARCH)
-					set(FFMPEG_DIR "ffmpeg/${PLATFORM_ARCH}")
-				else()
-					message("Couldn't find an internal FFmpeg build, using system FFmpeg instead")
-				endif()
-			endif()
-		endif()
-	
-		find_package(FFmpeg REQUIRED avcodec avformat avutil swresample swscale)
-		# Check if we need to use avcodec_(alloc|free)_frame instead of av_frame_(alloc|free)
-		# Check if we need to use const AVCodec
-		set(CMAKE_REQUIRED_INCLUDES ${FFmpeg_INCLUDE_avcodec};${FFmpeg_INCLUDE_avformat})
-		set(CMAKE_REQUIRED_LIBRARIES FFmpeg::avcodec;FFmpeg::avformat)
-		set(CMAKE_REQUIRED_FLAGS "-pedantic -Wall -Werror -Wno-unused-variable")
-		check_cxx_source_compiles("extern \"C\" {
-			#include <libavcodec/avcodec.h>
-			#include <libavformat/avformat.h>
-			}
-			static AVCodecContext *s_codec_context = NULL;
-			int main() {
-				const AVCodec *codec = avcodec_find_encoder(s_codec_context->codec_id);
-				return 0;
-			}
-			" HAVE_LIBAVCODEC_CONST_AVCODEC FAIL_REGEX "invalid conversion")
-	
-		# Check if we need to use avcodec_alloc_context3 instead of stream->codec
-		# Check if we need to use av_frame_get_buffer instead of avcodec_default_get_buffer
-	endif()
-	if(BUILD_BUNDLED_FFMPEG)
-		set(CMAKE_REQUIRED_FLAGS "-pedantic -Wall -Werror -Wno-unused-variable")
-	endif()
-endif(USE_FFMPEG)
 
-if(LIBRETRO)
-elseif(HEADLESS_CROSS OR WIN32 OR ANDROID OR IOS)
-	# No SDL3 here: the headless tools run with --graphics=software or vulkan only.
-	add_definitions(-DHEADLESS_NO_SDL)
-else()
-	# The headless tools create their GL contexts with SDL.
-	add_compile_definitions(SDL)
-endif()
+
 
 if(LINUX AND NOT ANDROID)
 	set(RT_LIB rt)
@@ -750,59 +606,6 @@ file(GLOB UIImages CONFIGURE_DEPENDS
     assets/ui_images/*.svg
 )
 
-if(HEADLESS)
-	set(HeadlessSource
-		headless/Headless.cpp
-		headless/Compare.cpp
-		headless/Compare.h
-		headless/ReverseEngineer.cpp
-		headless/ReverseEngineer.h
-	)
-	if(SDL_LIB_TARGET)
-		list(APPEND HeadlessSource
-			headless/SDLHeadlessGLGraphicsContext.cpp
-			headless/SDLHeadlessGLGraphicsContext.h
-			headless/SDLUtil.cpp
-			headless/SDLUtil.h
-		)
-	endif()
-	if(APPLE)
-		list(APPEND HeadlessSource
-			Common/Render/Text/draw_text_cocoa.mm
-			Common/Render/Text/draw_text_cocoa.h
-			headless/SDLCocoaMetalLayer.h
-			headless/SDLCocoaMetalLayer.mm
-		)
-		set_source_files_properties(Common/Render/Text/draw_text_cocoa.mm
-			PROPERTIES COMPILE_FLAGS -fobjc-arc)
-	elseif(SDL_TTF_LIB_TARGET AND NOT WIN32)
-		list(APPEND HeadlessSource
-			Common/Render/Text/draw_text_sdl.cpp
-			Common/Render/Text/draw_text_sdl.h
-		)
-	endif()
-	if(WIN32)
-		list(APPEND HeadlessSource
-			headless/WindowsHeadlessHost.cpp
-			headless/WindowsHeadlessHost.h
-		)
-	endif()
-	add_executable(PPSSPPHeadless ${HeadlessSource})
-	target_link_libraries(PPSSPPHeadless ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${IOKIT_LIBRARY} ${CMAKE_THREAD_LIBS_INIT} Core)
-	if(SDL_LIB_TARGET)
-		target_link_libraries(PPSSPPHeadless ${SDL_LIB_TARGET})
-	endif()
-	if(SDL_TTF_LIB_TARGET)
-		target_link_libraries(PPSSPPHeadless ${SDL_TTF_LIB_TARGET})
-	endif()
-	if(FONTCONFIG_LIB_TARGET)
-		target_link_libraries(PPSSPPHeadless ${FONTCONFIG_LIB_TARGET})
-	endif()
-	if(WIN32)
-		target_link_libraries(PPSSPPHeadless d2d1 dwrite d3d11)
-	endif()
-	setup_target_project(PPSSPPHeadless headless)
-endif()
 
 if(UNITTEST)
 	add_executable(PPSSPPUnitTest
@@ -826,24 +629,18 @@ if(UNITTEST)
 		unittest/TestLoongArch64Emitter.cpp
 		unittest/TestSoftwareGPUJit.cpp
 		unittest/TestThreadManager.cpp
+		unittest/TestFFmpegThreading.cpp
 		unittest/TestNetWait.cpp
 		unittest/JitHarness.cpp
+		Core/MIPS/MIPSAsm.cpp
 		Core/MIPS/ARM/ArmRegCache.cpp
 		Core/MIPS/ARM/ArmRegCacheFPU.cpp
 	)
-	if(APPLE)
-		target_sources(PPSSPPUnitTest PRIVATE
-			Common/Render/Text/draw_text_cocoa.mm
-			Common/Render/Text/draw_text_cocoa.h
-		)
-		set_source_files_properties(Common/Render/Text/draw_text_cocoa.mm
-			PROPERTIES COMPILE_FLAGS -fobjc-arc)
-	elseif(SDL_TTF_LIB_TARGET AND NOT WIN32)
-		target_sources(PPSSPPUnitTest PRIVATE
-			Common/Render/Text/draw_text_sdl.cpp
-			Common/Render/Text/draw_text_sdl.h
-		)
+	if(USE_FFMPEG)
+		target_compile_definitions(PPSSPPUnitTest PRIVATE TEST_BUNDLED_FFMPEG)
+		target_include_directories(PPSSPPUnitTest PRIVATE ${CMAKE_SOURCE_DIR}/ffmpeg)
 	endif()
+
 	target_link_libraries(PPSSPPUnitTest ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${IOKIT_LIBRARY} ${CMAKE_THREAD_LIBS_INIT} Common Core)
 	if(SDL_LIB_TARGET)
 		target_link_libraries(PPSSPPUnitTest ${SDL_LIB_TARGET})
@@ -892,9 +689,7 @@ if(ATLAS_TOOL)
 	setup_target_project(AtlasTool atlastool)
 endif()
 
-if(LIBRETRO)
 	add_subdirectory(libretro)
-endif()
 
 # installs
 if(NOT ANDROID)

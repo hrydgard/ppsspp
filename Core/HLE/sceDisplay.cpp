@@ -379,12 +379,10 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 		// Gotta flip even if sceDisplaySetFramebuf was not called.
 		__DisplayFlip(cyclesLate);
 	}
-#ifdef __LIBRETRO__
 	// The frontend clocks runs at the PSP display rate. Return once per
 	// vblank even when the game has not changed its framebuffer.
 	if (coreState == CORE_RUNNING_CPU || coreState == CORE_REENTER_DISPATCH)
 		Core_NextFrame();
-#endif
 }
 
 static DisplayLayoutConfig g_displayLayoutConfigCached;
@@ -436,13 +434,9 @@ void __DisplayFlip(int cyclesLate) {
 
 	if (fbReallyDirty || noRecentFlip || postEffectRequiresFlip) {
 		// Check first though, might've just quit / been paused.
-#ifdef __LIBRETRO__
 		// IMMEDIATE framebuffer changes do not authorize another frontend
 		// frame. Host execution yields at vblank instead.
 		nextFrame = coreState == CORE_RUNNING_CPU || coreState == CORE_REENTER_DISPATCH;
-#else
-		nextFrame = Core_NextFrame();
-#endif
 		if (!nextFrame) {
 			WARN_LOG(Log::sceDisplay, "Core_NextFrame returned false");
 		}

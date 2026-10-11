@@ -959,26 +959,6 @@ struct retro_core_option_v2_definition option_defs_us[] = {
       "0"
    },
    {
-      "ppsspp_enable_upnp",
-      "Enable UPnP (Need a few seconds to detect)",
-      NULL,
-      NULL,
-      NULL,
-      "network",
-      BOOL_OPTIONS,
-      "disabled"
-   },
-   {
-      "ppsspp_upnp_use_original_port",
-      "UPnP Use Original Port ('ON' = PSP compatibility)",
-      NULL,
-      NULL,
-      NULL,
-      "network",
-      BOOL_OPTIONS,
-      "enabled"
-   },
-   {
       "ppsspp_port_offset",
       "Port Offset ('0' = PSP compatibility)",
       NULL,

@@ -58,7 +58,6 @@
 #include "HW/MemoryStick.h"
 
 #ifndef MOBILE_DEVICE
-#include "Core/AVIDump.h"
 #include "Core/HLE/__sceAudio.h"
 #endif
 
@@ -421,7 +420,7 @@ static retro_atomic_int_t g_screenshotFailures{ 0 };
 			// This add only 1 extra state, should we just always enable it?
 			if (g_Config.bEnableStateUndo) {
 				Path backup = GetSysDirectory(DIRECTORY_SAVESTATE) / LOAD_UNDO_NAME;
-				
+
 				std::string prefix(gamePrefix);
 				auto saveCallback = [prefix, fn, backup, slot, callback](Status status, std::string_view message, std::string_view metadata) {
 					if (status != Status::FAILURE) {
@@ -894,17 +893,6 @@ static retro_atomic_int_t g_screenshotFailures{ 0 };
 					if (!slot_prefix.empty())
 						callbackMessage = slot_prefix + callbackMessage;
 
-#ifndef MOBILE_DEVICE
-					if (g_Config.bSaveLoadResetsAVdumping) {
-						if (g_Config.bDumpFrames) {
-							AVIDump::Stop();
-							AVIDump::Start(PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
-						}
-						if (g_Config.bDumpAudio) {
-							WAVDump::Reset();
-						}
-					}
-#endif
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
 					HandleLoadFailure(false, &callbackMetadata);
 					callbackMessage = std::string(i18nLoadFailure) + ": " + errorString;
@@ -929,17 +917,6 @@ static retro_atomic_int_t g_screenshotFailures{ 0 };
 				if (result == CChunkFileReader::ERROR_NONE) {
 					callbackMessage = slot_prefix + std::string(sc->T("Saved State"));
 					callbackResult = Status::SUCCESS;
-#ifndef MOBILE_DEVICE
-					if (g_Config.bSaveLoadResetsAVdumping) {
-						if (g_Config.bDumpFrames) {
-							AVIDump::Stop();
-							AVIDump::Start(PSP_CoreParameter().renderWidth, PSP_CoreParameter().renderHeight);
-						}
-						if (g_Config.bDumpAudio) {
-							WAVDump::Reset();
-						}
-					}
-#endif
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
 					// TODO: What else might we want to do here? This should be very unusual.
 					callbackMessage = i18nSaveFailure;

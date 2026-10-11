@@ -172,7 +172,6 @@ void JoinPostofficeConnect(AdhocSocket *sock, bool cancel) {
 	sock->connectCancel = NULL;
 }
 AdhocSocket* adhocSockets[MAX_SOCKET];
-bool isOriPort = false;
 bool isLocalServer = false;
 SockAddrIN4 g_adhocServerIP;
 SockAddrIN4 g_localhostIP;
@@ -212,8 +211,8 @@ bool isPTPPortInUse(uint16_t port, bool forListen, SceNetEtherAddr* dstmac, uint
 			// It's allowed to Listen and Open the same PTP port, But it's not allowed to Listen or Open the same PTP port twice (unless destination mac or port are different).
 			if (sock->data.ptp.lport == port &&
 			    ((forListen && sock->data.ptp.state == ADHOC_PTP_STATE_LISTEN) ||
-			     (!forListen && sock->data.ptp.state != ADHOC_PTP_STATE_LISTEN && 
-			      sock->data.ptp.pport == dstport && dstmac != nullptr && isMacMatch(&sock->data.ptp.paddr, dstmac)))) 
+			     (!forListen && sock->data.ptp.state != ADHOC_PTP_STATE_LISTEN &&
+			      sock->data.ptp.pport == dstport && dstmac != nullptr && isMacMatch(&sock->data.ptp.paddr, dstmac))))
 			{
 				return true;
 			}
@@ -248,7 +247,7 @@ std::string mac2str(const SceNetEtherAddr *mac) {
 
 SceNetAdhocMatchingMemberInternal* addMember(SceNetAdhocMatchingContext * context, SceNetEtherAddr * mac) {
 	if (context == NULL || mac == NULL) return NULL;
-	
+
 	SceNetAdhocMatchingMemberInternal * peer = findPeer(context, mac);
 	// Already existed
 	if (peer != NULL) {
@@ -284,7 +283,7 @@ void addFriend(SceNetAdhocctlConnectPacketS2C * packet) {
 		peer->mac_addr = packet->mac;
 		peer->ip_addr = packet->ip;
 		// Calculate final IP-specific Port Offset
-		peer->port_offset = ((isOriPort && !isPrivateIP(peer->ip_addr)) ? 0 : portOffset);
+		peer->port_offset = portOffset;
 		// Update TimeStamp
 		peer->last_recv = CoreTiming::GetGlobalTimeUsScaled();
 	}
@@ -306,7 +305,7 @@ void addFriend(SceNetAdhocctlConnectPacketS2C * packet) {
 			peer->ip_addr = packet->ip;
 
 			// Calculate final IP-specific Port Offset
-			peer->port_offset = ((isOriPort && !isPrivateIP(peer->ip_addr)) ? 0 : portOffset);
+			peer->port_offset = portOffset;
 
 			// TimeStamp
 			peer->last_recv = CoreTiming::GetGlobalTimeUsScaled();
@@ -369,10 +368,10 @@ int IsSocketReady(int fd, bool readfd, bool writefd, int* errorcode, int timeout
 
 	FD_ZERO(&readfds);
 	writefds = readfds;
-	if (readfd) {	
+	if (readfd) {
 		FD_SET(fd, &readfds);
 	}
-	if (writefd) {	
+	if (writefd) {
 		FD_SET(fd, &writefds);
 	}
 	tval.tv_sec = timeoutUS / 1000000;
@@ -545,7 +544,7 @@ void deleteFriendByIP(uint32_t ip) {
 	for (; peer != NULL; peer = peer->next) {
 		// Found Peer
 		if (peer->ip_addr == ip) {
-			
+
 
 			// Unlink Left (Beginning)
 			/*if (prev == NULL) friends = peer->next;
@@ -581,14 +580,14 @@ int findFreeMatchingID() {
 	int max = 0;
 
 	// Find highest Matching ID
-	SceNetAdhocMatchingContext * item = contexts; 
+	SceNetAdhocMatchingContext * item = contexts;
 	for (; item != NULL; item = item->next) {
 		// New Maximum
 		if (max < item->id) max = item->id;
 	}
 
 	// Find unoccupied ID
-	int i = min; 
+	int i = min;
 	for (; i < max; i++) {
 		// Found unoccupied ID
 		if (findMatchingContext(i) == NULL) return i;
@@ -600,7 +599,7 @@ int findFreeMatchingID() {
 
 SceNetAdhocMatchingContext * findMatchingContext(int id) {
 	// Iterate Matching Context List
-	SceNetAdhocMatchingContext * item = contexts; 
+	SceNetAdhocMatchingContext * item = contexts;
 	for (; item != NULL; item = item->next) { // Found Matching ID
 		if (item->id == id) return item;
 	}
@@ -617,7 +616,7 @@ SceNetAdhocMatchingContext * findMatchingContext(int id) {
 SceNetAdhocMatchingMemberInternal * findOutgoingRequest(SceNetAdhocMatchingContext * context)
 {
 	// Iterate Peer List for Matching Target
-	SceNetAdhocMatchingMemberInternal * peer = context->peerlist; 
+	SceNetAdhocMatchingMemberInternal * peer = context->peerlist;
 	for (; peer != NULL; peer = peer->next)
 	{
 		// Found Peer in List
@@ -639,7 +638,7 @@ void postAcceptCleanPeerList(SceNetAdhocMatchingContext * context)
 	// Acquire Peer Lock
 
 	// Iterate Peer List
-	SceNetAdhocMatchingMemberInternal * peer = context->peerlist; 
+	SceNetAdhocMatchingMemberInternal * peer = context->peerlist;
 	while (peer != NULL)
 	{
 		// Save next Peer just in case we have to delete this one
@@ -731,7 +730,7 @@ s32_le countChildren(SceNetAdhocMatchingContext * context, const bool excludeTim
 	s32_le count = 0;
 
 	// Iterate Peer List for Matching Target
-	SceNetAdhocMatchingMemberInternal * peer = context->peerlist; 
+	SceNetAdhocMatchingMemberInternal * peer = context->peerlist;
 	for (; peer != NULL; peer = peer->next)
 	{
 		// Exclude timedout members?
@@ -756,7 +755,7 @@ SceNetAdhocMatchingMemberInternal * findPeer(SceNetAdhocMatchingContext * contex
 		return NULL;
 
 	// Iterate Peer List for Matching Target
-	SceNetAdhocMatchingMemberInternal * peer = context->peerlist; 
+	SceNetAdhocMatchingMemberInternal * peer = context->peerlist;
 	for (; peer != NULL; peer = peer->next)
 	{
 		// Found Peer in List
@@ -779,7 +778,7 @@ SceNetAdhocMatchingMemberInternal * findPeer(SceNetAdhocMatchingContext * contex
 SceNetAdhocMatchingMemberInternal * findParent(SceNetAdhocMatchingContext * context)
 {
 	// Iterate Peer List for Matching Target
-	SceNetAdhocMatchingMemberInternal * peer = context->peerlist; 
+	SceNetAdhocMatchingMemberInternal * peer = context->peerlist;
 	for (; peer != NULL; peer = peer->next)
 	{
 		// Found Peer in List
@@ -798,7 +797,7 @@ SceNetAdhocMatchingMemberInternal * findParent(SceNetAdhocMatchingContext * cont
 SceNetAdhocMatchingMemberInternal * findP2P(SceNetAdhocMatchingContext * context, const bool excludeTimedout)
 {
 	// Iterate Peer List for Matching Target
-	SceNetAdhocMatchingMemberInternal * peer = context->peerlist; 
+	SceNetAdhocMatchingMemberInternal * peer = context->peerlist;
 	for (; peer != NULL; peer = peer->next)
 	{
 		// Exclude timedout members?
@@ -826,7 +825,7 @@ void deletePeer(SceNetAdhocMatchingContext * context, SceNetAdhocMatchingMemberI
 		SceNetAdhocMatchingMemberInternal * previous = NULL;
 
 		// Iterate Peer List
-		SceNetAdhocMatchingMemberInternal * item = context->peerlist; 
+		SceNetAdhocMatchingMemberInternal * item = context->peerlist;
 		for (; item != NULL; item = item->next)
 		{
 			// Found Peer Match
@@ -1089,7 +1088,7 @@ void spawnLocalEvent(SceNetAdhocMatchingContext * context, int event, SceNetEthe
 void handleTimeout(SceNetAdhocMatchingContext * context)
 {
 	// Iterate Peer List
-	SceNetAdhocMatchingMemberInternal * peer = context->peerlist; 
+	SceNetAdhocMatchingMemberInternal * peer = context->peerlist;
 	while (peer != NULL && contexts != NULL && coreState != CORE_POWERDOWN)
 	{
 		// Get Next Pointer (to avoid crash on memory freeing)
@@ -1097,12 +1096,12 @@ void handleTimeout(SceNetAdhocMatchingContext * context)
 
 		u64_le now = CoreTiming::GetGlobalTimeUsScaled(); //time_now_d()*1000000.0
 		// Timeout! Apparently the latest GetGlobalTimeUsScaled (ie. now) have a possibility to be smaller than previous GetGlobalTimeUsScaled (ie. lastping) thus resulting a negative number when subtracted :(
-		if (peer->state != 0 && static_cast<s64>(now - peer->lastping) > static_cast<s64>(context->timeout)) 
+		if (peer->state != 0 && static_cast<s64>(now - peer->lastping) > static_cast<s64>(context->timeout))
 		{
 			// Spawn Timeout Event. FIXME: Should we allow TIMEOUT Event to intervene joining process of Parent-Child too just like P2P Mode? (ie. Crazy Taxi uses P2P Mode)
 			if ((context->mode == PSP_ADHOC_MATCHING_MODE_CHILD && peer->state == PSP_ADHOC_MATCHING_PEER_PARENT) ||
 				(context->mode == PSP_ADHOC_MATCHING_MODE_PARENT && peer->state == PSP_ADHOC_MATCHING_PEER_CHILD) ||
-				(context->mode == PSP_ADHOC_MATCHING_MODE_P2P && 
+				(context->mode == PSP_ADHOC_MATCHING_MODE_P2P &&
 					(peer->state == PSP_ADHOC_MATCHING_PEER_P2P || peer->state == PSP_ADHOC_MATCHING_PEER_OFFER || peer->state == PSP_ADHOC_MATCHING_PEER_INCOMING_REQUEST || peer->state == PSP_ADHOC_MATCHING_PEER_OUTGOING_REQUEST || peer->state == PSP_ADHOC_MATCHING_PEER_CANCEL_IN_PROGRESS)))
 			{
 				// FIXME: TIMEOUT event should only be triggered on Parent/P2P mode and for Parent/P2P peer?
@@ -1110,9 +1109,9 @@ void handleTimeout(SceNetAdhocMatchingContext * context)
 
 				INFO_LOG(Log::sceNet, "TimedOut Member Peer %s (%lld - %lld = %lld > %lld us)", mac2str(&peer->mac).c_str(), now, peer->lastping, (now - peer->lastping), context->timeout);
 
-				if (context->mode == PSP_ADHOC_MATCHING_MODE_PARENT) 
+				if (context->mode == PSP_ADHOC_MATCHING_MODE_PARENT)
 					sendDeathMessage(context, peer);
-				else 
+				else
 					sendCancelMessage(context, peer, 0, NULL);
 			}
 		}
@@ -1153,7 +1152,7 @@ void clearStack(SceNetAdhocMatchingContext * context, int stack)
 
 		// Destroy Reference
 		context->event_stack = NULL;
-		
+
 	}
 
 	// Clear IO Stack
@@ -1177,7 +1176,7 @@ void clearPeerList(SceNetAdhocMatchingContext * context)
 	// Acquire Peer Lock
 
 	// Iterate Peer List
-	SceNetAdhocMatchingMemberInternal * peer = context->peerlist; 
+	SceNetAdhocMatchingMemberInternal * peer = context->peerlist;
 	while (peer != NULL)
 	{
 		// Grab Next Pointer
@@ -2155,7 +2154,7 @@ int getSockError(int sock) {
 	return result;
 }
 
-int getSockNoDelay(int tcpsock) { 
+int getSockNoDelay(int tcpsock) {
 	int opt = 0;
 	socklen_t optlen = sizeof(opt);
 	getsockopt(tcpsock, IPPROTO_TCP, TCP_NODELAY, (char*)&opt, &optlen);
@@ -2234,7 +2233,7 @@ int setSockKeepAlive(int sock, bool keepalive, const int keepinvl, const int kee
 		if (getsockopt(sock, SOL_SOCKET, SO_TYPE, (char*)&optval, (socklen_t*)&optlen) == 0 && optval == SOCK_STREAM) {
 			optlen = sizeof(optval);
 			optval = keepidle; //180 sec
-			setsockopt(sock, IPPROTO_TCP, TCP_KEEPIDLE, (char*)&optval, optlen);		
+			setsockopt(sock, IPPROTO_TCP, TCP_KEEPIDLE, (char*)&optval, optlen);
 			optval = keepinvl; //60 sec
 			setsockopt(sock, IPPROTO_TCP, TCP_KEEPINTVL, (char*)&optval, optlen);
 			optval = keepcnt; //20
@@ -2282,8 +2281,8 @@ int getPDPSocketCount()
 	int counter = 0;
 
 	// Count Sockets
-	for (int i = 0; i < MAX_SOCKET; i++) 
-		if (adhocSockets[i] != NULL && adhocSockets[i]->type == SOCK_PDP) 
+	for (int i = 0; i < MAX_SOCKET; i++)
+		if (adhocSockets[i] != NULL && adhocSockets[i]->type == SOCK_PDP)
 			counter++;
 
 	// Return Socket Count

@@ -204,40 +204,6 @@ Path GetGameConfigFilePath(const Path &searchPath, std::string_view gameId, bool
 // /var/mobile/Containers/Data/Application/0E0E89DE-8D8E-485A-860C-700D8BC87B86/Documents/PSP/GAME/SuicideBarbie
 // The GUID part changes on each launch.
 bool TryUpdateSavedPath(Path *path) {
-#if PPSSPP_PLATFORM(IOS) && !defined(__LIBRETRO__)
-	// DEBUG_LOG(Log::Loader, "Original path: %s", path->c_str());
-	std::string pathStr = path->ToString();
-	if (startsWith(pathStr, "/private/var/mobile/Containers/Data/Application/")) {
-		// For in-application files only, strip off the /private prefix if present - it's sometimes there, sometimes not.
-		pathStr = pathStr.substr(8);
-	}
-
-	const std::string_view applicationRoot = "/var/mobile/Containers/Data/Application/";
-	if (startsWith(pathStr, applicationRoot)) {
-		size_t documentsPos = pathStr.find("/Documents/");
-		if (documentsPos == std::string::npos) {
-			return false;
-		}
-		std::string memstick = g_Config.memStickDirectory.ToString();
-		size_t memstickDocumentsPos = memstick.find("/Documents");  // Note: No trailing slash, or we won't find it.
-		*path = Path(memstick.substr(0, memstickDocumentsPos) + pathStr.substr(documentsPos));
-	}
-
-	if (File::Exists(*path)) {
-		return true;
-	}
-
-	// Still doesn't exist? Maybe got de-authorized
-	// Try to "unlock" the path before the file loader hits it
-	Path newFilename = DarwinFileSystemServices::reauthorizeBookmarkByPath(*path);
-	if (!newFilename.empty()) {
-		INFO_LOG(Log::UI, "Bookmark rename: %s -> %s", path->c_str(), newFilename.c_str());
-		*path = newFilename;
-		return true;
-	}
-	
-	// Path can't be auto-updated.
-#endif
 	return false;
 }
 

@@ -10,7 +10,6 @@
 #include "Core/System.h"
 #include "GPU/GPUState.h"
 #include "GPU/Software/SoftGpu.h"
-#include "headless/Compare.h"
 #include "Common/Data/Convert/ColorConv.h"
 
 #define NATIVEWIDTH  480

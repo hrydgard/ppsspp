@@ -52,10 +52,6 @@ struct PVD {
 FileLoader *ConstructFileLoader(const Path &filename) {
 	if (filename.Type() == PathType::HTTP) {
 		FileLoader *baseLoader = new RetryingFileLoader(new HTTPFileLoader(filename));
-		// For headless, avoid disk caching since it's usually used for tests that might mutate.
-		if (!PSP_CoreParameter().headLess) {
-			baseLoader = new DiskCachingFileLoader(baseLoader);
-		}
 		return new CachingFileLoader(baseLoader);
 	}
 

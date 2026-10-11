@@ -133,7 +133,7 @@ bool HandleAssert(bool isDebugAssert, const char *function, const char *file, in
 
 	// Avoid hanging on CI or on headless builds in general.
 #if PPSSPP_PLATFORM(WINDOWS) && !PPSSPP_PLATFORM(UWP)
-	if (!getenv("CI") && !System_GetPropertyBool(SYSPROP_IS_HEADLESS)) {
+	if (!getenv("CI")) {
 		const int msgBoxStyle = MB_ICONINFORMATION | MB_YESNOCANCEL;
 		std::string text = formatted;
 		text += "\n\nTry to continue?";

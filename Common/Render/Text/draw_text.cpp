@@ -14,31 +14,9 @@
 #include "Common/Data/Encoding/Utf8.h"
 
 #include "Common/Render/Text/draw_text.h"
-#include "Common/Render/Text/draw_text_win.h"
-#include "Common/Render/Text/draw_text_cocoa.h"
-#include "Common/Render/Text/draw_text_sdl.h"
-#include "Common/Render/Text/draw_text_uwp.h"
 #include "Common/StringUtils.h"
 #include "Common/OSVersion.h"
 
-// TODO: Move this to somewhere more appropriate.
-static bool IsRenderDocLoaded() {
-#if PPSSPP_PLATFORM(UWP) || PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(ANDROID)
-	return false;
-#elif defined(_WIN32)
-	return (GetModuleHandleA("renderdoc.dll") != nullptr);
-#elif defined(__linux__) || defined(__FreeBSD__)
-	// Returns a pointer if loaded, otherwise null
-	void* handle = dlopen("librenderdoc.so", RTLD_NOW | RTLD_NOLOAD);
-	if (handle) {
-		dlclose(handle);
-		return true;
-	}
-	return false;
-#else
-	return false;
-#endif
-}
 
 TextDrawer::TextDrawer(Draw::DrawContext *draw) : draw_(draw) {
 	// These probably shouldn't be state.
@@ -293,31 +271,9 @@ size_t TextDrawer::GetCacheDataSize() const {
 	return sz;
 }
 
-TextDrawer *TextDrawer::Create(Draw::DrawContext *draw) {
-	TextDrawer *drawer = nullptr;
-#if defined(__LIBRETRO__)
-	// No text drawer
-#elif PPSSPP_PLATFORM(UWP)
-	drawer = new TextDrawerUWP(draw);
-#elif defined(_WIN32)
-	// If RenderDoc is active, we can't use the UWP drawer since it uses D3D11 to initialize D2D,
-	// and RenderDoc doesn't permit multiple graphics contexts.
-	// Also, this seems to cause failures under Windows 7, so let's gate on Win 10 to be safe.
-	if (IsRenderDocLoaded() || !IsWin10OrHigher()) {
-		drawer = new TextDrawerWin32(draw);
-	} else {
-		drawer = new TextDrawerUWP(draw);
-	}
-#elif PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
-	drawer = new TextDrawerCocoa(draw);
-#elif USE_SDL3_TTF
-	drawer = new TextDrawerSDL(draw);
-#endif
-	if (drawer && !drawer->IsReady()) {
-		delete drawer;
-		drawer = nullptr;
-	}
-	return drawer;
+TextDrawer *TextDrawer::Create(Draw::DrawContext *) {
+	// PSP utility dialogs use the emulated font/atlas path, not native UI fonts.
+	return nullptr;
 }
 
 struct FontDesc {

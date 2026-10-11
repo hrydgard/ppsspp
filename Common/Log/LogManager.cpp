@@ -124,7 +124,7 @@ const char *LogManager::GetLogTypeName(Log type) {
 // Ultra plain output, for CI and stuff.
 void PrintfLog(const LogMessage &message);
 
-void LogManager::Init(bool *enabledSetting, bool headless) {
+void LogManager::Init(bool *enabledSetting) {
 	g_bLogEnabledSetting = enabledSetting;
 	if (initialized_) {
 		// Just update the pointer, already done above.

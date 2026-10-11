@@ -96,7 +96,6 @@
 #include <map>
 #include <set>
 #include <list>
-#include "Core/CmdLine.h"
 #include "Common/Data/Collections/Hashmaps.h"
 #include "Core/Util/BlockAllocator.h"
 #include "Core/Debugger/Breakpoints.h"
@@ -119,6 +118,11 @@
 #include "unittest/JitHarness.h"
 #include "unittest/TestVertexJit.h"
 #include "unittest/UnitTest.h"
+
+// Test diagnostics use the native stderr stream, not a frontend VFS file.
+#ifdef HAVE_LIBRETRO_VFS
+#undef fprintf
+#endif
 
 // Set to true for more verbose unit tests.
 bool g_testLog = false;
@@ -2768,66 +2772,7 @@ bool TestFriendlyPath() {
 	return true;
 }
 
-bool TestCmdLine() {
-	{
-		const char *argv[] = {
-			"ppsspp",
-			"--graphics=d3d11",
-			"My_Game.iso"
-		};
-		int argc = ARRAY_SIZE(argv);
-		CommandLineOptions options;
-		options.Parse(argc, argv, CmdLineMode::Application);
-		if (options.bootFilenames.empty()) {
-			EXPECT_TRUE(false);
-			return false;
-		}
-		EXPECT_EQ_STR(options.bootFilenames[0], std::string("My_Game.iso"));
-		EXPECT_TRUE(options.gpuBackend.has_value());
-		EXPECT_EQ_INT((int)options.gpuBackend.value_or((GPUBackend)-1), (int)GPUBackend::DIRECT3D11);
-	}
-	// The timeouts are headless-only (only headless/Headless.cpp reads them), so they must be
-	// parsed in Headless mode. --timeout is the old name for --timeout-wall and sets the same
-	// field; --timeout-wall must not be swallowed by it, which is the interesting case since one
-	// name is a prefix of the other.
-	{
-		const char *argv[] = {
-			"ppsspp",
-			"--timeout=3",
-			"My_Game.iso"
-		};
-		int argc = ARRAY_SIZE(argv);
-		CommandLineOptions options;
-		options.Parse(argc, argv, CmdLineMode::Headless);
-		EXPECT_EQ_INT(options.timeoutWall.value_or(0), 3);
-		EXPECT_FALSE(options.timeoutEmulated.has_value());
-	}
-	{
-		const char *argv[] = {
-			"ppsspp",
-			"--timeout-wall=4",
-			"--timeout-emulated=5",
-			"My_Game.iso"
-		};
-		int argc = ARRAY_SIZE(argv);
-		CommandLineOptions options;
-		options.Parse(argc, argv, CmdLineMode::Headless);
-		EXPECT_EQ_INT(options.timeoutWall.value_or(0), 4);
-		EXPECT_EQ_INT(options.timeoutEmulated.value_or(0), 5);
-	}
-	// Test GL version override
-	{
-		const char *argv[] = {
-			"ppsspp",
-			"--graphics=gles3.3",
-		};
-		int argc = ARRAY_SIZE(argv);
-		CommandLineOptions options;
-		options.Parse(argc, argv);
-		EXPECT_EQ_INT(options.force_gl_version, 33);
-	}
-	return true;
-}
+
 
 // Check that RTTI is working.
 bool TestLang() {
@@ -2858,6 +2803,7 @@ bool TestShaderGenerators();
 bool TestSoftwareGPUJit();
 bool TestIRPassSimplify();
 bool TestThreadManager();
+bool TestFFmpegThreading();
 bool TestNetWait();
 bool TestVFS();
 bool TestZipSlip();
@@ -2999,6 +2945,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(Path),
 	TEST_ITEM(AndroidContentURI),
 	TEST_ITEM(ThreadManager),
+	TEST_ITEM(FFmpegThreading),
 	TEST_ITEM(NetWait),
 	TEST_ITEM(WrapText),
 	TEST_ITEM(TinySet),
@@ -3019,7 +2966,6 @@ TestItem availableTests[] = {
 	TEST_ITEM(FriendlyPath),
 	TEST_ITEM(LinAlg),
 	TEST_ITEM(Lang),
-	TEST_ITEM(CmdLine),
 	TEST_ITEM(ZipSlip),
 	TEST_ITEM(Lzrc),
 	TEST_ITEM(MpegCsc),

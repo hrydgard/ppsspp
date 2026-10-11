@@ -128,9 +128,6 @@ namespace MIPSComp {
 	}
 
 }
-#if PPSSPP_PLATFORM(WINDOWS) && !defined(__LIBRETRO__)
-#define DISASM_ALL 1
-#endif
 
 #if PPSSPP_ARCH(ARM) || defined(DISASM_ALL)
 // We compile this for x86 as well because it may be useful when developing the ARM JIT on a PC.

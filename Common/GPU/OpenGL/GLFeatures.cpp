@@ -211,7 +211,7 @@ bool CheckGLExtensions() {
 
 	// Start by assuming we're at 2.0.
 	int parsed[2] = {2, 0};
-	{ // Grab the version and attempt to parse.		
+	{ // Grab the version and attempt to parse.
 		char buffer[128]{};
 		truncate_cpy(buffer, versionStr);
 
@@ -266,9 +266,9 @@ bool CheckGLExtensions() {
 			gl_extensions.ver[1] = 0;
 		} else if (parsed[0] && (gl_extensions.ver[0] != parsed[0] || gl_extensions.ver[1] != parsed[1])) {
 			// Something going wrong. Possible bug in GL ES drivers. See #9688
-			INFO_LOG(Log::G3D, "GL ES version mismatch. Version string '%s' parsed as %d.%d but API return %d.%d. Fallback to GL ES 2.0.", 
+			INFO_LOG(Log::G3D, "GL ES version mismatch. Version string '%s' parsed as %d.%d but API return %d.%d. Fallback to GL ES 2.0.",
 				versionStr ? versionStr : "N/A", parsed[0], parsed[1], gl_extensions.ver[0], gl_extensions.ver[1]);
-			
+
 			gl_extensions.ver[0] = 2;
 			gl_extensions.ver[1] = 0;
 		}
@@ -351,15 +351,7 @@ bool CheckGLExtensions() {
 		ParseExtensionsString(g_all_gl_extensions, g_set_gl_extensions);
 	}
 
-#if defined(WIN32) && !defined(__LIBRETRO__)
-	const char *wglString = 0;
-	if (wglGetExtensionsStringEXT)
-		wglString = wglGetExtensionsStringEXT();
-	g_all_egl_extensions = wglString ? wglString : "";
-	ParseExtensionsString(g_all_egl_extensions, g_set_egl_extensions);
-
-	gl_extensions.EXT_swap_control_tear = g_set_egl_extensions.count("WGL_EXT_swap_control_tear") != 0;
-#elif !defined(USING_GLES2)
+#if !defined(USING_GLES2)
 	// const char *glXString = glXQueryExtensionString();
 	// gl_extensions.EXT_swap_control_tear = strstr(glXString, "GLX_EXT_swap_control_tear") != 0;
 #endif

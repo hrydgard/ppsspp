@@ -92,7 +92,6 @@ static void ApplyCheatSet(unsigned index, bool enabled, const char *code);
 
 static bool libretro_supports_bitmasks = false;
 static bool show_ip_address_options = true;
-static bool show_upnp_port_option = true;
 static std::string changeProAdhocServer;
 
 void* unserialize_data = NULL;
@@ -231,22 +230,6 @@ static bool set_variable_visibility(void)
          snprintf(key, sizeof(key), "ppsspp_pro_ad_hoc_server_address%02d", i + 1);
          environ_cb(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_DISPLAY, &option_display);
       }
-      updated = true;
-   }
-
-   // Show/hide 'UPnP Use Original Port' option
-   bool show_upnp_port_option_prev = show_upnp_port_option;
-   show_upnp_port_option = true;
-
-   var.key = "ppsspp_enable_upnp";
-   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value && !strcmp(var.value, "disabled"))
-      show_upnp_port_option = false;
-
-   if (show_upnp_port_option != show_upnp_port_option_prev)
-   {
-      option_display.visible = show_upnp_port_option;
-      option_display.key = "ppsspp_upnp_use_original_port";
-      environ_cb(RETRO_ENVIRONMENT_SET_CORE_OPTIONS_DISPLAY, &option_display);
       updated = true;
    }
 
@@ -773,24 +756,6 @@ static void check_variables(CoreParameter &coreParam)
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
       changeProAdhocServer = var.value;
 
-   var.key = "ppsspp_enable_upnp";
-   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
-   {
-      if (!strcmp(var.value, "disabled"))
-         g_Config.bEnableUPnP = false;
-      else
-         g_Config.bEnableUPnP = true;
-   }
-
-   var.key = "ppsspp_upnp_use_original_port";
-   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
-   {
-      if (!strcmp(var.value, "disabled"))
-         g_Config.bUPnPUseOriginalPort = false;
-      else
-         g_Config.bUPnPUseOriginalPort = true;
-   }
-
    var.key = "ppsspp_port_offset";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
       g_Config.iPortOffset = atoi(var.value);
@@ -1069,9 +1034,12 @@ void retro_init(void)
    init_output_audio_buffer();
 }
 
+extern "C" void ff_retro_serial_shutdown(void);
+
 void retro_deinit(void)
 {
    g_threadManager.Teardown();
+   ff_retro_serial_shutdown();
    g_logManager.Shutdown();
    log_cb = NULL;
 
@@ -1318,7 +1286,6 @@ bool retro_load_game(const struct retro_game_info *game) {
    coreParam.enableSound     = true;
    coreParam.fileToStart     = Path(game->path);
    coreParam.startBreak      = false;
-   coreParam.headLess        = true;  // really?
    coreParam.graphicsContext = ctx;
    coreParam.gpuCore         = ctx->GetGPUCore();
    check_variables(coreParam);

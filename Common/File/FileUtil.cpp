@@ -222,18 +222,7 @@ FILE *OpenCFile(const Path &path, const char *mode) {
 		return nullptr;
 	}
 #elif defined(_WIN32) && defined(UNICODE)
-#if PPSSPP_PLATFORM(UWP) && !defined(__LIBRETRO__)
-	// We shouldn't use _wfopen here,
-	// this function is not allowed to read outside Local and Installation folders
-	// FileSystem (broadFileSystemAccess) doesn't apply on _wfopen
-	// if we have custom memory stick location _wfopen will return null
-	// 'GetFileStreamFromApp' will convert 'mode' to [access, share, creationDisposition]
-	// then it will call 'CreateFile2FromAppW' -> convert HANDLE to FILE*
-	FILE* file = GetFileStreamFromApp(path.ToString(), mode);
-	return file;
-#else
 	return _wfopen(path.ToWString().c_str(), ConvertUTF8ToWString(mode).c_str());
-#endif
 #else
 	return fopen(path.c_str(), mode);
 #endif

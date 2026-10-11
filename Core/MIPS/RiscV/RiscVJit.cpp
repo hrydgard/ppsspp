@@ -152,7 +152,7 @@ bool RiscVJitBackend::CompileBlock(IRBlockCache *irBlockCache, int block_num) {
 			auto next = std::next(it);
 			const u8 *nextp = next == addressesLookup.end() ? GetCodePointer() : next->first;
 
-#if PPSSPP_ARCH(RISCV64) || (PPSSPP_PLATFORM(WINDOWS) && !defined(__LIBRETRO__))
+#if PPSSPP_ARCH(RISCV64)
 			auto lines = DisassembleRV64(p, (int)(nextp - p));
 			for (const auto &line : lines)
 				INFO_LOG(Log::JIT, "RV: %s", line.c_str());

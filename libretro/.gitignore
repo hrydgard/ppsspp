@@ -3,4 +3,4 @@
 *.dll
 *.dylib
 *.manifest
-obj-ffmpeg-mingw-*/
+obj-ffmpeg-source-*/

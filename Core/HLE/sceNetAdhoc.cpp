@@ -38,7 +38,6 @@
 #include "Common/Net/HTTPRequest.h"
 
 #include "Core/MIPS/MIPSCodeUtils.h"
-#include "Core/Util/PortManager.h"
 #include "Core/Config.h"
 #include "Core/CoreTiming.h"
 #include "Core/Core.h"
@@ -2251,9 +2250,6 @@ int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 flag) {
 								// Link Socket to Translator ID
 								adhocSockets[i] = internal;
 
-								// Forward Port on Router
-								//sceNetPortOpen("UDP", port);
-								UPnP_Add(IP_PROTOCOL_UDP, isOriPort ? port : port + portOffset, port + portOffset); // g_PortManager.Add(IP_PROTOCOL_UDP, isOriPort ? port : port + portOffset, port + portOffset);
 
 								// Switch to non-blocking for futher usage
 								changeBlockingMode(usocket, 1);
@@ -3135,7 +3131,6 @@ int NetAdhocPdp_Delete(int id, int unknown) {
 
 				// Remove Port Forward from Router
 				//sceNetPortClose("UDP", sock->lport);
-				//g_PortManager.Remove(IP_PROTOCOL_UDP, isOriPort ? sock->lport : sock->lport + portOffset); // Let's not remove mapping in real-time as it could cause lags/disconnection when joining a room with slow routers
 
 				// Free Memory
 				free(sock);
@@ -4270,9 +4265,7 @@ int RecreatePtpSocket(int ptpId) {
 				WARN_LOG(Log::sceNet, "RecreatePtpSocket(%i) - Wrapped Port Detected: Original(%d) -> Requested(%d), Bound(%d) -> BoundOriginal(%d)", ptpId, sock->data.ptp.lport, requestedport, boundport, boundport - portOffset);
 			u16 newlport = boundport - portOffset;
 			if (newlport != sock->data.ptp.lport) {
-				WARN_LOG(Log::sceNet, "RecreatePtpSocket(%i) - Old and New LPort is different! The port may need to be reforwarded", ptpId);
-				if (!sock->isClient)
-					UPnP_Add(IP_PROTOCOL_TCP, isOriPort ? newlport : newlport + portOffset, newlport + portOffset);
+				WARN_LOG(Log::sceNet, "RecreatePtpSocket(%i) - Old and New LPort is different! The host assigned a different local port", ptpId);
 			}
 			sock->data.ptp.lport = newlport;
 		}
@@ -4495,11 +4488,6 @@ static int sceNetAdhocPtpOpen(const char *srcmac, int sport, const char *dstmac,
 								// Link PTP Socket
 								adhocSockets[i] = internal;
 
-								// Add Port Forward to Router. We may not even need to forward this local port, since PtpOpen usually have port 0 (any port) as source port and followed by PtpConnect (which mean acting as Client), right?
-								//sceNetPortOpen("TCP", sport);
-								if (!isClient)
-									UPnP_Add(IP_PROTOCOL_TCP, isOriPort ? sport : sport + portOffset, sport + portOffset);
-
 								// Switch to non-blocking for futher usage
 								changeBlockingMode(tcpsocket, 1);
 
@@ -4634,9 +4622,6 @@ int AcceptPtpSocket(int ptpId, int newsocket, sockaddr_in& peeraddr, SceNetEther
 					// Link PTP Socket
 					adhocSockets[i] = internal;
 
-					// Add Port Forward to Router. Or may be doesn't need to be forwarded since local port already accessible from outside if others were able to connect & get accepted at this point, right?
-					//sceNetPortOpen("TCP", internal->lport);
-					//g_PortManager.Add(IP_PROTOCOL_TCP, internal->lport + portOffset);
 
 					// Switch to non-blocking for futher usage
 					changeBlockingMode(newsocket, 1);
@@ -4960,7 +4945,6 @@ int NetAdhocPtp_Close(int id, int unknown) {
 
 				// Remove Port Forward from Router
 				//sceNetPortClose("TCP", socket->lport);
-				//g_PortManager.Remove(IP_PROTOCOL_TCP, isOriPort ? socket->lport : socket->lport + portOffset); // Let's not remove mapping in real-time as it could cause lags/disconnection when joining a room with slow routers
 
 				// Free Memory
 				free(socket);
@@ -5186,9 +5170,6 @@ static int sceNetAdhocPtpListen(const char *srcmac, int sport, int bufsize, int 
 									// Link PTP Socket
 									adhocSockets[i] = internal;
 
-									// Add Port Forward to Router
-									//sceNetPortOpen("TCP", sport);
-									UPnP_Add(IP_PROTOCOL_TCP, isOriPort ? sport : sport + portOffset, sport + portOffset);
 
 									// Switch to non-blocking for futher usage
 									changeBlockingMode(tcpsocket, 1);
@@ -6314,13 +6295,13 @@ int sceNetAdhocDiscoverStop() {
 
 int sceNetAdhocDiscoverTerm() {
 	WARN_LOG(Log::sceNet, "UNIMPL sceNetAdhocDiscoverTerm() at %08x", currentMIPS->pc);
-	
+
 	// if (sceKernelCheckThreadStack() < 0x00000FF0)
 	// 	return 0x80410005;
-	// 
+	//
 	// if (!(Memory::ReadOrException_U32(netAdhocDiscoverBufAddr + 0x80) > 0 && (Memory::ReadOrException_U32(netAdhocDiscoverBufAddr + 0x80) ^ 0x13) > 0))
 	// 	return 0x80411301; // Not Initialized/Started yet?
-	
+
 	// TODO: Use sceNetAdhocctl_lib_1C679240 to remove adhocctl state callback handler setup in sceNetAdhocDiscoverInitStart
 	// if (Memory::ReadOrException_U32(netAdhocDiscoverBufAddr + 0x70) >= 0) {
 	// 	LinkDiscoverSkip(Memory::ReadOrException_U32(netAdhocDiscoverBufAddr + 0x70)); //sceNetAdhocctl_lib_1C679240

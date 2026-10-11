@@ -1,3 +1,5 @@
+> This repository now builds only the libretro runtime. Headless, command-line and WebSocket tooling described in older guidance below has been removed. Use `PPSSPPUnitTest all` for development checks and a libretro frontend for game fixtures.
+
 # PPSSPP Agent instructions
 
 These rules apply to this repository by default.
