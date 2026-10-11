@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Common/CommonTypes.h"
 #include "Common/Net/SocketCompat.h"
 
 // Keep track of who's using a socket.
@@ -20,6 +21,9 @@ struct InetSocket {
 	int type;
 	int protocol;
 	bool nonblocking;
+	// SO_RCVTIMEO and SO_SNDTIMEO, for the blocking calls we wait for in emulated time. 0 is forever.
+	u32 recvTimeoutUs;
+	u32 sendTimeoutUs;
 	// Metadata for debug use only.
 	std::string addr;
 	int port;

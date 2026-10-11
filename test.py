@@ -353,6 +353,7 @@ tests_good = [
   "modules/loadrace/loadrace",
   "modules/startoptions/startoptions",
   "modules/unresolved/unresolved",
+  "net/inet/blocking",
   "misc/libc",
   "misc/sdkver",
   "misc/testgp",
