@@ -6,6 +6,8 @@
 #import <QuartzCore/CAMetalLayer.h>
 #import <objc/runtime.h>
 #include <atomic>
+#include <mutex>
+#include <optional>
 #include <thread>
 #include "Common/GPU/GraphicsContext.h"
 #include "Common/GPU/Vulkan/VulkanGraphicsContext.h"
@@ -74,6 +76,34 @@ static std::atomic<bool> exitRenderLoop;
 static std::atomic<bool> renderLoopRunning;
 static std::thread g_renderLoopThread;
 
+// A size change from the main thread, for the render thread to apply between frames. Changing
+// g_display while a frame is being drawn gives a frame laid out for one size and drawn at another.
+struct PendingResolution {
+	float pixelWidth;
+	float pixelHeight;
+	float dpiScale;
+	float uiScale;
+};
+static std::mutex g_pendingResolutionLock;
+static std::optional<PendingResolution> g_pendingResolution;
+
+static void ApplyResolution(const PendingResolution &res) {
+	g_display.Recalculate(res.pixelWidth, res.pixelHeight, res.dpiScale, res.dpiScale, res.uiScale);
+	// NativeFrame updates the PSP_CoreParameter() size along with the rest.
+	NativeResized();
+}
+
+static void ApplyPendingResolution() {
+	std::optional<PendingResolution> res;
+	{
+		std::lock_guard<std::mutex> guard(g_pendingResolutionLock);
+		res.swap(g_pendingResolution);
+	}
+	if (res) {
+		ApplyResolution(*res);
+	}
+}
+
 static void VulkanRenderLoop(GraphicsContext *graphicsContext, CAMetalLayer *metalLayer) {
 	// Only a provisional name, RunGraphicsLoop renames the thread once it knows its role.
 	SetCurrentThreadName("RenderLoop");
@@ -88,6 +118,7 @@ static void VulkanRenderLoop(GraphicsContext *graphicsContext, CAMetalLayer *met
 	}
 
 	const auto frame = [](GraphicsContext *graphicsContext) {
+		ApplyPendingResolution();
 		NativeFrame(graphicsContext);
 		return !exitRenderLoop;
 	};
@@ -685,20 +716,26 @@ extern float g_safeInsetBottom;
 	CGSize size = view.bounds.size;
 
 	float dpi = (IS_IPAD() ? 200.0f : 150.0f) * scale;
-	const float dpi_scale_x = 240.0f / dpi;
-	const float dpi_scale_y = 240.0f / dpi;
-
-	g_display.Recalculate(size.width * scale, size.height * scale,
-						 dpi_scale_x, dpi_scale_y,
-						 UIScaleFactorToMultiplier(g_Config.iUIScaleFactor));
+	PendingResolution res{
+		(float)(size.width * scale), (float)(size.height * scale),
+		240.0f / dpi,
+		UIScaleFactorToMultiplier(g_Config.iUIScaleFactor),
+	};
 
 	[view setContentScaleFactor:scale];
 
-	// NativeFrame updates the PSP_CoreParameter() size along with the rest.
-	NativeResized();
+	{
+		std::lock_guard<std::mutex> guard(g_pendingResolutionLock);
+		if (renderLoopRunning) {
+			// Applied by the render thread before its next frame.
+			g_pendingResolution = res;
+		} else {
+			g_pendingResolution.reset();
+			ApplyResolution(res);
+		}
+	}
 
-	NSLog(@"Updated display resolution: (%d, %d) @%.1fx",
-		  g_display.pixel_xres, g_display.pixel_yres, (float)scale);
+	NSLog(@"Updated display resolution: (%d, %d) @%.1fx", (int)res.pixelWidth, (int)res.pixelHeight, (float)scale);
 }
 
 @end

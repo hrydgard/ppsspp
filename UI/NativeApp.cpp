@@ -1159,6 +1159,29 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 		g_audioBackend->FrameUpdate(g_Config.bAutoSwitchAudioDevice);
 	}
 
+	// Resize before drawing anything, so the first frame at a new size isn't drawn into the old backbuffer.
+	const bool resizedThisFrame = resized;
+	if (resized) {
+		INFO_LOG(Log::G3D, "Resized flag set - recalculating bounds");
+		resized = false;
+
+		if (uiContext) {
+			uiContext->SetBounds(Bounds(0, 0, g_display.dp_xres, g_display.dp_yres));
+		}
+
+		graphicsContext->Resize();
+		g_screenManager->resized();
+
+		// TODO: Move this to the GraphicsContext objects for each backend.
+		// (Android used to be left out here, since every size change there was a full graphics restart,
+		// and DeviceRestore covers it. Rotation and window resizing are in-place now.)
+#if !PPSSPP_PLATFORM(WINDOWS)
+		PSP_CoreParameter().pixelWidth = g_display.pixel_xres;
+		PSP_CoreParameter().pixelHeight = g_display.pixel_yres;
+		System_PostUIMessage(UIMessage::GPU_DISPLAY_RESIZED);
+#endif
+	}
+
 	// NOTE: We must begin the frame before update, so we can do texture size queries and stuff in Measure etc.
 	Draw::DebugFlags debugFlags = Draw::DebugFlags::NONE;
 	if ((DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::GPU_PROFILE)
@@ -1317,35 +1340,8 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 
 	g_draw->Present(g_frameTiming.PresentMode());
 
-	if (resized) {
-		INFO_LOG(Log::G3D, "Resized flag set - recalculating bounds");
-		resized = false;
-
-		if (uiContext) {
-			uiContext->SetBounds(Bounds(0, 0, g_display.dp_xres, g_display.dp_yres));
-
-			// OSX 10.6 and SDL 1.2 bug.
-#if defined(__APPLE__)
-			static int dp_xres_old = g_display.dp_xres;
-			if (g_display.dp_xres != dp_xres_old) {
-				dp_xres_old = g_display.dp_xres;
-			}
-#endif
-		}
-
-		graphicsContext->Resize();
-		g_screenManager->resized();
-
-		// TODO: Move this to the GraphicsContext objects for each backend.
-		// (Android used to be left out here, since every size change there was a full graphics restart,
-		// and DeviceRestore covers it. Rotation and window resizing are in-place now.)
-#if !PPSSPP_PLATFORM(WINDOWS)
-		PSP_CoreParameter().pixelWidth = g_display.pixel_xres;
-		PSP_CoreParameter().pixelHeight = g_display.pixel_yres;
-		System_PostUIMessage(UIMessage::GPU_DISPLAY_RESIZED);
-#endif
-	} else {
-		// INFO_LOG(Log::G3D, "Polling graphics context");
+	// Not done if we resized at the start of the frame, the swapchain is new.
+	if (!resizedThisFrame) {
 		graphicsContext->Poll();
 	}
 
