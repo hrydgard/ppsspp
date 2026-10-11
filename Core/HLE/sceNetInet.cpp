@@ -278,6 +278,18 @@ static InetTry TrySendTo(SceUID threadID, const u32 *args);
 static InetTry TryAccept(SceUID threadID, const u32 *args);
 static InetTry TryConnectDone(SceUID threadID, const u32 *args);
 
+// The host socket behind a guest one, or false if there's none. Unlike GetHostSocketFromInetSocket,
+// doesn't assert, since a socket can be closed while a call waits for it, and works on Windows,
+// where SOCKET is unsigned and can't be checked for -1 with < 0.
+static bool GetHostSocket(int socket, SOCKET *hostSocket) {
+	InetSocket *inetSock;
+	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
+		return false;
+	}
+	*hostSocket = inetSock->sock;
+	return true;
+}
+
 static bool IsWouldBlock(int hostErrno) {
 	return hostErrno == EAGAIN || hostErrno == EWOULDBLOCK;
 }
@@ -337,17 +349,16 @@ static InetTry TrySelect(SceUID threadID, const u32 *args, bool firstTry) {
 			if (!set.set || !NetInetFD_ISSET(i, set.set)) {
 				continue;
 			}
-			SOCKET sock = g_socketManager.GetHostSocketFromInetSocket(i);
-			_dbg_assert_(sock != 0);
-			if (sock < 0) {
+			SOCKET sock;
+			if (!GetHostSocket(i, &sock)) {
 				if (firstTry) {
 					ERROR_LOG(Log::sceNet, "Bad socket #%d in %s fds", i, set.name);
 				}
 				continue;
 			}
 			hostSockets[i] = sock;
-			if (sock > maxHostSocket)
-				maxHostSocket = sock;
+			if ((int)sock > maxHostSocket)
+				maxHostSocket = (int)sock;
 			if (*set.count < FD_SETSIZE) {
 				FD_SET(sock, set.hostSet); // This might pointed to a non-existing socket or sockets belonged to other programs on Windows, because most of the time Windows socket have an id above 1k instead of 0-255
 				(*set.count)++;
@@ -361,6 +372,11 @@ static InetTry TrySelect(SceUID threadID, const u32 *args, bool firstTry) {
 	_dbg_assert_(rdcnt < FD_SETSIZE);
 	_dbg_assert_(wrcnt < FD_SETSIZE);
 	_dbg_assert_(excnt < FD_SETSIZE);
+
+	if (rdcnt + wrcnt + excnt == 0) {
+		// Nothing to check: a select() used as a sleep. Winsock's select() fails on empty sets.
+		return { 0, true, EAGAIN };
+	}
 
 	timeval tmout = { 0, 0 };
 	int retval = select(maxHostSocket + 1, readfds ? &rdfds : nullptr, writefds ? &wrfds : nullptr, exceptfds ? &exfds : nullptr, &tmout);
@@ -402,22 +418,25 @@ static InetTry TryPoll(SceUID threadID, const u32 *args) {
 	fd_set readfds{}, writefds{}, exceptfds{};
 	FD_ZERO(&readfds); FD_ZERO(&writefds); FD_ZERO(&exceptfds);
 	for (int i = 0; i < nfds; i++) {
+		SOCKET hostSocket;
 		fdarray[i].revents = 0;
-		InetSocket *inetSock;
-		if (!g_socketManager.GetInetSocket(fdarray[i].fd, &inetSock)) {
+		if (!GetHostSocket(fdarray[i].fd, &hostSocket)) {
 			// Not open, reported as POLLNVAL below.
 			closedCount++;
 			continue;
 		}
-		SOCKET hostSocket = inetSock->sock;
 		hostCount++;
-		if (hostSocket > maxHostFd) {
-			maxHostFd = hostSocket;
+		if ((int)hostSocket > maxHostFd) {
+			maxHostFd = (int)hostSocket;
 		}
-		_dbg_assert_(hostSocket != 0);
 		FD_SET(hostSocket, &readfds);
 		FD_SET(hostSocket, &writefds);
 		FD_SET(hostSocket, &exceptfds);
+	}
+
+	if (hostCount == 0 && closedCount == 0) {
+		// Winsock's select() fails on empty sets.
+		return { 0, true, EAGAIN };
 	}
 
 	if (hostCount > 0) {
@@ -430,14 +449,13 @@ static InetTry TryPoll(SceUID threadID, const u32 *args) {
 
 	int retval = 0;
 	for (int i = 0; i < nfds; i++) {
-		InetSocket *inetSock;
-		if (!g_socketManager.GetInetSocket(fdarray[i].fd, &inetSock)) {
+		SOCKET hostSocket;
+		if (!GetHostSocket(fdarray[i].fd, &hostSocket)) {
 			// As on hardware (pspautotests net/inet/poll).
 			fdarray[i].revents = INET_POLLNVAL;
 			retval++;
 			continue;
 		}
-		SOCKET hostSocket = inetSock->sock;
 		if ((fdarray[i].events & (INET_POLLRDNORM | INET_POLLIN)) && FD_ISSET(hostSocket, &readfds))
 			fdarray[i].revents |= (INET_POLLRDNORM | INET_POLLIN); //POLLIN_SET
 		if ((fdarray[i].events & (INET_POLLWRNORM | INET_POLLOUT)) && FD_ISSET(hostSocket, &writefds))
