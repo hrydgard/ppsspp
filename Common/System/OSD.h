@@ -121,6 +121,8 @@ public:
 	static float FadeinTime() { return 0.1f; }
 	static float FadeoutTime() { return 0.25f; }
 
+	void ClearNonAchievementEntries();
+
 private:
 	std::vector<Entry> entries_;
 	std::mutex mutex_;
