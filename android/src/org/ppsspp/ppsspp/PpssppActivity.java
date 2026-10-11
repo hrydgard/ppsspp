@@ -803,7 +803,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 					}
 
 					for (InputDeviceState input : inputPlayers) {
-						if (input.getDevice() == device) {
+						if (input.getDevice().getId() == deviceId) {
 							Log.i(TAG, "Unexpected: Device already registered");
 							return;
 						}
@@ -825,9 +825,8 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 						if (state.getDevice().getId() == deviceId) {
 							Log.i(TAG, "Input device removed: " + state.getDevice().getName());
 
-							// Notify Native layer that this specific device is gone
-							// This is important so the C++ side can clear button states
-							NativeApp.sendMessageFromJava("inputDeviceDisconnectedID", String.valueOf(state.getDeviceId()));
+							// Notifies the native side, and releases whatever the device was holding down.
+							state.Disconnect();
 							inputPlayers.remove(i);
 							break;
 						}
@@ -1209,8 +1208,11 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			return null;
 		}
 
+		// Match by ID - InputDevice objects get replaced after device configuration changes, so after one of
+		// those, comparing references would register the same device again.
+		final int id = device.getId();
 		for (InputDeviceState input : inputPlayers) {
-			if (input.getDevice() == device) {
+			if (input.getDevice().getId() == id) {
 				return input;
 			}
 		}
