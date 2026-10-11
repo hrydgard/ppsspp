@@ -1289,7 +1289,7 @@ namespace MIPSInt {
 		PC += 4;
 	}
 
-	void Int_Emuhack(MIPSState *mips, MIPSOpcode op) {
+	void Int_CallReplacement(MIPSState *mips, MIPSOpcode op) {
 		_assert_((PC & 3) == 0);
 
 		// The CPU cores substitute these for replaced instructions, memory never holds them.
@@ -1300,7 +1300,7 @@ namespace MIPSInt {
 		}
 
 		// It's a replacement func!
-		int index = op.encoding & 0xFFFFFF;
+		int index = op.encoding & MIPS_REPLACEMENT_INDEX_MASK;
 		const ReplacementTableEntry *entry = GetReplacementFunc(index);
 		if (entry && entry->replaceFunc && (entry->flags & REPFLAG_DISABLED) == 0) {
 			// Like a syscall, a replacement function is host code - see Int_Syscall.

@@ -345,7 +345,7 @@ int ExecInstruction(MIPSState *mips, MIPSOpcode op) {
         switch ((op.encoding >> 24) & 0x3) {
         // CallRepl
         case 2:
-            MIPSInt::Int_Emuhack(mips, op);
+            MIPSInt::Int_CallReplacement(mips, op);
             return 1;
         default:
             return -1;

@@ -496,7 +496,7 @@ void Arm64Jit::Comp_ReplacementFunc(MIPSOpcode op)
 		return;
 	}
 
-	int index = op.encoding & MIPS_EMUHACK_VALUE_MASK;
+	int index = op.encoding & MIPS_REPLACEMENT_INDEX_MASK;
 
 	const ReplacementTableEntry *entry = GetReplacementFunc(index);
 	if (!entry) {

@@ -807,7 +807,7 @@ static const MIPSInstruction tableALLEGREX0[32] =  // 011111 ..... ..... ..... x
 static const MIPSInstruction tableEMU[4] = {
 	INVALID,
 	INVALID,
-	INSTR("CallRepl", JITFUNC(Comp_ReplacementFunc), Dis_Emuhack, Int_Emuhack, 0),
+	INSTR("CallRepl", JITFUNC(Comp_ReplacementFunc), Dis_CallReplacement, Int_CallReplacement, 0),
 	INVALID,
 };
 
@@ -845,7 +845,7 @@ static const EncodingBitsInfo encodingBits[NumEncodings] = {
 	EncodingBitsInfo(16, 4), //VFPUMatrix1
 	EncodingBitsInfo(16, 5), //VFPU9
 	EncodingBitsInfo(6,  5), //ALLEGREX0
-	EncodingBitsInfo(24, 2), //EMUHACK
+	EncodingBitsInfo(24, 2), //Emu (CallRepl)
 	EncodingBitsInfo(0,  0), //Rese
 };
 

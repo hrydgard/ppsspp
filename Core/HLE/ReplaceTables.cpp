@@ -2007,7 +2007,7 @@ MIPSOpcode GetReplacementOpAt(u32 address) {
 		UnmarkHook(address);
 		return MIPSOpcode(memOp);
 	}
-	return MIPSOpcode(MIPS_EMUHACK_CALL_REPLACEMENT | iter->second.index);
+	return MIPSOpcode(MIPS_CALL_REPLACEMENT_OP | iter->second.index);
 }
 
 MIPSOpcode Replacement_GetDisplayOp(u32 address) {
@@ -2017,5 +2017,5 @@ MIPSOpcode Replacement_GetDisplayOp(u32 address) {
 	if (iter == installedReplacements.end() || iter->second.origOp != memOp) {
 		return MIPSOpcode(memOp);
 	}
-	return MIPSOpcode(MIPS_EMUHACK_CALL_REPLACEMENT | iter->second.index);
+	return MIPSOpcode(MIPS_CALL_REPLACEMENT_OP | iter->second.index);
 }

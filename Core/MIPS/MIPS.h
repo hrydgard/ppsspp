@@ -30,18 +30,11 @@ class PointerWrap;
 
 typedef Memory::Opcode MIPSOpcode;
 
-// A fake opcode, 0x68000000, that the CPU cores run in place of an instruction with a replacement
-// function (see ReplaceTables.h). It's never written to PSP memory.
-#define MIPS_EMUHACK_OPCODE 0x68000000
-#define MIPS_EMUHACK_VALUE_MASK 0x00FFFFFF
-
-// There are 2 bits available for sub-opcodes, 0x03000000. 0 and 1 are no longer used.
-#define EMUOP_CALL_REPLACEMENT 2
-
-#define MIPS_IS_EMUHACK(op) (((op) & 0xFC000000) == MIPS_EMUHACK_OPCODE)  // masks away the subop
-#define MIPS_IS_REPLACEMENT(op) (((op) & 0xFF000000) == (MIPS_EMUHACK_OPCODE | (EMUOP_CALL_REPLACEMENT << 24)))  // masks away the subop
-
-#define MIPS_EMUHACK_CALL_REPLACEMENT (MIPS_EMUHACK_OPCODE | (EMUOP_CALL_REPLACEMENT << 24))
+// A fake opcode the CPU cores fetch in place of an instruction with a replacement function (see
+// ReplaceTables.h), with the replacement's index in the low bits. It's never in PSP memory. Opcode
+// 26, which the Allegrex doesn't have, decodes it as CallRepl.
+#define MIPS_CALL_REPLACEMENT_OP 0x6A000000
+#define MIPS_REPLACEMENT_INDEX_MASK 0x00FFFFFF
 
 enum MIPSGPReg {
 	MIPS_REG_ZERO=0,
