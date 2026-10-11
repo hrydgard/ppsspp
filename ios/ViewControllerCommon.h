@@ -9,7 +9,6 @@
 #import "LocationHelper.h"
 
 @interface PPSSPPBaseViewController : UIViewController<
-	UIImagePickerControllerDelegate, UINavigationControllerDelegate,
 	PHPickerViewControllerDelegate,
 	CameraFrameDelegate, LocationHandlerDelegate,
 	UIGestureRecognizerDelegate>
