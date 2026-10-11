@@ -639,10 +639,6 @@ void __AudioUpdate(bool resetRecording) {
 	woke |= __AudioMixSRC(g_audioSRC);
 	audioMixing = false;
 
-	if (woke) {
-		__AudioReScheduleAfterWake();
-	}
-
 	if (g_Config.bEnableSound) {
 		float multiplier = Volume100ToMultiplier(std::clamp(g_Config.iGameVolume, 0, VOLUMEHI_FULL));
 		if (PSP_CoreParameter().fpsLimit != FPSLimit::NORMAL || PSP_CoreParameter().fastForward) {
@@ -688,6 +684,13 @@ void __AudioUpdate(bool resetRecording) {
 			}
 		}
 #endif
+	}
+
+	// Only once the block is out. Rescheduling runs any due events, and when this tick was late
+	// that includes the next one, which would mix over mixBuffer before it was pushed - playing
+	// the next block twice and dropping this one.
+	if (woke) {
+		__AudioReScheduleAfterWake();
 	}
 }
 

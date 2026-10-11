@@ -220,6 +220,10 @@ To smoke-test a CPU or GPU change on real games, run the old and the new binary 
 run to run, so a different screenshot means different behaviour. God of War: Chains of Olympus isn't: its menu
 animation follows wall-clock time, so even the same binary lands on different frames.
 
+For audio, `--dump-audio=FILE.wav` records the mixed output (before the game volume setting) for the whole run.
+An audio glitch you can hear usually shows in the waveform: a click is a jump between neighbouring samples, and
+a repeated or dropped mixer block is two identical 64-sample runs in a row.
+
 Pass `--graphics` explicitly even when you want the default, so a copied command line doesn't depend on it. If a
 run goes silent with no CPU use, a host thread is blocked, and neither `--timeout-wall` nor `--timeout-emulated`
 will end it, as both are only checked when the emulation loop comes around.
