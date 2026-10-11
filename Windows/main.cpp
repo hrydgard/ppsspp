@@ -455,6 +455,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	case SYSPROP_CAN_SHOW_FILE:
 	case SYSPROP_CAN_LAUNCH_URL:
 	case SYSPROP_HAS_TRASH_BIN:
+	case SYSPROP_SUPPORTS_SHARE_FILE:
 		return true;
 	case SYSPROP_HAS_IMAGE_BROWSER:
 		return true;
@@ -781,6 +782,38 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 			W32Util::ShowFileInFolder(param1);
 		}).detach();
 		return true;
+
+	case SystemRequestType::SHARE_FILE:
+	{
+		// No share sheet here yet, so offer to save a copy instead. param2 (the MIME type) isn't needed.
+		const Path source(param1);
+		if (!File::Exists(source)) {
+			ERROR_LOG(Log::System, "SHARE_FILE: '%s' doesn't exist", param1.c_str());
+			return false;
+		}
+		std::thread([source] {
+			SetCurrentThreadName("ShareFile");
+			std::wstring filter;
+			std::wstring extension;
+			const std::string ext = source.GetFileExtension();  // Lowercase, with the dot.
+			if (ext.size() > 1) {
+				extension = ConvertUTF8ToWString(ext.substr(1));
+				std::wstring upper = extension;
+				std::transform(upper.begin(), upper.end(), upper.begin(), towupper);
+				filter = upper + L" files (*." + extension + L")|*." + extension + L"|";
+			}
+			filter = FinalizeFilter(filter + L"All files (*.*)|*.*||");
+			std::string out;
+			if (!W32Util::BrowseForFileName(false, MainWindow::GetHWND(), L"", nullptr, ConvertUTF8ToWString(source.GetFilename()).c_str(), filter.c_str(), extension.c_str(), out)) {
+				return;
+			}
+			const Path dest(out);
+			if (dest != source && !File::Copy(source, dest)) {
+				ERROR_LOG(Log::System, "SHARE_FILE: Couldn't copy '%s' to '%s'", source.c_str(), dest.c_str());
+			}
+		}).detach();
+		return true;
+	}
 
 	case SystemRequestType::APPLY_FULLSCREEN_STATE:
 	{

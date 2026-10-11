@@ -135,7 +135,7 @@ std::string BrowseForFolder2(HWND parent, std::string_view title, std::string_vi
 		ofn.nMaxFile = ARRAY_SIZE(fileBuffer);
 		ofn.Flags = OFN_NOCHANGEDIR | OFN_EXPLORER;
 		if (!_bLoad)
-			ofn.Flags |= OFN_HIDEREADONLY;
+			ofn.Flags |= OFN_HIDEREADONLY | OFN_OVERWRITEPROMPT;
 
 		int success = _bLoad ? GetOpenFileName(&ofn) : GetSaveFileName(&ofn);
 		if (success) {

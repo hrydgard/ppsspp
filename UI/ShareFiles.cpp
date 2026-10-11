@@ -30,14 +30,15 @@
 #include "Common/System/Request.h"
 #include "Common/System/System.h"
 #include "Common/TimeUtil.h"
-#include "Core/Config.h"
+#include "Core/Util/PathUtil.h"
 #include "UI/ShareFiles.h"
 
 // How long a shared zip is kept for the receiving app to read.
 static constexpr int64_t SHARE_KEEP_SECONDS = 60 * 60;
 
 static Path ShareDirectory() {
-	return g_Config.appCacheDirectory / "share";
+	// Falls back to the memstick cache folder on platforms without an app cache directory (Windows).
+	return GetSysDirectory(DIRECTORY_APP_CACHE) / "share";
 }
 
 // Deletes the folders of earlier shares (named by their time) once they're old enough.
@@ -57,7 +58,7 @@ static void CleanUpOldShares(int64_t now) {
 }
 
 bool CanShareFiles() {
-	return System_GetPropertyBool(SYSPROP_SUPPORTS_SHARE_FILE) && !g_Config.appCacheDirectory.empty();
+	return System_GetPropertyBool(SYSPROP_SUPPORTS_SHARE_FILE);
 }
 
 bool ShareFilesAsZip(std::string_view zipName, const std::vector<ShareZipEntry> &files) {
