@@ -581,7 +581,7 @@ struct WriteVarSymbolState {
 };
 
 static void WriteVarSymbol(WriteVarSymbolState &state, u32 exportAddress, u32 relocAddress, u8 type, bool reverse = false) {
-	u32 relocData = Memory::Read_Instruction(relocAddress, true).encoding;
+	u32 relocData = Memory::Read_Instruction(relocAddress).encoding;
 
 	switch (type) {
 	case R_MIPS_NONE:
@@ -625,7 +625,7 @@ static void WriteVarSymbol(WriteVarSymbolState &state, u32 exportAddress, u32 re
 		// The R_MIPS_LO16 and R_MIPS_HI16 will often be *different* relocAddress values.
 		HI16RelocInfo reloc;
 		reloc.addr = relocAddress;
-		reloc.data = Memory::Read_Instruction(relocAddress, true).encoding;
+		reloc.data = Memory::Read_Instruction(relocAddress).encoding;
 		state.lastHI16Relocs.push_back(reloc);
 		state.lastHI16Processed = false;
 		break;
@@ -2808,6 +2808,8 @@ int __KernelStartModule(SceUID moduleId, u32 argsize, u32 argAddr, u32 returnVal
 				Memory::WriteUnchecked_U32(MIPS_MAKE_LW(MIPS_REG_RA, MIPS_REG_SP, 8), tramp + 0x24);
 				Memory::WriteUnchecked_U32(MIPS_MAKE_J(entryAddr), tramp + 0x28);
 				Memory::WriteUnchecked_U32(MIPS_MAKE_ADDIU(MIPS_REG_SP, MIPS_REG_SP, 16), tramp + 0x2C);
+				// Thread stacks get reused, so an older trampoline may already be compiled here.
+				currentMIPS->InvalidateICacheRangeDeferred(tramp, 0x30);
 				NotifyMemInfo(MemBlockFlags::WRITE, tramp, 0x30, "ModuleStartTrampoline");
 				startThread->context.pc = tramp;
 				startThread->nt.entrypoint = tramp;

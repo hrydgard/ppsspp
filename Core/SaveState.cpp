@@ -177,30 +177,14 @@ int g_screenshotFailures;
 			CoreTiming::DoState(p);
 		}
 
-		// Memory is a bit tricky when jit is enabled, since there's emuhacks in it.
-		// These must be saved before copying out memory and restored after.
-		auto savedReplacements = SaveAndClearReplacements();
-		if (MIPSComp::jit && (p.mode == p.MODE_WRITE || p.mode == p.MODE_VERIFY)) {
-			if (MIPSComp::jit) {
-				std::vector<u32> savedBlocks;
-				savedBlocks = MIPSComp::jit->SaveAndClearEmuHackOps();
-				Memory::DoState(p);
-				MIPSComp::jit->RestoreSavedEmuHackOps(savedBlocks);
-			} else {
-				Memory::DoState(p);
-			}
-		} else {
-			Memory::DoState(p);
+		// The state may hold different code. KernelModuleDoState hooks the functions again.
+		if (p.mode == p.MODE_READ) {
+			RestoreReplacedInstructions(0, 0xFFFFFFFF);
 		}
+		Memory::DoState(p);
 
 		if (s >= 3) {
 			CoreTiming::DoState(p);
-		}
-
-		// Don't bother restoring if reading, we'll deal with that in KernelModuleDoState.
-		// In theory, different functions might have been runtime loaded in the state.
-		if (p.mode != p.MODE_READ) {
-			RestoreSavedReplacements(savedReplacements);
 		}
 
 		MemoryStick_DoState(p);

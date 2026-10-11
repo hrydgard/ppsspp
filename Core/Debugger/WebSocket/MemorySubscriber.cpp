@@ -46,56 +46,6 @@ DebuggerSubscriber *WebSocketMemoryInit(DebuggerEventHandlerMap &map) {
 	return nullptr;
 }
 
-struct AutoDisabledReplacements {
-	AutoDisabledReplacements() {}
-	AutoDisabledReplacements(AutoDisabledReplacements &&other);
-	AutoDisabledReplacements(const AutoDisabledReplacements &) = delete;
-	AutoDisabledReplacements &operator =(const AutoDisabledReplacements &) = delete;
-	~AutoDisabledReplacements();
-
-	std::map<u32, u32> replacements;
-	std::vector<u32> emuhacks;
-	bool saved = false;
-};
-
-// Call this from within a Core_RunOnCPUThread() callback - see Core_RunOnCPUThread() in Core.h.
-// No longer needs to pause a running CPU to do this safely: we're already running on the CPU thread
-// by the time this is called, so nothing else can be concurrently executing MIPS code or touching the
-// JIT's emuhack ops on this thread while we hold onto them below.
-//
-// Deliberately does NOT take a CoreShutdownLock: memory teardown only ever happens on the
-// CPU thread too, so there's nothing to guard against, and taking it here deadlocked against the
-// Win32 debugger's paint handlers. See the lock ordering section in AGENTS.md.
-//
-// Important: Only use keepReplacements=false when reading, not writing.
-static AutoDisabledReplacements LockMemory(bool keepReplacements) {
-	AutoDisabledReplacements result;
-	if (!keepReplacements) {
-		result.saved = true;
-		// Okay, save so we can restore later.
-		result.replacements = SaveAndClearReplacements();
-		if (MIPSComp::jit) {
-			result.emuhacks = MIPSComp::jit->SaveAndClearEmuHackOps();
-		}
-	}
-	return result;
-}
-
-AutoDisabledReplacements::AutoDisabledReplacements(AutoDisabledReplacements &&other) {
-	replacements = std::move(other.replacements);
-	emuhacks = std::move(other.emuhacks);
-	saved = other.saved;
-	other.saved = false;
-}
-
-AutoDisabledReplacements::~AutoDisabledReplacements() {
-	if (saved) {
-		if (MIPSComp::jit)
-			MIPSComp::jit->RestoreSavedEmuHackOps(emuhacks);
-		RestoreSavedReplacements(replacements);
-	}
-}
-
 // Read a byte from memory (memory.read_u8)
 //
 // Parameters:
@@ -121,7 +71,6 @@ void WebSocketMemoryReadU8(DebuggerRequest &req) {
 	// Route the actual memory read to the CPU thread instead of poking at it directly
 	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
 	Core_RunOnCPUThread([&] {
-		AutoDisabledReplacements memLock = LockMemory(true);
 		JsonWriter &json = req.Respond();
 		json.writeUint("value", Memory::ReadUnchecked_U8(addr));
 		// Alias: cpu.getReg and cpu.getAllRegs call this uintValue. Same number, both names.
@@ -154,7 +103,6 @@ void WebSocketMemoryReadU16(DebuggerRequest &req) {
 	// Route the actual memory read to the CPU thread instead of poking at it directly
 	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
 	Core_RunOnCPUThread([&] {
-		AutoDisabledReplacements memLock = LockMemory(true);
 		JsonWriter &json = req.Respond();
 		json.writeUint("value", Memory::ReadUnchecked_U16(addr));
 		json.writeUint("uintValue", Memory::ReadUnchecked_U16(addr));
@@ -186,7 +134,6 @@ void WebSocketMemoryReadU32(DebuggerRequest &req) {
 	// Route the actual memory read to the CPU thread instead of poking at it directly
 	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
 	Core_RunOnCPUThread([&] {
-		AutoDisabledReplacements memLock = LockMemory(true);
 		JsonWriter &json = req.Respond();
 		json.writeUint("value", Memory::ReadUnchecked_U32(addr));
 		json.writeUint("uintValue", Memory::ReadUnchecked_U32(addr));
@@ -198,7 +145,6 @@ void WebSocketMemoryReadU32(DebuggerRequest &req) {
 // Parameters:
 //  - address: unsigned integer address for the start of the memory range.
 //  - size: unsigned integer specifying size of memory range.
-//  - replacements: optional, false to ignore PPSSPP replacements in MIPS code.
 //
 // Response (same event name):
 //  - base64: base64 encode of binary data.
@@ -209,10 +155,6 @@ void WebSocketMemoryRead(DebuggerRequest &req) {
 	uint32_t size;
 	if (!req.ParamU32("size", &size))
 		return;
-	bool replacements = true;
-	if (!req.ParamBool("replacements", &replacements, DebuggerParamType::OPTIONAL))
-		return;
-
 	if (!currentDebugMIPS->isAlive() || !Memory::IsActive())
 		return req.Fail("CPU not started");
 	// This only depends on addr/size, not on anything CPU-thread-owned, so fail fast here rather
@@ -223,13 +165,12 @@ void WebSocketMemoryRead(DebuggerRequest &req) {
 		return req.Fail("Invalid size");
 
 	// Route the actual memory read to the CPU thread instead of poking at it directly from this
-	// WebSocket handler thread - see Core_RunOnCPUThread() in Core.h. Only the raw copy (which
-	// needs replacements/emuhacks disabled) happens on the CPU thread - the base64 encoding itself
+	// WebSocket handler thread - see Core_RunOnCPUThread() in Core.h. Only the raw copy happens
+	// on the CPU thread - the base64 encoding itself
 	// happens back on this WebSocket thread afterward, so it doesn't block the CPU thread's frame
 	// pump for a large 'size'.
 	std::vector<uint8_t> raw(size);
 	Core_RunOnCPUThread([&] {
-		AutoDisabledReplacements memLock = LockMemory(replacements);
 		if (size != 0)
 			memcpy(raw.data(), Memory::GetPointerUnchecked(addr), size);
 	});
@@ -287,7 +228,6 @@ void WebSocketMemoryReadString(DebuggerRequest &req) {
 	// the CPU thread - the base64 encoding itself happens back on this WebSocket thread afterward.
 	std::string raw;
 	Core_RunOnCPUThread([&] {
-		AutoDisabledReplacements memLock = LockMemory(true);
 		// Let's try to avoid crashing and get a safe length.
 		const uint8_t *p = Memory::GetPointerUnchecked(addr);
 		size_t longest = Memory::ClampValidSizeAt(addr, Memory::g_MemorySize);
@@ -333,7 +273,6 @@ void WebSocketMemoryWriteU8(DebuggerRequest &req) {
 	// Route the actual memory write to the CPU thread instead of poking at it directly
 	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
 	Core_RunOnCPUThread([&] {
-		AutoDisabledReplacements memLock = LockMemory(true);
 		Memory::WriteUnchecked_U8(val, addr);
 		currentMIPS->InvalidateICacheRangeDeferred(addr, 1);
 		Reporting::NotifyDebugger();
@@ -372,7 +311,6 @@ void WebSocketMemoryWriteU16(DebuggerRequest &req) {
 	// Route the actual memory write to the CPU thread instead of poking at it directly
 	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
 	Core_RunOnCPUThread([&] {
-		AutoDisabledReplacements memLock = LockMemory(true);
 		Memory::WriteUnchecked_U16(val, addr);
 		currentMIPS->InvalidateICacheRangeDeferred(addr, 2);
 		Reporting::NotifyDebugger();
@@ -410,7 +348,6 @@ void WebSocketMemoryWriteU32(DebuggerRequest &req) {
 	// Route the actual memory write to the CPU thread instead of poking at it directly
 	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
 	Core_RunOnCPUThread([&] {
-		AutoDisabledReplacements memLock = LockMemory(true);
 		Memory::WriteUnchecked_U32(val, addr);
 		currentMIPS->InvalidateICacheRangeDeferred(addr, 4);
 		Reporting::NotifyDebugger();
@@ -452,7 +389,6 @@ void WebSocketMemoryWrite(DebuggerRequest &req) {
 	// Route the actual memory write to the CPU thread instead of poking at it directly
 	// from this WebSocket handler thread - see Core_RunOnCPUThread() in Core.h.
 	Core_RunOnCPUThread([&] {
-		AutoDisabledReplacements memLock = LockMemory(true);
 		currentMIPS->InvalidateICacheRangeDeferred(addr, size);
 		if (size != 0) {
 			Memory::MemcpyUnchecked(addr, &value[0], size);
@@ -570,7 +506,6 @@ void WebSocketMemorySearch(DebuggerRequest &req) {
 	// CPU thread's own frame pump for its duration - at least the parameter validation above no
 	// longer costs a round trip through the queue first.
 	Core_RunOnCPUThread([&] {
-		AutoDisabledReplacements memLock = LockMemory(true);
 
 		const uint8_t *base = Memory::GetPointerUnchecked(addr);
 		std::vector<uint32_t> matches;

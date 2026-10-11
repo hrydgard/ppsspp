@@ -53,7 +53,6 @@ static int __DmacMemcpy(MIPSState *mips, u32 dst, u32 src, u32 size) {
 	}
 	gpu->NotifyVideoCopy(dst, src, size);
 	if (!skip && size != 0) {
-		mips->InvalidateICacheRangeDeferred(src, size);
 		if (Memory::IsValidRange(dst, size) && Memory::IsValidRange(src, size)) {
 			memcpy(Memory::GetPointerWriteUnchecked(dst), Memory::GetPointerUnchecked(src), size);
 		}

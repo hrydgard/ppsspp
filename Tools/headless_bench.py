@@ -219,7 +219,7 @@ def report(game, binaries, results):
             else:
                 delta = ' (%+.2f%%)' % (100.0 * (med / base[k] - 1.0))
             value = ('%.2fs' % med) if k in ('wall', 'cpu') else ('%.4g' % med)
-            cols.append('%s %s%s ±%.1f%%' % (k, value, delta, spread / 2))
+            cols.append('%s %s%s +-%.1f%%' % (k, value, delta, spread / 2))
         print('  %-28s %s' % (os.path.basename(os.path.dirname(b)) + '/' + os.path.basename(b), '  '.join(cols)))
 
 
@@ -235,10 +235,16 @@ def main():
     parser.add_argument('--graphics', default='software', help='backend (default software)')
     parser.add_argument('--memstick', help='memory stick directory, for firmware modules (see docs/debugging.md)')
     parser.add_argument('--allow-battery', action='store_true', help='run even on battery power')
-    parser.add_argument('extra', nargs=argparse.REMAINDER, help='after --: more PPSSPPHeadless options')
-    args = parser.parse_args()
-    if args.extra and args.extra[0] == '--':
-        args.extra = args.extra[1:]
+    parser.epilog = 'Anything after -- is passed on to PPSSPPHeadless.'
+    # Split off the PPSSPPHeadless options ourselves: argparse.REMAINDER after a nargs='+' positional
+    # hands them to the binaries instead on newer Pythons.
+    argv = sys.argv[1:]
+    extra = []
+    if '--' in argv:
+        extra = argv[argv.index('--') + 1:]
+        argv = argv[:argv.index('--')]
+    args = parser.parse_args(argv)
+    args.extra = extra
 
     games = list(args.game)
     if args.games:

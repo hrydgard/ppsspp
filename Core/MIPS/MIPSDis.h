@@ -57,5 +57,5 @@ namespace MIPSDis
 	void Dis_Allegrex(MIPSOpcode op, uint32_t pc, char *out, size_t outSize);
 	void Dis_Allegrex2(MIPSOpcode op, uint32_t pc, char *out, size_t outSize);
 
-	void Dis_Emuhack(MIPSOpcode op, uint32_t pc, char *out, size_t outSize);
+	void Dis_CallReplacement(MIPSOpcode op, uint32_t pc, char *out, size_t outSize);
 }

@@ -54,9 +54,7 @@ public:
 	const u8 *GetCrashHandler() const override { return crashHandler; }
 	bool CodeInRange(const u8 *ptr) const override { return IsInSpace(ptr); }
 	bool DescribeCodePtr(const u8 *ptr, std::string &name) override;
-	MIPSOpcode GetOriginalOp(MIPSOpcode op) override;
 
-	void Comp_RunBlock(MIPSOpcode op) override;
 	void Comp_ReplacementFunc(MIPSOpcode op) override;
 
 	// Ops
@@ -133,9 +131,6 @@ public:
 	JitBlockCache *GetBlockCache() override { return &blocks; }
 	JitBlockCacheDebugInterface *GetBlockCacheDebugInterface() override { return &blocks; }
 
-	std::vector<u32> SaveAndClearEmuHackOps() override { return blocks.SaveAndClearEmuHackOps(); }
-	void RestoreSavedEmuHackOps(std::vector<u32> saved) override { blocks.RestoreSavedEmuHackOps(saved); }
-
 	void ClearCache() override;
 	void InvalidateCacheAt(u32 em_address, int length = 4) override;
 	void UpdateFCR31() override;
@@ -144,6 +139,9 @@ public:
 
 	const u8 *GetDispatcher() const override {
 		return dispatcher;
+	}
+	u32 GetBlockShadowHookValue() const override {
+		return (u32)(blockShadowHook - GetBasePtr());
 	}
 	bool IsAtDispatchFetch(const u8 *ptr) const override {
 		return ptr == dispatcherFetch;
@@ -282,6 +280,7 @@ public:
 	const u8 *applyRoundingMode;
 
 	const u8 *crashHandler;
+	const u8 *blockShadowHook;
 };
 
 }	// namespace MIPSComp

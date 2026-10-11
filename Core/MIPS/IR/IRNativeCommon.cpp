@@ -529,6 +529,10 @@ void IRNativeJit::FinalizeNativeBlock(IRBlockCache *irblockCache, int block_num)
 	backend_->FinalizeBlock(irblockCache, block_num, jo);
 }
 
+void IRNativeJit::InvalidateNativeBlock(IRBlockCache *irblockCache, int block_num) {
+	backend_->InvalidateBlock(irblockCache, block_num);
+}
+
 void IRNativeJit::RunLoopUntil(u64 globalticks) {
 	if constexpr (enableDebugStats || enableDebugProfiler) {
 		LogDebugStats();
@@ -603,6 +607,10 @@ bool IRNativeJit::CodeInRange(const u8 *ptr) const {
 
 const u8 *IRNativeJit::GetCodeBase() const {
 	return backend_->CodeBlock().GetBasePtr();
+}
+
+u32 IRNativeJit::GetBlockShadowHookValue() const {
+	return (u32)backend_->OffsetFromCodePtr(backend_->GetNativeHooks().blockShadowHook);
 }
 
 bool IRNativeJit::IsAtDispatchFetch(const u8 *ptr) const {

@@ -80,7 +80,6 @@ INT_PTR CALLBACK DumpMemoryWindow::dlgFunc(HWND hwnd, UINT iMsg, WPARAM wParam, 
 			break;
 		case IDOK:
 			if (bp->fetchDialogData(hwnd)) {
-				bool includeReplacements = SendMessage(GetDlgItem(hwnd, IDC_DUMP_INCLUDEHACKS), BM_GETCHECK, 0, 0) != 0;
 
 				// Route the actual memory dump to the CPU thread instead of forcing the emulator
 				// to pause and poking at it directly from this GUI thread - see
@@ -98,19 +97,7 @@ INT_PTR CALLBACK DumpMemoryWindow::dlgFunc(HWND hwnd, UINT iMsg, WPARAM wParam, 
 						return;
 					}
 
-					if (includeReplacements) {
-						fwrite(Memory::GetPointerOrException(bp->start), 1, bp->size, output);
-					} else {
-						auto savedReplacements = SaveAndClearReplacements();
-						if (MIPSComp::jit) {
-							auto savedBlocks = MIPSComp::jit->SaveAndClearEmuHackOps();
-							fwrite(Memory::GetPointerOrException(bp->start), 1, bp->size, output);
-							MIPSComp::jit->RestoreSavedEmuHackOps(savedBlocks);
-						} else {
-							fwrite(Memory::GetPointerOrException(bp->start), 1, bp->size, output);
-						}
-						RestoreSavedReplacements(savedReplacements);
-					}
+					fwrite(Memory::GetPointerOrException(bp->start), 1, bp->size, output);
 
 					fclose(output);
 					outcome = Outcome::Success;

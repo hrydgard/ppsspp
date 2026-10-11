@@ -24,6 +24,7 @@
 #include "Core/HLE/KernelWaitHelpers.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelMemory.h"
+#include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 
 HLEHelperThread::HLEHelperThread(const char *threadName, const u32 instructions[], u32 instrCount, u32 prio, int stacksize) {
@@ -36,6 +37,8 @@ HLEHelperThread::HLEHelperThread(const char *threadName, const u32 instructions[
 	// Just to simplify things, we add the return here.
 	Memory::WriteUnchecked_U32(MIPS_MAKE_JR_RA(), entry_ + instrBytes + 0);
 	Memory::WriteUnchecked_U32(MIPS_MAKE_NOP(), entry_ + instrBytes + 4);
+	// The memory may have held another helper's code, already compiled.
+	currentMIPS->InvalidateICacheRangeDeferred(entry_, totalBytes);
 
 	Create(threadName, prio, stacksize);
 }
@@ -46,6 +49,7 @@ HLEHelperThread::HLEHelperThread(const char *threadName, const char *module, con
 	_dbg_assert_(Memory::IsValid4AlignedAddress(entry_));  // after AllocEntry.
 	Memory::WriteUnchecked_U32(MIPS_MAKE_JR_RA(), entry_ + 0);
 	Memory::WriteUnchecked_U32(MIPS_MAKE_SYSCALL(module, func), entry_ + 4);
+	currentMIPS->InvalidateICacheRangeDeferred(entry_, bytes);
 
 	Create(threadName, prio, stacksize);
 }

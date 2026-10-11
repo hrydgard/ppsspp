@@ -18,3 +18,4 @@
 #pragma once
 
 bool TestJit();
+bool TestJitReplacementHooks();
