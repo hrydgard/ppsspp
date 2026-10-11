@@ -2110,6 +2110,13 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 				srcCandidate.y = 0;
 				srcCandidate.h = vfb->height;
 				srcCandidates.push_back(srcCandidate);
+			} else if (vfb->z_address != 0 && vfb->z_stride != 0 && src >= vfb->z_address && (src - vfb->z_address) % vfb_byteStride == 0 && size % vfb_byteStride == 0) {
+				// Whole rows within the buffer, like Everybody's Golf 2 reading a portrait's depth.
+				srcCandidate.y = (src - vfb->z_address) / vfb_byteStride;
+				srcCandidate.h = size / vfb_byteStride;
+				if (srcCandidate.y + srcCandidate.h <= vfb->height) {
+					srcCandidates.push_back(srcCandidate);
+				}
 			}
 			continue;
 		}

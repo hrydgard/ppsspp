@@ -1406,6 +1406,32 @@ static int Hook_kingdomhearts_download_frame() {
 	return 0;
 }
 
+static int Hook_everybodysgolf2_copy_portrait() {
+	// copy_portrait(dst, x, y, w, h) memcpys a rect of the 512-stride 5551 framebuffer into a texture,
+	// one partial row at a time, which memcpy's replacement can't match to a framebuffer. The caller
+	// (0x0887C060) then sets each texel's alpha bit from the depth buffer, read straight from the
+	// linear mirror at 0x04288000. So both are read back here, whole rows at a time.
+	// Hooked after the GE sync at the start, where s4 = y and s1 = h.
+	u32 fb_info;
+	if (!GetMIPSStaticAddress(fb_info, 0x0C, 0x10) || !Memory::IsValid4AlignedAddress(fb_info)) {
+		return 0;
+	}
+	const u32 fb_address = Memory::ReadUnchecked_U32(fb_info);
+	const u32 y = currentMIPS->r[MIPS_REG_S4];
+	const u32 h = currentMIPS->r[MIPS_REG_S1];
+	const u32 colorAddr = fb_address + y * 0x400;
+	const u32 depthAddr = 0x04288000 + y * 0x400;
+	const u32 size = h * 0x400;
+	if (!Memory::IsVRAMAddress(colorAddr) || !Memory::IsValidRange(colorAddr, size) || !Memory::IsValidRange(depthAddr, size)) {
+		return 0;
+	}
+	gpu->PerformReadbackToMemory(colorAddr, size);
+	NotifyMemInfo(MemBlockFlags::WRITE, colorAddr, size, "everybodysgolf2_copy_portrait");
+	gpu->PerformMemoryCopy(depthAddr, depthAddr, size, GPUCopyFlag::FORCE_DST_MATCH_MEM | GPUCopyFlag::DEPTH_REQUESTED);
+	NotifyMemInfo(MemBlockFlags::WRITE, depthAddr, size, "everybodysgolf2_copy_portrait");
+	return 0;
+}
+
 static int Hook_katamari_render_check() {
 	if (!Memory::IsValidRange(currentMIPS->r[MIPS_REG_A0] + 0x3C, 8)) {
 		return 0;
@@ -1739,6 +1765,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "takuyo_2_download_frame", &Hook_takuyo_download_frame, 0, REPFLAG_HOOKENTER, 0},
 	{ "takuyo_3_download_frame", &Hook_takuyo_download_frame, 0, REPFLAG_HOOKENTER, 0},
 	{ "kingdomhearts_download_frame", &Hook_kingdomhearts_download_frame, 0, REPFLAG_HOOKENTER, 0},
+	{ "everybodysgolf2_copy_portrait", &Hook_everybodysgolf2_copy_portrait, 0, REPFLAG_HOOKENTER, 0x50 },
 	{}
 };
 
