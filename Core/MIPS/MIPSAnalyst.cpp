@@ -361,6 +361,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xa243486be51ce224, 272, "cosf", },
 	{ 0xa2bcef60a550a3ef, 92, "sceVfpuMatrix4RotZ", },
 	{ 0xa373f55c65cd757a, 312, "memcpy_swizzled" }, // God Eater Burst Demo
+	{ 0xa40999be36665f98, 588, "everybodysgolf_spinner_background", }, // Everybody's Golf (EUR)
 	{ 0xa41989db0f9bf97e, 1304, "pow", },
 	{ 0xa44f6227fdbc12b1, 132, "memcmp", }, // Popolocrois (US)
 	{ 0xa46cc6ea720d5775, 44, "sceGupFrontFace", },

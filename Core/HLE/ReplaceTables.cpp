@@ -1443,6 +1443,30 @@ static int Hook_everybodysgolf_copy_portrait() {
 	return 0;
 }
 
+static int Hook_everybodysgolf_spinner_background() {
+	// The loading screen spinner copies the displayed framebuffer under it into the transparent texels
+	// of each of its frames, then memcpys a frame back to the screen every so often.
+	// Hooked after the call to sceDisplayGetFrameBuf, where v0 is the framebuffer and s0 the spinner,
+	// with y at 0x14 and the frame height at 0x1C.
+	const u32 fb_address = currentMIPS->r[MIPS_REG_V0];
+	const u32 obj = currentMIPS->r[MIPS_REG_S0];
+	if (!Memory::IsVRAMAddress(fb_address) || !Memory::IsValidRange(obj + 0x14, 0xC)) {
+		return 0;
+	}
+	const s32 y = std::max((s32)Memory::ReadUnchecked_U32(obj + 0x14), 0);
+	const s32 yEnd = std::min((s32)Memory::ReadUnchecked_U32(obj + 0x14) + (s32)Memory::ReadUnchecked_U32(obj + 0x1C), 272);
+	if (yEnd <= y) {
+		return 0;
+	}
+	const u32 addr = fb_address + y * 0x400;
+	const u32 size = (yEnd - y) * 0x400;
+	if (Memory::IsValidRange(addr, size)) {
+		gpu->PerformReadbackToMemory(addr, size);
+		NotifyMemInfo(MemBlockFlags::WRITE, addr, size, "everybodysgolf_spinner_background");
+	}
+	return 0;
+}
+
 static int Hook_katamari_render_check() {
 	if (!Memory::IsValidRange(currentMIPS->r[MIPS_REG_A0] + 0x3C, 8)) {
 		return 0;
@@ -1779,6 +1803,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "everybodysgolf2_copy_portrait", &Hook_everybodys_copy_portrait, 0, REPFLAG_HOOKENTER, 0x50 },
 	{ "everybodystennis_copy_portrait", &Hook_everybodys_copy_portrait, 0, REPFLAG_HOOKENTER, 0x54 },
 	{ "everybodysgolf_copy_portrait", &Hook_everybodysgolf_copy_portrait, 0, REPFLAG_HOOKENTER, 0x50 },
+	{ "everybodysgolf_spinner_background", &Hook_everybodysgolf_spinner_background, 0, REPFLAG_HOOKENTER, 0x138 },
 	{}
 };
 
