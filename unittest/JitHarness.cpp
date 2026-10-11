@@ -242,6 +242,13 @@ static bool CheckReplacementHooks(u32 func, u32 size, const std::vector<u8> &cod
 	EXPECT_EQ_HEX(Memory::ReadBlockShadow(func), (u32)Memory::BLOCK_SHADOW_HOOK_NO_JIT);
 	EXPECT_TRUE(codeIntact());
 
+	// The disassembly shows the hook, with the instruction under it.
+	char disasm[256];
+	DisAsm(func, disasm, sizeof(disasm));
+	EXPECT_TRUE(strstr(disasm, "replacement") != nullptr && strstr(disasm, "addiu") != nullptr);
+	DisAsm(func + 4, disasm, sizeof(disasm));
+	EXPECT_TRUE(strstr(disasm, "replacement") == nullptr);
+
 	static const CPUCore cores[] = {
 		CPUCore::JIT,
 		CPUCore::IR_INTERPRETER,

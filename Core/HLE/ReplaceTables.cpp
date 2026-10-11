@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <map>
+#include <mutex>
 #include <unordered_map>
 
 #include "Common/CommonTypes.h"
@@ -1757,7 +1758,9 @@ struct InstalledReplacement {
 };
 
 // Keyed by address & BLOCK_SHADOW_MASK, so mirrors share a hook the way they share memory.
+// Only the CPU thread changes it, holding the lock, so that thread can read it without.
 static std::map<u32, InstalledReplacement> installedReplacements;
+static std::mutex installedReplacementsLock;
 static std::unordered_map<std::string, std::vector<int>> replacementNameLookup;
 
 // What the block shadow holds at a hooked instruction without a compiled block. The JIT's value
@@ -1878,7 +1881,10 @@ static bool WriteReplaceInstruction(u32 address, int index, u32 funcStart, u32 f
 		}
 		WARN_LOG(Log::HLE, "Replacement func changed at %08x (%d -> %d)", address, iter->second.index, index);
 	}
-	installedReplacements[key] = { index, address, memOp, funcStart, funcSize, funcHash };
+	{
+		std::lock_guard<std::mutex> guard(installedReplacementsLock);
+		installedReplacements[key] = { index, address, memOp, funcStart, funcSize, funcHash };
+	}
 	InvalidateReplacedAddress(address);
 	MarkHook(address);
 	return true;
@@ -1921,7 +1927,10 @@ void RestoreReplacedInstruction(u32 address) {
 	auto iter = installedReplacements.find(key);
 	if (iter != installedReplacements.end()) {
 		const u32 hookAddress = iter->second.address;
-		installedReplacements.erase(iter);
+		{
+			std::lock_guard<std::mutex> guard(installedReplacementsLock);
+			installedReplacements.erase(iter);
+		}
 		InvalidateReplacedAddress(hookAddress);
 		UnmarkHook(hookAddress);
 		NOTICE_LOG(Log::HLE, "Restored replaced func at %08x", address);
@@ -1947,7 +1956,10 @@ void RestoreReplacedInstructions(u32 startAddr, u32 endAddr) {
 		restored.push_back(it->second.address);
 	}
 	// Erase first, so destroying blocks there doesn't put the hook back.
-	installedReplacements.erase(start, end);
+	{
+		std::lock_guard<std::mutex> guard(installedReplacementsLock);
+		installedReplacements.erase(start, end);
+	}
 	for (u32 hookAddress : restored) {
 		InvalidateReplacedAddress(hookAddress);
 		UnmarkHook(hookAddress);
@@ -1965,6 +1977,7 @@ void Replacement_CheckRange(u32 address, u32 length) {
 		if (funcStart < end && funcStart + repl.funcSize > start && HashReplacedFunc(repl.funcStart, repl.funcSize) != repl.funcHash) {
 			NOTICE_LOG(Log::HLE, "Replaced func changed at %08x, dropping its hook at %08x", repl.funcStart, repl.address);
 			dropped.push_back(repl.address);
+			std::lock_guard<std::mutex> guard(installedReplacementsLock);
 			it = installedReplacements.erase(it);
 		} else {
 			++it;
@@ -1987,8 +2000,21 @@ MIPSOpcode GetReplacementOpAt(u32 address) {
 	if (iter->second.origOp != memOp) {
 		// The game wrote over the hooked instruction, so the hook goes with it.
 		NOTICE_LOG(Log::HLE, "Replaced func changed at %08x", address);
-		installedReplacements.erase(iter);
+		{
+			std::lock_guard<std::mutex> guard(installedReplacementsLock);
+			installedReplacements.erase(iter);
+		}
 		UnmarkHook(address);
+		return MIPSOpcode(memOp);
+	}
+	return MIPSOpcode(MIPS_EMUHACK_CALL_REPLACEMENT | iter->second.index);
+}
+
+MIPSOpcode Replacement_GetDisplayOp(u32 address) {
+	const u32 memOp = Memory::ReadUnchecked_U32(address);
+	std::lock_guard<std::mutex> guard(installedReplacementsLock);
+	auto iter = installedReplacements.find(address & Memory::BLOCK_SHADOW_MASK);
+	if (iter == installedReplacements.end() || iter->second.origOp != memOp) {
 		return MIPSOpcode(memOp);
 	}
 	return MIPSOpcode(MIPS_EMUHACK_CALL_REPLACEMENT | iter->second.index);

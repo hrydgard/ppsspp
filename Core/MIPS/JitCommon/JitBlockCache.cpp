@@ -29,6 +29,7 @@
 
 #include "Core/Core.h"
 #include "Core/MemMap.h"
+#include "Core/HLE/ReplaceTables.h"
 #include "Core/CoreTiming.h"
 #include "Core/Reporting.h"
 #include "Core/Config.h"
@@ -520,7 +521,7 @@ JitBlockDebugInfo JitBlockCache::GetBlockDebugInfo(int blockNum) const {
 	debugInfo.origDisasm.reserve(((block->originalAddress + block->originalSize * 4) - block->originalAddress) / 4);
 	for (u32 addr = block->originalAddress; addr < block->originalAddress + block->originalSize * 4; addr += 4) {
 		char temp[256];
-		MIPSDisAsm(Memory::Read_Instruction(addr), addr, temp, sizeof(temp), true);
+		MIPSDisAsm(Replacement_GetDisplayOp(addr), addr, temp, sizeof(temp), true);
 		std::string mipsDis = temp;
 		debugInfo.origDisasm.push_back(mipsDis);
 	}

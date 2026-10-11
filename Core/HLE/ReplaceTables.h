@@ -101,3 +101,6 @@ inline MIPSOpcode ReadExecutedOp(u32 address) {
 	return Memory::ReadUnchecked_Instruction(address);
 }
 
+// ReadExecutedOp for the debugger: safe from any thread, and never drops a hook. Address must be valid.
+MIPSOpcode Replacement_GetDisplayOp(u32 address);
+
