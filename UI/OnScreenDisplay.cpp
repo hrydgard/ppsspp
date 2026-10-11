@@ -24,8 +24,6 @@ static inline const char *DeNull(const char *ptr) {
 	return ptr ? ptr : "";
 }
 
-extern bool g_TakeScreenshot;
-
 static const float g_atlasIconSize = 36.0f;
 
 // Align only matters here for the ASCII-only flag.
@@ -107,10 +105,6 @@ static void RenderLeaderboardTracker(UIContext &dc, const Bounds &bounds, const 
 }
 
 void OnScreenMessagesView::Draw(UIContext &dc) {
-	if (g_TakeScreenshot) {
-		return;
-	}
-
 	dc.Flush();
 
 	double now = time_now_d();

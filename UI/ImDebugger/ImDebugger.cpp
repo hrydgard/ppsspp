@@ -11,10 +11,12 @@
 #include "Common/Log/LogManager.h"
 #include "Common/TimeUtil.h"
 #include "Common/Data/Text/I18n.h"
+#include "Common/System/NativeApp.h"
 #include "Core/RetroAchievements.h"
 #include "Core/Config.h"
 #include "Core/System.h"
 #include "Core/SaveState.h"
+#include "Core/Screenshot.h"
 #include "Core/WebServer.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/Debugger/LineInfo.h"
@@ -72,7 +74,6 @@
 #include "UI/GameInfoCache.h"
 #include "UI/PauseScreen.h"
 
-extern bool g_TakeScreenshot;
 static ImVec4 g_normalTextColor;
 
 void ShowInMemoryViewerMenuItem(uint32_t addr, ImControl &control) {
@@ -2642,7 +2643,7 @@ void ImDebugger::Frame(MIPSDebugInterface *mipsDebug, GPUCommon *gpuDebug, Draw:
 			ImGui::MenuItem("Auto save/load symbols (PSP/SYSTEM/SYMBOLS)", nullptr, &g_Config.bAutoSaveLoadSymbols);
 			ImGui::Separator();
 			if (ImGui::MenuItem("Take screenshot")) {
-				g_TakeScreenshot = true;
+				TakeUserScreenshot();
 			}
 			ImGui::MenuItem("Save screenshot as .png", nullptr, &g_Config.bScreenshotsAsPNG);
 			if (ImGui::MenuItem("Restart graphics")) {
