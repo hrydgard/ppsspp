@@ -1478,7 +1478,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	}
 
 	// The return value is sent to C++ via requestID.
-	public void inputBox(final int requestId, final String title, String defaultText, String defaultAction) {
+	public void inputBox(final int requestId, final String title, String defaultText, boolean passwordMasking, String defaultAction) {
 		final FrameLayout fl = new FrameLayout(this);
 		final EditText input = new EditText(this);
 		input.setGravity(Gravity.CENTER);
@@ -1487,7 +1487,11 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		editBoxLayout.setMargins(2, 20, 2, 20);
 		fl.addView(input, editBoxLayout);
 
-		input.setInputType(InputType.TYPE_CLASS_TEXT);
+		if (passwordMasking) {
+			input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+		} else {
+			input.setInputType(InputType.TYPE_CLASS_TEXT);
+		}
 		input.setImeOptions(EditorInfo.IME_ACTION_DONE);
 		input.setText(defaultText);
 		input.setFocusableInTouchMode(true);
@@ -1692,12 +1696,13 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		} else if (command.equals("inputbox")) {
 			String title = "Input";
 			String defString = "";
-			String[] param = params.split(":@:", 3);
+			String[] param = params.split(":@:", 4);
 			int requestID = Integer.parseInt(param[0]);
-			if (param.length > 1 && !param[1].isEmpty())
-				title = param[1];
-			if (param.length > 2)
-				defString = param[2];
+			boolean passwordMasking = param.length > 1 && param[1].equals("1");
+			if (param.length > 2 && !param[2].isEmpty())
+				title = param[2];
+			if (param.length > 3)
+				defString = param[3];
 			// Workaround for issue #13363 to fix Split/Second game start - it requires text input
 			// but we don't support it on VR devices.
 			if (isVRDevice()) {
@@ -1705,8 +1710,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 				NativeApp.sendRequestResult(requestID, false, defString, 0);
 				return true;
 			}
-			Log.i(TAG, "Launching inputbox: #" + requestID + " " + title + " " + defString);
-			inputBox(requestID, title, defString, "OK");
+			// Don't log defString, it can be a password.
+			Log.i(TAG, "Launching inputbox: #" + requestID + " " + title);
+			inputBox(requestID, title, defString, passwordMasking, "OK");
 			return true;
 		} else if (command.equals("vibrate")) {
 			int milliseconds = -1;

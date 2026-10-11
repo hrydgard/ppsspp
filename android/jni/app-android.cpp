@@ -966,7 +966,8 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		return true;
 	case SystemRequestType::INPUT_TEXT_MODAL:
 	{
-		std::string serialized = StringFromFormat("%d:@:%s:@:%s", requestId, param1.c_str(), param2.c_str());
+		// The flags go before the strings, so the free text comes last.
+		std::string serialized = StringFromFormat("%d:@:%d:@:%s:@:%s", requestId, param3 ? 1 : 0, param1.c_str(), param2.c_str());
 		PushCommand("inputbox", serialized);
 		return true;
 	}
@@ -1038,7 +1039,8 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendRequestResult(JNIEnv *env, jclass, jint jrequestID, jboolean result, jstring jvalue, jint jintValue) {
 	std::string value = jvalue ? GetJavaString(env, jvalue) : "(no value)";
-	INFO_LOG(Log::System, "Received result of request %d from Java: %d: %d '%s'", jrequestID, (int)result, jintValue, value.c_str());
+	// Don't log the value, it can be a password.
+	INFO_LOG(Log::System, "Received result of request %d from Java: %d: %d (%d chars)", jrequestID, (int)result, jintValue, (int)value.size());
 	if (result) {
 		g_requestManager.PostSystemSuccess(jrequestID, value, jintValue);
 	} else {
