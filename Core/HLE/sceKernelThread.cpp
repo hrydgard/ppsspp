@@ -788,6 +788,8 @@ static void __KernelWriteFakeSysCall(u32 nid, u32 *ptr, u32 &pos) {
 	*ptr = pos;
 	pos += 8;
 	WriteHLESyscall("FakeSysCalls", nid, *ptr);
+	// The memory may have held code that's already compiled.
+	currentMIPS->InvalidateICacheRangeDeferred(*ptr, 8);
 }
 
 u32 HLEMipsCallReturnAddress() {

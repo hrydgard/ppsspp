@@ -8,6 +8,7 @@
 #include "Core/Core.h"
 #include "Core/System.h"
 #include "Core/MemMap.h"
+#include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"
 #include "Core/RetroAchievements.h"
 #include "Windows/W32Util/ContextMenu.h"
@@ -439,7 +440,10 @@ void CtrlMemView::onChar(WPARAM wParam, LPARAM lParam) {
 	// Route the actual memory write to the CPU thread instead of poking at it directly from this
 	// GUI thread - see Core_RunOnCPUThread() in Core.h. No need to force the core to pause first.
 	if (asciiSelected_) {
-		Core_RunOnCPUThread([&] { Memory::WriteUnchecked_U8((u8)wParam, curAddress_); });
+		Core_RunOnCPUThread([&] {
+			Memory::WriteUnchecked_U8((u8)wParam, curAddress_);
+			currentMIPS->InvalidateICacheRangeDeferred(curAddress_ & ~3, 4);
+		});
 		ScrollCursor(1, GotoMode::RESET);
 	} else {
 		wParam = tolower(wParam);
@@ -456,6 +460,7 @@ void CtrlMemView::onChar(WPARAM wParam, LPARAM lParam) {
 				oldValue &= ~(0xF << shiftAmount);
 				u8 newValue = oldValue | (inputValue << shiftAmount);
 				Memory::WriteUnchecked_U8(newValue, curAddress_);
+				currentMIPS->InvalidateICacheRangeDeferred(curAddress_ & ~3, 4);
 			});
 			ScrollCursor(1, GotoMode::RESET);
 		}

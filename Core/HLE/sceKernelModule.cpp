@@ -2808,6 +2808,8 @@ int __KernelStartModule(SceUID moduleId, u32 argsize, u32 argAddr, u32 returnVal
 				Memory::WriteUnchecked_U32(MIPS_MAKE_LW(MIPS_REG_RA, MIPS_REG_SP, 8), tramp + 0x24);
 				Memory::WriteUnchecked_U32(MIPS_MAKE_J(entryAddr), tramp + 0x28);
 				Memory::WriteUnchecked_U32(MIPS_MAKE_ADDIU(MIPS_REG_SP, MIPS_REG_SP, 16), tramp + 0x2C);
+				// Thread stacks get reused, so an older trampoline may already be compiled here.
+				currentMIPS->InvalidateICacheRangeDeferred(tramp, 0x30);
 				NotifyMemInfo(MemBlockFlags::WRITE, tramp, 0x30, "ModuleStartTrampoline");
 				startThread->context.pc = tramp;
 				startThread->nt.entrypoint = tramp;
