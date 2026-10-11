@@ -1406,6 +1406,67 @@ static int Hook_kingdomhearts_download_frame() {
 	return 0;
 }
 
+// The Everybody's Golf games and Everybody's Tennis build player portraits the same way.
+// copy_portrait(dst, x, y, w, h) memcpys a rect of the 512-stride 5551 framebuffer into a texture,
+// one row at a time, which memcpy's replacement can't match to a framebuffer when it's a partial row.
+// The caller then sets each texel's alpha bit from the depth buffer, read straight from the linear
+// mirror at 0x04288000. So both are read back here, whole rows at a time.
+// Each version is hooked after the GE sync at the start, where y and h are in registers and the
+// framebuffer pointer is loaded from a global soon after.
+static void EverybodysCopyPortrait(u32 y, u32 h, s32 luiOffset, s32 lwOffset) {
+	u32 fb_info;
+	if (!GetMIPSStaticAddress(fb_info, luiOffset, lwOffset) || !Memory::IsValid4AlignedAddress(fb_info)) {
+		return;
+	}
+	const u32 fb_address = Memory::ReadUnchecked_U32(fb_info);
+	const u32 colorAddr = fb_address + y * 0x400;
+	const u32 depthAddr = 0x04288000 + y * 0x400;
+	const u32 size = h * 0x400;
+	if (!Memory::IsVRAMAddress(colorAddr) || !Memory::IsValidRange(colorAddr, size) || !Memory::IsValidRange(depthAddr, size)) {
+		return;
+	}
+	gpu->PerformReadbackToMemory(colorAddr, size);
+	NotifyMemInfo(MemBlockFlags::WRITE, colorAddr, size, "everybodys_copy_portrait");
+	gpu->PerformMemoryCopy(depthAddr, depthAddr, size, GPUCopyFlag::FORCE_DST_MATCH_MEM | GPUCopyFlag::DEPTH_REQUESTED);
+	NotifyMemInfo(MemBlockFlags::WRITE, depthAddr, size, "everybodys_copy_portrait");
+}
+
+// Golf 2 (caller 0x0887C060) and Tennis (caller 0x0889B13C).
+static int Hook_everybodys_copy_portrait() {
+	EverybodysCopyPortrait(currentMIPS->r[MIPS_REG_S4], currentMIPS->r[MIPS_REG_S1], 0x0C, 0x10);
+	return 0;
+}
+
+// Golf (caller 0x088A1FEC).
+static int Hook_everybodysgolf_copy_portrait() {
+	EverybodysCopyPortrait(currentMIPS->r[MIPS_REG_S0], currentMIPS->r[MIPS_REG_S4], 0x00, 0x08);
+	return 0;
+}
+
+static int Hook_everybodysgolf_spinner_background() {
+	// The loading screen spinner copies the displayed framebuffer under it into the transparent texels
+	// of each of its frames, then memcpys a frame back to the screen every so often.
+	// Hooked after the call to sceDisplayGetFrameBuf, where v0 is the framebuffer and s0 the spinner,
+	// with y at 0x14 and the frame height at 0x1C.
+	const u32 fb_address = currentMIPS->r[MIPS_REG_V0];
+	const u32 obj = currentMIPS->r[MIPS_REG_S0];
+	if (!Memory::IsVRAMAddress(fb_address) || !Memory::IsValidRange(obj + 0x14, 0xC)) {
+		return 0;
+	}
+	const s32 y = std::max((s32)Memory::ReadUnchecked_U32(obj + 0x14), 0);
+	const s32 yEnd = std::min((s32)Memory::ReadUnchecked_U32(obj + 0x14) + (s32)Memory::ReadUnchecked_U32(obj + 0x1C), 272);
+	if (yEnd <= y) {
+		return 0;
+	}
+	const u32 addr = fb_address + y * 0x400;
+	const u32 size = (yEnd - y) * 0x400;
+	if (Memory::IsValidRange(addr, size)) {
+		gpu->PerformReadbackToMemory(addr, size);
+		NotifyMemInfo(MemBlockFlags::WRITE, addr, size, "everybodysgolf_spinner_background");
+	}
+	return 0;
+}
+
 static int Hook_katamari_render_check() {
 	if (!Memory::IsValidRange(currentMIPS->r[MIPS_REG_A0] + 0x3C, 8)) {
 		return 0;
@@ -1739,6 +1800,10 @@ static const ReplacementTableEntry entries[] = {
 	{ "takuyo_2_download_frame", &Hook_takuyo_download_frame, 0, REPFLAG_HOOKENTER, 0},
 	{ "takuyo_3_download_frame", &Hook_takuyo_download_frame, 0, REPFLAG_HOOKENTER, 0},
 	{ "kingdomhearts_download_frame", &Hook_kingdomhearts_download_frame, 0, REPFLAG_HOOKENTER, 0},
+	{ "everybodysgolf2_copy_portrait", &Hook_everybodys_copy_portrait, 0, REPFLAG_HOOKENTER, 0x50 },
+	{ "everybodystennis_copy_portrait", &Hook_everybodys_copy_portrait, 0, REPFLAG_HOOKENTER, 0x54 },
+	{ "everybodysgolf_copy_portrait", &Hook_everybodysgolf_copy_portrait, 0, REPFLAG_HOOKENTER, 0x50 },
+	{ "everybodysgolf_spinner_background", &Hook_everybodysgolf_spinner_background, 0, REPFLAG_HOOKENTER, 0x138 },
 	{}
 };
 

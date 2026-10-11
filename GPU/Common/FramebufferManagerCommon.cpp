@@ -2110,6 +2110,13 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 				srcCandidate.y = 0;
 				srcCandidate.h = vfb->height;
 				srcCandidates.push_back(srcCandidate);
+			} else if (vfb->z_address != 0 && vfb->z_stride != 0 && src >= vfb->z_address && (src - vfb->z_address) % vfb_byteStride == 0 && size % vfb_byteStride == 0) {
+				// Whole rows within the buffer, like Everybody's Golf 2 reading a portrait's depth.
+				srcCandidate.y = (src - vfb->z_address) / vfb_byteStride;
+				srcCandidate.h = size / vfb_byteStride;
+				if (srcCandidate.y + srcCandidate.h <= vfb->height) {
+					srcCandidates.push_back(srcCandidate);
+				}
 			}
 			continue;
 		}
@@ -2301,8 +2308,14 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 		// TODO: srcStride here looks suspicious! Actually the whole calculation does...
 		int srcStride = channel == RASTER_DEPTH ? dstBuffer->z_stride : dstBuffer->fb_stride;
 		dstH = ClampCopyRows(src, srcStride * BufferFormatBytesPerPixel(srcFormat), dstH, "MemcpyFboUpload");
-		if (dstH > 0)
-			DrawPixels(dstBuffer, 0, dstY, srcBase, srcFormat, srcStride, dstBuffer->width, dstH, channel, "MemcpyFboUpload_DrawPixels");
+		// A copy of part of a row only covers that part. Drawing the whole width would pull in whatever
+		// follows the source, like the next rows of the sprite in Everybody's Golf's loading screen.
+		int dstW = dstBuffer->width;
+		if (dstH == 1) {
+			dstW = std::min(dstW, size / BufferFormatBytesPerPixel(srcFormat));
+		}
+		if (dstH > 0 && dstW > 0)
+			DrawPixels(dstBuffer, 0, dstY, srcBase, srcFormat, srcStride, dstW, dstH, channel, "MemcpyFboUpload_DrawPixels");
 		SetColorUpdated(dstBuffer, skipDrawReason);
 		RebindFramebuffer("RebindFramebuffer - Memcpy fbo upload");
 		// This is a memcpy, let's still copy just in case.
@@ -3438,34 +3451,11 @@ void FramebufferManagerCommon::ReadFramebufferToMemory(VirtualFramebuffer *vfb, 
 	if (x + w >= vfb->bufferWidth) {
 		w = vfb->bufferWidth - x;
 	}
-	if (gameUsesSequentialCopies_) {
-		// Ignore the x/y/etc., read the entire thing.  See below.
-		x = 0;
-		y = 0;
-		w = vfb->width;
-		h = vfb->height;
-		vfb->memoryUpdated = true;
-		vfb->usageFlags |= FB_USAGE_DOWNLOAD;
-	} else if (x == 0 && y == 0 && w == vfb->width && h == vfb->height) {
+	if (x == 0 && y == 0 && w == vfb->width && h == vfb->height) {
 		// Mark it as fully downloaded until next render to it.
 		if (channel == RASTER_COLOR)
 			vfb->memoryUpdated = true;
 		vfb->usageFlags |= FB_USAGE_DOWNLOAD;
-	} else {
-		// Let's try to set the flag eventually, if the game copies a lot.
-		// Some games (like Grand Knights History) copy subranges very frequently.
-		const static int FREQUENT_SEQUENTIAL_COPIES = 3;
-		static int frameLastCopy = 0;
-		static u32 bufferLastCopy = 0;
-		static int copiesThisFrame = 0;
-		if (frameLastCopy != gpuStats.totals.numFlips || bufferLastCopy != vfb->fb_address) {
-			frameLastCopy = gpuStats.totals.numFlips;
-			bufferLastCopy = vfb->fb_address;
-			copiesThisFrame = 0;
-		}
-		if (++copiesThisFrame > FREQUENT_SEQUENTIAL_COPIES) {
-			gameUsesSequentialCopies_ = true;
-		}
 	}
 
 	// This handles any required stretching internally.

@@ -38,6 +38,7 @@
 #include "Core/ELF/ParamSFO.h"
 #include "Core/HLE/sceDisplay.h"
 #include "Core/RetroAchievements.h"
+#include "Core/SaveState.h"
 #include "Core/System.h"
 
 // Declared rather than included from Core/HLE/sceNet.h, which reaches winsock and so windows.h
@@ -58,6 +59,7 @@ static uint32_t GetOwnProcessID() {
 DebuggerSubscriber *WebSocketGameInit(DebuggerEventHandlerMap &map) {
 	map["game.reset"] = &WebSocketGameReset;
 	map["game.status"] = &WebSocketGameStatus;
+	map["game.state.load"] = &WebSocketGameStateLoad;
 	map["game.speed.get"] = &WebSocketGameSpeedGet;
 	map["game.speed.set"] = &WebSocketGameSpeedSet;
 	map["version"] = &WebSocketVersion;
@@ -123,6 +125,35 @@ void WebSocketGameStatus(DebuggerRequest &req) {
 		}
 		json.writeBool("paused", GetUIState() == UISTATE_PAUSEMENU);
 	});
+}
+
+// Load a savestate file (game.state.load)
+//
+// The load is queued, and happens at the end of the next frame the CPU runs, so follow this with
+// something that runs it, like cpu.runUntilTime.
+//
+// Parameters:
+//  - path: string, path to the .ppst file.
+//
+// Response (same event name) with no extra data, once queued.
+void WebSocketGameStateLoad(DebuggerRequest &req) {
+	std::string path;
+	if (!req.ParamString("path", &path))
+		return;
+
+	bool running = false;
+	Core_RunOnCPUThread([&] {
+		running = PSP_GetBootState() == BootState::Complete;
+	});
+	if (!running)
+		return req.Fail("Game not running");
+
+	SaveState::Load(Path(path), -1, [](SaveState::Status status, std::string_view message, std::string_view) {
+		if (status == SaveState::Status::FAILURE) {
+			ERROR_LOG(Log::System, "game.state.load: %.*s", STR_VIEW(message));
+		}
+	});
+	req.Respond();
 }
 
 // Percentages are relative to 60 FPS, matching how the in-app settings present the alternative

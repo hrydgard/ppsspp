@@ -121,6 +121,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x0f1e7533a546f6a1, 228, "dl_write_bone_matrix_4", },
 	{ 0x0f2a1106ad84fb74, 52, "strcmp", },
 	{ 0x0ffa5db8396d4274, 64, "memcpy_jak", }, // CRUSH
+	{ 0x11624abe9542fb01, 180, "everybodysgolf_copy_portrait", }, // Everybody's Golf (EUR)
 	{ 0x1252e902d0b49bfb, 44, "vector_sub_q_2", },
 	{ 0x12df3d33a58d0298, 52, "sceVfpuMatrix3Unit", },
 	{ 0x12feef7b017d3431, 700, "memmove", },
@@ -146,6 +147,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x1c967be07917ddc9, 92, "strcat", },
 	{ 0x1d03fa48334ca966, 556, "_strtol_r", },
 	{ 0x1d1311966d2243e9, 428, "suikoden1_and_2_download_frame_1", }, // Gensou Suikoden 1&2
+	{ 0x1d66a9d38981b9da, 184, "everybodysgolf2_copy_portrait", }, // Everybody's Golf 2 (EUR)
 	{ 0x1d7de04b4e87d00b, 680, "kankabanchoutbr_download_frame", }, // Kenka Banchou Bros: Tokyo Battle Royale
 	{ 0x1daf6eaf0442391d, 1024, "utawarerumono_download_frame", }, // Utawarerumono portable
 	{ 0x1e1525e3bc2f6703, 676, "rint", },
@@ -349,6 +351,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x9ce53975bb88c0e7, 96, "strncpy", },
 	{ 0x9d4f5f56b52f07f2, 808, "memmove", }, // Jeanne d'Arc (US)
 	{ 0x9e2941c4a5c5e847, 792, "memcpy", }, // LittleBigPlanet (US)
+	{ 0x9e6adef67e76ed5c, 188, "everybodystennis_copy_portrait", }, // Everybody's Tennis (EUR)
 	{ 0x9e6ce11f9d49f954, 292, "memcpy", }, // Jeanne d'Arc (US)
 	{ 0x9f269daa6f0da803, 128, "sceGupScissor", },
 	{ 0x9f7919eeb43982b0, 208, "__fixdfsi", },
@@ -358,6 +361,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xa243486be51ce224, 272, "cosf", },
 	{ 0xa2bcef60a550a3ef, 92, "sceVfpuMatrix4RotZ", },
 	{ 0xa373f55c65cd757a, 312, "memcpy_swizzled" }, // God Eater Burst Demo
+	{ 0xa40999be36665f98, 588, "everybodysgolf_spinner_background", }, // Everybody's Golf (EUR)
 	{ 0xa41989db0f9bf97e, 1304, "pow", },
 	{ 0xa44f6227fdbc12b1, 132, "memcmp", }, // Popolocrois (US)
 	{ 0xa46cc6ea720d5775, 44, "sceGupFrontFace", },

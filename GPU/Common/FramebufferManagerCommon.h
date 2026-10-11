@@ -127,7 +127,7 @@ struct VirtualFramebuffer {
 	// Tracking for downloads-to-CLUT.
 	u16 clutUpdatedBytes;
 
-	// Means that the whole image has already been read back to memory - used when combining small readbacks (gameUsesSequentialCopies_).
+	// Means that the whole image has already been read back to memory.
 	bool memoryUpdated;
 
 	// TODO: Fold into usageFlags?
@@ -629,8 +629,6 @@ protected:
 	std::vector<VirtualFramebuffer *> bvfbs_; // blitting framebuffers (for download)
 
 	std::vector<DrawPixelsEntry> drawPixelsCache_;
-
-	bool gameUsesSequentialCopies_ = false;
 
 	// Sampled in BeginFrame/UpdateSize for safety.
 	float renderWidth_ = 0.0f;
