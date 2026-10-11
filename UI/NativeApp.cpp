@@ -1570,9 +1570,11 @@ bool NativeKey(const KeyInput &key) {
 	// Filtering, detailed rules needed for good imgui behavior without having to ask the screen about what to do.
 	InputMode inputMode = g_screenManager->PassInputToMapper();
 
+	bool imguiHasKeyboard = false;
 	if (g_Config.bShowImDebugger && imguiInited_) {
 		if (ImGui::GetIO().WantCaptureKeyboard) {
 			inputMode &= ~InputMode::Keyboard;
+			imguiHasKeyboard = true;
 		}
 		if (ImGui::GetIO().WantCaptureMouse) {
 			inputMode &= ~InputMode::Mouse;
@@ -1580,21 +1582,21 @@ bool NativeKey(const KeyInput &key) {
 	}
 
 	bool passKeyThrough = false;
-	if (inputMode != InputMode::None) {
-		if ((inputMode & InputMode::ImDebuggerToggle) && (key.flags & (KeyInputFlags::UP | KeyInputFlags::DOWN))) {
-			InputMapping mapping(key.deviceId, key.keyCode);
-			std::vector<int> pspButtons;
-			bool mappingFound = KeyMap::InputMappingToPspButton(mapping, &pspButtons);
-			if (mappingFound) {
-				for (auto b : pspButtons) {
-					if (b == VIRTKEY_TOGGLE_DEBUGGER || b == VIRTKEY_PAUSE) {
-						// TRUE
-						passKeyThrough = true;
-					}
+	// The debugger toggle also goes through while imgui has the keyboard, so it can always be closed again.
+	if (((inputMode & InputMode::ImDebuggerToggle) || imguiHasKeyboard) && (key.flags & (KeyInputFlags::UP | KeyInputFlags::DOWN))) {
+		InputMapping mapping(key.deviceId, key.keyCode);
+		std::vector<int> pspButtons;
+		bool mappingFound = KeyMap::InputMappingToPspButton(mapping, &pspButtons);
+		if (mappingFound) {
+			for (auto b : pspButtons) {
+				if (b == VIRTKEY_TOGGLE_DEBUGGER || (b == VIRTKEY_PAUSE && (inputMode & InputMode::ImDebuggerToggle))) {
+					passKeyThrough = true;
 				}
 			}
 		}
+	}
 
+	if (inputMode != InputMode::None) {
 		if (key.deviceId == DEVICE_ID_MOUSE) {
 			if (inputMode & InputMode::Mouse) {
 				passKeyThrough = true;
