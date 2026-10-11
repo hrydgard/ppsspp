@@ -1192,14 +1192,19 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 	NotifyRenderFramebufferUpdated(vfb);
 }
 
-void FramebufferManagerCommon::PerformWriteFormattedFromMemory(u32 addr, int size, int stride, GEBufferFormat fmt) {
+void FramebufferManagerCommon::PerformWriteFormattedFromMemory(u32 addr, int size, int stride, GEBufferFormat fmt, int rectWidth) {
 	// Note: UpdateFromMemory() is still called later.
 	// This is a special case where we have extra information prior to the invalidation,
 	// because it's called from sceJpeg, sceMpeg, scePsmf etc.
 
-	// TODO: Could possibly be at an offset...
-	// Also, stride needs better handling.
+	// TODO: Stride needs better handling.
 	VirtualFramebuffer *vfb = ResolveVFB(addr, stride, fmt);
+	if (!vfb && rectWidth > 0) {
+		// Not at the start of a framebuffer, so UpdateFromMemory won't see it. Buzz! Master Quiz
+		// converts its video frames straight into the middle of the frame it has drawn.
+		WriteRectFromMemory(addr, size, stride, fmt, rectWidth);
+		return;
+	}
 	if (vfb) {
 		// Let's count this as a "render".  This will also force us to use the correct format.
 		vfb->last_frame_render = gpuStats.totals.numFlips;
@@ -1216,6 +1221,46 @@ void FramebufferManagerCommon::PerformWriteFormattedFromMemory(u32 addr, int siz
 			vfb->width = stride;
 		}
 	}
+}
+
+void FramebufferManagerCommon::WriteRectFromMemory(u32 addr, int size, int stride, GEBufferFormat fmt, int rectWidth) {
+	if (!useBufferedRendering_) {
+		return;
+	}
+	addr &= 0x3FFFFFFF;
+	if (Memory::IsVRAMAddress(addr))
+		addr &= 0x041FFFFF;
+	const u32 byteStride = (u32)(stride * BufferFormatBytesPerPixel(fmt));
+	if (byteStride == 0) {
+		return;
+	}
+
+	VirtualFramebuffer *target = nullptr;
+	for (auto vfb : vfbs_) {
+		if (!vfb->fbo || vfb->FbStrideInBytes() != byteStride || addr <= vfb->fb_address || addr >= vfb->fb_address + vfb->BufferByteSize(RASTER_COLOR)) {
+			continue;
+		}
+		if (!target || vfb->colorBindSeq > target->colorBindSeq) {
+			target = vfb;
+		}
+	}
+	if (!target) {
+		return;
+	}
+
+	const u32 offset = addr - target->fb_address;
+	const int x = (offset % byteStride) / BufferFormatBytesPerPixel(fmt);
+	const int y = offset / byteStride;
+	const int w = std::min(rectWidth, (int)target->width - x);
+	const int h = std::min((int)(size / byteStride), (int)target->height - y);
+	if (w <= 0 || h <= 0) {
+		return;
+	}
+
+	FlushBeforeCopy();
+	DrawPixels(target, x, y, Memory::GetPointerUnchecked(addr), fmt, stride, w, h, RASTER_COLOR, "WriteRectFromMemory");
+	SetColorUpdated(target, gstate_c.skipDrawReason);
+	RebindFramebuffer("RebindFramebuffer - WriteRectFromMemory");
 }
 
 void FramebufferManagerCommon::UpdateFromMemory(u32 addr, int size) {

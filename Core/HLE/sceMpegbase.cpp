@@ -514,7 +514,7 @@ static int MpegBaseCscRange(u32 bufferRGB, u32 cscAddr, int bufferWidth,
 	// don't see that on their own, so without telling them the screen keeps showing the last frame
 	// the GE drew (the same notification our sceMpegAvcCsc HLE does). The pixel mode numbering
 	// matches GEBufferFormat, as it does there.
-	gpu->PerformWriteFormattedFromMemory(bufferRGB, destSize, bufferWidth, (GEBufferFormat)g_mpegBasePixelMode);
+	gpu->PerformWriteFormattedFromMemory(bufferRGB, destSize, bufferWidth, (GEBufferFormat)g_mpegBasePixelMode, rangeWidth);
 	// This runs on the DMACPLUS and takes real time. A psmfplayer game blits the current video
 	// frame every render frame while it waits for the next, so an instant return is a tight loop
 	// that never yields and starves the audio thread that paces playback, and the A/V pipeline
