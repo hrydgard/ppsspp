@@ -721,10 +721,14 @@ bool GameManager::ExtractZipContents(struct zip *z, const Path &dest, const ZipF
 		Path outFilename = dest / zippedName.substr(info.stripChars);
 
 		bool isDir = zippedName.empty() || zippedName.back() == '/';
-		if (!isDir && zippedName.find('/') != std::string::npos) {
-			outFilename = dest / zippedName.substr(info.stripChars, zippedName.rfind('/') - info.stripChars);
-		} else if (!isDir) {
-			outFilename = dest;
+		if (!isDir) {
+			// stripChars can reach past the last slash (save states strip their whole directory).
+			size_t lastSlash = zippedName.rfind('/');
+			if (lastSlash != std::string::npos && lastSlash > (size_t)info.stripChars) {
+				outFilename = dest / zippedName.substr(info.stripChars, lastSlash - info.stripChars);
+			} else {
+				outFilename = dest;
+			}
 		}
 
 		Path outPath(outFilename);
