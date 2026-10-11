@@ -396,7 +396,7 @@ include Makefile.common
 
 # Always compile the patched source; vendored binary archives still contain
 # FFmpeg's upstream mutex/condition-variable workers.
-CMAKE ?= cmake
+CMAKE ?= $(shell sh find-cmake.sh)
 ifneq ($(platform), emscripten)
 FFMPEG_SOURCE_DIR := obj-ffmpeg-source-$(TARGET_ARCH)
 FFMPEG_SOURCE_STAMP := $(FFMPEG_SOURCE_DIR)/.built
@@ -502,7 +502,8 @@ ifneq ($(MAKECMDGOALS),clean)
 FFMPEG_SOURCE_INPUTS := $(shell find $(FFMPEGDIR)/libavcodec $(FFMPEGDIR)/libavformat $(FFMPEGDIR)/libavutil $(FFMPEGDIR)/libswresample $(FFMPEGDIR)/libswscale $(CORE_DIR)/ext/ffmpeg-build -type f \( -name '*.c' -o -name '*.h' -o -name '*.cmake' -o -name CMakeLists.txt \))
 endif
 ifneq ($(platform), emscripten)
-$(FFMPEG_SOURCE_STAMP): $(FFMPEG_SOURCE_INPUTS) Makefile
+$(FFMPEG_SOURCE_STAMP): $(FFMPEG_SOURCE_INPUTS) Makefile find-cmake.sh
+	@$(CMAKE) --version >/dev/null 2>&1 || { echo "A working CMake is required to build the vendored FFmpeg source."; echo "MSYS2 MINGW64: pacman -S mingw-w64-x86_64-cmake"; echo "Or pass CMAKE=/path/to/a/working/cmake."; exit 1; }
 	$(CMAKE) -S $(CORE_DIR)/ext/ffmpeg-build -B $(FFMPEG_SOURCE_DIR) -DCMAKE_BUILD_TYPE=Release $(FFMPEG_CMAKE_TOOLCHAIN) $(FFMPEG_CMAKE_ARGS)
 	$(CMAKE) --build $(FFMPEG_SOURCE_DIR) --config Release --target avformat avcodec avutil swresample swscale
 	touch $@
