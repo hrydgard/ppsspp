@@ -340,6 +340,9 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	case SYSPROP_HAS_BACK_BUTTON:
 		// The remote's Menu/Back button.
 		return true;
+	case SYSPROP_LIMITED_FILE_BROWSING:
+		// Nothing outside the app's container lists, so there'd be no way back.
+		return true;
 	default:
 		break;
 	}

@@ -800,8 +800,8 @@ extern float g_safeInsetBottom;
 	CGSize size = view.bounds.size;
 
 #if PPSSPP_PLATFORM(TVOS)
-	// Seen from the couch. A 1920x1080 point screen comes out as 960x540 dp.
-	float dpi = 480.0f * scale;
+	// Like a 1080p Android TV, which reports 320 dpi: 1920x1080 points come out as 1440x810 dp.
+	float dpi = 320.0f * scale;
 #else
 	float dpi = (IS_IPAD() ? 200.0f : 150.0f) * scale;
 #endif

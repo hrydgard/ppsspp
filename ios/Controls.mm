@@ -1,5 +1,8 @@
 #include "Controls.h"
 
+#include <algorithm>
+#include <cmath>
+
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
@@ -212,31 +215,94 @@ static void remoteButtonPressed(BOOL pressed, InputKeyCode keyCode) {
 	NativeKey(key);
 }
 
+// The touch surface. The dpad reports where the finger is, -1..1 on each axis, and exactly 0,0
+// when nothing touches it. Handlers run on the main queue, so no locking.
+struct RemoteTouchState {
+	bool touching = false;
+	float anchorX = 0.0f;
+	float anchorY = 0.0f;
+	bool clicking = false;
+	InputKeyCode clickKey = NKCODE_UNKNOWN;
+};
+static RemoteTouchState g_remoteTouch;
+
+// How far the finger has to travel for a swipe to move one step. The surface is 2.0 across.
+static const float REMOTE_SWIPE_STEP = 0.4f;
+// A click further out than this from the center is an arrow (the ring on newer remotes).
+static const float REMOTE_EDGE_CLICK = 0.5f;
+
+static void remoteTap(InputKeyCode keyCode) {
+	remoteButtonPressed(YES, keyCode);
+	remoteButtonPressed(NO, keyCode);
+}
+
+static void remoteTouchMoved(float x, float y) {
+	RemoteTouchState &s = g_remoteTouch;
+	if (x == 0.0f && y == 0.0f) {
+		s.touching = false;
+		return;
+	}
+	if (!s.touching || s.clicking) {
+		// A new touch, or one that's pressing down: start over from here.
+		s.touching = true;
+		s.anchorX = x;
+		s.anchorY = y;
+		return;
+	}
+	const float dx = x - s.anchorX;
+	const float dy = y - s.anchorY;
+	if (fabsf(dx) >= REMOTE_SWIPE_STEP && fabsf(dx) >= fabsf(dy)) {
+		remoteTap(dx > 0.0f ? NKCODE_DPAD_RIGHT : NKCODE_DPAD_LEFT);
+	} else if (fabsf(dy) >= REMOTE_SWIPE_STEP) {
+		remoteTap(dy > 0.0f ? NKCODE_DPAD_UP : NKCODE_DPAD_DOWN);
+	} else {
+		return;
+	}
+	s.anchorX = x;
+	s.anchorY = y;
+}
+
+static void remoteClicked(GCControllerDirectionPad *dpad, BOOL pressed) {
+	RemoteTouchState &s = g_remoteTouch;
+	if (pressed) {
+		if (s.clicking) {
+			return;
+		}
+		const float x = dpad.xAxis.value;
+		const float y = dpad.yAxis.value;
+		if (std::max(fabsf(x), fabsf(y)) < REMOTE_EDGE_CLICK) {
+			s.clickKey = NKCODE_ENTER;
+		} else if (fabsf(x) > fabsf(y)) {
+			s.clickKey = x > 0.0f ? NKCODE_DPAD_RIGHT : NKCODE_DPAD_LEFT;
+		} else {
+			s.clickKey = y > 0.0f ? NKCODE_DPAD_UP : NKCODE_DPAD_DOWN;
+		}
+		s.clicking = true;
+		remoteButtonPressed(YES, s.clickKey);
+	} else if (s.clicking) {
+		s.clicking = false;
+		remoteButtonPressed(NO, s.clickKey);
+	}
+}
+
 bool InitSiriRemote(GCController *controller) {
 	GCMicroGamepad *micro = controller.microGamepad;
 	if (micro == nil || controller.extendedGamepad != nil) {
 		return false;
 	}
 
-	// Swipes on the touch surface move relative to where the finger went down, one step per swipe.
-	micro.reportsAbsoluteDpadValues = NO;
+	// Where the finger is, rather than how far it moved since it went down. Swipes are worked out
+	// in remoteTouchMoved, since the dpad's own buttons flicker on and off with every wobble.
+	micro.reportsAbsoluteDpadValues = YES;
 	micro.allowsRotation = NO;
 
-	micro.dpad.up.pressedChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		remoteButtonPressed(pressed, NKCODE_DPAD_UP);
+	GCControllerDirectionPad *dpad = micro.dpad;
+	dpad.valueChangedHandler = ^(GCControllerDirectionPad *pad, float x, float y) {
+		remoteTouchMoved(x, y);
 	};
-	micro.dpad.down.pressedChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		remoteButtonPressed(pressed, NKCODE_DPAD_DOWN);
-	};
-	micro.dpad.left.pressedChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		remoteButtonPressed(pressed, NKCODE_DPAD_LEFT);
-	};
-	micro.dpad.right.pressedChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		remoteButtonPressed(pressed, NKCODE_DPAD_RIGHT);
-	};
-	// Clicking the touch surface.
+	// Clicking the touch surface: arrows at the edges, enter in the middle.
 	micro.buttonA.pressedChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		remoteButtonPressed(pressed, NKCODE_ENTER);
+		remoteClicked(dpad, pressed);
 	};
 	// Play/pause. Escape opens the pause menu in-game.
 	micro.buttonX.pressedChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {

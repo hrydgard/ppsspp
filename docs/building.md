@@ -112,10 +112,13 @@ The tvOS app is the iOS app with the iPhone-only parts compiled out, checked wit
 `PPSSPP_PLATFORM(TVOS)` (tvOS also gets `PPSSPP_PLATFORM(IOS)`). The CMake side is the iOS toolchain
 with `-DIOS_PLATFORM=TVOS`, which sets `TVOS`.
 
-- `./b-tvos.sh` builds an unsigned app into `build-tvos-xcode/Release-appletvos/`. To run it on an
-  Apple TV, pass the signing settings, which replace the unsigned defaults:
-  `./b-tvos.sh -allowProvisioningUpdates DEVELOPMENT_TEAM=<team> CODE_SIGN_STYLE=Automatic "CODE_SIGN_IDENTITY=Apple Development"`,
-  then `xcrun devicectl device install app --device <udid> <app>`.
+- `./b-tvos.sh` builds an unsigned app into `build-tvos-xcode/Release-appletvos/`.
+  `DEVELOPMENT_TEAM=<team> DEVICE=<udid> ./b-tvos.sh` signs it, registers the Apple TV with the team
+  if needed, installs it and launches it with the console attached.
+- To pair an Apple TV, put it on Settings > Remotes and Devices > Remote App and Devices. It doesn't
+  show in `xcrun devicectl list devices` until paired; find it with
+  `dns-sd -B _remotepairing-manual-pairing._tcp` and `xcrun devicectl device info details --device <name>`,
+  then `xcrun devicectl manage pair --device <identifier>` and enter the code it shows.
 - `./b.sh --tvos --libretro` (and `./b.sh --ios --libretro`) build the libretro cores. tvOS has no
   `sigaltstack`, among other things, so this is the build that catches it.
 - There's no tvOS simulator build: FFmpeg has no tvOS simulator libraries.
