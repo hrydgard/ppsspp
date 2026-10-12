@@ -106,6 +106,22 @@ by default, but if you want to test-build it locally:
 - Example (POSIX): `cd android && NDK=/path/to/ndk ./ab.sh APP_ABI=arm64-v8a HEADLESS=1`
 - The `ppsspp_headless` executable ends up in `android/libs/<abi>/`.
 
+## tvOS
+
+The tvOS app is the iOS app with the iPhone-only parts compiled out, checked with
+`PPSSPP_PLATFORM(TVOS)` (tvOS also gets `PPSSPP_PLATFORM(IOS)`). The CMake side is the iOS toolchain
+with `-DIOS_PLATFORM=TVOS`, which sets `TVOS`.
+
+- `./b-tvos.sh` builds an unsigned app into `build-tvos-xcode/Release-appletvos/`. To run it on an
+  Apple TV, pass the signing settings, which replace the unsigned defaults:
+  `./b-tvos.sh -allowProvisioningUpdates DEVELOPMENT_TEAM=<team> CODE_SIGN_STYLE=Automatic "CODE_SIGN_IDENTITY=Apple Development"`,
+  then `xcrun devicectl device install app --device <udid> <app>`.
+- `./b.sh --tvos --libretro` (and `./b.sh --ios --libretro`) build the libretro cores. tvOS has no
+  `sigaltstack`, among other things, so this is the build that catches it.
+- There's no tvOS simulator build: FFmpeg has no tvOS simulator libraries.
+- tvOS apps have no persistent storage except about 500 KB of `NSUserDefaults`. Anything else may be
+  purged, so the memory stick is in Caches for now.
+
 ## libretro core build (Windows)
 
 Canonical instructions are in `libretro/README_WINDOWS.txt` - read that first, this is a summary plus

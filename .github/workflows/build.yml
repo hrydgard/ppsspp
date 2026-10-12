@@ -313,6 +313,24 @@ jobs:
           cxx: clang++
           args: ./b-ios.sh
           id: ios
+        - os: macos-latest
+          extra: tvos
+          cc: clang
+          cxx: clang++
+          args: ./b-tvos.sh
+          id: tvos
+        - os: macos-latest
+          extra: libretro_ios
+          cc: clang
+          cxx: clang++
+          args: ./b.sh --ios --libretro
+          id: ios-libretro
+        - os: macos-latest
+          extra: libretro_tvos
+          cc: clang
+          cxx: clang++
+          args: ./b.sh --tvos --libretro
+          id: tvos-libretro
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -425,7 +443,7 @@ jobs:
           --known-failures=${{ matrix.extra }}
 
     - name: Package build
-      if: matrix.extra == 'test' || matrix.id == 'ios'
+      if: matrix.extra == 'test' || matrix.id == 'ios' || matrix.id == 'tvos'
       run: |
         mkdir -p ppsspp
         if [ -e build*/$BUILD_CONFIGURATION/PPSSPPSDL ]; then
@@ -443,6 +461,11 @@ jobs:
           find build -name 'PPSSPP*.xcarchive' -exec cp -a '{}' ppsspp/ \;
           find build -name 'PPSSPP*.deb' -exec cp -a '{}' ppsspp/ \;
           find build -name 'org.ppsspp*.deb' -exec cp -a '{}' ppsspp/ \;
+        elif [ -e build-tvos-xcode/Release-appletvos/PPSSPP.app ]; then
+          # Unsigned. Zipped, since artifact zipping loses symlinks and permissions.
+          pushd build-tvos-xcode/Release-appletvos
+          zip -qry ../../ppsspp/PPSSPP-tvOS.zip PPSSPP.app
+          popd
         elif [ -e build*/PPSSPPSDL ]; then
           cp build*/PPSSPPSDL ppsspp/
           cp -r assets ppsspp/assets
@@ -467,7 +490,7 @@ jobs:
 
     - name: Upload iOS build
       uses: actions/upload-artifact@v7
-      if: matrix.id == 'ios'
+      if: matrix.id == 'ios' || matrix.id == 'tvos'
       with:
         name: ${{ matrix.id }} build
         path: ppsspp/
