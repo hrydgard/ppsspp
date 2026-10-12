@@ -1,46 +1,35 @@
+#include <algorithm>
+#include <cstring>
+
 #include "SimpleAudioDec.h"
 #include "Common/LogOnce.h"
-#include "ext/at3_standalone/at3_decoders.h"
 
-inline int16_t clamp16(float f) {
-	if (f >= 1.0f)
-		return 32767;
-	else if (f <= -1.0f)
-		return -32767;
-	else
-		return (int)(f * 32767);
-}
+#include <formats/ratrac3.h>
+#include <formats/ratrac3p.h>
 
-// Uses our standalone AT3/AT3+ decoder derived from FFMPEG
+// ATRAC3 and ATRAC3plus on libretro-common's ratrac3 and ratrac3p.
 // Test case for ATRAC3: Mega Man Maverick Hunter X, PSP menu sound
 class Atrac3Audio : public AudioDecoder {
 public:
 	Atrac3Audio(PSPAudioType audioType, int channels, size_t blockAlign, const uint8_t *extraData, size_t extraDataSize)
-		: audioType_(audioType), channels_(channels) {
-		blockAlign_ = (int)blockAlign;
+		: audioType_(audioType), channels_(channels), blockAlign_((int)blockAlign) {
 		if (audioType_ == PSP_CODEC_AT3) {
-			at3Ctx_ = atrac3_alloc(channels, &blockAlign_, extraData, (int)extraDataSize);
-			if (at3Ctx_) {
+			// The WAVE extra data's coding mode: 1 is joint stereo.
+			jointStereo_ = extraData && extraDataSize >= 8 && (extraData[6] | (extraData[7] << 8)) == 1;
+			at3_ = ratrac3_new(channels_, blockAlign_, jointStereo_);
+			if (at3_) {
 				codecOpen_ = true;
 			} else {
-				ERROR_LOG(Log::ME, "Failed to open atrac3 context! !channels=%d blockAlign=%d ed=%d)", channels, (int)blockAlign, (int)extraDataSize);
+				ERROR_LOG(Log::ME, "Failed to open atrac3 context! channels=%d blockAlign=%d joint=%d", channels, (int)blockAlign, (int)jointStereo_);
 				codecFailed_ = true;
 			}
 		}
-		for (int i = 0; i < 2; i++) {
-			buffers_[i] = new float[4096];
-		}
 	}
 	~Atrac3Audio() override {
-		if (at3Ctx_) {
-			atrac3_free(at3Ctx_);
-		}
-		if (at3pCtx_) {
-			atrac3p_free(at3pCtx_);
-		}
-		for (int i = 0; i < 2; i++) {
-			delete[] buffers_[i];
-		}
+		if (at3_)
+			ratrac3_free(at3_);
+		if (at3p_)
+			ratrac3p_free(at3p_);
 	}
 
 	bool IsOK() const override {
@@ -48,97 +37,81 @@ public:
 	}
 
 	void FlushBuffers() override {
-		if (at3Ctx_) {
-			atrac3_flush_buffers(at3Ctx_);
-		}
-		if (at3pCtx_) {
-			atrac3p_flush_buffers(at3pCtx_);
-		}
+		if (at3_)
+			ratrac3_reset(at3_);
+		if (at3p_)
+			ratrac3p_reset(at3p_);
 	}
 
 	bool Decode(const uint8_t *inbuf, int inbytes, int *inbytesConsumed, int outputChannels, int16_t *outbuf, int *outSamples) override {
+		// A non-zero *outSamples caps the samples written.
+		const int cap = outSamples ? *outSamples : 0;
 		if (outSamples)
 			*outSamples = 0;
 		if (inbytesConsumed)
 			*inbytesConsumed = 0;
-		if (!codecOpen_) {
-			// We delay the codecOpen until the first decode, so the setChannels call from MediaEngine::getAudioSamples
-			// can take effect. Note, we don't do this with Atrac3, just Atrac3+.
-			if (codecFailed_) {
-				return false;
-			}
-			if (audioType_ == PSP_CODEC_AT3PLUS) {
-				at3pCtx_ = atrac3p_alloc(channels_, &blockAlign_);
-				if (at3pCtx_) {
-					codecOpen_ = true;
-				} else {
-					ERROR_LOG(Log::ME, "Failed to open atrac3+ context! (channels=%d blockAlign=%d)", channels_, (int)blockAlign_);
-					codecFailed_ = true;
-				}
-			}
-			if (!codecOpen_) {
-				WARN_LOG_N_TIMES(codecNotOpen, 5, Log::ME, "Atrac3Audio:Decode: Codec not open, not decoding");
-				return false;
-			}
-		}
-		if (inbytes != blockAlign_ && blockAlign_ != 0) {
-			WARN_LOG(Log::ME, "Atrac3Audio::Decode: inbytes not matching expected blockalign. Updating blockAlign_. Got %d bytes, expected %d. (%s)", inbytes, blockAlign_, at3pCtx_ ? "Atrac3+" : "Atrac3");
-		}
+		if (!inbuf || inbytes <= 0)
+			return false;
 
-		blockAlign_ = inbytes;
-		// We just call the decode function directly without going through the whole packet machinery.
-		int result;
-		int nb_samples = 0;
-		if (audioType_ == PSP_CODEC_AT3PLUS) {
-			result = atrac3p_decode_frame(at3pCtx_, buffers_, &nb_samples, inbuf, inbytes);
-		} else {
-			result = atrac3_decode_frame(at3Ctx_, buffers_, &nb_samples, inbuf, inbytes);
+		if (audioType_ == PSP_CODEC_AT3PLUS && (!at3p_ || inbytes != blockAlign_)) {
+			// Opened at the first decode, so the SetChannels call from MediaEngine::getAudioSamples
+			// can take effect; again if the frames change size, which the decoder is made for.
+			if (codecFailed_ && inbytes == blockAlign_)
+				return false;
+			if (at3p_) {
+				WARN_LOG(Log::ME, "Atrac3Audio::Decode: Atrac3+ frame of %d bytes, expected %d", inbytes, blockAlign_);
+				ratrac3p_free(at3p_);
+			}
+			blockAlign_ = inbytes;
+			at3p_ = ratrac3p_new(channels_, blockAlign_);
+			codecOpen_ = at3p_ != nullptr;
+			codecFailed_ = !codecOpen_;
+			if (!at3p_) {
+				ERROR_LOG(Log::ME, "Failed to open atrac3+ context! (channels=%d blockAlign=%d)", channels_, blockAlign_);
+				return false;
+			}
 		}
-		if (result < 0) {
-			// NOTE: Here, to recover from single bad packets, we update inBytesConsumed/outSamples with the regular packet size.
-			// Otherwise we might try to decode the same packet over and over.
-			// This is seen in some unofficial game mods, mainly.
-			if (inbytesConsumed) {
-				*inbytesConsumed = inbytes;
-			}
-			if (outSamples) {
-				if (*outSamples != 0) {
-					nb_samples = std::min(*outSamples, nb_samples);
-				}
-				*outSamples = nb_samples;
-			}
+		if (!codecOpen_) {
+			WARN_LOG_N_TIMES(codecNotOpen, 5, Log::ME, "Atrac3Audio:Decode: Codec not open, not decoding");
 			return false;
 		}
-		if (inbytesConsumed) {
-			*inbytesConsumed = result;
+		if (audioType_ == PSP_CODEC_AT3 && inbytes < blockAlign_) {
+			WARN_LOG(Log::ME, "Atrac3Audio::Decode: Atrac3 frame of %d bytes, expected %d", inbytes, blockAlign_);
+			return false;
 		}
-		if (outSamples) {
-			// Allow capping the output samples by setting *outSamples to non-zero.
-			if (*outSamples != 0) {
-				nb_samples = std::min(*outSamples, nb_samples);
-			}
-			*outSamples = nb_samples;
+
+		const int n = audioType_ == PSP_CODEC_AT3PLUS
+			? ratrac3p_decode_s16(at3p_, inbuf, inbytes, pcm_)
+			: ratrac3_decode_s16(at3_, inbuf, blockAlign_, pcm_);
+		if (n < 0) {
+			// Passed over rather than offered again: a bad frame (seen in some unofficial game
+			// mods) would otherwise be decoded over and over.
+			if (inbytesConsumed)
+				*inbytesConsumed = inbytes;
+			return false;
 		}
-		if (nb_samples > 0) {
-			if (outSamples) {
-				*outSamples = nb_samples;
-			}
-			if (outbuf) {
-				_dbg_assert_(outputChannels == 1 || outputChannels == 2);
-				const float *left = buffers_[0];
-				if (outputChannels == 2) {
-					// Stereo output, standard.
-					const float *right = channels_ == 2 ? buffers_[1] : buffers_[0];
-					for (int i = 0; i < nb_samples; i++) {
-						outbuf[i * 2] = clamp16(left[i]);
-						outbuf[i * 2 + 1] = clamp16(right[i]);
-					}
-				} else {
-					// Mono output, just take the left channel.
-					for (int i = 0; i < nb_samples; i++) {
-						outbuf[i] = clamp16(left[i]);
-					}
+		if (inbytesConsumed)
+			*inbytesConsumed = audioType_ == PSP_CODEC_AT3PLUS ? inbytes : blockAlign_;
+
+		const int samples = cap != 0 ? std::min(cap, n) : n;
+		if (outSamples)
+			*outSamples = samples;
+		if (outbuf) {
+			_dbg_assert_(outputChannels == 1 || outputChannels == 2);
+			const int ch = channels_;
+			if (ch == 2 && outputChannels == 2) {
+				memcpy(outbuf, pcm_, samples * 2 * sizeof(int16_t));
+			} else if (outputChannels == 2) {
+				// Mono doubled; more than two channels, the first two.
+				const int right = ch > 1 ? 1 : 0;
+				for (int i = 0; i < samples; i++) {
+					outbuf[i * 2] = pcm_[i * ch];
+					outbuf[i * 2 + 1] = pcm_[i * ch + right];
 				}
+			} else {
+				// Mono output, the left channel.
+				for (int i = 0; i < samples; i++)
+					outbuf[i] = pcm_[i * ch];
 			}
 		}
 		return true;
@@ -147,7 +120,7 @@ public:
 	void SetChannels(int channels) override {
 		_dbg_assert_(audioType_ == PSPAudioType::PSP_CODEC_AT3PLUS);
 		if (audioType_ == PSPAudioType::PSP_CODEC_AT3PLUS) {
-			if (!at3pCtx_) {
+			if (!at3p_) {
 				// Codec shouldn't be open yet.
 				_dbg_assert_(!codecOpen_);
 				channels_ = 1;
@@ -160,18 +133,19 @@ public:
 	PSPAudioType GetAudioType() const override { return audioType_; }
 
 private:
-	ATRAC3PContext *at3pCtx_ = nullptr;
-	ATRAC3Context *at3Ctx_ = nullptr;
-
+	PSPAudioType audioType_;
 	int channels_ = 0;
 	int blockAlign_ = 0;
+	bool jointStereo_ = false;
 
-	float *buffers_[2]{};
+	ratrac3_t *at3_ = nullptr;
+	ratrac3p_t *at3p_ = nullptr;
 
 	bool codecOpen_ = false;
 	bool codecFailed_ = false;
 
-	PSPAudioType audioType_;
+	// A frame of either, interleaved, at the most channels either decodes.
+	int16_t pcm_[RATRAC3P_SAMPLES * RATRAC3P_MAX_CHANNELS];
 };
 
 AudioDecoder *CreateAtrac3Audio(int channels, size_t blockAlign, const uint8_t *extraData, size_t extraDataSize) {

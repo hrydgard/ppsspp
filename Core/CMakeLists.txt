@@ -542,7 +542,7 @@ endif()
 
 list(APPEND CoreExtraLibs armips)
 
-target_link_libraries(Core GPU Common libretro-common kirk cityhash sfmt19937 xbrz xxhash at3_standalone lua
+target_link_libraries(Core GPU Common libretro-common kirk cityhash sfmt19937 xbrz xxhash lua
 	aemu_postoffice_client ${CoreExtraLibs} ${CMAKE_DL_LIBS})
 
 # Winsock

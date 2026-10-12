@@ -86,19 +86,6 @@ SOURCES_C += \
 COREFLAGS += -DSTACK_LINE_READER_BUFFER_SIZE=1024
 COREFLAGS += -DHTTPS_NOT_AVAILABLE
 
-INCFLAGS += -I$(EXTDIR)/at3_standalone
-
-SOURCES_CXX += \
-	${EXTDIR}/at3_standalone/atrac.cpp \
-	${EXTDIR}/at3_standalone/atrac3.cpp \
-	${EXTDIR}/at3_standalone/atrac3plus.cpp \
-	${EXTDIR}/at3_standalone/atrac3plusdec.cpp \
-	${EXTDIR}/at3_standalone/atrac3plusdsp.cpp \
-	${EXTDIR}/at3_standalone/get_bits.cpp \
-	${EXTDIR}/at3_standalone/compat.cpp \
-	${EXTDIR}/at3_standalone/fft.cpp \
-	${EXTDIR}/at3_standalone/mem.cpp
-
 COREFLAGS += -DARMIPS_USE_STD_FILESYSTEM
 SOURCES_CXX += \
 	$(EXTDIR)/armips/Util/ByteArray.cpp \

@@ -26,10 +26,6 @@ charset = utf-8-bom
 # This file may need to force a BOM so compilers treat as utf-8.
 charset = utf-8-bom
 
-[ext/at3_standalone/**.{cpp,h}]
-indent_style = space
-indent_size = 4
-
 [libretro/**.{cpp,h}]
 indent_style = space
 indent_size = 3
