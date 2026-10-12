@@ -67,7 +67,12 @@ public class ShortcutActivity extends Activity {
 			if (selectedFile != null) {
 				// Grab permanent permission so we can show it in recents list etc.
 				Log.i(TAG, "Taking URI permission");
-				getContentResolver().takePersistableUriPermission(selectedFile, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+				try {
+					getContentResolver().takePersistableUriPermission(selectedFile, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+				} catch (Exception e) {
+					// Some pickers don't hand out a persistable grant.
+					Log.w(TAG, "Couldn't take URI permission: " + e);
+				}
 				Log.i(TAG, "Browse file finished:" + selectedFile);
 				respondToShortcutRequest(selectedFile);  // finishes.
 				return;

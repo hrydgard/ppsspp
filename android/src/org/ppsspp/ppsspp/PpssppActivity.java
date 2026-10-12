@@ -258,6 +258,10 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	}
 
 	boolean permissionsGranted(String[] permissions, int[] grantResults) {
+		// Empty arrays mean the request was cancelled (for example by another one arriving).
+		if (grantResults.length == 0 || grantResults.length < permissions.length) {
+			return false;
+		}
 		for (int i = 0; i < permissions.length; i++) {
 			if (grantResults[i] != PackageManager.PERMISSION_GRANTED)
 				return false;
@@ -461,7 +465,9 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			dataDir = filesDir.getAbsolutePath();
 		}
 		String apkFilePath = appInfo.sourceDir;
-		String cacheDir = getCacheDir().getAbsolutePath();
+		File cacheDirFile = getCacheDir();
+		// Can be null under the same storage conditions as getFilesDir().
+		String cacheDir = cacheDirFile != null ? cacheDirFile.getAbsolutePath() : null;
 
 		String model = Build.MANUFACTURER + ":" + Build.MODEL;
 		String languageRegion = Locale.getDefault().getLanguage() + "_" + Locale.getDefault().getCountry();
@@ -1226,8 +1232,14 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 
 	protected String getInputDeviceDebugString() {
 		StringBuilder buffer = new StringBuilder();
-		for (InputDeviceState input : inputPlayers) {
-			buffer.append(input.getDebugString());
+		// Called from the render thread, while the UI thread can add and remove devices. A debug string
+		// isn't worth locking every input event for, and an exception escaping to native kills the app.
+		try {
+			for (InputDeviceState input : inputPlayers) {
+				buffer.append(input.getDebugString());
+			}
+		} catch (RuntimeException e) {
+			return "(devices changing)";
 		}
 		if (buffer.length() == 0) {
 			return "(no devices)";
