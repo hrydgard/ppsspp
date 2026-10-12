@@ -1,6 +1,8 @@
 /* Headless libretro frontend for running pspautotests against the core.
  * Prints the emulated program's stdout/stderr lines, then a summary with
- * frame/audio counts and FNV-1a digests of the video and audio output. */
+ * frame/audio counts and FNV-1a digests of the video and audio output.
+ * LRTEST_AUDIO names a file to write the audio to, as raw s16 stereo;
+ * LRTEST_VIDEO one to write each frame to, packed rows of the core's pixels. */
 #define _GNU_SOURCE
 #include <dlfcn.h>
 #include <stdarg.h>
@@ -22,6 +24,8 @@ static unsigned long audio_frames;
 static const char *system_dir;
 static const char *save_dir;
 static FILE *log_out;
+static FILE *audio_out;
+static FILE *video_out;
 static bool verbose;
 
 static void fnv(uint64_t *h, const void *data, size_t len)
@@ -141,12 +145,18 @@ static void video_cb(const void *data, unsigned width, unsigned height, size_t p
    }
    frames_video++;
    for (y = 0; y < height; y++)
+   {
       fnv(&video_digest, (const char *)data + y * pitch, (size_t)width * bpp);
+      if (video_out)
+         fwrite((const char *)data + y * pitch, bpp, width, video_out);
+   }
 }
 
 static size_t audio_batch_cb(const int16_t *data, size_t frames)
 {
    fnv(&audio_digest, data, frames * 4);
+   if (audio_out)
+      fwrite(data, 4, frames, audio_out);
    audio_frames += frames;
    return frames;
 }
@@ -206,6 +216,10 @@ int main(int argc, char **argv)
    verbose = getenv("LRTEST_VERBOSE") != NULL;
    if (getenv("LRTEST_LOG"))
       log_out = fopen(getenv("LRTEST_LOG"), "w");
+   if (getenv("LRTEST_VIDEO"))
+      video_out = fopen(getenv("LRTEST_VIDEO"), "wb");
+   if (getenv("LRTEST_AUDIO"))
+      audio_out = fopen(getenv("LRTEST_AUDIO"), "wb");
 
    h = dlopen(argv[1], RTLD_NOW | RTLD_LOCAL);
    if (!h)
@@ -277,6 +291,10 @@ int main(int argc, char **argv)
          (unsigned long long)video_digest, (unsigned long long)audio_digest, exit_seen ? 1 : 0);
    if (log_out)
       fclose(log_out);
+   if (audio_out)
+      fclose(audio_out);
+   if (video_out)
+      fclose(video_out);
    dlclose(h);
    return 0;
 }
