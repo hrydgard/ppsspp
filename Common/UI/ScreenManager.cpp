@@ -141,6 +141,9 @@ void ScreenManager::Update() {
 		Screen *backScreen = stack_.back().screen;
 		backScreen->update();
 		passInputToMapper_ = backScreen->PassInputToMapper();
+		topIsTopLevel_ = backScreen->isTopLevel();
+	} else {
+		topIsTopLevel_ = false;
 	}
 }
 

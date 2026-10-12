@@ -1441,19 +1441,13 @@ bool HandleGlobalMessage(UIMessage message, const std::string &value) {
 }
 
 bool NativeIsAtTopLevel() {
-	// This might need some synchronization?
+	// Called from the Android UI thread, while screens may be getting deleted on the render thread,
+	// so this reads a flag cached by ScreenManager::Update() instead of the screen stack.
 	if (!g_screenManager) {
 		ERROR_LOG(Log::System, "No screen manager active");
 		return false;
 	}
-	Screen *currentScreen = g_screenManager->topScreen();
-	if (currentScreen) {
-		bool top = currentScreen->isTopLevel();
-		return currentScreen->isTopLevel();
-	} else {
-		ERROR_LOG(Log::System, "No current screen");
-		return false;
-	}
+	return g_screenManager->IsTopScreenTopLevel();
 }
 
 void NativeTouch(const TouchInput &touch) {

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 #include <mutex>
 #include <string>
@@ -84,6 +85,11 @@ public:
 		return passInputToMapper_;
 	}
 
+	// Safe to call from any thread. Updated once per frame.
+	bool IsTopScreenTopLevel() const {
+		return topIsTopLevel_;
+	}
+
 private:
 	void pop();
 	void switchToNext();
@@ -116,5 +122,6 @@ private:
 
 	std::unordered_map<int64_t, int> lastAxis_;
 
-	InputMode passInputToMapper_ = InputMode::None;
+	std::atomic<InputMode> passInputToMapper_{InputMode::None};
+	std::atomic<bool> topIsTopLevel_{false};
 };
