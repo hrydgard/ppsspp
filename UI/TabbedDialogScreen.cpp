@@ -23,7 +23,7 @@ void UITabbedBaseDialogScreen::AddTab(const char *tag, std::string_view title, I
 	TabDialogFlags dialogFlags = flags_;
 	Path gamePath = gamePath_;
 	std::string cachedTitle(title);
-	tabHolder_->AddTabDeferred(title, imageId, [createCallback = std::move(createCallback), tag, flags, dialogFlags, gamePath, cachedTitle]() -> UI::ViewGroup * {
+	tabHolder_->AddTabDeferred(title, imageId, [this, createCallback = std::move(createCallback), tag, flags, dialogFlags, gamePath, cachedTitle]() -> UI::ViewGroup * {
 		using namespace UI;
 		ViewGroup *scroll = nullptr;
 		if (!(flags & TabFlags::NonScrollable)) {
@@ -38,7 +38,12 @@ void UITabbedBaseDialogScreen::AddTab(const char *tag, std::string_view title, I
 			contents->Add(new PaneTitleBar(gamePath, cachedTitle, ""));
 		}
 
+		// Tabs other than the first are created on demand, outside CreateViews. Their views still belong to the
+		// current tree, so their requests must get the views token, to be forgotten when the tree is deleted.
+		bool wasCreatingViews = IsCreatingViews();
+		SetCreatingViews(true);
 		createCallback(contents);
+		SetCreatingViews(wasCreatingViews);
 		if (scroll) {
 			scroll->Add(contents);
 			return scroll;
