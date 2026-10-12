@@ -3484,7 +3484,7 @@ void FramebufferManagerCommon::ReadbackFramebuffer(VirtualFramebuffer *vfb, int 
 }
 
 bool FramebufferManagerCommon::ReadbackStencilbuffer(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint8_t *pixels, int pixelsStride, Draw::ReadbackMode mode) {
-	return draw_->CopyFramebufferToMemory(fbo, Draw::Aspect::DEPTH_BIT, x, y, w, h, Draw::DataFormat::S8, pixels, pixelsStride, mode, "ReadbackStencilbufferSync");
+	return draw_->CopyFramebufferToMemory(fbo, Draw::Aspect::STENCIL_BIT, x, y, w, h, Draw::DataFormat::S8, pixels, pixelsStride, mode, "ReadbackStencilbufferSync");
 }
 
 bool FramebufferManagerCommon::ReadbackStencilToMemory(u32 addr, int size) {
@@ -3562,6 +3562,10 @@ void FramebufferManagerCommon::ReadFramebufferToMemory(VirtualFramebuffer *vfb, 
 	// Clamp to bufferWidth. Sometimes block transfers can cause this to hit.
 	if (x + w >= vfb->bufferWidth) {
 		w = vfb->bufferWidth - x;
+	}
+	// Same for height: a block transfer can ask for rows past the end, and reading those is invalid on Vulkan.
+	if (y + h > vfb->bufferHeight) {
+		h = vfb->bufferHeight - y;
 	}
 	if (x == 0 && y == 0 && w == vfb->width && h == vfb->height) {
 		// Mark it as fully downloaded until next render to it.
