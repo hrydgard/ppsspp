@@ -72,8 +72,16 @@ class LocationHelper implements LocationListener {
 			try {
 				isGPSEnabled = mLocationManager.isProviderEnabled(LocationManager.GPS_PROVIDER);
 				isNetworkEnabled = mLocationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER);
-				mLocationManager.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 0, this);
-				mLocationManager.requestLocationUpdates(LocationManager.NETWORK_PROVIDER, 1000, 0, this);
+				// Each provider can be missing (WiFi-only tablets, TVs, Chromebooks), which throws
+				// IllegalArgumentException. Set the flag as soon as one is registered, so stopListening removes it.
+				for (String provider : new String[] { LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER }) {
+					try {
+						mLocationManager.requestLocationUpdates(provider, 1000, 0, this);
+						mLocationEnable = true;
+					} catch (IllegalArgumentException e) {
+						Log.i(TAG, "Location provider " + provider + " not available: " + e);
+					}
+				}
 				if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
 					mGnssStatusCallback = new GnssStatus.Callback() {
 						@Override
@@ -91,7 +99,7 @@ class LocationHelper implements LocationListener {
 					mLocationManager.addNmeaListener(mNmeaListener);
 				}
 				mLocationEnable = true;
-			} catch (SecurityException e) {
+			} catch (SecurityException | IllegalArgumentException e) {
 				Log.e(TAG, "Cannot start location updates: " + e);
 			}
 			if (!isGPSEnabled && !isNetworkEnabled) {
