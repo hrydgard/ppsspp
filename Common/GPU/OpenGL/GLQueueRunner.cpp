@@ -1645,17 +1645,19 @@ void GLQueueRunner::PerformReadbackImage(const GLRStep &pass) {
 		}
 
 		glPixelStorei(GL_PACK_ALIGNMENT, 4);
-		glPixelStorei(GL_PACK_ROW_LENGTH, rect.x + rect.w);
+		// glGetTexImage writes the whole level, so the rows are the texture's width apart.
+		const int srcWidth = std::max((int)w, rect.x + rect.w);
+		glPixelStorei(GL_PACK_ROW_LENGTH, srcWidth);
 		glGetTexImage(GL_TEXTURE_2D, pass.readback_image.mipLevel, GL_RGBA, GL_UNSIGNED_BYTE, readbackBuffer_);
 		glPixelStorei(GL_PACK_ROW_LENGTH, 0);
 
-		if (rect.x != 0 || rect.y != 0) {
+		if (rect.x != 0 || rect.y != 0 || rect.w != srcWidth) {
 			int dstStride = 4 * rect.w;
-			int srcStride = 4 * (rect.x + rect.w);
+			int srcStride = 4 * srcWidth;
 			int xoff = 4 * rect.x;
 			int yoff = rect.y * srcStride;
 			for (int y = 0; y < rect.h; ++y) {
-				memmove(readbackBuffer_ + h * dstStride, readbackBuffer_ + yoff + h * srcStride + xoff, dstStride);
+				memmove(readbackBuffer_ + y * dstStride, readbackBuffer_ + yoff + y * srcStride + xoff, dstStride);
 			}
 		}
 	}
