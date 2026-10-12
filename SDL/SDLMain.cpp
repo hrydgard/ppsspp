@@ -111,6 +111,7 @@ static bool g_textFocus;
 // Set when SDL_StartTextInput fails, so we generate KeyInputFlags::CHAR from key events ourselves.
 // SDL 3.4.0 to 3.4.4 refuse text input on Wayland compositors without zwp_text_input_v3 (like WSLg's Weston).
 static bool g_textInputFallback;
+static bool g_dropBootedFile = false;
 double g_audioStartTime = 0.0;
 
 // Window state to be transferred to the main SDL thread.
@@ -1846,6 +1847,17 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			StopSDLAudioDevice();
 			INFO_LOG(Log::Audio, "Audio device removed, reselecting");
 			InitSDLAudioDevice();
+		}
+		break;
+
+	case SDL_EVENT_DROP_BEGIN:
+		g_dropBootedFile = false;
+		break;
+	case SDL_EVENT_DROP_FILE:
+		// Only one file can be booted, so a multi-file drop boots the first.
+		if (event.drop.data && !g_dropBootedFile) {
+			g_dropBootedFile = true;
+			System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, event.drop.data);
 		}
 		break;
 
