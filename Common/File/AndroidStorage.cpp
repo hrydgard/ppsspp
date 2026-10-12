@@ -2,6 +2,7 @@
 #include <mutex>
 
 #include "Common/File/AndroidStorage.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "Common/StringUtils.h"
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
@@ -50,6 +51,26 @@ static bool HasActivity() {
 static jobject AcquireActivity(JNIEnv *env) {
 	std::lock_guard<std::mutex> guard(g_nativeActivityLock);
 	return g_nativeActivity ? env->NewLocalRef(g_nativeActivity) : nullptr;
+}
+
+// Returns true (and clears it) if the last Java call threw. ContentUri catches Exception, but an Error
+// (NoSuchMethodError, OutOfMemoryError) gets through, and a pending exception makes the next JNI call abort.
+// The call's return value is garbage then - for the int calls, 0 would read as SUCCESS.
+static bool CheckException(JNIEnv *env, const char *func) {
+	if (!env->ExceptionCheck()) {
+		return false;
+	}
+	ERROR_LOG(Log::IO, "%s: Java exception", func);
+	env->ExceptionDescribe();
+	env->ExceptionClear();
+	return true;
+}
+
+// For names that aren't URIs (those are percent-encoded already), which can contain anything.
+static jstring NewJavaString(JNIEnv *env, const std::string &str) {
+	std::string modified;
+	ConvertUTF8ToJavaModifiedUTF8(&modified, str);
+	return env->NewStringUTF(modified.c_str());
 }
 
 void Android_RegisterStorageCallbacks(JNIEnv * env, jobject obj) {
@@ -131,7 +152,7 @@ int Android_OpenContentUriFd(std::string_view filename, Android_OpenContentUriMo
 	std::string fname(filename);
 	// PPSSPP adds an ending slash to directories before looking them up.
 	// TODO: Fix that in the caller (or don't call this for directories).
-	if (fname.back() == '/')
+	if (!fname.empty() && fname.back() == '/')
 		fname.pop_back();
 
 	auto env = getEnv();
@@ -151,6 +172,9 @@ int Android_OpenContentUriFd(std::string_view filename, Android_OpenContentUriMo
 	jstring j_filename = env->NewStringUTF(fname.c_str());
 	jstring j_mode = env->NewStringUTF(modeStr);
 	int fd = env->CallStaticIntMethod(g_classContentUri, openContentUri, activity, j_filename, j_mode);
+	if (CheckException(env, __FUNCTION__)) {
+		return -1;
+	}
 	return fd;
 }
 
@@ -162,8 +186,12 @@ StorageError Android_CreateDirectory(const std::string &rootTreeUri, const std::
 		return StorageError::UNKNOWN;
 	}
 	jstring paramRoot = env->NewStringUTF(rootTreeUri.c_str());
-	jstring paramDirName = env->NewStringUTF(dirName.c_str());
-	return StorageErrorFromInt(env->CallStaticIntMethod(g_classContentUri, contentUriCreateDirectory, activity, paramRoot, paramDirName));
+	jstring paramDirName = NewJavaString(env, dirName);
+	int result = env->CallStaticIntMethod(g_classContentUri, contentUriCreateDirectory, activity, paramRoot, paramDirName);
+	if (CheckException(env, __FUNCTION__)) {
+		return StorageError::UNKNOWN;
+	}
+	return StorageErrorFromInt(result);
 }
 
 StorageError Android_CreateFile(const std::string &parentTreeUri, const std::string &fileName) {
@@ -174,8 +202,12 @@ StorageError Android_CreateFile(const std::string &parentTreeUri, const std::str
 		return StorageError::UNKNOWN;
 	}
 	jstring paramRoot = env->NewStringUTF(parentTreeUri.c_str());
-	jstring paramFileName = env->NewStringUTF(fileName.c_str());
-	return StorageErrorFromInt(env->CallStaticIntMethod(g_classContentUri, contentUriCreateFile, activity, paramRoot, paramFileName));
+	jstring paramFileName = NewJavaString(env, fileName);
+	int result = env->CallStaticIntMethod(g_classContentUri, contentUriCreateFile, activity, paramRoot, paramFileName);
+	if (CheckException(env, __FUNCTION__)) {
+		return StorageError::UNKNOWN;
+	}
+	return StorageErrorFromInt(result);
 }
 
 StorageError Android_CopyFile(const std::string &fileUri, const std::string &destParentUri) {
@@ -187,7 +219,11 @@ StorageError Android_CopyFile(const std::string &fileUri, const std::string &des
 	}
 	jstring paramFileName = env->NewStringUTF(fileUri.c_str());
 	jstring paramDestParentUri = env->NewStringUTF(destParentUri.c_str());
-	return StorageErrorFromInt(env->CallStaticIntMethod(g_classContentUri, contentUriCopyFile, activity, paramFileName, paramDestParentUri));
+	int result = env->CallStaticIntMethod(g_classContentUri, contentUriCopyFile, activity, paramFileName, paramDestParentUri);
+	if (CheckException(env, __FUNCTION__)) {
+		return StorageError::UNKNOWN;
+	}
+	return StorageErrorFromInt(result);
 }
 
 StorageError Android_MoveFile(const std::string &fileUri, const std::string &srcParentUri, const std::string &destParentUri) {
@@ -200,7 +236,11 @@ StorageError Android_MoveFile(const std::string &fileUri, const std::string &src
 	jstring paramFileName = env->NewStringUTF(fileUri.c_str());
 	jstring paramSrcParentUri = env->NewStringUTF(srcParentUri.c_str());
 	jstring paramDestParentUri = env->NewStringUTF(destParentUri.c_str());
-	return StorageErrorFromInt(env->CallStaticIntMethod(g_classContentUri, contentUriMoveFile, activity, paramFileName, paramSrcParentUri, paramDestParentUri));
+	int result = env->CallStaticIntMethod(g_classContentUri, contentUriMoveFile, activity, paramFileName, paramSrcParentUri, paramDestParentUri);
+	if (CheckException(env, __FUNCTION__)) {
+		return StorageError::UNKNOWN;
+	}
+	return StorageErrorFromInt(result);
 }
 
 StorageError Android_RemoveFile(const std::string &fileUri) {
@@ -211,7 +251,11 @@ StorageError Android_RemoveFile(const std::string &fileUri) {
 		return StorageError::UNKNOWN;
 	}
 	jstring paramFileName = env->NewStringUTF(fileUri.c_str());
-	return StorageErrorFromInt(env->CallStaticIntMethod(g_classContentUri, contentUriRemoveFile, activity, paramFileName));
+	int result = env->CallStaticIntMethod(g_classContentUri, contentUriRemoveFile, activity, paramFileName);
+	if (CheckException(env, __FUNCTION__)) {
+		return StorageError::UNKNOWN;
+	}
+	return StorageErrorFromInt(result);
 }
 
 StorageError Android_RenameFileTo(const std::string &fileUri, const std::string &newName) {
@@ -222,8 +266,12 @@ StorageError Android_RenameFileTo(const std::string &fileUri, const std::string 
 		return StorageError::UNKNOWN;
 	}
 	jstring paramFileUri = env->NewStringUTF(fileUri.c_str());
-	jstring paramNewName = env->NewStringUTF(newName.c_str());
-	return StorageErrorFromInt(env->CallStaticIntMethod(g_classContentUri, contentUriRenameFileTo, activity, paramFileUri, paramNewName));
+	jstring paramNewName = NewJavaString(env, newName);
+	int result = env->CallStaticIntMethod(g_classContentUri, contentUriRenameFileTo, activity, paramFileUri, paramNewName);
+	if (CheckException(env, __FUNCTION__)) {
+		return StorageError::UNKNOWN;
+	}
+	return StorageErrorFromInt(result);
 }
 
 // NOTE: Does not set fullName - you're supposed to already know it.
@@ -272,7 +320,7 @@ bool Android_GetFileInfo(const std::string &fileUri, File::FileInfo *fileInfo) {
 	jstring paramFileUri = env->NewStringUTF(fileUri.c_str());
 
 	jstring str = (jstring)env->CallStaticObjectMethod(g_classContentUri, contentUriGetFileInfo, activity, paramFileUri);
-	if (!str) {
+	if (CheckException(env, __FUNCTION__) || !str) {
 		return false;
 	}
 	const char *charArray = env->GetStringUTFChars(str, 0);
@@ -294,6 +342,9 @@ bool Android_FileExists(const std::string &fileUri) {
 	}
 	jstring paramFileUri = env->NewStringUTF(fileUri.c_str());
 	bool exists = env->CallStaticBooleanMethod(g_classContentUri, contentUriFileExists, activity, paramFileUri);
+	if (CheckException(env, __FUNCTION__)) {
+		return false;
+	}
 	return exists;
 }
 
@@ -310,8 +361,12 @@ std::vector<File::FileInfo> Android_ListContentUri(const std::string &uri, const
 	double start = time_now_d();
 
 	jstring param = env->NewStringUTF(uri.c_str());
-	jstring filenamePrefix = prefix.empty() ? nullptr : env->NewStringUTF(prefix.c_str());
+	jstring filenamePrefix = prefix.empty() ? nullptr : NewJavaString(env, prefix);
 	jobject retval = env->CallStaticObjectMethod(g_classContentUri, listContentUriDir, activity, param, filenamePrefix);
+	if (CheckException(env, __FUNCTION__)) {
+		*exists = false;
+		return {};
+	}
 
 	jobjectArray fileList = (jobjectArray)retval;
 	std::vector<File::FileInfo> items;
@@ -322,6 +377,9 @@ std::vector<File::FileInfo> Android_ListContentUri(const std::string &uri, const
 	int size = env->GetArrayLength(fileList);
 	for (int i = 0; i < size; i++) {
 		jstring str = (jstring)env->GetObjectArrayElement(fileList, i);
+		if (!str) {
+			continue;
+		}
 		const char *charArray = env->GetStringUTFChars(str, 0);
 		if (charArray) {  // paranoia
 			std::string line = charArray;
@@ -358,7 +416,11 @@ int64_t Android_GetFreeSpaceByContentUri(const std::string &uri) {
 	}
 
 	jstring param = env->NewStringUTF(uri.c_str());
-	return env->CallStaticLongMethod(g_classContentUri, contentUriGetFreeStorageSpace, activity, param);
+	int64_t space = env->CallStaticLongMethod(g_classContentUri, contentUriGetFreeStorageSpace, activity, param);
+	if (CheckException(env, __FUNCTION__)) {
+		return -1;
+	}
+	return space;
 }
 
 // Hm, this is never used? We use statvfs instead.
@@ -376,7 +438,11 @@ int64_t Android_GetFreeSpaceByFilePath(const std::string &filePath) {
 	}
 
 	jstring param = env->NewStringUTF(filePath.c_str());
-	return env->CallStaticLongMethod(g_classContentUri, filePathGetFreeStorageSpace, activity, param);
+	int64_t space = env->CallStaticLongMethod(g_classContentUri, filePathGetFreeStorageSpace, activity, param);
+	if (CheckException(env, __FUNCTION__)) {
+		return -1;
+	}
+	return space;
 }
 
 int64_t Android_ComputeRecursiveDirectorySize(const std::string &uri) {
@@ -391,6 +457,9 @@ int64_t Android_ComputeRecursiveDirectorySize(const std::string &uri) {
 
 	double start = time_now_d();
 	int64_t size = env->CallStaticLongMethod(g_classContentUri, computeRecursiveDirectorySize, activity, param);
+	if (CheckException(env, __FUNCTION__)) {
+		return 0;
+	}
 	double elapsed = time_now_d() - start;
 
 	INFO_LOG(Log::IO, "ComputeRecursiveDirectorySize(%s) in %0.3f s", uri.c_str(), elapsed);
@@ -404,7 +473,11 @@ bool Android_IsExternalStoragePreservedLegacy() {
 	auto env = getEnv();
 	JNILocalFrame frame(env);
 	// Note: No activity param
-	return env->CallStaticBooleanMethod(g_classContentUri, isExternalStoragePreservedLegacy);
+	bool preserved = env->CallStaticBooleanMethod(g_classContentUri, isExternalStoragePreservedLegacy);
+	if (CheckException(env, __FUNCTION__)) {
+		return false;
+	}
+	return preserved;
 }
 
 const char *Android_ErrorToString(StorageError error) {
