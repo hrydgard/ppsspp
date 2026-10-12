@@ -494,6 +494,9 @@ void VulkanRenderManager::StopThreads() {
 	for (int i = 0; i < vulkan_->GetInflightFrames(); i++) {
 		auto &frameData = frameData_[i];
 		// Zero the queries so we don't try to pull them later.
+		if (insideFrame_ && i == vulkan_->GetCurFrame()) {
+			continue;
+		}
 		frameData.profile.timestampDescriptions.clear();
 	}
 
