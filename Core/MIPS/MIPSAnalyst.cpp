@@ -198,6 +198,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x38f19bc3be215acc, 388, "log10f", },
 	{ 0x3913b81ddcbe1efe, 880, "katamari_render_check", }, // Me and My Katamari (US)
 	{ 0x393047f06eceaba1, 96, "strcspn", },
+	{ 0x3966eef670a93781, 188, "memcpy", }, // SSX On Tour (EU, KR) - copies decoded video frames into the framebuffer
 	{ 0x39a651942a0b3861, 204, "tan", },
 	{ 0x3a3bc2b20a55bf02, 68, "memchr", },
 	{ 0x3ab08b5659de1746, 40, "sceVfpuScalarSin", },
