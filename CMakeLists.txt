@@ -501,7 +501,14 @@ add_library(libretro-common STATIC
 	libretro/libretro-common/file/file_path.c
 	libretro/libretro-common/file/file_path_io.c
 	libretro/libretro-common/formats/7z/r7z_lzma.c
+	libretro/libretro-common/formats/aac/raac.c
+	libretro/libretro-common/formats/atrac3/ratrac3.c
+	libretro/libretro-common/formats/atrac3p/ratrac3p.c
 	libretro/libretro-common/formats/chd/rchd.c
+	libretro/libretro-common/formats/h264/rh264.c
+	libretro/libretro-common/formats/mp3/rmp3.c
+	libretro/libretro-common/formats/mpeg1/rmpeg1_ps.c
+	libretro/libretro-common/formats/psmf/rpsmf.c
 	libretro/libretro-common/formats/flac/rflac.c
 	libretro/libretro-common/formats/png/rpng.c
 	libretro/libretro-common/formats/png/rpng_encode.c

@@ -843,6 +843,15 @@ SOURCES_C += $(LIBRETROCOMMONDIR)/encodings/encoding_crc32.c \
              $(LIBRETROCOMMONDIR)/streams/trans_stream_deflate.c \
              $(LIBRETROCOMMONDIR)/streams/trans_stream_pipe.c
 
+# Media: the PSMF demuxer, H.264, AAC, MP3, ATRAC3 and ATRAC3plus.
+SOURCES_C += $(LIBRETROCOMMONDIR)/formats/aac/raac.c \
+             $(LIBRETROCOMMONDIR)/formats/atrac3/ratrac3.c \
+             $(LIBRETROCOMMONDIR)/formats/atrac3p/ratrac3p.c \
+             $(LIBRETROCOMMONDIR)/formats/h264/rh264.c \
+             $(LIBRETROCOMMONDIR)/formats/mp3/rmp3.c \
+             $(LIBRETROCOMMONDIR)/formats/mpeg1/rmpeg1_ps.c \
+             $(LIBRETROCOMMONDIR)/formats/psmf/rpsmf.c
+
 SOURCES_C += $(LIBRETROCOMMONDIR)/features/features_cpu.c \
              $(LIBRETROCOMMONDIR)/queues/retro_spsc.c \
              $(LIBRETROCOMMONDIR)/queues/retro_waitable_spsc.c \
