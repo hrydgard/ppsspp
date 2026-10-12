@@ -44,6 +44,13 @@ public:
 	// This only finds 1 GB in 32-bit
 	u8 *Find4GBBase();
 	bool NeedsProbing();
+#if defined(__APPLE__)
+	// Asks the kernel for a free range of this size for the views, and keeps it reserved (inaccessible), so
+	// CreateView can map over it without anything else taking it in between. ReleaseSpace releases it too.
+	// alignMask: the address bits that must be zero.
+	u8 *ReserveViewSpace(size_t size, size_t alignMask);
+	void ReleaseViewSpace();
+#endif
 
 private:
 #ifdef _WIN32
@@ -52,6 +59,8 @@ private:
 #elif defined(__APPLE__)
 	size_t vm_size;
 	vm_address_t vm_mem;  // same type as vm_address_t
+	vm_address_t reserved_mem = 0;
+	size_t reserved_size = 0;
 #else
 	int fd = -1;
 #endif

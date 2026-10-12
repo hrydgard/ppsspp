@@ -51,6 +51,7 @@ bool MemArena::GrabMemSpace(size_t size) {
 }
 
 void MemArena::ReleaseSpace() {
+	ReleaseViewSpace();
 	vm_deallocate(mach_task_self(), vm_mem, vm_size);
 	vm_size = 0;
 	vm_mem = 0;
@@ -60,12 +61,14 @@ void *MemArena::CreateView(s64 offset, size_t size, void *base) {
 	mach_port_t self = mach_task_self();
 	vm_address_t target = (vm_address_t)base;
 	uint64_t mask = 0;
-	bool anywhere = false;
+	// Inside our reservation, replace the reserved pages in place.
+	const bool reserved = reserved_size != 0 && target >= reserved_mem && target + size <= reserved_mem + reserved_size;
+	const int flags = VM_FLAGS_FIXED | (reserved ? VM_FLAGS_OVERWRITE : 0);
 	vm_address_t source = vm_mem + offset;
 	vm_prot_t cur_protection = 0;
 	vm_prot_t max_protection = 0;
 	kern_return_t retval =
-		vm_remap(self, &target, size, mask, anywhere,
+		vm_remap(self, &target, size, mask, flags,
 				 self, source, false,
 				 &cur_protection, &max_protection, VM_INHERIT_DEFAULT);
 	if (retval != KERN_SUCCESS) {
@@ -82,6 +85,30 @@ void *MemArena::CreateView(s64 offset, size_t size, void *base) {
 void MemArena::ReleaseView(s64 offset, void* view, size_t size) {
 	vm_address_t addr = (vm_address_t)view;
 	vm_deallocate(mach_task_self(), addr, size);
+}
+
+u8 *MemArena::ReserveViewSpace(size_t size, size_t alignMask) {
+	ReleaseViewSpace();
+	vm_address_t addr = 0;
+	// No access: the gaps between the views should fault, like unmapped memory.
+	kern_return_t retval = vm_map(mach_task_self(), &addr, size, alignMask, VM_FLAGS_ANYWHERE, MACH_PORT_NULL, 0, false,
+		VM_PROT_NONE, VM_PROT_ALL, VM_INHERIT_DEFAULT);
+	if (retval != KERN_SUCCESS) {
+		WARN_LOG(Log::MemMap, "Couldn't reserve %llx bytes (alignment mask %llx) for the memory views (%d)", (uint64_t)size, (uint64_t)alignMask, (int)retval);
+		return nullptr;
+	}
+	reserved_mem = addr;
+	reserved_size = size;
+	INFO_LOG(Log::MemMap, "Reserved %llx bytes for the memory views at %p", (uint64_t)size, (void *)addr);
+	return (u8 *)addr;
+}
+
+void MemArena::ReleaseViewSpace() {
+	if (reserved_size) {
+		vm_deallocate(mach_task_self(), reserved_mem, reserved_size);
+		reserved_mem = 0;
+		reserved_size = 0;
+	}
 }
 
 bool MemArena::NeedsProbing() {

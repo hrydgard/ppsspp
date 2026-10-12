@@ -164,6 +164,24 @@ static bool SkipView(MemMapSetupFlags flags, u32 viewFlags) {
 	return false;
 }
 
+#if defined(__APPLE__)
+// The address range the views need, from the base.
+static size_t ViewSpan(MemMapSetupFlags flags) {
+	size_t span = 0;
+	for (int i = 0; i < ARRAY_SIZE(views); i++) {
+		if (views[i].size == 0 || SkipView(flags, views[i].flags) || CanIgnoreView(views[i]))
+			continue;
+#ifdef MASKED_PSP_MEMORY
+		const u32 address = views[i].virtual_address & MEMVIEW32_MASK;
+#else
+		const u32 address = views[i].virtual_address;
+#endif
+		span = std::max(span, (size_t)address + views[i].size);
+	}
+	return span;
+}
+#endif
+
 static bool Memory_TryBase(MemMapSetupFlags flags) {
 	// OK, we know where to find free space. Now grab it!
 	// We just mimic the popular BAT setup.
@@ -217,9 +235,9 @@ static bool Memory_TryBase(MemMapSetupFlags flags) {
 bail:
 	// Argh! ERROR! Free what we grabbed so far so we can try again.
 	for (int j = 0; j <= i; j++) {
-		if (views[i].size == 0)
+		if (views[j].size == 0)
 			continue;
-		if (SkipView(flags, views[i].flags))
+		if (SkipView(flags, views[j].flags))
 			continue;
 		if (views[j].out_ptr && *views[j].out_ptr) {
 			if (!CanIgnoreView(views[j])) {
@@ -253,6 +271,30 @@ bool MemoryMap_Setup(MemMapSetupFlags flags) {
 	if (!g_arena.GrabMemSpace(total_mem)) {
 		// It'll already have logged.
 		return false;
+	}
+#endif
+
+#if defined(__APPLE__)
+	// Let the kernel find room for the views, instead of guessing at bases.
+	{
+		const size_t span = ViewSpan(flags);
+#ifdef MASKED_PSP_MEMORY
+		base = g_arena.ReserveViewSpace(span, 0);
+#else
+		// A 4GB aligned base lets the ARM64 JIT pointerify guest addresses with a single MOVK.
+		base = g_arena.ReserveViewSpace(span, 0xFFFFFFFF);
+		if (!base) {
+			base = g_arena.ReserveViewSpace(span, 0);
+		}
+#endif
+	}
+	if (base) {
+		if (Memory_TryBase(flags)) {
+			INFO_LOG(Log::MemMap, "Mapped the memory views into reserved space at %p", base);
+			return true;
+		}
+		WARN_LOG(Log::MemMap, "Couldn't map the memory views into reserved space, falling back");
+		g_arena.ReleaseViewSpace();
 	}
 #endif
 
