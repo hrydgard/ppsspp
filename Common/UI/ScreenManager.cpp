@@ -414,34 +414,37 @@ Screen *ScreenManager::dialogParent(const Screen *dialog) const {
 }
 
 void ScreenManager::processFinishDialog() {
-	if (dialogFinished_) {
-		{
-			// Another dialog may have been pushed before the render, so search for it.
-			Screen *caller = dialogParent(dialogFinished_);
-			bool erased = false;
-			for (size_t i = 0; i < stack_.size(); ++i) {
-				if (stack_[i].screen == dialogFinished_) {
-					stack_[i].screen->focusChanged(ScreenFocusChange::FOCUS_LOST_TOP);
-					stack_.erase(stack_.begin() + i);
-					erased = true;
-				}
-			}
+	// The caller's dialogFinished() can finish the caller too, which sets dialogFinished_ again. So take it
+	// out first (or we'd delete the caller while it's still in the stack) and loop to process the new one.
+	while (dialogFinished_) {
+		const Screen *finished = dialogFinished_;
+		const DialogResult result = dialogResult_;
+		dialogFinished_ = nullptr;
 
-			if (erased && !stack_.empty()) {
-				stack_.back().screen->focusChanged(ScreenFocusChange::FOCUS_BECAME_TOP);
-			}
-
-			if (!caller) {
-				ERROR_LOG(Log::UI, "ERROR: no top screen when finishing dialog");
-			} else if (caller != topScreen()) {
-				// The caller may get confused if we call dialogFinished() now.
-				WARN_LOG(Log::UI, "Skipping non-top dialog when finishing dialog.");
-			} else {
-				caller->dialogFinished(dialogFinished_, dialogResult_);
+		// Another dialog may have been pushed before the render, so search for it.
+		Screen *caller = dialogParent(finished);
+		bool erased = false;
+		for (size_t i = 0; i < stack_.size(); ++i) {
+			if (stack_[i].screen == finished) {
+				stack_[i].screen->focusChanged(ScreenFocusChange::FOCUS_LOST_TOP);
+				stack_.erase(stack_.begin() + i);
+				erased = true;
 			}
 		}
-		delete dialogFinished_;
-		dialogFinished_ = nullptr;
+
+		if (erased && !stack_.empty()) {
+			stack_.back().screen->focusChanged(ScreenFocusChange::FOCUS_BECAME_TOP);
+		}
+
+		if (!caller) {
+			ERROR_LOG(Log::UI, "ERROR: no top screen when finishing dialog");
+		} else if (caller != topScreen()) {
+			// The caller may get confused if we call dialogFinished() now.
+			WARN_LOG(Log::UI, "Skipping non-top dialog when finishing dialog.");
+		} else {
+			caller->dialogFinished(finished, result);
+		}
+		delete finished;
 	}
 }
 
