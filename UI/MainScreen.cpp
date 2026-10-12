@@ -797,7 +797,14 @@ void MainScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 		backFromStore_ = true;
 		RecreateViews();
 	} else if (tag == "Game") {
-		if (!restoreFocusGamePath_.empty() && UI::IsFocusMovementEnabled()) {
+		if (static_cast<const GameScreen *>(dialog)->GameRemoved()) {
+			// Deleted or removed from recents. The recents tab recreates itself on RECENT_FILES_CHANGED.
+			restoreFocusGamePath_.clear();
+			g_BackgroundAudio.SetGame(Path());
+			for (auto browser : gameBrowsers_) {
+				browser->RequestRefresh();
+			}
+		} else if (!restoreFocusGamePath_.empty() && UI::IsFocusMovementEnabled()) {
 			// Prevent the background from fading, since we just were displaying it.
 			InstantHighlight(restoreFocusGamePath_);
 
