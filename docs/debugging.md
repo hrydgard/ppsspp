@@ -331,7 +331,7 @@ Finding the function:
 2. **Break on the write**, under the interpreter (`-i`), since JIT memory breakpoints only work for constant
    addresses: `memory.breakpoint.add address=<a pixel mid-framebuffer> size=4 write=true enabled=true`, then
    `cpu.resume`. Pick a pixel in the middle of the frame, not the first one, which clears also hit.
-3. **`hle.backtrace`** gives the function's entry address, and `hle.func.list` its size. Addresses come back
+3. **`hle.backtrace`** gives the function's entry address. Addresses come back
    as decimal in JSON; convert carefully (`145311076` is `08a94564`, not `08ab1564`).
 4. **`memory.disasm` the whole function** and check that it really is what you're going to call it: argument
    order (`a0` dest, `a1` src, `a2` size for memcpy), and no side effects the replacement wouldn't have. A
@@ -356,17 +356,19 @@ Tools/wsdbg/target/release/wsdbg.exe --sync --compact --quiet --launch \
 ```
 
 The first `hle.backtrace` frame is the writer: `entry` is the function's start, `code` the store that hit.
-Once a replacement is in place, the same script shows it working: the hit's `source` reads `GPUMemcpy/...`,
-its `pc` is the function's entry, and the backtrace starts at the caller.
-Follow up with `memory.disasm address=<entry> count=64` in the same session (it needs the code loaded).
+Follow up with `memory.disasm address=<entry> count=64` and `hle.func.hash address=<entry>` in the same
+session. Once a replacement is in place, the same script shows it working: the hit's `source` reads
+`GPUMemcpy/...`, its `pc` is the function's entry, and the backtrace starts at the caller.
 
-Getting the hash: `HashFunctions()` in `MIPSAnalyst.cpp` takes CityHash64 over the function's instructions
-with their immediates masked out, so it doesn't depend on where the function was loaded. The fastest way to
-read it is a temporary line there, then revert it:
+Getting the hash: `hle.func.hash address=<anywhere in the function>` returns what the table entry needs:
 
-```cpp
-if (f.start == 0x08a94500) printf("TMPHASH %016llx size %d\n", (unsigned long long)f.hash, (int)f.size);
 ```
+<- hle.func.hash {"address":145310976,"hash":"3966eef670a93781","known":null,"size":188}
+```
+
+`known` names the entry that already matches, if any (it read `memcpy` once SSX's was added). The hash is the
+one `HashFunctions()` in `MIPSAnalyst.cpp` takes when the code is scanned (CityHash64 over the
+instructions with immediates masked out), so it doesn't depend on where the function was loaded.
 
 Add the entry to `hardcodedHashes` in hash order, with a comment naming the game. Then check that it took
 effect: with `--log --loglevel=4` the loader prints `Replaced memcpy at 08a94500 with hash 3966eef670a93781`.
