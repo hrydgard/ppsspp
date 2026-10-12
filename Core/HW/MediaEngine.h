@@ -18,13 +18,14 @@
 
 
 // Simulation of the hardware video/audio decoders.
-// The idea is high level emulation where we simply use FFMPEG.
+// High level emulation: the PSMF demuxed with libretro-common's rpsmf, the video decoded by
+// AvcDecoder (rh264), the audio by MpegDemux and the audio decoders.
 
 #pragma once
 
 // An approximation of what the interface will look like. Similar to JPCSP's.
 
-#include <map>
+#include <vector>
 #include "Common/CommonTypes.h"
 #include "Core/HLE/sceMpeg.h"
 #include "Core/HW/MpegDemux.h"
@@ -32,23 +33,13 @@
 
 class PointerWrap;
 class AudioDecoder;
-
-#ifdef USE_FFMPEG
-struct SwsContext;
-struct AVFrame;
-struct AVIOContext;
-struct AVFormatContext;
-struct AVCodecContext;
-#endif
+class AvcDecoder;
+struct rpsmf;
 
 inline s64 getMpegTimeStamp(const u8 *buf) {
 	return (s64)buf[5] | ((s64)buf[4] << 8) | ((s64)buf[3] << 16) | ((s64)buf[2] << 24) 
 		| ((s64)buf[1] << 32) | ((s64)buf[0] << 36);
 }
-
-#ifdef USE_FFMPEG
-bool InitFFmpeg();
-#endif
 
 class MediaEngine {
 public:
@@ -81,6 +72,10 @@ public:
 	                             int xpos, int ypos, int width, int height);
 	int getAudioSamples(u32 bufferPtr);
 
+	// PMP (homebrew) video: one access unit decoded, and the frame it gave, if any, converted
+	// into the image writeVideoImage hands out. True when there is a new frame.
+	bool decodeAccessUnit(const u8 *data, int size, int videoPixelMode);
+
 	s64 getVideoTimeStamp();
 	s64 getAudioTimeStamp();
 	s64 getLastTimeStamp();
@@ -95,25 +90,25 @@ public:
 
 private:
 	bool SetupStreams();
-	bool setVideoDim(int width = 0, int height = 0);
-	void updateSwsFormat(int videoPixelMode);
 	int getNextAudioFrame(u8 **buf, int *headerCode1, int *headerCode2);
 
-	static int MpegReadbuffer(void *opaque, uint8_t *buf, int buf_size);
+	// The program stream, fed from the ring a pack at a time; false when the ring has nothing.
+	bool demuxMore();
+	// The next whole access unit of the selected video stream, into unit/pts.
+	bool takeAccessUnit(bool streamEnded, std::vector<u8> &unit, s64 *pts);
+	// A decoded frame: the time it stands for, and its pixels unless skipped.
+	void frameDecoded(int videoPixelMode, bool skipFrame);
+	// Whether the whole program stream the header promised has gone to the demuxer.
+	bool streamFed() const;
+	void clearUnits();
+	void dropOldestPts();
 
 public:  // TODO: Very little of this below should be public.
-
-#ifdef USE_FFMPEG
-	std::map<int, AVCodecContext *> m_pCodecCtxs;
-	AVFrame *m_pFrame = nullptr;
-	AVFrame *m_pFrameRGB = nullptr;
-#endif
-
+	// The current frame, in the pixel mode it was last converted to, m_desWidth wide.
 	u8 *m_buffer = nullptr;
 
 	int m_desWidth = 0;
 	int m_desHeight = 0;
-	int m_bufSize;  // initialized in constructor
 	s64 m_videopts = 0;
 
 	s64 m_firstTimeStamp = 0;
@@ -122,15 +117,24 @@ public:  // TODO: Very little of this below should be public.
 	bool m_isVideoEnd = false;
 
 private:
-#ifdef USE_FFMPEG
-	// Video ffmpeg context - not used for audio
-	AVFormatContext *m_pFormatCtx = nullptr;
-	std::vector<AVCodecContext *> m_codecsToClose;
-	AVIOContext *m_pIOContext = nullptr;
-	SwsContext *m_sws_ctx = nullptr;
-#endif
+	// The video side: the demuxer over the program stream, the decoder of the selected stream,
+	// and that stream's bytes as they come, until they make an access unit. Where in them each
+	// packet with a time stamp began, and the stamps of units decoded but not yet shown.
+	bool m_contextOpen = false;
+	struct rpsmf *m_psmf = nullptr;
+	AvcDecoder *m_avc = nullptr;
+	std::vector<u8> m_au;
+	size_t m_auBase = 0;  // video bytes taken before m_au[0]
+	size_t m_auScan = 0;
+	bool m_auHasSlice = false;
+	std::vector<std::pair<size_t, s64>> m_auPts;
+	std::vector<s64> m_pendingPts;
+	std::vector<size_t> m_packEnds;  // packs read but not used up: where their video ends
+	bool m_packPending = false;
+	s64 m_psFed = 0;     // program stream bytes given to the demuxer
+	s64 m_psSize = 0;    // and how many the header says there are; 0 unknown
+	u8 m_videoStreamIds[16]{};
 
-	int m_sws_fmt = 0;
 	int m_videoStream = -1;
 	int m_expectedVideoStreams = 0;
 
@@ -156,4 +160,3 @@ private:
 	int m_mpegheaderSize = 0;
 };
 
-std::string GetFFMPEGVersion();

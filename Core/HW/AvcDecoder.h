@@ -21,8 +21,7 @@
 
 #include "Common/CommonTypes.h"
 
-struct AVCodecContext;
-struct AVFrame;
+struct rh264_video;
 
 // A plain "hand it one access unit, get a frame back" H.264 decoder.
 //
@@ -31,7 +30,7 @@ struct AVFrame;
 // PSMF demuxer, the ringbuffer and its own frame pacing wrapped around the decoder, so this
 // is a second path in addition to that. Implementing the old path around this might happen later.
 //
-// Output is whatever pixel format the decoder produced, normally YUV420P; the caller converts.
+// Output is 8-bit YUV 4:2:0 planes, cropped to the picture shown; the caller converts.
 class AvcDecoder {
 public:
 	AvcDecoder();
@@ -45,10 +44,17 @@ public:
 	// is not produced for every unit fed in, and that is not an error.
 	bool Decode(const u8 *data, int size);
 
+	// At the end of a stream: the next of the frames held back for reordering, if any.
+	bool Drain();
+
 	// Throws away any decoder state, for a seek or a new stream.
 	void Flush();
 
 	bool HasFrame() const { return haveFrame_; }
+
+	// What the last Decode or Drain did: a frame out (1), nothing yet (0), the unit refused (-1),
+	// or a frame out that could not be used (-2).
+	int LastResult() const { return lastResult_; }
 	int Width() const { return width_; }
 	int Height() const { return height_; }
 
@@ -57,19 +63,21 @@ public:
 	const u8 *Plane(int index) const;
 	int Stride(int index) const;
 
-	// True if we were built without ffmpeg, in which case nothing decodes.
+	// Whether anything decodes at all.
 	static bool IsAvailable();
 
 private:
-	AVCodecContext *codecCtx_ = nullptr;
-	AVFrame *frame_ = nullptr;
-	// The access unit, copied so we can pad it - ffmpeg reads a little past the end of a packet.
-	// Kept between calls so the usual case doesn't allocate.
-	std::vector<u8> packetBuf_;
+	// The frame the last Decode or Drain gave, from the decoder.
+	bool TakeFrame();
+
+	rh264_video *dec_ = nullptr;
+	const u8 *planes_[3]{};
+	int strides_[3]{};
 	bool haveFrame_ = false;
-	// For reporting runs of concealed-error frames rather than one line each - see Decode.
-	bool wasConcealing_ = false;
-	int concealedFrames_ = 0;
+	int lastResult_ = 0;
+	// For reporting runs of refused access units rather than one line each - see Decode.
+	bool wasFailing_ = false;
+	int failedUnits_ = 0;
 	int frameCount_ = 0;
 	int width_ = 0;
 	int height_ = 0;

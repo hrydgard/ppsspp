@@ -325,6 +325,7 @@ add_library(Core STATIC
 	HLE/sceMpeg.h
 	HLE/sceMpegbase.cpp
 	HLE/sceMpegbase.h
+	HLE/MpegCscRow.h
 	HLE/sceNet.cpp
 	HLE/sceNet.h
 	HLE/sceNet_lib.cpp

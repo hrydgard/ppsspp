@@ -470,7 +470,7 @@ static int sceVideocodecOpen(u32 ctxAddr, int type) {
 	}
 	Memory::WriteUnchecked_U32(0x05100601, ctxAddr + CTX_MAGIC);
 	if (!AvcDecoder::IsAvailable()) {
-		return hleLogError(Log::ME, -1, "built without ffmpeg, can't decode video");
+		return hleLogError(Log::ME, -1, "no H.264 decoder, can't decode video");
 	}
 	g_videocodecCtxs[ctxAddr].type = type;
 	if (type == 0) {

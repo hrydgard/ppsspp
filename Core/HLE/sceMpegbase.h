@@ -55,16 +55,11 @@ void MpegCscRange(u8 *dest, int destStride, int pixelMode,
 	const u8 *luma, const u8 *cb, const u8 *cr, int width,
 	int rangeX, int rangeY, int rangeWidth, int rangeHeight);
 
-// The two implementations behind it, exposed so TestMpegCsc can measure and compare them.
-// The scalar one handles anything; the swscale one refuses what it cannot express and is then
-// not used. They do not agree to the bit - swscale rounds its own way - so the scalar one is
-// what the reference in the test is checked against.
+// The same from planes of any stride, as a decoder hands them out. Bit for bit the conversion
+// MpegCscRangeScalar spells out, which is kept as what the fast path is checked against.
+void MpegCscPlanes(u8 *dest, int destStride, int pixelMode,
+	const u8 *luma, int lumaStride, const u8 *cb, const u8 *cr, int chromaStride,
+	int rangeX, int rangeY, int rangeWidth, int rangeHeight);
 void MpegCscRangeScalar(u8 *dest, int destStride, int pixelMode,
 	const u8 *luma, const u8 *cb, const u8 *cr, int width,
 	int rangeX, int rangeY, int rangeWidth, int rangeHeight);
-bool MpegCscRangeSws(u8 *dest, int destStride, int pixelMode,
-	const u8 *luma, const u8 *cb, const u8 *cr, int width,
-	int rangeX, int rangeY, int rangeWidth, int rangeHeight);
-
-// Frees the cached swscale context.
-void MpegCscShutdown();
