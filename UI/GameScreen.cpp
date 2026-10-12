@@ -187,6 +187,13 @@ template <typename I> std::string int2hexstr(I w, size_t hex_len = sizeof(I) << 
 void GameScreen::update() {
 	UITwoPaneBaseDialogScreen::update();
 
+	// Removing the game happens from popups, which have to close before we can.
+	if (gameRemoved_ && !finishRequested_) {
+		finishRequested_ = true;
+		TriggerFinish(DR_OK);
+		return;
+	}
+
 	GameInfoFlags hasFlags;
 	g_gameInfoCache->GetInfo(NULL, gamePath_, g_desiredFlags, &hasFlags);
 
@@ -615,9 +622,8 @@ void GameScreen::CreateContextMenu(UI::ViewGroup *parent) {
 		removeButton->OnClick.Add([this](UI::EventParams &e) {
 			g_recentFiles.Remove(gamePath_.ToString());
 			System_PostUIMessage(UIMessage::GAME_SELECTED, "");
-			// TODO: We should be able to do TriggerFinish here, but unfortunately
-			// the screen manager still considers the popup dialog the current dialog.
-			screenManager()->switchScreen(new MainScreen());
+			// We're under the context menu, so close in update() once it's gone.
+			gameRemoved_ = true;
 		});
 	}
 
@@ -795,16 +801,16 @@ void GameScreen::OnDeleteGame(UI::EventParams &e) {
 		prompt += "\n\n" + GetFriendlyPath(gamePath_);
 		const bool trashAvailable = System_GetPropertyBool(SYSPROP_HAS_TRASH_BIN);
 		Path gamePath = gamePath_;
-		ScreenManager *sm = screenManager();
 		screenManager()->push(
 			new UI::MessagePopupScreen(ga->T("Delete Game"), prompt, trashAvailable ? di->T("Move to trash") : di->T("Delete"), di->T("Cancel"),
-				[sm, gamePath](bool yes) {
+				[this, gamePath](bool yes) {
 			if (yes) {
 				std::shared_ptr<GameInfo> info_ = g_gameInfoCache->GetInfo(NULL, gamePath, GameInfoFlags::PARAM_SFO);
 				info_->Delete();
 				g_gameInfoCache->Clear();
 				g_recentFiles.Remove(gamePath.c_str());
-				sm->switchScreen(new MainScreen());
+				// We're under this popup (and maybe the context menu), so close in update() once they're gone.
+				gameRemoved_ = true;
 			}
 		}));
 	}

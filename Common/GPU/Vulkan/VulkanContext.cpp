@@ -1532,6 +1532,19 @@ bool VulkanContext::InitSwapchain(VkPresentModeKHR desiredPresentMode) {
 		}
 	}
 
+#if PPSSPP_PLATFORM(ANDROID)
+	// Right after an in-place rotation, the surface can still report the previous orientation's extent (seen
+	// on a Mali Galaxy S8+, when queried within a few ms of surfaceChanged). That leaves a portrait swapchain
+	// on a landscape window or the other way around, until the next rotation. The window size we were told
+	// about is current, so if the extent is exactly that transposed, it's stale.
+	if (g_display.pixel_xres > 0 && g_display.pixel_yres > 0 && g_display.pixel_xres != g_display.pixel_yres &&
+		currentExtent.width == (uint32_t)g_display.pixel_yres && currentExtent.height == (uint32_t)g_display.pixel_xres) {
+		WARN_LOG(Log::G3D, "Surface extent %dx%d is the window transposed, probably stale after a rotation. Using %dx%d.",
+			currentExtent.width, currentExtent.height, g_display.pixel_xres, g_display.pixel_yres);
+		std::swap(currentExtent.width, currentExtent.height);
+	}
+#endif
+
 	swapChainExtent_.width = clamp(currentExtent.width, surfCapabilities_.minImageExtent.width, surfCapabilities_.maxImageExtent.width);
 	swapChainExtent_.height = clamp(currentExtent.height, surfCapabilities_.minImageExtent.height, surfCapabilities_.maxImageExtent.height);
 

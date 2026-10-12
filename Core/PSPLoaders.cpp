@@ -18,6 +18,7 @@
 #include <thread>
 
 #include "Core/Core.h"
+#include "Common/Thread/ThreadUtil.h"
 #include "Common/System/Request.h"
 
 #include "Common/File/AndroidContentURI.h"
@@ -69,6 +70,8 @@ void DumpBlockDeviceAsync(std::shared_ptr<BlockDevice> bd, Path destPath, std::s
 	if (npdrmDemoBD) {
 		INFO_LOG(Log::System, "Dumping NPDRM demo ISO... (%s)", destPath.c_str());
 		std::thread dumpThread([bd, title, destPath]() {
+			SetCurrentThreadName("DumpBlockDevice");
+			AndroidJNIThreadContext jniContext;  // destPath can be a content URI.
 			File::CreateFullPath(destPath.NavigateUp());
 			if (File::Exists(destPath)) {
 				INFO_LOG(Log::System, "Dump file already exists, skipping: %s", destPath.c_str());

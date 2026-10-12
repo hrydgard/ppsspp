@@ -44,6 +44,9 @@ public:
 
 	const char *tag() const override { return "Game"; }
 
+	// The game was deleted or removed from recents, so the screen we return to should refresh.
+	bool GameRemoved() const { return gameRemoved_; }
+
 protected:
 	void CreateContentViews(UI::ViewGroup *parent) override;
 	void CreateSettingsViews(UI::ViewGroup *parent) override;
@@ -69,6 +72,8 @@ private:
 
 	bool isHomebrew_ = false;
 	bool inGame_ = false;
+	bool gameRemoved_ = false;
+	bool finishRequested_ = false;
 
 	// Keep track of progressive loading of metadata.
 	GameInfoFlags knownFlags_ = GameInfoFlags::EMPTY;

@@ -33,6 +33,7 @@
 
 #include <clocale>
 #include <algorithm>
+#include <atomic>
 #include <cstdlib>
 #include <memory>
 #include <mutex>
@@ -184,7 +185,9 @@ void SaveFrameDump();
 ScreenManager *g_screenManager;
 std::string config_filename;
 
-static bool resized = false;
+// Set from any thread (on Android, the Java UI thread right after it writes g_display). Atomic, so the frame
+// that consumes it also sees those writes - with a plain bool it could see the flag first and keep stale bounds.
+static std::atomic<bool> resized{false};
 
 static int renderCounter = 0;
 
@@ -1157,10 +1160,9 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 	}
 
 	// Resize before drawing anything, so the first frame at a new size isn't drawn into the old backbuffer.
-	const bool resizedThisFrame = resized;
-	if (resized) {
-		INFO_LOG(Log::G3D, "Resized flag set - recalculating bounds");
-		resized = false;
+	const bool resizedThisFrame = resized.exchange(false);
+	if (resizedThisFrame) {
+		INFO_LOG(Log::G3D, "Resized flag set - recalculating bounds (%dx%d dp)", g_display.dp_xres, g_display.dp_yres);
 
 		if (uiContext) {
 			uiContext->SetBounds(Bounds(0, 0, g_display.dp_xres, g_display.dp_yres));
@@ -1441,19 +1443,13 @@ bool HandleGlobalMessage(UIMessage message, const std::string &value) {
 }
 
 bool NativeIsAtTopLevel() {
-	// This might need some synchronization?
+	// Called from the Android UI thread, while screens may be getting deleted on the render thread,
+	// so this reads a flag cached by ScreenManager::Update() instead of the screen stack.
 	if (!g_screenManager) {
 		ERROR_LOG(Log::System, "No screen manager active");
 		return false;
 	}
-	Screen *currentScreen = g_screenManager->topScreen();
-	if (currentScreen) {
-		bool top = currentScreen->isTopLevel();
-		return currentScreen->isTopLevel();
-	} else {
-		ERROR_LOG(Log::System, "No current screen");
-		return false;
-	}
+	return g_screenManager->IsTopScreenTopLevel();
 }
 
 void NativeTouch(const TouchInput &touch) {

@@ -78,12 +78,12 @@ bool AndroidAudio_Recording_Stop(AndroidAudioState *state) {
 		ERROR_LOG(Log::Audio, "AndroidAudioState not initialized, cannot stop recording!");
 		return false;
 	}
-	if (!state->ctx) {
-		ERROR_LOG(Log::Audio, "Audio context not initialized, cannot stop recording!");
-		return false;
-	}
+	// Clear these even while paused, or resume would start the mic again.
 	state->input_enable = 0;
 	state->input_sample_rate = 0;
+	if (!state->ctx) {
+		return true;
+	}
 	state->ctx->AudioRecord_Stop();
 	INFO_LOG(Log::Audio, "AndroidAudio_Recording_Stop");
 	return true;

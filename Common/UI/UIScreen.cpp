@@ -46,7 +46,6 @@ void UIScreen::DoRecreateViews() {
 	root_ = nullptr;
 	SetCreatingViews(true);
 	CreateViews();
-	SetCreatingViews(false);
 	UI::View *defaultView = root_ ? root_->GetDefaultFocusView() : nullptr;
 	if (defaultView && defaultView->GetVisibility() == UI::V_VISIBLE) {
 		defaultView->SetFocus(UI::FocusFlags::CAUSE_OTHER);
@@ -54,6 +53,7 @@ void UIScreen::DoRecreateViews() {
 	recreateViews_ = false;
 
 	if (persisting && root_ != nullptr) {
+		// Still creating views: restoring a TabHolder's current tab can create the tab.
 		root_->PersistData(UI::PERSIST_RESTORE, "root", persisted);
 
 		// Update layout and refocus so things scroll into view.
@@ -64,6 +64,7 @@ void UIScreen::DoRecreateViews() {
 			root_->SubviewFocused(focused);
 		}
 	}
+	SetCreatingViews(false);
 }
 
 bool UIScreen::touch(const TouchInput &touch) {
@@ -128,7 +129,11 @@ Bounds UIScreen::GetLayoutBounds(UIContext &dc) const {
 }
 
 ScreenRenderFlags UIScreen::render(ScreenRenderMode mode) {
-	DoRecreateViews();
+	// A screen rendered under a popup must keep its views: the popup's callbacks point into them (the choice
+	// that opened it, the value it writes to). update() recreates them once the screen is on top again.
+	if (!root_ || !screenManager()->HasScreenAbove(this)) {
+		DoRecreateViews();
+	}
 
 	UIContext &uiContext = *screenManager()->getUIContext();
 	if (root_) {

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 #include <mutex>
 #include <string>
@@ -33,6 +34,7 @@ class ScreenManager {
 public:
 	virtual ~ScreenManager();
 
+	// Replaces the whole stack with the screen, at the start of the next frame.
 	void switchScreen(Screen *screen);
 	void ProcessScreenSwitches();
 	void ProcessInputEvent(const QueuedEvent &event);
@@ -63,6 +65,8 @@ public:
 	// Pops the dialog away.
 	void finishDialog(Screen *dialog, DialogResult result = DR_OK);
 	Screen *dialogParent(const Screen *dialog) const;
+	// True if the screen is in the stack, with something (like a popup) on top of it.
+	bool HasScreenAbove(const Screen *screen) const;
 
 	void sendMessage(UIMessage message, const char *value);
 
@@ -82,6 +86,11 @@ public:
 
 	InputMode PassInputToMapper() const {
 		return passInputToMapper_;
+	}
+
+	// Safe to call from any thread. Updated once per frame.
+	bool IsTopScreenTopLevel() const {
+		return topIsTopLevel_;
 	}
 
 private:
@@ -116,5 +125,6 @@ private:
 
 	std::unordered_map<int64_t, int> lastAxis_;
 
-	InputMode passInputToMapper_ = InputMode::None;
+	std::atomic<InputMode> passInputToMapper_{InputMode::None};
+	std::atomic<bool> topIsTopLevel_{false};
 };

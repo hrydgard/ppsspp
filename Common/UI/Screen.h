@@ -142,6 +142,7 @@ protected:
 	// token, so they can be forgotten when the views are deleted, while the screen's own requests stay alive.
 	int GetRequesterToken();
 	void SetCreatingViews(bool creating) { creatingViews_ = creating; }
+	bool IsCreatingViews() const { return creatingViews_; }
 	// Drops the callbacks of pending requests made by the views, which are about to be deleted.
 	void ForgetViewRequests();
 

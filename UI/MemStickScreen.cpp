@@ -579,6 +579,15 @@ void ConfirmMemstickMoveScreen::OnMoveDataClick(UI::EventParams &params) {
 	RecreateViews();
 }
 
+bool ConfirmMemstickMoveScreen::key(const KeyInput &key) {
+	// The Back choice is hidden during a move, but the back key would still close the screen, blocking the
+	// UI thread in the destructor until the move is done, and skipping FinishFolderMove().
+	if (moveDataTask_ && UI::IsEscapeKey(key)) {
+		return true;
+	}
+	return UIBaseDialogScreen::key(key);
+}
+
 void ConfirmMemstickMoveScreen::update() {
 	UIBaseDialogScreen::update();
 	auto ms = GetI18NCategory(I18NCat::MEMSTICK);

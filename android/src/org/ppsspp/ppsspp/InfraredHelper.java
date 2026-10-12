@@ -17,8 +17,8 @@ class InfraredHelper {
 	InfraredHelper(Context context) throws Exception {
 		mConsumerIrManager = (ConsumerIrManager) context.getSystemService(Context.CONSUMER_IR_SERVICE);
 		if (mConsumerIrManager == null) {
-			Log.i(TAG, "No IR manager detected.");
-			return;
+			// Normal on devices without an IR blaster, the service isn't registered.
+			throw new Exception("No IR manager");
 		}
 		Log.d(TAG, "HasIrEmitter: " + mConsumerIrManager.hasIrEmitter());
 		if (!mConsumerIrManager.hasIrEmitter()) {
@@ -69,6 +69,11 @@ class InfraredHelper {
 		for (int i = 0; i < patternList.size(); i++) {
 			pattern[i] = patternList.get(i);
 		}
-		mConsumerIrManager.transmit(SIRC_FREQ, pattern);
+		try {
+			mConsumerIrManager.transmit(SIRC_FREQ, pattern);
+		} catch (Exception e) {
+			// SecurityException on API 21/22, where TRANSMIT_IR (declared for 23+) isn't granted.
+			Log.e(TAG, "IR transmit failed: " + e);
+		}
 	}
 }

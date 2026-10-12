@@ -1048,6 +1048,14 @@ int g_screenshotFailures;
 	void Shutdown() {
 		std::lock_guard<std::mutex> guard(mutex);
 		rewindStates.Clear();
+		// Operations still queued belong to the game that's going away (Process() doesn't run while
+		// achievements block execution at boot). Run later, they'd load its state into the next game,
+		// and their callbacks can capture the EmuScreen that queued them.
+		if (!g_pendingOperations.empty()) {
+			WARN_LOG(Log::SaveState, "Dropping %d queued savestate operations at shutdown", (int)g_pendingOperations.size());
+			g_pendingOperations.clear();
+		}
+		needsProcess = false;
 	}
 
 	double SecondsSinceLastSavestate() {
