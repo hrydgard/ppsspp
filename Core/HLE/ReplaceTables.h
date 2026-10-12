@@ -39,6 +39,8 @@
 #pragma once
 
 #include <map>
+#include <utility>
+#include <vector>
 
 #include "Common/CommonTypes.h"
 #include "Core/MemMap.h"
@@ -80,6 +82,12 @@ const ReplacementTableEntry *GetReplacementFunc(size_t index);
 void WriteReplaceInstructions(u32 address, u64 hash, int size);
 void RestoreReplacedInstruction(u32 address);
 void RestoreReplacedInstructions(u32 startAddr, u32 endAddr);
+// The address and original instruction of every installed hook.
+std::vector<std::pair<u32, u32>> Replacement_GetHookedOps();
+// Some old savestates have hook ops in memory, which the CPU would now take as illegal and which
+// change the functions' hashes, so they wouldn't be hooked again. Puts back the instructions this
+// session hooked at the same addresses (booting the game hooked the same module there).
+void Replacement_RepairStaleHookOps(const std::vector<std::pair<u32, u32>> &hookedOps);
 // Drops hooks in functions the game has changed. Called when the icache is invalidated over them.
 void Replacement_CheckRange(u32 address, u32 length);
 
