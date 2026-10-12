@@ -1,3 +1,5 @@
+#include <mutex>
+
 #include "Common/VR/PPSSPPVR.h"
 
 #include "Common/VR/VRBase.h"
@@ -20,6 +22,7 @@
 #include "Core/HLE/sceCtrl.h"
 
 #include "Core/Config.h"
+#include "Core/ControlMapper.h"
 #include "Core/KeyMap.h"
 #include "Core/System.h"
 
@@ -41,6 +44,9 @@ enum VRMirroring {
 };
 
 static VRAppMode appMode = VR_MENU_MODE;
+// Written from the input thread (and the render thread, for the VR controllers), read on the render thread.
+// Don't call the cbNative* callbacks with it held, they come back in here.
+static std::mutex vrInputMutex;
 static std::map<int, std::map<int, float> > pspAxis;
 static std::map<int, bool> pspKeys;  // key can be virtual, so not using the enum.
 
@@ -209,8 +215,18 @@ void SetVRAppMode(VRAppMode mode) {
 }
 
 void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
+	bool cameraAdjust;
+	std::map<int, std::map<int, float>> cameraAxes;
+	{
+		std::lock_guard<std::mutex> guard(vrInputMutex);
+		cameraAdjust = pspKeys[VIRTKEY_VR_CAMERA_ADJUST];
+		if (cameraAdjust) {
+			cameraAxes = pspAxis;
+		}
+	}
+
 	//axis
-	if (pspKeys[(int)VIRTKEY_VR_CAMERA_ADJUST]) {
+	if (cameraAdjust) {
 		AxisInput axis[2] = {};
 		axis[0].deviceId = DEVICE_ID_DEFAULT;
 		axis[1].deviceId = DEVICE_ID_DEFAULT;
@@ -260,8 +276,8 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 	}
 
 	// Camera adjust
-	if (pspKeys[VIRTKEY_VR_CAMERA_ADJUST]) {
-		for (auto& device : pspAxis) {
+	if (cameraAdjust) {
+		for (auto& device : cameraAxes) {
 			for (auto& axis : device.second) {
 				switch(axis.first) {
 					case JOYSTICK_AXIS_X:
@@ -372,11 +388,9 @@ void UpdateVRInput(bool haptics, float dp_xscale, float dp_yscale) {
 }
 
 bool UpdateVRAxis(const AxisInput *axes, size_t count) {
+	std::lock_guard<std::mutex> guard(vrInputMutex);
 	for (size_t i = 0; i < count; i++) {
 		const AxisInput &axis = axes[i];
-		if (pspAxis.find(axis.deviceId) == pspAxis.end()) {
-			pspAxis[axis.deviceId] = std::map<int, float>();
-		}
 		pspAxis[axis.deviceId][axis.axisId] = axis.value;
 	}
 	return !pspKeys[VIRTKEY_VR_CAMERA_ADJUST];
@@ -385,9 +399,12 @@ bool UpdateVRAxis(const AxisInput *axes, size_t count) {
 bool UpdateVRKeys(const KeyInput &key) {
 	//store key value
 	std::vector<int> nativeKeys;
+	const bool mapped = KeyMap::InputMappingToPspButton(InputMapping(key.deviceId, key.keyCode), &nativeKeys);
+
+	std::unique_lock<std::mutex> lock(vrInputMutex);
 	bool wasScreenKeyOn = pspKeys[CTRL_SCREEN];
 	bool wasCameraAdjustOn = pspKeys[VIRTKEY_VR_CAMERA_ADJUST];
-	if (KeyMap::InputMappingToPspButton(InputMapping(key.deviceId, key.keyCode), &nativeKeys)) {
+	if (mapped) {
 		for (int& nativeKey : nativeKeys) {
 			pspKeys[nativeKey] = key.flags & KeyInputFlags::DOWN;
 		}
@@ -416,32 +433,24 @@ bool UpdateVRKeys(const KeyInput &key) {
 		vrFlatForced = pspKeys[CTRL_SCREEN];
 	}
 
-	// Release keys on enabling camera adjust
-	if (!wasCameraAdjustOn && pspKeys[VIRTKEY_VR_CAMERA_ADJUST]) {
-		KeyInput keyUp;
-		keyUp.deviceId = key.deviceId;
-		keyUp.flags = KeyInputFlags::UP;
-
-		pspKeys[VIRTKEY_VR_CAMERA_ADJUST] = false;
-		for (auto& pspKey : pspKeys) {
-			if (pspKey.second) {
-				keyUp.keyCode = (InputKeyCode)pspKey.first;
-				cbNativeKey(keyUp);
-			}
-		}
-		pspKeys[VIRTKEY_VR_CAMERA_ADJUST] = true;
-	}
+	const bool cameraAdjust = pspKeys[VIRTKEY_VR_CAMERA_ADJUST];
 
 	// Reset camera adjust
-	if (pspKeys[VIRTKEY_VR_CAMERA_ADJUST] && pspKeys[VIRTKEY_VR_CAMERA_RESET]) {
+	if (cameraAdjust && pspKeys[VIRTKEY_VR_CAMERA_RESET]) {
 		g_Config.fCameraHeight = 0;
 		g_Config.fCameraSide = 0;
 		g_Config.fCameraDistance = 0;
 		g_Config.fCameraPitch = 0;
 	}
+	lock.unlock();
+
+	// Release keys on enabling camera adjust, since input is blocked until it's off again.
+	if (!wasCameraAdjustOn && cameraAdjust) {
+		g_controlMapper.ReleaseAll();
+	}
 
 	//block keys by camera adjust
-	return !pspKeys[VIRTKEY_VR_CAMERA_ADJUST];
+	return !cameraAdjust;
 }
 
 /*
