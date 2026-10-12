@@ -91,6 +91,10 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 
 	// The surface we hand to the native render loop thread, for both OpenGL and Vulkan.
 	private NativeSurfaceView mSurfaceView;
+	// Which bars updateSystemUiVisibility hid. Before Android 11, the insets don't tell us: decorFitsSystemWindows(false)
+	// sets LAYOUT_STABLE, so they keep the space of hidden bars.
+	private boolean statusBarsHidden = false;
+	private boolean navigationBarsHidden = false;
 	private Surface mSurface;
 
 	// For accelerometer sensing.
@@ -635,19 +639,22 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
 		);
 
-		if (orientation == Configuration.ORIENTATION_LANDSCAPE) {
-			if (useImmersive()) {
-				controller.hide(WindowInsetsCompat.Type.statusBars() | WindowInsetsCompat.Type.navigationBars());
-			} else {
-				controller.hide(WindowInsetsCompat.Type.statusBars());  // we always hide the status bar in landscape.
-				controller.show(WindowInsetsCompat.Type.navigationBars());
-			}
+		// We always hide the status bar in landscape.
+		statusBarsHidden = useImmersive() || orientation == Configuration.ORIENTATION_LANDSCAPE;
+		navigationBarsHidden = useImmersive();
+		if (statusBarsHidden) {
+			controller.hide(WindowInsetsCompat.Type.statusBars());
 		} else {
-			if (useImmersive()) {
-				controller.hide(WindowInsetsCompat.Type.statusBars() | WindowInsetsCompat.Type.navigationBars());
-			} else {
-				controller.show(WindowInsetsCompat.Type.statusBars() | WindowInsetsCompat.Type.navigationBars());
-			}
+			controller.show(WindowInsetsCompat.Type.statusBars());
+		}
+		if (navigationBarsHidden) {
+			controller.hide(WindowInsetsCompat.Type.navigationBars());
+		} else {
+			controller.show(WindowInsetsCompat.Type.navigationBars());
+		}
+		// With LAYOUT_STABLE the insets may not change, so the listener wouldn't pick up what we hid.
+		if (mSurfaceView != null) {
+			ViewCompat.requestApplyInsets(mSurfaceView);
 		}
 
 		surfaceManager.updateDisplayMeasurements();
@@ -905,7 +912,14 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		}
 		DisplayCutoutCompat cutout = insetCompat.getDisplayCutout();
 		boolean hasCameraCutout = cutout != null && !cutout.getBoundingRects().isEmpty();
-		Insets insets = insetCompat.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+		int types = WindowInsetsCompat.Type.captionBar() | WindowInsetsCompat.Type.displayCutout();
+		if (!statusBarsHidden) {
+			types |= WindowInsetsCompat.Type.statusBars();
+		}
+		if (!navigationBarsHidden) {
+			types |= WindowInsetsCompat.Type.navigationBars();
+		}
+		Insets insets = insetCompat.getInsets(types);
 		int left = insets.left;
 		int right = insets.right;
 		int top = insets.top;
