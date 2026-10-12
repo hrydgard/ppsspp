@@ -1672,6 +1672,7 @@ static int Hook_gow_vortex_hack() {
 		// from my tests both ==0x3F800000 and !=0x3F800000 takes around 1:40-1:50, that seems to match correct behaviour
 		if (currentMIPS->r[MIPS_REG_S1] == 0 && currentMIPS->r[MIPS_REG_A0] == 0xC0 && currentMIPS->r[MIPS_REG_T4] != 0x3F800000) {
 			currentMIPS->r[MIPS_REG_S1] = 1;
+			currentMIPS->downcount = 0;
 		}
 	}
 	return 0;
