@@ -482,6 +482,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xeabb9c1b4f83d2b4, 52, "memset_jak", }, // Crisis Core (US), Jak and Daxter (this is a slow memset and needs to have slow timing)
 	{ 0xeb0f7bf63d52ece9, 88, "strncat", },
 	{ 0xeb8c0834d8bbc28c, 416, "fmodf", },
+	{ 0xec9ad8df944a770b, 180, "codedarms_stencil_check", }, // Coded Arms: Contagion (EUR)
 	{ 0xed8918f378e9a563, 628, "sd_gundam_g_generation_download_frame", }, // SD Gundam G Generation Overworld
 	{ 0xedbbe9bf9fbceca8, 172, "dl_write_viewport2", },
 	{ 0xedc3f476221f96e6, 148, "tanf", },

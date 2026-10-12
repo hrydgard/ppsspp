@@ -3487,6 +3487,73 @@ bool FramebufferManagerCommon::ReadbackStencilbuffer(Draw::Framebuffer *fbo, int
 	return draw_->CopyFramebufferToMemory(fbo, Draw::Aspect::DEPTH_BIT, x, y, w, h, Draw::DataFormat::S8, pixels, pixelsStride, mode, "ReadbackStencilbufferSync");
 }
 
+bool FramebufferManagerCommon::ReadbackStencilToMemory(u32 addr, int size) {
+	if (!useBufferedRendering_) {
+		return false;
+	}
+	addr &= 0x3FFFFFFF;
+	if (Memory::IsVRAMAddress(addr))
+		addr &= 0x041FFFFF;
+
+	VirtualFramebuffer *vfb = nullptr;
+	for (auto v : vfbs_) {
+		if (!v->fbo || v->fb_stride == 0 || v->fb_format != GE_FORMAT_8888) {
+			continue;
+		}
+		if (addr >= v->fb_address && addr + size <= v->fb_address + v->BufferByteSize(RASTER_COLOR)) {
+			if (!vfb || v->colorBindSeq > vfb->colorBindSeq) {
+				vfb = v;
+			}
+		}
+	}
+	if (!vfb) {
+		return false;
+	}
+
+	// Whole rows only.
+	const u32 byteStride = vfb->fb_stride * 4;
+	const u32 offset = addr - vfb->fb_address;
+	if (offset % byteStride != 0 || size % byteStride != 0) {
+		return false;
+	}
+	const int y = offset / byteStride;
+	const int h = std::min((int)(size / byteStride), (int)vfb->height - y);
+	const int w = std::min((int)vfb->fb_stride, (int)vfb->width);
+	if (w <= 0 || h <= 0) {
+		return false;
+	}
+
+	FlushBeforeCopy();
+
+	const int scale = vfb->renderScaleFactor;
+	const int sw = w * scale;
+	const int sh = h * scale;
+	std::vector<u8> stencil(sw * sh);
+	bool ok = draw_->CopyFramebufferToMemory(vfb->fbo, Draw::Aspect::STENCIL_BIT, 0, y * scale, sw, sh, Draw::DataFormat::S8, stencil.data(), sw, Draw::ReadbackMode::BLOCK, "ReadbackStencilToMemory");
+	if (!ok) {
+		ok = ReadbackStencilbuffer(vfb->fbo, 0, y * scale, sw, sh, stencil.data(), sw, Draw::ReadbackMode::BLOCK);
+	}
+	draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
+	textureCache_->ForgetLastTexture();
+	RebindFramebuffer("RebindFramebuffer - ReadbackStencilToMemory");
+	gpuStats.perFrame.numBlockingReadbacks++;
+	if (!ok) {
+		return false;
+	}
+
+	// PSP stencil is the alpha byte, so that's all that changes.
+	u8 *dest = Memory::GetPointerWriteUnchecked(vfb->fb_address + offset);
+	for (int row = 0; row < h; row++) {
+		const u8 *src = &stencil[row * scale * sw];
+		u8 *dst = dest + row * byteStride;
+		for (int x = 0; x < w; x++) {
+			dst[x * 4 + 3] = src[x * scale];
+		}
+	}
+	NotifyMemInfo(MemBlockFlags::WRITE, vfb->fb_address + offset, h * byteStride, "ReadbackStencil");
+	return true;
+}
+
 void FramebufferManagerCommon::ReadFramebufferToMemory(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel, Draw::ReadbackMode mode) {
 	if (!vfb || !vfb->fbo) {
 		return;

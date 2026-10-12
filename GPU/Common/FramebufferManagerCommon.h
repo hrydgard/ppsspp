@@ -351,6 +351,7 @@ public:
 	void UpdateFromMemory(u32 addr, int size);
 	void ApplyClearToMemory(int x1, int y1, int x2, int y2, u32 clearColor);
 	bool PerformWriteStencilFromMemory(u32 addr, int size, WriteStencil flags);
+	bool ReadbackStencilToMemory(u32 addr, int size);
 	void WriteStencilFromFramebufferAlpha(VirtualFramebuffer *dst);
 
 	// We changed our depth mode, gotta start over.
