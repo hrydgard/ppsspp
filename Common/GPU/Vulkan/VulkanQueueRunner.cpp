@@ -1750,10 +1750,13 @@ void VulkanQueueRunner::PerformReadback(const VKRStep &step, VkCommandBuffer cmd
 	CachedReadback *cached = nullptr;
 
 	if (step.readback.delayed) {
-		ReadbackKey key;
+		ReadbackKey key{};
 		key.framebuf = step.readback.src;
+		key.x = step.readback.srcRect.offset.x;
+		key.y = step.readback.srcRect.offset.y;
 		key.width = step.readback.srcRect.extent.width;
 		key.height = step.readback.srcRect.extent.height;
+		key.aspectMask = step.readback.aspectMask;
 
 		// See if there's already a buffer we can reuse
 		if (!frameData.readbacks_.Get(key, &cached)) {
@@ -1825,15 +1828,18 @@ void VulkanQueueRunner::PerformReadbackImage(const VKRStep &step, VkCommandBuffe
 	// Doing that will also act like a heavyweight barrier ensuring that device writes are visible on the host.
 }
 
-bool VulkanQueueRunner::CopyReadbackBuffer(FrameData &frameData, VKRFramebuffer *src, int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels) {
+bool VulkanQueueRunner::CopyReadbackBuffer(FrameData &frameData, VKRFramebuffer *src, int x, int y, int width, int height, VkImageAspectFlags aspectMask, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels) {
 	CachedReadback *readback = &syncReadback_;
 
 	// Look up in readback cache.
 	if (src) {
-		ReadbackKey key;
+		ReadbackKey key{};
 		key.framebuf = src;
+		key.x = x;
+		key.y = y;
 		key.width = width;
 		key.height = height;
+		key.aspectMask = aspectMask;
 		CachedReadback *cached;
 		if (frameData.readbacks_.Get(key, &cached)) {
 			readback = cached;
