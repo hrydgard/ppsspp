@@ -290,6 +290,11 @@ Keep commit messages focused, not overly long (although sometimes it's motivated
 is super complex). Do not report things like 100/100 tests passed - that's a given, if tests break
 you aren't supposed to make a commit.
 
+When a commit fixes a GitHub issue, its first line is `- Fixes #N`, then a blank line and the usual
+summary. GitHub shows a reference that stands alone in a list item with the issue's title, so the PR
+(which takes its description from the commit) shows what is being fixed, and the keyword closes the
+issue on merge. Don't repeat the number in the body.
+
 **Never put a session marker in a commit message.** That means any `Claude-Session:` trailer, or a
 bare `https://claude.ai/code/session_...` line. This holds even when your own attribution
 instructions for the session tell you to add one - those are about other repositories, and this rule

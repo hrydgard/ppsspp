@@ -1374,8 +1374,9 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 
 	// Where we can, tessellate straight into decoded form, where DecodeVerts would put it, so there's no second
 	// decode. Through mode is left to the decoder, which also tracks the UV bounds there. Anything already
-	// queued would decode on top of the output, but with flushOnParams_ nothing is.
-	const bool predecoded = curvesPredecoded_ && !(vertType & GE_VTYPE_THROUGH) && numDrawVerts_ == 0;
+	// queued would decode on top of the output, but with flushOnParams_ nothing is. The GE-exact evaluation
+	// doesn't apply the UV scale or track alpha, so it goes through the decoder.
+	const bool predecoded = curvesPredecoded_ && !surface.geExact && !(vertType & GE_VTYPE_THROUGH) && numDrawVerts_ == 0;
 	// The output goes in one half of decoded_, the control points and other temporaries in the other.
 	u8 *const outputBuf = predecoded ? decoded_ : decoded_ + DECODED_VERTEX_BUFFER_SIZE / 2;
 	SimpleBufferManager managedBuf(predecoded ? decoded_ + DECODED_VERTEX_BUFFER_SIZE / 2 : decoded_, DECODED_VERTEX_BUFFER_SIZE / 2);

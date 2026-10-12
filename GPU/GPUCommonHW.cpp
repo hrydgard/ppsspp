@@ -1321,6 +1321,7 @@ void GPUCommonHW::Execute_Bezier(u32 op, u32 diff) {
 	surface.num_patches_v = (surface.num_points_v - 1) / 3;
 	surface.primType = gstate.getPatchPrimitiveType();
 	surface.patchFacing = gstate.patchfacing & 1;
+	surface.geExact = PSP_CoreParameter().compat.flags().AccurateSplines;
 
 	SetDrawType(DRAW_BEZIER, PatchPrimToPrim(surface.primType));
 
@@ -1393,6 +1394,7 @@ void GPUCommonHW::Execute_Spline(u32 op, u32 diff) {
 	surface.num_patches_v = surface.num_points_v - 3;
 	surface.primType = gstate.getPatchPrimitiveType();
 	surface.patchFacing = gstate.patchfacing & 1;
+	surface.geExact = PSP_CoreParameter().compat.flags().AccurateSplines;
 
 	SetDrawType(DRAW_SPLINE, PatchPrimToPrim(surface.primType));
 
