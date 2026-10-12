@@ -71,7 +71,7 @@ bool PopupScreen::touch(const TouchInput &touch) {
 
 bool PopupScreen::key(const KeyInput &key) {
 	if (key.flags & KeyInputFlags::DOWN) {
-		if ((key.keyCode == NKCODE_ENTER || key.keyCode == NKCODE_NUMPAD_ENTER) && defaultButton_) {
+		if ((key.keyCode == NKCODE_ENTER || key.keyCode == NKCODE_NUMPAD_ENTER) && defaultButton_ && finishFrame_ < 0) {
 			UI::EventParams e{};
 			defaultButton_->OnClick.Trigger(e);
 			return true;
@@ -133,6 +133,11 @@ void PopupScreen::SetPopupOrigin(const UI::View *view) {
 }
 
 void PopupScreen::TriggerFinish(DialogResult result) {
+	// Touches outside the box and Enter still reach us during the fade-out. Completing twice fires OnChange
+	// twice, and the first one may already have made the parent delete the view the second one calls into.
+	if (finishFrame_ >= 0) {
+		return;
+	}
 	if (CanComplete(result)) {
 		ignoreInput_ = true;
 		finishFrame_ = frames_;
