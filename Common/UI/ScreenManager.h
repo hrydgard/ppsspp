@@ -64,6 +64,8 @@ public:
 	// Pops the dialog away.
 	void finishDialog(Screen *dialog, DialogResult result = DR_OK);
 	Screen *dialogParent(const Screen *dialog) const;
+	// True if the screen is in the stack, with something (like a popup) on top of it.
+	bool HasScreenAbove(const Screen *screen) const;
 
 	void sendMessage(UIMessage message, const char *value);
 

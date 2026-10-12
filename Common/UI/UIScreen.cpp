@@ -128,7 +128,11 @@ Bounds UIScreen::GetLayoutBounds(UIContext &dc) const {
 }
 
 ScreenRenderFlags UIScreen::render(ScreenRenderMode mode) {
-	DoRecreateViews();
+	// A screen rendered under a popup must keep its views: the popup's callbacks point into them (the choice
+	// that opened it, the value it writes to). update() recreates them once the screen is on top again.
+	if (!root_ || !screenManager()->HasScreenAbove(this)) {
+		DoRecreateViews();
+	}
 
 	UIContext &uiContext = *screenManager()->getUIContext();
 	if (root_) {

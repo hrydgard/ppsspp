@@ -393,6 +393,15 @@ void ScreenManager::finishDialog(Screen *dialog, DialogResult result) {
 	dialogResult_ = result;
 }
 
+bool ScreenManager::HasScreenAbove(const Screen *screen) const {
+	for (size_t i = 0; i + 1 < stack_.size(); ++i) {
+		if (stack_[i].screen == screen) {
+			return true;
+		}
+	}
+	return false;
+}
+
 Screen *ScreenManager::dialogParent(const Screen *dialog) const {
 	for (size_t i = 1; i < stack_.size(); ++i) {
 		if (stack_[i].screen == dialog) {
