@@ -83,6 +83,7 @@ struct JNIEnv {};
 #include "Common/Input/KeyCodes.h"
 #include "Common/Profiler/Profiler.h"
 #include "Common/Math/math_util.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "Common/Data/Text/Parsers.h"
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/GPU/Vulkan/VulkanLoader.h"
@@ -177,7 +178,14 @@ static std::atomic<bool> renderer_inited{false};
 static bool sustainedPerfSupported = false;
 static std::string g_installerName;
 
+// Written on the Java UI thread, read on the render thread.
+static std::mutex permissionsLock;
 static std::map<SystemPermission, PermissionStatus> permissions;
+
+static void SetPermissionStatus(SystemPermission permission, PermissionStatus status) {
+	std::lock_guard<std::mutex> guard(permissionsLock);
+	permissions[permission] = status;
+}
 
 static GraphicsContext *graphicsContext;
 
@@ -520,12 +528,30 @@ std::vector<std::string> Android_GetNativeCrashHistory(int maxEntries) {
 	return crashHistory;
 }
 
+// GetStringUTFChars returns Java's modified UTF-8, where characters outside the BMP (emoji) become two 3-byte
+// surrogates, so we go through UTF-16.
 std::string GetJavaString(JNIEnv *env, jstring jstr) {
 	if (!jstr)
 		return "";
-	const char *str = env->GetStringUTFChars(jstr, nullptr);
-	std::string cpp_string = std::string(str);
-	env->ReleaseStringUTFChars(jstr, str);
+	const jsize len = env->GetStringLength(jstr);
+	const jchar *chars = env->GetStringChars(jstr, nullptr);
+	if (!chars)
+		return "";
+	std::string cpp_string;
+	cpp_string.reserve(len);
+	char buf[4];
+	for (jsize i = 0; i < len; i++) {
+		uint32_t c = chars[i];
+		if (c >= 0xD800 && c < 0xDC00 && i + 1 < len && chars[i + 1] >= 0xDC00 && chars[i + 1] < 0xE000) {
+			c = 0x10000 + ((c - 0xD800) << 10) + (chars[i + 1] - 0xDC00);
+			i++;
+		} else if (c >= 0xD800 && c < 0xE000) {
+			// Unpaired surrogate.
+			c = 0xFFFD;
+		}
+		cpp_string.append(buf, UTF8::encode(buf, c));
+	}
+	env->ReleaseStringChars(jstr, chars);
 	return cpp_string;
 }
 
@@ -966,7 +992,8 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		return true;
 	case SystemRequestType::INPUT_TEXT_MODAL:
 	{
-		std::string serialized = StringFromFormat("%d:@:%s:@:%s", requestId, param1.c_str(), param2.c_str());
+		// The flags go before the strings, so the free text comes last.
+		std::string serialized = StringFromFormat("%d:@:%d:@:%s:@:%s", requestId, param3 ? 1 : 0, param1.c_str(), param2.c_str());
 		PushCommand("inputbox", serialized);
 		return true;
 	}
@@ -1038,7 +1065,8 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendRequestResult(JNIEnv *env, jclass, jint jrequestID, jboolean result, jstring jvalue, jint jintValue) {
 	std::string value = jvalue ? GetJavaString(env, jvalue) : "(no value)";
-	INFO_LOG(Log::System, "Received result of request %d from Java: %d: %d '%s'", jrequestID, (int)result, jintValue, value.c_str());
+	// Don't log the value, it can be a password.
+	INFO_LOG(Log::System, "Received result of request %d from Java: %d: %d (%d chars)", jrequestID, (int)result, jintValue, (int)value.size());
 	if (result) {
 		g_requestManager.PostSystemSuccess(jrequestID, value, jintValue);
 	} else {
@@ -1061,7 +1089,9 @@ PermissionStatus System_GetPermissionStatus(SystemPermission permission) {
 	if (androidVersion < 23) {
 		return PERMISSION_STATUS_GRANTED;
 	} else {
-		return permissions[permission];
+		std::lock_guard<std::mutex> guard(permissionsLock);
+		auto iter = permissions.find(permission);
+		return iter != permissions.end() ? iter->second : PERMISSION_STATUS_UNKNOWN;
 	}
 }
 
@@ -1260,28 +1290,28 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessageFromJava(JNI
 	} else if (msg == "permission_pending") {
 		if (prm == "storage") {
 			INFO_LOG(Log::System, "STORAGE PERMISSION: PENDING");
-			permissions[SYSTEM_PERMISSION_STORAGE] = PERMISSION_STATUS_PENDING;
+			SetPermissionStatus(SYSTEM_PERMISSION_STORAGE, PERMISSION_STATUS_PENDING);
 		} else if (prm == "local_network") {
 			INFO_LOG(Log::System, "LOCAL NETWORK PERMISSION: PENDING");
-			permissions[SYSTEM_PERMISSION_LOCAL_NETWORK] = PERMISSION_STATUS_PENDING;
+			SetPermissionStatus(SYSTEM_PERMISSION_LOCAL_NETWORK, PERMISSION_STATUS_PENDING);
 		}
 	} else if (msg == "permission_denied") {
 		if (prm == "storage") {
 			INFO_LOG(Log::System, "STORAGE PERMISSION: DENIED");
-			permissions[SYSTEM_PERMISSION_STORAGE] = PERMISSION_STATUS_DENIED;
+			SetPermissionStatus(SYSTEM_PERMISSION_STORAGE, PERMISSION_STATUS_DENIED);
 		} else if (prm == "local_network") {
 			INFO_LOG(Log::System, "LOCAL NETWORK PERMISSION: DENIED");
-			permissions[SYSTEM_PERMISSION_LOCAL_NETWORK] = PERMISSION_STATUS_DENIED;
+			SetPermissionStatus(SYSTEM_PERMISSION_LOCAL_NETWORK, PERMISSION_STATUS_DENIED);
 		} else {
 			WARN_LOG(Log::System, "UNKNOWN PERMISSION GRANTED: %s", prm.c_str());
 		}
 	} else if (msg == "permission_granted") {
 		if (prm == "storage") {
 			INFO_LOG(Log::System, "STORAGE PERMISSION: GRANTED");
-			permissions[SYSTEM_PERMISSION_STORAGE] = PERMISSION_STATUS_GRANTED;
+			SetPermissionStatus(SYSTEM_PERMISSION_STORAGE, PERMISSION_STATUS_GRANTED);
 		} else if (prm == "local_network") {
 			INFO_LOG(Log::System, "LOCAL NETWORK PERMISSION: GRANTED");
-			permissions[SYSTEM_PERMISSION_LOCAL_NETWORK] = PERMISSION_STATUS_GRANTED;
+			SetPermissionStatus(SYSTEM_PERMISSION_LOCAL_NETWORK, PERMISSION_STATUS_GRANTED);
 		} else {
 			WARN_LOG(Log::System, "UNKNOWN PERMISSION GRANTED: %s", prm.c_str());
 		}
@@ -1515,10 +1545,14 @@ static void ProcessFrameCommands() {
 	if (!frameCommands.empty()) {
 		INFO_LOG(Log::System, "Processing %zu frame commands", frameCommands.size());
 		for (const FrameCommand &frameCmd : frameCommands) {
-			DEBUG_LOG(Log::System, "frameCommand '%s' '%s'", frameCmd.command.c_str(), frameCmd.params.c_str());
+			// Not logging the params, an inputbox one can contain a password.
+			DEBUG_LOG(Log::System, "frameCommand '%s'", frameCmd.command.c_str());
 
+			// The params can contain any text, like a title the game gave its OSK.
+			std::string params;
+			ConvertUTF8ToJavaModifiedUTF8(&params, frameCmd.params);
 			jstring cmd = env->NewStringUTF(frameCmd.command.c_str());
-			jstring param = env->NewStringUTF(frameCmd.params.c_str());
+			jstring param = env->NewStringUTF(params.c_str());
 			env->CallVoidMethod(activity, postCommand, cmd, param);
 			env->DeleteLocalRef(cmd);
 			env->DeleteLocalRef(param);

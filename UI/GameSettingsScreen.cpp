@@ -1632,6 +1632,9 @@ void GameSettingsScreen::OnChangeBackground(UI::EventParams &e) {
 			if (f != nullptr && 8 == fread(buffer, 1, ARRAY_SIZE(buffer), f)) {
 				type = DetectImageFileType(buffer, ARRAY_SIZE(buffer));
 			}
+			if (f) {
+				fclose(f);
+			}
 
 			std::string filename;
 			switch (type) {

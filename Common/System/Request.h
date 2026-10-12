@@ -1,6 +1,8 @@
 #pragma once
 
+#include <atomic>
 #include <vector>
+#include <deque>
 #include <mutex>
 #include <map>
 #include <functional>
@@ -64,24 +66,23 @@ private:
 	std::map<int, CallbackPair> callbackMap_;
 	std::mutex callbackMutex_;
 
-	struct PendingSuccess {
+	// A finished request, waiting for ProcessRequests to call its callback.
+	struct PendingResponse {
+		bool success;
 		std::string responseString;
-		int responseValue;
-		RequestCallback callback;
-	};
-
-	struct PendingFailure {
-		RequestFailedCallback failedCallback;
 		int responseValue;  // can have error codes for example.
+		RequestCallback callback;
+		RequestFailedCallback failedCallback;
+		RequesterToken token;
 	};
 
 	// Let's start at 10 to get a recognizably valid ID in logs.
-	int idCounter_ = 10;
-	std::vector<PendingSuccess> pendingSuccesses_;
-	std::vector<PendingFailure> pendingFailures_;
+	// Atomic since requests are made from several threads (the CPU thread for the OSK and the microphone).
+	std::atomic<int> idCounter_{ 10 };
+	std::deque<PendingResponse> pendingResponses_;
 	std::mutex responseMutex_;
 
-	RequesterToken tokenGen_ = 20000;
+	std::atomic<RequesterToken> tokenGen_{ 20000 };
 };
 
 const char *RequestTypeAsString(SystemRequestType type);
