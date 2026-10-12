@@ -163,6 +163,10 @@ bool Recorder::BeginRecording() {
 	guard.unlock();
 	lastTextures.clear();
 	lastRenderTargets.clear();
+	readbackAddrs.clear();
+	targetWrites_.clear();
+	writeCount_ = 0;
+	waitForDisplayCopy_ = false;
 	flipLastAction = gpuStats.totals.numFlips;
 	flipFinishAt = -1;
 
@@ -421,6 +425,30 @@ u32 Recorder::GetTargetFlags(u32 addr, u32 sizeInRAM) {
 	return flags;
 }
 
+// A hardware renderer keeps framebuffers on the GPU, so RAM can hold something older than what a game
+// samples from a buffer it drew before the recording started (Silent Hill: Origins shows the previous
+// frame by copying it into its display buffer). Read such buffers back once before copying them out.
+// Anything drawn during the recording is drawn again on replay, so that doesn't need it.
+void Recorder::ReadbackUndrawnVRAM(u32 addr, u32 bytes) {
+	if (!gpu || bytes == 0 || !Memory::IsVRAMAddress(addr)) {
+		return;
+	}
+	if (!readbackAddrs.insert(addr & 0x041FFFFF).second) {
+		return;
+	}
+
+	uint32_t start = (addr >> DIRTY_VRAM_SHIFT) & DIRTY_VRAM_MASK;
+	uint32_t blocks = (bytes + DIRTY_VRAM_ROUND) >> DIRTY_VRAM_SHIFT;
+	for (uint32_t i = 0; i < blocks && start + i < DIRTY_VRAM_SIZE; ++i) {
+		if (dirtyVRAM[start + i] == DirtyVRAMFlag::DRAWN) {
+			return;
+		}
+	}
+	// Not PerformReadbackToMemory: with BlockTransferAllowCreateFB (Silent Hill: Origins) that would create a
+	// framebuffer at the destination and copy into it instead of writing RAM.
+	gpu->PerformMemoryCopy(addr, addr, bytes, GPUCopyFlag::FORCE_DST_MATCH_MEM | GPUCopyFlag::DISALLOW_CREATE_VFB);
+}
+
 void Recorder::EmitTextureData(int level, u32 texaddr) {
 	GETextureFormat format = gstate.getTextureFormat();
 	int w = gstate.getTextureWidth(level);
@@ -435,6 +463,8 @@ void Recorder::EmitTextureData(int level, u32 texaddr) {
 	std::vector<u8> framebufData;
 
 	if (Memory::IsVRAMAddress(texaddr)) {
+		ReadbackUndrawnVRAM(texaddr, bytes);
+
 		struct FramebufData {
 			u32 addr;
 			int bufw;
@@ -541,8 +571,10 @@ void Recorder::EmitTransfer(u32 op) {
 
 	u32 dstBytes = ((dstY + height - 1) * dstStride + (dstX + width)) * bpp;
 	dstBytes = Memory::ClampValidSizeAt(dstBasePtr, dstBytes);
+	NoteTargetWrite(dstBasePtr, dstBytes);
 
 	if (srcBytes != 0) {
+		ReadbackUndrawnVRAM(srcBasePtr, srcBytes);
 		EmitCommandWithRAM(CommandType::TRANSFERSRC, Memory::GetPointerUnchecked(srcBasePtr), srcBytes, 16);
 		DirtyVRAM(dstBasePtr, dstBytes, DirtyVRAMFlag::DIRTY);
 	}
@@ -566,6 +598,8 @@ void Recorder::EmitClut(u32 op) {
 	if (bytes != 0) {
 		// Send the original address so VRAM can be reasoned about.
 		if (Memory::IsVRAMAddress(addr)) {
+			ReadbackUndrawnVRAM(addr, bytes);
+
 			struct ClutAddrData {
 				u32 addr;
 				u32 flags;
@@ -586,7 +620,46 @@ void Recorder::EmitClut(u32 op) {
 	lastRegisters.push_back(op);
 }
 
+// Where the current draw writes color, as an offset in VRAM and a size.
+static void CurrentTarget(u32 *addr, u32 *bytes) {
+	const int h = std::min(gstate.getScissorY2(), gstate.getRegionY2()) + 1;
+	const int w = std::min(gstate.getScissorX2(), gstate.getRegionX2()) + 1;
+	const int bpp = gstate.FrameBufFormat() == GE_FORMAT_8888 ? 4 : 2;
+	*addr = gstate.getFrameBufRawAddress() & 0x001FFFFF;
+	*bytes = bpp * (gstate.FrameBufStride() * (h - 1) + w);
+}
+
+void Recorder::NoteTargetWrite(u32 addr, u32 bytes) {
+	addr &= 0x001FFFFF;
+	writeCount_++;
+	for (TargetWrite &t : targetWrites_) {
+		if (t.start == addr) {
+			t.end = std::max(t.end, addr + bytes);
+			t.last = writeCount_;
+			return;
+		}
+	}
+	targetWrites_.push_back(TargetWrite{ addr, addr + bytes, writeCount_ });
+}
+
+// Whether the last write to the display buffer came before most of the frame's drawing. Silent Hill: Origins
+// shows each frame one late, by copying it into its 565 display buffer with the first draw of the next frame.
+bool Recorder::DisplayDrawnEarly(u32 addr, u32 bytes) const {
+	addr &= 0x001FFFFF;
+	int last = -1;
+	for (const TargetWrite &t : targetWrites_) {
+		if (t.start < addr + bytes && addr < t.end) {
+			last = std::max(last, t.last);
+		}
+	}
+	return last >= 0 && writeCount_ - last > writeCount_ / 2;
+}
+
 void Recorder::EmitPrim(u32 op) {
+	u32 target, targetBytes;
+	CurrentTarget(&target, &targetBytes);
+	NoteTargetWrite(target, targetBytes);
+
 	FlushPrimState(op & 0x0000FFFF);
 
 	lastRegisters.push_back(op);
@@ -594,6 +667,10 @@ void Recorder::EmitPrim(u32 op) {
 }
 
 void Recorder::EmitBezierSpline(u32 op) {
+	u32 target, targetBytes;
+	CurrentTarget(&target, &targetBytes);
+	NoteTargetWrite(target, targetBytes);
+
 	int ucount = op & 0xFF;
 	int vcount = (op >> 8) & 0xFF;
 	FlushPrimState(ucount * vcount);
@@ -801,6 +878,26 @@ void Recorder::NotifyDisplay(u32 framebuf, int stride, int fmt) {
 		return;
 	}
 
+	PushDisplay(framebuf, stride, fmt);
+
+	if (writePending && !waitForDisplayCopy_) {
+		const int bpp = fmt == GE_FORMAT_8888 ? 4 : 2;
+		if (DisplayDrawnEarly(framebuf, bpp * stride * 272)) {
+			// What's displayed is a copy of the previous frame. Record the next frame too, which copies this one to
+			// the display (into the other half, in Silent Hill), so the replay shows what it drew.
+			NOTICE_LOG(Log::System, "Display buffer drawn early in the frame, recording one more frame");
+			waitForDisplayCopy_ = true;
+			return;
+		}
+	}
+
+	if (writePending) {
+		NOTICE_LOG(Log::System, "Recording complete on display");
+		FinishRecording();
+	}
+}
+
+void Recorder::PushDisplay(u32 framebuf, int stride, int fmt) {
 	CheckEdramTrans();
 	struct DisplayBufData {
 		PSPPointer<u8> topaddr;
@@ -814,11 +911,6 @@ void Recorder::NotifyDisplay(u32 framebuf, int stride, int fmt) {
 	u32 ptr = AppendToPushbuf(pushbuf, &disp, sz);
 
 	commands.push_back({ CommandType::DISPLAY, sz, ptr });
-
-	if (writePending) {
-		NOTICE_LOG(Log::System, "Recording complete on display");
-		FinishRecording();
-	}
 }
 
 void Recorder::NotifyBeginFrame() {
