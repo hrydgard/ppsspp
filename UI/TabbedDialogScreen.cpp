@@ -63,6 +63,10 @@ void UITabbedBaseDialogScreen::CreateViews() {
 	// Scrolling action menu to the right.
 	using namespace UI;
 
+	// Only created with the search tab, which depends on the orientation, so may not be there this time.
+	clearSearchChoice_ = nullptr;
+	noSearchResults_ = nullptr;
+
 	auto se = GetI18NCategory(I18NCat::SEARCH);
 	filterNotice_ = new TextView("(filter notice, you shouldn't see this text", new LinearLayoutParams(Margins(20, 5)));
 	filterNotice_->SetVisibility(V_GONE);
@@ -181,6 +185,10 @@ void UITabbedBaseDialogScreen::SetCurrentTab(int tab) {
 
 void UITabbedBaseDialogScreen::ApplySearchFilter() {
 	using namespace UI;
+	// GAMESETTINGS_SEARCH is broadcast to every screen, including ones whose views don't exist yet.
+	if (!tabHolder_) {
+		return;
+	}
 	auto se = GetI18NCategory(I18NCat::SEARCH);
 
 	EnsureTabs();
@@ -234,7 +242,11 @@ void UITabbedBaseDialogScreen::ApplySearchFilter() {
 		matches = matches || tabMatches;
 	}
 
-	noSearchResults_->SetText(ApplySafeSubstitutions(se->T("No settings matched '%1'"), searchFilter_));
-	noSearchResults_->SetVisibility(matches ? UI::V_GONE : UI::V_VISIBLE);
-	clearSearchChoice_->SetVisibility(searchFilter_.empty() ? UI::V_GONE : UI::V_VISIBLE);
+	if (noSearchResults_) {
+		noSearchResults_->SetText(ApplySafeSubstitutions(se->T("No settings matched '%1'"), searchFilter_));
+		noSearchResults_->SetVisibility(matches ? UI::V_GONE : UI::V_VISIBLE);
+	}
+	if (clearSearchChoice_) {
+		clearSearchChoice_->SetVisibility(searchFilter_.empty() ? UI::V_GONE : UI::V_VISIBLE);
+	}
 }
