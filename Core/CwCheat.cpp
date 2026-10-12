@@ -229,16 +229,9 @@ static void __CheatStart() {
 
 static int GetRefreshMs() {
 	int refresh = g_Config.iCwCheatRefreshIntervalMs;
-
-	if (!cheatsEnabled)
+	if (!cheatsEnabled) {
 		refresh = 1000;
-
-	// Horrible hack for Tony Hawk - Underground 2. See #3854. Avoids crashing somehow
-	// but still causes regular JIT invalidations which causes stutters.
-	if (PSP_CoreParameter().compat.flags().JitInvalidationHack) {
-		refresh = 2;
 	}
-
 	return refresh;
 }
 
@@ -300,28 +293,6 @@ void hleCheat(u64 userdata, int cyclesLate) {
 
 	// Check periodically for cheats.
 	CoreTiming::ScheduleEvent(msToCycles(GetRefreshMs()), CheatEvent, 0);
-
-	if (PSP_CoreParameter().compat.flags().JitInvalidationHack) {
-		std::string gameTitle = g_paramSFO.GetValueString("DISC_ID");
-
-		// Horrible hack for Tony Hawk - Underground 2. See #3854. Avoids crashing somehow
-		// but still causes regular JIT invalidations which causes stutters.
-		if (gameTitle == "ULUS10014") {
-			currentMIPS->InvalidateICacheRangeDeferred(0x08865600, 72);
-			currentMIPS->InvalidateICacheRangeDeferred(0x08865690, 4);
-		} else if (gameTitle == "ULES00033" || gameTitle == "ULES00034" || gameTitle == "ULES00035") {  // euro, also 34 and 35
-			currentMIPS->InvalidateICacheRangeDeferred(0x088655D8, 72);
-			currentMIPS->InvalidateICacheRangeDeferred(0x08865668, 4);
-		} else if (gameTitle == "ULUS10138") {  // MTX MotoTrax US
-			currentMIPS->InvalidateICacheRangeDeferred(0x0886DCC0, 72);
-			currentMIPS->InvalidateICacheRangeDeferred(0x0886DC20, 4);
-			currentMIPS->InvalidateICacheRangeDeferred(0x0886DD40, 4);
-		} else if (gameTitle == "ULES00581") {  // MTX MotoTrax EU (ported from US cwcheat codes)
-			currentMIPS->InvalidateICacheRangeDeferred(0x0886E1D8, 72);
-			currentMIPS->InvalidateICacheRangeDeferred(0x0886E138, 4);
-			currentMIPS->InvalidateICacheRangeDeferred(0x0886E258, 4);
-		}
-	}
 
 	if (!cheatEngine || !cheatsEnabled) {
 		return;

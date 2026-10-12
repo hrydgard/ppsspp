@@ -67,7 +67,6 @@ struct CompatFlags {
 	bool ForceMax60FPS;
 	bool GoWFramerateHack60;
 	bool FramerateHack30;
-	bool JitInvalidationHack;
 	bool HideISOFiles;
 	bool MoreAccurateVMMUL;
 	bool ForceSoftwareRenderer;
