@@ -13,6 +13,7 @@
 #import "IAPManager.h"
 #include "Core/Util/PathUtil.h"
 #include "Core/CmdLine.h"
+#include "Core/Util/DarwinFileSystemServices.h"
 
 #import <AVFoundation/AVFoundation.h>
 #include <string>
@@ -168,8 +169,8 @@ static NSString *ExtractGameInfoScheme(NSURL *url) {
 	}
 
 #if PPSSPP_PLATFORM(TVOS)
-	// No persistent storage on tvOS, see DarwinFileSystemServices::defaultMemoryStickPath().
-	NSString *documentsPath = [NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES) objectAtIndex:0];
+	// No persistent storage on tvOS. The memory stick folder doubles as the documents folder.
+	NSString *documentsPath = @(DarwinFileSystemServices::defaultMemoryStickPath().c_str());
 #else
 	NSString *documentsPath = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0];
 #endif

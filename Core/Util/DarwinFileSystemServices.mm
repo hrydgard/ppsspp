@@ -319,9 +319,12 @@ Path DarwinFileSystemServices::defaultMemoryStickPath() {
 #if PPSSPP_PLATFORM(TVOS)
     // tvOS apps get no persistent storage beyond NSUserDefaults. Everything else has to be
     // purgeable, so the memory stick lives in Caches, and the system may clear it when space runs low.
+    // In a folder of its own, since the system keeps things in Caches too.
     NSString *cachesPath = [NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES)
                             objectAtIndex:0];
-    return Path(cachesPath.UTF8String);
+    NSString *memstickPath = [cachesPath stringByAppendingPathComponent:@"PPSSPP"];
+    [[NSFileManager defaultManager] createDirectoryAtPath:memstickPath withIntermediateDirectories:YES attributes:nil error:nil];
+    return Path(memstickPath.UTF8String);
 #elif PPSSPP_PLATFORM(IOS)
     NSString *documentsPath = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES)
                                objectAtIndex:0];

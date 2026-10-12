@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <memory>
 
 #include "Common/Data/Encoding/Utf8.h"
 #include "Common/Log.h"
@@ -215,73 +216,35 @@ static void remoteButtonPressed(BOOL pressed, InputKeyCode keyCode) {
 	NativeKey(key);
 }
 
-// The touch surface. The dpad reports where the finger is, -1..1 on each axis, and exactly 0,0
-// when nothing touches it. Handlers run on the main queue, so no locking.
-struct RemoteTouchState {
-	bool touching = false;
-	float anchorX = 0.0f;
-	float anchorY = 0.0f;
+// A click on a remote without a separate ring (the 1st generation Siri Remote): an arrow at the
+// edges of the touch surface, enter in the middle. Handlers run on the main queue, so no locking.
+struct RemoteClickState {
 	bool clicking = false;
-	InputKeyCode clickKey = NKCODE_UNKNOWN;
+	InputKeyCode key = NKCODE_UNKNOWN;
 };
-static RemoteTouchState g_remoteTouch;
 
-// How far the finger has to travel for a swipe to move one step. The surface is 2.0 across.
-static const float REMOTE_SWIPE_STEP = 0.4f;
-// A click further out than this from the center is an arrow (the ring on newer remotes).
+// A click further out than this from the center is an arrow. The surface is -1..1 on each axis.
 static const float REMOTE_EDGE_CLICK = 0.5f;
 
-static void remoteTap(InputKeyCode keyCode) {
-	remoteButtonPressed(YES, keyCode);
-	remoteButtonPressed(NO, keyCode);
-}
-
-static void remoteTouchMoved(float x, float y) {
-	RemoteTouchState &s = g_remoteTouch;
-	if (x == 0.0f && y == 0.0f) {
-		s.touching = false;
-		return;
-	}
-	if (!s.touching || s.clicking) {
-		// A new touch, or one that's pressing down: start over from here.
-		s.touching = true;
-		s.anchorX = x;
-		s.anchorY = y;
-		return;
-	}
-	const float dx = x - s.anchorX;
-	const float dy = y - s.anchorY;
-	if (fabsf(dx) >= REMOTE_SWIPE_STEP && fabsf(dx) >= fabsf(dy)) {
-		remoteTap(dx > 0.0f ? NKCODE_DPAD_RIGHT : NKCODE_DPAD_LEFT);
-	} else if (fabsf(dy) >= REMOTE_SWIPE_STEP) {
-		remoteTap(dy > 0.0f ? NKCODE_DPAD_UP : NKCODE_DPAD_DOWN);
-	} else {
-		return;
-	}
-	s.anchorX = x;
-	s.anchorY = y;
-}
-
-static void remoteClicked(GCControllerDirectionPad *dpad, BOOL pressed) {
-	RemoteTouchState &s = g_remoteTouch;
+static void remoteClicked(RemoteClickState *s, GCControllerDirectionPad *touch, BOOL pressed) {
 	if (pressed) {
-		if (s.clicking) {
+		if (s->clicking) {
 			return;
 		}
-		const float x = dpad.xAxis.value;
-		const float y = dpad.yAxis.value;
+		const float x = touch.xAxis.value;
+		const float y = touch.yAxis.value;
 		if (std::max(fabsf(x), fabsf(y)) < REMOTE_EDGE_CLICK) {
-			s.clickKey = NKCODE_ENTER;
+			s->key = NKCODE_ENTER;
 		} else if (fabsf(x) > fabsf(y)) {
-			s.clickKey = x > 0.0f ? NKCODE_DPAD_RIGHT : NKCODE_DPAD_LEFT;
+			s->key = x > 0.0f ? NKCODE_DPAD_RIGHT : NKCODE_DPAD_LEFT;
 		} else {
-			s.clickKey = y > 0.0f ? NKCODE_DPAD_UP : NKCODE_DPAD_DOWN;
+			s->key = y > 0.0f ? NKCODE_DPAD_UP : NKCODE_DPAD_DOWN;
 		}
-		s.clicking = true;
-		remoteButtonPressed(YES, s.clickKey);
-	} else if (s.clicking) {
-		s.clicking = false;
-		remoteButtonPressed(NO, s.clickKey);
+		s->clicking = true;
+		remoteButtonPressed(YES, s->key);
+	} else if (s->clicking) {
+		s->clicking = false;
+		remoteButtonPressed(NO, s->key);
 	}
 }
 
@@ -291,19 +254,41 @@ bool InitSiriRemote(GCController *controller) {
 		return false;
 	}
 
-	// Where the finger is, rather than how far it moved since it went down. Swipes are worked out
-	// in remoteTouchMoved, since the dpad's own buttons flicker on and off with every wobble.
-	micro.reportsAbsoluteDpadValues = YES;
 	micro.allowsRotation = NO;
 
-	GCControllerDirectionPad *dpad = micro.dpad;
-	dpad.valueChangedHandler = ^(GCControllerDirectionPad *pad, float x, float y) {
-		remoteTouchMoved(x, y);
-	};
-	// Clicking the touch surface: arrows at the edges, enter in the middle.
-	micro.buttonA.pressedChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
-		remoteClicked(dpad, pressed);
-	};
+	// Swiping on the touch surface isn't used for now. One swipe step per so much travel fought
+	// with the ring presses. Maybe it could scroll.
+	GCPhysicalInputProfile *profile = controller.physicalInputProfile;
+	GCControllerDirectionPad *ring = profile.dpads[GCInputDirectionalCardinalDpad];
+	GCControllerButtonInput *center = profile.buttons[GCInputDirectionalCenterButton];
+	if (ring != nil && center != nil) {
+		// The 2nd generation remote, whose ring has real buttons. This takes
+		// GCSupportsMultipleMicroGamepads in Info.plist. buttonA isn't used, since it's pressed
+		// along with every ring button.
+		ring.up.pressedChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+			remoteButtonPressed(pressed, NKCODE_DPAD_UP);
+		};
+		ring.down.pressedChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+			remoteButtonPressed(pressed, NKCODE_DPAD_DOWN);
+		};
+		ring.left.pressedChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+			remoteButtonPressed(pressed, NKCODE_DPAD_LEFT);
+		};
+		ring.right.pressedChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+			remoteButtonPressed(pressed, NKCODE_DPAD_RIGHT);
+		};
+		center.pressedChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+			remoteButtonPressed(pressed, NKCODE_ENTER);
+		};
+	} else {
+		// Where the finger is when clicking, rather than how far it moved since it went down.
+		micro.reportsAbsoluteDpadValues = YES;
+		GCControllerDirectionPad *touch = micro.dpad;
+		std::shared_ptr<RemoteClickState> state = std::make_shared<RemoteClickState>();
+		micro.buttonA.pressedChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+			remoteClicked(state.get(), touch, pressed);
+		};
+	}
 	// Play/pause. Escape opens the pause menu in-game.
 	micro.buttonX.pressedChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
 		remoteButtonPressed(pressed, NKCODE_ESCAPE);
@@ -312,7 +297,7 @@ bool InitSiriRemote(GCController *controller) {
 	micro.buttonMenu.pressedChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
 		remoteButtonPressed(pressed, NKCODE_BACK);
 	};
-	INFO_LOG(Log::System, "Siri Remote set up: %s", [controller.vendorName ?: @"Remote" UTF8String]);
+	INFO_LOG(Log::System, "Siri Remote set up: %s (ring: %s)", [controller.vendorName ?: @"Remote" UTF8String], ring != nil ? "yes" : "no");
 	return true;
 }
 
