@@ -500,7 +500,7 @@ test/lrtest: test/lrtest.c
 test/lrgltest: test/lrgltest.c
 	$(CC) -O2 -I$(LIBRETROCOMMONDIR)/include -o $@ $< -ldl -lEGL
 
-test-tools: $(TARGET) test/codectest test/blocktest test/lrtest test/lrgltest
+test-tools: $(TARGET) test/codectest test/blocktest test/lrtest test/lrgltest test/atrac3ptest
 
 # Native Windows make cannot spawn one command containing every object and
 # dependency sidecar. Static pattern targets keep each deletion command short.

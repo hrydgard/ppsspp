@@ -7,6 +7,7 @@ root=$(cd "$here/../.." && pwd)
 data=${1:-$(mktemp -d)}
 python3 "$here/make_vectors.py" "$data" "$root/pspautotests/tests/cpu/cpu_alu/cpu_alu.prx"
 
+"$here/atrac3ptest"
 "$here/codectest" "$data"
 for img in test.iso test.cso test16k.cso test.chd test_zstd.chd test_zlib.chd test_lzma.chd test_huff.chd test_big.chd stored.zip deflated.zip; do
 	"$here/blocktest" "$data/test.iso" "$data/$img"

@@ -786,6 +786,9 @@ static bool r3p_ct(r3p_br_t *b, r3p_block_t *blk, r3p_unit_t *u,
       blk->full = r3p_bit(b);
    u->r1 = (uint8_t)r3p_bit(b);
    mode  = r3p_get(b, 2);
+   memset(u->ct, 0, sizeof(u->ct));
+   if (mode == 3 && !m)
+      return true;
    num   = blk->nu;
    if (r3p_bit(b))
    {
@@ -793,11 +796,8 @@ static bool r3p_ct(r3p_br_t *b, r3p_block_t *blk, r3p_unit_t *u,
       if (num > blk->nqu)
          return false;
    }
-   if (mode == 3 && !m)
-      return false;
    mask = blk->full ? 7 : 3;
    n    = num < blk->nu ? num : blk->nu;
-   memset(u->ct, 0, sizeof(u->ct));
    if (m)
       for (i = 0; i < blk->nu; i++)
          u->copy[i] = (uint8_t)(!u->wl[i] && m->wl[i]);
