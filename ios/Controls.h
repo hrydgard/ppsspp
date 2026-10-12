@@ -2,8 +2,12 @@
 
 #include <string_view>
 
+#include "ppsspp_config.h"
+
 #import <GameController/GameController.h>
+#if !PPSSPP_PLATFORM(TVOS)
 #import <CoreMotion/CoreMotion.h>
+#endif
 
 #include "Common/Input/InputState.h"
 
@@ -12,6 +16,11 @@
 
 bool InitController(GCController *controller);
 void ShutdownController(GCController *controller);
+
+#if PPSSPP_PLATFORM(TVOS)
+// Returns false unless the controller is a Siri Remote (a micro gamepad profile and no extended one).
+bool InitSiriRemote(GCController *controller);
+#endif
 
 struct TouchTracker {
 public:
@@ -25,7 +34,9 @@ private:
 	UITouch *touches_[10]{};
 };
 
+#if !PPSSPP_PLATFORM(TVOS)
 void ProcessAccelerometerData(CMAccelerometerData *accData);
+#endif
 InputKeyCode HIDUsageToInputKeyCode(UIKeyboardHIDUsage usage);
 
 void KeyboardPressesBegan(NSSet<UIPress *> *presses, UIPressesEvent *event);

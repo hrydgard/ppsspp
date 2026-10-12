@@ -200,6 +200,58 @@ void ShutdownController(GCController *controller) {
 	KeyMap::NotifyPadDisconnected(DEVICE_ID_PAD_0);
 }
 
+#if PPSSPP_PLATFORM(TVOS)
+
+static void remoteButtonPressed(BOOL pressed, InputKeyCode keyCode) {
+	// As keyboard keys, which the UI already understands (arrows, enter, escape), and which have
+	// default in-game mappings.
+	KeyInput key;
+	key.deviceId = DEVICE_ID_KEYBOARD;
+	key.flags = pressed ? KeyInputFlags::DOWN : KeyInputFlags::UP;
+	key.keyCode = keyCode;
+	NativeKey(key);
+}
+
+bool InitSiriRemote(GCController *controller) {
+	GCMicroGamepad *micro = controller.microGamepad;
+	if (micro == nil || controller.extendedGamepad != nil) {
+		return false;
+	}
+
+	// Swipes on the touch surface move relative to where the finger went down, one step per swipe.
+	micro.reportsAbsoluteDpadValues = NO;
+	micro.allowsRotation = NO;
+
+	micro.dpad.up.pressedChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+		remoteButtonPressed(pressed, NKCODE_DPAD_UP);
+	};
+	micro.dpad.down.pressedChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+		remoteButtonPressed(pressed, NKCODE_DPAD_DOWN);
+	};
+	micro.dpad.left.pressedChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+		remoteButtonPressed(pressed, NKCODE_DPAD_LEFT);
+	};
+	micro.dpad.right.pressedChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+		remoteButtonPressed(pressed, NKCODE_DPAD_RIGHT);
+	};
+	// Clicking the touch surface.
+	micro.buttonA.pressedChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+		remoteButtonPressed(pressed, NKCODE_ENTER);
+	};
+	// Play/pause. Escape opens the pause menu in-game.
+	micro.buttonX.pressedChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+		remoteButtonPressed(pressed, NKCODE_ESCAPE);
+	};
+	// The Menu (or Back) button.
+	micro.buttonMenu.pressedChangedHandler = ^(GCControllerButtonInput *button, float value, BOOL pressed) {
+		remoteButtonPressed(pressed, NKCODE_BACK);
+	};
+	INFO_LOG(Log::System, "Siri Remote set up: %s", [controller.vendorName ?: @"Remote" UTF8String]);
+	return true;
+}
+
+#endif
+
 void TouchTracker::SendTouchEvent(CGPoint point, UIView *view, int code, int pointerId) {
 	// From points to dp. The view covers the whole display.
 	CGSize size = view.bounds.size;
@@ -281,6 +333,7 @@ void TouchTracker::Cancelled(NSSet *touches, UIView *view) {
 	}
 }
 
+#if !PPSSPP_PLATFORM(TVOS)
 void ProcessAccelerometerData(CMAccelerometerData *accData) {
 	CMAcceleration acc = accData.acceleration;
 	// INFO_LOG(SYSTEM, "%f %f %f", acc.x, acc.y, acc.z);
@@ -288,6 +341,7 @@ void ProcessAccelerometerData(CMAccelerometerData *accData) {
 	// Might need to change these for portrait or inverse landscape
 	NativeAccelerometer(-acc.x, -acc.y, -acc.z);
 }
+#endif
 
 void SendKeyboardChars(std::string_view str) {
 	UTF8 chars(str);

@@ -40,8 +40,9 @@
 #include "Common/Log/LogManager.h"
 #include "Core/Util/DarwinFileSystemServices.h"
 
-// Compile out all the hackery in app store builds.
-#if !PPSSPP_PLATFORM(IOS_APP_STORE)
+// Compile out all the hackery in app store builds. tvOS doesn't have posix_spawn, and there's no
+// jailbreak scene to speak of.
+#if !PPSSPP_PLATFORM(IOS_APP_STORE) && !PPSSPP_PLATFORM(TVOS)
 
 struct cs_blob_index {
 	uint32_t type;
@@ -251,7 +252,11 @@ static std::string version;
 std::string System_GetProperty(SystemProperty prop) {
 	switch (prop) {
 		case SYSPROP_NAME:
+#if PPSSPP_PLATFORM(TVOS)
+			return StringFromFormat("tvOS %s", version.c_str());
+#else
 			return StringFromFormat("iOS %s", version.c_str());
+#endif
 		case SYSPROP_LANGREGION:
 			return [[[NSLocale currentLocale] objectForKey:NSLocaleIdentifier] UTF8String];
 		case SYSPROP_BUILD_VERSION:
@@ -269,20 +274,28 @@ std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) {
 	}
 }
 
+#if !PPSSPP_PLATFORM(TVOS)
 extern "C" {
 int Apple_GetCurrentBatteryCapacity();
 }
+#endif
 
 int64_t System_GetPropertyInt(SystemProperty prop) {
 	switch (prop) {
 		case SYSPROP_AUDIO_SAMPLE_RATE:
 			return 44100;
 		case SYSPROP_DEVICE_TYPE:
+#if PPSSPP_PLATFORM(TVOS)
+			return DEVICE_TYPE_TV;
+#else
 			return DEVICE_TYPE_MOBILE;
+#endif
 		case SYSPROP_SYSTEMVERSION:
 			return g_iosVersionMajor;
+#if !PPSSPP_PLATFORM(TVOS)
 		case SYSPROP_BATTERY_PERCENTAGE:
 			return Apple_GetCurrentBatteryCapacity();
+#endif
 		default:
 			return -1;
 	}
@@ -306,6 +319,31 @@ float System_GetPropertyFloat(SystemProperty prop) {
 }
 
 bool System_GetPropertyBool(SystemProperty prop) {
+#if PPSSPP_PLATFORM(TVOS)
+	// No document picker, share sheet, clipboard, camera, location, motion, microphone, battery,
+	// rotation or web browser. And no files we didn't put there ourselves, so no file browsing either.
+	switch (prop) {
+	case SYSPROP_HAS_FILE_BROWSER:
+	case SYSPROP_HAS_FOLDER_BROWSER:
+	case SYSPROP_HAS_IMAGE_BROWSER:
+	case SYSPROP_HAS_ACCELEROMETER:
+	case SYSPROP_HAS_KEYBOARD:
+	case SYSPROP_KEYBOARD_IS_SOFT:
+	case SYSPROP_SUPPORTS_SHARE_TEXT:
+	case SYSPROP_SUPPORTS_SHARE_FILE:
+	case SYSPROP_CAN_LAUNCH_URL:
+	case SYSPROP_DISPLAY_HAS_CAMERA_CUTOUT:
+	case SYSPROP_CAN_READ_BATTERY_PERCENTAGE:
+	case SYSPROP_CAN_RESTRICT_ORIENTATION:
+	case SYSPROP_MICROPHONE_NEEDS_POLLING:
+		return false;
+	case SYSPROP_HAS_BACK_BUTTON:
+		// The remote's Menu/Back button.
+		return true;
+	default:
+		break;
+	}
+#endif
 	switch (prop) {
 		case SYSPROP_HAS_DEEP_LINKS:
 			return true;
@@ -406,6 +444,7 @@ void System_Notify(SystemNotification notification) {
 			iOSCoreAudioUpdateSession();
 		});
 		break;
+#if !PPSSPP_PLATFORM(TVOS)
 	case SystemNotification::ROTATE_UPDATED:
 		dispatch_async(dispatch_get_main_queue(), ^{
 			if (sharedViewController) {
@@ -418,12 +457,29 @@ void System_Notify(SystemNotification notification) {
 			}
 		});
 		break;
+#endif
 	default:
 		break;
 	}
 }
 
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4) {
+#if PPSSPP_PLATFORM(TVOS)
+	switch (type) {
+	case SystemRequestType::BROWSE_FOR_FILE:
+	case SystemRequestType::BROWSE_FOR_FOLDER:
+	case SystemRequestType::BROWSE_FOR_IMAGE:
+	case SystemRequestType::CAMERA_COMMAND:
+	case SystemRequestType::GPS_COMMAND:
+	case SystemRequestType::MICROPHONE_COMMAND:
+	case SystemRequestType::SHARE_TEXT:
+	case SystemRequestType::SHARE_FILE:
+	case SystemRequestType::COPY_TO_CLIPBOARD:
+		return false;
+	default:
+		break;
+	}
+#endif
 	switch (type) {
 	case SystemRequestType::RESTART_APP:
 	{
@@ -583,6 +639,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		return true;
 	}
 #endif
+#if !PPSSPP_PLATFORM(TVOS)
 	case SystemRequestType::COPY_TO_CLIPBOARD:
 	{
 		NSString *text = [NSString stringWithUTF8String:param1.c_str()];
@@ -591,6 +648,7 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		});
 		return true;
 	}
+#endif
 	case SystemRequestType::SET_KEEP_SCREEN_BRIGHT:
 		dispatch_async(dispatch_get_main_queue(), ^{
 			INFO_LOG(Log::System, "SET_KEEP_SCREEN_BRIGHT: %d", (int)param3);
@@ -619,8 +677,12 @@ void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {
 }
 
 bool System_AudioRecordingIsAvailable() {
+#if PPSSPP_PLATFORM(TVOS)
+	return false;
+#else
 	// Every iPhone and iPad has a microphone. Permission is asked for when recording starts.
 	return true;
+#endif
 }
 
 PermissionStatus System_GetPermissionStatus(SystemPermission permission) {
@@ -628,6 +690,7 @@ PermissionStatus System_GetPermissionStatus(SystemPermission permission) {
 }
 
 void System_Vibrate(int mode) {
+#if !PPSSPP_PLATFORM(TVOS)
 	// Comes from the UI code on the emu thread, and UIKit wants the main thread.
 	dispatch_async(dispatch_get_main_queue(), ^{
 		// Does nothing on devices without a Taptic Engine.
@@ -638,7 +701,15 @@ void System_Vibrate(int mode) {
 		}
 		[feedbackGenerator selectionChanged];
 	});
+#endif
 }
+
+#if PPSSPP_PLATFORM(TVOS)
+// The iOS one is in CameraHelper.mm.
+std::vector<std::string> System_GetCameraDeviceList() {
+	return std::vector<std::string>();
+}
+#endif
 
 AudioBackend *System_CreateAudioBackend() {
 	// Use legacy mechanisms.
@@ -654,7 +725,7 @@ int main(int argc, char *argv[]) {
 
 	g_logManager.EnableOutput(LogOutput::Stdio);
 
-#if PPSSPP_PLATFORM(IOS_APP_STORE)
+#if PPSSPP_PLATFORM(IOS_APP_STORE) || PPSSPP_PLATFORM(TVOS)
 	g_jitAvailable = false;
 #else
 	// Hacky hacks to try to enable JIT by pretending to be a debugger.

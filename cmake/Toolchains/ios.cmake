@@ -50,6 +50,9 @@ if(NOT DEFINED IOS_PLATFORM)
   set(IOS_PLATFORM "OS")
 endif()
 set(IOS_PLATFORM ${IOS_PLATFORM} CACHE STRING "Type of iOS Platform")
+if(IOS_PLATFORM STREQUAL "TVOS")
+  set(TVOS ON)
+endif()
 
 # Check the platform selection and setup for developer root
 if(IOS_PLATFORM STREQUAL "OS")
