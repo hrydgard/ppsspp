@@ -39,6 +39,7 @@
 #include "Core/ELF/PBPReader.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/Util/GameManager.h"
+#include "Core/Util/PathUtil.h"
 
 // TODO: This is just part of a VolDescriptor, see ISOFileSystem.cpp.
 struct PVD {
@@ -517,7 +518,9 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 	int stripChars = 0;
 	int stripCharsTexturePack = -1;
 	int filesInRoot = 0;
+	int filesInSubdirs = 0;
 	int directoriesInRoot = 0;
+	std::string rootSaveDir;  // SAVEDATA_DIRECTORY of a PARAM.SFO in the root of the zip.
 	bool hasParamSFO = false;
 	bool isExtractedISO = false;
 	bool hasIcon0PNG = false;
@@ -590,7 +593,7 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 			info->gameTitle = fn;
 		} else if (endsWith(lowerCaseName, "psp_game/sysdir/eboot.bin") || endsWith(lowerCaseName, "psp_game/sysdir/boot.bin")) {
 			isExtractedISO = true;
-		} else if (endsWith(lowerCaseName, "/param.sfo")) {
+		} else if (lowerCaseName == "param.sfo" || endsWith(lowerCaseName, "/param.sfo")) {
 			// Get the game name so we can display it.
 			std::string paramSFOContents;
 			if (ZipExtractFileToMemory(z, i, &paramSFOContents)) {
@@ -605,6 +608,9 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 						info->savedataDetails = sfo.GetValueString("SAVEDATA_DETAIL");
 						info->savedataDir = sfo.GetValueString("SAVEDATA_DIRECTORY");  // should also be parsable from the path.
 						hasParamSFO = true;
+						if (slashCount == 0) {
+							rootSaveDir = info->savedataDir;
+						}
 					}
 				}
 			}
@@ -632,6 +638,8 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 		}
 		if (slashCount == 0) {
 			filesInRoot++;
+		} else {
+			filesInSubdirs++;
 		}
 	}
 
@@ -652,6 +660,12 @@ void DetectZipFileContents(zip_t *z, ZipFileInfo *info) {
 	} else if (stripChars == 0 && filesInRoot == 0 && hasParamSFO && hasIcon0PNG && !isExtractedISO) {
 		// As downloaded from GameFAQs, for example.
 		info->contents = ZipFileContents::SAVE_DATA;
+	} else if (filesInSubdirs == 0 && IsSafePathComponent(rootSaveDir) && !isExtractedISO && !isSaveStates && !isFrameDump) {
+		// The contents of a single save folder, zipped without the folder itself (the zip is usually named
+		// after it). The folder name is the SFO's SAVEDATA_DIRECTORY (game ID + save name, like ULUS10019000).
+		info->contents = ZipFileContents::SAVE_DATA;
+		info->saveDataInRoot = true;
+		info->savedataDir = rootSaveDir;
 	} else if (isFrameDump) {
 		info->contents = ZipFileContents::FRAME_DUMP;
 	} else if (isSaveStates) {
