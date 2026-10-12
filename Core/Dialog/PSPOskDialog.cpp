@@ -1077,9 +1077,10 @@ void PSPOskDialog::DoState(PointerWrap &p)
 	if (s >= 2) {
 		Do(p, inputChars);
 	} else {
-		// Discard the wstring.
-		std::wstring wstr;
-		Do(p, wstr);
+		// Discard the wstring. Its characters are as wide as the saving platform's wchar_t (2 bytes
+		// on Windows), so skip it as bytes.
+		std::string wstrBytes;
+		Do(p, wstrBytes);
 	}
 	if (s >= 3) {
 		Do(p, currentKeyboard);

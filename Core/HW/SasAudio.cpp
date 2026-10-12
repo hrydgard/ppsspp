@@ -173,10 +173,12 @@ void VagDecoder::DoState(PointerWrap &p) {
 		}
 	}
 	Do(p, curSample);
-	if (curSample < 0 || curSample > (int)ARRAY_SIZE(samples)) {
-		ERROR_LOG(Log::SaveState, "Bad VAG sample position %d", curSample);
-		p.SetError(p.ERROR_FAILURE);
-		return;
+	// States from before 2018 saved idle voices uninitialized, so this can be garbage. The voice
+	// is ended instead, as GetSamples would index samples with it.
+	const bool badSample = curSample < 0 || curSample > (int)ARRAY_SIZE(samples);
+	if (badSample) {
+		WARN_LOG(Log::SaveState, "Bad VAG sample position %d, ending the voice", curSample);
+		curSample = (int)ARRAY_SIZE(samples);
 	}
 
 	Do(p, data_);
@@ -191,6 +193,9 @@ void VagDecoder::DoState(PointerWrap &p) {
 	Do(p, loopEnabled_);
 	Do(p, loopAtNextBlock_);
 	Do(p, end_);
+	if (badSample) {
+		end_ = true;
+	}
 }
 
 // The context pointer is assumed to be valid.

@@ -2002,6 +2002,34 @@ void RestoreReplacedInstruction(u32 address) {
 	}
 }
 
+std::vector<std::pair<u32, u32>> Replacement_GetHookedOps() {
+	std::lock_guard<std::mutex> guard(installedReplacementsLock);
+	std::vector<std::pair<u32, u32>> ops;
+	ops.reserve(installedReplacements.size());
+	for (const auto &[key, repl] : installedReplacements) {
+		ops.emplace_back(repl.address, repl.origOp);
+	}
+	return ops;
+}
+
+void Replacement_RepairStaleHookOps(const std::vector<std::pair<u32, u32>> &hookedOps) {
+	int repaired = 0;
+	for (const auto &[address, origOp] : hookedOps) {
+		if (!Memory::IsValid4AlignedAddress(address)) {
+			continue;
+		}
+		// The Allegrex has no opcode 26, so this can only be a hook op, never the game's code.
+		const u32 memOp = Memory::ReadUnchecked_U32(address);
+		if ((memOp >> 26) == (MIPS_CALL_REPLACEMENT_OP >> 26) && memOp != origOp) {
+			Memory::WriteUnchecked_U32(origOp, address);
+			repaired++;
+		}
+	}
+	if (repaired) {
+		WARN_LOG(Log::SaveState, "Put back %d hooked instructions saved as hook ops", repaired);
+	}
+}
+
 void RestoreReplacedInstructions(u32 startAddr, u32 endAddr) {
 	if (endAddr == startAddr)
 		return;

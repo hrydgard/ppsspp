@@ -178,6 +178,8 @@ struct CommandLineOptions {
 	std::optional<double> timeoutWall;
 	std::optional<double> timeoutEmulated;
 	std::optional<bool> printEqualLines;
+	// Headless: print flips per emulated second at the end, counted from the loaded state (if any).
+	std::optional<bool> frameStats;
 
 	std::optional<std::string> screenshotFilename;
 	std::optional<std::string> screenshotFilenameSave;

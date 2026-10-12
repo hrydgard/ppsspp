@@ -178,10 +178,15 @@ int g_screenshotFailures;
 		}
 
 		// The state may hold different code. KernelModuleDoState hooks the functions again.
+		std::vector<std::pair<u32, u32>> hookedOps;
 		if (p.mode == p.MODE_READ) {
+			hookedOps = Replacement_GetHookedOps();
 			RestoreReplacedInstructions(0, 0xFFFFFFFF);
 		}
 		Memory::DoState(p);
+		if (p.mode == p.MODE_READ) {
+			Replacement_RepairStaleHookOps(hookedOps);
+		}
 
 		if (s >= 3) {
 			CoreTiming::DoState(p);

@@ -102,6 +102,7 @@ static bool g_writeDebugOutput = true;
 static bool g_forwardHostOutput = true;
 // Set from the savestate callback on the emu thread, read after it has been joined.
 static bool g_stateLoadFailed = false;
+static bool g_stateLoadPending = false;
 // Set by --save-state. Saving needs the game to actually be running, so it happens from the run
 // loop rather than up front like a load does.
 static std::string g_stateToSave;
@@ -394,6 +395,7 @@ struct AutoTestOptions {
 	bool verbose;
 	bool bench;
 	bool printEqualLines;
+	bool frameStats;
 	// What --disable-hle asked for, or 0 if it was not passed. Only an explicit request binds:
 	// sceMpeg and sceMp4 run the firmware module by default now and fall back to the HLE wherever
 	// none is installed, which must not fail every run on such a machine.
@@ -508,11 +510,25 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 	const double emulatedStepLimit = 1.0;
 	double emulatedElapsed = 0.0;
 	double lastEmulatedTime = CoreTiming::GetGlobalTimeUs() / 1000000.0;
+	// --frame-stats: flips in each emulated second, starting once the state (if any) is loaded.
+	std::vector<int> flipsPerSecond;
+	double statsStart = -1.0;
+	int statsLastFlips = 0;
 	coreState = coreParameter.startBreak ? CORE_STEPPING_CPU : CORE_RUNNING_CPU;
 	while (coreState == CORE_RUNNING_CPU || coreState == CORE_STEPPING_CPU) {
 		// Savestate loads/saves are queued and applied here, same as EmuScreen::render does in the
 		// app. Without this, --state silently did nothing at all.
 		SaveState::Process();
+
+		if (opt.frameStats && !g_stateLoadPending) {
+			if (statsStart < 0.0) {
+				statsStart = emulatedElapsed;
+				statsLastFlips = gpuStats.totals.numFlips;
+			} else if (emulatedElapsed - statsStart >= flipsPerSecond.size() + 1.0) {
+				flipsPerSecond.push_back(gpuStats.totals.numFlips - statsLastFlips);
+				statsLastFlips = gpuStats.totals.numFlips;
+			}
+		}
 
 		const double emulatedNow = CoreTiming::GetGlobalTimeUs() / 1000000.0;
 		const double emulatedStep = emulatedNow - lastEmulatedTime;
@@ -586,6 +602,16 @@ static bool RunAutoTest(GraphicsContext *graphicsContext, CoreParameter &corePar
 	}
 	if (gpu) {
 		gpu->EndHostFrame();
+	}
+
+	if (opt.frameStats) {
+		int total = 0;
+		std::string perSecond;
+		for (int flips : flipsPerSecond) {
+			total += flips;
+			perSecond += StringFromFormat(" %d", flips);
+		}
+		fprintf(stderr, "Frame stats: %d flips in %d emulated seconds, wall %.1fs, per second:%s\n", total, (int)flipsPerSecond.size(), time_now_d() - startTime, perSecond.c_str());
 	}
 
 	// Before EndDrawFrame: Vulkan can only read back a framebuffer inside a frame.
@@ -803,6 +829,7 @@ int main(int argc, const char* argv[]) {
 	testOptions.timeoutEmulated = cmdLineOptions.timeoutEmulated.value_or(std::numeric_limits<double>::infinity());
 	testOptions.verbose = cmdLineOptions.verbose.value_or(false);
 	testOptions.printEqualLines = cmdLineOptions.printEqualLines.value_or(false);
+	testOptions.frameStats = cmdLineOptions.frameStats.value_or(false);
 	testOptions.maxScreenshotError = cmdLineOptions.maxScreenshotError.value_or(0.0);
 	testOptions.requiredDisableHLE = cmdLineOptions.disableHLE.value_or(0);
 	testOptions.debugger = cmdLineOptions.DebuggerPort().has_value();
@@ -1278,6 +1305,7 @@ int main(int argc, const char* argv[]) {
 	}
 
 	if (stateToLoad) {
+		g_stateLoadPending = true;
 		// Queued now, actually applied by SaveState::Process() once the game is up and running.
 		SaveState::Load(Path(stateToLoad), -1, [](SaveState::Status status, std::string_view message, std::string_view) {
 			// The message already reads as a full sentence, e.g. "Failed to load state: <reason>".
@@ -1285,6 +1313,7 @@ int main(int argc, const char* argv[]) {
 			if (status == SaveState::Status::FAILURE) {
 				g_stateLoadFailed = true;
 			}
+			g_stateLoadPending = false;
 		});
 	}
 
