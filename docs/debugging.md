@@ -314,3 +314,62 @@ relocations, and immediately showed that the first fix attempt scored worse than
 Reach for that before trying to reason a fix out of a disassembly. A few dozen lines of Python over the ELF beats
 re-running the game.
 
+## Finding a game function to replace by hash
+
+The tell is a game that's right on the software renderer and stale on the hardware backends, usually a video
+that sticks on its first frame while the audio plays on. The game is writing pixels into VRAM with the CPU, and
+the hardware backends only see that when it goes through something we hook. Games ship their own `memcpy`,
+`memset` and so on, and we recognise known ones by a hash of their code: the `hardcodedHashes` table in
+`Core/MIPS/MIPSAnalyst.cpp` names them, and `Core/HLE/ReplaceTables.cpp` swaps in a replacement
+(`Replace_memcpy` hands VRAM copies to `gpu->PerformMemoryCopy`). SSX On Tour's videos were fixed this way.
+
+Finding the function:
+
+1. **Get to the right moment.** Confirm the thing is actually happening before breaking on it - SSX's
+   videos only start 11.5s in, and a screenshot from earlier just shows the paper background. `memory.read` of
+   the decode buffer at a few `cpu.runUntilTime` points tells you when it starts changing.
+2. **Break on the write**, under the interpreter (`-i`), since JIT memory breakpoints only work for constant
+   addresses: `memory.breakpoint.add address=<a pixel mid-framebuffer> size=4 write=true enabled=true`, then
+   `cpu.resume`. Pick a pixel in the middle of the frame, not the first one, which clears also hit.
+3. **`hle.backtrace`** gives the function's entry address, and `hle.func.list` its size. Addresses come back
+   as decimal in JSON; convert carefully (`145311076` is `08a94564`, not `08ab1564`).
+4. **`memory.disasm` the whole function** and check that it really is what you're going to call it: argument
+   order (`a0` dest, `a1` src, `a2` size for memcpy), and no side effects the replacement wouldn't have. A
+   replacement that doesn't match the original is a much worse bug than the one it fixes.
+
+Steps 2 and 3 as one script (the SSX run, so 12s in and a pixel at 240,136 of each 8888 stride-512
+framebuffer). Parameters take hex as well as decimal; replies are always decimal:
+
+```
+cpu.runUntilTime us=12000000
+memory.breakpoint.add address=0x040443c0 size=4 write=true enabled=true
+memory.breakpoint.add address=0x040cc3c0 size=4 write=true enabled=true
+cpu.resume
+hle.backtrace
+:quit
+```
+
+```bash
+Tools/wsdbg/target/release/wsdbg.exe --sync --compact --quiet --launch \
+    Windows/x64/Release/PPSSPPHeadless.exe GAME.iso --memstick=memstick -i --graphics=vulkan \
+    --timeout-wall=240 < script.txt 2>/dev/null | grep -v '^<- log'
+```
+
+The first `hle.backtrace` frame is the writer: `entry` is the function's start, `code` the store that hit.
+Once a replacement is in place, the same script shows it working: the hit's `source` reads `GPUMemcpy/...`,
+its `pc` is the function's entry, and the backtrace starts at the caller.
+Follow up with `memory.disasm address=<entry> count=64` in the same session (it needs the code loaded).
+
+Getting the hash: `HashFunctions()` in `MIPSAnalyst.cpp` takes CityHash64 over the function's instructions
+with their immediates masked out, so it doesn't depend on where the function was loaded. The fastest way to
+read it is a temporary line there, then revert it:
+
+```cpp
+if (f.start == 0x08a94500) printf("TMPHASH %016llx size %d\n", (unsigned long long)f.hash, (int)f.size);
+```
+
+Add the entry to `hardcodedHashes` in hash order, with a comment naming the game. Then check that it took
+effect: with `--log --loglevel=4` the loader prints `Replaced memcpy at 08a94500 with hash 3966eef670a93781`.
+Check other regions of the game too. Since the hash doesn't depend on address, they usually match the same
+entry (SSX's Korean release has the function at `08a94200`).
+
