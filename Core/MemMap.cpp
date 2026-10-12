@@ -217,9 +217,9 @@ static bool Memory_TryBase(MemMapSetupFlags flags) {
 bail:
 	// Argh! ERROR! Free what we grabbed so far so we can try again.
 	for (int j = 0; j <= i; j++) {
-		if (views[i].size == 0)
+		if (views[j].size == 0)
 			continue;
-		if (SkipView(flags, views[i].flags))
+		if (SkipView(flags, views[j].flags))
 			continue;
 		if (views[j].out_ptr && *views[j].out_ptr) {
 			if (!CanIgnoreView(views[j])) {
