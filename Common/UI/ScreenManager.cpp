@@ -24,10 +24,6 @@ void ScreenManager::switchScreen(Screen *screen) {
 		return;
 	}
 
-	// Note that if a dialog is found, this will be a silent background switch that
-	// will only become apparent if the dialog is closed. The previous screen will stick around
-	// until that switch.
-	// TODO: is this still true?
 	if (!nextStack_.empty()) {
 		for (int i = 0; i < nextStack_.size(); i++) {
 			INFO_LOG(Log::UI, "NextStack contents[%d].screen->tag(): '%s'", i, nextStack_[i].screen->tag());
@@ -150,17 +146,22 @@ void ScreenManager::Update() {
 void ScreenManager::switchToNext() {
 	if (nextStack_.empty()) {
 		ERROR_LOG(Log::System, "switchToNext: No nextStack_!");
+		return;
 	}
 
-	Layer temp = {nullptr, 0};
-	if (!stack_.empty()) {
-		temp = stack_.back();
-		temp.screen->focusChanged(ScreenFocusChange::FOCUS_LOST_TOP);
-		stack_.pop_back();
+	// Replaces the whole stack. Most callers switch from a dialog (Play on the game screen, the store,
+	// installers), and replacing only the top left the screens below alive, like one more MainScreen
+	// under every game launched that way.
+	std::vector<Layer> old = std::move(stack_);
+	stack_.clear();
+	if (!old.empty()) {
+		old.back().screen->focusChanged(ScreenFocusChange::FOCUS_LOST_TOP);
 	}
 	stack_.push_back(nextStack_.front());
 	nextStack_.front().screen->focusChanged(ScreenFocusChange::FOCUS_BECAME_TOP);
-	delete temp.screen;
+	for (auto iter = old.rbegin(); iter != old.rend(); ++iter) {
+		delete iter->screen;
+	}
 	UI::SetFocusedView(nullptr, UI::FocusFlags::CAUSE_SCREEN_CHANGE);
 
 	// When will this ever happen? Should handle focus here too?

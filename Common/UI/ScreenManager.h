@@ -34,6 +34,7 @@ class ScreenManager {
 public:
 	virtual ~ScreenManager();
 
+	// Replaces the whole stack with the screen, at the start of the next frame.
 	void switchScreen(Screen *screen);
 	void ProcessScreenSwitches();
 	void ProcessInputEvent(const QueuedEvent &event);
