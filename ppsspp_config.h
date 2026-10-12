@@ -97,6 +97,14 @@
     #endif
 #elif defined(__APPLE__)
     #include <TargetConditionals.h>
+    // tvOS is iOS with some APIs removed, so it also gets PPSSPP_PLATFORM_IOS.
+    // Check PPSSPP_PLATFORM(TVOS) for the differences.
+    #if TARGET_OS_TV
+        #define PPSSPP_PLATFORM_TVOS 1
+        #if TARGET_OS_SIMULATOR
+            #define PPSSPP_PLATFORM_TVOS_SIMULATOR 1
+        #endif
+    #endif
     #if TARGET_IPHONE_SIMULATOR
         #define PPSSPP_PLATFORM_IOS 1
         #define PPSSPP_PLATFORM_IOS_SIMULATOR 1

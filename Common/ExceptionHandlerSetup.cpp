@@ -263,14 +263,18 @@ void InstallExceptionHandler(BadAccessHandler badAccessHandler, bool logStackTra
 		g_badAccessHandler = badAccessHandler;
 		return;
 	}
-	
+	g_badAccessHandler = badAccessHandler;
+
+#if PPSSPP_PLATFORM(TVOS)
+	// tvOS has no sigaltstack, so the handler runs on the faulting thread's stack.
+	INFO_LOG(Log::System, "Installed exception handler (no alt stack).");
+#else
 	size_t altStackSize = SIGSTKSZ;
 
 	// Add some extra room.
 	altStackSize += 65536;
 
 	INFO_LOG(Log::System, "Installed exception handler. stack size: %d", (int)altStackSize);
-	g_badAccessHandler = badAccessHandler;
 
 	stack_t signal_stack{};
 	if (sigaltstack(nullptr, &old_signal_stack) == 0) {
@@ -287,6 +291,7 @@ void InstallExceptionHandler(BadAccessHandler badAccessHandler, bool logStackTra
 	if (sigaltstack(&signal_stack, nullptr)) {
 		_assert_msg_(false, "sigaltstack failed");
 	}
+#endif
 	struct sigaction sa{};
 	sa.sa_handler = nullptr;
 	sa.sa_sigaction = &sigsegv_handler;
@@ -302,6 +307,7 @@ void UninstallExceptionHandler() {
 	if (!g_badAccessHandler) {
 		return;
 	}
+#if !PPSSPP_PLATFORM(TVOS)
 	if (old_signal_stack_valid) {
 		// Darwin fails with ENOMEM on a size below MINSIGSTKSZ, even with SS_DISABLE.
 		if ((old_signal_stack.ss_flags & SS_DISABLE) && old_signal_stack.ss_size < MINSIGSTKSZ) {
@@ -312,6 +318,7 @@ void UninstallExceptionHandler() {
 		}
 		old_signal_stack_valid = false;
 	}
+#endif
 	if (altStack) {
 		free(altStack);
 		altStack = nullptr;
