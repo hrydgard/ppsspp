@@ -373,7 +373,8 @@ public:
 	void CreateDeviceObjects();
 	void DestroyDeviceObjects();
 
-	void CopyFromReadbackBuffer(GLRFramebuffer *framebuffer, int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels);
+	// Converts the last readback to destFormat. Returns false if that read failed or can't be converted.
+	bool CopyFromReadbackBuffer(GLRFramebuffer *framebuffer, int width, int height, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels);
 
 	void Resize(int width, int height) {
 		targetWidth_ = width;
@@ -420,7 +421,9 @@ private:
 	// We size it generously.
 	uint8_t *readbackBuffer_ = nullptr;
 	int readbackBufferSize_ = 0;
-	uint32_t readbackAspectMask_ = 0;
+	// What the last readback actually read, and whether it succeeded.
+	Draw::DataFormat readbackFormat_ = Draw::DataFormat::UNDEFINED;
+	bool readbackOk_ = false;
 
 	float maxAnisotropyLevel_ = 0.0f;
 

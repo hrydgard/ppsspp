@@ -147,9 +147,13 @@ bool FramebufferManagerGLES::ReadbackStencilbuffer(Draw::Framebuffer *fbo, int x
 	};
 	draw_->DrawUP(positions, 3);
 
-	draw_->CopyFramebufferToMemory(blitFBO, Aspect::COLOR_BIT, x, y, w, h, DataFormat::R8G8B8A8_UNORM, convBuf_, w, mode, "ReadbackStencilbufferSync");
+	const bool copied = draw_->CopyFramebufferToMemory(blitFBO, Aspect::COLOR_BIT, x, y, w, h, DataFormat::R8G8B8A8_UNORM, convBuf_, w, mode, "ReadbackStencilbufferSync");
 
 	textureCache_->ForgetLastTexture();
+	if (!copied) {
+		gstate_c.Dirty(DIRTY_ALL_RENDER_STATE);
+		return false;
+	}
 
 	// TODO: Use 1/4 width to write all values directly and skip CPU conversion?
 	uint8_t *dest = pixels;

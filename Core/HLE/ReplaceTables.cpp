@@ -1467,6 +1467,22 @@ static int Hook_everybodysgolf_spinner_background() {
 	return 0;
 }
 
+static int Hook_codedarms_stencil_check() {
+	// The crosshair turns red, and lock-on works, when stencil bit 3 is set at the centre of the frame
+	// just rendered, which the game tests by reading the pixel from VRAM (#17936). Hooked at the load,
+	// where v0 is the pixel's address. Read back the stencil of the row it's in (the game's stride is
+	// 512). Only stencil: the alpha the hardware backends keep doesn't follow it everywhere.
+	const u32 addr = currentMIPS->r[MIPS_REG_V0];
+	if (!Memory::IsVRAMAddress(addr)) {
+		return 0;
+	}
+	const u32 row = addr & ~0x7FF;
+	if (Memory::IsValidRange(row, 0x800)) {
+		gpu->PerformReadbackStencilToMemory(row, 0x800);
+	}
+	return 0;
+}
+
 static int Hook_katamari_render_check() {
 	if (!Memory::IsValidRange(currentMIPS->r[MIPS_REG_A0] + 0x3C, 8)) {
 		return 0;
@@ -1804,6 +1820,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "everybodystennis_copy_portrait", &Hook_everybodys_copy_portrait, 0, REPFLAG_HOOKENTER, 0x54 },
 	{ "everybodysgolf_copy_portrait", &Hook_everybodysgolf_copy_portrait, 0, REPFLAG_HOOKENTER, 0x50 },
 	{ "everybodysgolf_spinner_background", &Hook_everybodysgolf_spinner_background, 0, REPFLAG_HOOKENTER, 0x138 },
+	{ "codedarms_stencil_check", &Hook_codedarms_stencil_check, 0, REPFLAG_HOOKENTER, 0x8C },
 	{}
 };
 

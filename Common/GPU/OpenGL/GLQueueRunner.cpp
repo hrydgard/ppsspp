@@ -1570,20 +1570,21 @@ void GLQueueRunner::PerformReadback(const GLRStep &pass) {
 	GLuint format = GL_RGBA;
 	GLuint type = GL_UNSIGNED_BYTE;
 	int srcAlignment = 4;
+	readbackFormat_ = DataFormat::R8G8B8A8_UNORM;
 
 #ifndef USING_GLES2
 	if (pass.readback.aspectMask & GL_DEPTH_BUFFER_BIT) {
 		format = GL_DEPTH_COMPONENT;
 		type = GL_FLOAT;
 		srcAlignment = 4;
+		readbackFormat_ = DataFormat::D32F;
 	} else if (pass.readback.aspectMask & GL_STENCIL_BUFFER_BIT) {
 		format = GL_STENCIL_INDEX;
 		type = GL_UNSIGNED_BYTE;
 		srcAlignment = 1;
+		readbackFormat_ = DataFormat::S8;
 	}
 #endif
-
-	readbackAspectMask_ = pass.readback.aspectMask;
 
 	int pixelStride = pass.readback.srcRect.w;
 	// Apply the correct alignment.
@@ -1602,9 +1603,15 @@ void GLQueueRunner::PerformReadback(const GLRStep &pass) {
 		readbackBufferSize_ = readbackSize;
 	}
 
+	// Clear any earlier errors, so the check below is about this read. Bounded, since a lost context can
+	// keep reporting itself.
+	for (int i = 0; i < 16 && glGetError() != GL_NO_ERROR; i++) {
+	}
 	glReadPixels(rect.x, rect.y, rect.w, rect.h, format, type, readbackBuffer_);
+	const GLenum readError = glGetError();
+	readbackOk_ = readError == GL_NO_ERROR;
 	#ifdef DEBUG_READ_PIXELS
-	LogReadPixelsError(glGetError());
+	LogReadPixelsError(readError);
 	#endif
 	if (!gl_extensions.IsGLES || gl_extensions.GLES3) {
 		glPixelStorei(GL_PACK_ROW_LENGTH, 0);
@@ -1613,9 +1620,14 @@ void GLQueueRunner::PerformReadback(const GLRStep &pass) {
 }
 
 void GLQueueRunner::PerformReadbackImage(const GLRStep &pass) {
+	readbackFormat_ = Draw::DataFormat::R8G8B8A8_UNORM;
+	readbackOk_ = false;
 #ifndef USING_GLES2
 	GLRTexture *tex = pass.readback_image.texture;
 	GLRect2D rect = pass.readback_image.srcRect;
+
+	for (int i = 0; i < 16 && glGetError() != GL_NO_ERROR; i++) {
+	}
 
 	if (gl_extensions.VersionGEThan(4, 5)) {
 		int size = 4 * rect.w * rect.h;
@@ -1645,20 +1657,23 @@ void GLQueueRunner::PerformReadbackImage(const GLRStep &pass) {
 		}
 
 		glPixelStorei(GL_PACK_ALIGNMENT, 4);
-		glPixelStorei(GL_PACK_ROW_LENGTH, rect.x + rect.w);
+		// glGetTexImage writes the whole level, so the rows are the texture's width apart.
+		const int srcWidth = std::max((int)w, rect.x + rect.w);
+		glPixelStorei(GL_PACK_ROW_LENGTH, srcWidth);
 		glGetTexImage(GL_TEXTURE_2D, pass.readback_image.mipLevel, GL_RGBA, GL_UNSIGNED_BYTE, readbackBuffer_);
 		glPixelStorei(GL_PACK_ROW_LENGTH, 0);
 
-		if (rect.x != 0 || rect.y != 0) {
+		if (rect.x != 0 || rect.y != 0 || rect.w != srcWidth) {
 			int dstStride = 4 * rect.w;
-			int srcStride = 4 * (rect.x + rect.w);
+			int srcStride = 4 * srcWidth;
 			int xoff = 4 * rect.x;
 			int yoff = rect.y * srcStride;
 			for (int y = 0; y < rect.h; ++y) {
-				memmove(readbackBuffer_ + h * dstStride, readbackBuffer_ + yoff + h * srcStride + xoff, dstStride);
+				memmove(readbackBuffer_ + y * dstStride, readbackBuffer_ + yoff + y * srcStride + xoff, dstStride);
 			}
 		}
 	}
+	readbackOk_ = glGetError() == GL_NO_ERROR;
 #endif
 
 	CHECK_GL_ERROR_IF_DEBUG();
@@ -1688,35 +1703,43 @@ void GLQueueRunner::PerformBindFramebufferAsRenderTarget(const GLRStep &pass) {
 	CHECK_GL_ERROR_IF_DEBUG();
 }
 
-void GLQueueRunner::CopyFromReadbackBuffer(GLRFramebuffer *framebuffer, int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels) {
+bool GLQueueRunner::CopyFromReadbackBuffer(GLRFramebuffer *framebuffer, int width, int height, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels) {
 	// TODO: Maybe move data format conversion here, and always read back 8888. Drivers
 	// don't usually provide very optimized conversion implementations, though some do.
 	// Just need to be careful about dithering, which may break Danganronpa.
 	int bpp = (int)Draw::DataFormatSizeInBytes(destFormat);
-	if (!readbackBuffer_ || bpp <= 0 || !pixels) {
-		// Something went wrong during the read and no readback buffer was allocated, probably.
-		return;
+	if (!readbackOk_ || !readbackBuffer_ || bpp <= 0 || !pixels) {
+		// The read failed, or never allocated a buffer.
+		return false;
 	}
 
-	// Always read back in 8888 format for the color aspect.
-	GLuint internalFormat = GL_RGBA;
-#ifndef USING_GLES2
-	if (readbackAspectMask_ & GL_DEPTH_BUFFER_BIT) {
-		internalFormat = GL_DEPTH_COMPONENT;
-	} else if (readbackAspectMask_ & GL_STENCIL_BUFFER_BIT) {
-		internalFormat = GL_STENCIL_INDEX;
-	}
-#endif
-
-	bool convert = internalFormat == GL_RGBA && destFormat != Draw::DataFormat::R8G8B8A8_UNORM;
-	if (convert) {
-		// srcStride is width because we read back "packed" (with no gaps) from GL.
+	// The buffer is packed (no gaps), so its stride is the width. readbackFormat_ is what was actually read.
+	switch (readbackFormat_) {
+	case Draw::DataFormat::R8G8B8A8_UNORM:
 		ConvertFromRGBA8888(pixels, readbackBuffer_, pixelStride, width, width, height, destFormat);
-	} else {
-		for (int y = 0; y < height; y++) {
-			memcpy(pixels + y * pixelStride * bpp, readbackBuffer_ + y * width * bpp, width * bpp);
+		return true;
+	case Draw::DataFormat::D32F:
+		if (destFormat == Draw::DataFormat::D32F) {
+			ConvertToD32F(pixels, readbackBuffer_, pixelStride, width, width, height, Draw::DataFormat::D32F);
+			return true;
+		} else if (destFormat == Draw::DataFormat::D16) {
+			ConvertToD16(pixels, readbackBuffer_, pixelStride, width, width, height, Draw::DataFormat::D32F);
+			return true;
 		}
+		break;
+	case Draw::DataFormat::S8:
+		if (destFormat == Draw::DataFormat::S8) {
+			for (int y = 0; y < height; y++) {
+				memcpy(pixels + y * pixelStride, readbackBuffer_ + y * width, width);
+			}
+			return true;
+		}
+		break;
+	default:
+		break;
 	}
+	ERROR_LOG(Log::G3D, "Unsupported readback conversion from %s to %s", Draw::DataFormatToString(readbackFormat_), Draw::DataFormatToString(destFormat));
+	return false;
 }
 
 // On PC, we always use GL_DEPTH24_STENCIL8. 

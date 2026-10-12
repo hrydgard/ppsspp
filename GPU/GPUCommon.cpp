@@ -2358,6 +2358,13 @@ void GPUCommon::PerformWriteFormattedFromMemory(u32 addr, int size, int frameWid
 	InvalidateCache(addr, size, GPU_INVALIDATE_SAFE);
 }
 
+bool GPUCommon::PerformReadbackStencilToMemory(u32 dest, int size) {
+	if (Memory::IsVRAMAddress(dest) && framebufferManager_->MayIntersectFramebufferColor(dest)) {
+		return framebufferManager_->ReadbackStencilToMemory(dest, size);
+	}
+	return false;
+}
+
 bool GPUCommon::PerformWriteStencilFromMemory(u32 dest, int size, WriteStencil flags) {
 	if (framebufferManager_->MayIntersectFramebufferColor(dest)) {
 		framebufferManager_->PerformWriteStencilFromMemory(dest, size, flags);

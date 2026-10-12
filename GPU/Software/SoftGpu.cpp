@@ -1493,6 +1493,12 @@ bool SoftGPU::PerformReadbackToMemory(u32 dest, int size)
 	return false;
 }
 
+bool SoftGPU::PerformReadbackStencilToMemory(u32 dest, int size) {
+	// Stencil is already in RAM, once any queued drawing is done.
+	drawEngine_->transformUnit.FlushIfOverlap(this, "readback", false, dest, size, size, 1);
+	return false;
+}
+
 bool SoftGPU::PerformWriteColorFromMemory(u32 dest, int size)
 {
 	drawEngine_->transformUnit.FlushIfOverlap(this, "upload", true, dest, size, size, 1);

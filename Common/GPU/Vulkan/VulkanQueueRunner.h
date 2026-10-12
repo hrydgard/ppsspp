@@ -249,7 +249,7 @@ public:
 	}
 
 	// src == 0 means to copy from the sync readback buffer.
-	bool CopyReadbackBuffer(FrameData &frameData, VKRFramebuffer *src, int width, int height, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels);
+	bool CopyReadbackBuffer(FrameData &frameData, VKRFramebuffer *src, int x, int y, int width, int height, VkImageAspectFlags aspectMask, Draw::DataFormat srcFormat, Draw::DataFormat destFormat, int pixelStride, uint8_t *pixels);
 
 	VKRRenderPass *GetRenderPass(const RPKey &key);
 

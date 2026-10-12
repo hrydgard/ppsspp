@@ -1229,6 +1229,12 @@ void VulkanRenderManager::BindFramebufferAsRenderTarget(VKRFramebuffer *fb, VKRR
 bool VulkanRenderManager::CopyFramebufferToMemory(VKRFramebuffer *src, VkImageAspectFlags aspectBits, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, Draw::ReadbackMode mode, const char *tag) {
 	_dbg_assert_(insideFrame_);
 
+	if (!src && mode == Draw::ReadbackMode::OLD_DATA_OK) {
+		// The backbuffer is a different image every frame, so there's no earlier copy of it to hand back.
+		_dbg_assert_msg_(false, "Delayed readback of the backbuffer (%s)", tag);
+		return false;
+	}
+
 	for (int i = (int)steps_.size() - 1; i >= 0; i--) {
 		if (steps_[i]->stepType == VKRStepType::RENDER && steps_[i]->render.framebuffer == src) {
 			steps_[i]->render.numReads++;
@@ -1290,7 +1296,7 @@ bool VulkanRenderManager::CopyFramebufferToMemory(VKRFramebuffer *src, VkImageAs
 
 	// Need to call this after FlushSync so the pixels are guaranteed to be ready in CPU-accessible VRAM.
 	return queueRunner_.CopyReadbackBuffer(frameData_[vulkan_->GetCurFrame()],
-		mode == Draw::ReadbackMode::OLD_DATA_OK ? src : nullptr, w, h, srcFormat, destFormat, pixelStride, pixels);
+		mode == Draw::ReadbackMode::OLD_DATA_OK ? src : nullptr, x, y, w, h, aspectBits, srcFormat, destFormat, pixelStride, pixels);
 }
 
 void VulkanRenderManager::CopyImageToMemorySync(VkImage image, int mipLevel, int x, int y, int w, int h, Draw::DataFormat destFormat, uint8_t *pixels, int pixelStride, const char *tag) {
@@ -1309,7 +1315,7 @@ void VulkanRenderManager::CopyImageToMemorySync(VkImage image, int mipLevel, int
 	FlushSync();
 
 	// Need to call this after FlushSync so the pixels are guaranteed to be ready in CPU-accessible VRAM.
-	queueRunner_.CopyReadbackBuffer(frameData_[vulkan_->GetCurFrame()], nullptr, w, h, destFormat, destFormat, pixelStride, pixels);
+	queueRunner_.CopyReadbackBuffer(frameData_[vulkan_->GetCurFrame()], nullptr, x, y, w, h, VK_IMAGE_ASPECT_COLOR_BIT, destFormat, destFormat, pixelStride, pixels);
 
 	_dbg_assert_(steps_.empty());
 }

@@ -176,6 +176,7 @@ public:
 	bool PerformReadbackToMemory(u32 dest, int size) override;
 	bool PerformWriteColorFromMemory(u32 dest, int size) override;
 	bool PerformWriteStencilFromMemory(u32 dest, int size, WriteStencil flags) override;
+	bool PerformReadbackStencilToMemory(u32 dest, int size) override;
 
 	void DeviceLost() override;
 	void DeviceRestore(Draw::DrawContext *draw) override;

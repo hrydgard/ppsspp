@@ -45,11 +45,17 @@ struct QueueProfileContext {
 
 class VKRFramebuffer;
 
+// Hashed and compared as raw bytes (DenseHashMap), so no padding.
 struct ReadbackKey {
 	const VKRFramebuffer *framebuf;
+	int x;
+	int y;
 	int width;
 	int height;
+	VkImageAspectFlags aspectMask;
+	uint32_t unused;
 };
+static_assert(sizeof(ReadbackKey) == sizeof(void *) + 6 * sizeof(uint32_t), "ReadbackKey must not have padding");
 
 struct CachedReadback {
 	VkBuffer buffer;
