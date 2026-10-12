@@ -191,6 +191,7 @@ struct ZipFileInfo {
 	int isoFileIndex = -1;  // for ISO
 	int textureIniIndex = -1;  // for textures
 	bool ignoreMetaFiles = false;
+	bool saveDataInRoot = false;  // for SAVE_DATA - the files of a single save are in the root, extract into savedataDir.
 	std::string gameTitle;  // from PARAM.SFO if available
 	std::string savedataTitle;
 	std::string savedataDetails;

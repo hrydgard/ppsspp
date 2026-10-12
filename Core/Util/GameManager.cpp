@@ -414,7 +414,11 @@ void GameManager::InstallZipContents(ZipFileTask task) {
 	case ZipFileContents::SAVE_DATA:
 	{
 		Path pspSaveData = GetSysDirectory(DIRECTORY_SAVEDATA);
-		success = ExtractZipContents(z, pspSaveData, zipInfo, false);
+		if (zipInfo.saveDataInRoot) {
+			success = ExtractZipContents(z, pspSaveData / zipInfo.savedataDir, zipInfo, true);
+		} else {
+			success = ExtractZipContents(z, pspSaveData, zipInfo, false);
+		}
 		break;
 	}
 	case ZipFileContents::SAVE_STATES:

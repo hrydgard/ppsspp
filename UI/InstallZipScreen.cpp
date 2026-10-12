@@ -249,7 +249,7 @@ void InstallZipScreen::CreateContentViews(UI::ViewGroup *parent) {
 
 		Path savedataDir = GetSysDirectory(DIRECTORY_SAVEDATA);
 		ZipContainer zipFile = ZipOpenPath(zipPath_);
-		overwrite = !ZipCanExtractWithoutOverwrite(zipFile, savedataDir, zipFileInfo_.stripChars, 50);
+		overwrite = !ZipCanExtractWithoutOverwrite(zipFile, zipFileInfo_.saveDataInRoot ? savedataDir / zipFileInfo_.savedataDir : savedataDir, zipFileInfo_.stripChars, 50);
 		ZipClose(zipFile);
 
 		destFolders_.push_back(savedataDir);
