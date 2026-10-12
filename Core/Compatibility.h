@@ -121,6 +121,7 @@ struct CompatFlags {
 	bool DisableRangeCulling;
 	bool BlockTransferReadbackSmall;
 	bool DepthCLUTIntoHalves;
+	bool AccurateSplines;
 };
 
 struct VRCompat {
