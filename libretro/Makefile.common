@@ -1,4 +1,3 @@
-FFMPEGDIR		= $(CORE_DIR)/ffmpeg
 LIBRETRODIR		= $(CORE_DIR)/libretro
 COREDIR			= $(CORE_DIR)/Core
 COMMONDIR		= $(CORE_DIR)/Common
@@ -24,8 +23,6 @@ INCFLAGS += \
 	-I$(EXTDIR)/native \
 	-I$(EXTDIR)/cpu_features/include \
 	-I$(EXTDIR)/snappy \
-	-I$(FFMPEGDIR) \
-	$(FFMPEGINCFLAGS) \
 	-I$(EXTDIR)/cityhash \
 	-I$(EXTDIR)/armips \
 	-I$(EXTDIR)/armips/ext/filesystem/include \

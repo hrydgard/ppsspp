@@ -201,7 +201,6 @@ add_library(Core STATIC
 	ELF/PrxDecrypter.h
 	ELF/ParamSFO.cpp
 	ELF/ParamSFO.h
-	FFMPEGCompat.h
 	FileSystems/tlzrc.cpp
 	FileSystems/BlobFileSystem.cpp
 	FileSystems/BlobFileSystem.h
@@ -556,18 +555,6 @@ if(NOT HTTPS_NOT_AVAILABLE)
 endif()
 
 target_compile_features(Core PUBLIC cxx_std_17)
-
-if(USE_FFMPEG)
-	target_compile_definitions(Core PRIVATE USE_FFMPEG=1)
-	set_target_properties(Core PROPERTIES NO_SYSTEM_FROM_IMPORTED true)
-	target_link_libraries(Core
-		avcodec
-		avformat
-		avutil
-		swresample
-		swscale
-	)
-endif()
 
 setup_target_project(Core Core)
 

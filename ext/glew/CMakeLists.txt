@@ -1,6 +1,6 @@
 find_package(GLEW)
 if(NOT USE_LIBNX)
-  if((NOT APPLE OR USE_SYSTEM_FFMPEG) AND GLEW_FOUND)
+  if(NOT APPLE AND GLEW_FOUND)
     add_library(system_glew INTERFACE)
     add_library(Ext::GLEW ALIAS system_glew)
     target_link_libraries(system_glew INTERFACE GLEW::GLEW)

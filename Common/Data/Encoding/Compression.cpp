@@ -95,19 +95,3 @@ bool decompress_string(const std::string &str, std::string *dest) {
 	return ok;
 }
 
-// The prebuilt FFmpeg archives were linked against zlib and still call these two
-// (adler32 in the MOV/MXF demuxers, uncompress for compressed ID3v2 frames).
-// zlib's own ABI, so those archives resolve against libretro-common's inflate.
-extern "C" unsigned long adler32(unsigned long adler, const unsigned char *buf, unsigned int len) {
-	if (!buf)
-		return 1;
-	return Adler32((uint32_t)adler, buf, len);
-}
-
-extern "C" int uncompress(unsigned char *dest, unsigned long *destLen, const unsigned char *source, unsigned long sourceLen) {
-	const int64_t produced = InflateBuffer(15, source, sourceLen, dest, *destLen);
-	if (produced < 0)
-		return -3;  // Z_DATA_ERROR
-	*destLen = (unsigned long)produced;
-	return 0;  // Z_OK
-}

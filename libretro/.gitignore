@@ -3,4 +3,3 @@
 *.dll
 *.dylib
 *.manifest
-obj-ffmpeg-source-*/

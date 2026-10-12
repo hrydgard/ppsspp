@@ -151,7 +151,6 @@ option(UNITTEST "Set to ON to generate the unittest target" ${UNITTEST})
 option(SIMULATOR "Set to ON when targeting an x86 simulator of an ARM platform" ${SIMULATOR})
 # :: Options
 option(USE_LIBNX "Set to ON to build for Switch(libnx)" OFF)
-option(USE_FFMPEG "Build with FFMPEG support" ON)
 option(USE_SYSTEM_SNAPPY "Dynamically link against system snappy" ${USE_SYSTEM_SNAPPY})
 option(USE_SYSTEM_FREETYPE "Dynamically link against system freetype" ${USE_SYSTEM_FREETYPE})
 option(USE_SYSTEM_RAPIDJSON "Build using system rapidjson" ${USE_SYSTEM_RAPIDJSON})
@@ -636,17 +635,12 @@ if(UNITTEST)
 		unittest/TestLoongArch64Emitter.cpp
 		unittest/TestSoftwareGPUJit.cpp
 		unittest/TestThreadManager.cpp
-		unittest/TestFFmpegThreading.cpp
 		unittest/TestNetWait.cpp
 		unittest/JitHarness.cpp
 		Core/MIPS/MIPSAsm.cpp
 		Core/MIPS/ARM/ArmRegCache.cpp
 		Core/MIPS/ARM/ArmRegCacheFPU.cpp
 	)
-	if(USE_FFMPEG)
-		target_compile_definitions(PPSSPPUnitTest PRIVATE TEST_BUNDLED_FFMPEG)
-		target_include_directories(PPSSPPUnitTest PRIVATE ${CMAKE_SOURCE_DIR}/ffmpeg)
-	endif()
 
 	target_link_libraries(PPSSPPUnitTest ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${IOKIT_LIBRARY} ${CMAKE_THREAD_LIBS_INIT} Common Core)
 	if(SDL_LIB_TARGET)

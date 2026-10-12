@@ -21,7 +21,6 @@
 #include "ext/jpge/jpge.h"
 
 void __cameraDummyImage(int width, int height, unsigned char** outData, int* outLen) {
-#ifdef USE_FFMPEG
 	unsigned char *rgbData = (unsigned char *)malloc(3 * width * height);
 	if (!rgbData) {
 		*outData = nullptr;
@@ -48,5 +47,4 @@ void __cameraDummyImage(int width, int height, unsigned char** outData, int* out
 	jpge::compress_image_to_jpeg_file_in_memory(
 		*outData, *outLen, width, height, 3, rgbData, params);
 	free(rgbData);
-#endif //USE_FFMPEG
 }

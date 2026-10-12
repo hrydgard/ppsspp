@@ -79,10 +79,6 @@ if(NOT HTTPS_NOT_AVAILABLE)
 	add_subdirectory(naett-build)
 endif()
 
-if(USE_FFMPEG)
-	add_subdirectory(ffmpeg-build)
-endif()
-
 if(ANDROID)
     if (ARM64)
         add_subdirectory(libadrenotools)

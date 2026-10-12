@@ -42,7 +42,6 @@ endif
 
 # Dirs
 CORE_DIR			= ..
-FFMPEGDIR		= $(CORE_DIR)/ffmpeg
 LIBRETRODIR		= $(CORE_DIR)/libretro
 COREDIR			= $(CORE_DIR)/Core
 COMMONDIR		= $(CORE_DIR)/Common
@@ -52,10 +51,6 @@ NATIVEDIR		= $(CORE_DIR)/native
 EXTDIR			= $(CORE_DIR)/ext
 
 TARGET_NAME := ppsspp
-
-FFMPEGINCFLAGS :=
-FFMPEGLIBDIR :=
-FFMPEGLIBS :=
 
 # Unix
 ifneq (,$(findstring unix,$(platform)))
@@ -385,41 +380,12 @@ else ifneq (,$(findstring win,$(platform)))
 	LDFLAGS += -shared -Wl,--no-undefined -static-libgcc -static-libstdc++ -Wl,--version-script=link.T -lwinmm -lgdi32 -lwsock32 -lws2_32 -lversion -liphlpapi
 	GL_LIB := -lopengl32
 	PLATFORM_EXT = win32
-   # The prebuilt ffmpeg/Windows libraries are MSVC builds that GNU ld
-   # mislinks, so the bundled FFmpeg source is built with this toolchain.
    fpic = -fPIC
 	CC = gcc
 	CXX = g++
 endif
 
 include Makefile.common
-
-# Always compile the patched source; vendored binary archives still contain
-# FFmpeg's upstream mutex/condition-variable workers.
-CMAKE ?= $(shell sh find-cmake.sh)
-ifneq ($(platform), emscripten)
-FFMPEG_SOURCE_DIR := obj-ffmpeg-source-$(TARGET_ARCH)
-FFMPEG_SOURCE_STAMP := $(FFMPEG_SOURCE_DIR)/.built
-FFMPEG_CONFIG_STAMP := $(FFMPEG_SOURCE_DIR)/.configured
-# Forward a numeric outer make -j count; allow an explicit override.
-FFMPEG_BUILD_JOBS ?= $(or $(patsubst -j%,%,$(filter -j%,$(MAKEFLAGS))),1)
-FFMPEG_SOURCE_LIBS := avformat avcodec swresample swscale avutil
-FFMPEGINCFLAGS := -I$(FFMPEGDIR) -I$(FFMPEG_SOURCE_DIR)
-ifneq (,$(findstring msvc,$(platform)))
-# MSYS temp/tmp and make platform collide with Windows TEMP/TMP/Platform.
-# MSBuild rejects these case-insensitive duplicates; keep the native names.
-FFMPEG_CMAKE_ENV := env -u temp -u tmp -u platform
-# Match the core CRT: cl defaults to /MT; DEBUG=1 explicitly uses /MDd.
-FFMPEG_CMAKE_TOOLCHAIN := -A $(if $(filter x86_64,$(TARGET_ARCH)),x64,Win32) -DCMAKE_C_FLAGS_RELEASE="-O2 -Ob2 -DNDEBUG $(if $(filter 1,$(DEBUG)),-MDd,-MT)"
-FFMPEGLDFLAGS := $(foreach lib,$(FFMPEG_SOURCE_LIBS),$(FFMPEG_SOURCE_DIR)/lib/$(lib).lib)
-else
-FFMPEG_MAKE_GENERATOR := $(if $(filter win,$(platform)),MSYS Makefiles,Unix Makefiles)
-FFMPEG_CMAKE_TOOLCHAIN := -G "$(FFMPEG_MAKE_GENERATOR)" -DCMAKE_C_COMPILER="$(CC)" -DCMAKE_CXX_COMPILER="$(CXX)" -DCMAKE_C_FLAGS="$(CPUOPTS) $(CPUFLAGS)"
-FFMPEGLDFLAGS := $(foreach lib,$(FFMPEG_SOURCE_LIBS),$(FFMPEG_SOURCE_DIR)/lib/lib$(lib).a)
-endif
-# Cross builds can pass a CMake toolchain/sysroot through this variable.
-FFMPEG_CMAKE_ARGS ?=
-endif
 
 ifeq ($(GLES), 1)
 	GLFLAGS += -DGLES -DUSING_GLES2
@@ -428,10 +394,6 @@ else
 endif
 
 COREFLAGS += -DPPSSPP -DGLEW_STATIC -DGLEW_NO_GLU
-ifneq ($(platform), emscripten)
-	# ffmpeg does not work with emscripten
-	COREFLAGS += -DUSE_FFMPEG
-endif
 
 ifeq ($(DEBUG), 1)
 	ifneq (,$(findstring msvc,$(platform)))
@@ -470,10 +432,10 @@ ifeq (,$(findstring msvc,$(platform)))
 # same on every CPU. Elsewhere (the vertex decoder, say) they're fine.
 $(filter $(COREDIR)/MIPS/%,$(SOURCES_CXX:.cpp=.o)): CXXFLAGS += -ffp-contract=off
 endif
-CXXFLAGS    += $(CPUOPTS) $(COREFLAGS) $(FFMPEGINCFLAGS) $(INCFLAGS) $(INCFLAGS_PLATFORM) $(PLATCFLAGS) $(fpic) $(PLATCFLAGS) $(CPUFLAGS) $(GLFLAGS) $(DYNAFLAGS)
-CFLAGS		+= $(CPUOPTS) $(COREFLAGS) $(FFMPEGINCFLAGS) $(INCFLAGS) $(INCFLAGS_PLATFORM) $(PLATCFLAGS) $(fpic) $(PLATCFLAGS) $(CPUFLAGS) $(GLFLAGS) $(DYNAFLAGS)
+CXXFLAGS    += $(CPUOPTS) $(COREFLAGS) $(INCFLAGS) $(INCFLAGS_PLATFORM) $(PLATCFLAGS) $(fpic) $(PLATCFLAGS) $(CPUFLAGS) $(GLFLAGS) $(DYNAFLAGS)
+CFLAGS		+= $(CPUOPTS) $(COREFLAGS) $(INCFLAGS) $(INCFLAGS_PLATFORM) $(PLATCFLAGS) $(fpic) $(PLATCFLAGS) $(CPUFLAGS) $(GLFLAGS) $(DYNAFLAGS)
 
-LDFLAGS		+= $(FFMPEGLDFLAGS) $(fpic)
+LDFLAGS		+= $(fpic)
 ifeq (,$(findstring android,$(platform))$(findstring msvc,$(platform)))
    LDFLAGS	+= -lpthread
 endif
@@ -504,24 +466,6 @@ else
 DEPFLAGS = -MMD -MP -MF $@.d -MT $@
 DEPPOST =
 endif
-
-ifneq ($(MAKECMDGOALS),clean)
-FFMPEG_SOURCE_INPUTS := $(shell find $(FFMPEGDIR)/libavcodec $(FFMPEGDIR)/libavformat $(FFMPEGDIR)/libavutil $(FFMPEGDIR)/libswresample $(FFMPEGDIR)/libswscale $(CORE_DIR)/ext/ffmpeg-build -type f \( -name '*.c' -o -name '*.h' -o -name '*.cmake' -o -name CMakeLists.txt \))
-endif
-ifneq ($(platform), emscripten)
-$(FFMPEG_CONFIG_STAMP): $(filter %.cmake %CMakeLists.txt,$(FFMPEG_SOURCE_INPUTS)) $(FFMPEGDIR)/UPSTREAM_COMMIT Makefile find-cmake.sh
-	@$(FFMPEG_CMAKE_ENV) $(CMAKE) --version >/dev/null 2>&1 || { echo "A working CMake is required to build the vendored FFmpeg source."; echo "MSYS2 MINGW64: pacman -S mingw-w64-x86_64-cmake"; echo "Or pass CMAKE=/path/to/a/working/cmake."; exit 1; }
-	$(FFMPEG_CMAKE_ENV) $(CMAKE) -S $(CORE_DIR)/ext/ffmpeg-build -B $(FFMPEG_SOURCE_DIR) -DCMAKE_BUILD_TYPE=Release $(FFMPEG_CMAKE_TOOLCHAIN) $(FFMPEG_CMAKE_ARGS)
-	touch $@
-
-$(FFMPEG_SOURCE_STAMP): $(FFMPEG_SOURCE_INPUTS) $(FFMPEG_CONFIG_STAMP)
-	$(FFMPEG_CMAKE_ENV) $(CMAKE) --build $(FFMPEG_SOURCE_DIR) --config Release --parallel $(FFMPEG_BUILD_JOBS) --target avformat avcodec avutil swresample swscale
-	touch $@
-
-$(filter %.o,$(OBJECTS)): | $(FFMPEG_SOURCE_STAMP)
-$(TARGET): $(FFMPEG_SOURCE_STAMP)
-endif
-
 
 %.o: %.S
 	$(AS) $(CFLAGS) -c $(OBJOUT)$@ $<
@@ -567,9 +511,6 @@ $(CLEAN_OBJECT_TARGETS): %.clean:
 
 clean: $(CLEAN_OBJECT_TARGETS)
 	rm -f $(TARGET) test/*.o test/*.o.d test/*.o.deps.json test/codectest test/blocktest test/lrtest test/lrgltest
-ifneq ($(platform), emscripten)
-	rm -rf $(FFMPEG_SOURCE_DIR)
-endif
 
 .PHONY: clean test-tools
 
