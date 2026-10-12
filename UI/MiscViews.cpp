@@ -443,7 +443,9 @@ void ViewSearch::ApplySearchFilter(UI::ViewGroup *viewGroup, bool setKeyboardFoc
 
 static bool IsSearchableChar(int unichar) {
 	// 127 gets produced from Ctrl+Backspace on Windows for some reason.
-	return unichar >= 0x20 && unichar != 127;
+	// 0x80-0xBF are C1 controls and Latin-1 symbols like § and ½ (the key left of 1 on Nordic keyboards),
+	// which don't appear in titles. Accented letters start at 0xC0.
+	return unichar >= 0x20 && !(unichar >= 0x7F && unichar < 0xC0);
 }
 
 static bool IsFirstSearchableChar(int unichar) {
@@ -482,7 +484,10 @@ bool ViewSearch::Key(UI::ViewGroup *viewGroup, const KeyInput &input) {
 						searchFilter.clear();
 					}
 				} else {
-					searchFilter.pop_back();
+					// Remove a whole UTF-8 character, not just its last byte.
+					int pos = (int)searchFilter.size();
+					u8_dec(searchFilter.c_str(), &pos);
+					searchFilter.erase(pos);
 				}
 				ApplySearchFilter(viewGroup, true);
 				retval = true;
