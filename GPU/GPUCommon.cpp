@@ -1153,6 +1153,13 @@ void GPUCommon::DoExecuteCall(u32 target) {
 	// Local variable for better codegen
 	DisplayList *currentList = this->currentList;
 
+	// Soul Calibur: Broken Destiny reaches its lighting setup for weapon trails with a third CALL, so
+	// on hardware they stay unlit and take their color from the vertices (#7395).
+	if (currentList->HardwareCallDepth() >= 2) {
+		DEBUG_LOG(Log::G3D, "CALL to %08x: skipped, already two levels deep", target);
+		return;
+	}
+
 	// Bone matrix optimization - many games will CALL a bone matrix (!).
 	// We don't optimize during recording or debugging - so the matrix data gets recorded.
 	if (useFastRunLoop_ && Memory::IsValidRange(target, 13 * 4) && (Memory::ReadUnchecked_U32(target) >> 24) == GE_CMD_BONEMATRIXDATA) {
@@ -1175,7 +1182,8 @@ void GPUCommon::DoExecuteCall(u32 target) {
 		auto &stackEntry = currentList->stack[currentList->stackptr++];
 		stackEntry.pc = currentList->pc + 4;
 		stackEntry.offsetAddr = gstate_c.offsetAddr;
-		// The base address is NOT saved/restored for a regular call.
+		// The base address is NOT saved/restored for a regular call, and 0 marks it as one.
+		stackEntry.baseAddr = 0;
 		UpdatePC(currentList->pc, target - 4);
 		currentList->pc = target - 4;	// pc will be increased after we return, counteract that
 	}
@@ -1312,7 +1320,7 @@ void GPUCommon::Execute_End(u32 op, u32 diff) {
 						auto &stackEntry = currentList->stack[currentList->stackptr++];
 						stackEntry.pc = currentList->pc;
 						stackEntry.offsetAddr = gstate_c.offsetAddr;
-						stackEntry.baseAddr = gstate.base;
+						stackEntry.baseAddr = gstate.base | (GE_CMD_BASE << 24);
 						UpdatePC(currentList->pc, target);
 						currentList->pc = target;
 						DEBUG_LOG(Log::G3D, "Signal with Call (%s). signal/end: %04x %04x", targetType, signal, enddata);

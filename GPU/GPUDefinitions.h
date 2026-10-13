@@ -148,6 +148,7 @@ ENUM_CLASS_BITOPS(GPUCopyFlag);
 struct DisplayListStackEntry {
 	u32 pc;
 	u32 offsetAddr;
+	// The BASE command word a signal CALL saved, so never 0. A plain CALL stores 0.
 	u32 baseAddr;
 };
 
@@ -173,6 +174,16 @@ struct DisplayList {
 	u32 stackAddr;
 
 	u32 padding;  // Android x86-32 does not round the structure size up to the closest multiple of 8 like the other platforms.
+
+	// The GE keeps CALL return addresses in two registers and skips a CALL beyond that. A signal CALL
+	// saves and clears them in the firmware, and its RET restores them (tests/gpu/callstack/depth).
+	int HardwareCallDepth() const {
+		int depth = 0;
+		for (int i = stackptr - 1; i >= 0 && stack[i].baseAddr == 0; --i) {
+			depth++;
+		}
+		return depth;
+	}
 };
 
 namespace Draw {
