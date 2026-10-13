@@ -2421,6 +2421,8 @@ namespace MIPSComp
 		for (int i = 0; i < n; ++i) {
 			fpr.MapDirtyInInV(tempregs[i], sregs[i], tregs[i]);
 			VADD(fpr.V(tempregs[i]), fpr.V(tregs[i]), fpr.V(sregs[i]));
+			// A NaN comes out as the VFPU's (cpu/vfpu/specials).
+			EmitVfpuSumNaN(fpr.V(tempregs[i]));
 		}
 
 		for (int i = 0; i < n; ++i) {

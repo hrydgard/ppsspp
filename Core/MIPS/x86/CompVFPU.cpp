@@ -2247,6 +2247,8 @@ void Jit::Comp_Vocp(MIPSOpcode op) {
 		}
 		ADDSS(XMM0, fpr.V(sregs[i]));
 		MOVSS(tempxregs[i], R(XMM0));
+		// A NaN comes out as the VFPU's (cpu/vfpu/specials).
+		EmitVfpuSumNaN1(tempxregs[i]);
 	}
 
 	for (int i = 0; i < n; ++i) {
@@ -2317,6 +2319,10 @@ void Jit::Comp_Vbfy(MIPSOpcode op) {
 	} else {
 		DISABLE;
 	}
+
+	// A NaN comes out as the VFPU's (cpu/vfpu/specials).
+	for (int i = 0; i < n; ++i)
+		EmitVfpuSumNaN1(tempxregs[i]);
 
 	for (int i = 0; i < n; ++i) {
 		if (!fpr.V(dregs[i]).IsSimpleReg(tempxregs[i]))
