@@ -961,8 +961,9 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	}
 
 	if (fsDepthClamp) {
-		// After the rounding, so the fragment shader clamps the Z that hardware depth clamp would.
-		// (Never needed together with fsMinmaxDiscard, which wants it unrounded.)
+		// After the rounding, so the fragment shader clamps the Z that hardware depth clamp would. With fsMinmaxDiscard
+		// too, this replaces its unrounded Z: the same for the max side, which rounds down anyway, and up to 2 off for
+		// the min one, which only meets the clamp when max is 65535.
 		WRITE(p, "  %sv_zw = vec2(outPos.z * outPos.w, outPos.w);\n", compat.vsOutPrefix);
 	}
 
