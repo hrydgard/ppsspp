@@ -1039,6 +1039,15 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 
 	networkingSettings->Add(new CheckBox(&g_Config.bEnableAdhocServer, n->T("Enable built-in ad hoc server")));
 
+	CheckBox *relay_mode_enet = networkingSettings->Add(new CheckBox(&g_Config.bAdhocUseUdp, n->T("Connect to adhoc server using UDP(ENet) instead of TCP")));
+	relay_mode_enet->SetEnabled(!PSP_IsInited());
+	relay_mode_enet->OnChange.Add([this](UI::EventParams &e) {
+		RecreateViews();
+	});
+
+	CheckBox *relay_mode_enet_pdp_reliable = networkingSettings->Add(new CheckBox(&g_Config.bAdhocRelayModeEnetPdpReliable, n->T("Reliable datagram packets delivery while using relay in UDP mode")));
+	relay_mode_enet_pdp_reliable->SetEnabled(!PSP_IsInited() && g_Config.bAdhocUseUdp);
+
 	networkingSettings->Add(new ItemHeader(n->T("Infrastructure")));
 	if (g_Config.sInfrastructureUsername.empty()) {
 		networkingSettings->Add(new NoticeView(NoticeLevel::WARN, n->T("To play in Infrastructure Mode, you must enter a username"), ""))->SetWrapText(true);

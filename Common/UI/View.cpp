@@ -745,6 +745,11 @@ void CheckBox::Toggle() {
 	if (toggle_) {
 		*toggle_ = !(*toggle_);
 		UI::PlayUISound(*toggle_ ? UI::UISound::TOGGLE_ON : UI::UISound::TOGGLE_OFF);
+		EventParams params{};
+		params.v = this;
+		params.a = (uint32_t)(*toggle_);
+		params.f = (float)(*toggle_);
+		OnChange.Trigger(params);
 	}
 }
 

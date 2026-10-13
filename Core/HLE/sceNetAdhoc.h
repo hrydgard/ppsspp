@@ -179,3 +179,4 @@ int sceNetAdhocPdpCreate(const char* mac, int port, int bufferSize, u32 flag);
 
 int NetAdhoc_SetSocketAlert(int id, s32_le flag);
 int NetAdhocPdp_Delete(int id, int unknown);
+int NetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 flag, bool postoffice_enet_pdp_reliable);
