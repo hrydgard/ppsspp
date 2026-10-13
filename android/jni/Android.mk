@@ -1116,6 +1116,7 @@ ifeq ($(UNITTEST),1)
     $(SRC)/unittest/TestArmEmitter.cpp \
     $(SRC)/unittest/TestArm64Emitter.cpp \
     $(SRC)/unittest/TestArm64Disasm.cpp \
+    $(SRC)/unittest/TestArmDisasm.cpp \
 	$(SRC)/unittest/TestX64Emitter.cpp \
     $(SRC)/unittest/TestRiscVEmitter.cpp \
     $(SRC)/unittest/TestLoongArch64Emitter.cpp \

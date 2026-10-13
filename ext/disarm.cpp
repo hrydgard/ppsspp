@@ -1,763 +1,1619 @@
-/* disarm -- a simple disassembler for ARM instructions
- * (c) 2000 Gareth McCaughan
- *
- * This file may be distributed and used freely provided:
- * 1. You do not distribute any version that lacks this
- *    copyright notice (exactly as it appears here, extending
- *    from the start to the end of the C-language comment
- *    containing these words)); and,
- * 2. If you distribute any modified version, its source
- *    contains a clear description of the ways in which
- *    it differs from the original version, and a clear
- *    indication that the changes are not mine.
- * There is no restriction on your permission to use and
- * distribute object code or executable code derived from
- * this.
- *
- * The original version of this file (or perhaps a later
- * version by the original author) may or may not be
- * available at http://web.ukonline.co.uk/g.mccaughan/g/software.html .
- *
- * Share and enjoy!    -- g
- */
+// Copyright (c) 2012- PPSSPP Project.
 
-/* (*This* comment is NOT part of the notice mentioned in the
- * distribution conditions above.)
- *
- * The bulk of this code was ripped brutally from the middle
- * of a much more interesting piece of software whose purpose
- * is to disassemble object files in the format known as AOF;
- * it's quite clever at spotting blocks of non-code embedded
- * in code, identifying labels, and so on.
- *
- * This program, on the other hand, is very much simpler.
- * It simply disassembles one instruction at a time. Some
- * traces of the original purpose can be seen here and there.
- * You might want to make this do a two-phase disassembly,
- * adding labels etc the second time around. I've made this
- * work by loading the whole file into memory first, partly
- * because that makes a two-pass approach easier.
- *
- * One word of warning: I believe that the syntax this program
- * uses for the MSR instruction is now obsolete.
- *
- * Usage:
- *   disarm <filename> <base-address>
- * will disassemble every word in <filename>.
- *
- * <base-address> should be something understood by strtol.
- * So you can get hex (which is probably what you want)
- * by prefixing "0x".
- *
- * The -r option will byte-reverse each word before it's
- * disassembled.
- *
- * The code is rather unmaintainable. I'm sorry.
- *
- * Changes since original release:
- *   ????-??-?? v0.00 Initial release.
- *   2007-09-02 v0.11 Change %X to %lX in a format string.
- *                    (Thanks to Vincent Zweije for reporting this.)
- */
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, version 2.0 or later versions.
 
-#ifdef __clang__
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wtautological-compare" //used to avoid warning, force compiler to accept it.
-#pragma GCC diagnostic ignored "-Wstring-plus-int"
-#endif
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License 2.0 for more details.
 
-#include "ppsspp_config.h"
+// A copy of the GPL 2.0 should have been included with the program.
+// If not, see http://www.gnu.org/licenses/
+
+// Official git repository and contact information can be found at
+// https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
+
+// ARMv7-A disassembler for ARM state: the integer instructions, VFPv4 and NEON.
+// It replaces Gareth McCaughan's disarm, which this file used to hold.
+// Syntax is UAL with upper case mnemonics: "VADDNE.f32 s0, s1, s2", "LDRB r0, [r1, #-4]!".
+
+#include <algorithm>
+#include <cstdarg>
 #include <cstdio>
-#include <cstdlib>
 #include <cstring>
 
-#include "Common/ArmEmitter.h"
+#include "Common/CommonTypes.h"
 #include "ext/disarm.h"
 
-static const char *CCFlagsStr[] = {
-	"EQ", // Equal
-	"NEQ", // Not equal
-	"CS", // Carry Set
-	"CC", // Carry Clear
-	"MI", // Minus (Negative)
-	"PL", // Plus
-	"VS", // Overflow
-	"VC", // No Overflow
-	"HI", // Unsigned higher
-	"LS", // Unsigned lower or same
-	"GE", // Signed greater than or equal
-	"LT", // Signed less than
-	"GT", // Signed greater than
-	"LE", // Signed less than or equal
-	"", // Always (unconditional) 14
+namespace {
+
+const char *const condNames[16] = {
+	"EQ", "NE", "CS", "CC", "MI", "PL", "VS", "VC", "HI", "LS", "GE", "LT", "GT", "LE", "", "",
 };
 
-int GetVd(uint32_t op, bool quad = false, bool dbl = false) {
-	int val;
-	if (!quad && !dbl) {
-		val = ((op >> 22) & 1) | ((op >> 11) & 0x1E);
-	} else {
-		val = ((op >> 18) & 0x10) | ((op >> 12) & 0xF);
+const char *const regNames[16] = {
+	"r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7", "r8", "r9", "r10", "r11", "r12", "sp", "lr", "pc",
+};
+
+const char *const shiftNames[4] = { "lsl", "lsr", "asr", "ror" };
+const char *const shiftMnemonics[4] = { "LSL", "LSR", "ASR", "ROR" };
+
+const char *const dataProcNames[16] = {
+	"AND", "EOR", "SUB", "RSB", "ADD", "ADC", "SBC", "RSC", "TST", "TEQ", "CMP", "CMN", "ORR", "MOV", "BIC", "MVN",
+};
+
+struct Out {
+	Out(char *b, size_t s) : buf(b), size(s) { buf[0] = 0; }
+
+	void Add(const char *fmt, ...) {
+		if (len + 1 >= size)
+			return;
+		va_list args;
+		va_start(args, fmt);
+		int n = vsnprintf(buf + len, size - len, fmt, args);
+		va_end(args);
+		if (n > 0)
+			len = std::min(size - 1, len + (size_t)n);
 	}
-	if (quad)
-		val >>= 1;
-	return val;
+
+	char *buf;
+	size_t size;
+	size_t len = 0;
+};
+
+inline u32 Bits(u32 w, int hi, int lo) {
+	return (w >> lo) & ((1U << (hi - lo + 1)) - 1);
 }
 
-int GetVn(uint32_t op, bool quad = false, bool dbl = false) {
-	int val;
-	if (!quad && !dbl) {
-		val = ((op >> 7) & 1) | ((op >> 15) & 0x1E);
-	} else {
-		val = ((op >> 16) & 0xF) | ((op >> 3) & 0x10);
-	}
-	if (quad)
-		val >>= 1;
-	return val;
+inline bool Bit(u32 w, int b) {
+	return (w >> b) & 1;
 }
 
-int GetVm(uint32_t op, bool quad = false, bool dbl = false) {
-	int val;
-	if (!quad && !dbl) {
-		val = ((op >> 5) & 1) | ((op << 1) & 0x1E);
-	} else {
-		val = ((op >> 1) & 0x10) | (op & 0xF);
-	}
-	if (quad)
-		val >>= 1;
-	return val;
+inline const char *R(int r) {
+	return regNames[r & 15];
 }
 
+inline const char *Cond(u32 w) {
+	return condNames[w >> 28];
+}
 
-// Modern VFP disassembler, written entirely separately because I can't figure out the old stuff :P
-// Horrible array of hacks but hey. Can be cleaned up later.
+inline u32 RotR(u32 v, int amount) {
+	amount &= 31;
+	return amount ? (v >> amount) | (v << (32 - amount)) : v;
+}
 
-bool DisasmVFP(uint32_t op, char *text) {
-#if defined(__ANDROID__) && PPSSPP_ARCH(X86)
-	// Prevent linking errors with ArmEmitter which I've excluded on x86 android.
-	strcpy(text, "ARM disasm not available");
-#else
-	const char *cond = CCFlagsStr[op >> 28];
-	switch ((op >> 24) & 0xF) {
-	case 0xC:
-		// VLDMIA/VSTMIA
-		{
-			bool single_reg = ((op >> 8) & 0xF) == 10;
-			int freg = ((op >> 11) & 0x1E) | ((op >> 22) & 1);
-			int base = (op >> 16) & 0xF;
-			bool load = (op >> 20) & 1;
-			bool writeback = (op >> 21) & 1;
-			int numregs = op & 0xF;
-			bool add = (op >> 23) & 1;
-			if (add && writeback && load && base == 13) {
-				if (single_reg)
-					sprintf(text, "VPOP%s {s%i-s%i}", cond, freg, freg-1+numregs);
-				else
-					sprintf(text, "VPOP%s {d%i-d%i}", cond, freg, freg-1+(numregs/2));
+inline int SignExtend(u32 v, int bits) {
+	return (int)(v << (32 - bits)) >> (32 - bits);
+}
 
-				return true;
-			}
-			if (single_reg)
-				sprintf(text, "%s%s r%i%s, {s%i-s%i}", load ? "VLDMIA" : "VSTMIA", cond, base, writeback ? "!":"", freg, freg-1+numregs);
-			else
-				sprintf(text, "%s%s r%i%s, {d%i-d%i}", load ? "VLDMIA" : "VSTMIA", cond, base, writeback ? "!":"", freg, freg-1+(numregs/2));
+void AddImm(Out &o, u32 v) {
+	if (v < 256)
+		o.Add("#%u", v);
+	else
+		o.Add("#0x%x", v);
+}
 
-			return true;
+// VFPExpandImm. The same 8-bit format is used by NEON's VMOV.f32.
+float ExpandFloatImm(int imm8) {
+	float f = (float)((imm8 & 0xF) + 16) / 16.0f;
+	int exp = (((imm8 >> 4) & 7) ^ 4) - 3;
+	while (exp > 0) {
+		f *= 2.0f;
+		exp--;
+	}
+	while (exp < 0) {
+		f /= 2.0f;
+		exp++;
+	}
+	return (imm8 & 0x80) ? -f : f;
+}
+
+void AddFloat(Out &o, float f) {
+	char temp[32];
+	snprintf(temp, sizeof(temp), "%g", f);
+	o.Add("#%s%s", temp, strpbrk(temp, ".e") ? "" : ".0");
+}
+
+void AddShiftImm(Out &o, int type, int imm5) {
+	if (type == 0 && imm5 == 0)
+		return;
+	if (type == 3 && imm5 == 0)
+		o.Add(", rrx");
+	else
+		o.Add(", %s #%d", shiftNames[type], imm5 == 0 ? 32 : imm5);
+}
+
+void AddRegList(Out &o, u32 list) {
+	o.Add("{");
+	bool first = true;
+	for (int i = 0; i < 16; i++) {
+		if (list & (1 << i)) {
+			o.Add("%s%s", first ? "" : ", ", R(i));
+			first = false;
 		}
-	case 0xD:
-		// VLDR/VSTR/VLDMDB/VSTMDB
-		{
-			bool single_reg = ((op >> 8) & 0xF) == 10;
-			int freg = ((op >> 11) & 0x1E) | ((op >> 22) & 1);
-			int base = (op >> 16) & 0xF;
-			bool load = (op >> 20) & 1;
-			bool add = (op >> 23) & 1;
-			bool writeback = (op >> 21) & 1;
-			if (writeback) { // Multiple
-				int numregs = op & 0xF;
-				if (!add && !load && base == 13) {
-					if (single_reg)
-						sprintf(text, "VPUSH%s {s%i-s%i}", cond, freg, freg-1+numregs);
-					else
-						sprintf(text, "VPUSH%s {d%i-d%i}", cond, freg, freg-1+(numregs/2));
+	}
+	o.Add("}");
+}
 
-					return true;
-				}
+// "[rn, offset]{!}" or "[rn], offset". An empty offset prints as "[rn]".
+void AddAddress(Out &o, int rn, bool pre, bool writeback, const char *offset) {
+	if (!pre)
+		o.Add("[%s], %s", R(rn), offset);
+	else if (offset[0])
+		o.Add("[%s, %s]%s", R(rn), offset, writeback ? "!" : "");
+	else
+		o.Add("[%s]%s", R(rn), writeback ? "!" : "");
+}
 
-				if (single_reg)
-					sprintf(text, "%s%s r%i, {s%i-s%i}", load ? "VLDMDB" : "VSTMDB", cond, base, freg, freg-1+numregs);
-				else
-					sprintf(text, "%s%s r%i, {d%i-d%i}", load ? "VLDMDB" : "VSTMDB", cond, base, freg, freg-1+(numregs/2));
-			} else {
-				int offset = (op & 0xFF) << 2;
-				if (!add) offset = -offset;
-				sprintf(text, "%s%s s%i, [r%i, #%i]", load ? "VLDR" : "VSTR", cond, freg, base, offset);
-			}
+bool DisDataProcessing(u32 w, Out &o) {
+	int opc = Bits(w, 24, 21);
+	bool s = Bit(w, 20);
+	int rn = Bits(w, 19, 16);
+	int rd = Bits(w, 15, 12);
+	bool compare = opc >= 8 && opc <= 11;
+	if (compare && !s)
+		return false;
+	const char *sfx = s && !compare ? "S" : "";
+	const char *cond = Cond(w);
 
-			return true;
-		}
-
-	case 0xE:
-		{
-			switch ((op >> 20) & 0xF) {
-			case 0xE: // VMSR
-				if ((op & 0xFFF) != 0xA10)
-					break;
-				sprintf(text, "VMSR%s r%i", cond, (op >> 12) & 0xF);
-				return true;
-			case 0xF: // VMRS
-				if ((op & 0xFFF) != 0xA10)
-					break;
-				if (op == 0xEEF1FA10) {
-					sprintf(text, "VMRS%s APSR", cond);
-				} else {
-					sprintf(text, "VMRS%s r%i", cond, (op >> 12) & 0xF);
-				}
-				return true;
-			default:
-				break;
-			}
-
-			if (((op >> 19) & 0x7) == 0x7) {
-				// VCVT
-				sprintf(text, "VCVT ...");
-				return true;
-			}
-
-			bool quad_reg = (op >> 6) & 1;
-			bool double_reg = (op >> 8) & 1;
-			char c = double_reg ? 'd' : 's';
-
-			int part1 = ((op >> 23) & 0x1F);
-			int part2 = ((op >> 9) & 0x7) ;
-			int part3 = ((op >> 20) & 0x3) ;
-			if (part3 == 3 && part2 == 5 && part1 == 0x1D) {
-				// VMOV, VCMP
-				int vn = GetVn(op);
-				if (vn != 1 && vn != 2 && vn != 3) {
-					int vm = GetVm(op, false, double_reg);
-					int vd = GetVd(op, false, double_reg);
-
-					const char *name = "VMOV";
-					if (op & 0x40000)
-						name = (op & 0x80) ? "VCMPE" : "VCMP";
-					sprintf(text, "%s%s %c%i, %c%i", name, cond, c, vd, c, vm);
-					return true;
-				}
-			}
-
-			// Moves between single precision registers and GPRs
-			if (((op >> 20) & 0xFFE) == 0xEE0) {
-				int vd = ((op >> 15) & 0x1E) | ((op >> 7) & 0x1);
-				int src = (op >> 12) & 0xF;
-
-				if (op & (1 << 20))
-					sprintf(text, "VMOV r%i, s%i", src, vd);
-				else
-					sprintf(text, "VMOV s%i, r%i", vd, src);
-				return true;
-			}
-
-			// Arithmetic
-
-			int opnum = -1;
-			int opc1 = (op >> 20) & 0xFB;
-			int opc2 = (op >> 4) & 0xAC;
-			for (int i = 0; i < 16; i++) {
-				// What the hell?
-				int fixed_opc2 = opc2;
-				if (!(ArmGen::VFPOps[i][0].opc2 & 0x8))
-					fixed_opc2 &= 0xA7;
-				if (ArmGen::VFPOps[i][0].opc1 == opc1 && ArmGen::VFPOps[i][0].opc2 == fixed_opc2) {
-					opnum = i;
-					break;
-				}
-			}
-			if (opnum < 0)
+	// MOV with a shifted register is printed as the shift.
+	if (opc == 13 && !Bit(w, 25)) {
+		int type = Bits(w, 6, 5);
+		int rm = Bits(w, 3, 0);
+		if (Bit(w, 4)) {
+			if (Bit(w, 7))
 				return false;
-			switch (opnum) {
-			case 8:
-			case 10:
-			case 11:
-			case 12:
-			case 13:
-			case 14:
-				{
-					quad_reg = false;
-					int vd = GetVd(op, quad_reg, double_reg);
-					int vn = GetVn(op, quad_reg, true);
-					int vm = GetVm(op, quad_reg, double_reg);
-					if (opnum == 8 && vn == 0x11)
-						opnum += 3;
-					sprintf(text, "%s%s %c%i, %c%i", ArmGen::VFPOpNames[opnum], cond, c, vd, c, vm);
-					return true;
-				}
-			default:
-				{
-					quad_reg = false;
-					int vd = GetVd(op, quad_reg, double_reg);
-					int vn = GetVn(op, quad_reg, double_reg);
-					int vm = GetVm(op, quad_reg, double_reg);
-					sprintf(text, "%s%s %c%i, %c%i, %c%i", ArmGen::VFPOpNames[opnum], cond, c, vd, c, vn, c, vm);
-					return true;
-				}
-			}
+			o.Add("%s%s%s %s, %s, %s", shiftMnemonics[type], sfx, cond, R(rd), R(rm), R(Bits(w, 11, 8)));
 			return true;
 		}
+		int imm5 = Bits(w, 11, 7);
+		if (type == 3 && imm5 == 0) {
+			o.Add("RRX%s%s %s, %s", sfx, cond, R(rd), R(rm));
+			return true;
+		} else if (type != 0 || imm5 != 0) {
+			o.Add("%s%s%s %s, %s, #%d", shiftMnemonics[type], sfx, cond, R(rd), R(rm), imm5 ? imm5 : 32);
+			return true;
+		}
+	}
+
+	o.Add("%s%s%s ", dataProcNames[opc], sfx, cond);
+	if (compare)
+		o.Add("%s, ", R(rn));
+	else if (opc == 13 || opc == 15)
+		o.Add("%s, ", R(rd));
+	else
+		o.Add("%s, %s, ", R(rd), R(rn));
+
+	if (Bit(w, 25)) {
+		AddImm(o, RotR(w & 0xFF, 2 * Bits(w, 11, 8)));
+	} else {
+		int type = Bits(w, 6, 5);
+		o.Add("%s", R(Bits(w, 3, 0)));
+		if (Bit(w, 4)) {
+			if (Bit(w, 7))
+				return false;
+			o.Add(", %s %s", shiftNames[type], R(Bits(w, 11, 8)));
+		} else {
+			AddShiftImm(o, type, Bits(w, 11, 7));
+		}
+	}
+	return true;
+}
+
+bool DisMultiply(u32 w, Out &o) {
+	bool s = Bit(w, 20);
+	int hi = Bits(w, 19, 16);
+	int lo = Bits(w, 15, 12);
+	int rm = Bits(w, 11, 8);
+	int rn = Bits(w, 3, 0);
+	const char *sfx = s ? "S" : "";
+	const char *cond = Cond(w);
+	switch (Bits(w, 23, 21)) {
+	case 0:
+		o.Add("MUL%s%s %s, %s, %s", sfx, cond, R(hi), R(rn), R(rm));
+		return true;
+	case 1:
+		o.Add("MLA%s%s %s, %s, %s, %s", sfx, cond, R(hi), R(rn), R(rm), R(lo));
+		return true;
+	case 2:
+		if (s)
+			return false;
+		o.Add("UMAAL%s %s, %s, %s, %s", cond, R(lo), R(hi), R(rn), R(rm));
+		return true;
+	case 3:
+		if (s)
+			return false;
+		o.Add("MLS%s %s, %s, %s, %s", cond, R(hi), R(rn), R(rm), R(lo));
+		return true;
+	default:
+		{
+			static const char *const names[4] = { "UMULL", "UMLAL", "SMULL", "SMLAL" };
+			o.Add("%s%s%s %s, %s, %s, %s", names[Bits(w, 22, 21)], sfx, cond, R(lo), R(hi), R(rn), R(rm));
+			return true;
+		}
+	}
+}
+
+bool DisSynchronization(u32 w, Out &o) {
+	int rn = Bits(w, 19, 16);
+	int rd = Bits(w, 15, 12);
+	int rt = Bits(w, 3, 0);
+	const char *cond = Cond(w);
+	int op = Bits(w, 23, 20);
+	static const char *const sizes[4] = { "", "D", "B", "H" };
+	if (op == 0 || op == 4) {
+		o.Add("SWP%s%s %s, %s, [%s]", op == 4 ? "B" : "", cond, R(rd), R(rt), R(rn));
+	} else if ((op & 8) == 0) {
+		return false;
+	} else if (op & 1) {
+		o.Add("LDREX%s%s %s, ", sizes[(op >> 1) & 3], cond, R(rd));
+		if (op == 0xB)
+			o.Add("%s, ", R(rd + 1));
+		o.Add("[%s]", R(rn));
+	} else {
+		o.Add("STREX%s%s %s, %s, ", sizes[(op >> 1) & 3], cond, R(rd), R(rt));
+		if (op == 0xA)
+			o.Add("%s, ", R(rt + 1));
+		o.Add("[%s]", R(rn));
+	}
+	return true;
+}
+
+bool DisExtraLoadStore(u32 w, Out &o) {
+	bool pre = Bit(w, 24), up = Bit(w, 23), writeback = Bit(w, 21), load = Bit(w, 20);
+	int rn = Bits(w, 19, 16);
+	int rt = Bits(w, 15, 12);
+	const char *name = nullptr;
+	bool dual = false;
+	switch (Bits(w, 6, 5)) {
+	case 1: name = load ? "LDRH" : "STRH"; break;
+	case 2: name = load ? "LDRSB" : "LDRD"; dual = !load; break;
+	case 3: name = load ? "LDRSH" : "STRD"; dual = !load; break;
+	}
+	bool unprivileged = !pre && writeback;
+	if (unprivileged && dual)
+		return false;
+
+	char offset[32];
+	if (Bit(w, 22)) {
+		int imm = (Bits(w, 11, 8) << 4) | Bits(w, 3, 0);
+		if (pre && up && imm == 0)
+			offset[0] = 0;
+		else
+			snprintf(offset, sizeof(offset), "#%s%d", up ? "" : "-", imm);
+	} else {
+		snprintf(offset, sizeof(offset), "%s%s", up ? "" : "-", R(Bits(w, 3, 0)));
+	}
+	o.Add("%s%s%s %s, ", name, unprivileged ? "T" : "", Cond(w), R(rt));
+	if (dual)
+		o.Add("%s, ", R(rt + 1));
+	AddAddress(o, rn, pre, writeback, offset);
+	return true;
+}
+
+bool DisLoadStore(u32 w, Out &o) {
+	bool pre = Bit(w, 24), up = Bit(w, 23), byte = Bit(w, 22), writeback = Bit(w, 21), load = Bit(w, 20);
+	int rn = Bits(w, 19, 16);
+	int rt = Bits(w, 15, 12);
+	bool unprivileged = !pre && writeback;
+
+	char offset[48];
+	if (!Bit(w, 25)) {
+		int imm = w & 0xFFF;
+		if (pre && up && imm == 0)
+			offset[0] = 0;
+		else
+			snprintf(offset, sizeof(offset), "#%s%d", up ? "" : "-", imm);
+	} else {
+		int type = Bits(w, 6, 5);
+		int imm5 = Bits(w, 11, 7);
+		int len = snprintf(offset, sizeof(offset), "%s%s", up ? "" : "-", R(Bits(w, 3, 0)));
+		if (type == 3 && imm5 == 0)
+			snprintf(offset + len, sizeof(offset) - len, ", rrx");
+		else if (type != 0 || imm5 != 0)
+			snprintf(offset + len, sizeof(offset) - len, ", %s #%d", shiftNames[type], imm5 ? imm5 : 32);
+	}
+	o.Add("%s%s%s%s %s, ", load ? "LDR" : "STR", byte ? "B" : "", unprivileged ? "T" : "", Cond(w), R(rt));
+	AddAddress(o, rn, pre, writeback, offset);
+	return true;
+}
+
+// MRS, MSR (register), BX, BLX, CLZ, BKPT, QADD and friends.
+bool DisMisc(u32 w, Out &o) {
+	int op = Bits(w, 22, 21);
+	const char *cond = Cond(w);
+	switch (Bits(w, 6, 4)) {
+	case 0:
+		if (Bit(w, 9))
+			return false;
+		if (!(op & 1)) {
+			o.Add("MRS%s %s, %s", cond, R(Bits(w, 15, 12)), Bit(w, 22) ? "spsr" : "apsr");
+		} else {
+			int mask = Bits(w, 19, 16);
+			if (op == 1 && (mask & 3) == 0) {
+				if (mask == 0)
+					return false;
+				o.Add("MSR%s APSR_%s%s, %s", cond, (mask & 8) ? "nzcvq" : "", (mask & 4) ? "g" : "", R(Bits(w, 3, 0)));
+			} else {
+				o.Add("MSR%s %s_%s%s%s%s, %s", cond, Bit(w, 22) ? "SPSR" : "CPSR",
+					(mask & 8) ? "f" : "", (mask & 4) ? "s" : "", (mask & 2) ? "x" : "", (mask & 1) ? "c" : "", R(Bits(w, 3, 0)));
+			}
+		}
+		return true;
+	case 1:
+		if (op == 1)
+			o.Add("BX%s %s", cond, R(Bits(w, 3, 0)));
+		else if (op == 3)
+			o.Add("CLZ%s %s, %s", cond, R(Bits(w, 15, 12)), R(Bits(w, 3, 0)));
+		else
+			return false;
+		return true;
+	case 2:
+		if (op != 1)
+			return false;
+		o.Add("BXJ%s %s", cond, R(Bits(w, 3, 0)));
+		return true;
+	case 3:
+		if (op != 1)
+			return false;
+		o.Add("BLX%s %s", cond, R(Bits(w, 3, 0)));
+		return true;
+	case 5:
+		{
+			static const char *const names[4] = { "QADD", "QSUB", "QDADD", "QDSUB" };
+			o.Add("%s%s %s, %s, %s", names[op], cond, R(Bits(w, 15, 12)), R(Bits(w, 3, 0)), R(Bits(w, 19, 16)));
+			return true;
+		}
+	case 7:
+		if (op == 1)
+			o.Add("BKPT #%d", (Bits(w, 19, 8) << 4) | Bits(w, 3, 0));
+		else if (op == 3)
+			o.Add("SMC%s #%d", cond, Bits(w, 3, 0));
+		else
+			return false;
+		return true;
+	default:
+		return false;
+	}
+}
+
+// SMLA<x><y> and the other 16-bit multiplies.
+bool DisHalfwordMultiply(u32 w, Out &o) {
+	int rd = Bits(w, 19, 16);
+	int ra = Bits(w, 15, 12);
+	int rm = Bits(w, 11, 8);
+	int rn = Bits(w, 3, 0);
+	char x = Bit(w, 5) ? 'T' : 'B';
+	char y = Bit(w, 6) ? 'T' : 'B';
+	const char *cond = Cond(w);
+	switch (Bits(w, 22, 21)) {
+	case 0:
+		o.Add("SMLA%c%c%s %s, %s, %s, %s", x, y, cond, R(rd), R(rn), R(rm), R(ra));
+		break;
+	case 1:
+		if (Bit(w, 5))
+			o.Add("SMULW%c%s %s, %s, %s", y, cond, R(rd), R(rn), R(rm));
+		else
+			o.Add("SMLAW%c%s %s, %s, %s, %s", y, cond, R(rd), R(rn), R(rm), R(ra));
+		break;
+	case 2:
+		o.Add("SMLAL%c%c%s %s, %s, %s, %s", x, y, cond, R(ra), R(rd), R(rn), R(rm));
+		break;
+	case 3:
+		o.Add("SMUL%c%c%s %s, %s, %s", x, y, cond, R(rd), R(rn), R(rm));
 		break;
 	}
-#endif
+	return true;
+}
+
+// MOVW, MOVT, MSR (immediate) and the hints.
+bool DisMovImmAndHints(u32 w, Out &o) {
+	const char *cond = Cond(w);
+	int rd = Bits(w, 15, 12);
+	switch (Bits(w, 22, 21)) {
+	case 0:
+		o.Add("MOVW%s %s, #0x%x", cond, R(rd), (Bits(w, 19, 16) << 12) | Bits(w, 11, 0));
+		return true;
+	case 2:
+		o.Add("MOVT%s %s, #0x%x", cond, R(rd), (Bits(w, 19, 16) << 12) | Bits(w, 11, 0));
+		return true;
+	default:
+		break;
+	}
+
+	int mask = Bits(w, 19, 16);
+	if (!Bit(w, 22) && mask == 0) {
+		static const char *const hints[5] = { "NOP", "YIELD", "WFE", "WFI", "SEV" };
+		int hint = Bits(w, 7, 0);
+		if (hint < 5)
+			o.Add("%s%s", hints[hint], cond);
+		else if (hint >= 0xF0)
+			o.Add("DBG%s #%d", cond, hint & 15);
+		else
+			o.Add("HINT%s #%d", cond, hint);
+		return true;
+	}
+
+	u32 imm = RotR(w & 0xFF, 2 * Bits(w, 11, 8));
+	if (!Bit(w, 22) && (mask & 3) == 0) {
+		o.Add("MSR%s APSR_%s%s, ", cond, (mask & 8) ? "nzcvq" : "", (mask & 4) ? "g" : "");
+	} else {
+		o.Add("MSR%s %s_%s%s%s%s, ", cond, Bit(w, 22) ? "SPSR" : "CPSR",
+			(mask & 8) ? "f" : "", (mask & 4) ? "s" : "", (mask & 2) ? "x" : "", (mask & 1) ? "c" : "");
+	}
+	AddImm(o, imm);
+	return true;
+}
+
+bool DisMedia(u32 w, Out &o) {
+	int op1 = Bits(w, 24, 20);
+	int op2 = Bits(w, 7, 5);
+	int rn = Bits(w, 19, 16);
+	int rd = Bits(w, 15, 12);
+	int rs = Bits(w, 11, 8);
+	int rm = Bits(w, 3, 0);
+	const char *cond = Cond(w);
+
+	if ((op1 & 0x18) == 0) {
+		// Parallel add and subtract.
+		static const char *const prefixes[2][4] = { { nullptr, "S", "Q", "SH" }, { nullptr, "U", "UQ", "UH" } };
+		static const char *const ops[8] = { "ADD16", "ASX", "SAX", "SUB16", "ADD8", nullptr, nullptr, "SUB8" };
+		const char *prefix = prefixes[Bit(w, 22)][op1 & 3];
+		if (!prefix || !ops[op2] || Bit(w, 23))
+			return false;
+		o.Add("%s%s%s %s, %s, %s", prefix, ops[op2], cond, R(rd), R(rn), R(rm));
+		return true;
+	}
+
+	if ((op1 & 0x18) == 0x08) {
+		// Packing, unpacking, saturation and reversal.
+		int sub = op1 & 7;
+		int imm5 = Bits(w, 11, 7);
+		if (sub == 0 && (op2 & 1) == 0) {
+			bool tb = Bit(w, 6);
+			o.Add("PKH%s%s %s, %s, %s", tb ? "TB" : "BT", cond, R(rd), R(rn), R(rm));
+			if (tb || imm5)
+				o.Add(", %s #%d", tb ? "asr" : "lsl", (tb && imm5 == 0) ? 32 : imm5);
+			return true;
+		}
+		if ((sub & 2) && (op2 & 1) == 0) {
+			bool isUnsigned = (sub & 4) != 0;
+			int sat = Bits(w, 20, 16) + (isUnsigned ? 0 : 1);
+			o.Add("%s%s %s, #%d, %s", isUnsigned ? "USAT" : "SSAT", cond, R(rd), sat, R(rm));
+			if (Bit(w, 6))
+				o.Add(", asr #%d", imm5 ? imm5 : 32);
+			else if (imm5)
+				o.Add(", lsl #%d", imm5);
+			return true;
+		}
+		if (op2 == 3) {
+			static const char *const names[8] = { "SXTAB16", nullptr, "SXTAB", "SXTAH", "UXTAB16", nullptr, "UXTAB", "UXTAH" };
+			const char *name = names[sub];
+			if (!name)
+				return false;
+			if (rn == 15)
+				o.Add("%.3s%s%s %s, %s", name, name + 4, cond, R(rd), R(rm));
+			else
+				o.Add("%s%s %s, %s, %s", name, cond, R(rd), R(rn), R(rm));
+			int rot = Bits(w, 11, 10);
+			if (rot)
+				o.Add(", ror #%d", rot * 8);
+			return true;
+		}
+		if (sub == 0 && op2 == 5) {
+			o.Add("SEL%s %s, %s, %s", cond, R(rd), R(rn), R(rm));
+			return true;
+		}
+		if ((sub == 2 || sub == 6) && op2 == 1) {
+			bool isUnsigned = sub == 6;
+			o.Add("%s%s %s, #%d, %s", isUnsigned ? "USAT16" : "SSAT16", cond, R(rd), Bits(w, 19, 16) + (isUnsigned ? 0 : 1), R(rm));
+			return true;
+		}
+		const char *name = nullptr;
+		if (sub == 3 && op2 == 1)
+			name = "REV";
+		else if (sub == 3 && op2 == 5)
+			name = "REV16";
+		else if (sub == 7 && op2 == 1)
+			name = "RBIT";
+		else if (sub == 7 && op2 == 5)
+			name = "REVSH";
+		if (!name)
+			return false;
+		o.Add("%s%s %s, %s", name, cond, R(rd), R(rm));
+		return true;
+	}
+
+	if ((op1 & 0x18) == 0x10) {
+		// Signed multiplies and divides. Rd is in 19:16 here, Ra in 15:12.
+		int sub = op1 & 7;
+		const char *x = (op2 & 1) ? "X" : "";
+		if (sub == 0 && op2 < 4) {
+			const char *name = op2 < 2 ? (rd == 15 ? "SMUAD" : "SMLAD") : (rd == 15 ? "SMUSD" : "SMLSD");
+			o.Add("%s%s%s %s, %s, %s", name, x, cond, R(rn), R(rm), R(rs));
+			if (rd != 15)
+				o.Add(", %s", R(rd));
+			return true;
+		}
+		if ((sub == 1 || sub == 3) && op2 == 0) {
+			o.Add("%s%s %s, %s, %s", sub == 1 ? "SDIV" : "UDIV", cond, R(rn), R(rm), R(rs));
+			return true;
+		}
+		if (sub == 4 && op2 < 4) {
+			o.Add("%s%s%s %s, %s, %s, %s", op2 < 2 ? "SMLALD" : "SMLSLD", x, cond, R(rd), R(rn), R(rm), R(rs));
+			return true;
+		}
+		if (sub == 5 && (op2 < 2 || op2 >= 6)) {
+			const char *name = op2 >= 6 ? "SMMLS" : (rd == 15 ? "SMMUL" : "SMMLA");
+			o.Add("%s%s%s %s, %s, %s", name, x, cond, R(rn), R(rm), R(rs));
+			if (rd != 15 || op2 >= 6)
+				o.Add(", %s", R(rd));
+			return true;
+		}
+		return false;
+	}
+
+	if (op1 == 0x18 && op2 == 0) {
+		if (rd == 15)
+			o.Add("USAD8%s %s, %s, %s", cond, R(rn), R(rm), R(rs));
+		else
+			o.Add("USADA8%s %s, %s, %s, %s", cond, R(rn), R(rm), R(rs), R(rd));
+		return true;
+	}
+
+	int lsb = Bits(w, 11, 7);
+	int msb = Bits(w, 20, 16);
+	if ((op1 & 0x1E) == 0x1A && (op2 & 3) == 2) {
+		o.Add("SBFX%s %s, %s, #%d, #%d", cond, R(rd), R(rm), lsb, msb + 1);
+		return true;
+	}
+	if ((op1 & 0x1E) == 0x1E && (op2 & 3) == 2) {
+		o.Add("UBFX%s %s, %s, #%d, #%d", cond, R(rd), R(rm), lsb, msb + 1);
+		return true;
+	}
+	if ((op1 & 0x1E) == 0x1C && (op2 & 3) == 0) {
+		if (msb < lsb)
+			return false;
+		if (rm == 15)
+			o.Add("BFC%s %s, #%d, #%d", cond, R(rd), lsb, msb - lsb + 1);
+		else
+			o.Add("BFI%s %s, %s, #%d, #%d", cond, R(rd), R(rm), lsb, msb - lsb + 1);
+		return true;
+	}
+	if (op1 == 0x1F && op2 == 7) {
+		o.Add("UDF #%d", (Bits(w, 19, 8) << 4) | Bits(w, 3, 0));
+		return true;
+	}
 	return false;
 }
 
-static const char *GetSizeString(int sz) {
-	switch (sz) {
-	case 0:
-		return "8";
-	case 1:
-		return "16";
-	case 2:
-		return "32";
-	case 3:
-		return "64";
-	default:
-		return "(err)";
+bool DisBlockTransfer(u32 w, Out &o) {
+	bool pre = Bit(w, 24), up = Bit(w, 23), user = Bit(w, 22), writeback = Bit(w, 21), load = Bit(w, 20);
+	int rn = Bits(w, 19, 16);
+	u32 list = w & 0xFFFF;
+	int count = 0;
+	for (int i = 0; i < 16; i++)
+		count += (list >> i) & 1;
+
+	bool stack = load ? (!pre && up) : (pre && !up);
+	if (rn == 13 && writeback && !user && stack && count >= 2) {
+		o.Add("%s%s ", load ? "POP" : "PUSH", Cond(w));
+	} else {
+		static const char *const modes[2][2] = { { "DA", "IA" }, { "DB", "IB" } };
+		o.Add("%s%s%s %s%s, ", load ? "LDM" : "STM", modes[pre][up], Cond(w), R(rn), writeback ? "!" : "");
+	}
+	AddRegList(o, list);
+	if (user)
+		o.Add("^");
+	return true;
+}
+
+// VFP
+
+int SReg(int hi4, int lo1) {
+	return (hi4 << 1) | lo1;
+}
+
+int DReg(int hi1, int lo4) {
+	return (hi1 << 4) | lo4;
+}
+
+// A VFP register from a 4-bit field and the extra bit, as S or D depending on dbl.
+int VfpReg(bool dbl, int field, int extra) {
+	return dbl ? DReg(extra, field) : SReg(field, extra);
+}
+
+bool DisVfpLoadStore(u32 w, Out &o) {
+	bool pre = Bit(w, 24), up = Bit(w, 23), writeback = Bit(w, 21), load = Bit(w, 20);
+	bool dbl = Bit(w, 8);
+	int rn = Bits(w, 19, 16);
+	int imm8 = Bits(w, 7, 0);
+	char t = dbl ? 'd' : 's';
+	int vd = VfpReg(dbl, Bits(w, 15, 12), Bit(w, 22));
+	const char *cond = Cond(w);
+
+	if (pre && !writeback) {
+		o.Add("%s%s %c%d, ", load ? "VLDR" : "VSTR", cond, t, vd);
+		int offset = imm8 * 4;
+		if (up && offset == 0)
+			o.Add("[%s]", R(rn));
+		else
+			o.Add("[%s, #%s%d]", R(rn), up ? "" : "-", offset);
+		return true;
+	}
+	if (pre == up || (dbl && (imm8 & 1)) || imm8 == 0)
+		return false;
+
+	int count = dbl ? imm8 / 2 : imm8;
+	bool stack = load ? (!pre && up) : (pre && !up);
+	if (rn == 13 && writeback && stack) {
+		o.Add("%s%s ", load ? "VPOP" : "VPUSH", cond);
+	} else {
+		o.Add("%s%s%s %s%s, ", load ? "VLDM" : "VSTM", pre ? "DB" : "IA", cond, R(rn), writeback ? "!" : "");
+	}
+	if (count == 1)
+		o.Add("{%c%d}", t, vd);
+	else
+		o.Add("{%c%d-%c%d}", t, vd, t, vd + count - 1);
+	return true;
+}
+
+bool DisVfp64Transfer(u32 w, Out &o) {
+	if (Bits(w, 7, 6) != 0 || !Bit(w, 4))
+		return false;
+	bool toCore = Bit(w, 20);
+	int rt = Bits(w, 15, 12);
+	int rt2 = Bits(w, 19, 16);
+	const char *cond = Cond(w);
+	if (Bit(w, 8)) {
+		int dm = DReg(Bit(w, 5), Bits(w, 3, 0));
+		if (toCore)
+			o.Add("VMOV%s %s, %s, d%d", cond, R(rt), R(rt2), dm);
+		else
+			o.Add("VMOV%s d%d, %s, %s", cond, dm, R(rt), R(rt2));
+	} else {
+		int sm = SReg(Bits(w, 3, 0), Bit(w, 5));
+		if (toCore)
+			o.Add("VMOV%s %s, %s, s%d, s%d", cond, R(rt), R(rt2), sm, sm + 1);
+		else
+			o.Add("VMOV%s s%d, s%d, %s, %s", cond, sm, sm + 1, R(rt), R(rt2));
+	}
+	return true;
+}
+
+// Size and index of a scalar from VMOV's opc1:opc2 field.
+bool DecodeScalarIndex(int opc1, int opc2, int *size, int *index) {
+	if (opc1 & 2) {
+		*size = 8;
+		*index = ((opc1 & 1) << 2) | opc2;
+	} else if (opc2 & 1) {
+		*size = 16;
+		*index = ((opc1 & 1) << 1) | (opc2 >> 1);
+	} else if (opc2 == 0) {
+		*size = 32;
+		*index = opc1 & 1;
+	} else {
+		return false;
+	}
+	return true;
+}
+
+const char *VfpSysRegName(int reg) {
+	switch (reg) {
+	case 0: return "fpsid";
+	case 1: return "fpscr";
+	case 6: return "mvfr1";
+	case 7: return "mvfr0";
+	case 8: return "fpexc";
+	default: return nullptr;
 	}
 }
 
-static const char *GetISizeString(int sz) {
-	switch (sz) {
-	case 0:
-		return "i8";
-	case 1:
-		return "i16";
-	case 2:
-		return "i32";
-	case 3:
-		return "i64";
-	default:
-		return "(err)";
-	}
-}
+// Moves between a core register and an S register, a scalar or a system register, and VDUP.
+bool DisVfpTransfer(u32 w, Out &o) {
+	bool load = Bit(w, 20);
+	int a = Bits(w, 23, 21);
+	int rt = Bits(w, 15, 12);
+	const char *cond = Cond(w);
+	if (Bits(w, 3, 0) != 0)
+		return false;
 
-static int GetRegCount(int type) {
-	switch (type) {
-	case 7: return 1;
-	case 10: return 2;
-	case 6: return 3;
-	case 4: return 4;
-	default:
-		return 0;
-	}
-}
-
-// VLD1 / VST1
-static bool DisasmNeonLDST(uint32_t op, char *text) {
-	bool load = (op >> 21) & 1;
-	int Rn = (op >> 16) & 0xF;
-	int Rm = (op & 0xF);
-	int Vd = GetVd(op, false, true);
-
-	const char *name = load ? "LD" : "ST";
-	const char *suffix = "";
-	if (Rm == 13)
-		suffix = "!";
-
-	if ((op & (1 << 23)) == 0) {
-		int sz = (op >> 6) & 3;
-		int regCount = GetRegCount((op >> 8) & 0xF);
-
-		int startReg = Vd;
-		int endReg = Vd + regCount - 1;
-
-		if (Rm != 15 && Rm != 13) {
-			sprintf(text, "V%s1 - regsum", name);
-		} else {
-			if (startReg == endReg)
-				sprintf(text, "V%s1.%s {d%i}, [r%i]%s", name, GetSizeString(sz), startReg, Rn, suffix);
+	if (!Bit(w, 8)) {
+		if (a == 0) {
+			int sn = SReg(Bits(w, 19, 16), Bit(w, 7));
+			if (load)
+				o.Add("VMOV%s %s, s%d", cond, R(rt), sn);
 			else
-				sprintf(text, "V%s1.%s {d%i-d%i}, [r%i]%s", name, GetSizeString(sz), startReg, endReg, Rn, suffix);
+				o.Add("VMOV%s s%d, %s", cond, sn, R(rt));
+			return true;
+		} else if (a == 7) {
+			const char *reg = VfpSysRegName(Bits(w, 19, 16));
+			if (!reg)
+				return false;
+			if (!load)
+				o.Add("VMSR%s %s, %s", cond, reg, R(rt));
+			else if (rt == 15)
+				o.Add("VMRS%s APSR_nzcv, %s", cond, reg);
+			else
+				o.Add("VMRS%s %s, %s", cond, R(rt), reg);
+			return true;
+		}
+		return false;
+	}
+
+	int dn = DReg(Bit(w, 7), Bits(w, 19, 16));
+	if (!load && (a & 4)) {
+		if (Bit(w, 6))
+			return false;
+		int be = (Bit(w, 22) << 1) | Bit(w, 5);
+		if (be == 3)
+			return false;
+		static const int sizes[3] = { 32, 16, 8 };
+		bool q = Bit(w, 21);
+		if (q)
+			o.Add("VDUP%s.%d q%d, %s", cond, sizes[be], dn >> 1, R(rt));
+		else
+			o.Add("VDUP%s.%d d%d, %s", cond, sizes[be], dn, R(rt));
+		return true;
+	}
+
+	int size, index;
+	if (!DecodeScalarIndex(Bits(w, 22, 21), Bits(w, 6, 5), &size, &index))
+		return false;
+	if (!load) {
+		o.Add("VMOV%s.%d d%d[%d], %s", cond, size, dn, index, R(rt));
+	} else {
+		bool isUnsigned = Bit(w, 23);
+		if (size == 32 && isUnsigned)
+			return false;
+		if (size == 32)
+			o.Add("VMOV%s.32 %s, d%d[%d]", cond, R(rt), dn, index);
+		else
+			o.Add("VMOV%s.%c%d %s, d%d[%d]", cond, isUnsigned ? 'u' : 's', size, R(rt), dn, index);
+	}
+	return true;
+}
+
+bool DisVfpData(u32 w, Out &o) {
+	bool dbl = Bit(w, 8);
+	char t = dbl ? 'd' : 's';
+	const char *dt = dbl ? ".f64" : ".f32";
+	const char *cond = Cond(w);
+	int vd = VfpReg(dbl, Bits(w, 15, 12), Bit(w, 22));
+	int vn = VfpReg(dbl, Bits(w, 19, 16), Bit(w, 7));
+	int vm = VfpReg(dbl, Bits(w, 3, 0), Bit(w, 5));
+	bool op6 = Bit(w, 6);
+
+	int opc1 = (Bit(w, 23) << 2) | Bits(w, 21, 20);
+	if (opc1 != 7) {
+		static const char *const names[7][2] = {
+			{ "VMLA", "VMLS" }, { "VNMLS", "VNMLA" }, { "VMUL", "VNMUL" }, { "VADD", "VSUB" },
+			{ "VDIV", nullptr }, { "VFNMS", "VFNMA" }, { "VFMA", "VFMS" },
+		};
+		const char *name = names[opc1][op6];
+		if (!name)
+			return false;
+		o.Add("%s%s%s %c%d, %c%d, %c%d", name, cond, dt, t, vd, t, vn, t, vm);
+		return true;
+	}
+
+	if (!op6) {
+		if (Bits(w, 7, 4) != 0)
+			return false;
+		o.Add("VMOV%s%s %c%d, ", cond, dt, t, vd);
+		AddFloat(o, ExpandFloatImm((Bits(w, 19, 16) << 4) | Bits(w, 3, 0)));
+		return true;
+	}
+
+	bool op7 = Bit(w, 7);
+	int sd = SReg(Bits(w, 15, 12), Bit(w, 22));
+	int sm = SReg(Bits(w, 3, 0), Bit(w, 5));
+	int dd = DReg(Bit(w, 22), Bits(w, 15, 12));
+	int dm = DReg(Bit(w, 5), Bits(w, 3, 0));
+	int opc2 = Bits(w, 19, 16);
+	switch (opc2) {
+	case 0:
+		o.Add("%s%s%s %c%d, %c%d", op7 ? "VABS" : "VMOV", cond, dt, t, vd, t, vm);
+		return true;
+	case 1:
+		o.Add("%s%s%s %c%d, %c%d", op7 ? "VSQRT" : "VNEG", cond, dt, t, vd, t, vm);
+		return true;
+	case 2:
+	case 3:
+		if (dbl)
+			return false;
+		o.Add("VCVT%c%s%s s%d, s%d", op7 ? 'T' : 'B', cond, (opc2 & 1) ? ".f16.f32" : ".f32.f16", sd, sm);
+		return true;
+	case 4:
+		o.Add("%s%s%s %c%d, %c%d", op7 ? "VCMPE" : "VCMP", cond, dt, t, vd, t, vm);
+		return true;
+	case 5:
+		if (Bits(w, 5, 0) != 0)
+			return false;
+		o.Add("%s%s%s %c%d, #0.0", op7 ? "VCMPE" : "VCMP", cond, dt, t, vd);
+		return true;
+	case 7:
+		if (!op7)
+			return false;
+		if (dbl)
+			o.Add("VCVT%s.f32.f64 s%d, d%d", cond, sd, dm);
+		else
+			o.Add("VCVT%s.f64.f32 d%d, s%d", cond, dd, sm);
+		return true;
+	case 8:
+		o.Add("VCVT%s%s.%c32 %c%d, s%d", cond, dt, op7 ? 's' : 'u', t, vd, sm);
+		return true;
+	case 12:
+	case 13:
+		o.Add("VCVT%s%s.%c32%s s%d, %c%d", op7 ? "" : "R", cond, (opc2 & 1) ? 's' : 'u', dt, sd, t, vm);
+		return true;
+	case 10:
+	case 11:
+	case 14:
+	case 15:
+		{
+			// Fixed point, in place.
+			int size = op7 ? 32 : 16;
+			int imm = SReg(Bits(w, 3, 0), Bit(w, 5));
+			char fx = Bit(w, 16) ? 'u' : 's';
+			if (Bit(w, 18))
+				o.Add("VCVT%s.%c%d%s %c%d, %c%d, #%d", cond, fx, size, dt, t, vd, t, vd, size - imm);
+			else
+				o.Add("VCVT%s%s.%c%d %c%d, %c%d, #%d", cond, dt, fx, size, t, vd, t, vd, size - imm);
+			return true;
+		}
+	default:
+		return false;
+	}
+}
+
+bool DisCoprocessor(u32 w, Out &o) {
+	if (Bits(w, 27, 24) == 0xF) {
+		o.Add("SVC%s #0x%x", Cond(w), Bits(w, 23, 0));
+		return true;
+	}
+	if ((Bits(w, 11, 8) & 0xE) != 0xA)
+		return false;
+	if (Bits(w, 27, 25) == 6) {
+		if (Bits(w, 24, 21) == 2)
+			return DisVfp64Transfer(w, o);
+		if (Bits(w, 24, 21) == 0)
+			return false;
+		return DisVfpLoadStore(w, o);
+	}
+	return Bit(w, 4) ? DisVfpTransfer(w, o) : DisVfpData(w, o);
+}
+
+// NEON
+
+int NeonD(u32 w) {
+	return DReg(Bit(w, 22), Bits(w, 15, 12));
+}
+
+int NeonN(u32 w) {
+	return DReg(Bit(w, 7), Bits(w, 19, 16));
+}
+
+int NeonM(u32 w) {
+	return DReg(Bit(w, 5), Bits(w, 3, 0));
+}
+
+// Register text for a D register number, printed as Q if q is set.
+struct V {
+	V(bool q, int d) {
+		snprintf(s, sizeof(s), q ? "q%d" : "d%d", q ? d >> 1 : d);
+	}
+	char s[8];
+};
+
+enum class Dt {
+	NONE,
+	SU,  // .s or .u depending on U
+	I,
+	S,
+	U,
+	F,
+	P,
+	PLAIN,  // just the size: .8
+};
+
+void AddDt(Out &o, Dt dt, bool u, int bits) {
+	switch (dt) {
+	case Dt::NONE: break;
+	case Dt::SU: o.Add(".%c%d", u ? 'u' : 's', bits); break;
+	case Dt::I: o.Add(".i%d", bits); break;
+	case Dt::S: o.Add(".s%d", bits); break;
+	case Dt::U: o.Add(".u%d", bits); break;
+	case Dt::F: o.Add(".f32"); break;
+	case Dt::P: o.Add(".p%d", bits); break;
+	case Dt::PLAIN: o.Add(".%d", bits); break;
+	}
+}
+
+bool DisNeon3Same(u32 w, Out &o) {
+	int a = Bits(w, 11, 8);
+	bool b = Bit(w, 4);
+	bool u = Bit(w, 24);
+	int c = Bits(w, 21, 20);
+	bool q = Bit(w, 6);
+	const char *name = nullptr;
+	Dt dt = Dt::SU;
+	bool shiftOrder = false;
+	bool pairwise = false;
+	bool fsz = (c & 1) == 0;  // the float ops only exist with sz == 0
+	bool cHi = (c & 2) != 0;
+
+	switch (a) {
+	case 0: name = b ? "VQADD" : "VHADD"; break;
+	case 1:
+		if (!b) {
+			name = "VRHADD";
+		} else {
+			static const char *const logic[2][4] = { { "VAND", "VBIC", "VORR", "VORN" }, { "VEOR", "VBSL", "VBIT", "VBIF" } };
+			name = logic[u][c];
+			dt = Dt::NONE;
+			if (!u && c == 2 && NeonN(w) == NeonM(w)) {
+				o.Add("VMOV %s, %s", V(q, NeonD(w)).s, V(q, NeonM(w)).s);
+				return true;
+			}
+		}
+		break;
+	case 2: name = b ? "VQSUB" : "VHSUB"; break;
+	case 3: name = b ? "VCGE" : "VCGT"; break;
+	case 4: name = b ? "VQSHL" : "VSHL"; shiftOrder = true; break;
+	case 5: name = b ? "VQRSHL" : "VRSHL"; shiftOrder = true; break;
+	case 6: name = b ? "VMIN" : "VMAX"; break;
+	case 7: name = b ? "VABA" : "VABD"; break;
+	case 8:
+		name = b ? (u ? "VCEQ" : "VTST") : (u ? "VSUB" : "VADD");
+		dt = (b && !u) ? Dt::PLAIN : Dt::I;
+		break;
+	case 9:
+		if (!b) {
+			name = u ? "VMLS" : "VMLA";
+			dt = Dt::I;
+		} else {
+			name = "VMUL";
+			dt = u ? Dt::P : Dt::I;
+		}
+		break;
+	case 10: name = b ? "VPMIN" : "VPMAX"; pairwise = true; break;
+	case 11:
+		if (!b) {
+			name = u ? "VQRDMULH" : "VQDMULH";
+			dt = Dt::S;
+		} else if (!u) {
+			name = "VPADD";
+			dt = Dt::I;
+			pairwise = true;
+		}
+		break;
+	case 12:
+		if (b && !u && fsz)
+			name = cHi ? "VFMS" : "VFMA";
+		dt = Dt::F;
+		break;
+	case 13:
+		if (!b) {
+			name = u ? (cHi ? "VABD" : "VPADD") : (cHi ? "VSUB" : "VADD");
+			pairwise = u && !cHi;
+		} else if (!u) {
+			name = cHi ? "VMLS" : "VMLA";
+		} else if (!cHi) {
+			name = "VMUL";
+		}
+		if (!fsz)
+			name = nullptr;
+		dt = Dt::F;
+		break;
+	case 14:
+		if (!b) {
+			name = u ? (cHi ? "VCGT" : "VCGE") : (cHi ? nullptr : "VCEQ");
+		} else if (u) {
+			name = cHi ? "VACGT" : "VACGE";
+		}
+		if (!fsz)
+			name = nullptr;
+		dt = Dt::F;
+		break;
+	case 15:
+		if (!b) {
+			name = cHi ? (u ? "VPMIN" : "VMIN") : (u ? "VPMAX" : "VMAX");
+			pairwise = u;
+		} else if (!u) {
+			name = cHi ? "VRSQRTS" : "VRECPS";
+		}
+		if (!fsz)
+			name = nullptr;
+		dt = Dt::F;
+		break;
+	}
+	if (!name || (pairwise && q))
+		return false;
+	if (c == 3 && dt != Dt::NONE && dt != Dt::F && a != 8 && a != 0 && a != 2 && a != 4 && a != 5)
+		return false;
+
+	o.Add("%s", name);
+	AddDt(o, dt, u, 8 << c);
+	if (shiftOrder)
+		o.Add(" %s, %s, %s", V(q, NeonD(w)).s, V(q, NeonM(w)).s, V(q, NeonN(w)).s);
+	else
+		o.Add(" %s, %s, %s", V(q, NeonD(w)).s, V(q, NeonN(w)).s, V(q, NeonM(w)).s);
+	return true;
+}
+
+bool DisNeon3Diff(u32 w, Out &o) {
+	int a = Bits(w, 11, 8);
+	bool u = Bit(w, 24);
+	int size = Bits(w, 21, 20);
+	enum Shape { LONG, WIDE, NARROW } shape = LONG;
+	const char *name = nullptr;
+	Dt dt = Dt::SU;
+	int bits = 8 << size;
+	switch (a) {
+	case 0: name = "VADDL"; break;
+	case 1: name = "VADDW"; shape = WIDE; break;
+	case 2: name = "VSUBL"; break;
+	case 3: name = "VSUBW"; shape = WIDE; break;
+	case 4: name = u ? "VRADDHN" : "VADDHN"; shape = NARROW; dt = Dt::I; bits *= 2; break;
+	case 5: name = "VABAL"; break;
+	case 6: name = u ? "VRSUBHN" : "VSUBHN"; shape = NARROW; dt = Dt::I; bits *= 2; break;
+	case 7: name = "VABDL"; break;
+	case 8: name = "VMLAL"; break;
+	case 9: name = u ? nullptr : "VQDMLAL"; dt = Dt::S; break;
+	case 10: name = "VMLSL"; break;
+	case 11: name = u ? nullptr : "VQDMLSL"; dt = Dt::S; break;
+	case 12: name = "VMULL"; break;
+	case 13: name = u ? nullptr : "VQDMULL"; dt = Dt::S; break;
+	case 14: name = u ? nullptr : "VMULL"; dt = Dt::P; break;
+	}
+	if (!name)
+		return false;
+	o.Add("%s", name);
+	AddDt(o, dt, u, bits);
+	int d = NeonD(w), n = NeonN(w), m = NeonM(w);
+	switch (shape) {
+	case LONG: o.Add(" q%d, d%d, d%d", d >> 1, n, m); break;
+	case WIDE: o.Add(" q%d, q%d, d%d", d >> 1, n >> 1, m); break;
+	case NARROW: o.Add(" d%d, q%d, q%d", d, n >> 1, m >> 1); break;
+	}
+	return true;
+}
+
+bool DisNeonScalar(u32 w, Out &o) {
+	int a = Bits(w, 11, 8);
+	bool u = Bit(w, 24);
+	int size = Bits(w, 21, 20);
+	if (size == 0)
+		return false;
+	int bits = 8 << size;
+	const char *name = nullptr;
+	Dt dt = Dt::I;
+	bool longOp = false;
+	switch (a) {
+	case 0: name = "VMLA"; break;
+	case 1: name = "VMLA"; dt = Dt::F; break;
+	case 2: name = "VMLAL"; dt = Dt::SU; longOp = true; break;
+	case 3: name = u ? nullptr : "VQDMLAL"; dt = Dt::S; longOp = true; break;
+	case 4: name = "VMLS"; break;
+	case 5: name = "VMLS"; dt = Dt::F; break;
+	case 6: name = "VMLSL"; dt = Dt::SU; longOp = true; break;
+	case 7: name = u ? nullptr : "VQDMLSL"; dt = Dt::S; longOp = true; break;
+	case 8: name = "VMUL"; break;
+	case 9: name = "VMUL"; dt = Dt::F; break;
+	case 10: name = "VMULL"; dt = Dt::SU; longOp = true; break;
+	case 11: name = u ? nullptr : "VQDMULL"; dt = Dt::S; longOp = true; break;
+	case 12: name = "VQDMULH"; dt = Dt::S; break;
+	case 13: name = "VQRDMULH"; dt = Dt::S; break;
+	}
+	if (!name || (dt == Dt::F && size != 2))
+		return false;
+
+	int dm, index;
+	if (size == 1) {
+		dm = Bits(w, 2, 0);
+		index = (Bit(w, 5) << 1) | Bit(w, 3);
+	} else {
+		dm = Bits(w, 3, 0);
+		index = Bit(w, 5);
+	}
+	o.Add("%s", name);
+	AddDt(o, dt, u, bits);
+	int d = NeonD(w), n = NeonN(w);
+	if (longOp)
+		o.Add(" q%d, d%d, d%d[%d]", d >> 1, n, dm, index);
+	else
+		o.Add(" %s, %s, d%d[%d]", V(u, d).s, V(u, n).s, dm, index);
+	return true;
+}
+
+bool DisNeonShift(u32 w, Out &o) {
+	int a = Bits(w, 11, 8);
+	bool u = Bit(w, 24);
+	bool l = Bit(w, 7);
+	bool q = Bit(w, 6);
+	int imm6 = Bits(w, 21, 16);
+	int esize;
+	if (l)
+		esize = 64;
+	else if (imm6 & 0x20)
+		esize = 32;
+	else if (imm6 & 0x10)
+		esize = 16;
+	else
+		esize = 8;
+	int rightShift = (l ? 64 : 2 * esize) - imm6;
+	int leftShift = l ? imm6 : imm6 - esize;
+	int d = NeonD(w), m = NeonM(w);
+
+	const char *name = nullptr;
+	Dt dt = Dt::SU;
+	int shift = rightShift;
+	switch (a) {
+	case 0: name = "VSHR"; break;
+	case 1: name = "VSRA"; break;
+	case 2: name = "VRSHR"; break;
+	case 3: name = "VRSRA"; break;
+	case 4: name = u ? "VSRI" : nullptr; dt = Dt::PLAIN; break;
+	case 5: name = u ? "VSLI" : "VSHL"; dt = u ? Dt::PLAIN : Dt::I; shift = leftShift; break;
+	case 6: name = u ? "VQSHLU" : nullptr; dt = Dt::S; shift = leftShift; break;
+	case 7: name = "VQSHL"; shift = leftShift; break;
+	case 8:
+	case 9:
+		{
+			if (l)
+				return false;
+			bool round = q;
+			if (a == 8 && !u) {
+				name = round ? "VRSHRN" : "VSHRN";
+				dt = Dt::I;
+			} else if (a == 8) {
+				name = round ? "VQRSHRUN" : "VQSHRUN";
+				dt = Dt::S;
+			} else {
+				name = round ? "VQRSHRN" : "VQSHRN";
+			}
+			o.Add("%s", name);
+			AddDt(o, dt, u, esize * 2);
+			o.Add(" d%d, q%d, #%d", d, m >> 1, rightShift);
+			return true;
+		}
+	case 10:
+		if (l || q)
+			return false;
+		if (leftShift == 0) {
+			o.Add("VMOVL.%c%d q%d, d%d", u ? 'u' : 's', esize, d >> 1, m);
+		} else {
+			o.Add("VSHLL.%c%d q%d, d%d, #%d", u ? 'u' : 's', esize, d >> 1, m, leftShift);
+		}
+		return true;
+	case 14:
+	case 15:
+		{
+			if (l || !(imm6 & 0x20))
+				return false;
+			char sign = u ? 'u' : 's';
+			if (Bit(w, 8))
+				o.Add("VCVT.%c32.f32", sign);
+			else
+				o.Add("VCVT.f32.%c32", sign);
+			o.Add(" %s, %s, #%d", V(q, d).s, V(q, m).s, 64 - imm6);
+			return true;
+		}
+	}
+	if (!name)
+		return false;
+	o.Add("%s", name);
+	AddDt(o, dt, u, esize);
+	o.Add(" %s, %s, #%d", V(q, d).s, V(q, m).s, shift);
+	return true;
+}
+
+bool DisNeonModImm(u32 w, Out &o) {
+	bool op = Bit(w, 5);
+	bool q = Bit(w, 6);
+	int cmode = Bits(w, 11, 8);
+	u32 imm8 = (Bit(w, 24) << 7) | (Bits(w, 18, 16) << 4) | Bits(w, 3, 0);
+	const char *name;
+	char dt[8];
+	unsigned long long value = imm8;
+	bool isFloat = false;
+
+	if (cmode < 8) {
+		// 32-bit, shifted by 0/8/16/24.
+		bool orr = cmode & 1;
+		name = op ? (orr ? "VBIC" : "VMVN") : (orr ? "VORR" : "VMOV");
+		strcpy(dt, ".i32");
+		value <<= 8 * (cmode >> 1);
+	} else if (cmode < 12) {
+		bool orr = cmode & 1;
+		name = op ? (orr ? "VBIC" : "VMVN") : (orr ? "VORR" : "VMOV");
+		strcpy(dt, ".i16");
+		value <<= 8 * ((cmode >> 1) & 1);
+	} else if (cmode < 14) {
+		name = op ? "VMVN" : "VMOV";
+		strcpy(dt, ".i32");
+		value = (cmode == 12) ? ((value << 8) | 0xFF) : ((value << 16) | 0xFFFF);
+	} else if (cmode == 14) {
+		name = "VMOV";
+		if (op) {
+			strcpy(dt, ".i64");
+			value = 0;
+			for (int i = 0; i < 8; i++) {
+				if (imm8 & (1 << i))
+					value |= 0xFFULL << (i * 8);
+			}
+		} else {
+			strcpy(dt, ".i8");
 		}
 	} else {
-		int reg = Vd;
-		int sz = (op >> 10) & 3;
-		int index_align = (op >> 4) & 0xF;
-		int lane = 0;
-		switch (sz) {
-		case 0: lane = index_align >> 1; break;
-		case 1: lane = index_align >> 2; break;
-		case 2: lane = index_align >> 3; break;
-		}
-		if (Rm != 15) {
-			sprintf(text, "V%s1 d[0] - regsum", name);
-		} else {
-			sprintf(text, "V%s1.%s {d%i[%i]}, [r%i]%s", name, sz == 2 ? GetSizeString(sz) : GetISizeString(sz), reg, lane, Rn, suffix);
-		}
+		if (op)
+			return false;
+		name = "VMOV";
+		strcpy(dt, ".f32");
+		isFloat = true;
 	}
 
+	o.Add("%s%s %s, ", name, dt, V(q, NeonD(w)).s);
+	if (isFloat)
+		AddFloat(o, ExpandFloatImm(imm8));
+	else
+		o.Add("#0x%llx", value);
 	return true;
 }
 
-static bool DisasmArithNeon(uint32_t op, const char *opname, char *text, bool includeSuffix = true) {
-	bool quad = ((op >> 6) & 1);
-	int size = (op >> 20) & 3;
-	int type = (op >> 8) & 0xF;
-	char r = quad ? 'q' : 'd';
-	const char *szname = GetISizeString(size);
-	if (type == 0xD || type == 0xF)
-		szname = "f32";
+bool DisNeon2Misc(u32 w, Out &o) {
+	int size = Bits(w, 19, 18);
+	int a = Bits(w, 17, 16);
+	int b = Bits(w, 10, 6);
+	bool q = Bit(w, 6);
+	int bits = 8 << size;
+	int d = NeonD(w), m = NeonM(w);
+	const char *name = nullptr;
+	Dt dt = Dt::NONE;
 
-	int Vd = GetVd(op, quad, true);
-	int Vn = GetVn(op, quad, true);
-	int Vm = GetVm(op, quad, true);
-	sprintf(text, "V%s%s%s %c%i, %c%i, %c%i", opname, includeSuffix ? "." : "", includeSuffix ? szname : "", r, Vd, r, Vn, r, Vm);
-	return true;
-}
-
-static bool DisasmNeonImmVal(uint32_t op, char *text) {
-	using namespace ArmGen;
-	int opcode = (op >> 5) & 1;
-	int cmode = (op >> 8) & 0xF;
-	int imm = ((op >> 17) & 0x80) | ((op >> 12) & 0x70) | (op & 0xF);
-	int quad = (op >> 6) & 1;
-	const char *operation = "MOV";
-	const char *size = "(unk)";
-	char temp[64] = "(unk)";
-	switch (cmode) {
-	case VIMM___x___x:
-	case VIMM___x___x + 1:
-		sprintf(temp, "000000%02x_000000%02x", imm, imm);
-		size = ".i32";
+	switch (a) {
+	case 0:
+		switch (b >> 1) {
+		case 0: name = "VREV64"; dt = Dt::PLAIN; break;
+		case 1: name = "VREV32"; dt = Dt::PLAIN; break;
+		case 2: name = "VREV16"; dt = Dt::PLAIN; break;
+		case 4: case 5: name = "VPADDL"; dt = Bit(w, 7) ? Dt::U : Dt::S; break;
+		case 8: name = "VCLS"; dt = Dt::S; break;
+		case 9: name = "VCLZ"; dt = Dt::I; break;
+		case 10: name = "VCNT"; dt = Dt::PLAIN; break;
+		case 11: name = "VMVN"; break;
+		case 12: case 13: name = "VPADAL"; dt = Bit(w, 7) ? Dt::U : Dt::S; break;
+		case 14: name = "VQABS"; dt = Dt::S; break;
+		case 15: name = "VQNEG"; dt = Dt::S; break;
+		}
 		break;
-	case VIMM__x___x_:
-	case VIMM__x___x_ + 1:
-		sprintf(temp, "0000%02x00_0000%02x00", imm, imm);
-		size = ".i32";
-		break;
-	case VIMM_x___x__:
-	case VIMM_x___x__ + 1:
-		sprintf(temp, "00%02x0000_00%02x0000", imm, imm);
-		size = ".i32";
-		break;
-	case VIMMx___x___:
-	case VIMMx___x___ + 1:
-		sprintf(temp, "%02x000000_%02x000000", imm, imm);
-		size = ".i32";
-		break;
-
-	// TODO: More
-
-	case VIMMf000f000:
-		if (opcode == 0) {
-			// TODO: Do this properly
-			float f = 1337;
-			switch (imm) {
-			case 0: f = 0.0f; break;
-			case 0x78: f = 1.5; break;
-			case 0x70: f = 1.0; break;
-			case 0xF0: f = -1.0; break;
+	case 1:
+		{
+			static const char *const names[8] = { "VCGT", "VCGE", "VCEQ", "VCLE", "VCLT", nullptr, "VABS", "VNEG" };
+			int op = Bits(w, 9, 7);
+			bool f = Bit(w, 10);
+			name = names[op];
+			if (!name)
+				return false;
+			o.Add("%s", name);
+			if (f) {
+				if (size != 2)
+					return false;
+				o.Add(".f32");
+			} else {
+				AddDt(o, op == 2 ? Dt::I : Dt::S, false, bits);
 			}
-			sprintf(temp, "%1.1f", f);
-			size = "";
+			o.Add(" %s, %s", V(q, d).s, V(q, m).s);
+			if (op < 5)
+				o.Add(", #0");
+			return true;
+		}
+	case 2:
+		switch (b) {
+		case 0x08:
+			o.Add("VMOVN.i%d d%d, q%d", bits * 2, d, m >> 1);
+			return true;
+		case 0x09:
+			o.Add("VQMOVUN.s%d d%d, q%d", bits * 2, d, m >> 1);
+			return true;
+		case 0x0A:
+		case 0x0B:
+			o.Add("VQMOVN.%c%d d%d, q%d", Bit(w, 6) ? 'u' : 's', bits * 2, d, m >> 1);
+			return true;
+		case 0x0C:
+			o.Add("VSHLL.i%d q%d, d%d, #%d", bits, d >> 1, m, bits);
+			return true;
+		case 0x18:
+			if (size != 1)
+				return false;
+			o.Add("VCVT.f16.f32 d%d, q%d", d, m >> 1);
+			return true;
+		case 0x1C:
+			if (size != 1)
+				return false;
+			o.Add("VCVT.f32.f16 q%d, d%d", d >> 1, m);
+			return true;
+		}
+		switch (b >> 1) {
+		case 0: name = "VSWP"; break;
+		case 1: name = "VTRN"; dt = Dt::PLAIN; break;
+		case 2: name = "VUZP"; dt = Dt::PLAIN; break;
+		case 3: name = "VZIP"; dt = Dt::PLAIN; break;
+		}
+		if ((b >> 1) >= 2 && size == 2 && !q)
+			return false;
+		break;
+	case 3:
+		if ((b & 0x1A) == 0x10 || (b & 0x1A) == 0x12) {
+			name = (b & 2) ? "VRSQRTE" : "VRECPE";
+			dt = Bit(w, 8) ? Dt::F : Dt::U;
+		} else if ((b & 0x18) == 0x18) {
+			static const char *const conv[4] = { ".f32.s32", ".f32.u32", ".s32.f32", ".u32.f32" };
+			o.Add("VCVT%s %s, %s", conv[Bits(w, 8, 7)], V(q, d).s, V(q, m).s);
+			return true;
+		}
+		break;
+	}
+	if (!name)
+		return false;
+	o.Add("%s", name);
+	AddDt(o, dt, false, bits);
+	o.Add(" %s, %s", V(q, d).s, V(q, m).s);
+	return true;
+}
+
+bool DisNeonData(u32 w, Out &o) {
+	if (!Bit(w, 23))
+		return DisNeon3Same(w, o);
+	if (Bit(w, 4)) {
+		if (Bits(w, 21, 19) == 0 && !Bit(w, 7))
+			return DisNeonModImm(w, o);
+		return DisNeonShift(w, o);
+	}
+	if (Bits(w, 21, 20) != 3)
+		return Bit(w, 6) ? DisNeonScalar(w, o) : DisNeon3Diff(w, o);
+
+	bool q = Bit(w, 6);
+	int d = NeonD(w), n = NeonN(w), m = NeonM(w);
+	if (!Bit(w, 24)) {
+		o.Add("VEXT.8 %s, %s, %s, #%d", V(q, d).s, V(q, n).s, V(q, m).s, Bits(w, 11, 8));
+		return true;
+	}
+	if (!Bit(w, 11))
+		return DisNeon2Misc(w, o);
+	if (Bits(w, 11, 10) == 2) {
+		int len = Bits(w, 9, 8) + 1;
+		o.Add("%s.8 d%d, {d%d", Bit(w, 6) ? "VTBX" : "VTBL", d, n);
+		if (len > 1)
+			o.Add("-d%d", n + len - 1);
+		o.Add("}, d%d", m);
+		return true;
+	}
+	if (Bits(w, 11, 8) == 0xC) {
+		int imm4 = Bits(w, 19, 16);
+		int size, index;
+		if (imm4 & 1) {
+			size = 8;
+			index = imm4 >> 1;
+		} else if (imm4 & 2) {
+			size = 16;
+			index = imm4 >> 2;
+		} else if (imm4 & 4) {
+			size = 32;
+			index = imm4 >> 3;
+		} else {
+			return false;
+		}
+		o.Add("VDUP.%d %s, d%d[%d]", size, V(q, d).s, m, index);
+		return true;
+	}
+	return false;
+}
+
+bool DisNeonLoadStore(u32 w, Out &o) {
+	bool load = Bit(w, 21);
+	int rn = Bits(w, 19, 16);
+	int rm = Bits(w, 3, 0);
+	int d = NeonD(w);
+	const char *name = load ? "VLD" : "VST";
+
+	int n, regs, inc, size, align = 0;
+	bool lanes = false, allLanes = false;
+	int index = 0;
+	if (!Bit(w, 23)) {
+		size = Bits(w, 7, 6);
+		switch (Bits(w, 11, 8)) {
+		case 7: n = 1; regs = 1; inc = 1; break;
+		case 10: n = 1; regs = 2; inc = 1; break;
+		case 6: n = 1; regs = 3; inc = 1; break;
+		case 2: n = 1; regs = 4; inc = 1; break;
+		case 8: n = 2; regs = 2; inc = 1; break;
+		case 9: n = 2; regs = 2; inc = 2; break;
+		case 3: n = 2; regs = 4; inc = 1; break;
+		case 4: n = 3; regs = 3; inc = 1; break;
+		case 5: n = 3; regs = 3; inc = 2; break;
+		case 0: n = 4; regs = 4; inc = 1; break;
+		case 1: n = 4; regs = 4; inc = 2; break;
+		default: return false;
+		}
+		int a = Bits(w, 5, 4);
+		if (a)
+			align = 32 << a;
+	} else if (Bits(w, 11, 10) == 3) {
+		if (!load)
+			return false;
+		allLanes = true;
+		n = Bits(w, 9, 8) + 1;
+		size = Bits(w, 7, 6);
+		bool t = Bit(w, 5);
+		if (n == 1) {
+			regs = t ? 2 : 1;
+			inc = 1;
+		} else {
+			regs = n;
+			inc = t ? 2 : 1;
+		}
+		if (Bit(w, 4)) {
+			if (n == 1 || n == 2)
+				align = (8 << size) * n;
+			else if (n == 4)
+				align = size == 2 ? 64 : (size == 3 ? 128 : 32 << size);
+			else
+				return false;
+		}
+	} else {
+		lanes = true;
+		size = Bits(w, 11, 10);
+		n = Bits(w, 9, 8) + 1;
+		regs = n;
+		int ia = Bits(w, 7, 4);
+		index = ia >> (size + 1);
+		inc = 1;
+		if (n > 1 && ((size == 1 && (ia & 2)) || (size == 2 && (ia & 4))))
+			inc = 2;
+		switch (n) {
+		case 1:
+			if (size == 1 && (ia & 1))
+				align = 16;
+			else if (size == 2 && (ia & 3) == 3)
+				align = 32;
+			break;
+		case 2:
+			if (ia & 1)
+				align = 16 << size;
+			break;
+		case 4:
+			if (size == 2 && (ia & 3))
+				align = 32 << (ia & 3);
+			else if (size < 2 && (ia & 1))
+				align = 32 << size;
 			break;
 		}
 	}
-	char c = quad ? 'q' : 'd';
-	sprintf(text, "V%s%s %c%i, %s", operation, size, c, GetVd(op, false, false), temp);
-	return true;
-}
 
-static bool DisasmNeon2Op(uint32_t op, char *text) {
-	const char *opname = "(unk2op)";
-
-	bool quad = (op >> 6) & 1;
-	bool quadD = quad;
-	bool doubleD = false;
-	// VNEG, VABS
-	if (op & (1 << 16))
-		opname = "NEG";
-
-	int opcode = (op >> 6) & 0xF;
-	int sz = (op >> 18) & 3;
-	const char *size = "f32";
-	switch (opcode) {
-	case 0xE:
-		opname = "NEG";
-		size = GetISizeString(sz);
-		break;
-	case 0xD:
-		opname = "ABS";
-		size = GetISizeString(sz);
-		break;
-	case 0x7:
-		opname = "MVN";
-		size = "";  // MVN surely has no "size"?
-		break;
-	case 0x8:
-		opname = "MOVN";  // narrow, not negate
-		size = GetISizeString(sz + 1);
-		quad = true;
-		quadD = false;
-		doubleD = true;
-		break;
-	case 0xC:
-		opname = "SHLL";  // widen and shift
-		size = GetISizeString(sz);
-		quad = false;
-		quadD = true;
-		doubleD = true;
-		break;
-	}
-
-	int Vd = GetVd(op, quadD, doubleD);
-	int Vm = GetVm(op, quad, false);
-	char cD = quadD ? 'q' : 'd';
-	char c = quad ? 'q' : 'd';
-	if (opcode == 0xC) {
-		sprintf(text, "V%s%s%s %c%i, %c%i, #%d", opname, strlen(size) ? "." : "", size, cD, Vd, c, Vm, 8 << sz);
+	o.Add("%s%d.%d {", name, n, 8 << size);
+	if (n == 1 && !lanes && !allLanes && regs > 1) {
+		o.Add("d%d-d%d", d, d + regs - 1);
 	} else {
-		sprintf(text, "V%s%s%s %c%i, %c%i", opname, strlen(size) ? "." : "", size, cD, Vd, c, Vm);
+		for (int i = 0; i < regs; i++) {
+			o.Add("%sd%d", i ? ", " : "", d + i * inc);
+			if (lanes)
+				o.Add("[%d]", index);
+			else if (allLanes)
+				o.Add("[]");
+		}
 	}
+	o.Add("}, [%s", R(rn));
+	if (align)
+		o.Add(":%d", align);
+	o.Add("]");
+	if (rm == 13)
+		o.Add("!");
+	else if (rm != 15)
+		o.Add(", %s", R(rm));
 	return true;
 }
 
-static bool DisasmVdup(uint32_t op, char *text) {
-	bool quad = (op >> 6) & 1;
-	int imm4 = (op >> 16) & 0xF;
-	int Vd = GetVd(op, quad, false);
-	int Vm = GetVm(op, false, true);
-	char c = quad ? 'q' : 'd';
-	int index = 0;
-	int size = 0;
-	if (imm4 & 1) {
-		index = imm4 >> 1;
-		size = 0;
-	} else if (imm4 & 2) {
-		index = imm4 >> 2;
-		size = 1;
-	} else if (imm4 & 4) {
-		index = imm4 >> 3;
-		size = 2;
+bool DisUnconditional(u32 addr, u32 w, Out &o) {
+	if (Bits(w, 27, 25) == 1)
+		return DisNeonData(w, o);
+	if (Bits(w, 27, 24) == 4 && !Bit(w, 20))
+		return DisNeonLoadStore(w, o);
+	if ((w & 0xFFFFFDFF) == 0xF1010000) {
+		o.Add("SETEND %s", Bit(w, 9) ? "be" : "le");
+		return true;
 	}
-
-	sprintf(text, "VDUP.%s %c%i, d%i[%i]", GetSizeString(size), c, Vd, Vm, index);
-	return true;
-}
-
-static bool DisasmNeonVecScalar(uint32_t op, char *text) {
-	bool quad = (op >> 24) & 1;
-
-	int Vd = GetVd(op, quad, true);
-	int Vn = GetVn(op, quad, true);
-	int Vm = GetVm(op, false, false);
-
-	char c = quad ? 'q' : 'd';
-
-	const char *opname = "(unk)";
-	const char *size = "f32";
-
-	switch ((op >> 4) & 0xFF) {
-	case 0x94:
-	case 0x9C:
-		opname = "VMUL";
-		break;
-	case 0x14:
-	case 0x1C:
-	case 0x1E:  // Hmmm.. Should look this up :P
-		opname = "VMLA";
-		break;
-	}
-
-	int part = Vm & 1;
-	int reg = Vm >> 1;
-	sprintf(text, "%s.%s %c%i, %c%i, d%i[%i]", opname, size, c, Vd, c, Vn, reg, part);
-	return true;
-}
-
-// This needs a rewrite, those gotos are quite ugly...
-const char *DecodeSizeAndShiftImm7(bool U, bool sign, bool inverse, int imm7, bool incSize, int *shift) {
-	if (imm7 & 64) {
-		if (inverse) {
-			*shift = 64 - (imm7 & 63);
-		} else {
-			*shift = imm7 & 63;
-		}
-to64:
-		return U ? "u64" : (sign ? "s64" : "i64");
-	} else if (imm7 & 32) {
-		if (inverse) {
-			*shift = 32 - (imm7 & 31);
-		} else {
-			*shift = imm7 & 31;
-		}
-		if (incSize) goto to64;
-	to32:
-		return U ? "u32" : (sign ? "s32" : "i32");
-	} else if (imm7 & 16) {
-		if (inverse) {
-			*shift = 16 - (imm7 & 15);
-		} else {
-			*shift = imm7 & 15;
-		}
-		if (incSize) goto to32;
-	to16:
-		return U ? "u16" : (sign ? "s16" : "i16");
-	} else if (imm7 & 8) {
-		if (inverse) {
-			*shift = 8 - (imm7 & 7);
-		} else {
-			*shift = imm7 & 7;
-		}
-		if (incSize) goto to16;
-		return U ? "u8" : (sign ? "s8" : "i8");
-	} else {
-		// Invalid encoding
-		*shift = -1;
-	}
-	return "i32";
-}
-
-// What a horror show!
-static bool DisasmNeon2RegShiftImm(uint32_t op, char *text) {
-	bool U = (op >> 24) & 1;
-	bool quadDest = false;
-	bool quadSrc = false;
-	bool incSize = false;
-
-	const char *opname = "(unk)";
-	int opcode = (op >> 8) & 0xF;
-	bool inverse = false;
-	bool sign = false;
-	switch (opcode) {
-	case 0x5: opname = "VSHL"; quadDest = quadSrc = ((op >> 6) & 1); break;
-	case 0xA: opname = "VSHLL"; quadDest = true; quadSrc = false; sign = true;  break;
-	case 0x0: opname = "VSHR"; sign = true; quadDest = quadSrc = ((op >> 6) & 1); inverse = true;  break;
-	case 0x8: opname = "VSHRN"; quadDest = false; quadSrc = true; inverse = true; incSize = true;  break;
-	default:
-		// Immediate value ops!
-		return DisasmNeonImmVal(op, text);
-	}
-
-	int Vd = GetVd(op, quadDest, true);
-	int Vm = GetVm(op, quadSrc, true);
-
-	char c1 = quadDest ? 'q' : 'd';
-	char c2 = quadSrc ? 'q' : 'd';
-	int imm7 = ((op >> 16) & 0x3f) | ((op & 0x80) >> 1);
-	int shift;
-
-	const char *size;
-	if (opcode == 0xA) {
-		if (imm7 & 0x40) {
-			sprintf(text, "neon2regshiftimm undefined %08x", op);
+	if ((w & 0xFFFFFF00) == 0xF57FF000) {
+		static const char *const options[16] = {
+			nullptr, nullptr, "oshst", "osh", nullptr, nullptr, "nshst", "nsh",
+			nullptr, nullptr, "ishst", "ish", nullptr, nullptr, "st", "sy",
+		};
+		int option = Bits(w, 3, 0);
+		switch (Bits(w, 7, 4)) {
+		case 1:
+			o.Add("CLREX");
 			return true;
-		}
-	}
-
-	size = DecodeSizeAndShiftImm7(U, sign, inverse, imm7, incSize, &shift);
-
-	if (opcode == 0xA && shift == 0) {
-		opname = "VMOVL";
-		sprintf(text, "%s.%s %c%i, %c%i", opname, size, c1, Vd, c2, Vm);
-	} else {
-		sprintf(text, "%s.%s %c%i, %c%i, #%i", opname, size, c1, Vd, c2, Vm, shift);
-	}
-	return true;
-}
-
-static bool DisasmNeonF2F3(uint32_t op, char *text) {
-	sprintf(text, "NEON F2");
-	if (((op >> 20) & 0xFF8) == 0xF20 || ((op >> 20) & 0xFF8) == 0xF30) {
-		const char *opname = "(unk)";
-		bool includeSuffix = true;
-		int temp;
-		switch ((op >> 20) & 0xFF) {
-		case 0x20:
-			temp = (op >> 4) & 0xF1;
-			switch (temp) {
-			case 0x11:
-				opname = "AND";
-				includeSuffix = false;
-				break;
-			case 0xd1:
-				opname = "MLA";
-				break;
-			case 0x80:
-			case 0xd0:
-				opname = "ADD";
-				break;
-			case 0xF0:
-				opname = "MAX";
-				break;
-			}
-			return DisasmArithNeon(op, opname, text, includeSuffix);
-		case 0x22:
-		case 0x24:
-			temp = (op >> 4) & 0xF1;
-			switch (temp) {
-			case 0xF0:
-				opname = "MIN";
-				break;
-			case 0x11:
-				opname = "ORR";
-				includeSuffix = false;
-				break;
-			case 0x80:
-			case 0xd0:
-				opname = "ADD";
-				break;
-			case 0xd1:
-				opname = "MLS";
-				break;
-			default:
-				opname = "???";
-				break;
-			}
-			return DisasmArithNeon(op, opname, text, includeSuffix);
-		case 0x31:
-			if (op & 0x100)
-				opname = "MLS";
+		case 4:
+		case 5:
+			o.Add("%s ", Bits(w, 7, 4) == 4 ? "DSB" : "DMB");
+			if (options[option])
+				o.Add("%s", options[option]);
 			else
-				opname = "SUB";
-			return DisasmArithNeon(op, opname, text);
-		case 0x30:
-		case 0x34:
-			temp = (op >> 4) & 0xF1;
-			switch (temp) {
-			case 0x11:
-				opname = "EOR";
-				includeSuffix = false;
-				break;
-			case 0xd0:
-				opname = "PADD";
-				break;
-			default:
-				opname = "MUL";
-			}
-			return DisasmArithNeon(op, opname, text, includeSuffix);
+				o.Add("#%d", option);
+			return true;
+		case 6:
+			o.Add("ISB %s", option == 15 ? "sy" : "");
+			return true;
+		default:
+			return false;
 		}
-	} else if ((op & 0xFE800010) == 0xF2800010) {
-		// Two regs and a shift amount
-		return DisasmNeon2RegShiftImm(op, text);
-	} else if ((op >> 20) == 0xF3E || (op >> 20) == 0xF2E || (op >> 20) == 0xF3A || (op >> 20) == 0xF2A) {
-		return DisasmNeonVecScalar(op, text);
-	} else if ((op >> 20) == 0xF3B && ((op >> 4) & 1) == 0) {
-		return DisasmNeon2Op(op, text);
-	} else if ((op >> 20) == 0xF3F) {
-		return DisasmVdup(op, text);
 	}
-	return true;
-}
-
-static bool DisasmNeon(uint32_t op, char *text) {
-	switch (op >> 24) {
-	case 0xF4:
-		return DisasmNeonLDST(op, text);
-	case 0xF2:
-	case 0xF3:
-		return DisasmNeonF2F3(op, text);
+	if ((Bits(w, 27, 24) == 5 || (Bits(w, 27, 24) == 7 && !Bit(w, 4))) && Bits(w, 21, 20) == 1 && Bits(w, 15, 12) == 15) {
+		bool up = Bit(w, 23);
+		o.Add("%s [%s", Bit(w, 22) ? "PLD" : "PLDW", R(Bits(w, 19, 16)));
+		if (Bits(w, 27, 24) == 5) {
+			int imm = Bits(w, 11, 0);
+			if (up && imm == 0)
+				o.Add("]");
+			else
+				o.Add(", #%s%d]", up ? "" : "-", imm);
+		} else {
+			o.Add(", %s%s", up ? "" : "-", R(Bits(w, 3, 0)));
+			AddShiftImm(o, Bits(w, 6, 5), Bits(w, 11, 7));
+			o.Add("]");
+		}
+		return true;
+	}
+	if (Bits(w, 27, 25) == 5) {
+		u32 target = addr + 8 + (SignExtend(Bits(w, 23, 0), 24) << 2) + (Bit(w, 24) << 1);
+		o.Add("BLX 0x%08x", target);
+		return true;
 	}
 	return false;
+}
+
+bool Disassemble(u32 addr, u32 w, Out &o) {
+	if ((w >> 28) == 0xF)
+		return DisUnconditional(addr, w, o);
+
+	switch (Bits(w, 27, 25)) {
+	case 0:
+		if (Bit(w, 4) && Bit(w, 7)) {
+			if (Bits(w, 6, 5) == 0)
+				return Bit(w, 24) ? DisSynchronization(w, o) : DisMultiply(w, o);
+			return DisExtraLoadStore(w, o);
+		}
+		if (Bits(w, 24, 23) == 2 && !Bit(w, 20))
+			return Bit(w, 7) ? DisHalfwordMultiply(w, o) : DisMisc(w, o);
+		return DisDataProcessing(w, o);
+	case 1:
+		if (Bits(w, 24, 23) == 2 && !Bit(w, 20))
+			return DisMovImmAndHints(w, o);
+		return DisDataProcessing(w, o);
+	case 2:
+		return DisLoadStore(w, o);
+	case 3:
+		return Bit(w, 4) ? DisMedia(w, o) : DisLoadStore(w, o);
+	case 4:
+		return DisBlockTransfer(w, o);
+	case 5:
+		{
+			u32 target = addr + 8 + (SignExtend(Bits(w, 23, 0), 24) << 2);
+			o.Add("%s%s 0x%08x", Bit(w, 24) ? "BL" : "B", Cond(w), target);
+			return true;
+		}
+	default:
+		return DisCoprocessor(w, o);
+	}
+}
+
+}  // namespace
+
+const char *ArmRegName(int r) {
+	return R(r);
 }
 
 bool ArmAnalyzeLoadStore(uint32_t addr, uint32_t op, ArmLSInstructionInfo *info) {
@@ -769,868 +1625,13 @@ bool ArmAnalyzeLoadStore(uint32_t addr, uint32_t op, ArmLSInstructionInfo *info)
 	return false;
 }
 
-
-typedef unsigned int word;
-typedef unsigned int address;
-typedef unsigned int addrdiff;
-#define W(x) ((word*)(x))
-
-#define declstruct(name) typedef struct name s##name, * p##name
-#define defstruct(name) struct name
-#define defequiv(new,old) typedef struct old s##new, * p##new
-
-declstruct(DisOptions);
-declstruct(Instruction);
-
-typedef enum {
-  target_None,		/* instruction doesn't refer to an address */
-  target_Data,		/* instruction refers to address of data */
-  target_FloatS,	/* instruction refers to address of single-float */
-  target_FloatD,	/* instruction refers to address of double-float */
-  target_FloatE,	/* blah blah extended-float */
-  target_FloatP,	/* blah blah packed decimal float */
-  target_Code,		/* instruction refers to address of code */
-  target_Unknown	/* instruction refers to address of *something* */
-} eTargetType;
-
-defstruct(Instruction) {
-  char text[128];	/* the disassembled instruction */
-  int undefined;	/* non-0 iff it's an undefined instr */
-  int badbits;		/* non-0 iff something reserved has the wrong value */
-  int oddbits;		/* non-0 iff something unspecified isn't 0 */
-  int is_SWI;		/* non-0 iff it's a SWI */
-  word swinum;		/* only set for SWIs */
-  address target;	/* address instr refers to */
-  eTargetType target_type;	/* and what we expect to be there */
-  int offset;		/* offset from register in LDR or STR or similar */
-  char * addrstart;	/* start of address part of instruction, or 0 */
-};
-
-#define disopt_SWInames		1	/* use names, not &nnnn */
-#define disopt_CommaSpace	2	/* put spaces after commas */
-#define disopt_FIXS		4	/* bogus FIX syntax for ObjAsm */
-#define disopt_ReverseBytes	8	/* byte-reverse words first */
-
-defstruct(DisOptions) {
-  word flags;
-  const char * * regnames;	/* pointer to 16 |char *|s: register names */
-};
-
-static pInstruction instr_disassemble(word, address, pDisOptions);
-
-#define INSTR_grok_v4
-
-/* Preprocessor defs you can give to affect this stuff:
- * INSTR_grok_v4   understand ARMv4 instructions (halfword & sign-ext LDR/STR)
- * INSTR_new_msr   be prepared to produce new MSR syntax if asked
- * The first of these is supported; the second isn't.
- */
-
-/* Some important single-bit fields. */
-
-#define Sbit	(1<<20)	/* set condition codes (data processing) */
-#define Lbit	(1<<20)	/* load, not store (data transfer) */
-#define Wbit	(1<<21)	/* writeback (data transfer) */
-#define Bbit	(1<<22)	/* single byte (data transfer, SWP) */
-#define Ubit	(1<<23)	/* up, not down (data transfer) */
-#define Pbit	(1<<24)	/* pre-, not post-, indexed (data transfer) */
-#define Ibit	(1<<25)	/* non-immediate (data transfer) */
-			/* immediate (data processing) */
-#define SPSRbit	(1<<22)	/* SPSR, not CPSR (MRS, MSR) */
-
-/* Some important 4-bit fields. */
-
-#define RD(x)	((x)<<12)	/* destination register */
-#define RN(x)	((x)<<16)	/* operand/base register */
-#define CP(x)	((x)<<8)	/* coprocessor number */
-#define RDbits	RD(15)
-#define RNbits	RN(15)
-#define CPbits	CP(15)
-#define RD_is(x)	((instr&RDbits)==RD(x))
-#define RN_is(x)	((instr&RNbits)==RN(x))
-#define CP_is(x)	((instr&CPbits)==CP(x))
-
-/* A slightly efficient way of telling whether two bits are the same
- * or not. It's assumed that a<b.
- */
-#define BitsDiffer(a,b) ((instr^(instr>>(b-a)))&(1<<a))
-
-/* op = append(op,ip) === op += sprintf(op,"%s",ip),
- * except that it's faster.
- */
-static char * append(char * op, const char *ip) {
-  char c;
-  while ((c=*ip++)!=0) *op++=c;
-  return op;
-}
-
-/* op = hex8(op,w) === op += sprintf(op,"&%08lX",w), but faster.
- */
-static char * hex8(char * op, word w) {
-  int i;
-  *op++='&';
-  for (i=28; i>=0; i-=4) *op++ = "0123456789ABCDEF"[(w>>i)&15];
-  return op;
-}
-
-/* op = reg(op,'x',n) === op += sprintf(op,"x%lu",n&15).
- */
-static char * reg(char * op, char c, word n) {
-  *op++=c;
-  n&=15;
-  if (n>=10) { *op++='1'; n+='0'-10; } else n+='0';
-  *op++=(char)n;
-  return op;
-}
-
-/* op = num(op,n) appends n in decimal or &n in hex
- * depending on whether n<100. It's assumed that n>=0.
- */
-static char * num(char * op, word w) {
-  if (w>=100) {
-    int i;
-    word t;
-    *op++='&';
-    for (i=28; (t=(w>>i)&15)==0; i-=4) ;
-    for (; i>=0; i-=4) *op++ = "0123456789ABCDEF"[(w>>i)&15];
-  }
-  else {
-    /* divide by 10. You can prove this works by exhaustive search. :-) */
-    word t = w-(w>>2); t=(t+(t>>4)) >> 3;
-    { word u = w-10*t;
-      if (u==10) { u=0; ++t; }
-      if (t) *op++=(char)(t+'0');
-      *op++=(char)(u+'0');
-    }
-  }
-  return op;
-}
-
-/* instr_disassemble
- * Disassemble a single instruction.
- *
- * args:   instr   a single ARM instruction
- *         addr    the address it's presumed to have come from
- *         opts    cosmetic preferences for our output
- *
- * reqs:   opts must be filled in right. In particular, it must contain
- *         a list of register names.
- *
- * return: a pointer to a structure containing the disassembled instruction
- *         and some other information about it.
- *
- * This is basically a replacement for the SWI Debugger_Disassemble,
- * but it has the following advantages:
- *
- *   + it's 3-4 times as fast
- *   + it's better at identifying undefined instructions,
- *     and instructions not invariant under { disassemble; ObjAsm; }
- *   + it provides some other useful information as well
- *   + its output syntax is the same as ObjAsm's input syntax
- *     (where possible)
- *   + it doesn't disassemble FIX incorrectly unless you ask it to
- *   + it's more configurable in some respects
- *
- * It also has the following disadvantages:
- *
- *   - it increases the size of ObjDism
- *   - it doesn't provide so many `helpful' usage comments etc
- *   - it's less configurable in some respects
- *   - it doesn't (yet) know about ARMv4 instructions
- *
- * This function proceeds in two phases. The first is very simple:
- * it works out what sort of instruction it's looking at and sets up
- * three strings:
- *   - |mnemonic|  (the basic mnemonic: LDR or whatever)
- *   - |flagchars| (things to go after the cond code: B or whatever)
- *   - |format|    (a string describing how to display the instruction)
- * The second phase consists of interpreting |format|, character by
- * character. Some characters (e.g., letters) just mean `append this
- * character to the output string'; some mean more complicated things
- * like `append the name of the register whose number is in bits 12..15'
- * or, worse, `append a description of the <op2> field'.
- *
- * I'm afraid the magic characters in |format| are rather arbitrary.
- * One criterion in choosing them was that they should form a contiguous
- * subrange of the character set! Sorry.
- *
- * Things I still want to do:
- *
- *   - more configurability?
- *   - make it much faster, if possible
- *   - make it much smaller, if possible
- *
- * Format characters:
- *
- *   \01..\05 copro register number from nybble (\001 == nybble 0, sorry)
- *   $        SWI number
- *   %        register set for LDM/STM (takes note of bit 22 for ^)
- *   &        address for B/BL
- *   '        ! if bit 21 set, else nothing (mnemonic: half a !)
- *   (        #regs for SFM (bits 22,15 = fpn, assumed already tweaked)
- *   )        copro opcode in bits 20..23 (for CDP)
- *   *        op2 (takes note of bottom 12 bits, and bit 25)
- *   +        FP register or immediate value: bits 0..3
- *   ,        comma or comma-space
- *   -        copro extra info in bits 5..7 preceded by , omitted if 0
- *   .        address in ADR instruction
- *   /        address for LDR/STR (takes note of bit 23 & reg in bits 16..19)
- *   0..4     register number from nybble
- *   5..9     FP register number from nybble
- *   :        copro opcode in bits 21..23 (for MRC/MCR)
- *   ;        copro number in bits 8..11
- *
- *  ADDED BY HRYDGARD:
- *   ^        16-bit immediate
- *   >        5-bit immediate at 11..7 (lsb)
- *   <        5-bit immediate at 20..16 with +1 or -lsb if bit 6 set
- *
- * NB that / takes note of bit 22, too, and does its own ! when
- * appropriate.
- *
- * On typical instructions this seems to take about 100us on my ARM6;
- * that's about 3000 cycles, which seems grossly excessive. I'm not
- * sure where all those cycles are being spent. Perhaps it's possible
- * to make it much, much faster. Most of this time is spent on phase 2.
- */
-
-extern pInstruction
-instr_disassemble(word instr, address addr, pDisOptions opts) {
-  static char         flagchars[4];
-  static sInstruction result;
-  const char * mnemonic  = 0;
-  char *       flagp     = flagchars;
-  const char * format    = 0;
-  word         fpn;
-  eTargetType  poss_tt   = target_None;
-#ifdef INSTR_grok_v4
-  int          is_v4     = 0;
-#endif
-
-  /* PHASE 0. Set up default values for |result|. */
-
-  if (opts->flags & disopt_ReverseBytes) {
-    instr = ((instr & 0xFF00FF00) >> 8) | ((instr & 0x00FF00FF) << 8);
-    instr = (instr >> 16) | (instr << 16);
-  }
-
-  fpn = ((instr>>15)&1) + ((instr>>21)&2);
-
-  result.undefined = 0;
-  result.badbits = 0;
-  result.oddbits = 0;
-  result.is_SWI = 0;
-  result.target_type = target_None;
-  result.offset = 0x80000000;
-  result.addrstart = 0;
-
-  /* PHASE 1. Decode and classify instruction. */
-
-  switch ((instr>>24)&15) {
-    case 0:
-      /* multiply or data processing, or LDRH etc */
-      if ((instr&(15<<4))!=(9<<4)) goto lMaybeLDRHetc;
-      /* multiply */
-      if (instr&(1<<23)) {
-        /* int multiply */
-        mnemonic = "UMULL\0UMLAL\0SMULL\0SMLAL" + 6*((instr>>21)&3);
-        format = "3,4,0,2";
-      }
-      else {
-        if (instr&(1<<22)) goto lUndefined;	/* "class C" */
-        /* short multiply */
-        if (instr&(1<<21)) {
-          mnemonic = "MLA";
-          format   = "4,0,2,3";
-        }
-        else {
-          mnemonic = "MUL";
-          format   = "4,0,2";
-        }
-      }
-      if (instr&Sbit) *flagp++='S';
-      break;
-    case 1:
-			if ((instr & 0x0FFFFFF0) == ((18 << 20) | (0xFFF << 8) | (1 << 4))) {
-				mnemonic = "B";
-				format = "0";
-				break;
-			} else if ((instr & 0x0FFFFFF0) == 0x012FFF30) {
-				mnemonic = "BL";
-				format = "0";
-				break;
-			} else if ((instr & 0x0FF000F0) == 0x01200070) {
-				int imm = ((instr & 0xFFF00) >> 4) | (instr & 0xF);
-				snprintf(result.text, sizeof(result.text), "BKPT %d", imm);
-				result.undefined = 0;
-				return &result;
-			}
-    case 3:
-			if (instr >> 24 == 0xF3) {
-				if (!DisasmNeon(instr, result.text)) {
-					goto lUndefined;
-				}
-				result.undefined = 0;
-				return &result;
-			}
-			/* SWP or MRS/MSR or data processing */
-			// hrydgard addition: MOVW/MOVT
-			if ((instr & 0x0FF00000) == 0x03000000) {
-				mnemonic = "MOVW";
-				format = "3,^";
-				break;
-			}
-			else if ((instr & 0x0FF00000) == 0x03400000) {
-				mnemonic = "MOVT";
-				format = "3,^";
-				break;
-			}
-			else if ((instr&0x02B00FF0)==0x00000090) {
-        /* SWP */
-        mnemonic = "SWP";
-        format   = "3,0,[4]";
-        if (instr&Bbit) *flagp++='B';
-        break;
-      }
-      else if ((instr&0x02BF0FFF)==0x000F0000) {
-        /* MRS */
-        mnemonic = "MRS";
-        format   = (instr&SPSRbit) ? "3,SPSR" : "3,CPSR";
-        break;
-      }
-      else if ((instr&0x02BFFFF0)==0x0029F000) {
-        /* MSR psr<P=0/1...>,Rs */
-        mnemonic = "MSR";
-        format   = (instr&SPSRbit) ? "SPSR,0" : "CPSR,0";
-        break;
-      }
-      else if ((instr&0x00BFF000)==0x0028F000) {
-        /* MSR {C,S}PSR_flag,op2 */
-        mnemonic = "MSR";
-        format   = (instr&SPSRbit) ? "SPSR_flg,*" : "CPSR_flg,*";
-        if (!(instr&Ibit) && (instr&(15<<4)))
-#ifdef INSTR_grok_v4
-          goto lMaybeLDRHetc;
-#else
-          goto lUndefined;	/* shifted reg in MSR illegal */
-#endif
-        break;
-      }
-      /* fall through here */
-lMaybeLDRHetc:
-#ifdef INSTR_grok_v4
-      if ((instr&(14<<24))==0
-          && ((instr&(9<<4))==(9<<4))) {
-        /* Might well be LDRH or similar. */
-        if ((instr&(Wbit+Pbit))==Wbit) goto lUndefined;	/* "class E", case 1 */
-        if ((instr&(Lbit+(1<<6)))==(1<<6)) goto lUndefined;	/* STRSH etc */
-        mnemonic = "STR\0LDR" + ((instr&Lbit) >> 18);
-        if (instr&(1<<6)) *flagp++='S';
-        *flagp++ = (instr&(1<<5)) ? 'B' : 'H';
-        format = "3,/";
-        /* aargh: */
-        if (!(instr&(1<<22))) instr |= Ibit;
-        is_v4=1;
-        break;
-      }
-#endif
-    case 2:
-			if (instr >> 24 == 0xF2) {
-				if (!DisasmNeon(instr, result.text)) {
-					goto lUndefined;
-				}
-				result.undefined = 0;
-				return &result;
-			}
-			/* data processing */
-      { word op21 = instr&(15<<21);
-        if ((op21==(2<<21) || (op21==(4<<21)))			/* ADD or SUB */
-            && ((instr&(RNbits+Ibit+Sbit))==RN(15)+Ibit)	/* imm, no S */
-            /*&& ((instr&(30<<7))==0 || (instr&3))*/) {		/* normal rot */
-          /* ADD ...,pc,#... or SUB ...,pc,#...: turn into ADR */
-          mnemonic = "ADR";
-          format   = "3,.";
-          if ((instr&(30<<7))!=0 && !(instr&3)) result.oddbits=1;
-          break;
-        }
-        mnemonic = "AND\0EOR\0SUB\0RSB\0ADD\0ADC\0SBC\0RSC\0"
-                   "TST\0TEQ\0CMP\0CMN\0ORR\0MOV\0BIC\0MVN" /* \0 */
-                   + (op21 >> 19);
-        /* Rd needed for all but TST,TEQ,CMP,CMN (8..11) */
-        /* Rn needed for all but MOV,MVN (13,15) */
-             if (op21 < ( 8<<21)) format = "3,4,*";
-        else if (op21 < (12<<21)) {
-          format = "4,*";
-          if (instr&RDbits) {
-            if ((instr&Sbit) && RD_is(15))
-              *flagp++='P';
-            else result.oddbits=1;
-          }
-          if (!(instr&Sbit)) goto lUndefined;	/* CMP etc, no S bit */
-        }
-        else if (op21 & (1<<21)) {
-          format = "3,*";
-          if (instr&RNbits) result.oddbits=1;
-        }
-        else format = "3,4,*";
-        if (instr&Sbit && (op21<(8<<21) || op21>=(12<<21))) *flagp++='S';
-      }
-      break;
-    case 4:
-			if ((instr >> 24) == 0xF4) {
-				if (!DisasmNeon(instr, result.text)) {
-					goto lUndefined;
-				}
-				result.undefined = 0;
-				return &result;
-			}
-		case 5:
-    case 6:
-    case 7:
-      /* STR/LDR/BFI/BFC/UBFX/SBFX or undefined */
-      if ((instr&Ibit) && (instr&(1<<4))) {
-        switch ((instr >> 21) & 7) {
-        case 5:
-        case 7:
-          /* SBFX/UBFX */
-          if (((instr>>4) & 7) != 5) {
-            goto lUndefined;
-          }
-          mnemonic = (instr & (1 << 22)) ? "UBFX" : "SBFX";
-          format = "3,0,>,<";
-          break;
-        case 6:
-          /* BFI/BFC */
-          if (((instr>>4) & 7) != 1) {
-            goto lUndefined;
-          }
-          if ((instr & 15) == 15) {
-            mnemonic = "BFC";
-            format = "3,>,<";
-          } else {
-            mnemonic = "BFI";
-            format = "3,0,>,<";
-          }
-          break;
-        default:
-          goto lUndefined;    /* "class A" */
-        }
-      } else {
-        mnemonic = "STR\0LDR"  + ((instr&Lbit) >> 18);
-        format   = "3,/";
-        if (instr&Bbit) *flagp++='B';
-        if ((instr&(Wbit+Pbit))==Wbit) *flagp++='T';
-        poss_tt = target_Data;
-      }
-      break;
-    case 8:
-    case 9:
-      /* STM/LDM */
-      mnemonic = "STM\0LDM" + ((instr&Lbit) >> 18);
-      if (RN_is(13)) {
-        /* r13, so treat as stack */
-        word x = (instr&(3<<23)) >> 22;
-        if (instr&Lbit) x^=6;
-        { const char * foo = "EDEAFDFA"+x;
-          *flagp++ = *foo++;
-          *flagp++ = *foo;
-        }
-      }
-      else {
-        /* not r13, so don't treat as stack */
-        *flagp++ = (instr&Ubit) ? 'I' : 'D';
-        *flagp++ = (instr&Pbit) ? 'B' : 'A';
-      }
-      format = "4',%";
-      break;
-    case 10:
-    case 11:
-      /* B or BL */
-      mnemonic = "B\0BL"+((instr&(1<<24))>>23);
-      format   = "&";
-      break;
-    case 12:
-    case 13:
-    case 14:  // FPU
-			{
-				if (!DisasmVFP(instr, result.text)) {
-					goto lUndefined;
-				}
-				result.undefined = 0;
-				return &result;
-			}
-      break;
-    case 15:
-      /* SWI */
-      mnemonic = "SWI";
-      format   = "$";
-      break;
-/* Nasty hack: this is code that won't be reached in the normal
- * course of events, and after the last case of the switch is a
- * convenient place for it.
- */
-lUndefined:
-      strcpy(result.text, "Undefined instruction");
-      result.undefined = 1;
-      return &result;
-  }
-  *flagp=0;
-
-  /* PHASE 2. Produce string. */
-
-  { char * op = result.text;
-
-    /* 2a. Mnemonic. */
-
-    op = append(op,mnemonic);
-
-    /* 2b. Condition code. */
-
-    { word cond = instr>>28;
-      if (cond!=14) {
-        const char * ip = "EQNECSCCMIPLVSVCHILSGELTGTLEALNV"+2*cond;
-        *op++ = *ip++;
-        *op++ = *ip;
-      }
-    }
-
-    /* 2c. Flags. */
-
-    { const char * ip = flagchars;
-      while (*ip) *op++ = *ip++;
-    }
-
-    /* 2d. A tab character. */
-
-    *op++ = '\t';
-
-    /* 2e. Other stuff, determined by format string. */
-
-    { const char * ip = format;
-      char c;
-
-      const char * * regnames = opts->regnames;
-      word     oflags   = opts->flags;
-
-      while ((c=*ip++) != 0) {
-        switch(c) {
-					case '^':  // hrydgard addition
-						{
-							unsigned short imm16 = ((instr & 0x000F0000) >> 4) | (instr & 0x0FFF);
-							op += sprintf(op, "%04x", imm16);
-						}
-						break;
-          case '$':
-            result.is_SWI = 1;
-            result.swinum = instr&0x00FFFFFF;
-            result.addrstart = op;
-            op += sprintf(op, "&%X", result.swinum);
-            break;
-          case '%':
-            *op++='{';
-            { word w = instr&0xFFFF;
-              int i=0;
-              while (w) {
-                int j;
-                while (!(w&(1ul<<i))) ++i;
-                for (j=i+1; w&(1ul<<j); ++j) ;
-                --j;
-                /* registers [i..j] */
-                op = append(op, regnames[i]);
-                if (j-i) {
-                  *op++ = (j-i>1) ? '-' : ',';
-                  op = append(op, regnames[j]);
-                }
-                i=j; w=(w>>(j+1))<<(j+1);
-                if (w) *op++=',';
-              }
-            }
-            *op++='}';
-            if (instr&(1<<22)) *op++='^';
-            break;
-          case '&':
-            { address target = (addr+8 + ((((int)instr)<<8)>>6)) & 0x03FFFFFC;
-              result.addrstart = op;
-              op = hex8(op, target);
-              result.target_type = target_Code;
-              result.target      = target;
-            }
-            break;
-          case '\'':
-lPling:
-            if (instr&Wbit) *op++='!';
-            break;
-          case '(':
-            *op++ = (char)('0'+fpn);
-            break;
-          case ')':
-            { word w = (instr>>20)&15;
-              if (w>=10) { *op++='1'; *op++=(char)('0'-10+w); }
-              else *op++=(char)(w+'0');
-            }
-            break;
-          case '*':
-          case '.':
-            if (instr&Ibit) {
-              /* immediate constant */
-              word imm8 = (instr&255);
-              word rot  = (instr>>7)&30;
-              if (rot && !(imm8&3) && c=='*') {
-                /* Funny immediate const. Guaranteed not '.', btw */
-                *op++='#'; *op++='&';
-                *op++="0123456789ABCDEF"[imm8>>4];
-                *op++="0123456789ABCDEF"[imm8&15];
-                *op++=',';
-                op = num(op, rot);
-              }
-              else {
-                if (rot != 0) {
-                  imm8 = (imm8>>rot) | (imm8<<(32-rot));
-                }
-                if (c=='*') {
-                  *op++='#';
-                  if (imm8>256 && ((imm8&(imm8-1))==0)) {
-                    /* only one bit set, and that later than bit 8.
-                     * Represent as 1<<... .
-                     */
-                    op = append(op,"1<<");
-                    { int n=0;
-                      while (!(imm8&15)) { n+=4; imm8=imm8>>4; }
-                      /* Now imm8 is 1, 2, 4 or 8. */
-                      n += (0x30002010 >> 4*(imm8-1))&15;
-                      op = num(op, n);
-                    }
-                  }
-                  else {
-                    if (((int)imm8)<0 && ((int)imm8)>-100) {
-                      *op++='-'; imm8=-(int)imm8;
-                    }
-                    op = num(op, imm8);
-                  }
-                }
-                else {
-                  address a = addr+8;
-                  if (instr&(1<<22)) a-=imm8; else a+=imm8;
-                  result.addrstart=op;
-                  op = hex8(op, a);
-                  result.target=a; result.target_type=target_Unknown;
-                }
-              }
-            }
-            else {
-              /* rotated register */
-              const char * rot = "LSL\0LSR\0ASR\0ROR" + ((instr&(3<<5)) >> 3);
-              op = append(op, regnames[instr&15]);
-              if (instr&(1<<4)) {
-                /* register rotation */
-                if (instr&(1<<7)) goto lUndefined;
-                *op++=','; if (oflags&disopt_CommaSpace) *op++=' ';
-                op = append(op,rot); *op++=' ';
-                op = append(op,regnames[(instr&(15<<8))>>8]);
-              }
-              else {
-                /* constant rotation */
-                word n = instr&(31<<7);
-                if (!n) {
-                  if (!(instr&(3<<5))) break;
-                  else if ((instr&(3<<5))==(3<<5)) {
-                    op = append(op, ",RRX");
-                    break;
-                  }
-                  else n=32<<7;
-                }
-                *op++ = ','; if (oflags&disopt_CommaSpace) *op++=' ';
-                op = num(append(append(op,rot)," #"),n>>7);
-              }
-            }
-            break;
-          case '+':
-            if (instr&(1<<3)) {
-              word w = instr&7;
-              *op++='#';
-              if (w<6) *op++=(char)('0'+w);
-              else op = append(op, w==6 ? "0.5" : "10");
-            }
-            else {
-              *op++='f';
-              *op++=(char)('0'+(instr&7));
-            }
-            break;
-          case ',':
-            *op++=',';
-            if (oflags&disopt_CommaSpace) *op++=' ';
-            break;
-          case '-':
-            { word w = instr&(7<<5);
-              if (w) {
-                *op++=',';
-                if (oflags&disopt_CommaSpace) *op++=' ';
-                *op++ = (char)('0'+(w>>5));
-              }
-            }
-            break;
-          case '/':
-            result.addrstart = op;
-            *op++='[';
-            op = append(op, regnames[(instr&RNbits)>>16]);
-            if (!(instr&Pbit)) *op++=']';
-            *op++=','; if (oflags&disopt_CommaSpace) *op++=' ';
-            /* For following, NB that bit 25 is always 0 for LDC, SFM etc */
-            if (instr&Ibit) {
-              /* shifted offset */
-              if (!(instr&Ubit)) *op++='-';
-              /* We're going to transfer to '*', basically. The stupid
-               * thing is that the meaning of bit 25 is reversed there;
-               * I don't know why the designers of the ARM did that.
-               */
-              instr ^= Ibit;
-              if (instr&(1<<4)) {
-#ifdef INSTR_grok_v4
-                if (is_v4 && !(instr&(15<<8))) {
-                  ip = (instr&Pbit) ? "0]" : "0";
-                  break;
-                }
-#else
-                goto lUndefined;	/* LSL r3 forbidden */
-#endif
-              }
-              /* Need a ] iff it was pre-indexed; and an optional ! iff
-               * it's pre-indexed *or* a copro instruction,
-               * except that FPU operations don't need the !. Bletch.
-               */
-              if (instr&Pbit) ip="*]'";
-              else if (instr&(1<<27)) {
-                if (CP_is(1) || CP_is(2)) {
-                  if (!(instr&Wbit)) goto lUndefined;
-                  ip="*";
-                }
-                else ip="*'";
-              }
-              else ip="*";
-            }
-            else {
-              /* immediate offset */
-              word offset;
-              if (instr&(1<<27)) {
-                /* LDF or LFM or similar */
-                offset = (instr&255)<<2;
-              }
-#ifdef INSTR_grok_v4
-              else if (is_v4) offset = (instr&15) + ((instr&(15<<8))>>4);
-#endif
-              else {
-                /* LDR or STR */
-                offset = instr&0xFFF;
-              }
-              *op++='#';
-              if (!(instr&Ubit)) {
-                if (offset) *op++='-';
-                else result.oddbits=1;
-                result.offset = -(int)offset;
-              }
-              else result.offset = offset;
-              op = num(op, offset);
-              if (RN_is(15) && (instr&Pbit)) {
-                /* Immediate, pre-indexed and PC-relative. Set target. */
-                result.target_type = poss_tt;
-                result.target      = (instr&Ubit) ? addr+8 + offset
-                                                  : addr+8 - offset;
-                if (!(instr&Wbit)) {
-                  /* no writeback, either. Use friendly form. */
-                  op = hex8(result.addrstart, result.target);
-                  break;
-                }
-              }
-              if (instr&Pbit) { *op++=']'; goto lPling; }
-              else if (instr&(1<<27)) {
-                if (CP_is(1) || CP_is(2)) {
-                  if (!(instr&Wbit)) goto lUndefined;
-                }
-                else goto lPling;
-              }
-            }
-            break;
-          case '0': case '1': case '2': case '3': case '4':
-            op = append(op, regnames[(instr>>(4*(c-'0')))&15]);
-            break;
-          case '5': case '6': case '7': case '8': case '9':
-            *op++='f';
-            *op++=(char)('0' + ((instr>>(4*(c-'5')))&7));
-            break;
-          case ':':
-            *op++ = (char)('0' + ((instr>>21)&7));
-            break;
-          case ';':
-            op = reg(op, 'p', instr>>8);
-            break;
-          case '>':
-            *op++='#';
-            op = num(op, (instr >> 7) & 31);
-            break;
-          case '<':
-            *op++='#';
-            if (instr & (1 << 6)) {
-              op = num(op, ((instr >> 16) & 31) + 1);
-            } else {
-              op = num(op, ((instr >> 16) & 31) + 1 - ((instr >> 7) & 31));
-            }
-            break;
-          default:
-            if (c<=5)
-              op = reg(op, 'c', instr >> (4*(c-1)));
-            else *op++ = c;
-        }
-      }
-      *op=0;
-    }
-  }
-
-  /* DONE! */
-
-  return &result;
-}
-
-static const char * reg_names[16] = {
-	"r0", "r1", "r2", "r3", "r4", "r5", "r6", "r7",
-	"r8", "r9", "r10", "r11", "ip", "sp", "lr", "pc"
-};
-
-static sDisOptions options = {
-	disopt_CommaSpace,
-	reg_names
-};
-
-const char *ArmRegName(int r) {
-	return reg_names[r];
-}
-
 void ArmDis(unsigned int addr, unsigned int w, char *output, int bufsize, bool includeWord) {
-	pInstruction instr = instr_disassemble(w, addr, &options);
-	char temp[256];
-	if (includeWord) {
-		snprintf(output, bufsize, "%08x\t%s", w, instr->text);
-	} else {
-		snprintf(output, bufsize, "%s", instr->text);
-	}
-	if (instr->undefined || instr->badbits || instr->oddbits) {
-		if (instr->undefined) snprintf(output, bufsize, "%08x\t[undefined instr]", w);
-		if (instr->badbits) snprintf(output, bufsize, "%08x\t[illegal bits]", w);
-
-		// HUH? LDR and STR gets this a lot
-		// strcat(output, " ? (extra bits)");  
-		if (instr->oddbits) {
-			snprintf(temp, sizeof(temp), " [unexpected bits %08x]", w);
-			strcat(output, temp);
-		}
-	}
-	// zap tabs
-	while (*output) {
-		if (*output == '\t')
-			*output = ' ';
-		output++;
-	}
+	char text[256];
+	Out o(text, sizeof(text));
+	if (!Disassemble(addr, w, o))
+		snprintf(text, sizeof(text), "[undefined instr]");
+	if (includeWord)
+		snprintf(output, bufsize, "%08x %s", w, text);
+	else
+		snprintf(output, bufsize, "%s", text);
 }
-
-#ifdef __clang__
-#pragma GCC diagnostic pop
-#endif
