@@ -181,20 +181,34 @@ const bool nonAlphaDestFactors[16] = {
 	true,
 };
 
+// Whether the color blend uses the source alpha, so the stencil can only be written as alpha with a second output.
+static bool StencilToAlphaNeedsDualSource(ReplaceBlendType replaceBlend) {
+	if (IsStencilTestOutputDisabled() || gstate.isModeClear()) {
+		return false;
+	}
+	if (replaceBlend == REPLACE_BLEND_NO || replaceBlend == REPLACE_BLEND_READ_FRAMEBUFFER) {
+		return false;
+	}
+	if (nonAlphaSrcFactors[gstate.getBlendFuncA()] && nonAlphaDestFactors[gstate.getBlendFuncB()]) {
+		return false;
+	}
+	// With no color written, the color blend can't need the source alpha (WipEout Pure writes only the stencil
+	// this way, then blends with it as the destination alpha).
+	return (gstate.getColorMask() & 0x00FFFFFF) != 0x00FFFFFF;
+}
+
 ReplaceAlphaType ReplaceAlphaWithStencil(ReplaceBlendType replaceBlend) {
 	if (IsStencilTestOutputDisabled() || gstate.isModeClear()) {
 		return REPLACE_ALPHA_NO;
 	}
 
 	if (replaceBlend != REPLACE_BLEND_NO && replaceBlend != REPLACE_BLEND_READ_FRAMEBUFFER) {
-		if (nonAlphaSrcFactors[gstate.getBlendFuncA()] && nonAlphaDestFactors[gstate.getBlendFuncB()]) {
+		if (!StencilToAlphaNeedsDualSource(replaceBlend)) {
 			return REPLACE_ALPHA_YES;
+		} else if (gstate_c.Use(GPU_USE_DUALSOURCE_BLEND)) {
+			return REPLACE_ALPHA_DUALSOURCE;
 		} else {
-			if (gstate_c.Use(GPU_USE_DUALSOURCE_BLEND)) {
-				return REPLACE_ALPHA_DUALSOURCE;
-			} else {
-				return REPLACE_ALPHA_NO;
-			}
+			return REPLACE_ALPHA_NO;
 		}
 	}
 
@@ -967,6 +981,11 @@ static void ConvertBlendState(GenericBlendState &blendState, FBReadSetting useFB
 	if (useFBRead == FBReadSetting::Forced) {
 		// Enforce blend replacement if enabled. If not, shouldn't do anything of course.
 		replaceBlend = gstate.isAlphaBlendEnabled() ? REPLACE_BLEND_READ_FRAMEBUFFER : REPLACE_BLEND_NO;
+	} else if (useFBRead == FBReadSetting::Allowed && replaceBlend != REPLACE_BLEND_BLUE_TO_ALPHA && !gstate_c.Use(GPU_USE_DUALSOURCE_BLEND) &&
+		gstate_c.Use(GPU_USE_FRAMEBUFFER_FETCH) && StencilToAlphaNeedsDualSource(replaceBlend)) {
+		// Blend in the shader, which can then write the stencil as alpha. Only with fetch: elsewhere a framebuffer
+		// copy per draw costs too much for something this common, so the alpha stays wrong (WipEout Pure).
+		replaceBlend = REPLACE_BLEND_READ_FRAMEBUFFER;
 	}
 
 	blendState.replaceBlend = replaceBlend;
