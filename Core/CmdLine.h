@@ -188,6 +188,9 @@ struct CommandLineOptions {
 	std::optional<int> replayEnd;
 	// Headless: apply the game's compatibility settings when replaying a GE frame dump.
 	std::optional<bool> dumpCompat;
+	std::optional<bool> hardwareTransform;
+	// Headless: comma-separated clip-distance, cull-distance, depth-clamp.
+	std::optional<std::string> disableGPUFeatures;
 	std::optional<bool> screenshotRenderTarget;
 	std::optional<std::string> screenshotFilenameDiff;
 	// Headless: preserve the alpha channel when saving PNG screenshots.

@@ -1118,6 +1118,22 @@ int main(int argc, const char* argv[]) {
 	coreParameter.startBreak = false;
 	coreParameter.headLess = true;
 	coreParameter.dumpCompat = cmdLineOptions.dumpCompat.value_or(false);
+	if (cmdLineOptions.disableGPUFeatures.has_value()) {
+		std::vector<std::string> names;
+		SplitString(cmdLineOptions.disableGPUFeatures.value(), ',', names);
+		for (const std::string &name : names) {
+			if (name == "clip-distance") {
+				coreParameter.disabledGPUFeatures |= GPU_USE_CLIP_DISTANCE;
+			} else if (name == "cull-distance") {
+				coreParameter.disabledGPUFeatures |= GPU_USE_CULL_DISTANCE;
+			} else if (name == "depth-clamp") {
+				coreParameter.disabledGPUFeatures |= GPU_USE_DEPTH_CLAMP;
+			} else {
+				fprintf(stderr, "Unknown feature for --disable-gpu-features: %s (expected clip-distance, cull-distance or depth-clamp)\n", name.c_str());
+				return 1;
+			}
+		}
+	}
 	coreParameter.loadGameConfigs = false;
 	coreParameter.renderScaleFactor = cmdLineOptions.resolutionScale.value_or(1);
 	coreParameter.renderWidth = 480 * coreParameter.renderScaleFactor;

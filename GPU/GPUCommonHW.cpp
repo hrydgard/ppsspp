@@ -613,12 +613,9 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 		features |= GPU_USE_VS_RANGE_CULLING;
 	}
 
-	// Set this to true to easily test our fallback shaders for depth clamp and min/max clipping.
-	// DO NOT check that in! This should be false normally.
-	constexpr bool simulateOldMali = false;
-	if (simulateOldMali) {
-		features &= ~(GPU_USE_CLIP_DISTANCE | GPU_USE_CULL_DISTANCE | GPU_USE_DEPTH_CLAMP);
-	}
+	// Headless --disable-gpu-features, to test the fallbacks for GPUs without them (old Mali has none of
+	// clip distance, cull distance and depth clamp).
+	features &= ~PSP_CoreParameter().disabledGPUFeatures;
 
 	return features;
 }
