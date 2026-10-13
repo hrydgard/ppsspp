@@ -438,6 +438,13 @@ void System_Notify(SystemNotification notification) {
 			}
 		});
 		break;
+	case SystemNotification::TOP_LEVEL_CHANGED:
+		dispatch_async(dispatch_get_main_queue(), ^{
+			if (sharedViewController) {
+				[sharedViewController topLevelChanged];
+			}
+		});
+		break;
 	case SystemNotification::AUDIO_MODE_CHANGED:
 		dispatch_async(dispatch_get_main_queue(), ^{
 			iOSCoreAudioUpdateSession();

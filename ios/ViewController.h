@@ -46,6 +46,7 @@
 - (void)willResignActive;
 
 - (void)uiStateChanged;
+- (void)topLevelChanged;
 - (void)pickPhoto:(NSString *)saveFilename requestId:(int)requestId;
 - (void)updateResolutionWithView:(UIView *)view;
 

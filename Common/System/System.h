@@ -277,6 +277,7 @@ enum class SystemNotification {
 	PAD_STATE_CHANGED,
 	CONFIG_LOADED,
 	BEFORE_CONFIG_SAVE_ON_EXIT,
+	TOP_LEVEL_CHANGED,  // NativeIsAtTopLevel() changed. From the render thread.
 };
 
 // I guess it's not super great architecturally to centralize this, since it's not general - but same with a lot of

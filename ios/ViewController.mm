@@ -202,7 +202,7 @@ static int GetPickerRequestId(id picker) {
 		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(controllerDidDisconnect:) name:GCControllerDidDisconnectNotification object:nil];
 
 #if PPSSPP_PLATFORM(TVOS)
-		// Already the default. Should become YES at the top level menu, so the Menu button goes home.
+		// Already the default. See topLevelChanged.
 		self.controllerUserInteractionEnabled = NO;
 #else
 		// Observe orientation changes
@@ -390,6 +390,15 @@ static int GetPickerRequestId(id picker) {
 		self.gameController = nil;
 		[self setupFirstController];
 	}
+}
+
+// Like Android, Back on the main screen leaves the app. tvOS only does that with a Back press it
+// gets to see, so let controller events through to UIKit there. They still reach GCController.
+- (void)topLevelChanged {
+#if PPSSPP_PLATFORM(TVOS)
+	self.controllerUserInteractionEnabled = NativeIsAtTopLevel() ? YES : NO;
+	INFO_LOG(Log::System, "Controller events to UIKit: %s", self.controllerUserInteractionEnabled ? "yes" : "no");
+#endif
 }
 
 - (void)setupController:(GCController *)controller {
@@ -698,16 +707,36 @@ extern float g_safeInsetBottom;
 	return YES;
 }
 
+// Presses that aren't keyboard keys, like the remote's buttons, go on up the responder chain. On
+// tvOS, that's what takes Back on the main screen to the home screen (see topLevelChanged).
+static NSSet<UIPress *> *NonKeyboardPresses(NSSet<UIPress *> *presses) {
+	return [presses objectsPassingTest:^BOOL(UIPress *press, BOOL *stop) {
+		return press.key == nil;
+	}];
+}
+
 - (void)pressesBegan:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
 	KeyboardPressesBegan(presses, event);
+	NSSet<UIPress *> *others = NonKeyboardPresses(presses);
+	if (others.count) {
+		[super pressesBegan:others withEvent:event];
+	}
 }
 
 - (void)pressesEnded:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
 	KeyboardPressesEnded(presses, event);
+	NSSet<UIPress *> *others = NonKeyboardPresses(presses);
+	if (others.count) {
+		[super pressesEnded:others withEvent:event];
+	}
 }
 
 - (void)pressesCancelled:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
 	KeyboardPressesEnded(presses, event);
+	NSSet<UIPress *> *others = NonKeyboardPresses(presses);
+	if (others.count) {
+		[super pressesCancelled:others withEvent:event];
+	}
 }
 
 #pragma mark - Status Bar Control
