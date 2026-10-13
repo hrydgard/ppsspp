@@ -284,43 +284,129 @@ bool ViewGroup::SubviewFocused(View *queryView) {
 	return false;
 }
 
-// Returns the percentage the smaller one overlaps the bigger one.
-static float HorizontalOverlap(const Bounds &a, const Bounds &b) {
-	if (a.x2() < b.x || b.x2() < a.x)
-		return 0.0f;
-	// okay they do overlap. Let's clip.
-	float maxMin = std::max(a.x, b.x);
-	float minMax = std::min(a.x2(), b.x2());
-	float minW = std::min(a.w, b.w);
-	float overlap = minMax - maxMin;
-	if (overlap < 0.0f || minW <= 0.0f)
-		return 0.0f;
-	else
-		return std::min(1.0f, overlap / minW);
+// Directional focus moves, the way Android's FocusFinder (and the W3C spatial navigation draft)
+// do them. Only views that lie in the direction of the move are candidates. Of those, one that the
+// origin's "beam" (its extent across the direction of the move) hits beats one off to the side,
+// and otherwise the nearest wins, with distance along the move counting far more than distance
+// across it. Measuring to edges rather than centers is what keeps a wide view sitting between
+// two narrow ones from being skipped.
+
+static bool IsInDirection(const Bounds &origin, const Bounds &dest, FocusMove direction) {
+	switch (direction) {
+	case FocusMove::LEFT:
+		return (origin.x2() > dest.x2() || origin.x >= dest.x2()) && origin.x > dest.x;
+	case FocusMove::RIGHT:
+		return (origin.x < dest.x || origin.x2() <= dest.x) && origin.x2() < dest.x2();
+	case FocusMove::UP:
+		return (origin.y2() > dest.y2() || origin.y >= dest.y2()) && origin.y > dest.y;
+	case FocusMove::DOWN:
+		return (origin.y < dest.y || origin.y2() <= dest.y) && origin.y2() < dest.y2();
+	default:
+		return false;
+	}
 }
 
-// Returns the percentage the smaller one overlaps the bigger one.
-static float VerticalOverlap(const Bounds &a, const Bounds &b) {
-	if (a.y2() < b.y || b.y2() < a.y)
-		return 0.0f;
-	// okay they do overlap. Let's clip.
-	float maxMin = std::max(a.y, b.y);
-	float minMax = std::min(a.y2(), b.y2());
-	float minH = std::min(a.h, b.h);
-	float overlap = minMax - maxMin;
-	if (overlap < 0.0f || minH <= 0.0f)
-		return 0.0f;
-	else
-		return std::min(1.0f, overlap / minH);
+// Whether dest is past the origin's leading edge entirely.
+static bool IsEntirelyInDirection(const Bounds &origin, const Bounds &dest, FocusMove direction) {
+	switch (direction) {
+	case FocusMove::LEFT: return origin.x >= dest.x2();
+	case FocusMove::RIGHT: return origin.x2() <= dest.x;
+	case FocusMove::UP: return origin.y >= dest.y2();
+	case FocusMove::DOWN: return origin.y2() <= dest.y;
+	default: return false;
+	}
+}
+
+static bool InBeam(const Bounds &origin, const Bounds &dest, FocusMove direction) {
+	if (direction == FocusMove::LEFT || direction == FocusMove::RIGHT) {
+		return dest.y2() > origin.y && dest.y < origin.y2();
+	} else {
+		return dest.x2() > origin.x && dest.x < origin.x2();
+	}
+}
+
+// From the origin's leading edge to the near edge of dest.
+static float MajorAxisDistance(const Bounds &origin, const Bounds &dest, FocusMove direction) {
+	switch (direction) {
+	case FocusMove::LEFT: return std::max(0.0f, origin.x - dest.x2());
+	case FocusMove::RIGHT: return std::max(0.0f, dest.x - origin.x2());
+	case FocusMove::UP: return std::max(0.0f, origin.y - dest.y2());
+	case FocusMove::DOWN: return std::max(0.0f, dest.y - origin.y2());
+	default: return 0.0f;
+	}
+}
+
+// From the origin's leading edge to the far edge of dest.
+static float MajorAxisDistanceToFarEdge(const Bounds &origin, const Bounds &dest, FocusMove direction) {
+	switch (direction) {
+	case FocusMove::LEFT: return std::max(1.0f, origin.x - dest.x);
+	case FocusMove::RIGHT: return std::max(1.0f, dest.x2() - origin.x2());
+	case FocusMove::UP: return std::max(1.0f, origin.y - dest.y);
+	case FocusMove::DOWN: return std::max(1.0f, dest.y2() - origin.y2());
+	default: return 1.0f;
+	}
+}
+
+// Across the move, from the origin's focus position (normally its center) to the nearest part of
+// dest, so zero if dest is straight ahead. Android measures to dest's center instead, which lets a
+// narrow view further on beat a wide one that's right there.
+static float MinorAxisDistance(const Point2D &originPos, const Bounds &dest, FocusMove direction) {
+	if (direction == FocusMove::LEFT || direction == FocusMove::RIGHT) {
+		return std::max(0.0f, std::max(dest.y - originPos.y, originPos.y - dest.y2()));
+	} else {
+		return std::max(0.0f, std::max(dest.x - originPos.x, originPos.x - dest.x2()));
+	}
+}
+
+// Whether a, which is in the beam, beats b, which isn't.
+static bool BeamBeats(const Bounds &origin, const Bounds &a, const Bounds &b, FocusMove direction) {
+	const bool aInBeam = InBeam(origin, a, direction);
+	const bool bInBeam = InBeam(origin, b, direction);
+	if (bInBeam || !aInBeam) {
+		return false;
+	}
+	// b overlaps the origin along the move, so it's only partly in that direction.
+	if (!IsEntirelyInDirection(origin, b, direction)) {
+		return true;
+	}
+	// Sideways moves always prefer the beam: things in a row line up.
+	if (direction == FocusMove::LEFT || direction == FocusMove::RIGHT) {
+		return true;
+	}
+	// Up and down, something off to the side in the next row beats something in the beam further on.
+	return MajorAxisDistance(origin, a, direction) < MajorAxisDistanceToFarEdge(origin, b, direction);
+}
+
+static float WeightedDistance(const Point2D &originPos, const Bounds &origin, const Bounds &dest, FocusMove direction) {
+	const float major = MajorAxisDistance(origin, dest, direction);
+	const float minor = MinorAxisDistance(originPos, dest, direction);
+	// Android's weighting, which makes being straight ahead count for a lot.
+	return 13.0f * major * major + minor * minor;
+}
+
+bool IsBetterFocusCandidate(const Bounds &origin, const Point2D &originPos, const Bounds &candidate, const Bounds *best, FocusMove direction) {
+	if (!IsInDirection(origin, candidate, direction)) {
+		return false;
+	}
+	if (!best) {
+		return true;
+	}
+	if (BeamBeats(origin, candidate, *best, direction)) {
+		return true;
+	}
+	if (BeamBeats(origin, *best, candidate, direction)) {
+		return false;
+	}
+	return WeightedDistance(originPos, origin, candidate, direction) < WeightedDistance(originPos, origin, *best, direction);
+}
+
+static bool CanTakeFocus(const View *view) {
+	return view->CanBeFocused() && view->IsEnabled() && view->GetVisibility() == V_VISIBLE;
 }
 
 float GetTargetScore(const Point2D &originPos, int originIndex, const View *origin, const View *destination, FocusMove direction) {
 	// Skip labels and things like that.
-	if (!destination->CanBeFocused())
-		return 0.0f;
-	if (destination->IsEnabled() == false)
-		return 0.0f;
-	if (destination->GetVisibility() != V_VISIBLE)
+	if (!CanTakeFocus(destination))
 		return 0.0f;
 
 	Point2D destPos = destination->GetFocusPosition(Opposite(direction));
@@ -329,52 +415,10 @@ float GetTargetScore(const Point2D &originPos, int originIndex, const View *orig
 	float dy = destPos.y - originPos.y;
 
 	const float distance = std::max(sqrtf(dx*dx + dy*dy), 0.001f);
-	float overlap = 0.0f;
 	const float dirX = dx / distance;
 	const float dirY = dy / distance;
 
-	bool wrongDirection = false;
-	bool vertical = false;
-	const float horizOverlap = HorizontalOverlap(origin->GetBounds(), destination->GetBounds());
-	const float vertOverlap = VerticalOverlap(origin->GetBounds(), destination->GetBounds());
-	if (horizOverlap == 1.0f && vertOverlap == 1.0f) {
-		if (direction != FocusMove::PREV_PAGE && direction != FocusMove::NEXT_PAGE) {
-			// INFO_LOG(Log::UI, "Contain overlap: %s, %s", origin->Tag().c_str(), destination->Tag().c_str());
-			return 0.0f;
-		}
-	}
-	float originSize = 0.0f;
 	switch (direction) {
-	case FocusMove::LEFT:
-		overlap = vertOverlap;
-		originSize = origin->GetBounds().w;
-		if (dirX > 0.0f) {
-			wrongDirection = true;
-		}
-		break;
-	case FocusMove::UP:
-		overlap = horizOverlap;
-		originSize = origin->GetBounds().h;
-		if (dirY > 0.0f) {
-			wrongDirection = true;
-		}
-		vertical = true;
-		break;
-	case FocusMove::RIGHT:
-		overlap = vertOverlap;
-		originSize = origin->GetBounds().w;
-		if (dirX < 0.0f) {
-			wrongDirection = true;
-		}
-		break;
-	case FocusMove::DOWN:
-		overlap = horizOverlap;
-		originSize = origin->GetBounds().h;
-		if (dirY < 0.0f) {
-			wrongDirection = true;
-		}
-		vertical = true;
-		break;
 	case FocusMove::FIRST:
 		if (originIndex == -1)
 			return 0.0f;
@@ -391,23 +435,11 @@ float GetTargetScore(const Point2D &originPos, int originIndex, const View *orig
 		return distance;
 	case FocusMove::PREV_PAGE:
 	case FocusMove::NEXT_PAGE:
-		// Not always, but let's go with the bonus on height.
-		vertical = true;
-		break;
-	case FocusMove::PREV:
-	case FocusMove::NEXT:
+		return 10.0f / std::max(1.0f, distance);
+	default:
+		// The arrow directions go through IsBetterFocusCandidate.
 		ERROR_LOG(Log::UI, "Invalid focus direction");
-		break;
-	}
-
-	// At large distances, ignore overlap.
-	if (distance > 2.0 * originSize)
-		overlap = 0.0f;
-
-	if (wrongDirection) {
 		return 0.0f;
-	} else {
-		return 10.0f / std::max(1.0f, distance) + overlap * 2.0;
 	}
 }
 
@@ -439,6 +471,27 @@ NeighborResult ViewGroup::FindNeighbor(View *view, FocusMove direction, Neighbor
 	case FocusMove::LEFT:
 	case FocusMove::RIGHT:
 	case FocusMove::DOWN:
+		{
+			// Candidates are compared with the best so far rather than scored, so score stays unused.
+			const Bounds &origin = view->GetBounds();
+			const Point2D originPos = view->GetFocusPosition(direction);
+			for (View *candidate : views_) {
+				if (candidate == view || !CanTakeFocus(candidate))
+					continue;
+				const Bounds *best = result.view ? &result.view->GetBounds() : nullptr;
+				if (IsBetterFocusCandidate(origin, originPos, candidate->GetBounds(), best, direction)) {
+					result.view = candidate;
+				}
+			}
+
+			// Then see if any of the children contain any better candidates.
+			for (View *v : views_) {
+				if (v->IsViewGroup()) {
+					result = static_cast<ViewGroup *>(v)->FindNeighbor(view, direction, result);
+				}
+			}
+			return result;
+		}
 	case FocusMove::FIRST:
 	case FocusMove::LAST:
 		{
@@ -461,11 +514,6 @@ NeighborResult ViewGroup::FindNeighbor(View *view, FocusMove direction, Neighbor
 					if (vg)
 						result = vg->FindNeighbor(view, direction, result);
 				}
-			}
-
-			// Boost neighbors with the same parent
-			if (num != -1) {
-				//result.score += 100.0f;
 			}
 			return result;
 		}
