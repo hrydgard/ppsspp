@@ -113,6 +113,7 @@ tests_good = [
   "cpu/fpu/rounding",
   "cpu/fpu/roundmode",
   "cpu/fpu/fpu_branch",
+  "cpu/fpu/fpu_nan",
 
   "audio/atrac/addstreamdata",
   "audio/atrac/atractest",
@@ -575,7 +576,6 @@ tests_next = [
   "cpu/vfpu/specials",  # vcmp on denormals, NaN canonicalization and denormal flush in vbfy/vocp/vavg/vfad/vsocp
   "cpu/vfpu/overlap_vcrsp",  # vcrsp overlapping its source, which the assembler refuses; the hardware doesn't read-before-write
   "cpu/fpu/fpu_branch_hazard",  # a bc1x right after c.xx.s sees the old condition; the compiler pads for it, not emulated
-  "cpu/fpu/fpu_nan",  # 0/0 and inf-inf give 0x7fc00000; x86 hosts make 0xffc00000, and a check per op isn't worth it
   "cpu/lsu/cacheop",  # the data cache is write-back and the uncached mirror shows it; not emulated
   "cpu/vfpu/prefixes",
   "cpu/vfpu/vector",
