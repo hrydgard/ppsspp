@@ -8,6 +8,9 @@
 
 #include "Core/HLE/SocketManager.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/sceKernelThread.h"
+#include "Core/HLE/sceKernelInterrupt.h"
+#include "Core/CoreTiming.h"
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceNet.h"
@@ -57,6 +60,59 @@ static int UpdateErrnoFromHost(int threadID, int hostErrno, const char *func) {
 }
 
 bool netInetInited = false;
+
+// A blocking call waiting for its sockets. Host sockets are always non-blocking: rather than block
+// the whole emulator in the host call, the thread waits, and a CoreTiming event retries the call
+// every millisecond until it completes or its timeout runs out in emulated time.
+enum class InetWaitOp : int {
+	Select,
+	Poll,
+	Recv,
+	RecvFrom,
+	Send,
+	SendTo,
+	Accept,
+	Connect,
+};
+
+struct InetWait {
+	InetWaitOp op;
+	u32 args[6];
+	s64 deadline;  // In ticks, or -1 to wait for as long as it takes.
+};
+
+// One non-blocking attempt at a call. When it would block, errno isn't set yet: hostErrno says
+// what to set it to if the caller doesn't wait.
+struct InetTry {
+	int result;
+	bool wouldBlock;
+	int hostErrno;
+};
+
+// By waiting thread. Sockets don't survive a savestate, but the waits are saved so a thread
+// doesn't wait forever: its next retry finds the socket gone and fails.
+static std::map<SceUID, InetWait> g_inetWaits;
+static int eventInetWaitPoll = -1;
+static const int INET_WAIT_POLL_US = 1000;
+static const SceUID INET_WAIT_ID = 0x494E4554;
+
+static void __NetInetWaitPoll(u64 userdata, int cyclesLate);
+
+void __NetInetInit() {
+	g_inetWaits.clear();
+	eventInetWaitPoll = CoreTiming::RegisterEvent("NetInetWaitPoll", &__NetInetWaitPoll);
+}
+
+void __NetInetDoState(PointerWrap &p, bool hasState) {
+	if (hasState) {
+		Do(p, g_inetWaits);
+		Do(p, eventInetWaitPoll);
+	} else if (p.mode == p.MODE_READ) {
+		g_inetWaits.clear();
+		eventInetWaitPoll = -1;
+	}
+	CoreTiming::RestoreRegisterEvent(eventInetWaitPoll, "NetInetWaitPoll", &__NetInetWaitPoll);
+}
 
 void __NetInetShutdown() {
 	if (!netInetInited) {
@@ -221,12 +277,51 @@ static int sceNetInetGetsockname(int socket, u32 namePtr, u32 namelenPtr) {
 	return hleLogInfo(Log::sceNet, 0);
 }
 
-// FIXME: nfds is number of fd(s) as in posix poll, or was it maximum fd value as in posix select? Star Wars Battlefront Renegade seems to set the nfds to 64, while Coded Arms Contagion is using 256
-int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr, u32 timeoutPtr) {
-	SceNetInetFdSet	*readfds = readfdsPtr ? (SceNetInetFdSet*)Memory::GetPointerWriteOrException(readfdsPtr) : nullptr;
-	SceNetInetFdSet	*writefds = writefdsPtr ? (SceNetInetFdSet*)Memory::GetPointerWriteOrException(writefdsPtr) : nullptr;
-	SceNetInetFdSet	*exceptfds = exceptfdsPtr ? (SceNetInetFdSet*)Memory::GetPointerWriteOrException(exceptfdsPtr) : nullptr;
-	SceNetInetTimeval *timeout = timeoutPtr ? (SceNetInetTimeval*)Memory::GetPointerWriteOrException(timeoutPtr) : nullptr;
+static InetTry TryRecvFrom(SceUID threadID, const u32 *args);
+static InetTry TrySendTo(SceUID threadID, const u32 *args);
+static InetTry TryAccept(SceUID threadID, const u32 *args);
+static InetTry TryConnectDone(SceUID threadID, const u32 *args);
+
+// The host socket behind a guest one, or false if there's none. Unlike GetHostSocketFromInetSocket,
+// doesn't assert, since a socket can be closed while a call waits for it, and works on Windows,
+// where SOCKET is unsigned and can't be checked for -1 with < 0.
+static bool GetHostSocket(int socket, SOCKET *hostSocket) {
+	InetSocket *inetSock;
+	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
+		return false;
+	}
+	*hostSocket = inetSock->sock;
+	return true;
+}
+
+static bool IsWouldBlock(int hostErrno) {
+	return hostErrno == EAGAIN || hostErrno == EWOULDBLOCK;
+}
+
+// How long a blocking call on this socket may wait: 0 not at all, -1 forever.
+static s64 SocketWaitUs(const InetSocket *inetSock, u32 flags, bool send) {
+	if (inetSock->nonblocking || (flags & PSP_NET_INET_MSG_DONTWAIT)) {
+		return 0;
+	}
+	const u32 timeoutUs = send ? inetSock->sendTimeoutUs : inetSock->recvTimeoutUs;
+	return timeoutUs == 0 ? -1 : timeoutUs;
+}
+
+static void ZeroInetFdSets(u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr) {
+	for (u32 ptr : { readfdsPtr, writefdsPtr, exceptfdsPtr }) {
+		if (ptr) {
+			NetInetFD_ZERO((SceNetInetFdSet *)Memory::GetPointerWriteOrException(ptr));
+		}
+	}
+}
+
+// args: nfds, readfds, writefds, exceptfds. The sets are only overwritten with the result when
+// something is ready, so they still hold the request between attempts.
+static InetTry TrySelect(SceUID threadID, const u32 *args, bool firstTry) {
+	const int nfds = (int)args[0];
+	SceNetInetFdSet	*readfds = args[1] ? (SceNetInetFdSet*)Memory::GetPointerWriteOrException(args[1]) : nullptr;
+	SceNetInetFdSet	*writefds = args[2] ? (SceNetInetFdSet*)Memory::GetPointerWriteOrException(args[2]) : nullptr;
+	SceNetInetFdSet	*exceptfds = args[3] ? (SceNetInetFdSet*)Memory::GetPointerWriteOrException(args[3]) : nullptr;
 
 	// First, translate the specified fd_sets to host sockets.
 
@@ -235,12 +330,6 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 	FD_ZERO(&wrfds);
 	FD_ZERO(&exfds);
 
-	if (nfds > 256) {
-		// Probably never happens, just for safety.
-		ERROR_LOG(Log::sceNet, "Bad nfds value, resetting to 256: %d", nfds);
-		nfds = 256;
-	}
-
 	int rdcnt = 0, wrcnt = 0, excnt = 0;
 
 	int maxHostSocket = 0;
@@ -248,59 +337,37 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 	// Save the mapping during setup.
 	SOCKET hostSockets[256]{};
 
+	struct {
+		SceNetInetFdSet *set;
+		fd_set *hostSet;
+		int *count;
+		const char *name;
+	} sets[] = {
+		{ readfds, &rdfds, &rdcnt, "read" },
+		{ writefds, &wrfds, &wrcnt, "write" },
+		{ exceptfds, &exfds, &excnt, "except" },
+	};
+
 	for (int i = SocketManager::MIN_VALID_INET_SOCKET; i < nfds; i++) {
-		if (readfds && (NetInetFD_ISSET(i, readfds))) {
-			SOCKET sock = g_socketManager.GetHostSocketFromInetSocket(i);
-			_dbg_assert_(sock != 0);
-			if (sock < 0) {
-				ERROR_LOG(Log::sceNet, "Bad socket #%d in readfds", i);
+		for (auto &set : sets) {
+			if (!set.set || !NetInetFD_ISSET(i, set.set)) {
+				continue;
+			}
+			SOCKET sock;
+			if (!GetHostSocket(i, &sock)) {
+				if (firstTry) {
+					ERROR_LOG(Log::sceNet, "Bad socket #%d in %s fds", i, set.name);
+				}
 				continue;
 			}
 			hostSockets[i] = sock;
-			if (sock > maxHostSocket)
-				maxHostSocket = sock;
-			VERBOSE_LOG(Log::sceNet, "Input Read FD #%i (host: %d)", i, sock);
-			if (rdcnt < FD_SETSIZE) {
-				FD_SET(sock, &rdfds); // This might pointed to a non-existing socket or sockets belonged to other programs on Windows, because most of the time Windows socket have an id above 1k instead of 0-255
-				rdcnt++;
-			} else {
-				ERROR_LOG(Log::sceNet, "Hit set size (rd)");
-			}
-		}
-		if (writefds && (NetInetFD_ISSET(i, writefds))) {
-			SOCKET sock = g_socketManager.GetHostSocketFromInetSocket(i);
-			_dbg_assert_(sock != 0);
-			if (sock < 0) {
-				ERROR_LOG(Log::sceNet, "Bad socket #%d in writefds", i);
-				continue;
-			}
-			hostSockets[i] = sock;
-			if (sock > maxHostSocket)
-				maxHostSocket = sock;
-			VERBOSE_LOG(Log::sceNet, "Input Write FD #%i (host: %d)", i, sock);
-			if (wrcnt < FD_SETSIZE) {
-				FD_SET(sock, &wrfds);
-				wrcnt++;
-			} else {
-				ERROR_LOG(Log::sceNet, "Hit set size (wr)");
-			}
-		}
-		if (exceptfds && (NetInetFD_ISSET(i, exceptfds))) {
-			SOCKET sock = g_socketManager.GetHostSocketFromInetSocket(i);
-			_dbg_assert_(sock != 0);
-			if (sock < 0) {
-				ERROR_LOG(Log::sceNet, "Bad socket #%d in exceptfds", i);
-				continue;
-			}
-			hostSockets[i] = sock;
-			if (sock > maxHostSocket)
-				maxHostSocket = sock;
-			VERBOSE_LOG(Log::sceNet, "Input Except FD #%i (host: %d)", i, sock);
-			if (excnt < FD_SETSIZE) {
-				FD_SET(sock, &exfds);
-				excnt++;
-			} else {
-				ERROR_LOG(Log::sceNet, "Hit set size (exc)");
+			if ((int)sock > maxHostSocket)
+				maxHostSocket = (int)sock;
+			if (*set.count < FD_SETSIZE) {
+				FD_SET(sock, set.hostSet); // This might pointed to a non-existing socket or sockets belonged to other programs on Windows, because most of the time Windows socket have an id above 1k instead of 0-255
+				(*set.count)++;
+			} else if (firstTry) {
+				ERROR_LOG(Log::sceNet, "Hit set size (%s)", set.name);
 			}
 		}
 	}
@@ -310,92 +377,82 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 	_dbg_assert_(wrcnt < FD_SETSIZE);
 	_dbg_assert_(excnt < FD_SETSIZE);
 
-	timeval tmout = { 5, 543210 }; // Workaround timeout value when timeout = NULL
-	if (timeout) {
-		tmout.tv_sec = timeout->tv_sec;
-		tmout.tv_usec = timeout->tv_usec;
+	if (rdcnt + wrcnt + excnt == 0) {
+		// Nothing to check: a select() used as a sleep. Winsock's select() fails on empty sets.
+		return { 0, true, EAGAIN };
 	}
-	DEBUG_LOG(Log::sceNet, "Select(host: %d): Read count: %d, Write count: %d, Except count: %d, TimeVal: %u.%u", maxHostSocket + 1, rdcnt, wrcnt, excnt, (int)tmout.tv_sec, (int)tmout.tv_usec);
-	// TODO: Simulate blocking behaviour when timeout = NULL to prevent PPSSPP from freezing
-	// Note: select can overwrite tmout.
-	int retval = select(maxHostSocket + 1, readfds ? &rdfds : nullptr, writefds ? &wrfds : nullptr, exceptfds ? &exfds : nullptr, /*(timeout == NULL) ? NULL :*/ &tmout);
+
+	timeval tmout = { 0, 0 };
+	int retval = select(maxHostSocket + 1, readfds ? &rdfds : nullptr, writefds ? &wrfds : nullptr, exceptfds ? &exfds : nullptr, &tmout);
+	if (retval == 0) {
+		return { 0, true, EAGAIN };
+	}
+	if (retval < 0) {
+		UpdateErrnoFromHost(threadID, socket_errno, "sceNetInetSelect");
+		return { retval, false, 0 };
+	}
 
 	// Convert the results back to PSP fd_sets.
-	if (readfds)
-		NetInetFD_ZERO(readfds);
-	if (writefds)
-		NetInetFD_ZERO(writefds);
-	if (exceptfds)
-		NetInetFD_ZERO(exceptfds);
-
-	// Don't need to loop through and set any bits if the sum total returned is 0.
-	if (retval > 0) {
-		for (int i = SocketManager::MIN_VALID_INET_SOCKET; i < nfds; i++) {
-			if (hostSockets[i] == 0) {
-				continue;
-			}
-			if (readfds && FD_ISSET(hostSockets[i], &rdfds)) {
-				NetInetFD_SET(i, readfds);
-			}
-			if (writefds && FD_ISSET(hostSockets[i], &wrfds)) {
-				NetInetFD_SET(i, writefds);
-			}
-			if (exceptfds && FD_ISSET(hostSockets[i], &exfds)) {
-				NetInetFD_SET(i, exceptfds);
+	for (auto &set : sets) {
+		if (set.set) {
+			NetInetFD_ZERO(set.set);
+		}
+	}
+	for (int i = SocketManager::MIN_VALID_INET_SOCKET; i < nfds; i++) {
+		if (hostSockets[i] == 0) {
+			continue;
+		}
+		for (auto &set : sets) {
+			if (set.set && FD_ISSET(hostSockets[i], set.hostSet)) {
+				NetInetFD_SET(i, set.set);
 			}
 		}
 	}
-
-	if (retval < 0) {
-		UpdateErrnoFromHost(__KernelGetCurThread(), socket_errno, __FUNCTION__);
-		return hleDelayResult(hleLogDebug(Log::sceNet, retval), "workaround until blocking-socket", 500); // Using hleDelayResult as a workaround for games that need blocking-socket to be implemented (ie. Coded Arms Contagion)
-	}
-	return hleDelayResult(hleLogDebug(Log::sceNet, retval), "workaround until blocking-socket", 500); // Using hleDelayResult as a workaround for games that need blocking-socket to be implemented (ie. Coded Arms Contagion)
+	return { retval, false, 0 };
 }
 
-int sceNetInetPoll(u32 fdsPtr, u32 nfds, int timeout) { // timeout in miliseconds just like posix poll? or in microseconds as other PSP timeout?
-	DEBUG_LOG(Log::sceNet, "UNTESTED sceNetInetPoll(%08x, %d, %i) at %08x", fdsPtr, nfds, timeout, currentMIPS->pc);
-	int retval = -1;
+// args: fds, nfds. Rewrites every revents, so repeating it is harmless.
+static InetTry TryPoll(SceUID threadID, const u32 *args) {
+	SceNetInetPollfd *fdarray = (SceNetInetPollfd*)Memory::GetPointerOrException(args[0]); // SceNetInetPollfd/pollfd, sceNetInetPoll() have similarity to BSD poll() but pollfd have different size on 64bit
+	const int nfds = (int)args[1];
+
 	int maxHostFd = 0;
-	SceNetInetPollfd *fdarray = (SceNetInetPollfd*)Memory::GetPointerOrException(fdsPtr); // SceNetInetPollfd/pollfd, sceNetInetPoll() have similarity to BSD poll() but pollfd have different size on 64bit
-
-	if (nfds > FD_SETSIZE)
-		nfds = FD_SETSIZE;
-
+	int hostCount = 0;
 	fd_set readfds{}, writefds{}, exceptfds{};
 	FD_ZERO(&readfds); FD_ZERO(&writefds); FD_ZERO(&exceptfds);
-	for (int i = 0; i < (s32)nfds; i++) {
-		if (fdarray[i].fd < 0) {
-			// In Unix, this is OK and means it the fd should be ignored, except fdarray[i].revents should be zeroed.
-			UpdateErrnoFromHost(__KernelGetCurThread(), EINVAL, __FUNCTION__);
-			return hleLogError(Log::sceNet, -1, "invalid socket id");
+	for (int i = 0; i < nfds; i++) {
+		SOCKET hostSocket;
+		fdarray[i].revents = 0;
+		if (!GetHostSocket(fdarray[i].fd, &hostSocket)) {
+			continue;
 		}
-		SOCKET hostSocket = g_socketManager.GetHostSocketFromInetSocket(fdarray[i].fd);
-		if (hostSocket > maxHostFd) {
-			maxHostFd = hostSocket;
+		hostCount++;
+		if ((int)hostSocket > maxHostFd) {
+			maxHostFd = (int)hostSocket;
 		}
-		_dbg_assert_(hostSocket != 0);
 		FD_SET(hostSocket, &readfds);
 		FD_SET(hostSocket, &writefds);
 		FD_SET(hostSocket, &exceptfds);
-		fdarray[i].revents = 0;
 	}
 
-	timeval tmout = { 5, 543210 }; // Workaround timeout value when timeout = NULL
-	if (timeout >= 0) {
-		tmout.tv_sec = timeout / 1000000; // seconds
-		tmout.tv_usec = (timeout % 1000000); // microseconds
+	if (hostCount == 0) {
+		// Winsock's select() fails on empty sets.
+		return { 0, true, EAGAIN };
 	}
-	// TODO: Simulate blocking behaviour when timeout is non-zero to prevent PPSSPP from freezing
-	retval = select(maxHostFd + 1, &readfds, &writefds, &exceptfds, /*(timeout<0)? NULL:*/&tmout);
+
+	timeval tmout = { 0, 0 };
+	int retval = select(maxHostFd + 1, &readfds, &writefds, &exceptfds, &tmout);
 	if (retval < 0) {
-		UpdateErrnoFromHost(__KernelGetCurThread(), EINTR, __FUNCTION__);
-		return hleDelayResult(hleLogError(Log::sceNet, retval), "workaround until blocking-socket", 500); // Using hleDelayResult as a workaround for games that need blocking-socket to be implemented
+		UpdateErrnoFromHost(threadID, EINTR, "sceNetInetPoll");
+		return { retval, false, 0 };
 	}
 
 	retval = 0;
-	for (int i = 0; i < (s32)nfds; i++) {
-		SOCKET hostSocket = g_socketManager.GetHostSocketFromInetSocket(fdarray[i].fd);
+	for (int i = 0; i < nfds; i++) {
+		SOCKET hostSocket;
+		if (!GetHostSocket(fdarray[i].fd, &hostSocket)) {
+			continue;
+		}
 		if ((fdarray[i].events & (INET_POLLRDNORM | INET_POLLIN)) && FD_ISSET(hostSocket, &readfds))
 			fdarray[i].revents |= (INET_POLLRDNORM | INET_POLLIN); //POLLIN_SET
 		if ((fdarray[i].events & (INET_POLLWRNORM | INET_POLLOUT)) && FD_ISSET(hostSocket, &writefds))
@@ -407,8 +464,198 @@ int sceNetInetPoll(u32 fdsPtr, u32 nfds, int timeout) { // timeout in milisecond
 			retval++;
 		VERBOSE_LOG(Log::sceNet, "Poll Socket#%d Fd: %d, events: %04x, revents: %04x, availToRecv: %d", i, fdarray[i].fd, fdarray[i].events, fdarray[i].revents, (int)getAvailToRecv(fdarray[i].fd));
 	}
-	//hleEatMicro(1000);
-	return hleDelayResult(hleLogDebug(Log::sceNet, retval), "workaround until blocking-socket", 1000); // Using hleDelayResult as a workaround for games that need blocking-socket to be implemented
+	if (retval == 0) {
+		return { 0, true, EAGAIN };
+	}
+	return { retval, false, 0 };
+}
+
+// args: socket, buf, len, flags.
+static InetTry TryRecv(SceUID threadID, const u32 *args) {
+	InetSocket *inetSock;
+	if (!g_socketManager.GetInetSocket((int)args[0], &inetSock)) {
+		UpdateErrnoFromHost(threadID, EBADF, "sceNetInetRecv");
+		return { -1, false, 0 };
+	}
+	int flgs = args[3] & ~PSP_NET_INET_MSG_DONTWAIT; // removing non-POSIX flag, which is an alternative way to use non-blocking mode
+	flgs = convertMSGFlagsPSP2Host(flgs);
+	int retval = recv(inetSock->sock, (char*)Memory::GetPointerOrException(args[1]), args[2], flgs | MSG_NOSIGNAL);
+	if (retval < 0) {
+		const int hostErrno = socket_errno;
+		if (IsWouldBlock(hostErrno)) {
+			return { retval, true, hostErrno };
+		}
+		UpdateErrnoFromHost(threadID, hostErrno, "sceNetInetRecv");
+		return { retval, false, 0 };
+	}
+
+	std::string datahex;
+	DataToHexString(10, 0, Memory::GetPointerOrException(args[1]), retval, &datahex);
+	VERBOSE_LOG(Log::sceNet, "Data Dump (%d bytes):\n%s", retval, datahex.c_str());
+	return { retval, false, 0 };
+}
+
+// args: socket, buf, len, flags.
+static InetTry TrySend(SceUID threadID, const u32 *args) {
+	InetSocket *inetSock;
+	if (!g_socketManager.GetInetSocket((int)args[0], &inetSock)) {
+		UpdateErrnoFromHost(threadID, EBADF, "sceNetInetSend");
+		return { -1, false, 0 };
+	}
+	int flgs = args[3] & ~PSP_NET_INET_MSG_DONTWAIT; // removing non-POSIX flag, which is an alternative way to use non-blocking mode
+	flgs = convertMSGFlagsPSP2Host(flgs);
+	int retval = send(inetSock->sock, (char*)Memory::GetPointerOrException(args[1]), args[2], flgs | MSG_NOSIGNAL);
+	if (retval < 0) {
+		const int hostErrno = socket_errno;
+		if (IsWouldBlock(hostErrno)) {
+			return { retval, true, hostErrno };
+		}
+		UpdateErrnoFromHost(threadID, hostErrno, "sceNetInetSend");
+	}
+	return { retval, false, 0 };
+}
+
+static InetTry TryInetOp(InetWaitOp op, SceUID threadID, const u32 *args, bool firstTry) {
+	switch (op) {
+	case InetWaitOp::Select: return TrySelect(threadID, args, firstTry);
+	case InetWaitOp::Poll: return TryPoll(threadID, args);
+	case InetWaitOp::Recv: return TryRecv(threadID, args);
+	case InetWaitOp::RecvFrom: return TryRecvFrom(threadID, args);
+	case InetWaitOp::Send: return TrySend(threadID, args);
+	case InetWaitOp::SendTo: return TrySendTo(threadID, args);
+	case InetWaitOp::Accept: return TryAccept(threadID, args);
+	case InetWaitOp::Connect: return TryConnectDone(threadID, args);
+	default: return { -1, false, 0 };
+	}
+}
+
+// What a call returns when it would still block and won't wait any longer.
+static int InetWouldBlockResult(InetWaitOp op, SceUID threadID, const u32 *args, int hostErrno, const char *func) {
+	switch (op) {
+	case InetWaitOp::Select:
+		ZeroInetFdSets(args[1], args[2], args[3]);
+		return 0;
+	case InetWaitOp::Poll:
+		// Every revents is already 0.
+		return 0;
+	default:
+		UpdateErrnoFromHost(threadID, hostErrno, func);
+		return -1;
+	}
+}
+
+// Called when the first attempt would block. Returns true if the thread now waits for the call to
+// complete, and the result is delivered when it wakes.
+static bool StartInetWait(InetWaitOp op, const u32 *args, int numArgs, s64 timeoutUs) {
+	if (timeoutUs == 0 || !__KernelIsDispatchEnabled() || __IsInInterrupt()) {
+		return false;
+	}
+	const SceUID threadID = __KernelGetCurThread();
+	InetWait &wait = g_inetWaits[threadID];
+	wait = {};
+	wait.op = op;
+	memcpy(wait.args, args, numArgs * sizeof(u32));
+	wait.deadline = timeoutUs < 0 ? -1 : CoreTiming::GetTicks(currentMIPS) + usToCycles(timeoutUs);
+	s64 firstPoll = usToCycles(INET_WAIT_POLL_US);
+	if (timeoutUs > 0) {
+		firstPoll = std::min(firstPoll, (s64)usToCycles(timeoutUs));
+	}
+	CoreTiming::ScheduleEvent(firstPoll, eventInetWaitPoll, threadID);
+	__KernelWaitCurThread(WAITTYPE_NET, INET_WAIT_ID, 0, 0, false, "inet wait");
+	return true;
+}
+
+static void __NetInetWaitPoll(u64 userdata, int cyclesLate) {
+	const SceUID threadID = (SceUID)userdata;
+	auto it = g_inetWaits.find(threadID);
+	if (it == g_inetWaits.end()) {
+		return;
+	}
+	u32 error;
+	if (__KernelGetWaitID(threadID, WAITTYPE_NET, error) != INET_WAIT_ID || error != 0) {
+		// Woken some other way, or gone.
+		g_inetWaits.erase(it);
+		return;
+	}
+
+	const InetWait wait = it->second;
+	const InetTry attempt = TryInetOp(wait.op, threadID, wait.args, false);
+	const s64 now = CoreTiming::GetTicks(currentMIPS);
+	if (attempt.wouldBlock && (wait.deadline < 0 || now < wait.deadline)) {
+		s64 next = usToCycles(INET_WAIT_POLL_US);
+		if (wait.deadline >= 0) {
+			next = std::min(next, wait.deadline - now);
+		}
+		CoreTiming::ScheduleEvent(next, eventInetWaitPoll, userdata);
+		return;
+	}
+
+	g_inetWaits.erase(it);
+	int result = attempt.result;
+	if (attempt.wouldBlock) {
+		// Timed out.
+		result = InetWouldBlockResult(wait.op, threadID, wait.args, attempt.hostErrno, "inet wait");
+	}
+	DEBUG_LOG(Log::sceNet, "Inet wait (op %d) of thread %d done: %d", (int)wait.op, threadID, result);
+	__KernelResumeThreadFromWait(threadID, result);
+	__KernelReSchedule("inet wait done");
+}
+
+// FIXME: nfds is number of fd(s) as in posix poll, or was it maximum fd value as in posix select? Star Wars Battlefront Renegade seems to set the nfds to 64, while Coded Arms Contagion is using 256
+int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr, u32 timeoutPtr) {
+	SceNetInetTimeval *timeout = timeoutPtr ? (SceNetInetTimeval*)Memory::GetPointerWriteOrException(timeoutPtr) : nullptr;
+
+	if (nfds > 256) {
+		// Probably never happens, just for safety.
+		ERROR_LOG(Log::sceNet, "Bad nfds value, resetting to 256: %d", nfds);
+		nfds = 256;
+	}
+
+	if (timeout && timeout->tv_usec >= 1000000) {
+		// Rejected before looking at the sets (pspautotests net/inet/blocking).
+		UpdateErrnoFromHost(__KernelGetCurThread(), EINVAL, __FUNCTION__);
+		return hleLogError(Log::sceNet, -1, "bad tv_usec %d", (int)timeout->tv_usec);
+	}
+
+	const u32 args[] = { (u32)nfds, readfdsPtr, writefdsPtr, exceptfdsPtr };
+	// A null timeout waits for as long as it takes.
+	const s64 waitUs = timeout ? (s64)timeout->tv_sec * 1000000 + timeout->tv_usec : -1;
+	InetTry attempt = TrySelect(__KernelGetCurThread(), args, true);
+	if (attempt.wouldBlock) {
+		if (StartInetWait(InetWaitOp::Select, args, ARRAY_SIZE(args), waitUs)) {
+			return hleLogDebug(Log::sceNet, 0, "waiting, timeout %lld us", (long long)waitUs);
+		}
+		attempt.result = InetWouldBlockResult(InetWaitOp::Select, __KernelGetCurThread(), args, attempt.hostErrno, __FUNCTION__);
+	}
+	return hleDelayResult(hleLogDebug(Log::sceNet, attempt.result), "workaround until blocking-socket", 500); // Using hleDelayResult as a workaround for games that need blocking-socket to be implemented (ie. Coded Arms Contagion)
+}
+
+int sceNetInetPoll(u32 fdsPtr, u32 nfds, int timeout) {
+	DEBUG_LOG(Log::sceNet, "UNTESTED sceNetInetPoll(%08x, %d, %i) at %08x", fdsPtr, nfds, timeout, currentMIPS->pc);
+	SceNetInetPollfd *fdarray = (SceNetInetPollfd*)Memory::GetPointerOrException(fdsPtr);
+
+	if (nfds > FD_SETSIZE)
+		nfds = FD_SETSIZE;
+
+	for (int i = 0; i < (s32)nfds; i++) {
+		if (fdarray[i].fd < 0) {
+			// In Unix, this is OK and means it the fd should be ignored, except fdarray[i].revents should be zeroed.
+			UpdateErrnoFromHost(__KernelGetCurThread(), EINVAL, __FUNCTION__);
+			return hleLogError(Log::sceNet, -1, "invalid socket id");
+		}
+	}
+
+	const u32 args[] = { fdsPtr, nfds };
+	// In milliseconds, like POSIX poll() (pspautotests net/inet/blocking). Negative waits for as long as it takes.
+	const s64 waitUs = timeout < 0 ? -1 : (s64)timeout * 1000;
+	InetTry attempt = TryPoll(__KernelGetCurThread(), args);
+	if (attempt.wouldBlock) {
+		if (StartInetWait(InetWaitOp::Poll, args, ARRAY_SIZE(args), waitUs)) {
+			return hleLogDebug(Log::sceNet, 0, "waiting, timeout %lld us", (long long)waitUs);
+		}
+		attempt.result = 0;
+	}
+	return hleDelayResult(hleLogDebug(Log::sceNet, attempt.result), "workaround until blocking-socket", 1000); // Using hleDelayResult as a workaround for games that need blocking-socket to be implemented
 }
 
 static int sceNetInetRecv(int socket, u32 bufPtr, u32 bufLen, u32 flags) {
@@ -417,23 +664,19 @@ static int sceNetInetRecv(int socket, u32 bufPtr, u32 bufLen, u32 flags) {
 		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
 	}
 
-	int flgs = flags & ~PSP_NET_INET_MSG_DONTWAIT; // removing non-POSIX flag, which is an alternative way to use non-blocking mode
-	flgs = convertMSGFlagsPSP2Host(flgs);
-	int retval = recv(inetSock->sock, (char*)Memory::GetPointerOrException(bufPtr), bufLen, flgs | MSG_NOSIGNAL);
-	if (retval < 0) {
-		if (UpdateErrnoFromHost(__KernelGetCurThread(), socket_errno, __FUNCTION__) == ERROR_INET_EAGAIN) {
-			retval = hleLogDebug(Log::sceNet, retval, "EAGAIN");
-		} else {
-			retval = hleLogError(Log::sceNet, retval);
+	const u32 args[] = { (u32)socket, bufPtr, bufLen, flags };
+	InetTry attempt = TryRecv(__KernelGetCurThread(), args);
+	if (attempt.wouldBlock) {
+		if (StartInetWait(InetWaitOp::Recv, args, ARRAY_SIZE(args), SocketWaitUs(inetSock, flags, false))) {
+			return hleLogDebug(Log::sceNet, 0, "waiting");
 		}
-		return hleDelayResult(retval, "workaround until blocking-socket", 500);
+		attempt.result = InetWouldBlockResult(InetWaitOp::Recv, __KernelGetCurThread(), args, attempt.hostErrno, __FUNCTION__);
+		return hleDelayResult(hleLogDebug(Log::sceNet, attempt.result, "EAGAIN"), "workaround until blocking-socket", 500);
 	}
-
-	std::string datahex;
-	DataToHexString(10, 0, Memory::GetPointerOrException(bufPtr), retval, &datahex);
-	VERBOSE_LOG(Log::sceNet, "Data Dump (%d bytes):\n%s", retval, datahex.c_str());
-
-	return hleDelayResult(hleLogInfo(Log::sceNet, retval), "workaround until blocking-socket", 500); // Using hleDelayResult as a workaround for games that need blocking-socket to be implemented
+	if (attempt.result < 0) {
+		return hleDelayResult(hleLogError(Log::sceNet, attempt.result), "workaround until blocking-socket", 500);
+	}
+	return hleDelayResult(hleLogInfo(Log::sceNet, attempt.result), "workaround until blocking-socket", 500); // Using hleDelayResult as a workaround for games that need blocking-socket to be implemented
 }
 
 static int sceNetInetSend(int socket, u32 bufPtr, u32 bufLen, u32 flags) {
@@ -446,14 +689,18 @@ static int sceNetInetSend(int socket, u32 bufPtr, u32 bufLen, u32 flags) {
 	DataToHexString(10, 0, Memory::GetPointerOrException(bufPtr), bufLen, &datahex);
 	VERBOSE_LOG(Log::sceNet, "Data Dump (%d bytes):\n%s", bufLen, datahex.c_str());
 
-	int flgs = flags & ~PSP_NET_INET_MSG_DONTWAIT; // removing non-POSIX flag, which is an alternative way to use non-blocking mode
-	flgs = convertMSGFlagsPSP2Host(flgs);
-	int retval = send(inetSock->sock, (char*)Memory::GetPointerOrException(bufPtr), bufLen, flgs | MSG_NOSIGNAL);
-	if (retval < 0) {
-		UpdateErrnoFromHost(__KernelGetCurThread(), socket_errno, __FUNCTION__);
-		return hleLogError(Log::sceNet, retval);
+	const u32 args[] = { (u32)socket, bufPtr, bufLen, flags };
+	InetTry attempt = TrySend(__KernelGetCurThread(), args);
+	if (attempt.wouldBlock) {
+		if (StartInetWait(InetWaitOp::Send, args, ARRAY_SIZE(args), SocketWaitUs(inetSock, flags, true))) {
+			return hleLogDebug(Log::sceNet, 0, "waiting");
+		}
+		return hleLogDebug(Log::sceNet, InetWouldBlockResult(InetWaitOp::Send, __KernelGetCurThread(), args, attempt.hostErrno, __FUNCTION__), "EAGAIN");
 	}
-	return hleLogInfo(Log::sceNet, retval);
+	if (attempt.result < 0) {
+		return hleLogError(Log::sceNet, attempt.result);
+	}
+	return hleLogInfo(Log::sceNet, attempt.result);
 }
 
 static int sceNetInetSocket(int domain, int type, int protocol) {
@@ -539,6 +786,9 @@ static int sceNetInetSetsockopt(int socket, int level, int optname, u32 optvalPt
 
 	int retval = 0;
 	// PSP timeout are a single 32bit value (micro seconds)
+	if (level == PSP_NET_INET_SOL_SOCKET && (optname == PSP_NET_INET_SO_RCVTIMEO || optname == PSP_NET_INET_SO_SNDTIMEO)) {
+		(optname == PSP_NET_INET_SO_RCVTIMEO ? inetSock->recvTimeoutUs : inetSock->sendTimeoutUs) = optval;
+	}
 	if (level == PSP_NET_INET_SOL_SOCKET && optval && (optname == PSP_NET_INET_SO_RCVTIMEO || optname == PSP_NET_INET_SO_SNDTIMEO)) {
 		tval.tv_sec = optval / 1000000; // seconds
 		tval.tv_usec = (optval % 1000000); // microseconds
@@ -679,6 +929,37 @@ static int sceNetInetBind(int socket, u32 namePtr, int namelen) {
 	return hleLogInfo(Log::sceNet, retval);
 }
 
+// args: socket. Checks a connect() that was in progress.
+static InetTry TryConnectDone(SceUID threadID, const u32 *args) {
+	InetSocket *inetSock;
+	if (!g_socketManager.GetInetSocket((int)args[0], &inetSock)) {
+		UpdateErrnoFromHost(threadID, EBADF, "sceNetInetConnect");
+		return { -1, false, 0 };
+	}
+	fd_set wrfds, exfds;
+	FD_ZERO(&wrfds);
+	FD_ZERO(&exfds);
+	FD_SET(inetSock->sock, &wrfds);
+	FD_SET(inetSock->sock, &exfds);
+	timeval tmout = { 0, 0 };
+	int ready = select((int)inetSock->sock + 1, nullptr, &wrfds, &exfds, &tmout);
+	if (ready == 0) {
+		return { -1, true, EINPROGRESS };
+	}
+	int sockError = 0;
+	socklen_t len = sizeof(sockError);
+	if (ready < 0) {
+		sockError = socket_errno;
+	} else if (getsockopt(inetSock->sock, SOL_SOCKET, SO_ERROR, (char *)&sockError, &len) < 0) {
+		sockError = socket_errno;
+	}
+	if (sockError != 0) {
+		UpdateErrnoFromHost(threadID, sockError, "sceNetInetConnect");
+		return { -1, false, 0 };
+	}
+	return { 0, false, 0 };
+}
+
 static int sceNetInetConnect(int socket, u32 sockAddrPtr, int sockAddrLen) {
 	InetSocket *inetSock;
 	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
@@ -693,26 +974,16 @@ static int sceNetInetConnect(int socket, u32 sockAddrPtr, int sockAddrLen) {
 	saddr.addr.sa_family = dst->sa_family;
 	memcpy(saddr.addr.sa_data, dst->sa_data, sizeof(dst->sa_data));
 
-	// Enforcing real blocking-mode on games that use blocking-mode socket (as a temporary fix for UNO), since we don't simulate blocking-mode yet
-	if (!inetSock->nonblocking) {
-		WARN_LOG(Log::sceNet, "Enforcing blocking-mode on Connect! (socket #%d)", socket);
-		changeBlockingMode(inetSock->sock, 0);
-		// Workaround to avoid blocking for indefinitely
-		setSockTimeout(inetSock->sock, SO_SNDTIMEO, 5000000);
-		setSockTimeout(inetSock->sock, SO_RCVTIMEO, 5000000);
-	}
 	int retval = connect(inetSock->sock, (struct sockaddr*)&saddr.addr, dstlen);
 	int hostErrno = socket_errno;
-	if (!inetSock->nonblocking) {
-		// Change the blocking mode back to nonblocking
-		changeBlockingMode(inetSock->sock, 1);
+	if (retval < 0 && connectInProgress(hostErrno)) {
+		// A blocking socket waits for the connection to be made, or to fail.
+		const u32 args[] = { (u32)socket };
+		if (StartInetWait(InetWaitOp::Connect, args, ARRAY_SIZE(args), SocketWaitUs(inetSock, 0, true))) {
+			return hleLogDebug(Log::sceNet, 0, "waiting to connect to %s, port %d", ip2str(saddr.in.sin_addr).c_str(), ntohs(saddr.in.sin_port));
+		}
 	}
 	if (retval < 0) {
-		if (!inetSock->nonblocking) {
-			// Since we're temporarily forcing blocking-mode, we'll need to change errno from ETIMEDOUT to EAGAIN
-			if (hostErrno == ETIMEDOUT)
-				hostErrno = EAGAIN;
-		}
 		int pspErrno = UpdateErrnoFromHost(__KernelGetCurThread(), hostErrno, __FUNCTION__);
 		if (connectInProgress(hostErrno))
 			retval = hleLogDebug(Log::sceNet, retval, "errno = %s Address = %s, Port = %d", convertInetErrno2str(pspErrno), ip2str(saddr.in.sin_addr).c_str(), ntohs(saddr.in.sin_port));
@@ -745,33 +1016,39 @@ static int sceNetInetListen(int socket, int backlog) {
 	return hleLogInfo(Log::sceNet, retval);
 }
 
-static int sceNetInetAccept(int socket, u32 addrPtr, u32 addrLenPtr) {
+// args: socket, addr, addrlen.
+static InetTry TryAccept(SceUID threadID, const u32 *args) {
 	InetSocket *inetSock;
-	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
-		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
+	if (!g_socketManager.GetInetSocket((int)args[0], &inetSock)) {
+		UpdateErrnoFromHost(threadID, EBADF, "sceNetInetAccept");
+		return { -1, false, 0 };
 	}
 
-	SceNetInetSockaddr* src = (SceNetInetSockaddr*)Memory::GetCharPointer(addrPtr);
-	socklen_t* srclen = (socklen_t*)Memory::GetCharPointer(addrLenPtr);
+	SceNetInetSockaddr* src = (SceNetInetSockaddr*)Memory::GetCharPointer(args[1]);
+	socklen_t* srclen = (socklen_t*)Memory::GetCharPointer(args[2]);
 	SockAddrIN4 saddr{};
 	if (srclen)
 		*srclen = std::min((*srclen) > 0 ? *srclen : 0, static_cast<socklen_t>(sizeof(saddr)));
 
 	int newHostSocket = accept(inetSock->sock, (struct sockaddr*)&saddr.addr, srclen);
 	if (newHostSocket < 0) {
-		if (UpdateErrnoFromHost(__KernelGetCurThread(), socket_errno, __FUNCTION__) == ERROR_INET_EAGAIN) {
-			return hleLogDebug(Log::sceNet, -1, "EAGAIN");
-		} else {
-			return hleLogError(Log::sceNet, -1);
+		const int hostErrno = socket_errno;
+		if (IsWouldBlock(hostErrno)) {
+			return { -1, true, hostErrno };
 		}
+		UpdateErrnoFromHost(threadID, hostErrno, "sceNetInetAccept");
+		return { -1, false, 0 };
 	}
+	// Linux doesn't pass the listening socket's non-blocking mode on to the accepted one.
+	changeBlockingMode(newHostSocket, 1);
 
 	int newSocketId;
 	InetSocket *newInetSocket = g_socketManager.AdoptSocket(&newSocketId, newHostSocket, inetSock);
 	if (!newInetSocket) {
 		// Ran out of space. Shouldn't really happen.
-		UpdateErrnoFromHost(__KernelGetCurThread(), ENOMEM, __FUNCTION__);
-		return hleLogError(Log::sceNet, -1, "Out of socket IDs");;
+		ERROR_LOG(Log::sceNet, "Accept: out of socket IDs");
+		UpdateErrnoFromHost(threadID, ENOMEM, "sceNetInetAccept");
+		return { -1, false, 0 };
 	}
 
 	if (src) {
@@ -780,8 +1057,27 @@ static int sceNetInetAccept(int socket, u32 addrPtr, u32 addrLenPtr) {
 		src->sa_len = srclen ? *srclen : 0;
 	}
 	DEBUG_LOG(Log::sceNet, "Accept: Address = %s, Port = %d", ip2str(saddr.in.sin_addr).c_str(), ntohs(saddr.in.sin_port));
+	return { newSocketId, false, 0 };
+}
 
-	return hleLogInfo(Log::sceNet, newSocketId);
+static int sceNetInetAccept(int socket, u32 addrPtr, u32 addrLenPtr) {
+	InetSocket *inetSock;
+	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
+		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
+	}
+
+	const u32 args[] = { (u32)socket, addrPtr, addrLenPtr };
+	InetTry attempt = TryAccept(__KernelGetCurThread(), args);
+	if (attempt.wouldBlock) {
+		if (StartInetWait(InetWaitOp::Accept, args, ARRAY_SIZE(args), SocketWaitUs(inetSock, 0, false))) {
+			return hleLogDebug(Log::sceNet, 0, "waiting");
+		}
+		return hleLogDebug(Log::sceNet, InetWouldBlockResult(InetWaitOp::Accept, __KernelGetCurThread(), args, attempt.hostErrno, __FUNCTION__), "EAGAIN");
+	}
+	if (attempt.result < 0) {
+		return hleLogError(Log::sceNet, attempt.result);
+	}
+	return hleLogInfo(Log::sceNet, attempt.result);
 }
 
 static int sceNetInetShutdown(int socket, int how) {
@@ -839,28 +1135,29 @@ static int sceNetInetCloseWithRST(int socket) {
 	return hleLogInfo(Log::sceNet, 0);
 }
 
-static int sceNetInetRecvfrom(int socket, u32 bufferPtr, int len, int flags, u32 fromPtr, u32 fromlenPtr) {
+// args: socket, buf, len, flags, from, fromlen.
+static InetTry TryRecvFrom(SceUID threadID, const u32 *args) {
 	InetSocket *inetSock;
-	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
-		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
+	if (!g_socketManager.GetInetSocket((int)args[0], &inetSock)) {
+		UpdateErrnoFromHost(threadID, EBADF, "sceNetInetRecvfrom");
+		return { -1, false, 0 };
 	}
 
-	SceNetInetSockaddr* src = (SceNetInetSockaddr*)Memory::GetCharPointer(fromPtr);
-	socklen_t* srclen = (socklen_t*)Memory::GetCharPointer(fromlenPtr);
+	SceNetInetSockaddr* src = (SceNetInetSockaddr*)Memory::GetCharPointer(args[4]);
+	socklen_t* srclen = (socklen_t*)Memory::GetCharPointer(args[5]);
 	SockAddrIN4 saddr{};
 	if (srclen)
 		*srclen = std::min((*srclen) > 0 ? *srclen : 0, static_cast<socklen_t>(sizeof(saddr)));
-	int flgs = flags & ~PSP_NET_INET_MSG_DONTWAIT; // removing non-POSIX flag, which is an alternative way to use non-blocking mode
+	int flgs = args[3] & ~PSP_NET_INET_MSG_DONTWAIT; // removing non-POSIX flag, which is an alternative way to use non-blocking mode
 	flgs = convertMSGFlagsPSP2Host(flgs);
-	int retval = recvfrom(inetSock->sock, (char*)Memory::GetPointerOrException(bufferPtr), len, flgs | MSG_NOSIGNAL, (struct sockaddr*)&saddr.addr, srclen);
+	int retval = recvfrom(inetSock->sock, (char*)Memory::GetPointerOrException(args[1]), (int)args[2], flgs | MSG_NOSIGNAL, (struct sockaddr*)&saddr.addr, srclen);
 	if (retval < 0) {
-		if (UpdateErrnoFromHost(__KernelGetCurThread(), socket_errno, __FUNCTION__) == ERROR_INET_EAGAIN) {
-			retval = hleLogDebug(Log::sceNet, retval, "EAGAIN");
-		} else {
-			retval = hleLogError(Log::sceNet, retval);
+		const int hostErrno = socket_errno;
+		if (IsWouldBlock(hostErrno)) {
+			return { retval, true, hostErrno };
 		}
-		// Using hleDelayResult as a workaround for games that need blocking-socket to be implemented (ie. Coded Arms Contagion)
-		return hleDelayResult(retval, "workaround until blocking-socket", 500);
+		UpdateErrnoFromHost(threadID, hostErrno, "sceNetInetRecvfrom");
+		return { retval, false, 0 };
 	}
 
 	if (src) {
@@ -869,43 +1166,55 @@ static int sceNetInetRecvfrom(int socket, u32 bufferPtr, int len, int flags, u32
 		src->sa_len = srclen ? *srclen : 0;
 	}
 
-	// Discard if it came from APIPA address (ie. self-received broadcasts from 169.254.x.x when broadcasting to INADDR_BROADCAST on Windows) on Untold Legends The Warrior's Code / Twisted Metal Head On
-	/*if (isAPIPA(saddr.in.sin_addr.s_addr)) {
-		inetLastErrno = EAGAIN;
-		retval = -1;
-		DEBUG_LOG(Log::sceNet, "RecvFrom: Ignoring Address = %s", ip2str(saddr.in.sin_addr).c_str());
-		hleLogDebug(Log::sceNet, retval, "faked errno = %d", inetLastErrno);
-		return hleDelayResult(retval, "workaround until blocking-socket", 500);
-	}*/
-
 	std::string datahex;
-	DataToHexString(0, 0, Memory::GetPointerOrException(bufferPtr), retval, &datahex);
+	DataToHexString(0, 0, Memory::GetPointerOrException(args[1]), retval, &datahex);
 	VERBOSE_LOG(Log::sceNet, "Data Dump (%d bytes):\n%s", retval, datahex.c_str());
-
-	// Using hleDelayResult as a workaround for games that need blocking-socket to be implemented (ie. Coded Arms Contagion)
-	return hleDelayResult(hleLogDebug(Log::sceNet, retval,
-		"RecvFrom: Address = %s, Port = %d", ip2str(saddr.in.sin_addr).c_str(), ntohs(saddr.in.sin_port)), "workaround until blocking-socket", 500);
+	DEBUG_LOG(Log::sceNet, "RecvFrom: Address = %s, Port = %d", ip2str(saddr.in.sin_addr).c_str(), ntohs(saddr.in.sin_port));
+	return { retval, false, 0 };
 }
 
-static int sceNetInetSendto(int socket, u32 bufferPtr, int len, int flags, u32 toPtr, int tolen) {
+static int sceNetInetRecvfrom(int socket, u32 bufferPtr, int len, int flags, u32 fromPtr, u32 fromlenPtr) {
 	InetSocket *inetSock;
 	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
 		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
 	}
 
-	SceNetInetSockaddr* dst = (SceNetInetSockaddr*)Memory::GetCharPointer(toPtr);
-	int flgs = flags & ~PSP_NET_INET_MSG_DONTWAIT; // removing non-POSIX flag, which is an alternative way to use non-blocking mode
+	const u32 args[] = { (u32)socket, bufferPtr, (u32)len, (u32)flags, fromPtr, fromlenPtr };
+	InetTry attempt = TryRecvFrom(__KernelGetCurThread(), args);
+	if (attempt.wouldBlock) {
+		if (StartInetWait(InetWaitOp::RecvFrom, args, ARRAY_SIZE(args), SocketWaitUs(inetSock, flags, false))) {
+			return hleLogDebug(Log::sceNet, 0, "waiting");
+		}
+		attempt.result = InetWouldBlockResult(InetWaitOp::RecvFrom, __KernelGetCurThread(), args, attempt.hostErrno, __FUNCTION__);
+		// Using hleDelayResult as a workaround for games that need blocking-socket to be implemented (ie. Coded Arms Contagion)
+		return hleDelayResult(hleLogDebug(Log::sceNet, attempt.result, "EAGAIN"), "workaround until blocking-socket", 500);
+	}
+	if (attempt.result < 0) {
+		return hleDelayResult(hleLogError(Log::sceNet, attempt.result), "workaround until blocking-socket", 500);
+	}
+	// Using hleDelayResult as a workaround for games that need blocking-socket to be implemented (ie. Coded Arms Contagion)
+	return hleDelayResult(hleLogDebug(Log::sceNet, attempt.result), "workaround until blocking-socket", 500);
+}
+
+// args: socket, buf, len, flags, to, tolen.
+static InetTry TrySendTo(SceUID threadID, const u32 *args) {
+	InetSocket *inetSock;
+	if (!g_socketManager.GetInetSocket((int)args[0], &inetSock)) {
+		UpdateErrnoFromHost(threadID, EBADF, "sceNetInetSendto");
+		return { -1, false, 0 };
+	}
+	const u32 bufferPtr = args[1];
+	const int len = (int)args[2];
+
+	SceNetInetSockaddr* dst = (SceNetInetSockaddr*)Memory::GetCharPointer(args[4]);
+	int flgs = args[3] & ~PSP_NET_INET_MSG_DONTWAIT; // removing non-POSIX flag, which is an alternative way to use non-blocking mode
 	flgs = convertMSGFlagsPSP2Host(flgs);
 	SockAddrIN4 saddr{};
-	int dstlen = std::min(tolen > 0 ? tolen : 0, static_cast<int>(sizeof(saddr)));
+	int dstlen = std::min((int)args[5] > 0 ? (int)args[5] : 0, static_cast<int>(sizeof(saddr)));
 	if (dst) {
 		saddr.addr.sa_family = dst->sa_family;
 		memcpy(saddr.addr.sa_data, dst->sa_data, sizeof(dst->sa_data));
 	}
-
-	std::string datahex;
-	DataToHexString(0, 0, Memory::GetPointerOrException(bufferPtr), len, &datahex);
-	VERBOSE_LOG(Log::sceNet, "Data Dump (%d bytes):\n%s", len, datahex.c_str());
 
 	int retval;
 	bool isBcast = isBroadcastIP(saddr.in.sin_addr.s_addr);
@@ -935,28 +1244,42 @@ static int sceNetInetSendto(int socket, u32 bufferPtr, int len, int flags, u32 t
 	else {
 		// FIXME: On non-Windows(including PSP too?) broadcast to INADDR_BROADCAST(255.255.255.255) might not be received by the sender itself when binded to specific IP (ie. 192.168.0.2) or INADDR_BROADCAST.
 		//        Meanwhile, it might be received by itself when binded to subnet (ie. 192.168.0.255) or INADDR_ANY(0.0.0.0).
-		/*if (isBcast) {
-			// TODO: Replace Broadcast with Multicast to be more consistent across platform
-			// Replace Limited Broadcast(255.255.255.255) with Direct Broadcast(ie. 192.168.0.255) for accurate targetting when there are multiple interfaces, to avoid receiving it's own broadcasted data through IP 169.254.x.x on Windows (which is not recognized as it's own IP by the game)
-			// Get Local IP Address
-			sockaddr_in sockAddr{};
-			getLocalIp(&sockAddr);
-			// Change the last number to 255 to indicate a common broadcast address (the accurate way should be: ip | (~subnetmask))
-			((u8*)&sockAddr.sin_addr.s_addr)[3] = 255;
-			saddr.in.sin_addr.s_addr = sockAddr.sin_addr.s_addr;
-			DEBUG_LOG(Log::sceNet, "SendTo(BC): Address Replacement = %s", ip2str(saddr.in.sin_addr).c_str());
-		}*/
 		retval = sendto(inetSock->sock, (char*)Memory::GetPointerOrException(bufferPtr), len, flgs | MSG_NOSIGNAL, (struct sockaddr*)&saddr.addr, dstlen);
 	}
 	if (retval < 0) {
-		if (UpdateErrnoFromHost(__KernelGetCurThread(), socket_errno, __FUNCTION__) == ERROR_INET_EAGAIN) {
-			return hleLogDebug(Log::sceNet, retval, "EAGAIN");
-		} else {
-			return hleLogError(Log::sceNet, retval);
+		const int hostErrno = socket_errno;
+		if (IsWouldBlock(hostErrno)) {
+			return { retval, true, hostErrno };
 		}
+		UpdateErrnoFromHost(threadID, hostErrno, "sceNetInetSendto");
+		return { retval, false, 0 };
+	}
+	DEBUG_LOG(Log::sceNet, "SendTo: Address = %s, Port = %d", ip2str(saddr.in.sin_addr).c_str(), ntohs(saddr.in.sin_port));
+	return { retval, false, 0 };
+}
+
+static int sceNetInetSendto(int socket, u32 bufferPtr, int len, int flags, u32 toPtr, int tolen) {
+	InetSocket *inetSock;
+	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
+		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
 	}
 
-	return hleLogDebug(Log::sceNet, retval, "SendTo: Address = %s, Port = %d", ip2str(saddr.in.sin_addr).c_str(), ntohs(saddr.in.sin_port));
+	std::string datahex;
+	DataToHexString(0, 0, Memory::GetPointerOrException(bufferPtr), len, &datahex);
+	VERBOSE_LOG(Log::sceNet, "Data Dump (%d bytes):\n%s", len, datahex.c_str());
+
+	const u32 args[] = { (u32)socket, bufferPtr, (u32)len, (u32)flags, toPtr, (u32)tolen };
+	InetTry attempt = TrySendTo(__KernelGetCurThread(), args);
+	if (attempt.wouldBlock) {
+		if (StartInetWait(InetWaitOp::SendTo, args, ARRAY_SIZE(args), SocketWaitUs(inetSock, flags, true))) {
+			return hleLogDebug(Log::sceNet, 0, "waiting");
+		}
+		return hleLogDebug(Log::sceNet, InetWouldBlockResult(InetWaitOp::SendTo, __KernelGetCurThread(), args, attempt.hostErrno, __FUNCTION__), "EAGAIN");
+	}
+	if (attempt.result < 0) {
+		return hleLogError(Log::sceNet, attempt.result);
+	}
+	return hleLogDebug(Log::sceNet, attempt.result);
 }
 
 // Similar to POSIX's sendmsg or Winsock2's WSASendMsg? Are their packets compatible one another?

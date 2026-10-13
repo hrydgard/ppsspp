@@ -61,6 +61,8 @@ InetSocket *SocketManager::AdoptSocket(int *index, SOCKET hostSocket, const Inet
 			inetSock->type = derive->type;
 			inetSock->protocol = derive->protocol;
 			inetSock->nonblocking = derive->nonblocking;  // should we inherit blocking state?
+			inetSock->recvTimeoutUs = derive->recvTimeoutUs;
+			inetSock->sendTimeoutUs = derive->sendTimeoutUs;
 			return inetSock;
 		}
 	}
