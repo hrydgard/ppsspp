@@ -1804,19 +1804,14 @@ bool retro_serialize(void *data, size_t size) {
    }
 
    SaveState::SaveStart state;
-   bool retVal = false;
-
    // The buffer was sized by an earlier retro_serialize_size(); the state
    // may have grown since, so never write past 'size'.
-   size_t measuredSize = CChunkFileReader::MeasurePtr(state);
-   if (measuredSize <= size) {
-      u8 *buffer = (u8 *)data;
-      auto err = CChunkFileReader::MeasureAndSavePtr(state, &buffer, &measuredSize);
-      retVal = err == CChunkFileReader::ERROR_NONE;
-   } else {
-      ERROR_LOG(Log::SaveState, "Savestate (%d bytes) does not fit in frontend buffer (%d bytes)",
-                (int)measuredSize, (int)size);
-   }
+   u8 *buffer = (u8 *)data;
+   size_t savedSize = size;
+   auto err = CChunkFileReader::MeasureAndSavePtr(state, &buffer, &savedSize);
+   if (err == CChunkFileReader::ERROR_BAD_ALLOC)
+      ERROR_LOG(Log::SaveState, "Savestate does not fit in the frontend's buffer (%d bytes)", (int)size);
+   bool retVal = err == CChunkFileReader::ERROR_NONE;
 
    if (useEmuThread)
       EmuThreadStart();
