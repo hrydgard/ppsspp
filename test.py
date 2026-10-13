@@ -89,6 +89,8 @@ tests_good = [
   "cpu/cpu_alu/cpu_branch",
   "cpu/cpu_alu/cpu_branch2",
   "cpu/cpu_alu/cpu_div",
+  "cpu/cpu_alu/shift_encodings",
+  "cpu/cpu_alu/allegrex_encodings",
   "cpu/vfpu/callout",
   "cpu/vfpu/colors",
   "cpu/vfpu/convert",
@@ -578,8 +580,7 @@ tests_next = [
   "cpu/vfpu/prefixes",
   "cpu/vfpu/vector",
   "cpu/vfpu/vregs",
-  "cpu/cpu_alu/shift_encodings",  # see docs/cpu-equivalence.md for these six
-  "cpu/fpu/denormal",
+  "cpu/fpu/denormal",  # see docs/cpu-equivalence.md for these five
   "cpu/vfpu/fcr31",
   "cpu/vfpu/signed_zero",
   "cpu/vfpu/nan_gen",
