@@ -594,9 +594,9 @@ namespace MIPSComp
 
 	void ArmJit::Comp_VMatrixInit(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_XFER);
+		// They do care about prefixes, so leave those to the interpreter like the IR does.
 		if (!js.HasNoPrefix()) {
-			// Don't think matrix init ops care about prefixes.
-			// DISABLE;
+			DISABLE;
 		}
 
 		MatrixSize sz = GetMtxSize(op);
