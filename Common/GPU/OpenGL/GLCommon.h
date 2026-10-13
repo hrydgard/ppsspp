@@ -35,6 +35,11 @@
 #define GL_MAX_EXT 0x8008
 #endif
 
+#ifndef GL_DEPTH_CLAMP
+// GL_DEPTH_CLAMP_EXT, from GL_EXT_depth_clamp. Not in every platform header.
+#define GL_DEPTH_CLAMP 0x864F
+#endif
+
 #if defined(__ANDROID__)
 #include <EGL/egl.h>
 // Additional extensions not included in GLES2/gl2ext.h from the NDK
