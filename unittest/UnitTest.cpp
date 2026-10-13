@@ -3253,6 +3253,94 @@ bool TestUITabOrder() {
 	return true;
 }
 
+// Arrow key focus moves go by geometry, so these place views by hand rather than running layout.
+bool TestUIFocusNavigation() {
+	using namespace UI;
+
+	auto add = [](LinearLayout *parent, float x, float y, float w, float h) {
+		Choice *choice = parent->Add(new Choice(""));
+		choice->SetBounds(Bounds(x, y, w, h));
+		return choice;
+	};
+	auto move = [](ViewGroup *root, View *from, FocusMove dir) {
+		return root->FindNeighbor(from, dir, NeighborResult()).view;
+	};
+
+	{
+		// A wide button between rows of narrow ones. Its center is far from the narrow ones at the
+		// ends, but its edge is right there, so it mustn't be skipped.
+		LinearLayout root(ORIENT_VERTICAL);
+		Choice *topLeft = add(&root, 0, 0, 100, 50);
+		Choice *topRight = add(&root, 500, 0, 100, 50);
+		Choice *wide = add(&root, 0, 60, 600, 50);
+		Choice *bottomLeft = add(&root, 0, 120, 100, 50);
+		Choice *bottomRight = add(&root, 500, 120, 100, 50);
+		EXPECT_TRUE(move(&root, topRight, FocusMove::DOWN) == wide);
+		EXPECT_TRUE(move(&root, topLeft, FocusMove::DOWN) == wide);
+		EXPECT_TRUE(move(&root, bottomRight, FocusMove::UP) == wide);
+		EXPECT_TRUE(move(&root, bottomLeft, FocusMove::UP) == wide);
+		// From the wide one, the one nearest its center across the move.
+		EXPECT_TRUE(move(&root, bottomLeft, FocusMove::RIGHT) == bottomRight);
+		EXPECT_TRUE(move(&root, wide, FocusMove::LEFT) == nullptr);
+	}
+
+	{
+		// A row: left and right go to the neighbors, and nothing is up or down.
+		LinearLayout root(ORIENT_HORIZONTAL);
+		Choice *a = add(&root, 0, 0, 100, 50);
+		Choice *b = add(&root, 110, 0, 100, 50);
+		Choice *c = add(&root, 220, 0, 100, 50);
+		EXPECT_TRUE(move(&root, b, FocusMove::RIGHT) == c);
+		EXPECT_TRUE(move(&root, b, FocusMove::LEFT) == a);
+		EXPECT_TRUE(move(&root, a, FocusMove::LEFT) == nullptr);
+		EXPECT_TRUE(move(&root, b, FocusMove::UP) == nullptr);
+		EXPECT_TRUE(move(&root, b, FocusMove::DOWN) == nullptr);
+	}
+
+	{
+		// Going down, the next row wins even off to the side, over something in line much further on.
+		LinearLayout root(ORIENT_VERTICAL);
+		Choice *origin = add(&root, 0, 0, 100, 50);
+		Choice *nextRowAside = add(&root, 150, 60, 100, 50);
+		add(&root, 0, 500, 100, 50);
+		EXPECT_TRUE(move(&root, origin, FocusMove::DOWN) == nextRowAside);
+	}
+
+	{
+		// Sideways, things in line win however far away they are.
+		LinearLayout root(ORIENT_HORIZONTAL);
+		Choice *origin = add(&root, 0, 0, 50, 100);
+		add(&root, 60, 150, 50, 100);
+		Choice *inLine = add(&root, 500, 0, 50, 100);
+		EXPECT_TRUE(move(&root, origin, FocusMove::RIGHT) == inLine);
+	}
+
+	{
+		// Rows shifted against each other: down goes to the one below the origin's center.
+		LinearLayout root(ORIENT_VERTICAL);
+		Choice *origin = add(&root, 100, 0, 100, 50);
+		add(&root, 20, 60, 100, 50);
+		Choice *underCenter = add(&root, 130, 60, 100, 50);
+		EXPECT_TRUE(move(&root, origin, FocusMove::DOWN) == underCenter);
+	}
+
+	{
+		// Things that can't take focus are passed over, also inside nested groups.
+		LinearLayout root(ORIENT_VERTICAL);
+		Choice *origin = add(&root, 0, 0, 100, 50);
+		Choice *disabled = add(&root, 0, 60, 100, 50);
+		disabled->SetEnabled(false);
+		LinearLayout *inner = root.Add(new LinearLayout(ORIENT_VERTICAL));
+		Choice *hidden = add(inner, 0, 120, 100, 50);
+		hidden->SetVisibility(V_INVISIBLE);
+		Choice *last = add(inner, 0, 180, 100, 50);
+		EXPECT_TRUE(move(&root, origin, FocusMove::DOWN) == last);
+		EXPECT_TRUE(move(&root, last, FocusMove::UP) == origin);
+	}
+
+	return true;
+}
+
 bool TestTextureReplacer();
 
 static bool TestQueueBuf() {
@@ -3395,6 +3483,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(Demangle),
 	TEST_ITEM(TextureReplacer),
 	TEST_ITEM(UITabOrder),
+	TEST_ITEM(UIFocusNavigation),
 	TEST_ITEM(FatShortNames),
 	TEST_ITEM(GEDumpGameID),
 	TEST_ITEM(QueueBuf),
