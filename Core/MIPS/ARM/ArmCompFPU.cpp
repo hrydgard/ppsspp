@@ -288,7 +288,14 @@ void ArmJit::Comp_FPU2op(MIPSOpcode op) {
 	case 12: //FsI(fd) = (int)floorf(F(fs)+0.5f); break; //round.w.s
 		RestoreRoundingMode();
 		fpr.MapDirtyIn(fd, fs);
+		VCMP(fpr.R(fs), fpr.R(fs));
 		VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED);
+		VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
+		SetCC(CC_VS);
+		MOVIU2F(fpr.R(fd), 0x7FFFFFFF, SCRATCHREG1);
+		SetCC(CC_AL);
+		// Back to the guest's mode, for the cvt.w.s and float ops after this.
+		ApplyRoundingMode();
 		break;
 	case 13: //FsI(fd) = Rto0(F(fs)));            break; //trunc.w.s
 		fpr.MapDirtyIn(fd, fs);
@@ -313,8 +320,9 @@ void ArmJit::Comp_FPU2op(MIPSOpcode op) {
 		SetCC(CC_VS);
 		MOVIU2F(fpr.R(fd), 0x7FFFFFFF, SCRATCHREG1);
 		SetCC(CC_AL);
-		// Set the rounding mode back.  TODO: Keep it?  Dirty?
+		// Set the rounding mode back, then the guest's.
 		VMSR(SCRATCHREG2);
+		ApplyRoundingMode();
 		break;
 	}
 	case 15: //FsI(fd) = (int)floorf(F(fs));      break; //floor.w.s
@@ -331,8 +339,9 @@ void ArmJit::Comp_FPU2op(MIPSOpcode op) {
 		SetCC(CC_VS);
 		MOVIU2F(fpr.R(fd), 0x7FFFFFFF, SCRATCHREG1);
 		SetCC(CC_AL);
-		// Set the rounding mode back.  TODO: Keep it?  Dirty?
+		// Set the rounding mode back, then the guest's.
 		VMSR(SCRATCHREG2);
+		ApplyRoundingMode();
 		break;
 	}
 	case 32: //F(fd)   = (float)FsI(fs);          break; //cvt.s.w
