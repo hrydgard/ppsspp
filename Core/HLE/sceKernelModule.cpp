@@ -72,6 +72,8 @@
 #include "Core/HLE/scePsmf.h"
 #include "Core/HLE/sceAtrac.h"
 #include "Core/HLE/sceIo.h"
+#include "Core/HLE/sceChnnlsv.h"
+#include "ext/libkirk/amctrl.h"
 #include "Core/HLE/KernelWaitHelpers.h"
 #include "Core/ELF/ParamSFO.h"
 
@@ -2556,6 +2558,8 @@ int sceKernelLoadExec(const char *filename, u32 paramPtr) {
 	return hleLogDebug(Log::sceModule, 0);
 }
 
+static u32 KernelLoadModuleFromData(const char *name, std::vector<uint8_t> &fileData, u32 flags, const SceKernelLMOption *lmoption, bool *tryLoadExec);
+
 // What sceKernelLoadModule does once the file has been read: decrypt the module, place it in memory
 // and link it. Returns the module's UID or an error. Logs directly rather than through hleLog*,
 // since it also runs from the LoadModuleDone event. Sets *tryLoadExec for a BOOT.BIN we can't load
@@ -2570,7 +2574,10 @@ static u32 KernelLoadModuleFromFile(const char *name, u32 flags, const SceKernel
 		ERROR_LOG(Log::Loader, "sceKernelLoadModule(%s): module file size is 0", name);
 		return SCE_KERNEL_ERROR_FILEERR;
 	}
+	return KernelLoadModuleFromData(name, fileData, flags, lmoption, tryLoadExec);
+}
 
+static u32 KernelLoadModuleFromData(const char *name, std::vector<uint8_t> &fileData, u32 flags, const SceKernelLMOption *lmoption, bool *tryLoadExec) {
 	// A .sprx installed by a PKG game update comes wrapped in an NPDRM "\0PSPEDAT" container: a
 	// 0x90-byte header naming the content ID, then the payload at the offset in its u16 at 0x0C.
 	// The payload is an ordinary ~PSP PRX, so stepping over the header is enough to get it to the
@@ -3359,10 +3366,82 @@ static u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr) {
 	return hleNoLog(module->GetUID());
 }
 
-static u32 sceKernelLoadModuleDNAS(const char *name, u32 flags)
-{
-	ERROR_LOG_REPORT(Log::sceModule, "UNIMPL 0=sceKernelLoadModuleDNAS()");
-	return hleNoLog(0);
+// Replaces a PGD's contents with its decrypted payload. False if the key or the PGD type is one we
+// can't open.
+static bool UnwrapPGD(std::vector<uint8_t> &fileData, u8 *key) {
+	KirkState *kirk = __ChnnlsvKirkState();
+	PGD_DESC *pgd = pgd_open(kirk, fileData.data(), 2, key);
+	if (!pgd) {
+		return false;
+	}
+	const size_t dataEnd = (size_t)pgd->data_offset + (size_t)pgd->block_nr * pgd->block_size;
+	if (dataEnd > fileData.size() || pgd->data_size > (u64)pgd->block_nr * pgd->block_size) {
+		pgd_close(pgd);
+		return false;
+	}
+	std::vector<uint8_t> plain;
+	plain.reserve((size_t)pgd->block_nr * pgd->block_size);
+	for (u32 block = 0; block < pgd->block_nr; block++) {
+		memcpy(pgd->block_buf, fileData.data() + pgd->data_offset + block * pgd->block_size, pgd->block_size);
+		pgd_decrypt_block(kirk, pgd, block);
+		plain.insert(plain.end(), pgd->block_buf, pgd->block_buf + pgd->block_size);
+	}
+	plain.resize(pgd->data_size);
+	pgd_close(pgd);
+	fileData = std::move(plain);
+	return true;
+}
+
+// Loads a module installed by the DRM BB install utility (the psheet driver), like the patch
+// Killzone: Liberation's Chapter 5 DLC installs as ms0:/PSP/GAME/<id>/KZL.PRX. Such a file is a PGD
+// around a PRX, and both layers end up keyed to the PSP that installed it: the install runs the PRX
+// through KIRK command 2, whose key (AES keyslot 3) isn't known. So a file copied from a PSP won't
+// load here. A PGD we can open with the caller's key is unwrapped, and a module that's already
+// decrypted loads as is - anything else fails, and Killzone's bootloader takes any negative result
+// as "no patch" and loads its stock module from the disc.
+static u32 sceKernelLoadModuleDNAS(const char *name, u32 keyAddr, u32 flags, u32 optionAddr) {
+	if (!name) {
+		return hleLogError(Log::Loader, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "bad filename");
+	}
+	if (!Memory::IsValidRange(keyAddr, 16)) {
+		return hleLogError(Log::Loader, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "bad key");
+	}
+	u8 key[16];
+	Memory::Memcpy(key, keyAddr, 16);
+
+	const SceKernelLMOption *lmoption = nullptr;
+	if (optionAddr) {
+		if (!Memory::IsValidRange(optionAddr, sizeof(SceKernelLMOption))) {
+			return hleLogError(Log::Loader, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "bad option");
+		}
+		lmoption = (const SceKernelLMOption *)Memory::GetPointerUnchecked(optionAddr);
+	}
+
+	std::vector<uint8_t> fileData;
+	if (pspFileSystem.ReadEntireFile(name, fileData) < 0) {
+		return hleLogError(Log::Loader, SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND, "file does not exist");
+	}
+	if (fileData.empty()) {
+		return hleLogError(Log::Loader, SCE_KERNEL_ERROR_FILEERR, "module file size is 0");
+	}
+	const int fileSize = (int)fileData.size();
+	const int loadUs = __IoOpenDelayUs(name) + __IoReadDelayUs(fileSize) + 1000 + fileSize / 34;
+
+	u32 result;
+	if (fileData.size() >= 0x90 && !memcmp(fileData.data(), "\0PGD", 4) && !UnwrapPGD(fileData, key)) {
+		result = SCE_ERROR_PGD_INVALID_HEADER;
+	} else {
+		bool tryLoadExec = false;
+		result = KernelLoadModuleFromData(name, fileData, flags, lmoption, &tryLoadExec);
+	}
+
+	if ((s32)result < 0) {
+		auto err = GetI18NCategory(I18NCat::ERRORS);
+		g_OSD.Show(OSDType::MESSAGE_WARNING, err->T("DNASModuleUndecryptable", "Can't load a game update installed on a real PSP. Running without it."), "dnasmodule");
+		return hleDelayResult(hleLogError(Log::Loader, result, "can't decrypt %s (key %08x%08x%08x%08x)", name,
+			bswap32(*(u32 *)&key[0]), bswap32(*(u32 *)&key[4]), bswap32(*(u32 *)&key[8]), bswap32(*(u32 *)&key[12])), "module loaded", loadUs);
+	}
+	return hleDelayResult(hleLogInfo(Log::Loader, result), "module loaded", loadUs);
 }
 
 // Pretty sure this is a badly brute-forced function name...
@@ -3554,7 +3633,7 @@ const HLEFunction ModuleMgrForUser[] = {
 	{0XD8B73127, &WrapU_U<sceKernelGetModuleIdByAddress>,               "sceKernelGetModuleIdByAddress",           'x', "x"      },
 	{0XF0A26395, &WrapU_V<sceKernelGetModuleId>,                        "sceKernelGetModuleId",                    'x', ""       },
 	{0X8F2DF740, &WrapU_UUUUU<sceKernelStopUnloadSelfModuleWithStatus>, "sceKernelStopUnloadSelfModuleWithStatus", 'x', "xxxxx"  },
-	{0XFEF27DC1, &WrapU_CU<sceKernelLoadModuleDNAS>,                    "sceKernelLoadModuleDNAS",                 'x', "sx"     },
+	{0XFEF27DC1, &WrapU_CUUU<sceKernelLoadModuleDNAS>,                  "sceKernelLoadModuleDNAS",                 'x', "sxxx"   },
 	{0X644395E2, &WrapU_UUU<sceKernelGetModuleIdList>,                  "sceKernelGetModuleIdList",                'x', "xxx"    },
 	{0XF2D8D1B4, &WrapU_CUU<sceKernelLoadModuleNpDrm>,                  "sceKernelLoadModuleNpDrm",                'x', "sxx"    },
 	{0XE4C4211C, nullptr,                                               "sceKernelLoadModuleWithBlockOffset",      '?', ""       },
