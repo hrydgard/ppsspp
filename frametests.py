@@ -343,11 +343,12 @@ def main():
                         help="With --adb: the Android headless binary to push (default: android/libs/arm64-v8a/ppsspp_headless)")
     parser.add_argument("--device-dir", default="/data/local/tmp/ppsspp-frametests",
                         help="With --adb: where on the device the binary, assets and dumps go")
-    parser.add_argument("--host-args", default="--graphics=vulkan",
-                        help="With --adb: how the host renders the reference each device run is compared with (default: --graphics=vulkan)")
+    parser.add_argument("--host-args", default="--graphics=vulkan --dump-compat",
+                        help="With --adb: how the host renders the reference each device run is compared with "
+                             "(default: --graphics=vulkan --dump-compat)")
     parser.add_argument("--variants", default="",
                         help="Variants to run, as name=args pairs separated by commas, replacing the config's "
-                             "(default with --adb: vulkan=--graphics=vulkan,gl=--graphics=gles)")
+                             "(default with --adb: vulkan=--graphics=vulkan --dump-compat,gl=--graphics=gles --dump-compat)")
     args = parser.parse_args()
 
     strict = args.strict or bool(os.environ.get("GITHUB_ACTIONS"))
@@ -367,7 +368,8 @@ def main():
     max_mse = float(config.get("maxMse", 0.0))
     raw_variants = config.get("variants", {})
     if not args.variants and args.adb is not None:
-        args.variants = "vulkan=--graphics=vulkan,gl=--graphics=gles"
+        # With the game's compat settings on both sides, which is what the game would look like.
+        args.variants = "vulkan=--graphics=vulkan --dump-compat,gl=--graphics=gles --dump-compat"
     if args.variants:
         raw_variants = dict(v.split("=", 1) for v in args.variants.split(","))
     if not raw_variants:

@@ -182,8 +182,10 @@ python3 frametests.py frametests/frametests.json --adb
 ```
 
 The first run pushes the binary, `assets/` and the dumps to `/data/local/tmp/ppsspp-frametests`; later runs
-only push what changed. The variants default to `vulkan=--graphics=vulkan,gl=--graphics=gles`, and
-`--host-args` sets how the host renders its side. A failing test's diff image shows host, device and the
+only push what changed. The variants default to `vulkan=--graphics=vulkan --dump-compat,gl=--graphics=gles
+--dump-compat`, and `--host-args` (default `--graphics=vulkan --dump-compat`) sets how the host renders its
+side. `--dump-compat` applies the game's `compat.ini` settings, which headless otherwise skips for dumps;
+without them some games look wrong on every backend (Coded Arms needs `AccurateSplines`). A failing test's diff image shows host, device and the
 differences side by side. Runs go to the device one at a time.
 
 ## CI integration
