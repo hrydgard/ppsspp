@@ -1120,7 +1120,8 @@ namespace MIPSComp
 
 		// This multi-VCVT.F32.F16 is only available in the VFPv4 extension.
 		// The VFPv3 one is VCVTB, VCVTT which we don't yet have support for.
-		if (!(cpu_info.bHalf && cpu_info.bVFPv4)) {
+		// It also quiets a NaN, where the VFPU keeps its bits (cpu/vfpu/convert), so it's off for now.
+		if (true || !(cpu_info.bHalf && cpu_info.bVFPv4)) {
 			// No hardware support for half-to-float, fallback to interpreter
 			// TODO: Translate the fast SSE solution to standard integer/VFP stuff
 			// for the weaker CPUs.
@@ -1279,15 +1280,29 @@ namespace MIPSComp
 				VMOV(fpr.V(imm), gpr.R(rt));
 			} else if (imm < 128 + VFPU_CTRL_MAX) { //mtvc //currentMIPS->vfpuCtrl[imm - 128] = R(rt);
 				if (imm - 128 == VFPU_CTRL_CC) {
+					// Six condition bits, the rest don't stick (cpu/vfpu/vbranch).
 					if (gpr.IsImm(rt)) {
-						gpr.SetImm(MIPS_REG_VFPUCC, gpr.GetImm(rt));
+						gpr.SetImm(MIPS_REG_VFPUCC, gpr.GetImm(rt) & 0x3F);
 					} else {
 						gpr.MapDirtyIn(MIPS_REG_VFPUCC, rt);
-						MOV(gpr.R(MIPS_REG_VFPUCC), gpr.R(rt));
+						AND(gpr.R(MIPS_REG_VFPUCC), gpr.R(rt), Operand2(0x3F));
 					}
 				} else {
-					gpr.MapReg(rt);
-					STR(gpr.R(rt), CTXREG, offsetof(MIPSState, vfpuCtrl) + 4 * (imm - 128));
+					// Only some of the bits stick (the low 20 of a prefix, say), same as the IR does it.
+					u32 mask;
+					u32 setBits = GetVFPUCtrlSetBits(imm - 128);
+					if (!GetVFPUCtrlMask(imm - 128, &mask)) {
+						// Read-only or unknown register: nothing is written.
+					} else if (mask != 0xFFFFFFFF || setBits != 0) {
+						gpr.MapReg(rt);
+						ANDI2R(SCRATCHREG1, gpr.R(rt), mask, SCRATCHREG2);
+						if (setBits != 0)
+							ORI2R(SCRATCHREG1, SCRATCHREG1, setBits, SCRATCHREG2);
+						STR(SCRATCHREG1, CTXREG, offsetof(MIPSState, vfpuCtrl) + 4 * (imm - 128));
+					} else {
+						gpr.MapReg(rt);
+						STR(gpr.R(rt), CTXREG, offsetof(MIPSState, vfpuCtrl) + 4 * (imm - 128));
+					}
 				}
 
 				// TODO: Optimization if rt is Imm?
@@ -2321,9 +2336,10 @@ namespace MIPSComp
 
 		for (int i = 0; i < n; ++i) {
 			fpr.MapDirtyInV(tempregs[i], sregs[i]);
-			VCMP(fpr.V(sregs[i])); // vcmp(sregs[i], #0.0)
+			// Zero and denormals sign as zero, everything else (NaN too) by its sign bit.
 			VMOV(SCRATCHREG1, fpr.V(sregs[i]));
-			VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
+			MOV(SCRATCHREG2, Operand2(SCRATCHREG1, ST_LSL, 1));
+			MOVS(SCRATCHREG2, Operand2(SCRATCHREG2, ST_LSR, 24));
 			SetCC(CC_NEQ);
 			AND(SCRATCHREG1, SCRATCHREG1, AssumeMakeOperand2(0x80000000));
 			ORR(SCRATCHREG1, SCRATCHREG1, AssumeMakeOperand2(0x3F800000));
