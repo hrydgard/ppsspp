@@ -172,17 +172,17 @@ bool IRJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 
 void IRJit::RunLoopUntil(u64 globalticks) {
 	PROFILE_THIS_SCOPE("jit");
 
-	// ApplyRoundingMode(true);
 	// IR Dispatcher
-	
+	// The guest's rounding mode applies while running blocks, like in the native JITs' dispatchers
+	// (see ApplyHostRoundingMode).
 	MIPSState *mips = mips_;
 	while (true) {
-		// RestoreRoundingMode(true);
+		RestoreHostRoundingMode();
 		CoreTiming::Advance(currentMIPS);
-		// ApplyRoundingMode(true);
 		if (coreState != 0) {
 			break;
 		}
+		ApplyHostRoundingMode(mips);
 
 #ifdef _DEBUG
 		compilerEnabled_ = false;
@@ -218,7 +218,7 @@ void IRJit::RunLoopUntil(u64 globalticks) {
 					break;
 				}
 			} else {
-				// RestoreRoundingMode(true);
+				RestoreHostRoundingMode();
 #ifdef _DEBUG
 				compilerEnabled_ = true;
 #endif
@@ -226,7 +226,7 @@ void IRJit::RunLoopUntil(u64 globalticks) {
 #ifdef _DEBUG
 				compilerEnabled_ = false;
 #endif
-				// ApplyRoundingMode(true);
+				ApplyHostRoundingMode(mips);
 			}
 		}
 #ifdef _DEBUG
@@ -234,7 +234,7 @@ void IRJit::RunLoopUntil(u64 globalticks) {
 #endif
 	}
 
-	// RestoreRoundingMode(true);
+	RestoreHostRoundingMode();
 }
 
 bool IRJit::DescribeCodePtr(const u8 *ptr, std::string &name) {

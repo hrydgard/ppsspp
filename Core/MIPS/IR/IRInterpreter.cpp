@@ -1296,7 +1296,10 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		{
 			// If we get here, the syscall is valid.
 			MIPSOpcode op(inst->constant);
+			// HLE runs in the host's normal mode, see ApplyHostRoundingMode.
+			RestoreHostRoundingMode();
 			CallSyscall(op);
+			ApplyHostRoundingMode(mips);
 			if (coreState != CORE_RUNNING_CPU) {
 				CoreTiming::ForceCheck(mips);
 			}
@@ -1307,7 +1310,9 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		{
 			// If we get here, the syscall is invalid.
 			u32 pc = inst->constant;
+			RestoreHostRoundingMode();
 			CallSyscallUnresolvedAtPC(pc);
+			ApplyHostRoundingMode(mips);
 			if (coreState != CORE_RUNNING_CPU) {
 				// hm, what's this for?
 				CoreTiming::ForceCheck(mips);
@@ -1329,7 +1334,9 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		{
 			int funcIndex = inst->constant;
 			const ReplacementTableEntry *f = GetReplacementFunc(funcIndex);
+			RestoreHostRoundingMode();
 			int cycles = f->replaceFunc();
+			ApplyHostRoundingMode(mips);
 			mips->r[inst->dest] = cycles < 0 ? -1 : 0;
 			mips->downcount -= cycles < 0 ? -cycles : cycles;
 			IR_NEXT;
