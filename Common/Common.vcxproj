@@ -290,6 +290,10 @@
     <ClInclude Include="..\ext\aemu_postoffice\client\postoffice_client.h" />
     <ClInclude Include="..\ext\aemu_postoffice\client\postoffice_mem.h" />
     <ClInclude Include="..\ext\aemu_postoffice\client\sock_impl.h" />
+    <ClInclude Include="..\ext\aemu_postoffice\client\list.h" />
+    <ClInclude Include="..\ext\aemu_postoffice\client\enet.h" />
+    <ClInclude Include="..\ext\aemu_postoffice\adhocctl\client\adhocctl.h" />
+    <ClInclude Include="..\ext\aemu_postoffice\adhocctl\client\adhocctl_mem.h" />
     <ClInclude Include="..\ext\at3_standalone\at3_decoders.h" />
     <ClInclude Include="..\ext\at3_standalone\atrac.h" />
     <ClInclude Include="..\ext\at3_standalone\atrac3data.h" />
@@ -587,6 +591,10 @@
     <ClCompile Include="..\ext\aemu_postoffice\client\postoffice.c" />
     <ClCompile Include="..\ext\aemu_postoffice\client\postoffice_mem_stdc.c" />
     <ClCompile Include="..\ext\aemu_postoffice\client\sock_impl_windows.c" />
+    <ClCompile Include="..\ext\aemu_postoffice\client\list.c" />
+    <ClCompile Include="..\ext\aemu_postoffice\client\enet.c" />
+    <ClCompile Include="..\ext\aemu_postoffice\adhocctl\client\adhocctl.c" />
+    <ClCompile Include="..\ext\aemu_postoffice\adhocctl\client\adhocctl_mem.c" />
     <ClCompile Include="..\ext\at3_standalone\atrac.cpp" />
     <ClCompile Include="..\ext\at3_standalone\atrac3.cpp" />
     <ClCompile Include="..\ext\at3_standalone\atrac3plus.cpp" />

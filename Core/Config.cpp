@@ -1077,6 +1077,8 @@ static const ConfigSetting networkSettings[] = {
 	ConfigSetting("EnableAdhocServer", SETTING(g_Config, bEnableAdhocServer), false, CfgFlag::PER_GAME),
 	ConfigSetting("proAdhocServer", SETTING(g_Config, sProAdhocServer), &DefaultProAdhocServer, CfgFlag::PER_GAME),
 	ConfigSetting("AdhocServerRelayMode", SETTING(g_Config, iAdhocServerRelayMode), (int)AdhocServerRelayMode::Auto, CfgFlag::PER_GAME),
+	ConfigSetting("AdhocUseUdp", SETTING(g_Config, bAdhocUseUdp), false, CfgFlag::PER_GAME),
+	ConfigSetting("AdhocRelayModeEnetPdpReliable", SETTING(g_Config, bAdhocRelayModeEnetPdpReliable), true, CfgFlag::PER_GAME),
 	ConfigSetting("AdhocServerShowPlayerPorts", SETTING(g_Config, bAdhocServerShowPlayerPorts), false, CfgFlag::PER_GAME),
 	ConfigSetting("PortOffset", SETTING(g_Config, iPortOffset), 10000, CfgFlag::PER_GAME),
 	ConfigSetting("PrimaryDNSServer", SETTING(g_Config, sInfrastructureDNSServer), "67.222.156.250", CfgFlag::PER_GAME),
