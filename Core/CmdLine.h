@@ -189,7 +189,7 @@ struct CommandLineOptions {
 	// Headless: apply the game's compatibility settings when replaying a GE frame dump.
 	std::optional<bool> dumpCompat;
 	std::optional<bool> hardwareTransform;
-	// Headless: comma-separated clip-distance, cull-distance, depth-clamp, framebuffer-fetch.
+	// Headless: comma-separated clip-distance, cull-distance, depth-clamp, framebuffer-fetch, dual-source-blend.
 	std::optional<std::string> disableGPUFeatures;
 	std::optional<bool> screenshotRenderTarget;
 	std::optional<std::string> screenshotFilenameDiff;
