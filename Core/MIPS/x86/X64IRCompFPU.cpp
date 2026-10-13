@@ -46,6 +46,7 @@ void X64JitBackend::EmitFPUConstants() {
 	EmitConst4x32(&constants.positiveZeroes, 0x00000000);
 	EmitConst4x32(&constants.positiveInfinity, 0x7F800000);
 	EmitConst4x32(&constants.qNAN, 0x7FC00000);
+	EmitConst4x32(&constants.vfpuNaN, 0x7F800001);
 	EmitConst4x32(&constants.positiveOnes, 0x3F800000);
 	EmitConst4x32(&constants.negativeOnes, 0xBF800000);
 	EmitConst4x32(&constants.maxIntBelowAsFloat, 0x4EFFFFFF);
@@ -203,6 +204,33 @@ void X64JitBackend::CompIR_FArith(IRInst inst) {
 			XORPS(regs_.FX(inst.dest), M(constants.signBitAll));  // rip accessible
 		}
 		break;
+
+	case IROp::FVfpuNaN:
+	{
+		regs_.Map(inst);
+		if (inst.dest != inst.src1)
+			MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
+		UCOMISS(regs_.FX(inst.dest), regs_.F(inst.dest));
+		FixupBranch notNaN = J_CC(CC_NP);
+		MOVSS(regs_.FX(inst.dest), M(constants.vfpuNaN));  // rip accessible
+		SetJumpTarget(notNaN);
+		break;
+	}
+
+	case IROp::FVfpuProductNaN:
+	{
+		// The operands are never the dest, see IRFrontend::Comp_VecDo3.
+		_dbg_assert_(inst.dest != inst.src1 && inst.dest != inst.src2);
+		regs_.Map(inst);
+		UCOMISS(regs_.FX(inst.dest), regs_.F(inst.dest));
+		FixupBranch notNaN = J_CC(CC_NP);
+		MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
+		XORPS(regs_.FX(inst.dest), regs_.F(inst.src2));
+		ANDPS(regs_.FX(inst.dest), M(constants.signBitAll));  // rip accessible
+		ORPS(regs_.FX(inst.dest), M(constants.vfpuNaN));  // rip accessible
+		SetJumpTarget(notNaN);
+		break;
+	}
 
 	default:
 		INVALIDOP;
@@ -927,16 +955,19 @@ void X64JitBackend::CompIR_FSat(IRInst inst) {
 		tempReg = regs_.MapWithFPRTemp(inst);
 
 		// The second argument's NAN is taken if either is NAN, so put known first.
-		MOVSS(tempReg, M(constants.positiveOnes));
+		MOVSS(tempReg, M(constants.positiveOnes));  // rip accessible
 		MINSS(tempReg, regs_.F(inst.src1));
 
-		// Now for NAN, we want known first again.
-		// Unfortunately, this will retain -0.0, which we'll fix next.
+		// Known first again, which keeps a NAN with its bits but also keeps -0.0.
 		XORPS(regs_.FX(inst.dest), regs_.F(inst.dest));
-		MAXSS(tempReg, regs_.F(inst.dest));
+		MAXSS(regs_.FX(inst.dest), R(tempReg));
 
-		// Important: this should clamp -0.0 to +0.0.
-		ADDSS(regs_.FX(inst.dest), R(tempReg));
+		// Only -0.0 can still have the sign without being a NAN, so clear it for the rest.
+		MOVAPS(tempReg, regs_.F(inst.dest));
+		CMPSS(tempReg, regs_.F(inst.dest), CMP_ORD);
+		ANDPS(tempReg, M(constants.signBitAll));  // rip accessible
+		ANDNPS(tempReg, regs_.F(inst.dest));
+		MOVAPS(regs_.FX(inst.dest), R(tempReg));
 		break;
 
 	case IROp::FSatMinus1_1:

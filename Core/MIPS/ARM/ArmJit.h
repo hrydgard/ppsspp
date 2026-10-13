@@ -199,6 +199,8 @@ private:
 
 	void ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz);
 	void ApplyPrefixD(const u8 *vregs, VectorSize sz);
+	void EmitVfpuSumNaN(ArmGen::ARMReg r);
+	void EmitVfpuProductNaN(ArmGen::ARMReg r, ArmGen::ARMReg a, ArmGen::ARMReg b);
 	void GetVectorRegsPrefixS(u8 *regs, VectorSize sz, int vectorReg) {
 		_assert_(js.prefixSFlag & JitState::PREFIX_KNOWN);
 		GetVectorRegs(regs, sz, vectorReg);

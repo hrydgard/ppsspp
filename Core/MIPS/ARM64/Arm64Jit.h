@@ -195,6 +195,9 @@ public:
 
 private:
 	void GenerateFixedCode(const JitOptions &jo);
+	void EmitVfpuClamp(Arm64Gen::ARM64Reg r);
+	void EmitVfpuSumNaN(Arm64Gen::ARM64Reg r);
+	void EmitVfpuProductNaN(Arm64Gen::ARM64Reg r, Arm64Gen::ARM64Reg a, Arm64Gen::ARM64Reg b);
 	void FlushAll();
 	void FlushPrefixV();
 

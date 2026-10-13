@@ -70,6 +70,8 @@ alignas(16) const u32 noSignMask[4] = {0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FF
 alignas(16) const u32 signBitAll[4] = {0x80000000, 0x80000000, 0x80000000, 0x80000000};
 alignas(16) const u32 signBitLower[4] = {0x80000000, 0, 0, 0};
 alignas(16) const float oneOneOneOne[4] = {1.0f, 1.0f, 1.0f, 1.0f};
+alignas(16) const u32 vfpuNaN4[4] = {0x7F800001, 0x7F800001, 0x7F800001, 0x7F800001};
+alignas(16) const u32 signBits4[4] = {0x80000000, 0x80000000, 0x80000000, 0x80000000};
 alignas(16) const u32 fourinfnan[4] = {0x7F800000, 0x7F800000, 0x7F800000, 0x7F800000};
 alignas(16) const float identityMatrix[4][4] = { { 1.0f, 0, 0, 0 }, { 0, 1.0f, 0, 0 }, { 0, 0, 1.0f, 0 }, { 0, 0, 0, 1.0f} };
 
@@ -1046,6 +1048,69 @@ static s32 DoVmaxSS(s32 treg) {
 	}
 }
 
+// A memory operand for a constant, through TEMPREG if it's not RIP accessible.
+OpArg Jit::ConstArg(const void *c) {
+	if (RipAccessible(c))
+		return M(c);  // rip accessible
+	MOV(PTRBITS, R(TEMPREG), ImmPtr(c));
+	return MatR(TEMPREG);
+}
+
+// The VFPU's NaNs (see VfpuSumNaN in InterpreterVFPU.cpp), on all four lanes of d in place.
+void Jit::EmitVfpuSumNaN4(X64Reg d) {
+	MOVAPS(XMM0, R(d));
+	CMPUNORDPS(XMM0, R(d));
+	MOVMSKPS(TEMPREG, R(XMM0));
+	TEST(32, R(TEMPREG), R(TEMPREG));
+	FixupBranch noNaN = J_CC(CC_Z);
+	ANDNPS(XMM0, R(d));
+	CMPUNORDPS(d, R(d));
+	ANDPS(d, ConstArg(vfpuNaN4));
+	ORPS(d, R(XMM0));
+	SetJumpTarget(noNaN);
+}
+
+// Moves the product or quotient in XMM1 to d, with NaNs signed by s ^ t. xorT XORs t into the reg
+// it gets, and may use d. Clobbers XMM0 and vcmpResult.
+void Jit::EmitVfpuProductNaN4(X64Reg d, OpArg s, const std::function<void(X64Reg)> &xorT) {
+	MOVAPS(XMM0, R(XMM1));
+	CMPUNORDPS(XMM0, R(XMM1));
+	MOVMSKPS(TEMPREG, R(XMM0));
+	TEST(32, R(TEMPREG), R(TEMPREG));
+	FixupBranch noNaN = J_CC(CC_Z);
+	MOVAPS(MIPSSTATE_VAR(vcmpResult), XMM0);
+	MOVAPS(XMM0, s);
+	xorT(XMM0);
+	ANDPS(XMM0, ConstArg(signBits4));
+	ORPS(XMM0, ConstArg(vfpuNaN4));
+	ANDPS(XMM0, MIPSSTATE_VAR(vcmpResult));
+	MOVAPS(d, MIPSSTATE_VAR(vcmpResult));
+	ANDNPS(d, R(XMM1));
+	ORPS(d, R(XMM0));
+	FixupBranch done = J();
+	SetJumpTarget(noNaN);
+	MOVAPS(d, R(XMM1));
+	SetJumpTarget(done);
+}
+
+// The same for one lane. sCopy holds s, d the product or quotient.
+void Jit::EmitVfpuSumNaN1(X64Reg d) {
+	UCOMISS(d, R(d));
+	FixupBranch notNaN = J_CC(CC_NP);
+	MOVSS(d, ConstArg(vfpuNaN4));
+	SetJumpTarget(notNaN);
+}
+
+void Jit::EmitVfpuProductNaN1(X64Reg d, X64Reg sCopy, OpArg t) {
+	UCOMISS(d, R(d));
+	FixupBranch notNaN = J_CC(CC_NP);
+	XORPS(sCopy, t);
+	ANDPS(sCopy, ConstArg(signBits4));
+	ORPS(sCopy, ConstArg(vfpuNaN4));
+	MOVSS(d, R(sCopy));
+	SetJumpTarget(notNaN);
+}
+
 void Jit::Comp_VecDo3(MIPSOpcode op) {
 	CONDITIONAL_DISABLE(VFPU_VEC);
 
@@ -1168,7 +1233,15 @@ void Jit::Comp_VecDo3(MIPSOpcode op) {
 			break;
 		}
 
-		if (opFunc != nullptr) {
+		bool product = opFunc == &XEmitter::MULPS || opFunc == &XEmitter::DIVPS;
+		if (product) {
+			// Into XMM1, since the NaN's sign needs s and t.
+			MOVAPS(XMM1, fpr.VS(sregs));
+			(this->*opFunc)(XMM1, fpr.VS(tregs));
+			EmitVfpuProductNaN4(fpr.VSX(dregs), fpr.VS(sregs), [&](X64Reg r) {
+				XORPS(r, fpr.VS(tregs));
+			});
+		} else if (opFunc != nullptr) {
 			if (fpr.VSX(dregs) != fpr.VSX(tregs)) {
 				if (fpr.VSX(dregs) != fpr.VSX(sregs)) {
 					MOVAPS(fpr.VSX(dregs), fpr.VS(sregs));
@@ -1182,6 +1255,7 @@ void Jit::Comp_VecDo3(MIPSOpcode op) {
 				(this->*opFunc)(XMM1, fpr.VS(tregs));
 				MOVAPS(fpr.VSX(dregs), R(XMM1));
 			}
+			EmitVfpuSumNaN4(fpr.VSX(dregs));
 		}
 
 		ApplyPrefixD(dregs, sz);
@@ -1200,8 +1274,8 @@ void Jit::Comp_VecDo3(MIPSOpcode op) {
 		if (!IsOverlapSafeAllowS(dregs[i], i, n, sregs, n, tregs))
 		{
 			// On 32-bit we only have 6 xregs for mips regs, use XMM0/XMM1 if possible.
-			// But for vmin/vmax/vsge, we need XMM0/XMM1, so avoid.
-			if (i < 2 && (op >> 26) != 27)
+			// But vmin/vmax/vsge, and the NaN of vmul/vdiv, need XMM0/XMM1, so avoid.
+			if (i < 2 && (op >> 26) == 24 && ((op >> 23) & 7) != 7)
 				tempxregs[i] = (X64Reg) (XMM0 + i);
 			else
 			{
@@ -1231,12 +1305,16 @@ void Jit::Comp_VecDo3(MIPSOpcode op) {
 			switch ((op >> 23) & 7) {
 			case 0: // d[i] = s[i] + t[i]; break; //vadd
 				ADDSS(tempxregs[i], fpr.V(tregs[i]));
+				EmitVfpuSumNaN1(tempxregs[i]);
 				break;
 			case 1: // d[i] = s[i] - t[i]; break; //vsub
 				SUBSS(tempxregs[i], fpr.V(tregs[i]));
+				EmitVfpuSumNaN1(tempxregs[i]);
 				break;
 			case 7: // d[i] = s[i] / t[i]; break; //vdiv
+				MOVAPS(XMM1, R(tempxregs[i]));
 				DIVSS(tempxregs[i], fpr.V(tregs[i]));
+				EmitVfpuProductNaN1(tempxregs[i], XMM1, fpr.V(tregs[i]));
 				break;
 			}
 			break;
@@ -1244,7 +1322,9 @@ void Jit::Comp_VecDo3(MIPSOpcode op) {
 			switch ((op >> 23) & 7)
 			{
 			case 0: // d[i] = s[i] * t[i]; break; //vmul
+				MOVAPS(XMM1, R(tempxregs[i]));
 				MULSS(tempxregs[i], fpr.V(tregs[i]));
+				EmitVfpuProductNaN1(tempxregs[i], XMM1, fpr.V(tregs[i]));
 				break;
 			}
 			break;
@@ -2960,10 +3040,14 @@ void Jit::Comp_VScl(MIPSOpcode op) {
 		MOVSS(XMM0, fpr.VS(&scale));
 		if (sz != V_Single)
 			SHUFPS(XMM0, R(XMM0), _MM_SHUFFLE(0, 0, 0, 0));
-		if (dregs[0] != sregs[0]) {
-			MOVAPS(fpr.VSX(dregs), fpr.VS(sregs));
-		}
-		MULPS(fpr.VSX(dregs), R(XMM0));
+		MOVAPS(XMM1, fpr.VS(sregs));
+		MULPS(XMM1, R(XMM0));
+		EmitVfpuProductNaN4(fpr.VSX(dregs), fpr.VS(sregs), [&](X64Reg r) {
+			// The scale was in XMM0, which is r. d isn't written yet, so it can hold it.
+			MOVSS(fpr.VSX(dregs), fpr.VS(&scale));
+			SHUFPS(fpr.VSX(dregs), R(fpr.VSX(dregs)), _MM_SHUFFLE(0, 0, 0, 0));
+			XORPS(r, R(fpr.VSX(dregs)));
+		});
 		ApplyPrefixD(dregs, sz);
 		fpr.ReleaseSpillLocks();
 		return;
@@ -2993,7 +3077,9 @@ void Jit::Comp_VScl(MIPSOpcode op) {
 	for (int i = 0; i < n; ++i) {
 		if (!fpr.V(sregs[i]).IsSimpleReg(tempxregs[i]))
 			MOVSS(tempxregs[i], fpr.V(sregs[i]));
+		MOVAPS(XMM1, R(tempxregs[i]));
 		MULSS(tempxregs[i], R(XMM0));
+		EmitVfpuProductNaN1(tempxregs[i], XMM1, R(XMM0));
 	}
 	for (int i = 0; i < n; ++i) {
 		if (!fpr.V(dregs[i]).IsSimpleReg(tempxregs[i]))

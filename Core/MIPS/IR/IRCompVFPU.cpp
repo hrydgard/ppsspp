@@ -927,11 +927,21 @@ namespace MIPSComp {
 				break;
 			}
 
+			const bool product = type == VecDo3Op::VMUL || type == VecDo3Op::VDIV;
 			if (IsVec4(sz, dregs) && IsVec4(sz, sregs) && IsVec4(sz, tregs)) {
-				if (opFunc != IROp::Nop) {
-					ir.Write(opFunc, dregs[0], sregs[0], tregs[0]);
-				} else {
+				if (opFunc == IROp::Nop)
 					DISABLE;
+				if (!product) {
+					ir.Write(opFunc, dregs[0], sregs[0], tregs[0]);
+					ir.Write(IROp::Vec4VfpuNaN, dregs[0], dregs[0]);
+				} else if (dregs[0] != sregs[0] && dregs[0] != tregs[0]) {
+					ir.Write(opFunc, dregs[0], sregs[0], tregs[0]);
+					ir.Write(IROp::Vec4VfpuProductNaN, dregs[0], sregs[0], tregs[0]);
+				} else {
+					// The NaN's sign comes from the operands, so they have to survive the op.
+					ir.Write(opFunc, IRVTEMP_0, sregs[0], tregs[0]);
+					ir.Write(IROp::Vec4VfpuProductNaN, IRVTEMP_0, sregs[0], tregs[0]);
+					ir.Write(IROp::Vec4Mov, dregs[0], IRVTEMP_0);
 				}
 				ApplyPrefixD(dregs, sz, _VD);
 				return;
@@ -941,6 +951,10 @@ namespace MIPSComp {
 				if (opFunc == IROp::Nop)
 					DISABLE;
 				ir.Write(opFunc, IRVTEMP_0, sregs[0], tregs[0]);
+				if (product)
+					ir.Write(IROp::Vec4VfpuProductNaN, IRVTEMP_0, sregs[0], tregs[0]);
+				else
+					ir.Write(IROp::Vec4VfpuNaN, IRVTEMP_0, IRVTEMP_0);
 				ir.Write(IROp::Vec4Blend, dregs[0], dregs[0], IRVTEMP_0, 0x7);
 				ApplyPrefixD(dregs, sz, _VD);
 				return;
@@ -954,17 +968,22 @@ namespace MIPSComp {
 
 		for (int i = 0; i < n; ++i) {
 			switch (type) {
+			// tempregs[i] is never one of the operands, which the product NaN needs.
 			case VecDo3Op::VADD: // d[i] = s[i] + t[i]; break; //vadd
 				ir.Write(IROp::FAdd, tempregs[i], sregs[i], tregs[i]);
+				ir.Write(IROp::FVfpuNaN, tempregs[i], tempregs[i]);
 				break;
 			case VecDo3Op::VSUB: // d[i] = s[i] - t[i]; break; //vsub
 				ir.Write(IROp::FSub, tempregs[i], sregs[i], tregs[i]);
+				ir.Write(IROp::FVfpuNaN, tempregs[i], tempregs[i]);
 				break;
 			case VecDo3Op::VDIV: // d[i] = s[i] / t[i]; break; //vdiv
 				ir.Write(IROp::FDiv, tempregs[i], sregs[i], tregs[i]);
+				ir.Write(IROp::FVfpuProductNaN, tempregs[i], sregs[i], tregs[i]);
 				break;
 			case VecDo3Op::VMUL: // d[i] = s[i] * t[i]; break; //vmul
 				ir.Write(IROp::FMul, tempregs[i], sregs[i], tregs[i]);
+				ir.Write(IROp::FVfpuProductNaN, tempregs[i], sregs[i], tregs[i]);
 				break;
 			case VecDo3Op::VMIN: // vmin
 				ir.Write(IROp::FMin, tempregs[i], sregs[i], tregs[i]);
@@ -1559,20 +1578,35 @@ namespace MIPSComp {
 		}
 
 		if (!overlap || (vs == vd && IsOverlapSafe(treg, n, dregs))) {
+			// The NaN's sign needs t in every lane (the T prefix temp is free, see above.)
 			if (IsVec4(sz, sregs) && IsVec4(sz, dregs)) {
-				ir.Write(IROp::Vec4Scale, dregs[0], sregs[0], treg);
+				int tlane = treg & 3;
+				ir.Write(IROp::Vec4Shuffle, IRVTEMP_PFX_T, treg & ~3, VFPU_SWIZZLE(tlane, tlane, tlane, tlane));
+				if (dregs[0] != sregs[0]) {
+					ir.Write(IROp::Vec4Scale, dregs[0], sregs[0], treg);
+					ir.Write(IROp::Vec4VfpuProductNaN, dregs[0], sregs[0], IRVTEMP_PFX_T);
+				} else {
+					ir.Write(IROp::Vec4Scale, IRVTEMP_0, sregs[0], treg);
+					ir.Write(IROp::Vec4VfpuProductNaN, IRVTEMP_0, sregs[0], IRVTEMP_PFX_T);
+					ir.Write(IROp::Vec4Mov, dregs[0], IRVTEMP_0);
+				}
 				ApplyPrefixD(dregs, sz, vd);
 				return;
 			} else if (IsVec3of4(sz, sregs) && IsVec3of4(sz, dregs) && opts.preferVec4) {
+				int tlane = treg & 3;
+				ir.Write(IROp::Vec4Shuffle, IRVTEMP_PFX_T, treg & ~3, VFPU_SWIZZLE(tlane, tlane, tlane, tlane));
 				ir.Write(IROp::Vec4Scale, IRVTEMP_0, sregs[0], treg);
+				ir.Write(IROp::Vec4VfpuProductNaN, IRVTEMP_0, sregs[0], IRVTEMP_PFX_T);
 				ir.Write(IROp::Vec4Blend, dregs[0], dregs[0], IRVTEMP_0, 0x7);
 				ApplyPrefixD(dregs, sz, vd);
 				return;
 			}
 		}
 
+		// tempregs[i] is never s[i] or t, which the product NaN needs.
 		for (int i = 0; i < n; i++) {
 			ir.Write(IROp::FMul, tempregs[i], sregs[i], treg);
+			ir.Write(IROp::FVfpuProductNaN, tempregs[i], sregs[i], treg);
 		}
 
 		for (int i = 0; i < n; i++) {
@@ -1820,6 +1854,7 @@ namespace MIPSComp {
 			ir.Write(IROp::Vec4Shuffle, IRVTEMP_PFX_S, sregs[0], VFPU_SWIZZLE(1, 2, 0, 3));
 			ir.Write(IROp::Vec4Shuffle, IRVTEMP_PFX_T, tregs[0], VFPU_SWIZZLE(2, 0, 1, 3));
 			ir.Write(IROp::Vec4Mul, IRVTEMP_0, IRVTEMP_PFX_S, IRVTEMP_PFX_T);
+			ir.Write(IROp::Vec4VfpuProductNaN, IRVTEMP_0, IRVTEMP_PFX_S, IRVTEMP_PFX_T);
 			// Now just retain w and blend in our values.
 			ir.Write(IROp::Vec4Blend, dregs[0], dregs[0], IRVTEMP_0, 0x7);
 		} else {
@@ -1833,8 +1868,11 @@ namespace MIPSComp {
 			}
 
 			ir.Write(IROp::FMul, tempregs[0], sregs[1], tregs[2]);
+			ir.Write(IROp::FVfpuProductNaN, tempregs[0], sregs[1], tregs[2]);
 			ir.Write(IROp::FMul, tempregs[1], sregs[2], tregs[0]);
+			ir.Write(IROp::FVfpuProductNaN, tempregs[1], sregs[2], tregs[0]);
 			ir.Write(IROp::FMul, tempregs[2], sregs[0], tregs[1]);
+			ir.Write(IROp::FVfpuProductNaN, tempregs[2], sregs[0], tregs[1]);
 
 			for (int i = 0; i < n; i++) {
 				if (tempregs[i] != dregs[i])

@@ -20,6 +20,8 @@
 
 #pragma once
 
+#include <functional>
+
 #include "Common/CommonTypes.h"
 #include "Common/Thunk.h"
 #include "Common/x64Emitter.h"
@@ -139,6 +141,11 @@ public:
 
 	void ApplyPrefixST(u8 *vregs, u32 prefix, VectorSize sz);
 	void ApplyPrefixD(const u8 *vregs, VectorSize sz);
+	Gen::OpArg ConstArg(const void *c);
+	void EmitVfpuSumNaN1(Gen::X64Reg d);
+	void EmitVfpuSumNaN4(Gen::X64Reg d);
+	void EmitVfpuProductNaN1(Gen::X64Reg d, Gen::X64Reg sCopy, Gen::OpArg t);
+	void EmitVfpuProductNaN4(Gen::X64Reg d, Gen::OpArg s, const std::function<void(Gen::X64Reg)> &xorT);
 	void GetVectorRegsPrefixS(u8 *regs, VectorSize sz, int vectorReg) {
 		_assert_(js.prefixSFlag & JitState::PREFIX_KNOWN);
 		GetVectorRegs(regs, sz, vectorReg);

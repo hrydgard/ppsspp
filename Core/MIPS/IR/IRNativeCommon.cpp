@@ -344,6 +344,8 @@ void IRNativeBackend::CompileIRInst(IRInst inst) {
 	case IROp::FDiv:
 	case IROp::FSqrt:
 	case IROp::FNeg:
+	case IROp::FVfpuNaN:
+	case IROp::FVfpuProductNaN:
 		CompIR_FArith(inst);
 		break;
 
@@ -417,6 +419,8 @@ void IRNativeBackend::CompileIRInst(IRInst inst) {
 	case IROp::Vec4Scale:
 	case IROp::Vec4Neg:
 	case IROp::Vec4Abs:
+	case IROp::Vec4VfpuNaN:
+	case IROp::Vec4VfpuProductNaN:
 		CompIR_VecArith(inst);
 		break;
 

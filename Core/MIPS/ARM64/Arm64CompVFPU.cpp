@@ -217,16 +217,14 @@ namespace MIPSComp {
 
 				fp.MOVI2F(S0, 0.0f, SCRATCH1);
 				fp.MOVI2F(S1, 1.0f, SCRATCH1);
-				fp.FMIN(fpr.V(vregs[i]), fpr.V(vregs[i]), S1);
-				fp.FMAX(fpr.V(vregs[i]), fpr.V(vregs[i]), S0);
+				EmitVfpuClamp(fpr.V(vregs[i]));
 			} else if (sat == 3) {
 				// clamped = x < -1 ? (x > 1 ? 1 : x) : x [-1, 1]
 				fpr.MapRegV(vregs[i], MAP_DIRTY);
 
 				fp.MOVI2F(S0, -1.0f, SCRATCH1);
 				fp.MOVI2F(S1, 1.0f, SCRATCH1);
-				fp.FMIN(fpr.V(vregs[i]), fpr.V(vregs[i]), S1);
-				fp.FMAX(fpr.V(vregs[i]), fpr.V(vregs[i]), S0);
+				EmitVfpuClamp(fpr.V(vregs[i]));
 			}
 		}
 	}
@@ -663,6 +661,36 @@ namespace MIPSComp {
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
+	// Clamps r to [S0, S1]. A NaN keeps its bits, which FMIN/FMAX would quiet (cpu/vfpu/nan_gen).
+	void Arm64Jit::EmitVfpuClamp(ARM64Reg r) {
+		fp.FCMP(r, r);
+		fp.FMIN(S2, r, S1);
+		fp.FMAX(S2, S2, S0);
+		fp.FCSEL(r, r, S2, CC_VS);
+	}
+
+	// The VFPU's NaNs (see VfpuSumNaN in InterpreterVFPU.cpp): 0x7F800001, and for a product or
+	// quotient with the sign of a ^ b, which must not be r.
+	void Arm64Jit::EmitVfpuSumNaN(ARM64Reg r) {
+		fp.FCMP(r, r);
+		FixupBranch notNaN = B(CC_VC);
+		MOVI2R(SCRATCH1, 0x7F800001);
+		fp.FMOV(r, SCRATCH1);
+		SetJumpTarget(notNaN);
+	}
+
+	void Arm64Jit::EmitVfpuProductNaN(ARM64Reg r, ARM64Reg a, ARM64Reg b) {
+		fp.FCMP(r, r);
+		FixupBranch notNaN = B(CC_VC);
+		fp.FMOV(SCRATCH1, a);
+		fp.FMOV(SCRATCH2, b);
+		EOR(SCRATCH1, SCRATCH1, SCRATCH2);
+		ANDI2R(SCRATCH1, SCRATCH1, 0x80000000, SCRATCH2);
+		ORRI2R(SCRATCH1, SCRATCH1, 0x7F800001, SCRATCH2);
+		fp.FMOV(r, SCRATCH1);
+		SetJumpTarget(notNaN);
+	}
+
 	void Arm64Jit::Comp_VecDo3(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
 		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || !IsPrefixWithinSize(js.prefixT, op)) {
@@ -712,12 +740,22 @@ namespace MIPSComp {
 				switch ((op >> 23) & 7) {
 				case 0: // d[i] = s[i] + t[i]; break; //vadd
 					fp.FADD(fpr.V(tempregs[i]), fpr.V(sregs[i]), fpr.V(tregs[i]));
+					EmitVfpuSumNaN(fpr.V(tempregs[i]));
 					break;
 				case 1: // d[i] = s[i] - t[i]; break; //vsub
 					fp.FSUB(fpr.V(tempregs[i]), fpr.V(sregs[i]), fpr.V(tregs[i]));
+					EmitVfpuSumNaN(fpr.V(tempregs[i]));
 					break;
 				case 7: // d[i] = s[i] / t[i]; break; //vdiv
-					fp.FDIV(fpr.V(tempregs[i]), fpr.V(sregs[i]), fpr.V(tregs[i]));
+					// The NaN's sign needs the operands, which d may be.
+					if (tempregs[i] == sregs[i] || tempregs[i] == tregs[i]) {
+						fp.FDIV(S0, fpr.V(sregs[i]), fpr.V(tregs[i]));
+						EmitVfpuProductNaN(S0, fpr.V(sregs[i]), fpr.V(tregs[i]));
+						fp.FMOV(fpr.V(tempregs[i]), S0);
+					} else {
+						fp.FDIV(fpr.V(tempregs[i]), fpr.V(sregs[i]), fpr.V(tregs[i]));
+						EmitVfpuProductNaN(fpr.V(tempregs[i]), fpr.V(sregs[i]), fpr.V(tregs[i]));
+					}
 					break;
 				default:
 					DISABLE;
@@ -726,7 +764,14 @@ namespace MIPSComp {
 			case 25: //VFPU1
 				switch ((op >> 23) & 7) {
 				case 0: // d[i] = s[i] * t[i]; break; //vmul
-					fp.FMUL(fpr.V(tempregs[i]), fpr.V(sregs[i]), fpr.V(tregs[i]));
+					if (tempregs[i] == sregs[i] || tempregs[i] == tregs[i]) {
+						fp.FMUL(S0, fpr.V(sregs[i]), fpr.V(tregs[i]));
+						EmitVfpuProductNaN(S0, fpr.V(sregs[i]), fpr.V(tregs[i]));
+						fp.FMOV(fpr.V(tempregs[i]), S0);
+					} else {
+						fp.FMUL(fpr.V(tempregs[i]), fpr.V(sregs[i]), fpr.V(tregs[i]));
+						EmitVfpuProductNaN(fpr.V(tempregs[i]), fpr.V(sregs[i]), fpr.V(tregs[i]));
+					}
 					break;
 				default:
 					DISABLE;
@@ -921,20 +966,18 @@ namespace MIPSComp {
 					fp.MOVI2F(S0, 0.0f, SCRATCH1);
 					fp.MOVI2F(S1, 1.0f, SCRATCH1);
 				}
-				fp.FCMP(fpr.V(sregs[i]), S0);
-				fp.FMOV(fpr.V(tempregs[i]), fpr.V(sregs[i]));
-				fp.FMAX(fpr.V(tempregs[i]), fpr.V(tempregs[i]), S0);
-				fp.FMIN(fpr.V(tempregs[i]), fpr.V(tempregs[i]), S1);
+				if (tempregs[i] != sregs[i])
+					fp.FMOV(fpr.V(tempregs[i]), fpr.V(sregs[i]));
+				EmitVfpuClamp(fpr.V(tempregs[i]));
 				break;
 			case 5: // if (s[i] < -1.0f) d[i] = -1.0f; else {if(s[i] > 1.0f) d[i] = 1.0f; else d[i] = s[i];} break;  // vsat1
 				if (i == 0) {
 					fp.MOVI2F(S0, -1.0f, SCRATCH1);
 					fp.MOVI2F(S1, 1.0f, SCRATCH1);
 				}
-				fp.FCMP(fpr.V(sregs[i]), S0);
-				fp.FMOV(fpr.V(tempregs[i]), fpr.V(sregs[i]));
-				fp.FMAX(fpr.V(tempregs[i]), fpr.V(tempregs[i]), S0);
-				fp.FMIN(fpr.V(tempregs[i]), fpr.V(tempregs[i]), S1);
+				if (tempregs[i] != sregs[i])
+					fp.FMOV(fpr.V(tempregs[i]), fpr.V(sregs[i]));
+				EmitVfpuClamp(fpr.V(tempregs[i]));
 				break;
 			default:
 				ERROR_LOG(Log::JIT, "case missing in vfpu vv2op");
@@ -1415,7 +1458,15 @@ namespace MIPSComp {
 		// The meat of the function!
 		for (int i = 0; i < n; i++) {
 			fpr.MapDirtyInV(tempregs[i], sregs[i]);
-			fp.FMUL(fpr.V(tempregs[i]), fpr.V(sregs[i]), S0);
+			// The NaN's sign needs s, which d may be.
+			if (tempregs[i] == sregs[i]) {
+				fp.FMUL(S1, fpr.V(sregs[i]), S0);
+				EmitVfpuProductNaN(S1, fpr.V(sregs[i]), S0);
+				fp.FMOV(fpr.V(tempregs[i]), S1);
+			} else {
+				fp.FMUL(fpr.V(tempregs[i]), fpr.V(sregs[i]), S0);
+				EmitVfpuProductNaN(fpr.V(tempregs[i]), fpr.V(sregs[i]), S0);
+			}
 		}
 
 		for (int i = 0; i < n; i++) {
@@ -1591,8 +1642,11 @@ namespace MIPSComp {
 		fpr.MapRegsAndSpillLockV(sregs, sz, 0);
 		fpr.MapRegsAndSpillLockV(tregs, sz, 0);
 		fp.FMUL(S0, fpr.V(sregs[1]), fpr.V(tregs[2]));
+		EmitVfpuProductNaN(S0, fpr.V(sregs[1]), fpr.V(tregs[2]));
 		fp.FMUL(S1, fpr.V(sregs[2]), fpr.V(tregs[0]));
+		EmitVfpuProductNaN(S1, fpr.V(sregs[2]), fpr.V(tregs[0]));
 		fp.FMUL(S2, fpr.V(sregs[0]), fpr.V(tregs[1]));
+		EmitVfpuProductNaN(S2, fpr.V(sregs[0]), fpr.V(tregs[1]));
 
 		fpr.MapRegsAndSpillLockV(dregs, sz, MAP_NOINIT);
 		for (int i = 0; i < 3; i++) {
