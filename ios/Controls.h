@@ -17,10 +17,8 @@
 bool InitController(GCController *controller);
 void ShutdownController(GCController *controller);
 
-#if PPSSPP_PLATFORM(TVOS)
 // Returns false unless the controller is a Siri Remote (a micro gamepad profile and no extended one).
 bool InitSiriRemote(GCController *controller);
-#endif
 
 struct TouchTracker {
 public:

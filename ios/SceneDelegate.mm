@@ -168,12 +168,8 @@ static NSString *ExtractGameInfoScheme(NSURL *url) {
 		break;
 	}
 
-#if PPSSPP_PLATFORM(TVOS)
-	// No persistent storage on tvOS. The memory stick folder doubles as the documents folder.
+	// Documents, except on tvOS, which has no persistent storage. See defaultMemoryStickPath().
 	NSString *documentsPath = @(DarwinFileSystemServices::defaultMemoryStickPath().c_str());
-#else
-	NSString *documentsPath = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0];
-#endif
 	NSString *bundlePath = [[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/assets/"];
 	// Caches the system may clear when space runs low, and the zips ShareFilesAsZip hands to other apps.
 	NSString *cachesPath = [NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES) objectAtIndex:0];

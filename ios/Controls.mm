@@ -204,8 +204,6 @@ void ShutdownController(GCController *controller) {
 	KeyMap::NotifyPadDisconnected(DEVICE_ID_PAD_0);
 }
 
-#if PPSSPP_PLATFORM(TVOS)
-
 static void remoteButtonPressed(BOOL pressed, InputKeyCode keyCode) {
 	// As keyboard keys, which the UI already understands (arrows, enter, escape), and which have
 	// default in-game mappings.
@@ -300,8 +298,6 @@ bool InitSiriRemote(GCController *controller) {
 	INFO_LOG(Log::System, "Siri Remote set up: %s (ring: %s)", [controller.vendorName ?: @"Remote" UTF8String], ring != nil ? "yes" : "no");
 	return true;
 }
-
-#endif
 
 void TouchTracker::SendTouchEvent(CGPoint point, UIView *view, int code, int pointerId) {
 	// From points to dp. The view covers the whole display.

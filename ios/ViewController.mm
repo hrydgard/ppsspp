@@ -374,11 +374,9 @@ static int GetPickerRequestId(id picker) {
 {
 	if (![[GCController controllers] containsObject:self.gameController]) self.gameController = nil;
 
-#if PPSSPP_PLATFORM(TVOS)
 	if (InitSiriRemote((GCController *)note.object)) {
 		return;
 	}
-#endif
 
 	if (self.gameController != nil) return; // already have a connected controller
 
@@ -404,11 +402,9 @@ static int GetPickerRequestId(id picker) {
 // Picks the first gamepad. On tvOS, the Siri Remote is in the list too, and gets set up separately.
 - (void)setupFirstController {
 	for (GCController *controller in [GCController controllers]) {
-#if PPSSPP_PLATFORM(TVOS)
 		if (InitSiriRemote(controller)) {
 			continue;
 		}
-#endif
 		if (self.gameController == nil) {
 			[self setupController:controller];
 		}
@@ -665,7 +661,7 @@ extern float g_safeInsetBottom;
 
 - (void)shareItems:(NSArray *)items {
 #if PPSSPP_PLATFORM(TVOS)
-	// No share sheet on tvOS. SYSPROP_SUPPORTS_SHARE_* is false there, so this shouldn't be reached.
+	// No share sheet on tvOS. SYSPROP_SUPPORTS_SHARE_* is false there, so this isn't reached.
 	WARN_LOG(Log::System, "Sharing isn't available on tvOS");
 #else
 	UIActivityViewController *viewController = [[UIActivityViewController alloc] initWithActivityItems:items applicationActivities:nil];
@@ -799,12 +795,13 @@ extern float g_safeInsetBottom;
 	// The bounds are already corrected for orientation.
 	CGSize size = view.bounds.size;
 
-#if PPSSPP_PLATFORM(TVOS)
-	// Like a 1080p Android TV, which reports 320 dpi: 1920x1080 points come out as 1440x810 dp.
-	float dpi = 320.0f * scale;
-#else
-	float dpi = (IS_IPAD() ? 200.0f : 150.0f) * scale;
-#endif
+	float dpi;
+	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_TV) {
+		// Like a 1080p Android TV, which reports 320 dpi: 1920x1080 points come out as 1440x810 dp.
+		dpi = 320.0f * scale;
+	} else {
+		dpi = (IS_IPAD() ? 200.0f : 150.0f) * scale;
+	}
 	PendingResolution res{
 		(float)(size.width * scale), (float)(size.height * scale),
 		240.0f / dpi,

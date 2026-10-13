@@ -285,11 +285,7 @@ int64_t System_GetPropertyInt(SystemProperty prop) {
 		case SYSPROP_AUDIO_SAMPLE_RATE:
 			return 44100;
 		case SYSPROP_DEVICE_TYPE:
-#if PPSSPP_PLATFORM(TVOS)
-			return DEVICE_TYPE_TV;
-#else
-			return DEVICE_TYPE_MOBILE;
-#endif
+			return IS_TV() ? DEVICE_TYPE_TV : DEVICE_TYPE_MOBILE;
 		case SYSPROP_SYSTEMVERSION:
 			return g_iosVersionMajor;
 #if !PPSSPP_PLATFORM(TVOS)
@@ -467,22 +463,6 @@ void System_Notify(SystemNotification notification) {
 }
 
 bool System_MakeRequest(SystemRequestType type, int requestId, const std::string &param1, const std::string &param2, int64_t param3, int64_t param4) {
-#if PPSSPP_PLATFORM(TVOS)
-	switch (type) {
-	case SystemRequestType::BROWSE_FOR_FILE:
-	case SystemRequestType::BROWSE_FOR_FOLDER:
-	case SystemRequestType::BROWSE_FOR_IMAGE:
-	case SystemRequestType::CAMERA_COMMAND:
-	case SystemRequestType::GPS_COMMAND:
-	case SystemRequestType::MICROPHONE_COMMAND:
-	case SystemRequestType::SHARE_TEXT:
-	case SystemRequestType::SHARE_FILE:
-	case SystemRequestType::COPY_TO_CLIPBOARD:
-		return false;
-	default:
-		break;
-	}
-#endif
 	switch (type) {
 	case SystemRequestType::RESTART_APP:
 	{
@@ -515,6 +495,9 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		break;
 	case SystemRequestType::BROWSE_FOR_FILE:
 	{
+		if (!System_GetPropertyBool(SYSPROP_HAS_FILE_BROWSER)) {
+			return false;
+		}
 		DarwinDirectoryPanelCallback callback = [requestId] (bool success, Path path) {
 			if (success) {
 				g_requestManager.PostSystemSuccess(requestId, path.c_str());
@@ -527,6 +510,9 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	}
 	case SystemRequestType::BROWSE_FOR_FOLDER:
 	{
+		if (!System_GetPropertyBool(SYSPROP_HAS_FOLDER_BROWSER)) {
+			return false;
+		}
 		DarwinDirectoryPanelCallback callback = [requestId] (bool success, Path path) {
 			if (success) {
 				g_requestManager.PostSystemSuccess(requestId, path.c_str());
@@ -539,6 +525,9 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	}
 	case SystemRequestType::BROWSE_FOR_IMAGE:
 	{
+		if (!System_GetPropertyBool(SYSPROP_HAS_IMAGE_BROWSER)) {
+			return false;
+		}
 		NSString *filename = [NSString stringWithUTF8String:param2.c_str()];
 		dispatch_async(dispatch_get_main_queue(), ^{
 			[sharedViewController pickPhoto:filename requestId:requestId];
@@ -591,6 +580,9 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		return true;
 	case SystemRequestType::SHARE_TEXT:
 	{
+		if (!System_GetPropertyBool(SYSPROP_SUPPORTS_SHARE_TEXT)) {
+			return false;
+		}
 		NSString *text = [NSString stringWithUTF8String:param1.c_str()];
 		dispatch_async(dispatch_get_main_queue(), ^{
 			[sharedViewController shareText:text];
@@ -599,6 +591,9 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	}
 	case SystemRequestType::SHARE_FILE:
 	{
+		if (!System_GetPropertyBool(SYSPROP_SUPPORTS_SHARE_FILE)) {
+			return false;
+		}
 		// param2, the MIME type, isn't needed. The share sheet goes by the extension.
 		NSString *path = [NSString stringWithUTF8String:param1.c_str()];
 		if (![[NSFileManager defaultManager] fileExistsAtPath:path]) {
