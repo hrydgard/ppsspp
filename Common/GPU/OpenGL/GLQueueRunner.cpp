@@ -55,6 +55,19 @@ void GLQueueRunner::CreateDeviceObjects() {
 	// on one in SOCOM Fireteam Bravo 3.
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 
+	// Depth from 0 to w in clip space, as in Vulkan (see depthMinusOneToOne in thin3d_gl.cpp).
+#if defined(USING_GLES2)
+#if defined(__ANDROID__)
+	if (gl_extensions.EXT_clip_control) {
+		glClipControlEXTFunc(GL_LOWER_LEFT_EXT, GL_ZERO_TO_ONE_EXT);
+	}
+#endif
+#else
+	if (gl_extensions.ARB_clip_control) {
+		glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
+	}
+#endif
+
 	// An eternal optimist.
 	sawOutOfMemory_ = false;
 

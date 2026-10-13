@@ -673,6 +673,10 @@ OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameT
 #endif
 
 	shaderLanguageDesc_.Init(GLSL_1xx);
+	// With clip control set up by GLQueueRunner, depth is 0 to w like in Vulkan. Without it, window depth 0
+	// comes from z = -w, where the rasterizer rounds to an ulp of 1.0 rather than of 0: a flat ground at
+	// z = 0 got depths just above 0, and sprites on it that test GEQUAL failed (Puyo Puyo Fever 2).
+	shaderLanguageDesc_.depthMinusOneToOne = !(gl_extensions.ARB_clip_control || gl_extensions.EXT_clip_control);
 
 	shaderLanguageDesc_.glslVersionNumber = gl_extensions.GLSLVersion();
 

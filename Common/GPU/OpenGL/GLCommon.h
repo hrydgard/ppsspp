@@ -63,6 +63,14 @@ typedef void (EGLAPIENTRYP PFNGLBLITFRAMEBUFFERNVPROC) (
 #endif
 extern PFNGLBLITFRAMEBUFFERNVPROC glBlitFramebufferNV;
 
+#ifndef GL_ZERO_TO_ONE_EXT
+#define GL_LOWER_LEFT_EXT 0x8CA1
+#define GL_ZERO_TO_ONE_EXT 0x935F
+#endif
+// Our own name for the type and the pointer, since not every NDK header declares GL_EXT_clip_control.
+typedef void (GL_APIENTRYP PPSSPP_PFNGLCLIPCONTROLEXTPROC) (GLenum origin, GLenum depth);
+extern PPSSPP_PFNGLCLIPCONTROLEXTPROC glClipControlEXTFunc;
+
 #if PPSSPP_PLATFORM(IOS)
 extern PFNGLDISCARDFRAMEBUFFEREXTPROC glDiscardFramebufferEXT;
 extern PFNGLGENVERTEXARRAYSOESPROC glGenVertexArraysOES;
