@@ -395,6 +395,9 @@ jobs:
       if: matrix.id != 'macos'
       with:
         key: ${{ matrix.id }}
+        # Only master saves. The Actions cache holds 10 GB, and PR runs filled it with caches
+        # only that PR could use, evicting master's, which every run restores from.
+        save: ${{ github.ref == 'refs/heads/master' }}
 
     - name: Execute build
       env:
@@ -578,6 +581,9 @@ jobs:
 
     - name: Setup ccache
       uses: hendrikmuhs/ccache-action@f09c25b45002a07be2955cbe52e8cee55643f89d # v1.2.24
+      with:
+        # See the other ccache setup.
+        save: ${{ github.ref == 'refs/heads/master' }}
 
     - name: Compile ffmpeg
       run: |

@@ -42,6 +42,8 @@ jobs:
     container: ghcr.io/pkgforge-dev/archlinux:latest
     env:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
+      # Unlimited, a cache once reached 1.2 GB.
+      CCACHE_MAXSIZE: 500M
       CCACHE_COMPILERCHECK: content
       CCACHE_SLOPPINESS: time_macros
     steps:
@@ -68,8 +70,9 @@ jobs:
           git remote add upstream https://github.com/hrydgard/ppsspp.git # fetching from official repo as a fallback
           git fetch --deepen=15000 --no-recurse-submodules --tags --force upstream || exit 0
 
+      # Only master saves the cache (see build.yml), so restoring and saving are separate.
       - name: Set up ccache for ${{ matrix.id }}
-        uses: actions/cache@v6.1.0
+        uses: actions/cache/restore@v6.1.0
         with:
           path: ${{ env.CCACHE_DIR }}
           key: ${{ runner.os }}-ccache-${{ matrix.id }}-${{ github.sha }}
@@ -169,6 +172,13 @@ jobs:
           make -j$(nproc)
           popd
           ccache -s -v
+
+      - name: Save ccache for ${{ matrix.id }}
+        if: github.ref == 'refs/heads/master'
+        uses: actions/cache/save@v6.1.0
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ${{ runner.os }}-ccache-${{ matrix.id }}-${{ github.sha }}
 
       - name: Create AppImage
         shell: bash
