@@ -791,7 +791,10 @@ namespace MIPSAnalyst {
 		bool canClobber = true;
 		while (addr < end) {
 			const MIPSOpcode op = Memory::Read_Instruction(addr);
-			const MIPSInfo info = MIPSGetInfo(op);
+			MIPSInfo info = MIPSGetInfo(op);
+			// Only control register 31 holds the FPU condition, so cfc1/ctc1 of the others don't touch it.
+			if ((op & 0xFF600000) == 0x44400000 && ((op >> 11) & 0x1F) != 31)
+				info.value &= ~(u64)(IN_FPUFLAG | OUT_FPUFLAG);
 
 			// Yes, used.
 			if (info & inFlag)
