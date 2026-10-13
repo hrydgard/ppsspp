@@ -2034,6 +2034,17 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 			if (vfb->usageFlags & FB_USAGE_RENDER_DEPTH) {
 				BlitFramebuffer(vfb, 0, 0, &old, 0, 0, std::min((u16)oldWidth, std::min(vfb->bufferWidth, vfb->width)), std::min((u16)oldHeight, std::min(vfb->height, vfb->bufferHeight)), 0, RASTER_DEPTH, "BlitDepth_ResizeFramebufFBO");
 			}
+			if (!skipCopy && vfb->fb_format != GE_FORMAT_565) {
+				// Keep the stencil too (Need for Speed Shift stencil tests right after its framebuffer grows from 480 to
+				// 512 wide). D3D11 has no separate stencil copy, but copies it along with the depth above.
+				const int stencilW = std::min(old.renderWidth, vfb->renderWidth);
+				const int stencilH = std::min(old.renderHeight, vfb->renderHeight);
+				if (draw_->GetDeviceCaps().framebufferSeparateDepthCopySupported) {
+					draw_->CopyFramebufferImage(old.fbo, 0, 0, 0, 0, vfb->fbo, 0, 0, 0, 0, stencilW, stencilH, 1, Draw::Aspect::STENCIL_BIT, "CopyStencil_ResizeFramebufFBO");
+				} else if (draw_->GetDeviceCaps().framebufferStencilBlitSupported) {
+					draw_->BlitFramebuffer(old.fbo, 0, 0, stencilW, stencilH, vfb->fbo, 0, 0, stencilW, stencilH, Draw::Aspect::STENCIL_BIT, Draw::FB_BLIT_NEAREST, "BlitStencil_ResizeFramebufFBO");
+				}
+			}
 		}
 		fbosToDelete_.push_back(old.fbo);
 		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "ResizeFramebufFBO");
