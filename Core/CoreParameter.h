@@ -77,6 +77,8 @@ struct CoreParameter {
 	bool headLess = false;   // Try to avoid messageboxes etc
 	// Headless leaves out compat settings when replaying frame dumps, unless this is set.
 	bool dumpCompat = false;
+	// Headless: GPU_USE_ feature bits to turn off, to test the fallbacks for GPUs without them.
+	u32 disabledGPUFeatures = 0;
 
 	// Internal PSP rendering resolution and scale factor.
 	int renderScaleFactor = 1;

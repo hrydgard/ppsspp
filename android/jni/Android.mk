@@ -280,10 +280,6 @@ RCHEEVOS_FILES := \
 ifeq ($(TARGET_ARCH_ABI),arm64-v8a)
 	ADRENOTOOLS_FILES := \
 	  ${SRC}/ext/libadrenotools/src/driver.cpp \
-	  ${SRC}/ext/libadrenotools/src/hook/hook_impl.cpp \
-	  ${SRC}/ext/libadrenotools/src/hook/file_redirect_hook.c \
-	  ${SRC}/ext/libadrenotools/src/hook/gsl_alloc_hook.c \
-	  ${SRC}/ext/libadrenotools/src/hook/main_hook.c \
 	  ${SRC}/ext/libadrenotools/lib/linkernsbypass/android_linker_ns.cpp \
 	  ${SRC}/ext/libadrenotools/lib/linkernsbypass/elf_soname_patcher.cpp
 endif
@@ -1091,7 +1087,8 @@ ifeq ($(HEADLESS),1)
   LOCAL_SRC_FILES := \
     $(SRC)/headless/Headless.cpp \
     $(SRC)/headless/ReverseEngineer.cpp \
-    $(SRC)/headless/Compare.cpp
+    $(SRC)/headless/Compare.cpp \
+    $(SRC)/headless/AndroidHeadlessGLContext.cpp
 
   include $(BUILD_EXECUTABLE)
 endif

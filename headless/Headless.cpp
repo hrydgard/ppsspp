@@ -40,7 +40,6 @@
 #include "Common/CPUDetect.h"
 #include "Common/ExceptionHandlerSetup.h"
 #include "Common/File/VFS/VFS.h"
-#include "Common/File/VFS/ZipFileReader.h"
 #include "Common/File/VFS/DirectoryReader.h"
 #include "Common/File/FileUtil.h"
 #include "GPU/Debugger/Playback.h"
@@ -77,6 +76,8 @@
 #include "WindowsHeadlessHost.h"
 #elif defined(SDL)
 #include "SDLHeadlessGLGraphicsContext.h"
+#elif PPSSPP_PLATFORM(ANDROID)
+#include "AndroidHeadlessGLContext.h"
 #endif
 
 static Path g_comparisonScreenshot;
@@ -366,8 +367,7 @@ static GraphicsContext *CreateGraphicsContext(GPUCore gpuCore, std::string **dev
 	*deviceSetting = nullptr;
 	return nullptr;
 #elif PPSSPP_PLATFORM(ANDROID)
-	// The Android headless build is compile-tested only and never actually needs to create a graphics context at runtime.
-	// However, it would still be nice if hardware rendering worked - it can be executed over adb.
+	// Both hardware backends are created up front, with no window (see the caller).
 	*deviceSetting = nullptr;
 	return nullptr;
 #else
@@ -1062,7 +1062,7 @@ int main(int argc, const char* argv[]) {
 		// We don't bother with a window.
 		graphicsContext = new NullGraphicsContext();
 	} else {
-#if PPSSPP_PLATFORM(ANDROID) || defined(HEADLESS_NO_SDL)
+#if defined(HEADLESS_NO_SDL)
 		fprintf(stderr, "Headless graphics context creation is not supported on this platform.\n");
 		return 1;
 #else
@@ -1076,8 +1076,16 @@ int main(int argc, const char* argv[]) {
 		} else if (gpuCore == GPUCORE_GLES) {
 			// So does OpenGL, into a framebuffer object of its own.
 			graphicsContext = new CGLHeadlessGraphicsContext(480, 272);
+#elif PPSSPP_PLATFORM(ANDROID)
+		} else if (gpuCore == GPUCORE_GLES) {
+			// Into an EGL pbuffer.
+			graphicsContext = new AndroidHeadlessGLContext(480, 272);
 #endif
 		} else {
+#if PPSSPP_PLATFORM(ANDROID)
+			fprintf(stderr, "Only --graphics=vulkan and --graphics=gles are supported on Android\n");
+			return 1;
+#else
 			// TODO: Will we need a larger window for higher resolutions? Well, not if we use buffered rendering.
 			window = CreateHiddenWindow(480, 272, cmdLineOptions.gpuBackend.value_or(GPUBackend::OPENGL), &windowDesc);
 			if (!windowDesc.Valid()) {
@@ -1090,6 +1098,7 @@ int main(int argc, const char* argv[]) {
 				fprintf(stderr, "Failed to create a graphics context for GPU core\n");
 				return 1;
 			}
+#endif
 		}
 #endif
 	}
@@ -1109,6 +1118,22 @@ int main(int argc, const char* argv[]) {
 	coreParameter.startBreak = false;
 	coreParameter.headLess = true;
 	coreParameter.dumpCompat = cmdLineOptions.dumpCompat.value_or(false);
+	if (cmdLineOptions.disableGPUFeatures.has_value()) {
+		std::vector<std::string> names;
+		SplitString(cmdLineOptions.disableGPUFeatures.value(), ',', names);
+		for (const std::string &name : names) {
+			if (name == "clip-distance") {
+				coreParameter.disabledGPUFeatures |= GPU_USE_CLIP_DISTANCE;
+			} else if (name == "cull-distance") {
+				coreParameter.disabledGPUFeatures |= GPU_USE_CULL_DISTANCE;
+			} else if (name == "depth-clamp") {
+				coreParameter.disabledGPUFeatures |= GPU_USE_DEPTH_CLAMP;
+			} else {
+				fprintf(stderr, "Unknown feature for --disable-gpu-features: %s (expected clip-distance, cull-distance or depth-clamp)\n", name.c_str());
+				return 1;
+			}
+		}
+	}
 	coreParameter.loadGameConfigs = false;
 	coreParameter.renderScaleFactor = cmdLineOptions.resolutionScale.value_or(1);
 	coreParameter.renderWidth = 480 * coreParameter.renderScaleFactor;
@@ -1199,13 +1224,11 @@ int main(int argc, const char* argv[]) {
 
 
 	// Try to find the assets flash0 directory. Often this is from a subdirectory.
-	// This is needed for our fallback fonts.
+	// This is needed for our fallback fonts. On Android, push assets/ next to the executable.
 	Path nextPath = exePath;
 	for (int i = 0; i < 5; ++i) {
 		if (File::Exists(nextPath / "assets/flash0")) {
-#if !PPSSPP_PLATFORM(ANDROID)
 			g_VFS.Register("", new DirectoryReader(nextPath / "assets"));
-#endif
 			break;
 		}
 
@@ -1248,15 +1271,7 @@ int main(int argc, const char* argv[]) {
 	g_writeDebugOutput = !testOptions.compare && !testOptions.bench;
 	g_forwardHostOutput = !testOptions.compare && !testOptions.bench;
 
-#if PPSSPP_PLATFORM(ANDROID)
-	// For some reason the debugger installs it with this name?
-	if (File::Exists(Path("/data/app/org.ppsspp.ppsspp-2.apk"))) {
-		g_VFS.Register("", ZipFileReader::Create(Path("/data/app/org.ppsspp.ppsspp-2.apk"), "assets/"));
-	}
-	if (File::Exists(Path("/data/app/org.ppsspp.ppsspp.apk"))) {
-		g_VFS.Register("", ZipFileReader::Create(Path("/data/app/org.ppsspp.ppsspp.apk"), "assets/"));
-	}
-#elif PPSSPP_PLATFORM(LINUX)
+#if PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID)
 	g_VFS.Register("", new DirectoryReader(Path("/usr/local/share/ppsspp/assets")));
 	g_VFS.Register("", new DirectoryReader(Path("/usr/local/share/games/ppsspp/assets")));
 	g_VFS.Register("", new DirectoryReader(Path("/usr/share/ppsspp/assets")));
