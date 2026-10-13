@@ -21,12 +21,6 @@ on:
     - '.{editorconfig,gitattributes,gitignore}'
     - 'appveyor.yml'
 
-# A new push to a PR makes its running build pointless, so cancel it and free the runners.
-# Master and tags build every push.
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-
 env:
   SDL_AUDIODRIVER: "dummy" #"disk"
   #SDL_VIDEODRIVER: "dummy"
