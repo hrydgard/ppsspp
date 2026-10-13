@@ -567,12 +567,13 @@ void ArmJit::Comp_Generic(MIPSOpcode op)
 	if (func)
 	{
 		SaveDowncount();
-		// TODO: Perhaps keep the rounding mode for interp?
-		RestoreRoundingMode();
+		// The interpreter runs in the guest's rounding mode, like it does on its own. Reapply it
+		// after, in case the instruction changed fcr31.
 		gpr.SetRegImm(SCRATCHREG1, GetCompilerPC());
 		MovToPC(SCRATCHREG1);
 		gpr.SetRegImm(R0, op.encoding);
 		QuickCallFunction(R1, (void *)&MIPSInterpretTrampoline);
+		RestoreRoundingMode();
 		ApplyRoundingMode();
 		RestoreDowncount();
 	}

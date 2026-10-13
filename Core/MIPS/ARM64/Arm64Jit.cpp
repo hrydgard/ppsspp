@@ -577,12 +577,13 @@ void Arm64Jit::Comp_Generic(MIPSOpcode op) {
 	MIPSInterpretFunc func = MIPSGetInterpretFunc(op);
 	if (func) {
 		SaveStaticRegisters();
-		// TODO: Perhaps keep the rounding mode for interp? Should probably, right?
-		RestoreRoundingMode();
+		// The interpreter runs in the guest's rounding mode, like it does on its own. Reapply it
+		// after, in case the instruction changed fcr31.
 		MOVI2R(SCRATCH1, GetCompilerPC());
 		MovToPC(SCRATCH1);
 		MOVI2R(W0, op.encoding);
 		QuickCallFunction(SCRATCH2_64, (void *)&MIPSInterpretTrampoline);
+		RestoreRoundingMode();
 		ApplyRoundingMode();
 		LoadStaticRegisters();
 	}

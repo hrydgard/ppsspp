@@ -617,13 +617,14 @@ void Jit::Comp_Generic(MIPSOpcode op) {
 
 	if (func)
 	{
-		// TODO: Maybe we'd be better off keeping the rounding mode within interp?
-		RestoreRoundingMode();
+		// The interpreter runs in the guest's rounding mode, like it does on its own. Reapply it
+		// after, in case the instruction changed fcr31.
 		MOV(32, MIPSSTATE_VAR(pc), Imm32(GetCompilerPC()));
 		if (USE_JIT_MISSMAP)
 			ABI_CallFunctionC(&JitLogMiss, op.encoding);
 		else
 			ABI_CallFunctionC(&MIPSInterpretTrampoline, op.encoding);
+		RestoreRoundingMode();
 		ApplyRoundingMode();
 	} else {
 		// These are basically always due to some kind of crash or corruption now.
