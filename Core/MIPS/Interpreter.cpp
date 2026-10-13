@@ -1141,10 +1141,10 @@ namespace MIPSInt {
 			{
 			// round.w.s is round-half-to-even, not half-away-from-zero - and its mode is fixed,
 			// so unlike cvt.w.s below it must not follow fcr31. round_ieee_754 is both.
-			case 12: FsI(fd) = SaturatedFloatToInt(round_ieee_754(F(fs))); break; //round.w.s
-			case 13: FsI(fd) = SaturatedFloatToInt(truncf(F(fs))); break; //trunc.w.s
-			case 14: FsI(fd) = SaturatedFloatToInt(ceilf(F(fs))); break; //ceil.w.s
-			case 15: FsI(fd) = SaturatedFloatToInt(floorf(F(fs))); break; //floor.w.s
+			case 12: FsI(fd) = SaturatedFloatToInt(round_ieee_754(FlushForConversion(mips, F(fs)))); break; //round.w.s
+			case 13: FsI(fd) = SaturatedFloatToInt(truncf(FlushForConversion(mips, F(fs)))); break; //trunc.w.s
+			case 14: FsI(fd) = SaturatedFloatToInt(ceilf(FlushForConversion(mips, F(fs)))); break; //ceil.w.s
+			case 15: FsI(fd) = SaturatedFloatToInt(floorf(FlushForConversion(mips, F(fs)))); break; //floor.w.s
 			}
 			break;
 		case 32: F(fd) = (float)FsI(fs); break; //cvt.s.w
@@ -1152,10 +1152,10 @@ namespace MIPSInt {
 		case 36:
 			switch (mips->fcr31 & 3)
 			{
-			case 0: FsI(fd) = SaturatedFloatToInt(round_ieee_754(F(fs))); break;  // RINT_0
-			case 1: FsI(fd) = SaturatedFloatToInt(truncf(F(fs))); break;  // CAST_1
-			case 2: FsI(fd) = SaturatedFloatToInt(ceilf(F(fs))); break;  // CEIL_2
-			case 3: FsI(fd) = SaturatedFloatToInt(floorf(F(fs))); break;  // FLOOR_3
+			case 0: FsI(fd) = SaturatedFloatToInt(round_ieee_754(FlushForConversion(mips, F(fs)))); break;  // RINT_0
+			case 1: FsI(fd) = SaturatedFloatToInt(truncf(FlushForConversion(mips, F(fs)))); break;  // CAST_1
+			case 2: FsI(fd) = SaturatedFloatToInt(ceilf(FlushForConversion(mips, F(fs)))); break;  // CEIL_2
+			case 3: FsI(fd) = SaturatedFloatToInt(floorf(FlushForConversion(mips, F(fs)))); break;  // FLOOR_3
 			}
 			break; //cvt.w.s
 		default:

@@ -1131,16 +1131,16 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			mips->r[inst->dest] = mips->vfpuCtrl[inst->src1];
 			IR_NEXT;
 		IR_CASE(FRound)
-			mips->fs[inst->dest] = SaturatedFloatToInt(round_ieee_754(mips->f[inst->src1]));
+			mips->fs[inst->dest] = SaturatedFloatToInt(round_ieee_754(FlushForConversion(mips, mips->f[inst->src1])));
 			IR_NEXT;
 		IR_CASE(FTrunc)
-			mips->fs[inst->dest] = SaturatedFloatToInt(truncf(mips->f[inst->src1]));
+			mips->fs[inst->dest] = SaturatedFloatToInt(truncf(FlushForConversion(mips, mips->f[inst->src1])));
 			IR_NEXT;
 		IR_CASE(FCeil)
-			mips->fs[inst->dest] = SaturatedFloatToInt(ceilf(mips->f[inst->src1]));
+			mips->fs[inst->dest] = SaturatedFloatToInt(ceilf(FlushForConversion(mips, mips->f[inst->src1])));
 			IR_NEXT;
 		IR_CASE(FFloor)
-			mips->fs[inst->dest] = SaturatedFloatToInt(floorf(mips->f[inst->src1]));
+			mips->fs[inst->dest] = SaturatedFloatToInt(floorf(FlushForConversion(mips, mips->f[inst->src1])));
 			IR_NEXT;
 		IR_CASE(FCmp)
 			switch (inst->dest) {
@@ -1180,7 +1180,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			IR_NEXT;
 		IR_CASE(FCvtWS)
 		{
-			float src = mips->f[inst->src1];
+			float src = FlushForConversion(mips, mips->f[inst->src1]);
 			// TODO: Inline assembly to use here would be better.
 			switch (IRRoundMode(mips->fcr31 & 3)) {
 			case IRRoundMode::RINT_0: mips->fs[inst->dest] = SaturatedFloatToInt(round_ieee_754(src)); break;

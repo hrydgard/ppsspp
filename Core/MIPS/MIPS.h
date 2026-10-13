@@ -20,6 +20,7 @@
 #include "ppsspp_config.h"
 
 #include <cstddef>
+#include <cstring>
 #include <type_traits>
 #include <vector>
 
@@ -296,6 +297,21 @@ class MIPSDebugInterface;
 extern MIPSState *currentMIPS;
 extern MIPSDebugInterface *currentDebugMIPS;
 extern MIPSState mipsr4k;
+
+// With FS set, the host flushes a denormal input to a float->int conversion on ARM64 and x86 (DAZ),
+// but ARM32's libm rounds with integer code that doesn't, so it's flushed here
+// (cpu/fpu/denormal, cpu/vfpu/fcr31).
+inline float FlushForConversion(const MIPSState *mips, float f) {
+#if PPSSPP_ARCH(ARM)
+	u32 bits;
+	memcpy(&bits, &f, 4);
+	if ((mips->fcr31 & 0x01000000) != 0 && (bits & 0x7F800000) == 0) {
+		bits &= 0x80000000;
+		memcpy(&f, &bits, 4);
+	}
+#endif
+	return f;
+}
 
 extern const float cst_constants[32];
 
