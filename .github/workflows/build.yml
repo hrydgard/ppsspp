@@ -591,9 +591,32 @@ jobs:
         # See the other ccache setup.
         save: ${{ github.ref == 'refs/heads/master' }}
 
+    # The prebuilt Linux FFmpeg is linked against glibc, so this builds it for musl, into the same
+    # folder. That takes a few minutes, so the result is cached until FFmpeg, its build script
+    # or Alpine changes.
+    - name: FFmpeg cache key
+      id: ffmpeg-key
+      run: |
+        echo "key=alpine-ffmpeg-$(cat /etc/alpine-release)-$(git rev-parse HEAD:ffmpeg)-$(sha1sum ffmpeg/linux_x86-64.sh | cut -c1-12)" >> $GITHUB_OUTPUT
+
+    - name: Restore FFmpeg
+      id: ffmpeg-cache
+      uses: actions/cache/restore@v6.1.0
+      with:
+        path: ffmpeg/linux/x86_64
+        key: ${{ steps.ffmpeg-key.outputs.key }}
+
     - name: Compile ffmpeg
+      if: steps.ffmpeg-cache.outputs.cache-hit != 'true'
       run: |
         cd ffmpeg && ./linux_x86-64.sh
+
+    - name: Save FFmpeg
+      if: steps.ffmpeg-cache.outputs.cache-hit != 'true' && github.ref == 'refs/heads/master'
+      uses: actions/cache/save@v6.1.0
+      with:
+        path: ffmpeg/linux/x86_64
+        key: ${{ steps.ffmpeg-key.outputs.key }}
 
     - name: Build for testing
       run: |
