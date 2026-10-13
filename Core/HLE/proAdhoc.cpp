@@ -2248,7 +2248,8 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 		u64 startTime = (u64)(time_now_d() * 1000000.0);
 		bool done = false;
 		while (!done) {
-			if (coreState == CORE_POWERDOWN) 
+			// Also give up when the friend finder is being stopped, since sceNetAdhocctlTerm waits for it.
+			if (coreState == CORE_POWERDOWN || !friendFinderRunning)
 				return iResult;
 
 			done = (IsSocketReady((int)metasocket, false, true) > 0);
