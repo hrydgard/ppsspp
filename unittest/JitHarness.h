@@ -19,3 +19,4 @@
 
 bool TestJit();
 bool TestJitReplacementHooks();
+bool TestCPUEquivalence();

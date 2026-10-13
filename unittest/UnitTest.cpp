@@ -3442,6 +3442,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(IRPassSimplify),
 	TEST_ITEM(Jit),
 	TEST_ITEM(JitReplacementHooks),
+	TEST_ITEM(CPUEquivalence),
 	TEST_ITEM(VFPUMatrixTranspose),
 	TEST_ITEM(ParseLBN),
 	TEST_ITEM(CachingFileLoader),
