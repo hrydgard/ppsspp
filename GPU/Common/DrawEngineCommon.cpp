@@ -484,16 +484,35 @@ static bool TestBoundingBoxFast(const float *cullMatrix, const void *vdata, cons
 		flags |= ClipInfoFlags::FlatZ | ClipInfoFlags::SoftClipCull;
 	}
 
-	if (needFragmentDepthClamp() && (minProjZ < 0 || maxProjZ > 65535)) {
+	if (needFragmentDepthClamp()) {
 		if (gstate_c.Use(GPU_USE_DEPTH_CLAMP)) {
-			flags |= ClipInfoFlags::DepthClamp;
-		} else {
+			if (minProjZ < 0 || maxProjZ > 65535) {
+				flags |= ClipInfoFlags::DepthClamp;
+			}
+		} else if (minProjZ <= 0 || maxProjZ >= 65535) {
+			// Including draws right on the limit (Puyo Puyo Fever 2's flat Z = 0 ground): hardware clamp keeps
+			// what rounding puts just outside, the clip without it doesn't.
 			flags |= ClipInfoFlags::DepthClampFragment;
 		}
 	}
 
 	*clipInfoFlags = flags;
 	return true;
+}
+
+ClipInfoFlags DrawEngineCommon::UncheckedClipInfoFlags() {
+	ClipInfoFlags flags{};
+	if (gstate.isModeThrough() || gstate.isModeClear()) {
+		return flags;
+	}
+	// Hardware depth clamp and clip planes are always on for these, so do the same with the fallbacks.
+	if (needFragmentDepthClamp() && !gstate_c.Use(GPU_USE_DEPTH_CLAMP)) {
+		flags |= ClipInfoFlags::Valid | ClipInfoFlags::DepthClampFragment;
+	}
+	if (needFragmentMinMaxClipping() && !gstate_c.Use(GPU_USE_CLIP_DISTANCE)) {
+		flags |= ClipInfoFlags::Valid | ClipInfoFlags::MinMaxZDiscard;
+	}
+	return flags;
 }
 
 bool DrawEngineCommon::TestBoundingBoxFast(const float *cullMatrix, const void *vdata, const void *idata, int vertexCount, const VertexDecoder *dec, u32 vertType, ClipInfoFlags *flags) {

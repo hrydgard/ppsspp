@@ -1006,6 +1006,9 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 
 	// If certain conditions are true, do frustum culling.
 	bool passCulling = PASSES_CULLING;
+	if (passCulling && !(flags & ClipInfoFlags::Valid)) {
+		flags = DrawEngineCommon::UncheckedClipInfoFlags();
+	}
 	if (!passCulling) {
 		// Do software culling.
 		if (drawEngineCommon_->TestBoundingBoxFast(gstate_c.cullMatrix, verts, inds, count, decoder, vertexType, &flags)) {
@@ -1095,6 +1098,9 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 
 			bool passCulling = onePassed || PASSES_CULLING;
 			ClipInfoFlags flags{};
+			if (passCulling) {
+				flags = DrawEngineCommon::UncheckedClipInfoFlags();
+			}
 			if (!passCulling) {
 				// Do software culling.
 				if (drawEngineCommon_->TestBoundingBoxFast(gstate_c.cullMatrix, verts, inds, count, decoder, vertexType, &flags)) {

@@ -501,7 +501,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		// If non-through, the viewport has already been applied here.
 		WRITE(p, "  vec4 outPos = position;\n");
 
-		if (fsMinmaxDiscard || fsDepthClamp) {
+		if (fsMinmaxDiscard) {
 			WRITE(p, "  %sv_zw = vec2(outPos.z * outPos.w, outPos.w);\n", compat.vsOutPrefix);
 		}
 	} else {
@@ -563,7 +563,7 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "  float recip = 1.0 / outPos.w;\n");
 		WRITE(p, "  outPos.xyz = (outPos.xyz * u_vpScale.xyz) * recip + u_vpOffset.xyz;\n");
 
-		if (fsMinmaxDiscard || fsDepthClamp) {
+		if (fsMinmaxDiscard) {
 			WRITE(p, "  %sv_zw = vec2(outPos.z * outPos.w, outPos.w);\n", compat.vsOutPrefix);
 		}
 
@@ -951,6 +951,12 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		// Actually 15-bit. Truncate here fixes Afterburner (similarly to the min/max clipping above).
 		// Possibly this should only be 15-bit in transformed mode? Full 16 in through? needs hardware testing.
 		WRITE(p, "  outPos.z = floor(outPos.z * 0.5) * 2.0;\n");
+	}
+
+	if (fsDepthClamp) {
+		// After the rounding, so the fragment shader clamps the Z that hardware depth clamp would.
+		// (Never needed together with fsMinmaxDiscard, which wants it unrounded.)
+		WRITE(p, "  %sv_zw = vec2(outPos.z * outPos.w, outPos.w);\n", compat.vsOutPrefix);
 	}
 
 	// It seems that depth values of 65535.6 should survive. Seen in NBA2K12 for example.
