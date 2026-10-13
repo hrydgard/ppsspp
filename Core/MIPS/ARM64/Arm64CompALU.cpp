@@ -578,6 +578,9 @@ void Arm64Jit::Comp_MulDivType(MIPSOpcode op) {
 
 	switch (op & 63) {
 	case 16: // R(rd) = HI; //mfhi
+		if (rd == MIPS_REG_ZERO) {
+			break;
+		}
 		// LO and HI are in the same reg.
 		if (gpr.IsImm(MIPS_REG_LO)) {
 			gpr.SetImm(rd, gpr.GetImm(MIPS_REG_LO) >> 32);
@@ -597,6 +600,9 @@ void Arm64Jit::Comp_MulDivType(MIPSOpcode op) {
 		break;
 
 	case 18: // R(rd) = LO; break; //mflo
+		if (rd == MIPS_REG_ZERO) {
+			break;
+		}
 		if (gpr.IsImm(MIPS_REG_LO)) {
 			gpr.SetImm(rd, gpr.GetImm(MIPS_REG_LO) & 0xFFFFFFFFULL);
 			break;
