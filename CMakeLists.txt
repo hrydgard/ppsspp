@@ -451,6 +451,10 @@ if(NOT MSVC)
 		add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:-std=c++17>")
 	endif()
 	if(CLANG)
+		# Before C++23, libc++ headers pull in many others just for old code that relied on it
+		# (<vector> brings in <locale>, for one). Dropping those makes the standard headers about
+		# half as expensive to parse. libstdc++ ignores this.
+		add_compile_definitions(_LIBCPP_REMOVE_TRANSITIVE_INCLUDES)
 		add_compile_options(
 			-Wno-nullability-completeness
 			-Wno-tautological-pointer-compare

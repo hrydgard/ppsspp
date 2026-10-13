@@ -9,7 +9,6 @@
 #include <cmath>
 
 #include "Common/CommonTypes.h"
-#include "Core/Config.h"
 
 class PointerWrap;
 

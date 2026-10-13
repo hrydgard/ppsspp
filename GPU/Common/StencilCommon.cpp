@@ -17,7 +17,6 @@
 
 #include "Common/GPU/Shader.h"
 #include "Common/GPU/ShaderWriter.h"
-#include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "GPU/Common/StencilCommon.h"
 #include "GPU/Common/DrawEngineCommon.h"

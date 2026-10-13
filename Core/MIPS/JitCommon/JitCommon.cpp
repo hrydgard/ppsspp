@@ -31,7 +31,6 @@
 #include "Common/Serialize/SerializeFuncs.h"
 
 #include "Core/Util/DisArm64.h"
-#include "Core/Config.h"
 
 #include "Core/MIPS/IR/IRJit.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"

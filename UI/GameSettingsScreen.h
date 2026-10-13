@@ -27,7 +27,6 @@
 #include "Core/ConfigValues.h"
 #include "UI/BaseScreens.h"
 #include "UI/TabbedDialogScreen.h"
-#include "Core/Config.h"
 
 class Path;
 

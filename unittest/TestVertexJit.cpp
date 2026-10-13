@@ -25,7 +25,6 @@
 #include "Common/MemoryUtil.h"
 #include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
-#include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/HDRemaster.h"
 #include "GPU/Common/VertexDecoderCommon.h"

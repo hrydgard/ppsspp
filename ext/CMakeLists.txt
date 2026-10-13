@@ -17,9 +17,10 @@ set(ENABLE_SPVREMAPPER OFF CACHE BOOL "we don't need spvremapper" FORCE)
 # not really needed since we currently bypass the official cmakelists...
 set(ZLIB_BUILD_EXAMPLES OFF CACHE BOOL "we don't need zlib examples" FORCE)
 
-# This is really a workaround for an NDK 20 compiler issue (PPSSPP issue #12105), but shouldn't hurt.
-if(ANDROID)
-set(ENABLE_HLSL OFF CACHE BOOL "let's not build HLSL support we don't need" FORCE)
+# We only feed glslang GLSL, so its HLSL frontend is dead weight (and once hit an NDK 20 compiler
+# issue, PPSSPP issue #12105). Windows keeps it, to match the MSVC and UWP projects.
+if(NOT WIN32)
+	set(ENABLE_HLSL OFF CACHE BOOL "let's not build HLSL support we don't need" FORCE)
 endif()
 
 # This works around a bug in cpu_features when ${CMAKE_BINARY_DIR} != ${CMAKE_CURRENT_BINRARY_DIR}.

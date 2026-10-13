@@ -11,7 +11,6 @@
 #include "ext/xxhash.h"
 #include "Common/StringUtils.h"
 #include "Common/File/FileUtil.h"
-#include "Core/Config.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"

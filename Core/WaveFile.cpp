@@ -4,7 +4,6 @@
 
 #include "Core/WaveFile.h"
 #include "Common/Log.h"
-#include "Core/Config.h"
 
 WaveFileWriter::WaveFileWriter() {}
 

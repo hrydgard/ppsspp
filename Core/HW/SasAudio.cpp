@@ -23,7 +23,6 @@
 #include "Core/MemMapHelpers.h"
 #include "Core/HLE/sceAtrac.h"
 #include "Core/HLE/scePower.h"
-#include "Core/Config.h"
 #include "Core/Reporting.h"
 #include "Core/Util/AudioFormat.h"
 #include "Core/System.h"
