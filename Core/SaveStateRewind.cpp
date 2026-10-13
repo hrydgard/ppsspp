@@ -48,6 +48,10 @@ CChunkFileReader::Error StateRingbuffer::Save() {
 }
 
 CChunkFileReader::Error StateRingbuffer::Restore(std::string *errorString, std::string *metadata) {
+	// The newest state may still be compressing.
+	if (compressThread_.joinable())
+		compressThread_.join();
+
 	std::lock_guard<std::mutex> guard(lock_);
 
 	// No valid states left.
