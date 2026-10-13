@@ -786,7 +786,10 @@ void GameBrowser::Refresh() {
 #elif PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(MAC)
 			// on Darwin, we don't show the 'Browse' text alongside the image
 			// we show just the image, because we don't need to emphasize the button on Darwin
-			topBar->Add(new Choice(ImageID("I_FOLDER_OPEN"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::BrowseClick);
+			// (tvOS has no folder browser.)
+			if (System_GetPropertyBool(SYSPROP_HAS_FOLDER_BROWSER)) {
+				topBar->Add(new Choice(ImageID("I_FOLDER_OPEN"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::BrowseClick);
+			}
 #else
 			if ((browseFlags_ & BrowseFlags::BROWSE) && System_GetPropertyBool(SYSPROP_HAS_FOLDER_BROWSER)) {
 				// Collapse the button title on very small screens (Retroid Pocket) or portrait mode.
