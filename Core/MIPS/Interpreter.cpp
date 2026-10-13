@@ -1245,6 +1245,16 @@ namespace MIPSInt {
 		PC += 4;
 	}
 
+	// The PSP's FPU makes the positive quiet NaN from operands that aren't NaN (cpu/fpu/fpu_nan),
+	// where x86 makes a negative one. A NaN operand comes through as the host passes it.
+	static inline float FpuNaN(float r, float a, float b) {
+		if (!my_isnan(r) || my_isnan(a) || my_isnan(b))
+			return r;
+		FP32 nan;
+		nan.u = 0x7FC00000;
+		return nan.f;
+	}
+
 	void Int_FPU3op(MIPSState *mips, MIPSOpcode op) {
 		int ft = _FT;
 		int fs = _FS;
@@ -1252,8 +1262,8 @@ namespace MIPSInt {
 
 		switch (op & 0x3f)
 		{
-		case 0: F(fd) = F(fs) + F(ft); break; // add.s
-		case 1: F(fd) = F(fs) - F(ft); break; // sub.s
+		case 0: F(fd) = FpuNaN(F(fs) + F(ft), F(fs), F(ft)); break; // add.s
+		case 1: F(fd) = FpuNaN(F(fs) - F(ft), F(fs), F(ft)); break; // sub.s
 		case 2: // mul.s
 			if ((my_isinf(F(fs)) && F(ft) == 0.0f) || (my_isinf(F(ft)) && F(fs) == 0.0f)) {
 				// Must be positive NAN, see #12519.
@@ -1288,7 +1298,7 @@ namespace MIPSInt {
 					mips->fcr31 |= FCR31_FLAG_DIV_BY_ZERO;
 				}
 			}
-			F(fd) = F(fs) / F(ft);
+			F(fd) = FpuNaN(F(fs) / F(ft), F(fs), F(ft));
 			break;
 		}
 		default:

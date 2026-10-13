@@ -1216,12 +1216,23 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const IRInst *chainArena) {
 			IR_NEXT;
 		}
 
+		// See FpuNaN in Interpreter.cpp for the NaN checks.
 		IR_CASE(FAdd)
-			mips->f[inst->dest] = mips->f[inst->src1] + mips->f[inst->src2];
+		{
+			float a = mips->f[inst->src1], b = mips->f[inst->src2];
+			mips->f[inst->dest] = a + b;
+			if (my_isnan(mips->f[inst->dest]) && !my_isnan(a) && !my_isnan(b))
+				mips->fi[inst->dest] = 0x7FC00000;
 			IR_NEXT;
+		}
 		IR_CASE(FSub)
-			mips->f[inst->dest] = mips->f[inst->src1] - mips->f[inst->src2];
+		{
+			float a = mips->f[inst->src1], b = mips->f[inst->src2];
+			mips->f[inst->dest] = a - b;
+			if (my_isnan(mips->f[inst->dest]) && !my_isnan(a) && !my_isnan(b))
+				mips->fi[inst->dest] = 0x7FC00000;
 			IR_NEXT;
+		}
 		IR_CASE(FMul)
 #if 1
 		{
@@ -1249,8 +1260,13 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const IRInst *chainArena) {
 			}
 #endif
 		IR_CASE(FDiv)
-			mips->f[inst->dest] = mips->f[inst->src1] / mips->f[inst->src2];
+		{
+			float a = mips->f[inst->src1], b = mips->f[inst->src2];
+			mips->f[inst->dest] = a / b;
+			if (my_isnan(mips->f[inst->dest]) && !my_isnan(a) && !my_isnan(b))
+				mips->fi[inst->dest] = 0x7FC00000;
 			IR_NEXT;
+		}
 		// These are vmin and vmax, see vfpu_minmax_key.
 		IR_CASE(FMin)
 		{

@@ -91,9 +91,38 @@ void X64JitBackend::CopyVec4ToFPRLane0(Gen::X64Reg dest, Gen::X64Reg src, int la
 void X64JitBackend::CompIR_FArith(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
+	// x86 makes a negative NaN from operands that aren't NaN, the PSP a positive one
+	// (cpu/fpu/fpu_nan). A NaN operand comes through as x86 passes it. Call before the op: if it
+	// overwrites an operand, they're compared now, otherwise only once the result is a NaN.
+	auto prepareNaN = [&]() {
+		bool aliased = inst.dest == inst.src1 || inst.dest == inst.src2;
+		if (aliased) {
+			UCOMISS(regs_.FX(inst.src1), regs_.F(inst.src2));
+			SETcc(CC_P, R(SCRATCH1));
+		}
+		return aliased;
+	};
+	auto fixNaN = [&](bool aliased) {
+		UCOMISS(regs_.FX(inst.dest), regs_.F(inst.dest));
+		FixupBranch notNaN = J_CC(CC_NP);
+		FixupBranch keepNaN;
+		if (aliased) {
+			TEST(8, R(SCRATCH1), R(SCRATCH1));
+			keepNaN = J_CC(CC_NZ);
+		} else {
+			UCOMISS(regs_.FX(inst.src1), regs_.F(inst.src2));
+			keepNaN = J_CC(CC_P);
+		}
+		MOVSS(regs_.FX(inst.dest), M(constants.qNAN));  // rip accessible
+		SetJumpTarget(keepNaN);
+		SetJumpTarget(notNaN);
+	};
+
 	switch (inst.op) {
 	case IROp::FAdd:
+	{
 		regs_.Map(inst);
+		bool aliased = prepareNaN();
 		if (inst.dest == inst.src1) {
 			ADDSS(regs_.FX(inst.dest), regs_.F(inst.src2));
 		} else if (inst.dest == inst.src2) {
@@ -104,33 +133,41 @@ void X64JitBackend::CompIR_FArith(IRInst inst) {
 			MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
 			ADDSS(regs_.FX(inst.dest), regs_.F(inst.src2));
 		}
+		fixNaN(aliased);
 		break;
+	}
 
 	case IROp::FSub:
+	{
+		bool aliased;
 		if (inst.dest == inst.src1) {
 			regs_.Map(inst);
+			aliased = prepareNaN();
 			SUBSS(regs_.FX(inst.dest), regs_.F(inst.src2));
 		} else if (cpu_info.bAVX) {
 			regs_.Map(inst);
+			aliased = prepareNaN();
 			VSUBSS(regs_.FX(inst.dest), regs_.FX(inst.src1), regs_.F(inst.src2));
 		} else if (inst.dest == inst.src2) {
 			X64Reg tempReg = regs_.MapWithFPRTemp(inst);
+			aliased = prepareNaN();
 			MOVAPS(tempReg, regs_.F(inst.src2));
 			MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
 			SUBSS(regs_.FX(inst.dest), R(tempReg));
 		} else {
 			regs_.Map(inst);
+			aliased = prepareNaN();
 			MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
 			SUBSS(regs_.FX(inst.dest), regs_.F(inst.src2));
 		}
+		fixNaN(aliased);
 		break;
+	}
 
 	case IROp::FMul:
 	{
 		regs_.Map(inst);
-
-		UCOMISS(regs_.FX(inst.src1), regs_.F(inst.src2));
-		SETcc(CC_P, R(SCRATCH1));
+		bool aliased = prepareNaN();
 
 		if (inst.dest == inst.src1) {
 			MULSS(regs_.FX(inst.dest), regs_.F(inst.src2));
@@ -142,40 +179,36 @@ void X64JitBackend::CompIR_FArith(IRInst inst) {
 			MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
 			MULSS(regs_.FX(inst.dest), regs_.F(inst.src2));
 		}
-
-		UCOMISS(regs_.FX(inst.dest), regs_.F(inst.dest));
-		FixupBranch handleNAN = J_CC(CC_P);
-		FixupBranch finish = J();
-
-		SetJumpTarget(handleNAN);
-		TEST(8, R(SCRATCH1), R(SCRATCH1));
-		FixupBranch keepNAN = J_CC(CC_NZ);
-
-		MOVSS(regs_.FX(inst.dest), M(constants.qNAN));  // rip accessible
-
-		SetJumpTarget(keepNAN);
-		SetJumpTarget(finish);
+		fixNaN(aliased);
 		break;
 	}
 
 	case IROp::FDiv:
+	{
+		bool aliased;
 		if (inst.dest == inst.src1) {
 			regs_.Map(inst);
+			aliased = prepareNaN();
 			DIVSS(regs_.FX(inst.dest), regs_.F(inst.src2));
 		} else if (cpu_info.bAVX) {
 			regs_.Map(inst);
+			aliased = prepareNaN();
 			VDIVSS(regs_.FX(inst.dest), regs_.FX(inst.src1), regs_.F(inst.src2));
 		} else if (inst.dest == inst.src2) {
 			X64Reg tempReg = regs_.MapWithFPRTemp(inst);
+			aliased = prepareNaN();
 			MOVAPS(tempReg, regs_.F(inst.src2));
 			MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
 			DIVSS(regs_.FX(inst.dest), R(tempReg));
 		} else {
 			regs_.Map(inst);
+			aliased = prepareNaN();
 			MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
 			DIVSS(regs_.FX(inst.dest), regs_.F(inst.src2));
 		}
+		fixNaN(aliased);
 		break;
+	}
 
 	case IROp::FSqrt:
 	{
