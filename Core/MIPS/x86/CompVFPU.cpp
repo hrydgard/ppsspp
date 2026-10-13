@@ -656,7 +656,7 @@ void Jit::Comp_VIdt(MIPSOpcode op) {
 void Jit::Comp_VDot(MIPSOpcode op) {
 	CONDITIONAL_DISABLE(VFPU_VEC);
 
-	if (js.HasUnknownPrefix())
+	if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || !IsPrefixWithinSize(js.prefixT, op))
 		DISABLE;
 
 	VectorSize sz = GetVecSize(op);
@@ -787,7 +787,7 @@ void Jit::Comp_VDot(MIPSOpcode op) {
 void Jit::Comp_VHdp(MIPSOpcode op) {
 	CONDITIONAL_DISABLE(VFPU_VEC);
 
-	if (js.HasUnknownPrefix())
+	if (js.HasUnknownPrefix() || js.HasSPrefix() || !IsPrefixWithinSize(js.prefixT, op))
 		DISABLE;
 
 	VectorSize sz = GetVecSize(op);
@@ -969,7 +969,8 @@ void Jit::Comp_VCrossQuat(MIPSOpcode op) {
 void Jit::Comp_Vcmov(MIPSOpcode op) {
 	CONDITIONAL_DISABLE(VFPU_COMP);
 
-	if (js.HasUnknownPrefix())
+	// D is read as T, prefix included, which only the interpreter does.
+	if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || js.HasTPrefix())
 		DISABLE;
 
 	VectorSize sz = GetVecSize(op);
@@ -1322,7 +1323,7 @@ alignas(16) static const u32 vcmpMask[4][4] = {
 void Jit::Comp_Vcmp(MIPSOpcode op) {
 	CONDITIONAL_DISABLE(VFPU_COMP);
 
-	if (js.HasUnknownPrefix())
+	if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || !IsPrefixWithinSize(js.prefixT, op))
 		DISABLE;
 
 	VectorSize sz = GetVecSize(op);
@@ -1565,7 +1566,7 @@ extern const float mulTableVi2f[32] = {
 void Jit::Comp_Vi2f(MIPSOpcode op) {
 	CONDITIONAL_DISABLE(VFPU_VEC);
 
-	if (js.HasUnknownPrefix())
+	if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op))
 		DISABLE;
 
 	VectorSize sz = GetVecSize(op);
@@ -1651,7 +1652,7 @@ void Jit::Comp_Vi2f(MIPSOpcode op) {
 // Translation of ryg's half_to_float5_SSE2
 void Jit::Comp_Vh2f(MIPSOpcode op) {
 	CONDITIONAL_DISABLE(VFPU_VEC);
-	if (js.HasUnknownPrefix())
+	if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op))
 		DISABLE;
 
 #define SSE_CONST4(name, val) alignas(16) static const u32 name[4] = { (val), (val), (val), (val) }
@@ -1894,7 +1895,7 @@ static const double maxMinIntAsDouble[2] = { (double)0x7fffffff, (double)(int)0x
 
 void Jit::Comp_Vf2i(MIPSOpcode op) {
 	CONDITIONAL_DISABLE(VFPU_VEC);
-	if (js.HasUnknownPrefix())
+	if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || (js.prefixD & 0xFF) != 0)
 		DISABLE;
 
 	VectorSize sz = GetVecSize(op);
@@ -2042,7 +2043,7 @@ void Jit::Comp_Vcst(MIPSOpcode op) {
 void Jit::Comp_Vsgn(MIPSOpcode op) {
 	CONDITIONAL_DISABLE(VFPU_VEC);
 
-	if (js.HasUnknownPrefix())
+	if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || js.HasTPrefix())
 		DISABLE;
 
 	VectorSize sz = GetVecSize(op);
@@ -2111,7 +2112,7 @@ void Jit::Comp_Vsgn(MIPSOpcode op) {
 void Jit::Comp_Vocp(MIPSOpcode op) {
 	CONDITIONAL_DISABLE(VFPU_VEC);
 
-	if (js.HasUnknownPrefix())
+	if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || js.HasTPrefix() || (js.prefixS & VFPU_NEGATE(1, 1, 1, 1)) != 0)
 		DISABLE;
 
 	VectorSize sz = GetVecSize(op);
@@ -2771,7 +2772,7 @@ void Jit::Comp_Vmtvc(MIPSOpcode op) {
 void Jit::Comp_VMatrixInit(MIPSOpcode op) {
 	CONDITIONAL_DISABLE(VFPU_XFER);
 
-	if (js.HasUnknownPrefix())
+	if (!js.HasNoPrefix())
 		DISABLE;
 
 	MatrixSize sz = GetMtxSize(op);
@@ -2855,7 +2856,7 @@ void Jit::Comp_Vmmov(MIPSOpcode op) {
 	CONDITIONAL_DISABLE(VFPU_MTX_VMMOV);
 
 	// TODO: This probably ignores prefixes?
-	if (js.HasUnknownPrefix())
+	if (!js.HasNoPrefix())
 		DISABLE;
 
 	MatrixSize sz = GetMtxSize(op);
@@ -3015,13 +3016,18 @@ void Jit::Comp_Vmmul(MIPSOpcode op) {
 	MatrixSize sz = GetMtxSize(op);
 	VectorSize vsz = GetVectorSize(sz);
 	int n = GetMatrixSide(sz);
+	// vmmul.s isn't a real op, and the code below doesn't handle it.
+	if (n == 1) {
+		DISABLE;
+	}
 
 	MatrixOverlapType soverlap = GetMatrixOverlap(_VS, _VD, sz);
 	MatrixOverlapType toverlap = GetMatrixOverlap(_VT, _VD, sz);
 	// If these overlap, we won't be able to map T as singles.
 	MatrixOverlapType stoverlap = GetMatrixOverlap(_VS, _VT, sz);
 
-	if (jo.enableVFPUSIMD && !soverlap && !toverlap && !stoverlap) {
+	const bool wraps = MatrixWrapsAround(_VS, sz) || MatrixWrapsAround(_VT, sz) || MatrixWrapsAround(_VD, sz);
+	if (jo.enableVFPUSIMD && !soverlap && !toverlap && !stoverlap && !wraps) {
 		u8 scols[4], dcols[4], tregs[16];
 
 		int vs = _VS;
@@ -3203,7 +3209,7 @@ void Jit::Comp_Vmscl(MIPSOpcode op) {
 	CONDITIONAL_DISABLE(VFPU_MTX_VMSCL);
 
 	// TODO: This op probably ignores prefixes?
-	if (js.HasUnknownPrefix())
+	if (!js.HasNoPrefix())
 		DISABLE;
 
 	MatrixSize sz = GetMtxSize(op);
@@ -3391,7 +3397,7 @@ alignas(16) static const s8 vi2xs_shuffle[16] = { 2, 3, 6, 7,  10, 11, 14, 15,  
 
 void Jit::Comp_Vi2x(MIPSOpcode op) {
 	CONDITIONAL_DISABLE(VFPU_VEC);
-	if (js.HasUnknownPrefix())
+	if (js.HasUnknownPrefix() || js.HasSPrefix())
 		DISABLE;
 
 	int bits = ((op >> 16) & 2) == 0 ? 8 : 16; // vi2uc/vi2c (0/1), vi2us/vi2s (2/3)
@@ -3808,7 +3814,7 @@ void Jit::Comp_VRot(MIPSOpcode op) {
 
 void Jit::Comp_ColorConv(MIPSOpcode op) {
 	CONDITIONAL_DISABLE(VFPU_VEC);
-	if (js.HasUnknownPrefix())
+	if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || js.HasTPrefix())
 		DISABLE;
 
 	int vd = _VD;
