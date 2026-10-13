@@ -431,6 +431,55 @@ void LoongArch64JitBackend::CompIR_VecArith(IRInst inst) {
 		}
 		break;
 
+	case IROp::Vec4VfpuNaN:
+		regs_.Map(inst);
+		if (cpu_info.LOONGARCH_LSX) {
+			VFCMP_CUN_S(EncodeRegToV(SCRATCHF1), regs_.V(inst.src1), regs_.V(inst.src1));
+			LI(SCRATCH1, 0x7F800001);
+			VREPLGR2VR_W(EncodeRegToV(SCRATCHF2), SCRATCH1);
+			VBITSEL_V(regs_.V(inst.dest), regs_.V(inst.src1), EncodeRegToV(SCRATCHF2), EncodeRegToV(SCRATCHF1));
+		} else {
+			QuickFLI(32, SCRATCHF1, (uint32_t)0x7F800001, SCRATCH1);
+			for (int i = 0; i < 4; ++i) {
+				FCMP_COND_S(FCC0, regs_.F(inst.src1 + i), regs_.F(inst.src1 + i), LoongArch64Fcond::CUN);
+				FSEL(regs_.F(inst.dest + i), regs_.F(inst.src1 + i), SCRATCHF1, FCC0);
+			}
+		}
+		break;
+
+	case IROp::Vec4VfpuProductNaN:
+		// The operands are never the dest, see IRFrontend::Comp_VecDo3.
+		_dbg_assert_(inst.dest != inst.src1 && inst.dest != inst.src2);
+		regs_.Map(inst);
+		if (cpu_info.LOONGARCH_LSX) {
+			// Put the product's sign in the NaN lanes, then OR in 0x7F800001 there.
+			VFCMP_CUN_S(EncodeRegToV(SCRATCHF1), regs_.V(inst.dest), regs_.V(inst.dest));
+			VXOR_V(EncodeRegToV(SCRATCHF2), regs_.V(inst.src1), regs_.V(inst.src2));
+			VSRLI_W(EncodeRegToV(SCRATCHF2), EncodeRegToV(SCRATCHF2), 31);
+			VSLLI_W(EncodeRegToV(SCRATCHF2), EncodeRegToV(SCRATCHF2), 31);
+			VBITSEL_V(regs_.V(inst.dest), regs_.V(inst.dest), EncodeRegToV(SCRATCHF2), EncodeRegToV(SCRATCHF1));
+			LI(SCRATCH1, 0x7F800001);
+			VREPLGR2VR_W(EncodeRegToV(SCRATCHF2), SCRATCH1);
+			VAND_V(EncodeRegToV(SCRATCHF2), EncodeRegToV(SCRATCHF2), EncodeRegToV(SCRATCHF1));
+			VOR_V(regs_.V(inst.dest), regs_.V(inst.dest), EncodeRegToV(SCRATCHF2));
+		} else {
+			for (int i = 0; i < 4; ++i) {
+				FCMP_COND_S(FCC0, regs_.F(inst.dest + i), regs_.F(inst.dest + i), LoongArch64Fcond::CUN);
+				MOVCF2GR(SCRATCH1, FCC0);
+				FixupBranch notNaN = BEQZ(SCRATCH1);
+				MOVFR2GR_S(SCRATCH1, regs_.F(inst.src1 + i));
+				MOVFR2GR_S(SCRATCH2, regs_.F(inst.src2 + i));
+				XOR(SCRATCH1, SCRATCH1, SCRATCH2);
+				SRLI_W(SCRATCH1, SCRATCH1, 31);
+				SLLI_W(SCRATCH1, SCRATCH1, 31);
+				LI(SCRATCH2, 0x7F800001);
+				OR(SCRATCH1, SCRATCH1, SCRATCH2);
+				MOVGR2FR_W(regs_.F(inst.dest + i), SCRATCH1);
+				SetJumpTarget(notNaN);
+			}
+		}
+		break;
+
 	default:
 		INVALIDOP;
 		break;

@@ -136,6 +136,8 @@ static const IRMeta irMeta[] = {
 	{ IROp::FCmp, "FCmp", "mFF" },
 	{ IROp::FSat0_1, "FSat(0 - 1)", "FF" },
 	{ IROp::FSatMinus1_1, "FSat(-1 - 1)", "FF" },
+	{ IROp::FVfpuNaN, "FVfpuNaN", "FF" },
+	{ IROp::FVfpuProductNaN, "FVfpuProductNaN", "FFF", IRFLAG_SRC3DST },
 	{ IROp::FMovFromGPR, "FMovFromGPR", "FG" },
 	{ IROp::FMovToGPR, "FMovToGPR", "GF" },
 	{ IROp::OptFMovToGPRShr8, "OptFMovToGPRShr8", "GF" },
@@ -175,6 +177,8 @@ static const IRMeta irMeta[] = {
 	{ IROp::Vec4Slt, "Vec4Slt", "VVV" },
 	{ IROp::Vec4Sge, "Vec4Sge", "VVV" },
 	{ IROp::Vec4CvtScaledSW, "Vec4CvtScaledSW", "VVI" },
+	{ IROp::Vec4VfpuNaN, "Vec4VfpuNaN", "VV" },
+	{ IROp::Vec4VfpuProductNaN, "Vec4VfpuProductNaN", "VVV", IRFLAG_SRC3DST },
 
 		// Pack/Unpack
 	{ IROp::Vec2Unpack16To31, "Vec2Unpack16To31", "2F" },  // Note that the result is shifted down by 1, hence 31

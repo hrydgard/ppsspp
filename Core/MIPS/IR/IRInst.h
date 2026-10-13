@@ -163,6 +163,10 @@ enum class IROp : uint8_t {
 
 	FSat0_1,
 	FSatMinus1_1,
+	// The VFPU's NaNs (see VfpuSumNaN in InterpreterVFPU.cpp): src1 or 0x7F800001 if it's a NaN, and
+	// dest (read too) or 0x7F800001 with the sign of src1 ^ src2 if dest is a NaN.
+	FVfpuNaN,
+	FVfpuProductNaN,
 
 	FpCondFromReg,
 	FpCondToReg,
@@ -208,6 +212,8 @@ enum class IROp : uint8_t {
 	Vec4Sge,
 	// vi2f: each lane's int to float, divided by 2^src2.
 	Vec4CvtScaledSW,
+	Vec4VfpuNaN,
+	Vec4VfpuProductNaN,
 
 	// vx2i
 	Vec2Unpack16To31,  // Note that the result is shifted down by 1, hence 31

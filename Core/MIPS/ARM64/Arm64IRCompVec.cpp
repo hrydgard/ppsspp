@@ -140,6 +140,38 @@ void Arm64JitBackend::CompIR_VecArith(IRInst inst) {
 			fp_.SCVTF(32, regs_.FQ(inst.dest), regs_.FQ(inst.src1), inst.src2 & 0x1F);
 		break;
 
+	case IROp::Vec4VfpuNaN:
+	case IROp::Vec4VfpuProductNaN:
+	{
+		// The operands of the product are never the dest, see IRFrontend::Comp_VecDo3.
+		_dbg_assert_(inst.op == IROp::Vec4VfpuNaN || (inst.dest != inst.src1 && inst.dest != inst.src2));
+		regs_.Map(inst);
+		if (inst.op == IROp::Vec4VfpuNaN && inst.dest != inst.src1)
+			fp_.MOV(regs_.FQ(inst.dest), regs_.FQ(inst.src1));
+		// FMAXV gives a NaN if any lane is one.
+		fp_.FMAXV(SCRATCHF1, regs_.FQ(inst.dest));
+		fp_.FCMP(SCRATCHF1, SCRATCHF1);
+		FixupBranch noNaN = B(CC_VC);
+
+		// Rare: replace the NaN lanes with 0x7F800001, signed like the product for that op.
+		ARM64Reg orderedMask = EncodeRegToQuad(SCRATCHF1);
+		ARM64Reg nanReg = EncodeRegToQuad(SCRATCHF2);
+		fp_.FCMEQ(32, orderedMask, regs_.FQ(inst.dest), regs_.FQ(inst.dest));
+		if (inst.op == IROp::Vec4VfpuProductNaN) {
+			fp_.EOR(nanReg, regs_.FQ(inst.src1), regs_.FQ(inst.src2));
+			fp_.USHR(32, nanReg, nanReg, 31);
+			fp_.SHL(32, nanReg, nanReg, 31);
+			fp_.ORR(32, nanReg, 0x7F, 24);
+		} else {
+			fp_.MOVI(32, nanReg, 0x7F, 24);
+		}
+		fp_.ORR(32, nanReg, 0x80, 16);
+		fp_.ORR(32, nanReg, 0x01, 0);
+		fp_.BIF(regs_.FQ(inst.dest), nanReg, orderedMask);
+		SetJumpTarget(noNaN);
+		break;
+	}
+
 	default:
 		INVALIDOP;
 		break;

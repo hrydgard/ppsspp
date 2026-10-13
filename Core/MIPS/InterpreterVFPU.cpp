@@ -75,7 +75,7 @@
 #define M_SQRT1_2  0.707106781186547524401f
 #endif
 
-// The VFPU's own handling of NaN and denormal results in vadd, vsub, vmul and vdiv (see Int_VecDo3).
+// The VFPU's own handling of denormal results in vadd, vsub, vmul and vdiv (see Int_VecDo3).
 static const bool USE_VFPU_RESULT_FIXUP = false;
 
 union FloatBits {
@@ -83,6 +83,26 @@ union FloatBits {
 	u32 u[4];
 	int i[4];
 };
+
+// The VFPU never keeps a NaN's payload: every NaN it produces is 0x7F800001, negative for a product
+// or quotient of operands of different signs (cpu/vfpu/nan_gen). Host NaNs differ by host.
+static inline float VfpuSumNaN(float r) {
+	if (!my_isnan(r))
+		return r;
+	FP32 nan;
+	nan.u = 0x7F800001;
+	return nan.f;
+}
+
+static inline float VfpuProductNaN(float r, float a, float b) {
+	if (!my_isnan(r))
+		return r;
+	FP32 fa, fb, nan;
+	fa.f = a;
+	fb.f = b;
+	nan.u = 0x7F800001 | ((fa.u ^ fb.u) & 0x80000000);
+	return nan.f;
+}
 
 // Preserves NaN in first param, takes sign of equal second param.
 // Technically, std::max may do this but it's undefined.
@@ -1436,10 +1456,9 @@ namespace MIPSInt
 		u32 tprefixAdd = VFPU_SWIZZLE(2, 0, 1, 0);
 		ApplyPrefixST(mips, t, VFPURewritePrefix(mips, VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), sz);
 
-		d[0] = s[0] * t[0];
-		d[1] = s[1] * t[1];
-		d[2] = s[2] * t[2];
-		d[3] = s[3] * t[3];
+		for (int i = 0; i < 4; i++) {
+			d[i] = VfpuProductNaN(s[i] * t[i], s[i], t[i]);
+		}
 		ApplyPrefixD(mips, d, sz);
 		WriteVector(mips, d, sz, vd);
 		PC += 4;
@@ -1544,7 +1563,7 @@ namespace MIPSInt
 
 		int n = GetNumVectorElements(sz);
 		for (int i = 0; i < n; i++) {
-			d[i] = s[i] * t[i];
+			d[i] = VfpuProductNaN(s[i] * t[i], s[i], t[i]);
 		}
 		ApplyPrefixD(mips, d, sz);
 		WriteVector(mips, d, sz, vd);
@@ -2105,18 +2124,14 @@ namespace MIPSInt
 
 		for (int i = 0; i < (int)n; i++) {
 			switch (optype) {
-			case 0: d.f[i] = s[i] + t[i]; break; //vadd
-			case 1: d.f[i] = s[i] - t[i]; break; //vsub
-			case 7: d.f[i] = s[i] / t[i]; break; //vdiv
-			case 8: d.f[i] = s[i] * t[i]; break; //vmul
+			case 0: d.f[i] = VfpuSumNaN(s[i] + t[i]); break; //vadd
+			case 1: d.f[i] = VfpuSumNaN(s[i] - t[i]); break; //vsub
+			case 7: d.f[i] = VfpuProductNaN(s[i] / t[i], s[i], t[i]); break; //vdiv
+			case 8: d.f[i] = VfpuProductNaN(s[i] * t[i], s[i], t[i]); break; //vmul
 			}
 
-			if (USE_VFPU_RESULT_FIXUP) {
-				if (my_isnan(d.f[i])) {
-					d.u[i] = (d.u[i] & 0xff800001) | 1;
-				} else if ((d.u[i] & 0x7F800000) == 0) {
-					d.u[i] &= 0xFF800000;
-				}
+			if (USE_VFPU_RESULT_FIXUP && (d.u[i] & 0x7F800000) == 0) {
+				d.u[i] &= 0xFF800000;
 			}
 		}
 

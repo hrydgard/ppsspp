@@ -161,6 +161,7 @@ private:
 		const void *positiveOnes;
 		const void *negativeOnes;
 		const void *qNAN;
+		const void *vfpuNaN;
 		const void *maxIntBelowAsFloat;
 		const float *mulTableVi2f;
 		const float *mulTableVf2i;

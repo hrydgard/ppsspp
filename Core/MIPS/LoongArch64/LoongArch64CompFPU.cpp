@@ -70,6 +70,33 @@ void LoongArch64JitBackend::CompIR_FArith(IRInst inst) {
 		FNEG_S(regs_.F(inst.dest), regs_.F(inst.src1));
 		break;
 
+	case IROp::FVfpuNaN:
+		regs_.Map(inst);
+		FCMP_COND_S(FCC0, regs_.F(inst.src1), regs_.F(inst.src1), LoongArch64Fcond::CUN);
+		QuickFLI(32, SCRATCHF1, (uint32_t)0x7F800001, SCRATCH1);
+		FSEL(regs_.F(inst.dest), regs_.F(inst.src1), SCRATCHF1, FCC0);
+		break;
+
+	case IROp::FVfpuProductNaN:
+	{
+		// The operands are never the dest, see IRFrontend::Comp_VecDo3.
+		_dbg_assert_(inst.dest != inst.src1 && inst.dest != inst.src2);
+		regs_.Map(inst);
+		FCMP_COND_S(FCC0, regs_.F(inst.dest), regs_.F(inst.dest), LoongArch64Fcond::CUN);
+		MOVCF2GR(SCRATCH1, FCC0);
+		FixupBranch notNaN = BEQZ(SCRATCH1);
+		MOVFR2GR_S(SCRATCH1, regs_.F(inst.src1));
+		MOVFR2GR_S(SCRATCH2, regs_.F(inst.src2));
+		XOR(SCRATCH1, SCRATCH1, SCRATCH2);
+		SRLI_W(SCRATCH1, SCRATCH1, 31);
+		SLLI_W(SCRATCH1, SCRATCH1, 31);
+		LI(SCRATCH2, 0x7F800001);
+		OR(SCRATCH1, SCRATCH1, SCRATCH2);
+		MOVGR2FR_W(regs_.F(inst.dest), SCRATCH1);
+		SetJumpTarget(notNaN);
+		break;
+	}
+
 	default:
 		INVALIDOP;
 		break;

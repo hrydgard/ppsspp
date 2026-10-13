@@ -322,6 +322,38 @@ void RiscVJitBackend::CompIR_VecArith(IRInst inst) {
 		break;
 	}
 
+	case IROp::Vec4VfpuNaN:
+		regs_.Map(inst);
+		for (int i = 0; i < 4; ++i) {
+			FEQ(32, SCRATCH1, regs_.F(inst.src1 + i), regs_.F(inst.src1 + i));
+			if (inst.dest != inst.src1)
+				FMV(32, regs_.F(inst.dest + i), regs_.F(inst.src1 + i));
+			FixupBranch notNaN = BNE(SCRATCH1, R_ZERO);
+			LI(SCRATCH1, 0x7F800001);
+			FMV(FMv::W, FMv::X, regs_.F(inst.dest + i), SCRATCH1);
+			SetJumpTarget(notNaN);
+		}
+		break;
+
+	case IROp::Vec4VfpuProductNaN:
+		// The operands are never the dest, see IRFrontend::Comp_VecDo3.
+		_dbg_assert_(inst.dest != inst.src1 && inst.dest != inst.src2);
+		regs_.Map(inst);
+		for (int i = 0; i < 4; ++i) {
+			FEQ(32, SCRATCH1, regs_.F(inst.dest + i), regs_.F(inst.dest + i));
+			FixupBranch notNaN = BNE(SCRATCH1, R_ZERO);
+			FMV(FMv::X, FMv::W, SCRATCH1, regs_.F(inst.src1 + i));
+			FMV(FMv::X, FMv::W, SCRATCH2, regs_.F(inst.src2 + i));
+			XOR(SCRATCH1, SCRATCH1, SCRATCH2);
+			SRLIW(SCRATCH1, SCRATCH1, 31);
+			SLLIW(SCRATCH1, SCRATCH1, 31);
+			LI(SCRATCH2, 0x7F800001);
+			OR(SCRATCH1, SCRATCH1, SCRATCH2);
+			FMV(FMv::W, FMv::X, regs_.F(inst.dest + i), SCRATCH1);
+			SetJumpTarget(notNaN);
+		}
+		break;
+
 	default:
 		INVALIDOP;
 		break;

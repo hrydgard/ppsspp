@@ -175,6 +175,51 @@ void X64JitBackend::CompIR_VecArith(IRInst inst) {
 		}
 		break;
 
+	case IROp::Vec4VfpuNaN:
+	{
+		X64Reg maskReg = regs_.MapWithFPRTemp(inst);
+		if (inst.dest != inst.src1)
+			MOVAPS(regs_.FX(inst.dest), regs_.F(inst.src1));
+		MOVAPS(maskReg, regs_.F(inst.dest));
+		CMPUNORDPS(maskReg, regs_.F(inst.dest));
+		MOVMSKPS(SCRATCH1, R(maskReg));
+		TEST(32, R(SCRATCH1), R(SCRATCH1));
+		FixupBranch noNaN = J_CC(CC_Z);
+		// Rare: keep the other lanes, replace the NaNs.
+		ANDNPS(maskReg, regs_.F(inst.dest));
+		CMPUNORDPS(regs_.FX(inst.dest), regs_.F(inst.dest));
+		ANDPS(regs_.FX(inst.dest), M(constants.vfpuNaN));  // rip accessible
+		ORPS(regs_.FX(inst.dest), R(maskReg));
+		SetJumpTarget(noNaN);
+		break;
+	}
+
+	case IROp::Vec4VfpuProductNaN:
+	{
+		// The operands are never the dest, see IRFrontend::Comp_VecDo3.
+		_dbg_assert_(inst.dest != inst.src1 && inst.dest != inst.src2);
+		regs_.SpillLockFPR(inst.dest, inst.src1, inst.src2);
+		X64Reg maskReg = regs_.GetAndLockTempFPR();
+		X64Reg nanReg = regs_.GetAndLockTempFPR();
+		regs_.Map(inst);
+		MOVAPS(maskReg, regs_.F(inst.dest));
+		CMPUNORDPS(maskReg, regs_.F(inst.dest));
+		MOVMSKPS(SCRATCH1, R(maskReg));
+		TEST(32, R(SCRATCH1), R(SCRATCH1));
+		FixupBranch noNaN = J_CC(CC_Z);
+		// Rare: replace the NaNs, with the sign of the operands' product.
+		MOVAPS(nanReg, regs_.F(inst.src1));
+		XORPS(nanReg, regs_.F(inst.src2));
+		ANDPS(nanReg, M(constants.signBitAll));  // rip accessible
+		ORPS(nanReg, M(constants.vfpuNaN));  // rip accessible
+		ANDPS(nanReg, R(maskReg));
+		ANDNPS(maskReg, regs_.F(inst.dest));
+		ORPS(nanReg, R(maskReg));
+		MOVAPS(regs_.FX(inst.dest), R(nanReg));
+		SetJumpTarget(noNaN);
+		break;
+	}
+
 	default:
 		INVALIDOP;
 		break;

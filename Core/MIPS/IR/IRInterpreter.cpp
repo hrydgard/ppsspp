@@ -50,6 +50,10 @@ alignas(16) static const uint32_t noSignMask[4] = {
 	0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF, 0x7FFFFFFF,
 };
 
+alignas(16) static const uint32_t vfpuNaN[4] = {
+	0x7F800001, 0x7F800001, 0x7F800001, 0x7F800001,
+};
+
 alignas(16) static const uint32_t lowBytesMask[4] = {
 	0x000000FF, 0x000000FF, 0x000000FF, 0x000000FF,
 };
@@ -245,6 +249,8 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const IRInst *chainArena) {
 		dispatch[(int)IROp::Vec4Scale] = &&L_Vec4Scale;
 		dispatch[(int)IROp::Vec4Neg] = &&L_Vec4Neg;
 		dispatch[(int)IROp::Vec4Abs] = &&L_Vec4Abs;
+		dispatch[(int)IROp::Vec4VfpuNaN] = &&L_Vec4VfpuNaN;
+		dispatch[(int)IROp::Vec4VfpuProductNaN] = &&L_Vec4VfpuProductNaN;
 		dispatch[(int)IROp::Vec2Unpack16To31] = &&L_Vec2Unpack16To31;
 		dispatch[(int)IROp::Vec2Unpack16To32] = &&L_Vec2Unpack16To32;
 		dispatch[(int)IROp::Vec4Unpack8To32] = &&L_Vec4Unpack8To32;
@@ -316,6 +322,8 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const IRInst *chainArena) {
 		dispatch[(int)IROp::FNeg] = &&L_FNeg;
 		dispatch[(int)IROp::FSat0_1] = &&L_FSat0_1;
 		dispatch[(int)IROp::FSatMinus1_1] = &&L_FSatMinus1_1;
+		dispatch[(int)IROp::FVfpuNaN] = &&L_FVfpuNaN;
+		dispatch[(int)IROp::FVfpuProductNaN] = &&L_FVfpuProductNaN;
 		dispatch[(int)IROp::FSign] = &&L_FSign;
 		dispatch[(int)IROp::FpCondFromReg] = &&L_FpCondFromReg;
 		dispatch[(int)IROp::FpCondToReg] = &&L_FpCondToReg;
@@ -755,6 +763,44 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const IRInst *chainArena) {
 #else
 			for (int i = 0; i < 4; i++)
 				mips->f[inst->dest + i] = fabsf(mips->f[inst->src1 + i]);
+#endif
+			IR_NEXT;
+		}
+
+		IR_CASE(Vec4VfpuNaN)
+		{
+#if PPSSPP_ARCH(SSE2)
+			__m128 v = _mm_load_ps(&mips->f[inst->src1]);
+			__m128 isNaN = _mm_cmpunord_ps(v, v);
+			_mm_store_ps(&mips->f[inst->dest], _mm_or_ps(_mm_andnot_ps(isNaN, v), _mm_and_ps(isNaN, _mm_load_ps((const float *)vfpuNaN))));
+#elif PPSSPP_ARCH(ARM_NEON)
+			float32x4_t v = vld1q_f32(&mips->f[inst->src1]);
+			vst1q_f32(&mips->f[inst->dest], vbslq_f32(vceqq_f32(v, v), v, vld1q_f32((const float *)vfpuNaN)));
+#else
+			for (int i = 0; i < 4; i++)
+				mips->fi[inst->dest + i] = my_isnan(mips->f[inst->src1 + i]) ? 0x7F800001 : mips->fi[inst->src1 + i];
+#endif
+			IR_NEXT;
+		}
+
+		IR_CASE(Vec4VfpuProductNaN)
+		{
+#if PPSSPP_ARCH(SSE2)
+			__m128 v = _mm_load_ps(&mips->f[inst->dest]);
+			__m128 isNaN = _mm_cmpunord_ps(v, v);
+			__m128 sign = _mm_and_ps(_mm_xor_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_load_ps(&mips->f[inst->src2])), _mm_load_ps((const float *)signBits));
+			__m128 nan = _mm_or_ps(sign, _mm_load_ps((const float *)vfpuNaN));
+			_mm_store_ps(&mips->f[inst->dest], _mm_or_ps(_mm_andnot_ps(isNaN, v), _mm_and_ps(isNaN, nan)));
+#elif PPSSPP_ARCH(ARM_NEON)
+			float32x4_t v = vld1q_f32(&mips->f[inst->dest]);
+			uint32x4_t sign = vandq_u32(veorq_u32(vld1q_u32(&mips->fi[inst->src1]), vld1q_u32(&mips->fi[inst->src2])), vld1q_u32(signBits));
+			float32x4_t nan = vreinterpretq_f32_u32(vorrq_u32(sign, vld1q_u32(vfpuNaN)));
+			vst1q_f32(&mips->f[inst->dest], vbslq_f32(vceqq_f32(v, v), v, nan));
+#else
+			for (int i = 0; i < 4; i++) {
+				if (my_isnan(mips->f[inst->dest + i]))
+					mips->fi[inst->dest + i] = 0x7F800001 | ((mips->fi[inst->src1 + i] ^ mips->fi[inst->src2 + i]) & 0x80000000);
+			}
 #endif
 			IR_NEXT;
 		}
@@ -1244,6 +1290,13 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const IRInst *chainArena) {
 			IR_NEXT;
 		IR_CASE(FSatMinus1_1)
 			mips->f[inst->dest] = vfpu_clamp(mips->f[inst->src1], -1.0f, 1.0f);
+			IR_NEXT;
+		IR_CASE(FVfpuNaN)
+			mips->fi[inst->dest] = my_isnan(mips->f[inst->src1]) ? 0x7F800001 : mips->fi[inst->src1];
+			IR_NEXT;
+		IR_CASE(FVfpuProductNaN)
+			if (my_isnan(mips->f[inst->dest]))
+				mips->fi[inst->dest] = 0x7F800001 | ((mips->fi[inst->src1] ^ mips->fi[inst->src2]) & 0x80000000);
 			IR_NEXT;
 
 		IR_CASE(FSign)

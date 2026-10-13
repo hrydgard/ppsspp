@@ -1031,6 +1031,14 @@ bool IRMutatesDestGPR(const IRInstMeta &inst, int reg) {
 	return (inst.m.flags & IRFLAG_SRC3DST) != 0 && inst.m.types[0] == 'G' && inst.src3 == reg;
 }
 
+// Whether inst reads the FPR it writes (reg counted from 32, like the checks in PurgeTemps).
+static bool IRMutatesDestFPR(const IRInstMeta &inst, int reg) {
+	if ((inst.m.flags & IRFLAG_SRC3DST) == 0)
+		return false;
+	int len = inst.m.types[0] == 'F' ? 1 : (inst.m.types[0] == 'V' ? 4 : 0);
+	return reg >= inst.src3 + 32 && reg < inst.src3 + 32 + len;
+}
+
 bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 	CONDITIONAL_DISABLE;
 	std::vector<IRInstMeta> insts;
@@ -1192,7 +1200,7 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 				if (numDest > 1 && check.srcReg >= destRegs[0] + 32 && check.srcReg < destRegs[0] + 32 + numDest)
 					cannotReplace = true;
 				// Nor where it's read as src3 that's also the destination, which renaming would move.
-				if ((inst.m.flags & IRFLAG_SRC3DST) != 0 && inst.m.types[0] == 'F' && inst.src3 + 32 == check.reg)
+				if (IRMutatesDestFPR(inst, check.reg))
 					cannotReplace = true;
 				if (!cannotReplace && check.srcReg >= 32 && lastWrittenTo[check.srcReg] < check.index) {
 					// This is probably not worth doing unless we can get rid of a temp.
@@ -1219,7 +1227,7 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 						// Let's not bother.
 						check.reg = 0;
 					}
-				} else if ((inst.op == IROp::FMov || inst.op == IROp::Vec4Mov) && !lenMismatch) {
+				} else if ((inst.op == IROp::FMov || inst.op == IROp::Vec4Mov) && !lenMismatch && !IRMutatesDestFPR(insts[check.index], check.reg)) {
 					// A swap could be profitable if this is a temp, and maybe in other cases.
 					// These can happen a lot from mask regs, etc.
 					// But make sure no other changes happened between.

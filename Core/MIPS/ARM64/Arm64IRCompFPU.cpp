@@ -76,6 +76,36 @@ void Arm64JitBackend::CompIR_FArith(IRInst inst) {
 		fp_.FNEG(regs_.F(inst.dest), regs_.F(inst.src1));
 		break;
 
+	case IROp::FVfpuNaN:
+	{
+		regs_.Map(inst);
+		fp_.FCMP(regs_.F(inst.src1), regs_.F(inst.src1));
+		if (inst.dest != inst.src1)
+			fp_.FMOV(regs_.F(inst.dest), regs_.F(inst.src1));
+		FixupBranch notNaN = B(CC_VC);
+		MOVI2R(SCRATCH1, 0x7F800001);
+		fp_.FMOV(regs_.F(inst.dest), SCRATCH1);
+		SetJumpTarget(notNaN);
+		break;
+	}
+
+	case IROp::FVfpuProductNaN:
+	{
+		// The operands are never the dest, see IRFrontend::Comp_VecDo3.
+		_dbg_assert_(inst.dest != inst.src1 && inst.dest != inst.src2);
+		regs_.Map(inst);
+		fp_.FCMP(regs_.F(inst.dest), regs_.F(inst.dest));
+		FixupBranch notNaN = B(CC_VC);
+		fp_.FMOV(SCRATCH1, regs_.F(inst.src1));
+		fp_.FMOV(SCRATCH2, regs_.F(inst.src2));
+		EOR(SCRATCH1, SCRATCH1, SCRATCH2);
+		ANDI2R(SCRATCH1, SCRATCH1, 0x80000000, SCRATCH2);
+		ORRI2R(SCRATCH1, SCRATCH1, 0x7F800001, SCRATCH2);
+		fp_.FMOV(regs_.F(inst.dest), SCRATCH1);
+		SetJumpTarget(notNaN);
+		break;
+	}
+
 	default:
 		INVALIDOP;
 		break;
@@ -455,22 +485,20 @@ void Arm64JitBackend::CompIR_FSat(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::FSat0_1:
-		regs_.Map(inst);
-		fp_.MOVI2F(SCRATCHF1, 1.0f);
-		// Note that FMAX takes the larger of the two zeros, which is what we want.
-		fp_.MOVI2F(SCRATCHF2, 0.0f);
-
-		fp_.FMIN(regs_.F(inst.dest), regs_.F(inst.src1), SCRATCHF1);
-		fp_.FMAX(regs_.F(inst.dest), regs_.F(inst.dest), SCRATCHF2);
-		break;
-
 	case IROp::FSatMinus1_1:
 		regs_.Map(inst);
 		fp_.MOVI2F(SCRATCHF1, 1.0f);
-		fp_.FNEG(SCRATCHF2, SCRATCHF1);
+		// Note that FMAX takes the larger of the two zeros, which is what we want.
+		if (inst.op == IROp::FSat0_1)
+			fp_.MOVI2F(SCRATCHF2, 0.0f);
+		else
+			fp_.FNEG(SCRATCHF2, SCRATCHF1);
 
-		fp_.FMIN(regs_.F(inst.dest), regs_.F(inst.src1), SCRATCHF1);
-		fp_.FMAX(regs_.F(inst.dest), regs_.F(inst.dest), SCRATCHF2);
+		// A NaN passes through with its bits, which FMIN/FMAX would quiet (cpu/vfpu/nan_gen).
+		fp_.FCMP(regs_.F(inst.src1), regs_.F(inst.src1));
+		fp_.FMIN(SCRATCHF1, regs_.F(inst.src1), SCRATCHF1);
+		fp_.FMAX(SCRATCHF1, SCRATCHF1, SCRATCHF2);
+		fp_.FCSEL(regs_.F(inst.dest), regs_.F(inst.src1), SCRATCHF1, CC_VS);
 		break;
 
 	default:
