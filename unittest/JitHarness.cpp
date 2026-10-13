@@ -376,7 +376,7 @@ bool TestJitReplacementHooks() {
 // Environment variables:
 //   PPSSPP_CPUFUZZ_COUNT    number of cases (default 2000)
 //   PPSSPP_CPUFUZZ_SEED     first case's seed (default 1). Case i always uses seed + i.
-//   PPSSPP_CPUFUZZ_DUMP     file to write the interpreter's end state of every case to, for diffing
+//   PPSSPP_CPUFUZZ_DUMP     file to write every core's end state of every case to, for diffing
 //                           the results of different host architectures.
 //   PPSSPP_CPUFUZZ_CLASSES  instruction classes to generate, as a weighted string of "aifvm" (alu,
 //                           imm, fpu, vfpu, memory).
@@ -754,10 +754,10 @@ static int DiffFuzzStates(const FuzzState &ref, const FuzzState &other, std::str
 	return diffs;
 }
 
-static void DumpFuzzState(FILE *f, u64 seed, const FuzzState &s) {
+static void DumpFuzzState(FILE *f, const char *core, u64 seed, const FuzzState &s) {
 	// All NaNs print the same, so their payloads don't show up as differences.
 	auto fl = [](u32 v) { return IsNaNBits(v) ? 0x7FFFFFFFU : v; };
-	fprintf(f, "%llu r", (unsigned long long)seed);
+	fprintf(f, "%s %llu r", core, (unsigned long long)seed);
 	for (int i = 0; i < 32; ++i) {
 		fprintf(f, " %08x", s.r[i]);
 	}
@@ -942,8 +942,10 @@ bool TestCPUEquivalence() {
 	if (dumpPath) {
 		FILE *f = fopen(dumpPath, "w");
 		if (f) {
-			for (int i = 0; i < count; ++i) {
-				DumpFuzzState(f, firstSeed + i, results[(size_t)i * numCores]);
+			for (int c = 0; c < numCores; ++c) {
+				for (int i = 0; i < count; ++i) {
+					DumpFuzzState(f, CoreName(cores[c]), firstSeed + i, results[(size_t)i * numCores + c]);
+				}
 			}
 			fclose(f);
 		} else {

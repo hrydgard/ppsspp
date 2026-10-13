@@ -30,7 +30,7 @@ Environment variables:
 | `PPSSPP_CPUFUZZ_SKIP` | cores to skip, by digit: 1 IR interpreter, 2 JIT, 3 JIT IR |
 | `PPSSPP_CPUFUZZ_REPORTS` | how many differences to minimize and print (default 20) |
 | `PPSSPP_CPUFUZZ_VERBOSE` | print every case before running it, to find one that crashes |
-| `PPSSPP_CPUFUZZ_DUMP` | write the interpreter's end state of every case to a file |
+| `PPSSPP_CPUFUZZ_DUMP` | write every core's end state of every case to a file |
 | `PPSSPP_CPUFUZZ_STRICT` | fail on any difference, not only on a crash |
 
 Always set `CI=1` when running it from a script on Windows. Otherwise a JIT assert opens a message
@@ -41,8 +41,9 @@ finds it and reduces it to the instructions still needed for the crash. A crash 
 after other cases have run usually means uninitialized or stale state, not the reduced code.
 
 To compare hosts: run with the same seed and count and `PPSSPP_CPUFUZZ_DUMP` on each, and diff the
-files. A Windows-on-ARM machine can run the x64 build under emulation, which is enough for the
-host-dependent float behavior of the interpreter. It isn't for timing, of course.
+files. Each line starts with the core and the seed. A Windows-on-ARM machine can run the x64 build
+under emulation, which is enough for the host-dependent float behavior of the cores. It isn't for
+timing, of course.
 
 ## Fixed
 
