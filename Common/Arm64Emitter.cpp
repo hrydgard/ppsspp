@@ -627,7 +627,8 @@ void ARM64XEmitter::EncodeData1SrcInst(u32 instenc, ARM64Reg Rd, ARM64Reg Rn)
 
 void ARM64XEmitter::EncodeData2SrcInst(u32 instenc, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 {
-	bool b64Bit = Is64Bit(Rd);
+	// CRC32X/CRC32CX take a W destination and an X source, and are encoded with sf set.
+	bool b64Bit = Is64Bit(Rd) || Is64Bit(Rm);
 
 	Rd = DecodeReg(Rd);
 	Rm = DecodeReg(Rm);
@@ -718,7 +719,7 @@ void ARM64XEmitter::EncodeLoadStorePairedInst(u32 op, ARM64Reg Rt, ARM64Reg Rt2,
 
 void ARM64XEmitter::EncodeLoadStoreIndexedInst(u32 op, u32 op2, ARM64Reg Rt, ARM64Reg Rn, s32 imm)
 {
-	bool b64Bit = Is64Bit(Rt);
+	// op includes the size field, so a 64-bit Rt (LDRSB/LDRSH/LDRSW) must not change it.
 	bool bVec = IsVector(Rt);
 
 	u32 offset = imm & 0x1FF;
@@ -727,12 +728,11 @@ void ARM64XEmitter::EncodeLoadStoreIndexedInst(u32 op, u32 op2, ARM64Reg Rt, ARM
 
 	Rt = DecodeReg(Rt);
 	Rn = DecodeReg(Rn);
-	Write32((b64Bit << 30) | (op << 22) | (bVec << 26) | (offset << 12) | (op2 << 10) | (Rn << 5) | Rt);
+	Write32((op << 22) | (bVec << 26) | (offset << 12) | (op2 << 10) | (Rn << 5) | Rt);
 }
 
 void ARM64XEmitter::EncodeLoadStoreIndexedInst(u32 op, ARM64Reg Rt, ARM64Reg Rn, s32 imm, u8 size)
 {
-	bool b64Bit = Is64Bit(Rt);
 	bool bVec = IsVector(Rt);
 
 	u8 shift = 0;
@@ -753,7 +753,7 @@ void ARM64XEmitter::EncodeLoadStoreIndexedInst(u32 op, ARM64Reg Rt, ARM64Reg Rn,
 
 	Rt = DecodeReg(Rt);
 	Rn = DecodeReg(Rn);
-	Write32((b64Bit << 30) | (op << 22) | (bVec << 26) | (imm << 10) | (Rn << 5) | Rt);
+	Write32((op << 22) | (bVec << 26) | (imm << 10) | (Rn << 5) | Rt);
 }
 
 void ARM64XEmitter::EncodeMOVWideInst(u32 op, ARM64Reg Rd, u32 imm, ShiftAmount pos)
@@ -1189,7 +1189,7 @@ void ARM64XEmitter::HINT(SystemHint op)
 }
 void ARM64XEmitter::CLREX()
 {
-	EncodeSystemInst(0, 3, 3, 0, 2, WSP);
+	EncodeSystemInst(0, 3, 3, 15, 2, WSP);
 }
 void ARM64XEmitter::DSB(BarrierType type)
 {
@@ -1631,7 +1631,7 @@ void ARM64XEmitter::EXTR(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, u32 shift) {
 	Rd = DecodeReg(Rd);
 	Rn = DecodeReg(Rn);
 	Rm = DecodeReg(Rm);
-	Write32((sf << 31) | (0x27 << 23) | (N << 22) | (Rm << 16) | (shift << 10) | (Rm << 5) | Rd);
+	Write32((sf << 31) | (0x27 << 23) | (N << 22) | (Rm << 16) | (shift << 10) | (Rn << 5) | Rd);
 }
 void ARM64XEmitter::SXTB(ARM64Reg Rd, ARM64Reg Rn)
 {
@@ -1676,7 +1676,8 @@ void ARM64XEmitter::LDP(IndexType type, ARM64Reg Rt, ARM64Reg Rt2, ARM64Reg Rn, 
 }
 void ARM64XEmitter::LDPSW(IndexType type, ARM64Reg Rt, ARM64Reg Rt2, ARM64Reg Rn, s32 imm)
 {
-	EncodeLoadStorePair(1, 1, type, Rt, Rt2, Rn, imm);
+	// The pair is scaled and encoded as 32-bit words, though the destinations are X registers.
+	EncodeLoadStorePair(1, 1, type, DecodeReg(Rt), DecodeReg(Rt2), Rn, imm);
 }
 void ARM64XEmitter::STP(IndexType type, ARM64Reg Rt, ARM64Reg Rt2, ARM64Reg Rn, s32 imm)
 {
@@ -1939,7 +1940,7 @@ void ARM64XEmitter::LDUR(ARM64Reg Rt, ARM64Reg Rn, s32 imm)
 }
 void ARM64XEmitter::LDURSW(ARM64Reg Rt, ARM64Reg Rn, s32 imm)
 {
-	_assert_msg_(!Is64Bit(Rt), "%s must have a 64bit destination register!", __FUNCTION__);
+	_assert_msg_(Is64Bit(Rt), "%s must have a 64bit destination register!", __FUNCTION__);
 	EncodeLoadStoreUnscaled(2, 2, Rt, Rn, imm);
 }
 
@@ -2274,7 +2275,7 @@ void ARM64FloatEmitter::FCVTZS(ARM64Reg Rd, ARM64Reg Rn, int scale) {
 		Rd = DecodeReg(Rd);
 		Rn = DecodeReg(Rn);
 
-		Write32((sf << 31) | (0 << 29) | (0x1E << 24) | (type << 22) | (rmode << 19) | (opcode << 16) | (scale << 10) | (Rn << 5) | Rd);
+		Write32((sf << 31) | (0 << 29) | (0x1E << 24) | (type << 22) | (rmode << 19) | (opcode << 16) | ((64 - scale) << 10) | (Rn << 5) | Rd);
 
 	}
 }
@@ -2295,7 +2296,7 @@ void ARM64FloatEmitter::FCVTZU(ARM64Reg Rd, ARM64Reg Rn, int scale) {
 		Rd = DecodeReg(Rd);
 		Rn = DecodeReg(Rn);
 
-		Write32((sf << 31) | (0 << 29) | (0x1E << 24) | (type << 22) | (rmode << 19) | (opcode << 16) | (scale << 10) | (Rn << 5) | Rd);
+		Write32((sf << 31) | (0 << 29) | (0x1E << 24) | (type << 22) | (rmode << 19) | (opcode << 16) | ((64 - scale) << 10) | (Rn << 5) | Rd);
 	}
 }
 
@@ -2748,19 +2749,19 @@ void ARM64FloatEmitter::LD1(u8 size, ARM64Reg Rt, u8 index, ARM64Reg Rn, ARM64Re
 
 void ARM64FloatEmitter::LD1R(u8 size, ARM64Reg Rt, ARM64Reg Rn)
 {
-	EmitLoadStoreSingleStructure(1, 0, 6, 0, size >> 4, Rt, Rn);
+	EmitLoadStoreSingleStructure(1, 0, 6, 0, EncodeSize(size), Rt, Rn);
 }
 void ARM64FloatEmitter::LD2R(u8 size, ARM64Reg Rt, ARM64Reg Rn)
 {
-	EmitLoadStoreSingleStructure(1, 1, 6, 0, size >> 4, Rt, Rn);
+	EmitLoadStoreSingleStructure(1, 1, 6, 0, EncodeSize(size), Rt, Rn);
 }
 void ARM64FloatEmitter::LD1R(u8 size, ARM64Reg Rt, ARM64Reg Rn, ARM64Reg Rm)
 {
-	EmitLoadStoreSingleStructure(1, 0, 6, 0, size >> 4, Rt, Rn, Rm);
+	EmitLoadStoreSingleStructure(1, 0, 6, 0, EncodeSize(size), Rt, Rn, Rm);
 }
 void ARM64FloatEmitter::LD2R(u8 size, ARM64Reg Rt, ARM64Reg Rn, ARM64Reg Rm)
 {
-	EmitLoadStoreSingleStructure(1, 1, 6, 0, size >> 4, Rt, Rn, Rm);
+	EmitLoadStoreSingleStructure(1, 1, 6, 0, EncodeSize(size), Rt, Rn, Rm);
 }
 
 void ARM64FloatEmitter::ST1(u8 size, ARM64Reg Rt, u8 index, ARM64Reg Rn)
@@ -3283,58 +3284,58 @@ void ARM64FloatEmitter::XTN2(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn)
 }
 
 void ARM64FloatEmitter::CMEQ(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm) {
-	_assert_msg_(!IsQuad(Rd) || size != 64, "%s cannot be used for scalar double", __FUNCTION__);
-	EmitThreeSame(true, size >> 4, 0b10001, Rd, Rn, Rm);
+	_assert_msg_(IsQuad(Rd) || size != 64, "%s cannot be used for scalar double", __FUNCTION__);
+	EmitThreeSame(true, EncodeSize(size), 0b10001, Rd, Rn, Rm);
 }
 
 void ARM64FloatEmitter::CMGE(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm) {
-	_assert_msg_(!IsQuad(Rd) || size != 64, "%s cannot be used for scalar double", __FUNCTION__);
-	EmitThreeSame(false, size >> 4, 0b00111, Rd, Rn, Rm);
+	_assert_msg_(IsQuad(Rd) || size != 64, "%s cannot be used for scalar double", __FUNCTION__);
+	EmitThreeSame(false, EncodeSize(size), 0b00111, Rd, Rn, Rm);
 }
 
 void ARM64FloatEmitter::CMGT(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm) {
-	_assert_msg_(!IsQuad(Rd) || size != 64, "%s cannot be used for scalar double", __FUNCTION__);
-	EmitThreeSame(false, size >> 4, 0b00110, Rd, Rn, Rm);
+	_assert_msg_(IsQuad(Rd) || size != 64, "%s cannot be used for scalar double", __FUNCTION__);
+	EmitThreeSame(false, EncodeSize(size), 0b00110, Rd, Rn, Rm);
 }
 
 void ARM64FloatEmitter::CMHI(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm) {
-	_assert_msg_(!IsQuad(Rd) || size != 64, "%s cannot be used for scalar double", __FUNCTION__);
-	EmitThreeSame(true, size >> 4, 0b00110, Rd, Rn, Rm);
+	_assert_msg_(IsQuad(Rd) || size != 64, "%s cannot be used for scalar double", __FUNCTION__);
+	EmitThreeSame(true, EncodeSize(size), 0b00110, Rd, Rn, Rm);
 }
 
 void ARM64FloatEmitter::CMHS(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm) {
-	_assert_msg_(!IsQuad(Rd) || size != 64, "%s cannot be used for scalar double", __FUNCTION__);
-	EmitThreeSame(true, size >> 4, 0b00111, Rd, Rn, Rm);
+	_assert_msg_(IsQuad(Rd) || size != 64, "%s cannot be used for scalar double", __FUNCTION__);
+	EmitThreeSame(true, EncodeSize(size), 0b00111, Rd, Rn, Rm);
 }
 
 void ARM64FloatEmitter::CMTST(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm) {
-	_assert_msg_(!IsQuad(Rd) || size != 64, "%s cannot be used for scalar double", __FUNCTION__);
-	EmitThreeSame(false, size >> 4, 0b10001, Rd, Rn, Rm);
+	_assert_msg_(IsQuad(Rd) || size != 64, "%s cannot be used for scalar double", __FUNCTION__);
+	EmitThreeSame(false, EncodeSize(size), 0b10001, Rd, Rn, Rm);
 }
 
 void ARM64FloatEmitter::CMEQ(u8 size, ARM64Reg Rd, ARM64Reg Rn) {
-	_assert_msg_(!IsQuad(Rd) || size != 64, "%s cannot be used for scalar double", __FUNCTION__);
-	Emit2RegMisc(IsQuad(Rd), false, size >> 4, 0b01001, Rd, Rn);
+	_assert_msg_(IsQuad(Rd) || size != 64, "%s cannot be used for scalar double", __FUNCTION__);
+	Emit2RegMisc(IsQuad(Rd), false, EncodeSize(size), 0b01001, Rd, Rn);
 }
 
 void ARM64FloatEmitter::CMGE(u8 size, ARM64Reg Rd, ARM64Reg Rn) {
-	_assert_msg_(!IsQuad(Rd) || size != 64, "%s cannot be used for scalar double", __FUNCTION__);
-	Emit2RegMisc(IsQuad(Rd), true, size >> 4, 0b01000, Rd, Rn);
+	_assert_msg_(IsQuad(Rd) || size != 64, "%s cannot be used for scalar double", __FUNCTION__);
+	Emit2RegMisc(IsQuad(Rd), true, EncodeSize(size), 0b01000, Rd, Rn);
 }
 
 void ARM64FloatEmitter::CMGT(u8 size, ARM64Reg Rd, ARM64Reg Rn) {
-	_assert_msg_(!IsQuad(Rd) || size != 64, "%s cannot be used for scalar double", __FUNCTION__);
-	Emit2RegMisc(IsQuad(Rd), false, size >> 4, 0b01000, Rd, Rn);
+	_assert_msg_(IsQuad(Rd) || size != 64, "%s cannot be used for scalar double", __FUNCTION__);
+	Emit2RegMisc(IsQuad(Rd), false, EncodeSize(size), 0b01000, Rd, Rn);
 }
 
 void ARM64FloatEmitter::CMLE(u8 size, ARM64Reg Rd, ARM64Reg Rn) {
-	_assert_msg_(!IsQuad(Rd) || size != 64, "%s cannot be used for scalar double", __FUNCTION__);
-	Emit2RegMisc(IsQuad(Rd), true, size >> 4, 0b01001, Rd, Rn);
+	_assert_msg_(IsQuad(Rd) || size != 64, "%s cannot be used for scalar double", __FUNCTION__);
+	Emit2RegMisc(IsQuad(Rd), true, EncodeSize(size), 0b01001, Rd, Rn);
 }
 
 void ARM64FloatEmitter::CMLT(u8 size, ARM64Reg Rd, ARM64Reg Rn) {
-	_assert_msg_(!IsQuad(Rd) || size != 64, "%s cannot be used for scalar double", __FUNCTION__);
-	Emit2RegMisc(IsQuad(Rd), false, size >> 4, 0b01010, Rd, Rn);
+	_assert_msg_(IsQuad(Rd) || size != 64, "%s cannot be used for scalar double", __FUNCTION__);
+	Emit2RegMisc(IsQuad(Rd), false, EncodeSize(size), 0b01010, Rd, Rn);
 }
 
 // Move
@@ -3586,9 +3587,9 @@ void ARM64FloatEmitter::SCVTF(ARM64Reg Rd, ARM64Reg Rn)
 	if (IsScalar(Rn)) {
 		// Source is in FP register (like destination!). We must use a vector encoding.
 		bool sign = false;
+		int sz = IsDouble(Rn);
 		Rd = DecodeReg(Rd);
 		Rn = DecodeReg(Rn);
-		int sz = IsDouble(Rn);
 		Write32((0x5e << 24) | (sign << 29) | (sz << 22) | (0x876 << 10) | (Rn << 5) | Rd);
 	} else {
 		bool sf = Is64Bit(Rn);
@@ -3604,9 +3605,9 @@ void ARM64FloatEmitter::UCVTF(ARM64Reg Rd, ARM64Reg Rn)
 	if (IsScalar(Rn)) {
 		// Source is in FP register (like destination!). We must use a vector encoding.
 		bool sign = true;
+		int sz = IsDouble(Rn);
 		Rd = DecodeReg(Rd);
 		Rn = DecodeReg(Rn);
-		int sz = IsDouble(Rn);
 		Write32((0x5e << 24) | (sign << 29) | (sz << 22) | (0x876 << 10) | (Rn << 5) | Rd);
 	} else {
 		bool sf = Is64Bit(Rn);
