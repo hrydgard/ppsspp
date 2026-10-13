@@ -379,9 +379,11 @@ int g_screenshotFailures;
 		}
 	}
 
-	static void ScheduleSaveScreenshot(const Path &path) {
+	static void ScheduleSaveScreenshot(const Path &path, bool retry = false) {
 		std::lock_guard<std::mutex> guard(mutex);
-		g_screenshotFailures = 0;
+		if (!retry) {
+			g_screenshotFailures = 0;
+		}
 
 		// Savestate thumbnails don't need to be bigger.
 		constexpr int maxResMultiplier = 2;
@@ -392,7 +394,7 @@ int g_screenshotFailures;
 				WARN_LOG(Log::SaveState, "Failed to take a screenshot for the savestate! (%s) The savestate will lack an icon.", path.c_str());
 				if (coreState != CORE_STEPPING_CPU && g_screenshotFailures++ < SCREENSHOT_FAILURE_RETRIES) {
 					// Requeue for next frame (if we were stepping, no point, will just spam errors quickly).
-					ScheduleSaveScreenshot(path);
+					ScheduleSaveScreenshot(path, true);
 				}
 				break;
 			case ScreenshotResult::FailedToWriteFile:
