@@ -548,6 +548,8 @@ OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameT
 			// 30 is an ok value for the max since it's 2^31-1, which is the max value for a signed int. NVIDIA also reports this.
 			caps_.samplerLodControl = true;
 		}
+		// GL_TEXTURE_LOD_BIAS is desktop GL only, so the shader has to apply the bias.
+		caps_.samplerLodBias = false;
 		caps_.texture3DSupported = gl_extensions.GLES3 || gl_extensions.OES_texture_3D;
 		caps_.textureDepthSupported = gl_extensions.GLES3 || gl_extensions.OES_depth_texture;
 	} else {

@@ -394,6 +394,9 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		if (texture3D) {
 			*uniformMask |= DIRTY_MIPBIAS;
 			WRITE(p, "uniform float u_mipBias;\n");
+		} else if (doTexture && gstate_c.Use(GPU_USE_SHADER_LOD_BIAS)) {
+			*uniformMask |= DIRTY_MIPBIAS;
+			WRITE(p, "uniform float u_texLodBias;\n");
 		}
 
 		if (fsMinmaxDiscard) {

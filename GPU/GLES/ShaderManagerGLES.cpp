@@ -173,6 +173,7 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 
 	queries.push_back({ &u_depal_mask_shift_off_fmt, "u_depal_mask_shift_off_fmt" });
 	queries.push_back({ &u_mipBias, "u_mipBias" });
+	queries.push_back({ &u_texLodBias, "u_texLodBias" });
 
 	attrMask = vs->GetAttrMask();
 	availableUniforms = vs->GetUniformMask() | fs->GetUniformMask();
@@ -462,6 +463,11 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, const ShaderLanguageDesc
 		mipBias = (mipBias + 0.5f) / (float)(gstate.getTextureMaxLevel() + 1);
 
 		render_->SetUniformF(&u_mipBias, 1, &mipBias);
+	}
+	if ((dirty & DIRTY_MIPBIAS) && u_texLodBias != -1) {
+		// For GPU_USE_SHADER_LOD_BIAS, like ShaderUniforms.cpp: the sampler applies the bias only in auto mode.
+		float lodBias = gstate.getTexLevelMode() == GE_TEXLEVEL_MODE_AUTO ? (float)gstate.getTexLevelOffset16() * (1.0f / 16.0f) : 0.0f;
+		render_->SetUniformF(&u_texLodBias, 1, &lodBias);
 	}
 
 	// Transform
