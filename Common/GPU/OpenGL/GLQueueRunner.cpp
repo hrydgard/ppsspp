@@ -50,6 +50,11 @@ void GLQueueRunner::CreateDeviceObjects() {
 		glGenVertexArrays(1, &globalVAO_);
 	}
 
+	// Texture uploads pass tightly packed rows. With the default of 4, the driver reads past the end of
+	// any whose rows aren't a multiple of 4 bytes (a 16-bit texture of odd width): the Adreno 840 crashed
+	// on one in SOCOM Fireteam Bravo 3.
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
 	// An eternal optimist.
 	sawOutOfMemory_ = false;
 
