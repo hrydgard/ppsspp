@@ -17,7 +17,6 @@
 
 #include <algorithm>
 #include <climits>
-#include <cstdint>
 #include <cstring>
 #include <functional>
 #include <mutex>
@@ -1235,8 +1234,12 @@ static bool ReadCompressed(u32 fp, u64 fileSize, std::vector<T> &dest, u32 count
 		return false;
 	}
 
+	// Far beyond any real dump. A zstd frame doesn't always say how big it is, and a small one can
+	// expand to gigabytes, so this is what keeps a crafted one from exhausting memory.
+	const u64 MAX_SIZE = 1024 * 1024 * 1024;
 	const u64 sz = (u64)count * sizeof(T);
-	if (sz > SIZE_MAX) {
+	if (sz > MAX_SIZE) {
+		ERROR_LOG(Log::GeDebugger, "GE dump section too large: %llu bytes", (unsigned long long)sz);
 		return false;
 	} else if (version < 5) {
 		size_t declared = 0;
