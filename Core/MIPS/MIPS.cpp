@@ -82,7 +82,7 @@ void ApplyHostRoundingMode(const MIPSState *mips) {
 		int rmode = fcr1Bits & 3;
 		bool ftz = (fcr1Bits & 0x01000000) != 0;
 #if PPSSPP_ARCH(SSE2)
-		u32 csr = _mm_getcsr() & ~0x6000;
+		u32 csr = _mm_getcsr() & ~0xE040;
 		// Translate the rounding mode bits to X86, the same way as in Asm.cpp.
 		if (rmode & 1) {
 			rmode ^= 2;
@@ -90,8 +90,8 @@ void ApplyHostRoundingMode(const MIPSState *mips) {
 		csr |= rmode << 13;
 
 		if (ftz) {
-			// Flush to zero
-			csr |= 0x8000;
+			// FTZ and DAZ together, which flushes like ARM64's FZ: inputs as well as results.
+			csr |= 0x8040;
 		}
 		_mm_setcsr(csr);
 #elif PPSSPP_ARCH(ARM64)
@@ -120,10 +120,10 @@ void ApplyHostRoundingMode(const MIPSState *mips) {
 
 void RestoreHostRoundingMode() {
 	// TODO: We should avoid this if we didn't apply rounding in the first place.
-	// In the meantime, clear out FTZ and rounding mode bits.
+	// In the meantime, clear out the rounding mode and flush-to-zero bits (FTZ and DAZ on x86).
 #if PPSSPP_ARCH(SSE2)
 	u32 csr = _mm_getcsr();
-	csr &= ~(7 << 13);
+	csr &= ~((7 << 13) | (1 << 6));
 	_mm_setcsr(csr);
 #elif PPSSPP_ARCH(ARM64)
 	u64 fpcr = ARM64ReadFPCR();  // not really 64-bit, just to match the register size.
