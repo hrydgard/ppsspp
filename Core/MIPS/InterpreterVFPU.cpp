@@ -749,8 +749,8 @@ namespace MIPSInt
 		ApplyPrefixST(mips, t, VFPURewritePrefix(mips, VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), sz);
 
 		for (int i = 0; i < GetNumVectorElements(sz); i++) {
-			// Always positive NaN.  Note that s is always negated from the registers.
-			d[i] = my_isnan(s[i]) ? fabsf(s[i]) : t[i] + s[i];
+			// Note that s is always negated from the registers.
+			d[i] = VfpuSumNaN(t[i] + s[i]);
 		}
 		RetainInvalidSwizzleST(mips, d, sz);
 		ApplyPrefixD(mips, d, sz);
@@ -782,11 +782,11 @@ namespace MIPSInt
 		ApplyPrefixST(mips, t, VFPURewritePrefix(mips, VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), outSize);
 
 		// Essentially D prefix saturation is forced.
-		d[0] = nanclamp(t[0] + s[0], 0.0f, 1.0f);
-		d[1] = nanclamp(t[1] + s[1], 0.0f, 1.0f);
+		d[0] = nanclamp(VfpuSumNaN(t[0] + s[0]), 0.0f, 1.0f);
+		d[1] = nanclamp(VfpuSumNaN(t[1] + s[1]), 0.0f, 1.0f);
 		if (outSize == V_Quad) {
-			d[2] = nanclamp(t[2] + s[2], 0.0f, 1.0f);
-			d[3] = nanclamp(t[3] + s[3], 0.0f, 1.0f);
+			d[2] = nanclamp(VfpuSumNaN(t[2] + s[2]), 0.0f, 1.0f);
+			d[3] = nanclamp(VfpuSumNaN(t[3] + s[3]), 0.0f, 1.0f);
 		}
 		ApplyPrefixD(mips, d, sz, true);
 		WriteVector(mips, d, outSize, vd);
@@ -1319,10 +1319,9 @@ namespace MIPSInt
 			}
 		}
 
-		d[0] = s[0] + t[0];
-		d[1] = s[1] + t[1];
-		d[2] = s[2] + t[2];
-		d[3] = s[3] + t[3];
+		for (int i = 0; i < 4; i++) {
+			d[i] = VfpuSumNaN(s[i] + t[i]);
+		}
 
 		ApplyPrefixD(mips, d, sz);
 		WriteVector(mips, d, sz, vd);

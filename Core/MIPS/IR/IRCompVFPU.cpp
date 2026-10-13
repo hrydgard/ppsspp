@@ -2695,10 +2695,13 @@ namespace MIPSComp {
 		GetVectorRegsPrefixT(tregs, sz, _VS);
 		GetVectorRegsPrefixD(dregs, sz, _VD);
 
+		// A NaN comes out as the VFPU's (cpu/vfpu/specials).
 		if (IsVec4(sz, dregs) && IsVec4(sz, sregs) && IsVec4(sz, tregs)) {
 			ir.Write(IROp::Vec4Add, dregs[0], tregs[0], sregs[0]);
+			ir.Write(IROp::Vec4VfpuNaN, dregs[0], dregs[0]);
 		} else if (IsVec3of4(sz, dregs) && IsVec3of4(sz, sregs) && IsVec3of4(sz, tregs) && opts.preferVec4) {
 			ir.Write(IROp::Vec4Add, IRVTEMP_0, tregs[0], sregs[0]);
+			ir.Write(IROp::Vec4VfpuNaN, IRVTEMP_0, IRVTEMP_0);
 			ir.Write(IROp::Vec4Blend, dregs[0], dregs[0], IRVTEMP_0, 0x7);
 		} else {
 			u8 tempregs[4];
@@ -2712,6 +2715,7 @@ namespace MIPSComp {
 
 			for (int i = 0; i < n; ++i) {
 				ir.Write(IROp::FAdd, tempregs[i], tregs[i], sregs[i]);
+				ir.Write(IROp::FVfpuNaN, tempregs[i], tempregs[i]);
 			}
 			for (int i = 0; i < n; ++i) {
 				if (dregs[i] != tempregs[i]) {
@@ -2834,6 +2838,10 @@ namespace MIPSComp {
 			INVALIDOP;
 		}
 
+		// A NaN comes out as the VFPU's (cpu/vfpu/specials).
+		for (int i = 0; i < n; ++i) {
+			ir.Write(IROp::FVfpuNaN, tempregs[i], tempregs[i]);
+		}
 		for (int i = 0; i < n; ++i) {
 			if (tempregs[i] != dregs[i])
 				ir.Write(IROp::FMov, dregs[i], tempregs[i]);
