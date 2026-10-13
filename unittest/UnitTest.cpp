@@ -3088,6 +3088,7 @@ struct TestItem {
 
 bool TestArmEmitter();
 bool TestArm64Emitter();
+bool TestArm64Disasm();
 bool TestCrossSIMD();
 bool TestX64Emitter();
 bool TestRiscVEmitter();
@@ -3412,6 +3413,7 @@ static bool TestRequestManager() {
 TestItem availableTests[] = {
 #if PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
 	TEST_ITEM(Arm64Emitter),
+	TEST_ITEM(Arm64Disasm),
 #endif
 #if PPSSPP_ARCH(ARM) || PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
 	TEST_ITEM(ArmEmitter),

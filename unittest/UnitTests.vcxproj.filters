@@ -6,6 +6,7 @@
     <ClCompile Include="TestArmEmitter.cpp" />
     <ClCompile Include="TestX64Emitter.cpp" />
     <ClCompile Include="TestArm64Emitter.cpp" />
+    <ClCompile Include="TestArm64Disasm.cpp" />
     <ClCompile Include="TestVertexJit.cpp" />
     <ClCompile Include="..\ext\glew\glew.c" />
     <ClCompile Include="..\Windows\CaptureDevice.cpp">

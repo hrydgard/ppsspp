@@ -1379,6 +1379,7 @@ if(UNITTEST)
 		unittest/TestShaderGenerators.cpp
 		unittest/TestArmEmitter.cpp
 		unittest/TestArm64Emitter.cpp
+		unittest/TestArm64Disasm.cpp
 		unittest/TestCrossSIMD.cpp
 		unittest/TestIRPassSimplify.cpp
 		unittest/TestX64Emitter.cpp
