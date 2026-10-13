@@ -73,6 +73,21 @@ static inline void ARM64WriteFPCR(u64 fpcr) {
 #endif
 }
 
+#elif PPSSPP_ARCH(ARM) && !defined(_MSC_VER)
+
+// FPSCR has the rounding mode and flush-to-zero at the same bits as ARM64's FPCR.
+#define ARM32_FPSCR 1
+
+static inline u32 ARM32ReadFPSCR() {
+	u32 fpscr;
+	asm volatile ("vmrs %0, fpscr" : "=r" (fpscr));
+	return fpscr;
+}
+
+static inline void ARM32WriteFPSCR(u32 fpscr) {
+	asm volatile ("vmsr fpscr, %0" : : "r" (fpscr));
+}
+
 #endif
 
 void ApplyHostRoundingMode(const MIPSState *mips) {
@@ -107,6 +122,14 @@ void ApplyHostRoundingMode(const MIPSState *mips) {
 		}
 
 		ARM64WriteFPCR(fpcr);
+#elif defined(ARM32_FPSCR)
+		static const u8 lookup[4] = {0, 3, 1, 2};
+		u32 fpscr = ARM32ReadFPSCR() & ~(7 << 22);
+		fpscr |= (u32)lookup[rmode] << 22;
+		if (ftz) {
+			fpscr |= 1 << 24;
+		}
+		ARM32WriteFPSCR(fpscr);
 #else
 		// No control register access written for this architecture, so go through the standard
 		// call. Rounding is all it can do: there is no portable flush-to-zero, and neither
@@ -130,6 +153,8 @@ void RestoreHostRoundingMode() {
 	fpcr &= ~(7 << 22);    // Clear bits [23:22] for rounding, 24 for FTZ
 	// Write back the modified FPCR
 	ARM64WriteFPCR(fpcr);
+#elif defined(ARM32_FPSCR)
+	ARM32WriteFPSCR(ARM32ReadFPSCR() & ~(7 << 22));
 #else
 	fesetround(FE_TONEAREST);
 #endif
