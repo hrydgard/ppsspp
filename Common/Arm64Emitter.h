@@ -834,6 +834,9 @@ public:
 	void FMAXNMP(ARM64Reg Rd, ARM64Reg Rn);
 	void FMINNMP(ARM64Reg Rd, ARM64Reg Rn);
 
+	// Across lanes, 4S only: Rd is an S register, Rn a Q register.
+	void FMAXV(ARM64Reg Rd, ARM64Reg Rn);
+
 	// Scalar - 2 Source
 	void FADD(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void FMUL(ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);

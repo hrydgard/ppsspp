@@ -653,6 +653,8 @@ static void TestFloatInstructions(DisasmChecker &c, ARM64XEmitter &e, ARM64Float
 	DIS("fminp d1, q2", fp.FMINP(D1, Q2));
 	DIS("fmaxnmp s1, d2", fp.FMAXNMP(S1, D2));
 	DIS("fmaxnmp d1, q2", fp.FMAXNMP(D1, Q2));
+	DIS("fmaxv s1, q2.4s", fp.FMAXV(S1, Q2));
+	DIS("fmaxv s5, q17.4s", fp.FMAXV(S5, Q17));
 	DIS("fminnmp s1, d2", fp.FMINNMP(S1, D2));
 	DIS("fminnmp d1, q2", fp.FMINNMP(D1, Q2));
 
