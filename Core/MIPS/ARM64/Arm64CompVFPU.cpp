@@ -463,6 +463,10 @@ namespace MIPSComp {
 		int vd = _VD;
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
+		// Only pairs and quads are handled here.
+		if (sz != V_Pair && sz != V_Quad) {
+			DISABLE;
+		}
 		fp.MOVI2F(S0, 0.0f, SCRATCH1);
 		fp.MOVI2F(S1, 1.0f, SCRATCH1);
 		u8 dregs[4];

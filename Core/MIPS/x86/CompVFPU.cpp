@@ -610,6 +610,9 @@ void Jit::Comp_VIdt(MIPSOpcode op) {
 	int vd = _VD;
 	VectorSize sz = GetVecSize(op);
 	int n = GetNumVectorElements(sz);
+	// Only pairs and quads are handled here.
+	if (sz != V_Pair && sz != V_Quad)
+		DISABLE;
 
 	u8 dregs[4];
 	GetVectorRegsPrefixD(dregs, sz, _VD);
