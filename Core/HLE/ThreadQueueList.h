@@ -18,6 +18,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cstdlib>
 
 #include "Core/HLE/sceKernel.h"
 #include "Common/Serialize/Serializer.h"
