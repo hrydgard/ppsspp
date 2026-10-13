@@ -1128,8 +1128,10 @@ int main(int argc, const char* argv[]) {
 				coreParameter.disabledGPUFeatures |= GPU_USE_CULL_DISTANCE;
 			} else if (name == "depth-clamp") {
 				coreParameter.disabledGPUFeatures |= GPU_USE_DEPTH_CLAMP;
+			} else if (name == "framebuffer-fetch") {
+				coreParameter.disabledGPUFeatures |= GPU_USE_FRAMEBUFFER_FETCH;
 			} else {
-				fprintf(stderr, "Unknown feature for --disable-gpu-features: %s (expected clip-distance, cull-distance or depth-clamp)\n", name.c_str());
+				fprintf(stderr, "Unknown feature for --disable-gpu-features: %s (expected clip-distance, cull-distance, depth-clamp or framebuffer-fetch)\n", name.c_str());
 				return 1;
 			}
 		}
