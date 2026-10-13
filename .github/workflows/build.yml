@@ -515,70 +515,30 @@ jobs:
           as well as the [downloads section](https://ppsspp.org/downloads.html)
           for other platforms.
 
-  test:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-26.04, ubuntu-26.04-arm, macos-latest]
-
-    runs-on: ${{ matrix.os }}
-    needs: build
-    timeout-minutes: 30
-    steps:
-    - uses: actions/checkout@v7
-      with:
-        submodules: false
-
-    - name: Fetch tests
-      working-directory: ${{ env.GITHUB_WORKSPACE }}
-      # Doing this to avoid ffmpeg and other large submodules.
-      run: git submodule update --init pspautotests frametests
-
-    - name: Install Linux dependencies
-      if: runner.os == 'Linux'
-      run: |
-        sudo apt-get update -y -qq
-        sudo apt-get install libsdl3-dev libgl1-mesa-dev libglu1-mesa-dev libsdl3-ttf-dev libfontconfig1-dev libcurl4-openssl-dev
-
-    - name: Install macOS dependencies
-      if: runner.os == 'macOS'
-      run: brew install sdl3 sdl3_ttf
-
-    - name: Download build
-      uses: actions/download-artifact@v8
-      with:
-        name: ${{ matrix.os }} build
-        path: ppsspp/
-
-    # Not sure where it's ending up, but test.py can't find it...
-    - name: Fix headless permissions
-      working-directory: ${{ env.GITHUB_WORKSPACE }}
-      run: |
-        cp `find . -name PPSSPPHeadless` .
-        chmod +x PPSSPPHeadless
-        cp `find . -name PPSSPPUnitTest` .
-        chmod +x PPSSPPUnitTest
-
+    # The test entries run the tests right here. A job of their own could only wait for the whole
+    # build matrix, which held them back until the slowest unrelated build was done. These come
+    # last, so the artifacts and releases above don't depend on them, as before.
     - name: Execute unit tests
-      working-directory: ${{ env.GITHUB_WORKSPACE }}
-      run: ./PPSSPPUnitTest ALL
+      if: matrix.extra == 'test'
+      timeout-minutes: 30
+      run: build/PPSSPPUnitTest ALL
 
     - name: Execute headless tests
-      if: runner.os != 'Linux'
-      working-directory: ${{ env.GITHUB_WORKSPACE }}
-      run: python test.py -g --graphics=software
+      if: matrix.extra == 'test' && runner.os != 'Linux'
+      timeout-minutes: 30
+      run: python3 test.py -g --graphics=software
 
     # The Linux runners carry the CPU backend coverage, on both x86-64 and arm64. Elsewhere the
     # default (JIT) is enough - the backends are shared code, and four runs everywhere adds up.
     # test.py picks a wall clock to match the backend, so the slower ones don't time out.
     - name: Execute headless tests (all CPU backends)
-      if: runner.os == 'Linux'
-      working-directory: ${{ env.GITHUB_WORKSPACE }}
+      if: matrix.extra == 'test' && runner.os == 'Linux'
+      timeout-minutes: 30
       run: |
         fail=0
         for cpu in jit jit-ir ir interpreter; do
           echo "::group::CPU backend: $cpu"
-          python test.py -g --graphics=software --cpu=$cpu || fail=1
+          python3 test.py -g --graphics=software --cpu=$cpu || fail=1
           echo "::endgroup::"
         done
         exit $fail
@@ -587,13 +547,13 @@ jobs:
     # 23 of the 30 dumps differ there, one of them by an MSE of 100. That's a real difference and
     # worth chasing, but it predates the arm64 runner - it just never had a CI job to show up in.
     - name: Execute frametests
-      if: matrix.os == 'ubuntu-26.04'
-      working-directory: ${{ env.GITHUB_WORKSPACE }}
+      if: matrix.id == 'clang-normal'
+      timeout-minutes: 30
       run: python3 frametests.py frametests/frametests.json --out-mode=failures
 
     - name: Upload frametest report
       uses: actions/upload-artifact@v7
-      if: matrix.os == 'ubuntu-26.04' && always()
+      if: matrix.id == 'clang-normal' && always()
       with:
         name: frametest-report
         path: frametests/out/
