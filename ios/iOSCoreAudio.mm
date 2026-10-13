@@ -55,6 +55,14 @@ void iOSCoreAudioUpdateSession() {
 	NSError *error = nil;
 	INFO_LOG(Log::Audio, "RespectSilentMode: %d MixWithOthers: %d Recording: %d", g_Config.bAudioRespectSilentMode, g_Config.bAudioMixWithOthers, g_micEnabled);
 
+#if PPSSPP_PLATFORM(TVOS)
+	// No microphone, and no silent switch.
+	if (g_Config.bAudioMixWithOthers) {
+		[[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback withOptions:AVAudioSessionCategoryOptionMixWithOthers error:&error];
+	} else {
+		[[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback withOptions:0 error:&error];
+	}
+#else
 	// Hacky hack to force iOS to re-evaluate.
 	// Switching from CatogoryPlayback to CategoryPlayback with an option otherwise does nothing.
 	[[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryAudioProcessing error:&error];
@@ -82,6 +90,7 @@ void iOSCoreAudioUpdateSession() {
 		}
 		// Can't achieve exclusive + respect silent mode
 	}
+#endif
 
 	if (error) {
 		NSLog(@"%@", error);
@@ -327,6 +336,10 @@ static void UpdateMicrophone() {
 
 // Calls back on the main thread.
 static void WithRecordPermission(void (^then)(bool granted)) {
+#if PPSSPP_PLATFORM(TVOS)
+	// No microphone. System_AudioRecordingIsAvailable() says so, so we shouldn't get here.
+	then(false);
+#else
 	if (@available(iOS 17.0, *)) {
 		switch ([AVAudioApplication sharedInstance].recordPermission) {
 		case AVAudioApplicationRecordPermissionGranted:
@@ -361,6 +374,7 @@ static void WithRecordPermission(void (^then)(bool granted)) {
 			break;
 		}
 	}
+#endif
 }
 
 void iOSCoreAudioStartRecording(int sampleRate) {

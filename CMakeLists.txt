@@ -953,18 +953,26 @@ elseif(IOS AND NOT LIBRETRO)
 		ios/iOSCoreAudio.h
 		ios/IAPManager.mm
 		ios/IAPManager.h
-		ios/CameraHelper.mm
-		ios/CameraHelper.h
-		ios/LocationHelper.mm
-		ios/LocationHelper.h
-		Common/Battery/AppleBatteryClient.m
 	)
+	# tvOS has no camera, location, motion, battery or photo picker.
+	if(NOT TVOS)
+		list(APPEND targetExtra
+			ios/CameraHelper.mm
+			ios/CameraHelper.h
+			ios/LocationHelper.mm
+			ios/LocationHelper.h
+			Common/Battery/AppleBatteryClient.m
+		)
+	endif()
 
-	list(APPEND targetExtraLibs "-framework Foundation -framework MediaPlayer -framework AudioToolbox -framework CoreGraphics -framework CoreMotion -framework QuartzCore -framework UIKit -framework OpenAL -framework AVFoundation -framework CoreLocation -framework CoreText -framework CoreVideo -framework CoreMedia -framework CoreServices -framework Metal -framework IOSurface -framework Photos" )
+	list(APPEND targetExtraLibs "-framework Foundation -framework MediaPlayer -framework AudioToolbox -framework CoreGraphics -framework QuartzCore -framework UIKit -framework OpenAL -framework AVFoundation -framework CoreText -framework CoreVideo -framework CoreMedia -framework CoreServices -framework Metal -framework IOSurface" )
+	if(NOT TVOS)
+		list(APPEND targetExtraLibs "-framework CoreMotion -framework CoreLocation -framework Photos")
+	endif()
 	if(EXISTS "${CMAKE_IOS_SDK_ROOT}/System/Library/Frameworks/GameController.framework")
 		list(APPEND targetExtraLibs "-weak_framework GameController")
 	endif()
-	if(EXISTS "${CMAKE_IOS_SDK_ROOT}/System/Library/Frameworks/PhotosUI.framework")
+	if(NOT TVOS AND EXISTS "${CMAKE_IOS_SDK_ROOT}/System/Library/Frameworks/PhotosUI.framework")
 		list(APPEND targetExtraLibs "-weak_framework PhotosUI")
 	endif()
 	list(APPEND targetExtraLibs "-framework UniformTypeIdentifiers")
@@ -1496,7 +1504,10 @@ if(TargetBin)
 			set_source_files_properties(${WEB_UPLOAD_FILES} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources/assets/upload")
 		endif()
 
-		if(IOS)
+		if(TVOS)
+			set(AssetCatalog "${CMAKE_SOURCE_DIR}/ios/tvOS-assets.xcassets")
+			add_executable(${TargetBin} MACOSX_BUNDLE ${NativeAssets} ${BigFontAssets} ${UIImages} ${AssetCatalog} ${SHADER_FILES} ${THEME_FILE} ${DEBUGGER_FILES} ${WEB_UPLOAD_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource})
+		elseif(IOS)
 			set(AssetCatalog "${CMAKE_SOURCE_DIR}/ios/assets.xcassets")
 			add_executable(${TargetBin} MACOSX_BUNDLE ${NativeAssets} ${BigFontAssets} ${UIImages} ${AssetCatalog} ${SHADER_FILES} ${THEME_FILE} ${DEBUGGER_FILES} ${WEB_UPLOAD_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource} "ios/Launch Screen.storyboard")
 		else()
@@ -1556,6 +1567,11 @@ if(IOS AND NOT LIBRETRO)
 	if(IOS_DEBUG)
 		file(INSTALL pspautotests DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/assets)
 	endif()
+	if(TVOS)
+		set(MOLTENVK_SLICE tvos-arm64)
+	else()
+		set(MOLTENVK_SLICE ios-arm64)
+	endif()
 	set(RSRC_XIB_FILES "Launch Screen.storyboard" ${CMAKE_CURRENT_SOURCE_DIR}/ios/assets.xcassets)
 
 	set_source_files_properties(${RSRC_XIB_FILES}
@@ -1571,12 +1587,16 @@ if(IOS AND NOT LIBRETRO)
 
 	# Can't figure out properly using .xcframework from CMake, so just linking directly to the .a file.
 	target_link_libraries(${TargetBin}
-		"${CMAKE_CURRENT_SOURCE_DIR}/ios/MoltenVK/MoltenVK.xcframework/ios-arm64/libMoltenVK.a"
+		"${CMAKE_CURRENT_SOURCE_DIR}/ios/MoltenVK/MoltenVK.xcframework/${MOLTENVK_SLICE}/libMoltenVK.a"
 	)
 
 	set(MACOSX_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET})
 	set(PRODUCT_NAME "PPSSPP")
-	set(BUNDLE_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/PPSSPP-Info.plist")
+	if(TVOS)
+		set(BUNDLE_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/tvOS-Info.plist")
+	else()
+		set(BUNDLE_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/PPSSPP-Info.plist")
+	endif()
 	set(BUNDLE_ENTITLEMENTS "${CMAKE_CURRENT_SOURCE_DIR}/ios/App.entitlements")
 	if(GOLD)
 		if(IOS_APP_STORE)
@@ -1638,6 +1658,19 @@ if(IOS AND NOT LIBRETRO)
 		XCODE_ATTRIBUTE_SKIP_INSTALL NO
 		XCODE_ATTRIBUTE_INSTALL_PATH "$(LOCAL_APPS_DIR)"
 	)
+	if(TVOS)
+		# The launch storyboard and the iOS asset catalog are iPhone/iPad only. tvOS has a layered
+		# icon and Top Shelf images of its own, made by ios/generate_tvos_icons.py.
+		set_target_properties(${TargetBin} PROPERTIES
+			RESOURCE "ios/tvOS-assets.xcassets"
+			XCODE_ATTRIBUTE_ASSETCATALOG_COMPILER_APPICON_NAME "AppIcon"
+			XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET ""
+			XCODE_ATTRIBUTE_TVOS_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET}
+			XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "3"
+			XCODE_ATTRIBUTE_SDKROOT appletvos
+			XCODE_ATTRIBUTE_SUPPORTED_PLATFORMS appletvos
+		)
+	endif()
 	if(IOS_APP_STORE)
 		# https://stackoverflow.com/questions/40664125/cmake-and-code-signing-in-xcode-8-for-ios-projects
 		set_target_properties(${TargetBin} PROPERTIES

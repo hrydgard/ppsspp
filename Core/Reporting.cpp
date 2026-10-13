@@ -330,6 +330,8 @@ namespace Reporting
 		return "Windows 64";
 #elif defined(_WIN32)
 		return "Windows";
+#elif PPSSPP_PLATFORM(TVOS)
+		return "tvOS";
 #elif PPSSPP_PLATFORM(IOS)
 		return "iOS";
 #elif defined(__APPLE__)

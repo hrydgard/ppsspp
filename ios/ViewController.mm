@@ -1,8 +1,10 @@
-#import "ios/CameraHelper.h"
 #import "ios/ViewController.h"
 #import "ios/Controls.h"
 #import "ios/IAPManager.h"
+#if !PPSSPP_PLATFORM(TVOS)
+#import "ios/CameraHelper.h"
 #import <Photos/Photos.h>
+#endif
 #import <QuartzCore/CAMetalLayer.h>
 #import <objc/runtime.h>
 #include <atomic>
@@ -135,22 +137,30 @@ static void VulkanRenderLoop(GraphicsContext *graphicsContext, CAMetalLayer *met
 
 @interface PPSSPPViewController () {
 	GraphicsContext *graphicsContext;
+#if !PPSSPP_PLATFORM(TVOS)
 	CameraHelper *cameraHelper;
 	LocationHelper *locationHelper;
 	TouchTracker g_touchTracker;
+#endif
 }
 
-@property (strong, nonatomic) NSOperationQueue *accelerometerQueue;
 @property (nonatomic) GCController *gameController;
+#if !PPSSPP_PLATFORM(TVOS)
+@property (strong, nonatomic) NSOperationQueue *accelerometerQueue;
 @property (strong, nonatomic) CMMotionManager *motionManager;
+#endif
 
 @end
 
 @implementation PPSSPPViewController {
+#if !PPSSPP_PLATFORM(TVOS)
 	UIScreenEdgePanGestureRecognizer *mBackGestureRecognizer;
+#endif
 	CGSize lastLayoutSize_;
 	KeyboardInputView *keyboardInputView_;
 }
+
+#if !PPSSPP_PLATFORM(TVOS)
 
 // Strange idiom for generating unique IDs (within the process, at least).
 static const void *kPickerFilenameKey = &kPickerFilenameKey;
@@ -180,6 +190,7 @@ static int GetPickerRequestId(id picker) {
 		g_requestManager.PostSystemFailure(requestId);
 	}
 }
+#endif
 
 - (id)init {
 	self = [super init];
@@ -190,6 +201,10 @@ static int GetPickerRequestId(id picker) {
 		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(controllerDidConnect:) name:GCControllerDidConnectNotification object:nil];
 		[[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(controllerDidDisconnect:) name:GCControllerDidDisconnectNotification object:nil];
 
+#if PPSSPP_PLATFORM(TVOS)
+		// Already the default. See topLevelChanged.
+		self.controllerUserInteractionEnabled = NO;
+#else
 		// Observe orientation changes
 		[[NSNotificationCenter defaultCenter] addObserver:self
 												selector:@selector(onOrientationChanged)
@@ -199,6 +214,7 @@ static int GetPickerRequestId(id picker) {
 		self.accelerometerQueue = [[NSOperationQueue alloc] init];
 		self.accelerometerQueue.name = @"AccelerometerQueue";
 		self.accelerometerQueue.maxConcurrentOperationCount = 1;
+#endif
 	}
 	return self;
 }
@@ -268,6 +284,7 @@ static int GetPickerRequestId(id picker) {
 	exitRenderLoop = false;
 }
 
+#if !PPSSPP_PLATFORM(TVOS)
 - (BOOL)prefersHomeIndicatorAutoHidden {
 	if (g_Config.iAppSwitchMode == (int)AppSwitchMode::DOUBLE_SWIPE_INDICATOR) {
 		return NO;
@@ -275,8 +292,10 @@ static int GetPickerRequestId(id picker) {
 		return YES;
 	}
 }
+#endif
 
 - (void)didBecomeActive {
+#if !PPSSPP_PLATFORM(TVOS)
 	if (self.motionManager.accelerometerAvailable) {
 		self.motionManager.accelerometerUpdateInterval = 1.0 / 60.0;
 		INFO_LOG(Log::G3D, "Starting accelerometer updates.");
@@ -292,6 +311,7 @@ static int GetPickerRequestId(id picker) {
 	} else {
 		INFO_LOG(Log::G3D, "No accelerometer available, not starting updates.");
 	}
+#endif
 
 	// Spin up the render thread, which in turn starts the emu thread.
 	[self updateResolutionWithView:self.view];
@@ -301,11 +321,13 @@ static int GetPickerRequestId(id picker) {
 - (void)willResignActive {
 	[self requestExitVulkanRenderLoop];
 
+#if !PPSSPP_PLATFORM(TVOS)
 	// Stop accelerometer updates
 	if (self.motionManager.accelerometerActive) {
 		INFO_LOG(Log::G3D, "Stopping accelerometer updates");
 		[self.motionManager stopAccelerometerUpdates];
 	}
+#endif
 }
 
 - (void)appWillTerminate:(NSNotification *)notification {
@@ -317,7 +339,9 @@ static int GetPickerRequestId(id picker) {
 	INFO_LOG(Log::G3D, "viewDidAppear");
 	// For hardware keyboard presses.
 	[self becomeFirstResponder];
+#if !PPSSPP_PLATFORM(TVOS)
 	[self updateGesture];
+#endif
 
 	// This needs to be called really late during startup, unfortunately.
 #if PPSSPP_PLATFORM(IOS_APP_STORE)
@@ -329,6 +353,7 @@ static int GetPickerRequestId(id picker) {
 #endif  // IOS_APP_STORE
 }
 
+#if !PPSSPP_PLATFORM(TVOS)
 // Enables tapping for edge area.
 -(UIRectEdge)preferredScreenEdgesDeferringSystemGestures {
 	if (GetUIState() == UISTATE_INGAME) {
@@ -343,10 +368,15 @@ static int GetPickerRequestId(id picker) {
 		return UIRectEdgeTop | UIRectEdgeLeft | UIRectEdgeRight;
 	}
 }
+#endif
 
 - (void)controllerDidConnect:(NSNotification *)note
 {
 	if (![[GCController controllers] containsObject:self.gameController]) self.gameController = nil;
+
+	if (InitSiriRemote((GCController *)note.object)) {
+		return;
+	}
 
 	if (self.gameController != nil) return; // already have a connected controller
 
@@ -358,11 +388,17 @@ static int GetPickerRequestId(id picker) {
 	if (self.gameController == note.object) {
 		ShutdownController(self.gameController);
 		self.gameController = nil;
-
-		if ([[GCController controllers] count] > 0) {
-			[self setupController:[[GCController controllers] firstObject]];
-		}
+		[self setupFirstController];
 	}
+}
+
+// Like Android, Back on the main screen leaves the app. tvOS only does that with a Back press it
+// gets to see, so let controller events through to UIKit there. They still reach GCController.
+- (void)topLevelChanged {
+#if PPSSPP_PLATFORM(TVOS)
+	self.controllerUserInteractionEnabled = NativeIsAtTopLevel() ? YES : NO;
+	INFO_LOG(Log::System, "Controller events to UIKit: %s", self.controllerUserInteractionEnabled ? "yes" : "no");
+#endif
 }
 
 - (void)setupController:(GCController *)controller {
@@ -372,6 +408,19 @@ static int GetPickerRequestId(id picker) {
 	}
 }
 
+// Picks the first gamepad. On tvOS, the Siri Remote is in the list too, and gets set up separately.
+- (void)setupFirstController {
+	for (GCController *controller in [GCController controllers]) {
+		if (InitSiriRemote(controller)) {
+			continue;
+		}
+		if (self.gameController == nil) {
+			[self setupController:controller];
+		}
+	}
+}
+
+#if !PPSSPP_PLATFORM(TVOS)
 - (void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event
 {
 	g_touchTracker.Began(touches, self.view);
@@ -391,6 +440,24 @@ static int GetPickerRequestId(id picker) {
 {
 	g_touchTracker.Cancelled(touches, self.view);
 }
+#endif
+
+#if PPSSPP_PLATFORM(TVOS)
+
+- (void)pickPhoto:(NSString *)saveFilename requestId:(int)requestId {
+	g_requestManager.PostSystemFailure(requestId);
+}
+
+- (void)uiStateChanged {
+	[self hideKeyboard];
+}
+
+- (void)startVideo:(int)width height:(int)height {}
+- (void)stopVideo {}
+- (void)startLocation {}
+- (void)stopLocation {}
+
+#else
 
 - (void)pickPhoto:(NSString *)saveFilename requestId:(int)requestId {
 	NSLog(@"Picking photo to save to %@ (id: %d)", saveFilename, requestId);
@@ -500,6 +567,8 @@ static int GetPickerRequestId(id picker) {
 					0 /* bearing */);
 }
 
+#endif  // PPSSPP_PLATFORM(TVOS)
+
 - (void)loadView {
 	INFO_LOG(Log::G3D, "Creating metal view");
 	// The view gets auto-resized later.
@@ -511,6 +580,7 @@ static int GetPickerRequestId(id picker) {
 
 	INFO_LOG(Log::System, "viewDidLoad");
 
+#if !PPSSPP_PLATFORM(TVOS)
 	self.view.multipleTouchEnabled = YES;
 
 	cameraHelper = [[CameraHelper alloc] init];
@@ -520,6 +590,7 @@ static int GetPickerRequestId(id picker) {
 	[locationHelper setDelegate:self];
 
 	self.motionManager = [[CMMotionManager alloc] init];
+#endif
 
 	keyboardInputView_ = [[KeyboardInputView alloc] initWithFrame:CGRectZero];
 	[self.view addSubview:keyboardInputView_];
@@ -535,9 +606,7 @@ static int GetPickerRequestId(id picker) {
 
 	[self updateResolutionWithView:self.view];
 
-	if ([[GCController controllers] count] > 0) {
-		[self setupController:[[GCController controllers] firstObject]];
-	}
+	[self setupFirstController];
 
 	INFO_LOG(Log::G3D, "Detected size: %dx%d", g_display.pixel_xres, g_display.pixel_yres);
 }
@@ -550,9 +619,11 @@ static int GetPickerRequestId(id picker) {
 	if (scene) {
 		self.view.contentScaleFactor = scene.screen.nativeScale;
 	}
+#if !PPSSPP_PLATFORM(TVOS)
 	if (@available(iOS 16.0, *)) {
 		[self setNeedsUpdateOfSupportedInterfaceOrientations];
 	}
+#endif
 }
 
 extern float g_safeInsetLeft;
@@ -598,16 +669,23 @@ extern float g_safeInsetBottom;
 }
 
 - (void)shareItems:(NSArray *)items {
+#if PPSSPP_PLATFORM(TVOS)
+	// No share sheet on tvOS. SYSPROP_SUPPORTS_SHARE_* is false there, so this isn't reached.
+	WARN_LOG(Log::System, "Sharing isn't available on tvOS");
+#else
 	UIActivityViewController *viewController = [[UIActivityViewController alloc] initWithActivityItems:items applicationActivities:nil];
 	// On iPad, the share sheet is a popover and needs an anchor.
 	viewController.popoverPresentationController.sourceView = self.view;
 	viewController.popoverPresentationController.sourceRect = CGRectMake(CGRectGetMidX(self.view.bounds), CGRectGetMidY(self.view.bounds), 0, 0);
 	viewController.popoverPresentationController.permittedArrowDirections = 0;
 	[self presentViewController:viewController animated:YES completion:nil];
+#endif
 }
 
 - (void)appSwitchModeChanged {
+#if !PPSSPP_PLATFORM(TVOS)
 	[self setNeedsUpdateOfHomeIndicatorAutoHidden];
+#endif
 }
 
 // Main thread, like the rest of these.
@@ -629,19 +707,46 @@ extern float g_safeInsetBottom;
 	return YES;
 }
 
+// Presses that aren't keyboard keys, like the remote's buttons, go on up the responder chain. On
+// tvOS, that's what takes Back on the main screen to the home screen (see topLevelChanged).
+static NSSet<UIPress *> *NonKeyboardPresses(NSSet<UIPress *> *presses) {
+	return [presses objectsPassingTest:^BOOL(UIPress *press, BOOL *stop) {
+		return press.key == nil;
+	}];
+}
+
 - (void)pressesBegan:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
 	KeyboardPressesBegan(presses, event);
+	NSSet<UIPress *> *others = NonKeyboardPresses(presses);
+	if (others.count) {
+		[super pressesBegan:others withEvent:event];
+	}
 }
 
 - (void)pressesEnded:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
 	KeyboardPressesEnded(presses, event);
+	NSSet<UIPress *> *others = NonKeyboardPresses(presses);
+	if (others.count) {
+		[super pressesEnded:others withEvent:event];
+	}
 }
 
 - (void)pressesCancelled:(NSSet<UIPress *> *)presses withEvent:(UIPressesEvent *)event {
 	KeyboardPressesEnded(presses, event);
+	NSSet<UIPress *> *others = NonKeyboardPresses(presses);
+	if (others.count) {
+		[super pressesCancelled:others withEvent:event];
+	}
 }
 
 #pragma mark - Status Bar Control
+
+#if PPSSPP_PLATFORM(TVOS)
+
+// No status bar or rotation on tvOS.
+- (void)immersiveModeChanged {}
+
+#else
 
 // The immersive mode setting is per-orientation, so we need to know which way we're facing.
 // Can't just use g_display for this, since it lags behind during rotation.
@@ -682,6 +787,8 @@ extern float g_safeInsetBottom;
 	[self setNeedsStatusBarAppearanceUpdate];
 }
 
+#endif  // PPSSPP_PLATFORM(TVOS)
+
 // Rotations and window resizes land here. UIKit lays out at the final size at the start of a
 // rotation animation, so resizing here (rather than when the rotation completes) keeps the
 // backbuffer matching the view while it animates.
@@ -692,9 +799,11 @@ extern float g_safeInsetBottom;
 		return;
 	}
 	lastLayoutSize_ = size;
+#if !PPSSPP_PLATFORM(TVOS)
 	if (self.view.window.windowScene) {
 		[cameraHelper setInterfaceOrientation:self.view.window.windowScene.interfaceOrientation];
 	}
+#endif
 	INFO_LOG(Log::G3D, "Laid out at %dx%d", (int)size.width, (int)size.height);
 	// Resized in place: NativeFrame picks up the new size and lets the graphics context resize.
 	[self updateResolutionWithView:self.view];
@@ -715,7 +824,13 @@ extern float g_safeInsetBottom;
 	// The bounds are already corrected for orientation.
 	CGSize size = view.bounds.size;
 
-	float dpi = (IS_IPAD() ? 200.0f : 150.0f) * scale;
+	float dpi;
+	if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_TV) {
+		// Like a 1080p Android TV, which reports 320 dpi: 1920x1080 points come out as 1440x810 dp.
+		dpi = 320.0f * scale;
+	} else {
+		dpi = (IS_IPAD() ? 200.0f : 150.0f) * scale;
+	}
 	PendingResolution res{
 		(float)(size.width * scale), (float)(size.height * scale),
 		240.0f / dpi,

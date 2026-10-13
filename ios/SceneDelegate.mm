@@ -13,6 +13,7 @@
 #import "IAPManager.h"
 #include "Core/Util/PathUtil.h"
 #include "Core/CmdLine.h"
+#include "Core/Util/DarwinFileSystemServices.h"
 
 #import <AVFoundation/AVFoundation.h>
 #include <string>
@@ -167,7 +168,8 @@ static NSString *ExtractGameInfoScheme(NSURL *url) {
 		break;
 	}
 
-	NSString *documentsPath = [NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES) objectAtIndex:0];
+	// Documents, except on tvOS, which has no persistent storage. See defaultMemoryStickPath().
+	NSString *documentsPath = @(DarwinFileSystemServices::defaultMemoryStickPath().c_str());
 	NSString *bundlePath = [[[NSBundle mainBundle] resourcePath] stringByAppendingString:@"/assets/"];
 	// Caches the system may clear when space runs low, and the zips ShareFilesAsZip hands to other apps.
 	NSString *cachesPath = [NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES) objectAtIndex:0];

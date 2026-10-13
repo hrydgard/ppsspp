@@ -1,4 +1,5 @@
 #include "Common/System/Display.h"
+#include "Common/System/System.h"
 #include "Common/Data/Collections/TinySet.h"
 #include "Common/UI/ScreenManager.h"
 #include "Common/UI/Root.h"
@@ -133,13 +134,15 @@ void ScreenManager::Update() {
 		overlayScreen_->update();
 	}
 
+	bool topLevel = false;
 	if (!stack_.empty()) {
 		Screen *backScreen = stack_.back().screen;
 		backScreen->update();
 		passInputToMapper_ = backScreen->PassInputToMapper();
-		topIsTopLevel_ = backScreen->isTopLevel();
-	} else {
-		topIsTopLevel_ = false;
+		topLevel = backScreen->isTopLevel();
+	}
+	if (topIsTopLevel_.exchange(topLevel) != topLevel) {
+		System_Notify(SystemNotification::TOP_LEVEL_CHANGED);
 	}
 }
 

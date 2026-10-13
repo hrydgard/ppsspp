@@ -214,6 +214,7 @@ static std::vector<std::string> GatherGameLibrary() {
 	});
 }
 
+#if !PPSSPP_PLATFORM(TVOS)
 - (UIInterfaceOrientationMask)application:(UIApplication *)application supportedInterfaceOrientationsForWindow:(UIWindow *)window {
 	switch (g_Config.iScreenRotation) {
 	case ROTATION_LOCKED_HORIZONTAL:
@@ -235,6 +236,7 @@ static std::vector<std::string> GatherGameLibrary() {
 		return UIInterfaceOrientationMaskAll;
 	}
 }
+#endif
 
 @end
 
@@ -254,8 +256,10 @@ void copyDeepLinkForPath(std::string_view filePath) {
 	// Format: scheme://host?query
 	NSString *deepLink = [NSString stringWithFormat:@"ppsspp://open?path=%@", encodedPath];
 
-	// 4. Copy to the iOS System Clipboard (UIPasteboard)
+	// 4. Copy to the iOS System Clipboard (UIPasteboard). tvOS has none.
+#if !PPSSPP_PLATFORM(TVOS)
 	[UIPasteboard generalPasteboard].string = deepLink;
+#endif
 
 	// Optional: Log it for debugging
 	NSLog(@"Deep link copied: %@", deepLink);

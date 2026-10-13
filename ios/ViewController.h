@@ -1,9 +1,21 @@
 #pragma once
 
+#include "ppsspp_config.h"
+
 #import <UIKit/UIKit.h>
-#import <PhotosUI/PhotosUI.h>
 
 #import <GameController/GameController.h>
+
+#if PPSSPP_PLATFORM(TVOS)
+
+// The one view controller. Renders with Vulkan (MoltenVK) to a CAMetalLayer.
+// A GCEventViewController, so controller input (the Siri Remote included) reaches us only through
+// GCController, instead of also driving UIKit's focus engine.
+@interface PPSSPPViewController : GCEventViewController
+
+#else
+
+#import <PhotosUI/PhotosUI.h>
 
 #import "CameraHelper.h"
 #import "LocationHelper.h"
@@ -13,6 +25,8 @@
 	PHPickerViewControllerDelegate,
 	CameraFrameDelegate, LocationHandlerDelegate,
 	UIGestureRecognizerDelegate>
+
+#endif
 
 - (void)hideKeyboard;
 - (void)showKeyboard;
@@ -32,6 +46,7 @@
 - (void)willResignActive;
 
 - (void)uiStateChanged;
+- (void)topLevelChanged;
 - (void)pickPhoto:(NSString *)saveFilename requestId:(int)requestId;
 - (void)updateResolutionWithView:(UIView *)view;
 
@@ -41,3 +56,4 @@ extern PPSSPPViewController *sharedViewController;
 
 #define IS_IPAD() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad)
 #define IS_IPHONE() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPhone)
+#define IS_TV() ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomTV)
