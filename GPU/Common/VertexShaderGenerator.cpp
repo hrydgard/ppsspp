@@ -546,6 +546,11 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "  if (outPos.z < -outPos.w) {\n");
 		WRITE(p, "    zClipped = true;\n");
 		WRITE(p, "  }\n");
+		if (fsDepthClamp) {
+			// For the rasterizer's Z below: 0 at the near plane, so it still clips there, and past W only beyond
+			// 65535 * W, so nothing else is clipped. The fragment shader writes the real depth.
+			WRITE(p, "  float nearPlaneZ = (outPos.z + outPos.w) * (1.0 / 65536.0);\n");
+		}
 		// Then we actually add the clip plane.
 		if (clipNearPlane) {
 			WRITE(p, "  %sgl_ClipDistance%s = outPos.z + outPos.w;\n", compat.vsOutPrefix, zClipPlaneSuffix);
@@ -996,9 +1001,14 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	}
 
 	if (fsDepthClamp) {
-		// Overwrite Z with a value that will not be clipped.
+		// Overwrite Z with a value that only the near plane clips.
 		// Then we will overwrite the Z in the fragment shader with the per-pixel value computed from the interpolated v_zw.
-		WRITE(p, "  %sgl_Position.z = (u_minZmaxZ.x + u_minZmaxZ.y) * (0.5 / 65536.0) * outPos.w;\n", compat.vsOutPrefix);
+		if (useHWTransform) {
+			WRITE(p, "  %sgl_Position.z = nearPlaneZ;\n", compat.vsOutPrefix);
+		} else {
+			// Software transform has clipped against the near plane already.
+			WRITE(p, "  %sgl_Position.z = (u_minZmaxZ.x + u_minZmaxZ.y) * (0.5 / 65536.0) * outPos.w;\n", compat.vsOutPrefix);
+		}
 	}
 
 	if (compat.depthMinusOneToOne) {

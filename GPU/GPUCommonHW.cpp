@@ -616,6 +616,11 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 	// Headless --disable-gpu-features, to test the fallbacks for GPUs without them (old Mali has none of
 	// clip distance, cull distance and depth clamp).
 	features &= ~PSP_CoreParameter().disabledGPUFeatures;
+	if (!(features & GPU_USE_CLIP_DISTANCE)) {
+		// Hardware depth clamp turns off clipping at the near plane too, which the vertex shader can then only
+		// do with a clip plane. The fragment shader fallback keeps it.
+		features &= ~GPU_USE_DEPTH_CLAMP;
+	}
 
 	return features;
 }
