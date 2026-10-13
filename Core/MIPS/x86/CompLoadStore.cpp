@@ -458,12 +458,16 @@ namespace MIPSComp {
 			skipStore = J_CC(CC_NE);
 
 			CompITypeMemWrite(op, 32, safeMemFuncs.writeU32, true);
-			MOV(32, gpr.R(rt), Imm32(1));
-			finish = J();
-
-			SetJumpTarget(skipStore);
-			MOV(32, gpr.R(rt), Imm32(0));
-			SetJumpTarget(finish);
+			// $zero is an immediate, and has no result to write.
+			if (rt != MIPS_REG_ZERO) {
+				MOV(32, gpr.R(rt), Imm32(1));
+				finish = J();
+				SetJumpTarget(skipStore);
+				MOV(32, gpr.R(rt), Imm32(0));
+				SetJumpTarget(finish);
+			} else {
+				SetJumpTarget(skipStore);
+			}
 			break;
 
 		default:

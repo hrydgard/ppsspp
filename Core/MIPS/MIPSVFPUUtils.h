@@ -210,6 +210,9 @@ void WriteVector(MIPSState *mips, const float *rs, VectorSize N, int reg);
 
 void GetVectorRegs(u8 regs[4], VectorSize N, int vectorReg);
 void GetMatrixRegs(u8 regs[16], MatrixSize N, int matrixReg);
+// True if the matrix's row or column offset makes it wrap around the end of the 4x4 block (like a
+// 4x4 E623), which GetMatrixRegs handles but code that assumes whole columns doesn't.
+bool MatrixWrapsAround(int matrixReg, MatrixSize N);
  
 // Translate between vector and matrix size. Possibly we should simply
 // join the two enums, but the type safety is kind of nice.
