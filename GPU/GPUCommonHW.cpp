@@ -993,12 +993,10 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 		cyclesExecuted += EstimateFillCycles(prim, verts, inds, count, decoder, vertexType);
 	}
 
-#define MAX_CULL_CHECK_COUNT 2500
-
 	// For now, turn off culling on platforms where we don't have SIMD bounding box tests, like RISC-V.
 #if PPSSPP_ARCH(ARM_NEON) || PPSSPP_ARCH(SSE2)
 
-#define PASSES_CULLING ((vertexType & (GE_VTYPE_THROUGH_MASK | GE_VTYPE_MORPHCOUNT_MASK | GE_VTYPE_WEIGHT_MASK)) || count > MAX_CULL_CHECK_COUNT)
+#define PASSES_CULLING ((vertexType & (GE_VTYPE_THROUGH_MASK | GE_VTYPE_MORPHCOUNT_MASK | GE_VTYPE_WEIGHT_MASK)) != 0)
 
 #else
 
