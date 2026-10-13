@@ -172,7 +172,8 @@ void Arm64JitBackend::CompIR_CondStore(IRInst inst) {
 
 	regs_.SpillLockGPR(IRREG_LLBIT, inst.src3, inst.src1);
 	LoadStoreArg addrArg = PrepareSrc1Address(inst);
-	ARM64Reg valueReg = regs_.MapGPR(inst.src3, MIPSMap::INIT);
+	// The result goes in the same register (dest == src3), so it must be flushed.
+	ARM64Reg valueReg = regs_.MapGPR(inst.src3, inst.dest == MIPS_REG_ZERO ? MIPSMap::INIT : MIPSMap::DIRTY);
 
 	regs_.MapGPR(IRREG_LLBIT, MIPSMap::INIT);
 
@@ -317,7 +318,9 @@ void Arm64JitBackend::CompIR_Load(IRInst inst) {
 	regs_.SpillLockGPR(inst.dest, inst.src1);
 	LoadStoreArg addrArg = PrepareSrc1Address(inst);
 	// With NOINIT, MapReg won't subtract MEMBASEREG even if dest == src1.
-	regs_.MapGPR(inst.dest, MIPSMap::NOINIT);
+	// Only ll can load into $zero (for the llBit), and must not map it.
+	if (inst.dest != MIPS_REG_ZERO)
+		regs_.MapGPR(inst.dest, MIPSMap::NOINIT);
 
 	// TODO: Safe memory?  Or enough to have crash handler + validate?
 
