@@ -325,18 +325,13 @@ jobs:
           cxx: clang++
           args: ./b-tvos.sh
           id: tvos
+        # One job for both, since only five macOS jobs run at once and the rest wait in line.
         - os: macos-latest
-          extra: libretro_ios
+          extra: libretro_ios_tvos
           cc: clang
           cxx: clang++
-          args: ./b.sh --ios --libretro
-          id: ios-libretro
-        - os: macos-latest
-          extra: libretro_tvos
-          cc: clang
-          cxx: clang++
-          args: ./b.sh --tvos --libretro
-          id: tvos-libretro
+          args: ./b.sh --ios --libretro && ./b.sh --tvos --libretro
+          id: ios-tvos-libretro
 
     runs-on: ${{ matrix.os }}
     steps:
