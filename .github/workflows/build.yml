@@ -184,6 +184,9 @@ jobs:
         msystem: ${{ matrix.msystem }}
         path-type: inherit
         install: make
+        # Deprecated in favour of UCRT64/CLANG64, but only make and bash come from MSYS2 here,
+        # the compiler is MSVC.
+        suppress-deprecation-warnings: msystem-mingw64 msystem-mingw32
 
     # The Makefile can locate Visual Studio by itself, but only through "cmd //c bash VSWhere.sh",
     # which depends on COMSPEC and ProgramFiles(x86) surviving into the MSYS2 shell. Resolving it
