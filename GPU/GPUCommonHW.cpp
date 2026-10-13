@@ -616,6 +616,11 @@ u32 GPUCommonHW::CheckGPUFeatures() const {
 	// Headless --disable-gpu-features, to test the fallbacks for GPUs without them (old Mali has none of
 	// clip distance, cull distance and depth clamp).
 	features &= ~PSP_CoreParameter().disabledGPUFeatures;
+	if (!(features & GPU_USE_CLIP_DISTANCE)) {
+		// Hardware depth clamp turns off clipping at the near plane too, which the vertex shader can then only
+		// do with a clip plane. The fragment shader fallback keeps it.
+		features &= ~GPU_USE_DEPTH_CLAMP;
+	}
 
 	return features;
 }
@@ -993,12 +998,10 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 		cyclesExecuted += EstimateFillCycles(prim, verts, inds, count, decoder, vertexType);
 	}
 
-#define MAX_CULL_CHECK_COUNT 2500
-
 	// For now, turn off culling on platforms where we don't have SIMD bounding box tests, like RISC-V.
 #if PPSSPP_ARCH(ARM_NEON) || PPSSPP_ARCH(SSE2)
 
-#define PASSES_CULLING ((vertexType & (GE_VTYPE_THROUGH_MASK | GE_VTYPE_MORPHCOUNT_MASK | GE_VTYPE_WEIGHT_MASK)) || count > MAX_CULL_CHECK_COUNT)
+#define PASSES_CULLING ((vertexType & (GE_VTYPE_THROUGH_MASK | GE_VTYPE_MORPHCOUNT_MASK | GE_VTYPE_WEIGHT_MASK)) != 0)
 
 #else
 
@@ -1008,6 +1011,9 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 
 	// If certain conditions are true, do frustum culling.
 	bool passCulling = PASSES_CULLING;
+	if (passCulling && !(flags & ClipInfoFlags::Valid)) {
+		flags = DrawEngineCommon::UncheckedClipInfoFlags();
+	}
 	if (!passCulling) {
 		// Do software culling.
 		if (drawEngineCommon_->TestBoundingBoxFast(gstate_c.cullMatrix, verts, inds, count, decoder, vertexType, &flags)) {
@@ -1097,6 +1103,9 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 
 			bool passCulling = onePassed || PASSES_CULLING;
 			ClipInfoFlags flags{};
+			if (passCulling) {
+				flags = DrawEngineCommon::UncheckedClipInfoFlags();
+			}
 			if (!passCulling) {
 				// Do software culling.
 				if (drawEngineCommon_->TestBoundingBoxFast(gstate_c.cullMatrix, verts, inds, count, decoder, vertexType, &flags)) {

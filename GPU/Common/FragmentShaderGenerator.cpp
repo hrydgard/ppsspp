@@ -1281,7 +1281,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 				WRITE(p, "  gl_FragDepth = floor(gl_FragCoord.z * 65536.0 + 0.01) / 65535.0;\n");
 			}
 		} else if (fsDepthClamp) {
-			WRITE(p, "  gl_FragDepth = clamp(projZ, 0.0, 65535.0) / 65535.0;\n");
+			// What the vertex shader's Z / 65536 gives with hardware depth clamp.
+			WRITE(p, "  gl_FragDepth = clamp(projZ * (1.0 / 65536.0), 0.0, 1.0);\n");
 		}
 	} else if (useDiscardStencilBugWorkaround) {
 		// Adreno and some Mali drivers apply early frag tests even with discard in the shader,
