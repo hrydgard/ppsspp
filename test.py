@@ -205,6 +205,7 @@ tests_good = [
   "gpu/bounding/vertexaddr",
   "gpu/bounding/viewport",
   "gpu/callbacks/ge_callbacks",
+  "gpu/callstack/depth",
   "gpu/clipping/guardband",
   "gpu/clipping/homogeneous",
   "gpu/clipping/xycull",

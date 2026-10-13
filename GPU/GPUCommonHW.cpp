@@ -1220,7 +1220,8 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 		{
 			// A bone matrix probably. If not we bail.
 			const u32 target = gstate_c.getRelativeAddress(data & 0x00FFFFFC);
-			if ((Memory::ReadUnchecked_U32(target) >> 24) == GE_CMD_BONEMATRIXDATA &&
+			if (currentList->HardwareCallDepth() < 2 &&
+				(Memory::ReadUnchecked_U32(target) >> 24) == GE_CMD_BONEMATRIXDATA &&
 				(Memory::ReadUnchecked_U32(target + 11 * 4) >> 24) == GE_CMD_BONEMATRIXDATA &&
 				(Memory::ReadUnchecked_U32(target + 12 * 4) >> 24) == GE_CMD_RET &&
 				(target > currentList->stall || target + 12 * 4 < currentList->stall) &&

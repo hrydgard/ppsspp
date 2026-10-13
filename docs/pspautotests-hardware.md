@@ -291,8 +291,9 @@ so on a collision.
 
 `pspautotests` is a git submodule, so a new test is two commits:
 
-1. Commit and push inside `pspautotests/` (the new test directory, including the built `.prx` and
-   the generated `.expected`).
+1. Commit inside `pspautotests/` (the new test directory, including the built `.prx` and the
+   generated `.expected`), rebase it onto `origin/master`, and push it straight to `master` - no
+   branch, no PR, and no need to ask first.
 2. Commit in the PPSSPP repo, including **both** the `test.py` change and the bumped submodule
    pointer (`git add pspautotests`) - otherwise CI checks out the old submodule and the test
    doesn't exist.
