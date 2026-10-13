@@ -73,6 +73,20 @@ inline uint32_t SignExtend16ToU32(MIPSOpcode op) {
 	return SignExtend16ToU32(op.encoding);
 }
 
+// The Allegrex bit ops (special3, function 0x20) only decode some bits of the sa field, so every
+// value is one of them (cpu/cpu_alu/allegrex_encodings). Returns the canonical sa: 2 wsbh, 3 wsbw,
+// 16 seb, 20 bitrev, 24 seh.
+inline int AllegrexBitOp(MIPSOpcode op) {
+	int sa = (op >> 6) & 31;
+	if (!(sa & 0x10)) {
+		return 2 | (sa & 1);
+	}
+	if (sa & 4) {
+		return 20;
+	}
+	return (sa & 8) ? 24 : 16;
+}
+
 namespace MIPSCodeUtils
 {
 	u32 GetCallTarget(u32 addr);

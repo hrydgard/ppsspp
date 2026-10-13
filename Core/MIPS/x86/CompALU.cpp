@@ -706,11 +706,11 @@ namespace MIPSComp
 		switch (op & 0x3f)
 		{
 		case 0: CompShiftImm(op, &XEmitter::SHL, &ShiftType_ImmLogicalLeft); break;
-		case 2: CompShiftImm(op, rs == 1 ? &XEmitter::ROR : &XEmitter::SHR, rs == 1 ? &ShiftType_ImmRotateRight : &ShiftType_ImmLogicalRight); break;	// srl, rotr
+		case 2: CompShiftImm(op, (rs & 1) ? &XEmitter::ROR : &XEmitter::SHR, (rs & 1) ? &ShiftType_ImmRotateRight : &ShiftType_ImmLogicalRight); break;	// srl, rotr
 		case 3: CompShiftImm(op, &XEmitter::SAR, &ShiftType_ImmArithRight); break;	// sra
 
 		case 4: CompShiftVar(op, &XEmitter::SHL, &ShiftType_ImmLogicalLeft); break; //sllv
-		case 6: CompShiftVar(op, fd == 1 ? &XEmitter::ROR : &XEmitter::SHR, fd == 1 ? &ShiftType_ImmRotateRight : &ShiftType_ImmLogicalRight); break;	//srlv
+		case 6: CompShiftVar(op, (fd & 1) ? &XEmitter::ROR : &XEmitter::SHR, (fd & 1) ? &ShiftType_ImmRotateRight : &ShiftType_ImmLogicalRight); break;	//srlv
 		case 7: CompShiftVar(op, &XEmitter::SAR, &ShiftType_ImmArithRight); break; //srav
 
 		default:
@@ -818,7 +818,7 @@ namespace MIPSComp
 		if (rd == MIPS_REG_ZERO)
 			return;
 
-		switch ((op >> 6) & 31)
+		switch (AllegrexBitOp(op))
 		{
 		case 16: // seb  // R(rd) = SignExtend8ToU32(R(rt));
 			if (gpr.IsImm(rt))
@@ -926,9 +926,9 @@ namespace MIPSComp
 		if (rd == MIPS_REG_ZERO)
 			return;
 
-		switch (op & 0x3ff)
+		switch (AllegrexBitOp(op))
 		{
-		case 0xA0: //wsbh
+		case 2: //wsbh
 			if (gpr.IsImm(rt)) {
 				u32 rtImm = gpr.GetImm(rt);
 				gpr.SetImm(rd, ((rtImm & 0xFF00FF00) >> 8) | ((rtImm & 0x00FF00FF) << 8));
@@ -943,7 +943,7 @@ namespace MIPSComp
 			ROR(32, gpr.R(rd), Imm8(16));
 			gpr.UnlockAll();
 			break;
-		case 0xE0: //wsbw
+		case 3: //wsbw
 			if (gpr.IsImm(rt)) {
 				gpr.SetImm(rd, swap32(gpr.GetImm(rt)));
 				break;
