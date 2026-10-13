@@ -181,8 +181,11 @@ class AdbDevice:
         self.adb("push", "--sync", str(test_root) + "/.", self.dir + "/dumps")
         self.shell("rm -rf %s/shots && mkdir -p %s/shots" % (shlex.quote(self.dir), shlex.quote(self.dir)))
         model = self.shell("getprop ro.product.model").stdout.strip()
-        gpu = self.shell("dumpsys SurfaceFlinger | grep GLES", check=False).stdout.strip()
-        return "%s (%s)" % (model, gpu) if gpu else model
+        soc = self.shell("getprop ro.soc.model", check=False).stdout.strip()
+        # SurfaceFlinger names the GPU, except where it reports its own render engine instead (Samsung's Skia).
+        gles = self.shell("dumpsys SurfaceFlinger | grep GLES", check=False).stdout.strip()
+        gpu = next((l.strip() for l in gles.splitlines() if re.search(r"Adreno|Mali|Immortalis|PowerVR|Xclipse", l)), "")
+        return ", ".join(s for s in (model, soc, gpu) if s)
 
 
 def run_side_by_side(headless, host_args, device, dump_path, rel, variant_args, host_path, actual_path, diff_path,
