@@ -1274,7 +1274,7 @@ namespace MIPSComp {
 			}
 			fpr.ReleaseSpillLocksAndDiscardTemps();
 		} else {
-			fpr.MapRegV(vd);
+			fpr.MapRegV(vd, MAP_DIRTY | MAP_NOINIT);
 			fp.MOVI2F(fpr.V(vd), 0.0f, SCRATCH1);
 		}
 	}
