@@ -1087,7 +1087,8 @@ ifeq ($(HEADLESS),1)
   LOCAL_SRC_FILES := \
     $(SRC)/headless/Headless.cpp \
     $(SRC)/headless/ReverseEngineer.cpp \
-    $(SRC)/headless/Compare.cpp
+    $(SRC)/headless/Compare.cpp \
+    $(SRC)/headless/AndroidHeadlessGLContext.cpp
 
   include $(BUILD_EXECUTABLE)
 endif

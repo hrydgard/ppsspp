@@ -158,6 +158,8 @@ usage: frametests.py [OPTIONS] [CONFIG.json]
 | `--filter=SUBSTR`  | Only run dumps whose relative path contains SUBSTR (case-insensitive). |
 | `--strict`         | Treat missing reference images as failures (a configuration error).    |
 | `--out-mode=all\|failures` | `all` keeps everything in the output dir; `failures` keeps only artifacts of non-passing tests (smaller CI artifacts). Default: `all`. |
+| `--variants=NAME=ARGS,...` | Run these variants instead of the config's. |
+| `--adb[=SERIAL]`   | Run on an Android device instead; see "Running on Android" below. |
 
 The headless binary is located, in order of preference:
 
@@ -166,6 +168,23 @@ The headless binary is located, in order of preference:
 3. Well-known paths relative to the current directory (e.g.
    `Windows/x64/Debug/PPSSPPHeadless.exe`, `build/PPSSPPHeadless`), newest
    by modification time.
+
+## Running on Android
+
+`--adb` runs every dump on an Android device over adb, with the `ppsspp_headless` executable from the
+legacy NDK build, and compares each screenshot with the host's Vulkan render of the same dump (through
+`Tools/image_compare.py`, so rasterizer noise doesn't count). The references in the config aren't used:
+the question is whether the device's drivers draw what a desktop GPU does.
+
+```bash
+cd android && NDK=/path/to/ndk ./ab.sh APP_ABI=arm64-v8a HEADLESS=1 SKIPAPP=1 -j8 && cd ..
+python3 frametests.py frametests/frametests.json --adb
+```
+
+The first run pushes the binary, `assets/` and the dumps to `/data/local/tmp/ppsspp-frametests`; later runs
+only push what changed. The variants default to `vulkan=--graphics=vulkan,gl=--graphics=gles`, and
+`--host-args` sets how the host renders its side. A failing test's diff image shows host, device and the
+differences side by side. Runs go to the device one at a time.
 
 ## CI integration
 

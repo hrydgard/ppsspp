@@ -154,6 +154,78 @@ def run_test(headless, dump_path, variant_args, ref_path, actual_path, diff_path
     return STATUS_PASS, mse, output, False
 
 
+class AdbDevice:
+    """An Android device running ppsspp_headless over adb, from a directory under /data/local/tmp."""
+
+    def __init__(self, serial, device_dir):
+        self.serial = serial
+        self.dir = device_dir.rstrip("/")
+
+    def adb(self, *args, timeout=None, check=True):
+        cmd = ["adb"] + (["-s", self.serial] if self.serial else []) + list(args)
+        proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=timeout,
+                              text=True, encoding="utf-8", errors="replace")
+        if check and proc.returncode != 0:
+            raise RuntimeError("%s failed:\n%s" % (" ".join(cmd), proc.stdout))
+        return proc
+
+    def shell(self, command, timeout=None, check=True):
+        return self.adb("shell", command, timeout=timeout, check=check)
+
+    def setup(self, binary, assets_dir, test_root):
+        """Push the binary, the assets and the dumps. --sync skips files that are already there."""
+        self.shell("mkdir -p %s" % shlex.quote(self.dir))
+        self.adb("push", str(binary), self.dir + "/ppsspp_headless")
+        self.shell("chmod 755 %s/ppsspp_headless" % shlex.quote(self.dir))
+        self.adb("push", "--sync", str(assets_dir) + "/.", self.dir + "/assets")
+        self.adb("push", "--sync", str(test_root) + "/.", self.dir + "/dumps")
+        self.shell("rm -rf %s/shots && mkdir -p %s/shots" % (shlex.quote(self.dir), shlex.quote(self.dir)))
+        model = self.shell("getprop ro.product.model").stdout.strip()
+        gpu = self.shell("dumpsys SurfaceFlinger | grep GLES", check=False).stdout.strip()
+        return "%s (%s)" % (model, gpu) if gpu else model
+
+
+def run_side_by_side(headless, host_args, device, dump_path, rel, variant_args, host_path, actual_path, diff_path,
+                     timeout, output_dir, compare_args):
+    """Run one dump on the device, and compare its screenshot approximately (Tools/image_compare.py) with
+    the host's, rendered with host_args. The host render is shared by all variants of a dump.
+    Returns (status, mse, output, timed_out, detail)."""
+    import image_compare
+
+    output = ""
+    if not host_path.exists():
+        args = [str(headless)] + list(host_args) + ["--screenshot-save=" + str(host_path), str(dump_path)]
+        try:
+            proc = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=str(output_dir),
+                                  timeout=timeout, text=True, encoding="utf-8", errors="replace")
+            output += "=== host ===\n" + proc.stdout
+        except subprocess.TimeoutExpired:
+            return STATUS_FAIL, None, output, True, "timed out on the host"
+        if not host_path.exists():
+            return STATUS_ERROR, None, output, False, "the host run produced no screenshot"
+
+    shot = "%s/shots/shot.png" % device.dir
+    device.shell("rm -f %s" % shlex.quote(shot), check=False)
+    command = "cd %s && ./ppsspp_headless %s --screenshot-save=%s %s" % (
+        shlex.quote(device.dir), " ".join(shlex.quote(a) for a in variant_args), shlex.quote(shot),
+        shlex.quote("dumps/" + rel.as_posix()))
+    try:
+        proc = device.shell(command, timeout=timeout, check=False)
+        output += "\n=== device ===\n" + proc.stdout
+    except subprocess.TimeoutExpired:
+        device.shell("pkill -f ppsspp_headless", check=False)
+        return STATUS_FAIL, None, output, True, "timed out on the device"
+    if device.adb("pull", shot, str(actual_path), check=False).returncode != 0 or not actual_path.exists():
+        return STATUS_ERROR, None, output, False, "the device run produced no screenshot"
+
+    a, b, area, blocks, bias = image_compare.compare(image_compare.load(str(host_path)), image_compare.load(str(actual_path)), compare_args)
+    if not area.any() and not blocks.any():
+        return STATUS_PASS, None, output, False, ""
+    image_compare.heatmap(str(diff_path), a, b, area, blocks, compare_args.block)
+    return STATUS_FAIL, None, output, False, "%d px, %d/%d blocks differ from the host (bias %+.1f %+.1f %+.1f)" % (
+        area.sum(), blocks.sum(), blocks.size, bias[0], bias[1], bias[2])
+
+
 def image_data_uri(path):
     """Read an image file as a PNG data URI, or None if missing."""
     try:
@@ -263,6 +335,19 @@ def main():
                         help="Treat missing reference images as failures (configuration error)")
     parser.add_argument("--out-mode", choices=["all", "failures"], default="all",
                         help="What to keep in the output directory: everything, or only failures (default: all)")
+    parser.add_argument("--adb", nargs="?", const="", default=None, metavar="SERIAL",
+                        help="Run each dump on an Android device over adb, and compare its screenshot approximately "
+                             "(Tools/image_compare.py) with the host's Vulkan render instead of with the references. "
+                             "SERIAL picks a device when several are connected")
+    parser.add_argument("--device-headless", default="android/libs/arm64-v8a/ppsspp_headless",
+                        help="With --adb: the Android headless binary to push (default: android/libs/arm64-v8a/ppsspp_headless)")
+    parser.add_argument("--device-dir", default="/data/local/tmp/ppsspp-frametests",
+                        help="With --adb: where on the device the binary, assets and dumps go")
+    parser.add_argument("--host-args", default="--graphics=vulkan",
+                        help="With --adb: how the host renders the reference each device run is compared with (default: --graphics=vulkan)")
+    parser.add_argument("--variants", default="",
+                        help="Variants to run, as name=args pairs separated by commas, replacing the config's "
+                             "(default with --adb: vulkan=--graphics=vulkan,gl=--graphics=gles)")
     args = parser.parse_args()
 
     strict = args.strict or bool(os.environ.get("GITHUB_ACTIONS"))
@@ -281,6 +366,10 @@ def main():
     timeout = float(config.get("timeout", 60))
     max_mse = float(config.get("maxMse", 0.0))
     raw_variants = config.get("variants", {})
+    if not args.variants and args.adb is not None:
+        args.variants = "vulkan=--graphics=vulkan,gl=--graphics=gles"
+    if args.variants:
+        raw_variants = dict(v.split("=", 1) for v in args.variants.split(","))
     if not raw_variants:
         print("ERROR: no variants defined in %s" % config_path, file=sys.stderr)
         return 2
@@ -320,6 +409,25 @@ def main():
         filter_lower = args.filter.lower()
         dumps = [d for d in dumps if filter_lower in str(d.relative_to(test_root)).lower()]
 
+    device = None
+    compare_args = None
+    if args.adb is not None:
+        sys.path.insert(0, str(Path(__file__).resolve().parent / "Tools"))
+        import image_compare
+        compare_args = argparse.Namespace(tolerance=12, radius=1, min_neighbors=5, block=8, block_tolerance=8.0, crop=(480, 272))
+        device_headless = Path(args.device_headless)
+        if not device_headless.is_file():
+            print("ERROR: Android headless binary not found: %s" % device_headless, file=sys.stderr)
+            return 2
+        device = AdbDevice(args.adb, args.device_dir)
+        shutil.rmtree(output_root / "host", ignore_errors=True)
+        print("Pushing %s, assets and dumps to %s..." % (device_headless, device.dir))
+        try:
+            print("Device: %s" % device.setup(device_headless, Path(__file__).resolve().parent / "assets", test_root))
+        except (RuntimeError, OSError) as e:
+            print("ERROR: %s" % e, file=sys.stderr)
+            return 2
+
     log_dir = output_root / "logs"
     diff_dir = output_root / "diffs"
     actual_dir = output_root / "actuals"
@@ -358,7 +466,15 @@ def main():
             for p in (ref_path, actual_path, diff_path, log_path):
                 p.parent.mkdir(parents=True, exist_ok=True)
 
-            if not ref_path.exists() and not generate_refs:
+            remote_detail = None
+            if device:
+                # The host's screenshot is the reference, so the exact references aren't involved.
+                ref_path = output_root / "host" / rel_dir / ("%s.png" % base)
+                ref_path.parent.mkdir(parents=True, exist_ok=True)
+                status, mse, output, timed_out, remote_detail = run_side_by_side(
+                    headless, shlex.split(args.host_args), device, dump, rel, variant_args, ref_path, actual_path, diff_path,
+                    timeout, output_root, compare_args)
+            elif not ref_path.exists() and not generate_refs:
                 status = STATUS_ERROR
                 mse = None
                 output = ""
@@ -369,7 +485,9 @@ def main():
                     max_mse, timeout, output_root)
 
             detail = ""
-            if status == STATUS_ERROR and not ref_path.exists() and not generate_refs:
+            if remote_detail is not None:
+                detail = remote_detail
+            elif status == STATUS_ERROR and not ref_path.exists() and not generate_refs:
                 detail = "no reference image '%s' available for this variant (references are only generated for variants whose suffix matches their compare-suffix)" % vinfo["compare_suffix"]
             elif status == STATUS_FAIL:
                 if timed_out:
