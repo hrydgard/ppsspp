@@ -17,6 +17,9 @@
 
 #pragma once
 
+#include <string>
+#include <vector>
+
 #include "sceKernel.h"
 
 void Register_sceUsbMic();
