@@ -500,11 +500,13 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			IR_NEXT;
 		}
 
+		// ARMv7 NEON always flushes denormals and rounds to nearest, whatever FPSCR says, so float
+		// arithmetic stays on VFP there, as on the other hosts (cpu/vfpu/fcr31).
 		IR_CASE(Vec4Add)
 		{
 #if PPSSPP_ARCH(SSE2)
 			_mm_store_ps(&mips->f[inst->dest], _mm_add_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_load_ps(&mips->f[inst->src2])));
-#elif PPSSPP_ARCH(ARM_NEON)
+#elif PPSSPP_ARCH(ARM_NEON) && PPSSPP_ARCH(ARM64)
 			vst1q_f32(&mips->f[inst->dest], vaddq_f32(vld1q_f32(&mips->f[inst->src1]), vld1q_f32(&mips->f[inst->src2])));
 #else
 			for (int i = 0; i < 4; i++)
@@ -517,7 +519,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		{
 #if PPSSPP_ARCH(SSE2)
 			_mm_store_ps(&mips->f[inst->dest], _mm_sub_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_load_ps(&mips->f[inst->src2])));
-#elif PPSSPP_ARCH(ARM_NEON)
+#elif PPSSPP_ARCH(ARM_NEON) && PPSSPP_ARCH(ARM64)
 			vst1q_f32(&mips->f[inst->dest], vsubq_f32(vld1q_f32(&mips->f[inst->src1]), vld1q_f32(&mips->f[inst->src2])));
 #else
 			for (int i = 0; i < 4; i++)
@@ -530,7 +532,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		{
 #if PPSSPP_ARCH(SSE2)
 			_mm_store_ps(&mips->f[inst->dest], _mm_mul_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_load_ps(&mips->f[inst->src2])));
-#elif PPSSPP_ARCH(ARM_NEON)
+#elif PPSSPP_ARCH(ARM_NEON) && PPSSPP_ARCH(ARM64)
 			vst1q_f32(&mips->f[inst->dest], vmulq_f32(vld1q_f32(&mips->f[inst->src1]), vld1q_f32(&mips->f[inst->src2])));
 #else
 			for (int i = 0; i < 4; i++)
@@ -556,7 +558,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		{
 #if PPSSPP_ARCH(SSE2)
 			_mm_store_ps(&mips->f[inst->dest], _mm_mul_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_set1_ps(mips->f[inst->src2])));
-#elif PPSSPP_ARCH(ARM_NEON)
+#elif PPSSPP_ARCH(ARM_NEON) && PPSSPP_ARCH(ARM64)
 			vst1q_f32(&mips->f[inst->dest], vmulq_lane_f32(vld1q_f32(&mips->f[inst->src1]), vdup_n_f32(mips->f[inst->src2]), 0));
 #else
 			const float factor = mips->f[inst->src2];
