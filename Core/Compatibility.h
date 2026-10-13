@@ -60,6 +60,7 @@ struct CompatFlags {
 	bool RequireDefaultCPUClock;
 	bool MGS2AcidHack;
 	bool SonicRivalsHack;
+	bool TiledDepalHack;
 	bool BlockTransferAllowCreateFB;
 	bool IntraVRAMBlockTransferAllowCreateFB;
 	bool YugiohSaveFix;
