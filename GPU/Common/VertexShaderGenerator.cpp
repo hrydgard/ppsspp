@@ -69,7 +69,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	*vertexShaderFlags = (VertexShaderFlags)0;
 
 	bool highpFog = false;
-	bool highpTexcoord = false;
+	// Highp costs nothing here, and the fragment shader can then pick it up where it needs it (CLUT8 depal).
+	bool highpTexcoord = gstate_c.Use(GPU_USE_FULL_PRECISION_IN_FRAGMENT);
 
 	const bool isModeThrough = id.Bit(VS_BIT_IS_THROUGH);
 	const bool useHWTransform = id.Bit(VS_BIT_USE_HW_TRANSFORM);

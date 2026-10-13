@@ -135,6 +135,16 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	}
 
 	ShaderDepalMode shaderDepalMode = (ShaderDepalMode)id.Bits(FS_BIT_SHADER_DEPAL_MODE, 2);
+	if (shaderDepalMode == ShaderDepalMode::CLUT8 && gstate_c.Use(GPU_USE_FULL_PRECISION_IN_FRAGMENT)) {
+		// The byte coordinate is u * up to 2048: a mediump texcoord (fp16 on Adreno) picks the wrong byte for half
+		// of them past 512, striping SOCOM's night vision. Vulkan always uses highp here.
+		highpTexcoord = true;
+		if (compat.gles) {
+			// Picking the byte also needs more than the default lowp in the rest of the shader: on PowerVR,
+			// SOCOM's night vision came out far too bright.
+			WRITE(p, "precision highp float;\n");
+		}
+	}
 	GEBufferFormat shaderDepalFmt = (GEBufferFormat)(id.Bits(FS_BIT_SHADER_DEPAL_FORMAT, 3));
 	if (texture3D) {
 		shaderDepalMode = ShaderDepalMode::OFF;
