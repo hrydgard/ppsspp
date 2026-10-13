@@ -1974,38 +1974,16 @@ namespace MIPSInt
 		ReadVector(mips, t.f, sz, vt);
 		ApplySwizzleT(mips, t.f, sz);
 
-		// If both are zero, take t's sign.
-		// Otherwise: -NAN < -INF < real < INF < NAN (higher mantissa is farther from 0.)
-
+		// See vfpu_minmax_key for the order.
 		switch ((op >> 23) & 3) {
 		case 2: // vmin
 			for (int i = 0; i < numElements; i++) {
-				if (my_isnanorinf(s.f[i]) || my_isnanorinf(t.f[i])) {
-					// If both are negative, we flip the comparison (not two's compliment.)
-					if (s.i[i] < 0 && t.i[i] < 0) {
-						// If at least one side is NAN, we take the highest mantissa bits.
-						d.i[i] = std::max(t.i[i], s.i[i]);
-					} else {
-						// Otherwise, we take the lowest value (negative or lowest mantissa.)
-						d.i[i] = std::min(t.i[i], s.i[i]);
-					}
-				} else {
-					d.f[i] = std::min(t.f[i], s.f[i]);
-				}
+				d.u[i] = vfpu_minmax_key(s.u[i]) < vfpu_minmax_key(t.u[i]) ? s.u[i] : t.u[i];
 			}
 			break;
 		case 3: // vmax
 			for (int i = 0; i < numElements; i++) {
-				// This is the same logic as vmin, just reversed.
-				if (my_isnanorinf(s.f[i]) || my_isnanorinf(t.f[i])) {
-					if (s.i[i] < 0 && t.i[i] < 0) {
-						d.i[i] = std::min(t.i[i], s.i[i]);
-					} else {
-						d.i[i] = std::max(t.i[i], s.i[i]);
-					}
-				} else {
-					d.f[i] = std::max(t.f[i], s.f[i]);
-				}
+				d.u[i] = vfpu_minmax_key(s.u[i]) > vfpu_minmax_key(t.u[i]) ? s.u[i] : t.u[i];
 			}
 			break;
 		default:

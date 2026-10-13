@@ -79,70 +79,31 @@ void RiscVJitBackend::CompIR_FCondAssign(IRInst inst) {
 	CONDITIONAL_DISABLE;
 	if (inst.op != IROp::FMin && inst.op != IROp::FMax)
 		INVALIDOP;
-	bool maxCondition = inst.op == IROp::FMax;
 
-	// FMin and FMax are used by VFPU and handle NAN/INF as just a larger exponent.
+	// vmin/vmax: compare by vfpu_minmax_key, and select the operand with its bits.
+	RiscVReg keyS = regs_.GetAndLockTempGPR();
 	regs_.Map(inst);
-
-	// Allocate this before the branch below. Allocating can spill a register, and that store
-	// would then sit on the NAN-only path while the regcache believes it always ran.
-	RiscVReg isSrc1LowerReg = INVALID_REG;
-	if (!cpu_info.RiscV_Zbb)
-		isSrc1LowerReg = regs_.GetAndLockTempGPR();
-
-	FCLASS(32, SCRATCH1, regs_.F(inst.src1));
-	FCLASS(32, SCRATCH2, regs_.F(inst.src2));
-
-	// If either side is a NAN, it needs to participate in the comparison.
-	OR(SCRATCH1, SCRATCH1, SCRATCH2);
-	// NAN is either 0x100 or 0x200.
-	ANDI(SCRATCH1, SCRATCH1, 0x300);
-	FixupBranch useNormalCond = BEQ(SCRATCH1, R_ZERO);
-
-	// Time to use bits... classify won't help because it ignores -NAN.
-	FMV(FMv::X, FMv::W, SCRATCH1, regs_.F(inst.src1));
-	FMV(FMv::X, FMv::W, SCRATCH2, regs_.F(inst.src2));
-
-	// If both are negative, we flip the comparison (not two's compliment.)
-	// We cheat and use RA...
-	AND(R_RA, SCRATCH1, SCRATCH2);
-	SRLIW(R_RA, R_RA, 31);
-
-	if (cpu_info.RiscV_Zbb) {
-		FixupBranch swapCompare = BNE(R_RA, R_ZERO);
-		if (maxCondition)
-			MAX(SCRATCH1, SCRATCH1, SCRATCH2);
-		else
-			MIN(SCRATCH1, SCRATCH1, SCRATCH2);
-		FixupBranch skipSwapCompare = J();
-		SetJumpTarget(swapCompare);
-		if (maxCondition)
-			MIN(SCRATCH1, SCRATCH1, SCRATCH2);
-		else
-			MAX(SCRATCH1, SCRATCH1, SCRATCH2);
-		SetJumpTarget(skipSwapCompare);
-	} else {
-		SLT(isSrc1LowerReg, SCRATCH1, SCRATCH2);
-		// Flip the flag (to reverse the min/max) based on if both were negative.
-		XOR(isSrc1LowerReg, isSrc1LowerReg, R_RA);
-		FixupBranch useSrc1;
-		if (maxCondition)
-			useSrc1 = BEQ(isSrc1LowerReg, R_ZERO);
-		else
-			useSrc1 = BNE(isSrc1LowerReg, R_ZERO);
-		MV(SCRATCH1, SCRATCH2);
-		SetJumpTarget(useSrc1);
-	}
-
-	FMV(FMv::W, FMv::X, regs_.F(inst.dest), SCRATCH1);
-	FixupBranch finish = J();
-
-	SetJumpTarget(useNormalCond);
-	if (maxCondition)
-		FMAX(32, regs_.F(inst.dest), regs_.F(inst.src1), regs_.F(inst.src2));
-	else
-		FMIN(32, regs_.F(inst.dest), regs_.F(inst.src1), regs_.F(inst.src2));
-	SetJumpTarget(finish);
+	auto key = [&](RiscVReg k, IRReg src) {
+		FMV(FMv::X, FMv::W, SCRATCH1, regs_.F(src));
+		SRAIW(k, SCRATCH1, 31);
+		SRLIW(k, k, 1);
+		XOR(k, k, SCRATCH1);
+		// All ones unless the exponent is zero.
+		SRLIW(SCRATCH1, SCRATCH1, 23);
+		ANDI(SCRATCH1, SCRATCH1, 0xFF);
+		SNEZ(SCRATCH1, SCRATCH1);
+		NEG(SCRATCH1, SCRATCH1);
+		AND(k, k, SCRATCH1);
+	};
+	key(keyS, inst.src1);
+	key(SCRATCH2, inst.src2);
+	// A tie takes src2.
+	FixupBranch useSrc2 = inst.op == IROp::FMin ? BGE(keyS, SCRATCH2) : BGE(SCRATCH2, keyS);
+	FMV(32, regs_.F(inst.dest), regs_.F(inst.src1));
+	FixupBranch done = J();
+	SetJumpTarget(useSrc2);
+	FMV(32, regs_.F(inst.dest), regs_.F(inst.src2));
+	SetJumpTarget(done);
 }
 
 void RiscVJitBackend::CompIR_FAssign(IRInst inst) {

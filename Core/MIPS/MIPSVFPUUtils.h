@@ -57,6 +57,15 @@ extern double vfpu_sincos_packed(float);
 
 extern float vfpu_asin(float);
 
+// vmin and vmax order values by this key: zeros and denormals are all equal (0), and otherwise
+// -NaN < -inf < negative < positive < inf < NaN, larger mantissas farther from zero. A tie returns
+// the second operand, and the result keeps its bits (cpu/vfpu/minmax_zero, minmax_tie).
+inline int32_t vfpu_minmax_key(uint32_t x) {
+	if ((x & 0x7F800000) == 0)
+		return 0;
+	return (int32_t)(x ^ ((uint32_t)((int32_t)x >> 31) >> 1));
+}
+
 inline float vfpu_clamp(float v, float min, float max) {
 	// Note: NAN is preserved, and -0.0 becomes +0.0 if min=+0.0.
 	return v >= max ? max : (v <= min ? min : v);

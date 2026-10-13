@@ -1043,30 +1043,19 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		IR_CASE(FDiv)
 			mips->f[inst->dest] = mips->f[inst->src1] / mips->f[inst->src2];
 			IR_NEXT;
+		// These are vmin and vmax, see vfpu_minmax_key.
 		IR_CASE(FMin)
-			if (my_isnan(mips->f[inst->src1]) || my_isnan(mips->f[inst->src2])) {
-				// See interpreter for this logic: this is for vmin, we're comparing mantissa+exp.
-				if (mips->fs[inst->src1] < 0 && mips->fs[inst->src2] < 0) {
-					mips->fs[inst->dest] = std::max(mips->fs[inst->src1], mips->fs[inst->src2]);
-				} else {
-					mips->fs[inst->dest] = std::min(mips->fs[inst->src1], mips->fs[inst->src2]);
-				}
-			} else {
-				mips->f[inst->dest] = std::min(mips->f[inst->src1], mips->f[inst->src2]);
-			}
+		{
+			u32 a = mips->fi[inst->src1], b = mips->fi[inst->src2];
+			mips->fi[inst->dest] = vfpu_minmax_key(a) < vfpu_minmax_key(b) ? a : b;
 			IR_NEXT;
+		}
 		IR_CASE(FMax)
-			if (my_isnan(mips->f[inst->src1]) || my_isnan(mips->f[inst->src2])) {
-				// See interpreter for this logic: this is for vmax, we're comparing mantissa+exp.
-				if (mips->fs[inst->src1] < 0 && mips->fs[inst->src2] < 0) {
-					mips->fs[inst->dest] = std::min(mips->fs[inst->src1], mips->fs[inst->src2]);
-				} else {
-					mips->fs[inst->dest] = std::max(mips->fs[inst->src1], mips->fs[inst->src2]);
-				}
-			} else {
-				mips->f[inst->dest] = std::max(mips->f[inst->src1], mips->f[inst->src2]);
-			}
+		{
+			u32 a = mips->fi[inst->src1], b = mips->fi[inst->src2];
+			mips->fi[inst->dest] = vfpu_minmax_key(a) > vfpu_minmax_key(b) ? a : b;
 			IR_NEXT;
+		}
 
 		IR_CASE(FMov)
 			mips->f[inst->dest] = mips->f[inst->src1];

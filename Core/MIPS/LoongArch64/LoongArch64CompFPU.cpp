@@ -78,65 +78,33 @@ void LoongArch64JitBackend::CompIR_FArith(IRInst inst) {
 
 void LoongArch64JitBackend::CompIR_FCondAssign(IRInst inst) {
 	CONDITIONAL_DISABLE;
+	if (inst.op != IROp::FMin && inst.op != IROp::FMax)
+		INVALIDOP;
 
+	// vmin/vmax: compare by vfpu_minmax_key, and select the operand with its bits.
+	LoongArch64Reg keyS = regs_.GetAndLockTempGPR();
 	regs_.Map(inst);
-
-	// Allocate this before the branch below. Allocating can spill a register, and that store
-	// would then sit on the unordered-only path while the regcache believes it always ran.
-	LoongArch64Reg isSrc1LowerReg = regs_.GetAndLockTempGPR();
-
-	FCMP_COND_S(FCC0, regs_.F(inst.src1), regs_.F(inst.src2), LoongArch64Fcond::CUN);
-	MOVCF2GR(SCRATCH1, FCC0);
-	FixupBranch unordered = BNEZ(SCRATCH1);
-
-	switch (inst.op) {
-	case IROp::FMin:
-		FMIN_S(regs_.F(inst.dest), regs_.F(inst.src1), regs_.F(inst.src2));
-		break;
-
-	case IROp::FMax:
-		FMAX_S(regs_.F(inst.dest), regs_.F(inst.src1), regs_.F(inst.src2));
-		break;
-
-	default:
-		INVALIDOP;
-		break;
-	}
-
-	FixupBranch ordererDone = B();
-	SetJumpTarget(unordered);
-
-	MOVFR2GR_S(SCRATCH1, regs_.F(inst.src1));
-	MOVFR2GR_S(SCRATCH2, regs_.F(inst.src2));
-
-	// If both are negative, we flip the comparison (not two's compliment.)
-	// We cheat and use RA...
-	AND(R_RA, SCRATCH1, SCRATCH2);
-	SRLI_W(R_RA, R_RA, 31);
-
-	SLT(isSrc1LowerReg, SCRATCH1, SCRATCH2);
-	// Flip the flag (to reverse the min/max) based on if both were negative.
-	XOR(isSrc1LowerReg, isSrc1LowerReg, R_RA);
-	FixupBranch useSrc1;
-	switch (inst.op) {
-	case IROp::FMin:
-		useSrc1 = BNEZ(isSrc1LowerReg);
-		break;
-
-	case IROp::FMax:
-		useSrc1 = BEQZ(isSrc1LowerReg);
-		break;
-
-	default:
-		INVALIDOP;
-		break;
-	}
-	MOVE(SCRATCH1, SCRATCH2);
-	SetJumpTarget(useSrc1);
-
-	MOVGR2FR_W(regs_.F(inst.dest), SCRATCH1);
-
-	SetJumpTarget(ordererDone);
+	auto key = [&](LoongArch64Reg k, IRReg src) {
+		MOVFR2GR_S(SCRATCH1, regs_.F(src));
+		SRAI_W(k, SCRATCH1, 31);
+		SRLI_W(k, k, 1);
+		XOR(k, k, SCRATCH1);
+		// All ones unless the exponent is zero.
+		SRLI_W(SCRATCH1, SCRATCH1, 23);
+		ANDI(SCRATCH1, SCRATCH1, 0xFF);
+		SLTU(SCRATCH1, R_ZERO, SCRATCH1);
+		SUB_W(SCRATCH1, R_ZERO, SCRATCH1);
+		AND(k, k, SCRATCH1);
+	};
+	key(keyS, inst.src1);
+	key(SCRATCH2, inst.src2);
+	// A tie takes src2.
+	FixupBranch useSrc2 = inst.op == IROp::FMin ? BGE(keyS, SCRATCH2) : BGE(SCRATCH2, keyS);
+	FMOV_S(regs_.F(inst.dest), regs_.F(inst.src1));
+	FixupBranch done = B();
+	SetJumpTarget(useSrc2);
+	FMOV_S(regs_.F(inst.dest), regs_.F(inst.src2));
+	SetJumpTarget(done);
 }
 
 void LoongArch64JitBackend::CompIR_FAssign(IRInst inst) {

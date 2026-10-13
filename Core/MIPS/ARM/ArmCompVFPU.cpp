@@ -800,51 +800,31 @@ namespace MIPSComp
 			case 27: //VFPU3
 				switch ((op >> 23) & 7)	{
 				case 2:  // vmin
-				{
-					VCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
-					VMRS_APSR();
-					FixupBranch skipNAN = B_CC(CC_VC);
-					VMOV(SCRATCHREG1, fpr.V(sregs[i]));
-					VMOV(SCRATCHREG2, fpr.V(tregs[i]));
-					// If both are negative, we reverse the comparison.  We want the highest mantissa then.
-					// Also, between -NAN and -5.0, we want -NAN to be less.
-					TST(SCRATCHREG1, SCRATCHREG2);
-					FixupBranch cmpPositive = B_CC(CC_PL);
-					CMP(SCRATCHREG2, SCRATCHREG1);
-					FixupBranch skipPositive = B();
-					SetJumpTarget(cmpPositive);
-					CMP(SCRATCHREG1, SCRATCHREG2);
-					SetJumpTarget(skipPositive);
-					SetCC(CC_AL);
-					SetJumpTarget(skipNAN);
-					SetCC(CC_LT);
-					VMOV(fpr.V(tempregs[i]), fpr.V(sregs[i]));
-					SetCC(CC_GE);
-					VMOV(fpr.V(tempregs[i]), fpr.V(tregs[i]));
-					SetCC(CC_AL);
-					break;
-				}
 				case 3:  // vmax
 				{
-					VCMP(fpr.V(tregs[i]), fpr.V(sregs[i]));
-					VMRS_APSR();
-					FixupBranch skipNAN = B_CC(CC_VC);
-					VMOV(SCRATCHREG1, fpr.V(sregs[i]));
-					VMOV(SCRATCHREG2, fpr.V(tregs[i]));
-					// If both are negative, we reverse the comparison.  We want the lowest mantissa then.
-					// Also, between -NAN and -5.0, we want -5.0 to be greater.
-					TST(SCRATCHREG2, SCRATCHREG1);
-					FixupBranch cmpPositive = B_CC(CC_PL);
-					CMP(SCRATCHREG1, SCRATCHREG2);
-					FixupBranch skipPositive = B();
-					SetJumpTarget(cmpPositive);
-					CMP(SCRATCHREG2, SCRATCHREG1);
-					SetJumpTarget(skipPositive);
-					SetCC(CC_AL);
-					SetJumpTarget(skipNAN);
-					SetCC(CC_LT);
+					// Compare by vfpu_minmax_key, select the operand with its bits. A tie takes t.
+					auto key = [&](ARMReg r, MIPSReg v) {
+						VMOV(r, fpr.V(v));
+						// Negative: x ^ 0x7FFFFFFF.
+						CMP(r, AssumeMakeOperand2(0));
+						SetCC(CC_MI);
+						MVN(r, R(r));
+						EOR(r, r, AssumeMakeOperand2(0x80000000));
+						SetCC(CC_AL);
+						// A zero exponent leaves the key within +-0x800000, which makes it zero.
+						ADD(r, r, AssumeMakeOperand2(0x00800000));
+						CMP(r, AssumeMakeOperand2(0x01000000));
+						SUB(r, r, AssumeMakeOperand2(0x00800000));
+						SetCC(CC_LO);
+						MOV(r, AssumeMakeOperand2(0));
+						SetCC(CC_AL);
+					};
+					key(SCRATCHREG1, sregs[i]);
+					key(SCRATCHREG2, tregs[i]);
+					CMP(SCRATCHREG1, R(SCRATCHREG2));
+					SetCC(((op >> 23) & 7) == 2 ? CC_LT : CC_GT);
 					VMOV(fpr.V(tempregs[i]), fpr.V(sregs[i]));
-					SetCC(CC_GE);
+					SetCC(((op >> 23) & 7) == 2 ? CC_GE : CC_LE);
 					VMOV(fpr.V(tempregs[i]), fpr.V(tregs[i]));
 					SetCC(CC_AL);
 					break;
