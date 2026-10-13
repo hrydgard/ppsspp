@@ -50,7 +50,7 @@ namespace MIPSComp {
 using namespace Gen;
 using namespace X64JitConstants;
 
-alignas(16) const u32 reverseQNAN[4] = { 0x803FFFFF, 0x803FFFFF, 0x803FFFFF, 0x803FFFFF };
+alignas(16) const u32 positiveQNAN[4] = { 0x7FC00000, 0x7FC00000, 0x7FC00000, 0x7FC00000 };
 
 void Jit::CopyFPReg(X64Reg dst, OpArg src) {
 	if (src.IsSimpleReg()) {
@@ -65,6 +65,16 @@ void Jit::CompFPTriArith(MIPSOpcode op, void (XEmitter::*arith)(X64Reg reg, OpAr
 	int fs = _FS;
 	int fd = _FD;
 	fpr.SpillLock(fd, fs, ft);
+
+	// x86 makes a negative NaN from operands that aren't NaN, the PSP a positive one
+	// (cpu/fpu/fpu_nan). A NaN operand comes through as x86 passes it. If fd is an operand,
+	// compare them now, otherwise only once the result is a NaN.
+	bool aliased = fd == fs || fd == ft;
+	if (aliased) {
+		MOVSS(XMM1, fpr.R(fs));
+		UCOMISS(XMM1, fpr.R(ft));
+		SETcc(CC_P, R(TEMPREG));
+	}
 
 	if (fs == fd) {
 		fpr.MapReg(fd, true, true);
@@ -84,6 +94,26 @@ void Jit::CompFPTriArith(MIPSOpcode op, void (XEmitter::*arith)(X64Reg reg, OpAr
 		(this->*arith)(XMM0, fpr.R(ft));
 		MOVAPS(fpr.RX(fd), R(XMM0));
 	}
+
+	UCOMISS(fpr.RX(fd), fpr.R(fd));
+	FixupBranch notNaN = J_CC(CC_NP);
+	FixupBranch keepNaN;
+	if (aliased) {
+		TEST(8, R(TEMPREG), R(TEMPREG));
+		keepNaN = J_CC(CC_NZ);
+	} else {
+		MOVSS(XMM1, fpr.R(fs));
+		UCOMISS(XMM1, fpr.R(ft));
+		keepNaN = J_CC(CC_P);
+	}
+	if (RipAccessible(&positiveQNAN)) {
+		MOVSS(fpr.RX(fd), M(&positiveQNAN));  // rip accessible
+	} else {
+		MOV(PTRBITS, R(TEMPREG), ImmPtr(&positiveQNAN));
+		MOVSS(fpr.RX(fd), MatR(TEMPREG));
+	}
+	SetJumpTarget(keepNaN);
+	SetJumpTarget(notNaN);
 	fpr.ReleaseSpillLocks();
 }
 
@@ -92,28 +122,7 @@ void Jit::Comp_FPU3op(MIPSOpcode op) {
 	switch (op & 0x3f) {
 	case 0: CompFPTriArith(op, &XEmitter::ADDSS, false); break; //F(fd) = F(fs) + F(ft); //add
 	case 1: CompFPTriArith(op, &XEmitter::SUBSS, true); break;  //F(fd) = F(fs) - F(ft); //sub
-	case 2: //F(fd) = F(fs) * F(ft); //mul
-		// XMM1 = !my_isnan(fs) && !my_isnan(ft)
-		MOVSS(XMM1, fpr.R(_FS));
-		CMPORDSS(XMM1, fpr.R(_FT));
-		CompFPTriArith(op, &XEmitter::MULSS, false);
-
-		// fd must still be in a reg, save it in XMM0 for now.
-		MOVAPS(XMM0, fpr.R(_FD));
-		// fd = my_isnan(fd) && !my_isnan(fs) && !my_isnan(ft)
-		CMPUNORDSS(fpr.RX(_FD), fpr.R(_FD));
-		ANDPS(fpr.RX(_FD), R(XMM1));
-		// At this point fd = FFFFFFFF if non-NAN inputs produced a NAN output.
-		// We'll AND it with the inverse QNAN bits to clear (00000000 means no change.)
-		if (RipAccessible(&reverseQNAN)) {
-			ANDPS(fpr.RX(_FD), M(&reverseQNAN));  // rip accessible
-		} else {
-			MOV(PTRBITS, R(TEMPREG), ImmPtr(&reverseQNAN));
-			ANDPS(fpr.RX(_FD), MatR(TEMPREG));
-		}
-		// ANDN is backwards, which is why we saved XMM0 to start.  Now put it back.
-		ANDNPS(fpr.RX(_FD), R(XMM0));
-		break;
+	case 2: CompFPTriArith(op, &XEmitter::MULSS, false); break; //F(fd) = F(fs) * F(ft); //mul
 	case 3: CompFPTriArith(op, &XEmitter::DIVSS, true); break;  //F(fd) = F(fs) / F(ft); //div
 	default:
 		_dbg_assert_msg_(false,"Trying to compile FPU3Op instruction that can't be interpreted");
