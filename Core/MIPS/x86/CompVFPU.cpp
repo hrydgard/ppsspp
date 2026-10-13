@@ -995,7 +995,8 @@ void Jit::Comp_Vcmov(MIPSOpcode op) {
 		}
 	}
 
-	if (imm3 < 6) {
+	// 7 tests a CC bit that is always clear (cpu/vfpu/undefined).
+	if (imm3 != 6) {
 		gpr.MapReg(MIPS_REG_VFPUCC, true, false);
 		fpr.MapRegsV(dregs, sz, MAP_DIRTY);
 		// Test one bit of CC. This bit decides whether none or all subregisters are copied.

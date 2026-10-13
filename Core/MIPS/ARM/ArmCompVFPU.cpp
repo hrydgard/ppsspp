@@ -1999,7 +1999,8 @@ namespace MIPSComp
 			}
 		}
 
-		if (imm3 < 6) {
+		// 7 tests a CC bit that is always clear (cpu/vfpu/undefined).
+		if (imm3 != 6) {
 			// Test one bit of CC. This bit decides whether none or all subregisters are copied.
 			fpr.MapRegsAndSpillLockV(dregs, sz, MAP_DIRTY);
 			fpr.MapRegsAndSpillLockV(sregs, sz, 0);

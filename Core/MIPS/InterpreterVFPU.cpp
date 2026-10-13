@@ -2097,18 +2097,17 @@ namespace MIPSInt
 
 		int CC = mips->vfpuCtrl[VFPU_CTRL_CC];
 
-		if (imm3 < 6) {
-			if (((CC >> imm3) & 1) == !tf) {
-				for (int i = 0; i < n; i++)
-					d[i] = s[i];
-			}
-		} else if (imm3 == 6) {
+		if (imm3 == 6) {
 			for (int i = 0; i < n; i++) {
 				if (((CC >> i) & 1) == !tf)
 					d[i] = s[i];
 			}
 		} else {
-			ERROR_LOG_REPORT(Log::CPU, "Bad Imm3 in cmov: %d", imm3);
+			// 7 tests a CC bit that is always clear (cpu/vfpu/undefined).
+			if (((CC >> imm3) & 1) == !tf) {
+				for (int i = 0; i < n; i++)
+					d[i] = s[i];
+			}
 		}
 		ApplyPrefixD(mips, d, sz);
 		WriteVector(mips, d, sz, vd);
