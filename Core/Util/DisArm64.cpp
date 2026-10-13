@@ -1372,7 +1372,12 @@ static void FPandASIMD1(uint32_t w, uint64_t addr, Instruction *instr) {
 			} else if (((w >> 10) & 3) == 2 && ((w >> 17) & 0xF) == 0) {
 				SIMDTwoRegMisc(w, instr);
 			} else if (((w >> 10) & 3) == 2 && ((w >> 17) & 0xF) == 8) {
-				Out(instr, "(asimd across lanes %08x)", w);
+				// Only fmaxv/fminv, single precision.
+				if ((w & 0xBF7FFC00) == 0x2E30F800) {
+					Out(instr, "%s s%d, %c%d.%s", (w & (1 << 23)) ? "fminv" : "fmaxv", Rd, r, Rn, GetQ(w) ? "4s" : "2s");
+				} else {
+					Out(instr, "(asimd across lanes %08x)", w);
+				}
 			} else {
 				Out(instr, "(asimd three-different %08x)", w);
 			}

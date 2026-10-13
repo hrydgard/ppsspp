@@ -3000,6 +3000,10 @@ void ARM64FloatEmitter::FMAXP(ARM64Reg Rd, ARM64Reg Rn) {
 void ARM64FloatEmitter::FMINP(ARM64Reg Rd, ARM64Reg Rn) {
 	EmitScalarPairwise(1, IsDouble(Rd) ? 3 : 2, 0b01111, Rd, Rn);
 }
+void ARM64FloatEmitter::FMAXV(ARM64Reg Rd, ARM64Reg Rn) {
+	_assert_msg_(IsSingle(Rd) && IsQuad(Rn), "FMAXV: only Sd, Vn.4S is supported");
+	Write32(0x6E30F800 | (DecodeReg(Rn) << 5) | DecodeReg(Rd));
+}
 void ARM64FloatEmitter::FMAXNMP(ARM64Reg Rd, ARM64Reg Rn) {
 	EmitScalarPairwise(1, IsDouble(Rd), 0b01100, Rd, Rn);
 }
