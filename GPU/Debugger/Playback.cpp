@@ -1222,6 +1222,70 @@ static bool ReadCompressed(u32 fp, void *dest, size_t sz, uint32_t version) {
 	return real_size == sz;
 }
 
+static bool ValidateReplayCommands(const std::vector<Command> &commands, const std::vector<u8> &pushbuf) {
+	for (size_t i = 0; i < commands.size(); ++i) {
+		const Command &cmd = commands[i];
+		u32 minSize;
+		bool wordData = false;
+		switch (cmd.type) {
+		case CommandType::INIT:
+			minSize = 512 * sizeof(u32);
+			break;
+		case CommandType::REGISTERS:
+			minSize = sizeof(u32);
+			wordData = true;
+			break;
+		case CommandType::CLUTADDR:
+			minSize = 2 * sizeof(u32);
+			break;
+		case CommandType::MEMSET:
+		case CommandType::DISPLAY:
+			minSize = 3 * sizeof(u32);
+			break;
+		case CommandType::MEMCPYDEST:
+		case CommandType::EDRAMTRANS:
+			minSize = sizeof(u32);
+			break;
+		case CommandType::FRAMEBUF0:
+		case CommandType::FRAMEBUF1:
+		case CommandType::FRAMEBUF2:
+		case CommandType::FRAMEBUF3:
+		case CommandType::FRAMEBUF4:
+		case CommandType::FRAMEBUF5:
+		case CommandType::FRAMEBUF6:
+		case CommandType::FRAMEBUF7:
+			minSize = 4 * sizeof(u32);
+			break;
+		case CommandType::VERTICES:
+		case CommandType::INDICES:
+		case CommandType::CLUT:
+		case CommandType::TRANSFERSRC:
+		case CommandType::MEMCPYDATA:
+		case CommandType::TEXTURE0:
+		case CommandType::TEXTURE1:
+		case CommandType::TEXTURE2:
+		case CommandType::TEXTURE3:
+		case CommandType::TEXTURE4:
+		case CommandType::TEXTURE5:
+		case CommandType::TEXTURE6:
+		case CommandType::TEXTURE7:
+			minSize = 1;
+			break;
+		default:
+			ERROR_LOG(Log::GeDebugger, "Unsupported GE dump command: %d", (int)cmd.type);
+			return false;
+		}
+
+		if (cmd.ptr > pushbuf.size() || cmd.sz > pushbuf.size() - cmd.ptr ||
+			cmd.sz < minSize || (wordData && (cmd.sz & 3) != 0)) {
+			ERROR_LOG(Log::GeDebugger, "Invalid GE dump command %d: type %d, offset %u, size %u",
+				(int)i, (int)cmd.type, cmd.ptr, cmd.sz);
+			return false;
+		}
+	}
+	return true;
+}
+
 static u32 LoadReplay(const std::string &filename) {
 	PROFILE_THIS_SCOPE("ReplayLoad");
 
@@ -1277,6 +1341,10 @@ static u32 LoadReplay(const std::string &filename) {
 
 	if (truncated) {
 		ERROR_LOG(Log::GeDebugger, "Truncated GE dump detected - can't replay");
+		return 0;
+	}
+	if (!ValidateReplayCommands(lastExecCommands, lastExecPushbuf)) {
+		ERROR_LOG(Log::GeDebugger, "Invalid GE dump commands detected - can't replay");
 		return 0;
 	}
 
