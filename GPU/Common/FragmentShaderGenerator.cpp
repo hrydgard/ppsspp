@@ -411,7 +411,8 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 
 		if (fsMinmaxDiscard) {
 			*uniformMask |= DIRTY_RASTER_OFFSET;  // they're updated together
-			WRITE(p, "uniform vec2 u_minZmaxZ;\n");
+			// The same precision as in the vertex shader, or PowerVR fails to link the program.
+			WRITE(p, "uniform highp vec2 u_minZmaxZ;\n");
 		}
 
 		// Varyings
