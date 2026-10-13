@@ -658,6 +658,10 @@ static void RunFuzzCase(const std::vector<u32> &code, const FuzzState &init, Fuz
 	mips->hi = init.hi;
 	mips->lo = init.lo;
 	mips->fcr31 = init.fcr31;
+	// As a thread switch does, or a JIT keeps converting in the previous case's rounding mode.
+	if (MIPSComp::jit) {
+		MIPSComp::jit->UpdateFCR31();
+	}
 	mips->fpcond = init.fpcond;
 	mips->llBit = 0;
 	mips->inDelaySlot = false;
