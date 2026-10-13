@@ -159,18 +159,18 @@ std::vector<std::string> DisassembleArm2(const u8 *data, int size) {
 		}
 		ArmDis((u32)(intptr_t)codePtr, inst, temp, sizeof(temp), false);
 		std::string buf = temp;
-		if (buf == "BKPT 1") {
+		if (buf == "BKPT #1") {
 			bkpt_count++;
 		} else {
 			if (bkpt_count) {
-				lines.push_back(StringFromFormat("BKPT 1 (x%d)", bkpt_count));
+				lines.push_back(StringFromFormat("BKPT #1 (x%d)", bkpt_count));
 				bkpt_count = 0;
 			}
 			lines.push_back(buf);
 		}
 	}
 	if (bkpt_count) {
-		lines.push_back(StringFromFormat("BKPT 1 (x%d)", bkpt_count));
+		lines.push_back(StringFromFormat("BKPT #1 (x%d)", bkpt_count));
 	}
 	return lines;
 }

@@ -3087,6 +3087,7 @@ struct TestItem {
 #define TEST_ITEM(name) { #name, &Test ##name, }
 
 bool TestArmEmitter();
+bool TestArmDisasm();
 bool TestArm64Emitter();
 bool TestArm64Disasm();
 bool TestCrossSIMD();
@@ -3417,6 +3418,7 @@ TestItem availableTests[] = {
 #endif
 #if PPSSPP_ARCH(ARM) || PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
 	TEST_ITEM(ArmEmitter),
+	TEST_ITEM(ArmDisasm),
 #endif
 #if PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(X86)
 	TEST_ITEM(X64Emitter),

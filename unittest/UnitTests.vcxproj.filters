@@ -4,6 +4,7 @@
     <ClCompile Include="UnitTest.cpp" />
     <ClCompile Include="JitHarness.cpp" />
     <ClCompile Include="TestArmEmitter.cpp" />
+    <ClCompile Include="TestArmDisasm.cpp" />
     <ClCompile Include="TestX64Emitter.cpp" />
     <ClCompile Include="TestArm64Emitter.cpp" />
     <ClCompile Include="TestArm64Disasm.cpp" />

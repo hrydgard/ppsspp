@@ -1380,6 +1380,7 @@ if(UNITTEST)
 		unittest/TestArmEmitter.cpp
 		unittest/TestArm64Emitter.cpp
 		unittest/TestArm64Disasm.cpp
+		unittest/TestArmDisasm.cpp
 		unittest/TestCrossSIMD.cpp
 		unittest/TestIRPassSimplify.cpp
 		unittest/TestX64Emitter.cpp
