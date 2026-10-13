@@ -1505,7 +1505,8 @@ if(TargetBin)
 		endif()
 
 		if(TVOS)
-			add_executable(${TargetBin} MACOSX_BUNDLE ${NativeAssets} ${BigFontAssets} ${UIImages} ${SHADER_FILES} ${THEME_FILE} ${DEBUGGER_FILES} ${WEB_UPLOAD_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource})
+			set(AssetCatalog "${CMAKE_SOURCE_DIR}/ios/tvOS-assets.xcassets")
+			add_executable(${TargetBin} MACOSX_BUNDLE ${NativeAssets} ${BigFontAssets} ${UIImages} ${AssetCatalog} ${SHADER_FILES} ${THEME_FILE} ${DEBUGGER_FILES} ${WEB_UPLOAD_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource})
 		elseif(IOS)
 			set(AssetCatalog "${CMAKE_SOURCE_DIR}/ios/assets.xcassets")
 			add_executable(${TargetBin} MACOSX_BUNDLE ${NativeAssets} ${BigFontAssets} ${UIImages} ${AssetCatalog} ${SHADER_FILES} ${THEME_FILE} ${DEBUGGER_FILES} ${WEB_UPLOAD_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource} "ios/Launch Screen.storyboard")
@@ -1658,11 +1659,11 @@ if(IOS AND NOT LIBRETRO)
 		XCODE_ATTRIBUTE_INSTALL_PATH "$(LOCAL_APPS_DIR)"
 	)
 	if(TVOS)
-		# The launch storyboard and the asset catalog's icons are iPhone/iPad only. tvOS needs a
-		# layered App Icon & Top Shelf brand asset, which we don't have yet.
+		# The launch storyboard and the iOS asset catalog are iPhone/iPad only. tvOS has a layered
+		# icon and Top Shelf images of its own, made by ios/generate_tvos_icons.py.
 		set_target_properties(${TargetBin} PROPERTIES
-			RESOURCE ""
-			XCODE_ATTRIBUTE_ASSETCATALOG_COMPILER_APPICON_NAME ""
+			RESOURCE "ios/tvOS-assets.xcassets"
+			XCODE_ATTRIBUTE_ASSETCATALOG_COMPILER_APPICON_NAME "AppIcon"
 			XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET ""
 			XCODE_ATTRIBUTE_TVOS_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET}
 			XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "3"

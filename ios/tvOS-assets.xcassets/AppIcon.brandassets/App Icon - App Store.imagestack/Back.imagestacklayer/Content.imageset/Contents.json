@@ -1,0 +1,13 @@
+{
+  "images": [
+    {
+      "filename": "back.png",
+      "idiom": "tv",
+      "scale": "1x"
+    }
+  ],
+  "info": {
+    "author": "xcode",
+    "version": 1
+  }
+}
