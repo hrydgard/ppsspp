@@ -1631,14 +1631,15 @@ static void retro_input(void) {
             ret |= (1 << i);
    }
 
+   u32 buttons = 0;
+   u32 controlledButtons = 0;
    for (i = 0; i < sizeof(map) / sizeof(*map); i++) {
-      bool pressed = ret & (1 << map[i].retro);
-      if (pressed) {
-         __CtrlUpdateButtons(map[i].sceCtrl, 0);
-      } else {
-         __CtrlUpdateButtons(0, map[i].sceCtrl);
-      }
+      controlledButtons |= map[i].sceCtrl;
+      if (ret & (1 << map[i].retro))
+         buttons |= map[i].sceCtrl;
    }
+   // One update, so the emu thread can't sample a half-updated set of buttons.
+   __CtrlUpdateButtons(buttons, controlledButtons & ~buttons);
 
    float x_left = input_state_cb(0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_X) / 32767.0f;
    float y_left = input_state_cb(0, RETRO_DEVICE_ANALOG, RETRO_DEVICE_INDEX_ANALOG_LEFT, RETRO_DEVICE_ID_ANALOG_Y) / -32767.0f;
