@@ -100,6 +100,18 @@ namespace MIPSComp {
 		return true;
 	}
 
+	// The same for the matrix's transpose: regs[i] starts a Vec4 holding regs[i], regs[i + 4], ...
+	// Not all matrices that fail IsMatrixVec4 pass this, an offset (like E723) breaks both.
+	static bool IsMatrixTransposedVec4(MatrixSize sz, const u8 regs[16]) {
+		u8 transposed[16];
+		for (int i = 0; i < 4; i++) {
+			for (int j = 0; j < 4; j++) {
+				transposed[i * 4 + j] = regs[j * 4 + i];
+			}
+		}
+		return IsMatrixVec4(sz, transposed);
+	}
+
 	// Vector regs can overlap in all sorts of swizzled ways.
 	// This does allow a single overlap in sregs[i].
 	static bool IsOverlapSafeAllowS(int dreg, int di, int sn, const u8 sregs[], int tn = 0, const u8 tregs[] = NULL) {
@@ -387,10 +399,10 @@ namespace MIPSComp {
 	}
 
 	void IRFrontend::ApplyPrefixDMask(u8 *vregs, VectorSize sz, int vectorReg) {
-		if (IsVec4(sz, vregs) && js.VfpuWriteMask() != 0 && opts.preferVec4) {
-			u8 origV[4];
-			GetVectorRegs(origV, sz, vectorReg);
-
+		u8 origV[4];
+		GetVectorRegs(origV, sz, vectorReg);
+		// vregs can be all temps (so a Vec4) without the destination being one, if every lane is masked.
+		if (IsVec4(sz, vregs) && IsVec4(sz, origV) && js.VfpuWriteMask() != 0 && opts.preferVec4) {
 			// Just keep the original values where it was masked.
 			ir.Write(IROp::Vec4Blend, origV[0], vregs[0], origV[0], js.VfpuWriteMask());
 
@@ -601,16 +613,16 @@ namespace MIPSComp {
 		// d[N,M] = CONST[N,M]
 
 		int vd = _VD;
-		if (IsMatrixTransposed(vd)) {
+		// (A 1x1 matrix has no transposed form, the bit then picks a different register.)
+		if (sz != M_1x1 && IsMatrixTransposed(vd)) {
 			// All outputs are transpositionally symmetric, so should be fine.
 			vd = TransposeMatrixReg(vd);
 		}
 
-		if (sz != M_4x4) {
+		u8 dregs[16];
+		GetMatrixRegs(dregs, sz, vd);
+		if (!IsMatrixVec4(sz, dregs)) {
 			// 3x3 is decently common.  It expands a lot, but let's set each.
-			u8 dregs[16];
-			GetMatrixRegs(dregs, sz, vd);
-
 			// TODO: It might be worth using Vec4Blend for 3x3 to mask w.
 			int n = GetMatrixSide(sz);
 			for (int y = 0; y < n; ++y) {
@@ -1433,7 +1445,9 @@ namespace MIPSComp {
 		default:
 			break;
 		}
-		if (IsMatrixTransposed(vd) == IsMatrixTransposed(vs) && sz == M_4x4) {
+		const bool bothVec4 = IsMatrixVec4(sz, sregs) && IsMatrixVec4(sz, dregs);
+		const bool bothTransposedVec4 = IsMatrixTransposedVec4(sz, sregs) && IsMatrixTransposedVec4(sz, dregs);
+		if (bothVec4 || bothTransposedVec4) {
 			// Untranspose both matrices
 			if (IsMatrixTransposed(vd)) {
 				vd = TransposeMatrixReg(vd);
@@ -1477,7 +1491,8 @@ namespace MIPSComp {
 		int n = GetMatrixSide(sz);
 
 		// The entire matrix is scaled equally, so transpose doesn't matter.  Let's normalize.
-		if (IsMatrixTransposed(vs) && IsMatrixTransposed(vd)) {
+		// (A 1x1 matrix has no transposed form, the bit then picks a different register.)
+		if (n > 1 && IsMatrixTransposed(vs) && IsMatrixTransposed(vd)) {
 			vs = TransposeMatrixReg(vs);
 			vd = TransposeMatrixReg(vd);
 		}
@@ -1487,7 +1502,7 @@ namespace MIPSComp {
 		GetMatrixRegs(dregs, sz, vd);
 		GetVectorRegs(tregs, V_Single, vt);
 
-		if (sz == M_4x4 && GetMtx(vt) != GetMtx(vd) && !IsMatrixTransposed(vs) && !IsMatrixTransposed(vd)) {
+		if (GetMtx(vt) != GetMtx(vd) && IsMatrixVec4(sz, sregs) && IsMatrixVec4(sz, dregs)) {
 			for (int i = 0; i < n; ++i) {
 				ir.Write(IROp::Vec4Scale, dregs[i * 4], sregs[i * 4], tregs[0]);
 			}
@@ -1614,7 +1629,8 @@ namespace MIPSComp {
 		MatrixOverlapType toverlap = GetMatrixOverlap(vt, vd, sz);
 
 		// A very common arrangment. Rearrange to something we can handle.
-		if (IsMatrixTransposed(vd)) {
+		// A 1x1 matrix has no transposed form, the bit then picks a different register.
+		if (n > 1 && IsMatrixTransposed(vd)) {
 			// Matrix identity says (At * Bt) = (B * A)t
 			// D = S * T
 			// Dt = (S * T)t = (Tt * St)
@@ -1638,7 +1654,7 @@ namespace MIPSComp {
 			// expand them like this as needed on "real" architectures.
 			int s0 = IRVTEMP_0;
 			int s1 = IRVTEMP_PFX_T;
-			if (!IsMatrixVec4(sz, sregs)) {
+			if (IsMatrixTransposedVec4(sz, sregs)) {
 				// METHOD 1: Handles AbC and Abc
 				for (int j = 0; j < 4; j++) {
 					ir.Write(IROp::Vec4Scale, s0, sregs[0], tregs[j * 4]);
@@ -1649,7 +1665,7 @@ namespace MIPSComp {
 					ir.Write(IROp::Vec4Mov, dregs[j * 4], s0);
 				}
 				return;
-			} else if (IsMatrixVec4(sz, tregs)) {
+			} else if (IsMatrixVec4(sz, sregs) && IsMatrixVec4(sz, tregs)) {
 				// METHOD 2: Handles ABC only. Not efficient on CPUs that don't do fast dots.
 				// Dots only work if tregs are consecutive.
 				// TODO: Skip this and resort to method one and transpose the output?
@@ -1672,7 +1688,7 @@ namespace MIPSComp {
 		int temp1 = IRVTEMP_0 + 1;
 		for (int a = 0; a < n; a++) {
 			for (int b = 0; b < n; b++) {
-				ir.Write(IROp::FMul, temp0, sregs[b * 4], tregs[a * 4]);
+				ir.Write(IROp::FMul, n == 1 ? dregs[0] : temp0, sregs[b * 4], tregs[a * 4]);
 				for (int c = 1; c < n; c++) {
 					ir.Write(IROp::FMul, temp1, sregs[b * 4 + c], tregs[a * 4 + c]);
 					ir.Write(IROp::FAdd, (c == n - 1) ? dregs[a * 4 + b] : temp0, temp0, temp1);
@@ -1715,7 +1731,7 @@ namespace MIPSComp {
 		GetVectorRegs(dregs, sz, _VD);
 
 		// SIMD-optimized implementations - if sregs[0..3] is non-consecutive, it's transposed.
-		if (msz == M_4x4 && !IsMatrixVec4(msz, sregs)) {
+		if (msz == M_4x4 && IsMatrixTransposedVec4(msz, sregs)) {
 			int s0 = IRVTEMP_0;
 			int s1 = IRVTEMP_PFX_S;
 			// For this algorithm, we don't care if tregs are consecutive or not,
