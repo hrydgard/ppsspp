@@ -132,6 +132,9 @@ void X64IRRegCache::FlushBeforeCall() {
 	for (int i = 0; i < 6; ++i)
 		FlushNativeReg(NUM_X_REGS + i);
 #else
+	// RSI and RDI are also volatile, but never allocated.
+	FlushNativeReg(GPRToNativeReg(RCX));
+	FlushNativeReg(GPRToNativeReg(RDX));
 	FlushNativeReg(GPRToNativeReg(R8));
 	FlushNativeReg(GPRToNativeReg(R9));
 	FlushNativeReg(GPRToNativeReg(R10));
