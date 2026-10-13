@@ -1,5 +1,6 @@
 #include <unordered_map>
 
+#include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/GPU/DataFormat.h"
 #include "Common/GPU/Vulkan/VulkanQueueRunner.h"
 #include "Common/GPU/Vulkan/VulkanRenderManager.h"

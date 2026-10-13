@@ -12,6 +12,7 @@
 #include "Common/Log.h"
 #include "Common/Math/math_util.h"
 #include "Common/Swap.h"
+#include "Core/Config.h"
 #include "Core/HW/Display.h"
 #include "Core/Core.h"
 #include "Core/System.h"

@@ -12,7 +12,6 @@
 #include "Common/System/System.h"
 #include "Core/Util/RecentFiles.h"
 #include "Core/SaveState.h"
-#include "Core/Config.h"
 
 @implementation PSPNSApplicationDelegate
 + (instancetype)sharedAppDelegate {

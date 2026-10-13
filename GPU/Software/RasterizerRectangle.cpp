@@ -7,7 +7,6 @@
 #include "Common/Data/Convert/ColorConv.h"
 #include "Common/Profiler/Profiler.h"
 
-#include "Core/Config.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/System.h"
 #include "GPU/GPUState.h"

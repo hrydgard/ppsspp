@@ -22,7 +22,6 @@
 #include "Common/LogReporting.h"
 #include "Common/Math/CrossSIMD.h"
 #include "Common/Math/SIMDHeaders.h"
-#include "Core/Config.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Software/BinManager.h"
 #include "GPU/Software/Rasterizer.h"

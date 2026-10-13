@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Common/Math/CrossSIMD.h"
+#include "Common/Data/Convert/SmallDataConvert.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 
 // Reads decoded vertex formats in a convenient way. For software transform and debugging.

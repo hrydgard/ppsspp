@@ -32,7 +32,6 @@
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/CoreTiming.h"
 #include "Core/Reporting.h"
-#include "Core/Config.h"
 
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSTables.h"

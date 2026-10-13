@@ -11,7 +11,6 @@
 #include "Core/HLE/AtracCtx2.h"
 #include "Core/Util/AtracTrack.h"
 #include "Core/HW/Atrac3Standalone.h"
-#include "Core/Config.h"
 #include "Core/MemMap.h"
 #include "Common/File/FileUtil.h"
 
