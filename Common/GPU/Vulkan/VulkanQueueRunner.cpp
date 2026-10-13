@@ -291,6 +291,9 @@ void VulkanQueueRunner::PreprocessSteps(std::vector<VKRStep *> &steps) {
 		if (hacksEnabled_ & QUEUE_HACK_SONIC) {
 			ApplySonicHack(steps);
 		}
+		if (hacksEnabled_ & QUEUE_HACK_TILED_DEPAL) {
+			ApplyTiledDepalHack(steps);
+		}
 		if (hacksEnabled_ & QUEUE_HACK_RENDERPASS_MERGE) {
 			ApplyRenderPassMerge(steps);
 		}
@@ -715,6 +718,139 @@ void VulkanQueueRunner::ApplySonicHack(std::vector<VKRStep *> &steps) {
 			// We're done.
 			break;
 		}
+	}
+}
+
+static bool RectsOverlap(const VkRect2D &a, const VkRect2D &b) {
+	return a.offset.x < b.offset.x + (int)b.extent.width && b.offset.x < a.offset.x + (int)a.extent.width &&
+		a.offset.y < b.offset.y + (int)b.extent.height && b.offset.y < a.offset.y + (int)a.extent.height;
+}
+
+// Jackass: The Game color grades its framebuffer in place, a 32x64 tile at a time, one channel per pass:
+// each draw textures from the framebuffer it renders to, through a CLUT. That becomes a depal pass
+// into a temp framebuffer followed by a pass drawing it back, so 75 tiles make 450 render passes.
+//
+// Each pair reads and writes only its own tile, so pairs on different tiles can run in any order.
+// We sort the pairs into waves where no two tiles overlap (here, one per channel), and run each
+// wave as one depal pass and one draw pass. The tile comes from the depal pass's scissor. We can't
+// see where the second pass draws, so this assumes it's the same tile, which is why it's a compat hack.
+void VulkanQueueRunner::ApplyTiledDepalHack(std::vector<VKRStep *> &steps) {
+	auto isSingleDraw = [](const VKRStep *step, VKRRenderPassLoadAction colorLoad) {
+		return step->stepType == VKRStepType::RENDER && step->render.numDraws == 1 && step->render.colorLoad == colorLoad;
+	};
+	auto getScissor = [](const VKRStep *step, VkRect2D *rect) {
+		for (int k = 0; k < (int)step->commands.size(); k++) {
+			if (step->commands[k].cmd == VKRRenderCommand::SCISSOR) {
+				*rect = step->commands[k].scissor.scissor;
+				return true;
+			}
+		}
+		return false;
+	};
+	auto readsFramebuffer = [](const VKRStep *step, const VKRFramebuffer *fb) {
+		for (size_t k = 0; k < step->preTransitions.size(); k++) {
+			if (step->preTransitions[k].fb == fb) {
+				return true;
+			}
+		}
+		return false;
+	};
+	auto mergeInto = [](VKRStep *dest, VKRStep *src) {
+		for (int k = 0; k < (int)src->commands.size(); k++) {
+			dest->commands.push_back(src->commands[k]);
+		}
+		MergeRenderAreaRectInto(&dest->render.renderArea, src->render.renderArea);
+		dest->render.renderPassType = MergeRPTypes(dest->render.renderPassType, src->render.renderPassType);
+		dest->render.numDraws += src->render.numDraws;
+		dest->render.numReads += src->render.numReads;
+		src->stepType = VKRStepType::RENDER_SKIP;
+		src->commands.clear();
+	};
+
+	for (int i = 0; i + 3 < (int)steps.size(); i++) {
+		if (!isSingleDraw(steps[i], VKRRenderPassLoadAction::DONT_CARE) || !isSingleDraw(steps[i + 1], VKRRenderPassLoadAction::KEEP)) {
+			continue;
+		}
+		VKRFramebuffer *depalFramebuffer = steps[i]->render.framebuffer;
+		VKRFramebuffer *targetFramebuffer = steps[i + 1]->render.framebuffer;
+		if (!depalFramebuffer || !targetFramebuffer || depalFramebuffer == targetFramebuffer || !readsFramebuffer(steps[i], targetFramebuffer)) {
+			continue;
+		}
+
+		// Collect the pairs, and assign each one to the wave after the last earlier pair it overlaps.
+		std::vector<VkRect2D> tiles;
+		std::vector<int> waveOf;
+		int numWaves = 0;
+		for (int j = i; j + 1 < (int)steps.size(); j += 2) {
+			const VKRStep *depal = steps[j];
+			const VKRStep *target = steps[j + 1];
+			VkRect2D tile;
+			if (!isSingleDraw(depal, VKRRenderPassLoadAction::DONT_CARE) || depal->render.framebuffer != depalFramebuffer || !readsFramebuffer(depal, targetFramebuffer) ||
+				!isSingleDraw(target, VKRRenderPassLoadAction::KEEP) || target->render.framebuffer != targetFramebuffer ||
+				!getScissor(depal, &tile)) {
+				break;
+			}
+			int wave = 0;
+			for (int k = 0; k < (int)tiles.size(); k++) {
+				if (waveOf[k] >= wave && RectsOverlap(tiles[k], tile)) {
+					wave = waveOf[k] + 1;
+				}
+			}
+			tiles.push_back(tile);
+			waveOf.push_back(wave);
+			numWaves = std::max(numWaves, wave + 1);
+		}
+
+		const int numPairs = (int)tiles.size();
+		if (numWaves >= numPairs) {
+			// Nothing to gain.
+			continue;
+		}
+
+		// The first pair of each wave keeps its steps, and takes the commands of the rest.
+		const int end = i + numPairs * 2;
+		std::vector<VKRStep *> reordered;
+		reordered.reserve(numPairs * 2);
+		for (int w = 0; w < numWaves; w++) {
+			VKRStep *depal = nullptr;
+			VKRStep *target = nullptr;
+			for (int p = 0; p < numPairs; p++) {
+				if (waveOf[p] != w) {
+					continue;
+				}
+				VKRStep *pairDepal = steps[i + p * 2];
+				VKRStep *pairTarget = steps[i + p * 2 + 1];
+				if (!depal) {
+					depal = pairDepal;
+					target = pairTarget;
+					reordered.push_back(depal);
+					reordered.push_back(target);
+					continue;
+				}
+				mergeInto(depal, pairDepal);
+				mergeInto(target, pairTarget);
+			}
+		}
+
+		// Leave the images in the layouts the last pair left them in.
+		const VKRStep *lastDepal = steps[end - 2];
+		const VKRStep *lastTarget = steps[end - 1];
+		VKRStep *newLastDepal = reordered[reordered.size() - 2];
+		VKRStep *newLastTarget = reordered[reordered.size() - 1];
+		newLastDepal->render.finalColorLayout = lastDepal->render.finalColorLayout;
+		newLastDepal->render.finalDepthStencilLayout = lastDepal->render.finalDepthStencilLayout;
+		newLastTarget->render.finalColorLayout = lastTarget->render.finalColorLayout;
+		newLastTarget->render.finalDepthStencilLayout = lastTarget->render.finalDepthStencilLayout;
+
+		// Put the skipped steps after the waves, so each step is still in the list once and gets deleted.
+		for (int j = i; j < end; j++) {
+			if (steps[j]->stepType == VKRStepType::RENDER_SKIP) {
+				reordered.push_back(steps[j]);
+			}
+		}
+		_dbg_assert_((int)reordered.size() == numPairs * 2);
+		std::copy(reordered.begin(), reordered.end(), steps.begin() + i);
+		i = end - 1;
 	}
 }
 
