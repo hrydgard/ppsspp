@@ -75,50 +75,61 @@ Crashes (JIT emitter asserts) and wrong code found by the fuzzer:
 
 ## Open differences
 
-### Need a hardware test
+The goal, in order: every core gives the same result on both hosts, and then that result is the
+PSP's. Where matching the PSP is expensive, agreeing with each other comes first.
 
-1. **srl/srlv with stray bits.** `srl` with rs other than 0 (plain) or 1 (`rotr`), and `srlv` with
-   sa other than 0 or 1 (`rotrv`): the interpreter treats them as invalid and does nothing, every
-   other core shifts (rs/sa != 1) without rotating. Real behavior is probably decided by bit 21
-   (bit 6 for `srlv`) alone, but that's a guess. Test: every value of the unused field, and also
-   sll/sra/sllv/srav with the unused field set. The fuzzer skips these encodings for now.
-2. **Flush-to-zero (fcr31 bit 24, FS).** The interpreter puts the host FPU in flush-to-zero.
-   ARM64's FZ flushes denormal inputs and outputs, x86's FTZ (without DAZ) flushes only outputs, so
-   the interpreter already differs between hosts, for example `sqrt.s` of a negative denormal gives
-   -0 on ARM64 and NaN on x86, and comparisons with denormals differ. What does the PSP do with
-   denormal inputs and outputs, with FS clear and set? Test add/sub/mul/div/sqrt/abs/neg/cvt/c.cond
-   with denormal inputs and with results in the denormal range, both ways. Also where the result
-   rounds up to FLT_MIN: x86 and ARM decide "tiny" before/after rounding differently.
-3. **Does fcr31 affect the VFPU?** All cores run VFPU ops with the host FPU in the guest's FPU
-   rounding mode and flush-to-zero setting. The VFPU has no such control on hardware, as far as we
-   know. Test vadd/vmul/vdiv/vdot/vf2in etc. with fcr31 set to each rounding mode and FS.
-4. **Signed zero from sums.** The interpreter sums vdot, vhdp, vmmul and vtfm from +0 (and for
-   short vectors, adds +0 products for the missing lanes), so a sum of -0 products is +0. The other
-   cores start from the first product and can return -0. Test: vdot.q/t/p of vectors whose products
-   are all -0, and the same for vhdp, vmmul, vtfm.
-5. **vmin/vmax and denormals**: the interpreter compares as the hardware does (denormals equal to
-   zero) but returns the original bits. The JITs use host min/max, which under flush-to-zero returns
-   -0 for a denormal. Depends on 2 and 3.
-6. **Generated NaNs, cross-host.** The interpreter's VFPU arithmetic (vadd, vmul, vmmul, vtfm, ...)
-   returns whatever NaN the host makes: x86 makes `0xFFC00000` (negative), ARM64 `0x7FC00000`.
-   That would be harmless, but vmin/vmax order NaNs by sign as the hardware does, so the sign picks
-   which operand they return, and the result differs between hosts as a plain number. This is the
-   only interpreter difference between x64 and ARM64 the fuzzer found in 20000 mixed cases (all 5
-   hits were a matrix op making a NaN, then vmin/vmax). Test: which NaN does each VFPU op produce
-   for inf - inf, 0 * inf, 0 / 0, sqrt(-1) and the like (the accurate vmmul path assumes
-   `0x7F800001`)? Then all cores can return that one.
-7. **Undefined VFPU encodings**, where the cores disagree and nothing defines what's right:
-   - `vdot.s`, `vhdp.s` (single-lane dot products).
-   - `vdet` other than `.p`, `vcrsp`/`vqmul` at sizes other than `.t`/`.q`, the `???` ops in the
-     same group.
-   - Matrix ops whose register has a row/column offset that doesn't fit the size, like 3x3 `E110`
-     or `vmscl.t E603, E212`. `GetMatrixRegs` wraps those around; is that what the PSP does?
-   - `vmmul.s` (1x1).
-   - `vtfm`/`vhtfm` with the size bits not matching the transform's size ("BADVTFM").
-   - `vcmov` with bit 20 set (shown as `ARGH2`/`ARGH3`) or imm3 = 7.
-   - `vmfvc` from a control register index past the defined ones.
-   These are worth a hardware test each, as the cores have to agree on something. Games are
-   unlikely to contain them, so they come after the rest.
+### Answered on hardware
+
+Each of these has a pspautotests test recorded on a PSP (6.61). Distinct outputs across the eight
+configurations (four cores, ARM64 and x86-64 under Rosetta), and lines that differ from the PSP:
+
+| Test | Distinct outputs | ARM64 interp / ir / jit / jit-ir | x86-64 interp / ir / jit / jit-ir |
+|---|---|---|---|
+| `cpu/cpu_alu/shift_encodings` | 2 | 8 / 8 / 8 / 8 | 8 / 8 / 8 / 8 |
+| `cpu/fpu/denormal` | 2 | 54 / 54 / 54 / 54 | 16 / 16 / 16 / 16 |
+| `cpu/vfpu/fcr31` | 7 | 66 / 74 / 74 / 75 | 74 / 78 / 78 / 79 |
+| `cpu/vfpu/signed_zero` | 4 | 14 / 37 / 37 / 37 | 14 / 37 / 36 / 37 |
+| `cpu/vfpu/nan_gen` | 7 | 51 / 51 / 57 / 57 | 51 / 51 / 51 / 54 |
+| `cpu/vfpu/undefined` | 4 | 4 / 12 / 21 / 12 | 4 / 12 / 15 / 12 |
+
+Rosetta behaves as an x86 CPU here: the x86-64 interpreter makes `0xFFC00000` NaNs and flushes
+denormal results but not inputs under FS (FTZ without DAZ).
+
+1. **srl/srlv with stray bits** (`shift_encodings`). Only the low bit of the unused field counts:
+   `srl` rotates when bit 21 is set and shifts when it is clear, whatever bits 22-25 hold, and
+   `srlv` the same with bit 6. sll/sra/sllv/srav ignore the field. Every core is wrong: the
+   interpreter does nothing for values above 1, the others shift.
+2. **Flush-to-zero (FS)** (`denormal`). With FS clear the PSP handles denormals in full, which
+   both hosts match. With FS set it flushes denormal results to zero, with tininess decided before
+   rounding (a product that rounds up to FLT_MIN is still flushed), but never flushes inputs: sqrt,
+   div and the compares see a denormal as it is. One exception: add/sub with a zero operand
+   returns the other operand, denormal or not. x86 FTZ gets all of it but that exception (16
+   lines). ARM64's FZ also flushes inputs (54 lines), so the two hosts differ wherever a denormal
+   reaches an FPU op with FS set. Matching needs either the x86-like mode where the host has it
+   (FEAT_AFP: FPCR.AH with FIZ clear) or flushing results in software when FS is set.
+3. **fcr31 doesn't affect the VFPU** (`fcr31`). All six fcr31 settings give identical results.
+   The VFPU always rounds to nearest, and always flushes denormal inputs and outputs to zero
+   (`vf2iu` of a denormal is 0, a denormal times 1 is 0). The cores should run VFPU ops in
+   round-to-nearest without guest FS, and flush denormals themselves, rather than inheriting the
+   FPU's mode. Some of the remaining lines are vdot's exact summation (`1.5u + 1.5u + 3 - 3` is 0
+   on the PSP).
+4. **Signed zero from sums** (`signed_zero`). Every summing op returns +0 for a zero sum,
+   whatever the signs of the products: vdot, vhdp, vfad, vavg, vdet, vcrsp, vqmul, vmmul, vtfm,
+   vhtfm, at every size, including vfad of all -0. vcrs (a product per lane) and plain vadd keep
+   -0. The interpreter is right apart from vcrsp, vqmul and vtfm/vhtfm.
+5. **vmin/vmax and denormals** (`fcr31`). Denormals compare equal to zero, a tie returns the
+   second operand, and the result keeps the operand's bits (a denormal comes out unflushed). The
+   interpreter does this; the JITs use host min/max.
+6. **Generated NaNs** (`nan_gen`). VFPU arithmetic never keeps a payload: every NaN it produces is
+   `0x7F800001` or `0xFF800001`. The sign is + for add, sub and every summing op, the XOR of the
+   operand signs for mul, div and vscl, the input's sign for vrcp, vrsq, vsin and vasin, and + for
+   vsqrt, vlog2 and vexp2. vsat0/vsat1, vabs and vneg pass NaN bits through. Fixed bits like these
+   make both hosts agree for free.
+7. **Undefined VFPU encodings** (`undefined`). The interpreter matches the PSP on all of them
+   (single-lane vdot/vhdp, vdet at every size, vcrsp/vqmul at .s/.p, matrix registers that wrap
+   around, vtfm/vhtfm size mismatches, vmfvc past register 15 reading 0, vcmov with bit 20 set)
+   except `vcmov` with imm3 = 7, which tests a CC bit that is always clear: vcmovt never moves and
+   vcmovf always does. The other cores have to follow the interpreter.
 
 ### Known, no hardware test needed
 
@@ -143,11 +154,12 @@ Crashes (JIT emitter asserts) and wrong code found by the fuzzer:
   any more, but the differences aren't triaged.
 - Of the remaining VFPU differences on ARM64 (about 20% of VFPU-only cases on every core), most of
   the ones looked at are items 4 and 7 above.
-- The interpreter with flush-to-zero set (item 2) on both hosts: the cross-host run above starts
-  every case in the default mode, and only the generated `ctc1`s turn FS on.
 - Branches, delay slots, and VFPU prefixes across blocks: the generated code is straight-line.
 
 ## Unrelated
 
 On the ARM64 Release build, 11 gpu/ pspautotests (gpu/exact/pixel and others) fail with different
 pixel hashes, also with `-i`. An older ARM64 Debug build passes them.
+
+In headless, `-r` is both the IR interpreter and `--root`, and `--root` wins: it takes the next
+argument as a directory. Use `--cpu=ir`.
