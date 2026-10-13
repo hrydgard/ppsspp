@@ -407,6 +407,10 @@ bool FramebufferManagerCommon::PerformWriteStencilFromMemory(u32 addr, int size,
 		draw_->SetScissorRect(0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight);
 		draw_->BlitFramebuffer(blitFBO, 0, 0, w, h, dstBuffer->fbo, 0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight, Draw::Aspect::STENCIL_BIT, Draw::FB_BLIT_NEAREST, "WriteStencilFromMemory_Blit");
 		RebindFramebuffer("RebindFramebuffer - Stencil");
+	} else if (dstBuffer != currentRenderVfb_) {
+		// dstBuffer is bound as the target now, and the draws after this don't all rebind the current one: with
+		// framebuffer fetch, OutRun 2006's masked draws make no copy of the target that would, and landed in dstBuffer.
+		RebindFramebuffer("RebindFramebuffer - Stencil");
 	}
 
 	draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
