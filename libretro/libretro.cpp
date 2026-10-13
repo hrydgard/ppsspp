@@ -1474,6 +1474,21 @@ namespace Libretro {
       }
    }
 
+   // Unload and reset can come while the loader thread is still booting. Let it finish
+   // before shutting down, since it uses the memory and file systems PSP_Shutdown tears down.
+   static void FinishPendingBoot() {
+      if (g_pendingBoot) {
+         std::string errorString;
+         while (PSP_InitUpdate(&errorString) == BootState::Booting)
+            sleep_ms(1, "libretro-boot-drain");
+         g_pendingBoot = false;
+      }
+      // A state queued for the boot is stale now.
+      free(unserialize_data);
+      unserialize_data = nullptr;
+      unserialize_size = 0;
+   }
+
 } // namespace Libretro
 
 static void retro_check_backend(void) {
@@ -1574,7 +1589,10 @@ void retro_unload_game(void) {
       Libretro::EmuThreadStop();
    }
 
-	PSP_Shutdown(true);
+	Libretro::FinishPendingBoot();
+	// A failed boot has already shut down.
+	if (PollBootState() != BootState::Off)
+		PSP_Shutdown(true);
 	g_VFS.Clear();
 
 	delete ctx;
@@ -1588,7 +1606,9 @@ void retro_reset(void) {
    if (Libretro::useEmuThread)
       Libretro::EmuThreadStop();
 
-   PSP_Shutdown(true);
+   Libretro::FinishPendingBoot();
+   if (PollBootState() != BootState::Off)
+      PSP_Shutdown(true);
 
    if (BootState::Complete != PSP_Init(PSP_CoreParameter(), &g_bootErrorString)) {
       ERROR_LOG(Log::Boot, "%s", g_bootErrorString.c_str());
