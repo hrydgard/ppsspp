@@ -824,6 +824,10 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/ext/aemu_postoffice/client/mutex_impl_cpp.cpp \
   $(SRC)/ext/aemu_postoffice/client/delay_impl_cpp.cpp \
   $(SRC)/ext/aemu_postoffice/client/log_impl_ppsspp.cpp \
+  $(SRC)/ext/aemu_postoffice/client/list.c \
+  $(SRC)/ext/aemu_postoffice/client/enet.c \
+  $(SRC)/ext/aemu_postoffice/adhocctl/client/adhocctl.c \
+  $(SRC)/ext/aemu_postoffice/adhocctl/client/adhocctl_mem.c \
   $(SRC)/Core/HLE/sceNetAdhocMatching.cpp \
   $(SRC)/Core/HLE/sceNetApctl.cpp \
   $(SRC)/Core/HLE/sceNetInet.cpp \
