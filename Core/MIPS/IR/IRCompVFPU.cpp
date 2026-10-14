@@ -156,10 +156,10 @@ namespace MIPSComp {
 	static bool IsPrefixWithinSize(u32 prefix, VectorSize sz) {
 		int n = GetNumVectorElements(sz);
 		for (int i = 0; i < 4; i++) {
-			int regnum = (prefix >> (i * 2)) & 3;
-			int abs = (prefix >> (8 + i)) & 1;
-			int negate = (prefix >> (16 + i)) & 1;
-			int constants = (prefix >> (12 + i)) & 1;
+			int regnum = VFPUPrefixSwizzle(prefix, i);
+			bool abs = VFPUPrefixAbs(prefix, i);
+			bool negate = VFPUPrefixNegate(prefix, i);
+			bool constants = VFPUPrefixIsConstant(prefix, i);
 			if (constants) {
 				continue;
 			}
@@ -178,19 +178,6 @@ namespace MIPSComp {
 		return IsPrefixWithinSize(prefix, GetVecSize(op));
 	}
 
-	// Whether lane i of an S or T prefix is a constant, and its value. Past the vector size, the dot
-	// products add in the lanes where both S and T are constants, and read zero for the rest
-	// (cpu/vfpu/prefix_lanes), which IsPrefixWithinSize() lets through.
-	static bool PrefixLaneConstant(u32 prefix, int i, float *value) {
-		static const float constants[8] = { 0.f, 1.f, 2.f, 0.5f, 3.f, 1.f / 3.f, 0.25f, 1.f / 6.f };
-		if (((prefix >> (12 + i)) & 1) == 0)
-			return false;
-		const int regnum = (prefix >> (i * 2)) & 3;
-		const int abs = (prefix >> (8 + i)) & 1;
-		const int negate = (prefix >> (16 + i)) & 1;
-		*value = negate ? -constants[regnum + (abs << 2)] : constants[regnum + (abs << 2)];
-		return true;
-	}
 
 	void IRFrontend::Comp_VPFX(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_XFER);
@@ -229,7 +216,6 @@ namespace MIPSComp {
 
 		int n = GetNumVectorElements(sz);
 		u8 origV[4]{};
-		static const float constantArray[8] = { 0.f, 1.f, 2.f, 0.5f, 3.f, 1.f / 3.f, 0.25f, 1.f / 6.f };
 
 		for (int i = 0; i < n; i++)
 			origV[i] = vregs[i];
@@ -277,10 +263,10 @@ namespace MIPSComp {
 			// Check if we're just zeroing certain lanes - this is common.
 			u32 zeroedLanes = 0;
 			for (int i = 0; i < 4; ++i) {
-				int regnum = (prefix >> (i * 2)) & 3;
-				int abs = (prefix >> (8 + i)) & 1;
-				int negate = (prefix >> (16 + i)) & 1;
-				int constants = (prefix >> (12 + i)) & 1;
+				int regnum = VFPUPrefixSwizzle(prefix, i);
+				bool abs = VFPUPrefixAbs(prefix, i);
+				bool negate = VFPUPrefixNegate(prefix, i);
+				bool constants = VFPUPrefixIsConstant(prefix, i);
 
 				if (!constants && regnum == i && !abs && !negate)
 					continue;
@@ -304,10 +290,10 @@ namespace MIPSComp {
 
 		// Alright, fall back to the generic approach.
 		for (int i = 0; i < n; i++) {
-			int regnum = (prefix >> (i * 2)) & 3;
-			int abs = (prefix >> (8 + i)) & 1;
-			int negate = (prefix >> (16 + i)) & 1;
-			int constants = (prefix >> (12 + i)) & 1;
+			int regnum = VFPUPrefixSwizzle(prefix, i);
+			bool abs = VFPUPrefixAbs(prefix, i);
+			bool negate = VFPUPrefixNegate(prefix, i);
+			bool constants = VFPUPrefixIsConstant(prefix, i);
 
 			// Unchanged, hurray.
 			if (!constants && regnum == i && !abs && !negate)
@@ -331,11 +317,7 @@ namespace MIPSComp {
 						ir.Write(IROp::FMov, vregs[i], origV[regnum]);
 				}
 			} else {
-				if (negate) {
-					ir.WriteSetConstantFloat(vregs[i], -constantArray[regnum + (abs << 2)]);
-				} else {
-					ir.WriteSetConstantFloat(vregs[i], constantArray[regnum + (abs << 2)]);
-				}
+				ir.WriteSetConstantFloat(vregs[i], VFPUPrefixConstant(prefix, i));
 			}
 		}
 	}
@@ -385,10 +367,6 @@ namespace MIPSComp {
 		}
 	}
 
-	inline int GetDSat(int prefix, int i) {
-		return (prefix >> (i * 2)) & 3;
-	}
-
 	// "D" prefix is really a post process. No need to allocate a temporary register (except
 	// dummies to simulate writemask, which is done in GetVectorRegsPrefixD
 	void IRFrontend::ApplyPrefixD(u8 *vregs, VectorSize sz, int vectorReg) {
@@ -402,7 +380,7 @@ namespace MIPSComp {
 		for (int i = 0; i < n; i++) {
 			if (js.VfpuWriteMask(i))
 				continue;
-			int sat = GetDSat(js.prefixD, i);
+			int sat = VFPUPrefixSat(js.prefixD, i);
 			if (sat == 1) {
 				// clamped = x < 0 ? (x > 1 ? 1 : x) : x [0, 1]
 				ir.Write(IROp::FSat0_1, vregs[i], vregs[i]);
@@ -752,10 +730,10 @@ namespace MIPSComp {
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
 
-		// Constants past n are added in too (see PrefixLaneConstant()), rare enough for the interpreter.
+		// On the PSP, an S constant past n is added in too (cpu/vfpu/prefix_lanes), which
+		// IsPrefixWithinSize() lets through. Rare enough for the interpreter.
 		for (int i = n; i < 4; i++) {
-			float s;
-			if (PrefixLaneConstant(js.prefixS, i, &s))
+			if (VFPUPrefixIsConstant(js.prefixS, i))
 				DISABLE;
 		}
 
@@ -798,11 +776,11 @@ namespace MIPSComp {
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
 
-		// Lanes past n where both prefixes are constants add their product (see
-		// PrefixLaneConstant()), rare enough for the interpreter.
+		// On the PSP, lanes past n where both prefixes are constants add their product, and the rest
+		// read zero (cpu/vfpu/prefix_lanes). IsPrefixWithinSize() lets those through, and they're
+		// rare enough for the interpreter.
 		for (int i = n; i < 4; i++) {
-			float s, t;
-			if (PrefixLaneConstant(js.prefixS, i, &s) && PrefixLaneConstant(js.prefixT, i, &t))
+			if (VFPUPrefixIsConstant(js.prefixS, i) && VFPUPrefixIsConstant(js.prefixT, i))
 				DISABLE;
 		}
 

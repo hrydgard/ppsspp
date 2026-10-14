@@ -465,7 +465,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			// or a big switch - there are only 256 shuffles possible (4^4)
 			float temp[4];
 			for (u32 i = 0; i < 4; i++)
-				temp[i] = mips->f[(u32)inst->src1 + (u32)((inst->src2 >> (i * 2)) & 3)];
+				temp[i] = mips->f[(u32)inst->src1 + (u32)Vec4ShuffleLane(inst->src2, i)];
 			const u32 dest = inst->dest;
 			for (u32 i = 0; i < 4; i++)
 				mips->f[dest + i] = temp[i];

@@ -278,6 +278,11 @@ enum class Vec4Init {
 	Set_0001,
 };
 
+// The source lane of dest lane i in a Vec4Shuffle, two bits per lane like a VFPU prefix's swizzle.
+inline int Vec4ShuffleLane(u32 shuffle, int i) {
+	return (shuffle >> (i * 2)) & 3;
+}
+
 enum class IRRoundMode : uint8_t {
 	RINT_0 = 0,
 	CAST_1 = 1,

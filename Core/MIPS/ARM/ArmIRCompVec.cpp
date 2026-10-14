@@ -123,12 +123,12 @@ void ArmJitBackend::CompIR_VecAssign(IRInst inst) {
 		if (inst.dest == inst.src1) {
 			// Go through the scratch regs, since a lane may be read after it's written.
 			for (int i = 0; i < 4; ++i)
-				VMOV((ARMReg)(SCRATCHF1 + i), regs_.F(inst.src1 + ((inst.src2 >> (i * 2)) & 3)));
+				VMOV((ARMReg)(SCRATCHF1 + i), regs_.F(inst.src1 + Vec4ShuffleLane(inst.src2, i)));
 			for (int i = 0; i < 4; ++i)
 				VMOV(regs_.F(inst.dest + i), (ARMReg)(SCRATCHF1 + i));
 		} else {
 			for (int i = 0; i < 4; ++i)
-				VMOV(regs_.F(inst.dest + i), regs_.F(inst.src1 + ((inst.src2 >> (i * 2)) & 3)));
+				VMOV(regs_.F(inst.dest + i), regs_.F(inst.src1 + Vec4ShuffleLane(inst.src2, i)));
 		}
 		break;
 
