@@ -152,13 +152,10 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 	});
 	if (!canUseJit) {
 		core->HideChoice(1);
-		core->HideChoice(3);
 	}
-	// TODO: Enable "JIT using IR" on more architectures. ARM32 needs more testing.
-	// Note also that Loongarch and RISC-V only have a jit-ir backend, and it's used for the JIT option, so the fourth option isn't shown.
-#if !PPSSPP_ARCH(X86) && !PPSSPP_ARCH(AMD64) && !PPSSPP_ARCH(ARM64)
+	// Every native JIT except ARM32's is IR-based and used for the JIT option, and ARM32 uses its
+	// legacy JIT for both, so "JIT using IR" is the same as "JIT" everywhere.
 	core->HideChoice(3);
-#endif
 
 	// Only the interpreter raises these, but don't hide it behind the CPU core choice - it'd just
 	// look like the setting had vanished.

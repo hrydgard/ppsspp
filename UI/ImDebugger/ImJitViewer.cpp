@@ -33,6 +33,14 @@ void ImJitViewerWindow::Draw(ImConfig &cfg, ImControl &control) {
 		return;
 	}
 
+	// Every native JIT except ARM32's is IR-based.
+#if PPSSPP_ARCH(ARM)
+	const bool hasIR = core == CPUCore::IR_INTERPRETER;
+#else
+	const bool hasIR = true;
+#endif
+	const bool hasTarget = core == CPUCore::JIT || core == CPUCore::JIT_IR;
+
 	// Options menu
 	if (ImGui::BeginPopup("Options")) {
 		// ImGui::Checkbox("Auto-scroll", &AutoScroll);
@@ -55,7 +63,7 @@ void ImJitViewerWindow::Draw(ImConfig &cfg, ImControl &control) {
 	// Three or four columns: One table for blocks that can be sorted in various ways,
 	// then the remaining are either MIPS/IR/TARGET or MIPS/TARGET or MIPS/IR depending on the JIT type.
 	int numColumns = 3;
-	if (core == CPUCore::JIT_IR) {
+	if (hasIR && hasTarget) {
 		numColumns = 4;
 	}
 
@@ -135,10 +143,10 @@ void ImJitViewerWindow::Draw(ImConfig &cfg, ImControl &control) {
 	if (ImGui::BeginTable("columns", numColumns, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH | ImGuiTableFlags_Resizable)) {
 		ImGui::TableSetupColumn("Blocks");
 		ImGui::TableSetupColumn("MIPS");
-		if (core == CPUCore::JIT_IR || core == CPUCore::IR_INTERPRETER) {
+		if (hasIR) {
 			ImGui::TableSetupColumn("IR");
 		}
-		if (core == CPUCore::JIT_IR || core == CPUCore::JIT) {
+		if (hasTarget) {
 			ImGui::TableSetupColumn(TARGET);
 		}
 
@@ -221,7 +229,7 @@ void ImJitViewerWindow::Draw(ImConfig &cfg, ImControl &control) {
 		}
 		ImGui::EndChild();
 
-		if (core == CPUCore::JIT_IR || core == CPUCore::IR_INTERPRETER) {
+		if (hasIR) {
 			ImGui::TableNextColumn();
 
 			ImGui::BeginChild("IRPane", ImVec2(0, 0), true, ImGuiWindowFlags_HorizontalScrollbar);
@@ -232,7 +240,7 @@ void ImJitViewerWindow::Draw(ImConfig &cfg, ImControl &control) {
 			ImGui::EndChild();
 		}
 
-		if (core == CPUCore::JIT_IR || core == CPUCore::JIT) {
+		if (hasTarget) {
 			ImGui::TableNextColumn();
 
 			ImGui::BeginChild("TargetPane", ImVec2(0, 0), true, ImGuiWindowFlags_HorizontalScrollbar);

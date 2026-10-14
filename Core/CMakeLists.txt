@@ -41,19 +41,6 @@ list(APPEND CoreExtra
 )
 
 list(APPEND CoreExtra
-	MIPS/ARM64/Arm64Asm.cpp
-	MIPS/ARM64/Arm64CompALU.cpp
-	MIPS/ARM64/Arm64CompBranch.cpp
-	MIPS/ARM64/Arm64CompFPU.cpp
-	MIPS/ARM64/Arm64CompLoadStore.cpp
-	MIPS/ARM64/Arm64CompVFPU.cpp
-	MIPS/ARM64/Arm64CompReplace.cpp
-	MIPS/ARM64/Arm64Jit.cpp
-	MIPS/ARM64/Arm64Jit.h
-	MIPS/ARM64/Arm64RegCache.cpp
-	MIPS/ARM64/Arm64RegCache.h
-	MIPS/ARM64/Arm64RegCacheFPU.cpp
-	MIPS/ARM64/Arm64RegCacheFPU.h
 	MIPS/ARM64/Arm64IRAsm.cpp
 	MIPS/ARM64/Arm64IRCompALU.cpp
 	MIPS/ARM64/Arm64IRCompBranch.cpp
@@ -69,21 +56,6 @@ list(APPEND CoreExtra
 )
 
 list(APPEND CoreExtra
-	MIPS/x86/Asm.cpp
-	MIPS/x86/CompALU.cpp
-	MIPS/x86/CompBranch.cpp
-	MIPS/x86/CompFPU.cpp
-	MIPS/x86/CompLoadStore.cpp
-	MIPS/x86/CompVFPU.cpp
-	MIPS/x86/CompReplace.cpp
-	MIPS/x86/Jit.cpp
-	MIPS/x86/Jit.h
-	MIPS/x86/JitSafeMem.cpp
-	MIPS/x86/JitSafeMem.h
-	MIPS/x86/RegCache.cpp
-	MIPS/x86/RegCache.h
-	MIPS/x86/RegCacheFPU.cpp
-	MIPS/x86/RegCacheFPU.h
 	MIPS/x86/X64IRAsm.cpp
 	MIPS/x86/X64IRCompALU.cpp
 	MIPS/x86/X64IRCompBranch.cpp

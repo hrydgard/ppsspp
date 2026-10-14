@@ -27,7 +27,7 @@ Environment variables:
 | `PPSSPP_CPUFUZZ_CLASSES` | weighted string of `a` (ALU), `i` (immediate), `f` (FPU), `v` (VFPU), `m` (memory) |
 | `PPSSPP_CPUFUZZ_CODE` | comma-separated hex instructions to run instead of the generated code |
 | `PPSSPP_CPUFUZZ_CODE_SEED` | apply `PPSSPP_CPUFUZZ_CODE` to this seed only |
-| `PPSSPP_CPUFUZZ_SKIP` | cores to skip, by digit: 1 IR interpreter, 2 JIT, 3 JIT IR |
+| `PPSSPP_CPUFUZZ_SKIP` | cores to skip, by digit: 1 IR interpreter, 2 JIT |
 | `PPSSPP_CPUFUZZ_REPORTS` | how many differences to minimize and print (default 20) |
 | `PPSSPP_CPUFUZZ_VERBOSE` | print every case before running it, to find one that crashes |
 | `PPSSPP_CPUFUZZ_DUMP` | write every core's end state of every case to a file |
@@ -99,7 +99,8 @@ PSP's. Where matching the PSP is expensive, agreeing with each other comes first
 ### Answered on hardware
 
 Each of these has a pspautotests test recorded on a PSP (6.61). Distinct outputs across the eight
-configurations (four cores, ARM64 and x86-64 under Rosetta), and lines that differ from the PSP:
+configurations (four cores, ARM64 and x86-64 under Rosetta), and lines that differ from the PSP.
+The `jit` columns were measured with the legacy JITs, since removed; `jit` is now `jit-ir` on both.
 
 | Test | Distinct outputs | ARM64 interp / ir / jit / jit-ir | x86-64 interp / ir / jit / jit-ir |
 |---|---|---|---|
@@ -159,7 +160,7 @@ sign.
    `0x7F800001` or `0xFF800001`. The sign is + for add, sub and every summing op, the XOR of the
    operand signs for mul, div and vscl, the input's sign for vrcp, vrsq, vsin and vasin, and + for
    vsqrt, vlog2 and vexp2. vsat0/vsat1, vabs and vneg pass NaN bits through. The cores make the
-   host's NaN instead, so x86-64 and ARM disagree (and the ARM64 JIT's vsat quiets a NaN). The
+   host's NaN instead, so x86-64 and ARM disagree. The
    branch `cpu-equiv-4` fixes the single-lane ops (vadd, vsub, vmul, vdiv, vscl, vcrs, vsat0/1, vbfy,
    vocp, vsocp) on every core, through four new IR ops and checks in the legacy JITs, and is held
    back until its cost on every multiplication is measured. The horizontal ops wait for the
@@ -173,7 +174,7 @@ sign.
    around, vtfm/vhtfm size mismatches, vmfvc past register 15 reading 0, vcmov with bit 20 set),
    now including `vcmov` with imm3 = 7, which tests a CC bit that is always clear: vcmovt never
    moves and vcmovf always does (fixed on every core). The JITs still differ on the single-lane
-   dot products and vcrsp/vqmul at .s/.p (for the accurate dot product), and the IR and x86 JIT on
+   dot products and vcrsp/vqmul at .s/.p (for the accurate dot product), and the IR cores on
    matrix registers whose offset doesn't fit the size.
 
 ### Known, no hardware test needed
@@ -181,7 +182,6 @@ sign.
 8. **Divide-by-zero flags.** Only the interpreter sets the cause and flag bits for `div.s` by zero
    (see `Int_FPU3op`). The other cores leave fcr31 alone. Making the others match needs a new IR op
    or an interpreter fallback for div.s, and the latter costs every division.
-9. The legacy ARM64 JIT ignores the D prefix's write mask for `viim.s`/`vfim.s`.
 
 ### ARM32
 
@@ -205,9 +205,8 @@ UNITTEST=1 SKIPAPP=1`, run over adb). ARM32 has three cores: `CreateNativeJit` r
 
 ### Not looked into yet
 
-- With VFPU code in the mix, the legacy x86-64 JIT differs from the interpreter in 205 of 2000
-  default cases and the legacy ARM64 JIT in 127, against 147 for the IR cores. Most of those
-  looked at are the horizontal ops (items 4 and 6) and item 7.
+- With VFPU code in the mix, the IR cores differ from the interpreter in 147 of 2000 default
+  cases. Most of those looked at are the horizontal ops (items 4 and 6) and item 7.
 - Branches, delay slots, and VFPU prefixes across blocks: the generated code is straight-line.
 
 ## Unrelated

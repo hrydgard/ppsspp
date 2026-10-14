@@ -5,8 +5,6 @@
 #include "Common/CPUDetect.h"
 #include "Common/x64Analyzer.h"
 #include "Common/x64Emitter.h"
-#include "Core/MIPS/x86/RegCacheFPU.h"
-#include "Core/MIPS/x86/Jit.h"
 #include "Core/MIPS/JitCommon/JitState.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
