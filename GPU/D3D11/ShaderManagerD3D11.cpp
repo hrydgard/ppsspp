@@ -17,6 +17,7 @@
 
 #include "ppsspp_config.h"
 
+#include "Common/CommonWindows.h"
 #include <d3d11.h>
 #include <D3Dcompiler.h>
 

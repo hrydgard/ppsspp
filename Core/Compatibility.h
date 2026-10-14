@@ -123,6 +123,7 @@ struct CompatFlags {
 	bool BlockTransferReadbackSmall;
 	bool DepthCLUTIntoHalves;
 	bool AccurateSplines;
+	bool ReadbackShadow;
 };
 
 struct VRCompat {

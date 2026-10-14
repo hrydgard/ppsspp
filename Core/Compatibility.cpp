@@ -168,6 +168,7 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "BlockTransferReadbackSmall", &flags_.BlockTransferReadbackSmall);
 	CheckSetting(iniFile, gameID, "DepthCLUTIntoHalves", &flags_.DepthCLUTIntoHalves);
 	CheckSetting(iniFile, gameID, "AccurateSplines", &flags_.AccurateSplines);
+	CheckSetting(iniFile, gameID, "ReadbackShadow", &flags_.ReadbackShadow);
 }
 
 void Compatibility::CheckVRSettings(IniFile &iniFile, const std::string &gameID) {

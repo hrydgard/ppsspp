@@ -24,6 +24,7 @@
 
 #pragma once
 
+#include <algorithm>
 #include <vector>
 #include <unordered_map>
 
@@ -129,6 +130,9 @@ struct VirtualFramebuffer {
 
 	// Means that the whole image has already been read back to memory.
 	bool memoryUpdated;
+	// The whole color image is in readbackShadows_, for partial readbacks to copy from. Like memoryUpdated,
+	// it holds until the next render to the buffer.
+	bool readbackShadowValid;
 
 	// TODO: Fold into usageFlags?
 	bool dirtyAfterDisplay;
@@ -527,7 +531,12 @@ public:
 	inline int PeekBindSeqCount() const { return fbBindSeqCount_; }
 
 protected:
-	virtual void ReadbackFramebuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel, Draw::ReadbackMode mode);
+	// With shadow, writes there instead of to PSP memory, at the same offsets from the buffer's address.
+	virtual void ReadbackFramebuffer(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel, Draw::ReadbackMode mode, u8 *shadow = nullptr);
+	bool ReadFromShadow(VirtualFramebuffer *vfb, int x, int y, int w, int h);
+	static int ShadowWidth(const VirtualFramebuffer *vfb) {
+		return std::min((int)vfb->bufferWidth, (int)vfb->fb_stride);
+	}
 	// Used for when a shader is required, such as GLES.
 	virtual bool ReadbackDepthbuffer(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint16_t *pixels, int pixelsStride, int destW, int destH, Draw::ReadbackMode mode);
 	virtual bool ReadbackStencilbuffer(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint8_t *pixels, int pixelsStride, Draw::ReadbackMode mode);
@@ -581,6 +590,7 @@ protected:
 
 	static void SetColorUpdated(VirtualFramebuffer *dstBuffer, int skipDrawReason) {
 		dstBuffer->memoryUpdated = false;
+		dstBuffer->readbackShadowValid = false;
 		dstBuffer->clutUpdatedBytes = 0;
 		dstBuffer->dirtyAfterDisplay = true;
 		dstBuffer->drawnWidth = dstBuffer->width;
@@ -631,6 +641,9 @@ protected:
 	std::vector<VirtualFramebuffer *> bvfbs_; // blitting framebuffers (for download)
 
 	std::vector<DrawPixelsEntry> drawPixelsCache_;
+
+	// Whole color buffers, read back for partial readbacks to copy from (see ReadFramebufferToMemory).
+	std::unordered_map<const VirtualFramebuffer *, std::vector<u8>> readbackShadows_;
 
 	// Sampled in BeginFrame/UpdateSize for safety.
 	float renderWidth_ = 0.0f;
