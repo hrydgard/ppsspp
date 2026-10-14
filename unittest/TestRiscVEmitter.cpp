@@ -98,6 +98,33 @@ bool TestRiscVEmitter() {
 		EXPECT_EQ_HEX(code16[i], expectedZcb[i]);
 	}
 
+	// Moves between a vector's first element and a scalar register.
+	cpu_info.RiscV_V = true;
+	emitter.SetCodePointer((u8 *)code, (u8 *)code);
+	emitter.VMV_S_X(V7, R_ZERO);
+	emitter.VMV_S_X(V1, X10);
+	emitter.VFMV_S_F(V7, F10);
+	emitter.VMV_X_S(X10, V5);
+	emitter.VFMV_F_S(F10, V5);
+	emitter.VMV_VI(V3, -1);
+
+	// From GNU as.
+	static constexpr uint32_t expectedV[] = {
+		0x420063d7,
+		0x420560d7,
+		0x420553d7,
+		0x42502557,
+		0x42501557,
+		0x5e0fb1d7,
+	};
+
+	len = (u32 *)emitter.GetWritableCodePtr() - code;
+	EXPECT_EQ_INT(len, ARRAY_SIZE(expectedV));
+
+	for (ptrdiff_t i = 0; i < len; ++i) {
+		EXPECT_EQ_HEX(code[i], expectedV[i]);
+	}
+
 	// FLI has only the canonical NaN.
 	cpu_info.RiscV_Zfa = true;
 	EXPECT_TRUE(emitter.CanFLI(32, (uint32_t)0x7FC00000));

@@ -3923,7 +3923,7 @@ void RiscVEmitter::VMV_X_S(RiscVReg rd, RiscVReg vs2) {
 void RiscVEmitter::VMV_S_X(RiscVReg vd, RiscVReg rs1) {
 	_assert_msg_(IsVPR(vd), "%s instruction vd must be VPR", __func__);
 	_assert_msg_(IsGPR(rs1), "%s instruction rs1 must be GPR", __func__);
-	Write32(EncodeV(vd, Funct3::OPMVV, rs1, V0, VUseMask::NONE, Funct6::VRWUNARY0));
+	Write32(EncodeV(vd, Funct3::OPMVX, rs1, V0, VUseMask::NONE, Funct6::VRWUNARY0));
 }
 
 void RiscVEmitter::VFMV_F_S(RiscVReg rd, RiscVReg vs2) {
@@ -3936,7 +3936,7 @@ void RiscVEmitter::VFMV_S_F(RiscVReg vd, RiscVReg rs1) {
 	_assert_msg_(FloatBitsSupported() >= 32, "FVV instruction requires vector float support");
 	_assert_msg_(IsVPR(vd), "%s instruction vd must be VPR", __func__);
 	_assert_msg_(IsFPR(rs1), "%s instruction rs1 must be FPR", __func__);
-	Write32(EncodeV(vd, Funct3::OPFVV, rs1, V0, VUseMask::NONE, Funct6::VRWUNARY0));
+	Write32(EncodeV(vd, Funct3::OPFVF, rs1, V0, VUseMask::NONE, Funct6::VRWUNARY0));
 }
 
 void RiscVEmitter::VSLIDEUP_VX(RiscVReg vd, RiscVReg vs2, RiscVReg rs1, VUseMask vm) {
