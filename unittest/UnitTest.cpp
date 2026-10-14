@@ -58,6 +58,8 @@
 #include "Common/Data/Text/Parsers.h"
 #include "Common/Data/Text/WrapText.h"
 #include "Common/Data/Encoding/Utf8.h"
+#include "Common/Data/Encoding/Utf16.h"
+#include "Common/Data/Encoding/Shiftjis.h"
 #include "Common/Buffer.h"
 #include "Common/File/Path.h"
 #include "Common/Log/LogManager.h"
@@ -348,6 +350,55 @@ bool TestUtf8() {
 			const std::string once = ReplaceInvalidUTF8(input);
 			EXPECT_TRUE(ReplaceInvalidUTF8(once) == once);
 		}
+	}
+
+	return true;
+}
+
+bool TestTextDecoders() {
+	{
+		const char16_t pair[] = { 0xD83C, 0xDFAE, 0 };
+		UTF16LE utf(pair);
+		EXPECT_EQ_HEX((uint32_t)utf.next(), 0x1F3AEu);
+		EXPECT_TRUE(utf.end());
+	}
+
+	// An unpaired surrogate is invalid on its own, and decoding carries on after it.
+	{
+		const char16_t highThenA[] = { 0xD800, 'A', 0 };
+		UTF16LE utf(highThenA);
+		EXPECT_TRUE(utf.next() == UTF16LE::INVALID);
+		EXPECT_EQ_HEX((uint32_t)utf.next(), (uint32_t)'A');
+		EXPECT_TRUE(utf.end());
+
+		const char16_t lowThenA[] = { 0xDC00, 'A', 0 };
+		UTF16LE utf2(lowThenA);
+		EXPECT_TRUE(utf2.next() == UTF16LE::INVALID);
+		EXPECT_EQ_HEX((uint32_t)utf2.next(), (uint32_t)'A');
+	}
+
+	// A high surrogate right before the terminator must not consume it.
+	{
+		const char16_t highAtEnd[] = { 0xD800, 0, 'A', 0 };
+		UTF16LE utf(highAtEnd);
+		EXPECT_TRUE(utf.next() == UTF16LE::INVALID);
+		EXPECT_EQ_INT(utf.shortIndex(), 1);
+		EXPECT_TRUE(utf.end());
+	}
+
+	{
+		ShiftJIS sjis("A\xA1\x82\xA0");
+		EXPECT_EQ_HEX(sjis.next(), 0x41u);
+		EXPECT_EQ_HEX(sjis.next(), 0xA1u);
+		EXPECT_EQ_HEX(sjis.next(), 0x2422u);
+		EXPECT_TRUE(sjis.end());
+	}
+
+	// Lead bytes that encode nothing.
+	for (const char *bad : { "\x80", "\xA0", "\xFD", "\xFE", "\xFF" }) {
+		ShiftJIS sjis(bad);
+		EXPECT_TRUE(sjis.next() == ShiftJIS::INVALID);
+		EXPECT_EQ_INT(sjis.byteIndex(), 1);
 	}
 
 	return true;
@@ -3550,6 +3601,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(Breakpoints),
 	TEST_ITEM(TempBreakpoints),
 	TEST_ITEM(Utf8),
+	TEST_ITEM(TextDecoders),
 	TEST_ITEM(IRPassSimplify),
 	TEST_ITEM(Jit),
 	TEST_ITEM(JitDotBench),
