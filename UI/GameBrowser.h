@@ -6,6 +6,7 @@
 #include "Common/File/Path.h"
 #include "Common/UI/ViewGroup.h"
 #include "Common/File/PathBrowser.h"
+#include "Core/ConfigValues.h"
 #include "UI/MiscViews.h"
 
 enum GameBrowserFlags {
@@ -26,7 +27,7 @@ ENUM_CLASS_BITOPS(BrowseFlags);
 
 class GameBrowser : public UI::LinearLayout {
 public:
-	GameBrowser(int token, const Path &path, BrowseFlags browseFlags, bool portrait, bool *gridStyle, ScreenManager *screenManager, std::string_view lastText, std::string_view lastLink, UI::LayoutParams *layoutParams = nullptr);
+	GameBrowser(int token, const Path &path, BrowseFlags browseFlags, bool portrait, int *viewMode, ScreenManager *screenManager, std::string_view lastText, std::string_view lastLink, UI::LayoutParams *layoutParams = nullptr);
 
 	UI::Event OnChoice;
 	UI::Event OnHoldChoice;
@@ -53,6 +54,7 @@ protected:
 	virtual Path HomePath();
 
 	void Refresh();
+	GameBrowserViewMode ViewMode() const;
 
 	Path homePath_;
 
@@ -76,7 +78,7 @@ private:
 
 	UI::ViewGroup *gameList_ = nullptr;
 	PathBrowser path_;
-	bool *gridStyle_ = nullptr;
+	int *viewMode_ = nullptr;
 	BrowseFlags browseFlags_;
 	std::string lastText_;
 	std::string lastLink_;
@@ -87,7 +89,7 @@ private:
 	bool listingPending_ = false;
 	bool refreshPending_ = false;
 	float lastScale_ = 1.0f;
-	bool lastLayoutWasGrid_ = true;
+	GameBrowserViewMode lastViewMode_ = GameBrowserViewMode::GRID;
 	ScreenManager *screenManager_;
 	int token_ = -1;
 	bool portrait_ = false;

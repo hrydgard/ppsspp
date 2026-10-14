@@ -76,6 +76,7 @@ static const ImageMeta g_uiImageIDs[] = {
 	{"I_DROP_SHADOW", false},
 	{"I_LINES", false},
 	{"I_GRID", false},
+	{"I_LARGE_LIST", false},
 	{"I_LOGO", false},
 	{"I_ICON", false},
 	{"I_ICON_GOLD", false},

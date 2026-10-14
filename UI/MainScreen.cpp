@@ -177,7 +177,7 @@ void MainScreen::CreateRecentTab() {
 	bool portrait = GetDeviceOrientation() == DeviceOrientation::Portrait;
 
 	GameBrowser *tabRecentGames = new GameBrowser(GetRequesterToken(),
-		Path("!RECENT"), BrowseFlags::NONE, portrait, &g_Config.bGridView1, screenManager(), "", "",
+		Path("!RECENT"), BrowseFlags::NONE, portrait, &g_Config.iGameBrowserView1, screenManager(), "", "",
 		new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	tabRecentGames->SetSearchBar(search);
 
@@ -190,7 +190,7 @@ void MainScreen::CreateRecentTab() {
 	tabRecentGames->OnHighlight.Handle(this, &MainScreen::OnGameHighlight);
 }
 
-GameBrowser *MainScreen::CreateBrowserTab(const Path &path, std::string_view title, std::string_view howToTitle, std::string_view howToUri, BrowseFlags browseFlags, bool *bGridView, float *scrollPos) {
+GameBrowser *MainScreen::CreateBrowserTab(const Path &path, std::string_view title, std::string_view howToTitle, std::string_view howToUri, BrowseFlags browseFlags, int *viewMode, float *scrollPos) {
 	using namespace UI;
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
@@ -203,7 +203,7 @@ GameBrowser *MainScreen::CreateBrowserTab(const Path &path, std::string_view tit
 	ScrollView *scrollView = tabContainer->Add(new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 1.0f)));
 	scrollView->SetTag(title);  // Re-use title as tag, should be fine.
 
-	GameBrowser *gameBrowser = new GameBrowser(GetRequesterToken(), path, browseFlags, portrait, bGridView, screenManager(),
+	GameBrowser *gameBrowser = new GameBrowser(GetRequesterToken(), path, browseFlags, portrait, viewMode, screenManager(),
 		mm->T(howToTitle), howToUri,
 		new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 
@@ -384,12 +384,12 @@ void MainScreen::CreateViews() {
 
 	Button *focusButton = nullptr;
 	if (hasStorageAccess) {
-		CreateBrowserTab(Path(g_Config.currentDirectory), "Games", "How to get games", getGamesUri, BrowseFlags::STANDARD, &g_Config.bGridView2, &g_Config.fGameListScrollPosition);
-		CreateBrowserTab(GetSysDirectory(DIRECTORY_GAME), "Homebrew & Demos", "How to get homebrew & demos", getHomebrewUri, BrowseFlags::HOMEBREW_STORE, &g_Config.bGridView3, &g_Config.fHomebrewScrollPosition);
+		CreateBrowserTab(Path(g_Config.currentDirectory), "Games", "How to get games", getGamesUri, BrowseFlags::STANDARD, &g_Config.iGameBrowserView2, &g_Config.fGameListScrollPosition);
+		CreateBrowserTab(GetSysDirectory(DIRECTORY_GAME), "Homebrew & Demos", "How to get homebrew & demos", getHomebrewUri, BrowseFlags::HOMEBREW_STORE, &g_Config.iGameBrowserView3, &g_Config.fHomebrewScrollPosition);
 
 		if (g_Config.bRemoteTab && !g_Config.sLastRemoteISOServer.empty()) {
 			Path remotePath(FormatRemoteISOUrl(g_Config.sLastRemoteISOServer.c_str(), g_Config.iLastRemoteISOPort, RemoteSubdir().c_str()));
-			GameBrowser *remoteBrowser = CreateBrowserTab(remotePath, "Remote disc streaming", "Remote disc streaming", remoteGamesUri, BrowseFlags::NAVIGATE, &g_Config.bGridView4, &g_Config.fRemoteScrollPosition);
+			GameBrowser *remoteBrowser = CreateBrowserTab(remotePath, "Remote disc streaming", "Remote disc streaming", remoteGamesUri, BrowseFlags::NAVIGATE, &g_Config.iGameBrowserView4, &g_Config.fRemoteScrollPosition);
 			remoteBrowser->SetHomePath(remotePath);
 		}
 
@@ -860,7 +860,7 @@ void UmdReplaceScreen::CreateViews() {
 		ScrollView *scrollRecentGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 		scrollRecentGames->SetTag("UmdReplaceRecentGames");
 		GameBrowser *tabRecentGames = new GameBrowser(GetRequesterToken(),
-			Path("!RECENT"), BrowseFlags::NONE, portrait, &g_Config.bGridView1, screenManager(), "", "",
+			Path("!RECENT"), BrowseFlags::NONE, portrait, &g_Config.iGameBrowserView1, screenManager(), "", "",
 			new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 		scrollRecentGames->Add(tabRecentGames);
 		leftColumn->AddTab(mm->T("Recent"), ImageID::invalid(), scrollRecentGames);
@@ -870,7 +870,7 @@ void UmdReplaceScreen::CreateViews() {
 	ScrollView *scrollAllGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	scrollAllGames->SetTag("UmdReplaceAllGames");
 
-	GameBrowser *tabAllGames = new GameBrowser(GetRequesterToken(), Path(g_Config.currentDirectory), BrowseFlags::STANDARD, portrait, &g_Config.bGridView2, screenManager(),
+	GameBrowser *tabAllGames = new GameBrowser(GetRequesterToken(), Path(g_Config.currentDirectory), BrowseFlags::STANDARD, portrait, &g_Config.iGameBrowserView2, screenManager(),
 		mm->T("How to get games"), "https://www.ppsspp.org/getgames.html",
 		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 
@@ -932,13 +932,15 @@ void GridSettingsPopupScreen::CreatePopupContents(UI::ViewGroup *parent) {
 	LinearLayout *items = new LinearLayoutList(ORIENT_VERTICAL);
 	items->SetSpacing(0.0f);
 
-	items->Add(new CheckBox(&g_Config.bGridView1, sy->T("Display Recent on a grid")));
-	items->Add(new CheckBox(&g_Config.bGridView2, sy->T("Display Games on a grid")));
-	items->Add(new CheckBox(&g_Config.bGridView3, sy->T("Display Homebrew on a grid")));
+	// Same order as GameBrowserViewMode.
+	static const char *viewModes[] = { "Grid", "List", "Large list" };
+	items->Add(new PopupMultiChoice(&g_Config.iGameBrowserView1, mm->T("Recent"), viewModes, 0, ARRAY_SIZE(viewModes), I18NCat::SYSTEM, screenManager()));
+	items->Add(new PopupMultiChoice(&g_Config.iGameBrowserView2, mm->T("Games"), viewModes, 0, ARRAY_SIZE(viewModes), I18NCat::SYSTEM, screenManager()));
+	items->Add(new PopupMultiChoice(&g_Config.iGameBrowserView3, mm->T("Homebrew & Demos"), viewModes, 0, ARRAY_SIZE(viewModes), I18NCat::SYSTEM, screenManager()));
 	static const char *defaultTabs[] = { "Recent", "Games", "Homebrew & Demos" };
 	PopupMultiChoice *beziersChoice = items->Add(new PopupMultiChoice(&g_Config.iDefaultTab, sy->T("Default tab"), defaultTabs, 0, ARRAY_SIZE(defaultTabs), I18NCat::MAINMENU, screenManager()));
 
-	items->Add(new ItemHeader(sy->T("Grid icon size")));
+	items->Add(new ItemHeader(sy->T("Icon size")));
 	items->Add(new Choice(sy->T("Increase size")))->OnClick.Handle(this, &GridSettingsPopupScreen::GridPlusClick);
 	items->Add(new Choice(sy->T("Decrease size")))->OnClick.Handle(this, &GridSettingsPopupScreen::GridMinusClick);
 

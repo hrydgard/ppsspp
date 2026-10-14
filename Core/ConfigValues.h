@@ -302,3 +302,9 @@ enum class RemoteISOShareType : int {
 	RECENT,
 	LOCAL_FOLDER,
 };
+
+enum class GameBrowserViewMode : int {
+	GRID = 0,
+	LIST = 1,
+	LARGE_LIST = 2,  // XMB-style, with full size icons and the ICON1.PMF video.
+};

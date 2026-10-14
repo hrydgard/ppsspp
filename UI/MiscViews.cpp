@@ -14,6 +14,7 @@
 #include "Common/UI/PopupScreens.h"
 #include "Core/Config.h"
 #include "GPU/Common/PresentationCommon.h"
+#include "Core/Util/VideoPlayer.h"
 
 TextWithImage::TextWithImage(ImageID imageID, std::string_view text, UI::LinearLayoutParams *layoutParams) : UI::LinearLayout(ORIENT_HORIZONTAL, layoutParams) {
 	using namespace UI;
@@ -433,11 +434,17 @@ void ViewSearch::ApplySearchFilter(UI::ViewGroup *viewGroup, bool setKeyboardFoc
 		}
 	}
 
-	if (firstMatch) {
-		if (setKeyboardFocus) {
-			UI::EnableFocusMovement(true);
-			UI::SetFocusedView(firstMatch, UI::FocusFlags::CAUSE_OTHER);
-		}
+	if (firstMatch && setKeyboardFocus) {
+		UI::EnableFocusMovement(true);
+		UI::SetFocusedView(firstMatch, UI::FocusFlags::CAUSE_OTHER);
+		return;
+	}
+
+	// Don't leave the focus on a view we just hid. A game would keep showing its background and
+	// playing its music, for one.
+	UI::View *focused = UI::GetFocusedView();
+	if (focused && focused->GetVisibility() == UI::V_GONE && viewGroup->ContainsSubview(focused)) {
+		UI::SetFocusedView(nullptr, UI::FocusFlags::CAUSE_FOCUS_MOVE);
 	}
 }
 
@@ -508,4 +515,55 @@ bool ViewSearch::Key(UI::ViewGroup *viewGroup, const KeyInput &input) {
 		}
 	}
 	return retval;
+}
+
+PMFVideoTexture::PMFVideoTexture(std::string data) : data_(std::move(data)) {
+	player_ = pmf_create();
+	if (pmf_init(player_, (const uint8_t *)data_.data(), data_.size(), &width_, &height_) != 0) {
+		ERROR_LOG(Log::G3D, "Couldn't load pmf");
+		pmf_destroy(player_);
+		player_ = nullptr;
+	}
+}
+
+PMFVideoTexture::~PMFVideoTexture() {
+	DeviceLost();
+	if (player_) {
+		pmf_destroy(player_);
+		player_ = nullptr;
+	}
+}
+
+void PMFVideoTexture::DeviceLost() {
+	if (curFrame_) {
+		curFrame_->Release();
+		curFrame_ = nullptr;
+	}
+}
+
+Draw::Texture *PMFVideoTexture::Update(Draw::DrawContext *draw, double timeSeconds) {
+	if (!player_) {
+		return nullptr;
+	}
+
+	// Dimensions are capped by pmf_init, but use size_t arithmetic anyway
+	// so a regression can't overflow the allocation.
+	frame_.resize((size_t)width_ * (size_t)height_ * 4);
+	if (pmf_update(player_, timeSeconds, frame_.data())) {
+		DeviceLost();
+
+		Draw::TextureDesc desc{};
+		desc.width = width_;
+		desc.height = height_;
+		desc.depth = 1;
+		desc.format = Draw::DataFormat::R8G8B8A8_UNORM;
+		desc.generateMips = false;
+		desc.tag = "pmf_frame";
+		desc.type = Draw::TextureType::LINEAR2D;
+		desc.mipLevels = 1;
+		desc.initData.push_back(frame_.data());
+
+		curFrame_ = draw->CreateTexture(desc);
+	}
+	return curFrame_;
 }
