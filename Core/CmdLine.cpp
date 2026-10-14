@@ -199,7 +199,7 @@ static const CommandLineParam g_autoParams[] = {
 	{POFF(compare), CmdParamType::Bool, "compare", 'c', "Enable comparison mode", CmdLineMode::Headless},
 	{POFF(bench), CmdParamType::Bool, "bench", 'b', "Enable benchmark mode", CmdLineMode::Headless},
 	{POFF(oldAtrac), CmdParamType::Bool, "old-atrac", '\0', "Use old ATRAC decoder"},
-	{POFF(accurateVdot), CmdParamType::Bool, "accurate-vdot", '\0', "Compute VFPU dot products bit-exactly like the PSP (slower)"},
+	{POFF(accurateVdot), CmdParamType::Bool, "accurate-vdot", '\0', "Compute VFPU dot products bit-exactly like the PSP (default; =false for the faster approximation)"},
 	{POFF(memStickInserted), CmdParamType::BoolInverse, "no-memstick", '\0', "Run with the memory stick removed"},
 	{POFF(log), CmdParamType::String, "log", '\0', "Output log to FILE", CmdLineMode::Application},
 	{POFF(enableLogging), CmdParamType::Bool, "log", '\0', "Full log output, not just emulated printfs", CmdLineMode::Headless},
