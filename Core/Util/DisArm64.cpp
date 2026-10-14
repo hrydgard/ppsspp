@@ -1337,6 +1337,16 @@ static void SIMDVectorIndexedElement(uint32_t w, Instruction *instr) {
 	bool H = (w >> 11) & 1;
 	int opcode = (w >> 12) & 0xf;
 	const char *opname = nullptr;
+	// The widening integer multiplies (long, so Rd is always q).
+	if ((opcode == 0x2 || opcode == 0x6 || opcode == 0xA) && (size == 1 || size == 2)) {
+		static const char * const names[2][3] = { { "smlal", "smlsl", "smull" }, { "umlal", "umlsl", "umull" } };
+		const char *name = names[U][opcode == 0x2 ? 0 : (opcode == 0x6 ? 1 : 2)];
+		const int narrow = 8 << size;
+		const int index = size == 2 ? ((H << 1) | (int)L) : ((H << 2) | ((int)L << 1) | ((Rm >> 4) & 1));
+		const int m = size == 2 ? Rm : (Rm & 0xF);
+		Out(instr, "%s%s.%d.%d q%d, %c%d, q%d.%c[%d]", name, Q ? "2" : "", narrow * 2, narrow, Rd, Q ? 'q' : 'd', Rn, m, size == 2 ? 's' : 'h', index);
+		return;
+	}
 	if (size & 2) {
 		if (!U) {
 			switch (opcode) {

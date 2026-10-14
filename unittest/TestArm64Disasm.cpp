@@ -617,6 +617,8 @@ static void TestFloatInstructions(DisasmChecker &c, ARM64XEmitter &e, ARM64Float
 	DIS("ld1.32 {d1, d2}, [x2]", fp.LD1(32, 2, D1, X2));
 	DIS("ld1.16 {q30, q31, q0}, [x2]", fp.LD1(16, 3, Q30, X2));
 	DIS("ld1.64 {q1, q2, q3, q4}, [sp]", fp.LD1(64, 4, Q1, SP));
+	DIS("ld4.32 {q0, q1, q2, q3}, [x2]", fp.LD4(32, Q0, X2));
+	DIS("ld4.8 {d30, d31, d0, d1}, [x2]", fp.LD4(8, D30, X2));
 	DIS("ld1.32 {q1}, [x2], x3", fp.LD1(32, 1, INDEX_POST, Q1, X2, X3));
 	DIS("ld1.8 {d1, d2, d3, d4}, [x2], x3", fp.LD1(8, 4, INDEX_POST, D1, X2, X3));
 	DIS("st1.8 {q1}, [x2]", fp.ST1(8, 1, Q1, X2));
@@ -782,6 +784,14 @@ static void TestFloatInstructions(DisasmChecker &c, ARM64XEmitter &e, ARM64Float
 	DIS("umaxp.8 d0, d3, d4", fp.UMAXP(8, D0, D3, D4));
 	DIS("ushl.32 q1, q2, q3", fp.USHL(32, Q1, Q2, Q3));
 	DIS("ushl.16 d1, d2, d3", fp.USHL(16, D1, D2, D3));
+	DIS("clz.32 q1, q2", fp.CLZ(32, Q1, Q2));
+	DIS("abs.32 q1, q2", fp.ABS(32, Q1, Q2));
+	DIS("abs.8 d3, d4", fp.ABS(8, D3, D4));
+	DIS("sli.32 q5, q6, #23", fp.SLI(32, Q5, Q6, 23));
+	DIS("umull.64.32 q6, d0, q17.s[2]", fp.UMULL(32, Q6, D0, Q17, 2));
+	DIS("umull2.64.32 q0, q0, q31.s[3]", fp.UMULL2(32, Q0, Q0, Q31, 3));
+	DIS("umull.64.32 q1, d2, q3.s[1]", fp.UMULL(32, Q1, D2, Q3, 1));
+	DIS("clz.8 d1, d2", fp.CLZ(8, D1, D2));
 	DIS("umull.64.32 q1, d2, d3", fp.UMULL(32, Q1, D2, D3));
 	DIS("umull.16.8 q4, d5, d6", fp.UMULL(8, Q4, D5, D6));
 	DIS("umull2.64.32 q1, q2, q3", fp.UMULL2(32, Q1, Q2, Q3));

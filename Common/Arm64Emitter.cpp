@@ -2885,6 +2885,10 @@ void ARM64FloatEmitter::LD1(u8 size, u8 count, ARM64Reg Rt, ARM64Reg Rn)
 		opcode = 2;
 	EmitLoadStoreMultipleStructure(size, 1, opcode, Rt, Rn);
 }
+void ARM64FloatEmitter::LD4(u8 size, ARM64Reg Rt, ARM64Reg Rn)
+{
+	EmitLoadStoreMultipleStructure(size, 1, 0, Rt, Rn);
+}
 void ARM64FloatEmitter::LD1(u8 size, u8 count, IndexType type, ARM64Reg Rt, ARM64Reg Rn, ARM64Reg Rm)
 {
 	_assert_msg_(!(count == 0 || count > 4), "%s must have a count of 1 to 4 registers!", __FUNCTION__);
@@ -3216,6 +3220,15 @@ void ARM64FloatEmitter::USHL(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 {
 	EmitThreeSame(1, EncodeSize(size), 0x8, Rd, Rn, Rm);
 }
+void ARM64FloatEmitter::ABS(u8 size, ARM64Reg Rd, ARM64Reg Rn)
+{
+	Emit2RegMisc(IsQuad(Rd), 0, EncodeSize(size), 0xB, Rd, Rn);
+}
+void ARM64FloatEmitter::CLZ(u8 size, ARM64Reg Rd, ARM64Reg Rn)
+{
+	_assert_msg_(size != 64, "%s has no 64-bit form", __FUNCTION__);
+	Emit2RegMisc(IsQuad(Rd), 1, EncodeSize(size), 4, Rd, Rn);
+}
 void ARM64FloatEmitter::UMULL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 {
 	_assert_msg_(IsQuad(Rd) && !IsQuad(Rn) && src_size < 64, "%s: bad registers or size", __FUNCTION__);
@@ -3225,6 +3238,20 @@ void ARM64FloatEmitter::UMULL2(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg R
 {
 	_assert_msg_(IsQuad(Rd) && IsQuad(Rn) && src_size < 64, "%s: bad registers or size", __FUNCTION__);
 	Write32((1 << 30) | (1 << 29) | (0xE << 24) | (EncodeSize(src_size) << 22) | (1 << 21) | (DecodeReg(Rm) << 16) | (0xC << 12) | (DecodeReg(Rn) << 5) | DecodeReg(Rd));
+}
+static u32 EncodeUMULLByElement(bool upper, u8 src_size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, u8 index)
+{
+	_assert_msg_(src_size == 32 && index < 4, "UMULL by element: only 32-bit lanes for now");
+	const u32 L = index & 1, H = (index >> 1) & 1;
+	return ((u32)upper << 30) | (1 << 29) | (0xF << 24) | (2 << 22) | (L << 21) | (DecodeReg(Rm) << 16) | (0xA << 12) | (H << 11) | (DecodeReg(Rn) << 5) | DecodeReg(Rd);
+}
+void ARM64FloatEmitter::UMULL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, u8 index)
+{
+	Write32(EncodeUMULLByElement(false, src_size, Rd, Rn, Rm, index));
+}
+void ARM64FloatEmitter::UMULL2(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm, u8 index)
+{
+	Write32(EncodeUMULLByElement(true, src_size, Rd, Rn, Rm, index));
 }
 void ARM64FloatEmitter::ADDV(u8 size, ARM64Reg Rd, ARM64Reg Rn)
 {
@@ -3879,6 +3906,12 @@ void ARM64FloatEmitter::SHL(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift) {
 	_assert_msg_(shift < dest_size, "%s shift amount must less than the element size!", __FUNCTION__);
 	u32 imm = EncodeImmShiftLeft(dest_size, shift);
 	EmitShiftImm(IsQuad(Rd), false, imm >> 3, imm & 7, 0xA, Rd, Rn);
+}
+
+void ARM64FloatEmitter::SLI(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift) {
+	_assert_msg_(shift < dest_size, "%s shift amount must less than the element size!", __FUNCTION__);
+	u32 imm = EncodeImmShiftLeft(dest_size, shift);
+	EmitShiftImm(IsQuad(Rd), true, imm >> 3, imm & 7, 0xA, Rd, Rn);
 }
 
 void ARM64FloatEmitter::USRA(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift) {
