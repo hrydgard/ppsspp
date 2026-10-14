@@ -492,7 +492,8 @@ void ArmJitBackend::CompIR_FSat(IRInst inst) {
 void ArmJitBackend::CompIR_FSpecial(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
-	// The argument goes in S0 and the result comes back there (hard float ABI.)
+	// The argument goes in S0 and the result comes back there with the hard float ABI. With
+	// softfp (Android's armeabi-v7a), floats are passed and returned in R0 (and R1.)
 	auto loadArg = [&]() {
 		regs_.FlushBeforeCall();
 		WriteDebugProfilerStatus(IRProfilerStatus::MATH_HELPER);
@@ -502,10 +503,22 @@ void ArmJitBackend::CompIR_FSpecial(IRInst inst) {
 		} else {
 			VLDR(S0, CTXREG, offsetof(MIPSState, f) + inst.src1 * 4);
 		}
+#if !defined(__ARM_PCS_VFP)
+		VMOV(R0, S0);
+#endif
+	};
+	// Before anything else can use R0 and R1.
+	auto resultToS0 = [&](bool twoFloats) {
+#if !defined(__ARM_PCS_VFP)
+		VMOV(S0, R0);
+		if (twoFloats)
+			VMOV(S1, R1);
+#endif
 	};
 	auto callFuncF_F = [&](float (*func)(float)) {
 		loadArg();
 		QuickCallFunction(R12, func);
+		resultToS0(false);
 		regs_.MapFPR(inst.dest, MIPSMap::NOINIT);
 		VMOV(regs_.F(inst.dest), S0);
 		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
@@ -549,9 +562,10 @@ void ArmJitBackend::CompIR_FSpecial(IRInst inst) {
 		break;
 
 	case IROp::FSinCos:
-		// The helper returns the sine and cosine packed into D0, which is S0 and S1.
+		// The helper returns the sine and cosine packed into a double, which is S0 and S1.
 		loadArg();
 		QuickCallFunction(R12, &vfpu_sincos_packed);
+		resultToS0(true);
 		regs_.Map(inst);
 		VMOV(regs_.F(inst.dest), S0);
 		VMOV(regs_.F(inst.dest + 1), S1);
