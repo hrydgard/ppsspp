@@ -1041,7 +1041,7 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 
 	CheckBox *relay_mode_enet = networkingSettings->Add(new CheckBox(&g_Config.bAdhocUseUdp, n->T("Connect to adhoc server using UDP(ENet) instead of TCP")));
 	relay_mode_enet->SetEnabled(!PSP_IsInited());
-	relay_mode_enet->OnChange.Add([this](UI::EventParams &e) {
+	relay_mode_enet->OnClick.Add([this](UI::EventParams &e) {
 		RecreateViews();
 	});
 	networkingSettings->Add(new SettingHint(n->T("Try switching between TCP/UDP if you suffer frequent adhoc server disconnects. Some network environments favor TCP and some UDP."), nullptr));

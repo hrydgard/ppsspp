@@ -951,8 +951,6 @@ public:
 	// we don't allow these for checkboxes.
 	void SetAutoResult(DialogResult result) override {}
 
-	Event OnChange;
-
 protected:
 	void ClickInternal() override;
 
