@@ -941,13 +941,17 @@ static inline u16 EncodeCJ(Opcode16 op, s32 simm12, Funct3 funct3) {
 static inline u16 EncodeCLB(Opcode16 op, RiscCReg rd, u8 uimm2, RiscCReg rs1, Funct6 funct6) {
 	_assert_msg_(SupportsCompressed(), "Compressed instructions unsupported");
 	_assert_msg_((uimm2 & 3) == uimm2, "CLB immediate must be 2 bit: %d", uimm2);
-	return (u16)op | ((u16)rd << 2) | ((u16)uimm2 << 5) | ((u16)rs1 << 7) | ((u16)funct6 << 10);
+	// uimm[0] goes in bit 6 and uimm[1] in bit 5.
+	u16 imm = ((uimm2 & 1) << 1) | (uimm2 >> 1);
+	return (u16)op | ((u16)rd << 2) | (imm << 5) | ((u16)rs1 << 7) | ((u16)funct6 << 10);
 }
 
 static inline u16 EncodeCSB(Opcode16 op, RiscCReg rs2, u8 uimm2, RiscCReg rs1, Funct6 funct6) {
 	_assert_msg_(SupportsCompressed(), "Compressed instructions unsupported");
 	_assert_msg_((uimm2 & 3) == uimm2, "CSB immediate must be 2 bit: %d", uimm2);
-	return (u16)op | ((u16)rs2 << 2) | ((u16)uimm2 << 5) | ((u16)rs1 << 7) | ((u16)funct6 << 10);
+	// uimm[0] goes in bit 6 and uimm[1] in bit 5.
+	u16 imm = ((uimm2 & 1) << 1) | (uimm2 >> 1);
+	return (u16)op | ((u16)rs2 << 2) | (imm << 5) | ((u16)rs1 << 7) | ((u16)funct6 << 10);
 }
 
 static inline u16 EncodeCLH(Opcode16 op, RiscCReg rd, u8 uimm1, bool funct1, RiscCReg rs1, Funct6 funct6) {
@@ -2414,6 +2418,12 @@ static RiscVReg EncodeFLImm(int bits, double v) {
 bool RiscVEmitter::CanFLI(int bits, double v) const {
 	if (!SupportsFloatExtra())
 		return false;
+	// FLI's only NaN is the canonical one. Any other would match it, since converting a NaN
+	// (to float in EncodeFLImm) may quiet it or drop its payload.
+	uint64_t dbits;
+	memcpy(&dbits, &v, sizeof(dbits));
+	if (v != v && dbits != 0x7FF8000000000000ULL)
+		return false;
 	if (bits == 16 && !SupportsFloatHalf())
 		return false;
 	if (bits > FloatBitsSupported())
@@ -2425,6 +2435,15 @@ bool RiscVEmitter::CanFLI(int bits, uint32_t pattern) const {
 	float f;
 	memcpy(&f, &pattern, sizeof(f));
 	return CanFLI(bits, f);
+}
+
+bool RiscVEmitter::CanFLI(int bits, float v) const {
+	// Checked here as well, since converting to double can already change a NaN.
+	uint32_t fbits;
+	memcpy(&fbits, &v, sizeof(fbits));
+	if (v != v && fbits != 0x7FC00000)
+		return false;
+	return CanFLI(bits, (double)v);
 }
 
 void RiscVEmitter::FLI(int bits, RiscVReg rd, double v) {

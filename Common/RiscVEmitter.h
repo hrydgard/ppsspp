@@ -435,9 +435,7 @@ public:
 	// Additional floating point (Zfa.)
 	bool CanFLI(int bits, double v) const;
 	bool CanFLI(int bits, uint32_t pattern) const;
-	bool CanFLI(int bits, float v) const {
-		return CanFLI(bits, (double)v);
-	}
+	bool CanFLI(int bits, float v) const;
 	void FLI(int bits, RiscVReg rd, double v);
 	void FLI(int bits, RiscVReg rd, uint32_t pattern);
 	void FLI(int bits, RiscVReg rd, float v) {
