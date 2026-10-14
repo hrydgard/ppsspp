@@ -39,7 +39,7 @@
 #include "Core/MIPS/MIPSTables.h"
 
 #if PPSSPP_ARCH(ARM)
-#include "../ARM/ArmJit.h"
+#include "../ARM/ArmIRJit.h"
 #elif PPSSPP_ARCH(ARM64)
 #include "../ARM64/Arm64IRJit.h"
 #elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
@@ -105,7 +105,7 @@ namespace MIPSComp {
 
 	JitInterface *CreateNativeJit(MIPSState *mipsState) {
 #if PPSSPP_ARCH(ARM)
-		return new MIPSComp::ArmJit(mipsState);
+		return new MIPSComp::ArmIRJit(mipsState);
 #elif PPSSPP_ARCH(ARM64)
 		return new MIPSComp::Arm64IRJit(mipsState);
 #elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)

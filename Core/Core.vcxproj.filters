@@ -450,6 +450,33 @@
     <ClCompile Include="MIPS\ARM\ArmRegCacheFPU.cpp">
       <Filter>MIPS\ARM</Filter>
     </ClCompile>
+    <ClCompile Include="MIPS\ARM\ArmIRAsm.cpp">
+      <Filter>MIPS\ARM</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM\ArmIRCompALU.cpp">
+      <Filter>MIPS\ARM</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM\ArmIRCompBranch.cpp">
+      <Filter>MIPS\ARM</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM\ArmIRCompFPU.cpp">
+      <Filter>MIPS\ARM</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM\ArmIRCompLoadStore.cpp">
+      <Filter>MIPS\ARM</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM\ArmIRCompSystem.cpp">
+      <Filter>MIPS\ARM</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM\ArmIRCompVec.cpp">
+      <Filter>MIPS\ARM</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM\ArmIRJit.cpp">
+      <Filter>MIPS\ARM</Filter>
+    </ClCompile>
+    <ClCompile Include="MIPS\ARM\ArmIRRegCache.cpp">
+      <Filter>MIPS\ARM</Filter>
+    </ClCompile>
     <ClCompile Include="Font\PGF.cpp">
       <Filter>Font</Filter>
     </ClCompile>
@@ -1729,6 +1756,12 @@
       <Filter>MIPS\ARM</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\ARM\ArmRegCacheFPU.h">
+      <Filter>MIPS\ARM</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\ARM\ArmIRJit.h">
+      <Filter>MIPS\ARM</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\ARM\ArmIRRegCache.h">
       <Filter>MIPS\ARM</Filter>
     </ClInclude>
     <ClInclude Include="Font\PGF.h">

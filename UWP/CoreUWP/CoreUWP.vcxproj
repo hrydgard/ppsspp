@@ -281,6 +281,8 @@
     <ClInclude Include="..\..\Core\MIPS\ARM\ArmJit.h" />
     <ClInclude Include="..\..\Core\MIPS\ARM\ArmRegCache.h" />
     <ClInclude Include="..\..\Core\MIPS\ARM\ArmRegCacheFPU.h" />
+    <ClInclude Include="..\..\Core\MIPS\ARM\ArmIRJit.h" />
+    <ClInclude Include="..\..\Core\MIPS\ARM\ArmIRRegCache.h" />
     <ClInclude Include="..\..\Core\MIPS\IR\IRFrontend.h" />
     <ClInclude Include="..\..\Core\MIPS\IR\IRInst.h" />
     <ClInclude Include="..\..\Core\MIPS\IR\IRInterpreter.h" />
@@ -573,6 +575,15 @@
     <ClCompile Include="..\..\Core\MIPS\ARM\ArmJit.cpp" />
     <ClCompile Include="..\..\Core\MIPS\ARM\ArmRegCache.cpp" />
     <ClCompile Include="..\..\Core\MIPS\ARM\ArmRegCacheFPU.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\ARM\ArmIRAsm.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\ARM\ArmIRCompALU.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\ARM\ArmIRCompBranch.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\ARM\ArmIRCompFPU.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\ARM\ArmIRCompLoadStore.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\ARM\ArmIRCompSystem.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\ARM\ArmIRCompVec.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\ARM\ArmIRJit.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\ARM\ArmIRRegCache.cpp" />
     <ClCompile Include="..\..\Core\MIPS\IR\IRCompALU.cpp" />
     <ClCompile Include="..\..\Core\MIPS\IR\IRCompBranch.cpp" />
     <ClCompile Include="..\..\Core\MIPS\IR\IRCompFPU.cpp" />

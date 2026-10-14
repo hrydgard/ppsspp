@@ -520,6 +520,15 @@ ARCH_FILES := \
   $(SRC)/Core/MIPS/ARM/ArmJit.cpp \
   $(SRC)/Core/MIPS/ARM/ArmRegCache.cpp \
   $(SRC)/Core/MIPS/ARM/ArmRegCacheFPU.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmIRAsm.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmIRCompALU.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmIRCompBranch.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmIRCompFPU.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmIRCompLoadStore.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmIRCompSystem.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmIRCompVec.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmIRJit.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmIRRegCache.cpp \
   $(SRC)/GPU/Common/VertexDecoderArm.cpp \
   ArmEmitterTest.cpp
 else ifeq ($(findstring arm64-v8a,$(TARGET_ARCH_ABI)),arm64-v8a)

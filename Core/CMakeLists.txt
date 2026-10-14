@@ -38,6 +38,17 @@ list(APPEND CoreExtra
 	MIPS/ARM/ArmRegCache.h
 	MIPS/ARM/ArmRegCacheFPU.cpp
 	MIPS/ARM/ArmRegCacheFPU.h
+	MIPS/ARM/ArmIRAsm.cpp
+	MIPS/ARM/ArmIRCompALU.cpp
+	MIPS/ARM/ArmIRCompBranch.cpp
+	MIPS/ARM/ArmIRCompFPU.cpp
+	MIPS/ARM/ArmIRCompLoadStore.cpp
+	MIPS/ARM/ArmIRCompSystem.cpp
+	MIPS/ARM/ArmIRCompVec.cpp
+	MIPS/ARM/ArmIRJit.cpp
+	MIPS/ARM/ArmIRRegCache.cpp
+	MIPS/ARM/ArmIRJit.h
+	MIPS/ARM/ArmIRRegCache.h
 )
 
 list(APPEND CoreExtra
