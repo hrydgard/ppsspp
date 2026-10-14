@@ -112,6 +112,9 @@ private:
 	void CompIR_VecStore(IRInst inst) override;
 	void CompIR_ValidateAddress(IRInst inst) override;
 
+	// Puts the masked address in SCRATCH1, as an offset from MEMBASEREG. Destroys SCRATCH2.
+	void PrepareSrc1Address(IRInst inst);
+
 	JitOptions &jo;
 	ArmIRRegCache regs_;
 
