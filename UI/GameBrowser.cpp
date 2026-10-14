@@ -54,6 +54,7 @@
 static constexpr float LARGE_LIST_ICON_W = 144.0f;
 static constexpr float LARGE_LIST_ICON_H = 80.0f;
 static constexpr float LARGE_LIST_PAD = 6.0f;
+static constexpr float LARGE_LIST_INFO_SIZE = 64.0f;
 
 // Where the text starts in the list modes.
 static float ListTextX(GameBrowserViewMode viewMode) {
@@ -61,6 +62,14 @@ static float ListTextX(GameBrowserViewMode viewMode) {
 		return LARGE_LIST_PAD + LARGE_LIST_ICON_W * g_Config.fGameGridScale + 20.0f;
 	}
 	return 150.0f;
+}
+
+// Space to the right of the text in the list modes, for the info button.
+static float ListTextRightMargin(GameBrowserViewMode viewMode) {
+	if (viewMode == GameBrowserViewMode::LARGE_LIST) {
+		return LARGE_LIST_INFO_SIZE + LARGE_LIST_PAD * 2;
+	}
+	return 0.0f;
 }
 
 static void DrawIconWithText(UIContext &dc, ImageID image, std::string_view text, const Bounds &bounds, GameBrowserViewMode viewMode, const UI::Style &style) {
@@ -106,7 +115,7 @@ static void DrawIconWithText(UIContext &dc, ImageID image, std::string_view text
 		}
 
 		float tx = textX;
-		int availableWidth = bounds.w - textX;
+		int availableWidth = bounds.w - textX - ListTextRightMargin(viewMode);
 		float sineWidth = std::max(0.0f, (tw - availableWidth)) / 2.0f;
 		if (availableWidth < tw) {
 			tx -= (1.0f + sin(time_now_d() * 1.5f)) * sineWidth;
@@ -158,8 +167,11 @@ public:
 		holdEnabled_ = hold;
 	}
 	bool Touch(const TouchInput &input) override {
-		const bool retval = UI::Clickable::Touch(input);
 		hovering_ = bounds_.Contains(input.x, input.y);
+		if (HasInfoButton() && TouchInfoButton(input)) {
+			return true;
+		}
+		const bool retval = UI::Clickable::Touch(input);
 		if (hovering_ && (input.flags & TouchInputFlags::DOWN)) {
 			holdStart_ = time_now_d();
 		}
@@ -197,6 +209,16 @@ public:
 			return true;
 		}
 
+		// Holding the accept button works like a long press, so a gamepad can do it too.
+		if (holdEnabled_ && HasFocus() && UI::IsAcceptKey(key) && !(key.flags & KeyInputFlags::IS_REPEAT)) {
+			if (key.flags & KeyInputFlags::DOWN) {
+				holdStart_ = time_now_d();
+			}
+			if (key.flags & KeyInputFlags::UP) {
+				holdStart_ = 0.0;
+			}
+		}
+
 		return Clickable::Key(key);
 	}
 
@@ -209,6 +231,10 @@ public:
 
 	void FocusChanged(UI::FocusFlags focusFlags) override {
 		UI::Clickable::FocusChanged(focusFlags);
+		if (focusFlags & UI::FocusFlags::LOST_FOCUS) {
+			// Don't let a held accept button carry over from a button we've left.
+			holdStart_ = 0.0;
+		}
 		TriggerOnHighlight(focusFlags);
 	}
 
@@ -240,6 +266,34 @@ private:
 
 	void UpdateVideo(const std::shared_ptr<GameInfo> &ginfo, bool wantVideo);
 
+	// The large list has room for an info button on each line, doing the same as a long press.
+	bool HasInfoButton() const {
+		return viewMode_ == GameBrowserViewMode::LARGE_LIST && holdEnabled_;
+	}
+	Bounds InfoButtonBounds() const {
+		return Bounds(bounds_.x2() - LARGE_LIST_INFO_SIZE - LARGE_LIST_PAD, bounds_.centerY() - LARGE_LIST_INFO_SIZE * 0.5f, LARGE_LIST_INFO_SIZE, LARGE_LIST_INFO_SIZE);
+	}
+	// Returns true if the info button took the input.
+	bool TouchInfoButton(const TouchInput &input) {
+		if ((input.flags & TouchInputFlags::MOUSE) && (input.buttons & 1) == 0) {
+			return false;
+		}
+		const bool inside = InfoButtonBounds().Contains(input.x, input.y);
+		if (input.flags & TouchInputFlags::DOWN) {
+			infoButtonDown_ = inside;
+		}
+		if (!infoButtonDown_) {
+			return false;
+		}
+		if (input.flags & TouchInputFlags::UP) {
+			infoButtonDown_ = false;
+			if (inside && !(input.flags & TouchInputFlags::CANCEL)) {
+				TriggerOnHoldClick();
+			}
+		}
+		return true;
+	}
+
 	GameBrowserViewMode viewMode_;
 	bool gridStyle_;
 	Path gamePath_;
@@ -254,6 +308,7 @@ private:
 	bool showInfoPressed_ = false;
 	bool infoKeyPressed_ = false;
 	bool hovering_ = false;
+	bool infoButtonDown_ = false;
 };
 
 void GameButton::UpdateVideo(const std::shared_ptr<GameInfo> &ginfo, bool wantVideo) {
@@ -476,7 +531,7 @@ void GameButton::Draw(UIContext &dc) {
 
 			dc.MeasureText(dc.GetFontStyle(), 1.0f, 1.0f, title_, &tw, &th, 0);
 
-			int availableWidth = bounds_.w - textX;
+			int availableWidth = bounds_.w - textX - ListTextRightMargin(viewMode_);
 			if (g_Config.bShowIDOnGameIcon) {
 				float vw, vh;
 				dc.MeasureText(dc.GetFontStyle(), 0.7f, 0.7f, ginfo->id_version, &vw, &vh, 0);
@@ -547,6 +602,16 @@ void GameButton::Draw(UIContext &dc) {
 				dc.Draw()->DrawImage(regionIcons[regionIndex], bounds_.x + 4, y + h - image->h - 5, 1.0f);
 			}
 		}
+	}
+
+	if (HasInfoButton()) {
+		const Bounds infoBounds = InfoButtonBounds();
+		Style infoStyle = HasFocus() ? dc.GetTheme().itemFocusedStyle : dc.GetTheme().itemStyle;
+		if (infoButtonDown_) {
+			infoStyle = dc.GetTheme().itemDownStyle;
+			dc.FillRect(infoStyle.background, infoBounds);
+		}
+		dc.Draw()->DrawImage(ImageID("I_INFO"), infoBounds.centerX(), infoBounds.centerY(), 1.0f, infoStyle.fgColor, ALIGN_CENTER);
 	}
 
 	if (overlayColor) {
