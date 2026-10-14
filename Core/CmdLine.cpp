@@ -232,6 +232,8 @@ static const CommandLineParam g_autoParams[] = {
 	{POFF(reRawBase), CmdParamType::String, "re-raw-base", '\0', "Treat --re-module as a raw code image loaded at this address, e.g. 0x08300000", CmdLineMode::Headless},
 	{POFF(reDecrypt), CmdParamType::String, "re-decrypt", '\0', "Decrypt one encrypted PSP file (PRX or ME image) and exit", CmdLineMode::Headless},
 	{POFF(reDecryptOut), CmdParamType::String, "re-decrypt-out", '\0', "Output file for --re-decrypt (default: decrypted.bin)", CmdLineMode::Headless},
+	{POFF(reDecryptKey), CmdParamType::String, "re-decrypt-key", '\0', "Secure install ID (32 hex digits) for --re-decrypt of a game patch installed on a PSP; also needs --fuse-id", CmdLineMode::Headless},
+	{POFF(fuseId), CmdParamType::String, "fuse-id", '\0', "Fuse ID (12 hex digits) of the PSP a game patch was installed on"},
 	{POFF(dumpFile), CmdParamType::String, "dump-file", '\0', "Copy one file out of the disc image, e.g. disc0:/PSP_GAME/USRDIR/MOVIE.PMF, or list a directory, and exit", CmdLineMode::Headless},
 	{POFF(dumpFileOut), CmdParamType::String, "dump-file-out", '\0', "Output file for --dump-file (default: the file's own name)", CmdLineMode::Headless},
 	{POFF(odsLog), CmdParamType::Bool, "odslog", 'o', "Also log through OutputDebugString (Windows)", CmdLineMode::Headless},
@@ -532,6 +534,10 @@ CommandLineParseResult CommandLineOptions::Parse(int argc, const char *argv[], C
 }
 
 void CommandLineOptions::ApplyToConfig() const {
+	if (fuseId.has_value()) {
+		g_Config.sFuseID = fuseId.value();
+		g_Config.DoNotSaveSetting(&g_Config.sFuseID);
+	}
 	if (fullscreen.has_value()) {
 		g_Config.bFullScreen = fullscreen.value();
 		g_Config.DoNotSaveSetting(&g_Config.bFullScreen);

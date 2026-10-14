@@ -657,6 +657,117 @@ int kirk_CMD17(KirkState *kirk, const u8 * inbuff, int insize) {
   }
 }
 
+// The per-console key KIRK derives from the Fuse ID for a service: seed 0 for commands 2 and 3,
+// 1 for 5 and 8. The key mesh is psdevwiki's Kirk page (the same steps as decrypt_kirk16_private,
+// which is seed 3), the final step the KIRK ROM's aes_set_perconsole_key (uofw src/kirk/kirk-rom.c).
+void kirk_individual_key(KirkState *kirk, int seed, u8 *key_out)
+{
+  u8 fuseid[8], subkey_1[0x10], subkey_2[0x10], mesh[0x30];
+  rijndael_ctx aes_ctx;
+  int i, k;
+
+  fuseid[7] = kirk->g_fuse90 & 0xFF;
+  fuseid[6] = (kirk->g_fuse90 >> 8) & 0xFF;
+  fuseid[5] = (kirk->g_fuse90 >> 16) & 0xFF;
+  fuseid[4] = (kirk->g_fuse90 >> 24) & 0xFF;
+  fuseid[3] = kirk->g_fuse94 & 0xFF;
+  fuseid[2] = (kirk->g_fuse94 >> 8) & 0xFF;
+  fuseid[1] = (kirk->g_fuse94 >> 16) & 0xFF;
+  fuseid[0] = (kirk->g_fuse94 >> 24) & 0xFF;
+
+  rijndael_set_key(&aes_ctx, kirk16_key, 128);
+  for (i = 0; i < 0x10; i++)
+    subkey_2[i] = subkey_1[i] = fuseid[i % 8];
+  for (i = 0; i < 3; i++)
+  {
+    rijndael_encrypt(&aes_ctx, subkey_1, subkey_1);
+    rijndael_decrypt(&aes_ctx, subkey_2, subkey_2);
+  }
+  rijndael_set_key(&aes_ctx, subkey_1, 128);
+  for (i = 0; i < 3; i++)
+  {
+    for (k = 0; k < 3; k++)
+      rijndael_encrypt(&aes_ctx, subkey_2, subkey_2);
+    memcpy(&mesh[i * 0x10], subkey_2, 0x10);
+  }
+
+  memcpy(key_out, (seed & 1) ? &mesh[0x10] : &mesh[0], 0x10);
+  rijndael_set_key(&aes_ctx, &mesh[0x20], 128);
+  for (i = 0; i < (seed >> 1) + 1; i++)
+    rijndael_encrypt(&aes_ctx, key_out, key_out);
+}
+
+// Command 3 decrypts what command 2 produced. It's command 1 with the header keys encrypted with
+// the per-console key. The CMACs are checked (they catch a wrong Fuse ID); ECDSA signatures aren't,
+// since command 3's public key isn't known.
+int kirk_CMD3(KirkState *kirk, u8* outbuff, const u8* inbuff, int size)
+{
+  const KIRK_CMD1_HEADER* header = (const KIRK_CMD1_HEADER*)inbuff;
+  header_keys keys;
+  u8 key[16], cmac_hash[16];
+  AES_ctx k;
+  int chk_size;
+
+  if(size < 0x90) return KIRK_INVALID_SIZE;
+  if(kirk->is_kirk_initialized == 0) return KIRK_NOT_INITIALIZED;
+  if(header->mode != KIRK_MODE_CMD3) return KIRK_INVALID_MODE;
+  if(header->data_size == 0) return KIRK_DATA_SIZE_ZERO;
+  if(header->data_offset > (u32)size || header->data_size > (u32)size - sizeof(KIRK_CMD1_HEADER) - header->data_offset) return KIRK_INVALID_SIZE;
+
+  kirk_individual_key(kirk, 0, key);
+  AES_set_key(&k, key, 128);
+  AES_cbc_decrypt(&k, inbuff, (u8*)&keys, 16*2);
+
+  if(!(header->ecdsa_hash & 1))
+  {
+    chk_size = (header->data_size + 15) & ~15;
+    if(header->data_offset + chk_size > (u32)size - sizeof(KIRK_CMD1_HEADER)) return KIRK_INVALID_SIZE;
+    AES_set_key(&k, keys.CMAC, 128);
+    AES_CMAC(&k, (u8*)inbuff+0x60, 0x30, cmac_hash);
+    if(memcmp(cmac_hash, header->CMAC_header_hash, 16) != 0) return KIRK_HEADER_HASH_INVALID;
+    AES_CMAC(&k, (u8*)inbuff+0x60, 0x30 + chk_size + header->data_offset, cmac_hash);
+    if(memcmp(cmac_hash, header->CMAC_data_hash, 16) != 0) return KIRK_DATA_HASH_INVALID;
+  }
+
+  AES_set_key(&k, keys.AES, 128);
+  AES_cbc_decrypt(&k, inbuff+sizeof(KIRK_CMD1_HEADER)+header->data_offset, outbuff, header->data_size);
+  return KIRK_OPERATION_SUCCESS;
+}
+
+// Commands 5 and 8 are 4 and 7 with the per-console key (KIRK ROM kirk_cmd5_encrypt_perconsole and
+// kirk_cmd8_decrypt_perconsole, which only accept keyseed 0x100).
+int kirk_CMD5(KirkState *kirk, u8* outbuff, const u8* inbuff, int size)
+{
+  const KIRK_AES128CBC_HEADER *header = (const KIRK_AES128CBC_HEADER*)inbuff;
+  u8 key[16];
+  AES_ctx aesKey;
+
+  if(kirk->is_kirk_initialized == 0) return KIRK_NOT_INITIALIZED;
+  if(header->mode != KIRK_MODE_ENCRYPT_CBC || header->keyseed != 0x100) return KIRK_INVALID_MODE;
+  if(header->data_size == 0) return KIRK_DATA_SIZE_ZERO;
+
+  kirk_individual_key(kirk, 1, key);
+  AES_set_key(&aesKey, key, 128);
+  AES_cbc_encrypt(&aesKey, inbuff+sizeof(KIRK_AES128CBC_HEADER), outbuff+sizeof(KIRK_AES128CBC_HEADER), header->data_size);
+  return KIRK_OPERATION_SUCCESS;
+}
+
+int kirk_CMD8(KirkState *kirk, u8* outbuff, const u8* inbuff, int size)
+{
+  const KIRK_AES128CBC_HEADER *header = (const KIRK_AES128CBC_HEADER*)inbuff;
+  u8 key[16];
+  AES_ctx aesKey;
+
+  if(kirk->is_kirk_initialized == 0) return KIRK_NOT_INITIALIZED;
+  if(header->mode != KIRK_MODE_DECRYPT_CBC || header->keyseed != 0x100) return KIRK_INVALID_MODE;
+  if(header->data_size == 0) return KIRK_DATA_SIZE_ZERO;
+
+  kirk_individual_key(kirk, 1, key);
+  AES_set_key(&aesKey, key, 128);
+  AES_cbc_decrypt(&aesKey, inbuff+sizeof(KIRK_AES128CBC_HEADER), outbuff, header->data_size);
+  return KIRK_OPERATION_SUCCESS;
+}
+
 int kirk_init(KirkState *kirk)
 {
   return kirk_init2(kirk, (u8*)"Lazy Dev should have initialized!",33,0xBABEF00D, 0xDEADBEEF );
@@ -729,6 +840,9 @@ int kirk_sceUtilsBufferCopyWithRange(KirkState *kirk, u8* outbuff, int outsize, 
   {
     case KIRK_CMD_DECRYPT_PRIVATE: return kirk_CMD1(kirk, outbuff, inbuff, insize); break;  // NOTE: I think this actually trashes inbuff
     case KIRK_CMD_ENCRYPT_IV_0: return kirk_CMD4(kirk, outbuff, inbuff, insize); break;
+    case KIRK_CMD_3: return kirk_CMD3(kirk, outbuff, inbuff, insize); break;
+    case KIRK_CMD_ENCRYPT_IV_FUSE: return kirk_CMD5(kirk, outbuff, inbuff, insize); break;
+    case KIRK_CMD_DECRYPT_IV_FUSE: return kirk_CMD8(kirk, outbuff, inbuff, insize); break;
     case KIRK_CMD_DECRYPT_IV_0: return kirk_CMD7(kirk, outbuff, inbuff, insize); break;
     case KIRK_CMD_PRIV_SIGN_CHECK: return kirk_CMD10(kirk, inbuff, insize); break;
     case KIRK_CMD_SHA1_HASH: return kirk_CMD11(kirk, outbuff, inbuff, insize); break;

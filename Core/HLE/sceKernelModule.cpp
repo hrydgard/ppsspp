@@ -1500,7 +1500,7 @@ static void ApplyVshHomebrewPatches(u32 start, u32 end) {
 		discId ? "patched" : "not found", headerType ? "patched" : "not found", headerBytesRetargeted ? "patched" : "not found");
 }
 
-static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAddress, bool fromTop, std::string *error_string, u32 *magic, std::string_view filename, u32 &error, const u8 *prxSeed = nullptr) {
+static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAddress, bool fromTop, std::string *error_string, u32 *magic, std::string_view filename, u32 &error, const u8 *prxSeed = nullptr, const u32 *fuseId = nullptr) {
 	// The magic reads below need four bytes, and the ~SCE branch another four after that. Everything
 	// downstream checks its own sizes; this is just so we can look at the magic at all. The PBP path
 	// in __KernelLoadModule computes elfSize from two offsets in the file and doesn't floor it.
@@ -1573,7 +1573,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		newptr = new u8[maxElfSize];
 		elfSize = maxElfSize;
 		ptr = newptr;
-		int decryptedSize = pspDecryptPRX(in, (u8*)ptr, head->psp_size, prxSeed);
+		int decryptedSize = pspDecryptPRX(in, (u8*)ptr, head->psp_size, prxSeed, fuseId);
 		// If decryption got us nowhere, the PRX may simply not be encrypted - in which case the ELF
 		// starts right after the header. Check the source buffer, not the destination: on the paths
 		// where decryption bails early nothing has been written to newptr yet, so this used to read
@@ -2556,6 +2556,8 @@ int sceKernelLoadExec(const char *filename, u32 paramPtr) {
 	return hleLogDebug(Log::sceModule, 0);
 }
 
+static u32 KernelLoadModuleFromData(const char *name, std::vector<uint8_t> &fileData, u32 flags, const SceKernelLMOption *lmoption, bool *tryLoadExec, const u8 *secureId = nullptr, const u32 *fuseId = nullptr);
+
 // What sceKernelLoadModule does once the file has been read: decrypt the module, place it in memory
 // and link it. Returns the module's UID or an error. Logs directly rather than through hleLog*,
 // since it also runs from the LoadModuleDone event. Sets *tryLoadExec for a BOOT.BIN we can't load
@@ -2570,7 +2572,10 @@ static u32 KernelLoadModuleFromFile(const char *name, u32 flags, const SceKernel
 		ERROR_LOG(Log::Loader, "sceKernelLoadModule(%s): module file size is 0", name);
 		return SCE_KERNEL_ERROR_FILEERR;
 	}
+	return KernelLoadModuleFromData(name, fileData, flags, lmoption, tryLoadExec);
+}
 
+static u32 KernelLoadModuleFromData(const char *name, std::vector<uint8_t> &fileData, u32 flags, const SceKernelLMOption *lmoption, bool *tryLoadExec, const u8 *secureId, const u32 *fuseId) {
 	// A .sprx installed by a PKG game update comes wrapped in an NPDRM "\0PSPEDAT" container: a
 	// 0x90-byte header naming the content ID, then the payload at the offset in its u16 at 0x0C.
 	// The payload is an ordinary ~PSP PRX, so stepping over the header is enough to get it to the
@@ -2609,7 +2614,7 @@ static u32 KernelLoadModuleFromFile(const char *name, u32 flags, const SceKernel
 	u32 magic;
 	u32 error;
 	std::string error_string;
-	module = __KernelLoadELFFromPtr(fileData.data(), fileData.size(), 0, lmoption ? lmoption->position == PSP_SMEM_High : false, &error_string, &magic, name, error, havePrxSeed ? prxSeed : nullptr);
+	module = __KernelLoadELFFromPtr(fileData.data(), fileData.size(), 0, lmoption ? lmoption->position == PSP_SMEM_High : false, &error_string, &magic, name, error, havePrxSeed ? prxSeed : secureId, fuseId);
 
 	if (!module) {
 		if (magic == 0x46535000) {
@@ -3359,10 +3364,64 @@ static u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr) {
 	return hleNoLog(module->GetUID());
 }
 
-static u32 sceKernelLoadModuleDNAS(const char *name, u32 flags)
-{
-	ERROR_LOG_REPORT(Log::sceModule, "UNIMPL 0=sceKernelLoadModuleDNAS()");
-	return hleNoLog(0);
+// Loads a module installed by the DRM BB install utility (the psheet driver), like the patch
+// Killzone: Liberation's Chapter 5 DLC installs as ms0:/PSP/GAME/<id>/KZL.PRX. That's a PGD around a
+// type 3 PRX, both keyed to the PSP that installed it (KIRK commands 8 and 3) and to the game by the
+// secure install ID passed here, so it only loads with that PSP's Fuse ID in the FuseID setting.
+// Killzone's bootloader takes any negative result as "no patch" and loads its stock module from the
+// disc. A module that isn't encrypted at all loads as is.
+static u32 sceKernelLoadModuleDNAS(const char *name, u32 keyAddr, u32 flags, u32 optionAddr) {
+	if (!name) {
+		return hleLogError(Log::Loader, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "bad filename");
+	}
+	if (!Memory::IsValidRange(keyAddr, 16)) {
+		return hleLogError(Log::Loader, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "bad key");
+	}
+	u8 key[16];
+	Memory::Memcpy(key, keyAddr, 16);
+
+	const SceKernelLMOption *lmoption = nullptr;
+	if (optionAddr) {
+		if (!Memory::IsValidRange(optionAddr, sizeof(SceKernelLMOption))) {
+			return hleLogError(Log::Loader, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "bad option");
+		}
+		lmoption = (const SceKernelLMOption *)Memory::GetPointerUnchecked(optionAddr);
+	}
+
+	std::vector<uint8_t> fileData;
+	if (pspFileSystem.ReadEntireFile(name, fileData) < 0) {
+		return hleLogError(Log::Loader, SCE_KERNEL_ERROR_ERRNO_FILE_NOT_FOUND, "file does not exist");
+	}
+	if (fileData.empty()) {
+		return hleLogError(Log::Loader, SCE_KERNEL_ERROR_FILEERR, "module file size is 0");
+	}
+	const int fileSize = (int)fileData.size();
+	const int loadUs = __IoOpenDelayUs(name) + __IoReadDelayUs(fileSize) + 1000 + fileSize / 34;
+
+	u32 fuseId[2];
+	const bool haveFuseId = pspParseFuseId(g_Config.sFuseID, fuseId);
+	if (!haveFuseId && !g_Config.sFuseID.empty()) {
+		WARN_LOG(Log::Loader, "FuseID setting '%s' isn't 12 hex digits", g_Config.sFuseID.c_str());
+	}
+
+	u32 result;
+	if (fileData.size() >= 0x90 && !memcmp(fileData.data(), "\0PGD", 4) && !pspUnwrapDNASPGD(fileData, key, haveFuseId ? fuseId : nullptr)) {
+		result = SCE_ERROR_PGD_INVALID_HEADER;
+	} else {
+		bool tryLoadExec = false;
+		result = KernelLoadModuleFromData(name, fileData, flags, lmoption, &tryLoadExec, key, haveFuseId ? fuseId : nullptr);
+	}
+
+	if ((s32)result < 0) {
+		auto err = GetI18NCategory(I18NCat::ERRORS);
+		if (haveFuseId) {
+			g_OSD.Show(OSDType::MESSAGE_WARNING, err->T("DNASModuleWrongFuseID", "This game update doesn't decrypt with the Fuse ID that's set. Running without it."), "dnasmodule");
+		} else {
+			g_OSD.Show(OSDType::MESSAGE_WARNING, err->T("DNASModuleNeedsFuseID", "This game update was installed on a real PSP and needs that PSP's Fuse ID. Running without it."), "dnasmodule");
+		}
+		return hleDelayResult(hleLogError(Log::Loader, result, "can't decrypt %s%s", name, haveFuseId ? "" : " (no Fuse ID set)"), "module loaded", loadUs);
+	}
+	return hleDelayResult(hleLogInfo(Log::Loader, result), "module loaded", loadUs);
 }
 
 // Pretty sure this is a badly brute-forced function name...
@@ -3554,7 +3613,7 @@ const HLEFunction ModuleMgrForUser[] = {
 	{0XD8B73127, &WrapU_U<sceKernelGetModuleIdByAddress>,               "sceKernelGetModuleIdByAddress",           'x', "x"      },
 	{0XF0A26395, &WrapU_V<sceKernelGetModuleId>,                        "sceKernelGetModuleId",                    'x', ""       },
 	{0X8F2DF740, &WrapU_UUUUU<sceKernelStopUnloadSelfModuleWithStatus>, "sceKernelStopUnloadSelfModuleWithStatus", 'x', "xxxxx"  },
-	{0XFEF27DC1, &WrapU_CU<sceKernelLoadModuleDNAS>,                    "sceKernelLoadModuleDNAS",                 'x', "sx"     },
+	{0XFEF27DC1, &WrapU_CUUU<sceKernelLoadModuleDNAS>,                  "sceKernelLoadModuleDNAS",                 'x', "sxxx"   },
 	{0X644395E2, &WrapU_UUU<sceKernelGetModuleIdList>,                  "sceKernelGetModuleIdList",                'x', "xxx"    },
 	{0XF2D8D1B4, &WrapU_CUU<sceKernelLoadModuleNpDrm>,                  "sceKernelLoadModuleNpDrm",                'x', "sxx"    },
 	{0XE4C4211C, nullptr,                                               "sceKernelLoadModuleWithBlockOffset",      '?', ""       },

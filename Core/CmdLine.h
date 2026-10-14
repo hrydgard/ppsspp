@@ -130,6 +130,11 @@ struct CommandLineOptions {
 	std::optional<std::string> reDecrypt;
 	// Where the plaintext goes. Defaults to "decrypted.bin".
 	std::optional<std::string> reDecryptOut;
+	// The 16-byte secure install ID (32 hex digits) a game patch installed on a PSP was decrypted
+	// with - what the game passes to sceKernelLoadModuleDNAS.
+	std::optional<std::string> reDecryptKey;
+	// The Fuse ID of the PSP a game patch was installed on, overriding the FuseID setting.
+	std::optional<std::string> fuseId;
 	// Headless: copy one file out of the disc image given as the positional argument, to
 	// --dump-file-out, and exit.
 	std::optional<std::string> dumpFile;
