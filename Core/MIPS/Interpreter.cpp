@@ -748,9 +748,6 @@ namespace MIPSInt {
 					} else {
 						// The interpreter emulates the rounding mode by putting the host FPU in it,
 						// so it has to switch right here rather than at the next block boundary.
-						// Restore first: the new value may be back to the default, which Apply
-						// deliberately doesn't write.
-						RestoreHostRoundingMode();
 						ApplyHostRoundingMode(mips);
 					}
 				} else {

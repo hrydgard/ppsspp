@@ -320,6 +320,7 @@ extern const float cst_constants[32];
 // That mode must not be left on while running anything that isn't emulating a guest instruction -
 // HLE syscalls, replacement functions, the GPU - so an emulation loop applies it on entry and
 // restores it before calling out, the way the JITs do (see Jit::ApplyRoundingMode).
-// Apply is cheap when the guest is in the default mode (by far the common case): it does nothing.
+// Both are cheap when the guest is in the default mode (by far the common case): they do nothing.
+// Otherwise apply reads the register once and restore just writes it back.
 void ApplyHostRoundingMode(const MIPSState *mips);
 void RestoreHostRoundingMode();

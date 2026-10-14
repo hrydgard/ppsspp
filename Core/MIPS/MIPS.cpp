@@ -90,71 +90,85 @@ static inline void ARM32WriteFPSCR(u32 fpscr) {
 
 #endif
 
+// The host's own mode, saved by the first apply and written back by restore, so restore doesn't have
+// to read the register. Our bits are cleared in it, in case a JIT's asm stub had already set them.
+// Only the CPU thread calls these.
+static bool g_hostModeSaved = false;
+#if PPSSPP_ARCH(SSE2)
+static u32 g_savedHostMode;
+#elif PPSSPP_ARCH(ARM64)
+static u64 g_savedHostMode;
+#elif defined(ARM32_FPSCR)
+static u32 g_savedHostMode;
+#endif
+
 void ApplyHostRoundingMode(const MIPSState *mips) {
 	u32 fcr1Bits = mips->fcr31 & 0x01000003;
-	// If these are 0, we just leave things as they are.
-	if (fcr1Bits) {
-		int rmode = fcr1Bits & 3;
-		bool ftz = (fcr1Bits & 0x01000000) != 0;
-#if PPSSPP_ARCH(SSE2)
-		u32 csr = _mm_getcsr() & ~0xE040;
-		// Translate the rounding mode bits to X86, the same way as in Asm.cpp.
-		if (rmode & 1) {
-			rmode ^= 2;
-		}
-		csr |= rmode << 13;
-
-		if (ftz) {
-			// FTZ and DAZ together, which flushes like ARM64's FZ: inputs as well as results.
-			csr |= 0x8040;
-		}
-		_mm_setcsr(csr);
-#elif PPSSPP_ARCH(ARM64)
-		u64 fpcr = ARM64ReadFPCR();
-		// Translate MIPS to ARM rounding mode
-		static const u8 lookup[4] = {0, 3, 1, 2};
-
-		fpcr &= ~(3 << 22);    // Clear bits [23:22]
-		fpcr |= ((u64)lookup[rmode] << 22);
-
-		if (ftz) {
-			fpcr |= 1 << 24;
-		}
-
-		ARM64WriteFPCR(fpcr);
-#elif defined(ARM32_FPSCR)
-		static const u8 lookup[4] = {0, 3, 1, 2};
-		u32 fpscr = ARM32ReadFPSCR() & ~(7 << 22);
-		fpscr |= (u32)lookup[rmode] << 22;
-		if (ftz) {
-			fpscr |= 1 << 24;
-		}
-		ARM32WriteFPSCR(fpscr);
-#else
-		// No control register access written for this architecture, so go through the standard
-		// call. Rounding is all it can do: there is no portable flush-to-zero, and neither
-		// riscv64 nor loongarch64 has one in the base ISA either, so denormals stay as they are.
-		static const int roundLookup[4] = { FE_TONEAREST, FE_TOWARDZERO, FE_UPWARD, FE_DOWNWARD };
-		fesetround(roundLookup[rmode]);
-		(void)ftz;
-#endif
+	if (!fcr1Bits) {
+		// The default: the host's own mode is the right one.
+		RestoreHostRoundingMode();
+		return;
 	}
+	int rmode = fcr1Bits & 3;
+	bool ftz = (fcr1Bits & 0x01000000) != 0;
+#if PPSSPP_ARCH(SSE2)
+	if (!g_hostModeSaved) {
+		g_savedHostMode = _mm_getcsr() & ~0xE040;
+		g_hostModeSaved = true;
+	}
+	u32 csr = g_savedHostMode;
+	// Translate the rounding mode bits to X86, the same way as in Asm.cpp.
+	if (rmode & 1) {
+		rmode ^= 2;
+	}
+	csr |= rmode << 13;
+	if (ftz) {
+		// FTZ and DAZ together, which flushes like ARM64's FZ: inputs as well as results.
+		csr |= 0x8040;
+	}
+	_mm_setcsr(csr);
+#elif PPSSPP_ARCH(ARM64) || defined(ARM32_FPSCR)
+	if (!g_hostModeSaved) {
+#if PPSSPP_ARCH(ARM64)
+		g_savedHostMode = ARM64ReadFPCR() & ~(7 << 22);
+#else
+		g_savedHostMode = ARM32ReadFPSCR() & ~(7 << 22);
+#endif
+		g_hostModeSaved = true;
+	}
+	// Translate MIPS to ARM rounding mode. FPSCR has them at the same bits as FPCR.
+	static const u8 lookup[4] = {0, 3, 1, 2};
+	auto mode = g_savedHostMode | ((decltype(g_savedHostMode))lookup[rmode] << 22);
+	if (ftz) {
+		mode |= 1 << 24;
+	}
+#if PPSSPP_ARCH(ARM64)
+	ARM64WriteFPCR(mode);
+#else
+	ARM32WriteFPSCR(mode);
+#endif
+#else
+	// No control register access written for this architecture, so go through the standard
+	// call. Rounding is all it can do: there is no portable flush-to-zero, and neither
+	// riscv64 nor loongarch64 has one in the base ISA either, so denormals stay as they are.
+	static const int roundLookup[4] = { FE_TONEAREST, FE_TOWARDZERO, FE_UPWARD, FE_DOWNWARD };
+	fesetround(roundLookup[rmode]);
+	g_hostModeSaved = true;
+	(void)ftz;
+#endif
 }
 
 void RestoreHostRoundingMode() {
-	// TODO: We should avoid this if we didn't apply rounding in the first place.
-	// In the meantime, clear out the rounding mode and flush-to-zero bits (FTZ and DAZ on x86).
+	if (!g_hostModeSaved) {
+		return;
+	}
+	g_hostModeSaved = false;
 #if PPSSPP_ARCH(SSE2)
-	u32 csr = _mm_getcsr();
-	csr &= ~((7 << 13) | (1 << 6));
-	_mm_setcsr(csr);
+	_mm_setcsr(g_savedHostMode);
 #elif PPSSPP_ARCH(ARM64)
-	u64 fpcr = ARM64ReadFPCR();  // not really 64-bit, just to match the register size.
-	fpcr &= ~(7 << 22);    // Clear bits [23:22] for rounding, 24 for FTZ
-	// Write back the modified FPCR
-	ARM64WriteFPCR(fpcr);
+	ARM64WriteFPCR(g_savedHostMode);
 #elif defined(ARM32_FPSCR)
-	ARM32WriteFPSCR(ARM32ReadFPSCR() & ~(7 << 22));
+	ARM32WriteFPSCR(g_savedHostMode);
 #else
 	fesetround(FE_TONEAREST);
 #endif
