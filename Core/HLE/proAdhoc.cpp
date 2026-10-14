@@ -1765,7 +1765,7 @@ int getLocalIp(sockaddr_in* SocketAddress) {
 	}
 
 	// do not just pick one that is not localhost, it could lead to confusing results in P2P mode
-	// let the systemd pick an address with internet access
+	// let the system pick an address with internet access
 
 	// Socket doesn't "leak" to the game.
 	int sock = socket(AF_INET, SOCK_DGRAM, 0);
