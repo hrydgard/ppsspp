@@ -829,10 +829,13 @@ namespace MIPSComp {
 		int n = GetNumVectorElements(sz);
 
 		// On the PSP, an S constant past n is added in too (cpu/vfpu/prefix_lanes), which
-		// IsPrefixWithinSize() lets through. Rare enough for the interpreter.
-		for (int i = n; i < 4; i++) {
-			if (VFPUPrefixIsConstant(js.prefixS, i))
-				DISABLE;
+		// IsPrefixWithinSize() lets through. The accurate dot product includes it, the rest leave it
+		// to the interpreter, as it's rare.
+		if (!UseAccurateVdot()) {
+			for (int i = n; i < 4; i++) {
+				if (VFPUPrefixIsConstant(js.prefixS, i))
+					DISABLE;
+			}
 		}
 
 		u8 sregs[4], dregs[1];
@@ -847,7 +850,8 @@ namespace MIPSComp {
 			const float c = vavg ? vavgConst[n - 1] : 1.0f;
 			DotLane sl[4], tl[4];
 			for (int i = 0; i < 4; i++) {
-				sl[i] = i < n ? DotReg(sregs[i]) : DotConst(0.0f);
+				const bool constantLane = i >= n && VFPUPrefixIsConstant(js.prefixS, i);
+				sl[i] = i < n ? DotReg(sregs[i]) : DotConst(constantLane ? VFPUPrefixConstant(js.prefixS, i) : 0.0f);
 				tl[i] = DotConst(c);
 			}
 			u8 sv, tv;
@@ -894,11 +898,16 @@ namespace MIPSComp {
 		int n = GetNumVectorElements(sz);
 
 		// On the PSP, lanes past n where both prefixes are constants add their product, and the rest
-		// read zero (cpu/vfpu/prefix_lanes). IsPrefixWithinSize() lets those through, and they're
-		// rare enough for the interpreter.
-		for (int i = n; i < 4; i++) {
-			if (VFPUPrefixIsConstant(js.prefixS, i) && VFPUPrefixIsConstant(js.prefixT, i))
-				DISABLE;
+		// read zero (cpu/vfpu/prefix_lanes). IsPrefixWithinSize() lets those through. The accurate
+		// dot product includes them, the rest leave them to the interpreter, as they're rare.
+		auto constantLane = [&](int i) {
+			return i >= n && VFPUPrefixIsConstant(js.prefixS, i) && VFPUPrefixIsConstant(js.prefixT, i);
+		};
+		if (!UseAccurateVdot()) {
+			for (int i = n; i < 4; i++) {
+				if (constantLane(i))
+					DISABLE;
+			}
 		}
 
 		// TODO: Force read one of them into regs? probably not.
@@ -908,11 +917,10 @@ namespace MIPSComp {
 		GetVectorRegsPrefixD(dregs, V_Single, vd);
 
 		if (UseAccurateVdot()) {
-			// The prefixes stay within n lanes, so the rest are zero, as in the interpreter.
 			DotLane sl[4], tl[4];
 			for (int i = 0; i < 4; i++) {
-				sl[i] = i < n ? DotReg(sregs[i]) : DotConst(0.0f);
-				tl[i] = i < n ? DotReg(tregs[i]) : DotConst(0.0f);
+				sl[i] = i < n ? DotReg(sregs[i]) : DotConst(constantLane(i) ? VFPUPrefixConstant(js.prefixS, i) : 0.0f);
+				tl[i] = i < n ? DotReg(tregs[i]) : DotConst(constantLane(i) ? VFPUPrefixConstant(js.prefixT, i) : 0.0f);
 			}
 			u8 sv, tv;
 			if (!BuildDotOperands(sl, tl, -1, &sv, &tv))
