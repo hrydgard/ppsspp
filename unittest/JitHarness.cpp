@@ -218,11 +218,9 @@ bool TestJit() {
 		jit_speed = ExecCPUTest(false);
 		checkMemoryClean("JIT");
 		MIPSComp::jit->ClearCache();
-#if !PPSSPP_PLATFORM(MAC)
 		mipsr4k.UpdateCore(CPUCore::JIT_IR);
 		jit_ir_speed = ExecCPUTest(false);  // not clearing, so the below can do things.
 		checkMemoryClean("JIT IR");
-#endif
 
 		// Disassemble
 		JitBlockCacheDebugInterface *cache = MIPSComp::jit->GetBlockCacheDebugInterface();
@@ -272,9 +270,7 @@ static bool CheckReplacementHooks(u32 func, u32 size, const std::vector<u8> &cod
 	static const CPUCore cores[] = {
 		CPUCore::JIT,
 		CPUCore::IR_INTERPRETER,
-#if !PPSSPP_PLATFORM(MAC)
 		CPUCore::JIT_IR,
-#endif
 	};
 	for (CPUCore core : cores) {
 		mipsr4k.UpdateCore(core);
@@ -933,9 +929,7 @@ bool TestCPUEquivalence() {
 		CPUCore::INTERPRETER,
 		CPUCore::IR_INTERPRETER,
 		CPUCore::JIT,
-#if !PPSSPP_PLATFORM(MAC)
 		CPUCore::JIT_IR,
-#endif
 	};
 	const int numCores = (int)ARRAY_SIZE(cores);
 
@@ -1110,9 +1104,7 @@ bool TestCPURoundingMode() {
 	static const CPUCore cores[] = {
 		CPUCore::IR_INTERPRETER,
 		CPUCore::JIT,
-#if !PPSSPP_PLATFORM(MAC)
 		CPUCore::JIT_IR,
-#endif
 	};
 	// No flags, then ctc1 left to the interpreter, then everything the JITs can leave to it.
 	static const u32 disableFlags[] = { 0, (u32)MIPSComp::JitDisable::FPU_XFER, 0xFFFF };
