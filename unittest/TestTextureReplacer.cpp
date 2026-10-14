@@ -1,8 +1,7 @@
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 #include <vector>
-
-#include <png.h>
 
 #include "Common/Data/Format/PNGLoad.h"
 #include "Common/File/FileUtil.h"
@@ -209,38 +208,93 @@ static bool TestIgnoreAddress(const Path &packDir) {
 	return true;
 }
 
+static void AppendBE32(std::vector<u8> *out, u32 value) {
+	for (int shift = 24; shift >= 0; shift -= 8) {
+		out->push_back((value >> shift) & 0xFF);
+	}
+}
+
+static u32 PNGCrc32(const u8 *data, size_t size) {
+	u32 crc = 0xFFFFFFFF;
+	for (size_t i = 0; i < size; i++) {
+		crc ^= data[i];
+		for (int bit = 0; bit < 8; bit++) {
+			crc = (crc >> 1) ^ (0xEDB88320 & (0 - (crc & 1)));
+		}
+	}
+	return ~crc;
+}
+
+static void AppendPNGChunk(std::vector<u8> *out, const char *type, const std::vector<u8> &data) {
+	AppendBE32(out, (u32)data.size());
+	std::vector<u8> typeAndData(type, type + 4);
+	typeAndData.insert(typeAndData.end(), data.begin(), data.end());
+	out->insert(out->end(), typeAndData.begin(), typeAndData.end());
+	AppendBE32(out, PNGCrc32(typeAndData.data(), typeAndData.size()));
+}
+
 // Writes an 8-bit palette PNG (a palette in reverse gray order, so the index is not the color)
-// or an 8-bit grayscale PNG, one byte per pixel.
+// or an 8-bit grayscale PNG, one byte per pixel. The image data is stored uncompressed, which
+// avoids needing libpng or zlib here.
 static bool CreateIndexedPNG(const Path &filename, int w, int h, bool palette, const std::vector<u8> &indices) {
+	std::vector<u8> raw;
+	for (int y = 0; y < h; y++) {
+		raw.push_back(0);  // No filter.
+		raw.insert(raw.end(), indices.begin() + y * w, indices.begin() + (y + 1) * w);
+	}
+
+	// A zlib stream of stored blocks.
+	std::vector<u8> zlib = { 0x78, 0x01 };
+	for (size_t pos = 0; pos < raw.size() || pos == 0;) {
+		const size_t len = std::min<size_t>(raw.size() - pos, 65535);
+		const bool last = pos + len >= raw.size();
+		zlib.push_back(last ? 1 : 0);
+		zlib.push_back(len & 0xFF);
+		zlib.push_back(len >> 8);
+		zlib.push_back(~len & 0xFF);
+		zlib.push_back((~len >> 8) & 0xFF);
+		zlib.insert(zlib.end(), raw.begin() + pos, raw.begin() + pos + len);
+		pos += len;
+		if (last) {
+			break;
+		}
+	}
+	u32 a = 1, b = 0;
+	for (u8 c : raw) {
+		a = (a + c) % 65521;
+		b = (b + a) % 65521;
+	}
+	AppendBE32(&zlib, (b << 16) | a);
+
+	std::vector<u8> file = { 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A };
+	std::vector<u8> ihdr;
+	AppendBE32(&ihdr, w);
+	AppendBE32(&ihdr, h);
+	ihdr.push_back(8);  // Bit depth.
+	ihdr.push_back(palette ? 3 : 0);  // Color type: palette or grayscale.
+	ihdr.push_back(0);
+	ihdr.push_back(0);
+	ihdr.push_back(0);
+	AppendPNGChunk(&file, "IHDR", ihdr);
+	if (palette) {
+		std::vector<u8> plte;
+		for (int i = 0; i < 256; i++) {
+			plte.push_back(255 - i);
+			plte.push_back(255 - i);
+			plte.push_back(255 - i);
+		}
+		AppendPNGChunk(&file, "PLTE", plte);
+	}
+	AppendPNGChunk(&file, "IDAT", zlib);
+	AppendPNGChunk(&file, "IEND", {});
+
 	FILE *fp = File::OpenCFile(filename, "wb");
 	if (!fp) {
 		return false;
 	}
-	png_structp png = png_create_write_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
-	png_infop info = png_create_info_struct(png);
-	if (setjmp(png_jmpbuf(png))) {
-		png_destroy_write_struct(&png, &info);
-		fclose(fp);
-		return false;
-	}
-	png_init_io(png, fp);
-	png_set_IHDR(png, info, w, h, 8, palette ? PNG_COLOR_TYPE_PALETTE : PNG_COLOR_TYPE_GRAY, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
-	if (palette) {
-		png_color entries[256];
-		for (int i = 0; i < 256; i++) {
-			entries[i].red = entries[i].green = entries[i].blue = 255 - i;
-		}
-		png_set_PLTE(png, info, entries, 256);
-	}
-	std::vector<png_bytep> rows(h);
-	for (int y = 0; y < h; y++) {
-		rows[y] = (png_bytep)indices.data() + y * w;
-	}
-	png_set_rows(png, info, rows.data());
-	png_write_png(png, info, PNG_TRANSFORM_IDENTITY, nullptr);
-	png_destroy_write_struct(&png, &info);
+	const bool ok = fwrite(file.data(), 1, file.size(), fp) == file.size();
 	fclose(fp);
-	return true;
+	return ok;
 }
 
 static bool ReadFileBytes(const Path &filename, std::vector<u8> *data) {
