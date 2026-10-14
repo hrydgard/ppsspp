@@ -18,11 +18,13 @@
 #include <algorithm>
 #include <condition_variable>
 #include <cstring>
+#include <deque>
 #include <map>
 #include <memory>
 #include <mutex>
 #include <set>
 #include <string_view>
+#include <thread>
 
 #include "zlib.h"
 
@@ -33,7 +35,7 @@
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 #include "Common/System/OSD.h"
-#include "Common/Thread/ThreadManager.h"
+#include "Common/Thread/ThreadUtil.h"
 #include "Core/Config.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/ELF/PBPReader.h"
@@ -736,18 +738,30 @@ void PSARReader::EnsureContents() {
 	// Anything else we leave empty - the caller reports it through the stats.
 }
 
-// Writes unpacked files into a directory that started out empty, on the IO threads, while the
+// Writes unpacked files into a directory that started out empty, on threads of its own while the
 // caller goes on decoding. Each directory is created once, and files without checking whether
 // they exist. Through Android's storage framework those checks and creates are round trips to
 // another process, which is nearly all of an install's time, and doing several at once hides most
-// of the wait.
+// of the wait. The threads are its own rather than the thread pool's: the UI's install already
+// runs on a pool thread, and pool tasks can be dropped unrun at teardown, which would leave
+// Finish() waiting forever.
 class NewFileWriter {
 public:
 	explicit NewFileWriter(PSARUnpackStats *stats) : stats_(stats) {
-		parallel_ = g_threadManager.IsInitialized();
+		for (int i = 0; i < NUM_THREADS; i++) {
+			threads_.emplace_back([this, i]() { ThreadFunc(i); });
+		}
 	}
 	~NewFileWriter() {
 		Finish();
+		{
+			std::lock_guard<std::mutex> lock(mutex_);
+			quit_ = true;
+		}
+		cond_.notify_all();
+		for (std::thread &thread : threads_) {
+			thread.join();
+		}
 	}
 
 	void Write(const Path &destination, const std::vector<u8> &data) {
@@ -759,7 +773,10 @@ public:
 			return;
 		}
 
-		if (!files_.insert(destination.ToString()).second) {
+		// Case insensitive, since the storage usually is.
+		std::string key = destination.ToString();
+		std::transform(key.begin(), key.end(), key.begin(), [](unsigned char c) { return (char)tolower(c); });
+		if (!files_.insert(key).second) {
 			// The same name twice. The later one wins, as it always has, so let the first land
 			// and then overwrite it the careful way - a blind create would make a renamed copy.
 			Finish();
@@ -772,26 +789,17 @@ public:
 			return;
 		}
 
-		if (!parallel_) {
-			if (WriteOne(destination, data))
-				stats_->written++;
-			else
-				stats_->failed++;
-			return;
-		}
-
 		std::unique_lock<std::mutex> lock(mutex_);
 		// Bounded, so memory doesn't fill up with decoded files waiting for a slow disk.
-		cond_.wait(lock, [&] { return inFlight_ < MAX_IN_FLIGHT; });
-		inFlight_++;
-		lock.unlock();
-		g_threadManager.EnqueueTask(new WriteTask(this, destination, data));
+		cond_.wait(lock, [&] { return queue_.size() + busy_ < MAX_IN_FLIGHT; });
+		queue_.push_back({ destination, data });
+		cond_.notify_all();
 	}
 
 	// Waits for every write so far, and adds their results to the stats.
 	void Finish() {
 		std::unique_lock<std::mutex> lock(mutex_);
-		cond_.wait(lock, [&] { return inFlight_ == 0; });
+		cond_.wait(lock, [&] { return queue_.empty() && busy_ == 0; });
 		stats_->written += written_;
 		stats_->failed += failed_;
 		written_ = 0;
@@ -799,48 +807,57 @@ public:
 	}
 
 private:
-	class WriteTask : public Task {
-	public:
-		WriteTask(NewFileWriter *writer, const Path &destination, const std::vector<u8> &data)
-			: writer_(writer), destination_(destination), data_(data) {}
-		TaskType Type() const override { return TaskType::IO_BLOCKING; }
-		TaskPriority Priority() const override { return TaskPriority::NORMAL; }
-		void Run() override {
-			const bool ok = writer_->WriteOne(destination_, data_);
-			std::lock_guard<std::mutex> lock(writer_->mutex_);
-			if (ok)
-				writer_->written_++;
-			else
-				writer_->failed_++;
-			writer_->inFlight_--;
-			writer_->cond_.notify_all();
-		}
-	private:
-		NewFileWriter *writer_;
-		Path destination_;
-		std::vector<u8> data_;
+	struct Job {
+		Path destination;
+		std::vector<u8> data;
 	};
 
-	static bool WriteOne(const Path &destination, const std::vector<u8> &data) {
-		const bool ok = File::WriteDataToNewFile(data.data(), data.size(), destination);
-		if (!ok) {
-			ERROR_LOG(Log::Loader, "PSAR: couldn't write '%s'", destination.c_str());
+	void ThreadFunc(int index) {
+		SetCurrentThreadName(StringFromFormat("PSARWrite %d", index).c_str());
+		// Content URIs are JNI calls.
+		AndroidJNIThreadContext jniContext;
+
+		std::unique_lock<std::mutex> lock(mutex_);
+		while (true) {
+			cond_.wait(lock, [&] { return quit_ || !queue_.empty(); });
+			if (queue_.empty()) {
+				return;
+			}
+			Job job = std::move(queue_.front());
+			queue_.pop_front();
+			busy_++;
+			lock.unlock();
+
+			const bool ok = File::WriteDataToNewFile(job.data.data(), job.data.size(), job.destination);
+			if (!ok) {
+				ERROR_LOG(Log::Loader, "PSAR: couldn't write '%s'", job.destination.c_str());
+			}
+
+			lock.lock();
+			busy_--;
+			if (ok)
+				written_++;
+			else
+				failed_++;
+			cond_.notify_all();
 		}
-		return ok;
 	}
 
-	static constexpr int MAX_IN_FLIGHT = 8;
+	static constexpr int NUM_THREADS = 8;
+	static constexpr size_t MAX_IN_FLIGHT = 8;
 
 	PSARUnpackStats *stats_;
-	bool parallel_ = false;
 	std::set<std::string> createdDirs_;
 	std::set<std::string> files_;
-	// These are guarded by mutex_.
+	std::vector<std::thread> threads_;
+	// The rest are guarded by mutex_. One condition variable covers all the waits; they're short.
 	std::mutex mutex_;
 	std::condition_variable cond_;
-	int inFlight_ = 0;
+	std::deque<Job> queue_;
+	size_t busy_ = 0;
 	int written_ = 0;
 	int failed_ = 0;
+	bool quit_ = false;
 };
 
 bool UnpackPSAR(const u8 *psar, size_t psarSize, const Path &outputDir, const PSARUnpackOptions &options, PSARUnpackStats *stats, std::string *error) {

@@ -896,14 +896,11 @@ int main(int argc, const char* argv[]) {
 			fprintf(stderr, "Unknown PSP model '%s' - expected 01g..12g or any\n", cmdLineOptions.unpackUpdaterModel.value().c_str());
 			return 1;
 		}
-		// A directory that isn't there yet will be empty, so the unpack can skip checking for each
-		// file, and write them on the IO threads.
+		// A directory that isn't there yet will be empty, so the unpack can skip checking for each file.
 		unpackOptions.outputDirIsEmpty = !File::Exists(Path(cmdLineOptions.unpackUpdater.value()));
-		g_threadManager.Init(cpu_info.num_cores, cpu_info.logical_cpu_count);
 		PSARUnpackStats stats;
 		std::string unpackError;
 		const bool ok = UnpackUpdater(Path(cmdLineOptions.bootFilenames[0]), Path(cmdLineOptions.unpackUpdater.value()), unpackOptions, &stats, &unpackError);
-		g_threadManager.Teardown();
 		if (!ok) {
 			fprintf(stderr, "Unpacking failed: %s\n", unpackError.c_str());
 		}
