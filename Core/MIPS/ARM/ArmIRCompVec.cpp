@@ -36,12 +36,59 @@ namespace MIPSComp {
 using namespace ArmGen;
 using namespace ArmIRJitConstants;
 
+// Floats aren't mapped as SIMD, so each lane of a Vec4 is its own S register and these work lane
+// by lane. Vec4 regs are aligned to 4, so a dest and a source are either the same or disjoint,
+// but a scalar source can be one of the dest's lanes.
+
 void ArmJitBackend::CompIR_VecArith(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
+	auto lanes3 = [&](void (ARMXEmitter::*op)(ARMReg, ARMReg, ARMReg)) {
+		regs_.Map(inst);
+		for (int i = 0; i < 4; ++i)
+			(this->*op)(regs_.F(inst.dest + i), regs_.F(inst.src1 + i), regs_.F(inst.src2 + i));
+	};
+	auto lanes2 = [&](void (ARMXEmitter::*op)(ARMReg, ARMReg)) {
+		regs_.Map(inst);
+		for (int i = 0; i < 4; ++i)
+			(this->*op)(regs_.F(inst.dest + i), regs_.F(inst.src1 + i));
+	};
+
 	switch (inst.op) {
+	case IROp::Vec4Add:
+		lanes3(&ARMXEmitter::VADD);
+		break;
+
+	case IROp::Vec4Sub:
+		lanes3(&ARMXEmitter::VSUB);
+		break;
+
+	case IROp::Vec4Mul:
+		lanes3(&ARMXEmitter::VMUL);
+		break;
+
+	case IROp::Vec4Div:
+		lanes3(&ARMXEmitter::VDIV);
+		break;
+
+	case IROp::Vec4Scale:
+		regs_.Map(inst);
+		// The factor may be one of the dest lanes.
+		VMOV(SCRATCHF1, regs_.F(inst.src2));
+		for (int i = 0; i < 4; ++i)
+			VMUL(regs_.F(inst.dest + i), regs_.F(inst.src1 + i), SCRATCHF1);
+		break;
+
+	case IROp::Vec4Neg:
+		lanes2(&ARMXEmitter::VNEG);
+		break;
+
+	case IROp::Vec4Abs:
+		lanes2(&ARMXEmitter::VABS);
+		break;
+
 	default:
-		CompIR_Generic(inst);
+		INVALIDOP;
 		break;
 	}
 }
@@ -50,8 +97,60 @@ void ArmJitBackend::CompIR_VecAssign(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
+	case IROp::Vec4Init:
+	{
+		static const float values[7][4] = {
+			{ 0.0f, 0.0f, 0.0f, 0.0f },
+			{ 1.0f, 1.0f, 1.0f, 1.0f },
+			{ -1.0f, -1.0f, -1.0f, -1.0f },
+			{ 1.0f, 0.0f, 0.0f, 0.0f },
+			{ 0.0f, 1.0f, 0.0f, 0.0f },
+			{ 0.0f, 0.0f, 1.0f, 0.0f },
+			{ 0.0f, 0.0f, 0.0f, 1.0f },
+		};
+		if (inst.src1 >= ARRAY_SIZE(values)) {
+			CompIR_Generic(inst);
+			break;
+		}
+		regs_.Map(inst);
+		for (int i = 0; i < 4; ++i)
+			MOVI2F(regs_.F(inst.dest + i), values[inst.src1][i], SCRATCH1);
+		break;
+	}
+
+	case IROp::Vec4Shuffle:
+		regs_.Map(inst);
+		if (inst.dest == inst.src1) {
+			// Go through the scratch regs, since a lane may be read after it's written.
+			for (int i = 0; i < 4; ++i)
+				VMOV((ARMReg)(SCRATCHF1 + i), regs_.F(inst.src1 + ((inst.src2 >> (i * 2)) & 3)));
+			for (int i = 0; i < 4; ++i)
+				VMOV(regs_.F(inst.dest + i), (ARMReg)(SCRATCHF1 + i));
+		} else {
+			for (int i = 0; i < 4; ++i)
+				VMOV(regs_.F(inst.dest + i), regs_.F(inst.src1 + ((inst.src2 >> (i * 2)) & 3)));
+		}
+		break;
+
+	case IROp::Vec4Blend:
+		regs_.Map(inst);
+		for (int i = 0; i < 4; ++i) {
+			IRReg src = ((inst.constant >> i) & 1) ? inst.src2 : inst.src1;
+			if (src != inst.dest)
+				VMOV(regs_.F(inst.dest + i), regs_.F(src + i));
+		}
+		break;
+
+	case IROp::Vec4Mov:
+		if (inst.dest != inst.src1) {
+			regs_.Map(inst);
+			for (int i = 0; i < 4; ++i)
+				VMOV(regs_.F(inst.dest + i), regs_.F(inst.src1 + i));
+		}
+		break;
+
 	default:
-		CompIR_Generic(inst);
+		INVALIDOP;
 		break;
 	}
 }
@@ -60,8 +159,19 @@ void ArmJitBackend::CompIR_VecHoriz(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
+	case IROp::Vec4Dot:
+		// In the IR interpreter's order, without fusing, into scratch since dest may be a source lane.
+		regs_.Map(inst);
+		VMUL(SCRATCHF1, regs_.F(inst.src1), regs_.F(inst.src2));
+		for (int i = 1; i < 4; ++i) {
+			VMUL(SCRATCHF2, regs_.F(inst.src1 + i), regs_.F(inst.src2 + i));
+			VADD(SCRATCHF1, SCRATCHF1, SCRATCHF2);
+		}
+		VMOV(regs_.F(inst.dest), SCRATCHF1);
+		break;
+
 	default:
-		CompIR_Generic(inst);
+		INVALIDOP;
 		break;
 	}
 }
@@ -69,9 +179,118 @@ void ArmJitBackend::CompIR_VecHoriz(IRInst inst) {
 void ArmJitBackend::CompIR_VecPack(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
+	// These are bit manipulations, so they go through the integer registers. Every source is read
+	// before any dest lane is written.
 	switch (inst.op) {
+	case IROp::Vec2Unpack16To31:
+	case IROp::Vec2Unpack16To32:
+	{
+		regs_.Map(inst);
+		VMOV(SCRATCH1, regs_.F(inst.src1));
+		bool to31 = inst.op == IROp::Vec2Unpack16To31;
+		LSL(SCRATCH2, SCRATCH1, Operand2(16));
+		if (to31)
+			LSR(SCRATCH2, SCRATCH2, Operand2(1));
+		VMOV(regs_.F(inst.dest), SCRATCH2);
+		BIC(SCRATCH1, SCRATCH1, Operand2(0xFF, 0));
+		BIC(SCRATCH1, SCRATCH1, Operand2(0xFF, 12));
+		if (to31)
+			LSR(SCRATCH1, SCRATCH1, Operand2(1));
+		VMOV(regs_.F(inst.dest + 1), SCRATCH1);
+		break;
+	}
+
+	case IROp::Vec4Unpack8To32:
+		regs_.Map(inst);
+		VMOV(SCRATCH1, regs_.F(inst.src1));
+		for (int i = 0; i < 4; ++i) {
+			// Byte i goes to the top of lane i.
+			if (i < 3)
+				LSL(SCRATCH2, SCRATCH1, Operand2(24 - i * 8));
+			else
+				MOV(SCRATCH2, SCRATCH1);
+			if (i != 0)
+				AND(SCRATCH2, SCRATCH2, Operand2(0xFF, 4));
+			VMOV(regs_.F(inst.dest + i), SCRATCH2);
+		}
+		break;
+
+	case IROp::Vec2Pack32To16:
+		regs_.Map(inst);
+		VMOV(SCRATCH1, regs_.F(inst.src1));
+		VMOV(SCRATCH2, regs_.F(inst.src1 + 1));
+		LSR(SCRATCH1, SCRATCH1, Operand2(16));
+		// Keep the top half of the second.
+		BFI(SCRATCH2, SCRATCH1, 0, 16);
+		VMOV(regs_.F(inst.dest), SCRATCH2);
+		break;
+
+	case IROp::Vec2Pack31To16:
+		// Negative lanes clamp to zero.
+		regs_.Map(inst);
+		VMOV(SCRATCH1, regs_.F(inst.src1));
+		VMOV(SCRATCH2, regs_.F(inst.src1 + 1));
+		CMP(SCRATCH1, Operand2(0));
+		SetCC(CC_LT);
+		MOV(SCRATCH1, Operand2(0));
+		SetCC(CC_AL);
+		CMP(SCRATCH2, Operand2(0));
+		SetCC(CC_LT);
+		MOV(SCRATCH2, Operand2(0));
+		SetCC(CC_AL);
+		LSR(SCRATCH1, SCRATCH1, Operand2(15));
+		LSL(SCRATCH2, SCRATCH2, Operand2(1));
+		BFI(SCRATCH2, SCRATCH1, 0, 16);
+		VMOV(regs_.F(inst.dest), SCRATCH2);
+		break;
+
+	case IROp::Vec4Pack32To8:
+	case IROp::Vec4Pack31To8:
+	{
+		// The top byte of each lane (bits 30-23 for 31, with negative lanes as zero.)
+		bool from31 = inst.op == IROp::Vec4Pack31To8;
+		ARMReg temp = regs_.GetAndLockTempGPR();
+		regs_.Map(inst);
+		for (int i = 0; i < 4; ++i) {
+			ARMReg target = i == 0 ? SCRATCH1 : SCRATCH2;
+			VMOV(target, regs_.F(inst.src1 + i));
+			if (from31) {
+				CMP(target, Operand2(0));
+				SetCC(CC_LT);
+				MOV(target, Operand2(0));
+				SetCC(CC_AL);
+				UBFX(target, target, 23, 8);
+			} else {
+				LSR(target, target, Operand2(24));
+			}
+			if (i != 0) {
+				// Accumulate into temp, then insert at the end.
+				if (i == 1)
+					MOV(temp, Operand2(target, ST_LSL, 8));
+				else
+					ORR(temp, temp, Operand2(target, ST_LSL, i * 8));
+			}
+		}
+		ORR(SCRATCH1, SCRATCH1, temp);
+		VMOV(regs_.F(inst.dest), SCRATCH1);
+		break;
+	}
+
+	case IROp::Vec4DuplicateUpperBitsAndShift1:
+		regs_.Map(inst);
+		for (int i = 0; i < 4; ++i)
+			VMOV((ARMReg)(SCRATCHF1 + i), regs_.F(inst.src1 + i));
+		for (int i = 0; i < 4; ++i) {
+			VMOV(SCRATCH1, (ARMReg)(SCRATCHF1 + i));
+			ORR(SCRATCH1, SCRATCH1, Operand2(SCRATCH1, ST_LSR, 8));
+			ORR(SCRATCH1, SCRATCH1, Operand2(SCRATCH1, ST_LSR, 16));
+			LSR(SCRATCH1, SCRATCH1, Operand2(1));
+			VMOV(regs_.F(inst.dest + i), SCRATCH1);
+		}
+		break;
+
 	default:
-		CompIR_Generic(inst);
+		INVALIDOP;
 		break;
 	}
 }
