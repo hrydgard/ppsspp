@@ -170,6 +170,7 @@ extern bool netAdhocctlInited; // TODO: move to sceNetAdhocctl
 
 extern bool netAdhocGameModeEntered;
 extern s32 netAdhocDiscoverStatus; // TODO: maybe move to sceNetAdhocDiscover?
+extern bool netAdhocUseUdp;
 
 // Exposing those for the matching routines
 // NOTE: use hleCall for sceNet* ones!

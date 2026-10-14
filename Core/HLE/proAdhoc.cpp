@@ -2136,7 +2136,7 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	getLocalMac(&address);
 
 	// Connect to Adhoc Server
-	void *new_adhocctl_handle = create_adhocctl_v1_session_v4(&adhocctl_addr, adhocctl_bind_addr, (char *)product_code.data, (char *)parameter.nickname.data, (char *)address.data, g_Config.bAdhocUseUdp);
+	void *new_adhocctl_handle = create_adhocctl_v1_session_v4(&adhocctl_addr, adhocctl_bind_addr, (char *)product_code.data, (char *)parameter.nickname.data, (char *)address.data, netAdhocUseUdp);
 
 	if (new_adhocctl_handle == NULL){
 		return SOCKET_ERROR;
