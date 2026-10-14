@@ -567,9 +567,9 @@ namespace MIPSDis
 	}
 
 	void Dis_Vrnds(MIPSOpcode op, uint32_t pc, char *out, size_t outSize) {
-		int vd = _VD;
+		int vs = _VS;
 		const char *name = MIPSGetName(op);
-		snprintf(out, outSize, "%s%s\t%s", name, VSuff(op), VN(vd, V_Single));
+		snprintf(out, outSize, "%s%s\t%s", name, VSuff(op), VN(vs, V_Single));
 	}
 
 	void Dis_VrndX(MIPSOpcode op, uint32_t pc, char *out, size_t outSize) {
