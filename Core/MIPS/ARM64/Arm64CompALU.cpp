@@ -422,10 +422,10 @@ void Arm64Jit::Comp_ShiftType(MIPSOpcode op) {
 	// WARNING : ROTR
 	switch (op & 0x3f) {
 	case 0: CompShiftImm(op, ST_LSL, sa); break; //sll
-	case 2: CompShiftImm(op, rs == 1 ? ST_ROR : ST_LSR, sa); break;	//srl
+	case 2: CompShiftImm(op, (rs & 1) ? ST_ROR : ST_LSR, sa); break;	//srl
 	case 3: CompShiftImm(op, ST_ASR, sa); break; //sra
 	case 4: CompShiftVar(op, ST_LSL); break; //sllv
-	case 6: CompShiftVar(op, fd == 1 ? ST_ROR : ST_LSR); break; //srlv
+	case 6: CompShiftVar(op, (fd & 1) ? ST_ROR : ST_LSR); break; //srlv
 	case 7: CompShiftVar(op, ST_ASR); break; //srav
 	default:
 		DISABLE;
@@ -493,7 +493,7 @@ void Arm64Jit::Comp_Allegrex(MIPSOpcode op) {
 	if (rd == 0)
 		return;
 
-	switch ((op >> 6) & 31) {
+	switch (AllegrexBitOp(op)) {
 	case 16: // seb	// R(rd) = SignExtend8ToU32(R(rt));
 		if (gpr.IsImm(rt)) {
 			gpr.SetImm(rd, SignExtend8ToU32(gpr.GetImm(rt)));
@@ -543,8 +543,8 @@ void Arm64Jit::Comp_Allegrex2(MIPSOpcode op) {
 	if (rd == 0)
 		return;
 
-	switch (op & 0x3ff) {
-	case 0xA0: //wsbh
+	switch (AllegrexBitOp(op)) {
+	case 2: //wsbh
 		if (gpr.IsImm(rt)) {
 			gpr.SetImm(rd, ((gpr.GetImm(rt) & 0xFF00FF00) >> 8) | ((gpr.GetImm(rt) & 0x00FF00FF) << 8));
 		} else {
@@ -552,7 +552,7 @@ void Arm64Jit::Comp_Allegrex2(MIPSOpcode op) {
 			REV16(gpr.R(rd), gpr.R(rt));
 		}
 		break;
-	case 0xE0: //wsbw
+	case 3: //wsbw
 		if (gpr.IsImm(rt)) {
 			gpr.SetImm(rd, swap32(gpr.GetImm(rt)));
 		} else {

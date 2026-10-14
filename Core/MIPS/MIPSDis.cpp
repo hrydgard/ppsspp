@@ -254,9 +254,9 @@ namespace MIPSDis
 		int rd = _RD;
 		int sa = (op>>6) & 0x1F;
 		const char *name = MIPSGetName(op);
-		if (((op & 0x3f) == 2) && rs == 1)
+		if (((op & 0x3f) == 2) && (rs & 1))
 			name = "rotr";
-		if (((op & 0x3f) == 6) && sa == 1)
+		if (((op & 0x3f) == 6) && (sa & 1))
 			name = "rotrv";
 		snprintf(out, outSize, "%s\t%s, %s, 0x%X", name, RN(rd), RN(rt), sa);
 	}
@@ -267,7 +267,7 @@ namespace MIPSDis
 		int rd = _RD;
 		int sa = (op>>6) & 0x1F;
 		const char *name = MIPSGetName(op);
-		if (((op & 0x3f) == 6) && sa == 1)
+		if (((op & 0x3f) == 6) && (sa & 1))
 			name = "rotrv";
 		snprintf(out, outSize, "%s\t%s, %s, %s", name, RN(rd), RN(rt), RN(rs));
 	}

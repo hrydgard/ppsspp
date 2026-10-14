@@ -967,34 +967,26 @@ namespace MIPSInt {
 		{
 		case 0: R(rd) = R(rt) << sa; break; //sll
 		case 2:
-			if (_RS == 0) //srl
-			{
-				R(rd) = R(rt) >> sa;
-				break;
-			}
-			else if (_RS == 1) //rotr
-			{
+			// Only the low bit of the unused rs field counts (cpu/cpu_alu/shift_encodings).
+			if (_RS & 1) { //rotr
 				R(rd) = __rotr(R(rt), sa);
-				break;
+			} else { //srl
+				R(rd) = R(rt) >> sa;
 			}
-			else
-				goto wrong;
+			break;
 
 		case 3: R(rd) = (u32)(((s32)R(rt)) >> sa); break; //sra
 		case 4: R(rd) = R(rt) << (R(rs) & 0x1F); break; //sllv
 		case 6:
-			if (_FD == 0) { //srlv
-				R(rd) = R(rt) >> (R(rs)&0x1F);
-				break;
-			} else if (_FD == 1) { // rotrv
+			// Same for the unused sa field.
+			if (_FD & 1) { // rotrv
 				R(rd) = __rotr(R(rt), R(rs));
-				break;
-			} else {
-				goto wrong;
+			} else { //srlv
+				R(rd) = R(rt) >> (R(rs) & 0x1F);
 			}
+			break;
 		case 7: R(rd) = (u32)(((s32)R(rt)) >> (R(rs) & 0x1F)); break; //srav
 		default:
-			wrong:
 			_dbg_assert_msg_(false,"Trying to interpret instruction that can't be interpreted");
 			break;
 		}
@@ -1011,7 +1003,7 @@ namespace MIPSInt {
 			return;
 		}
 
-		switch ((op >> 6) & 31) {
+		switch (AllegrexBitOp(op)) {
 		case 16: // seb
 			R(rd) = SignExtend8ToU32(R(rt));
 			break;
@@ -1041,11 +1033,11 @@ namespace MIPSInt {
 			return;
 		}
 
-		switch (op & 0x3ff) {
-		case 0xA0: //wsbh
+		switch (AllegrexBitOp(op)) {
+		case 2: //wsbh
 			R(rd) = ((R(rt) & 0xFF00FF00) >> 8) | ((R(rt) & 0x00FF00FF) << 8);
 			break;
-		case 0xE0: //wsbw
+		case 3: //wsbw
 			R(rd) = swap32(R(rt));
 			break;
 		default:

@@ -212,13 +212,13 @@ void IRFrontend::Comp_ShiftType(MIPSOpcode op) {
 	if (rd == MIPS_REG_ZERO)
 		return;
 
-	// WARNING: srl/rotr and srlv/rotrv share encodings (differentiated using unused bits.)
+	// WARNING: srl/rotr and srlv/rotrv share encodings, told apart by the low bit of the unused field.
 	switch (op & 0x3f) {
 	case 0: CompShiftImm(op, IROp::ShlImm, sa); break; //sll
-	case 2: CompShiftImm(op, (rs == 1 ? IROp::RorImm : IROp::ShrImm), sa); break;	//srl
+	case 2: CompShiftImm(op, ((rs & 1) ? IROp::RorImm : IROp::ShrImm), sa); break;	//srl
 	case 3: CompShiftImm(op, IROp::SarImm, sa); break; //sra
 	case 4: CompShiftVar(op, IROp::Shl); break; //sllv
-	case 6: CompShiftVar(op, (sa == 1 ? IROp::Ror : IROp::Shr)); break; //srlv
+	case 6: CompShiftVar(op, ((sa & 1) ? IROp::Ror : IROp::Shr)); break; //srlv
 	case 7: CompShiftVar(op, IROp::Sar); break; //srav
 
 	default:
@@ -292,7 +292,7 @@ void IRFrontend::Comp_Allegrex(MIPSOpcode op) {
 	if (rd == MIPS_REG_ZERO)
 		return;
 
-	switch ((op >> 6) & 31) {
+	switch (AllegrexBitOp(op)) {
 	case 16: // seb	// R(rd) = SignExtend8ToU32(R(rt));
 		ir.Write(IROp::Ext8to32, rd, rt);
 		break;
@@ -320,11 +320,11 @@ void IRFrontend::Comp_Allegrex2(MIPSOpcode op) {
 	if (rd == MIPS_REG_ZERO)
 		return;
 
-	switch (op & 0x3ff) {
-	case 0xA0: //wsbh
+	switch (AllegrexBitOp(op)) {
+	case 2: //wsbh
 		ir.Write(IROp::BSwap16, rd, rt);
 		break;
-	case 0xE0: //wsbw
+	case 3: //wsbw
 		ir.Write(IROp::BSwap32, rd, rt);
 		break;
 	default:

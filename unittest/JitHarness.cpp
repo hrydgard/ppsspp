@@ -567,14 +567,6 @@ static u32 GenerateFuzzOp(FuzzRng &rng, const char *classes) {
 		if (!IsFuzzableName(MIPSGetName(MIPSOpcode(op)))) {
 			continue;
 		}
-		// srl and srlv with other bits than rotr's set in the unused field: the interpreter does
-		// nothing, the rest shift. TODO: Test on hardware.
-		if (top == 0 && (op & 0x3F) == 2 && ((op >> 21) & 0x1F) > 1) {
-			continue;
-		}
-		if (top == 0 && (op & 0x3F) == 6 && ((op >> 6) & 0x1F) > 1) {
-			continue;
-		}
 		// Not by MEMTYPE, which movz and movn alias with their CONDTYPE.
 		if (std::find(std::begin(memOps), std::end(memOps), top) != std::end(memOps)) {
 			op = FixupMemOp(op, rng);
