@@ -112,6 +112,8 @@ private:
 	void CompIR_VecStore(IRInst inst) override;
 	void CompIR_ValidateAddress(IRInst inst) override;
 
+	// rmode is an ARM rounding mode, or -1 for FPSCR's. Destroys SCRATCH1 and SCRATCH2.
+	void CompFloatToIntWithRounding(ArmGen::ARMReg dest, ArmGen::ARMReg src, int rmode);
 	// Puts the masked address in SCRATCH1, as an offset from MEMBASEREG. Destroys SCRATCH2.
 	void PrepareSrc1Address(IRInst inst);
 
