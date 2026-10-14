@@ -277,8 +277,8 @@ uint8_t Arm64ShuffleResult(uint8_t mask, uint8_t prev) {
 
 	uint8_t result = 0;
 	for (int i = 0; i < 4; ++i) {
-		int takeLane = (mask >> (i * 2)) & 3;
-		int lane = (prev >> (takeLane * 2)) & 3;
+		int takeLane = Vec4ShuffleLane(mask, i);
+		int lane = Vec4ShuffleLane(prev, takeLane);
 		result |= lane << (i * 2);
 	}
 	return result;

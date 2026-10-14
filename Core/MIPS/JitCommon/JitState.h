@@ -143,12 +143,12 @@ namespace MIPSComp {
 
 		u8 VfpuWriteMask() const {
 			_assert_(prefixDFlag & JitState::PREFIX_KNOWN);
-			return (prefixD >> 8) & 0xF;
+			return VFPUPrefixWriteMask(prefixD);
 		}
 
 		bool VfpuWriteMask(int i) const {
 			_assert_(prefixDFlag & JitState::PREFIX_KNOWN);
-			return (prefixD >> (8 + i)) & 1;
+			return VFPUPrefixWriteMask(prefixD, i);
 		}
 
 		void LogPrefix() {

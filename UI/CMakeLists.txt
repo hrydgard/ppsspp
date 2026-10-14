@@ -7,6 +7,7 @@ if(NOT LIBRETRO)
 endif()
 
 list(APPEND UISource
+	ImDebugger/ImCommand.h
 	ImDebugger/ImDebugger.cpp
 	ImDebugger/ImDebugger.h
 	ImDebugger/ImGe.cpp
@@ -22,6 +23,7 @@ list(APPEND UISource
 	ImDebugger/ImJitViewer.cpp
 	ImDebugger/ImJitViewer.h
 	DiscordIntegration.cpp
+	DiscordIntegration.h
 	NativeApp.cpp
 	AdhocServerScreen.h
 	AdhocServerScreen.cpp

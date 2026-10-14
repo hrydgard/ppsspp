@@ -209,7 +209,7 @@ void LoongArch64JitBackend::CompIR_VecAssign(IRInst inst) {
 			} else {
 				regs_.Map(inst);
 				for (int i = 0; i < 4; ++i) {
-					int lane = (inst.src2 >> (i * 2)) & 3;
+					int lane = Vec4ShuffleLane(inst.src2, i);
 					FMOV_S(regs_.F(inst.dest + i), regs_.F(inst.src1 + lane));
 				}
 			}

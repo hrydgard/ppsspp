@@ -129,17 +129,16 @@ static void ApplyPrefixST(MIPSState *mips, float *r, u32 data, VectorSize size, 
 
 	int n = GetNumVectorElements(size);
 	float origV[4]{ invalid, invalid, invalid, invalid };
-	static const float constantArray[8] = {0.f, 1.f, 2.f, 0.5f, 3.f, 1.f/3.f, 0.25f, 1.f/6.f};
 
 	for (int i = 0; i < n; i++) {
 		origV[i] = r[i];
 	}
 
 	for (int i = 0; i < n; i++) {
-		int regnum = (data >> (i*2)) & 3;
-		int abs    = (data >> (8+i)) & 1;
-		int negate = (data >> (16+i)) & 1;
-		int constants = (data >> (12+i)) & 1;
+		int regnum = VFPUPrefixSwizzle(data, i);
+		bool abs = VFPUPrefixAbs(data, i);
+		bool negate = VFPUPrefixNegate(data, i);
+		bool constants = VFPUPrefixIsConstant(data, i);
 
 		if (!constants) {
 			if (regnum >= n) {
@@ -150,7 +149,7 @@ static void ApplyPrefixST(MIPSState *mips, float *r, u32 data, VectorSize size, 
 			if (abs)
 				((u32 *)r)[i] = ((u32 *)r)[i] & 0x7FFFFFFF;
 		} else {
-			r[i] = constantArray[regnum + (abs<<2)];
+			r[i] = vfpuPrefixConstants[regnum + (abs << 2)];
 		}
 
 		if (negate)
@@ -176,7 +175,7 @@ void ApplyPrefixD(MIPSState *mips, float *v, VectorSize size, bool onlyWriteMask
 	int n = GetNumVectorElements(size);
 	for (int i = 0; i < n; i++)
 	{
-		int sat = (data >> (i * 2)) & 3;
+		int sat = VFPUPrefixSat(data, i);
 		if (sat == 1)
 			v[i] = vfpu_clamp(v[i], 0.0f, 1.0f);
 		else if (sat == 3)
@@ -202,10 +201,10 @@ static void RetainInvalidSwizzleST(MIPSState *mips, float *d, VectorSize sz) {
 
 	// TODO: We can probably do some faster check of sPrefix and tPrefix to skip over this loop.
 	for (int i = 0; i < n; i++) {
-		int swizzleS = (sPrefix >> (i + i)) & 3;
-		int swizzleT = (tPrefix >> (i + i)) & 3;
-		int constS = (sPrefix >> (12 + i)) & 1;
-		int constT = (tPrefix >> (12 + i)) & 1;
+		int swizzleS = VFPUPrefixSwizzle(sPrefix, i);
+		int swizzleT = VFPUPrefixSwizzle(tPrefix, i);
+		bool constS = VFPUPrefixIsConstant(sPrefix, i);
+		bool constT = VFPUPrefixIsConstant(tPrefix, i);
 		if ((swizzleS >= n && !constS) || (swizzleT >= n && !constT))
 			d[i] = 0.0f;
 	}
