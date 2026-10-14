@@ -330,53 +330,24 @@ void Arm64JitBackend::CompIR_FCompare(IRInst inst) {
 void Arm64JitBackend::CompIR_FCondAssign(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
-	// For Vec4, we could basically just ORR FCMPGE/FCMPLE together, but overlap is trickier.
+	if (inst.op != IROp::FMin && inst.op != IROp::FMax)
+		INVALIDOP;
+
+	// vmin/vmax: compare by vfpu_minmax_key, and select the operand with its bits.
+	ARM64Reg tempReg = regs_.GetAndLockTempGPR();
 	regs_.Map(inst);
-	fp_.FCMP(regs_.F(inst.src1), regs_.F(inst.src2));
-	FixupBranch unordered = B(CC_VS);
-
-	switch (inst.op) {
-	case IROp::FMin:
-		fp_.FMIN(regs_.F(inst.dest), regs_.F(inst.src1), regs_.F(inst.src2));
-		break;
-
-	case IROp::FMax:
-		fp_.FMAX(regs_.F(inst.dest), regs_.F(inst.src1), regs_.F(inst.src2));
-		break;
-
-	default:
-		INVALIDOP;
-		break;
-	}
-
-	FixupBranch orderedDone = B();
-
-	// Not sure if this path is fast, trying to optimize it to be small but correct.
-	// Probably an uncommon path.
-	SetJumpTarget(unordered);
-	fp_.AND(EncodeRegToDouble(SCRATCHF1), regs_.FD(inst.src1), regs_.FD(inst.src2));
-	// SCRATCHF1 = 0xFFFFFFFF if sign bit set on both, 0x00000000 otherwise.
-	fp_.CMLT(32, EncodeRegToDouble(SCRATCHF1), EncodeRegToDouble(SCRATCHF1));
-
-	switch (inst.op) {
-	case IROp::FMin:
-		fp_.SMAX(32, EncodeRegToDouble(SCRATCHF2), regs_.FD(inst.src1), regs_.FD(inst.src2));
-		fp_.SMIN(32, regs_.FD(inst.dest), regs_.FD(inst.src1), regs_.FD(inst.src2));
-		break;
-
-	case IROp::FMax:
-		fp_.SMIN(32, EncodeRegToDouble(SCRATCHF2), regs_.FD(inst.src1), regs_.FD(inst.src2));
-		fp_.SMAX(32, regs_.FD(inst.dest), regs_.FD(inst.src1), regs_.FD(inst.src2));
-		break;
-
-	default:
-		INVALIDOP;
-		break;
-	}
-	// Replace dest with SCRATCHF2 if both were less than zero.
-	fp_.BIT(regs_.FD(inst.dest), EncodeRegToDouble(SCRATCHF2), EncodeRegToDouble(SCRATCHF1));
-
-	SetJumpTarget(orderedDone);
+	auto key = [&](ARM64Reg r, IRReg src) {
+		fp_.FMOV(r, regs_.F(src));
+		TSTI2R(r, 0x7F800000);
+		ASR(tempReg, r, 31);
+		EOR(r, r, tempReg, ArithOption(tempReg, ST_LSR, 1));
+		CSEL(r, WZR, r, CC_EQ);
+	};
+	key(SCRATCH1, inst.src1);
+	key(SCRATCH2, inst.src2);
+	CMP(SCRATCH1, SCRATCH2);
+	// A tie takes src2.
+	fp_.FCSEL(regs_.F(inst.dest), regs_.F(inst.src1), regs_.F(inst.src2), inst.op == IROp::FMin ? CC_LT : CC_GT);
 }
 
 void Arm64JitBackend::CompIR_FCvt(IRInst inst) {

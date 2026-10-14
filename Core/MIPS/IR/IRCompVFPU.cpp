@@ -2184,8 +2184,8 @@ namespace MIPSComp {
 		}
 
 		// Vector conditional move
-		// imm3 >= 6: d[N] = VFPU_CC[N] == tf ? s[N] : d[N]
-		// imm3 < 6:  d[N] = VFPU_CC[imm3] == tf ? s[N] : d[N]
+		// imm3 == 6: d[N] = VFPU_CC[N] == tf ? s[N] : d[N]
+		// otherwise: d[N] = VFPU_CC[imm3] == tf ? s[N] : d[N]
 
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
@@ -2206,7 +2206,8 @@ namespace MIPSComp {
 				DISABLE;
 			}
 		}
-		if (imm3 < 6) {
+		// 7 tests a CC bit that is always clear (cpu/vfpu/undefined).
+		if (imm3 != 6) {
 			// Test one bit of CC. This bit decides whether none or all subregisters are copied.
 			for (int i = 0; i < n; i++) {
 				ir.Write(IROp::FCmovVfpuCC, dregs[i], sregs[i], (imm3) | ((!tf) << 7));

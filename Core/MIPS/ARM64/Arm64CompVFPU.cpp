@@ -706,6 +706,9 @@ namespace MIPSComp {
 			fpr.SpillLockV(tregs[i]);
 		}
 
+		const bool minmax = (op >> 26) == 27 && (((op >> 23) & 7) == 2 || ((op >> 23) & 7) == 3);
+		const ARM64Reg minmaxTemp = minmax ? gpr.GetAndLockTempR() : INVALID_REG;
+
 		for (int i = 0; i < n; i++) {
 			switch (op >> 26) {
 			case 24: //VFPU0
@@ -736,59 +739,20 @@ namespace MIPSComp {
 			case 27: //VFPU3
 				switch ((op >> 23) & 7) {
 				case 2:  // vmin
-				{
-					fp.FCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
-					FixupBranch unordered = B(CC_VS);
-					fp.FMIN(fpr.V(tempregs[i]), fpr.V(sregs[i]), fpr.V(tregs[i]));
-					FixupBranch skip = B();
-
-					SetJumpTarget(unordered);
-					// Move to integer registers, it'll be easier.  Or maybe there's a simd way?
-					fp.FMOV(SCRATCH1, fpr.V(sregs[i]));
-					fp.FMOV(SCRATCH2, fpr.V(tregs[i]));
-					// And together to find if both have negative set.
-					TST(SCRATCH1, SCRATCH2);
-					FixupBranch cmpPositive = B(CC_PL);
-					// If both are negative, "min" is the greater of the two, since it has the largest mantissa.
-					CMP(SCRATCH1, SCRATCH2);
-					CSEL(SCRATCH1, SCRATCH1, SCRATCH2, CC_GE);
-					FixupBranch skipPositive = B();
-					// If either one is positive, we just want the lowest one.
-					SetJumpTarget(cmpPositive);
-					CMP(SCRATCH1, SCRATCH2);
-					CSEL(SCRATCH1, SCRATCH1, SCRATCH2, CC_LE);
-					SetJumpTarget(skipPositive);
-					// Now, whether negative or positive, move to the result.
-					fp.FMOV(fpr.V(tempregs[i]), SCRATCH1);
-					SetJumpTarget(skip);
-					break;
-				}
 				case 3:  // vmax
 				{
-					fp.FCMP(fpr.V(sregs[i]), fpr.V(tregs[i]));
-					FixupBranch unordered = B(CC_VS);
-					fp.FMAX(fpr.V(tempregs[i]), fpr.V(sregs[i]), fpr.V(tregs[i]));
-					FixupBranch skip = B();
-
-					SetJumpTarget(unordered);
-					// Move to integer registers, it'll be easier.  Or maybe there's a simd way?
-					fp.FMOV(SCRATCH1, fpr.V(sregs[i]));
-					fp.FMOV(SCRATCH2, fpr.V(tregs[i]));
-					// And together to find if both have negative set.
-					TST(SCRATCH1, SCRATCH2);
-					FixupBranch cmpPositive = B(CC_PL);
-					// If both are negative, "max" is the least of the two, since it has the lowest mantissa.
+					// Compare by vfpu_minmax_key, select the operand with its bits. A tie takes t.
+					auto key = [&](ARM64Reg r, MIPSReg v) {
+						fp.FMOV(r, fpr.V(v));
+						TSTI2R(r, 0x7F800000);
+						ASR(minmaxTemp, r, 31);
+						EOR(r, r, minmaxTemp, ArithOption(minmaxTemp, ST_LSR, 1));
+						CSEL(r, WZR, r, CC_EQ);
+					};
+					key(SCRATCH1, sregs[i]);
+					key(SCRATCH2, tregs[i]);
 					CMP(SCRATCH1, SCRATCH2);
-					CSEL(SCRATCH1, SCRATCH1, SCRATCH2, CC_LE);
-					FixupBranch skipPositive = B();
-					// If either one is positive, we just want the highest one.
-					SetJumpTarget(cmpPositive);
-					CMP(SCRATCH1, SCRATCH2);
-					CSEL(SCRATCH1, SCRATCH1, SCRATCH2, CC_GE);
-					SetJumpTarget(skipPositive);
-					// Now, whether negative or positive, move to the result.
-					fp.FMOV(fpr.V(tempregs[i]), SCRATCH1);
-					SetJumpTarget(skip);
+					fp.FCSEL(fpr.V(tempregs[i]), fpr.V(sregs[i]), fpr.V(tregs[i]), ((op >> 23) & 7) == 2 ? CC_LT : CC_GT);
 					break;
 				}
 				case 6:  // vsge
@@ -818,6 +782,7 @@ namespace MIPSComp {
 		ApplyPrefixD(dregs, sz);
 
 		fpr.ReleaseSpillLocksAndDiscardTemps();
+		gpr.ReleaseSpillLocksAndDiscardTemps();
 	}
 
 	void Arm64Jit::Comp_VV2Op(MIPSOpcode op) {
@@ -1309,7 +1274,7 @@ namespace MIPSComp {
 			}
 			fpr.ReleaseSpillLocksAndDiscardTemps();
 		} else {
-			fpr.MapRegV(vd);
+			fpr.MapRegV(vd, MAP_DIRTY | MAP_NOINIT);
 			fp.MOVI2F(fpr.V(vd), 0.0f, SCRATCH1);
 		}
 	}
@@ -2084,7 +2049,8 @@ namespace MIPSComp {
 			}
 		}
 
-		if (imm3 < 6) {
+		// 7 tests a CC bit that is always clear (cpu/vfpu/undefined).
+		if (imm3 != 6) {
 			// Test one bit of CC. This bit decides whether none or all subregisters are copied.
 			fpr.MapRegsAndSpillLockV(dregs, sz, MAP_DIRTY);
 			fpr.MapRegsAndSpillLockV(sregs, sz, 0);

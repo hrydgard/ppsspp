@@ -96,6 +96,8 @@ tests_good = [
   "cpu/vfpu/convert",
   "cpu/vfpu/convert_scaled",
   "cpu/vfpu/minmax",
+  "cpu/vfpu/minmax_zero",
+  "cpu/vfpu/minmax_tie",
   "cpu/vfpu/prefix_branch",
   "cpu/vfpu/prefix_ctrl",
   "cpu/vfpu/vbranch",
@@ -570,8 +572,6 @@ tests_next = [
   "cpu/vfpu/prefix_sat",
   "cpu/vfpu/prefix_unpack",  # an invalid swizzle replays an earlier prefixed value, not emulated
   "cpu/vfpu/vbranch_hazard",  # VFPU pipeline latencies, which a compiler pads for; not emulated
-  "cpu/vfpu/minmax_tie",  # vmin/vmax return the second operand on a -0/+0 tie; the IR path returns the first
-  "cpu/vfpu/minmax_zero",  # signed zero and denormals in vmin/vmax
   "cpu/vfpu/specials",  # vcmp on denormals, NaN canonicalization and denormal flush in vbfy/vocp/vavg/vfad/vsocp
   "cpu/vfpu/overlap_vcrsp",  # vcrsp overlapping its source, which the assembler refuses; the hardware doesn't read-before-write
   "cpu/fpu/fpu_branch_hazard",  # a bc1x right after c.xx.s sees the old condition; the compiler pads for it, not emulated
