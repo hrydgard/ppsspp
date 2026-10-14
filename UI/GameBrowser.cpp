@@ -54,12 +54,13 @@
 static constexpr float LARGE_LIST_ICON_W = 144.0f;
 static constexpr float LARGE_LIST_ICON_H = 80.0f;
 static constexpr float LARGE_LIST_PAD = 6.0f;
+static constexpr float LARGE_LIST_LEFT_PAD = 11.0f;
 static constexpr float LARGE_LIST_INFO_SIZE = 64.0f;
 
 // Where the text starts in the list modes.
 static float ListTextX(GameBrowserViewMode viewMode) {
 	if (viewMode == GameBrowserViewMode::LARGE_LIST) {
-		return LARGE_LIST_PAD + LARGE_LIST_ICON_W * g_Config.fGameGridScale + 20.0f;
+		return LARGE_LIST_LEFT_PAD + LARGE_LIST_ICON_W * g_Config.fGameGridScale + 20.0f;
 	}
 	return 150.0f;
 }
@@ -109,7 +110,7 @@ static void DrawIconWithText(UIContext &dc, ImageID image, std::string_view text
 		const float textX = ListTextX(viewMode);
 		if (viewMode == GameBrowserViewMode::LARGE_LIST) {
 			const float scale = g_Config.fGameGridScale;
-			dc.Draw()->DrawImage(image, bounds.x + LARGE_LIST_PAD + LARGE_LIST_ICON_W * 0.5f * scale, bounds.centerY(), 0.88f * scale, style.fgColor, ALIGN_CENTER);
+			dc.Draw()->DrawImage(image, bounds.x + LARGE_LIST_LEFT_PAD + LARGE_LIST_ICON_W * 0.5f * scale, bounds.centerY(), 0.88f * scale, style.fgColor, ALIGN_CENTER);
 		} else {
 			dc.Draw()->DrawImage(image, bounds.x + 72, bounds.centerY(), 0.88f * (gridStyle ? g_Config.fGameGridScale : 1.0), style.fgColor, ALIGN_CENTER);
 		}
@@ -209,6 +210,17 @@ public:
 			return true;
 		}
 
+		if (infoSelected_ && HasFocus() && UI::IsAcceptKey(key)) {
+			if (key.flags & KeyInputFlags::DOWN) {
+				infoButtonDown_ = true;
+			}
+			if ((key.flags & KeyInputFlags::UP) && infoButtonDown_) {
+				infoButtonDown_ = false;
+				TriggerOnHoldClick();
+			}
+			return true;
+		}
+
 		// Holding the accept button works like a long press, so a gamepad can do it too.
 		if (holdEnabled_ && HasFocus() && UI::IsAcceptKey(key) && !(key.flags & KeyInputFlags::IS_REPEAT)) {
 			if (key.flags & KeyInputFlags::DOWN) {
@@ -234,8 +246,30 @@ public:
 		if (focusFlags & UI::FocusFlags::LOST_FOCUS) {
 			// Don't let a held accept button carry over from a button we've left.
 			holdStart_ = 0.0;
+			// Moving to another game selects the game, not its info button.
+			infoSelected_ = false;
+			infoButtonDown_ = false;
 		}
 		TriggerOnHighlight(focusFlags);
+	}
+
+	// Left and right move between the game and its info button, so up and down still go from game to game.
+	bool CanMoveFocus(UI::FocusMove dir) const override {
+		if (!HasInfoButton()) {
+			return true;
+		}
+		// We handle these moves ourselves, so MoveFocus won't play the sound for them.
+		if (dir == UI::FocusMove::RIGHT && !infoSelected_) {
+			infoSelected_ = true;
+			UI::PlayUISound(UI::UISound::SELECT);
+			return false;
+		}
+		if (dir == UI::FocusMove::LEFT && infoSelected_) {
+			infoSelected_ = false;
+			UI::PlayUISound(UI::UISound::SELECT);
+			return false;
+		}
+		return true;
 	}
 
 	void DeviceLost() override {
@@ -309,6 +343,8 @@ private:
 	bool infoKeyPressed_ = false;
 	bool hovering_ = false;
 	bool infoButtonDown_ = false;
+	// The info button has the keyboard focus, rather than the game. Changed from CanMoveFocus, hence mutable.
+	mutable bool infoSelected_ = false;
 };
 
 void GameButton::UpdateVideo(const std::shared_ptr<GameInfo> &ginfo, bool wantVideo) {
@@ -414,15 +450,16 @@ void GameButton::Draw(UIContext &dc) {
 	int w = gridStyle_ ? bounds_.w : 144;
 	int h = bounds_.h;
 	if (largeList) {
-		x += LARGE_LIST_PAD;
+		x += LARGE_LIST_LEFT_PAD;
 		y += LARGE_LIST_PAD;
 		w = LARGE_LIST_ICON_W * g_Config.fGameGridScale;
 		h = LARGE_LIST_ICON_H * g_Config.fGameGridScale;
 	}
 	const float textX = ListTextX(viewMode_);
 
+	const bool rowFocused = HasFocus() && !infoSelected_;
 	if (!gridStyle_ || !texture) {
-		if (HasFocus())
+		if (rowFocused)
 			style = down_ ? dc.GetTheme().itemDownStyle : dc.GetTheme().itemFocusedStyle;
 
 		Drawable bg = style.background;
@@ -501,7 +538,7 @@ void GameButton::Draw(UIContext &dc) {
 	if (imageIcon.isValid()) {
 		Style style = dc.GetTheme().itemStyle;
 
-		if (HasFocus()) style = dc.GetTheme().itemFocusedStyle;
+		if (rowFocused) style = dc.GetTheme().itemFocusedStyle;
 		if (down_) style = dc.GetTheme().itemDownStyle;
 		if (!IsEnabled()) style = dc.GetTheme().itemDisabledStyle;
 
@@ -573,7 +610,7 @@ void GameButton::Draw(UIContext &dc) {
 			if (gridStyle_) {
 				dc.Draw()->DrawImage(ImageID("I_GEAR_SMALL"), bounds_.x, y + h - gearImage->h * g_Config.fGameGridScale, g_Config.fGameGridScale);
 			} else if (largeList) {
-				dc.Draw()->DrawImage(ImageID("I_GEAR_SMALL"), bounds_.x + LARGE_LIST_PAD, y + h - gearImage->h * g_Config.fGameGridScale, g_Config.fGameGridScale);
+				dc.Draw()->DrawImage(ImageID("I_GEAR_SMALL"), bounds_.x + LARGE_LIST_LEFT_PAD, y + h - gearImage->h * g_Config.fGameGridScale, g_Config.fGameGridScale);
 			} else {
 				dc.Draw()->DrawImage(ImageID("I_GEAR_SMALL"), bounds_.x + 4, y, 1.0f);
 			}
@@ -596,7 +633,7 @@ void GameButton::Draw(UIContext &dc) {
 				dc.Draw()->DrawImage(regionIcons[regionIndex], bounds_.x + bounds_.w - (image->w + 5) * g_Config.fGameGridScale,
 					y + h - (image->h + 5) * g_Config.fGameGridScale, g_Config.fGameGridScale);
 			} else if (largeList) {
-				dc.Draw()->DrawImage(regionIcons[regionIndex], bounds_.x + LARGE_LIST_PAD + (LARGE_LIST_ICON_W - image->w - 5) * g_Config.fGameGridScale,
+				dc.Draw()->DrawImage(regionIcons[regionIndex], bounds_.x + LARGE_LIST_LEFT_PAD + (LARGE_LIST_ICON_W - image->w - 5) * g_Config.fGameGridScale,
 					y + h - (image->h + 5) * g_Config.fGameGridScale, g_Config.fGameGridScale);
 			} else {
 				dc.Draw()->DrawImage(regionIcons[regionIndex], bounds_.x + 4, y + h - image->h - 5, 1.0f);
@@ -609,6 +646,8 @@ void GameButton::Draw(UIContext &dc) {
 		Style infoStyle = HasFocus() ? dc.GetTheme().itemFocusedStyle : dc.GetTheme().itemStyle;
 		if (infoButtonDown_) {
 			infoStyle = dc.GetTheme().itemDownStyle;
+			dc.FillRect(infoStyle.background, infoBounds);
+		} else if (HasFocus() && infoSelected_) {
 			dc.FillRect(infoStyle.background, infoBounds);
 		}
 		dc.Draw()->DrawImage(ImageID("I_INFO"), infoBounds.centerX(), infoBounds.centerY(), 1.0f, infoStyle.fgColor, ALIGN_CENTER);
