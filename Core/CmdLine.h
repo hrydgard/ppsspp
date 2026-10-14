@@ -166,6 +166,7 @@ struct CommandLineOptions {
 	bool optionS = false;   // a legacy option
 
 	std::optional<bool> oldAtrac;
+	std::optional<bool> accurateVdot;
 
 	// Headless options that may also be mildly useful in application mode
 	std::optional<int> resolutionScale;

@@ -389,6 +389,11 @@ void LoongArch64JitBackend::CompIR_VecHoriz(IRInst inst) {
 		}
 		break;
 
+	case IROp::Vec4VfpuDot:
+		// Through the IR interpreter for now.
+		CompIR_Generic(inst);
+		break;
+
 	default:
 		INVALIDOP;
 		break;

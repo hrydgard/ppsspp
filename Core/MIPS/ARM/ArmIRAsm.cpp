@@ -21,6 +21,7 @@
 #include "Common/Log.h"
 #include "Common/MemoryUtil.h"
 #include "Core/CoreTiming.h"
+#include "Core/MIPS/ARM/ArmVfpuDot.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/ARM/ArmIRJit.h"
 #include "Core/MIPS/ARM/ArmIRRegCache.h"
@@ -99,6 +100,8 @@ void ArmJitBackend::GenerateFixedCode(MIPSState *mipsState) {
 		SetJumpTarget(skip);
 		B(R_LR);
 	}
+
+	vfpuDot_ = GenerateArmVfpuDotCall(this, CTXREG, GenerateArmVfpuDotSpecial(this, CTXREG));
 
 	hooks_.enterDispatcher = (IRNativeFuncNoArg)AlignCode16();
 

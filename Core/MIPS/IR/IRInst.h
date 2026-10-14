@@ -187,6 +187,7 @@ enum class IROp : uint8_t {
 	Vec4Div,
 	Vec4Scale,
 	Vec4Dot,
+	Vec4VfpuDot,  // The VFPU's own dot product, bit-exact (vfpu_dot).
 	Vec4Neg,
 	Vec4Abs,
 

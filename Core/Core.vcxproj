@@ -870,6 +870,7 @@
     <ClInclude Include="MemFault.h" />
     <ClInclude Include="MIPS\ARM64\Arm64IRJit.h" />
     <ClInclude Include="MIPS\ARM64\Arm64IRRegCache.h" />
+    <ClInclude Include="MIPS\ARM64\Arm64VfpuDot.h" />
     <ClInclude Include="MIPS\fake\FakeJit.h" />
     <ClInclude Include="MIPS\IR\IRAnalysis.h" />
     <ClInclude Include="MIPS\IR\IRFrontend.h" />
@@ -1018,6 +1019,7 @@
     <ClInclude Include="MemMapHelpers.h" />
     <ClInclude Include="MIPS\ARM\ArmIRJit.h" />
     <ClInclude Include="MIPS\ARM\ArmIRRegCache.h" />
+    <ClInclude Include="MIPS\ARM\ArmVfpuDot.h" />
     <ClInclude Include="MIPS\JitCommon\JitBlockCache.h" />
     <ClInclude Include="MIPS\JitCommon\JitCommon.h" />
     <ClInclude Include="MIPS\JitCommon\JitState.h" />
@@ -1063,6 +1065,7 @@
     <ClInclude Include="WaveFile.h" />
     <ClInclude Include="WebServer.h" />
     <ClInclude Include="MIPS\x86\X64IRRegCache.h" />
+    <ClInclude Include="MIPS\x86\X64VfpuDot.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\assets\infra-dns.json" />

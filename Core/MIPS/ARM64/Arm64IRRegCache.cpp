@@ -147,6 +147,15 @@ void Arm64IRRegCache::EmitSaveStaticRegisters() {
 	}
 }
 
+void Arm64IRRegCache::FlushHostRegs(std::initializer_list<ARM64Reg> regs) {
+	for (ARM64Reg r : regs) {
+		if (IsVector(r))
+			FlushNativeReg(VFPToNativeReg(EncodeRegToSingle(r)));
+		else
+			FlushNativeReg(GPRToNativeReg(DecodeReg(r)));
+	}
+}
+
 void Arm64IRRegCache::FlushBeforeCall() {
 	// These registers are not preserved by function calls.
 	auto isGPRSaved = [&](IRNativeReg nreg) {

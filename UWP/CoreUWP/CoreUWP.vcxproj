@@ -278,8 +278,10 @@
     <ClInclude Include="..\..\Core\MemMapHelpers.h" />
     <ClInclude Include="..\..\Core\MIPS\ARM64\Arm64IRJit.h" />
     <ClInclude Include="..\..\Core\MIPS\ARM64\Arm64IRRegCache.h" />
+    <ClInclude Include="..\..\Core\MIPS\ARM64\Arm64VfpuDot.h" />
     <ClInclude Include="..\..\Core\MIPS\ARM\ArmIRJit.h" />
     <ClInclude Include="..\..\Core\MIPS\ARM\ArmIRRegCache.h" />
+    <ClInclude Include="..\..\Core\MIPS\ARM\ArmVfpuDot.h" />
     <ClInclude Include="..\..\Core\MIPS\IR\IRFrontend.h" />
     <ClInclude Include="..\..\Core\MIPS\IR\IRInst.h" />
     <ClInclude Include="..\..\Core\MIPS\IR\IRInterpreter.h" />
@@ -307,6 +309,7 @@
     <ClInclude Include="..\..\Core\MIPS\MIPSTracer.h" />
     <ClInclude Include="..\..\Core\MIPS\x86\X64IRJit.h" />
     <ClInclude Include="..\..\Core\MIPS\x86\X64IRRegCache.h" />
+    <ClInclude Include="..\..\Core\MIPS\x86\X64VfpuDot.h" />
     <ClInclude Include="..\..\Core\Opcode.h" />
     <ClInclude Include="..\..\Core\PSPLoaders.h" />
     <ClInclude Include="..\..\Core\Reporting.h" />

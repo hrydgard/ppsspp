@@ -18,6 +18,8 @@
 #pragma once
 
 #include "ppsspp_config.h"
+
+#include <initializer_list>
 #if PPSSPP_ARCH(ARM)
 
 #include "Common/ArmEmitter.h"
@@ -58,6 +60,8 @@ public:
 	ArmGen::ARMReg MapWithFPRTemp(const IRInst &inst);
 
 	void FlushBeforeCall();
+	// Flushes whatever guest state these registers hold, for code that clobbers them.
+	void FlushHostRegs(std::initializer_list<ArmGen::ARMReg> regs);
 	void FlushAll(bool gprs = true, bool fprs = true) override;
 
 	ArmGen::ARMReg GetAndLockTempGPR();

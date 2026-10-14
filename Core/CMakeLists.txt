@@ -36,6 +36,7 @@ list(APPEND CoreExtra
 	MIPS/ARM/ArmIRRegCache.cpp
 	MIPS/ARM/ArmIRJit.h
 	MIPS/ARM/ArmIRRegCache.h
+	MIPS/ARM/ArmVfpuDot.h
 )
 
 list(APPEND CoreExtra
@@ -50,6 +51,7 @@ list(APPEND CoreExtra
 	MIPS/ARM64/Arm64IRJit.h
 	MIPS/ARM64/Arm64IRRegCache.cpp
 	MIPS/ARM64/Arm64IRRegCache.h
+	MIPS/ARM64/Arm64VfpuDot.h
 	Util/DisArm64.cpp
 )
 
@@ -65,6 +67,7 @@ list(APPEND CoreExtra
 	MIPS/x86/X64IRJit.h
 	MIPS/x86/X64IRRegCache.cpp
 	MIPS/x86/X64IRRegCache.h
+	MIPS/x86/X64VfpuDot.h
 )
 
 list(APPEND CoreExtra

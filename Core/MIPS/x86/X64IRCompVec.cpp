@@ -274,6 +274,49 @@ void X64JitBackend::CompIR_VecHoriz(IRInst inst) {
 		break;
 	}
 
+	case IROp::Vec4VfpuDot:
+	{
+#if PPSSPP_ARCH(AMD64)
+		if (!vfpuDot_ || Overlap(inst.dest, 1, inst.src1, 4) || Overlap(inst.dest, 1, inst.src2, 4)) {
+			CompIR_Generic(inst);
+			break;
+		}
+		// The operands go to the shared routine in xmm0 and xmm1, and the result comes back in edi.
+		// Whatever guest state is in the registers it clobbers gets flushed first: these come last in
+		// the allocation order, so usually that's nothing. Then again after the operands are moved,
+		// in case they were mapped into one of them.
+		auto flushClobbered = [&]() {
+			regs_.FlushHostRegs({ RCX, RDX, RSI, RDI }, { XMM0, XMM1, XMM2, XMM3, XMM4, XMM5, XMM14, XMM15 });
+		};
+		flushClobbered();
+		regs_.SpillLockFPR(inst.src1, inst.src2);
+		const X64Reg x = regs_.MapVec4(inst.src1);
+		const X64Reg y = regs_.MapVec4(inst.src2);
+		if (x == XMM1 && y == XMM0) {
+			MOVAPS(XMM2, R(XMM0));
+			MOVAPS(XMM0, R(XMM1));
+			MOVAPS(XMM1, R(XMM2));
+		} else if (y == XMM0) {
+			MOVAPS(XMM1, R(y));
+			MOVAPS(XMM0, R(x));
+		} else {
+			if (x != XMM0)
+				MOVAPS(XMM0, R(x));
+			if (y != XMM1)
+				MOVAPS(XMM1, R(y));
+		}
+		regs_.ReleaseSpillLockFPR(inst.src1, inst.src2);
+		flushClobbered();
+		CALL(vfpuDot_);
+		regs_.MapFPR(inst.dest, MIPSMap::NOINIT);
+		MOVD_xmm(regs_.FX(inst.dest), R(EDI));
+#else
+		// 32-bit x86 has too few registers for the shared routine.
+		CompIR_Generic(inst);
+#endif
+		break;
+	}
+
 	default:
 		INVALIDOP;
 		break;

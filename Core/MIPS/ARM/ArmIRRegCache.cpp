@@ -71,6 +71,11 @@ const int *ArmIRRegCache::GetAllocationOrder(MIPSLoc type, MIPSMap flags, int &c
 	}
 }
 
+void ArmIRRegCache::FlushHostRegs(std::initializer_list<ARMReg> regs) {
+	for (ARMReg r : regs)
+		FlushNativeReg((IRNativeReg)r);
+}
+
 void ArmIRRegCache::FlushBeforeCall() {
 	// These are not preserved by calls.
 	for (int r : { R2, R3, R12, R14 })

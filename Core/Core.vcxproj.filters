@@ -1725,6 +1725,9 @@
     <ClInclude Include="MIPS\ARM\ArmIRRegCache.h">
       <Filter>MIPS\ARM</Filter>
     </ClInclude>
+    <ClInclude Include="MIPS\ARM\ArmVfpuDot.h">
+      <Filter>MIPS\ARM</Filter>
+    </ClInclude>
     <ClInclude Include="Font\PGF.h">
       <Filter>Font</Filter>
     </ClInclude>
@@ -2157,6 +2160,9 @@
     <ClInclude Include="MIPS\x86\X64IRRegCache.h">
       <Filter>MIPS\x86</Filter>
     </ClInclude>
+    <ClInclude Include="MIPS\x86\X64VfpuDot.h">
+      <Filter>MIPS\x86</Filter>
+    </ClInclude>
     <ClInclude Include="MIPS\x86\X64IRJit.h">
       <Filter>MIPS\x86</Filter>
     </ClInclude>
@@ -2164,6 +2170,9 @@
       <Filter>MIPS\ARM64</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\ARM64\Arm64IRRegCache.h">
+      <Filter>MIPS\ARM64</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\ARM64\Arm64VfpuDot.h">
       <Filter>MIPS\ARM64</Filter>
     </ClInclude>
     <ClInclude Include="Util\GameDB.h">

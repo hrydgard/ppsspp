@@ -398,6 +398,7 @@ bool TestJitReplacementHooks() {
 //   PPSSPP_CPUFUZZ_SKIP     cores not to run, by digit: 1 IR interpreter, 2 JIT, 3 JIT IR.
 //   PPSSPP_CPUFUZZ_REPORTS  how many differences to minimize and print (default 20).
 //   PPSSPP_CPUFUZZ_STRICT   fail the test on any difference, not only on a crash.
+//   PPSSPP_CPUFUZZ_ACCURATE_VDOT  0 to run without AccurateVdot (the VFPU's own dot products), which is on by default.
 //   PPSSPP_CPUFUZZ_OPS      comma-separated instruction name prefixes to generate only, for fast
 //                           runs on the instructions being worked on. "dot" is the dot products
 //                           and the prefixes. Without PPSSPP_CPUFUZZ_CLASSES, the class is "v".
@@ -899,6 +900,9 @@ bool TestCPUEquivalence() {
 	// terminating syscall doesn't.
 	const bool oldSkipDeadbeef = g_Config.bSkipDeadbeefFilling;
 	g_Config.bSkipDeadbeefFilling = true;
+	const bool oldAccurateVdot = g_Config.bAccurateVdot;
+	const char *accurateVdot = getenv("PPSSPP_CPUFUZZ_ACCURATE_VDOT");
+	g_Config.bAccurateVdot = !accurateVdot || strcmp(accurateVdot, "0") != 0;
 
 	const char *countStr = getenv("PPSSPP_CPUFUZZ_COUNT");
 	const char *seedStr = getenv("PPSSPP_CPUFUZZ_SEED");
@@ -1049,6 +1053,7 @@ bool TestCPUEquivalence() {
 	mipsr4k.UpdateCore(CPUCore::INTERPRETER);
 	DestroyJitHarness();
 	g_Config.bSkipDeadbeefFilling = oldSkipDeadbeef;
+	g_Config.bAccurateVdot = oldAccurateVdot;
 	return success;
 }
 

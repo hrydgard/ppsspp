@@ -18,6 +18,9 @@
 #pragma once
 
 #include "ppsspp_config.h"
+
+#include <initializer_list>
+
 // In other words, PPSSPP_ARCH(ARM64) || DISASM_ALL.
 #if PPSSPP_ARCH(ARM64) || (PPSSPP_PLATFORM(WINDOWS) && !defined(__LIBRETRO__))
 
@@ -65,6 +68,8 @@ public:
 	Arm64Gen::ARM64Reg MapWithFPRTemp(const IRInst &inst);
 
 	void FlushBeforeCall();
+	// Flushes whatever guest state these registers hold, for code that clobbers them.
+	void FlushHostRegs(std::initializer_list<Arm64Gen::ARM64Reg> regs);
 	void FlushAll(bool gprs = true, bool fprs = true) override;
 
 	Arm64Gen::ARM64Reg GetAndLockTempGPR();

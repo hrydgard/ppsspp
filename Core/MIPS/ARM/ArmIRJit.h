@@ -116,6 +116,8 @@ private:
 	void CompFloatToIntWithRounding(ArmGen::ARMReg dest, ArmGen::ARMReg src, int rmode);
 	// Puts the masked address in SCRATCH1, as an offset from MEMBASEREG. Destroys SCRATCH2.
 	void PrepareSrc1Address(IRInst inst);
+	// Vec4VfpuDot with NEON (see ArmVfpuDot.h).
+	void CompVfpuDot(IRInst inst);
 
 	JitOptions &jo;
 	ArmIRRegCache regs_;
@@ -127,6 +129,8 @@ private:
 	const u8 *dispatcherNoCheck_ = nullptr;
 	const u8 *restoreRoundingMode_ = nullptr;
 	const u8 *applyRoundingMode_ = nullptr;
+	// See GenerateArmVfpuDotCall().
+	const u8 *vfpuDot_ = nullptr;
 
 	int jitStartOffset_ = 0;
 	int compilingBlockNum_ = -1;
