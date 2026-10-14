@@ -1397,8 +1397,6 @@ if(UNITTEST)
 		unittest/TestLoongArch64Emitter.cpp
 		unittest/TestThreadManager.cpp
 		unittest/JitHarness.cpp
-		Core/MIPS/ARM/ArmRegCache.cpp
-		Core/MIPS/ARM/ArmRegCacheFPU.cpp
 	)
 	if(APPLE)
 		target_sources(PPSSPPUnitTest PRIVATE

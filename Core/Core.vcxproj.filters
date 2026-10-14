@@ -420,35 +420,8 @@
     <ClCompile Include="..\ext\snappy\snappy.cpp">
       <Filter>Ext\Snappy</Filter>
     </ClCompile>
-    <ClCompile Include="MIPS\ARM\ArmAsm.cpp">
-      <Filter>MIPS\ARM</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\ARM\ArmCompALU.cpp">
-      <Filter>MIPS\ARM</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\ARM\ArmCompBranch.cpp">
-      <Filter>MIPS\ARM</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\ARM\ArmCompFPU.cpp">
-      <Filter>MIPS\ARM</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\ARM\ArmCompLoadStore.cpp">
-      <Filter>MIPS\ARM</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\ARM\ArmJit.cpp">
-      <Filter>MIPS\ARM</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\ARM\ArmRegCache.cpp">
-      <Filter>MIPS\ARM</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\ARM\ArmCompVFPU.cpp">
-      <Filter>MIPS\ARM</Filter>
-    </ClCompile>
     <ClCompile Include="..\ext\disarm.cpp">
       <Filter>Ext</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\ARM\ArmRegCacheFPU.cpp">
-      <Filter>MIPS\ARM</Filter>
     </ClCompile>
     <ClCompile Include="MIPS\ARM\ArmIRAsm.cpp">
       <Filter>MIPS\ARM</Filter>
@@ -570,9 +543,6 @@
     </ClCompile>
     <ClCompile Include="HLE\ReplaceTables.cpp">
       <Filter>HLE</Filter>
-    </ClCompile>
-    <ClCompile Include="MIPS\ARM\ArmCompReplace.cpp">
-      <Filter>MIPS\ARM</Filter>
     </ClCompile>
     <ClCompile Include="HW\SimpleAudioDec.cpp">
       <Filter>HW</Filter>
@@ -1748,15 +1718,6 @@
     </ClInclude>
     <ClInclude Include="..\ext\snappy\snappy-internal.h">
       <Filter>Ext\Snappy</Filter>
-    </ClInclude>
-    <ClInclude Include="MIPS\ARM\ArmJit.h">
-      <Filter>MIPS\ARM</Filter>
-    </ClInclude>
-    <ClInclude Include="MIPS\ARM\ArmRegCache.h">
-      <Filter>MIPS\ARM</Filter>
-    </ClInclude>
-    <ClInclude Include="MIPS\ARM\ArmRegCacheFPU.h">
-      <Filter>MIPS\ARM</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\ARM\ArmIRJit.h">
       <Filter>MIPS\ARM</Filter>

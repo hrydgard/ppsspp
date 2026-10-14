@@ -1587,8 +1587,8 @@ bool Config::Save(const char *saveReason) {
 
 // A lot more cleanup tasks should be moved into here, and some of these are severely outdated.
 void Config::PostLoadCleanup() {
-	// JIT_IR is the same core as JIT now that the legacy x86 and ARM64 JITs are gone, and the
-	// settings no longer offer it.
+	// JIT_IR is the same core as JIT now that every native JIT is IR-based, and the settings no
+	// longer offer it.
 	if (iCpuCore == (int)CPUCore::JIT_IR) {
 		iCpuCore = (int)CPUCore::JIT;
 	}

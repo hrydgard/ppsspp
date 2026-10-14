@@ -153,8 +153,7 @@ void DeveloperToolsScreen::CreateGeneralTab(UI::LinearLayout *list) {
 	if (!canUseJit) {
 		core->HideChoice(1);
 	}
-	// Every native JIT except ARM32's is IR-based and used for the JIT option, and ARM32 uses its
-	// legacy JIT for both, so "JIT using IR" is the same as "JIT" everywhere.
+	// Every native JIT is IR-based, so "JIT using IR" is the same as "JIT".
 	core->HideChoice(3);
 
 	// Only the interpreter raises these, but don't hide it behind the CPU core choice - it'd just
