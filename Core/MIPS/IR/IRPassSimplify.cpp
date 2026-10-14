@@ -848,6 +848,7 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 		case IROp::Vec4Div:
 		case IROp::Vec4Dot:
 		case IROp::Vec4VfpuDot:
+		case IROp::Vec4VfpuMultiDot:
 		case IROp::Vec4Scale:
 		case IROp::Vec4Shuffle:
 		case IROp::Vec4Blend:
@@ -1142,6 +1143,8 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 						srclen = 4;
 					else if (type == '2')
 						srclen = 2;
+					else if (type == 'M')
+						srclen = 16;
 					else if (type != 'F')
 						return;
 
@@ -1295,7 +1298,7 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 			break;
 		}
 
-		IRReg regs[16];
+		IRReg regs[IR_MAX_FPR_READS];
 		int readGPRs = IRReadsFromGPRs(inst, regs);
 		if (readGPRs == -1) {
 			for (int j = 0; j < 256; ++j)
@@ -2001,6 +2004,14 @@ bool ReduceVec4Flush(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 				isUsed[r + i] = true;
 			break;
 
+		case 'M':
+			_dbg_assert_((r & 3) == 0);
+			for (int i = 0; i < 16; ++i) {
+				isVec4[(r + i) & ~3] = true;
+				isUsed[r + i] = true;
+			}
+			break;
+
 		default:
 			break;
 		}
@@ -2080,6 +2091,8 @@ bool ReduceVec4Flush(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 				if (m->types[0] == 'V' && inst.dest == r)
 					return true;
 				if (m->types[1] == 'V' && inst.src1 == r)
+					return true;
+				if (m->types[1] == 'M' && r >= inst.src1 && r < inst.src1 + 16)
 					return true;
 				if (m->types[2] == 'V' && inst.src2 == r)
 					return true;

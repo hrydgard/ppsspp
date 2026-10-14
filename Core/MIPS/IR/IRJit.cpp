@@ -77,6 +77,12 @@ IRJit::IRJit(MIPSState *mipsState, bool actualJit) : frontend_(mipsState->HasDef
 	opts.preferVec4 = true;
 #endif
 	opts.optimizeForInterpreter = jo.optimizeForInterpreter;
+	// The IR interpreter, and the backends with a routine for it.
+#if PPSSPP_ARCH(ARM64)
+	opts.vfpuMultiDot = true;
+#else
+	opts.vfpuMultiDot = !actualJit;
+#endif
 	frontend_.SetOptions(opts);
 
 	profiling_ = !g_Config.sJitProfileFile.empty();

@@ -233,6 +233,145 @@ namespace MIPSComp {
 		return true;
 	}
 
+	bool IRFrontend::TryMultiDot(const MultiDot *dots, int count, int terms, int avoid, bool destScratch) {
+		if (!opts.vfpuMultiDot || count < 2 || count > 4 || terms < 2)
+			return false;
+
+		auto sameLanes = [](const DotLane *x, const DotLane *y) {
+			for (int i = 0; i < 4; i++) {
+				if (x[i].reg != y[i].reg || x[i].negate != y[i].negate || (x[i].reg < 0 && x[i].constant != y[i].constant))
+					return false;
+			}
+			return true;
+		};
+		bool sharedA = true, sharedB = true;
+		for (int j = 1; j < count; j++) {
+			sharedA = sharedA && sameLanes(dots[j].a, dots[0].a);
+			sharedB = sharedB && sameLanes(dots[j].b, dots[0].b);
+		}
+		if (!sharedA && !sharedB)
+			return false;
+		auto blockLanes = [&](int j) { return sharedB ? dots[j].a : dots[j].b; };
+		const DotLane *vec = sharedB ? dots[0].b : dots[0].a;
+
+		auto isZero = [](const DotLane &l) { return l.reg < 0 && l.constant == 0.0f; };
+		for (int j = 0; j < count; j++) {
+			for (int i = terms; i < 4; i++) {
+				if (!isZero(blockLanes(j)[i]) || !isZero(vec[i]))
+					return false;
+			}
+		}
+
+		// Find the block: lane k of dot j is its row (base + 4 * i + k), or its Vec4 (base + 4 * k + i).
+		int base = -1;
+		bool transposed = false;
+		int laneOf[4];
+		for (int mode = 0; mode < 2 && base < 0; mode++) {
+			bool ok = true;
+			int b = -1;
+			int used = 0;
+			for (int j = 0; j < count && ok; j++) {
+				const DotLane *l = blockLanes(j);
+				for (int i = 0; i < terms; i++)
+					ok = ok && l[i].reg >= 0 && !l[i].negate;
+				if (!ok)
+					break;
+				int lane, jb;
+				if (mode == 0) {
+					lane = l[0].reg & 3;
+					jb = l[0].reg & ~3;
+				} else {
+					jb = l[0].reg & ~15;
+					lane = (l[0].reg - jb) >> 2;
+					ok = (l[0].reg & 3) == 0;
+				}
+				for (int i = 0; i < terms; i++)
+					ok = ok && l[i].reg == (mode == 0 ? jb + 4 * i + lane : jb + 4 * lane + i);
+				ok = ok && (b < 0 || jb == b) && (used & (1 << lane)) == 0;
+				b = jb;
+				used |= 1 << lane;
+				laneOf[j] = lane;
+			}
+			// The whole block has to be VFPU regs.
+			if (ok && b >= 32 && b + 16 <= 32 + 128) {
+				base = b;
+				transposed = mode == 1;
+			}
+		}
+		if (base < 0)
+			return false;
+
+		// The dots run in order, so none may read an earlier one's result.
+		for (int j = 1; j < count; j++) {
+			for (int k = 0; k < j; k++) {
+				for (int i = 0; i < terms; i++) {
+					if (blockLanes(j)[i].reg == dots[k].dest || vec[i].reg == dots[k].dest)
+						return false;
+				}
+			}
+		}
+
+		bool vecReady = (vec[0].reg & 3) == 0;
+		for (int i = 0; i < terms; i++)
+			vecReady = vecReady && vec[i].reg == vec[0].reg + i && !vec[i].negate;
+
+		// All of them at lane k of one Vec4 can go straight there.
+		const int destVec = dots[0].dest - laneOf[0];
+		bool destDirect = (destVec & 3) == 0 && (destScratch || count == 4);
+		for (int j = 0; j < count; j++)
+			destDirect = destDirect && dots[j].dest == destVec + laneOf[j];
+
+		const int temps[] = { IRVTEMP_0, js.prefixD == 0 ? IRVTEMP_PFX_D : -1, IRVTEMP_PFX_T, IRVTEMP_PFX_S };
+		auto tempFree = [&](int temp, int other) {
+			if (temp < 0 || temp == avoid || temp == other || DotLanesRead(vec, temp))
+				return false;
+			for (int j = 0; j < count; j++) {
+				if (DotLanesRead(blockLanes(j), temp) || (dots[j].dest >= temp && dots[j].dest < temp + 4))
+					return false;
+			}
+			return true;
+		};
+		int vecTemp = -1, destTemp = -1;
+		if (!vecReady) {
+			for (int temp : temps) {
+				if (tempFree(temp, -1)) {
+					vecTemp = temp;
+					break;
+				}
+			}
+			if (vecTemp < 0)
+				return false;
+		}
+		if (!destDirect) {
+			for (int temp : temps) {
+				if (tempFree(temp, vecTemp)) {
+					destTemp = temp;
+					break;
+				}
+			}
+			if (destTemp < 0)
+				return false;
+		}
+
+		if (!vecReady) {
+			for (int i = 0; i < terms; i++) {
+				if (vec[i].reg < 0)
+					ir.WriteSetConstantFloat(vecTemp + i, vec[i].constant);
+				else if (vec[i].negate)
+					ir.Write(IROp::FNeg, vecTemp + i, vec[i].reg);
+				else
+					ir.Write(IROp::FMov, vecTemp + i, vec[i].reg);
+			}
+		}
+		const int out = destDirect ? destVec : destTemp;
+		ir.Write(IROp::Vec4VfpuMultiDot, out, base, vecReady ? vec[0].reg : vecTemp, terms | (transposed ? IRMULTIDOT_TRANSPOSED : 0));
+		if (!destDirect) {
+			for (int j = 0; j < count; j++)
+				ir.Write(IROp::FMov, dots[j].dest, destTemp + laneOf[j]);
+		}
+		return true;
+	}
+
 	// True if the prefix only touches lanes the op has. A position past the size may only be the
 	// identity, and a position within it may not name a lane past it (which zeroes the result lane
 	// on hardware, see cpu/vfpu/prefix_ctrl - the interpreter handles that).
@@ -915,6 +1054,34 @@ namespace MIPSComp {
 		GetVectorRegsPrefixD(dregs, V_Single, vd);
 
 		if (UseAccurateVdot()) {
+			// A run of vdots against one vector (a matrix times a vector, written out) goes as one
+			// Vec4VfpuMultiDot, eating the rest of the run.
+			if (opts.vfpuMultiDot && js.HasNoPrefix() && !js.inDelaySlot && n >= 2) {
+				MultiDot dots[4];
+				int count = 0;
+				for (; count < 4; count++) {
+					const MIPSOpcode next = count == 0 ? op : GetOffsetInstruction(count);
+					if ((next.encoding & 0xFF808080) != (op.encoding & 0xFF808080))
+						break;
+					u8 s[4], t[4], d[1];
+					GetVectorRegs(s, sz, (next.encoding >> 8) & 0x7F);
+					GetVectorRegs(t, sz, (next.encoding >> 16) & 0x7F);
+					GetVectorRegs(d, V_Single, next.encoding & 0x7F);
+					for (int i = 0; i < 4; i++) {
+						dots[count].a[i] = i < n ? DotReg(s[i]) : DotConst(0.0f);
+						dots[count].b[i] = i < n ? DotReg(t[i]) : DotConst(0.0f);
+					}
+					dots[count].dest = d[0];
+				}
+				for (int c = count; c >= 2; c--) {
+					if (TryMultiDot(dots, c, n, -1, false)) {
+						for (int k = 1; k < c; k++)
+							EatInstruction(GetOffsetInstruction(1));
+						return;
+					}
+				}
+			}
+
 			DotLane sl[4], tl[4];
 			for (int i = 0; i < 4; i++) {
 				sl[i] = i < n ? DotReg(sregs[i]) : DotConst(constantLane(i) ? VFPUPrefixConstant(js.prefixS, i) : 0.0f);
@@ -1802,6 +1969,16 @@ namespace MIPSComp {
 				DotLane tl[4];
 				for (int c = 0; c < 4; c++)
 					tl[c] = c < n ? DotReg(tregs[a * 4 + c]) : DotConst(0.0f);
+				MultiDot dots[4];
+				for (int b = 0; b < n; b++) {
+					for (int c = 0; c < 4; c++) {
+						dots[b].a[c] = c < n ? DotReg(sregs[b * 4 + c]) : DotConst(0.0f);
+						dots[b].b[c] = tl[c];
+					}
+					dots[b].dest = dregs[a * 4 + b];
+				}
+				if (TryMultiDot(dots, n, n, -1, false))
+					continue;
 				for (int b = 0; b < n; b++) {
 					DotLane sl[4];
 					for (int c = 0; c < 4; c++)
@@ -1927,7 +2104,16 @@ namespace MIPSComp {
 			DotLane tl[4];
 			for (int i = 0; i < 4; i++)
 				tl[i] = i < tn ? DotReg(tregs[i]) : DotConst(homogenous && i == ins ? 1.0f : 0.0f);
+			MultiDot dots[4];
 			for (int i = 0; i < n; i++) {
+				for (int k = 0; k < 4; k++) {
+					dots[i].a[k] = k < n ? DotReg(sregs[i * 4 + k]) : DotConst(0.0f);
+					dots[i].b[k] = tl[k];
+				}
+				dots[i].dest = IRVTEMP_PFX_D + i;
+			}
+			const bool multi = TryMultiDot(dots, n, n, IRVTEMP_PFX_D, true);
+			for (int i = 0; i < n && !multi; i++) {
 				DotLane sl[4];
 				for (int k = 0; k < 4; k++)
 					sl[k] = k < n ? DotReg(sregs[i * 4 + k]) : DotConst(0.0f);

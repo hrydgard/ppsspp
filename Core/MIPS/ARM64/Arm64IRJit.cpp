@@ -76,7 +76,7 @@ bool Arm64JitBackend::CompileBlock(IRBlockCache *irBlockCache, int block_num) {
 	size_t sizeEstimate = 0;
 	const IRInst *estimateInsts = irBlockCache->GetBlockInstructionPtr(*block);
 	for (int i = 0; i < block->GetNumIRInstructions(); ++i)
-		sizeEstimate += estimateInsts[i].op == IROp::Vec4VfpuDot ? 96 : 32;
+		sizeEstimate += estimateInsts[i].op == IROp::Vec4VfpuDot || estimateInsts[i].op == IROp::Vec4VfpuMultiDot ? 96 : 32;
 	BeginWrite(std::min(GetSpaceLeft(), sizeEstimate));
 
 	u32 startPC = block->GetOriginalStart();

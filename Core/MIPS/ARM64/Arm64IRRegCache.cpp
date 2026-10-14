@@ -156,6 +156,11 @@ void Arm64IRRegCache::FlushHostRegs(std::initializer_list<ARM64Reg> regs) {
 	}
 }
 
+bool Arm64IRRegCache::IsHostRegInUse(ARM64Reg r) {
+	const IRNativeReg nreg = IsVector(r) ? VFPToNativeReg(EncodeRegToSingle(r)) : GPRToNativeReg(DecodeReg(r));
+	return nr[nreg].mipsReg != IRREG_INVALID;
+}
+
 void Arm64IRRegCache::FlushBeforeCall() {
 	// These registers are not preserved by function calls.
 	auto isGPRSaved = [&](IRNativeReg nreg) {

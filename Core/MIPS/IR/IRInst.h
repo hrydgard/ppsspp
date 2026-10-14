@@ -188,6 +188,7 @@ enum class IROp : uint8_t {
 	Vec4Scale,
 	Vec4Dot,
 	Vec4VfpuDot,  // The VFPU's own dot product, bit-exact (vfpu_dot).
+	Vec4VfpuMultiDot,  // Four of them against one vector, see IRMultiDot.
 	Vec4Neg,
 	Vec4Abs,
 
@@ -331,6 +332,16 @@ enum IRFpCompareMode {
 
 typedef u8 IRReg;
 
+// Vec4VfpuMultiDot dest, block, v, constant: lane k of dest is vfpu_dot() of lane k of the 4x4 block
+// of regs (16 in a row) and v, over the first IRMULTIDOT_TERMS(constant) terms (the rest are zero in
+// both). Lane k is the block's row k (block[4 * i + k]), or with IRMULTIDOT_TRANSPOSED, its Vec4 k
+// (block[4 * k + i]).
+enum : u32 {
+	IRMULTIDOT_TERMS_MASK = 0x7,
+	IRMULTIDOT_TRANSPOSED = 0x10,
+};
+inline int IRMULTIDOT_TERMS(u32 constant) { return (int)(constant & IRMULTIDOT_TERMS_MASK); }
+
 enum : IRReg {
 	IRTEMP_0 = 192,
 	IRTEMP_1,
@@ -433,6 +444,8 @@ struct IROptions {
 	bool preferVec4;
 	bool preferVec4Dot;
 	bool optimizeForInterpreter;
+	// The backend has Vec4VfpuMultiDot.
+	bool vfpuMultiDot;
 };
 
 const IRMeta *GetIRMeta(IROp op);

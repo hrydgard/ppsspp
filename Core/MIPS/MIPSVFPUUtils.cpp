@@ -995,6 +995,20 @@ float vfpu_dot(const float a[4], const float b[4]) {
 #endif
 }
 
+void vfpu_multi_dot(float out[4], const float block[16], const float v[4], int terms, bool transposed) {
+	float result[4];
+	for (int k = 0; k < 4; k++) {
+		float a[4]{}, b[4]{};
+		for (int i = 0; i < terms; i++) {
+			a[i] = transposed ? block[4 * k + i] : block[4 * i + k];
+			b[i] = v[i];
+		}
+		result[k] = vfpu_dot(a, b);
+	}
+	// out may overlap the inputs.
+	memcpy(out, result, sizeof(result));
+}
+
 //==============================================================================
 // The code below attempts to exactly match behaviour of
 // PSP's vrnd instructions. See investigation starting around

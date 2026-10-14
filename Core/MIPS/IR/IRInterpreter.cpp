@@ -172,6 +172,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		dispatch[(int)IROp::FCmovVfpuCC] = &&L_FCmovVfpuCC;
 		dispatch[(int)IROp::Vec4Dot] = &&L_Vec4Dot;
 		dispatch[(int)IROp::Vec4VfpuDot] = &&L_Vec4VfpuDot;
+		dispatch[(int)IROp::Vec4VfpuMultiDot] = &&L_Vec4VfpuMultiDot;
 		dispatch[(int)IROp::FSin] = &&L_FSin;
 		dispatch[(int)IROp::FCos] = &&L_FCos;
 		dispatch[(int)IROp::FRSqrt] = &&L_FRSqrt;
@@ -801,6 +802,10 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 
 		IR_CASE(Vec4VfpuDot)
 			mips->f[inst->dest] = vfpu_dot(&mips->f[inst->src1], &mips->f[inst->src2]);
+			IR_NEXT;
+
+		IR_CASE(Vec4VfpuMultiDot)
+			vfpu_multi_dot(&mips->f[inst->dest], &mips->f[inst->src1], &mips->f[inst->src2], IRMULTIDOT_TERMS(inst->constant), (inst->constant & IRMULTIDOT_TRANSPOSED) != 0);
 			IR_NEXT;
 
 		IR_CASE(FSin)

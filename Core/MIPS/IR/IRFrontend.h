@@ -147,6 +147,17 @@ private:
 	// aren't one already. avoid is a Vec4 temp that must not be used (or -1). Returns false if
 	// there aren't enough free temps, and then nothing was written.
 	bool BuildDotOperands(const DotLane s[4], const DotLane t[4], int avoid, u8 *sVec, u8 *tVec);
+	// One dot for TryMultiDot(): its operands' lanes, and where the result goes.
+	struct MultiDot {
+		DotLane a[4];
+		DotLane b[4];
+		int dest;
+	};
+	// Writes up to four dots as one Vec4VfpuMultiDot, if they fit it: one operand shared, the others
+	// lanes of one 4x4 block, terms past the count zero, and no dot reading what an earlier one wrote.
+	// With destScratch, a Vec4 that has dot k's result at lane k may be written whole. avoid is a Vec4
+	// temp not to use (or -1). Returns false, having written nothing, if they don't fit.
+	bool TryMultiDot(const MultiDot *dots, int count, int terms, int avoid, bool destScratch);
 	bool UseAccurateVdot() const;
 
 	// State

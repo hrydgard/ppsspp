@@ -159,6 +159,7 @@ static const IRMeta irMeta[] = {
 	{ IROp::Vec4Scale, "Vec4Scale", "VVF" },
 	{ IROp::Vec4Dot, "Vec4Dot", "FVV" },
 	{ IROp::Vec4VfpuDot, "Vec4VfpuDot", "FVV" },
+	{ IROp::Vec4VfpuMultiDot, "Vec4VfpuMultiDot", "VMVc" },
 	{ IROp::Vec4Neg, "Vec4Neg", "VV" },
 	{ IROp::Vec4Abs, "Vec4Abs", "VV" },
 
@@ -318,6 +319,9 @@ void DisassembleParam(char *buf, int bufSize, u8 param, char type, u32 constant)
 		} else {
 			snprintf(buf, bufSize, "f%d..f%d", param, param + 3);
 		}
+		break;
+	case 'M':
+		snprintf(buf, bufSize, "vf%d..vf%d", param - 32, param - 32 + 15);
 		break;
 	case '2':
 		if (param >= 32) {

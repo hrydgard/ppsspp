@@ -151,6 +151,8 @@ private:
 	const u8 *vfpuDotSpecial_ = nullptr;
 	// See GenerateArm64VfpuDotCall().
 	const u8 *vfpuDot_ = nullptr;
+	// See GenerateArm64VfpuMultiDot(), by the number of terms.
+	const u8 *vfpuMultiDot_[5]{};
 
 	// Note: mutable state used at runtime.
 	const u8 *currentRoundingFunc_ = nullptr;

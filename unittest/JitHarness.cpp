@@ -461,7 +461,8 @@ bool TestJitReplacementHooks() {
 //   PPSSPP_CPUFUZZ_ACCURATE_VDOT  0 to run without AccurateVdot (the VFPU's own dot products), which is on by default.
 //   PPSSPP_CPUFUZZ_OPS      comma-separated instruction name prefixes to generate only, for fast
 //                           runs on the instructions being worked on. "dot" is the dot products
-//                           and the prefixes. Without PPSSPP_CPUFUZZ_CLASSES, the class is "v".
+//                           and the prefixes. Without PPSSPP_CPUFUZZ_CLASSES, the class is "v"
+//                           ("vr" for "dot": r is a run of vdots the IR batches).
 
 namespace {
 
@@ -626,7 +627,10 @@ static u32 GenerateFuzzOp(FuzzRng &rng, const char *classes) {
 		case 'a': top = aluOps[rng.Below(ARRAY_SIZE(aluOps))]; break;
 		case 'i': top = immOps[rng.Below(ARRAY_SIZE(immOps))]; break;
 		case 'f': top = 0x11; break;
-		case 'v': top = vfpuOps[rng.Below(ARRAY_SIZE(vfpuOps))]; break;
+		case 'v':
+		case 'r':
+			top = vfpuOps[rng.Below(ARRAY_SIZE(vfpuOps))];
+			break;
 		default: top = memOps[rng.Below(ARRAY_SIZE(memOps))]; break;
 		}
 		u32 op = (top << 26) | (rng.Next() & 0x03FFFFFF);
@@ -662,6 +666,59 @@ struct FuzzCase {
 	std::vector<u32> code;
 	FuzzState init;
 };
+
+// A run of 2-4 vdots of one size against one vector, the others rows or columns of one matrix: the
+// shape the IR frontend turns into a Vec4VfpuMultiDot. The results go to lanes of one vector or
+// anywhere, sometimes over the operands.
+static void AppendVdotRun(FuzzRng &rng, std::vector<u32> &code) {
+	static const VectorSize sizes[] = { V_Pair, V_Triple, V_Quad };
+	static const u32 sizeBits[] = { 0x0080, 0x8000, 0x8080 };
+	const int si = rng.Below(3);
+	const VectorSize sz = sizes[si];
+	const int n = GetNumVectorElements(sz);
+	auto regsOf = [&](int field, VectorSize s, u8 regs[4]) { GetVectorRegs(regs, s, field); };
+	auto singleField = [&](int voffset) {
+		for (int f = 0; f < 128; f++) {
+			u8 r[4];
+			regsOf(f, V_Single, r);
+			if (r[0] == voffset)
+				return f;
+		}
+		return (int)rng.Below(128);
+	};
+
+	const int shared = rng.Below(128);
+	const bool transposed = rng.Chance(50);
+	const int base = 16 * rng.Below(8);
+	const int count = 2 + rng.Below(3);
+	const bool laneDests = rng.Chance(50);
+	const int destBase = 4 * rng.Below(32);
+	const bool sharedIsT = rng.Chance(50);
+	int lanesUsed = 0;
+	for (int k = 0; k < count; k++) {
+		// A free lane, and a vector field reading the block's row or Vec4 at that lane.
+		int lane = rng.Below(4);
+		while (lanesUsed & (1 << lane))
+			lane = (lane + 1) & 3;
+		lanesUsed |= 1 << lane;
+		int field = -1;
+		for (int f = 0; f < 128 && field < 0; f++) {
+			u8 r[4];
+			regsOf(f, sz, r);
+			bool ok = true;
+			for (int i = 0; i < n; i++)
+				ok = ok && r[i] == (transposed ? base + 4 * lane + i : base + 4 * i + lane);
+			if (ok)
+				field = f;
+		}
+		if (field < 0)
+			field = rng.Below(128);
+		const int dest = laneDests ? singleField(destBase + lane) : (int)rng.Below(128);
+		const int vs = sharedIsT ? field : shared;
+		const int vt = sharedIsT ? shared : field;
+		code.push_back(0x64800000 | sizeBits[si] | (vt << 16) | (vs << 8) | dest);
+	}
+}
 
 static FuzzCase GenerateFuzzCase(u64 seed, const char *classes, const std::vector<u32> &codeOverride) {
 	FuzzRng rng(seed);
@@ -703,8 +760,12 @@ static FuzzCase GenerateFuzzCase(u64 seed, const char *classes, const std::vecto
 	}
 
 	const int count = 1 + rng.Below(FUZZ_MAX_INSTRS);
-	for (int i = 0; i < count; ++i) {
-		c.code.push_back(GenerateFuzzOp(rng, classes));
+	const bool runs = strchr(classes, 'r') != nullptr;
+	while ((int)c.code.size() < count) {
+		if (runs && rng.Chance(25) && (int)c.code.size() + 4 <= FUZZ_MAX_INSTRS)
+			AppendVdotRun(rng, c.code);
+		else
+			c.code.push_back(GenerateFuzzOp(rng, classes));
 	}
 	if (!codeOverride.empty()) {
 		c.code = codeOverride;
@@ -988,7 +1049,7 @@ bool TestCPUEquivalence() {
 		}
 	}
 	if (!classes || !classes[0]) {
-		classes = g_fuzzOps.empty() ? "aaiffvvvmm" : "v";
+		classes = g_fuzzOps.empty() ? "aaiffvvvmmr" : (!strcmp(getenv("PPSSPP_CPUFUZZ_OPS"), "dot") ? "vr" : "v");
 	}
 	std::vector<u32> codeOverride;
 	const char *codeSeedStr = getenv("PPSSPP_CPUFUZZ_CODE_SEED");

@@ -267,6 +267,8 @@ void Arm64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 
 	vfpuDotSpecial_ = GenerateArm64VfpuDotSpecial(this, &fp_, CTXREG);
 	vfpuDot_ = GenerateArm64VfpuDotCall(this, &fp_, CTXREG, vfpuDotSpecial_);
+	for (int terms = 2; terms <= 4; terms++)
+		vfpuMultiDot_[terms] = GenerateArm64VfpuMultiDot(this, &fp_, CTXREG, terms);
 
 	// Leave this at the end, add more stuff above.
 	if (enableDisasm) {
@@ -300,6 +302,9 @@ void Arm64JitBackend::GetFixedCodeLabels(std::vector<IRNativeFixedCodeLabel> &la
 	labels.push_back({ saveStaticRegisters_, "saveStaticRegisters", true });
 	labels.push_back({ loadStaticRegisters_, "loadStaticRegisters", true });
 	labels.push_back({ vfpuDotSpecial_, "vfpuDotSpecial", true });
+	labels.push_back({ vfpuMultiDot_[2], "vfpuMultiDot2", true });
+	labels.push_back({ vfpuMultiDot_[3], "vfpuMultiDot3", true });
+	labels.push_back({ vfpuMultiDot_[4], "vfpuMultiDot4", true });
 	for (int i = 0; i < 8; ++i)
 		labels.push_back({ convertS0ToSCRATCH1_[i], "convertS0ToSCRATCH1", true });
 }

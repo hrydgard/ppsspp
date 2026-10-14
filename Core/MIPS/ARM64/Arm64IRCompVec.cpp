@@ -626,6 +626,96 @@ void Arm64JitBackend::CompIR_VecHoriz(IRInst inst) {
 		break;
 	}
 
+	case IROp::Vec4VfpuMultiDot:
+	{
+		// The routine takes the terms in q0-q3 and the vector in q4, and returns the dots in q0. It
+		// clobbers q4-q7 too, which come last in the allocation order, so usually hold nothing.
+		const int terms = IRMULTIDOT_TERMS(inst.constant);
+		const bool transposed = (inst.constant & IRMULTIDOT_TRANSPOSED) != 0;
+		bool blockMapped = false, vecMapped = false;
+		for (int i = 0; i < 16; i++)
+			blockMapped = blockMapped || regs_.IsFPRMapped(inst.src1 + i);
+		for (int i = 0; i < 4; i++)
+			vecMapped = vecMapped || regs_.IsFPRMapped(inst.src2 + i);
+		auto homeOffset = [](IRReg r) { return (s32)(offsetof(MIPSState, f) + 4 * r); };
+
+		regs_.SpillLockFPR(inst.src1, inst.src1 + 4, inst.src1 + 8, inst.src1 + 12);
+		regs_.SpillLockFPR(inst.src2);
+		if (blockMapped) {
+			for (int j = 0; j < 4; j++)
+				fp_.MOV((ARM64Reg)(Q0 + j), regs_.MapVec4(inst.src1 + 4 * j));
+		}
+		// The vector may be in q4-q7, so it goes through memory, to its own home if it's there.
+		s32 vecOffset = homeOffset(inst.src2);
+		if (vecMapped) {
+			vecOffset = (s32)offsetof(MIPSState, vfpuMultiDotArgs) + 64;
+			fp_.STR(128, INDEX_UNSIGNED, regs_.MapVec4(inst.src2), CTXREG, vecOffset);
+		}
+		regs_.ReleaseSpillLockFPR(inst.src1, inst.src1 + 4, inst.src1 + 8, inst.src1 + 12);
+		regs_.ReleaseSpillLockFPR(inst.src2);
+		regs_.FlushHostRegs({ Q4, Q5, Q6, Q7 });
+
+		if (!blockMapped) {
+			// LD4 is the transposing load.
+			ADDI2R(SCRATCH1_64, CTXREG, homeOffset(inst.src1), SCRATCH2);
+			if (transposed)
+				fp_.LD4(32, Q0, SCRATCH1_64);
+			else
+				fp_.LD1(32, 4, Q0, SCRATCH1_64);
+		} else if (transposed) {
+			fp_.TRN1(32, Q4, Q0, Q1);
+			fp_.TRN2(32, Q5, Q0, Q1);
+			fp_.TRN1(32, Q6, Q2, Q3);
+			fp_.TRN2(32, Q7, Q2, Q3);
+			fp_.TRN1(64, Q0, Q4, Q6);
+			fp_.TRN2(64, Q2, Q4, Q6);
+			fp_.TRN1(64, Q1, Q5, Q7);
+			fp_.TRN2(64, Q3, Q5, Q7);
+		}
+		fp_.LDR(128, INDEX_UNSIGNED, Q4, CTXREG, vecOffset);
+		// The routine ignores the unused terms, apart from checking the vector for inf and NaN.
+		for (int i = terms; i < 4; i++)
+			fp_.INS(32, Q4, i, WZR);
+
+		// It saves nothing, so keep the guest state in what it clobbers of q16-q31, in pairs where
+		// they come in pairs.
+		const u32 clobbers = Arm64VfpuMultiDotClobbers(terms);
+		u32 keep = 0;
+		for (int i = 0; i < 16; i++) {
+			if ((clobbers & (1 << i)) && regs_.IsHostRegInUse((ARM64Reg)(Q16 + i)))
+				keep |= 1 << i;
+		}
+		const s32 save = (s32)offsetof(MIPSState, vfpuMultiDotSave);
+		auto saveOrRestore = [&](bool restore) {
+			ADDI2R(SCRATCH1_64, CTXREG, save, SCRATCH2);
+			for (int i = 0; i < 16; i++) {
+				if (!(keep & (1 << i)))
+					continue;
+				const ARM64Reg q = (ARM64Reg)(Q16 + i);
+				if (i + 1 < 16 && (keep & (1 << (i + 1)))) {
+					if (restore)
+						fp_.LDP(128, INDEX_SIGNED, q, (ARM64Reg)(q + 1), SCRATCH1_64, i * 16);
+					else
+						fp_.STP(128, INDEX_SIGNED, q, (ARM64Reg)(q + 1), SCRATCH1_64, i * 16);
+					i++;
+				} else if (restore) {
+					fp_.LDR(128, INDEX_UNSIGNED, q, SCRATCH1_64, i * 16);
+				} else {
+					fp_.STR(128, INDEX_UNSIGNED, q, SCRATCH1_64, i * 16);
+				}
+			}
+		};
+		if (keep)
+			saveOrRestore(false);
+		BL(vfpuMultiDot_[terms]);
+		if (keep)
+			saveOrRestore(true);
+
+		regs_.MapVec4(inst.dest, MIPSMap::NOINIT);
+		fp_.MOV(regs_.FQ(inst.dest), Q0);
+		break;
+	}
+
 	default:
 		INVALIDOP;
 		break;
