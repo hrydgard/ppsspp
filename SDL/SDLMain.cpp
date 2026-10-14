@@ -1316,6 +1316,11 @@ void UpdateCursor() {
 }
 
 static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputStateTracker *inputTracker) {
+	// SDL input uses window coordinates; convert to pixels before applying the UI scale.
+	float inputPixelDensity = SDL_GetWindowPixelDensity(window);
+	if (inputPixelDensity <= 0.0f) {
+		inputPixelDensity = 1.0f;
+	}
 	switch (event.type) {
 	case SDL_EVENT_QUIT:
 		g_QuitRequested = 1;
@@ -1481,8 +1486,8 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			SDL_GetWindowSize(window, &w, &h);
 			TouchInput input{};
 			input.id = event.tfinger.fingerID;
-			input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale_x;
-			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_y;
+			input.x = event.tfinger.x * w * inputPixelDensity * g_display.dpi_scale_x;
+			input.y = event.tfinger.y * h * inputPixelDensity * g_display.dpi_scale_y;
 			input.flags = TouchInputFlags::MOVE;
 			input.timestamp = event.tfinger.timestamp;
 			NativeTouch(input);
@@ -1494,8 +1499,8 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			SDL_GetWindowSize(window, &w, &h);
 			TouchInput input{};
 			input.id = event.tfinger.fingerID;
-			input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale_x;
-			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_y;
+			input.x = event.tfinger.x * w * inputPixelDensity * g_display.dpi_scale_x;
+			input.y = event.tfinger.y * h * inputPixelDensity * g_display.dpi_scale_y;
 			input.flags = TouchInputFlags::DOWN;
 			input.timestamp = event.tfinger.timestamp;
 			NativeTouch(input);
@@ -1513,8 +1518,8 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			SDL_GetWindowSize(window, &w, &h);
 			TouchInput input{};
 			input.id = event.tfinger.fingerID;
-			input.x = event.tfinger.x * w * g_DesktopDPI * g_display.dpi_scale_x;
-			input.y = event.tfinger.y * h * g_DesktopDPI * g_display.dpi_scale_y;
+			input.x = event.tfinger.x * w * inputPixelDensity * g_display.dpi_scale_x;
+			input.y = event.tfinger.y * h * inputPixelDensity * g_display.dpi_scale_y;
 			input.flags = TouchInputFlags::UP;
 			input.timestamp = event.tfinger.timestamp;
 			NativeTouch(input);
@@ -1531,13 +1536,8 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 		switch (event.button.button) {
 		case SDL_BUTTON_LEFT:
 			{
-				// We have to juggle around 3 kinds of "DPI spaces" if a logical DPI is
-				// provided (through --dpi, it is equal to system DPI if unspecified):
-				// - SDL gives us motion events in "system DPI" points
-				// - Native_UpdateScreenScale expects pixels, so in a way "96 DPI" points
-				// - The UI code expects motion events in "logical DPI" points
-				float mx = event.button.x * g_DesktopDPI * g_display.dpi_scale_x;
-				float my = event.button.y * g_DesktopDPI * g_display.dpi_scale_y;
+				float mx = event.button.x * inputPixelDensity * g_display.dpi_scale_x;
+				float my = event.button.y * inputPixelDensity * g_display.dpi_scale_y;
 				inputTracker->mouseDown |= 1;
 				TouchInput input{};
 				input.x = mx;
@@ -1552,8 +1552,8 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			break;
 		case SDL_BUTTON_RIGHT:
 			{
-				float mx = event.button.x * g_DesktopDPI * g_display.dpi_scale_x;
-				float my = event.button.y * g_DesktopDPI * g_display.dpi_scale_y;
+				float mx = event.button.x * inputPixelDensity * g_display.dpi_scale_x;
+				float my = event.button.y * inputPixelDensity * g_display.dpi_scale_y;
 				inputTracker->mouseDown |= 2;
 				TouchInput input{};
 				input.x = mx;
@@ -1608,8 +1608,8 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 		}
 	case SDL_EVENT_MOUSE_MOTION:
 		{
-			float mx = event.motion.x * g_DesktopDPI * g_display.dpi_scale_x;
-			float my = event.motion.y * g_DesktopDPI * g_display.dpi_scale_y;
+			float mx = event.motion.x * inputPixelDensity * g_display.dpi_scale_x;
+			float my = event.motion.y * inputPixelDensity * g_display.dpi_scale_y;
 			TouchInput input{};
 			input.x = mx;
 			input.y = my;
@@ -1631,8 +1631,8 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 		switch (event.button.button) {
 		case SDL_BUTTON_LEFT:
 			{
-				float mx = event.button.x * g_DesktopDPI * g_display.dpi_scale_x;
-				float my = event.button.y * g_DesktopDPI * g_display.dpi_scale_y;
+				float mx = event.button.x * inputPixelDensity * g_display.dpi_scale_x;
+				float my = event.button.y * inputPixelDensity * g_display.dpi_scale_y;
 				inputTracker->mouseDown &= ~1;
 				TouchInput input{};
 				input.x = mx;
@@ -1646,8 +1646,8 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 			break;
 		case SDL_BUTTON_RIGHT:
 			{
-				float mx = event.button.x * g_DesktopDPI * g_display.dpi_scale_x;
-				float my = event.button.y * g_DesktopDPI * g_display.dpi_scale_y;
+				float mx = event.button.x * inputPixelDensity * g_display.dpi_scale_x;
+				float my = event.button.y * inputPixelDensity * g_display.dpi_scale_y;
 				inputTracker->mouseDown &= ~2;
 				// Right button only emits mouse move events. This is weird,
 				// but consistent with Windows. Needs cleanup.
