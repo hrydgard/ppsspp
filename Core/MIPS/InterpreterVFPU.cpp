@@ -1587,8 +1587,9 @@ namespace MIPSInt
 	}
 
 	void Int_Vrnds(MIPSState *mips, MIPSOpcode op) {
-		int vd = _VD;
-		int seed = VI(vd);
+		// The seed is in the vs field. The toolchain leaves vd zero, so reading vd gets S000.
+		int vs = _VS;
+		int seed = VI(vs);
 		// Swizzles apply a constant value, constants/abs/neg work to vary the seed.
 		ApplySwizzleS(mips, reinterpret_cast<float *>(&seed), V_Single);
                 vrnd_init(uint32_t(seed), mips->vfpuCtrl + VFPU_CTRL_RCX0);
