@@ -97,6 +97,7 @@ list(APPEND CoreExtra
 	MIPS/LoongArch64/LoongArch64Jit.h
 	MIPS/LoongArch64/LoongArch64RegCache.cpp
 	MIPS/LoongArch64/LoongArch64RegCache.h
+	MIPS/LoongArch64/LoongArch64VfpuDot.h
 )
 
 if(NOT MOBILE_DEVICE)

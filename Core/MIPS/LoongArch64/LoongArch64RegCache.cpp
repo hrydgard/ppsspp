@@ -152,6 +152,15 @@ void LoongArch64RegCache::FlushBeforeCall() {
 	}
 }
 
+void LoongArch64RegCache::FlushHostRegs(std::initializer_list<LoongArch64Reg> regs) {
+	for (LoongArch64Reg r : regs) {
+		if (r >= V0)
+			FlushNativeReg(NUM_LAGPR + (r - V0));
+		else
+			FlushNativeReg(r);
+	}
+}
+
 bool LoongArch64RegCache::IsNormalized32(IRReg mipsReg) {
 	_dbg_assert_(IsValidGPR(mipsReg));
 	if (mr[mipsReg].loc == MIPSLoc::REG || mr[mipsReg].loc == MIPSLoc::REG_IMM) {

@@ -61,7 +61,12 @@ bool LoongArch64JitBackend::CompileBlock(IRBlockCache *irBlockCache, int block_n
 		return false;
 
 	IRBlock *block = irBlockCache->GetBlock(block_num);
-	BeginWrite(std::min(GetSpaceLeft(), (size_t)block->GetNumIRInstructions() * 32));
+	// An accurate dot product moves its operands and flushes registers around its call.
+	size_t sizeEstimate = 0;
+	const IRInst *estimateInsts = irBlockCache->GetBlockInstructionPtr(*block);
+	for (int i = 0; i < block->GetNumIRInstructions(); ++i)
+		sizeEstimate += estimateInsts[i].op == IROp::Vec4VfpuDot ? 160 : 32;
+	BeginWrite(std::min(GetSpaceLeft(), sizeEstimate));
 
 	u32 startPC = block->GetOriginalStart();
 	bool wroteCheckedOffset = false;

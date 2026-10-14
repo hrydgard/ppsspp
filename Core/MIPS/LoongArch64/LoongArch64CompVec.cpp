@@ -19,6 +19,7 @@
 #include "Core/MemMap.h"
 #include "Core/MIPS/LoongArch64/LoongArch64Jit.h"
 #include "Core/MIPS/LoongArch64/LoongArch64RegCache.h"
+#include "Core/MIPS/LoongArch64/LoongArch64VfpuDot.h"
 
 // This file contains compilation for vector instructions.
 //
@@ -381,9 +382,46 @@ void LoongArch64JitBackend::CompIR_VecHoriz(IRInst inst) {
 		break;
 
 	case IROp::Vec4VfpuDot:
-		// Through the IR interpreter for now.
-		CompIR_Generic(inst);
+	{
+		// The operands go to the shared routine, in v8 and v9 (SCRATCHF1 and SCRATCHF2) with LSX and
+		// mips->vfpuDotArgs without, and the result comes back in f8. Whatever guest state is in the
+		// registers it clobbers gets flushed after the operands are moved, in case one was mapped into
+		// one of them. They come last in the allocation order, so usually that's nothing.
+		LoongArch64VfpuDotRegs dotRegs;
+		GetLoongArch64VfpuDotRegs(CTXREG, &dotRegs);
+		const bool lsx = cpu_info.LOONGARCH_LSX;
+		if (lsx) {
+			regs_.SpillLockFPR(inst.src1, inst.src2);
+			const LoongArch64Reg x = regs_.MapVec4(inst.src1);
+			const LoongArch64Reg y = regs_.MapVec4(inst.src2);
+			VOR_V(dotRegs.x, x, x);
+			VOR_V(dotRegs.y, y, y);
+			regs_.ReleaseSpillLockFPR(inst.src1, inst.src2);
+			for (LoongArch64Reg r : dotRegs.v)
+				regs_.FlushHostRegs({ r });
+		} else {
+			for (int i = 0; i < 4; ++i) {
+				regs_.SpillLockFPR(inst.src1 + i, inst.src2 + i);
+				FST_S(regs_.MapFPR(inst.src1 + i), CTXREG, dotRegs.offset + i * 4);
+				FST_S(regs_.MapFPR(inst.src2 + i), CTXREG, dotRegs.offset + 16 + i * 4);
+			}
+			for (int i = 0; i < 4; ++i)
+				regs_.ReleaseSpillLockFPR(inst.src1 + i, inst.src2 + i);
+		}
+		for (int i = 0; i < (lsx ? 5 : 9); ++i)
+			regs_.FlushHostRegs({ dotRegs.gpr[i] });
+		QuickCallFunction(vfpuDot_, SCRATCH2);
+
+		if (lsx && (Overlap(inst.dest, 1, inst.src1, 4) || Overlap(inst.dest, 1, inst.src2, 4))) {
+			// The dest lane is in a Vec4 the operands were mapped as.
+			regs_.MapVec4(inst.dest & ~3, MIPSMap::DIRTY);
+			VEXTRINS_W(regs_.V(inst.dest & ~3), EncodeRegToV(dotRegs.ftemp), (inst.dest & 3) << 4);
+		} else {
+			regs_.MapFPR(inst.dest, MIPSMap::NOINIT);
+			FMOV_S(regs_.F(inst.dest), dotRegs.ftemp);
+		}
 		break;
+	}
 
 	default:
 		INVALIDOP;

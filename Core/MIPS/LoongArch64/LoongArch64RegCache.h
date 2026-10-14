@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <initializer_list>
+
 #include "Common/LoongArch64Emitter.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/IR/IRJit.h"
@@ -58,6 +60,8 @@ public:
 	LoongArch64Gen::LoongArch64Reg Normalize32(IRReg reg, LoongArch64Gen::LoongArch64Reg destReg = LoongArch64Gen::INVALID_REG);
 
 	void FlushBeforeCall();
+	// Flushes whatever guest state these registers hold, for code that clobbers them.
+	void FlushHostRegs(std::initializer_list<LoongArch64Gen::LoongArch64Reg> regs);
 
 	LoongArch64Gen::LoongArch64Reg GetAndLockTempGPR();
 

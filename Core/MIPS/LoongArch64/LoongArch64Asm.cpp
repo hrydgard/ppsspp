@@ -20,6 +20,7 @@
 #include "Core/MemMap.h"
 #include "Core/MIPS/LoongArch64/LoongArch64Jit.h"
 #include "Core/MIPS/LoongArch64/LoongArch64RegCache.h"
+#include "Core/MIPS/LoongArch64/LoongArch64VfpuDot.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/JitCommon/JitState.h"
 #include "Core/Core.h"
@@ -223,6 +224,9 @@ void LoongArch64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	LI(SCRATCH2, CORE_RUNTIME_ERROR);
 	ST_W(SCRATCH2, SCRATCH1, 0);
 	B(quitLoop);
+
+	vfpuDotSpecial_ = GenerateLoongArch64VfpuDotSpecial(this, CTXREG);
+	vfpuDot_ = GenerateLoongArch64VfpuDot(this, CTXREG, vfpuDotSpecial_);
 
 	// Leave this at the end, add more stuff above.
 	if (enableDisasm) {

@@ -48,6 +48,8 @@
 #include "Core/MIPS/JitCommon/JitState.h"
 #if PPSSPP_ARCH(RISCV64)
 #include "Core/MIPS/RiscV/RiscVVfpuDot.h"
+#elif PPSSPP_ARCH(LOONGARCH64)
+#include "Core/MIPS/LoongArch64/LoongArch64VfpuDot.h"
 #endif
 #include "unittest/UnitTest.h"
 
@@ -1498,6 +1500,36 @@ bool TestVFPUDotJit() {
 	code.FreeCodeSpace();
 	cpu_info.RiscV_Zbb = oldZbb;
 	cpu_info.RiscV_Zicond = oldZicond;
+#elif PPSSPP_ARCH(LOONGARCH64)
+	using namespace LoongArch64Gen;
+	using namespace MIPSComp;
+	LoongArch64CodeBlock code;
+	code.AllocCodeSpace(0x10000);
+	for (int lsx = 0; lsx < 2; lsx++) {
+		if (lsx && !cpu_info.LOONGARCH_LSX)
+			continue;
+		code.BeginWrite(0x1000);
+		const u8 *start = code.AlignCode16();
+		const LoongArch64VfpuDotRegs regs{ R4, 0, V0, V1, { V2, V3, V4, V5, V6, V7 },
+			{ R12, R13, R14, R15, R16, R17, R18, R19, R20 }, F0, F1 };
+		if (lsx) {
+			// Whatever the routine reads before writing is garbage.
+			code.LI(R12, -1);
+			for (int i = 0; i < 24; i++)
+				code.VREPLGR2VR_W((LoongArch64Reg)(V0 + i), R12);
+			code.VLD(regs.x, R4, 0);
+			code.VLD(regs.y, R4, 16);
+		}
+		FixupBranch special = EmitLoongArch64VfpuDot(&code, regs, lsx != 0);
+		code.SetJumpTarget(special);
+		code.ADDI_D(R5, R4, 16);
+		code.QuickJ(R12, (const u8 *)&vfpu_dot_reference);
+		code.FlushIcache();
+		code.EndWrite();
+		if (!check(lsx ? "LSX" : "scalar", (DotFunc)start))
+			success = false;
+	}
+	code.FreeCodeSpace();
 #endif
 
 	return success;

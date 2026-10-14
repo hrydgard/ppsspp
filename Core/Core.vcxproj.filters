@@ -2238,6 +2238,9 @@
     <ClInclude Include="MIPS\LoongArch64\LoongArch64RegCache.h">
       <Filter>MIPS\LoongArch64</Filter>
     </ClInclude>
+    <ClInclude Include="MIPS\LoongArch64\LoongArch64VfpuDot.h">
+      <Filter>MIPS\LoongArch64</Filter>
+    </ClInclude>
     <ClInclude Include="..\ext\loongarch-disasm.h">
       <Filter>Ext</Filter>
     </ClInclude>
