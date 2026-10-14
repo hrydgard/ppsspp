@@ -1963,7 +1963,16 @@ u32 sceNetAdhocInit() {
 			break;
 		}
 
+		auto n = GetI18NCategory(I18NCat::NETWORKING);
 		netAdhocUseUdp = g_Config.bAdhocUseUdp;
+		if (g_Config.bAdhocUseUdp && g_Config.bEnableAdhocServer) {
+			g_OSD.Show(OSDType::MESSAGE_WARNING, n->T("Built-in adhoc server does not currently support UDP"), 20.0f, "udp built-in server warning");
+		}
+
+		if (serverHasRelay && g_Config.bEnableAdhocServer) {
+			g_OSD.Show(OSDType::MESSAGE_WARNING, n->T("Built-in adhoc server does not currently support relay"), 20.0f, "relay built-in server warning");
+		}
+
 		netAdhocRelayModeEnetPdpReliable = g_Config.bAdhocRelayModeEnetPdpReliable;
 
 		init_aemu_postoffice(netAdhocUseUdp);
@@ -1991,7 +2000,6 @@ u32 sceNetAdhocInit() {
 			});
 		}
 
-		auto n = GetI18NCategory(I18NCat::NETWORKING);
 		if (g_Config.bEnableWlan) {
 			std::string_view modeStr = serverHasRelay ? n->T("Relay server mode") : n->T("P2P mode");
 			g_OSD.Show(OSDType::MESSAGE_INFO, ApplySafeSubstitutions("%1: %2", n->T("Ad Hoc multiplayer"), modeStr), 0.0f, "adhoc started");
