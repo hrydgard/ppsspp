@@ -401,6 +401,10 @@ void MIPSState::UpdateCore(CPUCore desired) {
 	}
 
 	MIPSComp::jit = newjit;
+	if (newjit) {
+		// The game may already have set a rounding mode on the previous core.
+		newjit->UpdateFCR31();
+	}
 	UpdateBlockShadowHook();
 }
 

@@ -86,6 +86,9 @@ void IRJit::DoState(PointerWrap &p) {
 }
 
 void IRJit::UpdateFCR31() {
+	if (frontend_.UpdateFCR31(mips_->fcr31)) {
+		mips_->ClearJitCacheDeferred();
+	}
 }
 
 void IRJit::ClearCache() {

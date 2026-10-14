@@ -162,6 +162,14 @@ void Jit::DoState(PointerWrap &p) {
 }
 
 void Jit::UpdateFCR31() {
+	// fcr31 can reach a non-default mode without a compiled ctc1 (an interpreted one, a savestate,
+	// a core switch, a thread switch). Blocks compiled before that don't switch modes around
+	// syscalls or conversions, so they're thrown away, at the next safe point.
+	if ((mips_->fcr31 & 0x01000003) && !js.hasSetRounding) {
+		js.hasSetRounding = true;
+		js.lastSetRounding = true;
+		mips_->ClearJitCacheDeferred();
+	}
 }
 
 void Jit::GetStateAndFlushAll(RegCacheState &state) {

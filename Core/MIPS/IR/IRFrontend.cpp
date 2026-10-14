@@ -64,6 +64,18 @@ void IRFrontend::DoState(PointerWrap &p) {
 	g_breakpoints.SetSkipFirst(0);
 }
 
+bool IRFrontend::UpdateFCR31(u32 fcr31) {
+	// fcr31 can reach a non-default mode without a compiled ctc1 (an interpreted one, a savestate,
+	// a core switch, a thread switch). Blocks compiled before that don't switch modes around
+	// syscalls or conversions, so the caller throws them away.
+	if ((fcr31 & 0x01000003) && !js.hasSetRounding) {
+		js.hasSetRounding = true;
+		js.lastSetRounding = true;
+		return true;
+	}
+	return false;
+}
+
 void IRFrontend::FlushAll() {
 	FlushPrefixV();
 }
