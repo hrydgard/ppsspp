@@ -360,7 +360,7 @@ void MIPSState::Init() {
 	memset(vcmpResult, 0, sizeof(vcmpResult));
 
 	if (PSP_CoreParameter().cpuCore == CPUCore::JIT || PSP_CoreParameter().cpuCore == CPUCore::JIT_IR) {
-		MIPSComp::jit = MIPSComp::CreateNativeJit(this, PSP_CoreParameter().cpuCore == CPUCore::JIT_IR);
+		MIPSComp::jit = MIPSComp::CreateNativeJit(this);
 	} else if (PSP_CoreParameter().cpuCore == CPUCore::IR_INTERPRETER) {
 		MIPSComp::jit = new MIPSComp::IRJit(this, false);
 	} else {
@@ -393,7 +393,7 @@ void MIPSState::UpdateCore(CPUCore desired) {
 	case CPUCore::JIT:
 	case CPUCore::JIT_IR:
 		INFO_LOG(Log::CPU, "Switching to JIT%s", PSP_CoreParameter().cpuCore == CPUCore::JIT_IR ? " IR" : "");
-		newjit = MIPSComp::CreateNativeJit(this, PSP_CoreParameter().cpuCore == CPUCore::JIT_IR);
+		newjit = MIPSComp::CreateNativeJit(this);
 		break;
 
 	case CPUCore::IR_INTERPRETER:

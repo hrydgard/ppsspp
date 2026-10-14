@@ -206,7 +206,7 @@ bool TestJit() {
 
 	printf("\n");
 
-	double jit_speed = 0.0, jit_ir_speed = 0.0, ir_speed = 0.0, interp_speed = 0.0;
+	double jit_speed = 0.0, ir_speed = 0.0, interp_speed = 0.0;
 	if (compileSuccess) {
 		interp_speed = ExecCPUTest();
 		checkMemoryClean("Interpreter");
@@ -215,12 +215,8 @@ bool TestJit() {
 		checkMemoryClean("IR interpreter");
 		MIPSComp::jit->ClearCache();
 		mipsr4k.UpdateCore(CPUCore::JIT);
-		jit_speed = ExecCPUTest(false);
+		jit_speed = ExecCPUTest(false);  // not clearing, so the below can do things.
 		checkMemoryClean("JIT");
-		MIPSComp::jit->ClearCache();
-		mipsr4k.UpdateCore(CPUCore::JIT_IR);
-		jit_ir_speed = ExecCPUTest(false);  // not clearing, so the below can do things.
-		checkMemoryClean("JIT IR");
 
 		// Disassemble
 		JitBlockCacheDebugInterface *cache = MIPSComp::jit->GetBlockCacheDebugInterface();
@@ -235,7 +231,7 @@ bool TestJit() {
 			if (lines.size() > cutoff)
 				printf("...\n");
 		}
-		printf("Jit was %fx faster than interp, IR was %fx faster, JIT IR %fx.\n\n", jit_speed / interp_speed, ir_speed / interp_speed, jit_ir_speed / interp_speed);
+		printf("Jit was %fx faster than interp, IR was %fx faster.\n\n", jit_speed / interp_speed, ir_speed / interp_speed);
 	}
 
 	printf("\n");
@@ -270,7 +266,6 @@ static bool CheckReplacementHooks(u32 func, u32 size, const std::vector<u8> &cod
 	static const CPUCore cores[] = {
 		CPUCore::JIT,
 		CPUCore::IR_INTERPRETER,
-		CPUCore::JIT_IR,
 	};
 	for (CPUCore core : cores) {
 		mipsr4k.UpdateCore(core);
@@ -921,7 +916,6 @@ bool TestCPUEquivalence() {
 		CPUCore::INTERPRETER,
 		CPUCore::IR_INTERPRETER,
 		CPUCore::JIT,
-		CPUCore::JIT_IR,
 	};
 	const int numCores = (int)ARRAY_SIZE(cores);
 
@@ -1096,7 +1090,6 @@ bool TestCPURoundingMode() {
 	static const CPUCore cores[] = {
 		CPUCore::IR_INTERPRETER,
 		CPUCore::JIT,
-		CPUCore::JIT_IR,
 	};
 	// No flags, then ctc1 left to the interpreter, then everything the JITs can leave to it.
 	static const u32 disableFlags[] = { 0, (u32)MIPSComp::JitDisable::FPU_XFER, 0xFFFF };

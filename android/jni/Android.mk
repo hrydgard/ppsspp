@@ -498,17 +498,6 @@ LOCAL_WHOLE_STATIC_LIBRARIES += ppsspp_common libchdr lua pugixml
 
 ifeq ($(TARGET_ARCH_ABI),x86_64)
 ARCH_FILES := \
-  $(SRC)/Core/MIPS/x86/CompALU.cpp \
-  $(SRC)/Core/MIPS/x86/CompBranch.cpp \
-  $(SRC)/Core/MIPS/x86/CompFPU.cpp \
-  $(SRC)/Core/MIPS/x86/CompLoadStore.cpp \
-  $(SRC)/Core/MIPS/x86/CompVFPU.cpp \
-  $(SRC)/Core/MIPS/x86/CompReplace.cpp \
-  $(SRC)/Core/MIPS/x86/Asm.cpp \
-  $(SRC)/Core/MIPS/x86/Jit.cpp \
-  $(SRC)/Core/MIPS/x86/JitSafeMem.cpp \
-  $(SRC)/Core/MIPS/x86/RegCache.cpp \
-  $(SRC)/Core/MIPS/x86/RegCacheFPU.cpp \
   $(SRC)/Core/MIPS/x86/X64IRAsm.cpp \
   $(SRC)/Core/MIPS/x86/X64IRCompALU.cpp \
   $(SRC)/Core/MIPS/x86/X64IRCompBranch.cpp \
@@ -535,16 +524,6 @@ ARCH_FILES := \
   ArmEmitterTest.cpp
 else ifeq ($(findstring arm64-v8a,$(TARGET_ARCH_ABI)),arm64-v8a)
 ARCH_FILES := \
-  $(SRC)/Core/MIPS/ARM64/Arm64CompALU.cpp \
-  $(SRC)/Core/MIPS/ARM64/Arm64CompBranch.cpp \
-  $(SRC)/Core/MIPS/ARM64/Arm64CompFPU.cpp \
-  $(SRC)/Core/MIPS/ARM64/Arm64CompLoadStore.cpp \
-  $(SRC)/Core/MIPS/ARM64/Arm64CompVFPU.cpp \
-  $(SRC)/Core/MIPS/ARM64/Arm64CompReplace.cpp \
-  $(SRC)/Core/MIPS/ARM64/Arm64Asm.cpp \
-  $(SRC)/Core/MIPS/ARM64/Arm64Jit.cpp \
-  $(SRC)/Core/MIPS/ARM64/Arm64RegCache.cpp \
-  $(SRC)/Core/MIPS/ARM64/Arm64RegCacheFPU.cpp \
   $(SRC)/Core/MIPS/ARM64/Arm64IRAsm.cpp \
   $(SRC)/Core/MIPS/ARM64/Arm64IRCompALU.cpp \
   $(SRC)/Core/MIPS/ARM64/Arm64IRCompBranch.cpp \
