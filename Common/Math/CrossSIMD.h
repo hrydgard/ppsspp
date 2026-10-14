@@ -1055,8 +1055,8 @@ inline bool AnyCompareBitsSet(Vec4S32 value) {
 	return vmaxvq_u32(vreinterpretq_u32_s32(value.v)) != 0;
 #else
 	// Very suboptimal, let's optimize later.
-	int32x2_t prod = vand_s32(vget_low_s32(value.v), vget_high_s32(value.v));
-	int mask = vget_lane_s32(prod, 0) & vget_lane_s32(prod, 1);
+	int32x2_t any = vorr_s32(vget_low_s32(value.v), vget_high_s32(value.v));
+	int mask = vget_lane_s32(any, 0) | vget_lane_s32(any, 1);
 	return mask != 0;
 #endif
 }
