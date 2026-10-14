@@ -265,22 +265,20 @@ void LoongArch64JitBackend::CompIR_FSat(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::FSat0_1:
-		regs_.Map(inst);
-		QuickFLI(32, SCRATCHF1, (float)1.0f, SCRATCH1);
-		// Check whether FMAX takes the larger of the two zeros, which is what we want.
-		QuickFLI(32, SCRATCHF2, (float)0.0f, SCRATCH1);
-
-		FMIN_S(regs_.F(inst.dest), regs_.F(inst.src1), SCRATCHF1);
-		FMAX_S(regs_.F(inst.dest), regs_.F(inst.dest), SCRATCHF2);
-		break;
-
 	case IROp::FSatMinus1_1:
+		// Like vfpu_clamp: FMIN/FMAX would return the bound for a NaN, which has to pass through.
+		// The ordered compares are false for a NaN, and a -0 is <= +0, so it becomes +0.
 		regs_.Map(inst);
 		QuickFLI(32, SCRATCHF1, (float)1.0f, SCRATCH1);
-		FNEG_S(SCRATCHF2, SCRATCHF1);
+		if (inst.op == IROp::FSat0_1)
+			MOVGR2FR_W(SCRATCHF2, R_ZERO);
+		else
+			FNEG_S(SCRATCHF2, SCRATCHF1);
 
-		FMIN_S(regs_.F(inst.dest), regs_.F(inst.src1), SCRATCHF1);
-		FMAX_S(regs_.F(inst.dest), regs_.F(inst.dest), SCRATCHF2);
+		FCMP_COND_S(FCC0, regs_.F(inst.src1), SCRATCHF2, LoongArch64Fcond::CLE);
+		FCMP_COND_S(FCC1, SCRATCHF1, regs_.F(inst.src1), LoongArch64Fcond::CLE);
+		FSEL(regs_.F(inst.dest), regs_.F(inst.src1), SCRATCHF2, FCC0);
+		FSEL(regs_.F(inst.dest), regs_.F(inst.dest), SCRATCHF1, FCC1);
 		break;
 
 	default:
@@ -384,7 +382,8 @@ void LoongArch64JitBackend::CompIR_FCompare(IRInst inst) {
 			break;
 		case VC_NE:
 			regs_.Map(inst);
-			FCMP_COND_S(FCC0, regs_.F(inst.src1), regs_.F(inst.src2), LoongArch64Fcond::CNE);
+			// True for a NaN, like the interpreter's !=.
+			FCMP_COND_S(FCC0, regs_.F(inst.src1), regs_.F(inst.src2), LoongArch64Fcond::CUNE);
 			MOVCF2GR(SCRATCH1, FCC0);
 			break;
 		case VC_LT:
