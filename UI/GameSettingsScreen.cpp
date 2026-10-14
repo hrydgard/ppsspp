@@ -1044,9 +1044,12 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 	relay_mode_enet->OnChange.Add([this](UI::EventParams &e) {
 		RecreateViews();
 	});
+	networkingSettings->Add(new SettingHint(n->T("Try switching between TCP/UDP if you suffer frequent adhoc server disconnects. Some network environments favor TCP and some UDP."), nullptr));
 
-	CheckBox *relay_mode_enet_pdp_reliable = networkingSettings->Add(new CheckBox(&g_Config.bAdhocRelayModeEnetPdpReliable, n->T("Reliable datagram packets delivery on packet relay in UDP mode")));
+	CheckBox *relay_mode_enet_pdp_reliable = networkingSettings->Add(new CheckBox(&g_Config.bAdhocRelayModeEnetPdpReliable, n->T("Reliable datagram packet delivery on packet relay in UDP mode")));
 	relay_mode_enet_pdp_reliable->SetEnabled(!PSP_IsInited() && g_Config.bAdhocUseUdp);
+	networkingSettings->Add(new SettingHint(n->T("When disabled, packet loss on datagram adhoc sockets will be exposed to game's netcode. Keep this enabled if you don't know what that means."), nullptr));
+
 
 	networkingSettings->Add(new ItemHeader(n->T("Infrastructure")));
 	if (g_Config.sInfrastructureUsername.empty()) {
