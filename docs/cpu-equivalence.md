@@ -32,6 +32,11 @@ Environment variables:
 | `PPSSPP_CPUFUZZ_VERBOSE` | print every case before running it, to find one that crashes |
 | `PPSSPP_CPUFUZZ_DUMP` | write every core's end state of every case to a file |
 | `PPSSPP_CPUFUZZ_STRICT` | fail on any difference, not only on a crash |
+| `PPSSPP_CPUFUZZ_OPS` | comma-separated instruction name prefixes to generate only; `dot` is the dot products and the prefix ops |
+
+For quick rounds while working on some instructions, fuzz just those, on every core of the machine:
+`PPSSPP_CPUFUZZ_OPS=dot Tools/cpu_fuzz_parallel.py build/PPSSPPUnitTest --count 2000` splits the seeds
+over several processes and sums up the results.
 
 Always set `CI=1` when running it from a script on Windows. Otherwise a JIT assert opens a message
 box and the run hangs until someone clicks it.

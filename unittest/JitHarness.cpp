@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <map>
+#include <string>
 #include <cfloat>
 #include <cstring>
 #include <vector>
@@ -397,6 +398,9 @@ bool TestJitReplacementHooks() {
 //   PPSSPP_CPUFUZZ_SKIP     cores not to run, by digit: 1 IR interpreter, 2 JIT, 3 JIT IR.
 //   PPSSPP_CPUFUZZ_REPORTS  how many differences to minimize and print (default 20).
 //   PPSSPP_CPUFUZZ_STRICT   fail the test on any difference, not only on a crash.
+//   PPSSPP_CPUFUZZ_OPS      comma-separated instruction name prefixes to generate only, for fast
+//                           runs on the instructions being worked on. "dot" is the dot products
+//                           and the prefixes. Without PPSSPP_CPUFUZZ_CLASSES, the class is "v".
 
 namespace {
 
@@ -533,6 +537,21 @@ static u32 FixupMemOp(u32 op, FuzzRng &rng) {
 	return (op & ~0xFFFF) | ((u32)offset & 0xFFFF);
 }
 
+// From PPSSPP_CPUFUZZ_OPS. Empty means every instruction.
+static std::vector<std::string> g_fuzzOps;
+
+static bool MatchesFuzzOps(const char *name) {
+	if (g_fuzzOps.empty()) {
+		return true;
+	}
+	for (const std::string &prefix : g_fuzzOps) {
+		if (!strncmp(name, prefix.c_str(), prefix.size())) {
+			return true;
+		}
+	}
+	return false;
+}
+
 static u32 GenerateFuzzOp(FuzzRng &rng, const char *classes) {
 	static const u8 aluOps[] = { 0x00, 0x1C, 0x1F };
 	static const u8 immOps[] = { 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F };
@@ -559,7 +578,7 @@ static u32 GenerateFuzzOp(FuzzRng &rng, const char *classes) {
 		if (info & (BAD_INSTRUCTION | IS_CONDBRANCH | IS_JUMP | IS_SYSCALL | DELAYSLOT)) {
 			continue;
 		}
-		if (!IsFuzzableName(MIPSGetName(MIPSOpcode(op)))) {
+		if (!IsFuzzableName(MIPSGetName(MIPSOpcode(op))) || !MatchesFuzzOps(MIPSGetName(MIPSOpcode(op)))) {
 			continue;
 		}
 		// Not by MEMTYPE, which movz and movn alias with their CONDTYPE.
@@ -889,8 +908,23 @@ bool TestCPUEquivalence() {
 	const char *skipCores = getenv("PPSSPP_CPUFUZZ_SKIP");
 	const int count = countStr ? atoi(countStr) : 2000;
 	const u64 firstSeed = seedStr ? strtoull(seedStr, nullptr, 10) : 1;
+	g_fuzzOps.clear();
+	if (const char *ops = getenv("PPSSPP_CPUFUZZ_OPS")) {
+		std::string list = !strcmp(ops, "dot") ? "vdot,vhdp,vfad,vavg,vdet,vcrs,vmmul,v(h)tfm,vpfx" : ops;
+		size_t start = 0;
+		while (start <= list.size()) {
+			size_t end = list.find(',', start);
+			if (end == std::string::npos) {
+				end = list.size();
+			}
+			if (end > start) {
+				g_fuzzOps.push_back(list.substr(start, end - start));
+			}
+			start = end + 1;
+		}
+	}
 	if (!classes || !classes[0]) {
-		classes = "aaiffvvvmm";
+		classes = g_fuzzOps.empty() ? "aaiffvvvmm" : "v";
 	}
 	std::vector<u32> codeOverride;
 	const char *codeSeedStr = getenv("PPSSPP_CPUFUZZ_CODE_SEED");
