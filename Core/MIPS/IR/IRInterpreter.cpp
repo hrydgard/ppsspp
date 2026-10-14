@@ -171,6 +171,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		dispatch[(int)IROp::FCmpVfpuAggregate] = &&L_FCmpVfpuAggregate;
 		dispatch[(int)IROp::FCmovVfpuCC] = &&L_FCmovVfpuCC;
 		dispatch[(int)IROp::Vec4Dot] = &&L_Vec4Dot;
+		dispatch[(int)IROp::Vec4VfpuDot] = &&L_Vec4VfpuDot;
 		dispatch[(int)IROp::FSin] = &&L_FSin;
 		dispatch[(int)IROp::FCos] = &&L_FCos;
 		dispatch[(int)IROp::FRSqrt] = &&L_FRSqrt;
@@ -797,6 +798,10 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			mips->f[inst->dest] = a[0] * b[0] + a[1] * b[1] + a[2] * b[2] + a[3] * b[3];
 			IR_NEXT;
 		}
+
+		IR_CASE(Vec4VfpuDot)
+			mips->f[inst->dest] = vfpu_dot(&mips->f[inst->src1], &mips->f[inst->src2]);
+			IR_NEXT;
 
 		IR_CASE(FSin)
 			mips->f[inst->dest] = vfpu_sin(mips->f[inst->src1]);

@@ -424,6 +424,11 @@ void IRNativeBackend::CompileIRInst(IRInst inst) {
 		CompIR_VecHoriz(inst);
 		break;
 
+	case IROp::Vec4VfpuDot:
+		// Through the IR interpreter for now.
+		CompIR_Generic(inst);
+		break;
+
 	case IROp::Vec2Unpack16To31:
 	case IROp::Vec2Unpack16To32:
 	case IROp::Vec4Unpack8To32:

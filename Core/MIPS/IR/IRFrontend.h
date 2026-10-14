@@ -99,6 +99,13 @@ public:
 		opts = o;
 	}
 
+	// One lane of a Vec4VfpuDot operand: a reg, maybe negated, or a constant (reg < 0).
+	struct DotLane {
+		int reg;
+		float constant;
+		bool negate;
+	};
+
 private:
 	void RestoreRoundingMode(bool force = false);
 	void ApplyRoundingMode(bool force = false);
@@ -133,6 +140,14 @@ private:
 	void GetVectorRegsPrefixD(u8 *regs, VectorSize sz, int vectorReg);
 	void GetVectorRegs(u8 regs[4], VectorSize N, int vectorReg);
 	void GetMatrixRegs(u8 regs[16], MatrixSize N, int matrixReg);
+
+	static DotLane DotReg(int reg, bool negate = false) { return DotLane{ reg, 0.0f, negate }; }
+	static DotLane DotConst(float f) { return DotLane{ -1, f, false }; }
+	// Puts both operands of a Vec4VfpuDot in Vec4 regs, building them in free temps where they
+	// aren't one already. avoid is a Vec4 temp that must not be used (or -1). Returns false if
+	// there aren't enough free temps, and then nothing was written.
+	bool BuildDotOperands(const DotLane s[4], const DotLane t[4], int avoid, u8 *sVec, u8 *tVec);
+	bool UseAccurateVdot() const;
 
 	// State
 	JitState js;
