@@ -16,8 +16,12 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <condition_variable>
 #include <cstring>
 #include <map>
+#include <memory>
+#include <mutex>
+#include <set>
 #include <string_view>
 
 #include "zlib.h"
@@ -29,6 +33,7 @@
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 #include "Common/System/OSD.h"
+#include "Common/Thread/ThreadManager.h"
 #include "Core/Config.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/ELF/PBPReader.h"
@@ -731,6 +736,113 @@ void PSARReader::EnsureContents() {
 	// Anything else we leave empty - the caller reports it through the stats.
 }
 
+// Writes unpacked files into a directory that started out empty, on the IO threads, while the
+// caller goes on decoding. Each directory is created once, and files without checking whether
+// they exist. Through Android's storage framework those checks and creates are round trips to
+// another process, which is nearly all of an install's time, and doing several at once hides most
+// of the wait.
+class NewFileWriter {
+public:
+	explicit NewFileWriter(PSARUnpackStats *stats) : stats_(stats) {
+		parallel_ = g_threadManager.IsInitialized();
+	}
+	~NewFileWriter() {
+		Finish();
+	}
+
+	void Write(const Path &destination, const std::vector<u8> &data) {
+		const Path dir = destination.NavigateUp();
+		if (createdDirs_.insert(dir.ToString()).second && !File::CreateFullPath(dir)) {
+			ERROR_LOG(Log::Loader, "PSAR: couldn't create a directory for '%s'", destination.c_str());
+			createdDirs_.erase(dir.ToString());
+			stats_->failed++;
+			return;
+		}
+
+		if (!files_.insert(destination.ToString()).second) {
+			// The same name twice. The later one wins, as it always has, so let the first land
+			// and then overwrite it the careful way - a blind create would make a renamed copy.
+			Finish();
+			if (File::WriteDataToFile(false, data.data(), data.size(), destination)) {
+				stats_->written++;
+			} else {
+				ERROR_LOG(Log::Loader, "PSAR: couldn't write '%s'", destination.c_str());
+				stats_->failed++;
+			}
+			return;
+		}
+
+		if (!parallel_) {
+			if (WriteOne(destination, data))
+				stats_->written++;
+			else
+				stats_->failed++;
+			return;
+		}
+
+		std::unique_lock<std::mutex> lock(mutex_);
+		// Bounded, so memory doesn't fill up with decoded files waiting for a slow disk.
+		cond_.wait(lock, [&] { return inFlight_ < MAX_IN_FLIGHT; });
+		inFlight_++;
+		lock.unlock();
+		g_threadManager.EnqueueTask(new WriteTask(this, destination, data));
+	}
+
+	// Waits for every write so far, and adds their results to the stats.
+	void Finish() {
+		std::unique_lock<std::mutex> lock(mutex_);
+		cond_.wait(lock, [&] { return inFlight_ == 0; });
+		stats_->written += written_;
+		stats_->failed += failed_;
+		written_ = 0;
+		failed_ = 0;
+	}
+
+private:
+	class WriteTask : public Task {
+	public:
+		WriteTask(NewFileWriter *writer, const Path &destination, const std::vector<u8> &data)
+			: writer_(writer), destination_(destination), data_(data) {}
+		TaskType Type() const override { return TaskType::IO_BLOCKING; }
+		TaskPriority Priority() const override { return TaskPriority::NORMAL; }
+		void Run() override {
+			const bool ok = writer_->WriteOne(destination_, data_);
+			std::lock_guard<std::mutex> lock(writer_->mutex_);
+			if (ok)
+				writer_->written_++;
+			else
+				writer_->failed_++;
+			writer_->inFlight_--;
+			writer_->cond_.notify_all();
+		}
+	private:
+		NewFileWriter *writer_;
+		Path destination_;
+		std::vector<u8> data_;
+	};
+
+	static bool WriteOne(const Path &destination, const std::vector<u8> &data) {
+		const bool ok = File::WriteDataToNewFile(data.data(), data.size(), destination);
+		if (!ok) {
+			ERROR_LOG(Log::Loader, "PSAR: couldn't write '%s'", destination.c_str());
+		}
+		return ok;
+	}
+
+	static constexpr int MAX_IN_FLIGHT = 8;
+
+	PSARUnpackStats *stats_;
+	bool parallel_ = false;
+	std::set<std::string> createdDirs_;
+	std::set<std::string> files_;
+	// These are guarded by mutex_.
+	std::mutex mutex_;
+	std::condition_variable cond_;
+	int inFlight_ = 0;
+	int written_ = 0;
+	int failed_ = 0;
+};
+
 bool UnpackPSAR(const u8 *psar, size_t psarSize, const Path &outputDir, const PSARUnpackOptions &options, PSARUnpackStats *stats, std::string *error) {
 	PSARUnpackStats localStats;
 	if (!stats) {
@@ -751,6 +863,11 @@ bool UnpackPSAR(const u8 *psar, size_t psarSize, const Path &outputDir, const PS
 
 	// One file list per model, filled in as we go - they come before the files they name.
 	std::map<int, std::map<std::string, std::string>> namesByModel;
+
+	std::unique_ptr<NewFileWriter> newFileWriter;
+	if (options.outputDirIsEmpty && !options.listOnly) {
+		newFileWriter.reset(new NewFileWriter(stats));
+	}
 	INFO_LOG(Log::Loader, "Resolving names against model %s", PSPModelGenerationToString(options.model));
 
 	while (true) {
@@ -893,6 +1010,10 @@ bool UnpackPSAR(const u8 *psar, size_t psarSize, const Path &outputDir, const PS
 		}
 
 		const Path destination = outputDir / relative;
+		if (newFileWriter) {
+			newFileWriter->Write(destination, reader.entryData());
+			continue;
+		}
 		if (!File::CreateFullPath(destination.NavigateUp())) {
 			ERROR_LOG(Log::Loader, "PSAR: couldn't create a directory for '%s'", relative.c_str());
 			stats->failed++;
@@ -906,6 +1027,9 @@ bool UnpackPSAR(const u8 *psar, size_t psarSize, const Path &outputDir, const PS
 		stats->written++;
 	}
 
+	if (newFileWriter) {
+		newFileWriter->Finish();
+	}
 	return true;
 }
 
@@ -1440,9 +1564,12 @@ bool InstallFirmware(const Path &updater, const Path &nandRoot, const PSARUnpack
 		return false;
 	}
 
+	// The staging directory was just cleared, so the unpack can skip checking for each file.
+	PSARUnpackOptions stagingOptions = options;
+	stagingOptions.outputDirIsEmpty = true;
 	bool ok = updater.empty()
-		? UnpackUpdaterFromMountedDisc(staging, options, stats, error)
-		: UnpackUpdater(updater, staging, options, stats, error);
+		? UnpackUpdaterFromMountedDisc(staging, stagingOptions, stats, error)
+		: UnpackUpdater(updater, staging, stagingOptions, stats, error);
 
 	if (ok && stats->written == 0) {
 		// Nothing came out, so the archive had no file list for the model we asked for - old
