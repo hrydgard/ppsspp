@@ -100,6 +100,7 @@ tests_good = [
   "cpu/vfpu/minmax_tie",
   "cpu/vfpu/prefix_branch",
   "cpu/vfpu/prefix_ctrl",
+  "cpu/vfpu/prefix_lanes",
   "cpu/vfpu/vbranch",
   "cpu/vfpu/vrnd",
   "cpu/vfpu/overlap",
