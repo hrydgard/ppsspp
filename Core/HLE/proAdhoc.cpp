@@ -108,6 +108,7 @@ uint8_t broadcastMAC[ETHER_ADDR_LEN] = { 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF };
 std::mutex adhocctlMutex;
 void *adhocctlHandle;
 int adhocctlId = -1;
+std::mutex cachedLocalIpMutex;
 uint32_t cachedLocalIp = 0xffffffff;
 
 SceNetAdhocctlParameter parameter;
@@ -1390,7 +1391,9 @@ void killAdhocctlClient(bool due_to_error) {
 	timeoutFriendsRecursive(friends);
 	peerlock.unlock();
 
+	cachedLocalIpMutex.lock();
 	cachedLocalIp = 0xffffffff;
+	cachedLocalIpMutex.unlock();
 }
 
 // TODO: We should probably change this thread into PSPThread (or merging it into the existing AdhocThread PSPThread) as there are too many global vars being used here which also being used within some HLEs
@@ -1759,9 +1762,12 @@ int getLocalIp(sockaddr_in* SocketAddress) {
 		return 0;
 	}
 
-	if (cachedLocalIp != 0xffffffff){
-		SocketAddress->sin_addr.s_addr = cachedLocalIp;
-		return 0;
+	{
+		const std::lock_guard<std::mutex> local_ip_cache_guard(cachedLocalIpMutex);
+		if (cachedLocalIp != 0xffffffff){
+			SocketAddress->sin_addr.s_addr = cachedLocalIp;
+			return 0;
+		}
 	}
 
 	// do not just pick one that is not localhost, it could lead to confusing results in P2P mode
@@ -1787,7 +1793,9 @@ int getLocalIp(sockaddr_in* SocketAddress) {
 			err = getsockname(sock, (struct sockaddr*)&name, &namelen);
 			if (err != SOCKET_ERROR) {
 				SocketAddress->sin_addr = name.sin_addr; // May be we should cache this so it doesn't need to use connect all the time, or even better cache it when connecting to adhoc server to get an accurate IP
+				cachedLocalIpMutex.lock();
 				cachedLocalIp = name.sin_addr.s_addr;
+				cachedLocalIpMutex.unlock();
 				closesocket(sock);
 				return 0;
 			}
