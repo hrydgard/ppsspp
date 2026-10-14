@@ -2917,6 +2917,8 @@ void ARMXEmitter::VMOV_imm(u32 Size, ARMReg Vd, VIMMMode type, int imm) {
 	case VIMM__x___x_:
 	case VIMM_x___x__:
 	case VIMMx___x___:
+	case VIMM__x1__x1:  // imm << 8, ones shifted in
+	case VIMM_x11_x11:  // imm << 16, ones shifted in
 		if (Size != I_32)
 			goto error;
 		WriteVimm(Vd, (int)type, imm, 0);

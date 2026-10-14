@@ -28,6 +28,10 @@ bool TestArmEmitter() {
 	RET(CheckLast(emitter, "f3b20300 VSHLL.i8 q0, d0, #8"));
 	emitter.VMOVL(I_16 | I_UNSIGNED, Q0, D0);
 	RET(CheckLast(emitter, "f3900a10 VMOVL.u16 q0, d0"));
+	emitter.VMOV_imm(I_32, Q12, VIMM__x1__x1, 0x07);
+	RET(CheckLast(emitter, "f2c08c57 VMOV.i32 q12, #0x7ff"));
+	emitter.VMOV_imm(I_32, Q10, VIMM_x11_x11, 0x7F);
+	RET(CheckLast(emitter, "f2c74d5f VMOV.i32 q10, #0x7fffff"));
 	emitter.VMOVL(I_32 | I_SIGNED, Q0, D0);
 	RET(CheckLast(emitter, "f2a00a10 VMOVL.s32 q0, d0"));
 	emitter.VSHRN(I_32, D0, Q0, 16);
