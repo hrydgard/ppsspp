@@ -920,6 +920,8 @@ int main(int argc, const char* argv[]) {
 			fprintf(stderr, "Unknown PSP model '%s' - expected 01g..12g or any\n", cmdLineOptions.unpackUpdaterModel.value().c_str());
 			return 1;
 		}
+		// A directory that isn't there yet will be empty, so the unpack can skip checking for each file.
+		unpackOptions.outputDirIsEmpty = !File::Exists(Path(cmdLineOptions.unpackUpdater.value()));
 		PSARUnpackStats stats;
 		std::string unpackError;
 		const bool ok = UnpackUpdater(Path(cmdLineOptions.bootFilenames[0]), Path(cmdLineOptions.unpackUpdater.value()), unpackOptions, &stats, &unpackError);
