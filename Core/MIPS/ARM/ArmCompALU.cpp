@@ -425,7 +425,7 @@ namespace MIPSComp
 
 		case 44: //R(rd) = max(R(rs), R(rt);        break; //max
 			if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
-				gpr.SetImm(rd, std::max(gpr.GetImm(rs), gpr.GetImm(rt)));
+				gpr.SetImm(rd, std::max((s32)gpr.GetImm(rs), (s32)gpr.GetImm(rt)));
 				break;
 			}
 			gpr.MapDirtyInIn(rd, rs, rt);
@@ -441,7 +441,7 @@ namespace MIPSComp
 
 		case 45: //R(rd) = min(R(rs), R(rt));       break; //min
 			if (gpr.IsImm(rs) && gpr.IsImm(rt)) {
-				gpr.SetImm(rd, std::min(gpr.GetImm(rs), gpr.GetImm(rt)));
+				gpr.SetImm(rd, std::min((s32)gpr.GetImm(rs), (s32)gpr.GetImm(rt)));
 				break;
 			}
 			gpr.MapDirtyInIn(rd, rs, rt);
@@ -555,7 +555,8 @@ namespace MIPSComp
 
 			gpr.MapDirtyIn(rt, rs);
 #if PPSSPP_ARCH(ARMV7)
-			UBFX(gpr.R(rt), gpr.R(rs), pos, size);
+			// Bits past 31 come out as zero, and UBFX can't encode them.
+			UBFX(gpr.R(rt), gpr.R(rs), pos, std::min(size, 32 - pos));
 #else
 			MOV(gpr.R(rt), Operand2(gpr.R(rs), ST_LSR, pos));
 			ANDI2R(gpr.R(rt), gpr.R(rt), mask, SCRATCHREG1);
@@ -566,6 +567,9 @@ namespace MIPSComp
 			{
 				u32 sourcemask = mask >> pos;
 				u32 destmask = ~(sourcemask << pos);
+				// With msb below pos there's nothing to insert, and no BFI for it.
+				if (sourcemask == 0)
+					return;
 				if (gpr.IsImm(rs)) {
 					u32 inserted = (gpr.GetImm(rs) & sourcemask) << pos;
 					if (gpr.IsImm(rt)) {
