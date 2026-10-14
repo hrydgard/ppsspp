@@ -434,11 +434,17 @@ void ViewSearch::ApplySearchFilter(UI::ViewGroup *viewGroup, bool setKeyboardFoc
 		}
 	}
 
-	if (firstMatch) {
-		if (setKeyboardFocus) {
-			UI::EnableFocusMovement(true);
-			UI::SetFocusedView(firstMatch, UI::FocusFlags::CAUSE_OTHER);
-		}
+	if (firstMatch && setKeyboardFocus) {
+		UI::EnableFocusMovement(true);
+		UI::SetFocusedView(firstMatch, UI::FocusFlags::CAUSE_OTHER);
+		return;
+	}
+
+	// Don't leave the focus on a view we just hid. A game would keep showing its background and
+	// playing its music, for one.
+	UI::View *focused = UI::GetFocusedView();
+	if (focused && focused->GetVisibility() == UI::V_GONE && viewGroup->ContainsSubview(focused)) {
+		UI::SetFocusedView(nullptr, UI::FocusFlags::CAUSE_FOCUS_MOVE);
 	}
 }
 
