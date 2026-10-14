@@ -111,6 +111,8 @@ struct ReplacementDesc {
 	std::vector<std::string> filenames;
 	std::string logId;
 	GPUFormatSupport formatSupport;
+	// The files hold palette indices (palette or grayscale PNG) that the game's own palette colors.
+	bool indexed = false;
 };
 
 class ReplacedTexture;
@@ -203,6 +205,19 @@ public:
 	TextureAlpha AlphaStatus() const {
 		return alphaStatus_;
 	}
+
+	bool IsIndexed() const {
+		return desc_.indexed;
+	}
+
+	// Indexed textures only. Size of the stored indices, before padding to the full size.
+	void GetIndexDataSize(int level, int *w, int *h) const {
+		_dbg_assert_(IsIndexed() && (size_t)level < levels_.size());
+		*w = levels_[level].w;
+		*h = levels_[level].h;
+	}
+	// Indexed textures only. Copies the indices, one byte each, tightly packed.
+	bool CopyIndexLevelTo(int level, uint8_t *out, size_t outDataSize);
 
 	bool Poll(double budget);
 	bool CopyLevelTo(int level, uint8_t *out, size_t outDataSize, int rowPitch);

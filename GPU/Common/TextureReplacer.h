@@ -116,12 +116,14 @@ public:
 
 protected:
 	bool FindFiltering(ReplacementCacheKey key, TextureFiltering *forceFiltering);
+	bool IsIndexed(ReplacementCacheKey key) const;
 
 	bool LoadIni(std::string *error, bool notify = true);
 	void DeleteVFS();
 	bool LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverride, std::string *error);
 	void ParseHashRange(const std::string &key, const std::string &value);
 	void ParseFiltering(const std::string &key, const std::string &value);
+	void ParseIndexed(const std::string &key, const std::string &value);
 	void ParseReduceHashRange(const std::string& key, const std::string& value);
 	bool LookupHashRange(u32 addr, int w, int h, int *newW, int *newH);
 	float LookupReduceHashRange(int w, int h);
@@ -154,6 +156,8 @@ protected:
 
 	std::unordered_map<ReplacementCacheKey, std::string> aliases_;
 	std::unordered_map<ReplacementCacheKey, TextureFiltering> filtering_;
+	// Replacements that hold palette indices instead of colors, from the [indexed] section.
+	std::unordered_map<ReplacementCacheKey, bool> indexed_;
 
 	std::unordered_map<ReplacementCacheKey, ReplacedTextureRef> cache_;
 	std::unordered_map<ReplacementCacheKey, SavedTextureCacheData> savedCache_;

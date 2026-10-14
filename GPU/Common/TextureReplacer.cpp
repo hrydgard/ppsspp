@@ -152,6 +152,7 @@ bool TextureReplacer::LoadIni(std::string *error, bool notify) {
 	cache_.clear();
 	savedCache_.clear();
 
+	indexed_.clear();
 	ignoreAddress_ = false;
 	reduceHash_ = false;
 	reduceHashGlobalValue = 0.5;
@@ -448,6 +449,15 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 		}
 	}
 
+	if (ini.HasSection("indexed")) {
+		auto indexed = ini.GetOrCreateSection("indexed")->ToMap();
+		// Format: hashname = true. The image files then hold palette indices, which the
+		// game's palette colors, so one image serves every palette of the texture.
+		for (const auto &[k, v] : indexed) {
+			ParseIndexed(k, v);
+		}
+	}
+
 	if (ini.HasSection("reducehashranges")) {
 		auto reducehashranges = ini.GetOrCreateSection("reducehashranges")->ToMap();
 		// Format: w,h = reducehashvalues
@@ -519,6 +529,21 @@ void TextureReplacer::ParseFiltering(const std::string &key, const std::string &
 		}
 	} else {
 		ERROR_LOG(Log::TexReplacement, "Unsupported syntax under [filtering]: %s", key.c_str());
+	}
+}
+
+void TextureReplacer::ParseIndexed(const std::string &key, const std::string &value) {
+	ReplacementCacheKey itemKey(0, 0);
+	if (sscanf(key.c_str(), "%16llx%8x", &itemKey.cachekey, &itemKey.hash) >= 1) {
+		if (!strcasecmp(value.c_str(), "true") || value == "1") {
+			indexed_[itemKey] = true;
+		} else if (!strcasecmp(value.c_str(), "false") || value == "0") {
+			indexed_[itemKey] = false;
+		} else {
+			ERROR_LOG(Log::TexReplacement, "Unsupported syntax under [indexed]: %s", value.c_str());
+		}
+	} else {
+		ERROR_LOG(Log::TexReplacement, "Unsupported syntax under [indexed]: %s", key.c_str());
 	}
 }
 
@@ -697,6 +722,7 @@ ReplacedTexture *TextureReplacer::FindReplacement(ReplacementCacheKey replacemen
 	}
 
 	FindFiltering(lookupKey, &desc.forceFiltering);
+	desc.indexed = IsIndexed(lookupKey);
 
 	if (foundAlias) {
 		desc.logId = hashfiles;
@@ -716,7 +742,7 @@ ReplacedTexture *TextureReplacer::FindReplacement(ReplacementCacheKey replacemen
 	_dbg_assert_(!hashfiles.empty());
 	// OK, we might already have a matching texture. Textures sharing files can still differ in how
 	// they're scaled and filtered, so those go in the level cache key too.
-	std::string levelKey = StringFromFormat("%s#%dx%d>%dx%d#%d", hashfiles.c_str(), desc.w, desc.h, desc.newW, desc.newH, (int)desc.forceFiltering);
+	std::string levelKey = StringFromFormat("%s#%dx%d>%dx%d#%d#%d", hashfiles.c_str(), desc.w, desc.h, desc.newW, desc.newH, (int)desc.forceFiltering, (int)desc.indexed);
 	auto iter = levelCache_.find(levelKey);
 	if (iter != levelCache_.end()) {
 		// Insert an entry into the cache for faster lookup next time.
@@ -1019,6 +1045,11 @@ bool TextureReplacer::FindFiltering(ReplacementCacheKey replacementKey, TextureF
 		return true;
 	}
 	return false;
+}
+
+bool TextureReplacer::IsIndexed(ReplacementCacheKey key) const {
+	auto found = LookupWildcard(indexed_, key, ignoreAddress_);
+	return found != indexed_.end() && found->second;
 }
 
 std::string TextureReplacer::LookupHashFile(ReplacementCacheKey key, bool *foundAlias, bool *ignored) {

@@ -358,6 +358,12 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 	std::string magic;
 	ReplacedImageType imageType = Identify(vfs_, openFile, &magic);
 
+	if (desc_.indexed && imageType != ReplacedImageType::PNG) {
+		ERROR_LOG(Log::TexReplacement, "Indexed replacement %s must be a palette or grayscale PNG", filename.c_str());
+		vfs_->CloseFile(openFile);
+		return LoadLevelResult::LOAD_ERROR;
+	}
+
 	// Disallow mixing image formats across mip levels: a KTX2/DDS container
 	// manages its own mip chain, so mixing one in at a higher mip level
 	// would corrupt the shared level data layout.
@@ -489,6 +495,11 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 			level.w = headerPeek.Width();
 			level.h = headerPeek.Height();
 			good = true;
+			// colorType 0 is grayscale, 3 is palette.
+			if (desc_.indexed && ((headerPeek.colorType != 0 && headerPeek.colorType != 3) || headerPeek.bitDepth > 8)) {
+				ERROR_LOG(Log::TexReplacement, "Indexed replacement %s must be a palette or grayscale PNG of at most 8 bits", filename.c_str());
+				good = false;
+			}
 		} else {
 			ERROR_LOG(Log::TexReplacement, "Could not get PNG dimensions: %s (zip)", filename.c_str());
 			good = false;
@@ -724,6 +735,30 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 
 		return LoadLevelResult::CONTINUE;
 
+	} else if (imageType == ReplacedImageType::PNG && desc_.indexed) {
+		std::string pngdata;
+		pngdata.resize(fileSize);
+		pngdata.resize(vfs_->Read(openFile, &pngdata[0], fileSize));
+		vfs_->CloseFile(openFile);
+
+		int w = 0, h = 0;
+		unsigned char *indices = nullptr;
+		if (!pngLoadIndexed((const unsigned char *)pngdata.data(), pngdata.size(), &w, &h, &indices, level.w, level.h)) {
+			ERROR_LOG(Log::TexReplacement, "Could not load indexed texture replacement: %s", filename.c_str());
+			return LoadLevelResult::LOAD_ERROR;
+		}
+
+		std::vector<uint8_t> &out = data_[mipLevel];
+		out.resize(level.w * level.h);
+		for (int y = 0; y < h; ++y) {
+			memcpy(&out[level.w * y], indices + w * y, w);
+		}
+		free(indices);
+
+		// The palette decides the alpha.
+		alphaStatus_ = TextureAlpha::Any;
+		levels_.push_back(level);
+		return LoadLevelResult::CONTINUE;
 	} else if (imageType == ReplacedImageType::PNG) {
 		png_image png = {};
 		png.version = PNG_IMAGE_VERSION;
@@ -776,6 +811,25 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 		vfs_->CloseFile(openFile);
 	}
 	return LoadLevelResult::LOAD_ERROR;
+}
+
+bool ReplacedTexture::CopyIndexLevelTo(int level, uint8_t *out, size_t outDataSize) {
+	_assert_msg_(IsIndexed(), "Not an indexed texture");
+	_assert_msg_((size_t)level < levels_.size(), "Invalid miplevel");
+
+	if (State() != ReplacementState::ACTIVE) {
+		WARN_LOG(Log::TexReplacement, "Init not done yet");
+		return false;
+	}
+
+	std::lock_guard<std::mutex> guard(lock_);
+	const std::vector<uint8_t> &data = data_[level];
+	if (data.empty() || data.size() > outDataSize) {
+		WARN_LOG(Log::TexReplacement, "Level %d is empty or doesn't fit", level);
+		return false;
+	}
+	memcpy(out, data.data(), data.size());
+	return true;
 }
 
 bool ReplacedTexture::CopyLevelTo(int level, uint8_t *out, size_t outDataSize, int rowPitch) {

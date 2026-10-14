@@ -2,6 +2,8 @@
 #include <cstring>
 #include <vector>
 
+#include <png.h>
+
 #include "Common/Data/Format/PNGLoad.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/Path.h"
@@ -207,6 +209,175 @@ static bool TestIgnoreAddress(const Path &packDir) {
 	return true;
 }
 
+// Writes an 8-bit palette PNG (a palette in reverse gray order, so the index is not the color)
+// or an 8-bit grayscale PNG, one byte per pixel.
+static bool CreateIndexedPNG(const Path &filename, int w, int h, bool palette, const std::vector<u8> &indices) {
+	FILE *fp = File::OpenCFile(filename, "wb");
+	if (!fp) {
+		return false;
+	}
+	png_structp png = png_create_write_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
+	png_infop info = png_create_info_struct(png);
+	if (setjmp(png_jmpbuf(png))) {
+		png_destroy_write_struct(&png, &info);
+		fclose(fp);
+		return false;
+	}
+	png_init_io(png, fp);
+	png_set_IHDR(png, info, w, h, 8, palette ? PNG_COLOR_TYPE_PALETTE : PNG_COLOR_TYPE_GRAY, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
+	if (palette) {
+		png_color entries[256];
+		for (int i = 0; i < 256; i++) {
+			entries[i].red = entries[i].green = entries[i].blue = 255 - i;
+		}
+		png_set_PLTE(png, info, entries, 256);
+	}
+	std::vector<png_bytep> rows(h);
+	for (int y = 0; y < h; y++) {
+		rows[y] = (png_bytep)indices.data() + y * w;
+	}
+	png_set_rows(png, info, rows.data());
+	png_write_png(png, info, PNG_TRANSFORM_IDENTITY, nullptr);
+	png_destroy_write_struct(&png, &info);
+	fclose(fp);
+	return true;
+}
+
+static bool ReadFileBytes(const Path &filename, std::vector<u8> *data) {
+	std::string str;
+	if (!File::ReadBinaryFileToString(filename, &str)) {
+		return false;
+	}
+	data->assign(str.begin(), str.end());
+	return true;
+}
+
+static bool TestIndexedPNG(const Path &packDir) {
+	std::vector<u8> indices(16 * 8);
+	for (size_t i = 0; i < indices.size(); i++) {
+		indices[i] = (u8)(i * 7 + 3);
+	}
+
+	for (int palette = 0; palette < 2; palette++) {
+		Path file = packDir / "indexed_test.png";
+		if (!CreateIndexedPNG(file, 16, 8, palette != 0, indices)) {
+			return false;
+		}
+		std::vector<u8> png;
+		if (!ReadFileBytes(file, &png)) {
+			return false;
+		}
+		int w = 0, h = 0;
+		unsigned char *out = nullptr;
+		EXPECT_TRUE(pngLoadIndexed(png.data(), png.size(), &w, &h, &out) == 1);
+		EXPECT_EQ_INT(w, 16);
+		EXPECT_EQ_INT(h, 8);
+		if (!out) {
+			return false;
+		}
+		EXPECT_TRUE(memcmp(out, indices.data(), indices.size()) == 0);
+		free(out);
+
+		// Too small a limit is refused.
+		EXPECT_TRUE(pngLoadIndexed(png.data(), png.size(), &w, &h, &out, 8, 8) == 0);
+	}
+
+	// Truecolor is not an index.
+	Path rgba = packDir / "indexed_rgba.png";
+	if (!CreateTestPNG(rgba, 4, 4, 0x11223344)) {
+		return false;
+	}
+	std::vector<u8> png;
+	if (!ReadFileBytes(rgba, &png)) {
+		return false;
+	}
+	int w = 0, h = 0;
+	unsigned char *out = nullptr;
+	EXPECT_TRUE(pngLoadIndexed(png.data(), png.size(), &w, &h, &out) == 0);
+	EXPECT_TRUE(out == nullptr);
+	return true;
+}
+
+// The [indexed] section marks an image as palette indices. It is looked up without the CLUT hash
+// so that every palette of the texture shares the one image.
+static bool TestIndexedReplacement(const Path &packDir) {
+	static const char *iniContent =
+		"[options]\n"
+		"hash = quick\n"
+		"version = 1\n"
+		"\n"
+		"[hashes]\n"
+		"A00000080000000010000008 = indexed.png\n"
+		"A00000090000000010000009 = indexed_rgba.png\n"
+		"A000000A000000001000000A = indexed.png\n"
+		"\n"
+		"[indexed]\n"
+		"A00000080000000010000008 = true\n"
+		"A00000090000000010000009 = true\n";
+	if (!WriteIni(packDir, iniContent)) {
+		return false;
+	}
+
+	std::vector<u8> indices(16 * 8);
+	for (size_t i = 0; i < indices.size(); i++) {
+		indices[i] = (u8)(255 - i * 2);
+	}
+	if (!CreateIndexedPNG(packDir / "indexed.png", 16, 8, true, indices)) {
+		return false;
+	}
+	if (!CreateTestPNG(packDir / "indexed_rgba.png", 16, 8, 0x11223344)) {
+		return false;
+	}
+
+	TextureReplacer replacer(nullptr);
+	std::string error;
+	if (!replacer.LoadPackForTesting(packDir, &error)) {
+		return false;
+	}
+
+	// Two palettes of the same texture.
+	ReplacedTexture *pal1 = replacer.FindReplacement(ReplacementCacheKey(0xA0000008C0000001ULL, 0x10000008), 16, 8);
+	ReplacedTexture *pal2 = replacer.FindReplacement(ReplacementCacheKey(0xA0000008C0000002ULL, 0x10000008), 16, 8);
+	EXPECT_TRUE(pal1 != nullptr);
+	EXPECT_TRUE(pal1 == pal2);
+
+	// The same image without the [indexed] entry is a regular replacement, which can't share the texture.
+	ReplacedTexture *plain = replacer.FindReplacement(ReplacementCacheKey(0xA000000AC0000001ULL, 0x1000000A), 16, 8);
+	EXPECT_TRUE(plain != nullptr);
+	EXPECT_TRUE(plain != pal1);
+
+	ReplacedTexture *bad = replacer.FindReplacement(ReplacementCacheKey(0xA0000009C0000001ULL, 0x10000009), 16, 8);
+	EXPECT_TRUE(bad != nullptr);
+	if (!pal1 || !plain || !bad) {
+		return false;
+	}
+	EXPECT_TRUE(pal1->IsIndexed());
+	EXPECT_FALSE(plain->IsIndexed());
+
+	g_threadManager.Init(1, 1);
+	EXPECT_TRUE(pal1->Poll(1.0));
+	EXPECT_TRUE(pal1->State() == ReplacementState::ACTIVE);
+	EXPECT_EQ_INT(pal1->NumLevels(), 1);
+	int w = 0, h = 0;
+	pal1->GetIndexDataSize(0, &w, &h);
+	EXPECT_EQ_INT(w, 16);
+	EXPECT_EQ_INT(h, 8);
+	pal1->GetSize(0, &w, &h);
+	EXPECT_EQ_INT(w, 16);
+	EXPECT_EQ_INT(h, 8);
+	EXPECT_TRUE(pal1->Format() == Draw::DataFormat::R8G8B8A8_UNORM);
+
+	std::vector<u8> copy(indices.size());
+	EXPECT_TRUE(pal1->CopyIndexLevelTo(0, copy.data(), copy.size()));
+	EXPECT_TRUE(copy == indices);
+
+	// A truecolor image can't serve as indices.
+	EXPECT_TRUE(bad->Poll(1.0));
+	EXPECT_TRUE(bad->State() == ReplacementState::NOT_FOUND);
+	g_threadManager.Teardown();
+	return true;
+}
+
 bool TestTextureReplacer() {
 	Path packDir = Path("unittest_texture_pack");
 	if (!CreateTestPack(packDir)) {
@@ -232,6 +403,11 @@ bool TestTextureReplacer() {
 	EXPECT_EQ_INT(replacer.GetNumTrackedTextures(), 0);
 
 	if (!TestIgnoreAddress(packDir)) {
+		File::DeleteDirRecursively(packDir);
+		return false;
+	}
+
+	if (!TestIndexedPNG(packDir) || !TestIndexedReplacement(packDir)) {
 		File::DeleteDirRecursively(packDir);
 		return false;
 	}

@@ -144,6 +144,88 @@ int pngLoadPtr(const unsigned char *input_ptr, size_t input_len, int *pwidth, in
 	return 1;
 }
 
+int pngLoadIndexed(const unsigned char *input_ptr, size_t input_len, int *pwidth, int *pheight, unsigned char **image_data_ptr, int maxWidth, int maxHeight) {
+	*image_data_ptr = nullptr;
+	if (input_len == 0) {
+		return 0;
+	}
+
+	png_structp png = png_create_read_struct(PNG_LIBPNG_VER_STRING, NULL, pngErrorHandler, pngWarningHandler);
+	if (!png) {
+		return 0;
+	}
+
+	png_set_option(png, PNG_SKIP_sRGB_CHECK_PROFILE, PNG_OPTION_ON);
+	png_set_benign_errors(png, PNG_OPTION_ON);
+
+	png_infop info = png_create_info_struct(png);
+	if (!info) {
+		png_destroy_read_struct(&png, NULL, NULL);
+		return 0;
+	}
+
+	unsigned char *data = nullptr;
+	if (setjmp(png_jmpbuf(png))) {
+		png_destroy_read_struct(&png, &info, NULL);
+		free(data);
+		return 0;
+	}
+
+	PngReadContext readContext = {input_ptr, input_len};
+
+	png_set_read_fn(png, &readContext, [](png_structp png_ptr, png_bytep outBytes, png_size_t byteCountToRead) {
+		PngReadContext *ctx = (PngReadContext *)png_get_io_ptr(png_ptr);
+		if (byteCountToRead > ctx->remaining) {
+			png_error(png_ptr, "Read past end of buffer");
+			return;
+		}
+
+		memcpy(outBytes, ctx->ptr, byteCountToRead);
+		ctx->ptr += byteCountToRead;
+		ctx->remaining -= byteCountToRead;
+	});
+
+	png_read_info(png, info);
+
+	// Only formats where a pixel is a single index: palette images (the index into the file's
+	// palette) and grayscale images (the gray value itself). Nothing is expanded or scaled,
+	// so with 1, 2 and 4 bit images the index keeps its raw value.
+	const int color_type = png_get_color_type(png, info);
+	const int bit_depth = png_get_bit_depth(png, info);
+	if ((color_type != PNG_COLOR_TYPE_PALETTE && color_type != PNG_COLOR_TYPE_GRAY) || bit_depth > 8) {
+		png_destroy_read_struct(&png, &info, NULL);
+		return 0;
+	}
+
+	png_set_packing(png);
+	png_set_interlace_handling(png);
+	png_read_update_info(png, info);
+
+	*pwidth = png_get_image_width(png, info);
+	*pheight = png_get_image_height(png, info);
+	if (*pwidth <= 0 || *pheight <= 0 || *pwidth > maxWidth || *pheight > maxHeight) {
+		png_destroy_read_struct(&png, &info, NULL);
+		return 0;
+	}
+
+	const size_t row_bytes = png_get_rowbytes(png, info);
+	data = (unsigned char *)malloc(row_bytes * (*pheight));
+	if (!data) {
+		png_destroy_read_struct(&png, &info, NULL);
+		return 0;
+	}
+
+	std::vector<png_bytep> row_pointers(*pheight);
+	for (int y = 0; y < *pheight; y++) {
+		row_pointers[y] = data + y * row_bytes;
+	}
+
+	png_read_image(png, row_pointers.data());
+	png_destroy_read_struct(&png, &info, NULL);
+	*image_data_ptr = data;
+	return 1;
+}
+
 bool PNGHeaderPeek::IsValidPNGHeader() const {
 	if (magic != 0x474e5089 || ihdrTag != 0x52444849) {
 		return false;

@@ -3055,6 +3055,49 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	return true;
 }
 
+bool TextureCacheCommon::CopyIndexedReplacementLevel(ReplacedTexture *replaced, int level, uint8_t *data, size_t dataSize, int stride) {
+	int idxW, idxH, fullW, fullH;
+	replaced->GetIndexDataSize(level, &idxW, &idxH);
+	replaced->GetSize(level, &fullW, &fullH);
+
+	if (stride < fullW * 4 || (dataSize != 0 && dataSize < (size_t)stride * (fullH - 1) + fullW * 4)) {
+		ERROR_LOG(Log::TexReplacement, "Indexed replacement doesn't fit the upload buffer (%dx%d, stride %d)", fullW, fullH, stride);
+		return false;
+	}
+
+	std::vector<u8> indices(idxW * idxH);
+	if (!replaced->CopyIndexLevelTo(level, indices.data(), indices.size())) {
+		for (int y = 0; y < fullH; ++y) {
+			memset(data + stride * y, 0, fullW * 4);
+		}
+		return false;
+	}
+
+	// The same as for a regular CLUT8 texture. The indices go through the CLUT index transform
+	// (shift, mask and start position), so the game controls which entries the image uses.
+	const GEPaletteFormat palFormat = gstate.getClutPaletteFormat();
+	const u32 *clut32;
+	if (palFormat == GE_CMODE_32BIT_ABGR8888) {
+		clut32 = (const u32 *)clutBufRaw_;
+	} else {
+		// 512 entries, since the start position can put the index past the first 256.
+		ConvertFormatToRGBA8888(palFormat, expandClut_, (const u16 *)clutBufRaw_, 512);
+		clut32 = expandClut_;
+	}
+
+	u32 alphaSum = 0xFFFFFFFF;
+	for (int y = 0; y < idxH; ++y) {
+		u32 *row = (u32 *)(data + stride * y);
+		DeIndexTexture(row, indices.data() + idxW * y, idxW, clut32, &alphaSum);
+		// Pad the right side to the full size.
+		memset(row + idxW, 0, (fullW - idxW) * 4);
+	}
+	for (int y = idxH; y < fullH; ++y) {
+		memset(data + stride * y, 0, fullW * 4);
+	}
+	return true;
+}
+
 // Passing 0 into dataSize will disable checking.
 void TextureCacheCommon::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, size_t dataSize, int stride, BuildTexturePlan &plan, int srcLevel, Draw::DataFormat dstFmt, TexDecodeFlags texDecFlags) {
 	int w = gstate.getTextureWidth(srcLevel);
@@ -3065,7 +3108,11 @@ void TextureCacheCommon::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, s
 	if (plan.doReplace) {
 		plan.replaced->GetSize(srcLevel, &w, &h);
 		double replaceStart = time_now_d();
-		plan.replaced->CopyLevelTo(srcLevel, data, dataSize, stride);
+		if (plan.replaced->IsIndexed()) {
+			CopyIndexedReplacementLevel(plan.replaced, srcLevel, data, dataSize, stride);
+		} else {
+			plan.replaced->CopyLevelTo(srcLevel, data, dataSize, stride);
+		}
 		replacementTimeThisFrame_ += time_now_d() - replaceStart;
 	} else {
 		GETextureFormat tfmt = (GETextureFormat)entry.format;

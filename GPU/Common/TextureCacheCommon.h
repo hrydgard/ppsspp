@@ -428,6 +428,8 @@ protected:
 
 	// Return value is mapData normally, but could be another buffer allocated with AllocateAlignedMemory.
 	void LoadTextureLevel(TexCacheEntry &entry, uint8_t *mapData, size_t dataSize, int mapRowPitch, BuildTexturePlan &plan, int srcLevel, Draw::DataFormat dstFmt, TexDecodeFlags texDecFlags);
+	// Colors an indexed replacement with the current CLUT, into 32-bit RGBA padded to the full size.
+	bool CopyIndexedReplacementLevel(ReplacedTexture *replaced, int level, uint8_t *data, size_t dataSize, int stride);
 
 	// This needs to be a member functions just for IsVideo and Replacer.
 	SamplerCacheKey GetSamplingParams(int maxLevel, const TexCacheEntry *entry, bool flatZ, bool pixelMapped);
