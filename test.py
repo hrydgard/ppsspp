@@ -101,6 +101,7 @@ tests_good = [
   "cpu/vfpu/prefix_branch",
   "cpu/vfpu/prefix_ctrl",
   "cpu/vfpu/prefix_lanes",
+  "cpu/vfpu/prefix_load",
   "cpu/vfpu/vbranch",
   "cpu/vfpu/vrnd",
   "cpu/vfpu/overlap",
