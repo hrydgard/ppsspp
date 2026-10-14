@@ -1725,6 +1725,9 @@
     <ClInclude Include="MIPS\ARM\ArmIRRegCache.h">
       <Filter>MIPS\ARM</Filter>
     </ClInclude>
+    <ClInclude Include="MIPS\ARM\ArmVfpuDot.h">
+      <Filter>MIPS\ARM</Filter>
+    </ClInclude>
     <ClInclude Include="Font\PGF.h">
       <Filter>Font</Filter>
     </ClInclude>

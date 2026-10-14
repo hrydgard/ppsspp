@@ -1019,6 +1019,7 @@
     <ClInclude Include="MemMapHelpers.h" />
     <ClInclude Include="MIPS\ARM\ArmIRJit.h" />
     <ClInclude Include="MIPS\ARM\ArmIRRegCache.h" />
+    <ClInclude Include="MIPS\ARM\ArmVfpuDot.h" />
     <ClInclude Include="MIPS\JitCommon\JitBlockCache.h" />
     <ClInclude Include="MIPS\JitCommon\JitCommon.h" />
     <ClInclude Include="MIPS\JitCommon\JitState.h" />

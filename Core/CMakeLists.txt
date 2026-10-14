@@ -36,6 +36,7 @@ list(APPEND CoreExtra
 	MIPS/ARM/ArmIRRegCache.cpp
 	MIPS/ARM/ArmIRJit.h
 	MIPS/ARM/ArmIRRegCache.h
+	MIPS/ARM/ArmVfpuDot.h
 )
 
 list(APPEND CoreExtra

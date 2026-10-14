@@ -18,8 +18,10 @@
 #include "ppsspp_config.h"
 #if PPSSPP_ARCH(ARM)
 
+#include "Common/CPUDetect.h"
 #include "Core/MIPS/ARM/ArmIRJit.h"
 #include "Core/MIPS/ARM/ArmIRRegCache.h"
+#include "Core/MIPS/ARM/ArmVfpuDot.h"
 
 // This file contains compilation for Vec4 operations.
 //
@@ -171,14 +173,34 @@ void ArmJitBackend::CompIR_VecHoriz(IRInst inst) {
 		break;
 
 	case IROp::Vec4VfpuDot:
-		// Through the IR interpreter for now.
-		CompIR_Generic(inst);
+		if (cpu_info.bNEON) {
+			CompVfpuDot(inst);
+		} else {
+			CompIR_Generic(inst);
+		}
 		break;
 
 	default:
 		INVALIDOP;
 		break;
 	}
+}
+
+void ArmJitBackend::CompVfpuDot(IRInst inst) {
+	regs_.Map(inst);
+	// The lanes into Q8 and Q9, through S0-S3 (Q0), since Q8-Q15 have no S registers.
+	for (int i = 0; i < 4; i++)
+		VMOV((ARMReg)(S0 + i), regs_.F(inst.src1 + i));
+	VMOV_neon(Q8, Q0);
+	for (int i = 0; i < 4; i++)
+		VMOV((ARMReg)(S0 + i), regs_.F(inst.src2 + i));
+	VMOV_neon(Q9, Q0);
+
+	// The shared routine clobbers these too, so whatever guest state is there gets flushed. They come
+	// late in the allocation order, so usually that's nothing.
+	regs_.FlushHostRegs({ R2, R3, R12, R14 });
+	BL(vfpuDot_);
+	VMOV(regs_.F(inst.dest), R3);
 }
 
 void ArmJitBackend::CompIR_VecPack(IRInst inst) {

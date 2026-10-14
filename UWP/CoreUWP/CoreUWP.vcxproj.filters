@@ -600,6 +600,7 @@
     <ClInclude Include="..\..\Core\MIPS\ARM64\Arm64VfpuDot.h" />
     <ClInclude Include="..\..\Core\MIPS\ARM\ArmIRJit.h" />
     <ClInclude Include="..\..\Core\MIPS\ARM\ArmIRRegCache.h" />
+    <ClInclude Include="..\..\Core\MIPS\ARM\ArmVfpuDot.h" />
     <ClInclude Include="..\..\Core\MIPS\IR\IRFrontend.h" />
     <ClInclude Include="..\..\Core\MIPS\IR\IRInst.h" />
     <ClInclude Include="..\..\Core\MIPS\IR\IRInterpreter.h" />
