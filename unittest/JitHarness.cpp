@@ -470,6 +470,7 @@ bool TestJitReplacementHooks() {
 //                           that leaves one does this for the rest of the run, so this reproduces
 //                           a later case on its own.
 //   PPSSPP_CPUFUZZ_STRICT   fail the test on any difference, not only on a crash.
+//   PPSSPP_CPUFUZZ_BLOCKS   print the IR and host code of every block the JITs ran, after each case.
 //   PPSSPP_CPUFUZZ_ACCURATE_VDOT  0 to run without AccurateVdot (the VFPU's own dot products), which is on by default.
 //   PPSSPP_CPUFUZZ_OPS      comma-separated instruction name prefixes to generate only, for fast
 //                           runs on the instructions being worked on. "dot" is the dot products
@@ -816,6 +817,9 @@ static FuzzCase GenerateFuzzCase(u64 seed, const char *classes, const std::vecto
 }
 
 // keepCache reruns blocks compiled by an earlier run of the same code.
+// From PPSSPP_CPUFUZZ_BLOCKS.
+static bool g_fuzzPrintBlocks = false;
+
 static void RunFuzzCase(const std::vector<u32> &code, const FuzzState &init, FuzzState *out, bool keepCache = false) {
 	const u32 codeAddr = PSP_GetUserMemoryBase() + FUZZ_CODE_OFFSET;
 	const u32 memAddr = PSP_GetUserMemoryBase() + FUZZ_MEM_OFFSET;
@@ -859,6 +863,19 @@ static void RunFuzzCase(const std::vector<u32> &code, const FuzzState &init, Fuz
 		mips->RunLoopUntil(CoreTiming::GetTicks(mips) + 1000000);
 	}
 
+	if (g_fuzzPrintBlocks && MIPSComp::jit) {
+		JitBlockCacheDebugInterface *blocks = MIPSComp::jit->GetBlockCacheDebugInterface();
+		for (int i = 0; i < blocks->GetNumBlocks(); i++) {
+			if (!blocks->IsValidBlock(i))
+				continue;
+			JitBlockDebugInfo info = blocks->GetBlockDebugInfo(i);
+			printf("Block %08x:\n", info.originalAddress);
+			for (const std::string &line : info.irDisasm)
+				printf("  %s\n", line.c_str());
+			for (const std::string &line : info.targetDisasm)
+				printf("    %s\n", line.c_str());
+		}
+	}
 	memcpy(out->r, mips->r, sizeof(out->r));
 	memcpy(out->f, mips->fi, sizeof(out->f));
 	memcpy(out->v, mips->vi, sizeof(out->v));
@@ -1129,6 +1146,7 @@ bool TestCPUEquivalence() {
 	const bool verbose = getenv("PPSSPP_CPUFUZZ_VERBOSE") != nullptr;
 	const char *skipCores = getenv("PPSSPP_CPUFUZZ_SKIP");
 	g_fuzzUnknownPrefix = getenv("PPSSPP_CPUFUZZ_UNKNOWNPREFIX") != nullptr;
+	g_fuzzPrintBlocks = getenv("PPSSPP_CPUFUZZ_BLOCKS") != nullptr;
 	const int count = countStr ? atoi(countStr) : 2000;
 	const u64 firstSeed = seedStr ? strtoull(seedStr, nullptr, 10) : 1;
 	g_fuzzOps.clear();

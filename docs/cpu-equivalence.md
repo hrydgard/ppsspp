@@ -34,7 +34,8 @@ Environment variables:
 | `PPSSPP_CPUFUZZ_STRICT` | fail on any difference, not only on a crash |
 | `PPSSPP_CPUFUZZ_OPS` | comma-separated instruction name prefixes to generate only; `dot` is the dot products and the prefix ops |
 | `PPSSPP_CPUFUZZ_ACCURATE_VDOT` | `0` to run without the accurate dot products, which are on by default |
-| `PPSSPP_CPUFUZZ_HOSTEXT` | `+` or `-`: turn the JIT's optional host extensions on or off (RISC-V Zba/Zbb/Zbs/Zcb/Zfa/Zfh/Zicond, LoongArch LSX/LASX) |
+| `PPSSPP_CPUFUZZ_HOSTEXT` | `+` or `-`: turn the JIT's optional host extensions on or off (RISC-V Zba/Zbb/Zbs/Zcb/Zfa/Zfh/Zicond, and V with `-`, LoongArch LSX/LASX); the `VFPUDotJit` test follows it too |
+| `PPSSPP_CPUFUZZ_BLOCKS` | print the IR and host code of every block the JITs ran, after each case |
 | `PPSSPP_CPUFUZZ_UNKNOWNPREFIX` | compile as after a block left a prefix uneaten |
 
 For quick rounds while working on some instructions, fuzz just those, on every core of the machine:
@@ -266,11 +267,27 @@ Fixed:
   the x86 and ARM64 JITs.
 - Interpreter: `vsgn` of a negative NaN gave 1 on RISC-V, whose subtraction always makes the
   positive canonical NaN.
+- RISC-V emitter: `vmv.s.x` and `vfmv.s.f` were encoded as `vmv.x.s` and `vfmv.f.s`, writing the
+  scalar register instead of the vector (nothing used them before the dot product routine).
 
-After these, the JIT gives the same end state as the IR interpreter in 20000 VFPU-heavy cases
-(`vvvf`), 20000 mixed and 10000 integer/memory ones, on RISC-V with and without the extensions and
-on LoongArch without LSX. What's left are host NaNs out of a horizontal op that something then
-orders by sign (item 6), and with LSX the summation order of the dot product.
+The accurate dot product (`Vec4VfpuDot`) runs through a routine both JITs generate at startup and
+call, like the ARM64 and x86-64 ones (`RiscVVfpuDot.h`, `LoongArch64VfpuDot.h`). RISC-V has a
+scalar version, which uses Zbb and Zicond where it has them, and an RVV one used when the V
+extension is detected. LoongArch has an LSX version and a scalar one. Inf and NaN go to
+`vfpu_dot_reference()`. In the interpreters, `vfpu_dot()` is `vfpu_dot_scalar()` on RISC-V and
+`vfpu_dot_lsx()` on LoongArch. The `VFPUDotJit` unit test runs every variant the host can run
+against the reference on `VFPUDot`'s inputs. Whether the RVV version beats the scalar one on real
+hardware hasn't been measured: it moves values between the vector and scalar units three times,
+which costs more on some cores than on others.
+
+Before the accurate dot product, the JIT gave the same end state as the IR interpreter in 20000
+VFPU-heavy cases (`vvvf`), 20000 mixed and 10000 integer/memory ones, on RISC-V with and without
+the extensions and on LoongArch without LSX. What was left were host NaNs out of a horizontal op
+that something then orders by sign (item 6), and with LSX the summation order of the dot product.
+With it, the JIT matches the IR interpreter bit for bit in 20000 default cases on LoongArch with
+and without LSX, and in 6000 on RISC-V with RVV, without V and the extensions, and with the
+extensions. The same holds in at least 4000 dot product cases (`PPSSPP_CPUFUZZ_OPS=dot`) in each of
+those, and with unknown prefixes.
 
 Against the other hosts:
 
