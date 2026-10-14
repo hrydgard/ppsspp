@@ -151,7 +151,7 @@ namespace MIPSComp {
 	}
 
 	bool IRFrontend::UseAccurateVdot() const {
-		return g_Config.bAccurateVdot;
+		return g_Config.bAccurateVdot || PSP_CoreParameter().compat.flags().ForceAccurateVdot;
 	}
 
 	// The lanes are already a Vec4 reg, used as is.
@@ -1761,7 +1761,7 @@ namespace MIPSComp {
 		MatrixOverlapType soverlap = GetMatrixOverlap(vs, vd, sz);
 		MatrixOverlapType toverlap = GetMatrixOverlap(vt, vd, sz);
 
-		if (UseAccurateVdot() || PSP_CoreParameter().compat.flags().MoreAccurateVMMUL) {
+		if (UseAccurateVdot()) {
 			// d[a][b] = s[b] dot t[a], each a row of n lanes and zeros, as in the interpreter. With
 			// no overlap, the results can go straight to d.
 			if (soverlap || toverlap)

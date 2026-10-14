@@ -80,7 +80,7 @@ static const bool USE_VFPU_RESULT_FIXUP = false;
 
 // The dot products (vdot, vmmul, vtfm and the rest) through vfpu_dot(), bit-exact with the PSP.
 static inline bool AccurateVdot() {
-	return g_Config.bAccurateVdot;
+	return g_Config.bAccurateVdot || PSP_CoreParameter().compat.flags().ForceAccurateVdot;
 }
 
 union FloatBits {
@@ -514,8 +514,7 @@ namespace MIPSInt
 		ReadMatrix(mips, s, sz, vs);
 		ReadMatrix(mips, t, sz, vt);
 
-		// TODO: Always use the more accurate path in interpreter?
-		bool useAccurateDot = AccurateVdot() || PSP_CoreParameter().compat.flags().MoreAccurateVMMUL;
+		bool useAccurateDot = AccurateVdot();
 		for (int a = 0; a < n; a++) {
 			for (int b = 0; b < n; b++) {
 				union { float f; uint32_t u; } sum = { 0.0f };
