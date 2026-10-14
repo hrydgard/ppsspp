@@ -698,6 +698,8 @@ static void TestFloatInstructions(DisasmChecker &c, ARM64XEmitter &e, ARM64Float
 	// Vector logical
 	DIS("and q1, q2, q3", fp.AND(Q1, Q2, Q3));
 	DIS("and d1, d2, d3", fp.AND(D1, D2, D3));
+	DIS("bic q1, q2, q3", fp.BIC(Q1, Q2, Q3));
+	DIS("bic d1, d2, d3", fp.BIC(D1, D2, D3));
 	DIS("eor q0, q1, q2", fp.EOR(Q0, Q1, Q2));
 	DIS("eor d0, d1, d2", fp.EOR(D0, D1, D2));
 	DIS("bsl q1, q2, q3", fp.BSL(Q1, Q2, Q3));

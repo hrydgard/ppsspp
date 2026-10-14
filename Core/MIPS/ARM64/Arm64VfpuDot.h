@@ -52,8 +52,8 @@ inline const u8 *GenerateArm64VfpuDot(Arm64Gen::ARM64XEmitter *e, Arm64Gen::ARM6
 	fp->AND(Q3, Q0, Q2);
 	fp->AND(Q4, Q1, Q2);
 	fp->CMTST(32, Q5, Q0, Q2);
-	fp->CMTST(32, Q6, Q1, Q2);
-	fp->AND(Q5, Q5, Q6);
+	fp->CMEQ(32, Q6, Q4);
+	fp->BIC(Q5, Q5, Q6);
 	fp->UMAX(32, Q6, Q3, Q4);
 	fp->CMEQ(32, Q6, Q6, Q2);
 	fp->ADD(32, Q3, Q3, Q4);
