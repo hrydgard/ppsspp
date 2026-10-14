@@ -615,7 +615,7 @@ void RemoteISOBrowseScreen::CreateViews() {
 	ScrollView *scrollRecentGames = new ScrollView(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
 	scrollRecentGames->SetTag("RemoteGamesTab");
 	GameBrowser *tabRemoteGames = new GameBrowser(GetRequesterToken(),
-		Path(url_), BrowseFlags::NAVIGATE, portrait, &g_Config.bGridView1, screenManager(), "", "",
+		Path(url_), BrowseFlags::NAVIGATE, portrait, &g_Config.iGameBrowserView1, screenManager(), "", "",
 		new LinearLayoutParams(FILL_PARENT, FILL_PARENT));
 	tabRemoteGames->SetHomePath(Path(url_));
 

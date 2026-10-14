@@ -468,7 +468,12 @@ public:
 	int iTiltInputType;
 	bool bTiltInputEnabled;
 
-	// The four tabs (including Remote last)
+	// The four tabs (including Remote last). Values from GameBrowserViewMode.
+	int iGameBrowserView1;
+	int iGameBrowserView2;
+	int iGameBrowserView3;
+	int iGameBrowserView4;
+	// Only read, to migrate to iGameBrowserView*.
 	bool bGridView1;
 	bool bGridView2;
 	bool bGridView3;

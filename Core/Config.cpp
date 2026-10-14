@@ -195,6 +195,15 @@ static bool DefaultEnableStateUndo() {
 	return true;
 }
 
+static int GameBrowserViewFromGridView(bool gridView) {
+	return (int)(gridView ? GameBrowserViewMode::GRID : GameBrowserViewMode::LIST);
+}
+
+static int DefaultGameBrowserView1() { return GameBrowserViewFromGridView(g_Config.bGridView1); }
+static int DefaultGameBrowserView2() { return GameBrowserViewFromGridView(g_Config.bGridView2); }
+static int DefaultGameBrowserView3() { return GameBrowserViewFromGridView(g_Config.bGridView3); }
+static int DefaultGameBrowserView4() { return GameBrowserViewFromGridView(g_Config.bGridView4); }
+
 static float DefaultGameGridScale() {
 #if PPSSPP_PLATFORM(IOS)
 	return 1.25f;
@@ -283,10 +292,15 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("ShowRegionOnGameIcon", SETTING(g_Config, bShowRegionOnGameIcon), false, CfgFlag::DEFAULT),
 	ConfigSetting("ShowIDOnGameIcon", SETTING(g_Config, bShowIDOnGameIcon), false, CfgFlag::DEFAULT),
 	ConfigSetting("GameGridScale", SETTING(g_Config, fGameGridScale), &DefaultGameGridScale, CfgFlag::DEFAULT),
-	ConfigSetting("GridView1", SETTING(g_Config, bGridView1), true, CfgFlag::DEFAULT),
-	ConfigSetting("GridView2", SETTING(g_Config, bGridView2), true, CfgFlag::DEFAULT),
-	ConfigSetting("GridView3", SETTING(g_Config, bGridView3), false, CfgFlag::DEFAULT),
-	ConfigSetting("GridView4", SETTING(g_Config, bGridView4), false, CfgFlag::DEFAULT),
+	ConfigSetting("GridView1", SETTING(g_Config, bGridView1), true, CfgFlag::DONT_SAVE),
+	ConfigSetting("GridView2", SETTING(g_Config, bGridView2), true, CfgFlag::DONT_SAVE),
+	ConfigSetting("GridView3", SETTING(g_Config, bGridView3), false, CfgFlag::DONT_SAVE),
+	ConfigSetting("GridView4", SETTING(g_Config, bGridView4), false, CfgFlag::DONT_SAVE),
+	// These must come after GridView*, which their defaults are taken from.
+	ConfigSetting("GameBrowserView1", SETTING(g_Config, iGameBrowserView1), &DefaultGameBrowserView1, CfgFlag::DEFAULT),
+	ConfigSetting("GameBrowserView2", SETTING(g_Config, iGameBrowserView2), &DefaultGameBrowserView2, CfgFlag::DEFAULT),
+	ConfigSetting("GameBrowserView3", SETTING(g_Config, iGameBrowserView3), &DefaultGameBrowserView3, CfgFlag::DEFAULT),
+	ConfigSetting("GameBrowserView4", SETTING(g_Config, iGameBrowserView4), &DefaultGameBrowserView4, CfgFlag::DEFAULT),
 	ConfigSetting("RightAnalogUp", SETTING(g_Config, iRightAnalogUp), 0, CfgFlag::PER_GAME),
 	ConfigSetting("RightAnalogDown", SETTING(g_Config, iRightAnalogDown), 0, CfgFlag::PER_GAME),
 	ConfigSetting("RightAnalogLeft", SETTING(g_Config, iRightAnalogLeft), 0, CfgFlag::PER_GAME),

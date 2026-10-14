@@ -3,8 +3,8 @@
 
 <svg
    width="380"
-   height="700"
-   viewBox="0 0 100.54165 185.20831"
+   height="730"
+   viewBox="0 0 100.54165 193.1594"
    version="1.1"
    id="svg1"
    inkscape:version="1.4.3 (0d15f75, 2025-12-25)"
@@ -1619,4 +1619,17 @@
      type="text/css"
      id="style1-09">
 	.st0{fill:#000000;}
-</style></svg>
+</style><g
+   id="I_LARGE_LIST"><rect
+     id="I_LARGE_LIST_icon0"
+     x="2.0000" y="187.0000" width="4.6000" height="2.7000"
+     style="fill:#ffffff;fill-opacity:1;stroke:none" /><rect
+     id="I_LARGE_LIST_line0"
+     x="7.6000" y="187.6637" width="3.4076" height="1.3725"
+     style="fill:#ffffff;fill-opacity:1;stroke:none" /><rect
+     id="I_LARGE_LIST_icon1"
+     x="2.0000" y="190.4240" width="4.6000" height="2.7000"
+     style="fill:#ffffff;fill-opacity:1;stroke:none" /><rect
+     id="I_LARGE_LIST_line1"
+     x="7.6000" y="191.0877" width="3.4076" height="1.3725"
+     style="fill:#ffffff;fill-opacity:1;stroke:none" /></g></svg>

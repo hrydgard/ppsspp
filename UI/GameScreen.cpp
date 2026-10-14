@@ -71,78 +71,27 @@ constexpr GameInfoFlags g_desiredFlags = GameInfoFlags::PARAM_SFO | GameInfoFlag
 
 class PMFView : public UI::InertView {
 public:
-	PMFView(std::string data, UI::LayoutParams *params) : UI::InertView(params), data_(data) {
+	PMFView(std::string data, UI::LayoutParams *params) : UI::InertView(params), video_(std::move(data)) {
 		startTime_ = Instant::Now();
-		player_ = pmf_create();
-		if (0 == pmf_init(player_, (const uint8_t *)data_.data(), data_.size(), &width_, &height_)) {
-
-		} else {
-			ERROR_LOG(Log::G3D, "Couldn't load pmf");
-			pmf_destroy(player_);
-			player_ = nullptr;
-		}
-	}
-
-	~PMFView() {
-		if (curFrame_) {
-			curFrame_->Release();
-			curFrame_ = nullptr;
-		}
-
-		if (player_) {
-			pmf_destroy(player_);
-			player_ = nullptr;
-		}
 	}
 
 	void DeviceLost() override {
-		if (curFrame_) {
-			curFrame_->Release();
-			curFrame_ = nullptr;
-		}
+		video_.DeviceLost();
 	}
 
 	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
 		// Just use the video size.
-		w = width_;
-		h = height_;
+		w = video_.Width();
+		h = video_.Height();
 	}
 
 	void Draw(UIContext &dc) override {
-		if (!player_) {
-			return;
-		}
-
-		Draw::DrawContext *draw = dc.GetDrawContext();
-
-		// Dimensions are capped by pmf_init, but use size_t arithmetic anyway
-		// so a regression can't overflow the allocation.
-		std::vector<u8> frame((size_t)width_ * (size_t)height_ * 4);
-		if (pmf_update(player_, startTime_.ElapsedSeconds(), frame.data())) {
-			if (curFrame_) {
-				curFrame_->Release();
-				curFrame_ = nullptr;
-			}
-
-			Draw::TextureDesc desc{};
-			desc.width = width_;
-			desc.height = height_;
-			desc.depth = 1;
-			desc.format = Draw::DataFormat::R8G8B8A8_UNORM;
-			desc.generateMips = false;
-			desc.tag = "pmf_frame";
-			desc.type = Draw::TextureType::LINEAR2D;
-			desc.mipLevels = 1;
-			desc.initData.push_back(frame.data());
-
-			curFrame_ = draw->CreateTexture(desc);
-		}
-
-		if (curFrame_) {
+		Draw::Texture *frame = video_.Update(dc.GetDrawContext(), startTime_.ElapsedSeconds());
+		if (frame) {
 			int dropsize = 5;
 			dc.Draw()->DrawImage4Grid(dc.GetTheme().dropShadow4Grid, bounds_.x - dropsize * 1.5f, bounds_.y - dropsize * 1.5f, bounds_.x2() + dropsize * 1.5f, bounds_.y2() + dropsize * 1.5f, 0xFF000000, 1.0f);
 			dc.Flush();
-			draw->BindTexture(0, curFrame_);
+			dc.GetDrawContext()->BindTexture(0, frame);
 			dc.Draw()->DrawTexRect(bounds_, 0, 0, 1.0f, 1.0f, 0xFFFFFFFF);
 			dc.Flush();
 		}
@@ -151,12 +100,8 @@ public:
 	}
 
 private:
-	std::string data_;
-	Draw::Texture *curFrame_ = nullptr;
-	PMFPlayer *player_ = nullptr;
+	PMFVideoTexture video_;
 	Instant startTime_;
-	int width_ = 0;
-	int height_ = 0;
 };
 
 GameScreen::GameScreen(const Path &gamePath, bool inGame) : UITwoPaneBaseDialogScreen(gamePath, TwoPaneFlags::SettingsToTheRight | TwoPaneFlags::CustomContextMenu), inGame_(inGame) {
