@@ -32,13 +32,13 @@
 namespace MIPSComp {
 
 // Generates the VFPU dot product routine the x86-64 IR JIT CALLs: vfpu_dot() of xmm0 and xmm1, into
-// edi. ctx holds the MIPSState pointer. It's vfpu_dot_sse2(), SSE2 only, and leaves inf and NaN to
-// vfpu_dot_reference(). It clobbers xmm0-xmm5, xmm14, xmm15, rax, rcx, rdx, rsi, rdi and the flags,
-// and saves nothing: the call site flushes whatever of those holds guest state. The xmms are the last
-// ones allocated, and rsi and rdi are never allocated outside Windows.
+// edi. ctx points at mips->f[0], as CTXREG does. It's vfpu_dot_sse2(), SSE2 only, and leaves inf
+// and NaN to vfpu_dot_reference(). It clobbers xmm0-xmm5, xmm14, xmm15, rax, rcx, rdx, rsi, rdi and
+// the flags, and saves nothing: the call site flushes whatever of those holds guest state. The xmms
+// are the last ones allocated, and rsi and rdi are never allocated outside Windows.
 inline const u8 *GenerateX64VfpuDot(Gen::XEmitter *e, Gen::X64Reg ctx) {
 	using namespace Gen;
-	const int args = (int)offsetof(MIPSState, vfpuDotArgs);
+	const int args = (int)(offsetof(MIPSState, vfpuDotArgs) - offsetof(MIPSState, f));
 
 	// The constants, RIP-relative.
 	auto constant4 = [&](u32 a, u32 b, u32 c, u32 d) {
