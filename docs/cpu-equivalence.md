@@ -73,6 +73,12 @@ Crashes (JIT emitter asserts) and wrong code found by the fuzzer:
 - IR interpreter: never applied the guest's rounding mode or flush-to-zero (fcr31) on block entry,
   only after a `ctc1` in the same block. It now does what the native dispatchers do, and leaves the
   host's mode in place around syscalls and replacement functions.
+- JITs: the mode was only taken into account once a `ctc1` had been compiled (`js.hasSetRounding`),
+  so a mode from a savestate made on another core, a core or thread switch, or an interpreted
+  `ctc1` was ignored, and syscalls then ran in the guest's mode. `UpdateFCR31()` now sets the flag
+  and throws away the blocks compiled before. Ops left to the interpreter run in the guest's mode,
+  except syscalls, and an interpreted `ctc1` takes effect at once. `CPURoundingMode` tests all of
+  this on every core, with and without `JitDisableFlags`.
 
 ## Open differences
 
@@ -137,16 +143,8 @@ denormal results but not inputs under FS (FTZ without DAZ).
 8. **Divide-by-zero flags.** Only the interpreter sets the cause and flag bits for `div.s` by zero
    (see `Int_FPU3op`). The other cores leave fcr31 alone. Making the others match needs a new IR op
    or an interpreter fallback for div.s, and the latter costs every division.
-9. **Rounding mode in the JITs** is applied only once a `ctc1` has been compiled
-   (`js.hasSetRounding`). A non-default mode that reaches fcr31 some other way (a savestate made on
-   another core, a thread switch restoring a context, the debugger) is ignored by the JITs'
-   `cvt.w.s` and float ops until then. The fuzzer starts every case in the default mode for this
-   reason, and only `ctc1` in the generated code changes it.
-10. The legacy ARM64 JIT ignores the D prefix's write mask for `viim.s`/`vfim.s`, and `vmfvc` of an
+9. The legacy ARM64 JIT ignores the D prefix's write mask for `viim.s`/`vfim.s`, and `vmfvc` of an
    invalid control register writes a value where the interpreter writes 0.
-11. Syscalls in the native JITs run in the guest's rounding mode unless a `ctc1` was compiled (same
-    flag as 9), unlike the interpreter and IR interpreter, which always restore the host's mode
-    around HLE.
 
 ### Not looked into yet
 
