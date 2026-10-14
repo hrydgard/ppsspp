@@ -3479,6 +3479,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(JitReplacementHooks),
 	TEST_ITEM(CPUEquivalence),
 	TEST_ITEM(CPURoundingMode),
+	TEST_ITEM(VFPUDotJit),
 	TEST_ITEM(VFPUMatrixTranspose),
 	TEST_ITEM(ParseLBN),
 	TEST_ITEM(CachingFileLoader),

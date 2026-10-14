@@ -2142,6 +2142,9 @@
     <ClInclude Include="MIPS\RiscV\RiscVRegCache.h">
       <Filter>MIPS\RiscV</Filter>
     </ClInclude>
+    <ClInclude Include="MIPS\RiscV\RiscVVfpuDot.h">
+      <Filter>MIPS\RiscV</Filter>
+    </ClInclude>
     <ClInclude Include="MIPS\IR\IRAnalysis.h">
       <Filter>MIPS\IR</Filter>
     </ClInclude>

@@ -82,6 +82,7 @@ list(APPEND CoreExtra
 	MIPS/RiscV/RiscVJit.h
 	MIPS/RiscV/RiscVRegCache.cpp
 	MIPS/RiscV/RiscVRegCache.h
+	MIPS/RiscV/RiscVVfpuDot.h
 )
 
 list(APPEND CoreExtra

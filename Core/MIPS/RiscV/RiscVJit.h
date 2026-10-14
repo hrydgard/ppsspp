@@ -125,6 +125,10 @@ private:
 
 	const u8 *saveStaticRegisters_ = nullptr;
 	const u8 *loadStaticRegisters_ = nullptr;
+	// See GenerateRiscVVfpuDotSpecial().
+	const u8 *vfpuDotSpecial_ = nullptr;
+	// See GenerateRiscVVfpuDot().
+	const u8 *vfpuDot_ = nullptr;
 
 	int jitStartOffset_ = 0;
 	int compilingBlockNum_ = -1;

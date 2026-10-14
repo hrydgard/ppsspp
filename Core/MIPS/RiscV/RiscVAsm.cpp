@@ -20,6 +20,7 @@
 #include "Core/MemMap.h"
 #include "Core/MIPS/RiscV/RiscVJit.h"
 #include "Core/MIPS/RiscV/RiscVRegCache.h"
+#include "Core/MIPS/RiscV/RiscVVfpuDot.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/JitCommon/JitState.h"
 #include "Core/Core.h"
@@ -236,6 +237,9 @@ void RiscVJitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	LI(SCRATCH2, CORE_RUNTIME_ERROR);
 	SW(SCRATCH2, SCRATCH1, 0);
 	J(quitLoop);
+
+	vfpuDotSpecial_ = GenerateRiscVVfpuDotSpecial(this, CTXREG);
+	vfpuDot_ = GenerateRiscVVfpuDot(this, CTXREG, vfpuDotSpecial_);
 
 	// Leave this at the end, add more stuff above.
 	if (enableDisasm) {

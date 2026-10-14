@@ -882,6 +882,7 @@
     <ClInclude Include="MIPS\LoongArch64\LoongArch64RegCache.h" />
     <ClInclude Include="MIPS\RiscV\RiscVJit.h" />
     <ClInclude Include="MIPS\RiscV\RiscVRegCache.h" />
+    <ClInclude Include="MIPS\RiscV\RiscVVfpuDot.h" />
     <ClInclude Include="MIPS\x86\X64IRJit.h" />
     <ClInclude Include="Replay.h" />
     <ClInclude Include="Compatibility.h" />

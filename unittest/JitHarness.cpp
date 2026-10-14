@@ -46,6 +46,9 @@
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/JitCommon/JitState.h"
+#if PPSSPP_ARCH(RISCV64)
+#include "Core/MIPS/RiscV/RiscVVfpuDot.h"
+#endif
 #include "unittest/UnitTest.h"
 
 void UnitTestTerminator() {
@@ -459,7 +462,8 @@ bool TestJitReplacementHooks() {
 //   PPSSPP_CPUFUZZ_SKIP     cores not to run, by digit: 1 IR interpreter, 2 JIT, 3 JIT IR.
 //   PPSSPP_CPUFUZZ_REPORTS  how many differences to minimize and print (default 20).
 //   PPSSPP_CPUFUZZ_HOSTEXT  + or -: turn the host's optional extensions on or off for the JIT
-//                           (RISC-V Zba/Zbb/Zbs/Zcb/Zfa/Zfh/Zicond, LoongArch LSX/LASX).
+//                           (RISC-V Zba/Zbb/Zbs/Zcb/Zfa/Zfh/Zicond, and V with -, LoongArch
+//                           LSX/LASX). VFPUDotJit follows it too.
 //   PPSSPP_CPUFUZZ_UNKNOWNPREFIX  compile as after a block left a prefix uneaten. The first case
 //                           that leaves one does this for the rest of the run, so this reproduces
 //                           a later case on its own.
@@ -1077,6 +1081,34 @@ static std::vector<u32> MinimizeFuzzCase(CPUCore core, std::vector<u32> code, co
 
 }  // namespace
 
+// Host extensions the JIT may use, from PPSSPP_CPUFUZZ_HOSTEXT: + turns on the ones detection can't
+// see (RISC-V only reports them for a few known SoCs), - turns them off to test the fallbacks.
+static void ApplyFuzzHostExtensions() {
+	const char *ext = getenv("PPSSPP_CPUFUZZ_HOSTEXT");
+	if (ext && (ext[0] == '+' || ext[0] == '-')) {
+		const bool on = ext[0] == '+';
+#if PPSSPP_ARCH(RISCV64)
+		cpu_info.RiscV_Zba = on;
+		cpu_info.RiscV_Zbb = on;
+		cpu_info.RiscV_Zbs = on;
+		cpu_info.RiscV_Zcb = on;
+		cpu_info.RiscV_Zfa = on;
+		cpu_info.RiscV_Zfh = on;
+		cpu_info.RiscV_Zfhmin = on;
+		cpu_info.RiscV_Zicond = on;
+		// V is detected everywhere, but can be turned off.
+		if (!on)
+			cpu_info.RiscV_V = false;
+#elif PPSSPP_ARCH(LOONGARCH64)
+		if (!on) {
+			cpu_info.LOONGARCH_LSX = false;
+			cpu_info.LOONGARCH_LASX = false;
+		}
+#endif
+		(void)on;
+	}
+}
+
 bool TestCPUEquivalence() {
 	SetupJitHarness();
 	g_Config.bFastMemory = true;
@@ -1135,28 +1167,7 @@ bool TestCPUEquivalence() {
 		}
 	}
 
-	// Host extensions the JIT may use: + turns on the ones detection can't see (RISC-V only reports
-	// them for a few known SoCs), - turns them off to test the fallbacks.
-	const char *ext = getenv("PPSSPP_CPUFUZZ_HOSTEXT");
-	if (ext && (ext[0] == '+' || ext[0] == '-')) {
-		const bool on = ext[0] == '+';
-#if PPSSPP_ARCH(RISCV64)
-		cpu_info.RiscV_Zba = on;
-		cpu_info.RiscV_Zbb = on;
-		cpu_info.RiscV_Zbs = on;
-		cpu_info.RiscV_Zcb = on;
-		cpu_info.RiscV_Zfa = on;
-		cpu_info.RiscV_Zfh = on;
-		cpu_info.RiscV_Zfhmin = on;
-		cpu_info.RiscV_Zicond = on;
-#elif PPSSPP_ARCH(LOONGARCH64)
-		if (!on) {
-			cpu_info.LOONGARCH_LSX = false;
-			cpu_info.LOONGARCH_LASX = false;
-		}
-#endif
-		(void)on;
-	}
+	ApplyFuzzHostExtensions();
 
 	static const CPUCore cores[] = {
 		CPUCore::INTERPRETER,
@@ -1406,5 +1417,88 @@ bool TestCPURoundingMode() {
 	g_Config.uJitDisableFlags = oldJitDisable;
 	g_Config.bSkipDeadbeefFilling = oldSkipDeadbeef;
 	DestroyJitHarness();
+	return success;
+}
+
+// The JITs' own VFPU dot product code against the reference, in every variant the host can run,
+// through a C-callable wrapper with the eight operands at the pointer passed. Inf and NaN only go
+// through the branch to the reference.
+bool TestVFPUDotJit() {
+	typedef float (*DotFunc)(const float *operands);
+	auto check = [](const char *name, DotFunc fn) {
+		auto toBits = [](float f) {
+			u32 bits;
+			memcpy(&bits, &f, sizeof(bits));
+			return bits;
+		};
+		printf("%s\n", name);
+		return ForEachVFPUDotTestCase([&](const float a[4], const float b[4]) {
+			float operands[8];
+			memcpy(operands, a, sizeof(float) * 4);
+			memcpy(operands + 4, b, sizeof(float) * 4);
+			const u32 expected = toBits(vfpu_dot_reference(a, b));
+			const u32 actual = toBits(fn(operands));
+			if (expected != actual) {
+				printf("%s(%08x %08x %08x %08x, %08x %08x %08x %08x) = %08x, expected %08x\n", name,
+					toBits(a[0]), toBits(a[1]), toBits(a[2]), toBits(a[3]), toBits(b[0]), toBits(b[1]), toBits(b[2]), toBits(b[3]), actual, expected);
+				return false;
+			}
+			return true;
+		});
+	};
+	(void)check;
+	ApplyFuzzHostExtensions();
+	bool success = true;
+
+#if PPSSPP_ARCH(RISCV64)
+	using namespace RiscVGen;
+	using namespace MIPSComp;
+	const bool hasExt = cpu_info.RiscV_Zbb && cpu_info.RiscV_Zicond;
+	const bool oldZbb = cpu_info.RiscV_Zbb;
+	const bool oldZicond = cpu_info.RiscV_Zicond;
+	struct Variant {
+		const char *name;
+		bool vector;
+		bool ext;
+	};
+	const Variant variants[] = {
+		{ "scalar", false, false },
+		{ "scalar Zbb Zicond", false, true },
+		{ "vector", true, hasExt },
+	};
+	RiscVCodeBlock code;
+	code.AllocCodeSpace(0x10000);
+	// As in the JIT.
+	code.SetAutoCompress(true);
+	for (const Variant &v : variants) {
+		if ((v.ext && !hasExt) || (v.vector && !cpu_info.RiscV_V))
+			continue;
+		cpu_info.RiscV_Zbb = v.ext;
+		cpu_info.RiscV_Zicond = v.ext;
+		code.BeginWrite(0x1000);
+		const u8 *start = code.AlignCode16();
+		code.MV(X12, X10);
+		if (v.vector) {
+			// Whatever the routine reads before writing is garbage.
+			code.VSETIVLI(R_ZERO, 4, VType(VSew::E32, VLMul::M1, VTail::A, VMask::A));
+			for (int i = 0; i < 32; i++)
+				code.VMV_VI((RiscVReg)(V0 + i), -1);
+		}
+		const RiscVVfpuDotRegs regs{ X12, 0, { X10, X11, X5, X6, X7, X28, X29, X30, X31, X16, X17 }, F10 };
+		FixupBranch special = EmitRiscVVfpuDot(&code, regs, v.vector);
+		code.SetJumpTarget(special);
+		code.MV(X10, X12);
+		code.ADDI(X11, X12, 16);
+		code.QuickJ(X5, (const u8 *)&vfpu_dot_reference);
+		code.FlushIcache();
+		code.EndWrite();
+		if (!check(v.name, (DotFunc)start))
+			success = false;
+	}
+	code.FreeCodeSpace();
+	cpu_info.RiscV_Zbb = oldZbb;
+	cpu_info.RiscV_Zicond = oldZicond;
+#endif
+
 	return success;
 }

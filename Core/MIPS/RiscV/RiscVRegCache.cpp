@@ -159,6 +159,11 @@ void RiscVRegCache::FlushBeforeCall() {
 	}
 }
 
+void RiscVRegCache::FlushHostRegs(std::initializer_list<RiscVReg> regs) {
+	for (RiscVReg r : regs)
+		FlushNativeReg(r);
+}
+
 bool RiscVRegCache::IsNormalized32(IRReg mipsReg) {
 	_dbg_assert_(IsValidGPR(mipsReg));
 	if (XLEN == 32)

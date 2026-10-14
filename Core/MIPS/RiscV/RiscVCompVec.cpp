@@ -19,6 +19,7 @@
 #include "Core/MemMap.h"
 #include "Core/MIPS/RiscV/RiscVJit.h"
 #include "Core/MIPS/RiscV/RiscVRegCache.h"
+#include "Core/MIPS/RiscV/RiscVVfpuDot.h"
 
 // This file contains compilation for vector instructions.
 //
@@ -308,9 +309,30 @@ void RiscVJitBackend::CompIR_VecHoriz(IRInst inst) {
 	}
 
 	case IROp::Vec4VfpuDot:
-		// Through the IR interpreter for now.
-		CompIR_Generic(inst);
+	{
+		// The operands go to mips->vfpuDotArgs for the shared routine, and the result comes back in
+		// its ftemp. Whatever guest state is in the registers it clobbers gets flushed after the
+		// stores, in case an operand was mapped into one of them. They come last in the allocation
+		// order, so usually that's nothing.
+		for (int i = 0; i < 4; ++i) {
+			regs_.SpillLockFPR(inst.src1 + i, inst.src2 + i);
+			FS(32, regs_.MapFPR(inst.src1 + i), CTXREG, (s32)offsetof(MIPSState, vfpuDotArgs) + i * 4);
+			FS(32, regs_.MapFPR(inst.src2 + i), CTXREG, (s32)offsetof(MIPSState, vfpuDotArgs) + 16 + i * 4);
+		}
+		for (int i = 0; i < 4; ++i)
+			regs_.ReleaseSpillLockFPR(inst.src1 + i, inst.src2 + i);
+
+		RiscVVfpuDotRegs dotRegs;
+		GetRiscVVfpuDotRegs(CTXREG, &dotRegs);
+		const int clobbered = cpu_info.RiscV_V ? 7 : 11;
+		for (int i = 0; i < clobbered; ++i)
+			regs_.FlushHostRegs({ dotRegs.gpr[i] });
+		regs_.FlushHostRegs({ dotRegs.ftemp });
+		QuickCallFunction(vfpuDot_, SCRATCH2);
+		regs_.MapFPR(inst.dest, MIPSMap::NOINIT);
+		FMV(32, regs_.F(inst.dest), dotRegs.ftemp);
 		break;
+	}
 
 	default:
 		INVALIDOP;
