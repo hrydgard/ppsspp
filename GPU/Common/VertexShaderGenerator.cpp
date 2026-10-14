@@ -69,7 +69,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	*vertexShaderFlags = (VertexShaderFlags)0;
 
 	bool highpFog = false;
-	bool highpTexcoord = false;
+	// Highp costs nothing here, and the fragment shader can then pick it up where it needs it (CLUT8 depal).
+	bool highpTexcoord = gstate_c.Use(GPU_USE_FULL_PRECISION_IN_FRAGMENT);
 
 	const bool isModeThrough = id.Bit(VS_BIT_IS_THROUGH);
 	const bool useHWTransform = id.Bit(VS_BIT_USE_HW_TRANSFORM);
@@ -327,7 +328,8 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 		WRITE(p, "uniform float u_NaN;\n");
 		*uniformMask |= DIRTY_FRAMEBUFFER_DIM;
 
-		WRITE(p, "uniform vec2 u_minZmaxZ;\n");
+		// highp to match the fragment shader's (see there).
+		WRITE(p, "uniform highp vec2 u_minZmaxZ;\n");
 		*uniformMask |= DIRTY_RASTER_OFFSET;  // this flag is shared with raster offset.
 
 		if (!isModeThrough) {
@@ -959,8 +961,9 @@ bool GenerateVertexShader(const VShaderID &id, char *buffer, const ShaderLanguag
 	}
 
 	if (fsDepthClamp) {
-		// After the rounding, so the fragment shader clamps the Z that hardware depth clamp would.
-		// (Never needed together with fsMinmaxDiscard, which wants it unrounded.)
+		// After the rounding, so the fragment shader clamps the Z that hardware depth clamp would. With fsMinmaxDiscard
+		// too, this replaces its unrounded Z: the same for the max side, which rounds down anyway, and up to 2 off for
+		// the min one, which only meets the clamp when max is 65535.
 		WRITE(p, "  %sv_zw = vec2(outPos.z * outPos.w, outPos.w);\n", compat.vsOutPrefix);
 	}
 

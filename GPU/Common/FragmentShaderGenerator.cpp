@@ -135,6 +135,16 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 	}
 
 	ShaderDepalMode shaderDepalMode = (ShaderDepalMode)id.Bits(FS_BIT_SHADER_DEPAL_MODE, 2);
+	if (shaderDepalMode == ShaderDepalMode::CLUT8 && gstate_c.Use(GPU_USE_FULL_PRECISION_IN_FRAGMENT)) {
+		// The byte coordinate is u * up to 2048: a mediump texcoord (fp16 on Adreno) picks the wrong byte for half
+		// of them past 512, striping SOCOM's night vision. Vulkan always uses highp here.
+		highpTexcoord = true;
+		if (compat.gles) {
+			// Picking the byte also needs more than the default lowp in the rest of the shader: on PowerVR,
+			// SOCOM's night vision came out far too bright.
+			WRITE(p, "precision highp float;\n");
+		}
+	}
 	GEBufferFormat shaderDepalFmt = (GEBufferFormat)(id.Bits(FS_BIT_SHADER_DEPAL_FORMAT, 3));
 	if (texture3D) {
 		shaderDepalMode = ShaderDepalMode::OFF;
@@ -394,11 +404,15 @@ bool GenerateFragmentShader(const FShaderID &id, char *buffer, const ShaderLangu
 		if (texture3D) {
 			*uniformMask |= DIRTY_MIPBIAS;
 			WRITE(p, "uniform float u_mipBias;\n");
+		} else if (doTexture && gstate_c.Use(GPU_USE_SHADER_LOD_BIAS)) {
+			*uniformMask |= DIRTY_MIPBIAS;
+			WRITE(p, "uniform float u_texLodBias;\n");
 		}
 
 		if (fsMinmaxDiscard) {
 			*uniformMask |= DIRTY_RASTER_OFFSET;  // they're updated together
-			WRITE(p, "uniform vec2 u_minZmaxZ;\n");
+			// The same precision as in the vertex shader, or PowerVR fails to link the program.
+			WRITE(p, "uniform highp vec2 u_minZmaxZ;\n");
 		}
 
 		// Varyings

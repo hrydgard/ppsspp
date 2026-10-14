@@ -50,6 +50,24 @@ void GLQueueRunner::CreateDeviceObjects() {
 		glGenVertexArrays(1, &globalVAO_);
 	}
 
+	// Texture uploads pass tightly packed rows. With the default of 4, the driver reads past the end of
+	// any whose rows aren't a multiple of 4 bytes (a 16-bit texture of odd width): the Adreno 840 crashed
+	// on one in SOCOM Fireteam Bravo 3.
+	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+
+	// Depth from 0 to w in clip space, as in Vulkan (see depthMinusOneToOne in thin3d_gl.cpp).
+#if defined(USING_GLES2)
+#if defined(__ANDROID__)
+	if (gl_extensions.EXT_clip_control) {
+		glClipControlEXTFunc(GL_LOWER_LEFT_EXT, GL_ZERO_TO_ONE_EXT);
+	}
+#endif
+#else
+	if (gl_extensions.ARB_clip_control) {
+		glClipControl(GL_LOWER_LEFT, GL_ZERO_TO_ONE);
+	}
+#endif
+
 	// An eternal optimist.
 	sawOutOfMemory_ = false;
 
@@ -1422,7 +1440,7 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 				glDisable(GL_DITHER);
 				ditherEnabled = false;
 			}
-#ifndef USING_GLES2
+			// GLES has it too, with GL_EXT_depth_clamp (depthClampSupported).
 			if (c.raster.depthClampEnable) {
 				if (!depthClampEnabled) {
 					glEnable(GL_DEPTH_CLAMP);
@@ -1432,7 +1450,6 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 				glDisable(GL_DEPTH_CLAMP);
 				depthClampEnabled = false;
 			}
-#endif
 			CHECK_GL_ERROR_IF_DEBUG();
 			break;
 		default:
@@ -1473,9 +1490,9 @@ void GLQueueRunner::PerformRenderPass(const GLRStep &step, bool first, bool last
 		glDisable(GL_BLEND);
 	if (cullEnabled)
 		glDisable(GL_CULL_FACE);
-#ifndef USING_GLES2
 	if (depthClampEnabled)
 		glDisable(GL_DEPTH_CLAMP);
+#ifndef USING_GLES2
 	if (!gl_extensions.IsGLES && logicEnabled) {
 		glDisable(GL_COLOR_LOGIC_OP);
 	}

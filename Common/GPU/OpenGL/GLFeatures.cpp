@@ -30,6 +30,7 @@ PFNGLGENVERTEXARRAYSOESPROC glGenVertexArraysOES;
 PFNGLBINDVERTEXARRAYOESPROC glBindVertexArrayOES;
 PFNGLDELETEVERTEXARRAYSOESPROC glDeleteVertexArraysOES;
 PFNGLISVERTEXARRAYOESPROC glIsVertexArrayOES;
+PPSSPP_PFNGLCLIPCONTROLEXTPROC glClipControlEXTFunc;
 #endif
 #if !PPSSPP_PLATFORM(IOS)
 #include "EGL/egl.h"
@@ -381,6 +382,7 @@ bool CheckGLExtensions() {
 	gl_extensions.ARB_draw_instanced = g_set_gl_extensions.count("GL_ARB_draw_instanced") != 0;
 	gl_extensions.ARB_cull_distance = g_set_gl_extensions.count("GL_ARB_cull_distance") != 0;
 	gl_extensions.ARB_depth_clamp = g_set_gl_extensions.count("GL_ARB_depth_clamp") != 0;
+	gl_extensions.ARB_clip_control = g_set_gl_extensions.count("GL_ARB_clip_control") != 0;
 	gl_extensions.ARB_uniform_buffer_object = g_set_gl_extensions.count("GL_ARB_uniform_buffer_object") != 0;
 	gl_extensions.ARB_explicit_attrib_location = g_set_gl_extensions.count("GL_ARB_explicit_attrib_location") != 0;
 	gl_extensions.ARB_texture_non_power_of_two = g_set_gl_extensions.count("GL_ARB_texture_non_power_of_two") != 0;
@@ -407,6 +409,7 @@ bool CheckGLExtensions() {
 		gl_extensions.EXT_buffer_storage = g_set_gl_extensions.count("GL_EXT_buffer_storage") != 0;
 		gl_extensions.EXT_clip_cull_distance = g_set_gl_extensions.count("GL_EXT_clip_cull_distance") != 0;
 		gl_extensions.EXT_depth_clamp = g_set_gl_extensions.count("GL_EXT_depth_clamp") != 0;
+		gl_extensions.EXT_clip_control = g_set_gl_extensions.count("GL_EXT_clip_control") != 0;
 		gl_extensions.EXT_disjoint_timer_query = g_set_gl_extensions.count("GL_EXT_disjoint_timer_query") != 0;
 		gl_extensions.APPLE_clip_distance = g_set_gl_extensions.count("GL_APPLE_clip_distance") != 0;
 
@@ -432,6 +435,11 @@ bool CheckGLExtensions() {
 			glBlitFramebufferNV = (PFNGLBLITFRAMEBUFFERNVPROC)eglGetProcAddress("glBlitFramebufferNV");
 		}
 
+		if (gl_extensions.EXT_clip_control) {
+			glClipControlEXTFunc = (PPSSPP_PFNGLCLIPCONTROLEXTPROC)eglGetProcAddress("glClipControlEXT");
+			gl_extensions.EXT_clip_control = glClipControlEXTFunc != nullptr;
+		}
+
 		gl_extensions.OES_vertex_array_object = g_set_gl_extensions.count("GL_OES_vertex_array_object") != 0;
 		if (gl_extensions.OES_vertex_array_object) {
 			glGenVertexArraysOES = (PFNGLGENVERTEXARRAYSOESPROC)eglGetProcAddress("glGenVertexArraysOES");
@@ -448,6 +456,7 @@ bool CheckGLExtensions() {
 #else
 		gl_extensions.OES_vertex_array_object = false;
 		gl_extensions.EXT_discard_framebuffer = false;
+		gl_extensions.EXT_clip_control = false;
 #endif
 	} else {
 		gl_extensions.ARB_blend_func_extended = g_set_gl_extensions.count("GL_ARB_blend_func_extended") != 0;
@@ -574,6 +583,7 @@ bool CheckGLExtensions() {
 			gl_extensions.ARB_buffer_storage = true;
 		}
 		if (gl_extensions.VersionGEThan(4, 5)) {
+			gl_extensions.ARB_clip_control = true;
 			gl_extensions.ARB_cull_distance = true;
 		}
 		if (gl_extensions.VersionGEThan(4, 6)) {
@@ -588,6 +598,15 @@ bool CheckGLExtensions() {
 		// Seeing errors that gl_ClipDistance is undefined.
 		gl_extensions.EXT_clip_cull_distance = false;
 	}
+
+	if (gl_extensions.IsGLES) {
+		gl_extensions.ARB_clip_control = false;
+	}
+#if defined(__LIBRETRO__)
+	// The frontend shares the context, and doesn't expect its clip control changed.
+	gl_extensions.ARB_clip_control = false;
+	gl_extensions.EXT_clip_control = false;
+#endif
 
 	bool clipDistanceSupported = false;
 	bool cullDistanceSupported = false;

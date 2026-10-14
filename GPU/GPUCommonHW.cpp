@@ -895,8 +895,10 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	}
 
 	// See the documentation for gstate_c.blueToAlpha.
+	// With framebuffer fetch, the shader applies the masks and logic ops to the real bits, which gets the whole
+	// sequence right (OutRun 2006's water mask comes out like the software renderer's), so it isn't needed there.
 	bool blueToAlpha = false;
-	if (PSP_CoreParameter().compat.flags().BlueToAlpha) {
+	if (PSP_CoreParameter().compat.flags().BlueToAlpha && !gstate_c.Use(GPU_USE_FRAMEBUFFER_FETCH)) {
 		if (gstate_c.framebufFormat == GEBufferFormat::GE_FORMAT_565 && gstate.getColorMask() == 0x0FFFFF && !gstate.isLogicOpEnabled()) {
 			blueToAlpha = true;
 			gstate_c.framebufFormat = GEBufferFormat::GE_FORMAT_4444;

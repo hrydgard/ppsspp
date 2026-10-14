@@ -461,7 +461,9 @@ static bool TestBoundingBoxFast(const float *cullMatrix, const void *vdata, cons
 	//
 	// Alternatively, we just do a compat flag for the affected games until we can solve this.
 
-	if (needFragmentMinMaxClipping() && (minProjZ < gstate.getDepthRangeMin() || maxProjZ > gstate.getDepthRangeMax())) {
+	const int depthRangeMin = gstate.getDepthRangeMin();
+	const int depthRangeMax = gstate.getDepthRangeMax();
+	if ((depthRangeMin != 0 && minProjZ < depthRangeMin) || (depthRangeMax != 0xFFFF && maxProjZ > depthRangeMax)) {
 		if (gstate_c.Use(GPU_USE_CLIP_DISTANCE)) {
 			flags |= ClipInfoFlags::MinMaxZClip;
 		} else {

@@ -70,6 +70,7 @@ public:
 	int u_texmtx;
 	int u_world;
 	int u_mipBias;
+	int u_texLodBias;
 	int u_scaleX;
 	int u_scaleY;
 	int u_NaN;
