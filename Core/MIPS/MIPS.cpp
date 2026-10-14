@@ -158,8 +158,19 @@ void ApplyHostRoundingMode(const MIPSState *mips) {
 #endif
 }
 
-void RestoreHostRoundingMode() {
+void RestoreHostRoundingMode(bool force) {
 	if (!g_hostModeSaved) {
+		if (force) {
+#if PPSSPP_ARCH(SSE2)
+			_mm_setcsr(_mm_getcsr() & ~0xE040);
+#elif PPSSPP_ARCH(ARM64)
+			ARM64WriteFPCR(ARM64ReadFPCR() & ~(7 << 22));
+#elif defined(ARM32_FPSCR)
+			ARM32WriteFPSCR(ARM32ReadFPSCR() & ~(7 << 22));
+#else
+			fesetround(FE_TONEAREST);
+#endif
+		}
 		return;
 	}
 	g_hostModeSaved = false;

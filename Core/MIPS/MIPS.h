@@ -323,4 +323,6 @@ extern const float cst_constants[32];
 // Both are cheap when the guest is in the default mode (by far the common case): they do nothing.
 // Otherwise apply reads the register once and restore just writes it back.
 void ApplyHostRoundingMode(const MIPSState *mips);
-void RestoreHostRoundingMode();
+// force also clears our bits when apply didn't set them, for callers that may run under a native
+// JIT, whose own asm stubs apply the mode.
+void RestoreHostRoundingMode(bool force = false);

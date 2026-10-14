@@ -1360,7 +1360,9 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			ApplyHostRoundingMode(mips);
 			IR_NEXT;
 		IR_CASE(RestoreRoundingMode)
-			RestoreHostRoundingMode();
+			// Forced: a native backend may get here through its generic fallback, after its own
+			// asm applied the mode.
+			RestoreHostRoundingMode(true);
 			IR_NEXT;
 		IR_CASE(UpdateRoundingMode)
 			// TODO: Implement
