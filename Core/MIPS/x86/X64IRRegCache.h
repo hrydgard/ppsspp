@@ -18,6 +18,8 @@
 #pragma once
 
 #include "ppsspp_config.h"
+
+#include <initializer_list>
 #if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 
 #include "Common/x64Emitter.h"
@@ -95,6 +97,8 @@ public:
 	// Note: may change the high lanes of single-register XMMs.
 	void FlushAll(bool gprs = true, bool fprs = true) override;
 	void FlushBeforeCall();
+	// Flushes whatever guest state these registers hold, for code that clobbers them.
+	void FlushHostRegs(std::initializer_list<Gen::X64Reg> gprs, std::initializer_list<Gen::X64Reg> xmms);
 
 	Gen::X64Reg GetAndLockTempGPR();
 	Gen::X64Reg GetAndLockTempFPR();
