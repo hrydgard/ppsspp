@@ -28,6 +28,7 @@
 #include "Core/Core.h"
 #include "Core/MemMap.h"
 #include "Core/Reporting.h"
+#include "Core/Config.h"
 #include "Core/System.h"
 
 #include "Core/MIPS/MIPS.h"
@@ -74,7 +75,13 @@
 #define M_SQRT1_2  0.707106781186547524401f
 #endif
 
-static const bool USE_VFPU_DOT = false;
+// The VFPU's own handling of NaN and denormal results in vadd, vsub, vmul and vdiv (see Int_VecDo3).
+static const bool USE_VFPU_RESULT_FIXUP = false;
+
+// The dot products (vdot, vmmul, vtfm and the rest) through vfpu_dot(), bit-exact with the PSP.
+static inline bool AccurateVdot() {
+	return g_Config.bAccurateVdot;
+}
 
 union FloatBits {
 	float f[4];
@@ -508,7 +515,7 @@ namespace MIPSInt
 		ReadMatrix(mips, t, sz, vt);
 
 		// TODO: Always use the more accurate path in interpreter?
-		bool useAccurateDot = USE_VFPU_DOT || PSP_CoreParameter().compat.flags().MoreAccurateVMMUL;
+		bool useAccurateDot = AccurateVdot() || PSP_CoreParameter().compat.flags().MoreAccurateVMMUL;
 		for (int a = 0; a < n; a++) {
 			for (int b = 0; b < n; b++) {
 				union { float f; uint32_t u; } sum = { 0.0f };
@@ -1208,7 +1215,7 @@ namespace MIPSInt
 		ReadVector(mips, t, sz, vt);
 		ApplySwizzleT(mips, t, V_Quad);
 
-		if (USE_VFPU_DOT) {
+		if (AccurateVdot()) {
 			d.f = vfpu_dot(s, t);
 			if (my_isnan(d.f)) {
 				d.u = 0x7f800001;
@@ -1259,7 +1266,7 @@ namespace MIPSInt
 		ApplyPrefixST(mips, s, VFPURewritePrefix(mips, VFPU_CTRL_SPREFIX, sprefixRemove, sprefixAdd), V_Quad);
 
 		float sum = 0.0f;
-		if (USE_VFPU_DOT) {
+		if (AccurateVdot()) {
 			sum = vfpu_dot(s, t);
 		} else {
 			for (int i = 0; i < 4; i++) {
@@ -1479,7 +1486,7 @@ namespace MIPSInt
 		u32 tprefixAdd = VFPU_SWIZZLE(1, 0, 0, 0);
 		ApplyPrefixST(mips, t, VFPURewritePrefix(mips, VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), V_Quad);
 
-		if (USE_VFPU_DOT) {
+		if (AccurateVdot()) {
 			s[1] = -s[1];
 			d[0] = vfpu_dot(s, t);
 		} else {
@@ -1507,7 +1514,7 @@ namespace MIPSInt
 		u32 tprefixAdd = VFPU_MAKE_CONSTANTS(VFPUConst::ONE, VFPUConst::ONE, VFPUConst::ONE, VFPUConst::ONE);
 		ApplyPrefixST(mips, t, VFPURewritePrefix(mips, VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), V_Quad);
 
-		if (USE_VFPU_DOT) {
+		if (AccurateVdot()) {
 			d = vfpu_dot(s, t);
 		} else {
 			d = 0.0f;
@@ -1545,7 +1552,7 @@ namespace MIPSInt
 			tprefixAdd = 0;
 		ApplyPrefixST(mips, t, VFPURewritePrefix(mips, VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), V_Quad);
 
-		if (USE_VFPU_DOT) {
+		if (AccurateVdot()) {
 			d = vfpu_dot(s, t);
 		} else {
 			d = 0.0f;
@@ -1708,7 +1715,7 @@ namespace MIPSInt
 		ReadMatrix(mips, s, msz, vs);
 		ReadVector(mips, t, sz, vt);
 
-		if (USE_VFPU_DOT) {
+		if (AccurateVdot()) {
 			float t2[4];
 			for (int i = 0; i < 4; i++) {
 				if (i < tn) {
@@ -1762,7 +1769,7 @@ namespace MIPSInt
 		ApplyPrefixST(mips, t, VFPURewritePrefix(mips, VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), V_Quad);
 
 		// Really this is the operation all rows probably use (with constant wiring.)
-		if (USE_VFPU_DOT) {
+		if (AccurateVdot()) {
 			d.f[ins] = vfpu_dot(&s[ins * 4], t);
 
 			if (my_isnan(d.f[ins])) {
@@ -2163,7 +2170,7 @@ namespace MIPSInt
 			case 8: d.f[i] = s[i] * t[i]; break; //vmul
 			}
 
-			if (USE_VFPU_DOT) {
+			if (USE_VFPU_RESULT_FIXUP) {
 				if (my_isnan(d.f[i])) {
 					d.u[i] = (d.u[i] & 0xff800001) | 1;
 				} else if ((d.u[i] & 0x7F800000) == 0) {
@@ -2206,7 +2213,7 @@ namespace MIPSInt
 		switch (sz) {
 		case V_Triple:  // vcrsp.t
 		{
-			if (USE_VFPU_DOT) {
+			if (AccurateVdot()) {
 				float t0[4] = { 0.0f, t[2], -t[1], 0.0f };
 				float t1[4] = { -t[2], 0.0f, t[0], 0.0f };
 				d[0] = vfpu_dot(s, t0);
@@ -2220,14 +2227,8 @@ namespace MIPSInt
 			tprefixAdd = VFPU_SWIZZLE(1, 0, 3, 2) | VFPU_NEGATE(0, 1, 0, 0);
 			ApplyPrefixST(mips, t, VFPURewritePrefix(mips, VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), V_Quad);
 			ApplySwizzleS(mips, s, V_Quad);
-			if (USE_VFPU_DOT) {
-				// TODO: But flush any infs to 0?  This seems sketchy.
-				for (int i = 0; i < 4; ++i) {
-					if (my_isinf(s[i]))
-						s[i] = 0.0f;
-					if (my_isinf(t[i]))
-						t[i] = 0.0f;
-				}
+			if (AccurateVdot()) {
+				// Infinities stay: inf * 0 gives the VFPU's NaN here (cpu/vfpu/nan_gen).
 				d[2] = vfpu_dot(s, t);
 			} else {
 				d[2] = s[0] * t[0] + s[1] * t[1] + s[2] * t[2] + s[3] * t[3];
@@ -2237,7 +2238,7 @@ namespace MIPSInt
 
 		case V_Quad:   // vqmul.q
 		{
-			if (USE_VFPU_DOT) {
+			if (AccurateVdot()) {
 				float t0[4] = { t[3], t[2], -t[1], t[0] };
 				float t1[4] = { -t[2], t[3], t[0], t[1] };
 				float t2[4] = { t[1], -t[0], t[3], t[2] };
@@ -2254,7 +2255,7 @@ namespace MIPSInt
 			tprefixAdd = VFPU_SWIZZLE(0, 1, 2, 3) | VFPU_NEGATE(1, 1, 1, 0);
 			ApplyPrefixST(mips, t, VFPURewritePrefix(mips, VFPU_CTRL_TPREFIX, tprefixRemove, tprefixAdd), V_Quad);
 			ApplySwizzleS(mips, s, sz);
-			if (USE_VFPU_DOT)
+			if (AccurateVdot())
 				d[3] = vfpu_dot(s, t);
 			else
 				d[3] = s[0] * t[0] + s[1] * t[1] + s[2] * t[2] + s[3] * t[3];
