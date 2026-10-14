@@ -33,6 +33,7 @@ Environment variables:
 | `PPSSPP_CPUFUZZ_DUMP` | write every core's end state of every case to a file |
 | `PPSSPP_CPUFUZZ_STRICT` | fail on any difference, not only on a crash |
 | `PPSSPP_CPUFUZZ_OPS` | comma-separated instruction name prefixes to generate only; `dot` is the dot products and the prefix ops |
+| `PPSSPP_CPUFUZZ_ACCURATE_VDOT` | run with the accurate dot products |
 
 For quick rounds while working on some instructions, fuzz just those, on every core of the machine:
 `PPSSPP_CPUFUZZ_OPS=dot Tools/cpu_fuzz_parallel.py build/PPSSPPUnitTest --count 2000` splits the seeds
