@@ -1527,13 +1527,13 @@ int friendFinder() {
 					// Arrange the order to be consistent on all players (Host on top), Starting from our self the rest of new players will be added to the back
 					gameModeMacs.push_back(localMac);
 
-				// FIXME: OPCODE_CONNECT_BSSID only triggered once, but the timing of ADHOCCTL_EVENT_GAME notification could be too soon, since there could be more players that need to join before the event should be notified
-				if (netAdhocGameModeEntered && gameModeMacs.size() >= requiredGameModeMacs.size()) {
-					notifyAdhocctlHandlers(ADHOCCTL_EVENT_GAME, 0);
-				}
+					// FIXME: OPCODE_CONNECT_BSSID only triggered once, but the timing of ADHOCCTL_EVENT_GAME notification could be too soon, since there could be more players that need to join before the event should be notified
+					if (netAdhocGameModeEntered && gameModeMacs.size() >= requiredGameModeMacs.size()) {
+						notifyAdhocctlHandlers(ADHOCCTL_EVENT_GAME, 0);
 					}
-					else
-						WARN_LOG(Log::sceNet, "GameMode SelfMember [%s] Already Existed!", mac2str(&localMac).c_str());
+				}
+				else
+					WARN_LOG(Log::sceNet, "GameMode SelfMember [%s] Already Existed!", mac2str(&localMac).c_str());
 			}
 			else {
 				//adhocctlState = ADHOCCTL_STATE_CONNECTED;
@@ -1581,7 +1581,7 @@ int friendFinder() {
 					[adhocctl_event](SceNetEtherAddr const& e) {
 						return isMacMatch(&e, (SceNetEtherAddr *)adhocctl_event.connect.mac);
 					}) == gameModeMacs.end()) {
-						// Arrange the order to be consistent on all players (Host on top), Existing players are sent in reverse by AdhocServer
+					// Arrange the order to be consistent on all players (Host on top), Existing players are sent in reverse by AdhocServer
 					SceNetEtherAddr localMac;
 					getLocalMac(&localMac);
 					auto it = std::find_if(gameModeMacs.begin(), gameModeMacs.end(),
