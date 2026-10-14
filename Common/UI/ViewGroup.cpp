@@ -721,7 +721,7 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 		}
 
 		if (horiz.type == AT_MOST && measuredWidth_ < horiz.size) {
-			measuredWidth_ += usedWidth;
+			measuredWidth_ = std::min(measuredWidth_ + usedWidth, horiz.size);
 		}
 
 		// Measure here in case maxOther moved (can happen due to word wrap.)
@@ -769,7 +769,7 @@ void LinearLayout::Measure(const UIContext &dc, MeasureSpec horiz, MeasureSpec v
 		}
 
 		if (vert.type == AT_MOST && measuredHeight_ < vert.size) {
-			measuredHeight_ += usedHeight;
+			measuredHeight_ = std::min(measuredHeight_ + usedHeight, vert.size);
 		}
 
 		// Measure here in case maxOther moved (can happen due to word wrap.)
