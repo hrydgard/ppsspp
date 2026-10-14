@@ -860,7 +860,13 @@ void IRNativeRegCacheBase::ApplyMapping(const Mapping *mapping, int count) {
 		bool mapSIMD = config_.mapFPUSIMD || mapping[i].type == 'G';
 		MIPSMap flags = mapping[i].flags;
 		for (int j = 0; j < count; ++j) {
-			if (mapping[j].type == mapping[i].type && mapping[j].reg == mapping[i].reg && i != j) {
+			if (mapping[j].type != mapping[i].type || i == j)
+				continue;
+			bool sameReg = mapping[j].reg == mapping[i].reg;
+			// Mapped lane by lane, a dest can also be a later lane of a source (Vec2Pack32To16
+			// vf3, vf2,vf3), and then it has to be loaded too.
+			bool overlaps = !mapSIMD && mapping[j].reg < mapping[i].reg + mapping[i].lanes && mapping[i].reg < mapping[j].reg + mapping[j].lanes;
+			if (sameReg || overlaps) {
 				_assert_msg_(!mapSIMD || mapping[j].lanes == mapping[i].lanes, "Lane aliasing not supported yet");
 
 				if (!isNoinit(mapping[j].flags) && isNoinit(flags)) {
