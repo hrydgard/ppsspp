@@ -107,8 +107,11 @@ static int sceCccUTF8toUTF16(u32 dstAddr, u32 dstSize, u32 srcAddr)
 	DEBUG_LOG(Log::sceMisc, "sceCccUTF8toUTF16(%08x, %d, %08x)", dstAddr, dstSize, srcAddr);
 	UTF8 utf(src);
 	int n = 0;
-	while (u32 c = utf.next())
+	while (!utf.invalid())
 	{
+		u32 c = utf.next();
+		if (c == 0)
+			break;
 		if (dst + UTF16LE::encodeUnits(c) >= dstEnd)
 			break;
 		dst += UTF16LE::encode(dst, c);
@@ -143,8 +146,11 @@ static int sceCccUTF8toSJIS(u32 dstAddr, u32 dstSize, u32 srcAddr)
 	DEBUG_LOG(Log::sceMisc, "sceCccUTF8toSJIS(%08x, %d, %08x)", dstAddr, dstSize, srcAddr);
 	UTF8 utf(src);
 	int n = 0;
-	while (u32 c = utf.next())
+	while (!utf.invalid())
 	{
+		u32 c = utf.next();
+		if (c == 0)
+			break;
 		if (dst + ShiftJIS::encodeUnits(c) >= dstEnd)
 			break;
 		dst += ShiftJIS::encode(dst, __CccUCStoJIS(c, errorSJIS));
@@ -176,6 +182,8 @@ static int sceCccUTF16toUTF8(u32 dstAddr, u32 dstSize, u32 srcAddr)
 	int n = 0;
 	while (u32 c = utf.next())
 	{
+		if (c == UTF16LE::INVALID)
+			break;
 		if (dst + UTF8::encodeUnits(c) >= dstEnd)
 			break;
 		dst += UTF8::encode(dst, c);
@@ -212,6 +220,8 @@ static int sceCccUTF16toSJIS(u32 dstAddr, u32 dstSize, u32 srcAddr)
 	int n = 0;
 	while (u32 c = utf.next())
 	{
+		if (c == UTF16LE::INVALID)
+			break;
 		if (dst + ShiftJIS::encodeUnits(c) >= dstEnd)
 			break;
 		dst += ShiftJIS::encode(dst, __CccUCStoJIS(c, errorSJIS));
@@ -248,6 +258,8 @@ static int sceCccSJIStoUTF8(u32 dstAddr, u32 dstSize, u32 srcAddr)
 	int n = 0;
 	while (u32 c = sjis.next())
 	{
+		if (c == ShiftJIS::INVALID)
+			break;
 		if (dst + UTF8::encodeUnits(c) >= dstEnd)
 			break;
 		dst += UTF8::encode(dst, __CccJIStoUCS(c, errorUTF8));
@@ -284,6 +296,8 @@ static int sceCccSJIStoUTF16(u32 dstAddr, u32 dstSize, u32 srcAddr)
 	int n = 0;
 	while (u32 c = sjis.next())
 	{
+		if (c == ShiftJIS::INVALID)
+			break;
 		if (dst + UTF16LE::encodeUnits(c) >= dstEnd)
 			break;
 		dst += UTF16LE::encode(dst, __CccJIStoUCS(c, errorUTF16));
