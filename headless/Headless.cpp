@@ -1117,9 +1117,8 @@ int main(int argc, const char* argv[]) {
 	// but not now.
 	CoreParameter coreParameter;
 	coreParameter.cpuCore = (CPUCore)cpuCore;
-	// The pspautotests expectations and frametest references were recorded with the C++ vertex
-	// decoder, and the JIT decoders don't match it everywhere yet.
-	coreParameter.bUseVertexDecoderJit = false;
+	// Like the app, decode vertices with the JIT where the host can run one.
+	coreParameter.bUseVertexDecoderJit = cmdLineOptions.vertexJit.value_or(System_GetPropertyBool(SYSPROP_CAN_JIT));
 	coreParameter.gpuCore = (GPUCore)gpuCore;
 	coreParameter.graphicsContext = graphicsContext;
 	coreParameter.enableSound = false;
