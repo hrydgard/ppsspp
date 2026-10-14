@@ -93,6 +93,7 @@ std::map<u64, AdhocSocketRequest> adhocSocketRequests;
 std::map<u64, AdhocSendTargets> sendTargetPeers;
 bool serverHasRelay = false;
 bool netAdhocUseUdp = false;
+bool netAdhocRelayModeEnetPdpReliable = true;
 std::chrono::time_point<std::chrono::steady_clock> relayLastFailure;
 bool trackingRelayFailure = false;
 bool relayDisabled = false;
@@ -1963,6 +1964,7 @@ u32 sceNetAdhocInit() {
 		}
 
 		netAdhocUseUdp = g_Config.bAdhocUseUdp;
+		netAdhocRelayModeEnetPdpReliable = g_Config.bAdhocRelayModeEnetPdpReliable;
 
 		init_aemu_postoffice(netAdhocUseUdp);
 
@@ -2288,7 +2290,7 @@ int NetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 flag, bool 
 // When choosing AdHoc menu in Wipeout Pulse sometimes it's saying that "WLAN is turned off" on game screen and getting "kUnityCommandCode_MediaDisconnected" error in the Log Console when calling sceNetAdhocPdpCreate, probably it needed to wait something from the thread before calling this (ie. need to receives 7 bytes from adhoc server 1st?)
 int sceNetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 flag) {
 	INFO_LOG(Log::sceNet, "sceNetAdhocPdpCreate(%s, %u, %u, %u) at %08x", mac2str((SceNetEtherAddr*)mac).c_str(), port, bufferSize, flag, currentMIPS->pc);
-	return NetAdhocPdpCreate(mac, port, bufferSize, flag, g_Config.bAdhocRelayModeEnetPdpReliable);
+	return NetAdhocPdpCreate(mac, port, bufferSize, flag, netAdhocRelayModeEnetPdpReliable);
 }
 
 /**
