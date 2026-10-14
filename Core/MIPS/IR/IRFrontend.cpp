@@ -23,6 +23,7 @@
 #include "Core/Reporting.h"
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/MemMap.h"
+#include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/IR/IRFrontend.h"
 #include "Core/MIPS/IR/IRRegCache.h"
@@ -198,8 +199,18 @@ void IRFrontend::Comp_ReplacementFunc(MIPSOpcode op) {
 
 void IRFrontend::Comp_Generic(MIPSOpcode op) {
 	FlushAll();
-	ir.Write(IROp::Interpret, 0, 0, 0, op.encoding);
 	const MIPSInfo info = MIPSGetInfo(op);
+	// Interpreted ops run in the guest's rounding mode. A syscall is host code (like a compiled one),
+	// and only ctc1 to fcr31 changes the mode, so only those need it switched.
+	const bool isSyscall = (info & IS_SYSCALL) != 0;
+	const bool setsMode = MIPS_IS_CTC1_FCR31(op.encoding);
+	if (isSyscall || setsMode)
+		RestoreRoundingMode(setsMode);
+	ir.Write(IROp::Interpret, 0, 0, 0, op.encoding);
+	if (setsMode)
+		UpdateRoundingMode();
+	if (isSyscall || setsMode)
+		ApplyRoundingMode(setsMode);
 	if ((info & IS_VFPU) != 0 && (info & VFPU_NO_PREFIX) == 0) {
 		// If it does eat them, it'll happen in MIPSCompileOp().
 		if ((info & OUT_EAT_PREFIX) == 0)

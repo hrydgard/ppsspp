@@ -575,20 +575,28 @@ void Arm64Jit::Comp_ReplacementFunc(MIPSOpcode op)
 void Arm64Jit::Comp_Generic(MIPSOpcode op) {
 	FlushAll();
 	MIPSInterpretFunc func = MIPSGetInterpretFunc(op);
+	const MIPSInfo info = MIPSGetInfo(op);
 	if (func) {
 		SaveStaticRegisters();
-		// The interpreter runs in the guest's rounding mode, like it does on its own. Reapply it
-		// after, in case the instruction changed fcr31.
+		// Interpreted ops run in the guest's rounding mode, like on the interpreter. A syscall is host code
+		// (like a compiled one), and only ctc1 to fcr31 changes the mode, so only those need it switched.
+		const bool isSyscall = (info & IS_SYSCALL) != 0;
+		const bool setsMode = MIPS_IS_CTC1_FCR31(op.encoding);
+		if (isSyscall)
+			RestoreRoundingMode();
+		if (setsMode)
+			UpdateRoundingMode();
 		MOVI2R(SCRATCH1, GetCompilerPC());
 		MovToPC(SCRATCH1);
 		MOVI2R(W0, op.encoding);
 		QuickCallFunction(SCRATCH2_64, (void *)&MIPSInterpretTrampoline);
-		RestoreRoundingMode();
-		ApplyRoundingMode();
+		if (setsMode)
+			RestoreRoundingMode(true);
+		if (isSyscall || setsMode)
+			ApplyRoundingMode(setsMode);
 		LoadStaticRegisters();
 	}
 
-	const MIPSInfo info = MIPSGetInfo(op);
 	if ((info & IS_VFPU) != 0 && (info & VFPU_NO_PREFIX) == 0) {
 		// If it does eat them, it'll happen in MIPSCompileOp().
 		if ((info & OUT_EAT_PREFIX) == 0)
