@@ -79,6 +79,17 @@ Crashes (JIT emitter asserts) and wrong code found by the fuzzer:
   and throws away the blocks compiled before. Ops left to the interpreter run in the guest's mode,
   except syscalls, and an interpreted `ctc1` takes effect at once. `CPURoundingMode` tests all of
   this on every core, with and without `JitDisableFlags`.
+- ARM64 JIT: `mfhi`/`mflo` into `$zero` wrote the host register holding zero.
+- x86-64 IR JIT: helper calls (vsin, vrsq and the like) didn't flush RCX and RDX outside Windows,
+  where the System V ABI doesn't preserve them.
+- MIPSAnalyst: `ctc1`/`cfc1` of a control register other than 31 counted as touching the FPU
+  condition, so the x86 JIT's register cache dropped a dirty fpcond before one.
+- x86 JIT: fpcond held the compare's all-ones mask instead of 1.
+- ARM JITs: `vmfvc` of a control register past the defined ones mapped the dest without
+  `MAP_DIRTY`, so its 0 was never written.
+- The legacy JITs' `Comp_Generic` ran the interpreted instruction in the host's default rounding
+  mode instead of the guest's.
+- Hardware answers 1, 2 (host agreement), 5 and 7 (the interpreter and `vcmov`) below.
 
 ## Open differences
 
@@ -92,73 +103,114 @@ configurations (four cores, ARM64 and x86-64 under Rosetta), and lines that diff
 
 | Test | Distinct outputs | ARM64 interp / ir / jit / jit-ir | x86-64 interp / ir / jit / jit-ir |
 |---|---|---|---|
-| `cpu/cpu_alu/shift_encodings` | 2 | 8 / 8 / 8 / 8 | 8 / 8 / 8 / 8 |
-| `cpu/fpu/denormal` | 2 | 54 / 54 / 54 / 54 | 16 / 16 / 16 / 16 |
-| `cpu/vfpu/fcr31` | 7 | 66 / 74 / 74 / 75 | 74 / 78 / 78 / 79 |
+| `cpu/cpu_alu/shift_encodings` | 1 | 0 / 0 / 0 / 0 | 0 / 0 / 0 / 0 |
+| `cpu/cpu_alu/allegrex_encodings` | 1 | 0 / 0 / 0 / 0 | 0 / 0 / 0 / 0 |
+| `cpu/fpu/denormal` | 2 | 54 / 54 / 54 / 54 | 54 / 54 / 54 / 54 |
+| `cpu/vfpu/fcr31` | 2 | 50 / 50 / 50 / 51 | 50 / 50 / 50 / 51 |
 | `cpu/vfpu/signed_zero` | 4 | 14 / 37 / 37 / 37 | 14 / 37 / 36 / 37 |
 | `cpu/vfpu/nan_gen` | 7 | 51 / 51 / 57 / 57 | 51 / 51 / 51 / 54 |
-| `cpu/vfpu/undefined` | 4 | 4 / 12 / 21 / 12 | 4 / 12 / 15 / 12 |
+| `cpu/vfpu/undefined` | 4 | 0 / 6 / 3 / 6 | 0 / 6 / 9 / 6 |
+| `cpu/fpu/fpu_nan` | 2 | 0 / 0 / 0 / 0 | 4 / 4 / 4 / 4 |
 
-Rosetta behaves as an x86 CPU here: the x86-64 interpreter makes `0xFFC00000` NaNs and flushes
-denormal results but not inputs under FS (FTZ without DAZ).
+Before the fixes, `shift_encodings` had 2 outputs and `fcr31` 7. `nan_gen`, `fpu_nan` and
+`denormal` still come out as each host's own NaNs (item 6). What's left of `fcr31` is items 3 and
+vdot's summation, and of `undefined` the horizontal ops and matrix registers with an offset that doesn't fit the size. Rosetta behaves as an x86 CPU here: the x86-64 interpreter made
+`0xFFC00000` NaNs and flushed denormal results but not inputs under FS (FTZ without DAZ).
 
-1. **srl/srlv with stray bits** (`shift_encodings`). Only the low bit of the unused field counts:
-   `srl` rotates when bit 21 is set and shifts when it is clear, whatever bits 22-25 hold, and
-   `srlv` the same with bit 6. sll/sra/sllv/srav ignore the field. Every core is wrong: the
-   interpreter does nothing for values above 1, the others shift.
+The fuzzer agrees: integer, FPU and memory code (`PPSSPP_CPUFUZZ_CLASSES=aaiiffm`) gives the same
+end state on every core and on both hosts in 20000 cases, apart from item 8 below. With VFPU code
+mixed in, the interpreter differs between the hosts in 7 of 20000 cases, each a host NaN out of a
+horizontal op (vmmul, vtfm, vdot, vdet) that vmin, vmax or vf2i then orders or converts by its
+sign.
+
+1. **srl/srlv with stray bits** (`shift_encodings`, fixed). Only the low bit of the unused field
+   counts: `srl` rotates when bit 21 is set and shifts when it is clear, whatever bits 22-25 hold,
+   and `srlv` the same with bit 6. sll/sra/sllv/srav ignore the field. The Allegrex bit ops
+   (`allegrex_encodings`, fixed) decode only part of their op field too, so every value is one of
+   wsbh, wsbw, seb, seh and bitrev (see `AllegrexBitOp()`), and special3 function 0x18 is a no-op.
 2. **Flush-to-zero (FS)** (`denormal`). With FS clear the PSP handles denormals in full, which
    both hosts match. With FS set it flushes denormal results to zero, with tininess decided before
    rounding (a product that rounds up to FLT_MIN is still flushed), but never flushes inputs: sqrt,
    div and the compares see a denormal as it is. One exception: add/sub with a zero operand
    returns the other operand, denormal or not. x86 FTZ gets all of it but that exception (16
-   lines). ARM64's FZ also flushes inputs (54 lines), so the two hosts differ wherever a denormal
-   reaches an FPU op with FS set. Matching needs either the x86-like mode where the host has it
-   (FEAT_AFP: FPCR.AH with FIZ clear) or flushing results in software when FS is set.
+   lines). ARM64's FZ also flushes inputs (54 lines). The x86 cores now set DAZ along with FTZ, so
+   both hosts flush inputs and agree, 54 lines away from the PSP. Matching the PSP needs either
+   the x86-like mode where ARM64 has it (FEAT_AFP: FPCR.AH with FIZ clear, not on every device),
+   or flushing results in software when FS is set.
 3. **fcr31 doesn't affect the VFPU** (`fcr31`). All six fcr31 settings give identical results.
    The VFPU always rounds to nearest, and always flushes denormal inputs and outputs to zero
    (`vf2iu` of a denormal is 0, a denormal times 1 is 0). The cores should run VFPU ops in
    round-to-nearest without guest FS, and flush denormals themselves, rather than inheriting the
    FPU's mode. Some of the remaining lines are vdot's exact summation (`1.5u + 1.5u + 3 - 3` is 0
-   on the PSP).
+   on the PSP). The cores agree with each other here (they all follow fcr31), so this is about
+   matching the PSP. A check on every VFPU op would cost too much. Since games run VFPU ops in
+   clumps, switching the host into round-to-nearest with flush-to-zero (inputs too) around a clump
+   and back afterwards may be cheap enough; not tried yet. The ops that move to the accurate dot
+   product get this right by themselves.
 4. **Signed zero from sums** (`signed_zero`). Every summing op returns +0 for a zero sum,
    whatever the signs of the products: vdot, vhdp, vfad, vavg, vdet, vcrsp, vqmul, vmmul, vtfm,
    vhtfm, at every size, including vfad of all -0. vcrs (a product per lane) and plain vadd keep
    -0. The interpreter is right apart from vcrsp, vqmul and vtfm/vhtfm.
 5. **vmin/vmax and denormals** (`fcr31`). Denormals compare equal to zero, a tie returns the
-   second operand, and the result keeps the operand's bits (a denormal comes out unflushed). The
-   interpreter does this; the JITs use host min/max.
+   second operand, and the result keeps the operand's bits (a denormal comes out unflushed). Fixed
+   on every core with `vfpu_minmax_key()`, an integer key compared instead of the floats
+   (`minmax_zero` and `minmax_tie` pass everywhere).
 6. **Generated NaNs** (`nan_gen`). VFPU arithmetic never keeps a payload: every NaN it produces is
    `0x7F800001` or `0xFF800001`. The sign is + for add, sub and every summing op, the XOR of the
    operand signs for mul, div and vscl, the input's sign for vrcp, vrsq, vsin and vasin, and + for
-   vsqrt, vlog2 and vexp2. vsat0/vsat1, vabs and vneg pass NaN bits through. Fixed bits like these
-   make both hosts agree for free.
+   vsqrt, vlog2 and vexp2. vsat0/vsat1, vabs and vneg pass NaN bits through. The cores make the
+   host's NaN instead, so x86-64 and ARM disagree (and the ARM64 JIT's vsat quiets a NaN). The
+   branch `cpu-equiv-4` fixes the single-lane ops (vadd, vsub, vmul, vdiv, vscl, vcrs, vsat0/1, vbfy,
+   vocp, vsocp) on every core, through four new IR ops and checks in the legacy JITs, and is held
+   back until its cost on every multiplication is measured. The horizontal ops wait for the
+   accurate dot product.
+
+   The FPU makes the positive quiet NaN `0x7FC00000` from operands that aren't NaN
+   (`cpu/fpu/fpu_nan`), which ARM64 does and x86 doesn't for add, sub and div. Also fixed on
+   `cpu-equiv-4`.
 7. **Undefined VFPU encodings** (`undefined`). The interpreter matches the PSP on all of them
    (single-lane vdot/vhdp, vdet at every size, vcrsp/vqmul at .s/.p, matrix registers that wrap
-   around, vtfm/vhtfm size mismatches, vmfvc past register 15 reading 0, vcmov with bit 20 set)
-   except `vcmov` with imm3 = 7, which tests a CC bit that is always clear: vcmovt never moves and
-   vcmovf always does. The other cores have to follow the interpreter.
+   around, vtfm/vhtfm size mismatches, vmfvc past register 15 reading 0, vcmov with bit 20 set),
+   now including `vcmov` with imm3 = 7, which tests a CC bit that is always clear: vcmovt never
+   moves and vcmovf always does (fixed on every core). The JITs still differ on the single-lane
+   dot products and vcrsp/vqmul at .s/.p (for the accurate dot product), and the IR and x86 JIT on
+   matrix registers whose offset doesn't fit the size.
 
 ### Known, no hardware test needed
 
 8. **Divide-by-zero flags.** Only the interpreter sets the cause and flag bits for `div.s` by zero
    (see `Int_FPU3op`). The other cores leave fcr31 alone. Making the others match needs a new IR op
    or an interpreter fallback for div.s, and the latter costs every division.
-9. The legacy ARM64 JIT ignores the D prefix's write mask for `viim.s`/`vfim.s`, and `vmfvc` of an
-   invalid control register writes a value where the interpreter writes 0.
+9. The legacy ARM64 JIT ignores the D prefix's write mask for `viim.s`/`vfim.s`.
+
+### ARM32
+
+Measured on a Galaxy S8+ and A21 with the armeabi-v7a build (`android/ab.sh APP_ABI=armeabi-v7a HEADLESS=1
+UNITTEST=1 SKIPAPP=1`, run over adb). ARM32 has three cores: `CreateNativeJit` returns the legacy
+`ArmJit` for both `--cpu=jit` and `--cpu=jit-ir`.
+
+- The interpreter gives the same end state as on ARM64 in all 20000 integer/FPU/memory fuzz
+  cases, and in all but 3 of 20000 mixed ones (horizontal-op NaNs into vmin/vmax, as on x86-64).
+- All three cores match the Mac's same core on every `cpu/` pspautotest, apart from horizontal ops
+  and NaNs: `signed_zero` (vdet, vqmul in the JIT), `nan_gen`, and in the JIT the NaNs out of vsat
+  (`prefix_sat`) and vbfy (`specials`). Those wait for the accurate dot product and item 6.
+- What it took: the interpreters apply the guest's FPSCR (rounding mode and FZ); the IR
+  interpreter's NEON Vec4 paths are ARM64-only, since ARMv7 NEON always flushes and rounds to
+  nearest; ARM32's libm `ceilf`/`floorf` don't flush a denormal input, so `FlushForConversion()`
+  does that under FS; and the ARM JIT got the other JITs' prefix gates, mtvc masking, and fixes to ins/ext/max/min, round.w.s of NaN, and vsgn. `vh2f` and `vasin` go to the
+  interpreter (the hardware half conversion quiets NaNs).
+- Before these JIT fixes, the fuzzer on the S8+ had the JIT differ from the interpreter in 1298
+  of 20000 mixed cases (the IR interpreter in 1446), not broken down. It crashes on the A21 in its
+  memory setup, so it hasn't been rerun since.
 
 ### Not looked into yet
 
-- The x86-64 JIT (under emulation on Windows on ARM) differs from the interpreter in 674 of 3000
-  mixed cases, against 226 for the IR interpreter and 229 for the x86-64 IR JIT. It doesn't crash
-  any more, but the differences aren't triaged.
-- Of the remaining VFPU differences on ARM64 (about 20% of VFPU-only cases on every core), most of
-  the ones looked at are items 4 and 7 above.
+- With VFPU code in the mix, the legacy x86-64 JIT differs from the interpreter in 205 of 2000
+  default cases and the legacy ARM64 JIT in 127, against 147 for the IR cores. Most of those
+  looked at are the horizontal ops (items 4 and 6) and item 7.
 - Branches, delay slots, and VFPU prefixes across blocks: the generated code is straight-line.
 
 ## Unrelated
-
-On the ARM64 Release build, 11 gpu/ pspautotests (gpu/exact/pixel and others) fail with different
-pixel hashes, also with `-i`. An older ARM64 Debug build passes them.
 
 In headless, `-r` is both the IR interpreter and `--root`, and `--root` wins: it takes the next
 argument as a directory. Use `--cpu=ir`.
