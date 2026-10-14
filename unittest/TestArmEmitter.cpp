@@ -1,12 +1,8 @@
 #include "Common/ArmEmitter.h"
-#include "Core/MIPS/ARM/ArmRegCacheFPU.h"
-#include "Core/MIPS/ARM/ArmJit.h"
-#include "Core/MIPS/JitCommon/JitState.h"
-#include "Core/MIPS/MIPSAnalyst.h"
-#include "Core/MIPS/MIPSVFPUUtils.h"
 #include "ext/disarm.h"
 
 #include <string.h>
+#include <string>
 
 #include "UnitTest.h"
 
@@ -17,19 +13,6 @@ static bool CheckLast(const ArmGen::ARMXEmitter &emit, const char *comp) {
 	ArmDis(0, instr, disasm, sizeof(disasm), true);
 	EXPECT_EQ_STR(std::string(disasm), std::string(comp));
 	return true;
-}
-
-static void DisassembleARMBetween(const u8 *start, const u8 *end) {
-	while (start < end) {
-		char disasm[512];
-		uint32_t instr;
-		memcpy(&instr, start, 4);
-		ArmDis(0, instr, disasm, sizeof(disasm), true);
-		if (g_testLog) {
-			printf("%s\n", disasm);
-		}
-		start += 4;
-	}
 }
 
 bool TestArmEmitter() {
@@ -239,55 +222,6 @@ bool TestArmEmitter() {
 
 	//emitter.VMOV(S1, 112);
 	//RET(CheckLast(emitter, "eef70a00 VMOV.f32 s1, #112"));
-
-
-	const u8 *codeStart = emitter.GetCodePointer();
-
-	MIPSState mipsState;
-	MIPSComp::JitState js;
-	MIPSComp::JitOptions jo;
-	ArmRegCacheFPU fpr(&mipsState, &js, &jo);
-	fpr.SetEmitter(&emitter);
-	int C000 = GetColumnName(0, M_4x4, 0, 0);
-	int C010 = GetColumnName(0, M_4x4, 1, 0);
-	int C020 = GetColumnName(0, M_4x4, 2, 0);
-	int C030 = GetColumnName(0, M_4x4, 3, 0);
-	int R000 = GetRowName(0, M_4x4, 0, 0);
-	int R001 = GetRowName(0, M_4x4, 1, 0);
-	int R002 = GetRowName(0, M_4x4, 2, 0);
-	int R003 = GetRowName(0, M_4x4, 3, 0);
-	if (g_testLog) {
-		printf("Col 010: %s\n", GetVectorNotation(C010, V_Quad).c_str());
-		printf("Row 003: %s\n", GetVectorNotation(R003, V_Quad).c_str());
-	}
-	
-	MIPSAnalyst::AnalysisResults results;
-	memset(&results, 0, sizeof(results));
-
-	using namespace ArmJitConstants;
-
-	fpr.Start();
-	fpr.QMapReg(C000, V_Quad, MAP_DIRTY);
-	fpr.QMapReg(C010, V_Quad, MAP_DIRTY);
-	fpr.QMapReg(C020, V_Quad, MAP_DIRTY);
-	fpr.QMapReg(C030, V_Quad, MAP_DIRTY);
-	emitter.ORR(R0, R0, R0);
-	fpr.QMapReg(R000, V_Quad, MAP_DIRTY);
-	fpr.FlushAll();
-
-	fpr.Start();
-	emitter.ORR(R0, R0, R0);
-	fpr.QMapReg(R000, V_Quad, MAP_DIRTY);
-	fpr.QMapReg(R001, V_Quad, MAP_DIRTY);
-	fpr.QMapReg(R002, V_Quad, MAP_DIRTY);
-	fpr.QMapReg(R003, V_Quad, MAP_DIRTY);
-	emitter.ORR(R0, R0, R0);
-	fpr.QMapReg(C000, V_Quad, MAP_DIRTY);
-	fpr.FlushAll();
-
-	const u8 *codeEnd = emitter.GetCodePointer();
-
-	DisassembleARMBetween(codeStart, codeEnd);
 
 	return true;
 }

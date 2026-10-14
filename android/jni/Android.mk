@@ -510,16 +510,15 @@ ARCH_FILES := \
   $(SRC)/GPU/Common/VertexDecoderX86.cpp
 else ifeq ($(findstring armeabi-v7a,$(TARGET_ARCH_ABI)),armeabi-v7a)
 ARCH_FILES := \
-  $(SRC)/Core/MIPS/ARM/ArmCompALU.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmCompBranch.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmCompFPU.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmCompLoadStore.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmCompVFPU.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmCompReplace.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmAsm.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmJit.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmRegCache.cpp \
-  $(SRC)/Core/MIPS/ARM/ArmRegCacheFPU.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmIRAsm.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmIRCompALU.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmIRCompBranch.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmIRCompFPU.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmIRCompLoadStore.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmIRCompSystem.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmIRCompVec.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmIRJit.cpp \
+  $(SRC)/Core/MIPS/ARM/ArmIRRegCache.cpp \
   $(SRC)/GPU/Common/VertexDecoderArm.cpp \
   ArmEmitterTest.cpp
 else ifeq ($(findstring arm64-v8a,$(TARGET_ARCH_ABI)),arm64-v8a)
@@ -1088,7 +1087,6 @@ ifeq ($(UNITTEST),1)
   LOCAL_MODULE := ppsspp_unittest
   LOCAL_SRC_FILES := \
     $(SRC)/unittest/JitHarness.cpp \
-    $(SRC)/Core/MIPS/ARM/ArmRegCacheFPU.cpp \
     $(SRC)/Core/Util/DisArm64.cpp \
     $(SRC)/ext/riscv-disas.cpp \
     $(SRC)/ext/loongarch-disasm.cpp \

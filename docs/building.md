@@ -230,6 +230,18 @@ binary, or it runs your native build instead. The full suite takes a couple of m
 qemu reports LSX and LASX as present, so CI only exercises the LoongArch vector paths.
 The scalar fallbacks never run here, so passing tells you nothing about them.
 
+The 32-bit ARM JIT works the same way with `./b.sh --armhf` (into `build-armhf/`) and `qemu-arm -L
+/usr/arm-linux-gnueabihf`. The cross packages are `gcc-14-arm-linux-gnueabihf g++-14-arm-linux-gnueabihf`, and
+`sudo cmake/scripts/setup-cross.sh armhf` adds the GL and EGL stubs the link needs. Without root, `apt-get download`
+the packages, `dpkg-deb -x` them into one directory, and point `CROSS_ARMHF` at it: the toolchain file then takes
+the sysroot from `$CROSS_ARMHF/usr/arm-linux-gnueabihf`. The binutils need `LD_LIBRARY_PATH` to include
+`$CROSS_ARMHF/usr/lib/x86_64-linux-gnu`, glibc's `libc.so` linker script names absolute paths that have to be
+rewritten to the new root, and the stubs are copied in by hand. For a debugger, run `qemu-arm -g PORT` and attach
+`gdb-multiarch` to it.
+
+`hash/hash` dies with a bus error under qemu-arm on every CPU core, so it's not a JIT problem, but it takes the rest
+of its batch down with it: pass `--known-failures=armhf`.
+
 Without a cross toolchain (on macOS, say) two things still help:
 
 - **A syntax check of the other JITs.** The RISC-V and LoongArch backends (`Core/MIPS/RiscV`,

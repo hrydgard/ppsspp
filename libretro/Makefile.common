@@ -918,16 +918,15 @@ ifeq ($(WITH_DYNAREC),1)
    ifeq ($(TARGET_ARCH),arm)
       DYNAFLAGS += -D_ARCH_32
 		SOURCES_CXX += $(COMMONDIR)/ArmEmitter.cpp \
-			       $(COREDIR)/MIPS/ARM/ArmAsm.cpp \
-			       $(COREDIR)/MIPS/ARM/ArmCompALU.cpp \
-			       $(COREDIR)/MIPS/ARM/ArmCompBranch.cpp \
-			       $(COREDIR)/MIPS/ARM/ArmCompFPU.cpp \
-			       $(COREDIR)/MIPS/ARM/ArmCompLoadStore.cpp \
-			       $(COREDIR)/MIPS/ARM/ArmCompVFPU.cpp \
-			       $(COREDIR)/MIPS/ARM/ArmCompReplace.cpp \
-			       $(COREDIR)/MIPS/ARM/ArmJit.cpp \
-			       $(COREDIR)/MIPS/ARM/ArmRegCache.cpp \
-			       $(COREDIR)/MIPS/ARM/ArmRegCacheFPU.cpp \
+			       $(COREDIR)/MIPS/ARM/ArmIRAsm.cpp \
+			       $(COREDIR)/MIPS/ARM/ArmIRCompALU.cpp \
+			       $(COREDIR)/MIPS/ARM/ArmIRCompBranch.cpp \
+			       $(COREDIR)/MIPS/ARM/ArmIRCompFPU.cpp \
+			       $(COREDIR)/MIPS/ARM/ArmIRCompLoadStore.cpp \
+			       $(COREDIR)/MIPS/ARM/ArmIRCompSystem.cpp \
+			       $(COREDIR)/MIPS/ARM/ArmIRCompVec.cpp \
+			       $(COREDIR)/MIPS/ARM/ArmIRJit.cpp \
+			       $(COREDIR)/MIPS/ARM/ArmIRRegCache.cpp \
 			       $(EXTDIR)/disarm.cpp \
 			       $(GPUCOMMONDIR)/VertexDecoderArm.cpp
 

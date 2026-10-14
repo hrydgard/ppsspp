@@ -186,8 +186,9 @@ sign.
 ### ARM32
 
 Measured on a Galaxy S8+ and A21 with the armeabi-v7a build (`android/ab.sh APP_ABI=armeabi-v7a HEADLESS=1
-UNITTEST=1 SKIPAPP=1`, run over adb). ARM32 has three cores: `CreateNativeJit` returns the legacy
-`ArmJit` for both `--cpu=jit` and `--cpu=jit-ir`.
+UNITTEST=1 SKIPAPP=1`, run over adb). These measurements predate the IR-based ARM32 JIT, when
+`CreateNativeJit` returned the legacy `ArmJit` (since removed). The IR JIT gives the IR interpreter's
+end state in every fuzz case under qemu-arm (`./b.sh --armhf`, see building.md).
 
 - The interpreter gives the same end state as on ARM64 in all 20000 integer/FPU/memory fuzz
   cases, and in all but 3 of 20000 mixed ones (horizontal-op NaNs into vmin/vmax, as on x86-64).

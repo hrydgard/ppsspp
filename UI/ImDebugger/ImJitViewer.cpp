@@ -33,12 +33,8 @@ void ImJitViewerWindow::Draw(ImConfig &cfg, ImControl &control) {
 		return;
 	}
 
-	// Every native JIT except ARM32's is IR-based.
-#if PPSSPP_ARCH(ARM)
-	const bool hasIR = core == CPUCore::IR_INTERPRETER;
-#else
+	// Every native JIT is IR-based.
 	const bool hasIR = true;
-#endif
 	const bool hasTarget = core == CPUCore::JIT || core == CPUCore::JIT_IR;
 
 	// Options menu
