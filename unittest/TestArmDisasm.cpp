@@ -310,11 +310,21 @@ static void TestIntegerInstructions(DisasmChecker &c, ARMXEmitter &e, const u8 *
 	DIS("SUB r0, r1, #0x1200; SUB r0, r0, #52", e.SUBI2R(R0, R1, 0x1234, R12));
 	DIS("AND r0, r1, #0xff00", e.ANDI2R(R0, R1, 0xFF00, R12));
 	DIS("BIC r0, r1, #0xf000", e.ANDI2R(R0, R1, 0xFFFF0FFF, R12));
+#if PPSSPP_ARCH(ARMV7)
+	// ARMv7 builds have UBFX, MOVW and MOVT.
+	DIS("UBFX r0, r1, #0, #17", e.ANDI2R(R0, R1, 0x0001FFFF, R12));
+	DIS("MOVW r12, #0x5678; MOVT r12, #0x1234; AND r0, r1, r12", e.ANDI2R(R0, R1, 0x12345678, R12));
+#else
 	DIS("BIC r0, r1, #0xfe0000; BIC r0, r0, #0xff000000", e.ANDI2R(R0, R1, 0x0001FFFF, R12));
 	DIS("BIC r0, r1, #135; BIC r0, r0, #0xa900; BIC r0, r0, #0xcb0000; BIC r0, r0, #0xed000000", e.ANDI2R(R0, R1, 0x12345678, R12));
+#endif
 	DIS("ORR r0, r1, #0x80000000", e.ORI2R(R0, R1, 0x80000000, R12));
 	DIS("ORR r0, r1, #240; ORR r0, r0, #0xf00000", e.ORI2R(R0, R1, 0x00F000F0, R12));
+#if PPSSPP_ARCH(ARMV7)
+	DIS("MOVW r12, #0x5678; MOVT r12, #0x1234; ORR r0, r1, r12", e.ORI2R(R0, R1, 0x12345678, R12));
+#else
 	DIS("ORR r0, r1, #0x278; ORR r0, r0, #0x5400; ORR r0, r0, #0x2340000; ORR r0, r0, #0x10000008", e.ORI2R(R0, R1, 0x12345678, R12));
+#endif
 	DIS("EOR r0, r1, #0x3fc", e.EORI2R(R0, R1, 0x3FC, R12));
 	DIS("MOVW r12, #0x1234; EOR r0, r1, r12", e.EORI2R(R0, R1, 0x1234, R12));
 	DIS("CMP r0, #16", e.CMPI2R(R0, 0x10, R12));
@@ -324,6 +334,8 @@ static void TestIntegerInstructions(DisasmChecker &c, ARMXEmitter &e, const u8 *
 	DIS("MOVW r12, #0x101; TST r0, r12", e.TSTI2R(R0, 0x101, R12));
 	DIS("MOV r0, #255; ORR r0, r0, #0xff0000", e.TrySetValue_TwoOp(R0, 0x00FF00FF));
 	DIS("MOV r0, #1; ORR r0, r0, #0x80000000", e.TrySetValue_TwoOp(R0, 0x80000001));
+	// From a fixed offset, since the code before it is shorter on ARMv7.
+	e.SetCodePointer((u8 *)base + 0xFF8, (u8 *)base + 0xFF8);
 	DIS("NOP; NOP", e.NopAlignCode16());
 	DIS("BKPT #0; BKPT #0", e.ReserveCodeSpace(8));
 }
@@ -743,7 +755,8 @@ static void TestNeonInstructions(DisasmChecker &c, ARMXEmitter &e) {
 }
 
 bool TestArmDisasm() {
-	static u32 code[4096];
+	// Aligned, so that NopAlignCode16() pads the same everywhere.
+	alignas(16) static u32 code[4096];
 	const u8 *base = (const u8 *)code;
 	ARMXEmitter emitter((u8 *)code);
 	DisasmChecker checker{ emitter, base };
