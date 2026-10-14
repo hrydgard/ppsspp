@@ -47,6 +47,8 @@ public:
 	void UpdateFCR31(MIPSState *mipsState) override;
 
 protected:
+	void GetFixedCodeLabels(std::vector<IRNativeFixedCodeLabel> &labels) const override;
+
 	const CodeBlockCommon &CodeBlock() const override {
 		return *this;
 	}

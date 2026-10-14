@@ -137,6 +137,8 @@ bool RiscVJitBackend::CompileBlock(IRBlockCache *irBlockCache, int block_num) {
 		QuickJ(R_RA, outerLoopPCInSCRATCH1_);
 	}
 
+	RecordIRAddresses(block_num, addresses);
+
 	if (logBlocks_ > 0) {
 		--logBlocks_;
 

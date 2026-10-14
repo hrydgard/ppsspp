@@ -630,6 +630,8 @@ add_library(Core STATIC
 	MIPS/MIPSTracer.h
 	MIPS/JitCommon/JitCommon.cpp
 	MIPS/JitCommon/JitCommon.h
+	MIPS/JitCommon/JitProfiler.cpp
+	MIPS/JitCommon/JitProfiler.h
 	MIPS/JitCommon/JitBlockCache.h
 	MIPS/JitCommon/JitState.cpp
 	MIPS/JitCommon/JitState.h

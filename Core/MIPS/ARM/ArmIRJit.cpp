@@ -141,6 +141,8 @@ bool ArmJitBackend::CompileBlock(IRBlockCache *irBlockCache, int block_num) {
 		B(outerLoopPCInSCRATCH1_);
 	}
 
+	RecordIRAddresses(block_num, addresses);
+
 	if (logBlocks_ > 0) {
 		--logBlocks_;
 

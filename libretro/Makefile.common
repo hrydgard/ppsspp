@@ -857,6 +857,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/FrameTiming.cpp \
 	       $(COREDIR)/Loaders.cpp \
 	       $(COREDIR)/MIPS/JitCommon/JitCommon.cpp \
+	       $(COREDIR)/MIPS/JitCommon/JitProfiler.cpp \
 	       $(COREDIR)/MIPS/JitCommon/JitState.cpp \
 	       $(COREDIR)/MIPS/IR/IRAnalysis.cpp \
 	       $(COREDIR)/MIPS/IR/IRCompALU.cpp \

@@ -221,6 +221,17 @@ void ArmJitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	EndWrite();
 }
 
+void ArmJitBackend::GetFixedCodeLabels(std::vector<IRNativeFixedCodeLabel> &labels) const {
+	labels.push_back({ outerLoop_, "outerLoop", false });
+	labels.push_back({ outerLoopPCInSCRATCH1_, "outerLoopPCInSCRATCH1", false });
+	labels.push_back({ dispatcherCheckCoreState_, "dispatcherCheckCoreState", false });
+	labels.push_back({ dispatcherPCInSCRATCH1_, "dispatcherPCInSCRATCH1", false });
+	labels.push_back({ dispatcherNoCheck_, "dispatcherNoCheck", false });
+	labels.push_back({ restoreRoundingMode_, "restoreRoundingMode", true });
+	labels.push_back({ applyRoundingMode_, "applyRoundingMode", true });
+	labels.push_back({ vfpuDot_, "vfpuDot", true });
+}
+
 } // namespace MIPSComp
 
 #endif

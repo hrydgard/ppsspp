@@ -287,6 +287,23 @@ void Arm64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	UpdateFCR31(mipsState);
 }
 
+void Arm64JitBackend::GetFixedCodeLabels(std::vector<IRNativeFixedCodeLabel> &labels) const {
+	labels.push_back({ outerLoop_, "outerLoop", false });
+	labels.push_back({ outerLoopPCInSCRATCH1_, "outerLoopPCInSCRATCH1", false });
+	labels.push_back({ dispatcherCheckCoreState_, "dispatcherCheckCoreState", false });
+	labels.push_back({ dispatcherPCInSCRATCH1_, "dispatcherPCInSCRATCH1", false });
+	labels.push_back({ dispatcherNoCheck_, "dispatcherNoCheck", false });
+	labels.push_back({ restoreRoundingMode_, "restoreRoundingMode", true });
+	labels.push_back({ applyRoundingMode_, "applyRoundingMode", true });
+	labels.push_back({ vfpuDot_, "vfpuDot", true });
+	labels.push_back({ updateRoundingMode_, "updateRoundingMode", true });
+	labels.push_back({ saveStaticRegisters_, "saveStaticRegisters", true });
+	labels.push_back({ loadStaticRegisters_, "loadStaticRegisters", true });
+	labels.push_back({ vfpuDotSpecial_, "vfpuDotSpecial", true });
+	for (int i = 0; i < 8; ++i)
+		labels.push_back({ convertS0ToSCRATCH1_[i], "convertS0ToSCRATCH1", true });
+}
+
 } // namespace MIPSComp
 
 #endif

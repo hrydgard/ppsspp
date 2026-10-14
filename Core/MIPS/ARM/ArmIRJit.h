@@ -44,6 +44,8 @@ public:
 	void InvalidateBlock(IRBlockCache *irBlockCache, int block_num) override;
 
 protected:
+	void GetFixedCodeLabels(std::vector<IRNativeFixedCodeLabel> &labels) const override;
+
 	const CodeBlockCommon &CodeBlock() const override {
 		return *this;
 	}

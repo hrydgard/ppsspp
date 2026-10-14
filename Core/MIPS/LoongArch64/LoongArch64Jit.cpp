@@ -136,6 +136,8 @@ bool LoongArch64JitBackend::CompileBlock(IRBlockCache *irBlockCache, int block_n
 		QuickJ(R_RA, outerLoopPCInSCRATCH1_);
 	}
 
+	RecordIRAddresses(block_num, addresses);
+
 	if (logBlocks_ > 0) {
 		--logBlocks_;
 

@@ -200,6 +200,7 @@ static const CommandLineParam g_autoParams[] = {
 	{POFF(bench), CmdParamType::Bool, "bench", 'b', "Enable benchmark mode", CmdLineMode::Headless},
 	{POFF(oldAtrac), CmdParamType::Bool, "old-atrac", '\0', "Use old ATRAC decoder"},
 	{POFF(accurateVdot), CmdParamType::Bool, "accurate-vdot", '\0', "Compute VFPU dot products bit-exactly like the PSP (default; =false for the faster approximation)"},
+	{POFF(jitProfile), CmdParamType::String, "jit-profile", '\0', "Profile the CPU core and write its hottest blocks to FILE on exit"},
 	{POFF(memStickInserted), CmdParamType::BoolInverse, "no-memstick", '\0', "Run with the memory stick removed"},
 	{POFF(log), CmdParamType::String, "log", '\0', "Output log to FILE", CmdLineMode::Application},
 	{POFF(enableLogging), CmdParamType::Bool, "log", '\0', "Full log output, not just emulated printfs", CmdLineMode::Headless},
@@ -615,6 +616,9 @@ void CommandLineOptions::ApplyToConfig() const {
 	if (accurateVdot.has_value()) {
 		g_Config.bAccurateVdot = accurateVdot.value();
 		g_Config.DoNotSaveSetting(&g_Config.bAccurateVdot);
+	}
+	if (jitProfile.has_value()) {
+		g_Config.sJitProfileFile = jitProfile.value();
 	}
 
 	if (root.has_value()) {

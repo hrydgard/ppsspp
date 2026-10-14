@@ -694,6 +694,7 @@
     <ClCompile Include="MIPS\ARM\ArmIRJit.cpp" />
     <ClCompile Include="MIPS\ARM\ArmIRRegCache.cpp" />
     <ClCompile Include="MIPS\JitCommon\JitCommon.cpp" />
+    <ClCompile Include="MIPS\JitCommon\JitProfiler.cpp" />
     <ClCompile Include="MIPS\JitCommon\JitState.cpp" />
     <ClCompile Include="MIPS\MIPS.cpp" />
     <ClCompile Include="MIPS\MIPSAnalyst.cpp" />
@@ -1019,6 +1020,7 @@
     <ClInclude Include="MIPS\ARM\ArmVfpuDot.h" />
     <ClInclude Include="MIPS\JitCommon\JitBlockCache.h" />
     <ClInclude Include="MIPS\JitCommon\JitCommon.h" />
+    <ClInclude Include="MIPS\JitCommon\JitProfiler.h" />
     <ClInclude Include="MIPS\JitCommon\JitState.h" />
     <ClInclude Include="MIPS\MIPS.h" />
     <ClInclude Include="MIPS\MIPSAnalyst.h" />
