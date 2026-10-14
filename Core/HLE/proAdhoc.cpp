@@ -1792,7 +1792,7 @@ int getLocalIp(sockaddr_in* SocketAddress) {
 			socklen_t namelen = sizeof(name);
 			err = getsockname(sock, (struct sockaddr*)&name, &namelen);
 			if (err != SOCKET_ERROR) {
-				SocketAddress->sin_addr = name.sin_addr; // May be we should cache this so it doesn't need to use connect all the time, or even better cache it when connecting to adhoc server to get an accurate IP
+				SocketAddress->sin_addr = name.sin_addr;
 				cachedLocalIpMutex.lock();
 				cachedLocalIp = name.sin_addr.s_addr;
 				cachedLocalIpMutex.unlock();
