@@ -11,8 +11,8 @@
 #include "ext/xxhash.h"
 #include "Common/StringUtils.h"
 #include "Common/File/FileUtil.h"
-#include "Core/Config.h"
 #include "Core/MemMap.h"
+#include "Core/MIPS/MIPS.h"
 #include "Core/Reporting.h"
 #include "Core/RetroAchievements.h"
 #include "Common/System/Display.h"
@@ -354,6 +354,7 @@ void ImMemView::EditMemory(int newNibble) {
 		out = (og & 0x0F) | (newNibble << 4);
 	}
 	Memory::WriteUnchecked_U8((u8)out, curAddress_);
+	currentMIPS->InvalidateICacheRangeDeferred(curAddress_ & ~3, 4);
 	ScrollCursor(1, GotoMode::RESET);
 }
 
@@ -365,8 +366,10 @@ void ImMemView::CopyToByteClipboard() {
 }
 
 void ImMemView::PasteFromByteClipboard() {
-	if (editableMemory_)
+	if (editableMemory_) {
 		Memory::MemcpyUnchecked(curAddress_, byteClipboard_.data(), (u32)byteClipboard_.size());
+		currentMIPS->InvalidateICacheRangeDeferred(curAddress_, (u32)byteClipboard_.size());
+	}
 }
 
 void ImMemView::toggleEditableMemory(bool toggle) {
@@ -388,6 +391,7 @@ void ImMemView::onChar(int c) {
 
 	if (asciiSelected_) {
 		Memory::WriteUnchecked_U8((u8)c, curAddress_);
+		currentMIPS->InvalidateICacheRangeDeferred(curAddress_ & ~3, 4);
 		ScrollCursor(1, GotoMode::RESET);
 	} else {
 		c = tolower(c);
@@ -403,6 +407,7 @@ void ImMemView::onChar(int c) {
 			oldValue &= ~(0xF << shiftAmount);
 			u8 newValue = oldValue | (inputValue << shiftAmount);
 			Memory::WriteUnchecked_U8(newValue, curAddress_);
+			currentMIPS->InvalidateICacheRangeDeferred(curAddress_ & ~3, 4);
 			ScrollCursor(1, GotoMode::RESET);
 		}
 	}

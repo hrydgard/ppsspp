@@ -204,6 +204,8 @@ void Jit::CompFPComp(int lhs, int rhs, u8 compare, bool allowNaN) {
 	}
 
 	MOVD_xmm(gpr.R(MIPS_REG_FPCOND), XMM0);
+	// 1 rather than the compare's all-ones mask, as on the other cores.
+	AND(32, gpr.R(MIPS_REG_FPCOND), Imm32(1));
 }
 
 void Jit::Comp_FPUComp(MIPSOpcode op) {

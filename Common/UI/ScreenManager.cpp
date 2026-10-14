@@ -1,4 +1,5 @@
 #include "Common/System/Display.h"
+#include "Common/System/System.h"
 #include "Common/Data/Collections/TinySet.h"
 #include "Common/UI/ScreenManager.h"
 #include "Common/UI/Root.h"
@@ -24,10 +25,6 @@ void ScreenManager::switchScreen(Screen *screen) {
 		return;
 	}
 
-	// Note that if a dialog is found, this will be a silent background switch that
-	// will only become apparent if the dialog is closed. The previous screen will stick around
-	// until that switch.
-	// TODO: is this still true?
 	if (!nextStack_.empty()) {
 		for (int i = 0; i < nextStack_.size(); i++) {
 			INFO_LOG(Log::UI, "NextStack contents[%d].screen->tag(): '%s'", i, nextStack_[i].screen->tag());
@@ -137,27 +134,37 @@ void ScreenManager::Update() {
 		overlayScreen_->update();
 	}
 
+	bool topLevel = false;
 	if (!stack_.empty()) {
 		Screen *backScreen = stack_.back().screen;
 		backScreen->update();
 		passInputToMapper_ = backScreen->PassInputToMapper();
+		topLevel = backScreen->isTopLevel();
+	}
+	if (topIsTopLevel_.exchange(topLevel) != topLevel) {
+		System_Notify(SystemNotification::TOP_LEVEL_CHANGED);
 	}
 }
 
 void ScreenManager::switchToNext() {
 	if (nextStack_.empty()) {
 		ERROR_LOG(Log::System, "switchToNext: No nextStack_!");
+		return;
 	}
 
-	Layer temp = {nullptr, 0};
-	if (!stack_.empty()) {
-		temp = stack_.back();
-		temp.screen->focusChanged(ScreenFocusChange::FOCUS_LOST_TOP);
-		stack_.pop_back();
+	// Replaces the whole stack. Most callers switch from a dialog (Play on the game screen, the store,
+	// installers), and replacing only the top left the screens below alive, like one more MainScreen
+	// under every game launched that way.
+	std::vector<Layer> old = std::move(stack_);
+	stack_.clear();
+	if (!old.empty()) {
+		old.back().screen->focusChanged(ScreenFocusChange::FOCUS_LOST_TOP);
 	}
 	stack_.push_back(nextStack_.front());
 	nextStack_.front().screen->focusChanged(ScreenFocusChange::FOCUS_BECAME_TOP);
-	delete temp.screen;
+	for (auto iter = old.rbegin(); iter != old.rend(); ++iter) {
+		delete iter->screen;
+	}
 	UI::SetFocusedView(nullptr, UI::FocusFlags::CAUSE_SCREEN_CHANGE);
 
 	// When will this ever happen? Should handle focus here too?
@@ -390,6 +397,15 @@ void ScreenManager::finishDialog(Screen *dialog, DialogResult result) {
 	dialogResult_ = result;
 }
 
+bool ScreenManager::HasScreenAbove(const Screen *screen) const {
+	for (size_t i = 0; i + 1 < stack_.size(); ++i) {
+		if (stack_[i].screen == screen) {
+			return true;
+		}
+	}
+	return false;
+}
+
 Screen *ScreenManager::dialogParent(const Screen *dialog) const {
 	for (size_t i = 1; i < stack_.size(); ++i) {
 		if (stack_[i].screen == dialog) {
@@ -402,34 +418,37 @@ Screen *ScreenManager::dialogParent(const Screen *dialog) const {
 }
 
 void ScreenManager::processFinishDialog() {
-	if (dialogFinished_) {
-		{
-			// Another dialog may have been pushed before the render, so search for it.
-			Screen *caller = dialogParent(dialogFinished_);
-			bool erased = false;
-			for (size_t i = 0; i < stack_.size(); ++i) {
-				if (stack_[i].screen == dialogFinished_) {
-					stack_[i].screen->focusChanged(ScreenFocusChange::FOCUS_LOST_TOP);
-					stack_.erase(stack_.begin() + i);
-					erased = true;
-				}
-			}
+	// The caller's dialogFinished() can finish the caller too, which sets dialogFinished_ again. So take it
+	// out first (or we'd delete the caller while it's still in the stack) and loop to process the new one.
+	while (dialogFinished_) {
+		const Screen *finished = dialogFinished_;
+		const DialogResult result = dialogResult_;
+		dialogFinished_ = nullptr;
 
-			if (erased && !stack_.empty()) {
-				stack_.back().screen->focusChanged(ScreenFocusChange::FOCUS_BECAME_TOP);
-			}
-
-			if (!caller) {
-				ERROR_LOG(Log::UI, "ERROR: no top screen when finishing dialog");
-			} else if (caller != topScreen()) {
-				// The caller may get confused if we call dialogFinished() now.
-				WARN_LOG(Log::UI, "Skipping non-top dialog when finishing dialog.");
-			} else {
-				caller->dialogFinished(dialogFinished_, dialogResult_);
+		// Another dialog may have been pushed before the render, so search for it.
+		Screen *caller = dialogParent(finished);
+		bool erased = false;
+		for (size_t i = 0; i < stack_.size(); ++i) {
+			if (stack_[i].screen == finished) {
+				stack_[i].screen->focusChanged(ScreenFocusChange::FOCUS_LOST_TOP);
+				stack_.erase(stack_.begin() + i);
+				erased = true;
 			}
 		}
-		delete dialogFinished_;
-		dialogFinished_ = nullptr;
+
+		if (erased && !stack_.empty()) {
+			stack_.back().screen->focusChanged(ScreenFocusChange::FOCUS_BECAME_TOP);
+		}
+
+		if (!caller) {
+			ERROR_LOG(Log::UI, "ERROR: no top screen when finishing dialog");
+		} else if (caller != topScreen()) {
+			// The caller may get confused if we call dialogFinished() now.
+			WARN_LOG(Log::UI, "Skipping non-top dialog when finishing dialog.");
+		} else {
+			caller->dialogFinished(finished, result);
+		}
+		delete finished;
 	}
 }
 

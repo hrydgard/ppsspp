@@ -80,6 +80,7 @@ enum class SystemRequestType {
 	RECREATE_ACTIVITY,  // Android
 	COPY_TO_CLIPBOARD,
 	SHARE_TEXT,
+	SHARE_FILE,
 	SET_WINDOW_TITLE,
 	APPLY_FULLSCREEN_STATE,
 	GRAPHICS_BACKEND_FAILED_ALERT,
@@ -198,7 +199,7 @@ enum SystemProperty {
 
 	// Exposed on Android. Choosing the optimal sample rate for audio
 	// will result in lower latencies. Buffer size is automatically matched
-	// by the OpenSL audio backend, only exposed here for debugging/info.
+	// by the Oboe audio backend, only exposed here for debugging/info.
 	SYSPROP_AUDIO_SAMPLE_RATE,
 	SYSPROP_AUDIO_FRAMES_PER_BUFFER,
 	SYSPROP_AUDIO_OPTIMAL_SAMPLE_RATE,
@@ -239,10 +240,15 @@ enum SystemProperty {
 	SYSPROP_USE_IAP,
 	SYSPROP_USE_APP_STORE,
 	SYSPROP_SUPPORTS_SHARE_TEXT,
+	SYSPROP_SUPPORTS_SHARE_FILE,
 
 	SYSPROP_CAN_RESTRICT_ORIENTATION,
 
 	SYSPROP_INSTALLER_NAME,  // Useful on Android to check if we were installed from the play store.
+	SYSPROP_MICROPHONE_DEVICE_LIST,
+	// The host buffers microphone input, and hands it over on the CPU thread when sceUsbMic sends
+	// "pollRecording". Hosts that push it from their own threads leave this false.
+	SYSPROP_MICROPHONE_NEEDS_POLLING,
 };
 
 // NOTE: Unlike requests or UIMessage, these are synchronous!
@@ -271,6 +277,7 @@ enum class SystemNotification {
 	PAD_STATE_CHANGED,
 	CONFIG_LOADED,
 	BEFORE_CONFIG_SAVE_ON_EXIT,
+	TOP_LEVEL_CHANGED,  // NativeIsAtTopLevel() changed. From the render thread.
 };
 
 // I guess it's not super great architecturally to centralize this, since it's not general - but same with a lot of
@@ -324,7 +331,6 @@ void System_Notify(SystemNotification notification);
 std::vector<std::string> System_GetCameraDeviceList();
 
 bool System_AudioRecordingIsAvailable();
-bool System_AudioRecordingState();
 
 // This will be changed to take an enum. Replacement for the old NativeMessageReceived.
 void System_PostUIMessage(UIMessage message, std::string_view param = "");

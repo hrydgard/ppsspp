@@ -18,8 +18,15 @@
 // This code implements the emulated audio using CoreAudio for iOS
 // Originally written by jtraynham
 
+// Main thread. Init does nothing if neither sound nor the microphone is on.
 void iOSCoreAudioInit();
 void iOSCoreAudioShutdown();
 
 // Applies the audio settings (mix with others, respect silent mode) to the session.
 void iOSCoreAudioUpdateSession();
+
+// Microphone input, for sceUsbMic. These are called on the CPU thread. Input is buffered, and
+// iOSCoreAudioPollRecording hands it over to Microphone::addAudioData.
+void iOSCoreAudioStartRecording(int sampleRate);
+void iOSCoreAudioStopRecording();
+void iOSCoreAudioPollRecording();

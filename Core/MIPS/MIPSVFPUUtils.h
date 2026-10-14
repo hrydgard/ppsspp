@@ -57,6 +57,15 @@ extern double vfpu_sincos_packed(float);
 
 extern float vfpu_asin(float);
 
+// vmin and vmax order values by this key: zeros and denormals are all equal (0), and otherwise
+// -NaN < -inf < negative < positive < inf < NaN, larger mantissas farther from zero. A tie returns
+// the second operand, and the result keeps its bits (cpu/vfpu/minmax_zero, minmax_tie).
+inline int32_t vfpu_minmax_key(uint32_t x) {
+	if ((x & 0x7F800000) == 0)
+		return 0;
+	return (int32_t)(x ^ ((uint32_t)((int32_t)x >> 31) >> 1));
+}
+
 inline float vfpu_clamp(float v, float min, float max) {
 	// Note: NAN is preserved, and -0.0 becomes +0.0 if min=+0.0.
 	return v >= max ? max : (v <= min ? min : v);
@@ -210,6 +219,9 @@ void WriteVector(MIPSState *mips, const float *rs, VectorSize N, int reg);
 
 void GetVectorRegs(u8 regs[4], VectorSize N, int vectorReg);
 void GetMatrixRegs(u8 regs[16], MatrixSize N, int matrixReg);
+// True if the matrix's row or column offset makes it wrap around the end of the 4x4 block (like a
+// 4x4 E623), which GetMatrixRegs handles but code that assumes whole columns doesn't.
+bool MatrixWrapsAround(int matrixReg, MatrixSize N);
  
 // Translate between vector and matrix size. Possibly we should simply
 // join the two enums, but the type safety is kind of nice.

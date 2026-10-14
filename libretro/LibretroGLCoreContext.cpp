@@ -37,7 +37,6 @@ void LibretroGLCoreContext::CreateDrawContext() {
 	renderManager_ = (GLRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	renderManager_->SetInflightFrames(g_Config.iInflightFrames);
 	SetGPUBackend(GPUBackend::OPENGL);
-	draw_->CreatePresets();
 }
 
 void LibretroGLCoreContext::DestroyDrawContext() {

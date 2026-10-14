@@ -500,11 +500,13 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			IR_NEXT;
 		}
 
+		// ARMv7 NEON always flushes denormals and rounds to nearest, whatever FPSCR says, so float
+		// arithmetic stays on VFP there, as on the other hosts (cpu/vfpu/fcr31).
 		IR_CASE(Vec4Add)
 		{
 #if PPSSPP_ARCH(SSE2)
 			_mm_store_ps(&mips->f[inst->dest], _mm_add_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_load_ps(&mips->f[inst->src2])));
-#elif PPSSPP_ARCH(ARM_NEON)
+#elif PPSSPP_ARCH(ARM_NEON) && PPSSPP_ARCH(ARM64)
 			vst1q_f32(&mips->f[inst->dest], vaddq_f32(vld1q_f32(&mips->f[inst->src1]), vld1q_f32(&mips->f[inst->src2])));
 #else
 			for (int i = 0; i < 4; i++)
@@ -517,7 +519,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		{
 #if PPSSPP_ARCH(SSE2)
 			_mm_store_ps(&mips->f[inst->dest], _mm_sub_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_load_ps(&mips->f[inst->src2])));
-#elif PPSSPP_ARCH(ARM_NEON)
+#elif PPSSPP_ARCH(ARM_NEON) && PPSSPP_ARCH(ARM64)
 			vst1q_f32(&mips->f[inst->dest], vsubq_f32(vld1q_f32(&mips->f[inst->src1]), vld1q_f32(&mips->f[inst->src2])));
 #else
 			for (int i = 0; i < 4; i++)
@@ -530,7 +532,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		{
 #if PPSSPP_ARCH(SSE2)
 			_mm_store_ps(&mips->f[inst->dest], _mm_mul_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_load_ps(&mips->f[inst->src2])));
-#elif PPSSPP_ARCH(ARM_NEON)
+#elif PPSSPP_ARCH(ARM_NEON) && PPSSPP_ARCH(ARM64)
 			vst1q_f32(&mips->f[inst->dest], vmulq_f32(vld1q_f32(&mips->f[inst->src1]), vld1q_f32(&mips->f[inst->src2])));
 #else
 			for (int i = 0; i < 4; i++)
@@ -556,7 +558,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		{
 #if PPSSPP_ARCH(SSE2)
 			_mm_store_ps(&mips->f[inst->dest], _mm_mul_ps(_mm_load_ps(&mips->f[inst->src1]), _mm_set1_ps(mips->f[inst->src2])));
-#elif PPSSPP_ARCH(ARM_NEON)
+#elif PPSSPP_ARCH(ARM_NEON) && PPSSPP_ARCH(ARM64)
 			vst1q_f32(&mips->f[inst->dest], vmulq_lane_f32(vld1q_f32(&mips->f[inst->src1]), vdup_n_f32(mips->f[inst->src2]), 0));
 #else
 			const float factor = mips->f[inst->src2];
@@ -1041,30 +1043,19 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		IR_CASE(FDiv)
 			mips->f[inst->dest] = mips->f[inst->src1] / mips->f[inst->src2];
 			IR_NEXT;
+		// These are vmin and vmax, see vfpu_minmax_key.
 		IR_CASE(FMin)
-			if (my_isnan(mips->f[inst->src1]) || my_isnan(mips->f[inst->src2])) {
-				// See interpreter for this logic: this is for vmin, we're comparing mantissa+exp.
-				if (mips->fs[inst->src1] < 0 && mips->fs[inst->src2] < 0) {
-					mips->fs[inst->dest] = std::max(mips->fs[inst->src1], mips->fs[inst->src2]);
-				} else {
-					mips->fs[inst->dest] = std::min(mips->fs[inst->src1], mips->fs[inst->src2]);
-				}
-			} else {
-				mips->f[inst->dest] = std::min(mips->f[inst->src1], mips->f[inst->src2]);
-			}
+		{
+			u32 a = mips->fi[inst->src1], b = mips->fi[inst->src2];
+			mips->fi[inst->dest] = vfpu_minmax_key(a) < vfpu_minmax_key(b) ? a : b;
 			IR_NEXT;
+		}
 		IR_CASE(FMax)
-			if (my_isnan(mips->f[inst->src1]) || my_isnan(mips->f[inst->src2])) {
-				// See interpreter for this logic: this is for vmax, we're comparing mantissa+exp.
-				if (mips->fs[inst->src1] < 0 && mips->fs[inst->src2] < 0) {
-					mips->fs[inst->dest] = std::min(mips->fs[inst->src1], mips->fs[inst->src2]);
-				} else {
-					mips->fs[inst->dest] = std::max(mips->fs[inst->src1], mips->fs[inst->src2]);
-				}
-			} else {
-				mips->f[inst->dest] = std::max(mips->f[inst->src1], mips->f[inst->src2]);
-			}
+		{
+			u32 a = mips->fi[inst->src1], b = mips->fi[inst->src2];
+			mips->fi[inst->dest] = vfpu_minmax_key(a) > vfpu_minmax_key(b) ? a : b;
 			IR_NEXT;
+		}
 
 		IR_CASE(FMov)
 			mips->f[inst->dest] = mips->f[inst->src1];
@@ -1129,16 +1120,16 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			mips->r[inst->dest] = mips->vfpuCtrl[inst->src1];
 			IR_NEXT;
 		IR_CASE(FRound)
-			mips->fs[inst->dest] = SaturatedFloatToInt(round_ieee_754(mips->f[inst->src1]));
+			mips->fs[inst->dest] = SaturatedFloatToInt(round_ieee_754(FlushForConversion(mips, mips->f[inst->src1])));
 			IR_NEXT;
 		IR_CASE(FTrunc)
-			mips->fs[inst->dest] = SaturatedFloatToInt(truncf(mips->f[inst->src1]));
+			mips->fs[inst->dest] = SaturatedFloatToInt(truncf(FlushForConversion(mips, mips->f[inst->src1])));
 			IR_NEXT;
 		IR_CASE(FCeil)
-			mips->fs[inst->dest] = SaturatedFloatToInt(ceilf(mips->f[inst->src1]));
+			mips->fs[inst->dest] = SaturatedFloatToInt(ceilf(FlushForConversion(mips, mips->f[inst->src1])));
 			IR_NEXT;
 		IR_CASE(FFloor)
-			mips->fs[inst->dest] = SaturatedFloatToInt(floorf(mips->f[inst->src1]));
+			mips->fs[inst->dest] = SaturatedFloatToInt(floorf(FlushForConversion(mips, mips->f[inst->src1])));
 			IR_NEXT;
 		IR_CASE(FCmp)
 			switch (inst->dest) {
@@ -1178,7 +1169,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			IR_NEXT;
 		IR_CASE(FCvtWS)
 		{
-			float src = mips->f[inst->src1];
+			float src = FlushForConversion(mips, mips->f[inst->src1]);
 			// TODO: Inline assembly to use here would be better.
 			switch (IRRoundMode(mips->fcr31 & 3)) {
 			case IRRoundMode::RINT_0: mips->fs[inst->dest] = SaturatedFloatToInt(round_ieee_754(src)); break;
@@ -1296,7 +1287,10 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		{
 			// If we get here, the syscall is valid.
 			MIPSOpcode op(inst->constant);
+			// HLE runs in the host's normal mode, see ApplyHostRoundingMode.
+			RestoreHostRoundingMode();
 			CallSyscall(op);
+			ApplyHostRoundingMode(mips);
 			if (coreState != CORE_RUNNING_CPU) {
 				CoreTiming::ForceCheck(mips);
 			}
@@ -1307,7 +1301,9 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		{
 			// If we get here, the syscall is invalid.
 			u32 pc = inst->constant;
+			RestoreHostRoundingMode();
 			CallSyscallUnresolvedAtPC(pc);
+			ApplyHostRoundingMode(mips);
 			if (coreState != CORE_RUNNING_CPU) {
 				// hm, what's this for?
 				CoreTiming::ForceCheck(mips);
@@ -1329,7 +1325,9 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		{
 			int funcIndex = inst->constant;
 			const ReplacementTableEntry *f = GetReplacementFunc(funcIndex);
+			RestoreHostRoundingMode();
 			int cycles = f->replaceFunc();
+			ApplyHostRoundingMode(mips);
 			mips->r[inst->dest] = cycles < 0 ? -1 : 0;
 			mips->downcount -= cycles < 0 ? -cycles : cycles;
 			IR_NEXT;
@@ -1351,7 +1349,9 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			ApplyHostRoundingMode(mips);
 			IR_NEXT;
 		IR_CASE(RestoreRoundingMode)
-			RestoreHostRoundingMode();
+			// Forced: a native backend may get here through its generic fallback, after its own
+			// asm applied the mode.
+			RestoreHostRoundingMode(true);
 			IR_NEXT;
 		IR_CASE(UpdateRoundingMode)
 			// TODO: Implement

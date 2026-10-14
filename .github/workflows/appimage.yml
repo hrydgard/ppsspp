@@ -42,6 +42,8 @@ jobs:
     container: ghcr.io/pkgforge-dev/archlinux:latest
     env:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
+      # Unlimited, a cache once reached 1.2 GB.
+      CCACHE_MAXSIZE: 500M
       CCACHE_COMPILERCHECK: content
       CCACHE_SLOPPINESS: time_macros
     steps:
@@ -51,7 +53,6 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
-          submodules: recursive
 
       - name: Check Valid Version Tags
         id: valid-tags
@@ -68,8 +69,17 @@ jobs:
           git remote add upstream https://github.com/hrydgard/ppsspp.git # fetching from official repo as a fallback
           git fetch --deepen=15000 --no-recurse-submodules --tags --force upstream || exit 0
 
+      # Only the FFmpeg libraries this build uses. See the script.
+      - name: Check out submodules
+        shell: bash
+        run: |
+          # The container runs as another user than the one that owns the checkout.
+          git config --global --add safe.directory '*'
+          .github/checkout-submodules.sh /linux/${{ matrix.id }}/
+
+      # Only master saves the cache (see build.yml), so restoring and saving are separate.
       - name: Set up ccache for ${{ matrix.id }}
-        uses: actions/cache@v6.1.0
+        uses: actions/cache/restore@v6.1.0
         with:
           path: ${{ env.CCACHE_DIR }}
           key: ${{ runner.os }}-ccache-${{ matrix.id }}-${{ github.sha }}
@@ -169,6 +179,13 @@ jobs:
           make -j$(nproc)
           popd
           ccache -s -v
+
+      - name: Save ccache for ${{ matrix.id }}
+        if: github.ref == 'refs/heads/master'
+        uses: actions/cache/save@v6.1.0
+        with:
+          path: ${{ env.CCACHE_DIR }}
+          key: ${{ runner.os }}-ccache-${{ matrix.id }}-${{ github.sha }}
 
       - name: Create AppImage
         shell: bash

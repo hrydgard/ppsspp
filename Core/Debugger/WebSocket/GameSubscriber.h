@@ -23,6 +23,7 @@ DebuggerSubscriber *WebSocketGameInit(DebuggerEventHandlerMap &map);
 
 void WebSocketGameReset(DebuggerRequest &req);
 void WebSocketGameStatus(DebuggerRequest &req);
+void WebSocketGameStateLoad(DebuggerRequest &req);
 void WebSocketGameSpeedGet(DebuggerRequest &req);
 void WebSocketGameSpeedSet(DebuggerRequest &req);
 void WebSocketVersion(DebuggerRequest &req);

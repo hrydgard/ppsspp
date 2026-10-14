@@ -23,6 +23,7 @@
 #include "Core/Reporting.h"
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/MemMap.h"
+#include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/IR/IRFrontend.h"
 #include "Core/MIPS/IR/IRRegCache.h"
@@ -61,6 +62,18 @@ void IRFrontend::DoState(PointerWrap &p) {
 	// The debugger sets this so that "go" on a breakpoint will actually... go.
 	// But if they reset, we can end up hitting it by mistake, since it's based on PC and ticks.
 	g_breakpoints.SetSkipFirst(0);
+}
+
+bool IRFrontend::UpdateFCR31(u32 fcr31) {
+	// fcr31 can reach a non-default mode without a compiled ctc1 (an interpreted one, a savestate,
+	// a core switch, a thread switch). Blocks compiled before that don't switch modes around
+	// syscalls or conversions, so the caller throws them away.
+	if ((fcr31 & 0x01000003) && !js.hasSetRounding) {
+		js.hasSetRounding = true;
+		js.lastSetRounding = true;
+		return true;
+	}
+	return false;
 }
 
 void IRFrontend::FlushAll() {
@@ -142,7 +155,16 @@ bool IRFrontend::CheckRounding(u32 blockAddress) {
 }
 
 void IRFrontend::Comp_ReplacementFunc(MIPSOpcode op) {
-	int index = op.encoding & MIPS_EMUHACK_VALUE_MASK;
+	// Memory never holds these: if it does, the game is executing data. Let the interpreter raise it.
+	if (Memory::Read_Instruction(GetCompilerPC()).encoding == op.encoding) {
+		// The interpreter checks memory at PC, which Comp_Generic doesn't set here.
+		FlushAll();
+		ir.Write(IROp::SetPCConst, 0, 0, 0, GetCompilerPC());
+		Comp_Generic(op);
+		return;
+	}
+
+	int index = op.encoding & MIPS_REPLACEMENT_INDEX_MASK;
 
 	const ReplacementTableEntry *entry = GetReplacementFunc(index);
 	if (!entry) {
@@ -162,7 +184,7 @@ void IRFrontend::Comp_ReplacementFunc(MIPSOpcode op) {
 	}
 
 	if (disabled) {
-		MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC(), true), this);
+		MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC()), this);
 	} else if (entry->replaceFunc) {
 		FlushAll();
 		RestoreRoundingMode();
@@ -172,7 +194,7 @@ void IRFrontend::Comp_ReplacementFunc(MIPSOpcode op) {
 		if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
 			// Compile the original instruction at this address.  We ignore cycles for hooks.
 			ApplyRoundingMode();
-			MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC(), true), this);
+			MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC()), this);
 		} else {
 			ApplyRoundingMode();
 			// If IRTEMP_0 was set to 1, it means the replacement needs to run again (sliced.)
@@ -189,8 +211,18 @@ void IRFrontend::Comp_ReplacementFunc(MIPSOpcode op) {
 
 void IRFrontend::Comp_Generic(MIPSOpcode op) {
 	FlushAll();
-	ir.Write(IROp::Interpret, 0, 0, 0, op.encoding);
 	const MIPSInfo info = MIPSGetInfo(op);
+	// Interpreted ops run in the guest's rounding mode. A syscall is host code (like a compiled one),
+	// and only ctc1 to fcr31 changes the mode, so only those need it switched.
+	const bool isSyscall = (info & IS_SYSCALL) != 0;
+	const bool setsMode = MIPS_IS_CTC1_FCR31(op.encoding);
+	if (isSyscall || setsMode)
+		RestoreRoundingMode(setsMode);
+	ir.Write(IROp::Interpret, 0, 0, 0, op.encoding);
+	if (setsMode)
+		UpdateRoundingMode();
+	if (isSyscall || setsMode)
+		ApplyRoundingMode(setsMode);
 	if ((info & IS_VFPU) != 0 && (info & VFPU_NO_PREFIX) == 0) {
 		// If it does eat them, it'll happen in MIPSCompileOp().
 		if ((info & OUT_EAT_PREFIX) == 0)
@@ -238,7 +270,8 @@ u32 IRFrontend::GetCompilerPC() {
 }
 
 MIPSOpcode IRFrontend::GetOffsetInstruction(int offset) {
-	return Memory::Read_Instruction(GetCompilerPC() + 4 * offset);
+	const u32 addr = GetCompilerPC() + 4 * offset;
+	return Memory::IsValid4AlignedAddress(addr) ? ReadExecutedOp(addr) : Memory::Read_Instruction(addr);
 }
 
 void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes) {
@@ -264,7 +297,7 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &m
 		// Jit breakpoints are quite fast, so let's do them in release too.
 		CheckBreakpoint(GetCompilerPC());
 
-		MIPSOpcode inst = Memory::Read_Opcode_JIT(GetCompilerPC());
+		MIPSOpcode inst = ReadExecutedOp(GetCompilerPC());
 		js.downcountAmount += MIPSGetInstructionCycleEstimate(inst);
 		MIPSCompileOp(inst, this);
 		js.compilerPC += 4;
@@ -323,7 +356,7 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &m
 		NOTICE_LOG(Log::JIT, "=============== mips %08x ===============", em_address);
 		for (u32 cpc = em_address; cpc != GetCompilerPC(); cpc += 4) {
 			temp2[0] = 0;
-			MIPSDisAsm(Memory::Read_Opcode_JIT(cpc), cpc, temp2, sizeof(temp2), true);
+			MIPSDisAsm(Memory::ReadUnchecked_Instruction(cpc), cpc, temp2, sizeof(temp2), true);
 			NOTICE_LOG(Log::JIT, "M: %08x   %s", cpc, temp2);
 		}
 	}
@@ -354,11 +387,6 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &m
 		dontLogBlocks--;
 }
 
-void IRFrontend::Comp_RunBlock(MIPSOpcode op) {
-	// This shouldn't be necessary, the dispatcher should catch us before we get here.
-	ERROR_LOG(Log::JIT, "Comp_RunBlock should never be reached!");
-}
-
 void IRFrontend::CheckBreakpoint(u32 addr) {
 	if (g_breakpoints.NeedsBreakCheckAt(addr)) {
 		FlushAll();
@@ -370,8 +398,8 @@ void IRFrontend::CheckBreakpoint(u32 addr) {
 		// At this point, downcount HAS the delay slot, but not the instruction itself.
 		int downcountOffset = 0;
 		if (js.inDelaySlot) {
-			MIPSOpcode branchOp = Memory::Read_Opcode_JIT(GetCompilerPC());
-			MIPSOpcode delayOp = Memory::Read_Opcode_JIT(addr);
+			MIPSOpcode branchOp = Memory::ReadUnchecked_Instruction(GetCompilerPC());
+			MIPSOpcode delayOp = Memory::ReadUnchecked_Instruction(addr);
 			downcountOffset = -MIPSGetInstructionCycleEstimate(delayOp);
 			if ((MIPSGetInfo(branchOp) & LIKELY) != 0) {
 				// Okay, we're in a likely branch.  Also negate the branch cycles.
@@ -403,8 +431,8 @@ void IRFrontend::CheckMemoryBreakpoint(int rs, int offset) {
 		int downcountOffset = 0;
 		if (js.inDelaySlot) {
 			// We assume delay slot in compilerPC + 4.
-			MIPSOpcode branchOp = Memory::Read_Opcode_JIT(GetCompilerPC());
-			MIPSOpcode delayOp = Memory::Read_Opcode_JIT(GetCompilerPC() + 4);
+			MIPSOpcode branchOp = Memory::ReadUnchecked_Instruction(GetCompilerPC());
+			MIPSOpcode delayOp = Memory::ReadUnchecked_Instruction(GetCompilerPC() + 4);
 			downcountOffset = -MIPSGetInstructionCycleEstimate(delayOp);
 			if ((MIPSGetInfo(branchOp) & LIKELY) != 0) {
 				// Okay, we're in a likely branch.  Also negate the branch cycles.

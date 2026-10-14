@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Common/Math/CrossSIMD.h"
+#include "Common/Data/Convert/SmallDataConvert.h"
 #include "GPU/Common/VertexDecoderCommon.h"
 
 // Reads decoded vertex formats in a convenient way. For software transform and debugging.
@@ -36,6 +37,12 @@ public:
 		pos[1] = f[1];
 		// Integer value passed in a float. Clamped to 0, 65535 (but where?)
 		pos[2] = f[2];
+	}
+
+	// (x, y, z, 1).
+	Vec4F32 ReadPosOne() const {
+		// Only DEC_FLOAT_3 is supported.
+		return Vec4F32::Load3One((const float *)(data_ + decFmt_.posoff));
 	}
 
 	void ReadPosNonThrough(float pos[3]) const {

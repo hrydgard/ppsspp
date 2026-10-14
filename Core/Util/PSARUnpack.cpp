@@ -1353,6 +1353,11 @@ bool UnpackUpdaterFromMountedDisc(const Path &outputDir, const PSARUnpackOptions
 		return false;
 	}
 
+	// Write a nomedia file to avoid Android indexing the files.
+#if PPSSPP_PLATFORM(ANDROID)
+	File::CreateEmptyFile(outputDir / ".nomedia");
+#endif
+
 	INFO_LOG(Log::Loader, "Found a %d byte updater on the mounted disc", (int)psar.size());
 	return UnpackPSAR(psar.data(), psar.size(), outputDir, options, stats, error);
 }
@@ -1488,6 +1493,12 @@ bool AutoInstallFirmwareFromDisc() {
 	}
 
 	const Path nandRoot = GetSysDirectory(DIRECTORY_NAND);
+
+	// Write a nomedia file to avoid Android indexing the files.
+#if PPSSPP_PLATFORM(ANDROID)
+	File::CreateEmptyFile(nandRoot / ".nomedia");
+#endif
+
 	InstalledFirmwareInfo installed;
 	ReadInstalledFirmwareInfo(nandRoot, &installed, false);
 

@@ -220,6 +220,14 @@ To smoke-test a CPU or GPU change on real games, run the old and the new binary 
 run to run, so a different screenshot means different behaviour. God of War: Chains of Olympus isn't: its menu
 animation follows wall-clock time, so even the same binary lands on different frames.
 
+To check that a game keeps running after `--state=` loads, pass `--frame-stats`: at the end of the run it prints
+the flips in each emulated second since the load. A stuck or crashed game shows as zeros or a short list, and a
+steady game as a flat 30 or 60. The state's load result is printed too, and a failed load exits 1.
+
+For audio, `--dump-audio=FILE.wav` records the mixed output (before the game volume setting) for the whole run.
+An audio glitch you can hear usually shows in the waveform: a click is a jump between neighbouring samples, and
+a repeated or dropped mixer block is two identical 64-sample runs in a row.
+
 Pass `--graphics` explicitly even when you want the default, so a copied command line doesn't depend on it. If a
 run goes silent with no CPU use, a host thread is blocked, and neither `--timeout-wall` nor `--timeout-emulated`
 will end it, as both are only checked when the emulation loop comes around.
@@ -309,4 +317,65 @@ relocations, and immediately showed that the first fix attempt scored worse than
 
 Reach for that before trying to reason a fix out of a disassembly. A few dozen lines of Python over the ELF beats
 re-running the game.
+
+## Finding a game function to replace by hash
+
+The tell is a game that's right on the software renderer and stale on the hardware backends, usually a video
+that sticks on its first frame while the audio plays on. The game is writing pixels into VRAM with the CPU, and
+the hardware backends only see that when it goes through something we hook. Games ship their own `memcpy`,
+`memset` and so on, and we recognise known ones by a hash of their code: the `hardcodedHashes` table in
+`Core/MIPS/MIPSAnalyst.cpp` names them, and `Core/HLE/ReplaceTables.cpp` swaps in a replacement
+(`Replace_memcpy` hands VRAM copies to `gpu->PerformMemoryCopy`). SSX On Tour's videos were fixed this way.
+
+Finding the function:
+
+1. **Get to the right moment.** Confirm the thing is actually happening before breaking on it - SSX's
+   videos only start 11.5s in, and a screenshot from earlier just shows the paper background. `memory.read` of
+   the decode buffer at a few `cpu.runUntilTime` points tells you when it starts changing.
+2. **Break on the write**, under the interpreter (`-i`), since JIT memory breakpoints only work for constant
+   addresses: `memory.breakpoint.add address=<a pixel mid-framebuffer> size=4 write=true enabled=true`, then
+   `cpu.resume`. Pick a pixel in the middle of the frame, not the first one, which clears also hit.
+3. **`hle.backtrace`** gives the function's entry address. Addresses come back
+   as decimal in JSON; convert carefully (`145311076` is `08a94564`, not `08ab1564`).
+4. **`memory.disasm` the whole function** and check that it really is what you're going to call it: argument
+   order (`a0` dest, `a1` src, `a2` size for memcpy), and no side effects the replacement wouldn't have. A
+   replacement that doesn't match the original is a much worse bug than the one it fixes.
+
+Steps 2 and 3 as one script (the SSX run, so 12s in and a pixel at 240,136 of each 8888 stride-512
+framebuffer). Parameters take hex as well as decimal; replies are always decimal:
+
+```
+cpu.runUntilTime us=12000000
+memory.breakpoint.add address=0x040443c0 size=4 write=true enabled=true
+memory.breakpoint.add address=0x040cc3c0 size=4 write=true enabled=true
+cpu.resume
+hle.backtrace
+:quit
+```
+
+```bash
+Tools/wsdbg/target/release/wsdbg.exe --sync --compact --quiet --launch \
+    Windows/x64/Release/PPSSPPHeadless.exe GAME.iso --memstick=memstick -i --graphics=vulkan \
+    --timeout-wall=240 < script.txt 2>/dev/null | grep -v '^<- log'
+```
+
+The first `hle.backtrace` frame is the writer: `entry` is the function's start, `code` the store that hit.
+Follow up with `memory.disasm address=<entry> count=64` and `hle.func.hash address=<entry>` in the same
+session. Once a replacement is in place, the same script shows it working: the hit's `source` reads
+`GPUMemcpy/...`, its `pc` is the function's entry, and the backtrace starts at the caller.
+
+Getting the hash: `hle.func.hash address=<anywhere in the function>` returns what the table entry needs:
+
+```
+<- hle.func.hash {"address":145310976,"hash":"3966eef670a93781","known":null,"size":188}
+```
+
+`known` names the entry that already matches, if any (it read `memcpy` once SSX's was added). The hash is the
+one `HashFunctions()` in `MIPSAnalyst.cpp` takes when the code is scanned (CityHash64 over the
+instructions with immediates masked out), so it doesn't depend on where the function was loaded.
+
+Add the entry to `hardcodedHashes` in hash order, with a comment naming the game. Then check that it took
+effect: with `--log --loglevel=4` the loader prints `Replaced memcpy at 08a94500 with hash 3966eef670a93781`.
+Check other regions of the game too. Since the hash doesn't depend on address, they usually match the same
+entry (SSX's Korean release has the function at `08a94200`).
 

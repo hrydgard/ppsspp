@@ -173,6 +173,7 @@ LinkedShader::LinkedShader(GLRenderManager *render, VShaderID VSID, Shader *vs, 
 
 	queries.push_back({ &u_depal_mask_shift_off_fmt, "u_depal_mask_shift_off_fmt" });
 	queries.push_back({ &u_mipBias, "u_mipBias" });
+	queries.push_back({ &u_texLodBias, "u_texLodBias" });
 
 	attrMask = vs->GetAttrMask();
 	availableUniforms = vs->GetUniformMask() | fs->GetUniformMask();
@@ -447,21 +448,27 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, const ShaderLanguageDesc
 		render_->SetUniformF(&u_uvscaleoffset, 4, uvscaleoff);
 	}
 
-	if ((dirty & DIRTY_TEXCLAMP) && u_texclamp != -1) {
+	// No checks for a location of -1 here: the GL thread fills the locations in when it links the program, which
+	// may be after this runs, and skips the uniforms a program doesn't have itself. Skipping them here dropped the
+	// values for good on drivers that link slowly (PowerVR and Mali sampled Harvest Moon's framebuffer at one
+	// point, with no texture clamp values).
+	if (dirty & DIRTY_TEXCLAMP) {
 		float texclamp[4];
 		float texclampoff[2];
 		CalcTexClamp(texclamp, texclampoff);
 		render_->SetUniformF(&u_texclamp, 4, texclamp);
-		if (u_texclampoff != -1) {
-			render_->SetUniformF(&u_texclampoff, 2, texclampoff);
-		}
+		render_->SetUniformF(&u_texclampoff, 2, texclampoff);
 	}
 
-	if ((dirty & DIRTY_MIPBIAS) && u_mipBias != -1) {
+	if (dirty & DIRTY_MIPBIAS) {
 		float mipBias = (float)gstate.getTexLevelOffset16() * (1.0 / 16.0f);
 		mipBias = (mipBias + 0.5f) / (float)(gstate.getTextureMaxLevel() + 1);
 
 		render_->SetUniformF(&u_mipBias, 1, &mipBias);
+
+		// For GPU_USE_SHADER_LOD_BIAS, like ShaderUniforms.cpp: the sampler applies the bias only in auto mode.
+		float lodBias = gstate.getTexLevelMode() == GE_TEXLEVEL_MODE_AUTO ? (float)gstate.getTexLevelOffset16() * (1.0f / 16.0f) : 0.0f;
+		render_->SetUniformF(&u_texLodBias, 1, &lodBias);
 	}
 
 	// Transform
@@ -520,20 +527,14 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, const ShaderLanguageDesc
 	}
 
 	if (dirty & DIRTY_SHADERBLEND) {
-		if (u_blendFixA != -1) {
-			SetColorUniform3(render_, &u_blendFixA, gstate.getFixA());
-		}
-		if (u_blendFixB != -1) {
-			SetColorUniform3(render_, &u_blendFixB, gstate.getFixB());
-		}
+		SetColorUniform3(render_, &u_blendFixA, gstate.getFixA());
+		SetColorUniform3(render_, &u_blendFixB, gstate.getFixB());
 
 		const float fbotexSize[2] = {
 			1.0f / (float)gstate_c.curRTRenderWidth,
 			1.0f / (float)gstate_c.curRTRenderHeight,
 		};
-		if (u_fbotexSize != -1) {
-			render_->SetUniformF(&u_fbotexSize, 2, fbotexSize);
-		}
+		render_->SetUniformF(&u_fbotexSize, 2, fbotexSize);
 	}
 
 	// Lighting
@@ -564,15 +565,13 @@ void LinkedShader::UpdateUniforms(const ShaderID &vsid, const ShaderLanguageDesc
 			} else {
 				SetFloat24Uniform3(render_, &u_lightpos[i], &gstate.lpos[i * 3]);
 			}
-			if (u_lightdir[i] != -1) SetFloat24Uniform3Normalized(render_, &u_lightdir[i], &gstate.ldir[i * 3]);
-			if (u_lightatt[i] != -1) SetFloat24Uniform3(render_, &u_lightatt[i], &gstate.latt[i * 3]);
-			if (u_lightangle_spotCoef[i] != -1) {
-				float lightangle_spotCoef[2] = { getFloat24(gstate.lcutoff[i]), PSPLightExponent(getFloat24(gstate.lconv[i])) };
-				SetFloatUniform2(render_, &u_lightangle_spotCoef[i], lightangle_spotCoef);
-			}
-			if (u_lightambient[i] != -1) SetColorUniform3(render_, &u_lightambient[i], gstate.lcolor[i * 3]);
-			if (u_lightdiffuse[i] != -1) SetColorUniform3(render_, &u_lightdiffuse[i], gstate.lcolor[i * 3 + 1]);
-			if (u_lightspecular[i] != -1) SetColorUniform3(render_, &u_lightspecular[i], gstate.lcolor[i * 3 + 2]);
+			SetFloat24Uniform3Normalized(render_, &u_lightdir[i], &gstate.ldir[i * 3]);
+			SetFloat24Uniform3(render_, &u_lightatt[i], &gstate.latt[i * 3]);
+			float lightangle_spotCoef[2] = { getFloat24(gstate.lcutoff[i]), PSPLightExponent(getFloat24(gstate.lconv[i])) };
+			SetFloatUniform2(render_, &u_lightangle_spotCoef[i], lightangle_spotCoef);
+			SetColorUniform3(render_, &u_lightambient[i], gstate.lcolor[i * 3]);
+			SetColorUniform3(render_, &u_lightdiffuse[i], gstate.lcolor[i * 3 + 1]);
+			SetColorUniform3(render_, &u_lightspecular[i], gstate.lcolor[i * 3 + 2]);
 		}
 	}
 }

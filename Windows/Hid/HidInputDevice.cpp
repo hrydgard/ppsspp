@@ -193,7 +193,7 @@ void HidInputDevice::ReleaseAllKeys(const ButtonInputMapping *buttonMappings, in
 	for (int i = 0; i < count; i++) {
 		const auto &mapping = buttonMappings[i];
 		KeyInput key;
-		key.deviceId = DEVICE_ID_XINPUT_0 + pad_;
+		key.deviceId = DeviceID(pad_);
 		key.flags = KeyInputFlags::UP;
 		key.keyCode = mapping.keyCode;
 		NativeKey(key);
@@ -210,7 +210,7 @@ void HidInputDevice::ReleaseAllKeys(const ButtonInputMapping *buttonMappings, in
 
 	for (const auto axisId : allAxes) {
 		AxisInput axis;
-		axis.deviceId = DEVICE_ID_XINPUT_0 + pad_;
+		axis.deviceId = DeviceID(pad_);
 		axis.axisId = axisId;
 		axis.value = 0;
 		NativeAxis(&axis, 1);
@@ -221,8 +221,38 @@ InputDeviceID HidInputDevice::DeviceID(int pad) {
 	return DEVICE_ID_PAD_0 + pad;
 }
 
+static void GetButtonInputMappings(HIDControllerType subType, const ButtonInputMapping **mappings, size_t *size) {
+	if (subType == HIDControllerType::SwitchPro) {
+		GetSwitchButtonInputMappings(mappings, size);
+	} else {
+		GetPSButtonInputMappings(mappings, size);
+	}
+}
+
+void HidInputDevice::Disconnect() {
+	const ButtonInputMapping *buttonMappings = nullptr;
+	size_t buttonMappingsSize = 0;
+	GetButtonInputMappings(subType_, &buttonMappings, &buttonMappingsSize);
+
+	KeyMap::NotifyPadDisconnected(DeviceID(pad_));
+	ReleaseAllKeys(buttonMappings, (int)buttonMappingsSize);
+	CloseHandle(controller_);
+	controller_ = nullptr;
+	// Otherwise buttons held at disconnect aren't sent again on reconnect.
+	prevState_ = {};
+	pollCount_ = POLL_FREQ;
+}
+
 int HidInputDevice::UpdateState() {
 	const InputDeviceID deviceID = DeviceID(pad_);
+
+	if (!g_Config.bAllowHIDInput) {
+		// Don't keep the device open, or block the input thread reading it, when HID input is off.
+		if (controller_) {
+			Disconnect();
+		}
+		return 0;
+	}
 
 	if (!controller_) {
 		// Poll for controllers from time to time.
@@ -242,22 +272,19 @@ int HidInputDevice::UpdateState() {
 		}
 	}
 
-	const bool sendInput = g_Config.bAllowHIDInput;
-
 	if (controller_) {
-		HIDControllerState state{};
+		// The readers leave the state alone for reports they don't understand.
+		HIDControllerState state = prevState_;
 		bool result = false;
 		const ButtonInputMapping *buttonMappings = nullptr;
 		size_t buttonMappingsSize = 0;
+		GetButtonInputMappings(subType_, &buttonMappings, &buttonMappingsSize);
 		if (subType_ == HIDControllerType::DualShock) {
 			result = ReadDualShockInput(controller_, &state, inReportSize_);
-			GetPSButtonInputMappings(&buttonMappings, &buttonMappingsSize);
 		} else if (subType_ == HIDControllerType::DualSense) {
 			result = ReadDualSenseInput(controller_, &state, inReportSize_);
-			GetPSButtonInputMappings(&buttonMappings, &buttonMappingsSize);
 		} else if (subType_ == HIDControllerType::SwitchPro) {
 			result = ReadSwitchProInput(controller_, &state);
-			GetSwitchButtonInputMappings(&buttonMappings, &buttonMappingsSize);
 		}
 
 		if (result) {
@@ -267,14 +294,14 @@ int HidInputDevice::UpdateState() {
 
 			for (u32 i = 0; i < buttonMappingsSize; i++) {
 				const ButtonInputMapping &mapping = buttonMappings[i];
-				if ((downMask & mapping.button) && sendInput) {
+				if (downMask & mapping.button) {
 					KeyInput key;
 					key.deviceId = deviceID;
 					key.flags = KeyInputFlags::DOWN;
 					key.keyCode = mapping.keyCode;
 					NativeKey(key);
 				}
-				if ((upMask & mapping.button) && sendInput) {
+				if (upMask & mapping.button) {
 					KeyInput key;
 					key.deviceId = deviceID;
 					key.flags = KeyInputFlags::UP;
@@ -284,7 +311,7 @@ int HidInputDevice::UpdateState() {
 			}
 
 			for (const auto &mapping : g_psStickMappings) {
-				if (state.stickAxes[mapping.stickAxis] != prevState_.stickAxes[mapping.stickAxis] && sendInput) {
+				if (state.stickAxes[mapping.stickAxis] != prevState_.stickAxes[mapping.stickAxis]) {
 					AxisInput axis;
 					axis.deviceId = deviceID;
 					axis.axisId = mapping.inputAxis;
@@ -294,7 +321,7 @@ int HidInputDevice::UpdateState() {
 			}
 
 			for (const auto &mapping : g_psTriggerMappings) {
-				if (state.triggerAxes[mapping.triggerAxis] != prevState_.triggerAxes[mapping.triggerAxis] && sendInput) {
+				if (state.triggerAxes[mapping.triggerAxis] != prevState_.triggerAxes[mapping.triggerAxis]) {
 					AxisInput axis;
 					axis.deviceId = deviceID;
 					axis.axisId = mapping.inputAxis;
@@ -303,7 +330,7 @@ int HidInputDevice::UpdateState() {
 				}
 			}
 
-			if (state.accValid && sendInput) {
+			if (state.accValid) {
 				NativeAccelerometer(state.accelerometer[0], state.accelerometer[1], state.accelerometer[2]);
 			}
 
@@ -312,11 +339,7 @@ int HidInputDevice::UpdateState() {
 		} else {
 			INFO_LOG(Log::System, "Failed to read controller - assuming disconnected.");
 			// might have been disconnected. retry later.
-			KeyMap::NotifyPadDisconnected(deviceID);
-			ReleaseAllKeys(buttonMappings, (int)buttonMappingsSize);
-			CloseHandle(controller_);
-			controller_ = NULL;
-			pollCount_ = POLL_FREQ;
+			Disconnect();
 		}
 	}
 	return 0;

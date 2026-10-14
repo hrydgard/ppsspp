@@ -23,7 +23,6 @@
 
 #include "Common/CommonTypes.h"
 #include "Common/Data/Collections/Hashmaps.h"
-#include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Log.h"
 #include "Common/LogReporting.h"
 #include "GPU/ge_constants.h"
@@ -138,6 +137,9 @@ typedef void (*JittedVertexDecoder)(const u8 *src, u8 *dst, int count, const UVS
 
 struct VertexDecoderOptions {
 	bool expand8BitNormalsToFloat;
+	// Weighted vertices outside through mode get no position or normal, only room for them as floats: the
+	// software renderer skins them itself, as the GE does.
+	bool callerSkins;
 };
 
 inline uint32_t GetVertTypeID(uint32_t vertType, int uvGenMode) {

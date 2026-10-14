@@ -22,7 +22,6 @@
 
 #include "Common/CPUDetect.h"
 #include "Common/Log.h"
-#include "Core/Config.h"
 #include "Common/Arm64Emitter.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "GPU/GPUState.h"

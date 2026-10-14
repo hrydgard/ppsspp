@@ -59,7 +59,7 @@ public:
 	TextureShaderCache(Draw::DrawContext *draw, Draw2D *draw2D);
 	~TextureShaderCache();
 
-	Draw2DPipeline *GetDepalettizeShader(uint32_t clutMode, GETextureFormat texFormat, GEBufferFormat pixelFormat, bool smoothedDepal, u32 depthUpperBits);
+	Draw2DPipeline *GetDepalettizeShader(uint32_t clutMode, GETextureFormat texFormat, GEBufferFormat pixelFormat, bool smoothedDepal, u32 depthUpperBits, bool depthIntoHalves = false);
 
 	Draw::SamplerState *GetSampler(bool linearFilter);
 

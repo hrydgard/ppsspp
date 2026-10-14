@@ -138,14 +138,19 @@ public:
 	virtual bool WantsTextInput() const { return false; }
 
 protected:
+	// Requests made while creating views (by the views themselves, or with callbacks that capture them) get a separate
+	// token, so they can be forgotten when the views are deleted, while the screen's own requests stay alive.
 	int GetRequesterToken();
-	void WipeRequesterToken() {
-		token_ = -1;
-	}
+	void SetCreatingViews(bool creating) { creatingViews_ = creating; }
+	bool IsCreatingViews() const { return creatingViews_; }
+	// Drops the callbacks of pending requests made by the views, which are about to be deleted.
+	void ForgetViewRequests();
 
 private:
 	ScreenManager *screenManager_ = nullptr;
 	int token_ = -1;
+	int viewsToken_ = -1;
+	bool creatingViews_ = false;
 
 	DISALLOW_COPY_AND_ASSIGN(Screen);
 };

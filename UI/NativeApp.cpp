@@ -33,6 +33,7 @@
 
 #include <clocale>
 #include <algorithm>
+#include <atomic>
 #include <cstdlib>
 #include <memory>
 #include <mutex>
@@ -184,9 +185,9 @@ void SaveFrameDump();
 ScreenManager *g_screenManager;
 std::string config_filename;
 
-// Really need to clean this mess of globals up... but instead I add more :P
-bool g_TakeScreenshot;
-static bool resized = false;
+// Set from any thread (on Android, the Java UI thread right after it writes g_display). Atomic, so the frame
+// that consumes it also sees those writes - with a plain bool it could see the flag first and keep stale bounds.
+static std::atomic<bool> resized{false};
 
 static int renderCounter = 0;
 
@@ -214,7 +215,7 @@ static std::vector<QueuedEvent> g_inputEventQueue;
 static std::unique_ptr<ImDebugger> imDebugger_;
 static ImCommand imCmd_{};  // needed to buffer commands in case imgui wasn't created yet.
 static bool imguiInited_ = false;
-static bool lastImguiEnabled_ = false;
+static bool imguiWantTextInput_ = false;
 static ImGuiContext *ctx_ = nullptr;
 
 class GlobalListener : public ControlListener {
@@ -299,20 +300,7 @@ static void RunAchievementsOverrideUpdate(std::function<void()> func) {
 }
 
 void runImDebugger(Draw::DrawContext *draw) {
-	bool lastImguiEnabled_ = false;  // temp
-	if (lastImguiEnabled_ && g_Config.bShowImDebugger) {
-#if !defined(MOBILE_DEVICE)
-		// On mobile devices (specifically iOS) we don't want to pop the keyboard
-		// on activating imgui. Instead, we should do it when a text edit field in imgui gets focus,
-		// although we'll still have ugly overlap problems.
-		System_NotifyUIEvent(UIEventNotification::TEXT_GOTFOCUS);
-#endif
-		VERBOSE_LOG(Log::System, "activating keyboard");
-	} else if (lastImguiEnabled_ && !g_Config.bShowImDebugger) {
-		System_NotifyUIEvent(UIEventNotification::TEXT_LOSTFOCUS);
-		VERBOSE_LOG(Log::System, "deactivating keyboard");
-	}
-	lastImguiEnabled_ = g_Config.bShowImDebugger;
+	bool wantTextInput = false;
 	if (g_Config.bShowImDebugger) {
 		if (!imguiInited_) {
 			// TODO: Do this only on demand.
@@ -385,10 +373,20 @@ void runImDebugger(Draw::DrawContext *draw) {
 
 		// Convert to drawlists.
 		ImGui::Render();
+		wantTextInput = io.WantTextInput;
 	} else {
 		uiContext->SetOverrideScreenFrame(nullptr);
 		SetOverrideScreenFrame(nullptr);
 	}
+
+	// Enable text input (needed for KeyInputFlags::CHAR events) only while an imgui text field is active.
+	// On mobile devices (specifically iOS) this would pop the keyboard, with ugly overlap problems.
+#if !defined(MOBILE_DEVICE)
+	if (wantTextInput != imguiWantTextInput_) {
+		System_SetTextInputWanted(TextInputUser::ImDebugger, wantTextInput);
+		imguiWantTextInput_ = wantTextInput;
+	}
+#endif
 }
 
 void renderImDebugger(Draw::DrawContext *draw) {
@@ -947,7 +945,6 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 #if defined(_WIN32) && !PPSSPP_PLATFORM(UWP)
 	if (IsWin7OrHigher()) {
 		winCamera = new WindowsCaptureDevice(CAPTUREDEVICE_TYPE::VIDEO);
-		winMic = new WindowsCaptureDevice(CAPTUREDEVICE_TYPE::AUDIO);
 	}
 #endif
 
@@ -1078,11 +1075,6 @@ void NativeShutdownGraphics(GraphicsContext *graphicsContext) {
 		delete winCamera;
 		winCamera = nullptr;
 	}
-	if (winMic) {
-		winMic->waitShutDown();
-		delete winMic;
-		winMic = nullptr;
-	}
 #endif
 
 #if PPSSPP_PLATFORM(IOS)
@@ -1165,6 +1157,28 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 
 	if (g_audioBackend) {
 		g_audioBackend->FrameUpdate(g_Config.bAutoSwitchAudioDevice);
+	}
+
+	// Resize before drawing anything, so the first frame at a new size isn't drawn into the old backbuffer.
+	const bool resizedThisFrame = resized.exchange(false);
+	if (resizedThisFrame) {
+		INFO_LOG(Log::G3D, "Resized flag set - recalculating bounds (%dx%d dp)", g_display.dp_xres, g_display.dp_yres);
+
+		if (uiContext) {
+			uiContext->SetBounds(Bounds(0, 0, g_display.dp_xres, g_display.dp_yres));
+		}
+
+		graphicsContext->Resize();
+		g_screenManager->resized();
+
+		// TODO: Move this to the GraphicsContext objects for each backend.
+		// (Android used to be left out here, since every size change there was a full graphics restart,
+		// and DeviceRestore covers it. Rotation and window resizing are in-place now.)
+#if !PPSSPP_PLATFORM(WINDOWS)
+		PSP_CoreParameter().pixelWidth = g_display.pixel_xres;
+		PSP_CoreParameter().pixelHeight = g_display.pixel_yres;
+		System_PostUIMessage(UIMessage::GPU_DISPLAY_RESIZED);
+#endif
 	}
 
 	// NOTE: We must begin the frame before update, so we can do texture size queries and stuff in Measure etc.
@@ -1325,35 +1339,8 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 
 	g_draw->Present(g_frameTiming.PresentMode());
 
-	if (resized) {
-		INFO_LOG(Log::G3D, "Resized flag set - recalculating bounds");
-		resized = false;
-
-		if (uiContext) {
-			uiContext->SetBounds(Bounds(0, 0, g_display.dp_xres, g_display.dp_yres));
-
-			// OSX 10.6 and SDL 1.2 bug.
-#if defined(__APPLE__)
-			static int dp_xres_old = g_display.dp_xres;
-			if (g_display.dp_xres != dp_xres_old) {
-				dp_xres_old = g_display.dp_xres;
-			}
-#endif
-		}
-
-		graphicsContext->Resize();
-		g_screenManager->resized();
-
-		// TODO: Move this to the GraphicsContext objects for each backend.
-		// (Android used to be left out here, since every size change there was a full graphics restart,
-		// and DeviceRestore covers it. Rotation and window resizing are in-place now.)
-#if !PPSSPP_PLATFORM(WINDOWS)
-		PSP_CoreParameter().pixelWidth = g_display.pixel_xres;
-		PSP_CoreParameter().pixelHeight = g_display.pixel_yres;
-		System_PostUIMessage(UIMessage::GPU_DISPLAY_RESIZED);
-#endif
-	} else {
-		// INFO_LOG(Log::G3D, "Polling graphics context");
+	// Not done if we resized at the start of the frame, the swapchain is new.
+	if (!resizedThisFrame) {
 		graphicsContext->Poll();
 	}
 
@@ -1456,19 +1443,13 @@ bool HandleGlobalMessage(UIMessage message, const std::string &value) {
 }
 
 bool NativeIsAtTopLevel() {
-	// This might need some synchronization?
+	// Called from the Android UI thread, while screens may be getting deleted on the render thread,
+	// so this reads a flag cached by ScreenManager::Update() instead of the screen stack.
 	if (!g_screenManager) {
 		ERROR_LOG(Log::System, "No screen manager active");
 		return false;
 	}
-	Screen *currentScreen = g_screenManager->topScreen();
-	if (currentScreen) {
-		bool top = currentScreen->isTopLevel();
-		return currentScreen->isTopLevel();
-	} else {
-		ERROR_LOG(Log::System, "No current screen");
-		return false;
-	}
+	return g_screenManager->IsTopScreenTopLevel();
 }
 
 void NativeTouch(const TouchInput &touch) {
@@ -1581,9 +1562,11 @@ bool NativeKey(const KeyInput &key) {
 	// Filtering, detailed rules needed for good imgui behavior without having to ask the screen about what to do.
 	InputMode inputMode = g_screenManager->PassInputToMapper();
 
+	bool imguiHasKeyboard = false;
 	if (g_Config.bShowImDebugger && imguiInited_) {
 		if (ImGui::GetIO().WantCaptureKeyboard) {
 			inputMode &= ~InputMode::Keyboard;
+			imguiHasKeyboard = true;
 		}
 		if (ImGui::GetIO().WantCaptureMouse) {
 			inputMode &= ~InputMode::Mouse;
@@ -1591,21 +1574,21 @@ bool NativeKey(const KeyInput &key) {
 	}
 
 	bool passKeyThrough = false;
-	if (inputMode != InputMode::None) {
-		if ((inputMode & InputMode::ImDebuggerToggle) && (key.flags & (KeyInputFlags::UP | KeyInputFlags::DOWN))) {
-			InputMapping mapping(key.deviceId, key.keyCode);
-			std::vector<int> pspButtons;
-			bool mappingFound = KeyMap::InputMappingToPspButton(mapping, &pspButtons);
-			if (mappingFound) {
-				for (auto b : pspButtons) {
-					if (b == VIRTKEY_TOGGLE_DEBUGGER || b == VIRTKEY_PAUSE) {
-						// TRUE
-						passKeyThrough = true;
-					}
+	// The debugger toggle also goes through while imgui has the keyboard, so it can always be closed again.
+	if (((inputMode & InputMode::ImDebuggerToggle) || imguiHasKeyboard) && (key.flags & (KeyInputFlags::UP | KeyInputFlags::DOWN))) {
+		InputMapping mapping(key.deviceId, key.keyCode);
+		std::vector<int> pspButtons;
+		bool mappingFound = KeyMap::InputMappingToPspButton(mapping, &pspButtons);
+		if (mappingFound) {
+			for (auto b : pspButtons) {
+				if (b == VIRTKEY_TOGGLE_DEBUGGER || (b == VIRTKEY_PAUSE && (inputMode & InputMode::ImDebuggerToggle))) {
+					passKeyThrough = true;
 				}
 			}
 		}
+	}
 
+	if (inputMode != InputMode::None) {
 		if (key.deviceId == DEVICE_ID_MOUSE) {
 			if (inputMode & InputMode::Mouse) {
 				passKeyThrough = true;

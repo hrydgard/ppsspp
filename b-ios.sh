@@ -40,8 +40,11 @@ cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchains/ios.cmake -GXcode ..
 xcodebuild -project PPSSPP.xcodeproj -scheme PPSSPP -sdk iphoneos -configuration Release -quiet clean build archive -archivePath ./build/PPSSPP.xcarchive CODE_SIGNING_REQUIRED=NO CODE_SIGNING_ALLOWED=NO #CODE_SIGN_IDENTITY="iPhone Distribution: Your NAME / Company (TeamID)" #PROVISIONING_PROFILE="xxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
 # Export IPA file from xcarchive (probably only works with signed build)
 #xcodebuild -exportArchive -archivePath ./build/PPSSPP.xcarchive -exportPath ./build -exportOptionsPlist exportOptions.plist
-# This folder only exist when building with xcodebuild
-if [ -e Release-iphoneos ]; then
+# Archiving installs the app into the archive (SKIP_INSTALL is NO), leaving no app in Release-iphoneos.
+if [ -e build/PPSSPP.xcarchive/Products/Applications/PPSSPP.app ]; then
+	mkdir -p PPSSPP.app
+	cp -Rfa build/PPSSPP.xcarchive/Products/Applications/PPSSPP.app/. PPSSPP.app/
+elif [ -e Release-iphoneos ]; then
 	# It seems there is an existing (from ccache?) PPSSPP.app symlink, so we copy & overwrites the content instead of the symlink, to the same location with what make use.
 	mkdir -p PPSSPP.app
 	cp -Rfa Release-iphoneos/PPSSPP.app/. PPSSPP.app/
@@ -51,13 +54,7 @@ fi
 #cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchains/ios.cmake ..
 #make -j4
 
-cp ../ext/vulkan/iOS/Frameworks/libMoltenVK.dylib PPSSPP.app/Frameworks
 ln -s ./ Payload
-#ldid -w -S -IlibMoltenVK -K../../certificate.p12 -Upassword PPSSPP.app/Frameworks/libMoltenVK.dylib
-if [ -e PPSSPP.app/Frameworks/libMoltenVK.dylib ]; then
-	echo "Signing PPSSPP.app/Frameworks/libMoltenVK.dylib ..."
-	ldid -S -IlibMoltenVK PPSSPP.app/Frameworks/libMoltenVK.dylib
-fi
 
 echo '<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">

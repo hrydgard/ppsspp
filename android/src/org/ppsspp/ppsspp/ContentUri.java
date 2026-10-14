@@ -268,6 +268,10 @@ public class ContentUri {
 	@Keep
 	@SuppressWarnings("unused")
 	public static int contentUriCopyFile(Activity activity, String srcFileUri, String dstParentDirUri) {
+		// The folder browser is offered from API 21. Fail cleanly so the caller falls back.
+		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N) {
+			return STORAGE_ERROR_UNKNOWN;
+		}
 		try {
 			Uri srcUri = Uri.parse(srcFileUri);
 			Uri dstParentUri = Uri.parse(dstParentDirUri);
@@ -284,6 +288,10 @@ public class ContentUri {
 	@Keep
 	@SuppressWarnings("unused")
 	public static int contentUriMoveFile(Activity activity, String srcFileUri, String srcParentDirUri, String dstParentDirUri) {
+		// The folder browser is offered from API 21. Fail cleanly so the caller falls back.
+		if (Build.VERSION.SDK_INT < Build.VERSION_CODES.N_MR1) {
+			return STORAGE_ERROR_UNKNOWN;
+		}
 		try {
 			Uri srcUri = Uri.parse(srcFileUri);
 			Uri srcParentUri = Uri.parse(srcParentDirUri);

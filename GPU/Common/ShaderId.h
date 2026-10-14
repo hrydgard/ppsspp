@@ -12,8 +12,10 @@ enum class ClipInfoFlags;
 // Shared ID checks for when the vertex and fragment shaders (and host code) need to coordinate.
 
 // NOTE: Both of these assume non-through-mode. Don't check these if in through mode.
+// Each side on its own, like the clip planes: Pursuit Force's sky has min 0 and max 300, and the PSP drops it past 300.
+// Can be needed together with needFragmentDepthClamp, for the side at the limit.
 inline bool needFragmentMinMaxClipping() {
-	return gstate.getDepthRangeMin() != 0 && gstate.getDepthRangeMax() != 0xFFFF;
+	return gstate.getDepthRangeMin() != 0 || gstate.getDepthRangeMax() != 0xFFFF;
 }
 
 inline bool needFragmentDepthClamp() {

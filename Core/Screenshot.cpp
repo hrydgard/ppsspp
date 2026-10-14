@@ -524,6 +524,11 @@ void TakeUserScreenshot() {
 		type = ScreenshotType::Output;
 	}
 
+	// Close any active popups, so they don't end up in the screenshot.
+	// However people often want to take screenshots of achievement things,
+	// so keep those.
+	g_OSD.ClearNonAchievementEntries();
+
 	ScheduleScreenshot(filename, g_Config.bScreenshotsAsPNG ? ScreenshotFormat::PNG : ScreenshotFormat::JPG, type, -1, [filename](ScreenshotResult result) {
 		if (result == ScreenshotResult::Success) {
 			const std::string friendlyPath = GetFriendlyPath(filename);

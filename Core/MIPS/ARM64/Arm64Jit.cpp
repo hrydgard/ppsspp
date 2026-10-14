@@ -27,7 +27,6 @@
 #include "Common/StringUtils.h"
 
 #include "Core/Reporting.h"
-#include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
 #include "Core/Debugger/Breakpoints.h"
@@ -81,7 +80,7 @@ static u32 JitMemCheck(u32 pc) {
 		return 0;
 
 	// Note: pc may be the delay slot.
-	const auto op = Memory::Read_Instruction(pc, true);
+	const auto op = Memory::Read_Instruction(pc);
 	s32 offset = SignExtend16ToS32(op & 0xFFFF);
 	if (MIPSGetInfo(op) & IS_VFPU)
 		offset &= 0xFFFC;
@@ -151,6 +150,14 @@ void Arm64Jit::DoState(PointerWrap &p) {
 
 void Arm64Jit::UpdateFCR31() {
 	js.currentRoundingFunc = convertS0ToSCRATCH1[mips_->fcr31 & 3];
+	// fcr31 can reach a non-default mode without a compiled ctc1 (an interpreted one, a savestate,
+	// a core switch, a thread switch). Blocks compiled before that don't switch modes around
+	// syscalls or conversions, so they're thrown away, at the next safe point.
+	if ((mips_->fcr31 & 0x01000003) && !js.hasSetRounding) {
+		js.hasSetRounding = true;
+		js.lastSetRounding = true;
+		mips_->ClearJitCacheDeferred();
+	}
 }
 
 void Arm64Jit::FlushAll() {
@@ -199,7 +206,7 @@ void Arm64Jit::ClearCache() {
 }
 
 void Arm64Jit::InvalidateCacheAt(u32 em_address, int length) {
-	if (blocks.RangeMayHaveEmuHacks(em_address, em_address + length)) {
+	if (blocks.RangeMayHaveBlocks(em_address, em_address + length)) {
 		blocks.InvalidateICache(em_address, length);
 	}
 }
@@ -309,7 +316,8 @@ u32 Arm64Jit::GetCompilerPC() {
 }
 
 MIPSOpcode Arm64Jit::GetOffsetInstruction(int offset) {
-	return Memory::Read_Instruction(GetCompilerPC() + 4 * offset);
+	const u32 addr = GetCompilerPC() + 4 * offset;
+	return Memory::IsValid4AlignedAddress(addr) ? ReadExecutedOp(addr) : Memory::Read_Instruction(addr);
 }
 
 void Arm64Jit::DoJit(u32 em_address, JitBlock *b) {
@@ -354,7 +362,7 @@ void Arm64Jit::DoJit(u32 em_address, JitBlock *b) {
 		// Jit breakpoints are quite fast, so let's do them in release too.
 		CheckJitBreakpoint(GetCompilerPC(), 0);
 
-		MIPSOpcode inst = Memory::Read_Opcode_JIT(GetCompilerPC());
+		MIPSOpcode inst = ReadExecutedOp(GetCompilerPC());
 		js.downcountAmount += MIPSGetInstructionCycleEstimate(inst);
 
 		MIPSCompileOp(inst, this);
@@ -388,7 +396,7 @@ void Arm64Jit::DoJit(u32 em_address, JitBlock *b) {
 	if (logBlocks > 0 && dontLogBlocks == 0) {
 		INFO_LOG(Log::JIT, "=============== mips %d ===============", blocks.GetNumBlocks());
 		for (u32 cpc = b->originalAddress; cpc != GetCompilerPC() + 4; cpc += 4) {
-			MIPSDisAsm(Memory::Read_Opcode_JIT(cpc), cpc, temp, sizeof(temp), true);
+			MIPSDisAsm(Memory::ReadUnchecked_Instruction(cpc), cpc, temp, sizeof(temp), true);
 			INFO_LOG(Log::JIT, "M: %08x   %s", cpc, temp);
 		}
 	}
@@ -450,11 +458,6 @@ bool Arm64Jit::DescribeCodePtr(const u8 *ptr, std::string &name) {
 	return true;
 }
 
-void Arm64Jit::Comp_RunBlock(MIPSOpcode op) {
-	// This shouldn't be necessary, the dispatcher should catch us before we get here.
-	ERROR_LOG(Log::JIT, "Comp_RunBlock should never be reached!");
-}
-
 void Arm64Jit::LinkBlock(u8 *exitPoint, const u8 *checkedEntry) {
 	if (PlatformIsWXExclusive()) {
 		ProtectMemoryPages(exitPoint, 32, MEM_PROT_READ | MEM_PROT_WRITE);
@@ -494,7 +497,13 @@ void Arm64Jit::Comp_ReplacementFunc(MIPSOpcode op)
 
 	// Inlined function calls (caught in jal) are handled differently.
 
-	int index = op.encoding & MIPS_EMUHACK_VALUE_MASK;
+	// Memory never holds these: if it does, the game is executing data. Let the interpreter raise it.
+	if (Memory::Read_Instruction(GetCompilerPC()).encoding == op.encoding) {
+		Comp_Generic(op);
+		return;
+	}
+
+	int index = op.encoding & MIPS_REPLACEMENT_INDEX_MASK;
 
 	const ReplacementTableEntry *entry = GetReplacementFunc(index);
 	if (!entry) {
@@ -515,14 +524,14 @@ void Arm64Jit::Comp_ReplacementFunc(MIPSOpcode op)
 	}
 
 	if (disabled) {
-		MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC(), true), this);
+		MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC()), this);
 	} else if (entry->jitReplaceFunc) {
 		MIPSReplaceFunc repl = entry->jitReplaceFunc;
 		int cycles = (this->*repl)();
 
 		if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
 			// Compile the original instruction at this address.  We ignore cycles for hooks.
-			MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC(), true), this);
+			MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC()), this);
 		} else {
 			FlushAll();
 			// Flushed, so R1 is safe.
@@ -546,7 +555,7 @@ void Arm64Jit::Comp_ReplacementFunc(MIPSOpcode op)
 			// Compile the original instruction at this address.  We ignore cycles for hooks.
 			ApplyRoundingMode();
 			LoadStaticRegisters();
-			MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC(), true), this);
+			MIPSCompileOp(Memory::Read_Instruction(GetCompilerPC()), this);
 		} else {
 			ApplyRoundingMode();
 			LoadStaticRegisters();
@@ -574,19 +583,28 @@ void Arm64Jit::Comp_ReplacementFunc(MIPSOpcode op)
 void Arm64Jit::Comp_Generic(MIPSOpcode op) {
 	FlushAll();
 	MIPSInterpretFunc func = MIPSGetInterpretFunc(op);
+	const MIPSInfo info = MIPSGetInfo(op);
 	if (func) {
 		SaveStaticRegisters();
-		// TODO: Perhaps keep the rounding mode for interp? Should probably, right?
-		RestoreRoundingMode();
+		// Interpreted ops run in the guest's rounding mode, like on the interpreter. A syscall is host code
+		// (like a compiled one), and only ctc1 to fcr31 changes the mode, so only those need it switched.
+		const bool isSyscall = (info & IS_SYSCALL) != 0;
+		const bool setsMode = MIPS_IS_CTC1_FCR31(op.encoding);
+		if (isSyscall)
+			RestoreRoundingMode();
+		if (setsMode)
+			UpdateRoundingMode();
 		MOVI2R(SCRATCH1, GetCompilerPC());
 		MovToPC(SCRATCH1);
 		MOVI2R(W0, op.encoding);
 		QuickCallFunction(SCRATCH2_64, (void *)&MIPSInterpretTrampoline);
-		ApplyRoundingMode();
+		if (setsMode)
+			RestoreRoundingMode(true);
+		if (isSyscall || setsMode)
+			ApplyRoundingMode(setsMode);
 		LoadStaticRegisters();
 	}
 
-	const MIPSInfo info = MIPSGetInfo(op);
 	if ((info & IS_VFPU) != 0 && (info & VFPU_NO_PREFIX) == 0) {
 		// If it does eat them, it'll happen in MIPSCompileOp().
 		if ((info & OUT_EAT_PREFIX) == 0)
@@ -766,16 +784,6 @@ bool Arm64Jit::CheckMemoryBreakpoint(int instructionOffset) {
 }
 
 void Arm64Jit::Comp_DoNothing(MIPSOpcode op) { }
-
-MIPSOpcode Arm64Jit::GetOriginalOp(MIPSOpcode op) {
-	JitBlockCache *bc = GetBlockCache();
-	int block_num = bc->GetBlockNumberFromEmuHackOp(op, true);
-	if (block_num >= 0) {
-		return bc->GetOriginalFirstOp(block_num);
-	} else {
-		return op;
-	}
-}
 
 }  // namespace
 

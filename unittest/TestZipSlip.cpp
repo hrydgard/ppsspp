@@ -2,6 +2,7 @@
 
 #include "Common/File/FileUtil.h"
 #include "Common/File/Path.h"
+#include "Core/ELF/ParamSFO.h"
 #include "Core/Loaders.h"
 #include "Core/Util/GameManager.h"
 #include "Core/Util/PathUtil.h"
@@ -80,6 +81,109 @@ static bool TestZipSlipExtraction() {
 	return true;
 }
 
+// Save state zips are detected with stripChars past the last slash, since the whole
+// directory is stripped. The files must land directly in the destination.
+static bool TestSaveStateZipExtraction() {
+	// Absolute, since CreateFullPath does nothing with relative paths.
+	Path tempRoot = File::GetCurDirectory() / "unittest_zip_savestate_test";
+	File::DeleteDirRecursively(tempRoot);
+	EXPECT_TRUE(File::CreateDir(tempRoot));
+
+	Path destDir = tempRoot / "dest";
+	EXPECT_TRUE(File::CreateDir(destDir));
+
+	Path zipPath = tempRoot / "states.zip";
+	int errorp = 0;
+	zip_t *z = zip_open(zipPath.c_str(), ZIP_CREATE | ZIP_TRUNCATE, &errorp);
+	EXPECT_TRUE(z != nullptr);
+	static const char *const contents = "data";
+	EXPECT_TRUE(zip_dir_add(z, "SAVE/", ZIP_FL_ENC_UTF_8) >= 0);
+	EXPECT_TRUE(zip_dir_add(z, "SAVE/PPSSPP_STATE/", ZIP_FL_ENC_UTF_8) >= 0);
+	for (const char *name : { "SAVE/PPSSPP_STATE/UCES01401_1.00_1.jpg", "SAVE/PPSSPP_STATE/UCES01401_1.00_1.ppst" }) {
+		zip_source_t *source = zip_source_buffer(z, contents, strlen(contents), 0);
+		EXPECT_TRUE(source != nullptr);
+		EXPECT_TRUE(zip_file_add(z, name, source, ZIP_FL_ENC_UTF_8) >= 0);
+	}
+	EXPECT_TRUE(zip_close(z) == 0);
+
+	z = zip_open(zipPath.c_str(), 0, &errorp);
+	EXPECT_TRUE(z != nullptr);
+
+	ZipFileInfo info;
+	DetectZipFileContents(z, &info);
+	EXPECT_EQ_INT((int)info.contents, (int)ZipFileContents::SAVE_STATES);
+
+	GameManager manager;
+	EXPECT_TRUE(manager.ExtractZipContents(z, destDir, info, true));
+	zip_close(z);
+
+	EXPECT_TRUE(File::Exists(destDir / "UCES01401_1.00_1.jpg") && !File::IsDirectory(destDir / "UCES01401_1.00_1.jpg"));
+	EXPECT_TRUE(File::Exists(destDir / "UCES01401_1.00_1.ppst") && !File::IsDirectory(destDir / "UCES01401_1.00_1.ppst"));
+
+	File::DeleteDirRecursively(tempRoot);
+	return true;
+}
+
+// A single save folder's contents zipped without the folder (named ULUS10019000.zip, say). The folder
+// name comes from SAVEDATA_DIRECTORY in the PARAM.SFO.
+static bool TestRootSaveDataZip() {
+	Path tempRoot = File::GetCurDirectory() / "unittest_zip_savedata_test";
+	File::DeleteDirRecursively(tempRoot);
+	EXPECT_TRUE(File::CreateDir(tempRoot));
+
+	Path destDir = tempRoot / "SAVEDATA";
+	EXPECT_TRUE(File::CreateDir(destDir));
+
+	std::string sfoContents;
+	for (const char *saveDir : { "ULUS10019000", "../evil" }) {
+		ParamSFOData sfo;
+		sfo.SetValue("CATEGORY", "MS", 4);
+		sfo.SetValue("TITLE", "CODED ARMS", 128);
+		sfo.SetValue("SAVEDATA_DIRECTORY", saveDir, 64);
+		u8 *sfoData = nullptr;
+		size_t sfoSize = 0;
+		sfo.WriteSFO(&sfoData, &sfoSize);
+		sfoContents.assign((const char *)sfoData, sfoSize);
+		delete[] sfoData;
+
+		Path zipPath = tempRoot / "save.zip";
+		int errorp = 0;
+		zip_t *z = zip_open(zipPath.c_str(), ZIP_CREATE | ZIP_TRUNCATE, &errorp);
+		EXPECT_TRUE(z != nullptr);
+		static const char *const contents = "data";
+		zip_source_t *source = zip_source_buffer(z, sfoContents.data(), sfoContents.size(), 0);
+		EXPECT_TRUE(zip_file_add(z, "PARAM.SFO", source, ZIP_FL_ENC_UTF_8) >= 0);
+		for (const char *name : { "ICON0.PNG", "CODED.ARM" }) {
+			source = zip_source_buffer(z, contents, strlen(contents), 0);
+			EXPECT_TRUE(zip_file_add(z, name, source, ZIP_FL_ENC_UTF_8) >= 0);
+		}
+		EXPECT_TRUE(zip_close(z) == 0);
+
+		z = zip_open(zipPath.c_str(), 0, &errorp);
+		EXPECT_TRUE(z != nullptr);
+		ZipFileInfo info;
+		DetectZipFileContents(z, &info);
+		if (!strcmp(saveDir, "../evil")) {
+			EXPECT_EQ_INT((int)info.contents, (int)ZipFileContents::UNKNOWN);
+			zip_close(z);
+			continue;
+		}
+		EXPECT_EQ_INT((int)info.contents, (int)ZipFileContents::SAVE_DATA);
+		EXPECT_TRUE(info.saveDataInRoot);
+		EXPECT_EQ_STR(info.savedataDir, std::string("ULUS10019000"));
+
+		GameManager manager;
+		EXPECT_TRUE(manager.ExtractZipContents(z, destDir / info.savedataDir, info, true));
+		zip_close(z);
+
+		EXPECT_TRUE(File::Exists(destDir / "ULUS10019000" / "PARAM.SFO"));
+		EXPECT_TRUE(File::Exists(destDir / "ULUS10019000" / "CODED.ARM"));
+	}
+
+	File::DeleteDirRecursively(tempRoot);
+	return true;
+}
+
 static bool TestIsSafePathComponent() {
 	EXPECT_TRUE(IsSafePathComponent("ULUS10041"));
 	EXPECT_TRUE(IsSafePathComponent("NPJH-50465"));
@@ -105,6 +209,10 @@ bool TestZipSlip() {
 	if (!TestIsSafePathComponent())
 		return false;
 	if (!TestZipSlipExtraction())
+		return false;
+	if (!TestSaveStateZipExtraction())
+		return false;
+	if (!TestRootSaveDataZip())
 		return false;
 	return true;
 }

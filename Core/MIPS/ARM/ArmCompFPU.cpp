@@ -262,6 +262,25 @@ void ArmJit::Comp_FPUComp(MIPSOpcode op) {
 	SetCC(CC_AL);
 }
 
+// round.w.s, ceil.w.s and floor.w.s use their own rounding mode. Only RMode is swapped, so the
+// guest's flush-to-zero still applies to a denormal input (cpu/fpu/denormal).
+void ArmJit::CompFixedRoundConversion(int fd, int fs, int rmode) {
+	fpr.MapDirtyIn(fd, fs);
+	VMRS(SCRATCHREG2);
+	BIC(SCRATCHREG1, SCRATCHREG2, AssumeMakeOperand2(3 << 22));
+	if (rmode != 0) {
+		ORR(SCRATCHREG1, SCRATCHREG1, AssumeMakeOperand2(rmode << 22));
+	}
+	VMSR(SCRATCHREG1);
+	VCMP(fpr.R(fs), fpr.R(fs));
+	VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED);
+	VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
+	SetCC(CC_VS);
+	MOVIU2F(fpr.R(fd), 0x7FFFFFFF, SCRATCHREG1);
+	SetCC(CC_AL);
+	VMSR(SCRATCHREG2);
+}
+
 void ArmJit::Comp_FPU2op(MIPSOpcode op) {
 	CONDITIONAL_DISABLE(FPU);
 
@@ -286,9 +305,7 @@ void ArmJit::Comp_FPU2op(MIPSOpcode op) {
 		VNEG(fpr.R(fd), fpr.R(fs));
 		break;
 	case 12: //FsI(fd) = (int)floorf(F(fs)+0.5f); break; //round.w.s
-		RestoreRoundingMode();
-		fpr.MapDirtyIn(fd, fs);
-		VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED);
+		CompFixedRoundConversion(fd, fs, 0);
 		break;
 	case 13: //FsI(fd) = Rto0(F(fs)));            break; //trunc.w.s
 		fpr.MapDirtyIn(fd, fs);
@@ -300,41 +317,11 @@ void ArmJit::Comp_FPU2op(MIPSOpcode op) {
 		SetCC(CC_AL);
 		break;
 	case 14: //FsI(fd) = (int)ceilf (F(fs));      break; //ceil.w.s
-	{
-		RestoreRoundingMode();
-		fpr.MapDirtyIn(fd, fs);
-		VMRS(SCRATCHREG2);
-		// Assume we're always in round-to-nearest mode.
-		ORR(SCRATCHREG1, SCRATCHREG2, AssumeMakeOperand2(1 << 22));
-		VMSR(SCRATCHREG1);
-		VCMP(fpr.R(fs), fpr.R(fs));
-		VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED);
-		VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
-		SetCC(CC_VS);
-		MOVIU2F(fpr.R(fd), 0x7FFFFFFF, SCRATCHREG1);
-		SetCC(CC_AL);
-		// Set the rounding mode back.  TODO: Keep it?  Dirty?
-		VMSR(SCRATCHREG2);
+		CompFixedRoundConversion(fd, fs, 1);
 		break;
-	}
 	case 15: //FsI(fd) = (int)floorf(F(fs));      break; //floor.w.s
-	{
-		RestoreRoundingMode();
-		fpr.MapDirtyIn(fd, fs);
-		VMRS(SCRATCHREG2);
-		// Assume we're always in round-to-nearest mode.
-		ORR(SCRATCHREG1, SCRATCHREG2, AssumeMakeOperand2(2 << 22));
-		VMSR(SCRATCHREG1);
-		VCMP(fpr.R(fs), fpr.R(fs));
-		VCVT(fpr.R(fd), fpr.R(fs), TO_INT | IS_SIGNED);
-		VMRS_APSR(); // Move FP flags from FPSCR to APSR (regular flags).
-		SetCC(CC_VS);
-		MOVIU2F(fpr.R(fd), 0x7FFFFFFF, SCRATCHREG1);
-		SetCC(CC_AL);
-		// Set the rounding mode back.  TODO: Keep it?  Dirty?
-		VMSR(SCRATCHREG2);
+		CompFixedRoundConversion(fd, fs, 2);
 		break;
-	}
 	case 32: //F(fd)   = (float)FsI(fs);          break; //cvt.s.w
 		fpr.MapDirtyIn(fd, fs);
 		VCVT(fpr.R(fd), fpr.R(fs), TO_FLOAT | IS_SIGNED);

@@ -1,6 +1,8 @@
 #pragma once
 
+#include <atomic>
 #include <vector>
+#include <deque>
 #include <mutex>
 #include <map>
 #include <functional>
@@ -64,24 +66,23 @@ private:
 	std::map<int, CallbackPair> callbackMap_;
 	std::mutex callbackMutex_;
 
-	struct PendingSuccess {
+	// A finished request, waiting for ProcessRequests to call its callback.
+	struct PendingResponse {
+		bool success;
 		std::string responseString;
-		int responseValue;
-		RequestCallback callback;
-	};
-
-	struct PendingFailure {
-		RequestFailedCallback failedCallback;
 		int responseValue;  // can have error codes for example.
+		RequestCallback callback;
+		RequestFailedCallback failedCallback;
+		RequesterToken token;
 	};
 
 	// Let's start at 10 to get a recognizably valid ID in logs.
-	int idCounter_ = 10;
-	std::vector<PendingSuccess> pendingSuccesses_;
-	std::vector<PendingFailure> pendingFailures_;
+	// Atomic since requests are made from several threads (the CPU thread for the OSK and the microphone).
+	std::atomic<int> idCounter_{ 10 };
+	std::deque<PendingResponse> pendingResponses_;
 	std::mutex responseMutex_;
 
-	RequesterToken tokenGen_ = 20000;
+	std::atomic<RequesterToken> tokenGen_{ 20000 };
 };
 
 const char *RequestTypeAsString(SystemRequestType type);
@@ -176,9 +177,23 @@ inline void System_ShareText(std::string_view text) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::SHARE_TEXT, NO_REQUESTER_TOKEN, nullptr, nullptr, text, "", 0);
 }
 
-inline void System_NotifyUIEvent(UIEventNotification notification) {
-	g_requestManager.MakeSystemRequest(SystemRequestType::NOTIFY_UI_EVENT, NO_REQUESTER_TOKEN, nullptr, nullptr, "", "", (int64_t)notification, 0);
+// Offers a file to other apps (mail, chat, cloud storage) through the system's share sheet, if
+// SYSPROP_SUPPORTS_SHARE_FILE. With an empty mimeType, it's guessed from the extension.
+inline void System_ShareFile(const Path &path, std::string_view mimeType = "") {
+	g_requestManager.MakeSystemRequest(SystemRequestType::SHARE_FILE, NO_REQUESTER_TOKEN, nullptr, nullptr, path.ToString(), mimeType, 0);
 }
+
+// TEXT_GOTFOCUS/TEXT_LOSTFOCUS (and POPUP_CLOSED) sent through here count as the regular UI's use of text input.
+void System_NotifyUIEvent(UIEventNotification notification);
+
+// Several users can want text input at the same time (for example type-to-search under the imgui debugger).
+// The platform only gets TEXT_LOSTFOCUS once none of them does.
+enum class TextInputUser {
+	UI,
+	ImDebugger,
+	COUNT,
+};
+void System_SetTextInputWanted(TextInputUser user, bool wanted);
 
 inline void System_SetKeepScreenBright(bool keepScreenBright) {
 	g_requestManager.MakeSystemRequest(SystemRequestType::SET_KEEP_SCREEN_BRIGHT, NO_REQUESTER_TOKEN, nullptr, nullptr, "", "", (int64_t)keepScreenBright);

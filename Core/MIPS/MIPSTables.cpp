@@ -15,12 +15,15 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
+#include <string_view>
 #include <vector>
 
 #include "Common/StringUtils.h"
 
 #include "Core/Core.h"
 #include "Core/MemMap.h"
+#include "Core/HLE/ReplaceTables.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSDis.h"
 #include "Core/MIPS/MIPSDisVFPU.h"
@@ -286,8 +289,8 @@ static const MIPSInstruction tableSpecial3[64] = // 011111 ..... ..... ..... ...
 	//16
 	INVALID_X_8,
 	//24
-	// TODO: Is this right?  Or should it only be 32?  Comment above (24) was mistakenly 32 before.
-	ENCODING(ALLEGREX0),
+	// Does nothing, whatever the other fields hold (cpu/cpu_alu/allegrex_encodings).
+	INSTR("nop", JITFUNC(Comp_DoNothing), Dis_Generic, Int_Sync, 0),
 	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
 	//32
 	ENCODING(ALLEGREX0),
@@ -772,41 +775,52 @@ static const MIPSInstruction tableVFPU9[32] = // 110100 00010 xxxxx . ....... . 
 	INVALID, INVALID, INVALID, INVALID,
 };
 
-static const MIPSInstruction tableALLEGREX0[32] =  // 011111 ..... ..... ..... xxxxx 100000 - or ending with 011000?
+// Only some bits of the op are decoded, so every value is one of the five (see AllegrexBitOp).
+static const MIPSInstruction tableALLEGREX0[32] =  // 011111 ..... ..... ..... xxxxx 100000
 {
-	INVALID,
-	INVALID,
 	INSTR("wsbh", JITFUNC(Comp_Allegrex2), Dis_Allegrex2, Int_Allegrex2, IN_RT|OUT_RD),
 	INSTR("wsbw", JITFUNC(Comp_Allegrex2), Dis_Allegrex2, Int_Allegrex2, IN_RT|OUT_RD),
-	INVALID, INVALID, INVALID, INVALID,
+	INSTR("wsbh", JITFUNC(Comp_Allegrex2), Dis_Allegrex2, Int_Allegrex2, IN_RT|OUT_RD),
+	INSTR("wsbw", JITFUNC(Comp_Allegrex2), Dis_Allegrex2, Int_Allegrex2, IN_RT|OUT_RD),
+	INSTR("wsbh", JITFUNC(Comp_Allegrex2), Dis_Allegrex2, Int_Allegrex2, IN_RT|OUT_RD),
+	INSTR("wsbw", JITFUNC(Comp_Allegrex2), Dis_Allegrex2, Int_Allegrex2, IN_RT|OUT_RD),
+	INSTR("wsbh", JITFUNC(Comp_Allegrex2), Dis_Allegrex2, Int_Allegrex2, IN_RT|OUT_RD),
+	INSTR("wsbw", JITFUNC(Comp_Allegrex2), Dis_Allegrex2, Int_Allegrex2, IN_RT|OUT_RD),
 //8
-	INVALID_X_8,
+	INSTR("wsbh", JITFUNC(Comp_Allegrex2), Dis_Allegrex2, Int_Allegrex2, IN_RT|OUT_RD),
+	INSTR("wsbw", JITFUNC(Comp_Allegrex2), Dis_Allegrex2, Int_Allegrex2, IN_RT|OUT_RD),
+	INSTR("wsbh", JITFUNC(Comp_Allegrex2), Dis_Allegrex2, Int_Allegrex2, IN_RT|OUT_RD),
+	INSTR("wsbw", JITFUNC(Comp_Allegrex2), Dis_Allegrex2, Int_Allegrex2, IN_RT|OUT_RD),
+	INSTR("wsbh", JITFUNC(Comp_Allegrex2), Dis_Allegrex2, Int_Allegrex2, IN_RT|OUT_RD),
+	INSTR("wsbw", JITFUNC(Comp_Allegrex2), Dis_Allegrex2, Int_Allegrex2, IN_RT|OUT_RD),
+	INSTR("wsbh", JITFUNC(Comp_Allegrex2), Dis_Allegrex2, Int_Allegrex2, IN_RT|OUT_RD),
+	INSTR("wsbw", JITFUNC(Comp_Allegrex2), Dis_Allegrex2, Int_Allegrex2, IN_RT|OUT_RD),
 //16
-	INSTR("seb", JITFUNC(Comp_Allegrex), Dis_Allegrex,Int_Allegrex, IN_RT|OUT_RD),
-	INVALID,
-	INVALID,
-	INVALID,
+	INSTR("seb", JITFUNC(Comp_Allegrex), Dis_Allegrex, Int_Allegrex, IN_RT|OUT_RD),
+	INSTR("seb", JITFUNC(Comp_Allegrex), Dis_Allegrex, Int_Allegrex, IN_RT|OUT_RD),
+	INSTR("seb", JITFUNC(Comp_Allegrex), Dis_Allegrex, Int_Allegrex, IN_RT|OUT_RD),
+	INSTR("seb", JITFUNC(Comp_Allegrex), Dis_Allegrex, Int_Allegrex, IN_RT|OUT_RD),
 //20
-	INSTR("bitrev", JITFUNC(Comp_Allegrex), Dis_Allegrex,Int_Allegrex, IN_RT|OUT_RD),
-	INVALID,
-	INVALID,
-	INVALID,
+	INSTR("bitrev", JITFUNC(Comp_Allegrex), Dis_Allegrex, Int_Allegrex, IN_RT|OUT_RD),
+	INSTR("bitrev", JITFUNC(Comp_Allegrex), Dis_Allegrex, Int_Allegrex, IN_RT|OUT_RD),
+	INSTR("bitrev", JITFUNC(Comp_Allegrex), Dis_Allegrex, Int_Allegrex, IN_RT|OUT_RD),
+	INSTR("bitrev", JITFUNC(Comp_Allegrex), Dis_Allegrex, Int_Allegrex, IN_RT|OUT_RD),
 //24
-	INSTR("seh", JITFUNC(Comp_Allegrex), Dis_Allegrex,Int_Allegrex, IN_RT|OUT_RD),
-	INVALID,
-	INVALID,
-	INVALID,
+	INSTR("seh", JITFUNC(Comp_Allegrex), Dis_Allegrex, Int_Allegrex, IN_RT|OUT_RD),
+	INSTR("seh", JITFUNC(Comp_Allegrex), Dis_Allegrex, Int_Allegrex, IN_RT|OUT_RD),
+	INSTR("seh", JITFUNC(Comp_Allegrex), Dis_Allegrex, Int_Allegrex, IN_RT|OUT_RD),
+	INSTR("seh", JITFUNC(Comp_Allegrex), Dis_Allegrex, Int_Allegrex, IN_RT|OUT_RD),
 //28
-	INVALID,
-	INVALID,
-	INVALID,
-	INVALID,
+	INSTR("bitrev", JITFUNC(Comp_Allegrex), Dis_Allegrex, Int_Allegrex, IN_RT|OUT_RD),
+	INSTR("bitrev", JITFUNC(Comp_Allegrex), Dis_Allegrex, Int_Allegrex, IN_RT|OUT_RD),
+	INSTR("bitrev", JITFUNC(Comp_Allegrex), Dis_Allegrex, Int_Allegrex, IN_RT|OUT_RD),
+	INSTR("bitrev", JITFUNC(Comp_Allegrex), Dis_Allegrex, Int_Allegrex, IN_RT|OUT_RD),
 };
 
 static const MIPSInstruction tableEMU[4] = {
-	INSTR("RUNBLOCK", JITFUNC(Comp_RunBlock), Dis_Emuhack, Int_Emuhack, 0xFFFFFFFF),
-	INSTR("RetKrnl", 0, Dis_Emuhack, Int_Emuhack, 0),
-	INSTR("CallRepl", JITFUNC(Comp_ReplacementFunc), Dis_Emuhack, Int_Emuhack, 0),
+	INVALID,
+	INVALID,
+	INSTR("CallRepl", JITFUNC(Comp_ReplacementFunc), Dis_CallReplacement, Int_CallReplacement, 0),
 	INVALID,
 };
 
@@ -844,7 +858,7 @@ static const EncodingBitsInfo encodingBits[NumEncodings] = {
 	EncodingBitsInfo(16, 4), //VFPUMatrix1
 	EncodingBitsInfo(16, 5), //VFPU9
 	EncodingBitsInfo(6,  5), //ALLEGREX0
-	EncodingBitsInfo(24, 2), //EMUHACK
+	EncodingBitsInfo(24, 2), //Emu (CallRepl)
 	EncodingBitsInfo(0,  0), //Rese
 };
 
@@ -972,10 +986,15 @@ static void EmitDispatchLevel(std::string &out, MipsEncoding encoding, int inden
 
 		if (instr.altEncoding == Instruc) {
 			std::string names;
+			std::vector<std::string_view> seen;
 			for (u32 idx : group) {
+				std::string_view name = table[idx].name;
+				if (std::find(seen.begin(), seen.end(), name) != seen.end())
+					continue;
+				seen.push_back(name);
 				if (!names.empty())
 					names += ", ";
-				names += table[idx].name;
+				names += name;
 			}
 			out += ind + StringFromFormat("// %s\n", names.c_str());
 			for (u32 idx : group)
@@ -1099,7 +1118,7 @@ static void RunUntilDowncountZeroFast(MIPSState *mips) {
 				Core_ExecException(pc, pc, ExecExceptionType::JUMP);
 				return;
 			}
-			const MIPSOpcode op = MIPSOpcode(Memory::ReadUnchecked_U32(pc));
+			const MIPSOpcode op = ReadExecutedOp(pc);
 
 			const bool wasInDelaySlot = mips->inDelaySlot;
 			const int cycles = ExecInstruction(mips, op);
@@ -1230,8 +1249,8 @@ static void RunUntilDowncountZeroWithChecks(MIPSState *mips, u64 globalTicks) {
 				Core_ExecException(mips->pc, mips->pc, ExecExceptionType::JUMP);
 				return;
 			}
-			const MIPSOpcode op = MIPSOpcode(Memory::ReadUnchecked_U32(mips->pc));
-			// Replacements and similar are processed here, intentionally.
+			const MIPSOpcode op = ReadExecutedOp(mips->pc);
+			// Replacements are processed here, intentionally.
 			const MIPSInstruction *instr = MIPSGetInstruction(op);
 
 			// Check for breakpoint. Route through ExecBreakPoint() (also used by the JIT

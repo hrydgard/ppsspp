@@ -18,6 +18,7 @@
 #include "ppsspp_config.h"
 #if PPSSPP_ARCH(RISCV64)
 
+#include <cfloat>
 #include <utility>
 #include "Common/CPUDetect.h"
 #include "Common/Log.h"

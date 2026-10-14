@@ -13,7 +13,7 @@ for it:
 |---|---|
 | [docs/building.md](docs/building.md) | Build commands for every target (VS/MSBuild, CMake, UWP, legacy Android NDK, libretro), unit tests, pspautotests |
 | [docs/android-device-testing.md](docs/android-device-testing.md) | Running a build on a real Android device or a Quest over adb: installing the build you think you are, forcing activity recreates, measuring retained activities, VR |
-| [docs/debugging.md](docs/debugging.md) | Driving the WebSocket debugger and PPSSPPHeadless from a script, measuring a commercial game with headless, comparing binaries' speed (`Tools/headless_bench.py`), breakpoint reliability per CPU backend, debugging a game that works on hardware |
+| [docs/debugging.md](docs/debugging.md) | Driving the WebSocket debugger and PPSSPPHeadless from a script, measuring a commercial game with headless, comparing binaries' speed (`Tools/headless_bench.py`), breakpoint reliability per CPU backend, debugging a game that works on hardware, finding and hashing a game function (like its own `memcpy`) for `ReplaceTables` when hardware backends miss CPU writes to VRAM |
 | [docs/DebuggerThreading.md](docs/DebuggerThreading.md) | `Core_RunOnCPUThread` / `g_frameMutex` / shutdown-lock rules - required reading before touching debugger code |
 | [docs/HLEModules.md](docs/HLEModules.md) | Adding an HLE module or function, and the seven build files a new source file goes in |
 | [docs/translations.md](docs/translations.md) | Translating UI strings with Tools/langtool |
@@ -29,6 +29,7 @@ for it:
 | [docs/VSHBootInvestigation.md](docs/VSHBootInvestigation.md) | Booting the PSP's Visual Shell with `--vsh` against a real firmware dump |
 | [docs/PsarFileFormat.md](docs/PsarFileFormat.md) | The PSAR archive inside a firmware updater - the format `Core/Util/PSARUnpack.cpp` walks |
 | [docs/pkg_notes.md](docs/pkg_notes.md) | The NPDRM `.pkg` format PSP game updates ship in, and how PPSSPP installs them |
+| [docs/cpu-equivalence.md](docs/cpu-equivalence.md) | Making the CPU cores agree bit for bit on every host: the `CPUEquivalence` fuzzer, what it found, and the differences still open (several waiting on a hardware test) |
 | [docs/kernel-hle-review.md](docs/kernel-hle-review.md) | Findings from a review pass over `Core/HLE/sceKernel*.cpp`, and what was verified clean |
 | [docs/metal-backend.md](docs/metal-backend.md) | What a native Metal backend would take, and why programmable blending is the reason to want one |
 
@@ -38,7 +39,8 @@ for it:
 2. Keep cross-platform parity in mind when changing shared code. See below for more multiplatform tips
 3. **Commit freely, push only when asked.** Once a change is done and tested, commit it on its
    branch without waiting to be told. Never `git push` (to any remote) without the user's explicit
-   approval.
+   approval. The exception is a useful new or re-recorded test in `pspautotests`, which goes
+   straight to its `master` without asking (see [docs/pspautotests-hardware.md](docs/pspautotests-hardware.md#committing)).
 4. **Don't write code on `master`.** When asked to make a code change while on `master`, create an
    appropriately named branch first (`git checkout -b some-descriptive-name`) and do the work there.
    If you're already on a topic branch, just keep working on it.
@@ -289,6 +291,22 @@ it when you add a command.
 Keep commit messages focused, not overly long (although sometimes it's motivated if a single commit
 is super complex). Do not report things like 100/100 tests passed - that's a given, if tests break
 you aren't supposed to make a commit.
+
+When a commit fixes a GitHub issue, the title comes first as usual, then a blank line, then
+`- Fixes #N` as the first line of the body, then a blank line and the rest of the summary:
+
+```
+GE: Nest CALLs only two deep, like the hardware
+
+- Fixes #7395
+
+The GE has two return address registers, ...
+```
+
+The blank line after the title matters: without it, git and GitHub treat both lines as the title.
+GitHub shows a reference that stands alone in a list item with the issue's title, so the PR
+(which takes its description from the commit) shows what is being fixed, and the keyword closes the
+issue on merge. Don't repeat the number in the body.
 
 **Never put a session marker in a commit message.** That means any `Claude-Session:` trailer, or a
 bare `https://claude.ai/code/session_...` line. This holds even when your own attribution

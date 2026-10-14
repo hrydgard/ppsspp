@@ -35,8 +35,11 @@ jobs:
     runs-on: windows-latest
     steps:
     - uses: actions/checkout@v7
-      with:
-        submodules: recursive
+
+    # Only the FFmpeg libraries this build uses. See the script.
+    - name: Check out submodules
+      shell: bash
+      run: .github/checkout-submodules.sh ${{ matrix.platform == 'x64' && '/Windows/x86_64/' || '/Windows/aarch64/' }} /WindowsInclude/
 
     - name: Add MSBuild to PATH
       uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3.0.0
@@ -122,8 +125,11 @@ jobs:
     runs-on: windows-latest
     steps:
     - uses: actions/checkout@v7
-      with:
-        submodules: recursive
+
+    # Only the FFmpeg libraries this build uses. See the script.
+    - name: Check out submodules
+      shell: bash
+      run: .github/checkout-submodules.sh /Windows10/x64/ /WindowsInclude/
 
     - name: Add MSBuild to PATH
       uses: microsoft/setup-msbuild@30375c66a4eea26614e0d39710365f22f8b0af57 # v3.0.0
@@ -157,8 +163,11 @@ jobs:
     timeout-minutes: 90
     steps:
     - uses: actions/checkout@v7
-      with:
-        submodules: recursive
+
+    # Only the FFmpeg libraries this build uses. See the script.
+    - name: Check out submodules
+      shell: bash
+      run: .github/checkout-submodules.sh /Windows/${{ matrix.arch == 'x64' && 'x86_64' || 'x86' }}/
 
     # Needs a real MSYS2 (make, bash, cygpath) - the one preinstalled on the runner image isn't on
     # PATH and has no make. path-type: inherit keeps the Windows PATH, which the Makefile needs for
@@ -169,6 +178,9 @@ jobs:
         msystem: ${{ matrix.msystem }}
         path-type: inherit
         install: make
+        # Deprecated in favour of UCRT64/CLANG64, but only make and bash come from MSYS2 here,
+        # the compiler is MSVC.
+        suppress-deprecation-warnings: msystem-mingw64 msystem-mingw32
 
     # The Makefile can locate Visual Studio by itself, but only through "cmd //c bash VSWhere.sh",
     # which depends on COMSPEC and ProgramFiles(x86) surviving into the MSYS2 shell. Resolving it
@@ -222,11 +234,13 @@ jobs:
           cxx: clang++
           args: ./b.sh --headless --unittest
           id: clang-normal
+          ffmpeg: /linux/x86_64/
         - os: ubuntu-26.04
           cc: gcc
           cxx: g++
           args: ./b.sh --headless --unittest
           id: gcc-normal
+          ffmpeg: /linux/x86_64/
 
         # Gives the headless tests an arm64 host to run the CPU backends on - the arm64 JIT is a
         # different backend from the x86-64 one, and nothing else in the matrix tests it on Linux.
@@ -236,6 +250,7 @@ jobs:
           cxx: clang++
           args: ./b.sh --headless --unittest
           id: clang-arm64
+          ffmpeg: /linux/aarch64/
 
         - os: ubuntu-26.04
           extra: android
@@ -243,30 +258,35 @@ jobs:
           cxx: clang++
           args: cd android && ./ab.sh APP_ABI=arm64-v8a UNITTEST=1 HEADLESS=1
           id: android-arm64
+          ffmpeg: /android/arm64/
         - os: ubuntu-26.04
           extra: android
           cc: clang
           cxx: clang++
           args: cd android && ./ab.sh APP_ABI=armeabi-v7a UNITTEST=1 HEADLESS=1
           id: android-arm32
+          ffmpeg: /android/armv7/
         - os: ubuntu-26.04
           extra: android
           cc: clang
           cxx: clang++
           args: cd android && ./ab.sh APP_ABI=x86_64 UNITTEST=1 HEADLESS=1
           id: android-x86_64
+          ffmpeg: /android/x86_64/
         - os: ubuntu-26.04
           extra: android
           cc: clang
           cxx: clang++
           args: cd android && ./ab.sh APP_ABI=arm64-v8a OPENXR=1
           id: android-vr
+          ffmpeg: /android/arm64/
         - os: ubuntu-26.04
           extra: android
           cc: clang
           cxx: clang++
           args: ./b.sh --libretro_android ppsspp_libretro
           id: android-libretro
+          ffmpeg: /android/
 
         - os: ubuntu-26.04
           extra: libretro
@@ -274,12 +294,14 @@ jobs:
           cxx: g++
           args: make -C libretro -f Makefile -j2
           id: gcc-libretro
+          ffmpeg: /linux/x86_64/
         - os: ubuntu-26.04
           extra: libretro
           cc: clang
           cxx: clang++
           args: make -C libretro -f Makefile -j2
           id: clang-libretro
+          ffmpeg: /linux/x86_64/
 
         - os: ubuntu-26.04
           extra: loongarch64
@@ -287,6 +309,7 @@ jobs:
           cxx: g++
           args: ./b.sh --loongarch64 --unittest PPSSPPHeadless PPSSPPUnitTest
           id: loongarch64
+          ffmpeg: /linux/loongarch64/
 
         - os: ubuntu-26.04
           extra: riscv64
@@ -294,6 +317,7 @@ jobs:
           cxx: g++
           args: ./b.sh --riscv64 --unittest PPSSPPHeadless PPSSPPUnitTest
           id: riscv64
+          ffmpeg: /linux/riscv64/
 
         - os: macos-latest
           extra: test
@@ -301,24 +325,45 @@ jobs:
           cxx: clang++
           args: ./b.sh --headless --unittest --no-png
           id: macos
+          ffmpeg: /macosx/universal/
         - os: macos-latest
           extra: libretro_mac
           cc: clang
           cxx: clang++
           args: ./b.sh --libretro
           id: macos-libretro
+          ffmpeg: /macosx/universal/
         - os: macos-latest
           extra: ios
           cc: clang
           cxx: clang++
           args: ./b-ios.sh
           id: ios
+          ffmpeg: /ios/universal/
+        - os: macos-latest
+          extra: tvos
+          cc: clang
+          cxx: clang++
+          args: ./b-tvos.sh
+          id: tvos
+          ffmpeg: /tvos/arm64/
+        # One job for both, since only five macOS jobs run at once and the rest wait in line.
+        - os: macos-latest
+          extra: libretro_ios_tvos
+          cc: clang
+          cxx: clang++
+          args: ./b.sh --ios --libretro && ./b.sh --tvos --libretro
+          id: ios-tvos-libretro
+          ffmpeg: /ios/universal/ /tvos/arm64/
 
     runs-on: ${{ matrix.os }}
     steps:
     - uses: actions/checkout@v7
-      with:
-        submodules: recursive
+
+    # Only the FFmpeg libraries this build uses. See the script.
+    - name: Check out submodules
+      shell: bash
+      run: .github/checkout-submodules.sh ${{ matrix.ffmpeg }}
 
     - name: Fetch tags for macOS releases
       if: runner.os == 'macOS'
@@ -377,6 +422,9 @@ jobs:
       if: matrix.id != 'macos'
       with:
         key: ${{ matrix.id }}
+        # Only master saves. The Actions cache holds 10 GB, and PR runs filled it with caches
+        # only that PR could use, evicting master's, which every run restores from.
+        save: ${{ github.ref == 'refs/heads/master' }}
 
     - name: Execute build
       env:
@@ -425,7 +473,7 @@ jobs:
           --known-failures=${{ matrix.extra }}
 
     - name: Package build
-      if: matrix.extra == 'test' || matrix.id == 'ios'
+      if: matrix.extra == 'test' || matrix.id == 'ios' || matrix.id == 'tvos'
       run: |
         mkdir -p ppsspp
         if [ -e build*/$BUILD_CONFIGURATION/PPSSPPSDL ]; then
@@ -443,6 +491,11 @@ jobs:
           find build -name 'PPSSPP*.xcarchive' -exec cp -a '{}' ppsspp/ \;
           find build -name 'PPSSPP*.deb' -exec cp -a '{}' ppsspp/ \;
           find build -name 'org.ppsspp*.deb' -exec cp -a '{}' ppsspp/ \;
+        elif [ -e build-tvos-xcode/Release-appletvos/PPSSPP.app ]; then
+          # Unsigned. Zipped, since artifact zipping loses symlinks and permissions.
+          pushd build-tvos-xcode/Release-appletvos
+          zip -qry ../../ppsspp/PPSSPP-tvOS.zip PPSSPP.app
+          popd
         elif [ -e build*/PPSSPPSDL ]; then
           cp build*/PPSSPPSDL ppsspp/
           cp -r assets ppsspp/assets
@@ -467,7 +520,7 @@ jobs:
 
     - name: Upload iOS build
       uses: actions/upload-artifact@v7
-      if: matrix.id == 'ios'
+      if: matrix.id == 'ios' || matrix.id == 'tvos'
       with:
         name: ${{ matrix.id }} build
         path: ppsspp/
@@ -492,70 +545,30 @@ jobs:
           as well as the [downloads section](https://ppsspp.org/downloads.html)
           for other platforms.
 
-  test:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-26.04, ubuntu-26.04-arm, macos-latest]
-
-    runs-on: ${{ matrix.os }}
-    needs: build
-    timeout-minutes: 30
-    steps:
-    - uses: actions/checkout@v7
-      with:
-        submodules: false
-
-    - name: Fetch tests
-      working-directory: ${{ env.GITHUB_WORKSPACE }}
-      # Doing this to avoid ffmpeg and other large submodules.
-      run: git submodule update --init pspautotests frametests
-
-    - name: Install Linux dependencies
-      if: runner.os == 'Linux'
-      run: |
-        sudo apt-get update -y -qq
-        sudo apt-get install libsdl3-dev libgl1-mesa-dev libglu1-mesa-dev libsdl3-ttf-dev libfontconfig1-dev libcurl4-openssl-dev
-
-    - name: Install macOS dependencies
-      if: runner.os == 'macOS'
-      run: brew install sdl3 sdl3_ttf
-
-    - name: Download build
-      uses: actions/download-artifact@v8
-      with:
-        name: ${{ matrix.os }} build
-        path: ppsspp/
-
-    # Not sure where it's ending up, but test.py can't find it...
-    - name: Fix headless permissions
-      working-directory: ${{ env.GITHUB_WORKSPACE }}
-      run: |
-        cp `find . -name PPSSPPHeadless` .
-        chmod +x PPSSPPHeadless
-        cp `find . -name PPSSPPUnitTest` .
-        chmod +x PPSSPPUnitTest
-
+    # The test entries run the tests right here. A job of their own could only wait for the whole
+    # build matrix, which held them back until the slowest unrelated build was done. These come
+    # last, so the artifacts and releases above don't depend on them, as before.
     - name: Execute unit tests
-      working-directory: ${{ env.GITHUB_WORKSPACE }}
-      run: ./PPSSPPUnitTest ALL
+      if: matrix.extra == 'test'
+      timeout-minutes: 30
+      run: build/PPSSPPUnitTest ALL
 
     - name: Execute headless tests
-      if: runner.os != 'Linux'
-      working-directory: ${{ env.GITHUB_WORKSPACE }}
-      run: python test.py -g --graphics=software
+      if: matrix.extra == 'test' && runner.os != 'Linux'
+      timeout-minutes: 30
+      run: python3 test.py -g --graphics=software
 
     # The Linux runners carry the CPU backend coverage, on both x86-64 and arm64. Elsewhere the
     # default (JIT) is enough - the backends are shared code, and four runs everywhere adds up.
     # test.py picks a wall clock to match the backend, so the slower ones don't time out.
     - name: Execute headless tests (all CPU backends)
-      if: runner.os == 'Linux'
-      working-directory: ${{ env.GITHUB_WORKSPACE }}
+      if: matrix.extra == 'test' && runner.os == 'Linux'
+      timeout-minutes: 30
       run: |
         fail=0
         for cpu in jit jit-ir ir interpreter; do
           echo "::group::CPU backend: $cpu"
-          python test.py -g --graphics=software --cpu=$cpu || fail=1
+          python3 test.py -g --graphics=software --cpu=$cpu || fail=1
           echo "::endgroup::"
         done
         exit $fail
@@ -564,13 +577,13 @@ jobs:
     # 23 of the 30 dumps differ there, one of them by an MSE of 100. That's a real difference and
     # worth chasing, but it predates the arm64 runner - it just never had a CI job to show up in.
     - name: Execute frametests
-      if: matrix.os == 'ubuntu-26.04'
-      working-directory: ${{ env.GITHUB_WORKSPACE }}
+      if: matrix.id == 'clang-normal'
+      timeout-minutes: 30
       run: python3 frametests.py frametests/frametests.json --out-mode=failures
 
     - name: Upload frametest report
       uses: actions/upload-artifact@v7
-      if: matrix.os == 'ubuntu-26.04' && always()
+      if: matrix.id == 'clang-normal' && always()
       with:
         name: frametest-report
         path: frametests/out/
@@ -586,19 +599,49 @@ jobs:
         apk add build-base wget git bash cmake python3 glu-dev sdl3-dev sdl3_ttf-dev curl-dev
 
     - uses: actions/checkout@v7
-      with:
-        submodules: recursive
+
 
     - name: Fix git detected dubious ownership in repository
       run: |
         chown -R $(id -u):$(id -g) $PWD
 
+    # The FFmpeg sources, which this builds, without the prebuilt libraries. See the script.
+    - name: Check out submodules
+      run: |
+        .github/checkout-submodules.sh '/*' '!/Windows/' '!/Windows10/' '!/WindowsInclude/' '!/android/' '!/blackberry/' '!/ios/' '!/linux/' '!/macosx/' '!/symbian/' '!/tvos/' '!/wiiu/'
+
     - name: Setup ccache
       uses: hendrikmuhs/ccache-action@f09c25b45002a07be2955cbe52e8cee55643f89d # v1.2.24
+      with:
+        # See the other ccache setup.
+        save: ${{ github.ref == 'refs/heads/master' }}
+
+    # The prebuilt Linux FFmpeg is linked against glibc, so this builds it for musl, into the same
+    # folder. That takes a few minutes, so the result is cached until FFmpeg, its build script
+    # or Alpine changes.
+    - name: FFmpeg cache key
+      id: ffmpeg-key
+      run: |
+        echo "key=alpine-ffmpeg-$(cat /etc/alpine-release)-$(git rev-parse HEAD:ffmpeg)-$(sha1sum ffmpeg/linux_x86-64.sh | cut -c1-12)" >> $GITHUB_OUTPUT
+
+    - name: Restore FFmpeg
+      id: ffmpeg-cache
+      uses: actions/cache/restore@v6.1.0
+      with:
+        path: ffmpeg/linux/x86_64
+        key: ${{ steps.ffmpeg-key.outputs.key }}
 
     - name: Compile ffmpeg
+      if: steps.ffmpeg-cache.outputs.cache-hit != 'true'
       run: |
         cd ffmpeg && ./linux_x86-64.sh
+
+    - name: Save FFmpeg
+      if: steps.ffmpeg-cache.outputs.cache-hit != 'true' && github.ref == 'refs/heads/master'
+      uses: actions/cache/save@v6.1.0
+      with:
+        path: ffmpeg/linux/x86_64
+        key: ${{ steps.ffmpeg-key.outputs.key }}
 
     - name: Build for testing
       run: |

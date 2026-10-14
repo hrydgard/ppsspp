@@ -7,7 +7,6 @@
 #include "Common/System/System.h"
 #include "Common/Log.h"
 
-#include "Core/Config.h"
 #include "Core/KeyMap.h"
 #include "SDL/SDLJoystick.h"
 

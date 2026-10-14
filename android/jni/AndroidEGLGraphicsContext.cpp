@@ -208,12 +208,29 @@ bool AndroidEGLGraphicsContext::InitSurface(WindowSystem winsys, void *data1, vo
 		}
 	});
 
-	// NOTE: Deliberately *not* calling SetSwapIntervalFunction. GLSurfaceView gave us no way to
-	// change the interval, so PresentMode::IMMEDIATE was always a no-op on Android GL, and this
-	// class set out to behave identically. Now that it's the only path, eglSwapInterval(0) is
-	// there for the taking - but that's a behavior change, so it wants its own commit.
+	// For PresentMode::IMMEDIATE (vsync off, and fast-forward without skipping flips).
+	if (CanChangeSwapInterval()) {
+		renderManager_->SetSwapIntervalFunction([this](int interval) {
+			if (!eglSwapInterval(display_, interval)) {
+				WARN_LOG(Log::G3D, "%s", EGLFailure("eglSwapInterval").c_str());
+			}
+		});
+	}
 
 	return true;
+}
+
+bool AndroidEGLGraphicsContext::CanChangeSwapInterval() const {
+	// In VR, OpenXR presents, not eglSwapBuffers.
+	if (IsVREnabled() || display_ == EGL_NO_DISPLAY) {
+		return false;
+	}
+	// eglSwapInterval silently clamps to the config's minimum, which some configs have at 1.
+	EGLint minInterval = 1;
+	if (!eglGetConfigAttrib(display_, config_, EGL_MIN_SWAP_INTERVAL, &minInterval)) {
+		return false;
+	}
+	return minInterval == 0;
 }
 
 void AndroidEGLGraphicsContext::ShutdownSurface() {

@@ -40,6 +40,9 @@ public:
 	}
 
 protected:
+	// Whether the subclass can set the swap interval (SetSwapIntervalFunction), which PresentMode::IMMEDIATE needs.
+	virtual bool CanChangeSwapInterval() const { return false; }
+
 	// Protected rather than private so a subclass that owns the real context (see
 	// android/jni/AndroidEGLGraphicsContext.h) can hook up a swap function.
 	Draw::DrawContext *draw_ = nullptr;

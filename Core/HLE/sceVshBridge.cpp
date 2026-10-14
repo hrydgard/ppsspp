@@ -31,7 +31,7 @@
 // NIDs that genuinely need to trap into PPSSPP's own host-level code (controller input,
 // process control, our own module-loading machinery) - the same reasoning that applies to
 // every other kernel syscall PPSSPP HLEs for regular games. We now load and start the real
-// vshbridge.prx as part of booting the VSH (see LoadAndStartVshKernelModules in
+// vshbridge.prx as part of booting the VSH (see LoadVshKernelModules in
 // sceKernelModule.cpp), so registering a stub for every other NID here would silently discard
 // vshbridge.prx's real, working exports in favor of a placeholder that just logs an error -
 // Core/HLE/sceKernelModule.cpp's ExportFuncSymbol() ignores a module's real export if we claim

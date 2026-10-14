@@ -610,6 +610,9 @@ void Jit::Comp_VIdt(MIPSOpcode op) {
 	int vd = _VD;
 	VectorSize sz = GetVecSize(op);
 	int n = GetNumVectorElements(sz);
+	// Only pairs and quads are handled here.
+	if (sz != V_Pair && sz != V_Quad)
+		DISABLE;
 
 	u8 dregs[4];
 	GetVectorRegsPrefixD(dregs, sz, _VD);
@@ -656,7 +659,7 @@ void Jit::Comp_VIdt(MIPSOpcode op) {
 void Jit::Comp_VDot(MIPSOpcode op) {
 	CONDITIONAL_DISABLE(VFPU_VEC);
 
-	if (js.HasUnknownPrefix())
+	if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || !IsPrefixWithinSize(js.prefixT, op))
 		DISABLE;
 
 	VectorSize sz = GetVecSize(op);
@@ -787,7 +790,7 @@ void Jit::Comp_VDot(MIPSOpcode op) {
 void Jit::Comp_VHdp(MIPSOpcode op) {
 	CONDITIONAL_DISABLE(VFPU_VEC);
 
-	if (js.HasUnknownPrefix())
+	if (js.HasUnknownPrefix() || js.HasSPrefix() || !IsPrefixWithinSize(js.prefixT, op))
 		DISABLE;
 
 	VectorSize sz = GetVecSize(op);
@@ -969,7 +972,8 @@ void Jit::Comp_VCrossQuat(MIPSOpcode op) {
 void Jit::Comp_Vcmov(MIPSOpcode op) {
 	CONDITIONAL_DISABLE(VFPU_COMP);
 
-	if (js.HasUnknownPrefix())
+	// D is read as T, prefix included, which only the interpreter does.
+	if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || js.HasTPrefix())
 		DISABLE;
 
 	VectorSize sz = GetVecSize(op);
@@ -991,7 +995,8 @@ void Jit::Comp_Vcmov(MIPSOpcode op) {
 		}
 	}
 
-	if (imm3 < 6) {
+	// 7 tests a CC bit that is always clear (cpu/vfpu/undefined).
+	if (imm3 != 6) {
 		gpr.MapReg(MIPS_REG_VFPUCC, true, false);
 		fpr.MapRegsV(dregs, sz, MAP_DIRTY);
 		// Test one bit of CC. This bit decides whether none or all subregisters are copied.
@@ -1016,30 +1021,6 @@ void Jit::Comp_Vcmov(MIPSOpcode op) {
 	ApplyPrefixD(dregs, sz);
 
 	fpr.ReleaseSpillLocks();
-}
-
-static s32 DoVminSS(s32 treg) {
-	s32 sreg = currentMIPS->temp;
-
-	// If both are negative, we flip the comparison (not two's compliment.)
-	if (sreg < 0 && treg < 0) {
-		// If at least one side is NAN, we take the highest mantissa bits.
-		return treg < sreg ? sreg : treg;
-	} else {
-		// Otherwise, we take the lowest value (negative or lowest mantissa.)
-		return treg > sreg ? sreg : treg;
-	}
-}
-
-static s32 DoVmaxSS(s32 treg) {
-	s32 sreg = currentMIPS->temp;
-
-	// This is the same logic as vmin, just reversed.
-	if (sreg < 0 && treg < 0) {
-		return treg < sreg ? treg : sreg;
-	} else {
-		return treg > sreg ? treg : sreg;
-	}
 }
 
 void Jit::Comp_VecDo3(MIPSOpcode op) {
@@ -1221,6 +1202,10 @@ void Jit::Comp_VecDo3(MIPSOpcode op) {
 			MOVSS(tempxregs[i], fpr.V(sregs[i]));
 	}
 
+	const bool minmax = (op >> 26) == 27 && (((op >> 23) & 7) == 2 || ((op >> 23) & 7) == 3);
+	if (minmax)
+		gpr.FlushLockX(EDX, ECX);
+
 	for (int i = 0; i < n; ++i) {
 		switch (op >> 26) {
 		case 24: //VFPU0
@@ -1248,37 +1233,29 @@ void Jit::Comp_VecDo3(MIPSOpcode op) {
 			switch ((op >> 23) & 7)
 			{
 			case 2:  // vmin
-				{
-					MOVSS(XMM0, fpr.V(tregs[i]));
-					UCOMISS(tempxregs[i], R(XMM0));
-					FixupBranch skip = J_CC(CC_NP, true);
-
-					MOVSS(MIPSSTATE_VAR(temp), tempxregs[i]);
-					MOVD_xmm(R(EAX), XMM0);
-					CallProtectedFunction(&DoVminSS, R(EAX));
-					MOVD_xmm(tempxregs[i], R(EAX));
-					FixupBranch finish = J();
-
-					SetJumpTarget(skip);
-					MINSS(tempxregs[i], R(XMM0));
-					SetJumpTarget(finish);
-				}
-				break;
 			case 3:  // vmax
 				{
+					// Compare by vfpu_minmax_key, select the operand with its bits. A tie takes t.
+					auto key = [&](X64Reg k, X64Reg x) {
+						MOVD_xmm(R(TEMPREG), x);
+						MOV(32, R(k), R(TEMPREG));
+						SAR(32, R(k), Imm8(31));
+						SHR(32, R(k), Imm8(1));
+						XOR(32, R(k), R(TEMPREG));
+						// All ones unless the exponent is zero.
+						AND(32, R(TEMPREG), Imm32(0x7F800000));
+						NEG(32, R(TEMPREG));
+						SBB(32, R(TEMPREG), R(TEMPREG));
+						AND(32, R(k), R(TEMPREG));
+					};
+					// tempxregs[i] holds s.
 					MOVSS(XMM0, fpr.V(tregs[i]));
-					UCOMISS(tempxregs[i], R(XMM0));
-					FixupBranch skip = J_CC(CC_NP, true);
-
-					MOVSS(MIPSSTATE_VAR(temp), tempxregs[i]);
-					MOVD_xmm(R(EAX), XMM0);
-					CallProtectedFunction(&DoVmaxSS, R(EAX));
-					MOVD_xmm(tempxregs[i], R(EAX));
-					FixupBranch finish = J();
-
-					SetJumpTarget(skip);
-					MAXSS(tempxregs[i], R(XMM0));
-					SetJumpTarget(finish);
+					key(EDX, tempxregs[i]);
+					key(ECX, XMM0);
+					CMP(32, R(EDX), R(ECX));
+					FixupBranch keepS = J_CC(((op >> 23) & 7) == 2 ? CC_L : CC_G);
+					MOVSS(tempxregs[i], R(XMM0));
+					SetJumpTarget(keepS);
 				}
 				break;
 			case 6:  // vsge
@@ -1301,6 +1278,9 @@ void Jit::Comp_VecDo3(MIPSOpcode op) {
 		}
 	}
 
+	if (minmax)
+		gpr.UnlockAllX();
+
 	for (int i = 0; i < n; ++i)
 	{
 		if (!fpr.V(dregs[i]).IsSimpleReg(tempxregs[i]))
@@ -1322,7 +1302,7 @@ alignas(16) static const u32 vcmpMask[4][4] = {
 void Jit::Comp_Vcmp(MIPSOpcode op) {
 	CONDITIONAL_DISABLE(VFPU_COMP);
 
-	if (js.HasUnknownPrefix())
+	if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || !IsPrefixWithinSize(js.prefixT, op))
 		DISABLE;
 
 	VectorSize sz = GetVecSize(op);
@@ -1565,7 +1545,7 @@ extern const float mulTableVi2f[32] = {
 void Jit::Comp_Vi2f(MIPSOpcode op) {
 	CONDITIONAL_DISABLE(VFPU_VEC);
 
-	if (js.HasUnknownPrefix())
+	if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op))
 		DISABLE;
 
 	VectorSize sz = GetVecSize(op);
@@ -1651,7 +1631,7 @@ void Jit::Comp_Vi2f(MIPSOpcode op) {
 // Translation of ryg's half_to_float5_SSE2
 void Jit::Comp_Vh2f(MIPSOpcode op) {
 	CONDITIONAL_DISABLE(VFPU_VEC);
-	if (js.HasUnknownPrefix())
+	if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op))
 		DISABLE;
 
 #define SSE_CONST4(name, val) alignas(16) static const u32 name[4] = { (val), (val), (val), (val) }
@@ -1894,7 +1874,7 @@ static const double maxMinIntAsDouble[2] = { (double)0x7fffffff, (double)(int)0x
 
 void Jit::Comp_Vf2i(MIPSOpcode op) {
 	CONDITIONAL_DISABLE(VFPU_VEC);
-	if (js.HasUnknownPrefix())
+	if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || (js.prefixD & 0xFF) != 0)
 		DISABLE;
 
 	VectorSize sz = GetVecSize(op);
@@ -2042,7 +2022,7 @@ void Jit::Comp_Vcst(MIPSOpcode op) {
 void Jit::Comp_Vsgn(MIPSOpcode op) {
 	CONDITIONAL_DISABLE(VFPU_VEC);
 
-	if (js.HasUnknownPrefix())
+	if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || js.HasTPrefix())
 		DISABLE;
 
 	VectorSize sz = GetVecSize(op);
@@ -2111,7 +2091,7 @@ void Jit::Comp_Vsgn(MIPSOpcode op) {
 void Jit::Comp_Vocp(MIPSOpcode op) {
 	CONDITIONAL_DISABLE(VFPU_VEC);
 
-	if (js.HasUnknownPrefix())
+	if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || js.HasTPrefix() || (js.prefixS & VFPU_NEGATE(1, 1, 1, 1)) != 0)
 		DISABLE;
 
 	VectorSize sz = GetVecSize(op);
@@ -2771,7 +2751,7 @@ void Jit::Comp_Vmtvc(MIPSOpcode op) {
 void Jit::Comp_VMatrixInit(MIPSOpcode op) {
 	CONDITIONAL_DISABLE(VFPU_XFER);
 
-	if (js.HasUnknownPrefix())
+	if (!js.HasNoPrefix())
 		DISABLE;
 
 	MatrixSize sz = GetMtxSize(op);
@@ -2855,7 +2835,7 @@ void Jit::Comp_Vmmov(MIPSOpcode op) {
 	CONDITIONAL_DISABLE(VFPU_MTX_VMMOV);
 
 	// TODO: This probably ignores prefixes?
-	if (js.HasUnknownPrefix())
+	if (!js.HasNoPrefix())
 		DISABLE;
 
 	MatrixSize sz = GetMtxSize(op);
@@ -3015,13 +2995,18 @@ void Jit::Comp_Vmmul(MIPSOpcode op) {
 	MatrixSize sz = GetMtxSize(op);
 	VectorSize vsz = GetVectorSize(sz);
 	int n = GetMatrixSide(sz);
+	// vmmul.s isn't a real op, and the code below doesn't handle it.
+	if (n == 1) {
+		DISABLE;
+	}
 
 	MatrixOverlapType soverlap = GetMatrixOverlap(_VS, _VD, sz);
 	MatrixOverlapType toverlap = GetMatrixOverlap(_VT, _VD, sz);
 	// If these overlap, we won't be able to map T as singles.
 	MatrixOverlapType stoverlap = GetMatrixOverlap(_VS, _VT, sz);
 
-	if (jo.enableVFPUSIMD && !soverlap && !toverlap && !stoverlap) {
+	const bool wraps = MatrixWrapsAround(_VS, sz) || MatrixWrapsAround(_VT, sz) || MatrixWrapsAround(_VD, sz);
+	if (jo.enableVFPUSIMD && !soverlap && !toverlap && !stoverlap && !wraps) {
 		u8 scols[4], dcols[4], tregs[16];
 
 		int vs = _VS;
@@ -3203,7 +3188,7 @@ void Jit::Comp_Vmscl(MIPSOpcode op) {
 	CONDITIONAL_DISABLE(VFPU_MTX_VMSCL);
 
 	// TODO: This op probably ignores prefixes?
-	if (js.HasUnknownPrefix())
+	if (!js.HasNoPrefix())
 		DISABLE;
 
 	MatrixSize sz = GetMtxSize(op);
@@ -3391,7 +3376,7 @@ alignas(16) static const s8 vi2xs_shuffle[16] = { 2, 3, 6, 7,  10, 11, 14, 15,  
 
 void Jit::Comp_Vi2x(MIPSOpcode op) {
 	CONDITIONAL_DISABLE(VFPU_VEC);
-	if (js.HasUnknownPrefix())
+	if (js.HasUnknownPrefix() || js.HasSPrefix())
 		DISABLE;
 
 	int bits = ((op >> 16) & 2) == 0 ? 8 : 16; // vi2uc/vi2c (0/1), vi2us/vi2s (2/3)
@@ -3808,7 +3793,7 @@ void Jit::Comp_VRot(MIPSOpcode op) {
 
 void Jit::Comp_ColorConv(MIPSOpcode op) {
 	CONDITIONAL_DISABLE(VFPU_VEC);
-	if (js.HasUnknownPrefix())
+	if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || js.HasTPrefix())
 		DISABLE;
 
 	int vd = _VD;

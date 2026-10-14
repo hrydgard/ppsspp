@@ -136,6 +136,7 @@
     <ClInclude Include="..\..\UI\RemoteISOScreen.h" />
     <ClInclude Include="..\..\UI\ReportScreen.h" />
     <ClInclude Include="..\..\UI\SavedataScreen.h" />
+    <ClInclude Include="..\..\UI\ShareFiles.h" />
     <ClInclude Include="..\..\UI\Store.h" />
     <ClInclude Include="..\..\UI\TiltAnalogSettingsScreen.h" />
     <ClInclude Include="..\..\UI\TouchControlLayoutScreen.h" />
@@ -199,6 +200,7 @@
     <ClCompile Include="..\..\UI\RemoteISOScreen.cpp" />
     <ClCompile Include="..\..\UI\ReportScreen.cpp" />
     <ClCompile Include="..\..\UI\SavedataScreen.cpp" />
+    <ClCompile Include="..\..\UI\ShareFiles.cpp" />
     <ClCompile Include="..\..\UI\Store.cpp" />
     <ClCompile Include="..\..\UI\TiltAnalogSettingsScreen.cpp" />
     <ClCompile Include="..\..\UI\TouchControlLayoutScreen.cpp" />

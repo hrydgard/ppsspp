@@ -127,7 +127,7 @@ struct VirtualFramebuffer {
 	// Tracking for downloads-to-CLUT.
 	u16 clutUpdatedBytes;
 
-	// Means that the whole image has already been read back to memory - used when combining small readbacks (gameUsesSequentialCopies_).
+	// Means that the whole image has already been read back to memory.
 	bool memoryUpdated;
 
 	// TODO: Fold into usageFlags?
@@ -346,10 +346,12 @@ public:
 	void CopyDisplayToOutput(const DisplayLayoutConfig &config);
 
 	bool NotifyFramebufferCopy(u32 src, u32 dest, int size, GPUCopyFlag flags, u32 skipDrawReason);
-	void PerformWriteFormattedFromMemory(u32 addr, int size, int width, GEBufferFormat fmt);
+	void PerformWriteFormattedFromMemory(u32 addr, int size, int width, GEBufferFormat fmt, int rectWidth);
+	void WriteRectFromMemory(u32 addr, int size, int stride, GEBufferFormat fmt, int rectWidth);
 	void UpdateFromMemory(u32 addr, int size);
 	void ApplyClearToMemory(int x1, int y1, int x2, int y2, u32 clearColor);
 	bool PerformWriteStencilFromMemory(u32 addr, int size, WriteStencil flags);
+	bool ReadbackStencilToMemory(u32 addr, int size);
 	void WriteStencilFromFramebufferAlpha(VirtualFramebuffer *dst);
 
 	// We changed our depth mode, gotta start over.
@@ -629,8 +631,6 @@ protected:
 	std::vector<VirtualFramebuffer *> bvfbs_; // blitting framebuffers (for download)
 
 	std::vector<DrawPixelsEntry> drawPixelsCache_;
-
-	bool gameUsesSequentialCopies_ = false;
 
 	// Sampled in BeginFrame/UpdateSize for safety.
 	float renderWidth_ = 0.0f;

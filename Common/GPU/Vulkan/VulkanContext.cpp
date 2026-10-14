@@ -237,7 +237,7 @@ VkResult VulkanContext::CreateInstance(const CreateInfo &info) {
 	inst_info.enabledExtensionCount = (uint32_t)instance_extensions_enabled_.size();
 	inst_info.ppEnabledExtensionNames = instance_extensions_enabled_.size() ? instance_extensions_enabled_.data() : nullptr;
 
-#if PPSSPP_PLATFORM(IOS_APP_STORE)
+#if PPSSPP_VK_STATIC
 	inst_info.flags |= VK_INSTANCE_CREATE_ENUMERATE_PORTABILITY_BIT_KHR;
 #endif
 
@@ -1532,6 +1532,19 @@ bool VulkanContext::InitSwapchain(VkPresentModeKHR desiredPresentMode) {
 		}
 	}
 
+#if PPSSPP_PLATFORM(ANDROID)
+	// Right after an in-place rotation, the surface can still report the previous orientation's extent (seen
+	// on a Mali Galaxy S8+, when queried within a few ms of surfaceChanged). That leaves a portrait swapchain
+	// on a landscape window or the other way around, until the next rotation. The window size we were told
+	// about is current, so if the extent is exactly that transposed, it's stale.
+	if (g_display.pixel_xres > 0 && g_display.pixel_yres > 0 && g_display.pixel_xres != g_display.pixel_yres &&
+		currentExtent.width == (uint32_t)g_display.pixel_yres && currentExtent.height == (uint32_t)g_display.pixel_xres) {
+		WARN_LOG(Log::G3D, "Surface extent %dx%d is the window transposed, probably stale after a rotation. Using %dx%d.",
+			currentExtent.width, currentExtent.height, g_display.pixel_xres, g_display.pixel_yres);
+		std::swap(currentExtent.width, currentExtent.height);
+	}
+#endif
+
 	swapChainExtent_.width = clamp(currentExtent.width, surfCapabilities_.minImageExtent.width, surfCapabilities_.maxImageExtent.width);
 	swapChainExtent_.height = clamp(currentExtent.height, surfCapabilities_.minImageExtent.height, surfCapabilities_.maxImageExtent.height);
 
@@ -1586,13 +1599,9 @@ bool VulkanContext::InitSwapchain(VkPresentModeKHR desiredPresentMode) {
 	g_display.rotation = DisplayRotation::ROTATE_0;
 	g_display.rot_matrix.setIdentity();
 
-	uint32_t allowedRotations = VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR | VK_SURFACE_TRANSFORM_ROTATE_180_BIT_KHR | VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR;
-	// Hack: Don't allow 270 degrees pretransform (inverse landscape), it creates bizarre issues on some devices (see #15773).
-	allowedRotations &= ~VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR;
-
 	if (surfCapabilities_.currentTransform & (VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR | VK_SURFACE_TRANSFORM_INHERIT_BIT_KHR)) {
 		preTransform = VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR;
-	} else if (surfCapabilities_.currentTransform & allowedRotations) {
+	} else if (surfCapabilities_.currentTransform & (VK_SURFACE_TRANSFORM_ROTATE_90_BIT_KHR | VK_SURFACE_TRANSFORM_ROTATE_180_BIT_KHR | VK_SURFACE_TRANSFORM_ROTATE_270_BIT_KHR)) {
 		// Normal, sensible rotations. Let's handle it.
 		preTransform = surfCapabilities_.currentTransform;
 		g_display.rot_matrix.setIdentity();

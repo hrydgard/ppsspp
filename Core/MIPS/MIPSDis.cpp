@@ -254,9 +254,9 @@ namespace MIPSDis
 		int rd = _RD;
 		int sa = (op>>6) & 0x1F;
 		const char *name = MIPSGetName(op);
-		if (((op & 0x3f) == 2) && rs == 1)
+		if (((op & 0x3f) == 2) && (rs & 1))
 			name = "rotr";
-		if (((op & 0x3f) == 6) && sa == 1)
+		if (((op & 0x3f) == 6) && (sa & 1))
 			name = "rotrv";
 		snprintf(out, outSize, "%s\t%s, %s, 0x%X", name, RN(rd), RN(rt), sa);
 	}
@@ -267,7 +267,7 @@ namespace MIPSDis
 		int rd = _RD;
 		int sa = (op>>6) & 0x1F;
 		const char *name = MIPSGetName(op);
-		if (((op & 0x3f) == 6) && sa == 1)
+		if (((op & 0x3f) == 6) && (sa & 1))
 			name = "rotrv";
 		snprintf(out, outSize, "%s\t%s, %s, %s", name, RN(rd), RN(rt), RN(rs));
 	}
@@ -333,26 +333,16 @@ namespace MIPSDis
 		snprintf(out, outSize,"%s\t%s,%s", name, RN(rd), RN(rt));
 	}
 
-	void Dis_Emuhack(MIPSOpcode op, uint32_t pc, char *out, size_t outSize) {
-		auto resolved = Memory::Read_Instruction(pc, true);
+	// Shows the instruction under the hook. If memory holds the op itself, the game is executing data.
+	void Dis_CallReplacement(MIPSOpcode op, uint32_t pc, char *out, size_t outSize) {
+		const MIPSOpcode resolved = Memory::Read_Instruction(pc);
 		char disasm[256];
-		if (MIPS_IS_EMUHACK(resolved)) {
-			truncate_cpy(disasm, sizeof(disasm), "(invalid emuhack)");
+		if (resolved.encoding == op.encoding) {
+			truncate_cpy(disasm, sizeof(disasm), "(not an instruction)");
 		} else {
 			MIPSDisAsm(resolved, pc, disasm, sizeof(disasm), true);
 		}
-
-		switch (op.encoding >> 24) {
-		case 0x68:
-			snprintf(out, outSize, "* jitblock: %s", disasm);
-			break;
-		case 0x6a:
-			snprintf(out, outSize, "* replacement: %s", disasm);
-			break;
-		default:
-			snprintf(out, outSize, "* (invalid): %s", disasm);
-			break;
-		}
+		snprintf(out, outSize, "* replacement: %s", disasm);
 	}
 
 

@@ -275,7 +275,7 @@ static void ProcessSIMD(VertexData &vertex, Vec4F32 modelpos, Vec4F32 worldnorma
 	Vec4<int> mec = Vec4<int>::FromRGBA(gstate.getMaterialEmissive());
 
 	Vec4<int> mac = state.colorForAmbient ? colorFactor : state.material.ambientColorFactor;
-	Vec4<int> ambient = (mac * state.baseAmbientColorFactor) >> 10;
+	Vec4<int> ambient = MulSmall(mac, state.baseAmbientColorFactor) >> 10;
 
 	Vec4<int> final_color = mec + ambient;
 	Vec4<int> specular_color = Vec4<int>::AssignToAll(0);

@@ -80,7 +80,7 @@ struct DepthBuffer {
 	}
 };
 
-enum class SoftDirty : uint64_t {
+enum class SoftDirty : uint32_t {
 	NONE = 0,
 
 	PIXEL_BASIC = 1ULL << 0,
@@ -170,12 +170,13 @@ public:
 	void GetStats(StringWriter &w) override;
 	std::vector<const VirtualFramebuffer *> GetFramebufferList() const override { return std::vector<const VirtualFramebuffer *>(); }
 	void InvalidateCache(u32 addr, int size, GPUInvalidationType type) override;
-	void PerformWriteFormattedFromMemory(u32 addr, int size, int width, GEBufferFormat format) override;
+	void PerformWriteFormattedFromMemory(u32 addr, int size, int width, GEBufferFormat format, int rectWidth) override;
 	bool PerformMemoryCopy(u32 dest, u32 src, int size, GPUCopyFlag flags = GPUCopyFlag::NONE) override;
 	bool PerformMemorySet(u32 dest, u8 v, int size) override;
 	bool PerformReadbackToMemory(u32 dest, int size) override;
 	bool PerformWriteColorFromMemory(u32 dest, int size) override;
 	bool PerformWriteStencilFromMemory(u32 dest, int size, WriteStencil flags) override;
+	bool PerformReadbackStencilToMemory(u32 dest, int size) override;
 
 	void DeviceLost() override;
 	void DeviceRestore(Draw::DrawContext *draw) override;
@@ -201,10 +202,10 @@ public:
 	bool GetCurrentTexture(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) override;
 	bool GetCurrentClut(GPUDebugBuffer &buffer) override;
 
-	bool DescribeCodePtr(const u8 *ptr, std::string &name) override;
 
 	void Execute_BlockTransferStart(u32 op, u32 diff);
 	void Execute_Prim(u32 op, u32 diff);
+	int RunVertexCount(u32 count, u32 vertexSize);
 	void Execute_Bezier(u32 op, u32 diff);
 	void Execute_Spline(u32 op, u32 diff);
 	void Execute_LoadClut(u32 op, u32 diff);

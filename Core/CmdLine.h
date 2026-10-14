@@ -1,6 +1,8 @@
 #pragma once
 
 #include <optional>
+#include <string>
+#include <vector>
 #include "Common/Log.h"
 #include "Core/ConfigValues.h"
 
@@ -41,6 +43,8 @@ struct CommandLineOptions {
 	std::optional<std::string> startScreen;
 
 	std::optional<bool> escapeExit;
+	// Run as if no memory stick were inserted.
+	std::optional<bool> memStickInserted;
 	std::optional<bool> pauseMenuExit;
 
 	// Enables the WebSocket debugger on startup, on this port (0 = pick automatically).
@@ -174,13 +178,19 @@ struct CommandLineOptions {
 	std::optional<double> timeoutWall;
 	std::optional<double> timeoutEmulated;
 	std::optional<bool> printEqualLines;
+	// Headless: print flips per emulated second at the end, counted from the loaded state (if any).
+	std::optional<bool> frameStats;
 
 	std::optional<std::string> screenshotFilename;
 	std::optional<std::string> screenshotFilenameSave;
 	std::optional<std::string> depthFilenameSave;
+	std::optional<std::string> dumpAudioFilename;
 	std::optional<int> replayEnd;
 	// Headless: apply the game's compatibility settings when replaying a GE frame dump.
 	std::optional<bool> dumpCompat;
+	std::optional<bool> hardwareTransform;
+	// Headless: comma-separated clip-distance, cull-distance, depth-clamp, framebuffer-fetch, dual-source-blend.
+	std::optional<std::string> disableGPUFeatures;
 	std::optional<bool> screenshotRenderTarget;
 	std::optional<std::string> screenshotFilenameDiff;
 	// Headless: preserve the alpha channel when saving PNG screenshots.
@@ -203,3 +213,6 @@ struct CommandLineOptions {
 	std::optional<double> dpi;
 	std::optional<double> scale;
 };
+
+// Splits a command line string into arguments. Handles double quotes and backslash escapes.
+std::vector<std::string> SplitCommandLine(const std::string &value);

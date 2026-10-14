@@ -16,6 +16,11 @@ namespace UI {
 class AnchorTranslateTween;
 class ScrollView;
 
+// For the arrow directions: whether candidate is a better place to move the focus to from origin
+// than best (null if there's nothing yet). originPos is where the move starts across the
+// direction of the move, normally origin's center.
+bool IsBetterFocusCandidate(const Bounds &origin, const Point2D &originPos, const Bounds &candidate, const Bounds *best, FocusMove direction);
+
 struct NeighborResult {
 	NeighborResult() : view(nullptr), score(0) {}
 	NeighborResult(View *v, float s) : view(v), score(s) {}

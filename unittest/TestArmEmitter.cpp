@@ -58,7 +58,7 @@ bool TestArmEmitter() {
 	//emitter.VNEG(I_32, D1, Q2);
 	//RET(CheckLast(emitter, "f2af1814 VNEG.s32 d1, q2"));
 	emitter.VNEG(S1, S2);
-	RET(CheckLast(emitter, "eef10a41 VNEG s1, s2"));
+	RET(CheckLast(emitter, "eef10a41 VNEG.f32 s1, s2"));
 	emitter.VMOVN(I_32, D1, Q2);
 	RET(CheckLast(emitter, "f3b61204 VMOVN.i32 d1, q2"));
 	emitter.VSHR(I_32 | I_UNSIGNED, Q1, Q2, 19);
@@ -70,51 +70,51 @@ bool TestArmEmitter() {
 	emitter.VSHLL(I_32, Q1, D2, 17);
 	RET(CheckLast(emitter, "f2b12a12 VSHLL.s32 q1, d2, #17"));
 	emitter.LDR(R3, R7);
-	RET(CheckLast(emitter, "e5973000 LDR r3, [r7, #0]"));
+	RET(CheckLast(emitter, "e5973000 LDR r3, [r7]"));
 	emitter.VLDR(S3, R8, 48);
 	RET(CheckLast(emitter, "edd81a0c VLDR s3, [r8, #48]"));
 	emitter.VSTR(S5, R12, -36);
 	RET(CheckLast(emitter, "ed4c2a09 VSTR s5, [r12, #-36]"));
 	emitter.VADD(S1, S2, S3);
-	RET(CheckLast(emitter, "ee710a21 VADD s1, s2, s3"));
+	RET(CheckLast(emitter, "ee710a21 VADD.f32 s1, s2, s3"));
 	emitter.VADD(D1, D2, D3);
-	RET(CheckLast(emitter, "ee321b03 VADD d1, d2, d3"));
+	RET(CheckLast(emitter, "ee321b03 VADD.f64 d1, d2, d3"));
 	emitter.VSUB(S1, S2, S3);
-	RET(CheckLast(emitter, "ee710a61 VSUB s1, s2, s3"));
+	RET(CheckLast(emitter, "ee710a61 VSUB.f32 s1, s2, s3"));
 	emitter.VMUL(S7, S8, S9);
-	RET(CheckLast(emitter, "ee643a24 VMUL s7, s8, s9"));
+	RET(CheckLast(emitter, "ee643a24 VMUL.f32 s7, s8, s9"));
 	emitter.VMUL(S0, S5, S10);
-	RET(CheckLast(emitter, "ee220a85 VMUL s0, s5, s10"));
+	RET(CheckLast(emitter, "ee220a85 VMUL.f32 s0, s5, s10"));
 	emitter.VNMUL(S7, S8, S9);
-	RET(CheckLast(emitter, "ee643a64 VNMUL s7, s8, s9"));
+	RET(CheckLast(emitter, "ee643a64 VNMUL.f32 s7, s8, s9"));
 	emitter.VMLA(S7, S8, S9);
-	RET(CheckLast(emitter, "ee443a24 VMLA s7, s8, s9"));
+	RET(CheckLast(emitter, "ee443a24 VMLA.f32 s7, s8, s9"));
 	emitter.VNMLA(S7, S8, S9);
-	RET(CheckLast(emitter, "ee543a64 VNMLA s7, s8, s9"));
+	RET(CheckLast(emitter, "ee543a64 VNMLA.f32 s7, s8, s9"));
 	emitter.VNMLS(S7, S8, S9);
-	RET(CheckLast(emitter, "ee543a24 VNMLS s7, s8, s9"));
+	RET(CheckLast(emitter, "ee543a24 VNMLS.f32 s7, s8, s9"));
 	emitter.VABS(S1, S2);
-	RET(CheckLast(emitter, "eef00ac1 VABS s1, s2"));
+	RET(CheckLast(emitter, "eef00ac1 VABS.f32 s1, s2"));
 	emitter.VMOV(S1, S2);
-	RET(CheckLast(emitter, "eef00a41 VMOV s1, s2"));
+	RET(CheckLast(emitter, "eef00a41 VMOV.f32 s1, s2"));
 	emitter.VMOV(D1, D2);
-	RET(CheckLast(emitter, "eeb01b42 VMOV d1, d2"));
+	RET(CheckLast(emitter, "eeb01b42 VMOV.f64 d1, d2"));
 	emitter.VCMP(S1, S2);
-	RET(CheckLast(emitter, "eef40a41 VCMP s1, s2"));
+	RET(CheckLast(emitter, "eef40a41 VCMP.f32 s1, s2"));
 	emitter.VCMPE(S1, S2);
-	RET(CheckLast(emitter, "eef40ac1 VCMPE s1, s2"));
+	RET(CheckLast(emitter, "eef40ac1 VCMPE.f32 s1, s2"));
 	emitter.VSQRT(S1, S2);
-	RET(CheckLast(emitter, "eef10ac1 VSQRT s1, s2"));
+	RET(CheckLast(emitter, "eef10ac1 VSQRT.f32 s1, s2"));
 	emitter.VDIV(S1, S2, S3);
-	RET(CheckLast(emitter, "eec10a21 VDIV s1, s2, s3"));
+	RET(CheckLast(emitter, "eec10a21 VDIV.f32 s1, s2, s3"));
 	emitter.VMRS(R1);
-	RET(CheckLast(emitter, "eef11a10 VMRS r1"));
+	RET(CheckLast(emitter, "eef11a10 VMRS r1, fpscr"));
 	emitter.VMSR(R7);
-	RET(CheckLast(emitter, "eee17a10 VMSR r7"));
+	RET(CheckLast(emitter, "eee17a10 VMSR fpscr, r7"));
 	emitter.VMRS_APSR();
-	RET(CheckLast(emitter, "eef1fa10 VMRS APSR"));
+	RET(CheckLast(emitter, "eef1fa10 VMRS APSR_nzcv, fpscr"));
 	emitter.VCVT(S0, S1, TO_INT | IS_SIGNED);
-	RET(CheckLast(emitter, "eebd0a60 VCVT ..."));
+	RET(CheckLast(emitter, "eebd0a60 VCVTR.s32.f32 s0, s1"));
 	emitter.VMOV_imm(I_32, R0, VIMM___x___x, 0xF3);
 	emitter.VMOV_imm(I_8, R0, VIMMxxxxxxxx, 0xF3);
 	emitter.VMOV_immf(Q0, 1.0f);
@@ -125,12 +125,12 @@ bool TestArmEmitter() {
 	emitter.VMOV(Q14, Q2);
 
 	emitter.VMOV(S3, S6);
-	RET(CheckLast(emitter, "eef01a43 VMOV s3, s6"));
+	RET(CheckLast(emitter, "eef01a43 VMOV.f32 s3, s6"));
 
 	emitter.VMOV_imm(I_32, R0, VIMM___x___x, 0xF3);
 	emitter.VMOV_imm(I_8, R0, VIMMxxxxxxxx, 0xF3);
 	emitter.VMOV_immf(Q0, 1.0f);
-	RET(CheckLast(emitter, "f2870f50 VMOV q0, 1.0"));
+	RET(CheckLast(emitter, "f2870f50 VMOV.f32 q0, #1.0"));
 	emitter.VMOV_immf(Q0, -1.0f);
 	emitter.VBIC_imm(I_32, R0, VIMM___x___x, 0xF3);
 	emitter.VMVN_imm(I_32, R0, VIMM___x___x, 0xF3);
@@ -150,9 +150,9 @@ bool TestArmEmitter() {
 	RET(CheckLast(emitter, "f3b025ea VMVN q1, q13"));
 
 	emitter.VMOV(S3, S6);
-	RET(CheckLast(emitter, "eef01a43 VMOV s3, s6"));
+	RET(CheckLast(emitter, "eef01a43 VMOV.f32 s3, s6"));
 	emitter.VMOV(S25, S21);
-	RET(CheckLast(emitter, "eef0ca6a VMOV s25, s21"));
+	RET(CheckLast(emitter, "eef0ca6a VMOV.f32 s25, s21"));
 	emitter.VLD1(I_32, D19, R3, 2, ALIGN_NONE, R_PC);
 	RET(CheckLast(emitter, "f4633a8f VLD1.32 {d19-d20}, [r3]"));
 	emitter.VST1(I_32, D23, R9, 1, ALIGN_NONE, R_PC);
@@ -160,7 +160,7 @@ bool TestArmEmitter() {
 	emitter.VLD1_lane(F_32, D8, R3, 0, ALIGN_NONE, R_PC);
 	RET(CheckLast(emitter, "f4a3880f VLD1.32 {d8[0]}, [r3]"));
 	emitter.VLD1_lane(I_8, D8, R3, 2, ALIGN_NONE, R_PC);
-	RET(CheckLast(emitter, "f4a3804f VLD1.i8 {d8[2]}, [r3]"));
+	RET(CheckLast(emitter, "f4a3804f VLD1.8 {d8[2]}, [r3]"));
 
 	emitter.VADD(I_8, D3, D4, D19);
 	RET(CheckLast(emitter, "f2043823 VADD.i8 d3, d4, d19"));
@@ -196,23 +196,20 @@ bool TestArmEmitter() {
 	emitter.VDUP(F_32, Q14, D30, 1);
 	RET(CheckLast(emitter, "f3fccc6e VDUP.32 q14, d30[1]"));
 
-	// TODO: This is broken.
-	// emitter.VDUP(F_32, D14, D30, 1);
-	// RET(CheckLast(emitter, "f3bcec2e VDUP.32 d14, d30[1]"));
+	emitter.VDUP(F_32, D14, D30, 1);
+	RET(CheckLast(emitter, "f3bcec2e VDUP.32 d14, d30[1]"));
 
 	// VDUP from GPR to NEON register
-	// TODO: Fix the disassembler
 	emitter.VDUP(I_32, Q0, R0);
-	RET(CheckLast(emitter, "eea00b10 [undefined instr]")); //  VDUP.32 q0, r0"));
+	RET(CheckLast(emitter, "eea00b10 VDUP.32 q0, r0"));
 	emitter.VDUP(I_32, Q5, R3);
-	RET(CheckLast(emitter, "eeaa3b10 [undefined instr]")); //  VDUP.32 q5, r3"));
+	RET(CheckLast(emitter, "eeaa3b10 VDUP.32 q5, r3"));
 	emitter.VDUP(I_16, Q2, R7);
-	RET(CheckLast(emitter, "eea47b30 [undefined instr]")); //  VDUP.16 q2, r7"));
-	// The disassembler is really broken here.
-	// emitter.VDUP(I_32, D0, R0);
-	// RET(CheckLast(emitter, "ee800b10 [undefined instr]")); //  VDUP.32 d0, r0"));
-	// emitter.VDUP(I_16, D3, R5);
-	// RET(CheckLast(emitter, "ee835b30 [undefined instr]")); //  VDUP.16 d3, r5"));
+	RET(CheckLast(emitter, "eea47b30 VDUP.16 q2, r7"));
+	emitter.VDUP(I_32, D0, R0);
+	RET(CheckLast(emitter, "ee800b10 VDUP.32 d0, r0"));
+	emitter.VDUP(I_16, D3, R5);
+	RET(CheckLast(emitter, "ee835b30 VDUP.16 d3, r5"));
 
 	//emitter.VNEG(S1, S2);
 	//RET(CheckLast(emitter, "eef10a60 VNEG.f32 s1, s1"));
@@ -221,7 +218,7 @@ bool TestArmEmitter() {
 	//emitter.VABS(F_32, Q1, Q2);
 	//RET(CheckLast(emitter, "f3b92744 VABS.f32 q1, q2"));
 	emitter.VMOV(D26, D30);
-	RET(CheckLast(emitter, "eef0ab6e VMOV d26, d30"));
+	RET(CheckLast(emitter, "eef0ab6e VMOV.f64 d26, d30"));
 
 	emitter.VMUL_scalar(F_32, Q12, Q8, DScalar(D0, 0));
 	RET(CheckLast(emitter, "f3e089c0 VMUL.f32 q12, q8, d0[0]"));

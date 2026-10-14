@@ -20,9 +20,10 @@
 #include <algorithm>
 #include <cctype>
 #include <cstring>
-#include <string>
 #include <set>
 #include <sstream>
+#include <string>
+#include <string_view>
 #include <thread>
 #ifdef SHARED_LIBZIP
 #include <zip.h>
@@ -178,6 +179,9 @@ void GameManager::Update() {
 }
 
 bool ZipCanExtractWithoutOverwrite(struct zip *z, const Path &destination, int stripChars, int maxOkFiles) {
+	if (stripChars < 0) {
+		return false;
+	}
 	int numFiles = zip_get_num_files(z);
 	if (numFiles > maxOkFiles && maxOkFiles >= 0) {
 		// Ignore the check, just assume we can't.
@@ -189,11 +193,19 @@ bool ZipCanExtractWithoutOverwrite(struct zip *z, const Path &destination, int s
 			// zip_get_name() returns NULL on a corrupted central directory entry.
 			continue;
 		}
-		if (endsWith(fn, "/")) {
+		std::string_view zippedName(fn);
+		if (zippedName.size() <= (size_t)stripChars) {
+			continue;
+		}
+		std::string_view outputName = zippedName.substr(stripChars);
+		if (outputName.back() == '/') {
 			// we don't care about directory overwrites, that's fine.
 			continue;
 		}
-		Path p = destination / fn;
+		if (HasParentDirComponent(zippedName) || HasParentDirComponent(outputName)) {
+			return false;
+		}
+		Path p = destination / outputName;
 		if (File::Exists(p)) {
 			INFO_LOG(Log::HLE, "Extract zip check: %s exists, can't extract without overwrite", p.ToVisualString().c_str());
 			return false;
@@ -414,7 +426,11 @@ void GameManager::InstallZipContents(ZipFileTask task) {
 	case ZipFileContents::SAVE_DATA:
 	{
 		Path pspSaveData = GetSysDirectory(DIRECTORY_SAVEDATA);
-		success = ExtractZipContents(z, pspSaveData, zipInfo, false);
+		if (zipInfo.saveDataInRoot) {
+			success = ExtractZipContents(z, pspSaveData / zipInfo.savedataDir, zipInfo, true);
+		} else {
+			success = ExtractZipContents(z, pspSaveData, zipInfo, false);
+		}
 		break;
 	}
 	case ZipFileContents::SAVE_STATES:
@@ -668,16 +684,23 @@ bool GameManager::ExtractFile(struct zip *z, int file_index, const Path &outFile
 
 // Doesn't care what it is, just extracts the whole ZIP to the requested location.
 bool GameManager::ExtractZipContents(struct zip *z, const Path &dest, const ZipFileInfo &info, bool allowRoot, int64_t maxTotalSize) {
+	if (info.stripChars < 0) {
+		return false;
+	}
 	int64_t allBytes = 0;
 	int64_t bytesCopied = 0;
 
 	auto sy = GetI18NCategory(I18NCat::SYSTEM);
 
-	// Reject any entry whose path contains a parent-directory ("..") component.
-	// Without this, a crafted zip could write files outside the destination
-	// directory (Zip Slip).
+	// Reject parent-directory ("..") components both before and after removing
+	// the archive's common prefix. Either form could escape the destination.
 	auto fileAllowed = [&](const char *fn) {
-		if (HasParentDirComponent(fn)) {
+		std::string_view zippedName(fn);
+		if (zippedName.size() < (size_t)info.stripChars) {
+			return false;
+		}
+		std::string_view outputName = zippedName.substr(info.stripChars);
+		if (HasParentDirComponent(zippedName) || HasParentDirComponent(outputName)) {
 			INFO_LOG(Log::HLE, "Skipping file %s due to parent directory component", fn);
 			return false;
 		}
@@ -709,22 +732,23 @@ bool GameManager::ExtractZipContents(struct zip *z, const Path &dest, const ZipF
 			// zip_get_name() returns NULL on a corrupted central directory entry.
 			continue;
 		}
-		std::string zippedName = fn;
-		if (zippedName.length() < (size_t)info.stripChars) {
-			continue;
-		}
 		// Skip entries that we'd reject when writing, so we don't create
 		// directories for them either (e.g. ones with parent dir components).
 		if (!fileAllowed(fn)) {
 			continue;
 		}
+		std::string zippedName = fn;
 		Path outFilename = dest / zippedName.substr(info.stripChars);
 
 		bool isDir = zippedName.empty() || zippedName.back() == '/';
-		if (!isDir && zippedName.find('/') != std::string::npos) {
-			outFilename = dest / zippedName.substr(info.stripChars, zippedName.rfind('/') - info.stripChars);
-		} else if (!isDir) {
-			outFilename = dest;
+		if (!isDir) {
+			// stripChars can reach past the last slash (save states strip their whole directory).
+			size_t lastSlash = zippedName.rfind('/');
+			if (lastSlash != std::string::npos && lastSlash > (size_t)info.stripChars) {
+				outFilename = dest / zippedName.substr(info.stripChars, lastSlash - info.stripChars);
+			} else {
+				outFilename = dest;
+			}
 		}
 
 		Path outPath(outFilename);

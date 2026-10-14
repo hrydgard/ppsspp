@@ -51,17 +51,20 @@ void GenerateDepalShader300(ShaderWriter &writer, const DepalConfig &config) {
 
 	// Implement the swizzle we need to simulate, if a game uses 8888 framebuffers and any other mode than "6" to access depth textures.
 	// This implements the "2" mode swizzle (it fixes up the Y direction but not X. See comments on issue #15898, Tantalus games)
-	// NOTE: This swizzle can be made to work with any power-of-2 resolution scaleFactor by shifting
-	// the bits around, but not sure how to handle 3x scaling. For now this is 1x-only (rough edges at higher resolutions).
-	if (config.bufferFormat == GE_FORMAT_DEPTH16) {
+	// The swizzle moves whole PSP pixels; at a higher render scale, a render pixel keeps its position within its PSP pixel.
+	// With depthIntoHalves, the output is twice as wide and each PSP pixel's render pixels repeat twice (see compat.ini).
+	if (config.bufferFormat == GE_FORMAT_DEPTH16 && (config.depthUpperBits == 0x2 || config.depthIntoHalves)) {
+		const float halves = config.depthIntoHalves ? 2.0f : 1.0f;
+		writer.F("  float renderX = floor(texcoord.x * texSize.x * %0.1f);\n", halves);
+		writer.F("  int x = int(floor(renderX / (scaleFactor * %0.1f)));\n", halves);
+		writer.C("  float subX = mod(renderX, scaleFactor);\n");
 		if (config.depthUpperBits == 0x2) {
 			writer.C(R"(
-  int x = int((texcoord.x / scaleFactor) * texSize.x);
   int xclear = x & 0x01F0;
-  int temp = (x - xclear) | ((x >> 1) & 0xF0) | ((x << 4) & 0x100);
-  texcoord.x = (float(temp) / texSize.x) * scaleFactor;
+  x = (x - xclear) | ((x >> 1) & 0xF0) | ((x << 4) & 0x100);
 )");
 		}
+		writer.C("  texcoord.x = (float(x) * scaleFactor + subX + 0.5) / texSize.x;\n");
 	}
 
 	// Sampling turns our texture into floating point. To avoid this, might be able

@@ -231,7 +231,7 @@
     <ClInclude Include="Software\DrawPixel.h">
       <Filter>Software</Filter>
     </ClInclude>
-    <ClInclude Include="Software\RasterizerRegCache.h">
+    <ClInclude Include="Software\RasterizerTypes.h">
       <Filter>Software</Filter>
     </ClInclude>
     <ClInclude Include="Software\BinManager.h">
@@ -446,9 +446,6 @@
     <ClCompile Include="Software\Sampler.cpp">
       <Filter>Software</Filter>
     </ClCompile>
-    <ClCompile Include="Software\SamplerX86.cpp">
-      <Filter>Software</Filter>
-    </ClCompile>
     <ClCompile Include="Debugger\Record.cpp">
       <Filter>Debugger</Filter>
     </ClCompile>
@@ -489,12 +486,6 @@
       <Filter>Software</Filter>
     </ClCompile>
     <ClCompile Include="Software\DrawPixel.cpp">
-      <Filter>Software</Filter>
-    </ClCompile>
-    <ClCompile Include="Software\DrawPixelX86.cpp">
-      <Filter>Software</Filter>
-    </ClCompile>
-    <ClCompile Include="Software\RasterizerRegCache.cpp">
       <Filter>Software</Filter>
     </ClCompile>
     <ClCompile Include="Software\BinManager.cpp">

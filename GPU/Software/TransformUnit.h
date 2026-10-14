@@ -118,7 +118,6 @@ public:
 	TransformUnit();
 	~TransformUnit();
 
-	static Vec4F32 ModelToWorldNormal(Vec4F32 normal);
 	static ScreenCoords ClipToScreen(const ClipCoords &coords, bool *outsideRangeFlag);
 	// Where an edge from an inside vertex crosses the near plane, as the GE computes it.
 	static float NearPlaneT(const ClipCoords &in, const ClipCoords &out);
@@ -135,7 +134,13 @@ public:
 	}
 	static ScreenCoords DrawingToScreen(const DrawingCoords &coords, u16 z);
 
-	void SubmitPrimitive(const void* vertices, const void* indices, GEPrimitiveType prim_type, int vertex_count, u32 vertex_type, int *bytesRead, SoftwareDrawEngine *drawEngine);
+	// runCount: the vertices of this draw and the ones right after it that continue it (SoftGPU::RunVertexCount),
+	// for them to be transformed together, or 0.
+	void SubmitPrimitive(const void* vertices, const void* indices, GEPrimitiveType prim_type, int vertex_count, u32 vertex_type, int *bytesRead, SoftwareDrawEngine *drawEngine, int runCount = 0);
+	// Whether a draw from these vertices continues the run transformed together.
+	bool InRun(const void *vertices, u32 vertexType) const {
+		return runRemaining_ > 0 && vertices == runNext_ && vertexType == runType_;
+	}
 	void SubmitImmVertex(const ClipVertexData &vert, SoftwareDrawEngine *drawEngine);
 
 	void Flush(GPUCommon *common, const char *reason);
@@ -148,13 +153,39 @@ public:
 	void SetDirty(SoftDirty flags);
 	SoftDirty GetDirty();
 
+	struct RunJob;
+
+	// ReadVertex's position stage, done ahead for several vertices at once.
+	struct PreparedPosition {
+		ClipCoords clippos;
+		ScreenCoords screenpos;
+		float fogdepth;
+		bool outside;
+		bool valid;
+	};
+
 private:
 	// What a vertex format without UVs or a normal reads: the last ones read before it.
 	struct VertexCarry {
 		Vec3Packedf tc{};
 		float normal[4]{};
 	};
-	ClipVertexData ReadVertex(const VertexReader &vreader, const TransformState &state, VertexCarry &carry);
+	void ReadVertex(const VertexReader &vreader, const TransformState &state, VertexCarry &carry, ClipVertexData &vertex, const PreparedPosition *prepared = nullptr);
+	bool StartRun(const void *vertices, u32 vertexType, int runCount, VertexDecoder &vdecoder, TransformState &state);
+	void TransformRunChunk(int chunk, const VertexDecoder &vdecoder, const u8 *raw, const TransformState &state, const VertexCarry &carry);
+	void RunNeed(int index);
+	void FinishRun();
+
+	// A run of draws whose vertices are transformed together (StartRun), and the next draw's place in it.
+	std::vector<ClipVertexData> runVerts_;
+	int runCount_ = 0;
+	const u8 *runNext_ = nullptr;
+	u32 runType_ = 0;
+	int runPos_ = 0;
+	int runRemaining_ = 0;
+	// Chunks of the run may still be in progress.
+	bool runActive_ = false;
+	RunJob *runJob_ = nullptr;
 	// orderReversed: verts are in the opposite order of how the GE takes the triangle (matters for clipping).
 	void SendTriangle(CullType cullType, const ClipVertexData *verts, int provoking = 2, bool orderReversed = false);
 
@@ -188,6 +219,7 @@ public:
 	void DispatchSubmitPrim(const void *verts, const void *inds, GEPrimitiveType prim, int vertexCount, u32 vertTypeID, bool clockwise, int *bytesRead, ClipInfoFlags clipInfoFlags) override;
 	void DispatchSubmitImm(GEPrimitiveType prim, TransformedVertex *buffer, int vertexCount, int cullMode, bool continuation) override;
 
+	// For TransformUnit, which skins weighted vertices itself (VertexDecoderOptions::callerSkins).
 	VertexDecoder *FindVertexDecoder(u32 vtype);
 
 	TransformUnit transformUnit;
@@ -201,4 +233,8 @@ public:
 		FreeAlignedMemory(p);
 	}
 #endif
+
+private:
+	DenseHashMap<u32, VertexDecoder *> transformDecoders_;
+	void ClearTransformDecoders();
 };

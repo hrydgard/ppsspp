@@ -695,6 +695,23 @@ void Register_scePower_driver() {
 	RegisterHLEModule("scePower_driver", ARRAY_SIZE(scePower_driver), scePower_driver);
 }
 
+// Powers the Media Engine's AVC decoder up or down (me_wrapper.prx). Nothing to power here, but the
+// VSH's sceVshBridge_Driver calls it when launching a game, and 2.00's gives up on the launch unless it
+// succeeds.
+static int sceMePowerControlAvcPower(int on) {
+	return hleLogDebug(Log::sceMisc, 0);
+}
+
+const HLEFunction sceMePower_driver[] = {
+	// The old NID (jpcsp's psplibdoc), and 6.60's (uOFW).
+	{0X05B2C420, &WrapI_I<sceMePowerControlAvcPower>,         "sceMePowerControlAvcPower",         'i', "i",  HLE_KERNEL_SYSCALL },
+	{0XB37562AA, &WrapI_I<sceMePowerControlAvcPower>,         "sceMePowerControlAvcPower",         'i', "i",  HLE_KERNEL_SYSCALL },
+};
+
+void Register_sceMePower_driver() {
+	RegisterHLEModule("sceMePower_driver", ARRAY_SIZE(sceMePower_driver), sceMePower_driver);
+}
+
 void Register_sceSuspendForUser() {
 	RegisterHLEModule("sceSuspendForUser", ARRAY_SIZE(sceSuspendForUser), sceSuspendForUser);
 }

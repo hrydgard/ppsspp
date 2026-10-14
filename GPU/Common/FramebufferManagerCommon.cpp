@@ -1192,14 +1192,19 @@ void FramebufferManagerCommon::NotifyRenderFramebufferSwitched(VirtualFramebuffe
 	NotifyRenderFramebufferUpdated(vfb);
 }
 
-void FramebufferManagerCommon::PerformWriteFormattedFromMemory(u32 addr, int size, int stride, GEBufferFormat fmt) {
+void FramebufferManagerCommon::PerformWriteFormattedFromMemory(u32 addr, int size, int stride, GEBufferFormat fmt, int rectWidth) {
 	// Note: UpdateFromMemory() is still called later.
 	// This is a special case where we have extra information prior to the invalidation,
 	// because it's called from sceJpeg, sceMpeg, scePsmf etc.
 
-	// TODO: Could possibly be at an offset...
-	// Also, stride needs better handling.
+	// TODO: Stride needs better handling.
 	VirtualFramebuffer *vfb = ResolveVFB(addr, stride, fmt);
+	if (!vfb && rectWidth > 0) {
+		// Not at the start of a framebuffer, so UpdateFromMemory won't see it. Buzz! Master Quiz
+		// converts its video frames straight into the middle of the frame it has drawn.
+		WriteRectFromMemory(addr, size, stride, fmt, rectWidth);
+		return;
+	}
 	if (vfb) {
 		// Let's count this as a "render".  This will also force us to use the correct format.
 		vfb->last_frame_render = gpuStats.totals.numFlips;
@@ -1216,6 +1221,46 @@ void FramebufferManagerCommon::PerformWriteFormattedFromMemory(u32 addr, int siz
 			vfb->width = stride;
 		}
 	}
+}
+
+void FramebufferManagerCommon::WriteRectFromMemory(u32 addr, int size, int stride, GEBufferFormat fmt, int rectWidth) {
+	if (!useBufferedRendering_) {
+		return;
+	}
+	addr &= 0x3FFFFFFF;
+	if (Memory::IsVRAMAddress(addr))
+		addr &= 0x041FFFFF;
+	const u32 byteStride = (u32)(stride * BufferFormatBytesPerPixel(fmt));
+	if (byteStride == 0) {
+		return;
+	}
+
+	VirtualFramebuffer *target = nullptr;
+	for (auto vfb : vfbs_) {
+		if (!vfb->fbo || vfb->FbStrideInBytes() != byteStride || addr <= vfb->fb_address || addr >= vfb->fb_address + vfb->BufferByteSize(RASTER_COLOR)) {
+			continue;
+		}
+		if (!target || vfb->colorBindSeq > target->colorBindSeq) {
+			target = vfb;
+		}
+	}
+	if (!target) {
+		return;
+	}
+
+	const u32 offset = addr - target->fb_address;
+	const int x = (offset % byteStride) / BufferFormatBytesPerPixel(fmt);
+	const int y = offset / byteStride;
+	const int w = std::min(rectWidth, (int)target->width - x);
+	const int h = std::min((int)(size / byteStride), (int)target->height - y);
+	if (w <= 0 || h <= 0) {
+		return;
+	}
+
+	FlushBeforeCopy();
+	DrawPixels(target, x, y, Memory::GetPointerUnchecked(addr), fmt, stride, w, h, RASTER_COLOR, "WriteRectFromMemory");
+	SetColorUpdated(target, gstate_c.skipDrawReason);
+	RebindFramebuffer("RebindFramebuffer - WriteRectFromMemory");
 }
 
 void FramebufferManagerCommon::UpdateFromMemory(u32 addr, int size) {
@@ -1989,6 +2034,17 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 			if (vfb->usageFlags & FB_USAGE_RENDER_DEPTH) {
 				BlitFramebuffer(vfb, 0, 0, &old, 0, 0, std::min((u16)oldWidth, std::min(vfb->bufferWidth, vfb->width)), std::min((u16)oldHeight, std::min(vfb->height, vfb->bufferHeight)), 0, RASTER_DEPTH, "BlitDepth_ResizeFramebufFBO");
 			}
+			if (!skipCopy && vfb->fb_format != GE_FORMAT_565) {
+				// Keep the stencil too (Need for Speed Shift stencil tests right after its framebuffer grows from 480 to
+				// 512 wide). D3D11 has no separate stencil copy, but copies it along with the depth above.
+				const int stencilW = std::min(old.renderWidth, vfb->renderWidth);
+				const int stencilH = std::min(old.renderHeight, vfb->renderHeight);
+				if (draw_->GetDeviceCaps().framebufferSeparateDepthCopySupported) {
+					draw_->CopyFramebufferImage(old.fbo, 0, 0, 0, 0, vfb->fbo, 0, 0, 0, 0, stencilW, stencilH, 1, Draw::Aspect::STENCIL_BIT, "CopyStencil_ResizeFramebufFBO");
+				} else if (draw_->GetDeviceCaps().framebufferStencilBlitSupported) {
+					draw_->BlitFramebuffer(old.fbo, 0, 0, stencilW, stencilH, vfb->fbo, 0, 0, stencilW, stencilH, Draw::Aspect::STENCIL_BIT, Draw::FB_BLIT_NEAREST, "BlitStencil_ResizeFramebufFBO");
+				}
+			}
 		}
 		fbosToDelete_.push_back(old.fbo);
 		draw_->BindFramebufferAsRenderTarget(vfb->fbo, { Draw::RPAction::KEEP, Draw::RPAction::KEEP, Draw::RPAction::KEEP }, "ResizeFramebufFBO");
@@ -2110,6 +2166,13 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 				srcCandidate.y = 0;
 				srcCandidate.h = vfb->height;
 				srcCandidates.push_back(srcCandidate);
+			} else if (vfb->z_address != 0 && vfb->z_stride != 0 && src >= vfb->z_address && (src - vfb->z_address) % vfb_byteStride == 0 && size % vfb_byteStride == 0) {
+				// Whole rows within the buffer, like Everybody's Golf 2 reading a portrait's depth.
+				srcCandidate.y = (src - vfb->z_address) / vfb_byteStride;
+				srcCandidate.h = size / vfb_byteStride;
+				if (srcCandidate.y + srcCandidate.h <= vfb->height) {
+					srcCandidates.push_back(srcCandidate);
+				}
 			}
 			continue;
 		}
@@ -2301,8 +2364,14 @@ bool FramebufferManagerCommon::NotifyFramebufferCopy(u32 src, u32 dst, int size,
 		// TODO: srcStride here looks suspicious! Actually the whole calculation does...
 		int srcStride = channel == RASTER_DEPTH ? dstBuffer->z_stride : dstBuffer->fb_stride;
 		dstH = ClampCopyRows(src, srcStride * BufferFormatBytesPerPixel(srcFormat), dstH, "MemcpyFboUpload");
-		if (dstH > 0)
-			DrawPixels(dstBuffer, 0, dstY, srcBase, srcFormat, srcStride, dstBuffer->width, dstH, channel, "MemcpyFboUpload_DrawPixels");
+		// A copy of part of a row only covers that part. Drawing the whole width would pull in whatever
+		// follows the source, like the next rows of the sprite in Everybody's Golf's loading screen.
+		int dstW = dstBuffer->width;
+		if (dstH == 1) {
+			dstW = std::min(dstW, size / BufferFormatBytesPerPixel(srcFormat));
+		}
+		if (dstH > 0 && dstW > 0)
+			DrawPixels(dstBuffer, 0, dstY, srcBase, srcFormat, srcStride, dstW, dstH, channel, "MemcpyFboUpload_DrawPixels");
 		SetColorUpdated(dstBuffer, skipDrawReason);
 		RebindFramebuffer("RebindFramebuffer - Memcpy fbo upload");
 		// This is a memcpy, let's still copy just in case.
@@ -3426,7 +3495,74 @@ void FramebufferManagerCommon::ReadbackFramebuffer(VirtualFramebuffer *vfb, int 
 }
 
 bool FramebufferManagerCommon::ReadbackStencilbuffer(Draw::Framebuffer *fbo, int x, int y, int w, int h, uint8_t *pixels, int pixelsStride, Draw::ReadbackMode mode) {
-	return draw_->CopyFramebufferToMemory(fbo, Draw::Aspect::DEPTH_BIT, x, y, w, h, Draw::DataFormat::S8, pixels, pixelsStride, mode, "ReadbackStencilbufferSync");
+	return draw_->CopyFramebufferToMemory(fbo, Draw::Aspect::STENCIL_BIT, x, y, w, h, Draw::DataFormat::S8, pixels, pixelsStride, mode, "ReadbackStencilbufferSync");
+}
+
+bool FramebufferManagerCommon::ReadbackStencilToMemory(u32 addr, int size) {
+	if (!useBufferedRendering_) {
+		return false;
+	}
+	addr &= 0x3FFFFFFF;
+	if (Memory::IsVRAMAddress(addr))
+		addr &= 0x041FFFFF;
+
+	VirtualFramebuffer *vfb = nullptr;
+	for (auto v : vfbs_) {
+		if (!v->fbo || v->fb_stride == 0 || v->fb_format != GE_FORMAT_8888) {
+			continue;
+		}
+		if (addr >= v->fb_address && addr + size <= v->fb_address + v->BufferByteSize(RASTER_COLOR)) {
+			if (!vfb || v->colorBindSeq > vfb->colorBindSeq) {
+				vfb = v;
+			}
+		}
+	}
+	if (!vfb) {
+		return false;
+	}
+
+	// Whole rows only.
+	const u32 byteStride = vfb->fb_stride * 4;
+	const u32 offset = addr - vfb->fb_address;
+	if (offset % byteStride != 0 || size % byteStride != 0) {
+		return false;
+	}
+	const int y = offset / byteStride;
+	const int h = std::min((int)(size / byteStride), (int)vfb->height - y);
+	const int w = std::min((int)vfb->fb_stride, (int)vfb->width);
+	if (w <= 0 || h <= 0) {
+		return false;
+	}
+
+	FlushBeforeCopy();
+
+	const int scale = vfb->renderScaleFactor;
+	const int sw = w * scale;
+	const int sh = h * scale;
+	std::vector<u8> stencil(sw * sh);
+	bool ok = draw_->CopyFramebufferToMemory(vfb->fbo, Draw::Aspect::STENCIL_BIT, 0, y * scale, sw, sh, Draw::DataFormat::S8, stencil.data(), sw, Draw::ReadbackMode::BLOCK, "ReadbackStencilToMemory");
+	if (!ok) {
+		ok = ReadbackStencilbuffer(vfb->fbo, 0, y * scale, sw, sh, stencil.data(), sw, Draw::ReadbackMode::BLOCK);
+	}
+	draw_->Invalidate(InvalidationFlags::CACHED_RENDER_STATE);
+	textureCache_->ForgetLastTexture();
+	RebindFramebuffer("RebindFramebuffer - ReadbackStencilToMemory");
+	gpuStats.perFrame.numBlockingReadbacks++;
+	if (!ok) {
+		return false;
+	}
+
+	// PSP stencil is the alpha byte, so that's all that changes.
+	u8 *dest = Memory::GetPointerWriteUnchecked(vfb->fb_address + offset);
+	for (int row = 0; row < h; row++) {
+		const u8 *src = &stencil[row * scale * sw];
+		u8 *dst = dest + row * byteStride;
+		for (int x = 0; x < w; x++) {
+			dst[x * 4 + 3] = src[x * scale];
+		}
+	}
+	NotifyMemInfo(MemBlockFlags::WRITE, vfb->fb_address + offset, h * byteStride, "ReadbackStencil");
+	return true;
 }
 
 void FramebufferManagerCommon::ReadFramebufferToMemory(VirtualFramebuffer *vfb, int x, int y, int w, int h, RasterChannel channel, Draw::ReadbackMode mode) {
@@ -3438,34 +3574,15 @@ void FramebufferManagerCommon::ReadFramebufferToMemory(VirtualFramebuffer *vfb, 
 	if (x + w >= vfb->bufferWidth) {
 		w = vfb->bufferWidth - x;
 	}
-	if (gameUsesSequentialCopies_) {
-		// Ignore the x/y/etc., read the entire thing.  See below.
-		x = 0;
-		y = 0;
-		w = vfb->width;
-		h = vfb->height;
-		vfb->memoryUpdated = true;
-		vfb->usageFlags |= FB_USAGE_DOWNLOAD;
-	} else if (x == 0 && y == 0 && w == vfb->width && h == vfb->height) {
+	// Same for height: a block transfer can ask for rows past the end, and reading those is invalid on Vulkan.
+	if (y + h > vfb->bufferHeight) {
+		h = vfb->bufferHeight - y;
+	}
+	if (x == 0 && y == 0 && w == vfb->width && h == vfb->height) {
 		// Mark it as fully downloaded until next render to it.
 		if (channel == RASTER_COLOR)
 			vfb->memoryUpdated = true;
 		vfb->usageFlags |= FB_USAGE_DOWNLOAD;
-	} else {
-		// Let's try to set the flag eventually, if the game copies a lot.
-		// Some games (like Grand Knights History) copy subranges very frequently.
-		const static int FREQUENT_SEQUENTIAL_COPIES = 3;
-		static int frameLastCopy = 0;
-		static u32 bufferLastCopy = 0;
-		static int copiesThisFrame = 0;
-		if (frameLastCopy != gpuStats.totals.numFlips || bufferLastCopy != vfb->fb_address) {
-			frameLastCopy = gpuStats.totals.numFlips;
-			bufferLastCopy = vfb->fb_address;
-			copiesThisFrame = 0;
-		}
-		if (++copiesThisFrame > FREQUENT_SEQUENTIAL_COPIES) {
-			gameUsesSequentialCopies_ = true;
-		}
 	}
 
 	// This handles any required stretching internally.

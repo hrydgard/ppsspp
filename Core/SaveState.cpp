@@ -177,30 +177,19 @@ int g_screenshotFailures;
 			CoreTiming::DoState(p);
 		}
 
-		// Memory is a bit tricky when jit is enabled, since there's emuhacks in it.
-		// These must be saved before copying out memory and restored after.
-		auto savedReplacements = SaveAndClearReplacements();
-		if (MIPSComp::jit && (p.mode == p.MODE_WRITE || p.mode == p.MODE_VERIFY)) {
-			if (MIPSComp::jit) {
-				std::vector<u32> savedBlocks;
-				savedBlocks = MIPSComp::jit->SaveAndClearEmuHackOps();
-				Memory::DoState(p);
-				MIPSComp::jit->RestoreSavedEmuHackOps(savedBlocks);
-			} else {
-				Memory::DoState(p);
-			}
-		} else {
-			Memory::DoState(p);
+		// The state may hold different code. KernelModuleDoState hooks the functions again.
+		std::vector<std::pair<u32, u32>> hookedOps;
+		if (p.mode == p.MODE_READ) {
+			hookedOps = Replacement_GetHookedOps();
+			RestoreReplacedInstructions(0, 0xFFFFFFFF);
+		}
+		Memory::DoState(p);
+		if (p.mode == p.MODE_READ) {
+			Replacement_RepairStaleHookOps(hookedOps);
 		}
 
 		if (s >= 3) {
 			CoreTiming::DoState(p);
-		}
-
-		// Don't bother restoring if reading, we'll deal with that in KernelModuleDoState.
-		// In theory, different functions might have been runtime loaded in the state.
-		if (p.mode != p.MODE_READ) {
-			RestoreSavedReplacements(savedReplacements);
 		}
 
 		MemoryStick_DoState(p);
@@ -390,9 +379,11 @@ int g_screenshotFailures;
 		}
 	}
 
-	static void ScheduleSaveScreenshot(const Path &path) {
+	static void ScheduleSaveScreenshot(const Path &path, bool retry = false) {
 		std::lock_guard<std::mutex> guard(mutex);
-		g_screenshotFailures = 0;
+		if (!retry) {
+			g_screenshotFailures = 0;
+		}
 
 		// Savestate thumbnails don't need to be bigger.
 		constexpr int maxResMultiplier = 2;
@@ -403,7 +394,7 @@ int g_screenshotFailures;
 				WARN_LOG(Log::SaveState, "Failed to take a screenshot for the savestate! (%s) The savestate will lack an icon.", path.c_str());
 				if (coreState != CORE_STEPPING_CPU && g_screenshotFailures++ < SCREENSHOT_FAILURE_RETRIES) {
 					// Requeue for next frame (if we were stepping, no point, will just spam errors quickly).
-					ScheduleSaveScreenshot(path);
+					ScheduleSaveScreenshot(path, true);
 				}
 				break;
 			case ScreenshotResult::FailedToWriteFile:
@@ -1059,6 +1050,14 @@ int g_screenshotFailures;
 	void Shutdown() {
 		std::lock_guard<std::mutex> guard(mutex);
 		rewindStates.Clear();
+		// Operations still queued belong to the game that's going away (Process() doesn't run while
+		// achievements block execution at boot). Run later, they'd load its state into the next game,
+		// and their callbacks can capture the EmuScreen that queued them.
+		if (!g_pendingOperations.empty()) {
+			WARN_LOG(Log::SaveState, "Dropping %d queued savestate operations at shutdown", (int)g_pendingOperations.size());
+			g_pendingOperations.clear();
+		}
+		needsProcess = false;
 	}
 
 	double SecondsSinceLastSavestate() {

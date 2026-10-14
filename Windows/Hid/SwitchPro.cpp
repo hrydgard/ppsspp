@@ -179,7 +179,10 @@ bool ReadSwitchProInput(HANDLE handle, HIDControllerState *state) {
 	}
 
 	// Bluetooth often uses 0x21 for sub-command responses, 0x30 for standard data
-	if (inputReport[0] != 0x30 && inputReport[0] != 0x21) return false;
+	if (inputReport[0] != 0x30 && inputReport[0] != 0x21) {
+		// Some other report, not a disconnect. Keep the previous state.
+		return true;
+	}
 
 	const SwitchProInputReport* report = (const SwitchProInputReport*)inputReport;
 	u32 buttons = 0;

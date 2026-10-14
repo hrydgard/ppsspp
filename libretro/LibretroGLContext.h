@@ -28,6 +28,7 @@ public:
 
 	void ThreadStart() override { renderManager_->ThreadStart(draw_); }
 	bool ThreadFrame() override { return renderManager_->ThreadFrame(); }
+	bool ThreadFramePending() override { return renderManager_->HasQueuedThreadWork(); }
 	void ThreadEnd() override { renderManager_->ThreadEnd(); }
 
 	GPUCore GetGPUCore() override { return GPUCORE_GLES; }

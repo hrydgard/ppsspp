@@ -1,6 +1,6 @@
 // SceneDelegate.h
 #import <UIKit/UIKit.h>
-#import "ViewControllerCommon.h"
+#import "ViewController.h"
 
 @interface SceneDelegate : UIResponder <UIWindowSceneDelegate>
 

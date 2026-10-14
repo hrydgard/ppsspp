@@ -345,3 +345,16 @@ void OnScreenDisplay::SetFlags(std::string_view id, OSDMessageFlags flags) {
 		}
 	}
 }
+
+void OnScreenDisplay::ClearNonAchievementEntries() {
+	std::lock_guard<std::mutex> guard(mutex_);
+	for (auto iter = entries_.begin(); iter != entries_.end();) {
+		if (iter->type != OSDType::ACHIEVEMENT_UNLOCKED &&
+			iter->type != OSDType::ACHIEVEMENT_PROGRESS &&
+			iter->type != OSDType::ACHIEVEMENT_CHALLENGE_INDICATOR) {
+			iter = entries_.erase(iter);
+		} else {
+			iter++;
+		}
+	}
+}

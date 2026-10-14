@@ -20,8 +20,12 @@
 
 #include "iOSCoreAudio.h"
 
+#include <cstring>
+
+#include "Common/Audio/SampleRing.h"
 #include "Common/Log.h"
 #include "Core/Config.h"
+#include "Core/HLE/sceUsbMic.h"
 
 #include <AudioToolbox/AudioToolbox.h>
 #import <AVFoundation/AVFoundation.h>
@@ -30,16 +34,49 @@
 
 static AudioComponentInstance audioInstance = nil;
 
+// Microphone input comes from the input side of the same RemoteIO unit, which is how iOS wants it.
+// Turning it on or off means reinitializing the unit, so playback glitches for a moment.
+// Everything here except the ring buffer is only touched on the main thread.
+static bool g_micWanted = false;   // The game is recording.
+static bool g_micEnabled = false;  // ...and we have permission, so the unit should have its input on.
+static int g_micSampleRate = SAMPLE_RATE;
+static bool g_micInputOn = false;  // What the unit is actually configured with.
+static int g_micInputRate = 0;
+
+// From the input callback, on the audio thread, to the CPU thread. 0.7 s at 44.1 kHz.
+static SampleRing<32768> g_micRing;
+
+// Where AudioUnitRender puts the input. The unit's slice limit is set to match, so the audio thread
+// never has to allocate.
+static constexpr UInt32 MIC_MAX_FRAMES = 4096;
+static int16_t g_micScratch[MIC_MAX_FRAMES];
+
 void iOSCoreAudioUpdateSession() {
 	NSError *error = nil;
-	INFO_LOG(Log::Audio, "RespectSilentMode: %d MixWithOthers: %d", g_Config.bAudioRespectSilentMode, g_Config.bAudioMixWithOthers);
+	INFO_LOG(Log::Audio, "RespectSilentMode: %d MixWithOthers: %d Recording: %d", g_Config.bAudioRespectSilentMode, g_Config.bAudioMixWithOthers, g_micEnabled);
 
+#if PPSSPP_PLATFORM(TVOS)
+	// No microphone, and no silent switch.
+	if (g_Config.bAudioMixWithOthers) {
+		[[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback withOptions:AVAudioSessionCategoryOptionMixWithOthers error:&error];
+	} else {
+		[[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayback withOptions:0 error:&error];
+	}
+#else
 	// Hacky hack to force iOS to re-evaluate.
 	// Switching from CatogoryPlayback to CategoryPlayback with an option otherwise does nothing.
 	[[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryAudioProcessing error:&error];
 
 	// Here, we apply the settings.
-	if (g_Config.bAudioMixWithOthers) {
+	if (g_micEnabled) {
+		// Recording needs PlayAndRecord, which ignores the silent switch. A2DP rather than the
+		// hands-free profile keeps Bluetooth headphones at full quality, with the built-in mic as input.
+		AVAudioSessionCategoryOptions options = AVAudioSessionCategoryOptionDefaultToSpeaker | AVAudioSessionCategoryOptionAllowBluetoothA2DP;
+		if (g_Config.bAudioMixWithOthers) {
+			options |= AVAudioSessionCategoryOptionMixWithOthers;
+		}
+		[[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryPlayAndRecord withOptions:options error:&error];
+	} else if (g_Config.bAudioMixWithOthers) {
 		if (g_Config.bAudioRespectSilentMode) {
 			[[AVAudioSession sharedInstance] setCategory:AVAudioSessionCategoryAmbient error:&error];
 		} else {
@@ -53,6 +90,7 @@ void iOSCoreAudioUpdateSession() {
 		}
 		// Can't achieve exclusive + respect silent mode
 	}
+#endif
 
 	if (error) {
 		NSLog(@"%@", error);
@@ -68,12 +106,90 @@ OSStatus iOSCoreAudioCallback(void *inRefCon,
 							  UInt32 inNumberFrames,
 							  AudioBufferList *ioData) {
 	short *output = (short *)ioData->mBuffers[0].mData;
-	NativeMix(output, inNumberFrames, SAMPLE_RATE, nullptr);
+	if (g_Config.bEnableSound) {
+		NativeMix(output, inNumberFrames, SAMPLE_RATE, nullptr);
+	} else {
+		// The unit only runs for the microphone.
+		memset(output, 0, inNumberFrames * sizeof(short) * 2);
+		*ioActionFlags |= kAudioUnitRenderAction_OutputIsSilence;
+	}
 	ioData->mBuffers[0].mDataByteSize = inNumberFrames * sizeof(short) * 2;
 	return noErr;
 }
 
+// Called on the audio thread when input is ready. We have to pull it out ourselves.
+static OSStatus iOSCoreAudioInputCallback(void *inRefCon,
+										  AudioUnitRenderActionFlags *ioActionFlags,
+										  const AudioTimeStamp *inTimeStamp,
+										  UInt32 inBusNumber,
+										  UInt32 inNumberFrames,
+										  AudioBufferList *ioData) {
+	if (inNumberFrames > MIC_MAX_FRAMES) {
+		return kAudioUnitErr_TooManyFramesToProcess;
+	}
+
+	AudioBufferList bufferList;
+	bufferList.mNumberBuffers = 1;
+	bufferList.mBuffers[0].mNumberChannels = 1;
+	bufferList.mBuffers[0].mDataByteSize = inNumberFrames * sizeof(int16_t);
+	bufferList.mBuffers[0].mData = g_micScratch;
+
+	AudioComponentInstance unit = (AudioComponentInstance)inRefCon;
+	OSStatus err = AudioUnitRender(unit, ioActionFlags, inTimeStamp, inBusNumber, inNumberFrames, &bufferList);
+	if (err != noErr) {
+		return err;
+	}
+
+	const UInt32 frames = bufferList.mBuffers[0].mDataByteSize / sizeof(int16_t);
+	g_micRing.Push(g_micScratch, frames);
+	return noErr;
+}
+
+// Needs the unit uninitialized.
+static void ConfigureInput(AudioComponentInstance unit, bool enable) {
+	OSStatus err;
+	UInt32 enableIO = enable ? 1 : 0;
+	err = AudioUnitSetProperty(unit, kAudioOutputUnitProperty_EnableIO, kAudioUnitScope_Input, 1, &enableIO, sizeof(enableIO));
+	if (err != noErr) {
+		ERROR_LOG(Log::Audio, "Failed to %s RemoteIO input: %d", enable ? "enable" : "disable", (int)err);
+		enable = false;
+	}
+	g_micInputOn = enable;
+	if (!enable) {
+		return;
+	}
+
+	// Mono 16-bit at the rate the game asked for. RemoteIO converts from the hardware format.
+	AudioStreamBasicDescription format{};
+	format.mSampleRate = g_micSampleRate;
+	format.mFormatID = kAudioFormatLinearPCM;
+	format.mFormatFlags = kAudioFormatFlagIsSignedInteger | kAudioFormatFlagIsPacked;
+	format.mBitsPerChannel = 16;
+	format.mChannelsPerFrame = 1;
+	format.mFramesPerPacket = 1;
+	format.mBytesPerFrame = 2;
+	format.mBytesPerPacket = 2;
+	err = AudioUnitSetProperty(unit, kAudioUnitProperty_StreamFormat, kAudioUnitScope_Output, 1, &format, sizeof(format));
+	if (err != noErr) {
+		ERROR_LOG(Log::Audio, "Failed to set the microphone format: %d", (int)err);
+	}
+
+	AURenderCallbackStruct callback{};
+	callback.inputProc = iOSCoreAudioInputCallback;
+	callback.inputProcRefCon = (void *)unit;
+	err = AudioUnitSetProperty(unit, kAudioOutputUnitProperty_SetInputCallback, kAudioUnitScope_Global, 1, &callback, sizeof(callback));
+	if (err != noErr) {
+		ERROR_LOG(Log::Audio, "Failed to set the microphone callback: %d", (int)err);
+	}
+	g_micInputRate = g_micSampleRate;
+	INFO_LOG(Log::Audio, "Microphone input on, at %d Hz", g_micSampleRate);
+}
+
 void iOSCoreAudioInit() {
+	if (!g_Config.bEnableSound && !g_micEnabled) {
+		return;
+	}
+
 	iOSCoreAudioUpdateSession();
 
 	NSError *error = nil;
@@ -149,11 +265,18 @@ void iOSCoreAudioInit() {
 		return;
 	}
 
+	UInt32 maxFrames = MIC_MAX_FRAMES;
+	AudioUnitSetProperty(audioInstance, kAudioUnitProperty_MaximumFramesPerSlice, kAudioUnitScope_Global, 0, &maxFrames, sizeof(maxFrames));
+
+	// After an interruption or a trip to the background, this brings the microphone back.
+	ConfigureInput(audioInstance, g_micEnabled);
+
 	// k, all setup, so init
 	err = AudioUnitInitialize(audioInstance);
 	if (err != noErr) {
 		AudioComponentInstanceDispose(audioInstance);
 		audioInstance = nil;
+		g_micInputOn = false;
 		return;
 	}
 
@@ -163,6 +286,7 @@ void iOSCoreAudioInit() {
 		AudioUnitUninitialize(audioInstance);
 		AudioComponentInstanceDispose(audioInstance);
 		audioInstance = nil;
+		g_micInputOn = false;
 		return;
 	}
 
@@ -177,5 +301,113 @@ void iOSCoreAudioShutdown()
 		AudioComponentInstanceDispose(audioInstance);
 		audioInstance = nil;
 	}
+	// g_micWanted and g_micEnabled stay, so the next iOSCoreAudioInit turns the input back on.
+	g_micInputOn = false;
 }
 
+// Brings the unit in line with g_micEnabled. Main thread.
+static void UpdateMicrophone() {
+	iOSCoreAudioUpdateSession();
+	if (!audioInstance) {
+		iOSCoreAudioInit();
+		return;
+	}
+	if (!g_Config.bEnableSound && !g_micEnabled) {
+		// The unit was only running for the microphone.
+		iOSCoreAudioShutdown();
+		return;
+	}
+	if (g_micEnabled == g_micInputOn && (!g_micEnabled || g_micSampleRate == g_micInputRate)) {
+		return;
+	}
+
+	AudioOutputUnitStop(audioInstance);
+	AudioUnitUninitialize(audioInstance);
+	ConfigureInput(audioInstance, g_micEnabled);
+	OSStatus err = AudioUnitInitialize(audioInstance);
+	if (err == noErr) {
+		err = AudioOutputUnitStart(audioInstance);
+	}
+	if (err != noErr) {
+		ERROR_LOG(Log::Audio, "Failed to restart the audio unit: %d", (int)err);
+		iOSCoreAudioShutdown();
+	}
+}
+
+// Calls back on the main thread.
+static void WithRecordPermission(void (^then)(bool granted)) {
+#if PPSSPP_PLATFORM(TVOS)
+	// No microphone. System_AudioRecordingIsAvailable() says so, so we shouldn't get here.
+	then(false);
+#else
+	if (@available(iOS 17.0, *)) {
+		switch ([AVAudioApplication sharedInstance].recordPermission) {
+		case AVAudioApplicationRecordPermissionGranted:
+			then(true);
+			break;
+		case AVAudioApplicationRecordPermissionDenied:
+			then(false);
+			break;
+		default:
+			[AVAudioApplication requestRecordPermissionWithCompletionHandler:^(BOOL granted) {
+				dispatch_async(dispatch_get_main_queue(), ^{
+					then(granted);
+				});
+			}];
+			break;
+		}
+	} else {
+		AVAudioSession *session = [AVAudioSession sharedInstance];
+		switch (session.recordPermission) {
+		case AVAudioSessionRecordPermissionGranted:
+			then(true);
+			break;
+		case AVAudioSessionRecordPermissionDenied:
+			then(false);
+			break;
+		default:
+			[session requestRecordPermission:^(BOOL granted) {
+				dispatch_async(dispatch_get_main_queue(), ^{
+					then(granted);
+				});
+			}];
+			break;
+		}
+	}
+#endif
+}
+
+void iOSCoreAudioStartRecording(int sampleRate) {
+	// Whatever is left over is from before, maybe at another rate. We're the consumer, so we can drop it.
+	g_micRing.Clear();
+
+	dispatch_async(dispatch_get_main_queue(), ^{
+		g_micWanted = true;
+		g_micSampleRate = sampleRate;
+		WithRecordPermission(^(bool granted) {
+			if (!g_micWanted) {
+				// Stopped while we were asking.
+				return;
+			}
+			if (!granted) {
+				WARN_LOG(Log::Audio, "No microphone permission, the game will get silence");
+			}
+			g_micEnabled = granted;
+			UpdateMicrophone();
+		});
+	});
+}
+
+void iOSCoreAudioStopRecording() {
+	dispatch_async(dispatch_get_main_queue(), ^{
+		g_micWanted = false;
+		g_micEnabled = false;
+		UpdateMicrophone();
+	});
+}
+
+void iOSCoreAudioPollRecording() {
+	g_micRing.Drain([](const int16_t *samples, uint32_t count) {
+		Microphone::addAudioData((u8 *)samples, count * sizeof(int16_t));
+	});
+}

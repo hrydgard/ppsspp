@@ -39,8 +39,11 @@
 #pragma once
 
 #include <map>
+#include <utility>
+#include <vector>
 
 #include "Common/CommonTypes.h"
+#include "Core/MemMap.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 
 typedef int (* ReplaceFunc)();
@@ -72,11 +75,40 @@ int GetNumReplacementFuncs();
 std::vector<int> GetReplacementFuncIndexes(u64 hash, int funcSize);
 const ReplacementTableEntry *GetReplacementFunc(size_t index);
 
+// Installed replacements never touch PSP memory. A hooked instruction gets a nonzero block shadow
+// entry: the JIT's block there, or the hook value if there's none. The CPU cores look up every
+// instruction with a nonzero entry when they run or compile it, and substitute the CallRepl
+// pseudo-op.
 void WriteReplaceInstructions(u32 address, u64 hash, int size);
 void RestoreReplacedInstruction(u32 address);
 void RestoreReplacedInstructions(u32 startAddr, u32 endAddr);
-bool GetReplacedOpAt(u32 address, u32 *op);
+// The address and original instruction of every installed hook.
+std::vector<std::pair<u32, u32>> Replacement_GetHookedOps();
+// Some old savestates have hook ops in memory, which the CPU would now take as illegal and which
+// change the functions' hashes, so they wouldn't be hooked again. Puts back the instructions this
+// session hooked at the same addresses (booting the game hooked the same module there).
+void Replacement_RepairStaleHookOps(const std::vector<std::pair<u32, u32>> &hookedOps);
+// Drops hooks in functions the game has changed. Called when the icache is invalidated over them.
+void Replacement_CheckRange(u32 address, u32 length);
 
-// For savestates.  If you call SaveAndClearReplacements(), you must call RestoreSavedReplacements().
-std::map<u32, u32> SaveAndClearReplacements();
-void RestoreSavedReplacements(const std::map<u32, u32> &saved);
+// The JIT's hook value, which its dispatcher sends to the compiler. Rewrites the hooks' entries.
+void Replacement_SetBlockShadowHook(u32 value);
+u32 Replacement_GetBlockShadowHook();
+bool Replacement_IsHooked(u32 address);
+
+// Only call for a nonzero block shadow entry. Returns the CallRepl pseudo-op, or the instruction in
+// memory if there's no hook there or the game has overwritten the hooked instruction (which also
+// drops the hook). Address must be valid.
+MIPSOpcode GetReplacementOpAt(u32 address);
+
+// What the CPU runs at a valid address: the CallRepl pseudo-op if hooked, otherwise memory.
+inline MIPSOpcode ReadExecutedOp(u32 address) {
+	if (*Memory::GetBlockShadowEntry(address) != 0) {
+		return GetReplacementOpAt(address);
+	}
+	return Memory::ReadUnchecked_Instruction(address);
+}
+
+// ReadExecutedOp for the debugger: safe from any thread, and never drops a hook. Address must be valid.
+MIPSOpcode Replacement_GetDisplayOp(u32 address);
+

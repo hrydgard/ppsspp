@@ -34,6 +34,7 @@ const char *RequestTypeAsString(SystemRequestType type) {
 	case SystemRequestType::RECREATE_ACTIVITY: return "RECREATE_ACTIVITY";
 	case SystemRequestType::COPY_TO_CLIPBOARD: return "COPY_TO_CLIPBOARD";
 	case SystemRequestType::SHARE_TEXT: return "SHARE_TEXT";
+	case SystemRequestType::SHARE_FILE: return "SHARE_FILE";
 	case SystemRequestType::SET_WINDOW_TITLE: return "SET_WINDOW_TITLE";
 	case SystemRequestType::APPLY_FULLSCREEN_STATE: return "SET_FULLSCREEN_STATE";
 	case SystemRequestType::GRAPHICS_BACKEND_FAILED_ALERT: return "GRAPHICS_BACKEND_FAILED_ALERT";
@@ -85,6 +86,7 @@ bool RequestManager::MakeSystemRequest(SystemRequestType type, RequesterToken to
 }
 
 void RequestManager::ForgetRequestsWithToken(RequesterToken token) {
+	std::lock_guard<std::mutex> guard(callbackMutex_);
 	for (auto &iter : callbackMap_) {
 		if (iter.second.token == token) {
 			INFO_LOG(Log::System, "Forgetting about requester with token %d", token);
@@ -92,23 +94,28 @@ void RequestManager::ForgetRequestsWithToken(RequesterToken token) {
 			iter.second.failedCallback = nullptr;
 		}
 	}
+	// Also the ones that finished but haven't been processed yet.
+	std::lock_guard<std::mutex> responseGuard(responseMutex_);
+	for (auto &response : pendingResponses_) {
+		if (response.token == token) {
+			response.callback = nullptr;
+			response.failedCallback = nullptr;
+		}
+	}
 }
 
+// Responses can contain passwords, so we don't log them.
 void RequestManager::PostSystemSuccess(int requestId, std::string_view responseString, int responseValue) {
 	std::lock_guard<std::mutex> guard(callbackMutex_);
 	auto iter = callbackMap_.find(requestId);
 	if (iter == callbackMap_.end()) {
-		ERROR_LOG(Log::System, "PostSystemSuccess: Unexpected request ID %d (responseString=%.*s)", requestId, (int)responseString.size(), responseString.data());
+		ERROR_LOG(Log::System, "PostSystemSuccess: Unexpected request ID %d", requestId);
 		return;
 	}
 
 	std::lock_guard<std::mutex> responseGuard(responseMutex_);
-	PendingSuccess response;
-	response.callback = iter->second.callback;
-	response.responseString = responseString;
-	response.responseValue = responseValue;
-	pendingSuccesses_.push_back(response);
-	DEBUG_LOG(Log::System, "PostSystemSuccess: Request %d (%.*s, %d)", requestId, (int)responseString.size(), responseString.data(), responseValue);
+	pendingResponses_.push_back({ true, std::string(responseString), responseValue, iter->second.callback, nullptr, iter->second.token });
+	DEBUG_LOG(Log::System, "PostSystemSuccess: Request %d (%d chars, %d)", requestId, (int)responseString.size(), responseValue);
 	callbackMap_.erase(iter);
 }
 
@@ -123,36 +130,82 @@ void RequestManager::PostSystemFailure(int requestId, int responseValue) {
 	WARN_LOG(Log::System, "PostSystemFailure: Request %d failed", requestId);
 
 	std::lock_guard<std::mutex> responseGuard(responseMutex_);
-	PendingFailure response;
-	response.failedCallback = iter->second.failedCallback;
-	response.responseValue = responseValue;
-	pendingFailures_.push_back(response);
+	pendingResponses_.push_back({ false, std::string(), responseValue, nullptr, iter->second.failedCallback, iter->second.token });
 	callbackMap_.erase(iter);
 }
 
 void RequestManager::ProcessRequests() {
-	std::lock_guard<std::mutex> guard(responseMutex_);
-	for (auto &iter : pendingSuccesses_) {
-		if (iter.callback) {
-			iter.callback(iter.responseString.c_str(), iter.responseValue);
+	// One at a time, without holding the lock while calling. A callback can make new requests, or close a screen,
+	// which forgets the callbacks of the responses still in the queue.
+	while (true) {
+		PendingResponse response;
+		{
+			std::lock_guard<std::mutex> guard(responseMutex_);
+			if (pendingResponses_.empty()) {
+				break;
+			}
+			response = std::move(pendingResponses_.front());
+			pendingResponses_.pop_front();
+		}
+		if (response.success) {
+			if (response.callback) {
+				response.callback(response.responseString, response.responseValue);
+			}
+		} else if (response.failedCallback) {
+			response.failedCallback(response.responseValue);
 		}
 	}
-	pendingSuccesses_.clear();
-	for (auto &iter : pendingFailures_) {
-		if (iter.failedCallback) {
-			iter.failedCallback(iter.responseValue);
-		}
-	}
-	pendingFailures_.clear();
 }
 
 void RequestManager::Clear() {
 	std::lock_guard<std::mutex> guard(callbackMutex_);
 	std::lock_guard<std::mutex> responseGuard(responseMutex_);
 
-	pendingSuccesses_.clear();
-	pendingFailures_.clear();
+	pendingResponses_.clear();
 	callbackMap_.clear();
+}
+
+static std::mutex g_textInputLock;
+static bool g_textInputWanted[(size_t)TextInputUser::COUNT];
+
+static void SendUIEvent(UIEventNotification notification) {
+	g_requestManager.MakeSystemRequest(SystemRequestType::NOTIFY_UI_EVENT, NO_REQUESTER_TOKEN, nullptr, nullptr, "", "", (int64_t)notification, 0);
+}
+
+void System_SetTextInputWanted(TextInputUser user, bool wanted) {
+	bool anyWanted = false;
+	{
+		std::lock_guard<std::mutex> guard(g_textInputLock);
+		g_textInputWanted[(size_t)user] = wanted;
+		for (bool w : g_textInputWanted) {
+			anyWanted = anyWanted || w;
+		}
+	}
+	// GOTFOCUS always goes through, as platforms may need it to show a keyboard again.
+	if (wanted) {
+		SendUIEvent(UIEventNotification::TEXT_GOTFOCUS);
+	} else if (!anyWanted) {
+		SendUIEvent(UIEventNotification::TEXT_LOSTFOCUS);
+	}
+}
+
+void System_NotifyUIEvent(UIEventNotification notification) {
+	switch (notification) {
+	case UIEventNotification::TEXT_GOTFOCUS:
+		System_SetTextInputWanted(TextInputUser::UI, true);
+		break;
+	case UIEventNotification::TEXT_LOSTFOCUS:
+		System_SetTextInputWanted(TextInputUser::UI, false);
+		break;
+	case UIEventNotification::POPUP_CLOSED:
+		// Platforms may hide an on-screen keyboard on this, but text input itself goes through the above.
+		System_SetTextInputWanted(TextInputUser::UI, false);
+		SendUIEvent(notification);
+		break;
+	default:
+		SendUIEvent(notification);
+		break;
+	}
 }
 
 void System_CreateGameShortcut(const Path &path, std::string_view title) {

@@ -343,14 +343,9 @@ int ExecInstruction(MIPSState *mips, MIPSOpcode op) {
     case 26:
     {
         switch ((op.encoding >> 24) & 0x3) {
-        // RUNBLOCK
-        case 0:
-            MIPSInt::Int_Emuhack(mips, op);
-            return 2;
-        // RetKrnl, CallRepl
-        case 1:
+        // CallRepl
         case 2:
-            MIPSInt::Int_Emuhack(mips, op);
+            MIPSInt::Int_CallReplacement(mips, op);
             return 1;
         default:
             return -1;
@@ -404,19 +399,49 @@ int ExecInstruction(MIPSState *mips, MIPSOpcode op) {
         case 4:
             MIPSInt::Int_Special3(mips, op);
             return 1;
+        // nop
         case 24:
+            MIPSInt::Int_Sync(mips, op);
+            return 1;
         case 32:
         {
             switch ((op.encoding >> 6) & 0x1f) {
             // wsbh, wsbw
+            case 0:
+            case 1:
             case 2:
             case 3:
+            case 4:
+            case 5:
+            case 6:
+            case 7:
+            case 8:
+            case 9:
+            case 10:
+            case 11:
+            case 12:
+            case 13:
+            case 14:
+            case 15:
                 MIPSInt::Int_Allegrex2(mips, op);
                 return 1;
             // seb, bitrev, seh
             case 16:
+            case 17:
+            case 18:
+            case 19:
             case 20:
+            case 21:
+            case 22:
+            case 23:
             case 24:
+            case 25:
+            case 26:
+            case 27:
+            case 28:
+            case 29:
+            case 30:
+            case 31:
                 MIPSInt::Int_Allegrex(mips, op);
                 return 1;
             default:
@@ -627,7 +652,7 @@ int ExecInstruction(MIPSState *mips, MIPSOpcode op) {
         case 21:
             MIPSInt::Int_Vcmov(mips, op);
             return 2;
-        // vwbn, vwbn, vwbn, vwbn, vwbn, vwbn, vwbn, vwbn
+        // vwbn
         case 24:
         case 25:
         case 26:
@@ -652,7 +677,7 @@ int ExecInstruction(MIPSState *mips, MIPSOpcode op) {
     case 55:
     {
         switch ((op.encoding >> 23) & 0x7) {
-        // vpfxs, vpfxs, vpfxt, vpfxt, vpfxd, vpfxd
+        // vpfxs, vpfxt, vpfxd
         case 0:
         case 1:
         case 2:
@@ -673,14 +698,14 @@ int ExecInstruction(MIPSState *mips, MIPSOpcode op) {
     case 60:
     {
         switch ((op.encoding >> 21) & 0x1f) {
-        // vmmul, vmmul, vmmul, vmmul
+        // vmmul
         case 0:
         case 1:
         case 2:
         case 3:
             MIPSInt::Int_Vmmul(mips, op);
             return 2;
-        // v(h)tfm2, v(h)tfm2, v(h)tfm2, v(h)tfm2, v(h)tfm3, v(h)tfm3, v(h)tfm3, v(h)tfm3, v(h)tfm4, v(h)tfm4, v(h)tfm4, v(h)tfm4
+        // v(h)tfm2, v(h)tfm3, v(h)tfm4
         case 4:
         case 5:
         case 6:
@@ -695,14 +720,14 @@ int ExecInstruction(MIPSState *mips, MIPSOpcode op) {
         case 15:
             MIPSInt::Int_Vtfm(mips, op);
             return 2;
-        // vmscl, vmscl, vmscl, vmscl
+        // vmscl
         case 16:
         case 17:
         case 18:
         case 19:
             MIPSInt::Int_Vmscl(mips, op);
             return 2;
-        // vcrsp.t/vqmul.q, vcrsp.t/vqmul.q, vcrsp.t/vqmul.q, vcrsp.t/vqmul.q
+        // vcrsp.t/vqmul.q
         case 20:
         case 21:
         case 22:

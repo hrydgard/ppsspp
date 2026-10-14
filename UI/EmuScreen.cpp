@@ -105,8 +105,6 @@ using namespace std::placeholders;
 static AVIDump avi;
 #endif
 
-extern bool g_TakeScreenshot;
-
 class FadingChatButton : public UI::ChoiceWithValueDisplay {
 public:
 	using UI::ChoiceWithValueDisplay::ChoiceWithValueDisplay;
@@ -300,12 +298,10 @@ void EmuScreen::ProcessGameBoot(const Path &filename) {
 	case GPUBackend::DIRECT3D11:
 		coreParam.gpuCore = GPUCORE_DIRECTX11;
 		break;
-#if !PPSSPP_PLATFORM(UWP)
-#if PPSSPP_API(ANY_GL)
 	case GPUBackend::OPENGL:
 		coreParam.gpuCore = GPUCORE_GLES;
 		break;
-#endif
+#if !PPSSPP_PLATFORM(UWP)
 	case GPUBackend::VULKAN:
 		coreParam.gpuCore = GPUCORE_VULKAN;
 		break;

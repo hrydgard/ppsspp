@@ -13,7 +13,6 @@ public:
 	IRFrontend(bool startDefaultPrefix);
 	void Comp_Generic(MIPSOpcode op) override;
 
-	void Comp_RunBlock(MIPSOpcode op) override;
 	void Comp_ReplacementFunc(MIPSOpcode op) override;
 
 	// Ops
@@ -87,6 +86,7 @@ public:
 
 	int Replace_fabsf() override;
 	void DoState(PointerWrap &p);
+	bool UpdateFCR31(u32 fcr31);  // returns true if the block cache needs clearing
 	bool CheckRounding(u32 blockAddress);  // returns true if we need a do-over
 
 	void DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes);

@@ -197,6 +197,13 @@ static int sceKernelGetModel() {
 	return hleLogWarning(Log::sceKernel, model - 1);
 }
 
+// The VSH's sceVshBridge_Driver hands the kernel the PARAM.SFO details of the game it's about to
+// launch. Our HLE LoadExec reads the PBP itself, so there's nothing to keep, but some firmware versions
+// (2.00, 5.xx) give up on the launch unless this succeeds.
+static int sceKernelSetParamSfo() {
+	return hleLogDebug(Log::sceKernel, 0);
+}
+
 // Both configure things PPSSPP has no equivalent of - which kernel image a reboot would use, and
 // whether the UMD read cache is on. Accepted and ignored; the VSH calls them once each during
 // startup and only cares that they succeed.
@@ -232,6 +239,10 @@ const HLEFunction SysMemForKernel[] = {
 	{ 0x864EBFD7, &WrapI_V<sceKernelGetModel>,                     "sceKernelGetModel",                  'i', "",      HLE_KERNEL_SYSCALL },
 	{ 0x458A70B5, &WrapI_V<sceKernelGetModel>,                     "sceKernelGetModel",                  'i', "",      HLE_KERNEL_SYSCALL },
 	{ 0xA3B0B6BC, &WrapI_V<sceKernelGetModel>,                     "sceKernelGetModel",                  'i', "",      HLE_KERNEL_SYSCALL },
+	// sceKernelSetParamSfo: the old NID (up to 3.xx), 5.xx's (DC-M33's NID resolver), and 6.60's (uOFW).
+	{ 0xF91FE6AA, &WrapI_V<sceKernelSetParamSfo>,                  "sceKernelSetParamSfo",               'i', "",      HLE_KERNEL_SYSCALL },
+	{ 0xC2460DD5, &WrapI_V<sceKernelSetParamSfo>,                  "sceKernelSetParamSfo",               'i', "",      HLE_KERNEL_SYSCALL },
+	{ 0x807179E7, &WrapI_V<sceKernelSetParamSfo>,                  "sceKernelSetParamSfo",               'i', "",      HLE_KERNEL_SYSCALL },
 };
 
 void Register_SysMemForKernel() {

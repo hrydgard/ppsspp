@@ -286,7 +286,7 @@ private:
 D3D11DrawContext::D3D11DrawContext(ComPtr<ID3D11Device> device, ComPtr<ID3D11DeviceContext> deviceContext, ComPtr<ID3D11Device1> device1, ComPtr<ID3D11DeviceContext1> deviceContext1, ComPtr<IDXGISwapChain> swapChain, D3D_FEATURE_LEVEL featureLevel, HWND hWnd, std::vector<std::string> deviceList, int maxInflightFrames)
 	: hWnd_(hWnd),
 		device_(device),
-		context_(deviceContext1),
+		context_(deviceContext),
 		device1_(device1),
 		context1_(deviceContext1),
 		featureLevel_(featureLevel),
@@ -1748,12 +1748,13 @@ bool D3D11DrawContext::CopyFramebufferToMemory(Framebuffer *src, Aspect channelB
 		D3D11_TEXTURE2D_DESC packDesc{};
 		packDesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
 		packDesc.BindFlags = 0;
-		packDesc.Width = bw;
-		packDesc.Height = bh;
 		packDesc.ArraySize = 1;
 		packDesc.MipLevels = 1;
 		packDesc.Usage = D3D11_USAGE_STAGING;
 		packDesc.SampleDesc.Count = 1;
+		// The copy below lands at bx, by, and the read starts there, so the texture has to reach that far.
+		packDesc.Width = bx + bw;
+		packDesc.Height = by + bh;
 		switch (channelBits) {
 		case Aspect::COLOR_BIT:
 			packDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;  // TODO: fb->colorFormat;
@@ -1765,6 +1766,9 @@ bool D3D11DrawContext::CopyFramebufferToMemory(Framebuffer *src, Aspect channelB
 				return false;
 			}
 			packDesc.Format = fb->depthStencilFormat;
+			// CopyResource below needs the whole size.
+			packDesc.Width = fb->Width();
+			packDesc.Height = fb->Height();
 			break;
 		default:
 			_assert_(false);

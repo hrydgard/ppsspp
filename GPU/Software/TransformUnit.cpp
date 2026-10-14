@@ -17,9 +17,12 @@
 
 #include "ppsspp_config.h"
 
+#include <atomic>
 #include <cfloat>
 #include <climits>
 #include <cmath>
+#include <functional>
+#include <thread>
 
 #include "Common/Common.h"
 #include "Common/CPUDetect.h"
@@ -27,6 +30,8 @@
 #include "Common/Math/math_util.h"
 #include "Common/MemoryUtil.h"
 #include "Common/Profiler/Profiler.h"
+#include "Common/Thread/ThreadManager.h"
+#include "Common/TimeUtil.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/VertexDecoderCommon.h"
@@ -48,27 +53,137 @@
 
 #define TRANSFORM_BUF_SIZE (65536 * 48)
 
+// Chunks of a run's vertices for helper threads to take alongside the emulation thread (StartRun). A chunk is
+// claimed by bumping the low half of claim, which only works with the run's generation in the high half, so a
+// helper can't take one from a run that's over.
+struct TransformUnit::RunJob {
+	std::atomic<uint64_t> claim{ 0 };
+	std::atomic<int> chunks{ 0 };
+	std::atomic<int> done{ 0 };
+	// The helper threads with a task (a bit each), and the tasks queued or running, which use this.
+	std::atomic<uint32_t> slots{ 0 };
+	std::atomic<int> active{ 0 };
+	uint32_t gen = 0;
+	int maxHelpers = 0;
+	std::function<void(int)> work;
+	// The run each chunk was last done for.
+	std::vector<std::atomic<uint32_t>> chunkGen;
+
+	// Takes and does a chunk of run myGen. False if there are none left to take.
+	bool HelpOne(uint32_t myGen) {
+		uint64_t v = claim.load(std::memory_order_acquire);
+		while ((uint32_t)(v >> 32) == myGen && (int)(uint32_t)v < chunks.load(std::memory_order_relaxed)) {
+			if (!claim.compare_exchange_weak(v, v + 1, std::memory_order_acq_rel))
+				continue;
+			const int chunk = (int)(uint32_t)v;
+			work(chunk);
+			chunkGen[chunk].store(myGen, std::memory_order_release);
+			done.fetch_add(1, std::memory_order_release);
+			return true;
+		}
+		return false;
+	}
+	void Help(uint32_t myGen) {
+		while (HelpOne(myGen)) {
+		}
+	}
+	// A run after lastGen with chunks left to take, within the time a helper waits for one.
+	bool WaitForRun(uint32_t lastGen, uint32_t *newGen) {
+		if (BinManager::TRANSFORM_LINGER_SECONDS <= 0.0)
+			return false;
+		const double until = time_now_d() + BinManager::TRANSFORM_LINGER_SECONDS;
+		do {
+			const uint64_t v = claim.load(std::memory_order_acquire);
+			if ((uint32_t)(v >> 32) != lastGen && (int)(uint32_t)v < chunks.load(std::memory_order_relaxed)) {
+				*newGen = (uint32_t)(v >> 32);
+				return true;
+			}
+			for (int i = 0; i < 64; ++i)
+				std::this_thread::yield();
+		} while (time_now_d() < until);
+		return false;
+	}
+	void SpawnHelper(uint32_t myGen);
+};
+
+class TransformRunTask : public Task {
+public:
+	TransformRunTask(TransformUnit::RunJob *job, uint32_t gen, int slot) : job_(job), gen_(gen), slot_(slot) {}
+	TaskType Type() const override { return TaskType::CPU_COMPUTE; }
+	TaskPriority Priority() const override { return TaskPriority::HIGH; }
+	void Run() override {
+		// The next helper: waking a thread is a system call, kept off the emulation thread.
+		job_->SpawnHelper(gen_);
+		uint32_t gen = gen_;
+		do {
+			job_->Help(gen);
+		} while (job_->WaitForRun(gen, &gen));
+		job_->slots.fetch_and(~(1U << slot_), std::memory_order_release);
+		job_->active.fetch_sub(1, std::memory_order_release);
+	}
+
+private:
+	TransformUnit::RunJob *job_;
+	uint32_t gen_;
+	int slot_;
+};
+
+// A task on a helper thread without one, if there are chunks left.
+void TransformUnit::RunJob::SpawnHelper(uint32_t myGen) {
+	uint32_t taken = slots.load(std::memory_order_relaxed);
+	int slot;
+	do {
+		const uint64_t v = claim.load(std::memory_order_relaxed);
+		if ((uint32_t)(v >> 32) != myGen || (int)(uint32_t)v >= chunks.load(std::memory_order_relaxed))
+			return;
+		slot = 0;
+		while (slot < maxHelpers && (taken & (1U << slot)) != 0)
+			slot++;
+		if (slot >= maxHelpers)
+			return;
+	} while (!slots.compare_exchange_weak(taken, taken | (1U << slot), std::memory_order_acq_rel));
+	active.fetch_add(1, std::memory_order_relaxed);
+	// After the drawing threads, which have their own tasks.
+	g_threadManager.EnqueueTaskOnThread(BinManager::MAX_DRAW_THREADS + slot, new TransformRunTask(this, myGen, slot));
+}
+
 TransformUnit::TransformUnit() {
 	decoded_ = (u8 *)AllocateAlignedMemory(TRANSFORM_BUF_SIZE, 16);
 	_assert_(decoded_);
 	binner_ = new BinManager();
+	runJob_ = new RunJob();
 }
 
 TransformUnit::~TransformUnit() {
+	FinishRun();
 	FreeAlignedMemory(decoded_);
 	delete binner_;
+	while (runJob_->active.load(std::memory_order_acquire) != 0)
+		std::this_thread::yield();
+	delete runJob_;
 }
 
-SoftwareDrawEngine::SoftwareDrawEngine() {
+SoftwareDrawEngine::SoftwareDrawEngine() : transformDecoders_(32) {
 	flushOnParams_ = false;
 	// Our DispatchSubmitPrim decodes by itself.
 	curvesPredecoded_ = false;
 }
 
-SoftwareDrawEngine::~SoftwareDrawEngine() {}
+SoftwareDrawEngine::~SoftwareDrawEngine() {
+	ClearTransformDecoders();
+}
 
 void SoftwareDrawEngine::NotifyConfigChanged() {
+	// That clears the decoder JIT cache, which these decoders' code is in.
 	DrawEngineCommon::NotifyConfigChanged();
+	ClearTransformDecoders();
+}
+
+void SoftwareDrawEngine::ClearTransformDecoders() {
+	transformDecoders_.Iterate([&](const uint32_t vtype, VertexDecoder *decoder) {
+		delete decoder;
+	});
+	transformDecoders_.Clear();
 }
 
 void SoftwareDrawEngine::Flush() {
@@ -145,29 +260,30 @@ void SoftwareDrawEngine::DispatchSubmitImm(GEPrimitiveType prim, TransformedVert
 	transformUnit.SetDirty(SoftDirty(-1));
 }
 
+// Skinning in the decoder was wasted (ApplyGESkinning overwrites what it skins), and in God of War it took 4% of
+// the emulation thread. The decoders for everything else (bounding boxes, splines) still skin.
 VertexDecoder *SoftwareDrawEngine::FindVertexDecoder(u32 vtype) {
 	const u32 vertTypeID = GetVertTypeID(vtype, gstate.getUVGenMode());
-	return DrawEngineCommon::GetVertexDecoder(vertTypeID);
+	VertexDecoder *dec;
+	if (transformDecoders_.Get(vertTypeID, &dec))
+		return dec;
+	VertexDecoderOptions options = decOptions_;
+	options.callerSkins = true;
+	dec = new VertexDecoder();
+	dec->SetVertexType(vertTypeID, options, decJitCache_);
+	transformDecoders_.Insert(vertTypeID, dec);
+	return dec;
 }
 
-Vec4F32 TransformUnit::ModelToWorldNormal(Vec4F32 normal) {
-	// Each component summed like a matrix row (gpu/probe exp61), the three at once. Matrix row k is m[3k..3k+2];
-	// the fourth lane reads the next row's first entry and goes unused, as does the normal's.
-	const float *m = gstate.worldMatrix;
-	const Vec4F32 b[3] = { Vec4F32::Load(m), Vec4F32::Load(m + 3), Vec4F32::Load(m + 6) };
-	return GERowSum4<3>(normal, b);
-}
-
-// The clip space position from the combined matrix (gpu/probe exp32, exp34, exp42), each component summed
-// like a matrix row, the four at once. The position is (x, y, z, 1); the translation is a term of its own.
-static inline Vec4F32 GEClipPosition(Vec4F32 pos, const float m[16]) {
-	const Vec4F32 b[4] = { Vec4F32::Load(m), Vec4F32::Load(m + 4), Vec4F32::Load(m + 8), Vec4F32::Load(m + 12) };
-	return GERowSum4<4>(pos, b);
+// The clip space position from the combined matrix's rows (gpu/probe exp32, exp34, exp42), each component
+// summed like a matrix row, the four at once. The position is (x, y, z, 1); the translation is a term of its own.
+static inline Vec4F32 GEClipPosition(Vec4F32 pos, const GERowSumRows &rows) {
+	return GERowSum4<4>(pos, rows);
 }
 
 // The texture coordinates from the 4x3 texture matrix's rows, summed like clip space rows (gpu/probe exp64).
 // The source is (x, y, z, 1).
-static inline Vec3Packedf GETexGen(Vec4F32 source, const Vec4F32 rows[4]) {
+static inline Vec3Packedf GETexGen(Vec4F32 source, const GERowSumRows &rows) {
 	alignas(16) float out[4];
 	GERowSum4<4>(source, rows).Store(out);
 	return Vec3Packedf(out[0], out[1], out[2]);
@@ -264,20 +380,32 @@ struct TransformState {
 	Lighting::State lightingState;
 
 	float matrix[16];
+	// The same, taken apart for GEClipPosition, and its columns (a clip coordinate each) for PreparePositions4.
+	GERowSumRows clipRows;
+	GERowSumEntries clipEntries[4];
+	// The world matrix's rows, for the normal: each component summed like a matrix row (gpu/probe exp61).
+	GERowSumRows worldNormalRows;
 	Vec4f posToFog;
 	// With finite fog parameters, the GE's own arithmetic (gpu/probe exp20): the view z as a row of the
 	// combined world-view matrix, then float24(GEAdd(z, end) * slope).
 	bool fogGE;
-	Vec4F32 viewZRows[4];
+	GERowSumRows viewZRows;
+	GERowSumEntries viewZEntries;
 	float fogEnd;
 	float fogSlope;
 	Vec3f screenScale;
 	Vec3f screenAdd;
+	// The same in lanes 0-2 for GEViewport3, when all are finite float24s.
+	bool viewport3;
+	Vec4F32 screenScale4;
+	Vec4F32 screenAdd4;
 
-	ScreenCoords(*roundToScreen)(Vec3f scaled, const ClipCoords &coords, bool *outside_range_flag);
+	bool depthClamp;
+	// The position stage can be done four vertices at a time (PreparePositions4).
+	bool prepare4;
 
 	// The texture matrix's rows, for GETexGen.
-	Vec4F32 tgenRows[4];
+	GERowSumRows tgenRows;
 
 	struct {
 		bool enableTransform : 1;
@@ -343,8 +471,10 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 			alignas(16) float padded[13];
 			memcpy(padded, gstate.tgenMatrix, 12 * sizeof(float));
 			padded[12] = 0.0f;
+			Vec4F32 rows[4];
 			for (int k = 0; k < 4; ++k)
-				state->tgenRows[k] = Vec4F32::Load(padded + 3 * k);
+				rows[k] = Vec4F32::Load(padded + 3 * k);
+			state->tgenRows.Set(rows);
 		}
 
 		float world[16];
@@ -358,6 +488,18 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 		// it, in the order (world * view) * projection. The world position is only needed for lighting.
 		state->matrixMode = (uint8_t)(canSkipWorldPos ? MatrixMode::POS_TO_CLIP : MatrixMode::WORLD_TO_CLIP);
 		GECombineMatrices(state->matrix, worldview, gstate.projMatrix);
+		const float *m = state->matrix;
+		const Vec4F32 clipRows[4] = { Vec4F32::Load(m), Vec4F32::Load(m + 4), Vec4F32::Load(m + 8), Vec4F32::Load(m + 12) };
+		state->clipRows.Set(clipRows);
+		for (int r = 0; r < 4; ++r) {
+			const float column[4] = { m[r], m[4 + r], m[8 + r], m[12 + r] };
+			state->clipEntries[r].Set(column);
+		}
+		// Row k is m[3k..3k+2]; the fourth lane reads the next row's first entry and goes unused, as does the
+		// normal's.
+		const float *w = gstate.worldMatrix;
+		const Vec4F32 normalRows[4] = { Vec4F32::Load(w), Vec4F32::Load(w + 3), Vec4F32::Load(w + 6), Vec4F32::Zero() };
+		state->worldNormalRows.Set(normalRows);
 
 		if (state->enableFog) {
 			float fogEnd = getFloat24(gstate.fog1);
@@ -366,8 +508,12 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 			// We bake fog end and slope into the dot product.
 			state->posToFog = Vec4f(worldview[2], worldview[6], worldview[10], worldview[14] + fogEnd);
 			state->fogGE = !my_isnanorinf(fogEnd) && !my_isnanorinf(fogSlope);
+			Vec4F32 viewZRows[4];
 			for (int i = 0; i < 4; ++i)
-				state->viewZRows[i] = Vec4F32::Splat(worldview[2 + 4 * i]);
+				viewZRows[i] = Vec4F32::Splat(worldview[2 + 4 * i]);
+			state->viewZRows.Set(viewZRows);
+			const float viewZ[4] = { worldview[2], worldview[6], worldview[10], worldview[14] };
+			state->viewZEntries.Set(viewZ);
 			state->fogEnd = TruncateToFloat24(fogEnd);
 			state->fogSlope = TruncateToFloat24(fogSlope);
 
@@ -399,12 +545,34 @@ void ComputeTransformState(TransformState *state, const VertexReader &vreader) {
 
 		state->screenScale = Vec3f(gstate.getViewportXScale(), gstate.getViewportYScale(), gstate.getViewportZScale());
 		state->screenAdd = Vec3f(gstate.getViewportXCenter(), gstate.getViewportYCenter(), gstate.getViewportZCenter());
+		alignas(16) const float scale4[4] = { state->screenScale.x, state->screenScale.y, state->screenScale.z, 0.0f };
+		alignas(16) const float add4[4] = { state->screenAdd.x, state->screenAdd.y, state->screenAdd.z, 0.0f };
+		state->screenScale4 = Vec4F32::Load(scale4);
+		state->screenAdd4 = Vec4F32::Load(add4);
+		state->viewport3 = true;
+		for (int i = 0; i < 3; ++i) {
+			if (!std::isfinite(scale4[i]) || !std::isfinite(add4[i]) || TruncateToFloat24(scale4[i]) != scale4[i] || TruncateToFloat24(add4[i]) != add4[i])
+				state->viewport3 = false;
+		}
 	}
 
-	if (gstate.isDepthClipEnabled())
-		state->roundToScreen = &ClipToScreenInternal<true, false>;
-	else
-		state->roundToScreen = &ClipToScreenInternal<false, false>;
+	state->depthClamp = gstate.isDepthClipEnabled();
+	state->prepare4 = state->enableTransform && state->viewport3 && (!state->enableFog || state->fogGE);
+}
+
+// GEViewport of x, y and z (lanes 0-2) at once, z not yet floored. False for the inputs GEViewport doesn't
+// take the GE's arithmetic for: a non-finite component, or a w that's zero or denormal.
+static inline bool GEViewport3(Vec4F32 clip, const TransformState &state, float out[4]) {
+	alignas(16) static const int wLane[4] = { 0, 0, 0, -1 };
+	const Vec4S32 expMask = Vec4S32::Splat(0x7F800000);
+	const Vec4S32 e = Vec4S32FromBits(clip) & expMask;
+	if (AnyCompareBitsSet(e.CompareEq(expMask) | (e.CompareEq(Vec4S32::Zero()) & Vec4S32::LoadAligned(wLane))))
+		return false;
+	const float recip = GERecip(TruncateToFloat24(clip.GetLane<3>()));
+	// A zero gives +0 rather than a signed one, which GEAdd doesn't tell apart. Lane 3 ends up zero.
+	const Vec4F32 ndc = GEMulFloat24x4(clip, Vec4F32::Splat(recip));
+	GEAdd4(GEMulFloat24x4(ndc, state.screenScale4), state.screenAdd4).Store(out);
+	return true;
 }
 
 #if defined(_M_SSE)
@@ -432,23 +600,103 @@ static inline float Dot43(const Vec4f &a, const Vec3f &b) {
 	return Dot(a, Vec4f(b, 1.0f));
 }
 
-ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const TransformState &state, VertexCarry &carry) {
+// floorf of each lane, for finite ones. A -0 comes out +0.
+static inline Vec4F32 Floor4(Vec4F32 v) {
+	const Vec4F32 t = Vec4F32FromS32(Vec4S32FromF32(v));
+	const Vec4F32 floored = t - Vec4F32FromBits(t.CompareGt(v) & Vec4S32FromBits(Vec4F32::Splat(1.0f)));
+	// From 2^23 on, every float is an integer, and the conversion may overflow.
+	const Vec4S32 big = Vec4F32FromBits(Vec4S32FromBits(v) & Vec4S32::Splat(0x7FFFFFFF)).CompareGe(Vec4F32::Splat(8388608.0f));
+	return Select(big, v, floored);
+}
+
+// ReadVertex's position stage (the clip coordinates, the screen position and fog) for four vertices at once,
+// a lane each, from their model positions (x, y, z, 1). False when a lane needs what only ReadVertex does: a
+// non-finite clip coordinate, or a w that's zero, denormal or too large for GERecip's usual path. The outputs
+// are then undefined. Only with state.prepare4.
+static bool PreparePositions4(const Vec4F32 pos[4], const TransformState &state, TransformUnit::PreparedPosition out[4]) {
+	Vec4F32 a[4] = { pos[0], pos[1], pos[2], pos[3] };
+	Vec4F32::Transpose(a[0], a[1], a[2], a[3]);
+	GERowSumLeft left[4];
+	for (int k = 0; k < 4; ++k)
+		left[k] = GERowSumLeft::From(a[k]);
+	Vec4F32 clip[4];
+	for (int r = 0; r < 4; ++r)
+		clip[r] = GERowSumLanes<4>(left, a, state.clipEntries[r]);
+
+	// GEViewport for x, y and z.
+	const Vec4S32 expMask = Vec4S32::Splat(0x7F800000);
+	Vec4S32 bad = Vec4S32::Zero();
+	for (int r = 0; r < 4; ++r)
+		bad = bad | (Vec4S32FromBits(clip[r]) & expMask).CompareEq(expMask);
+	const Vec4F32 recip = GERecip4(clip[3], bad);
+	if (AnyCompareBitsSet(bad))
+		return false;
+	Vec4F32 scaled[3];
+	for (int c = 0; c < 3; ++c) {
+		const Vec4F32 ndc = GEMulFloat24x4(clip[c], recip);
+		scaled[c] = GEAdd4(GEMulFloat24x4(ndc, Vec4F32::Splat(state.screenScale[c])), Vec4F32::Splat(state.screenAdd[c]));
+	}
+	Vec4F32 z = Floor4(scaled[2]);
+
+	// ClipToScreenInternal.
+	const Vec4F32 bound = Vec4F32::Splat(4095.0f + (15.5f / 16.0f));
+	const Vec4F32 zero = Vec4F32::Zero();
+	const Vec4S32 insideXY = scaled[0].CompareGe(zero) & scaled[1].CompareGe(zero) & scaled[1].CompareLt(bound);
+	Vec4S32 outside;
+	if (state.depthClamp) {
+		// Not for a vertex the near plane clips away.
+		const Vec4F32 negW = Vec4F32FromBits(Vec4S32FromBits(clip[3]) ^ Vec4S32::Splat((int)0x80000000));
+		outside = ((insideXY & scaled[0].CompareLt(bound)) ^ Vec4S32::Splat(-1)).AndNot(clip[2].CompareLt(negW));
+		z = z.Max(zero).Min(Vec4F32::Splat(65535.0f));
+	} else {
+		outside = (insideXY & scaled[0].CompareLe(bound) & z.CompareGe(zero) & z.CompareLt(Vec4F32::Splat(65536.0f))) ^ Vec4S32::Splat(-1);
+	}
+	alignas(16) int xs[4], ys[4], zs[4], outs[4];
+	(Vec4S32FromF32(Floor4(scaled[0] * 16.0f)) - Vec4S32::Splat(gstate.getOffsetX16())).StoreAligned(xs);
+	(Vec4S32FromF32(Floor4(scaled[1] * 16.0f)) - Vec4S32::Splat(gstate.getOffsetY16())).StoreAligned(ys);
+	(Vec4S32FromF32(z) & Vec4S32::Splat(0xFFFF)).StoreAligned(zs);
+	outside.StoreAligned(outs);
+
+	alignas(16) float fog[4] = { 1.0f, 1.0f, 1.0f, 1.0f };
+	if (state.enableFog) {
+		// The GE's fog (state.prepare4 leaves the other kind to ReadVertex).
+		const Vec4F32 viewZ = GERowSumLanes<4>(left, a, state.viewZEntries);
+		Vec4F32 f = GEMulFloat24x4(TruncateToFloat24x4(GEAdd4(viewZ, Vec4F32::Splat(state.fogEnd))), Vec4F32::Splat(state.fogSlope));
+		f.StoreAligned(fog);
+		for (int i = 0; i < 4; ++i)
+			fog[i] = GEFogFactor(fog[i]) * (1.0f / 256.0f);
+	}
+
+	Vec4F32::Transpose(clip[0], clip[1], clip[2], clip[3]);
+	for (int i = 0; i < 4; ++i) {
+		clip[i].Store(out[i].clippos.AsArray());
+		out[i].screenpos = ScreenCoords(xs[i], ys[i], (u16)zs[i]);
+		out[i].fogdepth = fog[i];
+		out[i].outside = outs[i] != 0;
+		out[i].valid = true;
+	}
+	return true;
+}
+
+// Writes straight into the destination: building the vertex in a temporary and copying it reloads its
+// fields with wider loads than they were stored with, which stalls.
+void TransformUnit::ReadVertex(const VertexReader &vreader, const TransformState &state, VertexCarry &carry, ClipVertexData &vertex, const PreparedPosition *prepared) {
 	PROFILE_THIS_SCOPE("read_vert");
-	ClipVertexData vertex;
 
 	// (x, y, z, 1), the left operands of the transform's rows.
-	alignas(16) float posv[4];
-	vreader.ReadPosThrough(posv);
-	posv[3] = 1.0f;
-	const Vec4F32 pos = Vec4F32::Load(posv);
+	Vec4F32 pos = vreader.ReadPosOne();
 
 	// A format without UVs uses the last ones read, by any draw, textured or not. They're kept as read, and
 	// scaled with the scale and offset of the draw using them (gpu/vertices/carry).
 	if (vreader.hasUV()) {
-		vreader.ReadUV(carry.tc.AsArray());
-		carry.tc.q() = 0.0f;
+		// Through a local: storing the two floats and reloading them as one stalls.
+		float uv[2];
+		vreader.ReadUV(uv);
+		carry.tc = Vec3Packedf(uv[0], uv[1], 0.0f);
+		vertex.v.texturecoords = Vec3Packedf(uv[0], uv[1], 0.0f);
+	} else {
+		vertex.v.texturecoords = carry.tc;
 	}
-	vertex.v.texturecoords = carry.tc;
 	if (state.geUVScale) {
 		// The decoder only normalized them (8 and 16 bit UVs are unsigned).
 		for (int i = 0; i < 2; ++i) {
@@ -472,25 +720,38 @@ ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const Tran
 
 	vertex.v.color1 = 0;
 
-	if (state.enableTransform) {
+	if (state.enableTransform && prepared && prepared->valid) {
+		vertex.clippos = prepared->clippos;
+		vertex.v.screenpos = prepared->screenpos;
+		if (prepared->outside) {
+			vertex.v.screenpos.x = 0x7FFFFFFF;
+			return;
+		}
+		vertex.v.fogdepth = prepared->fogdepth;
+	} else if (state.enableTransform) {
 		// Clip coordinates with the GE's precision; the Test Drive map depends on it together with the
 		// depth math below (#12786).
-		{
-			alignas(16) float clip[4];
-			GEClipPosition(pos, state.matrix).Store(clip);
-			vertex.clippos = ClipCoords(clip[0], clip[1], clip[2], clip[3]);
-		}
+		Vec4F32 clip = GEClipPosition(pos, state.clipRows);
+		clip.Store(vertex.clippos.AsArray());
 
-		Vec3f screenScaled;
-		screenScaled.x = GEViewport(vertex.clippos.x, vertex.clippos.w, state.screenScale.x, state.screenAdd.x);
-		screenScaled.y = GEViewport(vertex.clippos.y, vertex.clippos.w, state.screenScale.y, state.screenAdd.y);
-		screenScaled.z = GEScreenZ(vertex.clippos.z, vertex.clippos.w, state.screenScale.z, state.screenAdd.z);
+		alignas(16) float scaled[4];
+		if (state.viewport3 && GEViewport3(clip, state, scaled)) {
+			scaled[2] = floorf(scaled[2]);
+		} else {
+			scaled[0] = GEViewport(vertex.clippos.x, vertex.clippos.w, state.screenScale.x, state.screenAdd.x);
+			scaled[1] = GEViewport(vertex.clippos.y, vertex.clippos.w, state.screenScale.y, state.screenAdd.y);
+			scaled[2] = GEScreenZ(vertex.clippos.z, vertex.clippos.w, state.screenScale.z, state.screenAdd.z);
+		}
+		const Vec3f screenScaled(scaled[0], scaled[1], scaled[2]);
 		bool outside_range_flag = false;
-		vertex.v.screenpos = state.roundToScreen(screenScaled, vertex.clippos, &outside_range_flag);
+		if (state.depthClamp)
+			vertex.v.screenpos = ClipToScreenInternal<true, false>(screenScaled, vertex.clippos, &outside_range_flag);
+		else
+			vertex.v.screenpos = ClipToScreenInternal<false, false>(screenScaled, vertex.clippos, &outside_range_flag);
 		if (outside_range_flag) {
 			// We use this, essentially, as the flag.
 			vertex.v.screenpos.x = 0x7FFFFFFF;
-			return vertex;
+			return;
 		}
 
 		if (state.enableFog && state.fogGE) {
@@ -498,10 +759,13 @@ ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const Tran
 			const float f = ProductToFloat24((double)TruncateToFloat24(GEAdd(viewZ, state.fogEnd)) * state.fogSlope);
 			vertex.v.fogdepth = GEFogFactor(f) * (1.0f / 256.0f);
 		} else if (state.enableFog) {
-			vertex.v.fogdepth = GEFogFactor(Dot43(state.posToFog, Vec3f(posv[0], posv[1], posv[2]))) * (1.0f / 256.0f);
+			vertex.v.fogdepth = GEFogFactor(Dot43(state.posToFog, Vec3f(pos.GetLane<0>(), pos.GetLane<1>(), pos.GetLane<2>()))) * (1.0f / 256.0f);
 		} else {
 			vertex.v.fogdepth = 1.0f;
 		}
+	}
+
+	if (state.enableTransform) {
 		vertex.v.clipw = vertex.clippos.w;
 
 		// The normal stays as the world matrix leaves it: lighting scales its dot products by the
@@ -509,7 +773,7 @@ ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const Tran
 		Vec4F32 worldnormal = Vec4F32::Zero();
 		float normalRsqrt = 1.0f;
 		if (state.lightingState.usesWorldNormal) {
-			worldnormal = TransformUnit::ModelToWorldNormal(normal);
+			worldnormal = GERowSum4<3>(normal, state.worldNormalRows);
 			const float len2 = GEDot3(worldnormal, worldnormal);
 			if (len2 > 0.0f && std::isfinite(len2)) {
 				normalRsqrt = GERsqrt(len2);
@@ -558,6 +822,8 @@ ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const Tran
 		if (state.enableLighting)
 			Lighting::Process(vertex.v, pos, worldnormal, normalRsqrt, state.lightingState);
 	} else {
+		alignas(16) float posv[4];
+		pos.Store(posv);
 		vertex.v.screenpos.x = (int)(posv[0] * SCREEN_SCALE_FACTOR);
 		vertex.v.screenpos.y = (int)(posv[1] * SCREEN_SCALE_FACTOR);
 		vertex.v.screenpos.z = posv[2];
@@ -565,7 +831,6 @@ ClipVertexData TransformUnit::ReadVertex(const VertexReader &vreader, const Tran
 		vertex.v.fogdepth = 1.0f;
 	}
 
-	return vertex;
 }
 
 void TransformUnit::SetDirty(SoftDirty flags) {
@@ -618,63 +883,108 @@ static void ApplyGESkinning(u8 *decoded, const VertexDecoder &dec, const u8 *raw
 	const int nweights = dec.nweights;
 	const bool hasPos = dec.pos != 0;
 	const bool hasNrm = dec.nrm && fmt.nrmfmt == DEC_FLOAT_3;
-	for (int v = 0; v < count; ++v) {
-		const u8 *in = raw + v * dec.VertexSize();
-		u8 *out = decoded + v * fmt.stride;
-		auto component = [&](int off, int c, auto read) {
-			return dec.morphcount > 1 ? GEMorphComponent(dec, in, off, c, read) : read(in + off, c);
-		};
-		float weights[8];
-		for (int b = 0; b < nweights; ++b)
-			weights[b] = TruncateToFloat24(component(dec.weightoff, b, [&](const u8 *p, int i) { return ReadRawWeight(p, dec.weighttype, i); }));
-		float pos[3]{}, nrm[3]{};
+	// The bone matrices' entries, taken apart for the products.
+	GEMulOperand boneOps[8 * 12];
+	for (int i = 0; i < nweights * 12; ++i)
+		boneOps[i] = GEMulOperand::From(Vec4F32::Splat(gstate.boneMatrix[i]));
+	// Four vertices at a time, a lane each; the last group repeats the last vertex.
+	for (int v0 = 0; v0 < count; v0 += 4) {
+		alignas(16) float weights[8][4];
+		alignas(16) float pos[3][4]{}, nrm[3][4]{};
+		for (int l = 0; l < 4; ++l) {
+			const int v = std::min(v0 + l, count - 1);
+			const u8 *in = raw + v * dec.VertexSize();
+			auto component = [&](int off, int c, auto read) {
+				return dec.morphcount > 1 ? GEMorphComponent(dec, in, off, c, read) : read(in + off, c);
+			};
+			for (int b = 0; b < nweights; ++b)
+				weights[b][l] = TruncateToFloat24(component(dec.weightoff, b, [&](const u8 *p, int i) { return ReadRawWeight(p, dec.weighttype, i); }));
+			for (int i = 0; i < 3; ++i) {
+				if (hasPos)
+					pos[i][l] = component(dec.posoff, i, [&](const u8 *p, int c) { return ReadRawComponent(p, dec.pos, c); });
+				if (hasNrm)
+					nrm[i][l] = component(dec.nrmoff, i, [&](const u8 *p, int c) { return ReadRawComponent(p, dec.nrm, c); });
+			}
+		}
+		Vec4F32 posv[3], nrmv[3];
 		for (int i = 0; i < 3; ++i) {
-			if (hasPos)
-				pos[i] = component(dec.posoff, i, [&](const u8 *p, int c) { return ReadRawComponent(p, dec.pos, c); });
-			if (hasNrm)
-				nrm[i] = component(dec.nrmoff, i, [&](const u8 *p, int c) { return ReadRawComponent(p, dec.nrm, c); });
+			posv[i] = Vec4F32::LoadAligned(pos[i]);
+			nrmv[i] = Vec4F32::LoadAligned(nrm[i]);
 		}
 
-		// The x, y and z components go in lanes 0-2. Each one is a chain of GEAdds in a fixed order: per bone, the
-		// translation, then the three products. GEAdd drops a GEProduct's 17th bit, so float24 products give the
-		// same sums. The position's and the normal's chains are independent, interleaved.
-		Vec4F32 accPos, accNrm;
-		auto skin = [&](auto mul, auto add) {
-			accPos = Vec4F32::Zero();
-			accNrm = Vec4F32::Zero();
+		// Each component of each vertex is a chain of GEAdds in a fixed order: per bone, the translation, then
+		// the three products. GEAdd drops a GEProduct's 17th bit, so float24 products give the same sums. A
+		// lane whose weight is zero adds zeros, which leave its sums as they are, as skipping the bone would.
+		Vec4F32 accPos[3], accNrm[3];
+		// Without the fallbacks first, with the operands taken apart once: the fallbacks are rarely needed,
+		// and then the group is done again with them.
+		Vec4S32 bad = Vec4S32::Zero();
+		{
+			GEMulOperand posOp[3], nrmOp[3];
+			for (int c = 0; c < 3; ++c) {
+				accPos[c] = Vec4F32::Zero();
+				accNrm[c] = Vec4F32::Zero();
+				posOp[c] = GEMulOperand::From(posv[c]);
+				nrmOp[c] = GEMulOperand::From(nrmv[c]);
+			}
 			for (int b = 0; b < nweights; ++b) {
-				const float w = weights[b];
-				if (w == 0.0f)
+				const Vec4F32 w = Vec4F32::LoadAligned(weights[b]);
+				if (!AnyCompareBitsSet(w.CompareEq(Vec4F32::Zero()) ^ Vec4S32::Splat(-1)))
 					continue;
-				// The bone's rows (matrix entries 3j..3j+2, the translation j = 3), times its weight.
-				const float *m = gstate.boneMatrix + b * 12;
-				const Vec4F32 wv = Vec4F32::Splat(w);
-				Vec4F32 rows[4];
-				for (int j = 0; j < 4; ++j)
-					rows[j] = mul(wv, Vec4F32::Load(m + 3 * j).WithLane3Zero());
-				accPos = add(accPos, rows[3]);
-				for (int j = 0; j < 3; ++j) {
-					accPos = add(accPos, mul(Vec4F32::Splat(pos[j]), rows[j]));
-					if (hasNrm)
-						accNrm = add(accNrm, mul(Vec4F32::Splat(nrm[j]), rows[j]));
+				const GEMulOperand wOp = GEMulOperand::From(w);
+				const GEMulOperand *m = &boneOps[b * 12];
+				for (int c = 0; c < 3; ++c) {
+					accPos[c] = GEAddFloat24x4Unchecked(accPos[c], GEMulFloat24x4Unchecked(wOp, m[9 + c], bad), bad);
+					for (int j = 0; j < 3; ++j) {
+						const GEMulOperand row = GEMulOperand::From(GEMulFloat24x4Unchecked(wOp, m[3 * j + c], bad));
+						accPos[c] = GEAddFloat24x4Unchecked(accPos[c], GEMulFloat24x4Unchecked(posOp[j], row, bad), bad);
+						if (hasNrm)
+							accNrm[c] = GEAddFloat24x4Unchecked(accNrm[c], GEMulFloat24x4Unchecked(nrmOp[j], row, bad), bad);
+					}
 				}
 			}
-		};
-		// Without the fallbacks first: they're rarely needed, and then the vertex is done again with them.
-		Vec4S32 bad = Vec4S32::Zero();
-		skin([&](Vec4F32 a, Vec4F32 b) { return GEMulFloat24x4Unchecked(a, b, bad); },
-			[&](Vec4F32 a, Vec4F32 b) { return GEAddFloat24x4Unchecked(a, b, bad); });
-		if (AnyCompareBitsSet(bad))
-			skin(GEMulFloat24x4, GEAddFloat24x4);
-
-		alignas(16) float result[4];
-		if (hasPos) {
-			accPos.Store(result);
-			memcpy(out + fmt.posoff, result, 3 * sizeof(float));
 		}
-		if (hasNrm) {
-			accNrm.Store(result);
-			memcpy(out + fmt.nrmoff, result, 3 * sizeof(float));
+		if (AnyCompareBitsSet(bad)) {
+			for (int c = 0; c < 3; ++c) {
+				accPos[c] = Vec4F32::Zero();
+				accNrm[c] = Vec4F32::Zero();
+			}
+			for (int b = 0; b < nweights; ++b) {
+				const Vec4F32 w = Vec4F32::LoadAligned(weights[b]);
+				if (!AnyCompareBitsSet(w.CompareEq(Vec4F32::Zero()) ^ Vec4S32::Splat(-1)))
+					continue;
+				// The bone's entries 3j + c (the translation j = 3), times the weights.
+				const float *m = gstate.boneMatrix + b * 12;
+				for (int c = 0; c < 3; ++c) {
+					Vec4F32 rows[4];
+					for (int j = 0; j < 4; ++j)
+						rows[j] = GEMulFloat24x4(w, Vec4F32::Splat(m[3 * j + c]));
+					accPos[c] = GEAddFloat24x4(accPos[c], rows[3]);
+					for (int j = 0; j < 3; ++j) {
+						accPos[c] = GEAddFloat24x4(accPos[c], GEMulFloat24x4(posv[j], rows[j]));
+						if (hasNrm)
+							accNrm[c] = GEAddFloat24x4(accNrm[c], GEMulFloat24x4(nrmv[j], rows[j]));
+					}
+				}
+			}
+		}
+
+		// Back to a vector per vertex.
+		Vec4F32 p[4] = { accPos[0], accPos[1], accPos[2], Vec4F32::Zero() };
+		Vec4F32 n[4] = { accNrm[0], accNrm[1], accNrm[2], Vec4F32::Zero() };
+		Vec4F32::Transpose(p[0], p[1], p[2], p[3]);
+		Vec4F32::Transpose(n[0], n[1], n[2], n[3]);
+		alignas(16) float result[4];
+		for (int l = 0; l < 4 && v0 + l < count; ++l) {
+			u8 *out = decoded + (v0 + l) * fmt.stride;
+			if (hasPos) {
+				p[l].Store(result);
+				memcpy(out + fmt.posoff, result, 3 * sizeof(float));
+			}
+			if (hasNrm) {
+				n[l].Store(result);
+				memcpy(out + fmt.nrmoff, result, 3 * sizeof(float));
+			}
 		}
 	}
 }
@@ -742,10 +1052,28 @@ static void ApplyGEMorph(u8 *decoded, const VertexDecoder &dec, const u8 *raw, i
 	}
 }
 
+// PreparePositions4 for count vertices from first, in out (which has room for 3 more).
+static void PreparePositionRange(VertexReader &vreader, int first, int count, const TransformState &state, TransformUnit::PreparedPosition *out) {
+	for (int i = 0; i < count; i += 4) {
+		Vec4F32 pos[4];
+		for (int j = 0; j < 4; ++j) {
+			vreader.Goto(first + std::min(i + j, count - 1));
+			pos[j] = vreader.ReadPosOne();
+		}
+		if (!PreparePositions4(pos, state, &out[i])) {
+			for (int j = 0; j < 4; ++j)
+				out[i + j].valid = false;
+		}
+	}
+}
+
 class SoftwareVertexReader {
 public:
-	SoftwareVertexReader(u8 *base, VertexDecoder &vdecoder, u32 vertex_type, int vertex_count, const void *vertices, const void *indices, const TransformState &transformState, TransformUnit &transform)
-	: vreader_(base, vdecoder.GetDecVtxFmt(), vertex_type), conv_(vertex_type, indices), transformState_(transformState), transform_(transform) {
+	// With runPos (not negative), the vertices are transformed as part of a run, from there in runVerts_
+	// (TransformUnit::StartRun).
+	SoftwareVertexReader(u8 *base, VertexDecoder &vdecoder, u32 vertex_type, int vertex_count, const void *vertices, const void *indices, const TransformState &transformState, TransformUnit &transform, int runPos = -1)
+	: vreader_(base, vdecoder.GetDecVtxFmt(), vertex_type), conv_(vertex_type, indices), transformState_(transformState), transform_(transform), runPos_(runPos) {
+		run_ = runPos >= 0 ? &transform.runVerts_[runPos] : nullptr;
 		useIndices_ = indices != nullptr;
 		vertexCount_ = vertex_count;
 		lowerBound_ = 0;
@@ -753,7 +1081,7 @@ public:
 
 		if (useIndices_)
 			GetIndexBounds(indices, vertex_count, vertex_type, &lowerBound_, &upperBound_);
-		if (vertex_count != 0) {
+		if (vertex_count != 0 && !run_) {
 			const int count = upperBound_ - lowerBound_ + 1;
 			const UVScale uvScale = UsesGEUVScale(vertex_type) ? UVScale{ 1.0f, 1.0f, 0.0f, 0.0f } : LoadUVScaleOffset(gstate);
 			vdecoder.DecodeVerts(base, (const u8 *)vertices + vdecoder.VertexSize() * lowerBound_, &uvScale, count);
@@ -780,7 +1108,7 @@ public:
 	}
 
 	void UpdateCache() {
-		if (!useCache_)
+		if (!useCache_ || run_)
 			return;
 
 		// Within a draw, the format has UVs and a normal for every vertex or for none, so the order the
@@ -788,27 +1116,44 @@ public:
 		TransformUnit::VertexCarry carry = transform_.carry_;
 		for (int i = 0; i < upperBound_ - lowerBound_ + 1; ++i) {
 			vreader_.Goto(i);
-			cached_[i] = transform_.ReadVertex(vreader_, transformState_, carry);
+			transform_.ReadVertex(vreader_, transformState_, carry, cached_[i], usePrepared_ ? &prepared_[i] : nullptr);
 		}
 		// What the next draw carries is the last vertex in draw order (gpu/vertices/carry).
 		if (vertexCount_ != 0) {
 			vreader_.Goto(useIndices_ ? conv_(vertexCount_ - 1) - lowerBound_ : vertexCount_ - 1);
-			transform_.ReadVertex(vreader_, transformState_, transform_.carry_);
+			ClipVertexData unused;
+			transform_.ReadVertex(vreader_, transformState_, transform_.carry_, unused);
 		}
 	}
 
-	inline ClipVertexData Read(int vtx) {
-		if (useIndices_) {
-			if (useCache_) {
-				return cached_[conv_(vtx) - lowerBound_];
-			}
-			vreader_.Goto(conv_(vtx) - lowerBound_);
-		} else {
-			vreader_.Goto(vtx);
-		}
+	// With the transform state computed: the position stage for all the vertices, four at a time.
+	void PreparePositions() {
+		usePrepared_ = transformState_.prepare4 && vertexCount_ != 0 && !run_;
+		if (!usePrepared_)
+			return;
+		const int count = upperBound_ - lowerBound_ + 1;
+		if ((int)prepared_.size() < count + 3)
+			prepared_.resize(std::max(128, count + 3));
+		PreparePositionRange(vreader_, 0, count, transformState_, prepared_.data());
+	}
 
-		return transform_.ReadVertex(vreader_, transformState_, transform_.carry_);
-	};
+	inline void Read(int vtx, ClipVertexData &out) {
+		if (run_) {
+			transform_.RunNeed(runPos_ + vtx);
+			out = run_[vtx];
+			return;
+		}
+		int index = vtx;
+		if (useIndices_) {
+			index = conv_(vtx) - lowerBound_;
+			if (useCache_) {
+				out = cached_[index];
+				return;
+			}
+		}
+		vreader_.Goto(index);
+		transform_.ReadVertex(vreader_, transformState_, transform_.carry_, out, usePrepared_ ? &prepared_[index] : nullptr);
+	}
 
 protected:
 	VertexReader vreader_;
@@ -819,14 +1164,128 @@ protected:
 	uint16_t lowerBound_;
 	uint16_t upperBound_;
 	static std::vector<ClipVertexData> cached_;
+	static std::vector<TransformUnit::PreparedPosition> prepared_;
 	bool useIndices_ = false;
 	bool useCache_ = false;
+	bool usePrepared_ = false;
+	const ClipVertexData *run_;
+	int runPos_;
 };
 
 // Static to reduce allocations mid-frame.
 std::vector<ClipVertexData> SoftwareVertexReader::cached_;
+std::vector<TransformUnit::PreparedPosition> SoftwareVertexReader::prepared_;
 
-void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, GEPrimitiveType prim_type, int vertex_count, u32 vertex_type, int *bytesRead, SoftwareDrawEngine *drawEngine)
+// Tuned on a 16 core Ryzen under WSL2, where a thread wake up costs the waker about 15 us and takes about 50 us
+// to arrive: on bare metal, other values may pay off. Below this, a run's vertices are transformed a draw at a
+// time. Even without helpers, a run is faster than its draws one by one (16 beat 32, 64 and 128 in God of War).
+static constexpr int RUN_MIN_VERTICES = 16;
+// Vertices per chunk of a run.
+static constexpr int RUN_CHUNK = 32;
+// Helper threads for a run, besides this one: in God of War, two beat one, three and four.
+static constexpr int RUN_MAX_HELPERS = 2;
+
+static TransformState transformState;
+
+// Decodes a run of draws' vertices (runCount from vertices, possibly a single draw's), and starts transforming
+// them into runVerts_, in chunks that helper threads share. The draws take each vertex as it's done (RunNeed),
+// drawing what they can meanwhile. With the transform state as it is for all of them: the draws in between change
+// nothing (SoftGPU::RunVertexCount). False if it doesn't apply.
+bool TransformUnit::StartRun(const void *vertices, u32 vertexType, int runCount, VertexDecoder &vdecoder, TransformState &state) {
+	const DecVtxFormat &fmt = vdecoder.GetDecVtxFmt();
+	if (runCount < RUN_MIN_VERTICES || (size_t)runCount * fmt.stride > TRANSFORM_BUF_SIZE || vdecoder.throughmode)
+		return false;
+	const u8 *raw = (const u8 *)vertices;
+	const UVScale uvScale = UsesGEUVScale(vertexType) ? UVScale{ 1.0f, 1.0f, 0.0f, 0.0f } : LoadUVScaleOffset(gstate);
+	vdecoder.DecodeVerts(decoded_, raw, &uvScale, runCount);
+	if (vdecoder.morphcount > 1)
+		ApplyGEMorph(decoded_, vdecoder, raw, runCount);
+
+	VertexReader reader(decoded_, fmt, vertexType);
+	binner_->UpdateState();
+	if (binner_->HasDirty(SoftDirty::LIGHT_ALL | SoftDirty::TRANSFORM_ALL)) {
+		ComputeTransformState(&state, reader);
+		binner_->ClearDirty(SoftDirty::LIGHT_ALL | SoftDirty::TRANSFORM_ALL);
+	}
+
+	if ((int)runVerts_.size() < runCount)
+		runVerts_.resize(runCount);
+	RunJob &job = *runJob_;
+	// The new run first, with no chunks to take until it's set up: a helper still looking at an earlier run could
+	// otherwise take one with this run's count, done as that run's, and RunNeed would wait for it forever.
+	job.gen++;
+	job.claim.store(((uint64_t)job.gen << 32) | 0x7FFFFFFF, std::memory_order_release);
+	const VertexCarry carry = carry_;
+	job.work = [this, &vdecoder, raw, &state, carry](int chunk) {
+		TransformRunChunk(chunk, vdecoder, raw, state, carry);
+	};
+	runCount_ = runCount;
+	const int chunks = (runCount + RUN_CHUNK - 1) / RUN_CHUNK;
+	job.maxHelpers = std::min({ RUN_MAX_HELPERS, 31, g_threadManager.GetNumLooperThreads() - BinManager::MAX_DRAW_THREADS });
+	if ((int)job.chunkGen.size() < chunks) {
+		// No helper uses it: FinishRun waited for every chunk taken.
+		std::vector<std::atomic<uint32_t>> grown(chunks * 2);
+		for (auto &g : grown)
+			g.store(0, std::memory_order_relaxed);
+		job.chunkGen.swap(grown);
+	}
+	job.chunks.store(chunks, std::memory_order_relaxed);
+	job.done.store(0, std::memory_order_relaxed);
+	job.claim.store((uint64_t)job.gen << 32, std::memory_order_release);
+	// Helpers waiting for a run take this one without a wake up.
+	if (job.maxHelpers > 0 && chunks > 1)
+		job.SpawnHelper(job.gen);
+	runActive_ = true;
+
+	runNext_ = raw;
+	runType_ = vertexType;
+	runPos_ = 0;
+	runRemaining_ = runCount;
+	return true;
+}
+
+// Makes sure a vertex of the run (an index into runVerts_) is transformed, doing other chunks while its isn't.
+void TransformUnit::RunNeed(int index) {
+	RunJob &job = *runJob_;
+	const int chunk = index / RUN_CHUNK;
+	while (job.chunkGen[chunk].load(std::memory_order_acquire) != job.gen) {
+		if (!job.HelpOne(job.gen))
+			std::this_thread::yield();
+	}
+}
+
+// Waits for all of the run's chunks: they use decoded_, the transform state and gstate.
+void TransformUnit::FinishRun() {
+	if (!runActive_)
+		return;
+	RunJob &job = *runJob_;
+	job.Help(job.gen);
+	while (job.done.load(std::memory_order_acquire) < job.chunks.load(std::memory_order_relaxed))
+		std::this_thread::yield();
+	runActive_ = false;
+}
+
+// A chunk of a run: what a draw would do with its vertices, from skinning to ReadVertex.
+void TransformUnit::TransformRunChunk(int chunk, const VertexDecoder &vdecoder, const u8 *raw, const TransformState &state, const VertexCarry &carry) {
+	const int first = chunk * RUN_CHUNK;
+	const int count = std::min(RUN_CHUNK, runCount_ - first);
+	const DecVtxFormat &fmt = vdecoder.GetDecVtxFmt();
+	if (vdecoder.weighttype != 0)
+		ApplyGESkinning(decoded_ + first * fmt.stride, vdecoder, raw + first * vdecoder.VertexSize(), count);
+	VertexReader reader(decoded_, fmt, runType_);
+	PreparedPosition prepared[RUN_CHUNK + 3];
+	if (state.prepare4)
+		PreparePositionRange(reader, first, count, state, prepared);
+	// Within a draw, the format has UVs and a normal for every vertex or for none, so each chunk can start from
+	// the carry the run started with.
+	VertexCarry chunkCarry = carry;
+	for (int i = 0; i < count; ++i) {
+		reader.Goto(first + i);
+		ReadVertex(reader, state, chunkCarry, runVerts_[first + i], state.prepare4 ? &prepared[i] : nullptr);
+	}
+}
+
+void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, GEPrimitiveType prim_type, int vertex_count, u32 vertex_type, int *bytesRead, SoftwareDrawEngine *drawEngine, int runCount)
 {
 	VertexDecoder &vdecoder = *drawEngine->FindVertexDecoder(vertex_type);
 
@@ -835,15 +1294,48 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 
 	// Frame skipping.
 	if (gstate_c.skipDrawReason & SKIPDRAW_SKIPFRAME) {
+		runRemaining_ = 0;
+		FinishRun();
 		return;
 	}
 	// Vertices without position are just entirely culled.
 	// Note: Throughmode does draw 8-bit primitives, but positions are always zero - handled in decode.
-	if ((vertex_type & GE_VTYPE_POS_MASK) == 0)
+	if ((vertex_type & GE_VTYPE_POS_MASK) == 0) {
+		runRemaining_ = 0;
+		FinishRun();
 		return;
+	}
 
-	static TransformState transformState;
-	SoftwareVertexReader vreader(decoded_, vdecoder, vertex_type, vertex_count, vertices, indices, transformState, *this);
+	// Part of a run of draws transformed together (StartRun)?
+	bool fromRun = !indices && InRun(vertices, vertex_type) && vertex_count <= runRemaining_ && !binner_->HasDirty(SoftDirty::LIGHT_ALL | SoftDirty::TRANSFORM_ALL);
+	if (!fromRun) {
+		runRemaining_ = 0;
+		FinishRun();
+		if (!indices && runCount >= vertex_count)
+			fromRun = StartRun(vertices, vertex_type, runCount, vdecoder, transformState);
+	}
+	SoftwareVertexReader vreader(decoded_, vdecoder, vertex_type, vertex_count, vertices, indices, transformState, *this, fromRun ? runPos_ : -1);
+	// After the draw: its last vertex is transformed the latest.
+	auto advanceRun = [&]() {
+		if (!fromRun)
+			return;
+		// What the next draw carries is this one's last vertex's (gpu/vertices/carry), as reading it would leave it.
+		RunNeed(runPos_ + vertex_count - 1);
+		VertexReader last(decoded_, vdecoder.GetDecVtxFmt(), vertex_type);
+		last.Goto(runPos_ + vertex_count - 1);
+		if (last.hasUV()) {
+			float uv[2];
+			last.ReadUV(uv);
+			carry_.tc = Vec3Packedf(uv[0], uv[1], 0.0f);
+		}
+		if (last.hasNormal())
+			last.ReadNrmF32().Store(carry_.normal);
+		runPos_ += vertex_count;
+		runRemaining_ -= vertex_count;
+		runNext_ = (const u8 *)vertices + vertex_count * vdecoder.VertexSize();
+		if (runRemaining_ == 0)
+			FinishRun();
+	};
 
 	if (prim_type != GE_PRIM_KEEP_PREVIOUS) {
 		data_index_ = 0;
@@ -859,6 +1351,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 		ComputeTransformState(&transformState, vreader.GetVertexReader());
 		binner_->ClearDirty(SoftDirty::LIGHT_ALL | SoftDirty::TRANSFORM_ALL);
 	}
+	vreader.PreparePositions();
 	vreader.UpdateCache();
 
 	bool skipCull = !gstate.isCullEnabled() || gstate.isModeClear();
@@ -873,7 +1366,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 		_assert_(data_index_ == 0);
 
 		for (int vtx = 0; vtx < vertex_count; ++vtx) {
-			buf[buf_index++] = vreader.Read(vtx);
+			vreader.Read(vtx, buf[buf_index++]);
 			if (buf_index < 6)
 				continue;
 
@@ -914,7 +1407,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 			Clipper::ProcessPoint(data_[i], *binner_);
 		data_index_ = 0;
 		for (int vtx = 0; vtx < vertex_count; ++vtx) {
-			data_[0] = vreader.Read(vtx);
+			vreader.Read(vtx, data_[0]);
 			Clipper::ProcessPoint(data_[0], *binner_);
 		}
 		break;
@@ -924,7 +1417,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 			Clipper::ProcessLine(data_[i + 0], data_[i + 1], *binner_);
 		data_index_ &= 1;
 		for (int vtx = 0; vtx < vertex_count; ++vtx) {
-			data_[data_index_++] = vreader.Read(vtx);
+			vreader.Read(vtx, data_[data_index_++]);
 			if (data_index_ == 2) {
 				Clipper::ProcessLine(data_[0], data_[1], *binner_);
 				data_index_ = 0;
@@ -934,7 +1427,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 
 	case GE_PRIM_TRIANGLES:
 		for (int vtx = 0; vtx < vertex_count; ++vtx) {
-			data_[data_index_++] = vreader.Read(vtx);
+			vreader.Read(vtx, data_[data_index_++]);
 			if (data_index_ < 3) {
 				// Keep reading.  Note: an incomplete prim will stay read for GE_PRIM_KEEP_PREVIOUS.
 				continue;
@@ -953,7 +1446,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 
 	case GE_PRIM_RECTANGLES:
 		for (int vtx = 0; vtx < vertex_count; ++vtx) {
-			data_[data_index_++] = vreader.Read(vtx);
+			vreader.Read(vtx, data_[data_index_++]);
 
 			if (data_index_ == 4 && vreader.IsThrough() && cullType == CullType::OFF) {
 				if (Rasterizer::DetectRectangleThroughModeSlices(binner_->State(), data_)) {
@@ -981,7 +1474,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 			// If data_index_ is 1 or 2, etc., it means we're continuing a line strip.
 			int skip_count = data_index_ == 0 ? 1 : 0;
 			for (int vtx = 0; vtx < vertex_count; ++vtx) {
-				data_[(data_index_++) & 1] = vreader.Read(vtx);
+				vreader.Read(vtx, data_[(data_index_++) & 1]);
 
 				if (skip_count) {
 					--skip_count;
@@ -1007,7 +1500,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 			if (data_index_ == 0 && vertex_count >= 4 && (vertex_count & 1) == 0 && cullType == CullType::OFF) {
 				for (int base = 0; base < vertex_count - 2; base += 2) {
 					for (int vtx = base == 0 ? 0 : 2; vtx < 4; ++vtx) {
-						data_[vtx] = vreader.Read(base + vtx);
+						vreader.Read(base + vtx, data_[vtx]);
 					}
 
 					// If a strip is effectively a rectangle, draw it as such!
@@ -1035,14 +1528,14 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 
 			for (int vtx = start_vtx; vtx < vertex_count && skip_count > 0; ++vtx) {
 				int provoking_index = (data_index_++) % 3;
-				data_[provoking_index] = vreader.Read(vtx);
+				vreader.Read(vtx, data_[provoking_index]);
 				--skip_count;
 				++start_vtx;
 			}
 
 			for (int vtx = start_vtx; vtx < vertex_count; ++vtx) {
 				int provoking_index = (data_index_++) % 3;
-				data_[provoking_index] = vreader.Read(vtx);
+				vreader.Read(vtx, data_[provoking_index]);
 
 				int wind = (data_index_ - 1) % 2;
 				CullType altCullType = cullType == CullType::OFF ? cullType : CullType((int)cullType ^ wind);
@@ -1070,14 +1563,14 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 
 			// Only read the central vertex if we're not continuing.
 			if (data_index_ == 0 && vertex_count > 0) {
-				data_[0] = vreader.Read(0);
+				vreader.Read(0, data_[0]);
 				data_index_++;
 				start_vtx = 1;
 			}
 
 			if (data_index_ == 1 && vertex_count == 4 && cullType == CullType::OFF) {
 				for (int vtx = start_vtx; vtx < vertex_count; ++vtx) {
-					data_[vtx] = vreader.Read(vtx);
+					vreader.Read(vtx, data_[vtx]);
 				}
 
 				int tl = -1, br = -1;
@@ -1089,14 +1582,14 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 
 			for (int vtx = start_vtx; vtx < vertex_count && skip_count > 0; ++vtx) {
 				int provoking_index = 2 - ((data_index_++) % 2);
-				data_[provoking_index] = vreader.Read(vtx);
+				vreader.Read(vtx, data_[provoking_index]);
 				--skip_count;
 				++start_vtx;
 			}
 
 			for (int vtx = start_vtx; vtx < vertex_count; ++vtx) {
 				int provoking_index = 2 - ((data_index_++) % 2);
-				data_[provoking_index] = vreader.Read(vtx);
+				vreader.Read(vtx, data_[provoking_index]);
 
 				int wind = (data_index_ - 1) % 2;
 				CullType altCullType = cullType == CullType::OFF ? cullType : CullType((int)cullType ^ wind);
@@ -1118,6 +1611,7 @@ void TransformUnit::SubmitPrimitive(const void* vertices, const void* indices, G
 		ERROR_LOG(Log::G3D, "Unexpected prim type: %d", prim_type);
 		break;
 	}
+	advanceRun();
 }
 
 void TransformUnit::SubmitImmVertex(const ClipVertexData &vert, SoftwareDrawEngine *drawEngine) {

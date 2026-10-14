@@ -1,12 +1,14 @@
 #pragma once
 
-#include <map>
 #include <string_view>
 
-#import <GameController/GameController.h>
-#import <CoreMotion/CoreMotion.h>
+#include "ppsspp_config.h"
 
-#include "iCade/iCadeState.h"
+#import <GameController/GameController.h>
+#if !PPSSPP_PLATFORM(TVOS)
+#import <CoreMotion/CoreMotion.h>
+#endif
+
 #include "Common/Input/InputState.h"
 
 // Code extracted from ViewController.mm, in order to modularize
@@ -15,6 +17,9 @@
 bool InitController(GCController *controller);
 void ShutdownController(GCController *controller);
 
+// Returns false unless the controller is a Siri Remote (a micro gamepad profile and no extended one).
+bool InitSiriRemote(GCController *controller);
+
 struct TouchTracker {
 public:
 	void Began(NSSet *touches, UIView *view);
@@ -22,28 +27,14 @@ public:
 	void Ended(NSSet *touches, UIView *view);
 	void Cancelled(NSSet *touches, UIView *view);
 private:
-	void SendTouchEvent(float x, float y, int code, int pointerId);
+	void SendTouchEvent(CGPoint point, UIView *view, int code, int pointerId);
 	int ToTouchID(UITouch *uiTouch, bool allowAllocate);
 	UITouch *touches_[10]{};
 };
 
-// Can probably get rid of this, but let's keep it for now.
-struct ICadeTracker {
-public:
-	void ButtonDown(iCadeState button);
-	void ButtonUp(iCadeState button);
-	void InitKeyMap();
-private:
-	bool simulateAnalog = false;
-	bool iCadeConnectNotified = false;
-
-	std::map<uint16_t, InputKeyCode> iCadeToKeyMap;
-
-	double lastSelectPress = 0.0f;
-	double lastStartPress = 0.0f;
-};
-
+#if !PPSSPP_PLATFORM(TVOS)
 void ProcessAccelerometerData(CMAccelerometerData *accData);
+#endif
 InputKeyCode HIDUsageToInputKeyCode(UIKeyboardHIDUsage usage);
 
 void KeyboardPressesBegan(NSSet<UIPress *> *presses, UIPressesEvent *event);

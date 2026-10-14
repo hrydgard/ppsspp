@@ -17,7 +17,6 @@
 
 #include "Common/GPU/Shader.h"
 #include "Common/GPU/ShaderWriter.h"
-#include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "GPU/Common/StencilCommon.h"
 #include "GPU/Common/DrawEngineCommon.h"
@@ -407,6 +406,10 @@ bool FramebufferManagerCommon::PerformWriteStencilFromMemory(u32 addr, int size,
 		// Note that scissors don't affect blits on other APIs than OpenGL, so might want to try to get rid of this.
 		draw_->SetScissorRect(0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight);
 		draw_->BlitFramebuffer(blitFBO, 0, 0, w, h, dstBuffer->fbo, 0, 0, dstBuffer->renderWidth, dstBuffer->renderHeight, Draw::Aspect::STENCIL_BIT, Draw::FB_BLIT_NEAREST, "WriteStencilFromMemory_Blit");
+		RebindFramebuffer("RebindFramebuffer - Stencil");
+	} else if (dstBuffer != currentRenderVfb_) {
+		// dstBuffer is bound as the target now, and the draws after this don't all rebind the current one: with
+		// framebuffer fetch, OutRun 2006's masked draws make no copy of the target that would, and landed in dstBuffer.
 		RebindFramebuffer("RebindFramebuffer - Stencil");
 	}
 

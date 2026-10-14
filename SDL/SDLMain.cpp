@@ -66,6 +66,7 @@ SDLJoystick *joystick = NULL;
 #include "Core/Core.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
+#include "Core/HLE/sceUsbMic.h"
 #include "SDLGLGraphicsContext.h"
 #include "SDLUtil.h"
 
@@ -107,6 +108,10 @@ static int g_audioFramesPerBuffer = 0;
 
 static bool g_textFocusChanged;
 static bool g_textFocus;
+// Set when SDL_StartTextInput fails, so we generate KeyInputFlags::CHAR from key events ourselves.
+// SDL 3.4.0 to 3.4.4 refuse text input on Wayland compositors without zwp_text_input_v3 (like WSLg's Weston).
+static bool g_textInputFallback;
+static bool g_dropBootedFile = false;
 double g_audioStartTime = 0.0;
 
 // Window state to be transferred to the main SDL thread.
@@ -524,6 +529,87 @@ static void sdl_mixaudio_callback(void *userdata, SDL_AudioStream *stream, int a
 static SDL_AudioDeviceID audioDev = 0;
 static SDL_AudioStream *audioStream = nullptr;
 
+static std::mutex micMutex;
+static SDL_AudioStream *micStream = nullptr;
+static SDL_AudioSpec micFormat{};
+static std::atomic<bool> micDeviceChanged{false};
+static std::atomic<SDL_AudioDeviceID> micDevice{0};
+static std::atomic<SDL_AudioDeviceID> micPhysicalDevice{0};
+
+static void sdl_mic_callback(void *userdata, SDL_AudioStream *stream, int, int) {
+	const SDL_AudioSpec *format = static_cast<const SDL_AudioSpec *>(userdata);
+	// Bound capture buffering while emulation is paused.
+	if (SDL_GetAudioStreamAvailable(stream) > format->freq * format->channels * (int)sizeof(int16_t)) {
+		SDL_ClearAudioStream(stream);
+	}
+}
+
+// micMutex must be held. The callback only touches its SDL stream.
+static void StopSDLMicrophone() {
+	micDevice = 0;
+	micPhysicalDevice = 0;
+	if (micStream) {
+		SDL_DestroyAudioStream(micStream);
+		micStream = nullptr;
+	}
+}
+
+static void StartSDLMicrophone(int sampleRate) {
+	StopSDLMicrophone();
+	Microphone::flushAudioData();
+	micFormat.freq = sampleRate;
+	micFormat.format = SDL_AUDIO_S16;
+	micFormat.channels = 1;
+	micDeviceChanged = false;
+
+	int count = 0;
+	SDL_AudioDeviceID *devices = SDL_GetAudioRecordingDevices(&count);
+	SDL_AudioDeviceID selected = SDL_AUDIO_DEVICE_DEFAULT_RECORDING;
+	for (int i = 0; i < count; i++) {
+		const char *name = SDL_GetAudioDeviceName(devices[i]);
+		if (name && g_Config.sMicDevice == name) {
+			selected = devices[i];
+			break;
+		}
+	}
+	SDL_free(devices);
+
+	micStream = SDL_OpenAudioDeviceStream(selected, &micFormat, sdl_mic_callback, &micFormat);
+	if (!micStream && selected != SDL_AUDIO_DEVICE_DEFAULT_RECORDING) {
+		WARN_LOG(Log::Audio, "Could not open microphone '%s': %s. Trying default.", g_Config.sMicDevice.c_str(), SDL_GetError());
+		micStream = SDL_OpenAudioDeviceStream(SDL_AUDIO_DEVICE_DEFAULT_RECORDING, &micFormat, sdl_mic_callback, &micFormat);
+		selected = SDL_AUDIO_DEVICE_DEFAULT_RECORDING;
+	}
+	if (!micStream || !SDL_ResumeAudioStreamDevice(micStream)) {
+		ERROR_LOG(Log::Audio, "Could not start microphone: %s", SDL_GetError());
+		StopSDLMicrophone();
+		return;
+	}
+	micDevice = SDL_GetAudioStreamDevice(micStream);
+	micPhysicalDevice = selected;
+	INFO_LOG(Log::Audio, "Microphone started at %d Hz", sampleRate);
+}
+
+static void PollSDLMicrophone() {
+	if (micDeviceChanged.exchange(false)) {
+		StartSDLMicrophone(micFormat.freq);
+	}
+	if (!micStream) {
+		return;
+	}
+
+	// Called on the CPU thread; the SDL capture callback never accesses PSP memory.
+	u8 samples[4096];
+	int bytes;
+	while ((bytes = SDL_GetAudioStreamData(micStream, samples, sizeof(samples))) > 0) {
+		Microphone::addAudioData(samples, bytes);
+	}
+	if (bytes < 0) {
+		ERROR_LOG(Log::Audio, "Could not read microphone: %s", SDL_GetError());
+		StopSDLMicrophone();
+	}
+}
+
 // Must be called after NativeInit().
 static void InitSDLAudioDevice(const std::string &name = "") {
 	SDL_AudioSpec fmt{};
@@ -907,6 +993,26 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		}
 		return true;
 	}
+	case SystemRequestType::MICROPHONE_COMMAND:
+	{
+		std::lock_guard<std::mutex> guard(micMutex);
+		if (startsWith(param1, "startRecording:")) {
+			int sampleRate = 0;
+			if (sscanf(param1.c_str(), "startRecording:%d", &sampleRate) != 1 || sampleRate <= 0) {
+				return false;
+			}
+			StartSDLMicrophone(sampleRate);
+		} else if (param1 == "stopRecording") {
+			StopSDLMicrophone();
+		} else if (param1 == "pollRecording") {
+			PollSDLMicrophone();
+		} else if (param1 == "deviceChanged") {
+			micDeviceChanged = true;
+		} else {
+			return false;
+		}
+		return true;
+	}
 	case SystemRequestType::NOTIFY_UI_EVENT:
 	{
 		switch ((UIEventNotification)param3) {
@@ -914,7 +1020,6 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 			g_textFocus = true;
 			g_textFocusChanged = true;
 			break;
-		case UIEventNotification::POPUP_CLOSED:
 		case UIEventNotification::TEXT_LOSTFOCUS:
 			g_textFocus = false;
 			g_textFocusChanged = true;
@@ -1086,6 +1191,19 @@ std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) {
 	std::vector<std::string> result;
 
 	switch (prop) {
+	case SYSPROP_MICROPHONE_DEVICE_LIST:
+	{
+		int count = 0;
+		SDL_AudioDeviceID *devices = SDL_GetAudioRecordingDevices(&count);
+		for (int i = 0; i < count; i++) {
+			const char *name = SDL_GetAudioDeviceName(devices[i]);
+			if (name) {
+				result.emplace_back(name);
+			}
+		}
+		SDL_free(devices);
+		return result;
+	}
 	case SYSPROP_TEMP_DIRS:
 		if (getenv("TMPDIR") && strlen(getenv("TMPDIR")) != 0)
 			result.push_back(getenv("TMPDIR"));
@@ -1173,6 +1291,8 @@ float System_GetPropertyFloat(SystemProperty prop) {
 
 bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
+	case SYSPROP_MICROPHONE_NEEDS_POLLING:
+		return true;
 	case SYSPROP_HAS_TEXT_CLIPBOARD:
 	case SYSPROP_CAN_SHOW_FILE:
 #if PPSSPP_PLATFORM(WINDOWS) || PPSSPP_PLATFORM(MAC) || (PPSSPP_PLATFORM(LINUX) && !PPSSPP_PLATFORM(ANDROID))
@@ -1406,6 +1526,17 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 #endif
 	case SDL_EVENT_KEY_DOWN:
 		{
+			if (g_textInputFallback && g_textFocus && !(event.key.mod & (SDL_KMOD_CTRL | SDL_KMOD_ALT | SDL_KMOD_GUI))) {
+				// Layout-aware, with shift applied. Repeats are wanted here, like real text input.
+				SDL_Keycode c = SDL_GetKeyFromScancode(event.key.scancode, event.key.mod, false);
+				if (c >= 0x20 && c != 0x7F && !(c & SDLK_SCANCODE_MASK)) {
+					KeyInput key;
+					key.flags = KeyInputFlags::CHAR;
+					key.unicodeChar = c;
+					key.deviceId = DEVICE_ID_KEYBOARD;
+					NativeKey(key);
+				}
+			}
 			if (event.key.repeat > 0) {
 				break;
 			}
@@ -1683,6 +1814,9 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 		break;
 
 	case SDL_EVENT_AUDIO_DEVICE_ADDED:
+		if (event.adevice.recording && SDL_IsAudioDevicePhysical(event.adevice.which)) {
+			micDeviceChanged = true;
+		}
 		// Automatically switch to the new device.
 		if (!event.adevice.recording) {
 			const char *name = SDL_GetAudioDeviceName(event.adevice.which);
@@ -1706,10 +1840,24 @@ static void ProcessSDLEvent(SDL_Window *window, const SDL_Event &event, InputSta
 		}
 		break;
 	case SDL_EVENT_AUDIO_DEVICE_REMOVED:
+		if (event.adevice.recording && (event.adevice.which == micDevice || event.adevice.which == micPhysicalDevice)) {
+			micDeviceChanged = true;
+		}
 		if (!event.adevice.recording && event.adevice.which == audioDev) {
 			StopSDLAudioDevice();
 			INFO_LOG(Log::Audio, "Audio device removed, reselecting");
 			InitSDLAudioDevice();
+		}
+		break;
+
+	case SDL_EVENT_DROP_BEGIN:
+		g_dropBootedFile = false;
+		break;
+	case SDL_EVENT_DROP_FILE:
+		// Only one file can be booted, so a multi-file drop boots the first.
+		if (event.drop.data && !g_dropBootedFile) {
+			g_dropBootedFile = true;
+			System_PostUIMessage(UIMessage::REQUEST_GAME_BOOT, event.drop.data);
 		}
 		break;
 
@@ -1725,7 +1873,10 @@ void UpdateTextFocus(SDL_Window *window) {
 	if (g_textFocusChanged) {
 		DEBUG_LOG(Log::System, "Updating text focus: %d", g_textFocus);
 		if (g_textFocus) {
-			SDL_StartTextInput(window);
+			if (!SDL_StartTextInput(window) && !g_textInputFallback) {
+				WARN_LOG(Log::System, "SDL_StartTextInput failed (%s), generating text from key events instead. Update SDL, or set SDL_VIDEO_DRIVER=x11, for full text input.", SDL_GetError());
+				g_textInputFallback = true;
+			}
 		} else {
 			SDL_StopTextInput(window);
 		}

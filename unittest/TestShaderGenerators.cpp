@@ -308,31 +308,40 @@ bool TestDepalShaders() {
 		ShaderLanguageDesc desc(languages[k]);
 		std::string errorMessage;
 
-		// TODO: Try some different configurations of the fragment shader.
-		// But first just try one.
-		DepalConfig config{};
-		config.clutFormat = GE_CMODE_16BIT_ABGR4444;
-		config.shift = 8;
-		config.startPos = 64;
-		config.mask = 0xFF;
-		config.bufferFormat = GE_FORMAT_8888;
-		config.textureFormat = GE_TFMT_CLUT32;
-		config.depthUpperBits = 0;
+		// TODO: Try more configurations of the fragment shader.
+		DepalConfig configs[2]{};
+		configs[0].clutFormat = GE_CMODE_16BIT_ABGR4444;
+		configs[0].shift = 8;
+		configs[0].startPos = 64;
+		configs[0].mask = 0xFF;
+		configs[0].bufferFormat = GE_FORMAT_8888;
+		configs[0].textureFormat = GE_TFMT_CLUT32;
+		configs[0].depthUpperBits = 0;
+		// A depth read through the X swizzle, stretched into 16-bit halves (Cars Race-O-Rama).
+		configs[1].clutFormat = GE_CMODE_16BIT_BGR5650;
+		configs[1].shift = 1;
+		configs[1].mask = 0xFF;
+		configs[1].bufferFormat = GE_FORMAT_DEPTH16;
+		configs[1].textureFormat = GE_TFMT_CLUT16;
+		configs[1].depthUpperBits = 2;
+		configs[1].depthIntoHalves = true;
 
-		ShaderWriter writer(buffer, desc, ShaderStage::Fragment);
-		GenerateDepalFs(writer, config);
-		if (strlen(buffer) >= 8192) {
-			printf("Depal shader exceeded buffer:\n\n%s\n", LineNumberString(buffer).c_str());
-			delete[] buffer;
-			return false;
-		}
-		if (!TestCompileShader(buffer, languages[k], ShaderStage::Fragment, &errorMessage)) {
-			printf("Error compiling depal shader:\n\n%s\n\n%s\n", LineNumberString(buffer).c_str(), errorMessage.c_str());
-			delete[] buffer;
-			return false;
-		} else {
-			if (g_testLog) {
-				printf("===\n%s\n===\n", buffer);
+		for (const DepalConfig &config : configs) {
+			ShaderWriter writer(buffer, desc, ShaderStage::Fragment);
+			GenerateDepalFs(writer, config);
+			if (strlen(buffer) >= 8192) {
+				printf("Depal shader exceeded buffer:\n\n%s\n", LineNumberString(buffer).c_str());
+				delete[] buffer;
+				return false;
+			}
+			if (!TestCompileShader(buffer, languages[k], ShaderStage::Fragment, &errorMessage)) {
+				printf("Error compiling depal shader:\n\n%s\n\n%s\n", LineNumberString(buffer).c_str(), errorMessage.c_str());
+				delete[] buffer;
+				return false;
+			} else {
+				if (g_testLog) {
+					printf("===\n%s\n===\n", buffer);
+				}
 			}
 		}
 	}

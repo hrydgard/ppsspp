@@ -189,7 +189,7 @@ static std::string DescribeFormat(GPUDebugBufferFormat fmt) {
 
 // Note: Calls req.Respond().  Other data can be added afterward.
 static bool StreamBufferToBase64(DebuggerRequest &req, const GPUDebugBuffer &buf, bool isFramebuffer) {
-	size_t length = buf.GetStride() * buf.GetHeight();
+	size_t length = buf.GetStride() * buf.GetHeight() * buf.PixelSize();
 
 	auto &json = req.Respond();
 	json.writeInt("width", buf.GetStride());

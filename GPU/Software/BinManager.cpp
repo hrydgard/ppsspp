@@ -131,6 +131,7 @@ public:
 	void Run() override {
 		binner_->WakeChained();
 		binner_->ProcessTiles(index_);
+		binner_->LingerForWork(index_);
 		status_ = false;
 		// Work queued after the last look, but before status_ said we were done, would otherwise wait.
 		binner_->ProcessTiles(index_);
@@ -155,7 +156,7 @@ BinManager::BinManager() {
 	for (auto &s : taskStatus_)
 		s = false;
 
-	int maxInitTasks = std::min(g_threadManager.GetNumLooperThreads(), MAX_POSSIBLE_TASKS);
+	int maxInitTasks = std::min(g_threadManager.GetNumLooperThreads(), MAX_DRAW_THREADS);
 	maxTasks_ = FORCE_SINGLE_THREAD ? 1 : maxInitTasks;
 	for (int i = 0; i < maxInitTasks; ++i) {
 		for (DrawBinItemsTask *&task : taskLists_[i].tasks)
@@ -185,10 +186,6 @@ BinManager::~BinManager() {
 	}
 }
 
-static int JitGeneration() {
-	return Rasterizer::JitClearGeneration() + Sampler::JitClearGeneration();
-}
-
 // A new current state, from gstate, unoptimized and without primitives yet.
 void BinManager::PushState() {
 	if (states_.Full()) {
@@ -208,15 +205,7 @@ void BinManager::PushState() {
 	}
 	creatingState_ = true;
 	stateIndex_ = (uint16_t)states_.Push(RasterizerState());
-	// When new funcs are compiled, we need to flush if WX exclusive. Compiling can also clear the caches,
-	// losing the funcs picked before it, so then compute it again.
-	for (int tries = 0; tries < 3; ++tries) {
-		jitGen_ = JitGeneration();
-		ComputeRasterizerState(&states_[stateIndex_], this);
-		if (jitGen_ == JitGeneration()) {
-			break;
-		}
-	}
+	ComputeRasterizerState(&states_[stateIndex_]);
 	states_[stateIndex_].samplerID.cached.clut = cluts_[clutIndex_].readable;
 	if (states_[stateIndex_].enableTextures)
 		DeswizzleMirrorTextures(states_[stateIndex_]);
@@ -256,11 +245,6 @@ void BinManager::DeswizzleMirrorTextures(RasterizerState &state) {
 
 void BinManager::UpdateState() {
 	PROFILE_THIS_SCOPE("bin_state");
-	auto jitGen = JitGeneration;
-	// A JIT clear frees the code the current state's function pointers point into.
-	if (jitGen_ != jitGen()) {
-		dirty_ |= SoftDirty::PIXEL_ALL | SoftDirty::SAMPLER_ALL | SoftDirty::RAST_ALL;
-	}
 	if (HasDirty(SoftDirty::PIXEL_ALL | SoftDirty::SAMPLER_ALL | SoftDirty::RAST_ALL)) {
 		PushState();
 		ClearDirty(SoftDirty::PIXEL_ALL | SoftDirty::SAMPLER_ALL | SoftDirty::RAST_ALL);
@@ -543,8 +527,22 @@ void BinManager::AddTriangle(const VertexData &v0, const VertexData &v1, const V
 	if (queue_.Full())
 		MakeRoom();
 	AddFlags([&](RasterizerState *state) { CalculateRasterStateFlags(state, v0, v1, v2); });
-	queue_.Push(BinItem{ BinItemType::TRIANGLE, stateIndex_, range, v0, v1, v2 });
+	PushItem(BinItemType::TRIANGLE, range, v0, &v1, &v2);
 	ItemQueued();
+}
+
+// Built in place: a copy of one built on the stack reloads it with wider loads than it was stored with.
+void BinManager::PushItem(BinItemType type, const BinCoords &range, const VertexData &v0, const VertexData *v1, const VertexData *v2) {
+	BinItem &item = queue_.PeekPush();
+	item.type = type;
+	item.stateIndex = stateIndex_;
+	item.range = range;
+	item.v0 = v0;
+	if (v1)
+		item.v1 = *v1;
+	if (v2)
+		item.v2 = *v2;
+	queue_.PushPeeked();
 }
 
 void BinManager::AddClearRect(const VertexData &v0, const VertexData &v1) {
@@ -555,7 +553,7 @@ void BinManager::AddClearRect(const VertexData &v0, const VertexData &v1) {
 	if (queue_.Full())
 		MakeRoom();
 	AddFlags([&](RasterizerState *state) { CalculateRasterStateFlags(state, v0, v1, true); });
-	queue_.Push(BinItem{ BinItemType::CLEAR_RECT, stateIndex_, range, v0, v1 });
+	PushItem(BinItemType::CLEAR_RECT, range, v0, &v1);
 	ItemQueued();
 }
 
@@ -567,7 +565,7 @@ void BinManager::AddRect(const VertexData &v0, const VertexData &v1) {
 	if (queue_.Full())
 		MakeRoom();
 	AddFlags([&](RasterizerState *state) { CalculateRasterStateFlags(state, v0, v1, true); });
-	queue_.Push(BinItem{ BinItemType::RECT, stateIndex_, range, v0, v1 });
+	PushItem(BinItemType::RECT, range, v0, &v1);
 	ItemQueued();
 }
 
@@ -579,7 +577,7 @@ void BinManager::AddSprite(const VertexData &v0, const VertexData &v1) {
 	if (queue_.Full())
 		MakeRoom();
 	AddFlags([&](RasterizerState *state) { CalculateRasterStateFlags(state, v0, v1, true); });
-	queue_.Push(BinItem{ BinItemType::SPRITE, stateIndex_, range, v0, v1 });
+	PushItem(BinItemType::SPRITE, range, v0, &v1);
 	ItemQueued();
 }
 
@@ -591,7 +589,7 @@ void BinManager::AddLine(const VertexData &v0, const VertexData &v1) {
 	if (queue_.Full())
 		MakeRoom();
 	AddFlags([&](RasterizerState *state) { CalculateRasterStateFlags(state, v0, v1, false); });
-	queue_.Push(BinItem{ BinItemType::LINE, stateIndex_, range, v0, v1 });
+	PushItem(BinItemType::LINE, range, v0, &v1);
 	ItemQueued();
 }
 
@@ -603,7 +601,7 @@ void BinManager::AddPoint(const VertexData &v0) {
 	if (queue_.Full())
 		MakeRoom();
 	AddFlags([&](RasterizerState *state) { CalculateRasterStateFlags(state, v0); });
-	queue_.Push(BinItem{ BinItemType::POINT, stateIndex_, range, v0 });
+	PushItem(BinItemType::POINT, range, v0);
 	ItemQueued();
 }
 
@@ -673,6 +671,7 @@ void BinManager::DistributeItems() {
 void BinManager::DistributeItems(size_t end) {
 	undistributed_ = 0;
 
+	bool any = false;
 	while (distributePos_ != end) {
 		const size_t index = distributePos_;
 		const BinItem &item = queue_[index];
@@ -701,7 +700,10 @@ void BinManager::DistributeItems(size_t end) {
 			}
 		}
 		distributePos_ = index + 1 == QUEUED_PRIMS ? 0 : index + 1;
+		any = true;
 	}
+	if (any)
+		distributed_.store(distributed_.load(std::memory_order_relaxed) + 1, std::memory_order_release);
 }
 
 void BinManager::ResetTiles() {
@@ -781,6 +783,31 @@ void BinManager::MakeRoom() {
 	}
 }
 
+// A drawing thread out of work stays a moment for more before its task ends: waking it again costs the
+// emulation thread a system call (about 15 us under WSL2, where lingering made God of War and Wipeout 4-8%
+// faster). Not while that thread waits for the drawing to finish.
+// It looks at the tiles again only when distributed_ says there's new work: reading their heads and tails over
+// and over took cache lines from the emulation thread, which writes the tails.
+void BinManager::LingerForWork(int start) {
+	if (DRAW_LINGER_SECONDS <= 0.0)
+		return;
+	double until = time_now_d() + DRAW_LINGER_SECONDS;
+	while (!waitingForIdle_.load(std::memory_order_relaxed)) {
+		// Read before the look at the tiles, so work distributed during it isn't missed.
+		const uint32_t seen = distributed_.load(std::memory_order_acquire);
+		if (ProcessTiles(start)) {
+			until = time_now_d() + DRAW_LINGER_SECONDS;
+			continue;
+		}
+		while (distributed_.load(std::memory_order_acquire) == seen && !waitingForIdle_.load(std::memory_order_relaxed)) {
+			if (time_now_d() >= until)
+				return;
+			for (int i = 0; i < 64; ++i)
+				std::this_thread::yield();
+		}
+	}
+}
+
 bool BinManager::ProcessTiles(int start) {
 	bool any = false;
 	bool found;
@@ -841,12 +868,14 @@ void BinManager::Flush(const char *reason) {
 		st = time_now_d();
 	}
 	Drain();
+	waitingForIdle_ = true;
 	if (maxTasks_ > 1 || activeCount_ != 0) {
 		// Help with the drawing, then wait for what the threads are still on.
 		while (ProcessTiles(0)) {
 		}
 	}
 	waitable_->Wait();
+	waitingForIdle_ = false;
 	ResetTiles();
 	distributePos_ = 0;
 	undistributed_ = 0;
@@ -859,9 +888,6 @@ void BinManager::Flush(const char *reason) {
 		states_.SkipNext();
 	while (cluts_.Size() > 1)
 		cluts_.SkipNext();
-
-	Rasterizer::FlushJit();
-	Sampler::FlushJit();
 
 	queuedSinceFlush_ = false;
 
@@ -884,8 +910,8 @@ void BinManager::Flush(const char *reason) {
 }
 
 void BinManager::OptimizePendingStates(uint16_t first, uint16_t last) {
-	// We can sometimes hit this when compiling new funcs while creating a state.
-	// At that point, the state isn't loaded fully yet, so don't touch it.
+	// DeswizzleMirrorTextures flushes while the new state is being created. It isn't complete yet, so
+	// don't touch it.
 	if (creatingState_ && last == stateIndex_) {
 		if (first == last)
 			return;
@@ -1148,25 +1174,30 @@ void BinManager::ForTargetTiles(const RasterizerState &state, const TexelRegion 
 	if (fbStrideBytes == 0)
 		return;
 	const int64_t fbBase = drawTargetAddr_ & mirrorMask;
+	// Tiles are powers of two in size, and the offsets fit 32 bits: 64-bit divisions per row took most of
+	// NeedsOrder's time in Wipeout.
+	const int bppShift = bpp == 4 ? 2 : 1;
+	const int tileShiftX = tileShiftX_ - 4, tileShiftY = tileShiftY_ - 4;
+	const uint32_t rowsY = (uint32_t)(tilesY_ * tileH_);
 	int lastTy = -1, lastTx1 = -1, lastTx2 = -1;
 	for (uint32_t r = 0; r < region.rows; ++r) {
 		const int64_t a0 = (int64_t)(region.start & mirrorMask) + (int64_t)r * region.stride;
 		const int64_t a1 = a0 + region.widthBytes - 1;
 		if (a1 < fbBase)
 			continue;
-		const int64_t off0 = std::max(a0, fbBase) - fbBase;
-		const int64_t off1 = a1 - fbBase;
-		const int64_t y0 = off0 / fbStrideBytes, y1 = off1 / fbStrideBytes;
-		if (y0 >= tilesY_ * tileH_)
+		const uint32_t off0 = (uint32_t)(std::max(a0, fbBase) - fbBase);
+		const uint32_t off1 = (uint32_t)(a1 - fbBase);
+		const uint32_t y0 = off0 / fbStrideBytes, y1 = off1 / fbStrideBytes;
+		if (y0 >= rowsY)
 			break;
 		int x0 = 0, x1 = 1023;
 		if (y0 == y1) {
-			x0 = (int)((off0 % fbStrideBytes) / bpp);
-			x1 = (int)((off1 % fbStrideBytes) / bpp);
+			x0 = (int)((off0 - y0 * fbStrideBytes) >> bppShift);
+			x1 = (int)((off1 - y1 * fbStrideBytes) >> bppShift);
 		}
-		const int tx1 = std::min(x0 / tileW_, tilesX_ - 1), tx2 = std::min(x1 / tileW_, tilesX_ - 1);
-		for (int64_t y = y0; y <= y1 && y < tilesY_ * tileH_; ++y) {
-			const int ty = (int)(y / tileH_);
+		const int tx1 = std::min(x0 >> tileShiftX, tilesX_ - 1), tx2 = std::min(x1 >> tileShiftX, tilesX_ - 1);
+		for (uint32_t y = y0; y <= y1 && y < rowsY; ++y) {
+			const int ty = (int)(y >> tileShiftY);
 			if (ty == lastTy && tx1 == lastTx1 && tx2 == lastTx2)
 				continue;
 			lastTy = ty;
@@ -1260,9 +1291,11 @@ void BinManager::DrainDependent() {
 	if (activeCount_ != 0) {
 		if (entriesSinceWake_ >= WAKE_ENTRIES)
 			WakeTasks();
+		waitingForIdle_ = true;
 		while (ProcessTiles(0)) {
 		}
 		waitable_->Wait();
+		waitingForIdle_ = false;
 		ResetTiles();
 		// The tiles drew what the snapshot may have seen before.
 		selfTexValid_ = false;

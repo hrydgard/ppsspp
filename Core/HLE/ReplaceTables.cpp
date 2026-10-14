@@ -19,6 +19,7 @@
 
 #include <algorithm>
 #include <map>
+#include <mutex>
 #include <unordered_map>
 
 #include "Common/CommonTypes.h"
@@ -30,8 +31,10 @@
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSAnalyst.h"
+#include "Core/MIPS/MIPSTables.h"
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceDisplay.h"
@@ -40,6 +43,7 @@
 #include "GPU/GPU.h"
 #include "GPU/GPUCommon.h"
 #include "Common/Math/SIMDHeaders.h"
+#include "ext/xxhash.h"
 
 enum class GPUReplacementSkip {
 	MEMSET = 1,
@@ -125,8 +129,6 @@ static int Replace_memcpy() {
 		return 10;
 	}
 
-	// Some games use memcpy on executable code.  We need to flush emuhack ops.
-	currentMIPS->InvalidateICacheRangeImmediate(srcPtr, bytes);
 	if ((skipGPUReplacements & (int)GPUReplacementSkip::MEMCPY) == 0) {
 		if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
 			skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
@@ -188,7 +190,6 @@ static int Replace_memcpy_jak() {
 	bool sliced = false;
 	static constexpr uint32_t SLICE_SIZE = 32768;
 
-	currentMIPS->InvalidateICacheRangeImmediate(srcPtr, bytes);
 	if ((skipGPUReplacements & (int)GPUReplacementSkip::MEMCPY) == 0) {
 		if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
 			skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
@@ -258,9 +259,6 @@ static int Replace_memcpy16() {
 	u32 bytes = PARAM(2) * 16;
 	bool skip = false;
 
-	// Some games use memcpy on executable code.  We need to flush emuhack ops.
-	if (bytes != 0)
-		currentMIPS->InvalidateICacheRangeImmediate(srcPtr, bytes);
 	if ((skipGPUReplacements & (int)GPUReplacementSkip::MEMCPY) == 0 && bytes != 0) {
 		if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
 			skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
@@ -328,9 +326,7 @@ static int Replace_memmove() {
 	u32 bytes = PARAM(2);
 	bool skip = false;
 
-	// Some games use memcpy on executable code.  We need to flush emuhack ops.
 	if ((skipGPUReplacements & (int)GPUReplacementSkip::MEMMOVE) == 0 && bytes != 0) {
-		currentMIPS->InvalidateICacheRangeImmediate(srcPtr, bytes);
 		if (Memory::IsVRAMAddress(destPtr) || Memory::IsVRAMAddress(srcPtr)) {
 			skip = gpu->PerformMemoryCopy(destPtr, srcPtr, bytes);
 		}
@@ -704,11 +700,11 @@ static int Replace_dl_write_matrix() {
 }
 
 static bool GetMIPSStaticAddress(u32 &addr, s32 lui_offset, s32 lw_offset) {
-	const MIPSOpcode upper = Memory::Read_Instruction(currentMIPS->pc + lui_offset, true);
+	const MIPSOpcode upper = Memory::Read_Instruction(currentMIPS->pc + lui_offset);
 	if (upper != MIPS_MAKE_LUI(MIPS_GET_RT(upper), upper & 0xffff)) {
 		return false;
 	}
-	const MIPSOpcode lower = Memory::Read_Instruction(currentMIPS->pc + lw_offset, true);
+	const MIPSOpcode lower = Memory::Read_Instruction(currentMIPS->pc + lw_offset);
 	if (lower != MIPS_MAKE_LW(MIPS_GET_RT(lower), MIPS_GET_RS(lower), lower & 0xffff)) {
 		if (lower != MIPS_MAKE_ORI(MIPS_GET_RT(lower), MIPS_GET_RS(lower), lower & 0xffff)) {
 			return false;
@@ -719,7 +715,7 @@ static bool GetMIPSStaticAddress(u32 &addr, s32 lui_offset, s32 lw_offset) {
 }
 
 static bool GetMIPSGPAddress(u32 &addr, s32 offset) {
-	const MIPSOpcode loadOp = Memory::Read_Instruction(currentMIPS->pc + offset, true);
+	const MIPSOpcode loadOp = Memory::Read_Instruction(currentMIPS->pc + offset);
 	if (MIPS_GET_RS(loadOp) == MIPS_REG_GP) {
 		s16 gpoff = (s16)(u16)(loadOp & 0x0000FFFF);
 		addr = currentMIPS->r[MIPS_REG_GP] + gpoff;
@@ -844,7 +840,7 @@ static int Hook_brandish_download_frame() {
 		return 0;
 	}
 	const u32 fb_info = Memory::ReadUnchecked_U32(fb_infoaddr);
-	const MIPSOpcode fb_index_load = Memory::Read_Instruction(currentMIPS->pc + 0x38, true);
+	const MIPSOpcode fb_index_load = Memory::Read_Instruction(currentMIPS->pc + 0x38);
 	if (fb_index_load != MIPS_MAKE_LW(MIPS_GET_RT(fb_index_load), MIPS_GET_RS(fb_index_load), fb_index_load & 0xffff)) {
 		return 0;
 	}
@@ -974,7 +970,7 @@ static int Hook_soranokiseki_sc_download_frame() {
 	}
 
 	const u32 fb_info = Memory::ReadUnchecked_U32(fb_infoaddr);
-	const MIPSOpcode fb_index_load = Memory::Read_Instruction(currentMIPS->pc + 0x34, true);
+	const MIPSOpcode fb_index_load = Memory::Read_Instruction(currentMIPS->pc + 0x34);
 	if (fb_index_load != MIPS_MAKE_LW(MIPS_GET_RT(fb_index_load), MIPS_GET_RS(fb_index_load), fb_index_load & 0xffff)) {
 		return 0;
 	}
@@ -1035,7 +1031,7 @@ static int Hook_danganronpa1_1_download_frame() {
 }
 
 static int Hook_danganronpa1_2_download_frame() {
-	const MIPSOpcode instruction = Memory::Read_Instruction(currentMIPS->pc + 0x8, true);
+	const MIPSOpcode instruction = Memory::Read_Instruction(currentMIPS->pc + 0x8);
 	const int reg_num = instruction >> 11 & 31;
 	const u32 fb_base = currentMIPS->r[reg_num];
 	const u32 fb_offset = currentMIPS->r[MIPS_REG_V0];
@@ -1205,7 +1201,7 @@ static int Hook_youkosohitsujimura_download_frame() {
 }
 
 static int Hook_zettai_hero_update_minimap_tex() {
-	const MIPSOpcode storeOffset = Memory::Read_Instruction(currentMIPS->pc + 4, true);
+	const MIPSOpcode storeOffset = Memory::Read_Instruction(currentMIPS->pc + 4);
 	const uint32_t texAddr = currentMIPS->r[MIPS_REG_A0] + SignExtend16ToS32(storeOffset);
 	const uint32_t texSize = 64 * 64 * 1;
 	const uint32_t writeAddr = currentMIPS->r[MIPS_REG_V1] + SignExtend16ToS32(storeOffset);
@@ -1378,11 +1374,11 @@ static int Hook_kingdomhearts_download_frame() {
 		return 0;
 	}
 
-	const MIPSOpcode fb_offset_table_lui = Memory::Read_Instruction(get_fb_offset + 0x08, true); // 0x08821EB8
+	const MIPSOpcode fb_offset_table_lui = Memory::Read_Instruction(get_fb_offset + 0x08); // 0x08821EB8
 	if (fb_offset_table_lui != MIPS_MAKE_LUI(MIPS_REG_A1, fb_offset_table_lui & 0xFFFF)) {
 		return 0;
 	}
-	const MIPSOpcode fb_offset_table_addiu = Memory::Read_Instruction(get_fb_offset + 0x10, true); // 0x08821EC0
+	const MIPSOpcode fb_offset_table_addiu = Memory::Read_Instruction(get_fb_offset + 0x10); // 0x08821EC0
 	if (fb_offset_table_addiu != MIPS_MAKE_ADDIU(MIPS_REG_A1, MIPS_REG_A1, fb_offset_table_addiu & 0xFFFF)) {
 		return 0;
 	}
@@ -1406,6 +1402,83 @@ static int Hook_kingdomhearts_download_frame() {
 	if (Memory::IsVRAMAddress(fb_address)) {
 		gpu->PerformReadbackToMemory(fb_address, fb_size);
 		NotifyMemInfo(MemBlockFlags::WRITE, fb_address, fb_size, "kingdomhearts_download_frame");
+	}
+	return 0;
+}
+
+// The Everybody's Golf games and Everybody's Tennis build player portraits the same way.
+// copy_portrait(dst, x, y, w, h) memcpys a rect of the 512-stride 5551 framebuffer into a texture,
+// one row at a time, which memcpy's replacement can't match to a framebuffer when it's a partial row.
+// The caller then sets each texel's alpha bit from the depth buffer, read straight from the linear
+// mirror at 0x04288000. So both are read back here, whole rows at a time.
+// Each version is hooked after the GE sync at the start, where y and h are in registers and the
+// framebuffer pointer is loaded from a global soon after.
+static void EverybodysCopyPortrait(u32 y, u32 h, s32 luiOffset, s32 lwOffset) {
+	u32 fb_info;
+	if (!GetMIPSStaticAddress(fb_info, luiOffset, lwOffset) || !Memory::IsValid4AlignedAddress(fb_info)) {
+		return;
+	}
+	const u32 fb_address = Memory::ReadUnchecked_U32(fb_info);
+	const u32 colorAddr = fb_address + y * 0x400;
+	const u32 depthAddr = 0x04288000 + y * 0x400;
+	const u32 size = h * 0x400;
+	if (!Memory::IsVRAMAddress(colorAddr) || !Memory::IsValidRange(colorAddr, size) || !Memory::IsValidRange(depthAddr, size)) {
+		return;
+	}
+	gpu->PerformReadbackToMemory(colorAddr, size);
+	NotifyMemInfo(MemBlockFlags::WRITE, colorAddr, size, "everybodys_copy_portrait");
+	gpu->PerformMemoryCopy(depthAddr, depthAddr, size, GPUCopyFlag::FORCE_DST_MATCH_MEM | GPUCopyFlag::DEPTH_REQUESTED);
+	NotifyMemInfo(MemBlockFlags::WRITE, depthAddr, size, "everybodys_copy_portrait");
+}
+
+// Golf 2 (caller 0x0887C060) and Tennis (caller 0x0889B13C).
+static int Hook_everybodys_copy_portrait() {
+	EverybodysCopyPortrait(currentMIPS->r[MIPS_REG_S4], currentMIPS->r[MIPS_REG_S1], 0x0C, 0x10);
+	return 0;
+}
+
+// Golf (caller 0x088A1FEC).
+static int Hook_everybodysgolf_copy_portrait() {
+	EverybodysCopyPortrait(currentMIPS->r[MIPS_REG_S0], currentMIPS->r[MIPS_REG_S4], 0x00, 0x08);
+	return 0;
+}
+
+static int Hook_everybodysgolf_spinner_background() {
+	// The loading screen spinner copies the displayed framebuffer under it into the transparent texels
+	// of each of its frames, then memcpys a frame back to the screen every so often.
+	// Hooked after the call to sceDisplayGetFrameBuf, where v0 is the framebuffer and s0 the spinner,
+	// with y at 0x14 and the frame height at 0x1C.
+	const u32 fb_address = currentMIPS->r[MIPS_REG_V0];
+	const u32 obj = currentMIPS->r[MIPS_REG_S0];
+	if (!Memory::IsVRAMAddress(fb_address) || !Memory::IsValidRange(obj + 0x14, 0xC)) {
+		return 0;
+	}
+	const s32 y = std::max((s32)Memory::ReadUnchecked_U32(obj + 0x14), 0);
+	const s32 yEnd = std::min((s32)Memory::ReadUnchecked_U32(obj + 0x14) + (s32)Memory::ReadUnchecked_U32(obj + 0x1C), 272);
+	if (yEnd <= y) {
+		return 0;
+	}
+	const u32 addr = fb_address + y * 0x400;
+	const u32 size = (yEnd - y) * 0x400;
+	if (Memory::IsValidRange(addr, size)) {
+		gpu->PerformReadbackToMemory(addr, size);
+		NotifyMemInfo(MemBlockFlags::WRITE, addr, size, "everybodysgolf_spinner_background");
+	}
+	return 0;
+}
+
+static int Hook_codedarms_stencil_check() {
+	// The crosshair turns red, and lock-on works, when stencil bit 3 is set at the centre of the frame
+	// just rendered, which the game tests by reading the pixel from VRAM (#17936). Hooked at the load,
+	// where v0 is the pixel's address. Read back the stencil of the row it's in (the game's stride is
+	// 512). Only stencil: the alpha the hardware backends keep doesn't follow it everywhere.
+	const u32 addr = currentMIPS->r[MIPS_REG_V0];
+	if (!Memory::IsVRAMAddress(addr)) {
+		return 0;
+	}
+	const u32 row = addr & ~0x7FF;
+	if (Memory::IsValidRange(row, 0x800)) {
+		gpu->PerformReadbackStencilToMemory(row, 0x800);
 	}
 	return 0;
 }
@@ -1599,6 +1672,7 @@ static int Hook_gow_vortex_hack() {
 		// from my tests both ==0x3F800000 and !=0x3F800000 takes around 1:40-1:50, that seems to match correct behaviour
 		if (currentMIPS->r[MIPS_REG_S1] == 0 && currentMIPS->r[MIPS_REG_A0] == 0xC0 && currentMIPS->r[MIPS_REG_T4] != 0x3F800000) {
 			currentMIPS->r[MIPS_REG_S1] = 1;
+			currentMIPS->downcount = 0;
 		}
 	}
 	return 0;
@@ -1743,12 +1817,79 @@ static const ReplacementTableEntry entries[] = {
 	{ "takuyo_2_download_frame", &Hook_takuyo_download_frame, 0, REPFLAG_HOOKENTER, 0},
 	{ "takuyo_3_download_frame", &Hook_takuyo_download_frame, 0, REPFLAG_HOOKENTER, 0},
 	{ "kingdomhearts_download_frame", &Hook_kingdomhearts_download_frame, 0, REPFLAG_HOOKENTER, 0},
+	{ "everybodysgolf2_copy_portrait", &Hook_everybodys_copy_portrait, 0, REPFLAG_HOOKENTER, 0x50 },
+	{ "everybodystennis_copy_portrait", &Hook_everybodys_copy_portrait, 0, REPFLAG_HOOKENTER, 0x54 },
+	{ "everybodysgolf_copy_portrait", &Hook_everybodysgolf_copy_portrait, 0, REPFLAG_HOOKENTER, 0x50 },
+	{ "everybodysgolf_spinner_background", &Hook_everybodysgolf_spinner_background, 0, REPFLAG_HOOKENTER, 0x138 },
+	{ "codedarms_stencil_check", &Hook_codedarms_stencil_check, 0, REPFLAG_HOOKENTER, 0x8C },
 	{}
 };
 
 
-static std::map<u32, u32> replacedInstructions;
+struct InstalledReplacement {
+	int index;
+	// Unmasked, for invalidation. The native block cache doesn't fold mirrors when filtering ranges.
+	u32 address;
+	// What was in memory when it was installed. If the game overwrites it, the hook is dropped.
+	u32 origOp;
+	// The function the hook was found in. A HOOKEXIT hook sits on a jr ra, which new code loaded
+	// over the function is likely to have too, so we also drop the hook when the function's
+	// hash changes - checked whenever the game invalidates the icache over it.
+	u32 funcStart;
+	u32 funcSize;
+	u64 funcHash;
+};
+
+// Keyed by address & BLOCK_SHADOW_MASK, so mirrors share a hook the way they share memory.
+// Only the CPU thread changes it, holding the lock, so that thread can read it without.
+static std::map<u32, InstalledReplacement> installedReplacements;
+static std::mutex installedReplacementsLock;
 static std::unordered_map<std::string, std::vector<int>> replacementNameLookup;
+
+// What the block shadow holds at a hooked instruction without a compiled block. The JIT's value
+// sends the dispatcher on to the compiler, which handles the hook.
+static u32 shadowHookValue = Memory::BLOCK_SHADOW_HOOK_NO_JIT;
+
+// An entry holding a block is left alone: invalidating the block destroys it, which writes the
+// hook value then (see Memory::ClearBlockShadow).
+static void MarkHook(u32 address) {
+	if (Memory::ReadBlockShadow(address) == 0) {
+		Memory::WriteBlockShadow(address, shadowHookValue);
+	}
+}
+
+// Call after erasing the hook from the map, so destroying a block there clears its entry to 0.
+static void UnmarkHook(u32 address) {
+	Memory::ClearBlockShadow(address, shadowHookValue);
+}
+
+// Deferred, since hooks change in HLE calls (module loading) that can run inside the block.
+static void InvalidateReplacedAddress(u32 address) {
+	currentMIPS->InvalidateICacheRangeDeferred(address, 4);
+}
+
+// Immediates are masked out like in MIPSAnalyst::HashFunctions, which matched the function, so a
+// relocation doesn't drop the hook.
+static u64 HashReplacedFunc(u32 start, u32 size) {
+	if (!Memory::IsValidRange(start, size)) {
+		return 0;
+	}
+	std::vector<u32> buffer;
+	buffer.reserve(size / 4);
+	for (u32 addr = start; addr + 4 <= start + size; addr += 4) {
+		const MIPSOpcode op = Memory::ReadUnchecked_Instruction(addr);
+		const MIPSInfo flags = MIPSGetInfo(op);
+		u32 validbits = 0xFFFFFFFF;
+		if (flags & IN_IMM16) {
+			validbits &= ~0xFFFF;
+		}
+		if (flags & IN_IMM26) {
+			validbits &= ~0x03FFFFFF;
+		}
+		buffer.push_back(op.encoding & validbits);
+	}
+	return XXH3_64bits(buffer.data(), buffer.size() * sizeof(u32));
+}
 
 void Replacement_Init() {
 	for (int i = 0; i < (int)ARRAY_SIZE(entries); i++) {
@@ -1762,8 +1903,27 @@ void Replacement_Init() {
 }
 
 void Replacement_Shutdown() {
-	replacedInstructions.clear();
+	RestoreReplacedInstructions(0, 0xFFFFFFFF);
 	replacementNameLookup.clear();
+}
+
+void Replacement_SetBlockShadowHook(u32 value) {
+	const u32 oldValue = shadowHookValue;
+	shadowHookValue = value;
+	for (const auto &[key, repl] : installedReplacements) {
+		const u32 entry = Memory::ReadBlockShadow(key);
+		if (entry == 0 || entry == oldValue) {
+			Memory::WriteBlockShadow(key, value);
+		}
+	}
+}
+
+u32 Replacement_GetBlockShadowHook() {
+	return shadowHookValue;
+}
+
+bool Replacement_IsHooked(u32 address) {
+	return installedReplacements.count(address & Memory::BLOCK_SHADOW_MASK) != 0;
 }
 
 int GetNumReplacementFuncs() {
@@ -1791,47 +1951,50 @@ const ReplacementTableEntry *GetReplacementFunc(size_t i) {
 	return &entries[i];
 }
 
-static bool WriteReplaceInstruction(u32 address, int index) {
-	u32 prevInstr = Memory::Read_Instruction(address, false).encoding;
-	if (MIPS_IS_REPLACEMENT(prevInstr)) {
-		int prevIndex = prevInstr & MIPS_EMUHACK_VALUE_MASK;
-		if (prevIndex == index) {
+static bool WriteReplaceInstruction(u32 address, int index, u32 funcStart, u32 funcSize, u64 funcHash) {
+	if (!Memory::IsValid4AlignedAddress(address)) {
+		return false;
+	}
+	const u32 key = address & Memory::BLOCK_SHADOW_MASK;
+	const u32 memOp = Memory::ReadUnchecked_U32(address);
+	auto iter = installedReplacements.find(key);
+	if (iter != installedReplacements.end() && iter->second.origOp == memOp) {
+		if (iter->second.index == index) {
 			return false;
 		}
-		WARN_LOG(Log::HLE, "Replacement func changed at %08x (%d -> %d)", address, prevIndex, index);
-		// Make sure we don't save the old replacement.
-		prevInstr = replacedInstructions[address];
+		WARN_LOG(Log::HLE, "Replacement func changed at %08x (%d -> %d)", address, iter->second.index, index);
 	}
-
-	if (MIPS_IS_RUNBLOCK(Memory::ReadUnchecked_U32(address))) {
-		WARN_LOG(Log::HLE, "Replacing jitted func address %08x", address);
+	{
+		std::lock_guard<std::mutex> guard(installedReplacementsLock);
+		installedReplacements[key] = { index, address, memOp, funcStart, funcSize, funcHash };
 	}
-	replacedInstructions[address] = prevInstr;
-	Memory::WriteUnchecked_U32(MIPS_EMUHACK_CALL_REPLACEMENT | index, address);
+	InvalidateReplacedAddress(address);
+	MarkHook(address);
 	return true;
 }
 
 void WriteReplaceInstructions(u32 address, u64 hash, int size) {
 	std::vector<int> indexes = GetReplacementFuncIndexes(hash, size);
+	const u64 funcHash = indexes.empty() ? 0 : HashReplacedFunc(address, size);
 	for (int index : indexes) {
 		bool didReplace = false;
 		const ReplacementTableEntry *entry = GetReplacementFunc(index);
 		if (entry->flags & REPFLAG_HOOKEXIT) {
 			// When hooking func exit, we search for jr ra, and replace those.
 			for (u32 offset = 0; offset < (u32)size; offset += 4) {
-				const u32 op = Memory::Read_Instruction(address + offset, false).encoding;
+				const u32 op = Memory::Read_Instruction(address + offset).encoding;
 				if (op == MIPS_MAKE_JR_RA()) {
-					if (WriteReplaceInstruction(address + offset, index)) {
+					if (WriteReplaceInstruction(address + offset, index, address, size, funcHash)) {
 						didReplace = true;
 					}
 				}
 			}
 		} else if (entry->flags & REPFLAG_HOOKENTER) {
-			if (WriteReplaceInstruction(address + entry->hookOffset, index)) {
+			if (WriteReplaceInstruction(address + entry->hookOffset, index, address, size, funcHash)) {
 				didReplace = true;
 			}
 		} else {
-			if (WriteReplaceInstruction(address, index)) {
+			if (WriteReplaceInstruction(address, index, address, size, funcHash)) {
 				didReplace = true;
 			}
 		}
@@ -1842,79 +2005,128 @@ void WriteReplaceInstructions(u32 address, u64 hash, int size) {
 	}
 }
 
-// address is valid here.
 void RestoreReplacedInstruction(u32 address) {
-	const u32 curInstr = Memory::ReadUnchecked_U32(address);
-	if (MIPS_IS_REPLACEMENT(curInstr)) {
-		Memory::WriteUnchecked_U32(replacedInstructions[address], address);
+	const u32 key = address & Memory::BLOCK_SHADOW_MASK;
+	auto iter = installedReplacements.find(key);
+	if (iter != installedReplacements.end()) {
+		const u32 hookAddress = iter->second.address;
+		{
+			std::lock_guard<std::mutex> guard(installedReplacementsLock);
+			installedReplacements.erase(iter);
+		}
+		InvalidateReplacedAddress(hookAddress);
+		UnmarkHook(hookAddress);
 		NOTICE_LOG(Log::HLE, "Restored replaced func at %08x", address);
-	} else {
-		NOTICE_LOG(Log::HLE, "Replaced func changed at %08x", address);
 	}
-	replacedInstructions.erase(address);
 }
 
-// startaddr and endaddr are valid here.
+std::vector<std::pair<u32, u32>> Replacement_GetHookedOps() {
+	std::lock_guard<std::mutex> guard(installedReplacementsLock);
+	std::vector<std::pair<u32, u32>> ops;
+	ops.reserve(installedReplacements.size());
+	for (const auto &[key, repl] : installedReplacements) {
+		ops.emplace_back(repl.address, repl.origOp);
+	}
+	return ops;
+}
+
+void Replacement_RepairStaleHookOps(const std::vector<std::pair<u32, u32>> &hookedOps) {
+	int repaired = 0;
+	for (const auto &[address, origOp] : hookedOps) {
+		if (!Memory::IsValid4AlignedAddress(address)) {
+			continue;
+		}
+		// The Allegrex has no opcode 26, so this can only be a hook op, never the game's code.
+		const u32 memOp = Memory::ReadUnchecked_U32(address);
+		if ((memOp >> 26) == (MIPS_CALL_REPLACEMENT_OP >> 26) && memOp != origOp) {
+			Memory::WriteUnchecked_U32(origOp, address);
+			repaired++;
+		}
+	}
+	if (repaired) {
+		WARN_LOG(Log::SaveState, "Put back %d hooked instructions saved as hook ops", repaired);
+	}
+}
+
 void RestoreReplacedInstructions(u32 startAddr, u32 endAddr) {
 	if (endAddr == startAddr)
 		return;
 	// Need to be in order, or we'll hang.
 	if (endAddr < startAddr)
 		std::swap(endAddr, startAddr);
-	const auto start = replacedInstructions.lower_bound(startAddr);
-	const auto end = replacedInstructions.upper_bound(endAddr);
-	int restored = 0;
+	const u32 maskedStart = startAddr & Memory::BLOCK_SHADOW_MASK;
+	u32 maskedEnd = endAddr & Memory::BLOCK_SHADOW_MASK;
+	if (maskedEnd < maskedStart || endAddr - startAddr >= Memory::BLOCK_SHADOW_MASK) {
+		// Wraps under the mask.
+		maskedEnd = Memory::BLOCK_SHADOW_MASK;
+	}
+	const auto start = installedReplacements.lower_bound(maskedStart);
+	const auto end = installedReplacements.upper_bound(maskedEnd);
+	std::vector<u32> restored;
 	for (auto it = start; it != end; ++it) {
-		const u32 addr = it->first;
-		const u32 curInstr = Memory::ReadUnchecked_U32(addr);
-		if (MIPS_IS_REPLACEMENT(curInstr)) {
-			Memory::WriteUnchecked_U32(it->second, addr);
-			++restored;
-		}
+		restored.push_back(it->second.address);
 	}
-	INFO_LOG(Log::HLE, "Restored %d replaced funcs between %08x-%08x", restored, startAddr, endAddr);
-	replacedInstructions.erase(start, end);
+	// Erase first, so destroying blocks there doesn't put the hook back.
+	{
+		std::lock_guard<std::mutex> guard(installedReplacementsLock);
+		installedReplacements.erase(start, end);
+	}
+	for (u32 hookAddress : restored) {
+		InvalidateReplacedAddress(hookAddress);
+		UnmarkHook(hookAddress);
+	}
+	INFO_LOG(Log::HLE, "Restored %d replaced funcs between %08x-%08x", (int)restored.size(), startAddr, endAddr);
 }
 
-std::map<u32, u32> SaveAndClearReplacements() {
-	std::map<u32, u32> saved;
-	for (const auto &[addr, instr] : replacedInstructions) {
-		if (!Memory::IsValid4AlignedAddress(addr)) {
-			continue;
-		}
-		// This will not retain jit blocks.
-		const u32 curInstr = Memory::Read_Opcode_JIT(addr).encoding;
-		if (MIPS_IS_REPLACEMENT(curInstr)) {
-			saved[addr] = curInstr;
-			Memory::WriteUnchecked_U32(instr, addr);
-		}
-	}
-
-	// TODO: Should we not also call replacedInstructions.clear(); ?
-	return saved;
-}
-
-void RestoreSavedReplacements(const std::map<u32, u32> &saved) {
-	for (const auto &[addr, instr] : saved) {
-		// Just put the replacements back.
-		if (Memory::IsValid4AlignedAddress(addr)) {
-			Memory::WriteUnchecked_U32(instr, addr);
+void Replacement_CheckRange(u32 address, u32 length) {
+	const u32 start = address & Memory::BLOCK_SHADOW_MASK;
+	const u32 end = length >= Memory::BLOCK_SHADOW_MASK ? Memory::BLOCK_SHADOW_MASK : start + length;
+	std::vector<u32> dropped;
+	for (auto it = installedReplacements.begin(); it != installedReplacements.end(); ) {
+		const InstalledReplacement &repl = it->second;
+		const u32 funcStart = repl.funcStart & Memory::BLOCK_SHADOW_MASK;
+		if (funcStart < end && funcStart + repl.funcSize > start && HashReplacedFunc(repl.funcStart, repl.funcSize) != repl.funcHash) {
+			NOTICE_LOG(Log::HLE, "Replaced func changed at %08x, dropping its hook at %08x", repl.funcStart, repl.address);
+			dropped.push_back(repl.address);
+			std::lock_guard<std::mutex> guard(installedReplacementsLock);
+			it = installedReplacements.erase(it);
 		} else {
-			ERROR_LOG(Log::HLE, "RestoreSavedReplacements: Invalid address %08x", addr);
+			++it;
 		}
+	}
+	// The hook can be outside the range (a HOOKEXIT on a later jr ra), so its blocks need invalidating too.
+	for (u32 hookAddress : dropped) {
+		InvalidateReplacedAddress(hookAddress);
+		UnmarkHook(hookAddress);
 	}
 }
 
-bool GetReplacedOpAt(u32 address, u32 *op) {
-	u32 instr = Memory::Read_Opcode_JIT(address).encoding;
-	if (MIPS_IS_REPLACEMENT(instr)) {
-		auto iter = replacedInstructions.find(address);
-		if (iter != replacedInstructions.end()) {
-			*op = iter->second;
-			return true;
-		} else {
-			return false;
-		}
+MIPSOpcode GetReplacementOpAt(u32 address) {
+	const u32 key = address & Memory::BLOCK_SHADOW_MASK;
+	const u32 memOp = Memory::ReadUnchecked_U32(address);
+	auto iter = installedReplacements.find(key);
+	if (iter == installedReplacements.end()) {
+		return MIPSOpcode(memOp);
 	}
-	return false;
+	if (iter->second.origOp != memOp) {
+		// The game wrote over the hooked instruction, so the hook goes with it.
+		NOTICE_LOG(Log::HLE, "Replaced func changed at %08x", address);
+		{
+			std::lock_guard<std::mutex> guard(installedReplacementsLock);
+			installedReplacements.erase(iter);
+		}
+		UnmarkHook(address);
+		return MIPSOpcode(memOp);
+	}
+	return MIPSOpcode(MIPS_CALL_REPLACEMENT_OP | iter->second.index);
+}
+
+MIPSOpcode Replacement_GetDisplayOp(u32 address) {
+	const u32 memOp = Memory::ReadUnchecked_U32(address);
+	std::lock_guard<std::mutex> guard(installedReplacementsLock);
+	auto iter = installedReplacements.find(address & Memory::BLOCK_SHADOW_MASK);
+	if (iter == installedReplacements.end() || iter->second.origOp != memOp) {
+		return MIPSOpcode(memOp);
+	}
+	return MIPSOpcode(MIPS_CALL_REPLACEMENT_OP | iter->second.index);
 }

@@ -1308,9 +1308,9 @@ void VertexDecoderJitCache::Jit_PosFloat() {
 		MOVAPS(fpScratchReg3, M(&fltMaxNeg));
 	} else {
 		MOV(PTRBITS, R(tempReg1), ImmPtr(&fltMax));
-		MOVAPS(XMM4, MatR(tempReg1));
+		MOVAPS(fpScratchReg2, MatR(tempReg1));
 		MOV(PTRBITS, R(tempReg1), ImmPtr(&fltMaxNeg));
-		MOVAPS(XMM5, MatR(tempReg1));
+		MOVAPS(fpScratchReg3, MatR(tempReg1));
 	}
 
 	MOVUPS(fpScratchReg, MDisp(srcReg, dec_->posoff));
@@ -1436,13 +1436,14 @@ void VertexDecoderJitCache::Jit_AnyU16ToFloat(int srcoff, u32 bits) {
 }
 
 void VertexDecoderJitCache::Jit_AnyS8Morph(int srcoff, int dstoff) {
-	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));
 	if (RipAccessible(&by128)) {
 		MOVAPS(XMM5, M(&by128));  // rip accessible
 	} else {
 		MOV(PTRBITS, R(tempReg1), ImmPtr(&by128));
 		MOVAPS(XMM5, MatR(tempReg1));
 	}
+	// After the constant, which may need tempReg1 to get at.
+	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));
 
 	// Sum into fpScratchReg.
 	bool first = true;
@@ -1479,13 +1480,14 @@ void VertexDecoderJitCache::Jit_AnyS8Morph(int srcoff, int dstoff) {
 }
 
 void VertexDecoderJitCache::Jit_AnyS16Morph(int srcoff, int dstoff) {
-	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));
 	if (RipAccessible(&by32768)) {
 		MOVAPS(XMM5, M(&by32768));  // rip accessible
 	} else {
 		MOV(PTRBITS, R(tempReg1), ImmPtr(&by32768));
 		MOVAPS(XMM5, MatR(tempReg1));
 	}
+	// After the constant, which may need tempReg1 to get at.
+	MOV(PTRBITS, R(tempReg1), ImmPtr(&gstate_c.morphWeights[0]));
 
 	// Sum into fpScratchReg.
 	bool first = true;

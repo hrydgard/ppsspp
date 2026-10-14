@@ -126,6 +126,16 @@
 				<action android:name="org.ppsspp.ppsspp.action.CLEAR_ACHIEVEMENTS_HOST_OVERRIDE" />
 			</intent-filter>
 		</receiver>
+		<!-- For sharing our files with other apps (System_ShareFile). Each share grants access to one file. -->
+		<provider
+			android:name="androidx.core.content.FileProvider"
+			android:authorities="${applicationId}.fileprovider"
+			android:exported="false"
+			android:grantUriPermissions="true">
+			<meta-data
+				android:name="android.support.FILE_PROVIDER_PATHS"
+				android:resource="@xml/file_paths" />
+		</provider>
         <profileable android:shell="true" android:enabled="true" />
     </application>
 

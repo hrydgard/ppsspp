@@ -111,7 +111,7 @@ struct RasterizerState {
 	}
 };
 
-void ComputeRasterizerState(RasterizerState *state, BinManager *binner);
+void ComputeRasterizerState(RasterizerState *state);
 void CalculateRasterStateFlags(RasterizerState *state, const VertexData &v0);
 void CalculateRasterStateFlags(RasterizerState *state, const VertexData &v0, const VertexData &v1, bool forceFlat);
 void CalculateRasterStateFlags(RasterizerState *state, const VertexData &v0, const VertexData &v1, const VertexData &v2);

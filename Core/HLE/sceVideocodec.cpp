@@ -33,7 +33,6 @@
 
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
-#include "Core/Config.h"
 #include "Core/CoreTiming.h"
 #include "Core/System.h"
 #include "Core/HLE/ErrorCodes.h"

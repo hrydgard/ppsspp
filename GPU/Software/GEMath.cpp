@@ -119,6 +119,24 @@ Vec4F32 GEMulFloat24x4Fallback(Vec4F32 a, Vec4F32 b, Vec4S32 lanes, Vec4F32 resu
 	return Vec4F32::Load(rv);
 }
 
+Vec4F32 GERowSumLanesFallback(const Vec4F32 a[4], const float b[4], int count, Vec4S32 lanes, Vec4F32 result) {
+	alignas(16) float av[4][4], rv[4];
+	alignas(16) int lv[4];
+	for (int k = 0; k < count; ++k)
+		Vec4F32(a[k]).Store(av[k]);
+	result.Store(rv);
+	lanes.Store(lv);
+	for (int i = 0; i < 4; ++i) {
+		if (!lv[i])
+			continue;
+		GERowTerm terms[4];
+		for (int k = 0; k < count; ++k)
+			terms[k] = GEProduct(TruncateToFloat24(av[k][i]), b[k]);
+		rv[i] = GERowSum(terms, count);
+	}
+	return Vec4F32::Load(rv);
+}
+
 float GEAddFloat24(float a, float b) {
 	return TruncateToFloat24(GEAdd(a, b));
 }

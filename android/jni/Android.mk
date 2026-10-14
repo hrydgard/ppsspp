@@ -75,6 +75,79 @@ include $(BUILD_STATIC_LIBRARY)
 include $(CLEAR_VARS)
 include $(LOCAL_PATH)/Locals.mk
 
+OBOE_ROOT := $(SRC)/ext/oboe
+
+LOCAL_MODULE := oboe
+LOCAL_SRC_FILES := \
+  $(OBOE_ROOT)/src/aaudio/AAudioLoader.cpp \
+  $(OBOE_ROOT)/src/aaudio/AudioStreamAAudio.cpp \
+  $(OBOE_ROOT)/src/common/AdpfWrapper.cpp \
+  $(OBOE_ROOT)/src/common/AudioSourceCaller.cpp \
+  $(OBOE_ROOT)/src/common/AudioStream.cpp \
+  $(OBOE_ROOT)/src/common/AudioStreamBuilder.cpp \
+  $(OBOE_ROOT)/src/common/DataConversionFlowGraph.cpp \
+  $(OBOE_ROOT)/src/common/FilterAudioStream.cpp \
+  $(OBOE_ROOT)/src/common/FixedBlockAdapter.cpp \
+  $(OBOE_ROOT)/src/common/FixedBlockReader.cpp \
+  $(OBOE_ROOT)/src/common/FixedBlockWriter.cpp \
+  $(OBOE_ROOT)/src/common/LatencyTuner.cpp \
+  $(OBOE_ROOT)/src/common/OboeExtensions.cpp \
+  $(OBOE_ROOT)/src/common/QuirksManager.cpp \
+  $(OBOE_ROOT)/src/common/SourceFloatCaller.cpp \
+  $(OBOE_ROOT)/src/common/SourceI16Caller.cpp \
+  $(OBOE_ROOT)/src/common/SourceI24Caller.cpp \
+  $(OBOE_ROOT)/src/common/SourceI32Caller.cpp \
+  $(OBOE_ROOT)/src/common/StabilizedCallback.cpp \
+  $(OBOE_ROOT)/src/common/Trace.cpp \
+  $(OBOE_ROOT)/src/common/Utilities.cpp \
+  $(OBOE_ROOT)/src/common/Version.cpp \
+  $(OBOE_ROOT)/src/fifo/FifoBuffer.cpp \
+  $(OBOE_ROOT)/src/fifo/FifoController.cpp \
+  $(OBOE_ROOT)/src/fifo/FifoControllerBase.cpp \
+  $(OBOE_ROOT)/src/fifo/FifoControllerIndirect.cpp \
+  $(OBOE_ROOT)/src/flowgraph/ChannelCountConverter.cpp \
+  $(OBOE_ROOT)/src/flowgraph/ClipToRange.cpp \
+  $(OBOE_ROOT)/src/flowgraph/FlowGraphNode.cpp \
+  $(OBOE_ROOT)/src/flowgraph/Limiter.cpp \
+  $(OBOE_ROOT)/src/flowgraph/ManyToMultiConverter.cpp \
+  $(OBOE_ROOT)/src/flowgraph/MonoBlend.cpp \
+  $(OBOE_ROOT)/src/flowgraph/MonoToMultiConverter.cpp \
+  $(OBOE_ROOT)/src/flowgraph/MultiToManyConverter.cpp \
+  $(OBOE_ROOT)/src/flowgraph/MultiToMonoConverter.cpp \
+  $(OBOE_ROOT)/src/flowgraph/RampLinear.cpp \
+  $(OBOE_ROOT)/src/flowgraph/SampleRateConverter.cpp \
+  $(OBOE_ROOT)/src/flowgraph/SinkFloat.cpp \
+  $(OBOE_ROOT)/src/flowgraph/SinkI16.cpp \
+  $(OBOE_ROOT)/src/flowgraph/SinkI24.cpp \
+  $(OBOE_ROOT)/src/flowgraph/SinkI32.cpp \
+  $(OBOE_ROOT)/src/flowgraph/SinkI8_24.cpp \
+  $(OBOE_ROOT)/src/flowgraph/SourceFloat.cpp \
+  $(OBOE_ROOT)/src/flowgraph/SourceI16.cpp \
+  $(OBOE_ROOT)/src/flowgraph/SourceI24.cpp \
+  $(OBOE_ROOT)/src/flowgraph/SourceI32.cpp \
+  $(OBOE_ROOT)/src/flowgraph/SourceI8_24.cpp \
+  $(OBOE_ROOT)/src/flowgraph/resampler/IntegerRatio.cpp \
+  $(OBOE_ROOT)/src/flowgraph/resampler/LinearResampler.cpp \
+  $(OBOE_ROOT)/src/flowgraph/resampler/MultiChannelResampler.cpp \
+  $(OBOE_ROOT)/src/flowgraph/resampler/PolyphaseResampler.cpp \
+  $(OBOE_ROOT)/src/flowgraph/resampler/PolyphaseResamplerMono.cpp \
+  $(OBOE_ROOT)/src/flowgraph/resampler/PolyphaseResamplerStereo.cpp \
+  $(OBOE_ROOT)/src/flowgraph/resampler/SincResampler.cpp \
+  $(OBOE_ROOT)/src/flowgraph/resampler/SincResamplerStereo.cpp \
+  $(OBOE_ROOT)/src/opensles/AudioInputStreamOpenSLES.cpp \
+  $(OBOE_ROOT)/src/opensles/AudioOutputStreamOpenSLES.cpp \
+  $(OBOE_ROOT)/src/opensles/AudioStreamBuffered.cpp \
+  $(OBOE_ROOT)/src/opensles/AudioStreamOpenSLES.cpp \
+  $(OBOE_ROOT)/src/opensles/EngineOpenSLES.cpp \
+  $(OBOE_ROOT)/src/opensles/OpenSLESUtilities.cpp \
+  $(OBOE_ROOT)/src/opensles/OutputMixerOpenSLES.cpp
+LOCAL_C_INCLUDES := $(LOCAL_PATH)/$(OBOE_ROOT)/src $(LOCAL_PATH)/$(OBOE_ROOT)/include
+
+include $(BUILD_STATIC_LIBRARY)
+
+include $(CLEAR_VARS)
+include $(LOCAL_PATH)/Locals.mk
+
 PUGI_ROOT := $(SRC)/ext/pugixml
 
 LOCAL_MODULE    := pugixml
@@ -207,10 +280,6 @@ RCHEEVOS_FILES := \
 ifeq ($(TARGET_ARCH_ABI),arm64-v8a)
 	ADRENOTOOLS_FILES := \
 	  ${SRC}/ext/libadrenotools/src/driver.cpp \
-	  ${SRC}/ext/libadrenotools/src/hook/hook_impl.cpp \
-	  ${SRC}/ext/libadrenotools/src/hook/file_redirect_hook.c \
-	  ${SRC}/ext/libadrenotools/src/hook/gsl_alloc_hook.c \
-	  ${SRC}/ext/libadrenotools/src/hook/main_hook.c \
 	  ${SRC}/ext/libadrenotools/lib/linkernsbypass/android_linker_ns.cpp \
 	  ${SRC}/ext/libadrenotools/lib/linkernsbypass/elf_soname_patcher.cpp
 endif
@@ -449,9 +518,7 @@ ARCH_FILES := \
   $(SRC)/Core/MIPS/x86/X64IRCompVec.cpp \
   $(SRC)/Core/MIPS/x86/X64IRJit.cpp \
   $(SRC)/Core/MIPS/x86/X64IRRegCache.cpp \
-  $(SRC)/GPU/Common/VertexDecoderX86.cpp \
-  $(SRC)/GPU/Software/DrawPixelX86.cpp \
-  $(SRC)/GPU/Software/SamplerX86.cpp
+  $(SRC)/GPU/Common/VertexDecoderX86.cpp
 else ifeq ($(findstring armeabi-v7a,$(TARGET_ARCH_ABI)),armeabi-v7a)
 ARCH_FILES := \
   $(SRC)/Core/MIPS/ARM/ArmCompALU.cpp \
@@ -593,7 +660,6 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Software/Lighting.cpp \
   $(SRC)/GPU/Software/Rasterizer.cpp.arm \
   $(SRC)/GPU/Software/RasterizerRectangle.cpp.arm \
-  $(SRC)/GPU/Software/RasterizerRegCache.cpp \
   $(SRC)/GPU/Software/Sampler.cpp \
   $(SRC)/GPU/Software/SoftGpu.cpp \
   $(SRC)/GPU/Software/TransformUnit.cpp \
@@ -933,7 +999,8 @@ include $(BUILD_STATIC_LIBRARY)
 
 include $(CLEAR_VARS)
 include $(LOCAL_PATH)/Locals.mk
-LOCAL_STATIC_LIBRARIES += ppsspp_common ppsspp_core libarmips libzstd
+LOCAL_STATIC_LIBRARIES += ppsspp_common ppsspp_core libarmips libzstd oboe
+LOCAL_C_INCLUDES += $(LOCAL_PATH)/$(SRC)/ext/oboe/include
 
 # These are the files just for ppsspp_jni
 LOCAL_MODULE := ppsspp_jni
@@ -941,7 +1008,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/android/jni/app-android.cpp \
   $(SRC)/android/jni/AndroidAudio.cpp \
   $(SRC)/android/jni/AndroidEGLGraphicsContext.cpp \
-  $(SRC)/android/jni/OpenSLContext.cpp \
+  $(SRC)/android/jni/OboeContext.cpp \
   $(SRC)/UI/ImDebugger/ImDebugger.cpp \
   $(SRC)/UI/ImDebugger/ImGe.cpp \
   $(SRC)/UI/ImDebugger/ImConsole.cpp \
@@ -971,6 +1038,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/ReportScreen.cpp \
   $(SRC)/UI/PauseScreen.cpp \
   $(SRC)/UI/SavedataScreen.cpp \
+  $(SRC)/UI/ShareFiles.cpp \
   $(SRC)/UI/Store.cpp \
   $(SRC)/UI/SystemInfoScreen.cpp \
   $(SRC)/UI/GamepadEmu.cpp \
@@ -1019,7 +1087,8 @@ ifeq ($(HEADLESS),1)
   LOCAL_SRC_FILES := \
     $(SRC)/headless/Headless.cpp \
     $(SRC)/headless/ReverseEngineer.cpp \
-    $(SRC)/headless/Compare.cpp
+    $(SRC)/headless/Compare.cpp \
+    $(SRC)/headless/AndroidHeadlessGLContext.cpp
 
   include $(BUILD_EXECUTABLE)
 endif
@@ -1046,13 +1115,14 @@ ifeq ($(UNITTEST),1)
     $(SRC)/ext/loongarch-disasm.cpp \
     $(SRC)/unittest/TestArmEmitter.cpp \
     $(SRC)/unittest/TestArm64Emitter.cpp \
+    $(SRC)/unittest/TestArm64Disasm.cpp \
+    $(SRC)/unittest/TestArmDisasm.cpp \
 	$(SRC)/unittest/TestX64Emitter.cpp \
     $(SRC)/unittest/TestRiscVEmitter.cpp \
     $(SRC)/unittest/TestLoongArch64Emitter.cpp \
     $(SRC)/unittest/TestCrossSIMD.cpp \
     $(SRC)/unittest/TestIRPassSimplify.cpp \
     $(SRC)/unittest/TestShaderGenerators.cpp \
-    $(SRC)/unittest/TestSoftwareGPUJit.cpp \
     $(SRC)/unittest/TestThreadManager.cpp \
     $(SRC)/unittest/TestVertexJit.cpp \
     $(SRC)/unittest/TestTextureReplacer.cpp \

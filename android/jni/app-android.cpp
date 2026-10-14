@@ -83,6 +83,7 @@ struct JNIEnv {};
 #include "Common/Input/KeyCodes.h"
 #include "Common/Profiler/Profiler.h"
 #include "Common/Math/math_util.h"
+#include "Common/Data/Encoding/Utf8.h"
 #include "Common/Data/Text/Parsers.h"
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/GPU/Vulkan/VulkanLoader.h"
@@ -177,7 +178,14 @@ static std::atomic<bool> renderer_inited{false};
 static bool sustainedPerfSupported = false;
 static std::string g_installerName;
 
+// Written on the Java UI thread, read on the render thread.
+static std::mutex permissionsLock;
 static std::map<SystemPermission, PermissionStatus> permissions;
+
+static void SetPermissionStatus(SystemPermission permission, PermissionStatus status) {
+	std::lock_guard<std::mutex> guard(permissionsLock);
+	permissions[permission] = status;
+}
 
 static GraphicsContext *graphicsContext;
 
@@ -376,6 +384,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 			// on a per-folder basis.
 			return !System_GetPropertyBool(SYSPROP_ANDROID_SCOPED_STORAGE);
 		}
+	case SYSPROP_MICROPHONE_NEEDS_POLLING:
+		return true;
 	case SYSPROP_SUPPORTS_SUSTAINED_PERF_MODE:
 		return sustainedPerfSupported;  // 7.0 introduced sustained performance mode as an optional feature.
 	case SYSPROP_HAS_TEXT_INPUT_DIALOG:
@@ -404,6 +414,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	case SYSPROP_SUPPORTS_OPEN_FILE_IN_EDITOR:
 		return false;  // Update if we add support in FileUtil.cpp: OpenFileInEditor
 	case SYSPROP_SUPPORTS_SHARE_TEXT:
+	case SYSPROP_SUPPORTS_SHARE_FILE:
 		return true;
 	case SYSPROP_APP_GOLD:
 #ifdef GOLD
@@ -517,12 +528,30 @@ std::vector<std::string> Android_GetNativeCrashHistory(int maxEntries) {
 	return crashHistory;
 }
 
+// GetStringUTFChars returns Java's modified UTF-8, where characters outside the BMP (emoji) become two 3-byte
+// surrogates, so we go through UTF-16.
 std::string GetJavaString(JNIEnv *env, jstring jstr) {
 	if (!jstr)
 		return "";
-	const char *str = env->GetStringUTFChars(jstr, nullptr);
-	std::string cpp_string = std::string(str);
-	env->ReleaseStringUTFChars(jstr, str);
+	const jsize len = env->GetStringLength(jstr);
+	const jchar *chars = env->GetStringChars(jstr, nullptr);
+	if (!chars)
+		return "";
+	std::string cpp_string;
+	cpp_string.reserve(len);
+	char buf[4];
+	for (jsize i = 0; i < len; i++) {
+		uint32_t c = chars[i];
+		if (c >= 0xD800 && c < 0xDC00 && i + 1 < len && chars[i + 1] >= 0xDC00 && chars[i + 1] < 0xE000) {
+			c = 0x10000 + ((c - 0xD800) << 10) + (chars[i + 1] - 0xDC00);
+			i++;
+		} else if (c >= 0xD800 && c < 0xE000) {
+			// Unpaired surrogate.
+			c = 0xFFFD;
+		}
+		cpp_string.append(buf, UTF8::encode(buf, c));
+	}
+	env->ReleaseStringChars(jstr, chars);
 	return cpp_string;
 }
 
@@ -612,64 +641,6 @@ extern "C" jstring Java_org_ppsspp_ppsspp_NativeApp_queryConfig
 	return jresult;
 }
 
-static void parse_args(std::vector<std::string> &args, const std::string value) {
-	// Simple argument parser so we can take args from extra params.
-	const char *p = value.c_str();
-
-	while (*p != '\0') {
-		while (isspace(*p)) {
-			p++;
-		}
-		if (*p == '\0') {
-			break;
-		}
-
-		bool done = false;
-		bool quote = false;
-		std::string arg;
-
-		while (!done) {
-			size_t sz = strcspn(p, "\"\\ \r\n\t");
-			arg += std::string(p, sz);
-			p += sz;
-
-			switch (*p) {
-			case '"':
-				quote = !quote;
-				p++;
-				break;
-
-			case '\\':
-				p++;
-				arg += std::string(p, 1);
-				p++;
-				break;
-
-			case '\0':
-				done = true;
-				break;
-
-			default:
-				// If it's not the above, it's whitespace.
-				if (!quote) {
-					done = true;
-				} else {
-					sz = strspn(p, " \r\n\t");
-					arg += std::string(p, sz);
-					p += sz;
-				}
-				break;
-			}
-		}
-
-		args.push_back(arg);
-
-		while (isspace(*p)) {
-			p++;
-		}
-	}
-}
-
 // Need to use raw Android logging before NativeInit.
 #define EARLY_LOG(...)  __android_log_print(ANDROID_LOG_INFO, "PPSSPP", __VA_ARGS__)
 
@@ -752,7 +723,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	args.push_back(app_name.c_str());
 	if (!shortcut_param.empty()) {
 		EARLY_LOG("NativeInit shortcut param %s", shortcut_param.c_str());
-		parse_args(temp, shortcut_param);
+		temp = SplitCommandLine(shortcut_param);
 		for (const auto &arg : temp) {
 			args.push_back(arg.c_str());
 		}
@@ -860,7 +831,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_audioInit(JNIEnv *, jclass) {
 		sampleRate = 44100;
 	}
 
-	INFO_LOG(Log::Audio, "NativeApp.audioInit() -- Using OpenSL audio! frames/buffer: %i	 optimal sr: %i	 actual sr: %i", optimalFramesPerBuffer, optimalSampleRate, sampleRate);
+	INFO_LOG(Log::Audio, "NativeApp.audioInit() -- Using Oboe audio! frames/buffer: %i	 optimal sr: %i	 actual sr: %i", optimalFramesPerBuffer, optimalSampleRate, sampleRate);
 	if (!g_audioState) {
 		g_audioState = AndroidAudio_Init(&NativeMix, framesPerBuffer, sampleRate);
 	} else {
@@ -891,10 +862,6 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_audioRecording_1Stop(JNIEnv *, 
 
 bool System_AudioRecordingIsAvailable() {
 	return true;
-}
-
-bool System_AudioRecordingState() {
-	return AndroidAudio_Recording_State(g_audioState);
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_resume(JNIEnv *, jclass) {
@@ -1025,7 +992,8 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		return true;
 	case SystemRequestType::INPUT_TEXT_MODAL:
 	{
-		std::string serialized = StringFromFormat("%d:@:%s:@:%s", requestId, param1.c_str(), param2.c_str());
+		// The flags go before the strings, so the free text comes last.
+		std::string serialized = StringFromFormat("%d:@:%d:@:%s:@:%s", requestId, param3 ? 1 : 0, param1.c_str(), param2.c_str());
 		PushCommand("inputbox", serialized);
 		return true;
 	}
@@ -1063,10 +1031,26 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		PushCommand("infrared_command", param1);
 		return true;
 	case SystemRequestType::MICROPHONE_COMMAND:
+		// From the CPU thread. Starting and stopping go through Java, which asks for permission.
+		if (param1 == "pollRecording") {
+			AndroidAudio_Recording_Poll();
+			return true;
+		} else if (param1 == "deviceChanged") {
+			// There's no device choice on Android.
+			return true;
+		}
+		if (startsWith(param1, "startRecording:")) {
+			// Whatever is left over is from before, maybe at another rate.
+			AndroidAudio_Recording_Clear();
+		}
 		PushCommand("microphone_command", param1);
 		return true;
 	case SystemRequestType::SHARE_TEXT:
 		PushCommand("share_text", param1);
+		return true;
+	case SystemRequestType::SHARE_FILE:
+		// The MIME type first, as a path could contain the separator.
+		PushCommand("share_file", param2 + ":@:" + param1);
 		return true;
 	case SystemRequestType::SET_KEEP_SCREEN_BRIGHT:
 		PushCommand("set_keep_screen_bright", param3 ? "on" : "off");
@@ -1081,7 +1065,8 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendRequestResult(JNIEnv *env, jclass, jint jrequestID, jboolean result, jstring jvalue, jint jintValue) {
 	std::string value = jvalue ? GetJavaString(env, jvalue) : "(no value)";
-	INFO_LOG(Log::System, "Received result of request %d from Java: %d: %d '%s'", jrequestID, (int)result, jintValue, value.c_str());
+	// Don't log the value, it can be a password.
+	INFO_LOG(Log::System, "Received result of request %d from Java: %d: %d (%d chars)", jrequestID, (int)result, jintValue, (int)value.size());
 	if (result) {
 		g_requestManager.PostSystemSuccess(jrequestID, value, jintValue);
 	} else {
@@ -1104,7 +1089,9 @@ PermissionStatus System_GetPermissionStatus(SystemPermission permission) {
 	if (androidVersion < 23) {
 		return PERMISSION_STATUS_GRANTED;
 	} else {
-		return permissions[permission];
+		std::lock_guard<std::mutex> guard(permissionsLock);
+		auto iter = permissions.find(permission);
+		return iter != permissions.end() ? iter->second : PERMISSION_STATUS_UNKNOWN;
 	}
 }
 
@@ -1303,28 +1290,28 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessageFromJava(JNI
 	} else if (msg == "permission_pending") {
 		if (prm == "storage") {
 			INFO_LOG(Log::System, "STORAGE PERMISSION: PENDING");
-			permissions[SYSTEM_PERMISSION_STORAGE] = PERMISSION_STATUS_PENDING;
+			SetPermissionStatus(SYSTEM_PERMISSION_STORAGE, PERMISSION_STATUS_PENDING);
 		} else if (prm == "local_network") {
 			INFO_LOG(Log::System, "LOCAL NETWORK PERMISSION: PENDING");
-			permissions[SYSTEM_PERMISSION_LOCAL_NETWORK] = PERMISSION_STATUS_PENDING;
+			SetPermissionStatus(SYSTEM_PERMISSION_LOCAL_NETWORK, PERMISSION_STATUS_PENDING);
 		}
 	} else if (msg == "permission_denied") {
 		if (prm == "storage") {
 			INFO_LOG(Log::System, "STORAGE PERMISSION: DENIED");
-			permissions[SYSTEM_PERMISSION_STORAGE] = PERMISSION_STATUS_DENIED;
+			SetPermissionStatus(SYSTEM_PERMISSION_STORAGE, PERMISSION_STATUS_DENIED);
 		} else if (prm == "local_network") {
 			INFO_LOG(Log::System, "LOCAL NETWORK PERMISSION: DENIED");
-			permissions[SYSTEM_PERMISSION_LOCAL_NETWORK] = PERMISSION_STATUS_DENIED;
+			SetPermissionStatus(SYSTEM_PERMISSION_LOCAL_NETWORK, PERMISSION_STATUS_DENIED);
 		} else {
 			WARN_LOG(Log::System, "UNKNOWN PERMISSION GRANTED: %s", prm.c_str());
 		}
 	} else if (msg == "permission_granted") {
 		if (prm == "storage") {
 			INFO_LOG(Log::System, "STORAGE PERMISSION: GRANTED");
-			permissions[SYSTEM_PERMISSION_STORAGE] = PERMISSION_STATUS_GRANTED;
+			SetPermissionStatus(SYSTEM_PERMISSION_STORAGE, PERMISSION_STATUS_GRANTED);
 		} else if (prm == "local_network") {
 			INFO_LOG(Log::System, "LOCAL NETWORK PERMISSION: GRANTED");
-			permissions[SYSTEM_PERMISSION_LOCAL_NETWORK] = PERMISSION_STATUS_GRANTED;
+			SetPermissionStatus(SYSTEM_PERMISSION_LOCAL_NETWORK, PERMISSION_STATUS_GRANTED);
 		} else {
 			WARN_LOG(Log::System, "UNKNOWN PERMISSION GRANTED: %s", prm.c_str());
 		}
@@ -1368,8 +1355,7 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessageFromJava(JNI
 		// file association, or raw arguments from the Args extra. We're already up and running, so any
 		// options in it are not applied. They still have to be parsed, to tell them (and their
 		// arguments) from the game to boot.
-		std::vector<std::string> parts;
-		parse_args(parts, prm);
+		std::vector<std::string> parts = SplitCommandLine(prm);
 		std::vector<const char *> args;
 		args.push_back("ppsspp");
 		for (const auto &part : parts) {
@@ -1559,10 +1545,14 @@ static void ProcessFrameCommands() {
 	if (!frameCommands.empty()) {
 		INFO_LOG(Log::System, "Processing %zu frame commands", frameCommands.size());
 		for (const FrameCommand &frameCmd : frameCommands) {
-			DEBUG_LOG(Log::System, "frameCommand '%s' '%s'", frameCmd.command.c_str(), frameCmd.params.c_str());
+			// Not logging the params, an inputbox one can contain a password.
+			DEBUG_LOG(Log::System, "frameCommand '%s'", frameCmd.command.c_str());
 
+			// The params can contain any text, like a title the game gave its OSK.
+			std::string params;
+			ConvertUTF8ToJavaModifiedUTF8(&params, frameCmd.params);
 			jstring cmd = env->NewStringUTF(frameCmd.command.c_str());
-			jstring param = env->NewStringUTF(frameCmd.params.c_str());
+			jstring param = env->NewStringUTF(params.c_str());
 			env->CallVoidMethod(activity, postCommand, cmd, param);
 			env->DeleteLocalRef(cmd);
 			env->DeleteLocalRef(param);
