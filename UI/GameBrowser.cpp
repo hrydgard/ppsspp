@@ -742,9 +742,19 @@ GameBrowser::GameBrowser(int token, const Path &path, BrowseFlags browseFlags, b
 }
 
 void GameBrowser::FocusGame(const Path &gamePath) {
+	// If the button's still there, just focus it. That keeps the search results and scroll position.
+	if (gameList_) {
+		for (int i = 0; i < gameList_->GetNumSubviews(); i++) {
+			GameButton *button = dynamic_cast<GameButton *>(gameList_->GetViewByIndex(i));
+			if (button && button->GamePath() == gamePath && button->GetVisibility() == UI::V_VISIBLE) {
+				button->SetFocus(UI::FocusFlags::CAUSE_RESTORE);
+				return;
+			}
+		}
+	}
+	// Otherwise, Refresh focuses it when it recreates the buttons.
 	focusGamePath_ = gamePath;
 	refreshPending_ = true;
-	focusGamePath_.clear();
 }
 
 void GameBrowser::SetPath(const Path &path) {
@@ -1143,6 +1153,7 @@ void GameBrowser::Refresh() {
 			b->SetFocus(FocusFlags::CAUSE_RESTORE);
 		}
 	}
+	focusGamePath_.clear();
 
 	// Show a button to toggle pinning at the very end.
 	if ((browseFlags_ & BrowseFlags::PIN) && !path_.GetPath().empty()) {
@@ -1162,6 +1173,11 @@ void GameBrowser::Refresh() {
 	if (!lastText_.empty()) {
 		Add(new Spacer());
 		Add(new Choice(lastText_, ImageID("I_LINK_OUT"), new UI::LinearLayoutParams(UI::WRAP_CONTENT, UI::WRAP_CONTENT, Margins(10, 0, 0, 10))))->OnClick.Handle(this, &GameBrowser::LastClick);
+	}
+
+	// The new buttons are all visible, so filter them again if a search is active.
+	if (!search_.searchFilter.empty()) {
+		search_.ApplySearchFilter(gameList_, false);
 	}
 }
 
