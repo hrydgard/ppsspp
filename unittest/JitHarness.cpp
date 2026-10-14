@@ -24,6 +24,7 @@
 
 #include "ppsspp_config.h"
 
+#include "Common/CPUDetect.h"
 #include "Common/System/NativeApp.h"
 #include "Common/System/System.h"
 #include "Common/TimeUtil.h"
@@ -457,6 +458,11 @@ bool TestJitReplacementHooks() {
 //   PPSSPP_CPUFUZZ_CODE_SEED  apply PPSSPP_CPUFUZZ_CODE to this seed only.
 //   PPSSPP_CPUFUZZ_SKIP     cores not to run, by digit: 1 IR interpreter, 2 JIT, 3 JIT IR.
 //   PPSSPP_CPUFUZZ_REPORTS  how many differences to minimize and print (default 20).
+//   PPSSPP_CPUFUZZ_HOSTEXT  + or -: turn the host's optional extensions on or off for the JIT
+//                           (RISC-V Zba/Zbb/Zbs/Zcb/Zfa/Zfh/Zicond, LoongArch LSX/LASX).
+//   PPSSPP_CPUFUZZ_UNKNOWNPREFIX  compile as after a block left a prefix uneaten. The first case
+//                           that leaves one does this for the rest of the run, so this reproduces
+//                           a later case on its own.
 //   PPSSPP_CPUFUZZ_STRICT   fail the test on any difference, not only on a crash.
 //   PPSSPP_CPUFUZZ_ACCURATE_VDOT  0 to run without AccurateVdot (the VFPU's own dot products), which is on by default.
 //   PPSSPP_CPUFUZZ_OPS      comma-separated instruction name prefixes to generate only, for fast
@@ -1022,11 +1028,24 @@ static const char *CoreName(CPUCore core) {
 	}
 }
 
+static bool g_fuzzUnknownPrefix = false;
+
+// With PPSSPP_CPUFUZZ_UNKNOWNPREFIX, a block first leaves a prefix uneaten, after which the IR
+// frontend stops assuming that blocks start with the default prefixes (startDefaultPrefix).
+static void SwitchFuzzCore(CPUCore core) {
+	mipsr4k.UpdateCore(core);
+	if (g_fuzzUnknownPrefix && core != CPUCore::INTERPRETER) {
+		FuzzState init{}, out;
+		// vpfxd with lane 0 saturated, then the terminator.
+		RunFuzzCase({ 0xDE000001 }, init, &out);
+	}
+}
+
 static bool CoreMismatches(CPUCore core, const std::vector<u32> &code, const FuzzState &init) {
 	FuzzState ref, other;
 	mipsr4k.UpdateCore(CPUCore::INTERPRETER);
 	RunFuzzCase(code, init, &ref);
-	mipsr4k.UpdateCore(core);
+	SwitchFuzzCore(core);
 	RunFuzzCase(code, init, &other);
 	return DiffFuzzStates(ref, other, nullptr) != 0;
 }
@@ -1075,6 +1094,7 @@ bool TestCPUEquivalence() {
 	const char *classes = getenv("PPSSPP_CPUFUZZ_CLASSES");
 	const bool verbose = getenv("PPSSPP_CPUFUZZ_VERBOSE") != nullptr;
 	const char *skipCores = getenv("PPSSPP_CPUFUZZ_SKIP");
+	g_fuzzUnknownPrefix = getenv("PPSSPP_CPUFUZZ_UNKNOWNPREFIX") != nullptr;
 	const int count = countStr ? atoi(countStr) : 2000;
 	const u64 firstSeed = seedStr ? strtoull(seedStr, nullptr, 10) : 1;
 	g_fuzzOps.clear();
@@ -1115,6 +1135,29 @@ bool TestCPUEquivalence() {
 		}
 	}
 
+	// Host extensions the JIT may use: + turns on the ones detection can't see (RISC-V only reports
+	// them for a few known SoCs), - turns them off to test the fallbacks.
+	const char *ext = getenv("PPSSPP_CPUFUZZ_HOSTEXT");
+	if (ext && (ext[0] == '+' || ext[0] == '-')) {
+		const bool on = ext[0] == '+';
+#if PPSSPP_ARCH(RISCV64)
+		cpu_info.RiscV_Zba = on;
+		cpu_info.RiscV_Zbb = on;
+		cpu_info.RiscV_Zbs = on;
+		cpu_info.RiscV_Zcb = on;
+		cpu_info.RiscV_Zfa = on;
+		cpu_info.RiscV_Zfh = on;
+		cpu_info.RiscV_Zfhmin = on;
+		cpu_info.RiscV_Zicond = on;
+#elif PPSSPP_ARCH(LOONGARCH64)
+		if (!on) {
+			cpu_info.LOONGARCH_LSX = false;
+			cpu_info.LOONGARCH_LASX = false;
+		}
+#endif
+		(void)on;
+	}
+
 	static const CPUCore cores[] = {
 		CPUCore::INTERPRETER,
 		CPUCore::IR_INTERPRETER,
@@ -1130,7 +1173,7 @@ bool TestCPUEquivalence() {
 			}
 			continue;
 		}
-		mipsr4k.UpdateCore(cores[c]);
+		SwitchFuzzCore(cores[c]);
 		for (int i = 0; i < count; ++i) {
 			FuzzCase fc = GenerateFuzzCase(firstSeed + i, classes, overrideFor(firstSeed + i));
 			if (verbose) {
@@ -1178,7 +1221,7 @@ bool TestCPUEquivalence() {
 			FuzzState a, b;
 			mipsr4k.UpdateCore(CPUCore::INTERPRETER);
 			RunFuzzCase(code, fc.init, &a);
-			mipsr4k.UpdateCore(cores[c]);
+			SwitchFuzzCore(cores[c]);
 			RunFuzzCase(code, fc.init, &b);
 			std::string diff;
 			DiffFuzzStates(a, b, &diff);
