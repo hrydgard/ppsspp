@@ -758,7 +758,7 @@ public:
 	int NextValidBackend();
 	bool IsBackendEnabled(GPUBackend backend);
 
-	bool LoadAppendedConfig();
+	bool LoadAppendedConfig(bool save = true);
 	void SetAppendedConfigIni(const Path &path) { appendedConfigFileName_ = path; }
 	void UpdateAfterSettingAutoFrameSkip();
 	void NotifyUpdatedCpuCore();
