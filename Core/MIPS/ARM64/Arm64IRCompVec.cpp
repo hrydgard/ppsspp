@@ -24,6 +24,7 @@
 #include "Core/MemMap.h"
 #include "Core/MIPS/ARM64/Arm64IRJit.h"
 #include "Core/MIPS/ARM64/Arm64IRRegCache.h"
+#include "Core/MIPS/ARM64/Arm64VfpuDot.h"
 
 // This file contains compilation for vector instructions.
 //
@@ -600,14 +601,20 @@ void Arm64JitBackend::CompIR_VecHoriz(IRInst inst) {
 		break;
 
 	case IROp::Vec4VfpuDot:
-		// Through memory and the shared routine, which preserves every register but x30.
+	{
+		// The operands go to the shared routine in q0 and q1, and the result comes back in w1. The
+		// routine clobbers q4-q6 and x0-x3 too, so whatever guest state is there gets flushed: these
+		// come late in the allocation order, so usually that's nothing.
 		regs_.SpillLockFPR(inst.src1, inst.src2);
 		regs_.MapVec4(inst.src1);
 		regs_.MapVec4(inst.src2);
-		fp_.STR(128, INDEX_UNSIGNED, regs_.FQ(inst.src1), CTXREG, offsetof(MIPSState, vfpuDotArgs));
-		fp_.STR(128, INDEX_UNSIGNED, regs_.FQ(inst.src2), CTXREG, offsetof(MIPSState, vfpuDotArgs) + 16);
+		fp_.MOV(Q0, regs_.FQ(inst.src1));
+		fp_.MOV(Q1, regs_.FQ(inst.src2));
+		regs_.ReleaseSpillLockFPR(inst.src1, inst.src2);
+		regs_.FlushHostRegs({ Q4, Q5, Q6, W0, W1, W2, W3 });
 		BL(vfpuDot_);
-		fp_.LDR(32, INDEX_UNSIGNED, SCRATCHF1, CTXREG, offsetof(MIPSState, vfpuDotResult));
+		fp_.FMOV(SCRATCHF1, W1);
+
 		if (Overlap(inst.dest, 1, inst.src1, 4) || Overlap(inst.dest, 1, inst.src2, 4)) {
 			// The dest lane is in a mapped Vec4.
 			regs_.MapVec4(inst.dest & ~3, MIPSMap::DIRTY);
@@ -616,8 +623,8 @@ void Arm64JitBackend::CompIR_VecHoriz(IRInst inst) {
 			regs_.MapFPR(inst.dest, MIPSMap::NOINIT);
 			fp_.FMOV(regs_.F(inst.dest), SCRATCHF1);
 		}
-		regs_.ReleaseSpillLockFPR(inst.src1, inst.src2);
 		break;
+	}
 
 	default:
 		INVALIDOP;

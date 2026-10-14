@@ -265,7 +265,8 @@ void Arm64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 		RET();
 	}
 
-	vfpuDot_ = GenerateArm64VfpuDot(this, &fp_, CTXREG);
+	vfpuDotSpecial_ = GenerateArm64VfpuDotSpecial(this, &fp_, CTXREG);
+	vfpuDot_ = GenerateArm64VfpuDotCall(this, &fp_, CTXREG, vfpuDotSpecial_);
 
 	// Leave this at the end, add more stuff above.
 	if (enableDisasm) {

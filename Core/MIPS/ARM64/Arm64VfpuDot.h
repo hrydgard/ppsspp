@@ -26,142 +26,167 @@
 
 namespace MIPSComp {
 
-// Generates the VFPU dot product routine the ARM64 JITs call with BL: vfpu_dot() of the two Vec4s
-// in mips->vfpuDotArgs, written to mips->vfpuDotResult. ctx holds the MIPSState pointer. It's
-// vfpu_dot_neon(), scheduled after what clang makes of it, and leaves inf and NaN to
-// vfpu_dot_reference(). It clobbers q0-q3, x16, x17, x30 and the flags, which both ARM64 JITs keep
-// free of guest state, and preserves everything else.
-inline const u8 *GenerateArm64VfpuDot(Arm64Gen::ARM64XEmitter *e, Arm64Gen::ARM64FloatEmitter *fp, Arm64Gen::ARM64Reg ctx) {
+// The registers EmitArm64VfpuDot() works in. x and y are only read. q are seven vector temps and w
+// six GPR temps, none of them x or y, except that q[0] and q[1] may be x and y themselves.
+struct Arm64VfpuDotRegs {
+	Arm64Gen::ARM64Reg x;
+	Arm64Gen::ARM64Reg y;
+	Arm64Gen::ARM64Reg q[7];
+	Arm64Gen::ARM64Reg w[6];
+};
+
+// Emits vfpu_dot() of the Vec4s x and y: vfpu_dot_neon(), scheduled after what clang makes of it.
+// The result ends up in w[3]. Inf and NaN aren't handled: the returned branch is taken for them,
+// and the caller sends those to GenerateArm64VfpuDotSpecial()'s routine. Clobbers the flags.
+inline Arm64Gen::FixupBranch EmitArm64VfpuDot(Arm64Gen::ARM64XEmitter *e, Arm64Gen::ARM64FloatEmitter *fp, const Arm64VfpuDotRegs &r) {
+	using namespace Arm64Gen;
+	const ARM64Reg x = EncodeRegToQuad(r.x);
+	const ARM64Reg y = EncodeRegToQuad(r.y);
+	ARM64Reg q[7];
+	for (int i = 0; i < 7; i++)
+		q[i] = EncodeRegToQuad(r.q[i]);
+	const ARM64Reg emax = DecodeReg(r.w[0]);
+	const ARM64Reg sum = DecodeReg(r.w[1]);
+	const ARM64Reg sign = DecodeReg(r.w[2]);
+	const ARM64Reg m = DecodeReg(r.w[3]);
+	const ARM64Reg t2 = DecodeReg(r.w[4]);
+	const ARM64Reg t3 = DecodeReg(r.w[5]);
+
+	// Exponents: a zero or denormal operand makes the product zero, and inf or NaN gets 0x7FF
+	// added, above any real exponent sum, so one maximum finds the alignment and the specials
+	// (q3 = e, q5 = normal).
+	e->MOVI2R(emax, 0x7F800000);
+	fp->DUP(32, q[2], emax);
+	fp->AND(q[3], x, q[2]);
+	fp->AND(q[4], y, q[2]);
+	fp->CMTST(32, q[5], x, q[2]);
+	fp->CMEQ(32, q[6], q[4]);
+	fp->BIC(q[5], q[5], q[6]);
+	fp->UMAX(32, q[6], q[3], q[4]);
+	fp->CMEQ(32, q[6], q[6], q[2]);
+	fp->ADD(32, q[3], q[3], q[4]);
+	fp->USHR(32, q[3], q[3], 23);
+	fp->AND(q[3], q[3], q[5]);
+	fp->MOVI(32, q[2], 0x07, 8, true);  // 0x7FF
+	fp->AND(q[6], q[6], q[2]);
+	fp->ADD(32, q[3], q[3], q[6]);
+	fp->UMAXP(32, q[2], q[3], q[3]);
+	fp->UMAXP(32, q[2], q[2], q[2]);
+	fp->UMOV(32, emax, q[2], 0);
+	e->CMPI2R(emax, 0x7FF);
+	FixupBranch special = e->B(CC_HS);
+
+	// q4 = the signs. 24x24-bit products, kept to 2 extra bits with round-to-odd (q1 = p).
+	fp->EOR(q[4], x, y);
+	fp->SSHR(32, q[4], q[4], 31);
+	fp->MOVI(32, q[6], 0x7F, 16, true);  // 0x7FFFFF
+	fp->AND(q[0], x, q[6]);
+	fp->ORR(32, q[0], 0x80, 16);
+	fp->AND(q[1], y, q[6]);
+	fp->ORR(32, q[1], 0x80, 16);
+	fp->UMULL(32, q[6], EncodeRegToDouble(q[0]), EncodeRegToDouble(q[1]));
+	fp->UMULL2(32, q[0], q[0], q[1]);
+	fp->SHRN(32, EncodeRegToDouble(q[1]), q[6], 21);
+	fp->SHRN2(32, q[1], q[0], 21);
+	fp->UZP1(32, q[6], q[6], q[0]);
+	fp->MOVI(32, q[0], 0x1F, 16, true);  // (1 << 21) - 1
+	fp->AND(q[6], q[6], q[0]);
+	fp->MOVI(32, q[0], 1);
+	fp->UMIN(32, q[6], q[6], q[0]);
+	fp->ORR(q[1], q[1], q[6]);
+	fp->AND(q[1], q[1], q[5]);
+
+	// Align to the largest exponent by truncation, apply the signs, and sum exactly.
+	fp->DUP(32, q[2], q[2], 0);
+	fp->SUB(32, q[3], q[3], q[2]);
+	fp->MVNI(32, q[2], 27);  // -28
+	fp->SMAX(32, q[3], q[3], q[2]);
+	fp->USHL(32, q[1], q[1], q[3]);
+	fp->EOR(q[1], q[1], q[4]);
+	fp->SUB(32, q[1], q[1], q[4]);
+	fp->ADDV(32, EncodeRegToSingle(q[1]), q[1]);
+	fp->UMOV(32, sum, q[1], 0);
+
+	// vfpu_dot_finish(): emax = the largest exponent sum, sum = the sum.
+	e->ANDI2R(sign, sum, 0x80000000);
+	e->CMPI2R(sum, 0);
+	e->CSNEG(sum, sum, sum, CC_GE);
+	e->LSR(m, sum, 2);
+	e->ORRI2R(t2, m, 1);
+	e->CLZ(t2, t2);
+	e->ADDI2R(t3, t2, 31);
+	e->LSLV(EncodeRegTo64(m), EncodeRegTo64(m), EncodeRegTo64(t3));
+	e->UBFX(EncodeRegTo64(t3), EncodeRegTo64(m), 39, 1);
+	e->ADD(EncodeRegTo64(m), EncodeRegTo64(m), EncodeRegTo64(t3));
+	e->MOVI2R(EncodeRegTo64(t3), (1ULL << 38) - 1);
+	e->ADD(EncodeRegTo64(m), EncodeRegTo64(m), EncodeRegTo64(t3));
+	e->LSR(EncodeRegTo64(m), EncodeRegTo64(m), 39);
+	e->SUB(emax, emax, t2);
+	e->SUBI2R(emax, emax, 120);
+	e->SXTW(EncodeRegTo64(emax), emax);
+	e->ADD(EncodeRegTo64(emax), EncodeRegTo64(m), EncodeRegTo64(emax), ArithOption(EncodeRegTo64(emax), ST_LSL, 23));
+	e->MOVI2R(m, 0x7F7FFFFF);
+	e->CMP(EncodeRegTo64(emax), EncodeRegTo64(m));
+	e->MOVI2R(m, 0x7F800000);
+	e->CSEL(m, m, emax, CC_GT);
+	// Zero if the result is below the smallest normal, or the sum (still scaled by 4) is.
+	e->MOVI2R(t2, 0x00800000);
+	e->CMP(EncodeRegTo64(emax), EncodeRegTo64(t2));
+	e->CCMP(sum, 4, 0, CC_GE);
+	e->CSEL(m, WZR, m, CC_LO);
+	e->ORR(m, m, sign);
+	return special;
+}
+
+// Generates the routine for the inf and NaN dot products: vfpu_dot_reference() of the two Vec4s in
+// mips->vfpuDotArgs, written to mips->vfpuDotResult. ctx holds the MIPSState pointer. It clobbers
+// q0-q3, x16, x17, x30 and the flags, which the IR JIT keeps free of guest state, and preserves
+// everything else.
+inline const u8 *GenerateArm64VfpuDotSpecial(Arm64Gen::ARM64XEmitter *e, Arm64Gen::ARM64FloatEmitter *fp, Arm64Gen::ARM64Reg ctx) {
 	using namespace Arm64Gen;
 	const s32 args = (s32)offsetof(MIPSState, vfpuDotArgs);
 	const s32 result = (s32)offsetof(MIPSState, vfpuDotResult);
 
 	const u8 *start = e->AlignCode16();
-	fp->STP(128, INDEX_PRE, Q4, Q5, SP, -32);
-	fp->STP(128, INDEX_PRE, Q6, Q7, SP, -32);
-	e->STP(INDEX_PRE, X0, X1, SP, -16);
-	e->STP(INDEX_PRE, X2, X3, SP, -16);
-
-	// q0 = x, q1 = y. Exponents: a zero or denormal operand makes the product zero, and inf or NaN
-	// gets 0x7FF added, above any real exponent sum, so one maximum finds the alignment and the
-	// specials (q3 = e, q5 = normal).
-	fp->LDR(128, INDEX_UNSIGNED, Q0, ctx, args);
-	fp->LDR(128, INDEX_UNSIGNED, Q1, ctx, args + 16);
-	e->MOVI2R(W16, 0x7F800000);
-	fp->DUP(32, Q2, W16);
-	fp->AND(Q3, Q0, Q2);
-	fp->AND(Q4, Q1, Q2);
-	fp->CMTST(32, Q5, Q0, Q2);
-	fp->CMEQ(32, Q6, Q4);
-	fp->BIC(Q5, Q5, Q6);
-	fp->UMAX(32, Q6, Q3, Q4);
-	fp->CMEQ(32, Q6, Q6, Q2);
-	fp->ADD(32, Q3, Q3, Q4);
-	fp->USHR(32, Q3, Q3, 23);
-	fp->AND(Q3, Q3, Q5);
-	fp->MOVI(32, Q2, 0x07, 8, true);  // 0x7FF
-	fp->AND(Q6, Q6, Q2);
-	fp->ADD(32, Q3, Q3, Q6);
-	fp->UMAXP(32, Q2, Q3, Q3);
-	fp->UMAXP(32, Q2, Q2, Q2);
-	fp->UMOV(32, W16, Q2, 0);
-	e->CMPI2R(W16, 0x7FF);
-	FixupBranch special = e->B(CC_HS);
-
-	// q4 = the signs. 24x24-bit products, kept to 2 extra bits with round-to-odd (q1 = p).
-	fp->EOR(Q4, Q0, Q1);
-	fp->SSHR(32, Q4, Q4, 31);
-	fp->MOVI(32, Q6, 0x7F, 16, true);  // 0x7FFFFF
-	fp->AND(Q0, Q0, Q6);
-	fp->ORR(32, Q0, 0x80, 16);
-	fp->AND(Q1, Q1, Q6);
-	fp->ORR(32, Q1, 0x80, 16);
-	fp->UMULL(32, Q6, D0, D1);
-	fp->UMULL2(32, Q0, Q0, Q1);
-	fp->SHRN(32, D1, Q6, 21);
-	fp->SHRN2(32, Q1, Q0, 21);
-	fp->UZP1(32, Q6, Q6, Q0);
-	fp->MOVI(32, Q0, 0x1F, 16, true);  // (1 << 21) - 1
-	fp->AND(Q6, Q6, Q0);
-	fp->MOVI(32, Q0, 1);
-	fp->UMIN(32, Q6, Q6, Q0);
-	fp->ORR(Q1, Q1, Q6);
-	fp->AND(Q1, Q1, Q5);
-
-	// Align to the largest exponent by truncation, apply the signs, and sum exactly.
-	fp->DUP(32, Q2, Q2, 0);
-	fp->SUB(32, Q3, Q3, Q2);
-	fp->MVNI(32, Q2, 27);  // -28
-	fp->SMAX(32, Q3, Q3, Q2);
-	fp->USHL(32, Q1, Q1, Q3);
-	fp->EOR(Q1, Q1, Q4);
-	fp->SUB(32, Q1, Q1, Q4);
-	fp->ADDV(32, S1, Q1);
-	fp->UMOV(32, W17, Q1, 0);
-
-	// vfpu_dot_finish(): w16 = the largest exponent sum, w17 = the sum.
-	e->ANDI2R(W0, W17, 0x80000000);
-	e->CMPI2R(W17, 0);
-	e->CSNEG(W17, W17, W17, CC_GE);
-	e->LSR(W1, W17, 2);
-	e->ORRI2R(W2, W1, 1);
-	e->CLZ(W2, W2);
-	e->ADDI2R(W3, W2, 31);
-	e->LSLV(X1, X1, X3);
-	e->UBFX(X3, X1, 39, 1);
-	e->ADD(X1, X1, X3);
-	e->MOVI2R(X3, (1ULL << 38) - 1);
-	e->ADD(X1, X1, X3);
-	e->LSR(X1, X1, 39);
-	e->SUB(W16, W16, W2);
-	e->SUBI2R(W16, W16, 120);
-	e->SXTW(X16, W16);
-	e->ADD(X16, X1, X16, ArithOption(X16, ST_LSL, 23));
-	e->MOVI2R(W1, 0x7F7FFFFF);
-	e->CMP(X16, X1);
-	e->MOVI2R(W1, 0x7F800000);
-	e->CSEL(W1, W1, W16, CC_GT);
-	// Zero if the result is below the smallest normal, or the sum (in w17, still scaled by 4) is.
-	e->MOVI2R(W2, 0x00800000);
-	e->CMP(X16, X2);
-	e->CCMP(W17, 4, 0, CC_GE);
-	e->CSEL(W1, WZR, W1, CC_LO);
-	e->ORR(W1, W1, W0);
-	e->STR(INDEX_UNSIGNED, W1, ctx, result);
-
-	const u8 *epilogue = e->GetCodePointer();
-	e->LDP(INDEX_POST, X2, X3, SP, 16);
-	e->LDP(INDEX_POST, X0, X1, SP, 16);
-	fp->LDP(128, INDEX_POST, Q6, Q7, SP, 32);
-	fp->LDP(128, INDEX_POST, Q4, Q5, SP, 32);
-	e->RET();
-
-	// Inf or NaN: the C version, with everything a call may clobber saved too.
-	e->SetJumpTarget(special);
-	e->STP(INDEX_PRE, X4, X5, SP, -16);
-	e->STP(INDEX_PRE, X6, X7, SP, -16);
-	e->STP(INDEX_PRE, X8, X9, SP, -16);
-	e->STP(INDEX_PRE, X10, X11, SP, -16);
-	e->STP(INDEX_PRE, X12, X13, SP, -16);
-	e->STP(INDEX_PRE, X14, X15, SP, -16);
+	for (int i = 0; i < 16; i += 2)
+		e->STP(INDEX_PRE, (ARM64Reg)(X0 + i), (ARM64Reg)(X0 + i + 1), SP, -16);
 	e->STP(INDEX_PRE, X18, X30, SP, -16);
-	for (int i = 8; i < 32; i += 2)
+	for (int i = 4; i < 32; i += 2)
 		fp->STP(128, INDEX_PRE, (ARM64Reg)(Q0 + i), (ARM64Reg)(Q0 + i + 1), SP, -32);
 	e->ADDI2R(X0, ctx, args);
 	e->ADDI2R(X1, ctx, args + 16);
 	e->MOVP2R(X16, &vfpu_dot_reference);
 	e->BLR(X16);
 	fp->STR(32, INDEX_UNSIGNED, S0, ctx, result);
-	for (int i = 30; i >= 8; i -= 2)
+	for (int i = 30; i >= 4; i -= 2)
 		fp->LDP(128, INDEX_POST, (ARM64Reg)(Q0 + i), (ARM64Reg)(Q0 + i + 1), SP, 32);
 	e->LDP(INDEX_POST, X18, X30, SP, 16);
-	e->LDP(INDEX_POST, X14, X15, SP, 16);
-	e->LDP(INDEX_POST, X12, X13, SP, 16);
-	e->LDP(INDEX_POST, X10, X11, SP, 16);
-	e->LDP(INDEX_POST, X8, X9, SP, 16);
-	e->LDP(INDEX_POST, X6, X7, SP, 16);
-	e->LDP(INDEX_POST, X4, X5, SP, 16);
-	e->B(epilogue);
+	for (int i = 14; i >= 0; i -= 2)
+		e->LDP(INDEX_POST, (ARM64Reg)(X0 + i), (ARM64Reg)(X0 + i + 1), SP, 16);
+	e->RET();
+	return start;
+}
+
+// Generates the VFPU dot product routine the IR JIT calls with BL: vfpu_dot() of q0 and q1, into w1,
+// with special (from GenerateArm64VfpuDotSpecial()) for inf and NaN. It clobbers q0-q6, x0-x3, x16,
+// x17, x30 and the flags, and saves nothing: the call site flushes whatever of those holds guest
+// state, which in most blocks is nothing.
+inline const u8 *GenerateArm64VfpuDotCall(Arm64Gen::ARM64XEmitter *e, Arm64Gen::ARM64FloatEmitter *fp, Arm64Gen::ARM64Reg ctx, const u8 *special) {
+	using namespace Arm64Gen;
+	const u8 *start = e->AlignCode16();
+	const Arm64VfpuDotRegs regs{ Q0, Q1, { Q0, Q1, Q2, Q3, Q4, Q5, Q6 }, { W16, W17, W0, W1, W2, W3 } };
+	FixupBranch specialBranch = EmitArm64VfpuDot(e, fp, regs);
+	e->RET();
+
+	// The operands are still in q0 and q1.
+	e->SetJumpTarget(specialBranch);
+	e->ADDI2R(X16, ctx, offsetof(MIPSState, vfpuDotArgs));
+	fp->STP(128, INDEX_SIGNED, Q0, Q1, X16, 0);
+	e->STR(INDEX_PRE, X30, SP, -16);
+	e->BL(special);
+	e->LDR(INDEX_POST, X30, SP, 16);
+	e->LDR(INDEX_UNSIGNED, W1, ctx, offsetof(MIPSState, vfpuDotResult));
+	e->RET();
 	return start;
 }
 
