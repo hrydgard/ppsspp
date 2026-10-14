@@ -1311,6 +1311,7 @@ file(GLOB UIImages CONFIGURE_DEPENDS
 
 if(HEADLESS)
 	set(HeadlessSource
+		headless/AndroidHeadlessGLContext.h
 		headless/Headless.cpp
 		headless/Compare.cpp
 		headless/Compare.h
@@ -1376,6 +1377,7 @@ endif()
 if(UNITTEST)
 	add_executable(PPSSPPUnitTest
 		unittest/UnitTest.cpp
+		unittest/UnitTest.h
 		unittest/TestShaderGenerators.cpp
 		unittest/TestArmEmitter.cpp
 		unittest/TestArm64Emitter.cpp
@@ -1385,6 +1387,7 @@ if(UNITTEST)
 		unittest/TestIRPassSimplify.cpp
 		unittest/TestX64Emitter.cpp
 		unittest/TestVertexJit.cpp
+		unittest/TestVertexJit.h
 		unittest/TestVFS.cpp
 		unittest/TestZipSlip.cpp
 		unittest/TestLzrc.cpp
@@ -1397,6 +1400,7 @@ if(UNITTEST)
 		unittest/TestLoongArch64Emitter.cpp
 		unittest/TestThreadManager.cpp
 		unittest/JitHarness.cpp
+		unittest/JitHarness.h
 	)
 	if(APPLE)
 		target_sources(PPSSPPUnitTest PRIVATE

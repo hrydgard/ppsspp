@@ -366,6 +366,7 @@ add_library(Core STATIC
 	FileSystems/VirtualDiscFileSystem.h
 	Font/PGF.cpp
 	Font/PGF.h
+	HLE/ErrorCodes.h
 	HLE/FunctionWrappers.h
 	HLE/HLE.cpp
 	HLE/HLE.h
@@ -376,6 +377,7 @@ add_library(Core STATIC
 	HLE/HLEHelperThread.h
 	HLE/HLETables.cpp
 	HLE/HLETables.h
+	HLE/KernelThreadDebugInterface.h
 	HLE/KernelWaitHelpers.h
 	HLE/PSPThreadContext.h
 	HLE/KUBridge.h
@@ -639,6 +641,7 @@ add_library(Core STATIC
 	MemMap.h
 	MemMapFunctions.cpp
 	MemMapHelpers.h
+	Opcode.h
 	PSPLoaders.cpp
 	PSPLoaders.h
 	Reporting.cpp
@@ -653,6 +656,7 @@ add_library(Core STATIC
 	Screenshot.h
 	System.cpp
 	System.h
+	x360_compat.h
 	Util/AtracTrack.cpp
 	Util/AtracTrack.h
 	Util/AudioFormat.cpp

@@ -113,6 +113,7 @@ set(GPU_SOURCES
 	Common/StencilCommon.cpp
 	Common/StencilCommon.h
 	Common/SoftwareTransformCommon.cpp
+	Common/SoftwareLighting.h
 	Common/SoftwareTransformCommon.h
 	Common/VertexDecoderCommon.cpp
 	Common/VertexDecoderCommon.h
