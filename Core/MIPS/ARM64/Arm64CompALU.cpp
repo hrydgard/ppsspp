@@ -454,12 +454,16 @@ void Arm64Jit::Comp_Special3(MIPSOpcode op) {
 		}
 
 		gpr.MapDirtyIn(rt, rs);
-		UBFX(gpr.R(rt), gpr.R(rs), pos, size);
+		// pos + size can go past 32 (the field then just ends at bit 31), which UBFX can't encode.
+		UBFX(gpr.R(rt), gpr.R(rs), pos, std::min(size, 32 - pos));
 		break;
 
 	case 0x4: //ins
 		{
 			const u32 sourcemask = mask >> pos;
+			// With msb below pos there's nothing to insert, and no BFI for it.
+			if (sourcemask == 0)
+				return;
 			if (gpr.IsImm(rs)) {
 				const u32 inserted = (gpr.GetImm(rs) & sourcemask) << pos;
 				if (gpr.IsImm(rt)) {
@@ -574,6 +578,9 @@ void Arm64Jit::Comp_MulDivType(MIPSOpcode op) {
 
 	switch (op & 63) {
 	case 16: // R(rd) = HI; //mfhi
+		if (rd == MIPS_REG_ZERO) {
+			break;
+		}
 		// LO and HI are in the same reg.
 		if (gpr.IsImm(MIPS_REG_LO)) {
 			gpr.SetImm(rd, gpr.GetImm(MIPS_REG_LO) >> 32);
@@ -593,6 +600,9 @@ void Arm64Jit::Comp_MulDivType(MIPSOpcode op) {
 		break;
 
 	case 18: // R(rd) = LO; break; //mflo
+		if (rd == MIPS_REG_ZERO) {
+			break;
+		}
 		if (gpr.IsImm(MIPS_REG_LO)) {
 			gpr.SetImm(rd, gpr.GetImm(MIPS_REG_LO) & 0xFFFFFFFFULL);
 			break;

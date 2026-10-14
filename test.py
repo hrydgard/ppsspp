@@ -578,6 +578,12 @@ tests_next = [
   "cpu/vfpu/prefixes",
   "cpu/vfpu/vector",
   "cpu/vfpu/vregs",
+  "cpu/cpu_alu/shift_encodings",  # see docs/cpu-equivalence.md for these six
+  "cpu/fpu/denormal",
+  "cpu/vfpu/fcr31",
+  "cpu/vfpu/signed_zero",
+  "cpu/vfpu/nan_gen",
+  "cpu/vfpu/undefined",
   "audio/sceaudio/output",
   "audio/sascore/setadsr",
   "audio/mp3/init",

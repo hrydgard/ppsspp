@@ -34,6 +34,7 @@
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
+#include "Core/MIPS/InterpreterVFPU.h"
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/Debugger/DebugInterface.h"
 #include "Core/HLE/ReplaceTables.h"
@@ -791,7 +792,20 @@ namespace MIPSAnalyst {
 		bool canClobber = true;
 		while (addr < end) {
 			const MIPSOpcode op = Memory::Read_Instruction(addr);
-			const MIPSInfo info = MIPSGetInfo(op);
+			MIPSInfo info = MIPSGetInfo(op);
+			// Only control register 31 holds the FPU condition, so cfc1/ctc1 of the others don't touch it.
+			if ((op & 0xFF600000) == 0x44400000 && ((op >> 11) & 0x1F) != 31)
+				info.value &= ~(u64)(IN_FPUFLAG | OUT_FPUFLAG);
+			if (info & OUT_VFPU_CC) {
+				// Only a write to the CC register replaces it.
+				if ((op & 0xFFE00000) == 0x48E00000 && (op & 0xFF) != 128 + VFPU_CTRL_CC)  // mtv/mtvc
+					info.value &= ~(u64)OUT_VFPU_CC;
+				else if (MIPSGetInterpretFunc(op) == &MIPSInt::Int_Vmtvc && (op & 0x7F) != VFPU_CTRL_CC)
+					info.value &= ~(u64)OUT_VFPU_CC;
+				// vcmp below .q keeps the bits of the lanes it doesn't compare.
+				else if ((op & 0xFF800000) == 0x6C000000 && GetVecSize(op) != V_Quad)
+					info.value |= IN_VFPU_CC;
+			}
 
 			// Yes, used.
 			if (info & inFlag)
@@ -840,7 +854,10 @@ namespace MIPSAnalyst {
 		bool canClobber = true;
 		while (addr < end) {
 			const MIPSOpcode op = Memory::Read_Instruction(addr);
-			const MIPSInfo info = MIPSGetInfo(op);
+			MIPSInfo info = MIPSGetInfo(op);
+			// mfv/mfvc of a control register past the defined ones leaves rt alone.
+			if ((op & 0xFFE00000) == 0x48600000 && (op & 0xFF) >= 128 + VFPU_CTRL_MAX)
+				info.value &= ~(u64)OUT_RT;
 
 			// Yes, used.
 			if ((info & IN_RS) && (MIPS_GET_RS(op) == reg))

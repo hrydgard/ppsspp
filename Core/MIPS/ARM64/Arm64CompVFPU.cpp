@@ -463,6 +463,10 @@ namespace MIPSComp {
 		int vd = _VD;
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
+		// Only pairs and quads are handled here.
+		if (sz != V_Pair && sz != V_Quad) {
+			DISABLE;
+		}
 		fp.MOVI2F(S0, 0.0f, SCRATCH1);
 		fp.MOVI2F(S1, 1.0f, SCRATCH1);
 		u8 dregs[4];
@@ -491,9 +495,9 @@ namespace MIPSComp {
 
 	void Arm64Jit::Comp_VMatrixInit(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_XFER);
-		if (js.HasUnknownPrefix()) {
-			// Don't think matrix init ops care about prefixes.
-			// DISABLE;
+		// They do care about prefixes, so leave those to the interpreter like the IR does.
+		if (!js.HasNoPrefix()) {
+			DISABLE;
 		}
 
 		MatrixSize sz = GetMtxSize(op);
@@ -538,7 +542,8 @@ namespace MIPSComp {
 
 	void Arm64Jit::Comp_VHdp(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
-		if (js.HasUnknownPrefix()) {
+		// The S prefix gets its last lane forced to 1, which only the interpreter does.
+		if (js.HasUnknownPrefix() || js.HasSPrefix() || !IsPrefixWithinSize(js.prefixT, op)) {
 			DISABLE;
 		}
 
@@ -560,11 +565,12 @@ namespace MIPSComp {
 
 		int n = GetNumVectorElements(sz);
 		for (int i = 1; i < n; i++) {
-			// sum += s[i]*t[i];
+			// sum += s[i]*t[i], rounding the product first like the other backends (no FMADD).
 			if (i == n - 1) {
 				fp.FADD(S0, S0, fpr.V(tregs[i]));
 			} else {
-				fp.FMADD(S0, fpr.V(sregs[i]), fpr.V(tregs[i]), S0);
+				fp.FMUL(S1, fpr.V(sregs[i]), fpr.V(tregs[i]));
+				fp.FADD(S0, S0, S1);
 			}
 		}
 		fpr.ReleaseSpillLocksAndDiscardTemps();
@@ -622,7 +628,7 @@ namespace MIPSComp {
 
 	void Arm64Jit::Comp_VDot(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
-		if (js.HasUnknownPrefix()) {
+		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || !IsPrefixWithinSize(js.prefixT, op)) {
 			DISABLE;
 		}
 
@@ -644,8 +650,9 @@ namespace MIPSComp {
 
 		int n = GetNumVectorElements(sz);
 		for (int i = 1; i < n; i++) {
-			// sum += s[i]*t[i];
-			fp.FMADD(S0, fpr.V(sregs[i]), fpr.V(tregs[i]), S0);
+			// sum += s[i]*t[i], rounding the product first like the other backends (no FMADD).
+			fp.FMUL(S1, fpr.V(sregs[i]), fpr.V(tregs[i]));
+			fp.FADD(S0, S0, S1);
 		}
 		fpr.ReleaseSpillLocksAndDiscardTemps();
 
@@ -1029,7 +1036,7 @@ namespace MIPSComp {
 
 	void Arm64Jit::Comp_Vi2f(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
-		if (js.HasUnknownPrefix()) {
+		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op)) {
 			DISABLE;
 		}
 
@@ -1543,7 +1550,9 @@ namespace MIPSComp {
 			for (int k = 1; k < n; k++) {
 				if (!homogenous || k != n - 1) {
 					fpr.MapInInV(sregs[i * 4 + k], tregs[k]);
-					fp.FMADD(fpr.V(tempregs[i]), fpr.V(sregs[i * 4 + k]), fpr.V(tregs[k]), fpr.V(tempregs[i]));
+					// Unfused, like the other backends.
+					fp.FMUL(S0, fpr.V(sregs[i * 4 + k]), fpr.V(tregs[k]));
+					fp.FADD(fpr.V(tempregs[i]), fpr.V(tempregs[i]), S0);
 				} else {
 					fpr.MapRegV(sregs[i * 4 + k]);
 					fp.FADD(fpr.V(tempregs[i]), fpr.V(tempregs[i]), fpr.V(sregs[i * 4 + k]));
@@ -1626,7 +1635,7 @@ namespace MIPSComp {
 
 	void Arm64Jit::Comp_Vi2x(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
-		if (js.HasUnknownPrefix())
+		if (js.HasUnknownPrefix() || js.HasSPrefix())
 			DISABLE;
 
 		int bits = ((op >> 16) & 2) == 0 ? 8 : 16; // vi2uc/vi2c (0/1), vi2us/vi2s (2/3)
@@ -1838,30 +1847,36 @@ namespace MIPSComp {
 			fpr.MapRegV(temp3, MAP_DIRTY | MAP_NOINIT);
 			fpr.MapRegV(temp4, MAP_DIRTY | MAP_NOINIT);
 
-			// Quaternion product  vqmul.q  untested
+			// Quaternion product vqmul.q, unfused and summed in the interpreter's order.
+			// sum = a * b, then sum += or -= c * d for each further pair.
+			auto sumOfProducts = [&](ARM64Reg dest, const int (&terms)[4][3]) {
+				fp.FMUL(dest, fpr.V(sregs[terms[0][0]]), fpr.V(tregs[terms[0][1]]));
+				for (int i = 1; i < 4; i++) {
+					fp.FMUL(S2, fpr.V(sregs[terms[i][0]]), fpr.V(tregs[terms[i][1]]));
+					if (terms[i][2] < 0) {
+						fp.FSUB(dest, dest, S2);
+					} else {
+						fp.FADD(dest, dest, S2);
+					}
+				}
+			};
 			// d[0] = s[0] * t[3] + s[1] * t[2] - s[2] * t[1] + s[3] * t[0];
-			fp.FMUL(S0, fpr.V(sregs[0]), fpr.V(tregs[3]));
-			fp.FMADD(S0, fpr.V(sregs[1]), fpr.V(tregs[2]), S0);
-			fp.FMSUB(S0, fpr.V(sregs[2]), fpr.V(tregs[1]), S0);
-			fp.FMADD(S0, fpr.V(sregs[3]), fpr.V(tregs[0]), S0);
-
-			//d[1] = -s[0] * t[2] + s[1] * t[3] + s[2] * t[0] + s[3] * t[1];
-			fp.FNMUL(S1, fpr.V(sregs[0]), fpr.V(tregs[2]));
-			fp.FMADD(S1, fpr.V(sregs[1]), fpr.V(tregs[3]), S1);
-			fp.FMADD(S1, fpr.V(sregs[2]), fpr.V(tregs[0]), S1);
-			fp.FMADD(S1, fpr.V(sregs[3]), fpr.V(tregs[1]), S1);
-
-			//d[2] = s[0] * t[1] - s[1] * t[0] + s[2] * t[3] + s[3] * t[2];
-			fp.FMUL(fpr.V(temp3), fpr.V(sregs[0]), fpr.V(tregs[1]));
-			fp.FMSUB(fpr.V(temp3), fpr.V(sregs[1]), fpr.V(tregs[0]), fpr.V(temp3));
-			fp.FMADD(fpr.V(temp3), fpr.V(sregs[2]), fpr.V(tregs[3]), fpr.V(temp3));
-			fp.FMADD(fpr.V(temp3), fpr.V(sregs[3]), fpr.V(tregs[2]), fpr.V(temp3));
-
-			//d[3] = -s[0] * t[0] - s[1] * t[1] - s[2] * t[2] + s[3] * t[3];
-			fp.FNMUL(fpr.V(temp4), fpr.V(sregs[0]), fpr.V(tregs[0]));
-			fp.FMSUB(fpr.V(temp4), fpr.V(sregs[1]), fpr.V(tregs[1]), fpr.V(temp4));
-			fp.FMSUB(fpr.V(temp4), fpr.V(sregs[2]), fpr.V(tregs[2]), fpr.V(temp4));
-			fp.FMADD(fpr.V(temp4), fpr.V(sregs[3]), fpr.V(tregs[3]), fpr.V(temp4));
+			static const int x[4][3] = { { 0, 3, 1 }, { 1, 2, 1 }, { 2, 1, -1 }, { 3, 0, 1 } };
+			sumOfProducts(S0, x);
+			// d[1] = s[1] * t[3] - s[0] * t[2] + s[2] * t[0] + s[3] * t[1];
+			static const int y[4][3] = { { 1, 3, 1 }, { 0, 2, -1 }, { 2, 0, 1 }, { 3, 1, 1 } };
+			sumOfProducts(S1, y);
+			// d[2] = s[0] * t[1] - s[1] * t[0] + s[2] * t[3] + s[3] * t[2];
+			static const int z[4][3] = { { 0, 1, 1 }, { 1, 0, -1 }, { 2, 3, 1 }, { 3, 2, 1 } };
+			sumOfProducts(fpr.V(temp3), z);
+			// d[3] = s[3] * t[3] - (s[0] * t[0] + s[1] * t[1] + s[2] * t[2]);
+			fp.FMUL(fpr.V(temp4), fpr.V(sregs[0]), fpr.V(tregs[0]));
+			for (int i = 1; i < 3; i++) {
+				fp.FMUL(S2, fpr.V(sregs[i]), fpr.V(tregs[i]));
+				fp.FADD(fpr.V(temp4), fpr.V(temp4), S2);
+			}
+			fp.FMUL(S2, fpr.V(sregs[3]), fpr.V(tregs[3]));
+			fp.FSUB(fpr.V(temp4), S2, fpr.V(temp4));
 
 			fpr.MapRegsAndSpillLockV(dregs, sz, MAP_NOINIT);
 			fp.FMOV(fpr.V(dregs[0]), S0);
@@ -1875,7 +1890,7 @@ namespace MIPSComp {
 
 	void Arm64Jit::Comp_Vcmp(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_COMP);
-		if (js.HasUnknownPrefix())
+		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || !IsPrefixWithinSize(js.prefixT, op))
 			DISABLE;
 
 		VectorSize sz = GetVecSize(op);
@@ -2048,7 +2063,8 @@ namespace MIPSComp {
 
 	void Arm64Jit::Comp_Vcmov(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_COMP);
-		if (js.HasUnknownPrefix()) {
+		// D is read as T, prefix included, which only the interpreter does.
+		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || js.HasTPrefix()) {
 			DISABLE;
 		}
 
@@ -2320,7 +2336,7 @@ namespace MIPSComp {
 
 	void Arm64Jit::Comp_Vocp(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
-		if (js.HasUnknownPrefix()) {
+		if (js.HasUnknownPrefix() || !IsPrefixWithinSize(js.prefixS, op) || js.HasTPrefix() || (js.prefixS & VFPU_NEGATE(1, 1, 1, 1)) != 0) {
 			DISABLE;
 		}
 

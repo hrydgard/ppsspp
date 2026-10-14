@@ -99,6 +99,21 @@ void GetMatrixRegs(u8 regs[16], MatrixSize N, int matrixReg) {
 	}
 }
 
+bool MatrixWrapsAround(int matrixReg, MatrixSize N) {
+	// The same row and column as GetMatrixRegs.
+	int col = matrixReg & 3;
+	int row = 0;
+	int side = 0;
+	switch (N) {
+	case M_1x1: return false;
+	case M_2x2: row = (matrixReg >> 5) & 2; side = 2; break;
+	case M_3x3: row = (matrixReg >> 6) & 1; side = 3; break;
+	case M_4x4: row = (matrixReg >> 5) & 2; side = 4; break;
+	default: return false;
+	}
+	return row + side > 4 || col + side > 4;
+}
+
 int GetMatrixName(int matrix, MatrixSize msize, int column, int row, bool transposed) {
 	// TODO: Fix (?)
 	int name = (matrix * 4) | (transposed << 5);
