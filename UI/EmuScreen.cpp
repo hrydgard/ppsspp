@@ -105,6 +105,18 @@ using namespace std::placeholders;
 static AVIDump avi;
 #endif
 
+class FadingChatButton : public UI::ChoiceWithValueDisplay {
+public:
+	using UI::ChoiceWithValueDisplay::ChoiceWithValueDisplay;
+
+	void Draw(UIContext &dc) override {
+		float opacity = g_Config.bShowTouchControls ? GamepadGetOpacity() : 1.0f;
+		dc.Draw()->PushAlpha(opacity);
+		UI::ChoiceWithValueDisplay::Draw(dc);
+		dc.Draw()->PopAlpha();
+	}
+};
+
 // Handles control rotation due to internal screen rotation.
 void EmuScreen::UpdatePSPButtons(uint32_t bitsToSet, uint32_t bitsToClear) {
 	if (!IsOnTop()) {
@@ -1280,7 +1292,7 @@ void EmuScreen::CreateViews() {
 		if (g_Config.iChatButtonPosition != 8) {
 			auto n = GetI18NCategory(I18NCat::NETWORKING);
 			AnchorLayoutParams *layoutParams = AnchorInCorner(bounds, g_Config.iChatButtonPosition, 80.0f, 50.0f);
-			chatButton_ = root_->Add(new ChoiceWithValueDisplay(&newChatMessages_, n->T("Chat"), layoutParams));
+			chatButton_ = root_->Add(new FadingChatButton(&newChatMessages_, n->T("Chat"), layoutParams));
 			chatButton_->OnClick.Add([this](UI::EventParams &e) {
 				// Really, the check here should be "has a hard keyboard".
 				bool focus = System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_DESKTOP;
