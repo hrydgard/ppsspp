@@ -22,6 +22,7 @@
 #if PPSSPP_ARCH(AMD64)
 
 #include <cstddef>
+#include <cstring>
 #include <vector>
 
 #include "Common/x64Emitter.h"
@@ -31,90 +32,138 @@
 namespace MIPSComp {
 
 // Generates the VFPU dot product routine the x86-64 JITs CALL: vfpu_dot() of the two Vec4s in
-// mips->vfpuDotArgs, written to mips->vfpuDotResult. ctx holds the MIPSState pointer. Every
-// register is preserved except the flags. It's integer code, the algorithm of
-// vfpu_dot_reference(), and leaves inf and NaN inputs to it.
+// mips->vfpuDotArgs, written to mips->vfpuDotResult. ctx holds the MIPSState pointer. It's
+// vfpu_dot_sse2(), SSE2 only, and leaves inf and NaN to vfpu_dot_reference(). Every register is
+// preserved except the flags.
 inline const u8 *GenerateX64VfpuDot(Gen::XEmitter *e, Gen::X64Reg ctx) {
 	using namespace Gen;
 	const int args = (int)offsetof(MIPSState, vfpuDotArgs);
 	const int result = (int)offsetof(MIPSState, vfpuDotResult);
-	static const X64Reg saved[] = { RAX, RCX, RDX, RSI, RDI, R8, R9, R10, R11 };
+	static const X64Reg saved[] = { RAX, RCX, RDX, RSI, RDI, R8, R10, R11 };
+	const int numXmm = 8;
+
+	// The constants, RIP-relative.
+	auto constant4 = [&](u32 a, u32 b, u32 c, u32 d) {
+		const u8 *p = e->AlignCode16();
+		u8 *writable = e->GetWritableCodePtr();
+		e->ReserveCodeSpace(16);
+		const u32 values[4] = { a, b, c, d };
+		memcpy(writable, values, sizeof(values));
+		return p;
+	};
+	auto splat = [&](u32 v) { return constant4(v, v, v, v); };
+	const u8 *expBits = splat(0x7F800000);
+	const u8 *mantMask = splat(0x007FFFFF);
+	const u8 *implicitBit = splat(0x00800000);
+	const u8 *lowMask = constant4((1 << 21) - 1, 0, (1 << 21) - 1, 0);
+	const u8 *ones = splat(1);
+	const u8 *max28 = splat(28);
+	const u8 *scaleBase = splat(127 + 28);
 
 	const u8 *start = e->AlignCode16();
 	for (X64Reg r : saved)
 		e->PUSH(r);
+	e->SUB(64, R(RSP), Imm32(16 * numXmm));
+	for (int i = 0; i < numXmm; i++)
+		e->MOVUPS(MDisp(RSP, i * 16), (X64Reg)(XMM0 + i));
 
-	// ESI/EDI: the lane's operands, R8D/R9D: their exponents, R10D: the largest exponent sum of a
-	// normal product, R11D: the sum.
-	auto loadLane = [&](int i) {
-		e->MOV(32, R(ESI), MDisp(ctx, args + i * 4));
-		e->MOV(32, R(EDI), MDisp(ctx, args + 16 + i * 4));
-		e->MOV(32, R(R8), R(ESI));
-		e->SHR(32, R(R8), Imm8(23));
-		e->AND(32, R(R8), Imm32(255));
-		e->MOV(32, R(R9), R(EDI));
-		e->SHR(32, R(R9), Imm8(23));
-		e->AND(32, R(R9), Imm32(255));
-	};
-	// A zero or denormal operand makes the product zero, which doesn't count.
-	auto zeroUnlessNormal = [&](X64Reg r, X64Reg zero) {
-		e->TEST(32, R(R8), R(R8));
-		e->CMOVcc(32, r, R(zero), CC_Z);
-		e->TEST(32, R(R9), R(R9));
-		e->CMOVcc(32, r, R(zero), CC_Z);
-	};
+	// xmm0 = x, xmm1 = y. Exponents: a zero or denormal operand makes the product zero (xmm4 =
+	// flush), and inf or NaN gets 0x7FF, above any real exponent sum, so one maximum finds the
+	// alignment and the specials (xmm5 = e). They all fit in 15 bits, so the 16-bit max does.
+	e->MOVUPS(XMM0, MDisp(ctx, args));
+	e->MOVUPS(XMM1, MDisp(ctx, args + 16));
+	e->PXOR(XMM7, R(XMM7));
+	e->MOVDQA(XMM2, R(XMM0));
+	e->PAND(XMM2, M(expBits));
+	e->MOVDQA(XMM3, R(XMM1));
+	e->PAND(XMM3, M(expBits));
+	e->MOVDQA(XMM4, R(XMM2));
+	e->PCMPEQD(XMM4, R(XMM7));
+	e->MOVDQA(XMM5, R(XMM3));
+	e->PCMPEQD(XMM5, R(XMM7));
+	e->POR(XMM4, R(XMM5));
+	e->MOVDQA(XMM6, R(XMM2));
+	e->PCMPEQD(XMM6, M(expBits));
+	e->MOVDQA(XMM5, R(XMM3));
+	e->PCMPEQD(XMM5, M(expBits));
+	e->POR(XMM6, R(XMM5));
+	e->PSRLD(XMM6, 21);
+	e->MOVDQA(XMM5, R(XMM2));
+	e->PADDD(XMM5, R(XMM3));
+	e->PSRLD(XMM5, 23);
+	e->MOVDQA(XMM2, R(XMM4));
+	e->PANDN(XMM2, R(XMM5));
+	e->MOVDQA(XMM5, R(XMM2));
+	e->POR(XMM5, R(XMM6));
+	e->PSHUFD(XMM2, R(XMM5), 0x4E);
+	e->PMAXSW(XMM2, R(XMM5));
+	e->PSHUFD(XMM3, R(XMM2), 0xB1);
+	e->PMAXSW(XMM2, R(XMM3));
+	e->MOVD_xmm(R(EAX), XMM2);
+	e->CMP(32, R(EAX), Imm32(0x7FF));
+	FixupBranch special = e->J_CC(CC_AE, true);
 
-	// First pass: the largest exponent sum, and inf or NaN anywhere sends it to the slow path.
-	std::vector<FixupBranch> special;
-	e->XOR(32, R(R10), R(R10));
-	for (int i = 0; i < 4; i++) {
-		loadLane(i);
-		e->CMP(32, R(R8), Imm32(255));
-		special.push_back(e->J_CC(CC_E, true));
-		e->CMP(32, R(R9), Imm32(255));
-		special.push_back(e->J_CC(CC_E, true));
-		e->LEA(32, EAX, MRegSum(R8, R9));
-		e->XOR(32, R(EDX), R(EDX));
-		zeroUnlessNormal(EAX, EDX);
-		e->CMP(32, R(R10), R(EAX));
-		e->CMOVcc(32, R10, R(EAX), CC_B);
-	}
+	// 24x24-bit products, even and odd lanes separately, kept to 2 extra bits with round-to-odd
+	// (xmm3 = p).
+	e->MOVDQA(XMM3, R(XMM0));
+	e->PAND(XMM3, M(mantMask));
+	e->POR(XMM3, M(implicitBit));
+	e->MOVDQA(XMM6, R(XMM1));
+	e->PAND(XMM6, M(mantMask));
+	e->POR(XMM6, M(implicitBit));
+	e->MOVDQA(XMM7, R(XMM3));
+	e->PMULUDQ(XMM7, R(XMM6));  // even products
+	e->PSRLQ(XMM3, 32);
+	e->PSRLQ(XMM6, 32);
+	e->PMULUDQ(XMM3, R(XMM6));  // odd products
+	e->MOVDQA(XMM6, R(XMM7));
+	e->PSRLQ(XMM6, 21);
+	e->PAND(XMM7, M(lowMask));
+	e->MOVDQA(XMM1, R(XMM3));
+	e->PSRLQ(XMM1, 21);
+	e->PSLLQ(XMM1, 32);
+	e->POR(XMM6, R(XMM1));  // kept
+	e->PAND(XMM3, M(lowMask));
+	e->PSLLQ(XMM3, 32);
+	e->POR(XMM3, R(XMM7));  // dropped
+	e->PXOR(XMM7, R(XMM7));
+	e->PCMPEQD(XMM3, R(XMM7));
+	e->PANDN(XMM3, M(ones));  // sticky
+	e->POR(XMM3, R(XMM6));
+	e->PANDN(XMM4, R(XMM3));  // p, in xmm4
 
-	// Second pass: the 24x24-bit products, kept to 2 extra bits with round-to-odd, aligned to the
-	// largest by truncation, signed, and summed exactly.
-	e->XOR(32, R(R11), R(R11));
-	for (int i = 0; i < 4; i++) {
-		loadLane(i);
-		e->MOV(32, R(EAX), R(ESI));
-		e->AND(32, R(EAX), Imm32(0x007FFFFF));
-		e->OR(32, R(EAX), Imm32(0x00800000));
-		e->MOV(32, R(EDX), R(EDI));
-		e->AND(32, R(EDX), Imm32(0x007FFFFF));
-		e->OR(32, R(EDX), Imm32(0x00800000));
-		e->IMUL(64, RAX, R(RDX));
-		e->MOV(64, R(RDX), R(RAX));
-		e->SHR(64, R(RDX), Imm8(21));
-		e->TEST(32, R(EAX), Imm32((1 << 21) - 1));
-		e->SETcc(CC_NZ, R(EAX));
-		e->MOVZX(32, 8, EAX, R(EAX));
-		e->OR(32, R(EDX), R(EAX));
-		// Shift right by the exponent difference, at most 28.
-		e->LEA(32, ECX, MRegSum(R8, R9));
-		e->MOV(32, R(EAX), R(R10));
-		e->SUB(32, R(EAX), R(ECX));
-		e->MOV(32, R(ECX), Imm32(28));
-		e->CMP(32, R(EAX), R(ECX));
-		e->CMOVcc(32, ECX, R(EAX), CC_B);
-		e->SHR(32, R(EDX), R(CL));
-		e->XOR(32, R(EAX), R(EAX));
-		zeroUnlessNormal(EDX, EAX);
-		e->MOV(32, R(EAX), R(ESI));
-		e->XOR(32, R(EAX), R(EDI));
-		e->SAR(32, R(EAX), Imm8(31));
-		e->XOR(32, R(EDX), R(EAX));
-		e->SUB(32, R(EDX), R(EAX));
-		e->ADD(32, R(R11), R(EDX));
-	}
+	// Align to the largest exponent by truncation. SSE2 has no per-lane shift, so p >> d is done
+	// as (p * 2^(28 - d)) >> 28, with the power of two built as float bits and converted by
+	// truncation (always a normal float, so DAZ doesn't matter).
+	e->PSHUFD(XMM2, R(XMM2), 0x00);
+	e->PSUBD(XMM2, R(XMM5));
+	e->PMINSW(XMM2, M(max28));
+	e->MOVDQA(XMM3, M(scaleBase));
+	e->PSUBD(XMM3, R(XMM2));
+	e->PSLLD(XMM3, 23);
+	e->CVTTPS2DQ(XMM3, R(XMM3));
+	e->MOVDQA(XMM5, R(XMM4));
+	e->PMULUDQ(XMM5, R(XMM3));
+	e->PSRLQ(XMM5, 28);
+	e->PSRLQ(XMM4, 32);
+	e->PSRLQ(XMM3, 32);
+	e->PMULUDQ(XMM4, R(XMM3));
+	e->PSRLQ(XMM4, 28);
+	e->PSLLQ(XMM4, 32);
+	e->POR(XMM4, R(XMM5));
+
+	// Apply the signs and sum exactly.
+	e->MOVUPS(XMM1, MDisp(ctx, args + 16));
+	e->PXOR(XMM0, R(XMM1));
+	e->PSRAD(XMM0, 31);
+	e->PXOR(XMM4, R(XMM0));
+	e->PSUBD(XMM4, R(XMM0));
+	e->PSHUFD(XMM0, R(XMM4), 0x4E);
+	e->PADDD(XMM4, R(XMM0));
+	e->PSHUFD(XMM0, R(XMM4), 0xB1);
+	e->PADDD(XMM4, R(XMM0));
+	e->MOVD_xmm(R(R11), XMM4);
+	e->MOV(32, R(R10), R(EAX));
 
 	// vfpu_dot_finish(): drop the extra bits, round to 24 bits (nearest even), build the float.
 	// ESI: the sign, EDI: the significand m, EDX: its leading zeros as 64 bits.
@@ -160,21 +209,24 @@ inline const u8 *GenerateX64VfpuDot(Gen::XEmitter *e, Gen::X64Reg ctx) {
 	e->MOV(32, MDisp(ctx, result), R(R8));
 
 	const u8 *epilogue = e->GetCodePointer();
+	for (int i = 0; i < numXmm; i++)
+		e->MOVUPS((X64Reg)(XMM0 + i), MDisp(RSP, i * 16));
+	e->ADD(64, R(RSP), Imm32(16 * numXmm));
 	for (int i = (int)(sizeof(saved) / sizeof(saved[0])) - 1; i >= 0; i--)
 		e->POP(saved[i]);
 	e->RET();
 
-	// Inf or NaN: the C version, with the vector registers saved too, on an aligned stack.
-	for (const FixupBranch &b : special)
-		e->SetJumpTarget(b);
-	// [RSP]: the shadow space Windows wants, then the 16 XMMs, then the unaligned RSP.
-	const int xmmOffset = 32, savedRsp = 32 + 16 * 16, frame = savedRsp + 16;
-	e->MOV(64, R(RAX), R(RSP));
+	// Inf or NaN: the C version, with the other registers a call may clobber saved too, on an
+	// aligned stack.
+	e->SetJumpTarget(special);
+	e->PUSH(R9);
+	e->PUSH(RBX);
+	e->MOV(64, R(RBX), R(RSP));
 	e->AND(64, R(RSP), Imm32(-16));
-	e->SUB(64, R(RSP), Imm32(frame));
-	e->MOV(64, MDisp(RSP, savedRsp), R(RAX));
-	for (int i = 0; i < 16; i++)
-		e->MOVUPS(MDisp(RSP, xmmOffset + i * 16), (X64Reg)(XMM0 + i));
+	// The upper XMMs, and the shadow space Windows wants.
+	e->SUB(64, R(RSP), Imm32(8 * 16 + 32));
+	for (int i = 8; i < 16; i++)
+		e->MOVUPS(MDisp(RSP, 32 + (i - 8) * 16), (X64Reg)(XMM0 + i));
 #ifdef _WIN32
 	e->LEA(64, RCX, MDisp(ctx, args));
 	e->LEA(64, RDX, MDisp(ctx, args + 16));
@@ -185,9 +237,11 @@ inline const u8 *GenerateX64VfpuDot(Gen::XEmitter *e, Gen::X64Reg ctx) {
 	e->MOV(64, R(RAX), ImmPtr((const void *)&vfpu_dot_reference));
 	e->CALLptr(R(RAX));
 	e->MOVSS(MDisp(ctx, result), XMM0);
-	for (int i = 0; i < 16; i++)
-		e->MOVUPS((X64Reg)(XMM0 + i), MDisp(RSP, xmmOffset + i * 16));
-	e->MOV(64, R(RSP), MDisp(RSP, savedRsp));
+	for (int i = 8; i < 16; i++)
+		e->MOVUPS((X64Reg)(XMM0 + i), MDisp(RSP, 32 + (i - 8) * 16));
+	e->MOV(64, R(RSP), R(RBX));
+	e->POP(RBX);
+	e->POP(R9);
 	e->JMP(epilogue, true);
 	return start;
 }
