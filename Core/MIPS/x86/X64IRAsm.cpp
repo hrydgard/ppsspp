@@ -103,8 +103,8 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	restoreRoundingMode_ = AlignCode16();
 	{
 		STMXCSR(MDisp(CTXREG, tempOffset));
-		// Clear the rounding mode and flush-to-zero bits back to 0.
-		AND(32, MDisp(CTXREG, tempOffset), Imm32(~(7 << 13)));
+		// Clear the rounding mode, flush-to-zero and denormals-are-zero bits back to 0.
+		AND(32, MDisp(CTXREG, tempOffset), Imm32(~((7 << 13) | (1 << 6))));
 		LDMXCSR(MDisp(CTXREG, tempOffset));
 		RET();
 	}
@@ -129,13 +129,14 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 		// Adjustment complete, now reconstruct MXCSR
 		SHL(32, R(SCRATCH1), Imm8(13));
 		// Before setting new bits, we must clear the old ones.
-		// Clearing bits 13-14 (rounding mode) and 15 (flush to zero.)
-		AND(32, MDisp(CTXREG, tempOffset), Imm32(~(7 << 13)));
+		// Clearing bits 13-14 (rounding mode), 15 (flush to zero) and 6 (denormals are zero.)
+		AND(32, MDisp(CTXREG, tempOffset), Imm32(~((7 << 13) | (1 << 6))));
 		OR(32, MDisp(CTXREG, tempOffset), R(SCRATCH1));
 
 		TEST(32, MDisp(CTXREG, fcr31Offset), Imm32(1 << 24));
 		FixupBranch skip3 = J_CC(CC_Z);
-		OR(32, MDisp(CTXREG, tempOffset), Imm32(1 << 15));
+		// FTZ and DAZ together, which flushes like ARM64's FZ: inputs as well as results.
+		OR(32, MDisp(CTXREG, tempOffset), Imm32((1 << 15) | (1 << 6)));
 		SetJumpTarget(skip3);
 
 		LDMXCSR(MDisp(CTXREG, tempOffset));

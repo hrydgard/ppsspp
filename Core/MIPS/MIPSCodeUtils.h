@@ -54,6 +54,9 @@
 #define MIPS_GET_VS(op) ((op>>8) & 0x7F)
 #define MIPS_GET_VT(op) ((op>>16) & 0x7F)
 
+// ctc1 to fcr31, the only instruction that changes the guest's rounding mode and flush-to-zero.
+#define MIPS_IS_CTC1_FCR31(op) (((op) & 0xFFE0F800) == 0x44C0F800)
+
 inline int32_t SignExtend8ToS32(MIPSOpcode op) {
 	return SignExtend8ToS32(op.encoding);
 }

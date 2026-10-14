@@ -1242,7 +1242,7 @@ void Config::UpdateIniLocation(const char *iniFileName, const char *controllerIn
 	controllerIniFilename_ = FindConfigFile(searchPath_, useControllerIniFilename ? controllerIniFilename : controlsIniFilename, &exists);
 }
 
-bool Config::LoadAppendedConfig() {
+bool Config::LoadAppendedConfig(bool save) {
 	IniFile iniFile;
 	if (!iniFile.Load(appendedConfigFileName_)) {
 		ERROR_LOG(Log::Config, "Failed to read appended config '%s'.", appendedConfigFileName_.c_str());
@@ -1261,7 +1261,9 @@ bool Config::LoadAppendedConfig() {
 
 	INFO_LOG(Log::Config, "Loaded appended config '%s'.", appendedConfigFileName_.c_str());
 
-	Save("Loaded appended config"); // Let's prevent reset
+	if (save) {
+		Save("Loaded appended config"); // Let's prevent reset
+	}
 	return true;
 }
 

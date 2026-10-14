@@ -150,6 +150,14 @@ void Arm64Jit::DoState(PointerWrap &p) {
 
 void Arm64Jit::UpdateFCR31() {
 	js.currentRoundingFunc = convertS0ToSCRATCH1[mips_->fcr31 & 3];
+	// fcr31 can reach a non-default mode without a compiled ctc1 (an interpreted one, a savestate,
+	// a core switch, a thread switch). Blocks compiled before that don't switch modes around
+	// syscalls or conversions, so they're thrown away, at the next safe point.
+	if ((mips_->fcr31 & 0x01000003) && !js.hasSetRounding) {
+		js.hasSetRounding = true;
+		js.lastSetRounding = true;
+		mips_->ClearJitCacheDeferred();
+	}
 }
 
 void Arm64Jit::FlushAll() {
@@ -575,19 +583,28 @@ void Arm64Jit::Comp_ReplacementFunc(MIPSOpcode op)
 void Arm64Jit::Comp_Generic(MIPSOpcode op) {
 	FlushAll();
 	MIPSInterpretFunc func = MIPSGetInterpretFunc(op);
+	const MIPSInfo info = MIPSGetInfo(op);
 	if (func) {
 		SaveStaticRegisters();
-		// TODO: Perhaps keep the rounding mode for interp? Should probably, right?
-		RestoreRoundingMode();
+		// Interpreted ops run in the guest's rounding mode, like on the interpreter. A syscall is host code
+		// (like a compiled one), and only ctc1 to fcr31 changes the mode, so only those need it switched.
+		const bool isSyscall = (info & IS_SYSCALL) != 0;
+		const bool setsMode = MIPS_IS_CTC1_FCR31(op.encoding);
+		if (isSyscall)
+			RestoreRoundingMode();
+		if (setsMode)
+			UpdateRoundingMode();
 		MOVI2R(SCRATCH1, GetCompilerPC());
 		MovToPC(SCRATCH1);
 		MOVI2R(W0, op.encoding);
 		QuickCallFunction(SCRATCH2_64, (void *)&MIPSInterpretTrampoline);
-		ApplyRoundingMode();
+		if (setsMode)
+			RestoreRoundingMode(true);
+		if (isSyscall || setsMode)
+			ApplyRoundingMode(setsMode);
 		LoadStaticRegisters();
 	}
 
-	const MIPSInfo info = MIPSGetInfo(op);
 	if ((info & IS_VFPU) != 0 && (info & VFPU_NO_PREFIX) == 0) {
 		// If it does eat them, it'll happen in MIPSCompileOp().
 		if ((info & OUT_EAT_PREFIX) == 0)

@@ -626,6 +626,7 @@ const u8 *IRNativeJit::GetCrashHandler() const {
 }
 
 void IRNativeJit::UpdateFCR31() {
+	IRJit::UpdateFCR31();
 	backend_->UpdateFCR31(mips_);
 }
 

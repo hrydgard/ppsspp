@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <map>
+#include <cfloat>
 #include <cstring>
 #include <vector>
 
@@ -42,6 +43,7 @@
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/MIPS/MIPSAnalyst.h"
+#include "Core/MIPS/JitCommon/JitState.h"
 #include "unittest/UnitTest.h"
 
 void UnitTestTerminator() {
@@ -50,8 +52,25 @@ void UnitTestTerminator() {
 	hleSkipDeadbeef();
 }
 
+// What the host FPU does in HLE code: 1/3 (0x3EAAAAAB when rounding to nearest) and FLT_MIN / 2
+// (0x00400000 unless flushed to zero). HLE must always see the host's own mode.
+static std::vector<u32> g_roundingProbes;
+
+void UnitTestRoundingProbe() {
+	volatile float one = 1.0f, three = 3.0f, fltMin = FLT_MIN, half = 0.5f;
+	float third = one / three;
+	float denormal = fltMin * half;
+	u32 bits;
+	memcpy(&bits, &third, 4);
+	g_roundingProbes.push_back(bits);
+	memcpy(&bits, &denormal, 4);
+	g_roundingProbes.push_back(bits);
+	hleSkipDeadbeef();
+}
+
 HLEFunction UnitTestFakeSyscalls[] = {
 	{0x1234BEEF, &UnitTestTerminator, "UnitTestTerminator"},
+	{0x1234BEF0, &UnitTestRoundingProbe, "UnitTestRoundingProbe"},
 };
 
 double ExecCPUTest(bool clearCache = true) {
@@ -199,11 +218,9 @@ bool TestJit() {
 		jit_speed = ExecCPUTest(false);
 		checkMemoryClean("JIT");
 		MIPSComp::jit->ClearCache();
-#if !PPSSPP_PLATFORM(MAC)
 		mipsr4k.UpdateCore(CPUCore::JIT_IR);
 		jit_ir_speed = ExecCPUTest(false);  // not clearing, so the below can do things.
 		checkMemoryClean("JIT IR");
-#endif
 
 		// Disassemble
 		JitBlockCacheDebugInterface *cache = MIPSComp::jit->GetBlockCacheDebugInterface();
@@ -253,9 +270,7 @@ static bool CheckReplacementHooks(u32 func, u32 size, const std::vector<u8> &cod
 	static const CPUCore cores[] = {
 		CPUCore::JIT,
 		CPUCore::IR_INTERPRETER,
-#if !PPSSPP_PLATFORM(MAC)
 		CPUCore::JIT_IR,
-#endif
 	};
 	for (CPUCore core : cores) {
 		mipsr4k.UpdateCore(core);
@@ -630,7 +645,8 @@ static FuzzCase GenerateFuzzCase(u64 seed, const char *classes, const std::vecto
 	return c;
 }
 
-static void RunFuzzCase(const std::vector<u32> &code, const FuzzState &init, FuzzState *out) {
+// keepCache reruns blocks compiled by an earlier run of the same code.
+static void RunFuzzCase(const std::vector<u32> &code, const FuzzState &init, FuzzState *out, bool keepCache = false) {
 	const u32 codeAddr = PSP_GetUserMemoryBase() + FUZZ_CODE_OFFSET;
 	const u32 memAddr = PSP_GetUserMemoryBase() + FUZZ_MEM_OFFSET;
 	u32 addr = codeAddr;
@@ -645,7 +661,7 @@ static void RunFuzzCase(const std::vector<u32> &code, const FuzzState &init, Fuz
 	for (int i = 0; i < FUZZ_MAX_INSTRS; ++i) {
 		Memory::WriteUnchecked_U32(MIPS_MAKE_NOP(), addr + 12 + i * 4);
 	}
-	if (MIPSComp::jit) {
+	if (MIPSComp::jit && !keepCache) {
 		MIPSComp::jit->ClearCache();
 	}
 
@@ -913,9 +929,7 @@ bool TestCPUEquivalence() {
 		CPUCore::INTERPRETER,
 		CPUCore::IR_INTERPRETER,
 		CPUCore::JIT,
-#if !PPSSPP_PLATFORM(MAC)
 		CPUCore::JIT_IR,
-#endif
 	};
 	const int numCores = (int)ARRAY_SIZE(cores);
 
@@ -1015,5 +1029,146 @@ bool TestCPUEquivalence() {
 	mipsr4k.UpdateCore(CPUCore::INTERPRETER);
 	DestroyJitHarness();
 	g_Config.bSkipDeadbeefFilling = oldSkipDeadbeef;
+	return success;
+}
+
+static bool AssembleLines(const std::vector<const char *> &lines, std::vector<u32> *out) {
+	// Assembled in scratch memory past the fuzz code and data, then read back.
+	const u32 base = PSP_GetUserMemoryBase() + 0x20000;
+	u32 addr = base;
+	for (const char *line : lines) {
+		std::string error;
+		if (!MipsAssembleOpcode(line, currentDebugMIPS, addr, &error)) {
+			printf("Can't assemble '%s': %s\n", line, error.c_str());
+			return false;
+		}
+		out->push_back(Memory::ReadUnchecked_U32(addr));
+		addr += 4;
+	}
+	return true;
+}
+
+// The guest's rounding mode and flush-to-zero apply exactly while emulated code runs, on every
+// core, including ops a JIT leaves to the interpreter: HLE always sees the host's own mode, a ctc1
+// takes effect at once, and a mode that arrives from outside (a savestate, a thread switch, a core
+// switch) also reaches blocks compiled before it.
+bool TestCPURoundingMode() {
+	SetupJitHarness();
+	g_Config.bFastMemory = true;
+	const bool oldSkipDeadbeef = g_Config.bSkipDeadbeefFilling;
+	g_Config.bSkipDeadbeefFilling = true;
+	const u32 oldJitDisable = g_Config.uJitDisableFlags;
+	const u32 probe = MIPS_MAKE_SYSCALL("UnitTestFakeSyscalls", "UnitTestRoundingProbe");
+
+	// t0 holds the mode to set. f0/f1 = 1/3, f4 * f5 = FLT_MIN / 2, f7 = 1.5 converted by the mode
+	// (cvt.w.s) and by round.w.s, which always rounds to nearest.
+	std::vector<u32> setMode, preset;
+	// The math comes right after each ctc1, before anything (like a syscall) could reapply the mode.
+	bool success = AssembleLines({
+		"ctc1 t0, $31",
+		"div.s f2, f0, f1",
+		"mul.s f3, f4, f5",
+		"cvt.w.s f6, f7",
+		"round.w.s f8, f7",
+		"nop",
+		"ctc1 zero, $31",
+		"div.s f9, f0, f1",
+		"nop",
+	}, &setMode) && AssembleLines({
+		"nop",
+		"div.s f2, f0, f1",
+		"mul.s f3, f4, f5",
+		"cvt.w.s f6, f7",
+		"round.w.s f8, f7",
+		"nop",
+	}, &preset);
+	if (!success) {
+		DestroyJitHarness();
+		return false;
+	}
+	// The probes go where the nops are.
+	setMode[5] = probe;
+	setMode[8] = probe;
+	preset[0] = probe;
+	preset[5] = probe;
+
+	FuzzState init{};
+	auto setFloat = [&](int reg, float f) { memcpy(&init.f[reg], &f, 4); };
+	setFloat(0, 1.0f);
+	setFloat(1, 3.0f);
+	setFloat(4, FLT_MIN);
+	setFloat(5, 0.5f);
+	setFloat(7, 1.5f);
+
+	static const u32 modes[] = { 0x00000001, 0x00000002, 0x00000003, 0x01000000, 0x01000003 };
+	static const CPUCore cores[] = {
+		CPUCore::IR_INTERPRETER,
+		CPUCore::JIT,
+		CPUCore::JIT_IR,
+	};
+	// No flags, then ctc1 left to the interpreter, then everything the JITs can leave to it.
+	static const u32 disableFlags[] = { 0, (u32)MIPSComp::JitDisable::FPU_XFER, 0xFFFF };
+
+	auto checkProbes = [&](const char *what) {
+		for (size_t i = 0; i + 1 < g_roundingProbes.size(); i += 2) {
+			if (g_roundingProbes[i] != 0x3EAAAAAB || g_roundingProbes[i + 1] != 0x00400000) {
+				printf("%s: HLE ran in the guest's mode (probe %d: %08x %08x)\n", what, (int)(i / 2), g_roundingProbes[i], g_roundingProbes[i + 1]);
+				success = false;
+			}
+		}
+		g_roundingProbes.clear();
+	};
+
+	for (u32 mode : modes) {
+		// The reference: the interpreter, which the other cores must match.
+		mipsr4k.UpdateCore(CPUCore::INTERPRETER);
+		FuzzState refSet, refPreset;
+		init.r[MIPS_REG_T0] = mode;
+		init.fcr31 = 0;
+		RunFuzzCase(setMode, init, &refSet);
+		checkProbes("Interpreter");
+		init.fcr31 = mode;
+		RunFuzzCase(preset, init, &refPreset);
+		checkProbes("Interpreter");
+
+		for (CPUCore core : cores) {
+			for (u32 flags : disableFlags) {
+				char what[128];
+				snprintf(what, sizeof(what), "%s, mode %08x, JitDisableFlags %08x", CoreName(core), mode, flags);
+				g_Config.uJitDisableFlags = flags;
+				// A fresh JIT, so the flags apply and no earlier mode has been seen.
+				mipsr4k.UpdateCore(CPUCore::INTERPRETER);
+				mipsr4k.UpdateCore(core);
+
+				// Compiled in the default mode first, then rerun after the mode arrives from outside.
+				FuzzState state;
+				init.fcr31 = 0;
+				RunFuzzCase(preset, init, &state);
+				g_roundingProbes.clear();
+				init.fcr31 = mode;
+				RunFuzzCase(preset, init, &state, true);
+				std::string diff;
+				if (DiffFuzzStates(refPreset, state, &diff) != 0) {
+					printf("%s, mode set from outside:\n%s", what, diff.c_str());
+					success = false;
+				}
+				checkProbes(what);
+
+				init.fcr31 = 0;
+				RunFuzzCase(setMode, init, &state);
+				diff.clear();
+				if (DiffFuzzStates(refSet, state, &diff) != 0) {
+					printf("%s, mode set by ctc1:\n%s", what, diff.c_str());
+					success = false;
+				}
+				checkProbes(what);
+			}
+		}
+	}
+
+	mipsr4k.UpdateCore(CPUCore::INTERPRETER);
+	g_Config.uJitDisableFlags = oldJitDisable;
+	g_Config.bSkipDeadbeefFilling = oldSkipDeadbeef;
+	DestroyJitHarness();
 	return success;
 }

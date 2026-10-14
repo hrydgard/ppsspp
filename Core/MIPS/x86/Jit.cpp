@@ -162,6 +162,14 @@ void Jit::DoState(PointerWrap &p) {
 }
 
 void Jit::UpdateFCR31() {
+	// fcr31 can reach a non-default mode without a compiled ctc1 (an interpreted one, a savestate,
+	// a core switch, a thread switch). Blocks compiled before that don't switch modes around
+	// syscalls or conversions, so they're thrown away, at the next safe point.
+	if ((mips_->fcr31 & 0x01000003) && !js.hasSetRounding) {
+		js.hasSetRounding = true;
+		js.lastSetRounding = true;
+		mips_->ClearJitCacheDeferred();
+	}
 }
 
 void Jit::GetStateAndFlushAll(RegCacheState &state) {
@@ -615,22 +623,31 @@ void Jit::Comp_Generic(MIPSOpcode op) {
 	MIPSInterpretFunc func = MIPSGetInterpretFunc(op);
 	_dbg_assert_msg_((MIPSGetInfo(op) & DELAYSLOT) == 0, "Cannot use interpreter for branch ops.");
 
+	const MIPSInfo info = MIPSGetInfo(op);
 	if (func)
 	{
-		// TODO: Maybe we'd be better off keeping the rounding mode within interp?
-		RestoreRoundingMode();
+		// Interpreted ops run in the guest's rounding mode, like on the interpreter. A syscall is host code
+		// (like a compiled one), and only ctc1 to fcr31 changes the mode, so only those need it switched.
+		const bool isSyscall = (info & IS_SYSCALL) != 0;
+		const bool setsMode = MIPS_IS_CTC1_FCR31(op.encoding);
+		if (isSyscall)
+			RestoreRoundingMode();
+		if (setsMode)
+			UpdateRoundingMode();
 		MOV(32, MIPSSTATE_VAR(pc), Imm32(GetCompilerPC()));
 		if (USE_JIT_MISSMAP)
 			ABI_CallFunctionC(&JitLogMiss, op.encoding);
 		else
 			ABI_CallFunctionC(&MIPSInterpretTrampoline, op.encoding);
-		ApplyRoundingMode();
+		if (setsMode)
+			RestoreRoundingMode(true);
+		if (isSyscall || setsMode)
+			ApplyRoundingMode(setsMode);
 	} else {
 		// These are basically always due to some kind of crash or corruption now.
 		ERROR_LOG(Log::JIT, "Trying to compile instruction %08x that can't be interpreted", op.encoding);
 	}
 
-	const MIPSInfo info = MIPSGetInfo(op);
 	if ((info & IS_VFPU) != 0 && (info & VFPU_NO_PREFIX) == 0)
 	{
 		// If it does eat them, it'll happen in MIPSCompileOp().

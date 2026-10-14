@@ -20,6 +20,7 @@
 #include "ppsspp_config.h"
 
 #include <cstddef>
+#include <cstring>
 #include <type_traits>
 #include <vector>
 
@@ -297,6 +298,21 @@ extern MIPSState *currentMIPS;
 extern MIPSDebugInterface *currentDebugMIPS;
 extern MIPSState mipsr4k;
 
+// With FS set, the host flushes a denormal input to a float->int conversion on ARM64 and x86 (DAZ),
+// but ARM32's libm rounds with integer code that doesn't, so it's flushed here
+// (cpu/fpu/denormal, cpu/vfpu/fcr31).
+inline float FlushForConversion(const MIPSState *mips, float f) {
+#if PPSSPP_ARCH(ARM)
+	u32 bits;
+	memcpy(&bits, &f, 4);
+	if ((mips->fcr31 & 0x01000000) != 0 && (bits & 0x7F800000) == 0) {
+		bits &= 0x80000000;
+		memcpy(&f, &bits, 4);
+	}
+#endif
+	return f;
+}
+
 extern const float cst_constants[32];
 
 // The guest's rounding mode and flush-to-zero flag (fcr31 bits 0-1 and 24) are emulated by putting
@@ -304,6 +320,9 @@ extern const float cst_constants[32];
 // That mode must not be left on while running anything that isn't emulating a guest instruction -
 // HLE syscalls, replacement functions, the GPU - so an emulation loop applies it on entry and
 // restores it before calling out, the way the JITs do (see Jit::ApplyRoundingMode).
-// Apply is cheap when the guest is in the default mode (by far the common case): it does nothing.
+// Both are cheap when the guest is in the default mode (by far the common case): they do nothing.
+// Otherwise apply reads the register once and restore just writes it back.
 void ApplyHostRoundingMode(const MIPSState *mips);
-void RestoreHostRoundingMode();
+// force also clears our bits when apply didn't set them, for callers that may run under a native
+// JIT, whose own asm stubs apply the mode.
+void RestoreHostRoundingMode(bool force = false);
