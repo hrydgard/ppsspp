@@ -1969,14 +1969,16 @@ u32 sceNetAdhocInit() {
 		if (netAdhocUseUdp) {
 			aemuPostofficeEnetPumping = true;
 			aemuPostofficeEnetThread = std::thread([] {
+				SetCurrentThreadName("adhoc enet pump");
 				while (aemuPostofficeEnetPumping) {
-					static const auto target_interval = std::chrono::milliseconds(1000 / 120);
-					auto begin = std::chrono::high_resolution_clock::now();
+					// no std::chrono::high_resolution_clock::now() in msvc.....
+					static const double target_interval = 1.0 / 120;
+					double begin = time_now_d();
 					int pump_status = pump_enet_aemu_postoffice();
 					if (pump_status == 1) {
-						auto time_spent = std::chrono::high_resolution_clock::now() - begin;
+						double time_spent = time_now_d() - begin;
 						if (target_interval > time_spent) {
-							std::this_thread::sleep_for(target_interval - time_spent);
+							sleep_us((target_interval - time_spent) * 1000000, "adhoc enet pump");
 						}
 					}
 					if (pump_status == -1) {
