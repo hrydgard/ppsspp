@@ -145,6 +145,8 @@ private:
 
 	// Indexed by FPCR FZ:RN bits for convenience.  Uses SCRATCH2.
 	const u8 *convertS0ToSCRATCH1_[8];
+	// See GenerateArm64VfpuDot().
+	const u8 *vfpuDot_ = nullptr;
 
 	// Note: mutable state used at runtime.
 	const u8 *currentRoundingFunc_ = nullptr;

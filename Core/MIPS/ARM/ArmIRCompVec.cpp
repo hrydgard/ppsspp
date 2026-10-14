@@ -170,6 +170,11 @@ void ArmJitBackend::CompIR_VecHoriz(IRInst inst) {
 		VMOV(regs_.F(inst.dest), SCRATCHF1);
 		break;
 
+	case IROp::Vec4VfpuDot:
+		// Through the IR interpreter for now.
+		CompIR_Generic(inst);
+		break;
+
 	default:
 		INVALIDOP;
 		break;

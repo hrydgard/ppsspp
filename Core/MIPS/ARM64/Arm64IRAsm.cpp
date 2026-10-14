@@ -22,6 +22,7 @@
 #include "Common/Log.h"
 #include "Core/CoreTiming.h"
 #include "Core/MemMap.h"
+#include "Core/MIPS/ARM64/Arm64VfpuDot.h"
 #include "Core/MIPS/ARM64/Arm64IRJit.h"
 #include "Core/MIPS/ARM64/Arm64IRRegCache.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
@@ -263,6 +264,8 @@ void Arm64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 
 		RET();
 	}
+
+	vfpuDot_ = GenerateArm64VfpuDot(this, &fp_, CTXREG);
 
 	// Leave this at the end, add more stuff above.
 	if (enableDisasm) {

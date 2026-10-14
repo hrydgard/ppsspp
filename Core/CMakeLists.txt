@@ -50,6 +50,7 @@ list(APPEND CoreExtra
 	MIPS/ARM64/Arm64IRJit.h
 	MIPS/ARM64/Arm64IRRegCache.cpp
 	MIPS/ARM64/Arm64IRRegCache.h
+	MIPS/ARM64/Arm64VfpuDot.h
 	Util/DisArm64.cpp
 )
 

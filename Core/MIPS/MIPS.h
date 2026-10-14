@@ -248,6 +248,10 @@ public:
 
 	float sincostemp[2];
 
+	// The operands (s, then t) and result of the JITs' VFPU dot product routine (vfpu_dot()).
+	alignas(16) u32 vfpuDotArgs[8];
+	u32 vfpuDotResult;
+
 	static const u32 FCR0_VALUE = 0x00003351;
 
 #if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)

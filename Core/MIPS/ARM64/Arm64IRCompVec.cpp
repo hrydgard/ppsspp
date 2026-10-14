@@ -599,6 +599,26 @@ void Arm64JitBackend::CompIR_VecHoriz(IRInst inst) {
 		}
 		break;
 
+	case IROp::Vec4VfpuDot:
+		// Through memory and the shared routine, which preserves every register but x30.
+		regs_.SpillLockFPR(inst.src1, inst.src2);
+		regs_.MapVec4(inst.src1);
+		regs_.MapVec4(inst.src2);
+		fp_.STR(128, INDEX_UNSIGNED, regs_.FQ(inst.src1), CTXREG, offsetof(MIPSState, vfpuDotArgs));
+		fp_.STR(128, INDEX_UNSIGNED, regs_.FQ(inst.src2), CTXREG, offsetof(MIPSState, vfpuDotArgs) + 16);
+		BL(vfpuDot_);
+		fp_.LDR(32, INDEX_UNSIGNED, SCRATCHF1, CTXREG, offsetof(MIPSState, vfpuDotResult));
+		if (Overlap(inst.dest, 1, inst.src1, 4) || Overlap(inst.dest, 1, inst.src2, 4)) {
+			// The dest lane is in a mapped Vec4.
+			regs_.MapVec4(inst.dest & ~3, MIPSMap::DIRTY);
+			fp_.INS(32, regs_.FQ(inst.dest & ~3), inst.dest & 3, EncodeRegToQuad(SCRATCHF1), 0);
+		} else {
+			regs_.MapFPR(inst.dest, MIPSMap::NOINIT);
+			fp_.FMOV(regs_.F(inst.dest), SCRATCHF1);
+		}
+		regs_.ReleaseSpillLockFPR(inst.src1, inst.src2);
+		break;
+
 	default:
 		INVALIDOP;
 		break;

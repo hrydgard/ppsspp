@@ -870,6 +870,7 @@
     <ClInclude Include="MemFault.h" />
     <ClInclude Include="MIPS\ARM64\Arm64IRJit.h" />
     <ClInclude Include="MIPS\ARM64\Arm64IRRegCache.h" />
+    <ClInclude Include="MIPS\ARM64\Arm64VfpuDot.h" />
     <ClInclude Include="MIPS\fake\FakeJit.h" />
     <ClInclude Include="MIPS\IR\IRAnalysis.h" />
     <ClInclude Include="MIPS\IR\IRFrontend.h" />
