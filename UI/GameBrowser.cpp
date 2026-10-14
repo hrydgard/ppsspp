@@ -56,6 +56,8 @@ static constexpr float LARGE_LIST_ICON_H = 80.0f;
 static constexpr float LARGE_LIST_PAD = 6.0f;
 static constexpr float LARGE_LIST_LEFT_PAD = 11.0f;
 static constexpr float LARGE_LIST_INFO_SIZE = 64.0f;
+// Folders get bigger lines too, though not as big as the games.
+static constexpr float LARGE_LIST_FOLDER_H = 50.0f;
 
 // Where the text starts in the list modes.
 static float ListTextX(GameBrowserViewMode viewMode) {
@@ -671,12 +673,18 @@ std::string GameButton::DescribeText() const {
 
 class DirButton : public UI::Button {
 public:
-	DirButton(const Path &path, bool gridStyle, UI::LayoutParams *layoutParams)
-		: UI::Button(path.ToString(), layoutParams), path_(path), gridStyle_(gridStyle), absolute_(false) {}
-	DirButton(const Path &path, const std::string &text, bool gridStyle, UI::LayoutParams *layoutParams = 0)
-		: UI::Button(text, layoutParams), path_(path), gridStyle_(gridStyle), absolute_(true) {}
+	DirButton(const Path &path, GameBrowserViewMode viewMode, UI::LayoutParams *layoutParams)
+		: UI::Button(path.ToString(), layoutParams), path_(path), viewMode_(viewMode), absolute_(false) {}
+	DirButton(const Path &path, const std::string &text, GameBrowserViewMode viewMode, UI::LayoutParams *layoutParams = 0)
+		: UI::Button(text, layoutParams), path_(path), viewMode_(viewMode), absolute_(true) {}
 
 	void Draw(UIContext &dc) override;
+	void GetContentDimensions(const UIContext &dc, float &w, float &h) const override {
+		UI::Button::GetContentDimensions(dc, w, h);
+		if (viewMode_ == GameBrowserViewMode::LARGE_LIST) {
+			h = std::max(h, LARGE_LIST_FOLDER_H * g_Config.fGameGridScale + LARGE_LIST_PAD * 2);
+		}
+	}
 
 	const Path &GetPath() const {
 		return path_;
@@ -696,7 +704,7 @@ public:
 
 private:
 	Path path_;
-	bool gridStyle_;
+	GameBrowserViewMode viewMode_;
 	bool absolute_;
 	bool pinned_ = false;
 };
@@ -718,7 +726,7 @@ void DirButton::Draw(UIContext &dc) {
 	if (!IsEnabled()) style = dc.GetTheme().itemDisabledStyle;
 
 	dc.FillRect(style.background, bounds_);
-	DrawIconWithText(dc, image, text, bounds_, gridStyle_ ? GameBrowserViewMode::GRID : GameBrowserViewMode::LIST, style);
+	DrawIconWithText(dc, image, text, bounds_, viewMode_, style);
 }
 
 GameBrowser::GameBrowser(int token, const Path &path, BrowseFlags browseFlags, bool portrait, int *viewMode, ScreenManager *screenManager, std::string_view lastText, std::string_view lastLink, UI::LayoutParams *layoutParams)
@@ -1095,7 +1103,7 @@ void GameBrowser::Refresh() {
 
 			if (!isGame && !isSaveData) {
 				if (browseFlags_ & BrowseFlags::NAVIGATE) {
-					dirButtons.push_back(new DirButton(fileInfo[i].fullName, fileInfo[i].name, gridStyle, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)));
+					dirButtons.push_back(new DirButton(fileInfo[i].fullName, fileInfo[i].name, lastViewMode_, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)));
 				}
 			} else {
 				gameButtons.push_back(new GameButton(fileInfo[i].fullName, lastViewMode_, new UI::LinearLayoutParams(gridStyle ? UI::WRAP_CONTENT : UI::FILL_PARENT, UI::WRAP_CONTENT)));
@@ -1122,14 +1130,14 @@ void GameBrowser::Refresh() {
 
 	if (browseFlags_ & BrowseFlags::NAVIGATE) {
 		if (path_.CanNavigateUp()) {
-			gameList_->Add(new DirButton(Path(".."), gridStyle, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)))->
+			gameList_->Add(new DirButton(Path(".."), lastViewMode_, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)))->
 				OnClick.Handle(this, &GameBrowser::NavigateClick);
 		}
 
 		// Add any pinned paths before other directories.
 		auto pinnedPaths = GetPinnedPaths();
 		for (const auto &pinnedPath : pinnedPaths) {
-			DirButton *pinnedDir = gameList_->Add(new DirButton(pinnedPath, pinnedPath.GetFilename(), gridStyle, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)));
+			DirButton *pinnedDir = gameList_->Add(new DirButton(pinnedPath, pinnedPath.GetFilename(), lastViewMode_, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)));
 			pinnedDir->OnClick.Handle(this, &GameBrowser::NavigateClick);
 			pinnedDir->SetPinned(true);
 		}

@@ -195,14 +195,26 @@ static bool DefaultEnableStateUndo() {
 	return true;
 }
 
-static int GameBrowserViewFromGridView(bool gridView) {
-	return (int)(gridView ? GameBrowserViewMode::GRID : GameBrowserViewMode::LIST);
+// The old GridView bools, read as ints so a missing key (-1) can be told apart from false.
+static int LegacyGridViewFromString(const std::string &value) {
+	return equalsNoCase(value, "True") ? 1 : 0;
 }
 
-static int DefaultGameBrowserView1() { return GameBrowserViewFromGridView(g_Config.bGridView1); }
-static int DefaultGameBrowserView2() { return GameBrowserViewFromGridView(g_Config.bGridView2); }
-static int DefaultGameBrowserView3() { return GameBrowserViewFromGridView(g_Config.bGridView3); }
-static int DefaultGameBrowserView4() { return GameBrowserViewFromGridView(g_Config.bGridView4); }
+static std::string LegacyGridViewToString(int value) {
+	return value == 1 ? "True" : "False";
+}
+
+static int GameBrowserViewFromGridView(int legacyGridView, GameBrowserViewMode defaultMode) {
+	if (legacyGridView < 0) {
+		return (int)defaultMode;
+	}
+	return (int)(legacyGridView ? GameBrowserViewMode::GRID : GameBrowserViewMode::LIST);
+}
+
+static int DefaultGameBrowserView1() { return GameBrowserViewFromGridView(g_Config.iLegacyGridView1, GameBrowserViewMode::GRID); }
+static int DefaultGameBrowserView2() { return GameBrowserViewFromGridView(g_Config.iLegacyGridView2, GameBrowserViewMode::LARGE_LIST); }
+static int DefaultGameBrowserView3() { return GameBrowserViewFromGridView(g_Config.iLegacyGridView3, GameBrowserViewMode::LARGE_LIST); }
+static int DefaultGameBrowserView4() { return GameBrowserViewFromGridView(g_Config.iLegacyGridView4, GameBrowserViewMode::LIST); }
 
 static float DefaultGameGridScale() {
 #if PPSSPP_PLATFORM(IOS)
@@ -292,10 +304,10 @@ static const ConfigSetting generalSettings[] = {
 	ConfigSetting("ShowRegionOnGameIcon", SETTING(g_Config, bShowRegionOnGameIcon), false, CfgFlag::DEFAULT),
 	ConfigSetting("ShowIDOnGameIcon", SETTING(g_Config, bShowIDOnGameIcon), false, CfgFlag::DEFAULT),
 	ConfigSetting("GameGridScale", SETTING(g_Config, fGameGridScale), &DefaultGameGridScale, CfgFlag::DEFAULT),
-	ConfigSetting("GridView1", SETTING(g_Config, bGridView1), true, CfgFlag::DONT_SAVE),
-	ConfigSetting("GridView2", SETTING(g_Config, bGridView2), true, CfgFlag::DONT_SAVE),
-	ConfigSetting("GridView3", SETTING(g_Config, bGridView3), false, CfgFlag::DONT_SAVE),
-	ConfigSetting("GridView4", SETTING(g_Config, bGridView4), false, CfgFlag::DONT_SAVE),
+	ConfigSetting("GridView1", SETTING(g_Config, iLegacyGridView1), -1, &LegacyGridViewToString, &LegacyGridViewFromString, CfgFlag::DONT_SAVE),
+	ConfigSetting("GridView2", SETTING(g_Config, iLegacyGridView2), -1, &LegacyGridViewToString, &LegacyGridViewFromString, CfgFlag::DONT_SAVE),
+	ConfigSetting("GridView3", SETTING(g_Config, iLegacyGridView3), -1, &LegacyGridViewToString, &LegacyGridViewFromString, CfgFlag::DONT_SAVE),
+	ConfigSetting("GridView4", SETTING(g_Config, iLegacyGridView4), -1, &LegacyGridViewToString, &LegacyGridViewFromString, CfgFlag::DONT_SAVE),
 	// These must come after GridView*, which their defaults are taken from.
 	ConfigSetting("GameBrowserView1", SETTING(g_Config, iGameBrowserView1), &DefaultGameBrowserView1, CfgFlag::DEFAULT),
 	ConfigSetting("GameBrowserView2", SETTING(g_Config, iGameBrowserView2), &DefaultGameBrowserView2, CfgFlag::DEFAULT),
