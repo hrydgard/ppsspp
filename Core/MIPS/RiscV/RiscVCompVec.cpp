@@ -293,24 +293,19 @@ void RiscVJitBackend::CompIR_VecHoriz(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Vec4Dot:
-		regs_.Map(inst);
-		if (Overlap(inst.dest, 1, inst.src1, 4) || Overlap(inst.dest, 1, inst.src2, 4)) {
-			// This means inst.dest overlaps one of src1 or src2.  We have to do that one first.
-			// Technically this may impact -0.0 and such, but dots accurately need to be aligned anyway.
-			for (int i = 0; i < 4; ++i) {
-				if (inst.dest == inst.src1 + i || inst.dest == inst.src2 + i)
-					FMUL(32, regs_.F(inst.dest), regs_.F(inst.src1 + i), regs_.F(inst.src2 + i));
-			}
-			for (int i = 0; i < 4; ++i) {
-				if (inst.dest != inst.src1 + i && inst.dest != inst.src2 + i)
-					FMADD(32, regs_.F(inst.dest), regs_.F(inst.src1 + i), regs_.F(inst.src2 + i), regs_.F(inst.dest));
-			}
-		} else {
-			FMUL(32, regs_.F(inst.dest), regs_.F(inst.src1), regs_.F(inst.src2));
-			for (int i = 1; i < 4; ++i)
-				FMADD(32, regs_.F(inst.dest), regs_.F(inst.src1 + i), regs_.F(inst.src2 + i), regs_.F(inst.dest));
+	{
+		// Multiply and add separately in the IR interpreter's order: FMADD rounds differently.
+		// The sum builds up in dest, so it can't be one of the inputs.
+		if (Overlap(inst.dest, 1, inst.src1, 4) || Overlap(inst.dest, 1, inst.src2, 4))
+			DISABLE;
+		RiscVReg tempReg = regs_.MapWithFPRTemp(inst);
+		FMUL(32, regs_.F(inst.dest), regs_.F(inst.src1), regs_.F(inst.src2));
+		for (int i = 1; i < 4; ++i) {
+			FMUL(32, tempReg, regs_.F(inst.src1 + i), regs_.F(inst.src2 + i));
+			FADD(32, regs_.F(inst.dest), regs_.F(inst.dest), tempReg);
 		}
 		break;
+	}
 
 	case IROp::Vec4VfpuDot:
 		// Through the IR interpreter for now.

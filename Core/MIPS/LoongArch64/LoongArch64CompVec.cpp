@@ -370,21 +370,12 @@ void LoongArch64JitBackend::CompIR_VecHoriz(IRInst inst) {
 			// Do we need care about upper 96 bits?
 			VFADD_S(regs_.V(inst.dest), regs_.V(inst.dest), EncodeRegToV(SCRATCHF1));
 		} else {
-			if (Overlap(inst.dest, 1, inst.src1, 4) || Overlap(inst.dest, 1, inst.src2, 4)) {
-				// This means inst.dest overlaps one of src1 or src2.  We have to do that one first.
-				// Technically this may impact -0.0 and such, but dots accurately need to be aligned anyway.
-				for (int i = 0; i < 4; ++i) {
-					if (inst.dest == inst.src1 + i || inst.dest == inst.src2 + i)
-						FMUL_S(regs_.F(inst.dest), regs_.F(inst.src1 + i), regs_.F(inst.src2 + i));
-				}
-				for (int i = 0; i < 4; ++i) {
-					if (inst.dest != inst.src1 + i && inst.dest != inst.src2 + i)
-						FMADD_S(regs_.F(inst.dest), regs_.F(inst.src1 + i), regs_.F(inst.src2 + i), regs_.F(inst.dest));
-				}
-			} else {
-				FMUL_S(regs_.F(inst.dest), regs_.F(inst.src1), regs_.F(inst.src2));
-				for (int i = 1; i < 4; ++i)
-					FMADD_S(regs_.F(inst.dest), regs_.F(inst.src1 + i), regs_.F(inst.src2 + i), regs_.F(inst.dest));
+			// Multiply and add separately in the IR interpreter's order: FMADD rounds differently.
+			// The sum builds up in a scratch reg, so dest may be one of the inputs.
+			FMUL_S(SCRATCHF1, regs_.F(inst.src1), regs_.F(inst.src2));
+			for (int i = 1; i < 4; ++i) {
+				FMUL_S(SCRATCHF2, regs_.F(inst.src1 + i), regs_.F(inst.src2 + i));
+				FADD_S(i == 3 ? regs_.F(inst.dest) : SCRATCHF1, SCRATCHF1, SCRATCHF2);
 			}
 		}
 		break;
