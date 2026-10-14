@@ -153,11 +153,13 @@ void Arm64JitBackend::CompIR_Breakpoint(IRInst inst) {
 			if (memchecks.empty())
 				break;
 
+			// The flush may use SCRATCH1 for an imm, so the address waits in SCRATCH2.
 			ARM64Reg addrBase = regs_.MapGPR(inst.src1);
-			ADDI2R(SCRATCH1, addrBase, inst.constant, SCRATCH2);
+			ADDI2R(SCRATCH2, addrBase, inst.constant, SCRATCH1);
 
 			// We need to flush, or conditions and log expressions will see old register values.
 			FlushAll();
+			MOV(SCRATCH1, SCRATCH2);
 
 			std::vector<FixupBranch> hitChecks;
 			for (auto it : memchecks) {
@@ -434,13 +436,15 @@ void Arm64JitBackend::CompIR_ValidateAddress(IRInst inst) {
 	SetJumpTarget(tooHighScratch);
 
 	// If we got here, something unusual and bad happened, so we'll always go back to the dispatcher.
-	// Because of that, we can avoid flushing outside this case.
+	// Because of that, we can avoid flushing outside this case. The flush may use SCRATCH1 for an
+	// imm, so the address waits in SCRATCH2.
+	MOV(SCRATCH2, SCRATCH1);
 	auto regsCopy = regs_;
 	regsCopy.FlushAll();
 
 	// Ignores the return value, always returns to the dispatcher.
 	// Otherwise would need a thunk to restore regs.
-	MOV(W0, SCRATCH1);
+	MOV(W0, SCRATCH2);
 	MOVI2R(W1, alignment);
 	MOVI2R(W2, isWrite ? 1 : 0);
 	QuickCallFunction(SCRATCH2, &ReportBadAddress);
