@@ -1233,8 +1233,10 @@ bool DrawEngineCommon::CalculateDepthDraw(DepthDraw *draw, GEPrimitiveType prim,
 	draw->prim = prim;
 	draw->scissor.x1 = gstate.getScissorX1();
 	draw->scissor.y1 = gstate.getScissorY1();
-	draw->scissor.x2 = gstate.getScissorX2();
-	draw->scissor.y2 = gstate.getScissorY2();
+	// The drawing region clips too, like in SoftGPU. Resistance: Retribution's scissor ends at 480,272, one
+	// past its region, and depth written to row 272 lands on the textures placed after the depth buffer.
+	draw->scissor.x2 = std::min(gstate.getScissorX2(), gstate.getRegionX2());
+	draw->scissor.y2 = std::min(gstate.getScissorY2(), gstate.getRegionY2());
 	return true;
 }
 
