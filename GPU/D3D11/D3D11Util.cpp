@@ -4,6 +4,7 @@
 #include <cfloat>
 #include <vector>
 #include <string>
+#include "Common/CommonWindows.h"
 #include <d3d11.h>
 #include <D3Dcompiler.h>
 
