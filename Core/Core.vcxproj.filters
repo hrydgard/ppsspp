@@ -2157,6 +2157,9 @@
     <ClInclude Include="MIPS\x86\X64IRRegCache.h">
       <Filter>MIPS\x86</Filter>
     </ClInclude>
+    <ClInclude Include="MIPS\x86\X64VfpuDot.h">
+      <Filter>MIPS\x86</Filter>
+    </ClInclude>
     <ClInclude Include="MIPS\x86\X64IRJit.h">
       <Filter>MIPS\x86</Filter>
     </ClInclude>

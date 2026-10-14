@@ -1064,6 +1064,7 @@
     <ClInclude Include="WaveFile.h" />
     <ClInclude Include="WebServer.h" />
     <ClInclude Include="MIPS\x86\X64IRRegCache.h" />
+    <ClInclude Include="MIPS\x86\X64VfpuDot.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\assets\infra-dns.json" />

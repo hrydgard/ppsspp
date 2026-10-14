@@ -141,6 +141,8 @@ private:
 
 	const u8 *saveStaticRegisters_ = nullptr;
 	const u8 *loadStaticRegisters_ = nullptr;
+	// See GenerateX64VfpuDot().
+	const u8 *vfpuDot_ = nullptr;
 
 	typedef struct { float f[4]; } Float4Constant;
 	struct Constants {

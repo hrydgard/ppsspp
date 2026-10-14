@@ -23,6 +23,7 @@
 #include "Core/MemMap.h"
 #include "Core/MIPS/x86/X64IRJit.h"
 #include "Core/MIPS/x86/X64IRRegCache.h"
+#include "Core/MIPS/x86/X64VfpuDot.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/JitCommon/JitState.h"
 #include "Core/Core.h"
@@ -295,6 +296,9 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	}
 	JMP(quitLoop, true);
 
+#if PPSSPP_ARCH(AMD64)
+	vfpuDot_ = GenerateX64VfpuDot(this, CTXREG);
+#endif
 
 	// Leave this at the end, add more stuff above.
 	if (enableDisasm) {

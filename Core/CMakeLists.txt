@@ -66,6 +66,7 @@ list(APPEND CoreExtra
 	MIPS/x86/X64IRJit.h
 	MIPS/x86/X64IRRegCache.cpp
 	MIPS/x86/X64IRRegCache.h
+	MIPS/x86/X64VfpuDot.h
 )
 
 list(APPEND CoreExtra

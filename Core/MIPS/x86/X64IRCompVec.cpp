@@ -275,8 +275,16 @@ void X64JitBackend::CompIR_VecHoriz(IRInst inst) {
 	}
 
 	case IROp::Vec4VfpuDot:
-		// Through the IR interpreter for now.
-		CompIR_Generic(inst);
+		// Through memory and the shared routine, which preserves every register.
+		if (!vfpuDot_ || Overlap(inst.dest, 1, inst.src1, 4) || Overlap(inst.dest, 1, inst.src2, 4)) {
+			CompIR_Generic(inst);
+			break;
+		}
+		regs_.Map(inst);
+		MOVUPS(MDisp(CTXREG, offsetof(MIPSState, vfpuDotArgs)), regs_.FX(inst.src1));
+		MOVUPS(MDisp(CTXREG, offsetof(MIPSState, vfpuDotArgs) + 16), regs_.FX(inst.src2));
+		CALL(vfpuDot_);
+		MOVSS(regs_.FX(inst.dest), MDisp(CTXREG, offsetof(MIPSState, vfpuDotResult)));
 		break;
 
 	default:

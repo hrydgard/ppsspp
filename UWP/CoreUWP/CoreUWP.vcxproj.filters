@@ -627,6 +627,7 @@
     <ClInclude Include="..\..\Core\MIPS\MIPSTracer.h" />
     <ClInclude Include="..\..\Core\MIPS\x86\X64IRJit.h" />
     <ClInclude Include="..\..\Core\MIPS\x86\X64IRRegCache.h" />
+    <ClInclude Include="..\..\Core\MIPS\x86\X64VfpuDot.h" />
     <ClInclude Include="..\..\Core\Opcode.h" />
     <ClInclude Include="..\..\Core\PSPLoaders.h" />
     <ClInclude Include="..\..\Core\Reporting.h" />
