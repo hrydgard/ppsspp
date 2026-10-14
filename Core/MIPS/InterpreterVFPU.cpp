@@ -1833,10 +1833,9 @@ namespace MIPSInt
 					R(rt) = VI(imm);
 				} else if (imm < 128 + VFPU_CTRL_MAX) { //mfvc
 					R(rt) = mips->vfpuCtrl[imm - 128];
-				} else {
-					//ERROR - maybe need to make this value too an "interlock" value?
-					_dbg_assert_msg_(false,"mfv - invalid register");
 				}
+				// Past the control registers, rt is left alone. Every core does this (the IR
+				// interprets these), but no hardware test has checked it.
 			}
 			break;
 
@@ -1848,10 +1847,8 @@ namespace MIPSInt
 				if (GetVFPUCtrlMask(imm - 128, &mask)) {
 					mips->vfpuCtrl[imm - 128] = (R(rt) & mask) | GetVFPUCtrlSetBits(imm - 128);
 				}
-			} else {
-				//ERROR
-				_dbg_assert_msg_(false,"mtv - invalid register");
 			}
+			// Past the control registers, nothing is written (as with mfv above.)
 			break;
 
 		default:

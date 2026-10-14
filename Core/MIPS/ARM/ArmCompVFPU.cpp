@@ -1318,8 +1318,7 @@ namespace MIPSComp
 					js.blockWrotePrefixes = true;
 				}
 			} else {
-				//ERROR
-				_dbg_assert_msg_(false,"mtv - invalid register");
+				// Past the control registers, nothing is written, as in the interpreter.
 			}
 			break;
 
