@@ -577,6 +577,8 @@ public:
 	// SystemParam
 	std::string sNickName;  // AdHoc and system nickname
 	std::string sMACAddress;
+	// The Fuse ID of the PSP a game patch was installed on (12 hex digits), to decrypt it with.
+	std::string sFuseID;
 
 	int iLanguage;
 	int iTimeFormat;

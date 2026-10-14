@@ -48,8 +48,10 @@ int RunReverseEngineer(const ReverseEngineerOptions &opts);
 // Decrypts one encrypted PSP file and writes the plaintext, without loading anything.
 // Handles any container pspDecryptPRX() knows a tag for - including the ME images in
 // flash0:/kd/resource, which are ordinary tagged containers with the signature blanked, so the
-// normal module loader won't touch them. Returns a process exit code.
-int RunDecryptFile(const std::string &inPath, const std::string &outPath);
+// normal module loader won't touch them. A game patch installed on a PSP (a PGD around a type 3
+// PRX) also needs the secure install ID the game loads it with and that PSP's Fuse ID, as hex.
+// Returns a process exit code.
+int RunDecryptFile(const std::string &inPath, const std::string &outPath, const std::string &secureIdHex = "", const std::string &fuseIdHex = "");
 
 // Copies one file out of a disc image (ISO/CSO/...) as-is, e.g. "disc0:/PSP_GAME/USRDIR/MOVIE.PMF".
 // Returns a process exit code.

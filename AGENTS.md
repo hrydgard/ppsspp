@@ -30,6 +30,7 @@ for it:
 | [docs/PsarFileFormat.md](docs/PsarFileFormat.md) | The PSAR archive inside a firmware updater - the format `Core/Util/PSARUnpack.cpp` walks |
 | [docs/pkg_notes.md](docs/pkg_notes.md) | The NPDRM `.pkg` format PSP game updates ship in, and how PPSSPP installs them |
 | [docs/cpu-equivalence.md](docs/cpu-equivalence.md) | Making the CPU cores agree bit for bit on every host: the `CPUEquivalence` fuzzer, what it found, and the differences still open (several waiting on a hardware test) |
+| [docs/dnas-patches.md](docs/dnas-patches.md) | Game patches installed on a real PSP (Killzone: Liberation's DLC): installing one over PSPLink, and the Fuse-ID-keyed PGD and type 3 PRX that `sceKernelLoadModuleDNAS` decrypts |
 | [docs/kernel-hle-review.md](docs/kernel-hle-review.md) | Findings from a review pass over `Core/HLE/sceKernel*.cpp`, and what was verified clean |
 | [docs/metal-backend.md](docs/metal-backend.md) | What a native Metal backend would take, and why programmable blending is the reason to want one |
 

@@ -3,6 +3,7 @@
 #include <string.h>
 
 #include "ext/libkirk/kirk_engine.h"
+#include "ext/libkirk/amctrl.h"
 #include "ext/libkirk/SHA1.h"
 #include "Common/Common.h"
 #include "Common/Log.h"
@@ -175,6 +176,9 @@ static const u8 pauth_98b83b5d_xor[] = {0xA9, 0x1E, 0xDD, 0x7B, 0x09, 0xBB, 0x22
 static const u8 pauth_f7aa47f6_1[] = {0xC5, 0xFB, 0x69, 0x03, 0x20, 0x7A, 0xCF, 0xBA, 0x2C, 0x90, 0xF8, 0xB8, 0x4D, 0xD2, 0xF1, 0xDE};
 static const u8 pauth_f7aa47f6_2[] = {0x3A, 0x6B, 0x48, 0x96, 0x86, 0xA5, 0xC8, 0x80, 0x69, 0x6C, 0xE6, 0x4B, 0xF6, 0x04, 0x17, 0x44};
 static const u8 pauth_f7aa47f6_xor[] = {0xA9, 0x1E, 0xDD, 0x7B, 0x09, 0xBB, 0x22, 0xB5, 0x9D, 0xA3, 0x30, 0x69, 0x13, 0x6E, 0x0E, 0xD8};
+// Retail game patch installed by the DRM BB install utility (decrypt mode 18). JPCSP KeyVault.
+static const u8 key_89742B04[] = {0xD7, 0xEB, 0xC9, 0x24, 0x7E, 0x23, 0x3D, 0x89, 0x46, 0xE7, 0x2E, 0x47, 0xAD, 0xDB, 0x0D, 0x09};
+static const u8 xor_89742B04[] = {0xFF, 0x5E, 0xF1, 0xE9, 0xB1, 0xC9, 0x3E, 0xC5, 0xDB, 0xE0, 0x67, 0x82, 0x95, 0x3A, 0x8E, 0xA5};
 
 // PRXDecrypter 144-byte tag keys.
 static const u32 g_key0[] = {
@@ -531,6 +535,7 @@ static const TAG_INFO2 g_tagInfo2[] =
 	{ 0x2FD313F0, pauth_98b83b5d_1, 0x47, 5, pauth_98b83b5d_xor },
 	{ 0x2FD312F0, pauth_f7aa47f6_1, 0x47, 5, pauth_f7aa47f6_xor },
 	{ 0x2FD311F0, pauth_f7aa47f6_2, 0x47, 5, pauth_f7aa47f6_xor },
+	{ 0x89742B04, key_89742B04, 0x65, 3, xor_89742B04 },
 };
 
 static const TAG_INFO2 *GetTagInfo2(u32 tagFind)
@@ -694,7 +699,10 @@ struct PRXType5
 		memcpy(prxHeader, prx, sizeof(prxHeader));
 	}
 
-	void decrypt(int key, const u8 *xor1, const u8 *xor2)
+	// cmd3Header is for type 3, a game patch installed on a PSP: the first step goes through KIRK
+	// command 3 there, keyed to the console, with the header the install put at 0xEC (JPCSP's
+	// PRX.DecryptPRX). Fails only if that command does.
+	bool decrypt(int key, const u8 *xor1, const u8 *xor2, KirkState *kirk = nullptr, const u8 *cmd3Header = nullptr)
 	{
 		// first step is to decrypt kirk header + SHA1
 		u8 data[0x50];
@@ -714,7 +722,23 @@ struct PRXType5
 			}
 		}
 
-		kirk7(data, data, 0x50, key);
+		if (cmd3Header)
+		{
+			u8 block[sizeof(KIRK_CMD1_HEADER) + sizeof(data)]{};
+			KIRK_CMD1_HEADER *header = reinterpret_cast<KIRK_CMD1_HEADER *>(block);
+			memcpy(block, cmd3Header, 0x40);
+			header->mode = KIRK_MODE_CMD3;
+			header->data_size = sizeof(data);
+			memcpy(block + sizeof(KIRK_CMD1_HEADER), data, sizeof(data));
+			if (kirk_CMD3(kirk, data, block, sizeof(block)) != KIRK_OPERATION_SUCCESS)
+			{
+				return false;
+			}
+		}
+		else
+		{
+			kirk7(data, data, 0x50, key);
+		}
 
 		// copy the result back
 		memcpy(kirkHeader, data, sizeof(kirkHeader));
@@ -731,6 +755,7 @@ struct PRXType5
 		}
 
 		kirk7(id, id, 0x60, key);
+		return true;
 	}
 
 	u8 tag[4];
@@ -1025,33 +1050,11 @@ static int pspDecryptType2(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 siz
 	return decryptSize;
 }
 
-static int pspDecryptType5(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 size, const u8 *seed)
-	{
-	INFO_LOG(Log::Loader, "Decrypting tag %02X", (u32)*(u32_le *)&inbuf[0xD0]);
+// The part of type 5 decryption after its kirk header and SHA1 have been decrypted, which type 3
+// shares.
+static int pspFinishType5(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 size, PRXType5 &type5, const std::array<u8, 0x90> &xorbuf, int code)
+{
 	const auto decryptSize = *(s32_le*)&inbuf[0xB0];
-	const auto pti = GetTagInfo2((u32)*(u32_le *)&inbuf[0xD0]);
-
-	if (!pti)
-	{
-		return -1;
-	}
-
-	// check if range is non-zero
-	if (std::any_of(inbuf+0xD4+1, inbuf+0xD4+0x58, [](u8 x) { return x != 0; }))
-	{
-		return -2;
-	}
-
-	// expand the seed into a xor buffer
-	auto xorbuf = expandSeed(pti->key, pti->code, seed);
-
-	// The XOR the decrypt_mode implies wins over the tag table's, which is only the fallback -
-	// same precedence as JPCSP, and it leaves every tag that has a seed of its own alone.
-	const u8 *xor1 = inbuf[0x7C] == PRX_DECRYPT_MODE_SPRX ? xor_91E0A9AD : pti->seed;
-
-	// construct the header format for a type 2 prx
-	PRXType5 type5(inbuf);
-	type5.decrypt(pti->code, xor1, seed);
 
 	SHA_CTX ctx;
 	SHAInit(&ctx);
@@ -1082,7 +1085,7 @@ static int pspDecryptType5(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 siz
 	memset(header, 0, sizeof(KIRK_CMD1_HEADER));
 	memcpy(reinterpret_cast<u8*>(&header->data_size), type5.kirkMetadata, sizeof(type5.kirkMetadata));
 	memcpy(reinterpret_cast<u8*>(header)+sizeof(KIRK_CMD1_HEADER), type5.prxHeader, sizeof(type5.prxHeader));
-	decryptKirkHeader(reinterpret_cast<u8*>(header), type5.kirkHeader, xorbuf.cbegin()+0x10, pti->code);
+	decryptKirkHeader(reinterpret_cast<u8*>(header), type5.kirkHeader, xorbuf.cbegin()+0x10, code);
 	header->mode = 1;
 
 	if (!KirkOutputFits(header, size))
@@ -1096,7 +1099,59 @@ static int pspDecryptType5(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 siz
 	}
 
 	return decryptSize;
+}
+
+static int pspDecryptType5(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 size, const u8 *seed)
+	{
+	INFO_LOG(Log::Loader, "Decrypting tag %02X", (u32)*(u32_le *)&inbuf[0xD0]);
+	const auto pti = GetTagInfo2((u32)*(u32_le *)&inbuf[0xD0]);
+
+	if (!pti)
+	{
+		return -1;
 	}
+
+	// check if range is non-zero
+	if (std::any_of(inbuf+0xD4+1, inbuf+0xD4+0x58, [](u8 x) { return x != 0; }))
+	{
+		return -2;
+	}
+
+	// expand the seed into a xor buffer
+	auto xorbuf = expandSeed(pti->key, pti->code, seed);
+
+	// The XOR the decrypt_mode implies wins over the tag table's, which is only the fallback -
+	// same precedence as JPCSP, and it leaves every tag that has a seed of its own alone.
+	const u8 *xor1 = inbuf[0x7C] == PRX_DECRYPT_MODE_SPRX ? xor_91E0A9AD : pti->seed;
+
+	// construct the header format for a type 2 prx
+	PRXType5 type5(inbuf);
+	type5.decrypt(pti->code, xor1, seed);
+
+	return pspFinishType5(kirk, inbuf, outbuf, size, type5, xorbuf, pti->code);
+	}
+
+// Decrypt mode 18: a game patch installed through the DRM BB install utility, like the one
+// Killzone: Liberation's DLC installs. Type 5 with the first step through KIRK command 3, so it only
+// decrypts with the Fuse ID of the PSP that did the install. The secure install ID the game passes
+// to sceKernelLoadModuleDNAS is the second XOR. JPCSP's PRX.DecryptPRX, uofw's mesgled.h.
+static int pspDecryptType3(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 size, const u8 *secureId)
+{
+	const auto pti = GetTagInfo2((u32)*(u32_le *)&inbuf[0xD0]);
+	if (!pti || pti->type != 3 || !secureId)
+	{
+		return -1;
+	}
+	INFO_LOG(Log::Loader, "Decrypting tag %08X", (u32)*(u32_le *)&inbuf[0xD0]);
+
+	auto xorbuf = expandSeed(pti->key, pti->code, secureId);
+	PRXType5 type5(inbuf);
+	if (!type5.decrypt(pti->code, pti->seed, secureId, kirk, inbuf + 0xEC))
+	{
+		return -6;
+	}
+	return pspFinishType5(kirk, inbuf, outbuf, size, type5, xorbuf, pti->code);
+}
 
 static int pspDecryptType6(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 size)
 {
@@ -1247,7 +1302,7 @@ static int pspDecryptType9(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 siz
 	return decryptSize;
 }
 
-int pspDecryptPRX(const u8 *inbuf, u8 *outbuf, u32 size, const u8 *seed)
+int pspDecryptPRX(const u8 *inbuf, u8 *outbuf, u32 size, const u8 *seed, const u32 *fuseId)
 {
 	// Every type below reads the tag at 0xD0, the size at 0xB0 and key data as far as 0x150, and
 	// writes a KIRK header into outbuf at a fixed offset derived from sizeof(PSP_Header). Without
@@ -1260,7 +1315,17 @@ int pspDecryptPRX(const u8 *inbuf, u8 *outbuf, u32 size, const u8 *seed)
 	}
 
 	KirkState kirk{};
-	kirk_init(&kirk);
+	if (fuseId) {
+		kirk_init2(&kirk, (u8 *)"PrxDecrypter", 12, fuseId[0], fuseId[1]);
+	} else {
+		kirk_init(&kirk);
+	}
+
+	// Type 3 tags are only ever type 3, and the others would fail on its header anyway.
+	const TAG_INFO2 *pti = GetTagInfo2((u32)*(u32_le *)&inbuf[0xD0]);
+	if (pti && pti->type == 3) {
+		return pspDecryptType3(&kirk, inbuf, outbuf, size, seed);
+	}
 
 	// this would be significantly better if we had a log of the tags
 	// and their appropriate prx types
@@ -1293,4 +1358,75 @@ int pspDecryptPRX(const u8 *inbuf, u8 *outbuf, u32 size, const u8 *seed)
 	// Last, because its header check is a subset of type 6's - a genuine type 6 PRX would pass it
 	// and then fail on the hash, so trying it earlier would shadow the real answer.
 	return pspDecryptType9(&kirk, inbuf, outbuf, size);
+}
+
+bool pspUnwrapDNASPGD(std::vector<u8> &data, const u8 *secureId, const u32 *fuseId)
+{
+	if (data.size() < 0x90 || memcmp(data.data(), "\0PGD", 4) != 0) {
+		return false;
+	}
+
+	KirkState kirk{};
+	if (fuseId) {
+		kirk_init2(&kirk, (u8 *)"PrxDecrypter", 12, fuseId[0], fuseId[1]);
+	} else {
+		kirk_init(&kirk);
+	}
+
+	// The PGD of an installed patch uses the flag 1 fixed key; keep 2 (the usual NPDRM one) as a fallback.
+	u8 header[0x90];
+	PGD_DESC *pgd = nullptr;
+	for (int flag : { 1, 2 }) {
+		memcpy(header, data.data(), sizeof(header));
+		pgd = pgd_open(&kirk, header, flag, const_cast<u8 *>(secureId));
+		if (pgd) {
+			break;
+		}
+	}
+	if (!pgd) {
+		return false;
+	}
+
+	const u64 blocksSize = (u64)pgd->block_nr * pgd->block_size;
+	if ((u64)pgd->data_offset + blocksSize > data.size() || pgd->data_size > blocksSize) {
+		pgd_close(pgd);
+		return false;
+	}
+	std::vector<u8> plain((size_t)blocksSize);
+	for (u32 block = 0; block < pgd->block_nr; block++) {
+		memcpy(pgd->block_buf, data.data() + pgd->data_offset + (size_t)block * pgd->block_size, pgd->block_size);
+		pgd_decrypt_block(&kirk, pgd, block);
+		memcpy(plain.data() + (size_t)block * pgd->block_size, pgd->block_buf, pgd->block_size);
+	}
+	plain.resize(pgd->data_size);
+	pgd_close(pgd);
+	data = std::move(plain);
+	return true;
+}
+
+bool pspParseFuseId(std::string_view text, u32 fuseId[2])
+{
+	if (text.size() > 2 && text[0] == '0' && (text[1] == 'x' || text[1] == 'X')) {
+		text.remove_prefix(2);
+	}
+	if (text.size() != 12 && text.size() != 16) {
+		return false;
+	}
+	u64 value = 0;
+	for (char c : text) {
+		int digit;
+		if (c >= '0' && c <= '9') {
+			digit = c - '0';
+		} else if (c >= 'a' && c <= 'f') {
+			digit = c - 'a' + 10;
+		} else if (c >= 'A' && c <= 'F') {
+			digit = c - 'A' + 10;
+		} else {
+			return false;
+		}
+		value = (value << 4) | digit;
+	}
+	fuseId[0] = (u32)value;
+	fuseId[1] = (u32)(value >> 32);
+	return true;
 }

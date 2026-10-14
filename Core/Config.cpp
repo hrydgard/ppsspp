@@ -1112,6 +1112,7 @@ static const ConfigSetting systemParamSettings[] = {
 	ConfigSetting("WlanPowerSave", SETTING(g_Config, bWlanPowerSave), (bool) PSP_SYSTEMPARAM_WLAN_POWERSAVE_OFF, CfgFlag::PER_GAME),
 	ConfigSetting("EncryptSave", SETTING(g_Config, bEncryptSave), true, CfgFlag::PER_GAME | CfgFlag::REPORT),
 	ConfigSetting("MemStickSize", SETTING(g_Config, iMemStickSizeGB), 16, CfgFlag::DEFAULT),
+	ConfigSetting("FuseID", SETTING(g_Config, sFuseID), "", CfgFlag::DEFAULT),
 };
 
 static const ConfigSetting debuggerSettings[] = {

@@ -72,8 +72,6 @@
 #include "Core/HLE/scePsmf.h"
 #include "Core/HLE/sceAtrac.h"
 #include "Core/HLE/sceIo.h"
-#include "Core/HLE/sceChnnlsv.h"
-#include "ext/libkirk/amctrl.h"
 #include "Core/HLE/KernelWaitHelpers.h"
 #include "Core/ELF/ParamSFO.h"
 
@@ -1502,7 +1500,7 @@ static void ApplyVshHomebrewPatches(u32 start, u32 end) {
 		discId ? "patched" : "not found", headerType ? "patched" : "not found", headerBytesRetargeted ? "patched" : "not found");
 }
 
-static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAddress, bool fromTop, std::string *error_string, u32 *magic, std::string_view filename, u32 &error, const u8 *prxSeed = nullptr) {
+static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 loadAddress, bool fromTop, std::string *error_string, u32 *magic, std::string_view filename, u32 &error, const u8 *prxSeed = nullptr, const u32 *fuseId = nullptr) {
 	// The magic reads below need four bytes, and the ~SCE branch another four after that. Everything
 	// downstream checks its own sizes; this is just so we can look at the magic at all. The PBP path
 	// in __KernelLoadModule computes elfSize from two offsets in the file and doesn't floor it.
@@ -1575,7 +1573,7 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 		newptr = new u8[maxElfSize];
 		elfSize = maxElfSize;
 		ptr = newptr;
-		int decryptedSize = pspDecryptPRX(in, (u8*)ptr, head->psp_size, prxSeed);
+		int decryptedSize = pspDecryptPRX(in, (u8*)ptr, head->psp_size, prxSeed, fuseId);
 		// If decryption got us nowhere, the PRX may simply not be encrypted - in which case the ELF
 		// starts right after the header. Check the source buffer, not the destination: on the paths
 		// where decryption bails early nothing has been written to newptr yet, so this used to read
@@ -2558,7 +2556,7 @@ int sceKernelLoadExec(const char *filename, u32 paramPtr) {
 	return hleLogDebug(Log::sceModule, 0);
 }
 
-static u32 KernelLoadModuleFromData(const char *name, std::vector<uint8_t> &fileData, u32 flags, const SceKernelLMOption *lmoption, bool *tryLoadExec);
+static u32 KernelLoadModuleFromData(const char *name, std::vector<uint8_t> &fileData, u32 flags, const SceKernelLMOption *lmoption, bool *tryLoadExec, const u8 *secureId = nullptr, const u32 *fuseId = nullptr);
 
 // What sceKernelLoadModule does once the file has been read: decrypt the module, place it in memory
 // and link it. Returns the module's UID or an error. Logs directly rather than through hleLog*,
@@ -2577,7 +2575,7 @@ static u32 KernelLoadModuleFromFile(const char *name, u32 flags, const SceKernel
 	return KernelLoadModuleFromData(name, fileData, flags, lmoption, tryLoadExec);
 }
 
-static u32 KernelLoadModuleFromData(const char *name, std::vector<uint8_t> &fileData, u32 flags, const SceKernelLMOption *lmoption, bool *tryLoadExec) {
+static u32 KernelLoadModuleFromData(const char *name, std::vector<uint8_t> &fileData, u32 flags, const SceKernelLMOption *lmoption, bool *tryLoadExec, const u8 *secureId, const u32 *fuseId) {
 	// A .sprx installed by a PKG game update comes wrapped in an NPDRM "\0PSPEDAT" container: a
 	// 0x90-byte header naming the content ID, then the payload at the offset in its u16 at 0x0C.
 	// The payload is an ordinary ~PSP PRX, so stepping over the header is enough to get it to the
@@ -2616,7 +2614,7 @@ static u32 KernelLoadModuleFromData(const char *name, std::vector<uint8_t> &file
 	u32 magic;
 	u32 error;
 	std::string error_string;
-	module = __KernelLoadELFFromPtr(fileData.data(), fileData.size(), 0, lmoption ? lmoption->position == PSP_SMEM_High : false, &error_string, &magic, name, error, havePrxSeed ? prxSeed : nullptr);
+	module = __KernelLoadELFFromPtr(fileData.data(), fileData.size(), 0, lmoption ? lmoption->position == PSP_SMEM_High : false, &error_string, &magic, name, error, havePrxSeed ? prxSeed : secureId, fuseId);
 
 	if (!module) {
 		if (magic == 0x46535000) {
@@ -3366,39 +3364,12 @@ static u32 sceKernelLoadModuleByID(u32 id, u32 flags, u32 lmoptionPtr) {
 	return hleNoLog(module->GetUID());
 }
 
-// Replaces a PGD's contents with its decrypted payload. False if the key or the PGD type is one we
-// can't open.
-static bool UnwrapPGD(std::vector<uint8_t> &fileData, u8 *key) {
-	KirkState *kirk = __ChnnlsvKirkState();
-	PGD_DESC *pgd = pgd_open(kirk, fileData.data(), 2, key);
-	if (!pgd) {
-		return false;
-	}
-	const size_t dataEnd = (size_t)pgd->data_offset + (size_t)pgd->block_nr * pgd->block_size;
-	if (dataEnd > fileData.size() || pgd->data_size > (u64)pgd->block_nr * pgd->block_size) {
-		pgd_close(pgd);
-		return false;
-	}
-	std::vector<uint8_t> plain;
-	plain.reserve((size_t)pgd->block_nr * pgd->block_size);
-	for (u32 block = 0; block < pgd->block_nr; block++) {
-		memcpy(pgd->block_buf, fileData.data() + pgd->data_offset + block * pgd->block_size, pgd->block_size);
-		pgd_decrypt_block(kirk, pgd, block);
-		plain.insert(plain.end(), pgd->block_buf, pgd->block_buf + pgd->block_size);
-	}
-	plain.resize(pgd->data_size);
-	pgd_close(pgd);
-	fileData = std::move(plain);
-	return true;
-}
-
 // Loads a module installed by the DRM BB install utility (the psheet driver), like the patch
-// Killzone: Liberation's Chapter 5 DLC installs as ms0:/PSP/GAME/<id>/KZL.PRX. Such a file is a PGD
-// around a PRX, and both layers end up keyed to the PSP that installed it: the install runs the PRX
-// through KIRK command 2, whose key (AES keyslot 3) isn't known. So a file copied from a PSP won't
-// load here. A PGD we can open with the caller's key is unwrapped, and a module that's already
-// decrypted loads as is - anything else fails, and Killzone's bootloader takes any negative result
-// as "no patch" and loads its stock module from the disc.
+// Killzone: Liberation's Chapter 5 DLC installs as ms0:/PSP/GAME/<id>/KZL.PRX. That's a PGD around a
+// type 3 PRX, both keyed to the PSP that installed it (KIRK commands 8 and 3) and to the game by the
+// secure install ID passed here, so it only loads with that PSP's Fuse ID in the FuseID setting.
+// Killzone's bootloader takes any negative result as "no patch" and loads its stock module from the
+// disc. A module that isn't encrypted at all loads as is.
 static u32 sceKernelLoadModuleDNAS(const char *name, u32 keyAddr, u32 flags, u32 optionAddr) {
 	if (!name) {
 		return hleLogError(Log::Loader, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "bad filename");
@@ -3427,19 +3398,28 @@ static u32 sceKernelLoadModuleDNAS(const char *name, u32 keyAddr, u32 flags, u32
 	const int fileSize = (int)fileData.size();
 	const int loadUs = __IoOpenDelayUs(name) + __IoReadDelayUs(fileSize) + 1000 + fileSize / 34;
 
+	u32 fuseId[2];
+	const bool haveFuseId = pspParseFuseId(g_Config.sFuseID, fuseId);
+	if (!haveFuseId && !g_Config.sFuseID.empty()) {
+		WARN_LOG(Log::Loader, "FuseID setting '%s' isn't 12 hex digits", g_Config.sFuseID.c_str());
+	}
+
 	u32 result;
-	if (fileData.size() >= 0x90 && !memcmp(fileData.data(), "\0PGD", 4) && !UnwrapPGD(fileData, key)) {
+	if (fileData.size() >= 0x90 && !memcmp(fileData.data(), "\0PGD", 4) && !pspUnwrapDNASPGD(fileData, key, haveFuseId ? fuseId : nullptr)) {
 		result = SCE_ERROR_PGD_INVALID_HEADER;
 	} else {
 		bool tryLoadExec = false;
-		result = KernelLoadModuleFromData(name, fileData, flags, lmoption, &tryLoadExec);
+		result = KernelLoadModuleFromData(name, fileData, flags, lmoption, &tryLoadExec, key, haveFuseId ? fuseId : nullptr);
 	}
 
 	if ((s32)result < 0) {
 		auto err = GetI18NCategory(I18NCat::ERRORS);
-		g_OSD.Show(OSDType::MESSAGE_WARNING, err->T("DNASModuleUndecryptable", "Can't load a game update installed on a real PSP. Running without it."), "dnasmodule");
-		return hleDelayResult(hleLogError(Log::Loader, result, "can't decrypt %s (key %08x%08x%08x%08x)", name,
-			bswap32(*(u32 *)&key[0]), bswap32(*(u32 *)&key[4]), bswap32(*(u32 *)&key[8]), bswap32(*(u32 *)&key[12])), "module loaded", loadUs);
+		if (haveFuseId) {
+			g_OSD.Show(OSDType::MESSAGE_WARNING, err->T("DNASModuleWrongFuseID", "This game update doesn't decrypt with the Fuse ID that's set. Running without it."), "dnasmodule");
+		} else {
+			g_OSD.Show(OSDType::MESSAGE_WARNING, err->T("DNASModuleNeedsFuseID", "This game update was installed on a real PSP and needs that PSP's Fuse ID. Running without it."), "dnasmodule");
+		}
+		return hleDelayResult(hleLogError(Log::Loader, result, "can't decrypt %s%s", name, haveFuseId ? "" : " (no Fuse ID set)"), "module loaded", loadUs);
 	}
 	return hleDelayResult(hleLogInfo(Log::Loader, result), "module loaded", loadUs);
 }

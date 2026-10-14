@@ -17,6 +17,9 @@
 
 #pragma once
 
+#include <string_view>
+#include <vector>
+
 #include "Common/Common.h"
 #include "Common/CommonTypes.h"
 #include "Common/Swap.h"  // PSP_Header below is all _le types.
@@ -65,4 +68,14 @@ typedef struct
 #pragma pack(pop)
 #endif
 
-int pspDecryptPRX(const u8 *inbuf, u8 *outbuf, u32 size, const u8 *seed = nullptr);
+// fuseId is the PSP's Fuse ID, the words at 0xBC100090 and 0xBC100094. Only a game patch installed
+// on a PSP needs it (seed is its secure install ID then).
+int pspDecryptPRX(const u8 *inbuf, u8 *outbuf, u32 size, const u8 *seed = nullptr, const u32 *fuseId = nullptr);
+
+// A module installed by the DRM BB install utility (sceKernelLoadModuleDNAS) is a PGD around a type 3
+// PRX, both keyed to the console by its Fuse ID and to the game by the secure install ID it passes.
+// Replaces data with the PGD's contents; false if it doesn't open with these.
+bool pspUnwrapDNASPGD(std::vector<u8> &data, const u8 *secureId, const u32 *fuseId);
+
+// A Fuse ID as PSP tools show it, 12 (or 16) hex digits with the 0xBC100094 word first.
+bool pspParseFuseId(std::string_view text, u32 fuseId[2]);

@@ -1210,7 +1210,8 @@ int main(int argc, const char* argv[]) {
 	// Placed here rather than with the other early-exit subcommands above, because resolving a
 	// "flash0:/kd/foo.prx" module path needs nandRootDirectory, which is only settled just above.
 	if (cmdLineOptions.reDecrypt.has_value()) {
-		return RunDecryptFile(cmdLineOptions.reDecrypt.value(), cmdLineOptions.reDecryptOut.value_or("decrypted.bin"));
+		return RunDecryptFile(cmdLineOptions.reDecrypt.value(), cmdLineOptions.reDecryptOut.value_or("decrypted.bin"),
+			cmdLineOptions.reDecryptKey.value_or(""), cmdLineOptions.fuseId.value_or(""));
 	}
 	if (cmdLineOptions.dumpFile.has_value()) {
 		if (cmdLineOptions.bootFilenames.empty()) {
