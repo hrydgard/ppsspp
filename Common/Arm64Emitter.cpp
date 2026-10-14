@@ -3196,6 +3196,37 @@ void ARM64FloatEmitter::UMAX(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 {
 	EmitThreeSame(1, EncodeSize(size), 0xC, Rd, Rn, Rm);
 }
+void ARM64FloatEmitter::ADD(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
+{
+	EmitThreeSame(0, EncodeSize(size), 0x10, Rd, Rn, Rm);
+}
+void ARM64FloatEmitter::SUB(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
+{
+	EmitThreeSame(1, EncodeSize(size), 0x10, Rd, Rn, Rm);
+}
+void ARM64FloatEmitter::UMAXP(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
+{
+	EmitThreeSame(1, EncodeSize(size), 0x14, Rd, Rn, Rm);
+}
+void ARM64FloatEmitter::USHL(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
+{
+	EmitThreeSame(1, EncodeSize(size), 0x8, Rd, Rn, Rm);
+}
+void ARM64FloatEmitter::UMULL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
+{
+	_assert_msg_(IsQuad(Rd) && !IsQuad(Rn) && src_size < 64, "%s: bad registers or size", __FUNCTION__);
+	Write32((1 << 29) | (0xE << 24) | (EncodeSize(src_size) << 22) | (1 << 21) | (DecodeReg(Rm) << 16) | (0xC << 12) | (DecodeReg(Rn) << 5) | DecodeReg(Rd));
+}
+void ARM64FloatEmitter::UMULL2(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
+{
+	_assert_msg_(IsQuad(Rd) && IsQuad(Rn) && src_size < 64, "%s: bad registers or size", __FUNCTION__);
+	Write32((1 << 30) | (1 << 29) | (0xE << 24) | (EncodeSize(src_size) << 22) | (1 << 21) | (DecodeReg(Rm) << 16) | (0xC << 12) | (DecodeReg(Rn) << 5) | DecodeReg(Rd));
+}
+void ARM64FloatEmitter::ADDV(u8 size, ARM64Reg Rd, ARM64Reg Rn)
+{
+	_assert_msg_(size < 64 && (size < 32 || IsQuad(Rn)), "%s: bad size", __FUNCTION__);
+	Write32((IsQuad(Rn) << 30) | (0xE << 24) | (EncodeSize(size) << 22) | (0x18 << 17) | (0x1B << 12) | (2 << 10) | (DecodeReg(Rn) << 5) | DecodeReg(Rd));
+}
 void ARM64FloatEmitter::SMIN(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm)
 {
 	EmitThreeSame(0, EncodeSize(size), 0xD, Rd, Rn, Rm);
@@ -3844,6 +3875,12 @@ void ARM64FloatEmitter::SHL(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift) {
 	_assert_msg_(shift < dest_size, "%s shift amount must less than the element size!", __FUNCTION__);
 	u32 imm = EncodeImmShiftLeft(dest_size, shift);
 	EmitShiftImm(IsQuad(Rd), false, imm >> 3, imm & 7, 0xA, Rd, Rn);
+}
+
+void ARM64FloatEmitter::USRA(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift) {
+	_assert_msg_(shift > 0 && shift <= dest_size, "%s shift amount out of range!", __FUNCTION__);
+	u32 imm = EncodeImmShiftRight(dest_size, shift);
+	EmitShiftImm(IsQuad(Rd), true, imm >> 3, imm & 7, 0x2, Rd, Rn);
 }
 
 void ARM64FloatEmitter::USHR(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift) {

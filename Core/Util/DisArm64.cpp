@@ -1357,6 +1357,69 @@ static void SIMDVectorIndexedElement(uint32_t w, Instruction *instr) {
 	Out(instr, "%s %c%d, %c%d, %c%d.%s[%d]", opname, r, Rd, r, Rn, r, Rm, GetArrangement(Q, size & 1), index);
 }
 
+// Reductions across the lanes of a vector into a scalar.
+static void SIMDAcrossLanes(uint32_t w, Instruction *instr) {
+	int Rd = w & 0x1f;
+	int Rn = (w >> 5) & 0x1f;
+	int opcode = (w >> 12) & 0x1F;
+	int size = (w >> 22) & 3;
+	bool Q = GetQ(w);
+	bool U = GetU(w);
+	char r = Q ? 'q' : 'd';
+	if (U && (opcode == 0x0C || opcode == 0x0F)) {
+		// fmaxnmv, fmaxv, fminnmv, fminv: single precision only.
+		const char *name = opcode == 0x0C ? ((size & 2) ? "fminnmv" : "fmaxnmv") : ((size & 2) ? "fminv" : "fmaxv");
+		Out(instr, "%s s%d, %c%d.4s", name, Rd, r, Rn);
+		return;
+	}
+	const char *name = nullptr;
+	bool longResult = false;
+	switch (opcode) {
+	case 0x03: name = U ? "uaddlv" : "saddlv"; longResult = true; break;
+	case 0x0A: name = U ? "umaxv" : "smaxv"; break;
+	case 0x1A: name = U ? "uminv" : "sminv"; break;
+	case 0x1B: name = U ? nullptr : "addv"; break;
+	}
+	if (!name || size == 3) {
+		Out(instr, "(asimd across lanes %08x)", w);
+		return;
+	}
+	static const char scalarRegs[] = "bhsd";
+	Out(instr, "%s.%d %c%d, %c%d", name, 8 << size, scalarRegs[size + (longResult ? 1 : 0)], Rd, r, Rn);
+}
+
+// Long (L), wide (W) and narrowing (HN) ops on lanes of different sizes.
+static void SIMDThreeDifferent(uint32_t w, Instruction *instr) {
+	int Rd = w & 0x1f;
+	int Rn = (w >> 5) & 0x1f;
+	int Rm = (w >> 16) & 0x1f;
+	int opcode = (w >> 12) & 0xF;
+	int size = (w >> 22) & 3;
+	bool Q = GetQ(w);
+	bool U = GetU(w);
+	static const char * const names[2][16] = {
+		{ "saddl", "saddw", "ssubl", "ssubw", "addhn", "sabal", "subhn", "sabdl", "smlal", "sqdmlal", "smlsl", "sqdmlsl", "smull", "sqdmull", "pmull", nullptr },
+		{ "uaddl", "uaddw", "usubl", "usubw", "raddhn", "uabal", "rsubhn", "uabdl", "umlal", nullptr, "umlsl", nullptr, "umull", nullptr, nullptr, nullptr },
+	};
+	const char *name = names[U][opcode];
+	if (!name || size == 3) {
+		Out(instr, "(asimd three-different %08x)", w);
+		return;
+	}
+	const char *two = Q ? "2" : "";
+	const char half = Q ? 'q' : 'd';
+	const int narrow = 8 << size, wide = 16 << size;
+	if (opcode == 1 || opcode == 3) {
+		// Wide: Rd and Rn are the wide lanes.
+		Out(instr, "%s%s.%d.%d q%d, q%d, %c%d", name, two, wide, narrow, Rd, Rn, half, Rm);
+	} else if (opcode == 4 || opcode == 6) {
+		// Narrowing: Rd gets the high halves.
+		Out(instr, "%s%s.%d.%d %c%d, q%d, q%d", name, two, narrow, wide, half, Rd, Rn, Rm);
+	} else {
+		Out(instr, "%s%s.%d.%d q%d, %c%d, %c%d", name, two, wide, narrow, Rd, half, Rn, half, Rm);
+	}
+}
+
 // (w >> 25) & 0xF  == 7: AdvSIMD vector instructions.
 static void FPandASIMD1(uint32_t w, uint64_t addr, Instruction *instr) {
 	int Rd = w & 0x1f;
@@ -1372,9 +1435,9 @@ static void FPandASIMD1(uint32_t w, uint64_t addr, Instruction *instr) {
 			} else if (((w >> 10) & 3) == 2 && ((w >> 17) & 0xF) == 0) {
 				SIMDTwoRegMisc(w, instr);
 			} else if (((w >> 10) & 3) == 2 && ((w >> 17) & 0xF) == 8) {
-				Out(instr, "(asimd across lanes %08x)", w);
+				SIMDAcrossLanes(w, instr);
 			} else {
-				Out(instr, "(asimd three-different %08x)", w);
+				SIMDThreeDifferent(w, instr);
 			}
 		} else if ((w & 0x9FE08400) == 0x0E000400) {
 			SIMDCopy(w, instr);

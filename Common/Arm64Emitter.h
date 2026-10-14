@@ -888,6 +888,17 @@ public:
 
 	void UMIN(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void UMAX(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void UMAXP(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	// Integer vector add and subtract.
+	void ADD(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void SUB(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void USHL(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	// Widening multiplies: Rd (a quad) gets the products of the lower (UMULL) or upper (UMULL2)
+	// halves of Rn and Rm, src_size bits each.
+	void UMULL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	void UMULL2(u8 src_size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
+	// Sum of all lanes, into a scalar of the lane size.
+	void ADDV(u8 size, ARM64Reg Rd, ARM64Reg Rn);
 	void SMIN(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 	void SMAX(u8 size, ARM64Reg Rd, ARM64Reg Rn, ARM64Reg Rm);
 
@@ -995,6 +1006,8 @@ public:
 	void SHLL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn);
 	void SHLL2(u8 src_size, ARM64Reg Rd, ARM64Reg Rn);
 	void SHRN(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift);
+	// Rd += Rn >> shift, per lane.
+	void USRA(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift);
 	void SHRN2(u8 dest_size, ARM64Reg Rd, ARM64Reg Rn, u32 shift);
 	void SXTL(u8 src_size, ARM64Reg Rd, ARM64Reg Rn);
 	void SXTL2(u8 src_size, ARM64Reg Rd, ARM64Reg Rn);
