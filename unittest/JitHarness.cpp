@@ -242,6 +242,66 @@ bool TestJit() {
 	return memoryClean && jit_speed >= interp_speed;
 }
 
+// Times the JIT on the VFPU dot product shapes games use most, for working on their routines. Prints
+// nanoseconds per dot product; the operands are ordinary floats. Each group stores its results, or
+// the IR would drop all but the last as dead.
+bool TestJitDotBench() {
+	SetupJitHarness();
+	g_Config.bFastMemory = true;
+	const bool oldAccurateVdot = g_Config.bAccurateVdot;
+	g_Config.bAccurateVdot = true;
+
+	struct Sequence {
+		const char *name;
+		int dots;
+		std::vector<const char *> lines;
+	};
+	const Sequence sequences[] = {
+		{ "vdot.q alone", 4, { "vdot.q S000, C100, C200", "vdot.q S001, C110, C210", "vdot.q S002, C120, C220", "vdot.q S003, C130, C230", "sv.q C000, 0(a0)" } },
+		{ "vtfm4.q", 4, { "vtfm4.q C000, M100, C200", "sv.q C000, 0(a0)" } },
+		{ "vmmul.q", 16, { "vmmul.q M000, M100, M200", "sv.q C000, 0(a0)", "sv.q C010, 16(a0)", "sv.q C020, 32(a0)", "sv.q C030, 48(a0)" } },
+		{ "vdot.t run", 4, { "vdot.t S300, C400, C000", "vdot.t S301, C400, C010", "vdot.t S302, C400, C020", "vdot.t S303, C400, C030", "sv.q C300, 0(a0)" } },
+		{ "vdot.q rows", 3, { "vdot.q S200, R100, C000", "vdot.q S201, R101, C000", "vdot.q S202, R102, C000", "sv.q C200, 0(a0)" } },
+	};
+
+	bool ok = true;
+	for (const Sequence &seq : sequences) {
+		currentMIPS->pc = PSP_GetUserMemoryBase();
+		currentMIPS->r[MIPS_REG_A0] = PSP_GetUserMemoryBase() + 0x100000;
+		u32 addr = currentMIPS->pc;
+		const int groups = 50;
+		for (int i = 0; i < groups && ok; ++i) {
+			for (const char *line : seq.lines) {
+				std::string error;
+				if (!MipsAssembleOpcode(line, currentDebugMIPS, addr, &error)) {
+					printf("ERROR: %s: %s\n", line, error.c_str());
+					ok = false;
+				}
+				addr += 4;
+			}
+		}
+		Memory::WriteUnchecked_U32(MIPS_MAKE_SYSCALL("UnitTestFakeSyscalls", "UnitTestTerminator"), addr);
+		Memory::WriteUnchecked_U32(MIPS_MAKE_BREAK(1), addr + 4);
+		Memory::WriteUnchecked_U32(MIPS_MAKE_JR_RA(), addr + 8);
+
+		for (int i = 0; i < 128; ++i)
+			currentMIPS->v[i] = 0.75f + (float)((i * 37) % 101) * 0.37f * ((i & 1) ? -1.0f : 1.0f);
+		mipsr4k.UpdateCore(CPUCore::JIT);
+		const double callsPerSecond = ExecCPUTest(false);
+		if (getenv("PPSSPP_JITBENCH_DISASM")) {
+			JitBlockDebugInfo block = MIPSComp::jit->GetBlockCacheDebugInterface()->GetBlockDebugInfo(0);
+			for (size_t i = 0; i < block.targetDisasm.size() && i < 80; i++)
+				printf("  %s\n", block.targetDisasm[i].c_str());
+		}
+		MIPSComp::jit->ClearCache();
+		printf("%-14s %6.2f ns per dot\n", seq.name, 1e9 / (callsPerSecond * groups * seq.dots));
+	}
+
+	g_Config.bAccurateVdot = oldAccurateVdot;
+	DestroyJitHarness();
+	return ok;
+}
+
 // Follows a replacement hook's block shadow entry through compiling, invalidating, clearing and
 // switching cores. The hook is installed the normal way, by naming a function memcpy.
 static bool CheckReplacementHooks(u32 func, u32 size, const std::vector<u8> &code) {
