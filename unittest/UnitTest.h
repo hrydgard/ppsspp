@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <cstring>
 #include <algorithm>
+#include <functional>
 
 #include "Common/TimeUtil.h"
 
@@ -48,3 +49,7 @@ inline bool rel_equal(float a, float b, float precision) {
 #define RET(a) if (!(a)) { return false; }
 
 extern bool g_testLog;
+
+// Calls check on a few million inputs chosen to make trouble for a VFPU dot product (see
+// UnitTest.cpp), and stops at the first false.
+bool ForEachVFPUDotTestCase(const std::function<bool(const float a[4], const float b[4])> &check);

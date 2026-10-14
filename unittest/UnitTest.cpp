@@ -1823,10 +1823,10 @@ bool TestFastVec() {
 	return true;
 }
 
-// vfpu_dot's SIMD versions against the reference, on inputs chosen to make trouble: close
-// exponents, cancelling products, ties, zeroes and subnormals, the overflow and underflow edges,
-// inf and NaN, and sums whose rounding carries into the next power of two.
-bool TestVFPUDot() {
+// Calls check on inputs chosen to make trouble for a VFPU dot product: close exponents, cancelling
+// products, ties, zeroes and subnormals, the overflow and underflow edges, inf and NaN, and sums whose
+// rounding carries into the next power of two. Stops at the first false.
+bool ForEachVFPUDotTestCase(const std::function<bool(const float a[4], const float b[4])> &check) {
 	uint64_t state = 0x9E3779B97F4A7C15ULL;
 	auto rnd = [&]() {
 		state ^= state << 13;
@@ -1843,16 +1843,6 @@ bool TestVFPUDot() {
 		uint32_t bits;
 		memcpy(&bits, &f, sizeof(bits));
 		return bits;
-	};
-	auto check = [&](const float a[4], const float b[4]) {
-		const uint32_t expected = toBits(vfpu_dot_reference(a, b));
-		const uint32_t actual = toBits(vfpu_dot(a, b));
-		if (expected != actual) {
-			printf("vfpu_dot(%08x %08x %08x %08x, %08x %08x %08x %08x) = %08x, expected %08x\n",
-				toBits(a[0]), toBits(a[1]), toBits(a[2]), toBits(a[3]), toBits(b[0]), toBits(b[1]), toBits(b[2]), toBits(b[3]), actual, expected);
-			return false;
-		}
-		return true;
 	};
 	for (int n = 0; n < 4000000; n++) {
 		float a[4], b[4];
@@ -1891,6 +1881,20 @@ bool TestVFPUDot() {
 			return false;
 	}
 
+	// Cases that went wrong somewhere.
+	static const uint32_t fixed[][8] = {
+		{ 0x8055f97b, 0xcaa86851, 0, 0, 0x44282000, 0x3f800000, 0, 0 },
+	};
+	for (const auto &f : fixed) {
+		float a[4], b[4];
+		for (int i = 0; i < 4; i++) {
+			a[i] = fromBits(f[i]);
+			b[i] = fromBits(f[i + 4]);
+		}
+		if (!check(a, b))
+			return false;
+	}
+
 	// Sums just below and above a power of two, whose rounding carries into the next exponent:
 	// 1.0 from just under it, and inf at the top of the range.
 	for (int e = 1; e <= 254; e++) {
@@ -1913,6 +1917,28 @@ bool TestVFPUDot() {
 		}
 	}
 	return true;
+}
+
+
+// vfpu_dot's fast versions against the reference.
+bool TestVFPUDot() {
+	auto toBits = [](float f) {
+		uint32_t bits;
+		memcpy(&bits, &f, sizeof(bits));
+		return bits;
+	};
+	auto check = [&](const float a[4], const float b[4]) {
+		const uint32_t expected = toBits(vfpu_dot_reference(a, b));
+		const uint32_t actual = toBits(vfpu_dot(a, b));
+		const uint32_t scalar = toBits(vfpu_dot_scalar(a, b));
+		if (expected != actual || expected != scalar) {
+			printf("vfpu_dot(%08x %08x %08x %08x, %08x %08x %08x %08x) = %08x (scalar %08x), expected %08x\n",
+				toBits(a[0]), toBits(a[1]), toBits(a[2]), toBits(a[3]), toBits(b[0]), toBits(b[1]), toBits(b[2]), toBits(b[3]), actual, scalar, expected);
+			return false;
+		}
+		return true;
+	};
+	return ForEachVFPUDotTestCase(check);
 }
 
 bool TestVFPUSinCos() {
