@@ -875,13 +875,17 @@ void X64JitBackend::CompIR_FSat(IRInst inst) {
 		MOVSS(tempReg, M(constants.positiveOnes));
 		MINSS(tempReg, regs_.F(inst.src1));
 
-		// Now for NAN, we want known first again.
-		// Unfortunately, this will retain -0.0, which we'll fix next.
+		// Known first again, so a NAN stays, bits and all. This keeps -0.0 too, since a tie also
+		// takes the second argument.
 		XORPS(regs_.FX(inst.dest), regs_.F(inst.dest));
-		MAXSS(tempReg, regs_.F(inst.dest));
+		MAXSS(regs_.FX(inst.dest), R(tempReg));
 
-		// Important: this should clamp -0.0 to +0.0.
-		ADDSS(regs_.FX(inst.dest), R(tempReg));
+		// Important: this should clamp -0.0 to +0.0. Not by adding +0.0, which would quiet a
+		// signaling NAN: clear the result where it compares equal to zero, which a NAN never does.
+		XORPS(tempReg, R(tempReg));
+		CMPEQSS(tempReg, regs_.F(inst.dest));
+		ANDNPS(tempReg, regs_.F(inst.dest));
+		MOVAPS(regs_.FX(inst.dest), R(tempReg));
 		break;
 
 	case IROp::FSatMinus1_1:
