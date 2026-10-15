@@ -449,6 +449,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xd1db467a23ebe00d, 724, "rewrite_download_frame", }, // Rewrite Portable
 	{ 0xd1faacfc711d61e8, 68, "__negdf2", },
 	{ 0xd207b0650a41dd9c, 28, "vmin_q", },
+	{ 0xd4af2d7a4df495ae, 1728, "resistance_draw_trail", },
 	{ 0xd6d6e0bb21654778, 24, "vneg_t", },
 	{ 0xd7229fee680e7851, 40, "sceVfpuScalarMin", },
 	{ 0xd75670860a7f4b05, 144, "wcsncpy", },
