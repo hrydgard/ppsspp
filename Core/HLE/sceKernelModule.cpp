@@ -2733,6 +2733,15 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr) {
 		const SceUID threadID = __KernelGetCurThread();
 		PendingModuleLoad &load = g_pendingModuleLoads[threadID];
 		load.name = name;
+		// The event loads outside of any thread, so a relative path (Crash Tag Team Racing loads
+		// "prx/sc_sascore.prx") has to be resolved against the caller's current directory now.
+		// modulemgr.prx's sceKernelLoadModule also opens the file in the caller's thread.
+		if (load.name.find(':') == std::string::npos) {
+			const std::string cwd = pspFileSystem.GetCurrentDirForThread(threadID);
+			if (!cwd.empty()) {
+				load.name = cwd + "/" + load.name;
+			}
+		}
 		load.flags = flags;
 		load.hasOption = lmoption != nullptr;
 		if (lmoption) {
