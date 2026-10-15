@@ -640,6 +640,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/GPU/Software/RasterizerRectangle.cpp.arm \
   $(SRC)/GPU/Software/Sampler.cpp \
   $(SRC)/GPU/Software/SoftGpu.cpp \
+  $(SRC)/GPU/Null/GPU_Null.cpp \
   $(SRC)/GPU/Software/TransformUnit.cpp \
   $(SRC)/Core/ELF/ElfReader.cpp \
   $(SRC)/Core/ELF/PBPReader.cpp \

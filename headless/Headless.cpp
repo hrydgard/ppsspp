@@ -1061,15 +1061,18 @@ int main(int argc, const char* argv[]) {
 			break;
 		}
 	}
+	if (cmdLineOptions.nullGraphics.value_or(false)) {
+		gpuCore = GPUCORE_NULL;
+	}
 
 	// Time to set up graphics
 	GraphicsContext *graphicsContext = nullptr;
 	std::string *deviceSetting = nullptr;
 	void *window = nullptr;
 	WindowDesc windowDesc;
-	if (g_Config.bSoftwareRendering) {
+	if (g_Config.bSoftwareRendering || gpuCore == GPUCORE_NULL) {
 		// For software rendering, we just create a dummy graphics context (to share as much code as possible).
-		// We don't bother with a window.
+		// We don't bother with a window. The null GPU needs no draw context either.
 		graphicsContext = new NullGraphicsContext();
 	} else {
 #if defined(HEADLESS_NO_SDL)

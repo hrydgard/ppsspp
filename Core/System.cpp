@@ -636,7 +636,7 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 	// Update things that depend on game-specific config here.
 
 	// Compat settings can override the software renderer, take care of that here.
-	if (g_Config.bSoftwareRendering || g_CoreParameter.compat.flags().ForceSoftwareRenderer) {
+	if ((g_Config.bSoftwareRendering || g_CoreParameter.compat.flags().ForceSoftwareRenderer) && g_CoreParameter.gpuCore != GPUCORE_NULL) {
 		g_CoreParameter.gpuCore = GPUCORE_SOFTWARE;
 	}
 
