@@ -680,6 +680,10 @@ u32 vfpu_h2f(u16 h) {
 	return sign | ((exp + 112) << 23) | (mant << 13);
 }
 
+float vfpu_h2f_float(u16 h) {
+	return vfpu_float_from_bits(vfpu_h2f(h));
+}
+
 float vfpu_h2f_lower(float word) {
 	return vfpu_float_from_bits(vfpu_h2f((u16)(vfpu_bits_from_float(word) & 0xFFFF)));
 }

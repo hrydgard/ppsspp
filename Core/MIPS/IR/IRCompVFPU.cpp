@@ -2503,13 +2503,12 @@ namespace MIPSComp {
 		// Vector half-float immediate
 		// d[0] = float(imm)
 
-		FP16 half;
-		half.u = op & 0xFFFF;
-		FP32 fval = half_to_float_fast5(half);
+		// Converted like vh2f: denormal halves are zero (cpu/vfpu/vfim).
+		const float value = vfpu_h2f_float((u16)(op & 0xFFFF));
 
 		u8 dreg;
 		GetVectorRegsPrefixD(&dreg, V_Single, _VT);
-		ir.WriteSetConstantFloat(dreg, fval.f);
+		ir.WriteSetConstantFloat(dreg, value);
 		ApplyPrefixD(&dreg, V_Single, _VT);
 	}
 

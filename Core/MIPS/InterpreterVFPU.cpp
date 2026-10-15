@@ -474,7 +474,7 @@ namespace MIPSInt
 		if (type == 6) {
 			f[0] = (float)imm;  // viim
 		} else if (type == 7) {
-			f[0] = Float16ToFloat32((u16)uimm16);   // vfim
+			f[0] = vfpu_h2f_float((u16)uimm16);  // vfim, converted like vh2f (cpu/vfpu/vfim)
 		} else {
 			_dbg_assert_msg_( 0, "Invalid Viim opcode type %d", type);
 			f[0] = 0;
