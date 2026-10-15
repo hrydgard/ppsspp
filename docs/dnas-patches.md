@@ -32,8 +32,8 @@ PSP tools show it as 12 hex digits, the `0x94` word first.
 
 ## Installing it in PPSSPP
 
-`InstallDrmBBPackage()` in `Core/PSPLoaders.cpp` runs when a UMD game boots and
-`PSP/GAME/<DISC_ID>/EBOOT.PBP` is over 1 MB. It does what psheet does, with no console in the
+`InstallDrmBBPackage()` in `Core/PSPLoaders.cpp` runs when one of the games it lists boots (those
+`g_kirk2Results` covers) and `PSP/GAME/<DISC_ID>/EBOOT.PBP` is over 1 MB. It does what psheet does, with no console in the
 picture: it writes the package's files next to it and replaces the installer with the package's own
 `EBOOT.PBP`. It only does this if it can decrypt every `.PRX` in the package, so otherwise the download is
 left alone.

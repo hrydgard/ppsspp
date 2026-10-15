@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
+#include <iterator>
 #include <thread>
 
 #include "Core/Core.h"
@@ -340,8 +342,15 @@ static std::string FindGameUpdatePBOOT(const std::string &discId, const std::str
 // its online download and nothing does any more. So install it here, the way psheet does: the files
 // it holds go next to it, and its own EBOOT.PBP replaces it. The .PRX modules are written as the
 // package has them rather than tied to a console, so this only happens when we can decrypt them.
+// Only a few games had such downloads. These are the ones whose modules g_kirk2Results in
+// PrxDecrypter.cpp covers; add a game here along with its entries there.
+static const char * const drmBBPackageGames[] = {
+	"UCES00279",  // Killzone: Liberation (EU)
+	"UCUS98646",  // Killzone: Liberation (US)
+};
+
 static void InstallDrmBBPackage(const std::string &discId) {
-	if (discId.empty()) {
+	if (std::find(std::begin(drmBBPackageGames), std::end(drmBBPackageGames), discId) == std::end(drmBBPackageGames)) {
 		return;
 	}
 	const std::string dir = "ms0:/PSP/GAME/" + discId + "/";
