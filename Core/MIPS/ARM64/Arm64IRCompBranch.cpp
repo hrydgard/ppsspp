@@ -51,7 +51,23 @@ void Arm64JitBackend::CompIR_Exit(IRInst inst) {
 		exitReg = regs_.MapGPR(inst.src1);
 		FlushAll();
 		MOV(SCRATCH1, exitReg);
-		B(dispatcherPCInSCRATCH1_);
+		// The dispatcher's lookup, here: each of these then has its own indirect branch, which the
+		// CPU predicts far better than one shared by every jr. Anything unusual goes the long way.
+		MovToPC(SCRATCH1);
+		{
+			// Out of the downcount, or no block yet: the dispatcher, with the PC stored.
+			FixupBranch inTime = TBZ(DOWNCOUNTREG, 31);
+			B(hooks_.dispatcher);
+			SetJumpTarget(inTime);
+			ANDI2R(SCRATCH1, SCRATCH1, Memory::BLOCK_SHADOW_ENTRY_MASK);
+			MOVP2R(SCRATCH2_64, Memory::blockShadow);
+			LDR(SCRATCH1, SCRATCH2_64, SCRATCH1_64);
+			FixupBranch found = CBNZ(SCRATCH1);
+			B(dispatcherNoCheck_);
+			SetJumpTarget(found);
+			ADD(SCRATCH1_64, JITBASEREG, SCRATCH1_64);
+			BR(SCRATCH1_64);
+		}
 		break;
 
 	case IROp::ExitToPC:

@@ -75,8 +75,19 @@ bool Arm64JitBackend::CompileBlock(IRBlockCache *irBlockCache, int block_num) {
 	// An accurate dot product can flush several registers around its call.
 	size_t sizeEstimate = 0;
 	const IRInst *estimateInsts = irBlockCache->GetBlockInstructionPtr(*block);
-	for (int i = 0; i < block->GetNumIRInstructions(); ++i)
-		sizeEstimate += estimateInsts[i].op == IROp::Vec4VfpuDot || estimateInsts[i].op == IROp::Vec4VfpuMultiDot ? 96 : 32;
+	for (int i = 0; i < block->GetNumIRInstructions(); ++i) {
+		switch (estimateInsts[i].op) {
+		case IROp::Vec4VfpuDot:
+		case IROp::Vec4VfpuMultiDot:
+		// The jump to a register looks up the block itself.
+		case IROp::ExitToReg:
+			sizeEstimate += 96;
+			break;
+		default:
+			sizeEstimate += 32;
+			break;
+		}
+	}
 	BeginWrite(std::min(GetSpaceLeft(), sizeEstimate));
 
 	u32 startPC = block->GetOriginalStart();
