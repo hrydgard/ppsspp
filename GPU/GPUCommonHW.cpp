@@ -927,7 +927,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	}
 
 	if (changed) {
-		drawEngineCommon_->FlushQueuedDepth();
+		drawEngineCommon_->SubmitQueuedDepth();
 	}
 
 	if (gstate_c.dirty & DIRTY_VERTEXSHADER_STATE) {
@@ -1288,7 +1288,7 @@ void GPUCommonHW::Execute_Bezier(u32 op, u32 diff) {
 	bool changed;
 	VirtualFramebuffer *vfb = framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason, &changed);
 	if (changed) {
-		drawEngineCommon_->FlushQueuedDepth();
+		drawEngineCommon_->SubmitQueuedDepth();
 	}
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
 		// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
@@ -1359,7 +1359,7 @@ void GPUCommonHW::Execute_Spline(u32 op, u32 diff) {
 	bool changed;
 	VirtualFramebuffer *vfb = framebufferManager_->SetRenderFrameBuffer(gstate_c.IsDirty(DIRTY_FRAMEBUF), gstate_c.skipDrawReason, &changed);
 	if (changed) {
-		drawEngineCommon_->FlushQueuedDepth();
+		drawEngineCommon_->SubmitQueuedDepth();
 	}
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
 		// TODO: Should this eat some cycles?  Probably yes.  Not sure if important.
@@ -1468,6 +1468,7 @@ void GPUCommonHW::Execute_TexLevel(u32 op, u32 diff) {
 
 void GPUCommonHW::Execute_LoadClut(u32 op, u32 diff) {
 	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
+	drawEngineCommon_->WaitForDepthWrites(gstate.getClutAddress(), gstate.getClutLoadBytes());
 	textureCache_->LoadClut(gstate.getClutAddress(), gstate.getClutLoadBytes(), &recorder_);
 }
 
@@ -1739,6 +1740,10 @@ void GPUCommonHW::Execute_TexFlush(u32 op, u32 diff) {
 	// And for a bunch of other reasons, but either way, this is what we need to do.
 	// It's possible we could also use this as a hint for the texture cache somehow.
 	framebufferManager_->DiscardFramebufferCopy();
+}
+
+void GPUCommonHW::FlushPendingDrawing() {
+	drawEngineCommon_->FlushQueuedDepth();
 }
 
 u32 GPUCommonHW::DrawSync(int mode) {

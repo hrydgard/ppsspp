@@ -1212,7 +1212,7 @@ void GPUCommon::Execute_Ret(u32 op, u32 diff) {
 
 void GPUCommon::Execute_End(u32 op, u32 diff) {
 	if (flushOnParams_) {
-		drawEngineCommon_->FlushQueuedDepth();
+		drawEngineCommon_->SubmitQueuedDepth();
 		Flush();
 	}
 

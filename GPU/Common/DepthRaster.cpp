@@ -7,6 +7,10 @@
 #include "GPU/Math3D.h"
 #include "Common/Math/math_util.h"
 #include "GPU/Common/VertexDecoderCommon.h"
+#include "Common/MemoryUtil.h"
+#include "Common/Thread/ThreadUtil.h"
+#include "Common/TimeUtil.h"
+#include "Core/MemMap.h"
 
 DepthScissor DepthScissor::Tile(int tile, int numTiles) const {
 	if (numTiles == 1) {
@@ -632,5 +636,211 @@ void DepthRasterScreenVerts(uint16_t *depth, int depthStride, const int *tx, con
 	}
 	default:
 		_dbg_assert_(false);
+	}
+}
+
+// The depth buffers are all in VRAM, so busy ranges are kept as offsets into it, which also covers
+// the mirrors.
+static constexpr u32 VRAM_OFFSET_MASK = 0x001FFFFF;
+
+DepthRasterWorker::DepthRasterWorker(int maxVerts, int maxIndices) : maxVerts_(maxVerts), maxIndices_(maxIndices) {
+	// x, y and z, each with room for a group of four triangles past the end.
+	screenVerts_ = (int *)AllocateMemoryPages((maxVerts_ * sizeof(int) + 384) * 3, MEM_PROT_READ | MEM_PROT_WRITE);
+	current_ = NewBatch();
+	thread_ = std::thread([this] { Run(); });
+}
+
+DepthRasterWorker::~DepthRasterWorker() {
+	Wait();
+	{
+		std::lock_guard<std::mutex> guard(mutex_);
+		quit_ = true;
+	}
+	work_.notify_one();
+	thread_.join();
+	for (DepthBatch *batch : all_) {
+		FreeBatch(batch);
+	}
+	FreeMemoryPages(screenVerts_, (maxVerts_ * sizeof(int) + 384) * 3);
+}
+
+DepthBatch *DepthRasterWorker::NewBatch() {
+	DepthBatch *batch = new DepthBatch();
+	batch->draws.reserve(16);
+	all_.push_back(batch);
+	return batch;
+}
+
+void DepthRasterWorker::FreeBatch(DepthBatch *batch) {
+	FreeAlignedMemory(batch->transformed);
+	FreeAlignedMemory(batch->indices);
+	delete batch;
+}
+
+void DepthRasterWorker::Reserve(int vertices, int indices) {
+	DepthBatch &batch = *current_;
+	const int needVerts = batch.vertexCount + vertices;
+	if (needVerts > batch.vertexCapacity) {
+		const int capacity = std::min(std::max(needVerts, batch.vertexCapacity * 2), maxVerts_);
+		float *grown = (float *)AllocateAlignedMemory(capacity * 4 * sizeof(float), 16);
+		if (batch.transformed) {
+			memcpy(grown, batch.transformed, batch.vertexCount * 4 * sizeof(float));
+			FreeAlignedMemory(batch.transformed);
+		}
+		batch.transformed = grown;
+		batch.vertexCapacity = capacity;
+	}
+	const int needIndices = batch.indexCount + indices;
+	if (needIndices > batch.indexCapacity) {
+		const int capacity = std::min(std::max(needIndices, batch.indexCapacity * 2), maxIndices_);
+		uint16_t *grown = (uint16_t *)AllocateAlignedMemory(capacity * sizeof(uint16_t), 16);
+		if (batch.indices) {
+			memcpy(grown, batch.indices, batch.indexCount * sizeof(uint16_t));
+			FreeAlignedMemory(batch.indices);
+		}
+		batch.indices = grown;
+		batch.indexCapacity = capacity;
+	}
+}
+
+void DepthRasterWorker::Submit() {
+	if (current_->draws.empty()) {
+		return;
+	}
+	// Wipeout submits about 40 a frame. Past this many, wait for one to come back.
+	constexpr size_t MAX_BATCHES = 128;
+	std::unique_lock<std::mutex> lock(mutex_);
+	for (const DepthDraw &draw : current_->draws) {
+		const u32 low = (draw.depthAddr & VRAM_OFFSET_MASK) + draw.scissor.y1 * draw.depthStride * 2;
+		const u32 high = (draw.depthAddr & VRAM_OFFSET_MASK) + (draw.scissor.y2 + 1) * draw.depthStride * 2;
+		if (!busy_) {
+			busyRanges_.clear();
+			busyLow_ = low;
+			busyHigh_ = high;
+			busy_ = true;
+		} else {
+			busyLow_ = std::min((u32)busyLow_, low);
+			busyHigh_ = std::max((u32)busyHigh_, high);
+		}
+		bool merged = false;
+		for (auto &range : busyRanges_) {
+			if (low <= range.second && high >= range.first) {
+				range.first = std::min(range.first, low);
+				range.second = std::max(range.second, high);
+				merged = true;
+				break;
+			}
+		}
+		if (!merged) {
+			busyRanges_.emplace_back(low, high);
+		}
+	}
+	queue_.push_back(current_);
+	work_.notify_one();
+	if (free_.empty() && all_.size() < MAX_BATCHES) {
+		lock.unlock();
+		current_ = NewBatch();
+		return;
+	}
+	done_.wait(lock, [this] { return !free_.empty(); });
+	current_ = free_.back();
+	free_.pop_back();
+	current_->draws.clear();
+	current_->vertexCount = 0;
+	current_->indexCount = 0;
+}
+
+void DepthRasterWorker::Wait() {
+	Submit();
+	if (!busy_) {
+		return;
+	}
+	std::unique_lock<std::mutex> lock(mutex_);
+	done_.wait(lock, [this] { return queue_.empty() && running_ == 0; });
+}
+
+void DepthRasterWorker::WaitIfWriting(u32 addr, u32 size) {
+	if (!busy_) {
+		return;
+	}
+	const u32 low = addr & VRAM_OFFSET_MASK;
+	if (low >= busyHigh_ || low + size <= busyLow_) {
+		return;
+	}
+	std::unique_lock<std::mutex> lock(mutex_);
+	bool overlaps = false;
+	for (const auto &range : busyRanges_) {
+		overlaps = overlaps || (low < range.second && low + size > range.first);
+	}
+	if (busy_ && overlaps) {
+		done_.wait(lock, [this] { return queue_.empty() && running_ == 0; });
+	}
+}
+
+void DepthRasterWorker::TakeTimes(double *cull, double *raster) {
+	std::lock_guard<std::mutex> guard(mutex_);
+	*cull += cullTime_;
+	*raster += rasterTime_;
+	cullTime_ = 0.0;
+	rasterTime_ = 0.0;
+}
+
+void DepthRasterWorker::Run() {
+	SetCurrentThreadName("DepthRaster");
+	std::unique_lock<std::mutex> lock(mutex_);
+	while (true) {
+		work_.wait(lock, [this] { return quit_ || !queue_.empty(); });
+		if (quit_) {
+			break;
+		}
+		DepthBatch *batch = queue_.front();
+		queue_.erase(queue_.begin());
+		running_++;
+		lock.unlock();
+
+		double cull = 0.0, raster = 0.0;
+		Rasterize(*batch, &cull, &raster);
+
+		lock.lock();
+		running_--;
+		cullTime_ += cull;
+		rasterTime_ += raster;
+		free_.push_back(batch);
+		if (queue_.empty() && running_ == 0) {
+			busy_ = false;
+		}
+		done_.notify_all();
+	}
+}
+
+void DepthRasterWorker::Rasterize(const DepthBatch &batch, double *cull, double *raster) {
+	int *tx = screenVerts_;
+	int *ty = screenVerts_ + maxVerts_;
+	float *tz = (float *)(screenVerts_ + maxVerts_ * 2);
+	for (const DepthDraw &draw : batch.draws) {
+		const float *vertices = batch.transformed + 4 * draw.vertexOffset;
+		const uint16_t *indices = batch.indices + draw.indexOffset;
+		const DepthScissor tileScissor = draw.scissor.Tile(0, 1);
+
+		double start = time_now_d();
+		int outVertCount = 0;
+		switch (draw.prim) {
+		case GE_PRIM_RECTANGLES:
+			outVertCount = DepthRasterClipIndexedRectangles(tx, ty, tz, vertices, indices, draw, tileScissor);
+			break;
+		case GE_PRIM_TRIANGLES:
+			outVertCount = DepthRasterClipIndexedTriangles(tx, ty, tz, vertices, indices, draw, tileScissor, maxVerts_);
+			break;
+		default:
+			_dbg_assert_(false);
+			break;
+		}
+		double mid = time_now_d();
+		*cull += mid - start;
+		if (outVertCount > 0 && Memory::IsValid4AlignedAddress(draw.depthAddr)) {
+			u16 *depthPtr = (uint16_t *)Memory::GetPointerWriteUnchecked(draw.depthAddr);
+			DepthRasterScreenVerts(depthPtr, draw.depthStride, tx, ty, tz, outVertCount, draw, tileScissor, batch.lowQ);
+			*raster += time_now_d() - mid;
+		}
 	}
 }

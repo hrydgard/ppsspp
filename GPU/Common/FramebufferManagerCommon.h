@@ -313,6 +313,9 @@ public:
 	void SetDrawEngine(DrawEngineCommon *td) {
 		drawEngine_ = td;
 	}
+	DrawEngineCommon *GetDrawEngine() const {
+		return drawEngine_;
+	}
 
 	void Init(int msaaLevel);
 	virtual void BeginFrame(const DisplayLayoutConfig &config);

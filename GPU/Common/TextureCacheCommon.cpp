@@ -36,6 +36,7 @@
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/System.h"
 #include "Core/HW/Display.h"
+#include "GPU/Common/DrawEngineCommon.h"
 #include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/TextureCacheCommon.h"
 #include "GPU/Common/TextureDecoder.h"
@@ -399,6 +400,13 @@ SamplerCacheKey GetFramebufferSamplingParams(const GEState &gstate, u16 bufferWi
 	return key;
 }
 
+// Before reading texture data: it may be in a depth buffer the software depth rasterizer is writing.
+void TextureCacheCommon::WaitForDepthWrites(u32 addr, u32 bytes) {
+	if (Memory::IsVRAMAddress(addr)) {
+		framebufferManager_->GetDrawEngine()->WaitForDepthWrites(addr, bytes);
+	}
+}
+
 static u32 ComputeTextureHash(TextureReplacer &replacer, u32 addr, int bufw, int w, int h, bool swizzled, const TexCacheEntry *entry) {
 	const GETextureFormat format = entry->format;
 	// Swizzled CLUT4 glyph atlases can fill below the visible UV range while remaining
@@ -723,6 +731,9 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 				// A video texture is new every frame by definition, so hashing it only confirms what
 				// the VIDEO flag already said.
 				const bool skipHash = isVideo;
+				if (!skipHash) {
+					WaitForDepthWrites(entry->addr, (textureBitsPerPixel[entry->format] * entry->bufw * h) / 8);
+				}
 				const u32 newFullHash = skipHash ? 0 : ComputeTextureHash(replacer_, entry->addr, entry->bufw, w, h, swizzled, entry);
 				if (skipHash || newFullHash != entry->fullhash) {
 					// The texture changed. Throw it in the secondary cache. Then we'll create a new entry later.
@@ -932,6 +943,7 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 
 	const bool skipHash = isVideo;
 	if (!(entry->status & TexStatus::IS_PPGE_ATLAS) && !skipHash) {
+		WaitForDepthWrites(entry->addr, (textureBitsPerPixel[entry->format] * entry->bufw * h) / 8);
 		entry->fullhash = ComputeTextureHash(replacer_, entry->addr, entry->bufw, w, h, swizzled, entry);
 	}
 
@@ -2015,6 +2027,9 @@ TextureAlpha TextureCacheCommon::DecodeTextureLevel(u8 *out, int outPitch, GETex
 
 	const u8 *texptr = isPPGE ? (PPGeAtlasGetData() + ppgeOffset) : Memory::GetPointerOrException(texaddr);
 	const uint32_t byteSize = (textureBitsPerPixel[format] * bufw * h) / 8;
+	if (!isPPGE) {
+		WaitForDepthWrites(texaddr, byteSize);
+	}
 
 	// Validate the texture data fits in mapped RAM, like the DXT path does.
 	// texaddr/bufw/w/h are all guest-controlled via the GE display list.
