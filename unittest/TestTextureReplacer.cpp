@@ -352,6 +352,146 @@ static bool TestIndexedPNG(const Path &packDir) {
 	return true;
 }
 
+static void AppendLE32(std::vector<u8> *out, u32 value) {
+	for (int shift = 0; shift < 32; shift += 8) {
+		out->push_back((value >> shift) & 0xFF);
+	}
+}
+
+static void AppendLE64(std::vector<u8> *out, u64 value) {
+	AppendLE32(out, (u32)value);
+	AppendLE32(out, (u32)(value >> 32));
+}
+
+// A zstd frame holding a single uncompressed block, which is valid zstd (for data under 256 bytes).
+static std::vector<u8> ZstdRawFrame(const std::vector<u8> &data) {
+	std::vector<u8> frame = { 0x28, 0xB5, 0x2F, 0xFD, 0x20, (u8)data.size() };
+	const u32 blockHeader = ((u32)data.size() << 3) | 1;  // Last block, raw.
+	frame.push_back(blockHeader & 0xFF);
+	frame.push_back((blockHeader >> 8) & 0xFF);
+	frame.push_back((blockHeader >> 16) & 0xFF);
+	frame.insert(frame.end(), data.begin(), data.end());
+	return frame;
+}
+
+// Writes a KTX2 with one entry per level (level 0 first), each w x h one byte per texel.
+static bool CreateIndexedKTX2(const Path &filename, int w, int h, u32 vkFormat, bool zstd, const std::vector<std::vector<u8>> &levels) {
+	std::vector<std::vector<u8>> stored;
+	for (const auto &level : levels) {
+		stored.push_back(zstd ? ZstdRawFrame(level) : level);
+	}
+
+	std::vector<u8> file = { 0xAB, 'K', 'T', 'X', ' ', '2', '0', 0xBB, '\r', '\n', 0x1A, '\n' };
+	AppendLE32(&file, vkFormat);
+	AppendLE32(&file, 1);  // typeSize
+	AppendLE32(&file, w);
+	AppendLE32(&file, h);
+	AppendLE32(&file, 0);  // pixelDepth
+	AppendLE32(&file, 0);  // layerCount
+	AppendLE32(&file, 1);  // faceCount
+	AppendLE32(&file, (u32)levels.size());
+	AppendLE32(&file, zstd ? 2 : 0);
+	// No data format descriptor, key/value data or supercompression global data.
+	for (int i = 0; i < 4; i++) {
+		AppendLE32(&file, 0);
+	}
+	AppendLE64(&file, 0);
+	AppendLE64(&file, 0);
+
+	u64 offset = file.size() + levels.size() * 24;
+	for (size_t i = 0; i < levels.size(); i++) {
+		AppendLE64(&file, offset);
+		AppendLE64(&file, stored[i].size());
+		AppendLE64(&file, levels[i].size());
+		offset += stored[i].size();
+	}
+	for (const auto &level : stored) {
+		file.insert(file.end(), level.begin(), level.end());
+	}
+
+	FILE *fp = File::OpenCFile(filename, "wb");
+	if (!fp) {
+		return false;
+	}
+	const bool ok = fwrite(file.data(), 1, file.size(), fp) == file.size();
+	fclose(fp);
+	return ok;
+}
+
+// Lossless KTX2 files (R8_UNORM, optionally zstd) as indexed replacements, with their mip levels.
+static bool TestIndexedKTX2(const Path &packDir) {
+	static const char *iniContent =
+		"[options]\n"
+		"hash = quick\n"
+		"version = 1\n"
+		"\n"
+		"[hashes]\n"
+		"A000000B0000000010000001 = ktx_raw.ktx2\n"
+		"A000000C0000000010000002 = ktx_zstd.ktx2\n"
+		"A000000D0000000010000003 = ktx_rgba.ktx2\n"
+		"A000000E0000000010000004 = ktx_short.ktx2\n"
+		"\n"
+		"[indexed]\n"
+		"A000000B0000000010000001 = true\n"
+		"A000000C0000000010000002 = true\n"
+		"A000000D0000000010000003 = true\n"
+		"A000000E0000000010000004 = true\n";
+	if (!WriteIni(packDir, iniContent)) {
+		return false;
+	}
+
+	std::vector<std::vector<u8>> levels;
+	for (int i = 0; i < 3; i++) {
+		std::vector<u8> level((16 >> i) * (8 >> i));
+		for (size_t j = 0; j < level.size(); j++) {
+			level[j] = (u8)(j * 11 + i * 50 + 1);
+		}
+		levels.push_back(level);
+	}
+	if (!CreateIndexedKTX2(packDir / "ktx_raw.ktx2", 16, 8, 9, false, levels)) return false;
+	if (!CreateIndexedKTX2(packDir / "ktx_zstd.ktx2", 16, 8, 9, true, levels)) return false;
+	if (!CreateIndexedKTX2(packDir / "ktx_rgba.ktx2", 16, 8, 37, false, levels)) return false;
+	if (!CreateIndexedKTX2(packDir / "ktx_short.ktx2", 16, 8, 9, false, { std::vector<u8>(10) })) return false;
+
+	TextureReplacer replacer(nullptr);
+	std::string error;
+	if (!replacer.LoadPackForTesting(packDir, &error)) {
+		return false;
+	}
+
+	ReplacedTexture *raw = replacer.FindReplacement(ReplacementCacheKey(0xA000000B00000001ULL, 0x10000001), 16, 8);
+	ReplacedTexture *zstd = replacer.FindReplacement(ReplacementCacheKey(0xA000000C00000001ULL, 0x10000002), 16, 8);
+	ReplacedTexture *rgba = replacer.FindReplacement(ReplacementCacheKey(0xA000000D00000001ULL, 0x10000003), 16, 8);
+	ReplacedTexture *shortFile = replacer.FindReplacement(ReplacementCacheKey(0xA000000E00000001ULL, 0x10000004), 16, 8);
+	if (!raw || !zstd || !rgba || !shortFile) {
+		return false;
+	}
+
+	g_threadManager.Init(1, 1);
+	for (ReplacedTexture *tex : { raw, zstd }) {
+		EXPECT_TRUE(tex->Poll(1.0));
+		EXPECT_TRUE(tex->State() == ReplacementState::ACTIVE);
+		EXPECT_EQ_INT(tex->NumLevels(), 3);
+		for (int i = 0; i < 3; i++) {
+			int w = 0, h = 0;
+			tex->GetIndexDataSize(i, &w, &h);
+			EXPECT_EQ_INT(w, 16 >> i);
+			EXPECT_EQ_INT(h, 8 >> i);
+			std::vector<u8> copy(levels[i].size());
+			EXPECT_TRUE(tex->CopyIndexLevelTo(i, copy.data(), copy.size()));
+			EXPECT_TRUE(copy == levels[i]);
+		}
+	}
+
+	// Not R8, and not enough data.
+	EXPECT_TRUE(rgba->Poll(1.0));
+	EXPECT_TRUE(rgba->State() == ReplacementState::NOT_FOUND);
+	EXPECT_TRUE(shortFile->Poll(1.0));
+	EXPECT_TRUE(shortFile->State() == ReplacementState::NOT_FOUND);
+	g_threadManager.Teardown();
+	return true;
+}
+
 // The [indexed] section marks an image as palette indices. It is looked up without the CLUT hash
 // so that every palette of the texture shares the one image.
 static bool TestIndexedReplacement(const Path &packDir) {
@@ -461,7 +601,7 @@ bool TestTextureReplacer() {
 		return false;
 	}
 
-	if (!TestIndexedPNG(packDir) || !TestIndexedReplacement(packDir)) {
+	if (!TestIndexedPNG(packDir) || !TestIndexedReplacement(packDir) || !TestIndexedKTX2(packDir)) {
 		File::DeleteDirRecursively(packDir);
 		return false;
 	}

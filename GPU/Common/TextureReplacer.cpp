@@ -1164,9 +1164,13 @@ ignoreAddress = false    # Reduces duplicates at the cost of making hash less re
 # Marks replacement images that hold palette indices instead of colors, for games that use many palettes
 # for one texture or let the player change them. The game's current palette colors the image, so a single
 # high resolution image works with every palette.
-# Supported files: PNG only, either a palette (indexed) PNG, where the palette index of each pixel is used
-# (the colors in the file's palette are ignored), or a grayscale PNG of at most 8 bits, where the gray value
-# is the index. RGB/RGBA PNG, DDS, KTX2 and ZIM files can't be used here, and there are no mipmaps.
+# Supported files:
+# - PNG, either a palette (indexed) PNG, where the palette index of each pixel is used (the colors in the
+#   file's palette are ignored), or a grayscale PNG of at most 8 bits, where the gray value is the index.
+# - KTX2 in the R8_UNORM format (one byte per texel), uncompressed or with zstd supercompression, with the
+#   mipmaps stored in the file. This is lossless, and loads faster than PNG.
+# Lossy formats (Basis, DDS/BC, RGB/RGBA images) can't be used here, since a small error in an index picks
+# the wrong color. Mipmaps are not generated, only the levels in the file are used.
 # The image can have any resolution, for example 4x the original. The index values must match what the game uses.
 # Use the hashes section to name the file, with the CLUT hash set to 00000000 to match every palette.
 # Format: <address><clut hash><texture hash> = true

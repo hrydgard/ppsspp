@@ -20,6 +20,7 @@
 #include "ppsspp_config.h"
 
 #include <png.h>
+#include <zstd.h>
 
 #include "ext/basis_universal/basisu_transcoder.h"
 #include "ext/basis_universal/basisu_file_headers.h"
@@ -56,6 +57,40 @@ static ReplacedImageType IdentifyMagic(const uint8_t magic[4]) {
 		return ReplacedImageType::KTX2;
 	}
 	return ReplacedImageType::INVALID;
+}
+
+static const uint8_t KTX2_IDENTIFIER[12] = { 0xAB, 'K', 'T', 'X', ' ', '2', '0', 0xBB, '\r', '\n', 0x1A, '\n' };
+static const uint32_t VK_FORMAT_R8_UNORM_VALUE = 9;
+static const uint32_t KTX2_SUPERCOMPRESSION_NONE = 0;
+static const uint32_t KTX2_SUPERCOMPRESSION_ZSTD = 2;
+// The KTX2 header is followed by this index of data/descriptor offsets (80 bytes in total),
+// and then one entry per mip level, level 0 first.
+static const size_t KTX2_LEVEL_INDEX_OFFSET = sizeof(KTXHeader) + 32;
+
+struct KTX2LevelIndexEntry {
+	uint64_t byteOffset;
+	uint64_t byteLength;
+	uint64_t uncompressedByteLength;
+};
+
+// Indexed replacements can be a lossless KTX2: one byte per texel (R8_UNORM), optionally zstd compressed.
+static bool IsSupportedIndexedKTX2(const KTXHeader &header, std::string *reason) {
+	if (memcmp(header.identifier, KTX2_IDENTIFIER, sizeof(KTX2_IDENTIFIER)) != 0) {
+		*reason = "not a KTX2 file";
+	} else if (header.vkFormat != VK_FORMAT_R8_UNORM_VALUE) {
+		*reason = "the format must be R8_UNORM (one lossless byte per texel)";
+	} else if (header.pixelWidth == 0 || header.pixelHeight == 0 || header.pixelWidth > 8192 || header.pixelHeight > 8192) {
+		*reason = "unsupported dimensions";
+	} else if (header.pixelDepth > 1 || header.layerCount > 1 || header.faceCount != 1) {
+		*reason = "arrays, cubemaps and 3D textures are not supported";
+	} else if (header.levelCount == 0) {
+		*reason = "the mip levels must be stored";
+	} else if (header.supercompressionScheme != KTX2_SUPERCOMPRESSION_NONE && header.supercompressionScheme != KTX2_SUPERCOMPRESSION_ZSTD) {
+		*reason = "only no supercompression and zstd are supported";
+	} else {
+		return true;
+	}
+	return false;
 }
 
 static ReplacedImageType Identify(VFSBackend *vfs, VFSOpenFile *openFile, std::string *outMagic) {
@@ -358,8 +393,8 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 	std::string magic;
 	ReplacedImageType imageType = Identify(vfs_, openFile, &magic);
 
-	if (desc_.indexed && imageType != ReplacedImageType::PNG) {
-		ERROR_LOG(Log::TexReplacement, "Indexed replacement %s must be a palette or grayscale PNG", filename.c_str());
+	if (desc_.indexed && imageType != ReplacedImageType::PNG && imageType != ReplacedImageType::KTX2) {
+		ERROR_LOG(Log::TexReplacement, "Indexed replacement %s must be a palette or grayscale PNG, or an R8 KTX2", filename.c_str());
 		vfs_->CloseFile(openFile);
 		return LoadLevelResult::LOAD_ERROR;
 	}
@@ -388,6 +423,15 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 
 		// Additional quick checks
 		good = good && header.layerCount <= 1;
+
+		if (good && desc_.indexed) {
+			std::string reason;
+			if (!IsSupportedIndexedKTX2(header, &reason)) {
+				ERROR_LOG(Log::TexReplacement, "Indexed replacement %s can't be used: %s", filename.c_str(), reason.c_str());
+				good = false;
+			}
+			*pixelFormat = Draw::DataFormat::R8G8B8A8_UNORM;
+		}
 	} else if (imageType == ReplacedImageType::BASIS) {
 		WARN_LOG(Log::TexReplacement, "The basis texture format is not supported. Use KTX2 (basisu texture.png -uastc -ktx2 -mipmap)");
 
@@ -530,7 +574,77 @@ ReplacedTexture::LoadLevelResult ReplacedTexture::LoadLevelData(VFSFileReference
 
 	level.fileRef = fileRef;
 
-	if (imageType == ReplacedImageType::KTX2) {
+	if (imageType == ReplacedImageType::KTX2 && desc_.indexed) {
+		std::vector<uint8_t> buffer;
+		buffer.resize(fileSize);
+		buffer.resize(vfs_->Read(openFile, &buffer[0], buffer.size()));
+		vfs_->CloseFile(openFile);
+
+		KTXHeader header{};
+		std::string reason;
+		if (buffer.size() < KTX2_LEVEL_INDEX_OFFSET) {
+			reason = "the file is truncated";
+		} else {
+			memcpy(&header, buffer.data(), sizeof(header));
+			IsSupportedIndexedKTX2(header, &reason);
+		}
+		const int numMips = reason.empty() ? std::max(1, std::min((int)header.levelCount, MAX_REPLACEMENT_MIP_LEVELS - mipLevel)) : 0;
+		if (reason.empty() && buffer.size() < KTX2_LEVEL_INDEX_OFFSET + numMips * sizeof(KTX2LevelIndexEntry)) {
+			reason = "the file is truncated";
+		}
+
+		std::vector<ReplacedTextureLevel> newLevels;
+		if (reason.empty() && (size_t)(mipLevel + numMips) > data_.size()) {
+			data_.resize(mipLevel + numMips);
+		}
+		for (int i = 0; reason.empty() && i < numMips; i++) {
+			KTX2LevelIndexEntry entry;
+			memcpy(&entry, buffer.data() + KTX2_LEVEL_INDEX_OFFSET + i * sizeof(entry), sizeof(entry));
+
+			const int w = std::max(1, level.w >> i);
+			const int h = std::max(1, level.h >> i);
+			const size_t texels = (size_t)w * h;
+			if (entry.byteOffset > buffer.size() || entry.byteLength > buffer.size() - entry.byteOffset) {
+				reason = "a mip level is outside the file";
+				break;
+			}
+
+			std::vector<uint8_t> &out = data_[mipLevel + i];
+			const uint8_t *src = buffer.data() + entry.byteOffset;
+			if (header.supercompressionScheme == KTX2_SUPERCOMPRESSION_ZSTD) {
+				out.resize(texels);
+				const size_t decoded = ZSTD_decompress(out.data(), texels, src, (size_t)entry.byteLength);
+				if (ZSTD_isError(decoded) || decoded != texels) {
+					reason = "a mip level didn't decompress to the expected size";
+				}
+			} else if (entry.byteLength == texels) {
+				out.assign(src, src + texels);
+			} else {
+				reason = "a mip level has an unexpected size";
+			}
+
+			ReplacedTextureLevel mip = level;
+			mip.w = w;
+			mip.h = h;
+			if (i != 0) {
+				mip.fileRef = nullptr;  // We only provide a fileref on level 0 if we have mipmaps.
+			}
+			newLevels.push_back(mip);
+		}
+
+		if (!reason.empty()) {
+			ERROR_LOG(Log::TexReplacement, "Could not load indexed texture replacement %s: %s", filename.c_str(), reason.c_str());
+			for (size_t i = mipLevel; i < data_.size(); i++) {
+				data_[i].clear();
+			}
+			return LoadLevelResult::LOAD_ERROR;
+		}
+
+		// The palette decides the alpha.
+		alphaStatus_ = TextureAlpha::Any;
+		levels_.insert(levels_.end(), newLevels.begin(), newLevels.end());
+		return LoadLevelResult::DONE;  // don't read more levels
+	} else if (imageType == ReplacedImageType::KTX2) {
 		// Just slurp the whole file in one go and feed to the decoder.
 		std::vector<uint8_t> buffer;
 		buffer.resize(fileSize);
