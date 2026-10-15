@@ -377,6 +377,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xa85fe8abb88b1c6f, 52, "vector_sub_t", },
 	{ 0xa9194e55cc586557, 268, "memcpy", },
 	{ 0xa91b3d60bd75105b, 28, "vadd_t", },
+	{ 0xaaf1cc9399336a21, 1872, "resistance_update_trail", },
 	{ 0xab97ec58c58a7c75, 52, "sceVfpuVector3Div", },
 	{ 0xac84fa7571895c9a, 68, "memcpy", }, // Marvel Ultimate Alliance 2
 	{ 0xacc2c11c3ea28320, 268, "ceilf", },
