@@ -504,10 +504,12 @@ static bool TestIndexedReplacement(const Path &packDir) {
 		"A00000080000000010000008 = indexed.png\n"
 		"A00000090000000010000009 = indexed_rgba.png\n"
 		"A000000A000000001000000A = indexed.png\n"
+		"A000000B000000001000000B = indexed.png\n"
 		"\n"
 		"[indexed]\n"
 		"A00000080000000010000008 = true\n"
-		"A00000090000000010000009 = true\n";
+		"A00000090000000010000009 = true\n"
+		"A000000B000000001000000B = gpu\n";
 	if (!WriteIni(packDir, iniContent)) {
 		return false;
 	}
@@ -546,7 +548,18 @@ static bool TestIndexedReplacement(const Path &packDir) {
 		return false;
 	}
 	EXPECT_TRUE(pal1->IsIndexed());
+	EXPECT_FALSE(pal1->IsIndexedOnGpu());
 	EXPECT_FALSE(plain->IsIndexed());
+
+	// The shader colors this one. A different mode makes it a different replacement even with the same file.
+	ReplacedTexture *onGpu = replacer.FindReplacement(ReplacementCacheKey(0xA000000BC0000001ULL, 0x1000000B), 16, 8);
+	EXPECT_TRUE(onGpu != nullptr);
+	if (!onGpu) {
+		return false;
+	}
+	EXPECT_TRUE(onGpu != pal1);
+	EXPECT_TRUE(onGpu->IsIndexed());
+	EXPECT_TRUE(onGpu->IsIndexedOnGpu());
 
 	g_threadManager.Init(1, 1);
 	EXPECT_TRUE(pal1->Poll(1.0));
@@ -564,6 +577,21 @@ static bool TestIndexedReplacement(const Path &packDir) {
 	std::vector<u8> copy(indices.size());
 	EXPECT_TRUE(pal1->CopyIndexLevelTo(0, copy.data(), copy.size()));
 	EXPECT_TRUE(copy == indices);
+
+	// For the GPU the indices go into an R8 image with its own pitch, and the padding is cleared.
+	EXPECT_TRUE(onGpu->Poll(1.0));
+	EXPECT_TRUE(onGpu->State() == ReplacementState::ACTIVE);
+	const int pitch = 24;
+	std::vector<u8> pitched(pitch * 8, 0xAA);
+	EXPECT_TRUE(onGpu->CopyIndexLevelToPitched(0, pitched.data(), pitched.size(), pitch));
+	for (int y = 0; y < 8; y++) {
+		EXPECT_TRUE(memcmp(&pitched[pitch * y], &indices[16 * y], 16) == 0);
+	}
+	// The gap between the rows is not ours to touch.
+	EXPECT_EQ_INT(pitched[16], 0xAA);
+	// A pitch smaller than the row, or a buffer that is too small, is refused.
+	EXPECT_FALSE(onGpu->CopyIndexLevelToPitched(0, pitched.data(), pitched.size(), 8));
+	EXPECT_FALSE(onGpu->CopyIndexLevelToPitched(0, pitched.data(), pitch * 7, pitch));
 
 	// A truecolor image can't serve as indices.
 	EXPECT_TRUE(bad->Poll(1.0));

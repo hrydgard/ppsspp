@@ -262,7 +262,8 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 	// Filtering overrides from replacements or settings.
 	TextureFiltering forceFiltering = TEX_FILTER_AUTO;
 	bool useReplacerFiltering = false;
-	if (entry && replacer_.Enabled() && entry->replacedTexture) {
+	// (Not for indices that the shader colors, filtering them would mix up the palette entries.)
+	if (entry && replacer_.Enabled() && entry->replacedTexture && !(entry->status & TexStatus::CLUT8_INDEXED)) {
 		// If replacement textures have multiple mip levels, enforce mip filtering.
 		if (entry->replacedTexture->State() == ReplacementState::ACTIVE && entry->replacedTexture->NumLevels() > 1) {
 			key.mipEnable = true;
@@ -563,7 +564,11 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 	u32 cluthash;
 	if (gstate.isTextureFormatIndexed()) {
 		// Check if we should use dynamic CLUT in shader or some other tricks.
-		if (PSP_CoreParameter().compat.flags().TextureCLUTInShader && !replacer_.Enabled() && (texFormat == GE_TFMT_CLUT8 || texFormat == GE_TFMT_CLUT4)) {
+		const bool isClut8Or4 = texFormat == GE_TFMT_CLUT8 || texFormat == GE_TFMT_CLUT4;
+		// A texture with an indexed replacement for the GPU gets its colors in the shader too.
+		const bool gpuIndexed = isClut8Or4 && !gpuIndexedKeys_.empty() && clutRenderAddress_ == 0xFFFFFFFF &&
+			gpuIndexedKeys_.count(TexCacheEntry::CacheKey(texaddr, texFormat, dim, 0)) != 0;
+		if (isClut8Or4 && ((PSP_CoreParameter().compat.flags().TextureCLUTInShader && !replacer_.Enabled()) || gpuIndexed)) {
 			if (clutLastFormat_ != gstate.clutformat) {
 				// We update here because the clut format can be specified after the load.
 				// TODO: Unify this as far as possible (I think only GLES backend really needs its own implementation due to different component order).
@@ -2966,7 +2971,36 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 		}
 	}
 
-	bool canReplace = !isPPGETexture;
+	// A dynamic CLUT from rendering can't be combined with replacement.
+	const bool canReplace = !isPPGETexture && !(entry->status & TexStatus::CLUT_GPU);
+	const u64 gpuIndexedKey = TexCacheEntry::CacheKey(entry->addr, entry->format, entry->dim, 0);
+	if (canReplace) {
+		// This is the "trigger point" for replacement.
+		plan.replaced = FindReplacement(entry, &plan.w, &plan.h, &plan.depth);
+		if (plan.replaced && plan.replaced->IsIndexedOnGpu() && CanColorIndexedOnGpu(entry)) {
+			_dbg_assert_(plan.replaced->IsIndexed());
+			// The replacement holds indices that the shader colors, so this becomes a CLUT8 texture with a bigger
+			// image. Later lookups skip the CLUT hash, see ApplyTexture.
+			entry->status |= TexStatus::CLUT8_INDEXED;
+			gpuIndexedKeys_.insert(gpuIndexedKey);
+		} else if (plan.replaced && (entry->status & TexStatus::CLUT8_INDEXED)) {
+			// The shader colors this texture, so only indices can replace it. Forget the replacement.
+			entry->replacedTexture = nullptr;
+			entry->status &= ~(TexStatus::TO_REPLACE | TexStatus::IS_SCALED_OR_REPLACED);
+			plan.replaced = nullptr;
+		} else if (plan.replaced && plan.replaced->IsIndexedOnGpu()) {
+			WARN_LOG_ONCE(indexednogpu, Log::TexReplacement, "Indexed replacement for the GPU needs shader bitwise ops, using the CPU");
+		}
+		if (!plan.replaced && !gpuIndexedKeys_.empty()) {
+			// Nothing to color on the GPU anymore. The next lookup goes back to one entry per palette.
+			gpuIndexedKeys_.erase(gpuIndexedKey);
+		}
+		plan.doReplace = plan.replaced ? plan.replaced->State() == ReplacementState::ACTIVE : false;
+	} else {
+		plan.replaced = nullptr;
+		plan.doReplace = false;
+	}
+
 	if (entry->status & TexStatus::CLUT8_INDEXED) {
 		_dbg_assert_(entry->format == GE_TFMT_CLUT4 || entry->format == GE_TFMT_CLUT8);
 		plan.decodeToClut8 = true;
@@ -2976,19 +3010,8 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 		plan.levelsToLoad = 1;
 		plan.maxPossibleLevels = 1;
 		plan.scaleFactor = 1;
-		plan.saveTexture = false;  // Can't yet save these properly.
-		canReplace = false;
 	} else {
 		plan.decodeToClut8 = false;
-	}
-
-	if (canReplace) {
-		// This is the "trigger point" for replacement.
-		plan.replaced = FindReplacement(entry, &plan.w, &plan.h, &plan.depth);
-		plan.doReplace = plan.replaced ? plan.replaced->State() == ReplacementState::ACTIVE : false;
-	} else {
-		plan.replaced = nullptr;
-		plan.doReplace = false;
 	}
 
 	// NOTE! Last chance to change scale factor here!
@@ -2998,13 +3021,15 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 		// We're replacing, so we won't scale.
 		plan.scaleFactor = 1;
 		// We're ignoring how many levels were specified - instead we just load all available from the replacer.
-		plan.levelsToLoad = plan.replaced->NumLevels();
+		// (Indices of other mip levels can't be filtered, so a texture colored by the GPU keeps just the first.)
+		plan.levelsToLoad = plan.decodeToClut8 ? 1 : plan.replaced->NumLevels();
 		plan.levelsToCreate = plan.levelsToLoad;  // Or more, if we wanted to generate.
 		plan.badMipSizes = false;
 		// But, we still need to create the texture at a larger size.
 		plan.replaced->GetSize(0, &plan.createW, &plan.createH);
 	} else {
-		if (replacer_.SaveEnabled() && !plan.doReplace && plan.depth == 1 && canReplace) {
+		// (Can't save these properly yet when the CLUT is applied by the GPU.)
+		if (replacer_.SaveEnabled() && !plan.doReplace && plan.depth == 1 && canReplace && !plan.decodeToClut8) {
 			ReplacedTextureDecodeInfo replacedInfo;
 			// TODO: Do we handle the race where a replacement becomes valid AFTER this but before we save?
 			replacedInfo.cachekey = entry->CacheKey();
@@ -3053,6 +3078,10 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	// Will be filled in again during decode.
 	entry->SetAlphaStatus(TextureAlpha::Any);
 	return true;
+}
+
+bool TextureCacheCommon::CanColorIndexedOnGpu(const TexCacheEntry *entry) const {
+	return (entry->format == GE_TFMT_CLUT8 || entry->format == GE_TFMT_CLUT4) && draw_->GetShaderLanguageDesc().bitwiseOps;
 }
 
 bool TextureCacheCommon::CopyIndexedReplacementLevel(ReplacedTexture *replaced, int level, uint8_t *data, size_t dataSize, int stride) {
@@ -3108,7 +3137,10 @@ void TextureCacheCommon::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, s
 	if (plan.doReplace) {
 		plan.replaced->GetSize(srcLevel, &w, &h);
 		double replaceStart = time_now_d();
-		if (plan.replaced->IsIndexed()) {
+		if (plan.decodeToClut8) {
+			// Only an indexed replacement for the GPU gets here. The indices go up as they are, as an R8 image.
+			plan.replaced->CopyIndexLevelToPitched(srcLevel, data, dataSize, stride);
+		} else if (plan.replaced->IsIndexed()) {
 			CopyIndexedReplacementLevel(plan.replaced, srcLevel, data, dataSize, stride);
 		} else {
 			plan.replaced->CopyLevelTo(srcLevel, data, dataSize, stride);

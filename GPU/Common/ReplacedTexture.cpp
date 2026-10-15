@@ -946,6 +946,40 @@ bool ReplacedTexture::CopyIndexLevelTo(int level, uint8_t *out, size_t outDataSi
 	return true;
 }
 
+bool ReplacedTexture::CopyIndexLevelToPitched(int level, uint8_t *out, size_t outDataSize, int rowPitch) {
+	_assert_msg_(IsIndexed(), "Not an indexed texture");
+	_assert_msg_((size_t)level < levels_.size(), "Invalid miplevel");
+
+	if (State() != ReplacementState::ACTIVE) {
+		WARN_LOG(Log::TexReplacement, "Init not done yet");
+		return false;
+	}
+
+	std::lock_guard<std::mutex> guard(lock_);
+	const ReplacedTextureLevel &info = levels_[level];
+	const std::vector<uint8_t> &data = data_[level];
+	const int outW = info.fullW;
+	const int outH = info.fullH;
+	if (data.size() != (size_t)info.w * info.h || rowPitch < outW || info.w > outW || info.h > outH) {
+		WARN_LOG(Log::TexReplacement, "Level %d is empty or doesn't fit", level);
+		return false;
+	}
+	// A zero size disables the check, like for the other copies.
+	if (outDataSize != 0 && outDataSize < (size_t)rowPitch * (outH - 1) + outW) {
+		WARN_LOG(Log::TexReplacement, "Level %d doesn't fit the buffer", level);
+		return false;
+	}
+
+	for (int y = 0; y < info.h; ++y) {
+		memcpy(out + (size_t)rowPitch * y, data.data() + (size_t)info.w * y, info.w);
+		memset(out + (size_t)rowPitch * y + info.w, 0, outW - info.w);
+	}
+	for (int y = info.h; y < outH; ++y) {
+		memset(out + (size_t)rowPitch * y, 0, outW);
+	}
+	return true;
+}
+
 bool ReplacedTexture::CopyLevelTo(int level, uint8_t *out, size_t outDataSize, int rowPitch) {
 	_assert_msg_((size_t)level < levels_.size(), "Invalid miplevel");
 	_assert_msg_(out != nullptr && rowPitch > 0, "Invalid out/pitch");

@@ -221,7 +221,8 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 	Draw::DataFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
 	if (plan.doReplace) {
 		plan.replaced->GetSize(plan.baseLevelSrc, &tw, &th);
-		dstFmt = plan.replaced->Format();
+		// Indices for the GPU are uploaded as the R8 format of the CLUT8 textures.
+		dstFmt = plan.decodeToClut8 ? Draw::DataFormat::R8_UNORM : plan.replaced->Format();
 	} else if (plan.scaleFactor > 1 || plan.saveTexture) {
 		dstFmt = Draw::DataFormat::R8G8B8A8_UNORM;
 	} else if (plan.decodeToClut8) {
@@ -276,12 +277,12 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 
 			if (plan.doReplace) {
 				int blockSize = 0;
-				if (Draw::DataFormatIsBlockCompressed(plan.replaced->Format(), &blockSize)) {
+				if (Draw::DataFormatIsBlockCompressed(dstFmt, &blockSize)) {
 					stride = mipWidth * 4;
 					dataSize = plan.replaced->GetLevelDataSizeAfterCopy(i);
 					bc = true;
 				} else {
-					int bpp = (int)Draw::DataFormatSizeInBytes(plan.replaced->Format());
+					int bpp = (int)Draw::DataFormatSizeInBytes(dstFmt);
 					stride = mipWidth * bpp;
 					dataSize = stride * mipHeight;
 				}

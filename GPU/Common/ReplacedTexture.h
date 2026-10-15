@@ -113,6 +113,8 @@ struct ReplacementDesc {
 	GPUFormatSupport formatSupport;
 	// The files hold palette indices (palette or grayscale PNG) that the game's own palette colors.
 	bool indexed = false;
+	// With indexed: the palette is applied by the GPU, in the shader, instead of on the CPU when uploading.
+	bool indexedOnGpu = false;
 };
 
 class ReplacedTexture;
@@ -210,6 +212,10 @@ public:
 		return desc_.indexed;
 	}
 
+	bool IsIndexedOnGpu() const {
+		return desc_.indexed && desc_.indexedOnGpu;
+	}
+
 	// Indexed textures only. Size of the stored indices, before padding to the full size.
 	void GetIndexDataSize(int level, int *w, int *h) const {
 		_dbg_assert_(IsIndexed() && (size_t)level < levels_.size());
@@ -218,6 +224,9 @@ public:
 	}
 	// Indexed textures only. Copies the indices, one byte each, tightly packed.
 	bool CopyIndexLevelTo(int level, uint8_t *out, size_t outDataSize);
+	// Indexed textures only. Copies the indices into an R8 image of the full size, one row per rowPitch bytes,
+	// and zeroes the padding.
+	bool CopyIndexLevelToPitched(int level, uint8_t *out, size_t outDataSize, int rowPitch);
 
 	bool Poll(double budget);
 	bool CopyLevelTo(int level, uint8_t *out, size_t outDataSize, int rowPitch);

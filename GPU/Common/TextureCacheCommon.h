@@ -18,6 +18,7 @@
 #pragma once
 
 #include <map>
+#include <unordered_set>
 #include <vector>
 #include <memory>
 
@@ -430,6 +431,8 @@ protected:
 	void LoadTextureLevel(TexCacheEntry &entry, uint8_t *mapData, size_t dataSize, int mapRowPitch, BuildTexturePlan &plan, int srcLevel, Draw::DataFormat dstFmt, TexDecodeFlags texDecFlags);
 	// Colors an indexed replacement with the current CLUT, into 32-bit RGBA padded to the full size.
 	bool CopyIndexedReplacementLevel(ReplacedTexture *replaced, int level, uint8_t *data, size_t dataSize, int stride);
+	// Whether the shader can apply the CLUT of this texture, which an indexed replacement for the GPU needs.
+	bool CanColorIndexedOnGpu(const TexCacheEntry *entry) const;
 
 	// This needs to be a member functions just for IsVideo and Replacer.
 	SamplerCacheKey GetSamplingParams(int maxLevel, const TexCacheEntry *entry, bool flatZ, bool pixelMapped);
@@ -466,6 +469,9 @@ protected:
 	TexCache cache_;
 	// The secondary cache uses the texture hash and clut hash as the key.
 	TexCache secondCache_;
+	// Cache keys, with a zero CLUT hash, of the textures that have an indexed replacement colored by the GPU. Those
+	// are looked up without the CLUT hash, so a palette change doesn't build a new texture.
+	std::unordered_set<u64> gpuIndexedKeys_;
 
 
 	AlignedVector<u32, 16> tmpTexBuf32_;

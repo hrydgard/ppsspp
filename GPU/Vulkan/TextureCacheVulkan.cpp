@@ -685,7 +685,8 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 	VkFormat actualFmt = plan.scaleFactor > 1 ? VULKAN_8888_FORMAT : dstFmt;
 	bool bcFormat = false;
 	int bcAlign = 0;
-	if (plan.doReplace) {
+	// A replacement of indices for the GPU is uploaded as the CLUT8 format that dstFmt already is.
+	if (plan.doReplace && !plan.decodeToClut8) {
 		Draw::DataFormat fmt = plan.replaced->Format();
 		bcFormat = Draw::DataFormatIsBlockCompressed(fmt, &bcAlign);
 		actualFmt = ToVulkanFormat(fmt);
@@ -837,7 +838,10 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			// Directly load the replaced image.
 			data = pushBuffer->Allocate(uploadSize, pushAlignment, &texBuf, &bufferOffset);
 			double replaceStart = time_now_d();
-			if (!plan.replaced->CopyLevelTo(plan.baseLevelSrc + i, (uint8_t *)data, uploadSize, byteStride)) {  // If plan.doReplace, this shouldn't fail.
+			const bool copied = plan.decodeToClut8 ?
+				plan.replaced->CopyIndexLevelToPitched(plan.baseLevelSrc + i, (uint8_t *)data, uploadSize, byteStride) :
+				plan.replaced->CopyLevelTo(plan.baseLevelSrc + i, (uint8_t *)data, uploadSize, byteStride);
+			if (!copied) {  // If plan.doReplace, this shouldn't fail.
 				WARN_LOG(Log::G3D, "Failed to copy replaced texture level");
 				// TODO: Fill with some pattern?
 			}
