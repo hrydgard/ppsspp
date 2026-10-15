@@ -1163,6 +1163,9 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 				const int numDest = IRDestFPRs(inst, destRegs);
 				if (numDest > 1 && check.srcReg >= destRegs[0] + 32 && check.srcReg < destRegs[0] + 32 + numDest)
 					cannotReplace = true;
+				// Nor where it's read as src3 that's also the destination, which renaming would move.
+				if ((inst.m.flags & IRFLAG_SRC3DST) != 0 && inst.m.types[0] == 'F' && inst.src3 + 32 == check.reg)
+					cannotReplace = true;
 				if (!cannotReplace && check.srcReg >= 32 && lastWrittenTo[check.srcReg] < check.index) {
 					// This is probably not worth doing unless we can get rid of a temp.
 					if (!check.readByExit) {
@@ -1173,7 +1176,7 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 							inst.src1 = srcReg;
 						if (inst.m.types[2] == 'F' && inst.src2 == reg)
 							inst.src2 = srcReg;
-						if ((inst.m.flags & (IRFLAG_SRC3 | IRFLAG_SRC3DST)) != 0 && inst.m.types[0] == 'F' && inst.src3 == reg)
+						if ((inst.m.flags & IRFLAG_SRC3) != 0 && inst.m.types[0] == 'F' && inst.src3 == reg)
 							inst.src3 = srcReg;
 
 						// If this also writes the reg, the check ends here. A full overwrite leaves the

@@ -2483,6 +2483,14 @@ namespace MIPSComp {
 				DISABLE;
 			}
 		}
+		// A D prefix that saturates puts the result in temps first. A lane that isn't moved keeps
+		// d, so they start as d.
+		u8 realregs[4];
+		GetVectorRegs(realregs, sz, _VD);
+		for (int i = 0; i < n; ++i) {
+			if (dregs[i] != realregs[i])
+				ir.Write(IROp::FMov, dregs[i], realregs[i]);
+		}
 		// 7 tests a CC bit that is always clear (cpu/vfpu/undefined).
 		if (imm3 != 6) {
 			// Test one bit of CC. This bit decides whether none or all subregisters are copied.
