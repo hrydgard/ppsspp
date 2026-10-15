@@ -1330,16 +1330,22 @@ namespace MIPSComp {
 
 		uint8_t imm = (op >> 16) & 0x1f;
 
-		u8 sregs[4], dregs[4];
+		u8 sregs[4], dregs[4], outregs[4];
 		GetVectorRegsPrefixS(sregs, sz, _VS);
 		GetVectorRegsPrefixD(dregs, sz, _VD);
+		// Through temps if a lane would be written before a later one reads it.
+		const bool direct = IsOverlapSafeAllowS(n, dregs, n, sregs);
+		for (int i = 0; i < n; i++)
+			outregs[i] = direct ? dregs[i] : IRVTEMP_0 + i;
 
 		for (int i = 0; i < n; i++) {
 			if (imm == 0)
-				ir.Write(IROp::FCvtSW, dregs[i], sregs[i]);
+				ir.Write(IROp::FCvtSW, outregs[i], sregs[i]);
 			else
-				ir.Write(IROp::FCvtScaledSW, dregs[i], sregs[i], imm);
+				ir.Write(IROp::FCvtScaledSW, outregs[i], sregs[i], imm);
 		}
+		for (int i = 0; i < n && !direct; i++)
+			ir.Write(IROp::FMov, dregs[i], outregs[i]);
 		ApplyPrefixD(dregs, sz, _VD);
 	}
 
@@ -1386,9 +1392,13 @@ namespace MIPSComp {
 
 		uint8_t imm = (op >> 16) & 0x1f;
 
-		u8 sregs[4], dregs[4];
+		u8 sregs[4], dregs[4], outregs[4];
 		GetVectorRegsPrefixS(sregs, sz, _VS);
 		GetVectorRegsPrefixD(dregs, sz, _VD);
+		// Through temps if a lane would be written before a later one reads it.
+		const bool direct = IsOverlapSafeAllowS(n, dregs, n, sregs);
+		for (int i = 0; i < n; i++)
+			outregs[i] = direct ? dregs[i] : IRVTEMP_0 + i;
 
 		// Same values as FCR31.
 		uint8_t rmode = (op >> 21) & 3;
@@ -1397,24 +1407,24 @@ namespace MIPSComp {
 
 		if (imm != 0) {
 			for (int i = 0; i < n; i++)
-				ir.Write(IROp::FCvtScaledWS, dregs[i], sregs[i], imm | (rmode << 6));
+				ir.Write(IROp::FCvtScaledWS, outregs[i], sregs[i], imm | (rmode << 6));
 		} else {
 			for (int i = 0; i < n; i++) {
 				switch (IRRoundMode(rmode)) {
 				case IRRoundMode::RINT_0: // vf2in
-					ir.Write(IROp::FRound, dregs[i], sregs[i]);
+					ir.Write(IROp::FRound, outregs[i], sregs[i]);
 					break;
 
 				case IRRoundMode::CAST_1: // vf2iz
-					ir.Write(IROp::FTrunc, dregs[i], sregs[i]);
+					ir.Write(IROp::FTrunc, outregs[i], sregs[i]);
 					break;
 
 				case IRRoundMode::CEIL_2: // vf2iu
-					ir.Write(IROp::FCeil, dregs[i], sregs[i]);
+					ir.Write(IROp::FCeil, outregs[i], sregs[i]);
 					break;
 
 				case IRRoundMode::FLOOR_3: // vf2id
-					ir.Write(IROp::FFloor, dregs[i], sregs[i]);
+					ir.Write(IROp::FFloor, outregs[i], sregs[i]);
 					break;
 
 				default:
@@ -1422,6 +1432,8 @@ namespace MIPSComp {
 				}
 			}
 		}
+		for (int i = 0; i < n && !direct; i++)
+			ir.Write(IROp::FMov, dregs[i], outregs[i]);
 
 		ApplyPrefixDMask(dregs, sz, _VD);
 	}
