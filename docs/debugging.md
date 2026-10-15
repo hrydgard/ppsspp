@@ -266,7 +266,7 @@ goes away or clears its cache, appends a report to FILE:
 - the hot fixed-code routines, per instruction.
 
 It costs nothing when off. The native JITs (macOS, Linux and Android by signal, Windows by
-`SuspendThread`) sample the host PC; the IR interpreter instead times every block, which used to be the
+`SuspendThread`; RISC-V and LoongArch on Linux only) sample the host PC; the IR interpreter instead times every block, which used to be the
 `IR_PROFILING` define. Short runs from a savestate include compiling everything after the load, which
 shows as emitter and IR pass functions; profile 20 emulated seconds or more to see the game itself.
 To compare two builds by where the time goes, profile one game at a time: several at once wait on each

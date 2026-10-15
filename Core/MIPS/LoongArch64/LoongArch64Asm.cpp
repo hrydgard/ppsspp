@@ -246,4 +246,17 @@ void LoongArch64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	EndWrite();
 }
 
+void LoongArch64JitBackend::GetFixedCodeLabels(std::vector<IRNativeFixedCodeLabel> &labels) const {
+	labels.push_back({ outerLoop_, "outerLoop", false });
+	labels.push_back({ outerLoopPCInSCRATCH1_, "outerLoopPCInSCRATCH1", false });
+	labels.push_back({ dispatcherCheckCoreState_, "dispatcherCheckCoreState", false });
+	labels.push_back({ dispatcherPCInSCRATCH1_, "dispatcherPCInSCRATCH1", false });
+	labels.push_back({ dispatcherNoCheck_, "dispatcherNoCheck", false });
+	labels.push_back({ applyRoundingMode_, "applyRoundingMode", true });
+	labels.push_back({ saveStaticRegisters_, "saveStaticRegisters", true });
+	labels.push_back({ loadStaticRegisters_, "loadStaticRegisters", true });
+	labels.push_back({ vfpuDot_, "vfpuDot", true });
+	labels.push_back({ vfpuDotSpecial_, "vfpuDotSpecial", true });
+}
+
 } // namespace MIPSComp

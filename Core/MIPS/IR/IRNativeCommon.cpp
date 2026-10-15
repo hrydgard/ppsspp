@@ -656,6 +656,23 @@ static std::vector<std::string> DisassembleHost(const u8 *p, int size, std::vect
 	}
 #elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 	lines = DisassembleX86(p, size, &offsets);
+#elif PPSSPP_ARCH(RISCV64)
+	for (int i = 0; i + 2 <= size; ) {
+		// Compressed instructions are 2 bytes.
+		const int len = (p[i] & 3) == 3 ? 4 : 2;
+		if (i + len > size)
+			break;
+		std::vector<std::string> one = DisassembleRV64(p + i, len);
+		lines.push_back(one.empty() ? "?" : one[0]);
+		offsets.push_back(i);
+		i += len;
+	}
+#elif PPSSPP_ARCH(LOONGARCH64)
+	for (int i = 0; i + 4 <= size; i += 4) {
+		std::vector<std::string> one = DisassembleLA64(p + i, 4);
+		lines.push_back(one.empty() ? "?" : one[0]);
+		offsets.push_back(i);
+	}
 #else
 	lines.push_back("(no per-instruction disassembly for this host)");
 	offsets.push_back(0);
