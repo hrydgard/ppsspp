@@ -462,7 +462,8 @@ bool TestJitReplacementHooks() {
 //   PPSSPP_CPUFUZZ_OPS      comma-separated instruction name prefixes to generate only, for fast
 //                           runs on the instructions being worked on. "dot" is the dot products
 //                           and the prefixes. Without PPSSPP_CPUFUZZ_CLASSES, the class is "v"
-//                           ("vr" for "dot": r is a run of vdots the IR batches).
+//                           ("vr" for "dot": r is a run of vdots the IR batches). b adds forward
+//                           conditional branches.
 
 namespace {
 
@@ -667,6 +668,33 @@ struct FuzzCase {
 	FuzzState init;
 };
 
+// Turns some instructions into conditional branches forward, to a later instruction or the end, so
+// every case still finishes. Never two in a row, so each delay slot is an ordinary instruction.
+static void AddFuzzBranches(FuzzRng &rng, std::vector<u32> &code) {
+	const int n = (int)code.size();
+	for (int i = 0; i + 1 < n; i++) {
+		if (!rng.Chance(20))
+			continue;
+		const int target = i + 2 + (int)rng.Below(n - i - 1);  // up to n, the terminator
+		const u32 offset = (u32)(target - (i + 1)) & 0xFFFF;
+		const u32 rs = 1 + rng.Below(31), rt = rng.Chance(30) ? 0 : 1 + rng.Below(31);
+		u32 op;
+		switch (rng.Below(6)) {
+		case 0: op = (0x04 << 26) | (rs << 21) | (rt << 16); break;  // beq
+		case 1: op = (0x05 << 26) | (rs << 21) | (rt << 16); break;  // bne
+		case 2: op = ((rng.Chance(50) ? 0x06 : 0x07) << 26) | (rs << 21); break;  // blez, bgtz
+		case 3: op = (0x01 << 26) | (rs << 21) | (rng.Below(2) << 16); break;  // bltz, bgez
+		case 4: op = ((rng.Chance(50) ? 0x14 : 0x15) << 26) | (rs << 21) | (rt << 16); break;  // beql, bnel
+		default: op = (0x01 << 26) | (rs << 21) | ((rng.Chance(50) ? 0x10 : 0x11) << 16); break;  // bltzal, bgezal
+		}
+		code[i] = op | offset;
+		// The delay slot mustn't be a branch.
+		if (MIPSGetInfo(MIPSOpcode(code[i + 1])) & (IS_CONDBRANCH | IS_JUMP))
+			code[i + 1] = 0;
+		i++;
+	}
+}
+
 // A run of 2-4 vdots of one size against one vector, the others rows or columns of one matrix: the
 // shape the IR frontend turns into a Vec4VfpuMultiDot. The results go to lanes of one vector or
 // anywhere, sometimes over the operands.
@@ -767,6 +795,8 @@ static FuzzCase GenerateFuzzCase(u64 seed, const char *classes, const std::vecto
 		else
 			c.code.push_back(GenerateFuzzOp(rng, classes));
 	}
+	if (strchr(classes, 'b'))
+		AddFuzzBranches(rng, c.code);
 	if (!codeOverride.empty()) {
 		c.code = codeOverride;
 	}
@@ -926,12 +956,15 @@ static void DumpFuzzState(FILE *f, const char *core, u64 seed, const FuzzState &
 	fprintf(f, "\n");
 }
 
+// Nops are left out, as the minimizer leaves a lot of them in code with branches.
 static void PrintFuzzCode(const std::vector<u32> &code) {
 	u32 addr = PSP_GetUserMemoryBase() + FUZZ_CODE_OFFSET;
 	for (u32 op : code) {
-		char line[512];
-		MIPSDisAsm(MIPSOpcode(op), addr, line, sizeof(line), true);
-		printf("    %08x  %s\n", op, line);
+		if (op != 0) {
+			char line[512];
+			MIPSDisAsm(MIPSOpcode(op), addr, line, sizeof(line), true);
+			printf("    %08x  %s\n", op, line);
+		}
 		addr += 4;
 	}
 }
@@ -998,11 +1031,22 @@ static bool CoreMismatches(CPUCore core, const std::vector<u32> &code, const Fuz
 	return DiffFuzzStates(ref, other, nullptr) != 0;
 }
 
-// Drops instructions while the core still disagrees with the interpreter.
+// Drops instructions while the core still disagrees with the interpreter. With branches in the
+// code, they become nops instead, so no branch changes its target or lands in a delay slot.
 static std::vector<u32> MinimizeFuzzCase(CPUCore core, std::vector<u32> code, const FuzzState &init) {
+	bool branches = false;
+	for (u32 op : code)
+		branches = branches || (MIPSGetInfo(MIPSOpcode(op)) & (IS_CONDBRANCH | IS_JUMP)) != 0;
 	for (size_t i = 0; i < code.size(); ) {
 		std::vector<u32> shorter = code;
-		shorter.erase(shorter.begin() + i);
+		if (branches && code[i] == 0) {
+			++i;
+			continue;
+		}
+		if (branches)
+			shorter[i] = 0;
+		else
+			shorter.erase(shorter.begin() + i);
 		if (!shorter.empty() && CoreMismatches(core, shorter, init)) {
 			code = shorter;
 		} else {
@@ -1138,7 +1182,11 @@ bool TestCPUEquivalence() {
 			RunFuzzCase(code, fc.init, &b);
 			std::string diff;
 			DiffFuzzStates(a, b, &diff);
-			culprits[std::string(CoreName(cores[c])) + ": " + MIPSGetName(MIPSOpcode(code.back()))]++;
+			// The last instruction that isn't a nop left by minimizing.
+			u32 last = code.back();
+			for (auto it = code.rbegin(); it != code.rend() && last == 0; ++it)
+				last = *it;
+			culprits[std::string(CoreName(cores[c])) + ": " + MIPSGetName(MIPSOpcode(last))]++;
 			printf("Seed %llu: %s differs from the interpreter (fcr31 %08x, cc %02x):\n", (unsigned long long)(firstSeed + i), CoreName(cores[c]), fc.init.fcr31, fc.init.vfpuCtrl[VFPU_CTRL_CC]);
 			PrintFuzzCode(code);
 			PrintFuzzInputs(code, fc.init);
