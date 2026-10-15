@@ -2,8 +2,8 @@
 
 Some early games shipped their updates and DLC as an "installer" package that the PSP's install
 utility turns into a module only that PSP can load. Killzone: Liberation's Chapter 5 DLC is the known
-case (issues #12343, #12344). PPSSPP can load such a patch once it has been installed on a real PSP,
-given that PSP's Fuse ID. It can't install one itself.
+case (issues #12343, #12344). PPSSPP installs the EU Killzone download itself when the game boots,
+and can also load a patch that was installed on a real PSP, given that PSP's Fuse ID.
 
 ## What the download is
 
@@ -29,6 +29,41 @@ and the 8.5 MB `EBOOT.PBP` has been replaced by a 10 KB one for the XMB.
 
 The Fuse ID is the two words at `0xBC100090` and `0xBC100094`, which only kernel code can read.
 PSP tools show it as 12 hex digits, the `0x94` word first.
+
+## Installing it in PPSSPP
+
+`InstallDrmBBPackage()` in `Core/PSPLoaders.cpp` runs when a UMD game boots and
+`PSP/GAME/<DISC_ID>/EBOOT.PBP` is over 1 MB. It does what psheet does, with no console in the
+picture: it writes the package's files next to it and replaces the installer with the package's own
+`EBOOT.PBP`. It only does this if it can decrypt every `.PRX` in the package, so otherwise the download is
+left alone.
+
+The package is the PBP's `DATA.PSP`, read by `pspReadDrmBBPackage()` (layout from psheet's
+`bbox_access.c` functions). Everything in it uses sceDrmBB MAC and cipher type 1, so known keys only:
+
+- The whole PBP is MACed with a fixed key from psheet's data segment, in its last 16 bytes.
+- `DATA.PSP` +0x00: a 0x50-byte header MACed (at +0x50) with the secure install ID, which means the
+  ID can be recovered from the MAC (`bbmac_getkey`). The EU and US downloads use the same one. Its
+  bytes 0x10-0x50 decrypt with the fixed key (header key: bytes 0-0x10, seed 0) to two 16-byte keys,
+  then version 1, flags, 1, 0, the parameter table's offset and count, and the file table's offset.
+- Parameters are (id, value) pairs, decrypted with the first key and the secure install ID. `0x01010100`
+  is the number of files.
+- File entries are 16 bytes (u16 name offset, u16 name length, u32 data offset, u32 size, relative
+  to the file table), and their names and data are decrypted with the second key and the secure install ID.
+  The seed is always the 16-byte block number.
+
+A `.PRX` comes out as a type 3 module whose first step (the 0x50 bytes at 0x80-0xB0, 0xC0-0xD0 and
+0x12C-0x13C, with the KIRK header at 0xEC) is encrypted for KIRK command 2. The install sends the
+first 0x400 bytes through `sceMesgIns_driver_D062B635` (uofw's `sceUtilsPrepareGetLoadModuleRLength`),
+which runs command 2 in place and re-encrypts that block for the console. The rest of the module is
+the same before and after. Command 2's key is unknown, but its result is the same on every PSP, so
+`g_kirk2Results` in `PrxDecrypter.cpp` stores it for each module we know, keyed by the 16 bytes at
+0xEC. `pspDecryptType3()` uses it in place of the first step.
+
+To get the result for another package, run `--re-decrypt` on it, which then writes the module as
+the package has it to `<out>.module`. Then either decrypt a PSP
+install of it with KIRK command 3 and that PSP's Fuse ID, or run `sceMesgIns_driver_D062B635` on its
+first 0x400 bytes on a PSP and decrypt that output with command 3 there.
 
 ## Loading it
 
@@ -58,7 +93,8 @@ In PPSSPP:
 - `sceKernelLoadModuleDNAS()` in `Core/HLE/sceKernelModule.cpp` takes the Fuse ID from the `FuseID`
   setting (`[SystemParam]` in `ppsspp.ini`) or `--fuse-id`.
 
-A wrong Fuse ID fails the PGD's MAC, so the game just runs unpatched.
+A wrong Fuse ID fails the PGD's MAC, so the game just runs unpatched. A module PPSSPP installed has
+no PGD and needs no Fuse ID.
 
 To decrypt one offline:
 
@@ -66,3 +102,5 @@ To decrypt one offline:
 PPSSPPHeadless --re-decrypt KZL.PRX --re-decrypt-out KZL.elf \
     --re-decrypt-key 81a19a6f0fa9cfbae378f73ffd504c7f --fuse-id <12 hex digits>
 ```
+
+`--re-decrypt` also takes the download's `EBOOT.PBP`, and decrypts the `.PRX` in it.

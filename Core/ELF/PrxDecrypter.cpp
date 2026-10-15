@@ -180,6 +180,50 @@ static const u8 pauth_f7aa47f6_xor[] = {0xA9, 0x1E, 0xDD, 0x7B, 0x09, 0xBB, 0x22
 static const u8 key_89742B04[] = {0xD7, 0xEB, 0xC9, 0x24, 0x7E, 0x23, 0x3D, 0x89, 0x46, 0xE7, 0x2E, 0x47, 0xAD, 0xDB, 0x0D, 0x09};
 static const u8 xor_89742B04[] = {0xFF, 0x5E, 0xF1, 0xE9, 0xB1, 0xC9, 0x3E, 0xC5, 0xDB, 0xE0, 0x67, 0x82, 0x95, 0x3A, 0x8E, 0xA5};
 
+// A type 3 module as it ships, inside a DRM BB install package, has its first type 5 step encrypted
+// for KIRK command 2, whose key (AES keyslot 3) isn't known. The install re-encrypts it for the console
+// with command 2. These are command 2's results (the 0x50 bytes the first step decrypts to) for the
+// packages we know of, recovered from installs on a PSP. They're keyed by the first 16 bytes of the
+// command 2 header at 0xEC, its encrypted per-module key.
+struct Kirk2Result {
+	u8 header[16];
+	u8 result[0x50];
+};
+
+static const Kirk2Result g_kirk2Results[] = {
+	// Killzone: Liberation 1.20 + Chapter 5 (UCES00279), KZL.PRX.
+	{
+		{0x68, 0x2F, 0x47, 0x0B, 0xE9, 0x4C, 0xE5, 0xE9, 0xA4, 0x39, 0xD7, 0x6F, 0x38, 0x53, 0xCF, 0xDE},
+		{
+			0xF6, 0xDC, 0x71, 0xF8, 0x19, 0x1A, 0xDB, 0xC4, 0xFF, 0x5C, 0xCE, 0x3A, 0xAE, 0x8A, 0x04, 0x11,
+			0xE3, 0x45, 0x91, 0xDA, 0x7F, 0xE3, 0x2E, 0x75, 0xB8, 0x6B, 0xDF, 0x87, 0x55, 0x22, 0xF6, 0x90,
+			0x96, 0x7B, 0xF4, 0xF6, 0x88, 0x55, 0xE0, 0xF1, 0xB5, 0xD8, 0xDF, 0xF0, 0x9B, 0xB1, 0xBD, 0x60,
+			0x46, 0xA0, 0x1F, 0x53, 0x64, 0xD9, 0x7C, 0xF7, 0x56, 0x7E, 0x23, 0x8A, 0x8F, 0x8E, 0xFD, 0xF6,
+			0x1F, 0x28, 0xDD, 0xB9, 0x39, 0xDE, 0x58, 0xD7, 0x48, 0x55, 0x64, 0x99, 0x5A, 0xD2, 0x55, 0x6C,
+		},
+	},
+	// Killzone: Liberation 1.20 + Chapter 5 (UCUS98646), KZL.PRX.
+	{
+		{0x03, 0x48, 0xC4, 0x10, 0xCD, 0x29, 0x80, 0x92, 0xE9, 0x6D, 0xB8, 0x14, 0xE2, 0x0E, 0x24, 0x2F},
+		{
+			0xDE, 0xE8, 0x0D, 0x22, 0x09, 0xEF, 0x91, 0x45, 0x57, 0xAF, 0x9D, 0xC8, 0xB4, 0xF1, 0xC2, 0x0C,
+			0x34, 0x14, 0x1A, 0x54, 0x66, 0xA1, 0xB3, 0xF8, 0x8E, 0xCF, 0xE9, 0x15, 0x77, 0x42, 0x3B, 0x38,
+			0x67, 0xEA, 0xF8, 0xA7, 0x5C, 0x0A, 0xBF, 0x1D, 0xAD, 0x0D, 0xED, 0x83, 0xEF, 0x8A, 0x0B, 0x54,
+			0xEF, 0xB2, 0xA2, 0x1E, 0x48, 0x3D, 0x92, 0x9D, 0x02, 0xAC, 0x01, 0x35, 0x13, 0xB2, 0xB7, 0xB4,
+			0x72, 0x50, 0xDC, 0x92, 0x22, 0xCA, 0x80, 0x10, 0xD6, 0x45, 0x9B, 0x84, 0x7D, 0xB9, 0x7B, 0x05,
+		},
+	},
+};
+
+static const u8 *FindKirk2Result(const u8 *header) {
+	for (const Kirk2Result &r : g_kirk2Results) {
+		if (!memcmp(r.header, header, sizeof(r.header))) {
+			return r.result;
+		}
+	}
+	return nullptr;
+}
+
 // PRXDecrypter 144-byte tag keys.
 static const u32 g_key0[] = {
 		0x7b21f3be, 0x299c5e1d, 0x1c9c5e71, 0x96cb4645, 0x3c9b1be0, 0xeb85de3d,
@@ -701,8 +745,9 @@ struct PRXType5
 
 	// cmd3Header is for type 3, a game patch installed on a PSP: the first step goes through KIRK
 	// command 3 there, keyed to the console, with the header the install put at 0xEC (JPCSP's
-	// PRX.DecryptPRX). Fails only if that command does.
-	bool decrypt(int key, const u8 *xor1, const u8 *xor2, KirkState *kirk = nullptr, const u8 *cmd3Header = nullptr)
+	// PRX.DecryptPRX). Fails only if that command does. kirk2Result instead is what that step gives
+	// (see g_kirk2Results).
+	bool decrypt(int key, const u8 *xor1, const u8 *xor2, KirkState *kirk = nullptr, const u8 *cmd3Header = nullptr, const u8 *kirk2Result = nullptr)
 	{
 		// first step is to decrypt kirk header + SHA1
 		u8 data[0x50];
@@ -722,7 +767,11 @@ struct PRXType5
 			}
 		}
 
-		if (cmd3Header)
+		if (kirk2Result)
+		{
+			memcpy(data, kirk2Result, sizeof(data));
+		}
+		else if (cmd3Header)
 		{
 			u8 block[sizeof(KIRK_CMD1_HEADER) + sizeof(data)]{};
 			KIRK_CMD1_HEADER *header = reinterpret_cast<KIRK_CMD1_HEADER *>(block);
@@ -1146,7 +1195,9 @@ static int pspDecryptType3(KirkState *kirk, const u8 *inbuf, u8 *outbuf, u32 siz
 
 	auto xorbuf = expandSeed(pti->key, pti->code, secureId);
 	PRXType5 type5(inbuf);
-	if (!type5.decrypt(pti->code, pti->seed, secureId, kirk, inbuf + 0xEC))
+	// Either still as the package has it, if we know command 2's result, or installed on a PSP.
+	const u8 *kirk2Result = FindKirk2Result(inbuf + 0xEC);
+	if (!type5.decrypt(pti->code, pti->seed, secureId, kirk, inbuf + 0xEC, kirk2Result))
 	{
 		return -6;
 	}
@@ -1401,6 +1452,140 @@ bool pspUnwrapDNASPGD(std::vector<u8> &data, const u8 *secureId, const u32 *fuse
 	plain.resize(pgd->data_size);
 	pgd_close(pgd);
 	data = std::move(plain);
+	return true;
+}
+
+// psheet's fixed version key for the package header (its data segment, firmware 6.61).
+static const u8 drmbb_header_key[16] = {0xED, 0xE2, 0x5D, 0x2D, 0xBB, 0xF8, 0x12, 0xE5, 0x3C, 0x5C, 0x59, 0x32, 0xFA, 0xE3, 0xE2, 0x43};
+
+// sceDrmBBCipher type 1 (fixed keys), decrypting in place.
+static bool DrmBBDecrypt(KirkState *kirk, u8 *data, u32 size, u32 seed, const u8 *headerKey, const u8 *versionKey) {
+	CIPHER_KEY ckey;
+	u8 hkey[16];
+	memcpy(hkey, headerKey, sizeof(hkey));
+	bool ok = sceDrmBBCipherInit(kirk, &ckey, 1, 2, hkey, const_cast<u8 *>(versionKey), seed) == 0 &&
+		sceDrmBBCipherUpdate(kirk, &ckey, data, (int)size) == 0;
+	sceDrmBBCipherFinal(&ckey);
+	return ok;
+}
+
+bool pspReadDrmBBPackage(const std::vector<u8> &pbp, const u8 *secureIdIn, std::vector<DrmBBFile> &files, u8 *secureIdOut)
+{
+	// Layout from psheet's bbox_access.c functions (get_core_header, get_params, get_string). All
+	// offsets below are relative to DATA.PSP.
+	if (pbp.size() < 0x28 || memcmp(pbp.data(), "\0PBP", 4) != 0) {
+		return false;
+	}
+	const u32 base = *(const u32_le *)&pbp[0x20];
+	const u32 end = *(const u32_le *)&pbp[0x24];
+	if (end > pbp.size() || base > end || end - base < 0x60) {
+		return false;
+	}
+	const u32 size = end - base;
+	const u8 *psp = pbp.data() + base;
+
+	KirkState kirk{};
+	kirk_init(&kirk);
+
+	// The whole file is MACed with the header key, the last 16 bytes.
+	{
+		std::vector<u8> copy(pbp.begin(), pbp.end() - 16);
+		u8 mac[16];
+		memcpy(mac, &pbp[pbp.size() - 16], sizeof(mac));
+		MAC_KEY mkey;
+		sceDrmBBMacInit(&mkey, 1);
+		sceDrmBBMacUpdate(&kirk, &mkey, copy.data(), (int)copy.size());
+		if (sceDrmBBMacFinal2(&kirk, &mkey, mac, const_cast<u8 *>(drmbb_header_key)) != 0) {
+			return false;
+		}
+	}
+
+	// 0x50 bytes of header, MACed with the secure install ID. The game passes the same ID to the install.
+	u8 header[0x50];
+	u8 mac[16];
+	memcpy(header, psp, sizeof(header));
+	memcpy(mac, psp + 0x50, sizeof(mac));
+	u8 secureId[16];
+	MAC_KEY mkey;
+	sceDrmBBMacInit(&mkey, 1);
+	sceDrmBBMacUpdate(&kirk, &mkey, header, sizeof(header));
+	if (secureIdIn) {
+		memcpy(secureId, secureIdIn, sizeof(secureId));
+		if (sceDrmBBMacFinal2(&kirk, &mkey, mac, secureId) != 0) {
+			return false;
+		}
+	} else if (bbmac_getkey(&kirk, &mkey, mac, secureId) != 0) {
+		return false;
+	}
+	if (secureIdOut) {
+		memcpy(secureIdOut, secureId, sizeof(secureId));
+	}
+	memcpy(header, psp, sizeof(header));
+	if (!DrmBBDecrypt(&kirk, header + 0x10, 0x40, 0, header, drmbb_header_key)) {
+		return false;
+	}
+	const u8 *paramKey = header + 0x10;
+	const u8 *fileKey = header + 0x20;
+	const u32 *h = (const u32 *)(header + 0x30);
+	if (h[0] != 1 || h[2] != 1) {
+		return false;
+	}
+	const u32 paramOffset = h[4], paramCount = h[5], fileTable = h[6];
+
+	// The 16-byte aligned blocks around [offset, offset + len), decrypted with block-numbered seeds.
+	auto readBlocks = [&](u32 tableOffset, u32 offset, u32 len, const u8 *key, std::vector<u8> &dst) {
+		const u32 start = offset & ~15;
+		const u64 alignedEnd = ((u64)offset + len + 15) & ~15ULL;
+		if ((u64)tableOffset + alignedEnd > size) {
+			return false;
+		}
+		dst.assign(psp + tableOffset + start, psp + tableOffset + alignedEnd);
+		if (!DrmBBDecrypt(&kirk, dst.data(), (u32)dst.size(), start >> 4, key, secureId)) {
+			return false;
+		}
+		dst.erase(dst.begin(), dst.begin() + (offset - start));
+		dst.resize(len);
+		return true;
+	};
+
+	// Parameters are (id, value) pairs. 0x01010100 is the number of files.
+	std::vector<u8> params;
+	if (paramCount > 0x100 || !readBlocks(paramOffset, 0, paramCount * 8, paramKey, params)) {
+		return false;
+	}
+	u32 fileCount = 0;
+	for (u32 i = 0; i < paramCount; i++) {
+		const u32 *p = (const u32 *)&params[i * 8];
+		if (p[0] == 0x01010100) {
+			fileCount = p[1];
+		}
+	}
+
+	// File entries are 16 bytes: u16 name offset, u16 name length, u32 data offset, u32 size, all
+	// relative to the table.
+	if (fileCount > 0x100) {
+		return false;
+	}
+	files.clear();
+	for (u32 i = 0; i < fileCount; i++) {
+		std::vector<u8> entry, name;
+		if (!readBlocks(fileTable, i * 16, 16, fileKey, entry)) {
+			return false;
+		}
+		const u16 nameOffset = *(const u16 *)&entry[0];
+		const u16 nameLength = *(const u16 *)&entry[2];
+		const u32 dataOffset = *(const u32 *)&entry[4];
+		const u32 dataSize = *(const u32 *)&entry[8];
+		if (!readBlocks(fileTable, nameOffset, nameLength, fileKey, name)) {
+			return false;
+		}
+		DrmBBFile &file = files.emplace_back();
+		// The name is NUL terminated within its length.
+		file.name.assign((const char *)name.data(), strnlen((const char *)name.data(), name.size()));
+		if (!readBlocks(fileTable, dataOffset, dataSize, fileKey, file.data)) {
+			return false;
+		}
+	}
 	return true;
 }
 
