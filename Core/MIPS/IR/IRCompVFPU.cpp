@@ -1544,7 +1544,7 @@ namespace MIPSComp {
 			if (GetVFPUCtrlMask(imm, &mask)) {
 				u32 setBits = GetVFPUCtrlSetBits(imm);
 				if (mask != 0xFFFFFFFF || setBits != 0) {
-					ir.Write(IROp::FMovToGPR, IRTEMP_0, vfpuBase + voffset[imm]);
+					ir.Write(IROp::FMovToGPR, IRTEMP_0, vfpuBase + voffset[vs]);
 					ir.Write(IROp::AndConst, IRTEMP_0, IRTEMP_0, 0, mask);
 					if (setBits != 0)
 						ir.Write(IROp::OrConst, IRTEMP_0, IRTEMP_0, 0, setBits);
