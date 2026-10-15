@@ -51,8 +51,8 @@
 #include "UI/DeveloperToolsScreen.h"
 #include "UI/DisplayLayoutScreen.h"
 #include "UI/FirmwareScreen.h"
-#include "UI/MaxCSOScreen.h"
-#include "Core/Util/MaxCSO.h"
+#include "UI/UnPackScreen.h"
+#include "Core/Util/ImageCompressors.h"
 #include "UI/RemoteISOScreen.h"
 #include "UI/SavedataScreen.h"
 #include "UI/SystemInfoScreen.h"
@@ -1147,10 +1147,10 @@ void GameSettingsScreen::CreateToolsSettings(UI::ViewGroup *tools) {
 	tools->Add(new Choice(sy->T("PSP Firmware")))->OnClick.Add([=](UI::EventParams &) {
 		screenManager()->push(new FirmwareScreen(gamePath_));
 	});
-	// Only offered when the user put a maxcso library in PSP/SYSTEM, see Core/Util/MaxCSO.h.
-	if (MaxCSO::IsAvailable()) {
-		tools->Add(new Choice("MaxCSO"))->OnClick.Add([=](UI::EventParams &) {
-			screenManager()->push(new MaxCSOScreen(gamePath_));
+	// Only offered when the user put CHDmodern or maxcso in PSP/SYSTEM, see Core/Util/ImageCompressors.h.
+	if (ImageCompressors::IsAvailable(ImageFormat::CHD) || ImageCompressors::IsAvailable(ImageFormat::CSO)) {
+		tools->Add(new Choice("Un/Pack"))->OnClick.Add([=](UI::EventParams &) {
+			screenManager()->push(new UnPackScreen(gamePath_));
 		});
 	}
 }

@@ -351,7 +351,7 @@
     <ClCompile Include="Util\KL4E.cpp">
       <Filter>Util</Filter>
     </ClCompile>
-    <ClCompile Include="Util\MaxCSO.cpp">
+    <ClCompile Include="Util\ImageCompressors.cpp">
       <Filter>Util</Filter>
     </ClCompile>
     <ClCompile Include="Util\PSARUnpack.cpp">
@@ -1641,7 +1641,7 @@
     <ClInclude Include="Util\PPGeDraw.h">
       <Filter>Util</Filter>
     </ClInclude>
-    <ClInclude Include="Util\MaxCSO.h">
+    <ClInclude Include="Util\ImageCompressors.h">
       <Filter>Util</Filter>
     </ClInclude>
     <ClInclude Include="Util\PSARUnpack.h">

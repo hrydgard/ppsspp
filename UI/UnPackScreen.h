@@ -17,6 +17,8 @@
 
 #pragma once
 
+#include <vector>
+
 #include "Common/File/Path.h"
 #include "Common/UI/UIScreen.h"
 #include "Common/UI/View.h"
@@ -25,19 +27,20 @@
 
 #include "UI/SimpleDialogScreen.h"
 
-// Compress ISOs to CSO, or decompress CSO/ZSO/DAX back to ISO, one game or a whole folder at a
-// time, through the user-supplied maxcso library (see Core/Util/MaxCSO.h). Only reachable when
-// the library was found at startup.
-class MaxCSOScreen : public UITwoPaneBaseDialogScreen {
+// Un/Pack: compress ISOs to CHD or CSO, or decompress them back to ISO, one game or a whole
+// folder at a time, through the user-supplied libraries (see Core/Util/ImageCompressors.h).
+// Only reachable when at least one of them was found at startup.
+class UnPackScreen : public UITwoPaneBaseDialogScreen {
 public:
-	MaxCSOScreen(const Path &gamePath)
+	UnPackScreen(const Path &gamePath)
 		: UITwoPaneBaseDialogScreen(gamePath, TwoPaneFlags::SettingsToTheRight | TwoPaneFlags::ContentsCanScroll) {}
 
-	const char *tag() const override { return "MaxCSO"; }
+	const char *tag() const override { return "UnPack"; }
 	void update() override;
 
 protected:
 	std::string_view GetTitle() const override;
+	void BeforeCreateViews() override;
 	void CreateSettingsViews(UI::ViewGroup *parent) override;
 	void CreateContentViews(UI::ViewGroup *parent) override;
 
@@ -51,6 +54,8 @@ private:
 	NoticeView *summary_ = nullptr;
 	UI::LinearLayout *results_ = nullptr;
 	UI::Choice *cancelChoice_ = nullptr;
-	std::vector<UI::Choice *> startChoices_;
+	// Disabled while a job runs.
+	std::vector<UI::View *> jobLockedViews_;
+	bool formatLocked_ = false;  // Only one of the libraries is there.
 	size_t shownResults_ = 0;
 };

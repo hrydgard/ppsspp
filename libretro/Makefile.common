@@ -901,7 +901,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/Util/MemStick.cpp \
 	       $(COREDIR)/Util/PPGeDraw.cpp \
 	       $(COREDIR)/Util/KL4E.cpp \
-	       $(COREDIR)/Util/MaxCSO.cpp \
+	       $(COREDIR)/Util/ImageCompressors.cpp \
 	       $(COREDIR)/Util/PSARUnpack.cpp \
 	       $(COREDIR)/Util/PkgUnpack.cpp \
 	       $(COREDIR)/Util/RecentFiles.cpp \

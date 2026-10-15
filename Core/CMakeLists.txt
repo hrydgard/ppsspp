@@ -679,8 +679,8 @@ add_library(Core STATIC
 	Util/PPGeDraw.h
 	Util/KL4E.cpp
 	Util/KL4E.h
-	Util/MaxCSO.cpp
-	Util/MaxCSO.h
+	Util/ImageCompressors.cpp
+	Util/ImageCompressors.h
 	Util/PSARUnpack.cpp
 	Util/PSARUnpack.h
 	Util/PkgUnpack.cpp

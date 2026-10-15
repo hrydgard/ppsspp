@@ -254,10 +254,13 @@ public:
 	bool bCacheFullIsoInRam;
 	bool bAutoUpgradeFirmware;
 
-	// MaxCSO tools (only shown when the maxcso library is present in PSP/SYSTEM).
+	// Un/Pack tools (only shown when CHDmodern or maxcso is present in PSP/SYSTEM).
+	int iUnPackFormat;  // ImageFormat: 0 = CHD, 1 = CSO
+	int iCHDCompression;  // CHDModern::Codecs: 0 = default (LZMA, zlib, Huffman, FLAC), 1 = Zstandard
+	int iCHDHunkSize;  // 0 = 2048 bytes, 1 = 4096 bytes
 	int iMaxCSOPreset;  // 0 = fast, 1 = standard, 2 = maximum
-	bool bMaxCSOIncludeSubfolders;
-	bool bMaxCSODeleteOriginals;
+	bool bUnPackIncludeSubfolders;
+	bool bUnPackDeleteOriginals;
 	int iRemoteISOPort; // Also used for serving a local remote debugger.
 	std::string sLastRemoteISOServer;
 	int iLastRemoteISOPort;

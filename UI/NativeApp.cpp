@@ -122,7 +122,7 @@
 #include "Core/HLE/proAdhoc.h"
 #include "Core/HW/MemoryStick.h"
 #include "Core/Util/GameManager.h"
-#include "Core/Util/MaxCSO.h"
+#include "Core/Util/ImageCompressors.h"
 #include "Core/Util/PortManager.h"
 #include "Core/Util/AudioFormat.h"
 #include "Core/Util/RecentFiles.h"
@@ -692,8 +692,8 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 	// Apply parsed command line options to config.
 	cmdLineOptions.ApplyToConfig();
 
-	// Optional maxcso library in PSP/SYSTEM enables the MaxCSO tools menu.
-	MaxCSO::Init();
+	// Optional CHDmodern / maxcso libraries in PSP/SYSTEM enable the Un/Pack tools menu.
+	ImageCompressors::Init();
 
 	boot_filename.clear();
 	if (boot_filename.empty() && cmdLineOptions.bootVSH.value_or(false)) {
