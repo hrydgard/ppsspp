@@ -878,12 +878,10 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	SetDrawType(DRAW_PRIM, prim);
 
 	// Discard AA lines as we can't do anything that makes sense with these anyway. The SW plugin might, though.
-	if (gstate.isAntiAliasEnabled()) {
-		// Heuristic derived from discussions in #6483 and #12588.
-		// Discard AA lines in Persona 3 Portable, DOA Paradise and Summon Night 5, while still keeping AA lines in Echochrome.
-		if ((prim == GE_PRIM_LINE_STRIP || prim == GE_PRIM_LINES) && gstate.getTextureFunction() == GE_TEXFUNC_REPLACE)
-			return;
-	}
+	// Heuristic derived from discussions in #6483 and #12588.
+	// Discard AA lines in Persona 3 Portable, DOA Paradise and Summon Night 5, while still keeping AA lines in Echochrome.
+	// They're skipped like culled draws, so the pointers still move past them and the time is still taken.
+	const bool discardLines = gstate.isAntiAliasEnabled() && (prim == GE_PRIM_LINE_STRIP || prim == GE_PRIM_LINES) && gstate.getTextureFunction() == GE_TEXFUNC_REPLACE;
 
 	// Update cached framebuffer format.
 	// We store it in the cache so it can be modified for blue-to-alpha, next.
@@ -1012,11 +1010,11 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 #endif
 
 	// If certain conditions are true, do frustum culling.
-	bool passCulling = PASSES_CULLING;
+	bool passCulling = PASSES_CULLING && !discardLines;
 	if (passCulling && !(flags & ClipInfoFlags::Valid)) {
 		flags = DrawEngineCommon::UncheckedClipInfoFlags();
 	}
-	if (!passCulling) {
+	if (!passCulling && !discardLines) {
 		// Do software culling.
 		if (drawEngineCommon_->TestBoundingBoxFast(gstate_c.cullMatrix, verts, inds, count, decoder, vertexType, &flags)) {
 			passCulling = true;
@@ -1068,7 +1066,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 		case GE_CMD_PRIM:
 		{
 			GEPrimitiveType newPrim = static_cast<GEPrimitiveType>((data >> 16) & 7);
-			if (IsTrianglePrim(newPrim) != isTriangle)
+			if (IsTrianglePrim(newPrim) != isTriangle || discardLines)
 				goto bail;  // Can't join over this boundary. Might as well exit and get this on the next time around.
 			// TODO: more efficient updating of verts/inds
 
