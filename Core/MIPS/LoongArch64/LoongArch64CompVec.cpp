@@ -519,10 +519,15 @@ void LoongArch64JitBackend::CompIR_VecPack(IRInst inst) {
 
 	switch (inst.op) {
 	case IROp::Vec2Unpack16To31:
-		// With LSX, a lane group can be mapped as one vector reg, and then F() returns the same
-		// reg for every lane. The Vec2 ops here address lanes one by one, so leave them to the interpreter.
+		// With LSX, the pair is one vector reg (F() would give the same reg for both lanes).
 		if (cpu_info.LOONGARCH_LSX) {
-			CompIR_Generic(inst);
+			if (Overlap(inst.dest, 2, inst.src1, 1))
+				DISABLE;
+			regs_.Map(inst);
+			// Each halfword to the top of its lane, then down one.
+			VXOR_V(EncodeRegToV(SCRATCHF1), EncodeRegToV(SCRATCHF1), EncodeRegToV(SCRATCHF1));
+			VILVL_H(regs_.V(inst.dest), regs_.V(inst.src1), EncodeRegToV(SCRATCHF1));
+			VSRLI_W(regs_.V(inst.dest), regs_.V(inst.dest), 1);
 			break;
 		}
 		// Like Vec2Unpack16To32, shifted down one more.
@@ -539,7 +544,13 @@ void LoongArch64JitBackend::CompIR_VecPack(IRInst inst) {
 	case IROp::Vec2Pack31To16:
 	{
 		if (cpu_info.LOONGARCH_LSX) {
-			CompIR_Generic(inst);
+			if (Overlap(inst.dest, 1, inst.src1, 2))
+				DISABLE;
+			regs_.Map(inst);
+			VREPLGR2VR_D(EncodeRegToV(SCRATCHF1), R_ZERO);
+			VMAX_W(EncodeRegToV(SCRATCHF1), regs_.V(inst.src1), EncodeRegToV(SCRATCHF1));
+			VSRLI_W(EncodeRegToV(SCRATCHF1), EncodeRegToV(SCRATCHF1), 15);
+			VPICKEV_H(regs_.V(inst.dest), EncodeRegToV(SCRATCHF1), EncodeRegToV(SCRATCHF1));
 			break;
 		}
 		// Bits 30-15 of each lane, with negative lanes clamped to zero.
@@ -612,7 +623,11 @@ void LoongArch64JitBackend::CompIR_VecPack(IRInst inst) {
 
 	case IROp::Vec2Unpack16To32:
 		if (cpu_info.LOONGARCH_LSX) {
-			CompIR_Generic(inst);
+			if (Overlap(inst.dest, 2, inst.src1, 1))
+				DISABLE;
+			regs_.Map(inst);
+			VXOR_V(EncodeRegToV(SCRATCHF1), EncodeRegToV(SCRATCHF1), EncodeRegToV(SCRATCHF1));
+			VILVL_H(regs_.V(inst.dest), regs_.V(inst.src1), EncodeRegToV(SCRATCHF1));
 			break;
 		}
 		// src1 is read before either lane of dest is written.
@@ -681,7 +696,11 @@ void LoongArch64JitBackend::CompIR_VecPack(IRInst inst) {
 
 	case IROp::Vec2Pack32To16:
 		if (cpu_info.LOONGARCH_LSX) {
-			CompIR_Generic(inst);
+			if (Overlap(inst.dest, 1, inst.src1, 2))
+				DISABLE;
+			// The top halfword of each lane.
+			regs_.Map(inst);
+			VPICKOD_H(regs_.V(inst.dest), regs_.V(inst.src1), regs_.V(inst.src1));
 			break;
 		}
 		regs_.Map(inst);

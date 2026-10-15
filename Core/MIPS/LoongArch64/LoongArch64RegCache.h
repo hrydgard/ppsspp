@@ -93,6 +93,7 @@ protected:
 private:
 	bool TransferVecTo1(IRNativeReg nreg, IRNativeReg dest, IRReg first, int oldlanes);
 	bool Transfer1ToVec(IRNativeReg nreg, IRNativeReg dest, IRReg first, int lanes);
+	bool Transfer2ToVec4(IRNativeReg nreg, IRNativeReg dest, IRReg first);
 
 	LoongArch64Gen::LoongArch64Reg FromNativeReg(IRNativeReg r) {
 		if (r >= NUM_LAGPR)
