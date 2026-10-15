@@ -191,7 +191,7 @@ void IRFrontend::BranchRSZeroComp(MIPSOpcode op, IRComparison cc, bool andLink, 
 bool IRFrontend::CanContinuePastBranch(const BranchInfo &branchInfo, bool constantOperands) {
 	if (!opts.continueBranches || branchInfo.likely || branchInfo.delaySlotIsBranch || constantOperands || js.MayHavePrefix())
 		return false;
-	if (js.numInstructions >= MAX_CONTINUED_INSTRUCTIONS || js.continuedBranches >= MAX_CONTINUED_BRANCHES)
+	if (js.numInstructions >= IR_MAX_CONTINUED_INSTRUCTIONS || js.continuedBranches >= IR_MAX_CONTINUED_BRANCHES)
 		return false;
 	js.continuedBranches++;
 	return true;

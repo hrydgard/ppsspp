@@ -32,6 +32,7 @@
 #include "Core/MIPS/InterpreterVFPU.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSTables.h"
+#include "Core/MIPS/IR/IRInst.h"
 #include "Core/CoreTiming.h"
 #include "Core/Reporting.h"
 #include "Core/Debugger/Breakpoints.h"
@@ -1148,22 +1149,96 @@ static inline IRBlockEnd GetIRBlockEnd(MIPSOpcode op) {
 	}
 }
 
-// After running op from pc, whether the block is over, or will be after one more instruction.
-static inline bool ReachedIRBlockEnd(const MIPSState *mips, MIPSOpcode op, u32 pc, bool *endAfterNext) {
-	switch (GetIRBlockEnd(op)) {
-	case IRBlockEnd::NOW:
-		return true;
-	case IRBlockEnd::AFTER_DELAY_SLOT:
-		// Taken, or not taken and not likely: the delay slot runs next. A likely branch that isn't
-		// taken skips it, and the block ends right here.
-		if (mips->inDelaySlot || mips->pc == pc + 4) {
-			*endAfterNext = true;
-			return false;
-		}
-		return true;
+// A branch IRFrontend may compile on past when it isn't taken (BranchRSRTComp and BranchRSZeroComp):
+// not likely, and not decided by its operands.
+static inline bool IsContinuableBranch(MIPSOpcode op) {
+	const u32 enc = op.encoding;
+	const int rs = (enc >> 21) & 0x1F;
+	const int rt = (enc >> 16) & 0x1F;
+	switch (enc >> 26) {
+	case 0x04: case 0x05:  // beq, bne
+		return rs != rt;
+	case 0x06: case 0x07:  // blez, bgtz
+		return rs != MIPS_REG_ZERO;
+	case 0x01:  // bltz, bgez, bltzal, bgezal
+		return (rt == 0 || rt == 1 || rt == 16 || rt == 17) && rs != MIPS_REG_ZERO;
 	default:
 		return false;
 	}
+}
+
+// The prefixes a block compiled from here would know of. Blocks start with the default ones.
+static inline bool MayHavePrefix(const MIPSState *mips) {
+	return mips->vfpuCtrl[VFPU_CTRL_SPREFIX] != 0xE4 || mips->vfpuCtrl[VFPU_CTRL_TPREFIX] != 0xE4 || mips->vfpuCtrl[VFPU_CTRL_DPREFIX] != 0;
+}
+
+// Follows a block as IRFrontend would compile it from where the interpreter last checked downcount.
+struct IRBlockState {
+	// Counted like IRFrontend's js.numInstructions: a continued branch's delay slot isn't.
+	int numInstructions = 0;
+	int continuedBranches = 0;
+	// The next instruction is the delay slot of a branch that ends the block.
+	bool endAfterNext = false;
+	// The next instruction is the delay slot of a branch that wasn't taken, and may not end it.
+	bool continueAfterNext = false;
+	// The next instruction was already counted.
+	bool skipNext = false;
+};
+
+// After running op from pc, whether the block is over. In a delay slot, the caller runs on anyway.
+static inline bool StepIRBlock(IRBlockState &b, const MIPSState *mips, MIPSOpcode op, u32 pc) {
+	if (b.endAfterNext) {
+		return true;
+	}
+	if (b.skipNext) {
+		b.skipNext = false;
+		return false;
+	}
+	if (b.continueAfterNext) {
+		// Decided, as in CanContinuePastBranch, once the delay slot is compiled. The branch is counted.
+		b.continueAfterNext = false;
+		if (GetIRBlockEnd(op) != IRBlockEnd::NONE || b.numInstructions - 1 >= IR_MAX_CONTINUED_INSTRUCTIONS ||
+			b.continuedBranches >= IR_MAX_CONTINUED_BRANCHES || MayHavePrefix(mips)) {
+			return true;
+		}
+		b.continuedBranches++;
+		return false;
+	}
+
+	b.numInstructions++;
+	switch (GetIRBlockEnd(op)) {
+	case IRBlockEnd::NONE:
+		return false;
+	case IRBlockEnd::NOW:
+		return true;
+	case IRBlockEnd::AFTER_DELAY_SLOT:
+		break;
+	}
+
+	const u32 enc = op.encoding;
+	if (((enc >> 26) == 0x14 || (enc >> 26) == 0x15) && (enc & 0xFFFF) == 1 && (Memory::Read_Instruction(pc + 4).encoding & 0xFC00003F) == 0x0D) {
+		// beql/bnel over a break: BranchRSRTComp drops both and goes on.
+		b.numInstructions++;
+		b.skipNext = mips->inDelaySlot;
+		return false;
+	}
+	if (mips->inDelaySlot) {
+		// Taken, or a jump.
+		b.endAfterNext = true;
+		return false;
+	}
+	if (mips->pc != pc + 4) {
+		// A likely branch that wasn't taken skipped its delay slot.
+		return true;
+	}
+	// Not taken: the delay slot runs next, as an ordinary instruction.
+	const MIPSInfo delaySlotInfo = MIPSGetInfo(Memory::Read_Instruction(pc + 4));
+	if (IR_CONTINUE_BRANCHES && IsContinuableBranch(op) && (delaySlotInfo & (IS_JUMP | IS_CONDBRANCH)) == 0) {
+		b.continueAfterNext = true;
+	} else {
+		b.endAfterNext = true;
+	}
+	return false;
 }
 
 // This is the fast runloop for the interpreter.
@@ -1172,7 +1247,7 @@ static inline bool ReachedIRBlockEnd(const MIPSState *mips, MIPSOpcode op, u32 p
 static void RunUntilDowncountZeroFast(MIPSState *mips) {
 	while (mips->downcount >= 0 && coreState == CORE_RUNNING_CPU) {
 		// Run to the end of what the IR cores would run as one block.
-		bool endAfterNext = false;
+		IRBlockState block;
 		while (true) {
 			const u32 pc = mips->pc;
 			if (!Memory::IsValid4AlignedAddress(pc)) {
@@ -1198,7 +1273,7 @@ static void RunUntilDowncountZeroFast(MIPSState *mips) {
 				mips->pc = mips->nextPC;
 				mips->inDelaySlot = false;
 			}
-			const bool blockEnded = endAfterNext || ReachedIRBlockEnd(mips, op, pc, &endAfterNext);
+			const bool blockEnded = StepIRBlock(block, mips, op, pc);
 			// Don't stop in a delay slot!
 			if (!mips->inDelaySlot && (blockEnded || coreState != CORE_RUNNING_CPU)) {
 				break;
@@ -1312,7 +1387,7 @@ static void RunUntilDowncountZeroWithChecks(MIPSState *mips, u64 globalTicks) {
 	while (mips->downcount >= 0 && coreState == CORE_RUNNING_CPU) {
 		// Run to the end of what the IR cores would run as one block. Don't stop in a delay slot!
 		// Well, unless we hit a memcheck in one, of course.
-		bool endAfterNext = false;
+		IRBlockState block;
 		while (true) {
 			const u32 pc = mips->pc;
 			if (!Memory::IsValid4AlignedAddress(mips->pc)) {
@@ -1353,7 +1428,7 @@ static void RunUntilDowncountZeroWithChecks(MIPSState *mips, u64 globalTicks) {
 				mips->pc = mips->nextPC;
 				mips->inDelaySlot = false;
 			}
-			const bool blockEnded = endAfterNext || ReachedIRBlockEnd(mips, op, pc, &endAfterNext);
+			const bool blockEnded = StepIRBlock(block, mips, op, pc);
 			if (!mips->inDelaySlot && (blockEnded || coreState != CORE_RUNNING_CPU)) {
 				break;
 			}

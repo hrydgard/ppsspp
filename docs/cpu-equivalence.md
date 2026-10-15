@@ -126,8 +126,13 @@ sends a game down a different path on each core:
   replacements), so events happen at the same instruction. Its fast loop also charged a branch
   and its delay slot together after both, so a syscall in the slot didn't see the branch.
 
-Continuing past conditional branches (`opts.continueBranches`) moves block ends, which the
-interpreter doesn't follow, so the cores only agree on timing with it off.
+The interpreter also follows the IR frontend on past a conditional branch that isn't taken
+(`IR_CONTINUE_BRANCHES`), with the same limits, except in one case it can't see: the IR takes a
+prefix register written by `mtvc` or `vmtvc`, or by a VFPU op it interprets that doesn't consume
+prefixes, as unknown, where the interpreter goes by the value. Games set prefixes with `vpfx`.
+The fuzzer only compares cycles at the end, so it doesn't see where a block ends; a trace of
+syscalls and thread switches from a game does (God of War, Tekken 6 and Daxter agree on all three
+cores).
 
 ## Open differences
 
