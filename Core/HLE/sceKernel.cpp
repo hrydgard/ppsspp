@@ -1046,7 +1046,7 @@ static int sceKernelLoadExecBufferVSHUsbWlan(int bufferSize, u32 bufferAddr, u32
 	const u8 *data = Memory::GetPointerUnchecked(bufferAddr);
 	std::string error_string;
 	if (!__KernelLoadExecFromBuffer(currentMIPS, data, (size_t)bufferSize, paramPtr, &error_string)) {
-		Core_UpdateState(CORE_RUNTIME_ERROR);
+		Core_HLEError("sceKernelLoadExecBufferVSHUsbWlan failed: " + error_string);
 		return hleLogError(Log::sceKernel, -1, "failed: %s", error_string.c_str());
 	}
 	if (gpu) {

@@ -780,6 +780,7 @@ const char *ExceptionTypeAsString(MIPSExceptionType type) {
 	case MIPSExceptionType::BREAK: return "Break";
 	case MIPSExceptionType::BAD_EXEC_ADDR: return "Bad Execution Address";
 	case MIPSExceptionType::FPU: return "FPU Exception";
+	case MIPSExceptionType::HLE: return "HLE Error";
 	default: return "N/A";
 	}
 }
@@ -836,7 +837,7 @@ static std::string ModuleAddressSuffix(u32 address) {
 	}
 }
 
-void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionType type, std::string_view additionalInfo) {
+void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionType type, std::string_view additionalInfo, bool halting) {
 	// In jit, we only flush PC when bIgnoreBadMemAccess is off.
 	char pcDetails[128];
 	pcDetails[0] = 0;
@@ -877,14 +878,14 @@ void Core_MemoryException(u32 address, u32 accessSize, u32 pc, MemoryExceptionTy
 	const char *desc = MemoryExceptionTypeAsString(type);
 	char msg[512];
 	snprintf(msg, sizeof(msg), "%s: SIGSEGV at %08x%s (size: %d bytes) %s\nHost:%.*s", desc, address, addressSuffix.c_str(), accessSize, pcDetails, STR_VIEW(additionalInfo));
-	if (action == ExceptionAction::Ignore) {
+	if (action == ExceptionAction::Ignore && !halting) {
 		Core_SendDebugOutput(LogLevel::LWARNING, msg);
 		return;
 	}
 	const std::string stackTrace = FormatStackTrace(WalkCurrentStack(-1));
 	// Do the most detailed logging we can.
 	Core_SendDebugOutput(LogLevel::LERROR, StringFromFormat("%sMIPS call stack:\n%s", msg, stackTrace.c_str()));
-	if (action == ExceptionAction::Break) {
+	if (action == ExceptionAction::Break || halting) {
 		MIPSExceptionInfo &e = g_exceptionInfo;
 		e = {};
 		e.type = MIPSExceptionType::MEMORY;
@@ -1059,6 +1060,20 @@ void Core_BreakException(u32 pc) {
 	if (action == ExceptionAction::Break) {
 		Core_Break(BreakReason::BreakInstruction, currentMIPS->pc);
 	}
+}
+
+void Core_HLEError(std::string_view message) {
+	const std::string stackTrace = FormatStackTrace(WalkCurrentStack(-1));
+	Core_SendDebugOutput(LogLevel::LERROR, StringFromFormat("HLE error: %.*s\n%s", STR_VIEW(message), stackTrace.c_str()));
+
+	MIPSExceptionInfo &e = g_exceptionInfo;
+	e = {};
+	e.type = MIPSExceptionType::HLE;
+	e.info = message;
+	e.stackTrace = stackTrace;
+	e.pc = currentMIPS->pc;
+	e.ra = currentMIPS->r[MIPS_REG_RA];
+	Core_UpdateState(CORE_RUNTIME_ERROR);
 }
 
 // We can't actually deliver the trap to the game's exception handler - nothing in PPSSPP emulates

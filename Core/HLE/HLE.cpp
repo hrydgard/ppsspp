@@ -879,8 +879,7 @@ void HLEReturnFromMipsCall() {
 	stackData.ptr = sp;
 
 	if ((stackData->nextOff & 0x0000000F) != 0 || !Memory::IsValidAddress(sp + stackData->nextOff)) {
-		ERROR_LOG(Log::HLE, "Corrupt stack on HLE mips call return: %08x", stackData->nextOff);
-		Core_UpdateState(CORE_RUNTIME_ERROR);
+		Core_HLEError(StringFromFormat("Corrupt stack on HLE mips call return: %08x", stackData->nextOff));
 		hleNoLogVoid();
 		return;
 	}
@@ -896,8 +895,7 @@ void HLEReturnFromMipsCall() {
 		}
 
 		if (finalMarker->nextOff != 0xFFFFFFFF) {
-			ERROR_LOG(Log::HLE, "Corrupt stack on HLE mips call return action: %08x", finalMarker->nextOff);
-			Core_UpdateState(CORE_RUNTIME_ERROR);
+			Core_HLEError(StringFromFormat("Corrupt stack on HLE mips call return action: %08x", finalMarker->nextOff));
 			hleNoLogVoid();
 			return;
 		}
