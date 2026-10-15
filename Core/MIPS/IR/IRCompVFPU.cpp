@@ -213,6 +213,44 @@ namespace MIPSComp {
 		}
 
 		auto build = [&](const DotLane lanes[4], int vec) {
+			// The lanes of one quad in place, the rest constants Vec4Init has (vhdp's s): two vector
+			// ops, which keeps the quad in one register.
+			int quad = -1;
+			u8 blend = 0;
+			float c[4]{};
+			bool vector = true;
+			for (int i = 0; i < 4 && vector; i++) {
+				if (lanes[i].reg < 0) {
+					c[i] = lanes[i].constant;
+				} else if (!lanes[i].negate && (lanes[i].reg & 3) == i && (quad < 0 || quad == lanes[i].reg - i)) {
+					quad = lanes[i].reg - i;
+					blend |= 1 << i;
+				} else {
+					vector = false;
+				}
+			}
+			int init = -1;
+			if (vector && quad >= 0 && quad != vec && blend != 0xF) {
+				// In Vec4Init's order.
+				static const float inits[][4] = {
+					{ 0, 0, 0, 0 }, { 1, 1, 1, 1 }, { -1, -1, -1, -1 },
+					{ 1, 0, 0, 0 }, { 0, 1, 0, 0 }, { 0, 0, 1, 0 }, { 0, 0, 0, 1 },
+				};
+				for (int k = 0; k < (int)(sizeof(inits) / sizeof(inits[0])) && init < 0; k++) {
+					bool match = true;
+					for (int i = 0; i < 4; i++) {
+						if (!(blend & (1 << i)) && memcmp(&inits[k][i], &c[i], sizeof(float)) != 0)
+							match = false;
+					}
+					if (match)
+						init = k;
+				}
+			}
+			if (init >= 0) {
+				ir.Write(IROp::Vec4Init, vec, init);
+				ir.Write(IROp::Vec4Blend, vec, vec, quad, blend);
+				return;
+			}
 			for (int i = 0; i < 4; i++) {
 				if (lanes[i].reg < 0) {
 					ir.WriteSetConstantFloat(vec + i, lanes[i].constant);
