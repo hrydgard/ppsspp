@@ -1198,7 +1198,7 @@ namespace MIPSComp {
 		case VecDo3Op::VMAX:
 		case VecDo3Op::VSGE:
 		case VecDo3Op::VSLT:
-			allowSIMD = false;
+			allowSIMD = opts.moreVec4Ops;
 			break;
 		case VecDo3Op::INVALID:  // Can't happen, but to avoid compiler warnings
 			break;
@@ -1233,6 +1233,18 @@ namespace MIPSComp {
 				break;
 			case VecDo3Op::VMUL: // d[i] = s[i] * t[i]; break; //vmul
 				opFunc = IROp::Vec4Mul;
+				break;
+			case VecDo3Op::VMIN:
+				opFunc = IROp::Vec4Min;
+				break;
+			case VecDo3Op::VMAX:
+				opFunc = IROp::Vec4Max;
+				break;
+			case VecDo3Op::VSLT:
+				opFunc = IROp::Vec4Slt;
+				break;
+			case VecDo3Op::VSGE:
+				opFunc = IROp::Vec4Sge;
 				break;
 			default:
 				// Leave it Nop, disabled below.
@@ -1500,6 +1512,11 @@ namespace MIPSComp {
 		u8 sregs[4], dregs[4], outregs[4];
 		GetVectorRegsPrefixS(sregs, sz, _VS);
 		GetVectorRegsPrefixD(dregs, sz, _VD);
+		if (opts.moreVec4Ops && IsVec4(sz, dregs) && IsVec4(sz, sregs)) {
+			ir.Write(IROp::Vec4CvtScaledSW, dregs[0], sregs[0], imm);
+			ApplyPrefixD(dregs, sz, _VD);
+			return;
+		}
 		// Through temps if a lane would be written before a later one reads it.
 		const bool direct = IsOverlapSafeAllowS(n, dregs, n, sregs);
 		for (int i = 0; i < n; i++)

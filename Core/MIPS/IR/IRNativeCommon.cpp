@@ -422,6 +422,11 @@ void IRNativeBackend::CompileIRInst(IRInst inst) {
 	case IROp::Vec4Scale:
 	case IROp::Vec4Neg:
 	case IROp::Vec4Abs:
+	case IROp::Vec4Min:
+	case IROp::Vec4Max:
+	case IROp::Vec4Slt:
+	case IROp::Vec4Sge:
+	case IROp::Vec4CvtScaledSW:
 		CompIR_VecArith(inst);
 		break;
 

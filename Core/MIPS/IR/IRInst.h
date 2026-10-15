@@ -191,6 +191,13 @@ enum class IROp : uint8_t {
 	Vec4VfpuMultiDot,  // Four of them against one vector, see IRMultiDot.
 	Vec4Neg,
 	Vec4Abs,
+	// vmin/vmax (by vfpu_minmax_key, a tie taking src2), vslt and vsge (1.0 or 0.0, 0.0 for NaN).
+	Vec4Min,
+	Vec4Max,
+	Vec4Slt,
+	Vec4Sge,
+	// vi2f: each lane's int to float, divided by 2^src2.
+	Vec4CvtScaledSW,
 
 	// vx2i
 	Vec2Unpack16To31,  // Note that the result is shifted down by 1, hence 31
@@ -448,6 +455,8 @@ struct IROptions {
 	bool vfpuMultiDot;
 	// Compile on past conditional branches (see IRFrontend::CanContinuePastBranch).
 	bool continueBranches;
+	// The backend has Vec4Min, Vec4Max, Vec4Slt, Vec4Sge and Vec4CvtScaledSW.
+	bool moreVec4Ops;
 };
 
 const IRMeta *GetIRMeta(IROp op);

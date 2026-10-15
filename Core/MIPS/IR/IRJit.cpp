@@ -80,8 +80,10 @@ IRJit::IRJit(MIPSState *mipsState, bool actualJit) : frontend_(mipsState->HasDef
 	// The IR interpreter, and the backends with a routine for it.
 #if PPSSPP_ARCH(ARM64)
 	opts.vfpuMultiDot = true;
+	opts.moreVec4Ops = true;
 #else
 	opts.vfpuMultiDot = !actualJit;
+	opts.moreVec4Ops = !actualJit;
 #endif
 	opts.continueBranches = true;
 	frontend_.SetOptions(opts);

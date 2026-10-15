@@ -93,6 +93,53 @@ void Arm64JitBackend::CompIR_VecArith(IRInst inst) {
 		fp_.FABS(32, regs_.FQ(inst.dest), regs_.FQ(inst.src1));
 		break;
 
+	case IROp::Vec4Min:
+	case IROp::Vec4Max:
+	{
+		// vfpu_minmax_key() of each lane of both, compared as signed, picks the lanes. A tie
+		// takes src2. Q0-Q3 are temps the register cache never hands out.
+		regs_.Map(inst);
+		const ARM64Reg a = regs_.FQ(inst.src1), b = regs_.FQ(inst.src2);
+		MOVI2R(SCRATCH1, 0x7F800000);
+		fp_.DUP(32, Q3, SCRATCH1);
+		auto key = [&](ARM64Reg dest, ARM64Reg src) {
+			fp_.SSHR(32, Q2, src, 31);
+			fp_.USHR(32, Q2, Q2, 1);
+			fp_.EOR(dest, src, Q2);
+			fp_.CMTST(32, Q2, src, Q3);
+			fp_.AND(dest, dest, Q2);
+		};
+		key(Q0, a);
+		key(Q1, b);
+		if (inst.op == IROp::Vec4Min)
+			fp_.CMGT(32, Q0, Q1, Q0);
+		else
+			fp_.CMGT(32, Q0, Q0, Q1);
+		fp_.BSL(Q0, a, b);
+		fp_.MOV(regs_.FQ(inst.dest), Q0);
+		break;
+	}
+
+	case IROp::Vec4Slt:
+	case IROp::Vec4Sge:
+		// 1.0 where src1 < src2 (vslt) or src1 >= src2 (vsge), 0.0 otherwise, NaN included.
+		regs_.Map(inst);
+		if (inst.op == IROp::Vec4Slt)
+			fp_.FCMGT(32, Q0, regs_.FQ(inst.src2), regs_.FQ(inst.src1));
+		else
+			fp_.FCMGE(32, Q0, regs_.FQ(inst.src1), regs_.FQ(inst.src2));
+		fp_.FMOV(32, Q1, 0x70);  // 1.0
+		fp_.AND(regs_.FQ(inst.dest), Q0, Q1);
+		break;
+
+	case IROp::Vec4CvtScaledSW:
+		regs_.Map(inst);
+		if ((inst.src2 & 0x1F) == 0)
+			fp_.SCVTF(32, regs_.FQ(inst.dest), regs_.FQ(inst.src1));
+		else
+			fp_.SCVTF(32, regs_.FQ(inst.dest), regs_.FQ(inst.src1), inst.src2 & 0x1F);
+		break;
+
 	default:
 		INVALIDOP;
 		break;

@@ -162,6 +162,11 @@ static const IRMeta irMeta[] = {
 	{ IROp::Vec4VfpuMultiDot, "Vec4VfpuMultiDot", "VMVc" },
 	{ IROp::Vec4Neg, "Vec4Neg", "VV" },
 	{ IROp::Vec4Abs, "Vec4Abs", "VV" },
+	{ IROp::Vec4Min, "Vec4Min", "VVV" },
+	{ IROp::Vec4Max, "Vec4Max", "VVV" },
+	{ IROp::Vec4Slt, "Vec4Slt", "VVV" },
+	{ IROp::Vec4Sge, "Vec4Sge", "VVV" },
+	{ IROp::Vec4CvtScaledSW, "Vec4CvtScaledSW", "VVI" },
 
 		// Pack/Unpack
 	{ IROp::Vec2Unpack16To31, "Vec2Unpack16To31", "2F" },  // Note that the result is shifted down by 1, hence 31
