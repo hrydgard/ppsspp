@@ -105,8 +105,13 @@ public:
 
 	virtual const CodeBlockCommon &CodeBlock() const = 0;
 
-	// The backend's own routines; the dispatcher hooks are added by the caller.
+	// The backend's own routines, without the dispatcher hooks.
 	virtual void GetFixedCodeLabels(std::vector<IRNativeFixedCodeLabel> &labels) const {}
+	// Those and the dispatcher hooks, by address.
+	void GetAllFixedCodeLabels(std::vector<IRNativeFixedCodeLabel> &labels) const;
+	// The name of the fixed code routine ptr is in, with an offset if not at its start, for the
+	// disassembly and profilers (so no spaces).
+	std::string DescribeFixedCode(const u8 *ptr) const;
 
 protected:
 	virtual void CompIR_Arith(IRInst inst) = 0;

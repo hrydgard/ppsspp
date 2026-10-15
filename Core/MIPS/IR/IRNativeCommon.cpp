@@ -622,15 +622,8 @@ void IRNativeJit::CollectProfileSamples() {
 		}
 		// In the fixed code. If it's a routine called from a block, charge the block.
 		if (fixedLabels_.empty()) {
-			const IRNativeHooks &hooks = backend_->GetNativeHooks();
-			fixedLabels_.push_back({ backend_->CodeBlock().GetBasePtr(), "(start of code)", false });
-			fixedLabels_.push_back({ (const u8 *)hooks.enterDispatcher, "enterDispatcher", false });
-			fixedLabels_.push_back({ hooks.dispatcher, "dispatcher", false });
-			fixedLabels_.push_back({ hooks.dispatchFetch, "dispatchFetch", false });
-			fixedLabels_.push_back({ hooks.crashHandler, "crashHandler", false });
-			backend_->GetFixedCodeLabels(fixedLabels_);
-			fixedLabels_.erase(std::remove_if(fixedLabels_.begin(), fixedLabels_.end(), [](const IRNativeFixedCodeLabel &l) { return l.ptr == nullptr; }), fixedLabels_.end());
-			std::sort(fixedLabels_.begin(), fixedLabels_.end(), [](const IRNativeFixedCodeLabel &a, const IRNativeFixedCodeLabel &b) { return a.ptr < b.ptr; });
+			backend_->GetAllFixedCodeLabels(fixedLabels_);
+			fixedLabels_.insert(fixedLabels_.begin(), { backend_->CodeBlock().GetBasePtr(), "(start of code)", false });
 		}
 		auto label = std::upper_bound(fixedLabels_.begin(), fixedLabels_.end(), (const u8 *)s.pc, [](const u8 *p, const IRNativeFixedCodeLabel &l) { return p < l.ptr; });
 		const IRNativeFixedCodeLabel &where = *(label - 1);
@@ -942,6 +935,29 @@ bool IRNativeBackend::DescribeCodePtr(const u8 *ptr, std::string &name) const {
 		return false;
 	}
 	return true;
+}
+
+void IRNativeBackend::GetAllFixedCodeLabels(std::vector<IRNativeFixedCodeLabel> &labels) const {
+	labels.push_back({ (const u8 *)hooks_.enterDispatcher, "enterDispatcher", false });
+	labels.push_back({ hooks_.dispatcher, "dispatcher", false });
+	labels.push_back({ hooks_.dispatchFetch, "dispatchFetch", false });
+	labels.push_back({ hooks_.crashHandler, "crashHandler", false });
+	GetFixedCodeLabels(labels);
+	labels.erase(std::remove_if(labels.begin(), labels.end(), [](const IRNativeFixedCodeLabel &l) { return l.ptr == nullptr; }), labels.end());
+	std::sort(labels.begin(), labels.end(), [](const IRNativeFixedCodeLabel &a, const IRNativeFixedCodeLabel &b) { return a.ptr < b.ptr; });
+}
+
+std::string IRNativeBackend::DescribeFixedCode(const u8 *ptr) const {
+	std::vector<IRNativeFixedCodeLabel> labels;
+	GetAllFixedCodeLabels(labels);
+	auto next = std::upper_bound(labels.begin(), labels.end(), ptr, [](const u8 *p, const IRNativeFixedCodeLabel &l) { return p < l.ptr; });
+	// Far past a routine's start is likely something else (constants, say).
+	if (next == labels.begin() || ptr - (next - 1)->ptr >= 0x1000)
+		return "fixedCode";
+	const IRNativeFixedCodeLabel &label = *(next - 1);
+	if (label.ptr == ptr)
+		return label.name;
+	return StringFromFormat("%s+0x%x", label.name, (int)(ptr - label.ptr));
 }
 
 int IRNativeBackend::OffsetFromCodePtr(const u8 *ptr) {
