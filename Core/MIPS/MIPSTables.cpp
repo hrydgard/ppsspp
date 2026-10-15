@@ -1105,14 +1105,75 @@ void MIPSDisAsm(MIPSOpcode op, u32 pc, char *out, size_t outSize, bool tabsToSpa
 	}
 }
 
+enum class IRBlockEnd {
+	NONE,
+	AFTER_DELAY_SLOT,
+	NOW,
+};
+
+// Where the IR frontend ends a block. The IR cores only look at downcount between blocks, so the
+// interpreter stops at the same places to run guest code with exactly the same timing.
+static inline IRBlockEnd GetIRBlockEnd(MIPSOpcode op) {
+	const u32 enc = op.encoding;
+	switch (enc >> 26) {
+	case 0x00:
+		switch (enc & 0x3F) {
+		case 0x08:  // jr
+		case 0x09:  // jalr
+			return IRBlockEnd::AFTER_DELAY_SLOT;
+		case 0x0C:  // syscall
+		case 0x0D:  // break
+			return IRBlockEnd::NOW;
+		default:
+			return IRBlockEnd::NONE;
+		}
+	case 0x01:  // bltz, bgez, bltzal, bgezal and their likely forms.
+		return ((enc >> 16) & 0xC) == 0 ? IRBlockEnd::AFTER_DELAY_SLOT : IRBlockEnd::NONE;
+	case 0x02: case 0x03:  // j, jal
+	case 0x04: case 0x05: case 0x06: case 0x07:  // beq, bne, blez, bgtz
+	case 0x14: case 0x15: case 0x16: case 0x17:  // their likely forms
+		return IRBlockEnd::AFTER_DELAY_SLOT;
+	case 0x11:  // bc1f, bc1t
+	case 0x12:  // bvf, bvt
+		return ((enc >> 21) & 0x1F) == 8 ? IRBlockEnd::AFTER_DELAY_SLOT : IRBlockEnd::NONE;
+	default:
+		if ((enc & 0xFF000000) == MIPS_CALL_REPLACEMENT_OP) {
+			// A hook runs the original instruction and goes on, like a disabled replacement.
+			const ReplacementTableEntry *entry = GetReplacementFunc(enc & MIPS_REPLACEMENT_INDEX_MASK);
+			if (entry && entry->replaceFunc && (entry->flags & (REPFLAG_DISABLED | REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) == 0) {
+				return IRBlockEnd::NOW;
+			}
+		}
+		return IRBlockEnd::NONE;
+	}
+}
+
+// After running op from pc, whether the block is over, or will be after one more instruction.
+static inline bool ReachedIRBlockEnd(const MIPSState *mips, MIPSOpcode op, u32 pc, bool *endAfterNext) {
+	switch (GetIRBlockEnd(op)) {
+	case IRBlockEnd::NOW:
+		return true;
+	case IRBlockEnd::AFTER_DELAY_SLOT:
+		// Taken, or not taken and not likely: the delay slot runs next. A likely branch that isn't
+		// taken skips it, and the block ends right here.
+		if (mips->inDelaySlot || mips->pc == pc + 4) {
+			*endAfterNext = true;
+			return false;
+		}
+		return true;
+	default:
+		return false;
+	}
+}
+
 // This is the fast runloop for the interpreter.
 // When making changes, always make sure it's in sync with the fallback loop, RunUntilDowncountZeroWithChecks, which is
 // far less efficient but supports breakpoints of all kinds etc.
 static void RunUntilDowncountZeroFast(MIPSState *mips) {
 	while (mips->downcount >= 0 && coreState == CORE_RUNNING_CPU) {
-		int cycleCount = 0;
-		// Don't stop in a delay slot!
-		do {
+		// Run to the end of what the IR cores would run as one block.
+		bool endAfterNext = false;
+		while (true) {
 			const u32 pc = mips->pc;
 			if (!Memory::IsValid4AlignedAddress(pc)) {
 				Core_ExecException(pc, pc, ExecExceptionType::JUMP);
@@ -1128,15 +1189,21 @@ static void RunUntilDowncountZeroFast(MIPSState *mips) {
 				Core_ExecException(pc, pc, ExecExceptionType::ILLEGAL);
 				return;
 			}
-			cycleCount += cycles;
+			// Charged per instruction, like RunUntilDowncountZeroWithChecks, so a syscall in a delay
+			// slot sees the branch's cycles in either loop.
+			mips->downcount -= cycles;
 
 			// The reason we have to check this is the delay slot hack in Int_Syscall.
 			if (mips->inDelaySlot && wasInDelaySlot) {
 				mips->pc = mips->nextPC;
 				mips->inDelaySlot = false;
 			}
-		} while (mips->inDelaySlot);
-		mips->downcount -= cycleCount;
+			const bool blockEnded = endAfterNext || ReachedIRBlockEnd(mips, op, pc, &endAfterNext);
+			// Don't stop in a delay slot!
+			if (!mips->inDelaySlot && (blockEnded || coreState != CORE_RUNNING_CPU)) {
+				break;
+			}
+		}
 	}
 }
 
@@ -1243,8 +1310,11 @@ static void RunUntilDowncountZeroWithChecks(MIPSState *mips, u64 globalTicks) {
 	// Bit i set means register i has an active register breakpoint - see GetRegBreakpointMask().
 	u32 regBPMask = g_breakpoints.GetRegBreakpointMask();
 	while (mips->downcount >= 0 && coreState == CORE_RUNNING_CPU) {
-		// Don't stop in a delay slot! Well, unless we hit a memcheck in one, of course.
-		do {
+		// Run to the end of what the IR cores would run as one block. Don't stop in a delay slot!
+		// Well, unless we hit a memcheck in one, of course.
+		bool endAfterNext = false;
+		while (true) {
+			const u32 pc = mips->pc;
 			if (!Memory::IsValid4AlignedAddress(mips->pc)) {
 				Core_ExecException(mips->pc, mips->pc, ExecExceptionType::JUMP);
 				return;
@@ -1271,7 +1341,7 @@ static void RunUntilDowncountZeroWithChecks(MIPSState *mips, u64 globalTicks) {
 				breakExec = true;
 			}
 			if (breakExec) {
-				break;
+				return;
 			}
 
 			const bool wasInDelaySlot = mips->inDelaySlot;
@@ -1283,7 +1353,11 @@ static void RunUntilDowncountZeroWithChecks(MIPSState *mips, u64 globalTicks) {
 				mips->pc = mips->nextPC;
 				mips->inDelaySlot = false;
 			}
-		} while (mips->inDelaySlot);
+			const bool blockEnded = endAfterNext || ReachedIRBlockEnd(mips, op, pc, &endAfterNext);
+			if (!mips->inDelaySlot && (blockEnded || coreState != CORE_RUNNING_CPU)) {
+				break;
+			}
+		}
 
 		if (CoreTiming::GetTicks(currentMIPS) > globalTicks)
 			return;
