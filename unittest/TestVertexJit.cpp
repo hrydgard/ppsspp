@@ -819,7 +819,8 @@ struct JitMismatch {
 	int formatsJitted = 0;
 	const bool savedDoubleTexCoords = g_DoubleTextureCoordinates;
 
-	auto testFormat = [&](u32 vtype, int uvGenMode, bool doubleTexCoords, bool expand8BitNormals) {
+	// Without withJit, the decoder is what a host without the JIT gets: a handwritten one, if any.
+	auto testFormat = [&](u32 vtype, int uvGenMode, bool doubleTexCoords, bool expand8BitNormals, bool withJit) {
 		g_DoubleTextureCoordinates = doubleTexCoords;
 		VertexDecoderOptions opts{};
 		opts.expand8BitNormalsToFloat = expand8BitNormals;
@@ -835,12 +836,14 @@ struct JitMismatch {
 			cache->Clear();
 		}
 		VertexDecoder jit{};
-		jit.SetVertexType(vertTypeID, opts, cache);
-		formatsTested++;
+		jit.SetVertexType(vertTypeID, opts, withJit ? cache : nullptr);
+		if (withJit)
+			formatsTested++;
 		if (!jit.jitted_) {
 			return;
 		}
-		formatsJitted++;
+		if (withJit)
+			formatsJitted++;
 
 		// Which step writes each component: weights (if any) first, then tc, col, nrm, pos.
 		int stepIndex = ref.weighttype ? 1 : 0;
@@ -1034,7 +1037,9 @@ struct JitMismatch {
 									for (int uvGen = 0; uvGen < uvGenModes; uvGen++) {
 										for (int dbl = 0; dbl < doubleModes; dbl++) {
 											for (int expand = 0; expand < expandModes; expand++) {
-												testFormat(vtype, uvGen == 0 ? GE_TEXMAP_TEXTURE_COORDS : GE_TEXMAP_TEXTURE_MATRIX, dbl != 0, expand != 0);
+												const int uvGenMode = uvGen == 0 ? GE_TEXMAP_TEXTURE_COORDS : GE_TEXMAP_TEXTURE_MATRIX;
+												testFormat(vtype, uvGenMode, dbl != 0, expand != 0, true);
+												testFormat(vtype, uvGenMode, dbl != 0, expand != 0, false);
 											}
 										}
 									}

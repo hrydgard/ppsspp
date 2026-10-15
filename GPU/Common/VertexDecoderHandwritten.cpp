@@ -4,6 +4,7 @@
 #include "GPU/Common/VertexDecoderCommon.h"
 #include "GPU/GPUState.h"
 
+#include "Common/Math/CrossSIMD.h"
 #include "Common/Math/SIMDHeaders.h"
 
 // Candidates for hand-writing
@@ -335,4 +336,139 @@ void VtxDec_Tu16_C8888_Pfloat_NoPrescale(const u8 *srcp, u8 *dstp, int count, co
 
 void VtxDec_Tu8_C5551_Ps16_NoPrescale(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset) {
 	VtxDec_Tu8_C5551_Ps16(srcp, dstp, count, &identityUVScale);
+}
+
+
+// The ones below convert like the steps, so the results are the same. With prescale false, they're for the
+// UV generation modes that don't prescale (float UV is then copied as is, -0 included).
+
+template <bool prescale>
+static void DecodeTu8_C565_Ns16_Pfloat(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset) {
+	struct InVtx {
+		u8 u, v;
+		u16 col;
+		s16 nrm[3];
+		float pos[3];
+	};
+	struct OutVtx {
+		float u, v;
+		u32 col;
+		s16 nrm[4];
+		float pos[3];
+	};
+	const InVtx *src = (const InVtx *)srcp;
+	OutVtx *dst = (OutVtx *)dstp;
+	const UVScale uv = *uvScaleOffset;
+	for (int i = 0; i < count; i++) {
+		const float u = src[i].u * (1.0f / 128.0f), v = src[i].v * (1.0f / 128.0f);
+		dst[i].u = prescale ? PrescaleUV(u, uv.uScale, uv.uOff) : u;
+		dst[i].v = prescale ? PrescaleUV(v, uv.vScale, uv.vOff) : v;
+		dst[i].col = RGB565ToRGBA8888(src[i].col);
+		dst[i].nrm[0] = src[i].nrm[0];
+		dst[i].nrm[1] = src[i].nrm[1];
+		dst[i].nrm[2] = src[i].nrm[2];
+		dst[i].nrm[3] = 0;
+		// Like Step_PosFloat, which reads and writes four floats.
+		Vec4F32::Load(src[i].pos).CleanNaNInfs().Store(dst[i].pos);
+	}
+}
+
+// ATV Offroad Fury: Blazin' Trails.
+void VtxDec_Tu8_C565_Ns16_Pfloat(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset) {
+	DecodeTu8_C565_Ns16_Pfloat<true>(srcp, dstp, count, uvScaleOffset);
+}
+void VtxDec_Tu8_C565_Ns16_Pfloat_NoPrescale(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset) {
+	DecodeTu8_C565_Ns16_Pfloat<false>(srcp, dstp, count, uvScaleOffset);
+}
+
+template <bool prescale>
+static void DecodeTfloat_C8888_Ns8_Ps16(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset) {
+	struct InVtx {
+		float uv[2];
+		u32 col;
+		u32 nrm;  // s8 x3, padding
+		s16 pos[3];
+		u16 pad;
+	};
+	struct OutVtx {
+		float uv[2];
+		u32 col;
+		u32 nrm;  // s8 x3, 0
+		float pos[3];
+	};
+	const InVtx *src = (const InVtx *)srcp;
+	OutVtx *dst = (OutVtx *)dstp;
+	const Vec4F32 uvScale = Vec4F32::Load2(&uvScaleOffset->uScale);
+	const Vec4F32 uvOff = Vec4F32::Load2(&uvScaleOffset->uOff);
+	const Vec4F32 posScale = Vec4F32::Splat(1.0f / 32768.0f);
+	u32 alpha = 0xFFFFFFFF;
+	for (int i = 0; i < count; i++) {
+		Vec4F32 uv = Vec4F32::Load2(src[i].uv);
+		if (prescale)
+			uv = MulAdd(uv, uvScale, uvOff);  // Fused where PrescaleUV() is.
+		uv.Store2(dst[i].uv);
+		const u32 col = src[i].col;
+		alpha &= col;
+		dst[i].col = col;
+		dst[i].nrm = src[i].nrm & 0x00FFFFFF;
+		// Writes four floats, the last over the next vertex (or the slack after the buffer).
+		(Vec4F32::LoadConvertS16(src[i].pos) * posScale).Store(dst[i].pos);
+	}
+	if ((alpha >> 24) != 0xFF)
+		gstate_c.vertexFullAlpha = false;
+}
+
+// Wipeout Pure.
+void VtxDec_Tfloat_C8888_Ns8_Ps16(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset) {
+	DecodeTfloat_C8888_Ns8_Ps16<true>(srcp, dstp, count, uvScaleOffset);
+}
+void VtxDec_Tfloat_C8888_Ns8_Ps16_NoPrescale(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset) {
+	DecodeTfloat_C8888_Ns8_Ps16<false>(srcp, dstp, count, uvScaleOffset);
+}
+
+template <bool prescale>
+static void DecodeTu16_C4444_Ps16(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset) {
+	struct InVtx {
+		u16 u, v;
+		u16 col;
+		s16 pos[3];
+	};
+	struct OutVtx {
+		float u, v;
+		u32 col;
+		float pos[3];
+	};
+	const InVtx *src = (const InVtx *)srcp;
+	OutVtx *dst = (OutVtx *)dstp;
+	const UVScale uv = *uvScaleOffset;
+	// The HD Remasters double the texture coordinates, see Step_TcU16DoublePrescale.
+	const float uvDiv = g_DoubleTextureCoordinates ? (1.0f / 16384.0f) : (1.0f / 32768.0f);
+	const Vec4F32 posScale = Vec4F32::Splat(1.0f / 32768.0f);
+	u32 alpha = 0xFFFF;
+	for (int i = 0; i < count; i++) {
+		const float u = src[i].u * uvDiv, v = src[i].v * uvDiv;
+		dst[i].u = prescale ? PrescaleUV(u, uv.uScale, uv.uOff) : u;
+		dst[i].v = prescale ? PrescaleUV(v, uv.vScale, uv.vOff) : v;
+		const u16 col = src[i].col;
+		alpha &= col;
+		dst[i].col = RGBA4444ToRGBA8888(col);
+		if (i + 1 < count) {
+			// Reads one s16 into the next vertex, and writes four floats, the last over the next vertex.
+			(Vec4F32::LoadConvertS16(src[i].pos) * posScale).Store(dst[i].pos);
+		} else {
+			dst[i].pos[0] = src[i].pos[0] * (1.0f / 32768.0f);
+			dst[i].pos[1] = src[i].pos[1] * (1.0f / 32768.0f);
+			dst[i].pos[2] = src[i].pos[2] * (1.0f / 32768.0f);
+		}
+	}
+	if ((alpha >> 12) != 0xF)
+		gstate_c.vertexFullAlpha = false;
+}
+
+// Killzone: Liberation, Gods Eater Burst.
+void VtxDec_Tu16_C4444_Ps16(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset) {
+	DecodeTu16_C4444_Ps16<true>(srcp, dstp, count, uvScaleOffset);
+}
+void VtxDec_Tu16_C4444_Ps16_NoPrescale(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset) {
+	DecodeTu16_C4444_Ps16<false>(srcp, dstp, count, uvScaleOffset);
 }
