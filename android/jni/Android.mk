@@ -1101,6 +1101,7 @@ ifeq ($(UNITTEST),1)
     $(SRC)/unittest/TestShaderGenerators.cpp \
     $(SRC)/unittest/TestThreadManager.cpp \
     $(SRC)/unittest/TestBoundingBox.cpp \
+    $(SRC)/unittest/TestDepthRaster.cpp \
     $(SRC)/unittest/TestVertexJit.cpp \
     $(SRC)/unittest/TestTextureReplacer.cpp \
     $(SRC)/unittest/TestVFS.cpp \

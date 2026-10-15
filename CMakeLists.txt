@@ -1387,6 +1387,7 @@ if(UNITTEST)
 		unittest/TestIRPassSimplify.cpp
 		unittest/TestX64Emitter.cpp
 		unittest/TestBoundingBox.cpp
+		unittest/TestDepthRaster.cpp
 		unittest/TestVertexJit.cpp
 		unittest/TestVertexJit.h
 		unittest/TestVFS.cpp

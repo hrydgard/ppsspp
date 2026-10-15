@@ -9,6 +9,7 @@
     <ClCompile Include="TestArm64Emitter.cpp" />
     <ClCompile Include="TestArm64Disasm.cpp" />
     <ClCompile Include="TestBoundingBox.cpp" />
+    <ClCompile Include="TestDepthRaster.cpp" />
     <ClCompile Include="TestVertexJit.cpp" />
     <ClCompile Include="..\ext\glew\glew.c" />
     <ClCompile Include="..\Windows\CaptureDevice.cpp">
