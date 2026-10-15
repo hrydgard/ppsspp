@@ -43,6 +43,15 @@
 
 namespace {
 
+// "<input size> -> <output size> (66.21%)", the output's size as a share of the input's.
+std::string SizeChange(uint64_t before, uint64_t after) {
+	std::string text = NiceSizeFormat(before) + " -> " + NiceSizeFormat(after);
+	if (before > 0) {
+		text += StringFromFormat(" (%.2f%%)", 100.0 * (double)after / (double)before);
+	}
+	return text;
+}
+
 enum class ItemStatus {
 	Pending,
 	Running,
@@ -211,7 +220,7 @@ void RunJob(std::shared_ptr<JobState> job, Path source, bool folder) {
 				success = CHDModern::Extract(item.input, item.output, progress, &error, &cancelled);
 			}
 		} else {
-			success = MaxCSO::Process(item.input, item.output, settings.compress ? settings.csoMode : MaxCSO::Mode::Decompress, progress, &error);
+			success = MaxCSO::Process(item.input, item.output, settings.compress ? settings.csoMode : MaxCSO::Mode::Decompress, progress, &error, &cancelled);
 		}
 
 		if (cancelled) {
@@ -445,7 +454,7 @@ void UnPackScreen::RefreshStatus() {
 		std::string right;
 		switch (item.status) {
 		case ItemStatus::Done:
-			right = StringFromFormat("%s -> %s", NiceSizeFormat(item.inputSize).c_str(), NiceSizeFormat(item.outputSize).c_str());
+			right = SizeChange(item.inputSize, item.outputSize);
 			break;
 		case ItemStatus::Skipped: right = std::string(sy->T("Skipped")); break;
 		case ItemStatus::Cancelled: right = std::string(sy->T("Cancelled")); break;
@@ -464,12 +473,7 @@ void UnPackScreen::RefreshStatus() {
 		std::string_view verb = g_job->settings.compress ? sy->T("Compressing") : sy->T("Decompressing");
 		std::string text = StringFromFormat("%.*s (%d / %d): %s", STR_VIEW(verb), g_job->current + 1, (int)total, item.input.GetFilename().c_str());
 		if (g_job->cancel) {
-			// maxcso can't stop in the middle of a file.
-			if (g_job->settings.format == ImageFormat::CSO) {
-				text += "\n" + std::string(sy->T("UnPackCancellingAfterFile", "Stopping after the current file..."));
-			} else {
-				text += "\n" + std::string(sy->T("UnPackCancelling", "Stopping..."));
-			}
+			text += "\n" + std::string(sy->T("UnPackCancelling", "Stopping..."));
 		}
 		statusText_->SetText(text);
 	} else if (running) {
@@ -506,7 +510,7 @@ void UnPackScreen::RefreshStatus() {
 			details += StringFromFormat(", %s: %d", std::string(sy->T("Cancelled")).c_str(), cancelled);
 		}
 		if (converted > 0) {
-			details += StringFromFormat("\n%s -> %s", NiceSizeFormat(before).c_str(), NiceSizeFormat(after).c_str());
+			details += "\n" + SizeChange(before, after);
 		}
 		if (total == 0) {
 			summary_->SetLevelAndText(NoticeLevel::WARN, sy->T("UnPackNothingFound", "No matching games found"));

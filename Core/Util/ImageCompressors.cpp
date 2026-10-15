@@ -57,8 +57,9 @@ const char *OutputExtension(ImageFormat format) {
 namespace {
 
 // maxcso_capi.h
-const int MAXCSO_CAPI_VERSION = 1;
-typedef void (LIB_CALL *MaxcsoProgressFn)(void *userdata, int64_t pos, int64_t total, int64_t written);
+const int MAXCSO_CAPI_VERSION = 2;
+const int MAXCSO_RESULT_CANCELLED = 7;
+typedef int (LIB_CALL *MaxcsoProgressFn)(void *userdata, int64_t pos, int64_t total, int64_t written);
 typedef int (LIB_CALL *MaxcsoCapiVersionFn)(void);
 typedef const char *(LIB_CALL *MaxcsoVersionFn)(void);
 typedef int (LIB_CALL *MaxcsoProcessFn)(const char *input, const char *output, int mode,
@@ -187,12 +188,12 @@ const LoadedLibrary &Library(ImageFormat format) {
 	return format == ImageFormat::CHD ? g_chdmodern : g_maxcso;
 }
 
-void LIB_CALL MaxcsoProgressThunk(void *userdata, int64_t pos, int64_t total, int64_t written) {
+int LIB_CALL MaxcsoProgressThunk(void *userdata, int64_t pos, int64_t total, int64_t written) {
 	const ImageProgressFunc *progress = (const ImageProgressFunc *)userdata;
-	if (progress && *progress && total > 0) {
-		// maxcso can't stop mid-file, so a cancel only takes effect between files.
-		(*progress)((float)((double)pos / (double)total));
+	if (progress && *progress && total > 0 && !(*progress)((float)((double)pos / (double)total))) {
+		return 1;
 	}
+	return 0;
 }
 
 int ChdmProgressThunk(void *user, double progress) {
@@ -243,11 +244,11 @@ bool IsAvailable(ImageFormat format) {
 
 const char *LibraryFileName(ImageFormat format) {
 #if defined(_WIN32)
-	return format == ImageFormat::CHD ? "chdmodern.dll" : "maxcso.dll";
+	return format == ImageFormat::CHD ? "CHDm.dll" : "mCSO.dll";
 #elif PPSSPP_PLATFORM(MAC)
-	return format == ImageFormat::CHD ? "libchdmodern.dylib" : "libmaxcso.dylib";
+	return format == ImageFormat::CHD ? "CHDm.dylib" : "mCSO.dylib";
 #else
-	return format == ImageFormat::CHD ? "libchdmodern.so" : "libmaxcso.so";
+	return format == ImageFormat::CHD ? "CHDm.so" : "mCSO.so";
 #endif
 }
 
@@ -263,7 +264,8 @@ std::string Version(ImageFormat format) {
 
 namespace MaxCSO {
 
-bool Process(const Path &input, const Path &output, Mode mode, const ImageProgressFunc &progress, std::string *error) {
+bool Process(const Path &input, const Path &output, Mode mode, const ImageProgressFunc &progress, std::string *error, bool *cancelled) {
+	*cancelled = false;
 	if (!g_maxcsoProcess) {
 		*error = "maxcso is not loaded";
 		return false;
@@ -278,6 +280,7 @@ bool Process(const Path &input, const Path &output, Mode mode, const ImageProgre
 	if (result == 0) {
 		return true;
 	}
+	*cancelled = result == MAXCSO_RESULT_CANCELLED;
 	*error = errorBuf[0] ? errorBuf : "Unknown error";
 	// Don't leave a half-written file behind, it would look like a valid game.
 	if (File::Exists(output)) {
@@ -334,7 +337,8 @@ std::string Version(ImageFormat format) { return ""; }
 
 namespace MaxCSO {
 
-bool Process(const Path &input, const Path &output, Mode mode, const ImageProgressFunc &progress, std::string *error) {
+bool Process(const Path &input, const Path &output, Mode mode, const ImageProgressFunc &progress, std::string *error, bool *cancelled) {
+	*cancelled = false;
 	*error = "Not supported on this platform";
 	return false;
 }

@@ -27,8 +27,8 @@
 // Optional, runtime-loaded libraries that convert game images, used by the Un/Pack screen.
 // PPSSPP doesn't ship or link them: if the user puts one in memstick/PSP/SYSTEM, it's picked
 // up at startup.
-//  - CHD: CHDmodern (https://github.com/LunaMoo/CHDmodern), ISO <-> DVD CHD.
-//  - CSO: maxcso (https://github.com/unknownbrackets/maxcso) built with its C API
+//  - CHD: CHDm, CHDmodern (https://github.com/LunaMoo/CHDmodern) 0.2.0 or newer, ISO <-> DVD CHD.
+//  - CSO: mCSO, maxcso (https://github.com/unknownbrackets/maxcso) built with its C API version 2
 //    (capi/maxcso_capi.h), ISO <-> CSO (decompressing ZSO and DAX too).
 // Desktop only: Android, iOS and UWP won't load native code from user storage.
 
@@ -37,7 +37,7 @@ enum class ImageFormat {
 	CSO = 1,
 };
 
-// Return false to cancel. Only CHD conversions stop mid-file, CSO ones run to the end.
+// Return false to cancel.
 typedef std::function<bool(float progress)> ImageProgressFunc;
 
 namespace ImageCompressors {
@@ -46,7 +46,7 @@ namespace ImageCompressors {
 void Init();
 
 bool IsAvailable(ImageFormat format);
-// The file name looked for on this platform, like "chdmodern.dll".
+// The file name looked for on this platform, like "CHDm.dll".
 const char *LibraryFileName(ImageFormat format);
 // Where it was loaded from, empty if it wasn't.
 Path LibraryPath(ImageFormat format);
@@ -71,8 +71,8 @@ enum class Mode {
 };
 
 // Blocking. Compresses an ISO to CSO, or decompresses a CSO/ZSO/DAX back to ISO. Never
-// overwrites, and deletes a partial output on failure.
-bool Process(const Path &input, const Path &output, Mode mode, const ImageProgressFunc &progress, std::string *error);
+// overwrites, and deletes a partial output on failure or cancel (*cancelled is set then).
+bool Process(const Path &input, const Path &output, Mode mode, const ImageProgressFunc &progress, std::string *error, bool *cancelled);
 
 }  // namespace MaxCSO
 
