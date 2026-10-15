@@ -688,14 +688,18 @@ namespace MIPSComp {
 		// d[N,M] = CONST[N,M]
 
 		int vd = _VD;
-		// (A 1x1 matrix has no transposed form, the bit then picks a different register.)
-		if (sz != M_1x1 && IsMatrixTransposed(vd)) {
-			// All outputs are transpositionally symmetric, so should be fine.
-			vd = TransposeMatrixReg(vd);
-		}
-
-		u8 dregs[16];
+		u8 dregs[16]{};
 		GetMatrixRegs(dregs, sz, vd);
+		// The constants are symmetric, so a transposed matrix comes out as Vec4s taken in transposed
+		// order. (Flipping the transposed bit instead names other registers for a matrix with an
+		// offset, which wraps around.)
+		if (!IsMatrixVec4(sz, dregs)) {
+			u8 dt[16];
+			for (int k = 0; k < 16; k++)
+				dt[k] = dregs[(k % 4) * 4 + k / 4];
+			if (IsMatrixVec4(sz, dt))
+				memcpy(dregs, dt, sizeof(dt));
+		}
 		if (!IsMatrixVec4(sz, dregs)) {
 			// 3x3 is decently common.  It expands a lot, but let's set each.
 			// TODO: It might be worth using Vec4Blend for 3x3 to mask w.
@@ -729,14 +733,8 @@ namespace MIPSComp {
 			return;
 		}
 
-		// Not really about trying here, it will work if enabled.
-		VectorSize vsz = GetVectorSize(sz);
-		u8 vecs[4];
-		GetMatrixColumns(vd, sz, vecs);
+		// Each Vec4 of dregs in turn (lane i of the i-th is the diagonal).
 		for (int i = 0; i < 4; i++) {
-			u8 vec[4];
-			GetVectorRegs(vec, vsz, vecs[i]);
-			// As they are columns, they will be nicely consecutive.
 			Vec4Init init;
 			switch ((op >> 16) & 0xF) {
 			case 3:
@@ -752,7 +750,7 @@ namespace MIPSComp {
 				INVALIDOP;
 				return;
 			}
-			ir.Write(IROp::Vec4Init, vec[0], (int)init);
+			ir.Write(IROp::Vec4Init, dregs[i * 4], (int)init);
 		}
 	}
 
