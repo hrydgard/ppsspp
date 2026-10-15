@@ -41,6 +41,14 @@
 #include <mach/vm_param.h>
 #endif
 
+#if PPSSPP_PLATFORM(MAC) && PPSSPP_ARCH(ARM64)
+#include <mutex>
+#include <utility>
+#include <vector>
+#include <pthread.h>
+#define USE_MAP_JIT
+#endif
+
 #ifndef _WIN32
 #include <unistd.h>
 #endif
@@ -183,7 +191,43 @@ void *AllocateExecutableMemory(size_t size) {
 
 #else  // Non-Windows platforms
 
+#ifdef USE_MAP_JIT
+// With MAP_JIT, a thread switches all of its view of the JIT memory between writable and executable
+// with pthread_jit_write_protect_np(), far cheaper than an mprotect() for every block compiled and
+// linked. A hardened runtime without the JIT entitlement refuses the mapping: then mprotect() it is.
+static std::mutex g_mapJitLock;
+static int g_mapJitState;  // 0 untried, 1 in use, -1 refused.
+static std::vector<std::pair<uintptr_t, uintptr_t>> g_mapJitRanges;
+
+static bool IsMapJitMemory(const void *ptr) {
+	std::lock_guard<std::mutex> guard(g_mapJitLock);
+	for (const auto &range : g_mapJitRanges) {
+		if ((uintptr_t)ptr >= range.first && (uintptr_t)ptr < range.second)
+			return true;
+	}
+	return false;
+}
+#endif
+
 void *AllocateExecutableMemory(size_t size) {
+#ifdef USE_MAP_JIT
+	{
+		std::lock_guard<std::mutex> guard(g_mapJitLock);
+		if (g_mapJitState >= 0) {
+			void *ptr = mmap(nullptr, size, PROT_READ | PROT_WRITE | PROT_EXEC, MAP_ANON | MAP_PRIVATE | MAP_JIT, -1, 0);
+			if (ptr != MAP_FAILED) {
+				g_mapJitState = 1;
+				g_mapJitRanges.emplace_back((uintptr_t)ptr, (uintptr_t)ptr + size);
+				return ptr;
+			}
+			if (g_mapJitState == 0) {
+				WARN_LOG(Log::MemMap, "MAP_JIT refused (errno=%d), using mprotect", errno);
+				g_mapJitState = -1;
+			}
+		}
+	}
+#endif
+
 	static char *map_hint = nullptr;
 
 #if PPSSPP_ARCH(AMD64)
@@ -339,6 +383,19 @@ void FreeMemoryPages(void *ptr, size_t size) {
 }
 
 void FreeExecutableMemory(void *ptr, size_t size) {
+#ifdef USE_MAP_JIT
+	if (IsMapJitMemory(ptr)) {
+		std::lock_guard<std::mutex> guard(g_mapJitLock);
+		for (size_t i = 0; i < g_mapJitRanges.size(); i++) {
+			if (g_mapJitRanges[i].first == (uintptr_t)ptr) {
+				g_mapJitRanges.erase(g_mapJitRanges.begin() + i);
+				break;
+			}
+		}
+		// Back to executable, which the protection change before freeing undid.
+		pthread_jit_write_protect_np(1);
+	}
+#endif
 	FreeMemoryPages(ptr, size);
 }
 
@@ -374,6 +431,16 @@ bool ProtectMemoryPages(const void* ptr, size_t size, uint32_t memProtFlags) {
 			_assert_msg_(false, "Bad memory protect flags %d: W^X is in effect, can't both write and exec", memProtFlags);
 		}
 	}
+#ifdef USE_MAP_JIT
+	if (IsMapJitMemory(ptr)) {
+		_assert_msg_((memProtFlags & (MEM_PROT_WRITE | MEM_PROT_EXEC)) != 0, "MAP_JIT memory is writable or executable");
+		pthread_jit_write_protect_np((memProtFlags & MEM_PROT_WRITE) == 0);
+		return true;
+	}
+#endif
+	if (size == 0)
+		return true;
+
 	// Note - VirtualProtect will affect the full pages containing the requested range.
 	// mprotect does not seem to, at least not on Android unless I made a mistake somewhere, so we manually round.
 #ifdef _WIN32
