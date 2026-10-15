@@ -576,9 +576,15 @@ void IRNativeRegCacheBase::DiscardNativeReg(IRNativeReg nreg) {
 
 void IRNativeRegCacheBase::FlushNativeReg(IRNativeReg nreg) {
 	_assert_msg_(nreg >= 0 && nreg < config_.totalNativeRegs, "FlushNativeReg on invalid register %d", nreg);
-	if (nr[nreg].mipsReg == IRREG_INVALID || nr[nreg].mipsReg == MIPS_REG_ZERO) {
-		// Nothing to do, reg not mapped or mapped to fixed zero.
+	if (nr[nreg].mipsReg == IRREG_INVALID) {
+		// Nothing to do, reg not mapped.
 		_dbg_assert_(!nr[nreg].isDirty);
+		return;
+	}
+	if (nr[nreg].mipsReg == MIPS_REG_ZERO) {
+		// Nothing to store, but whoever flushes is about to clobber it.
+		_dbg_assert_(!nr[nreg].isDirty);
+		DiscardNativeReg(nreg);
 		return;
 	}
 	_dbg_assert_(!mr[nr[nreg].mipsReg].isStatic);
