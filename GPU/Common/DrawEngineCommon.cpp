@@ -357,94 +357,119 @@ bool DrawEngineCommon::TestBoundingBox(const void *vdata, const void *inds, int 
 // off to hardware, with whatever capabilities are available.
 //
 // NOTE: This doesn't handle through-mode or indexing (morph or skinning can be handled if they're implemented in software during decode).
+template<u32 idxFmt>
+static inline const s8 *BoundingBoxVertex(const s8 *srcdata, const void *idata, int stride, int i) {
+	switch (idxFmt) {
+	case GE_VTYPE_IDX_8BIT: return srcdata + ((const u8 *)idata)[i] * stride;
+	case GE_VTYPE_IDX_16BIT: return srcdata + ((const u16 *)idata)[i] * stride;
+	// The PSP ignores the upper 16 bits.
+	case GE_VTYPE_IDX_32BIT: return srcdata + (u16)((const u32 *)idata)[i] * stride;
+	default: return srcdata + i * stride;
+	}
+}
+
+template<u32 posFmt>
+static inline Vec4F32 BoundingBoxPos(const s8 *data) {
+	switch (posFmt) {
+	case GE_VTYPE_POS_8BIT: return Vec4F32::LoadS8Norm(data);
+	case GE_VTYPE_POS_16BIT: return Vec4F32::LoadS16Norm((const s16 *)data);
+	default: return Vec4F32::Load((const float *)data);
+	}
+}
+
+// a / b, rounded correctly (ARM32 NEON can only approximate it).
+static inline Vec4F32 DivideExact(Vec4F32 a, Vec4F32 b) {
+#if PPSSPP_ARCH(ARM_NEON) && !PPSSPP_ARCH(ARM64_NEON)
+	// The VFP registers overlap the NEON ones, so these divide in place.
+	float32x4_t r = a.v;
+	r = vsetq_lane_f32(vgetq_lane_f32(a.v, 0) / vgetq_lane_f32(b.v, 0), r, 0);
+	r = vsetq_lane_f32(vgetq_lane_f32(a.v, 1) / vgetq_lane_f32(b.v, 1), r, 1);
+	r = vsetq_lane_f32(vgetq_lane_f32(a.v, 2) / vgetq_lane_f32(b.v, 2), r, 2);
+	r = vsetq_lane_f32(vgetq_lane_f32(a.v, 3) / vgetq_lane_f32(b.v, 3), r, 3);
+	return Vec4F32{ r };
+#else
+	a /= b;
+	return a;
+#endif
+}
+
+// This optionally culls collections of points against the six planes, and always computes the min and max of Z and W.
+//
+// The result of that is then used to determine if we need to drop down to software transform+clip or we can hand
+// off to hardware, with whatever capabilities are available.
+//
+// NOTE: This doesn't handle through-mode (morph or skinning can be handled if they're implemented in software during decode).
 template<u32 posFmt, u32 idxFmt>
 static bool TestBoundingBoxFast(const float *cullMatrix, const void *vdata, const void *idata, int vertexCount, const VertexDecoder *dec, ClipInfoFlags *clipInfoFlags) {
-	Mat4F32 cullMat(cullMatrix);
-	alignas(16) static const float planesXYData[4] = { 1, -1, 1, -1 };
-	Vec4F32 planesXY = Vec4F32::LoadAligned(planesXYData);
-	Vec4S32 insideMaskXY = Vec4S32::Zero();
-	Vec4S32 insideMaskZ = Vec4S32::Zero();  // Note: This does some duplicate computation. We could avoid it on ARM32 using Vec2S32 but not really worth it.
-	Vec4S32 anyOutsideMaskZ = Vec4S32::Zero();
+	// Four vertices at a time, one per lane, with the matrix splatted. Past the end, the last vertex fills the lanes,
+	// which changes nothing.
+	Vec4F32 m[16];
+	for (int i = 0; i < 16; i++)
+		m[i] = Vec4F32::Splat(cullMatrix[i]);
 
-	// Used to reduce the Z precision. This effectively implements the small offsets where Z can be very slightly outside -1..1.
-	// In reality we should probably affect X and Y too, but meh.
-	alignas(16) static const u32 vertexMaskData[4] = {0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFF00, 0xFFFFFFFF};
+	// For each side of the clipping cube, whether any vertex is inside it, and whether any is outside the Z sides.
+	Vec4S32 insideLeft = Vec4S32::Zero();
+	Vec4S32 insideRight = Vec4S32::Zero();
+	Vec4S32 insideTop = Vec4S32::Zero();
+	Vec4S32 insideBottom = Vec4S32::Zero();
+	Vec4S32 insideNear = Vec4S32::Zero();
+	Vec4S32 insideFar = Vec4S32::Zero();
+	Vec4S32 anyOutsideZ = Vec4S32::Zero();
+
 	const int stride = dec->VertexSize();
 	const s8 *srcdata = (const s8 *)vdata + dec->posoff;
-	const s8 *data = srcdata;
+	const int last = vertexCount - 1;
 
-	const float vpZScale = gstate.getViewportZScale();
+	const Vec4F32 vpZScale = Vec4F32::Splat(gstate.getViewportZScale());
+	const Vec4F32 zero = Vec4F32::Zero();
+	Vec4F32 minZ = Vec4F32::Splat(FLT_MAX);
+	Vec4F32 maxZ = Vec4F32::Splat(-FLT_MAX);
+
+	for (int i = 0; i < vertexCount; i += 4) {
+		Vec4F32 objX = BoundingBoxPos<posFmt>(BoundingBoxVertex<idxFmt>(srcdata, idata, stride, i));
+		Vec4F32 objY = BoundingBoxPos<posFmt>(BoundingBoxVertex<idxFmt>(srcdata, idata, stride, std::min(i + 1, last)));
+		Vec4F32 objZ = BoundingBoxPos<posFmt>(BoundingBoxVertex<idxFmt>(srcdata, idata, stride, std::min(i + 2, last)));
+		Vec4F32 unused = BoundingBoxPos<posFmt>(BoundingBoxVertex<idxFmt>(srcdata, idata, stride, std::min(i + 3, last)));
+		Vec4F32::Transpose(objX, objY, objZ, unused);
+
+		// The same operations in the same order as AsVec3ByMatrix44(), so the same rounding.
+		const Vec4F32 x = (m[0] * objX + m[4] * objY) + (m[8] * objZ + m[12]);
+		const Vec4F32 y = (m[1] * objX + m[5] * objY) + (m[9] * objZ + m[13]);
+		const Vec4F32 z = (m[2] * objX + m[6] * objY) + (m[10] * objZ + m[14]);
+		const Vec4F32 w = (m[3] * objX + m[7] * objY) + (m[11] * objZ + m[15]);
+
+		insideLeft |= (x + w).CompareGe(zero);
+		insideRight |= (w - x).CompareGe(zero);
+		insideTop |= (y + w).CompareGe(zero);
+		insideBottom |= (w - y).CompareGe(zero);
+		// We need to add the same culling epsilons as when setting up the cull distances in the vertex shader,
+		// so we don't over-cull here. We could also cull looser, but I can't figure out how to do so accurately.
+		const Vec4F32 deltaZ = w.RecipApprox() * 0.0000304f;
+		const Vec4F32 nearDist = (z + w) + deltaZ;
+		const Vec4F32 farDist = (w - z) + deltaZ;
+		insideNear |= nearDist.CompareGe(zero);
+		insideFar |= farDist.CompareGe(zero);
+		anyOutsideZ |= nearDist.CompareLt(zero) | farDist.CompareLt(zero);
+
+		// NaN compares false, so it's never picked.
+		const Vec4F32 projZ = DivideExact(vpZScale * z, w);
+		minZ = Select(projZ.CompareLt(minZ), projZ, minZ);
+		maxZ = Select(projZ.CompareGt(maxZ), projZ, maxZ);
+	}
+
+	if (!AnyCompareBitsSet(insideLeft) || !AnyCompareBitsSet(insideRight) || !AnyCompareBitsSet(insideTop) ||
+		!AnyCompareBitsSet(insideBottom) || !AnyCompareBitsSet(insideNear) || !AnyCompareBitsSet(insideFar)) {
+		// All vertices were outside one side of the clipping cube. We can skip the draw entirely.
+		return false;
+	}
 
 	float minProjZ = FLT_MAX;
 	float maxProjZ = -FLT_MAX;
-
-	for (int i = 0; i < vertexCount; i++) {
-		switch (idxFmt) {
-		case GE_VTYPE_IDX_8BIT:
-		{
-			u8 idx = ((u8 *)idata)[i];
-			data = (const s8 *)srcdata + idx * stride;
-			break;
-		}
-		case GE_VTYPE_IDX_16BIT:
-		{
-			u16 idx = ((u16 *)idata)[i];
-			data = (const s8 *)srcdata + idx * stride;
-			break;
-		}
-		case GE_VTYPE_IDX_32BIT:
-		{
-			// The PSP ignores the upper 16 bits.
-			u16 idx = (u16)((u32 *)idata)[i];
-			data = (const s8 *)srcdata + idx * stride;
-			break;
-		}
-		default:
-			// We just increment data at the end of the loop.
-			break;
-		}
-
-		Vec4F32 objPos;
-		switch (posFmt) {
-		case GE_VTYPE_POS_8BIT:
-			objPos = Vec4F32::LoadS8Norm(data);
-			break;
-		case GE_VTYPE_POS_16BIT:
-			objPos = Vec4F32::LoadS16Norm((const s16 *)data);
-			break;
-		default:
-			objPos = Vec4F32::Load((const float *)data);
-			break;
-		}
-		Vec4F32 clipPos = objPos.AsVec3ByMatrix44(cullMat);
-		Vec4F32 posW = clipPos.ShuffleWWWW();
-		Vec4F32 posXY = clipPos.ShuffleXXYY();
-		Vec4F32 planeDistXY = posXY * planesXY + posW;
-		insideMaskXY |= planeDistXY.CompareGe(Vec4F32::Zero());
-		Vec4F32 posZ = clipPos.ShuffleZZZZ();  // This means that we compute the Z sides twice. Oh well.
-		// We need to add the same culling epsilons as when setting up the cull distances in the vertex shader,
-		// so we don't over-cull here. We could also cull looser, but I can't figure out how to do so accurately.
-		// It's a bit unnecessary to take four reciprocals here, let's see if we can avoid that later.
-		Vec4F32 deltaZ = posW.RecipApprox() * 0.0000304f;
-		Vec4F32 planeDistZ = posZ * planesXY + posW + deltaZ;
-		anyOutsideMaskZ |= planeDistZ.CompareLt(Vec4F32::Zero());
-		insideMaskZ |= planeDistZ.CompareGe(Vec4F32::Zero());
-		const float projZ = vpZScale * clipPos[2] / clipPos[3];
-		if (projZ < minProjZ) {
-			minProjZ = projZ;
-		}
-		if (projZ > maxProjZ) {  // else ruins the minss/maxss optimization.
-			maxProjZ = projZ;
-		}
-
-		if (idxFmt == GE_VTYPE_IDX_NONE) {
-			data += stride;
-		}
-	}
-
-	if (!AllCompareBitsSet(insideMaskXY) || !AllCompareBitsSet(insideMaskZ)) {
-		// All vertices were outside one side of the clipping cube. We can skip the draw entirely.
-		return false;
+	for (int i = 0; i < 4; i++) {
+		if (minZ[i] < minProjZ)
+			minProjZ = minZ[i];
+		if (maxZ[i] > maxProjZ)
+			maxProjZ = maxZ[i];
 	}
 
 	const float vpZOffset = gstate.getViewportZCenter();
@@ -472,7 +497,7 @@ static bool TestBoundingBoxFast(const float *cullMatrix, const void *vdata, cons
 		}
 	}
 
-	if (AnyCompareBitsSet(anyOutsideMaskZ) && (!gstate_c.viewportNearPlaneMatchesOutput || PSP_CoreParameter().compat.flags().CorrectCullAfterClip || !gstate_c.Use(GPU_USE_CULL_DISTANCE) || !gstate_c.Use(GPU_USE_CLIP_DISTANCE))) {
+	if (AnyCompareBitsSet(anyOutsideZ) && (!gstate_c.viewportNearPlaneMatchesOutput || PSP_CoreParameter().compat.flags().CorrectCullAfterClip || !gstate_c.Use(GPU_USE_CULL_DISTANCE) || !gstate_c.Use(GPU_USE_CLIP_DISTANCE))) {
 		// Some vertices were outside the Z clipping planes. Clip againt Z=-W in software (and do culling, too).
 		// Without cull distances the shader can't cull, and triangles entirely beyond the far plane would be
 		// depth clamped and drawn (the stands over the pitch in FIFA Soccer). Without clip distances it can't

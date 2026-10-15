@@ -1386,6 +1386,7 @@ if(UNITTEST)
 		unittest/TestCrossSIMD.cpp
 		unittest/TestIRPassSimplify.cpp
 		unittest/TestX64Emitter.cpp
+		unittest/TestBoundingBox.cpp
 		unittest/TestVertexJit.cpp
 		unittest/TestVertexJit.h
 		unittest/TestVFS.cpp

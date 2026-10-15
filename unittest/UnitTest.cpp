@@ -3103,6 +3103,7 @@ bool TestLzrc();
 bool TestMpegCsc();
 bool TestSplineTessellation();
 bool TestGEMath();
+bool TestBoundingBoxFast();
 bool TestDemangle();
 
 // The 8.3 short names games read out of d_private. These aren't verified against hardware yet (no
@@ -3430,6 +3431,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(LoongArch64Emitter),
 #endif
 	TEST_ITEM(VertexJit),
+	TEST_ITEM(BoundingBoxFast),
 	TEST_ITEM(VFPUSinCos),
 	TEST_ITEM(VFPUDot),
 	TEST_ITEM(MathUtil),
