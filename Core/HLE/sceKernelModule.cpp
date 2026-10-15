@@ -587,6 +587,19 @@ void __KernelModuleDoState(PointerWrap &p) {
 				}
 			}
 		}
+		// A module that was only loaded in the state was never scanned, so nothing in it could be
+		// replaced or hooked (or show up as functions in the debugger.)
+		for (SceUID moduleId : loadedModules) {
+			PSPModule *module = kernelObjects.Get<PSPModule>(moduleId, error);
+			if (!module || module->isFake || module->textEnd <= module->textStart) {
+				continue;
+			}
+			// textEnd is inclusive.
+			if (Memory::IsValid4AlignedRange(module->textStart, module->textEnd + 4 - module->textStart) &&
+				!MIPSAnalyst::HasFunctionsInRange(module->textStart, module->textEnd + 4)) {
+				MIPSAnalyst::ScanForFunctions(module->textStart, module->textEnd, true);
+			}
+		}
 		// The functions were found in memory from before the load, where other code may have been
 		// (an overlay module, say.) Hash them from what's there now, so a hook only goes where it matches.
 		MIPSAnalyst::RehashFunctions();

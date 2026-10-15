@@ -109,6 +109,8 @@ namespace MIPSAnalyst {
 	void ForgetFunctions(u32 startAddr, u32 endAddr);
 
 	bool GetAnalyzedFunctionAt(u32 addr, AnalyzedFunction *out);
+	// endAddr is exclusive.
+	bool HasFunctionsInRange(u32 startAddr, u32 endAddr);
 
 	void LoadBuiltinHashMap();
 	void LoadHashMap(const Path &filename);

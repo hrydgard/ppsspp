@@ -1295,6 +1295,16 @@ namespace MIPSAnalyst {
 		return false;
 	}
 
+	bool HasFunctionsInRange(u32 startAddr, u32 endAddr) {
+		std::lock_guard<std::recursive_mutex> guard(functions_lock);
+		for (const AnalyzedFunction &f : functions) {
+			if (f.start >= startAddr && f.start < endAddr) {
+				return true;
+			}
+		}
+		return false;
+	}
+
 	void RehashFunctions() {
 		std::lock_guard<std::recursive_mutex> guard(functions_lock);
 		HashFunctions();
