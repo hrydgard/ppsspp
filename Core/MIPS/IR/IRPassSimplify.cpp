@@ -2328,7 +2328,9 @@ bool OptimizeLoadsAfterStores(const IRWriter &in, IRWriter &out, const IROptions
 			known.erase(std::remove_if(known.begin(), known.end(), [&](const Known &k) {
 				if (k.base != inst.src1 || !plainStore)
 					return true;
-				return !(k.offset + k.size <= inst.constant || inst.constant + info.size <= k.offset);
+				// Signed, as the offsets are: -16 + 16 mustn't wrap to below -12.
+				const s64 known = (s32)k.offset, store = (s32)inst.constant;
+				return !(known + k.size <= store || store + info.size <= known);
 			}), known.end());
 		}
 
