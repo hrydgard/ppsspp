@@ -1157,6 +1157,15 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 					checkMismatch(inst.src3, inst.m.types[0]);
 
 				bool cannotReplace = !readsDirectly || lenMismatch;
+				// Nor where a multi-lane result would cover the source it reads instead, which the
+				// backends don't expect (the copy was what kept them apart).
+				IRReg destRegs[4];
+				const int numDest = IRDestFPRs(inst, destRegs);
+				if (numDest > 1 && check.srcReg >= destRegs[0] + 32 && check.srcReg < destRegs[0] + 32 + numDest)
+					cannotReplace = true;
+				// Nor where it's read as src3 that's also the destination, which renaming would move.
+				if ((inst.m.flags & IRFLAG_SRC3DST) != 0 && inst.m.types[0] == 'F' && inst.src3 + 32 == check.reg)
+					cannotReplace = true;
 				if (!cannotReplace && check.srcReg >= 32 && lastWrittenTo[check.srcReg] < check.index) {
 					// This is probably not worth doing unless we can get rid of a temp.
 					if (!check.readByExit) {
@@ -1167,7 +1176,7 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 							inst.src1 = srcReg;
 						if (inst.m.types[2] == 'F' && inst.src2 == reg)
 							inst.src2 = srcReg;
-						if ((inst.m.flags & (IRFLAG_SRC3 | IRFLAG_SRC3DST)) != 0 && inst.m.types[0] == 'F' && inst.src3 == reg)
+						if ((inst.m.flags & IRFLAG_SRC3) != 0 && inst.m.types[0] == 'F' && inst.src3 == reg)
 							inst.src3 = srcReg;
 
 						// If this also writes the reg, the check ends here. A full overwrite leaves the
@@ -2322,7 +2331,9 @@ bool OptimizeLoadsAfterStores(const IRWriter &in, IRWriter &out, const IROptions
 			known.erase(std::remove_if(known.begin(), known.end(), [&](const Known &k) {
 				if (k.base != inst.src1 || !plainStore)
 					return true;
-				return !(k.offset + k.size <= inst.constant || inst.constant + info.size <= k.offset);
+				// Signed, as the offsets are: -16 + 16 mustn't wrap to below -12.
+				const s64 known = (s32)k.offset, store = (s32)inst.constant;
+				return !(known + k.size <= store || store + info.size <= known);
 			}), known.end());
 		}
 

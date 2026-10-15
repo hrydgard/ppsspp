@@ -288,16 +288,18 @@ namespace MIPSInt {
 		int imm = _SIMM16_SHL2;
 		int rs = _RS;
 		u32 addr = PC + imm + 4;
+		// The linking ones test rs from before they link, ra included (cpu/cpu_alu/branch_link_ra).
+		const s32 value = (s32)R(rs);
 
 		switch ((op>>16) & 0x1F) {
-		case 0: if ((s32)R(rs) <  0) DelayBranchTo(mips, addr); else PC += 4; break;//bltz
-		case 1: if ((s32)R(rs) >= 0) DelayBranchTo(mips, addr); else PC += 4; break;//bgez
-		case 2: if ((s32)R(rs) <  0) DelayBranchTo(mips, addr); else SkipLikely(mips); break;//bltzl
-		case 3: if ((s32)R(rs) >= 0) DelayBranchTo(mips, addr); else SkipLikely(mips); break;//bgezl
-		case 16: R(MIPS_REG_RA) = PC + 8; if ((s32)R(rs) <  0) DelayBranchTo(mips, addr); else PC += 4; break;//bltzal
-		case 17: R(MIPS_REG_RA) = PC + 8; if ((s32)R(rs) >= 0) DelayBranchTo(mips, addr); else PC += 4; break;//bgezal
-		case 18: R(MIPS_REG_RA) = PC + 8; if ((s32)R(rs) <	0) DelayBranchTo(mips, addr); else SkipLikely(mips); break;//bltzall
-		case 19: R(MIPS_REG_RA) = PC + 8; if ((s32)R(rs) >= 0) DelayBranchTo(mips, addr); else SkipLikely(mips); break;//bgezall
+		case 0: if (value <  0) DelayBranchTo(mips, addr); else PC += 4; break;//bltz
+		case 1: if (value >= 0) DelayBranchTo(mips, addr); else PC += 4; break;//bgez
+		case 2: if (value <  0) DelayBranchTo(mips, addr); else SkipLikely(mips); break;//bltzl
+		case 3: if (value >= 0) DelayBranchTo(mips, addr); else SkipLikely(mips); break;//bgezl
+		case 16: R(MIPS_REG_RA) = PC + 8; if (value <  0) DelayBranchTo(mips, addr); else PC += 4; break;//bltzal
+		case 17: R(MIPS_REG_RA) = PC + 8; if (value >= 0) DelayBranchTo(mips, addr); else PC += 4; break;//bgezal
+		case 18: R(MIPS_REG_RA) = PC + 8; if (value <  0) DelayBranchTo(mips, addr); else SkipLikely(mips); break;//bltzall
+		case 19: R(MIPS_REG_RA) = PC + 8; if (value >= 0) DelayBranchTo(mips, addr); else SkipLikely(mips); break;//bgezall
 		default:
 			_dbg_assert_msg_(false,"Trying to interpret instruction that can't be interpreted");
 			break;

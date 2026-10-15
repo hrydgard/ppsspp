@@ -87,6 +87,7 @@ class Command(object):
 tests_good = [
   "cpu/cpu_alu/cpu_alu",
   "cpu/cpu_alu/cpu_branch",
+  "cpu/cpu_alu/branch_link_ra",
   "cpu/cpu_alu/cpu_branch2",
   "cpu/cpu_alu/cpu_div",
   "cpu/cpu_alu/shift_encodings",
@@ -101,6 +102,8 @@ tests_good = [
   "cpu/vfpu/prefix_branch",
   "cpu/vfpu/prefix_ctrl",
   "cpu/vfpu/prefix_lanes",
+  "cpu/vfpu/prefix_load",
+  "cpu/vfpu/vfim",
   "cpu/vfpu/vbranch",
   "cpu/vfpu/vrnd",
   "cpu/vfpu/overlap",

@@ -688,14 +688,18 @@ namespace MIPSComp {
 		// d[N,M] = CONST[N,M]
 
 		int vd = _VD;
-		// (A 1x1 matrix has no transposed form, the bit then picks a different register.)
-		if (sz != M_1x1 && IsMatrixTransposed(vd)) {
-			// All outputs are transpositionally symmetric, so should be fine.
-			vd = TransposeMatrixReg(vd);
-		}
-
-		u8 dregs[16];
+		u8 dregs[16]{};
 		GetMatrixRegs(dregs, sz, vd);
+		// The constants are symmetric, so a transposed matrix comes out as Vec4s taken in transposed
+		// order. (Flipping the transposed bit instead names other registers for a matrix with an
+		// offset, which wraps around.)
+		if (!IsMatrixVec4(sz, dregs)) {
+			u8 dt[16];
+			for (int k = 0; k < 16; k++)
+				dt[k] = dregs[(k % 4) * 4 + k / 4];
+			if (IsMatrixVec4(sz, dt))
+				memcpy(dregs, dt, sizeof(dt));
+		}
 		if (!IsMatrixVec4(sz, dregs)) {
 			// 3x3 is decently common.  It expands a lot, but let's set each.
 			// TODO: It might be worth using Vec4Blend for 3x3 to mask w.
@@ -729,14 +733,8 @@ namespace MIPSComp {
 			return;
 		}
 
-		// Not really about trying here, it will work if enabled.
-		VectorSize vsz = GetVectorSize(sz);
-		u8 vecs[4];
-		GetMatrixColumns(vd, sz, vecs);
+		// Each Vec4 of dregs in turn (lane i of the i-th is the diagonal).
 		for (int i = 0; i < 4; i++) {
-			u8 vec[4];
-			GetVectorRegs(vec, vsz, vecs[i]);
-			// As they are columns, they will be nicely consecutive.
 			Vec4Init init;
 			switch ((op >> 16) & 0xF) {
 			case 3:
@@ -752,7 +750,7 @@ namespace MIPSComp {
 				INVALIDOP;
 				return;
 			}
-			ir.Write(IROp::Vec4Init, vec[0], (int)init);
+			ir.Write(IROp::Vec4Init, dregs[i * 4], (int)init);
 		}
 	}
 
@@ -1332,16 +1330,22 @@ namespace MIPSComp {
 
 		uint8_t imm = (op >> 16) & 0x1f;
 
-		u8 sregs[4], dregs[4];
+		u8 sregs[4], dregs[4], outregs[4];
 		GetVectorRegsPrefixS(sregs, sz, _VS);
 		GetVectorRegsPrefixD(dregs, sz, _VD);
+		// Through temps if a lane would be written before a later one reads it.
+		const bool direct = IsOverlapSafeAllowS(n, dregs, n, sregs);
+		for (int i = 0; i < n; i++)
+			outregs[i] = direct ? dregs[i] : IRVTEMP_0 + i;
 
 		for (int i = 0; i < n; i++) {
 			if (imm == 0)
-				ir.Write(IROp::FCvtSW, dregs[i], sregs[i]);
+				ir.Write(IROp::FCvtSW, outregs[i], sregs[i]);
 			else
-				ir.Write(IROp::FCvtScaledSW, dregs[i], sregs[i], imm);
+				ir.Write(IROp::FCvtScaledSW, outregs[i], sregs[i], imm);
 		}
+		for (int i = 0; i < n && !direct; i++)
+			ir.Write(IROp::FMov, dregs[i], outregs[i]);
 		ApplyPrefixD(dregs, sz, _VD);
 	}
 
@@ -1388,9 +1392,13 @@ namespace MIPSComp {
 
 		uint8_t imm = (op >> 16) & 0x1f;
 
-		u8 sregs[4], dregs[4];
+		u8 sregs[4], dregs[4], outregs[4];
 		GetVectorRegsPrefixS(sregs, sz, _VS);
 		GetVectorRegsPrefixD(dregs, sz, _VD);
+		// Through temps if a lane would be written before a later one reads it.
+		const bool direct = IsOverlapSafeAllowS(n, dregs, n, sregs);
+		for (int i = 0; i < n; i++)
+			outregs[i] = direct ? dregs[i] : IRVTEMP_0 + i;
 
 		// Same values as FCR31.
 		uint8_t rmode = (op >> 21) & 3;
@@ -1399,24 +1407,24 @@ namespace MIPSComp {
 
 		if (imm != 0) {
 			for (int i = 0; i < n; i++)
-				ir.Write(IROp::FCvtScaledWS, dregs[i], sregs[i], imm | (rmode << 6));
+				ir.Write(IROp::FCvtScaledWS, outregs[i], sregs[i], imm | (rmode << 6));
 		} else {
 			for (int i = 0; i < n; i++) {
 				switch (IRRoundMode(rmode)) {
 				case IRRoundMode::RINT_0: // vf2in
-					ir.Write(IROp::FRound, dregs[i], sregs[i]);
+					ir.Write(IROp::FRound, outregs[i], sregs[i]);
 					break;
 
 				case IRRoundMode::CAST_1: // vf2iz
-					ir.Write(IROp::FTrunc, dregs[i], sregs[i]);
+					ir.Write(IROp::FTrunc, outregs[i], sregs[i]);
 					break;
 
 				case IRRoundMode::CEIL_2: // vf2iu
-					ir.Write(IROp::FCeil, dregs[i], sregs[i]);
+					ir.Write(IROp::FCeil, outregs[i], sregs[i]);
 					break;
 
 				case IRRoundMode::FLOOR_3: // vf2id
-					ir.Write(IROp::FFloor, dregs[i], sregs[i]);
+					ir.Write(IROp::FFloor, outregs[i], sregs[i]);
 					break;
 
 				default:
@@ -1424,6 +1432,8 @@ namespace MIPSComp {
 				}
 			}
 		}
+		for (int i = 0; i < n && !direct; i++)
+			ir.Write(IROp::FMov, dregs[i], outregs[i]);
 
 		ApplyPrefixDMask(dregs, sz, _VD);
 	}
@@ -1534,7 +1544,7 @@ namespace MIPSComp {
 			if (GetVFPUCtrlMask(imm, &mask)) {
 				u32 setBits = GetVFPUCtrlSetBits(imm);
 				if (mask != 0xFFFFFFFF || setBits != 0) {
-					ir.Write(IROp::FMovToGPR, IRTEMP_0, vfpuBase + voffset[imm]);
+					ir.Write(IROp::FMovToGPR, IRTEMP_0, vfpuBase + voffset[vs]);
 					ir.Write(IROp::AndConst, IRTEMP_0, IRTEMP_0, 0, mask);
 					if (setBits != 0)
 						ir.Write(IROp::OrConst, IRTEMP_0, IRTEMP_0, 0, setBits);
@@ -1637,17 +1647,31 @@ namespace MIPSComp {
 		MatrixSize sz = GetMtxSize(op);
 		int n = GetMatrixSide(sz);
 
-		// The entire matrix is scaled equally, so transpose doesn't matter.  Let's normalize.
-		// (A 1x1 matrix has no transposed form, the bit then picks a different register.)
-		if (n > 1 && IsMatrixTransposed(vs) && IsMatrixTransposed(vd)) {
-			vs = TransposeMatrixReg(vs);
-			vd = TransposeMatrixReg(vd);
-		}
-
-		u8 sregs[16], dregs[16], tregs[1];
+		u8 sregs[16]{}, dregs[16]{}, tregs[1];
 		GetMatrixRegs(sregs, sz, vs);
 		GetMatrixRegs(dregs, sz, vd);
 		GetVectorRegs(tregs, V_Single, vt);
+
+		// Every element is scaled the same, so the elements can go in any order, as long as each
+		// source keeps its destination. Transposed matrices come out as Vec4s when both are taken
+		// in transposed order. (Flipping the transposed bit of the registers instead would name other
+		// registers for a matrix with an offset, which wraps around.)
+		if (!IsMatrixVec4(sz, sregs) || !IsMatrixVec4(sz, dregs)) {
+			u8 st[16], dt[16];
+			for (int k = 0; k < 16; k++) {
+				st[k] = sregs[(k % 4) * 4 + k / 4];
+				dt[k] = dregs[(k % 4) * 4 + k / 4];
+			}
+			if (IsMatrixVec4(sz, st) && IsMatrixVec4(sz, dt)) {
+				memcpy(sregs, st, sizeof(st));
+				memcpy(dregs, dt, sizeof(dt));
+			}
+		}
+
+		// Either way, a source that partly overlaps the destination would be read after it's written.
+		if (vs != vd && GetMatrixOverlap(vs, vd, sz) != OVERLAP_NONE) {
+			DISABLE;
+		}
 
 		if (GetMtx(vt) != GetMtx(vd) && IsMatrixVec4(sz, sregs) && IsMatrixVec4(sz, dregs)) {
 			for (int i = 0; i < n; ++i) {
@@ -1656,11 +1680,7 @@ namespace MIPSComp {
 			return;
 		}
 
-		// Element by element otherwise, which works for any size and transposition. A source that
-		// partly overlaps the destination would be read after it's written, though.
-		if (vs != vd && GetMatrixOverlap(vs, vd, sz) != OVERLAP_NONE) {
-			DISABLE;
-		}
+		// Element by element otherwise, which works for any size and transposition.
 		// The scale can be part of the destination, so keep a copy.
 		ir.Write(IROp::FMov, IRVTEMP_0, tregs[0]);
 		for (int a = 0; a < n; a++) {
@@ -2183,9 +2203,15 @@ namespace MIPSComp {
 
 		VectorSize sz = GetVecSize(op);
 		VectorSize outsize;
+		// vc2i and vuc2i read one lane, the first of the source at the size encoded, which decides
+		// which register that is.
+		int sourceReg = -1;
 		if (bits == 8) {
 			outsize = V_Quad;
-			sz = V_Single;  // For some reason, sz is set to Quad in this case though the outsize is Single.
+			u8 full[4];
+			GetVectorRegs(full, sz, _VS);
+			sourceReg = full[0];
+			sz = V_Single;
 		} else {
 			switch (sz) {
 			case V_Single:
@@ -2201,6 +2227,8 @@ namespace MIPSComp {
 
 		u8 sregs[2], dregs[4], tempregs[4], srcregs[2];
 		GetVectorRegsPrefixS(sregs, sz, _VS);
+		if (sourceReg >= 0)
+			sregs[0] = sourceReg;
 		GetVectorRegsPrefixD(dregs, outsize, _VD);
 		memcpy(tempregs, dregs, sizeof(dregs));
 		memcpy(srcregs, sregs, sizeof(sregs));
@@ -2455,6 +2483,14 @@ namespace MIPSComp {
 				DISABLE;
 			}
 		}
+		// A D prefix that saturates puts the result in temps first. A lane that isn't moved keeps
+		// d, so they start as d.
+		u8 realregs[4];
+		GetVectorRegs(realregs, sz, _VD);
+		for (int i = 0; i < n; ++i) {
+			if (dregs[i] != realregs[i])
+				ir.Write(IROp::FMov, dregs[i], realregs[i]);
+		}
 		// 7 tests a CC bit that is always clear (cpu/vfpu/undefined).
 		if (imm3 != 6) {
 			// Test one bit of CC. This bit decides whether none or all subregisters are copied.
@@ -2493,13 +2529,12 @@ namespace MIPSComp {
 		// Vector half-float immediate
 		// d[0] = float(imm)
 
-		FP16 half;
-		half.u = op & 0xFFFF;
-		FP32 fval = half_to_float_fast5(half);
+		// Converted like vh2f: denormal halves are zero (cpu/vfpu/vfim).
+		const float value = vfpu_h2f_float((u16)(op & 0xFFFF));
 
 		u8 dreg;
 		GetVectorRegsPrefixD(&dreg, V_Single, _VT);
-		ir.WriteSetConstantFloat(dreg, fval.f);
+		ir.WriteSetConstantFloat(dreg, value);
 		ApplyPrefixD(&dreg, V_Single, _VT);
 	}
 

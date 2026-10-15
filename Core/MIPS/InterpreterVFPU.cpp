@@ -236,6 +236,15 @@ namespace MIPSInt
 		PC += 4;
 	}
 
+	// The loads write every lane, whatever mask a pending D prefix has, and leave the prefix pending
+	// (cpu/vfpu/prefix_load).
+	static void WriteLoadedVector(MIPSState *mips, const float *d, int vt) {
+		const u32 dprefix = mips->vfpuCtrl[VFPU_CTRL_DPREFIX];
+		mips->vfpuCtrl[VFPU_CTRL_DPREFIX] = dprefix & ~0xF00;
+		WriteVector(mips, d, V_Quad, vt);
+		mips->vfpuCtrl[VFPU_CTRL_DPREFIX] = dprefix;
+	}
+
 	void Int_SVQ(MIPSState *mips, MIPSOpcode op) {
 		int imm = SignExtend16ToS32(op & 0xFFFC);
 		int rs = _RS;
@@ -269,7 +278,7 @@ namespace MIPSInt
 						d[i] = valid ? Memory::ReadUnchecked_Float(addr + 4 * i) : 0.0f;
 					}
 				}
-				WriteVector(mips, d, V_Quad, vt);
+				WriteLoadedVector(mips, d, vt);
 			}
 			break;
 
@@ -279,13 +288,13 @@ namespace MIPSInt
 			if ((addr & 0xF) || !Memory::IsValid4AlignedAddress(addr)) {
 				Core_MemoryException(addr, 16, PC, MemoryExceptionType::READ_WORD, "lv.q");
 				const float zero[4]{};
-				WriteVector(mips, zero, V_Quad, vt);
+				WriteLoadedVector(mips, zero, vt);
 				break;
 			}
 
 #ifndef COMMON_BIG_ENDIAN
 			cf = reinterpret_cast<const float *>(Memory::GetPointerUnchecked(addr));
-			WriteVector(mips, cf, V_Quad, vt);
+			WriteLoadedVector(mips, cf, vt);
 #else
 			float lvqd[4];
 
@@ -294,7 +303,7 @@ namespace MIPSInt
 			lvqd[2] = Memory::ReadUnchecked_Float(addr + 8);
 			lvqd[3] = Memory::ReadUnchecked_Float(addr + 12);
 
-			WriteVector(mips, lvqd, V_Quad, vt);
+			WriteLoadedVector(mips, lvqd, vt);
 #endif
 			break;
 
@@ -465,7 +474,7 @@ namespace MIPSInt
 		if (type == 6) {
 			f[0] = (float)imm;  // viim
 		} else if (type == 7) {
-			f[0] = Float16ToFloat32((u16)uimm16);   // vfim
+			f[0] = vfpu_h2f_float((u16)uimm16);  // vfim, converted like vh2f (cpu/vfpu/vfim)
 		} else {
 			_dbg_assert_msg_( 0, "Invalid Viim opcode type %d", type);
 			f[0] = 0;

@@ -135,7 +135,8 @@ void IRFrontend::BranchRSZeroComp(MIPSOpcode op, IRComparison cc, bool andLink, 
 	js.downcountAmount += MIPSGetInstructionCycleEstimate(branchInfo.delaySlotOp);
 
 	MIPSGPReg lhs = rs;
-	if (!branchInfo.delaySlotIsNice) {  // if likely, we don't need this
+	// The link happens after rs is read, which matters for ra (cpu/cpu_alu/branch_link_ra).
+	if (!branchInfo.delaySlotIsNice || (andLink && rs == MIPS_REG_RA)) {
 		ir.Write(IROp::Mov, IRTEMP_LHS, rs);
 		lhs = (MIPSGPReg)IRTEMP_LHS;
 	}
