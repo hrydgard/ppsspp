@@ -508,7 +508,6 @@
     <ClCompile Include="MIPS\ARM64\Arm64IRCompVec.cpp" />
     <ClCompile Include="MIPS\ARM64\Arm64IRJit.cpp" />
     <ClCompile Include="MIPS\ARM64\Arm64IRRegCache.cpp" />
-    <ClCompile Include="MIPS\fake\FakeJit.cpp" />
     <ClCompile Include="MIPS\IR\IRAnalysis.cpp" />
     <ClCompile Include="MIPS\IR\IRCompALU.cpp" />
     <ClCompile Include="MIPS\IR\IRCompBranch.cpp" />
@@ -694,7 +693,6 @@
     <ClCompile Include="MIPS\ARM\ArmIRCompVec.cpp" />
     <ClCompile Include="MIPS\ARM\ArmIRJit.cpp" />
     <ClCompile Include="MIPS\ARM\ArmIRRegCache.cpp" />
-    <ClCompile Include="MIPS\JitCommon\JitBlockCache.cpp" />
     <ClCompile Include="MIPS\JitCommon\JitCommon.cpp" />
     <ClCompile Include="MIPS\JitCommon\JitState.cpp" />
     <ClCompile Include="MIPS\MIPS.cpp" />
@@ -871,7 +869,6 @@
     <ClInclude Include="MIPS\ARM64\Arm64IRJit.h" />
     <ClInclude Include="MIPS\ARM64\Arm64IRRegCache.h" />
     <ClInclude Include="MIPS\ARM64\Arm64VfpuDot.h" />
-    <ClInclude Include="MIPS\fake\FakeJit.h" />
     <ClInclude Include="MIPS\IR\IRAnalysis.h" />
     <ClInclude Include="MIPS\IR\IRFrontend.h" />
     <ClInclude Include="MIPS\IR\IRInst.h" />

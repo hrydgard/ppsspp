@@ -337,7 +337,6 @@ add_library(Common STATIC
 	CommonTypes.h
 	CommonWindows.h
 	DbgNew.h
-	FakeEmitter.h
 	FakeCPUDetect.cpp
 	ExceptionHandlerSetup.cpp
 	ExceptionHandlerSetup.h

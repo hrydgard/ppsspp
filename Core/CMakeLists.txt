@@ -188,8 +188,6 @@ if(NOT LIBRETRO)
 		HW/StereoResampler.h
 		MIPS/MIPSAsm.cpp
 		MIPS/MIPSAsm.h
-		MIPS/fake/FakeJit.cpp
-		MIPS/fake/FakeJit.h
 		Util/GameManager.cpp
 		Util/GameManager.h
 		Util/VideoPlayer.cpp
@@ -632,7 +630,6 @@ add_library(Core STATIC
 	MIPS/MIPSTracer.h
 	MIPS/JitCommon/JitCommon.cpp
 	MIPS/JitCommon/JitCommon.h
-	MIPS/JitCommon/JitBlockCache.cpp
 	MIPS/JitCommon/JitBlockCache.h
 	MIPS/JitCommon/JitState.cpp
 	MIPS/JitCommon/JitState.h

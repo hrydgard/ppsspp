@@ -77,6 +77,9 @@ for it:
    the next test. Concurrent runs collide in PSPLink and `host0:`: they time out, their results are
    garbage, and the PSP wedges until someone resets it by hand. This has happened repeatedly; there
    is no case where it is acceptable.
+8. **Update submodules when you start working.** Run `git submodule update --init --recursive`
+   before anything else, and again after switching or rebasing branches, so that builds and tests
+   use the submodule commits the branch records.
 
 ## Core Safety Checks
 

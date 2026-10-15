@@ -31,8 +31,6 @@ std::vector<std::string> DisassembleX86(const u8 *data, int size);
 std::vector<std::string> DisassembleRV64(const u8 *data, int size);
 std::vector<std::string> DisassembleLA64(const u8 *data, int size);
 
-struct JitBlock;
-class JitBlockCache;
 class JitBlockCacheDebugInterface;
 class PointerWrap;
 
@@ -127,7 +125,6 @@ namespace MIPSComp {
 		}
 		virtual const u8 *GetDispatcher() const = 0;
 		virtual const u8 *GetCrashHandler() const = 0;
-		virtual JitBlockCache *GetBlockCache() = 0;
 		virtual JitBlockCacheDebugInterface *GetBlockCacheDebugInterface() = 0;
 		virtual void InvalidateCacheAt(u32 em_address, int length = 4) = 0;
 		virtual void DoState(PointerWrap &p) = 0;
@@ -138,11 +135,6 @@ namespace MIPSComp {
 		// What the block shadow holds for a replacement hook without a compiled block. The
 		// dispatcher has to send this to the compiler.
 		virtual u32 GetBlockShadowHookValue() const { return Memory::BLOCK_SHADOW_HOOK_NO_JIT; }
-
-		// Block linking. This may need to work differently for whole-function JITs and stuff
-		// like that.
-		virtual void LinkBlock(u8 *exitPoint, const u8 *entryPoint) = 0;
-		virtual void UnlinkBlock(u8 *checkedEntry, u32 originalAddress) = 0;
 	};
 
 	typedef void (MIPSFrontendInterface::*MIPSCompileFunc)(MIPSOpcode opcode);

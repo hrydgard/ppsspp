@@ -1629,6 +1629,7 @@ std::string VertexDecoder::GetString(DebugShaderStringType stringType) const {
 	}
 }
 
+#ifdef VERTEXDECODER_JIT_BACKEND
 VertexDecoderJitCache::VertexDecoderJitCache()
 #if PPSSPP_ARCH(ARM64)
  : fp(this)
@@ -1653,6 +1654,7 @@ VertexDecoderJitCache::VertexDecoderJitCache()
 void VertexDecoderJitCache::Clear() {
 	ClearCodeSpace(0);
 }
+#endif
 
 struct StepFunctionNameEntry {
 	StepFunction func;

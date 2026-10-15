@@ -48,8 +48,6 @@
 #include "../RiscV/RiscVJit.h"
 #elif PPSSPP_ARCH(LOONGARCH64)
 #include "../LoongArch64/LoongArch64Jit.h"
-#else
-#include "../fake/FakeJit.h"
 #endif
 
 namespace MIPSComp {
@@ -115,7 +113,8 @@ namespace MIPSComp {
 #elif PPSSPP_ARCH(LOONGARCH64)
 		return new MIPSComp::LoongArch64Jit(mipsState);
 #else
-		return new MIPSComp::FakeJit(mipsState);
+		// No native JIT for this architecture.
+		return new MIPSComp::IRJit(mipsState, false);
 #endif
 	}
 
