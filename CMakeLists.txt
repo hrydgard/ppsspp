@@ -1393,6 +1393,7 @@ if(UNITTEST)
 		unittest/TestVFS.cpp
 		unittest/TestZipSlip.cpp
 		unittest/TestLzrc.cpp
+		unittest/TestCwCheat.cpp
 		unittest/TestMpegCsc.cpp
 		unittest/TestSplineTessellation.cpp
 		unittest/TestGEMath.cpp
