@@ -5,3 +5,7 @@
 
 void VtxDec_Tu16_C8888_Pfloat(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset);
 void VtxDec_Tu8_C5551_Ps16(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset);
+
+// For the UV generation modes that don't prescale.
+void VtxDec_Tu16_C8888_Pfloat_NoPrescale(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset);
+void VtxDec_Tu8_C5551_Ps16_NoPrescale(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset);

@@ -324,3 +324,15 @@ void VtxDec_Tu8_C5551_Ps16(const u8 *srcp, u8 *dstp, int numVerts, const UVScale
 
 	gstate_c.vertexFullAlpha = (alpha >> 15) & 1;
 }
+
+// Converting UV without a prescale is the same as with a scale of 1 and no offset: the division by a power
+// of two in the scale is exact either way.
+static const UVScale identityUVScale = { 1.0f, 1.0f, 0.0f, 0.0f };
+
+void VtxDec_Tu16_C8888_Pfloat_NoPrescale(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset) {
+	VtxDec_Tu16_C8888_Pfloat(srcp, dstp, count, &identityUVScale);
+}
+
+void VtxDec_Tu8_C5551_Ps16_NoPrescale(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset) {
+	VtxDec_Tu8_C5551_Ps16(srcp, dstp, count, &identityUVScale);
+}
