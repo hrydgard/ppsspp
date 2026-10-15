@@ -530,7 +530,7 @@ static void __AdhocctlNotify(u64 userdata, int cyclesLate) {
 		const std::lock_guard<std::mutex> adhocctl_guard(adhocctlMutex);
 		enum adhocctl_call_status call_status = ADHOCCTL_CALL_WOULDBLOCK;
 		if (adhocctlHandle != NULL) {
-			switch(req.opcode){
+			switch(req.opcode) {
 			case OPCODE_CONNECT:{
 				call_status = adhocctl_connect(adhocctlHandle, (char *)req.group.data);
 				break;
@@ -1177,7 +1177,7 @@ int DoBlockingPtpRecv(AdhocSocketRequest& req, s64& result) {
 	int sockerr = 0;
 	if (serverHasRelay) {
 		ret = ptp_recv_postoffice(req.id - 1, req.buffer, req.length);
-		if (ret == 0){
+		if (ret == 0) {
 			// we got data
 			result = 0;
 			return 0;
@@ -1502,7 +1502,7 @@ int DoBlockingPtpConnect(AdhocSocketRequest& req, s64& result, AdhocSendTargets&
 		if (serverHasRelay) {
 			if (sock->postofficeHandle == NULL) {
 				ret = SOCKET_ERROR;
-				if (sock->connectThreadDone && sock->connectThreadResult == SCE_NET_ADHOC_ERROR_CONNECTION_REFUSED){
+				if (sock->connectThreadDone && sock->connectThreadResult == SCE_NET_ADHOC_ERROR_CONNECTION_REFUSED) {
 					sockerr = ECONNREFUSED;
 				} else {
 					sockerr = EAGAIN;
@@ -2521,7 +2521,7 @@ int sceNetAdhocPdpSend(int id, const char *mac, u32 port, void *data, int len, i
 										int error = 0;
 										if (serverHasRelay) {
 											sent = pdp_send_postoffice(id - 1, &peer.mac, dport, data, len);
-											if (sent == 0){
+											if (sent == 0) {
 												sent = len;
 											} else {
 												sent = SOCKET_ERROR;
@@ -2879,7 +2879,7 @@ static bool postoffice_can_recv_or_listen_has_request(int idx) {
 		}
 	} else {
 		void *pdp_handle = pdp_postoffice_recover(idx);
-		if (pdp_handle == NULL){
+		if (pdp_handle == NULL) {
 			return false;
 		}
 		int peek_len = pdp_buffered_data_size(pdp_handle);
@@ -2908,7 +2908,7 @@ static bool postoffice_can_send(int idx) {
 		return ptp_send_buf_not_full(ptp_handle);
 	} else {
 		void *pdp_handle = pdp_postoffice_recover(idx);
-		if (pdp_handle == NULL){
+		if (pdp_handle == NULL) {
 			return false;
 		}
 		if (pdp_is_dead(pdp_handle)) {
@@ -3435,7 +3435,7 @@ u32 NetAdhocctl_Disconnect() {
 			// Send Disconnect Request Packet
 			adhocctlMutex.lock();
 			enum adhocctl_call_status status = ADHOCCTL_CALL_SUCCESS;
-			if (adhocctlHandle != NULL){
+			if (adhocctlHandle != NULL) {
 				status = adhocctl_disconnect(adhocctlHandle);
 			}
 			adhocctlMutex.unlock();
@@ -4155,7 +4155,7 @@ static int sceNetAdhocGetPtpStat(u32 structSize, u32 structAddr) {
 					if ((sock->data.ptp.state == ADHOC_PTP_STATE_SYN_SENT || sock->data.ptp.state == ADHOC_PTP_STATE_SYN_RCVD) && (static_cast<s64>(CoreTiming::GetGlobalTimeUsScaled() - sock->lastAttempt) > 33333/*sock->retry_interval*/)) {
 						// FIXME: May be we should poll all of them together on a single poll call instead of each socket separately?
 						if (serverHasRelay) {
-							if (sock->postofficeHandle != NULL){
+							if (sock->postofficeHandle != NULL) {
 								// good to go
 								sock->data.ptp.state = ADHOC_PTP_STATE_ESTABLISHED;
 							}
@@ -4952,7 +4952,7 @@ static int sceNetAdhocPtpConnect(int id, int timeout, int flag) {
 	return NetAdhocPtp_Connect(id, timeout, flag);
 }
 
-static int ptp_close_postoffice(int idx){
+static int ptp_close_postoffice(int idx) {
 	AdhocSocket *internal = adhocSockets[idx];
 
 	// sync
