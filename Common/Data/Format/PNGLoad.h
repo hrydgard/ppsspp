@@ -42,3 +42,7 @@ struct PNGHeaderPeek {
 };
 
 bool pngSave(const Path &filename, const void *buffer, int w, int h, int bytesPerPixel);
+
+// Saves an 8-bit palette PNG: one byte per pixel, tightly packed, with numColors (1 to 256) palette entries
+// in RGBA byte order. The alpha of the entries goes in a tRNS chunk.
+bool pngSaveIndexed(const Path &filename, const uint8_t *indices, int w, int h, const uint32_t *palette, int numColors);

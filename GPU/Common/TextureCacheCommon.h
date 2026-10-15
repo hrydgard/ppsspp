@@ -312,6 +312,8 @@ struct BuildTexturePlan {
 	// Need to only check once since it can change during the load!
 	bool doReplace;
 	bool saveTexture;
+	// Dump the indices and palette of a CLUT4/CLUT8 texture as a palette PNG (instead of saveTexture).
+	bool saveIndexed;
 
 	// TODO: Expand32 should probably also be decided in PrepareBuildTexture.
 	bool decodeToClut8;
@@ -433,6 +435,10 @@ protected:
 	bool CopyIndexedReplacementLevel(ReplacedTexture *replaced, int level, uint8_t *data, size_t dataSize, int stride);
 	// Whether the shader can apply the CLUT of this texture, which an indexed replacement for the GPU needs.
 	bool CanColorIndexedOnGpu(const TexCacheEntry *entry) const;
+	// The current CLUT as RGBA8888, at least 512 entries.
+	const u32 *CurrentClutAsRGBA8888();
+	// Dumps a CLUT4/CLUT8 texture as the indices with the current palette, see saveIndexed in textures.ini.
+	void SaveIndexedTexture(TexCacheEntry *entry, const BuildTexturePlan &plan);
 
 	// This needs to be a member functions just for IsVideo and Replacer.
 	SamplerCacheKey GetSamplingParams(int maxLevel, const TexCacheEntry *entry, bool flatZ, bool pixelMapped);

@@ -241,7 +241,8 @@ bool PNGHeaderPeek::IsValidPNGHeader() const {
 	return true;
 }
 
-bool pngSave(const Path &filename, const void *buffer, int w, int h, int bytesPerPixel) {
+// With a palette, buffer holds one byte per pixel (the index) and bytesPerPixel is 1.
+static bool pngSaveImpl(const Path &filename, const void *buffer, int w, int h, int bytesPerPixel, const uint32_t *palette, int numColors) {
 	png_bytepp row_ptrs = nullptr;
 
 	FILE *fp = File::OpenCFile(filename, "wb");
@@ -287,7 +288,33 @@ bool pngSave(const Path &filename, const void *buffer, int w, int h, int bytesPe
 		fflush((FILE *)png_get_io_ptr(png_ptr));
 	});
 
-	png_set_IHDR(png_ptr, info_ptr, w, h, 8, bytesPerPixel == 3 ? PNG_COLOR_TYPE_RGB : PNG_COLOR_TYPE_RGBA, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
+	int colorType = bytesPerPixel == 3 ? PNG_COLOR_TYPE_RGB : PNG_COLOR_TYPE_RGBA;
+	if (palette) {
+		colorType = PNG_COLOR_TYPE_PALETTE;
+	}
+	png_set_IHDR(png_ptr, info_ptr, w, h, 8, colorType, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
+
+	if (palette) {
+		// The palette entries are RGBA, in memory order.
+		png_color colors[256];
+		png_byte alphas[256];
+		int numAlphas = 0;
+		for (int i = 0; i < numColors; ++i) {
+			const uint8_t *rgba = (const uint8_t *)&palette[i];
+			colors[i].red = rgba[0];
+			colors[i].green = rgba[1];
+			colors[i].blue = rgba[2];
+			alphas[i] = rgba[3];
+			if (rgba[3] != 0xFF) {
+				numAlphas = i + 1;
+			}
+		}
+		png_set_PLTE(png_ptr, info_ptr, colors, numColors);
+		if (numAlphas > 0) {
+			// Entries past the last one that isn't opaque can be left out.
+			png_set_tRNS(png_ptr, info_ptr, alphas, numAlphas, nullptr);
+		}
+	}
 
 	row_ptrs = (png_bytepp)png_malloc(png_ptr, (png_alloc_size_t)h * (png_alloc_size_t)sizeof(png_bytep));
 	for (png_alloc_size_t i = 0; i < h; ++i) {
@@ -301,4 +328,15 @@ bool pngSave(const Path &filename, const void *buffer, int w, int h, int bytesPe
 	png_destroy_write_struct(&png_ptr, &info_ptr);
 	fclose(fp);
 	return true;
+}
+
+bool pngSave(const Path &filename, const void *buffer, int w, int h, int bytesPerPixel) {
+	return pngSaveImpl(filename, buffer, w, h, bytesPerPixel, nullptr, 0);
+}
+
+bool pngSaveIndexed(const Path &filename, const uint8_t *indices, int w, int h, const uint32_t *palette, int numColors) {
+	if (!palette || numColors < 1 || numColors > 256) {
+		return false;
+	}
+	return pngSaveImpl(filename, indices, w, h, 1, palette, numColors);
 }

@@ -79,11 +79,11 @@ TextureReplacer::~TextureReplacer() {
 	delete vfs_;
 }
 
-bool TextureReplacer::LoadPackForTesting(const Path &basePath, std::string *error) {
+bool TextureReplacer::LoadPackForTesting(const Path &basePath, std::string *error, bool enableSaving) {
 	basePath_ = basePath;
 	gameID_ = "";
 	replaceEnabled_ = true;
-	saveEnabled_ = false;
+	saveEnabled_ = enableSaving;
 	replaceEnabled_ = LoadIni(error, false);
 	return replaceEnabled_;
 }
@@ -158,6 +158,7 @@ bool TextureReplacer::LoadIni(std::string *error, bool notify) {
 	reduceHashGlobalValue = 0.5;
 	// Prevents dumping the mipmaps.
 	ignoreMipmap_ = false;
+	saveIndexed_ = SaveIndexedMode::OFF;
 
 	DeleteVFS();
 
@@ -347,6 +348,19 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 	// Multiplies sizeInRAM/bytesPerLine in XXHASH by 0.5.
 	options->Get("reduceHash", &reduceHash_);
 	options->Get("ignoreMipmap", &ignoreMipmap_);
+	std::string saveIndexed;
+	if (options->Get("saveIndexed", &saveIndexed) && !saveIndexed.empty()) {
+		if (!strcasecmp(saveIndexed.c_str(), "all")) {
+			saveIndexed_ = SaveIndexedMode::ALL;
+		} else if (!strcasecmp(saveIndexed.c_str(), "true") || saveIndexed == "1") {
+			saveIndexed_ = SaveIndexedMode::LISTED;
+		} else if (!strcasecmp(saveIndexed.c_str(), "false") || saveIndexed == "0") {
+			saveIndexed_ = SaveIndexedMode::OFF;
+		} else {
+			ERROR_LOG(Log::TexReplacement, "Unsupported saveIndexed value: %s (use false, true or all)", saveIndexed.c_str());
+			saveIndexed_ = SaveIndexedMode::OFF;
+		}
+	}
 	options->Get("skipLastDXT1Blocks128x64", &skipLastDXT1Blocks128x64_);
 	options->Get("skipLastDXT1Blocks128x128", &skipLastDXT1Blocks128x128_);
 	if (reduceHash_ && textureHash_ == ReplacedTextureHash::QUICK) {
@@ -787,6 +801,11 @@ public:
 
 	u32 replacedInfoHash = 0;
 
+	// With a palette, rgbaData holds one index per pixel instead.
+	bool indexed = false;
+	int numColors = 0;
+	u32 palette[256]{};
+
 	SaveTextureTask(u8 *_rgbaData) : rgbaData(_rgbaData) {}
 	~SaveTextureTask() {
 		free(rgbaData);
@@ -821,7 +840,7 @@ public:
 		// going to write to to .png.
 		saveFilename = saveFilename.WithReplacedExtension(".png");
 
-		bool success = pngSave(saveFilename, rgbaData, w, h, 4);
+		bool success = indexed ? pngSaveIndexed(saveFilename, rgbaData, w, h, palette, numColors) : pngSave(saveFilename, rgbaData, w, h, 4);
 		if (!success) {
 			ERROR_LOG(Log::TexReplacement, "Saving texture to PNG produced errors.");
 		} else {
@@ -940,6 +959,104 @@ void TextureReplacer::NotifyTextureDecoded(ReplacedTexture *texture, const Repla
 	saveData.levelH[level] = h;
 	saveData.levelSaved[level] = true;
 	saveData.lastTimeSaved = now;
+}
+
+// One image serves every palette of a texture, so the CLUT hash is zeroed (and the address too, if ignored).
+ReplacementCacheKey TextureReplacer::IndexedSaveKey(const ReplacedTextureDecodeInfo &replacedInfo) const {
+	ReplacementCacheKey key(replacedInfo.cachekey, replacedInfo.hash);
+	if (ignoreAddress_) {
+		key.ZeroAddress();
+	}
+	key.ZeroClutHash();
+	return key;
+}
+
+bool TextureReplacer::WillSaveIndexed(const ReplacedTextureDecodeInfo &replacedInfo) const {
+	if (saveIndexed_ == SaveIndexedMode::OFF || !WillSave(replacedInfo)) {
+		return false;
+	}
+	if (saveIndexed_ == SaveIndexedMode::ALL) {
+		return true;
+	}
+	// Only the ones listed in [indexed], found the same way as when replacing.
+	ReplacementCacheKey lookupKey(replacedInfo.cachekey, replacedInfo.hash);
+	if (ignoreAddress_) {
+		lookupKey.ZeroAddress();
+	}
+	return LookupIndexed(lookupKey) != IndexedMode::NONE;
+}
+
+bool TextureReplacer::HasSavedIndexed(const ReplacedTextureDecodeInfo &replacedInfo) const {
+	return savedCache_.find(IndexedSaveKey(replacedInfo)) != savedCache_.end();
+}
+
+void TextureReplacer::NotifyIndexedTextureDecoded(const ReplacedTextureDecodeInfo &replacedInfo, const u8 *indices, int srcPitch, const u32 *palette, int numColors, int w, int h) {
+	_assert_msg_(saveEnabled_, "Texture saving not enabled");
+	_assert_(srcPitch >= w);
+	_assert_(indices);
+	_assert_(numColors >= 1 && numColors <= 256);
+
+	if (!WillSaveIndexed(replacedInfo) || w <= 0 || h <= 0) {
+		return;
+	}
+
+	const ReplacementCacheKey saveKey = IndexedSaveKey(replacedInfo);
+	if (savedCache_.find(saveKey) != savedCache_.end()) {
+		return;
+	}
+
+	bool foundAlias = false;
+	bool ignored = false;
+	std::string replacedLevelNames = LookupHashFile(saveKey, &foundAlias, &ignored);
+	if (ignored) {
+		// The ini file entry was set to empty string.
+		return;
+	}
+
+	std::string hashfile;
+	if (!replacedLevelNames.empty()) {
+		// The user has named the file before, so it goes there (the first level, there's only one).
+		std::vector<std::string> names;
+		SplitString(replacedLevelNames, '|', names);
+		hashfile = names[0];
+	} else {
+		hashfile = HashName(saveKey, 0) + "_indexed.png";
+	}
+
+	// Only save the hashed portion of the PNG, in case we have specified it in the ini file.
+	int lookupW;
+	int lookupH;
+	if (LookupHashRange(replacedInfo.addr, w, h, &lookupW, &lookupH) && lookupW > 0 && lookupH > 0 && lookupW <= w && lookupH <= h) {
+		w = lookupW;
+		h = lookupH;
+	}
+
+	u8 *saveBuf = (u8 *)malloc((size_t)w * h);
+	if (!saveBuf) {
+		ERROR_LOG(Log::TexReplacement, "Failed to allocated %d bytes of memory for saving a texture", w * h);
+		return;
+	}
+	for (int y = 0; y < h; y++) {
+		memcpy(saveBuf + (size_t)y * w, indices + (size_t)y * srcPitch, w);
+	}
+
+	SaveTextureTask *task = new SaveTextureTask(saveBuf);
+	task->filename = basePath_ / hashfile;
+	task->saveFilename = newTextureDir_ / hashfile;
+	task->w = w;
+	task->h = h;
+	task->replacedInfoHash = replacedInfo.hash;
+	task->indexed = true;
+	task->numColors = numColors;
+	memcpy(task->palette, palette, numColors * sizeof(u32));
+	g_threadManager.EnqueueTask(task);
+
+	// Remember that we've saved this for next time.
+	SavedTextureCacheData &saveData = savedCache_[saveKey];
+	saveData.levelW[0] = w;
+	saveData.levelH[0] = h;
+	saveData.levelSaved[0] = true;
+	saveData.lastTimeSaved = time_now_d();
 }
 
 void TextureReplacer::Decimate(ReplacerDecimateMode mode) {
@@ -1145,6 +1262,7 @@ hash = quick             # options available: "quick", "xxh32" - more accurate, 
 ignoreMipmap = true      # Usually, can just generate them with basisu, no need to dump.
 reduceHash = false       # Unsafe and can cause glitches in some cases, but allows to skip garbage data in some textures reducing endless duplicates as a side effect speeds up hashing as well, requires stronger hash like xxh32 or xxh64
 ignoreAddress = false    # Reduces duplicates at the cost of making hash less reliable, requires stronger hash like xxh32 or xxh64. Basically automatically sets the address to 0 in the dumped filenames.
+saveIndexed = false      # When dumping, textures with a palette (CLUT4/CLUT8) can be dumped as 8-bit palette PNGs of their indices, named <hash>_indexed.png, one for all palettes. "all" does that for every such texture, "true" only for the ones listed in [indexed]. Other textures are dumped as usual.
 
 [games]
 # Used to make it easier to install, and override settings for other regions.
@@ -1184,6 +1302,9 @@ ignoreAddress = false    # Reduces duplicates at the cost of making hash less re
 # builds no new texture. Only the first mip level is used, and the shader must support bitwise operations,
 # otherwise it falls back to true.
 # Example: 08d3961000000000ba70b2af = gpu
+# With saveIndexed in [options], dumped palette PNGs have the palette that the game used when dumping (for
+# viewing, the colors in it are ignored when loading). Add the file to [hashes] and the hash to this section
+# to use it.
 
 [reducehashranges]
 # Lets you set texture sizes where the hash range is reduced by a factor. See the docs.

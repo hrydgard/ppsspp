@@ -2832,6 +2832,8 @@ std::string AttachCandidate::ToString() const {
 		this->match.xOffset, this->match.yOffset, this->match.reinterpret ? "true" : "false");
 }
 
+static ReplacedTextureDecodeInfo MakeDecodeInfo(const TexCacheEntry *entry, bool isVideo, Draw::DataFormat fmt);
+
 bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEntry *entry) {
 	gpuStats.perFrame.numTexturesDecoded++;
 
@@ -3017,6 +3019,7 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 	// NOTE! Last chance to change scale factor here!
 
 	plan.saveTexture = false;
+	plan.saveIndexed = false;
 	if (plan.doReplace) {
 		// We're replacing, so we won't scale.
 		plan.scaleFactor = 1;
@@ -3028,17 +3031,13 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 		// But, we still need to create the texture at a larger size.
 		plan.replaced->GetSize(0, &plan.createW, &plan.createH);
 	} else {
-		// (Can't save these properly yet when the CLUT is applied by the GPU.)
-		if (replacer_.SaveEnabled() && !plan.doReplace && plan.depth == 1 && canReplace && !plan.decodeToClut8) {
-			ReplacedTextureDecodeInfo replacedInfo;
+		if (replacer_.SaveEnabled() && !plan.doReplace && plan.depth == 1 && canReplace) {
 			// TODO: Do we handle the race where a replacement becomes valid AFTER this but before we save?
-			replacedInfo.cachekey = entry->CacheKey();
-			replacedInfo.hash = entry->fullhash;
-			replacedInfo.addr = entry->addr;
-			replacedInfo.isFinal = (entry->status & TexStatus::TO_SCALE) == 0;
-			replacedInfo.isVideo = plan.isVideo;
-			replacedInfo.fmt = Draw::DataFormat::R8G8B8A8_UNORM;
-			plan.saveTexture = replacer_.WillSave(replacedInfo);
+			const ReplacedTextureDecodeInfo replacedInfo = MakeDecodeInfo(entry, plan.isVideo, Draw::DataFormat::R8G8B8A8_UNORM);
+			// A texture with a palette can be dumped as its indices instead, which is done once the level is known below.
+			plan.saveIndexed = (entry->format == GE_TFMT_CLUT4 || entry->format == GE_TFMT_CLUT8) && replacer_.WillSaveIndexed(replacedInfo);
+			// (Can't save these as colors yet when the CLUT is applied by the GPU.)
+			plan.saveTexture = !plan.saveIndexed && !plan.decodeToClut8 && replacer_.WillSave(replacedInfo);
 		}
 		plan.createW = plan.w * plan.scaleFactor;
 		plan.createH = plan.h * plan.scaleFactor;
@@ -3075,6 +3074,10 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 		entry->status &= ~TexStatus::NO_MIPS;
 	}
 
+	if (plan.saveIndexed) {
+		SaveIndexedTexture(entry, plan);
+	}
+
 	// Will be filled in again during decode.
 	entry->SetAlphaStatus(TextureAlpha::Any);
 	return true;
@@ -3082,6 +3085,61 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 
 bool TextureCacheCommon::CanColorIndexedOnGpu(const TexCacheEntry *entry) const {
 	return (entry->format == GE_TFMT_CLUT8 || entry->format == GE_TFMT_CLUT4) && draw_->GetShaderLanguageDesc().bitwiseOps;
+}
+
+const u32 *TextureCacheCommon::CurrentClutAsRGBA8888() {
+	const GEPaletteFormat palFormat = gstate.getClutPaletteFormat();
+	if (palFormat == GE_CMODE_32BIT_ABGR8888) {
+		return (const u32 *)clutBufRaw_;
+	}
+	// 512 entries, since the start position can put the index past the first 256.
+	ConvertFormatToRGBA8888(palFormat, expandClut_, (const u16 *)clutBufRaw_, 512);
+	return expandClut_;
+}
+
+static ReplacedTextureDecodeInfo MakeDecodeInfo(const TexCacheEntry *entry, bool isVideo, Draw::DataFormat fmt) {
+	ReplacedTextureDecodeInfo replacedInfo;
+	replacedInfo.cachekey = entry->CacheKey();
+	replacedInfo.hash = entry->fullhash;
+	replacedInfo.addr = entry->addr;
+	replacedInfo.isFinal = (entry->status & TexStatus::TO_SCALE) == 0;
+	replacedInfo.isVideo = isVideo;
+	replacedInfo.fmt = fmt;
+	return replacedInfo;
+}
+
+void TextureCacheCommon::SaveIndexedTexture(TexCacheEntry *entry, const BuildTexturePlan &plan) {
+	const ReplacedTextureDecodeInfo replacedInfo = MakeDecodeInfo(entry, plan.isVideo, Draw::DataFormat::R8_UNORM);
+	if (replacer_.HasSavedIndexed(replacedInfo)) {
+		return;
+	}
+
+	const GETextureFormat tfmt = (GETextureFormat)entry->format;
+	_dbg_assert_(tfmt == GE_TFMT_CLUT4 || tfmt == GE_TFMT_CLUT8);
+	const int srcLevel = plan.baseLevelSrc;
+	const int w = gstate.getTextureWidth(srcLevel);
+	const int h = gstate.getTextureHeight(srcLevel);
+	const u32 texaddr = gstate.getTextureAddress(srcLevel);
+	if (!Memory::IsValidTextureAddress(texaddr)) {
+		return;
+	}
+	const int bufw = GetTextureBufw(srcLevel, texaddr, tfmt);
+
+	// The raw indices, the same as a texture colored by the GPU would upload.
+	std::vector<u8> indices((size_t)w * h);
+	DecodeTextureLevel(indices.data(), w, tfmt, gstate.getClutPaletteFormat(), texaddr, srcLevel, bufw, TexDecodeFlags::TO_CLUT8);
+
+	// What color each index gets from the game's current CLUT, including the index shift, mask and start position.
+	const int numColors = tfmt == GE_TFMT_CLUT4 ? 16 : 256;
+	u8 ramp[256];
+	for (int i = 0; i < 256; ++i) {
+		ramp[i] = (u8)i;
+	}
+	u32 palette[256];
+	u32 alphaSum = 0xFFFFFFFF;
+	DeIndexTexture(palette, ramp, numColors, CurrentClutAsRGBA8888(), &alphaSum);
+
+	replacer_.NotifyIndexedTextureDecoded(replacedInfo, indices.data(), w, palette, numColors, w, h);
 }
 
 bool TextureCacheCommon::CopyIndexedReplacementLevel(ReplacedTexture *replaced, int level, uint8_t *data, size_t dataSize, int stride) {
@@ -3104,15 +3162,7 @@ bool TextureCacheCommon::CopyIndexedReplacementLevel(ReplacedTexture *replaced, 
 
 	// The same as for a regular CLUT8 texture. The indices go through the CLUT index transform
 	// (shift, mask and start position), so the game controls which entries the image uses.
-	const GEPaletteFormat palFormat = gstate.getClutPaletteFormat();
-	const u32 *clut32;
-	if (palFormat == GE_CMODE_32BIT_ABGR8888) {
-		clut32 = (const u32 *)clutBufRaw_;
-	} else {
-		// 512 entries, since the start position can put the index past the first 256.
-		ConvertFormatToRGBA8888(palFormat, expandClut_, (const u16 *)clutBufRaw_, 512);
-		clut32 = expandClut_;
-	}
+	const u32 *clut32 = CurrentClutAsRGBA8888();
 
 	u32 alphaSum = 0xFFFFFFFF;
 	for (int y = 0; y < idxH; ++y) {

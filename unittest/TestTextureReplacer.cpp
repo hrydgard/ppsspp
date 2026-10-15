@@ -600,6 +600,117 @@ static bool TestIndexedReplacement(const Path &packDir) {
 	return true;
 }
 
+// Saves a palette PNG and checks that it is one, and that the indices and palette come back.
+static bool TestSaveIndexedPNG(const Path &packDir) {
+	const int w = 16, h = 8;
+	std::vector<u8> indices(w * h);
+	for (int i = 0; i < w * h; i++) {
+		indices[i] = (u8)(i % 5);
+	}
+	u32 palette[5] = {0xFF0000FF, 0xFF00FF00, 0xFFFF0000, 0x80123456, 0x00000000};
+
+	Path file = packDir / "saved_indexed.png";
+	EXPECT_TRUE(pngSaveIndexed(file, indices.data(), w, h, palette, 5));
+	EXPECT_FALSE(pngSaveIndexed(file, indices.data(), w, h, palette, 0));
+	EXPECT_FALSE(pngSaveIndexed(file, indices.data(), w, h, palette, 257));
+
+	std::string str;
+	if (!File::ReadBinaryFileToString(file, &str) || str.size() < sizeof(PNGHeaderPeek)) {
+		return false;
+	}
+	PNGHeaderPeek peek;
+	memcpy(&peek, str.data(), sizeof(peek));
+	EXPECT_TRUE(peek.IsValidPNGHeader());
+	EXPECT_EQ_INT(peek.Width(), w);
+	EXPECT_EQ_INT(peek.Height(), h);
+	EXPECT_EQ_INT(peek.colorType, 3);
+	EXPECT_EQ_INT(peek.bitDepth, 8);
+	// The alpha of the last entry is 0 and the first three are opaque, so a tRNS chunk is needed.
+	EXPECT_TRUE(str.find("PLTE") != std::string::npos);
+	EXPECT_TRUE(str.find("tRNS") != std::string::npos);
+
+	int lw = 0, lh = 0;
+	unsigned char *loaded = nullptr;
+	EXPECT_EQ_INT(pngLoadIndexed((const unsigned char *)str.data(), str.size(), &lw, &lh, &loaded), 1);
+	if (!loaded) {
+		return false;
+	}
+	EXPECT_EQ_INT(lw, w);
+	EXPECT_EQ_INT(lh, h);
+	EXPECT_TRUE(memcmp(loaded, indices.data(), indices.size()) == 0);
+	free(loaded);
+
+	// Fully opaque palettes have no use for tRNS.
+	u32 opaque[2] = {0xFF000000, 0xFFFFFFFF};
+	std::vector<u8> bits(w * h, 1);
+	Path file2 = packDir / "saved_opaque.png";
+	EXPECT_TRUE(pngSaveIndexed(file2, bits.data(), w, h, opaque, 2));
+	if (!File::ReadBinaryFileToString(file2, &str)) {
+		return false;
+	}
+	EXPECT_TRUE(str.find("tRNS") == std::string::npos);
+	return true;
+}
+
+// saveIndexed = true saves the textures of the [indexed] section as palette PNGs, all saves every one.
+static bool TestSaveIndexedOption(const Path &packDir) {
+	static const char *header =
+		"[options]\n"
+		"hash = quick\n"
+		"version = 1\n";
+	static const char *body =
+		"\n[hashes]\n"
+		"A000000F0000000010000001 = listed_indexed.png\n"
+		"\n[indexed]\n"
+		"A000000F0000000010000001 = true\n";
+	static const u32 addr = 0x09000000;
+	// The CLUT hash in the key is ignored by the [indexed] lookup.
+	ReplacedTextureDecodeInfo listed{0xA000000F12345678ULL, 0x10000001, addr, false, false, Draw::DataFormat::R8G8B8A8_UNORM};
+	ReplacedTextureDecodeInfo other{0xA000001012345678ULL, 0x10000002, addr, false, false, Draw::DataFormat::R8G8B8A8_UNORM};
+	ReplacedTextureDecodeInfo ppge = listed;
+	ppge.addr = 0x05100000;
+
+	static const struct {
+		const char *line;
+		bool listedSaved;
+		bool otherSaved;
+	} cases[] = {
+		{"", false, false},
+		{"saveIndexed = false\n", false, false},
+		{"saveIndexed = true\n", true, false},
+		{"saveIndexed = all\n", true, true},
+		{"saveIndexed = bogus\n", false, false},
+	};
+	for (const auto &c : cases) {
+		std::string ini = std::string(header) + c.line + body;
+		if (!WriteIni(packDir, ini.c_str())) {
+			return false;
+		}
+		TextureReplacer replacer(nullptr);
+		std::string error;
+		if (!replacer.LoadPackForTesting(packDir, &error, true)) {
+			return false;
+		}
+		EXPECT_EQ_INT(replacer.WillSaveIndexed(listed), c.listedSaved);
+		EXPECT_EQ_INT(replacer.WillSaveIndexed(other), c.otherSaved);
+		EXPECT_FALSE(replacer.WillSaveIndexed(ppge));
+		EXPECT_FALSE(replacer.HasSavedIndexed(listed));
+	}
+
+	// Without saving enabled, nothing is saved.
+	std::string ini = std::string(header) + "saveIndexed = all\n" + body;
+	if (!WriteIni(packDir, ini.c_str())) {
+		return false;
+	}
+	TextureReplacer replacer(nullptr);
+	std::string error;
+	if (!replacer.LoadPackForTesting(packDir, &error)) {
+		return false;
+	}
+	EXPECT_FALSE(replacer.WillSaveIndexed(other));
+	return true;
+}
+
 bool TestTextureReplacer() {
 	Path packDir = Path("unittest_texture_pack");
 	if (!CreateTestPack(packDir)) {
@@ -629,7 +740,8 @@ bool TestTextureReplacer() {
 		return false;
 	}
 
-	if (!TestIndexedPNG(packDir) || !TestIndexedReplacement(packDir) || !TestIndexedKTX2(packDir)) {
+	if (!TestIndexedPNG(packDir) || !TestIndexedReplacement(packDir) || !TestIndexedKTX2(packDir) ||
+		!TestSaveIndexedPNG(packDir) || !TestSaveIndexedOption(packDir)) {
 		File::DeleteDirRecursively(packDir);
 		return false;
 	}

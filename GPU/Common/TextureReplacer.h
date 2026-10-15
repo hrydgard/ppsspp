@@ -95,7 +95,7 @@ public:
 
 	// For testing: point the replacer at a texture pack directory and load its
 	// ini, without touching the global config. Returns true on success.
-	bool LoadPackForTesting(const Path &basePath, std::string *error);
+	bool LoadPackForTesting(const Path &basePath, std::string *error, bool enableSaving = false);
 
 	// Check if a NotifyTextureDecoded for this texture is desired (used to avoid reads from write-combined memory.)
 	bool WillSave(const ReplacedTextureDecodeInfo &replacedInfo) const;
@@ -103,6 +103,15 @@ public:
 	// Notify that a new texture was decoded. May already be upscaled, saves the data passed.
 	// If the replacer knows about this one already, texture will be passed in, otherwise nullptr.
 	void NotifyTextureDecoded(ReplacedTexture *texture, const ReplacedTextureDecodeInfo &replacedInfo, const void *data, int pitch, int level, int origW, int origH, int scaledW, int scaledH);
+
+	// Whether this texture, which must have a palette (CLUT4 or CLUT8), is saved as an 8-bit palette PNG
+	// with NotifyIndexedTextureDecoded instead of an RGBA one, see saveIndexed in textures.ini.
+	bool WillSaveIndexed(const ReplacedTextureDecodeInfo &replacedInfo) const;
+	// Whether the indices of this texture have been saved already, for any of its palettes.
+	bool HasSavedIndexed(const ReplacedTextureDecodeInfo &replacedInfo) const;
+	// Saves the indices (one byte each) with the palette that they get from the game's CLUT, numColors long.
+	// The file name has the CLUT hash zeroed and ends in _indexed.
+	void NotifyIndexedTextureDecoded(const ReplacedTextureDecodeInfo &replacedInfo, const u8 *indices, int pitch, const u32 *palette, int numColors, int w, int h);
 
 	void Decimate(ReplacerDecimateMode mode);
 
@@ -123,6 +132,13 @@ protected:
 		GPU,  // Uploaded as indices, colored in the shader.
 	};
 	IndexedMode LookupIndexed(ReplacementCacheKey key) const;
+	// Which textures with a palette are saved as palette PNGs.
+	enum class SaveIndexedMode : uint8_t {
+		OFF,
+		LISTED,  // Only the ones in the [indexed] section.
+		ALL,
+	};
+	ReplacementCacheKey IndexedSaveKey(const ReplacedTextureDecodeInfo &replacedInfo) const;
 
 	bool LoadIni(std::string *error, bool notify = true);
 	void DeleteVFS();
@@ -140,6 +156,7 @@ protected:
 	bool ignoreAddress_ = false;
 	bool reduceHash_ = false;
 	bool ignoreMipmap_ = false;
+	SaveIndexedMode saveIndexed_ = SaveIndexedMode::OFF;
 	int skipLastDXT1Blocks128x64_ = 0;
 	int skipLastDXT1Blocks128x128_ = 0;
 
