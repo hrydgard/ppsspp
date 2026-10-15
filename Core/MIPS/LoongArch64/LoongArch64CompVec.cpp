@@ -346,6 +346,91 @@ void LoongArch64JitBackend::CompIR_VecArith(IRInst inst) {
 				FABS_S(regs_.F(inst.dest + i), regs_.F(inst.src1 + i));
 		break;
 
+	case IROp::Vec4Min:
+	case IROp::Vec4Max:
+		if (cpu_info.LOONGARCH_LSX) {
+			// vfpu_minmax_key() of each lane of both, compared as signed, picks the lanes. A tie
+			// takes src2.
+			const LoongArch64Reg temp = EncodeRegToV(regs_.MapWithFPRTemp(inst));
+			const LoongArch64Reg a = regs_.V(inst.src1), b = regs_.V(inst.src2);
+			const LoongArch64Reg keyA = EncodeRegToV(SCRATCHF1), keyB = EncodeRegToV(SCRATCHF2);
+			auto key = [&](LoongArch64Reg k, LoongArch64Reg src) {
+				VSRAI_W(temp, src, 31);
+				VSRLI_W(temp, temp, 1);
+				VXOR_V(k, src, temp);
+				// Zero if the exponent is.
+				VSLLI_W(temp, src, 1);
+				VSRLI_W(temp, temp, 24);
+				VSEQI_W(temp, temp, 0);
+				VANDN_V(k, temp, k);
+			};
+			key(keyA, a);
+			key(keyB, b);
+			if (inst.op == IROp::Vec4Min)
+				VSLT_W(keyA, keyA, keyB);
+			else
+				VSLT_W(keyA, keyB, keyA);
+			VBITSEL_V(regs_.V(inst.dest), b, a, keyA);
+		} else {
+			// As FMin and FMax, lane by lane. The lanes line up, so overlap doesn't matter.
+			for (int i = 0; i < 4; ++i) {
+				IRInst lane{ inst.op == IROp::Vec4Min ? IROp::FMin : IROp::FMax };
+				lane.dest = inst.dest + i;
+				lane.src1 = inst.src1 + i;
+				lane.src2 = inst.src2 + i;
+				CompIR_FCondAssign(lane);
+			}
+		}
+		break;
+
+	case IROp::Vec4Slt:
+	case IROp::Vec4Sge:
+		// 1.0 where src1 < src2 (vslt) or src1 >= src2 (vsge), 0.0 otherwise, NaN included.
+		regs_.Map(inst);
+		if (cpu_info.LOONGARCH_LSX) {
+			if (inst.op == IROp::Vec4Slt)
+				VFCMP_CLT_S(EncodeRegToV(SCRATCHF1), regs_.V(inst.src1), regs_.V(inst.src2));
+			else
+				VFCMP_CLE_S(EncodeRegToV(SCRATCHF1), regs_.V(inst.src2), regs_.V(inst.src1));
+			LU12I_W(SCRATCH1, 0x3F800000 >> 12);
+			VREPLGR2VR_W(EncodeRegToV(SCRATCHF2), SCRATCH1);
+			VAND_V(regs_.V(inst.dest), EncodeRegToV(SCRATCHF1), EncodeRegToV(SCRATCHF2));
+		} else {
+			QuickFLI(32, SCRATCHF1, 1.0f, SCRATCH1);
+			MOVGR2FR_W(SCRATCHF2, R_ZERO);
+			for (int i = 0; i < 4; ++i) {
+				if (inst.op == IROp::Vec4Slt)
+					FCMP_COND_S(FCC0, regs_.F(inst.src1 + i), regs_.F(inst.src2 + i), LoongArch64Fcond::CLT);
+				else
+					FCMP_COND_S(FCC0, regs_.F(inst.src2 + i), regs_.F(inst.src1 + i), LoongArch64Fcond::CLE);
+				FSEL(regs_.F(inst.dest + i), SCRATCHF2, SCRATCHF1, FCC0);
+			}
+		}
+		break;
+
+	case IROp::Vec4CvtScaledSW:
+		regs_.Map(inst);
+		if (cpu_info.LOONGARCH_LSX) {
+			VFFINT_S_W(regs_.V(inst.dest), regs_.V(inst.src1));
+			if ((inst.src2 & 0x1F) != 0) {
+				float scale = 1.0f / (1UL << (inst.src2 & 0x1F));
+				u32 bits;
+				memcpy(&bits, &scale, 4);
+				LI(SCRATCH1, (s32)bits);
+				VREPLGR2VR_W(EncodeRegToV(SCRATCHF1), SCRATCH1);
+				VFMUL_S(regs_.V(inst.dest), regs_.V(inst.dest), EncodeRegToV(SCRATCHF1));
+			}
+		} else {
+			if ((inst.src2 & 0x1F) != 0)
+				QuickFLI(32, SCRATCHF1, 1.0f / (1UL << (inst.src2 & 0x1F)), SCRATCH1);
+			for (int i = 0; i < 4; ++i) {
+				FFINT_S_W(regs_.F(inst.dest + i), regs_.F(inst.src1 + i));
+				if ((inst.src2 & 0x1F) != 0)
+					FMUL_S(regs_.F(inst.dest + i), regs_.F(inst.dest + i), SCRATCHF1);
+			}
+		}
+		break;
+
 	default:
 		INVALIDOP;
 		break;

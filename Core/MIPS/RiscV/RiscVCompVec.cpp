@@ -283,6 +283,45 @@ void RiscVJitBackend::CompIR_VecArith(IRInst inst) {
 			FABS(32, regs_.F(inst.dest + i), regs_.F(inst.src1 + i));
 		break;
 
+	case IROp::Vec4Min:
+	case IROp::Vec4Max:
+		// As FMin and FMax, lane by lane. The lanes line up, so overlap doesn't matter.
+		for (int i = 0; i < 4; ++i) {
+			IRInst lane{ inst.op == IROp::Vec4Min ? IROp::FMin : IROp::FMax };
+			lane.dest = inst.dest + i;
+			lane.src1 = inst.src1 + i;
+			lane.src2 = inst.src2 + i;
+			CompIR_FCondAssign(lane);
+		}
+		break;
+
+	case IROp::Vec4Slt:
+	case IROp::Vec4Sge:
+		// FLT and FLE are false for NaN, as both want.
+		regs_.Map(inst);
+		for (int i = 0; i < 4; ++i) {
+			if (inst.op == IROp::Vec4Slt)
+				FLT(32, SCRATCH1, regs_.F(inst.src1 + i), regs_.F(inst.src2 + i));
+			else
+				FLE(32, SCRATCH1, regs_.F(inst.src2 + i), regs_.F(inst.src1 + i));
+			FCVT(FConv::S, FConv::W, regs_.F(inst.dest + i), SCRATCH1);
+		}
+		break;
+
+	case IROp::Vec4CvtScaledSW:
+	{
+		const RiscVReg scaleReg = regs_.MapWithFPRTemp(inst);
+		if ((inst.src2 & 0x1F) != 0)
+			QuickFLI(32, scaleReg, 1.0f / (1UL << (inst.src2 & 0x1F)), SCRATCH1);
+		for (int i = 0; i < 4; ++i) {
+			FMV(FMv::X, FMv::W, SCRATCH1, regs_.F(inst.src1 + i));
+			FCVT(FConv::S, FConv::W, regs_.F(inst.dest + i), SCRATCH1);
+			if ((inst.src2 & 0x1F) != 0)
+				FMUL(32, regs_.F(inst.dest + i), regs_.F(inst.dest + i), scaleReg);
+		}
+		break;
+	}
+
 	default:
 		INVALIDOP;
 		break;

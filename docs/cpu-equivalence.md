@@ -280,6 +280,10 @@ against the reference on `VFPUDot`'s inputs. Whether the RVV version beats the s
 hardware hasn't been measured: it moves values between the vector and scalar units three times,
 which costs more on some cores than on others.
 
+Neither JIT has `Vec4VfpuMultiDot`, so the frontend leaves runs of dots as single
+`Vec4VfpuDot`s for them (`IROptions::vfpuMultiDot`). Both have the Vec4 vmin, vmax, vslt, vsge and
+vi2f ops (`IROptions::moreVec4Ops`), lane by lane on RISC-V and on LoongArch without LSX.
+
 Before the accurate dot product, the JIT gave the same end state as the IR interpreter in 20000
 VFPU-heavy cases (`vvvf`), 20000 mixed and 10000 integer/memory ones, on RISC-V with and without
 the extensions and on LoongArch without LSX. What was left were host NaNs out of a horizontal op
