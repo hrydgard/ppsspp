@@ -1157,6 +1157,12 @@ bool PurgeTemps(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 					checkMismatch(inst.src3, inst.m.types[0]);
 
 				bool cannotReplace = !readsDirectly || lenMismatch;
+				// Nor where a multi-lane result would cover the source it reads instead, which the
+				// backends don't expect (the copy was what kept them apart).
+				IRReg destRegs[4];
+				const int numDest = IRDestFPRs(inst, destRegs);
+				if (numDest > 1 && check.srcReg >= destRegs[0] + 32 && check.srcReg < destRegs[0] + 32 + numDest)
+					cannotReplace = true;
 				if (!cannotReplace && check.srcReg >= 32 && lastWrittenTo[check.srcReg] < check.index) {
 					// This is probably not worth doing unless we can get rid of a temp.
 					if (!check.readByExit) {
