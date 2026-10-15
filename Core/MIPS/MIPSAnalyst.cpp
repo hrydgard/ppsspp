@@ -432,6 +432,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xc51519f5dab342d4, 224, "cosf", },
 	{ 0xc52c14b9af8c3008, 76, "memcmp", },
 	{ 0xc54eae62622f1e11, 164, "dl_write_bone_matrix_2", },
+	{ 0xc626403884cabcbf, 532, "bejeweled2_draw_dirty_stuff", }, // Bejeweled 2
 	{ 0xc6b29de7d3245198, 656, "starocean_write_stencil" }, // Star Ocean 1 (US)
 	{ 0xc7b1113cfdfedab6, 104, "tonyhawkp8_upload_tutorial_frame", }, // Tony Hawk's Project 8 (US)
 	{ 0xc96e3a087ebf49a9, 100, "dl_write_light_color", },
