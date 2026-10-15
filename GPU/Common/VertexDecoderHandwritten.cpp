@@ -471,3 +471,91 @@ void VtxDec_Tu16_C4444_Ps16(const u8 *srcp, u8 *dstp, int count, const UVScale *
 void VtxDec_Tu16_C4444_Ps16_NoPrescale(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset) {
 	DecodeTu16_C4444_Ps16<false>(srcp, dstp, count, uvScaleOffset);
 }
+
+template <bool prescale>
+static void DecodeW1float_Tu8_C4444_Ns8_Pfloat(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset) {
+	struct InVtx {
+		float w;
+		u8 u, v;
+		u16 col;
+		s8 nrm[3];
+		u8 pad;
+		float pos[3];
+	};
+	struct OutVtx {
+		float u, v;
+		u32 col;
+		float nrm[3];
+		float pos[3];
+	};
+	const InVtx *src = (const InVtx *)srcp;
+	OutVtx *dst = (OutVtx *)dstp;
+	const UVScale uv = *uvScaleOffset;
+	// The skin matrix is what ComputeSkinMatrix() makes (0 + bone * weight, for each element), kept as
+	// the columns Vec3ByMatrix43() and Norm3ByMatrix43() load, so they come straight from the bone
+	// matrix's. Lane 3 ends up only in values overwritten later. Those functions multiply and add in
+	// the order below, unfused, so the results are the same.
+	const float *bone = gstate.boneMatrix;
+	const Vec4F32 bone0 = Vec4F32::Load(bone), bone1 = Vec4F32::Load(bone + 3), bone2 = Vec4F32::Load(bone + 6), bone3 = Vec4F32::Load(bone + 9);
+	Vec4F32 col0 = Vec4F32::Zero(), col1 = Vec4F32::Zero(), col2 = Vec4F32::Zero(), col3 = Vec4F32::Zero();
+	u32 skinWeightBits = 0;
+	bool haveSkin = false;
+	u32 alpha = 0xFFFF;
+	for (int i = 0; i < count; i++) {
+		const float u = src[i].u * (1.0f / 128.0f), v = src[i].v * (1.0f / 128.0f);
+		dst[i].u = prescale ? PrescaleUV(u, uv.uScale, uv.uOff) : u;
+		dst[i].v = prescale ? PrescaleUV(v, uv.vScale, uv.vOff) : v;
+		const u16 col = src[i].col;
+		alpha &= col;
+		dst[i].col = RGBA4444ToRGBA8888(col);
+
+		u32 weightBits;
+		memcpy(&weightBits, &src[i].w, sizeof(weightBits));
+		if (!haveSkin || weightBits != skinWeightBits) {
+			const float w = src[i].w;
+			const Vec4F32 zero = Vec4F32::Zero();
+			if (w != 0.0f) {
+				const Vec4F32 wv = Vec4F32::Splat(w);
+				col0 = zero + bone0 * wv;
+				col1 = zero + bone1 * wv;
+				col2 = zero + bone2 * wv;
+				col3 = zero + bone3 * wv;
+			} else {
+				col0 = col1 = col2 = col3 = zero;
+			}
+			skinWeightBits = weightBits;
+			haveSkin = true;
+		}
+		// Each writes four floats, the last over the next field or vertex (or the slack after the buffer).
+#if PPSSPP_ARCH(ARM64_NEON)
+		// By lane, like Vec3ByMatrix43Internal() here. Reads the padding after the normal and the float after
+		// the position (the next vertex's weight, or the bytes after the last), which go to lane 3 only.
+		uint32_t nrmBits;
+		memcpy(&nrmBits, src[i].nrm, sizeof(nrmBits));
+		const int16x8_t n16 = vmovl_s8(vreinterpret_s8_u32(vdup_n_u32(nrmBits)));
+		const float32x4_t n = vmulq_n_f32(vcvtq_f32_s32(vmovl_s16(vget_low_s16(n16))), 1.0f / 128.0f);
+		const float32x4_t nrm = vaddq_f32(vaddq_f32(vmulq_laneq_f32(col0.v, n, 0), vmulq_laneq_f32(col1.v, n, 1)), vmulq_laneq_f32(col2.v, n, 2));
+		vst1q_f32(dst[i].nrm, nrm);
+		const float32x4_t p = vld1q_f32(src[i].pos);
+		const float32x4_t pos = vaddq_f32(vaddq_f32(vmulq_laneq_f32(col0.v, p, 0), vmulq_laneq_f32(col1.v, p, 1)), vaddq_f32(vmulq_laneq_f32(col2.v, p, 2), col3.v));
+		vst1q_f32(dst[i].pos, pos);
+#else
+		Vec4F32 nrm = (col0 * Vec4F32::Splat(src[i].nrm[0] * (1.0f / 128.0f)) + col1 * Vec4F32::Splat(src[i].nrm[1] * (1.0f / 128.0f))) +
+			col2 * Vec4F32::Splat(src[i].nrm[2] * (1.0f / 128.0f));
+		nrm.Store(dst[i].nrm);
+		Vec4F32 pos = (col0 * Vec4F32::Splat(src[i].pos[0]) + col1 * Vec4F32::Splat(src[i].pos[1])) +
+			(col2 * Vec4F32::Splat(src[i].pos[2]) + col3);
+		pos.Store(dst[i].pos);
+#endif
+	}
+	if ((alpha >> 12) != 0xF)
+		gstate_c.vertexFullAlpha = false;
+}
+
+// God of War, skinned with one weight.
+void VtxDec_W1float_Tu8_C4444_Ns8_Pfloat(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset) {
+	DecodeW1float_Tu8_C4444_Ns8_Pfloat<true>(srcp, dstp, count, uvScaleOffset);
+}
+void VtxDec_W1float_Tu8_C4444_Ns8_Pfloat_NoPrescale(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset) {
+	DecodeW1float_Tu8_C4444_Ns8_Pfloat<false>(srcp, dstp, count, uvScaleOffset);
+}

@@ -17,3 +17,6 @@ void VtxDec_Tfloat_C8888_Ns8_Ps16(const u8 *srcp, u8 *dstp, int count, const UVS
 void VtxDec_Tfloat_C8888_Ns8_Ps16_NoPrescale(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset);
 void VtxDec_Tu16_C4444_Ps16(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset);
 void VtxDec_Tu16_C4444_Ps16_NoPrescale(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset);
+// Skins in the decoder, so not for callerSkins.
+void VtxDec_W1float_Tu8_C4444_Ns8_Pfloat(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset);
+void VtxDec_W1float_Tu8_C4444_Ns8_Pfloat_NoPrescale(const u8 *srcp, u8 *dstp, int count, const UVScale *uvScaleOffset);

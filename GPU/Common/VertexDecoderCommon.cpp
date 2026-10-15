@@ -1371,6 +1371,9 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 		} else if (vtype == (GE_VTYPE_TC_16BIT | GE_VTYPE_COL_4444 | GE_VTYPE_POS_16BIT)) {
 			jitted_ = prescale ? &VtxDec_Tu16_C4444_Ps16 : &VtxDec_Tu16_C4444_Ps16_NoPrescale;
 			return;
+		} else if (skinInDecode && vtype == (GE_VTYPE_WEIGHT_FLOAT | GE_VTYPE_TC_8BIT | GE_VTYPE_COL_4444 | GE_VTYPE_NRM_8BIT | GE_VTYPE_POS_FLOAT)) {
+			jitted_ = prescale ? &VtxDec_W1float_Tu8_C4444_Ns8_Pfloat : &VtxDec_W1float_Tu8_C4444_Ns8_Pfloat_NoPrescale;
+			return;
 		}
 	}
 #endif
