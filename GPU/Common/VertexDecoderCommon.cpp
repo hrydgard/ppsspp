@@ -353,22 +353,6 @@ void VertexDecoder::Step_TcFloatThrough(const VertexDecoder *dec, const u8 *ptr,
 	gstate_c.vertBounds.maxV = std::max(gstate_c.vertBounds.maxV, (u16)uvdata[1]);
 }
 
-// The arm64 JIT and the NEON handwritten decoders fuse the UV prescale (FMLA), the x86 ones don't
-// (MULPS + ADDPS). Spell out which one happens here instead of leaving it to the compiler's
-// contraction setting: clang contracts this by default and MSVC doesn't, so relying on it makes the
-// steps disagree with the JIT on Windows on ARM only.
-static inline float PrescaleUV(float value, float scale, float offset) {
-#if PPSSPP_ARCH(ARM64_NEON) || PPSSPP_ARCH(RISCV64) || PPSSPP_ARCH(LOONGARCH64)
-	// The riscv64 and loongarch64 JITs fuse this too - and on those the compiler would contract
-	// the plain expression below into an FMA anyway, so say so rather than leaving it to chance.
-	return fmaf(value, scale, offset);
-#else
-	// Safe as long as x86 stays on the SSE2 baseline, which has nothing to contract into. A build
-	// targeting FMA would need this spelled out too, the other way around from the arm64 one.
-	return value * scale + offset;
-#endif
-}
-
 void VertexDecoder::Step_TcU8Prescale(const VertexDecoder *dec, const u8 *ptr, u8 *decoded) {
 	float *uv = (float *)(decoded + dec->decFmt.uvoff);
 	const u8 *uvdata = (const u8 *)(ptr + dec->tcoff);
@@ -1363,15 +1347,34 @@ void VertexDecoder::SetVertexType(u32 fmt, const VertexDecoderOptions &options, 
 
 	// Only use the handwritten decoders if we have SSE or NEON. Don't want to use these on RISC-V, probably?
 #if PPSSPP_ARCH(ARM_NEON) || PPSSPP_ARCH(SSE2)
-	// See GetVertTypeID
-	uint32_t fmtWithoutSkinFlag = (fmt_ & ~0x04000000);
-	if (fmtWithoutSkinFlag == (GE_VTYPE_TC_8BIT | GE_VTYPE_COL_5551 | GE_VTYPE_POS_16BIT)) {
+	// See GetVertTypeID. The UV generation modes that don't prescale UV convert it the same way with a
+	// scale of 1 and no offset, which the NoPrescale versions pass.
+	const uint32_t vtype = fmt_ & 0x00FFFFFF;
+	const GETexMapMode uvGenMode = VertTypeIDUVGenMode(fmt_);
+	const bool prescale = uvGenMode == GE_TEXMAP_TEXTURE_COORDS || uvGenMode == GE_TEXMAP_UNKNOWN;
+	if (vtype == (GE_VTYPE_TC_8BIT | GE_VTYPE_COL_5551 | GE_VTYPE_POS_16BIT)) {
 		// Can skip looking up in the JIT.
-		jitted_ = &VtxDec_Tu8_C5551_Ps16;
+		jitted_ = prescale ? &VtxDec_Tu8_C5551_Ps16 : &VtxDec_Tu8_C5551_Ps16_NoPrescale;
 		return;
-	} else if (!options.expand8BitNormalsToFloat && fmtWithoutSkinFlag == (GE_VTYPE_TC_16BIT | GE_VTYPE_NRM_8BIT | GE_VTYPE_COL_8888 | GE_VTYPE_POS_FLOAT)) {
-		jitted_ = &VtxDec_Tu16_C8888_Pfloat;
+	} else if (!options.expand8BitNormalsToFloat && vtype == (GE_VTYPE_TC_16BIT | GE_VTYPE_NRM_8BIT | GE_VTYPE_COL_8888 | GE_VTYPE_POS_FLOAT)) {
+		jitted_ = prescale ? &VtxDec_Tu16_C8888_Pfloat : &VtxDec_Tu16_C8888_Pfloat_NoPrescale;
 		return;
+	}
+	// These are slower than the JIT's, but much faster than the steps.
+	if (!jitCache) {
+		if (vtype == (GE_VTYPE_TC_8BIT | GE_VTYPE_COL_565 | GE_VTYPE_NRM_16BIT | GE_VTYPE_POS_FLOAT)) {
+			jitted_ = prescale ? &VtxDec_Tu8_C565_Ns16_Pfloat : &VtxDec_Tu8_C565_Ns16_Pfloat_NoPrescale;
+			return;
+		} else if (!options.expand8BitNormalsToFloat && vtype == (GE_VTYPE_TC_FLOAT | GE_VTYPE_COL_8888 | GE_VTYPE_NRM_8BIT | GE_VTYPE_POS_16BIT)) {
+			jitted_ = prescale ? &VtxDec_Tfloat_C8888_Ns8_Ps16 : &VtxDec_Tfloat_C8888_Ns8_Ps16_NoPrescale;
+			return;
+		} else if (vtype == (GE_VTYPE_TC_16BIT | GE_VTYPE_COL_4444 | GE_VTYPE_POS_16BIT)) {
+			jitted_ = prescale ? &VtxDec_Tu16_C4444_Ps16 : &VtxDec_Tu16_C4444_Ps16_NoPrescale;
+			return;
+		} else if (skinInDecode && vtype == (GE_VTYPE_WEIGHT_FLOAT | GE_VTYPE_TC_8BIT | GE_VTYPE_COL_4444 | GE_VTYPE_NRM_8BIT | GE_VTYPE_POS_FLOAT)) {
+			jitted_ = prescale ? &VtxDec_W1float_Tu8_C4444_Ns8_Pfloat : &VtxDec_W1float_Tu8_C4444_Ns8_Pfloat_NoPrescale;
+			return;
+		}
 	}
 #endif
 
