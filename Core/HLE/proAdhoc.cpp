@@ -1401,9 +1401,6 @@ void killAdhocctlClient(bool due_to_error) {
 int friendFinder() {
 	SetCurrentThreadName("FriendFinder");
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
-	// Receive Buffer
-	int rxpos = 0;
-	uint8_t rx[1024];
 
 	// Chat Packet
 	SceNetAdhocctlChatPacketC2S chat;
