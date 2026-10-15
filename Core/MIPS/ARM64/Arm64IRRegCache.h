@@ -103,6 +103,7 @@ protected:
 private:
 	bool TransferVecTo1(IRNativeReg nreg, IRNativeReg dest, IRReg first, int oldlanes);
 	bool Transfer1ToVec(IRNativeReg nreg, IRNativeReg dest, IRReg first, int lanes);
+	bool Transfer2ToVec4(IRNativeReg nreg, IRNativeReg dest, IRReg first);
 
 	IRNativeReg GPRToNativeReg(Arm64Gen::ARM64Reg r);
 	IRNativeReg VFPToNativeReg(Arm64Gen::ARM64Reg r);
