@@ -2254,6 +2254,7 @@ int NetAdhocPdpCreate(const char *mac, int port, int bufferSize, u32 flag, bool 
 
 	if (i >= MAX_SOCKET) {
 		DEBUG_LOG(Log::sceNet, "%s: out of slot when allocating internal socket tracking", __func__);
+		free(internal);
 		closesocket(usocket);
 		return ERROR_NET_NO_SPACE;
 	}
