@@ -1637,17 +1637,31 @@ namespace MIPSComp {
 		MatrixSize sz = GetMtxSize(op);
 		int n = GetMatrixSide(sz);
 
-		// The entire matrix is scaled equally, so transpose doesn't matter.  Let's normalize.
-		// (A 1x1 matrix has no transposed form, the bit then picks a different register.)
-		if (n > 1 && IsMatrixTransposed(vs) && IsMatrixTransposed(vd)) {
-			vs = TransposeMatrixReg(vs);
-			vd = TransposeMatrixReg(vd);
-		}
-
-		u8 sregs[16], dregs[16], tregs[1];
+		u8 sregs[16]{}, dregs[16]{}, tregs[1];
 		GetMatrixRegs(sregs, sz, vs);
 		GetMatrixRegs(dregs, sz, vd);
 		GetVectorRegs(tregs, V_Single, vt);
+
+		// Every element is scaled the same, so the elements can go in any order, as long as each
+		// source keeps its destination. Transposed matrices come out as Vec4s when both are taken
+		// in transposed order. (Flipping the transposed bit of the registers instead would name other
+		// registers for a matrix with an offset, which wraps around.)
+		if (!IsMatrixVec4(sz, sregs) || !IsMatrixVec4(sz, dregs)) {
+			u8 st[16], dt[16];
+			for (int k = 0; k < 16; k++) {
+				st[k] = sregs[(k % 4) * 4 + k / 4];
+				dt[k] = dregs[(k % 4) * 4 + k / 4];
+			}
+			if (IsMatrixVec4(sz, st) && IsMatrixVec4(sz, dt)) {
+				memcpy(sregs, st, sizeof(st));
+				memcpy(dregs, dt, sizeof(dt));
+			}
+		}
+
+		// Either way, a source that partly overlaps the destination would be read after it's written.
+		if (vs != vd && GetMatrixOverlap(vs, vd, sz) != OVERLAP_NONE) {
+			DISABLE;
+		}
 
 		if (GetMtx(vt) != GetMtx(vd) && IsMatrixVec4(sz, sregs) && IsMatrixVec4(sz, dregs)) {
 			for (int i = 0; i < n; ++i) {
@@ -1656,11 +1670,7 @@ namespace MIPSComp {
 			return;
 		}
 
-		// Element by element otherwise, which works for any size and transposition. A source that
-		// partly overlaps the destination would be read after it's written, though.
-		if (vs != vd && GetMatrixOverlap(vs, vd, sz) != OVERLAP_NONE) {
-			DISABLE;
-		}
+		// Element by element otherwise, which works for any size and transposition.
 		// The scale can be part of the destination, so keep a copy.
 		ir.Write(IROp::FMov, IRVTEMP_0, tregs[0]);
 		for (int a = 0; a < n; a++) {
