@@ -812,7 +812,9 @@ namespace MIPSInt
 		ApplySwizzleS(mips, s, V_Quad);
 
 		for (int i = 0; i < n; i++) {
-			float diff = s[i] - t[i];
+			// A NaN's sign counts (cpu/vfpu/specials). Not every host's subtraction keeps it:
+			// RISC-V always makes the positive canonical NaN.
+			float diff = my_isnan(s[i]) ? s[i] : (my_isnan(t[i]) ? t[i] : s[i] - t[i]);
 			// To handle NaNs correctly, we do this with integer hackery. A denormal difference
 			// is zero, like everywhere else on the VFPU.
 			u32 val;

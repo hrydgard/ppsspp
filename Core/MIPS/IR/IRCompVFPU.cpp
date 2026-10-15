@@ -1827,20 +1827,11 @@ namespace MIPSComp {
 		const bool bothVec4 = IsMatrixVec4(sz, sregs) && IsMatrixVec4(sz, dregs);
 		const bool bothTransposedVec4 = IsMatrixTransposedVec4(sz, sregs) && IsMatrixTransposedVec4(sz, dregs);
 		if (bothVec4 || bothTransposedVec4) {
-			// Untranspose both matrices
-			if (IsMatrixTransposed(vd)) {
-				vd = TransposeMatrixReg(vd);
-				vs = TransposeMatrixReg(vs);
-			}
-			// Get the columns
-			u8 scols[4], dcols[4];
-			GetMatrixColumns(vs, sz, scols);
-			GetMatrixColumns(vd, sz, dcols);
+			// The Vec4s start at every fourth reg, or for the transposed layout at the first four.
+			// (Transposing the register names instead goes wrong when the rows wrap around, like E020.)
 			for (int i = 0; i < 4; i++) {
-				u8 svec[4], dvec[4];
-				GetVectorRegs(svec, GetVectorSize(sz), scols[i]);
-				GetVectorRegs(dvec, GetVectorSize(sz), dcols[i]);
-				ir.Write(IROp::Vec4Mov, dvec[0], svec[0]);
+				int start = bothVec4 ? i * 4 : i;
+				ir.Write(IROp::Vec4Mov, dregs[start], sregs[start]);
 			}
 			return;
 		}

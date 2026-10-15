@@ -81,6 +81,9 @@ IRJit::IRJit(MIPSState *mipsState, bool actualJit) : frontend_(mipsState->HasDef
 #if PPSSPP_ARCH(ARM64)
 	opts.vfpuMultiDot = true;
 	opts.moreVec4Ops = true;
+#elif PPSSPP_ARCH(RISCV64) || PPSSPP_ARCH(LOONGARCH64)
+	opts.vfpuMultiDot = !actualJit;
+	opts.moreVec4Ops = true;
 #else
 	opts.vfpuMultiDot = !actualJit;
 	opts.moreVec4Ops = !actualJit;

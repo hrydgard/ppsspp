@@ -867,14 +867,12 @@ float vfpu_dot_reference(const float a[4], const float b[4]) {
 	return ret;
 }
 
-#if PPSSPP_ARCH(ARM64_NEON) || PPSSPP_ARCH(SSE2)
-
 // Inf and NaN inputs are rare, and the reference handles them.
 static NO_INLINE float vfpu_dot_special(const float a[4], const float b[4]) {
 	return vfpu_dot_reference(a, b);
 }
 
-// The end of the SIMD versions: drops the extra bits off the exact sum by truncation, then rounds to
+// The end of the fast versions: drops the extra bits off the exact sum by truncation, then rounds to
 // 24 bits, nearest even. With the top bit moved to bit 62, adding 2^38 - 1 plus the lowest kept bit
 // and shifting out 39 bits does that for every magnitude, and adding the significand, implicit bit
 // and all, onto the exponent field lets a carry from the rounding bump the exponent by itself. It's
@@ -894,7 +892,35 @@ static inline float vfpu_dot_finish(int32_t val, uint32_t ehi) {
 	return ret;
 }
 
-#endif
+// The reference without its branches, for hosts with no SIMD version. Bit-exact with it.
+float vfpu_dot_scalar(const float a[4], const float b[4]) {
+	uint32_t x[4], y[4], e[4];
+	memcpy(x, a, sizeof(x));
+	memcpy(y, b, sizeof(y));
+
+	// Exponent sums, zero for zero and subnormal inputs, and whether any input is inf or NaN.
+	uint32_t ehi = 0, special = 0;
+	for (int i = 0; i < 4; i++) {
+		const uint32_t ex = (x[i] >> 23) & 0xFF, ey = (y[i] >> 23) & 0xFF;
+		special |= (ex + 1) | (ey + 1);
+		e[i] = ex != 0 && ey != 0 ? ex + ey : 0;
+		ehi = e[i] > ehi ? e[i] : ehi;
+	}
+	if (special & 0x100)
+		return vfpu_dot_special(a, b);
+
+	// 24x24-bit products kept to 2 extra bits with round-to-odd, aligned to the largest exponent
+	// by truncation (p is below 2^27, so 31 does for any larger shift), and summed exactly.
+	int32_t val = 0;
+	for (int i = 0; i < 4; i++) {
+		const uint64_t v = (uint64_t)((x[i] & 0x007FFFFF) | 0x00800000) * ((y[i] & 0x007FFFFF) | 0x00800000);
+		uint32_t p = (uint32_t)(v >> 21) | ((v & ((1 << 21) - 1)) != 0);
+		const uint32_t d = ehi - e[i];
+		p = e[i] != 0 ? p >> (d < 31 ? d : 31) : 0;
+		val += (int32_t)((x[i] ^ y[i]) >> 31 ? 0u - p : p);
+	}
+	return vfpu_dot_finish(val, ehi);
+}
 
 #if PPSSPP_ARCH(ARM64_NEON)
 
@@ -983,6 +1009,46 @@ static float vfpu_dot_sse2(const float a[4], const float b[4]) {
 	return vfpu_dot_finish(_mm_cvtsi128_si32(v), ehi);
 }
 
+#elif PPSSPP_ARCH(LOONGARCH64_LSX)
+
+// The reference, four lanes at a time, the same way as vfpu_dot_sse2(). Bit-exact with it.
+static float vfpu_dot_lsx(const float a[4], const float b[4]) {
+	const __m128i x = __lsx_vld(a, 0);
+	const __m128i y = __lsx_vld(b, 0);
+	const __m128i expBits = __lsx_vreplgr2vr_w(0x7F800000);
+	const __m128i xe = __lsx_vand_v(x, expBits), ye = __lsx_vand_v(y, expBits);
+
+	// Zero and subnormal inputs make the product zero, with the lowest exponent. Inf and NaN get
+	// 0x7FF, above any real exponent sum, so one maximum finds the alignment and the specials.
+	const __m128i flush = __lsx_vor_v(__lsx_vseqi_w(xe, 0), __lsx_vseqi_w(ye, 0));
+	const __m128i special = __lsx_vor_v(__lsx_vseq_w(xe, expBits), __lsx_vseq_w(ye, expBits));
+	const __m128i e = __lsx_vor_v(__lsx_vandn_v(flush, __lsx_vsrli_w(__lsx_vadd_w(xe, ye), 23)), __lsx_vsrli_w(special, 21));
+	__m128i emax = __lsx_vmax_wu(e, __lsx_vshuf4i_w(e, 0x4E));
+	emax = __lsx_vmax_wu(emax, __lsx_vshuf4i_w(emax, 0xB1));
+	const uint32_t ehi = (uint32_t)__lsx_vpickve2gr_w(emax, 0);
+	if (ehi >= 0x7FF)
+		return vfpu_dot_special(a, b);
+
+	// 24x24-bit products, even and odd lanes separately, kept to 2 extra bits with round-to-odd.
+	const __m128i mantMask = __lsx_vreplgr2vr_w(0x007FFFFF), implicitBit = __lsx_vreplgr2vr_w(0x00800000);
+	const __m128i mx = __lsx_vor_v(__lsx_vand_v(x, mantMask), implicitBit);
+	const __m128i my = __lsx_vor_v(__lsx_vand_v(y, mantMask), implicitBit);
+	const __m128i pEven = __lsx_vmulwev_d_wu(mx, my);
+	const __m128i pOdd = __lsx_vmulwod_d_wu(mx, my);
+	const __m128i kept = __lsx_vpackev_w(__lsx_vsrli_d(pOdd, 21), __lsx_vsrli_d(pEven, 21));
+	const __m128i dropped = __lsx_vand_v(__lsx_vpackev_w(pOdd, pEven), __lsx_vreplgr2vr_w((1 << 21) - 1));
+	const __m128i p = __lsx_vandn_v(flush, __lsx_vor_v(kept, __lsx_vmini_wu(dropped, 1)));
+
+	// Align to the largest exponent by truncation (p is below 2^27, so 31 does for any larger
+	// shift), apply the signs, and sum exactly.
+	const __m128i d = __lsx_vmini_wu(__lsx_vsub_w(emax, e), 31);
+	const __m128i sign = __lsx_vsrai_w(__lsx_vxor_v(x, y), 31);
+	__m128i v = __lsx_vsub_w(__lsx_vxor_v(__lsx_vsrl_w(p, d), sign), sign);
+	v = __lsx_vadd_w(v, __lsx_vshuf4i_w(v, 0x4E));
+	v = __lsx_vadd_w(v, __lsx_vshuf4i_w(v, 0xB1));
+	return vfpu_dot_finish(__lsx_vpickve2gr_w(v, 0), ehi);
+}
+
 #endif
 
 float vfpu_dot(const float a[4], const float b[4]) {
@@ -990,8 +1056,10 @@ float vfpu_dot(const float a[4], const float b[4]) {
 	return vfpu_dot_neon(a, b);
 #elif PPSSPP_ARCH(SSE2)
 	return vfpu_dot_sse2(a, b);
+#elif PPSSPP_ARCH(LOONGARCH64_LSX)
+	return vfpu_dot_lsx(a, b);
 #else
-	return vfpu_dot_reference(a, b);
+	return vfpu_dot_scalar(a, b);
 #endif
 }
 

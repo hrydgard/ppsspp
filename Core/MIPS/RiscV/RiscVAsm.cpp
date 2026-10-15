@@ -20,6 +20,7 @@
 #include "Core/MemMap.h"
 #include "Core/MIPS/RiscV/RiscVJit.h"
 #include "Core/MIPS/RiscV/RiscVRegCache.h"
+#include "Core/MIPS/RiscV/RiscVVfpuDot.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/JitCommon/JitState.h"
 #include "Core/Core.h"
@@ -237,6 +238,9 @@ void RiscVJitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	SW(SCRATCH2, SCRATCH1, 0);
 	J(quitLoop);
 
+	vfpuDotSpecial_ = GenerateRiscVVfpuDotSpecial(this, CTXREG);
+	vfpuDot_ = GenerateRiscVVfpuDot(this, CTXREG, vfpuDotSpecial_);
+
 	// Leave this at the end, add more stuff above.
 	if (enableDisasm) {
 #if PPSSPP_ARCH(RISCV64)
@@ -253,6 +257,19 @@ void RiscVJitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	// Don't forget to zap the instruction cache! This must stay at the end of this function.
 	FlushIcache();
 	EndWrite();
+}
+
+void RiscVJitBackend::GetFixedCodeLabels(std::vector<IRNativeFixedCodeLabel> &labels) const {
+	labels.push_back({ outerLoop_, "outerLoop", false });
+	labels.push_back({ outerLoopPCInSCRATCH1_, "outerLoopPCInSCRATCH1", false });
+	labels.push_back({ dispatcherCheckCoreState_, "dispatcherCheckCoreState", false });
+	labels.push_back({ dispatcherPCInSCRATCH1_, "dispatcherPCInSCRATCH1", false });
+	labels.push_back({ dispatcherNoCheck_, "dispatcherNoCheck", false });
+	labels.push_back({ applyRoundingMode_, "applyRoundingMode", true });
+	labels.push_back({ saveStaticRegisters_, "saveStaticRegisters", true });
+	labels.push_back({ loadStaticRegisters_, "loadStaticRegisters", true });
+	labels.push_back({ vfpuDot_, "vfpuDot", true });
+	labels.push_back({ vfpuDotSpecial_, "vfpuDotSpecial", true });
 }
 
 } // namespace MIPSComp

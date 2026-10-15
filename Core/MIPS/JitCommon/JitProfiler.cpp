@@ -117,7 +117,7 @@ std::string DescribeHostAddress(uintptr_t pc, uintptr_t *symbolStart) {
 	return "";
 }
 
-#elif !PPSSPP_PLATFORM(WINDOWS) && (PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(ARM)) && (defined(__APPLE__) || defined(__linux__))
+#elif !PPSSPP_PLATFORM(WINDOWS) && (((PPSSPP_ARCH(AMD64) || PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(ARM)) && (defined(__APPLE__) || defined(__linux__))) || ((PPSSPP_ARCH(RISCV64) || PPSSPP_ARCH(LOONGARCH64)) && defined(__linux__)))
 
 static pthread_t g_target;
 static struct sigaction g_oldAction;
@@ -140,6 +140,12 @@ static void SignalHandler(int, siginfo_t *, void *context) {
 #elif PPSSPP_ARCH(ARM)
 	pc = (uintptr_t)uc->uc_mcontext.arm_pc;
 	caller = (uintptr_t)uc->uc_mcontext.arm_lr;
+#elif PPSSPP_ARCH(RISCV64)
+	pc = (uintptr_t)uc->uc_mcontext.__gregs[REG_PC];
+	caller = (uintptr_t)uc->uc_mcontext.__gregs[REG_RA];
+#elif PPSSPP_ARCH(LOONGARCH64)
+	pc = (uintptr_t)uc->uc_mcontext.__pc;
+	caller = (uintptr_t)uc->uc_mcontext.__gregs[1];  // ra
 #endif
 	Record(pc, caller);
 }

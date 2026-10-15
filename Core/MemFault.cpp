@@ -142,8 +142,10 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 #endif
 
 	// The dispatcher looks a jump target up in the block shadow, which faults where there's no PSP memory.
+	// The JITs also do that lookup inline at a jump to a register.
 	const uintptr_t shadowAddress = (uintptr_t)blockShadow;
-	if (shadowAddress && hostAddress >= shadowAddress && hostAddress <= shadowAddress + BLOCK_SHADOW_MASK) {
+	const bool shadowFault = shadowAddress && hostAddress >= shadowAddress && hostAddress <= shadowAddress + BLOCK_SHADOW_MASK;
+	if (shadowFault) {
 		baseAddress = shadowAddress;
 	}
 
@@ -208,8 +210,9 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 	success = false;
 #endif
 
-	if (MIPSComp::jit && MIPSComp::jit->IsAtDispatchFetch(codePtr)) {
-		u32 targetAddr = currentMIPS->pc;  // bad approximation
+	if (MIPSComp::jit && (shadowFault || MIPSComp::jit->IsAtDispatchFetch(codePtr))) {
+		// The shadow entry's offset is the target, masked.
+		u32 targetAddr = shadowFault ? guestAddress : currentMIPS->pc;
 		// TODO: Do the other archs and platforms.
 #if PPSSPP_ARCH(AMD64) && PPSSPP_PLATFORM(WINDOWS)
 		// We know which register the address is in, look in Asm.cpp.

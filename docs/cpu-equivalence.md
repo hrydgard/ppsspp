@@ -34,10 +34,19 @@ Environment variables:
 | `PPSSPP_CPUFUZZ_STRICT` | fail on any difference, not only on a crash |
 | `PPSSPP_CPUFUZZ_OPS` | comma-separated instruction name prefixes to generate only; `dot` is the dot products and the prefix ops |
 | `PPSSPP_CPUFUZZ_ACCURATE_VDOT` | `0` to run without the accurate dot products, which are on by default |
+| `PPSSPP_CPUFUZZ_HOSTEXT` | `+` or `-`: turn the JIT's optional host extensions on or off (RISC-V Zba/Zbb/Zbs/Zcb/Zfa/Zfh/Zicond, and V with `-`, LoongArch LSX/LASX); the `VFPUDotJit` test follows it too |
+| `PPSSPP_CPUFUZZ_BLOCKS` | print the IR and host code of every block the JITs ran, after each case |
+| `PPSSPP_CPUFUZZ_UNKNOWNPREFIX` | compile as after a block left a prefix uneaten |
 
 For quick rounds while working on some instructions, fuzz just those, on every core of the machine:
 `PPSSPP_CPUFUZZ_OPS=dot Tools/cpu_fuzz_parallel.py build/PPSSPPUnitTest --count 2000` splits the seeds
 over several processes and sums up the results.
+
+Once a block ends with a prefix uneaten, the IR frontend stops assuming that blocks start with the
+default prefixes (`startDefaultPrefix`), for as long as the JIT exists. In a run, the first case that
+leaves a prefix does this, so whether a later case compiles one way or the other depends on the
+cases before it, and a difference may not reproduce with that seed alone.
+`PPSSPP_CPUFUZZ_UNKNOWNPREFIX` puts every core into that mode first.
 
 Always set `CI=1` when running it from a script on Windows. Otherwise a JIT assert opens a message
 box and the run hangs until someone clicks it.
@@ -93,6 +102,9 @@ Crashes (JIT emitter asserts) and wrong code found by the fuzzer:
 - x86 JIT: fpcond held the compare's all-ones mask instead of 1.
 - ARM JITs: `vmfvc` of a control register past the defined ones mapped the dest without
   `MAP_DIRTY`, so its 0 was never written.
+- IR: `vmmov` between transposed matrices whose rows wrap around (like `E020`) produced unaligned
+  Vec4 moves, which crashed the x86 IR interpreter.
+- RISC-V and LoongArch64 JITs: see below.
 - The legacy JITs' `Comp_Generic` ran the interpreted instruction in the host's default rounding
   mode instead of the guest's.
 - IR: vmscl and the matrix inits of two transposed matrices flipped the transposed bit to get
@@ -233,6 +245,65 @@ end state in every fuzz case under qemu-arm (`./b.sh --armhf`, see building.md).
 - Before these JIT fixes, the fuzzer on the S8+ had the JIT differ from the interpreter in 1298
   of 20000 mixed cases (the IR interpreter in 1446), not broken down. It crashes on the A21 in its
   memory setup, so it hasn't been rerun since.
+
+### RISC-V and LoongArch64
+
+Run under qemu-user on x86-64 Linux (cross toolchains from Ubuntu's `gcc-15-riscv64-linux-gnu` and
+`gcc-15-loongarch64-linux-gnu`, configured with `-DHEADLESS=ON -DUNITTEST=ON`). Each has three
+cores, and the JIT is the IR JIT. RISC-V detection only reports Zba/Zbb/Zbs/Zicond for two SoCs and
+never Zcb or Zfa, so the fuzzer forces them with `PPSSPP_CPUFUZZ_HOSTEXT=+` (under
+`QEMU_CPU=max`); LoongArch runs both with LSX (qemu's la464) and without (`-`).
+
+Fixed:
+
+- RISC-V emitter: `c.lbu`/`c.sb` (Zcb) had their two offset bits swapped, so byte loads and
+  stores at offset 1 or 2 went to the wrong byte.
+- RISC-V emitter: `CanFLI` took any NaN for FLI's canonical one, so `vfim` of a NaN lost its
+  sign (Zfa).
+- LoongArch JIT: `vsat0`/`vsat1` turned a NaN into the bound (FMIN/FMAX return the non-NaN
+  operand), and `vcmp NE` was false for a NaN.
+- Both JITs: `Vec4Dot` (vdot, vhdp, vtfm, vmmul) used fused multiply-add. Without SIMD it now
+  multiplies and adds in the IR interpreter's order; LoongArch's LSX path adds pairwise, like
+  the x86 and ARM64 JITs.
+- Interpreter: `vsgn` of a negative NaN gave 1 on RISC-V, whose subtraction always makes the
+  positive canonical NaN.
+- RISC-V emitter: `vmv.s.x` and `vfmv.s.f` were encoded as `vmv.x.s` and `vfmv.f.s`, writing the
+  scalar register instead of the vector (nothing used them before the dot product routine).
+
+The accurate dot product (`Vec4VfpuDot`) runs through a routine both JITs generate at startup and
+call, like the ARM64 and x86-64 ones (`RiscVVfpuDot.h`, `LoongArch64VfpuDot.h`). RISC-V has a
+scalar version, which uses Zbb and Zicond where it has them, and an RVV one used when the V
+extension is detected. LoongArch has an LSX version and a scalar one. Inf and NaN go to
+`vfpu_dot_reference()`. In the interpreters, `vfpu_dot()` is `vfpu_dot_scalar()` on RISC-V and
+`vfpu_dot_lsx()` on LoongArch. The `VFPUDotJit` unit test runs every variant the host can run
+against the reference on `VFPUDot`'s inputs. Whether the RVV version beats the scalar one on real
+hardware hasn't been measured: it moves values between the vector and scalar units three times,
+which costs more on some cores than on others.
+
+Neither JIT has `Vec4VfpuMultiDot`, so the frontend leaves runs of dots as single
+`Vec4VfpuDot`s for them (`IROptions::vfpuMultiDot`). Both have the Vec4 vmin, vmax, vslt, vsge and
+vi2f ops (`IROptions::moreVec4Ops`), lane by lane on RISC-V and on LoongArch without LSX.
+
+Before the accurate dot product, the JIT gave the same end state as the IR interpreter in 20000
+VFPU-heavy cases (`vvvf`), 20000 mixed and 10000 integer/memory ones, on RISC-V with and without
+the extensions and on LoongArch without LSX. What was left were host NaNs out of a horizontal op
+that something then orders by sign (item 6), and with LSX the summation order of the dot product.
+With it, the JIT matches the IR interpreter bit for bit in 20000 default cases on LoongArch with
+and without LSX, and in 6000 on RISC-V with RVV, without V and the extensions, and with the
+extensions. The same holds in at least 4000 dot product cases (`PPSSPP_CPUFUZZ_OPS=dot`) in each of
+those, and with unknown prefixes.
+
+Against the other hosts:
+
+- Neither ISA can flush denormals, so FS does nothing (`cpu/fpu/fpu` and `cpu/fpu/denormal` fail,
+  63 lines from the PSP where x86 and ARM64 have 54). Both are in `known_failures` in `test.py`.
+- RISC-V never propagates a NaN operand: every NaN it makes is `0x7FC00000`, which matches the
+  PSP's FPU (`cpu/fpu/fpu_nan` passes) but loses a NaN's sign and payload (`cpu/fpu/roundmode`).
+  LoongArch propagates operands like x86 and makes the positive default NaN like ARM64, and also
+  passes `fpu_nan`.
+- Every core gives the same results as on x86-64 in 20000 integer/FPU/memory cases but one, a
+  `div.s` of a denormal under FS. With VFPU code, the interpreters differ by host NaNs from
+  horizontal ops into vsbn, vmin, vmax or vscmp.
 
 ### Not looked into yet
 

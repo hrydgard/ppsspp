@@ -74,6 +74,8 @@ inline float vfpu_clamp(float v, float min, float max) {
 float vfpu_dot(const float a[4], const float b[4]);
 // The portable version vfpu_dot is checked against.
 float vfpu_dot_reference(const float a[4], const float b[4]);
+// vfpu_dot on hosts with no SIMD version.
+float vfpu_dot_scalar(const float a[4], const float b[4]);
 // Four vfpu_dot()s against v, over the first terms lanes: out[k] uses block[4 * i + k] for lane i,
 // or block[4 * k + i] if transposed (see IROp::Vec4VfpuMultiDot).
 void vfpu_multi_dot(float out[4], const float block[16], const float v[4], int terms, bool transposed);
