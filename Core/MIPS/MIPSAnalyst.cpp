@@ -377,6 +377,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xa85fe8abb88b1c6f, 52, "vector_sub_t", },
 	{ 0xa9194e55cc586557, 268, "memcpy", },
 	{ 0xa91b3d60bd75105b, 28, "vadd_t", },
+	{ 0xaaf1cc9399336a21, 1872, "resistance_update_trail", },
 	{ 0xab97ec58c58a7c75, 52, "sceVfpuVector3Div", },
 	{ 0xac84fa7571895c9a, 68, "memcpy", }, // Marvel Ultimate Alliance 2
 	{ 0xacc2c11c3ea28320, 268, "ceilf", },
@@ -449,6 +450,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xd1db467a23ebe00d, 724, "rewrite_download_frame", }, // Rewrite Portable
 	{ 0xd1faacfc711d61e8, 68, "__negdf2", },
 	{ 0xd207b0650a41dd9c, 28, "vmin_q", },
+	{ 0xd4af2d7a4df495ae, 1728, "resistance_draw_trail", },
 	{ 0xd6d6e0bb21654778, 24, "vneg_t", },
 	{ 0xd7229fee680e7851, 40, "sceVfpuScalarMin", },
 	{ 0xd75670860a7f4b05, 144, "wcsncpy", },
@@ -1289,6 +1291,16 @@ namespace MIPSAnalyst {
 		for (auto iter = functions.begin(), end = functions.end(); iter != end; ++iter) {
 			if (iter->start <= addr && iter->end >= addr) {
 				*out = *iter;
+				return true;
+			}
+		}
+		return false;
+	}
+
+	bool HasFunctionsInRange(u32 startAddr, u32 endAddr) {
+		std::lock_guard<std::recursive_mutex> guard(functions_lock);
+		for (const AnalyzedFunction &f : functions) {
+			if (f.start >= startAddr && f.start < endAddr) {
 				return true;
 			}
 		}

@@ -1483,6 +1483,66 @@ static int Hook_codedarms_stencil_check() {
 	return 0;
 }
 
+static int Hook_resistance_draw_trail() {
+	// Smoke trails get a new node per update rather than per unit of time, while the nodes expire by
+	// time, so the higher the frame rate, the more of them are alive. After the angel boss in Bonn the
+	// trails behind the debris make the display list overflow its buffer at 60fps, into the music
+	// stream and beyond (#19755). Locking the CPU to 222MHz, which slows the frame rate, avoids it.
+	// resistance_update_trail now limits the node rate, so this is a backstop.
+	// The game keeps its two list buffers and their limits next to the write pointer, but doesn't
+	// check them here. Hooked where the node count is about to become the loop count: when the
+	// current buffer is nearly full, skip the trail by making the count zero.
+	u32 listPtrAddr;
+	if (!GetMIPSStaticAddress(listPtrAddr, 0x6C, 0x3A4) || !Memory::IsValid4AlignedRange(listPtrAddr - 0x10, 0x14 + 8)) {
+		return 0;
+	}
+	const u32 ptr = Memory::ReadUnchecked_U32(listPtrAddr) & 0x0FFFFFFF;
+	for (int i = 0; i < 2; i++) {
+		const u32 base = Memory::ReadUnchecked_U32(listPtrAddr - 0x10 + i * 4) & 0x0FFFFFFF;
+		const u32 limit = Memory::ReadUnchecked_U32(listPtrAddr + 4 + i * 4) & 0x0FFFFFFF;
+		if (ptr >= base && ptr <= limit) {
+			// A trail is at most 17 nodes of six sprites (0x84 bytes each), so this leaves room for it
+			// and for everything drawn after it.
+			if (limit - ptr < 0x18000) {
+				currentMIPS->r[MIPS_REG_A1] = (u32)-1;
+			}
+			break;
+		}
+	}
+	return 0;
+}
+
+static int Hook_resistance_update_trail() {
+	// The trail adds a node on every update that its emitter's rate allows (one per update at most,
+	// and the explosion debris always allow one), and the effect's clock advances 1/60 per update
+	// at 60fps. Keep the nodes at least 1/30 of that clock apart, as if the game ran at 30fps, so
+	// running faster doesn't pack the smoke denser and multiply the trails (#19755). Hooked where the
+	// accumulator is about to be tested: holding it under the threshold postpones the node.
+	const u32 trail = currentMIPS->r[MIPS_REG_S0];
+	if (!Memory::IsValid4AlignedRange(trail + 0x140, 0x3C)) {
+		return 0;
+	}
+	const u32 emitter = Memory::ReadUnchecked_U32(trail + 0x140);
+	const u32 nodes = Memory::ReadUnchecked_U32(trail + 0x144);
+	const s32 count = (s32)Memory::ReadUnchecked_U32(trail + 0x178);
+	if (count <= 0 || !Memory::IsValid4AlignedAddress(emitter + 8) || !Memory::IsValid4AlignedAddress(nodes + (count - 1) * 4)) {
+		return 0;
+	}
+	const u32 lastNode = Memory::ReadUnchecked_U32(nodes + (count - 1) * 4);
+	if (!Memory::IsValid4AlignedAddress(lastNode + 0x50)) {
+		return 0;
+	}
+	const float now = currentMIPS->f[20];
+	const float lastNodeTime = Memory::ReadUnchecked_Float(lastNode + 0x50);
+	// Updates come 1/60 apart, so this lets every other one through.
+	if (now - lastNodeTime < 1.0f / 30.0f - 0.001f) {
+		const float rate = Memory::ReadUnchecked_Float(emitter + 8);
+		const float acc = Memory::ReadUnchecked_Float(trail + 0x170);
+		Memory::WriteUnchecked_Float(std::min(acc, 1.0f - rate - 0.001f), trail + 0x170);
+	}
+	return 0;
+}
+
 static int Hook_katamari_render_check() {
 	if (!Memory::IsValidRange(currentMIPS->r[MIPS_REG_A0] + 0x3C, 8)) {
 		return 0;
@@ -1822,6 +1882,8 @@ static const ReplacementTableEntry entries[] = {
 	{ "everybodysgolf_copy_portrait", &Hook_everybodysgolf_copy_portrait, 0, REPFLAG_HOOKENTER, 0x50 },
 	{ "everybodysgolf_spinner_background", &Hook_everybodysgolf_spinner_background, 0, REPFLAG_HOOKENTER, 0x138 },
 	{ "codedarms_stencil_check", &Hook_codedarms_stencil_check, 0, REPFLAG_HOOKENTER, 0x8C },
+	{ "resistance_draw_trail", &Hook_resistance_draw_trail, 0, REPFLAG_HOOKENTER, 0x198 },
+	{ "resistance_update_trail", &Hook_resistance_update_trail, 0, REPFLAG_HOOKENTER, 0x438 },
 	{}
 };
 
