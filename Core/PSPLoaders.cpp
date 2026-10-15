@@ -15,6 +15,8 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
+#include <iterator>
 #include <thread>
 
 #include "Core/Core.h"
@@ -27,10 +29,12 @@
 #ifdef _WIN32
 #include "Common/CommonWindows.h"
 #endif
+#include "Common/Data/Text/I18n.h"
 #include "Common/System/OSD.h"
 
 #include "Core/ELF/ParamSFO.h"
 #include "Core/ELF/PBPReader.h"
+#include "Core/ELF/PrxDecrypter.h"
 
 #include "Core/FileSystems/BlockDevices.h"
 #include "Core/FileSystems/BlobFileSystem.h"
@@ -332,8 +336,94 @@ static std::string FindGameUpdatePBOOT(const std::string &discId, const std::str
 	return path;
 }
 
+// A game patch download that was meant to be installed by the PSP's install utility (a DRM BB install
+// package, see pspReadDrmBBPackage) sits in PSP/GAME/<DISC_ID>/ as an EBOOT.PBP the XMB won't start.
+// The game's boot program installs it, but only when started with -i, which the game did itself after
+// its online download and nothing does any more. So install it here, the way psheet does: the files
+// it holds go next to it, and its own EBOOT.PBP replaces it. The .PRX modules are written as the
+// package has them rather than tied to a console, so this only happens when we can decrypt them.
+// Only a few games had such downloads. These are the ones whose modules g_kirk2Results in
+// PrxDecrypter.cpp covers; add a game here along with its entries there.
+static const char * const drmBBPackageGames[] = {
+	"UCES00279",  // Killzone: Liberation (EU)
+	"UCUS98646",  // Killzone: Liberation (US)
+};
+
+static void InstallDrmBBPackage(const std::string &discId) {
+	if (std::find(std::begin(drmBBPackageGames), std::end(drmBBPackageGames), discId) == std::end(drmBBPackageGames)) {
+		return;
+	}
+	const std::string dir = "ms0:/PSP/GAME/" + discId + "/";
+	// The boot program's check: anything smaller is the EBOOT.PBP an install leaves behind.
+	const PSPFileInfo info = pspFileSystem.GetFileInfo(dir + "EBOOT.PBP");
+	if (!info.exists || info.size <= 0x100000) {
+		return;
+	}
+
+	const char *osdId = "drmbbinstall";
+	auto di = GetI18NCategory(I18NCat::DIALOG);
+	g_OSD.SetProgressBar(osdId, di->T("Installing..."), 0.0f, 0.0f, 0.0f, 0.0f);
+
+	std::vector<u8> pbp;
+	std::vector<DrmBBFile> files;
+	u8 secureId[16];
+	if (pspFileSystem.ReadEntireFile(dir + "EBOOT.PBP", pbp) < 0 || !pspReadDrmBBPackage(pbp, nullptr, files, secureId)) {
+		g_OSD.RemoveProgressBar(osdId, false, 0.0f);
+		return;
+	}
+
+	bool hasEboot = false;
+	for (const DrmBBFile &file : files) {
+		if (file.name == "EBOOT.PBP") {
+			hasEboot = true;
+		} else if (endsWith(file.name, ".PRX")) {
+			std::vector<u8> out(file.data.size());
+			if (file.data.size() < 0x150 || pspDecryptPRX(file.data.data(), out.data(), (u32)file.data.size(), secureId) <= 0) {
+				WARN_LOG(Log::Loader, "Not installing %sEBOOT.PBP: can't decrypt its %s without installing it on a PSP", dir.c_str(), file.name.c_str());
+				g_OSD.RemoveProgressBar(osdId, false, 0.0f);
+				return;
+			}
+		} else {
+			// The install re-encrypts other files for the console as PGDs. Nothing we know of has any.
+			WARN_LOG(Log::Loader, "Not installing %sEBOOT.PBP: don't know what to do with its %s", dir.c_str(), file.name.c_str());
+			g_OSD.RemoveProgressBar(osdId, false, 0.0f);
+			return;
+		}
+	}
+	// psheet fails the install without one.
+	if (!hasEboot) {
+		g_OSD.RemoveProgressBar(osdId, false, 0.0f);
+		return;
+	}
+
+	auto writeFile = [](const std::string &path, const std::vector<u8> &data) {
+		const int fd = pspFileSystem.OpenFile(path, (FileAccess)(FILEACCESS_WRITE | FILEACCESS_CREATE | FILEACCESS_TRUNCATE));
+		if (fd < 0) {
+			return false;
+		}
+		const bool ok = pspFileSystem.WriteFile(fd, data.data(), data.size()) == data.size();
+		pspFileSystem.CloseFile(fd);
+		return ok;
+	};
+	// Like psheet, the new EBOOT.PBP goes in as _TEMP.PBP and is renamed last.
+	for (const DrmBBFile &file : files) {
+		const std::string path = dir + (file.name == "EBOOT.PBP" ? "_TEMP.PBP" : file.name);
+		if (!writeFile(path, file.data)) {
+			ERROR_LOG(Log::Loader, "Couldn't write %s while installing %sEBOOT.PBP", path.c_str(), dir.c_str());
+			g_OSD.RemoveProgressBar(osdId, false, 0.0f);
+			return;
+		}
+	}
+	pspFileSystem.RemoveFile(dir + "EBOOT.PBP");
+	pspFileSystem.RenameFile(dir + "_TEMP.PBP", dir + "EBOOT.PBP");
+	g_OSD.RemoveProgressBar(osdId, true, 0.0f);
+	NOTICE_LOG(Log::Loader, "Installed the game patch in %s", dir.c_str());
+}
+
 bool Load_PSP_ISO(FileLoader *fileLoader, std::string *error_string) {
 	const std::string id = g_paramSFO.GetValueString("DISC_ID");
+
+	InstallDrmBBPackage(id);
 
 	// An installed game update replaces the disc's executable - see FindGameUpdatePBOOT above.
 	std::string bootpath = FindGameUpdatePBOOT(id, g_paramSFO.GetValueString("DISC_VERSION"));
