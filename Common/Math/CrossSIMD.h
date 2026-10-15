@@ -10,6 +10,13 @@
 #include <cstring>
 #include "Common/Math/SIMDHeaders.h"
 
+// Four bytes from anywhere. Vertex data is only byte aligned, and a plain u32 load can fault on ARM32.
+inline uint32_t LoadU32Unaligned(const void *src) {
+	uint32_t value;
+	memcpy(&value, src, sizeof(value));
+	return value;
+}
+
 #define TEST_FALLBACK 0
 
 #if PPSSPP_ARCH(SSE2) && !TEST_FALLBACK
@@ -260,7 +267,7 @@ struct Vec4F32 {
 	}
 
 	static Vec4F32 LoadS8Norm(const int8_t *src) {
-		__m128i value = _mm_cvtsi32_si128(*((uint32_t *)src));
+		__m128i value = _mm_cvtsi32_si128(LoadU32Unaligned(src));
 		__m128i value16 = _mm_unpacklo_epi8(value, value);
 		__m128i value32 = _mm_unpacklo_epi16(value16, value16);
 		// Sign extension. A bit ugly without SSE4.
@@ -269,7 +276,7 @@ struct Vec4F32 {
 	}
 
 	static Vec4F32 LoadU8Norm(const uint8_t *src) {
-		__m128i value = _mm_cvtsi32_si128(*((uint32_t *)src));
+		__m128i value = _mm_cvtsi32_si128(LoadU32Unaligned(src));
 		__m128i value16 = _mm_unpacklo_epi8(value, _mm_setzero_si128());
 		__m128i value32 = _mm_unpacklo_epi16(value16, _mm_setzero_si128());
 		return Vec4F32{_mm_mul_ps(_mm_cvtepi32_ps(value32), _mm_set1_ps(1.0f / 255.0f))};
@@ -288,7 +295,7 @@ struct Vec4F32 {
 	}
 
 	static Vec4F32 LoadConvertS8(const int8_t *src) {
-		__m128i value = _mm_cvtsi32_si128(*((uint32_t *)src));
+		__m128i value = _mm_cvtsi32_si128(LoadU32Unaligned(src));
 		__m128i value16 = _mm_unpacklo_epi8(value, value);
 		// 16-bit to 32-bit, use the upper words and an arithmetic shift right to sign extend
 		return Vec4F32{ _mm_cvtepi32_ps(_mm_srai_epi32(_mm_unpacklo_epi16(value16, value16), 24)) };
@@ -296,7 +303,7 @@ struct Vec4F32 {
 
 	// NOTE: Does not normalize to 0..255 range.
 	static Vec4F32 LoadConvertU8(const uint8_t *src) {
-		__m128i value = _mm_cvtsi32_si128(*((uint32_t *)src));
+		__m128i value = _mm_cvtsi32_si128(LoadU32Unaligned(src));
 		__m128i zero = _mm_setzero_si128();
 		__m128i value16 = _mm_unpacklo_epi8(value, zero);
 		// 16-bit to 32-bit, use the upper words and an arithmetic shift right to sign extend
@@ -733,12 +740,12 @@ struct Vec4F32 {
 
 	static Vec4F32 Load(const float *src) { return Vec4F32{ vld1q_f32(src) }; }
 	static Vec4F32 LoadS8Norm(const int8_t *src) {
-		const int8x8_t value = (int8x8_t)vdup_n_u32(*((uint32_t *)src));
+		const int8x8_t value = (int8x8_t)vdup_n_u32(LoadU32Unaligned(src));
 		const int16x8_t value16 = vmovl_s8(value);
 		return Vec4F32 { vcvtq_n_f32_s32(vmovl_s16(vget_low_s16(value16)), 7) };
 	}
 	static Vec4F32 LoadU8Norm(const uint8_t *src) {
-		const uint8x8_t value = (uint8x8_t)vdup_n_u32(*((uint32_t *)src));
+		const uint8x8_t value = (uint8x8_t)vdup_n_u32(LoadU32Unaligned(src));
 		const uint16x8_t value16 = vmovl_u8(value);
 		return Vec4F32{ vmulq_f32(vcvtq_f32_u32(vmovl_u16(vget_low_u16(value16))), vdupq_n_f32(1.0f / 255.0f))};
 	}
@@ -2183,11 +2190,12 @@ struct Vec4F32 {
 	}
 
 	inline Vec4F32 AsVec3ByMatrix44(const Mat4F32 &m) {
-		float x = m.m[0] * v[0] + m.m[4] * v[1] + m.m[8] * v[2] + m.m[12];
-		float y = m.m[1] * v[0] + m.m[5] * v[1] + m.m[9] * v[2] + m.m[13];
-		float z = m.m[2] * v[0] + m.m[6] * v[1] + m.m[10] * v[2] + m.m[14];
-
-		return Vec4F32{ { x, y, z, 1.0f } };
+		// The same order of operations as the SIMD versions.
+		Vec4F32 temp;
+		for (int i = 0; i < 4; i++) {
+			temp.v[i] = (m.m[i] * v[0] + m.m[4 + i] * v[1]) + (m.m[8 + i] * v[2] + m.m[12 + i]);
+		}
+		return temp;
 	}
 
 	float Dot3(Vec4F32 b) {

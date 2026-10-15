@@ -208,7 +208,7 @@ void DepthRaster4Triangles(int stats[3], uint16_t *depthBuf, int stride, DepthSc
 		Vec4S32 oneStepY20 = Vec4S32::Splat(stepY20[t]);
 		Vec4S32 oneStepX01 = Vec4S32::Splat(stepX01[t]);
 		Vec4S32 oneStepY01 = Vec4S32::Splat(stepY01[t]);
-		// Rasterize
+		// Rasterize. The triangle is convex, so once a row has been entered and left, the rest of it is outside.
 		for (int y = minYT; y <= maxYT; y += stepYSize, w0_row += oneStepY12, w1_row += oneStepY20, w2_row += oneStepY01, zrow += zdeltaY) {
 			// Barycentric coordinates at start of row
 			Vec4S32 w0 = w0_row;
@@ -218,15 +218,18 @@ void DepthRaster4Triangles(int stats[3], uint16_t *depthBuf, int stride, DepthSc
 
 			uint16_t *rowPtr = depthBuf + stride * y;
 
+			bool rowEntered = false;
 			for (int x = minXT; x <= maxXT; x += stepXSize, w0 += oneStepX12, w1 += oneStepX20, w2 += oneStepX01, zs += zdeltaX) {
 				// If p is on or inside all edges for any pixels,
 				// render those pixels.
 				Vec4S32 signCalc = w0 | w1 | w2;
 
-				// TODO: Check if this check is profitable. Maybe only for big triangles?
 				if (!AnyZeroSignBit(signCalc)) {
+					if (rowEntered)
+						break;
 					continue;
 				}
+				rowEntered = true;
 
 				Vec4U16 bufferValues = Vec4U16::Load(rowPtr + x);
 				Vec4U16 shortMaskInv = SignBits32ToMaskU16(signCalc);

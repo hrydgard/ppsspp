@@ -300,6 +300,8 @@
     <ClCompile Include="TestGEMath.cpp" />
     <ClCompile Include="TestThreadManager.cpp" />
     <ClCompile Include="TestTextureReplacer.cpp" />
+    <ClCompile Include="TestBoundingBox.cpp" />
+    <ClCompile Include="TestDepthRaster.cpp" />
     <ClCompile Include="TestVertexJit.cpp" />
     <ClCompile Include="TestVFS.cpp" />
     <ClCompile Include="TestZipSlip.cpp" />
