@@ -44,8 +44,8 @@ void VtxDec_Tu16_C8888_Pfloat(const u8 *srcp, u8 *dstp, int count, const UVScale
 			};
 			u32 packed_uv;
 		};
-		u32 packed_normal;
 		u32 col;
+		u32 nrm;  // s8 x3, padding
 		float x;
 		float y;
 		float z;
@@ -55,8 +55,8 @@ void VtxDec_Tu16_C8888_Pfloat(const u8 *srcp, u8 *dstp, int count, const UVScale
 	struct OutVTX {
 		float u;
 		float v;
-		u32 packed_normal;
-		uint32_t col;
+		u32 col;
+		u32 nrm;
 		float x;
 		float y;
 		float z;
@@ -72,37 +72,34 @@ void VtxDec_Tu16_C8888_Pfloat(const u8 *srcp, u8 *dstp, int count, const UVScale
 
 	u32 alpha = 0xFFFFFFFF;
 
-	// The position is loaded together with the color, as lanes 1-3. A NaN or infinite coordinate has
+	// The position is loaded together with the normal, as lanes 1-3. A NaN or infinite coordinate has
 	// to come out finite, so that the viewport scale can zero it later like the PSP does. Which finite
-	// value doesn't matter, so any lane with an all-ones exponent is zeroed. Lane 0 (the color) is
+	// value doesn't matter, so any lane with an all-ones exponent is zeroed. Lane 0 (the normal) is
 	// left alone: its mask is 0, which never equals the exponent.
 	alignas(16) static const u32 expMask[4] = { 0, 0x7F800000, 0x7F800000, 0x7F800000 };
 
 #if PPSSPP_ARCH(SSE2)
 	__m128 uvOff = _mm_setr_ps(uoff, voff, uoff, voff);
 	__m128 uvScale = _mm_setr_ps(uscale, vscale, uscale, vscale);
-	__m128i alphaMask = _mm_set1_epi32(0xFFFFFFFF);
 	const __m128i posExpMask = _mm_load_si128((const __m128i *)expMask);
 	const __m128i expAllOnes = _mm_set1_epi32(0x7F800000);
 	for (int i = 0; i < count; i++) {
 		__m128i uv = _mm_set1_epi32(src[i].packed_uv);
 		__m128 fuv = _mm_cvtepi32_ps(_mm_unpacklo_epi16(uv, _mm_setzero_si128()));
 		__m128 finalUV = _mm_add_ps(_mm_mul_ps(fuv, uvScale), uvOff);
-		u32 normal = src[i].packed_normal;
-		__m128i colpos = _mm_loadu_si128((const __m128i *)&src[i].col);
-		alphaMask = _mm_and_si128(alphaMask, colpos);
-		colpos = _mm_andnot_si128(_mm_cmpeq_epi32(_mm_and_si128(colpos, posExpMask), expAllOnes), colpos);
+		const u32 col = src[i].col;
+		alpha &= col;
+		__m128i nrmpos = _mm_loadu_si128((const __m128i *)&src[i].nrm);
+		nrmpos = _mm_andnot_si128(_mm_cmpeq_epi32(_mm_and_si128(nrmpos, posExpMask), expAllOnes), nrmpos);
 		_mm_store_sd((double *)&dst[i].u, _mm_castps_pd(finalUV));
-		dst[i].packed_normal = normal;
-		_mm_storeu_si128((__m128i *)&dst[i].col, colpos);
+		dst[i].col = col;
+		_mm_storeu_si128((__m128i *)&dst[i].nrm, nrmpos);
 	}
-	alpha = _mm_cvtsi128_si32(alphaMask);
 
 #elif PPSSPP_ARCH(ARM_NEON)
 	const float scaleArr[2] = { uscale, vscale };
 	float32x2_t uvScale = vld1_f32(scaleArr);
 	float32x2_t uvOff = vld1_f32(&uvScaleOffset->uOff);
-	uint32x4_t alphaMask = vdupq_n_u32(0xFFFFFFFF);
 	const uint32x4_t posExpMask = vld1q_u32(expMask);
 	const uint32x4_t expAllOnes = vdupq_n_u32(0x7F800000);
 	for (int i = 0; i < count; i++) {
@@ -114,15 +111,14 @@ void VtxDec_Tu16_C8888_Pfloat(const u8 *srcp, u8 *dstp, int count, const UVScale
 #else
 		float32x2_t finalUV = vadd_f32(vmul_f32(vcvt_f32_u32(fuv), uvScale), uvOff);
 #endif
-		u32 normal = src[i].packed_normal;
-		uint32x4_t colpos = vld1q_u32((const u32 *)&src[i].col);
-		alphaMask = vandq_u32(alphaMask, colpos);
-		colpos = vbicq_u32(colpos, vceqq_u32(vandq_u32(colpos, posExpMask), expAllOnes));
+		const u32 col = src[i].col;
+		alpha &= col;
+		uint32x4_t nrmpos = vld1q_u32(&src[i].nrm);
+		nrmpos = vbicq_u32(nrmpos, vceqq_u32(vandq_u32(nrmpos, posExpMask), expAllOnes));
 		vst1_f32(&dst[i].u, finalUV);
-		dst[i].packed_normal = normal;
-		vst1q_u32(&dst[i].col, colpos);
+		dst[i].col = col;
+		vst1q_u32(&dst[i].nrm, nrmpos);
 	}
-	alpha = vgetq_lane_u32(alphaMask, 0);
 #else
 	for (int i = 0; i < count; i++) {
 		float u = src[i].u * uscale + uoff;
@@ -133,7 +129,7 @@ void VtxDec_Tu16_C8888_Pfloat(const u8 *srcp, u8 *dstp, int count, const UVScale
 		float y = src[i].y;
 		float z = src[i].z;
 		dst[i].col = color;
-		dst[i].packed_normal = src[i].packed_normal;
+		dst[i].nrm = src[i].nrm;
 		dst[i].u = u;
 		dst[i].v = v;
 		dst[i].x = x;
@@ -141,7 +137,9 @@ void VtxDec_Tu16_C8888_Pfloat(const u8 *srcp, u8 *dstp, int count, const UVScale
 		dst[i].z = z;
 	}
 #endif
-	gstate_c.vertexFullAlpha = (alpha >> 24) == 0xFF;
+	// Only cleared, like the steps do: the draws before in the batch count too.
+	if ((alpha >> 24) != 0xFF)
+		gstate_c.vertexFullAlpha = false;
 }
 
 void VtxDec_Tu8_C5551_Ps16(const u8 *srcp, u8 *dstp, int numVerts, const UVScale *uvScaleOffset) {
@@ -323,7 +321,8 @@ void VtxDec_Tu8_C5551_Ps16(const u8 *srcp, u8 *dstp, int numVerts, const UVScale
 		count--;
 	}
 
-	gstate_c.vertexFullAlpha = (alpha >> 15) & 1;
+	if (!((alpha >> 15) & 1))
+		gstate_c.vertexFullAlpha = false;
 }
 
 // Converting UV without a prescale is the same as with a scale of 1 and no offset: the division by a power

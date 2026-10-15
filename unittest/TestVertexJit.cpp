@@ -1008,6 +1008,23 @@ struct JitMismatch {
 		if (refFullAlpha != jitFullAlpha) {
 			record("fullAlpha", colStep, 0, StringFromFormat("steps %d vs jit %d", (int)refFullAlpha, (int)jitFullAlpha));
 		}
+		// A vertex with full alpha (all ones is that in every color format), decoded after a draw in the
+		// batch that cleared the flag and after one that didn't. Decoding only ever clears it.
+		if (ref.col) {
+			const int colorSize = ref.col == GE_VTYPE_COL_8888 >> GE_VTYPE_COL_SHIFT ? 4 : 2;
+			for (int m = 0; m < ref.morphcount; m++)
+				memset(src + m * ref.onesize_ + ref.coloff, 0xFF, colorSize);
+			for (bool before : { false, true }) {
+				gstate_c.vertexFullAlpha = before;
+				ref.DecodeVerts(refOut, src, &uvScale, 1);
+				const bool refAfter = gstate_c.vertexFullAlpha;
+				gstate_c.vertexFullAlpha = before;
+				jit.DecodeVerts(jitOut, src, &uvScale, 1);
+				if (gstate_c.vertexFullAlpha != refAfter) {
+					record("fullAlpha", colStep, 0, StringFromFormat("full alpha vertex, %d before: steps %d vs %d", (int)before, (int)refAfter, (int)gstate_c.vertexFullAlpha));
+				}
+			}
+		}
 		// TODO: Only the steps track bounds for float UVs in through mode. Undecided which way to go.
 		if (tcStep != &VertexDecoder::Step_TcFloatThrough && memcmp(&refBounds, &jitBounds, sizeof(refBounds)) != 0) {
 			record("bounds", tcStep, 0, StringFromFormat("steps %d,%d-%d,%d vs jit %d,%d-%d,%d",
