@@ -46,9 +46,25 @@ void LoongArch64JitBackend::CompIR_Exit(IRInst inst) {
 	case IROp::ExitToReg:
 		exitReg = regs_.MapGPR(inst.src1);
 		FlushAll();
-		// TODO: If ever we don't read this back in dispatcherPCInSCRATCH1_, we should zero upper.
 		MOVE(SCRATCH1, exitReg);
-		QuickJ(R_RA, dispatcherPCInSCRATCH1_);
+		// The dispatcher's lookup, here: each of these then has its own indirect branch, which the
+		// CPU predicts far better than one shared by every jr. Anything unusual goes the long way.
+		MovToPC(SCRATCH1);
+		{
+			// Out of the downcount, or no block yet: the dispatcher, with the PC stored.
+			FixupBranch inTime = BGE(DOWNCOUNTREG, R_ZERO);
+			QuickJ(R_RA, hooks_.dispatcher);
+			SetJumpTarget(inTime);
+			LI(SCRATCH2, (u32)Memory::BLOCK_SHADOW_ENTRY_MASK);
+			AND(SCRATCH1, SCRATCH1, SCRATCH2);
+			LI(SCRATCH2, Memory::blockShadow);
+			LDX_WU(SCRATCH1, SCRATCH2, SCRATCH1);
+			FixupBranch found = BNEZ(SCRATCH1);
+			QuickJ(R_RA, dispatcherNoCheck_);
+			SetJumpTarget(found);
+			ADD_D(SCRATCH1, JITBASEREG, SCRATCH1);
+			JR(SCRATCH1);
+		}
 		break;
 
 	case IROp::ExitToPC:
