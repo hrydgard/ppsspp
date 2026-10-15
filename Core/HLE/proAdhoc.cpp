@@ -36,6 +36,7 @@
 
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Common/TimeUtil.h"
+#include "Common/StringUtils.h"
 
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernel.h"
@@ -1321,13 +1322,12 @@ void sendChat(std::string_view chatString) {
 	if (friendFinderRunning) {
 		// Send Chat to Server 
 		if (!chatString.empty()) {
-			//maximum char allowed is 64 character for compability with original server (pro.coldbird.net)
-			std::string message(chatString.substr(0, 60)); // 64 return chat variable corrupted is it out of memory?
-			char buf[64]; // v2 probably can do a bit longer..
-			strcpy(buf, message.c_str());
-
 			const std::lock_guard<std::mutex> adhocctl_guard(adhocctlMutex);
 			if (adhocctlHandle != NULL) {
+				// TODO while the library handles truncation, to keep the UI consistent we are truncating it here
+				// logic has to be updated in the future if later adhocctl protocol supports longer messages
+				char buf[64];
+				truncate_cpy(buf, chatString);
 				enum adhocctl_call_status chat_send_status = adhocctl_chat(adhocctlHandle, buf);
 				if (chat_send_status != ADHOCCTL_CALL_SUCCESS) {
 					ERROR_LOG(Log::sceNet, "adhocctl client failed while sending chat message");
