@@ -809,17 +809,6 @@ static void check_variables(CoreParameter &coreParam)
          g_Config.iSkipGPUReadbackMode = (int)SkipGPUReadbackMode::SKIP;
    }
 
-   var.key = "ppsspp_spline_quality";
-   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
-   {
-      if (!strcmp(var.value, "Low"))
-         g_Config.iSplineBezierQuality = 0;
-      else if (!strcmp(var.value, "Medium"))
-         g_Config.iSplineBezierQuality = 1;
-      else if (!strcmp(var.value, "High"))
-         g_Config.iSplineBezierQuality = 2;
-   }
-
    var.key = "ppsspp_lower_resolution_for_effects";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
    {
