@@ -283,7 +283,8 @@ void IRJit::RunBlocks() {
 					block->profileStats_.executions += 1;
 					block->profileStats_.totalNanos += start.ElapsedNanos();
 				} else {
-					mips->pc = IRInterpret(mips, instPtr);
+					// Runs on through the blocks it can, as long as downcount lasts.
+					mips->pc = IRInterpret(mips, instPtr, blocks_.GetArenaPtr());
 				}
 				// Note: this will "jump to zero" on a badly constructed block missing exits.
 				if (!Memory::IsValid4AlignedAddress(mips->pc)) {

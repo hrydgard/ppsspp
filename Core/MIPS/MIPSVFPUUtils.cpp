@@ -1063,7 +1063,73 @@ float vfpu_dot(const float a[4], const float b[4]) {
 #endif
 }
 
+#if PPSSPP_ARCH(ARM64_NEON)
+
+// vfpu_dot_neon turned on its side: lane k works out output k, one term at a time, so nothing is
+// summed across lanes. Bit-exact with it. Returns false for inf and NaN, which it leaves alone.
+static bool vfpu_multi_dot_neon(float out[4], const float block[16], const float v[4], int terms, bool transposed) {
+	uint32x4_t rows[4];
+	if (transposed) {
+		const uint32x4x4_t t = vld4q_u32((const uint32_t *)block);
+		rows[0] = t.val[0];
+		rows[1] = t.val[1];
+		rows[2] = t.val[2];
+		rows[3] = t.val[3];
+	} else {
+		for (int i = 0; i < terms; i++)
+			rows[i] = vld1q_u32((const uint32_t *)block + 4 * i);
+	}
+
+	const uint32x4_t expBits = vdupq_n_u32(0x7F800000);
+	const uint32x4_t mantMask = vdupq_n_u32(0x007FFFFF), implicitBit = vdupq_n_u32(0x00800000);
+	uint32x4_t e[4], p[4], sign[4];
+	uint32x4_t emax = vdupq_n_u32(0);
+	for (int i = 0; i < terms; i++) {
+		const uint32x4_t x = rows[i];
+		const uint32x4_t y = vld1q_dup_u32((const uint32_t *)v + i);
+		const uint32x4_t xe = vandq_u32(x, expBits), ye = vandq_u32(y, expBits);
+		const uint32x4_t normal = vandq_u32(vtstq_u32(x, expBits), vtstq_u32(y, expBits));
+		const uint32x4_t special = vceqq_u32(vmaxq_u32(xe, ye), expBits);
+		e[i] = vsraq_n_u32(vandq_u32(vshrq_n_u32(vaddq_u32(xe, ye), 23), normal), special, 21);
+		emax = vmaxq_u32(emax, e[i]);
+
+		const uint32x4_t mx = vbslq_u32(mantMask, x, implicitBit);
+		const uint32x4_t my = vbslq_u32(mantMask, y, implicitBit);
+		const uint64x2_t plo = vmull_u32(vget_low_u32(mx), vget_low_u32(my));
+		const uint64x2_t phi = vmull_high_u32(mx, my);
+		const uint32x4_t kept = vcombine_u32(vshrn_n_u64(plo, 21), vshrn_n_u64(phi, 21));
+		const uint32x4_t dropped = vandq_u32(vuzp1q_u32(vreinterpretq_u32_u64(plo), vreinterpretq_u32_u64(phi)), vdupq_n_u32((1 << 21) - 1));
+		p[i] = vandq_u32(vorrq_u32(kept, vminq_u32(dropped, vdupq_n_u32(1))), normal);
+		sign[i] = vreinterpretq_u32_s32(vshrq_n_s32(vreinterpretq_s32_u32(veorq_u32(x, y)), 31));
+	}
+	if (vmaxvq_u32(emax) >= 0x7FF)
+		return false;
+
+	int32x4_t sum = vdupq_n_s32(0);
+	for (int i = 0; i < terms; i++) {
+		const int32x4_t shift = vmaxq_s32(vreinterpretq_s32_u32(vsubq_u32(e[i], emax)), vdupq_n_s32(-28));
+		const int32x4_t t = vreinterpretq_s32_u32(vshlq_u32(p[i], shift));
+		const int32x4_t s = vreinterpretq_s32_u32(sign[i]);
+		sum = vaddq_s32(sum, vsubq_s32(veorq_s32(t, s), s));
+	}
+
+	float result[4];
+	result[0] = vfpu_dot_finish(vgetq_lane_s32(sum, 0), vgetq_lane_u32(emax, 0));
+	result[1] = vfpu_dot_finish(vgetq_lane_s32(sum, 1), vgetq_lane_u32(emax, 1));
+	result[2] = vfpu_dot_finish(vgetq_lane_s32(sum, 2), vgetq_lane_u32(emax, 2));
+	result[3] = vfpu_dot_finish(vgetq_lane_s32(sum, 3), vgetq_lane_u32(emax, 3));
+	// out may overlap the inputs, which are all read by now.
+	memcpy(out, result, sizeof(result));
+	return true;
+}
+
+#endif
+
 void vfpu_multi_dot(float out[4], const float block[16], const float v[4], int terms, bool transposed) {
+#if PPSSPP_ARCH(ARM64_NEON)
+	if (vfpu_multi_dot_neon(out, block, v, terms, transposed))
+		return;
+#endif
 	float result[4];
 	for (int k = 0; k < 4; k++) {
 		float a[4]{}, b[4]{};

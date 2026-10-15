@@ -247,12 +247,20 @@ void VertexDecoder::ComputeSkinMatrix(const float weights[8]) const {
 	float32x4_t skin2 = vdupq_n_f32(0.0f);
 	for (int j = 0; j < count; j++) {
 		const float *bone = &gstate.boneMatrix[j * 12];
+#if PPSSPP_ARCH(ARM64_NEON)
+		// Every weight, fused, like the vertex JIT (and no branch on varying weights).
+		const float32x4_t w = vdupq_n_f32(weights[j]);
+		skin0 = vfmaq_f32(skin0, vld1q_f32(bone), w);
+		skin1 = vfmaq_f32(skin1, vld1q_f32(bone + 4), w);
+		skin2 = vfmaq_f32(skin2, vld1q_f32(bone + 8), w);
+#else
 		if (weights[j] != 0.0f) {
 			float32x4_t w = vdupq_n_f32(weights[j]);
 			skin0 = vaddq_f32(skin0, vmulq_f32(vld1q_f32(bone), w));
 			skin1 = vaddq_f32(skin1, vmulq_f32(vld1q_f32(bone + 4), w));
 			skin2 = vaddq_f32(skin2, vmulq_f32(vld1q_f32(bone + 8), w));
 		}
+#endif
 	}
 	vst1q_f32(skinMatrix, skin0);
 	vst1q_f32(skinMatrix + 4, skin1);
