@@ -311,6 +311,7 @@ static void UpdateBlockShadowHook() {
 void MIPSState::Shutdown() {
 	MIPSComp::JitInterface *oldjit = MIPSComp::jit;
 	if (oldjit) {
+		oldjit->FlushProfile();
 		MIPSComp::jit = nullptr;
 		delete oldjit;
 	}

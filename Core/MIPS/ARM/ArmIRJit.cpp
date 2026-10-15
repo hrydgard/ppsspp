@@ -141,6 +141,8 @@ bool ArmJitBackend::CompileBlock(IRBlockCache *irBlockCache, int block_num) {
 		B(outerLoopPCInSCRATCH1_);
 	}
 
+	RecordIRAddresses(block_num, addresses);
+
 	if (logBlocks_ > 0) {
 		--logBlocks_;
 
@@ -282,7 +284,7 @@ bool ArmJitBackend::DescribeCodePtr(const u8 *ptr, std::string &name) const {
 	} else if (ptr == applyRoundingMode_) {
 		name = "applyRoundingMode";
 	} else if (ptr >= GetBasePtr() && ptr < GetBasePtr() + jitStartOffset_) {
-		name = "fixedCode";
+		name = DescribeFixedCode(ptr);
 	} else {
 		return IRNativeBackend::DescribeCodePtr(ptr, name);
 	}

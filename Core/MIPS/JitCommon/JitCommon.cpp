@@ -277,7 +277,7 @@ const char *ppsspp_resolver(struct ud*,
 	return NULL;
 }
 
-std::vector<std::string> DisassembleX86(const u8 *data, int size) {
+std::vector<std::string> DisassembleX86(const u8 *data, int size, std::vector<int> *offsets) {
 	std::vector<std::string> lines;
 	ud_t ud_obj;
 	ud_init(&ud_obj);
@@ -290,25 +290,37 @@ std::vector<std::string> DisassembleX86(const u8 *data, int size) {
 	ud_set_input_buffer(&ud_obj, data, size);
 
 	int int3_count = 0;
+	int int3_offset = 0;
 	while (ud_disassemble(&ud_obj) != 0) {
+		const int offset = (int)(ud_insn_off(&ud_obj) - (uint64_t)(intptr_t)data);
 		const char *buf = ud_insn_asm(&ud_obj);
 		if (!buf) {
 			lines.push_back("[bad]");
+			if (offsets)
+				offsets->push_back(offset);
 			continue;
 		}
 		std::string str = buf;
 		if (str == "int3") {
+			if (int3_count == 0)
+				int3_offset = offset;
 			int3_count++;
 		} else {
 			if (int3_count) {
 				lines.push_back(StringFromFormat("int3 (x%d)", int3_count));
+				if (offsets)
+					offsets->push_back(int3_offset);
 				int3_count = 0;
 			}
 			lines.push_back(str);
+			if (offsets)
+				offsets->push_back(offset);
 		}
 	}
 	if (int3_count) {
 		lines.push_back(StringFromFormat("int3 (x%d)", int3_count));
+		if (offsets)
+			offsets->push_back(int3_offset);
 	}
 	return lines;
 }

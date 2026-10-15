@@ -251,6 +251,27 @@ anything else that uses the CPU, including a forgotten `usbhostfs_pc`, which can
 that exits with an error, misses `TIMEOUT (emulated)` or doesn't load its savestate stops the tool rather than
 passing as a fast run.
 
+Headless decodes vertices with the JIT like the app, where the host can (`--vertex-jit=false` for the C++
+decoder, which the tests don't need either).
+
+### Profiling the CPU cores
+
+`--jit-profile=FILE` (app and headless) samples the emulator thread's host PC every 50 µs and, when the JIT
+goes away or clears its cache, appends a report to FILE:
+
+- the share of samples in JIT blocks, in the fixed routines they call (like the dot product routines), in
+  the dispatcher, and outside JIT code by host function (with symbols where `dladdr` finds them);
+- the 30 hottest blocks, each with its MIPS code, its IR, and its host code with the share of samples per
+  host instruction, the IR instruction each comes from, and the samples in routines charged to the call;
+- the hot fixed-code routines, per instruction.
+
+It costs nothing when off. The native JITs (macOS, Linux and Android by signal, Windows by
+`SuspendThread`) sample the host PC; the IR interpreter instead times every block, which used to be the
+`IR_PROFILING` define. Short runs from a savestate include compiling everything after the load, which
+shows as emitter and IR pass functions; profile 20 emulated seconds or more to see the game itself.
+To compare two builds by where the time goes, profile one game at a time: several at once wait on each
+other's GPU work, which moves the shares.
+
 ## Debugging and breakpoint considerations
 
 It might be worth trying the interpreter - all types of breakpoints are the most reliable with this CPU backend.

@@ -251,6 +251,11 @@ public:
 	// The operands (s, then t) and result of the JITs' VFPU dot product routine (vfpu_dot()).
 	alignas(16) u32 vfpuDotArgs[8];
 	u32 vfpuDotResult;
+	// The ARM64 JIT's multi-dot routine (IROp::Vec4VfpuMultiDot): the vector registers it saves, and
+	// its operands (four term Vec4s and the vector) and result for inf and NaN.
+	alignas(16) u32 vfpuMultiDotSave[64];
+	alignas(16) float vfpuMultiDotArgs[20];
+	alignas(16) float vfpuMultiDotResult[4];
 
 	static const u32 FCR0_VALUE = 0x00003351;
 

@@ -182,6 +182,8 @@ public:
 	// Debugger
 	bool bAutoRun;  // start immediately
 	bool bBreakOnFrameTimeout;  // not saved
+	// Sample the JIT and write a report of the hottest blocks to this file. Not saved.
+	std::string sJitProfileFile;
 
 	// General
 	bool bScreenshotsAsPNG;

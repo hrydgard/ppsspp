@@ -171,7 +171,13 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		dispatch[(int)IROp::FCmpVfpuAggregate] = &&L_FCmpVfpuAggregate;
 		dispatch[(int)IROp::FCmovVfpuCC] = &&L_FCmovVfpuCC;
 		dispatch[(int)IROp::Vec4Dot] = &&L_Vec4Dot;
+		dispatch[(int)IROp::Vec4Min] = &&L_Vec4Min;
+		dispatch[(int)IROp::Vec4Max] = &&L_Vec4Max;
+		dispatch[(int)IROp::Vec4Slt] = &&L_Vec4Slt;
+		dispatch[(int)IROp::Vec4Sge] = &&L_Vec4Sge;
+		dispatch[(int)IROp::Vec4CvtScaledSW] = &&L_Vec4CvtScaledSW;
 		dispatch[(int)IROp::Vec4VfpuDot] = &&L_Vec4VfpuDot;
+		dispatch[(int)IROp::Vec4VfpuMultiDot] = &&L_Vec4VfpuMultiDot;
 		dispatch[(int)IROp::FSin] = &&L_FSin;
 		dispatch[(int)IROp::FCos] = &&L_FCos;
 		dispatch[(int)IROp::FRSqrt] = &&L_FRSqrt;
@@ -582,6 +588,56 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 			IR_NEXT;
 		}
 
+		IR_CASE(Vec4Min)
+		{
+			float result[4];
+			for (int i = 0; i < 4; i++) {
+				const u32 a = mips->fi[inst->src1 + i], b = mips->fi[inst->src2 + i];
+				result[i] = vfpu_minmax_key(a) < vfpu_minmax_key(b) ? mips->f[inst->src1 + i] : mips->f[inst->src2 + i];
+			}
+			memcpy(&mips->f[inst->dest], result, sizeof(result));
+			IR_NEXT;
+		}
+
+		IR_CASE(Vec4Max)
+		{
+			float result[4];
+			for (int i = 0; i < 4; i++) {
+				const u32 a = mips->fi[inst->src1 + i], b = mips->fi[inst->src2 + i];
+				result[i] = vfpu_minmax_key(a) > vfpu_minmax_key(b) ? mips->f[inst->src1 + i] : mips->f[inst->src2 + i];
+			}
+			memcpy(&mips->f[inst->dest], result, sizeof(result));
+			IR_NEXT;
+		}
+
+		IR_CASE(Vec4Slt)
+		{
+			float result[4];
+			for (int i = 0; i < 4; i++)
+				result[i] = mips->f[inst->src1 + i] < mips->f[inst->src2 + i] ? 1.0f : 0.0f;
+			memcpy(&mips->f[inst->dest], result, sizeof(result));
+			IR_NEXT;
+		}
+
+		IR_CASE(Vec4Sge)
+		{
+			float result[4];
+			for (int i = 0; i < 4; i++)
+				result[i] = mips->f[inst->src1 + i] >= mips->f[inst->src2 + i] ? 1.0f : 0.0f;
+			memcpy(&mips->f[inst->dest], result, sizeof(result));
+			IR_NEXT;
+		}
+
+		IR_CASE(Vec4CvtScaledSW)
+		{
+			float result[4];
+			const float scale = 1.0f / (1UL << (inst->src2 & 0x1F));
+			for (int i = 0; i < 4; i++)
+				result[i] = (float)mips->fs[inst->src1 + i] * scale;
+			memcpy(&mips->f[inst->dest], result, sizeof(result));
+			IR_NEXT;
+		}
+
 		IR_CASE(Vec4Abs)
 		{
 #if PPSSPP_ARCH(SSE2)
@@ -801,6 +857,10 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 
 		IR_CASE(Vec4VfpuDot)
 			mips->f[inst->dest] = vfpu_dot(&mips->f[inst->src1], &mips->f[inst->src2]);
+			IR_NEXT;
+
+		IR_CASE(Vec4VfpuMultiDot)
+			vfpu_multi_dot(&mips->f[inst->dest], &mips->f[inst->src1], &mips->f[inst->src2], IRMULTIDOT_TERMS(inst->constant), (inst->constant & IRMULTIDOT_TRANSPOSED) != 0);
 			IR_NEXT;
 
 		IR_CASE(FSin)

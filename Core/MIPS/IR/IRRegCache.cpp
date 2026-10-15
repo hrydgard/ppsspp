@@ -701,7 +701,7 @@ void IRNativeRegCacheBase::DiscardDeadTempsAtExit() {
 		auto reads = [&](IRReg src, char type) {
 			if (gpr)
 				return type == 'G' && src == reg;
-			int lanes = type == 'F' ? 1 : (type == '2' ? 2 : (type == 'V' ? 4 : 0));
+			int lanes = type == 'F' ? 1 : (type == '2' ? 2 : (type == 'V' ? 4 : (type == 'M' ? 16 : 0)));
 			return reg >= src && reg < src + lanes;
 		};
 		for (int i = irIndex_ + 1; i < irBlock_->GetNumIRInstructions(); ++i) {

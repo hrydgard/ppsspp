@@ -70,6 +70,8 @@ public:
 	void FlushBeforeCall();
 	// Flushes whatever guest state these registers hold, for code that clobbers them.
 	void FlushHostRegs(std::initializer_list<Arm64Gen::ARM64Reg> regs);
+	// Whether the register holds guest state, which code that clobbers it has to keep.
+	bool IsHostRegInUse(Arm64Gen::ARM64Reg r);
 	void FlushAll(bool gprs = true, bool fprs = true) override;
 
 	Arm64Gen::ARM64Reg GetAndLockTempGPR();
@@ -101,6 +103,7 @@ protected:
 private:
 	bool TransferVecTo1(IRNativeReg nreg, IRNativeReg dest, IRReg first, int oldlanes);
 	bool Transfer1ToVec(IRNativeReg nreg, IRNativeReg dest, IRReg first, int lanes);
+	bool Transfer2ToVec4(IRNativeReg nreg, IRNativeReg dest, IRReg first);
 
 	IRNativeReg GPRToNativeReg(Arm64Gen::ARM64Reg r);
 	IRNativeReg VFPToNativeReg(Arm64Gen::ARM64Reg r);

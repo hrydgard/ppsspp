@@ -3449,6 +3449,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(Utf8),
 	TEST_ITEM(IRPassSimplify),
 	TEST_ITEM(Jit),
+	TEST_ITEM(JitDotBench),
 	TEST_ITEM(JitReplacementHooks),
 	TEST_ITEM(CPUEquivalence),
 	TEST_ITEM(CPURoundingMode),

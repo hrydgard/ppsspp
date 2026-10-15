@@ -267,6 +267,8 @@ void Arm64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 
 	vfpuDotSpecial_ = GenerateArm64VfpuDotSpecial(this, &fp_, CTXREG);
 	vfpuDot_ = GenerateArm64VfpuDotCall(this, &fp_, CTXREG, vfpuDotSpecial_);
+	for (int terms = 2; terms <= 4; terms++)
+		vfpuMultiDot_[terms] = GenerateArm64VfpuMultiDot(this, &fp_, CTXREG, terms);
 
 	// Leave this at the end, add more stuff above.
 	if (enableDisasm) {
@@ -285,6 +287,26 @@ void Arm64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 
 	// Update our current cached rounding mode func, too.
 	UpdateFCR31(mipsState);
+}
+
+void Arm64JitBackend::GetFixedCodeLabels(std::vector<IRNativeFixedCodeLabel> &labels) const {
+	labels.push_back({ outerLoop_, "outerLoop", false });
+	labels.push_back({ outerLoopPCInSCRATCH1_, "outerLoopPCInSCRATCH1", false });
+	labels.push_back({ dispatcherCheckCoreState_, "dispatcherCheckCoreState", false });
+	labels.push_back({ dispatcherPCInSCRATCH1_, "dispatcherPCInSCRATCH1", false });
+	labels.push_back({ dispatcherNoCheck_, "dispatcherNoCheck", false });
+	labels.push_back({ restoreRoundingMode_, "restoreRoundingMode", true });
+	labels.push_back({ applyRoundingMode_, "applyRoundingMode", true });
+	labels.push_back({ vfpuDot_, "vfpuDot", true });
+	labels.push_back({ updateRoundingMode_, "updateRoundingMode", true });
+	labels.push_back({ saveStaticRegisters_, "saveStaticRegisters", true });
+	labels.push_back({ loadStaticRegisters_, "loadStaticRegisters", true });
+	labels.push_back({ vfpuDotSpecial_, "vfpuDotSpecial", true });
+	labels.push_back({ vfpuMultiDot_[2], "vfpuMultiDot2", true });
+	labels.push_back({ vfpuMultiDot_[3], "vfpuMultiDot3", true });
+	labels.push_back({ vfpuMultiDot_[4], "vfpuMultiDot4", true });
+	for (int i = 0; i < 8; ++i)
+		labels.push_back({ convertS0ToSCRATCH1_[i], "convertS0ToSCRATCH1", true });
 }
 
 } // namespace MIPSComp

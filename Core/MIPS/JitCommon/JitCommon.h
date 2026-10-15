@@ -27,7 +27,8 @@
 // TODO: Find a better place for these.
 std::vector<std::string> DisassembleArm2(const u8 *data, int size);
 std::vector<std::string> DisassembleArm64(const u8 *data, int size);
-std::vector<std::string> DisassembleX86(const u8 *data, int size);
+// offsets, if given, receives each line's offset from data.
+std::vector<std::string> DisassembleX86(const u8 *data, int size, std::vector<int> *offsets = nullptr);
 std::vector<std::string> DisassembleRV64(const u8 *data, int size);
 std::vector<std::string> DisassembleLA64(const u8 *data, int size);
 
@@ -132,6 +133,8 @@ namespace MIPSComp {
 		virtual void Compile(u32 em_address) = 0;
 		virtual void ClearCache() = 0;
 		virtual void UpdateFCR31() = 0;
+		// Writes out what --jit-profile collected, before the JIT goes away.
+		virtual void FlushProfile() {}
 		// What the block shadow holds for a replacement hook without a compiled block. The
 		// dispatcher has to send this to the compiler.
 		virtual u32 GetBlockShadowHookValue() const { return Memory::BLOCK_SHADOW_HOOK_NO_JIT; }

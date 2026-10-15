@@ -25,10 +25,12 @@
 #include "Common/Log.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/StringUtils.h"
+#include "Common/File/FileUtil.h"
 
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
+#include "Core/Debugger/SymbolMap.h"
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/MemMap.h"
@@ -75,7 +77,19 @@ IRJit::IRJit(MIPSState *mipsState, bool actualJit) : frontend_(mipsState->HasDef
 	opts.preferVec4 = true;
 #endif
 	opts.optimizeForInterpreter = jo.optimizeForInterpreter;
+	// The IR interpreter, and the backends with a routine for it.
+#if PPSSPP_ARCH(ARM64)
+	opts.vfpuMultiDot = true;
+	opts.moreVec4Ops = true;
+#else
+	opts.vfpuMultiDot = !actualJit;
+	opts.moreVec4Ops = !actualJit;
+#endif
+	opts.continueBranches = true;
 	frontend_.SetOptions(opts);
+
+	profiling_ = !g_Config.sJitProfileFile.empty();
+	blocks_.SetProfiling(profiling_ && !actualJit);
 }
 
 IRJit::~IRJit() {
@@ -93,7 +107,56 @@ void IRJit::UpdateFCR31() {
 
 void IRJit::ClearCache() {
 	INFO_LOG(Log::JIT, "IRJit: Clearing the block cache!");
+	if (profiling_)
+		WriteProfileReport();
 	blocks_.Clear();
+}
+
+void IRJit::FlushProfile() {
+	if (profiling_)
+		WriteProfileReport();
+}
+
+void IRJit::WriteProfileReport() {
+	int64_t totalNanos = 0;
+	std::vector<int> hot;
+	for (int i = 0; i < blocks_.GetNumBlocks(); ++i) {
+		const IRBlock *b = blocks_.GetBlock(i);
+		if (b->profileStats_.executions == 0)
+			continue;
+		totalNanos += b->profileStats_.totalNanos;
+		hot.push_back(i);
+	}
+	// Skip the near-empty profiles of a cache cleared while booting or loading a state.
+	if (totalNanos < 100'000'000)
+		return;
+	std::sort(hot.begin(), hot.end(), [&](int a, int b) {
+		return blocks_.GetBlock(a)->profileStats_.totalNanos > blocks_.GetBlock(b)->profileStats_.totalNanos;
+	});
+
+	FILE *f = File::OpenCFile(Path(g_Config.sJitProfileFile), "a");
+	if (!f)
+		return;
+	fprintf(f, "IR interpreter profile: %.3f s in %d blocks\n\n", totalNanos * 1e-9, (int)hot.size());
+	for (int rank = 0; rank < (int)hot.size() && rank < 40; ++rank) {
+		const int blockNum = hot[rank];
+		const IRBlock *b = blocks_.GetBlock(blockNum);
+		const JitBlockProfileStats &stats = b->profileStats_;
+		const std::string label = g_symbolMap ? g_symbolMap->GetDescription(b->GetOriginalStart()) : "";
+		fprintf(f, "#%d %.2f%% block %d at %08x %s: %lld runs, %.1f ns/run\n", rank + 1, 100.0 * stats.totalNanos / totalNanos, blockNum,
+			b->GetOriginalStart(), label.c_str(), (long long)stats.executions, (double)stats.totalNanos / stats.executions);
+		const IRInst *inst = blocks_.GetBlockInstructionPtr(*b);
+		for (int i = 0; i < b->GetNumIRInstructions(); ++i) {
+			char temp[256];
+			DisassembleIR(temp, sizeof(temp), inst[i]);
+			fprintf(f, "    %s\n", temp);
+		}
+		fprintf(f, "\n");
+	}
+	fclose(f);
+
+	for (int blockNum : hot)
+		blocks_.GetBlock(blockNum)->profileStats_ = JitBlockProfileStats{};
 }
 
 void IRJit::InvalidateCacheAt(u32 em_address, int length) {
@@ -174,7 +237,14 @@ bool IRJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 
 
 void IRJit::RunLoopUntil(u64 globalticks) {
 	PROFILE_THIS_SCOPE("jit");
+	if (profiling_)
+		RunBlocks<true>();
+	else
+		RunBlocks<false>();
+}
 
+template <bool profile>
+void IRJit::RunBlocks() {
 	// IR Dispatcher
 	// The guest's rounding mode applies while running blocks, like in the native JITs' dispatchers
 	// (see ApplyHostRoundingMode).
@@ -203,16 +273,15 @@ void IRJit::RunLoopUntil(u64 globalticks) {
 					mips->downcount -= instPtr->constant;
 					instPtr++;
 				}
-#ifdef IR_PROFILING
-				IRBlock *block = blocks_.GetBlock(blocks_.GetBlockNumFromIRArenaOffset(offset));
-				Instant start = Instant::Now();
-				mips->pc = IRInterpret(mips, instPtr);
-				int64_t elapsedNanos = start.ElapsedNanos();
-				block->profileStats_.executions += 1;
-				block->profileStats_.totalNanos += elapsedNanos;
-#else
-				mips->pc = IRInterpret(mips, instPtr);
-#endif
+				if constexpr (profile) {
+					IRBlock *block = blocks_.GetBlock(blocks_.GetBlockNumFromIRArenaOffset(offset));
+					Instant start = Instant::Now();
+					mips->pc = IRInterpret(mips, instPtr);
+					block->profileStats_.executions += 1;
+					block->profileStats_.totalNanos += start.ElapsedNanos();
+				} else {
+					mips->pc = IRInterpret(mips, instPtr);
+				}
 				// Note: this will "jump to zero" on a badly constructed block missing exits.
 				if (!Memory::IsValid4AlignedAddress(mips->pc)) {
 					int blockNum = blocks_.GetBlockNumFromIRArenaOffset(offset);
@@ -301,7 +370,7 @@ int IRBlockCache::GetBlockNumFromIRArenaOffset(int offset) const {
 #if 1
 	return found;
 #else
-	// Cross check the result. This is not fast so normally not enabled. Called a lot when IR_PROFILING is on.
+	// Cross check the result. This is not fast so normally not enabled. Called a lot when profiling.
 	for (int i = 0; i < (int)blocks_.size(); i++) {
 		if (blocks_[i].GetIRArenaOffset() == offset) {
 			_dbg_assert_(i == found);

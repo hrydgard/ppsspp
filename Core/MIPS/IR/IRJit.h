@@ -32,16 +32,6 @@
 #include "stddef.h"
 #endif
 
-// Very expensive, time-profiles every block.
-// Not to be released with this enabled.
-//
-// #define IR_PROFILING
-
-// Try to catch obvious misses of be above rule.
-#if defined(IR_PROFILING) && defined(GOLD)
-#error
-#endif
-
 struct IRInst;
 
 namespace MIPSComp {
@@ -97,9 +87,8 @@ public:
 	void Finalize(int number);
 	void Destroy(int number);
 
-#ifdef IR_PROFILING
+	// Only filled in by the IR interpreter, when profiling.
 	JitBlockProfileStats profileStats_{};
-#endif
 
 private:
 	u64 CalculateHash() const;
@@ -175,26 +164,22 @@ public:
 		return meta;
 	}
 	JitBlockProfileStats GetBlockProfileStats(int blockNum) const override {
-#ifdef IR_PROFILING
 		return blocks_[blockNum].profileStats_;
-#else
-		return JitBlockProfileStats{};
-#endif
 	}
 	void ComputeStats(BlockCacheStats &bcStats) const override;
 	int GetBlockNumberFromStartAddress(u32 em_address) const override;
 
 	bool SupportsProfiling() const override {
-#ifdef IR_PROFILING
-		return true;
-#else
-		return false;
-#endif
+		return profiling_;
+	}
+	void SetProfiling(bool profiling) {
+		profiling_ = profiling;
 	}
 
 private:
 	u32 AddressToPage(u32 addr) const;
 	bool compileToNative_;
+	bool profiling_ = false;
 	std::vector<IRBlock> blocks_;
 	std::vector<IRInst> arena_;
 	std::unordered_map<u32, std::vector<int>> byPage_;
@@ -230,7 +215,13 @@ public:
 	// This gets overridden by the native-backed IR jits.
 	const u8 *GetCodeBase() const override { return nullptr; }
 
+	void FlushProfile() override;
+
 protected:
+	template <bool profile>
+	void RunBlocks();
+	virtual void WriteProfileReport();
+
 	bool CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes);
 	virtual bool CompileNativeBlock(IRBlockCache *irBlockCache, int block_num) { return true; }
 	virtual void FinalizeNativeBlock(IRBlockCache *irBlockCache, int block_num) {}
@@ -246,6 +237,8 @@ protected:
 	MIPSState *mips_;
 
 	bool compilerEnabled_ = true;
+	// Set by --jit-profile. The IR interpreter times every block, the native JITs sample the host PC.
+	bool profiling_ = false;
 
 	// where to write branch-likely trampolines. not used atm
 	// u32 blTrampolines_;

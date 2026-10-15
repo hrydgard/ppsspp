@@ -135,6 +135,9 @@
     <ClCompile Include="MIPS\JitCommon\JitCommon.cpp">
       <Filter>MIPS\JitCommon</Filter>
     </ClCompile>
+    <ClCompile Include="MIPS\JitCommon\JitProfiler.cpp">
+      <Filter>MIPS\JitCommon</Filter>
+    </ClCompile>
     <ClCompile Include="FileSystems\DirectoryFileSystem.cpp">
       <Filter>FileSystems</Filter>
     </ClCompile>
@@ -1411,6 +1414,9 @@
       <Filter>MIPS</Filter>
     </ClInclude>
     <ClInclude Include="MIPS\JitCommon\JitCommon.h">
+      <Filter>MIPS\JitCommon</Filter>
+    </ClInclude>
+    <ClInclude Include="MIPS\JitCommon\JitProfiler.h">
       <Filter>MIPS\JitCommon</Filter>
     </ClInclude>
     <ClInclude Include="FileSystems\DirectoryFileSystem.h">

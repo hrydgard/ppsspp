@@ -290,6 +290,7 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &m
 	ir.Reserve(64); // Estimate a reasonable number of IR instructions per block
 
 	js.numInstructions = 0;
+	js.continuedBranches = 0;
 	while (js.compiling) {
 		// Jit breakpoints are quite fast, so let's do them in release too.
 		CheckBreakpoint(GetCompilerPC());

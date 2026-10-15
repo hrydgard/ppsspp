@@ -40,6 +40,8 @@ namespace MIPSComp {
 		bool kernelMode;  // Changes what instructions are allowed.
 		int downcountAmount;
 		int numInstructions;
+		// Conditional branches compiled past (IR only).
+		int continuedBranches;
 		bool compiling;	// TODO: get rid of this in favor of using analysis results to determine end of block
 		bool hadBreakpoints;
 

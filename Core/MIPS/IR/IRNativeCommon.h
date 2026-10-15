@@ -17,6 +17,7 @@
 
 #pragma once
 
+#include <map>
 #include <unordered_map>
 
 #include "Common/CodeBlock.h"
@@ -58,9 +59,19 @@ struct IRNativeBlockExit {
 	uint32_t dest;
 };
 
+// Names a piece of the fixed code, for the profiler.
+struct IRNativeFixedCodeLabel {
+	const u8 *ptr;
+	const char *name;
+	// A leaf routine blocks call, so the return address (LR, [rsp]) says which block.
+	bool calledFromBlocks;
+};
+
 struct IRNativeBlock {
 	int checkedOffset = 0;
 	std::vector<IRNativeBlockExit> exits;
+	// Code offset of each IR instruction, only kept when profiling.
+	std::vector<int> irOffsets;
 };
 
 class IRNativeBackend {
@@ -88,8 +99,19 @@ public:
 
 	const IRNativeBlock *GetNativeBlock(int block_num) const;
 	void SetBlockCheckedOffset(int block_num, int offset);
+	void SetProfiling(bool profiling) {
+		profiling_ = profiling;
+	}
 
 	virtual const CodeBlockCommon &CodeBlock() const = 0;
+
+	// The backend's own routines, without the dispatcher hooks.
+	virtual void GetFixedCodeLabels(std::vector<IRNativeFixedCodeLabel> &labels) const {}
+	// Those and the dispatcher hooks, by address.
+	void GetAllFixedCodeLabels(std::vector<IRNativeFixedCodeLabel> &labels) const;
+	// The name of the fixed code routine ptr is in, with an offset if not at its start, for the
+	// disassembly and profilers (so no spaces).
+	std::string DescribeFixedCode(const u8 *ptr) const;
 
 protected:
 	virtual void CompIR_Arith(IRInst inst) = 0;
@@ -154,11 +176,14 @@ protected:
 
 	void AddLinkableExit(int block_num, uint32_t pc, int exitStartOffset, int exitLen);
 	void EraseAllLinks(int block_num);
+	// For the profiler's report. Does nothing unless profiling.
+	void RecordIRAddresses(int block_num, const std::vector<const u8 *> &addresses);
 
 	IRNativeHooks hooks_;
 	IRBlockCache &blocks_;
 	std::vector<IRNativeBlock> nativeBlocks_;
 	std::unordered_multimap<uint32_t, int> linksTo_;
+	bool profiling_ = false;
 };
 
 class IRNativeBlockCacheDebugInterface : public JitBlockCacheDebugInterface {
@@ -197,6 +222,7 @@ public:
 	const u8 *GetCrashHandler() const override;
 
 	void UpdateFCR31() override;
+	void FlushProfile() override;
 
 	JitBlockCacheDebugInterface *GetBlockCacheDebugInterface() override;
 
@@ -207,6 +233,30 @@ protected:
 	bool CompileNativeBlock(IRBlockCache *irBlockCache, int block_num) override;
 	void FinalizeNativeBlock(IRBlockCache *irBlockCache, int block_num) override;
 	void InvalidateNativeBlock(IRBlockCache *irBlockCache, int block_num) override;
+
+	void CollectProfileSamples();
+	int FindBlockByCodeOffset(int offset) const;
+	int FindBlockOffsetEnd() const;
+	void WriteProfileReport() override;
+
+	struct BlockProfile {
+		int64_t samples = 0;
+		// Samples in a routine the block called (like the dot product).
+		int64_t routineSamples = 0;
+		std::map<int, int64_t> byOffset;
+		// routineSamples by the code offset the routine returns to.
+		std::map<int, int64_t> routineByReturn;
+	};
+	std::unordered_map<int, BlockProfile> blockProfiles_;
+	std::unordered_map<uintptr_t, int64_t> hostProfile_;
+	// Sorted by ptr. Samples by label, split by whether a block was charged for them.
+	std::vector<IRNativeFixedCodeLabel> fixedLabels_;
+	std::map<std::string, int64_t> fixedCodeByLabel_;
+	std::map<std::string, int64_t> routinesByLabel_;
+	// All fixed code samples, by code offset.
+	std::map<int, int64_t> fixedCodeByOffset_;
+	int64_t fixedCodeSamples_ = 0;
+	int64_t totalSamples_ = 0;
 
 	IRNativeBackend *backend_ = nullptr;
 	IRNativeHooks hooks_;

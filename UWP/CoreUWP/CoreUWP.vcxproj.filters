@@ -215,6 +215,7 @@
     <ClCompile Include="..\..\Core\MIPS\IR\IRPassSimplify.cpp" />
     <ClCompile Include="..\..\Core\MIPS\IR\IRRegCache.cpp" />
     <ClCompile Include="..\..\Core\MIPS\JitCommon\JitCommon.cpp" />
+    <ClCompile Include="..\..\Core\MIPS\JitCommon\JitProfiler.cpp" />
     <ClCompile Include="..\..\Core\MIPS\JitCommon\JitState.cpp" />
     <ClCompile Include="..\..\Core\MIPS\MIPS.cpp" />
     <ClCompile Include="..\..\Core\MIPS\MIPSAnalyst.cpp" />
@@ -610,6 +611,7 @@
     <ClInclude Include="..\..\Core\MIPS\IR\IRRegCache.h" />
     <ClInclude Include="..\..\Core\MIPS\JitCommon\JitBlockCache.h" />
     <ClInclude Include="..\..\Core\MIPS\JitCommon\JitCommon.h" />
+    <ClInclude Include="..\..\Core\MIPS\JitCommon\JitProfiler.h" />
     <ClInclude Include="..\..\Core\MIPS\JitCommon\JitState.h" />
     <ClInclude Include="..\..\Core\MIPS\MIPS.h" />
     <ClInclude Include="..\..\Core\MIPS\MIPSAnalyst.h" />
