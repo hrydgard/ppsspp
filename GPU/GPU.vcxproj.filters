@@ -678,6 +678,9 @@
     <None Include="..\assets\shaders\naturalA.fsh">
       <Filter>Shaders</Filter>
     </None>
+    <None Include="..\assets\shaders\motionblur.fsh">
+      <Filter>Shaders</Filter>
+    </None>
     <None Include="..\assets\shaders\persistence.fsh">
       <Filter>Shaders</Filter>
     </None>

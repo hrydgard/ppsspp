@@ -53,6 +53,8 @@ enum {
 	METAL_PUSH_CONSTANT_INDEX = 15,
 	METAL_MAX_TEXTURES = 8,
 	METAL_MAX_BUFFERS = 8,
+	// Fragment texture/sampler indices for draws. Metal allows 16 samplers per stage.
+	METAL_MAX_FRAGMENT_TEXTURES = 16,
 };
 
 constexpr int METAL_MAX_INFLIGHT_FRAMES = 3;
@@ -528,8 +530,8 @@ private:
 		uint32_t vertexBufferOffsets[METAL_VERTEX_BUFFER_INDEX + 1];
 		__unsafe_unretained id<MTLBuffer> fragmentBuffers[METAL_MAX_BUFFERS];
 		uint32_t fragmentBufferOffsets[METAL_MAX_BUFFERS];
-		__unsafe_unretained id<MTLTexture> fragmentTextures[METAL_MAX_TEXTURES];
-		__unsafe_unretained id<MTLSamplerState> fragmentSamplers[METAL_MAX_TEXTURES];
+		__unsafe_unretained id<MTLTexture> fragmentTextures[METAL_MAX_FRAGMENT_TEXTURES];
+		__unsafe_unretained id<MTLSamplerState> fragmentSamplers[METAL_MAX_FRAGMENT_TEXTURES];
 		bool viewportValid;
 		bool scissorValid;
 		bool cullValid;

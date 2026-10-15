@@ -72,6 +72,7 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 	if (draw) {
 		gpuVendor = draw->GetDeviceCaps().vendor;
 	}
+	const int maxPreviousFrames = GetPostShaderMaxPreviousFrames(draw);
 
 	shaderInfo.clear();
 	textureShaderInfo.clear();
@@ -171,6 +172,22 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 					}
 					section.Get("60fps", &info.requires60fps);
 					section.Get("UsePreviousFrame", &info.usePreviousFrame);
+					// PreviousFrames=N asks for N previous frames (implies UsePreviousFrame.)
+					// Plain UsePreviousFrame=True keeps the old behavior of a single previous frame.
+					int previousFrames = 0;
+					section.Get("PreviousFrames", &previousFrames);
+					if (previousFrames > 0)
+						info.usePreviousFrame = true;
+					if (info.usePreviousFrame) {
+						info.previousFramesRequested = std::max(1, previousFrames);
+						info.previousFrames = std::min(info.previousFramesRequested, maxPreviousFrames);
+						if (info.previousFrames < info.previousFramesRequested) {
+							WARN_LOG(Log::G3D, "Post shader '%s' wants %d previous frames, but this device only supports %d.", info.section.c_str(), info.previousFramesRequested, maxPreviousFrames);
+						}
+					} else {
+						info.previousFramesRequested = 0;
+						info.previousFrames = 0;
+					}
 
 					if (info.parent == "Off")
 						info.parent.clear();
@@ -276,6 +293,16 @@ void LoadPostShaderInfo(Draw::DrawContext *draw, const std::vector<Path> &direct
 }
 
 // Scans the directories for shader ini files and collects info about all the shaders found.
+int GetPostShaderMaxPreviousFrames(const Draw::DrawContext *draw) {
+	if (!draw) {
+		// Don't know yet, assume the max. We clamp again when actually building the chain.
+		return POSTSHADER_MAX_PREVIOUS_FRAMES;
+	}
+	int slots = draw->GetDeviceCaps().maxTextureSlots;
+	int available = slots - POSTSHADER_PREVIOUS_FRAME_FIRST_SLOT - POSTSHADER_RESERVED_TEXTURE_SLOTS;
+	return std::max(1, std::min(available, POSTSHADER_MAX_PREVIOUS_FRAMES));
+}
+
 void ReloadAllPostShaderInfo(Draw::DrawContext *draw) {
 	std::vector<Path> directories;
 	directories.push_back(Path("shaders"));  // For VFS

@@ -504,6 +504,8 @@ bool CheckGLExtensions() {
 	ParseExtensionsString(g_all_egl_extensions, g_set_egl_extensions);
 #endif
 
+	glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &gl_extensions.maxFragmentTextureUnits);
+
 #ifdef GL_LOW_FLOAT
 	// This is probably a waste of time, implementations lie.
 	if (gl_extensions.IsGLES || g_set_gl_extensions.count("GL_ARB_ES2_compatibility") || gl_extensions.VersionGEThan(4, 1)) {

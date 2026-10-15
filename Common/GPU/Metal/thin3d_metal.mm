@@ -650,6 +650,8 @@ MetalDrawContext::MetalDrawContext(MetalRenderManager *renderManager) : rm_(rend
 	caps_.presentModesSupported = PresentMode::FIFO;
 #endif
 	caps_.multipleSwapchains = true;
+	// Texture slot n is at fragment index n + THIN3D_TEXTURE_BINDING_BASE.
+	caps_.maxTextureSlots = std::min((int)METAL_MAX_FRAGMENT_TEXTURES - THIN3D_TEXTURE_BINDING_BASE, (int)MAX_TEXTURE_SLOTS);
 	caps_.multiSampleLevelsMask = 1;
 	for (int level = 1; level <= 3; level++) {
 		if ([device_ supportsTextureSampleCount:1 << level]) {
@@ -1411,7 +1413,7 @@ bool MetalDrawContext::ApplyState() {
 
 	if (curPipeline_->fs) {
 		const MetalTranslatedShader &info = curPipeline_->fs->info;
-		for (int i = 0; i < (int)MAX_TEXTURE_SLOTS; i++) {
+		for (int i = 0; i < caps_.maxTextureSlots; i++) {
 			int index = i + THIN3D_TEXTURE_BINDING_BASE;
 			if (!(info.textureMask & (1 << index))) {
 				continue;

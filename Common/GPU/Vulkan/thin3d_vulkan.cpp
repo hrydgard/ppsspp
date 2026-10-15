@@ -556,7 +556,15 @@ public:
 		}
 	}
 
-	void BindDescriptors(VkBuffer buffer, PackedDescriptor descriptors[4]);
+	// Returns the number of descriptors needed for the current bindings (1 UBO + up to the highest bound texture slot).
+	int GetDescriptorCount() const;
+	void BindDescriptors(VkBuffer buffer, PackedDescriptor *descriptors, int count);
+	PackedDescriptor *PushAndBindDescriptors(VkBuffer uboBuf, int *descSetIndex) {
+		int count = GetDescriptorCount();
+		PackedDescriptor *descriptors = renderManager_.PushDescriptorSet(count, descSetIndex);
+		BindDescriptors(uboBuf, descriptors, count);
+		return descriptors;
+	}
 
 	std::vector<std::string> GetFeatureList() const override;
 	std::vector<std::string> GetExtensionList(bool device, bool enabledOnly) const override;
@@ -605,6 +613,9 @@ private:
 	AutoRef<VKSamplerState> boundSamplers_[MAX_BOUND_TEXTURES];
 	VkImageView boundImageView_[MAX_BOUND_TEXTURES]{};
 	TextureBindFlags boundTextureFlags_[MAX_BOUND_TEXTURES]{};
+
+	// Number of texture slots actually present in the thin3d descriptor set layout, limited by the device.
+	int numTextureSlots_ = 3;
 
 	mutable std::unordered_map<DataFormat, uint32_t> dataFormatSupportCache_;
 
@@ -1182,16 +1193,32 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 	VkBufferUsageFlags usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT | VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT | VK_BUFFER_USAGE_STORAGE_BUFFER_BIT | VK_BUFFER_USAGE_VERTEX_BUFFER_BIT | VK_BUFFER_USAGE_TRANSFER_SRC_BIT;
 	push_ = new VulkanPushPool(vulkan_, "pushBuffer", 4 * 1024 * 1024, 32, usage);
 
+	// Figure out how many combined image samplers we can put in our single descriptor set.
+	// All of them count against the per-stage limits (they're all visible to the fragment shader),
+	// and the per-stage resource limit also includes the UBO and the color attachment.
+	{
+		const VkPhysicalDeviceLimits &limits = vulkan->GetPhysicalDeviceProperties().properties.limits;
+		uint32_t limit = std::min(limits.maxPerStageDescriptorSamplers, limits.maxPerStageDescriptorSampledImages);
+		limit = std::min(limit, std::min(limits.maxDescriptorSetSamplers, limits.maxDescriptorSetSampledImages));
+		if (limits.maxPerStageResources > 2)
+			limit = std::min(limit, limits.maxPerStageResources - 2);
+		limit = std::min(limit, (uint32_t)MAX_BOUND_TEXTURES);
+		// Vulkan guarantees at least 16 here, but be defensive. We need at least 3 for the existing users.
+		numTextureSlots_ = std::max(3, (int)limit);
+		caps_.maxTextureSlots = numTextureSlots_;
+		INFO_LOG(Log::G3D, "thin3d Vulkan: %d texture slots available", numTextureSlots_);
+	}
+
 	// binding 0 - uniform data
 	// binding 1 - combined sampler/image 0
 	// binding 2 - combined sampler/image 1
 	// ...etc
 	BindingType bindings[MAX_BOUND_TEXTURES + 1];
 	bindings[0] = BindingType::UNIFORM_BUFFER_DYNAMIC_ALL;
-	for (int i = 0; i < MAX_BOUND_TEXTURES; ++i) {
+	for (int i = 0; i < numTextureSlots_; ++i) {
 		bindings[1 + i] = BindingType::COMBINED_IMAGE_SAMPLER;
 	}
-	pipelineLayout_ = renderManager_.CreatePipelineLayout(bindings, ARRAY_SIZE(bindings), "thin3d_layout");
+	pipelineLayout_ = renderManager_.CreatePipelineLayout(bindings, 1 + numTextureSlots_, "thin3d_layout");
 
 	VkPipelineCacheCreateInfo pc{ VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO };
 	VkResult res = vkCreatePipelineCache(vulkan_->GetDevice(), &pc, nullptr, &pipelineCache_);
@@ -1241,12 +1268,24 @@ void VKContext::Invalidate(InvalidationFlags flags) {
 	}
 }
 
-void VKContext::BindDescriptors(VkBuffer buf, PackedDescriptor descriptors[4]) {
+int VKContext::GetDescriptorCount() const {
+	// Only push as many descriptors as needed to cover the highest bound slot. The rest of the
+	// layout's bindings are simply left unwritten, which is fine as long as the shader doesn't use them.
+	for (int i = numTextureSlots_ - 1; i >= 0; --i) {
+		if ((boundTextures_[i] || boundImageView_[i]) && boundSamplers_[i]) {
+			return i + 2;
+		}
+	}
+	return 1;
+}
+
+void VKContext::BindDescriptors(VkBuffer buf, PackedDescriptor *descriptors, int count) {
 	descriptors[0].buffer.buffer = buf;
 	descriptors[0].buffer.offset = 0;  // dynamic
 	descriptors[0].buffer.range = curPipeline_->GetUBOSize();
 
-	for (int i = 0; i < MAX_BOUND_TEXTURES; ++i) {
+	_dbg_assert_(count >= 1 && count <= numTextureSlots_ + 1);
+	for (int i = 0; i < count - 1; ++i) {
 		VkImageView view;
 		VkSampler sampler;
 		if (boundTextures_[i]) {
@@ -1590,8 +1629,7 @@ void VKContext::Draw(int vertexCount, int offset) {
 	BindCurrentPipeline();
 	ApplyDynamicState();
 	int descSetIndex;
-	PackedDescriptor *descriptors = renderManager_.PushDescriptorSet(4, &descSetIndex);
-	BindDescriptors(vulkanUBObuf, descriptors);
+	PushAndBindDescriptors(vulkanUBObuf, &descSetIndex);
 	renderManager_.Draw(descSetIndex, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset + curVBufferOffset_, vertexCount, offset);
 }
 
@@ -1607,8 +1645,7 @@ void VKContext::DrawIndexed(int vertexCount, int offset) {
 	BindCurrentPipeline();
 	ApplyDynamicState();
 	int descSetIndex;
-	PackedDescriptor *descriptors = renderManager_.PushDescriptorSet(4, &descSetIndex);
-	BindDescriptors(vulkanUBObuf, descriptors);
+	PushAndBindDescriptors(vulkanUBObuf, &descSetIndex);
 	renderManager_.DrawIndexed(descSetIndex, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset + curVBufferOffset_, vulkanIbuf, (int)ibBindOffset + offset * sizeof(uint32_t), vertexCount, 1);
 }
 
@@ -1630,8 +1667,7 @@ void VKContext::DrawUP(const void *vdata, int vertexCount) {
 	BindCurrentPipeline();
 	ApplyDynamicState();
 	int descSetIndex;
-	PackedDescriptor *descriptors = renderManager_.PushDescriptorSet(4, &descSetIndex);
-	BindDescriptors(vulkanUBObuf, descriptors);
+	PushAndBindDescriptors(vulkanUBObuf, &descSetIndex);
 	renderManager_.Draw(descSetIndex, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset, vertexCount);
 }
 
@@ -1660,8 +1696,7 @@ void VKContext::DrawIndexedUP(const void *vdata, int vertexCount, const void *id
 	BindCurrentPipeline();
 	ApplyDynamicState();
 	int descSetIndex;
-	PackedDescriptor *descriptors = renderManager_.PushDescriptorSet(4, &descSetIndex);
-	BindDescriptors(vulkanUBObuf, descriptors);
+	PushAndBindDescriptors(vulkanUBObuf, &descSetIndex);
 	renderManager_.DrawIndexed(descSetIndex, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset, vulkanIbuf, (int)ibBindOffset, indexCount, 1);
 }
 
@@ -1714,8 +1749,7 @@ void VKContext::DrawIndexedClippedBatchUP(const void *vdata, int vertexCount, co
 		Draw::SamplerState *sstate = draw.samplerState;
 		BindSamplerStates(0, 1, &sstate);
 		int descSetIndex;
-		PackedDescriptor *descriptors = renderManager_.PushDescriptorSet(4, &descSetIndex);
-		BindDescriptors(vulkanUBObuf, descriptors);
+		PushAndBindDescriptors(vulkanUBObuf, &descSetIndex);
 		renderManager_.SetScissor(draw.clipx, draw.clipy, draw.clipw, draw.cliph);
 		renderManager_.DrawIndexed(descSetIndex, 1, &ubo_offset, vulkanVbuf, (int)vbBindOffset, vulkanIbuf,
 			(int)ibBindOffset + draw.indexOffset * indexSize, draw.indexCount, 1);
@@ -1974,7 +2008,7 @@ void VKContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPass
 void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, Aspect channelBit, int layer) {
 	_dbg_assert_(fbo && !fbo->IsSwapchain());
 	VKFramebuffer *fb = (VKFramebuffer *)fbo;
-	_assert_(binding >= 0 && binding < MAX_BOUND_TEXTURES);
+	_assert_(binding >= 0 && binding < numTextureSlots_);
 
 	// TODO: There are cases where this is okay, actually. But requires layout transitions and stuff -
 	// we're not ready for this.
@@ -2000,7 +2034,7 @@ void VKContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, Aspect c
 
 void VKContext::BindFramebufferSamplesAsTexture(Framebuffer *fbo, int binding, int layer) {
 	VKFramebuffer *fb = (VKFramebuffer *)fbo;
-	_assert_(binding >= 0 && binding < MAX_BOUND_TEXTURES);
+	_assert_(binding >= 0 && binding < numTextureSlots_);
 	_assert_(fb != curFramebuffer_);
 	boundTextures_[binding].reset(nullptr);
 	boundImageView_[binding] = renderManager_.BindFramebufferAsTexture(fb->GetFB(), binding, VK_IMAGE_ASPECT_COLOR_BIT, layer, true);

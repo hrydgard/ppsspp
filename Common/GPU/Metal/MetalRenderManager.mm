@@ -856,6 +856,7 @@ void MetalRenderManager::SetFragmentBuffer(__unsafe_unretained id<MTLBuffer> buf
 }
 
 void MetalRenderManager::SetFragmentTexture(__unsafe_unretained id<MTLTexture> texture, int index) {
+	_dbg_assert_(index >= 0 && index < METAL_MAX_FRAGMENT_TEXTURES);
 	if (state_.fragmentTextures[index] != texture) {
 		MetalCommand &c = Record(MetalCmd::FRAGMENT_TEXTURE);
 		c.index = index;
@@ -865,6 +866,7 @@ void MetalRenderManager::SetFragmentTexture(__unsafe_unretained id<MTLTexture> t
 }
 
 void MetalRenderManager::SetFragmentSampler(__unsafe_unretained id<MTLSamplerState> sampler, int index) {
+	_dbg_assert_(index >= 0 && index < METAL_MAX_FRAGMENT_TEXTURES);
 	if (state_.fragmentSamplers[index] != sampler) {
 		MetalCommand &c = Record(MetalCmd::FRAGMENT_SAMPLER);
 		c.index = index;
