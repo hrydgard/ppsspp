@@ -282,6 +282,11 @@ void EmuScreen::ProcessGameBoot(const Path &filename) {
 		g_OSD.Show(OSDType::MESSAGE_WARNING, "Shader cache is disabled (developer)");
 	}
 
+	if (!g_Config.bHardwareTransform) {
+		// Only developers should ever see this.
+		g_OSD.Show(OSDType::MESSAGE_WARNING, "Hardware transform is disabled (developer)");
+	}
+
 	if (g_Config.bTiltInputEnabled && g_Config.iTiltInputType != 0 && System_GetPropertyBool(SYSPROP_HAS_ACCELEROMETER)) {
 		auto co = GetI18NCategory(I18NCat::CONTROLS);
 		auto di = GetI18NCategory(I18NCat::DIALOG);

@@ -303,7 +303,6 @@ namespace MainWindow {
 		TranslateMenuItem(menu, ID_TEXTURESCALING_BICUBIC);
 		TranslateMenuItem(menu, ID_TEXTURESCALING_HYBRID_BICUBIC);
 		TranslateMenuItem(menu, ID_TEXTURESCALING_DEPOSTERIZE);
-		TranslateMenuItem(menu, ID_OPTIONS_HARDWARETRANSFORM);
 		TranslateMenuItem(menu, ID_EMULATION_SOUND);
 		TranslateMenuItem(menu, ID_EMULATION_CHEATS, g_Config.bSystemControls ? L"\tCtrl+T" : L"");
 		TranslateMenuItem(menu, ID_EMULATION_CHAT, g_Config.bSystemControls ? L"\tCtrl+C" : L"");
@@ -733,15 +732,6 @@ namespace MainWindow {
 			System_PostUIMessage(UIMessage::REQUEST_CLEAR_JIT);
 			break;
 
-		case ID_OPTIONS_HARDWARETRANSFORM:
-			System_RunOnMainThread([]() {
-				auto gr = GetI18NCategory(I18NCat::GRAPHICS);
-				g_Config.bHardwareTransform = !g_Config.bHardwareTransform;
-				System_PostUIMessage(UIMessage::GPU_CONFIG_CHANGED);
-				g_OSD.ShowOnOff(gr->T("Hardware Transform"), g_Config.bHardwareTransform);
-			});
-			break;
-
 		case ID_OPTIONS_DISPLAY_LAYOUT:
 			System_PostUIMessage(UIMessage::SHOW_DISPLAY_LAYOUT_EDITOR);
 			break;
@@ -1047,7 +1037,6 @@ namespace MainWindow {
 #define CHECKITEM(item,value) 	CheckMenuItem(menu,item,MF_BYCOMMAND | ((value) ? MF_CHECKED : MF_UNCHECKED));
 		CHECKITEM(ID_DEBUG_IGNOREILLEGALREADS, g_Config.bIgnoreBadMemAccess);
 		CHECKITEM(ID_DEBUG_SHOWDEBUGSTATISTICS, (DebugOverlay)g_Config.iDebugOverlay == DebugOverlay::DEBUG_STATS);
-		CHECKITEM(ID_OPTIONS_HARDWARETRANSFORM, g_Config.bHardwareTransform);
 		CHECKITEM(ID_DEBUG_BREAKONLOAD, !g_Config.bAutoRun);
 		CHECKITEM(ID_OPTIONS_FRAMESKIP_AUTO, g_Config.bAutoFrameSkip);
 		CHECKITEM(ID_OPTIONS_FRAMESKIP, g_Config.iFrameSkip != FRAMESKIP_OFF);

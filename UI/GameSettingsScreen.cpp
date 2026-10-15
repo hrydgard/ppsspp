@@ -520,11 +520,6 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 		graphicsSettings->Add(new SettingHint(gr->T("Faster, input lag"), inflightChoice));  // TODO: This hint could use improvement.
 	}
 
-	if (deviceType != DEVICE_TYPE_VR) {
-		CheckBox *hwTransform = graphicsSettings->Add(new CheckBox(&g_Config.bHardwareTransform, gr->T("Hardware Transform")));
-		hwTransform->SetDisabledPtr(&g_Config.bSoftwareRendering);
-	}
-
 	graphicsSettings->Add(new ItemHeader(gr->T("Texture upscaling")));
 
 	if (GetGPUBackend() == GPUBackend::VULKAN) {

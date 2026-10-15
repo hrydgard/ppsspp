@@ -820,15 +820,6 @@ static void check_variables(CoreParameter &coreParam)
          g_Config.iSplineBezierQuality = 2;
    }
 
-   var.key = "ppsspp_gpu_hardware_transform";
-   if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
-   {
-      if (!strcmp(var.value, "disabled"))
-         g_Config.bHardwareTransform = false;
-      else
-         g_Config.bHardwareTransform = true;
-   }
-
    var.key = "ppsspp_lower_resolution_for_effects";
    if (environ_cb(RETRO_ENVIRONMENT_GET_VARIABLE, &var) && var.value)
    {

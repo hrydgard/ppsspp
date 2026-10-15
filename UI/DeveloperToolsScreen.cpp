@@ -521,6 +521,7 @@ void DeveloperToolsScreen::CreateGraphicsTab(UI::LinearLayout *list) {
 	list->Add(new ItemHeader(sy->T("General")));
 	list->Add(new CheckBox(&g_Config.bVendorBugChecksEnabled, dev->T("Enable driver bug workarounds")));
 	list->Add(new CheckBox(&g_Config.bShaderCache, dev->T("Enable shader cache")));
+	list->Add(new CheckBox(&g_Config.bHardwareTransform, gr->T("Hardware Transform")));
 
 	auto displayRefreshRate = list->Add(new PopupSliderChoice(&g_Config.iDisplayRefreshRate, 60, 1000, 60, dev->T("Display refresh rate"), 1, screenManager()));
 	displayRefreshRate->SetFormat(si->T("%d Hz"));
