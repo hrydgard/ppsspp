@@ -2190,11 +2190,12 @@ struct Vec4F32 {
 	}
 
 	inline Vec4F32 AsVec3ByMatrix44(const Mat4F32 &m) {
-		float x = m.m[0] * v[0] + m.m[4] * v[1] + m.m[8] * v[2] + m.m[12];
-		float y = m.m[1] * v[0] + m.m[5] * v[1] + m.m[9] * v[2] + m.m[13];
-		float z = m.m[2] * v[0] + m.m[6] * v[1] + m.m[10] * v[2] + m.m[14];
-
-		return Vec4F32{ { x, y, z, 1.0f } };
+		// The same order of operations as the SIMD versions.
+		Vec4F32 temp;
+		for (int i = 0; i < 4; i++) {
+			temp.v[i] = (m.m[i] * v[0] + m.m[4 + i] * v[1]) + (m.m[8 + i] * v[2] + m.m[12 + i]);
+		}
+		return temp;
 	}
 
 	float Dot3(Vec4F32 b) {
