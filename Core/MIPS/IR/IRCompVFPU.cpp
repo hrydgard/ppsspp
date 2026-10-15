@@ -2193,9 +2193,15 @@ namespace MIPSComp {
 
 		VectorSize sz = GetVecSize(op);
 		VectorSize outsize;
+		// vc2i and vuc2i read one lane, the first of the source at the size encoded, which decides
+		// which register that is.
+		int sourceReg = -1;
 		if (bits == 8) {
 			outsize = V_Quad;
-			sz = V_Single;  // For some reason, sz is set to Quad in this case though the outsize is Single.
+			u8 full[4];
+			GetVectorRegs(full, sz, _VS);
+			sourceReg = full[0];
+			sz = V_Single;
 		} else {
 			switch (sz) {
 			case V_Single:
@@ -2211,6 +2217,8 @@ namespace MIPSComp {
 
 		u8 sregs[2], dregs[4], tempregs[4], srcregs[2];
 		GetVectorRegsPrefixS(sregs, sz, _VS);
+		if (sourceReg >= 0)
+			sregs[0] = sourceReg;
 		GetVectorRegsPrefixD(dregs, outsize, _VD);
 		memcpy(tempregs, dregs, sizeof(dregs));
 		memcpy(srcregs, sregs, sizeof(sregs));
