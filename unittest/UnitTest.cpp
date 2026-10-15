@@ -1920,12 +1920,35 @@ bool ForEachVFPUDotTestCase(const std::function<bool(const float a[4], const flo
 }
 
 
-// vfpu_dot's fast versions against the reference.
+// vfpu_dot's fast versions and vfpu_multi_dot against the reference.
 bool TestVFPUDot() {
 	auto toBits = [](float f) {
 		uint32_t bits;
 		memcpy(&bits, &f, sizeof(bits));
 		return bits;
+	};
+	float lastA[4][4];
+	int n = 0;
+	auto checkMulti = [&](const float v[4], int terms, bool transposed) {
+		float block[16], out[4];
+		for (int k = 0; k < 4; k++) {
+			for (int i = 0; i < 4; i++)
+				block[transposed ? 4 * k + i : 4 * i + k] = lastA[k][i];
+		}
+		vfpu_multi_dot(out, block, v, terms, transposed);
+		for (int k = 0; k < 4; k++) {
+			float a[4]{}, b[4]{};
+			for (int i = 0; i < terms; i++) {
+				a[i] = lastA[k][i];
+				b[i] = v[i];
+			}
+			const uint32_t expected = toBits(vfpu_dot_reference(a, b));
+			if (toBits(out[k]) != expected) {
+				printf("vfpu_multi_dot output %d, %d terms%s: %08x, expected %08x\n", k, terms, transposed ? " transposed" : "", toBits(out[k]), expected);
+				return false;
+			}
+		}
+		return true;
 	};
 	auto check = [&](const float a[4], const float b[4]) {
 		const uint32_t expected = toBits(vfpu_dot_reference(a, b));
@@ -1936,6 +1959,10 @@ bool TestVFPUDot() {
 				toBits(a[0]), toBits(a[1]), toBits(a[2]), toBits(a[3]), toBits(b[0]), toBits(b[1]), toBits(b[2]), toBits(b[3]), actual, scalar, expected);
 			return false;
 		}
+		// vfpu_multi_dot on the last four a's as the matrix, each output against the reference.
+		memcpy(lastA[n & 3], a, sizeof(lastA[0]));
+		if ((n++ & 3) == 3 && !checkMulti(b, 2 + (int)(n % 3), (n & 4) != 0))
+			return false;
 		return true;
 	};
 	return ForEachVFPUDotTestCase(check);
