@@ -2560,7 +2560,7 @@ int sceKernelLoadExec(const char *filename, u32 paramPtr) {
 	DEBUG_LOG(Log::sceModule, "sceKernelLoadExec(name=%s,...): loading %s", filename, exec_filename.c_str());
 	std::string error_string;
 	if (!__KernelLoadExec(currentMIPS, exec_filename.c_str(), paramPtr, &error_string)) {
-		Core_UpdateState(CORE_RUNTIME_ERROR);
+		Core_HLEError("sceKernelLoadExec failed: " + error_string);
 		return hleLogError(Log::sceModule, -1, "failed: %s", error_string.c_str());;
 	}
 	if (gpu) {

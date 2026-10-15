@@ -419,6 +419,13 @@ PC: %08x
 )", info.pc);
 		ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
 		y += 180;
+	} else if (info.type == MIPSExceptionType::HLE) {
+		snprintf(statbuf, sizeof(statbuf), R"(
+%s
+PC: %08x
+RA: %08x)", info.info.c_str(), info.pc, info.ra);
+		ctx->Draw()->DrawTextShadow(ubuntu24, statbuf, x, y, 0xFFFFFFFF);
+		y += 180;
 	} else {
 		snprintf(statbuf, sizeof(statbuf), R"(
 Invalid / Unknown (%d)
