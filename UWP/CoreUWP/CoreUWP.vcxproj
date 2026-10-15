@@ -336,6 +336,7 @@
     <ClInclude Include="..\..\Core\Util\GameManager.h" />
     <ClInclude Include="..\..\Core\Util\PPGeDraw.h" />
     <ClInclude Include="..\..\Core\Util\KL4E.h" />
+    <ClInclude Include="..\..\Core\Util\MaxCSO.h" />
     <ClInclude Include="..\..\Core\Util\PSARUnpack.h" />
     <ClInclude Include="..\..\Core\Util\PkgUnpack.h" />
     <ClInclude Include="..\..\Core\WaveFile.h" />
@@ -638,6 +639,7 @@
     <ClCompile Include="..\..\Core\Util\GameManager.cpp" />
     <ClCompile Include="..\..\Core\Util\PPGeDraw.cpp" />
     <ClCompile Include="..\..\Core\Util\KL4E.cpp" />
+    <ClCompile Include="..\..\Core\Util\MaxCSO.cpp" />
     <ClCompile Include="..\..\Core\Util\PSARUnpack.cpp" />
     <ClCompile Include="..\..\Core\Util\PkgUnpack.cpp" />
     <ClCompile Include="..\..\Core\WaveFile.cpp" />

@@ -856,6 +856,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/Util/BlockAllocator.cpp \
   $(SRC)/Core/Util/PPGeDraw.cpp \
   $(SRC)/Core/Util/KL4E.cpp \
+  $(SRC)/Core/Util/MaxCSO.cpp \
   $(SRC)/Core/Util/PSARUnpack.cpp \
   $(SRC)/Core/Util/PkgUnpack.cpp \
   $(SRC)/Core/Util/RecentFiles.cpp \
@@ -1037,6 +1038,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/CwCheatScreen.cpp \
   $(SRC)/UI/InstallPkgScreen.cpp \
   $(SRC)/UI/FirmwareScreen.cpp \
+  $(SRC)/UI/MaxCSOScreen.cpp \
   $(SRC)/UI/InstallUpdateScreen.cpp \
   $(SRC)/UI/InstallZipScreen.cpp \
   $(SRC)/UI/JitCompareScreen.cpp \

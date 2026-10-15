@@ -105,6 +105,8 @@ list(APPEND UISource
 	CwCheatScreen.cpp
 	FirmwareScreen.h
 	FirmwareScreen.cpp
+	MaxCSOScreen.h
+	MaxCSOScreen.cpp
 	InstallUpdateScreen.h
 	InstallUpdateScreen.cpp
 	InstallZipScreen.h

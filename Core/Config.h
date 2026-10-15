@@ -253,6 +253,11 @@ public:
 	bool bCompressSymbols;
 	bool bCacheFullIsoInRam;
 	bool bAutoUpgradeFirmware;
+
+	// MaxCSO tools (only shown when the maxcso library is present in PSP/SYSTEM).
+	int iMaxCSOPreset;  // 0 = fast, 1 = standard, 2 = maximum
+	bool bMaxCSOIncludeSubfolders;
+	bool bMaxCSODeleteOriginals;
 	int iRemoteISOPort; // Also used for serving a local remote debugger.
 	std::string sLastRemoteISOServer;
 	int iLastRemoteISOPort;

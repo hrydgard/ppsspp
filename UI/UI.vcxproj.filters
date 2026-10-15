@@ -43,6 +43,9 @@
     <ClCompile Include="InstallPkgScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="MaxCSOScreen.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
     <ClCompile Include="FirmwareScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
@@ -202,6 +205,9 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="InstallPkgScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="MaxCSOScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="FirmwareScreen.h">
