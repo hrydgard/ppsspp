@@ -53,7 +53,11 @@
 #endif
 #include "unittest/UnitTest.h"
 
+// The clock as the terminating syscall sees it, so the cores can be compared on cycles too.
+static u64 g_terminatorTicks;
+
 void UnitTestTerminator() {
+	g_terminatorTicks = CoreTiming::GetTicks(currentMIPS);
 	// Bails out of jit so we can time things.
 	coreState = CORE_POWERDOWN;
 	hleSkipDeadbeef();
@@ -505,6 +509,7 @@ struct FuzzState {
 	u32 hi, lo, fcr31, fpcond;
 	int llBit;
 	u8 mem[1024];
+	u32 cycles;
 };
 
 // The loads and stores hit scratch memory through k0, which points at its middle.
@@ -859,9 +864,11 @@ static void RunFuzzCase(const std::vector<u32> &code, const FuzzState &init, Fuz
 
 	mips->pc = codeAddr;
 	coreState = CORE_RUNNING_CPU;
+	const u64 startTicks = CoreTiming::GetTicks(mips);
 	while (coreState == CORE_RUNNING_CPU) {
 		mips->RunLoopUntil(CoreTiming::GetTicks(mips) + 1000000);
 	}
+	out->cycles = (u32)(g_terminatorTicks - startTicks);
 
 	if (g_fuzzPrintBlocks && MIPSComp::jit) {
 		JitBlockCacheDebugInterface *blocks = MIPSComp::jit->GetBlockCacheDebugInterface();
@@ -945,6 +952,9 @@ static int DiffFuzzStates(const FuzzState &ref, const FuzzState &other, std::str
 	}
 	if (ref.llBit != other.llBit) {
 		report("llBit", ref.llBit, other.llBit);
+	}
+	if (ref.cycles != other.cycles) {
+		report("cycles", ref.cycles, other.cycles);
 	}
 	for (int i = 0; i < (int)sizeof(ref.mem); i += 4) {
 		u32 a, b;

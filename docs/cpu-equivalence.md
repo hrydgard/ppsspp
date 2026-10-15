@@ -11,8 +11,9 @@ can be fixed.
 FPU, VFPU, loads and stores, optionally forward branches) and a random start state, runs it on every core, and
 compares the full end state against the interpreter: GPRs, FPRs, VFPU registers and control
 registers, hi/lo, fcr31 (bit 23 aside, which some cores sync from fpcond and some don't), fpcond,
-llBit, and 1KB of scratch memory. NaNs compare equal to each other. Loads and stores go through
-`k0`, which points at the scratch memory and is never written.
+llBit, 1KB of scratch memory, and the cycles charged up to the terminating syscall. NaNs compare
+equal to each other. Loads and stores go through `k0`, which points at the scratch memory and is
+never written.
 
 Each differing case is minimized (instructions dropped while it still differs, or turned into nops
 when the code has branches, so none moves its target) and printed with its inputs. It ends with a count of the reported cases by their last instruction, which is usually the
@@ -124,6 +125,26 @@ Crashes (JIT emitter asserts) and wrong code found by the fuzzer:
 - The IR frontend continues past conditional branches, so a block can now leave with a prefix
   pending at a mid-block exit. It doesn't continue then, as only the end of a block checks that.
 - Hardware answers 1, 2 (host agreement), 5, 7 (the interpreter and `vcmov`), 8, 9 and 10 below.
+
+Timing, which decides when interrupts, thread switches and other events happen, so a difference
+sends a game down a different path on each core:
+
+- IR: `j`, `jal`, `bc1t` and `bc1f` didn't charge their delay slot.
+- IR: a syscall charged itself before running, or, in a delay slot, never. It now sees every
+  earlier instruction charged and is charged once it returns, as in the interpreter.
+- Interpreter: a skipped likely delay slot cost 1 cycle, the IR cores charge what it would cost.
+- Interpreter: it checked downcount after every instruction, the IR cores only between blocks. It
+  now runs to the same block ends (branches and jumps after their delay slot, syscalls, breaks,
+  replacements), so events happen at the same instruction. Its fast loop also charged a branch
+  and its delay slot together after both, so a syscall in the slot didn't see the branch.
+
+The interpreter also follows the IR frontend on past a conditional branch that isn't taken
+(`IR_CONTINUE_BRANCHES`), with the same limits, except in one case it can't see: the IR takes a
+prefix register written by `mtvc` or `vmtvc`, or by a VFPU op it interprets that doesn't consume
+prefixes, as unknown, where the interpreter goes by the value. Games set prefixes with `vpfx`.
+The fuzzer only compares cycles at the end, so it doesn't see where a block ends; a trace of
+syscalls and thread switches from a game does (God of War, Tekken 6 and Daxter agree on all three
+cores).
 
 ## Open differences
 

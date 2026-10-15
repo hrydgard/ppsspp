@@ -67,13 +67,14 @@ static inline void DelayBranchTo(MIPSState *mips, u32 where) {
 }
 
 static inline void SkipLikely(MIPSState *mips) {
-	MIPSInfo delaySlot = MIPSGetInfo(Memory::Read_Instruction(PC + 4));
+	const MIPSOpcode delaySlotOp = Memory::Read_Instruction(PC + 4);
 	// Don't actually skip if it is a jump (seen in Brooktown High.)
-	if (delaySlot & IS_JUMP) {
+	if (MIPSGetInfo(delaySlotOp) & IS_JUMP) {
 		PC += 4;
 	} else {
 		PC += 8;
-		--mips->downcount;
+		// The skipped slot costs what it would have run for, as in the IR cores.
+		mips->downcount -= MIPSGetInstructionCycleEstimate(delaySlotOp);
 	}
 }
 

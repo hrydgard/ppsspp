@@ -191,7 +191,7 @@ void IRFrontend::BranchRSZeroComp(MIPSOpcode op, IRComparison cc, bool andLink, 
 bool IRFrontend::CanContinuePastBranch(const BranchInfo &branchInfo, bool constantOperands) {
 	if (!opts.continueBranches || branchInfo.likely || branchInfo.delaySlotIsBranch || constantOperands || js.MayHavePrefix())
 		return false;
-	if (js.numInstructions >= MAX_CONTINUED_INSTRUCTIONS || js.continuedBranches >= MAX_CONTINUED_BRANCHES)
+	if (js.numInstructions >= IR_MAX_CONTINUED_INSTRUCTIONS || js.continuedBranches >= IR_MAX_CONTINUED_BRANCHES)
 		return false;
 	js.continuedBranches++;
 	return true;
@@ -245,6 +245,7 @@ void IRFrontend::BranchFPFlag(MIPSOpcode op, IRComparison cc, bool likely) {
 
 	BranchInfo branchInfo(GetCompilerPC(), op, GetOffsetInstruction(1), false, likely);
 
+	js.downcountAmount += MIPSGetInstructionCycleEstimate(branchInfo.delaySlotOp);
 	ir.Write(IROp::FpCondToReg, IRTEMP_LHS);
 	if (!likely && !branchInfo.delaySlotIsBranch)
 		CompileDelaySlot();
@@ -364,6 +365,8 @@ void IRFrontend::Comp_Jump(MIPSOpcode op) {
 		// Continue so the block gets completed and crashes properly.
 	}
 
+	js.downcountAmount += MIPSGetInstructionCycleEstimate(GetOffsetInstruction(1));
+
 	switch (op >> 26) {
 	case 2: //j
 		CompileDelaySlot();
@@ -456,9 +459,10 @@ void IRFrontend::Comp_JumpReg(MIPSOpcode op) {
 }
 
 void IRFrontend::Comp_Syscall(MIPSOpcode op) {
-	// Note: If we're in a delay slot, this is off by one compared to the interpreter.
-	int dcAmount = js.downcountAmount + (js.inDelaySlot ? -1 : 0);
-	ir.Write(IROp::Downcount, 0, 0, 0, dcAmount);
+	// Like the interpreter, the syscall sees every earlier instruction charged (including a branch it's
+	// the delay slot of) but not itself, which is charged once it returns.
+	const int syscallCycles = MIPSGetInstructionCycleEstimate(op);
+	ir.Write(IROp::Downcount, 0, 0, 0, js.downcountAmount - syscallCycles);
 	js.downcountAmount = 0;
 
 	// If not in a delay slot, we need to update PC.
@@ -478,6 +482,7 @@ void IRFrontend::Comp_Syscall(MIPSOpcode op) {
 		ir.Write(IROp::SyscallUnresolved, 0, 0, 0, js.compilerPC);
 	}
 	ApplyRoundingMode();
+	ir.Write(IROp::Downcount, 0, 0, 0, syscallCycles);
 	ir.Write(IROp::ExitToPC);
 
 	js.compiling = false;

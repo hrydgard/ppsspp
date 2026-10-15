@@ -32,6 +32,7 @@
 #include "Core/MIPS/InterpreterVFPU.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSTables.h"
+#include "Core/MIPS/IR/IRInst.h"
 #include "Core/CoreTiming.h"
 #include "Core/Reporting.h"
 #include "Core/Debugger/Breakpoints.h"
@@ -1105,14 +1106,149 @@ void MIPSDisAsm(MIPSOpcode op, u32 pc, char *out, size_t outSize, bool tabsToSpa
 	}
 }
 
+enum class IRBlockEnd {
+	NONE,
+	AFTER_DELAY_SLOT,
+	NOW,
+};
+
+// Where the IR frontend ends a block. The IR cores only look at downcount between blocks, so the
+// interpreter stops at the same places to run guest code with exactly the same timing.
+static inline IRBlockEnd GetIRBlockEnd(MIPSOpcode op) {
+	const u32 enc = op.encoding;
+	switch (enc >> 26) {
+	case 0x00:
+		switch (enc & 0x3F) {
+		case 0x08:  // jr
+		case 0x09:  // jalr
+			return IRBlockEnd::AFTER_DELAY_SLOT;
+		case 0x0C:  // syscall
+		case 0x0D:  // break
+			return IRBlockEnd::NOW;
+		default:
+			return IRBlockEnd::NONE;
+		}
+	case 0x01:  // bltz, bgez, bltzal, bgezal and their likely forms.
+		return ((enc >> 16) & 0xC) == 0 ? IRBlockEnd::AFTER_DELAY_SLOT : IRBlockEnd::NONE;
+	case 0x02: case 0x03:  // j, jal
+	case 0x04: case 0x05: case 0x06: case 0x07:  // beq, bne, blez, bgtz
+	case 0x14: case 0x15: case 0x16: case 0x17:  // their likely forms
+		return IRBlockEnd::AFTER_DELAY_SLOT;
+	case 0x11:  // bc1f, bc1t
+	case 0x12:  // bvf, bvt
+		return ((enc >> 21) & 0x1F) == 8 ? IRBlockEnd::AFTER_DELAY_SLOT : IRBlockEnd::NONE;
+	default:
+		if ((enc & 0xFF000000) == MIPS_CALL_REPLACEMENT_OP) {
+			// A hook runs the original instruction and goes on, like a disabled replacement.
+			const ReplacementTableEntry *entry = GetReplacementFunc(enc & MIPS_REPLACEMENT_INDEX_MASK);
+			if (entry && entry->replaceFunc && (entry->flags & (REPFLAG_DISABLED | REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) == 0) {
+				return IRBlockEnd::NOW;
+			}
+		}
+		return IRBlockEnd::NONE;
+	}
+}
+
+// A branch IRFrontend may compile on past when it isn't taken (BranchRSRTComp and BranchRSZeroComp):
+// not likely, and not decided by its operands.
+static inline bool IsContinuableBranch(MIPSOpcode op) {
+	const u32 enc = op.encoding;
+	const int rs = (enc >> 21) & 0x1F;
+	const int rt = (enc >> 16) & 0x1F;
+	switch (enc >> 26) {
+	case 0x04: case 0x05:  // beq, bne
+		return rs != rt;
+	case 0x06: case 0x07:  // blez, bgtz
+		return rs != MIPS_REG_ZERO;
+	case 0x01:  // bltz, bgez, bltzal, bgezal
+		return (rt == 0 || rt == 1 || rt == 16 || rt == 17) && rs != MIPS_REG_ZERO;
+	default:
+		return false;
+	}
+}
+
+// The prefixes a block compiled from here would know of. Blocks start with the default ones.
+static inline bool MayHavePrefix(const MIPSState *mips) {
+	return mips->vfpuCtrl[VFPU_CTRL_SPREFIX] != 0xE4 || mips->vfpuCtrl[VFPU_CTRL_TPREFIX] != 0xE4 || mips->vfpuCtrl[VFPU_CTRL_DPREFIX] != 0;
+}
+
+// Follows a block as IRFrontend would compile it from where the interpreter last checked downcount.
+struct IRBlockState {
+	// Counted like IRFrontend's js.numInstructions: a continued branch's delay slot isn't.
+	int numInstructions = 0;
+	int continuedBranches = 0;
+	// The next instruction is the delay slot of a branch that ends the block.
+	bool endAfterNext = false;
+	// The next instruction is the delay slot of a branch that wasn't taken, and may not end it.
+	bool continueAfterNext = false;
+	// The next instruction was already counted.
+	bool skipNext = false;
+};
+
+// After running op from pc, whether the block is over. In a delay slot, the caller runs on anyway.
+static inline bool StepIRBlock(IRBlockState &b, const MIPSState *mips, MIPSOpcode op, u32 pc) {
+	if (b.endAfterNext) {
+		return true;
+	}
+	if (b.skipNext) {
+		b.skipNext = false;
+		return false;
+	}
+	if (b.continueAfterNext) {
+		// Decided, as in CanContinuePastBranch, once the delay slot is compiled. The branch is counted.
+		b.continueAfterNext = false;
+		if (GetIRBlockEnd(op) != IRBlockEnd::NONE || b.numInstructions - 1 >= IR_MAX_CONTINUED_INSTRUCTIONS ||
+			b.continuedBranches >= IR_MAX_CONTINUED_BRANCHES || MayHavePrefix(mips)) {
+			return true;
+		}
+		b.continuedBranches++;
+		return false;
+	}
+
+	b.numInstructions++;
+	switch (GetIRBlockEnd(op)) {
+	case IRBlockEnd::NONE:
+		return false;
+	case IRBlockEnd::NOW:
+		return true;
+	case IRBlockEnd::AFTER_DELAY_SLOT:
+		break;
+	}
+
+	const u32 enc = op.encoding;
+	if (((enc >> 26) == 0x14 || (enc >> 26) == 0x15) && (enc & 0xFFFF) == 1 && (Memory::Read_Instruction(pc + 4).encoding & 0xFC00003F) == 0x0D) {
+		// beql/bnel over a break: BranchRSRTComp drops both and goes on.
+		b.numInstructions++;
+		b.skipNext = mips->inDelaySlot;
+		return false;
+	}
+	if (mips->inDelaySlot) {
+		// Taken, or a jump.
+		b.endAfterNext = true;
+		return false;
+	}
+	if (mips->pc != pc + 4) {
+		// A likely branch that wasn't taken skipped its delay slot.
+		return true;
+	}
+	// Not taken: the delay slot runs next, as an ordinary instruction.
+	const MIPSInfo delaySlotInfo = MIPSGetInfo(Memory::Read_Instruction(pc + 4));
+	if (IR_CONTINUE_BRANCHES && IsContinuableBranch(op) && (delaySlotInfo & (IS_JUMP | IS_CONDBRANCH)) == 0) {
+		b.continueAfterNext = true;
+	} else {
+		b.endAfterNext = true;
+	}
+	return false;
+}
+
 // This is the fast runloop for the interpreter.
 // When making changes, always make sure it's in sync with the fallback loop, RunUntilDowncountZeroWithChecks, which is
 // far less efficient but supports breakpoints of all kinds etc.
 static void RunUntilDowncountZeroFast(MIPSState *mips) {
 	while (mips->downcount >= 0 && coreState == CORE_RUNNING_CPU) {
-		int cycleCount = 0;
-		// Don't stop in a delay slot!
-		do {
+		// Run to the end of what the IR cores would run as one block.
+		IRBlockState block;
+		while (true) {
 			const u32 pc = mips->pc;
 			if (!Memory::IsValid4AlignedAddress(pc)) {
 				Core_ExecException(pc, pc, ExecExceptionType::JUMP);
@@ -1128,15 +1264,21 @@ static void RunUntilDowncountZeroFast(MIPSState *mips) {
 				Core_ExecException(pc, pc, ExecExceptionType::ILLEGAL);
 				return;
 			}
-			cycleCount += cycles;
+			// Charged per instruction, like RunUntilDowncountZeroWithChecks, so a syscall in a delay
+			// slot sees the branch's cycles in either loop.
+			mips->downcount -= cycles;
 
 			// The reason we have to check this is the delay slot hack in Int_Syscall.
 			if (mips->inDelaySlot && wasInDelaySlot) {
 				mips->pc = mips->nextPC;
 				mips->inDelaySlot = false;
 			}
-		} while (mips->inDelaySlot);
-		mips->downcount -= cycleCount;
+			const bool blockEnded = StepIRBlock(block, mips, op, pc);
+			// Don't stop in a delay slot!
+			if (!mips->inDelaySlot && (blockEnded || coreState != CORE_RUNNING_CPU)) {
+				break;
+			}
+		}
 	}
 }
 
@@ -1243,8 +1385,11 @@ static void RunUntilDowncountZeroWithChecks(MIPSState *mips, u64 globalTicks) {
 	// Bit i set means register i has an active register breakpoint - see GetRegBreakpointMask().
 	u32 regBPMask = g_breakpoints.GetRegBreakpointMask();
 	while (mips->downcount >= 0 && coreState == CORE_RUNNING_CPU) {
-		// Don't stop in a delay slot! Well, unless we hit a memcheck in one, of course.
-		do {
+		// Run to the end of what the IR cores would run as one block. Don't stop in a delay slot!
+		// Well, unless we hit a memcheck in one, of course.
+		IRBlockState block;
+		while (true) {
+			const u32 pc = mips->pc;
 			if (!Memory::IsValid4AlignedAddress(mips->pc)) {
 				Core_ExecException(mips->pc, mips->pc, ExecExceptionType::JUMP);
 				return;
@@ -1271,7 +1416,7 @@ static void RunUntilDowncountZeroWithChecks(MIPSState *mips, u64 globalTicks) {
 				breakExec = true;
 			}
 			if (breakExec) {
-				break;
+				return;
 			}
 
 			const bool wasInDelaySlot = mips->inDelaySlot;
@@ -1283,7 +1428,11 @@ static void RunUntilDowncountZeroWithChecks(MIPSState *mips, u64 globalTicks) {
 				mips->pc = mips->nextPC;
 				mips->inDelaySlot = false;
 			}
-		} while (mips->inDelaySlot);
+			const bool blockEnded = StepIRBlock(block, mips, op, pc);
+			if (!mips->inDelaySlot && (blockEnded || coreState != CORE_RUNNING_CPU)) {
+				break;
+			}
+		}
 
 		if (CoreTiming::GetTicks(currentMIPS) > globalTicks)
 			return;
