@@ -848,8 +848,6 @@ static void DrawInternals(ImConfig &cfg) {
 		ImGui::Text("Base pointer: %p", Memory::base);
 		ImGui::Text("Main memory size: %08x", Memory::g_MemorySize);
 		if (MIPSComp::jit) {
-			const JitBlockCache *bc = MIPSComp::jit->GetBlockCache();
-			ImGui::Text("JIT block cache: %p", bc->GetBlock(0));
 			ImGui::Text("JIT code cache: %p", MIPSComp::jit->GetCodeBase());
 			ImGui::Text("MIPS state: %p", currentMIPS);
 		}

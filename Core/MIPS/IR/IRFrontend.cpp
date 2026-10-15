@@ -278,10 +278,7 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &m
 	js.cancel = false;
 	js.blockStart = em_address;
 	js.compilerPC = em_address;
-	js.initialBlockSize = 0;
-	js.nextExit = 0;
 	js.downcountAmount = 0;
-	js.curBlock = nullptr;
 	js.compiling = true;
 	js.hadBreakpoints = false;
 	js.blockWrotePrefixes = false;

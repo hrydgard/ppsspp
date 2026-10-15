@@ -414,7 +414,6 @@
     <ClInclude Include="Data\Text\Parsers.h" />
     <ClInclude Include="Data\Text\StringWriter.h" />
     <ClInclude Include="Data\Text\WrapText.h" />
-    <ClInclude Include="FakeEmitter.h" />
     <ClInclude Include="File\AndroidContentURI.h" />
     <ClInclude Include="File\AndroidStorage.h" />
     <ClInclude Include="File\DirListing.h" />

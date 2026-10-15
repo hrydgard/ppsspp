@@ -214,8 +214,6 @@ public:
 	void Compile(u32 em_address) override;	// Compiles a block at current MIPS PC
 
 	bool DescribeCodePtr(const u8 *ptr, std::string &name) override;
-	// Not using a regular block cache.
-	JitBlockCache *GetBlockCache() override { return nullptr; }
 	JitBlockCacheDebugInterface *GetBlockCacheDebugInterface() override { return &blocks_; }
 
 	void ClearCache() override;
@@ -228,9 +226,6 @@ public:
 
 	const u8 *GetDispatcher() const override { return nullptr; }
 	const u8 *GetCrashHandler() const override { return nullptr; }
-
-	void LinkBlock(u8 *exitPoint, const u8 *checkedEntry) override;
-	void UnlinkBlock(u8 *checkedEntry, u32 originalAddress) override;
 
 	// This gets overridden by the native-backed IR jits.
 	const u8 *GetCodeBase() const override { return nullptr; }

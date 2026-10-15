@@ -19,6 +19,7 @@
 
 #include <unordered_map>
 
+#include "Common/CodeBlock.h"
 #include "Core/MIPS/IR/IRJit.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 

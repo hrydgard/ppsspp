@@ -54,7 +54,6 @@
       <Filter>Serialize</Filter>
     </ClInclude>
     <ClInclude Include="TimeUtil.h" />
-    <ClInclude Include="FakeEmitter.h" />
     <ClInclude Include="SysError.h" />
     <ClInclude Include="..\ext\libpng17\png.h">
       <Filter>ext\libpng17</Filter>

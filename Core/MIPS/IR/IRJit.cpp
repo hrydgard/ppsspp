@@ -245,14 +245,6 @@ bool IRJit::DescribeCodePtr(const u8 *ptr, std::string &name) {
 	return false;
 }
 
-void IRJit::LinkBlock(u8 *exitPoint, const u8 *checkedEntry) {
-	Crash();
-}
-
-void IRJit::UnlinkBlock(u8 *checkedEntry, u32 originalAddress) {
-	Crash();
-}
-
 void IRBlockCache::Clear() {
 	for (int i = 0; i < (int)blocks_.size(); ++i) {
 		int cookie = compileToNative_ ? blocks_[i].GetNativeOffset() : blocks_[i].GetIRArenaOffset();

@@ -214,7 +214,6 @@
     <ClCompile Include="..\..\Core\MIPS\IR\IRAnalysis.cpp" />
     <ClCompile Include="..\..\Core\MIPS\IR\IRPassSimplify.cpp" />
     <ClCompile Include="..\..\Core\MIPS\IR\IRRegCache.cpp" />
-    <ClCompile Include="..\..\Core\MIPS\JitCommon\JitBlockCache.cpp" />
     <ClCompile Include="..\..\Core\MIPS\JitCommon\JitCommon.cpp" />
     <ClCompile Include="..\..\Core\MIPS\JitCommon\JitState.cpp" />
     <ClCompile Include="..\..\Core\MIPS\MIPS.cpp" />

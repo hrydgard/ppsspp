@@ -19,6 +19,7 @@
 #if PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
 
 #include <cstddef>
+#include <map>
 #include "Common/StringUtils.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPSTables.h"
