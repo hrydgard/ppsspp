@@ -144,6 +144,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0x1aad94c0723edfc0, 124, "sceVfpuMatrix3Mul", },
 	{ 0x1ab33b12b3cb8cb0, 28, "vqmul_q", },
 	{ 0x1ac05627df1f87f4, 112, "memcpy16", }, // Valkyria Chronicles 3
+	{ 0x1aee5a57e8bc2e78, 740, "resistance_muzzle_light", },
 	{ 0x1bdf3600844373fd, 112, "strstr", },
 	{ 0x1c967be07917ddc9, 92, "strcat", },
 	{ 0x1d03fa48334ca966, 556, "_strtol_r", },

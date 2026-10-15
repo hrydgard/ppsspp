@@ -1543,6 +1543,17 @@ static int Hook_resistance_update_trail() {
 	return 0;
 }
 
+static int Hook_resistance_muzzle_light() {
+	// Each shot spawns a light that is removed once its effect's clock reaches 0.1s, and the new
+	// one only lights up an update after it's spawned. At 30fps the 303 assault rifle fires every
+	// third update (0.1s), so the wall goes dark for one frame per shot and flickers. At 60fps it
+	// fires every fifth update (1/12s), the light outlives the gap and the wall stays lit (#20420).
+	// 0.075s keeps the 30fps pattern and gives 60fps four lit updates out of five. Hooked where
+	// f13 holds the lifetime, about to be added to the clock.
+	currentMIPS->f[13] = 0.075f;
+	return 0;
+}
+
 static int Hook_katamari_render_check() {
 	if (!Memory::IsValidRange(currentMIPS->r[MIPS_REG_A0] + 0x3C, 8)) {
 		return 0;
@@ -1884,6 +1895,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "codedarms_stencil_check", &Hook_codedarms_stencil_check, 0, REPFLAG_HOOKENTER, 0x8C },
 	{ "resistance_draw_trail", &Hook_resistance_draw_trail, 0, REPFLAG_HOOKENTER, 0x198 },
 	{ "resistance_update_trail", &Hook_resistance_update_trail, 0, REPFLAG_HOOKENTER, 0x438 },
+	{ "resistance_muzzle_light", &Hook_resistance_muzzle_light, 0, REPFLAG_HOOKENTER, 0xF0 },
 	{}
 };
 
