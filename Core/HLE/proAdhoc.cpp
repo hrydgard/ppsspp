@@ -1323,7 +1323,7 @@ void sendChat(std::string_view chatString) {
 		// Send Chat to Server 
 		if (!chatString.empty()) {
 			const std::lock_guard<std::mutex> adhocctl_guard(adhocctlMutex);
-			if (adhocctlHandle != NULL) {
+			if (adhocctlHandle) {
 				// TODO while the library handles truncation, to keep the UI consistent we are truncating it here
 				// logic has to be updated in the future if later adhocctl protocol supports longer messages
 				char buf[64];
@@ -1373,13 +1373,14 @@ void killAdhocctlClient(bool due_to_error) {
 		adhocctlMutex.unlock();
 	}
 
-	if (adhocctlHandle == NULL){
+	if (!adhocctlHandle) {
 		return;
 	}
 
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
-	if (due_to_error)
+	if (due_to_error) {
 		g_OSD.Show(OSDType::MESSAGE_ERROR, std::string(n->T("Disconnected from AdhocServer")));
+	}
 
 	g_adhocServerConnected = false;
 
@@ -1445,7 +1446,7 @@ int friendFinder() {
 		//_acquireNetworkLock();
 
 		// Reconnect when disconnected while Adhocctl is still inited
-		if (adhocctlHandle == NULL && netAdhocctlInited && isAdhocctlNeedLogin) {
+		if (!adhocctlHandle && netAdhocctlInited && isAdhocctlNeedLogin) {
 			if (g_Config.bEnableWlan) {
 				// Not really initNetwork.
 				if (initNetwork(&product_code) == 0) {
@@ -1464,11 +1465,12 @@ int friendFinder() {
 			sleep_ms(10, "pro-adhoc-poll-2"); // Using 1ms for faster response just like AdhocServer?
 
 			// Don't do anything if it's paused, otherwise the log will be flooded
-			while (Core_IsStepping() && coreState != CORE_POWERDOWN && friendFinderRunning)
+			while (Core_IsStepping() && coreState != CORE_POWERDOWN && friendFinderRunning) {
 				sleep_ms(10, "pro-adhoc-paused-poll-2");
+			}
 		};
 
-		if (!g_adhocServerConnected){
+		if (!g_adhocServerConnected) {
 			friend_finder_wait();
 			continue;
 		}
@@ -1764,7 +1766,7 @@ int getLocalIp(sockaddr_in* SocketAddress) {
 
 	{
 		const std::lock_guard<std::mutex> local_ip_cache_guard(cachedLocalIpMutex);
-		if (cachedLocalIp != 0xffffffff){
+		if (cachedLocalIp != 0xffffffff) {
 			SocketAddress->sin_addr.s_addr = cachedLocalIp;
 			return 0;
 		}
@@ -1851,7 +1853,7 @@ bool isBroadcastIP(uint32_t ip, const uint32_t subnetmask) {
 	return (ip == (ip | (~subnetmask)));
 }
 
-void getLocalMac(SceNetEtherAddr * addr){
+void getLocalMac(SceNetEtherAddr * addr) {
 	// Read MAC Address from config
 	uint8_t mac[ETHER_ADDR_LEN] = {0};
 	if (PPSSPP_ID > 1) {
@@ -2096,7 +2098,7 @@ int getPTPSocketCount() {
 	return counter;
 }
 
-int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
+int initNetwork(SceNetAdhocctlAdhocId *adhoc_id) {
 	auto n = GetI18NCategory(I18NCat::NETWORKING);
 	int iResult = 0;
 
@@ -2138,17 +2140,17 @@ int initNetwork(SceNetAdhocctlAdhocId *adhoc_id){
 	// Connect to Adhoc Server
 	void *new_adhocctl_handle = create_adhocctl_v1_session_v4(&adhocctl_addr, adhocctl_bind_addr, (char *)product_code.data, (char *)parameter.nickname.data, (char *)address.data, netAdhocUseUdp);
 
-	if (new_adhocctl_handle == NULL){
+	if (!new_adhocctl_handle) {
 		return SOCKET_ERROR;
 	}
 
 	const std::lock_guard<std::mutex> adhocctl_guard(adhocctlMutex);
-	if (adhocctlHandle != NULL){
+	if (adhocctlHandle) {
 		killAdhocctlClient(false);
 	}
 	adhocctlHandle = new_adhocctl_handle;
 	int new_adhocctl_id = rand();
-	while (new_adhocctl_id == adhocctlId){
+	while (new_adhocctl_id == adhocctlId) {
 		new_adhocctl_id = rand();
 	}
 	adhocctlId = new_adhocctl_id;
@@ -2284,11 +2286,11 @@ bool validNetworkName(const char *data) {
 	return valid;
 }
 
-u64 join32(u32 num1, u32 num2){
+u64 join32(u32 num1, u32 num2) {
 	return (u64)num2 << 32 | num1;
 }
 
-void split64(u64 num, int buff[]){
+void split64(u64 num, int buff[]) {
 	int num1 = (int)(num&firstMask);
 	int num2 = (int)((num&secondMask) >> 32);
 	buff[0] = num1;
