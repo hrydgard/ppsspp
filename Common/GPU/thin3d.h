@@ -296,7 +296,10 @@ enum class ReadbackMode {
 	OLD_DATA_OK,  // Lets the backend return old results that won't need any waiting to get.
 };
 
-constexpr uint32_t MAX_TEXTURE_SLOTS = 3;
+// Compile-time upper bound for texture bindings in thin3d. The actual number usable on the
+// current device/API is DeviceCaps::maxTextureSlots, which is always <= this.
+// Raised from 3 to allow post-shaders to sample many previous frames (see #15668).
+constexpr uint32_t MAX_TEXTURE_SLOTS = 20;
 
 struct FramebufferDesc {
 	int width;
@@ -640,6 +643,11 @@ struct DeviceCaps {
 	PresentMode presentModesSupported;
 
 	u32 multiSampleLevelsMask;  // Bit n is set if (1 << n) is a valid multisample level. Bit 0 is always set.
+
+	// Number of texture binding slots (0..maxTextureSlots-1) that can be used in a single draw
+	// through thin3d on this device/API. Always <= MAX_TEXTURE_SLOTS.
+	int maxTextureSlots;
+
 	std::string deviceName;  // The device name to use when creating the thin3d context, to get the same one.
 };
 

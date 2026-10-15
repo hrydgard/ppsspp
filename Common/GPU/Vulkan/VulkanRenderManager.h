@@ -201,7 +201,8 @@ struct VKRPipelineLayout {
 	VKRPipelineLayout &operator=(const VKRPipelineLayout &) = delete;
 	~VKRPipelineLayout();
 
-	enum { MAX_DESC_SET_BINDINGS = 5 };
+	// thin3d needs 1 UBO + Draw::MAX_TEXTURE_SLOTS (20) combined image samplers.
+	enum { MAX_DESC_SET_BINDINGS = 24 };
 	BindingType bindingTypes[MAX_DESC_SET_BINDINGS];
 
 	uint32_t bindingTypesCount = 0;

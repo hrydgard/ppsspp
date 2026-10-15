@@ -173,6 +173,8 @@ protected:
 	ShaderInfo *stereoShaderInfo_ = nullptr;
 
 	int previousIndex_ = 0;
+	// How many entries of previousFramebuffers_ hold real, already rendered frames (resets when the chain is rebuilt.)
+	int previousFramesFilled_ = 0;
 	PostShaderUniforms previousUniforms_{};
 
 	Draw::Texture *srcTexture_ = nullptr;
