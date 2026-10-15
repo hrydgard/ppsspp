@@ -252,7 +252,8 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 
 	DXGI_FORMAT dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
 	if (plan.doReplace) {
-		dstFmt = ToDXGIFormat(plan.replaced->Format());
+		// Indices for the GPU are uploaded as the R8 format of the CLUT8 textures.
+		dstFmt = plan.decodeToClut8 ? DXGI_FORMAT_R8_UNORM : ToDXGIFormat(plan.replaced->Format());
 	} else if (plan.scaleFactor > 1 || plan.saveTexture) {
 		dstFmt = DXGI_FORMAT_R8G8B8A8_UNORM;
 	} else if (plan.decodeToClut8) {
@@ -306,7 +307,7 @@ void TextureCacheD3D11::BuildTexture(TexCacheEntry *const entry) {
 				stride = ((mipWidth + 3) & ~3) * blockSize / 4;  // Number of blocks * 4 * Size of a block / 4
 				dataSize = plan.replaced->GetLevelDataSizeAfterCopy(i);
 			} else {
-				int bpp = (int)Draw::DataFormatSizeInBytes(plan.replaced->Format());
+				int bpp = plan.decodeToClut8 ? 1 : (int)Draw::DataFormatSizeInBytes(plan.replaced->Format());
 				stride = std::max(mipWidth * bpp, 16);
 				dataSize = stride * mipHeight;
 			}

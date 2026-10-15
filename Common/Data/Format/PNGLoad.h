@@ -14,6 +14,13 @@ int pngLoadPtr(const unsigned  char *input_ptr, size_t input_len, int *pwidth,
             int *pheight, unsigned char **image_data_ptr,
             int maxWidth = 8192, int maxHeight = 8192);
 
+// Loads a palette or grayscale PNG (up to 8 bits) as one byte per pixel, tightly packed:
+// the palette index for palette images, the gray value for grayscale ones. Returns 0 for any
+// other kind of PNG. *image_data_ptr should be deleted with free().
+int pngLoadIndexed(const unsigned char *input_ptr, size_t input_len, int *pwidth,
+            int *pheight, unsigned char **image_data_ptr,
+            int maxWidth = 8192, int maxHeight = 8192);
+
 // PNG peeker - just read the start of a PNG straight into this struct, in order to
 // look at basic parameters like width and height. Note that while PNG is a chunk-based
 // format, the IHDR chunk is REQUIRED to be the first one, so this will work.
@@ -35,3 +42,7 @@ struct PNGHeaderPeek {
 };
 
 bool pngSave(const Path &filename, const void *buffer, int w, int h, int bytesPerPixel);
+
+// Saves an 8-bit palette PNG: one byte per pixel, tightly packed, with numColors (1 to 256) palette entries
+// in RGBA byte order. The alpha of the entries goes in a tRNS chunk.
+bool pngSaveIndexed(const Path &filename, const uint8_t *indices, int w, int h, const uint32_t *palette, int numColors);
