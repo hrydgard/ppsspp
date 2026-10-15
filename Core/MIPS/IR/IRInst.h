@@ -446,6 +446,8 @@ struct IROptions {
 	bool optimizeForInterpreter;
 	// The backend has Vec4VfpuMultiDot.
 	bool vfpuMultiDot;
+	// Compile on past conditional branches (see IRFrontend::CanContinuePastBranch).
+	bool continueBranches;
 };
 
 const IRMeta *GetIRMeta(IROp op);

@@ -83,6 +83,7 @@ IRJit::IRJit(MIPSState *mipsState, bool actualJit) : frontend_(mipsState->HasDef
 #else
 	opts.vfpuMultiDot = !actualJit;
 #endif
+	opts.continueBranches = true;
 	frontend_.SetOptions(opts);
 
 	profiling_ = !g_Config.sJitProfileFile.empty();

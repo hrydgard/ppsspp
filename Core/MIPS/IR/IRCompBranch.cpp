@@ -99,6 +99,11 @@ void IRFrontend::BranchRSRTComp(MIPSOpcode op, IRComparison cc, bool likely) {
 	js.downcountAmount = 0;
 
 	FlushAll();
+	if (CanContinuePastBranch(branchInfo, rs == rt)) {
+		ir.Write(ComparisonToExit(Invert(cc)), 0, lhs, rhs, targetAddr);
+		js.compilerPC += 4;
+		return;
+	}
 	ir.Write(ComparisonToExit(cc), 0, lhs, rhs, ResolveNotTakenTarget(branchInfo));
 	// This makes the block "impure" :(
 	if (likely && !branchInfo.delaySlotIsBranch)
@@ -151,6 +156,11 @@ void IRFrontend::BranchRSZeroComp(MIPSOpcode op, IRComparison cc, bool andLink, 
 	js.downcountAmount = 0;
 
 	FlushAll();
+	if (CanContinuePastBranch(branchInfo, rs == MIPS_REG_ZERO)) {
+		ir.Write(ComparisonToExit(Invert(cc)), 0, lhs, 0, targetAddr);
+		js.compilerPC += 4;
+		return;
+	}
 	ir.Write(ComparisonToExit(cc), 0, lhs, 0, ResolveNotTakenTarget(branchInfo));
 	if (likely && !branchInfo.delaySlotIsBranch)
 		CompileDelaySlot();
@@ -170,6 +180,21 @@ void IRFrontend::BranchRSZeroComp(MIPSOpcode op, IRComparison cc, bool andLink, 
 	// Account for the delay slot.
 	js.compilerPC += 4;
 	js.compiling = false;
+}
+
+// Whether to go on compiling the not-taken path after a conditional branch, exiting to the target
+// when it's taken, rather than ending the block. A loop then needs one exit per iteration, and the
+// code around the branch gets compiled together. Not for likely branches, whose delay slot belongs to
+// the taken path, or for branches decided by their operands (b, an always-taken beq zero, zero, is
+// usually followed by something else entirely). Nor with a prefix pending: blocks assume default
+// prefixes on entry, and only the end of a block checks that it leaves them so (CheckRounding()).
+bool IRFrontend::CanContinuePastBranch(const BranchInfo &branchInfo, bool constantOperands) {
+	if (!opts.continueBranches || branchInfo.likely || branchInfo.delaySlotIsBranch || constantOperands || js.MayHavePrefix())
+		return false;
+	if (js.numInstructions >= MAX_CONTINUED_INSTRUCTIONS || js.continuedBranches >= MAX_CONTINUED_BRANCHES)
+		return false;
+	js.continuedBranches++;
+	return true;
 }
 
 void IRFrontend::Comp_RelBranch(MIPSOpcode op) {

@@ -7,15 +7,15 @@ can be fixed.
 
 ## The fuzzer
 
-`UnitTest CPUEquivalence` (in `unittest/JitHarness.cpp`) generates random straight-line code
-(ALU, immediate, FPU, VFPU, loads and stores) and a random start state, runs it on every core, and
+`UnitTest CPUEquivalence` (in `unittest/JitHarness.cpp`) generates random code (ALU, immediate,
+FPU, VFPU, loads and stores, optionally forward branches) and a random start state, runs it on every core, and
 compares the full end state against the interpreter: GPRs, FPRs, VFPU registers and control
 registers, hi/lo, fcr31 (bit 23 aside, which some cores sync from fpcond and some don't), fpcond,
 llBit, and 1KB of scratch memory. NaNs compare equal to each other. Loads and stores go through
 `k0`, which points at the scratch memory and is never written.
 
-Each differing case is minimized (instructions dropped while it still differs) and printed with its
-inputs. It ends with a count of the reported cases by their last instruction, which is usually the
+Each differing case is minimized (instructions dropped while it still differs, or turned into nops
+when the code has branches, so none moves its target) and printed with its inputs. It ends with a count of the reported cases by their last instruction, which is usually the
 one at fault. By default only a crash fails the test, as known differences remain.
 
 Environment variables:
@@ -24,7 +24,7 @@ Environment variables:
 |---|---|
 | `PPSSPP_CPUFUZZ_COUNT` | number of cases (default 2000) |
 | `PPSSPP_CPUFUZZ_SEED` | seed of the first case; case i uses seed + i |
-| `PPSSPP_CPUFUZZ_CLASSES` | weighted string of `a` (ALU), `i` (immediate), `f` (FPU), `v` (VFPU), `m` (memory) |
+| `PPSSPP_CPUFUZZ_CLASSES` | weighted string of `a` (ALU), `i` (immediate), `f` (FPU), `v` (VFPU), `m` (memory), `r` (a run of vdots the IR batches into one `Vec4VfpuMultiDot`); `b` anywhere adds forward conditional branches |
 | `PPSSPP_CPUFUZZ_CODE` | comma-separated hex instructions to run instead of the generated code |
 | `PPSSPP_CPUFUZZ_CODE_SEED` | apply `PPSSPP_CPUFUZZ_CODE` to this seed only |
 | `PPSSPP_CPUFUZZ_SKIP` | cores to skip, by digit: 1 IR interpreter, 2 JIT |
@@ -95,7 +95,23 @@ Crashes (JIT emitter asserts) and wrong code found by the fuzzer:
   `MAP_DIRTY`, so its 0 was never written.
 - The legacy JITs' `Comp_Generic` ran the interpreted instruction in the host's default rounding
   mode instead of the guest's.
-- Hardware answers 1, 2 (host agreement), 5 and 7 (the interpreter and `vcmov`) below.
+- IR: vmscl and the matrix inits of two transposed matrices flipped the transposed bit to get
+  Vec4s, which for a matrix with an offset (one that wraps around) names other registers. vmscl
+  also took its Vec4 path before checking that the matrices don't partly overlap.
+- IR: vc2i and vuc2i read their source as a single, not as the first lane at the size encoded.
+- IR: vf2i and vi2f wrote each lane straight to a destination that could hold a later lane's source.
+- IR: vcmov under a saturating D prefix left lanes that didn't move with whatever the D temp held.
+- IR: vmtvc to a control register that masks its value read the VFPU register numbered like the
+  control register.
+- IR `OptimizeFPMoves`: propagated a copy into a multi-lane result covering the copied register,
+  and into the src3 of ops where it's also the destination (FCmovVfpuCC), moving the result.
+- IR `OptimizeLoadsAfterStores`: compared offsets as unsigned, so a store at -16 of 16 bytes didn't
+  cover a load at -12, which reused the value from before the store.
+- Native IR backends: flushing a host register that cached `$zero` left it mapped, so after a call
+  that clobbered it (the dot product routine), a store of `$zero` stored garbage.
+- The IR frontend continues past conditional branches, so a block can now leave with a prefix
+  pending at a mid-block exit. It doesn't continue then, as only the end of a block checks that.
+- Hardware answers 1, 2 (host agreement), 5, 7 (the interpreter and `vcmov`), 8, 9 and 10 below.
 
 ## Open differences
 
@@ -125,7 +141,7 @@ vdot's summation, and of `undefined` the horizontal ops and matrix registers wit
 `0xFFC00000` NaNs and flushed denormal results but not inputs under FS (FTZ without DAZ).
 
 The fuzzer agrees: integer, FPU and memory code (`PPSSPP_CPUFUZZ_CLASSES=aaiiffm`) gives the same
-end state on every core and on both hosts in 20000 cases, apart from item 8 below. With VFPU code
+end state on every core and on both hosts in 20000 cases, apart from item 11 below. With VFPU code
 mixed in, the interpreter differs between the hosts in 7 of 20000 cases, each a host NaN out of a
 horizontal op (vmmul, vtfm, vdot, vdet) that vmin, vmax or vf2i then orders or converts by its
 sign.
@@ -180,12 +196,20 @@ sign.
    around, vtfm/vhtfm size mismatches, vmfvc past register 15 reading 0, vcmov with bit 20 set),
    now including `vcmov` with imm3 = 7, which tests a CC bit that is always clear: vcmovt never
    moves and vcmovf always does (fixed on every core). The JITs still differ on the single-lane
-   dot products and vcrsp/vqmul at .s/.p (for the accurate dot product), and the IR cores on
-   matrix registers whose offset doesn't fit the size.
+   dot products and vcrsp/vqmul at .s/.p (for the accurate dot product). The IR cores now match on
+   matrix registers whose offset doesn't fit the size (see Fixed).
+8. **Loads and a pending D prefix** (`prefix_load`, fixed). lv.q, lv.s, lvl.q, lvr.q and mtv write
+   every lane, ignoring the D prefix's mask and saturation, and leave it pending. The interpreter
+   applied the mask to lv.q, lvl.q and lvr.q (and the IR cores, which hand lvl.q and lvr.q to it).
+9. **vfim** (`vfim`, fixed). The half float converts like vh2f: denormal halves give a signed zero,
+   inf and NaN keep their mantissa bits in place. The interpreter halved denormals, the IR made
+   them IEEE.
+10. **bltzal and friends with rs = ra** (`branch_link_ra`, fixed). The branch tests ra's value from
+   before the link. Every core linked first.
 
 ### Known, no hardware test needed
 
-8. **Divide-by-zero flags.** Only the interpreter sets the cause and flag bits for `div.s` by zero
+11. **Divide-by-zero flags.** Only the interpreter sets the cause and flag bits for `div.s` by zero
    (see `Int_FPU3op`). The other cores leave fcr31 alone. Making the others match needs a new IR op
    or an interpreter fallback for div.s, and the latter costs every division.
 
@@ -212,9 +236,9 @@ end state in every fuzz case under qemu-arm (`./b.sh --armhf`, see building.md).
 
 ### Not looked into yet
 
-- With VFPU code in the mix, the IR cores differ from the interpreter in 147 of 2000 default
-  cases. Most of those looked at are the horizontal ops (items 4 and 6) and item 7.
-- Branches, delay slots, and VFPU prefixes across blocks: the generated code is straight-line.
+- In 32000 default cases, the IR cores now differ from the interpreter only in item 11, on ARM64.
+- Backward branches and loops: the generated branches only go forward. Prefixes across blocks only
+  as far as a forward branch carries them.
 
 ## Unrelated
 

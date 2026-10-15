@@ -127,6 +127,9 @@ private:
 	void BranchVFPUFlag(MIPSOpcode op, IRComparison cc, bool likely);
 	void BranchRSZeroComp(MIPSOpcode op, IRComparison cc, bool andLink, bool likely);
 	void BranchRSRTComp(MIPSOpcode op, IRComparison cc, bool likely);
+	bool CanContinuePastBranch(const BranchInfo &branchInfo, bool constantOperands);
+	static constexpr int MAX_CONTINUED_INSTRUCTIONS = 96;
+	static constexpr int MAX_CONTINUED_BRANCHES = 8;
 
 	// Utilities to reduce duplicated code
 	void CompShiftImm(MIPSOpcode op, IROp shiftType, int sa);
