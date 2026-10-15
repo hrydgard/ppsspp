@@ -1365,12 +1365,12 @@ int GetChatMessageCount() {
 }
 
 void killAdhocctlClient(bool due_to_error) {
-	// assumes adhocctl lock
-	// XXX should the lock be recursive, or would keeping it not recursive be cleaner?
 	if (adhocctlMutex.try_lock()) {
 		// if only I can check if a c++ mutex is held by the current thread..
+		// this only checks for unexpected nonlocked usage
 		ERROR_LOG(Log::sceNet, "killAdhocctlClient: unreachable codepath at %s %d", __FILE__, __LINE__);
 		_dbg_assert_(false);
+		adhocctlMutex.unlock();
 	}
 
 	if (adhocctlHandle == NULL){
