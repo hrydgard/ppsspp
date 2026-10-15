@@ -9,7 +9,6 @@ struct IRInst;
 
 u32 IRRunBreakpoint(u32 pc);
 u32 IRRunMemCheck(u32 pc, u32 addr);
-u32 IRInterpret(MIPSState *ms, const IRInst *inst);
 
 template <uint32_t alignment>
 u32 RunValidateAddress(u32 pc, u32 addr, u32 isWrite) {

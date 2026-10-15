@@ -406,8 +406,9 @@ struct IRInst {
 	u32 constant;
 };
 
-// Returns the new PC.
-u32 IRInterpret(MIPSState *ms, const IRInst *inst);
+// Returns the new PC. With the block arena, exits go straight on to the next compiled block while
+// downcount lasts, instead of returning.
+u32 IRInterpret(MIPSState *ms, const IRInst *inst, const IRInst *chainArena = nullptr);
 
 // Each IR block gets a constant pool.
 class IRWriter {

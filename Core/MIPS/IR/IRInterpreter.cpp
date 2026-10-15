@@ -83,6 +83,9 @@ u32 IRRunMemCheck(u32 pc, u32 addr) {
 // With GCC and Clang, each op jumps straight to the next op's handler through a table ("threaded"
 // dispatch), which predicts much better than the one shared indirect jump of a switch. Other
 // compilers get the switch. Ops missing from the table fall back to the switch, so they still work.
+// Clang keeps one jump per op only while the shared tail stays small, and a direct goto to a handler
+// label also makes it give up, leaving a single indirect jump (10-15% slower). Count the `br`s in
+// the disassembly after changing the dispatch.
 #if defined(__GNUC__) || defined(__clang__)
 #define IR_THREADED_DISPATCH 1
 #define IR_CASE(op) case IROp::op: L_##op:
@@ -98,11 +101,28 @@ u32 IRRunMemCheck(u32 pc, u32 addr) {
 
 #if IR_THREADED_DISPATCH
 #define IR_NEXT do { IR_CHECK_ZERO_REG(); inst++; goto *dispatch[(int)inst->op]; } while (false)
+#define IR_DISPATCH goto *dispatch[(int)inst->op]
 #else
 #define IR_NEXT { IR_CHECK_ZERO_REG(); inst++; continue; }
+#define IR_DISPATCH goto L_switch
 #endif
 
-u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
+// Leaves the block for pcExpr. While downcount lasts, runs the block there right away if it's
+// compiled, the way IRJit::RunBlocks would after we returned (minus the call and the lookup there).
+#define IR_EXIT(pcExpr) do { \
+	const u32 exitPC = (pcExpr); \
+	if (!chainArena || mips->downcount < 0 || !Memory::IsValid4AlignedAddress(exitPC)) \
+		return exitPC; \
+	const u32 offset = *Memory::GetBlockShadowEntry(exitPC); \
+	if (offset <= Memory::BLOCK_SHADOW_HOOK_NO_JIT) \
+		return exitPC; \
+	mips->pc = exitPC; \
+	inst = chainArena + offset; \
+	IR_CHECK_ZERO_REG(); \
+	IR_DISPATCH; \
+} while (false)
+
+u32 IRInterpret(MIPSState *mips, const IRInst *inst, const IRInst *chainArena) {
 #if IR_THREADED_DISPATCH
 	static const void *dispatch[256];
 	static bool dispatchReady = false;
@@ -293,9 +313,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 #endif
 
 	while (true) {
-#if IR_THREADED_DISPATCH
 	L_switch:
-#endif
 		switch (inst->op) {
 		IR_CASE(SetConst)
 			mips->r[inst->dest] = inst->constant;
@@ -1292,47 +1310,47 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		}
 
 		IR_CASE(ExitToConst)
-			return inst->constant;
+			IR_EXIT(inst->constant);
 
 		IR_CASE(ExitToReg)
-			return mips->r[inst->src1];
+			IR_EXIT(mips->r[inst->src1]);
 
 		// The next instruction is the ExitToConst to take otherwise, never run itself.
 		IR_CASE(OptExitToConstIfEqElse)
-			return mips->r[inst->src1] == mips->r[inst->src2] ? inst->constant : inst[1].constant;
+			IR_EXIT(mips->r[inst->src1] == mips->r[inst->src2] ? inst->constant : inst[1].constant);
 		IR_CASE(OptExitToConstIfNeqElse)
-			return mips->r[inst->src1] != mips->r[inst->src2] ? inst->constant : inst[1].constant;
+			IR_EXIT(mips->r[inst->src1] != mips->r[inst->src2] ? inst->constant : inst[1].constant);
 		IR_CASE(OptExitToConstIfGtZElse)
-			return (s32)mips->r[inst->src1] > 0 ? inst->constant : inst[1].constant;
+			IR_EXIT((s32)mips->r[inst->src1] > 0 ? inst->constant : inst[1].constant);
 		IR_CASE(OptExitToConstIfGeZElse)
-			return (s32)mips->r[inst->src1] >= 0 ? inst->constant : inst[1].constant;
+			IR_EXIT((s32)mips->r[inst->src1] >= 0 ? inst->constant : inst[1].constant);
 		IR_CASE(OptExitToConstIfLtZElse)
-			return (s32)mips->r[inst->src1] < 0 ? inst->constant : inst[1].constant;
+			IR_EXIT((s32)mips->r[inst->src1] < 0 ? inst->constant : inst[1].constant);
 		IR_CASE(OptExitToConstIfLeZElse)
-			return (s32)mips->r[inst->src1] <= 0 ? inst->constant : inst[1].constant;
+			IR_EXIT((s32)mips->r[inst->src1] <= 0 ? inst->constant : inst[1].constant);
 		IR_CASE(ExitToConstIfEq)
 			if (mips->r[inst->src1] == mips->r[inst->src2])
-				return inst->constant;
+				IR_EXIT(inst->constant);
 			IR_NEXT;
 		IR_CASE(ExitToConstIfNeq)
 			if (mips->r[inst->src1] != mips->r[inst->src2])
-				return inst->constant;
+				IR_EXIT(inst->constant);
 			IR_NEXT;
 		IR_CASE(ExitToConstIfGtZ)
 			if ((s32)mips->r[inst->src1] > 0)
-				return inst->constant;
+				IR_EXIT(inst->constant);
 			IR_NEXT;
 		IR_CASE(ExitToConstIfGeZ)
 			if ((s32)mips->r[inst->src1] >= 0)
-				return inst->constant;
+				IR_EXIT(inst->constant);
 			IR_NEXT;
 		IR_CASE(ExitToConstIfLtZ)
 			if ((s32)mips->r[inst->src1] < 0)
-				return inst->constant;
+				IR_EXIT(inst->constant);
 			IR_NEXT;
 		IR_CASE(ExitToConstIfLeZ)
 			if ((s32)mips->r[inst->src1] <= 0)
-				return inst->constant;
+				IR_EXIT(inst->constant);
 			IR_NEXT;
 
 		IR_CASE(Downcount)
@@ -1377,7 +1395,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 		}
 
 		IR_CASE(ExitToPC)
-			return mips->pc;
+			IR_EXIT(mips->pc);
 
 		IR_CASE(Interpret)  // SLOW fallback. Can be made faster. Ideally should be removed but may be useful for debugging.
 		{
@@ -1484,5 +1502,7 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst) {
 }
 
 #undef IR_NEXT
+#undef IR_DISPATCH
+#undef IR_EXIT
 #undef IR_CASE
 #undef IR_CHECK_ZERO_REG
