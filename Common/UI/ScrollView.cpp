@@ -336,7 +336,11 @@ void ScrollView::Draw(UIContext &dc) {
 
 	if (bob.show) {
 		Bounds bobBounds(bounds_.x2() - bob.thickness, bounds_.y + bob.offset, bob.thickness, bob.size);
-		dc.FillRect(Drawable(dc.GetTheme().scrollbarColor), bobBounds);
+		uint32_t scrollBarColor = dc.GetTheme().scrollbarColor;
+		if (draggingBob_) {
+			scrollBarColor |= 0xFF000000;
+		}
+		dc.FillRect(Drawable(scrollBarColor), bobBounds);
 	}
 }
 
