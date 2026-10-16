@@ -39,6 +39,7 @@
 #include "Core/Util/ImageCompressors.h"
 #include "Core/Util/PathUtil.h"
 
+#include "UI/GamePacker.h"
 #include "UI/UnPackScreen.h"
 
 namespace {
@@ -290,7 +291,8 @@ void RunJob(std::shared_ptr<JobState> job, Path source, bool folder) {
 }
 
 void StartJob(const Path &source, bool compress, bool folder) {
-	if (IsJobRunning()) {
+	// One game screen pack at a time too: both could pick the same file.
+	if (IsJobRunning() || GamePacker::IsBusy()) {
 		return;
 	}
 
@@ -327,6 +329,10 @@ void StartJob(const Path &source, bool compress, bool folder) {
 }
 
 }  // namespace
+
+bool IsUnPackJobRunning() {
+	return IsJobRunning();
+}
 
 std::string_view UnPackScreen::GetTitle() const {
 	return "Un/Pack";
@@ -505,7 +511,7 @@ void UnPackScreen::RefreshStatus() {
 
 	const bool running = IsJobRunning();
 	for (View *view : jobLockedViews_) {
-		view->SetEnabled(!running && !PSP_IsInited());
+		view->SetEnabled(!running && !PSP_IsInited() && !GamePacker::IsBusy());
 	}
 	if (cancelChoice_) {
 		cancelChoice_->SetVisibility(running ? V_VISIBLE : V_GONE);

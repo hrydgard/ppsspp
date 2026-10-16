@@ -80,6 +80,9 @@
     <ClCompile Include="..\..\UI\UnPackScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\UI\GamePacker.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\UI\FirmwareScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
@@ -234,6 +237,9 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="..\..\UI\UnPackScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\GamePacker.h">
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="..\..\UI\FirmwareScreen.h">

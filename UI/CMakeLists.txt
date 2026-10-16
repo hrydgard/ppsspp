@@ -107,6 +107,8 @@ list(APPEND UISource
 	FirmwareScreen.cpp
 	UnPackScreen.h
 	UnPackScreen.cpp
+	GamePacker.h
+	GamePacker.cpp
 	InstallUpdateScreen.h
 	InstallUpdateScreen.cpp
 	InstallZipScreen.h

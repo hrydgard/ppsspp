@@ -46,6 +46,9 @@
     <ClCompile Include="UnPackScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="GamePacker.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
     <ClCompile Include="FirmwareScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
@@ -208,6 +211,9 @@
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="UnPackScreen.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="GamePacker.h">
       <Filter>Screens</Filter>
     </ClInclude>
     <ClInclude Include="FirmwareScreen.h">

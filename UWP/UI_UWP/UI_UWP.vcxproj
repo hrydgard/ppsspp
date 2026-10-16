@@ -117,6 +117,7 @@
     <ClInclude Include="..\..\UI\InstallPkgScreen.h" />
     <ClInclude Include="..\..\UI\FirmwareScreen.h" />
     <ClInclude Include="..\..\UI\UnPackScreen.h" />
+    <ClInclude Include="..\..\UI\GamePacker.h" />
     <ClInclude Include="..\..\UI\InstallUpdateScreen.h" />
     <ClInclude Include="..\..\UI\InstallZipScreen.h" />
     <ClInclude Include="..\..\UI\JitCompareScreen.h" />
@@ -180,6 +181,7 @@
     <ClCompile Include="..\..\UI\InstallPkgScreen.cpp" />
     <ClCompile Include="..\..\UI\FirmwareScreen.cpp" />
     <ClCompile Include="..\..\UI\UnPackScreen.cpp" />
+    <ClCompile Include="..\..\UI\GamePacker.cpp" />
     <ClCompile Include="..\..\UI\InstallUpdateScreen.cpp" />
     <ClCompile Include="..\..\UI\InstallZipScreen.cpp" />
     <ClCompile Include="..\..\UI\JitCompareScreen.cpp" />

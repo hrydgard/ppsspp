@@ -1039,6 +1039,7 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/InstallPkgScreen.cpp \
   $(SRC)/UI/FirmwareScreen.cpp \
   $(SRC)/UI/UnPackScreen.cpp \
+  $(SRC)/UI/GamePacker.cpp \
   $(SRC)/UI/InstallUpdateScreen.cpp \
   $(SRC)/UI/InstallZipScreen.cpp \
   $(SRC)/UI/JitCompareScreen.cpp \

@@ -83,6 +83,7 @@
     <ClCompile Include="InstallPkgScreen.cpp" />
     <ClCompile Include="FirmwareScreen.cpp" />
     <ClCompile Include="UnPackScreen.cpp" />
+    <ClCompile Include="GamePacker.cpp" />
     <ClCompile Include="InstallUpdateScreen.cpp" />
     <ClCompile Include="InstallZipScreen.cpp" />
     <ClCompile Include="Theme.cpp" />
@@ -145,6 +146,7 @@
     <ClInclude Include="InstallPkgScreen.h" />
     <ClInclude Include="FirmwareScreen.h" />
     <ClInclude Include="UnPackScreen.h" />
+    <ClInclude Include="GamePacker.h" />
     <ClInclude Include="InstallUpdateScreen.h" />
     <ClInclude Include="InstallZipScreen.h" />
     <ClInclude Include="Theme.h" />
