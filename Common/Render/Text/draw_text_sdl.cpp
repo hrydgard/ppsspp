@@ -12,6 +12,7 @@
 #include "Common/File/Path.h"
 #include "Common/Render/Text/draw_text.h"
 #include "Common/Render/Text/draw_text_sdl.h"
+#include <clocale>
 
 #if defined(USE_SDL3_TTF)
 
