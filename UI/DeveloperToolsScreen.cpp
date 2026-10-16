@@ -21,6 +21,7 @@
 #include "Common/UI/View.h"
 #include "Common/UI/ViewGroup.h"
 #include "Common/System/OSD.h"
+#include "Common/System/Request.h"
 #include "Common/GPU/OpenGL/GLFeatures.h"
 #include "Common/Data/Text/Parsers.h"
 #include "Common/Data/Encoding/Utf8.h"
@@ -736,6 +737,8 @@ void DeveloperToolsScreen::OnCopyStatesToRoot(UI::EventParams &e) {
 
 void DeveloperToolsScreen::OnRemoteDebugger(UI::EventParams &e) {
 	if (allowDebugger_) {
+		// Only needed for connecting from another device, but that's the usual case.
+		System_RequestLocalNetworkPermission();
 		StartWebServer(WebServerFlags::DEBUGGER);
 	} else {
 		StopWebServer(WebServerFlags::DEBUGGER);

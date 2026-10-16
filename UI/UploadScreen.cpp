@@ -6,7 +6,6 @@
 #include "Common/Data/Text/Parsers.h"
 #include "Common/Data/Text/I18n.h"
 #include "Common/UI/Notice.h"
-#include "Common/System/System.h"
 #include "Core/WebServer.h"
 #include "Core/Util/PathUtil.h"
 #include "UI/UploadScreen.h"
@@ -21,11 +20,8 @@ UploadScreen::UploadScreen(const Path &targetFolder) : UISimpleBaseDialogScreen(
 			localIPs_.push_back(ip);
 		}
 	}
-	// On Android 17+, serving to other devices on the local network needs a runtime permission.
+	System_RequestLocalNetworkPermission();
 	prevPermission_ = System_GetPermissionStatus(SYSTEM_PERMISSION_LOCAL_NETWORK);
-	if (prevPermission_ != PERMISSION_STATUS_GRANTED) {
-		System_AskForPermission(SYSTEM_PERMISSION_LOCAL_NETWORK);
-	}
 	StartServerIfPermitted();
 }
 

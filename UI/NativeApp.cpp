@@ -845,6 +845,8 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 		flags |= WebServerFlags::DEBUGGER;
 	}
 	if (flags != WebServerFlags::NONE) {
+		// Both are for other devices to connect to.
+		System_RequestLocalNetworkPermission();
 		StartWebServer(flags);
 	}
 
