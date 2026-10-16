@@ -712,7 +712,7 @@ static bool TestSaveIndexedOption(const Path &packDir) {
 }
 
 bool TestTextureReplacer() {
-	Path packDir = Path("unittest_texture_pack");
+	Path packDir = UnitTestTempPath("unittest_texture_pack");
 	if (!CreateTestPack(packDir)) {
 		return false;
 	}
