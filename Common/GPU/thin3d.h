@@ -450,12 +450,14 @@ public:
 	int Height() const { return height_; }
 	int Layers() const { return layers_; }
 	int MultiSampleLevel() const { return multiSampleLevel_; }
+	bool HasDepthStencil() const { return hasDepthStencil_; }
 
 	virtual void UpdateTag(const char *tag) {}
 	virtual const char *Tag() const { return "(no name)"; }
 
 protected:
 	int width_ = -1, height_ = -1, layers_ = 1, multiSampleLevel_ = 0;
+	bool hasDepthStencil_ = false;
 };
 
 class Buffer : public RefCountedObject {

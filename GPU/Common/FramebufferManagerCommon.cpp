@@ -2035,9 +2035,8 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 			if (vfb->usageFlags & FB_USAGE_RENDER_DEPTH) {
 				BlitFramebuffer(vfb, 0, 0, &old, 0, 0, std::min((u16)oldWidth, std::min(vfb->bufferWidth, vfb->width)), std::min((u16)oldHeight, std::min(vfb->height, vfb->bufferHeight)), 0, RASTER_DEPTH, "BlitDepth_ResizeFramebufFBO");
 			}
-			// A color framebuffer from CreateRAMFramebuffer (no z address or stride) has no depth/stencil buffer to copy from.
-			const bool oldHasStencil = old.z_address != 0 || old.z_stride != 0;
-			if (!skipCopy && vfb->fb_format != GE_FORMAT_565 && oldHasStencil) {
+			// A color framebuffer from CreateRAMFramebuffer has no depth/stencil buffer to copy from.
+			if (!skipCopy && vfb->fb_format != GE_FORMAT_565 && old.fbo->HasDepthStencil()) {
 				// Keep the stencil too (Need for Speed Shift stencil tests right after its framebuffer grows from 480 to
 				// 512 wide). D3D11 has no separate stencil copy, but copies it along with the depth above.
 				const int stencilW = std::min(old.renderWidth, vfb->renderWidth);

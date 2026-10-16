@@ -64,9 +64,10 @@ public:
 // A D3D11Framebuffer is a D3D11Framebuffer plus all the textures it owns.
 class D3D11Framebuffer : public Framebuffer {
 public:
-	D3D11Framebuffer(int width, int height) {
+	D3D11Framebuffer(int width, int height, bool zStencil) {
 		width_ = width;
 		height_ = height;
+		hasDepthStencil_ = zStencil;
 	}
 	~D3D11Framebuffer() {
 	}
@@ -1495,7 +1496,7 @@ uint32_t D3D11DrawContext::GetDataFormatSupport(DataFormat fmt) const {
 
 Framebuffer *D3D11DrawContext::CreateFramebuffer(const FramebufferDesc &desc) {
 	HRESULT hr;
-	D3D11Framebuffer *fb = new D3D11Framebuffer(desc.width, desc.height);
+	D3D11Framebuffer *fb = new D3D11Framebuffer(desc.width, desc.height, desc.z_stencil);
 
 	// We don't (yet?) support multiview for D3D11. Not sure if there's a way to do it.
 	// Texture arrays are supported but we don't have any other use cases yet.

@@ -959,6 +959,7 @@ public:
 	OpenGLFramebuffer(GLRenderManager *render, GLRFramebuffer *framebuffer) : render_(render), framebuffer_(framebuffer) {
 		width_ = framebuffer->width;
 		height_ = framebuffer->height;
+		hasDepthStencil_ = framebuffer->z_stencil_;
 	}
 	~OpenGLFramebuffer() {
 		render_->DeleteFramebuffer(framebuffer_);
@@ -1596,6 +1597,14 @@ void OpenGLContext::CopyFramebufferImage(Framebuffer *fbsrc, int srcLevel, int s
 	OpenGLFramebuffer *src = (OpenGLFramebuffer *)fbsrc;
 	OpenGLFramebuffer *dst = (OpenGLFramebuffer *)fbdst;
 
+	if (aspects & (Aspect::DEPTH_BIT | Aspect::STENCIL_BIT)) {
+		_dbg_assert_msg_(src->HasDepthStencil(), "%s", src->framebuffer_->Tag());
+		_dbg_assert_msg_(dst->HasDepthStencil(), "%s", dst->framebuffer_->Tag());
+		if (!src->HasDepthStencil() || !dst->HasDepthStencil()) {
+			return;
+		}
+	}
+
 	int glAspect = 0;
 	if (aspects & Aspect::COLOR_BIT) {
 		glAspect |= GL_COLOR_BUFFER_BIT;
@@ -1611,6 +1620,14 @@ void OpenGLContext::CopyFramebufferImage(Framebuffer *fbsrc, int srcLevel, int s
 bool OpenGLContext::BlitFramebuffer(Framebuffer *fbsrc, int srcX1, int srcY1, int srcX2, int srcY2, Framebuffer *fbdst, int dstX1, int dstY1, int dstX2, int dstY2, Aspect aspects, FBBlitFilter linearFilter, const char *tag) {
 	OpenGLFramebuffer *src = (OpenGLFramebuffer *)fbsrc;
 	OpenGLFramebuffer *dst = (OpenGLFramebuffer *)fbdst;
+	if (aspects & (Aspect::DEPTH_BIT | Aspect::STENCIL_BIT)) {
+		_dbg_assert_msg_(src->HasDepthStencil(), "%s", src->framebuffer_->Tag());
+		_dbg_assert_msg_(dst->HasDepthStencil(), "%s", dst->framebuffer_->Tag());
+		if (!src->HasDepthStencil() || !dst->HasDepthStencil()) {
+			return false;
+		}
+	}
+
 	GLuint aspect = 0;
 	if (aspects & Aspect::COLOR_BIT)
 		aspect |= GL_COLOR_BUFFER_BIT;

@@ -1839,6 +1839,7 @@ public:
 		height_ = fb->height;
 		layers_ = fb->numLayers;
 		multiSampleLevel_ = multiSampleLevel;
+		hasDepthStencil_ = fb->HasDepth();
 	}
 	~VKFramebuffer() {
 		_assert_msg_(buf_, "Null buf_ in VKFramebuffer - double delete?");
