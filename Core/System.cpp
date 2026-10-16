@@ -652,6 +652,11 @@ void CPU_Shutdown(bool success) {
 	// Core_LockAgainstShutdown(); it's recursive, so the nested acquire in Memory::Shutdown() is fine.
 	CoreShutdownLock coreLock = Core_LockAgainstShutdown();
 
+	// The GPU outlives memory (GPU_Shutdown comes later), so it must stop writing to it now.
+	if (gpu) {
+		gpu->FlushPendingDrawing();
+	}
+
 	UninstallExceptionHandler();
 
 	GPURecord::Replay_Unload();

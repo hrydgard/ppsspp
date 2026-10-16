@@ -400,6 +400,8 @@ public:
 
 
 protected:
+	void WaitForDepthWrites(u32 addr, u32 bytes);
+
 	bool PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEntry *entry);
 
 	// This updates nextTexture_ / nextFramebufferTexture_, which is then used by ApplyTexture.

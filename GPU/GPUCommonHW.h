@@ -45,6 +45,7 @@ public:
 	void InvalidateCache(u32 addr, int size, GPUInvalidationType type) override;
 
 	u32 DrawSync(int mode) override;
+	void FlushPendingDrawing() override;
 	int ListSync(int listid, int mode) override;
 
 	bool FramebufferDirty() override;
