@@ -508,7 +508,7 @@ bool CwCheatScreen::ImportCheats(const Path &cheatFile, int *cheatsFound) {
 
 		if (line[0] == '_' && (line[1] == 'S' || line[1] == 'G') && title.size() < 2) {
 			title.push_back(line);
-		} else if (parseCheatEntry && ((line[0] == '_' && (line[1] == 'C' || line[1] == 'L')) || line[0] == '/' || line[0] == '#')) {
+		} else if (parseCheatEntry && ((line[0] == '_' && (line[1] == 'C' || line[1] == 'L' || line[1] == 'M')) || line[0] == '/' || line[0] == '#')) {
 			newList.push_back(line);
 			(*cheatsFound)++;
 		}

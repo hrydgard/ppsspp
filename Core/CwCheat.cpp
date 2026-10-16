@@ -4,6 +4,7 @@
 #include <cstdio>
 
 #include "Common/Data/Text/I18n.h"
+#include "Common/LogReporting.h"
 #include "Common/StringUtils.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
@@ -93,7 +94,7 @@ bool CheatFileParser::Parse() {
 
 void CheatFileParser::Flush() {
 	if (!pendingLines_.empty()) {
-		cheats_.push_back(CheatCode{lastCheatInfo_.name, pendingLines_});
+		cheats_.push_back(CheatCode{lastCheatInfo_.name, pendingLines_, pendingFormat_});
 		FlushCheatInfo();
 		pendingLines_.clear();
 	}
@@ -164,12 +165,17 @@ void CheatFileParser::ParseLine(const std::string &line, int lineNumber) {
 
 	case 'L':
 		// CwCheat data line.
-		ParseDataLine(line.substr(2), lineNumber);
+		ParseDataLine(line.substr(2), lineNumber, CheatCodeFormat::CwCheat);
 		return;
 
 	case 'M':
-		// TempAR data line.
-		AddError("TempAR codes not supported", lineNumber);
+		// PSPAR data line (TempAR's name for it).
+		ParseDataLine(line.substr(2), lineNumber, CheatCodeFormat::PSPAR);
+		return;
+
+	case 'N':
+		// TempAR's own extensions to the PSPAR code types.
+		AddError("TempAR extended (_N) codes not supported", lineNumber);
 		return;
 
 	default:
@@ -178,7 +184,7 @@ void CheatFileParser::ParseLine(const std::string &line, int lineNumber) {
 	}
 }
 
-void CheatFileParser::ParseDataLine(const std::string &line, int lineNumber) {
+void CheatFileParser::ParseDataLine(const std::string &line, int lineNumber, CheatCodeFormat format) {
 	if (!gameEnabled_) {
 		return;
 	}
@@ -188,10 +194,18 @@ void CheatFileParser::ParseDataLine(const std::string &line, int lineNumber) {
 		return;
 	}
 
+	if (pendingLines_.empty()) {
+		pendingFormat_ = format;
+	} else if (pendingFormat_ != format) {
+		AddError("can't mix _L and _M lines in one cheat", lineNumber);
+		return;
+	}
+
 	CheatLine cheatLine;
 	int len = 0;
 	if (sscanf(line.c_str(), "%x %x %n", &cheatLine.part1, &cheatLine.part2, &len) == 2) {
-		if ((size_t)len < line.length()) {
+		// A trailing comment is fine (TempAR's databases use them).
+		if ((size_t)len < line.length() && line[len] != '#' && line.compare(len, 2, "//") != 0) {
 			AddError("junk after line data", lineNumber);
 		}
 		pendingLines_.push_back(cheatLine);
@@ -1123,12 +1137,334 @@ void CWCheatEngine::ExecuteOp(const CheatOperation &op, const CheatCode &cheat, 
 	}
 }
 
+// PSPAR (PSP Action Replay) code types.
+//
+// This follows cheat_apply_pspar() in TempAR (src/objects/cheat.c), the plugin most PSPAR codes are run
+// with now, rather than Datel's documentation, which is unclear in places. TempAR's own extensions (_N
+// lines, CHEAT_PSPAR_EXT there) aren't supported: 0xC1, 0xC2 and 0xC5 do nothing, and 0xD4 always adds.
+
+// Where a cheat's own lines appear to its code, so the safe data store (0xC4) can point the offset at
+// them. On a PSP that's wherever TempAR keeps the cheat in memory. This is above all PSP memory, so
+// it's never translated as a relative address.
+static const u32 PSPAR_SELF_BASE = 0xF0000000;
+// TempAR reads the pad from fake addresses: buttons at +0, analog X at +4, analog Y at +8.
+static const u32 PSPAR_PAD_BASE = 0x0A000000;
+// Hard cap on the lines one cheat runs per pass, as a loop (0xC0) can repeat billions of times.
+static const u32 PSPAR_MAX_LINES_PER_RUN = 0x400000;
+
+// Addresses below user memory are relative to 0x08800000, like in CwCheat. Others are used as is.
+static u32 PSPARResolveAddress(u32 addr) {
+	if (addr < 0x08800000) {
+		addr &= 0x0FFFFFFF;
+		if (addr <= 0x017FFFFF) {
+			addr += 0x08800000;
+		}
+	}
+	return addr;
+}
+
+static u32 PSPARPadValue(u32 addr) {
+	u32 value = 0;
+	switch (addr & ~3) {
+	case PSPAR_PAD_BASE:
+		value = __CtrlPeekButtons();
+		break;
+	case PSPAR_PAD_BASE + 4:
+	case PSPAR_PAD_BASE + 8:
+		{
+			float x, y;
+			__CtrlPeekAnalog(CTRL_STICK_LEFT, &x, &y);
+			// The inverse of __CtrlPeekAnalog's scaling.
+			float v = (addr & ~3) == PSPAR_PAD_BASE + 4 ? x : -y;
+			value = (u32)std::clamp((int)(v * 127.5f + 128.0f), 0, 255);
+		}
+		break;
+	}
+	return value >> (8 * (addr & 3));
+}
+
+static u32 SizeMask(int size) {
+	return size == 4 ? 0xFFFFFFFF : (1U << (size * 8)) - 1;
+}
+
+u32 CWCheatEngine::PSPARRead(const CheatCode &cheat, u32 addr, int size) const {
+	if ((addr & 0xFF000000) == PSPAR_PAD_BASE) {
+		return PSPARPadValue(addr) & SizeMask(size);
+	}
+
+	addr = PSPARResolveAddress(addr) & ~(size - 1);
+	if (addr >= PSPAR_SELF_BASE) {
+		u32 offset = addr - PSPAR_SELF_BASE;
+		if (offset / 8 >= cheat.lines.size()) {
+			return 0;
+		}
+		const CheatLine &line = cheat.lines[offset / 8];
+		u32 word = (offset & 4) ? line.part2 : line.part1;
+		return (word >> (8 * (offset & 3))) & SizeMask(size);
+	}
+
+	addr &= 0x3FFFFFFF;
+	if (!Memory::IsValidRange(addr, size)) {
+		return 0;
+	}
+	if (size == 1)
+		return Memory::ReadUnchecked_U8(addr);
+	if (size == 2)
+		return Memory::ReadUnchecked_U16(addr);
+	return Memory::ReadUnchecked_U32(addr);
+}
+
+void CWCheatEngine::PSPARWrite(CheatCode &cheat, u32 addr, u32 value, int size) const {
+	addr = PSPARResolveAddress(addr) & ~(size - 1);
+	if (addr >= PSPAR_SELF_BASE) {
+		u32 offset = addr - PSPAR_SELF_BASE;
+		if (offset / 8 >= cheat.lines.size()) {
+			return;
+		}
+		CheatLine &line = cheat.lines[offset / 8];
+		u32 &word = (offset & 4) ? line.part2 : line.part1;
+		const int shift = 8 * (offset & 3);
+		word = (word & ~(SizeMask(size) << shift)) | ((value & SizeMask(size)) << shift);
+		return;
+	}
+
+	addr &= 0x3FFFFFFF;
+	if (!Memory::IsValidRange(addr, size)) {
+		return;
+	}
+	InvalidateICache(addr, size);
+	if (size == 1)
+		Memory::WriteUnchecked_U8((u8)value, addr);
+	else if (size == 2)
+		Memory::WriteUnchecked_U16((u16)value, addr);
+	else
+		Memory::WriteUnchecked_U32(value, addr);
+}
+
+void CWCheatEngine::RunPSPAR(CheatCode &cheat) {
+	// The "Dx" registers. Bit 0 of the execution status set means the codes are skipped, and each
+	// condition pushes a bit that a terminator (0xD0) pops.
+	u32 offset = 0;
+	u32 repeatValue = 0;
+	size_t repeatBegin = 0;
+	u32 dataRegister = 0;
+	u32 executionStatus = 0;
+	u32 executionStatusOld = 0;
+
+	const size_t count = cheat.lines.size();
+	u32 linesRun = 0;
+	for (size_t i = 0; i < count; i++) {
+		if (++linesRun > PSPAR_MAX_LINES_PER_RUN) {
+			WARN_LOG_ONCE(psparLoop, Log::System, "PSPAR cheat '%s' runs too many lines, stopping it", cheat.name.c_str());
+			break;
+		}
+
+		const CheatLine &line = cheat.lines[i];
+		u32 type;
+		u32 addr;
+		if ((line.part1 >> 28) == 0xC || (line.part1 >> 28) == 0xD) {
+			type = line.part1 >> 24;
+			addr = line.part1 & 0x00FFFFFF;
+		} else {
+			type = line.part1 >> 28;
+			addr = line.part1 & 0x0FFFFFFF;
+		}
+		u32 value = line.part2;
+
+		// Conditions and terminators run even while codes are being skipped.
+		const bool isCondition = type >= 0x03 && type <= 0x0A;
+		if ((executionStatus & 1) == 0 || isCondition || type == 0xD0 || type == 0xD1 || type == 0xD2) {
+			switch (type) {
+			case 0x00:  // 32-bit write
+				PSPARWrite(cheat, addr + offset, value, 4);
+				break;
+			case 0x01:  // 16-bit write
+				PSPARWrite(cheat, addr + offset, value, 2);
+				break;
+			case 0x02:  // 8-bit write
+				PSPARWrite(cheat, addr + offset, value, 1);
+				break;
+
+			case 0x03: case 0x04: case 0x05: case 0x06:  // 32-bit conditions
+			case 0x07: case 0x08: case 0x09: case 0x0A:  // 16-bit conditions with a mask
+				{
+					bool skip = false;
+					// PSPAR's own button codes read its pad buffer, at the top of user memory. TempAR
+					// can send them to the real pad instead, which is all we can do.
+					if (addr >= 0x09F00000 && (type == 0x09 || type == 0x0A)) {
+						if ((value & 0xFFFF) != 0) {
+							addr = PSPAR_PAD_BASE;
+							value = (value & 0xFFFF) | (~value << 16);
+						} else {
+							skip = true;
+						}
+					}
+					if (addr == 0) {
+						addr = offset;
+					}
+
+					bool pass = true;
+					if (!skip && (executionStatus & 1) == 0) {
+						if (type <= 0x06) {
+							const u32 memValue = PSPARRead(cheat, addr, 4);
+							switch (type) {
+							case 0x03: pass = value > memValue; break;
+							case 0x04: pass = value < memValue; break;
+							case 0x05: pass = value == memValue; break;
+							case 0x06: pass = value != memValue; break;
+							}
+						} else {
+							const u32 compare = value & 0xFFFF;
+							const u32 memValue = (~value >> 16) & PSPARRead(cheat, addr, 2);
+							switch (type) {
+							case 0x07: pass = compare > memValue; break;
+							case 0x08: pass = compare < memValue; break;
+							case 0x09: pass = compare == memValue; break;
+							case 0x0A: pass = compare != memValue; break;
+							}
+						}
+					}
+					if (!skip) {
+						executionStatus = (executionStatus << 1) | (((executionStatus & 1) != 0 || !pass) ? 1 : 0);
+					}
+				}
+				break;
+
+			case 0x0B:  // Load offset
+				offset = PSPARRead(cheat, addr + offset, 4);
+				break;
+
+			case 0x0E:  // Patch: copies the bytes in the lines after this one
+				{
+					const u32 dest = PSPARResolveAddress(addr);
+					const u32 src = PSPAR_SELF_BASE + (u32)(i + 1) * 8;
+					for (u32 b = 0; b < value && (i + 1) * 8 + b < count * 8; b++) {
+						PSPARWrite(cheat, dest + b, PSPARRead(cheat, src + b, 1), 1);
+					}
+				}
+				break;
+
+			case 0x0F:  // Memory copy from the offset
+				{
+					const u32 dest = PSPARResolveAddress(addr) & 0x3FFFFFFF;
+					u32 src = offset;
+					if (src < PSPAR_SELF_BASE) {
+						// TempAR masks the source like an address in a code.
+						src = PSPARResolveAddress(src & 0x0FFFFFFF);
+					}
+					if (src < PSPAR_SELF_BASE && Memory::IsValidRange(dest, value) && Memory::IsValidRange(src & 0x3FFFFFFF, value)) {
+						InvalidateICache(dest, value);
+						Memory::Memcpy(dest, src & 0x3FFFFFFF, value, "PSPAR");
+					} else if (src >= PSPAR_SELF_BASE) {
+						for (u32 b = 0; b < value && b < count * 8; b++) {
+							PSPARWrite(cheat, dest + b, PSPARRead(cheat, src + b, 1), 1);
+						}
+					}
+				}
+				break;
+
+			case 0xC0:  // Loop
+				repeatValue = value;
+				repeatBegin = i;
+				executionStatusOld = executionStatus;
+				break;
+
+			case 0xC4:  // Safe data store: the offset points at this line
+				offset = PSPAR_SELF_BASE + (u32)i * 8;
+				break;
+
+			case 0xC6:  // Write offset
+				PSPARWrite(cheat, value, offset, 4);
+				break;
+
+			case 0xD0:  // Terminator
+				executionStatus >>= 1;
+				break;
+
+			case 0xD1:  // Loop execute, keeping the Dx registers
+			case 0xD2:  // Loop execute / full terminator
+				if (repeatValue > 0) {
+					executionStatus = executionStatusOld;
+					i = repeatBegin;
+					repeatValue--;
+				} else if (type == 0xD1) {
+					executionStatus = 0;
+				} else {
+					executionStatusOld = 0;
+					executionStatus = 0;
+					offset = 0;
+					dataRegister = 0;
+					repeatBegin = 0;
+				}
+				break;
+
+			case 0xD3:  // Set offset
+				offset = value;
+				break;
+			case 0xD4:  // Add to the data register
+				dataRegister += value;
+				break;
+			case 0xD5:  // Set the data register
+				dataRegister = value;
+				break;
+			case 0xD6:  // 32-bit incrementing write
+				PSPARWrite(cheat, value + offset, dataRegister, 4);
+				offset += 4;
+				break;
+			case 0xD7:  // 16-bit incrementing write
+				PSPARWrite(cheat, value + offset, dataRegister, 2);
+				offset += 2;
+				break;
+			case 0xD8:  // 8-bit incrementing write
+				PSPARWrite(cheat, value + offset, dataRegister, 1);
+				offset += 1;
+				break;
+			case 0xD9:  // 32-bit load
+				dataRegister = PSPARRead(cheat, value + offset, 4);
+				break;
+			case 0xDA:  // 16-bit load
+				dataRegister = PSPARRead(cheat, value + offset, 2);
+				break;
+			case 0xDB:  // 8-bit load
+				dataRegister = PSPARRead(cheat, value + offset, 1);
+				break;
+			case 0xDC:  // Add to the offset
+				offset += value;
+				break;
+
+			default:
+				// 0xCF (folders and comments) and the TempAR extensions.
+				break;
+			}
+		}
+
+		// Data lines of a patch (and of TempAR's 0xC2) are never run as codes, nor are 0xC1's arguments.
+		if (type == 0x0E || type == 0xC2) {
+			i += value / 8 + (value % 8 != 0 ? 1 : 0);
+		} else if (type == 0xC1) {
+			i += 2;
+		}
+
+		// At the end of the cheat, a pending loop repeats without a terminator.
+		if (i + 1 >= count && repeatValue > 0) {
+			executionStatus = executionStatusOld;
+			i = repeatBegin;
+			repeatValue--;
+		}
+	}
+}
+
 void CWCheatEngine::Run() {
 	if (Achievements::HardcoreModeActive()) {
 		return;
 	}
 
-	for (const CheatCode &cheat : cheats_) {
+	for (CheatCode &cheat : cheats_) {
+		if (cheat.format == CheatCodeFormat::PSPAR) {
+			RunPSPAR(cheat);
+			continue;
+		}
+
 		// InterpretNextOp and ExecuteOp move i.
 		for (size_t i = 0; i < cheat.lines.size(); ) {
 			CheatOperation op = InterpretNextCwCheat(cheat, i);
