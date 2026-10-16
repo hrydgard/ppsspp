@@ -900,22 +900,18 @@ static SoftwareTransformAction ProjectClipAndExpand(SoftwareTransformParams &par
 				std::vector<int> outsideZ;
 				outsideZ.resize(vertexCount);
 
-				// First, check inside/outside directions for each index.
-				// We are still in clip space here, so we can cull aggressively in Z.
+				// First, check each index. Without depth clip, a vertex is outside when its screen Z is beyond
+				// 0..65535 or it's behind the camera, as in the software renderer's ClipToScreen and ProcessTriangle.
+				// The viewport's own Z range can be narrower: Yu-Gi-Oh GX Tag Force's backdrop has 10000..50000 and
+				// vertices past it, which the PSP draws (the replay of 7124 ULES00600_0003 in ppsspp-framedumps).
 				// TODO: This is so cheap now that we can probably avoid the buffer and just do the work below.
-				// See the comment in VertexShader for the epsilons
-
+				const float zScale = gstate.getViewportZScale();
+				const float zCenter = gstate.getViewportZCenter();
 				for (int i = 0; i < vertexCount; ++i) {
 					float z = transformed[indsIn[i]].z;
 					float w = transformed[indsIn[i]].pos_w;
-					const float delta = 0.0000304f / w;
-					if (z > w + delta) {
-						outsideZ[i] = 1;
-					} else if (z < -(w + delta)) {
-						outsideZ[i] = -1;
-					} else {
-						outsideZ[i] = 0;
-					}
+					float screenZ = z * zScale / w + zCenter;
+					outsideZ[i] = (w > 0.0f && screenZ >= 0.0f && screenZ < 65536.0f) ? 0 : 1;
 				}
 
 				drawIndexCount = 0;
