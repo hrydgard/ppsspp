@@ -1787,6 +1787,33 @@ static int Hook_bejeweled2_draw_dirty_stuff() {
 	return 0;
 }
 
+// GTA: Vice City Stories (#13200). A vehicle that moves less than 0.005 a frame with its gas pedal up gets
+// stopped dead, so that parked vehicles don't drift. Planes never set the pedal (the Bovver '64 hovercraft
+// is one), so where the frame rate is high enough that they cover less than that per frame, they stick to
+// the ground. It happens on a PSP too, in light enough scenes. The plane control code clears the pedal
+// in a branch delay slot, which a hook can't follow, so we hook both instructions the branch leads to,
+// and set the pedal from the throttle at 0x78C. The fix is Parik27's, from the issue.
+static int GTAVCSPlaneGasPedal(u32 hookOffset) {
+	const u32 func = currentMIPS->pc - hookOffset;
+	// The hash masks immediates, so check it's the store we expect.
+	if (Memory::Read_Instruction(func + 0x61C).encoding != 0xE61C025C) {  // swc1 f28, 0x25C(s0)
+		return 0;
+	}
+	const u32 vehicle = currentMIPS->r[MIPS_REG_S0];
+	if (Memory::IsValid4AlignedRange(vehicle + 0x25C, 4) && Memory::IsValid4AlignedRange(vehicle + 0x78C, 4)) {
+		Memory::WriteUnchecked_U32(Memory::ReadUnchecked_U32(vehicle + 0x78C), vehicle + 0x25C);
+	}
+	return 0;
+}
+
+static int Hook_gtavcs_plane_control_1() {
+	return GTAVCSPlaneGasPedal(0x620);
+}
+
+static int Hook_gtavcs_plane_control_2() {
+	return GTAVCSPlaneGasPedal(0x6AC);
+}
+
 #define JITFUNC(f) (&MIPSComp::MIPSFrontendInterface::f)
 
 // Can either replace with C functions or functions emitted in Asm/ArmAsm.
@@ -1926,6 +1953,8 @@ static const ReplacementTableEntry entries[] = {
 	{ "resistance_update_trail", &Hook_resistance_update_trail, 0, REPFLAG_HOOKENTER, 0x438 },
 	{ "resistance_muzzle_light", &Hook_resistance_muzzle_light, 0, REPFLAG_HOOKENTER, 0xF0 },
 	{ "bejeweled2_draw_dirty_stuff", &Hook_bejeweled2_draw_dirty_stuff, 0, REPFLAG_HOOKENTER, 0 },
+	{ "gtavcs_plane_control", &Hook_gtavcs_plane_control_1, 0, REPFLAG_HOOKENTER, 0x620 },
+	{ "gtavcs_plane_control", &Hook_gtavcs_plane_control_2, 0, REPFLAG_HOOKENTER, 0x6AC },
 	{}
 };
 

@@ -498,6 +498,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xf4ea7d2ec943fa02, 224, "sinf", },
 	{ 0xf4f8cdf479dfc4a4, 224, "sinf", },
 	{ 0xf527d906d69005a0, 848, "photokano_download_frame_2", }, // Photo Kano
+	{ 0xf52da867662e04ad, 2024, "gtavcs_plane_control", }, // GTA: Vice City Stories (US, EU)
 	{ 0xf52f993e444b6c52, 44, "sceGupShadeModel", },
 	{ 0xf56641884b36c638, 468, "scalbn", },
 	{ 0xf5e91870b5b76ddc, 288, "motorstorm_download_frame", }, // MotorStorm: Arctic Edge
