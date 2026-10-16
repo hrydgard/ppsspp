@@ -69,7 +69,7 @@ namespace MaxCSO {
 // Values are stored in the config (iCSOPreset) and index the menu.
 enum class Preset {
 	Max = 0,            // Zopfli, skipped on blocks libdeflate can't shrink below 98%; 256K blocks.
-	Great = 1,          // libdeflate; 256K blocks. Much faster, slightly bigger than Max.
+	Great = 1,          // libdeflate; 64K blocks. Much faster, slightly bigger than Max, quicker to read.
 	PSPCompatible = 2,  // Plain zlib, 2K blocks: what every PSP custom firmware reads.
 };
 

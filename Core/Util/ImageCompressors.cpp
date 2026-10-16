@@ -471,7 +471,9 @@ bool Compress(const Path &input, const Path &output, Preset preset, const ImageP
 		precheck = 98.0;
 		break;
 	case Preset::Great:
+		// 64K: only ~0.25% bigger than 256K, and each read of a new block inflates a quarter as much.
 		flags |= MAXCSO_NO_ZLIB | MAXCSO_NO_ZOPFLI;
+		blockSize = 65536;
 		break;
 	case Preset::PSPCompatible:
 	default:
