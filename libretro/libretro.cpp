@@ -121,6 +121,8 @@ namespace Libretro
    static bool detectVsyncSwapInterval = false;
    static bool detectVsyncSwapIntervalOptShown = true;
    static bool softwareRenderInitHack = false;
+   // The DarkStalkers hack's mode in the last frame we handed over, which presents its 384x224 source.
+   static DSStretch presentedDSStretch = DSStretch::Off;
 
    static s64 expectedTimeUsPerRun = 0;
    static uint32_t vsyncSwapInterval = 1;
@@ -1155,6 +1157,8 @@ void retro_init(void)
 {
    TimeInit();
    SetCurrentThreadName("Main");
+   // The frontend scales the image itself.
+   g_DarkStalkersNativeOutput = true;
 
    struct retro_log_callback log;
    if (environ_cb(RETRO_ENVIRONMENT_GET_LOG_INTERFACE, &log))
@@ -1318,6 +1322,36 @@ void retro_get_system_av_info(struct retro_system_av_info *info)
 
    PSP_CoreParameter().pixelWidth  = PSP_CoreParameter().renderWidth  = info->geometry.base_width;
    PSP_CoreParameter().pixelHeight = PSP_CoreParameter().renderHeight = info->geometry.base_height;
+
+   // The frame is smaller than the backbuffer then, so this goes after setting pixelWidth/Height.
+   if (presentedDSStretch != DSStretch::Off)
+   {
+      info->geometry.base_width   = DS_SOURCE_WIDTH;
+      info->geometry.base_height  = DS_SOURCE_HEIGHT;
+      // The game stretches it to the full screen, or to 384x272 between black bars.
+      info->geometry.aspect_ratio = (presentedDSStretch == DSStretch::Wide ? 480.0f : 384.0f) / 272.0f;
+   }
+}
+
+void Libretro::GetFrameSize(unsigned *width, unsigned *height)
+{
+   DSStretch stretch = DSStretch::Off;
+   if (gpu && PSP_CoreParameter().gpuCore == GPUCORE_SOFTWARE)
+      stretch = static_cast<SoftGPU *>(gpu)->PresentedDarkStalkersNative();
+
+   if (stretch != presentedDSStretch)
+   {
+      presentedDSStretch = stretch;
+      retro_system_av_info avInfo;
+      retro_get_system_av_info(&avInfo);
+      environ_cb(RETRO_ENVIRONMENT_SET_GEOMETRY, &avInfo.geometry);
+   }
+
+   if (stretch != DSStretch::Off)
+   {
+      *width  = DS_SOURCE_WIDTH;
+      *height = DS_SOURCE_HEIGHT;
+   }
 }
 
 unsigned retro_api_version(void) { return RETRO_API_VERSION; }
@@ -1578,6 +1612,7 @@ void retro_unload_game(void) {
 	delete ctx;
 	ctx = nullptr;
 	PSP_CoreParameter().graphicsContext = nullptr;
+	presentedDSStretch = DSStretch::Off;
 }
 
 void retro_reset(void) {

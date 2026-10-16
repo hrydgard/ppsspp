@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <vector>
 #include <mutex>
 #include <condition_variable>
@@ -50,6 +51,12 @@ public:
 	// vk_libretro_wait_for_presentation().
 	void WaitForPresentation();
 
+	// RetroArch samples the whole image, whatever frame size we report, so the images have to be the
+	// frame's size. They're recreated at the start of a later frame.
+	void RequestExtent(VkExtent2D extent) {
+		requestedExtent_ = PackExtent(extent);
+	}
+
 private:
 	struct Image {
 		VkImage image = VK_NULL_HANDLE;
@@ -60,6 +67,7 @@ private:
 	retro_hw_render_interface_vulkan *vulkan_;
 	VkFormat format_;
 	VkExtent2D extent_;
+	std::atomic<uint32_t> requestedExtent_;
 	bool dedicatedAllocation_ = false;
 	uint32_t syncIndexMask_ = 0;
 
@@ -69,6 +77,7 @@ private:
 	std::condition_variable condVar_;
 	bool presentPending_ = false;
 
+	static uint32_t PackExtent(VkExtent2D extent) { return (extent.width << 16) | extent.height; }
 	static uint32_t ImageCountFromMask(uint32_t mask);
 	bool IsValidImageIndex(uint32_t imageIndex) const;
 };

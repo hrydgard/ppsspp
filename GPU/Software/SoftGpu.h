@@ -147,6 +147,19 @@ enum class SoftGPUVRAMDirty : uint8_t {
 
 ENUM_CLASS_BITOPS(SoftGPUVRAMDirty);
 
+// Type for the DarkStalkers stretch replacement.
+enum class DSStretch {
+	Off = 0,
+	Normal,
+	Wide,
+};
+
+// Set by hosts (libretro) that scale the output themselves. With the DarkStalkers hack active, we then
+// present its 384x224 source image at that size, rather than stretching it to the screen.
+extern bool g_DarkStalkersNativeOutput;
+static const int DS_SOURCE_WIDTH = 384;
+static const int DS_SOURCE_HEIGHT = 224;
+
 class SoftGPU : public GPUCommon {
 public:
 	SoftGPU(GraphicsContext *gfxCtx, Draw::DrawContext *draw);
@@ -197,6 +210,9 @@ public:
 
 	bool GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferType type, int maxRes = -1) override;
 	bool GetOutputFramebuffer(GPUDebugBuffer &buffer) override;
+	// With g_DarkStalkersNativeOutput: whether the last presented frame was the 384x224 source, and
+	// how the game would have stretched it.
+	DSStretch PresentedDarkStalkersNative() const { return presentedDSNative_; }
 	bool GetCurrentDepthbuffer(GPUDebugBuffer &buffer) override;
 	bool GetCurrentStencilbuffer(GPUDebugBuffer &buffer) override;
 	bool GetCurrentTexture(GPUDebugBuffer &buffer, int level, bool *isFramebuffer) override;
@@ -264,6 +280,7 @@ private:
 	u32 displayFramebuf_;
 	u32 displayStride_;
 	GEBufferFormat displayFormat_;
+	DSStretch presentedDSNative_ = DSStretch::Off;
 	SoftDirty dirtyFlags_ = SoftDirty(-1);
 
 	PresentationCommon *presentation_ = nullptr;
@@ -277,10 +294,3 @@ private:
 extern uint8_t clut[1024];
 extern FormatBuffer fb;
 extern DepthBuffer depthbuf;
-
-// Type for the DarkStalkers stretch replacement.
-enum class DSStretch {
-	Off = 0,
-	Normal,
-	Wide,
-};

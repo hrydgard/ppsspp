@@ -697,6 +697,13 @@ void PresentationCommon::RunPostshaderPasses(const DisplayLayoutConfig &config, 
 		pixelWidth /= 2;
 	}
 	CalculateDisplayOutputRect(config, &rc_, 480.0f, 272.0f, frame, uvRotation);
+	if (flags & OutputFlags::NATIVE_SIZE) {
+		// Top-left, or bottom-left in a flipped (OpenGL) backbuffer.
+		rc_.w = (u1 - u0) * srcWidth_;
+		rc_.h = (v1 - v0) * srcHeight_;
+		rc_.x = 0.0f;
+		rc_.y = (flags & OutputFlags::BACKBUFFER_FLIPPED) ? pixelHeight - rc_.h : 0.0f;
+	}
 
 	if (!srcTexture_ && !srcFramebuffer_) {
 		// Presenting blank, no need to run post shaders. But we did compute the output rect.

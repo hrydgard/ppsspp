@@ -76,6 +76,7 @@ enum class OutputFlags {
 	BACKBUFFER_FLIPPED = 0x0004,  // Viewport/scissor coordinates are y-flipped.
 	PILLARBOX = 0x0010,           // Squeeze the image horizontally. Used for the DarkStalkers hack.
 	NO_POST_SHADER = 0x0020,      // Draw straight to the bound target, as post shaders would need to bind their own.
+	NATIVE_SIZE = 0x0040,         // Draw the source rect 1:1 into the corner a host reads a smaller frame from (libretro).
 };
 ENUM_CLASS_BITOPS(OutputFlags);
 

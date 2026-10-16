@@ -494,6 +494,7 @@ void SoftGPU::SetDisplayFramebuffer(u32 framebuf, u32 stride, GEBufferFormat for
 }
 
 DSStretch g_DarkStalkerStretch;
+bool g_DarkStalkersNativeOutput = false;
 
 // With the DarkStalkers hack, the game's stretch blit is skipped and we present its 384x224 source image directly.
 static const u32 DS_SOURCE_ADDR = 0x04088000;
@@ -506,7 +507,7 @@ bool SoftGPU::DarkStalkersStretchActive() const {
 void SoftGPU::GetDarkStalkersDisplay(GPUDebugBuffer &buffer) {
 	const u16 *src = (const u16 *)Memory::GetPointerOrException(DS_SOURCE_ADDR);
 	const int srcStride = displayStride_ == 0 ? 512 : displayStride_;
-	const int srcX = 64, srcY = 16, srcW = 384, srcH = 224;
+	const int srcX = 64, srcY = 16, srcW = DS_SOURCE_WIDTH, srcH = DS_SOURCE_HEIGHT;
 	// Same rectangles as the game's own blits (see RectangleFastPath).
 	const int dstX = g_DarkStalkerStretch == DSStretch::Normal ? 48 : 0;
 	const int dstW = g_DarkStalkerStretch == DSStretch::Normal ? 384 : 480;
@@ -612,6 +613,7 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(const DisplayLayoutConfig &config, 
 	OutputFlags outputFlags = config.iDisplayFilter == SCALE_NEAREST ? OutputFlags::NEAREST : OutputFlags::LINEAR;
 	bool hasPostShader = presentation_ && presentation_->HasPostShader();
 
+	presentedDSNative_ = DSStretch::Off;
 	if (DarkStalkersStretchActive()) {
 		const u8 *data = Memory::GetPointerWriteOrException(DS_SOURCE_ADDR);
 		bool fillDesc = true;
@@ -631,12 +633,19 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(const DisplayLayoutConfig &config, 
 			desc.height = srcheight;
 			desc.initData.push_back(data);
 		}
-		u0 = 64.5f / (float)desc.width;
-		u1 = 447.5f / (float)desc.width;
 		v0 = 16.0f / (float)desc.height;
 		v1 = 240.0f / (float)desc.height;
-		if (g_DarkStalkerStretch == DSStretch::Normal) {
-			outputFlags |= OutputFlags::PILLARBOX;
+		if (g_DarkStalkersNativeOutput) {
+			u0 = 64.0f / (float)desc.width;
+			u1 = 448.0f / (float)desc.width;
+			outputFlags |= OutputFlags::NEAREST | OutputFlags::NATIVE_SIZE;
+			presentedDSNative_ = g_DarkStalkerStretch;
+		} else {
+			u0 = 64.5f / (float)desc.width;
+			u1 = 447.5f / (float)desc.width;
+			if (g_DarkStalkerStretch == DSStretch::Normal) {
+				outputFlags |= OutputFlags::PILLARBOX;
+			}
 		}
 	} else if (!Memory::IsValidAddress(displayFramebuf_) || srcwidth == 0 || srcheight == 0) {
 		hasImage = false;
@@ -1579,6 +1588,19 @@ bool SoftGPU::GetCurrentFramebuffer(GPUDebugBuffer &buffer, GPUDebugFramebufferT
 }
 
 bool SoftGPU::GetOutputFramebuffer(GPUDebugBuffer &buffer) {
+	if (g_DarkStalkersNativeOutput && DarkStalkersStretchActive()) {
+		// The source image as is, for the host to scale.
+		const u16 *src = (const u16 *)Memory::GetPointerOrException(DS_SOURCE_ADDR);
+		const int srcStride = displayStride_ == 0 ? 512 : displayStride_;
+		buffer.Allocate(DS_SOURCE_WIDTH, DS_SOURCE_HEIGHT, GE_FORMAT_5551);
+		u16 *dst = (u16 *)buffer.GetData();
+		for (int y = 0; y < DS_SOURCE_HEIGHT; ++y) {
+			memcpy(dst + y * DS_SOURCE_WIDTH, src + (16 + y) * srcStride + 64, DS_SOURCE_WIDTH * sizeof(u16));
+		}
+		presentedDSNative_ = g_DarkStalkerStretch;
+		return true;
+	}
+	presentedDSNative_ = DSStretch::Off;
 	return GetCurrentFramebuffer(buffer, GPU_DBG_FRAMEBUF_DISPLAY, 1);
 }
 
