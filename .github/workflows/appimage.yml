@@ -125,6 +125,7 @@ jobs:
             glew \
             sdl3 \
             sdl3_ttf \
+            fribidi \
             python \
             patchelf \
             pipewire \
