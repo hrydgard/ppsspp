@@ -55,6 +55,8 @@ HLSL. Far less work, and the right thing to start with - but be clear that it is
 MoltenVK's shader half, so glslang and SPIRV-Cross stay as runtime dependencies and only the Vulkan
 API emulation is shed. Metal PSO creation from MSL source is also slower than Vulkan pipeline creation
 from SPIR-V, so the existing asynchronous pipeline compilation machinery matters more, not less.
+Keeping glslang and SPIRV-Cross costs little: under MoltenVK they take about 1.5 ms per shader against
+roughly 100 ms for Metal's own MSL compile ([shader-compilation.md](shader-compilation.md)).
 
 Option A is an optimisation that can be done later, or never.
 
