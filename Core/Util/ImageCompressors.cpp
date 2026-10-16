@@ -17,9 +17,13 @@
 
 #include "ppsspp_config.h"
 
+#include <algorithm>
+#include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <functional>
 #include <mutex>
+#include <new>
 #include <type_traits>
 
 #include "Common/File/FileUtil.h"
@@ -38,6 +42,9 @@
 #else
 #include <dlfcn.h>
 #define LIB_CALL
+#endif
+#if PPSSPP_PLATFORM(MAC)
+#include <mach/mach.h>
 #endif
 #endif
 
@@ -89,6 +96,21 @@ struct MaxcsoOptions {
 typedef int (LIB_CALL *MaxcsoOptionsInitFn)(MaxcsoOptions *options, int mode);
 typedef int (LIB_CALL *MaxcsoProcessExFn)(const char *input, const char *output, const MaxcsoOptions *options,
 	MaxcsoProgressFn progress, void *userdata, char *error, size_t errorSize);
+// Optional, newer builds: the image in memory.
+struct MaxcsoReader {
+	void *user;
+	uint64_t size;
+	int64_t (LIB_CALL *read_at)(void *user, uint64_t offset, void *buffer, size_t length);
+};
+struct MaxcsoWriter {
+	void *user;
+	int (LIB_CALL *begin)(void *user, uint64_t size);
+	int64_t (LIB_CALL *write_at)(void *user, uint64_t offset, const void *buffer, size_t length);
+};
+typedef int (LIB_CALL *MaxcsoProcessReaderFn)(const MaxcsoReader *input, const char *output, const MaxcsoOptions *options,
+	MaxcsoProgressFn progress, void *userdata, char *error, size_t errorSize);
+typedef int (LIB_CALL *MaxcsoDecompressWriterFn)(const char *input, const MaxcsoWriter *output,
+	MaxcsoProgressFn progress, void *userdata, char *error, size_t errorSize);
 const int MAXCSO_MODE_DECOMPRESS = 0;
 const int MAXCSO_MODE_STANDARD = 2;
 // maxcso::TaskFlags: methods to leave out.
@@ -106,6 +128,21 @@ typedef const char *(*ChdmLastErrorFn)(void);
 typedef int (*ChdmCreateDvdFn)(const char *input, const char *output, uint32_t hunkBytes,
 	const uint32_t compression[4], ChdmProgressFn progress, void *user);
 typedef int (*ChdmExtractRawFn)(const char *input, const char *output, ChdmProgressFn progress, void *user);
+// 0.4.0: the image in memory.
+struct ChdmIo {
+	void *user;
+	uint64_t (*size)(void *user);
+	size_t (*read_at)(void *user, uint64_t offset, void *buffer, size_t length);
+	void (*close)(void *user);
+};
+struct ChdmWriter {
+	void *user;
+	int (*begin)(void *user, uint64_t total);
+	size_t (*write_at)(void *user, uint64_t offset, const void *buffer, size_t length);
+};
+typedef int (*ChdmCreateDvdIoFn)(const ChdmIo *input, const char *output, uint32_t hunkBytes,
+	const uint32_t compression[4], ChdmProgressFn progress, void *user);
+typedef int (*ChdmExtractRawIoFn)(const char *input, const ChdmWriter *output, ChdmProgressFn progress, void *user);
 
 // ipbp.h (plain C, default calling convention). The option structs must match it exactly.
 const int IPBP_OK = 0;
@@ -136,6 +173,18 @@ struct IpbpPbpInfo {
 	int compressed;
 };
 typedef void (*IpbpProgressFn)(void *user, uint64_t done, uint64_t total);
+// 1.2.0: the image in memory.
+struct IpbpReader {
+	void *user;
+	uint64_t size;
+	int (*read_at)(void *user, uint64_t offset, void *buf, size_t len);
+};
+struct IpbpWriter {
+	void *user;
+	int (*begin)(void *user, uint64_t size);
+	int (*write_at)(void *user, uint64_t offset, const void *buf, size_t len);
+	int (*finish)(void *user, uint64_t finalSize);
+};
 struct IpbpApi {
 	ipbp_job *(*job_create)(void);
 	void (*job_destroy)(ipbp_job *job);
@@ -148,6 +197,9 @@ struct IpbpApi {
 	int (*pbp_to_iso)(ipbp_job *job, const char *pbp, const char *iso, const IpbpPbp2IsoOptions *opt);
 	int (*read_pbp_info)(ipbp_job *job, const char *pbp, IpbpPbpInfo *info);
 	const char *(*version)(void);
+	// Optional.
+	int (*iso_to_pbp_reader)(ipbp_job *job, const IpbpReader *iso, const char *pbp, const IpbpIso2PbpOptions *opt);
+	int (*pbp_to_iso_writer)(ipbp_job *job, const char *pbp, const IpbpWriter *iso, const IpbpPbp2IsoOptions *opt);
 };
 
 struct LoadedLibrary {
@@ -167,9 +219,13 @@ MaxcsoProcessFn g_maxcsoProcess = nullptr;
 MaxcsoProcessFlagsFn g_maxcsoProcessFlags = nullptr;
 MaxcsoOptionsInitFn g_maxcsoOptionsInit = nullptr;
 MaxcsoProcessExFn g_maxcsoProcessEx = nullptr;
+MaxcsoProcessReaderFn g_maxcsoProcessReader = nullptr;
+MaxcsoDecompressWriterFn g_maxcsoDecompressWriter = nullptr;
 ChdmLastErrorFn g_chdmLastError = nullptr;
 ChdmCreateDvdFn g_chdmCreateDvd = nullptr;
 ChdmExtractRawFn g_chdmExtractRaw = nullptr;
+ChdmCreateDvdIoFn g_chdmCreateDvdIo = nullptr;
+ChdmExtractRawIoFn g_chdmExtractRawIo = nullptr;
 
 void *OpenLibrary(const Path &path) {
 #ifdef _WIN32
@@ -252,8 +308,16 @@ void LoadMaxcso() {
 		g_maxcsoOptionsInit = nullptr;
 		g_maxcsoProcessEx = nullptr;
 	}
-	INFO_LOG(Log::Loader, "Loaded maxcso %s from %s%s", g_maxcso.version.c_str(), g_maxcso.path.c_str(),
-		g_maxcsoProcessEx ? "" : " (no maxcso_process_ex: Max runs without its pre-check)");
+	// And the image in memory, which needs the options too.
+	g_maxcsoProcessReader = (MaxcsoProcessReaderFn)GetSymbol(handle, "maxcso_process_reader");
+	g_maxcsoDecompressWriter = (MaxcsoDecompressWriterFn)GetSymbol(handle, "maxcso_decompress_writer");
+	if (!g_maxcsoOptionsInit || !g_maxcsoProcessReader || !g_maxcsoDecompressWriter) {
+		g_maxcsoProcessReader = nullptr;
+		g_maxcsoDecompressWriter = nullptr;
+	}
+	INFO_LOG(Log::Loader, "Loaded maxcso %s from %s%s%s", g_maxcso.version.c_str(), g_maxcso.path.c_str(),
+		g_maxcsoProcessEx ? "" : " (no maxcso_process_ex: Max runs without its pre-check)",
+		g_maxcsoProcessReader ? "" : " (no maxcso_process_reader: repacks go through a temporary file)");
 }
 
 void LoadChdmodern() {
@@ -287,6 +351,12 @@ void LoadChdmodern() {
 	g_chdmLastError = lastError;
 	g_chdmCreateDvd = createDvd;
 	g_chdmExtractRaw = extractRaw;
+	g_chdmCreateDvdIo = (ChdmCreateDvdIoFn)GetSymbol(handle, "chdm_create_dvd_io");
+	g_chdmExtractRawIo = (ChdmExtractRawIoFn)GetSymbol(handle, "chdm_extract_raw_io");
+	if (!g_chdmCreateDvdIo || !g_chdmExtractRawIo) {
+		g_chdmCreateDvdIo = nullptr;
+		g_chdmExtractRawIo = nullptr;
+	}
 	INFO_LOG(Log::Loader, "Loaded CHDmodern %s from %s", g_chdmodern.version.c_str(), g_chdmodern.path.c_str());
 }
 
@@ -316,6 +386,13 @@ void LoadIpbp() {
 		ERROR_LOG(Log::Loader, "%s doesn't export the iPBP C API", g_ipbp.path.c_str());
 		CloseLibrary(handle);
 		return;
+	}
+	// 1.2.0.
+	get(api.iso_to_pbp_reader, "ipbp_iso_to_pbp_reader");
+	get(api.pbp_to_iso_writer, "ipbp_pbp_to_iso_writer");
+	if (!api.iso_to_pbp_reader || !api.pbp_to_iso_writer) {
+		api.iso_to_pbp_reader = nullptr;
+		api.pbp_to_iso_writer = nullptr;
 	}
 	const char *v = api.version();
 	g_ipbp.version = v ? v : "";
@@ -372,6 +449,96 @@ bool CheckOutput(const Path &output, std::string *error) {
 	return true;
 }
 
+// Physical memory not in use, or 0 if we can't tell.
+uint64_t AvailableMemory() {
+#if defined(_WIN32)
+	MEMORYSTATUSEX status{};
+	status.dwLength = sizeof(status);
+	if (GlobalMemoryStatusEx(&status)) {
+		return std::min<uint64_t>(status.ullAvailPhys, status.ullAvailVirtual);
+	}
+	return 0;
+#elif PPSSPP_PLATFORM(MAC)
+	vm_statistics64_data_t stats{};
+	mach_msg_type_number_t count = HOST_VM_INFO64_COUNT;
+	vm_size_t pageSize = 0;
+	if (host_page_size(mach_host_self(), &pageSize) != KERN_SUCCESS ||
+		host_statistics64(mach_host_self(), HOST_VM_INFO64, (host_info64_t)&stats, &count) != KERN_SUCCESS) {
+		return 0;
+	}
+	// Free plus what can be dropped without writing anything out.
+	return (uint64_t)(stats.free_count + stats.inactive_count + stats.purgeable_count) * pageSize;
+#else
+	FILE *f = fopen("/proc/meminfo", "r");
+	if (!f) {
+		return 0;
+	}
+	char line[256];
+	uint64_t kb = 0;
+	while (fgets(line, sizeof(line), f)) {
+		unsigned long long value;
+		if (sscanf(line, "MemAvailable: %llu kB", &value) == 1) {
+			kb = value;
+			break;
+		}
+	}
+	fclose(f);
+	return kb * 1024;
+#endif
+}
+
+// Room left for everything else while the image is held.
+const uint64_t MEMORY_HEADROOM = 512ULL * 1024 * 1024;
+
+// The ISO being extracted into memory. The libraries write it from their own threads, maxcso
+// several blocks at once, but always to separate ranges of a buffer sized up front.
+struct MemoryWriteContext {
+	MemoryImage *image;
+	bool refused = false;
+
+	bool Begin(uint64_t size) {
+		const uint64_t available = AvailableMemory();
+		if (size > (uint64_t)SIZE_MAX || (available != 0 && size + MEMORY_HEADROOM > available)) {
+			INFO_LOG(Log::Loader, "Not extracting %llu bytes into memory, %llu available", (unsigned long long)size, (unsigned long long)available);
+			refused = true;
+			return false;
+		}
+		try {
+			image->clear();
+			image->resize((size_t)size);
+		} catch (const std::bad_alloc &) {
+			MemoryImage().swap(*image);
+			refused = true;
+			return false;
+		}
+		return true;
+	}
+	bool Write(uint64_t offset, const void *buffer, size_t length) {
+		if (offset > image->size() || length > image->size() - offset) {
+			return false;
+		}
+		memcpy(image->data() + offset, buffer, length);
+		return true;
+	}
+};
+
+size_t ReadMemory(const MemoryImage &image, uint64_t offset, void *buffer, size_t length) {
+	if (offset >= image.size()) {
+		return 0;
+	}
+	const size_t n = (size_t)std::min<uint64_t>(length, image.size() - offset);
+	memcpy(buffer, image.data() + offset, n);
+	return n;
+}
+
+// For a failed extraction: what to tell, and nothing left behind.
+void FailMemory(MemoryImage *output, const MemoryWriteContext &ctx, std::string *error) {
+	MemoryImage().swap(*output);
+	if (ctx.refused) {
+		*error = "Not enough memory for the image";
+	}
+}
+
 bool FinishChd(int result, const Path &output, std::string *error, bool *cancelled) {
 	*cancelled = result == CHDM_ERR_CANCELLED;
 	if (result == 0) {
@@ -403,6 +570,14 @@ bool IsAvailable(ImageFormat format) {
 	case ImageFormat::CHD: return g_chdmCreateDvd != nullptr;
 	case ImageFormat::PBP: return g_ipbpLoaded;
 	default: return g_maxcsoProcess != nullptr;
+	}
+}
+
+bool SupportsMemory(ImageFormat format) {
+	switch (format) {
+	case ImageFormat::CHD: return g_chdmCreateDvdIo != nullptr;
+	case ImageFormat::PBP: return g_ipbpLoaded && g_ipbpApi.iso_to_pbp_reader != nullptr;
+	default: return g_maxcsoProcessReader != nullptr;
 	}
 }
 
@@ -455,9 +630,13 @@ bool RunMaxcso(const Path &output, std::string *error, bool *cancelled, const st
 	return false;
 }
 
-}  // namespace
+struct PresetSettings {
+	uint32_t flags;
+	uint32_t blockSize;
+	double precheck;
+};
 
-bool Compress(const Path &input, const Path &output, Preset preset, const ImageProgressFunc &progress, std::string *error, bool *cancelled) {
+PresetSettings SettingsFor(Preset preset) {
 	// Every preset writes CSO v1 (deflate), and leaves out lz4 (CSO v2 / ZSO only) and 7-zip, which
 	// adds nothing next to Zopfli and is slow.
 	uint32_t flags = MAXCSO_NO_LZ4 | MAXCSO_NO_7ZIP;
@@ -482,19 +661,76 @@ bool Compress(const Path &input, const Path &output, Preset preset, const ImageP
 		blockSize = 2048;
 		break;
 	}
+	return { flags, blockSize, precheck };
+}
+
+int64_t LIB_CALL MaxcsoReadThunk(void *user, uint64_t offset, void *buffer, size_t length) {
+	return (int64_t)ReadMemory(*(const MemoryImage *)user, offset, buffer, length);
+}
+
+int LIB_CALL MaxcsoBeginThunk(void *user, uint64_t size) {
+	return ((MemoryWriteContext *)user)->Begin(size) ? 0 : 1;
+}
+
+int64_t LIB_CALL MaxcsoWriteThunk(void *user, uint64_t offset, const void *buffer, size_t length) {
+	return ((MemoryWriteContext *)user)->Write(offset, buffer, length) ? (int64_t)length : -1;
+}
+
+}  // namespace
+
+bool Compress(const Path &input, const Path &output, Preset preset, const ImageProgressFunc &progress, std::string *error, bool *cancelled) {
+	const PresetSettings settings = SettingsFor(preset);
 	const std::string in = input.ToCString(), out = output.ToCString();
 	return RunMaxcso(output, error, cancelled, [&](char *errorBuf, size_t errorSize) {
-		if (precheck > 0.0 && g_maxcsoProcessEx) {
+		if (settings.precheck > 0.0 && g_maxcsoProcessEx) {
 			MaxcsoOptions options;
 			g_maxcsoOptionsInit(&options, MAXCSO_MODE_STANDARD);
-			options.flags = flags;
-			options.block_size = blockSize;
-			options.precheck_percent = precheck;
+			options.flags = settings.flags;
+			options.block_size = settings.blockSize;
+			options.precheck_percent = settings.precheck;
 			return g_maxcsoProcessEx(in.c_str(), out.c_str(), &options, &MaxcsoProgressThunk, (void *)&progress, errorBuf, errorSize);
 		}
 		// Without maxcso_process_ex the result is the same size, it just takes longer.
-		return g_maxcsoProcessFlags(in.c_str(), out.c_str(), flags, blockSize, &MaxcsoProgressThunk, (void *)&progress, errorBuf, errorSize);
+		return g_maxcsoProcessFlags(in.c_str(), out.c_str(), settings.flags, settings.blockSize, &MaxcsoProgressThunk, (void *)&progress, errorBuf, errorSize);
 	});
+}
+
+bool CompressFromMemory(const MemoryImage &input, const Path &output, Preset preset, const ImageProgressFunc &progress, std::string *error, bool *cancelled) {
+	if (!g_maxcsoProcessReader) {
+		*cancelled = false;
+		*error = "This maxcso can't compress from memory";
+		return false;
+	}
+	const PresetSettings settings = SettingsFor(preset);
+	const std::string out = output.ToCString();
+	return RunMaxcso(output, error, cancelled, [&](char *errorBuf, size_t errorSize) {
+		MaxcsoOptions options;
+		g_maxcsoOptionsInit(&options, MAXCSO_MODE_STANDARD);
+		options.flags = settings.flags;
+		options.block_size = settings.blockSize;
+		options.precheck_percent = settings.precheck;
+		MaxcsoReader reader{ (void *)&input, (uint64_t)input.size(), &MaxcsoReadThunk };
+		return g_maxcsoProcessReader(&reader, out.c_str(), &options, &MaxcsoProgressThunk, (void *)&progress, errorBuf, errorSize);
+	});
+}
+
+bool DecompressToMemory(const Path &input, MemoryImage *output, const ImageProgressFunc &progress, std::string *error, bool *cancelled) {
+	*cancelled = false;
+	if (!g_maxcsoDecompressWriter) {
+		*error = "This maxcso can't decompress into memory";
+		return false;
+	}
+	MemoryWriteContext ctx{ output };
+	MaxcsoWriter writer{ &ctx, &MaxcsoBeginThunk, &MaxcsoWriteThunk };
+	char errorBuf[512]{};
+	const int result = g_maxcsoDecompressWriter(input.ToCString().c_str(), &writer, &MaxcsoProgressThunk, (void *)&progress, errorBuf, sizeof(errorBuf));
+	if (result == 0) {
+		return true;
+	}
+	*cancelled = result == MAXCSO_RESULT_CANCELLED;
+	*error = errorBuf[0] ? errorBuf : "Unknown error";
+	FailMemory(output, ctx, error);
+	return false;
 }
 
 bool Decompress(const Path &input, const Path &output, const ImageProgressFunc &progress, std::string *error, bool *cancelled) {
@@ -534,6 +770,55 @@ bool Extract(const Path &input, const Path &output, const ImageProgressFunc &pro
 	}
 	int result = g_chdmExtractRaw(input.ToCString().c_str(), output.ToCString().c_str(), &ChdmProgressThunk, (void *)&progress);
 	return FinishChd(result, output, error, cancelled);
+}
+
+bool CreateDVDFromMemory(const MemoryImage &input, const Path &output, uint32_t hunkBytes, Codecs codecs, const ImageProgressFunc &progress, std::string *error, bool *cancelled) {
+	*cancelled = false;
+	if (!g_chdmCreateDvdIo) {
+		*error = "This CHDmodern can't compress from memory";
+		return false;
+	}
+	if (!CheckOutput(output, error)) {
+		return false;
+	}
+	ChdmIo io{};
+	io.user = (void *)&input;
+	io.size = [](void *user) -> uint64_t {
+		return ((const MemoryImage *)user)->size();
+	};
+	io.read_at = [](void *user, uint64_t offset, void *buffer, size_t length) -> size_t {
+		return ReadMemory(*(const MemoryImage *)user, offset, buffer, length);
+	};
+	static const uint32_t zstd[4] = { 0x7a737464, 0, 0, 0 };  // 'zstd'
+	int result = g_chdmCreateDvdIo(&io, output.ToCString().c_str(), hunkBytes,
+		codecs == Codecs::Zstd ? zstd : nullptr, &ChdmProgressThunk, (void *)&progress);
+	return FinishChd(result, output, error, cancelled);
+}
+
+bool ExtractToMemory(const Path &input, MemoryImage *output, const ImageProgressFunc &progress, std::string *error, bool *cancelled) {
+	*cancelled = false;
+	if (!g_chdmExtractRawIo) {
+		*error = "This CHDmodern can't extract into memory";
+		return false;
+	}
+	MemoryWriteContext ctx{ output };
+	ChdmWriter writer{};
+	writer.user = &ctx;
+	writer.begin = [](void *user, uint64_t total) -> int {
+		return ((MemoryWriteContext *)user)->Begin(total) ? 0 : 1;
+	};
+	writer.write_at = [](void *user, uint64_t offset, const void *buffer, size_t length) -> size_t {
+		return ((MemoryWriteContext *)user)->Write(offset, buffer, length) ? length : (size_t)-1;
+	};
+	int result = g_chdmExtractRawIo(input.ToCString().c_str(), &writer, &ChdmProgressThunk, (void *)&progress);
+	if (result == 0) {
+		return true;
+	}
+	*cancelled = result == CHDM_ERR_CANCELLED;
+	const char *message = g_chdmLastError();
+	*error = message && *message ? message : "Unknown error";
+	FailMemory(output, ctx, error);
+	return false;
 }
 
 }  // namespace CHDModern
@@ -607,6 +892,71 @@ bool PbpToIso(const Path &input, const Path &output, const ImageProgressFunc &pr
 	});
 }
 
+bool IsoToPbpFromMemory(const MemoryImage &input, const Path &output, Compression compression, const ImageProgressFunc &progress, std::string *error, bool *cancelled) {
+	if (!g_ipbpApi.iso_to_pbp_reader || (compression == Compression::Max && !SupportsMaxCompression())) {
+		*cancelled = false;
+		*error = "This iPBP can't convert from memory";
+		return false;
+	}
+	return RunIpbp(output, progress, error, cancelled, [&](ipbp_job *job) {
+		IpbpIso2PbpOptions options;
+		g_ipbpApi.iso2pbp_options_init(&options);
+		options.compress = (int)compression;
+		IpbpReader reader{};
+		reader.user = (void *)&input;
+		reader.size = input.size();
+		reader.read_at = [](void *user, uint64_t offset, void *buf, size_t len) -> int {
+			return ReadMemory(*(const MemoryImage *)user, offset, buf, len) == len ? 0 : 1;
+		};
+		return g_ipbpApi.iso_to_pbp_reader(job, &reader, output.ToCString().c_str(), &options);
+	});
+}
+
+bool PbpToIsoMemory(const Path &input, MemoryImage *output, const ImageProgressFunc &progress, std::string *error, bool *cancelled) {
+	*cancelled = false;
+	if (!g_ipbpApi.pbp_to_iso_writer) {
+		*error = "This iPBP can't convert into memory";
+		return false;
+	}
+	ipbp_job *job = g_ipbpApi.job_create();
+	if (!job) {
+		*error = "Out of memory";
+		return false;
+	}
+	IpbpProgressContext progressCtx{ &progress, job };
+	g_ipbpApi.job_set_progress(job, &IpbpProgressThunk, &progressCtx);
+
+	MemoryWriteContext ctx{ output };
+	IpbpWriter writer{};
+	writer.user = &ctx;
+	writer.begin = [](void *user, uint64_t size) -> int {
+		return ((MemoryWriteContext *)user)->Begin(size) ? 0 : 1;
+	};
+	writer.write_at = [](void *user, uint64_t offset, const void *buf, size_t len) -> int {
+		return ((MemoryWriteContext *)user)->Write(offset, buf, len) ? 0 : 1;
+	};
+	writer.finish = [](void *user, uint64_t finalSize) -> int {
+		// At most what begin got, so this never reallocates.
+		MemoryImage *image = ((MemoryWriteContext *)user)->image;
+		if (finalSize > image->size()) {
+			return 1;
+		}
+		image->resize((size_t)finalSize);
+		return 0;
+	};
+	IpbpPbp2IsoOptions options;
+	g_ipbpApi.pbp2iso_options_init(&options);
+	const int result = g_ipbpApi.pbp_to_iso_writer(job, input.ToCString().c_str(), &writer, &options);
+	if (result != IPBP_OK) {
+		*cancelled = result == IPBP_CANCELLED;
+		const char *message = g_ipbpApi.job_error(job);
+		*error = message && *message ? message : "Unknown error";
+		FailMemory(output, ctx, error);
+	}
+	g_ipbpApi.job_destroy(job);
+	return result == IPBP_OK;
+}
+
 bool ReadDiscId(const Path &pbp, std::string *discId, std::string *error) {
 	if (!g_ipbpLoaded) {
 		*error = "iPBP is not loaded";
@@ -638,6 +988,7 @@ namespace ImageCompressors {
 
 void Init() {}
 bool IsAvailable(ImageFormat format) { return false; }
+bool SupportsMemory(ImageFormat format) { return false; }
 const char *LibraryFileName(ImageFormat format) { return ""; }
 Path LibraryPath(ImageFormat format) { return Path(); }
 std::string Version(ImageFormat format) { return ""; }
@@ -653,6 +1004,18 @@ bool Compress(const Path &input, const Path &output, Preset preset, const ImageP
 }
 
 bool Decompress(const Path &input, const Path &output, const ImageProgressFunc &progress, std::string *error, bool *cancelled) {
+	*cancelled = false;
+	*error = "Not supported on this platform";
+	return false;
+}
+
+bool CompressFromMemory(const MemoryImage &input, const Path &output, Preset preset, const ImageProgressFunc &progress, std::string *error, bool *cancelled) {
+	*cancelled = false;
+	*error = "Not supported on this platform";
+	return false;
+}
+
+bool DecompressToMemory(const Path &input, MemoryImage *output, const ImageProgressFunc &progress, std::string *error, bool *cancelled) {
 	*cancelled = false;
 	*error = "Not supported on this platform";
 	return false;
@@ -674,6 +1037,18 @@ bool Extract(const Path &input, const Path &output, const ImageProgressFunc &pro
 	return false;
 }
 
+bool CreateDVDFromMemory(const MemoryImage &input, const Path &output, uint32_t hunkBytes, Codecs codecs, const ImageProgressFunc &progress, std::string *error, bool *cancelled) {
+	*cancelled = false;
+	*error = "Not supported on this platform";
+	return false;
+}
+
+bool ExtractToMemory(const Path &input, MemoryImage *output, const ImageProgressFunc &progress, std::string *error, bool *cancelled) {
+	*cancelled = false;
+	*error = "Not supported on this platform";
+	return false;
+}
+
 }  // namespace CHDModern
 
 namespace IPBP {
@@ -689,6 +1064,18 @@ bool IsoToPbp(const Path &input, const Path &output, Compression compression, co
 }
 
 bool PbpToIso(const Path &input, const Path &output, const ImageProgressFunc &progress, std::string *error, bool *cancelled) {
+	*cancelled = false;
+	*error = "Not supported on this platform";
+	return false;
+}
+
+bool IsoToPbpFromMemory(const MemoryImage &input, const Path &output, Compression compression, const ImageProgressFunc &progress, std::string *error, bool *cancelled) {
+	*cancelled = false;
+	*error = "Not supported on this platform";
+	return false;
+}
+
+bool PbpToIsoMemory(const Path &input, MemoryImage *output, const ImageProgressFunc &progress, std::string *error, bool *cancelled) {
 	*cancelled = false;
 	*error = "Not supported on this platform";
 	return false;

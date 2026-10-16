@@ -33,6 +33,8 @@
 //    pre-check needs maxcso_process_ex; without it Max still works, just slower.
 //  - PBP: iPBP (https://github.com/LunaMoo/iPBP), ISO <-> PSN-style EBOOT.PBP (NPUMDIMG). The Max
 //    preset needs iPBP 1.1.0 or newer.
+//  Newer versions (CHDmodern 0.4.0, maxcso with maxcso_process_reader, iPBP 1.2.0) can also
+//  extract into memory and compress from memory, which repacks without a temporary ISO on disk.
 // Desktop only: Android, iOS and UWP won't load native code from user storage.
 
 enum class ImageFormat {
@@ -62,7 +64,14 @@ const std::vector<std::string> &CompressedExtensions(ImageFormat format);
 // Extension of the images a format compresses to.
 const char *OutputExtension(ImageFormat format);
 
+// Whether the loaded library can extract into and compress from an ISO in memory.
+bool SupportsMemory(ImageFormat format);
+
 }  // namespace ImageCompressors
+
+// An ISO held in memory between extracting and compressing it. Extracting refuses (fails without
+// trying) an image that doesn't fit in the memory that's available.
+typedef std::vector<uint8_t> MemoryImage;
 
 namespace MaxCSO {
 
@@ -77,6 +86,9 @@ enum class Preset {
 // overwrites, and deletes a partial output on failure or cancel (*cancelled is set then).
 bool Compress(const Path &input, const Path &output, Preset preset, const ImageProgressFunc &progress, std::string *error, bool *cancelled);
 bool Decompress(const Path &input, const Path &output, const ImageProgressFunc &progress, std::string *error, bool *cancelled);
+// The same with the ISO in memory (needs SupportsMemory).
+bool CompressFromMemory(const MemoryImage &input, const Path &output, Preset preset, const ImageProgressFunc &progress, std::string *error, bool *cancelled);
+bool DecompressToMemory(const Path &input, MemoryImage *output, const ImageProgressFunc &progress, std::string *error, bool *cancelled);
 
 }  // namespace MaxCSO
 
@@ -92,6 +104,9 @@ enum class Codecs {
 // failure or cancel (*cancelled is set then).
 bool CreateDVD(const Path &input, const Path &output, uint32_t hunkBytes, Codecs codecs, const ImageProgressFunc &progress, std::string *error, bool *cancelled);
 bool Extract(const Path &input, const Path &output, const ImageProgressFunc &progress, std::string *error, bool *cancelled);
+// The same with the ISO in memory (needs SupportsMemory).
+bool CreateDVDFromMemory(const MemoryImage &input, const Path &output, uint32_t hunkBytes, Codecs codecs, const ImageProgressFunc &progress, std::string *error, bool *cancelled);
+bool ExtractToMemory(const Path &input, MemoryImage *output, const ImageProgressFunc &progress, std::string *error, bool *cancelled);
 
 }  // namespace CHDModern
 
@@ -111,6 +126,9 @@ bool SupportsMaxCompression();
 // overwrites; a partial output never survives a failure or cancel (*cancelled is set then).
 bool IsoToPbp(const Path &input, const Path &output, Compression compression, const ImageProgressFunc &progress, std::string *error, bool *cancelled);
 bool PbpToIso(const Path &input, const Path &output, const ImageProgressFunc &progress, std::string *error, bool *cancelled);
+// The same with the ISO in memory (needs SupportsMemory).
+bool IsoToPbpFromMemory(const MemoryImage &input, const Path &output, Compression compression, const ImageProgressFunc &progress, std::string *error, bool *cancelled);
+bool PbpToIsoMemory(const Path &input, MemoryImage *output, const ImageProgressFunc &progress, std::string *error, bool *cancelled);
 
 // Checks that a PBP holds a UMD image iPBP can convert back (homebrew and PS1 EBOOTs don't),
 // and gets its disc id ("ULUS10041"), possibly empty.

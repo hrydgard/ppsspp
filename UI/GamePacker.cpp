@@ -64,6 +64,10 @@ struct Job {
 	bool replace = false;
 	std::vector<Step> steps;
 
+	// A repack keeps the ISO in memory instead of tempISO, when both libraries can and it fits.
+	std::atomic<bool> useMemory{false};
+	MemoryImage memory;
+
 	std::atomic<int> step{0};
 	std::atomic<float> progress{0.0f};
 	std::atomic<double> stepStart{0.0};
@@ -101,32 +105,41 @@ bool HasExtension(const std::vector<std::string> &exts, const std::string &ext) 
 	return std::find(exts.begin(), exts.end(), ext) != exts.end();
 }
 
-bool RunStep(const Step &step, const ImageProgressFunc &progress, std::string *error, bool *cancelled) {
+// With memory, a decompressing step writes the ISO there instead of to step.output, and a
+// compressing one reads it from there instead of from step.input.
+bool RunStep(const Step &step, MemoryImage *memory, const ImageProgressFunc &progress, std::string *error, bool *cancelled) {
 	switch (step.format) {
 	case ImageFormat::CHD:
+	{
 		if (!step.compress) {
-			return CHDModern::Extract(step.input, step.output, progress, error, cancelled);
+			return memory ? CHDModern::ExtractToMemory(step.input, memory, progress, error, cancelled) : CHDModern::Extract(step.input, step.output, progress, error, cancelled);
 		}
-		switch (step.preset) {
-		case 0: return CHDModern::CreateDVD(step.input, step.output, 32768, CHDModern::Codecs::Default, progress, error, cancelled);
-		case 2: return CHDModern::CreateDVD(step.input, step.output, 2048, CHDModern::Codecs::Zstd, progress, error, cancelled);
-		default: return CHDModern::CreateDVD(step.input, step.output, 2048, CHDModern::Codecs::Default, progress, error, cancelled);
-		}
+		const uint32_t hunk = step.preset == 0 ? 32768 : 2048;
+		const CHDModern::Codecs codecs = step.preset == 2 ? CHDModern::Codecs::Zstd : CHDModern::Codecs::Default;
+		return memory ? CHDModern::CreateDVDFromMemory(*memory, step.output, hunk, codecs, progress, error, cancelled) : CHDModern::CreateDVD(step.input, step.output, hunk, codecs, progress, error, cancelled);
+	}
 	case ImageFormat::PBP:
+	{
 		if (!step.compress) {
-			return IPBP::PbpToIso(step.input, step.output, progress, error, cancelled);
+			return memory ? IPBP::PbpToIsoMemory(step.input, memory, progress, error, cancelled) : IPBP::PbpToIso(step.input, step.output, progress, error, cancelled);
 		}
-		switch (step.preset) {
-		case 0: return IPBP::IsoToPbp(step.input, step.output, IPBP::Compression::Max, progress, error, cancelled);
-		case 2: return IPBP::IsoToPbp(step.input, step.output, IPBP::Compression::None, progress, error, cancelled);
-		default: return IPBP::IsoToPbp(step.input, step.output, IPBP::Compression::LZRC, progress, error, cancelled);
+		IPBP::Compression compression = IPBP::Compression::LZRC;
+		if (step.preset == 0) {
+			compression = IPBP::Compression::Max;
+		} else if (step.preset == 2) {
+			compression = IPBP::Compression::None;
 		}
+		return memory ? IPBP::IsoToPbpFromMemory(*memory, step.output, compression, progress, error, cancelled) : IPBP::IsoToPbp(step.input, step.output, compression, progress, error, cancelled);
+	}
 	case ImageFormat::CSO:
 	default:
+	{
 		if (!step.compress) {
-			return MaxCSO::Decompress(step.input, step.output, progress, error, cancelled);
+			return memory ? MaxCSO::DecompressToMemory(step.input, memory, progress, error, cancelled) : MaxCSO::Decompress(step.input, step.output, progress, error, cancelled);
 		}
-		return MaxCSO::Compress(step.input, step.output, (MaxCSO::Preset)std::clamp(step.preset, 0, 2), progress, error, cancelled);
+		const MaxCSO::Preset preset = (MaxCSO::Preset)std::clamp(step.preset, 0, 2);
+		return memory ? MaxCSO::CompressFromMemory(*memory, step.output, preset, progress, error, cancelled) : MaxCSO::Compress(step.input, step.output, preset, progress, error, cancelled);
+	}
 	}
 }
 
@@ -147,9 +160,20 @@ void RunJob(Job *job) {
 		};
 		std::string error;
 		bool cancelled = false;
+		const bool memory = job->useMemory;
 		if (job->cancel) {
 			cancelled = true;
-		} else if (RunStep(step, progress, &error, &cancelled)) {
+		} else if (RunStep(step, memory ? &job->memory : nullptr, progress, &error, &cancelled)) {
+			if (memory && step.compress) {
+				MemoryImage().swap(job->memory);
+			}
+			continue;
+		}
+		if (memory && !step.compress && !cancelled) {
+			// Too big for the memory left, most likely: go through tempISO instead.
+			WARN_LOG(Log::Loader, "GamePacker: Extracting %s into memory failed (%s), using %s", step.input.c_str(), error.c_str(), job->tempISO.c_str());
+			job->useMemory = false;
+			i--;
 			continue;
 		}
 		success = false;
@@ -161,6 +185,7 @@ void RunJob(Job *job) {
 		break;
 	}
 
+	MemoryImage().swap(job->memory);
 	if (!job->tempISO.empty() && File::Exists(job->tempISO)) {
 		File::Delete(job->tempISO);
 	}
@@ -340,6 +365,7 @@ bool Start(const Path &gamePath, const Option &option, bool replaceOriginal) {
 		job->tempISO = dir / (OutputBaseName(job->file, from) + ".ppsspp-tmp.iso");
 		job->steps.push_back({ false, FormatOf(from), 0, job->file, job->tempISO });
 		job->steps.push_back({ true, option.format, option.preset, job->tempISO, job->writeOutput });
+		job->useMemory = ImageCompressors::SupportsMemory(FormatOf(from)) && ImageCompressors::SupportsMemory(option.format);
 	}
 
 	// Our own leftovers, from a crash or a kill. The converters never overwrite.
@@ -383,7 +409,7 @@ bool GetStatus(Status *status) {
 	status->gamePath = job.gamePath;
 	status->label = std::string(step.compress ? ga->T("Packing") : ga->T("Extracting")) + " " + job.file.GetFilename();
 	if (job.steps.size() > 1) {
-		status->label += StringFromFormat(" (%d/%d)", stepIndex + 1, (int)job.steps.size());
+		status->label += StringFromFormat(" (%d/%d%s)", stepIndex + 1, (int)job.steps.size(), job.useMemory ? ", RAM" : "");
 	}
 	status->progress = job.done ? 1.0f : job.progress.load();
 	status->aborting = job.cancel;
