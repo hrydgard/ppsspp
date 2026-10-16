@@ -2244,3 +2244,4 @@ MIPSOpcode Replacement_GetDisplayOp(u32 address) {
 	}
 	return MIPSOpcode(MIPS_CALL_REPLACEMENT_OP | iter->second.index);
 }
+
