@@ -42,11 +42,27 @@ static u32 readMicDataLength;
 static u32 curTargetAddr;
 static int micState; // 0 means stopped, 1 means started, for save state.
 static bool micPolling = false;
+static u64 inputStartUs;  // Not saved, reset on load.
 static constexpr int MIC_POLL_INTERVAL_US = 5000;
+// Hosts deliver audio in chunks. Allow 100 ms of capture jitter before padding.
+static constexpr int MIC_JITTER_US = 100000;
 
 static void PollMicrophone() {
 	if (micPolling) {
 		System_MicrophoneCommand("pollRecording");
+	}
+}
+
+// A stalled host microphone must not hang the game (as happened in Go!Edit).
+// Fill any samples still missing with silence.
+static void PadMicInput(u32 addr, u32 needSize) {
+	const u32 have = std::min(readMicDataLength, needSize);
+	if (have < needSize) {
+		DEBUG_LOG(Log::HLE, "sceUsbMic: host mic only delivered %d of %d bytes, padding with silence", have, needSize);
+		if (Memory::IsValidRange(addr + have, needSize - have)) {
+			Memory::Memset(addr + have, 0, needSize - have, "MicSilence");
+		}
+		readMicDataLength = needSize;
 	}
 }
 
@@ -75,24 +91,13 @@ static void __MicBlockingResume(u64 userdata, int cyclesLate) {
 		}
 
 		if (Microphone::isHaveDevice()) {
-			// Hosts deliver audio in chunks. Allow 100 ms of capture jitter before padding.
 			const u64 retries = userdata >> 32;
-			if (micPolling && Microphone::getReadMicDataLength() < (u32)iter->needSize && retries < 20) {
+			if (micPolling && Microphone::getReadMicDataLength() < (u32)iter->needSize && retries < MIC_JITTER_US / MIC_POLL_INTERVAL_US) {
 				CoreTiming::ScheduleEvent(usToCycles(MIC_POLL_INTERVAL_US), eventMicBlockingResume, (u32)threadID | ((retries + 1) << 32));
 				iter++;
 				continue;
 			}
-			// A stalled host microphone must not hang the game (as happened in Go!Edit).
-			// Fill any samples still missing with silence.
-			const u32 needSize = (u32)iter->needSize;
-			const u32 have = std::min((u32)Microphone::getReadMicDataLength(), needSize);
-			if (have < needSize) {
-				DEBUG_LOG(Log::HLE, "sceUsbMic: host mic only delivered %d of %d bytes, padding with silence", have, needSize);
-				if (Memory::IsValidRange(iter->addr + have, needSize - have)) {
-					Memory::Memset(iter->addr + have, 0, needSize - have, "MicSilence");
-				}
-				readMicDataLength = needSize;
-			}
+			PadMicInput(iter->addr, (u32)iter->needSize);
 			u32 ret = __KernelGetWaitValue(threadID, error);
 			DEBUG_LOG(Log::HLE, "sceUsbMic: Waking up thread(%d)", (int)iter->threadID);
 			__KernelResumeThreadFromWait(threadID, ret);
@@ -182,6 +187,9 @@ void __UsbMicDoState(PointerWrap &p) {
 	}
 	if (!audioBuf && numNeedSamples > 0) {
 		audioBuf = new QueueBuf(numNeedSamples << 1);
+	}
+	if (p.mode == p.MODE_READ) {
+		inputStartUs = CoreTiming::GetGlobalTimeUs();
 	}
 
 	if (micState == 0) {
@@ -276,8 +284,7 @@ int QueueBuf::getStartPos() const {
 }
 
 static int sceUsbMicPollInputEnd() {
-	ERROR_LOG(Log::HLE, "UNIMPL sceUsbMicPollInputEnd");
-	return 0;
+	return hleLogDebug(Log::HLE, __MicPollInputEnd());
 }
 
 static int sceUsbMicInputBlocking(u32 maxSamples, u32 sampleRate, u32 bufAddr) {
@@ -333,9 +340,11 @@ static int sceUsbMicInputInit(int unknown1, int inputVolume, int unknown2) {
 }
 
 static int sceUsbMicWaitInputEnd() {
-	WARN_LOG(Log::HLE, "UNIMPL sceUsbMicWaitInputEnd");
-	// Hack: Just task switch so other threads get to do work. Helps Beaterator (although recording does not appear to work correctly).
-	return hleDelayResult(0, "MicWait", 100);
+	if (__MicWaitInputEnd()) {
+		return hleLogDebug(Log::HLE, 0, "waiting");
+	}
+	// Nothing pending: still task switch so other threads get to do work. Helps Beaterator.
+	return hleDelayResult(hleLogDebug(Log::HLE, 0), "MicWait", 100);
 }
 
 int Microphone::startMic() {
@@ -439,6 +448,7 @@ u32 __MicInput(u32 maxSamples, u32 sampleRate, u32 bufAddr, MICTYPE type, bool b
 
 	numNeedSamples = maxSamples;
 	readMicDataLength = 0;
+	inputStartUs = CoreTiming::GetGlobalTimeUs();
 	if (!Microphone::isMicStarted()) {
 		Microphone::startMic();
 	}
@@ -465,6 +475,39 @@ u32 __MicInput(u32 maxSamples, u32 sampleRate, u32 bufAddr, MICTYPE type, bool b
 	__KernelWaitCurThread(WAITTYPE_MICINPUT, 1, size, 0, false, "blocking microphone");
 
 	return type == CAMERAMIC ? size : maxSamples;
+}
+
+// A non-blocking input keeps filling its buffer from addAudioData() after it returns.
+static bool MicInputPending() {
+	return Microphone::isHaveDevice() && readMicDataLength < numNeedSamples * 2;
+}
+
+bool __MicWaitInputEnd() {
+	if (!MicInputPending()) {
+		return false;
+	}
+	const u32 size = numNeedSamples * 2;
+	u64 waitTimeus = (size - readMicDataLength) * 1000000ULL / 2 / curSampleRate;
+	CoreTiming::ScheduleEvent(usToCycles(waitTimeus), eventMicBlockingResume, __KernelGetCurThread());
+	MicWaitInfo waitInfo = { __KernelGetCurThread(), curTargetAddr, (int)size, curSampleRate };
+	waitingThreads.push_back(waitInfo);
+	DEBUG_LOG(Log::HLE, "MicWaitInputEnd: blocking thread(%d)", (int)__KernelGetCurThread());
+	__KernelWaitCurThread(WAITTYPE_MICINPUT, 1, 0, 0, false, "microphone input end");
+	return true;
+}
+
+u32 __MicPollInputEnd() {
+	if (!MicInputPending()) {
+		return 0;
+	}
+	// Same bound as a blocking wait: the request's duration plus the capture jitter.
+	const u32 size = numNeedSamples * 2;
+	const u64 durationUs = size * 1000000ULL / 2 / curSampleRate;
+	if (CoreTiming::GetGlobalTimeUs() < inputStartUs + durationUs + MIC_JITTER_US) {
+		return 1;
+	}
+	PadMicInput(curTargetAddr, size);
+	return 0;
 }
 
 const HLEFunction sceUsbMic[] = {

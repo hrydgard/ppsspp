@@ -570,13 +570,11 @@ static int sceAudioInputInitEx(u32 paramAddr) {
 }
 
 static int sceAudioPollInputEnd() {
-	ERROR_LOG(Log::HLE, "UNIMPL sceAudioPollInputEnd");
-	return 0;
+	return hleLogDebug(Log::HLE, __MicPollInputEnd());
 }
 
 static int sceAudioWaitInputEnd() {
-	ERROR_LOG(Log::HLE, "UNIMPL sceAudioWaitInputEnd");
-	return 0;
+	return hleLogDebug(Log::HLE, 0, "%s", __MicWaitInputEnd() ? "waiting" : "done");
 }
 
 static int sceAudioGetInputLength() {
