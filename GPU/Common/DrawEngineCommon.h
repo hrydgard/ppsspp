@@ -164,6 +164,8 @@ public:
 	void FlushQueuedDepth();
 	// Starts rasterizing the queued depth draws, without waiting.
 	void SubmitQueuedDepth();
+	// Waits for the depth draws already submitted, leaving the queued ones queued.
+	void WaitForSubmittedDepth();
 	// Waits if depth rasterization in progress may write to these bytes.
 	void WaitForDepthWrites(u32 addr, u32 size);
 

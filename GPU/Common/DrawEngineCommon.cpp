@@ -1365,6 +1365,12 @@ void DrawEngineCommon::FlushQueuedDepth() {
 	depthWorker_->TakeTimes(&gpuStats.perFrame.msCullDepth, &gpuStats.perFrame.msRasterizeDepth);
 }
 
+void DrawEngineCommon::WaitForSubmittedDepth() {
+	if (depthWorker_) {
+		depthWorker_->WaitForSubmitted();
+	}
+}
+
 void DrawEngineCommon::WaitForDepthWrites(u32 addr, u32 size) {
 	if (depthWorker_) {
 		depthWorker_->WaitIfWriting(addr, size);

@@ -93,6 +93,8 @@ public:
 	void Submit();
 	// Submits the current batch and waits until all are rasterized.
 	void Wait();
+	// Waits until the batches already submitted are rasterized.
+	void WaitForSubmitted();
 	// Waits only if a batch being rasterized may write to [addr, addr + size).
 	void WaitIfWriting(u32 addr, u32 size);
 

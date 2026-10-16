@@ -752,6 +752,10 @@ void DepthRasterWorker::Submit() {
 
 void DepthRasterWorker::Wait() {
 	Submit();
+	WaitForSubmitted();
+}
+
+void DepthRasterWorker::WaitForSubmitted() {
 	if (!busy_) {
 		return;
 	}

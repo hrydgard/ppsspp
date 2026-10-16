@@ -316,6 +316,7 @@ public:
 	void NotifyFlush();
 
 protected:
+	DLResult RunDLQueue();
 	// While debugging is active, these may block.
 	void NotifyDisplay(u32 framebuf, u32 stride, int format);
 
@@ -377,6 +378,7 @@ protected:
 	TextureCacheCommon *textureCache_ = nullptr;
 
 	bool flushOnParams_ = true;
+	bool listEndedSinceDepthWait_ = false;
 
 	GraphicsContext *gfxCtx_;
 	Draw::DrawContext *draw_ = nullptr;
