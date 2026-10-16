@@ -87,3 +87,7 @@ namespace Microphone {
 }
 
 u32 __MicInput(u32 maxSamples, u32 sampleRate, u32 bufAddr, MICTYPE type, bool block = true);
+// Finish a non-blocking __MicInput. Wait blocks the thread until the buffer is full and
+// returns whether it had to; Poll returns 1 while the buffer is not full yet.
+bool __MicWaitInputEnd();
+u32 __MicPollInputEnd();
