@@ -106,6 +106,9 @@ struct CommandLineOptions {
 	// way to compare the two without editing a config, and the way out if the real one breaks a game.
 	std::optional<int> forceHLE;
 
+	// Overrides g_Config.iLockedCPUSpeed, in MHz.
+	std::optional<int> lockedCPUSpeed;
+
 	// Headless: install the game update in a .pkg (given as the boot filename) into this
 	// directory, then exit without booting anything. The directory is the game folder itself -
 	// the app puts that under PSP/GAME/<DISC_ID>, but here the caller picks. See

@@ -46,7 +46,7 @@ static bool CreateZipWithEntry(const Path &zipPath, const std::string &entryName
 // Crafts a zip with a parent-directory entry and verifies ExtractZipContents
 // refuses to write outside the destination directory (Zip Slip).
 static bool TestZipSlipExtraction() {
-	Path tempRoot = Path("unittest_zip_slip_test");
+	Path tempRoot = UnitTestTempPath("unittest_zip_slip_test");
 	File::DeleteDirRecursively(tempRoot);
 	EXPECT_TRUE(File::CreateDir(tempRoot));
 

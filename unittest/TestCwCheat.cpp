@@ -135,17 +135,23 @@ static bool RunCheatTest(CWCheatEngine &engine, const CheatCode &cheat, const st
 }
 
 static bool RunCheatTests() {
-	const Path filename("unittest_cheats.ini");
+	const Path filename = UnitTestTempPath("unittest_cheats.ini");
 	if (!File::WriteStringToFile(true, g_cheatFile, filename)) {
 		printf("Can't write %s\n", filename.c_str());
 		return false;
 	}
-	CheatFileParser parser(filename, "TEST00000");
-	const bool parsed = parser.Parse();
-	for (const std::string &error : parser.GetErrors()) {
-		printf("%s\n", error.c_str());
+	bool parsed;
+	std::vector<CheatCode> cheats;
+	{
+		// The parser holds the file open, which keeps it from being deleted on Windows.
+		CheatFileParser parser(filename, "TEST00000");
+		parsed = parser.Parse();
+		for (const std::string &error : parser.GetErrors()) {
+			printf("%s\n", error.c_str());
+		}
+		cheats = parser.GetCheats();
 	}
-	const std::vector<CheatCode> cheats = parser.GetCheats();
+	File::Delete(filename);
 	EXPECT_TRUE(parsed);
 	EXPECT_EQ_INT((int)cheats.size(), 14);
 
@@ -180,23 +186,30 @@ static bool RunCheatTests() {
 		success = success && RunCheatTest(engine, cheats[13], { { 0x08802000, 0x11111111 } });
 	}
 
-	File::Delete(filename);
 	return success;
 }
 
 static bool TestCheatParseErrors() {
-	const Path filename("unittest_cheats_bad.ini");
+	const Path filename = UnitTestTempPath("unittest_cheats_bad.ini");
 	const char *content = "_S TEST00000\n_C1 Mixed\n_L 0x20002000 0x00000001\n_M 0x08802004 0x00000002\n_C1 Extended\n_N 0xD4000001 0x00000001\n";
 	if (!File::WriteStringToFile(true, content, filename)) {
 		return false;
 	}
-	CheatFileParser parser(filename, "TEST00000");
-	EXPECT_FALSE(parser.Parse());
-	EXPECT_EQ_INT((int)parser.GetErrors().size(), 2);
-	EXPECT_EQ_INT((int)parser.GetCheats().size(), 1);
-	EXPECT_EQ_INT((int)parser.GetCheats()[0].lines.size(), 1);
-	EXPECT_TRUE(parser.GetCheats()[0].format == CheatCodeFormat::CwCheat);
+	bool parsed;
+	size_t errorCount;
+	std::vector<CheatCode> cheats;
+	{
+		CheatFileParser parser(filename, "TEST00000");
+		parsed = parser.Parse();
+		errorCount = parser.GetErrors().size();
+		cheats = parser.GetCheats();
+	}
 	File::Delete(filename);
+	EXPECT_FALSE(parsed);
+	EXPECT_EQ_INT((int)errorCount, 2);
+	EXPECT_EQ_INT((int)cheats.size(), 1);
+	EXPECT_EQ_INT((int)cheats[0].lines.size(), 1);
+	EXPECT_TRUE(cheats[0].format == CheatCodeFormat::CwCheat);
 	return true;
 }
 

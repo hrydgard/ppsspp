@@ -49,6 +49,7 @@
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceNet.h"
+#include "Core/HLE/scePower.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HW/Display.h"
@@ -552,6 +553,8 @@ void hleEnterVblank(u64 userdata, int cyclesLate) {
 	int vbCount = userdata;
 
 	VERBOSE_LOG(Log::sceDisplay, "Enter VBlank %i", vbCount);
+
+	__PowerCheckLockedClock();
 
 	DisplayFireVblankStart();
 

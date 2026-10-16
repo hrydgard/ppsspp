@@ -131,6 +131,24 @@
 // Set to true for more verbose unit tests.
 bool g_testLog = false;
 
+Path UnitTestTempPath(const char *name) {
+#if PPSSPP_PLATFORM(WINDOWS)
+	const wchar_t *temp = _wgetenv(L"TEMP");
+	if (temp && *temp) {
+		return Path(ConvertWStringToUTF8(temp)) / name;
+	}
+#else
+	const char *temp = getenv("TMPDIR");
+	if (temp && *temp) {
+		return Path(temp) / name;
+	}
+#if !PPSSPP_PLATFORM(ANDROID)
+	return Path("/tmp") / name;
+#endif
+#endif
+	return Path(name);
+}
+
 std::string System_GetProperty(SystemProperty prop) { return ""; }
 std::vector<std::string> System_GetPropertyStringVec(SystemProperty prop) { return std::vector<std::string>(); }
 int64_t System_GetPropertyInt(SystemProperty prop) {
