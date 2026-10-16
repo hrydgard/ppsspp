@@ -2061,6 +2061,8 @@ void NativeFrame(GraphicsContext *graphicsContext) {}
 void NativeResized() {}
 void System_Toast(std::string_view str) {}
 void System_LaunchUrl(LaunchUrlType urlType, std::string_view url) {}
+void System_AskForPermission(SystemPermission permission) {}
+PermissionStatus System_GetPermissionStatus(SystemPermission permission) { return PERMISSION_STATUS_GRANTED; }
 
 inline int16_t Clamp16(int32_t sample) {
    if (sample < -32767) return -32767;
