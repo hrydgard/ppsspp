@@ -1025,6 +1025,19 @@ LOCAL_SRC_FILES := \
   $(SRC)/UI/LoadStateConfirmScreen.cpp \
   $(SRC)/UI/GameInfoCache.cpp \
   $(SRC)/UI/GameScreen.cpp \
+  $(SRC)/UI/GamePacker.cpp \
+  $(SRC)/UI/CSOCompress.cpp \
+  $(SRC)/ext/zopfli/blocksplitter.c \
+  $(SRC)/ext/zopfli/cache.c \
+  $(SRC)/ext/zopfli/deflate.c \
+  $(SRC)/ext/zopfli/hash.c \
+  $(SRC)/ext/zopfli/katajainen.c \
+  $(SRC)/ext/zopfli/lz77.c \
+  $(SRC)/ext/zopfli/squeeze.c \
+  $(SRC)/ext/zopfli/tree.c \
+  $(SRC)/ext/zopfli/util.c \
+  $(SRC)/ext/libdeflate/lib/deflate_compress.c \
+  $(SRC)/ext/libdeflate/lib/utils.c \
   $(SRC)/UI/UploadScreen.cpp \
   $(SRC)/UI/ControlMappingScreen.cpp \
   $(SRC)/UI/GameSettingsScreen.cpp \

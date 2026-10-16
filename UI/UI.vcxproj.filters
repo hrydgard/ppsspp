@@ -10,6 +10,45 @@
     <ClCompile Include="GameScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="GamePacker.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="CSOCompress.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\zopfli\blocksplitter.c">
+      <Filter>ext</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\zopfli\cache.c">
+      <Filter>ext</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\zopfli\deflate.c">
+      <Filter>ext</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\zopfli\hash.c">
+      <Filter>ext</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\zopfli\katajainen.c">
+      <Filter>ext</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\zopfli\lz77.c">
+      <Filter>ext</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\zopfli\squeeze.c">
+      <Filter>ext</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\zopfli\tree.c">
+      <Filter>ext</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\zopfli\util.c">
+      <Filter>ext</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\libdeflate\lib\deflate_compress.c">
+      <Filter>ext</Filter>
+    </ClCompile>
+    <ClCompile Include="..\ext\libdeflate\lib\utils.c">
+      <Filter>ext</Filter>
+    </ClCompile>
     <ClCompile Include="GameSettingsScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
@@ -171,6 +210,84 @@
     <ClInclude Include="GameScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
+    <ClInclude Include="GamePacker.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="CSOCompress.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\zopfli\blocksplitter.h">
+      <Filter>ext</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\zopfli\cache.h">
+      <Filter>ext</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\zopfli\deflate.h">
+      <Filter>ext</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\zopfli\hash.h">
+      <Filter>ext</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\zopfli\katajainen.h">
+      <Filter>ext</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\zopfli\lz77.h">
+      <Filter>ext</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\zopfli\squeeze.h">
+      <Filter>ext</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\zopfli\tree.h">
+      <Filter>ext</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\zopfli\util.h">
+      <Filter>ext</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\zopfli\symbols.h">
+      <Filter>ext</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\zopfli\zopfli.h">
+      <Filter>ext</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\libdeflate\libdeflate.h">
+      <Filter>ext</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\libdeflate\common\common_defs.h">
+      <Filter>ext</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\libdeflate\common\compiler_gcc.h">
+      <Filter>ext</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\libdeflate\common\compiler_msc.h">
+      <Filter>ext</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\libdeflate\lib\deflate_compress.h">
+      <Filter>ext</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\libdeflate\lib\deflate_constants.h">
+      <Filter>ext</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\libdeflate\lib\unaligned.h">
+      <Filter>ext</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\libdeflate\lib\hc_matchfinder.h">
+      <Filter>ext</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\libdeflate\lib\bt_matchfinder.h">
+      <Filter>ext</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\libdeflate\lib\matchfinder_common.h">
+      <Filter>ext</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\libdeflate\lib\lib_common.h">
+      <Filter>ext</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\libdeflate\lib\x86\matchfinder_impl.h">
+      <Filter>ext</Filter>
+    </ClInclude>
+    <ClInclude Include="..\ext\libdeflate\lib\arm\matchfinder_impl.h">
+      <Filter>ext</Filter>
+    </ClInclude>
     <ClInclude Include="GameSettingsScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
@@ -324,6 +441,9 @@
     <ClInclude Include="LoadStateConfirmScreen.h" />
   </ItemGroup>
   <ItemGroup>
+    <Filter Include="ext">
+      <UniqueIdentifier>{29ac606f-d071-4976-a59a-6dd7322c96f8}</UniqueIdentifier>
+    </Filter>
     <Filter Include="Screens">
       <UniqueIdentifier>{faee5dce-633b-4ba6-b19d-ea70ee3c1c38}</UniqueIdentifier>
     </Filter>

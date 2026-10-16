@@ -51,6 +51,7 @@
 #include "UI/GameScreen.h"
 #include "UI/GameSettingsScreen.h"
 #include "UI/GameInfoCache.h"
+#include "UI/GamePacker.h"
 #include "UI/InstallUpdateScreen.h"
 #include "UI/BaseScreens.h"
 #include "UI/MiscScreens.h"
@@ -66,6 +67,9 @@ void copyDeepLinkForPath(std::string_view filePath);
 // dummy
 void copyDeepLinkForPath(std::string_view) {}
 #endif
+
+// Room kept free at the bottom for the pack progress bar.
+static constexpr float PACK_BAR_HEIGHT = 48.0f;
 
 constexpr GameInfoFlags g_desiredFlags = GameInfoFlags::PARAM_SFO | GameInfoFlags::ICON | GameInfoFlags::PIC0 | GameInfoFlags::PIC1 | GameInfoFlags::ICON1_PMF | GameInfoFlags::UNCOMPRESSED_SIZE | GameInfoFlags::SIZE | GameInfoFlags::SAVEDATA_SIZE | GameInfoFlags::BUNDLED_UPDATE_INFO;
 
@@ -112,6 +116,7 @@ GameScreen::GameScreen(const Path &gamePath, bool inGame) : UITwoPaneBaseDialogS
 	constexpr GameInfoFlags refetchFlags = GameInfoFlags::SAVEDATA_SIZE | GameInfoFlags::PARAM_SFO;
 
 	info_ = g_gameInfoCache->GetInfo(NULL, gamePath_, g_desiredFlags, &knownFlags_, refetchFlags);
+	packGeneration_ = GamePacker::Generation();
 }
 
 GameScreen::~GameScreen() {
@@ -139,10 +144,33 @@ void GameScreen::update() {
 		return;
 	}
 
+	bool recreate = false;
+
+	if (packGeneration_ != GamePacker::Generation()) {
+		packGeneration_ = GamePacker::Generation();
+		const GamePacker::Result result = GamePacker::LastResult();
+		if (result.oldPath == gamePath_ && result.newPath != gamePath_) {
+			// The original was replaced: this is the game now.
+			gamePath_ = result.newPath;
+			if (CRC32string == "...") {
+				Reporting::CancelCRC();
+			}
+			CRC32string.clear();
+			knownHasCRC_ = false;
+			g_BackgroundAudio.SetGame(gamePath_);
+			System_PostUIMessage(UIMessage::GAME_SELECTED, gamePath_.ToString());
+		}
+		// Replacing clears the info cache, which leaves ours stale.
+		knownFlags_ = GameInfoFlags::EMPTY;
+		info_ = g_gameInfoCache->GetInfo(NULL, gamePath_, g_desiredFlags, &knownFlags_);
+		recreate = true;
+	}
+	if (GamePacker::IsBusy() != packBarShown_) {
+		recreate = true;
+	}
+
 	GameInfoFlags hasFlags;
 	g_gameInfoCache->GetInfo(NULL, gamePath_, g_desiredFlags, &hasFlags);
-
-	bool recreate = false;
 
 	if (knownFlags_ != hasFlags) {
 		bool justAudio = ((u32)knownFlags_ ^ (u32)hasFlags) == (u32)GameInfoFlags::SND;
@@ -496,6 +524,10 @@ void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 	}
 
 	infoLayout->Add(new GameImageView(gamePath_, GameInfoFlags::PIC0, 2.0f, new LinearLayoutParams(UI::Margins(0))));
+
+	if (GamePacker::IsBusy()) {
+		leftColumn->Add(new Spacer(PACK_BAR_HEIGHT));
+	}
 }
 
 void GameScreen::CreateSettingsViews(UI::ViewGroup *rightColumn) {
@@ -512,9 +544,12 @@ void GameScreen::CreateSettingsViews(UI::ViewGroup *rightColumn) {
 	rightColumn->Add(rightColumnItems);
 
 	if (!inGame_ && FileTypeIsPlayable(info_->fileType)) {
-		rightColumnItems->Add(new Choice(ga->T("Play"), ImageID("I_PLAY")))->OnClick.Add([this](UI::EventParams &e) {
+		Choice *play = rightColumnItems->Add(new Choice(ga->T("Play"), ImageID("I_PLAY")));
+		play->OnClick.Add([this](UI::EventParams &e) {
 			screenManager()->switchScreen(new EmuScreen(gamePath_));
 		});
+		// The file is being read, and maybe about to be replaced.
+		play->SetEnabled(!GamePacker::IsPacking(gamePath_));
 	}
 
 	if (!info_->id.empty() && !inGame_) {
@@ -541,12 +576,64 @@ void GameScreen::CreateSettingsViews(UI::ViewGroup *rightColumn) {
 
 	isHomebrew_ = info_ && info_->region == GameRegion::HOMEBREW;
 
-	if (fileTypeSupportCRC && !isHomebrew_ && !Reporting::HasCRC(gamePath_) ) {
+	const bool packing = GamePacker::IsPacking(gamePath_);
+	if (fileTypeSupportCRC && !isHomebrew_ && !Reporting::HasCRC(gamePath_) && !packing) {
 		rightColumnItems->Add(new Choice(ga->T("Calculate CRC"), ImageID("I_CHECKMARK")))->OnClick.Add([this](UI::EventParams &) {
 			Reporting::QueueCRC(gamePath_);
 			CRC32string = "...";  // signal that we're waiting for it. Kinda ugly.
 		});
 	}
+
+	// Homebrew and PS1 EBOOTs aren't disc images.
+	const GamePacker::Container packContainer = (fileTypeSupportCRC && !isHomebrew_ && !inGame_) ? GamePacker::DetectContainer(gamePath_, nullptr) : GamePacker::Container::None;
+	if (packing) {
+		rightColumnItems->Add(new Choice(ga->T("Abort packing"), ImageID("I_STOP")))->OnClick.Add([](UI::EventParams &) {
+			GamePacker::Abort();
+		});
+	} else if (packContainer != GamePacker::Container::None) {
+		const bool fromISO = packContainer == GamePacker::Container::ISO;
+		Choice *pack = rightColumnItems->Add(new Choice(fromISO ? ga->T("Pack") : ga->T("Extract / Repack"), ImageID(fromISO ? "I_ARCHIVE_ZIP" : "I_FOLDER_OPEN")));
+		pack->OnClick.Add([this, packContainer](UI::EventParams &) {
+			screenManager()->push(new GamePackPopupScreen(gamePath_, packContainer));
+		});
+		// Not while the CRC is read, another game packs, or a game runs (it could be this one).
+		pack->SetEnabled(GamePacker::CanStart() && CRC32string != "...");
+	}
+
+	packBarShown_ = GamePacker::IsBusy();
+	if (packBarShown_) {
+		rightColumnItems->Add(new Spacer(PACK_BAR_HEIGHT));
+	}
+}
+
+void GameScreen::DrawForeground(UIContext &dc) {
+	GamePacker::Status status;
+	if (!GamePacker::GetStatus(&status)) {
+		return;
+	}
+	auto ga = GetI18NCategory(I18NCat::GAME);
+
+	const Bounds &screen = root_ ? root_->GetBounds() : dc.GetBounds();
+	const Bounds bar(screen.x, screen.y2() - PACK_BAR_HEIGHT, screen.w, PACK_BAR_HEIGHT);
+	dc.FillRect(UI::Drawable(0xE0202020), bar);
+	const Bounds track = bar.Inset(8.0f, 8.0f);
+	dc.FillRect(UI::Drawable(0x30FFFFFF), track);
+	Bounds fill = track;
+	fill.w *= status.progress;
+	dc.FillRect(dc.GetTheme().itemFocusedStyle.background, fill);
+
+	std::string text = status.label + StringFromFormat("  %d%%", (int)(status.progress * 100.0f));
+	if (status.aborting) {
+		text += "  " + std::string(ga->T("Aborting..."));
+	} else if (status.etaSeconds >= 0.0) {
+		const int seconds = (int)(status.etaSeconds + 0.5);
+		std::string eta = seconds >= 3600 ? StringFromFormat("%d:%02d:%02d", seconds / 3600, (seconds / 60) % 60, seconds % 60) : StringFromFormat("%d:%02d", seconds / 60, seconds % 60);
+		text += "  " + ApplySafeSubstitutions(ga->T("PackTimeLeft", "~%1 left"), eta);
+	}
+	dc.SetFontStyle(dc.GetTheme().uiFont);
+	dc.SetFontScale(0.8f, 0.8f);
+	dc.DrawTextRectSqueeze(text, track.Inset(8.0f, 0.0f), 0xFFFFFFFF, ALIGN_CENTER);
+	dc.SetFontScale(1.0f, 1.0f);
 }
 
 void GameScreen::CreateContextMenu(UI::ViewGroup *parent) {
@@ -621,8 +708,8 @@ void GameScreen::CreateContextMenu(UI::ViewGroup *parent) {
 		});
 	}
 
-	// Don't want to be able to delete the game while it's running.
-	if (!inGame_) {
+	// Don't want to be able to delete the game while it's running, or being packed.
+	if (!inGame_ && !GamePacker::IsPacking(gamePath_)) {
 		Choice *deleteChoice = parent->Add(new Choice(ga->T("Delete Game"), ImageID("I_WARNING")));
 		deleteChoice->OnClick.Handle(this, &GameScreen::OnDeleteGame);
 	}

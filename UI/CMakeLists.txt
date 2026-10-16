@@ -63,6 +63,10 @@ list(APPEND UISource
 	TabbedDialogScreen.cpp
 	GameScreen.h
 	GameScreen.cpp
+	GamePacker.h
+	GamePacker.cpp
+	CSOCompress.h
+	CSOCompress.cpp
 	GameSettingsScreen.h
 	GameSettingsScreen.cpp
 	DeveloperToolsScreen.h
@@ -131,5 +135,5 @@ list(APPEND UISource
 # comment above add_subdirectory(UI) in the root CMakeLists.txt for why USE_DISCORD=1 has
 # to be defined before this add_subdirectory() call rather than in here.
 add_library(ppsspp_ui STATIC ${UISource})
-target_link_libraries(ppsspp_ui Common Core)
+target_link_libraries(ppsspp_ui Common Core zopfli libdeflate)
 setup_target_project(ppsspp_ui UI)
