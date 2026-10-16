@@ -1147,8 +1147,8 @@ void GameSettingsScreen::CreateToolsSettings(UI::ViewGroup *tools) {
 	tools->Add(new Choice(sy->T("PSP Firmware")))->OnClick.Add([=](UI::EventParams &) {
 		screenManager()->push(new FirmwareScreen(gamePath_));
 	});
-	// Only offered when the user put CHDmodern or maxcso in PSP/SYSTEM, see Core/Util/ImageCompressors.h.
-	if (ImageCompressors::IsAvailable(ImageFormat::CHD) || ImageCompressors::IsAvailable(ImageFormat::CSO)) {
+	// Only offered when the user put CHDm, mCSO or iPBP in PSP/SYSTEM, see Core/Util/ImageCompressors.h.
+	if (ImageCompressors::IsAvailable(ImageFormat::CHD) || ImageCompressors::IsAvailable(ImageFormat::CSO) || ImageCompressors::IsAvailable(ImageFormat::PBP)) {
 		tools->Add(new Choice("Un/Pack"))->OnClick.Add([=](UI::EventParams &) {
 			screenManager()->push(new UnPackScreen(gamePath_));
 		});

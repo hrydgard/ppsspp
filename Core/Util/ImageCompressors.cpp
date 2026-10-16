@@ -18,6 +18,7 @@
 #include "ppsspp_config.h"
 
 #include <mutex>
+#include <type_traits>
 
 #include "Common/File/FileUtil.h"
 #include "Common/Log.h"
@@ -43,11 +44,20 @@ namespace ImageCompressors {
 const std::vector<std::string> &CompressedExtensions(ImageFormat format) {
 	static const std::vector<std::string> chd = { ".chd" };
 	static const std::vector<std::string> cso = { ".cso", ".zso", ".dax" };
-	return format == ImageFormat::CHD ? chd : cso;
+	static const std::vector<std::string> pbp = { ".pbp" };
+	switch (format) {
+	case ImageFormat::CHD: return chd;
+	case ImageFormat::PBP: return pbp;
+	default: return cso;
+	}
 }
 
 const char *OutputExtension(ImageFormat format) {
-	return format == ImageFormat::CHD ? ".chd" : ".cso";
+	switch (format) {
+	case ImageFormat::CHD: return ".chd";
+	case ImageFormat::PBP: return ".pbp";
+	default: return ".cso";
+	}
 }
 
 }  // namespace ImageCompressors
@@ -73,6 +83,49 @@ typedef int (*ChdmCreateDvdFn)(const char *input, const char *output, uint32_t h
 	const uint32_t compression[4], ChdmProgressFn progress, void *user);
 typedef int (*ChdmExtractRawFn)(const char *input, const char *output, ChdmProgressFn progress, void *user);
 
+// ipbp.h (plain C, default calling convention). The option structs must match it exactly.
+const int IPBP_OK = 0;
+const int IPBP_CANCELLED = 1;
+struct ipbp_job;
+struct IpbpIso2PbpOptions {
+	int compress;
+	const char *content_id;
+	const uint8_t *version_key;
+	const uint8_t *startdat_png;
+	size_t startdat_png_size;
+	unsigned threads;
+};
+struct IpbpPbp2IsoOptions {
+	int verify;
+	int trim;
+	unsigned threads;
+};
+struct IpbpPbpInfo {
+	char content_id[49];
+	char disc_id[16];
+	char title[129];
+	uint32_t np_flags;
+	uint32_t block_basis;
+	uint32_t blocks;
+	uint64_t iso_size;
+	uint8_t version_key[16];
+	int compressed;
+};
+typedef void (*IpbpProgressFn)(void *user, uint64_t done, uint64_t total);
+struct IpbpApi {
+	ipbp_job *(*job_create)(void);
+	void (*job_destroy)(ipbp_job *job);
+	void (*job_set_progress)(ipbp_job *job, IpbpProgressFn fn, void *user);
+	void (*job_cancel)(ipbp_job *job);
+	const char *(*job_error)(const ipbp_job *job);
+	void (*iso2pbp_options_init)(IpbpIso2PbpOptions *opt);
+	void (*pbp2iso_options_init)(IpbpPbp2IsoOptions *opt);
+	int (*iso_to_pbp)(ipbp_job *job, const char *iso, const char *pbp, const IpbpIso2PbpOptions *opt);
+	int (*pbp_to_iso)(ipbp_job *job, const char *pbp, const char *iso, const IpbpPbp2IsoOptions *opt);
+	int (*read_pbp_info)(ipbp_job *job, const char *pbp, IpbpPbpInfo *info);
+	const char *(*version)(void);
+};
+
 struct LoadedLibrary {
 	void *handle = nullptr;
 	Path path;
@@ -82,6 +135,9 @@ struct LoadedLibrary {
 std::once_flag g_initOnce;
 LoadedLibrary g_maxcso;
 LoadedLibrary g_chdmodern;
+LoadedLibrary g_ipbp;
+IpbpApi g_ipbpApi{};
+bool g_ipbpLoaded = false;
 
 MaxcsoProcessFn g_maxcsoProcess = nullptr;
 ChdmLastErrorFn g_chdmLastError = nullptr;
@@ -184,8 +240,61 @@ void LoadChdmodern() {
 	INFO_LOG(Log::Loader, "Loaded CHDmodern from %s", g_chdmodern.path.c_str());
 }
 
+void LoadIpbp() {
+	void *handle = Load(ImageFormat::PBP, &g_ipbp);
+	if (!handle) {
+		return;
+	}
+	IpbpApi api;
+	bool ok = true;
+	auto get = [&](auto &fn, const char *name) {
+		fn = (std::remove_reference_t<decltype(fn)>)GetSymbol(handle, name);
+		ok = ok && fn != nullptr;
+	};
+	get(api.job_create, "ipbp_job_create");
+	get(api.job_destroy, "ipbp_job_destroy");
+	get(api.job_set_progress, "ipbp_job_set_progress");
+	get(api.job_cancel, "ipbp_job_cancel");
+	get(api.job_error, "ipbp_job_error");
+	get(api.iso2pbp_options_init, "ipbp_iso2pbp_options_init");
+	get(api.pbp2iso_options_init, "ipbp_pbp2iso_options_init");
+	get(api.iso_to_pbp, "ipbp_iso_to_pbp");
+	get(api.pbp_to_iso, "ipbp_pbp_to_iso");
+	get(api.read_pbp_info, "ipbp_read_pbp_info");
+	get(api.version, "ipbp_version");
+	if (!ok) {
+		ERROR_LOG(Log::Loader, "%s doesn't export the iPBP C API", g_ipbp.path.c_str());
+		CloseLibrary(handle);
+		return;
+	}
+	const char *v = api.version();
+	g_ipbp.version = v ? v : "";
+	g_ipbp.handle = handle;
+	g_ipbpApi = api;
+	g_ipbpLoaded = true;
+	INFO_LOG(Log::Loader, "Loaded iPBP %s from %s", g_ipbp.version.c_str(), g_ipbp.path.c_str());
+}
+
 const LoadedLibrary &Library(ImageFormat format) {
-	return format == ImageFormat::CHD ? g_chdmodern : g_maxcso;
+	switch (format) {
+	case ImageFormat::CHD: return g_chdmodern;
+	case ImageFormat::PBP: return g_ipbp;
+	default: return g_maxcso;
+	}
+}
+
+// Passed to iPBP as the progress callback's user pointer.
+struct IpbpProgressContext {
+	const ImageProgressFunc *progress;
+	ipbp_job *job;
+};
+
+void IpbpProgressThunk(void *user, uint64_t done, uint64_t total) {
+	const IpbpProgressContext *ctx = (const IpbpProgressContext *)user;
+	if (ctx->progress && *ctx->progress && total > 0 && !(*ctx->progress)((float)((double)done / (double)total))) {
+		// Thread-safe, and fine from the callback: the conversion stops within one block.
+		g_ipbpApi.job_cancel(ctx->job);
+	}
 }
 
 int LIB_CALL MaxcsoProgressThunk(void *userdata, int64_t pos, int64_t total, int64_t written) {
@@ -235,21 +344,28 @@ void Init() {
 	std::call_once(g_initOnce, [] {
 		LoadChdmodern();
 		LoadMaxcso();
+		LoadIpbp();
 	});
 }
 
 bool IsAvailable(ImageFormat format) {
-	return format == ImageFormat::CHD ? g_chdmCreateDvd != nullptr : g_maxcsoProcess != nullptr;
+	switch (format) {
+	case ImageFormat::CHD: return g_chdmCreateDvd != nullptr;
+	case ImageFormat::PBP: return g_ipbpLoaded;
+	default: return g_maxcsoProcess != nullptr;
+	}
 }
 
 const char *LibraryFileName(ImageFormat format) {
+	// Indexed by ImageFormat.
 #if defined(_WIN32)
-	return format == ImageFormat::CHD ? "CHDm.dll" : "mCSO.dll";
+	static const char *const files[] = { "CHDm.dll", "mCSO.dll", "iPBP.dll" };
 #elif PPSSPP_PLATFORM(MAC)
-	return format == ImageFormat::CHD ? "CHDm.dylib" : "mCSO.dylib";
+	static const char *const files[] = { "CHDm.dylib", "mCSO.dylib", "iPBP.dylib" };
 #else
-	return format == ImageFormat::CHD ? "CHDm.so" : "mCSO.so";
+	static const char *const files[] = { "CHDm.so", "mCSO.so", "iPBP.so" };
 #endif
+	return files[(int)format];
 }
 
 Path LibraryPath(ImageFormat format) {
@@ -323,6 +439,83 @@ bool Extract(const Path &input, const Path &output, const ImageProgressFunc &pro
 
 }  // namespace CHDModern
 
+namespace IPBP {
+
+namespace {
+
+// Runs one iPBP conversion on a fresh job, wiring up progress and cancel.
+bool RunIpbp(const Path &output, const ImageProgressFunc &progress, std::string *error, bool *cancelled,
+	const std::function<int(ipbp_job *)> &convert) {
+	*cancelled = false;
+	if (!g_ipbpLoaded) {
+		*error = "iPBP is not loaded";
+		return false;
+	}
+	if (!CheckOutput(output, error)) {
+		return false;
+	}
+	ipbp_job *job = g_ipbpApi.job_create();
+	if (!job) {
+		*error = "Out of memory";
+		return false;
+	}
+	IpbpProgressContext ctx{ &progress, job };
+	g_ipbpApi.job_set_progress(job, &IpbpProgressThunk, &ctx);
+	int result = convert(job);
+	if (result != IPBP_OK) {
+		*cancelled = result == IPBP_CANCELLED;
+		const char *message = g_ipbpApi.job_error(job);
+		*error = message && *message ? message : "Unknown error";
+	}
+	g_ipbpApi.job_destroy(job);
+	// iPBP writes to <output>.part and only renames it on success, so there's nothing to clean up.
+	return result == IPBP_OK;
+}
+
+}  // namespace
+
+bool IsoToPbp(const Path &input, const Path &output, bool compress, const ImageProgressFunc &progress, std::string *error, bool *cancelled) {
+	return RunIpbp(output, progress, error, cancelled, [&](ipbp_job *job) {
+		IpbpIso2PbpOptions options;
+		g_ipbpApi.iso2pbp_options_init(&options);
+		options.compress = compress ? 1 : 0;
+		return g_ipbpApi.iso_to_pbp(job, input.ToCString().c_str(), output.ToCString().c_str(), &options);
+	});
+}
+
+bool PbpToIso(const Path &input, const Path &output, const ImageProgressFunc &progress, std::string *error, bool *cancelled) {
+	return RunIpbp(output, progress, error, cancelled, [&](ipbp_job *job) {
+		IpbpPbp2IsoOptions options;
+		g_ipbpApi.pbp2iso_options_init(&options);
+		return g_ipbpApi.pbp_to_iso(job, input.ToCString().c_str(), output.ToCString().c_str(), &options);
+	});
+}
+
+bool ReadDiscId(const Path &pbp, std::string *discId, std::string *error) {
+	if (!g_ipbpLoaded) {
+		*error = "iPBP is not loaded";
+		return false;
+	}
+	ipbp_job *job = g_ipbpApi.job_create();
+	if (!job) {
+		*error = "Out of memory";
+		return false;
+	}
+	IpbpPbpInfo info{};
+	int result = g_ipbpApi.read_pbp_info(job, pbp.ToCString().c_str(), &info);
+	if (result == IPBP_OK) {
+		info.disc_id[sizeof(info.disc_id) - 1] = '\0';
+		*discId = info.disc_id;
+	} else {
+		const char *message = g_ipbpApi.job_error(job);
+		*error = message && *message ? message : "Unknown error";
+	}
+	g_ipbpApi.job_destroy(job);
+	return result == IPBP_OK;
+}
+
+}  // namespace IPBP
+
 #else  // !IMAGE_COMPRESSORS_SUPPORTED
 
 namespace ImageCompressors {
@@ -360,5 +553,26 @@ bool Extract(const Path &input, const Path &output, const ImageProgressFunc &pro
 }
 
 }  // namespace CHDModern
+
+namespace IPBP {
+
+bool IsoToPbp(const Path &input, const Path &output, bool compress, const ImageProgressFunc &progress, std::string *error, bool *cancelled) {
+	*cancelled = false;
+	*error = "Not supported on this platform";
+	return false;
+}
+
+bool PbpToIso(const Path &input, const Path &output, const ImageProgressFunc &progress, std::string *error, bool *cancelled) {
+	*cancelled = false;
+	*error = "Not supported on this platform";
+	return false;
+}
+
+bool ReadDiscId(const Path &pbp, std::string *discId, std::string *error) {
+	*error = "Not supported on this platform";
+	return false;
+}
+
+}  // namespace IPBP
 
 #endif

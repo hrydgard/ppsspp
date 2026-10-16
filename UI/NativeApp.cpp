@@ -692,7 +692,7 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 	// Apply parsed command line options to config.
 	cmdLineOptions.ApplyToConfig();
 
-	// Optional CHDmodern / maxcso libraries in PSP/SYSTEM enable the Un/Pack tools menu.
+	// Optional CHDm / mCSO / iPBP libraries in PSP/SYSTEM enable the Un/Pack tools menu.
 	ImageCompressors::Init();
 
 	boot_filename.clear();

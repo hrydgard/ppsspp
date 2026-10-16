@@ -27,7 +27,7 @@
 
 #include "UI/SimpleDialogScreen.h"
 
-// Un/Pack: compress ISOs to CHD or CSO, or decompress them back to ISO, one game or a whole
+// Un/Pack: compress ISOs to CHD, CSO or PBP, or decompress them back to ISO, one game or a whole
 // folder at a time, through the user-supplied libraries (see Core/Util/ImageCompressors.h).
 // Only reachable when at least one of them was found at startup.
 class UnPackScreen : public UITwoPaneBaseDialogScreen {

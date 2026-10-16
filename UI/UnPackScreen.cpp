@@ -77,6 +77,7 @@ struct JobSettings {
 	MaxCSO::Mode csoMode = MaxCSO::Mode::Standard;
 	CHDModern::Codecs chdCodecs = CHDModern::Codecs::Default;
 	uint32_t chdHunkBytes = 2048;
+	bool pbpCompress = true;
 	bool recursive = false;
 	bool deleteOriginals = false;
 };
@@ -105,8 +106,18 @@ bool IsJobRunning() {
 	return g_job && !g_job->done;
 }
 
+const ImageFormat ALL_FORMATS[] = { ImageFormat::CHD, ImageFormat::CSO, ImageFormat::PBP };
+
 ImageFormat SelectedFormat() {
-	return g_Config.iUnPackFormat == (int)ImageFormat::CSO ? ImageFormat::CSO : ImageFormat::CHD;
+	switch (g_Config.iUnPackFormat) {
+	case (int)ImageFormat::CSO: return ImageFormat::CSO;
+	case (int)ImageFormat::PBP: return ImageFormat::PBP;
+	default: return ImageFormat::CHD;
+	}
+}
+
+bool IsEbootName(const Path &path) {
+	return equalsNoCase(path.GetFilename(), "EBOOT.PBP");
 }
 
 const std::vector<std::string> &InputExtensions(const JobSettings &settings) {
@@ -188,10 +199,28 @@ void RunJob(std::shared_ptr<JobState> job, Path source, bool folder) {
 				finish(ItemStatus::Failed, sy->T("UnPackNotISO", "Not an ISO file"));
 			} else if (settings.format == ImageFormat::CHD) {
 				finish(ItemStatus::Failed, sy->T("UnPackNotCHD", "Not a CHD file"));
+			} else if (settings.format == ImageFormat::PBP) {
+				finish(ItemStatus::Failed, sy->T("UnPackNotPBP", "Not a PBP file"));
 			} else {
 				finish(ItemStatus::Failed, sy->T("UnPackNotCSO", "Not a CSO, ZSO or DAX file"));
 			}
 			continue;
+		}
+		if (settings.format == ImageFormat::PBP && !settings.compress) {
+			// Homebrew and PS1 EBOOTs are PBPs too; a folder of games is full of them.
+			std::string discId, error;
+			if (!IPBP::ReadDiscId(item.input, &discId, &error)) {
+				INFO_LOG(Log::Loader, "UnPack: Skipping %s: %s", item.input.c_str(), error.c_str());
+				finish(ItemStatus::Skipped, sy->T("UnPackNotUMDPBP", "Not a PSP game EBOOT (homebrew or PS1?)"));
+				continue;
+			}
+			// Like the iPBP tool: PSP/GAME/<folder>/EBOOT.PBP becomes <DISC_ID>.iso next to it.
+			discId = SanitizeString(discId, StringRestriction::FileName);
+			if (IsEbootName(item.input) && !discId.empty()) {
+				item.output = item.input.NavigateUp() / (discId + ".iso");
+				std::lock_guard<std::mutex> guard(job->mutex);
+				job->items[i].output = item.output;
+			}
 		}
 		if (File::Exists(item.output)) {
 			finish(ItemStatus::Skipped, sy->T("UnPackOutputExists", "Output file already exists"));
@@ -218,6 +247,12 @@ void RunJob(std::shared_ptr<JobState> job, Path source, bool folder) {
 				success = CHDModern::CreateDVD(item.input, item.output, settings.chdHunkBytes, settings.chdCodecs, progress, &error, &cancelled);
 			} else {
 				success = CHDModern::Extract(item.input, item.output, progress, &error, &cancelled);
+			}
+		} else if (settings.format == ImageFormat::PBP) {
+			if (settings.compress) {
+				success = IPBP::IsoToPbp(item.input, item.output, settings.pbpCompress, progress, &error, &cancelled);
+			} else {
+				success = IPBP::PbpToIso(item.input, item.output, progress, &error, &cancelled);
 			}
 		} else {
 			success = MaxCSO::Process(item.input, item.output, settings.compress ? settings.csoMode : MaxCSO::Mode::Decompress, progress, &error, &cancelled);
@@ -265,6 +300,7 @@ void StartJob(const Path &source, bool compress, bool folder) {
 	}
 	settings.chdCodecs = g_Config.iCHDCompression == 1 ? CHDModern::Codecs::Zstd : CHDModern::Codecs::Default;
 	settings.chdHunkBytes = g_Config.iCHDHunkSize == 1 ? 4096 : 2048;
+	settings.pbpCompress = g_Config.iPBPCompression != 1;
 	settings.recursive = g_Config.bUnPackIncludeSubfolders;
 	settings.deleteOriginals = g_Config.bUnPackDeleteOriginals;
 
@@ -281,18 +317,29 @@ std::string_view UnPackScreen::GetTitle() const {
 }
 
 void UnPackScreen::BeforeCreateViews() {
-	// With only one of the two libraries there's nothing to choose.
-	const bool hasCHD = ImageCompressors::IsAvailable(ImageFormat::CHD);
-	const bool hasCSO = ImageCompressors::IsAvailable(ImageFormat::CSO);
-	formatLocked_ = hasCHD != hasCSO;
-	if (formatLocked_) {
-		g_Config.iUnPackFormat = (int)(hasCHD ? ImageFormat::CHD : ImageFormat::CSO);
-	} else if (g_Config.iUnPackFormat != (int)ImageFormat::CSO) {
-		g_Config.iUnPackFormat = (int)ImageFormat::CHD;
+	int available = 0;
+	for (ImageFormat format : ALL_FORMATS) {
+		if (ImageCompressors::IsAvailable(format)) {
+			available++;
+		}
+	}
+	// With only one library there's nothing to choose.
+	formatLocked_ = available == 1;
+	// A remembered format whose library is gone falls back to the first one there, CHD first.
+	if (!ImageCompressors::IsAvailable(SelectedFormat())) {
+		for (ImageFormat format : ALL_FORMATS) {
+			if (ImageCompressors::IsAvailable(format)) {
+				g_Config.iUnPackFormat = (int)format;
+				break;
+			}
+		}
+	} else {
+		g_Config.iUnPackFormat = (int)SelectedFormat();
 	}
 	g_Config.iCHDCompression = std::clamp(g_Config.iCHDCompression, 0, 1);
 	g_Config.iCHDHunkSize = std::clamp(g_Config.iCHDHunkSize, 0, 1);
 	g_Config.iMaxCSOPreset = std::clamp(g_Config.iMaxCSOPreset, 0, 2);
+	g_Config.iPBPCompression = std::clamp(g_Config.iPBPCompression, 0, 1);
 }
 
 void UnPackScreen::CreateContentViews(UI::ViewGroup *parent) {
@@ -302,11 +349,12 @@ void UnPackScreen::CreateContentViews(UI::ViewGroup *parent) {
 
 	LinearLayout *content = parent->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 
-	for (ImageFormat format : { ImageFormat::CHD, ImageFormat::CSO }) {
+	for (ImageFormat format : ALL_FORMATS) {
 		if (!ImageCompressors::IsAvailable(format)) {
 			continue;
 		}
-		std::string name = format == ImageFormat::CHD ? "CHDmodern" : "maxcso";
+		static const char *const names[] = { "CHDmodern", "maxcso", "iPBP" };  // Indexed by ImageFormat.
+		std::string name = names[(int)format];
 		std::string version = ImageCompressors::Version(format);
 		if (!version.empty()) {
 			name += " " + version;
@@ -336,8 +384,13 @@ void UnPackScreen::CreateSettingsViews(UI::ViewGroup *parent) {
 
 	jobLockedViews_.clear();
 
-	static const char *formats[] = { "CHD", "CSO" };
+	static const char *formats[] = { "CHD", "CSO", "PBP" };  // Indexed by ImageFormat.
 	PopupMultiChoice *formatChoice = parent->Add(new PopupMultiChoice(&g_Config.iUnPackFormat, sy->T("Format"), formats, 0, ARRAY_SIZE(formats), I18NCat::SYSTEM, screenManager()));
+	for (ImageFormat format : ALL_FORMATS) {
+		if (!ImageCompressors::IsAvailable(format)) {
+			formatChoice->HideChoice((int)format);
+		}
+	}
 	formatChoice->OnChoice.Add([this](UI::EventParams &) {
 		// The compression options depend on the format.
 		RecreateViews();
@@ -353,6 +406,9 @@ void UnPackScreen::CreateSettingsViews(UI::ViewGroup *parent) {
 		jobLockedViews_.push_back(parent->Add(new PopupMultiChoice(&g_Config.iCHDCompression, sy->T("Compression"), codecs, 0, ARRAY_SIZE(codecs), I18NCat::SYSTEM, screenManager())));
 		static const char *hunkSizes[] = { "2048 bytes", "4096 bytes" };
 		jobLockedViews_.push_back(parent->Add(new PopupMultiChoice(&g_Config.iCHDHunkSize, sy->T("Hunk size"), hunkSizes, 0, ARRAY_SIZE(hunkSizes), I18NCat::SYSTEM, screenManager())));
+	} else if (SelectedFormat() == ImageFormat::PBP) {
+		static const char *pbpCompression[] = { "Compressed (LZRC)", "Uncompressed" };
+		jobLockedViews_.push_back(parent->Add(new PopupMultiChoice(&g_Config.iPBPCompression, sy->T("Compression"), pbpCompression, 0, ARRAY_SIZE(pbpCompression), I18NCat::SYSTEM, screenManager())));
 	} else {
 		static const char *presets[] = { "Fast compression", "Standard compression", "Maximum compression (very slow)" };
 		jobLockedViews_.push_back(parent->Add(new PopupMultiChoice(&g_Config.iMaxCSOPreset, sy->T("Compression"), presets, 0, ARRAY_SIZE(presets), I18NCat::SYSTEM, screenManager())));

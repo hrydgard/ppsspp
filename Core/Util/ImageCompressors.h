@@ -30,11 +30,13 @@
 //  - CHD: CHDm, CHDmodern (https://github.com/LunaMoo/CHDmodern) 0.2.0 or newer, ISO <-> DVD CHD.
 //  - CSO: mCSO, maxcso (https://github.com/unknownbrackets/maxcso) built with its C API version 2
 //    (capi/maxcso_capi.h), ISO <-> CSO (decompressing ZSO and DAX too).
+//  - PBP: iPBP (https://github.com/LunaMoo/iPBP), ISO <-> PSN-style EBOOT.PBP (NPUMDIMG).
 // Desktop only: Android, iOS and UWP won't load native code from user storage.
 
 enum class ImageFormat {
 	CHD = 0,
 	CSO = 1,
+	PBP = 2,
 };
 
 // Return false to cancel.
@@ -90,3 +92,17 @@ bool CreateDVD(const Path &input, const Path &output, uint32_t hunkBytes, Codecs
 bool Extract(const Path &input, const Path &output, const ImageProgressFunc &progress, std::string *error, bool *cancelled);
 
 }  // namespace CHDModern
+
+namespace IPBP {
+
+// Blocking. Converts an ISO to a PSN-style EBOOT.PBP (LZRC-compressed blocks, or stored), or
+// such a PBP back to an ISO. Never overwrites; a partial output never survives a failure or
+// cancel (*cancelled is set then).
+bool IsoToPbp(const Path &input, const Path &output, bool compress, const ImageProgressFunc &progress, std::string *error, bool *cancelled);
+bool PbpToIso(const Path &input, const Path &output, const ImageProgressFunc &progress, std::string *error, bool *cancelled);
+
+// Checks that a PBP holds a UMD image iPBP can convert back (homebrew and PS1 EBOOTs don't),
+// and gets its disc id ("ULUS10041"), possibly empty.
+bool ReadDiscId(const Path &pbp, std::string *discId, std::string *error);
+
+}  // namespace IPBP
