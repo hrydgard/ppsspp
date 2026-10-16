@@ -347,6 +347,7 @@
     <ClInclude Include="Software\RasterizerTypes.h" />
     <ClInclude Include="Software\Sampler.h" />
     <ClInclude Include="Software\SoftGpu.h" />
+    <ClInclude Include="Null\GPU_Null.h" />
     <ClInclude Include="Software\TransformUnit.h" />
     <ClInclude Include="Software\GEMath.h" />
     <ClInclude Include="Common\TextureDecoder.h" />
@@ -471,6 +472,7 @@
     <ClCompile Include="Software\RasterizerRectangle.cpp" />
     <ClCompile Include="Software\Sampler.cpp" />
     <ClCompile Include="Software\SoftGpu.cpp" />
+    <ClCompile Include="Null\GPU_Null.cpp" />
     <ClCompile Include="Software\TransformUnit.cpp" />
     <ClCompile Include="Software\GEMath.cpp" />
     <ClCompile Include="Common\TextureDecoder.cpp" />

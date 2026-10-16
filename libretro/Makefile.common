@@ -587,6 +587,7 @@ SOURCES_CXX += \
 	$(GPUDIR)/Software/TransformUnit.cpp \
 	$(GPUDIR)/Software/GEMath.cpp \
 	$(GPUDIR)/Software/SoftGpu.cpp \
+	$(GPUDIR)/Null/GPU_Null.cpp \
 	$(GPUDIR)/Software/Sampler.cpp \
 	$(GPUDIR)/GeConstants.cpp \
 	$(GPUDIR)/GeDisasm.cpp \

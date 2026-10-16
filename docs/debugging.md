@@ -251,6 +251,12 @@ anything else that uses the CPU, including a forgotten `usbhostfs_pc`, which can
 that exits with an error, misses `TIMEOUT (emulated)` or doesn't load its savestate stops the tool rather than
 passing as a fast run.
 
+To measure the CPU emulation alone, use `--graphics=null` (headless only, `GPU/Null/GPU_Null.cpp`). It runs
+display lists, bounding boxes, matrix loads and block transfers, moves the vertex and index pointers past
+each draw, and charges the same GE time per draw, but draws nothing and creates no draw context. Games flip
+the same frames as with Vulkan, in roughly half the host instructions. Nothing is rendered, so screenshots
+and anything that reads a framebuffer back through the GPU (rather than from PSP memory) get nothing.
+
 Headless decodes vertices with the JIT like the app, where the host can (`--vertex-jit=false` for the C++
 decoder, which the tests don't need either).
 

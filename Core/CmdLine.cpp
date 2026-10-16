@@ -344,6 +344,9 @@ int CommandLineOptions::PrintUsage(const char *progname, const char *situationTe
 
 	PRINT_STDOUT("  --graphics=BACKEND    use a different gpu backend\n");
 	PRINT_STDOUT("                        options: gles, software, etc. (also opengl3.1, etc.)\n");
+	if (mode == CmdLineMode::Headless) {
+		PRINT_STDOUT("                        and null, which draws nothing\n");
+	}
 	return 0;
 }
 
@@ -466,6 +469,10 @@ CommandLineParseResult CommandLineOptions::Parse(int argc, const char *argv[], C
 			} else if (restOfOption == "software") {
 				gpuBackend = GPUBackend::OPENGL;
 				softwareRendering = true;
+			} else if (restOfOption == "null" && mode == CmdLineMode::Headless) {
+				// Runs display lists but draws nothing, for measuring the CPU emulation.
+				nullGraphics = true;
+				softwareRendering = false;
 			} else if (sscanf(restOfOption.c_str(), "gles%lg", &glVersionTemp) == 1 || sscanf(restOfOption.c_str(), "opengl%lg", &glVersionTemp) == 1) {
 				gpuBackend = GPUBackend::OPENGL;
 				softwareRendering = false;

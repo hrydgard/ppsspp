@@ -878,12 +878,10 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	SetDrawType(DRAW_PRIM, prim);
 
 	// Discard AA lines as we can't do anything that makes sense with these anyway. The SW plugin might, though.
-	if (gstate.isAntiAliasEnabled()) {
-		// Heuristic derived from discussions in #6483 and #12588.
-		// Discard AA lines in Persona 3 Portable, DOA Paradise and Summon Night 5, while still keeping AA lines in Echochrome.
-		if ((prim == GE_PRIM_LINE_STRIP || prim == GE_PRIM_LINES) && gstate.getTextureFunction() == GE_TEXFUNC_REPLACE)
-			return;
-	}
+	// Heuristic derived from discussions in #6483 and #12588.
+	// Discard AA lines in Persona 3 Portable, DOA Paradise and Summon Night 5, while still keeping AA lines in Echochrome.
+	// They're skipped like culled draws, so the pointers still move past them and the time is still taken.
+	const bool discardLines = gstate.isAntiAliasEnabled() && (prim == GE_PRIM_LINE_STRIP || prim == GE_PRIM_LINES) && gstate.getTextureFunction() == GE_TEXFUNC_REPLACE;
 
 	// Update cached framebuffer format.
 	// We store it in the cache so it can be modified for blue-to-alpha, next.
@@ -1012,11 +1010,11 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 #endif
 
 	// If certain conditions are true, do frustum culling.
-	bool passCulling = PASSES_CULLING;
+	bool passCulling = PASSES_CULLING && !discardLines;
 	if (passCulling && !(flags & ClipInfoFlags::Valid)) {
 		flags = DrawEngineCommon::UncheckedClipInfoFlags();
 	}
-	if (!passCulling) {
+	if (!passCulling && !discardLines) {
 		// Do software culling.
 		if (drawEngineCommon_->TestBoundingBoxFast(gstate_c.cullMatrix, verts, inds, count, decoder, vertexType, &flags)) {
 			passCulling = true;
@@ -1068,7 +1066,7 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 		case GE_CMD_PRIM:
 		{
 			GEPrimitiveType newPrim = static_cast<GEPrimitiveType>((data >> 16) & 7);
-			if (IsTrianglePrim(newPrim) != isTriangle)
+			if (IsTrianglePrim(newPrim) != isTriangle || discardLines)
 				goto bail;  // Can't join over this boundary. Might as well exit and get this on the next time around.
 			// TODO: more efficient updating of verts/inds
 
@@ -1469,269 +1467,6 @@ void GPUCommonHW::Execute_TexLevel(u32 op, u32 diff) {
 void GPUCommonHW::Execute_LoadClut(u32 op, u32 diff) {
 	gstate_c.Dirty(DIRTY_TEXTURE_PARAMS);
 	textureCache_->LoadClut(gstate.getClutAddress(), gstate.getClutLoadBytes(), &recorder_);
-}
-
-void GPUCommonHW::Execute_WorldMtxNum(u32 op, u32 diff) {
-	if (!currentList) {
-		gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | (op & 0xF);
-		return;
-	}
-
-	// This is almost always followed by GE_CMD_WORLDMATRIXDATA.
-	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
-	u32 *dst = (u32 *)(gstate.worldMatrix + (op & 0xF));
-	const int end = 12 - (op & 0xF);
-	int i = 0;
-
-	// We must record the individual data commands while debugRecording_.
-	bool fastLoad = !debugRecording_ && end > 0;
-	// Stalling in the middle of a matrix would be stupid, I doubt this check is necessary.
-	if (currentList->pc < currentList->stall && currentList->pc + end * 4 >= currentList->stall) {
-		fastLoad = false;
-	}
-
-	if (fastLoad) {
-		while ((src[i] >> 24) == GE_CMD_WORLDMATRIXDATA) {
-			const u32 newVal = src[i] << 8;
-			if (dst[i] != newVal) {
-				Flush();
-				dst[i] = newVal;
-				gstate_c.Dirty(DIRTY_WORLDMATRIX | DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_CULL_MATRIX);
-			}
-			if (++i >= end) {
-				break;
-			}
-		}
-	}
-
-	const int count = i;
-	gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | ((op & 0xF) + count);
-
-	// Skip over the loaded data, it's done now.
-	currentList->pc += count * 4;
-	UpdatePC(currentList->pc, currentList->pc);
-}
-
-void GPUCommonHW::Execute_WorldMtxData(u32 op, u32 diff) {
-	// Note: it's uncommon to get here now, see above.
-	int num = gstate.worldmtxnum & 0x00FFFFFF;
-	u32 newVal = op << 8;
-	if (num < 12 && newVal != ((const u32 *)gstate.worldMatrix)[num]) {
-		Flush();
-		((u32 *)gstate.worldMatrix)[num] = newVal;
-		gstate_c.Dirty(DIRTY_WORLDMATRIX | DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_CULL_MATRIX);
-	}
-	num++;
-	gstate.worldmtxnum = (GE_CMD_WORLDMATRIXNUMBER << 24) | (num & 0x00FFFFFF);
-	gstate.worldmtxdata = GE_CMD_WORLDMATRIXDATA << 24;
-}
-
-void GPUCommonHW::Execute_ViewMtxNum(u32 op, u32 diff) {
-	if (!currentList) {
-		gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | (op & 0xF);
-		return;
-	}
-
-	// This is almost always followed by GE_CMD_VIEWMATRIXDATA.
-	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
-	u32 *dst = (u32 *)(gstate.viewMatrix + (op & 0xF));
-	const int end = 12 - (op & 0xF);
-	int i = 0;
-
-	bool fastLoad = !debugRecording_ && end > 0;
-	if (currentList->pc < currentList->stall && currentList->pc + end * 4 >= currentList->stall) {
-		fastLoad = false;
-	}
-
-	if (fastLoad) {
-		while ((src[i] >> 24) == GE_CMD_VIEWMATRIXDATA) {
-			const u32 newVal = src[i] << 8;
-			if (dst[i] != newVal) {
-				Flush();
-				dst[i] = newVal;
-				gstate_c.Dirty(DIRTY_VIEWMATRIX | DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX | DIRTY_CULL_MATRIX) ;
-			}
-			if (++i >= end) {
-				break;
-			}
-		}
-	}
-
-	const int count = i;
-	gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | ((op & 0xF) + count);
-
-	// Skip over the loaded data, it's done now.
-	currentList->pc += count * 4;
-	UpdatePC(currentList->pc, currentList->pc);
-}
-
-void GPUCommonHW::Execute_ViewMtxData(u32 op, u32 diff) {
-	// Note: it's uncommon to get here now, see above.
-	int num = gstate.viewmtxnum & 0x00FFFFFF;
-	u32 newVal = op << 8;
-	if (num < 12 && newVal != ((const u32 *)gstate.viewMatrix)[num]) {
-		Flush();
-		((u32 *)gstate.viewMatrix)[num] = newVal;
-		gstate_c.Dirty(DIRTY_VIEWMATRIX | DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX | DIRTY_CULL_MATRIX);
-	}
-	num++;
-	gstate.viewmtxnum = (GE_CMD_VIEWMATRIXNUMBER << 24) | (num & 0x00FFFFFF);
-	gstate.viewmtxdata = GE_CMD_VIEWMATRIXDATA << 24;
-}
-
-void GPUCommonHW::Execute_ProjMtxNum(u32 op, u32 diff) {
-	if (!currentList) {
-		gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | (op & 0xF);
-		return;
-	}
-
-	// This is almost always followed by GE_CMD_PROJMATRIXDATA.
-	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
-	u32 *dst = (u32 *)(gstate.projMatrix + (op & 0xF));
-	const int end = 16 - (op & 0xF);
-	int i = 0;
-
-	bool fastLoad = !debugRecording_;
-	if (currentList->pc < currentList->stall && currentList->pc + end * 4 >= currentList->stall) {
-		fastLoad = false;
-	}
-
-	if (fastLoad) {
-		while ((src[i] >> 24) == GE_CMD_PROJMATRIXDATA) {
-			const u32 newVal = src[i] << 8;
-			if (dst[i] != newVal) {
-				Flush();
-				dst[i] = newVal;
-				gstate_c.Dirty(DIRTY_PROJMATRIX | DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX | DIRTY_CULL_MATRIX);
-			}
-			if (++i >= end) {
-				break;
-			}
-		}
-	}
-
-	const int count = i;
-	gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | ((op & 0xF) + count);
-
-	// Skip over the loaded data, it's done now.
-	currentList->pc += count * 4;
-	UpdatePC(currentList->pc, currentList->pc);
-}
-
-void GPUCommonHW::Execute_ProjMtxData(u32 op, u32 diff) {
-	// Note: it's uncommon to get here now, see above.
-	int num = gstate.projmtxnum & 0x00FFFFFF;
-	u32 newVal = op << 8;
-	if (num < 16 && newVal != ((const u32 *)gstate.projMatrix)[num]) {
-		Flush();
-		((u32 *)gstate.projMatrix)[num] = newVal;
-		gstate_c.Dirty(DIRTY_PROJMATRIX | DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX | DIRTY_CULL_MATRIX);
-	}
-	num++;
-	if (num <= 16)
-		gstate.projmtxnum = (GE_CMD_PROJMATRIXNUMBER << 24) | (num & 0x00FFFFFF);
-	gstate.projmtxdata = GE_CMD_PROJMATRIXDATA << 24;
-}
-
-void GPUCommonHW::Execute_TgenMtxNum(u32 op, u32 diff) {
-	if (!currentList) {
-		gstate.texmtxnum = (GE_CMD_TGENMATRIXNUMBER << 24) | (op & 0xF);
-		return;
-	}
-
-	// This is almost always followed by GE_CMD_TGENMATRIXDATA.
-	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
-	u32 *dst = (u32 *)(gstate.tgenMatrix + (op & 0xF));
-	const int end = 12 - (op & 0xF);
-	int i = 0;
-
-	bool fastLoad = !debugRecording_ && end > 0;
-	if (currentList->pc < currentList->stall && currentList->pc + end * 4 >= currentList->stall) {
-		fastLoad = false;
-	}
-
-	if (fastLoad) {
-		while ((src[i] >> 24) == GE_CMD_TGENMATRIXDATA) {
-			const u32 newVal = src[i] << 8;
-			if (dst[i] != newVal) {
-				Flush();
-				dst[i] = newVal;
-				// We check the matrix to see if we need projection.
-				gstate_c.Dirty(DIRTY_TEXMATRIX | DIRTY_FRAGMENTSHADER_STATE);
-			}
-			if (++i >= end) {
-				break;
-			}
-		}
-	}
-
-	const int count = i;
-	gstate.texmtxnum = (GE_CMD_TGENMATRIXNUMBER << 24) | ((op & 0xF) + count);
-
-	// Skip over the loaded data, it's done now.
-	currentList->pc += count * 4;
-	UpdatePC(currentList->pc, currentList->pc);
-}
-
-void GPUCommonHW::Execute_TgenMtxData(u32 op, u32 diff) {
-	// Note: it's uncommon to get here now, see above.
-	int num = gstate.texmtxnum & 0x00FFFFFF;
-	u32 newVal = op << 8;
-	if (num < 12 && newVal != ((const u32 *)gstate.tgenMatrix)[num]) {
-		Flush();
-		((u32 *)gstate.tgenMatrix)[num] = newVal;
-		gstate_c.Dirty(DIRTY_TEXMATRIX | DIRTY_FRAGMENTSHADER_STATE);  // We check the matrix to see if we need projection
-	}
-	num++;
-	gstate.texmtxnum = (GE_CMD_TGENMATRIXNUMBER << 24) | (num & 0x00FFFFFF);
-	gstate.texmtxdata = GE_CMD_TGENMATRIXDATA << 24;
-}
-
-void GPUCommonHW::Execute_BoneMtxNum(u32 op, u32 diff) {
-	if (!currentList) {
-		gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (op & 0x7F);
-		return;
-	}
-
-	// This is almost always followed by GE_CMD_BONEMATRIXDATA.
-	const u32_le *src = (const u32_le *)Memory::GetPointerUnchecked(currentList->pc + 4);
-	u32 *dst = (u32 *)(gstate.boneMatrix + (op & 0x7F));
-	const int end = 12 * 8 - (op & 0x7F);
-	int i = 0;
-
-	bool fastLoad = !debugRecording_ && end > 0;
-	if (currentList->pc < currentList->stall && currentList->pc + end * 4 >= currentList->stall) {
-		fastLoad = false;
-	}
-
-	if (fastLoad) {
-		while ((src[i] >> 24) == GE_CMD_BONEMATRIXDATA) {
-			dst[i] = src[i] << 8;
-			if (++i >= end) {
-				break;
-			}
-		}
-	}
-
-	const int count = i;
-	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | ((op & 0x7F) + count);
-
-	// Skip over the loaded data, it's done now.
-	currentList->pc += count * 4;
-	UpdatePC(currentList->pc, currentList->pc);
-}
-
-void GPUCommonHW::Execute_BoneMtxData(u32 op, u32 diff) {
-	// Note: it's uncommon to get here now, see above.
-	int num = gstate.boneMatrixNumber & 0x00FFFFFF;
-	u32 newVal = op << 8;
-	if (num < 96 && newVal != ((const u32 *)gstate.boneMatrix)[num]) {
-		// Bone matrices should NOT flush, as we're always doing skinning in decode nowadays!
-		((u32 *)gstate.boneMatrix)[num] = newVal;
-	}
-	num++;
-	gstate.boneMatrixNumber = (GE_CMD_BONEMATRIXNUMBER << 24) | (num & 0x00FFFFFF);
-	gstate.boneMatrixData = GE_CMD_BONEMATRIXDATA << 24;
 }
 
 void GPUCommonHW::Execute_TexFlush(u32 op, u32 diff) {

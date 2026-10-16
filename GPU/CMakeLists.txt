@@ -189,6 +189,8 @@ set(GPU_SOURCES
 	Software/Sampler.h
 	Software/SoftGpu.cpp
 	Software/SoftGpu.h
+	Null/GPU_Null.cpp
+	Null/GPU_Null.h
 	Software/TransformUnit.cpp
 	Software/TransformUnit.h
 )
