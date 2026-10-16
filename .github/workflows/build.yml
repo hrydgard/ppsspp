@@ -382,7 +382,7 @@ jobs:
       if: runner.os == 'Linux' && matrix.extra != 'android' && matrix.extra != 'loongarch64' && matrix.extra != 'riscv64'
       run: |
         sudo apt-get update -y -qq
-        sudo apt-get install libsdl3-dev libgl1-mesa-dev libglu1-mesa-dev libsdl3-ttf-dev libfontconfig1-dev libcurl4-openssl-dev
+        sudo apt-get install libsdl3-dev libgl1-mesa-dev libglu1-mesa-dev libsdl3-ttf-dev libfontconfig1-dev libfribidi-dev libcurl4-openssl-dev
 
     - name: Install macOS SDL3 dependencies
       if: runner.os == 'macOS' && matrix.id == 'macos'

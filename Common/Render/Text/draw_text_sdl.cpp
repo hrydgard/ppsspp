@@ -20,6 +20,84 @@
 #include <SDL3/SDL_properties.h>
 #include <SDL3_ttf/SDL_ttf.h>
 
+#if defined(USE_SDL3_TTF_FRIBIDI)
+#include <fribidi.h>
+#endif
+
+// SDL3_ttf shapes a whole string in one direction, guessed from its first character, so a run of the
+// other direction comes out reversed ("PPSSPP Gold" inside Hebrew text). When a string mixes directions,
+// reorder each line into visual order with FriBidi and have SDL3_ttf render it left-to-right. Strings in a
+// single direction are left to SDL3_ttf, which shapes Arabic better than FriBidi's presentation forms.
+// Without FriBidi, mixed strings stay partly reversed.
+static bool ReorderBidi(std::string_view str, std::string *out) {
+#if defined(USE_SDL3_TTF_FRIBIDI)
+	bool hasRTL = false;
+	UTF8 decoder(str);
+	while (!decoder.end()) {
+		if (FRIBIDI_IS_RTL(fribidi_get_bidi_type(decoder.next()))) {
+			hasRTL = true;
+			break;
+		}
+	}
+	if (!hasRTL) {
+		return false;
+	}
+
+	std::vector<std::string_view> lines;
+	SplitString(str, '\n', lines);
+
+	std::vector<FriBidiChar> logical;
+	std::vector<FriBidiChar> visual;
+	std::vector<FriBidiLevel> levels;
+	std::vector<char> utf8;
+	std::string result;
+	bool mixed = false;
+	int firstLevel = -1;
+	for (size_t i = 0; i < lines.size(); i++) {
+		if (i > 0) {
+			result.push_back('\n');
+		}
+		std::string_view line = lines[i];
+		logical.resize(line.size() + 1);
+		FriBidiStrIndex len = fribidi_charset_to_unicode(FRIBIDI_CHAR_SET_UTF8, line.data(), (FriBidiStrIndex)line.size(), logical.data());
+		if (len <= 0) {
+			result.append(line);
+			continue;
+		}
+		visual.resize(len + 1);
+		levels.resize(len);
+		FriBidiParType baseDir = FRIBIDI_PAR_ON;
+		if (!fribidi_log2vis(logical.data(), len, &baseDir, visual.data(), nullptr, nullptr, levels.data())) {
+			return false;
+		}
+		for (FriBidiStrIndex j = 0; j < len; j++) {
+			if (firstLevel < 0) {
+				firstLevel = levels[j];
+			} else if (levels[j] != firstLevel) {
+				mixed = true;
+			}
+		}
+		utf8.resize(len * 4 + 1);
+		FriBidiStrIndex size = fribidi_unicode_to_charset(FRIBIDI_CHAR_SET_UTF8, visual.data(), len, utf8.data());
+		result.append(utf8.data(), size);
+	}
+	if (!mixed) {
+		return false;
+	}
+	*out = std::move(result);
+	return true;
+#else
+	return false;
+#endif
+}
+
+static void SetBidiDirection(TTF_Font *font, bool reordered) {
+#if defined(USE_SDL3_TTF_FRIBIDI)
+	// The font is shared, so set the direction every time, either way.
+	TTF_SetFontDirection(font, reordered ? TTF_DIRECTION_LTR : TTF_DIRECTION_INVALID);
+#endif
+}
+
 static TTF_Font *OpenFontFace(const std::string &fontPath, float ptSize, int faceIndex) {
 	SDL_PropertiesID props = SDL_CreateProperties();
 	if (!props) {
@@ -324,6 +402,12 @@ void TextDrawerSDL::MeasureStringInternal(std::string_view str, float *w, float 
 		return;
 	}
 
+	std::string reorderedStr;
+	const bool reordered = ReorderBidi(str, &reorderedStr);
+	if (reordered) {
+		str = reorderedStr;
+	}
+
 	uint32_t missingGlyph = CheckMissingGlyph(str);
 
 	if (missingGlyph) {
@@ -333,6 +417,7 @@ void TextDrawerSDL::MeasureStringInternal(std::string_view str, float *w, float 
 			font = fallbackFonts_[fallbackFont];
 		}
 	}
+	SetBidiDirection(font, reordered);
 
 	std::vector<std::string_view> lines;
 	SplitString(str, '\n', lines);
@@ -379,7 +464,11 @@ bool TextDrawerSDL::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 		return false;
 	}
 
-	std::string processedStr(str);
+	std::string processedStr;
+	const bool reordered = ReorderBidi(str, &processedStr);
+	if (!reordered) {
+		processedStr = str;
+	}
 
 	// If a string includes only newlines, SDL3_ttf will refuse to render it
 	// thinking it is empty. Add a space to avoid that.
@@ -398,6 +487,7 @@ bool TextDrawerSDL::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextStrin
 			font = fallbackFonts_[fallbackFont];
 		}
 	}
+	SetBidiDirection(font, reordered);
 
 	if (align & ALIGN_HCENTER)
 		TTF_SetFontWrapAlignment(font, TTF_HORIZONTAL_ALIGN_CENTER);
