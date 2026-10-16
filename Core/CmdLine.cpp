@@ -210,6 +210,7 @@ static const CommandLineParam g_autoParams[] = {
 	{POFF(dumpCompat), CmdParamType::Bool, "dump-compat", '\0', "Apply the game's compat.ini settings when replaying a GE frame dump (off by default)", CmdLineMode::Headless},
 	{POFF(hardwareTransform), CmdParamType::Bool, "hardware-transform", '\0', "Transform vertices on the GPU (default true); false transforms them on the CPU", CmdLineMode::Headless},
 	{POFF(vertexJit), CmdParamType::Bool, "vertex-jit", '\0', "Decode vertices with the JIT where the host can (default; =false for the C++ decoder)", CmdLineMode::Headless},
+	{POFF(shaderCache), CmdParamType::Bool, "shader-cache", '\0', "Load and save the per-game shader cache (default true); =false to time shader compiles like a first boot"},
 	{POFF(disableGPUFeatures), CmdParamType::String, "disable-gpu-features", '\0', "Act as if the GPU lacked these, to test the fallbacks: comma-separated clip-distance, cull-distance, depth-clamp, framebuffer-fetch, dual-source-blend", CmdLineMode::Headless},
 	{POFF(depthFilenameSave), CmdParamType::String, "depth-save", '\0', "Save the depth buffer to FILE along with the screenshot (u32 width, u32 height, u16 depths; float depths if FILE ends in .f32)", CmdLineMode::Headless},
 	{POFF(screenshotRenderTarget), CmdParamType::Bool, "screenshot-render-target", '\0', "Take screenshots of the current render target instead of the displayed framebuffer", CmdLineMode::Headless},
@@ -562,6 +563,10 @@ void CommandLineOptions::ApplyToConfig() const {
 	if (hardwareTransform.has_value()) {
 		g_Config.bHardwareTransform = hardwareTransform.value();
 		g_Config.DoNotSaveSetting(&g_Config.bHardwareTransform);
+	}
+	if (shaderCache.has_value()) {
+		g_Config.bShaderCache = shaderCache.value();
+		g_Config.DoNotSaveSetting(&g_Config.bShaderCache);
 	}
 	if (softwareRendering.has_value()) {
 		g_Config.bSoftwareRendering = softwareRendering.value();
