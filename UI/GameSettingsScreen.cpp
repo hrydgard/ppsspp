@@ -979,7 +979,15 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 		System_LaunchUrl(LaunchUrlType::BROWSER_URL, url);
 	});
 
-	networkingSettings->Add(new CheckBox(&g_Config.bEnableWlan, n->T("Enable networking", "Enable networking/wlan (beta)")));
+	// Ad hoc play, the built-in server and UPnP all talk to the local network.
+	auto requestLocalNetwork = [](UI::EventParams &e) {
+		CheckBox *checkBox = static_cast<CheckBox *>(e.v);
+		if (checkBox->Toggled()) {
+			System_RequestLocalNetworkPermission();
+		}
+	};
+
+	networkingSettings->Add(new CheckBox(&g_Config.bEnableWlan, n->T("Enable networking", "Enable networking/wlan (beta)")))->OnClick.Add(requestLocalNetwork);
 	networkingSettings->Add(new MacAddressChooser(GetRequesterToken(), gamePath_, &g_Config.sMACAddress, n->T("MAC address"), screenManager()));
 
 	networkingSettings->Add(new ItemHeader(n->T("Ad Hoc multiplayer")));
@@ -1027,7 +1035,7 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 	});
 	networkingSettings->Add(new SettingHint(n->T("Try to pick a unique nickname for ad hoc play"), nullptr));
 
-	networkingSettings->Add(new CheckBox(&g_Config.bEnableAdhocServer, n->T("Enable built-in ad hoc server")));
+	networkingSettings->Add(new CheckBox(&g_Config.bEnableAdhocServer, n->T("Enable built-in ad hoc server")))->OnClick.Add(requestLocalNetwork);
 
 	networkingSettings->Add(new ItemHeader(n->T("Infrastructure")));
 	if (g_Config.sInfrastructureUsername.empty()) {
@@ -1048,7 +1056,8 @@ void GameSettingsScreen::CreateNetworkingSettings(UI::ViewGroup *networkingSetti
 	// and a game that's already mapped its ports wouldn't cope with them disappearing.
 	CheckBox *enableUPnP = networkingSettings->Add(new CheckBox(&g_Config.bEnableUPnP, n->T("Enable UPnP", "Enable UPnP (need a few seconds to detect)")));
 	enableUPnP->SetEnabled(!PSP_IsInited());
-	enableUPnP->OnClick.Add([](UI::EventParams &e) {
+	enableUPnP->OnClick.Add([requestLocalNetwork](UI::EventParams &e) {
+		requestLocalNetwork(e);
 		// Wake the UPnP service thread so it connects (or tears its mappings back down) right
 		// away, instead of waiting for a port request that may never come.
 		UPnP_Notify();

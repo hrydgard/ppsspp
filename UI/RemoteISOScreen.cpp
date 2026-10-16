@@ -383,7 +383,11 @@ void RemoteISOScreen::CreateSettingsTab(UI::ViewGroup *remoteisoSettings) {
 	auto ri = GetI18NCategory(I18NCat::REMOTEISO);
 
 	remoteisoSettings->Add(new ItemHeader(ri->T("Remote disc streaming")));
-	remoteisoSettings->Add(new CheckBox(&g_Config.bRemoteShareOnStartup, ri->T("Share on PPSSPP startup")));
+	remoteisoSettings->Add(new CheckBox(&g_Config.bRemoteShareOnStartup, ri->T("Share on PPSSPP startup")))->OnClick.Add([](UI::EventParams &e) {
+		if (g_Config.bRemoteShareOnStartup) {
+			System_RequestLocalNetworkPermission();
+		}
+	});
 	remoteisoSettings->Add(new CheckBox(&g_Config.bRemoteISOManual, ri->T("Manual Mode Client", "Manually configure client")));
 	remoteisoSettings->Add(new CheckBox(&g_Config.bRemoteTab, ri->T("Show Remote tab on main screen")));
 
