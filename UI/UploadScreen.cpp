@@ -5,6 +5,8 @@
 #include "Common/StringUtils.h"
 #include "Common/Data/Text/Parsers.h"
 #include "Common/Data/Text/I18n.h"
+#include "Common/UI/Notice.h"
+#include "Common/System/System.h"
 #include "Core/WebServer.h"
 #include "Core/Util/PathUtil.h"
 #include "UI/UploadScreen.h"
@@ -19,12 +21,27 @@ UploadScreen::UploadScreen(const Path &targetFolder) : UISimpleBaseDialogScreen(
 			localIPs_.push_back(ip);
 		}
 	}
-	WebServerSetUploadPath(targetFolder);
-	StartWebServer(WebServerFlags::FILE_UPLOAD);
+	// On Android 17+, serving to other devices on the local network needs a runtime permission.
+	prevPermission_ = System_GetPermissionStatus(SYSTEM_PERMISSION_LOCAL_NETWORK);
+	if (prevPermission_ != PERMISSION_STATUS_GRANTED) {
+		System_AskForPermission(SYSTEM_PERMISSION_LOCAL_NETWORK);
+	}
+	StartServerIfPermitted();
 }
 
 UploadScreen::~UploadScreen() {
-	StopWebServer(WebServerFlags::FILE_UPLOAD);
+	if (started_) {
+		StopWebServer(WebServerFlags::FILE_UPLOAD);
+	}
+}
+
+void UploadScreen::StartServerIfPermitted() {
+	if (started_ || System_GetPermissionStatus(SYSTEM_PERMISSION_LOCAL_NETWORK) != PERMISSION_STATUS_GRANTED) {
+		return;
+	}
+	WebServerSetUploadPath(targetFolder_);
+	StartWebServer(WebServerFlags::FILE_UPLOAD);
+	started_ = true;
 }
 
 void UploadScreen::CreateDialogViews(UI::ViewGroup *root) {
@@ -37,7 +54,12 @@ void UploadScreen::CreateDialogViews(UI::ViewGroup *root) {
 	container->Add(new TextWithImage(ImageID("I_FOLDER_UPLOAD"), GetFriendlyPath(targetFolder_)));
 	container->Add(new Spacer(20.0f));
 
-	if (prevRunning_) {
+	if (prevPermission_ == PERMISSION_STATUS_DENIED) {
+		container->Add(new NoticeView(NoticeLevel::WARN, n->T("Local network permission is needed to receive files"), ""))->SetWrapText(true);
+		container->Add(new Choice(n->T("Ask for network permission")))->OnClick.Add([](UI::EventParams &e) {
+			System_AskForPermission(SYSTEM_PERMISSION_LOCAL_NETWORK);
+		});
+	} else if (prevRunning_) {
 		container->Add(new TextWithImage(ImageID("I_WIFI"), n->T("With a web browser on the same network, go to:")));
 		for (const auto &ip : localIPs_) {
 			std::string url = StringFromFormat("%s:%d/upload", ip.c_str(), WebServerPort());
@@ -74,6 +96,13 @@ std::string_view UploadScreen::GetTitle() const {
 
 void UploadScreen::update() {
 	UISimpleBaseDialogScreen::update();
+	PermissionStatus permission = System_GetPermissionStatus(SYSTEM_PERMISSION_LOCAL_NETWORK);
+	if (permission != prevPermission_) {
+		prevPermission_ = permission;
+		StartServerIfPermitted();
+		RecreateViews();
+	}
+
 	bool running = WebServerRunning(WebServerFlags::FILE_UPLOAD);
 	if (prevRunning_ != running) {
 		prevRunning_ = running;

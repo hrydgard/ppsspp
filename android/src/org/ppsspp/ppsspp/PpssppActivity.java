@@ -249,7 +249,8 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 				NativeApp.sendMessageFromJava("permission_denied", "storage");
 			}
 
-			if (Build.VERSION.SDK_INT >= 35) {
+			// ACCESS_LOCAL_NETWORK exists from Android 17 (API 37). Earlier versions report it as denied.
+			if (Build.VERSION.SDK_INT >= 37) {
 				if (this.checkSelfPermission("android.permission.ACCESS_LOCAL_NETWORK") == PackageManager.PERMISSION_GRANTED) {
 					NativeApp.sendMessageFromJava("permission_granted", "local_network");
 				} else {
@@ -1828,7 +1829,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			}
 			return true;
 		} else if (command.equals("ask_permission") && params.equals("local_network")) {
-			if (Build.VERSION.SDK_INT >= 35) {
+			if (Build.VERSION.SDK_INT >= 37) {
 				if (askForPermissions(permissionsForLocalNetwork, REQUEST_CODE_LOCAL_NETWORK_PERMISSION)) {
 					NativeApp.sendMessageFromJava("permission_pending", "local_network");
 				} else {

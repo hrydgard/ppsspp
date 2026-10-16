@@ -28,6 +28,7 @@
 #include "UI/BaseScreens.h"
 #include "UI/SimpleDialogScreen.h"
 #include "Common/TimeUtil.h"
+#include "Common/System/System.h"
 
 // Upload screen: Shows the user an ip address to go to in a web browser on the same network,
 // in order to upload game files to the current directory.
@@ -46,6 +47,9 @@ protected:
 
 private:
 	void RecreateStatus();
+	void StartServerIfPermitted();
+	bool started_ = false;
+	PermissionStatus prevPermission_ = PERMISSION_STATUS_UNKNOWN;
 	bool prevRunning_ = false;
 	std::vector<std::string> localIPs_;
 	Path targetFolder_;
