@@ -1028,8 +1028,13 @@ void GameBrowser::Refresh() {
 		}
 
 		if (browseFlags_ & BrowseFlags::UPLOAD_BUTTON) {
-			topBar->Add(new Choice(ImageID("I_FOLDER_UPLOAD"), new UI::LinearLayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Add([this](UI::EventParams &e) {
+			Choice *uploadChoice = topBar->Add(new Choice(ImageID("I_FOLDER_UPLOAD"), new UI::LinearLayoutParams(WRAP_CONTENT, 64.0f)));
+			uploadChoice->OnClick.Add([this](UI::EventParams &e) {
 				screenManager_->push(new UploadScreen(path_.GetPath()));
+			});
+			// Nowhere to put the files until a game folder has been chosen.
+			uploadChoice->SetEnabledFunc([this]() {
+				return !path_.GetPath().empty();
 			});
 		}
 
