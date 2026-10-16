@@ -640,6 +640,9 @@ public:
 	float worldviewproj[16];
 	float cullMatrix[16];
 	bool viewportNearPlaneMatchesOutput;
+	// The viewport's near and far planes both fall on min or max Z where those are clipped (above 0, below 65535),
+	// so the min/max clip planes clip exactly where the GE does.
+	bool viewportZPlanesOnClipPlanes;
 
 	KnownVertexBounds vertBounds;
 

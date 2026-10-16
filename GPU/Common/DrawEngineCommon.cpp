@@ -497,7 +497,12 @@ static bool TestBoundingBoxFast(const float *cullMatrix, const void *vdata, cons
 		}
 	}
 
-	if (AnyCompareBitsSet(anyOutsideZ) && (!gstate_c.viewportNearPlaneMatchesOutput || PSP_CoreParameter().compat.flags().CorrectCullAfterClip || !gstate_c.Use(GPU_USE_CULL_DISTANCE) || !gstate_c.Use(GPU_USE_CLIP_DISTANCE))) {
+	// With both of the viewport's Z planes on the min/max clip planes, those clip exactly like the GE, and also take
+	// away what's entirely beyond the far plane, which otherwise only cull distances can (Naruto Shippuden: Ultimate
+	// Ninja Impact's grass, whose depth then matches the ground's).
+	const bool clipPlanesDoIt = gstate_c.viewportZPlanesOnClipPlanes && gstate.isDepthClipEnabled();
+	const bool hardwareClipsZ = gstate_c.Use(GPU_USE_CLIP_DISTANCE) && (clipPlanesDoIt || (gstate_c.Use(GPU_USE_CULL_DISTANCE) && gstate_c.viewportNearPlaneMatchesOutput));
+	if (AnyCompareBitsSet(anyOutsideZ) && (!hardwareClipsZ || PSP_CoreParameter().compat.flags().CorrectCullAfterClip)) {
 		// Some vertices were outside the Z clipping planes. Clip againt Z=-W in software (and do culling, too).
 		// Without cull distances the shader can't cull, and triangles entirely beyond the far plane would be
 		// depth clamped and drawn (the stands over the pitch in FIFA Soccer). Without clip distances it can't
