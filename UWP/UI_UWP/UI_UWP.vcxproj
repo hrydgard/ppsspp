@@ -107,17 +107,6 @@
     <ClInclude Include="..\..\UI\GameScreen.h" />
     <ClInclude Include="..\..\UI\GamePacker.h" />
     <ClInclude Include="..\..\UI\CSOCompress.h" />
-    <ClInclude Include="..\..\ext\zopfli\blocksplitter.h" />
-    <ClInclude Include="..\..\ext\zopfli\cache.h" />
-    <ClInclude Include="..\..\ext\zopfli\deflate.h" />
-    <ClInclude Include="..\..\ext\zopfli\hash.h" />
-    <ClInclude Include="..\..\ext\zopfli\katajainen.h" />
-    <ClInclude Include="..\..\ext\zopfli\lz77.h" />
-    <ClInclude Include="..\..\ext\zopfli\squeeze.h" />
-    <ClInclude Include="..\..\ext\zopfli\tree.h" />
-    <ClInclude Include="..\..\ext\zopfli\util.h" />
-    <ClInclude Include="..\..\ext\zopfli\symbols.h" />
-    <ClInclude Include="..\..\ext\zopfli\zopfli.h" />
     <ClInclude Include="..\..\ext\libdeflate\libdeflate.h" />
     <ClInclude Include="..\..\ext\libdeflate\common\common_defs.h" />
     <ClInclude Include="..\..\ext\libdeflate\common\compiler_gcc.h" />
@@ -195,33 +184,6 @@
     <ClCompile Include="..\..\UI\GameScreen.cpp" />
     <ClCompile Include="..\..\UI\GamePacker.cpp" />
     <ClCompile Include="..\..\UI\CSOCompress.cpp" />
-    <ClCompile Include="..\..\ext\zopfli\blocksplitter.c">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\zopfli\cache.c">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\zopfli\deflate.c">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\zopfli\hash.c">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\zopfli\katajainen.c">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\zopfli\lz77.c">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\zopfli\squeeze.c">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\zopfli\tree.c">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-    </ClCompile>
-    <ClCompile Include="..\..\ext\zopfli\util.c">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-    </ClCompile>
     <ClCompile Include="..\..\ext\libdeflate\lib\deflate_compress.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>

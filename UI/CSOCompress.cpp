@@ -40,7 +40,6 @@
 #endif
 
 #include "ext/libdeflate/libdeflate.h"
-#include "ext/zopfli/deflate.h"
 
 namespace CSOCompress {
 
@@ -55,23 +54,18 @@ struct PresetSettings {
 	uint32_t blockSize;
 	bool zlib;        // zlib level 9, default strategy.
 	bool libdeflate;  // libdeflate level 12.
-	bool zopfli;      // Zopfli, 5 iterations.
-	double precheckPercent;  // 0, or skip Zopfli on blocks libdeflate can't get below this.
 };
 
 // The trials maxcso's presets ran (with lz4, 7-zip and zlib's brute force strategies left out).
 PresetSettings SettingsFor(Preset preset) {
 	switch (preset) {
-	case Preset::Max:
-		// The pre-check saves Zopfli's time on video and audio: about 1.3x faster for +0.007% in size.
-		return { 262144, false, true, true, 98.0 };
 	case Preset::Great:
 		// 64K: only ~0.25% bigger than 256K, and each read of a new block inflates a quarter as much.
-		return { 65536, false, true, false, 0.0 };
+		return { 65536, false, true };
 	case Preset::PSPCompatible:
 	default:
 		// Some custom firmware can't read libdeflate's output or larger blocks.
-		return { 2048, true, false, false, 0.0 };
+		return { 2048, true, false };
 	}
 }
 
@@ -82,7 +76,7 @@ public:
 		if (settings_.zlib) {
 			zlibOk_ = deflateInit2(&z_, 9, Z_DEFLATED, -15, 9, Z_DEFAULT_STRATEGY) == Z_OK;
 		}
-		if (settings_.libdeflate || settings_.precheckPercent > 0.0) {
+		if (settings_.libdeflate) {
 			libdeflate_ = libdeflate_alloc_compressor(12);
 		}
 	}
@@ -106,14 +100,10 @@ public:
 			}
 		};
 
-		bool skipSlow = false;
 		if (libdeflate_) {
 			// libdeflate returns 0 when the result doesn't fit, i.e. isn't smaller.
 			const size_t size = libdeflate_deflate_compress(libdeflate_, in, blockSize, scratch_.data(), scratch_.size());
-			if (settings_.libdeflate) {
-				submit(scratch_.data(), size);
-			}
-			skipSlow = settings_.precheckPercent > 0.0 && (size == 0 || size >= blockSize * (settings_.precheckPercent / 100.0));
+			submit(scratch_.data(), size);
 		}
 		if (zlibOk_ && deflateReset(&z_) == Z_OK) {
 			z_.next_in = (Bytef *)in;
@@ -126,20 +116,6 @@ public:
 			}
 			if (res == Z_STREAM_END) {
 				submit(scratch_.data(), z_.total_out);
-			}
-		}
-		if (settings_.zopfli && !skipSlow) {
-			ZopfliOptions options;
-			ZopfliInitOptions(&options);
-			options.blocksplittinglast = 1;
-			options.numiterations = 5;
-			unsigned char bp = 0;
-			unsigned char *zout = nullptr;
-			size_t zsize = 0;
-			ZopfliDeflate(&options, 2, 1, in, blockSize, &bp, &zout, &zsize);
-			if (zout) {
-				submit(zout, zsize);
-				free(zout);
 			}
 		}
 	}

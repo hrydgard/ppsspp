@@ -28,9 +28,8 @@
 namespace CSOCompress {
 
 enum class Preset {
-	Max = 0,            // Zopfli, skipped on blocks libdeflate can't shrink below 98%; 256K blocks.
-	Great = 1,          // libdeflate level 12, 64K blocks. Much faster, slightly bigger, quicker to read.
-	PSPCompatible = 2,  // zlib level 9, 2K blocks: what every PSP custom firmware reads.
+	Great = 0,          // libdeflate level 12, 64K blocks. Small, fast to compress and quick to read.
+	PSPCompatible = 1,  // zlib level 9, 2K blocks: what every PSP custom firmware reads.
 };
 
 // Return false to cancel.

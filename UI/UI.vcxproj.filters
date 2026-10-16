@@ -16,33 +16,6 @@
     <ClCompile Include="CSOCompress.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
-    <ClCompile Include="..\ext\zopfli\blocksplitter.c">
-      <Filter>ext</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ext\zopfli\cache.c">
-      <Filter>ext</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ext\zopfli\deflate.c">
-      <Filter>ext</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ext\zopfli\hash.c">
-      <Filter>ext</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ext\zopfli\katajainen.c">
-      <Filter>ext</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ext\zopfli\lz77.c">
-      <Filter>ext</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ext\zopfli\squeeze.c">
-      <Filter>ext</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ext\zopfli\tree.c">
-      <Filter>ext</Filter>
-    </ClCompile>
-    <ClCompile Include="..\ext\zopfli\util.c">
-      <Filter>ext</Filter>
-    </ClCompile>
     <ClCompile Include="..\ext\libdeflate\lib\deflate_compress.c">
       <Filter>ext</Filter>
     </ClCompile>
@@ -215,39 +188,6 @@
     </ClInclude>
     <ClInclude Include="CSOCompress.h">
       <Filter>Screens</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ext\zopfli\blocksplitter.h">
-      <Filter>ext</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ext\zopfli\cache.h">
-      <Filter>ext</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ext\zopfli\deflate.h">
-      <Filter>ext</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ext\zopfli\hash.h">
-      <Filter>ext</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ext\zopfli\katajainen.h">
-      <Filter>ext</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ext\zopfli\lz77.h">
-      <Filter>ext</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ext\zopfli\squeeze.h">
-      <Filter>ext</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ext\zopfli\tree.h">
-      <Filter>ext</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ext\zopfli\util.h">
-      <Filter>ext</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ext\zopfli\symbols.h">
-      <Filter>ext</Filter>
-    </ClInclude>
-    <ClInclude Include="..\ext\zopfli\zopfli.h">
-      <Filter>ext</Filter>
     </ClInclude>
     <ClInclude Include="..\ext\libdeflate\libdeflate.h">
       <Filter>ext</Filter>

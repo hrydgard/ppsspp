@@ -172,8 +172,7 @@ std::vector<Option> ListOptions(Container from) {
 		option.description = description;
 		options.push_back(option);
 	};
-	add(CSOCompress::Preset::Max, ga->T("Max"), ga->T("PackDescCSOMax", "Zopfli, 256K blocks. Smallest CSO, slow to compress."));
-	add(CSOCompress::Preset::Great, ga->T("Great"), ga->T("PackDescCSOGreat", "libdeflate, 64K blocks. Nearly as small, much faster."));
+	add(CSOCompress::Preset::Great, ga->T("Great"), ga->T("PackDescCSOGreat", "libdeflate, 64K blocks. Small and fast."));
 	add(CSOCompress::Preset::PSPCompatible, ga->T("PSP Compatible"), ga->T("PackDescCSOPSP", "zlib, 2K blocks. Readable by PSP custom firmware."));
 	return options;
 }
