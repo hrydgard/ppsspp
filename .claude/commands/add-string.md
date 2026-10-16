@@ -46,7 +46,7 @@ Follow the workflow in docs/translations.md. Run langtool from
    lt-LT = Testeilutė
    ```
 
-   One line per language, named after the ini file minus the extension (`lt-LT`, `he_IL_invert`,
+   One line per language, named after the ini file minus the extension (`lt-LT`, `pt_BR`,
    `zh_TW`, ...), plus an `en_US` line carrying the English string itself if you were given one -
    that's what creates the key in `en_US.ini`. For a key that already exists, that line has to be
    the existing English text character for character: it overwrites `en_US.ini` like any other
