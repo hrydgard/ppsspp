@@ -483,9 +483,8 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		PackageManager packageManager = getPackageManager();
 		String installerName = getInstallerName(packageManager);
 
-		int smallestScreenWidthDp = getResources().getConfiguration().smallestScreenWidthDp;
 		NativeApp.audioConfig(optimalFramesPerBuffer, optimalSampleRate);
-		NativeApp.init(model, deviceType, languageRegion, apkFilePath, dataDir, extStorageDir, externalFilesDir, nativeLibDir, additionalStorageDirs, cacheDir, shortcut, installerName, Build.VERSION.SDK_INT, Build.BOARD, smallestScreenWidthDp);
+		NativeApp.init(model, deviceType, languageRegion, apkFilePath, dataDir, extStorageDir, externalFilesDir, nativeLibDir, additionalStorageDirs, cacheDir, shortcut, installerName, Build.VERSION.SDK_INT, Build.BOARD);
 
 		sendInitialGrants();
 
@@ -555,11 +554,6 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 
 	@SuppressLint("SourceLockedOrientationActivity")
 	private void updateScreenRotation(String cause) {
-		if (Build.VERSION.SDK_INT >= 37 && getResources().getConfiguration().smallestScreenWidthDp >= 600) {
-			// Android 17+ on large screens (sw600dp+) ignores orientation requests to push for adaptive apps.
-			// If we try anyway, it's just a waste of time and might cause weirdness.
-			return;
-		}
 		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
 			if (isInMultiWindowMode()) {
 				// Do not try to enforce rotation! This can result in re-init loops.
@@ -1176,9 +1170,7 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 		if (m_hasNoNativeBinary) {
 			return;
 		}
-		// The surface size change that comes with it is what actually updates the native side, except
-		// for this, which the native side was told once at init. Changes on fold/unfold.
-		NativeApp.sendMessageFromJava("smallestScreenWidthDp", String.valueOf(newConfig.smallestScreenWidthDp));
+		// The surface size change that comes with it is what actually updates the native side.
 		// This re-measures the display, so the density check below sees the new value.
 		updateSystemUiVisibility();
 		// A density change doesn't resize the surface, so it needs separate handling.

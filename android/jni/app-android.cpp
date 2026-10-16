@@ -134,7 +134,6 @@ static int optimalSampleRate = 0;
 static int sampleRate = 0;
 static int framesPerBuffer = 0;
 static int androidVersion;
-static int smallestScreenWidthDp;
 static int deviceType;
 
 // This is the ACTUAL display size, not the hardware scaled display size.
@@ -457,10 +456,7 @@ bool System_GetPropertyBool(SystemProperty prop) {
 	case SYSPROP_DISPLAY_HAS_CAMERA_CUTOUT:
 		return g_hasCameraCutout;
 	case SYSPROP_CAN_RESTRICT_ORIENTATION:
-		// On Android 17+, large displays (sw600dp+) ignore orientation restrictions.
-		if (androidVersion >= 37 && smallestScreenWidthDp >= 600) {
-			return false;
-		}
+		// Android 17+ ignores orientation requests on large screens, but not from games (appCategory="game").
 		return true;
 #ifndef HTTPS_NOT_AVAILABLE
 	case SYSPROP_SUPPORTS_HTTPS:
@@ -650,7 +646,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 (JNIEnv * env, jclass, jstring jmodel, jint jdeviceType, jstring jlangRegion, jstring japkpath,
 	jstring jdataDir, jstring jexternalStorageDir, jstring jexternalFilesDir, jstring jNativeLibDir,
 	jstring jadditionalStorageDirs, jstring jcacheDir, jstring jshortcutParam, jstring jInstallerName,
-	jint jAndroidVersion, jstring jboard, jint jSmallestScreenWidthDp) {
+	jint jAndroidVersion, jstring jboard) {
 	SetCurrentThreadName("androidInit");
 
 	// Makes sure we get early permission grants.
@@ -662,7 +658,6 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_init
 	renderer_inited = false;
 	exitRenderLoop = false;
 	androidVersion = jAndroidVersion;
-	smallestScreenWidthDp = jSmallestScreenWidthDp;
 	deviceType = jdeviceType;
 
 	Path apkPath(GetJavaString(env, japkpath));
@@ -1318,9 +1313,6 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessageFromJava(JNI
 		System_PostUIMessage(UIMessage::PERMISSION_GRANTED, prm);
 	} else if (msg == "sustained_perf_supported") {
 		sustainedPerfSupported = true;
-	} else if (msg == "smallestScreenWidthDp") {
-		// Changes on fold/unfold. Decides SYSPROP_CAN_RESTRICT_ORIENTATION.
-		smallestScreenWidthDp = (int)parseLong(prm);
 	} else if (msg == "safe_insets") {
 		// INFO_LOG(Log::System, "Got insets: %s", prm.c_str());
 		// We don't bother with supporting exact rectangular regions. Safe insets are good enough.
