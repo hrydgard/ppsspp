@@ -17,6 +17,7 @@
 
 #include <cstring>
 
+#include "Common/DbgNew.h"
 #include "Common/Profiler/Profiler.h"
 #include "Core/System.h"
 #include "Core/Util/PPGeDraw.h"
@@ -294,5 +295,11 @@ bool GPU_Null::PerformMemorySet(u32 dest, u8 v, int size) {
 }  // namespace
 
 GPUCommon *CreateNullGPU(GraphicsContext *gfxCtx) {
+#ifdef USE_CRT_DBG
+#undef new
+#endif
 	return new GPU_Null(gfxCtx);
+#ifdef USE_CRT_DBG
+#define new DBG_NEW
+#endif
 }

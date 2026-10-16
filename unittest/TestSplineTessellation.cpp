@@ -528,9 +528,6 @@ bool CheckGEExactSIMD(const TestCase &tc, uint32_t seed) {
 }  // namespace
 
 bool TestSplineTessellation() {
-	const int savedQuality = g_Config.iSplineBezierQuality;
-	g_Config.iSplineBezierQuality = (int)SplineQuality::HIGH_QUALITY;
-
 	const u32 posOnly = GE_VTYPE_POS_FLOAT;
 	const u32 posNrm = GE_VTYPE_POS_FLOAT | GE_VTYPE_NRM_FLOAT;
 
@@ -627,6 +624,5 @@ bool TestSplineTessellation() {
 		}
 	}
 
-	g_Config.iSplineBezierQuality = savedQuality;
 	return ok;
 }

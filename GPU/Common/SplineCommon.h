@@ -54,20 +54,6 @@ struct SurfaceInfo {
 		// If specified as 0, uses 1.
 		if (tess_u < 1) tess_u = 1;
 		if (tess_v < 1) tess_v = 1;
-
-		switch ((SplineQuality)g_Config.iSplineBezierQuality) {
-		case SplineQuality::LOW_QUALITY:
-			tess_u = 2;
-			tess_v = 2;
-			break;
-		case SplineQuality::MEDIUM_QUALITY:
-			// Don't cut below 2, though.
-			if (tess_u > 2) tess_u = half_ceil(tess_u);
-			if (tess_v > 2) tess_v = half_ceil(tess_v);
-			break;
-		default:
-			break;
-		}
 	}
 
 	// Only the larger factor, so a lopsided patch keeps at least one step along its short axis.

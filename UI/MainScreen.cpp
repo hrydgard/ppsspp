@@ -506,7 +506,7 @@ void MainScreen::CreateViews() {
 
 	const UI::Drawable dismissableBackground = screenManager()->getUIContext()->GetTheme().itemDownStyle.background;
 
-	auto CreateDismissableBar = [this, vertical, dismissableBackground](std::string_view message, std::string_view action, std::function<void()> onDismiss) {
+	auto CreateDismissableBar = [this, dismissableBackground](std::string_view message, std::string_view action, std::function<void()> onDismiss) {
 		Margins margins(0, 0);
 		UI::LinearLayout *bar = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, margins));
 
@@ -534,7 +534,7 @@ void MainScreen::CreateViews() {
 		std::string upgradeMessage(di->T("New version of PPSSPP available"));
 		// The version only really fits in the horizontal layout.
 		upgradeMessage += ": " + g_Config.sUpgradeVersion;
-		UI::LinearLayout *upgradeBar = CreateDismissableBar(upgradeMessage, di->T("Download"), [this]() {
+		UI::LinearLayout *upgradeBar = CreateDismissableBar(upgradeMessage, di->T("Download"), []() {
 			g_Config.DismissUpgrade();
 			g_Config.Save("dismissupgrade");
 		});

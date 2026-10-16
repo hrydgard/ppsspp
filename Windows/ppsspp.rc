@@ -668,8 +668,6 @@ BEGIN
             MENUITEM "", 0, MFT_SEPARATOR
             MENUITEM "Deposterize",                     ID_TEXTURESCALING_DEPOSTERIZE
         END
-        MENUITEM "Hardware Transform",                  ID_OPTIONS_HARDWARETRANSFORM
-        MENUITEM "", 0, MFT_SEPARATOR
         MENUITEM "Enable Sound",                        ID_EMULATION_SOUND
         MENUITEM "", 0, MFT_SEPARATOR
         MENUITEM "Enable Cheats",                       ID_EMULATION_CHEATS
