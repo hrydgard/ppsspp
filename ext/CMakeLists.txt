@@ -51,6 +51,27 @@ add_library(xxhash STATIC
 	xxhash.h
 )
 
+# Only the deflate encoders, for the game screen's CSO packing (UI/CSOCompress.cpp).
+add_library(zopfli STATIC
+	zopfli/blocksplitter.c
+	zopfli/cache.c
+	zopfli/deflate.c
+	zopfli/hash.c
+	zopfli/katajainen.c
+	zopfli/lz77.c
+	zopfli/squeeze.c
+	zopfli/tree.c
+	zopfli/util.c
+)
+if(NOT MSVC)
+	target_link_libraries(zopfli m)
+endif()
+
+add_library(libdeflate STATIC
+	libdeflate/lib/deflate_compress.c
+	libdeflate/lib/utils.c
+)
+
 set(aemu_postoffice_client_obj
 	aemu_postoffice/client/postoffice.c
 	aemu_postoffice/client/postoffice_mem_stdc.c
