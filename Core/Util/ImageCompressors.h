@@ -28,9 +28,11 @@
 // PPSSPP doesn't ship or link them: if the user puts one in memstick/PSP/SYSTEM, it's picked
 // up at startup.
 //  - CHD: CHDm, CHDmodern (https://github.com/LunaMoo/CHDmodern) 0.2.0 or newer, ISO <-> DVD CHD.
-//  - CSO: mCSO, maxcso (https://github.com/unknownbrackets/maxcso) built with its C API version 2
-//    (capi/maxcso_capi.h), ISO <-> CSO (decompressing ZSO and DAX too).
-//  - PBP: iPBP (https://github.com/LunaMoo/iPBP), ISO <-> PSN-style EBOOT.PBP (NPUMDIMG).
+//  - CSO: mCSO, maxcso (https://github.com/LunaMoo/maxcso) built with its C API version 2
+//    (capi/maxcso_capi.h), ISO <-> CSO (decompressing ZSO and DAX too). The Max preset's
+//    pre-check needs maxcso_process_ex; without it Max still works, just slower.
+//  - PBP: iPBP (https://github.com/LunaMoo/iPBP), ISO <-> PSN-style EBOOT.PBP (NPUMDIMG). The Max
+//    preset needs iPBP 1.1.0 or newer.
 // Desktop only: Android, iOS and UWP won't load native code from user storage.
 
 enum class ImageFormat {
@@ -64,17 +66,17 @@ const char *OutputExtension(ImageFormat format);
 
 namespace MaxCSO {
 
-// Matches maxcso_mode in maxcso_capi.h.
-enum class Mode {
-	Decompress = 0,
-	Fast = 1,
-	Standard = 2,
-	Maximum = 3,
+// Values are stored in the config (iCSOPreset) and index the menu.
+enum class Preset {
+	Max = 0,            // Zopfli, skipped on blocks libdeflate can't shrink below 98%; 256K blocks.
+	Great = 1,          // libdeflate; 256K blocks. Much faster, slightly bigger than Max.
+	PSPCompatible = 2,  // Plain zlib, 2K blocks: what every PSP custom firmware reads.
 };
 
-// Blocking. Compresses an ISO to CSO, or decompresses a CSO/ZSO/DAX back to ISO. Never
+// Blocking. Compresses an ISO to CSO v1, or decompresses a CSO/ZSO/DAX back to ISO. Never
 // overwrites, and deletes a partial output on failure or cancel (*cancelled is set then).
-bool Process(const Path &input, const Path &output, Mode mode, const ImageProgressFunc &progress, std::string *error, bool *cancelled);
+bool Compress(const Path &input, const Path &output, Preset preset, const ImageProgressFunc &progress, std::string *error, bool *cancelled);
+bool Decompress(const Path &input, const Path &output, const ImageProgressFunc &progress, std::string *error, bool *cancelled);
 
 }  // namespace MaxCSO
 
@@ -95,10 +97,19 @@ bool Extract(const Path &input, const Path &output, const ImageProgressFunc &pro
 
 namespace IPBP {
 
-// Blocking. Converts an ISO to a PSN-style EBOOT.PBP (LZRC-compressed blocks, or stored), or
-// such a PBP back to an ISO. Never overwrites; a partial output never survives a failure or
-// cancel (*cancelled is set then).
-bool IsoToPbp(const Path &input, const Path &output, bool compress, const ImageProgressFunc &progress, std::string *error, bool *cancelled);
+// Matches ipbp_iso2pbp_options.compress (IPBP_COMPRESS_*).
+enum class Compression {
+	None = 0,  // Blocks stored.
+	LZRC = 1,  // Like sign_np: LZRC blocks, the output real PSPs are known to read.
+	Max = 2,   // Smallest LZRC (optimal parsing), iPBP 1.1.0+. Still LZRC, but not sign_np's output.
+};
+
+// Whether the loaded iPBP has Compression::Max (older versions would quietly use LZRC).
+bool SupportsMaxCompression();
+
+// Blocking. Converts an ISO to a PSN-style EBOOT.PBP, or such a PBP back to an ISO. Never
+// overwrites; a partial output never survives a failure or cancel (*cancelled is set then).
+bool IsoToPbp(const Path &input, const Path &output, Compression compression, const ImageProgressFunc &progress, std::string *error, bool *cancelled);
 bool PbpToIso(const Path &input, const Path &output, const ImageProgressFunc &progress, std::string *error, bool *cancelled);
 
 // Checks that a PBP holds a UMD image iPBP can convert back (homebrew and PS1 EBOOTs don't),

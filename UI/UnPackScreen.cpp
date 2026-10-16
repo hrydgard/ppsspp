@@ -74,10 +74,10 @@ struct JobItem {
 struct JobSettings {
 	ImageFormat format = ImageFormat::CHD;
 	bool compress = true;
-	MaxCSO::Mode csoMode = MaxCSO::Mode::Standard;
+	MaxCSO::Preset csoPreset = MaxCSO::Preset::Great;
 	CHDModern::Codecs chdCodecs = CHDModern::Codecs::Default;
 	uint32_t chdHunkBytes = 2048;
-	bool pbpCompress = true;
+	IPBP::Compression pbpCompression = IPBP::Compression::LZRC;
 	bool recursive = false;
 	bool deleteOriginals = false;
 };
@@ -250,12 +250,16 @@ void RunJob(std::shared_ptr<JobState> job, Path source, bool folder) {
 			}
 		} else if (settings.format == ImageFormat::PBP) {
 			if (settings.compress) {
-				success = IPBP::IsoToPbp(item.input, item.output, settings.pbpCompress, progress, &error, &cancelled);
+				success = IPBP::IsoToPbp(item.input, item.output, settings.pbpCompression, progress, &error, &cancelled);
 			} else {
 				success = IPBP::PbpToIso(item.input, item.output, progress, &error, &cancelled);
 			}
 		} else {
-			success = MaxCSO::Process(item.input, item.output, settings.compress ? settings.csoMode : MaxCSO::Mode::Decompress, progress, &error, &cancelled);
+			if (settings.compress) {
+				success = MaxCSO::Compress(item.input, item.output, settings.csoPreset, progress, &error, &cancelled);
+			} else {
+				success = MaxCSO::Decompress(item.input, item.output, progress, &error, &cancelled);
+			}
 		}
 
 		if (cancelled) {
@@ -293,14 +297,26 @@ void StartJob(const Path &source, bool compress, bool folder) {
 	JobSettings settings;
 	settings.format = SelectedFormat();
 	settings.compress = compress;
-	switch (g_Config.iMaxCSOPreset) {
-	case 0: settings.csoMode = MaxCSO::Mode::Fast; break;
-	case 2: settings.csoMode = MaxCSO::Mode::Maximum; break;
-	default: settings.csoMode = MaxCSO::Mode::Standard; break;
+	settings.csoPreset = (MaxCSO::Preset)g_Config.iCSOPreset;
+	switch (g_Config.iCHDPreset) {
+	case 0:  // Large Hunk: smallest for games with little repeated data.
+		settings.chdCodecs = CHDModern::Codecs::Default;
+		settings.chdHunkBytes = 32768;
+		break;
+	case 2:  // Quick Access: fastest to read while playing.
+		settings.chdCodecs = CHDModern::Codecs::Zstd;
+		settings.chdHunkBytes = 2048;
+		break;
+	default:  // Small Hunk: smallest for games with a lot of repeated data (CHD stores it once).
+		settings.chdCodecs = CHDModern::Codecs::Default;
+		settings.chdHunkBytes = 2048;
+		break;
 	}
-	settings.chdCodecs = g_Config.iCHDCompression == 1 ? CHDModern::Codecs::Zstd : CHDModern::Codecs::Default;
-	settings.chdHunkBytes = g_Config.iCHDHunkSize == 1 ? 4096 : 2048;
-	settings.pbpCompress = g_Config.iPBPCompression != 1;
+	switch (g_Config.iPBPPreset) {
+	case 0: settings.pbpCompression = IPBP::Compression::Max; break;
+	case 2: settings.pbpCompression = IPBP::Compression::None; break;
+	default: settings.pbpCompression = IPBP::Compression::LZRC; break;
+	}
 	settings.recursive = g_Config.bUnPackIncludeSubfolders;
 	settings.deleteOriginals = g_Config.bUnPackDeleteOriginals;
 
@@ -336,10 +352,13 @@ void UnPackScreen::BeforeCreateViews() {
 	} else {
 		g_Config.iUnPackFormat = (int)SelectedFormat();
 	}
-	g_Config.iCHDCompression = std::clamp(g_Config.iCHDCompression, 0, 1);
-	g_Config.iCHDHunkSize = std::clamp(g_Config.iCHDHunkSize, 0, 1);
-	g_Config.iMaxCSOPreset = std::clamp(g_Config.iMaxCSOPreset, 0, 2);
-	g_Config.iPBPCompression = std::clamp(g_Config.iPBPCompression, 0, 1);
+	g_Config.iCSOPreset = std::clamp(g_Config.iCSOPreset, 0, 2);
+	g_Config.iCHDPreset = std::clamp(g_Config.iCHDPreset, 0, 2);
+	g_Config.iPBPPreset = std::clamp(g_Config.iPBPPreset, 0, 2);
+	// An iPBP without Max would quietly write plain LZRC: offer PSP Compatible instead.
+	if (g_Config.iPBPPreset == 0 && !IPBP::SupportsMaxCompression()) {
+		g_Config.iPBPPreset = 1;
+	}
 }
 
 void UnPackScreen::CreateContentViews(UI::ViewGroup *parent) {
@@ -401,17 +420,20 @@ void UnPackScreen::CreateSettingsViews(UI::ViewGroup *parent) {
 		jobLockedViews_.push_back(formatChoice);
 	}
 
+	// Indexed like iCHDPreset, iPBPPreset and iCSOPreset (MaxCSO::Preset).
 	if (SelectedFormat() == ImageFormat::CHD) {
-		static const char *codecs[] = { "Default (LZMA, zlib, Huffman, FLAC)", "Zstandard (faster to load)" };
-		jobLockedViews_.push_back(parent->Add(new PopupMultiChoice(&g_Config.iCHDCompression, sy->T("Compression"), codecs, 0, ARRAY_SIZE(codecs), I18NCat::SYSTEM, screenManager())));
-		static const char *hunkSizes[] = { "2048 bytes", "4096 bytes" };
-		jobLockedViews_.push_back(parent->Add(new PopupMultiChoice(&g_Config.iCHDHunkSize, sy->T("Hunk size"), hunkSizes, 0, ARRAY_SIZE(hunkSizes), I18NCat::SYSTEM, screenManager())));
+		static const char *presets[] = { "Large Hunk", "Small Hunk", "Quick Access" };
+		jobLockedViews_.push_back(parent->Add(new PopupMultiChoice(&g_Config.iCHDPreset, sy->T("Compression"), presets, 0, ARRAY_SIZE(presets), I18NCat::SYSTEM, screenManager())));
 	} else if (SelectedFormat() == ImageFormat::PBP) {
-		static const char *pbpCompression[] = { "Compressed (LZRC)", "Uncompressed" };
-		jobLockedViews_.push_back(parent->Add(new PopupMultiChoice(&g_Config.iPBPCompression, sy->T("Compression"), pbpCompression, 0, ARRAY_SIZE(pbpCompression), I18NCat::SYSTEM, screenManager())));
+		static const char *presets[] = { "Max", "PSP Compatible", "Uncompressed" };
+		PopupMultiChoice *choice = parent->Add(new PopupMultiChoice(&g_Config.iPBPPreset, sy->T("Compression"), presets, 0, ARRAY_SIZE(presets), I18NCat::SYSTEM, screenManager()));
+		if (!IPBP::SupportsMaxCompression()) {
+			choice->HideChoice(0);
+		}
+		jobLockedViews_.push_back(choice);
 	} else {
-		static const char *presets[] = { "Fast compression", "Standard compression", "Maximum compression (very slow)" };
-		jobLockedViews_.push_back(parent->Add(new PopupMultiChoice(&g_Config.iMaxCSOPreset, sy->T("Compression"), presets, 0, ARRAY_SIZE(presets), I18NCat::SYSTEM, screenManager())));
+		static const char *presets[] = { "Max", "Great", "PSP Compatible" };
+		jobLockedViews_.push_back(parent->Add(new PopupMultiChoice(&g_Config.iCSOPreset, sy->T("Compression"), presets, 0, ARRAY_SIZE(presets), I18NCat::SYSTEM, screenManager())));
 	}
 
 	parent->Add(new CheckBox(&g_Config.bUnPackIncludeSubfolders, sy->T("Include subfolders")));

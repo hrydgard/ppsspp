@@ -17,6 +17,8 @@
 
 #include "ppsspp_config.h"
 
+#include <cstdio>
+#include <functional>
 #include <mutex>
 #include <type_traits>
 
@@ -74,6 +76,28 @@ typedef int (LIB_CALL *MaxcsoCapiVersionFn)(void);
 typedef const char *(LIB_CALL *MaxcsoVersionFn)(void);
 typedef int (LIB_CALL *MaxcsoProcessFn)(const char *input, const char *output, int mode,
 	MaxcsoProgressFn progress, void *userdata, char *error, size_t errorSize);
+typedef int (LIB_CALL *MaxcsoProcessFlagsFn)(const char *input, const char *output, uint32_t flags,
+	uint32_t blockSize, MaxcsoProgressFn progress, void *userdata, char *error, size_t errorSize);
+// Optional, newer builds: settings beyond flags and block size.
+struct MaxcsoOptions {
+	uint32_t struct_size;
+	uint32_t flags;
+	uint32_t block_size;
+	uint32_t zopfli_split_max;
+	double precheck_percent;
+};
+typedef int (LIB_CALL *MaxcsoOptionsInitFn)(MaxcsoOptions *options, int mode);
+typedef int (LIB_CALL *MaxcsoProcessExFn)(const char *input, const char *output, const MaxcsoOptions *options,
+	MaxcsoProgressFn progress, void *userdata, char *error, size_t errorSize);
+const int MAXCSO_MODE_DECOMPRESS = 0;
+const int MAXCSO_MODE_STANDARD = 2;
+// maxcso::TaskFlags: methods to leave out.
+const uint32_t MAXCSO_NO_ZLIB_BRUTE = 0x02;
+const uint32_t MAXCSO_NO_ZLIB = 0x03;
+const uint32_t MAXCSO_NO_ZOPFLI = 0x04;
+const uint32_t MAXCSO_NO_7ZIP = 0x08;
+const uint32_t MAXCSO_NO_LZ4 = 0x380;
+const uint32_t MAXCSO_NO_LIBDEFLATE = 0x1000;
 
 // chdmodern.h (plain C, default calling convention)
 const int CHDM_ERR_CANCELLED = 106;
@@ -140,6 +164,9 @@ IpbpApi g_ipbpApi{};
 bool g_ipbpLoaded = false;
 
 MaxcsoProcessFn g_maxcsoProcess = nullptr;
+MaxcsoProcessFlagsFn g_maxcsoProcessFlags = nullptr;
+MaxcsoOptionsInitFn g_maxcsoOptionsInit = nullptr;
+MaxcsoProcessExFn g_maxcsoProcessEx = nullptr;
 ChdmLastErrorFn g_chdmLastError = nullptr;
 ChdmCreateDvdFn g_chdmCreateDvd = nullptr;
 ChdmExtractRawFn g_chdmExtractRaw = nullptr;
@@ -202,7 +229,8 @@ void LoadMaxcso() {
 	auto capiVersion = (MaxcsoCapiVersionFn)GetSymbol(handle, "maxcso_capi_version");
 	auto version = (MaxcsoVersionFn)GetSymbol(handle, "maxcso_version");
 	auto process = (MaxcsoProcessFn)GetSymbol(handle, "maxcso_process");
-	if (!capiVersion || !version || !process) {
+	auto processFlags = (MaxcsoProcessFlagsFn)GetSymbol(handle, "maxcso_process_flags");
+	if (!capiVersion || !version || !process || !processFlags) {
 		ERROR_LOG(Log::Loader, "%s doesn't export the maxcso C API", g_maxcso.path.c_str());
 		CloseLibrary(handle);
 		return;
@@ -216,7 +244,16 @@ void LoadMaxcso() {
 	g_maxcso.version = v ? v : "";
 	g_maxcso.handle = handle;
 	g_maxcsoProcess = process;
-	INFO_LOG(Log::Loader, "Loaded maxcso %s from %s", g_maxcso.version.c_str(), g_maxcso.path.c_str());
+	g_maxcsoProcessFlags = processFlags;
+	// Newer builds (LunaMoo/maxcso): the Max preset's libdeflate pre-check.
+	g_maxcsoOptionsInit = (MaxcsoOptionsInitFn)GetSymbol(handle, "maxcso_options_init");
+	g_maxcsoProcessEx = (MaxcsoProcessExFn)GetSymbol(handle, "maxcso_process_ex");
+	if (!g_maxcsoOptionsInit || !g_maxcsoProcessEx) {
+		g_maxcsoOptionsInit = nullptr;
+		g_maxcsoProcessEx = nullptr;
+	}
+	INFO_LOG(Log::Loader, "Loaded maxcso %s from %s%s", g_maxcso.version.c_str(), g_maxcso.path.c_str(),
+		g_maxcsoProcessEx ? "" : " (no maxcso_process_ex: Max runs without its pre-check)");
 }
 
 void LoadChdmodern() {
@@ -233,11 +270,24 @@ void LoadChdmodern() {
 		CloseLibrary(handle);
 		return;
 	}
+	// chdm_version arrived in 0.3.0.
+	auto versionFn = (const char *(*)(void))GetSymbol(handle, "chdm_version");
+#ifdef _WIN32
+	// 0.2.0 put its 1 MB compressor on the stack, which overflows a Windows thread's stack and
+	// crashes the whole process on the first compression.
+	if (!versionFn) {
+		ERROR_LOG(Log::Loader, "%s is CHDmodern 0.2.0, which crashes when compressing on Windows: it needs 0.3.0 or newer", g_chdmodern.path.c_str());
+		CloseLibrary(handle);
+		return;
+	}
+#endif
+	const char *chdVersion = versionFn ? versionFn() : nullptr;
+	g_chdmodern.version = chdVersion ? chdVersion : "";
 	g_chdmodern.handle = handle;
 	g_chdmLastError = lastError;
 	g_chdmCreateDvd = createDvd;
 	g_chdmExtractRaw = extractRaw;
-	INFO_LOG(Log::Loader, "Loaded CHDmodern from %s", g_chdmodern.path.c_str());
+	INFO_LOG(Log::Loader, "Loaded CHDmodern %s from %s", g_chdmodern.version.c_str(), g_chdmodern.path.c_str());
 }
 
 void LoadIpbp() {
@@ -380,7 +430,9 @@ std::string Version(ImageFormat format) {
 
 namespace MaxCSO {
 
-bool Process(const Path &input, const Path &output, Mode mode, const ImageProgressFunc &progress, std::string *error, bool *cancelled) {
+namespace {
+
+bool RunMaxcso(const Path &output, std::string *error, bool *cancelled, const std::function<int(char *errorBuf, size_t errorSize)> &run) {
 	*cancelled = false;
 	if (!g_maxcsoProcess) {
 		*error = "maxcso is not loaded";
@@ -389,10 +441,8 @@ bool Process(const Path &input, const Path &output, Mode mode, const ImageProgre
 	if (!CheckOutput(output, error)) {
 		return false;
 	}
-
 	char errorBuf[512]{};
-	int result = g_maxcsoProcess(input.ToCString().c_str(), output.ToCString().c_str(), (int)mode,
-		&MaxcsoProgressThunk, (void *)&progress, errorBuf, sizeof(errorBuf));
+	int result = run(errorBuf, sizeof(errorBuf));
 	if (result == 0) {
 		return true;
 	}
@@ -403,6 +453,53 @@ bool Process(const Path &input, const Path &output, Mode mode, const ImageProgre
 		File::Delete(output, true);
 	}
 	return false;
+}
+
+}  // namespace
+
+bool Compress(const Path &input, const Path &output, Preset preset, const ImageProgressFunc &progress, std::string *error, bool *cancelled) {
+	// Every preset writes CSO v1 (deflate), and leaves out lz4 (CSO v2 / ZSO only) and 7-zip, which
+	// adds nothing next to Zopfli and is slow.
+	uint32_t flags = MAXCSO_NO_LZ4 | MAXCSO_NO_7ZIP;
+	uint32_t blockSize = 262144;
+	double precheck = 0.0;
+	switch (preset) {
+	case Preset::Max:
+		// Zopfli, with libdeflate both as a trial and as the pre-check that skips Zopfli on blocks
+		// it can't shrink below 98% (video, audio): about 1.3x faster for +0.007% in size.
+		flags |= MAXCSO_NO_ZLIB;
+		precheck = 98.0;
+		break;
+	case Preset::Great:
+		flags |= MAXCSO_NO_ZLIB | MAXCSO_NO_ZOPFLI;
+		break;
+	case Preset::PSPCompatible:
+	default:
+		// Some custom firmware can't read libdeflate's output or larger blocks.
+		flags |= MAXCSO_NO_ZLIB_BRUTE | MAXCSO_NO_ZOPFLI | MAXCSO_NO_LIBDEFLATE;
+		blockSize = 2048;
+		break;
+	}
+	const std::string in = input.ToCString(), out = output.ToCString();
+	return RunMaxcso(output, error, cancelled, [&](char *errorBuf, size_t errorSize) {
+		if (precheck > 0.0 && g_maxcsoProcessEx) {
+			MaxcsoOptions options;
+			g_maxcsoOptionsInit(&options, MAXCSO_MODE_STANDARD);
+			options.flags = flags;
+			options.block_size = blockSize;
+			options.precheck_percent = precheck;
+			return g_maxcsoProcessEx(in.c_str(), out.c_str(), &options, &MaxcsoProgressThunk, (void *)&progress, errorBuf, errorSize);
+		}
+		// Without maxcso_process_ex the result is the same size, it just takes longer.
+		return g_maxcsoProcessFlags(in.c_str(), out.c_str(), flags, blockSize, &MaxcsoProgressThunk, (void *)&progress, errorBuf, errorSize);
+	});
+}
+
+bool Decompress(const Path &input, const Path &output, const ImageProgressFunc &progress, std::string *error, bool *cancelled) {
+	return RunMaxcso(output, error, cancelled, [&](char *errorBuf, size_t errorSize) {
+		return g_maxcsoProcess(input.ToCString().c_str(), output.ToCString().c_str(), MAXCSO_MODE_DECOMPRESS,
+			&MaxcsoProgressThunk, (void *)&progress, errorBuf, errorSize);
+	});
 }
 
 }  // namespace MaxCSO
@@ -474,11 +571,28 @@ bool RunIpbp(const Path &output, const ImageProgressFunc &progress, std::string 
 
 }  // namespace
 
-bool IsoToPbp(const Path &input, const Path &output, bool compress, const ImageProgressFunc &progress, std::string *error, bool *cancelled) {
+bool SupportsMaxCompression() {
+	if (!g_ipbpLoaded) {
+		return false;
+	}
+	// "1.1.0" and later. Versions are plain "major.minor.patch".
+	int major = 0, minor = 0;
+	if (sscanf(g_ipbp.version.c_str(), "%d.%d", &major, &minor) != 2) {
+		return false;
+	}
+	return major > 1 || (major == 1 && minor >= 1);
+}
+
+bool IsoToPbp(const Path &input, const Path &output, Compression compression, const ImageProgressFunc &progress, std::string *error, bool *cancelled) {
+	if (compression == Compression::Max && !SupportsMaxCompression()) {
+		*cancelled = false;
+		*error = "Max compression needs iPBP 1.1.0 or newer";
+		return false;
+	}
 	return RunIpbp(output, progress, error, cancelled, [&](ipbp_job *job) {
 		IpbpIso2PbpOptions options;
 		g_ipbpApi.iso2pbp_options_init(&options);
-		options.compress = compress ? 1 : 0;
+		options.compress = (int)compression;
 		return g_ipbpApi.iso_to_pbp(job, input.ToCString().c_str(), output.ToCString().c_str(), &options);
 	});
 }
@@ -530,7 +644,13 @@ std::string Version(ImageFormat format) { return ""; }
 
 namespace MaxCSO {
 
-bool Process(const Path &input, const Path &output, Mode mode, const ImageProgressFunc &progress, std::string *error, bool *cancelled) {
+bool Compress(const Path &input, const Path &output, Preset preset, const ImageProgressFunc &progress, std::string *error, bool *cancelled) {
+	*cancelled = false;
+	*error = "Not supported on this platform";
+	return false;
+}
+
+bool Decompress(const Path &input, const Path &output, const ImageProgressFunc &progress, std::string *error, bool *cancelled) {
 	*cancelled = false;
 	*error = "Not supported on this platform";
 	return false;
@@ -556,7 +676,11 @@ bool Extract(const Path &input, const Path &output, const ImageProgressFunc &pro
 
 namespace IPBP {
 
-bool IsoToPbp(const Path &input, const Path &output, bool compress, const ImageProgressFunc &progress, std::string *error, bool *cancelled) {
+bool SupportsMaxCompression() {
+	return false;
+}
+
+bool IsoToPbp(const Path &input, const Path &output, Compression compression, const ImageProgressFunc &progress, std::string *error, bool *cancelled) {
 	*cancelled = false;
 	*error = "Not supported on this platform";
 	return false;

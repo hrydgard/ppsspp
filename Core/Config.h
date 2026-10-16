@@ -256,10 +256,9 @@ public:
 
 	// Un/Pack tools (only shown when CHDmodern or maxcso is present in PSP/SYSTEM).
 	int iUnPackFormat;  // ImageFormat: 0 = CHD, 1 = CSO, 2 = PBP
-	int iCHDCompression;  // CHDModern::Codecs: 0 = default (LZMA, zlib, Huffman, FLAC), 1 = Zstandard
-	int iCHDHunkSize;  // 0 = 2048 bytes, 1 = 4096 bytes
-	int iMaxCSOPreset;  // 0 = fast, 1 = standard, 2 = maximum
-	int iPBPCompression;  // 0 = LZRC-compressed blocks, 1 = stored
+	int iCSOPreset;  // MaxCSO::Preset: 0 = Max, 1 = Great, 2 = PSP Compatible
+	int iCHDPreset;  // 0 = Large Hunk (default codecs, 32K), 1 = Small Hunk (default codecs, 2K), 2 = Quick Access (Zstandard, 2K)
+	int iPBPPreset;  // 0 = Max (LZRC max), 1 = PSP Compatible (LZRC), 2 = Uncompressed
 	bool bUnPackIncludeSubfolders;
 	bool bUnPackDeleteOriginals;
 	int iRemoteISOPort; // Also used for serving a local remote debugger.
