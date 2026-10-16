@@ -26,6 +26,7 @@
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/MIPS/MIPSTables.h"
+#include "Core/MIPS/MIPSVFPUUtils.h"
 #include "Core/HW/SimpleAudioDec.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/Debugger/SymbolMap.h"
@@ -354,12 +355,68 @@ static void DrawFPRs(ImConfig &config, ImControl &control, const MIPSDebugInterf
 }
 
 static void DrawVFPU(ImConfig &config, ImControl &control, const MIPSDebugInterface *mipsDebug, const ImSnapshotState &prev) {
-	ImGui::SetNextWindowSize(ImVec2(320, 600), ImGuiCond_FirstUseEver);
+	ImGui::SetNextWindowSize(ImVec2(520, 600), ImGuiCond_FirstUseEver);
 	if (!ImGui::Begin("VFPU", &config.vfpuOpen)) {
 		ImGui::End();
 		return;
 	}
-	ImGui::Text("TODO");
+	const bool appearing = ImGui::IsWindowAppearing();
+	if (ImGui::BeginTabBar("vfpuMode")) {
+		for (int i = 0; i < (int)VFPUDisplayMode::COUNT; i++) {
+			// Restore the saved mode when the window appears.
+			ImGuiTabItemFlags flags = (appearing && i == config.vfpuDisplayMode) ? ImGuiTabItemFlags_SetSelected : 0;
+			if (ImGui::BeginTabItem(g_vfpuDisplayModeNames[i], nullptr, flags)) {
+				config.vfpuDisplayMode = i;
+				ImGui::EndTabItem();
+			}
+		}
+		ImGui::EndTabBar();
+	}
+
+	bool noDiff = coreState == CORE_RUNNING_CPU || coreState == CORE_STEPPING_GE;
+	const VFPUDisplayMode mode = (VFPUDisplayMode)config.vfpuDisplayMode;
+
+	// Laid out like the Win32 VFPU window: each column of a matrix is a row vector (Rmnr), each line a
+	// column vector (Cmc0).
+	ImGui::BeginChild("vfpuMatrices");
+	char temp[64];
+	for (int matrix = 0; matrix < 8; matrix++) {
+		ImGui::PushID(matrix);
+		if (ImGui::BeginTable("matrix", 5, ImGuiTableFlags_Borders | ImGuiTableFlags_SizingFixedFit)) {
+			snprintf(temp, sizeof(temp), "M%d00", matrix);
+			ImGui::TableSetupColumn(temp);
+			for (int column = 0; column < 4; column++) {
+				snprintf(temp, sizeof(temp), "R%d0%d", matrix, column);
+				ImGui::TableSetupColumn(temp, ImGuiTableColumnFlags_WidthFixed, ImGui::CalcTextSize("-0000.000000").x);
+			}
+			ImGui::TableHeadersRow();
+
+			for (int row = 0; row < 4; row++) {
+				ImGui::TableNextRow();
+				ImGui::TableNextColumn();
+				ImGui::Text("C%d%d0", matrix, row);
+				for (int column = 0; column < 4; column++) {
+					ImGui::TableNextColumn();
+					int index = column * 32 + row + matrix * 4;
+					u32 value = mipsDebug->GetRegValue(2, index);
+					// NOTE: Using memcmp to avoid NaN problems.
+					bool diff = memcmp(&value, &prev.vpr[voffset[index]], 4) != 0 && !noDiff;
+					if (diff) {
+						ImGui::PushStyleColor(ImGuiCol_Text, ImDebuggerColor_Diff);
+					}
+					FormatVFPUValue(temp, sizeof(temp), value, mode);
+					ImGui::TextUnformatted(temp);
+					if (diff) {
+						ImGui::PopStyleColor();
+					}
+				}
+			}
+			ImGui::EndTable();
+		}
+		ImGui::PopID();
+		ImGui::Spacing();
+	}
+	ImGui::EndChild();
 	ImGui::End();
 }
 
@@ -3117,6 +3174,7 @@ void ImConfig::SyncConfig(IniFile *ini, bool save) {
 	sync.Sync("gprOpen", &gprOpen, false);
 	sync.Sync("fprOpen", &fprOpen, false);
 	sync.Sync("vfpuOpen", &vfpuOpen, false);
+	sync.Sync("vfpuDisplayMode", &vfpuDisplayMode, 0);
 	sync.Sync("threadsOpen", &threadsOpen, false);
 	sync.Sync("callstackOpen", &callstackOpen, false);
 	sync.Sync("breakpointsOpen", &breakpointsOpen, false);

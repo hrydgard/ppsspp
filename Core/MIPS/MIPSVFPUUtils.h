@@ -318,6 +318,19 @@ float Float16ToFloat32(unsigned short l);
 u32 vfpu_h2f(u16 h);
 // The same, as a float (vfim).
 float vfpu_h2f_float(u16 h);
+
+// How the debuggers show a VFPU register. The multi-part modes list the lowest part first.
+enum class VFPUDisplayMode {
+	Float,
+	HalfFloat,
+	Hex,
+	Bytes,
+	Shorts,
+	Ints,
+	COUNT,
+};
+extern const char *const g_vfpuDisplayModeNames[(int)VFPUDisplayMode::COUNT];
+void FormatVFPUValue(char *out, size_t outSize, u32 value, VFPUDisplayMode mode);
 // vh2f of the lower or upper half of a word, with the word and result as float bits. For the JITs.
 float vfpu_h2f_lower(float word);
 float vfpu_h2f_upper(float word);
