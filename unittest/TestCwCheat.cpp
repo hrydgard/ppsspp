@@ -25,6 +25,7 @@
 #include "Core/MemMap.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/HLE/sceCtrl.h"
+#include "Core/MIPS/MIPS.h"
 #include "UnitTest.h"
 
 // Most of these are the PSPAR tests from TempAR's docs/tests/tests.db, with their expected results.
@@ -200,6 +201,8 @@ static bool TestCheatParseErrors() {
 }
 
 bool TestCwCheat() {
+	// Other tests may leave currentMIPS pointing elsewhere; the cheat engine needs the real one.
+	currentMIPS = &mipsr4k;
 	Memory::g_MemorySize = Memory::RAM_NORMAL_SIZE;
 	if (!Memory::Init(Memory::MemMapSetupFlags::Default)) {
 		printf("Memory::Init failed\n");
