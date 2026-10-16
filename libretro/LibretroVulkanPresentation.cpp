@@ -5,7 +5,7 @@
 using namespace PPSSPP_VK;
 
 LibretroVulkanPresentation::LibretroVulkanPresentation(retro_hw_render_interface_vulkan *vulkan, VkFormat format, VkExtent2D extent)
-	: vulkan_(vulkan), format_(format), extent_(extent) {
+	: vulkan_(vulkan), format_(format), extent_(extent), requestedExtent_(PackExtent(extent)) {
 }
 
 uint32_t LibretroVulkanPresentation::ImageCountFromMask(uint32_t mask) {
@@ -111,11 +111,13 @@ void LibretroVulkanPresentation::Destroy(VulkanContext *context) {
 }
 
 bool LibretroVulkanPresentation::NeedsRecreate() const {
-	return vulkan_->get_sync_index_mask(vulkan_->handle) != syncIndexMask_;
+	return vulkan_->get_sync_index_mask(vulkan_->handle) != syncIndexMask_ || requestedExtent_ != PackExtent(extent_);
 }
 
 bool LibretroVulkanPresentation::Recreate(VulkanContext *context) {
 	Destroy(context);
+	const uint32_t requested = requestedExtent_;
+	extent_ = { requested >> 16, requested & 0xFFFF };
 	return Create(context);
 }
 

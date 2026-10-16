@@ -34,7 +34,13 @@ void LibretroVulkanContext::SwapBuffers() {
 	if (presentation) {
 		presentation->WaitForPresentation();
 	}
-	LibretroHWRenderContext::SwapBuffers();
+	unsigned w = PSP_CoreParameter().pixelWidth;
+	unsigned h = PSP_CoreParameter().pixelHeight;
+	Libretro::GetFrameSize(&w, &h);
+	if (presentation) {
+		presentation->RequestExtent({ w, h });
+	}
+	video_cb(RETRO_HW_FRAME_BUFFER_VALID, w, h, 0);
 }
 
 static bool create_device(retro_vulkan_context *context, VkInstance instance, VkPhysicalDevice gpu, VkSurfaceKHR surface, PFN_vkGetInstanceProcAddr get_instance_proc_addr, const char **required_device_extensions, unsigned num_required_device_extensions, const char **required_device_layers, unsigned num_required_device_layers, const VkPhysicalDeviceFeatures *required_features) {
