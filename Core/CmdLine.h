@@ -199,6 +199,7 @@ struct CommandLineOptions {
 	std::optional<bool> dumpCompat;
 	std::optional<bool> hardwareTransform;
 	std::optional<bool> vertexJit;
+	std::optional<bool> shaderCache;
 	// Headless: comma-separated clip-distance, cull-distance, depth-clamp, framebuffer-fetch, dual-source-blend.
 	std::optional<std::string> disableGPUFeatures;
 	std::optional<bool> screenshotRenderTarget;
