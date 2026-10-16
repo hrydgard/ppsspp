@@ -985,6 +985,15 @@ static int Hook_soranokiseki_sc_download_frame() {
 	return 0;
 }
 
+static int Hook_amagoushi_download_frame() {
+	// Amagoushi no Yakata (ULJS00216) offscreen picking pass renders to 0x04000000 or 0x04080000.
+	// Flush GPU framebuffer to VRAM before CPU decodes pixels into hit-test table.
+	gpu->PerformReadbackToMemory(0x04000000, 0x00044000);
+	gpu->PerformReadbackToMemory(0x04080000, 0x00044000);
+	NotifyMemInfo(MemBlockFlags::WRITE, 0x04000000, 0x00044000, "amagoushi_download_frame");
+	return 0;
+}
+
 static int Hook_bokunonatsuyasumi4_download_frame() {
 	const u32 fb_address = currentMIPS->r[MIPS_REG_A3];
 	if (Memory::IsVRAMAddress(fb_address)) {
@@ -1851,6 +1860,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "kagaku_no_ensemble_download_frame", &Hook_kagaku_no_ensemble_download_frame, 0, REPFLAG_HOOKENTER, 0x38 },
 	{ "soranokiseki_fc_download_frame", &Hook_soranokiseki_fc_download_frame, 0, REPFLAG_HOOKENTER, 0x180 },
 	{ "soranokiseki_sc_download_frame", &Hook_soranokiseki_sc_download_frame, 0, REPFLAG_HOOKENTER, },
+	{ "amagoushi_download_frame", &Hook_amagoushi_download_frame, 0, REPFLAG_HOOKENTER },
 	{ "bokunonatsuyasumi4_download_frame", &Hook_bokunonatsuyasumi4_download_frame, 0, REPFLAG_HOOKENTER, 0x8C },
 	{ "danganronpa2_1_download_frame", &Hook_danganronpa2_1_download_frame, 0, REPFLAG_HOOKENTER, 0x68 },
 	{ "danganronpa2_2_download_frame", &Hook_danganronpa2_2_download_frame, 0, REPFLAG_HOOKENTER, 0x94 },
