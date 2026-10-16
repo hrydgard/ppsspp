@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 
 #include "Common/BitScan.h"
@@ -682,6 +683,34 @@ u32 vfpu_h2f(u16 h) {
 
 float vfpu_h2f_float(u16 h) {
 	return vfpu_float_from_bits(vfpu_h2f(h));
+}
+
+const char *const g_vfpuDisplayModeNames[(int)VFPUDisplayMode::COUNT] = {
+	"Float", "HalfFloat", "Hex", "Bytes", "Shorts", "Ints",
+};
+
+void FormatVFPUValue(char *out, size_t outSize, u32 value, VFPUDisplayMode mode) {
+	switch (mode) {
+	case VFPUDisplayMode::Float:
+		snprintf(out, outSize, "%f", vfpu_float_from_bits(value));
+		break;
+	case VFPUDisplayMode::HalfFloat:
+		snprintf(out, outSize, "%g %g", vfpu_h2f_float((u16)(value & 0xFFFF)), vfpu_h2f_float((u16)(value >> 16)));
+		break;
+	case VFPUDisplayMode::Hex:
+		snprintf(out, outSize, "%08x", value);
+		break;
+	case VFPUDisplayMode::Bytes:
+		snprintf(out, outSize, "%02x %02x %02x %02x", value & 0xFF, (value >> 8) & 0xFF, (value >> 16) & 0xFF, value >> 24);
+		break;
+	case VFPUDisplayMode::Shorts:
+		snprintf(out, outSize, "%d %d", (s16)(value & 0xFFFF), (s16)(value >> 16));
+		break;
+	case VFPUDisplayMode::Ints:
+	default:
+		snprintf(out, outSize, "%d", (s32)value);
+		break;
+	}
 }
 
 float vfpu_h2f_lower(float word) {
