@@ -1758,6 +1758,35 @@ static int Hook_ZZT3_select_hack() {
 	return 0;
 }
 
+// Bejeweled 2 only presents once mNextDrawTick has passed, and while the loading thread runs, it moves
+// it 35-50ms on per present to hold the loading screen to 20fps. The PSP port presents every frame while
+// loading, but still moves it on, so by the end of loading it's seconds ahead.
+// Whether that's undone depends on a race: if mLoadingThreadCompleted is set during a present, the present
+// ends by setting mNextDrawTick to now. If not, nothing is presented for those seconds while every frame
+// still draws into the same display list, which overruns its 128KB into the game's globals and crashes.
+// So, we do what the present would have, once loading has completed.
+static int Hook_bejeweled2_draw_dirty_stuff() {
+	const u32 func = currentMIPS->pc;
+	const u32 app = currentMIPS->r[MIPS_REG_A0];
+	// The hash masks immediates, so check the fields are where we expect.
+	if (Memory::Read_Instruction(func + 0x48).encoding != 0x90840411 ||  // lbu a0, 0x411(a0) - mLoadingThreadStarted
+		Memory::Read_Instruction(func + 0x58).encoding != 0x90840412 ||  // lbu a0, 0x412(a0) - mLoadingThreadCompleted
+		Memory::Read_Instruction(func + 0xC0).encoding != 0x8C8403C8 ||  // lw a0, 0x3C8(a0) - mLastDrawTick
+		Memory::Read_Instruction(func + 0xDC).encoding != 0x8C8403CC) {  // lw a0, 0x3CC(a0) - mNextDrawTick
+		return 0;
+	}
+	if (!Memory::IsValidRange(app, 0x414) || Memory::ReadUnchecked_U8(app + 0x412) == 0) {
+		return 0;
+	}
+	// After loading, a present leaves mNextDrawTick at mLastDrawTick.
+	const u32 lastDrawTick = Memory::ReadUnchecked_U32(app + 0x3C8);
+	const u32 nextDrawTick = Memory::ReadUnchecked_U32(app + 0x3CC);
+	if ((s32)(nextDrawTick - lastDrawTick) > 1000) {
+		Memory::WriteUnchecked_U32(lastDrawTick, app + 0x3CC);
+	}
+	return 0;
+}
+
 #define JITFUNC(f) (&MIPSComp::MIPSFrontendInterface::f)
 
 // Can either replace with C functions or functions emitted in Asm/ArmAsm.
@@ -1896,6 +1925,7 @@ static const ReplacementTableEntry entries[] = {
 	{ "resistance_draw_trail", &Hook_resistance_draw_trail, 0, REPFLAG_HOOKENTER, 0x198 },
 	{ "resistance_update_trail", &Hook_resistance_update_trail, 0, REPFLAG_HOOKENTER, 0x438 },
 	{ "resistance_muzzle_light", &Hook_resistance_muzzle_light, 0, REPFLAG_HOOKENTER, 0xF0 },
+	{ "bejeweled2_draw_dirty_stuff", &Hook_bejeweled2_draw_dirty_stuff, 0, REPFLAG_HOOKENTER, 0 },
 	{}
 };
 
