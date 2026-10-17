@@ -94,6 +94,8 @@ protected:
 	bool lastVertical_ = false;
 	bool confirmedTemporary_ = false;
 	bool searchChanged_ = false;
+	bool recentTabShown_ = false;
+	bool createdMainTabs_ = false;
 	std::string searchFilter_;
 
 	friend class RemoteISOBrowseScreen;
