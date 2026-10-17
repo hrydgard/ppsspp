@@ -111,9 +111,11 @@ AndroidAudioState *g_audioState;
 
 struct FrameCommand {
 	FrameCommand() = default;
-	FrameCommand(std::string_view cmd, std::string_view param) : command(cmd), params(param) {}
+	FrameCommand(std::string_view cmd, std::string_view param, int reqId) : command(cmd), params(param), requestId(reqId) {}
 	std::string command;
 	std::string params;
+	// The request waiting for an answer to this command, or -1. Failed if the command can't be delivered.
+	int requestId = -1;
 };
 
 static std::mutex frameCommandLock;
@@ -121,7 +123,6 @@ static std::vector<FrameCommand> g_frameCommands;
 
 static std::string systemName;
 static std::string langRegion;
-static std::string mogaVersion;
 static std::string boardName;
 
 std::string g_externalDir;  // Original external dir (root of Android storage).
@@ -143,8 +144,6 @@ static int display_dpi;
 static float display_scale_x;  // Scale factor due to backbuffer scaling
 static float display_scale_y;
 
-static int backbuffer_format;	// Android PixelFormat enum
-
 static int desiredBackbufferSizeX;
 static int desiredBackbufferSizeY;
 
@@ -154,15 +153,16 @@ extern JavaVM *gJvm;
 static jobject gClassLoader;
 static jmethodID gFindClassMethod;
 
+// PpssppActivity methods, looked up in JNI_OnLoad.
+static jmethodID postCommand;
+static jmethodID getDebugString;
+static jmethodID getNativeCrashHistory;
+
 static float g_safeInsetLeft = 0.0;
 static float g_safeInsetRight = 0.0;
 static float g_safeInsetTop = 0.0;
 static float g_safeInsetBottom = 0.0;
 static bool g_hasCameraCutout = false;
-
-static jmethodID postCommand;
-static jmethodID getDebugString;
-static jmethodID getNativeCrashHistory;
 
 // Global ref. Written on the UI thread under g_activityLock. Other threads go through Android_GetActivity.
 static jobject ppssppActivity;
@@ -181,14 +181,23 @@ static std::string g_installerName;
 static std::mutex permissionsLock;
 static std::map<SystemPermission, PermissionStatus> permissions;
 
-static void SetPermissionStatus(SystemPermission permission, PermissionStatus status) {
+// The name is the one System_AskForPermission sends.
+static void SetPermissionStatusFromJava(std::string_view name, PermissionStatus status) {
+	SystemPermission permission;
+	if (name == "storage") {
+		permission = SYSTEM_PERMISSION_STORAGE;
+	} else if (name == "local_network") {
+		permission = SYSTEM_PERMISSION_LOCAL_NETWORK;
+	} else {
+		WARN_LOG(Log::System, "Status %d for unknown permission '%.*s'", (int)status, STR_VIEW(name));
+		return;
+	}
+	INFO_LOG(Log::System, "Permission '%.*s': status %d", STR_VIEW(name), (int)status);
 	std::lock_guard<std::mutex> guard(permissionsLock);
 	permissions[permission] = status;
 }
 
 static GraphicsContext *graphicsContext;
-
-#define MessageBox(a, b, c, d) __android_log_print(ANDROID_LOG_INFO, APP_NAME, "%s %s", (b), (c));
 
 #if PPSSPP_ARCH(ARMV7)
 // Old Android workaround
@@ -248,15 +257,20 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM *pjvm, void *reserved) {
 	INFO_LOG(Log::System, "JNI_OnLoad");
 	gJvm = pjvm;  // cache the JavaVM pointer
 	auto env = getEnv();
-	//replace with one of your classes in the line below
-	auto randomClass = env->FindClass("org/ppsspp/ppsspp/PpssppActivity");
-	jclass classClass = env->GetObjectClass(randomClass);
-	auto classLoaderClass = env->FindClass("java/lang/ClassLoader");
-	auto getClassLoaderMethod = env->GetMethodID(classClass, "getClassLoader",
-												 "()Ljava/lang/ClassLoader;");
-	gClassLoader = env->NewGlobalRef(env->CallObjectMethod(randomClass, getClassLoaderMethod));
-	gFindClassMethod = env->GetMethodID(classLoaderClass, "findClass",
-										"(Ljava/lang/String;)Ljava/lang/Class;");
+	// Method IDs stay valid for as long as the class is loaded, which is the life of the process.
+	jclass activityClass = env->FindClass("org/ppsspp/ppsspp/PpssppActivity");
+	jclass classClass = env->GetObjectClass(activityClass);
+	jclass classLoaderClass = env->FindClass("java/lang/ClassLoader");
+	jmethodID getClassLoaderMethod = env->GetMethodID(classClass, "getClassLoader", "()Ljava/lang/ClassLoader;");
+	gClassLoader = env->NewGlobalRef(env->CallObjectMethod(activityClass, getClassLoaderMethod));
+	gFindClassMethod = env->GetMethodID(classLoaderClass, "findClass", "(Ljava/lang/String;)Ljava/lang/Class;");
+
+	postCommand = env->GetMethodID(activityClass, "postCommand", "(Ljava/lang/String;Ljava/lang/String;)V");
+	getDebugString = env->GetMethodID(activityClass, "getDebugString", "(Ljava/lang/String;)Ljava/lang/String;");
+	getNativeCrashHistory = env->GetMethodID(activityClass, "getNativeCrashHistory", "(I)Ljava/util/ArrayList;");
+	_dbg_assert_(postCommand && getDebugString && getNativeCrashHistory);
+
+	Android_RegisterStorageCallbacks(env);
 
 	RegisterAttachDetach(&Android_AttachThreadToJNI, &Android_DetachThreadFromJNI);
 
@@ -269,9 +283,9 @@ jobject Android_GetActivity(JNIEnv *env) {
 	return ppssppActivity ? env->NewLocalRef(ppssppActivity) : nullptr;
 }
 
-static void PushCommand(std::string_view cmd, std::string_view param) {
+static void PushCommand(std::string_view cmd, std::string_view param, int requestId = -1) {
 	std::lock_guard<std::mutex> guard(frameCommandLock);
-	g_frameCommands.emplace_back(std::string(cmd), std::string(param));
+	g_frameCommands.emplace_back(cmd, param, requestId);
 }
 
 // Android implementation of callbacks to the Java part of the app
@@ -305,8 +319,6 @@ std::string System_GetProperty(SystemProperty prop) {
 		return systemName;
 	case SYSPROP_LANGREGION:	// "en_US"
 		return langRegion;
-	case SYSPROP_MOGA_VERSION:
-		return mogaVersion;
 	case SYSPROP_BOARDNAME:
 		return boardName;
 	case SYSPROP_BUILD_VERSION:
@@ -479,76 +491,27 @@ std::string Android_GetInputDeviceDebugString() {
 
 	jstring jparam = env->NewStringUTF("InputDevice");
 	jstring jstr = (jstring)env->CallObjectMethod(activity, getDebugString, jparam);
-	if (!jstr) {
+	if (CheckJavaException(env, __FUNCTION__) || !jstr) {
 		return "(N/A)";
 	}
-
-	const char *charArray = env->GetStringUTFChars(jstr, nullptr);
-	std::string retVal = charArray ? charArray : "(N/A)";
-	if (charArray) {
-		env->ReleaseStringUTFChars(jstr, charArray);
-	}
-	return retVal;
+	return GetJavaString(env, jstr);
 }
 
 std::vector<std::string> Android_GetNativeCrashHistory(int maxEntries) {
-	std::vector<std::string> crashHistory;
 	if (!getNativeCrashHistory) {
-		return crashHistory;
+		return {};
 	}
 	auto env = getEnv();
 	JNILocalFrame frame(env);
 	jobject activity = Android_GetActivity(env);
 	if (!activity) {
-		return crashHistory;
+		return {};
 	}
 	jobject jlist = env->CallObjectMethod(activity, getNativeCrashHistory, maxEntries);
-	if (!jlist) {
-		return crashHistory;
+	if (CheckJavaException(env, __FUNCTION__)) {
+		return {};
 	}
-	jclass arrayListClass = env->GetObjectClass(jlist);
-	jmethodID sizeMethod = env->GetMethodID(arrayListClass, "size", "()I");
-	jmethodID getMethod = env->GetMethodID(arrayListClass, "get", "(I)Ljava/lang/Object;");
-	jint listSize = env->CallIntMethod(jlist, sizeMethod);
-	for (jint i = 0; i < listSize; i++) {
-		jstring jstr = (jstring)env->CallObjectMethod(jlist, getMethod, i);
-		if (jstr) {
-			const char *charArray = env->GetStringUTFChars(jstr, nullptr);
-			crashHistory.emplace_back(charArray);
-			env->ReleaseStringUTFChars(jstr, charArray);
-			env->DeleteLocalRef(jstr);
-		}
-	}
-	env->DeleteLocalRef(arrayListClass);
-	env->DeleteLocalRef(jlist);
-	return crashHistory;
-}
-
-// GetStringUTFChars returns Java's modified UTF-8, where characters outside the BMP (emoji) become two 3-byte
-// surrogates, so we go through UTF-16.
-std::string GetJavaString(JNIEnv *env, jstring jstr) {
-	if (!jstr)
-		return "";
-	const jsize len = env->GetStringLength(jstr);
-	const jchar *chars = env->GetStringChars(jstr, nullptr);
-	if (!chars)
-		return "";
-	std::string cpp_string;
-	cpp_string.reserve(len);
-	char buf[4];
-	for (jsize i = 0; i < len; i++) {
-		uint32_t c = chars[i];
-		if (c >= 0xD800 && c < 0xDC00 && i + 1 < len && chars[i + 1] >= 0xDC00 && chars[i + 1] < 0xE000) {
-			c = 0x10000 + ((c - 0xD800) << 10) + (chars[i + 1] - 0xDC00);
-			i++;
-		} else if (c >= 0xD800 && c < 0xE000) {
-			// Unpaired surrogate.
-			c = 0xFFFD;
-		}
-		cpp_string.append(buf, UTF8::encode(buf, c));
-	}
-	env->ReleaseStringChars(jstr, chars);
-	return cpp_string;
+	return GetJavaStringList(env, jlist);
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_PpssppActivity_registerCallbacks(JNIEnv *env, jobject obj) {
@@ -559,15 +522,6 @@ extern "C" void Java_org_ppsspp_ppsspp_PpssppActivity_registerCallbacks(JNIEnv *
 		oldActivity = ppssppActivity;
 		ppssppActivity = newActivity;
 	}
-	postCommand = env->GetMethodID(env->GetObjectClass(obj), "postCommand", "(Ljava/lang/String;Ljava/lang/String;)V");
-	getDebugString = env->GetMethodID(env->GetObjectClass(obj), "getDebugString", "(Ljava/lang/String;)Ljava/lang/String;");
-	getNativeCrashHistory = env->GetMethodID(env->GetObjectClass(obj), "getNativeCrashHistory", "(I)Ljava/util/ArrayList;");
-
-	_dbg_assert_(postCommand);
-	_dbg_assert_(getDebugString);
-	// It's OK if getNativeCrashHistory is missing.
-
-	Android_RegisterStorageCallbacks(env, obj);
 	Android_StorageSetActivity(newActivity);
 
 	// An activity that gets recreated (rotation, resize) never unregisters, so this is where we let go
@@ -902,7 +856,7 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 	INFO_LOG(Log::System, "NativeApp.shutdown() -- end");
 }
 
-extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv *, jclass, jint pixel_xres, jint pixel_yres, jint format, jint rotation) {
+extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv *, jclass, jint pixel_xres, jint pixel_yres, jint rotation) {
 	INFO_LOG(Log::System, "NativeApp.backbufferResize(%d x %d, rotation %d)", pixel_xres, pixel_yres, rotation);
 
 	// The display's Surface.ROTATION_*. A 180 degree flip changes this but not the size, and the swapchain
@@ -917,8 +871,6 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv
 	int old_dp_h = g_display.dp_yres;
 
 	// pixel_*res is the backbuffer resolution.
-	backbuffer_format = format;
-
 	if (IsVREnabled()) {
 		GetVRResolutionPerEye(&pixel_xres, &pixel_yres);
 	}
@@ -989,11 +941,11 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 	{
 		// The flags go before the strings, so the free text comes last.
 		std::string serialized = StringFromFormat("%d:@:%d:@:%s:@:%s", requestId, param3 ? 1 : 0, param1.c_str(), param2.c_str());
-		PushCommand("inputbox", serialized);
+		PushCommand("inputbox", serialized, requestId);
 		return true;
 	}
 	case SystemRequestType::BROWSE_FOR_IMAGE:
-		PushCommand("browse_image", StringFromFormat("%d", requestId));
+		PushCommand("browse_image", StringFromFormat("%d", requestId), requestId);
 		return true;
 	case SystemRequestType::BROWSE_FOR_FILE:
 	{
@@ -1001,19 +953,19 @@ bool System_MakeRequest(SystemRequestType type, int requestId, const std::string
 		std::string params = StringFromFormat("%d", requestId);
 		switch (fileType) {
 		case BrowseFileType::SOUND_EFFECT:
-			PushCommand("browse_file_audio", params);
+			PushCommand("browse_file_audio", params, requestId);
 			break;
 		case BrowseFileType::ZIP:
-			PushCommand("browse_file_zip", params);
+			PushCommand("browse_file_zip", params, requestId);
 			break;
 		default:
-			PushCommand("browse_file", params);
+			PushCommand("browse_file", params, requestId);
 			break;
 		}
 		return true;
 	}
 	case SystemRequestType::BROWSE_FOR_FOLDER:
-		PushCommand("browse_folder", StringFromFormat("%d", requestId));
+		PushCommand("browse_folder", StringFromFormat("%d", requestId), requestId);
 		return true;
 
 	case SystemRequestType::CAMERA_COMMAND:
@@ -1280,36 +1232,12 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_sendMessageFromJava(JNI
 	static InputDeviceID nextInputDeviceID = DEVICE_ID_ANY;
 
 	// Some messages are caught by app-android. TODO: Should be all.
-	if (msg == "moga") {
-		mogaVersion = prm;
-	} else if (msg == "permission_pending") {
-		if (prm == "storage") {
-			INFO_LOG(Log::System, "STORAGE PERMISSION: PENDING");
-			SetPermissionStatus(SYSTEM_PERMISSION_STORAGE, PERMISSION_STATUS_PENDING);
-		} else if (prm == "local_network") {
-			INFO_LOG(Log::System, "LOCAL NETWORK PERMISSION: PENDING");
-			SetPermissionStatus(SYSTEM_PERMISSION_LOCAL_NETWORK, PERMISSION_STATUS_PENDING);
-		}
+	if (msg == "permission_pending") {
+		SetPermissionStatusFromJava(prm, PERMISSION_STATUS_PENDING);
 	} else if (msg == "permission_denied") {
-		if (prm == "storage") {
-			INFO_LOG(Log::System, "STORAGE PERMISSION: DENIED");
-			SetPermissionStatus(SYSTEM_PERMISSION_STORAGE, PERMISSION_STATUS_DENIED);
-		} else if (prm == "local_network") {
-			INFO_LOG(Log::System, "LOCAL NETWORK PERMISSION: DENIED");
-			SetPermissionStatus(SYSTEM_PERMISSION_LOCAL_NETWORK, PERMISSION_STATUS_DENIED);
-		} else {
-			WARN_LOG(Log::System, "UNKNOWN PERMISSION GRANTED: %s", prm.c_str());
-		}
+		SetPermissionStatusFromJava(prm, PERMISSION_STATUS_DENIED);
 	} else if (msg == "permission_granted") {
-		if (prm == "storage") {
-			INFO_LOG(Log::System, "STORAGE PERMISSION: GRANTED");
-			SetPermissionStatus(SYSTEM_PERMISSION_STORAGE, PERMISSION_STATUS_GRANTED);
-		} else if (prm == "local_network") {
-			INFO_LOG(Log::System, "LOCAL NETWORK PERMISSION: GRANTED");
-			SetPermissionStatus(SYSTEM_PERMISSION_LOCAL_NETWORK, PERMISSION_STATUS_GRANTED);
-		} else {
-			WARN_LOG(Log::System, "UNKNOWN PERMISSION GRANTED: %s", prm.c_str());
-		}
+		SetPermissionStatusFromJava(prm, PERMISSION_STATUS_GRANTED);
 		System_PostUIMessage(UIMessage::PERMISSION_GRANTED, prm);
 	} else if (msg == "sustained_perf_supported") {
 		sustainedPerfSupported = true;
@@ -1468,29 +1396,18 @@ extern "C" jint JNICALL Java_org_ppsspp_ppsspp_NativeApp_getDisplayFramerateMode
 }
 
 std::vector<std::string> System_GetCameraDeviceList() {
-	JNILocalFrame frame(getEnv());
+	JNIEnv *env = getEnv();
+	JNILocalFrame frame(env);
 	jclass cameraClass = findClass("org/ppsspp/ppsspp/CameraHelper");
-	jmethodID deviceListMethod = getEnv()->GetStaticMethodID(cameraClass, "getDeviceList", "()Ljava/util/ArrayList;");
-	jobject deviceListObject = getEnv()->CallStaticObjectMethod(cameraClass, deviceListMethod);
-	jclass arrayListClass = getEnv()->FindClass("java/util/ArrayList");
-	jmethodID arrayListSize = getEnv()->GetMethodID(arrayListClass, "size", "()I");
-	jmethodID arrayListGet = getEnv()->GetMethodID(arrayListClass, "get", "(I)Ljava/lang/Object;");
-
-	jint arrayListObjectLen = getEnv()->CallIntMethod(deviceListObject, arrayListSize);
-	std::vector<std::string> deviceListVector;
-
-	for (int i = 0; i < arrayListObjectLen; i++) {
-		jstring dev = static_cast<jstring>(getEnv()->CallObjectMethod(deviceListObject, arrayListGet, i));
-		const char *cdev = getEnv()->GetStringUTFChars(dev, nullptr);
-		if (!cdev) {
-			getEnv()->DeleteLocalRef(dev);
-			continue;
-		}
-		deviceListVector.emplace_back(cdev);
-		getEnv()->ReleaseStringUTFChars(dev, cdev);
-		getEnv()->DeleteLocalRef(dev);
+	if (CheckJavaException(env, __FUNCTION__) || !cameraClass) {
+		return {};
 	}
-	return deviceListVector;
+	jmethodID deviceListMethod = env->GetStaticMethodID(cameraClass, "getDeviceList", "()Ljava/util/ArrayList;");
+	jobject deviceList = env->CallStaticObjectMethod(cameraClass, deviceListMethod);
+	if (CheckJavaException(env, __FUNCTION__)) {
+		return {};
+	}
+	return GetJavaStringList(env, deviceList);
 }
 
 extern "C" jint Java_org_ppsspp_ppsspp_NativeApp_getSelectedCamera(JNIEnv *, jclass) {
@@ -1520,38 +1437,45 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_pushCameraImageAndroid(
 
 static void ProcessFrameCommands() {
 	JNIEnv *env = getEnv();
+	JNILocalFrame frame(env);
 	jobject activity = Android_GetActivity(env);
 	std::vector<FrameCommand> frameCommands;
 	{
 		std::lock_guard<std::mutex> guard(frameCommandLock);
-		if (!activity) {
-			if (!g_frameCommands.empty()) {
-				ERROR_LOG(Log::System, "No activity, clearing commands");
-			}
-		} else {
-			frameCommands = std::move(g_frameCommands);
-		}
+		frameCommands = std::move(g_frameCommands);
 		g_frameCommands.clear();
 	}
-
-	if (!frameCommands.empty()) {
-		INFO_LOG(Log::System, "Processing %zu frame commands", frameCommands.size());
-		for (const FrameCommand &frameCmd : frameCommands) {
-			// Not logging the params, an inputbox one can contain a password.
-			DEBUG_LOG(Log::System, "frameCommand '%s'", frameCmd.command.c_str());
-
-			// The params can contain any text, like a title the game gave its OSK.
-			std::string params;
-			ConvertUTF8ToJavaModifiedUTF8(&params, frameCmd.params);
-			jstring cmd = env->NewStringUTF(frameCmd.command.c_str());
-			jstring param = env->NewStringUTF(params.c_str());
-			env->CallVoidMethod(activity, postCommand, cmd, param);
-			env->DeleteLocalRef(cmd);
-			env->DeleteLocalRef(param);
-		}
+	if (frameCommands.empty()) {
+		return;
 	}
-	if (activity) {
-		env->DeleteLocalRef(activity);
+
+	if (!activity) {
+		ERROR_LOG(Log::System, "No activity, dropping %zu commands", frameCommands.size());
+		for (const FrameCommand &frameCmd : frameCommands) {
+			// Whoever made the request is waiting for an answer.
+			if (frameCmd.requestId >= 0) {
+				g_requestManager.PostSystemFailure(frameCmd.requestId);
+			}
+		}
+		return;
+	}
+
+	INFO_LOG(Log::System, "Processing %zu frame commands", frameCommands.size());
+	for (const FrameCommand &frameCmd : frameCommands) {
+		// Not logging the params, an inputbox one can contain a password.
+		DEBUG_LOG(Log::System, "frameCommand '%s'", frameCmd.command.c_str());
+
+		// The params can contain any text, like a title the game gave its OSK.
+		std::string params;
+		ConvertUTF8ToJavaModifiedUTF8(&params, frameCmd.params);
+		jstring cmd = env->NewStringUTF(frameCmd.command.c_str());
+		jstring param = env->NewStringUTF(params.c_str());
+		env->CallVoidMethod(activity, postCommand, cmd, param);
+		if (CheckJavaException(env, __FUNCTION__) && frameCmd.requestId >= 0) {
+			g_requestManager.PostSystemFailure(frameCmd.requestId);
+		}
+		env->DeleteLocalRef(cmd);
+		env->DeleteLocalRef(param);
 	}
 }
 
@@ -1680,7 +1604,6 @@ Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameInfo(JNIEnv * env, jclass, jobj
 		g_logManager.SetAllLogLevels(LogLevel::LDEBUG);
 		activityRef = env->NewGlobalRef(activity);
 		Android_StorageSetActivity(activityRef);
-		Android_RegisterStorageCallbacks(env, activityRef);
 		INFO_LOG(Log::System, "No thread manager - initializing one");
 	}
 
@@ -1728,7 +1651,6 @@ Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameInfo(JNIEnv * env, jclass, jobj
 
 	if (teardownThreadManager) {
 		g_logManager.SetOutputsEnabled((LogOutput)0);
-		Android_UnregisterStorageCallbacks(env);
 		Android_StorageSetActivity(nullptr);
 		g_threadManager.Teardown();
 	}
