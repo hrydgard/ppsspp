@@ -233,8 +233,9 @@ int GPUCommon::EstimateFillCycles(GEPrimitiveType prim, const void *verts, const
 		const int y0 = std::max(top, (int)std::min(p0[1], p1[1]));
 		const int y1 = std::min(bottom, (int)std::max(p0[1], p1[1]));
 		if (x1 > x0 && y1 > y0) {
-			// The cache sees the part inside the scissor. Tekken 6 draws its movie as one full-width
-			// sprite eight times, scissored to 64-pixel strips, and plays it at 30fps on a PSP.
+			// The cache sees the part inside the scissor: a full-width sprite drawn once per 64-pixel
+			// scissor strip costs the same as 64-pixel sprites, and pixels outside are free
+			// (blittiming, "sprite480 x8 scissor64"). Tekken 6 draws its movie this way.
 			const int width = x1 - x0;
 			// Measured 144 texels wide falls halfway, so interpolate between 128 and 160.
 			const float wide = std::clamp((width - 128) / 32.0f, 0.0f, 1.0f);
