@@ -488,7 +488,7 @@ bool DrawEngineMetal::ApplyState(const Pipeline *pipeline, bool overrideStencilR
 		return false;
 	}
 	rm_->SetPipeline(pipeline->pso);
-	rm_->SetDepthStencilState(GetDepthStencilState(depthStencilKey_));
+	rm_->SetDepthStencilState(GetDepthStencilState(depthStencilKey_), depthStencilKey_.depthTestEnable || depthStencilKey_.stencilTestEnable);
 	if (depthStencilKey_.stencilTestEnable) {
 		rm_->SetStencilRef(overrideStencilRef ? stencilRef : dynState_.stencilRef);
 	}
@@ -543,9 +543,9 @@ void DrawEngineMetal::DrawPrimitives(MTLPrimitiveType prim, __unsafe_unretained 
 	rm_->SetVertexBuffer(vbuf, vbOffset, METAL_VERTEX_BUFFER_INDEX);
 	if (inds) {
 		MetalPushAlloc ialloc = rm_->Push().Push(inds, count * sizeof(uint16_t), 4);
-		[rm_->encoder drawIndexedPrimitives:prim indexCount:count indexType:MTLIndexTypeUInt16 indexBuffer:ialloc.buffer indexBufferOffset:ialloc.offset];
+		rm_->DrawIndexed(prim, count, ialloc.buffer, ialloc.offset);
 	} else {
-		[rm_->encoder drawPrimitives:prim vertexStart:0 vertexCount:count];
+		rm_->Draw(prim, 0, count);
 	}
 }
 

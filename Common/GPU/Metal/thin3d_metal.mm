@@ -839,9 +839,7 @@ void MetalDrawContext::UploadTextureData(MetalTexture *tex, int level, int x, in
 			}
 		}
 	}
-	id<MTLBlitCommandEncoder> blit = useUploadBuffer ? rm_->UploadEncoder() : rm_->BlitEncoder();
-	[blit copyFromBuffer:alloc.buffer sourceOffset:alloc.offset sourceBytesPerRow:bytesPerRow sourceBytesPerImage:bytesPerRow * rows sourceSize:MTLSizeMake(w, h, 1)
-		toTexture:tex->texture destinationSlice:0 destinationLevel:level destinationOrigin:MTLOriginMake(x, y, 0)];
+	rm_->CopyBufferToTexture(alloc.buffer, alloc.offset, bytesPerRow, bytesPerRow * rows, MTLSizeMake(w, h, 1), tex->texture, 0, level, MTLOriginMake(x, y, 0), MTLBlitOptionNone, useUploadBuffer);
 }
 
 Texture *MetalDrawContext::CreateTexture(const TextureDesc &desc) {
@@ -905,7 +903,7 @@ Texture *MetalDrawContext::CreateTexture(const TextureDesc &desc) {
 		}
 	}
 	if (generateMips && !desc.initData.empty()) {
-		[rm_->UploadEncoder() generateMipmapsForTexture:tex->texture];
+		rm_->GenerateMips(tex->texture, true);
 	}
 	return tex;
 }
@@ -990,27 +988,25 @@ void MetalDrawContext::CopyFramebufferImage(Framebuffer *srcfb, int level, int x
 		return;
 	}
 
-	id<MTLBlitCommandEncoder> blit = rm_->BlitEncoder();
+	const MTLOrigin srcOrigin = MTLOriginMake(x, y, 0);
+	const MTLOrigin dstOrigin = MTLOriginMake(dstX, dstY, 0);
+	const MTLSize size = MTLSizeMake(width, height, 1);
 	if (aspects & Aspect::COLOR_BIT) {
-		[blit copyFromTexture:src->color sourceSlice:0 sourceLevel:level sourceOrigin:MTLOriginMake(x, y, 0) sourceSize:MTLSizeMake(width, height, 1)
-			toTexture:dst->color destinationSlice:0 destinationLevel:dstLevel destinationOrigin:MTLOriginMake(dstX, dstY, 0)];
+		rm_->CopyTexture(src->color, level, srcOrigin, size, dst->color, dstLevel, dstOrigin);
 	}
 	const bool copyDepth = (aspects & Aspect::DEPTH_BIT) != 0;
 	const bool copyStencil = (aspects & Aspect::STENCIL_BIT) != 0;
 	if ((copyDepth || copyStencil) && src->depth && dst->depth) {
 		if (copyDepth && copyStencil) {
-			[blit copyFromTexture:src->depth sourceSlice:0 sourceLevel:level sourceOrigin:MTLOriginMake(x, y, 0) sourceSize:MTLSizeMake(width, height, 1)
-				toTexture:dst->depth destinationSlice:0 destinationLevel:dstLevel destinationOrigin:MTLOriginMake(dstX, dstY, 0)];
+			rm_->CopyTexture(src->depth, level, srcOrigin, size, dst->depth, dstLevel, dstOrigin);
 		} else {
 			// Texture-to-texture copies take both planes of a combined format, so a single one goes through a buffer.
 			const bool depth = copyDepth;
 			const MTLBlitOption option = depth ? MTLBlitOptionDepthFromDepthStencil : MTLBlitOptionStencilFromDepthStencil;
 			const int bytesPerRow = width * (depth ? 4 : 1);
 			MetalPushAlloc alloc = rm_->Push().Allocate(bytesPerRow * height, 16);
-			[blit copyFromTexture:src->depth sourceSlice:0 sourceLevel:level sourceOrigin:MTLOriginMake(x, y, 0) sourceSize:MTLSizeMake(width, height, 1)
-				toBuffer:alloc.buffer destinationOffset:alloc.offset destinationBytesPerRow:bytesPerRow destinationBytesPerImage:bytesPerRow * height options:option];
-			[blit copyFromBuffer:alloc.buffer sourceOffset:alloc.offset sourceBytesPerRow:bytesPerRow sourceBytesPerImage:bytesPerRow * height sourceSize:MTLSizeMake(width, height, 1)
-				toTexture:dst->depth destinationSlice:0 destinationLevel:dstLevel destinationOrigin:MTLOriginMake(dstX, dstY, 0) options:option];
+			rm_->CopyTextureToBuffer(src->depth, level, srcOrigin, size, alloc.buffer, alloc.offset, bytesPerRow, bytesPerRow * height, option);
+			rm_->CopyBufferToTexture(alloc.buffer, alloc.offset, bytesPerRow, bytesPerRow * height, size, dst->depth, 0, dstLevel, dstOrigin, option, false);
 		}
 	}
 }
@@ -1022,18 +1018,24 @@ bool MetalDrawContext::BlitFramebuffer(Framebuffer *src, int srcX1, int srcY1, i
 
 bool MetalDrawContext::CopyFramebufferToMemory(Framebuffer *srcfb, Aspect aspect, int x, int y, int w, int h, Draw::DataFormat destFormat, void *pixels, int pixelStride, ReadbackMode mode, const char *tag) {
 	MetalFramebuffer *fb = (MetalFramebuffer *)srcfb;
+	// nil with !fb means the backbuffer (the drawable is only known when the commands are encoded).
 	id<MTLTexture> srcTex;
-	if (aspect == Aspect::COLOR_BIT) {
-		srcTex = fb ? fb->color : rm_->BackbufferTexture();
-	} else if (aspect == Aspect::DEPTH_BIT || aspect == Aspect::STENCIL_BIT) {
-		srcTex = fb ? fb->depth : nil;
-	}
-	if (!srcTex) {
+	int texW = rm_->BackbufferWidth();
+	int texH = rm_->BackbufferHeight();
+	MTLPixelFormat srcFormat = rm_->BackbufferFormat();
+	if (fb) {
+		srcTex = aspect == Aspect::COLOR_BIT ? fb->color : fb->depth;
+		if (!srcTex) {
+			return false;
+		}
+		texW = (int)srcTex.width;
+		texH = (int)srcTex.height;
+		srcFormat = srcTex.pixelFormat;
+	} else if (aspect != Aspect::COLOR_BIT) {
 		return false;
+	} else if (rm_->OffscreenBackbuffer()) {
+		srcTex = rm_->OffscreenBackbuffer();
 	}
-
-	int texW = (int)srcTex.width;
-	int texH = (int)srcTex.height;
 	if (x < 0) { w += x; x = 0; }
 	if (y < 0) { h += y; y = 0; }
 	w = std::min(w, texW - x);
@@ -1058,15 +1060,13 @@ bool MetalDrawContext::CopyFramebufferToMemory(Framebuffer *srcfb, Aspect aspect
 		readbackBuffer_.label = @"readback";
 	}
 
-	id<MTLBlitCommandEncoder> blit = rm_->BlitEncoder();
-	[blit copyFromTexture:srcTex sourceSlice:0 sourceLevel:0 sourceOrigin:MTLOriginMake(x, y, 0) sourceSize:MTLSizeMake(w, h, 1)
-		toBuffer:readbackBuffer_ destinationOffset:0 destinationBytesPerRow:srcStride destinationBytesPerImage:size options:options];
+	rm_->CopyTextureToBuffer(srcTex, 0, MTLOriginMake(x, y, 0), MTLSizeMake(w, h, 1), readbackBuffer_, 0, srcStride, (uint32_t)size, options);
 	rm_->Flush(true);
 
 	const uint8_t *src = (const uint8_t *)readbackBuffer_.contents;
 	switch (aspect) {
 	case Aspect::COLOR_BIT:
-		if (srcTex.pixelFormat == MTLPixelFormatBGRA8Unorm) {
+		if (srcFormat == MTLPixelFormatBGRA8Unorm) {
 			ConvertFromBGRA8888((uint8_t *)pixels, src, pixelStride, w, w, h, destFormat);
 		} else {
 			ConvertFromRGBA8888((uint8_t *)pixels, src, pixelStride, w, w, h, destFormat);
@@ -1241,7 +1241,7 @@ bool MetalDrawContext::ApplyState() {
 	}
 	rm_->SetPipeline(pso);
 	const DepthStencilStateDesc &dsDesc = curPipeline_->depthStencil->desc;
-	rm_->SetDepthStencilState(GetDepthStencilState(dsDesc));
+	rm_->SetDepthStencilState(GetDepthStencilState(dsDesc), dsDesc.depthTestEnabled || dsDesc.stencilEnabled);
 	if (dsDesc.stencilEnabled) {
 		rm_->SetStencilRef(stencilRef_);
 	}
@@ -1298,7 +1298,7 @@ void MetalDrawContext::Draw(int vertexCount, int offset) {
 		curVBuffer_->Get(rm_, &buf, &bufOffset);
 		rm_->SetVertexBuffer(buf, bufOffset + curVBufferOffset_, METAL_VERTEX_BUFFER_INDEX);
 	}
-	[rm_->encoder drawPrimitives:curPipeline_->prim vertexStart:offset vertexCount:vertexCount];
+	rm_->Draw(curPipeline_->prim, offset, vertexCount);
 }
 
 void MetalDrawContext::DrawIndexedInternal(id<MTLBuffer> ibuf, uint32_t ibufOffset, int indexCount) {
@@ -1308,7 +1308,7 @@ void MetalDrawContext::DrawIndexedInternal(id<MTLBuffer> ibuf, uint32_t ibufOffs
 		ibuf = alloc.buffer;
 		ibufOffset = alloc.offset;
 	}
-	[rm_->encoder drawIndexedPrimitives:curPipeline_->prim indexCount:indexCount indexType:MTLIndexTypeUInt16 indexBuffer:ibuf indexBufferOffset:ibufOffset];
+	rm_->DrawIndexed(curPipeline_->prim, indexCount, ibuf, ibufOffset);
 }
 
 void MetalDrawContext::DrawIndexed(int indexCount, int offset) {
@@ -1333,7 +1333,7 @@ void MetalDrawContext::DrawUP(const void *vdata, int vertexCount) {
 	}
 	MetalPushAlloc alloc = rm_->Push().Push(vdata, vertexCount * curPipeline_->input->stride, 16);
 	rm_->SetVertexBuffer(alloc.buffer, alloc.offset, METAL_VERTEX_BUFFER_INDEX);
-	[rm_->encoder drawPrimitives:curPipeline_->prim vertexStart:0 vertexCount:vertexCount];
+	rm_->Draw(curPipeline_->prim, 0, vertexCount);
 }
 
 void MetalDrawContext::DrawIndexedUP(const void *vdata, int vertexCount, const void *idata, int indexCount) {

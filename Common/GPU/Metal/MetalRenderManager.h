@@ -19,11 +19,10 @@
 
 // Objective-C++ only, and requires ARC. Shared by thin3d_metal.mm and the GPU/Metal backend.
 //
-// Metal resets all encoder state at the start of each render pass, and a pass can only be started
-// once we know its attachments and load actions. So render passes are started lazily, on the first
-// draw (or when a pass with clears is abandoned), and everything that sets encoder state goes
-// through the redundancy-eliminating setters here, so that thin3d and the GPU backend can share an
-// encoder without stepping on each other's cached state.
+// The emu thread records commands, and they're encoded into Metal command buffers either on a render thread
+// or inline when they're submitted (at present and readbacks). Recording keeps all the decisions: render
+// passes are started lazily on the first draw (Metal resets all encoder state with each pass, and the load
+// actions have to be known up front), and state setters eliminate redundant calls. The replay just encodes.
 
 #import <Metal/Metal.h>
 #import <QuartzCore/CAMetalLayer.h>
@@ -33,15 +32,19 @@
 #undef ABS
 #endif
 
+#include <condition_variable>
 #include <cstdint>
-#include <string>
-#include <vector>
+#include <deque>
 #include <functional>
+#include <mutex>
+#include <string>
+#include <thread>
+#include <vector>
 
 #include "Common/GPU/Shader.h"
 
-// Fixed buffer indices. UBOs (and the push-constant style data) use the Vulkan binding number as the
-// Metal buffer index, so they live at the bottom. Vertex data goes above all of them.
+// Fixed buffer indices. UBOs use the Vulkan binding number as the Metal buffer index, so they live at the
+// bottom. Vertex data goes above all of them.
 enum {
 	METAL_VERTEX_BUFFER_INDEX = 16,
 	METAL_MAX_TEXTURES = 8,
@@ -137,17 +140,157 @@ id<MTLFunction> CreateMetalFunction(id<MTLDevice> device, const MetalTranslatedS
 
 const char *MetalPixelFormatToString(MTLPixelFormat fmt);
 
+enum class MetalCmd : uint8_t {
+	BEGIN_PASS,
+	END_PASS,
+	PIPELINE,
+	DEPTH_STENCIL,
+	STENCIL_REF,
+	BLEND_COLOR,
+	CULL,
+	WINDING,
+	DEPTH_CLIP,
+	VIEWPORT,
+	SCISSOR,
+	VERTEX_BUFFER,
+	VERTEX_BUFFER_OFFSET,
+	FRAGMENT_BUFFER,
+	FRAGMENT_BUFFER_OFFSET,
+	FRAGMENT_TEXTURE,
+	FRAGMENT_SAMPLER,
+	VERTEX_TEXTURE,
+	VERTEX_SAMPLER,
+	DRAW,
+	DRAW_INDEXED,
+	COPY,
+};
+
+// Objects are unretained. They're kept alive by their owners or the deferred release list until the GPU is
+// done with the frame, which implies that the commands have been replayed.
+struct MetalCommand {
+	MetalCmd cmd;
+	uint8_t index;
+	uint8_t prim;
+	union {
+		struct {
+			void *obj;
+			uint32_t offset;
+		} bind;
+		uint32_t value;
+		float color[4];
+		MTLViewport viewport;
+		MTLScissorRect scissor;
+		struct {
+			uint32_t start;
+			uint32_t count;
+		} draw;
+		struct {
+			void *buffer;
+			uint32_t offset;
+			uint32_t count;
+		} drawIndexed;
+		uint32_t pass;  // Index into the chunk's passes.
+		uint32_t copy;  // Index into the chunk's copies.
+	};
+};
+
+struct MetalRecordedPass {
+	void *color;  // Unused for the backbuffer, it's the drawable's.
+	void *depth;
+	MTLLoadAction colorLoad;
+	MTLLoadAction depthLoad;
+	MTLLoadAction stencilLoad;
+	MTLClearColor clearColor;
+	double clearDepth;
+	uint32_t clearStencil;
+	MTLStoreAction depthStore;
+	bool usesDepth;  // Some draw tested or wrote depth or stencil.
+	bool depthMemoryless;
+	bool backbuffer;
+	std::string tag;
+};
+
+enum class MetalCopyType : uint8_t {
+	TEXTURE_TO_TEXTURE,
+	TEXTURE_TO_BUFFER,
+	BUFFER_TO_TEXTURE,
+	GENERATE_MIPS,
+};
+
+struct MetalRecordedCopy {
+	MetalCopyType type;
+	bool srcIsBackbuffer;  // The source texture is the current drawable.
+	void *src;
+	void *dst;
+	uint32_t srcOffset;  // For buffers.
+	uint32_t dstOffset;
+	uint32_t bytesPerRow;
+	uint32_t bytesPerImage;
+	uint32_t srcLevel;
+	uint32_t dstLevel;
+	uint32_t dstSlice;
+	MTLOrigin srcOrigin;
+	MTLOrigin dstOrigin;
+	MTLSize size;
+	MTLBlitOption options;
+};
+
+enum class MetalChunkEnd {
+	FLUSH,
+	PRESENT,
+};
+
+// A render pass or a copy, when the replay looks for passes to merge.
+struct MetalStep {
+	bool isPass;
+	bool merged;  // Merged into an earlier pass.
+	uint32_t index;  // Into the chunk's passes or copies.
+	// Command ranges, [first, last), not including the pass begin and end. Merging appends more.
+	std::vector<std::pair<uint32_t, uint32_t>> ranges;
+	void *target;  // Color (or depth, if there's no color) of a pass. Destination of a copy.
+	void *targetDepth;
+	std::vector<void *> reads;  // Textures sampled by the pass, or the copy's source.
+	bool usesDepth;
+};
+
+// The commands between two submits.
+struct MetalCommandChunk {
+	std::vector<MetalCommand> commands;
+	std::vector<MetalCommand> uploads;  // Run in a command buffer of their own, before the commands.
+	std::vector<MetalRecordedPass> passes;
+	std::vector<MetalRecordedCopy> copies;
+	MetalChunkEnd end = MetalChunkEnd::FLUSH;
+	bool vsync = true;
+	int newDrawableWidth = 0;  // Non-zero to resize the layer's drawables first.
+	int newDrawableHeight = 0;
+	dispatch_semaphore_t completed = nullptr;  // Signalled when the GPU is done with the chunk, if set.
+	bool exitThread = false;
+
+	void Clear() {
+		commands.clear();
+		uploads.clear();
+		passes.clear();
+		copies.clear();
+		end = MetalChunkEnd::FLUSH;
+		vsync = true;
+		newDrawableWidth = 0;
+		newDrawableHeight = 0;
+		completed = nullptr;
+		exitThread = false;
+	}
+};
+
 class MetalRenderManager {
 public:
 	// layer can be nil, in which case we render to an offscreen backbuffer of the given size.
-	MetalRenderManager(id<MTLDevice> device, CAMetalLayer *layer, int offscreenWidth, int offscreenHeight);
+	MetalRenderManager(id<MTLDevice> device, CAMetalLayer *layer, int offscreenWidth, int offscreenHeight, bool useThread);
 	~MetalRenderManager();
 
 	id<MTLDevice> Device() const { return device_; }
 	id<MTLCommandQueue> Queue() const { return queue_; }
-	CAMetalLayer *Layer() const { return layer_; }
 	bool HasUnifiedMemory() const { return unifiedMemory_; }
 	bool IsAppleGPU() const { return appleGPU_; }
+	bool IsThreaded() const { return renderThread_.joinable(); }
 
 	void SetInflightFrames(int count);
 	int GetInflightFrames() const { return inflightFrames_; }
@@ -176,54 +319,44 @@ public:
 	int BackbufferWidth() const { return bbWidth_; }
 	int BackbufferHeight() const { return bbHeight_; }
 	MTLPixelFormat BackbufferFormat() const { return MTLPixelFormatBGRA8Unorm; }
-	// Acquires a drawable if needed. Can return nil if none is available.
-	id<MTLTexture> BackbufferTexture();
-	id<MTLTexture> BackbufferDepth();
+	// The offscreen backbuffer, or nil when rendering to the layer.
+	id<MTLTexture> OffscreenBackbuffer() const { return offscreenBackbuffer_; }
 
 	// Render passes. The pass is started lazily, see above.
 	void BindRenderPass(const MetalRenderPassDesc &desc);
+	void BindBackbufferPass(MTLLoadAction colorLoad, MTLClearColor clearColor, const char *tag);
 	// Clears parts of the current render target, by restarting the pass with clear load actions if needed.
 	void Clear(bool color, bool depth, bool stencil, MTLClearColor clearColor, double clearDepth, uint32_t clearStencil);
 	// Forget the current render target, ending its pass.
 	void UnbindRenderPass();
-	bool HasRenderPass() const { return pass_.color != nil || pass_.depth != nil; }
+	bool HasRenderPass() const { return pass_.color != nil || pass_.depth != nil || passIsBackbuffer_; }
 	const MetalRenderPassDesc &CurPass() const { return pass_; }
 	const MetalRenderTargetFormat &CurTargetFormat() const { return curFormat_; }
 	int CurPassWidth() const { return passWidth_; }
 	int CurPassHeight() const { return passHeight_; }
 	bool IsBackbufferPass() const { return passIsBackbuffer_; }
-	void BindBackbufferPass(MTLLoadAction colorLoad, MTLClearColor clearColor, const char *tag);
 
-	// Starts the render pass if needed. Returns nil if there's no render target (or no drawable).
-	id<MTLRenderCommandEncoder> RenderEncoder();
-	// Same, for the per-draw paths: afterwards, encoder is the current render encoder. Avoids ARC traffic.
+	// Starts the render pass if needed. Returns false if there's no render target, in which case nothing
+	// should be drawn.
 	bool EnsureRenderEncoder() {
-		if (!encoder) {
-			RenderEncoder();
+		if (!inPass_) {
+			StartRenderPass();
 		}
-		return encoder != nil;
+		return inPass_;
 	}
-	// The current render encoder, or nil. Owned by the render manager.
-	__unsafe_unretained id<MTLRenderCommandEncoder> encoder = nil;
-	// Increases every time a new render encoder is started (and all encoder state is reset).
+	// Increases every time a new render pass is started (and all encoder state is reset).
 	uint32_t EncoderGeneration() const { return encoderGeneration_; }
 
-	// Ends any render pass. The pass can be resumed (with load actions) by the next draw.
-	id<MTLBlitCommandEncoder> BlitEncoder();
-	// Blit encoder in the upload command buffer, which runs before everything in the current command buffer.
-	// Use only for resources that the current frame hasn't touched yet (like new textures).
-	id<MTLBlitCommandEncoder> UploadEncoder();
-
-	void EndEncoders();
-
-	// Submits all work so far. If wait is true, waits for it to complete (for readbacks).
+	// Submits all work so far. If wait is true, waits for the GPU to complete it (for readbacks).
 	void Flush(bool wait);
 
 	MetalPushBuffer &Push() { return frames_[curFrame_].push; }
 
-	// Encoder state with redundancy elimination. Only valid while RenderEncoder() is non-nil.
+	// Encoder state with redundancy elimination. Only valid after EnsureRenderEncoder() returned true.
 	void SetPipeline(__unsafe_unretained id<MTLRenderPipelineState> pipeline);
-	void SetDepthStencilState(__unsafe_unretained id<MTLDepthStencilState> state);
+	// usesDepthStencil: the state tests or writes depth or stencil. A pass where no draw does gets its
+	// depth/stencil attachment neither loaded nor stored.
+	void SetDepthStencilState(__unsafe_unretained id<MTLDepthStencilState> state, bool usesDepthStencil);
 	void SetStencilRef(uint32_t ref);
 	void SetBlendColor(float r, float g, float b, float a);
 	void SetCullMode(MTLCullMode mode);
@@ -241,8 +374,17 @@ public:
 	void SetVertexTexture(__unsafe_unretained id<MTLTexture> texture, int index);
 	void SetVertexSampler(__unsafe_unretained id<MTLSamplerState> sampler, int index);
 
-	// Called when a new render encoder starts.
-	void SetEncoderResetCallback(std::function<void()> callback) { encoderResetCallback_ = callback; }
+	void Draw(MTLPrimitiveType prim, uint32_t start, uint32_t count);
+	void DrawIndexed(MTLPrimitiveType prim, uint32_t count, __unsafe_unretained id<MTLBuffer> indexBuffer, uint32_t offset);
+
+	// Blits. These end the current render pass (it resumes with the next draw). With upload set, the copy
+	// goes in the upload command buffer, which runs before everything else in the current submit. Use that
+	// only for resources that nothing earlier in the frame has used (like new textures).
+	void CopyTexture(__unsafe_unretained id<MTLTexture> src, int srcLevel, MTLOrigin srcOrigin, MTLSize size, __unsafe_unretained id<MTLTexture> dst, int dstLevel, MTLOrigin dstOrigin);
+	// src nil means the backbuffer.
+	void CopyTextureToBuffer(__unsafe_unretained id<MTLTexture> src, int level, MTLOrigin origin, MTLSize size, __unsafe_unretained id<MTLBuffer> dst, uint32_t offset, uint32_t bytesPerRow, uint32_t bytesPerImage, MTLBlitOption options);
+	void CopyBufferToTexture(__unsafe_unretained id<MTLBuffer> src, uint32_t offset, uint32_t bytesPerRow, uint32_t bytesPerImage, MTLSize size, __unsafe_unretained id<MTLTexture> dst, int slice, int level, MTLOrigin origin, MTLBlitOption options, bool upload);
+	void GenerateMips(__unsafe_unretained id<MTLTexture> texture, bool upload);
 
 	const MetalStats &Stats() const { return lastStats_; }
 
@@ -250,14 +392,30 @@ public:
 	id<MTLTexture> ArrayView(id<MTLTexture> texture);
 
 private:
-	void StartRenderEncoder();
-	void EndRenderEncoder();
-	void EndBlitEncoder();
-	void NewCommandBuffers();
+	void StartRenderPass();
+	void EndRenderPass();
+	void RecordEndPass();
 	void ResetEncoderState();
-	void AcquireDrawable();
 	void CreateOffscreenBackbuffer(int width, int height);
 	void CreateBackbufferDepth();
+	MetalCommand &Record(MetalCmd cmd) {
+		chunk_->commands.emplace_back();
+		MetalCommand &c = chunk_->commands.back();
+		c.cmd = cmd;
+		return c;
+	}
+	MetalRecordedCopy &RecordCopy(bool upload);
+	void Submit(MetalChunkEnd end, bool vsync, dispatch_semaphore_t completed);
+
+	// Replay, on the render thread (or inline).
+	void RenderThreadFunc();
+	void Replay(MetalCommandChunk *chunk);
+	void BuildSteps(const MetalCommandChunk &chunk);
+	void MergeSteps(MetalCommandChunk &chunk);
+	void ReplayPass(const MetalCommandChunk &chunk, MetalStep &step, id<MTLCommandBuffer> cmd);
+	void ReplayCopy(const MetalCommandChunk &chunk, const MetalRecordedCopy &copy, id<MTLCommandBuffer> cmd, bool upload);
+	void EndReplayEncoders();
+	id<MTLTexture> ReplayBackbuffer();
 
 	id<MTLDevice> device_;
 	id<MTLCommandQueue> queue_;
@@ -268,30 +426,29 @@ private:
 	struct FrameData {
 		MetalPushBuffer push;
 		std::vector<id> deleteList;
-		bool hasPendingWork = false;
 	};
 	FrameData frames_[METAL_MAX_INFLIGHT_FRAMES];
 	dispatch_semaphore_t frameSemaphore_;
+	dispatch_semaphore_t flushSemaphore_;
 	int inflightFrames_ = METAL_MAX_INFLIGHT_FRAMES;
 	int curFrame_ = 0;
 	uint64_t frameNumber_ = 0;
 	bool inFrame_ = false;
 
-	id<MTLCommandBuffer> cmd_;
-	id<MTLCommandBuffer> uploadCmd_;
-	id<MTLRenderCommandEncoder> renderEncoder_;
-	id<MTLBlitCommandEncoder> blitEncoder_;
-	id<MTLBlitCommandEncoder> uploadEncoder_;
-	id<MTLCommandBuffer> lastCommitted_;
-
-	id<CAMetalDrawable> drawable_;
+	// Recording state (emu thread).
+	MetalCommandChunk *chunk_ = nullptr;
 	id<MTLTexture> offscreenBackbuffer_;
 	id<MTLTexture> bbDepth_;
 	int bbWidth_ = 0;
 	int bbHeight_ = 0;
+	int pendingDrawableWidth_ = 0;
+	int pendingDrawableHeight_ = 0;
 
 	MetalRenderPassDesc pass_;
 	bool passIsBackbuffer_ = false;
+	bool inPass_ = false;
+	bool passUsesDepth_ = false;
+	size_t recordedPassIndex_ = 0;
 	MetalRenderTargetFormat curFormat_;
 	int passWidth_ = 0;
 	int passHeight_ = 0;
@@ -301,6 +458,7 @@ private:
 	struct EncoderState {
 		__unsafe_unretained id<MTLRenderPipelineState> pipeline;
 		__unsafe_unretained id<MTLDepthStencilState> depthStencil;
+		bool depthStencilUsed;
 		uint32_t stencilRef;
 		float blendColor[4];
 		MTLCullMode cull;
@@ -326,8 +484,25 @@ private:
 	};
 	EncoderState state_{};
 
-	std::function<void()> encoderResetCallback_;
-
 	MetalStats stats_{};
 	MetalStats lastStats_{};
+
+	// Hand-off between the threads.
+	std::thread renderThread_;
+	std::mutex queueMutex_;
+	std::condition_variable queueCond_;
+	std::deque<MetalCommandChunk *> queue_chunks_;
+	std::mutex freeMutex_;
+	std::vector<MetalCommandChunk *> freeChunks_;
+
+	// Replay state (render thread, or the emu thread when not threaded).
+	id<MTLCommandBuffer> rtCmd_;
+	id<MTLCommandBuffer> rtUploadCmd_;
+	id<MTLBlitCommandEncoder> rtBlit_;
+	id<MTLBlitCommandEncoder> rtUploadBlit_;
+	id<CAMetalDrawable> rtDrawable_;
+	// Replay scratch, reused between chunks.
+	std::vector<MetalStep> rtSteps_;
+	size_t rtStepCount_ = 0;
+	bool rtVsync_ = true;
 };

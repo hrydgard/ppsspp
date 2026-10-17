@@ -25,6 +25,7 @@
 #include "Common/GPU/Vulkan/VulkanContext.h"
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
+#include "Common/Thread/ThreadUtil.h"
 
 #include "ext/SPIRV-Cross/spirv_msl.hpp"
 
@@ -213,7 +214,7 @@ id<MTLFunction> CreateMetalFunction(id<MTLDevice> device, const MetalTranslatedS
 	return function;
 }
 
-MetalRenderManager::MetalRenderManager(id<MTLDevice> device, CAMetalLayer *layer, int offscreenWidth, int offscreenHeight) : device_(device), layer_(layer) {
+MetalRenderManager::MetalRenderManager(id<MTLDevice> device, CAMetalLayer *layer, int offscreenWidth, int offscreenHeight, bool useThread) : device_(device), layer_(layer) {
 	queue_ = [device_ newCommandQueue];
 	queue_.label = @"PPSSPP";
 	unifiedMemory_ = device_.hasUnifiedMemory;
@@ -225,6 +226,7 @@ MetalRenderManager::MetalRenderManager(id<MTLDevice> device, CAMetalLayer *layer
 	frameSemaphore_ = dispatch_semaphore_create(METAL_MAX_INFLIGHT_FRAMES);
 	// Claim the first frame's slot.
 	dispatch_semaphore_wait(frameSemaphore_, DISPATCH_TIME_FOREVER);
+	flushSemaphore_ = dispatch_semaphore_create(0);
 
 	if (layer_) {
 		layer_.device = device_;
@@ -239,12 +241,32 @@ MetalRenderManager::MetalRenderManager(id<MTLDevice> device, CAMetalLayer *layer
 		CreateOffscreenBackbuffer(offscreenWidth, offscreenHeight);
 	}
 	CreateBackbufferDepth();
+
+	chunk_ = new MetalCommandChunk();
+	if (useThread) {
+		renderThread_ = std::thread([this] { RenderThreadFunc(); });
+	}
 }
 
 MetalRenderManager::~MetalRenderManager() {
 	WaitIdle();
+	if (renderThread_.joinable()) {
+		MetalCommandChunk *exitChunk = new MetalCommandChunk();
+		exitChunk->exitThread = true;
+		{
+			std::lock_guard<std::mutex> guard(queueMutex_);
+			queue_chunks_.push_back(exitChunk);
+		}
+		queueCond_.notify_one();
+		renderThread_.join();
+	}
+	delete chunk_;
+	for (MetalCommandChunk *chunk : freeChunks_) {
+		delete chunk;
+	}
 	for (int i = 0; i < METAL_MAX_INFLIGHT_FRAMES; i++) {
 		frames_[i].push.Destroy();
+		frames_[i].deleteList.clear();
 	}
 	// Give back the slot we're holding, and wait for all the others, so the semaphore is
 	// back at its initial value. libdispatch crashes when releasing it otherwise.
@@ -293,107 +315,68 @@ void MetalRenderManager::CreateBackbufferDepth() {
 }
 
 void MetalRenderManager::Resize(int width, int height) {
-	if (!layer_) {
+	if (!layer_ || width <= 0 || height <= 0) {
 		return;
 	}
-	if (pass_.color != nil && passIsBackbuffer_) {
+	if (passIsBackbuffer_) {
 		UnbindRenderPass();
 	}
-	if (width > 0 && height > 0) {
-		layer_.drawableSize = CGSizeMake(width, height);
-	}
-	CGSize size = layer_.drawableSize;
-	bbWidth_ = (int)size.width;
-	bbHeight_ = (int)size.height;
+	// The drawables are resized by the replay, as it's what acquires them.
+	pendingDrawableWidth_ = width;
+	pendingDrawableHeight_ = height;
+	bbWidth_ = width;
+	bbHeight_ = height;
 	CreateBackbufferDepth();
-}
-
-void MetalRenderManager::AcquireDrawable() {
-	if (drawable_ || !layer_) {
-		return;
-	}
-	@autoreleasepool {
-		drawable_ = [layer_ nextDrawable];
-	}
-	if (drawable_) {
-		id<MTLTexture> tex = drawable_.texture;
-		if ((int)tex.width != bbWidth_ || (int)tex.height != bbHeight_) {
-			WARN_LOG(Log::G3D, "Drawable size %dx%d doesn't match backbuffer size %dx%d", (int)tex.width, (int)tex.height, bbWidth_, bbHeight_);
-		}
-	}
-}
-
-id<MTLTexture> MetalRenderManager::BackbufferTexture() {
-	if (!layer_) {
-		return offscreenBackbuffer_;
-	}
-	AcquireDrawable();
-	return drawable_ ? drawable_.texture : nil;
-}
-
-id<MTLTexture> MetalRenderManager::BackbufferDepth() {
-	return bbDepth_;
-}
-
-void MetalRenderManager::NewCommandBuffers() {
-	if (cmd_) {
-		return;
-	}
-	// The upload buffer is enqueued first, so it runs first even though it's committed at the same time.
-	uploadCmd_ = [queue_ commandBufferWithUnretainedReferences];
-	uploadCmd_.label = @"upload";
-	[uploadCmd_ enqueue];
-	cmd_ = [queue_ commandBufferWithUnretainedReferences];
-	cmd_.label = @"main";
-	[cmd_ enqueue];
 }
 
 void MetalRenderManager::BeginFrame() {
 	_dbg_assert_(!inFrame_);
 	inFrame_ = true;
-	NewCommandBuffers();
 }
 
 void MetalRenderManager::EndFrame() {
 	_dbg_assert_(inFrame_);
 	inFrame_ = false;
-	EndEncoders();
+	EndRenderPass();
+}
+
+void MetalRenderManager::Submit(MetalChunkEnd end, bool vsync, dispatch_semaphore_t completed) {
+	EndRenderPass();
+	MetalCommandChunk *chunk = chunk_;
+	chunk->end = end;
+	chunk->vsync = vsync;
+	chunk->completed = completed;
+	chunk->newDrawableWidth = pendingDrawableWidth_;
+	chunk->newDrawableHeight = pendingDrawableHeight_;
+	pendingDrawableWidth_ = 0;
+	pendingDrawableHeight_ = 0;
+
+	if (renderThread_.joinable()) {
+		{
+			std::lock_guard<std::mutex> guard(freeMutex_);
+			if (!freeChunks_.empty()) {
+				chunk_ = freeChunks_.back();
+				freeChunks_.pop_back();
+			} else {
+				chunk_ = new MetalCommandChunk();
+			}
+		}
+		{
+			std::lock_guard<std::mutex> guard(queueMutex_);
+			queue_chunks_.push_back(chunk);
+		}
+		queueCond_.notify_one();
+	} else {
+		Replay(chunk);
+		chunk->Clear();
+	}
 }
 
 void MetalRenderManager::Present(bool vsync) {
-	EndEncoders();
-	NewCommandBuffers();
-
-#if PPSSPP_PLATFORM(MAC)
-	if (layer_ && layer_.displaySyncEnabled != vsync) {
-		layer_.displaySyncEnabled = vsync;
-	}
-#endif
-
-	if (drawable_) {
-		[cmd_ presentDrawable:drawable_];
-		DeferRelease(drawable_);
-		drawable_ = nil;
-	}
-
-	if (uploadEncoder_) {
-		[uploadEncoder_ endEncoding];
-		uploadEncoder_ = nil;
-	}
-	[uploadCmd_ commit];
-	uploadCmd_ = nil;
-
-	dispatch_semaphore_t semaphore = frameSemaphore_;
-	[cmd_ addCompletedHandler:^(id<MTLCommandBuffer> buffer) {
-		dispatch_semaphore_signal(semaphore);
-	}];
-	[cmd_ commit];
-	lastCommitted_ = cmd_;
-	id<MTLCommandBuffer> committed = cmd_;
-	cmd_ = nil;
-
-	if (inflightFrames_ == 1) {
-		[committed waitUntilCompleted];
+	const bool waitForGPU = inflightFrames_ == 1;
+	Submit(MetalChunkEnd::PRESENT, vsync, waitForGPU ? flushSemaphore_ : nullptr);
+	if (waitForGPU) {
+		dispatch_semaphore_wait(flushSemaphore_, DISPATCH_TIME_FOREVER);
 	}
 
 	lastStats_ = stats_;
@@ -408,27 +391,11 @@ void MetalRenderManager::Present(bool vsync) {
 }
 
 void MetalRenderManager::Flush(bool wait) {
-	EndEncoders();
-	if (!cmd_) {
-		if (wait && lastCommitted_) {
-			[lastCommitted_ waitUntilCompleted];
-		}
-		return;
-	}
-	if (uploadEncoder_) {
-		[uploadEncoder_ endEncoding];
-		uploadEncoder_ = nil;
-	}
-	[uploadCmd_ commit];
-	uploadCmd_ = nil;
-	[cmd_ commit];
+	Submit(MetalChunkEnd::FLUSH, true, wait ? flushSemaphore_ : nullptr);
 	if (wait) {
-		[cmd_ waitUntilCompleted];
+		dispatch_semaphore_wait(flushSemaphore_, DISPATCH_TIME_FOREVER);
 	}
-	lastCommitted_ = cmd_;
-	cmd_ = nil;
 	stats_.flushes++;
-	NewCommandBuffers();
 }
 
 void MetalRenderManager::WaitIdle() {
@@ -436,6 +403,11 @@ void MetalRenderManager::WaitIdle() {
 }
 
 void MetalRenderManager::BindBackbufferPass(MTLLoadAction colorLoad, MTLClearColor clearColor, const char *tag) {
+	if (passIsBackbuffer_ && inPass_ && colorLoad == MTLLoadActionLoad) {
+		// Already rendering to it.
+		return;
+	}
+	EndRenderPass();
 	MetalRenderPassDesc desc{};
 	desc.colorLoad = colorLoad;
 	desc.clearColor = clearColor;
@@ -443,16 +415,9 @@ void MetalRenderManager::BindBackbufferPass(MTLLoadAction colorLoad, MTLClearCol
 	desc.stencilLoad = MTLLoadActionClear;
 	desc.depthMemoryless = appleGPU_;
 	desc.tag = tag;
-	if (passIsBackbuffer_ && pass_.color != nil && renderEncoder_ && colorLoad == MTLLoadActionLoad) {
-		// Already rendering to it.
-		return;
-	}
-	EndEncoders();
+	desc.depth = bbDepth_;
 	pass_ = desc;
 	passIsBackbuffer_ = true;
-	// Placeholder until the pass starts, so HasRenderPass() is true. Acquiring the drawable is delayed as long as possible.
-	pass_.color = layer_ ? nil : offscreenBackbuffer_;
-	pass_.depth = bbDepth_;
 	curFormat_.color = MTLPixelFormatBGRA8Unorm;
 	curFormat_.depth = bbDepth_ ? MTLPixelFormatDepth32Float_Stencil8 : MTLPixelFormatInvalid;
 	curFormat_.stencil = curFormat_.depth;
@@ -473,7 +438,7 @@ void MetalRenderManager::BindRenderPass(const MetalRenderPassDesc &desc) {
 		}
 		return;
 	}
-	EndEncoders();
+	EndRenderPass();
 	pass_ = desc;
 	passIsBackbuffer_ = false;
 	id<MTLTexture> sizeTex = desc.color ? desc.color : desc.depth;
@@ -486,21 +451,19 @@ void MetalRenderManager::BindRenderPass(const MetalRenderPassDesc &desc) {
 }
 
 void MetalRenderManager::UnbindRenderPass() {
-	EndEncoders();
+	EndRenderPass();
 	pass_ = MetalRenderPassDesc{};
 	passIsBackbuffer_ = false;
 	curFormat_ = MetalRenderTargetFormat{};
 }
 
 void MetalRenderManager::Clear(bool color, bool depth, bool stencil, MTLClearColor clearColor, double clearDepth, uint32_t clearStencil) {
-	if (!HasRenderPass() && !passIsBackbuffer_) {
+	if (!HasRenderPass()) {
 		return;
 	}
-	if (renderEncoder_) {
+	if (inPass_) {
 		// Metal has no clear command within a pass, so restart it with clear load actions.
-		[renderEncoder_ endEncoding];
-		renderEncoder_ = nil;
-		encoder = nil;
+		RecordEndPass();
 	}
 	if (color) {
 		pass_.colorLoad = MTLLoadActionClear;
@@ -516,54 +479,32 @@ void MetalRenderManager::Clear(bool color, bool depth, bool stencil, MTLClearCol
 	}
 }
 
-void MetalRenderManager::StartRenderEncoder() {
-	EndBlitEncoder();
-	NewCommandBuffers();
-
-	id<MTLTexture> color = pass_.color;
-	if (passIsBackbuffer_) {
-		color = BackbufferTexture();
-		if (!color) {
-			return;
-		}
+void MetalRenderManager::StartRenderPass() {
+	if (!HasRenderPass()) {
+		return;
 	}
-
-	MTLRenderPassDescriptor *rp = [MTLRenderPassDescriptor renderPassDescriptor];
-	if (color) {
-		rp.colorAttachments[0].texture = color;
-		rp.colorAttachments[0].loadAction = pass_.colorLoad;
-		rp.colorAttachments[0].clearColor = pass_.clearColor;
-		rp.colorAttachments[0].storeAction = MTLStoreActionStore;
-	}
-	if (pass_.depth) {
-		MTLLoadAction depthLoad = pass_.depthLoad;
-		MTLLoadAction stencilLoad = pass_.stencilLoad;
-		MTLStoreAction store = MTLStoreActionStore;
-		if (pass_.depthMemoryless) {
-			// Can't load or store memoryless attachments.
-			if (depthLoad == MTLLoadActionLoad)
-				depthLoad = MTLLoadActionClear;
-			if (stencilLoad == MTLLoadActionLoad)
-				stencilLoad = MTLLoadActionClear;
-			store = MTLStoreActionDontCare;
-		}
-		rp.depthAttachment.texture = pass_.depth;
-		rp.depthAttachment.loadAction = depthLoad;
-		rp.depthAttachment.clearDepth = pass_.clearDepth;
-		rp.depthAttachment.storeAction = store;
-		if (pass_.depth.pixelFormat == MTLPixelFormatDepth32Float_Stencil8) {
-			rp.stencilAttachment.texture = pass_.depth;
-			rp.stencilAttachment.loadAction = stencilLoad;
-			rp.stencilAttachment.clearStencil = pass_.clearStencil;
-			rp.stencilAttachment.storeAction = store;
-		}
-	}
-
-	renderEncoder_ = [cmd_ renderCommandEncoderWithDescriptor:rp];
-	encoder = renderEncoder_;
+	MetalRecordedPass rp;
+	rp.backbuffer = passIsBackbuffer_;
+	rp.color = passIsBackbuffer_ ? nullptr : (__bridge void *)pass_.color;
+	rp.depth = (__bridge void *)pass_.depth;
+	rp.colorLoad = pass_.colorLoad;
+	rp.depthLoad = pass_.depthLoad;
+	rp.stencilLoad = pass_.stencilLoad;
+	rp.clearColor = pass_.clearColor;
+	rp.clearDepth = pass_.clearDepth;
+	rp.clearStencil = pass_.clearStencil;
+	rp.depthMemoryless = pass_.depthMemoryless;
+	rp.depthStore = MTLStoreActionStore;
+	rp.usesDepth = false;
 	if (pass_.tag) {
-		renderEncoder_.label = [NSString stringWithUTF8String:pass_.tag];
+		rp.tag = pass_.tag;
 	}
+	chunk_->passes.push_back(std::move(rp));
+	recordedPassIndex_ = chunk_->passes.size() - 1;
+	Record(MetalCmd::BEGIN_PASS).pass = (uint32_t)recordedPassIndex_;
+	inPass_ = true;
+	passUsesDepth_ = false;
+
 	stats_.renderPasses++;
 	encoderGeneration_++;
 
@@ -573,31 +514,14 @@ void MetalRenderManager::StartRenderEncoder() {
 	pass_.stencilLoad = MTLLoadActionLoad;
 
 	ResetEncoderState();
-	if (encoderResetCallback_) {
-		encoderResetCallback_();
-	}
 }
 
-void MetalRenderManager::ResetEncoderState() {
-	state_ = EncoderState{};
-}
-
-id<MTLRenderCommandEncoder> MetalRenderManager::RenderEncoder() {
-	if (!renderEncoder_) {
-		if (!HasRenderPass() && !passIsBackbuffer_) {
-			return nil;
-		}
-		StartRenderEncoder();
-	}
-	return renderEncoder_;
-}
-
-void MetalRenderManager::EndRenderEncoder() {
-	if (!renderEncoder_ && (HasRenderPass() || passIsBackbuffer_)) {
+void MetalRenderManager::EndRenderPass() {
+	if (!inPass_ && HasRenderPass()) {
 		// A pass that was set up to clear, but never drawn to, still has to clear.
 		if (pass_.colorLoad == MTLLoadActionClear || pass_.depthLoad == MTLLoadActionClear || pass_.stencilLoad == MTLLoadActionClear) {
 			if (!(pass_.depthMemoryless && pass_.colorLoad != MTLLoadActionClear)) {
-				StartRenderEncoder();
+				StartRenderPass();
 			} else {
 				// Only the memoryless depth would be cleared, which nobody can see.
 				pass_.depthLoad = MTLLoadActionLoad;
@@ -605,61 +529,104 @@ void MetalRenderManager::EndRenderEncoder() {
 			}
 		}
 	}
-	if (renderEncoder_) {
-		[renderEncoder_ endEncoding];
-		renderEncoder_ = nil;
-		encoder = nil;
+	if (inPass_) {
+		RecordEndPass();
 	}
 }
 
-void MetalRenderManager::EndBlitEncoder() {
-	if (blitEncoder_) {
-		[blitEncoder_ endEncoding];
-		blitEncoder_ = nil;
-	}
+void MetalRenderManager::RecordEndPass() {
+	chunk_->passes[recordedPassIndex_].usesDepth = passUsesDepth_;
+	Record(MetalCmd::END_PASS);
+	inPass_ = false;
 }
 
-void MetalRenderManager::EndEncoders() {
-	EndRenderEncoder();
-	EndBlitEncoder();
+void MetalRenderManager::ResetEncoderState() {
+	state_ = EncoderState{};
 }
 
-id<MTLBlitCommandEncoder> MetalRenderManager::BlitEncoder() {
-	EndRenderEncoder();
-	if (!blitEncoder_) {
-		NewCommandBuffers();
-		blitEncoder_ = [cmd_ blitCommandEncoder];
+MetalRecordedCopy &MetalRenderManager::RecordCopy(bool upload) {
+	if (!upload) {
+		EndRenderPass();
 		stats_.blitPasses++;
 	}
-	return blitEncoder_;
+	chunk_->copies.emplace_back();
+	MetalCommand c{};
+	c.cmd = MetalCmd::COPY;
+	c.copy = (uint32_t)chunk_->copies.size() - 1;
+	if (upload) {
+		chunk_->uploads.push_back(c);
+	} else {
+		chunk_->commands.push_back(c);
+	}
+	return chunk_->copies.back();
 }
 
-id<MTLBlitCommandEncoder> MetalRenderManager::UploadEncoder() {
-	NewCommandBuffers();
-	if (!uploadEncoder_) {
-		uploadEncoder_ = [uploadCmd_ blitCommandEncoder];
-		uploadEncoder_.label = @"upload";
-	}
-	return uploadEncoder_;
+void MetalRenderManager::CopyTexture(__unsafe_unretained id<MTLTexture> src, int srcLevel, MTLOrigin srcOrigin, MTLSize size, __unsafe_unretained id<MTLTexture> dst, int dstLevel, MTLOrigin dstOrigin) {
+	MetalRecordedCopy &copy = RecordCopy(false);
+	copy.type = MetalCopyType::TEXTURE_TO_TEXTURE;
+	copy.src = (__bridge void *)src;
+	copy.dst = (__bridge void *)dst;
+	copy.srcLevel = srcLevel;
+	copy.dstLevel = dstLevel;
+	copy.srcOrigin = srcOrigin;
+	copy.dstOrigin = dstOrigin;
+	copy.size = size;
+}
+
+void MetalRenderManager::CopyTextureToBuffer(__unsafe_unretained id<MTLTexture> src, int level, MTLOrigin origin, MTLSize size, __unsafe_unretained id<MTLBuffer> dst, uint32_t offset, uint32_t bytesPerRow, uint32_t bytesPerImage, MTLBlitOption options) {
+	MetalRecordedCopy &copy = RecordCopy(false);
+	copy.type = MetalCopyType::TEXTURE_TO_BUFFER;
+	copy.srcIsBackbuffer = src == nil;
+	copy.src = (__bridge void *)src;
+	copy.dst = (__bridge void *)dst;
+	copy.srcLevel = level;
+	copy.srcOrigin = origin;
+	copy.size = size;
+	copy.dstOffset = offset;
+	copy.bytesPerRow = bytesPerRow;
+	copy.bytesPerImage = bytesPerImage;
+	copy.options = options;
+}
+
+void MetalRenderManager::CopyBufferToTexture(__unsafe_unretained id<MTLBuffer> src, uint32_t offset, uint32_t bytesPerRow, uint32_t bytesPerImage, MTLSize size, __unsafe_unretained id<MTLTexture> dst, int slice, int level, MTLOrigin origin, MTLBlitOption options, bool upload) {
+	MetalRecordedCopy &copy = RecordCopy(upload);
+	copy.type = MetalCopyType::BUFFER_TO_TEXTURE;
+	copy.src = (__bridge void *)src;
+	copy.dst = (__bridge void *)dst;
+	copy.srcOffset = offset;
+	copy.bytesPerRow = bytesPerRow;
+	copy.bytesPerImage = bytesPerImage;
+	copy.size = size;
+	copy.dstSlice = slice;
+	copy.dstLevel = level;
+	copy.dstOrigin = origin;
+	copy.options = options;
+}
+
+void MetalRenderManager::GenerateMips(__unsafe_unretained id<MTLTexture> texture, bool upload) {
+	MetalRecordedCopy &copy = RecordCopy(upload);
+	copy.type = MetalCopyType::GENERATE_MIPS;
+	copy.dst = (__bridge void *)texture;
 }
 
 void MetalRenderManager::SetPipeline(__unsafe_unretained id<MTLRenderPipelineState> pipeline) {
 	if (state_.pipeline != pipeline) {
-		[renderEncoder_ setRenderPipelineState:pipeline];
+		Record(MetalCmd::PIPELINE).bind.obj = (__bridge void *)pipeline;
 		state_.pipeline = pipeline;
 	}
 }
 
-void MetalRenderManager::SetDepthStencilState(__unsafe_unretained id<MTLDepthStencilState> dss) {
+void MetalRenderManager::SetDepthStencilState(__unsafe_unretained id<MTLDepthStencilState> dss, bool usesDepthStencil) {
+	state_.depthStencilUsed = usesDepthStencil;
 	if (state_.depthStencil != dss) {
-		[renderEncoder_ setDepthStencilState:dss];
+		Record(MetalCmd::DEPTH_STENCIL).bind.obj = (__bridge void *)dss;
 		state_.depthStencil = dss;
 	}
 }
 
 void MetalRenderManager::SetStencilRef(uint32_t ref) {
 	if (!state_.stencilRefValid || state_.stencilRef != ref) {
-		[renderEncoder_ setStencilReferenceValue:ref];
+		Record(MetalCmd::STENCIL_REF).value = ref;
 		state_.stencilRef = ref;
 		state_.stencilRefValid = true;
 	}
@@ -667,7 +634,11 @@ void MetalRenderManager::SetStencilRef(uint32_t ref) {
 
 void MetalRenderManager::SetBlendColor(float r, float g, float b, float a) {
 	if (!state_.blendColorValid || state_.blendColor[0] != r || state_.blendColor[1] != g || state_.blendColor[2] != b || state_.blendColor[3] != a) {
-		[renderEncoder_ setBlendColorRed:r green:g blue:b alpha:a];
+		MetalCommand &c = Record(MetalCmd::BLEND_COLOR);
+		c.color[0] = r;
+		c.color[1] = g;
+		c.color[2] = b;
+		c.color[3] = a;
 		state_.blendColor[0] = r;
 		state_.blendColor[1] = g;
 		state_.blendColor[2] = b;
@@ -678,7 +649,7 @@ void MetalRenderManager::SetBlendColor(float r, float g, float b, float a) {
 
 void MetalRenderManager::SetCullMode(MTLCullMode mode) {
 	if (!state_.cullValid || state_.cull != mode) {
-		[renderEncoder_ setCullMode:mode];
+		Record(MetalCmd::CULL).value = (uint32_t)mode;
 		state_.cull = mode;
 		state_.cullValid = true;
 	}
@@ -686,7 +657,7 @@ void MetalRenderManager::SetCullMode(MTLCullMode mode) {
 
 void MetalRenderManager::SetFrontFacing(MTLWinding winding) {
 	if (!state_.windingValid || state_.winding != winding) {
-		[renderEncoder_ setFrontFacingWinding:winding];
+		Record(MetalCmd::WINDING).value = (uint32_t)winding;
 		state_.winding = winding;
 		state_.windingValid = true;
 	}
@@ -694,7 +665,7 @@ void MetalRenderManager::SetFrontFacing(MTLWinding winding) {
 
 void MetalRenderManager::SetDepthClip(MTLDepthClipMode mode) {
 	if (!state_.depthClipValid || state_.depthClip != mode) {
-		[renderEncoder_ setDepthClipMode:mode];
+		Record(MetalCmd::DEPTH_CLIP).value = (uint32_t)mode;
 		state_.depthClip = mode;
 		state_.depthClipValid = true;
 	}
@@ -702,7 +673,7 @@ void MetalRenderManager::SetDepthClip(MTLDepthClipMode mode) {
 
 void MetalRenderManager::SetViewport(const MTLViewport &vp) {
 	if (!state_.viewportValid || memcmp(&vp, &state_.viewport, sizeof(vp)) != 0) {
-		[renderEncoder_ setViewport:vp];
+		Record(MetalCmd::VIEWPORT).viewport = vp;
 		state_.viewport = vp;
 		state_.viewportValid = true;
 	}
@@ -718,7 +689,7 @@ bool MetalRenderManager::SetScissor(int x, int y, int w, int h) {
 	}
 	MTLScissorRect rc{ (NSUInteger)x, (NSUInteger)y, (NSUInteger)(x2 - x), (NSUInteger)(y2 - y) };
 	if (!state_.scissorValid || memcmp(&rc, &state_.scissor, sizeof(rc)) != 0) {
-		[renderEncoder_ setScissorRect:rc];
+		Record(MetalCmd::SCISSOR).scissor = rc;
 		state_.scissor = rc;
 		state_.scissorValid = true;
 	}
@@ -727,61 +698,464 @@ bool MetalRenderManager::SetScissor(int x, int y, int w, int h) {
 
 void MetalRenderManager::SetVertexBuffer(__unsafe_unretained id<MTLBuffer> buffer, uint32_t offset, int index) {
 	if (state_.vertexBuffers[index] != buffer) {
-		[renderEncoder_ setVertexBuffer:buffer offset:offset atIndex:index];
+		MetalCommand &c = Record(MetalCmd::VERTEX_BUFFER);
+		c.index = index;
+		c.bind.obj = (__bridge void *)buffer;
+		c.bind.offset = offset;
 		state_.vertexBuffers[index] = buffer;
 		state_.vertexBufferOffsets[index] = offset;
 	} else if (state_.vertexBufferOffsets[index] != offset) {
-		[renderEncoder_ setVertexBufferOffset:offset atIndex:index];
+		MetalCommand &c = Record(MetalCmd::VERTEX_BUFFER_OFFSET);
+		c.index = index;
+		c.bind.offset = offset;
 		state_.vertexBufferOffsets[index] = offset;
 	}
 }
 
 void MetalRenderManager::SetVertexBytes(const void *data, size_t size, int index) {
-	[renderEncoder_ setVertexBytes:data length:size atIndex:index];
-	state_.vertexBuffers[index] = nil;
+	// The bytes have to be copied at record time, and the push buffer is as good a place as any.
+	MetalPushAlloc alloc = Push().Push(data, size, 256);
+	SetVertexBuffer(alloc.buffer, alloc.offset, index);
 }
 
 void MetalRenderManager::SetFragmentBuffer(__unsafe_unretained id<MTLBuffer> buffer, uint32_t offset, int index) {
 	if (state_.fragmentBuffers[index] != buffer) {
-		[renderEncoder_ setFragmentBuffer:buffer offset:offset atIndex:index];
+		MetalCommand &c = Record(MetalCmd::FRAGMENT_BUFFER);
+		c.index = index;
+		c.bind.obj = (__bridge void *)buffer;
+		c.bind.offset = offset;
 		state_.fragmentBuffers[index] = buffer;
 		state_.fragmentBufferOffsets[index] = offset;
 	} else if (state_.fragmentBufferOffsets[index] != offset) {
-		[renderEncoder_ setFragmentBufferOffset:offset atIndex:index];
+		MetalCommand &c = Record(MetalCmd::FRAGMENT_BUFFER_OFFSET);
+		c.index = index;
+		c.bind.offset = offset;
 		state_.fragmentBufferOffsets[index] = offset;
 	}
 }
 
 void MetalRenderManager::SetFragmentBytes(const void *data, size_t size, int index) {
-	[renderEncoder_ setFragmentBytes:data length:size atIndex:index];
-	state_.fragmentBuffers[index] = nil;
+	MetalPushAlloc alloc = Push().Push(data, size, 256);
+	SetFragmentBuffer(alloc.buffer, alloc.offset, index);
 }
 
 void MetalRenderManager::SetFragmentTexture(__unsafe_unretained id<MTLTexture> texture, int index) {
 	if (state_.fragmentTextures[index] != texture) {
-		[renderEncoder_ setFragmentTexture:texture atIndex:index];
+		MetalCommand &c = Record(MetalCmd::FRAGMENT_TEXTURE);
+		c.index = index;
+		c.bind.obj = (__bridge void *)texture;
 		state_.fragmentTextures[index] = texture;
 	}
 }
 
 void MetalRenderManager::SetFragmentSampler(__unsafe_unretained id<MTLSamplerState> sampler, int index) {
 	if (state_.fragmentSamplers[index] != sampler) {
-		[renderEncoder_ setFragmentSamplerState:sampler atIndex:index];
+		MetalCommand &c = Record(MetalCmd::FRAGMENT_SAMPLER);
+		c.index = index;
+		c.bind.obj = (__bridge void *)sampler;
 		state_.fragmentSamplers[index] = sampler;
 	}
 }
 
 void MetalRenderManager::SetVertexTexture(__unsafe_unretained id<MTLTexture> texture, int index) {
 	if (state_.vertexTextures[index] != texture) {
-		[renderEncoder_ setVertexTexture:texture atIndex:index];
+		MetalCommand &c = Record(MetalCmd::VERTEX_TEXTURE);
+		c.index = index;
+		c.bind.obj = (__bridge void *)texture;
 		state_.vertexTextures[index] = texture;
 	}
 }
 
 void MetalRenderManager::SetVertexSampler(__unsafe_unretained id<MTLSamplerState> sampler, int index) {
 	if (state_.vertexSamplers[index] != sampler) {
-		[renderEncoder_ setVertexSamplerState:sampler atIndex:index];
+		MetalCommand &c = Record(MetalCmd::VERTEX_SAMPLER);
+		c.index = index;
+		c.bind.obj = (__bridge void *)sampler;
 		state_.vertexSamplers[index] = sampler;
+	}
+}
+
+void MetalRenderManager::Draw(MTLPrimitiveType prim, uint32_t start, uint32_t count) {
+	passUsesDepth_ |= state_.depthStencilUsed;
+	MetalCommand &c = Record(MetalCmd::DRAW);
+	c.prim = (uint8_t)prim;
+	c.draw.start = start;
+	c.draw.count = count;
+	stats_.draws++;
+}
+
+void MetalRenderManager::DrawIndexed(MTLPrimitiveType prim, uint32_t count, __unsafe_unretained id<MTLBuffer> indexBuffer, uint32_t offset) {
+	passUsesDepth_ |= state_.depthStencilUsed;
+	MetalCommand &c = Record(MetalCmd::DRAW_INDEXED);
+	c.prim = (uint8_t)prim;
+	c.drawIndexed.buffer = (__bridge void *)indexBuffer;
+	c.drawIndexed.offset = offset;
+	c.drawIndexed.count = count;
+	stats_.draws++;
+}
+
+void MetalRenderManager::RenderThreadFunc() {
+	SetCurrentThreadName("MetalRender");
+	while (true) {
+		MetalCommandChunk *chunk;
+		{
+			std::unique_lock<std::mutex> lock(queueMutex_);
+			queueCond_.wait(lock, [this] { return !queue_chunks_.empty(); });
+			chunk = queue_chunks_.front();
+			queue_chunks_.pop_front();
+		}
+		if (chunk->exitThread) {
+			delete chunk;
+			break;
+		}
+		@autoreleasepool {
+			Replay(chunk);
+		}
+		chunk->Clear();
+		std::lock_guard<std::mutex> guard(freeMutex_);
+		freeChunks_.push_back(chunk);
+	}
+}
+
+id<MTLTexture> MetalRenderManager::ReplayBackbuffer() {
+	if (!layer_) {
+		return offscreenBackbuffer_;
+	}
+	if (!rtDrawable_) {
+		@autoreleasepool {
+			rtDrawable_ = [layer_ nextDrawable];
+		}
+	}
+	return rtDrawable_ ? rtDrawable_.texture : nil;
+}
+
+void MetalRenderManager::EndReplayEncoders() {
+	if (rtBlit_) {
+		[rtBlit_ endEncoding];
+		rtBlit_ = nil;
+	}
+	if (rtUploadBlit_) {
+		[rtUploadBlit_ endEncoding];
+		rtUploadBlit_ = nil;
+	}
+}
+
+void MetalRenderManager::Replay(MetalCommandChunk *chunk) {
+	if (layer_ && chunk->newDrawableWidth > 0) {
+		layer_.drawableSize = CGSizeMake(chunk->newDrawableWidth, chunk->newDrawableHeight);
+	}
+
+	// The upload buffer is enqueued first, so it runs first even though they're committed together.
+	id<MTLCommandBuffer> uploadCmd = [queue_ commandBufferWithUnretainedReferences];
+	uploadCmd.label = @"upload";
+	[uploadCmd enqueue];
+	id<MTLCommandBuffer> cmd = [queue_ commandBufferWithUnretainedReferences];
+	cmd.label = @"main";
+	[cmd enqueue];
+
+	for (const MetalCommand &c : chunk->uploads) {
+		ReplayCopy(*chunk, chunk->copies[c.copy], uploadCmd, true);
+	}
+	BuildSteps(*chunk);
+	MergeSteps(*chunk);
+	for (size_t i = 0; i < rtStepCount_; i++) {
+		MetalStep &step = rtSteps_[i];
+		if (step.merged) {
+			continue;
+		}
+		if (step.isPass) {
+			ReplayPass(*chunk, step, cmd);
+		} else {
+			ReplayCopy(*chunk, chunk->copies[step.index], cmd, false);
+		}
+	}
+	EndReplayEncoders();
+
+	if (chunk->end == MetalChunkEnd::PRESENT) {
+#if PPSSPP_PLATFORM(MAC)
+		if (layer_ && layer_.displaySyncEnabled != chunk->vsync) {
+			layer_.displaySyncEnabled = chunk->vsync;
+		}
+#endif
+		if (rtDrawable_) {
+			[cmd presentDrawable:rtDrawable_];
+		}
+	}
+
+	dispatch_semaphore_t frameSemaphore = chunk->end == MetalChunkEnd::PRESENT ? frameSemaphore_ : nullptr;
+	dispatch_semaphore_t completed = chunk->completed;
+	// The block keeps the drawable alive until the GPU is done with it.
+	id<CAMetalDrawable> drawable = chunk->end == MetalChunkEnd::PRESENT ? rtDrawable_ : nil;
+	if (frameSemaphore || completed) {
+		[cmd addCompletedHandler:^(id<MTLCommandBuffer> buffer) {
+			(void)drawable;
+			if (frameSemaphore)
+				dispatch_semaphore_signal(frameSemaphore);
+			if (completed)
+				dispatch_semaphore_signal(completed);
+		}];
+	}
+	if (chunk->end == MetalChunkEnd::PRESENT) {
+		rtDrawable_ = nil;
+	}
+	[uploadCmd commit];
+	[cmd commit];
+}
+
+static inline void *BaseTexture(void *obj) {
+	id<MTLTexture> tex = (__bridge id<MTLTexture>)obj;
+	id<MTLTexture> parent = tex.parentTexture;
+	return parent ? (__bridge void *)parent : obj;
+}
+
+static void *const BACKBUFFER_TARGET = (void *)1;
+
+void MetalRenderManager::BuildSteps(const MetalCommandChunk &chunk) {
+	rtStepCount_ = 0;
+	auto newStep = [&]() -> MetalStep & {
+		if (rtStepCount_ == rtSteps_.size()) {
+			rtSteps_.emplace_back();
+		}
+		MetalStep &step = rtSteps_[rtStepCount_++];
+		step.ranges.clear();
+		step.reads.clear();
+		step.merged = false;
+		step.usesDepth = false;
+		return step;
+	};
+	MetalStep *pass = nullptr;
+	const std::vector<MetalCommand> &commands = chunk.commands;
+	for (uint32_t i = 0; i < (uint32_t)commands.size(); i++) {
+		const MetalCommand &c = commands[i];
+		switch (c.cmd) {
+		case MetalCmd::BEGIN_PASS:
+		{
+			const MetalRecordedPass &rp = chunk.passes[c.pass];
+			pass = &newStep();
+			pass->isPass = true;
+			pass->index = c.pass;
+			pass->ranges.push_back({ i + 1, i + 1 });
+			pass->target = rp.backbuffer ? BACKBUFFER_TARGET : (rp.color ? rp.color : rp.depth);
+			pass->targetDepth = rp.depth;
+			pass->usesDepth = rp.usesDepth;
+			break;
+		}
+		case MetalCmd::END_PASS:
+			if (pass) {
+				pass->ranges.back().second = i;
+				pass = nullptr;
+			}
+			break;
+		case MetalCmd::COPY:
+		{
+			const MetalRecordedCopy &copy = chunk.copies[c.copy];
+			MetalStep &step = newStep();
+			step.isPass = false;
+			step.index = c.copy;
+			step.target = copy.dst;
+			step.targetDepth = nullptr;
+			if (copy.srcIsBackbuffer) {
+				step.reads.push_back(BACKBUFFER_TARGET);
+			} else if (copy.src && copy.type != MetalCopyType::BUFFER_TO_TEXTURE) {
+				step.reads.push_back(BaseTexture(copy.src));
+			}
+			break;
+		}
+		case MetalCmd::FRAGMENT_TEXTURE:
+		case MetalCmd::VERTEX_TEXTURE:
+			if (pass && c.bind.obj) {
+				pass->reads.push_back(BaseTexture(c.bind.obj));
+			}
+			break;
+		default:
+			break;
+		}
+	}
+}
+
+static bool Contains(const std::vector<void *> &v, void *p) {
+	return p && std::find(v.begin(), v.end(), p) != v.end();
+}
+
+// Moves later passes to the same framebuffer into earlier ones, when nothing in between depends on the result
+// or writes to it. Same rules as VulkanQueueRunner::ApplyRenderPassMerge. God of War alternates between its
+// framebuffer and block transfers to other ones, which otherwise breaks its passes up a dozen times a frame.
+void MetalRenderManager::MergeSteps(MetalCommandChunk &chunk) {
+	std::vector<void *> touched;
+	for (size_t i = 0; i < rtStepCount_; i++) {
+		MetalStep &si = rtSteps_[i];
+		if (!si.isPass || si.merged || si.target == BACKBUFFER_TARGET) {
+			continue;
+		}
+		touched.clear();
+		for (size_t j = i + 1; j < rtStepCount_; j++) {
+			MetalStep &sj = rtSteps_[j];
+			if (sj.merged) {
+				continue;
+			}
+			const bool sameTarget = sj.isPass && sj.target == si.target && sj.targetDepth == si.targetDepth;
+			// Anything else reading this framebuffer needs it as it is at this point.
+			if (!sameTarget && (Contains(sj.reads, si.target) || Contains(sj.reads, si.targetDepth))) {
+				break;
+			}
+			if (sj.isPass) {
+				if (sameTarget) {
+					const MetalRecordedPass &rp = chunk.passes[sj.index];
+					const bool hasClear = rp.colorLoad == MTLLoadActionClear || rp.depthLoad == MTLLoadActionClear || rp.stencilLoad == MTLLoadActionClear;
+					bool readsTouched = false;
+					for (void *t : touched) {
+						if (Contains(sj.reads, t)) {
+							readsTouched = true;
+							break;
+						}
+					}
+					if (hasClear || readsTouched) {
+						break;
+					}
+					si.ranges.insert(si.ranges.end(), sj.ranges.begin(), sj.ranges.end());
+					si.usesDepth |= sj.usesDepth;
+					sj.merged = true;
+				} else {
+					touched.push_back(sj.target);
+					if (sj.targetDepth) {
+						touched.push_back(sj.targetDepth);
+					}
+				}
+			} else {
+				if (sj.target == si.target || (si.targetDepth && sj.target == si.targetDepth)) {
+					// The copy overwrites the framebuffer.
+					break;
+				}
+				touched.push_back(sj.target);
+			}
+		}
+	}
+}
+
+void MetalRenderManager::ReplayPass(const MetalCommandChunk &chunk, MetalStep &step, id<MTLCommandBuffer> cmd) {
+	if (rtBlit_) {
+		[rtBlit_ endEncoding];
+		rtBlit_ = nil;
+	}
+	const MetalRecordedPass &pass = chunk.passes[step.index];
+	id<MTLTexture> color = pass.backbuffer ? ReplayBackbuffer() : (__bridge id<MTLTexture>)pass.color;
+	if (pass.backbuffer && !color) {
+		// No drawable (the window isn't visible?). Drop the pass.
+		return;
+	}
+	MTLRenderPassDescriptor *rp = [MTLRenderPassDescriptor renderPassDescriptor];
+	if (color) {
+		rp.colorAttachments[0].texture = color;
+		rp.colorAttachments[0].loadAction = pass.colorLoad;
+		rp.colorAttachments[0].clearColor = pass.clearColor;
+		rp.colorAttachments[0].storeAction = MTLStoreActionStore;
+	}
+	id<MTLTexture> depth = (__bridge id<MTLTexture>)pass.depth;
+	if (depth) {
+		MTLLoadAction depthLoad = pass.depthLoad;
+		MTLLoadAction stencilLoad = pass.stencilLoad;
+		MTLStoreAction store = MTLStoreActionStore;
+		if (pass.depthMemoryless) {
+			// Can't load or store memoryless attachments.
+			if (depthLoad == MTLLoadActionLoad)
+				depthLoad = MTLLoadActionClear;
+			if (stencilLoad == MTLLoadActionLoad)
+				stencilLoad = MTLLoadActionClear;
+			store = MTLStoreActionDontCare;
+		} else if (!step.usesDepth && depthLoad != MTLLoadActionClear && stencilLoad != MTLLoadActionClear) {
+			// Nothing in the pass touches depth or stencil, so leave the memory as it is. The Vulkan backend
+			// doesn't even attach depth then. Saves bandwidth, especially on tilers.
+			depthLoad = MTLLoadActionDontCare;
+			stencilLoad = MTLLoadActionDontCare;
+			store = MTLStoreActionDontCare;
+		}
+		rp.depthAttachment.texture = depth;
+		rp.depthAttachment.loadAction = depthLoad;
+		rp.depthAttachment.clearDepth = pass.clearDepth;
+		rp.depthAttachment.storeAction = store;
+		if (depth.pixelFormat == MTLPixelFormatDepth32Float_Stencil8) {
+			rp.stencilAttachment.texture = depth;
+			rp.stencilAttachment.loadAction = stencilLoad;
+			rp.stencilAttachment.clearStencil = pass.clearStencil;
+			rp.stencilAttachment.storeAction = store;
+		}
+	}
+	id<MTLRenderCommandEncoder> enc = [cmd renderCommandEncoderWithDescriptor:rp];
+	if (!pass.tag.empty()) {
+		enc.label = [NSString stringWithUTF8String:pass.tag.c_str()];
+	}
+
+	const std::vector<MetalCommand> &commands = chunk.commands;
+	for (const auto &range : step.ranges) {
+		for (uint32_t i = range.first; i < range.second; i++) {
+			const MetalCommand &c = commands[i];
+			switch (c.cmd) {
+			case MetalCmd::PIPELINE: [enc setRenderPipelineState:(__bridge id<MTLRenderPipelineState>)c.bind.obj]; break;
+			case MetalCmd::DEPTH_STENCIL: [enc setDepthStencilState:(__bridge id<MTLDepthStencilState>)c.bind.obj]; break;
+			case MetalCmd::STENCIL_REF: [enc setStencilReferenceValue:c.value]; break;
+			case MetalCmd::BLEND_COLOR: [enc setBlendColorRed:c.color[0] green:c.color[1] blue:c.color[2] alpha:c.color[3]]; break;
+			case MetalCmd::CULL: [enc setCullMode:(MTLCullMode)c.value]; break;
+			case MetalCmd::WINDING: [enc setFrontFacingWinding:(MTLWinding)c.value]; break;
+			case MetalCmd::DEPTH_CLIP: [enc setDepthClipMode:(MTLDepthClipMode)c.value]; break;
+			case MetalCmd::VIEWPORT: [enc setViewport:c.viewport]; break;
+			case MetalCmd::SCISSOR: [enc setScissorRect:c.scissor]; break;
+			case MetalCmd::VERTEX_BUFFER: [enc setVertexBuffer:(__bridge id<MTLBuffer>)c.bind.obj offset:c.bind.offset atIndex:c.index]; break;
+			case MetalCmd::VERTEX_BUFFER_OFFSET: [enc setVertexBufferOffset:c.bind.offset atIndex:c.index]; break;
+			case MetalCmd::FRAGMENT_BUFFER: [enc setFragmentBuffer:(__bridge id<MTLBuffer>)c.bind.obj offset:c.bind.offset atIndex:c.index]; break;
+			case MetalCmd::FRAGMENT_BUFFER_OFFSET: [enc setFragmentBufferOffset:c.bind.offset atIndex:c.index]; break;
+			case MetalCmd::FRAGMENT_TEXTURE: [enc setFragmentTexture:(__bridge id<MTLTexture>)c.bind.obj atIndex:c.index]; break;
+			case MetalCmd::FRAGMENT_SAMPLER: [enc setFragmentSamplerState:(__bridge id<MTLSamplerState>)c.bind.obj atIndex:c.index]; break;
+			case MetalCmd::VERTEX_TEXTURE: [enc setVertexTexture:(__bridge id<MTLTexture>)c.bind.obj atIndex:c.index]; break;
+			case MetalCmd::VERTEX_SAMPLER: [enc setVertexSamplerState:(__bridge id<MTLSamplerState>)c.bind.obj atIndex:c.index]; break;
+			case MetalCmd::DRAW: [enc drawPrimitives:(MTLPrimitiveType)c.prim vertexStart:c.draw.start vertexCount:c.draw.count]; break;
+			case MetalCmd::DRAW_INDEXED:
+				[enc drawIndexedPrimitives:(MTLPrimitiveType)c.prim indexCount:c.drawIndexed.count indexType:MTLIndexTypeUInt16
+					indexBuffer:(__bridge id<MTLBuffer>)c.drawIndexed.buffer indexBufferOffset:c.drawIndexed.offset];
+				break;
+			default:
+				break;
+			}
+		}
+	}
+	[enc endEncoding];
+}
+
+void MetalRenderManager::ReplayCopy(const MetalCommandChunk &chunk, const MetalRecordedCopy &copy, id<MTLCommandBuffer> cmd, bool upload) {
+	id<MTLBlitCommandEncoder> blit;
+	if (upload) {
+		if (!rtUploadBlit_) {
+			rtUploadBlit_ = [cmd blitCommandEncoder];
+			rtUploadBlit_.label = @"upload";
+		}
+		blit = rtUploadBlit_;
+	} else {
+		if (!rtBlit_) {
+			rtBlit_ = [cmd blitCommandEncoder];
+		}
+		blit = rtBlit_;
+	}
+	switch (copy.type) {
+	case MetalCopyType::TEXTURE_TO_TEXTURE:
+		[blit copyFromTexture:(__bridge id<MTLTexture>)copy.src sourceSlice:0 sourceLevel:copy.srcLevel sourceOrigin:copy.srcOrigin sourceSize:copy.size
+			toTexture:(__bridge id<MTLTexture>)copy.dst destinationSlice:0 destinationLevel:copy.dstLevel destinationOrigin:copy.dstOrigin];
+		break;
+	case MetalCopyType::TEXTURE_TO_BUFFER:
+	{
+		id<MTLTexture> src = copy.srcIsBackbuffer ? ReplayBackbuffer() : (__bridge id<MTLTexture>)copy.src;
+		if (!src) {
+			break;
+		}
+		[blit copyFromTexture:src sourceSlice:0 sourceLevel:copy.srcLevel sourceOrigin:copy.srcOrigin sourceSize:copy.size
+			toBuffer:(__bridge id<MTLBuffer>)copy.dst destinationOffset:copy.dstOffset destinationBytesPerRow:copy.bytesPerRow destinationBytesPerImage:copy.bytesPerImage options:copy.options];
+		break;
+	}
+	case MetalCopyType::BUFFER_TO_TEXTURE:
+		[blit copyFromBuffer:(__bridge id<MTLBuffer>)copy.src sourceOffset:copy.srcOffset sourceBytesPerRow:copy.bytesPerRow sourceBytesPerImage:copy.bytesPerImage sourceSize:copy.size
+			toTexture:(__bridge id<MTLTexture>)copy.dst destinationSlice:copy.dstSlice destinationLevel:copy.dstLevel destinationOrigin:copy.dstOrigin options:copy.options];
+		break;
+	case MetalCopyType::GENERATE_MIPS:
+		[blit generateMipmapsForTexture:(__bridge id<MTLTexture>)copy.dst];
+		break;
 	}
 }
 

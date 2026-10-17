@@ -62,7 +62,9 @@ bool MetalGraphicsContext::InitSurface(WindowSystem winsys, void *data1, void *d
 		}
 		layer_ = data1;
 	}
-	renderManager_ = new MetalRenderManager(device, layer, offscreenWidth_, offscreenHeight_);
+	// Like Vulkan: encoding on a thread of its own, unless that's turned off or there's only one frame in flight.
+	const bool useThread = g_Config.bRenderMultiThreading && g_Config.iInflightFrames != 1;
+	renderManager_ = new MetalRenderManager(device, layer, offscreenWidth_, offscreenHeight_, useThread);
 	renderManager_->SetInflightFrames(g_Config.iInflightFrames);
 	draw_ = Draw::T3DCreateMetalContext(renderManager_);
 	SetGPUBackend(GPUBackend::METAL, [[device name] UTF8String]);
@@ -76,7 +78,7 @@ bool MetalGraphicsContext::InitSurface(WindowSystem winsys, void *data1, void *d
 	if (layer) {
 		LayerPixelSize(layer, &width, &height);
 	}
-	INFO_LOG(Log::G3D, "Metal: Using %s, backbuffer %dx%d%s", [[device name] UTF8String], width, height, layer ? "" : " (offscreen)");
+	INFO_LOG(Log::G3D, "Metal: Using %s, backbuffer %dx%d%s, %s", [[device name] UTF8String], width, height, layer ? "" : " (offscreen)", useThread ? "render thread" : "no render thread");
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, width, height);
 	return true;
 }

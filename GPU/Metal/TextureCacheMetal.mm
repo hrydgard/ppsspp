@@ -179,7 +179,6 @@ void TextureCacheMetal::BuildTexture(TexCacheEntry *const entry) {
 	}
 	texture.label = [NSString stringWithFormat:@"tex_%08x", entry->addr];
 
-	id<MTLBlitCommandEncoder> upload = rm_->UploadEncoder();
 	const int uploadCount = plan.depth > 1 ? plan.depth : levels;
 	for (int i = 0; i < uploadCount; i++) {
 		// For 3D textures, the loop goes over slices of the single level.
@@ -204,8 +203,7 @@ void TextureCacheMetal::BuildTexture(TexCacheEntry *const entry) {
 		LoadTextureLevel(*entry, alloc.ptr, size, stride, plan, srcLevel, dstFmt, TexDecodeFlags{});
 
 		MTLSize copySize = MTLSizeMake(std::min(mipWidth, tw >> mipLevel), std::min(mipHeight, th >> mipLevel), 1);
-		[upload copyFromBuffer:alloc.buffer sourceOffset:alloc.offset sourceBytesPerRow:stride sourceBytesPerImage:size sourceSize:copySize
-			toTexture:texture destinationSlice:0 destinationLevel:mipLevel destinationOrigin:MTLOriginMake(0, 0, plan.depth > 1 ? i : 0)];
+		rm_->CopyBufferToTexture(alloc.buffer, alloc.offset, stride, (uint32_t)size, copySize, texture, 0, mipLevel, MTLOriginMake(0, 0, plan.depth > 1 ? i : 0), MTLBlitOptionNone, true);
 	}
 
 	ReleaseTexture(entry, true);
@@ -251,8 +249,7 @@ bool TextureCacheMetal::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level
 	int w = std::max(1, (int)texture.width >> level);
 	int h = std::max(1, (int)texture.height >> level);
 	id<MTLBuffer> readback = [rm_->Device() newBufferWithLength:w * h * bpp options:MTLResourceStorageModeShared];
-	[rm_->BlitEncoder() copyFromTexture:texture sourceSlice:0 sourceLevel:level sourceOrigin:MTLOriginMake(0, 0, 0) sourceSize:MTLSizeMake(w, h, 1)
-		toBuffer:readback destinationOffset:0 destinationBytesPerRow:w * bpp destinationBytesPerImage:w * h * bpp];
+	rm_->CopyTextureToBuffer(texture, level, MTLOriginMake(0, 0, 0), MTLSizeMake(w, h, 1), readback, 0, w * bpp, w * h * bpp, MTLBlitOptionNone);
 	rm_->Flush(true);
 	memcpy(buffer.GetData(), readback.contents, w * h * bpp);
 	*isFramebuffer = false;
