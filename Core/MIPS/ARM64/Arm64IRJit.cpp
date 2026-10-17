@@ -51,7 +51,7 @@ Arm64JitBackend::Arm64JitBackend(JitOptions &jitopt, IRBlockCache &blocks)
 #endif
 
 	// Since we store the offset, this is as big as it can be.
-	AllocCodeSpace(1024 * 1024 * 16);
+	AllocCodeSpace(NATIVE_CODE_SPACE_SIZE);
 
 	regs_.Init(this, &fp_);
 }

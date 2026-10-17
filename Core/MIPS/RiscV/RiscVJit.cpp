@@ -44,7 +44,7 @@ RiscVJitBackend::RiscVJitBackend(JitOptions &jitopt, IRBlockCache &blocks)
 
 	// Since we store the offset, this is as big as it can be.
 	// We could shift off one bit to double it, would need to change RiscVAsm.
-	AllocCodeSpace(1024 * 1024 * 16);
+	AllocCodeSpace(NATIVE_CODE_SPACE_SIZE);
 	SetAutoCompress(true);
 
 	regs_.Init(this);
