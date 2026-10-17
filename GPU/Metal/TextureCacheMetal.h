@@ -19,10 +19,14 @@
 
 // Objective-C++ only.
 
+#include <string>
 #include <unordered_map>
+#include <vector>
 
 #include "Common/GPU/Metal/MetalRenderManager.h"
+#include "Common/File/Path.h"
 #include "GPU/Common/TextureCacheCommon.h"
+#include "GPU/Common/TextureShaderCommon.h"
 
 class FramebufferManagerMetal;
 class ShaderManagerMetal;
@@ -41,6 +45,7 @@ public:
 
 	void DeviceLost() override;
 	void DeviceRestore(Draw::DrawContext *draw) override;
+	void NotifyConfigChanged() override;
 
 	void *GetNativeTextureView(const TexCacheEntry *entry, bool flat) const override;
 
@@ -72,6 +77,14 @@ private:
 		return (__bridge id<MTLTexture>)entry->texturePtr;
 	}
 
+	// Hardware texture scaling, with the same compute shaders as the Vulkan backend.
+	void CompileScalingShader();
+	void ClearScalingShaders();
+	bool HasScalingShader() const { return singlePassCS_ != nil || !multipassCS_.empty(); }
+	id<MTLComputePipelineState> CompileComputeShader(const std::string &source, const char *tag);
+	// Records the dispatches that scale a decoded level (RGBA8, packed) into dst, a single level view.
+	bool ScaleBufferToTexture(MetalPushAlloc src, id<MTLTexture> dst, int srcWidth, int srcHeight, int dstWidth, int dstHeight);
+
 	MetalRenderManager *rm_ = nullptr;
 	DrawEngineMetal *drawEngine_ = nullptr;
 
@@ -79,4 +92,10 @@ private:
 
 	id<MTLTexture> boundTexture_;
 	id<MTLSamplerState> boundSampler_;
+
+	std::string textureShader_;
+	id<MTLComputePipelineState> singlePassCS_;
+	std::vector<id<MTLComputePipelineState>> multipassCS_;
+	std::vector<TextureScaleScratchDesc> multipassScratchDescs_;
+	std::vector<TextureScaleStageDesc> multipassStageDescs_;
 };

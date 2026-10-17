@@ -163,8 +163,7 @@ void GameSettingsScreen::PreCreateViews() {
 }
 
 static bool UsingHardwareTextureScaling() {
-	// For now, Vulkan only.
-	return g_Config.bTexHardwareScaling && GetGPUBackend() == GPUBackend::VULKAN && !g_Config.bSoftwareRendering;
+	return g_Config.bTexHardwareScaling && (GetGPUBackend() == GPUBackend::VULKAN || GetGPUBackend() == GPUBackend::METAL) && !g_Config.bSoftwareRendering;
 }
 
 static std::string TextureTranslateName(std::string_view value) {
@@ -519,7 +518,7 @@ void GameSettingsScreen::CreateGraphicsSettings(UI::ViewGroup *graphicsSettings)
 
 	graphicsSettings->Add(new ItemHeader(gr->T("Texture upscaling")));
 
-	if (GetGPUBackend() == GPUBackend::VULKAN) {
+	if (GetGPUBackend() == GPUBackend::VULKAN || GetGPUBackend() == GPUBackend::METAL) {
 		ChoiceWithValueDisplay *textureShaderChoice = graphicsSettings->Add(new ChoiceWithValueDisplay(&g_Config.sTextureShaderName, gr->T("GPU texture upscaler (fast)"), &TextureTranslateName));
 		textureShaderChoice->OnClick.Add([this](UI::EventParams &e) {
 			auto gr = GetI18NCategory(I18NCat::GRAPHICS);

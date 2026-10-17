@@ -187,6 +187,14 @@ bool TranslateVulkanGLSLToMSL(ShaderStage stage, const char *glsl, MetalTranslat
 		for (const auto &resource : resources.storage_images) {
 			addImage(resource);
 		}
+		if (!resources.push_constant_buffers.empty()) {
+			spirv_cross::MSLResourceBinding binding;
+			binding.stage = model;
+			binding.desc_set = spirv_cross::kPushConstDescSet;
+			binding.binding = spirv_cross::kPushConstBinding;
+			binding.msl_buffer = METAL_PUSH_CONSTANT_INDEX;
+			msl.add_msl_resource_binding(binding);
+		}
 		out->readsFramebuffer = !resources.subpass_inputs.empty();
 
 		out->msl = msl.compile();
@@ -688,6 +696,17 @@ void MetalRenderManager::GenerateMips(__unsafe_unretained id<MTLTexture> texture
 	copy.dst = (__bridge void *)texture;
 }
 
+MetalRecordedDispatch &MetalRenderManager::RecordUploadDispatch() {
+	chunk_->dispatches.emplace_back();
+	MetalCommand c{};
+	c.cmd = MetalCmd::DISPATCH;
+	c.dispatch = (uint32_t)chunk_->dispatches.size() - 1;
+	chunk_->uploads.push_back(c);
+	MetalRecordedDispatch &dispatch = chunk_->dispatches.back();
+	dispatch = {};
+	return dispatch;
+}
+
 void MetalRenderManager::SetPipeline(__unsafe_unretained MetalPipelineState *pipeline) {
 	if (state_.pipeline != pipeline) {
 		Record(MetalCmd::PIPELINE).bind.obj = (__bridge void *)pipeline;
@@ -917,6 +936,38 @@ void MetalRenderManager::EndReplayEncoders() {
 		[rtUploadBlit_ endEncoding];
 		rtUploadBlit_ = nil;
 	}
+	if (rtUploadCompute_) {
+		[rtUploadCompute_ endEncoding];
+		rtUploadCompute_ = nil;
+	}
+}
+
+// Metal orders the encoders' accesses to the (tracked) textures, so there are no barriers to place.
+void MetalRenderManager::ReplayDispatch(const MetalRecordedDispatch &dispatch, id<MTLCommandBuffer> cmd) {
+	if (rtUploadBlit_) {
+		[rtUploadBlit_ endEncoding];
+		rtUploadBlit_ = nil;
+	}
+	if (!rtUploadCompute_) {
+		rtUploadCompute_ = [cmd computeCommandEncoder];
+		rtUploadCompute_.label = @"upload compute";
+	}
+	id<MTLComputeCommandEncoder> enc = rtUploadCompute_;
+	[enc setComputePipelineState:(__bridge id<MTLComputePipelineState>)dispatch.pipeline];
+	for (int i = 0; i < METAL_MAX_TEXTURES; i++) {
+		if (dispatch.textures[i]) {
+			[enc setTexture:(__bridge id<MTLTexture>)dispatch.textures[i] atIndex:i];
+		}
+	}
+	for (int i = 0; i < METAL_MAX_BUFFERS; i++) {
+		if (dispatch.buffers[i]) {
+			[enc setBuffer:(__bridge id<MTLBuffer>)dispatch.buffers[i] offset:dispatch.bufferOffsets[i] atIndex:i];
+		}
+	}
+	if (dispatch.pushConstantSize) {
+		[enc setBytes:dispatch.pushConstants length:dispatch.pushConstantSize atIndex:METAL_PUSH_CONSTANT_INDEX];
+	}
+	[enc dispatchThreadgroups:dispatch.threadgroups threadsPerThreadgroup:dispatch.threadsPerThreadgroup];
 }
 
 void MetalRenderManager::Replay(MetalCommandChunk *chunk) {
@@ -933,7 +984,15 @@ void MetalRenderManager::Replay(MetalCommandChunk *chunk) {
 	[cmd enqueue];
 
 	for (const MetalCommand &c : chunk->uploads) {
-		ReplayCopy(*chunk, chunk->copies[c.copy], uploadCmd, true);
+		if (c.cmd == MetalCmd::DISPATCH) {
+			ReplayDispatch(chunk->dispatches[c.dispatch], uploadCmd);
+		} else {
+			if (rtUploadCompute_) {
+				[rtUploadCompute_ endEncoding];
+				rtUploadCompute_ = nil;
+			}
+			ReplayCopy(*chunk, chunk->copies[c.copy], uploadCmd, true);
+		}
 	}
 	BuildSteps(*chunk);
 	MergeSteps(*chunk);

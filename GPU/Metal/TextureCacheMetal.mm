@@ -21,6 +21,9 @@
 #include <cfloat>
 
 #include "Common/Log.h"
+#include "Common/StringUtils.h"
+#include "Common/File/VFS/VFS.h"
+#include "GPU/Common/PostShader.h"
 #include "Common/GPU/thin3d.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
@@ -94,6 +97,176 @@ static Draw::DataFormat GetDestFormat(GETextureFormat format, GEPaletteFormat cl
 
 TextureCacheMetal::TextureCacheMetal(Draw::DrawContext *draw, Draw2D *draw2D) : TextureCacheCommon(draw, draw2D) {
 	rm_ = (MetalRenderManager *)draw->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+	CompileScalingShader();
+}
+
+void TextureCacheMetal::NotifyConfigChanged() {
+	TextureCacheCommon::NotifyConfigChanged();
+	CompileScalingShader();
+}
+
+static std::string ReadShaderSrc(const Path &filename) {
+	size_t size = 0;
+	uint8_t *data = g_VFS.ReadFile(filename.c_str(), &size);
+	if (!data) {
+		return std::string();
+	}
+	std::string src((const char *)data, size);
+	delete[] data;
+	return src;
+}
+
+void TextureCacheMetal::ClearScalingShaders() {
+	singlePassCS_ = nil;
+	multipassCS_.clear();
+	multipassScratchDescs_.clear();
+	multipassStageDescs_.clear();
+	textureShader_.clear();
+	shaderScaleFactor_ = 0;
+}
+
+id<MTLComputePipelineState> TextureCacheMetal::CompileComputeShader(const std::string &source, const char *tag) {
+	MetalTranslatedShader translated;
+	std::string error;
+	if (!TranslateVulkanGLSLToMSL(ShaderStage::Compute, source.c_str(), &translated, &error)) {
+		ERROR_LOG(Log::G3D, "Failed to translate texture scaling shader %s: %s", tag, error.c_str());
+		return nil;
+	}
+	id<MTLFunction> function = CreateMetalFunction(rm_->Device(), translated, tag, &error);
+	if (!function) {
+		ERROR_LOG(Log::G3D, "Failed to compile texture scaling shader %s: %s", tag, error.c_str());
+		return nil;
+	}
+	NSError *nsError = nil;
+	id<MTLComputePipelineState> pipeline = [rm_->Device() newComputePipelineStateWithFunction:function error:&nsError];
+	if (!pipeline) {
+		ERROR_LOG(Log::G3D, "Failed to create texture scaling pipeline %s: %s", tag, nsError.localizedDescription.UTF8String);
+	}
+	return pipeline;
+}
+
+// Compiles synchronously, which only happens when the setting changes or the game starts.
+void TextureCacheMetal::CompileScalingShader() {
+	if (!rm_) {
+		return;
+	}
+	if (!g_Config.bTexHardwareScaling || g_Config.sTextureShaderName != textureShader_) {
+		ClearScalingShaders();
+	} else if (HasScalingShader()) {
+		return;
+	}
+	if (!g_Config.bTexHardwareScaling) {
+		return;
+	}
+
+	ReloadAllPostShaderInfo(draw_);
+	const TextureShaderInfo *shaderInfo = GetTextureShaderInfo(g_Config.sTextureShaderName);
+	if (!shaderInfo || shaderInfo->computeShaderFiles.empty()) {
+		return;
+	}
+
+	if (shaderInfo->computeShaderFiles.size() > 1) {
+		if (!GetTextureScaleMultipassLayout(shaderInfo->scaleFactor, &multipassScratchDescs_, &multipassStageDescs_)) {
+			ERROR_LOG(Log::G3D, "Unsupported multipass scale factor %d in section '%s'", shaderInfo->scaleFactor, shaderInfo->section.c_str());
+			return;
+		}
+		const size_t expectedShaderCount = shaderInfo->scaleFactor == 2 ? 3 : 4;
+		if (shaderInfo->computeShaderFiles.size() != expectedShaderCount) {
+			ERROR_LOG(Log::G3D, "Expected %d compute shader stages in section '%s', got %d", (int)expectedShaderCount, shaderInfo->section.c_str(), (int)shaderInfo->computeShaderFiles.size());
+			ClearScalingShaders();
+			return;
+		}
+		for (const Path &file : shaderInfo->computeShaderFiles) {
+			id<MTLComputePipelineState> pipeline = CompileComputeShader(ReadShaderSrc(file), shaderInfo->section.c_str());
+			if (!pipeline) {
+				ClearScalingShaders();
+				return;
+			}
+			multipassCS_.push_back(pipeline);
+		}
+	} else {
+		std::string source = StringFromFormat(textureScaleUploadShader, ReadShaderSrc(shaderInfo->computeShaderFiles[0]).c_str());
+		singlePassCS_ = CompileComputeShader(source, shaderInfo->section.c_str());
+		if (!singlePassCS_) {
+			return;
+		}
+	}
+
+	if (!shaderInfo->constantBuffer.empty()) {
+		// Only the smiley test shader has one, and it's going away.
+		ERROR_LOG(Log::G3D, "Texture scaling shaders with constant buffers aren't supported on Metal");
+		ClearScalingShaders();
+		return;
+	}
+
+	textureShader_ = g_Config.sTextureShaderName;
+	shaderScaleFactor_ = shaderInfo->scaleFactor;
+}
+
+bool TextureCacheMetal::ScaleBufferToTexture(MetalPushAlloc src, id<MTLTexture> dst, int srcWidth, int srcHeight, int dstWidth, int dstHeight) {
+	// The bindings of the shaders (Vulkan binding = Metal index): 0 the output image, 1 the input buffer,
+	// 3 the input image. All have 8x8 threadgroups.
+
+	if (singlePassCS_) {
+		MetalRecordedDispatch &dispatch = rm_->RecordUploadDispatch();
+		dispatch.threadsPerThreadgroup = MTLSizeMake(8, 8, 1);
+		dispatch.pipeline = (__bridge void *)singlePassCS_;
+		dispatch.textures[0] = (__bridge void *)dst;
+		dispatch.buffers[1] = (__bridge void *)src.buffer;
+		dispatch.bufferOffsets[1] = src.offset;
+		const int32_t params[2] = { srcWidth, srcHeight };
+		memcpy(dispatch.pushConstants, params, sizeof(params));
+		dispatch.pushConstantSize = sizeof(params);
+		// One thread per input pixel.
+		dispatch.threadgroups = MTLSizeMake((srcWidth + 7) / 8, (srcHeight + 7) / 8, 1);
+		return true;
+	}
+	if (multipassCS_.empty()) {
+		return false;
+	}
+
+	std::vector<id<MTLTexture>> scratch;
+	for (const TextureScaleScratchDesc &desc : multipassScratchDescs_) {
+		MTLTextureDescriptor *td = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA16Float width:srcWidth * desc.widthScale height:srcHeight * desc.heightScale mipmapped:NO];
+		td.usage = MTLTextureUsageShaderRead | MTLTextureUsageShaderWrite;
+		td.storageMode = MTLStorageModePrivate;
+		id<MTLTexture> tex = [rm_->Device() newTextureWithDescriptor:td];
+		if (!tex) {
+			ERROR_LOG(Log::G3D, "Failed to allocate multipass scratch images");
+			return false;
+		}
+		tex.label = [NSString stringWithUTF8String:desc.tag];
+		// Used by this frame's upload only.
+		rm_->DeferRelease(tex);
+		scratch.push_back(tex);
+	}
+
+	for (const TextureScaleStageDesc &stage : multipassStageDescs_) {
+		if (stage.shaderIndex >= multipassCS_.size()) {
+			return false;
+		}
+		MetalRecordedDispatch &dispatch = rm_->RecordUploadDispatch();
+		dispatch.threadsPerThreadgroup = MTLSizeMake(8, 8, 1);
+		dispatch.pipeline = (__bridge void *)multipassCS_[stage.shaderIndex];
+		if (stage.inputScratch < 0) {
+			dispatch.buffers[1] = (__bridge void *)src.buffer;
+			dispatch.bufferOffsets[1] = src.offset;
+		} else {
+			dispatch.textures[3] = (__bridge void *)scratch[stage.inputScratch];
+		}
+		dispatch.textures[0] = (__bridge void *)(stage.outputScratch < 0 ? dst : scratch[stage.outputScratch]);
+		const int32_t params[4] = {
+			srcWidth * stage.srcWidthScale,
+			srcHeight * stage.srcHeightScale,
+			stage.useFinalOutputSize ? dstWidth : srcWidth * stage.dstWidthScale,
+			stage.useFinalOutputSize ? dstHeight : srcHeight * stage.dstHeightScale,
+		};
+		memcpy(dispatch.pushConstants, params, sizeof(params));
+		dispatch.pushConstantSize = sizeof(params);
+		// One thread per output pixel.
+		dispatch.threadgroups = MTLSizeMake((params[2] + 7) / 8, (params[3] + 7) / 8, 1);
+	}
+	return true;
 }
 
 TextureCacheMetal::~TextureCacheMetal() {
@@ -107,6 +280,7 @@ void TextureCacheMetal::SetFramebufferManager(FramebufferManagerMetal *fbManager
 void TextureCacheMetal::DeviceLost() {
 	TextureCacheCommon::DeviceLost();
 	samplerCache_.clear();
+	ClearScalingShaders();
 	SetBoundTexture(nil);
 	SetBoundSampler(nil);
 	draw_ = nullptr;
@@ -116,6 +290,7 @@ void TextureCacheMetal::DeviceLost() {
 void TextureCacheMetal::DeviceRestore(Draw::DrawContext *draw) {
 	rm_ = (MetalRenderManager *)draw->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 	TextureCacheCommon::DeviceRestore(draw);
+	CompileScalingShader();
 }
 
 void TextureCacheMetal::ReleaseTexture(TexCacheEntry *entry, bool delete_them) {
@@ -180,6 +355,8 @@ void TextureCacheMetal::ApplySamplerByKey(const SamplerCacheKey &key) {
 
 void TextureCacheMetal::BuildTexture(TexCacheEntry *const entry) {
 	BuildTexturePlan plan;
+	plan.hardwareScaling = g_Config.bTexHardwareScaling && HasScalingShader();
+	plan.slowScaler = !plan.hardwareScaling;
 	if (!PrepareBuildTexture(plan, entry)) {
 		ReleaseTexture(entry, true);
 		return;
@@ -209,7 +386,6 @@ void TextureCacheMetal::BuildTexture(TexCacheEntry *const entry) {
 	const bool compressed = Draw::DataFormatIsBlockCompressed(dstFmt, &blockSize);
 	const int bpp = (int)Draw::DataFormatSizeInBytes(dstFmt);
 
-	// We don't generate mips (yet), so only create the ones we load.
 	int levels = plan.depth == 1 ? plan.levelsToCreate : 1;
 	const int levelsToLoad = plan.depth == 1 ? std::min(plan.levelsToCreate, plan.levelsToLoad) : 1;
 
@@ -225,7 +401,11 @@ void TextureCacheMetal::BuildTexture(TexCacheEntry *const entry) {
 	td.height = th;
 	td.depth = plan.depth;
 	td.mipmapLevelCount = levels;
-	td.usage = MTLTextureUsageShaderRead;
+	// Scaled with a compute shader, which decodes unscaled and writes each level.
+	const bool computeUpload = plan.hardwareScaling && plan.scaleFactor > 1 && dstFmt == Draw::DataFormat::R8G8B8A8_UNORM &&
+		plan.depth == 1 && !plan.doReplace && !plan.saveTexture;
+
+	td.usage = MTLTextureUsageShaderRead | (computeUpload ? MTLTextureUsageShaderWrite : 0);
 	td.storageMode = MTLStorageModePrivate;
 	td.swizzle = Swizzle16(mtlFmt);
 	id<MTLTexture> texture = [rm_->Device() newTextureWithDescriptor:td];
@@ -256,6 +436,24 @@ void TextureCacheMetal::BuildTexture(TexCacheEntry *const entry) {
 		if (plan.doReplace && compressed) {
 			size = std::max(size, (size_t)plan.replaced->GetLevelDataSizeAfterCopy(plan.baseLevelSrc + i));
 		}
+		if (computeUpload) {
+			const int srcWidth = gstate.getTextureWidth(i);
+			const int srcHeight = gstate.getTextureHeight(i);
+			const int srcStride = srcWidth * 4;
+			const size_t srcSize = (size_t)srcStride * srcHeight;
+			BuildTexturePlan unscaledPlan = plan;
+			unscaledPlan.scaleFactor = 1;
+			MetalPushAlloc alloc = rm_->Push().Allocate(srcSize, 16);
+			LoadTextureLevel(*entry, alloc.ptr, srcSize, srcStride, unscaledPlan, srcLevel, dstFmt, TexDecodeFlags{});
+			id<MTLTexture> view = [texture newTextureViewWithPixelFormat:mtlFmt textureType:MTLTextureType2D levels:NSMakeRange(i, 1) slices:NSMakeRange(0, 1)];
+			if (!ScaleBufferToTexture(alloc, view, srcWidth, srcHeight, mipWidth, mipHeight)) {
+				// Leaves the level empty.
+				WARN_LOG_ONCE(mtlscalefail, Log::G3D, "Hardware texture scaling failed");
+			}
+			rm_->DeferRelease(view);
+			continue;
+		}
+
 		MetalPushAlloc alloc = rm_->Push().Allocate(size, 16);
 		LoadTextureLevel(*entry, alloc.ptr, size, stride, plan, srcLevel, dstFmt, TexDecodeFlags{});
 

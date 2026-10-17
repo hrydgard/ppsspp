@@ -48,6 +48,8 @@
 // bottom. Vertex data goes above all of them.
 enum {
 	METAL_VERTEX_BUFFER_INDEX = 16,
+	// Push constants (only compute shaders have them) go in a buffer of their own, set with setBytes.
+	METAL_PUSH_CONSTANT_INDEX = 15,
 	METAL_MAX_TEXTURES = 8,
 	METAL_MAX_BUFFERS = 8,
 };
@@ -183,6 +185,7 @@ enum class MetalCmd : uint8_t {
 	DRAW,
 	DRAW_INDEXED,
 	COPY,
+	DISPATCH,
 };
 
 // Objects are unretained. They're kept alive by their owners or the deferred release list until the GPU is
@@ -211,6 +214,7 @@ struct MetalCommand {
 		} drawIndexed;
 		uint32_t pass;  // Index into the chunk's passes.
 		uint32_t copy;  // Index into the chunk's copies.
+		uint32_t dispatch;  // Index into the chunk's dispatches.
 	};
 };
 
@@ -255,6 +259,19 @@ struct MetalRecordedCopy {
 	MTLBlitOption options;
 };
 
+// A compute dispatch. Only used for uploads, so far (texture scaling). Resources go at their Vulkan binding
+// numbers, like for draws.
+struct MetalRecordedDispatch {
+	void *pipeline;  // id<MTLComputePipelineState>
+	void *textures[METAL_MAX_TEXTURES];
+	void *buffers[METAL_MAX_BUFFERS];
+	uint32_t bufferOffsets[METAL_MAX_BUFFERS];
+	uint8_t pushConstants[16];
+	uint32_t pushConstantSize;
+	MTLSize threadgroups;
+	MTLSize threadsPerThreadgroup;
+};
+
 enum class MetalChunkEnd {
 	FLUSH,
 	PRESENT,
@@ -279,6 +296,7 @@ struct MetalCommandChunk {
 	std::vector<MetalCommand> uploads;  // Run in a command buffer of their own, before the commands.
 	std::vector<MetalRecordedPass> passes;
 	std::vector<MetalRecordedCopy> copies;
+	std::vector<MetalRecordedDispatch> dispatches;
 	MetalChunkEnd end = MetalChunkEnd::FLUSH;
 	bool vsync = true;
 	int newDrawableWidth = 0;  // Non-zero to resize the layer's drawables first.
@@ -291,6 +309,7 @@ struct MetalCommandChunk {
 		uploads.clear();
 		passes.clear();
 		copies.clear();
+		dispatches.clear();
 		end = MetalChunkEnd::FLUSH;
 		vsync = true;
 		newDrawableWidth = 0;
@@ -405,6 +424,8 @@ public:
 	void CopyTextureToBuffer(__unsafe_unretained id<MTLTexture> src, int level, MTLOrigin origin, MTLSize size, __unsafe_unretained id<MTLBuffer> dst, uint32_t offset, uint32_t bytesPerRow, uint32_t bytesPerImage, MTLBlitOption options);
 	void CopyBufferToTexture(__unsafe_unretained id<MTLBuffer> src, uint32_t offset, uint32_t bytesPerRow, uint32_t bytesPerImage, MTLSize size, __unsafe_unretained id<MTLTexture> dst, int slice, int level, MTLOrigin origin, MTLBlitOption options, bool upload);
 	void GenerateMips(__unsafe_unretained id<MTLTexture> texture, bool upload);
+	// Runs in the upload command buffer, in order with the upload copies. Fill in the returned dispatch.
+	MetalRecordedDispatch &RecordUploadDispatch();
 
 	const MetalStats &Stats() const { return lastStats_; }
 
@@ -435,6 +456,7 @@ private:
 	void ReplayPass(const MetalCommandChunk &chunk, MetalStep &step, id<MTLCommandBuffer> cmd);
 	void ReplayCopy(const MetalCommandChunk &chunk, const MetalRecordedCopy &copy, id<MTLCommandBuffer> cmd, bool upload);
 	void EndReplayEncoders();
+	void ReplayDispatch(const MetalRecordedDispatch &dispatch, id<MTLCommandBuffer> cmd);
 	id<MTLTexture> ReplayBackbuffer();
 
 	id<MTLDevice> device_;
@@ -520,6 +542,7 @@ private:
 	id<MTLCommandBuffer> rtUploadCmd_;
 	id<MTLBlitCommandEncoder> rtBlit_;
 	id<MTLBlitCommandEncoder> rtUploadBlit_;
+	id<MTLComputeCommandEncoder> rtUploadCompute_;
 	id<CAMetalDrawable> rtDrawable_;
 	// Replay scratch, reused between chunks.
 	std::vector<MetalStep> rtSteps_;
