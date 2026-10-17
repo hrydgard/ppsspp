@@ -25,12 +25,17 @@ public:
 
 	char32_t next() {
 		const char32_t u = UTF16_Swap<is_little>(c_[index_++]);
-
-		// Surrogate pair.  UTF-16 is so simple.  We assume it's valid.
-		if ((u & 0xF800) == 0xD800) {
-			return 0x10000 + (((u & 0x3FF) << 10) | (UTF16_Swap<is_little>(c_[index_++]) & 0x3FF));
+		if ((u & 0xF800) != 0xD800) {
+			return u;
 		}
-		return u;
+
+		// A surrogate is only valid as a high one followed by a low one.
+		const char32_t low = UTF16_Swap<is_little>(c_[index_]);
+		if ((u & 0xFC00) != 0xD800 || (low & 0xFC00) != 0xDC00) {
+			return INVALID;
+		}
+		index_++;
+		return 0x10000 + (((u & 0x3FF) << 10) | (low & 0x3FF));
 	}
 
 	bool end() const {

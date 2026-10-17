@@ -33,11 +33,17 @@ struct ShiftJIS {
 			} else if (j < 0xFD) {
 				row = ((j & 0x7F) << 1) - 0x1B;
 			} else {
-				return j;
+				return INVALID;
 			}
 			break;
 
-		// Anything else (i.e. <= 0x7x, 0xAx, 0xBx, 0xCx, and 0xDx) is JIS X 0201, return directly.
+		case 0xA:
+			if (j == 0xA0) {
+				return INVALID;
+			}
+			return j;
+
+		// Anything else (i.e. <= 0x7x, 0xBx, 0xCx, and 0xDx) is JIS X 0201, return directly.
 		default:
 			return j;
 		}
