@@ -34,6 +34,17 @@ if(NOT NO_OPENGL)
 	)
 endif()
 
+if(APPLE)
+	set(CommonMetal
+		GPU/Metal/MetalGraphicsContext.h
+		GPU/Metal/MetalGraphicsContext.mm
+		GPU/Metal/MetalRenderManager.h
+		GPU/Metal/MetalRenderManager.mm
+		GPU/Metal/thin3d_metal.mm
+	)
+	set_source_files_properties(GPU/Metal/MetalGraphicsContext.mm GPU/Metal/MetalRenderManager.mm GPU/Metal/thin3d_metal.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
+endif()
+
 set(CommonVR
 	VR/OpenXRLoader.cpp
 	VR/OpenXRLoader.h
@@ -77,6 +88,7 @@ add_library(Common STATIC
 	LoongArch64Emitter.cpp
 	LoongArch64Emitter.h
 	${CommonD3D}
+	${CommonMetal}
 	${CommonVR}
 	Serialize/Serializer.cpp
 	Serialize/Serializer.h
@@ -406,6 +418,10 @@ target_compile_definitions(Common PRIVATE Z7_CRC_NUM_TABLES=1)
 
 if(TARGET Ext::GLEW)
 	target_link_libraries(Common Ext::GLEW)
+endif()
+
+if(APPLE)
+	target_link_libraries(Common "-framework Metal" "-framework QuartzCore")
 endif()
 
 if(WIN32)

@@ -80,6 +80,8 @@ std::string GPUBackendToString(GPUBackend backend) {
 		return "DIRECT3D11";
 	case GPUBackend::VULKAN:
 		return "VULKAN";
+	case GPUBackend::METAL:
+		return "METAL";
 	}
 	// Intentionally not a default so we get a warning.
 	return "INVALID";
@@ -92,6 +94,8 @@ GPUBackend GPUBackendFromString(std::string_view backend) {
 		return GPUBackend::DIRECT3D11;
 	if (equalsNoCase(backend, "VULKAN") || backend == "3")
 		return GPUBackend::VULKAN;
+	if (equalsNoCase(backend, "METAL") || backend == "4")
+		return GPUBackend::METAL;
 	return GPUBackend::OPENGL;
 }
 
@@ -602,6 +606,11 @@ bool Config::IsBackendEnabled(GPUBackend backend) {
 		return false;
 #else
 	if (backend == GPUBackend::DIRECT3D11)
+		return false;
+#endif
+
+#if !PPSSPP_PLATFORM(MAC) && !PPSSPP_PLATFORM(IOS)
+	if (backend == GPUBackend::METAL)
 		return false;
 #endif
 

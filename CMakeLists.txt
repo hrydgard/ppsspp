@@ -1135,6 +1135,10 @@ if(WIN32)
 	list(APPEND GlslangLibs spirv-cross-hlsl)
 endif()
 
+if(APPLE)
+	list(APPEND GlslangLibs spirv-cross-msl)
+endif()
+
 add_subdirectory(Common)
 
 if(USE_SYSTEM_ZSTD)
