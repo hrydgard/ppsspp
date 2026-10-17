@@ -79,7 +79,7 @@ MetalPushAlloc MetalPushBuffer::Allocate(size_t size, size_t align) {
 		}
 		Block block;
 		block.size = std::max(blockSize_, size);
-		block.buffer = [device_ newBufferWithLength:block.size options:MTLResourceStorageModeShared | MTLResourceCPUCacheModeWriteCombined];
+		block.buffer = [device_ newBufferWithLength:block.size options:MTLResourceStorageModeShared];
 		_assert_msg_(block.buffer, "Failed to allocate push buffer block of %d bytes", (int)block.size);
 		block.buffer.label = [NSString stringWithUTF8String:tag_.c_str()];
 		block.ptr = (uint8_t *)block.buffer.contents;
@@ -125,11 +125,8 @@ bool TranslateVulkanGLSLToMSL(ShaderStage stage, const char *glsl, MetalTranslat
 #else
 		options.platform = spirv_cross::CompilerMSL::Options::macOS;
 #endif
-		if (@available(macOS 11.0, iOS 14.0, tvOS 14.0, *)) {
-			options.msl_version = spirv_cross::CompilerMSL::Options::make_msl_version(2, 3);
-		} else {
-			options.msl_version = spirv_cross::CompilerMSL::Options::make_msl_version(2, 1);
-		}
+		// macOS 11 and iOS 15 are the minimum, and both have MSL 2.3.
+		options.msl_version = spirv_cross::CompilerMSL::Options::make_msl_version(2, 3);
 		options.pad_fragment_output_components = true;
 		// Point size is only written for point primitives, which we don't draw (they're expanded to quads).
 		options.enable_point_size_builtin = false;
@@ -198,11 +195,9 @@ bool TranslateVulkanGLSLToMSL(ShaderStage stage, const char *glsl, MetalTranslat
 
 id<MTLFunction> CreateMetalFunction(id<MTLDevice> device, const MetalTranslatedShader &shader, const char *tag, std::string *errorMessage) {
 	MTLCompileOptions *options = [MTLCompileOptions new];
-	if (@available(macOS 11.0, iOS 14.0, tvOS 14.0, *)) {
-		options.languageVersion = MTLLanguageVersion2_3;
-	} else {
-		options.languageVersion = MTLLanguageVersion2_1;
-	}
+	options.languageVersion = MTLLanguageVersion2_3;
+	// Multipass effects depend on identical positions from different vertex shaders (equal depth tests).
+	options.preserveInvariance = YES;
 	NSError *error = nil;
 	id<MTLLibrary> library = [device newLibraryWithSource:[NSString stringWithUTF8String:shader.msl.c_str()] options:options error:&error];
 	if (!library) {
@@ -222,9 +217,7 @@ MetalRenderManager::MetalRenderManager(id<MTLDevice> device, CAMetalLayer *layer
 	queue_ = [device_ newCommandQueue];
 	queue_.label = @"PPSSPP";
 	unifiedMemory_ = device_.hasUnifiedMemory;
-	if (@available(macOS 10.15, iOS 13.0, tvOS 13.0, *)) {
-		appleGPU_ = [device_ supportsFamily:MTLGPUFamilyApple1];
-	}
+	appleGPU_ = [device_ supportsFamily:MTLGPUFamilyApple1];
 
 	for (int i = 0; i < METAL_MAX_INFLIGHT_FRAMES; i++) {
 		frames_[i].push.Init(device_, 4 * 1024 * 1024, StringFromFormat("push%d", i).c_str());
@@ -465,9 +458,15 @@ void MetalRenderManager::BindBackbufferPass(MTLLoadAction colorLoad, MTLClearCol
 }
 
 void MetalRenderManager::BindRenderPass(const MetalRenderPassDesc &desc) {
-	if (!passIsBackbuffer_ && renderEncoder_ && desc.color == pass_.color && desc.depth == pass_.depth &&
-		desc.colorLoad == MTLLoadActionLoad && desc.depthLoad == MTLLoadActionLoad && desc.stencilLoad == MTLLoadActionLoad) {
-		// Just continue the current pass.
+	if (!passIsBackbuffer_ && HasRenderPass() && desc.color == pass_.color && desc.depth == pass_.depth) {
+		// Binding the target we're already on continues the pass, like in the Vulkan backend: clears are applied,
+		// and DontCare is ignored since there's content to keep.
+		bool clearColor = desc.colorLoad == MTLLoadActionClear;
+		bool clearDepth = desc.depthLoad == MTLLoadActionClear;
+		bool clearStencil = desc.stencilLoad == MTLLoadActionClear;
+		if (clearColor || clearDepth || clearStencil) {
+			Clear(clearColor, clearDepth, clearStencil, desc.clearColor, desc.clearDepth, desc.clearStencil);
+		}
 		return;
 	}
 	EndEncoders();

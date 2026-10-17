@@ -28,6 +28,11 @@
 #import <Metal/Metal.h>
 #import <QuartzCore/CAMetalLayer.h>
 
+// Foundation's ABS macro breaks ARM64XEmitter::ABS, which gets included along with the vertex decoders.
+#ifdef ABS
+#undef ABS
+#endif
+
 #include <cstdint>
 #include <string>
 #include <vector>

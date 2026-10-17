@@ -37,6 +37,10 @@
 #include "GPU/D3D11/GPU_D3D11.h"
 #endif
 
+#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+#include "GPU/Metal/GPU_Metal.h"
+#endif
+
 GPUStatistics gpuStats;
 GPUCommon *gpu;
 
@@ -71,8 +75,11 @@ static GPUCommon *CreateGPUCore(GPUCore gpuCore, GraphicsContext *ctx, Draw::Dra
 		return new GPU_Vulkan(ctx, draw);
 #endif
 	case GPUCORE_METAL:
-		// TODO: The Metal GPU backend. Until then, nothing is drawn.
-		return CreateNullGPU(ctx);
+#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+		return new GPU_Metal(ctx, draw);
+#else
+		return nullptr;
+#endif
 	case GPUCORE_NULL:
 		return CreateNullGPU(ctx);
 	default:

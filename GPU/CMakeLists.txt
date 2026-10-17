@@ -71,6 +71,22 @@ endif()
 if(WIN32)
 	list(APPEND GPU_IMPLS ${GPU_D3D11})
 endif()
+if(APPLE)
+	set(GPU_METAL
+		Metal/DrawEngineMetal.h
+		Metal/DrawEngineMetal.mm
+		Metal/FramebufferManagerMetal.h
+		Metal/FramebufferManagerMetal.mm
+		Metal/GPU_Metal.h
+		Metal/GPU_Metal.mm
+		Metal/ShaderManagerMetal.h
+		Metal/ShaderManagerMetal.mm
+		Metal/TextureCacheMetal.h
+		Metal/TextureCacheMetal.mm
+	)
+	set_source_files_properties(Metal/DrawEngineMetal.mm Metal/FramebufferManagerMetal.mm Metal/GPU_Metal.mm Metal/ShaderManagerMetal.mm Metal/TextureCacheMetal.mm PROPERTIES COMPILE_FLAGS -fobjc-arc)
+	list(APPEND GPU_IMPLS ${GPU_METAL})
+endif()
 
 set(GPU_SOURCES
 	${GPUArch}

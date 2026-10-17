@@ -156,11 +156,7 @@ static MTLSamplerAddressMode AddressModeToMetal(TextureAddressMode mode) {
 	case TextureAddressMode::REPEAT: return MTLSamplerAddressModeRepeat;
 	case TextureAddressMode::REPEAT_MIRROR: return MTLSamplerAddressModeMirrorRepeat;
 	case TextureAddressMode::CLAMP_TO_EDGE: return MTLSamplerAddressModeClampToEdge;
-	case TextureAddressMode::CLAMP_TO_BORDER:
-		if (@available(iOS 14.0, tvOS 14.0, *)) {
-			return MTLSamplerAddressModeClampToBorderColor;
-		}
-		return MTLSamplerAddressModeClampToZero;
+	case TextureAddressMode::CLAMP_TO_BORDER: return MTLSamplerAddressModeClampToBorderColor;
 	}
 	return MTLSamplerAddressModeClampToEdge;
 }
@@ -536,7 +532,7 @@ MetalDrawContext::MetalDrawContext(MetalRenderManager *renderManager) : rm_(rend
 	caps_.framebufferCopySupported = true;
 	caps_.framebufferBlitSupported = false;
 	caps_.framebufferDepthCopySupported = true;
-	caps_.framebufferSeparateDepthCopySupported = false;
+	caps_.framebufferSeparateDepthCopySupported = true;
 	caps_.framebufferDepthBlitSupported = false;
 	caps_.framebufferStencilBlitSupported = false;
 	caps_.framebufferFetchSupported = false;
@@ -544,7 +540,7 @@ MetalDrawContext::MetalDrawContext(MetalRenderManager *renderManager) : rm_(rend
 	caps_.fragmentShaderFullPrecisionFloat = true;
 	caps_.fragmentShaderInt32Supported = true;
 	caps_.fragmentShaderDepthWriteSupported = true;
-	caps_.fragmentShaderStencilWriteSupported = false;
+	caps_.fragmentShaderStencilWriteSupported = true;
 	caps_.textureDepthSupported = true;
 	caps_.blendMinMaxSupported = true;
 	caps_.multiViewSupported = false;
@@ -597,7 +593,7 @@ std::vector<std::string> MetalDrawContext::GetFeatureList() const {
 	std::vector<std::string> features;
 	features.push_back(StringFromFormat("Unified memory: %s", rm_->HasUnifiedMemory() ? "yes" : "no"));
 	features.push_back(StringFromFormat("Apple GPU family: %s", rm_->IsAppleGPU() ? "yes" : "no"));
-	if (@available(macOS 11.0, iOS 14.0, tvOS 14.0, *)) {
+	if (@available(iOS 16.4, tvOS 16.4, *)) {
 		features.push_back(StringFromFormat("BC texture compression: %s", device_.supportsBCTextureCompression ? "yes" : "no"));
 	}
 	return features;
@@ -625,7 +621,7 @@ uint32_t MetalDrawContext::GetDataFormatSupport(DataFormat fmt) const {
 		case DataFormat::BC4_UNORM_BLOCK:
 		case DataFormat::BC5_UNORM_BLOCK:
 		case DataFormat::BC7_UNORM_BLOCK:
-			if (@available(macOS 11.0, iOS 16.4, tvOS 16.4, *)) {
+			if (@available(iOS 16.4, tvOS 16.4, *)) {
 				supported = device_.supportsBCTextureCompression;
 			}
 			break;
@@ -689,12 +685,10 @@ SamplerState *MetalDrawContext::CreateSamplerState(const SamplerStateDesc &desc)
 	if (desc.shadowCompareEnabled) {
 		sd.compareFunction = compareToMetal[(int)desc.shadowCompareFunc];
 	}
-	if (@available(iOS 14.0, tvOS 14.0, *)) {
-		switch (desc.borderColor) {
-		case BorderColor::OPAQUE_BLACK: sd.borderColor = MTLSamplerBorderColorOpaqueBlack; break;
-		case BorderColor::OPAQUE_WHITE: sd.borderColor = MTLSamplerBorderColorOpaqueWhite; break;
-		default: sd.borderColor = MTLSamplerBorderColorTransparentBlack; break;
-		}
+	switch (desc.borderColor) {
+	case BorderColor::OPAQUE_BLACK: sd.borderColor = MTLSamplerBorderColorOpaqueBlack; break;
+	case BorderColor::OPAQUE_WHITE: sd.borderColor = MTLSamplerBorderColorOpaqueWhite; break;
+	default: sd.borderColor = MTLSamplerBorderColorTransparentBlack; break;
 	}
 	sd.lodMinClamp = 0.0f;
 	sd.lodMaxClamp = FLT_MAX;
@@ -971,9 +965,23 @@ void MetalDrawContext::CopyFramebufferImage(Framebuffer *srcfb, int level, int x
 		[blit copyFromTexture:src->color sourceSlice:0 sourceLevel:level sourceOrigin:MTLOriginMake(x, y, 0) sourceSize:MTLSizeMake(width, height, 1)
 			toTexture:dst->color destinationSlice:0 destinationLevel:dstLevel destinationOrigin:MTLOriginMake(dstX, dstY, 0)];
 	}
-	if ((aspects & (Aspect::DEPTH_BIT | Aspect::STENCIL_BIT)) && src->depth && dst->depth) {
-		[blit copyFromTexture:src->depth sourceSlice:0 sourceLevel:level sourceOrigin:MTLOriginMake(x, y, 0) sourceSize:MTLSizeMake(width, height, 1)
-			toTexture:dst->depth destinationSlice:0 destinationLevel:dstLevel destinationOrigin:MTLOriginMake(dstX, dstY, 0)];
+	const bool copyDepth = (aspects & Aspect::DEPTH_BIT) != 0;
+	const bool copyStencil = (aspects & Aspect::STENCIL_BIT) != 0;
+	if ((copyDepth || copyStencil) && src->depth && dst->depth) {
+		if (copyDepth && copyStencil) {
+			[blit copyFromTexture:src->depth sourceSlice:0 sourceLevel:level sourceOrigin:MTLOriginMake(x, y, 0) sourceSize:MTLSizeMake(width, height, 1)
+				toTexture:dst->depth destinationSlice:0 destinationLevel:dstLevel destinationOrigin:MTLOriginMake(dstX, dstY, 0)];
+		} else {
+			// Texture-to-texture copies take both planes of a combined format, so a single one goes through a buffer.
+			const bool depth = copyDepth;
+			const MTLBlitOption option = depth ? MTLBlitOptionDepthFromDepthStencil : MTLBlitOptionStencilFromDepthStencil;
+			const int bytesPerRow = width * (depth ? 4 : 1);
+			MetalPushAlloc alloc = rm_->Push().Allocate(bytesPerRow * height, 16);
+			[blit copyFromTexture:src->depth sourceSlice:0 sourceLevel:level sourceOrigin:MTLOriginMake(x, y, 0) sourceSize:MTLSizeMake(width, height, 1)
+				toBuffer:alloc.buffer destinationOffset:alloc.offset destinationBytesPerRow:bytesPerRow destinationBytesPerImage:bytesPerRow * height options:option];
+			[blit copyFromBuffer:alloc.buffer sourceOffset:alloc.offset sourceBytesPerRow:bytesPerRow sourceBytesPerImage:bytesPerRow * height sourceSize:MTLSizeMake(width, height, 1)
+				toTexture:dst->depth destinationSlice:0 destinationLevel:dstLevel destinationOrigin:MTLOriginMake(dstX, dstY, 0) options:option];
+		}
 	}
 }
 
@@ -1384,11 +1392,7 @@ std::string MetalDrawContext::GetInfoString(InfoField info) const {
 	case InfoField::VENDORSTRING: return [[device_ name] UTF8String];
 	case InfoField::VENDOR: return "";
 	case InfoField::DRIVER: return "-";
-	case InfoField::SHADELANGVERSION:
-		if (@available(macOS 11.0, iOS 14.0, tvOS 14.0, *)) {
-			return "MSL 2.3";
-		}
-		return "MSL 2.1";
+	case InfoField::SHADELANGVERSION: return "MSL 2.3";
 	default: return "?";
 	}
 }
@@ -1400,6 +1404,8 @@ uint64_t MetalDrawContext::GetNativeObject(NativeObject obj, void *srcObject) {
 	case NativeObject::RENDER_MANAGER: return (uint64_t)(uintptr_t)rm_;
 	case NativeObject::TEXTURE_VIEW: return (uint64_t)(uintptr_t)(__bridge void *)((MetalTexture *)srcObject)->texture;
 	case NativeObject::NULL_IMAGEVIEW: return (uint64_t)(uintptr_t)(__bridge void *)nullTexture_;
+	case NativeObject::BOUND_TEXTURE0_IMAGEVIEW: return (uint64_t)(uintptr_t)(__bridge void *)boundTextures_[0];
+	case NativeObject::BOUND_TEXTURE1_IMAGEVIEW: return (uint64_t)(uintptr_t)(__bridge void *)boundTextures_[1];
 	default: return 0;
 	}
 }
