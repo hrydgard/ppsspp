@@ -1611,7 +1611,7 @@ void Config::PostLoadCleanup() {
 
 	if (iGPUBackend == 1) {  // d3d9, no longer supported. Fall back to D3D11.
 		iGPUBackend = (int)GPUBackend::DIRECT3D11;
-	} else if (iGPUBackend < 0 || iGPUBackend > 3) {
+	} else if (iGPUBackend < 0 || iGPUBackend > (int)GPUBackend::METAL) {
 		iGPUBackend = (int)DefaultGPUBackend();
 	}
 
