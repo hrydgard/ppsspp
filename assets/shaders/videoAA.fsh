@@ -36,7 +36,7 @@ varying vec2 v_texcoord0;
 
 const vec3 dt = vec3(1.0,1.0,1.0);
 
-vec3 texture2d (vec2 texcoord) {
+vec3 fetch2d (vec2 texcoord) {
 
 	float scale = 1.0;
 	if (u_video==1.0){
@@ -58,7 +58,7 @@ vec3 texture2d (vec2 texcoord) {
 
 	return 0.5*(m2*(s00+s22)+m1*(s02+s20))/(m1+m2);
 }
-vec3 texture2dd (vec2 texcoord) {
+vec3 fetch2dd (vec2 texcoord) {
 
 	float scale = 1.0;
 	if (u_video==1.0){
@@ -118,15 +118,15 @@ void main() {
 	vec2 pC4 = floor(OGL2Pos) * inv_size + 0.5*inv_size;	
 
 	// Reading the texels
-	vec3 C0 = texture2d(pC4 - g1); 
-	vec3 C1 = texture2d(pC4 - dy);
-	vec3 C2 = texture2d(pC4 - g2);
-	vec3 C3 = texture2d(pC4 - dx);
-	vec3 C4 = texture2d(pC4     );
-	vec3 C5 = texture2d(pC4 + dx);
-	vec3 C6 = texture2d(pC4 + g2);
-	vec3 C7 = texture2d(pC4 + dy);
-	vec3 C8 = texture2d(pC4 + g1);
+	vec3 C0 = fetch2d(pC4 - g1); 
+	vec3 C1 = fetch2d(pC4 - dy);
+	vec3 C2 = fetch2d(pC4 - g2);
+	vec3 C3 = fetch2d(pC4 - dx);
+	vec3 C4 = fetch2d(pC4     );
+	vec3 C5 = fetch2d(pC4 + dx);
+	vec3 C6 = fetch2d(pC4 + g2);
+	vec3 C7 = fetch2d(pC4 + dy);
+	vec3 C8 = fetch2d(pC4 + g1);
 
 	vec3 ul, ur, dl, dr;
 	float m1, m2;
@@ -160,15 +160,15 @@ void main() {
 		g2  = vec2(-inv_size.x,inv_size.y);
 		pC4 = v_texcoord0;
 
-		C0 = texture2dd(pC4-g1); 
-		C1 = texture2dd(pC4-dy);
-		C2 = texture2dd(pC4-g2);
-		C3 = texture2dd(pC4-dx);
-		C4 = texture2dd(pC4   );
-		C5 = texture2dd(pC4+dx);
-		C6 = texture2dd(pC4+g2);
-		C7 = texture2dd(pC4+dy);
-		C8 = texture2dd(pC4+g1);
+		C0 = fetch2dd(pC4-g1); 
+		C1 = fetch2dd(pC4-dy);
+		C2 = fetch2dd(pC4-g2);
+		C3 = fetch2dd(pC4-dx);
+		C4 = fetch2dd(pC4   );
+		C5 = fetch2dd(pC4+dx);
+		C6 = fetch2dd(pC4+g2);
+		C7 = fetch2dd(pC4+dy);
+		C8 = fetch2dd(pC4+g1);
 
 		vec3 mn1 = min(min(C0,C1),C2);
 		vec3 mn2 = min(min(C3,C4),C5);
