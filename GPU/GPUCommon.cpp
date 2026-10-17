@@ -57,7 +57,9 @@ GPUCommon::GPUCommon(GraphicsContext *gfxCtx, Draw::DrawContext *draw) :
 	Reinitialize();
 	gstate.Reset();
 	gstate_c.Reset();
-	gpuStats.ResetFrame();
+	// Including the flip count, which framebuffer ages are measured in. Otherwise a frame dump replayed after
+	// another in the same process (headless) renders differently from one replayed alone.
+	gpuStats.Reset();
 
 	PPGeSetDrawContext(draw);
 	ResetMatrices();
