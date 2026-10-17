@@ -82,6 +82,7 @@
 
 static Path g_comparisonScreenshot;
 static Path g_screenshotSavePath;
+static Path g_screenshotDir;
 static Path g_depthSavePath;
 static bool g_screenshotRenderTarget = false;
 static Path g_screenshotDiffPath;
@@ -125,6 +126,11 @@ jobject Android_GetActivity(JNIEnv *env) {
 bool System_AudioRecordingIsAvailable() { return false; }
 #endif
 
+#if PPSSPP_PLATFORM(IOS)
+// Defined by the iOS app (ios/main.mm), which this doesn't link.
+bool System_AudioRecordingIsAvailable() { return false; }
+#endif
+
 // Temporary hacks around annoying linking errors.
 void NativeFrame(GraphicsContext *graphicsContext) { }
 void NativeResized() { }
@@ -141,7 +147,12 @@ float System_GetPropertyFloat(SystemProperty prop) { return -1.0f; }
 bool System_GetPropertyBool(SystemProperty prop) {
 	switch (prop) {
 	case SYSPROP_IS_HEADLESS: return true;
+#if PPSSPP_PLATFORM(IOS)
+	// Not without a debugger attached, which a devicectl launch doesn't have.
+	case SYSPROP_CAN_JIT: return false;
+#else
 	case SYSPROP_CAN_JIT: return true;
+#endif
 	default:
 		return false;
 	}
@@ -366,8 +377,8 @@ static GraphicsContext *CreateGraphicsContext(GPUCore gpuCore, std::string **dev
 	// one either. These still run fine with --graphics=software, which needs no graphics context.
 	*deviceSetting = nullptr;
 	return nullptr;
-#elif PPSSPP_PLATFORM(ANDROID)
-	// Both hardware backends are created up front, with no window (see the caller).
+#elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS)
+	// The hardware backends are created up front, with no window (see the caller).
 	*deviceSetting = nullptr;
 	return nullptr;
 #else
@@ -716,6 +727,11 @@ int RunTests(GraphicsContext *graphicsContext, CoreParameter &coreParameter, con
 			missingTests.push_back(testFilenames[i]);
 			continue;
 		}
+		if (!g_screenshotDir.empty()) {
+			const Path rel(coreParameter.fileToStart.IsAbsolute() ? coreParameter.fileToStart.GetFilename() : testFilenames[i]);
+			g_screenshotSavePath = g_screenshotDir / (rel.ToString() + ".png");
+			File::CreateFullPath(g_screenshotSavePath.NavigateUp());
+		}
 		if (testOptions.compare) {
 			printf("%s:\n", coreParameter.fileToStart.c_str());
 		}
@@ -778,7 +794,12 @@ public:
 	}
 };
 
+#if PPSSPP_PLATFORM(IOS)
+// An iOS app can't be a bare executable: ios/HeadlessMain.mm starts UIKit and calls this.
+int HeadlessMain(int argc, const char* argv[]) {
+#else
 int main(int argc, const char* argv[]) {
+#endif
 	PROFILE_INIT();
 	TimeInit();
 #if PPSSPP_PLATFORM(WINDOWS)
@@ -791,7 +812,7 @@ int main(int argc, const char* argv[]) {
 		perror("Unable to ignore SIGPIPE");
 	}
 #endif
-#if PPSSPP_PLATFORM(MAC)
+#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
 	// MoltenVK logs its setup and every unsupported feature to the console, which mixes into the
 	// test output. Only its errors, unless asked for more.
 	setenv("MVK_CONFIG_LOG_LEVEL", "1", 0);
@@ -1040,7 +1061,8 @@ int main(int argc, const char* argv[]) {
 		g_Config.iForceEnableHLE = 0xFFFFFFFF & ~g_Config.iDisableHLE;
 	}
 
-	CPUCore cpuCore = CPUCore::JIT;
+	// Where there's no JIT (iOS), allocating its executable memory gets the process killed.
+	CPUCore cpuCore = System_GetPropertyBool(SYSPROP_CAN_JIT) ? CPUCore::JIT : CPUCore::IR_INTERPRETER;
 	if (cmdLineOptions.cpuCore.has_value()) {
 		cpuCore = cmdLineOptions.cpuCore.value();
 	}
@@ -1096,6 +1118,9 @@ int main(int argc, const char* argv[]) {
 		} else {
 #if PPSSPP_PLATFORM(ANDROID)
 			fprintf(stderr, "Only --graphics=vulkan and --graphics=gles are supported on Android\n");
+			return 1;
+#elif PPSSPP_PLATFORM(IOS)
+			fprintf(stderr, "Only --graphics=vulkan is supported on iOS\n");
 			return 1;
 #else
 			// TODO: Will we need a larger window for higher resolutions? Well, not if we use buffered rendering.
@@ -1157,7 +1182,13 @@ int main(int argc, const char* argv[]) {
 	coreParameter.pixelHeight = 272 * coreParameter.renderScaleFactor;
 	coreParameter.fastForward = true;
 
+#if PPSSPP_PLATFORM(IOS)
+	// GetExeDirectory() knows nothing on iOS, but argv[0] is the executable inside the .app,
+	// next to the bundled assets.
+	Path exePath = Path(std::string(argv[0])).NavigateUp();
+#else
 	Path exePath = File::GetExeDirectory();
+#endif
 
 	// --memstick, applied by ApplyToConfig() further up, wins. This runs after it, so without the
 	// check the default below would silently overwrite whatever was asked for.
@@ -1168,6 +1199,9 @@ int main(int argc, const char* argv[]) {
 		g_Config.memStickDirectory = exePath / "memstick";
 		File::CreateDir(g_Config.memStickDirectory, true);
 		CreateSysDirectories();
+#elif PPSSPP_PLATFORM(IOS)
+		// The app container's root isn't writable.
+		g_Config.memStickDirectory = Path(std::string(getenv("HOME"))) / "Library" / "memstick";
 #elif !PPSSPP_PLATFORM(ANDROID)
 		g_Config.memStickDirectory = Path(std::string(getenv("HOME"))) / ".ppsspp";
 #endif
@@ -1255,6 +1289,9 @@ int main(int argc, const char* argv[]) {
 
 	if (cmdLineOptions.screenshotFilename.has_value()) {
 		SetComparisonScreenshot(Path(std::string(cmdLineOptions.screenshotFilename.value())), testOptions.maxScreenshotError);
+	}
+	if (cmdLineOptions.screenshotDir.has_value()) {
+		g_screenshotDir = Path(cmdLineOptions.screenshotDir.value());
 	}
 	if (cmdLineOptions.screenshotFilenameSave.has_value()) {
 		SetScreenshotSavePath(Path(std::string(cmdLineOptions.screenshotFilenameSave.value())));
@@ -1378,7 +1415,7 @@ int main(int argc, const char* argv[]) {
 		ShutdownWebServer();
 	}
 
-#if PPSSPP_PLATFORM(ANDROID) || defined(HEADLESS_NO_SDL)
+#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(IOS) || defined(HEADLESS_NO_SDL)
 	// ... see above
 #else
 	if (window) {
