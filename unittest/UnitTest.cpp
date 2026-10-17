@@ -62,6 +62,7 @@
 #include "Common/Data/Encoding/Shiftjis.h"
 #include "Common/Buffer.h"
 #include "Common/File/Path.h"
+#include "Common/File/FileUtil.h"
 #include "Common/Log/LogManager.h"
 #include "Common/Math/SIMDHeaders.h"
 #include "Common/Math/CrossSIMD.h"
@@ -2481,6 +2482,13 @@ static bool TestPath() {
 
 	Path path2("/asdf/jkl");
 	EXPECT_EQ_STR(path2.NavigateUp().ToString(), std::string("/asdf"));
+
+	// Relative to the current directory. This used to create nothing and still report success.
+	const Path relDir("unittest_createfullpath");
+	File::DeleteDirRecursively(relDir);
+	EXPECT_TRUE(File::CreateFullPath(relDir / "a/b"));
+	EXPECT_TRUE(File::IsDirectory(File::GetCurDirectory() / "unittest_createfullpath/a/b"));
+	File::DeleteDirRecursively(relDir);
 
 	Path path3 = path2 / "foo/bar";
 	EXPECT_EQ_STR(path3.WithExtraExtension(".txt").ToString(), std::string("/asdf/jkl/foo/bar.txt"));
