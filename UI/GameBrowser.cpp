@@ -999,6 +999,12 @@ static bool IsValidPBP(const Path &path, bool allowHomebrew) {
 	std::unique_ptr<FileLoader> loader(ConstructFileLoader(path));
 
 	PBPReader pbp(loader.get());
+	// Some old homebrew (like Ozone and Trig Wars) ships a plain ELF named EBOOT.PBP. It has no
+	// PARAM.SFO, but Identify_File accepts it and it boots.
+	if (pbp.IsELF()) {
+		return true;
+	}
+
 	std::vector<u8> sfoData;
 	if (!pbp.GetSubFile(PBP_PARAM_SFO, &sfoData))
 		return false;
