@@ -84,6 +84,17 @@ void *MemArena::CreateView(s64 offset, size_t size, void *base) {
 
 void MemArena::ReleaseView(s64 offset, void* view, size_t size) {
 	vm_address_t addr = (vm_address_t)view;
+	if (reserved_size != 0 && addr >= reserved_mem && addr + size <= reserved_mem + reserved_size) {
+		// Put the reserved pages back instead of unmapping. A hole would let another thread's allocation
+		// (Metal maps its command buffer memory at any free address) land in it, and ReleaseViewSpace()
+		// would then unmap that too.
+		kern_return_t retval = vm_map(mach_task_self(), &addr, size, 0, VM_FLAGS_FIXED | VM_FLAGS_OVERWRITE, MACH_PORT_NULL, 0, false,
+			VM_PROT_NONE, VM_PROT_ALL, VM_INHERIT_DEFAULT);
+		if (retval == KERN_SUCCESS) {
+			return;
+		}
+		WARN_LOG(Log::MemMap, "Couldn't restore the reservation under a view at %p (%d)", view, (int)retval);
+	}
 	vm_deallocate(mach_task_self(), addr, size);
 }
 
