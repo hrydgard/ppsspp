@@ -360,6 +360,8 @@ public:
 	MTLPixelFormat BackbufferFormat() const { return MTLPixelFormatBGRA8Unorm; }
 	// The offscreen backbuffer, or nil when rendering to the layer.
 	id<MTLTexture> OffscreenBackbuffer() const { return offscreenBackbuffer_; }
+	// False until something renders to the backbuffer (headless never does).
+	bool BackbufferDrawn() const { return backbufferDrawn_; }
 
 	// Render passes. The pass is started lazily, see above.
 	void BindRenderPass(const MetalRenderPassDesc &desc);
@@ -480,6 +482,7 @@ private:
 	// Recording state (emu thread).
 	MetalCommandChunk *chunk_ = nullptr;
 	id<MTLTexture> offscreenBackbuffer_;
+	bool backbufferDrawn_ = false;
 	id<MTLTexture> bbDepth_;
 	int bbWidth_ = 0;
 	int bbHeight_ = 0;

@@ -494,6 +494,7 @@ void MetalRenderManager::BindBackbufferPass(MTLLoadAction colorLoad, MTLClearCol
 		// Already rendering to it.
 		return;
 	}
+	backbufferDrawn_ = true;
 	EndRenderPass();
 	MetalRenderPassDesc desc{};
 	desc.colorLoad = colorLoad;

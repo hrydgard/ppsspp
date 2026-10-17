@@ -1039,7 +1039,8 @@ bool MetalDrawContext::CopyFramebufferToMemory(Framebuffer *srcfb, Aspect aspect
 		texW = (int)srcTex.width;
 		texH = (int)srcTex.height;
 		srcFormat = srcTex.pixelFormat;
-	} else if (aspect != Aspect::COLOR_BIT) {
+	} else if (aspect != Aspect::COLOR_BIT || !rm_->BackbufferDrawn()) {
+		// Like headless Vulkan, which has no backbuffer. The GE debugger shows the PSP's framebuffer instead.
 		return false;
 	} else if (rm_->OffscreenBackbuffer()) {
 		srcTex = rm_->OffscreenBackbuffer();
