@@ -75,9 +75,11 @@ void TextureCacheMetal::DeviceRestore(Draw::DrawContext *draw) {
 
 void TextureCacheMetal::ReleaseTexture(TexCacheEntry *entry, bool delete_them) {
 	if (entry->texturePtr) {
-		// Balances the __bridge_retained in BuildTexture. Command buffers that use it keep it alive as needed.
+		// Balances the __bridge_retained in BuildTexture. The GPU may still be using it.
 		id<MTLTexture> tex = (__bridge_transfer id<MTLTexture>)entry->texturePtr;
-		tex = nil;
+		if (rm_) {
+			rm_->DeferRelease(tex);
+		}
 		entry->texturePtr = nullptr;
 	}
 }

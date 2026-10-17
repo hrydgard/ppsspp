@@ -162,6 +162,15 @@ public:
 	// Waits for all submitted work to complete.
 	void WaitIdle();
 
+	// Command buffers don't retain what they use (that costs a retain and release per binding), so
+	// anything that may still be in use by the GPU has to be released through this. Keeps the object
+	// alive until the GPU is done with the current frame.
+	void DeferRelease(id object) {
+		if (object) {
+			frames_[curFrame_].deleteList.push_back(object);
+		}
+	}
+
 	// Backbuffer
 	void Resize(int width, int height);
 	int BackbufferWidth() const { return bbWidth_; }
@@ -249,6 +258,7 @@ private:
 
 	struct FrameData {
 		MetalPushBuffer push;
+		std::vector<id> deleteList;
 		bool hasPendingWork = false;
 	};
 	FrameData frames_[METAL_MAX_INFLIGHT_FRAMES];

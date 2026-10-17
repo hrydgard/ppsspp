@@ -267,6 +267,7 @@ void MetalRenderManager::CreateOffscreenBackbuffer(int width, int height) {
 	MTLTextureDescriptor *desc = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatBGRA8Unorm width:width height:height mipmapped:NO];
 	desc.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
 	desc.storageMode = MTLStorageModePrivate;
+	DeferRelease(offscreenBackbuffer_);
 	offscreenBackbuffer_ = [device_ newTextureWithDescriptor:desc];
 	offscreenBackbuffer_.label = @"offscreen_backbuffer";
 	bbWidth_ = width;
@@ -274,6 +275,7 @@ void MetalRenderManager::CreateOffscreenBackbuffer(int width, int height) {
 }
 
 void MetalRenderManager::CreateBackbufferDepth() {
+	DeferRelease(bbDepth_);
 	if (bbWidth_ <= 0 || bbHeight_ <= 0) {
 		bbDepth_ = nil;
 		return;
@@ -338,10 +340,10 @@ void MetalRenderManager::NewCommandBuffers() {
 		return;
 	}
 	// The upload buffer is enqueued first, so it runs first even though it's committed at the same time.
-	uploadCmd_ = [queue_ commandBuffer];
+	uploadCmd_ = [queue_ commandBufferWithUnretainedReferences];
 	uploadCmd_.label = @"upload";
 	[uploadCmd_ enqueue];
-	cmd_ = [queue_ commandBuffer];
+	cmd_ = [queue_ commandBufferWithUnretainedReferences];
 	cmd_.label = @"main";
 	[cmd_ enqueue];
 }
@@ -370,6 +372,7 @@ void MetalRenderManager::Present(bool vsync) {
 
 	if (drawable_) {
 		[cmd_ presentDrawable:drawable_];
+		DeferRelease(drawable_);
 		drawable_ = nil;
 	}
 
@@ -401,6 +404,7 @@ void MetalRenderManager::Present(bool vsync) {
 	curFrame_ = (int)(frameNumber_ % METAL_MAX_INFLIGHT_FRAMES);
 	dispatch_semaphore_wait(frameSemaphore_, DISPATCH_TIME_FOREVER);
 	frames_[curFrame_].push.Reset();
+	frames_[curFrame_].deleteList.clear();
 }
 
 void MetalRenderManager::Flush(bool wait) {

@@ -188,7 +188,10 @@ void DrawEngineMetal::DeviceRestore(Draw::DrawContext *draw) {
 }
 
 void DrawEngineMetal::ClearPipelines() {
-	pipelines_.Iterate([](const MetalPipelineKey &, Pipeline *pipeline) {
+	pipelines_.Iterate([&](const MetalPipelineKey &, Pipeline *pipeline) {
+		if (rm_) {
+			rm_->DeferRelease(pipeline->pso);
+		}
 		delete pipeline;
 	});
 	pipelines_.Clear();

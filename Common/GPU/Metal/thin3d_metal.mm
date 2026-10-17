@@ -195,7 +195,14 @@ public:
 
 class MetalSamplerState : public SamplerState {
 public:
+	MetalSamplerState(MetalRenderManager *rm) : rm_(rm) {}
+	~MetalSamplerState() {
+		rm_->DeferRelease(sampler);
+	}
 	id<MTLSamplerState> sampler;
+
+private:
+	MetalRenderManager *rm_;
 };
 
 class MetalInputLayout : public InputLayout {
@@ -217,10 +224,14 @@ public:
 
 class MetalPipeline : public Pipeline {
 public:
+	MetalPipeline(MetalRenderManager *rm) : rm_(rm) {}
 	~MetalPipeline() {
 		if (vs) vs->Release();
 		if (fs) fs->Release();
 		delete[] ubo;
+		for (auto &iter : psos) {
+			rm_->DeferRelease(iter.second);
+		}
 	}
 
 	id<MTLRenderPipelineState> GetPSO(id<MTLDevice> device, const MetalRenderTargetFormat &format);
@@ -236,6 +247,9 @@ public:
 	size_t uboSize = 0;
 	std::string tag;
 	std::unordered_map<uint32_t, id<MTLRenderPipelineState>> psos;
+
+private:
+	MetalRenderManager *rm_;
 };
 
 id<MTLRenderPipelineState> MetalPipeline::GetPSO(id<MTLDevice> device, const MetalRenderTargetFormat &format) {
@@ -312,7 +326,7 @@ public:
 
 class MetalTexture : public Texture {
 public:
-	MetalTexture(const TextureDesc &desc) {
+	MetalTexture(MetalRenderManager *rm, const TextureDesc &desc) : rm_(rm) {
 		width_ = desc.width;
 		height_ = desc.height;
 		depth_ = desc.depth;
@@ -320,14 +334,21 @@ public:
 		mipLevels_ = desc.mipLevels;
 	}
 
+	~MetalTexture() {
+		rm_->DeferRelease(texture);
+	}
+
 	id<MTLTexture> texture;
 	int mipLevels_ = 1;
 	uint64_t lastUsedFrame = (uint64_t)-1;
+
+private:
+	MetalRenderManager *rm_;
 };
 
 class MetalFramebuffer : public Framebuffer {
 public:
-	MetalFramebuffer(const FramebufferDesc &desc) : tag_(desc.tag ? desc.tag : "") {
+	MetalFramebuffer(MetalRenderManager *rm, const FramebufferDesc &desc) : rm_(rm), tag_(desc.tag ? desc.tag : "") {
 		width_ = desc.width;
 		height_ = desc.height;
 		layers_ = 1;
@@ -350,9 +371,18 @@ public:
 		return stencilView;
 	}
 
+	~MetalFramebuffer() {
+		rm_->DeferRelease(color);
+		rm_->DeferRelease(depth);
+		rm_->DeferRelease(stencilView);
+	}
+
 	id<MTLTexture> color;
 	id<MTLTexture> depth;
 	id<MTLTexture> stencilView;
+
+private:
+	MetalRenderManager *rm_;
 	std::string tag_;
 };
 
@@ -692,7 +722,7 @@ SamplerState *MetalDrawContext::CreateSamplerState(const SamplerStateDesc &desc)
 	}
 	sd.lodMinClamp = 0.0f;
 	sd.lodMaxClamp = FLT_MAX;
-	MetalSamplerState *ss = new MetalSamplerState();
+	MetalSamplerState *ss = new MetalSamplerState(rm_);
 	ss->sampler = [device_ newSamplerStateWithDescriptor:sd];
 	return ss;
 }
@@ -735,7 +765,7 @@ ShaderModule *MetalDrawContext::CreateShaderModule(ShaderStage stage, ShaderLang
 }
 
 Pipeline *MetalDrawContext::CreateGraphicsPipeline(const PipelineDesc &desc, const char *tag) {
-	MetalPipeline *pipeline = new MetalPipeline();
+	MetalPipeline *pipeline = new MetalPipeline(rm_);
 	pipeline->tag = tag;
 	for (ShaderModule *module : desc.shaders) {
 		MetalShaderModule *mm = (MetalShaderModule *)module;
@@ -825,7 +855,7 @@ Texture *MetalDrawContext::CreateTexture(const TextureDesc &desc) {
 		ERROR_LOG(Log::G3D, "Metal: Unsupported texture type %d", (int)desc.type);
 		return nullptr;
 	}
-	MetalTexture *tex = new MetalTexture(desc);
+	MetalTexture *tex = new MetalTexture(rm_, desc);
 	bool generateMips = desc.generateMips && (GetDataFormatSupport(desc.format) & FMT_AUTOGEN_MIPS);
 	int mipLevels = std::max(1, desc.mipLevels);
 	if (desc.generateMips && mipLevels == 1) {
@@ -904,7 +934,7 @@ void MetalDrawContext::UpdateTextureRegions(Texture *texture, int level, const T
 
 Framebuffer *MetalDrawContext::CreateFramebuffer(const FramebufferDesc &desc) {
 	_dbg_assert_(desc.numLayers == 1);
-	MetalFramebuffer *fb = new MetalFramebuffer(desc);
+	MetalFramebuffer *fb = new MetalFramebuffer(rm_, desc);
 	MTLTextureDescriptor *td = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA8Unorm width:desc.width height:desc.height mipmapped:NO];
 	td.usage = MTLTextureUsageRenderTarget | MTLTextureUsageShaderRead;
 	td.storageMode = MTLStorageModePrivate;
@@ -1023,6 +1053,7 @@ bool MetalDrawContext::CopyFramebufferToMemory(Framebuffer *srcfb, Aspect aspect
 	int srcStride = w * srcPixelSize;
 	size_t size = (size_t)srcStride * h;
 	if (!readbackBuffer_ || readbackBuffer_.length < size) {
+		rm_->DeferRelease(readbackBuffer_);
 		readbackBuffer_ = [device_ newBufferWithLength:std::max(size, (size_t)(1024 * 1024)) options:MTLResourceStorageModeShared];
 		readbackBuffer_.label = @"readback";
 	}
