@@ -24,7 +24,6 @@ static jmethodID contentUriRenameFileTo;
 static jmethodID contentUriGetFileInfo;
 static jmethodID contentUriFileExists;
 static jmethodID contentUriGetFreeStorageSpace;
-static jmethodID filePathGetFreeStorageSpace;
 static jmethodID computeRecursiveDirectorySize;
 
 // A global ref owned by whoever calls Android_StorageSetActivity, who may replace it and delete the old
@@ -84,8 +83,6 @@ void Android_RegisterStorageCallbacks(JNIEnv *env) {
 	_dbg_assert_(contentUriFileExists);
 	contentUriGetFreeStorageSpace = env->GetStaticMethodID(localClass, "contentUriGetFreeStorageSpace", "(Landroid/app/Activity;Ljava/lang/String;)J");
 	_dbg_assert_(contentUriGetFreeStorageSpace);
-	filePathGetFreeStorageSpace = env->GetStaticMethodID(localClass, "filePathGetFreeStorageSpace", "(Landroid/app/Activity;Ljava/lang/String;)J");
-	_dbg_assert_(filePathGetFreeStorageSpace);
 	jmethodID isExternalStoragePreservedLegacy = env->GetStaticMethodID(localClass, "isExternalStoragePreservedLegacy", "()Z");  // doesn't need an activity
 	_dbg_assert_(isExternalStoragePreservedLegacy);
 	computeRecursiveDirectorySize = env->GetStaticMethodID(localClass, "computeRecursiveDirectorySize", "(Landroid/app/Activity;Ljava/lang/String;)J");
@@ -370,28 +367,6 @@ int64_t Android_GetFreeSpaceByContentUri(const std::string &uri) {
 
 	jstring param = env->NewStringUTF(uri.c_str());
 	int64_t space = env->CallStaticLongMethod(g_classContentUri, contentUriGetFreeStorageSpace, activity, param);
-	if (CheckJavaException(env, __FUNCTION__)) {
-		return -1;
-	}
-	return space;
-}
-
-// Hm, this is never used? We use statvfs instead.
-int64_t Android_GetFreeSpaceByFilePath(const std::string &filePath) {
-	auto env = getEnv();
-	JNILocalFrame frame(env);
-	jobject activity = AcquireActivity(env);
-	if (!activity) {
-		return -1;
-	}
-
-	if (System_GetPropertyInt(SYSPROP_SYSTEMVERSION) < 26) {
-		// This is available from Android O.
-		return -1;
-	}
-
-	jstring param = env->NewStringUTF(filePath.c_str());
-	int64_t space = env->CallStaticLongMethod(g_classContentUri, filePathGetFreeStorageSpace, activity, param);
 	if (CheckJavaException(env, __FUNCTION__)) {
 		return -1;
 	}

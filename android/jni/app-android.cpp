@@ -544,15 +544,6 @@ extern "C" void Java_org_ppsspp_ppsspp_PpssppActivity_unregisterCallbacks(JNIEnv
 	}
 }
 
-// This is now only used as a trigger for GetAppInfo as a function to all before Init.
-// On Android we don't use any of the values it returns.
-extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_isLandscape(JNIEnv *env, jclass) {
-	std::string app_name, app_nice_name, version;
-	bool landscape;
-	NativeGetAppInfo(&app_name, &app_nice_name, &landscape, &version);
-	return landscape;
-}
-
 // Allow the app to intercept the back button.
 extern "C" jboolean Java_org_ppsspp_ppsspp_NativeApp_isAtTopLevel(JNIEnv *env, jclass) {
 	return NativeIsAtTopLevel();
@@ -1106,22 +1097,24 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_joystickAxis(
 	if (!renderer_inited)
 		return;
 
-	AxisInput *axis = new AxisInput[count];
-	_dbg_assert_(count <= env->GetArrayLength(axisIds));
-	_dbg_assert_(count <= env->GetArrayLength(values));
-	jint *axisIdBuffer = env->GetIntArrayElements(axisIds, nullptr);
-	jfloat *valueBuffer = env->GetFloatArrayElements(values, nullptr);
+	count = std::min({ count, env->GetArrayLength(axisIds), env->GetArrayLength(values) });
 
-	// These are dirty-filtered on the Java side.
-	for (int i = 0; i < count; i++) {
-		axis[i].deviceId = (InputDeviceID)(int)deviceId;
-		axis[i].axisId = (InputAxis)(int)axisIdBuffer[i];
-		axis[i].value = valueBuffer[i];
+	// These are dirty-filtered on the Java side, so there are rarely more than a few.
+	constexpr int BATCH_SIZE = 16;
+	jint ids[BATCH_SIZE];
+	jfloat vals[BATCH_SIZE];
+	AxisInput axis[BATCH_SIZE];
+	for (int start = 0; start < count; start += BATCH_SIZE) {
+		const int n = std::min(count - start, BATCH_SIZE);
+		env->GetIntArrayRegion(axisIds, start, n, ids);
+		env->GetFloatArrayRegion(values, start, n, vals);
+		for (int i = 0; i < n; i++) {
+			axis[i].deviceId = (InputDeviceID)(int)deviceId;
+			axis[i].axisId = (InputAxis)(int)ids[i];
+			axis[i].value = vals[i];
+		}
+		NativeAxis(axis, n);
 	}
-	NativeAxis(axis, count);
-	delete[] axis;
-	env->ReleaseIntArrayElements(axisIds, axisIdBuffer, JNI_ABORT);  // ABORT just means we don't want changes copied back!
-	env->ReleaseFloatArrayElements(values, valueBuffer, JNI_ABORT);  // ABORT just means we don't want changes copied back!
 }
 
 extern "C" void Java_org_ppsspp_ppsspp_NativeApp_mouse(
@@ -1590,6 +1583,38 @@ static void RenderLoopThread(ANativeWindow *wnd, GraphicsContext *graphicsContex
 	WARN_LOG(Log::G3D, "Render loop function exited.");
 }
 
+// The cache and everything it loaded are gone when this returns, before queryGameInfo tears down the
+// thread manager they ran on.
+static void QueryGameInfo(const Path &path, std::string *gameName, std::string *iconData) {
+	GameInfoCache cache;
+	std::shared_ptr<GameInfo> info = cache.GetInfo(nullptr, path, GameInfoFlags::PARAM_SFO | GameInfoFlags::ICON);
+	if (!info) {
+		INFO_LOG(Log::System, "No info from cache");
+		return;
+	}
+
+	// Wait for both name and icon for a second.
+	int attempts = 100;
+	while ((!info->Ready(GameInfoFlags::PARAM_SFO) || !info->Ready(GameInfoFlags::ICON)) && attempts > 0) {
+		sleep_ms(10, "info-icon-poll");
+		attempts--;
+	}
+	if (attempts == 0 || info->fileType == IdentifiedFileType::UNKNOWN) {
+		INFO_LOG(Log::System, "Failed to query game info");
+		return;
+	}
+
+	*gameName = info->GetTitle();
+	if (gameName->length() > strlen("The ") && startsWithNoCase(*gameName, "The ")) {
+		*gameName = gameName->substr(strlen("The "));
+	}
+	INFO_LOG(Log::System, "Got name: '%s'", gameName->c_str());
+
+	if (info->Ready(GameInfoFlags::ICON)) {
+		*iconData = info->icon.data;
+	}
+}
+
 extern "C" JNIEXPORT jobjectArray JNICALL
 Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameInfo(JNIEnv * env, jclass, jobject activity, jstring jpath) {
 
@@ -1613,41 +1638,12 @@ Java_org_ppsspp_ppsspp_ShortcutActivity_queryGameInfo(JNIEnv * env, jclass, jobj
 	std::string gameName;
 	jbyteArray gameIcon = nullptr;
 
-	GameInfoCache *cache = new GameInfoCache();
-	std::shared_ptr<GameInfo> info = cache->GetInfo(nullptr, path, GameInfoFlags::PARAM_SFO | GameInfoFlags::ICON);
-
-	if (info) {
-		INFO_LOG(Log::System, "GetInfo successful, waiting");
-
-		// Wait for both name and icon for a second.
-		int attempts = 100;
-		while ((!info->Ready(GameInfoFlags::PARAM_SFO) || !info->Ready(GameInfoFlags::ICON)) && attempts > 0) {
-			sleep_ms(10, "info-icon-poll");
-			attempts--;
-		}
-		INFO_LOG(Log::System, "Done waiting");
-
-		if (attempts > 0 && info->fileType != IdentifiedFileType::UNKNOWN) {
-			// Get the game title
-			gameName = info->GetTitle();
-			if (gameName.length() > strlen("The ") && startsWithNoCase(gameName, "The ")) {
-				gameName = gameName.substr(strlen("The "));
-			}
-			INFO_LOG(Log::System, "Got name: '%s'", gameName.c_str());
-
-			// Get the game icon if available
-			if (info->Ready(GameInfoFlags::ICON) && !info->icon.data.empty()) {
-				INFO_LOG(Log::System, "Got icon");
-				gameIcon = env->NewByteArray((jsize)info->icon.data.size());
-				env->SetByteArrayRegion(gameIcon, 0, (jsize)info->icon.data.size(), (const jbyte *)info->icon.data.data());
-			}
-		} else {
-			INFO_LOG(Log::System, "Failed to query game info");
-		}
-	} else {
-		INFO_LOG(Log::System, "No info from cache");
+	std::string iconData;
+	QueryGameInfo(path, &gameName, &iconData);
+	if (!iconData.empty()) {
+		gameIcon = env->NewByteArray((jsize)iconData.size());
+		env->SetByteArrayRegion(gameIcon, 0, (jsize)iconData.size(), (const jbyte *)iconData.data());
 	}
-	delete cache;
 
 	if (teardownThreadManager) {
 		g_logManager.SetOutputsEnabled((LogOutput)0);

@@ -45,7 +45,6 @@ public class NativeApp {
 	// but the swapchain still has to be recreated, for the pre-rotation.
 	public static native void backbufferResize(int bufferWidth, int bufferHeight, int rotation);
 
-	public static native boolean isLandscape();
 	public static native boolean isAtTopLevel();
 
 	// These have Android semantics: Resume is always called on bootup, after init
