@@ -87,6 +87,7 @@ static void DrawJitStats(UIContext *ctx, const Bounds &bounds) {
 			w.F("IR arena: %d / %d instructions (%0.1f%%)\n", (int)stats.irArenaUsed, (int)stats.irArenaSize, irPercent);
 			w.F("Cleared because full: %d\n", stats.irArenaFullClears);
 		}
+		w.F("Invalidations: %d (%d blocks)\n", stats.invalidations, stats.invalidatedBlocks);
 	} else {
 		w.W("No JIT (interpreter)\n");
 	}

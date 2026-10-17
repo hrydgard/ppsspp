@@ -169,6 +169,8 @@ void IRJit::InvalidateCacheAt(u32 em_address, int length) {
 	}
 
 	DEBUG_LOG(Log::JIT, "Invalidating IR block cache at %08x (%d bytes): %d blocks", em_address, length, (int)numbers.size());
+	invalidations_++;
+	invalidatedBlocks_ += (int)numbers.size();
 
 	for (int block_num : numbers) {
 		auto block = blocks_.GetBlock(block_num);
@@ -251,6 +253,8 @@ void IRJit::GetStats(JitStats *stats) const {
 	stats->irArenaSize = IRBlockCache::MAX_ARENA_SIZE;
 	stats->irArenaFullClears = irArenaFullClears_;
 	stats->codeFullClears = codeFullClears_;
+	stats->invalidations = invalidations_;
+	stats->invalidatedBlocks = invalidatedBlocks_;
 }
 
 void IRJit::RunLoopUntil(u64 globalticks) {

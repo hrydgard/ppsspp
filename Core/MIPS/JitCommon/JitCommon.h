@@ -127,6 +127,9 @@ namespace MIPSComp {
 		// How many times the cache was cleared because one of them filled up.
 		int irArenaFullClears = 0;
 		int codeFullClears = 0;
+		// Calls to InvalidateCacheAt that hit at least one block, and the blocks they hit.
+		int invalidations = 0;
+		int invalidatedBlocks = 0;
 	};
 
 	class JitInterface {

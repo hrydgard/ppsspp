@@ -253,6 +253,8 @@ protected:
 
 	int irArenaFullClears_ = 0;
 	int codeFullClears_ = 0;
+	int invalidations_ = 0;
+	int invalidatedBlocks_ = 0;
 
 	// where to write branch-likely trampolines. not used atm
 	// u32 blTrampolines_;
