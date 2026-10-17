@@ -7,6 +7,7 @@
 #include "Common/Data/Text/StringWriter.h"
 
 #include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/HW/Display.h"
 #include "Core/FrameTiming.h"
 #include "Core/HLE/sceSas.h"
@@ -61,6 +62,40 @@ static void DrawDebugStats(UIContext *ctx, const Bounds &bounds) {
 	ctx->Draw()->DrawTextRect(ubuntu24, w.as_view(), bounds.x + 11, bounds.y + 31, left, bounds.h - 30, 0xc0000000, FLAG_DYNAMIC_ASCII);
 	ctx->Draw()->DrawTextRect(ubuntu24, w.as_view(), bounds.x + 10, bounds.y + 30, left, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 
+	ctx->Draw()->SetFontScale(1.0f, 1.0f);
+	ctx->Flush();
+	ctx->RebindTexture();
+}
+
+static void DrawJitStats(UIContext *ctx, const Bounds &bounds) {
+	FontID ubuntu24("UBUNTU24");
+
+	char statbuf[1024];
+	StringWriter w(statbuf, sizeof(statbuf));
+	if (MIPSComp::jit) {
+		MIPSComp::JitStats stats;
+		MIPSComp::jit->GetStats(&stats);
+		const double irPercent = stats.irArenaSize ? 100.0 * stats.irArenaUsed / stats.irArenaSize : 0.0;
+		w.F("Blocks: %d (%d valid)\n", stats.numBlocks, stats.numValidBlocks);
+		if (stats.codeSize) {
+			// The native JITs compile from the IR, and keep it for the debugger.
+			w.F("Native code: %0.2f / %0.2f MB (%0.1f%%)\n", stats.codeUsed / (1024.0 * 1024.0), stats.codeSize / (1024.0 * 1024.0),
+				100.0 * stats.codeUsed / stats.codeSize);
+			w.F("IR (debug info): %d / %d instructions (%0.1f%%)\n", (int)stats.irArenaUsed, (int)stats.irArenaSize, irPercent);
+			w.F("Cleared because full: native code %d, IR %d\n", stats.codeFullClears, stats.irArenaFullClears);
+		} else {
+			w.F("IR arena: %d / %d instructions (%0.1f%%)\n", (int)stats.irArenaUsed, (int)stats.irArenaSize, irPercent);
+			w.F("Cleared because full: %d\n", stats.irArenaFullClears);
+		}
+	} else {
+		w.W("No JIT (interpreter)\n");
+	}
+
+	ctx->Flush();
+	ctx->BindFontTexture();
+	ctx->Draw()->SetFontScale(.7f, .7f);
+	ctx->Draw()->DrawTextRect(ubuntu24, w.as_view(), bounds.x + 11, bounds.y + 31, bounds.w - 20, bounds.h - 30, 0xc0000000, FLAG_DYNAMIC_ASCII);
+	ctx->Draw()->DrawTextRect(ubuntu24, w.as_view(), bounds.x + 10, bounds.y + 30, bounds.w - 20, bounds.h - 30, 0xFFFFFFFF, FLAG_DYNAMIC_ASCII);
 	ctx->Draw()->SetFontScale(1.0f, 1.0f);
 	ctx->Flush();
 	ctx->RebindTexture();
@@ -270,6 +305,10 @@ void DrawDebugOverlay(UIContext *ctx, const Bounds &bounds, DebugOverlay overlay
 	case DebugOverlay::FRAMEBUFFER_LIST:
 		if (inGame)
 			DrawFramebufferList(ctx, gpu, layoutBounds);
+		break;
+	case DebugOverlay::JIT_STATS:
+		if (inGame)
+			DrawJitStats(ctx, layoutBounds);
 		break;
 	default:
 		break;

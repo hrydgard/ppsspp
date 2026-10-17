@@ -227,6 +227,7 @@ public:
 	JitBlockCacheDebugInterface *GetBlockCacheDebugInterface() override;
 
 	const u8 *GetCodeBase() const override;
+	void GetStats(JitStats *stats) const override;
 
 protected:
 	void Init(IRNativeBackend &backend);

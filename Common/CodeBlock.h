@@ -40,6 +40,10 @@ public:
 		return ptr - region;
 	}
 
+	size_t GetRegionSize() const {
+		return region_size;
+	}
+
 	virtual const u8 *GetCodePtrFromWritablePtr(u8 *ptr) = 0;
 	virtual u8 *GetWritablePtrFromCodePtr(const u8 *ptr) = 0;
 

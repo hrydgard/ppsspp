@@ -105,16 +105,18 @@ static const char *g_debugOverlayList[] = {
 	"GPU Profile",
 	"GPU Allocator Viewer",
 	"Framebuffer list",
+	"JIT stats",
 };
 
 void AddOverlayList(UI::ViewGroup *items, ScreenManager *screenManager) {
 	using namespace UI;
 	auto dev = GetI18NCategory(I18NCat::DEVELOPER);
-	int numOverlays = ARRAY_SIZE(g_debugOverlayList);
+	static_assert(ARRAY_SIZE(g_debugOverlayList) == (int)DebugOverlay::JIT_STATS + 1, "g_debugOverlayList must match DebugOverlay");
+	PopupMultiChoice *choice = items->Add(new PopupMultiChoice((int *)&g_Config.iDebugOverlay, dev->T("Debug overlay"), g_debugOverlayList, 0, ARRAY_SIZE(g_debugOverlayList), I18NCat::DEVELOPER, screenManager));
 	if (!(g_Config.iGPUBackend == (int)GPUBackend::VULKAN || g_Config.iGPUBackend == (int)GPUBackend::OPENGL)) {
-		numOverlays -= 2;  // skip the last 2.
+		choice->HideChoice((int)DebugOverlay::GPU_PROFILE);
+		choice->HideChoice((int)DebugOverlay::GPU_ALLOCATOR);
 	}
-	items->Add(new PopupMultiChoice((int *)&g_Config.iDebugOverlay, dev->T("Debug overlay"), g_debugOverlayList, 0, numOverlays, I18NCat::DEVELOPER, screenManager));
 }
 
 void SaveFrameDump() {
