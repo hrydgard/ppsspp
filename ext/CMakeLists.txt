@@ -51,6 +51,12 @@ add_library(xxhash STATIC
 	xxhash.h
 )
 
+# Only the deflate encoder, for the game screen's CSO packing (UI/CSOCompress.cpp).
+add_library(libdeflate STATIC
+	libdeflate/lib/deflate_compress.c
+	libdeflate/lib/utils.c
+)
+
 set(aemu_postoffice_client_obj
 	aemu_postoffice/client/postoffice.c
 	aemu_postoffice/client/postoffice_mem_stdc.c

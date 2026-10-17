@@ -65,6 +65,18 @@
     <ClCompile Include="..\..\UI\GameScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\UI\GamePacker.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\UI\CSOCompress.cpp">
+      <Filter>Screens</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libdeflate\lib\deflate_compress.c">
+      <Filter>ext</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libdeflate\lib\utils.c">
+      <Filter>ext</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\UI\GameSettingsScreen.cpp">
       <Filter>Screens</Filter>
     </ClCompile>
@@ -218,6 +230,51 @@
     <ClInclude Include="..\..\UI\GameScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\UI\GamePacker.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\UI\CSOCompress.h">
+      <Filter>Screens</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\libdeflate\libdeflate.h">
+      <Filter>ext</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\libdeflate\common\common_defs.h">
+      <Filter>ext</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\libdeflate\common\compiler_gcc.h">
+      <Filter>ext</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\libdeflate\common\compiler_msc.h">
+      <Filter>ext</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\libdeflate\lib\deflate_compress.h">
+      <Filter>ext</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\libdeflate\lib\deflate_constants.h">
+      <Filter>ext</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\libdeflate\lib\unaligned.h">
+      <Filter>ext</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\libdeflate\lib\hc_matchfinder.h">
+      <Filter>ext</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\libdeflate\lib\bt_matchfinder.h">
+      <Filter>ext</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\libdeflate\lib\matchfinder_common.h">
+      <Filter>ext</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\libdeflate\lib\lib_common.h">
+      <Filter>ext</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\libdeflate\lib\x86\matchfinder_impl.h">
+      <Filter>ext</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\libdeflate\lib\arm\matchfinder_impl.h">
+      <Filter>ext</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\UI\GameSettingsScreen.h">
       <Filter>Screens</Filter>
     </ClInclude>
@@ -306,6 +363,9 @@
   <ItemGroup>
     <Filter Include="ImDebugger">
       <UniqueIdentifier>{4013cb89-6145-451c-9cb1-d63d01f66bd5}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ext">
+      <UniqueIdentifier>{2fa70931-df45-4b6f-af3d-7872cc822964}</UniqueIdentifier>
     </Filter>
     <Filter Include="Screens">
       <UniqueIdentifier>{38b8413d-438d-4197-9db8-7bd123fc7431}</UniqueIdentifier>

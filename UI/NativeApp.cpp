@@ -136,6 +136,7 @@
 #include "UI/Background.h"
 #include "UI/BackgroundAudio.h"
 #include "UI/ControlMappingScreen.h"
+#include "UI/GamePacker.h"
 #include "UI/DevScreens.h"
 #include "UI/DiscordIntegration.h"
 #include "UI/EmuScreen.h"
@@ -1149,6 +1150,8 @@ void NativeFrame(GraphicsContext *graphicsContext) {
 
 	g_GameManager.Update();
 
+	GamePacker::UpdateOnUIThread();
+
 	if (GetUIState() != UISTATE_INGAME) {
 		// Note: We do this from NativeFrame so that the graphics context is
 		// guaranteed valid, to be safe - g_gameInfoCache messes around with textures.
@@ -1841,6 +1844,9 @@ void NativeShutdown() {
 	g_controlMapper.RemoveListener(&g_globalListener);
 
 	Achievements::Shutdown(false);  // CancelAll below drops the pending requests.
+
+	// A half-written image would be left behind otherwise.
+	GamePacker::Shutdown();
 
 	if (g_Config.bAchievementsEnable) {
 		FILE *iconCacheFile = File::OpenCFile(GetSysDirectory(DIRECTORY_CACHE) / "icon.cache", "wb");

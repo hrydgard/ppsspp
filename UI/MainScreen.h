@@ -90,6 +90,7 @@ protected:
 
 	bool backFromStore_ = false;
 	bool lockBackgroundAudio_ = false;
+	int packGeneration_ = 0;  // GamePacker::Generation() the game lists were made at.
 	bool lastVertical_ = false;
 	bool confirmedTemporary_ = false;
 	bool searchChanged_ = false;
