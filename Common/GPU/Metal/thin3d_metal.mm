@@ -565,7 +565,9 @@ MetalDrawContext::MetalDrawContext(MetalRenderManager *renderManager) : rm_(rend
 	caps_.framebufferSeparateDepthCopySupported = true;
 	caps_.framebufferDepthBlitSupported = false;
 	caps_.framebufferStencilBlitSupported = false;
-	caps_.framebufferFetchSupported = false;
+	// Programmable blending: the fragment shader can read the color it's about to blend with ([[color(0)]]),
+	// which saves shader blending a copy of the framebuffer. Apple GPUs only.
+	caps_.framebufferFetchSupported = rm_->IsAppleGPU();
 	caps_.texture3DSupported = true;
 	caps_.fragmentShaderFullPrecisionFloat = true;
 	caps_.fragmentShaderInt32Supported = true;
