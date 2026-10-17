@@ -132,6 +132,8 @@ ImGuiKey KeyCodeToImGui(InputKeyCode keyCode) {
 	case NKCODE_ALT_RIGHT: return ImGuiKey_RightAlt;
 	case NKCODE_CTRL_LEFT: return ImGuiKey_LeftCtrl;
 	case NKCODE_CTRL_RIGHT: return ImGuiKey_RightCtrl;
+	case NKCODE_META_LEFT: return ImGuiKey_LeftSuper;
+	case NKCODE_META_RIGHT: return ImGuiKey_RightSuper;
 	case NKCODE_TAB: return ImGuiKey_Tab;
 	case NKCODE_MENU: return ImGuiKey_Menu;
 	case NKCODE_DEL: return ImGuiKey_Backspace;

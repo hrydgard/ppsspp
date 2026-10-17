@@ -341,10 +341,12 @@ void runImDebugger(Draw::DrawContext *draw) {
 		const bool keyCtrl = (modifiers & KeyModifier::LCTRL) || (modifiers & KeyModifier::RCTRL);
 		const bool keyShift = (modifiers & KeyModifier::LSHIFT) || (modifiers & KeyModifier::RSHIFT);
 		const bool keyAlt = (modifiers & KeyModifier::LALT) || (modifiers & KeyModifier::RALT);
+		const bool keySuper = (modifiers & KeyModifier::LMETA) || (modifiers & KeyModifier::RMETA);
 		io.AddKeyEvent(ImGuiMod_Ctrl, keyCtrl);
 		io.AddKeyEvent(ImGuiMod_Shift, keyShift);
 		io.AddKeyEvent(ImGuiMod_Alt, keyAlt);
-		// io.AddKeyEvent(ImGuiMod_Super, e.key.super);
+		// On Mac, ImGui swaps Super and Ctrl itself (ConfigMacOSXBehaviors), so Cmd+V pastes.
+		io.AddKeyEvent(ImGuiMod_Super, keySuper);
 
 		ImGuiID dockID = ImGui::DockSpaceOverViewport(0, ImGui::GetMainViewport(), ImGuiDockNodeFlags_PassthruCentralNode | ImGuiDockNodeFlags_NoDockingOverCentralNode);
 		ImGuiDockNode* node = ImGui::DockBuilderGetCentralNode(dockID);
