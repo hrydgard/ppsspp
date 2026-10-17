@@ -147,9 +147,14 @@ int64_t Instant::ElapsedNanos() const {
 
 #else
 
-// Monotonic, in nanoseconds. On Linux and Android this is the clock VK_GOOGLE_display_timing reports in.
+// Monotonic, in nanoseconds, and the clock VK_GOOGLE_display_timing reports in.
 uint64_t time_now_raw() {
-#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(LINUX) || PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+	// mach_absolute_time() in nanoseconds, which is what MoltenVK reports present times in. Apple's
+	// CLOCK_MONOTONIC keeps counting during sleep (unlike Linux's), so it drifts away from those,
+	// and is slower to read (~30ns vs ~19ns on M1).
+	return clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
+#elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(LINUX)
 	struct timespec tp;
 	clock_gettime(CLOCK_MONOTONIC, &tp);
 	return tp.tv_sec * 1000000000ULL + tp.tv_nsec;
