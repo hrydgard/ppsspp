@@ -415,6 +415,11 @@ GamePauseScreen::~GamePauseScreen() {
 }
 
 void GamePauseScreen::OnVKey(VirtKey virtualKeyCode, bool down) {
+	// The mapper keeps calling us while a settings screen is open on top. Escape there is both
+	// that screen's back key and the pause key, and must only close that screen.
+	if (!IsOnTop()) {
+		return;
+	}
 	// Simple de-bounce using createdTime_, just to be safe.
 	if (down && virtualKeyCode == VIRTKEY_PAUSE && time_now_d() > createdTime_ + 0.1) {
 		FinishNextFrame(DR_BACK);
