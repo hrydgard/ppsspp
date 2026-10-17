@@ -2910,13 +2910,18 @@ void GPUCommon::UpdateMatrixProducts() {
 
 		// Now, check the Z range. If the viewport matches the limits of Z, we can avoid the need to do near clipping in many cases
 		// since the host hardware will take care of it automatically.
-		const float absZScale = fabsf(gstate.getViewportZScale());
+		const float zScale = gstate.getViewportZScale();
 		const float zCenter = gstate.getViewportZCenter();
 		const float zMin = gstate.getDepthRangeMin();
-		const float frontPlane = zCenter - absZScale;
-		if (frontPlane == zMin || frontPlane == zMin + 1.0f) {
-			gstate_c.viewportNearPlaneMatchesOutput = true;
-		}
+		const float zMax = gstate.getDepthRangeMax();
+		const float frontPlane = zCenter - fabsf(zScale);
+		gstate_c.viewportNearPlaneMatchesOutput = frontPlane == zMin || frontPlane == zMin + 1.0f;
+
+		// The near plane (z = -w) and the far plane (z = w) in screen Z.
+		auto onClipPlane = [&](float planeZ) {
+			return (zMin > 0.0f && fabsf(planeZ - zMin) <= 1.0f) || (zMax < 65535.0f && fabsf(planeZ - zMax) <= 1.0f);
+		};
+		gstate_c.viewportZPlanesOnClipPlanes = onClipPlane(zCenter - zScale) && onClipPlane(zCenter + zScale);
 	}
 	// It's just a bit operation, cheaper to clean all three together.
 	gstate_c.Clean(DIRTY_WORLD_VIEW_PROJ_MATRIX | DIRTY_VIEW_PROJ_MATRIX | DIRTY_CULL_MATRIX);
