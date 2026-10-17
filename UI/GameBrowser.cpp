@@ -864,10 +864,6 @@ void GameBrowser::PinToggleClick(UI::EventParams &e) {
 	refreshPending_ = true;
 }
 
-bool GameBrowser::DisplayTopBar() {
-	return path_.GetPath().ToString() != "!RECENT";
-}
-
 bool GameBrowser::HasSpecialFiles(std::vector<Path> &filenames) {
 	if (path_.GetPath().ToString() == "!RECENT") {
 		filenames.clear();
@@ -970,112 +966,94 @@ void GameBrowser::Refresh() {
 	Add(new Spacer(1.0f));
 	auto mm = GetI18NCategory(I18NCat::MAINMENU);
 
-	// No topbar on recent screen
 	gameList_ = nullptr;
 
-	if (DisplayTopBar()) {
-		LinearLayout *topBar = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8, 0, 8, 0)));
-		Add(topBar);
+	LinearLayout *topBar = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8, 0, 8, 0)));
+	Add(topBar);
 
-		const bool pathOnSeparateLine = g_display.dp_xres < 1050 || portrait_;
+	const bool pathOnSeparateLine = g_display.dp_xres < 1050 || portrait_;
+	// Recent isn't a real folder, so it gets no path or refresh.
+	const bool isRecent = path_.GetPath().ToString() == "!RECENT";
 
-		std::string pathStr = GetFriendlyPath(path_.GetPath(), aliasMatch_, aliasDisplay_);
+	std::string pathStr = GetFriendlyPath(path_.GetPath(), aliasMatch_, aliasDisplay_);
 
-		if (pathOnSeparateLine) {
-			Add(new TextView(pathStr, ALIGN_VCENTER | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8, 0, 8, 0))));
+	if (pathOnSeparateLine && !isRecent) {
+		Add(new TextView(pathStr, ALIGN_VCENTER | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(8, 0, 8, 0))));
+	}
+	if (browseFlags_ & BrowseFlags::NAVIGATE) {
+		if (!pathOnSeparateLine) {
+			topBar->Add(new Spacer(2.0f));
+			topBar->Add(new TextView(pathStr, ALIGN_VCENTER | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, 64.0f, 1.0f)));
 		}
-		if (browseFlags_ & BrowseFlags::NAVIGATE) {
-			if (!pathOnSeparateLine) {
-				topBar->Add(new Spacer(2.0f));
-				topBar->Add(new TextView(pathStr, ALIGN_VCENTER | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, 64.0f, 1.0f)));
-			}
-			topBar->Add(new Choice(ImageID("I_HOME"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::OnHomeClick);
-			if (System_GetPropertyBool(SYSPROP_HAS_ADDITIONAL_STORAGE)) {
-				topBar->Add(new Choice(ImageID("I_SDCARD"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::StorageClick);
-			}
+		topBar->Add(new Choice(ImageID("I_HOME"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::OnHomeClick);
+		if (System_GetPropertyBool(SYSPROP_HAS_ADDITIONAL_STORAGE)) {
+			topBar->Add(new Choice(ImageID("I_SDCARD"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::StorageClick);
+		}
 #if PPSSPP_PLATFORM(IOS_APP_STORE)
-			// Don't show a browse button, not meaningful to browse outside the documents folder it seems,
-			// as we can't list things like document folders of another app, as far as I can tell.
-			// However, we do show a Load.. button for picking individual files, that seems to work.
+		// Don't show a browse button, not meaningful to browse outside the documents folder it seems,
+		// as we can't list things like document folders of another app, as far as I can tell.
+		// However, we do show a Load.. button for picking individual files, that seems to work.
 #elif PPSSPP_PLATFORM(IOS) || PPSSPP_PLATFORM(MAC)
-			// on Darwin, we don't show the 'Browse' text alongside the image
-			// we show just the image, because we don't need to emphasize the button on Darwin
-			// (tvOS has no folder browser.)
-			if (System_GetPropertyBool(SYSPROP_HAS_FOLDER_BROWSER)) {
-				topBar->Add(new Choice(ImageID("I_FOLDER_OPEN"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::BrowseClick);
-			}
+		// on Darwin, we don't show the 'Browse' text alongside the image
+		// we show just the image, because we don't need to emphasize the button on Darwin
+		// (tvOS has no folder browser.)
+		if (System_GetPropertyBool(SYSPROP_HAS_FOLDER_BROWSER)) {
+			topBar->Add(new Choice(ImageID("I_FOLDER_OPEN"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::BrowseClick);
+		}
 #else
-			if ((browseFlags_ & BrowseFlags::BROWSE) && System_GetPropertyBool(SYSPROP_HAS_FOLDER_BROWSER)) {
-				// Collapse the button title on very small screens (Retroid Pocket) or portrait mode.
-				std::string_view browseTitle = (g_display.dp_xres <= 550 || portrait_) ? "" : mm->T("Browse");
-				topBar->Add(new Choice(browseTitle, ImageID("I_FOLDER_OPEN"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::BrowseClick);
-			}
-			if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_TV) {
-				topBar->Add(new Choice(mm->T("Enter Path"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Add([=](UI::EventParams &) {
-					auto mm = GetI18NCategory(I18NCat::MAINMENU);
-					System_InputBoxGetString(token_, mm->T("Enter Path"), path_.GetPath().ToString(), false, [=](std::string_view responseString, int responseValue) {
-						this->SetPath(Path(responseString));
-						});
+		if ((browseFlags_ & BrowseFlags::BROWSE) && System_GetPropertyBool(SYSPROP_HAS_FOLDER_BROWSER)) {
+			// Collapse the button title on very small screens (Retroid Pocket) or portrait mode.
+			std::string_view browseTitle = (g_display.dp_xres <= 550 || portrait_) ? "" : mm->T("Browse");
+			topBar->Add(new Choice(browseTitle, ImageID("I_FOLDER_OPEN"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::BrowseClick);
+		}
+		if (System_GetPropertyInt(SYSPROP_DEVICE_TYPE) == DEVICE_TYPE_TV) {
+			topBar->Add(new Choice(mm->T("Enter Path"), new LayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Add([=](UI::EventParams &) {
+				auto mm = GetI18NCategory(I18NCat::MAINMENU);
+				System_InputBoxGetString(token_, mm->T("Enter Path"), path_.GetPath().ToString(), false, [=](std::string_view responseString, int responseValue) {
+					this->SetPath(Path(responseString));
 					});
-			}
+				});
+		}
 #endif
-		} else if (!pathOnSeparateLine) {
-			topBar->Add(new Spacer(new LinearLayoutParams(FILL_PARENT, 64.0f, 1.0f)));
-		}
+	} else if (!pathOnSeparateLine || isRecent) {
+		topBar->Add(new Spacer(new LinearLayoutParams(FILL_PARENT, 64.0f, 1.0f)));
+	}
 
-		if (browseFlags_ & BrowseFlags::HOMEBREW_STORE) {
-			topBar->Add(new Choice(mm->T("Homebrew store"), ImageID("I_HOMEBREW_STORE"), new UI::LinearLayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::OnHomebrewStore);
-		}
+	if (browseFlags_ & BrowseFlags::HOMEBREW_STORE) {
+		topBar->Add(new Choice(mm->T("Homebrew store"), ImageID("I_HOMEBREW_STORE"), new UI::LinearLayoutParams(WRAP_CONTENT, 64.0f)))->OnClick.Handle(this, &GameBrowser::OnHomebrewStore);
+	}
 
-		if (browseFlags_ & BrowseFlags::UPLOAD_BUTTON) {
-			Choice *uploadChoice = topBar->Add(new Choice(ImageID("I_FOLDER_UPLOAD"), new UI::LinearLayoutParams(WRAP_CONTENT, 64.0f)));
-			uploadChoice->OnClick.Add([this](UI::EventParams &e) {
-				screenManager_->push(new UploadScreen(path_.GetPath()));
-			});
-			// Nowhere to put the files until a game folder has been chosen.
-			uploadChoice->SetEnabledFunc([this]() {
-				return !path_.GetPath().empty();
-			});
-		}
+	if (browseFlags_ & BrowseFlags::UPLOAD_BUTTON) {
+		Choice *uploadChoice = topBar->Add(new Choice(ImageID("I_FOLDER_UPLOAD"), new UI::LinearLayoutParams(WRAP_CONTENT, 64.0f)));
+		uploadChoice->OnClick.Add([this](UI::EventParams &e) {
+			screenManager_->push(new UploadScreen(path_.GetPath()));
+		});
+		// Nowhere to put the files until a game folder has been chosen.
+		uploadChoice->SetEnabledFunc([this]() {
+			return !path_.GetPath().empty();
+		});
+	}
 
-		ChoiceStrip *layoutChoice = topBar->Add(new ChoiceStrip(ORIENT_HORIZONTAL));
-		layoutChoice->AddChoice(ImageID("I_GRID"));
-		layoutChoice->AddChoice(ImageID("I_LINES"));
-		layoutChoice->AddChoice(ImageID("I_LARGE_LIST"));
-		layoutChoice->SetSelection((int)lastViewMode_, false);
-		layoutChoice->OnChoice.Handle(this, &GameBrowser::LayoutChange);
+	ChoiceStrip *layoutChoice = topBar->Add(new ChoiceStrip(ORIENT_HORIZONTAL));
+	layoutChoice->AddChoice(ImageID("I_GRID"));
+	layoutChoice->AddChoice(ImageID("I_LINES"));
+	layoutChoice->AddChoice(ImageID("I_LARGE_LIST"));
+	layoutChoice->SetSelection((int)lastViewMode_, false);
+	layoutChoice->OnChoice.Handle(this, &GameBrowser::LayoutChange);
+	if (!isRecent) {
 		topBar->Add(new Choice(ImageID("I_ROTATE_LEFT"), new LayoutParams(64.0f, 64.0f)))->OnClick.Add([=](UI::EventParams &e) {
 			path_.Refresh();
 			refreshPending_ = true;
 		});
-		topBar->Add(new Choice(ImageID("I_GEAR"), new LayoutParams(64.0f, 64.0f)))->OnClick.Handle(this, &GameBrowser::GridSettingsClick);
+	}
+	topBar->Add(new Choice(ImageID("I_GEAR"), new LayoutParams(64.0f, 64.0f)))->OnClick.Handle(this, &GameBrowser::GridSettingsClick);
 
-		if (gridStyle) {
-			gameList_ = new UI::GridLayoutList(UI::GridLayoutSettings(150 * g_Config.fGameGridScale, 85 * g_Config.fGameGridScale), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(10, 0, 6, 0)));
-		} else {
-			UI::LinearLayout *gl = new UI::LinearLayoutList(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
-			gl->SetSpacing(4.0f);
-			gameList_ = gl;
-		}
+	if (gridStyle) {
+		gameList_ = new UI::GridLayoutList(UI::GridLayoutSettings(150 * g_Config.fGameGridScale, 85 * g_Config.fGameGridScale), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(10, 0, 6, 0)));
 	} else {
-		if (gridStyle) {
-			gameList_ = new UI::GridLayoutList(UI::GridLayoutSettings(150 * g_Config.fGameGridScale, 85 * g_Config.fGameGridScale), new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, Margins(10, 0, 6, 0)));
-		} else {
-			UI::LinearLayout *gl = new UI::LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
-			gl->SetSpacing(4.0f);
-			gameList_ = gl;
-		}
-		// Until we can come up with a better space to put it (next to the tabs?) let's get rid of the icon config
-		// button on the Recent tab, it's ugly. You can use the button from the other tabs.
-
-		// LinearLayout *gridOptionColumn = new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(64.0, 64.0f));
-		// gridOptionColumn->Add(new Spacer(12.0));
-		// gridOptionColumn->Add(new Choice(ImageID("I_GEAR"), new LayoutParams(64.0f, 64.0f)))->OnClick.Handle(this, &GameBrowser::GridSettingsClick);
-		// LinearLayout *grid = new LinearLayout(ORIENT_HORIZONTAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
-		// gameList_->ReplaceLayoutParams(new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT, 0.75));
-		// grid->Add(gameList_);
-		// grid->Add(gridOptionColumn);
-		// Add(grid);
+		UI::LinearLayout *gl = new UI::LinearLayoutList(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT));
+		gl->SetSpacing(4.0f);
+		gameList_ = gl;
 	}
 	Add(gameList_);
 

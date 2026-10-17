@@ -476,8 +476,7 @@ public:
 	int iGameBrowserView2;
 	int iGameBrowserView3;
 	int iGameBrowserView4;
-	// The old GridView bools, only read, to migrate to iGameBrowserView*. -1 if missing.
-	int iLegacyGridView1;
+	// The old GridView bool, only read, to migrate to iGameBrowserView4. -1 if missing.
 	int iLegacyGridView4;
 
 	// Right analog binding
