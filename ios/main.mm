@@ -34,6 +34,7 @@
 #include "Common/StringUtils.h"
 #include "Common/Profiler/Profiler.h"
 #include "Common/Thread/ThreadUtil.h"
+#include "Common/TimeUtil.h"
 #include "Common/System/Display.h"
 #include "Core/Config.h"
 #include "Common/Log.h"
@@ -722,6 +723,8 @@ AudioBackend *System_CreateAudioBackend() {
 }
 
 int main(int argc, char *argv[]) {
+	TimeInit();
+
 	version = [[[UIDevice currentDevice] systemVersion] UTF8String];
 	if (1 != sscanf(version.c_str(), "%d", &g_iosVersionMajor)) {
 		// Just set it to 15 (the minimum) if the parsing fails for whatever reason.
