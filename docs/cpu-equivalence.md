@@ -63,7 +63,9 @@ timing, of course.
 
 ## Fixed
 
-Crashes (JIT emitter asserts) and wrong code found by the fuzzer:
+Crashes (JIT emitter asserts) and wrong code found by the fuzzer. Entries for the "ARM64 JIT", the
+"x86 JIT" and "both JITs" are about the legacy JITs, which have since been removed. Every JIT is now
+IR-based (the "IR JIT" and "native IR backend" entries).
 
 - ARM64 JIT: `ext` with pos + size past 32, and `ins` with msb below pos, asserted in UBFX/BFI.
 - ARM64 JIT: `ApplyPrefixST` read an uninitialized register for a swizzle naming a lane past the
