@@ -169,6 +169,8 @@ void IRJit::InvalidateCacheAt(u32 em_address, int length) {
 	}
 
 	DEBUG_LOG(Log::JIT, "Invalidating IR block cache at %08x (%d bytes): %d blocks", em_address, length, (int)numbers.size());
+	invalidations_++;
+	invalidatedBlocks_ += (int)numbers.size();
 
 	for (int block_num : numbers) {
 		auto block = blocks_.GetBlock(block_num);
@@ -190,9 +192,15 @@ void IRJit::Compile(u32 em_address) {
 
 	std::vector<IRInst> instructions;
 	u32 mipsBytes;
-	if (!CompileBlock(em_address, instructions, mipsBytes)) {
-		// Ran out of block numbers - need to reset.
-		ERROR_LOG(Log::JIT, "Ran out of block numbers, clearing cache");
+	const CompileResult result = CompileBlock(em_address, instructions, mipsBytes);
+	if (result != CompileResult::OK) {
+		if (result == CompileResult::ARENA_FULL) {
+			ERROR_LOG(Log::JIT, "IR arena full (%d blocks), clearing cache", blocks_.GetNumBlocks());
+			irArenaFullClears_++;
+		} else {
+			ERROR_LOG(Log::JIT, "Native code space full (%d blocks), clearing cache", blocks_.GetNumBlocks());
+			codeFullClears_++;
+		}
 		ClearCache();
 		CompileBlock(em_address, instructions, mipsBytes);
 	}
@@ -205,7 +213,7 @@ void IRJit::Compile(u32 em_address) {
 }
 
 // WARNING! This can be called from IRInterpret / the JIT, through the function preload stuff!
-bool IRJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes) {
+IRJit::CompileResult IRJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes) {
 	_dbg_assert_(compilerEnabled_);
 
 	frontend_.DoJit(em_address, instructions, mipsBytes);
@@ -214,8 +222,8 @@ bool IRJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 
 	int block_num = blocks_.AllocateBlock(em_address, mipsBytes, instructions);
 	if (block_num < 0) {
 		WARN_LOG(Log::JIT, "Failed to allocate block for %08x (%d instructions)", em_address, (int)instructions.size());
-		// Out of block numbers.  Caller will handle.
-		return false;
+		// Caller will handle.
+		return CompileResult::ARENA_FULL;
 	}
 
 	IRBlock *b = blocks_.GetBlock(block_num);
@@ -226,7 +234,7 @@ bool IRJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 
 	}
 
 	if (!CompileNativeBlock(&blocks_, block_num))
-		return false;
+		return CompileResult::CODE_FULL;
 
 	if (mipsTracer.tracing_enabled) {
 		mipsTracer.prepare_block(b, blocks_);
@@ -235,7 +243,18 @@ bool IRJit::CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 
 	// Updates stats, also enters the block in the block shadow.
 	blocks_.FinalizeBlock(block_num);
 	FinalizeNativeBlock(&blocks_, block_num);
-	return true;
+	return CompileResult::OK;
+}
+
+void IRJit::GetStats(JitStats *stats) const {
+	stats->numBlocks = blocks_.GetNumBlocks();
+	stats->numValidBlocks = blocks_.CountValidBlocks();
+	stats->irArenaUsed = blocks_.GetArenaSize();
+	stats->irArenaSize = IRBlockCache::MAX_ARENA_SIZE;
+	stats->irArenaFullClears = irArenaFullClears_;
+	stats->codeFullClears = codeFullClears_;
+	stats->invalidations = invalidations_;
+	stats->invalidatedBlocks = invalidatedBlocks_;
 }
 
 void IRJit::RunLoopUntil(u64 globalticks) {
@@ -331,8 +350,17 @@ void IRBlockCache::Clear() {
 
 IRBlockCache::IRBlockCache(bool compileToNative) : compileToNative_(compileToNative) {}
 
+int IRBlockCache::CountValidBlocks() const {
+	int count = 0;
+	for (const IRBlock &block : blocks_) {
+		if (block.IsValid()) {
+			count++;
+		}
+	}
+	return count;
+}
+
 int IRBlockCache::AllocateBlock(int emAddr, u32 origSize, const std::vector<IRInst> &insts) {
-	const u32 MAX_ARENA_SIZE = 0x1000000 - 1;
 	if (arena_.empty()) {
 		// Offset 0 would mean "no block" in the block shadow, and 1 a replacement hook.
 		arena_.push_back(IRInst{ IROp::Bad });

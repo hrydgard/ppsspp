@@ -111,10 +111,16 @@ public:
 		Clear();
 	}
 
+	// In IR instructions (8 bytes each). The native code space fills long before this: Tekken 6 has
+	// it 30% full with the arena at 0.5M instructions.
+	static constexpr u32 MAX_ARENA_SIZE = 4 * 1024 * 1024;
+
 	void Clear();
 	std::vector<int> FindInvalidatedBlockNumbers(u32 address, u32 length);
 	void FinalizeBlock(int blockNum);
 	int GetNumBlocks() const override { return (int)blocks_.size(); }
+	int CountValidBlocks() const;
+	size_t GetArenaSize() const { return arena_.size(); }
 	int AllocateBlock(int emAddr, u32 origSize, const std::vector<IRInst> &inst);
 	IRBlock *GetBlock(int blockNum) {
 		if (blockNum >= 0 && blockNum < (int)blocks_.size()) {
@@ -204,6 +210,7 @@ public:
 	void ClearCache() override;
 	void InvalidateCacheAt(u32 em_address, int length = 4) override;
 	void UpdateFCR31() override;
+	void GetStats(JitStats *stats) const override;
 
 	bool CodeInRange(const u8 *ptr) const override {
 		return false;
@@ -222,7 +229,12 @@ protected:
 	void RunBlocks();
 	virtual void WriteProfileReport();
 
-	bool CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes);
+	enum class CompileResult {
+		OK,
+		ARENA_FULL,
+		CODE_FULL,
+	};
+	CompileResult CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes);
 	virtual bool CompileNativeBlock(IRBlockCache *irBlockCache, int block_num) { return true; }
 	virtual void FinalizeNativeBlock(IRBlockCache *irBlockCache, int block_num) {}
 	virtual void InvalidateNativeBlock(IRBlockCache *irBlockCache, int block_num) {}
@@ -239,6 +251,11 @@ protected:
 	bool compilerEnabled_ = true;
 	// Set by --jit-profile. The IR interpreter times every block, the native JITs sample the host PC.
 	bool profiling_ = false;
+
+	int irArenaFullClears_ = 0;
+	int codeFullClears_ = 0;
+	int invalidations_ = 0;
+	int invalidatedBlocks_ = 0;
 
 	// where to write branch-likely trampolines. not used atm
 	// u32 blTrampolines_;

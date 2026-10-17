@@ -114,9 +114,29 @@ namespace MIPSComp {
 		virtual int Replace_fabsf() = 0;
 	};
 
+	// For the JIT stats debug overlay.
+	struct JitStats {
+		int numBlocks = 0;
+		int numValidBlocks = 0;
+		// In IR instructions. Invalidated blocks keep their space until the cache is cleared.
+		size_t irArenaUsed = 0;
+		size_t irArenaSize = 0;
+		// In bytes. Zero when not compiling to native code.
+		size_t codeUsed = 0;
+		size_t codeSize = 0;
+		// How many times the cache was cleared because one of them filled up.
+		int irArenaFullClears = 0;
+		int codeFullClears = 0;
+		// Calls to InvalidateCacheAt that hit at least one block, and the blocks they hit.
+		int invalidations = 0;
+		int invalidatedBlocks = 0;
+	};
+
 	class JitInterface {
 	public:
 		virtual ~JitInterface() {}
+
+		virtual void GetStats(JitStats *stats) const {}
 
 		virtual const u8 *GetCodeBase() const = 0;  // Just for displaying in the debugger.
 		virtual bool CodeInRange(const u8 *ptr) const = 0;

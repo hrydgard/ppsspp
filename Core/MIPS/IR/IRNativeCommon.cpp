@@ -906,6 +906,13 @@ const u8 *IRNativeJit::GetCodeBase() const {
 	return backend_->CodeBlock().GetBasePtr();
 }
 
+void IRNativeJit::GetStats(JitStats *stats) const {
+	IRJit::GetStats(stats);
+	const CodeBlockCommon &code = backend_->CodeBlock();
+	stats->codeUsed = code.GetOffset(code.GetCodePtr());
+	stats->codeSize = code.GetRegionSize();
+}
+
 u32 IRNativeJit::GetBlockShadowHookValue() const {
 	return (u32)backend_->OffsetFromCodePtr(backend_->GetNativeHooks().blockShadowHook);
 }

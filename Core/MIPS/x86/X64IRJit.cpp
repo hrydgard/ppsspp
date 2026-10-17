@@ -45,7 +45,7 @@ X64JitBackend::X64JitBackend(JitOptions &jitopt, IRBlockCache &blocks)
 	jo.optimizeForInterpreter = false;
 
 	// Since we store the offset, this is as big as it can be.
-	AllocCodeSpace(1024 * 1024 * 16);
+	AllocCodeSpace(NATIVE_CODE_SPACE_SIZE);
 
 	regs_.Init(this);
 }

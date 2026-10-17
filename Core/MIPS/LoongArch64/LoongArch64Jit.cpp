@@ -44,7 +44,7 @@ LoongArch64JitBackend::LoongArch64JitBackend(JitOptions &jitopt, IRBlockCache &b
 
 	// Since we store the offset, this is as big as it can be.
 	// We could shift off one bit to double it, would need to change LoongArch64Asm.
-	AllocCodeSpace(1024 * 1024 * 16);
+	AllocCodeSpace(NATIVE_CODE_SPACE_SIZE);
 
 	regs_.Init(this);
 }

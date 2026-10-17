@@ -74,6 +74,10 @@ struct IRNativeBlock {
 	std::vector<int> irOffsets;
 };
 
+// The native code space of every backend. Blocks have to reach the dispatcher at its start, and
+// ARM32 branches reach 32 MB.
+constexpr int NATIVE_CODE_SPACE_SIZE = 24 * 1024 * 1024;
+
 class IRNativeBackend {
 public:
 	IRNativeBackend(IRBlockCache &blocks);
@@ -227,6 +231,7 @@ public:
 	JitBlockCacheDebugInterface *GetBlockCacheDebugInterface() override;
 
 	const u8 *GetCodeBase() const override;
+	void GetStats(JitStats *stats) const override;
 
 protected:
 	void Init(IRNativeBackend &backend);
