@@ -62,6 +62,9 @@ static WebServerFlags serverFlags;
 // See WebServerSetRequireExactPort(). Atomic because it's set from whichever thread parsed the
 // command line, and read from the server thread.
 static std::atomic<bool> serverRequireExactPort;
+// Set when the server is asked to stop, so a registration in progress gives up instead of making
+// shutdown wait for its timeouts. A plain bool, since that's what the HTTP client polls.
+static bool registerCancelled;
 
 std::mutex g_webServerLock;
 static Path g_uploadPath;  // TODO: Supply this through registration instead.
@@ -106,15 +109,14 @@ static ServerStatus RetrieveStatus() {
 static bool RegisterServer(int port) {
 	bool success = false;
 	http::Client http(nullptr);
-	bool cancelled = false;
-	net::RequestProgress progress(&cancelled);
+	net::RequestProgress progress(&registerCancelled);
 	Buffer theVoid = Buffer::Void();
 
 	http.SetUserAgent(StringFromFormat("PPSSPP/%s", PPSSPP_GIT_VERSION));
 
 	char resource4[1024]{};
 	if (http.Resolve(REPORT_HOSTNAME, REPORT_PORT, net::DNSType::IPV4)) {
-		if (http.Connect()) {
+		if (http.Connect(2, 20.0, &registerCancelled)) {
 			std::string ip = http.GetLocalIpAsString();
 			snprintf(resource4, sizeof(resource4) - 1, "/match/update?local=%s&port=%d", ip.c_str(), port);
 
@@ -125,12 +127,16 @@ static bool RegisterServer(int port) {
 		}
 	}
 
+	if (registerCancelled) {
+		return success;
+	}
+
 	if (http.Resolve(REPORT_HOSTNAME, REPORT_PORT, net::DNSType::IPV6)) {
 		// If IPv4 was successful, don't give this as much time (it blocks and sometimes IPv6 is broken.)
 		double timeout = success ? 2.0 : 10.0;
 
 		// We register both IPv4 and IPv6 in case the other client is using a different one.
-		if (resource4[0] != 0 && http.Connect(/*maxTries=*/ 2, timeout)) {
+		if (resource4[0] != 0 && http.Connect(/*maxTries=*/ 2, timeout, &registerCancelled)) {
 			if (http.GET(http::RequestParams(resource4), &theVoid, &progress) > 0)
 				success = true;
 			theVoid.Skip(theVoid.size());
@@ -138,7 +144,7 @@ static bool RegisterServer(int port) {
 		}
 
 		// Currently, we're not using keepalive, so gotta reconnect...
-		if (http.Connect(/*maxTries=*/ 2, timeout)) {
+		if (http.Connect(/*maxTries=*/ 2, timeout, &registerCancelled)) {
 			char resource6[1024] = {};
 			std::string ip = http.GetLocalIpAsString();
 			snprintf(resource6, sizeof(resource6) - 1, "/match/update?local=%s&port=%d", ip.c_str(), port);
@@ -851,16 +857,28 @@ static void WebServerThread() {
 
 	// Before RUNNING, so WebServerWaitForStartup() callers can read the port.
 	g_Config.iRemoteISOPort = http->Port();
-	UpdateStatus(ServerStatus::RUNNING);
+	// We may have been asked to stop while starting up. Then we skip straight to finishing.
+	bool running = false;
+	{
+		std::lock_guard<std::mutex> guard(serverStatusLock);
+		if (serverStatus == ServerStatus::STARTING) {
+			serverStatus = ServerStatus::RUNNING;
+			running = true;
+		}
+	}
+	serverStatusCond.notify_all();
 
-	RegisterServer(http->Port());
 	double lastRegister = time_now_d();
+	if (running) {
+		RegisterServer(http->Port());
+		lastRegister = time_now_d();
 
-	// NOTICE rather than INFO on purpose: with --debugger=0 the port is picked for us, and this
-	// line is the only way a client can find out which one it got.
-	NOTICE_LOG(Log::HTTP, "Entering web server loop. Listening on port %d", g_Config.iRemoteISOPort);
+		// NOTICE rather than INFO on purpose: with --debugger=0 the port is picked for us, and this
+		// line is the only way a client can find out which one it got.
+		NOTICE_LOG(Log::HTTP, "Entering web server loop. Listening on port %d", g_Config.iRemoteISOPort);
+	}
 
-	if (serverFlags & WebServerFlags::DEBUGGER) {
+	if (running && (serverFlags & WebServerFlags::DEBUGGER)) {
 		g_OSD.Show(OSDType::MESSAGE_SUCCESS, "Debugger web server running on port " + std::to_string(g_Config.iRemoteISOPort), 5.0f, "debugger");
 		g_OSD.SetClickCallback("debugger", []() {
 			OpenWebDebugger();
@@ -911,6 +929,7 @@ bool StartWebServer(WebServerFlags flags) {
 	case ServerStatus::STOPPED:
 		serverStatus = ServerStatus::STARTING;
 		serverFlags = flags;
+		registerCancelled = false;
 		serverThread = std::thread(&WebServerThread);
 		return true;
 
@@ -921,15 +940,20 @@ bool StartWebServer(WebServerFlags flags) {
 
 // Only removes flags.
 bool StopWebServer(WebServerFlags flags) {
-	std::lock_guard<std::mutex> guard(serverStatusLock);
-	if (serverStatus != ServerStatus::RUNNING) {
-		return false;
-	}
+	{
+		std::lock_guard<std::mutex> guard(serverStatusLock);
+		// While STARTING too, or the server thread is never told to stop.
+		if (serverStatus != ServerStatus::RUNNING && serverStatus != ServerStatus::STARTING) {
+			return false;
+		}
 
-	serverFlags &= ~flags;
-	if (serverFlags == WebServerFlags::NONE) {
-		serverStatus = ServerStatus::STOPPING;
+		serverFlags &= ~flags;
+		if (serverFlags == WebServerFlags::NONE) {
+			serverStatus = ServerStatus::STOPPING;
+			registerCancelled = true;
+		}
 	}
+	serverStatusCond.notify_all();
 	return true;
 }
 
@@ -949,8 +973,16 @@ bool WebServerStopped(WebServerFlags flags) {
 void ShutdownWebServer() {
 	StopWebServer(WebServerFlags::ALL);
 
-	if (serverStatus != ServerStatus::STOPPED)
+	// Join outside the lock, which the server thread takes on its way out.
+	bool started;
+	{
+		std::lock_guard<std::mutex> guard(serverStatusLock);
+		started = serverStatus != ServerStatus::STOPPED;
+	}
+	if (started) {
 		serverThread.join();
+	}
+	std::lock_guard<std::mutex> guard(serverStatusLock);
 	serverStatus = ServerStatus::STOPPED;
 }
 

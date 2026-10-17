@@ -1367,7 +1367,9 @@ int WINAPI WinMain(HINSTANCE _hInstance, HINSTANCE hPrevInstance, LPSTR szCmdLin
 
 	// Already stopped?
 	_dbg_assert_(mainThread.joinable());
+	INFO_LOG(Log::System, "Waiting for the main thread to exit");
 	mainThread.join();
+	INFO_LOG(Log::System, "Main thread exited");
 
 	// The debugger windows reach into core state as they go away (CtrlDisAsmView touches
 	// g_disassemblyManager, for example), so tear them down while the core is still around.
