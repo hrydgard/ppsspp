@@ -169,6 +169,7 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "DepthCLUTIntoHalves", &flags_.DepthCLUTIntoHalves);
 	CheckSetting(iniFile, gameID, "AccurateSplines", &flags_.AccurateSplines);
 	CheckSetting(iniFile, gameID, "ReadbackShadow", &flags_.ReadbackShadow);
+	CheckSetting(iniFile, gameID, "ColorPickingDrawSyncReadback", &flags_.ColorPickingDrawSyncReadback);
 }
 
 void Compatibility::CheckVRSettings(IniFile &iniFile, const std::string &gameID) {
