@@ -63,11 +63,14 @@ size_t MetalPushBuffer::TotalSize() const {
 }
 
 MetalPushAlloc MetalPushBuffer::Allocate(size_t size, size_t align) {
+	// The vertex decoder can write a bit past the end of its output (see VertexDecoder::DecodeVerts), so keep
+	// some room after every allocation, like the Vulkan backend's push pool does.
+	const size_t slack = 256;
 	while (true) {
 		if (curBlock_ < (int)blocks_.size()) {
 			Block &block = blocks_[curBlock_];
 			size_t offset = (offset_ + align - 1) & ~(align - 1);
-			if (offset + size <= block.size) {
+			if (offset + size + slack <= block.size) {
 				offset_ = offset + size;
 				MetalPushAlloc alloc;
 				alloc.buffer = block.buffer;
@@ -80,7 +83,7 @@ MetalPushAlloc MetalPushBuffer::Allocate(size_t size, size_t align) {
 			continue;
 		}
 		Block block;
-		block.size = std::max(blockSize_, size);
+		block.size = std::max(blockSize_, size + slack);
 		block.buffer = [device_ newBufferWithLength:block.size options:MTLResourceStorageModeShared];
 		_assert_msg_(block.buffer, "Failed to allocate push buffer block of %d bytes", (int)block.size);
 		block.buffer.label = [NSString stringWithUTF8String:tag_.c_str()];
