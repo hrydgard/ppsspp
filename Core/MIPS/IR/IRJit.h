@@ -111,8 +111,9 @@ public:
 		Clear();
 	}
 
-	// In IR instructions.
-	static constexpr u32 MAX_ARENA_SIZE = 0x1000000 - 1;
+	// In IR instructions (8 bytes each). The native code space fills long before this: Tekken 6 has
+	// it 30% full with the arena at 0.5M instructions.
+	static constexpr u32 MAX_ARENA_SIZE = 4 * 1024 * 1024;
 
 	void Clear();
 	std::vector<int> FindInvalidatedBlockNumbers(u32 address, u32 length);
