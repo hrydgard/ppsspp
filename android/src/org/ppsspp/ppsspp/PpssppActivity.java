@@ -1833,6 +1833,10 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 			return true;
 		} else if (command.equals("gps_command")) {
 			if (params.equals("open")) {
+				if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_LOCATION)) {
+					Log.i(TAG, "No location hardware, not starting location updates");
+					return true;
+				}
 				if (!askForPermissions(permissionsForLocation, REQUEST_CODE_LOCATION_PERMISSION)) {
 					mLocationHelper.startLocationUpdates();
 				}
