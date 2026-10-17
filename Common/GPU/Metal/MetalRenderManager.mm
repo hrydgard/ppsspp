@@ -500,6 +500,7 @@ void MetalRenderManager::Clear(bool color, bool depth, bool stencil, MTLClearCol
 		// Metal has no clear command within a pass, so restart it with clear load actions.
 		[renderEncoder_ endEncoding];
 		renderEncoder_ = nil;
+		encoder = nil;
 	}
 	if (color) {
 		pass_.colorLoad = MTLLoadActionClear;
@@ -559,6 +560,7 @@ void MetalRenderManager::StartRenderEncoder() {
 	}
 
 	renderEncoder_ = [cmd_ renderCommandEncoderWithDescriptor:rp];
+	encoder = renderEncoder_;
 	if (pass_.tag) {
 		renderEncoder_.label = [NSString stringWithUTF8String:pass_.tag];
 	}
@@ -606,6 +608,7 @@ void MetalRenderManager::EndRenderEncoder() {
 	if (renderEncoder_) {
 		[renderEncoder_ endEncoding];
 		renderEncoder_ = nil;
+		encoder = nil;
 	}
 }
 
@@ -640,14 +643,14 @@ id<MTLBlitCommandEncoder> MetalRenderManager::UploadEncoder() {
 	return uploadEncoder_;
 }
 
-void MetalRenderManager::SetPipeline(id<MTLRenderPipelineState> pipeline) {
+void MetalRenderManager::SetPipeline(__unsafe_unretained id<MTLRenderPipelineState> pipeline) {
 	if (state_.pipeline != pipeline) {
 		[renderEncoder_ setRenderPipelineState:pipeline];
 		state_.pipeline = pipeline;
 	}
 }
 
-void MetalRenderManager::SetDepthStencilState(id<MTLDepthStencilState> dss) {
+void MetalRenderManager::SetDepthStencilState(__unsafe_unretained id<MTLDepthStencilState> dss) {
 	if (state_.depthStencil != dss) {
 		[renderEncoder_ setDepthStencilState:dss];
 		state_.depthStencil = dss;
@@ -722,7 +725,7 @@ bool MetalRenderManager::SetScissor(int x, int y, int w, int h) {
 	return true;
 }
 
-void MetalRenderManager::SetVertexBuffer(id<MTLBuffer> buffer, uint32_t offset, int index) {
+void MetalRenderManager::SetVertexBuffer(__unsafe_unretained id<MTLBuffer> buffer, uint32_t offset, int index) {
 	if (state_.vertexBuffers[index] != buffer) {
 		[renderEncoder_ setVertexBuffer:buffer offset:offset atIndex:index];
 		state_.vertexBuffers[index] = buffer;
@@ -738,7 +741,7 @@ void MetalRenderManager::SetVertexBytes(const void *data, size_t size, int index
 	state_.vertexBuffers[index] = nil;
 }
 
-void MetalRenderManager::SetFragmentBuffer(id<MTLBuffer> buffer, uint32_t offset, int index) {
+void MetalRenderManager::SetFragmentBuffer(__unsafe_unretained id<MTLBuffer> buffer, uint32_t offset, int index) {
 	if (state_.fragmentBuffers[index] != buffer) {
 		[renderEncoder_ setFragmentBuffer:buffer offset:offset atIndex:index];
 		state_.fragmentBuffers[index] = buffer;
@@ -754,28 +757,28 @@ void MetalRenderManager::SetFragmentBytes(const void *data, size_t size, int ind
 	state_.fragmentBuffers[index] = nil;
 }
 
-void MetalRenderManager::SetFragmentTexture(id<MTLTexture> texture, int index) {
+void MetalRenderManager::SetFragmentTexture(__unsafe_unretained id<MTLTexture> texture, int index) {
 	if (state_.fragmentTextures[index] != texture) {
 		[renderEncoder_ setFragmentTexture:texture atIndex:index];
 		state_.fragmentTextures[index] = texture;
 	}
 }
 
-void MetalRenderManager::SetFragmentSampler(id<MTLSamplerState> sampler, int index) {
+void MetalRenderManager::SetFragmentSampler(__unsafe_unretained id<MTLSamplerState> sampler, int index) {
 	if (state_.fragmentSamplers[index] != sampler) {
 		[renderEncoder_ setFragmentSamplerState:sampler atIndex:index];
 		state_.fragmentSamplers[index] = sampler;
 	}
 }
 
-void MetalRenderManager::SetVertexTexture(id<MTLTexture> texture, int index) {
+void MetalRenderManager::SetVertexTexture(__unsafe_unretained id<MTLTexture> texture, int index) {
 	if (state_.vertexTextures[index] != texture) {
 		[renderEncoder_ setVertexTexture:texture atIndex:index];
 		state_.vertexTextures[index] = texture;
 	}
 }
 
-void MetalRenderManager::SetVertexSampler(id<MTLSamplerState> sampler, int index) {
+void MetalRenderManager::SetVertexSampler(__unsafe_unretained id<MTLSamplerState> sampler, int index) {
 	if (state_.vertexSamplers[index] != sampler) {
 		[renderEncoder_ setVertexSamplerState:sampler atIndex:index];
 		state_.vertexSamplers[index] = sampler;

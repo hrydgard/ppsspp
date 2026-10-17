@@ -196,6 +196,15 @@ public:
 
 	// Starts the render pass if needed. Returns nil if there's no render target (or no drawable).
 	id<MTLRenderCommandEncoder> RenderEncoder();
+	// Same, for the per-draw paths: afterwards, encoder is the current render encoder. Avoids ARC traffic.
+	bool EnsureRenderEncoder() {
+		if (!encoder) {
+			RenderEncoder();
+		}
+		return encoder != nil;
+	}
+	// The current render encoder, or nil. Owned by the render manager.
+	__unsafe_unretained id<MTLRenderCommandEncoder> encoder = nil;
 	// Increases every time a new render encoder is started (and all encoder state is reset).
 	uint32_t EncoderGeneration() const { return encoderGeneration_; }
 
@@ -213,8 +222,8 @@ public:
 	MetalPushBuffer &Push() { return frames_[curFrame_].push; }
 
 	// Encoder state with redundancy elimination. Only valid while RenderEncoder() is non-nil.
-	void SetPipeline(id<MTLRenderPipelineState> pipeline);
-	void SetDepthStencilState(id<MTLDepthStencilState> state);
+	void SetPipeline(__unsafe_unretained id<MTLRenderPipelineState> pipeline);
+	void SetDepthStencilState(__unsafe_unretained id<MTLDepthStencilState> state);
 	void SetStencilRef(uint32_t ref);
 	void SetBlendColor(float r, float g, float b, float a);
 	void SetCullMode(MTLCullMode mode);
@@ -223,14 +232,14 @@ public:
 	void SetViewport(const MTLViewport &vp);
 	// Clamps to the render target. Returns false if the result is empty, in which case nothing should be drawn.
 	bool SetScissor(int x, int y, int w, int h);
-	void SetVertexBuffer(id<MTLBuffer> buffer, uint32_t offset, int index);
+	void SetVertexBuffer(__unsafe_unretained id<MTLBuffer> buffer, uint32_t offset, int index);
 	void SetVertexBytes(const void *data, size_t size, int index);
-	void SetFragmentBuffer(id<MTLBuffer> buffer, uint32_t offset, int index);
+	void SetFragmentBuffer(__unsafe_unretained id<MTLBuffer> buffer, uint32_t offset, int index);
 	void SetFragmentBytes(const void *data, size_t size, int index);
-	void SetFragmentTexture(id<MTLTexture> texture, int index);
-	void SetFragmentSampler(id<MTLSamplerState> sampler, int index);
-	void SetVertexTexture(id<MTLTexture> texture, int index);
-	void SetVertexSampler(id<MTLSamplerState> sampler, int index);
+	void SetFragmentTexture(__unsafe_unretained id<MTLTexture> texture, int index);
+	void SetFragmentSampler(__unsafe_unretained id<MTLSamplerState> sampler, int index);
+	void SetVertexTexture(__unsafe_unretained id<MTLTexture> texture, int index);
+	void SetVertexSampler(__unsafe_unretained id<MTLSamplerState> sampler, int index);
 
 	// Called when a new render encoder starts.
 	void SetEncoderResetCallback(std::function<void()> callback) { encoderResetCallback_ = callback; }

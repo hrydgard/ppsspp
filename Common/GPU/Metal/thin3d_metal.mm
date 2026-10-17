@@ -1231,8 +1231,7 @@ bool MetalDrawContext::ApplyState() {
 	if (!curPipeline_) {
 		return false;
 	}
-	id<MTLRenderCommandEncoder> enc = rm_->RenderEncoder();
-	if (!enc) {
+	if (!rm_->EnsureRenderEncoder()) {
 		return false;
 	}
 
@@ -1299,7 +1298,7 @@ void MetalDrawContext::Draw(int vertexCount, int offset) {
 		curVBuffer_->Get(rm_, &buf, &bufOffset);
 		rm_->SetVertexBuffer(buf, bufOffset + curVBufferOffset_, METAL_VERTEX_BUFFER_INDEX);
 	}
-	[rm_->RenderEncoder() drawPrimitives:curPipeline_->prim vertexStart:offset vertexCount:vertexCount];
+	[rm_->encoder drawPrimitives:curPipeline_->prim vertexStart:offset vertexCount:vertexCount];
 }
 
 void MetalDrawContext::DrawIndexedInternal(id<MTLBuffer> ibuf, uint32_t ibufOffset, int indexCount) {
@@ -1309,7 +1308,7 @@ void MetalDrawContext::DrawIndexedInternal(id<MTLBuffer> ibuf, uint32_t ibufOffs
 		ibuf = alloc.buffer;
 		ibufOffset = alloc.offset;
 	}
-	[rm_->RenderEncoder() drawIndexedPrimitives:curPipeline_->prim indexCount:indexCount indexType:MTLIndexTypeUInt16 indexBuffer:ibuf indexBufferOffset:ibufOffset];
+	[rm_->encoder drawIndexedPrimitives:curPipeline_->prim indexCount:indexCount indexType:MTLIndexTypeUInt16 indexBuffer:ibuf indexBufferOffset:ibufOffset];
 }
 
 void MetalDrawContext::DrawIndexed(int indexCount, int offset) {
@@ -1334,7 +1333,7 @@ void MetalDrawContext::DrawUP(const void *vdata, int vertexCount) {
 	}
 	MetalPushAlloc alloc = rm_->Push().Push(vdata, vertexCount * curPipeline_->input->stride, 16);
 	rm_->SetVertexBuffer(alloc.buffer, alloc.offset, METAL_VERTEX_BUFFER_INDEX);
-	[rm_->RenderEncoder() drawPrimitives:curPipeline_->prim vertexStart:0 vertexCount:vertexCount];
+	[rm_->encoder drawPrimitives:curPipeline_->prim vertexStart:0 vertexCount:vertexCount];
 }
 
 void MetalDrawContext::DrawIndexedUP(const void *vdata, int vertexCount, const void *idata, int indexCount) {

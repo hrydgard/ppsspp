@@ -195,7 +195,7 @@ void DrawEngineMetal::ClearPipelines() {
 		delete pipeline;
 	});
 	pipelines_.Clear();
-	lastPipeline_ = nil;
+	lastPipeline_ = nullptr;
 }
 
 void DrawEngineMetal::BeginFrame() {
@@ -204,7 +204,7 @@ void DrawEngineMetal::BeginFrame() {
 		draw_->SetInvalidationCallback(std::bind(&DrawEngineMetal::Invalidate, this, std::placeholders::_1));
 		invalidationCallbackInstalled_ = true;
 	}
-	lastPipeline_ = nil;
+	lastPipeline_ = nullptr;
 	boundDepal_ = nil;
 	boundSecondary_ = nil;
 	baseUBO_ = MetalPushAlloc{};
@@ -217,7 +217,7 @@ void DrawEngineMetal::Invalidate(InvalidationCallbackFlags flags) {
 	if (flags & InvalidationCallbackFlags::RENDER_PASS_STATE) {
 		// The render target might have a different format. The encoder state itself is tracked by the render manager.
 		gstate_c.Dirty(DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_BLEND_STATE | DIRTY_TEXTURE_IMAGE | DIRTY_TEXTURE_PARAMS);
-		lastPipeline_ = nil;
+		lastPipeline_ = nullptr;
 	}
 }
 
@@ -250,7 +250,7 @@ id<MTLDepthStencilState> DrawEngineMetal::GetDepthStencilState(const MetalDepthS
 	return dss;
 }
 
-id<MTLRenderPipelineState> DrawEngineMetal::GetPipeline(const VShaderID &vsid, const FShaderID &fsid, bool useHWTransform) {
+DrawEngineMetal::Pipeline *DrawEngineMetal::GetPipeline(const VShaderID &vsid, const FShaderID &fsid, bool useHWTransform) {
 	const MetalRenderTargetFormat &format = rm_->CurTargetFormat();
 	MetalPipelineKey key{};
 	key.vsid = vsid;
@@ -261,17 +261,17 @@ id<MTLRenderPipelineState> DrawEngineMetal::GetPipeline(const VShaderID &vsid, c
 
 	Pipeline *pipeline = pipelines_.GetOrNull(key);
 	if (pipeline) {
-		fragmentArrayTextureMask_ = pipeline->fragmentArrayTextureMask;
-		return pipeline->pso;
+		return pipeline;
 	}
 
 	MetalVertexShader *vs = shaderManager_->GetVertexShaderFromID(vsid);
 	MetalFragmentShader *fs = shaderManager_->GetFragmentShaderFromID(fsid);
 	pipeline = new Pipeline();
 	pipeline->fragmentArrayTextureMask = fs->info.arrayTextureMask;
+	pipeline->fragmentTextureMask = fs->info.textureMask;
 	pipelines_.Insert(key, pipeline);
 	if (vs->Failed() || fs->Failed()) {
-		return nil;
+		return pipeline;
 	}
 
 	MTLVertexDescriptor *vd;
@@ -315,8 +315,7 @@ id<MTLRenderPipelineState> DrawEngineMetal::GetPipeline(const VShaderID &vsid, c
 	if (!pipeline->pso) {
 		ERROR_LOG(Log::G3D, "Failed to create pipeline (%s / %s): %s", vs->desc.c_str(), fs->desc.c_str(), error ? [[error localizedDescription] UTF8String] : "?");
 	}
-	fragmentArrayTextureMask_ = pipeline->fragmentArrayTextureMask;
-	return pipeline->pso;
+	return pipeline;
 }
 
 void DrawEngineMetal::ConvertStateToKeys(int prim) {
@@ -484,11 +483,11 @@ void DrawEngineMetal::BindShaderBlendTex() {
 	}
 }
 
-bool DrawEngineMetal::ApplyState(id<MTLRenderPipelineState> pipeline, bool overrideStencilRef, uint8_t stencilRef) {
-	if (!rm_->RenderEncoder()) {
+bool DrawEngineMetal::ApplyState(const Pipeline *pipeline, bool overrideStencilRef, uint8_t stencilRef) {
+	if (!rm_->EnsureRenderEncoder()) {
 		return false;
 	}
-	rm_->SetPipeline(pipeline);
+	rm_->SetPipeline(pipeline->pso);
 	rm_->SetDepthStencilState(GetDepthStencilState(depthStencilKey_));
 	if (depthStencilKey_.stencilTestEnable) {
 		rm_->SetStencilRef(overrideStencilRef ? stencilRef : dynState_.stencilRef);
@@ -503,7 +502,15 @@ bool DrawEngineMetal::ApplyState(id<MTLRenderPipelineState> pipeline, bool overr
 	return rm_->SetScissor(dynState_.scissor[0], dynState_.scissor[1], dynState_.scissor[2], dynState_.scissor[3]);
 }
 
-void DrawEngineMetal::BindResources() {
+static inline void BindTexture(MetalRenderManager *rm, __unsafe_unretained id<MTLTexture> tex, __unsafe_unretained id<MTLSamplerState> sampler, int index, uint32_t arrayMask) {
+	if (arrayMask & (1 << index)) {
+		tex = rm->ArrayView(tex);
+	}
+	rm->SetFragmentTexture(tex, index);
+	rm->SetFragmentSampler(sampler, index);
+}
+
+void DrawEngineMetal::BindResources(const Pipeline *pipeline) {
 	uint64_t dirty = shaderManager_->UpdateUniforms(framebufferManager_->UseBufferedRendering(), false);
 	if ((dirty & DIRTY_BASE_UNIFORMS) || !baseUBO_.buffer || uboFrame_ != rm_->FrameNumber()) {
 		baseUBO_ = rm_->Push().Push(&shaderManager_->BaseUniforms(), sizeof(UB_VS_FS_Base), 256);
@@ -516,29 +523,29 @@ void DrawEngineMetal::BindResources() {
 	rm_->SetFragmentBuffer(baseUBO_.buffer, baseUBO_.offset, METAL_DRAW_BINDING_DYNUBO_BASE);
 	rm_->SetVertexBuffer(lightUBO_.buffer, lightUBO_.offset, METAL_DRAW_BINDING_DYNUBO_LIGHT);
 
-	auto bindTexture = [&](id<MTLTexture> tex, id<MTLSamplerState> sampler, int index) {
-		if (!tex) {
-			tex = nullTexture_;
-		}
-		if (fragmentArrayTextureMask_ & (1 << index)) {
-			tex = rm_->ArrayView(tex);
-		}
-		rm_->SetFragmentTexture(tex, index);
-		rm_->SetFragmentSampler(sampler ? sampler : samplerNearest_, index);
-	};
-	bindTexture(textureCache_->BoundTexture(), textureCache_->BoundSampler(), METAL_DRAW_BINDING_TEXTURE);
-	bindTexture(boundSecondary_, samplerNearest_, METAL_DRAW_BINDING_2ND_TEXTURE);
-	bindTexture(boundDepal_, boundDepalSmoothed_ ? samplerLinear_ : samplerNearest_, METAL_DRAW_BINDING_DEPAL_TEXTURE);
+	// Only the slots the fragment shader actually uses.
+	const uint32_t used = pipeline->fragmentTextureMask;
+	const uint32_t arrayMask = pipeline->fragmentArrayTextureMask;
+	if (used & (1 << METAL_DRAW_BINDING_TEXTURE)) {
+		__unsafe_unretained id<MTLTexture> tex = textureCache_->curTexture;
+		__unsafe_unretained id<MTLSamplerState> sampler = textureCache_->curSampler;
+		BindTexture(rm_, tex ? tex : nullTexture_, sampler ? sampler : samplerNearest_, METAL_DRAW_BINDING_TEXTURE, arrayMask);
+	}
+	if (used & (1 << METAL_DRAW_BINDING_2ND_TEXTURE)) {
+		BindTexture(rm_, boundSecondary_ ? boundSecondary_ : nullTexture_, samplerNearest_, METAL_DRAW_BINDING_2ND_TEXTURE, arrayMask);
+	}
+	if (used & (1 << METAL_DRAW_BINDING_DEPAL_TEXTURE)) {
+		BindTexture(rm_, boundDepal_ ? boundDepal_ : nullTexture_, boundDepalSmoothed_ ? samplerLinear_ : samplerNearest_, METAL_DRAW_BINDING_DEPAL_TEXTURE, arrayMask);
+	}
 }
 
-void DrawEngineMetal::DrawPrimitives(MTLPrimitiveType prim, id<MTLBuffer> vbuf, uint32_t vbOffset, int count, const uint16_t *inds) {
-	id<MTLRenderCommandEncoder> enc = rm_->RenderEncoder();
+void DrawEngineMetal::DrawPrimitives(MTLPrimitiveType prim, __unsafe_unretained id<MTLBuffer> vbuf, uint32_t vbOffset, int count, const uint16_t *inds) {
 	rm_->SetVertexBuffer(vbuf, vbOffset, METAL_VERTEX_BUFFER_INDEX);
 	if (inds) {
 		MetalPushAlloc ialloc = rm_->Push().Push(inds, count * sizeof(uint16_t), 4);
-		[enc drawIndexedPrimitives:prim indexCount:count indexType:MTLIndexTypeUInt16 indexBuffer:ialloc.buffer indexBufferOffset:ialloc.offset];
+		[rm_->encoder drawIndexedPrimitives:prim indexCount:count indexType:MTLIndexTypeUInt16 indexBuffer:ialloc.buffer indexBufferOffset:ialloc.offset];
 	} else {
-		[enc drawPrimitives:prim vertexStart:0 vertexCount:count];
+		[rm_->encoder drawPrimitives:prim vertexStart:0 vertexCount:count];
 	}
 }
 
@@ -595,7 +602,7 @@ void DrawEngineMetal::Flush() {
 		}
 	};
 
-	auto updatePipeline = [&](bool hwTransform) -> id<MTLRenderPipelineState> {
+	auto updatePipeline = [&](bool hwTransform) -> Pipeline * {
 		if (!lastPipeline_ || gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE | DIRTY_VERTEXSHADER_STATE | DIRTY_FRAGMENTSHADER_STATE) || prim != lastPrim_) {
 			if (prim != lastPrim_ || gstate_c.IsDirty(DIRTY_BLEND_STATE | DIRTY_VIEWPORTSCISSOR_STATE | DIRTY_RASTER_STATE | DIRTY_DEPTHSTENCIL_STATE)) {
 				ConvertStateToKeys(prim);
@@ -643,12 +650,12 @@ void DrawEngineMetal::Flush() {
 			gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 		}
 
-		id<MTLRenderPipelineState> pipeline = updatePipeline(true);
-		if (!pipeline || !ApplyState(pipeline, false, 0)) {
+		Pipeline *pipeline = updatePipeline(true);
+		if (!pipeline || !pipeline->pso || !ApplyState(pipeline, false, 0)) {
 			ResetAfterSkippedDraw();
 			return;
 		}
-		BindResources();
+		BindResources(pipeline);
 		MTLPrimitiveType mtlPrim = prim == GE_PRIM_TRIANGLE_STRIP ? MTLPrimitiveTypeTriangleStrip : MTLPrimitiveTypeTriangle;
 		DrawPrimitives(mtlPrim, valloc.buffer, valloc.offset, vertexCount, useElements ? decIndex_ : nullptr);
 		if (useDepthRaster_) {
@@ -707,8 +714,8 @@ void DrawEngineMetal::Flush() {
 			}
 		}
 		if (action == SW_DRAW_INDEXED) {
-			id<MTLRenderPipelineState> pipeline = updatePipeline(false);
-			if (!pipeline || !ApplyState(pipeline, result.setStencil, result.stencilValue)) {
+			Pipeline *pipeline = updatePipeline(false);
+			if (!pipeline || !pipeline->pso || !ApplyState(pipeline, result.setStencil, result.stencilValue)) {
 				ResetAfterSkippedDraw();
 				return;
 			}
@@ -720,7 +727,7 @@ void DrawEngineMetal::Flush() {
 			if (dirty & DIRTY_LIGHT_UNIFORMS) {
 				lightUBO_ = MetalPushAlloc{};
 			}
-			BindResources();
+			BindResources(pipeline);
 			MetalPushAlloc valloc = rm_->Push().Push(result.drawBuffer, result.drawVertexCount * sizeof(TransformedVertex), 16);
 			DrawPrimitives(MTLPrimitiveTypeTriangle, valloc.buffer, valloc.offset, result.drawIndexCount, inds);
 		} else if (action == SW_CLEAR) {

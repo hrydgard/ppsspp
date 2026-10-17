@@ -44,9 +44,10 @@ public:
 
 	void *GetNativeTextureView(const TexCacheEntry *entry, bool flat) const override;
 
-	// What the draw engine should bind at METAL_DRAW_BINDING_TEXTURE. Can be nil.
-	id<MTLTexture> BoundTexture() const { return boundTexture_; }
-	id<MTLSamplerState> BoundSampler() const { return boundSampler_; }
+	// What the draw engine should bind at METAL_DRAW_BINDING_TEXTURE. Can be nil. Unretained (no ARC
+	// traffic per draw), kept alive by boundTexture_ and boundSampler_.
+	__unsafe_unretained id<MTLTexture> curTexture = nil;
+	__unsafe_unretained id<MTLSamplerState> curSampler = nil;
 
 protected:
 	void BindTexture(TexCacheEntry *entry) override;
@@ -58,6 +59,15 @@ protected:
 	void BuildTexture(TexCacheEntry *const entry) override;
 
 private:
+	void SetBoundTexture(id<MTLTexture> texture) {
+		boundTexture_ = texture;
+		curTexture = texture;
+	}
+	void SetBoundSampler(id<MTLSamplerState> sampler) {
+		boundSampler_ = sampler;
+		curSampler = sampler;
+	}
+
 	static id<MTLTexture> Tex(const TexCacheEntry *entry) {
 		return (__bridge id<MTLTexture>)entry->texturePtr;
 	}

@@ -62,8 +62,8 @@ void TextureCacheMetal::SetFramebufferManager(FramebufferManagerMetal *fbManager
 void TextureCacheMetal::DeviceLost() {
 	TextureCacheCommon::DeviceLost();
 	samplerCache_.clear();
-	boundTexture_ = nil;
-	boundSampler_ = nil;
+	SetBoundTexture(nil);
+	SetBoundSampler(nil);
 	draw_ = nullptr;
 	rm_ = nullptr;
 }
@@ -90,12 +90,12 @@ void TextureCacheMetal::BindTexture(TexCacheEntry *entry) {
 		return;
 	}
 	drawEngine_->SetDepalTexture(nil, false);
-	boundTexture_ = Tex(entry);
+	SetBoundTexture(Tex(entry));
 }
 
 void TextureCacheMetal::Unbind() {
-	boundTexture_ = nil;
-	boundSampler_ = nil;
+	SetBoundTexture(nil);
+	SetBoundSampler(nil);
 }
 
 void TextureCacheMetal::BindAsClutTexture(Draw::Texture *tex, bool smooth) {
@@ -104,13 +104,13 @@ void TextureCacheMetal::BindAsClutTexture(Draw::Texture *tex, bool smooth) {
 }
 
 void TextureCacheMetal::BoundFramebufferTexture() {
-	boundTexture_ = (__bridge id<MTLTexture>)(void *)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE0_IMAGEVIEW);
+	SetBoundTexture((__bridge id<MTLTexture>)(void *)draw_->GetNativeObject(Draw::NativeObject::BOUND_TEXTURE0_IMAGEVIEW));
 }
 
 void TextureCacheMetal::ApplySamplerByKey(const SamplerCacheKey &key) {
 	auto iter = samplerCache_.find(key.fullKey);
 	if (iter != samplerCache_.end()) {
-		boundSampler_ = iter->second;
+		SetBoundSampler(iter->second);
 		return;
 	}
 	MTLSamplerDescriptor *sd = [MTLSamplerDescriptor new];
@@ -133,7 +133,7 @@ void TextureCacheMetal::ApplySamplerByKey(const SamplerCacheKey &key) {
 	// Metal samplers have no LOD bias, the shaders apply it (GPU_USE_SHADER_LOD_BIAS).
 	id<MTLSamplerState> sampler = [rm_->Device() newSamplerStateWithDescriptor:sd];
 	samplerCache_[key.fullKey] = sampler;
-	boundSampler_ = sampler;
+	SetBoundSampler(sampler);
 }
 
 void TextureCacheMetal::BuildTexture(TexCacheEntry *const entry) {

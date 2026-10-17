@@ -121,12 +121,18 @@ private:
 	void Invalidate(InvalidationCallbackFlags flags);
 	void ConvertStateToKeys(int prim);
 	void BindShaderBlendTex();
-	id<MTLRenderPipelineState> GetPipeline(const VShaderID &vsid, const FShaderID &fsid, bool useHWTransform);
+	struct Pipeline {
+		id<MTLRenderPipelineState> pso;
+		uint32_t fragmentArrayTextureMask;
+		uint32_t fragmentTextureMask;
+	};
+
+	Pipeline *GetPipeline(const VShaderID &vsid, const FShaderID &fsid, bool useHWTransform);
 	id<MTLDepthStencilState> GetDepthStencilState(const MetalDepthStencilKey &key);
-	bool ApplyState(id<MTLRenderPipelineState> pipeline, bool overrideStencilRef, uint8_t stencilRef);
-	void BindResources();
+	bool ApplyState(const Pipeline *pipeline, bool overrideStencilRef, uint8_t stencilRef);
+	void BindResources(const Pipeline *pipeline);
 	void ResetAfterSkippedDraw();
-	void DrawPrimitives(MTLPrimitiveType prim, id<MTLBuffer> vbuf, uint32_t vbOffset, int count, const uint16_t *inds);
+	void DrawPrimitives(MTLPrimitiveType prim, __unsafe_unretained id<MTLBuffer> vbuf, uint32_t vbOffset, int count, const uint16_t *inds);
 
 	Draw::DrawContext *draw_;
 	MetalRenderManager *rm_ = nullptr;
@@ -135,10 +141,6 @@ private:
 	TextureCacheMetal *textureCache_ = nullptr;
 	FramebufferManagerMetal *framebufferManager_ = nullptr;
 
-	struct Pipeline {
-		id<MTLRenderPipelineState> pso;
-		uint32_t fragmentArrayTextureMask;
-	};
 	DenseHashMap<MetalPipelineKey, Pipeline *> pipelines_;
 	std::unordered_map<uint64_t, id<MTLDepthStencilState>> depthStencilCache_;
 	std::unordered_map<uint32_t, MTLVertexDescriptor *> vertexDescriptors_;
@@ -147,9 +149,8 @@ private:
 	MetalBlendKey blendKey_{};
 	MetalDepthStencilKey depthStencilKey_{};
 	MetalDynamicState dynState_{};
-	uint32_t fragmentArrayTextureMask_ = 0;
 	GEPrimitiveType lastPrim_ = GE_PRIM_INVALID;
-	__unsafe_unretained id<MTLRenderPipelineState> lastPipeline_ = nil;
+	Pipeline *lastPipeline_ = nullptr;
 
 	id<MTLTexture> boundSecondary_;
 	id<MTLTexture> boundDepal_;
