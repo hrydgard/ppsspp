@@ -505,6 +505,7 @@ bool CheckGLExtensions() {
 #endif
 
 	glGetIntegerv(GL_MAX_VERTEX_TEXTURE_IMAGE_UNITS, &gl_extensions.maxVertexTextureUnits);
+	glGetIntegerv(GL_MAX_TEXTURE_IMAGE_UNITS, &gl_extensions.maxFragmentTextureUnits);
 
 #ifdef GL_LOW_FLOAT
 	// This is probably a waste of time, implementations lie.

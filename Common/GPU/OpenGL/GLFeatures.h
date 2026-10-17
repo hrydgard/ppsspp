@@ -130,6 +130,7 @@ struct GLExtensions {
 	int precision[2][6];  // [vs,fs][lowf...]
 
 	int maxVertexTextureUnits;
+	int maxFragmentTextureUnits;  // GL_MAX_TEXTURE_IMAGE_UNITS
 
 	bool supportsETC2;
 	bool supportsBC123;

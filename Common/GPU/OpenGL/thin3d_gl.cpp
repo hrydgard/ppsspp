@@ -22,6 +22,8 @@
 
 // #define DEBUG_READ_PIXELS 1
 
+static_assert(MAX_GL_TEXTURE_SLOTS >= Draw::MAX_TEXTURE_SLOTS, "GL render manager must be able to track all thin3d texture slots");
+
 namespace Draw {
 
 static const unsigned short compToGL[] = {
@@ -311,6 +313,9 @@ public:
 	// If not set, will default to those, though.
 	Slice<SamplerDef> samplers_;
 
+	// How many default-named samplers (sampler0..N-1) to look up. Set from DeviceCaps::maxTextureSlots.
+	int maxTextureSlots_ = 3;
+
 private:
 	GLRenderManager *render_;
 };
@@ -568,6 +573,13 @@ OpenGLContext::OpenGLContext(bool canChangeSwapInterval) : renderManager_(frameT
 	}
 
 	caps_.maxTextureSize = gl_extensions.maxTextureSize;
+	// GL_MAX_TEXTURE_IMAGE_UNITS is at least 8 on GLES 2.0, 16 on GLES 3.0 / desktop GL 3.x.
+	{
+		int units = gl_extensions.maxFragmentTextureUnits;
+		if (units <= 0)
+			units = 8;  // Query failed? Assume the GLES 2.0 minimum.
+		caps_.maxTextureSlots = std::min(units, (int)MAX_TEXTURE_SLOTS);
+	}
 	caps_.coordConvention = CoordConvention::OpenGL;
 	caps_.setMaxFrameLatencySupported = true;
 	caps_.dualSourceBlend = gl_extensions.ARB_blend_func_extended || gl_extensions.EXT_blend_func_extended;
@@ -1203,6 +1215,7 @@ Pipeline *OpenGLContext::CreateGraphicsPipeline(const PipelineDesc &desc, const 
 	}
 
 	OpenGLPipeline *pipeline = new OpenGLPipeline(&renderManager_);
+	pipeline->maxTextureSlots_ = caps_.maxTextureSlots;
 	for (auto iter : desc.shaders) {
 		if (iter) {
 			iter->AddRef();
@@ -1256,7 +1269,7 @@ void OpenGLContext::BindNativeTexture(int index, void *nativeTexture) {
 }
 
 void OpenGLContext::ApplySamplers() {
-	for (int i = 0; i < MAX_TEXTURE_SLOTS; i++) {
+	for (int i = 0; i < caps_.maxTextureSlots; i++) {
 		const OpenGLSamplerState *samp = boundSamplers_[i];
 		const GLRTexture *tex = boundTextures_[i];
 		if (tex) {
@@ -1333,10 +1346,18 @@ bool OpenGLPipeline::LinkShaders(const PipelineDesc &desc) {
 		}
 		samplersToCheck = size;
 	} else {
-		queries.push_back({ &locs_->samplerLocs_[0], "sampler0" });
-		queries.push_back({ &locs_->samplerLocs_[1], "sampler1" });
-		queries.push_back({ &locs_->samplerLocs_[2], "sampler2" });
-		samplersToCheck = 3;
+		// Default names: sampler0, sampler1, ... up to what the device supports.
+		// These strings must outlive the program creation (it's deferred to the render thread), so they're static.
+		static const char * const defaultSamplerNames[] = {
+			"sampler0", "sampler1", "sampler2", "sampler3", "sampler4", "sampler5", "sampler6", "sampler7",
+			"sampler8", "sampler9", "sampler10", "sampler11", "sampler12", "sampler13", "sampler14", "sampler15",
+			"sampler16", "sampler17", "sampler18", "sampler19",
+		};
+		static_assert(ARRAY_SIZE(defaultSamplerNames) >= MAX_TEXTURE_SLOTS, "Need more default sampler names");
+		samplersToCheck = std::min(maxTextureSlots_, (int)MAX_TEXTURE_SLOTS);
+		for (int i = 0; i < samplersToCheck; i++) {
+			queries.push_back({ &locs_->samplerLocs_[i], defaultSamplerNames[i] });
+		}
 	}
 
 	_assert_(queries.size() <= MAX_TEXTURE_SLOTS);

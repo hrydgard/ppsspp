@@ -56,7 +56,7 @@ DrawEngineVulkan::DrawEngineVulkan(Draw::DrawContext *draw)
 void DrawEngineVulkan::InitDeviceObjects() {
 	// All resources we need for PSP drawing. Usually only bindings 0 and 2-4 are populated.
 
-	BindingType bindingTypes[VKRPipelineLayout::MAX_DESC_SET_BINDINGS] = {
+	BindingType bindingTypes[] = {
 		BindingType::COMBINED_IMAGE_SAMPLER,  // main
 		BindingType::COMBINED_IMAGE_SAMPLER,  // framebuffer-read
 		BindingType::COMBINED_IMAGE_SAMPLER,  // palette

@@ -29,6 +29,7 @@
 #include "Common/Math/geom2d.h"
 #include "Common/Log.h"
 #include "Common/TimeUtil.h"
+#include "Common/StringUtils.h"
 #include "Core/Config.h"
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
@@ -254,6 +255,26 @@ void PresentationCommon::CalculatePostShaderUniforms(int bufferWidth, int buffer
 	uniforms->setting[3] = GetShaderSettingValue(shaderInfo, 3, "SettingCurrentValue4");
 }
 
+// Inserts a line after any #version directive (which must come first), or at the very start otherwise.
+static std::string InsertShaderDefine(const std::string &src, const std::string &line) {
+	size_t pos = 0;
+	while (pos < src.size()) {
+		size_t end = src.find('\n', pos);
+		if (end == std::string::npos)
+			end = src.size();
+		size_t first = src.find_first_not_of(" \t\r", pos);
+		if (first != std::string::npos && first < end && src.compare(first, 8, "#version") == 0) {
+			std::string result = src.substr(0, end);
+			result += "\n" + line + "\n";
+			if (end < src.size())
+				result += src.substr(end + 1);
+			return result;
+		}
+		pos = end + 1;
+	}
+	return line + "\n" + src;
+}
+
 static std::string ReadShaderSrc(const Path &filename) {
 	size_t sz = 0;
 	char *data = (char *)g_VFS.ReadFile(filename.c_str(), &sz);
@@ -297,6 +318,7 @@ bool PresentationCommon::UpdatePostShader(const DisplayLayoutConfig &config) {
 
 	bool usePreviousFrame = false;
 	bool usePreviousAtOutputResolution = false;
+	int previousFrameCount = 0;
 	for (size_t i = 0; i < shaderInfo.size(); ++i) {
 		const ShaderInfo *next = i + 1 < shaderInfo.size() ? shaderInfo[i + 1] : nullptr;
 		Draw::Pipeline *postPipeline = nullptr;
@@ -310,6 +332,15 @@ bool PresentationCommon::UpdatePostShader(const DisplayLayoutConfig &config) {
 		if (shaderInfo[i]->usePreviousFrame) {
 			usePreviousFrame = true;
 			usePreviousAtOutputResolution = shaderInfo[i]->outputResolution;
+			// The info was clamped when loaded, but the device could have changed since (backend switch.)
+			int maxFrames = GetPostShaderMaxPreviousFrames(draw_);
+			int wanted = std::max(1, shaderInfo[i]->previousFrames);
+			if (wanted > maxFrames) {
+				WARN_LOG(Log::G3D, "Post shader '%s': clamping previous frames from %d to %d (device limit)", shaderInfo[i]->section.c_str(), wanted, maxFrames);
+				wanted = maxFrames;
+			}
+			previousFrameCount = std::max(previousFrameCount, wanted);
+			postShaderInfo_.back().previousFrames = wanted;
 		}
 	}
 
@@ -319,11 +350,14 @@ bool PresentationCommon::UpdatePostShader(const DisplayLayoutConfig &config) {
 
 		_dbg_assert_(w > 0 && h > 0);
 
-		static constexpr int FRAMES = 2;
-		previousFramebuffers_.resize(FRAMES);
+		// A ring of N + 1 framebuffers: one to render the current frame into, plus N that are bound as
+		// previous frames while doing so.
+		const int frames = previousFrameCount + 1;
+		previousFramebuffers_.resize(frames);
 		previousIndex_ = 0;
+		previousFramesFilled_ = 0;
 
-		for (int i = 0; i < FRAMES; ++i) {
+		for (int i = 0; i < frames; ++i) {
 			previousFramebuffers_[i] = draw_->CreateFramebuffer({ w, h, 1, 1, 0, false, "inter_presentation" });
 			if (!previousFramebuffers_[i]) {
 				DestroyPostShader();
@@ -344,6 +378,11 @@ bool PresentationCommon::CompilePostShader(const ShaderInfo *shaderInfo, Draw::P
 	if (vsSourceGLSL.empty() || fsSourceGLSL.empty()) {
 		return false;
 	}
+
+	// Let shaders know how many previous frames they actually get, so they can adapt with #if
+	// when the device has fewer texture slots than they'd like.
+	int previousFrames = shaderInfo->usePreviousFrame ? std::min(std::max(1, shaderInfo->previousFrames), GetPostShaderMaxPreviousFrames(draw_)) : 0;
+	fsSourceGLSL = InsertShaderDefine(fsSourceGLSL, StringFromFormat("#define PPSSPP_PREVIOUS_FRAMES %d", previousFrames));
 
 	std::string vsError;
 	std::string fsError;
@@ -801,8 +840,27 @@ void PresentationCommon::RunPostshaderPasses(const DisplayLayoutConfig &config, 
 		}
 	}
 
-	// Grab the previous framebuffer early so we can change previousIndex_ when we want.
-	Draw::Framebuffer *previousFramebuffer = previousFramebuffers_.empty() ? nullptr : previousFramebuffers_[previousIndex_];
+	// Grab the previous frames early so we can change previousIndex_ when we want.
+	// previousFrames[0] is the most recent one (sampler2), previousFrames[1] the one before (sampler3), etc.
+	// Before we have rendered enough frames, the missing ones repeat the oldest frame we have.
+	// If we have none at all (first frame after a reset), it's nullptr and we bind the current input instead.
+	Draw::Framebuffer *previousFrames[POSTSHADER_MAX_PREVIOUS_FRAMES]{};
+	const int ringSize = (int)previousFramebuffers_.size();
+	const int previousFrameCount = ringSize > 0 ? std::min(ringSize - 1, POSTSHADER_MAX_PREVIOUS_FRAMES) : 0;
+	for (int k = 0; k < previousFrameCount; ++k) {
+		int age = std::min(k, previousFramesFilled_ - 1);
+		previousFrames[k] = age >= 0 ? previousFramebuffers_[(previousIndex_ - age + ringSize) % ringSize] : nullptr;
+	}
+
+	// Moves on to the next framebuffer in the ring, that's not bound as any of the previous frames.
+	auto advancePreviousFrame = [&]() -> Draw::Framebuffer * {
+		previousIndex_++;
+		if (previousIndex_ >= ringSize)
+			previousIndex_ = 0;
+		if (previousFramesFilled_ < previousFrameCount)
+			previousFramesFilled_++;
+		return previousFramebuffers_[previousIndex_];
+	};
 
 	const auto performShaderPass = [&](const ShaderInfo *shaderInfo, Draw::Framebuffer *postShaderFramebuffer, Draw::Pipeline *postShaderPipeline, int vertsOffset) {
 		if (postShaderOutput_) {
@@ -811,8 +869,17 @@ void PresentationCommon::RunPostshaderPasses(const DisplayLayoutConfig &config, 
 			BindSource(0, false);
 		}
 		BindSource(1, false);
-		if (shaderInfo->usePreviousFrame)
-			draw_->BindFramebufferAsTexture(previousFramebuffer, 2, Draw::Aspect::COLOR_BIT, 0);
+		const int prevFramesToBind = shaderInfo->usePreviousFrame ? std::min(std::max(1, shaderInfo->previousFrames), previousFrameCount) : 0;
+		for (int k = 0; k < prevFramesToBind; ++k) {
+			const int slot = POSTSHADER_PREVIOUS_FRAME_FIRST_SLOT + k;
+			if (previousFrames[k]) {
+				draw_->BindFramebufferAsTexture(previousFrames[k], slot, Draw::Aspect::COLOR_BIT, 0);
+			} else if (postShaderOutput_) {
+				draw_->BindFramebufferAsTexture(postShaderOutput_, slot, Draw::Aspect::COLOR_BIT, 0);
+			} else {
+				BindSource(slot, false);
+			}
+		}
 
 		int nextWidth, nextHeight;
 		draw_->GetFramebufferDimensions(postShaderFramebuffer, &nextWidth, &nextHeight);
@@ -829,8 +896,8 @@ void PresentationCommon::RunPostshaderPasses(const DisplayLayoutConfig &config, 
 		Draw::SamplerState *sampler = useNearest || shaderInfo->isUpscalingFilter ? samplerNearest_ : samplerLinear_;
 		draw_->BindSamplerStates(0, 1, &sampler);
 		draw_->BindSamplerStates(1, 1, &sampler);
-		if (shaderInfo->usePreviousFrame)
-			draw_->BindSamplerStates(2, 1, &sampler);
+		for (int k = 0; k < prevFramesToBind; ++k)
+			draw_->BindSamplerStates(POSTSHADER_PREVIOUS_FRAME_FIRST_SLOT + k, 1, &sampler);
 
 		draw_->BindVertexBuffer(vdata_, vertsOffset);
 		draw_->Draw(4, 0);
@@ -864,10 +931,7 @@ void PresentationCommon::RunPostshaderPasses(const DisplayLayoutConfig &config, 
 			if (!isFinalAtOutputResolution && i == postShaderFramebuffers_.size() - 1 && !previousFramebuffers_.empty()) {
 				// This is the last pass and we're going direct to the backbuffer after this.
 				// Redirect output to a separate framebuffer to keep the previous frame.
-				previousIndex_++;
-				if (previousIndex_ >= (int)previousFramebuffers_.size())
-					previousIndex_ = 0;
-				postShaderFramebuffer = previousFramebuffers_[previousIndex_];
+				postShaderFramebuffer = advancePreviousFrame();
 			}
 
 			draw_->BindFramebufferAsRenderTarget(postShaderFramebuffer, {Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE}, "PostShader");
@@ -890,10 +954,7 @@ void PresentationCommon::RunPostshaderPasses(const DisplayLayoutConfig &config, 
 		const ShaderInfo *shaderInfo = &postShaderInfo_.back();
 
 		// Pick the next to render to.
-		previousIndex_++;
-		if (previousIndex_ >= (int)previousFramebuffers_.size())
-			previousIndex_ = 0;
-		Draw::Framebuffer *postShaderFramebuffer = previousFramebuffers_[previousIndex_];
+		Draw::Framebuffer *postShaderFramebuffer = advancePreviousFrame();
 
 		draw_->BindFramebufferAsRenderTarget(postShaderFramebuffer, {Draw::RPAction::CLEAR, Draw::RPAction::DONT_CARE, Draw::RPAction::DONT_CARE}, "InterFrameBlit");
 		performShaderPass(shaderInfo, postShaderFramebuffer, postShaderPipeline, postVertsOffset);

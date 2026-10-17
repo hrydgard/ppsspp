@@ -47,8 +47,14 @@ struct ShaderInfo {
 	int SSAAFilterLevel;
 	// Force constant/max refresh for animated filters
 	bool requires60fps;
-	// Takes previous frame as input (for blending effects.)
+	// Takes previous frame(s) as input (for blending effects.)
 	bool usePreviousFrame;
+	// How many previous frames this shader gets bound (0 if !usePreviousFrame). Already clamped to what
+	// the current device supports, see GetPostShaderMaxPreviousFrames(). They're bound as
+	// sampler2 (1 frame ago), sampler3 (2 frames ago), ... sampler(1 + previousFrames).
+	int previousFrames;
+	// What the ini asked for, before clamping. Only for diagnostics.
+	int previousFramesRequested;
 
 	struct Setting {
 		std::string name;
@@ -110,6 +116,21 @@ struct TextureShaderInfo {
 		return false;
 	}
 };
+
+// Texture slot layout for post-shaders:
+//  slot 0 (sampler0): output of the previous pass (or the source image on the first pass)
+//  slot 1 (sampler1): the original source image
+//  slot 2.. (sampler2..): previous frames, most recent first.
+constexpr int POSTSHADER_PREVIOUS_FRAME_FIRST_SLOT = 2;
+// Slots we keep free on every device for future post-shader inputs (depth buffer, more multipass
+// inputs, etc.), so that adding those later doesn't break shaders that use lots of previous frames.
+constexpr int POSTSHADER_RESERVED_TEXTURE_SLOTS = 2;
+// Hard cap on previous frames, even on APIs with huge binding limits. Each one is a full-size framebuffer.
+constexpr int POSTSHADER_MAX_PREVIOUS_FRAMES = 16;
+
+// How many previous frames a post-shader can get on this device. At least 1 (legacy UsePreviousFrame behavior).
+// Examples: GLES 2.0 / D3D11 FL9 (8 slots) -> 4, D3D11 / GLES 3 (16 slots) -> 12, desktop GL / Vulkan (20+) -> 16.
+int GetPostShaderMaxPreviousFrames(const Draw::DrawContext *draw);
 
 void ReloadAllPostShaderInfo(Draw::DrawContext *draw);
 

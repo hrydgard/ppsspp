@@ -31,7 +31,8 @@ using namespace Microsoft::WRL;
 
 namespace Draw {
 
-static constexpr int MAX_BOUND_TEXTURES = 8;
+// D3D11_COMMONSHADER_SAMPLER_SLOT_COUNT is 16 (128 SRVs, but samplers are the tighter limit).
+static constexpr int MAX_BOUND_TEXTURES = 16;
 
 // A problem is that we can't get the D3Dcompiler.dll without using a later SDK than 7.1, which was the last that
 // supported XP. A possible solution might be here:
@@ -341,6 +342,9 @@ D3D11DrawContext::D3D11DrawContext(ComPtr<ID3D11Device> device, ComPtr<ID3D11Dev
 	caps_.fragmentShaderStencilWriteSupported = false;
 	caps_.blendMinMaxSupported = true;
 	caps_.multiSampleLevelsMask = 1;   // More could be supported with some work.
+	// Feature level 10_0+ guarantees 16 sampler slots per stage. Feature level 9_x (ps_4_0_level_9_x)
+	// is more restricted, so stay at 8 there to be safe.
+	caps_.maxTextureSlots = std::min(featureLevel_ >= D3D_FEATURE_LEVEL_10_0 ? 16 : 8, std::min(MAX_BOUND_TEXTURES, (int)MAX_TEXTURE_SLOTS));
 	caps_.samplerLodControl = true;
 
 	caps_.provokingVertexLast = false;  // D3D has it first, unfortunately. (and no way to change it).

@@ -27,7 +27,7 @@ namespace Draw {
 class DrawContext;
 }
 
-constexpr int MAX_GL_TEXTURE_SLOTS = 8;
+constexpr int MAX_GL_TEXTURE_SLOTS = 20;  // Must be >= Draw::MAX_TEXTURE_SLOTS.
 
 class GLRTexture {
 public:
