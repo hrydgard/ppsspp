@@ -41,9 +41,52 @@ static MTLPixelFormat ToMetalFormat(Draw::DataFormat fmt) {
 	case Draw::DataFormat::ETC2_R8G8B8A1_UNORM_BLOCK: return MTLPixelFormatETC2_RGB8A1;
 	case Draw::DataFormat::ETC2_R8G8B8A8_UNORM_BLOCK: return MTLPixelFormatEAC_RGBA8;
 	case Draw::DataFormat::R8_UNORM: return MTLPixelFormatR8Unorm;
+	// The PSP's 16-bit layouts, as they come from the decoder. See Swizzle16.
+	case Draw::DataFormat::R5G6B5_UNORM_PACK16: return MTLPixelFormatB5G6R5Unorm;
+	case Draw::DataFormat::A1R5G5B5_UNORM_PACK16: return MTLPixelFormatBGR5A1Unorm;
+	case Draw::DataFormat::A4R4G4B4_UNORM_PACK16: return MTLPixelFormatABGR4Unorm;
 	case Draw::DataFormat::R8G8B8A8_UNORM:
 	default:
 		return MTLPixelFormatRGBA8Unorm;
+	}
+}
+
+// Metal names the channels of packed formats from the lowest bits up, and the PSP stores red lowest. So
+// B5G6R5Unorm's "blue" is the PSP's red, and so on, which the swizzle puts back. The same as the Vulkan backend's
+// VULKAN_565_SWIZZLE and friends.
+static MTLTextureSwizzleChannels Swizzle16(MTLPixelFormat format) {
+	switch (format) {
+	case MTLPixelFormatB5G6R5Unorm: return MTLTextureSwizzleChannelsMake(MTLTextureSwizzleBlue, MTLTextureSwizzleGreen, MTLTextureSwizzleRed, MTLTextureSwizzleOne);
+	case MTLPixelFormatBGR5A1Unorm: return MTLTextureSwizzleChannelsMake(MTLTextureSwizzleBlue, MTLTextureSwizzleGreen, MTLTextureSwizzleRed, MTLTextureSwizzleAlpha);
+	case MTLPixelFormatABGR4Unorm: return MTLTextureSwizzleChannelsMake(MTLTextureSwizzleAlpha, MTLTextureSwizzleBlue, MTLTextureSwizzleGreen, MTLTextureSwizzleRed);
+	default: return MTLTextureSwizzleChannelsDefault;
+	}
+}
+
+static Draw::DataFormat Format16(GEPaletteFormat format) {
+	switch (format) {
+	case GE_CMODE_16BIT_BGR5650: return Draw::DataFormat::R5G6B5_UNORM_PACK16;
+	case GE_CMODE_16BIT_ABGR5551: return Draw::DataFormat::A1R5G5B5_UNORM_PACK16;
+	case GE_CMODE_16BIT_ABGR4444: return Draw::DataFormat::A4R4G4B4_UNORM_PACK16;
+	default: return Draw::DataFormat::R8G8B8A8_UNORM;
+	}
+}
+
+// What the decoder should output for a texture. 16-bit textures stay 16-bit if the GPU has the formats.
+static Draw::DataFormat GetDestFormat(GETextureFormat format, GEPaletteFormat clutFormat) {
+	if (!gstate_c.Use(GPU_USE_16BIT_FORMATS)) {
+		return Draw::DataFormat::R8G8B8A8_UNORM;
+	}
+	switch (format) {
+	case GE_TFMT_CLUT4:
+	case GE_TFMT_CLUT8:
+	case GE_TFMT_CLUT16:
+	case GE_TFMT_CLUT32:
+		return Format16(clutFormat);
+	case GE_TFMT_5650: return Draw::DataFormat::R5G6B5_UNORM_PACK16;
+	case GE_TFMT_5551: return Draw::DataFormat::A1R5G5B5_UNORM_PACK16;
+	case GE_TFMT_4444: return Draw::DataFormat::A4R4G4B4_UNORM_PACK16;
+	default: return Draw::DataFormat::R8G8B8A8_UNORM;
 	}
 }
 
@@ -143,11 +186,14 @@ void TextureCacheMetal::BuildTexture(TexCacheEntry *const entry) {
 		return;
 	}
 
-	Draw::DataFormat dstFmt = Draw::DataFormat::R8G8B8A8_UNORM;
+	Draw::DataFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
 	if (plan.decodeToClut8) {
 		dstFmt = Draw::DataFormat::R8_UNORM;
 	} else if (plan.doReplace) {
 		dstFmt = plan.replaced->Format();
+	} else if (plan.scaleFactor > 1 || plan.saveTexture) {
+		// Scaling and texture dumping work on 8888.
+		dstFmt = Draw::DataFormat::R8G8B8A8_UNORM;
 	}
 	MTLPixelFormat mtlFmt = ToMetalFormat(dstFmt);
 	int blockSize = 0;
@@ -171,6 +217,7 @@ void TextureCacheMetal::BuildTexture(TexCacheEntry *const entry) {
 	td.mipmapLevelCount = levels;
 	td.usage = MTLTextureUsageShaderRead;
 	td.storageMode = MTLStorageModePrivate;
+	td.swizzle = Swizzle16(mtlFmt);
 	id<MTLTexture> texture = [rm_->Device() newTextureWithDescriptor:td];
 	if (!texture) {
 		ERROR_LOG(Log::G3D, "Failed to create texture (%dx%d)", tw, th);
@@ -244,6 +291,10 @@ bool TextureCacheMetal::GetCurrentTextureDebug(GPUDebugBuffer &buffer, int level
 	switch (texture.pixelFormat) {
 	case MTLPixelFormatRGBA8Unorm: buffer.Allocate((u32)(texture.width >> level), (u32)(texture.height >> level), GPU_DBG_FORMAT_8888); bpp = 4; break;
 	case MTLPixelFormatR8Unorm: buffer.Allocate((u32)(texture.width >> level), (u32)(texture.height >> level), GPU_DBG_FORMAT_8BIT); bpp = 1; break;
+	// These hold the PSP's own layouts.
+	case MTLPixelFormatB5G6R5Unorm: buffer.Allocate((u32)(texture.width >> level), (u32)(texture.height >> level), GPU_DBG_FORMAT_565); bpp = 2; break;
+	case MTLPixelFormatBGR5A1Unorm: buffer.Allocate((u32)(texture.width >> level), (u32)(texture.height >> level), GPU_DBG_FORMAT_5551); bpp = 2; break;
+	case MTLPixelFormatABGR4Unorm: buffer.Allocate((u32)(texture.width >> level), (u32)(texture.height >> level), GPU_DBG_FORMAT_4444); bpp = 2; break;
 	default: return false;
 	}
 	int w = std::max(1, (int)texture.width >> level);
