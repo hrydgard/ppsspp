@@ -22,6 +22,8 @@
 
 #include "Common/Log.h"
 #include "Common/GPU/thin3d.h"
+#include "Core/Config.h"
+#include "Core/ConfigValues.h"
 #include "GPU/GPUState.h"
 #include "GPU/Common/GPUDebugInterface.h"
 #include "GPU/Metal/TextureCacheMetal.h"
@@ -159,11 +161,8 @@ void TextureCacheMetal::ApplySamplerByKey(const SamplerCacheKey &key) {
 	MTLSamplerDescriptor *sd = [MTLSamplerDescriptor new];
 	sd.minFilter = key.minFilt ? MTLSamplerMinMagFilterLinear : MTLSamplerMinMagFilterNearest;
 	sd.magFilter = key.magFilt ? MTLSamplerMinMagFilterLinear : MTLSamplerMinMagFilterNearest;
-	if (key.mipEnable) {
-		sd.mipFilter = key.mipFilt ? MTLSamplerMipFilterLinear : MTLSamplerMipFilterNearest;
-	} else {
-		sd.mipFilter = MTLSamplerMipFilterNotMipmapped;
-	}
+	// Like the Vulkan backend, mipmapping is controlled by the LOD clamps alone (maxLevel 0 means the first level).
+	sd.mipFilter = key.mipFilt ? MTLSamplerMipFilterLinear : MTLSamplerMipFilterNearest;
 	sd.sAddressMode = key.sClamp ? MTLSamplerAddressModeClampToEdge : MTLSamplerAddressModeRepeat;
 	sd.tAddressMode = key.tClamp ? MTLSamplerAddressModeClampToEdge : MTLSamplerAddressModeRepeat;
 	sd.rAddressMode = MTLSamplerAddressModeClampToEdge;
@@ -172,7 +171,7 @@ void TextureCacheMetal::ApplySamplerByKey(const SamplerCacheKey &key) {
 		sd.maxAnisotropy = std::clamp(1 << key.anisoLevel, 1, 16);
 	}
 	sd.lodMinClamp = std::max(0.0f, key.minLevel / 256.0f);
-	sd.lodMaxClamp = std::max(sd.lodMinClamp, key.maxLevel / 256.0f);
+	sd.lodMaxClamp = key.maxLevel == 9 * 256 ? FLT_MAX : std::max(sd.lodMinClamp, key.maxLevel / 256.0f);
 	// Metal samplers have no LOD bias, the shaders apply it (GPU_USE_SHADER_LOD_BIAS).
 	id<MTLSamplerState> sampler = [rm_->Device() newSamplerStateWithDescriptor:sd];
 	samplerCache_[key.fullKey] = sampler;
@@ -195,13 +194,24 @@ void TextureCacheMetal::BuildTexture(TexCacheEntry *const entry) {
 		// Scaling and texture dumping work on 8888.
 		dstFmt = Draw::DataFormat::R8G8B8A8_UNORM;
 	}
+
+	// Like the Vulkan backend: at max quality, give small textures (rarely menu backgrounds, unlike 512x512 ones)
+	// a full mip chain, generating the levels the game didn't supply. That needs a format the GPU can render
+	// mips in, so not compressed or 16-bit ones.
+	if (g_Config.iTexFiltering == TEX_FILTER_AUTO_MAX_QUALITY && plan.w <= 256 && plan.h <= 256 && (!plan.doReplace || plan.replaced->Format() == Draw::DataFormat::R8G8B8A8_UNORM)) {
+		if (plan.maxPossibleLevels > plan.levelsToCreate) {
+			dstFmt = Draw::DataFormat::R8G8B8A8_UNORM;
+		}
+		plan.levelsToCreate = plan.maxPossibleLevels;
+	}
 	MTLPixelFormat mtlFmt = ToMetalFormat(dstFmt);
 	int blockSize = 0;
 	const bool compressed = Draw::DataFormatIsBlockCompressed(dstFmt, &blockSize);
 	const int bpp = (int)Draw::DataFormatSizeInBytes(dstFmt);
 
 	// We don't generate mips (yet), so only create the ones we load.
-	int levels = plan.depth == 1 ? std::min(plan.levelsToCreate, plan.levelsToLoad) : 1;
+	int levels = plan.depth == 1 ? plan.levelsToCreate : 1;
+	const int levelsToLoad = plan.depth == 1 ? std::min(plan.levelsToCreate, plan.levelsToLoad) : 1;
 
 	int tw, th;
 	plan.GetMipSize(0, &tw, &th);
@@ -226,7 +236,7 @@ void TextureCacheMetal::BuildTexture(TexCacheEntry *const entry) {
 	}
 	texture.label = [NSString stringWithFormat:@"tex_%08x", entry->addr];
 
-	const int uploadCount = plan.depth > 1 ? plan.depth : levels;
+	const int uploadCount = plan.depth > 1 ? plan.depth : levelsToLoad;
 	for (int i = 0; i < uploadCount; i++) {
 		// For 3D textures, the loop goes over slices of the single level.
 		const int mipLevel = plan.depth > 1 ? 0 : i;
@@ -251,6 +261,14 @@ void TextureCacheMetal::BuildTexture(TexCacheEntry *const entry) {
 
 		MTLSize copySize = MTLSizeMake(std::min(mipWidth, tw >> mipLevel), std::min(mipHeight, th >> mipLevel), 1);
 		rm_->CopyBufferToTexture(alloc.buffer, alloc.offset, stride, (uint32_t)size, copySize, texture, 0, mipLevel, MTLOriginMake(0, 0, plan.depth > 1 ? i : 0), MTLBlitOptionNone, true);
+	}
+
+	if (levels > levelsToLoad) {
+		// generateMipmapsForTexture rebuilds every level below the first, so a view keeps the loaded ones.
+		const int base = levelsToLoad - 1;
+		id<MTLTexture> view = [texture newTextureViewWithPixelFormat:mtlFmt textureType:MTLTextureType2D levels:NSMakeRange(base, levels - base) slices:NSMakeRange(0, 1)];
+		rm_->GenerateMips(view, true);
+		rm_->DeferRelease(view);
 	}
 
 	ReleaseTexture(entry, true);
