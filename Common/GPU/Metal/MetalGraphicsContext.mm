@@ -57,6 +57,7 @@ bool MetalGraphicsContext::InitSurface(WindowSystem winsys, void *data1, void *d
 	renderManager_ = new MetalRenderManager(device, layer, offscreenWidth_, offscreenHeight_);
 	renderManager_->SetInflightFrames(g_Config.iInflightFrames);
 	draw_ = Draw::T3DCreateMetalContext(renderManager_);
+	INFO_LOG(Log::G3D, "Metal: Using %s, backbuffer %dx%d%s", [[device name] UTF8String], renderManager_->BackbufferWidth(), renderManager_->BackbufferHeight(), layer ? "" : " (offscreen)");
 	SetGPUBackend(GPUBackend::METAL, [[device name] UTF8String]);
 	if (!draw_->CreatePresets()) {
 		*errorMessage = "Failed to compile preset shaders";

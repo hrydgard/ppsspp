@@ -75,6 +75,8 @@ SDLJoystick *joystick = NULL;
 #if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
 #include "Core/Util/DarwinFileSystemServices.h"
 #include "SDL/SDLCocoaMetalLayer.h"
+#include "Common/GPU/Metal/MetalGraphicsContext.h"
+#include <SDL3/SDL_metal.h>
 #endif
 
 #if PPSSPP_PLATFORM(MAC)
@@ -2158,6 +2160,11 @@ int main(int argc, char *argv[]) {
 	case GPUBackend::OPENGL:
 		fallbackGPUBackend = (int)GPUBackend::VULKAN;
 		break;
+#if PPSSPP_PLATFORM(MAC)
+	case GPUBackend::METAL:
+		fallbackGPUBackend = vulkanMayBeAvailable ? (int)GPUBackend::VULKAN : (int)GPUBackend::OPENGL;
+		break;
+#endif
 	default:
 		fprintf(stderr, "Unknown GPU backend %d, switching to Vulkan.\n", g_Config.iGPUBackend);
 		g_Config.iGPUBackend = (int)GPUBackend::VULKAN;
@@ -2178,6 +2185,26 @@ int main(int argc, char *argv[]) {
 			windowDesc.data2 = (void *)glContext;
 
 			ctx = new SDLGLGraphicsContext();
+#if PPSSPP_PLATFORM(MAC)
+		} else if (backend == GPUBackend::METAL) {
+			window = SDL_CreateWindow("Initializing graphics...", w, h, (SDL_WindowFlags)(mode | SDL_WINDOW_METAL | SDL_WINDOW_HIDDEN));
+			if (!window) {
+				*errorMessage = StringFromFormat("Error creating SDL window: %s", SDL_GetError());
+				return false;
+			}
+			if (x != SDL_WINDOWPOS_UNDEFINED && y != SDL_WINDOWPOS_UNDEFINED) {
+				SDL_SetWindowPosition(window, x, y);
+			}
+			SDL_MetalView metalView = SDL_Metal_CreateView(window);
+			if (!metalView) {
+				*errorMessage = StringFromFormat("Error creating Metal view: %s", SDL_GetError());
+				return false;
+			}
+			windowDesc.winsys = WINDOWSYSTEM_METAL_EXT;
+			windowDesc.data1 = SDL_Metal_GetLayer(metalView);
+			windowDesc.data2 = (void *)window;
+			ctx = new MetalGraphicsContext();
+#endif
 		} else {
 			// Use a local copy of mode: this flag combination is Vulkan-specific, and if we fall back to
 			// OpenGL below, we don't want SDL_WINDOW_VULKAN to stick around and get OR'd in there too.
@@ -2231,7 +2258,7 @@ int main(int argc, char *argv[]) {
 	if (!initializeBackend((GPUBackend)g_Config.iGPUBackend, &graphicsContext, &error_message)) {
 		fprintf(stderr, "Failed to initialize graphics backend: %s\n", error_message.c_str());
 		if (fallbackGPUBackend != -1) {
-			fprintf(stderr, "Attempting to fall back to %s...\n", fallbackGPUBackend == (int)GPUBackend::OPENGL ? "OpenGL" : "Vulkan");
+			fprintf(stderr, "Attempting to fall back to %s...\n", GPUBackendToString((GPUBackend)fallbackGPUBackend).c_str());
 			g_Config.iGPUBackend = fallbackGPUBackend;
 			error_message.clear();
 			if (!initializeBackend((GPUBackend)g_Config.iGPUBackend, &graphicsContext, &error_message)) {

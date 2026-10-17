@@ -70,6 +70,9 @@ static GPUCommon *CreateGPUCore(GPUCore gpuCore, GraphicsContext *ctx, Draw::Dra
 		}
 		return new GPU_Vulkan(ctx, draw);
 #endif
+	case GPUCORE_METAL:
+		// TODO: The Metal GPU backend. Until then, nothing is drawn.
+		return CreateNullGPU(ctx);
 	case GPUCORE_NULL:
 		return CreateNullGPU(ctx);
 	default:

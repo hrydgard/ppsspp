@@ -312,6 +312,9 @@ void EmuScreen::ProcessGameBoot(const Path &filename) {
 		coreParam.gpuCore = GPUCORE_VULKAN;
 		break;
 #endif
+	case GPUBackend::METAL:
+		coreParam.gpuCore = GPUCORE_METAL;
+		break;
 	}
 
 	// Preserve the existing graphics context.

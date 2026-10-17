@@ -49,6 +49,9 @@
 #include "Common/StringUtils.h"
 #include "Common/Thread/ThreadManager.h"
 #include "Common/GPU/Vulkan/VulkanGraphicsContext.h"
+#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+#include "Common/GPU/Metal/MetalGraphicsContext.h"
+#endif
 #include "Core/CmdLine.h"
 #include "Common/Net/HTTPRequest.h"
 #include "Core/Config.h"
@@ -422,7 +425,7 @@ struct AutoTestOptions {
 // swaps with interval 0). D3D11 presents to a hidden window, which could.
 static void EndDrawFrame(Draw::DrawContext *draw) {
 	draw->EndFrame();
-	if (GetGPUBackend() == GPUBackend::VULKAN || GetGPUBackend() == GPUBackend::OPENGL) {
+	if (GetGPUBackend() == GPUBackend::VULKAN || GetGPUBackend() == GPUBackend::OPENGL || GetGPUBackend() == GPUBackend::METAL) {
 		draw->Present(Draw::PresentMode::FIFO);
 	}
 }
@@ -1080,6 +1083,9 @@ int main(int argc, const char* argv[]) {
 		case GPUBackend::VULKAN:
 			gpuCore = GPUCORE_VULKAN;
 			break;
+		case GPUBackend::METAL:
+			gpuCore = GPUCORE_METAL;
+			break;
 		}
 	}
 	if (cmdLineOptions.nullGraphics.value_or(false)) {
@@ -1106,6 +1112,12 @@ int main(int argc, const char* argv[]) {
 			vulkanContext->SetOffscreen(480, 272);
 			graphicsContext = vulkanContext;
 			deviceSetting = &g_Config.sVulkanDevice;
+#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+		} else if (gpuCore == GPUCORE_METAL) {
+			MetalGraphicsContext *metalContext = new MetalGraphicsContext();
+			metalContext->SetOffscreen(480, 272);
+			graphicsContext = metalContext;
+#endif
 #if PPSSPP_PLATFORM(MAC) && defined(SDL)
 		} else if (gpuCore == GPUCORE_GLES) {
 			// So does OpenGL, into a framebuffer object of its own.
