@@ -467,7 +467,16 @@ static u32 sceGeDrawSync(u32 mode) {
 	else if (!PSP_CoreParameter().compat.flags().DrawSyncInstant)
 		hleEatCycles(1240);
 	gstate_c.textureSyncTimeDomain++;
-	return hleLogDebug(Log::sceGe, gpu->DrawSync(mode));
+	u32 result = gpu->DrawSync(mode);
+	if (mode == 0 && PSP_CoreParameter().compat.flags().ColorPickingDrawSyncReadback) {
+		// The game waits for its picking pass here and then reads it from VRAM. It renders to one
+		// of two buffers, so read back the one the last list drew to.
+		const u32 fb = 0x04000000 | gstate.getFrameBufRawAddress();
+		if (fb == 0x04000000 || fb == 0x04080000) {
+			gpu->PerformReadbackToMemory(fb, 0x00044000);
+		}
+	}
+	return hleLogDebug(Log::sceGe, result);
 }
 
 static int sceGeContinue() {

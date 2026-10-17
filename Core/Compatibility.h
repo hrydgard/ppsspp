@@ -124,6 +124,7 @@ struct CompatFlags {
 	bool DepthCLUTIntoHalves;
 	bool AccurateSplines;
 	bool ReadbackShadow;
+	bool ColorPickingDrawSyncReadback;
 };
 
 struct VRCompat {
