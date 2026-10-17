@@ -542,10 +542,24 @@
     <ClCompile Include="..\..\ext\aemu_postoffice\client\sock_impl_windows.c">
       <Filter>ext\aemu_postoffice</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\ext\aemu_postoffice\client\postoffice_mem_stdc.c">
+      <Filter>ext\aemu_postoffice</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\aemu_postoffice\client\list.c">
+      <Filter>ext\aemu_postoffice</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\aemu_postoffice\client\enet.c">
+      <Filter>ext\aemu_postoffice</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\aemu_postoffice\adhocctl\client\adhocctl.c">
+      <Filter>ext\aemu_postoffice</Filter>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\aemu_postoffice\adhocctl\client\adhocctl_mem.c">
+      <Filter>ext\aemu_postoffice</Filter>
+    </ClCompile>
     <ClCompile Include="..\..\Common\UI\Notice.cpp">
       <Filter>UI</Filter>
     </ClCompile>
-    <ClCompile Include="..\..\ext\aemu_postoffice\client\postoffice_mem_stdc.c" />
     <ClCompile Include="..\..\ext\lzma-sdk\7zArcIn.c">
       <Filter>ext\lzma-sdk</Filter>
     </ClCompile>
@@ -1079,6 +1093,18 @@
       <Filter>ext\aemu_postoffice</Filter>
     </ClInclude>
     <ClInclude Include="..\..\ext\aemu_postoffice\client\delay_impl.h">
+      <Filter>ext\aemu_postoffice</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\aemu_postoffice\client\list.h">
+      <Filter>ext\aemu_postoffice</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\aemu_postoffice\client\enet.h">
+      <Filter>ext\aemu_postoffice</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\aemu_postoffice\adhocctl\client\adhocctl.h">
+      <Filter>ext\aemu_postoffice</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\ext\aemu_postoffice\adhocctl\client\adhocctl_mem.h">
       <Filter>ext\aemu_postoffice</Filter>
     </ClInclude>
     <ClInclude Include="..\..\Common\UI\Notice.h">
