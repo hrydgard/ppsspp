@@ -36,10 +36,7 @@ MetalShader::MetalShader(id<MTLDevice> device, ShaderStage stage, const std::str
 		Reporting::ReportMessage("Metal shader translation failed: %s / code: %s", errorMessage.c_str(), source.c_str());
 		return;
 	}
-	function = CreateMetalFunction(device, info, desc.c_str(), &errorMessage);
-	if (!function) {
-		ERROR_LOG(Log::G3D, "%s\n%s", errorMessage.c_str(), LineNumberString(info.msl).c_str());
-	}
+	function = [[MetalShaderFunction alloc] initWithDevice:device shader:info tag:desc];
 }
 
 std::string MetalShader::GetShaderString(DebugShaderStringType type) const {
@@ -148,6 +145,36 @@ void ShaderManagerMetal::GetShaderIDs(int prim, u32 vertexType, VShaderID *vshad
 
 	_dbg_assert_(lastFSID_.Bit(FS_BIT_FLATSHADE) == lastVSID_.Bit(VS_BIT_FLATSHADE));
 	_dbg_assert_msg_(lastVSID_.Bit(VS_BIT_USE_HW_TRANSFORM) == useHWTransform, "Bad vshader ID was computed");
+}
+
+bool ShaderManagerMetal::SaveCache(FILE *f) {
+	bool ok = true;
+	vsCache_.Iterate([&](const VShaderID &id, MetalVertexShader *) {
+		ok = ok && fwrite(&id, sizeof(id), 1, f) == 1;
+	});
+	fsCache_.Iterate([&](const FShaderID &id, MetalFragmentShader *) {
+		ok = ok && fwrite(&id, sizeof(id), 1, f) == 1;
+	});
+	return ok;
+}
+
+bool ShaderManagerMetal::LoadCache(FILE *f, int numVertexShaders, int numFragmentShaders) {
+	// Only translated here. They're compiled along with the pipelines that use them.
+	for (int i = 0; i < numVertexShaders; i++) {
+		VShaderID id;
+		if (fread(&id, sizeof(id), 1, f) != 1) {
+			return false;
+		}
+		GetVertexShaderFromID(id);
+	}
+	for (int i = 0; i < numFragmentShaders; i++) {
+		FShaderID id;
+		if (fread(&id, sizeof(id), 1, f) != 1) {
+			return false;
+		}
+		GetFragmentShaderFromID(id);
+	}
+	return true;
 }
 
 std::vector<std::string> ShaderManagerMetal::DebugGetShaderIDs(DebugShaderType type) {

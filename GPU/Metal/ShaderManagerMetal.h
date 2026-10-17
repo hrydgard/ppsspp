@@ -19,6 +19,7 @@
 
 // Objective-C++ only.
 
+#include <cstdio>
 #include <string>
 
 #include "Common/Data/Collections/Hashmaps.h"
@@ -45,10 +46,12 @@ class MetalShader {
 public:
 	MetalShader(id<MTLDevice> device, ShaderStage stage, const std::string &source, const std::string &desc);
 
+	// Only translation failures. Compile failures show up when the pipeline is created.
 	bool Failed() const { return function == nil; }
 	std::string GetShaderString(DebugShaderStringType type) const;
 
-	id<MTLFunction> function;
+	// Compiled when a pipeline first needs it, on a compile thread.
+	MetalShaderFunction *function;
 	MetalTranslatedShader info;
 	std::string source;
 	std::string desc;
@@ -89,6 +92,10 @@ public:
 
 	std::vector<std::string> DebugGetShaderIDs(DebugShaderType type) override;
 	std::string DebugGetShaderString(std::string id, DebugShaderType type, DebugShaderStringType stringType) override;
+
+	// The shader cache: the IDs of this game's shaders.
+	bool SaveCache(FILE *f);
+	bool LoadCache(FILE *f, int numVertexShaders, int numFragmentShaders);
 
 	// Returns the dirty uniform flags.
 	uint64_t UpdateUniforms(bool useBufferedRendering, bool pixelMapped);

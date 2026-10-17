@@ -20,7 +20,12 @@
 #include "Common/Log.h"
 #include "Common/Data/Text/StringWriter.h"
 #include "Common/GPU/thin3d.h"
+#include "Common/File/FileUtil.h"
+#include "Common/TimeUtil.h"
+#include "Core/Config.h"
 #include "Core/Reporting.h"
+#include "Core/System.h"
+#include "Core/ELF/ParamSFO.h"
 #include "GPU/GPUState.h"
 #include "GPU/Metal/GPU_Metal.h"
 #include "GPU/Metal/DrawEngineMetal.h"
@@ -56,9 +61,94 @@ GPU_Metal::GPU_Metal(GraphicsContext *gfxCtx, Draw::DrawContext *draw) : GPUComm
 	UpdateCmdInfo();
 	BuildReportingInfo();
 	textureCache_->NotifyConfigChanged();
+
+	std::string discID = g_paramSFO.GetDiscID();
+	if (!discID.empty()) {
+		File::CreateFullPath(GetSysDirectory(DIRECTORY_APP_CACHE));
+		shaderCachePath_ = GetSysDirectory(DIRECTORY_APP_CACHE) / (discID + ".mtlshadercache");
+		LoadCache(shaderCachePath_);
+	}
+}
+
+namespace {
+
+// Increase when the stored keys change meaning (MetalPipelineKey, the shader IDs, the formats).
+constexpr uint32_t METAL_CACHE_MAGIC = 0x4C54534D;  // "MSTL"
+constexpr uint32_t METAL_CACHE_VERSION = 1;
+
+struct MetalCacheHeader {
+	uint32_t magic;
+	uint32_t version;
+	uint32_t useFlags;
+	uint32_t pipelineRecordSize;  // Catches layout changes that forgot the version.
+	int32_t numVertexShaders;
+	int32_t numFragmentShaders;
+	int32_t numPipelines;
+};
+
+}  // namespace
+
+// Runs on the loader thread, before the game starts. Waits for the pipelines, like the Vulkan backend, so
+// they don't stutter in the first frames.
+void GPU_Metal::LoadCache(const Path &filename) {
+	if (!g_Config.bShaderCache) {
+		return;
+	}
+	FILE *f = File::OpenCFile(filename, "rb");
+	if (!f) {
+		return;
+	}
+	MetalCacheHeader header{};
+	bool ok = fread(&header, sizeof(header), 1, f) == 1 && header.magic == METAL_CACHE_MAGIC && header.version == METAL_CACHE_VERSION &&
+		header.pipelineRecordSize == drawEngine_->PipelineRecordSize();
+	if (ok && header.useFlags != gstate_c.GetUseFlags()) {
+		// The IDs carry the flags they were made with, so this just means some of them won't be used.
+		WARN_LOG(Log::G3D, "Metal shader cache useFlags mismatch, %08x, expected %08x", header.useFlags, gstate_c.GetUseFlags());
+	}
+	double start = time_now_d();
+	ok = ok && shaderManagerMetal_->LoadCache(f, header.numVertexShaders, header.numFragmentShaders);
+	ok = ok && drawEngine_->LoadPipelines(f, header.numPipelines, true);
+	fclose(f);
+	if (ok) {
+		INFO_LOG(Log::G3D, "Loaded Metal shader cache: %d vertex and %d fragment shaders, %d pipelines in %0.1f ms",
+			header.numVertexShaders, header.numFragmentShaders, header.numPipelines, (time_now_d() - start) * 1000.0);
+	} else {
+		WARN_LOG(Log::G3D, "Incompatible or damaged Metal shader cache, deleting it");
+		File::Delete(filename);
+	}
+}
+
+void GPU_Metal::SaveCache(const Path &filename) {
+	// After DeviceLost (which saved it), the shaders are gone. Don't overwrite the cache with nothing.
+	if (!g_Config.bShaderCache || !filename.Valid() || !draw_) {
+		return;
+	}
+	FILE *f = File::OpenCFile(filename, "wb");
+	if (!f) {
+		return;
+	}
+	MetalCacheHeader header{};
+	header.magic = METAL_CACHE_MAGIC;
+	header.version = METAL_CACHE_VERSION;
+	header.useFlags = gstate_c.GetUseFlags();
+	header.pipelineRecordSize = drawEngine_->PipelineRecordSize();
+	header.numVertexShaders = shaderManagerMetal_->GetNumVertexShaders();
+	header.numFragmentShaders = shaderManagerMetal_->GetNumFragmentShaders();
+	header.numPipelines = drawEngine_->GetNumPipelines();
+	bool ok = fwrite(&header, sizeof(header), 1, f) == 1;
+	ok = ok && shaderManagerMetal_->SaveCache(f);
+	ok = ok && drawEngine_->SavePipelines(f);
+	fclose(f);
+	if (ok) {
+		INFO_LOG(Log::G3D, "Saved Metal shader cache: %d vertex and %d fragment shaders, %d pipelines", header.numVertexShaders, header.numFragmentShaders, header.numPipelines);
+	} else {
+		ERROR_LOG(Log::G3D, "Failed to write the Metal shader cache, disk full?");
+		File::Delete(filename);
+	}
 }
 
 GPU_Metal::~GPU_Metal() {
+	SaveCache(shaderCachePath_);
 	if (draw_) {
 		MetalRenderManager *rm = (MetalRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 		rm->WaitIdle();
@@ -103,6 +193,7 @@ void GPU_Metal::DeviceLost() {
 		MetalRenderManager *rm = (MetalRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
 		rm->WaitIdle();
 	}
+	SaveCache(shaderCachePath_);
 	drawEngine_->ClearPipelines();
 	GPUCommonHW::DeviceLost();
 }

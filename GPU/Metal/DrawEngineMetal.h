@@ -106,6 +106,12 @@ public:
 	}
 
 	void ClearPipelines();
+
+	// The shader cache: the pipelines this game has used, and the formats of their targets.
+	bool SavePipelines(FILE *f);
+	static uint32_t PipelineRecordSize();
+	// Creates the pipelines, which compile in the background. waitForCompiles waits for all of them.
+	bool LoadPipelines(FILE *f, int count, bool waitForCompiles);
 	int GetNumPipelines() const { return (int)pipelines_.size(); }
 
 	void SetDepalTexture(id<MTLTexture> depal, bool smooth) {
@@ -122,12 +128,14 @@ private:
 	void ConvertStateToKeys(int prim);
 	void BindShaderBlendTex();
 	struct Pipeline {
-		id<MTLRenderPipelineState> pso;
+		MetalPipelineState *state;  // May still be compiling.
+		MetalRenderTargetFormat format;
 		uint32_t fragmentArrayTextureMask;
 		uint32_t fragmentTextureMask;
 	};
 
 	Pipeline *GetPipeline(const VShaderID &vsid, const FShaderID &fsid, bool useHWTransform);
+	Pipeline *GetOrCreatePipeline(const MetalPipelineKey &key, const DecVtxFormat *decFmt, const MetalRenderTargetFormat &format);
 	id<MTLDepthStencilState> GetDepthStencilState(const MetalDepthStencilKey &key);
 	bool ApplyState(const Pipeline *pipeline, bool overrideStencilRef, uint8_t stencilRef);
 	void BindResources(const Pipeline *pipeline);

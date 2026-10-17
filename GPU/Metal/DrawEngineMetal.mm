@@ -190,7 +190,7 @@ void DrawEngineMetal::DeviceRestore(Draw::DrawContext *draw) {
 void DrawEngineMetal::ClearPipelines() {
 	pipelines_.Iterate([&](const MetalPipelineKey &, Pipeline *pipeline) {
 		if (rm_) {
-			rm_->DeferRelease(pipeline->pso);
+			rm_->DeferRelease(pipeline->state);
 		}
 		delete pipeline;
 	});
@@ -251,26 +251,31 @@ id<MTLDepthStencilState> DrawEngineMetal::GetDepthStencilState(const MetalDepthS
 }
 
 DrawEngineMetal::Pipeline *DrawEngineMetal::GetPipeline(const VShaderID &vsid, const FShaderID &fsid, bool useHWTransform) {
-	const MetalRenderTargetFormat &format = rm_->CurTargetFormat();
 	MetalPipelineKey key{};
 	key.vsid = vsid;
 	key.fsid = fsid;
 	key.vtxFmtId = useHWTransform ? dec_->decFmt.id : SOFTWARE_TRANSFORM_VTXFMT;
 	key.blend = blendKey_.value;
-	key.targetFormat = format.Key();
+	key.targetFormat = rm_->CurTargetFormat().Key();
+	return GetOrCreatePipeline(key, useHWTransform ? &dec_->decFmt : nullptr, rm_->CurTargetFormat());
+}
 
+DrawEngineMetal::Pipeline *DrawEngineMetal::GetOrCreatePipeline(const MetalPipelineKey &key, const DecVtxFormat *decFmt, const MetalRenderTargetFormat &format) {
 	Pipeline *pipeline = pipelines_.GetOrNull(key);
 	if (pipeline) {
 		return pipeline;
 	}
 
-	MetalVertexShader *vs = shaderManager_->GetVertexShaderFromID(vsid);
-	MetalFragmentShader *fs = shaderManager_->GetFragmentShaderFromID(fsid);
+	MetalVertexShader *vs = shaderManager_->GetVertexShaderFromID(key.vsid);
+	MetalFragmentShader *fs = shaderManager_->GetFragmentShaderFromID(key.fsid);
 	pipeline = new Pipeline();
 	pipeline->fragmentArrayTextureMask = fs->info.arrayTextureMask;
 	pipeline->fragmentTextureMask = fs->info.textureMask;
+	pipeline->state = [MetalPipelineState new];
+	pipeline->format = format;
 	pipelines_.Insert(key, pipeline);
 	if (vs->Failed() || fs->Failed()) {
+		[pipeline->state setPipeline:nil];
 		return pipeline;
 	}
 
@@ -279,13 +284,13 @@ DrawEngineMetal::Pipeline *DrawEngineMetal::GetPipeline(const VShaderID &vsid, c
 	if (iter != vertexDescriptors_.end()) {
 		vd = iter->second;
 	} else {
-		vd = CreateVertexDescriptor(useHWTransform ? &dec_->decFmt : nullptr);
+		vd = CreateVertexDescriptor(decFmt);
 		vertexDescriptors_[key.vtxFmtId] = vd;
 	}
 
+	MetalBlendKey blend;
+	blend.value = key.blend;
 	MTLRenderPipelineDescriptor *desc = [MTLRenderPipelineDescriptor new];
-	desc.vertexFunction = vs->function;
-	desc.fragmentFunction = fs->function;
 	desc.vertexDescriptor = vd;
 	desc.rasterSampleCount = format.sampleCount;
 	desc.depthAttachmentPixelFormat = format.depth;
@@ -294,28 +299,105 @@ DrawEngineMetal::Pipeline *DrawEngineMetal::GetPipeline(const VShaderID &vsid, c
 		MTLRenderPipelineColorAttachmentDescriptor *att = desc.colorAttachments[0];
 		att.pixelFormat = format.color;
 		MTLColorWriteMask mask = MTLColorWriteMaskNone;
-		if (blendKey_.colorWriteMask & 1) mask |= MTLColorWriteMaskRed;
-		if (blendKey_.colorWriteMask & 2) mask |= MTLColorWriteMaskGreen;
-		if (blendKey_.colorWriteMask & 4) mask |= MTLColorWriteMaskBlue;
-		if (blendKey_.colorWriteMask & 8) mask |= MTLColorWriteMaskAlpha;
+		if (blend.colorWriteMask & 1) mask |= MTLColorWriteMaskRed;
+		if (blend.colorWriteMask & 2) mask |= MTLColorWriteMaskGreen;
+		if (blend.colorWriteMask & 4) mask |= MTLColorWriteMaskBlue;
+		if (blend.colorWriteMask & 8) mask |= MTLColorWriteMaskAlpha;
 		att.writeMask = mask;
-		att.blendingEnabled = blendKey_.blendEnable;
-		if (blendKey_.blendEnable) {
-			att.rgbBlendOperation = blendEqToMetal[blendKey_.eqColor];
-			att.alphaBlendOperation = blendEqToMetal[blendKey_.eqAlpha];
-			att.sourceRGBBlendFactor = blendFactorToMetal[blendKey_.srcColor];
-			att.destinationRGBBlendFactor = blendFactorToMetal[blendKey_.dstColor];
-			att.sourceAlphaBlendFactor = blendFactorToMetal[blendKey_.srcAlpha];
-			att.destinationAlphaBlendFactor = blendFactorToMetal[blendKey_.dstAlpha];
+		att.blendingEnabled = blend.blendEnable;
+		if (blend.blendEnable) {
+			att.rgbBlendOperation = blendEqToMetal[blend.eqColor];
+			att.alphaBlendOperation = blendEqToMetal[blend.eqAlpha];
+			att.sourceRGBBlendFactor = blendFactorToMetal[blend.srcColor];
+			att.destinationRGBBlendFactor = blendFactorToMetal[blend.dstColor];
+			att.sourceAlphaBlendFactor = blendFactorToMetal[blend.srcAlpha];
+			att.destinationAlphaBlendFactor = blendFactorToMetal[blend.dstAlpha];
 		}
 	}
 
-	NSError *error = nil;
-	pipeline->pso = [rm_->Device() newRenderPipelineStateWithDescriptor:desc error:&error];
-	if (!pipeline->pso) {
-		ERROR_LOG(Log::G3D, "Failed to create pipeline (%s / %s): %s", vs->desc.c_str(), fs->desc.c_str(), error ? [[error localizedDescription] UTF8String] : "?");
-	}
+	// The shader functions compile on first use (around 100ms each when not in Metal's cache), and then the
+	// pipeline, so all of it goes to a compile thread. Draws record the pipeline state, and the render thread
+	// waits for it if it gets there first.
+	id<MTLDevice> device = rm_->Device();
+	MetalPipelineState *state = pipeline->state;
+	MetalShaderFunction *vsFunction = vs->function;
+	MetalShaderFunction *fsFunction = fs->function;
+	std::string description = vs->desc + " / " + fs->desc;
+	RunOnCompileThread([=]() {
+		desc.vertexFunction = [vsFunction function];
+		desc.fragmentFunction = [fsFunction function];
+		id<MTLRenderPipelineState> pso;
+		if (desc.vertexFunction && desc.fragmentFunction) {
+			NSError *error = nil;
+			pso = [device newRenderPipelineStateWithDescriptor:desc error:&error];
+			if (!pso) {
+				ERROR_LOG(Log::G3D, "Failed to create pipeline (%s): %s", description.c_str(), error ? [[error localizedDescription] UTF8String] : "?");
+			}
+		}
+		[state setPipeline:pso];
+	});
 	return pipeline;
+}
+
+struct StoredMetalPipeline {
+	MetalPipelineKey key;
+	uint32_t color;
+	uint32_t depth;
+	uint32_t stencil;
+	uint32_t sampleCount;
+};
+
+uint32_t DrawEngineMetal::PipelineRecordSize() {
+	return sizeof(StoredMetalPipeline);
+}
+
+bool DrawEngineMetal::SavePipelines(FILE *f) {
+	bool ok = true;
+	pipelines_.Iterate([&](const MetalPipelineKey &key, Pipeline *pipeline) {
+		StoredMetalPipeline stored{};
+		stored.key = key;
+		stored.color = (uint32_t)pipeline->format.color;
+		stored.depth = (uint32_t)pipeline->format.depth;
+		stored.stencil = (uint32_t)pipeline->format.stencil;
+		stored.sampleCount = (uint32_t)pipeline->format.sampleCount;
+		ok = ok && fwrite(&stored, sizeof(stored), 1, f) == 1;
+	});
+	return ok;
+}
+
+bool DrawEngineMetal::LoadPipelines(FILE *f, int count, bool waitForCompiles) {
+	std::vector<MetalPipelineState *> states;
+	bool ok = true;
+	for (int i = 0; i < count; i++) {
+		StoredMetalPipeline stored;
+		if (fread(&stored, sizeof(stored), 1, f) != 1) {
+			ok = false;
+			break;
+		}
+		MetalRenderTargetFormat format;
+		format.color = (MTLPixelFormat)stored.color;
+		format.depth = (MTLPixelFormat)stored.depth;
+		format.stencil = (MTLPixelFormat)stored.stencil;
+		format.sampleCount = (int)stored.sampleCount;
+		if (format.Key() != stored.key.targetFormat) {
+			// Damaged.
+			ok = false;
+			break;
+		}
+		DecVtxFormat decFmt;
+		const bool useHWTransform = stored.key.vtxFmtId != SOFTWARE_TRANSFORM_VTXFMT;
+		if (useHWTransform) {
+			decFmt.InitializeFromID(stored.key.vtxFmtId);
+		}
+		Pipeline *pipeline = GetOrCreatePipeline(stored.key, useHWTransform ? &decFmt : nullptr, format);
+		states.push_back(pipeline->state);
+	}
+	if (waitForCompiles) {
+		for (MetalPipelineState *state : states) {
+			[state wait];
+		}
+	}
+	return ok;
 }
 
 void DrawEngineMetal::ConvertStateToKeys(int prim) {
@@ -487,7 +569,7 @@ bool DrawEngineMetal::ApplyState(const Pipeline *pipeline, bool overrideStencilR
 	if (!rm_->EnsureRenderEncoder()) {
 		return false;
 	}
-	rm_->SetPipeline(pipeline->pso);
+	rm_->SetPipeline(pipeline->state);
 	rm_->SetDepthStencilState(GetDepthStencilState(depthStencilKey_), depthStencilKey_.depthTestEnable || depthStencilKey_.stencilTestEnable);
 	if (depthStencilKey_.stencilTestEnable) {
 		rm_->SetStencilRef(overrideStencilRef ? stencilRef : dynState_.stencilRef);
@@ -651,7 +733,7 @@ void DrawEngineMetal::Flush() {
 		}
 
 		Pipeline *pipeline = updatePipeline(true);
-		if (!pipeline || !pipeline->pso || !ApplyState(pipeline, false, 0)) {
+		if (!pipeline || !ApplyState(pipeline, false, 0)) {
 			ResetAfterSkippedDraw();
 			return;
 		}
@@ -715,7 +797,7 @@ void DrawEngineMetal::Flush() {
 		}
 		if (action == SW_DRAW_INDEXED) {
 			Pipeline *pipeline = updatePipeline(false);
-			if (!pipeline || !pipeline->pso || !ApplyState(pipeline, result.setStencil, result.stencilValue)) {
+			if (!pipeline || !ApplyState(pipeline, result.setStencil, result.stencilValue)) {
 				ResetAfterSkippedDraw();
 				return;
 			}

@@ -234,7 +234,8 @@ public:
 		}
 	}
 
-	id<MTLRenderPipelineState> GetPSO(id<MTLDevice> device, const MetalRenderTargetFormat &format);
+	// UI pipelines are few and simple, so they're compiled right away. nil if that failed.
+	MetalPipelineState *GetPSO(id<MTLDevice> device, const MetalRenderTargetFormat &format);
 
 	MetalShaderModule *vs = nullptr;
 	MetalShaderModule *fs = nullptr;
@@ -246,13 +247,13 @@ public:
 	uint8_t *ubo = nullptr;
 	size_t uboSize = 0;
 	std::string tag;
-	std::unordered_map<uint32_t, id<MTLRenderPipelineState>> psos;
+	std::unordered_map<uint32_t, MetalPipelineState *> psos;
 
 private:
 	MetalRenderManager *rm_;
 };
 
-id<MTLRenderPipelineState> MetalPipeline::GetPSO(id<MTLDevice> device, const MetalRenderTargetFormat &format) {
+MetalPipelineState *MetalPipeline::GetPSO(id<MTLDevice> device, const MetalRenderTargetFormat &format) {
 	uint32_t key = format.Key();
 	auto iter = psos.find(key);
 	if (iter != psos.end()) {
@@ -297,8 +298,13 @@ id<MTLRenderPipelineState> MetalPipeline::GetPSO(id<MTLDevice> device, const Met
 			MetalPixelFormatToString(format.color), MetalPixelFormatToString(format.depth),
 			error ? [[error localizedDescription] UTF8String] : "?");
 	}
-	psos[key] = pso;
-	return pso;
+	MetalPipelineState *state = nil;
+	if (pso) {
+		state = [MetalPipelineState new];
+		[state setPipeline:pso];
+	}
+	psos[key] = state;
+	return state;
 }
 
 class MetalBuffer : public Buffer {
@@ -1237,7 +1243,7 @@ bool MetalDrawContext::ApplyState() {
 		return false;
 	}
 
-	id<MTLRenderPipelineState> pso = curPipeline_->GetPSO(device_, rm_->CurTargetFormat());
+	MetalPipelineState *pso = curPipeline_->GetPSO(device_, rm_->CurTargetFormat());
 	if (!pso) {
 		return false;
 	}

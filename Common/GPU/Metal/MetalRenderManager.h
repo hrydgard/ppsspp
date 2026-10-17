@@ -32,6 +32,7 @@
 #undef ABS
 #endif
 
+#include <atomic>
 #include <condition_variable>
 #include <cstdint>
 #include <deque>
@@ -137,6 +138,25 @@ struct MetalTranslatedShader {
 
 bool TranslateVulkanGLSLToMSL(ShaderStage stage, const char *glsl, MetalTranslatedShader *out, std::string *errorMessage);
 id<MTLFunction> CreateMetalFunction(id<MTLDevice> device, const MetalTranslatedShader &shader, const char *tag, std::string *errorMessage);
+
+// Compiling MSL takes long (around 100ms the first time), so it's done off the emu thread, on a thread of its own.
+void RunOnCompileThread(std::function<void()> work);
+
+// A shader function that's compiled when first needed, from any thread.
+@interface MetalShaderFunction : NSObject
+- (instancetype)initWithDevice:(id<MTLDevice>)device shader:(const MetalTranslatedShader &)shader tag:(const std::string &)tag;
+// Compiles on the first call, other callers wait for it. nil if it failed.
+- (id<MTLFunction>)function;
+@end
+
+// A render pipeline state that may still be compiling. Recorded commands refer to these, and the replay waits
+// for them, so the emu thread never waits for a compile (the same as with Vulkan).
+@interface MetalPipelineState : NSObject
+- (void)setPipeline:(id<MTLRenderPipelineState>)pipeline;
+// Blocks until it's compiled. nil if it failed.
+- (id<MTLRenderPipelineState>)wait;
+- (BOOL)isReady;
+@end
 
 const char *MetalPixelFormatToString(MTLPixelFormat fmt);
 
@@ -353,7 +373,7 @@ public:
 	MetalPushBuffer &Push() { return frames_[curFrame_].push; }
 
 	// Encoder state with redundancy elimination. Only valid after EnsureRenderEncoder() returned true.
-	void SetPipeline(__unsafe_unretained id<MTLRenderPipelineState> pipeline);
+	void SetPipeline(__unsafe_unretained MetalPipelineState *pipeline);
 	// usesDepthStencil: the state tests or writes depth or stencil. A pass where no draw does gets its
 	// depth/stencil attachment neither loaded nor stored.
 	void SetDepthStencilState(__unsafe_unretained id<MTLDepthStencilState> state, bool usesDepthStencil);
@@ -456,7 +476,7 @@ private:
 
 	// Cached encoder state.
 	struct EncoderState {
-		__unsafe_unretained id<MTLRenderPipelineState> pipeline;
+		__unsafe_unretained MetalPipelineState *pipeline;
 		__unsafe_unretained id<MTLDepthStencilState> depthStencil;
 		bool depthStencilUsed;
 		uint32_t stencilRef;

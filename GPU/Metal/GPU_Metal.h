@@ -19,6 +19,7 @@
 
 // Plain C++, so GPU.cpp can create it. The parts are Objective-C++.
 
+#include "Common/File/Path.h"
 #include "GPU/GPUCommonHW.h"
 
 class FramebufferManagerMetal;
@@ -44,6 +45,10 @@ protected:
 	void FinishDeferred() override;
 
 private:
+	void LoadCache(const Path &filename);
+	void SaveCache(const Path &filename);
+
+	Path shaderCachePath_;
 	FramebufferManagerMetal *framebufferManagerMetal_;
 	TextureCacheMetal *textureCacheMetal_;
 	ShaderManagerMetal *shaderManagerMetal_;

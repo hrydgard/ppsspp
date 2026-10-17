@@ -26,6 +26,7 @@
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 #include "Common/Thread/ThreadUtil.h"
+#include "Common/Thread/ThreadManager.h"
 
 #include "ext/SPIRV-Cross/spirv_msl.hpp"
 
@@ -213,6 +214,81 @@ id<MTLFunction> CreateMetalFunction(id<MTLDevice> device, const MetalTranslatedS
 	function.label = [NSString stringWithUTF8String:tag];
 	return function;
 }
+
+class MetalCompileTask : public Task {
+public:
+	MetalCompileTask(std::function<void()> work) : work_(std::move(work)) {}
+	TaskType Type() const override { return TaskType::DEDICATED_THREAD; }
+	TaskPriority Priority() const override { return TaskPriority::NORMAL; }
+	void Run() override { @autoreleasepool { work_(); } }
+
+private:
+	std::function<void()> work_;
+};
+
+void RunOnCompileThread(std::function<void()> work) {
+	g_threadManager.EnqueueTask(new MetalCompileTask(std::move(work)));
+}
+
+@implementation MetalShaderFunction {
+	id<MTLDevice> device_;
+	MetalTranslatedShader shader_;
+	std::string tag_;
+	std::once_flag once_;
+	id<MTLFunction> function_;
+}
+
+- (instancetype)initWithDevice:(id<MTLDevice>)device shader:(const MetalTranslatedShader &)shader tag:(const std::string &)tag {
+	if (self = [super init]) {
+		device_ = device;
+		shader_ = shader;
+		tag_ = tag;
+	}
+	return self;
+}
+
+- (id<MTLFunction>)function {
+	std::call_once(once_, [self] {
+		std::string errorMessage;
+		function_ = CreateMetalFunction(device_, shader_, tag_.c_str(), &errorMessage);
+		if (!function_) {
+			ERROR_LOG(Log::G3D, "%s\n%s", errorMessage.c_str(), LineNumberString(shader_.msl).c_str());
+		}
+		// Not needed anymore.
+		shader_.msl.clear();
+	});
+	return function_;
+}
+@end
+
+@implementation MetalPipelineState {
+	std::mutex mutex_;
+	std::condition_variable cond_;
+	std::atomic<bool> ready_;
+	id<MTLRenderPipelineState> pipeline_;
+}
+
+- (void)setPipeline:(id<MTLRenderPipelineState>)pipeline {
+	{
+		std::lock_guard<std::mutex> guard(mutex_);
+		pipeline_ = pipeline;
+		ready_.store(true, std::memory_order_release);
+	}
+	cond_.notify_all();
+}
+
+- (id<MTLRenderPipelineState>)wait {
+	if (!ready_.load(std::memory_order_acquire)) {
+		std::unique_lock<std::mutex> lock(mutex_);
+		cond_.wait(lock, [self] { return ready_.load(std::memory_order_acquire); });
+	}
+	return pipeline_;
+}
+
+- (BOOL)isReady {
+	return ready_.load(std::memory_order_acquire);
+}
+@end
 
 MetalRenderManager::MetalRenderManager(id<MTLDevice> device, CAMetalLayer *layer, int offscreenWidth, int offscreenHeight, bool useThread) : device_(device), layer_(layer) {
 	queue_ = [device_ newCommandQueue];
@@ -609,7 +685,7 @@ void MetalRenderManager::GenerateMips(__unsafe_unretained id<MTLTexture> texture
 	copy.dst = (__bridge void *)texture;
 }
 
-void MetalRenderManager::SetPipeline(__unsafe_unretained id<MTLRenderPipelineState> pipeline) {
+void MetalRenderManager::SetPipeline(__unsafe_unretained MetalPipelineState *pipeline) {
 	if (state_.pipeline != pipeline) {
 		Record(MetalCmd::PIPELINE).bind.obj = (__bridge void *)pipeline;
 		state_.pipeline = pipeline;
@@ -1086,11 +1162,21 @@ void MetalRenderManager::ReplayPass(const MetalCommandChunk &chunk, MetalStep &s
 	}
 
 	const std::vector<MetalCommand> &commands = chunk.commands;
+	// Draws with a pipeline that failed to compile are dropped.
+	bool pipelineOK = false;
 	for (const auto &range : step.ranges) {
 		for (uint32_t i = range.first; i < range.second; i++) {
 			const MetalCommand &c = commands[i];
 			switch (c.cmd) {
-			case MetalCmd::PIPELINE: [enc setRenderPipelineState:(__bridge id<MTLRenderPipelineState>)c.bind.obj]; break;
+			case MetalCmd::PIPELINE:
+			{
+				id<MTLRenderPipelineState> pso = [(__bridge MetalPipelineState *)c.bind.obj wait];
+				pipelineOK = pso != nil;
+				if (pso) {
+					[enc setRenderPipelineState:pso];
+				}
+				break;
+			}
 			case MetalCmd::DEPTH_STENCIL: [enc setDepthStencilState:(__bridge id<MTLDepthStencilState>)c.bind.obj]; break;
 			case MetalCmd::STENCIL_REF: [enc setStencilReferenceValue:c.value]; break;
 			case MetalCmd::BLEND_COLOR: [enc setBlendColorRed:c.color[0] green:c.color[1] blue:c.color[2] alpha:c.color[3]]; break;
@@ -1107,9 +1193,9 @@ void MetalRenderManager::ReplayPass(const MetalCommandChunk &chunk, MetalStep &s
 			case MetalCmd::FRAGMENT_SAMPLER: [enc setFragmentSamplerState:(__bridge id<MTLSamplerState>)c.bind.obj atIndex:c.index]; break;
 			case MetalCmd::VERTEX_TEXTURE: [enc setVertexTexture:(__bridge id<MTLTexture>)c.bind.obj atIndex:c.index]; break;
 			case MetalCmd::VERTEX_SAMPLER: [enc setVertexSamplerState:(__bridge id<MTLSamplerState>)c.bind.obj atIndex:c.index]; break;
-			case MetalCmd::DRAW: [enc drawPrimitives:(MTLPrimitiveType)c.prim vertexStart:c.draw.start vertexCount:c.draw.count]; break;
+			case MetalCmd::DRAW: if (pipelineOK) [enc drawPrimitives:(MTLPrimitiveType)c.prim vertexStart:c.draw.start vertexCount:c.draw.count]; break;
 			case MetalCmd::DRAW_INDEXED:
-				[enc drawIndexedPrimitives:(MTLPrimitiveType)c.prim indexCount:c.drawIndexed.count indexType:MTLIndexTypeUInt16
+				if (pipelineOK) [enc drawIndexedPrimitives:(MTLPrimitiveType)c.prim indexCount:c.drawIndexed.count indexType:MTLIndexTypeUInt16
 					indexBuffer:(__bridge id<MTLBuffer>)c.drawIndexed.buffer indexBufferOffset:c.drawIndexed.offset];
 				break;
 			default:
