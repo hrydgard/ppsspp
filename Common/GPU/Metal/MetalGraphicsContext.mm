@@ -27,6 +27,14 @@
 #include "Core/ConfigValues.h"
 #include "Core/System.h"
 
+// The drawable size the layer should have, in pixels.
+static void LayerPixelSize(CAMetalLayer *layer, int *width, int *height) {
+	CGSize size = layer.bounds.size;
+	CGFloat scale = layer.contentsScale;
+	*width = (int)(size.width * scale);
+	*height = (int)(size.height * scale);
+}
+
 MetalGraphicsContext::~MetalGraphicsContext() {
 	_dbg_assert_(!draw_ && !renderManager_ && !device_);
 }
@@ -57,14 +65,19 @@ bool MetalGraphicsContext::InitSurface(WindowSystem winsys, void *data1, void *d
 	renderManager_ = new MetalRenderManager(device, layer, offscreenWidth_, offscreenHeight_);
 	renderManager_->SetInflightFrames(g_Config.iInflightFrames);
 	draw_ = Draw::T3DCreateMetalContext(renderManager_);
-	INFO_LOG(Log::G3D, "Metal: Using %s, backbuffer %dx%d%s", [[device name] UTF8String], renderManager_->BackbufferWidth(), renderManager_->BackbufferHeight(), layer ? "" : " (offscreen)");
 	SetGPUBackend(GPUBackend::METAL, [[device name] UTF8String]);
 	if (!draw_->CreatePresets()) {
 		*errorMessage = "Failed to compile preset shaders";
 		ShutdownSurface();
 		return false;
 	}
-	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, renderManager_->BackbufferWidth(), renderManager_->BackbufferHeight());
+	int width = renderManager_->BackbufferWidth();
+	int height = renderManager_->BackbufferHeight();
+	if (layer) {
+		LayerPixelSize(layer, &width, &height);
+	}
+	INFO_LOG(Log::G3D, "Metal: Using %s, backbuffer %dx%d%s", [[device name] UTF8String], width, height, layer ? "" : " (offscreen)");
+	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, width, height);
 	return true;
 }
 
@@ -92,11 +105,8 @@ void MetalGraphicsContext::Resize() {
 	if (offscreenWidth_ > 0 || !layer_) {
 		return;
 	}
-	CAMetalLayer *layer = (__bridge CAMetalLayer *)layer_;
-	CGSize size = layer.bounds.size;
-	CGFloat scale = layer.contentsScale;
-	int width = (int)(size.width * scale);
-	int height = (int)(size.height * scale);
+	int width, height;
+	LayerPixelSize((__bridge CAMetalLayer *)layer_, &width, &height);
 	draw_->HandleEvent(Draw::Event::LOST_BACKBUFFER, renderManager_->BackbufferWidth(), renderManager_->BackbufferHeight());
 	draw_->HandleEvent(Draw::Event::GOT_BACKBUFFER, width, height);
 }

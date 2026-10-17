@@ -13,6 +13,7 @@
 #include <thread>
 #include "Common/GPU/GraphicsContext.h"
 #include "Common/GPU/Vulkan/VulkanGraphicsContext.h"
+#include "Common/GPU/Metal/MetalGraphicsContext.h"
 #include "Common/System/Request.h"
 #include "Common/System/System.h"
 #include "Common/Input/InputState.h"
@@ -595,13 +596,17 @@ static int GetPickerRequestId(id picker) {
 	keyboardInputView_ = [[KeyboardInputView alloc] initWithFrame:CGRectZero];
 	[self.view addSubview:keyboardInputView_];
 
-	graphicsContext = new VulkanGraphicsContext();
+	if (g_Config.iGPUBackend == (int)GPUBackend::METAL) {
+		graphicsContext = new MetalGraphicsContext();
+	} else {
+		graphicsContext = new VulkanGraphicsContext();
+	}
 	std::string errorMessage;
 	if (!graphicsContext->InitAPI(nullptr, &g_Config.sVulkanDevice, &errorMessage)) {
 		delete graphicsContext;
 		graphicsContext = nullptr;  // The render loop and shutdown check for this.
 		// There's no other backend to fall back to.
-		ERROR_LOG(Log::System, "Failed to initialize Vulkan: %s", errorMessage.c_str());
+		ERROR_LOG(Log::System, "Failed to initialize graphics: %s", errorMessage.c_str());
 	}
 
 	[self updateResolutionWithView:self.view];
