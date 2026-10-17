@@ -757,11 +757,17 @@ bool CreateFullPath(const Path &path) {
 
 	// The below code is entirely agnostic of path format.
 
-	Path root = path.GetRootVolume();
-
 	std::string diff;
-	if (!root.ComputePathTo(path, diff)) {
-		return false;
+	Path curPath;
+	if (path.IsAbsolute()) {
+		curPath = path.GetRootVolume();
+		if (!curPath.ComputePathTo(path, diff)) {
+			return false;
+		}
+	} else {
+		// Relative to the current directory, so every component may need creating. GetRootVolume()
+		// can't help here: it hands back the whole path, which left nothing to create.
+		diff = path.ToString();
 	}
 
 	std::vector<std::string_view> parts;
@@ -775,9 +781,9 @@ bool CreateFullPath(const Path &path) {
 		return false;
 	}
 
-	Path curPath = root;
 	for (auto part : parts) {
-		curPath /= part;
+		// Path("") / "a" would be "/a".
+		curPath = curPath.empty() ? Path(std::string(part)) : curPath / part;
 		File::CreateDir(curPath);
 	}
 

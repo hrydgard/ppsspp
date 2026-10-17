@@ -188,24 +188,171 @@ class AdbDevice:
         return ", ".join(s for s in (model, soc, gpu) if s)
 
 
+class IosDevice:
+    """An iPhone or iPad running PPSSPPHeadless as an app (ios/HeadlessMain.mm), driven with devicectl.
+    Dumps go in the app's Documents folder. One launch renders a batch of dumps (--screenshot-dir),
+    since each devicectl call costs a few seconds."""
+
+    BUNDLE_ID = "org.ppsspp.headless"
+    BATCH = 100
+
+    def __init__(self, device):
+        self.device = device
+
+    def devicectl(self, *args, timeout=None, check=True):
+        cmd = ["xcrun", "devicectl"] + list(args)
+        proc = subprocess.run(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=timeout,
+                              text=True, encoding="utf-8", errors="replace")
+        if check and proc.returncode != 0:
+            raise RuntimeError("%s failed:\n%s" % (" ".join(cmd), proc.stdout))
+        return proc
+
+    def container_args(self):
+        return ["--device", self.device, "--domain-type", "appDataContainer", "--domain-identifier", self.BUNDLE_ID]
+
+    def find_device(self):
+        """The device to use: the one asked for, or the only connected iPhone/iPad. Returns a description."""
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "devices.json")
+            self.devicectl("list", "devices", "--json-output", path, "--quiet")
+            with open(path, "r", encoding="utf-8") as f:
+                devices = json.load(f)["result"]["devices"]
+        candidates = []
+        for d in devices:
+            hw = d.get("hardwareProperties", {})
+            props = d.get("deviceProperties", {})
+            conn = d.get("connectionProperties", {})
+            if hw.get("reality") != "physical" or hw.get("platform") != "iOS":
+                continue
+            names = (hw.get("udid"), d.get("identifier"), props.get("name"))
+            if self.device and self.device not in names:
+                continue
+            if conn.get("tunnelState") == "unavailable":
+                continue
+            desc = "%s, iOS %s" % (hw.get("marketingName") or hw.get("productType"), props.get("osVersionNumber", "?"))
+            candidates.append((hw.get("udid"), desc))
+        if len(candidates) != 1:
+            raise RuntimeError("expected one connected iOS device%s, found %d: %s" % (
+                " matching '%s'" % self.device if self.device else "", len(candidates), candidates))
+        self.device = candidates[0][0]
+        return candidates[0][1]
+
+    def setup(self, app, test_root, sync_dumps):
+        desc = self.find_device()
+        self.devicectl("device", "install", "app", "--device", self.device, str(app), timeout=600)
+        if sync_dumps:
+            self.sync_dumps(test_root)
+        return desc
+
+    def remote_files(self, subdirectory):
+        """{relative path: size} of the files under subdirectory of the app's container, or {} if it's missing."""
+        import tempfile
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "files.json")
+            proc = self.devicectl("device", "info", "files", *self.container_args(), "--subdirectory", subdirectory,
+                                  "--json-output", path, "--quiet", check=False, timeout=600)
+            if proc.returncode != 0 or not os.path.exists(path):
+                return {}
+            with open(path, "r", encoding="utf-8") as f:
+                files = json.load(f)["result"]["files"]
+        return {f["relativePath"]: f["metadata"]["size"] for f in files if not f["resources"]["isDirectory"]}
+
+    def sync_dumps(self, test_root):
+        """Copy the dumps that aren't on the device already (by name and size). Nothing is ever deleted:
+        devicectl can't, and its --remove-existing-content empties all of Documents. Dumps left over from
+        another test set do no harm, since only the ones asked for run."""
+        remote = self.remote_files("Documents/dumps")
+        local = {p.relative_to(test_root).as_posix(): p.stat().st_size for p in test_root.rglob("*") if p.is_file()}
+        changed = sorted(rel for rel, size in local.items() if remote.get(rel) != size)
+        if not changed:
+            print("The dumps are already on the device.")
+        elif len(changed) > 20:
+            # Each copy costs a second or so, so many files go faster as one folder.
+            print("Copying all %d files under %s (%d new or changed)..." % (len(local), test_root, len(changed)))
+            self.devicectl("device", "copy", "to", *self.container_args(), "--source", str(test_root),
+                           "--destination", "Documents/dumps", timeout=7200)
+        else:
+            print("Copying %d new or changed dumps..." % len(changed))
+            for rel in changed:
+                self.devicectl("device", "copy", "to", *self.container_args(), "--source", str(test_root / rel),
+                               "--destination", "Documents/dumps/" + rel, timeout=600)
+
+    def run_batch(self, variant, variant_args, rels, timeout, local_dir, log):
+        """Render rels (dump paths relative to the test root) with variant_args. Screenshots end up in
+        local_dir/dumps/<rel>.png. A dump that crashes the app ends its batch, so the rest are retried
+        in a new launch. log receives the console output."""
+        import tempfile
+        remote_shots = "shots/" + variant
+        # The first launch empties it, so screenshots from an earlier run can't stand in for missing ones.
+        clear = ["--ios-clear=" + remote_shots]
+        pending = list(rels)
+        while pending:
+            batch = pending[:self.BATCH]
+            print("  %s: %d dumps left, launching a batch of %d..." % (variant, len(pending), len(batch)))
+            command = ["device", "process", "launch", "--device", self.device, "--terminate-existing", "--console",
+                       self.BUNDLE_ID] + clear + list(variant_args) + [
+                       "--timeout-wall=%g" % timeout, "--screenshot-dir=" + remote_shots] + ["dumps/" + r.as_posix() for r in batch]
+            clear = []
+            try:
+                proc = self.devicectl(*command, timeout=timeout * len(batch) + 60, check=False)
+                log.append(proc.stdout)
+            except subprocess.TimeoutExpired:
+                log.append("devicectl launch timed out\n")
+            with tempfile.TemporaryDirectory() as tmp:
+                # To a folder that doesn't exist yet, which it becomes.
+                dest = os.path.join(tmp, "shots")
+                got = self.devicectl("device", "copy", "from", *self.container_args(), "--source", "Documents/" + remote_shots,
+                                     "--destination", dest, check=False, timeout=600)
+                if got.returncode == 0 and os.path.isdir(dest):
+                    shutil.copytree(dest, str(local_dir), dirs_exist_ok=True)
+            done = [r for r in batch if (local_dir / "dumps" / (r.as_posix() + ".png")).exists()]
+            if not done:
+                # The first one took the app down (or every one of them failed); skip it.
+                pending = pending[1:]
+                continue
+            last = batch.index(done[-1])
+            # Everything up to the last one that rendered had its turn. Of the rest, the first one is
+            # what ended the batch.
+            pending = batch[last + 2:] + pending[len(batch):] if last + 1 < len(batch) else pending[len(batch):]
+
+
+def render_host(headless, host_args, dump_path, host_path, timeout, output_dir):
+    """Render dump_path on the host with host_args, unless an earlier variant already did.
+    Returns (output, error) where error is None or (status, timed_out, detail)."""
+    if host_path.exists():
+        return "", None
+    args = [str(headless)] + list(host_args) + ["--screenshot-save=" + str(host_path), str(dump_path)]
+    try:
+        proc = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=str(output_dir),
+                              timeout=timeout, text=True, encoding="utf-8", errors="replace")
+    except subprocess.TimeoutExpired:
+        return "", (STATUS_FAIL, True, "timed out on the host")
+    output = "=== host ===\n" + proc.stdout
+    if not host_path.exists():
+        return output, (STATUS_ERROR, False, "the host run produced no screenshot")
+    return output, None
+
+
+def compare_with_host(host_path, actual_path, diff_path, compare_args):
+    """Compare a device screenshot approximately (Tools/image_compare.py) with the host's. Returns (status, detail)."""
+    import image_compare
+    a, b, area, blocks, bias = image_compare.compare(image_compare.load(str(host_path)), image_compare.load(str(actual_path)), compare_args)
+    if not area.any() and not blocks.any():
+        return STATUS_PASS, ""
+    image_compare.heatmap(str(diff_path), a, b, area, blocks, compare_args.block)
+    return STATUS_FAIL, "%d px, %d/%d blocks differ from the host (bias %+.1f %+.1f %+.1f)" % (
+        area.sum(), blocks.sum(), blocks.size, bias[0], bias[1], bias[2])
+
+
 def run_side_by_side(headless, host_args, device, dump_path, rel, variant_args, host_path, actual_path, diff_path,
                      timeout, output_dir, compare_args):
     """Run one dump on the device, and compare its screenshot approximately (Tools/image_compare.py) with
     the host's, rendered with host_args. The host render is shared by all variants of a dump.
     Returns (status, mse, output, timed_out, detail)."""
-    import image_compare
-
-    output = ""
-    if not host_path.exists():
-        args = [str(headless)] + list(host_args) + ["--screenshot-save=" + str(host_path), str(dump_path)]
-        try:
-            proc = subprocess.run(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, cwd=str(output_dir),
-                                  timeout=timeout, text=True, encoding="utf-8", errors="replace")
-            output += "=== host ===\n" + proc.stdout
-        except subprocess.TimeoutExpired:
-            return STATUS_FAIL, None, output, True, "timed out on the host"
-        if not host_path.exists():
-            return STATUS_ERROR, None, output, False, "the host run produced no screenshot"
+    output, error = render_host(headless, host_args, dump_path, host_path, timeout, output_dir)
+    if error:
+        return error[0], None, output, error[1], error[2]
 
     shot = "%s/shots/shot.png" % device.dir
     device.shell("rm -f %s" % shlex.quote(shot), check=False)
@@ -221,12 +368,22 @@ def run_side_by_side(headless, host_args, device, dump_path, rel, variant_args, 
     if device.adb("pull", shot, str(actual_path), check=False).returncode != 0 or not actual_path.exists():
         return STATUS_ERROR, None, output, False, "the device run produced no screenshot"
 
-    a, b, area, blocks, bias = image_compare.compare(image_compare.load(str(host_path)), image_compare.load(str(actual_path)), compare_args)
-    if not area.any() and not blocks.any():
-        return STATUS_PASS, None, output, False, ""
-    image_compare.heatmap(str(diff_path), a, b, area, blocks, compare_args.block)
-    return STATUS_FAIL, None, output, False, "%d px, %d/%d blocks differ from the host (bias %+.1f %+.1f %+.1f)" % (
-        area.sum(), blocks.sum(), blocks.size, bias[0], bias[1], bias[2])
+    status, detail = compare_with_host(host_path, actual_path, diff_path, compare_args)
+    return status, None, output, False, detail
+
+
+def ios_side_by_side(headless, host_args, dump_path, shot_path, device_log, host_path, actual_path, diff_path,
+                     timeout, output_dir, compare_args):
+    """run_side_by_side for a dump the iOS device already rendered, in a batch, to shot_path."""
+    output, error = render_host(headless, host_args, dump_path, host_path, timeout, output_dir)
+    if error:
+        return error[0], None, output, error[1], error[2]
+    output += "\n=== device (whole batch) ===\n" + device_log
+    if not shot_path.exists():
+        return STATUS_ERROR, None, output, False, "the device run produced no screenshot (crashed or timed out?)"
+    shutil.copyfile(shot_path, actual_path)
+    status, detail = compare_with_host(host_path, actual_path, diff_path, compare_args)
+    return status, None, output, False, detail
 
 
 def image_data_uri(path):
@@ -346,8 +503,15 @@ def main():
                         help="With --adb: the Android headless binary to push (default: android/libs/arm64-v8a/ppsspp_headless)")
     parser.add_argument("--device-dir", default="/data/local/tmp/ppsspp-frametests",
                         help="With --adb: where on the device the binary, assets and dumps go")
+    parser.add_argument("--ios", nargs="?", const="", default=None, metavar="DEVICE",
+                        help="Like --adb, on an iPhone or iPad over devicectl, with PPSSPPHeadless built as an app "
+                             "(see docs/frametest.md). DEVICE (UDID or name) picks one when several are connected")
+    parser.add_argument("--ios-app", default="build-ios-headless/Release-iphoneos/PPSSPPHeadless.app",
+                        help="With --ios: the app to install (default: build-ios-headless/Release-iphoneos/PPSSPPHeadless.app)")
+    parser.add_argument("--no-sync", action="store_true",
+                        help="With --ios: don't copy the dumps over, they're already on the device")
     parser.add_argument("--host-args", default="--graphics=vulkan --dump-compat",
-                        help="With --adb: how the host renders the reference each device run is compared with "
+                        help="With --adb or --ios: how the host renders the reference each device run is compared with "
                              "(default: --graphics=vulkan --dump-compat)")
     parser.add_argument("--variants", default="",
                         help="Variants to run, as name=args pairs separated by commas, replacing the config's "
@@ -373,6 +537,9 @@ def main():
     if not args.variants and args.adb is not None:
         # With the game's compat settings on both sides, which is what the game would look like.
         args.variants = "vulkan=--graphics=vulkan --dump-compat,gl=--graphics=gles --dump-compat"
+    if not args.variants and args.ios is not None:
+        # iOS is Vulkan (MoltenVK) only.
+        args.variants = "vulkan=--graphics=vulkan --dump-compat"
     if args.variants:
         raw_variants = dict(v.split("=", 1) for v in args.variants.split(","))
     if not raw_variants:
@@ -415,17 +582,31 @@ def main():
         dumps = [d for d in dumps if filter_lower in str(d.relative_to(test_root)).lower()]
 
     device = None
+    ios = None
     compare_args = None
-    if args.adb is not None:
+    if args.adb is not None or args.ios is not None:
         sys.path.insert(0, str(Path(__file__).resolve().parent / "Tools"))
         import image_compare
         compare_args = argparse.Namespace(tolerance=12, radius=1, min_neighbors=5, block=8, block_tolerance=8.0, crop=(480, 272))
+        shutil.rmtree(output_root / "host", ignore_errors=True)
+    if args.ios is not None:
+        ios_app = Path(args.ios_app)
+        if not ios_app.is_dir():
+            print("ERROR: iOS headless app not found: %s" % ios_app, file=sys.stderr)
+            return 2
+        ios = IosDevice(args.ios)
+        print("Installing %s%s..." % (ios_app, "" if args.no_sync else " and copying the dumps"))
+        try:
+            print("Device: %s" % ios.setup(ios_app, test_root, not args.no_sync))
+        except (RuntimeError, OSError, subprocess.TimeoutExpired) as e:
+            print("ERROR: %s" % e, file=sys.stderr)
+            return 2
+    if args.adb is not None:
         device_headless = Path(args.device_headless)
         if not device_headless.is_file():
             print("ERROR: Android headless binary not found: %s" % device_headless, file=sys.stderr)
             return 2
         device = AdbDevice(args.adb, args.device_dir)
-        shutil.rmtree(output_root / "host", ignore_errors=True)
         print("Pushing %s, assets and dumps to %s..." % (device_headless, device.dir))
         try:
             print("Device: %s" % device.setup(device_headless, Path(__file__).resolve().parent / "assets", test_root))
@@ -457,6 +638,17 @@ def main():
     new_refs = 0
     start_time = time.time()
 
+    # The device renders every dump of a variant up front, in batches.
+    ios_shots = output_root / "ios-shots"
+    ios_logs = {}
+    if ios:
+        shutil.rmtree(ios_shots, ignore_errors=True)
+        rels = [d.relative_to(test_root) for d in dumps]
+        for variant, vinfo in variants.items():
+            log = []
+            ios.run_batch(variant, vinfo["args"], rels, timeout, ios_shots / variant, log)
+            ios_logs[variant] = "".join(log)
+
     for dump in dumps:
         rel = dump.relative_to(test_root)
         base = strip_dump_extensions(dump.name)
@@ -472,7 +664,14 @@ def main():
                 p.parent.mkdir(parents=True, exist_ok=True)
 
             remote_detail = None
-            if device:
+            if ios:
+                ref_path = output_root / "host" / rel_dir / ("%s.png" % base)
+                ref_path.parent.mkdir(parents=True, exist_ok=True)
+                shot_path = ios_shots / variant / "dumps" / (rel.as_posix() + ".png")
+                status, mse, output, timed_out, remote_detail = ios_side_by_side(
+                    headless, shlex.split(args.host_args), dump, shot_path, ios_logs[variant], ref_path, actual_path,
+                    diff_path, timeout, output_root, compare_args)
+            elif device:
                 # The host's screenshot is the reference, so the exact references aren't involved.
                 ref_path = output_root / "host" / rel_dir / ("%s.png" % base)
                 ref_path.parent.mkdir(parents=True, exist_ok=True)

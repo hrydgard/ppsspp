@@ -1338,7 +1338,15 @@ if(HEADLESS)
 			SDL/SDLUtil.h
 		)
 	endif()
-	if(APPLE)
+	if(IOS)
+		list(APPEND HeadlessSource
+			Common/Render/Text/draw_text_cocoa.mm
+			Common/Render/Text/draw_text_cocoa.h
+			ios/HeadlessMain.mm
+		)
+		set_source_files_properties(Common/Render/Text/draw_text_cocoa.mm ios/HeadlessMain.mm
+			PROPERTIES COMPILE_FLAGS -fobjc-arc)
+	elseif(APPLE)
 		list(APPEND HeadlessSource
 			Common/Render/Text/draw_text_cocoa.mm
 			Common/Render/Text/draw_text_cocoa.h
@@ -1368,8 +1376,14 @@ if(HEADLESS)
 			Windows/W32Util/Misc.h
 		)
 	endif()
-	add_executable(PPSSPPHeadless ${HeadlessSource})
-	target_link_libraries(PPSSPPHeadless ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${IOKIT_LIBRARY} ${CMAKE_THREAD_LIBS_INIT} Core)
+	if(IOS)
+		# An app bundle, set up further down with the iOS app (see ios/HeadlessMain.mm).
+		add_executable(PPSSPPHeadless MACOSX_BUNDLE ${HeadlessSource})
+		target_link_libraries(PPSSPPHeadless ${CMAKE_THREAD_LIBS_INIT} Core)
+	else()
+		add_executable(PPSSPPHeadless ${HeadlessSource})
+		target_link_libraries(PPSSPPHeadless ${COCOA_LIBRARY} ${QUARTZ_CORE_LIBRARY} ${IOKIT_LIBRARY} ${CMAKE_THREAD_LIBS_INIT} Core)
+	endif()
 	if(SDL_LIB_TARGET)
 		target_link_libraries(PPSSPPHeadless ${SDL_LIB_TARGET})
 	endif()
@@ -1710,6 +1724,36 @@ if(IOS AND NOT LIBRETRO)
 		COMMAND plutil -replace CFBundleDisplayName -string "${DISPLAY_NAME}" "${APP_DIR_NAME}/Info.plist"
 		COMMAND plutil -replace CFBundleIdentifier -string "${BUNDLE_IDENTIFIER}" "${APP_DIR_NAME}/Info.plist"
 	)
+
+	if(HEADLESS AND NOT TVOS)
+		# PPSSPPHeadless as an app of its own (org.ppsspp.headless), for running frame dumps on a
+		# device. Signed for development, so devicectl can copy files in and out of its container.
+		target_link_libraries(PPSSPPHeadless
+			"${CMAKE_CURRENT_SOURCE_DIR}/ios/MoltenVK/MoltenVK.xcframework/${MOLTENVK_SLICE}/libMoltenVK.a"
+			"-framework Foundation -framework UIKit -framework CoreGraphics -framework CoreText -framework QuartzCore -framework Metal -framework IOSurface -framework AudioToolbox -framework AVFoundation -framework CoreMedia -framework CoreVideo -framework UniformTypeIdentifiers"
+		)
+		if(NOT ICONV_LIBRARY)
+			target_link_libraries(PPSSPPHeadless iconv)
+		endif()
+		set(HEADLESS_APP_DIR "$<TARGET_FILE_DIR:PPSSPPHeadless>")
+		add_custom_command(TARGET PPSSPPHeadless POST_BUILD
+			COMMAND mkdir -p \"${HEADLESS_APP_DIR}\"
+			COMMAND tar -c -C ${CMAKE_CURRENT_BINARY_DIR} --exclude .DS_Store --exclude .git assets | tar -x -C \"${HEADLESS_APP_DIR}\"
+		)
+		set_target_properties(PPSSPPHeadless PROPERTIES
+			XCODE_GENERATE_SCHEME YES
+			MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/ios/Headless-Info.plist"
+			XCODE_ATTRIBUTE_PRODUCT_BUNDLE_IDENTIFIER org.ppsspp.headless
+			XCODE_ATTRIBUTE_IPHONEOS_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET}
+			XCODE_ATTRIBUTE_TARGETED_DEVICE_FAMILY "1,2"
+			XCODE_ATTRIBUTE_ENABLE_BITCODE NO
+			XCODE_ATTRIBUTE_CODE_SIGN_IDENTITY "Apple Development"
+			XCODE_ATTRIBUTE_CODE_SIGN_STYLE "Automatic"
+		)
+		if(DEVELOPMENT_TEAM_ID)
+			set_target_properties(PPSSPPHeadless PROPERTIES XCODE_ATTRIBUTE_DEVELOPMENT_TEAM ${DEVELOPMENT_TEAM_ID})
+		endif()
+	endif()
 endif()
 
 if(MACOSX AND NOT IOS)

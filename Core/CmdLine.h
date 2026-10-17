@@ -195,6 +195,8 @@ struct CommandLineOptions {
 
 	std::optional<std::string> screenshotFilename;
 	std::optional<std::string> screenshotFilenameSave;
+	// Headless: save each test's screenshot as DIR/<test path>.png, for many dumps in one run.
+	std::optional<std::string> screenshotDir;
 	std::optional<std::string> depthFilenameSave;
 	std::optional<std::string> dumpAudioFilename;
 	std::optional<int> replayEnd;

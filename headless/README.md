@@ -44,6 +44,7 @@ PPSSPPHeadless file.elf|file.prx|file.ppdmp [...] [options]
 | `--graphics=<backend>`          | GPU backend: `software`, `gles`, `directx11`, `vulkan`.    |
 | `--screenshot=<file>`           | Compare the rendered output against a reference screenshot. |
 | `--screenshot-save=<file>`      | Save the rendered output to a file (PNG if the path ends in `.png`, BMP otherwise). |
+| `--screenshot-dir=<dir>`        | Save each test's output as `<dir>/<test path>.png`, so one run can render many dumps. |
 | `--screenshot-diff=<file>`      | When comparing screenshots, save a visual comparison image to this file (always, regardless of pass/fail). |
 | `--screenshot-keep-alpha`       | Preserve the alpha channel when saving PNG screenshots (default: alpha is forced to 255, since games often use it for non-visual purposes). |
 | `--max-mse=<number>`            | Maximum allowed Mean Squared Error for screenshot comparison (default: 0 = exact). |
