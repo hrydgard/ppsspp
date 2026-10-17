@@ -8,6 +8,7 @@
 #include <string>
 #include <cstdint>
 
+#include "ppsspp_config.h"
 #include "Common/Common.h"
 #include "Common/Input/KeyCodes.h"
 #include "Common/Log.h"
@@ -181,6 +182,13 @@ enum class KeyInputFlags {
 };
 
 ENUM_CLASS_BITOPS(KeyInputFlags);
+
+// The modifier for standard shortcuts like copy and paste: Cmd on Apple platforms, Ctrl elsewhere.
+#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+constexpr KeyInputFlags KEY_MOD_SHORTCUT = KeyInputFlags::ModMeta;
+#else
+constexpr KeyInputFlags KEY_MOD_SHORTCUT = KeyInputFlags::ModCtrl;
+#endif
 
 struct KeyInput {
 	KeyInput() {}

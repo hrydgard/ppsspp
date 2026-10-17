@@ -482,8 +482,13 @@ bool ViewSearch::Key(UI::ViewGroup *viewGroup, const KeyInput &input) {
 	} else if (input.flags & KeyInputFlags::DOWN) {
 		if (input.keyCode == NKCODE_DEL) {
 			if (!searchFilter.empty()) {
-				if (input.flags & KeyInputFlags::ModCtrl) {
-					// Ctrl+Backspace deletes the last word. Delete until the last space.
+#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+				const KeyInputFlags wordMod = KeyInputFlags::ModAlt;
+#else
+				const KeyInputFlags wordMod = KeyInputFlags::ModCtrl;
+#endif
+				if (input.flags & wordMod) {
+					// Ctrl+Backspace (Option+Backspace on Apple) deletes the last word. Delete until the last space.
 					size_t pos = searchFilter.find_last_of(' ');
 					if (pos != searchFilter.npos) {
 						searchFilter.erase(pos);

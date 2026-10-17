@@ -1450,7 +1450,7 @@ bool TextEdit::Key(const KeyInput &input) {
 			break;
 		}
 
-		if ((input.flags & KeyInputFlags::ModCtrl) || (input.flags & KeyInputFlags::ModMeta)) {
+		if (input.flags & KEY_MOD_SHORTCUT) {
 			switch (input.keyCode) {
 			case NKCODE_C:
 				// Just copy the entire text contents, until we get selection support.
