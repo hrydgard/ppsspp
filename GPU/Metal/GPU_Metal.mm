@@ -97,6 +97,12 @@ void GPU_Metal::FinishDeferred() {
 }
 
 void GPU_Metal::DeviceLost() {
+	// The managers free their caches (pipelines, samplers, depth stencil states) right away, so nothing
+	// recorded can still be waiting to use them.
+	if (draw_) {
+		MetalRenderManager *rm = (MetalRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+		rm->WaitIdle();
+	}
 	drawEngine_->ClearPipelines();
 	GPUCommonHW::DeviceLost();
 }
