@@ -14,6 +14,7 @@
 #include <sstream>
 #include <queue>
 #include <mutex>
+#include <optional>
 #include <thread>
 #include <atomic>
 
@@ -847,6 +848,50 @@ extern "C" void Java_org_ppsspp_ppsspp_NativeApp_shutdown(JNIEnv *, jclass) {
 	INFO_LOG(Log::System, "NativeApp.shutdown() -- end");
 }
 
+// A size change from the UI thread, for the render thread to apply between frames. Changing g_display while a
+// frame is being drawn gives a frame laid out for one size and drawn at another.
+struct PendingResize {
+	int pixelXres;
+	int pixelYres;
+	float dpiX;
+	float dpiY;
+	bool rotated;
+};
+static std::mutex g_pendingResizeLock;
+static std::optional<PendingResize> g_pendingResize;
+
+static void ApplyResize(const PendingResize &resize) {
+	const int old_w = g_display.pixel_xres;
+	const int old_h = g_display.pixel_yres;
+	const int old_dp_w = g_display.dp_xres;
+	const int old_dp_h = g_display.dp_yres;
+
+	bool new_size = g_display.Recalculate(resize.pixelXres, resize.pixelYres, resize.dpiX, resize.dpiY, UIScaleFactorToMultiplier(g_Config.iUIScaleFactor));
+	INFO_LOG(Log::G3D, "ApplyResize: pixel_xres=%d pixel_yres=%d g_dpi_scale_x=%f g_dpi_scale_y=%f dp_xres=%d dp_yres=%d",
+		g_display.pixel_xres, g_display.pixel_yres, g_display.dpi_scale_x, g_display.dpi_scale_y, g_display.dp_xres, g_display.dp_yres);
+
+	if (new_size || resize.rotated) {
+		// Note that a density change moves the dp size while the pixel size stays put.
+		INFO_LOG(Log::G3D, "%s detected (previously %dx%d px, %dx%d dp) - calling NativeResized()",
+			new_size ? "Size change" : "Rotation change", old_w, old_h, old_dp_w, old_dp_h);
+		NativeResized();
+	} else {
+		INFO_LOG(Log::G3D, "ApplyResize: Size didn't change.");
+	}
+}
+
+// On the render thread, before each frame.
+static void ApplyPendingResize() {
+	std::optional<PendingResize> resize;
+	{
+		std::lock_guard<std::mutex> guard(g_pendingResizeLock);
+		resize.swap(g_pendingResize);
+	}
+	if (resize) {
+		ApplyResize(*resize);
+	}
+}
+
 extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv *, jclass, jint pixel_xres, jint pixel_yres, jint rotation) {
 	INFO_LOG(Log::System, "NativeApp.backbufferResize(%d x %d, rotation %d)", pixel_xres, pixel_yres, rotation);
 
@@ -856,36 +901,37 @@ extern "C" void JNICALL Java_org_ppsspp_ppsspp_NativeApp_backbufferResize(JNIEnv
 	const bool rotated = lastRotation != -1 && rotation != lastRotation;
 	lastRotation = rotation;
 
-	int old_w = g_display.pixel_xres;
-	int old_h = g_display.pixel_yres;
-	int old_dp_w = g_display.dp_xres;
-	int old_dp_h = g_display.dp_yres;
-
 	// pixel_*res is the backbuffer resolution.
 	if (IsVREnabled()) {
 		GetVRResolutionPerEye(&pixel_xres, &pixel_yres);
 	}
 
 	// Compute display scale factor. Always < 1.0f (well, as long as we use buffers sized smaller than the screen...)
+	// These two convert touch coordinates, here on the UI thread, so they're set right away.
 	display_scale_x = (float)pixel_xres / (float)display_xres;
 	display_scale_y = (float)pixel_yres / (float)display_yres;
 
-	float dpi_x = (1.0f / display_scale_x) * (240.0f / (float)display_dpi);
-	float dpi_y = (1.0f / display_scale_y) * (240.0f / (float)display_dpi);
+	PendingResize resize{};
+	resize.pixelXres = pixel_xres;
+	resize.pixelYres = pixel_yres;
+	resize.dpiX = (1.0f / display_scale_x) * (240.0f / (float)display_dpi);
+	resize.dpiY = (1.0f / display_scale_y) * (240.0f / (float)display_dpi);
+	resize.rotated = rotated;
+	INFO_LOG(Log::G3D, "RecalcDPI: display_xres=%d display_yres=%d g_dpi=%d scaled_dpi_x=%f scaled_dpi_y=%f display_scale_x=%f display_scale_y=%f",
+		display_xres, display_yres, display_dpi, resize.dpiX, resize.dpiY, display_scale_x, display_scale_y);
 
-	bool new_size = g_display.Recalculate(pixel_xres, pixel_yres, dpi_x, dpi_y, UIScaleFactorToMultiplier(g_Config.iUIScaleFactor));
-
-	INFO_LOG(Log::G3D, "RecalcDPI: display_xres=%d display_yres=%d pixel_xres=%d pixel_yres=%d", display_xres, display_yres, g_display.pixel_xres, g_display.pixel_yres);
-	INFO_LOG(Log::G3D, "RecalcDPI: g_dpi=%d scaled_dpi_x=%f scaled_dpi_y=%f display_scale_x=%f display_scale_y=%f g_dpi_scale_x=%f g_dpi_scale_y=%f dp_xres=%d dp_yres=%d",
-		display_dpi, dpi_x, dpi_y, display_scale_x, display_scale_y, g_display.dpi_scale_x, g_display.dpi_scale_y, g_display.dp_xres, g_display.dp_yres);
-
-	if (new_size || rotated) {
-		// Note that a density change moves the dp size while the pixel size stays put.
-		INFO_LOG(Log::G3D, "%s detected (previously %dx%d px, %dx%d dp) - calling NativeResized()",
-			new_size ? "Size change" : "Rotation change", old_w, old_h, old_dp_w, old_dp_h);
-		NativeResized();
+	std::lock_guard<std::mutex> guard(g_pendingResizeLock);
+	if (g_pendingResize) {
+		// One the render thread hasn't got to yet. Its size is superseded, but a rotation in it still counts.
+		resize.rotated |= g_pendingResize->rotated;
+	}
+	if (renderLoopRunning) {
+		// Applied by the render thread before its next frame (or the next render loop's first one, if it's exiting).
+		g_pendingResize = resize;
 	} else {
-		INFO_LOG(Log::G3D, "NativeApp::backbufferResize: Size didn't change.");
+		// Nothing is drawing, so nothing reads g_display. runRenderLoop is on this thread, so that can't change under us.
+		g_pendingResize.reset();
+		ApplyResize(resize);
 	}
 }
 
@@ -1557,6 +1603,7 @@ static void RenderLoopThread(ANativeWindow *wnd, GraphicsContext *graphicsContex
 
 	renderer_inited = true;
 	const auto frame = [](GraphicsContext *graphicsContext) {
+		ApplyPendingResize();
 		NativeFrame(graphicsContext);
 		ProcessFrameCommands();
 		return !exitRenderLoop;
