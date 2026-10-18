@@ -751,6 +751,9 @@ def run_tests(test_list, args):
     # TODO: Maybe --compare should detect --graphics?
     cmdline = [PPSSPP_EXE, '--root', TEST_ROOT + '../', '--compare', '--timeout-wall=' + str(timeout), '@-']
     cmdline.extend([i for i in args if i not in ['-g', '-m', '-b']])
+    # A memory stick of the tests' own, so they neither write into the user's nor see its firmware.
+    if not any(i.startswith('--memstick') for i in cmdline):
+      cmdline.append('--memstick=' + os.path.join(os.path.dirname(os.path.abspath(PPSSPP_EXE)), 'memstick'))
 
     c = Command(cmdline, '\n'.join(test_filenames))
     returncode = c.run(timeout * len(test_filenames))

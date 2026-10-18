@@ -651,15 +651,7 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 #elif PPSSPP_PLATFORM(WINDOWS)
 	// ...
 #else
-	std::string config;
-	if (getenv("XDG_CONFIG_HOME") != NULL)
-		config = getenv("XDG_CONFIG_HOME");
-	else if (getenv("HOME") != NULL)
-		config = getenv("HOME") + std::string("/.config");
-	else // Just in case
-		config = "./config";
-
-	g_Config.memStickDirectory = Path(config) / "ppsspp";
+	g_Config.memStickDirectory = GetDefaultDesktopMemStickDirectory();
 	if (getenv("HOME") != nullptr) {
 		g_Config.defaultCurrentDirectory = Path(getenv("HOME"));
 	} else {

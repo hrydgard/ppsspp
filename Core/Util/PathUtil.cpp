@@ -278,3 +278,21 @@ std::string GetFriendlyPath(Path path, const Path &rootMatch, std::string_view r
 #endif
 	return path.ToVisualString();
 }
+
+Path GetDefaultDesktopMemStickDirectory() {
+	const char *home = getenv("HOME");
+#if PPSSPP_PLATFORM(MAC)
+	return Path(home ? home : ".") / ".config/ppsspp";
+#else
+	std::string config;
+	if (getenv("XDG_CONFIG_HOME") != nullptr) {
+		config = getenv("XDG_CONFIG_HOME");
+	} else if (home) {
+		config = home + std::string("/.config");
+	} else {
+		// Just in case.
+		config = "./config";
+	}
+	return Path(config) / "ppsspp";
+#endif
+}
