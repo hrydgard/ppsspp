@@ -665,6 +665,14 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 		g_Config.currentDirectory = g_Config.defaultCurrentDirectory;
 	}
 
+	// --memstick replaces the memory stick, the config in it included, so it has to be in place before the config
+	// is loaded. ApplyToConfig() below sets it again, which changes nothing.
+	if (cmdLineOptions.memStick.has_value()) {
+		g_Config.memStickDirectory = Path(cmdLineOptions.memStick.value());
+		File::CreateFullPath(g_Config.memStickDirectory);
+		CreateSysDirectories();
+	}
+
 	// Mount a filesystem
 	g_Config.nandRootDirectory = GetSysDirectory(DIRECTORY_NAND);
 
