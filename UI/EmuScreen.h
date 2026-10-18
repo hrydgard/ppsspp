@@ -129,6 +129,9 @@ private:
 	UI::Button *backButton_ = nullptr;
 	UI::Clickable *chatButton_ = nullptr;
 	ChatMenu *chatMenu_ = nullptr;
+	// Set when the chat opens. Stick movements don't reach the control mapper while it's open (key
+	// releases do), so what's held is let go up front.
+	bool releaseMapperInput_ = false;
 
 	UI::Button *cardboardDisableButton_ = nullptr;
 
