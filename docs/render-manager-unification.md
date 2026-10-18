@@ -8,7 +8,9 @@ drift.
 pipelines and uniforms. The GPU layer and thin3d both use the render manager's objects directly, so
 thin3d stops wrapping them and needs one implementation, not one per backend. Render managers own their
 pipelines. GL uses uniform buffers, and a small corner of `GLRenderManager` turns them back into plain
-uniforms for GLES 2 and for drivers where uniform buffers are slow.
+uniforms for GLES 2 and for drivers where uniform buffers are slow. Later, if the overhead stays under
+1%, game draws go through the same interface, and the end state is one command list format with a
+replay written per backend.
 
 ## Where things stand
 
@@ -80,7 +82,8 @@ also owns:
 
 - **variants:** Vulkan already builds a pipeline per render pass type and sample count, which nothing
   outside should need to know;
-- **background compilation and waiting,** which Vulkan and Metal now each do in their own way;
+- **background compilation:** a pipeline handle can be bound while its pipeline is still compiling, and
+  the replay waits for it, as Vulkan and Metal both do now. Nothing is skipped;
 - **lifetime.**
 
 The GPU layer keeps everything PSP-specific:
@@ -129,8 +132,8 @@ facade over that interface. The facade is the same for every backend, so the per
 go away one at a time. The UI, presentation, libretro and anything else that wants a generic API keep
 using `DrawContext`.
 
-Game draws stay outside thin3d. Routing them through its virtual pipeline and state calls would cost
-speed on the hot path.
+Game draws don't go through thin3d. They go to the render managers, at first through each backend's own
+draw engine, and later possibly through the interface (see below).
 
 ## What it unlocks
 
@@ -140,6 +143,43 @@ speed on the hot path.
 - The bound-texture hooks and most `GetNativeObject()` calls disappear.
 - The software-transform half of `DrawEngine*::Flush`, nearly identical in all four backends, gets
   easier to share once state and binding go through one interface.
+
+## Later: game draws through the interface
+
+If the interface is fast enough, the game draws can go through it too, and the four draw engines become
+one. The target is under 1% overhead.
+
+Virtual calls aren't the problem. A game draw is about ten operations (bind the pipeline, push uniforms,
+vertices and indices, bind textures and samplers, set dynamic state, draw). Even at a few thousand draws
+a frame (Tekken's many tiny draws are the worst measured case), that's a few million calls a second, a
+fraction of a percent of one core. The risk is what an abstraction loses on the way:
+
+- **Push buffers.** Vertices are decoded straight into mapped push buffer memory. The interface hands out
+  a raw pointer plus a buffer handle and offset, so nothing is copied twice.
+- **Per-bind costs.** Binds take plain handles, with no refcounting, and pipelines a precomputed handle.
+  Hashing a pipeline description per draw would be the most expensive mistake.
+- **Fast paths.** Skipping redundant state while recording (Metal), caching descriptor sets (Vulkan) and
+  tracking dirty uniforms (GL) live inside the render managers, below the interface. Most already do.
+- **Feature differences.** Provoking vertex, dual-source blending, framebuffer fetch versus copying the
+  framebuffer for shader blending, depth clamp and clip distances stay capability flags that the shared
+  draw engine branches on, as each `Flush` does today.
+
+The interface then also needs push buffer allocation for vertices, indices and uniforms, binding vertex
+and index buffers at an offset, binding uniform block ranges per slot, texture and sampler slots, and
+draws. Clears inside a pass and render pass merging stay internal to the render managers.
+
+The design of the resource interface (step 2 below) has to allow for this from the start: plain handles,
+no refcounting on bind, push buffers as pointers.
+
+**Measuring it:** rewrite `DrawEngineMetal` against the interface and compare it with the current one on
+the benchmark savestates, by instructions retired and cycles rather than wall time, which is too noisy
+for a difference this size. Tekken is the stress case. If Metal stays under 1%, the shared draw engine
+replaces Vulkan's next, then the others.
+
+**End state:** a command list format shared by all backends, recorded by the shared code, with a replay
+("player") written per backend. Vulkan, GL and Metal already record commands and replay them, each in a
+format of its own. D3D11 would get a player too, replaying on the emulator thread. Recording, state
+deduplication and render pass merging could then be written once.
 
 ## Order of work
 
@@ -153,6 +193,9 @@ speed on the hot path.
 5. Write the D3D11 render manager, implemented immediately, and move D3D11 over.
 6. Move pipelines into the render managers, Metal and Vulkan first.
 7. GL: uniform buffers, the cracking corner, then the facade.
+8. Game draws through the interface: Metal's draw engine first, measured against the current one, then
+   the other backends if it holds up.
+9. The shared command list, with a player per backend.
 
 Each step is a PR of its own and leaves every backend working.
 
