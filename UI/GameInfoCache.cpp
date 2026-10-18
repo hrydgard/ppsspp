@@ -34,6 +34,7 @@
 #include "Common/StringUtils.h"
 #include "Common/TimeUtil.h"
 #include "Core/FileSystems/ISOFileSystem.h"
+#include "Core/FileSystems/BlockDevices.h"
 #include "Core/FileLoaders/ZArchiveFileLoader.h"
 #include "Core/FileSystems/DirectoryFileSystem.h"
 #include "Core/FileSystems/VirtualDiscFileSystem.h"
@@ -216,7 +217,20 @@ u64 GameInfo::GetSizeUncompressedInBytes() {
 			delete archiveLoader;
 			return GetFileLoader()->FileSize();
 		}
-		return archive->TotalFileSize();
+		// Everything in it decompressed, and the disc images inside decompressed too (CSO, CHD, PBP),
+		// so this is the size as plain ISOs.
+		u64 total = archive->TotalFileSize();
+		ZArchiveContents contents;
+		ScanZArchiveContents(*archive, &contents);
+		for (const std::string &disc : contents.discs) {
+			ZArchiveFileLoader discLoader(archive, disc);
+			std::string errorString;
+			std::unique_ptr<BlockDevice> blockDevice(ConstructBlockDevice(&discLoader, &errorString));
+			if (blockDevice) {
+				total = total - (u64)discLoader.FileSize() + blockDevice->GetUncompressedSize();
+			}
+		}
+		return total;
 	}
 	default:
 	{
