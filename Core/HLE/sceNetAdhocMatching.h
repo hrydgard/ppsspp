@@ -36,8 +36,6 @@ int NetAdhocMatching_Term();
 void DoNetAdhocMatchingInited(PointerWrap &p);
 void DoNetAdhocMatchingThreads(PointerWrap &p);
 void ZeroNetAdhocMatchingThreads();
-void SaveNetAdhocMatchingInited();
-void RestoreNetAdhocMatchingInited();
 
 void Register_sceNetAdhocMatching();
 void __NetAdhocMatchingInit();

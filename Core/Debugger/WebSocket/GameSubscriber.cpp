@@ -60,6 +60,7 @@ DebuggerSubscriber *WebSocketGameInit(DebuggerEventHandlerMap &map) {
 	map["game.reset"] = &WebSocketGameReset;
 	map["game.status"] = &WebSocketGameStatus;
 	map["game.state.load"] = &WebSocketGameStateLoad;
+	map["game.state.save"] = &WebSocketGameStateSave;
 	map["game.speed.get"] = &WebSocketGameSpeedGet;
 	map["game.speed.set"] = &WebSocketGameSpeedSet;
 	map["version"] = &WebSocketVersion;
@@ -151,6 +152,34 @@ void WebSocketGameStateLoad(DebuggerRequest &req) {
 	SaveState::Load(Path(path), -1, [](SaveState::Status status, std::string_view message, std::string_view) {
 		if (status == SaveState::Status::FAILURE) {
 			ERROR_LOG(Log::System, "game.state.load: %.*s", STR_VIEW(message));
+		}
+	});
+	req.Respond();
+}
+
+// Save a savestate file (game.state.save)
+//
+// Like game.state.load, the save is queued and happens at the end of the next frame the CPU runs.
+//
+// Parameters:
+//  - path: string, path to write the .ppst file to.
+//
+// Response (same event name) with no extra data, once queued.
+void WebSocketGameStateSave(DebuggerRequest &req) {
+	std::string path;
+	if (!req.ParamString("path", &path))
+		return;
+
+	bool running = false;
+	Core_RunOnCPUThread([&] {
+		running = PSP_GetBootState() == BootState::Complete;
+	});
+	if (!running)
+		return req.Fail("Game not running");
+
+	SaveState::Save(Path(path), -1, [](SaveState::Status status, std::string_view message, std::string_view) {
+		if (status == SaveState::Status::FAILURE) {
+			ERROR_LOG(Log::System, "game.state.save: %.*s", STR_VIEW(message));
 		}
 	});
 	req.Respond();
