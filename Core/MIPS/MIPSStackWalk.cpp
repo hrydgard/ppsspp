@@ -116,6 +116,20 @@ namespace MIPSStackWalk {
 			_dbg_assert_(Memory::IsValidAddress(pc));
 			MIPSOpcode op = Memory::Read_Instruction(pc);
 
+			// Without a symbol, a jr ra above any prologue is most likely the end of the function before
+			// this one, so this is a leaf that starts after its delay slot. Scanning on would pick up
+			// that function's prologue, and read a bogus ra from the stack. Only the innermost frame
+			// has ra in the register to fall back on.
+			// (Right above pc, it's this function's own return, with pc in its delay slot.)
+			if (entry == INVALIDTARGET && pc != start && op.encoding == MIPS_MAKE_JR_RA()) {
+				if (ra == INVALIDTARGET) {
+					return false;
+				}
+				frame.entry = pc + 8;
+				frame.stackSize = 0;
+				return true;
+			}
+
 			// Here's where they store the ra address.
 			if (IsSWInstr(op) && _RT == MIPS_REG_RA && _RS == MIPS_REG_SP) {
 				ra_offset = _IMM16;

@@ -119,6 +119,7 @@
 #include "Core/HLE/sceUsbMic.h"
 #include "Core/Util/PathUtil.h"
 #include "Core/MIPS/MIPSVFPUUtils.h"
+#include "Core/MIPS/MIPSStackWalk.h"
 #include "GPU/Common/DepthSwizzle.h"
 #include "GPU/Common/TextureDecoder.h"
 #include "GPU/Common/GPUStateUtils.h"
@@ -2464,6 +2465,56 @@ static bool CheckBlockShadow() {
 	return true;
 }
 
+// A leaf with no symbol, right after a function with a stack frame (#17664).
+static bool CheckStackWalk() {
+	const u32 caller = 0x08804000;
+	const u32 leaf = caller + 0x20;
+	const u32 code[] = {
+		0x27BDFFF0,  // caller: addiu sp, sp, -16
+		0xAFBF000C,  // sw ra, 12(sp)
+		0x0C000000 | ((leaf >> 2) & 0x03FFFFFF),  // jal leaf
+		0x00000000,  // nop
+		0x8FBF000C,  // lw ra, 12(sp)
+		0x27BD0010,  // addiu sp, sp, 16
+		0x03E00008,  // jr ra
+		0x00000000,  // nop
+		0x24820001,  // leaf: addiu v0, a0, 1
+		0x24420001,  // addiu v0, v0, 1
+		0x03E00008,  // jr ra
+		0x00000000,  // nop
+	};
+	for (size_t i = 0; i < ARRAY_SIZE(code); i++) {
+		Memory::WriteUnchecked_U32(code[i], caller + (u32)i * 4);
+	}
+	const u32 sp = 0x09F00000 - 16;
+	// The caller's own return address, which the leaf's frame must not pick up.
+	Memory::WriteUnchecked_U32(0x08900000, sp + 12);
+
+	SymbolMap symbolMap;
+	g_symbolMap = &symbolMap;
+	std::vector<MIPSStackWalk::StackFrame> frames = MIPSStackWalk::Walk(leaf + 4, caller + 0x10, sp, caller, 0x09F00000);
+	g_symbolMap = nullptr;
+
+	EXPECT_EQ_INT((int)frames.size(), 2);
+	EXPECT_EQ_HEX(frames[0].entry, leaf);
+	EXPECT_EQ_INT(frames[0].stackSize, 0);
+	EXPECT_EQ_HEX(frames[1].pc, caller + 0x10);
+	EXPECT_EQ_HEX(frames[1].entry, caller);
+	EXPECT_EQ_INT(frames[1].stackSize, 16);
+	return true;
+}
+
+static bool TestStackWalk() {
+	Memory::g_MemorySize = Memory::RAM_NORMAL_SIZE;
+	if (!Memory::Init(Memory::MemMapSetupFlags::Default)) {
+		printf("Memory::Init failed\n");
+		return false;
+	}
+	const bool success = CheckStackWalk();
+	Memory::Shutdown();
+	return success;
+}
+
 static bool TestBlockShadow() {
 	Memory::g_MemorySize = Memory::RAM_DOUBLE_SIZE;
 	if (!Memory::Init(Memory::MemMapSetupFlags::Default)) {
@@ -3682,6 +3733,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(GEDumpGameID),
 	TEST_ITEM(QueueBuf),
 	TEST_ITEM(RequestManager),
+	TEST_ITEM(StackWalk),
 };
 
 int main(int argc, const char *argv[]) {
