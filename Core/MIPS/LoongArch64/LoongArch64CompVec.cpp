@@ -441,31 +441,6 @@ void LoongArch64JitBackend::CompIR_VecHoriz(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
-	case IROp::Vec4Dot:
-		// Check overlap before mapping: the reg cache can't map a reg as both a vector and a scalar.
-		if (cpu_info.LOONGARCH_LSX && (Overlap(inst.dest, 1, inst.src1, 4) || Overlap(inst.dest, 1, inst.src2, 4)))
-			DISABLE;
-		regs_.Map(inst);
-		if (cpu_info.LOONGARCH_LSX) {
-
-			VFMUL_S(regs_.V(inst.dest), regs_.V(inst.src1), regs_.V(inst.src2));
-			VOR_V(EncodeRegToV(SCRATCHF1), regs_.V(inst.dest), regs_.V(inst.dest));
-			VSHUF4I_W(EncodeRegToV(SCRATCHF1), regs_.V(inst.dest), VFPU_SWIZZLE(1, 0, 3, 2));
-			VFADD_S(regs_.V(inst.dest), regs_.V(inst.dest), EncodeRegToV(SCRATCHF1));
-			VEXTRINS_D(EncodeRegToV(SCRATCHF1), regs_.V(inst.dest), 1);
-			// Do we need care about upper 96 bits?
-			VFADD_S(regs_.V(inst.dest), regs_.V(inst.dest), EncodeRegToV(SCRATCHF1));
-		} else {
-			// Multiply and add separately in the IR interpreter's order: FMADD rounds differently.
-			// The sum builds up in a scratch reg, so dest may be one of the inputs.
-			FMUL_S(SCRATCHF1, regs_.F(inst.src1), regs_.F(inst.src2));
-			for (int i = 1; i < 4; ++i) {
-				FMUL_S(SCRATCHF2, regs_.F(inst.src1 + i), regs_.F(inst.src2 + i));
-				FADD_S(i == 3 ? regs_.F(inst.dest) : SCRATCHF1, SCRATCHF1, SCRATCHF2);
-			}
-		}
-		break;
-
 	case IROp::Vec4VfpuDot:
 	{
 		// The operands go to the shared routine, in v8 and v9 (SCRATCHF1 and SCRATCHF2) with LSX and

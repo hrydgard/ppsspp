@@ -20,7 +20,6 @@
 #include "Common/CPUDetect.h"
 #include "Common/Data/Convert/SmallDataConvert.h"
 #include "Common/Math/math_util.h"
-#include "Core/Compatibility.h"
 #include "Core/Config.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
@@ -148,10 +147,6 @@ namespace MIPSComp {
 			}
 		}
 		return true;
-	}
-
-	bool IRFrontend::UseAccurateVdot() const {
-		return g_Config.bAccurateVdot || PSP_CoreParameter().compat.flags().ForceAccurateVdot;
 	}
 
 	// The lanes are already a Vec4 reg, used as is.
@@ -956,37 +951,18 @@ namespace MIPSComp {
 		GetVectorRegsPrefixT(tregs, sz, vt);
 		GetVectorRegsPrefixD(dregs, V_Single, vd);
 
-		if (UseAccurateVdot()) {
-			// s's last lane is 1, so t's is added in.
-			DotLane sl[4], tl[4];
-			for (int i = 0; i < 4; i++) {
-				sl[i] = i < n - 1 ? DotReg(sregs[i]) : DotConst(i == n - 1 ? 1.0f : 0.0f);
-				tl[i] = i < n ? DotReg(tregs[i]) : DotConst(0.0f);
-			}
-			u8 sv, tv;
-			if (!BuildDotOperands(sl, tl, -1, &sv, &tv))
-				DISABLE;
-			ir.Write(IROp::Vec4VfpuDot, dregs[0], sv, tv);
-			ApplyPrefixD(dregs, V_Single, vd);
-			return;
+		// s's last lane is 1, so t's is added in.
+		DotLane sl[4], tl[4];
+		for (int i = 0; i < 4; i++) {
+			sl[i] = i < n - 1 ? DotReg(sregs[i]) : DotConst(i == n - 1 ? 1.0f : 0.0f);
+			tl[i] = i < n ? DotReg(tregs[i]) : DotConst(0.0f);
 		}
-
-		ir.Write(IROp::FMul, IRVTEMP_0, sregs[0], tregs[0]);
-
-		for (int i = 1; i < n; i++) {
-			if (i == n - 1) {
-				ir.Write(IROp::FAdd, IRVTEMP_0, IRVTEMP_0, tregs[i]);
-			} else {
-				ir.Write(IROp::FMul, IRVTEMP_0 + 1, sregs[i], tregs[i]);
-				ir.Write(IROp::FAdd, IRVTEMP_0, IRVTEMP_0, IRVTEMP_0 + 1);
-			}
-		}
-
-		ir.Write(IROp::FMov, dregs[0], IRVTEMP_0);
+		u8 sv, tv;
+		if (!BuildDotOperands(sl, tl, -1, &sv, &tv))
+			DISABLE;
+		ir.Write(IROp::Vec4VfpuDot, dregs[0], sv, tv);
 		ApplyPrefixD(dregs, V_Single, vd);
 	}
-
-	alignas(16) static const float vavg_table[4] = { 1.0f, 1.0f / 2.0f, 1.0f / 3.0f, 1.0f / 4.0f };
 
 	void IRFrontend::Comp_Vhoriz(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_VEC);
@@ -1003,56 +979,26 @@ namespace MIPSComp {
 		VectorSize sz = GetVecSize(op);
 		int n = GetNumVectorElements(sz);
 
-		// On the PSP, an S constant past n is added in too (cpu/vfpu/prefix_lanes), which
-		// IsPrefixWithinSize() lets through. The accurate dot product includes it, the rest leave it
-		// to the interpreter, as it's rare.
-		if (!UseAccurateVdot()) {
-			for (int i = n; i < 4; i++) {
-				if (VFPUPrefixIsConstant(js.prefixS, i))
-					DISABLE;
-			}
-		}
-
 		u8 sregs[4], dregs[1];
 		GetVectorRegsPrefixS(sregs, sz, _VS);
 		GetVectorRegsPrefixD(dregs, V_Single, _VD);
 
-		if (UseAccurateVdot()) {
-			// Dot products with constants from the T prefix in every lane: ones for vfad, 1/n for
-			// vavg (0 for vavg.s), as in the interpreter.
-			const bool vavg = ((op >> 16) & 31) == 7;
-			static const float vavgConst[4] = { 0.0f, 0.5f, 1.0f / 3.0f, 0.25f };
-			const float c = vavg ? vavgConst[n - 1] : 1.0f;
-			DotLane sl[4], tl[4];
-			for (int i = 0; i < 4; i++) {
-				const bool constantLane = i >= n && VFPUPrefixIsConstant(js.prefixS, i);
-				sl[i] = i < n ? DotReg(sregs[i]) : DotConst(constantLane ? VFPUPrefixConstant(js.prefixS, i) : 0.0f);
-				tl[i] = DotConst(c);
-			}
-			u8 sv, tv;
-			if (!BuildDotOperands(sl, tl, -1, &sv, &tv))
-				DISABLE;
-			ir.Write(IROp::Vec4VfpuDot, dregs[0], sv, tv);
-			ApplyPrefixD(dregs, V_Single, _VD);
-			return;
+		// Dot products with constants from the T prefix in every lane: ones for vfad, 1/n for
+		// vavg (0 for vavg.s), as in the interpreter. An S constant past n is added in too
+		// (cpu/vfpu/prefix_lanes), which IsPrefixWithinSize() lets through.
+		const bool vavg = ((op >> 16) & 31) == 7;
+		static const float vavgConst[4] = { 0.0f, 0.5f, 1.0f / 3.0f, 0.25f };
+		const float c = vavg ? vavgConst[n - 1] : 1.0f;
+		DotLane sl[4], tl[4];
+		for (int i = 0; i < 4; i++) {
+			const bool constantLane = i >= n && VFPUPrefixIsConstant(js.prefixS, i);
+			sl[i] = i < n ? DotReg(sregs[i]) : DotConst(constantLane ? VFPUPrefixConstant(js.prefixS, i) : 0.0f);
+			tl[i] = DotConst(c);
 		}
-
-		// We have to start at +0.000 in case any values are -0.000.
-		ir.WriteSetConstantFloat(IRVTEMP_0, 0.0f);
-		for (int i = 0; i < n; ++i) {
-			ir.Write(IROp::FAdd, IRVTEMP_0, IRVTEMP_0, sregs[i]);
-		}
-
-		switch ((op >> 16) & 31) {
-		case 6:  // vfad
-			ir.Write(IROp::FMov, dregs[0], IRVTEMP_0);
-			break;
-		case 7:  // vavg
-			ir.WriteSetConstantFloat(IRVTEMP_0 + 1, vavg_table[n - 1]);
-			ir.Write(IROp::FMul, dregs[0], IRVTEMP_0, IRVTEMP_0 + 1);
-			break;
-		}
-
+		u8 sv, tv;
+		if (!BuildDotOperands(sl, tl, -1, &sv, &tv))
+			DISABLE;
+		ir.Write(IROp::Vec4VfpuDot, dregs[0], sv, tv);
 		ApplyPrefixD(dregs, V_Single, _VD);
 	}
 
@@ -1073,17 +1019,10 @@ namespace MIPSComp {
 		int n = GetNumVectorElements(sz);
 
 		// On the PSP, lanes past n where both prefixes are constants add their product, and the rest
-		// read zero (cpu/vfpu/prefix_lanes). IsPrefixWithinSize() lets those through. The accurate
-		// dot product includes them, the rest leave them to the interpreter, as they're rare.
+		// read zero (cpu/vfpu/prefix_lanes). IsPrefixWithinSize() lets those through.
 		auto constantLane = [&](int i) {
 			return i >= n && VFPUPrefixIsConstant(js.prefixS, i) && VFPUPrefixIsConstant(js.prefixT, i);
 		};
-		if (!UseAccurateVdot()) {
-			for (int i = n; i < 4; i++) {
-				if (constantLane(i))
-					DISABLE;
-			}
-		}
 
 		// TODO: Force read one of them into regs? probably not.
 		u8 sregs[4], tregs[4], dregs[1];
@@ -1091,78 +1030,43 @@ namespace MIPSComp {
 		GetVectorRegsPrefixT(tregs, sz, vt);
 		GetVectorRegsPrefixD(dregs, V_Single, vd);
 
-		if (UseAccurateVdot()) {
-			// A run of vdots against one vector (a matrix times a vector, written out) goes as one
-			// Vec4VfpuMultiDot, eating the rest of the run.
-			if (opts.vfpuMultiDot && js.HasNoPrefix() && !js.inDelaySlot && n >= 2) {
-				MultiDot dots[4];
-				int count = 0;
-				for (; count < 4; count++) {
-					const MIPSOpcode next = count == 0 ? op : GetOffsetInstruction(count);
-					if ((next.encoding & 0xFF808080) != (op.encoding & 0xFF808080))
-						break;
-					u8 s[4], t[4], d[1];
-					GetVectorRegs(s, sz, (next.encoding >> 8) & 0x7F);
-					GetVectorRegs(t, sz, (next.encoding >> 16) & 0x7F);
-					GetVectorRegs(d, V_Single, next.encoding & 0x7F);
-					for (int i = 0; i < 4; i++) {
-						dots[count].a[i] = i < n ? DotReg(s[i]) : DotConst(0.0f);
-						dots[count].b[i] = i < n ? DotReg(t[i]) : DotConst(0.0f);
-					}
-					dots[count].dest = d[0];
+		// A run of vdots against one vector (a matrix times a vector, written out) goes as one
+		// Vec4VfpuMultiDot, eating the rest of the run.
+		if (opts.vfpuMultiDot && js.HasNoPrefix() && !js.inDelaySlot && n >= 2) {
+			MultiDot dots[4];
+			int count = 0;
+			for (; count < 4; count++) {
+				const MIPSOpcode next = count == 0 ? op : GetOffsetInstruction(count);
+				if ((next.encoding & 0xFF808080) != (op.encoding & 0xFF808080))
+					break;
+				u8 s[4], t[4], d[1];
+				GetVectorRegs(s, sz, (next.encoding >> 8) & 0x7F);
+				GetVectorRegs(t, sz, (next.encoding >> 16) & 0x7F);
+				GetVectorRegs(d, V_Single, next.encoding & 0x7F);
+				for (int i = 0; i < 4; i++) {
+					dots[count].a[i] = i < n ? DotReg(s[i]) : DotConst(0.0f);
+					dots[count].b[i] = i < n ? DotReg(t[i]) : DotConst(0.0f);
 				}
-				for (int c = count; c >= 2; c--) {
-					if (TryMultiDot(dots, c, n, -1, false)) {
-						for (int k = 1; k < c; k++)
-							EatInstruction(GetOffsetInstruction(1));
-						return;
-					}
+				dots[count].dest = d[0];
+			}
+			for (int c = count; c >= 2; c--) {
+				if (TryMultiDot(dots, c, n, -1, false)) {
+					for (int k = 1; k < c; k++)
+						EatInstruction(GetOffsetInstruction(1));
+					return;
 				}
 			}
-
-			DotLane sl[4], tl[4];
-			for (int i = 0; i < 4; i++) {
-				sl[i] = i < n ? DotReg(sregs[i]) : DotConst(constantLane(i) ? VFPUPrefixConstant(js.prefixS, i) : 0.0f);
-				tl[i] = i < n ? DotReg(tregs[i]) : DotConst(constantLane(i) ? VFPUPrefixConstant(js.prefixT, i) : 0.0f);
-			}
-			u8 sv, tv;
-			if (!BuildDotOperands(sl, tl, -1, &sv, &tv))
-				DISABLE;
-			ir.Write(IROp::Vec4VfpuDot, dregs[0], sv, tv);
-			ApplyPrefixD(dregs, V_Single, vd);
-			return;
 		}
 
-		if (IsVec4(sz, sregs) && IsVec4(sz, tregs)) {
-			if (IsOverlapSafe(dregs[0], n, sregs, n, tregs)) {
-				ir.Write(IROp::Vec4Dot, dregs[0], sregs[0], tregs[0]);
-			} else {
-				ir.Write(IROp::Vec4Dot, IRVTEMP_0, sregs[0], tregs[0]);
-				ir.Write(IROp::FMov, dregs[0], IRVTEMP_0);
-			}
-			ApplyPrefixD(dregs, V_Single, vd);
-			return;
-		} else if (IsVec3of4(sz, sregs) && IsVec3of4(sz, tregs) && opts.preferVec4Dot) {
-			// Note: this is often worse than separate muliplies and adds on x86.
-			if (IsOverlapSafe(dregs[0], n, tregs) || sregs[0] == tregs[0]) {
-				// Nice example of this in Fat Princess (US) in block 088181A0 (hot.)
-				// Create a temporary copy of S with the last element zeroed.
-				ir.Write(IROp::Vec4Init, IRVTEMP_0, (int)Vec4Init::AllZERO);
-				ir.Write(IROp::Vec4Blend, IRVTEMP_0, IRVTEMP_0, sregs[0], 0x7);
-				// Now we can just dot like normal, with the last element effectively masked.
-				ir.Write(IROp::Vec4Dot, dregs[0], IRVTEMP_0, sregs[0] == tregs[0] ? IRVTEMP_0 : tregs[0]);
-				ApplyPrefixD(dregs, V_Single, vd);
-				return;
-			}
+		DotLane sl[4], tl[4];
+		for (int i = 0; i < 4; i++) {
+			sl[i] = i < n ? DotReg(sregs[i]) : DotConst(constantLane(i) ? VFPUPrefixConstant(js.prefixS, i) : 0.0f);
+			tl[i] = i < n ? DotReg(tregs[i]) : DotConst(constantLane(i) ? VFPUPrefixConstant(js.prefixT, i) : 0.0f);
 		}
-
-		int temp0 = IRVTEMP_0;
-		int temp1 = IRVTEMP_0 + 1;
-		ir.Write(IROp::FMul, temp0, sregs[0], tregs[0]);
-		for (int i = 1; i < n; i++) {
-			ir.Write(IROp::FMul, temp1, sregs[i], tregs[i]);
-			ir.Write(IROp::FAdd, i == (n - 1) ? dregs[0] : temp0, temp0, temp1);
-		}
+		u8 sv, tv;
+		if (!BuildDotOperands(sl, tl, -1, &sv, &tv))
+			DISABLE;
+		ir.Write(IROp::Vec4VfpuDot, dregs[0], sv, tv);
 		ApplyPrefixD(dregs, V_Single, vd);
 	}
 
@@ -1965,23 +1869,6 @@ namespace MIPSComp {
 		ApplyPrefixD(dregs, sz, vd);
 	}
 
-	/*
-	// Capital = straight, lower case = transposed
-	// 8 possibilities:
-	ABC   2
-	ABc   missing
-	AbC   1
-	Abc   1
-
-	aBC = ACB    2 + swap
-	aBc = AcB    1 + swap
-	abC = ACb    missing
-	abc = Acb    1 + swap
-
-	*/
-
-	// This may or may not be a win when using the IR interpreter...
-	// Many more instructions to interpret.
 	void IRFrontend::Comp_Vmmul(MIPSOpcode op) {
 		CONDITIONAL_DISABLE(VFPU_MTX_VMMUL);
 		if (!js.HasNoPrefix()) {
@@ -2002,110 +1889,39 @@ namespace MIPSComp {
 		MatrixOverlapType soverlap = GetMatrixOverlap(vs, vd, sz);
 		MatrixOverlapType toverlap = GetMatrixOverlap(vt, vd, sz);
 
-		if (UseAccurateVdot()) {
-			// d[a][b] = s[b] dot t[a], each a row of n lanes and zeros, as in the interpreter. With
-			// no overlap, the results can go straight to d.
-			if (soverlap || toverlap)
-				DISABLE;
-			u8 sregs[16], tregs[16], dregs[16];
-			GetMatrixRegs(sregs, sz, vs);
-			GetMatrixRegs(tregs, sz, vt);
-			GetMatrixRegs(dregs, sz, vd);
-			for (int a = 0; a < n; a++) {
-				DotLane tl[4];
-				for (int c = 0; c < 4; c++)
-					tl[c] = c < n ? DotReg(tregs[a * 4 + c]) : DotConst(0.0f);
-				MultiDot dots[4];
-				for (int b = 0; b < n; b++) {
-					for (int c = 0; c < 4; c++) {
-						dots[b].a[c] = c < n ? DotReg(sregs[b * 4 + c]) : DotConst(0.0f);
-						dots[b].b[c] = tl[c];
-					}
-					dots[b].dest = dregs[a * 4 + b];
-				}
-				if (TryMultiDot(dots, n, n, -1, false))
-					continue;
-				for (int b = 0; b < n; b++) {
-					DotLane sl[4];
-					for (int c = 0; c < 4; c++)
-						sl[c] = c < n ? DotReg(sregs[b * 4 + c]) : DotConst(0.0f);
-					u8 sv, tv;
-					if (!BuildDotOperands(sl, tl, -1, &sv, &tv))
-						DISABLE;
-					// Built once per row of t.
-					for (int c = 0; c < 4; c++)
-						tl[c] = DotReg(tv + c);
-					ir.Write(IROp::Vec4VfpuDot, dregs[a * 4 + b], sv, tv);
-				}
-			}
-			return;
-		}
-
-		// A very common arrangment. Rearrange to something we can handle.
-		// A 1x1 matrix has no transposed form, the bit then picks a different register.
-		if (n > 1 && IsMatrixTransposed(vd)) {
-			// Matrix identity says (At * Bt) = (B * A)t
-			// D = S * T
-			// Dt = (S * T)t = (Tt * St)
-			vd = TransposeMatrixReg(vd);
-			std::swap(vs, vt);
-		}
-
+		// d[a][b] = s[b] dot t[a], each a row of n lanes and zeros, as in the interpreter. With
+		// no overlap, the results can go straight to d.
+		if (soverlap || toverlap)
+			DISABLE;
 		u8 sregs[16], tregs[16], dregs[16];
 		GetMatrixRegs(sregs, sz, vs);
 		GetMatrixRegs(tregs, sz, vt);
 		GetMatrixRegs(dregs, sz, vd);
-
-		if (soverlap || toverlap) {
-			DISABLE;
-		}
-
-		// dregs are always consecutive, thanks to our transpose trick.
-		// However, not sure this is always worth it.
-		if (IsMatrixVec4(sz, dregs)) {
-			// TODO: The interpreter would like proper matrix ops better. Can generate those, and
-			// expand them like this as needed on "real" architectures.
-			int s0 = IRVTEMP_0;
-			int s1 = IRVTEMP_PFX_T;
-			if (IsMatrixTransposedVec4(sz, sregs)) {
-				// METHOD 1: Handles AbC and Abc
-				for (int j = 0; j < 4; j++) {
-					ir.Write(IROp::Vec4Scale, s0, sregs[0], tregs[j * 4]);
-					for (int i = 1; i < 4; i++) {
-						ir.Write(IROp::Vec4Scale, s1, sregs[i], tregs[j * 4 + i]);
-						ir.Write(IROp::Vec4Add, s0, s0, s1);
-					}
-					ir.Write(IROp::Vec4Mov, dregs[j * 4], s0);
-				}
-				return;
-			} else if (IsMatrixVec4(sz, sregs) && IsMatrixVec4(sz, tregs)) {
-				// METHOD 2: Handles ABC only. Not efficient on CPUs that don't do fast dots.
-				// Dots only work if tregs are consecutive.
-				// TODO: Skip this and resort to method one and transpose the output?
-				for (int j = 0; j < 4; j++) {
-					for (int i = 0; i < 4; i++) {
-						ir.Write(IROp::Vec4Dot, s0 + i, sregs[i * 4], tregs[j * 4]);
-					}
-					ir.Write(IROp::Vec4Mov, dregs[j * 4], s0);
-				}
-				return;
-			} else {
-				// ABc - s consecutive, t not.
-				// Tekken uses this.
-				// logBlocks = 1;
-			}
-		}
-
-		// Fallback. Expands a LOT
-		int temp0 = IRVTEMP_0;
-		int temp1 = IRVTEMP_0 + 1;
 		for (int a = 0; a < n; a++) {
+			DotLane tl[4];
+			for (int c = 0; c < 4; c++)
+				tl[c] = c < n ? DotReg(tregs[a * 4 + c]) : DotConst(0.0f);
+			MultiDot dots[4];
 			for (int b = 0; b < n; b++) {
-				ir.Write(IROp::FMul, n == 1 ? dregs[0] : temp0, sregs[b * 4], tregs[a * 4]);
-				for (int c = 1; c < n; c++) {
-					ir.Write(IROp::FMul, temp1, sregs[b * 4 + c], tregs[a * 4 + c]);
-					ir.Write(IROp::FAdd, (c == n - 1) ? dregs[a * 4 + b] : temp0, temp0, temp1);
+				for (int c = 0; c < 4; c++) {
+					dots[b].a[c] = c < n ? DotReg(sregs[b * 4 + c]) : DotConst(0.0f);
+					dots[b].b[c] = tl[c];
 				}
+				dots[b].dest = dregs[a * 4 + b];
+			}
+			if (TryMultiDot(dots, n, n, -1, false))
+				continue;
+			for (int b = 0; b < n; b++) {
+				DotLane sl[4];
+				for (int c = 0; c < 4; c++)
+					sl[c] = c < n ? DotReg(sregs[b * 4 + c]) : DotConst(0.0f);
+				u8 sv, tv;
+				if (!BuildDotOperands(sl, tl, -1, &sv, &tv))
+					DISABLE;
+				// Built once per row of t.
+				for (int c = 0; c < 4; c++)
+					tl[c] = DotReg(tv + c);
+				ir.Write(IROp::Vec4VfpuDot, dregs[a * 4 + b], sv, tv);
 			}
 		}
 	}
@@ -2143,100 +1959,35 @@ namespace MIPSComp {
 		GetVectorRegs(tregs, sz, _VT);
 		GetVectorRegs(dregs, sz, _VD);
 
-		if (UseAccurateVdot()) {
-			// A dot per row, against t with the lanes past it zero, and lane ins 1 for the
-			// homogenous form. The results go to the D temp first, since d may overlap s or t.
-			const int tn = homogenous ? n - 1 : n;
-			DotLane tl[4];
-			for (int i = 0; i < 4; i++)
-				tl[i] = i < tn ? DotReg(tregs[i]) : DotConst(homogenous && i == ins ? 1.0f : 0.0f);
-			MultiDot dots[4];
-			for (int i = 0; i < n; i++) {
-				for (int k = 0; k < 4; k++) {
-					dots[i].a[k] = k < n ? DotReg(sregs[i * 4 + k]) : DotConst(0.0f);
-					dots[i].b[k] = tl[k];
-				}
-				dots[i].dest = IRVTEMP_PFX_D + i;
-			}
-			const bool multi = TryMultiDot(dots, n, n, IRVTEMP_PFX_D, true);
-			for (int i = 0; i < n && !multi; i++) {
-				DotLane sl[4];
-				for (int k = 0; k < 4; k++)
-					sl[k] = k < n ? DotReg(sregs[i * 4 + k]) : DotConst(0.0f);
-				u8 sv, tv;
-				if (!BuildDotOperands(sl, tl, IRVTEMP_PFX_D, &sv, &tv))
-					DISABLE;
-				// Built once, t is a Vec4 for the rest.
-				for (int k = 0; k < 4; k++)
-					tl[k] = DotReg(tv + k);
-				ir.Write(IROp::Vec4VfpuDot, IRVTEMP_PFX_D + i, sv, tv);
-			}
-			for (int i = 0; i < n; i++)
-				ir.Write(IROp::FMov, dregs[i], IRVTEMP_PFX_D + i);
-			return;
-		}
-
-		// SIMD-optimized implementations - if sregs[0..3] is non-consecutive, it's transposed.
-		if (msz == M_4x4 && IsMatrixTransposedVec4(msz, sregs)) {
-			int s0 = IRVTEMP_0;
-			int s1 = IRVTEMP_PFX_S;
-			// For this algorithm, we don't care if tregs are consecutive or not,
-			// they are accessed one at a time. This handles homogenous transforms correctly, as well.
-			// We take advantage of sregs[0] + 1 being sregs[4] here.
-			ir.Write(IROp::Vec4Scale, s0, sregs[0], tregs[0]);
-			for (int i = 1; i < 4; i++) {
-				if (!homogenous || (i != n - 1)) {
-					ir.Write(IROp::Vec4Scale, s1, sregs[i], tregs[i]);
-					ir.Write(IROp::Vec4Add, s0, s0, s1);
-				} else {
-					ir.Write(IROp::Vec4Add, s0, s0, sregs[i]);
-				}
-			}
-			if (IsVec4(sz, dregs)) {
-				ir.Write(IROp::Vec4Mov, dregs[0], s0);
-			} else {
-				for (int i = 0; i < 4; i++) {
-					ir.Write(IROp::FMov, dregs[i], s0 + i);
-				}
-			}
-			return;
-		} else if (msz == M_4x4 && IsMatrixVec4(msz, sregs) && IsVec4(sz, tregs)) {
-			IRReg t = tregs[0];
-			if (homogenous) {
-				// This is probably even what the hardware basically does, wiring t[3] to 1.0f.
-				ir.Write(IROp::Vec4Init, IRVTEMP_PFX_T, (int)Vec4Init::AllONE);
-				ir.Write(IROp::Vec4Blend, IRVTEMP_PFX_T, IRVTEMP_PFX_T, t, 0x7);
-				t = IRVTEMP_PFX_T;
-			}
-			for (int i = 0; i < 4; i++)
-				ir.Write(IROp::Vec4Dot, IRVTEMP_PFX_D + i, sregs[i * 4], t);
-			for (int i = 0; i < 4; i++)
-				ir.Write(IROp::FMov, dregs[i], IRVTEMP_PFX_D + i);
-			return;
-		}
-
-		// TODO: test overlap, optimize.
-		u8 tempregs[4];
-		int s0 = IRVTEMP_0;
-		int temp1 = IRVTEMP_0 + 1;
+		// A dot per row, against t with the lanes past it zero, and lane ins 1 for the
+		// homogenous form. The results go to the D temp first, since d may overlap s or t.
+		const int tn = homogenous ? n - 1 : n;
+		DotLane tl[4];
+		for (int i = 0; i < 4; i++)
+			tl[i] = i < tn ? DotReg(tregs[i]) : DotConst(homogenous && i == ins ? 1.0f : 0.0f);
+		MultiDot dots[4];
 		for (int i = 0; i < n; i++) {
-			ir.Write(IROp::FMul, s0, sregs[i * 4], tregs[0]);
-			for (int k = 1; k < n; k++) {
-				if (!homogenous || k != n - 1) {
-					ir.Write(IROp::FMul, temp1, sregs[i * 4 + k], tregs[k]);
-					ir.Write(IROp::FAdd, s0, s0, temp1);
-				} else {
-					ir.Write(IROp::FAdd, s0, s0, sregs[i * 4 + k]);
-				}
+			for (int k = 0; k < 4; k++) {
+				dots[i].a[k] = k < n ? DotReg(sregs[i * 4 + k]) : DotConst(0.0f);
+				dots[i].b[k] = tl[k];
 			}
-			int temp = IRVTEMP_PFX_T + i;
-			ir.Write(IROp::FMov, temp, s0);
-			tempregs[i] = temp;
+			dots[i].dest = IRVTEMP_PFX_D + i;
 		}
-		for (int i = 0; i < n; i++) {
-			if (tempregs[i] != dregs[i])
-				ir.Write(IROp::FMov, dregs[i], tempregs[i]);
+		const bool multi = TryMultiDot(dots, n, n, IRVTEMP_PFX_D, true);
+		for (int i = 0; i < n && !multi; i++) {
+			DotLane sl[4];
+			for (int k = 0; k < 4; k++)
+				sl[k] = k < n ? DotReg(sregs[i * 4 + k]) : DotConst(0.0f);
+			u8 sv, tv;
+			if (!BuildDotOperands(sl, tl, IRVTEMP_PFX_D, &sv, &tv))
+				DISABLE;
+			// Built once, t is a Vec4 for the rest.
+			for (int k = 0; k < 4; k++)
+				tl[k] = DotReg(tv + k);
+			ir.Write(IROp::Vec4VfpuDot, IRVTEMP_PFX_D + i, sv, tv);
 		}
+		for (int i = 0; i < n; i++)
+			ir.Write(IROp::FMov, dregs[i], IRVTEMP_PFX_D + i);
 	}
 
 	void IRFrontend::Comp_VCrs(MIPSOpcode op) {
@@ -2310,22 +2061,13 @@ namespace MIPSComp {
 		GetVectorRegsPrefixT(tregs, sz, _VT);
 		GetVectorRegsPrefixD(dregs, V_Single, _VD);
 
-		if (UseAccurateVdot()) {
-			// The T prefix's swizzle is forced to yx: s0 * t1 + (-s1) * t0.
-			const DotLane sl[4] = { DotReg(sregs[0]), DotReg(sregs[1], true), DotConst(0.0f), DotConst(0.0f) };
-			const DotLane tl[4] = { DotReg(tregs[1]), DotReg(tregs[0]), DotConst(0.0f), DotConst(0.0f) };
-			u8 sv, tv;
-			if (!BuildDotOperands(sl, tl, -1, &sv, &tv))
-				DISABLE;
-			ir.Write(IROp::Vec4VfpuDot, dregs[0], sv, tv);
-			ApplyPrefixD(dregs, V_Single, _VD);
-			return;
-		}
-
-		ir.Write(IROp::FMul, IRVTEMP_0, sregs[1], tregs[0]);
-		ir.Write(IROp::FMul, dregs[0], sregs[0], tregs[1]);
-		ir.Write(IROp::FSub, dregs[0], dregs[0], IRVTEMP_0);
-
+		// The T prefix's swizzle is forced to yx: s0 * t1 + (-s1) * t0.
+		const DotLane sl[4] = { DotReg(sregs[0]), DotReg(sregs[1], true), DotConst(0.0f), DotConst(0.0f) };
+		const DotLane tl[4] = { DotReg(tregs[1]), DotReg(tregs[0]), DotConst(0.0f), DotConst(0.0f) };
+		u8 sv, tv;
+		if (!BuildDotOperands(sl, tl, -1, &sv, &tv))
+			DISABLE;
+		ir.Write(IROp::Vec4VfpuDot, dregs[0], sv, tv);
 		ApplyPrefixD(dregs, V_Single, _VD);
 	}
 
@@ -2545,120 +2287,49 @@ namespace MIPSComp {
 		GetVectorRegs(tregs, sz, _VT);
 		GetVectorRegs(dregs, sz, _VD);
 
-		if (UseAccurateVdot() && (sz == V_Triple || sz == V_Quad)) {
-			// The dots the interpreter does, against permuted and negated copies of t. The results
-			// go to the D temp first, since d may overlap s or t.
-			const DotLane zero = DotConst(0.0f);
-			auto tl = [&](int i, bool neg = false) { return i < n ? DotReg(tregs[i], neg) : zero; };
-			DotLane tDots[4][4];
-			int dots;
-			if (sz == V_Triple) {
-				const DotLane t0[4] = { zero, tl(2), tl(1, true), zero };
-				const DotLane t1[4] = { tl(2, true), zero, tl(0), zero };
-				const DotLane t2[4] = { tl(1), tl(0, true), zero, tl(2) };
-				memcpy(tDots[0], t0, sizeof(t0));
-				memcpy(tDots[1], t1, sizeof(t1));
-				memcpy(tDots[2], t2, sizeof(t2));
-				dots = 3;
-			} else {
-				const DotLane t0[4] = { tl(3), tl(2), tl(1, true), tl(0) };
-				const DotLane t1[4] = { tl(2, true), tl(3), tl(0), tl(1) };
-				const DotLane t2[4] = { tl(1), tl(0, true), tl(3), tl(2) };
-				const DotLane t3[4] = { tl(0, true), tl(1, true), tl(2, true), tl(3) };
-				memcpy(tDots[0], t0, sizeof(t0));
-				memcpy(tDots[1], t1, sizeof(t1));
-				memcpy(tDots[2], t2, sizeof(t2));
-				memcpy(tDots[3], t3, sizeof(t3));
-				dots = 4;
-			}
-			DotLane sl[4];
-			for (int i = 0; i < 4; i++)
-				sl[i] = i < n ? DotReg(sregs[i]) : zero;
-			for (int i = 0; i < dots; i++) {
-				u8 sv, tv;
-				if (!BuildDotOperands(sl, tDots[i], IRVTEMP_PFX_D, &sv, &tv))
-					DISABLE;
-				// Built once, s is a Vec4 for the rest.
-				for (int j = 0; j < 4; j++)
-					sl[j] = DotReg(sv + j);
-				ir.Write(IROp::Vec4VfpuDot, IRVTEMP_PFX_D + i, sv, tv);
-			}
-			for (int i = 0; i < dots; i++)
-				ir.Write(IROp::FMov, dregs[i], IRVTEMP_PFX_D + i);
-			return;
-		}
-
-		if (sz == V_Triple) {
-			u8 tempregs[4]{};
-			for (int i = 0; i < n; ++i) {
-				if (!IsOverlapSafe(dregs[i], n, sregs, n, tregs)) {
-					tempregs[i] = IRVTEMP_PFX_T + i;   // using IRTEMP0 for other things
-				} else {
-					tempregs[i] = dregs[i];
-				}
-			}
-
-			int temp0 = IRVTEMP_0;
-			int temp1 = IRVTEMP_0 + 1;
-			// Compute X
-			ir.Write(IROp::FMul, temp0, sregs[1], tregs[2]);
-			ir.Write(IROp::FMul, temp1, sregs[2], tregs[1]);
-			ir.Write(IROp::FSub, tempregs[0], temp0, temp1);
-
-			// Compute Y
-			ir.Write(IROp::FMul, temp0, sregs[2], tregs[0]);
-			ir.Write(IROp::FMul, temp1, sregs[0], tregs[2]);
-			ir.Write(IROp::FSub, tempregs[1], temp0, temp1);
-
-			// Compute Z
-			ir.Write(IROp::FMul, temp0, sregs[0], tregs[1]);
-			ir.Write(IROp::FMul, temp1, sregs[1], tregs[0]);
-			ir.Write(IROp::FSub, tempregs[2], temp0, temp1);
-
-			for (int i = 0; i < n; i++) {
-				if (tempregs[i] != dregs[i])
-					ir.Write(IROp::FMov, dregs[i], tempregs[i]);
-			}
-		} else if (sz == V_Quad) {
-			// Rather than using vdots, we organize this as SIMD multiplies and adds.
-			// That means flipping the logic column-wise.  Also, luckily no prefix temps used.
-			if (!IsConsecutive4(sregs) || !IsConsecutive4(tregs) || !IsConsecutive4(dregs)) {
-				DISABLE;
-			}
-
-			auto shuffleImm = [](int x, int y, int z, int w) { return x | (y << 2) | (z << 4) | (w << 6); };
-			auto blendConst = [](int x, int y, int z, int w) { return x | (y << 1) | (z << 2) | (w << 3); };
-
-			// Prepare some negatives.
-			ir.Write(IROp::Vec4Neg, IRVTEMP_0, tregs[0]);
-
-			// tmp = S[x,x,x,x] * T[w,-z,y,-x]
-			ir.Write(IROp::Vec4Blend, IRVTEMP_PFX_S, tregs[0], IRVTEMP_0, blendConst(1, 0, 1, 0));
-			ir.Write(IROp::Vec4Shuffle, IRVTEMP_PFX_T, IRVTEMP_PFX_S, shuffleImm(3, 2, 1, 0));
-			ir.Write(IROp::Vec4Shuffle, IRVTEMP_PFX_S, sregs[0], shuffleImm(0, 0, 0, 0));
-			ir.Write(IROp::Vec4Mul, IRVTEMP_PFX_D, IRVTEMP_PFX_S, IRVTEMP_PFX_T);
-
-			// tmp += S[y,y,y,y] * T[z,w,-x,-y]
-			ir.Write(IROp::Vec4Blend, IRVTEMP_PFX_S, tregs[0], IRVTEMP_0, blendConst(1, 1, 0, 0));
-			ir.Write(IROp::Vec4Shuffle, IRVTEMP_PFX_T, IRVTEMP_PFX_S, shuffleImm(2, 3, 0, 1));
-			ir.Write(IROp::Vec4Shuffle, IRVTEMP_PFX_S, sregs[0], shuffleImm(1, 1, 1, 1));
-			ir.Write(IROp::Vec4Mul, IRVTEMP_PFX_S, IRVTEMP_PFX_S, IRVTEMP_PFX_T);
-			ir.Write(IROp::Vec4Add, IRVTEMP_PFX_D, IRVTEMP_PFX_D, IRVTEMP_PFX_S);
-
-			// tmp += S[z,z,z,z] * T[-y,x,w,-z]
-			ir.Write(IROp::Vec4Blend, IRVTEMP_PFX_S, tregs[0], IRVTEMP_0, blendConst(0, 1, 1, 0));
-			ir.Write(IROp::Vec4Shuffle, IRVTEMP_PFX_T, IRVTEMP_PFX_S, shuffleImm(1, 0, 3, 2));
-			ir.Write(IROp::Vec4Shuffle, IRVTEMP_PFX_S, sregs[0], shuffleImm(2, 2, 2, 2));
-			ir.Write(IROp::Vec4Mul, IRVTEMP_PFX_S, IRVTEMP_PFX_S, IRVTEMP_PFX_T);
-			ir.Write(IROp::Vec4Add, IRVTEMP_PFX_D, IRVTEMP_PFX_D, IRVTEMP_PFX_S);
-
-			// tmp += S[w,w,w,w] * T[x,y,z,w]
-			ir.Write(IROp::Vec4Shuffle, IRVTEMP_PFX_S, sregs[0], shuffleImm(3, 3, 3, 3));
-			ir.Write(IROp::Vec4Mul, IRVTEMP_PFX_S, IRVTEMP_PFX_S, tregs[0]);
-			ir.Write(IROp::Vec4Add, dregs[0], IRVTEMP_PFX_D, IRVTEMP_PFX_S);
-		} else {
+		if (sz != V_Triple && sz != V_Quad) {
 			INVALIDOP;
 		}
+
+		// The dots the interpreter does, against permuted and negated copies of t. The results
+		// go to the D temp first, since d may overlap s or t.
+		const DotLane zero = DotConst(0.0f);
+		auto tl = [&](int i, bool neg = false) { return i < n ? DotReg(tregs[i], neg) : zero; };
+		DotLane tDots[4][4];
+		int dots;
+		if (sz == V_Triple) {
+			const DotLane t0[4] = { zero, tl(2), tl(1, true), zero };
+			const DotLane t1[4] = { tl(2, true), zero, tl(0), zero };
+			const DotLane t2[4] = { tl(1), tl(0, true), zero, tl(2) };
+			memcpy(tDots[0], t0, sizeof(t0));
+			memcpy(tDots[1], t1, sizeof(t1));
+			memcpy(tDots[2], t2, sizeof(t2));
+			dots = 3;
+		} else {
+			const DotLane t0[4] = { tl(3), tl(2), tl(1, true), tl(0) };
+			const DotLane t1[4] = { tl(2, true), tl(3), tl(0), tl(1) };
+			const DotLane t2[4] = { tl(1), tl(0, true), tl(3), tl(2) };
+			const DotLane t3[4] = { tl(0, true), tl(1, true), tl(2, true), tl(3) };
+			memcpy(tDots[0], t0, sizeof(t0));
+			memcpy(tDots[1], t1, sizeof(t1));
+			memcpy(tDots[2], t2, sizeof(t2));
+			memcpy(tDots[3], t3, sizeof(t3));
+			dots = 4;
+		}
+		DotLane sl[4];
+		for (int i = 0; i < 4; i++)
+			sl[i] = i < n ? DotReg(sregs[i]) : zero;
+		for (int i = 0; i < dots; i++) {
+			u8 sv, tv;
+			if (!BuildDotOperands(sl, tDots[i], IRVTEMP_PFX_D, &sv, &tv))
+				DISABLE;
+			// Built once, s is a Vec4 for the rest.
+			for (int j = 0; j < 4; j++)
+				sl[j] = DotReg(sv + j);
+			ir.Write(IROp::Vec4VfpuDot, IRVTEMP_PFX_D + i, sv, tv);
+		}
+		for (int i = 0; i < dots; i++)
+			ir.Write(IROp::FMov, dregs[i], IRVTEMP_PFX_D + i);
 	}
 
 	void IRFrontend::Comp_Vcmp(MIPSOpcode op) {

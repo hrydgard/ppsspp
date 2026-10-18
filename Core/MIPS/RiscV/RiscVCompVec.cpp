@@ -332,21 +332,6 @@ void RiscVJitBackend::CompIR_VecHoriz(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
-	case IROp::Vec4Dot:
-	{
-		// Multiply and add separately in the IR interpreter's order: FMADD rounds differently.
-		// The sum builds up in dest, so it can't be one of the inputs.
-		if (Overlap(inst.dest, 1, inst.src1, 4) || Overlap(inst.dest, 1, inst.src2, 4))
-			DISABLE;
-		RiscVReg tempReg = regs_.MapWithFPRTemp(inst);
-		FMUL(32, regs_.F(inst.dest), regs_.F(inst.src1), regs_.F(inst.src2));
-		for (int i = 1; i < 4; ++i) {
-			FMUL(32, tempReg, regs_.F(inst.src1 + i), regs_.F(inst.src2 + i));
-			FADD(32, regs_.F(inst.dest), regs_.F(inst.dest), tempReg);
-		}
-		break;
-	}
-
 	case IROp::Vec4VfpuDot:
 	{
 		// The operands go to mips->vfpuDotArgs for the shared routine, and the result comes back in

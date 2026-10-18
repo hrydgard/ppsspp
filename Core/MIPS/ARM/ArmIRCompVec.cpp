@@ -161,17 +161,6 @@ void ArmJitBackend::CompIR_VecHoriz(IRInst inst) {
 	CONDITIONAL_DISABLE;
 
 	switch (inst.op) {
-	case IROp::Vec4Dot:
-		// In the IR interpreter's order, without fusing, into scratch since dest may be a source lane.
-		regs_.Map(inst);
-		VMUL(SCRATCHF1, regs_.F(inst.src1), regs_.F(inst.src2));
-		for (int i = 1; i < 4; ++i) {
-			VMUL(SCRATCHF2, regs_.F(inst.src1 + i), regs_.F(inst.src2 + i));
-			VADD(SCRATCHF1, SCRATCHF1, SCRATCHF2);
-		}
-		VMOV(regs_.F(inst.dest), SCRATCHF1);
-		break;
-
 	case IROp::Vec4VfpuDot:
 		if (cpu_info.bNEON) {
 			CompVfpuDot(inst);

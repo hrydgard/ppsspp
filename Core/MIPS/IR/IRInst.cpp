@@ -157,7 +157,6 @@ static const IRMeta irMeta[] = {
 	{ IROp::Vec4Div, "Vec4Div", "VVV" },
 	{ IROp::Vec4Mul, "Vec4Mul", "VVV" },
 	{ IROp::Vec4Scale, "Vec4Scale", "VVF" },
-	{ IROp::Vec4Dot, "Vec4Dot", "FVV" },
 	{ IROp::Vec4VfpuDot, "Vec4VfpuDot", "FVV" },
 	{ IROp::Vec4VfpuMultiDot, "Vec4VfpuMultiDot", "VMVc" },
 	{ IROp::Vec4Neg, "Vec4Neg", "VV" },
