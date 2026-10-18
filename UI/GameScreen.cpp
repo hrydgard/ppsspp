@@ -806,8 +806,15 @@ void GameScreen::OnCreateConfig(UI::EventParams &e) {
 	if (!info_->Ready(GameInfoFlags::PARAM_SFO)) {
 		return;
 	}
+	// Saving it switches the config into game-specific mode. Out here in the menus, where we're not
+	// running the game, switch back: otherwise the next save of the config (on exit, say) writes the
+	// game config again, bringing it back even after Delete Game Config.
+	const bool wasGameSpecific = g_Config.IsGameSpecific();
 	g_Config.CreateGameConfig(info_->id);
 	g_Config.SaveGameConfig(info_->id, info_->GetTitle());
+	if (!wasGameSpecific && g_Config.IsGameSpecific()) {
+		g_Config.UnloadGameConfig();
+	}
 	info_->hasConfig = true;
 
 	screenManager()->topScreen()->RecreateViews();
@@ -841,6 +848,11 @@ void GameScreen::OnDeleteConfig(UI::EventParams &e) {
 		std::shared_ptr<GameInfo> info = g_gameInfoCache->GetInfo(nullptr, gamePath_, GameInfoFlags::PARAM_SFO);
 		if (!info->Ready(GameInfoFlags::PARAM_SFO)) {
 			return;
+		}
+		// Like the pause screen does. If the config were left in game-specific mode, its next save
+		// would write the game config right back.
+		if (g_Config.IsGameSpecific()) {
+			g_Config.UnloadGameConfig();
 		}
 		g_Config.DeleteGameConfig(info->id);
 		info->hasConfig = false;
