@@ -773,6 +773,16 @@ void GameBrowser::SetPath(const Path &path) {
 }
 
 bool GameBrowser::Key(const KeyInput &input) {
+	// Alt+Up goes to the parent directory, as in file managers.
+	if ((input.flags & KeyInputFlags::DOWN) && (input.flags & KeyInputFlags::ModAlt) && input.keyCode == NKCODE_DPAD_UP && input.deviceId == DEVICE_ID_KEYBOARD) {
+		if ((browseFlags_ & BrowseFlags::NAVIGATE) && path_.CanNavigateUp()) {
+			// Like the ".." button.
+			path_.Navigate("..");
+			PathChanged();
+			return true;
+		}
+	}
+
 	bool retval = LinearLayout::Key(input);
 	if (retval) {
 		return true;
@@ -1240,6 +1250,10 @@ void GameBrowser::NavigateClick(UI::EventParams &e) {
 	} else {
 		path_.Navigate(text.ToString());
 	}
+	PathChanged();
+}
+
+void GameBrowser::PathChanged() {
 	g_Config.currentDirectory = path_.GetPath();
 	// Clear the search filter. This allow for smooth directory navigation using search
 	// (although there's no good way of going up...)
