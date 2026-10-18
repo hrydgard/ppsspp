@@ -337,7 +337,7 @@ bool PSPButton::IsDownVisually() const {
 
 PSPDpad::PSPDpad(ImageID arrowIndex, std::string_view key, ImageID arrowDownIndex, ImageID overlayIndex, float scale, float spacing, UI::LayoutParams *layoutParams)
 	: GamepadComponent(key, layoutParams), arrowIndex_(arrowIndex), arrowDownIndex_(arrowDownIndex), overlayIndex_(overlayIndex),
-		scale_(scale), spacing_(spacing), dragPointerId_(-1), down_(0) {
+		scale_(scale), spacing_(spacing) {
 }
 
 void PSPDpad::GetContentDimensions(const UIContext &dc, float &w, float &h) const {
@@ -359,11 +359,18 @@ bool PSPDpad::Touch(const TouchInput &input) {
 
 	bool retval = GamepadComponent::Touch(input);
 
+	if (input.flags & TouchInputFlags::RELEASE_ALL) {
+		ReleaseAll();
+		return retval;
+	}
+
+	const uint32_t bit = 1 << input.id;
 	if (input.flags & TouchInputFlags::DOWN) {
-		if (dragPointerId_ == -1 && bounds_.Contains(input.x, input.y)) {
-			dragPointerId_ = input.id;
-			usedPointerMask |= 1 << input.id;
-			ProcessTouch(input.x, input.y, true, false);
+		if (!(pointersDown_ & bit) && bounds_.Contains(input.x, input.y)) {
+			pointersDown_ |= bit;
+			lastPointerId_ = input.id;
+			usedPointerMask |= bit;
+			ProcessTouch(input.id, input.x, input.y, true, false);
 		}
 	}
 	if (input.flags & TouchInputFlags::MOVE) {
@@ -374,26 +381,46 @@ bool PSPDpad::Touch(const TouchInput &input) {
 				ignorePress = true;
 			}
 
-			if (dragPointerId_ == -1 && bounds_.Contains(input.x, input.y) && !(analogPointerMask & (1 << input.id))) {
-				dragPointerId_ = input.id;
+			// The mouse only takes a free pad. Windows can send mouse moves promoted from a touch
+			// that's already on it, with no mouse up to match.
+			const bool canTake = !(input.flags & TouchInputFlags::MOUSE) || pointersDown_ == 0;
+			if (!(pointersDown_ & bit) && canTake && bounds_.Contains(input.x, input.y) && !(analogPointerMask & bit)) {
+				pointersDown_ |= bit;
+				lastPointerId_ = input.id;
 			}
 
-			if (input.id == dragPointerId_) {
-				ProcessTouch(input.x, input.y, true, ignorePress);
+			if (pointersDown_ & bit) {
+				ProcessTouch(input.id, input.x, input.y, true, ignorePress);
 			}
 		}
 	}
 	if (input.flags & TouchInputFlags::UP) {
-		if (input.id == dragPointerId_) {
-			dragPointerId_ = -1;
-			usedPointerMask &= ~(1 << input.id);
-			ProcessTouch(input.x, input.y, false, false);
+		if (pointersDown_ & bit) {
+			pointersDown_ &= ~bit;
+			if (lastPointerId_ == input.id) {
+				lastPointerId_ = -1;
+			}
+			usedPointerMask &= ~bit;
+			ProcessTouch(input.id, input.x, input.y, false, false);
 		}
 	}
 	return retval;
 }
 
-void PSPDpad::ProcessTouch(float x, float y, bool down, bool ignorePress) {
+void PSPDpad::ReleaseAll() {
+	for (int i = 0; i < TOUCH_MAX_POINTERS; i++) {
+		if (pointersDown_ & (1 << i)) {
+			usedPointerMask &= ~(1 << i);
+		}
+		pointerDirs_[i] = 0;
+	}
+	pointersDown_ = 0;
+	lastPointerId_ = -1;
+	// Releases the buttons.
+	ProcessTouch(0, 0.0f, 0.0f, false, false);
+}
+
+void PSPDpad::ProcessTouch(int pointerId, float x, float y, bool down, bool ignorePress) {
 	float stick_size = bounds_.w;
 	float inv_stick_size = 1.0f / stick_size;
 	const float deadzone = 0.05f;
@@ -433,10 +460,39 @@ void PSPDpad::ProcessTouch(float x, float y, bool down, bool ignorePress) {
 		}
 	}
 
+	pointerDirs_[pointerId] = ctrlMask;
+
+	// The other fingers' directions, overridden by the last finger's on each axis it presses.
+	const int horizontal = CTRL_LEFT | CTRL_RIGHT;
+	const int vertical = CTRL_UP | CTRL_DOWN;
+	const int lastDirs = lastPointerId_ >= 0 ? pointerDirs_[lastPointerId_] : 0;
+	int combined = 0;
+	for (int i = 0; i < TOUCH_MAX_POINTERS; i++) {
+		if (i != lastPointerId_ && (pointersDown_ & (1 << i))) {
+			if (g_Config.bDisableDpadDiagonals && combined != 0) {
+				break;
+			}
+			combined |= pointerDirs_[i];
+		}
+	}
+	if (lastDirs != 0) {
+		if (g_Config.bDisableDpadDiagonals) {
+			combined = lastDirs;
+		} else {
+			if (lastDirs & horizontal) {
+				combined &= ~horizontal;
+			}
+			if (lastDirs & vertical) {
+				combined &= ~vertical;
+			}
+			combined |= lastDirs;
+		}
+	}
+
 	int lastDown = down_;
-	int pressed = ctrlMask & ~lastDown;
-	int released = (~ctrlMask) & lastDown;
-	down_ = ctrlMask;
+	int pressed = combined & ~lastDown;
+	int released = (~combined) & lastDown;
+	down_ = combined;
 	bool vibrate = false;
 	static const int dir[4] = { CTRL_RIGHT, CTRL_DOWN, CTRL_LEFT, CTRL_UP };
 	for (int i = 0; i < 4; i++) {

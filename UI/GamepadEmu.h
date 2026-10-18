@@ -123,7 +123,8 @@ public:
 	bool IsDownByTouch() const override { return down_ != 0; }
 
 private:
-	void ProcessTouch(float x, float y, bool down, bool ignorePress);
+	void ProcessTouch(int pointerId, float x, float y, bool down, bool ignorePress);
+	void ReleaseAll();
 	ImageID arrowIndex_;
 	ImageID arrowDownIndex_;
 	ImageID overlayIndex_;
@@ -131,8 +132,12 @@ private:
 	float scale_;
 	float spacing_;
 
-	int dragPointerId_;
-	int down_;
+	// Each finger on the pad holds its own directions, so a second finger can add a diagonal.
+	uint32_t pointersDown_ = 0;
+	int pointerDirs_[TOUCH_MAX_POINTERS]{};
+	// The finger that touched last wins where two disagree.
+	int lastPointerId_ = -1;
+	int down_ = 0;
 };
 
 class PSPStick : public GamepadComponent {
