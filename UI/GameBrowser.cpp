@@ -370,8 +370,9 @@ void GameButton::UpdateVideo(const std::shared_ptr<GameInfo> &ginfo, bool wantVi
 
 void GameButton::Draw(UIContext &dc) {
 	const bool largeList = viewMode_ == GameBrowserViewMode::LARGE_LIST;
-	// Like the XMB, only the selected game plays its video. The mouse can select one too, by hovering.
-	const bool wantVideo = largeList && (HasFocus() || hovering_) && pmf_player_available();
+	// Like the XMB, only the selected game plays its video. Only keyboard/gamepad focus selects, since with
+	// touch or the mouse, getting a video to play without launching the game was too fiddly.
+	const bool wantVideo = largeList && HasFocus() && pmf_player_available();
 
 	GameInfoFlags infoFlags = GameInfoFlags::PARAM_SFO | GameInfoFlags::ICON;
 	if (wantVideo) {
