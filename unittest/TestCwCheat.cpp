@@ -21,6 +21,7 @@
 
 #include "Common/File/FileUtil.h"
 #include "Common/File/Path.h"
+#include "Common/StringUtils.h"
 #include "Core/CwCheat.h"
 #include "Core/MemMap.h"
 #include "Core/MemMapHelpers.h"
@@ -213,6 +214,38 @@ static bool TestCheatParseErrors() {
 	return true;
 }
 
+// Cheats pasted from websites, with a BOM, no _S line and a U+202C (pop directional formatting)
+// after every address (#14955).
+static bool TestCheatInvisibleCharacters() {
+	const Path filename = UnitTestTempPath("unittest_cheats_invisible.ini");
+	const char *content = "\xEF\xBB\xBF\n_C1 Blade Change\xE2\x80\xAC\n_L 0x002F614A\xE2\x80\xAC 0x0000003D\n_L\xC2\xA0" "0x002F614B 0x00000018\n";
+	if (!File::WriteStringToFile(true, content, filename)) {
+		return false;
+	}
+	bool parsed;
+	std::vector<CheatCode> cheats;
+	std::vector<CheatFileInfo> info;
+	{
+		CheatFileParser parser(filename, "TEST00000");
+		parsed = parser.Parse();
+		cheats = parser.GetCheats();
+		info = parser.GetFileInfo();
+	}
+	File::Delete(filename);
+	EXPECT_TRUE(parsed);
+	EXPECT_EQ_INT((int)cheats.size(), 1);
+	EXPECT_EQ_INT((int)cheats[0].lines.size(), 2);
+	EXPECT_EQ_HEX(cheats[0].lines[0].part1, 0x002F614A);
+	EXPECT_EQ_HEX(cheats[0].lines[1].part2, 0x00000018);
+	EXPECT_EQ_INT((int)info.size(), 1);
+	EXPECT_EQ_STR(info[0].name, std::string("Blade Change"));
+
+	// The length limits still apply, after the characters are dropped.
+	EXPECT_EQ_STR(SanitizeString("a\xE2\x80\x8B" "bcd", StringRestriction::NoInvisibleFormatting, 0, 3), std::string("abc"));
+	EXPECT_EQ_STR(SanitizeString("a\xE2\x80\x8B" "b", StringRestriction::NoInvisibleFormatting, 3), std::string());
+	return true;
+}
+
 bool TestCwCheat() {
 	// Other tests may leave currentMIPS pointing elsewhere; the cheat engine needs the real one.
 	currentMIPS = &mipsr4k;
@@ -221,7 +254,7 @@ bool TestCwCheat() {
 		printf("Memory::Init failed\n");
 		return false;
 	}
-	const bool success = RunCheatTests() && TestCheatParseErrors();
+	const bool success = RunCheatTests() && TestCheatParseErrors() && TestCheatInvisibleCharacters();
 	Memory::Shutdown();
 	return success;
 }
