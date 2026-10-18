@@ -202,6 +202,8 @@ public:
 	// boots from, see RememberZArchiveDisc). Empty and -1 for anything else. Use under lock.
 	std::vector<std::string> archiveDiscs;
 	int archiveDisc = -1;
+	// The disc IDs of all discs of a multi-disc ZArchive, to find all its save data. Use under lock.
+	std::vector<std::string> archiveDiscIDs;
 
 protected:
 	ParamSFOData paramSFO;

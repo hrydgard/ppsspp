@@ -86,6 +86,9 @@ PSP/GAME/ULUS12345/DLC01.EDAT
   info screen and so on then show that disc: its title, icon and disc ID, which can differ between
   discs.
 - All discs share the one `PSP/` folder.
+- On the game's info screen, the save data size counts the save data of every disc's ID, since a game
+  can save under the ID of any of its discs (usually the first). **Delete Save Data** there removes
+  all of it.
 - Disc images can be ISO, CSO, CHD or PBP, and can be mixed.
 
 ### PSN game as a single PBP

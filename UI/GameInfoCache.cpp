@@ -276,20 +276,29 @@ std::vector<Path> GameInfo::GetSaveDataDirectories() const {
 
 	Path memc = GetSysDirectory(DIRECTORY_SAVEDATA);
 
+	// A multi-disc game in a ZArchive can save under the ID of any of its discs.
+	std::vector<std::string> ids{ id };
+	for (const std::string &discID : archiveDiscIDs) {
+		if (std::find(ids.begin(), ids.end(), discID) == ids.end()) {
+			ids.push_back(discID);
+		}
+	}
+
 	std::vector<Path> directories;
-	if (id.size() < 5) {
-		// Invalid game ID.
-		return directories;
+	for (const std::string &prefix : ids) {
+		if (prefix.size() < 5) {
+			// Invalid game ID.
+			continue;
+		}
+		std::vector<File::FileInfo> dirs;
+		File::GetFilesInDir(memc, &dirs, nullptr, 0, prefix);
+		for (const auto &dir : dirs) {
+			// One ID could be a prefix of another, don't count a directory twice.
+			if (std::find(directories.begin(), directories.end(), dir.fullName) == directories.end()) {
+				directories.push_back(dir.fullName);
+			}
+		}
 	}
-
-	std::vector<File::FileInfo> dirs;
-	const std::string &prefix = id;
-	File::GetFilesInDir(memc, &dirs, nullptr, 0, prefix);
-
-	for (const auto& dir : dirs) {
-		directories.push_back(dir.fullName);
-	}
-
 	return directories;
 }
 
@@ -613,6 +622,8 @@ public:
 		IdentifiedFileType contentType = fileType;
 		std::shared_ptr<FileLoader> contentLoader = info_->GetFileLoader();
 		const bool fromArchive = fileType == IdentifiedFileType::ZARCHIVE;
+		std::shared_ptr<ZArchive> archive;
+		ZArchiveContents archiveContents;
 		if (fromArchive) {
 			FileLoader *archiveLoader = ConstructFileLoader(gamePath_);
 			FileLoader *target = OpenZArchiveBootTarget(archiveLoader, &errorString);
@@ -621,11 +632,11 @@ public:
 				contentType = Identify_File(target, &errorString);
 				// Which disc this is about, for the disc picker.
 				const ZArchiveFileLoader *zar = static_cast<const ZArchiveFileLoader *>(target);
-				ZArchiveContents contents;
-				ScanZArchiveContents(*zar->GetArchive(), &contents);
+				archive = zar->GetArchive();
+				ScanZArchiveContents(*archive, &archiveContents);
 				std::lock_guard<std::mutex> lock(info_->lock);
-				info_->archiveDiscs = contents.discs;
-				info_->archiveDisc = contents.FindDisc(zar->GetInnerPath());
+				info_->archiveDiscs = archiveContents.discs;
+				info_->archiveDisc = archiveContents.FindDisc(zar->GetInnerPath());
 			} else {
 				delete archiveLoader;
 			}
@@ -1013,7 +1024,20 @@ handleELF:
 			case IdentifiedFileType::PSP_PBP_DIRECTORY:
 			case IdentifiedFileType::ZARCHIVE:
 			{
+				// A game on several discs may save under the ID of any of them (usually the first),
+				// so count them all. Reading the IDs is cheap, it's just each disc's PARAM.SFO.
+				std::vector<std::string> discIDs;
+				if (archive && archiveContents.discs.size() > 1) {
+					for (const std::string &disc : archiveContents.discs) {
+						ZArchiveFileLoader discLoader(archive, disc);
+						const std::string discID = endsWithNoCase(disc, ".pbp") ? g_GameManager.GetPBPGameID(&discLoader) : g_GameManager.GetISOGameID(&discLoader);
+						if (!discID.empty() && std::find(discIDs.begin(), discIDs.end(), discID) == discIDs.end()) {
+							discIDs.push_back(discID);
+						}
+					}
+				}
 				std::lock_guard<std::mutex> lock(info_->lock);
+				info_->archiveDiscIDs = std::move(discIDs);
 				info_->saveDataSize = info_->GetGameSavedataSizeInBytes();
 				info_->installDataSize = info_->GetInstallDataSizeInBytes();
 				break;
