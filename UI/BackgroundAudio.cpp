@@ -351,6 +351,18 @@ void BackgroundAudio::SetGame(const Path &path) {
 	bgGamePath_ = path;
 }
 
+void BackgroundAudio::ReloadGame(const Path &path) {
+	std::lock_guard<std::mutex> lock(mutex_);
+	if (path.empty() || path != bgGamePath_) {
+		return;
+	}
+	Clear(true);
+	gameLastChanged_ = time_now_d();
+	sndLoadPending_ = true;
+	fadingOut_ = false;
+	volumeFader_ = 1.0f;
+}
+
 bool BackgroundAudio::Play() {
 	std::lock_guard<std::mutex> lock(mutex_);
 

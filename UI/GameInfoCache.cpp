@@ -49,6 +49,7 @@
 #include "Core/Util/RecentFiles.h"
 #include "Core/Config.h"
 #include "UI/GameInfoCache.h"
+#include "UI/BackgroundAudio.h"
 
 GameInfoCache *g_gameInfoCache;
 
@@ -1287,4 +1288,6 @@ void OnArchiveDiscChanged(const Path &archivePath) {
 	if (g_gameInfoCache) {
 		g_gameInfoCache->Purge(archivePath);
 	}
+	// The menu music comes from the disc too.
+	g_BackgroundAudio.ReloadGame(archivePath);
 }
