@@ -19,6 +19,7 @@
 #include "Core/FileLoaders/ZArchiveFileLoader.h"
 #include "Core/FileSystems/DirectoryFileSystem.h"
 #include "Core/FileSystems/ZArchiveFileSystem.h"
+#include "Core/Config.h"
 #include "Core/Loaders.h"
 
 #include "UnitTest.h"
@@ -394,6 +395,16 @@ static bool TestZArchiveRememberDisc() {
 	return true;
 }
 
+static bool TestZArchiveGameConfigAliases() {
+	// The discs of a game share the first disc's game config. Unknown IDs (empty) are skipped.
+	g_Config.SetGameConfigAliases({ "", "ULJM90001", "ULJM90002", "", "ULJM90003" });
+	EXPECT_EQ_STR(g_Config.GameConfigID("ULJM90002"), std::string("ULJM90001"));
+	EXPECT_EQ_STR(g_Config.GameConfigID("ULJM90003"), std::string("ULJM90001"));
+	EXPECT_EQ_STR(g_Config.GameConfigID("ULJM90001"), std::string("ULJM90001"));
+	EXPECT_EQ_STR(g_Config.GameConfigID("ULUS10000"), std::string("ULUS10000"));
+	return true;
+}
+
 static bool TestZArchiveCorrupt() {
 	const std::vector<u8> good = BuildZArchive({ { "a/b.iso", Pattern(100000, 3) } });
 	EXPECT_TRUE(OpenArchive(good) != nullptr);
@@ -596,6 +607,7 @@ bool TestZArchive() {
 	RET(TestZArchiveReader());
 	RET(TestZArchiveEbootOnly());
 	RET(TestZArchiveRememberDisc());
+	RET(TestZArchiveGameConfigAliases());
 	RET(TestZArchiveCorrupt());
 	RET(TestZArchiveMemStickOverlay());
 	return true;

@@ -437,6 +437,15 @@ bool GetRunningArchiveDiscs(std::vector<std::string> *discs, int *currentDisc) {
 	return true;
 }
 
+std::vector<std::string> GetZArchiveDiscIDs(const std::shared_ptr<ZArchive> &archive, const ZArchiveContents &contents) {
+	std::vector<std::string> ids;
+	for (const std::string &disc : contents.discs) {
+		ZArchiveFileLoader discLoader(archive, disc);
+		ids.push_back(endsWithNoCase(disc, ".pbp") ? g_GameManager.GetPBPGameID(&discLoader) : g_GameManager.GetISOGameID(&discLoader));
+	}
+	return ids;
+}
+
 bool UmdReplaceArchiveDisc(int discIndex, FileLoader **fileLoader, std::string &error) {
 	if (!pspFileSystem.GetSystem("disc0:")) {
 		error = "has no disc";

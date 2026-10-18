@@ -648,9 +648,22 @@ public:
 				const ZArchiveFileLoader *zar = static_cast<const ZArchiveFileLoader *>(target);
 				archive = zar->GetArchive();
 				ScanZArchiveContents(*archive, &archiveContents);
-				std::lock_guard<std::mutex> lock(info_->lock);
-				info_->archiveDiscs = archiveContents.discs;
-				info_->archiveDisc = archiveContents.FindDisc(zar->GetInnerPath());
+				bool haveDiscIDs;
+				{
+					std::lock_guard<std::mutex> lock(info_->lock);
+					info_->archiveDiscs = archiveContents.discs;
+					info_->archiveDisc = archiveContents.FindDisc(zar->GetInnerPath());
+					haveDiscIDs = !info_->archiveDiscIDs.empty();
+				}
+				if (archiveContents.discs.size() > 1 && !haveDiscIDs) {
+					// The discs may have different IDs. All of them count for save data and play time,
+					// and they share the first one's game config. Cheap, it's each disc's PARAM.SFO.
+					std::vector<std::string> discIDs = GetZArchiveDiscIDs(archive, archiveContents);
+					g_Config.SetGameConfigAliases(discIDs);
+					discIDs.erase(std::remove(discIDs.begin(), discIDs.end(), std::string()), discIDs.end());
+					std::lock_guard<std::mutex> lock(info_->lock);
+					info_->archiveDiscIDs = std::move(discIDs);
+				}
 			} else {
 				delete archiveLoader;
 			}
@@ -1038,20 +1051,8 @@ handleELF:
 			case IdentifiedFileType::PSP_PBP_DIRECTORY:
 			case IdentifiedFileType::ZARCHIVE:
 			{
-				// A game on several discs may save under the ID of any of them (usually the first),
-				// so count them all. Reading the IDs is cheap, it's just each disc's PARAM.SFO.
-				std::vector<std::string> discIDs;
-				if (archive && archiveContents.discs.size() > 1) {
-					for (const std::string &disc : archiveContents.discs) {
-						ZArchiveFileLoader discLoader(archive, disc);
-						const std::string discID = endsWithNoCase(disc, ".pbp") ? g_GameManager.GetPBPGameID(&discLoader) : g_GameManager.GetISOGameID(&discLoader);
-						if (!discID.empty() && std::find(discIDs.begin(), discIDs.end(), discID) == discIDs.end()) {
-							discIDs.push_back(discID);
-						}
-					}
-				}
+				// For a multi-disc ZArchive, this counts the save data of all the discs' IDs, see above.
 				std::lock_guard<std::mutex> lock(info_->lock);
-				info_->archiveDiscIDs = std::move(discIDs);
 				info_->saveDataSize = info_->GetGameSavedataSizeInBytes();
 				info_->installDataSize = info_->GetInstallDataSizeInBytes();
 				break;

@@ -832,6 +832,16 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 		IdentifiedFileType fileType;
 		FileLoader *loadedFile = ResolveFileLoaderTarget(ConstructFileLoader(filename), &fileType, errorString);
 
+		// All discs of a multi-disc game in a ZArchive use one game config. Has to be known before
+		// the game config is loaded, while booting.
+		if (ZArchiveFileLoader *zar = FindZArchiveFileLoader(loadedFile)) {
+			ZArchiveContents contents;
+			ScanZArchiveContents(*zar->GetArchive(), &contents);
+			if (contents.discs.size() > 1) {
+				g_Config.SetGameConfigAliases(GetZArchiveDiscIDs(zar->GetArchive(), contents));
+			}
+		}
+
 		if (System_GetPropertyBool(SYSPROP_ENOUGH_RAM_FOR_FULL_ISO)) {
 			if (g_Config.bCacheFullIsoInRam) {
 				switch (fileType) {

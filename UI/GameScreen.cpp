@@ -416,8 +416,14 @@ void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 
 	infoLayout->Add(new TextView(GetFriendlyPath(gamePath_), ALIGN_LEFT | FLAG_WRAP_TEXT, true, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)))->SetShadow(true);
 
+	// For a multi-disc ZArchive, the time played on all its discs, which can have different IDs.
+	std::vector<std::string> playedIds{ info_->id };
+	{
+		std::lock_guard<std::mutex> guard(info_->lock);
+		playedIds.insert(playedIds.end(), info_->archiveDiscIDs.begin(), info_->archiveDiscIDs.end());
+	}
 	std::string timeStr;
-	if (g_Config.TimeTracker().GetPlayedTimeString(info_->id, &timeStr)) {
+	if (g_Config.TimeTracker().GetPlayedTimeString(playedIds, &timeStr)) {
 		LinearLayout *timeHoriz = infoLayout->Add(new LinearLayout(ORIENT_HORIZONTAL));
 
 		TextView *tvPlayTime = timeHoriz->Add(new TextView(timeStr, ALIGN_LEFT, true, new LinearLayoutParams(0.0f, Gravity::G_VCENTER)));
@@ -426,17 +432,18 @@ void GameScreen::CreateContentViews(UI::ViewGroup *parent) {
 
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		Choice *btnResetTime = timeHoriz->Add(new Choice(di->T("Reset"), new LinearLayoutParams(0.0f, Gravity::G_VCENTER)));
-		btnResetTime->OnClick.Add([this, ga, timeStr, title](UI::EventParams &) {
+		btnResetTime->OnClick.Add([this, ga, timeStr, title, playedIds](UI::EventParams &) {
 			auto di = GetI18NCategory(I18NCat::DIALOG);
 			auto gta = GetI18NCategory(I18NCat::GAME);
-			std::string id = info_->id;
 			std::string questionText(ga->T("Are you sure you want to reset the played time counter?"));
 			questionText += "\n";
 			questionText += timeStr;
 			screenManager()->push(
-				new UI::MessagePopupScreen(title, questionText, di->T("Reset"), di->T("Cancel"), [this, id](bool reset) {
+				new UI::MessagePopupScreen(title, questionText, di->T("Reset"), di->T("Cancel"), [this, playedIds](bool reset) {
 				if (reset) {
-					g_Config.TimeTracker().Reset(id);
+					for (const std::string &id : playedIds) {
+						g_Config.TimeTracker().Reset(id);
+					}
 					RecreateViews();
 				}
 			}));

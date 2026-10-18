@@ -180,6 +180,11 @@ bool GetRunningArchiveDiscs(std::vector<std::string> *discs, int *currentDisc);
 // Like UmdReplace, but switches to another disc from the same ZArchive.
 bool UmdReplaceArchiveDisc(int discIndex, FileLoader **fileLoader, std::string &error);
 
+class ZArchive;
+struct ZArchiveContents;
+// The disc IDs of an archive's discs, from their PARAM.SFO, in disc order. Empty where unreadable.
+std::vector<std::string> GetZArchiveDiscIDs(const std::shared_ptr<ZArchive> &archive, const ZArchiveContents &contents);
+
 enum class ArchiveType {
 	ZIP,
 	SevenZ,
