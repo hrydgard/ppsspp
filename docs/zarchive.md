@@ -14,6 +14,7 @@ works as well as `PSP/GAME`.
 | Path inside the .zar | What PPSSPP does with it |
 | --- | --- |
 | `/<anything>.iso`<br>`/<anything>.cso`<br>`/<anything>.chd` | A disc image. Only the **root** of the archive is searched. |
+| `/<anything>.pbp` | Also a disc image, if the PBP holds a game disc (PSN games, ISOs converted to PBP), the same as a loose `Valkyrie Chronicles.pbp`. A homebrew PBP here is ignored, see below. |
 | `/PSP/...` | Memory stick content. It shows up as `ms0:/PSP/...` while the game runs. |
 | `/PSP/GAME/<DISC_ID>/...` | DLC and other per-game data, for example `.EDAT` files. |
 | `/PSP/GAME/<DISC_ID>/PBOOT.PBP` | A game update, booted instead of the disc's executable. |
@@ -79,9 +80,31 @@ PSP/GAME/ULUS12345/DLC01.EDAT
 - Disc 1 always boots. To change discs, use **Switch UMD** in the pause menu, which lists the
   archive's other discs on its **Discs** tab (it only appears for archives with two or more discs).
 - All discs share the one `PSP/` folder.
-- Disc images can be ISO, CSO or CHD, and can be mixed.
+- Disc images can be ISO, CSO, CHD or PBP, and can be mixed.
 
-### PSN game or homebrew (no disc image)
+### PSN game as a single PBP
+
+```
+Game.zar
+├── Some PSN Game.pbp
+└── PSP/
+    └── GAME/
+        └── NPUH10000/
+            └── DLC01.EDAT
+```
+
+Full paths in the archive:
+
+```
+Some PSN Game.pbp
+PSP/GAME/NPUH10000/DLC01.EDAT
+```
+
+The PBP can have any name. It's treated exactly like an ISO in the root, so this also works for
+multi-disc games, and its DLC goes in `PSP/GAME/<its disc ID>/` as usual. This only applies to PBPs
+that contain a game disc (`NPUMDIMG`). PPSSPP checks the file's contents, not its name.
+
+### PSN game or homebrew in memory stick layout (no disc image)
 
 ```
 Game.zar
@@ -145,6 +168,8 @@ new extension is `.iso`, `.cso` or `.chd`.
 ## Ignored
 
 - Disc images anywhere except the root, such as `/Discs/Disc 1.iso`.
+- A homebrew PBP (one that holds a program rather than a disc image) in the root. Homebrew has to
+  go in `PSP/GAME/<folder>/EBOOT.PBP`, because it loads its files from that folder.
 - Names starting with `._`, which are macOS metadata files.
 - Extracted disc folders (`PSP_GAME/...`). Use a disc image instead.
 - An archive inside an archive, or a `.zar` inside a `.zip`.

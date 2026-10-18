@@ -447,12 +447,26 @@ FileLoader *ZArchive::ReleaseLoader() {
 	return loader_.release();
 }
 
+static bool IsJunkName(std::string_view name) {
+	// macOS resource fork junk, they come along when zipping folders on a Mac.
+	return startsWith(name, "._");
+}
+
 static bool IsDiscImageName(std::string_view name) {
-	if (startsWith(name, "._")) {
-		// macOS resource fork junk, they come along when zipping folders on a Mac.
-		return false;
-	}
 	return endsWithNoCase(name, ".iso") || endsWithNoCase(name, ".cso") || endsWithNoCase(name, ".chd");
+}
+
+// A PBP that holds a disc image (a PSN game, or an ISO converted to PBP), rather than a program.
+// Those boot like an ISO, the same as when they're loose files. Checked like Identify_File does.
+static bool IsDiscImagePBP(ZArchive &archive, ZArchive::NodeHandle node) {
+	u8 header[0x28];
+	if (archive.ReadFile(node, 0, sizeof(header), header) != sizeof(header) || memcmp(header, "\0PBP", 4) != 0)
+		return false;
+	const u32 psarOffset = (u32)header[0x24] | ((u32)header[0x25] << 8) | ((u32)header[0x26] << 16) | ((u32)header[0x27] << 24);
+	char psar[4];
+	if (archive.ReadFile(node, psarOffset, sizeof(psar), psar) != sizeof(psar))
+		return false;
+	return memcmp(psar, "NPUM", 4) == 0;
 }
 
 // "Disc 2" before "Disc 10". Case-insensitive otherwise.
@@ -493,7 +507,7 @@ static bool NaturalLess(std::string_view a, std::string_view b) {
 	return (a.size() - i) < (b.size() - j);
 }
 
-void ScanZArchiveContents(const ZArchive &archive, ZArchiveContents *contents) {
+void ScanZArchiveContents(ZArchive &archive, ZArchiveContents *contents) {
 	*contents = ZArchiveContents();
 
 	for (const ZArchive::DirEntry &entry : archive.ListDirectory(ZArchive::ROOT_NODE)) {
@@ -501,8 +515,16 @@ void ScanZArchiveContents(const ZArchive &archive, ZArchiveContents *contents) {
 			if (NameEquals(entry.name, "PSP")) {
 				contents->hasMemStick = true;
 			}
+		} else if (IsJunkName(entry.name)) {
+			continue;
 		} else if (IsDiscImageName(entry.name)) {
 			contents->discs.emplace_back(entry.name);
+		} else if (endsWithNoCase(entry.name, ".pbp")) {
+			if (IsDiscImagePBP(archive, entry.node)) {
+				contents->discs.emplace_back(entry.name);
+			} else {
+				WARN_LOG(Log::Loader, "Ignoring %s in the ZArchive root: not a game disc. Homebrew goes in PSP/GAME/<folder>/EBOOT.PBP", std::string(entry.name).c_str());
+			}
 		}
 	}
 	std::sort(contents->discs.begin(), contents->discs.end(), [](const std::string &a, const std::string &b) {

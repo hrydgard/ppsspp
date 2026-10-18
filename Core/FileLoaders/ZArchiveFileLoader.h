@@ -40,6 +40,8 @@
 // What PPSSPP looks for in a .zar, see ScanZArchiveContents():
 //   /<name>.iso, .cso or .chd   Disc images, in the archive root. More than one is a multi-disc game,
 //                               the discs are ordered by name ("Disc 1", "Disc 2", ... "Disc 10").
+//   /<name>.pbp                 Also a disc image, if it's a PBP of a disc (PSN games, ISOs converted
+//                               to PBP). Other PBPs (homebrew) are ignored there.
 //   /PSP/...                    Memory stick content, overlaid read-only on ms0: while the game runs:
 //                               PSP/GAME/<ID>/ for DLC and game updates (PBOOT.PBP). PSP/SAVEDATA is
 //                               ignored, save data belongs on the real memory stick.
@@ -147,7 +149,7 @@ struct ZArchiveContents {
 	std::string BootTarget(int bootIndex = 0) const;
 };
 
-void ScanZArchiveContents(const ZArchive &archive, ZArchiveContents *contents);
+void ScanZArchiveContents(ZArchive &archive, ZArchiveContents *contents);
 
 // Exposes one file from an archive as a file loader. GetPath() is the archive's path, like
 // ZipFileLoader: it's the archive that the user picked, it's what goes in recents, and so on.

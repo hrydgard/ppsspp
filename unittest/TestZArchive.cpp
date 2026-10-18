@@ -219,6 +219,18 @@ static std::string Noise(size_t size, u32 seed) {
 	return s;
 }
 
+// Just the PBP header, with the PSAR (the last section) starting with the given magic.
+static std::string FakePBP(const char *psarMagic) {
+	std::string pbp("\0PBP", 4);
+	pbp += std::string("\0\0\1\0", 4);  // Version.
+	const u32 offset = 0x28;
+	for (int i = 0; i < 8; i++) {
+		pbp += std::string((const char *)&offset, 4);  // All sections empty, except the PSAR. Little endian.
+	}
+	pbp += psarMagic;
+	return pbp;
+}
+
 static std::shared_ptr<ZArchive> OpenArchive(const std::vector<u8> &data) {
 	FileLoader *loader = new MemoryFileLoader(data, Path("/test/game.zar"));
 	std::string error;
@@ -247,7 +259,9 @@ static bool TestZArchiveReader() {
 		{ "Disc 10.iso", "ten" },
 		{ "Disc 2.iso", "two" },
 		{ "Disc 1.cso", "one" },
-		{ "._Disc 3.iso", "junk" },
+		{ "Disc 3.pbp", FakePBP("NPUMDIMG") },
+		{ "Homebrew.PBP", FakePBP("PSISOIMG") },
+		{ "._Disc 4.iso", "junk" },
 		{ "readme.txt", "hello" },
 		{ "PSP/GAME/ULUS12345/DLC.EDAT", big },
 		{ "PSP/GAME/ULUS12345/noise.bin", noise },
@@ -294,15 +308,17 @@ static bool TestZArchiveReader() {
 	// What PPSSPP makes of it: discs in natural order, no junk, memstick content.
 	ZArchiveContents contents;
 	ScanZArchiveContents(*archive, &contents);
-	EXPECT_EQ_INT((int)contents.discs.size(), 3);
+	// A PBP of a disc counts as one, another PBP doesn't.
+	EXPECT_EQ_INT((int)contents.discs.size(), 4);
 	EXPECT_EQ_STR(contents.discs[0], std::string("Disc 1.cso"));
 	EXPECT_EQ_STR(contents.discs[1], std::string("Disc 2.iso"));
-	EXPECT_EQ_STR(contents.discs[2], std::string("Disc 10.iso"));
+	EXPECT_EQ_STR(contents.discs[2], std::string("Disc 3.pbp"));
+	EXPECT_EQ_STR(contents.discs[3], std::string("Disc 10.iso"));
 	EXPECT_TRUE(contents.hasMemStick);
 	EXPECT_EQ_STR(contents.BootTarget(1), std::string("Disc 2.iso"));
 	EXPECT_EQ_STR(contents.BootTarget(7), std::string("Disc 1.cso"));
 
-	ZArchiveFileLoader disc(archive, contents.discs[2]);
+	ZArchiveFileLoader disc(archive, contents.discs[3]);
 	EXPECT_TRUE(disc.Exists());
 	EXPECT_EQ_INT((int)disc.FileSize(), 3);
 	EXPECT_EQ_STR(disc.GetFileExtension(), std::string(".iso"));
