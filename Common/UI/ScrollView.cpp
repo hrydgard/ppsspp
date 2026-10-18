@@ -160,9 +160,9 @@ bool ScrollView::Touch(const TouchInput &input) {
 		mouseHover_ = bounds_.Contains(input.x, input.y);
 	}
 
-	// Ignore buttons other than the left one.
+	// Only the left button scrolls, but the children still get the rest, so they can see hovers and other buttons.
 	if ((input.flags & TouchInputFlags::MOUSE) && (input.buttons & 1) == 0) {
-		return false;
+		return ViewGroup::Touch(input);
 	}
 
 	if ((input.flags & TouchInputFlags::DOWN) && scrollTouchId_ == -1 && bounds_.Contains(input.x, input.y)) {
