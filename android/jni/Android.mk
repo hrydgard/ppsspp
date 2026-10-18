@@ -1132,6 +1132,7 @@ ifeq ($(UNITTEST),1)
     $(SRC)/unittest/TestSplineTessellation.cpp \
     $(SRC)/unittest/TestGEMath.cpp \
     $(SRC)/unittest/TestZipSlip.cpp \
+    $(SRC)/unittest/TestZArchive.cpp \
     $(SRC)/unittest/UnitTest.cpp
 
   include $(BUILD_EXECUTABLE)
