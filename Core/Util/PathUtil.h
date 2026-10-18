@@ -52,4 +52,7 @@ bool CreateSysDirectories();
 Path GetGameConfigFilePath(const Path &searchPath, std::string_view gameId, bool *exists);
 bool TryUpdateSavedPath(Path *path);
 Path GetFailedBackendsDir();
+// The default memory stick of the Mac and Linux builds, shared by the app and headless. The Mac app may use
+// another one, if the user picked it.
+Path GetDefaultDesktopMemStickDirectory();
 std::string GetFriendlyPath(Path path, const Path &rootMatch = Path(), std::string_view rootDisplay = "ms:/");

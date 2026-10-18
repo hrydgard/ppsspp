@@ -107,6 +107,9 @@ def run_test(headless, dump_path, variant_args, ref_path, actual_path, diff_path
     """Run one dump with one variant's args. Returns (status, mse, output, timed_out)."""
     generate = not ref_path.exists()
     args = [str(headless)] + list(variant_args)
+    # A memory stick of the tests' own, so the replays don't share shader caches with the user's games.
+    if not any(a.startswith("--memstick") for a in args):
+        args.append("--memstick=" + str(Path(headless).resolve().parent / "memstick"))
     if generate:
         args.append("--screenshot-save=" + str(ref_path))
     else:

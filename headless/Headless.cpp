@@ -1191,9 +1191,10 @@ int main(int argc, const char* argv[]) {
 #endif
 
 	// --memstick, applied by ApplyToConfig() further up, wins. This runs after it, so without the
-	// check the default below would silently overwrite whatever was asked for.
+	// check the default below would silently overwrite whatever was asked for. Otherwise it's the app's
+	// default, except on Windows (next to the exe, like a portable install) and iOS. The test runners
+	// pass their own.
 	if (!cmdLineOptions.memStick.has_value()) {
-		// TODO: Share this derivation with the main build.
 #if PPSSPP_PLATFORM(WINDOWS)
 		// Mount a filesystem
 		g_Config.memStickDirectory = exePath / "memstick";
@@ -1203,7 +1204,7 @@ int main(int argc, const char* argv[]) {
 		// The app container's root isn't writable.
 		g_Config.memStickDirectory = Path(std::string(getenv("HOME"))) / "Library" / "memstick";
 #elif !PPSSPP_PLATFORM(ANDROID)
-		g_Config.memStickDirectory = Path(std::string(getenv("HOME"))) / ".ppsspp";
+		g_Config.memStickDirectory = GetDefaultDesktopMemStickDirectory();
 #endif
 	}
 	// The memstick's NAND, unless --nand says otherwise.
