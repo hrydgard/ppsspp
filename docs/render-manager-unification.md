@@ -168,7 +168,7 @@ The interface then also needs push buffer allocation for vertices, indices and u
 and index buffers at an offset, binding uniform block ranges per slot, texture and sampler slots, and
 draws. Clears inside a pass and render pass merging stay internal to the render managers.
 
-The design of the resource interface (step 2 below) has to allow for this from the start: plain handles,
+The design of the resource interface (step 4 below) has to allow for this from the start: plain handles,
 no refcounting on bind, push buffers as pointers.
 
 **Measuring it:** rewrite `DrawEngineMetal` against the interface and compare it with the current one on
@@ -183,16 +183,24 @@ deduplication and render pass merging could then be written once.
 
 ## Order of work
 
-1. Settle the lifetime rule and the state-tracking contract.
-2. Define the interface for framebuffers, textures and buffers. Implement it on Metal and Vulkan, whose
-   render managers have the same shape, and move `FramebufferManagerCommon` and `TextureCacheCommon`
-   onto it.
-3. Make Metal's thin3d a facade over the interface, and check the frame dumps against Vulkan
-   (`frametests.py`, and the full-dump Metal/Vulkan comparison).
-4. Do the same for Vulkan.
-5. Write the D3D11 render manager, implemented immediately, and move D3D11 over.
+0. Merge the Metal backend (branch `metal-backend`), opt-in at first: Vulkan through MoltenVK stays the
+   default on Apple until Metal has had some use. Its render manager is the newest and the closest to
+   what the shared one should look like.
+1. A small abstract `RenderManager` parent class (`Common/GPU/RenderManager.h`), starting with what thin3d's
+   `DrawContext` answers per backend today: device caps, bugs, the shader language description and the
+   supported data formats. Each render manager does its own detection and owns the result, and the thin3d
+   drivers forward to it. Behavior doesn't change, which a before/after dump of the caps and bugs per
+   backend shows.
+2. A D3D11 render manager in `Common/GPU/D3D11/`, shaped after Vulkan's, owning the device, the
+   immediate context and the caps. It executes immediately, so the interface meets the "no deferred
+   replay" rule from the start.
+3. Settle the lifetime rule and the state-tracking contract.
+4. Define the interface for framebuffers, textures and buffers. Implement it on all four render managers,
+   Metal and Vulkan first, and move `FramebufferManagerCommon` and `TextureCacheCommon` onto it.
+5. Make Metal's thin3d a facade over the interface, and check the frame dumps against Vulkan
+   (`frametests.py`, and the full-dump Metal/Vulkan comparison). Then Vulkan, D3D11 and GL.
 6. Move pipelines into the render managers, Metal and Vulkan first.
-7. GL: uniform buffers, the cracking corner, then the facade.
+7. GL: uniform buffers, the cracking corner.
 8. Game draws through the interface: Metal's draw engine first, measured against the current one, then
    the other backends if it holds up.
 9. The shared command list, with a player per backend.
