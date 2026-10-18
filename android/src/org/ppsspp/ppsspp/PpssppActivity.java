@@ -408,10 +408,6 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 	}
 
 	public void Initialize() {
-		// isLandscape is used to trigger GetAppInfo currently, we
-		boolean landscape = NativeApp.isLandscape();
-		Log.d(TAG, "Landscape: " + landscape);
-
 		ApplicationInfo appInfo = getApplicationInfo();
 
 		int deviceType = NativeApp.DEVICE_TYPE_MOBILE;

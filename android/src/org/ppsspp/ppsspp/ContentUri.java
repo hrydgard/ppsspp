@@ -7,7 +7,6 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Environment;
 import android.os.ParcelFileDescriptor;
-import android.os.storage.StorageManager;
 import android.provider.DocumentsContract;
 import android.system.Os;
 import android.system.StructStatVfs;
@@ -20,7 +19,6 @@ import androidx.documentfile.provider.DocumentFile;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.Locale;
-import java.util.UUID;
 
 public class ContentUri {
 	private static final String TAG = "PpssppActivity";  // don't want to add yet another tag
@@ -416,21 +414,6 @@ public class ContentUri {
 
 		// Too early Android version
 		return -1;
-	}
-
-	@RequiresApi(Build.VERSION_CODES.O)
-	@Keep
-	@SuppressWarnings("unused")
-	public static long filePathGetFreeStorageSpace(Activity activity, String filePath) {
-		try {
-			StorageManager storageManager = activity.getApplicationContext().getSystemService(StorageManager.class);
-			File file = new File(filePath);
-			UUID volumeUUID = storageManager.getUuidForPath(file);
-			return storageManager.getAllocatableBytes(volumeUUID);
-		} catch (Exception e) {
-			Log.e(TAG, "filePathGetFreeStorageSpace exception: " + e);
-			return -1;
-		}
 	}
 
 	@Keep

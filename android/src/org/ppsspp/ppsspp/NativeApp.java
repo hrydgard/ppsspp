@@ -43,9 +43,8 @@ public class NativeApp {
 	public static native void setDisplayParameters(int display_xres, int display_yres, int dpi, float refreshRate);
 	// rotation is the Surface.ROTATION_* of the display. A change in it alone (a 180 degree flip) keeps the size
 	// but the swapchain still has to be recreated, for the pre-rotation.
-	public static native void backbufferResize(int bufferWidth, int bufferHeight, int format, int rotation);
+	public static native void backbufferResize(int bufferWidth, int bufferHeight, int rotation);
 
-	public static native boolean isLandscape();
 	public static native boolean isAtTopLevel();
 
 	// These have Android semantics: Resume is always called on bootup, after init

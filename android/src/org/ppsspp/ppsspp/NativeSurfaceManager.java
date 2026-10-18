@@ -24,7 +24,6 @@ public class NativeSurfaceManager implements SurfaceHolder.Callback {
 	// A density change has to re-report it, see densityChanged().
 	private int reportedWidth;
 	private int reportedHeight;
-	private int reportedFormat;
 	private float reportedDensityDpi;
 
 	public NativeSurfaceManager(final PpssppActivity a) {
@@ -93,7 +92,7 @@ public class NativeSurfaceManager implements SurfaceHolder.Callback {
 			}
 		}
 
-		reportSurfaceSize(width, height, format);
+		reportSurfaceSize(width, height);
 		activity.notifySurface(holder.getSurface());
 	}
 
@@ -107,12 +106,11 @@ public class NativeSurfaceManager implements SurfaceHolder.Callback {
 		holder.setSizeFromLayout();
 	}
 
-	private void reportSurfaceSize(int width, int height, int format) {
+	private void reportSurfaceSize(int width, int height) {
 		reportedWidth = width;
 		reportedHeight = height;
-		reportedFormat = format;
 		reportedDensityDpi = densityDpi;
-		NativeApp.backbufferResize(width, height, format, activity.getWindowManager().getDefaultDisplay().getRotation());
+		NativeApp.backbufferResize(width, height, activity.getWindowManager().getDefaultDisplay().getRotation());
 	}
 
 	// A density change rescales the UI but leaves the surface size alone, so no surfaceChanged
@@ -124,7 +122,7 @@ public class NativeSurfaceManager implements SurfaceHolder.Callback {
 			return;
 		}
 		Log.i(TAG, "Density is now " + densityDpi + ", re-reporting surface " + reportedWidth + "x" + reportedHeight);
-		reportSurfaceSize(reportedWidth, reportedHeight, reportedFormat);
+		reportSurfaceSize(reportedWidth, reportedHeight);
 	}
 
 	public void updateDisplayMeasurements() {

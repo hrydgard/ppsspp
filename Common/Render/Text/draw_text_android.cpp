@@ -68,21 +68,32 @@ void TextDrawerAndroid::SetOrCreateFont(const FontStyle &style) {
 	}
 
 	std::string filename = GetFilenameForFontStyle(style) + ".ttf";
+	// TextRenderer has no font -1, so it draws that with the default typeface.
+	int fontId = -1;
 	auto fontIter = allocatedFonts_.find(filename);
-	if (fontIter == allocatedFonts_.end()) {
+	if (fontIter != allocatedFonts_.end()) {
+		fontId = fontIter->second;
+	} else {
 		auto env = getEnv();
 		JNILocalFrame frame(env);
 		jobject activity = Android_GetActivity(env);
-		jstring jstr = env->NewStringUTF(filename.c_str());
-		int fontId = env->CallStaticIntMethod(cls_textRenderer, method_allocFont, activity, jstr);
-
-		if (fontId >= 0) {
+		if (activity) {
+			jstring jstr = env->NewStringUTF(filename.c_str());
+			fontId = env->CallStaticIntMethod(cls_textRenderer, method_allocFont, activity, jstr);
+			if (CheckJavaException(env, __FUNCTION__) || fontId < 0) {
+				ERROR_LOG(Log::G3D, "Failed to load font '%s', using the default", filename.c_str());
+				fontId = -1;
+			}
+			// Remembered even if it failed, that won't change.
 			allocatedFonts_[filename] = fontId;
+		} else {
+			// Not remembered, so it's tried again when the fonts are next recreated.
+			WARN_LOG(Log::G3D, "No activity to load font '%s' with, using the default", filename.c_str());
 		}
 	}
 
 	AndroidFontEntry entry{};
-	entry.font = allocatedFonts_[filename];
+	entry.font = fontId;
 	entry.size = 1.25f * style.sizePts / dpiScale_;   // Not sure why this formula works.
 
 	// Just chose a factor that looks good, don't know what unit size is in anyway.
@@ -106,6 +117,11 @@ void TextDrawerAndroid::MeasureStringInternal(std::string_view str, float *w, fl
 	jstring jstr = env->NewStringUTF(text.c_str());
 	uint32_t size = env->CallStaticIntMethod(cls_textRenderer, method_measureText, jstr, iter->second.font, iter->second.size);
 	env->DeleteLocalRef(jstr);
+	if (CheckJavaException(env, __FUNCTION__)) {
+		*w = 1.0f;
+		*h = 1.0f;
+		return;
+	}
 
 	*w = (float)(size >> 16);
 	*h = (float)(size & 0xFFFF);
@@ -130,6 +146,10 @@ bool TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextS
 	jstring jstr = env->NewStringUTF(text.c_str());
 
 	uint32_t textSize = env->CallStaticIntMethod(cls_textRenderer, method_measureText, jstr, iter->second.font, iter->second.size);
+	if (CheckJavaException(env, __FUNCTION__)) {
+		env->DeleteLocalRef(jstr);
+		return false;
+	}
 	int imageWidth = (short)(textSize >> 16);
 	int imageHeight = (short)(textSize & 0xFFFF);
 	if (imageWidth <= 0)
@@ -141,10 +161,20 @@ bool TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextS
 	// TODO: Handle bold/italic
 	jintArray imageData = (jintArray)env->CallStaticObjectMethod(cls_textRenderer, method_renderText, jstr, iter->second.font, iter->second.size, imageWidth, imageHeight);
 	env->DeleteLocalRef(jstr);
-	if (!imageData) {
-		// Most likely an OutOfMemoryError allocating the bitmap.
-		env->ExceptionClear();
+	// Most likely an OutOfMemoryError allocating the bitmap.
+	if (CheckJavaException(env, __FUNCTION__) || !imageData) {
 		ERROR_LOG(Log::G3D, "TextRenderer failed to render text");
+		return false;
+	}
+	if (env->GetArrayLength(imageData) != imageWidth * imageHeight) {
+		ERROR_LOG(Log::G3D, "TextRenderer returned bad image size");
+		env->DeleteLocalRef(imageData);
+		return false;
+	}
+	jint *jimage = env->GetIntArrayElements(imageData, nullptr);
+	if (!jimage) {
+		env->ExceptionClear();  // OutOfMemoryError
+		env->DeleteLocalRef(imageData);
 		return false;
 	}
 
@@ -155,13 +185,6 @@ bool TextDrawerAndroid::DrawStringBitmap(std::vector<uint8_t> &bitmapData, TextS
 	entry.height = imageHeight;
 	entry.lastUsedFrame = frameCount_;
 
-	jint *jimage = env->GetIntArrayElements(imageData, nullptr);
-	if (env->GetArrayLength(imageData) != imageWidth * imageHeight) {
-		ERROR_LOG(Log::G3D, "TextRenderer returned bad image size");
-		env->ReleaseIntArrayElements(imageData, jimage, JNI_ABORT);
-		env->DeleteLocalRef(imageData);
-		return false;
-	}
 	if (texFormat == Draw::DataFormat::B4G4R4A4_UNORM_PACK16 || texFormat == Draw::DataFormat::R4G4B4A4_UNORM_PACK16) {
 		bitmapData.resize(entry.bmWidth * entry.bmHeight * sizeof(uint16_t));
 		uint16_t *bitmapData16 = (uint16_t *)&bitmapData[0];

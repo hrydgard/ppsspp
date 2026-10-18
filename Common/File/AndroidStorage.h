@@ -57,16 +57,14 @@ bool Android_GetFileInfo(const std::string &fileUri, File::FileInfo *info);
 bool Android_FileExists(const std::string &fileUri);
 int64_t Android_ComputeRecursiveDirectorySize(const std::string &fileUri);
 int64_t Android_GetFreeSpaceByContentUri(const std::string &uri);
-int64_t Android_GetFreeSpaceByFilePath(const std::string &filePath);
 bool Android_IsExternalStoragePreservedLegacy();
 const char *Android_ErrorToString(StorageError error);
 
 // TODO: prefix doesn't do anything yet.
 std::vector<File::FileInfo> Android_ListContentUri(const std::string &uri, const std::string &prefix, bool *exists);
 
-// Don't need to add these below, they're only used from app-android.cpp.
-void Android_RegisterStorageCallbacks(JNIEnv * env, jobject obj);
-void Android_UnregisterStorageCallbacks(JNIEnv * env);
+// Don't need to add this below, it's only used from app-android.cpp. Call once, from JNI_OnLoad.
+void Android_RegisterStorageCallbacks(JNIEnv *env);
 
 #else
 
@@ -86,7 +84,6 @@ inline bool Android_GetFileInfo(const std::string &fileUri, File::FileInfo *info
 inline bool Android_FileExists(const std::string &fileUri) { return false; }
 inline int64_t Android_ComputeRecursiveDirectorySize(const std::string &fileUri) { return -1; }
 inline int64_t Android_GetFreeSpaceByContentUri(const std::string &uri) { return -1; }
-inline int64_t Android_GetFreeSpaceByFilePath(const std::string &filePath) { return -1; }
 inline bool Android_IsExternalStoragePreservedLegacy() { return false; }
 inline const char *Android_ErrorToString(StorageError error) { return ""; }
 

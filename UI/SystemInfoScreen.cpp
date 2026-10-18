@@ -302,14 +302,6 @@ void SystemInfoScreen::CreateDeviceInfoTab(UI::LinearLayout *deviceSpecs) {
 	}
 	versionInfo->Add(new InfoItem(si->T("Shading Language"), draw->GetInfoString(InfoField::SHADELANGVERSION)));
 
-#if PPSSPP_PLATFORM(ANDROID)
-	std::string moga = System_GetProperty(SYSPROP_MOGA_VERSION);
-	if (moga.empty()) {
-		moga = si->T("(none detected)");
-	}
-	versionInfo->Add(new InfoItem("Moga", moga));
-#endif
-
 	if (gstate_c.GetUseFlags()) {
 		// We're in-game, and can determine these.
 		// TODO: Call a static version of GPUCommon::CheckGPUFeatures() and derive them here directly.
