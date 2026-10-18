@@ -84,6 +84,9 @@
                 <data android:pathPattern=".*\\.chd" />
                 <data android:pathPattern=".*\\..*\\.chd" />
                 <data android:pathPattern=".*\\..*\\..*\\.chd" />
+                <data android:pathPattern=".*\\.zar" />
+                <data android:pathPattern=".*\\..*\\.zar" />
+                <data android:pathPattern=".*\\..*\\..*\\.zar" />
                 <data android:pathPattern=".*\\.elf" />
                 <data android:pathPattern=".*\\..*\\.elf" />
                 <data android:pathPattern=".*\\..*\\..*\\.elf" />
@@ -99,6 +102,9 @@
                 <data android:pathPattern=".*\\.CHD" />
                 <data android:pathPattern=".*\\..*\\.CHD" />
                 <data android:pathPattern=".*\\..*\\..*\\.CHD" />
+                <data android:pathPattern=".*\\.ZAR" />
+                <data android:pathPattern=".*\\..*\\.ZAR" />
+                <data android:pathPattern=".*\\..*\\..*\\.ZAR" />
                 <data android:pathPattern=".*\\.ppdmp" />
                 <data android:pathPattern=".*\\.pbp" />
             </intent-filter>

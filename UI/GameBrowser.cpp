@@ -419,7 +419,7 @@ void GameButton::Draw(UIContext &dc) {
 			texture = ginfo->icon.texture;
 		} else if (drawBackground) {
 			// No icon, but drawBackground is set. Let's show a plain icon depending on type.
-			if (ginfo->fileType == IdentifiedFileType::PSP_ISO || ginfo->fileType == IdentifiedFileType::PSP_ISO_NP) {
+			if (ginfo->fileType == IdentifiedFileType::PSP_ISO || ginfo->fileType == IdentifiedFileType::PSP_ISO_NP || ginfo->fileType == IdentifiedFileType::ZARCHIVE) {
 				imageIcon = ImageID("I_UMD");
 			} else if (gamePath_.Type() == PathType::HTTP) {
 				imageIcon = ginfo->fileType == IdentifiedFileType::UNKNOWN ? ImageID("I_LINK_OUT_QUESTION") : ImageID("I_LINK_OUT");
@@ -1114,7 +1114,7 @@ void GameBrowser::Refresh() {
 		}
 	} else if (!listingPending_) {
 		std::vector<File::FileInfo> fileInfo;
-		path_.GetListing(fileInfo, "iso:cso:chd:pbp:elf:prx:ppdmp:");
+		path_.GetListing(fileInfo, "iso:cso:chd:zar:pbp:elf:prx:ppdmp:");
 		for (size_t i = 0; i < fileInfo.size(); i++) {
 			bool isGame = !fileInfo[i].isDirectory;
 			bool isSaveData = false;

@@ -469,6 +469,7 @@
     <ClCompile Include="Dialog\PSPOskConstants.cpp" />
     <ClCompile Include="EmuThread.cpp" />
     <ClCompile Include="FileLoaders\ZipFileLoader.cpp" />
+    <ClCompile Include="FileLoaders\ZArchiveFileLoader.cpp" />
     <ClCompile Include="FileSystems\BlobFileSystem.cpp" />
     <ClCompile Include="FrameTiming.cpp" />
     <ClCompile Include="HLE\AtracCtx.cpp" />
@@ -597,6 +598,7 @@
     <ClCompile Include="FileSystems\MetaFileSystem.cpp" />
     <ClCompile Include="FileSystems\tlzrc.cpp" />
     <ClCompile Include="FileSystems\VirtualDiscFileSystem.cpp" />
+    <ClCompile Include="FileSystems\ZArchiveFileSystem.cpp" />
     <ClCompile Include="Font\PGF.cpp" />
     <ClCompile Include="HDRemaster.cpp" />
     <ClCompile Include="HLE\HLE.cpp">
@@ -843,6 +845,7 @@
     <ClInclude Include="Dialog\PSPOskConstants.h" />
     <ClInclude Include="EmuThread.h" />
     <ClInclude Include="FileLoaders\ZipFileLoader.h" />
+    <ClInclude Include="FileLoaders\ZArchiveFileLoader.h" />
     <ClInclude Include="FileSystems\BlobFileSystem.h" />
     <ClInclude Include="FrameTiming.h" />
     <ClInclude Include="HLE\AtracBase.h" />
@@ -940,6 +943,7 @@
     <ClInclude Include="FileSystems\ISOFileSystem.h" />
     <ClInclude Include="FileSystems\MetaFileSystem.h" />
     <ClInclude Include="FileSystems\VirtualDiscFileSystem.h" />
+    <ClInclude Include="FileSystems\ZArchiveFileSystem.h" />
     <ClInclude Include="Font\PGF.h" />
     <ClInclude Include="HDRemaster.h" />
     <ClInclude Include="HLE\FunctionWrappers.h" />

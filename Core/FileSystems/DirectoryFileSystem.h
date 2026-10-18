@@ -59,6 +59,9 @@ struct DirectoryFileHandle {
 	void Close();
 };
 
+// Short (8.3) names that are all lowercase are listed in uppercase on a real PSP memory stick.
+std::string SimulateVFATBug(std::string filename);
+
 class DirectoryFileSystem : public IFileSystem {
 public:
 	DirectoryFileSystem(IHandleAllocator *_hAlloc, const Path &_basePath, FileSystemFlags _flags = FileSystemFlags::NONE);

@@ -208,6 +208,7 @@ static bool FileTypeSupportsCRC(IdentifiedFileType fileType) {
 	case IdentifiedFileType::PSP_PBP_DIRECTORY:
 	case IdentifiedFileType::PSP_ISO_NP:
 	case IdentifiedFileType::PSP_ISO:
+	case IdentifiedFileType::ZARCHIVE:  // Of the first disc.
 		return true;
 	default:
 		return false;
@@ -222,6 +223,7 @@ static bool FileTypeHasIcon(IdentifiedFileType fileType) {
 	case IdentifiedFileType::PSP_ISO:
 	case IdentifiedFileType::PSP_UMD_VIDEO_ISO:
 	case IdentifiedFileType::PSP_DISC_DIRECTORY:
+	case IdentifiedFileType::ZARCHIVE:
 		return true;
 	default:
 		return false;

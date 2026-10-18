@@ -256,7 +256,7 @@ void GameManager::InstallZipContents(ZipFileTask task) {
 	std::string urlExtension = task.url.GetFileExtension();
 	// Examine the URL to guess out what we're installing.
 	// TODO: Bad idea due to Android content api where we don't always get the filename.
-	if (urlExtension == ".cso" || urlExtension == ".iso" || urlExtension == ".chd") {
+	if (urlExtension == ".cso" || urlExtension == ".iso" || urlExtension == ".chd" || urlExtension == ".zar") {
 		// It's a raw ISO or CSO file. We just copy it to the destination, which is the
 		// currently selected directory in the game browser. Note: This might not be a good option!
 		Path destPath = Path(g_Config.currentDirectory) / task.url.GetFilename();
@@ -549,6 +549,19 @@ std::string GameManager::GetGameID(const Path &path) const {
 	case IdentifiedFileType::PSP_ISO_NP:
 		id = GetISOGameID(loader);
 		break;
+
+	case IdentifiedFileType::ZARCHIVE:
+	{
+		// The ID of the game inside. Resolving takes over the loader.
+		IdentifiedFileType innerType;
+		loader = ResolveFileLoaderTarget(loader, &innerType, &errorString);
+		if (innerType == IdentifiedFileType::PSP_ISO || innerType == IdentifiedFileType::PSP_ISO_NP) {
+			id = GetISOGameID(loader);
+		} else if (innerType == IdentifiedFileType::PSP_PBP) {
+			id = GetPBPGameID(loader);
+		}
+		break;
+	}
 
 	default:
 		id.clear();

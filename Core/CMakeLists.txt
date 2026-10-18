@@ -369,6 +369,8 @@ add_library(Core STATIC
 	FileSystems/MetaFileSystem.h
 	FileSystems/VirtualDiscFileSystem.cpp
 	FileSystems/VirtualDiscFileSystem.h
+	FileSystems/ZArchiveFileSystem.cpp
+	FileSystems/ZArchiveFileSystem.h
 	Font/PGF.cpp
 	Font/PGF.h
 	HLE/ErrorCodes.h
@@ -618,6 +620,8 @@ add_library(Core STATIC
 	FileLoaders/RetryingFileLoader.h
 	FileLoaders/ZipFileLoader.cpp
 	FileLoaders/ZipFileLoader.h
+	FileLoaders/ZArchiveFileLoader.cpp
+	FileLoaders/ZArchiveFileLoader.h
 	MIPS/MIPS.cpp
 	MIPS/MIPS.h
 	MIPS/MIPSAnalyst.cpp

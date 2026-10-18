@@ -149,6 +149,7 @@
     <ClInclude Include="..\..\Core\FileLoaders\RamCachingFileLoader.h" />
     <ClInclude Include="..\..\Core\FileLoaders\RetryingFileLoader.h" />
     <ClInclude Include="..\..\Core\FileLoaders\ZipFileLoader.h" />
+    <ClInclude Include="..\..\Core\FileLoaders\ZArchiveFileLoader.h" />
     <ClInclude Include="..\..\Core\FileSystems\BlobFileSystem.h" />
     <ClInclude Include="..\..\Core\FileSystems\BlockDevices.h" />
     <ClInclude Include="..\..\Core\FileSystems\CSOCompress.h" />
@@ -157,6 +158,7 @@
     <ClInclude Include="..\..\Core\FileSystems\ISOFileSystem.h" />
     <ClInclude Include="..\..\Core\FileSystems\MetaFileSystem.h" />
     <ClInclude Include="..\..\Core\FileSystems\VirtualDiscFileSystem.h" />
+    <ClInclude Include="..\..\Core\FileSystems\ZArchiveFileSystem.h" />
     <ClInclude Include="..\..\Core\Font\PGF.h" />
     <ClInclude Include="..\..\Core\FrameTiming.h" />
     <ClInclude Include="..\..\Core\HDRemaster.h" />
@@ -453,6 +455,7 @@
     <ClCompile Include="..\..\Core\FileLoaders\RamCachingFileLoader.cpp" />
     <ClCompile Include="..\..\Core\FileLoaders\RetryingFileLoader.cpp" />
     <ClCompile Include="..\..\Core\FileLoaders\ZipFileLoader.cpp" />
+    <ClCompile Include="..\..\Core\FileLoaders\ZArchiveFileLoader.cpp" />
     <ClCompile Include="..\..\Core\FileSystems\BlobFileSystem.cpp" />
     <ClCompile Include="..\..\Core\FileSystems\BlockDevices.cpp" />
     <ClCompile Include="..\..\Core\FileSystems\CSOCompress.cpp" />
@@ -462,6 +465,7 @@
     <ClCompile Include="..\..\Core\FileSystems\MetaFileSystem.cpp" />
     <ClCompile Include="..\..\Core\FileSystems\tlzrc.cpp" />
     <ClCompile Include="..\..\Core\FileSystems\VirtualDiscFileSystem.cpp" />
+    <ClCompile Include="..\..\Core\FileSystems\ZArchiveFileSystem.cpp" />
     <ClCompile Include="..\..\Core\Font\PGF.cpp" />
     <ClCompile Include="..\..\Core\FrameTiming.cpp" />
     <ClCompile Include="..\..\Core\HDRemaster.cpp" />

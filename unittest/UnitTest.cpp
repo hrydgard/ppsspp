@@ -3483,6 +3483,7 @@ bool TestIRPassSimplify();
 bool TestThreadManager();
 bool TestVFS();
 bool TestZipSlip();
+bool TestZArchive();
 bool TestLzrc();
 bool TestCwCheat();
 bool TestMpegCsc();
@@ -3949,6 +3950,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(Lang),
 	TEST_ITEM(CmdLine),
 	TEST_ITEM(ZipSlip),
+	TEST_ITEM(ZArchive),
 	TEST_ITEM(Lzrc),
 	TEST_ITEM(CwCheat),
 	TEST_ITEM(MpegCsc),

@@ -72,6 +72,8 @@
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/FileSystems/ISOFileSystem.h"
 #include "Core/FileSystems/DirectoryFileSystem.h"
+#include "Core/FileSystems/ZArchiveFileSystem.h"
+#include "Core/FileLoaders/ZArchiveFileLoader.h"
 #include "Core/LuaContext.h"
 #include "Core/Loaders.h"
 #include "Core/PSPLoaders.h"
@@ -330,7 +332,8 @@ static void ShowCompatWarnings(const Compatibility &compat) {
 
 extern const std::string INDEX_FILENAME;
 
-static void MountFileSystems() {
+// fileLoader is the game's, to find the ZArchive it came from, if any.
+static void MountFileSystems(FileLoader *fileLoader) {
 	FileSystemFlags memstickFlags = FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD;
 
 	Path pspDir = GetSysDirectory(DIRECTORY_PSP);
@@ -340,7 +343,18 @@ static void MountFileSystems() {
 		memstickFlags |= FileSystemFlags::STRIP_PSP;
 	}
 
-	auto memstickSystem = std::make_shared<DirectoryFileSystem>(&pspFileSystem, g_Config.memStickDirectory, memstickFlags);
+	std::shared_ptr<IFileSystem> memstickSystem = std::make_shared<DirectoryFileSystem>(&pspFileSystem, g_Config.memStickDirectory, memstickFlags);
+
+	// A game from a ZArchive can bring memory stick content along (DLC, updates). Overlay it.
+	if (ZArchiveFileLoader *zar = FindZArchiveFileLoader(fileLoader)) {
+		ZArchiveContents contents;
+		ScanZArchiveContents(*zar->GetArchive(), &contents);
+		if (contents.hasMemStick) {
+			INFO_LOG(Log::sceIo, "Overlaying the PSP directory of %s on the memory stick", zar->GetArchive()->GetPath().c_str());
+			auto archiveSystem = std::make_shared<ZArchiveFileSystem>(&pspFileSystem, zar->GetArchive(), memstickFlags);
+			memstickSystem = std::make_shared<MemStickOverlayFileSystem>(memstickSystem, archiveSystem);
+		}
+	}
 
 	pspFileSystem.Mount("ms0:", memstickSystem);
 	pspFileSystem.Mount("fatms0:", memstickSystem);
@@ -589,7 +603,7 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 	// rewrites the very directory flash0:/flash1: point at.
 	AutoInstallFirmwareFromDisc();
 
-	MountFileSystems();
+	MountFileSystems(fileLoader);
 
 	// The module availability checks need the mounted PSP filesystem and the firmware installed
 	// above. Keep them after the mount, before any kernel or game module can be loaded.

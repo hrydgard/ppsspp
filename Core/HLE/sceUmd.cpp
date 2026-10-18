@@ -491,14 +491,7 @@ static u32 sceUmdGetErrorStat() {
 	return hleLogDebug(Log::sceIo, umdErrorStat);
 }
 
-void __UmdReplace(const Path &filepath) {
-	std::string error = "";
-	FileLoader *fileLoader;
-	if (!UmdReplace(filepath, &fileLoader, error)) {
-		ERROR_LOG(Log::sceIo, "UMD Replace failed: %s", error.c_str());
-		return;
-	}
-
+static void UmdReplaced(const Path &filepath, FileLoader *fileLoader) {
 	Achievements::ChangeUMD(filepath, fileLoader);
 
 	UMDInserted = false;
@@ -510,6 +503,26 @@ void __UmdReplace(const Path &filepath) {
 	u32 notifyArg = PSP_UMD_PRESENT | PSP_UMD_READABLE | PSP_UMD_CHANGED;
 	if (driveCBId != 0)
 		__KernelNotifyCallback(driveCBId, notifyArg);
+}
+
+void __UmdReplace(const Path &filepath) {
+	std::string error;
+	FileLoader *fileLoader = nullptr;
+	if (!UmdReplace(filepath, &fileLoader, error)) {
+		ERROR_LOG(Log::sceIo, "UMD Replace failed: %s", error.c_str());
+		return;
+	}
+	UmdReplaced(filepath, fileLoader);
+}
+
+void __UmdReplaceArchiveDisc(int discIndex) {
+	std::string error;
+	FileLoader *fileLoader = nullptr;
+	if (!UmdReplaceArchiveDisc(discIndex, &fileLoader, error)) {
+		ERROR_LOG(Log::sceIo, "UMD Replace (disc %d of the archive) failed: %s", discIndex + 1, error.c_str());
+		return;
+	}
+	UmdReplaced(fileLoader->GetPath(), fileLoader);
 }
 
 bool __UmdInsert(const Path &filepath, std::string *error) {

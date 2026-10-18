@@ -260,7 +260,7 @@ static bool LoadGameList(const Path &url, std::vector<Path> &games) {
 	browser.SetPath(url);
 	std::vector<File::FileInfo> files;
 	browser.SetUserAgent(StringFromFormat("PPSSPP/%s", PPSSPP_GIT_VERSION));
-	browser.GetListing(files, "iso:cso:chd:pbp:elf:prx:ppdmp:", &scanCancelled);
+	browser.GetListing(files, "iso:cso:chd:zar:pbp:elf:prx:ppdmp:", &scanCancelled);
 	if (scanCancelled) {
 		return false;
 	}

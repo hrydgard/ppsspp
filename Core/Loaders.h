@@ -19,6 +19,7 @@
 
 #include <string>
 #include <memory>
+#include <vector>
 
 #include "Common/CommonTypes.h"
 #include "Common/File/Path.h"
@@ -58,6 +59,10 @@ enum class IdentifiedFileType {
 	PPSSPP_SAVESTATE,
 
 	PPSSPP_GE_DUMP,
+
+	// A ZArchive (.zar), see Core/FileLoaders/ZArchiveFileLoader.h. ResolveFileLoaderTarget resolves
+	// it to the game inside, so this is only seen when that fails, or when just identifying.
+	ZARCHIVE,
 
 	UNKNOWN,
 };
@@ -139,6 +144,9 @@ public:
 	size_t ReadAt(s64 absolutePos, size_t bytes, void *data, Flags flags = Flags::NONE) override {
 		return backend_->ReadAt(absolutePos, bytes, data, flags);
 	}
+	FileLoader *Backend() const {
+		return backend_;
+	}
 	FileLoader *Steal() {
 		FileLoader *backend = backend_;
 		backend_ = nullptr;
@@ -165,6 +173,12 @@ IdentifiedFileType Identify_File(FileLoader *fileLoader, std::string *errorStrin
 bool UmdReplace(const Path &filepath, FileLoader **fileLoader, std::string &error);
 // Mounts a disc image at umd0:, umd1:, umd: and disc0:, whether or not one was there.
 bool UmdMount(const Path &filepath, FileLoader **fileLoader, std::string &error);
+
+// For a game started from a ZArchive (.zar): the archive paths of its discs, and the index of the one
+// in the drive (-1 if none of them). Returns false if the running game isn't from an archive.
+bool GetRunningArchiveDiscs(std::vector<std::string> *discs, int *currentDisc);
+// Like UmdReplace, but switches to another disc from the same ZArchive.
+bool UmdReplaceArchiveDisc(int discIndex, FileLoader **fileLoader, std::string &error);
 
 enum class ArchiveType {
 	ZIP,
