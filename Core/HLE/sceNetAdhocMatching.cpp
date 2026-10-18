@@ -46,8 +46,6 @@ std::deque<MatchingArgs> matchingEvents;
 bool netAdhocMatchingInited;
 int adhocMatchingEventDelay = 30000; //30000
 
-static bool savedNetAdhocMatchingInited; // the storage to use during the savestating routine in sceNetAdhoc.cpp
-
 void DoNetAdhocMatchingInited(PointerWrap &p) {
 	Do(p, netAdhocMatchingInited);
 }
@@ -60,14 +58,6 @@ void ZeroNetAdhocMatchingThreads() {
 	for (auto& it : matchingThreads) {
 		it = 0;
 	}
-}
-
-void SaveNetAdhocMatchingInited() {
-	savedNetAdhocMatchingInited = netAdhocMatchingInited;
-}
-
-void RestoreNetAdhocMatchingInited() {
-	netAdhocMatchingInited = savedNetAdhocMatchingInited;
 }
 
 int netAdhocMatchingStarted = 0;
