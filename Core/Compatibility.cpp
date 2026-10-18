@@ -114,7 +114,6 @@ void Compatibility::CheckSettings(IniFile &iniFile, const std::string &gameID) {
 	CheckSetting(iniFile, gameID, "GoWFramerateHack60", &flags_.GoWFramerateHack60);
 	CheckSetting(iniFile, gameID, "FramerateHack30", &flags_.FramerateHack30);
 	CheckSetting(iniFile, gameID, "HideISOFiles", &flags_.HideISOFiles);
-	CheckSetting(iniFile, gameID, "ForceAccurateVdot", &flags_.ForceAccurateVdot);
 	CheckSetting(iniFile, gameID, "ForceSoftwareRenderer", &flags_.ForceSoftwareRenderer);
 	CheckSetting(iniFile, gameID, "DarkStalkersPresentHack", &flags_.DarkStalkersPresentHack);
 	CheckSetting(iniFile, gameID, "ReportSmallMemstick", &flags_.ReportSmallMemstick);

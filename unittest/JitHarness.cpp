@@ -258,8 +258,6 @@ bool TestJit() {
 bool TestJitDotBench() {
 	SetupJitHarness();
 	g_Config.bFastMemory = true;
-	const bool oldAccurateVdot = g_Config.bAccurateVdot;
-	g_Config.bAccurateVdot = true;
 
 	struct Sequence {
 		const char *name;
@@ -307,7 +305,6 @@ bool TestJitDotBench() {
 		printf("%-14s %6.2f ns per dot\n", seq.name, 1e9 / (callsPerSecond * groups * seq.dots));
 	}
 
-	g_Config.bAccurateVdot = oldAccurateVdot;
 	DestroyJitHarness();
 	return ok;
 }
@@ -475,7 +472,6 @@ bool TestJitReplacementHooks() {
 //                           a later case on its own.
 //   PPSSPP_CPUFUZZ_STRICT   fail the test on any difference, not only on a crash.
 //   PPSSPP_CPUFUZZ_BLOCKS   print the IR and host code of every block the JITs ran, after each case.
-//   PPSSPP_CPUFUZZ_ACCURATE_VDOT  0 to run without AccurateVdot (the VFPU's own dot products), which is on by default.
 //   PPSSPP_CPUFUZZ_OPS      comma-separated instruction name prefixes to generate only, for fast
 //                           runs on the instructions being worked on. "dot" is the dot products
 //                           and the prefixes. Without PPSSPP_CPUFUZZ_CLASSES, the class is "v"
@@ -1145,9 +1141,6 @@ bool TestCPUEquivalence() {
 	// terminating syscall doesn't.
 	const bool oldSkipDeadbeef = g_Config.bSkipDeadbeefFilling;
 	g_Config.bSkipDeadbeefFilling = true;
-	const bool oldAccurateVdot = g_Config.bAccurateVdot;
-	const char *accurateVdot = getenv("PPSSPP_CPUFUZZ_ACCURATE_VDOT");
-	g_Config.bAccurateVdot = !accurateVdot || strcmp(accurateVdot, "0") != 0;
 
 	const char *countStr = getenv("PPSSPP_CPUFUZZ_COUNT");
 	const char *seedStr = getenv("PPSSPP_CPUFUZZ_SEED");
@@ -1306,7 +1299,6 @@ bool TestCPUEquivalence() {
 	mipsr4k.UpdateCore(CPUCore::INTERPRETER);
 	DestroyJitHarness();
 	g_Config.bSkipDeadbeefFilling = oldSkipDeadbeef;
-	g_Config.bAccurateVdot = oldAccurateVdot;
 	return success;
 }
 

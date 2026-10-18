@@ -69,7 +69,6 @@ struct CompatFlags {
 	bool GoWFramerateHack60;
 	bool FramerateHack30;
 	bool HideISOFiles;
-	bool ForceAccurateVdot;
 	bool ForceSoftwareRenderer;
 	bool DarkStalkersPresentHack;
 	bool ReportSmallMemstick;

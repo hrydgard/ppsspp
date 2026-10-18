@@ -186,7 +186,6 @@ enum class IROp : uint8_t {
 	Vec4Mul,
 	Vec4Div,
 	Vec4Scale,
-	Vec4Dot,
 	Vec4VfpuDot,  // The VFPU's own dot product, bit-exact (vfpu_dot).
 	Vec4VfpuMultiDot,  // Four of them against one vector, see IRMultiDot.
 	Vec4Neg,
@@ -456,7 +455,6 @@ struct IROptions {
 	bool unalignedLoadStore;
 	bool unalignedLoadStoreVec4;
 	bool preferVec4;
-	bool preferVec4Dot;
 	bool optimizeForInterpreter;
 	// The backend has Vec4VfpuMultiDot.
 	bool vfpuMultiDot;

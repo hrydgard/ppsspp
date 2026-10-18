@@ -846,7 +846,6 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 		case IROp::Vec4Sub:
 		case IROp::Vec4Mul:
 		case IROp::Vec4Div:
-		case IROp::Vec4Dot:
 		case IROp::Vec4VfpuDot:
 		case IROp::Vec4VfpuMultiDot:
 		case IROp::Vec4Scale:
@@ -2212,7 +2211,6 @@ bool ReduceVec4Flush(const IRWriter &in, IRWriter &out, const IROptions &opts) {
 			}
 			break;
 
-		case IROp::Vec4Dot:
 		case IROp::Vec4VfpuDot:
 			if (overlapped(inst.dest, 1, inst.src1, 4, inst.src2, 4) && findAvailTempVec4()) {
 				out.Write(inst.op, temp, inst.src1, inst.src2, inst.constant);
