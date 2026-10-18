@@ -223,7 +223,8 @@ void PlayUISound(UISound sound) {
 // Which way, if any, this key moves the focus. DPad keys are remappable, so they're matched
 // through IsDPadKey rather than by keycode here.
 static bool KeyToFocusMove(const KeyInput &key, FocusMove *move) {
-	if (IsDPadKey(key)) {
+	// Alt+arrows are shortcuts (like Alt+Up for the parent directory in the game browser).
+	if (IsDPadKey(key) && !(key.flags & KeyInputFlags::ModAlt)) {
 		switch (key.keyCode) {
 		case NKCODE_DPAD_LEFT: *move = FocusMove::LEFT; return true;
 		case NKCODE_DPAD_RIGHT: *move = FocusMove::RIGHT; return true;

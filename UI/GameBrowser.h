@@ -65,6 +65,7 @@ private:
 	void GameButtonHoldClick(UI::EventParams &e);
 	void GameButtonHighlight(UI::EventParams &e);
 	void NavigateClick(UI::EventParams &e);
+	void PathChanged();
 	void LayoutChange(UI::EventParams &e);
 	void LastClick(UI::EventParams &e);
 	void BrowseClick(UI::EventParams &e);

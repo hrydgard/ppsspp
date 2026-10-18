@@ -267,7 +267,8 @@ namespace WindowsRawInput {
 				NativeKey(key);
 				keyboardKeysDown.insert(key.keyCode);
 			}
-		} else if (raw->data.keyboard.Message == WM_KEYUP) {
+		} else if (raw->data.keyboard.Message == WM_KEYUP || raw->data.keyboard.Message == WM_SYSKEYUP) {
+			// A key released while Alt is held comes as WM_SYSKEYUP.
 			key.flags = KeyInputFlags::UP;
 			key.keyCode = GetTrueVKey(raw->data.keyboard);
 
