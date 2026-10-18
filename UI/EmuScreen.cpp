@@ -1387,8 +1387,12 @@ void EmuScreen::OpenChat(bool focus) {
 	}
 	if (chatMenu_ != nullptr) {
 		chatMenu_->SetVisibility(UI::V_VISIBLE);
+		// Not here: this can run from the control mapper's own key handler, under its lock.
+		releaseMapperInput_ = true;
 
 		if (focus) {
+			// Drop keys and stick directions held in-game, or they'd start moving the focus.
+			UI::EnableFocusMovement(false);
 			UI::EnableFocusMovement(true);
 			root_->SetDefaultFocusView(chatMenu_);
 
@@ -1413,6 +1417,12 @@ void EmuScreen::update() {
 
 	// This is where views are recreated.
 	UIScreen::update();
+
+	if (releaseMapperInput_) {
+		// Otherwise a stick let go inside the chat would stay pushed for the game.
+		g_controlMapper.ReleaseAll();
+		releaseMapperInput_ = false;
+	}
 
 	resumeButton_->SetVisibility(coreState == CoreState::CORE_RUNTIME_ERROR && Memory::MemFault_MayBeResumable() ? V_VISIBLE : V_GONE);
 	resetButton_->SetVisibility(coreState == CoreState::CORE_RUNTIME_ERROR ? V_VISIBLE : V_GONE);
