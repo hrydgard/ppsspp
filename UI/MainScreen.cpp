@@ -885,9 +885,7 @@ void UmdReplaceScreen::CreateViews() {
 		scrollDiscs->SetTag("UmdReplaceArchiveDiscs");
 		LinearLayout *discList = scrollDiscs->Add(new LinearLayout(ORIENT_VERTICAL, new LinearLayoutParams(FILL_PARENT, WRAP_CONTENT)));
 		for (int i = 0; i < (int)archiveDiscs.size(); i++) {
-			const std::string &disc = archiveDiscs[i];
-			const size_t dot = disc.find_last_of('.');
-			const std::string name = dot == std::string::npos ? disc : disc.substr(0, dot);
+			const std::string name = ArchiveDiscName(archiveDiscs[i]);
 			Choice *choice;
 			if (i == currentDisc) {
 				choice = discList->Add(new Choice(name, mm->T("In the drive")));
@@ -896,7 +894,10 @@ void UmdReplaceScreen::CreateViews() {
 				choice = discList->Add(new Choice(name, ImageID("I_UMD")));
 			}
 			choice->OnClick.Add([this, i](UI::EventParams &e) {
+				// This also makes it the disc to start from next time.
 				__UmdReplaceArchiveDisc(i);
+				g_Config.Save("UmdReplaceScreen::ArchiveDisc");
+				OnArchiveDiscChanged(PSP_CoreParameter().fileToStart);
 				TriggerFinish(DR_OK);
 			});
 		}

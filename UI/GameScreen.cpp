@@ -39,6 +39,8 @@
 #include "Core/Reporting.h"
 #include "Core/System.h"
 #include "Core/Loaders.h"
+#include "Core/FileLoaders/ZArchiveFileLoader.h"
+#include "Core/HLE/sceUmd.h"
 #include "Core/HLE/Plugins.h"
 #include "Core/Util/GameDB.h"
 #include "Core/Util/RecentFiles.h"
@@ -562,6 +564,44 @@ void GameScreen::CreateSettingsViews(UI::ViewGroup *rightColumn) {
 		});
 		// The file is being read, and maybe about to be replaced.
 		play->SetEnabled(!GamePacker::IsPacking(gamePath_));
+	}
+
+	// A multi-disc game in a ZArchive: which disc to start from. In game, that's a disc change.
+	std::vector<std::string> archiveDiscs;
+	int archiveDisc = -1;
+	{
+		std::lock_guard<std::mutex> guard(info_->lock);
+		archiveDiscs = info_->archiveDiscs;
+		archiveDisc = info_->archiveDisc;
+	}
+	const bool runningThis = inGame_ && PSP_CoreParameter().fileToStart == gamePath_;
+	if (info_->fileType == IdentifiedFileType::ZARCHIVE && archiveDiscs.size() > 1 && (!inGame_ || (runningThis && getUMDReplacePermit()))) {
+		std::vector<std::string> names;
+		for (const std::string &disc : archiveDiscs) {
+			names.push_back(ArchiveDiscName(disc));
+		}
+		const std::string current = archiveDisc >= 0 && archiveDisc < (int)names.size() ? names[archiveDisc] : std::string();
+		auto pa = GetI18NCategory(I18NCat::PAUSE);
+		rightColumnItems->Add(new Choice(inGame_ ? pa->T("Switch UMD") : ga->T("Change disc"), current))->OnClick.Add([this, names, archiveDiscs, archiveDisc, runningThis](UI::EventParams &e) {
+			auto ga = GetI18NCategory(I18NCat::GAME);
+			screenManager()->push(new ListPopupScreen(ga->T("Change disc"), names, archiveDisc, [this, archiveDiscs, runningThis](int index) {
+				if (index < 0 || index >= (int)archiveDiscs.size()) {
+					return;
+				}
+				if (runningThis) {
+					// Swaps the UMD, and remembers it for the next time.
+					__UmdReplaceArchiveDisc(index);
+				} else {
+					RememberZArchiveDisc(gamePath_, index == 0 ? std::string() : archiveDiscs[index]);
+				}
+				g_Config.Save("GameScreen::ChangeDisc");
+				OnArchiveDiscChanged(gamePath_);
+				// Our info is now about another disc. Get the new one.
+				info_ = g_gameInfoCache->GetInfo(nullptr, gamePath_, g_desiredFlags, &knownFlags_);
+				CRC32string.clear();
+				RecreateViews();
+			}));
+		});
 	}
 
 	if (!info_->id.empty() && !inGame_) {

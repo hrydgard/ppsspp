@@ -51,6 +51,7 @@
 #include "Common/VR/PPSSPPVR.h"
 #include "Common/System/Request.h"
 #include "Core/Config.h"
+#include "Core/FileLoaders/ZArchiveFileLoader.h"
 #include "Core/ConfigSettings.h"
 #include "Core/ConfigValues.h"
 #include "Core/KeyMap.h"
@@ -1438,6 +1439,9 @@ void Config::Load(const char *iniFileName, const char *controllerIniFilename) {
 	Section *playTime = iniFile.GetOrCreateSection("PlayTime");
 	playTimeTracker_.Load(playTime);
 
+	// The disc that each multi-disc ZArchive was last played from.
+	LoadZArchiveDiscMemory(iniFile.GetOrCreateSection("ZArchiveDiscs"));
+
 	auto pinnedPaths = iniFile.GetOrCreateSection("PinnedPaths")->ToMap();
 	vPinnedPaths.clear();
 	for (const auto &[_, value] : pinnedPaths) {
@@ -1563,6 +1567,8 @@ bool Config::Save(const char *saveReason) {
 		Section *recent = iniFile.GetOrCreateSection("Recent");
 		recent->Set("MaxRecent", iMaxRecent);
 		g_recentFiles.Save(recent, iMaxRecent);
+
+		SaveZArchiveDiscMemory(iniFile.GetOrCreateSection("ZArchiveDiscs"));
 
 		Section *pinnedPaths = iniFile.GetOrCreateSection("PinnedPaths");
 		pinnedPaths->Clear();

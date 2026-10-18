@@ -315,7 +315,7 @@ FileLoader *ResolveFileLoaderTarget(FileLoader *fileLoader, IdentifiedFileType *
 	} else if (*fileType == IdentifiedFileType::ZARCHIVE) {
 		// Boot the game inside. The memstick content in it gets mounted later, in MountFileSystems.
 		std::string zarError;
-		FileLoader *target = OpenZArchiveBootTarget(fileLoader, 0, &zarError);
+		FileLoader *target = OpenZArchiveBootTarget(fileLoader, &zarError);
 		if (!target) {
 			// We still own fileLoader. Leave it as a ZARCHIVE, so the error makes it to the user.
 			*errorString = zarError;
@@ -455,10 +455,17 @@ bool UmdReplaceArchiveDisc(int discIndex, FileLoader **fileLoader, std::string &
 	}
 
 	// Share the open archive, the memstick overlay is reading from it too.
-	FileLoader *loadedFile = new ZArchiveFileLoader(zar->GetArchive(), contents.discs[discIndex]);
+	const Path archivePath = zar->GetArchive()->GetPath();
+	const std::string disc = contents.discs[discIndex];
+	FileLoader *loadedFile = new ZArchiveFileLoader(zar->GetArchive(), disc);
 	std::string errorString;
 	IdentifiedFileType fileType = Identify_File(loadedFile, &errorString);
-	return SwapInUMD(loadedFile, fileType, errorString, fileLoader, error);
+	if (!SwapInUMD(loadedFile, fileType, errorString, fileLoader, error)) {
+		return false;
+	}
+	// So the next time, the game starts from this disc. The first is the default anyway.
+	RememberZArchiveDisc(archivePath, discIndex == 0 ? std::string() : disc);
+	return true;
 }
 
 // Close the return value with ZipClose (if non-null, of course).

@@ -27,6 +27,8 @@
 #include "Common/File/Path.h"
 #include "Core/Loaders.h"
 
+class Section;
+
 // ZArchive (.zar) is a read-only archive format with random access, made by Exzap for Cemu:
 // https://github.com/Exzap/ZArchive (MIT-0). The data of all files is concatenated and cut into
 // 64KB blocks that are compressed separately with zstd, so any byte can be reached by decompressing
@@ -145,8 +147,10 @@ struct ZArchiveContents {
 	bool hasMemStick = false;  // There's a PSP directory to overlay on ms0:.
 
 	bool HasBootable() const { return !discs.empty() || !ebootPath.empty(); }
-	// The disc index if bootIndex is in range, otherwise the default boot target. Empty if none.
-	std::string BootTarget(int bootIndex = 0) const;
+	// The index of a disc, by name (case-insensitive). -1 if not there.
+	int FindDisc(std::string_view disc) const;
+	// The given disc if it's there, otherwise the default boot target (the first disc). Empty if none.
+	std::string BootTarget(std::string_view preferredDisc = std::string_view()) const;
 };
 
 void ScanZArchiveContents(ZArchive &archive, ZArchiveContents *contents);
@@ -183,10 +187,17 @@ private:
 	u64 size_ = 0;
 };
 
-// Opens the archive in archiveLoader and returns a loader for its boot target: disc bootIndex (if
-// in range, else the first), or the EBOOT.PBP. On success, the returned loader owns archiveLoader.
-// On failure, returns nullptr and doesn't take ownership.
-FileLoader *OpenZArchiveBootTarget(FileLoader *archiveLoader, int bootIndex, std::string *errorString);
+// Opens the archive in archiveLoader and returns a loader for its boot target: the disc that was used
+// last (see RememberZArchiveDisc), else the first, else the EBOOT.PBP. On success, the returned loader
+// owns archiveLoader. On failure, returns nullptr and doesn't take ownership.
+FileLoader *OpenZArchiveBootTarget(FileLoader *archiveLoader, std::string *errorString);
+
+// Which disc of a multi-disc archive to boot, by the archive's path, so that a game continues from
+// the disc it was on. Kept in the main config. Thread safe. An empty disc means the default (the first).
+std::string GetRememberedZArchiveDisc(const Path &archivePath);
+void RememberZArchiveDisc(const Path &archivePath, std::string_view disc);
+void LoadZArchiveDiscMemory(const Section *section);
+void SaveZArchiveDiscMemory(Section *section);
 
 // Finds the ZArchiveFileLoader in a chain of proxied loaders (like the RAM cache on top of it).
 ZArchiveFileLoader *FindZArchiveFileLoader(FileLoader *loader);

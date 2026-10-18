@@ -20,6 +20,7 @@
 
 #include <zstd.h>
 
+#include "Common/Data/Format/IniFile.h"
 #include "Common/Log.h"
 #include "Common/StringUtils.h"
 #include "Core/FileLoaders/ZArchiveFileLoader.h"
@@ -557,9 +558,18 @@ void ScanZArchiveContents(ZArchive &archive, ZArchiveContents *contents) {
 	}
 }
 
-std::string ZArchiveContents::BootTarget(int bootIndex) const {
-	if (bootIndex >= 0 && bootIndex < (int)discs.size())
-		return discs[bootIndex];
+int ZArchiveContents::FindDisc(std::string_view disc) const {
+	for (size_t i = 0; i < discs.size(); i++) {
+		if (NameEquals(discs[i], disc))
+			return (int)i;
+	}
+	return -1;
+}
+
+std::string ZArchiveContents::BootTarget(std::string_view preferredDisc) const {
+	const int index = preferredDisc.empty() ? -1 : FindDisc(preferredDisc);
+	if (index >= 0)
+		return discs[index];
 	if (!discs.empty())
 		return discs[0];
 	return ebootPath;
@@ -596,7 +606,7 @@ size_t ZArchiveFileLoader::ReadAt(s64 absolutePos, size_t bytes, void *data, Fla
 	return archive_->ReadFile(node_, (u64)absolutePos, bytes, data);
 }
 
-FileLoader *OpenZArchiveBootTarget(FileLoader *archiveLoader, int bootIndex, std::string *errorString) {
+FileLoader *OpenZArchiveBootTarget(FileLoader *archiveLoader, std::string *errorString) {
 	std::shared_ptr<ZArchive> archive = ZArchive::Open(archiveLoader, errorString);
 	if (!archive)
 		return nullptr;
@@ -611,7 +621,7 @@ FileLoader *OpenZArchiveBootTarget(FileLoader *archiveLoader, int bootIndex, std
 		return nullptr;
 	}
 
-	const std::string target = contents.BootTarget(bootIndex);
+	const std::string target = contents.BootTarget(GetRememberedZArchiveDisc(archiveLoader->GetPath()));
 	INFO_LOG(Log::Loader, "Booting %s from ZArchive %s", target.c_str(), archiveLoader->GetPath().c_str());
 	return new ZArchiveFileLoader(archive, target);
 }
@@ -627,4 +637,54 @@ ZArchiveFileLoader *FindZArchiveFileLoader(FileLoader *loader) {
 		loader = proxied->Backend();
 	}
 	return nullptr;
+}
+
+// Most recently used first. Not many people have this many multi-disc games.
+static const size_t MAX_REMEMBERED_DISCS = 200;
+static std::mutex g_discMemoryLock;
+static std::vector<std::pair<std::string, std::string>> g_discMemory;
+
+std::string GetRememberedZArchiveDisc(const Path &archivePath) {
+	const std::string path = archivePath.ToString();
+	std::lock_guard<std::mutex> guard(g_discMemoryLock);
+	for (const auto &entry : g_discMemory) {
+		if (entry.first == path)
+			return entry.second;
+	}
+	return std::string();
+}
+
+void RememberZArchiveDisc(const Path &archivePath, std::string_view disc) {
+	const std::string path = archivePath.ToString();
+	std::lock_guard<std::mutex> guard(g_discMemoryLock);
+	g_discMemory.erase(std::remove_if(g_discMemory.begin(), g_discMemory.end(), [&](const std::pair<std::string, std::string> &entry) {
+		return entry.first == path;
+	}), g_discMemory.end());
+	if (!disc.empty()) {
+		g_discMemory.insert(g_discMemory.begin(), std::make_pair(path, std::string(disc)));
+		if (g_discMemory.size() > MAX_REMEMBERED_DISCS)
+			g_discMemory.resize(MAX_REMEMBERED_DISCS);
+	}
+}
+
+// As pairs of keys, Archive1 = path and Disc1 = name in the archive, and so on.
+void LoadZArchiveDiscMemory(const Section *section) {
+	std::lock_guard<std::mutex> guard(g_discMemoryLock);
+	g_discMemory.clear();
+	for (size_t i = 1; i <= MAX_REMEMBERED_DISCS; i++) {
+		std::string path, disc;
+		if (!section->Get(StringFromFormat("Archive%d", (int)i), &path) || !section->Get(StringFromFormat("Disc%d", (int)i), &disc))
+			break;
+		if (!path.empty() && !disc.empty())
+			g_discMemory.emplace_back(path, disc);
+	}
+}
+
+void SaveZArchiveDiscMemory(Section *section) {
+	std::lock_guard<std::mutex> guard(g_discMemoryLock);
+	section->Clear();
+	for (size_t i = 0; i < g_discMemory.size(); i++) {
+		section->Set(StringFromFormat("Archive%d", (int)i + 1), g_discMemory[i].first);
+		section->Set(StringFromFormat("Disc%d", (int)i + 1), g_discMemory[i].second);
+	}
 }

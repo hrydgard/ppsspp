@@ -11,6 +11,7 @@
 
 #include "ext/zstd/lib/zstd.h"
 
+#include "Common/Data/Format/IniFile.h"
 #include "Common/File/FileUtil.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
@@ -315,8 +316,11 @@ static bool TestZArchiveReader() {
 	EXPECT_EQ_STR(contents.discs[2], std::string("Disc 3.pbp"));
 	EXPECT_EQ_STR(contents.discs[3], std::string("Disc 10.iso"));
 	EXPECT_TRUE(contents.hasMemStick);
-	EXPECT_EQ_STR(contents.BootTarget(1), std::string("Disc 2.iso"));
-	EXPECT_EQ_STR(contents.BootTarget(7), std::string("Disc 1.cso"));
+	EXPECT_EQ_STR(contents.BootTarget("disc 2.ISO"), std::string("Disc 2.iso"));
+	EXPECT_EQ_STR(contents.BootTarget("Disc 7.iso"), std::string("Disc 1.cso"));
+	EXPECT_EQ_STR(contents.BootTarget(), std::string("Disc 1.cso"));
+	EXPECT_EQ_INT(contents.FindDisc("DISC 10.iso"), 3);
+	EXPECT_EQ_INT(contents.FindDisc("Disc 7.iso"), -1);
 
 	ZArchiveFileLoader disc(archive, contents.discs[3]);
 	EXPECT_TRUE(disc.Exists());
@@ -341,16 +345,52 @@ static bool TestZArchiveEbootOnly() {
 	ScanZArchiveContents(*archive, &contents);
 	EXPECT_EQ_INT((int)contents.discs.size(), 0);
 	EXPECT_EQ_STR(contents.ebootPath, std::string("PSP/GAME/NPUZ00001/EBOOT.PBP"));
-	EXPECT_EQ_STR(contents.BootTarget(0), std::string("PSP/GAME/NPUZ00001/EBOOT.PBP"));
+	EXPECT_EQ_STR(contents.BootTarget(), std::string("PSP/GAME/NPUZ00001/EBOOT.PBP"));
 
 	// Nothing to boot.
 	std::vector<u8> data = BuildZArchive({ { "readme.txt", "nothing here" } });
 	MemoryFileLoader *loader = new MemoryFileLoader(data, Path("/test/empty.zar"));
 	std::string error;
-	EXPECT_TRUE(OpenZArchiveBootTarget(loader, 0, &error) == nullptr);
+	EXPECT_TRUE(OpenZArchiveBootTarget(loader, &error) == nullptr);
 	EXPECT_FALSE(error.empty());
 	// Still ours.
 	delete loader;
+	return true;
+}
+
+static bool TestZArchiveRememberDisc() {
+	const std::vector<u8> data = BuildZArchive({
+		{ "Disc 1.iso", "one" },
+		{ "Disc 2.iso", "two" },
+	});
+	const Path path("/test/remember.zar");
+	auto bootTarget = [&]() {
+		std::string error;
+		std::unique_ptr<FileLoader> target(OpenZArchiveBootTarget(new MemoryFileLoader(data, path), &error));
+		ZArchiveFileLoader *zar = FindZArchiveFileLoader(target.get());
+		return zar ? zar->GetInnerPath() : std::string("<none>");
+	};
+
+	EXPECT_EQ_STR(bootTarget(), std::string("Disc 1.iso"));
+	RememberZArchiveDisc(path, "Disc 2.iso");
+	EXPECT_EQ_STR(GetRememberedZArchiveDisc(path), std::string("Disc 2.iso"));
+	EXPECT_EQ_STR(bootTarget(), std::string("Disc 2.iso"));
+	// Not affected by other archives.
+	EXPECT_TRUE(GetRememberedZArchiveDisc(Path("/test/other.zar")).empty());
+
+	// Survives the config.
+	IniFile ini;
+	SaveZArchiveDiscMemory(ini.GetOrCreateSection("ZArchiveDiscs"));
+	RememberZArchiveDisc(path, "");
+	EXPECT_EQ_STR(bootTarget(), std::string("Disc 1.iso"));
+	LoadZArchiveDiscMemory(ini.GetOrCreateSection("ZArchiveDiscs"));
+	EXPECT_EQ_STR(bootTarget(), std::string("Disc 2.iso"));
+
+	// A disc that's no longer there falls back to the first.
+	RememberZArchiveDisc(path, "Disc 3.iso");
+	EXPECT_EQ_STR(bootTarget(), std::string("Disc 1.iso"));
+	RememberZArchiveDisc(path, "");
+	EXPECT_TRUE(GetRememberedZArchiveDisc(path).empty());
 	return true;
 }
 
@@ -555,6 +595,7 @@ static bool TestZArchiveMemStickOverlay() {
 bool TestZArchive() {
 	RET(TestZArchiveReader());
 	RET(TestZArchiveEbootOnly());
+	RET(TestZArchiveRememberDisc());
 	RET(TestZArchiveCorrupt());
 	RET(TestZArchiveMemStickOverlay());
 	return true;

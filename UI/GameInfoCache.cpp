@@ -41,6 +41,7 @@
 #include "Core/ELF/PBPReader.h"
 #include "Core/SaveState.h"
 #include "Core/System.h"
+#include "Core/Reporting.h"
 #include "Core/Util/GameDB.h"
 #include "Core/Loaders.h"
 #include "Core/Util/GameManager.h"
@@ -614,10 +615,17 @@ public:
 		const bool fromArchive = fileType == IdentifiedFileType::ZARCHIVE;
 		if (fromArchive) {
 			FileLoader *archiveLoader = ConstructFileLoader(gamePath_);
-			FileLoader *target = OpenZArchiveBootTarget(archiveLoader, 0, &errorString);
+			FileLoader *target = OpenZArchiveBootTarget(archiveLoader, &errorString);
 			if (target) {
 				contentLoader.reset(target);
 				contentType = Identify_File(target, &errorString);
+				// Which disc this is about, for the disc picker.
+				const ZArchiveFileLoader *zar = static_cast<const ZArchiveFileLoader *>(target);
+				ZArchiveContents contents;
+				ScanZArchiveContents(*zar->GetArchive(), &contents);
+				std::lock_guard<std::mutex> lock(info_->lock);
+				info_->archiveDiscs = contents.discs;
+				info_->archiveDisc = contents.FindDisc(zar->GetInnerPath());
 			} else {
 				delete archiveLoader;
 			}
@@ -1093,6 +1101,19 @@ void GameInfoCache::FlushBGs() {
 }
 
 void GameInfoCache::PurgeType(IdentifiedFileType fileType) {
+	PurgeIf([fileType](const GameInfo &info) {
+		return (info.hasFlags & GameInfoFlags::FILE_TYPE) && info.fileType == fileType;
+	});
+}
+
+void GameInfoCache::Purge(const Path &gamePath) {
+	PurgeIf([&gamePath](const GameInfo &info) {
+		return info.GetFilePath() == gamePath;
+	});
+}
+
+// The predicate is called with the info's lock held.
+void GameInfoCache::PurgeIf(const std::function<bool(const GameInfo &)> &shouldPurge) {
 	bool retry = false;
 	int retryCount = 10;
 	// Trickery to avoid sleeping with the lock held.
@@ -1111,7 +1132,7 @@ void GameInfoCache::PurgeType(IdentifiedFileType fileType) {
 				GameInfoFlags pendingFlags = GameInfoFlags::EMPTY;
 				{
 					std::lock_guard<std::mutex> infoLock(info->lock);
-					if (!(info->hasFlags & GameInfoFlags::FILE_TYPE) || info->fileType != fileType) {
+					if (!shouldPurge(*info)) {
 						iter++;
 						continue;
 					}
@@ -1214,4 +1235,17 @@ std::shared_ptr<GameInfo> GameInfoCache::GetInfo(Draw::DrawContext *draw, const 
 	GameInfoWorkItem *item = new GameInfoWorkItem(gamePath, info, wantFlags, priority);
 	g_threadManager.EnqueueTask(item);
 	return info;
+}
+
+std::string ArchiveDiscName(std::string_view disc) {
+	const size_t dot = disc.find_last_of('.');
+	return std::string(dot == std::string_view::npos ? disc : disc.substr(0, dot));
+}
+
+void OnArchiveDiscChanged(const Path &archivePath) {
+	// The path now stands for another disc: other title, icon, maybe ID, and another CRC.
+	Reporting::ForgetCRC(archivePath);
+	if (g_gameInfoCache) {
+		g_gameInfoCache->Purge(archivePath);
+	}
 }

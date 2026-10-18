@@ -77,8 +77,14 @@ PSP/GAME/ULUS12345/DLC01.EDAT
   "natural" (numbers compare by value) and case-insensitive. `Disc 2` sorts before `Disc 10`, and
   `Disc 1`, `Disc 2`, `Disc 3` sorts as expected. Naming discs `A.iso` and `B.iso` works too, as long
   as the order is right.
-- Disc 1 always boots. To change discs, use **Switch UMD** in the pause menu, which lists the
-  archive's other discs on its **Discs** tab (it only appears for archives with two or more discs).
+- The first time, disc 1 boots. After that, **PPSSPP boots the disc you used last**, so a game you've
+  reached disc 2 in starts from disc 2. This is remembered per archive (in `ppsspp.ini`, section
+  `[ZArchiveDiscs]`), and a disc that's no longer in the archive falls back to disc 1.
+- To change discs while playing, use **Switch UMD** in the pause menu. It lists the archive's discs
+  on its **Discs** tab, which only appears for archives with two or more discs.
+- To pick the disc before starting, use **Change disc** on the game's info screen. The game list, the
+  info screen and so on then show that disc: its title, icon and disc ID, which can differ between
+  discs.
 - All discs share the one `PSP/` folder.
 - Disc images can be ISO, CSO, CHD or PBP, and can be mixed.
 
