@@ -357,6 +357,10 @@ private:
 
 But generally follow the surrounding style. Braces are preferred on the same line. Braces are always used even when they could be omitted due the inner part being just a single line.
 
+If a large `else {}` block can be avoided with an early return when writing new code, do that
+instead. Don't wrap existing code in a new `else` and reindent it, either - it makes the diff
+much bigger than the change.
+
 ### Comments
 
 Keep comments tight. Say the thing once; don't restate what the code already shows, and don't
