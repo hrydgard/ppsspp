@@ -504,8 +504,8 @@ fn is_would_block(e: &tungstenite::Error) -> bool {
     )
 }
 
-// Returns false if the request went unanswered within the timeout, so one-shot mode can exit
-// non-zero rather than looking successful after having printed nothing useful.
+// Returns false if the request failed or went unanswered within the timeout, so one-shot mode
+// can report that through its exit status.
 //
 // With deferred acks turned on (see request_deferred_acks) every request is answered, including
 // the ones whose result arrives later, so waiting for this request's ticket beats sleeping for a
@@ -524,20 +524,22 @@ fn run_one_shot(
     socket.get_ref().set_read_timeout(Some(Duration::from_millis(50)))?;
     let deadline = Instant::now() + Duration::from_secs_f64(wait_secs.max(0.0));
 
-    // Without a ticket (--raw with none supplied) there's nothing to match, so fall back to
-    // draining until the deadline, same as --wait-all.
-    let Some(ticket) = ticket.filter(|_| !wait_all) else {
-        pump_until(&mut socket, deadline, |_| false);
-        return Ok(true);
-    };
-
-    let answered = pump_until(&mut socket, deadline, |v| {
-        v.get("ticket").and_then(|t| t.as_u64()) == Some(ticket)
+    // Without a ticket (--raw with none supplied) there's nothing to match. --wait-all still
+    // watches for this request's errors, but keeps draining until the deadline either way.
+    let wait_for_ticket = ticket.is_some() && !wait_all;
+    let mut answered = false;
+    let mut failed = false;
+    pump_until(&mut socket, deadline, |v| {
+        if ticket.is_some() && v.get("ticket").and_then(|t| t.as_u64()) == ticket {
+            answered = true;
+            failed |= v.get("event").and_then(|e| e.as_str()) == Some("error");
+        }
+        answered && wait_for_ticket
     });
-    if !answered {
-        eprintln!("! timed out after {wait_secs}s waiting for a reply (ticket {ticket})");
+    if wait_for_ticket && !answered {
+        eprintln!("! timed out after {wait_secs}s waiting for a reply (ticket {})", ticket.unwrap());
     }
-    Ok(answered)
+    Ok(!failed && (!wait_for_ticket || answered))
 }
 
 fn print_help() {
@@ -652,7 +654,7 @@ fn handle_repl_line(socket: &mut WebSocket<TcpStream>, line: &str) -> Result<Opt
 // issuing one of these is really waiting for. That broadcast has no ticket of its own, so it's
 // matched by event name.
 //
-// Returns false on timeout, which the caller turns into a non-zero exit.
+// Returns false on timeout or a matching error reply, which the caller turns into a non-zero exit.
 fn wait_for_sync_response(
     socket: &mut WebSocket<TcpStream>,
     ticket: u64,
@@ -662,6 +664,7 @@ fn wait_for_sync_response(
     let wants_stepping = RESUME_FAMILY.contains(&event);
     let mut got_ticket = false;
     let mut got_stepping = !wants_stepping;
+    let mut failed = false;
     let deadline = Instant::now() + Duration::from_secs_f64(timeout_secs.max(0.0));
 
     let done = pump_until(socket, deadline, |v| {
@@ -669,6 +672,7 @@ fn wait_for_sync_response(
             got_ticket = true;
             // An error reply is a final answer - there'll be no cpu.stepping to follow.
             if v.get("event").and_then(|e| e.as_str()) == Some("error") {
+                failed = true;
                 got_stepping = true;
             }
         }
@@ -686,7 +690,7 @@ fn wait_for_sync_response(
             if got_ticket { ", acknowledged but never stopped" } else { "" }
         );
     }
-    done
+    done && !failed
 }
 
 // Send a ticketed request and block until its response arrives (or timeout), returning the
