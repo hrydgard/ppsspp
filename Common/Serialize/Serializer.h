@@ -200,7 +200,8 @@ public:
 		ERROR_BAD_ALLOC,
 	};
 
-	// May fail badly if ptr doesn't point to valid data.
+	// May fail badly if ptr doesn't point to valid data. On failure, errorString is the title of the
+	// section that failed.
 	template<class T>
 	static Error LoadPtr(u8 *ptr, size_t size, T &_class, std::string *errorString)
 	{
@@ -211,8 +212,7 @@ public:
 		if (p.error != p.ERROR_FAILURE) {
 			return ERROR_NONE;
 		} else {
-			std::string badSectionTitle = p.GetBadSectionTitle() ? p.GetBadSectionTitle() : "(unknown bad section)";
-			*errorString = std::string("Failure at ") + badSectionTitle;
+			*errorString = p.GetBadSectionTitle() ? p.GetBadSectionTitle() : "unknown section";
 			return ERROR_BROKEN_STATE;
 		}
 	}

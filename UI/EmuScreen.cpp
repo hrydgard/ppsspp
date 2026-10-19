@@ -1768,7 +1768,7 @@ ScreenRenderFlags EmuScreen::RunEmulation(bool skipBufferEffects) {
 		} else if (PSP_CoreParameter().frozen) {
 			std::string errorString;
 			if (CChunkFileReader::ERROR_NONE != SaveState::LoadFromRam(freezeState_, &errorString)) {
-				ERROR_LOG(Log::SaveState, "Failed to load freeze state (%s). Unfreezing.", errorString.c_str());
+				ERROR_LOG(Log::SaveState, "Failed to load freeze state (failure at %s). Unfreezing.", errorString.c_str());
 				PSP_CoreParameter().frozen = false;
 			}
 		}

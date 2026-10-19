@@ -974,9 +974,12 @@ int g_screenshotFailures;
 					g_lastSaveTime = time_now_d();
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
 					HandleLoadFailure(false, &callbackMetadata);
-					callbackMessage = std::string(i18nLoadFailure) + ": " + errorString;
-					callbackMetadata = SavedByVersion(op.path);
-					ERROR_LOG(Log::SaveState, "Load state failure: %s (saved by %s)", errorString.c_str(), callbackMetadata.c_str());
+					// The file was fine, its contents weren't: almost always a state from another version.
+					// errorString is the section that failed.
+					callbackMessage = sc->T("LoadStateWrongVersion", i18nLoadFailure);
+					const std::string version = SavedByVersion(op.path);
+					callbackMetadata = version.empty() ? "(" + errorString + ")" : version + " (" + errorString + ")";
+					ERROR_LOG(Log::SaveState, "Load state failure at %s (saved by %s)", errorString.c_str(), version.c_str());
 					callbackResult = Status::FAILURE;
 				} else {
 					callbackMessage = errorString.empty() ? std::string(i18nLoadFailure) : std::string(sc->T(errorString, i18nLoadFailure));
@@ -1052,11 +1055,11 @@ int g_screenshotFailures;
 						hasLoadedState = true;
 						Core_ResetException();
 					} else {
-						callbackMessage = std::string(i18nLoadFailure) + ": " + errorString;
+						callbackMessage = std::string(i18nLoadFailure) + " (" + errorString + ")";
 						callbackResult = Status::FAILURE;
 					}
 				} else {
-					callbackMessage = std::string(i18nLoadFailure) + ": " + errorString;
+					callbackMessage = i18nLoadFailure;
 					callbackResult = Status::FAILURE;
 				}
 				break;
