@@ -35,7 +35,7 @@ public:
 	void Clear();
 
 	bool Empty() const {
-		return next_ == first_;
+		return count_ == 0;
 	}
 
 	void Process();
@@ -44,6 +44,8 @@ public:
 	double NextStateTimestamp() const;
 
 private:
+	bool BaseAlive(int generation) const;
+
 	const int BLOCK_SIZE = 8192;
 	const int REWIND_NUM_STATES = 20;
 	// TODO: Instead, based on size of compressed state?
@@ -59,8 +61,9 @@ private:
 		void clear() { stateBuffer.clear(); savedTime = 0.0; }
 	};
 
-	int first_ = 0;
+	// The slot the next save goes in, and how many slots before it hold states we can restore.
 	int next_ = 0;
+	int count_ = 0;
 	int size_;
 
 	std::vector<RewindState> states_;

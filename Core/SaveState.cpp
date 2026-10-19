@@ -16,6 +16,7 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <atomic>
 #include <vector>
 #include <thread>
 #include <mutex>
@@ -98,9 +99,13 @@ static StateRingbuffer rewindStates;
 // on some Android devices when we allow many save states.
 static double g_lastRescan = 0.0;
 static std::map<std::string, uint64_t, std::less<>> g_files;  // the value is the mod-time.
+// Set when a slot save finishes. That's on the emu thread, so the rescan is left to the next reader.
+static std::atomic<bool> g_filesStale;
 
 struct SaveStart {
 	void DoState(PointerWrap &p);
+	// Rewind snapshots and verification don't count towards IsStale().
+	bool countsAsSave = true;
 };
 
 enum class OperationType {
@@ -127,6 +132,7 @@ int g_screenshotFailures;
 
 	CChunkFileReader::Error SaveToRam(std::vector<u8> &data) {
 		SaveStart state;
+		state.countsAsSave = false;
 		return CChunkFileReader::MeasureAndSavePtr(state, &data);
 	}
 
@@ -154,7 +160,7 @@ int g_screenshotFailures;
 
 		if (s >= 2) {
 			// This only increments on save, of course (once, not also in the measuring pass.)
-			if (p.mode == p.MODE_WRITE) {
+			if (p.mode == p.MODE_WRITE && countsAsSave) {
 				++saveStateGeneration;
 			}
 			Do(p, saveStateGeneration);
@@ -201,16 +207,26 @@ int g_screenshotFailures;
 		pspFileSystem.DoState(p);
 	}
 
+	// For an operation that was refused after a warning was already shown, so there's no message.
+	// The callback still has to hear about it (auto-load tracks failure that way).
+	static void CallbackRefused(const Callback &callback) {
+		if (callback) {
+			callback(Status::FAILURE, "", "");
+		}
+	}
+
 	bool Enqueue(const SaveState::Operation &op) {
 		// These two both refuse the operation, and both say so - dropping it silently just
 		// looks like the hotkey didn't work. Callers that ask the same questions themselves
 		// return before getting here, so nothing shows a message twice.
 		if (NetworkWarnUserIfOnlineAndCantSavestate()) {
+			CallbackRefused(op.callback);
 			return false;
 		}
 		// Hardcore mode bans loading savestates outright, and saving too unless the user opted
 		// back into that.
 		if (Achievements::WarnUserIfHardcoreModeActive(op.type == OperationType::Save)) {
+			CallbackRefused(op.callback);
 			return false;
 		}
 
@@ -245,14 +261,17 @@ int g_screenshotFailures;
 		return Enqueue(Operation(OperationType::Save, filename, slot, callback));
 	}
 
-	void Verify(Callback callback) {
-		Enqueue(Operation(OperationType::Verify, Path(), -1, callback));
+	bool Verify(Callback callback) {
+		return Enqueue(Operation(OperationType::Verify, Path(), -1, callback));
 	}
 
-	void Rewind(Callback callback) {
+	bool Rewind(Callback callback) {
+		// Or a snapshot can be taken just before the rewind runs (after a long pause, say), and the
+		// rewind then restores that.
+		rewindStates.NotifyState();
 		if (coreState == CoreState::CORE_RUNTIME_ERROR)
 			Core_Break(BreakReason::SavestateRewind, 0);
-		Enqueue(Operation(OperationType::Rewind, Path(), -1, callback));
+		return Enqueue(Operation(OperationType::Rewind, Path(), -1, callback));
 	}
 
 	bool CanRewind() {
@@ -407,11 +426,20 @@ int g_screenshotFailures;
 	}
 
 	void LoadSlot(std::string_view gamePrefix, int slot, Callback callback) {
-		if (NetworkWarnUserIfOnlineAndCantSavestate()) {
+		// Enqueue() would refuse too, but only after the load undo backup below has replaced the old one.
+		if (NetworkWarnUserIfOnlineAndCantSavestate() || Achievements::WarnUserIfHardcoreModeActive(false)) {
+			CallbackRefused(callback);
 			return;
 		}
 
 		Path fn = GenerateSaveSlotPath(gamePrefix, slot, STATE_EXTENSION);
+		if (!fn.empty() && !File::Exists(fn)) {
+			if (callback) {
+				auto sc = GetI18NCategory(I18NCat::SCREEN);
+				callback(Status::FAILURE, sc->T("LoadStateDoesntExist", sc->T("Failed to load state")), "");
+			}
+			return;
+		}
 		if (!fn.empty()) {
 			// This add only 1 extra state, should we just always enable it?
 			if (g_Config.bEnableStateUndo) {
@@ -474,7 +502,9 @@ int g_screenshotFailures;
 	}
 
 	void SaveSlot(std::string_view gamePrefix, int slot, Callback callback) {
-		if (NetworkWarnUserIfOnlineAndCantSavestate()) {
+		// Enqueue() would refuse too, but only after the screenshots below have been rotated.
+		if (NetworkWarnUserIfOnlineAndCantSavestate() || Achievements::WarnUserIfHardcoreModeActive(true)) {
+			CallbackRefused(callback);
 			return;
 		}
 		Path fn = GenerateSaveSlotPath(gamePrefix, slot, STATE_EXTENSION);
@@ -494,6 +524,7 @@ int g_screenshotFailures;
 						DeleteIfExists(fn);
 					}
 					File::Rename(fn.WithExtraExtension(".tmp"), fn);
+					g_filesStale = true;
 				}
 				if (callback) {
 					callback(status, message, "");
@@ -531,6 +562,7 @@ int g_screenshotFailures;
 			// Swap them so they can undo again to redo.  Mistakes happen.
 			SwapIfExists(shotUndo, shot);
 			SwapIfExists(fnUndo, fn);
+			Rescan(gamePrefix);
 			return true;
 		}
 
@@ -585,7 +617,14 @@ int g_screenshotFailures;
 		g_lastRescan = time_now_d();
 	}
 
+	static void RescanIfStale(std::string_view gamePrefix) {
+		if (g_filesStale.exchange(false)) {
+			Rescan(gamePrefix);
+		}
+	}
+
 	static bool SaveStateFileExists(std::string_view gamePrefix, int slot, const char *extension) {
+		RescanIfStale(gamePrefix);
 		return g_files.find(GenerateSaveSlotFilename(gamePrefix, slot, extension)) != g_files.end();
 	}
 
@@ -651,6 +690,7 @@ int g_screenshotFailures;
 	}
 
 	int GetNewestSlot(std::string_view gamePrefix) {
+		RescanIfStale(gamePrefix);
 		int newestSlot = -1;
 		int64_t newestTime = 0;
 		for (int i = 0; i < g_Config.iSaveStateSlotCount; i++) {
@@ -667,6 +707,7 @@ int g_screenshotFailures;
 	}
 
 	int GetOldestSlot(std::string_view gamePrefix) {
+		RescanIfStale(gamePrefix);
 		int oldestSlot = -1;
 		int64_t oldestTime = INT64_MAX;
 		for (int i = 0; i < g_Config.iSaveStateSlotCount; i++) {
@@ -868,6 +909,10 @@ int g_screenshotFailures;
 
 		if (!__KernelIsRunning()) {
 			ERROR_LOG(Log::SaveState, "Savestate failure: Unable to load without kernel, this should never happen.");
+			// needsProcess is already clear, so anything queued would only run after the next Enqueue.
+			for (const auto &op : Flush()) {
+				CallbackRefused(op.callback);
+			}
 			return;
 		}
 
@@ -882,6 +927,7 @@ int g_screenshotFailures;
 			// identification has finished and hardcore mode has come up.
 			if (Achievements::WarnUserIfHardcoreModeActive(op.type == OperationType::Save)) {
 				WARN_LOG(Log::SaveState, "Dropping queued savestate operation - hardcore mode is active");
+				CallbackRefused(op.callback);
 				continue;
 			}
 
@@ -933,7 +979,7 @@ int g_screenshotFailures;
 					ERROR_LOG(Log::SaveState, "Load state failure: %s (saved by %s)", errorString.c_str(), callbackMetadata.c_str());
 					callbackResult = Status::FAILURE;
 				} else {
-					callbackMessage = sc->T(errorString, i18nLoadFailure);
+					callbackMessage = errorString.empty() ? std::string(i18nLoadFailure) : std::string(sc->T(errorString, i18nLoadFailure));
 					callbackMetadata = SavedByVersion(op.path);
 					callbackResult = Status::FAILURE;
 				}
@@ -977,10 +1023,9 @@ int g_screenshotFailures;
 
 			case OperationType::Verify:
 			{
-				// Its write pass counts as a save, which it isn't.
-				const int generation = saveStateGeneration;
-				int tempResult = CChunkFileReader::Verify(state) == CChunkFileReader::ERROR_NONE;
-				saveStateGeneration = generation;
+				SaveStart verifyState;
+				verifyState.countsAsSave = false;
+				int tempResult = CChunkFileReader::Verify(verifyState) == CChunkFileReader::ERROR_NONE;
 				callbackResult = tempResult ? Status::SUCCESS : Status::FAILURE;
 				if (tempResult) {
 					INFO_LOG(Log::SaveState, "Verified save state system");

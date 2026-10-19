@@ -292,7 +292,9 @@ public:
 	template<class T>
 	static Error Load(const Path &filename, std::string *gitVersion, T& _class, std::string *failureReason)
 	{
-		*failureReason = "LoadStateWrongVersion";
+		// LoadFile names the failures it can tell apart. A truncated or corrupt file isn't one of them,
+		// and isn't necessarily from another version either.
+		failureReason->clear();
 
 		u8 *ptr = nullptr;
 		size_t sz;
@@ -334,13 +336,16 @@ public:
 		std::vector<u8> buffer(sz);
 
 		// Step 2: Dump the state.
-		ptr = &buffer[0];
-		p.SetMode(PointerWrap::MODE_WRITE);
+		p.RewindForWrite(buffer.data());
 		_class.DoState(p);
+		if (!p.CheckAfterWrite()) {
+			return ERROR_BROKEN_STATE;
+		}
 
 		// Step 3: Verify the state.
-		ptr = &buffer[0];
+		ptr = buffer.data();
 		p.SetMode(PointerWrap::MODE_VERIFY);
+		p.SetReadEnd(buffer.data() + sz);
 		_class.DoState(p);
 
 		if (p.error == PointerWrap::ERROR_FAILURE) {

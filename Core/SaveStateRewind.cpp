@@ -18,9 +18,7 @@ CChunkFileReader::Error StateRingbuffer::Save() {
 
 	std::lock_guard<std::mutex> guard(lock_);
 
-	int n = next_++ % size_;
-	if ((next_ % size_) == first_)
-		++first_;
+	const int n = next_;
 
 	std::vector<u8> *compressBuffer = &buffer_;
 	CChunkFileReader::Error err;
@@ -39,12 +37,30 @@ CChunkFileReader::Error StateRingbuffer::Save() {
 	if (err == CChunkFileReader::ERROR_NONE) {
 		ScheduleCompress(&states_[n].stateBuffer, compressBuffer, &bases_[base_]);
 		states_[n].savedTime = time_now_d();
+		baseMapping_[n] = baseGeneration_[base_];
+		next_ = (next_ + 1) % size_;
+		if (count_ < size_) {
+			count_++;
+		}
 	} else {
 		states_[n].clear();
 	}
 
-	baseMapping_[n] = baseGeneration_[base_];
+	// States compressed against a base that has since been replaced can't be decoded any more.
+	// They're the oldest ones, so drop them from the end.
+	while (count_ > 0) {
+		const int oldest = (next_ - count_ + size_) % size_;
+		if (BaseAlive(baseMapping_[oldest])) {
+			break;
+		}
+		states_[oldest].clear();
+		count_--;
+	}
 	return err;
+}
+
+bool StateRingbuffer::BaseAlive(int generation) const {
+	return generation >= 0 && baseGeneration_[generation % ARRAY_SIZE(bases_)] == generation;
 }
 
 CChunkFileReader::Error StateRingbuffer::Restore(std::string *errorString, std::string *metadata) {
@@ -58,20 +74,21 @@ CChunkFileReader::Error StateRingbuffer::Restore(std::string *errorString, std::
 	if (Empty())
 		return CChunkFileReader::ERROR_BAD_FILE;
 
-	int n = (--next_ + size_) % size_;
+	const int n = (next_ - 1 + size_) % size_;
+	next_ = n;
+	count_--;
 	if (states_[n].empty())
 		return CChunkFileReader::ERROR_BAD_FILE;
 
 	auto pa = GetI18NCategory(I18NCat::PAUSE);
 
 	const int generation = baseMapping_[n];
-	const int baseSlot = generation < 0 ? -1 : generation % (int)ARRAY_SIZE(bases_);
-	if (baseSlot < 0 || baseGeneration_[baseSlot] != generation) {
-		// The base this state was compressed against has since been overwritten, so it can't be
-		// decoded any more. Only two bases are kept, but the state ring is longer.
+	if (!BaseAlive(generation)) {
+		// Save() drops these, so this shouldn't happen.
 		WARN_LOG(Log::SaveState, "Rewind: state %d was compressed against a base that's gone", n);
 		return CChunkFileReader::ERROR_BAD_FILE;
 	}
+	const int baseSlot = generation % (int)ARRAY_SIZE(bases_);
 
 	static std::vector<u8> buffer;
 	LockedDecompress(buffer, states_[n].stateBuffer, bases_[baseSlot]);
@@ -103,7 +120,7 @@ void StateRingbuffer::ScheduleCompress(std::vector<u8> *result, const std::vecto
 void StateRingbuffer::Compress(std::vector<u8> &result, const std::vector<u8> &state, const std::vector<u8> &base) {
 	std::lock_guard<std::mutex> guard(lock_);
 	// Bail if we were cleared before locking.
-	if (first_ == 0 && next_ == 0)
+	if (count_ == 0)
 		return;
 
 	double start_time = time_now_d();
@@ -159,8 +176,8 @@ void StateRingbuffer::Clear() {
 
 	// This lock is mainly for shutdown.
 	std::lock_guard<std::mutex> guard(lock_);
-	first_ = 0;
 	next_ = 0;
+	count_ = 0;
 	for (auto &b : bases_) {
 		b.clear();
 	}
