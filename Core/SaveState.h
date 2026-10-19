@@ -100,11 +100,11 @@ namespace SaveState {
 
 	// For testing / automated tests.  Runs a save state verification pass (async.)
 	// Warning: callback will be called on a different thread.
-	void Verify(Callback callback = Callback());
+	bool Verify(Callback callback = Callback());
 
 	// To go back to a previous snapshot (only if enabled.)
 	// Warning: callback will be called on a different thread.
-	void Rewind(Callback callback = Callback());
+	bool Rewind(Callback callback = Callback());
 
 	// Returns true if there are rewind snapshots available.
 	bool CanRewind();
