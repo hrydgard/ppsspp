@@ -235,13 +235,12 @@ int g_screenshotFailures;
 		if (p.mode == p.MODE_READ) {
 			hookedOps = Replacement_GetHookedOps();
 			RestoreReplacedInstructions(0, 0xFFFFFFFF);
-			if (MIPSComp::jit) {
-				codeCompare.ranges = __KernelModuleCodeRanges();
-			}
+			codeCompare.ranges = __KernelModuleCodeRanges();
 		}
 		Memory::DoState(p, &codeCompare);
 		if (p.mode == p.MODE_READ) {
 			Replacement_RepairStaleHookOps(hookedOps);
+			__KernelModuleSetUnchangedCodeOnLoad(codeCompare.unchanged);
 			currentMIPS->KeepJitBlocksOnNextLoad(std::move(codeCompare.unchanged));
 		}
 
