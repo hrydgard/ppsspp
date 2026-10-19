@@ -507,9 +507,8 @@ bool ViewSearch::Key(UI::ViewGroup *viewGroup, const KeyInput &input) {
 					// TODO: Restore focus state here.
 					UI::EnableFocusMovement(false);
 				}
-			} else {
-				// Empty search filter. Navigate upwards on backspace?
 			}
+			// With an empty filter, it's up to the owner (the game browser goes up a directory).
 		} else if (!searchFilter.empty() && input.keyCode == NKCODE_ESCAPE) {
 			searchFilter.clear();
 			ApplySearchFilter(viewGroup, false);

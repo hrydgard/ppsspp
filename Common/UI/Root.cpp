@@ -257,6 +257,18 @@ static bool KeyToFocusMove(const KeyInput &key, FocusMove *move) {
 
 KeyEventResult KeyEventToFocusMoves(const KeyInput &key) {
 	KeyEventResult retval = KeyEventResult::PASS_THROUGH;
+	// The OS's own repeats of a key we're already repeating (see ProcessHeldKeys) would double
+	// up with ours, in a text field for example.
+	if ((key.flags & KeyInputFlags::DOWN) && (key.flags & KeyInputFlags::IS_REPEAT) && !heldKeys.empty()) {
+		HeldKey hk;
+		hk.key = key.keyCode;
+		hk.deviceId = key.deviceId;
+		hk.triggerTime = 0.0;  // irrelevant
+		hk.move = FocusMove::NEXT;  // irrelevant, not part of the comparison
+		if (heldKeys.find(hk) != heldKeys.end()) {
+			return KeyEventResult::IGNORE_KEY;
+		}
+	}
 	// Ignore repeats for focus moves.
 	if ((key.flags & KeyInputFlags::DOWN) && !(key.flags & KeyInputFlags::IS_REPEAT)) {
 		FocusMove move;

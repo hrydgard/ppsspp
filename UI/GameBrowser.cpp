@@ -781,6 +781,22 @@ bool GameBrowser::Key(const KeyInput &input) {
 		}
 	}
 
+	// Backspace with no search going also goes to the parent directory, as in file managers. Never on
+	// a repeat, or holding it would climb to the root (or carry on up after clearing a search). Not
+	// every platform flags repeats, so this also tracks whether it's held.
+	if (input.keyCode == NKCODE_DEL && input.deviceId == DEVICE_ID_KEYBOARD) {
+		if (input.flags & KeyInputFlags::UP) {
+			backspaceHeld_ = false;
+		} else if (input.flags & KeyInputFlags::DOWN) {
+			const bool repeat = backspaceHeld_ || (input.flags & KeyInputFlags::IS_REPEAT);
+			backspaceHeld_ = true;
+			if (!repeat && search_.searchFilter.empty() && (browseFlags_ & BrowseFlags::NAVIGATE) && path_.CanNavigateUp()) {
+				NavigateUp();
+				return true;
+			}
+		}
+	}
+
 	bool retval = LinearLayout::Key(input);
 	if (retval) {
 		return true;

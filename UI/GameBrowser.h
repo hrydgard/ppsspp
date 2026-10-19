@@ -90,6 +90,7 @@ private:
 	Path focusPath_;
 	// Set when entering a directory, for Refresh to focus its first entry.
 	bool focusFirstItem_ = false;
+	bool backspaceHeld_ = false;
 	bool listingPending_ = false;
 	bool refreshPending_ = false;
 	float lastScale_ = 1.0f;
