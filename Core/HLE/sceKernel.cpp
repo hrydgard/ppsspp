@@ -250,8 +250,11 @@ void __KernelDoState(PointerWrap &p)
 		Do(p, kernelRunning);
 		kernelObjects.DoState(p);
 
-		if (s >= 2)
+		if (s >= 2) {
 			Do(p, registeredExitCbId);
+		} else if (p.mode == p.MODE_READ) {
+			registeredExitCbId = 0;
+		}
 	}
 
 	{
@@ -583,7 +586,9 @@ void KernelObjectPool::DoState(PointerWrap &p) {
 	}
 
 	if (p.mode == p.MODE_READ) {
-		hleCurrentThreadName = nullptr;
+		// The current thread is deleted with the rest. Until sceKernelThread loads the new one,
+		// nothing should look at it.
+		__KernelForgetCurrentThread();
 		kernelObjects.Clear();
 	}
 

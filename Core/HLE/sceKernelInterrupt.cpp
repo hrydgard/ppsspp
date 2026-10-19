@@ -218,6 +218,10 @@ void IntrHandler::DoState(PointerWrap &p)
 
 	Do(p, intrNumber);
 	Do<int, SubIntrHandler>(p, subIntrHandlers);
+	if (p.mode == p.MODE_READ && (intrNumber < 0 || intrNumber >= PSP_NUMBER_INTERRUPTS)) {
+		ERROR_LOG(Log::sceIntc, "Savestate failure: invalid interrupt handler %d", intrNumber);
+		p.SetError(p.ERROR_FAILURE);
+	}
 }
 
 void PendingInterrupt::DoState(PointerWrap &p)

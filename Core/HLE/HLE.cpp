@@ -885,7 +885,7 @@ void HLEReturnFromMipsCall() {
 		return;
 	}
 
-	if (stackData->actionIndex != 0xFFFFFFFF && stackData->actionIndex < (u32)mipsCallActions.size()) {
+	if (stackData->actionIndex != 0xFFFFFFFF && stackData->actionIndex < (u32)mipsCallActions.size() && mipsCallActions[stackData->actionIndex] != nullptr) {
 		PSPAction *&action = mipsCallActions[stackData->actionIndex];
 		VERBOSE_LOG(Log::HLE, "Executing action for HLE mips call at %08x, sp=%08x", stackData->func, sp);
 
