@@ -85,6 +85,9 @@ public:
 	void setShowMode(bool s) {
 		showHex_ = s;
 	}
+	// Removes the function symbol and its name, leaving the code without a function (handy for
+	// testing stack walks without symbols).
+	void RemoveFunction(u32 funcStart);
 	void toggleBreakpoint(bool toggleEnabled = false);
 	void editBreakpoint(ImConfig &cfg);
 

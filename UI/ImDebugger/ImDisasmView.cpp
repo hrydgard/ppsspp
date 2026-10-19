@@ -778,6 +778,13 @@ void ImDisasmView::CopyInstructions(u32 startAddr, u32 endAddr, CopyInstructions
 	}
 }
 
+void ImDisasmView::RemoveFunction(u32 funcStart) {
+	g_symbolMap->RemoveFunction(funcStart, true);
+	g_symbolMap->SortSymbols();
+	g_disassemblyManager.clear();
+	mapReloaded_ = true;
+}
+
 void ImDisasmView::PopupMenu(MIPSState *mips, ImControl &control) {
 	bool renameFunctionPopup = false;
 	if (ImGui::BeginPopup("context")) {
@@ -858,24 +865,8 @@ void ImDisasmView::PopupMenu(MIPSState *mips, ImControl &control) {
 				statusBarText_ = "No function here";
 			}
 		}
-		if (ImGui::MenuItem("Remove function")) {
-			u32 funcBegin = g_symbolMap->GetFunctionStart(curAddress_);
-			if (funcBegin != -1) {
-				u32 prevBegin = g_symbolMap->GetFunctionStart(funcBegin - 1);
-				if (prevBegin != -1)
-				{
-					u32 expandedSize = g_symbolMap->GetFunctionSize(prevBegin) + g_symbolMap->GetFunctionSize(funcBegin);
-					g_symbolMap->SetFunctionSize(prevBegin, expandedSize);
-				}
-
-				g_symbolMap->RemoveFunction(funcBegin, true);
-				g_symbolMap->SortSymbols();
-				g_disassemblyManager.clear();
-
-				mapReloaded_ = true;
-			} else {
-				statusBarText_ = "WARNING: unable to find function symbol here";
-			}
+		if (ImGui::MenuItem("Remove function", nullptr, false, funcStart != -1)) {
+			RemoveFunction(funcStart);
 		}
 		u32 prevBegin = g_symbolMap->GetFunctionStart(curAddress_);
 		if (ImGui::MenuItem("Add function")) {
@@ -1409,6 +1400,9 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 					ImGui::SetScrollY((float)(it - symMatches_.begin()) * rowHeight - (ImGui::GetWindowHeight() - rowHeight) * 0.5f);
 				}
 			}
+			// The default selection color is translucent blue, which barely shows on the list box's
+			// blue background.
+			ImGui::PushStyleColor(ImGuiCol_Header, ImGui::GetStyleColorVec4(ImGuiCol_HeaderActive));
 			ImGuiListClipper clipper;
 			clipper.Begin((int)symMatches_.size(), -1);
 			while (clipper.Step()) {
@@ -1431,13 +1425,9 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 							System_CopyStringToClipboard(StringFromFormat("%08x", symCache_[i].address));
 						}
 						ImGui::Separator();
-						// Leaves the code uncovered by any function, unlike "Remove function" in the
-						// disassembly, which merges it into the previous one. Handy for testing stack
-						// walks without symbols. The list rebuilds next frame, from the map's new version.
+						// The list rebuilds next frame, from the map's new version.
 						if (ImGui::MenuItem("Delete symbol")) {
-							g_symbolMap->RemoveFunction(symCache_[i].address, true);
-							g_symbolMap->SortSymbols();
-							g_disassemblyManager.clear();
+							disasmView_.RemoveFunction(symCache_[i].address);
 						}
 						ImGui::EndPopup();
 					}
@@ -1445,6 +1435,7 @@ void ImDisasmWindow::Draw(MIPSDebugInterface *mipsDebug, ImConfig &cfg, ImContro
 				}
 			}
 			clipper.End();
+			ImGui::PopStyleColor();
 			ImGui::EndListBox();
 		}
 	}
