@@ -632,7 +632,10 @@ static int sceNetInetBind(int socket, u32 namePtr, int namelen) {
 	saddr.addr.sa_family = name->sa_family;
 	int len = std::min(namelen > 0 ? namelen : 0, static_cast<int>(sizeof(saddr)));
 	memcpy(saddr.addr.sa_data, name->sa_data, sizeof(name->sa_data));
-	if (isLocalServer) {
+	// The address rewrites below are for talking to ad hoc peers (each instance on localhost gets its own
+	// 127.0.0.x), so they only apply while the game uses ad hoc. Infrastructure binds what the game asked for.
+	const bool adhocActive = netAdhocctlInited;
+	if (adhocActive && isLocalServer) {
 		getLocalIp(&saddr.in);
 	}
 	// FIXME: On non-Windows broadcast to INADDR_BROADCAST(255.255.255.255) might not be received by the sender itself when binded to specific IP (ie. 192.168.0.2) or INADDR_BROADCAST.
@@ -640,7 +643,7 @@ static int sceNetInetBind(int socket, u32 namePtr, int namelen) {
 	//
 	// Replace INADDR_ANY (and INADDR_BROADCAST too) with a specific IP (using AdhocServer IP address as reference) in order not to send data through the wrong interface (especially during broadcast),
 	// But let's do this only when using built-in Adhoc Server, otherwise UNO won't works
-	if (g_Config.bEnableAdhocServer && (saddr.in.sin_addr.s_addr == INADDR_ANY || saddr.in.sin_addr.s_addr == INADDR_BROADCAST)) {
+	if (adhocActive && g_Config.bEnableAdhocServer && (saddr.in.sin_addr.s_addr == INADDR_ANY || saddr.in.sin_addr.s_addr == INADDR_BROADCAST)) {
 		// Get Local IP Address
 		sockaddr_in sockAddr{};
 		getLocalIp(&sockAddr);

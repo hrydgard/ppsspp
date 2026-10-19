@@ -644,6 +644,7 @@ tests_next = [
   #"modules/loadexec/loader",
   "modules/unloadfill/unloadfill",
   "net/http/http",
+  "net/inet/bind",
   "net/primary/ether",
   "sysmem/partition",
   # These two mbx tests only appeared to work because they papered over bugs 

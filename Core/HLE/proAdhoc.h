@@ -1142,11 +1142,18 @@ void spawnLocalEvent(SceNetAdhocMatchingContext * context, int event, SceNetEthe
 int getActivePeerCount(const bool excludeTimedout = true);
 
 /**
- * Returns the locall Ip of this machine
+ * Returns the local IP this machine is known by to its ad hoc peers: the localhost IP when the ad hoc
+ * server is on localhost, the address of the connection to the ad hoc server, or getHostLocalIp().
  * @param SocketAddres OUT: local ip
  */
 int getLocalIp(sockaddr_in * SocketAddress);
 uint32_t getLocalIp(int sock);
+
+/**
+ * Returns the IP of the host's network interface, ignoring the ad hoc settings.
+ * @param SocketAddres OUT: local ip
+ */
+int getHostLocalIp(sockaddr_in *SocketAddress);
 
 /*
  * Check if an IP (big-endian/network order) is Private or Public IP
