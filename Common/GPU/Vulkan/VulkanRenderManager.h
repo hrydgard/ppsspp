@@ -290,7 +290,8 @@ public:
 
 	void ReportBadStateForDraw();
 
-	int WaitForPipelines();
+	// True while there are queued or compiling pipelines.
+	bool PipelinesPending();
 
 	void NudgeCompilerThread() {
 		compileQueueMutex_.lock();

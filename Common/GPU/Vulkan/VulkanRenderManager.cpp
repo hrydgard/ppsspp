@@ -912,18 +912,10 @@ void VulkanRenderManager::ReportBadStateForDraw() {
 	ERROR_LOG_REPORT_ONCE(baddraw, Log::G3D, "Can't draw: %s%s. Step count: %d", cause1, cause2, (int)steps_.size());
 }
 
-int VulkanRenderManager::WaitForPipelines() {
+bool VulkanRenderManager::PipelinesPending() {
 	// Pipelines still in the queue, or taken off it but not yet made into tasks, aren't in flight yet.
-	while (true) {
-		{
-			std::unique_lock<std::mutex> lock(compileQueueMutex_);
-			if (compileQueue_.empty() && !compileScheduling_) {
-				break;
-			}
-		}
-		sleep_ms(2, "pipeline-queue-wait");
-	}
-	return CreateMultiPipelinesTask::WaitForAll();
+	std::unique_lock<std::mutex> lock(compileQueueMutex_);
+	return !compileQueue_.empty() || compileScheduling_ || CreateMultiPipelinesTask::tasksInFlight_ > 0;
 }
 
 VKRGraphicsPipeline *VulkanRenderManager::CreateGraphicsPipeline(VKRGraphicsPipelineDesc *desc, PipelineFlags pipelineFlags, uint32_t variantBitmask, VkSampleCountFlagBits sampleCount, bool cacheLoad, const char *tag) {
