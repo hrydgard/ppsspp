@@ -1549,6 +1549,38 @@ bool WriteDataToFile(bool text_file, const void* data, size_t size, const Path &
 	return true;
 }
 
+bool WriteDataToNewFile(const void *data, size_t size, const Path &filename) {
+#if PPSSPP_PLATFORM(ANDROID) && !defined(HAVE_LIBRETRO_VFS)
+	if (filename.Type() == PathType::CONTENT_URI) {
+		if (!filename.CanNavigateUp() || Android_CreateFile(filename.NavigateUp().ToString(), filename.GetFilename()) != StorageError::SUCCESS) {
+			return false;
+		}
+		const int fd = Android_OpenContentUriFd(filename.ToString(), Android_OpenContentUriMode::READ_WRITE_TRUNCATE);
+		if (fd < 0) {
+			return false;
+		}
+		const u8 *p = (const u8 *)data;
+		size_t left = size;
+		int interrupts = 0;
+		while (left > 0) {
+			const ssize_t written = write(fd, p, left);
+			if (written < 0 && errno == EINTR && ++interrupts < 100) {
+				continue;
+			}
+			if (written <= 0) {
+				close(fd);
+				return false;
+			}
+			p += written;
+			left -= written;
+			interrupts = 0;
+		}
+		return close(fd) == 0;
+	}
+#endif
+	return WriteDataToFile(false, data, size, filename);
+}
+
 void ChangeMTime(const Path &path, time_t mtime) {
 	if (path.Type() == PathType::CONTENT_URI) {
 		// No clue what to do here. There doesn't seem to be a way.

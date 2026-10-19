@@ -89,6 +89,10 @@ struct PSARUnpackOptions {
 	// Called on the unpacking thread after every entry, with how far through the archive we are
 	// (0.0 to 1.0). Unpacking a full firmware takes a while, so a UI wants this.
 	std::function<void(float)> progress;
+	// outputDir was just created and is empty, so nothing in it can exist yet. Files are then
+	// created without checking for them first, and written on several threads. Through Android's
+	// storage framework every check and create is a slow round trip, so this saves most of the time.
+	bool outputDirIsEmpty = false;
 };
 
 struct PSARUnpackStats {
