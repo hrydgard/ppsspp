@@ -37,6 +37,10 @@
 #include "GPU/D3D11/GPU_D3D11.h"
 #endif
 
+#if PPSSPP_API(METAL)
+#include "GPU/Metal/GPU_Metal.h"
+#endif
+
 GPUStatistics gpuStats;
 GPUCommon *gpu;
 
@@ -69,6 +73,12 @@ static GPUCommon *CreateGPUCore(GPUCore gpuCore, GraphicsContext *ctx, Draw::Dra
 			return nullptr;
 		}
 		return new GPU_Vulkan(ctx, draw);
+#endif
+	case GPUCORE_METAL:
+#if PPSSPP_API(METAL)
+		return new GPU_Metal(ctx, draw);
+#else
+		return nullptr;
 #endif
 	case GPUCORE_NULL:
 		return CreateNullGPU(ctx);

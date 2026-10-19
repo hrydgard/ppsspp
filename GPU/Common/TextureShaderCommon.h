@@ -77,3 +77,28 @@ private:
 	Draw2D *draw2D_;
 	std::unordered_map<u64, Draw2DPipeline *> pipelineCache_;
 };
+
+// Hardware texture upscaling, with compute shaders.
+
+// The single pass upload shader, with a %s for the scaling shader (its applyScaling()).
+extern const char *const textureScaleUploadShader;
+
+struct TextureScaleScratchDesc {
+	const char *tag;
+	uint8_t widthScale;
+	uint8_t heightScale;
+};
+
+struct TextureScaleStageDesc {
+	uint8_t shaderIndex;
+	int8_t inputScratch;   // -1 means the original upload buffer.
+	int8_t outputScratch;  // -1 means the final destination image.
+	uint8_t srcWidthScale;
+	uint8_t srcHeightScale;
+	uint8_t dstWidthScale;
+	uint8_t dstHeightScale;
+	bool useFinalOutputSize;
+};
+
+// The scratch images and passes of a multipass scaling shader (NNEDI3). False for an unsupported scale factor.
+bool GetTextureScaleMultipassLayout(int scaleFactor, std::vector<TextureScaleScratchDesc> *scratchDescs, std::vector<TextureScaleStageDesc> *stageDescs);

@@ -467,7 +467,7 @@ static bool CanUseSaveStates(bool isSaveAction) {
     [self addSeparatorTo:menu];
 
     NSMenu *backends = [self addSubmenu:DesktopUI("Backend") to:menu];
-    for (GPUBackend backend : { GPUBackend::OPENGL, GPUBackend::VULKAN }) {
+    for (GPUBackend backend : { GPUBackend::OPENGL, GPUBackend::VULKAN, GPUBackend::METAL }) {
         if (!g_Config.IsBackendEnabled(backend)) {
             continue;
         }

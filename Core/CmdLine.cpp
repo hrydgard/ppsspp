@@ -468,6 +468,9 @@ CommandLineParseResult CommandLineOptions::Parse(int argc, const char *argv[], C
 			} else if (restOfOption == "vulkan") {
 				gpuBackend = GPUBackend::VULKAN;
 				softwareRendering = false;
+			} else if (restOfOption == "metal") {
+				gpuBackend = GPUBackend::METAL;
+				softwareRendering = false;
 			} else if (restOfOption == "software") {
 				gpuBackend = GPUBackend::OPENGL;
 				softwareRendering = true;

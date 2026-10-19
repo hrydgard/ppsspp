@@ -22,6 +22,7 @@ struct IDXGISwapChain;
 #endif
 
 class VulkanContext;
+class MetalRenderManager;
 
 namespace Draw {
 
@@ -32,5 +33,9 @@ DrawContext *T3DCreateD3D11Context(Microsoft::WRL::ComPtr<ID3D11Device> device, 
 #endif
 
 DrawContext *T3DCreateVulkanContext(VulkanContext *context, bool useRenderThread);
+
+#ifdef __APPLE__
+DrawContext *T3DCreateMetalContext(MetalRenderManager *renderManager);
+#endif
 
 }  // namespace Draw

@@ -1,117 +1,119 @@
-# Feasibility of a native Metal backend
+# The Metal backend
 
-An analysis of what it would take to add a Metal rendering backend to PPSSPP, and whether it's worth
-doing. Written 2026-09-03 against the state of the tree at that time; the line counts and file
-references will drift.
+A native Metal backend for Mac and iOS (tvOS too), alongside OpenGL, D3D11 and Vulkan. It's selected as
+`GPUBackend::METAL` (`--graphics=metal`), and Vulkan through MoltenVK stays the default for now. Written
+2026-10-19; file references will drift.
 
-**Summary:** technically very feasible, and the tree is already shaped for it. But "get rid of the
-MoltenVK dependency" is the weakest reason to do it - the good reason is programmable blending.
+**Why:** programmable blending. Apple GPUs let a fragment shader read the color it's about to blend with
+(`[[color(0)]]`), so PSP blend modes that need shader blending no longer copy the framebuffer for every
+draw. MoltenVK can't expose that. Removing the MoltenVK dependency is a smaller benefit, and comes later.
 
-## What's already in place
+## Where things are
 
-- The iOS view controller (`ios/ViewController.mm`) already presents through a `CAMetalLayer`, so
-  the window-system half of the job is done.
-- `ext/SPIRV-Cross.vcxproj` already compiles `spirv_msl.cpp`. The CMake build only links
-  `spirv-cross-glsl` (and `spirv-cross-hlsl` conditionally), so enabling MSL translation there is a
-  one-line change.
-- `GPUBackend` in `Core/ConfigValues.h` has a free slot at 1, where D3D9 used to live.
+| Path | What |
+|---|---|
+| `Common/GPU/Metal/MetalRenderManager.h/.mm` | Command recording and replay, push buffers, shader translation, background compiles |
+| `Common/GPU/Metal/thin3d_metal.mm` | thin3d's `DrawContext`, for the UI, presentation and the shared GPU code |
+| `Common/GPU/Metal/MetalGraphicsContext.h/.mm` | The `GraphicsContext`: device, layer (or an offscreen backbuffer for headless), render thread |
+| `GPU/Metal/` | The emulation side: draw engine, shader manager, texture cache, framebuffer manager, `GPU_Metal` |
 
-## Scale of the work
+The backend only exists where `PPSSPP_API(METAL)` is set: Mac and iOS, not the libretro cores. The Objective-C
+files are compiled with ARC.
 
-A backend is two layers. Measured against the existing three:
+## Shaders
 
-| Layer | D3D11 | GLES | Vulkan |
-|---|---|---|---|
-| `Common/GPU/<B>/` - thin3d driver, render manager | 2,093 | 8,308 | 14,223 |
-| `GPU/<B>/` - draw engine, texture cache, framebuffers, shaders, state mapping | 2,697 | 3,540 | 5,129 |
+The backend uses the same shaders as Vulkan: the generators emit Vulkan GLSL, glslang compiles it to
+SPIR-V, and SPIRV-Cross's `CompilerMSL` turns that into MSL 2.3 (`TranslateVulkanGLSLToMSL`). Generating
+MSL directly was considered and dropped. Translation takes about 0.5 to 0.7 ms (glslang) plus 0.2 to 0.4 ms
+(SPIRV-Cross) per shader, against around 100 ms for Metal's own compile of the MSL when it isn't in the
+system's Metal cache.
 
-`thin3d.h` has roughly 53 pure virtuals to satisfy across its interfaces.
+- **Bindings:** a Vulkan binding number is used as the Metal buffer, texture and sampler index. The vertex
+  buffer is at index 16, and compute shaders' push constants at 15.
+- **Coordinates:** `flip_vert_y` makes clip space match Vulkan's, so everything else (viewports,
+  framebuffer origin, texture coordinates) matches Vulkan exactly. thin3d reports the Vulkan coordinate
+  convention.
+- **Framebuffer reads:** the fragment shader generator declares a `subpassInput` for shader blending when
+  `FS_BIT_USE_FRAMEBUFFER_FETCH` is set, and SPIRV-Cross (`use_framebuffer_fetch_subpasses`) turns it into
+  `[[color(0)]]`. Only Apple GPUs report `framebufferFetchSupported`.
+- **Invariance:** functions are compiled with `preserveInvariance`, since multipass effects depend on
+  different vertex shaders producing identical positions. It costs no measurable speed.
 
-Metal sits architecturally between D3D11 and Vulkan: explicit pipeline state objects and command
-buffers like Vulkan, but automatic residency and resource lifetime like D3D11 - no descriptor sets,
-no memory allocator, no manual barriers for the common cases. So `Common/GPU/Metal/` should land
-closer to D3D11's 2k than to Vulkan's 14k. It does need a `MetalRenderManager` modelled on
-`VulkanRenderManager` for render pass batching, because Apple tilers punish mid-pass flushes hard and
-PPSSPP's framebuffer juggling causes a lot of them.
+Shaders are translated when the shader manager creates them, since recording needs the texture masks the
+translation produces. The MSL compile and the pipeline state are created on compile threads
+(`RunOnCompileThread`). Draws record a `MetalPipelineState` that may still be compiling, and the replay
+waits for it, as Vulkan does. Nothing is skipped.
 
-Estimate: **6-9k lines**, in Objective-C++.
+Each game's shader IDs and pipeline keys go to `<discID>.mtlshadercache` (with a checksum, like the Vulkan
+and GL caches), and are recreated while the game boots. Cold Wipeout Pure, 5 emulated seconds from a
+savestate: 3.0 s with synchronous compiles, 1.6 s with background compiles.
 
-## The real decision: how to get shaders
+## The render manager
 
-Game shaders are generated per shader-ID at runtime by `GPU/Common/FragmentShaderGenerator.cpp` and
-`VertexShaderGenerator.cpp` through `Common/GPU/ShaderWriter.cpp`, parameterised by
-`ShaderLanguageDesc`. There are 68 language-conditional sites across those three files.
+The emulator thread records commands into a chunk, and they're encoded into Metal command buffers on a
+render thread (when `bRenderMultiThreading` is on and more than one frame is in flight), or inline at
+submit.
 
-**Option A - teach ShaderWriter and the generators to emit MSL.** Most work, best end result, no
-runtime translator. But MSL is not a GLSL/HLSL dialect: it's C++14, with struct-based stage I/O,
-explicit `[[attribute(n)]]` / `[[buffer(n)]]` binding attributes, and textures and samplers passed as
-function arguments rather than declared as globals. `ShaderWriter` is built around the family
-resemblance between GLSL and HLSL, so this is closer to writing a third code generator than to adding
-a flag. Adding `MSL = 32` to the `ShaderLanguage` bitmask in `Common/GPU/Shader.h` is the trivial part.
+- **Lazy passes.** A render pass starts on its first draw, since Metal needs the load actions up front and
+  resets all encoder state with each pass. A clear restarts the pass with clear load actions; binding the
+  framebuffer that's already bound continues the pass, like Vulkan.
+- **Redundant state** is dropped while recording.
+- **Pass merging.** The replay merges later passes to the same framebuffer into earlier ones when nothing
+  in between reads or overwrites it, by the rules of `VulkanQueueRunner::ApplyRenderPassMerge`. God of War
+  went from 41 to 18 render passes a frame.
+- **Depth.** A pass where no draw tests or writes depth or stencil neither loads nor stores it. The
+  backbuffer's depth is memoryless on Apple GPUs.
+- **Uploads** for new textures go in a command buffer of their own, enqueued before the frame's commands.
+  Texture scaling's compute dispatches run there too.
+- **Lifetimes.** Command buffers don't retain what they use (`commandBufferWithUnretainedReferences`), which
+  saves a retain and release per binding. Anything that may still be in use goes through `DeferRelease`,
+  which keeps it until the GPU is done with the frame. Frames in flight are limited by a semaphore.
+- **Push buffers** keep 256 bytes free after each allocation, since the vertex decoder can write past the
+  end of its output.
 
-**Option B - generate `GLSL_VULKAN` and translate at runtime**, glslang -> SPIR-V ->
-`spirv_cross::CompilerMSL`. `Common/GPU/ShaderTranslation.cpp` already does exactly this shape for
-HLSL. Far less work, and the right thing to start with - but be clear that it is reimplementing
-MoltenVK's shader half, so glslang and SPIRV-Cross stay as runtime dependencies and only the Vulkan
-API emulation is shed. Metal PSO creation from MSL source is also slower than Vulkan pipeline creation
-from SPIR-V, so the existing asynchronous pipeline compilation machinery matters more, not less.
-Keeping glslang and SPIRV-Cross costs little: under MoltenVK they take about 1.5 ms per shader against
-roughly 100 ms for Metal's own MSL compile ([shader-compilation.md](shader-compilation.md)).
+## Textures and framebuffers
 
-Option A is an optimisation that can be done later, or never.
+- 16-bit PSP textures (5650, 5551, 4444) stay 16-bit on Apple GPUs, in `B5G6R5Unorm`, `BGR5A1Unorm` and
+  `ABGR4Unorm` with a swizzle. Metal names packed channels from the lowest bits up, and the PSP stores red
+  lowest.
+- At max quality filtering, textures up to 256x256 get a full mip chain, generated with a blit.
+- Hardware texture scaling runs the same compute shaders as Vulkan. Shaders with a constant buffer (only the
+  smiley test shader) aren't supported.
+- Framebuffers are `RGBA8Unorm` with `Depth32Float_Stencil8`. A depth-only or stencil-only copy goes
+  through a buffer, since texture copies take both planes.
+- MSAA works like the Vulkan backend's: a multisampled framebuffer has multisampled color and depth textures
+  that are drawn to and kept between passes, and each pass resolves them into the ordinary ones (depth and
+  stencil to sample 0), which everything else reads. Copies between two multisampled framebuffers copy the
+  samples too. Metal can't copy a single plane of a multisampled depth/stencil texture, so those copy both.
+  With programmable blending, the shader blends each sample with its own color, so edges come out a little
+  different from Vulkan's, which blends with the resolved color.
+- Readbacks for the GE debugger and screenshots work. Headless has no backbuffer to read, like headless
+  Vulkan, and the debugger falls back to the PSP's framebuffer.
 
-## What a Metal backend actually buys
+## Testing
 
-The strongest argument is one line of code:
+- `PPSSPPHeadless --graphics=metal` renders offscreen, for frame dumps, savestates and the WebSocket debugger.
+- With `MTL_DEBUG_LAYER=1`, Metal validates the API use. Lifetime bugs show up more reliably in the app,
+  booting and quitting a game with `NSZombieEnabled=YES` too.
+- Comparing against Vulkan on the same Mac is the main check. All 1061 frame dumps in `ppsspp-framedumps`,
+  rendered with both: 1049 are identical. Of the rest, 10 differ because of programmable blending, and are
+  closer to the PSP captures (Tenchu went from about 10,000 differing pixels to 900). The Kurohyou dumps are
+  unreliable. The benchmark savestates match Vulkan to within a few levels per channel.
+- On iOS, pass launch options through `devicectl`'s process arguments (`--graphics=metal`); the app adds
+  `--` options from its own launch arguments.
 
-```cpp
-// Common/GPU/Vulkan/thin3d_vulkan.cpp
-caps_.framebufferFetchSupported = false;
-```
+## Speed
 
-`framebufferFetchSupported` is a first-class thin3d capability. `GPU/GPUCommonHW.cpp` reads it and,
-when true, switches shader blending from `FBO_TEX_COPY_BIND_TEX` to `FBO_TEX_READ_FRAMEBUFFER` - no
-framebuffer copy at all. Today only the GL backend sets it, via `EXT_shader_framebuffer_fetch` /
-`ARM_shader_framebuffer_fetch`. Vulkan hardcodes it to false, and MoltenVK cannot portably change
-that.
+Measured 2026-10-17 on an Apple Silicon Mac, 10 emulated seconds from 8 savestates, against Vulkan through
+MoltenVK: wall time from 11.7% lower (Ridge Racer) to 2.6% higher, CPU time 2 to 11% lower. God of War was
+6% faster after pass merging; before it, Metal was slower because of the extra render passes.
 
-Metal on Apple GPUs has native programmable blending (`[[color(0)]]` as a fragment shader input). A
-Metal backend sets that capability to true and immediately lights up an existing, already-tested code
-path, removing a framebuffer copy per draw in every game that needs PSP blend mode emulation. That is
-a structural win on exactly the workload PPSSPP is bottlenecked on, and no MoltenVK release can
-deliver it.
+## Not done
 
-Secondary wins:
-
-- `MTLStorageModeMemoryless` for depth/stencil on tilers - never allocate backing store for buffers
-  that don't survive the render pass.
-- Real Xcode GPU frame capture and shader profiling, instead of debugging through a translation layer.
-- No vendored `ios/MoltenVK/MoltenVK.xcframework/ios-arm64/libMoltenVK.a` in the repo.
-
-That last one - the actual "remove the dependency" item - is the smallest of them.
-
-## What it costs
-
-A permanent additional backend to maintain, testable only on Apple hardware, duplicating effort every
-time something changes in the shared GPU code. PPSSPP already carries three. MoltenVK is
-Khronos-maintained and works. If the Metal backend ships and isn't clearly faster, the project has
-taken on maintenance for nothing.
-
-One thing that is *not* a cost: the feature envelope. Metal has no geometry shaders, but neither does
-MoltenVK, so the Vulkan backend's `geometryShader` feature check already fails on Apple and PPSSPP
-already runs the fallback paths there. A Metal backend targets the exact reduced feature set Apple
-users run today - there are no new gaps to fill.
-
-## Suggested sequencing
-
-Do the risky part first and make it provable:
-
-1. `Common/GPU/Metal/thin3d_metal.mm` implementing `DrawContext`, with shaders via option B.
-2. Bring up the **UI** on it - the UI renders through thin3d directly, so this exercises the ~53
-   virtuals, the render manager design and the shader pipeline against something you can see, with
-   none of the emulation layer involved.
-3. Only then port the emulation layer into `GPU/Metal/`, cribbing structure from `GPU/D3D11/`, which
-   is the closest existing fit.
-
-Step 2 is the go/no-go gate: if the numbers don't justify continuing, everything up to that point is
-cheap to throw away.
+- **Intel and AMD Macs** are untested. They get no programmable blending, no 16-bit textures and no
+  memoryless depth (all Apple GPU only), so they take the same paths as other GPUs elsewhere.
+- **tvOS** shares the iOS code, but hasn't been built or run with Metal.
+- **The dev screen's pipeline list** is Vulkan only.
+- **Stereo rendering** (multiview, framebuffer arrays) is deliberately left out.
+- **Making Metal the default and removing MoltenVK** are separate steps, after this has seen some use. The
+  render manager includes Vulkan headers for `GLSLtoSPV`, which has to change then.
