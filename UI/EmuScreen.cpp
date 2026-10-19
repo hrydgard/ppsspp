@@ -455,9 +455,8 @@ EmuScreen::~EmuScreen() {
 	g_Config.TimeTracker().Stop(gameID);
 
 	if (bootPending_) {
-		// We quit during boot (maybe from the background, without the graphics device coming back),
-		// and didn't end up in update again to call PSP_InitUpdate. So we need to finish and join the
-		// boot thread before we can exit.
+		// We quit during boot (maybe from the background), before update called PSP_InitUpdate.
+		// Wait for the boot thread to finish, so PSP_InitUpdate can join it.
 		while (PollBootState() == BootState::Booting) {
 			sleep_ms(10, "exit-during-boot");
 		}
@@ -1599,9 +1598,9 @@ bool EmuScreen::ShouldRunEmulation(ScreenRenderMode mode) const {
 	return true;
 }
 
-// The GPU only picks up a changed Skip Buffer Effects setting in BeginHostFrame, so while emulation
-// isn't running (like in the pause menu) it can still be in non-buffered mode. There, it draws straight
-// into the backbuffer pass, which isn't bound yet in PreRender.
+// The GPU only applies a changed Skip Buffer Effects setting in BeginHostFrame, so while emulation is
+// paused it can still be in non-buffered mode. Then it draws directly to the backbuffer, which isn't
+// bound yet in PreRender.
 static bool GPUIsBuffered() {
 	FramebufferManagerCommon *framebufferManager = gpu->GetFramebufferManagerCommon();
 	return !framebufferManager || framebufferManager->UseBufferedRendering();

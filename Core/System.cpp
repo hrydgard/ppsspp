@@ -840,7 +840,7 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 		// CPU_Shutdown(), so PSP_InitUpdate would take the success path on a core that no longer
 		// exists, right down to a null Memory::base.
 		{
-			// Held while creating the GPU, so the device can't be lost meanwhile.
+			// Keeps the device from being lost while we create the GPU.
 			std::lock_guard<std::mutex> lock(g_graphicsDeviceMutex);
 			if (!g_graphicsDeviceLost && !InitGPU(errorString)) {
 				return;
@@ -876,12 +876,12 @@ BootState PSP_InitUpdate(std::string *error_string) {
 		return BootState::Failed;
 	}
 
-	// On libretro, and if the graphics device was lost when the boot thread got there, the GPU is created here.
+	// Create the GPU here if the boot thread didn't (always on libretro, otherwise when the device was lost).
 	if (!gpu) {
 		std::lock_guard<std::mutex> lock(g_graphicsDeviceMutex);
 		bool success;
 		if (g_graphicsDeviceLost) {
-			// Exiting during boot, with the device gone.
+			// We're exiting during boot, and there's no device to create the GPU on.
 			g_CoreParameter.errorString = "Graphics device lost during boot";
 			CPU_Shutdown(false);
 			success = false;

@@ -1614,9 +1614,8 @@ int sceNetAdhocMatchingStop(int matchingId) {
 }
 
 int NetAdhocMatching_Delete(int matchingId) {
-	// Stop it first if it's still running. Not under peerlock, since Stop joins the matching threads, which take it.
-	// And not after unlinking it below, where Stop can't find it - which leaves the threads running, and
-	// deleting their std::threads calls std::terminate.
+	// Running threads can't be deleted, so stop them first. This has to happen before we take peerlock,
+	// since the threads take it too.
 	SceNetAdhocMatchingContext *item = findMatchingContext(matchingId);
 	if (item && item->running) {
 		NetAdhocMatching_Stop(matchingId);

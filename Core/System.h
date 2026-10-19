@@ -78,9 +78,9 @@ BootState PSP_Init(const CoreParameter &coreParam, std::string *error_string);
 // The main thread needs to block on this in some situations, like losing the surface.
 BootState PollBootState();
 
-// The boot thread creates the GPU at the end of a boot. If the graphics device is lost then (like when the
-// Android app is in the background), it leaves that to PSP_InitUpdate, which runs once rendering resumes.
-// Lost waits for a GPU creation in progress to finish, so the GPU can be told about the loss.
+// The boot thread creates the GPU at the end of a boot. If the graphics device is lost at that point (like
+// when the Android app is in the background), PSP_InitUpdate creates it instead, once rendering resumes.
+// If the boot thread is creating the GPU when the device is lost, Lost waits for it to finish.
 void PSP_NotifyGraphicsDeviceLost();
 void PSP_NotifyGraphicsDeviceRestored();
 
