@@ -762,7 +762,7 @@ void GameBrowser::FocusGame(const Path &gamePath) {
 		}
 	}
 	// Otherwise, Refresh focuses it when it recreates the buttons.
-	focusGamePath_ = gamePath;
+	focusPath_ = gamePath;
 	refreshPending_ = true;
 }
 
@@ -776,9 +776,7 @@ bool GameBrowser::Key(const KeyInput &input) {
 	// Alt+Up goes to the parent directory, as in file managers.
 	if ((input.flags & KeyInputFlags::DOWN) && (input.flags & KeyInputFlags::ModAlt) && input.keyCode == NKCODE_DPAD_UP && input.deviceId == DEVICE_ID_KEYBOARD) {
 		if ((browseFlags_ & BrowseFlags::NAVIGATE) && path_.CanNavigateUp()) {
-			// Like the ".." button.
-			path_.Navigate("..");
-			PathChanged();
+			NavigateUp();
 			return true;
 		}
 	}
@@ -1143,6 +1141,9 @@ void GameBrowser::Refresh() {
 
 	for (size_t i = 0; i < dirButtons.size(); i++) {
 		gameList_->Add(dirButtons[i])->OnClick.Handle(this, &GameBrowser::NavigateClick);
+		if (!focusPath_.empty() && dirButtons[i]->GetPath() == focusPath_ && dirButtons[i]->SetFocus(FocusFlags::CAUSE_RESTORE)) {
+			UI::ScrollFocusedViewIntoView();
+		}
 	}
 
 	for (size_t i = 0; i < gameButtons.size(); i++) {
@@ -1151,11 +1152,14 @@ void GameBrowser::Refresh() {
 		b->OnHoldClick.Handle(this, &GameBrowser::GameButtonHoldClick);
 		b->OnHighlight.Handle(this, &GameBrowser::GameButtonHighlight);
 
-		if (!focusGamePath_.empty() && b->GamePath() == focusGamePath_) {
-			b->SetFocus(FocusFlags::CAUSE_RESTORE);
+		if (!focusPath_.empty() && b->GamePath() == focusPath_ && b->SetFocus(FocusFlags::CAUSE_RESTORE)) {
+			UI::ScrollFocusedViewIntoView();
 		}
 	}
-	focusGamePath_.clear();
+	// A listing that's still loading has no buttons to focus yet.
+	if (!listingPending_) {
+		focusPath_.clear();
+	}
 
 	// Show a button to toggle pinning at the very end.
 	if ((browseFlags_ & BrowseFlags::PIN) && !path_.GetPath().empty()) {
@@ -1247,9 +1251,19 @@ void GameBrowser::NavigateClick(UI::EventParams &e) {
 	Path text = button->GetPath();
 	if (button->PathAbsolute()) {
 		path_.SetPath(text);
+	} else if (text.ToString() == "..") {
+		NavigateUp();
+		return;
 	} else {
 		path_.Navigate(text.ToString());
 	}
+	PathChanged();
+}
+
+void GameBrowser::NavigateUp() {
+	// Focus the directory we came out of, in the parent's listing.
+	focusPath_ = path_.GetPath();
+	path_.Navigate("..");
 	PathChanged();
 }
 

@@ -65,6 +65,7 @@ private:
 	void GameButtonHoldClick(UI::EventParams &e);
 	void GameButtonHighlight(UI::EventParams &e);
 	void NavigateClick(UI::EventParams &e);
+	void NavigateUp();
 	void PathChanged();
 	void LayoutChange(UI::EventParams &e);
 	void LastClick(UI::EventParams &e);
@@ -85,7 +86,8 @@ private:
 
 	ViewSearch search_{};
 
-	Path focusGamePath_;
+	// A game or directory for Refresh to focus.
+	Path focusPath_;
 	bool listingPending_ = false;
 	bool refreshPending_ = false;
 	float lastScale_ = 1.0f;

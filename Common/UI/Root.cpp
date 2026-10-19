@@ -17,6 +17,7 @@ extern bool focusForced;
 static View *focusedView;
 static bool focusMovementEnabled;
 bool focusForced;
+static bool scrollFocusedIntoView;
 
 static std::function<void(UISound)> soundCallback;
 
@@ -103,6 +104,10 @@ void RemoveQueuedEventsByEvent(Event *event) {
 
 View *GetFocusedView() {
 	return focusedView;
+}
+
+void ScrollFocusedViewIntoView() {
+	scrollFocusedIntoView = true;
 }
 
 void SetFocusedView(View *view, FocusFlags cause, bool force) {
@@ -449,6 +454,13 @@ DialogResult UpdateViewHierarchy(ViewGroup *root, bool canEnableFocusMovement) {
 		}
 	}
 	focusMoves.clear();
+
+	if (scrollFocusedIntoView) {
+		scrollFocusedIntoView = false;
+		if (focusedView) {
+			root->SubviewFocused(focusedView);
+		}
+	}
 
 	root->Update();
 	return DispatchEvents();
