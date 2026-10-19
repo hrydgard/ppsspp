@@ -494,11 +494,16 @@ void DrawThreadView(ImConfig &cfg, ImControl &control) {
 		for (int i = 0; i < (int)info.size(); i++) {
 			const DebugThreadInfo &thread = info[i];
 			ImGui::TableNextRow();
+			if (thread.isCurrent) {
+				// A green tint, to stand apart from the blue selection.
+				ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg1, IM_COL32(40, 160, 70, 70));
+			}
 			ImGui::PushID(i);
 			ImGui::TableNextColumn();
 			ImGui::Text("%d", thread.id);
 			ImGui::TableNextColumn();
-			if (ImGui::Selectable(thread.name, cfg.selectedThread == i, ImGuiSelectableFlags_AllowDoubleClick | ImGuiSelectableFlags_SpanAllColumns)) {
+			// AllowOverlap keeps the clickable addresses in the other columns working.
+			if (ImGui::Selectable(thread.name, cfg.selectedThread == i, ImGuiSelectableFlags_AllowDoubleClick | ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap)) {
 				cfg.selectedThread = i;
 			}
 			if (ImGui::IsItemClicked(ImGuiMouseButton_Right)) {
@@ -1400,7 +1405,7 @@ void DrawMediaDecodersView(ImConfig &cfg, ImControl &control) {
 				ImGui::SetNextItemAllowOverlap();
 				char temp[16];
 				snprintf(temp, sizeof(temp), "%d", i);
-				if (ImGui::Selectable(temp, i == cfg.selectedAtracCtx, ImGuiSelectableFlags_SpanAllColumns)) {
+				if (ImGui::Selectable(temp, i == cfg.selectedAtracCtx, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap)) {
 					cfg.selectedAtracCtx = i;
 				}
 				ImGui::TableNextColumn();
@@ -2209,7 +2214,7 @@ static void DrawUtilityModules(ImConfig &cfg, ImControl &control) {
 			ImGui::PushID(i);
 			ImGui::TableNextRow();
 			ImGui::TableNextColumn();
-			if (ImGui::Selectable(info->name, cfg.selectedUtilityModule == i, ImGuiSelectableFlags_SpanAllColumns)) {
+			if (ImGui::Selectable(info->name, cfg.selectedUtilityModule == i, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap)) {
 				cfg.selectedUtilityModule = i;
 			}
 			ImGui::TableNextColumn();
@@ -2359,7 +2364,7 @@ static void DrawSymbols(const MIPSDebugInterface *debug, ImConfig &cfg, ImContro
 			ImGui::PushID(i);
 			ImGui::TableNextRow();
 			ImGui::TableNextColumn();
-			if (ImGui::Selectable(module.name.c_str(), cfg.selectedSymbolModule == i, ImGuiSelectableFlags_SpanAllColumns)) {
+			if (ImGui::Selectable(module.name.c_str(), cfg.selectedSymbolModule == i, ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowOverlap)) {
 				cfg.selectedSymbolModule = i;
 			}
 			ImGui::TableNextColumn();
