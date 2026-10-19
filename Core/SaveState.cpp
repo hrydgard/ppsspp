@@ -262,6 +262,12 @@ int g_screenshotFailures;
 		Achievements::DoState(p);
 		// Kernel object destructors might close open files, so do the filesystem last.
 		pspFileSystem.DoState(p);
+
+		if (p.mode == p.MODE_READ && p.error == PointerWrap::ERROR_FAILURE) {
+			// RAM may be loaded and the JIT not told, or the other way round. Keep nothing.
+			currentMIPS->KeepJitBlocksOnNextLoad({});
+			currentMIPS->ClearJitCacheDeferred();
+		}
 	}
 
 	static void WorkerLoop() {

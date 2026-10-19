@@ -545,6 +545,8 @@ void DoState(PointerWrap &p, RamCompare *compare) {
 	if (!s)
 		return;
 
+	const u32 memorySizeBefore = g_MemorySize;
+
 	if (s < 2) {
 		if (!g_RemasterMode)
 			g_MemorySize = RAM_NORMAL_SIZE;
@@ -586,6 +588,11 @@ void DoState(PointerWrap &p, RamCompare *compare) {
 		}
 	}
 
+	// A new size means Reinit(): RAM is newly mapped, nothing in it to compare with, and the JIT has
+	// to start over (its dispatcher points at the old mapping.)
+	if (g_MemorySize != memorySizeBefore) {
+		compare = nullptr;
+	}
 	DoMemoryVoid(p, PSP_GetKernelMemoryBase(), g_MemorySize, compare);
 	p.DoMarker("RAM");
 
