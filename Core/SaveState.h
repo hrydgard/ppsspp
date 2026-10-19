@@ -88,12 +88,12 @@ namespace SaveState {
 	std::string GetTitle(const Path &filename);
 
 	// Load the specified file into the current state (async.)
-	// Warning: callback will be called on a different thread.
-	void Load(const Path &filename, int slot, Callback callback = Callback());
+	// Returns true if queued. The callback may run on a different thread.
+	bool Load(const Path &filename, int slot, Callback callback = Callback());
 
 	// Save the current state to the specified file (async.)
-	// Warning: callback will be called on a different thread.
-	void Save(const Path &filename, int slot, Callback callback = Callback());
+	// Returns true if queued. The callback may run on a different thread.
+	bool Save(const Path &filename, int slot, Callback callback = Callback());
 
 	CChunkFileReader::Error SaveToRam(std::vector<u8> &state);
 	CChunkFileReader::Error LoadFromRam(std::vector<u8> &state, std::string *errorString);

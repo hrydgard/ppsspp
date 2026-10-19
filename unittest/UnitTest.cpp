@@ -3327,6 +3327,7 @@ bool TestLoongArch64Emitter();
 bool TestShaderGenerators();
 bool TestIRPassSimplify();
 bool TestThreadManager();
+bool TestSaveStateAdmission();
 bool TestVFS();
 bool TestZipSlip();
 bool TestLzrc();
@@ -3734,6 +3735,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(QueueBuf),
 	TEST_ITEM(RequestManager),
 	TEST_ITEM(StackWalk),
+	TEST_ITEM(SaveStateAdmission),
 };
 
 int main(int argc, const char *argv[]) {

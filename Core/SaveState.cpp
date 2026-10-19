@@ -201,17 +201,17 @@ int g_screenshotFailures;
 		pspFileSystem.DoState(p);
 	}
 
-	void Enqueue(const SaveState::Operation &op) {
+	bool Enqueue(const SaveState::Operation &op) {
 		// These two both refuse the operation, and both say so - dropping it silently just
 		// looks like the hotkey didn't work. Callers that ask the same questions themselves
 		// return before getting here, so nothing shows a message twice.
 		if (NetworkWarnUserIfOnlineAndCantSavestate()) {
-			return;
+			return false;
 		}
 		// Hardcore mode bans loading savestates outright, and saving too unless the user opted
 		// back into that.
 		if (Achievements::WarnUserIfHardcoreModeActive(op.type == OperationType::Save)) {
-			return;
+			return false;
 		}
 
 		std::lock_guard<std::mutex> guard(mutex);
@@ -220,28 +220,29 @@ int g_screenshotFailures;
 		// Don't actually run it until next frame.
 		// It's possible there might be a duplicate but it won't hurt us.
 		needsProcess = true;
+		return true;
 	}
 
-	void Load(const Path &filename, int slot, Callback callback) {
+	bool Load(const Path &filename, int slot, Callback callback) {
 		if (NetworkWarnUserIfOnlineAndCantSavestate()) {
-			return;
+			return false;
 		}
 
 		rewindStates.NotifyState();
 		if (coreState == CoreState::CORE_RUNTIME_ERROR)
 			Core_Break(BreakReason::SavestateLoad, 0);
-		Enqueue(Operation(OperationType::Load, filename, slot, callback));
+		return Enqueue(Operation(OperationType::Load, filename, slot, callback));
 	}
 
-	void Save(const Path &filename, int slot, Callback callback) {
+	bool Save(const Path &filename, int slot, Callback callback) {
 		if (NetworkWarnUserIfOnlineAndCantSavestate()) {
-			return;
+			return false;
 		}
 
 		rewindStates.NotifyState();
 		if (coreState == CoreState::CORE_RUNTIME_ERROR)
 			Core_Break(BreakReason::SavestateSave, 0);
-		Enqueue(Operation(OperationType::Save, filename, slot, callback));
+		return Enqueue(Operation(OperationType::Save, filename, slot, callback));
 	}
 
 	void Verify(Callback callback) {

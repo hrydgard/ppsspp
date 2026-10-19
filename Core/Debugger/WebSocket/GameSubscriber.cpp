@@ -143,17 +143,22 @@ void WebSocketGameStateLoad(DebuggerRequest &req) {
 		return;
 
 	bool running = false;
+	bool queued = false;
 	Core_RunOnCPUThread([&] {
 		running = PSP_GetBootState() == BootState::Complete;
+		if (running) {
+			queued = SaveState::Load(Path(path), -1, [](SaveState::Status status, std::string_view message, std::string_view) {
+				if (status == SaveState::Status::FAILURE) {
+					ERROR_LOG(Log::System, "game.state.load: %.*s", STR_VIEW(message));
+				}
+			});
+		}
 	});
 	if (!running)
 		return req.Fail("Game not running");
-
-	SaveState::Load(Path(path), -1, [](SaveState::Status status, std::string_view message, std::string_view) {
-		if (status == SaveState::Status::FAILURE) {
-			ERROR_LOG(Log::System, "game.state.load: %.*s", STR_VIEW(message));
-		}
-	});
+	if (!queued) {
+		return req.Fail("Could not queue savestate load");
+	}
 	req.Respond();
 }
 
@@ -171,17 +176,22 @@ void WebSocketGameStateSave(DebuggerRequest &req) {
 		return;
 
 	bool running = false;
+	bool queued = false;
 	Core_RunOnCPUThread([&] {
 		running = PSP_GetBootState() == BootState::Complete;
+		if (running) {
+			queued = SaveState::Save(Path(path), -1, [](SaveState::Status status, std::string_view message, std::string_view) {
+				if (status == SaveState::Status::FAILURE) {
+					ERROR_LOG(Log::System, "game.state.save: %.*s", STR_VIEW(message));
+				}
+			});
+		}
 	});
 	if (!running)
 		return req.Fail("Game not running");
-
-	SaveState::Save(Path(path), -1, [](SaveState::Status status, std::string_view message, std::string_view) {
-		if (status == SaveState::Status::FAILURE) {
-			ERROR_LOG(Log::System, "game.state.save: %.*s", STR_VIEW(message));
-		}
-	});
+	if (!queued) {
+		return req.Fail("Could not queue savestate save");
+	}
 	req.Respond();
 }
 

@@ -290,6 +290,19 @@ file - this is just an index.
 | Client config | `broadcast.config.get/set`, `client.config.get/set` | `ClientConfigSubscriber.cpp` |
 | Log channels | `log.channels.list`, `log.channel.set` - query/change a log channel's level (string: `notice`/`error`/`warning`/`info`/`debug`/`verbose`) and/or enabled state; the `log` event itself (the passive message stream, unaffected by this) keeps its existing numeric `level`, see `LogBroadcaster.cpp` | `LogConfigSubscriber.cpp` |
 
+### Save-state requests
+
+`game.state.save` and `game.state.load` acknowledge a request once the operation
+has entered the save-state queue. If network or RetroAchievements hardcore
+restrictions refuse it, the response is an `error` with the request's ticket.
+The existing restrictions and the save-only hardcore override also apply to
+debugger requests.
+
+A queued acknowledgement does not confirm that the file was saved or restored.
+The operation runs when the save-state queue is processed; file errors at that
+point are logged. Clients may need to advance emulation with a command such as
+`cpu.runUntilTime` after queueing a load.
+
 ## Enabling it
 
 - **UI**: Settings > Tools > Developer Tools > "Allow remote debugger"

@@ -1102,6 +1102,7 @@ ifeq ($(UNITTEST),1)
     $(SRC)/unittest/TestIRPassSimplify.cpp \
     $(SRC)/unittest/TestShaderGenerators.cpp \
     $(SRC)/unittest/TestThreadManager.cpp \
+    $(SRC)/unittest/TestSaveStateAdmission.cpp \
     $(SRC)/unittest/TestBoundingBox.cpp \
     $(SRC)/unittest/TestDepthRaster.cpp \
     $(SRC)/unittest/TestVertexJit.cpp \

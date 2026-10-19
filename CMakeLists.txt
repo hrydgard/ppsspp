@@ -1427,6 +1427,7 @@ if(UNITTEST)
 		unittest/TestRiscVEmitter.cpp
 		unittest/TestLoongArch64Emitter.cpp
 		unittest/TestThreadManager.cpp
+		unittest/TestSaveStateAdmission.cpp
 		unittest/JitHarness.cpp
 		unittest/JitHarness.h
 	)
