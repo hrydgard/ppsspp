@@ -112,6 +112,10 @@ namespace SaveState {
 	// Returns true if there are rewind snapshots available.
 	bool CanRewind();
 
+	// Returns true while a save, load or rewind is queued or still in progress (rewind snapshots
+	// don't count). Saves are done once the file is written.
+	bool IsBusy();
+
 	// Returns true if a savestate has been used during this session.
 	bool HasLoadedState();
 

@@ -454,6 +454,12 @@ int g_screenshotFailures;
 		return !rewindStates.Empty();
 	}
 
+	bool IsBusy() {
+		std::lock_guard<std::mutex> guard(mutex);
+		// A save leaves the queue once its snapshot is taken, but stays pending until it's written.
+		return !g_pendingOperations.empty() || !g_pendingSaves.empty();
+	}
+
 	// Slot utilities
 
 	std::string AppendSlotTitle(const std::string &filename, const std::string &title) {

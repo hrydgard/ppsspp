@@ -124,6 +124,9 @@ private:
 	UI::CallbackColorTween *loadingViewColor_ = nullptr;
 	UI::VisibilityTween *loadingViewVisible_ = nullptr;
 	UI::Spinner *loadingSpinner_ = nullptr;
+	// Shown while a savestate is being saved or loaded, if that takes long enough to notice.
+	UI::Spinner *saveStateSpinner_ = nullptr;
+	double saveStateBusySince_ = -1.0;
 	UI::Button *resumeButton_ = nullptr;
 	UI::Button *resetButton_ = nullptr;
 	UI::Button *backButton_ = nullptr;

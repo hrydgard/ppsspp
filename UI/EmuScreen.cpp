@@ -1329,6 +1329,11 @@ void EmuScreen::CreateViews() {
 	Spinner *loadingSpinner = root_->Add(new Spinner(symbols, ARRAY_SIZE(symbols), new AnchorLayoutParams(NONE, NONE, 70, 70, Centering::Both)));
 	loadingSpinner_ = loadingSpinner;
 
+	// The same spinner in the same place, without the background.
+	saveStateSpinner_ = root_->Add(new Spinner(symbols, ARRAY_SIZE(symbols), new AnchorLayoutParams(NONE, NONE, 70, 70, Centering::Both)));
+	saveStateSpinner_->SetColor(alphaMul(0xFFFFFFFF, 0.7f));
+	saveStateSpinner_->SetVisibility(V_GONE);
+
 	loadingBG->SetTag("LoadingBG");
 	loadingSpinner->SetTag("LoadingSpinner");
 
@@ -1416,6 +1421,17 @@ void EmuScreen::update() {
 		g_controlMapper.ReleaseAll();
 		releaseMapperInput_ = false;
 	}
+
+	// Only once a savestate operation has taken a while, or it'd flash up on every quick save.
+	if (SaveState::IsBusy()) {
+		if (saveStateBusySince_ < 0.0) {
+			saveStateBusySince_ = time_now_d();
+		}
+	} else {
+		saveStateBusySince_ = -1.0;
+	}
+	const bool showSaveStateSpinner = saveStateBusySince_ >= 0.0 && time_now_d() - saveStateBusySince_ > 0.25 && loadingSpinner_->GetVisibility() != V_VISIBLE;
+	saveStateSpinner_->SetVisibility(showSaveStateSpinner ? V_VISIBLE : V_GONE);
 
 	resumeButton_->SetVisibility(coreState == CoreState::CORE_RUNTIME_ERROR && Memory::MemFault_MayBeResumable() ? V_VISIBLE : V_GONE);
 	resetButton_->SetVisibility(coreState == CoreState::CORE_RUNTIME_ERROR ? V_VISIBLE : V_GONE);
@@ -1853,7 +1869,7 @@ ScreenRenderFlags EmuScreen::RunEmulation(bool skipBufferEffects) {
 
 bool EmuScreen::hasVisibleUI() {
 	// Regular but uncommon UI.
-	if (saveStatePreview_->GetVisibility() != UI::V_GONE || loadingSpinner_->GetVisibility() == UI::V_VISIBLE)
+	if (saveStatePreview_->GetVisibility() != UI::V_GONE || loadingSpinner_->GetVisibility() == UI::V_VISIBLE || saveStateSpinner_->GetVisibility() == UI::V_VISIBLE)
 		return true;
 	if (!g_OSD.IsEmpty() || g_Config.bShowTouchControls || g_Config.iShowStatusFlags != 0)
 		return true;
