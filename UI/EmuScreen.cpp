@@ -1783,6 +1783,10 @@ ScreenRenderFlags EmuScreen::RunEmulation(bool skipBufferEffects) {
 		if (Achievements::HardcoreModeActive()) {
 			PSP_CoreParameter().freezeNext = false;
 			PSP_CoreParameter().frozen = false;
+		} else if (coreState == CORE_STEPPING_GE || coreState == CORE_RUNNING_GE) {
+			// A display list stopped in the GE debugger still belongs to the sceGe call that started
+			// it. Loading over that, or saving it mid-list, leaves them out of step. SaveState::Process()
+			// waits this out too.
 		} else if (PSP_CoreParameter().freezeNext) {
 			PSP_CoreParameter().frozen = true;
 			PSP_CoreParameter().freezeNext = false;

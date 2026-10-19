@@ -1094,6 +1094,22 @@ int g_screenshotFailures;
 #endif
 	}
 
+	// Freeze-frame reloads its snapshot every frame, which would undo any other load right away. So a
+	// load while frozen becomes the new frozen state (freezeNext snapshots it), and is a full load:
+	// the GPU only skips its resets for freeze-frame's own reloads, which it tells by frozen.
+	struct FrozenLoadScope {
+		const bool frozen = PSP_CoreParameter().frozen;
+		FrozenLoadScope() {
+			PSP_CoreParameter().frozen = false;
+		}
+		~FrozenLoadScope() {
+			if (frozen) {
+				PSP_CoreParameter().frozen = true;
+				PSP_CoreParameter().freezeNext = true;
+			}
+		}
+	};
+
 	// What a save's worker job needs, and its completion after.
 	struct SaveJob {
 		Path path;
@@ -1294,7 +1310,11 @@ int g_screenshotFailures;
 		saveStateInitialGitVersion = read.gitVersion;
 		SaveStart state;
 		std::string errorString;
-		CChunkFileReader::Error result = CChunkFileReader::LoadPtr(read.buffer.get(), read.size, state, &errorString);
+		CChunkFileReader::Error result;
+		{
+			FrozenLoadScope frozenScope;
+			result = CChunkFileReader::LoadPtr(read.buffer.get(), read.size, state, &errorString);
+		}
 		read.buffer.reset();
 
 		if (result == CChunkFileReader::ERROR_NONE) {
@@ -1348,6 +1368,8 @@ int g_screenshotFailures;
 		std::string message;
 		std::string metadata;
 		std::string errorString;
+		// Covers HandleLoadFailure()'s retries below too.
+		FrozenLoadScope frozenScope;
 		CChunkFileReader::Error result = rewindStates.FinishRestore(&errorString, &metadata);
 		if (result == CChunkFileReader::ERROR_NONE) {
 			message = sc->T("Loaded State");
