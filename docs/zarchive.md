@@ -144,15 +144,43 @@ PSP/GAME/NPUH10000/DLC01.EDAT
 
 ## Creating the archive
 
-Use the `zarchive` tool from https://github.com/Exzap/ZArchive, and give it the folder **whose
-contents** become the root of the archive:
+Two tools can create the archive. Both take the folder **whose contents** become the root of the
+archive. Here `Some Game/` holds the `.iso` and `PSP/` directly. The folder itself is not stored, only
+what's inside it.
+
+### zarchive
+
+The `zarchive` tool from https://github.com/Exzap/ZArchive:
 
 ```
 zarchive "Some Game" "Some Game.zar"
 ```
 
-Here `Some Game/` holds the `.iso` and `PSP/` directly. The folder itself is not stored, only what's
-inside it.
+### ISOPackager
+
+[ISOPackager](https://github.com/LunaMoo/ISOPackager) has a GUI and a command line tool
+(`isopackager-cli`), and can also compress or convert the disc images while packing them.
+
+In the GUI, use **Create ZArchive**, pick the game's folder and name the archive. More files and
+folders can be added in the same dialog.
+
+On the command line, `zar` packs a folder the same way `zarchive` does, into an archive named after
+it, next to it:
+
+```
+isopackager-cli zar "Some Game"
+```
+
+- `--discs FMT` puts every disc image in format `FMT` before storing it: plain ISOs are compressed,
+  and discs in another format are converted, all in RAM. Use `cso` or `chd`, which PPSSPP reads in
+  an archive, or `pbp`. For example `isopackager-cli zar --discs chd "Some Game"`.
+- `--store-discs` stores disc images that are already compressed (CSO, CHD) as they are, instead of
+  compressing them again. Everything else in the archive is still compressed.
+- Don't use `--no-root` for a PPSSPP archive: it stores the folder itself, which adds the extra folder
+  level described below.
+
+See its [command line guide](https://github.com/LunaMoo/ISOPackager/blob/main/docs/cli.md#zarchive-zar)
+for the other options.
 
 > [!WARNING]
 > A common mistake is an extra folder level. If the archive root contains `Some Game/Some Game.iso`
