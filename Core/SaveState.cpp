@@ -53,6 +53,7 @@
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceKernel.h"
+#include "Core/HLE/sceKernelModule.h"
 #include "Core/HLE/sceUtility.h"
 #include "Core/HLE/sceSas.h"
 #include "Core/HLE/sceIo.h"
@@ -60,6 +61,7 @@
 #include "GPU/GPU.h"
 #include "GPU/GPUCommon.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/RetroAchievements.h"
 #include "HW/MemoryStick.h"
 
@@ -233,13 +235,20 @@ int g_screenshotFailures;
 
 		// The state may hold different code. KernelModuleDoState hooks the functions again.
 		std::vector<std::pair<u32, u32>> hookedOps;
+		// The loaded modules' code is compared with the state's as it's loaded. Where it's the same,
+		// the JIT keeps its blocks, so they don't all have to be compiled again.
+		Memory::RamCompare codeCompare;
 		if (p.mode == p.MODE_READ) {
 			hookedOps = Replacement_GetHookedOps();
 			RestoreReplacedInstructions(0, 0xFFFFFFFF);
+			if (MIPSComp::jit) {
+				codeCompare.ranges = __KernelModuleCodeRanges();
+			}
 		}
-		Memory::DoState(p);
+		Memory::DoState(p, &codeCompare);
 		if (p.mode == p.MODE_READ) {
 			Replacement_RepairStaleHookOps(hookedOps);
+			currentMIPS->KeepJitBlocksOnNextLoad(std::move(codeCompare.unchanged));
 		}
 
 		if (s >= 3) {

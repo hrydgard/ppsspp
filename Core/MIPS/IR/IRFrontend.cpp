@@ -44,11 +44,14 @@ IRFrontend::IRFrontend(bool startDefaultPrefix) {
 	g_breakpoints.ClearSkipFirst();
 }
 
-void IRFrontend::DoState(PointerWrap &p) {
+bool IRFrontend::DoState(PointerWrap &p) {
 	auto s = p.Section("Jit", 1, 2);
 	if (!s)
-		return;
+		return false;
 
+	const bool oldStartDefaultPrefix = js.startDefaultPrefix;
+	const bool oldHasSetRounding = js.hasSetRounding;
+	const u8 oldLastSetRounding = js.lastSetRounding;
 	Do(p, js.startDefaultPrefix);
 	if (s >= 2) {
 		Do(p, js.hasSetRounding);
@@ -62,6 +65,23 @@ void IRFrontend::DoState(PointerWrap &p) {
 	// The debugger sets this so that "go" on a breakpoint will actually... go.
 	// But if they reset, we can end up hitting it by mistake, since it's based on PC and ticks.
 	g_breakpoints.ClearSkipFirst();
+
+	if (p.mode != PointerWrap::MODE_READ) {
+		return false;
+	}
+	// Blocks only switch rounding modes if hasSetRounding was set when they were compiled, and
+	// assume default prefixes at their start if startDefaultPrefix was.
+	if ((js.hasSetRounding && !oldHasSetRounding) || (!js.startDefaultPrefix && oldStartDefaultPrefix)) {
+		return true;
+	}
+	// The other way round, the blocks already compiled just do more than they need to. Keep the
+	// flags that way, or a loaded hasSetRounding of false would have UpdateFCR31() throw them all
+	// away for a rounding mode they handle fine. lastSetRounding says they were compiled with the
+	// rounding checks, so the next compile doesn't throw them away to add them either.
+	js.hasSetRounding = js.hasSetRounding || oldHasSetRounding;
+	js.startDefaultPrefix = js.startDefaultPrefix && oldStartDefaultPrefix;
+	js.lastSetRounding = oldLastSetRounding;
+	return false;
 }
 
 bool IRFrontend::UpdateFCR31(u32 fcr31) {

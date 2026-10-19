@@ -85,7 +85,8 @@ public:
 	void Comp_Vbfy(MIPSOpcode op) override;
 
 	int Replace_fabsf() override;
-	void DoState(PointerWrap &p);
+	// Returns true if a loaded state means blocks compiled before it can't run any more.
+	bool DoState(PointerWrap &p);
 	bool UpdateFCR31(u32 fcr31);  // returns true if the block cache needs clearing
 	bool CheckRounding(u32 blockAddress);  // returns true if we need a do-over
 

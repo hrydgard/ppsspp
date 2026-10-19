@@ -21,6 +21,8 @@
 
 #include <cstring>
 #include <cstdint>
+#include <utility>
+#include <vector>
 #ifndef offsetof
 #include <stddef.h>
 #endif
@@ -169,10 +171,19 @@ enum class MemMapSetupFlags {
 };
 ENUM_CLASS_BITOPS(MemMapSetupFlags);
 
+// For a savestate load: parts of RAM to compare with what's loaded over them, as they're loaded.
+// Addresses can be in any mirror. The JIT keeps its blocks in code the load doesn't change.
+struct RamCompare {
+	// In: (address, size) ranges.
+	std::vector<std::pair<u32, u32>> ranges;
+	// Out: the parts of them the load left as they were.
+	std::vector<std::pair<u32, u32>> unchanged;
+};
+
 // Init and Shutdown
 bool Init(MemMapSetupFlags flags);
 void Shutdown();
-void DoState(PointerWrap &p);
+void DoState(PointerWrap &p, RamCompare *compare = nullptr);
 
 // False when shutdown has already been called.
 bool IsActive();

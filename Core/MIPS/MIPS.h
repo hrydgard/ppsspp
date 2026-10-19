@@ -22,6 +22,7 @@
 #include <cstddef>
 #include <cstring>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
 #include "Common/CommonTypes.h"
@@ -180,11 +181,18 @@ public:
 	~MIPSState();
 
 	void Init();
+	// Init without the JIT.
+	void InitRegisters();
 	void Shutdown();
 	void Reset();
 	void UpdateCore(CPUCore desired);
 
 	void DoState(PointerWrap &p);
+	// For the next DoState load: keep the JIT blocks entirely inside these (address, size) ranges,
+	// code the load leaves as it is, instead of starting the JIT over.
+	void KeepJitBlocksOnNextLoad(std::vector<std::pair<u32, u32>> ranges) {
+		keepJitBlocks_ = std::move(ranges);
+	}
 
 	// MUST start with r and be followed by f, v, and t!
 	u32 r[32];
@@ -295,6 +303,7 @@ public:
 	// Doesn't need save stating.
 	std::vector<PendingCacheOperation> pendingInvalidates_;
 	bool invalidateAll_ = false;
+	std::vector<std::pair<u32, u32>> keepJitBlocks_;
 };
 
 // Access control ('private') break standard layout. Let's not allow it, to avoid excessive

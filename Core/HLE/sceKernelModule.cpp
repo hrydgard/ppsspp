@@ -534,6 +534,19 @@ static void __KernelModuleInit() {
 	eventModuleLoadDone = CoreTiming::RegisterEvent("LoadModuleDone", &__KernelLoadModuleDone);
 }
 
+std::vector<std::pair<u32, u32>> __KernelModuleCodeRanges() {
+	std::vector<std::pair<u32, u32>> ranges;
+	u32 error;
+	for (SceUID moduleId : loadedModules) {
+		const PSPModule *module = kernelObjects.Get<PSPModule>(moduleId, error);
+		// textEnd is the last instruction.
+		if (module && !module->isFake && module->textStart != 0 && module->textEnd >= module->textStart) {
+			ranges.emplace_back(module->textStart, module->textEnd + 4 - module->textStart);
+		}
+	}
+	return ranges;
+}
+
 void __KernelModuleDoState(PointerWrap &p) {
 	auto s = p.Section("sceKernelModule", 1, 5);
 	if (!s)

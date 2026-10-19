@@ -229,6 +229,8 @@ public:
 
 KernelObject *__KernelModuleObject();
 void __KernelModuleDoState(PointerWrap &p);
+// The code of the loaded modules, as (address, size).
+std::vector<std::pair<u32, u32>> __KernelModuleCodeRanges();
 void __KernelModuleShutdown();
 
 class MIPSState;
