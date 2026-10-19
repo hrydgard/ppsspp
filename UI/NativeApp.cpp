@@ -1474,23 +1474,31 @@ void NativeTouch(const TouchInput &touch) {
 	g_inputEventQueue.push_back(ev);
 }
 
-// up, down
+// up, down. Presses arrive on the input thread, timed releases on the UI thread.
+static std::mutex g_wheelReleaseLock;
 static double g_wheelReleaseTime[2]{};
 
 static void ProcessWheelRelease(InputKeyCode keyCode, double now, bool keyPress) {
 	int dir = keyCode - NKCODE_EXT_MOUSEWHEEL_UP;
-	if (g_wheelReleaseTime[dir] != 0.0 && (keyPress || now >= g_wheelReleaseTime[dir])) {
-		g_wheelReleaseTime[dir] = 0.0;
+	bool release = false;
+	{
+		std::lock_guard<std::mutex> guard(g_wheelReleaseLock);
+		if (g_wheelReleaseTime[dir] != 0.0 && (keyPress || now >= g_wheelReleaseTime[dir])) {
+			g_wheelReleaseTime[dir] = 0.0;
+			release = true;
+		}
+		if (keyPress) {
+			float releaseTime = (float)g_Config.iMouseWheelUpDelayMs * (1.0f / 1000.0f);
+			g_wheelReleaseTime[dir] = now + releaseTime;
+		}
+	}
+
+	if (release) {
 		KeyInput key{};
 		key.deviceId = DEVICE_ID_MOUSE;
 		key.keyCode = keyCode;
 		key.flags = KeyInputFlags::UP;
 		NativeKey(key);
-	}
-
-	if (keyPress) {
-		float releaseTime = (float)g_Config.iMouseWheelUpDelayMs * (1.0f / 1000.0f);
-		g_wheelReleaseTime[dir] = now + releaseTime;
 	}
 }
 
@@ -1535,20 +1543,23 @@ bool NativeKey(const KeyInput &key) {
 #ifdef _DEBUG
 	// Debug hack: Randomize the language with F9!
 	if ((key.keyCode == NKCODE_F9 && (key.flags & KeyInputFlags::DOWN))) {
-		std::vector<File::FileInfo> tempLangs;
-		g_VFS.GetFileListing("lang", &tempLangs, "ini");
-		int x = rand() % tempLangs.size();
+		// We're on the input thread, and this recreates the views.
+		System_RunOnMainThread([]() {
+			std::vector<File::FileInfo> tempLangs;
+			g_VFS.GetFileListing("lang", &tempLangs, "ini");
+			int x = rand() % tempLangs.size();
 
-		g_Config.DoNotSaveSetting(&g_Config.sLanguageIni);
-		std::string_view code, part2;
-		if (SplitStringOnce(tempLangs[x].name, &code, &part2, '.')) {
-			g_Config.sLanguageIni = code;
-			INFO_LOG(Log::System, "Switching to random language: %s", g_Config.sLanguageIni.c_str());
-			if (g_i18nrepo.LoadIni(g_Config.sLanguageIni)) {
-				g_screenManager->RecreateAllViews();
-				System_Notify(SystemNotification::UI);
+			g_Config.DoNotSaveSetting(&g_Config.sLanguageIni);
+			std::string_view code, part2;
+			if (SplitStringOnce(tempLangs[x].name, &code, &part2, '.')) {
+				g_Config.sLanguageIni = code;
+				INFO_LOG(Log::System, "Switching to random language: %s", g_Config.sLanguageIni.c_str());
+				if (g_i18nrepo.LoadIni(g_Config.sLanguageIni)) {
+					g_screenManager->RecreateAllViews();
+					System_Notify(SystemNotification::UI);
+				}
 			}
-		}
+		});
 	}
 #endif
 
