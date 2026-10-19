@@ -129,6 +129,10 @@ void __AudioDoState(PointerWrap &p) {
 	CoreTiming::RestoreRegisterEvent(eventHostAudioUpdate, "AudioUpdateHost", &hleHostAudioUpdate);
 
 	Do(p, mixFrequency);
+	if (mixFrequency <= 0) {
+		// The SRC mixer divides by it.
+		mixFrequency = 44100;
+	}
 	if (s >= 2) {
 		Do(p, srcFrequency);
 	} else {

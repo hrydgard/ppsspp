@@ -955,6 +955,10 @@ void __sceAudiocodecDoState(PointerWrap &p){
 		clearDecoders();
 	}
 
+	// Each takes two words, so a count the file can't hold is a broken file.
+	if (p.mode == PointerWrap::MODE_READ && count > 0 && !p.CheckRead((size_t)count * 8)) {
+		return;
+	}
 	if (count > 0) {
 		if (p.mode == PointerWrap::MODE_READ) {
 			// loadstate if audioList is nonempty

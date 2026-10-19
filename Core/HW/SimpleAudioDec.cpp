@@ -502,7 +502,7 @@ u32 AuCtx::AuDecode(u32 pcmAddr) {
 		outpcmbufsize = PCMBufSize / 2;
 		if (outbuf != nullptr)
 			memset(outbuf, 0, outpcmbufsize);
-	} else if ((u32)outpcmbufsize < PCMBufSize) {
+	} else if ((u32)outpcmbufsize < PCMBufSize / 2) {
 		// TODO: Not sure it actually zeros this out.
 		if (outbuf != nullptr)
 			memset(outbuf + outpcmbufsize, 0, PCMBufSize / 2 - outpcmbufsize);
@@ -695,6 +695,14 @@ void AuCtx::DoState(PointerWrap &p) {
 	int dummy = 0;
 	Do(p, dummy);
 	Do(p, FrameNum);
+
+	// The decoder writes a whole frame into each half. The game side requires at least this much.
+	const u32 minPCMBufSize = audioType == PSP_CODEC_AAC ? 8192 : 9216;
+	if (p.mode == p.MODE_READ && PCMBufSize < minPCMBufSize) {
+		ERROR_LOG(Log::SaveState, "AuCtx: PCM buffer of %d bytes in savestate is too small", PCMBufSize);
+		p.SetError(p.ERROR_FAILURE);
+		return;
+	}
 
 	if (s < 2) {
 		AuBufAvailable = 0;
