@@ -81,6 +81,12 @@ submit.
   smiley test shader) aren't supported.
 - Framebuffers are `RGBA8Unorm` with `Depth32Float_Stencil8`. A depth-only or stencil-only copy goes
   through a buffer, since texture copies take both planes.
+- MSAA works like the Vulkan backend's: a multisampled framebuffer has multisampled color and depth textures
+  that are drawn to and kept between passes, and each pass resolves them into the ordinary ones (depth and
+  stencil to sample 0), which everything else reads. Copies between two multisampled framebuffers copy the
+  samples too. Metal can't copy a single plane of a multisampled depth/stencil texture, so those copy both.
+  With programmable blending, the shader blends each sample with its own color, so edges come out a little
+  different from Vulkan's, which blends with the resolved color.
 - Readbacks for the GE debugger and screenshots work. Headless has no backbuffer to read, like headless
   Vulkan, and the debugger falls back to the PSP's framebuffer.
 
@@ -104,7 +110,6 @@ MoltenVK: wall time from 11.7% lower (Ridge Racer) to 2.6% higher, CPU time 2 to
 
 ## Not done
 
-- **MSAA.** `multiSampleLevelsMask` is 1. It waits for MSAA to be solid on Vulkan first.
 - **Intel and AMD Macs** are untested. They get no programmable blending, no 16-bit textures and no
   memoryless depth (all Apple GPU only), so they take the same paths as other GPUs elsewhere.
 - **tvOS** shares the iOS code, but hasn't been built or run with Metal.

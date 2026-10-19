@@ -535,7 +535,8 @@ void MetalRenderManager::BindRenderPass(const MetalRenderPassDesc &desc) {
 	curFormat_.color = desc.color ? desc.color.pixelFormat : MTLPixelFormatInvalid;
 	curFormat_.depth = desc.depth ? desc.depth.pixelFormat : MTLPixelFormatInvalid;
 	curFormat_.stencil = (curFormat_.depth == MTLPixelFormatDepth32Float_Stencil8) ? curFormat_.depth : MTLPixelFormatInvalid;
-	curFormat_.sampleCount = sizeTex ? (int)sizeTex.sampleCount : 1;
+	id<MTLTexture> msaaTex = desc.msaaColor ? desc.msaaColor : desc.msaaDepth;
+	curFormat_.sampleCount = msaaTex ? (int)msaaTex.sampleCount : 1;
 }
 
 void MetalRenderManager::UnbindRenderPass() {
@@ -575,6 +576,8 @@ void MetalRenderManager::StartRenderPass() {
 	rp.backbuffer = passIsBackbuffer_;
 	rp.color = passIsBackbuffer_ ? nullptr : (__bridge void *)pass_.color;
 	rp.depth = (__bridge void *)pass_.depth;
+	rp.msaaColor = (__bridge void *)pass_.msaaColor;
+	rp.msaaDepth = (__bridge void *)pass_.msaaDepth;
 	rp.colorLoad = pass_.colorLoad;
 	rp.depthLoad = pass_.depthLoad;
 	rp.stencilLoad = pass_.stencilLoad;
@@ -846,6 +849,10 @@ void MetalRenderManager::SetFragmentSampler(__unsafe_unretained id<MTLSamplerSta
 }
 
 void MetalRenderManager::Draw(MTLPrimitiveType prim, uint32_t start, uint32_t count) {
+	// Metal doesn't allow empty draws.
+	if (count == 0) {
+		return;
+	}
 	passUsesDepth_ |= state_.depthStencilUsed;
 	MetalCommand &c = Record(MetalCmd::DRAW);
 	c.prim = (uint8_t)prim;
@@ -855,6 +862,9 @@ void MetalRenderManager::Draw(MTLPrimitiveType prim, uint32_t start, uint32_t co
 }
 
 void MetalRenderManager::DrawIndexed(MTLPrimitiveType prim, uint32_t count, __unsafe_unretained id<MTLBuffer> indexBuffer, uint32_t offset) {
+	if (count == 0) {
+		return;
+	}
 	passUsesDepth_ |= state_.depthStencilUsed;
 	MetalCommand &c = Record(MetalCmd::DRAW_INDEXED);
 	c.prim = (uint8_t)prim;
@@ -1050,6 +1060,7 @@ void MetalRenderManager::BuildSteps(const MetalCommandChunk &chunk) {
 			pass->ranges.push_back({ i + 1, i + 1 });
 			pass->target = rp.backbuffer ? BACKBUFFER_TARGET : (rp.color ? rp.color : rp.depth);
 			pass->targetDepth = rp.depth;
+			pass->targetMsaa = rp.msaaColor ? rp.msaaColor : rp.msaaDepth;
 			pass->usesDepth = rp.usesDepth;
 			break;
 		}
@@ -1067,6 +1078,7 @@ void MetalRenderManager::BuildSteps(const MetalCommandChunk &chunk) {
 			step.index = c.copy;
 			// Compared with pass targets, which are never views.
 			step.target = copy.type == MetalCopyType::TEXTURE_TO_BUFFER ? copy.dst : BaseTexture(copy.dst);
+			step.targetMsaa = nullptr;
 			step.targetDepth = nullptr;
 			if (copy.srcIsBackbuffer) {
 				step.reads.push_back(BACKBUFFER_TARGET);
@@ -1108,7 +1120,7 @@ void MetalRenderManager::MergeSteps(MetalCommandChunk &chunk) {
 			}
 			const bool sameTarget = sj.isPass && sj.target == si.target && sj.targetDepth == si.targetDepth;
 			// Anything else reading this framebuffer needs it as it is at this point.
-			if (!sameTarget && (Contains(sj.reads, si.target) || Contains(sj.reads, si.targetDepth))) {
+			if (!sameTarget && (Contains(sj.reads, si.target) || Contains(sj.reads, si.targetDepth) || Contains(sj.reads, si.targetMsaa))) {
 				break;
 			}
 			if (sj.isPass) {
@@ -1135,7 +1147,7 @@ void MetalRenderManager::MergeSteps(MetalCommandChunk &chunk) {
 					}
 				}
 			} else {
-				if (sj.target == si.target || (si.targetDepth && sj.target == si.targetDepth)) {
+				if (sj.target == si.target || (si.targetDepth && sj.target == si.targetDepth) || (si.targetMsaa && sj.target == si.targetMsaa)) {
 					// The copy overwrites the framebuffer.
 					break;
 				}
@@ -1158,10 +1170,17 @@ void MetalRenderManager::ReplayPass(const MetalCommandChunk &chunk, MetalStep &s
 	}
 	MTLRenderPassDescriptor *rp = [MTLRenderPassDescriptor renderPassDescriptor];
 	if (color) {
-		rp.colorAttachments[0].texture = color;
+		id<MTLTexture> msaaColor = (__bridge id<MTLTexture>)pass.msaaColor;
 		rp.colorAttachments[0].loadAction = pass.colorLoad;
 		rp.colorAttachments[0].clearColor = pass.clearColor;
-		rp.colorAttachments[0].storeAction = MTLStoreActionStore;
+		if (msaaColor) {
+			rp.colorAttachments[0].texture = msaaColor;
+			rp.colorAttachments[0].resolveTexture = color;
+			rp.colorAttachments[0].storeAction = MTLStoreActionStoreAndMultisampleResolve;
+		} else {
+			rp.colorAttachments[0].texture = color;
+			rp.colorAttachments[0].storeAction = MTLStoreActionStore;
+		}
 	}
 	id<MTLTexture> depth = (__bridge id<MTLTexture>)pass.depth;
 	if (depth) {
@@ -1182,15 +1201,30 @@ void MetalRenderManager::ReplayPass(const MetalCommandChunk &chunk, MetalStep &s
 			stencilLoad = MTLLoadActionDontCare;
 			store = MTLStoreActionDontCare;
 		}
-		rp.depthAttachment.texture = depth;
+		id<MTLTexture> msaaDepth = (__bridge id<MTLTexture>)pass.msaaDepth;
+		id<MTLTexture> drawDepth = depth;
+		if (msaaDepth) {
+			// Resolve to sample 0, like the Vulkan backend.
+			drawDepth = msaaDepth;
+			if (store == MTLStoreActionStore) {
+				store = MTLStoreActionStoreAndMultisampleResolve;
+				rp.depthAttachment.resolveTexture = depth;
+				rp.depthAttachment.depthResolveFilter = MTLMultisampleDepthResolveFilterSample0;
+			}
+		}
+		rp.depthAttachment.texture = drawDepth;
 		rp.depthAttachment.loadAction = depthLoad;
 		rp.depthAttachment.clearDepth = pass.clearDepth;
 		rp.depthAttachment.storeAction = store;
 		if (depth.pixelFormat == MTLPixelFormatDepth32Float_Stencil8) {
-			rp.stencilAttachment.texture = depth;
+			rp.stencilAttachment.texture = drawDepth;
 			rp.stencilAttachment.loadAction = stencilLoad;
 			rp.stencilAttachment.clearStencil = pass.clearStencil;
 			rp.stencilAttachment.storeAction = store;
+			if (store == MTLStoreActionStoreAndMultisampleResolve) {
+				rp.stencilAttachment.resolveTexture = depth;
+				rp.stencilAttachment.stencilResolveFilter = MTLMultisampleStencilResolveFilterSample0;
+			}
 		}
 	}
 	id<MTLRenderCommandEncoder> enc = [cmd renderCommandEncoderWithDescriptor:rp];
@@ -1283,12 +1317,13 @@ void MetalRenderManager::ReplayCopy(const MetalCommandChunk &chunk, const MetalR
 static char g_arrayViewKey;
 
 id<MTLTexture> MetalRenderManager::ArrayView(id<MTLTexture> texture) {
-	if (!texture || texture.textureType == MTLTextureType2DArray) {
+	if (!texture || texture.textureType == MTLTextureType2DArray || texture.textureType == MTLTextureType2DMultisampleArray) {
 		return texture;
 	}
 	id<MTLTexture> view = objc_getAssociatedObject(texture, &g_arrayViewKey);
 	if (!view) {
-		view = [texture newTextureViewWithPixelFormat:texture.pixelFormat textureType:MTLTextureType2DArray levels:NSMakeRange(0, texture.mipmapLevelCount) slices:NSMakeRange(0, 1)];
+		const MTLTextureType type = texture.textureType == MTLTextureType2DMultisample ? MTLTextureType2DMultisampleArray : MTLTextureType2DArray;
+		view = [texture newTextureViewWithPixelFormat:texture.pixelFormat textureType:type levels:NSMakeRange(0, texture.mipmapLevelCount) slices:NSMakeRange(0, 1)];
 		objc_setAssociatedObject(texture, &g_arrayViewKey, view, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
 	}
 	return view;

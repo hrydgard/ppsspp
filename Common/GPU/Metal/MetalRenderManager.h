@@ -96,6 +96,10 @@ private:
 struct MetalRenderPassDesc {
 	id<MTLTexture> color;
 	id<MTLTexture> depth;  // Has stencil too, when it's a combined format.
+	// With MSAA, what's drawn to. Each pass resolves them into color and depth (sample 0 for depth and stencil),
+	// and keeps them for the next one.
+	id<MTLTexture> msaaColor;
+	id<MTLTexture> msaaDepth;
 	MTLLoadAction colorLoad = MTLLoadActionLoad;
 	MTLLoadAction depthLoad = MTLLoadActionLoad;
 	MTLLoadAction stencilLoad = MTLLoadActionLoad;
@@ -220,6 +224,8 @@ struct MetalCommand {
 struct MetalRecordedPass {
 	void *color;  // Unused for the backbuffer, it's the drawable's.
 	void *depth;
+	void *msaaColor;
+	void *msaaDepth;
 	MTLLoadAction colorLoad;
 	MTLLoadAction depthLoad;
 	MTLLoadAction stencilLoad;
@@ -285,6 +291,7 @@ struct MetalStep {
 	std::vector<std::pair<uint32_t, uint32_t>> ranges;
 	void *target;  // Color (or depth, if there's no color) of a pass. Destination of a copy.
 	void *targetDepth;
+	void *targetMsaa;  // A pass's multisampled color (or depth), which the shared code can read samples from.
 	std::vector<void *> reads;  // Textures sampled by the pass, or the copy's source.
 	bool usesDepth;
 };

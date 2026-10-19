@@ -358,7 +358,7 @@ public:
 		width_ = desc.width;
 		height_ = desc.height;
 		layers_ = 1;
-		multiSampleLevel_ = 0;
+		multiSampleLevel_ = desc.multiSampleLevel;
 		hasDepthStencil_ = desc.z_stencil;
 	}
 	void UpdateTag(const char *tag) override {
@@ -366,6 +366,12 @@ public:
 		color.label = [NSString stringWithUTF8String:tag];
 		if (depth) {
 			depth.label = [NSString stringWithFormat:@"%s_depth", tag];
+		}
+		if (msaaColor) {
+			msaaColor.label = [NSString stringWithFormat:@"%s_msaa", tag];
+		}
+		if (msaaDepth) {
+			msaaDepth.label = [NSString stringWithFormat:@"%s_msaa_depth", tag];
 		}
 	}
 	const char *Tag() const override { return tag_.c_str(); }
@@ -381,11 +387,17 @@ public:
 		rm_->DeferRelease(color);
 		rm_->DeferRelease(depth);
 		rm_->DeferRelease(stencilView);
+		rm_->DeferRelease(msaaColor);
+		rm_->DeferRelease(msaaDepth);
 	}
 
+	// With MSAA, these are what each pass resolves to, and what's read from (as textures, by readbacks).
 	id<MTLTexture> color;
 	id<MTLTexture> depth;
 	id<MTLTexture> stencilView;
+	// With MSAA, what's drawn to. Kept between passes.
+	id<MTLTexture> msaaColor;
+	id<MTLTexture> msaaDepth;
 
 private:
 	MetalRenderManager *rm_;
@@ -446,6 +458,7 @@ public:
 
 	void BindFramebufferAsRenderTarget(Framebuffer *fbo, const RenderPassInfo &rp, const char *tag) override;
 	void BindFramebufferAsTexture(Framebuffer *fbo, int binding, Aspect aspect, int layer) override;
+	void BindFramebufferSamplesAsTexture(Framebuffer *fbo, int binding, int layer) override;
 	void GetFramebufferDimensions(Framebuffer *fbo, int *w, int *h) override;
 	void InvalidateFramebuffer(FBInvalidationStage stage, Aspect aspects) override {}
 
@@ -609,6 +622,12 @@ MetalDrawContext::MetalDrawContext(MetalRenderManager *renderManager) : rm_(rend
 	caps_.presentModesSupported = PresentMode::FIFO;
 #endif
 	caps_.multiSampleLevelsMask = 1;
+	for (int level = 1; level <= 3; level++) {
+		if ([device_ supportsTextureSampleCount:1 << level]) {
+			caps_.multiSampleLevelsMask |= 1 << level;
+		}
+	}
+	caps_.framebufferSampleReadSupported = true;
 
 	shaderLanguageDesc_.Init(GLSL_VULKAN);
 
@@ -966,6 +985,28 @@ Framebuffer *MetalDrawContext::CreateFramebuffer(const FramebufferDesc &desc) {
 			return nullptr;
 		}
 	}
+	if (desc.multiSampleLevel > 0) {
+		// Read by the shared code's sample copies (BindFramebufferSamplesAsTexture), so not memoryless.
+		td.textureType = MTLTextureType2DMultisample;
+		td.sampleCount = 1 << desc.multiSampleLevel;
+		fb->msaaColor = [device_ newTextureWithDescriptor:td];
+		if (!fb->msaaColor) {
+			fb->Release();
+			return nullptr;
+		}
+		if (desc.z_stencil) {
+			MTLTextureDescriptor *dd = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatDepth32Float_Stencil8 width:desc.width height:desc.height mipmapped:NO];
+			dd.textureType = MTLTextureType2DMultisample;
+			dd.sampleCount = td.sampleCount;
+			dd.usage = MTLTextureUsageRenderTarget;
+			dd.storageMode = MTLStorageModePrivate;
+			fb->msaaDepth = [device_ newTextureWithDescriptor:dd];
+			if (!fb->msaaDepth) {
+				fb->Release();
+				return nullptr;
+			}
+		}
+	}
 	if (desc.tag) {
 		fb->UpdateTag(desc.tag);
 	}
@@ -1006,8 +1047,18 @@ void MetalDrawContext::CopyFramebufferImage(Framebuffer *srcfb, int level, int x
 	const MTLOrigin srcOrigin = MTLOriginMake(x, y, 0);
 	const MTLOrigin dstOrigin = MTLOriginMake(dstX, dstY, 0);
 	const MTLSize size = MTLSizeMake(width, height, 1);
+	// Between multisampled framebuffers, the samples are copied too. Otherwise only the resolved images, like the
+	// Vulkan backend.
+	const bool copySamples = src->MultiSampleLevel() > 0 && src->MultiSampleLevel() == dst->MultiSampleLevel();
 	if (aspects & Aspect::COLOR_BIT) {
 		rm_->CopyTexture(src->color, level, srcOrigin, size, dst->color, dstLevel, dstOrigin);
+		if (copySamples) {
+			rm_->CopyTexture(src->msaaColor, 0, srcOrigin, size, dst->msaaColor, 0, dstOrigin);
+		}
+	}
+	if (copySamples && (aspects & (Aspect::DEPTH_BIT | Aspect::STENCIL_BIT)) && src->msaaDepth && dst->msaaDepth) {
+		// Metal can't copy a single plane of a multisampled texture (not even through a buffer), so both go.
+		rm_->CopyTexture(src->msaaDepth, 0, srcOrigin, size, dst->msaaDepth, 0, dstOrigin);
 	}
 	const bool copyDepth = (aspects & Aspect::DEPTH_BIT) != 0;
 	const bool copyStencil = (aspects & Aspect::STENCIL_BIT) != 0;
@@ -1126,6 +1177,8 @@ void MetalDrawContext::BindFramebufferAsRenderTarget(Framebuffer *fbo, const Ren
 		MetalRenderPassDesc desc{};
 		desc.color = fb->color;
 		desc.depth = fb->depth;
+		desc.msaaColor = fb->msaaColor;
+		desc.msaaDepth = fb->msaaDepth;
 		desc.colorLoad = RPActionToMetal(rp.color);
 		desc.depthLoad = RPActionToMetal(rp.depth);
 		desc.stencilLoad = RPActionToMetal(rp.stencil);
@@ -1154,6 +1207,13 @@ void MetalDrawContext::BindFramebufferAsTexture(Framebuffer *fbo, int binding, A
 	default: break;
 	}
 	boundTextures_[binding] = tex ? tex : nullTexture_;
+	boundThin3DTextures_[binding] = nullptr;
+}
+
+void MetalDrawContext::BindFramebufferSamplesAsTexture(Framebuffer *fbo, int binding, int layer) {
+	_dbg_assert_(binding < (int)MAX_TEXTURE_SLOTS);
+	MetalFramebuffer *fb = (MetalFramebuffer *)fbo;
+	boundTextures_[binding] = fb->msaaColor ? fb->msaaColor : fb->color;
 	boundThin3DTextures_[binding] = nullptr;
 }
 
