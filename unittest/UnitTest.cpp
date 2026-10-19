@@ -2501,6 +2501,29 @@ static bool CheckStackWalk() {
 	EXPECT_EQ_HEX(frames[1].pc, caller + 0x10);
 	EXPECT_EQ_HEX(frames[1].entry, caller);
 	EXPECT_EQ_INT(frames[1].stackSize, 16);
+
+	// With a symbol, the entry is where it starts, even when the prologue isn't first.
+	const u32 func = 0x08805000;
+	const u32 funcCode[] = {
+		0x3C080000,  // func: lui t0, 0
+		0x27BDFFF0,  // addiu sp, sp, -16
+		0xAFBF000C,  // sw ra, 12(sp)
+		0x00000000,  // nop
+	};
+	for (size_t i = 0; i < ARRAY_SIZE(funcCode); i++) {
+		Memory::WriteUnchecked_U32(funcCode[i], func + (u32)i * 4);
+	}
+	Memory::WriteUnchecked_U32(caller + 0x10, sp + 12);
+	symbolMap.AddFunction("func", func, sizeof(funcCode));
+	symbolMap.SortSymbols();
+	g_symbolMap = &symbolMap;
+	frames = MIPSStackWalk::Walk(func + 0xC, caller + 0x10, sp, caller, 0x09F00000);
+	g_symbolMap = nullptr;
+
+	EXPECT_EQ_INT((int)frames.size(), 2);
+	EXPECT_EQ_HEX(frames[0].entry, func);
+	EXPECT_EQ_INT(frames[0].stackSize, 16);
+	EXPECT_EQ_HEX(frames[1].pc, caller + 0x10);
 	return true;
 }
 

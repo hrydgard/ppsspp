@@ -145,7 +145,10 @@ namespace MIPSStackWalk {
 					continue;
 				}
 
-				frame.entry = pc;
+				// The prologue often isn't the first instruction (a lui or move can come first), so
+				// the function's symbol, if it has one, gives the real entry.
+				const u32 symbolEntry = GuessEntry(pc);
+				frame.entry = symbolEntry != INVALIDTARGET ? symbolEntry : pc;
 				frame.stackSize = -_IMM16;
 				if (ra_offset != -1 && Memory::IsValid4AlignedAddress(frame.sp + ra_offset)) {
 					ra = Memory::ReadUnchecked_U32(frame.sp + ra_offset);
