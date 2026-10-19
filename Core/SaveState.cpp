@@ -1424,8 +1424,10 @@ int g_screenshotFailures;
 	}
 
 	// NOTE: This can cause ending of the current renderpass, due to the readback needed for the screenshot.
-	void Process() {
-		rewindStates.Process();
+	void Process(bool takeRewindSnapshots) {
+		if (takeRewindSnapshots) {
+			rewindStates.Process();
+		}
 		RunCompletions(true);
 
 		if (!needsProcess)

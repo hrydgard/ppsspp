@@ -1622,6 +1622,12 @@ ScreenRenderFlags EmuScreen::PreRender(ScreenRenderMode mode) {
 	// If a boot is in progress, update it.
 	ProcessGameBoot(gamePath_);
 
+	if (PSP_IsInited() && !ShouldRunEmulation(mode) && !Achievements::IsBlockingExecution()) {
+		// Paused under a screen on top, like the pause menu. A state loaded from there should be in
+		// place before the game resumes, not a few frames into it, so savestate operations still run.
+		SaveState::Process(false);
+	}
+
 	using namespace Draw;
 	skipBufferEffects_ = g_Config.bSkipBufferEffects;
 	if (!skipBufferEffects_ && PSP_IsInited()) {

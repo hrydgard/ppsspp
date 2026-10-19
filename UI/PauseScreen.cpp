@@ -96,6 +96,10 @@ public:
 	}
 
 	const char *tag() const override { return "ScreenshotView"; }
+	// Closed with DR_OK to load the slot (the pause screen does it), rather than after saving it.
+	bool LoadRequested() const {
+		return loadRequested_;
+	}
 
 protected:
 	bool FillVertical() const override { return false; }
@@ -154,6 +158,7 @@ private:
 	std::string title_;
 	std::string customNameTemp_;
 	int slot_;
+	bool loadRequested_ = false;
 };
 
 void ScreenshotViewScreen::OnSaveState(UI::EventParams &e) {
@@ -170,12 +175,12 @@ void ScreenshotViewScreen::OnLoadState(UI::EventParams &e) {
 		if (g_Config.bConfirmLoadState) {
 			screenManager()->push(new LoadStateConfirmScreen(saveStatePrefix_, slot_, [this](bool result) {
 				if (result) {
-					SaveState::LoadSlot(saveStatePrefix_, slot_, &ShowMessageAfterSaveStateAction);
+					loadRequested_ = true;
 					TriggerFinish(DR_OK);
 				}
 			}));
 		} else {
-			SaveState::LoadSlot(saveStatePrefix_, slot_, &ShowMessageAfterSaveStateAction);
+			loadRequested_ = true;
 			TriggerFinish(DR_OK);
 		}
 	}
@@ -364,6 +369,11 @@ void GamePauseScreen::update() {
 
 	UIBaseDialogScreen::update();
 
+	if (stateLoadDone_ && *stateLoadDone_) {
+		stateLoadDone_.reset();
+		TriggerFinish(DR_CANCEL);
+	}
+
 	{
 		std::lock_guard<std::mutex> lock(finishNextFrameMutex_);
 		if (!firstFrame_ && g_controlMapper.PollPauseTrigger()) {
@@ -440,8 +450,9 @@ void GamePauseScreen::CreateSavestateControls(UI::LinearLayout *leftColumnItems,
 			SaveSlotView *v = static_cast<SaveSlotView *>(e.v);
 			int slotNum = v->GetSlot();
 			auto doLoad = [this, slotNum]() {
-				SaveState::LoadSlot(saveStatePrefix_, slotNum, &ShowMessageAfterSaveStateAction);
-				FinishNextFrame(DR_CANCEL);
+				CloseAfterStateLoad([this, slotNum](SaveState::Callback callback) {
+					SaveState::LoadSlot(saveStatePrefix_, slotNum, callback);
+				});
 			};
 			if (g_Config.bConfirmLoadState) {
 				screenManager()->push(new LoadStateConfirmScreen(saveStatePrefix_, slotNum, [doLoad](bool result) {
@@ -483,8 +494,9 @@ void GamePauseScreen::CreateSavestateControls(UI::LinearLayout *leftColumnItems,
 		UI::Choice *loadUndoButton = buttonRow->Add(new Choice(pa->T("Undo last load"), ImageID("I_NAVIGATE_BACK"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)));
 		loadUndoButton->SetEnabled(SaveState::HasUndoLoad(saveStatePrefix_));
 		loadUndoButton->OnClick.Add([this](UI::EventParams &e) {
-			SaveState::UndoLoad(saveStatePrefix_, &ShowMessageAfterSaveStateAction);
-			TriggerFinish(DR_CANCEL);
+			CloseAfterStateLoad([this](SaveState::Callback callback) {
+				SaveState::UndoLoad(saveStatePrefix_, callback);
+			});
 		});
 	}
 
@@ -492,8 +504,9 @@ void GamePauseScreen::CreateSavestateControls(UI::LinearLayout *leftColumnItems,
 		UI::Choice *rewindButton = buttonRow->Add(new Choice(pa->T("Rewind"), ImageID("I_REWIND"), new LinearLayoutParams(WRAP_CONTENT, WRAP_CONTENT)));
 		rewindButton->SetEnabled(SaveState::CanRewind());
 		rewindButton->OnClick.Add([this](UI::EventParams &e) {
-			SaveState::Rewind(&ShowMessageAfterSaveStateAction);
-			TriggerFinish(DR_CANCEL);
+			CloseAfterStateLoad([](SaveState::Callback callback) {
+				SaveState::Rewind(callback);
+			});
 		});
 	}
 
@@ -861,10 +874,26 @@ void GamePauseScreen::OnState(UI::EventParams &e) {
 	TriggerFinish(DR_CANCEL);
 }
 
+void GamePauseScreen::CloseAfterStateLoad(const std::function<void(SaveState::Callback)> &load) {
+	// Shared, so a callback arriving after the menu is gone (closed some other way) is harmless.
+	auto done = std::make_shared<std::atomic<bool>>(false);
+	stateLoadDone_ = done;
+	load([done](SaveState::Status status, std::string_view message, std::string_view metadata) {
+		ShowMessageAfterSaveStateAction(status, message, metadata);
+		*done = true;
+	});
+}
+
 void GamePauseScreen::dialogFinished(const Screen *dialog, DialogResult dr) {
 	std::string tag = dialog->tag();
 	if (tag == "ScreenshotView") {
-		if (dr == DR_OK) {
+		const ScreenshotViewScreen *view = static_cast<const ScreenshotViewScreen *>(dialog);
+		if (dr == DR_OK && view->LoadRequested()) {
+			const int slot = view->GetSlot();
+			CloseAfterStateLoad([this, slot](SaveState::Callback callback) {
+				SaveState::LoadSlot(saveStatePrefix_, slot, callback);
+			});
+		} else if (dr == DR_OK) {
 			FinishNextFrame(DR_BACK);
 		} else if (dr != DR_CANCEL && dr != DR_BACK) {
 			// Just go back to the pause menu, but refresh the savestate thumbnails in case something changed.

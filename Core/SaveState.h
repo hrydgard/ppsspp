@@ -133,7 +133,9 @@ namespace SaveState {
 	bool IsOldVersion();
 
 	// Check if there's any save stating needing to be done.  Normally called once per frame.
-	void Process();
+	// While the game is paused (under the pause menu, say), pass false: there's nothing new to take
+	// rewind snapshots of.
+	void Process(bool takeRewindSnapshots = true);
 
 	// Notify save state code that new save data has been written.
 	void NotifySaveData();
