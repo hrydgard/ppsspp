@@ -379,11 +379,6 @@ bool DrawEngineMetal::LoadPipelines(FILE *f, int count, bool waitForCompiles) {
 		format.depth = (MTLPixelFormat)stored.depth;
 		format.stencil = (MTLPixelFormat)stored.stencil;
 		format.sampleCount = (int)stored.sampleCount;
-		if (format.Key() != stored.key.targetFormat) {
-			// Damaged.
-			ok = false;
-			break;
-		}
 		DecVtxFormat decFmt;
 		const bool useHWTransform = stored.key.vtxFmtId != SOFTWARE_TRANSFORM_VTXFMT;
 		if (useHWTransform) {

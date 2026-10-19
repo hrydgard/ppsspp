@@ -27,6 +27,7 @@
 #include "Core/System.h"
 #include "Core/ELF/ParamSFO.h"
 #include "GPU/GPUState.h"
+#include "GPU/Common/ShaderCommon.h"
 #include "GPU/Metal/GPU_Metal.h"
 #include "GPU/Metal/DrawEngineMetal.h"
 #include "GPU/Metal/FramebufferManagerMetal.h"
@@ -74,7 +75,7 @@ namespace {
 
 // Increase when the stored keys change meaning (MetalPipelineKey, the shader IDs, the formats).
 constexpr uint32_t METAL_CACHE_MAGIC = 0x4C54534D;  // "MSTL"
-constexpr uint32_t METAL_CACHE_VERSION = 1;
+constexpr uint32_t METAL_CACHE_VERSION = 2;
 
 struct MetalCacheHeader {
 	uint32_t magic;
@@ -96,6 +97,12 @@ void GPU_Metal::LoadCache(const Path &filename) {
 	}
 	FILE *f = File::OpenCFile(filename, "rb");
 	if (!f) {
+		return;
+	}
+	if (!VerifyShaderCacheChecksum(filename)) {
+		WARN_LOG(Log::G3D, "Old or damaged Metal shader cache (no matching checksum) - rebuilding.");
+		fclose(f);
+		File::Delete(filename);
 		return;
 	}
 	MetalCacheHeader header{};
@@ -139,6 +146,7 @@ void GPU_Metal::SaveCache(const Path &filename) {
 	ok = ok && shaderManagerMetal_->SaveCache(f);
 	ok = ok && drawEngine_->SavePipelines(f);
 	fclose(f);
+	ok = ok && AppendShaderCacheChecksum(filename);
 	if (ok) {
 		INFO_LOG(Log::G3D, "Saved Metal shader cache: %d vertex and %d fragment shaders, %d pipelines", header.numVertexShaders, header.numFragmentShaders, header.numPipelines);
 	} else {
