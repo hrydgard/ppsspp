@@ -585,6 +585,7 @@
     <ClCompile Include="FileLoaders\RamCachingFileLoader.cpp" />
     <ClCompile Include="FileLoaders\RetryingFileLoader.cpp" />
     <ClCompile Include="FileSystems\BlockDevices.cpp" />
+    <ClCompile Include="FileSystems\CSOCompress.cpp" />
     <ClCompile Include="FileSystems\DirectoryFileSystem.cpp" />
     <ClCompile Include="FileSystems\ISOFileSystem.cpp" />
     <ClCompile Include="FileSystems\FileSystem.cpp" />
@@ -921,6 +922,7 @@
     <ClInclude Include="FileLoaders\RamCachingFileLoader.h" />
     <ClInclude Include="FileLoaders\RetryingFileLoader.h" />
     <ClInclude Include="FileSystems\BlockDevices.h" />
+    <ClInclude Include="FileSystems\CSOCompress.h" />
     <ClInclude Include="FileSystems\DirectoryFileSystem.h" />
     <ClInclude Include="FileSystems\FileSystem.h" />
     <ClInclude Include="FileSystems\ISOFileSystem.h" />

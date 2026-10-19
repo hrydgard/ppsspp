@@ -53,6 +53,8 @@ protected:
 	void CreateContextMenu(UI::ViewGroup *parent) override;
 
 	std::string_view GetTitle() const override;
+	// The progress bar of a pack running in the background.
+	void DrawForeground(UIContext &dc) override;
 
 private:
 	// Event handlers
@@ -79,6 +81,10 @@ private:
 	GameInfoFlags knownFlags_ = GameInfoFlags::EMPTY;
 
 	bool knownHasCRC_ = false;
+
+	// GamePacker state the views were made for.
+	int packGeneration_ = 0;
+	bool packBarShown_ = false;
 
 	// A game update installed in PSP/GAME/<DISC_ID>, which is what actually runs when there is one.
 	InstalledGameUpdate installedUpdate_;

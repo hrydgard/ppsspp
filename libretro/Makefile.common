@@ -745,6 +745,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/ELF/ParamSFO.cpp \
 	       $(COREDIR)/FileSystems/tlzrc.cpp \
 	       $(COREDIR)/FileSystems/BlockDevices.cpp \
+	       $(COREDIR)/FileSystems/CSOCompress.cpp \
 	       $(COREDIR)/FileSystems/BlobFileSystem.cpp \
 	       $(COREDIR)/FileSystems/DirectoryFileSystem.cpp \
 	       $(COREDIR)/FileSystems/FileSystem.cpp \

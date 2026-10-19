@@ -63,6 +63,8 @@ list(APPEND UISource
 	TabbedDialogScreen.cpp
 	GameScreen.h
 	GameScreen.cpp
+	GamePacker.h
+	GamePacker.cpp
 	GameSettingsScreen.h
 	GameSettingsScreen.cpp
 	DeveloperToolsScreen.h

@@ -357,6 +357,8 @@ add_library(Core STATIC
 	FileSystems/BlobFileSystem.h
 	FileSystems/BlockDevices.cpp
 	FileSystems/BlockDevices.h
+	FileSystems/CSOCompress.cpp
+	FileSystems/CSOCompress.h
 	FileSystems/DirectoryFileSystem.cpp
 	FileSystems/DirectoryFileSystem.h
 	FileSystems/FileSystem.h

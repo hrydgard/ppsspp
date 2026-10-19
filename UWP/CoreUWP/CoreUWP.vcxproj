@@ -151,6 +151,7 @@
     <ClInclude Include="..\..\Core\FileLoaders\ZipFileLoader.h" />
     <ClInclude Include="..\..\Core\FileSystems\BlobFileSystem.h" />
     <ClInclude Include="..\..\Core\FileSystems\BlockDevices.h" />
+    <ClInclude Include="..\..\Core\FileSystems\CSOCompress.h" />
     <ClInclude Include="..\..\Core\FileSystems\DirectoryFileSystem.h" />
     <ClInclude Include="..\..\Core\FileSystems\FileSystem.h" />
     <ClInclude Include="..\..\Core\FileSystems\ISOFileSystem.h" />
@@ -447,6 +448,7 @@
     <ClCompile Include="..\..\Core\FileLoaders\ZipFileLoader.cpp" />
     <ClCompile Include="..\..\Core\FileSystems\BlobFileSystem.cpp" />
     <ClCompile Include="..\..\Core\FileSystems\BlockDevices.cpp" />
+    <ClCompile Include="..\..\Core\FileSystems\CSOCompress.cpp" />
     <ClCompile Include="..\..\Core\FileSystems\DirectoryFileSystem.cpp" />
     <ClCompile Include="..\..\Core\FileSystems\FileSystem.cpp" />
     <ClCompile Include="..\..\Core\FileSystems\ISOFileSystem.cpp" />

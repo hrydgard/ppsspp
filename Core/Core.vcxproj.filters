@@ -144,6 +144,9 @@
     <ClCompile Include="FileSystems\DirectoryFileSystem.cpp">
       <Filter>FileSystems</Filter>
     </ClCompile>
+    <ClCompile Include="FileSystems\CSOCompress.cpp">
+      <Filter>FileSystems</Filter>
+    </ClCompile>
     <ClCompile Include="FileSystems\BlockDevices.cpp">
       <Filter>FileSystems</Filter>
     </ClCompile>
@@ -1429,6 +1432,9 @@
       <Filter>MIPS\JitCommon</Filter>
     </ClInclude>
     <ClInclude Include="FileSystems\DirectoryFileSystem.h">
+      <Filter>FileSystems</Filter>
+    </ClInclude>
+    <ClInclude Include="FileSystems\CSOCompress.h">
       <Filter>FileSystems</Filter>
     </ClInclude>
     <ClInclude Include="FileSystems\BlockDevices.h">
