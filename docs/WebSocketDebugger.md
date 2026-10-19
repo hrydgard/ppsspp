@@ -257,8 +257,9 @@ reporting the range start; `hit.address` is the accurate one.
 
 `sequence` counts hits *produced*, not delivered. A connection whose queue backs
 up (easy to do with a log-only breakpoint in a hot loop - one can produce tens
-of thousands of hits per second) drops events rather than growing without bound,
-so a gap in `sequence` tells a client exactly how many it missed. Turning the
+of thousands of hits per second) drops hits rather than growing without bound,
+so a gap in `sequence` tells a client exactly how many it missed. Game and
+stepping events are never dropped. Turning the
 `breakpoint` category off via `broadcast.config.set` avoids the traffic
 entirely.
 

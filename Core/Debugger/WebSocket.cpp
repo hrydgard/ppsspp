@@ -123,7 +123,9 @@ static void UpdateConnected(int delta) {
 // cap the queue grows without bound and the connection falls further and further behind. Dropping
 // is the only sane answer; cpu.breakpoint.hit carries a sequence number so a client can tell
 // exactly how many it missed rather than silently believing it saw everything.
-static constexpr size_t MAX_PENDING_EVENTS = 4096;
+// Only breakpoint hits are capped. Game and stepping events come one per transition, and dropping
+// one would leave the client believing the CPU is still running.
+static constexpr size_t MAX_PENDING_BREAKPOINT_EVENTS = 4096;
 
 struct DebuggerEventSink {
 	std::mutex lock;
@@ -131,10 +133,15 @@ struct DebuggerEventSink {
 	// A debugger that connects while the CPU is already stopped still wants to hear about it.
 	bool needsSteppingPrime = true;
 
-	void Push(const char *category, std::string json) {
+	int pendingBreakpoints = 0;
+
+	void Push(const char *category, std::string json, bool isBreakpoint = false) {
 		std::lock_guard<std::mutex> guard(lock);
-		if (pending.size() >= MAX_PENDING_EVENTS)
-			return;
+		if (isBreakpoint) {
+			if (pendingBreakpoints >= (int)MAX_PENDING_BREAKPOINT_EVENTS)
+				return;
+			pendingBreakpoints++;
+		}
 		pending.emplace_back(category, std::move(json));
 	}
 
@@ -142,6 +149,7 @@ struct DebuggerEventSink {
 		std::lock_guard<std::mutex> guard(lock);
 		out->swap(pending);
 		pending.clear();
+		pendingBreakpoints = 0;
 	}
 };
 
@@ -187,7 +195,7 @@ void WebSocketNotifyBreakpointHit(const BreakpointHit &hit) {
 	const std::string json = j.str();
 
 	for (DebuggerEventSink *sink : g_sinks)
-		sink->Push("breakpoint", json);
+		sink->Push("breakpoint", json, true);
 }
 
 void WebSocketDebuggerTick() {
