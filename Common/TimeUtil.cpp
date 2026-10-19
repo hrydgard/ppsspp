@@ -31,11 +31,11 @@
 #include <emmintrin.h>
 #endif
 
+#include <chrono>
 #include <ctime>
 
 // TODO: https://github.com/floooh/sokol/blob/9a6237fcdf213e6da48e4f9201f144bcb2dcb46f/sokol_time.h#L229-L248
 
-constexpr double micros = 1000000.0;
 constexpr double nanos = 1000000000.0;
 
 
@@ -145,45 +145,67 @@ int64_t Instant::ElapsedNanos() const {
 	return (int64_t)(ElapsedSeconds() * 1000000000.0);
 }
 
-#elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(LINUX) || PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+#else
+
+// Monotonic, in nanoseconds, and the clock VK_GOOGLE_display_timing reports in.
+uint64_t time_now_raw() {
+#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+	// mach_absolute_time() in nanoseconds, which is what MoltenVK reports present times in. Apple's
+	// CLOCK_MONOTONIC keeps counting during sleep (unlike Linux's), so it drifts away from those,
+	// and is slower to read (~30ns vs ~19ns on M1).
+	return clock_gettime_nsec_np(CLOCK_UPTIME_RAW);
+#elif PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(LINUX)
+	struct timespec tp;
+	clock_gettime(CLOCK_MONOTONIC, &tp);
+	return tp.tv_sec * 1000000000ULL + tp.tv_nsec;
+#else
+	// steady_clock is monotonic, which is all we need. Its epoch is unspecified.
+	return (uint64_t)std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now().time_since_epoch()).count();
+#endif
+}
+
+double time_now_unix_utc() {
+#if PPSSPP_PLATFORM(ANDROID) || PPSSPP_PLATFORM(LINUX) || PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+	struct timespec tp;
+	clock_gettime(CLOCK_REALTIME, &tp);
+	return (double)tp.tv_sec + (double)tp.tv_nsec / 1000000000.0;
+#else
+	return std::chrono::duration<double>(std::chrono::system_clock::now().time_since_epoch()).count();
+#endif
+}
+
+// Subtracted from the raw time, so the doubles we hand out stay small and precise.
+static uint64_t g_startTime;
+static double g_startUnixTime;
 
 void TimeInit() {
-	// Nothing to do.
+	// Only once, so time never jumps backwards (libretro can call retro_init() again).
+	if (g_startTime == 0) {
+		g_startTime = time_now_raw();
+		g_startUnixTime = time_now_unix_utc();
+	}
 }
 
 void TimeShutdown() {
 	// Nothing to do.
 }
 
-// The only intended use is to match the timings in VK_GOOGLE_display_timing
-uint64_t time_now_raw() {
-	struct timespec tp;
-	clock_gettime(CLOCK_MONOTONIC, &tp);
-	return tp.tv_sec * 1000000000ULL + tp.tv_nsec;
-}
-
-static uint64_t g_startTime;
-
 double from_time_raw(uint64_t raw_time) {
-	return (double)(raw_time - g_startTime) * (1.0 / nanos);
+	// Signed, so a timestamp from before TimeInit() comes out negative rather than enormous.
+	return (double)(int64_t)(raw_time - g_startTime) * (1.0 / nanos);
 }
 
 double time_now_d() {
-	uint64_t raw_time = time_now_raw();
-	if (g_startTime == 0) {
-		g_startTime = raw_time;
-	}
-	return from_time_raw(raw_time);
+	return from_time_raw(time_now_raw());
 }
 
 double from_time_raw_relative(uint64_t raw_time) {
 	return (double)raw_time * (1.0 / nanos);
 }
 
-double time_now_unix_utc() {
-	struct timespec tp;
-	clock_gettime(CLOCK_REALTIME, &tp);
-	return (double)tp.tv_sec + (double)tp.tv_nsec / 1000000000.0;
+// Converts a timestamp from time_now_d() to seconds since the unix epoch, like on Windows.
+double time_to_unix_utc(double timestamp) {
+	return g_startUnixTime + timestamp;
 }
 
 void yield() {
@@ -195,106 +217,14 @@ void yield() {
 #endif
 }
 
-Instant::Instant() {
-	struct timespec ts;
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-	nativeStart_ = ts.tv_sec;
-	nsecs_ = ts.tv_nsec;
-}
+Instant::Instant() : nativeStart_(time_now_raw()) {}
 
 int64_t Instant::ElapsedNanos() const {
-	struct timespec ts;
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-	int64_t secs = ts.tv_sec - nativeStart_;
-	int64_t nsecs = ts.tv_nsec - nsecs_;
-	if (nsecs < 0) {
-		secs--;
-		nsecs += 1000000000;
-	}
-	return secs * 1000000000ULL + nsecs;
+	return (int64_t)(time_now_raw() - nativeStart_);
 }
 
 double Instant::ElapsedSeconds() const {
 	return (double)ElapsedNanos() * (1.0 / nanos);
-}
-
-#else
-
-void TimeInit() {
-	// Nothing to do.
-}
-
-void TimeShutdown() {
-	// Nothing to do.
-}
-
-static time_t start;
-
-double time_now_d() {
-	struct timeval tv;
-	gettimeofday(&tv, nullptr);
-	if (start == 0) {
-		start = tv.tv_sec;
-	}
-	return (double)(tv.tv_sec - start) + (double)tv.tv_usec * (1.0 / micros);
-}
-
-uint64_t time_now_raw() {
-	// Nanoseconds, like the other platforms - from_time_raw() scales by 1/nanos. This used to
-	// build a double of seconds and return it through the uint64_t, so it both lost the fraction
-	// and was off by a factor of a billion.
-	struct timespec tp;
-	clock_gettime(CLOCK_MONOTONIC, &tp);
-	return (uint64_t)tp.tv_sec * 1000000000ULL + tp.tv_nsec;
-}
-
-double from_time_raw(uint64_t raw_time) {
-	return (double)raw_time * (1.0 / nanos);
-}
-
-double from_time_raw_relative(uint64_t raw_time) {
-	return from_time_raw(raw_time);
-}
-
-void yield() {}
-
-double time_now_unix_utc() {
-	// Not time_now_raw() - that's a monotonic clock with no relation to the epoch.
-	struct timeval tv;
-	gettimeofday(&tv, nullptr);
-	return (double)tv.tv_sec + (double)tv.tv_usec * (1.0 / micros);
-}
-
-double time_to_unix_utc(double t) {
-	struct timeval tv;
-	gettimeofday(&tv, nullptr);
-	return (double)tv.tv_sec + (double)tv.tv_usec * (1.0 / micros) + t;
-}
-
-Instant::Instant() {
-	// Has to be the same clock, and the same unit, as ElapsedNanos() below: this took the wall
-	// clock in microseconds while that one subtracts it from a monotonic clock in nanoseconds.
-	struct timespec ts;
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-	nativeStart_ = ts.tv_sec;
-	nsecs_ = ts.tv_nsec;
-}
-
-int64_t Instant::ElapsedNanos() const {
-	struct timespec ts;
-	clock_gettime(CLOCK_MONOTONIC, &ts);
-
-	int64_t secs = ts.tv_sec - nativeStart_;
-	int64_t nsecs = ts.tv_nsec - nsecs_;
-	if (nsecs < 0) {
-		secs--;
-		nsecs += 1000000000;
-	}
-	return secs * 1000000000 + nsecs;
-}
-
-double Instant::ElapsedSeconds() const {
-	return (double)ElapsedNanos() * (1.0 / 1000000000.0);
 }
 
 #endif
