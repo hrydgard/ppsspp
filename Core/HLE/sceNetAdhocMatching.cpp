@@ -1614,6 +1614,14 @@ int sceNetAdhocMatchingStop(int matchingId) {
 }
 
 int NetAdhocMatching_Delete(int matchingId) {
+	// Stop it first if it's still running. Not under peerlock, since Stop joins the matching threads, which take it.
+	// And not after unlinking it below, where Stop can't find it - which leaves the threads running, and
+	// deleting their std::threads calls std::terminate.
+	SceNetAdhocMatchingContext *item = findMatchingContext(matchingId);
+	if (item && item->running) {
+		NetAdhocMatching_Stop(matchingId);
+	}
+
 	// Multithreading Lock
 	std::lock_guard<std::recursive_mutex> peer_guard(peerlock);
 
@@ -1633,10 +1641,6 @@ int NetAdhocMatching_Delete(int matchingId) {
 			// Unlink Left (Other)
 			else prev->next = context->next;
 
-			// Stop it first if it's still running
-			if (context->running) {
-				NetAdhocMatching_Stop(matchingId);
-			}
 			// Delete the Fake PSP Thread
 			//__KernelDeleteThread(item->matching_thid, SCE_KERNEL_ERROR_THREAD_TERMINATED, "AdhocMatching deleted");
 			//delete item->matchingThread;
