@@ -398,6 +398,8 @@ SOURCES_CXX += \
 
 SOURCES_C += $(EXTDIR)/sfmt19937/SFMT.c
 SOURCES_C   += $(EXTDIR)/xxhash.c
+SOURCES_C   += $(EXTDIR)/libdeflate/lib/deflate_compress.c \
+               $(EXTDIR)/libdeflate/lib/utils.c
 
 SOURCES_CXX += \
 	$(EXTDIR)/snappy/snappy-c.cpp \
@@ -743,6 +745,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/ELF/ParamSFO.cpp \
 	       $(COREDIR)/FileSystems/tlzrc.cpp \
 	       $(COREDIR)/FileSystems/BlockDevices.cpp \
+	       $(COREDIR)/FileSystems/CSOCompress.cpp \
 	       $(COREDIR)/FileSystems/BlobFileSystem.cpp \
 	       $(COREDIR)/FileSystems/DirectoryFileSystem.cpp \
 	       $(COREDIR)/FileSystems/FileSystem.cpp \

@@ -41,6 +41,7 @@
 #include "Core/Util/VideoPlayer.h"
 
 #include "UI/GameBrowser.h"
+#include "UI/GamePacker.h"
 #include "UI/RemoteISOScreen.h"
 #include "UI/SavedataScreen.h"
 #include "UI/Store.h"
@@ -658,6 +659,20 @@ void GameButton::Draw(UIContext &dc) {
 
 	if (overlayColor) {
 		dc.FillRect(Drawable(overlayColor), overlayBounds);
+	}
+
+	// Covers the icon while the game is being compressed. Clicking opens the game screen instead of playing.
+	GamePacker::Status packStatus;
+	if (GamePacker::IsPacking(gamePath_) && GamePacker::GetStatus(&packStatus)) {
+		auto ga = GetI18NCategory(I18NCat::GAME);
+		const Bounds iconBounds(x, y, w, h);
+		dc.FillRect(Drawable(0xD0505050), iconBounds);
+		const float scale = gridStyle_ || largeList ? 0.8f * g_Config.fGameGridScale : 0.6f;
+		dc.SetFontStyle(dc.GetTheme().uiFont);
+		dc.SetFontScale(scale, scale);
+		const std::string text = std::string(ga->T("Compressing...")) + StringFromFormat("\n%d%%", (int)(packStatus.progress * 100.0f));
+		dc.DrawTextRectSqueeze(text, iconBounds, 0xFFFFFFFF, ALIGN_CENTER);
+		dc.SetFontScale(1.0f, 1.0f);
 	}
 
 	dc.RebindTexture();

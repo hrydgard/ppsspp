@@ -357,6 +357,8 @@ add_library(Core STATIC
 	FileSystems/BlobFileSystem.h
 	FileSystems/BlockDevices.cpp
 	FileSystems/BlockDevices.h
+	FileSystems/CSOCompress.cpp
+	FileSystems/CSOCompress.h
 	FileSystems/DirectoryFileSystem.cpp
 	FileSystems/DirectoryFileSystem.h
 	FileSystems/FileSystem.h
@@ -713,7 +715,7 @@ endif()
 
 list(APPEND CoreExtraLibs armips)
 
-target_link_libraries(Core GPU Common chdr kirk cityhash sfmt19937 xbrz xxhash rcheevos at3_standalone lua
+target_link_libraries(Core GPU Common chdr kirk cityhash sfmt19937 xbrz xxhash libdeflate rcheevos at3_standalone lua
 	aemu_postoffice_client ${CoreExtraLibs} ${CMAKE_DL_LIBS})
 
 # Winsock

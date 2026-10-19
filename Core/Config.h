@@ -251,6 +251,9 @@ public:
 	bool bCompressSymbols;
 	bool bCacheFullIsoInRam;
 	bool bAutoUpgradeFirmware;
+	// The game screen's "Compress game" (UI/GamePacker.h).
+	int iCSOPreset;  // CSOCompress::Preset: 0 = Best, 1 = PSP Compatible
+	bool bPackKeepOriginal;
 	int iRemoteISOPort; // Also used for serving a local remote debugger.
 	std::string sLastRemoteISOServer;
 	int iLastRemoteISOPort;
