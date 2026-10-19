@@ -27,7 +27,6 @@ void VulkanDescSetPool::Create(VulkanContext *vulkan, const BindingType *binding
 		case BindingType::COMBINED_IMAGE_SAMPLER: combinedImageSamplerCount++; break;
 		case BindingType::UNIFORM_BUFFER_DYNAMIC_VERTEX:
 		case BindingType::UNIFORM_BUFFER_DYNAMIC_ALL: uniformBufferDynamicCount++; break;
-		case BindingType::STORAGE_BUFFER_VERTEX:
 		case BindingType::STORAGE_BUFFER_COMPUTE: storageBufferCount++; break;
 		case BindingType::STORAGE_IMAGE_COMPUTE: storageImageCount++; break;
 		case BindingType::UNIFORM_BUFFER_COMPUTE: uniformBufferCount++; break;
