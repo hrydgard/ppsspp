@@ -70,12 +70,17 @@ public:
 	bool run(PendingInterrupt& pend) override
 	{
 		u32 error;
+		if (triggeredAlarm.empty()) {
+			return false;
+		}
 		int alarmID = triggeredAlarm.front();
 
 		PSPAlarm *alarm = kernelObjects.Get<PSPAlarm>(alarmID, error);
 		if (error)
 		{
+			// handleResult won't run, so the alarm is popped here, or every later alarm runs this one's entry.
 			WARN_LOG(Log::sceKernel, "Ignoring deleted alarm %08x", alarmID);
+			triggeredAlarm.pop_front();
 			return false;
 		}
 
