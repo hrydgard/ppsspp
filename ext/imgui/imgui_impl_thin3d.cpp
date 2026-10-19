@@ -408,6 +408,8 @@ bool ImGui_ImplThin3d_Init(Draw::DrawContext *draw,
 	ImGui::GetStyle().Colors[ImGuiCol_Border] = ImColor(IM_COL32(0x2A, 0x2F, 0x3B, 0xFF));
 	// Enhanced selection color.
 	ImGui::GetStyle().Colors[ImGuiCol_TextSelectedBg] = ImColor(IM_COL32(0x42, 0x96, 0xFA, 0xB0));
+	// Selected rows in lists and tables. The default (0.31 alpha) barely shows. Also tints collapsing headers.
+	ImGui::GetStyle().Colors[ImGuiCol_Header] = ImVec4(0.26f, 0.59f, 0.98f, 0.60f);
 
 	IMGUI_CHECKVERSION();
 	IM_ASSERT(io.BackendRendererUserData == nullptr && "Already initialized a renderer backend!");

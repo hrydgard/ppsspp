@@ -496,7 +496,7 @@ void DrawThreadView(ImConfig &cfg, ImControl &control) {
 			ImGui::TableNextRow();
 			if (thread.isCurrent) {
 				// A green tint, to stand apart from the blue selection.
-				ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg1, IM_COL32(40, 160, 70, 70));
+				ImGui::TableSetBgColor(ImGuiTableBgTarget_RowBg1, IM_COL32(40, 170, 70, 150));
 			}
 			ImGui::PushID(i);
 			ImGui::TableNextColumn();
