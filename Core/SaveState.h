@@ -87,12 +87,15 @@ namespace SaveState {
 
 	std::string GetTitle(const Path &filename);
 
-	// Load the specified file into the current state (async.)
-	// Returns true if queued. The callback may run on a different thread.
+	// Load the specified file into the current state (async.) The file is read while emulation goes
+	// on, and the state applied in a later Process().
+	// Returns true if queued. The callback runs from Process(), once the state has been applied.
 	bool Load(const Path &filename, int slot, Callback callback = Callback());
 
-	// Save the current state to the specified file (async.)
-	// Returns true if queued. The callback may run on a different thread.
+	// Save the current state to the specified file (async.) The state is captured in the next
+	// Process(), and compressed and written on the worker.
+	// Returns true if queued. The callback runs from Process(), once the file has been written.
+	// Saving to a path that already has a save pending counts as a repeat of that save.
 	bool Save(const Path &filename, int slot, Callback callback = Callback());
 
 	CChunkFileReader::Error SaveToRam(std::vector<u8> &state);
@@ -108,6 +111,10 @@ namespace SaveState {
 
 	// Returns true if there are rewind snapshots available.
 	bool CanRewind();
+
+	// Returns true while a save, load or rewind is queued or still in progress (rewind snapshots
+	// don't count). Saves are done once the file is written.
+	bool IsBusy();
 
 	// Returns true if a savestate has been used during this session.
 	bool HasLoadedState();
@@ -129,4 +136,10 @@ namespace SaveState {
 
 	// Returns the time since last save. -1 if N/A.
 	double SecondsSinceLastSavestate();
+
+	// The savestate worker thread, for compression and file I/O away from the emu thread. Jobs run
+	// one at a time, in the order they were queued, and mustn't touch emulator state.
+	void RunOnWorker(std::function<void()> job);
+	// Waits until every job queued so far has finished.
+	void WaitForWorker();
 }  // namespace SaveState

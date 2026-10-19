@@ -95,6 +95,9 @@ private:
 //
 // Parameters:
 //  - path: string, path to the .ppst file (only for load and save).
+//  - slot: number, a savestate slot of the running game, from 0, instead of path. Slots work like the
+//    save and load keys: a slot save keeps the slot's previous state as its undo, and a slot load
+//    keeps the state it replaces for load undo (if state undo is enabled).
 //  - wait: optional boolean, respond when the operation has finished rather than when queued.
 //
 // Response (same event name) once queued, or an error if the network or achievements hardcore
@@ -106,8 +109,16 @@ void WebSocketGameState::StateOperation(DebuggerRequest &req, StateOp op) {
 	const char *event = events[(int)op];
 	std::string path;
 	bool wait = false;
-	if ((op == StateOp::LOAD || op == StateOp::SAVE) && !req.ParamString("path", &path))
+	uint32_t slot = 0;
+	const bool useSlot = (op == StateOp::LOAD || op == StateOp::SAVE) && req.HasParam("slot");
+	if (useSlot) {
+		if (!req.ParamU32("slot", &slot))
+			return;
+		if (slot >= (uint32_t)g_Config.iSaveStateSlotCount)
+			return req.Fail("Invalid slot");
+	} else if ((op == StateOp::LOAD || op == StateOp::SAVE) && !req.ParamString("path", &path)) {
 		return;
+	}
 	if (!req.ParamBool("wait", &wait, DebuggerParamType::OPTIONAL))
 		return;
 
@@ -139,10 +150,21 @@ void WebSocketGameState::StateOperation(DebuggerRequest &req, StateOp op) {
 		}
 		switch (op) {
 		case StateOp::LOAD:
-			queued = SaveState::Load(Path(path), -1, callback);
+			if (useSlot) {
+				// Refusals go to the callback.
+				SaveState::LoadSlot(SaveState::GetGamePrefix(g_paramSFO), (int)slot, callback);
+				queued = true;
+			} else {
+				queued = SaveState::Load(Path(path), -1, callback);
+			}
 			break;
 		case StateOp::SAVE:
-			queued = SaveState::Save(Path(path), -1, callback);
+			if (useSlot) {
+				SaveState::SaveSlot(SaveState::GetGamePrefix(g_paramSFO), (int)slot, callback);
+				queued = true;
+			} else {
+				queued = SaveState::Save(Path(path), -1, callback);
+			}
 			break;
 		case StateOp::REWIND:
 			canRewind = SaveState::CanRewind();

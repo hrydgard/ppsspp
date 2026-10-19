@@ -15,6 +15,7 @@
 // Official SVN repository and contact information can be found at
 // http://code.google.com/p/dolphin-emu/
 
+#include <algorithm>
 #include <cstdlib>
 #include <cstring>
 #include <snappy-c.h>
@@ -30,8 +31,6 @@ enum class SerializeCompressType {
 	SNAPPY = 1,
 	ZSTD = 2,
 };
-
-static constexpr SerializeCompressType SAVE_TYPE = SerializeCompressType::ZSTD;
 
 void PointerWrap::RewindForWrite(u8 *writePtr) {
 	_assert_(mode == MODE_MEASURE);
@@ -403,6 +402,69 @@ CChunkFileReader::Error CChunkFileReader::GetFileTitle(const Path &filename, std
 	return err;
 }
 
+// Streams the file through the decompressor, so the compressed data is never all in memory at once.
+static bool DecompressZstdFromFile(File::IOFile &file, size_t compressedSize, u8 *out, size_t outSize) {
+	ZSTD_DCtx *ctx = ZSTD_createDCtx();
+	if (!ctx) {
+		return false;
+	}
+	std::vector<u8> in(ZSTD_DStreamInSize());
+	ZSTD_outBuffer output{ out, outSize, 0 };
+	size_t left = compressedSize;
+	size_t ret = 1;
+	bool success = true;
+	while (left > 0 && success) {
+		const size_t chunk = std::min(left, in.size());
+		if (!file.ReadBytes(in.data(), chunk)) {
+			ERROR_LOG(Log::SaveState, "ChunkReader: Error reading file");
+			success = false;
+			break;
+		}
+		left -= chunk;
+		ZSTD_inBuffer input{ in.data(), chunk, 0 };
+		while (input.pos < input.size) {
+			const size_t inPos = input.pos;
+			const size_t outPos = output.pos;
+			ret = ZSTD_decompressStream(ctx, &output, &input);
+			if (ZSTD_isError(ret) || (input.pos == inPos && output.pos == outPos)) {
+				// An error, or no progress: more data than the header's uncompressed size.
+				success = false;
+				break;
+			}
+		}
+	}
+	ZSTD_freeDCtx(ctx);
+	// ret is 0 once a frame is completely decoded.
+	return success && ret == 0 && output.pos == outSize;
+}
+
+// Grows the output as it's produced, rather than allocating ZSTD_compressBound() (about the size of
+// the input) up front.
+static bool CompressZstd(const u8 *data, size_t size, std::vector<u8> *out) {
+	ZSTD_CCtx *ctx = ZSTD_createCCtx();
+	if (!ctx) {
+		return false;
+	}
+	// TODO: If free disk space is low, we could max this out to 22?
+	ZSTD_CCtx_setParameter(ctx, ZSTD_c_compressionLevel, ZSTD_CLEVEL_DEFAULT);
+	ZSTD_CCtx_setParameter(ctx, ZSTD_c_checksumFlag, 1);
+	ZSTD_CCtx_setPledgedSrcSize(ctx, size);
+	// States typically compress 3-4x.
+	out->reserve(size / 3);
+	const size_t chunk = ZSTD_CStreamOutSize();
+	ZSTD_inBuffer input{ data, size, 0 };
+	size_t remaining;
+	do {
+		const size_t pos = out->size();
+		out->resize(pos + chunk);
+		ZSTD_outBuffer output{ out->data() + pos, chunk, 0 };
+		remaining = ZSTD_compressStream2(ctx, &output, &input, ZSTD_e_end);
+		out->resize(pos + output.pos);
+	} while (!ZSTD_isError(remaining) && remaining != 0);
+	ZSTD_freeCCtx(ctx);
+	return !ZSTD_isError(remaining);
+}
+
 CChunkFileReader::Error CChunkFileReader::LoadFile(const Path &filename, std::string *gitVersion, u8 *&_buffer, size_t &sz, std::string *failureReason) {
 	if (!File::Exists(filename)) {
 		*failureReason = "LoadStateDoesntExist";
@@ -417,7 +479,29 @@ CChunkFileReader::Error CChunkFileReader::LoadFile(const Path &filename, std::st
 		return err;
 	}
 
-	// read the state
+	if (header.Compress) {
+		// Sanity cap on the decompressed size to avoid a giant allocation from
+		// an attacker-controlled header field. Real savestates are well under this.
+		if (header.UncompressedSize > 0x40000000) {
+			ERROR_LOG(Log::SaveState, "ChunkReader: UncompressedSize too large: %u", header.UncompressedSize);
+			return ERROR_BAD_FILE;
+		}
+	}
+
+	if (SerializeCompressType(header.Compress) == SerializeCompressType::ZSTD) {
+		u8 *uncomp_buffer = new u8[header.UncompressedSize];
+		if (!DecompressZstdFromFile(pFile, header.ExpectedSize, uncomp_buffer, header.UncompressedSize)) {
+			ERROR_LOG(Log::SaveState, "ChunkReader: Failed to decompress file");
+			delete [] uncomp_buffer;
+			return ERROR_BAD_FILE;
+		}
+		_buffer = uncomp_buffer;
+		sz = header.UncompressedSize;
+		*gitVersion = HeaderGitVersion(header.GitVersion);
+		return ERROR_NONE;
+	}
+
+	// Uncompressed, or snappy (older states).
 	sz = header.ExpectedSize;
 	u8 *buffer = new u8[sz];
 	if (!pFile.ReadBytes(buffer, sz))
@@ -428,25 +512,12 @@ CChunkFileReader::Error CChunkFileReader::LoadFile(const Path &filename, std::st
 	}
 
 	if (header.Compress) {
-		// Sanity cap on the decompressed size to avoid a giant allocation from
-		// an attacker-controlled header field. Real savestates are well under this.
-		if (header.UncompressedSize > 0x40000000) {
-			ERROR_LOG(Log::SaveState, "ChunkReader: UncompressedSize too large: %u", header.UncompressedSize);
-			delete [] buffer;
-			return ERROR_BAD_FILE;
-		}
 		u8 *uncomp_buffer = new u8[header.UncompressedSize];
 		size_t uncomp_size = header.UncompressedSize;
 		bool success = false;
 		if (SerializeCompressType(header.Compress) == SerializeCompressType::SNAPPY) {
 			auto status = snappy_uncompress((const char *)buffer, sz, (char *)uncomp_buffer, &uncomp_size);
 			success = status == SNAPPY_OK;
-		} else if (SerializeCompressType(header.Compress) == SerializeCompressType::ZSTD) {
-			size_t status = ZSTD_decompress((char *)uncomp_buffer, uncomp_size, (const char *)buffer, sz);
-			success = !ZSTD_isError(status);
-			if (success) {
-				uncomp_size = status;
-			}
 		} else {
 			ERROR_LOG(Log::SaveState, "ChunkReader: Unexpected compression type %d", header.Compress);
 		}
@@ -478,6 +549,24 @@ CChunkFileReader::Error CChunkFileReader::LoadFile(const Path &filename, std::st
 CChunkFileReader::Error CChunkFileReader::SaveFile(const Path &filename, const std::string &title, const char *gitVersion, u8 *buffer, size_t sz) {
 	INFO_LOG(Log::SaveState, "ChunkReader: Writing %s", filename.c_str());
 
+	// Compress before opening the file, which truncates it.
+	std::vector<u8> compressed;
+	SerializeCompressType usedType = SerializeCompressType::ZSTD;
+	const u8 *writeData = buffer;
+	size_t writeLen = sz;
+	if (CompressZstd(buffer, sz, &compressed)) {
+		// The uncompressed state isn't needed any more, so don't hold both while writing.
+		free(buffer);
+		buffer = nullptr;
+		writeData = compressed.data();
+		writeLen = compressed.size();
+	} else {
+		ERROR_LOG(Log::SaveState, "ChunkReader: Compression failed");
+		// We can still save uncompressed.
+		std::vector<u8>().swap(compressed);
+		usedType = SerializeCompressType::NONE;
+	}
+
 	File::IOFile pFile(filename, "wb");
 	if (!pFile) {
 		ERROR_LOG(Log::SaveState, "ChunkReader: Error opening file for write");
@@ -485,73 +574,11 @@ CChunkFileReader::Error CChunkFileReader::SaveFile(const Path &filename, const s
 		return ERROR_BAD_FILE;
 	}
 
-	// Make sure we can allocate a buffer to compress before compressing.
-	size_t write_len;
-	SerializeCompressType usedType = SAVE_TYPE;
-	switch (usedType) {
-	case SerializeCompressType::NONE:
-		write_len = 0;
-		break;
-	case SerializeCompressType::SNAPPY:
-		write_len = snappy_max_compressed_length(sz);
-		break;
-	case SerializeCompressType::ZSTD:
-		write_len = ZSTD_compressBound(sz);
-		break;
-	}
-	u8 *compressed_buffer = write_len == 0 ? nullptr : (u8 *)malloc(write_len);
-	u8 *write_buffer = buffer;
-	if (!compressed_buffer) {
-		if (write_len != 0)
-			ERROR_LOG(Log::SaveState, "ChunkReader: Unable to allocate compressed buffer");
-		// We'll save uncompressed.  Better than not saving...
-		write_len = sz;
-		usedType = SerializeCompressType::NONE;
-	} else {
-		bool success = true;
-		switch (usedType) {
-		case SerializeCompressType::NONE:
-			_assert_(false);
-			break;
-		case SerializeCompressType::SNAPPY:
-			success = snappy_compress((const char *)buffer, sz, (char *)compressed_buffer, &write_len) == SNAPPY_OK;
-			break;
-		case SerializeCompressType::ZSTD:
-			{
-				auto ctx = ZSTD_createCCtx();
-				if (!ctx) {
-					success = false;
-				} else {
-					// TODO: If free disk space is low, we could max this out to 22?
-					ZSTD_CCtx_setParameter(ctx, ZSTD_c_compressionLevel, ZSTD_CLEVEL_DEFAULT);
-					ZSTD_CCtx_setParameter(ctx, ZSTD_c_checksumFlag, 1);
-					ZSTD_CCtx_setPledgedSrcSize(ctx, sz);
-					write_len = ZSTD_compress2(ctx, compressed_buffer, write_len, buffer, sz);
-					success = !ZSTD_isError(write_len);
-				}
-				ZSTD_freeCCtx(ctx);
-			}
-			break;
-		}
-
-		if (success) {
-			free(buffer);
-			write_buffer = compressed_buffer;
-		} else {
-			ERROR_LOG(Log::SaveState, "ChunkReader: Compression failed");
-			free(compressed_buffer);
-
-			// We can still save uncompressed.
-			write_len = sz;
-			usedType = SerializeCompressType::NONE;
-		}
-	}
-
 	// Create header
 	SChunkHeader header{};
 	header.Compress = (int)usedType;
 	header.Revision = REVISION_CURRENT;
-	header.ExpectedSize = (u32)write_len;
+	header.ExpectedSize = (u32)writeLen;
 	header.UncompressedSize = (u32)sz;
 	truncate_cpy(header.GitVersion, gitVersion);
 
@@ -560,25 +587,23 @@ CChunkFileReader::Error CChunkFileReader::SaveFile(const Path &filename, const s
 	truncate_cpy(titleFixed, title.c_str());
 
 	// Now let's start writing out the file...
+	bool success = true;
 	if (!pFile.WriteArray(&header, 1)) {
 		ERROR_LOG(Log::SaveState, "ChunkReader: Failed writing header");
-		free(write_buffer);
-		return ERROR_BAD_FILE;
-	}
-	if (!pFile.WriteArray(titleFixed, sizeof(titleFixed))) {
+		success = false;
+	} else if (!pFile.WriteArray(titleFixed, sizeof(titleFixed))) {
 		ERROR_LOG(Log::SaveState, "ChunkReader: Failed writing title");
-		free(write_buffer);
-		return ERROR_BAD_FILE;
-	}
-
-	if (!pFile.WriteBytes(write_buffer, write_len)) {
+		success = false;
+	} else if (!pFile.WriteBytes(writeData, writeLen)) {
 		ERROR_LOG(Log::SaveState, "ChunkReader: Failed writing compressed data");
-		free(write_buffer);
-		return ERROR_BAD_FILE;
-	} else if (sz != write_len) {
-		INFO_LOG(Log::SaveState, "Savestate: Compressed %i bytes into %i", (int)sz, (int)write_len);
+		success = false;
+	} else if (sz != writeLen) {
+		INFO_LOG(Log::SaveState, "Savestate: Compressed %i bytes into %i", (int)sz, (int)writeLen);
 	}
-	free(write_buffer);
+	free(buffer);
+	if (!success) {
+		return ERROR_BAD_FILE;
+	}
 
 	INFO_LOG(Log::SaveState, "ChunkReader: Done writing %s", filename.c_str());
 	return ERROR_NONE;
