@@ -603,6 +603,8 @@ void GameScreen::CreateSettingsViews(UI::ViewGroup *rightColumn) {
 				}
 				g_Config.Save("GameScreen::ChangeDisc");
 				OnArchiveDiscChanged(gamePath_);
+				// The menu music comes from the disc too.
+				g_BackgroundAudio.ReloadGame(gamePath_);
 				// Our info is now about another disc. Get the new one.
 				info_ = g_gameInfoCache->GetInfo(nullptr, gamePath_, g_desiredFlags, &knownFlags_);
 				CRC32string.clear();

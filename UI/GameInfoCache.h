@@ -264,5 +264,6 @@ extern GameInfoCache *g_gameInfoCache;
 // The name to show for a disc of a ZArchive: "Disc 2" for "Disc 2.iso".
 std::string ArchiveDiscName(std::string_view disc);
 // Call after changing which disc of a ZArchive is current (see RememberZArchiveDisc), so that
-// everything shows that disc. Main thread only.
+// everything shows that disc. Main thread only. The menu music is separate, see
+// BackgroundAudio::ReloadGame (BackgroundAudio isn't part of every build that has this).
 void OnArchiveDiscChanged(const Path &archivePath);
