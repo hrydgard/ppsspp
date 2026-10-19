@@ -36,6 +36,13 @@ namespace SaveState {
 	};
 	typedef std::function<void(Status status, std::string_view message, std::string_view metadata)> Callback;
 
+	// The whole state, for CChunkFileReader. libretro uses it directly.
+	struct SaveStart {
+		void DoState(PointerWrap &p);
+		// Rewind snapshots and verification don't count towards IsStale().
+		bool countsAsSave = true;
+	};
+
 	static const char * const SCREENSHOT_EXTENSION = "jpg";
 
 	void Init();

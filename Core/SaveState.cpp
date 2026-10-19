@@ -108,12 +108,6 @@ static std::map<std::string, uint64_t, std::less<>> g_files;  // the value is th
 // Set when a slot save finishes. That's on the emu thread, so the rescan is left to the next reader.
 static std::atomic<bool> g_filesStale;
 
-struct SaveStart {
-	void DoState(PointerWrap &p);
-	// Rewind snapshots and verification don't count towards IsStale().
-	bool countsAsSave = true;
-};
-
 enum class OperationType {
 	Save,
 	Load,

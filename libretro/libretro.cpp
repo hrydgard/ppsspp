@@ -1808,14 +1808,6 @@ unsigned retro_get_region(void) { return RETRO_REGION_NTSC; }
 
 bool retro_load_game_special(unsigned type, const struct retro_game_info *info, size_t num) { return false; }
 
-namespace SaveState
-{
-   struct SaveStart
-   {
-      void DoState(PointerWrap &p);
-   };
-} // namespace SaveState
-
 size_t retro_serialize_size(void)
 {
    if (!gpu) // The HW renderer isn't ready on first pass.
