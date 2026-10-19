@@ -25,6 +25,7 @@
 #include "Common/TimeUtil.h"
 #include "Core/Core.h"
 #include "Core/Debugger/WebSocket.h"
+#include "Core/Debugger/WebSocket/DebuggerEventQueue.h"
 #include "Core/Debugger/WebSocket/WebSocketUtils.h"
 
 // This WebSocket (connected through the same port as disc sharing) allows API/debugger access to PPSSPP.
@@ -118,31 +119,10 @@ static void UpdateConnected(int delta) {
 // debugger was reading pc, the tick count, the UI state and the param SFO out from under the CPU
 // thread on every lap of its loop. Now the CPU thread notices the transition once, formats the
 // event, and drops it in here; the connection's own thread just drains and sends.
-// A log-only breakpoint in a hot loop can produce events far faster than a connection drains them
-// (the drain runs once per lap of ws->Process, so at best a few hundred times a second). Without a
-// cap the queue grows without bound and the connection falls further and further behind. Dropping
-// is the only sane answer; cpu.breakpoint.hit carries a sequence number so a client can tell
-// exactly how many it missed rather than silently believing it saw everything.
-static constexpr size_t MAX_PENDING_EVENTS = 4096;
-
 struct DebuggerEventSink {
-	std::mutex lock;
-	std::vector<std::pair<const char *, std::string>> pending;
+	DebuggerEventQueue queue;
 	// A debugger that connects while the CPU is already stopped still wants to hear about it.
 	bool needsSteppingPrime = true;
-
-	void Push(const char *category, std::string json) {
-		std::lock_guard<std::mutex> guard(lock);
-		if (pending.size() >= MAX_PENDING_EVENTS)
-			return;
-		pending.emplace_back(category, std::move(json));
-	}
-
-	void Take(std::vector<std::pair<const char *, std::string>> *out) {
-		std::lock_guard<std::mutex> guard(lock);
-		out->swap(pending);
-		pending.clear();
-	}
 };
 
 static std::mutex g_sinkLock;
@@ -187,7 +167,7 @@ void WebSocketNotifyBreakpointHit(const BreakpointHit &hit) {
 	const std::string json = j.str();
 
 	for (DebuggerEventSink *sink : g_sinks)
-		sink->Push("breakpoint", json);
+		sink->queue.Push("breakpoint", json);
 }
 
 void WebSocketDebuggerTick() {
@@ -208,13 +188,13 @@ void WebSocketDebuggerTick() {
 			if (steppingPrime.empty())
 				steppingPrime = SteppingBroadcaster::CurrentState();
 			if (!steppingPrime.empty())
-				sink->Push("stepping", steppingPrime);
+				sink->queue.Push("stepping", steppingPrime);
 			continue;
 		}
 		if (!gameEvent.empty())
-			sink->Push("game", gameEvent);
+			sink->queue.Push("game", gameEvent);
 		if (!steppingEvent.empty())
-			sink->Push("stepping", steppingEvent);
+			sink->queue.Push("stepping", steppingEvent);
 	}
 }
 
@@ -308,8 +288,13 @@ void HandleDebuggerRequest(const http::ServerRequest &request) {
 			input.Broadcast(ws);
 
 		// Whatever the CPU thread queued up for us since last lap.
-		std::vector<std::pair<const char *, std::string>> events;
-		sink.Take(&events);
+		std::vector<DebuggerEventQueue::Event> events;
+		if (!sink.queue.Take(&events)) {
+			// Even control transitions overflowed. The client must reconnect and refresh
+			// its state, rather than carry on with an incomplete transition history.
+			ws->Close(net::WebSocketClose::TRY_AGAIN_LATER);
+			continue;
+		}
 		for (const auto &ev : events) {
 			if (!disallowed_config[ev.first])
 				ws->Send(ev.second);

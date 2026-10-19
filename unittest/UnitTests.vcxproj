@@ -300,6 +300,7 @@
     <ClCompile Include="TestSplineTessellation.cpp" />
     <ClCompile Include="TestGEMath.cpp" />
     <ClCompile Include="TestThreadManager.cpp" />
+    <ClCompile Include="TestDebuggerEventQueue.cpp" />
     <ClCompile Include="TestTextureReplacer.cpp" />
     <ClCompile Include="TestBoundingBox.cpp" />
     <ClCompile Include="TestDepthRaster.cpp" />

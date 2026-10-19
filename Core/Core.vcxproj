@@ -824,6 +824,7 @@
     <ClInclude Include="Debugger\WebSocket\ReplaySubscriber.h" />
     <ClInclude Include="Debugger\WebSocket\SteppingSubscriber.h" />
     <ClInclude Include="Debugger\WebSocket\WebSocketUtils.h" />
+    <ClInclude Include="Debugger\WebSocket\DebuggerEventQueue.h" />
     <ClInclude Include="Debugger\WebSocket\CPUCoreSubscriber.h" />
     <ClInclude Include="Debugger\WebSocket\MemorySubscriber.h" />
     <ClInclude Include="Debugger\WebSocket\GameBroadcaster.h" />

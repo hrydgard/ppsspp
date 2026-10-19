@@ -1980,6 +1980,9 @@
     <ClInclude Include="Debugger\WebSocket\WebSocketUtils.h">
       <Filter>Debugger\WebSocket</Filter>
     </ClInclude>
+    <ClInclude Include="Debugger\WebSocket\DebuggerEventQueue.h">
+      <Filter>Debugger\WebSocket</Filter>
+    </ClInclude>
     <ClInclude Include="Debugger\WebSocket\GameSubscriber.h">
       <Filter>Debugger\WebSocket</Filter>
     </ClInclude>

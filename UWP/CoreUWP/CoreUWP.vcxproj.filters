@@ -446,6 +446,7 @@
     <ClInclude Include="..\..\Core\Debugger\WebSocket\SteppingBroadcaster.h" />
     <ClInclude Include="..\..\Core\Debugger\WebSocket\SteppingSubscriber.h" />
     <ClInclude Include="..\..\Core\Debugger\WebSocket\WebSocketUtils.h" />
+    <ClInclude Include="..\..\Core\Debugger\WebSocket\DebuggerEventQueue.h" />
     <ClInclude Include="..\..\Core\Dialog\PSPDialog.h" />
     <ClInclude Include="..\..\Core\Dialog\PSPGamedataInstallDialog.h" />
     <ClInclude Include="..\..\Core\Dialog\PSPMsgDialog.h" />

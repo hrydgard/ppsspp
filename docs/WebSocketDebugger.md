@@ -257,10 +257,19 @@ reporting the range start; `hit.address` is the accurate one.
 
 `sequence` counts hits *produced*, not delivered. A connection whose queue backs
 up (easy to do with a log-only breakpoint in a hot loop - one can produce tens
-of thousands of hits per second) drops events rather than growing without bound,
-so a gap in `sequence` tells a client exactly how many it missed. Turning the
+of thousands of hits per second) may drop breakpoint hits. A gap between received
+sequence numbers tells a client how many hits it missed between them. If no later
+hit arrives, loss at the end of the stream remains unknown. Turning the
 `breakpoint` category off via `broadcast.config.set` avoids the traffic
 entirely.
+
+The CPU event queue holds at most 4096 pending events per connection. When full,
+an incoming game or stepping transition replaces the newest queued breakpoint
+hit, preserving the order of the remaining events. Receiving a transition does
+not imply that every preceding breakpoint hit was delivered. If the queue is
+full of control transitions alone, another transition closes the connection with
+WebSocket code 1013 (Try Again Later). Reconnect and query `game.status` and
+`cpu.status` to refresh the current state; this cannot recover the lost history.
 
 ## Request/response event catalog
 

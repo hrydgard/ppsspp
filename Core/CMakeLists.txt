@@ -184,6 +184,7 @@ if(NOT LIBRETRO)
 		Debugger/WebSocket/SteppingSubscriber.h
 		Debugger/WebSocket/WebSocketUtils.cpp
 		Debugger/WebSocket/WebSocketUtils.h
+		Debugger/WebSocket/DebuggerEventQueue.h
 		HW/GranularMixer.cpp
 		HW/GranularMixer.h
 		HW/StereoResampler.cpp

@@ -1427,6 +1427,7 @@ if(UNITTEST)
 		unittest/TestRiscVEmitter.cpp
 		unittest/TestLoongArch64Emitter.cpp
 		unittest/TestThreadManager.cpp
+		unittest/TestDebuggerEventQueue.cpp
 		unittest/JitHarness.cpp
 		unittest/JitHarness.h
 	)
@@ -1478,6 +1479,7 @@ if(UNITTEST)
 	add_test(quick_texhash PPSSPPUnitTest QuickTexHash)
 	add_test(clz PPSSPPUnitTest CLZ)
 	add_test(shadergen PPSSPPUnitTest ShaderGenerators)
+	add_test(debugger_event_queue PPSSPPUnitTest DebuggerEventQueue)
 endif()
 
 if(ATLAS_TOOL)

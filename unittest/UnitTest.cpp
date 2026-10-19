@@ -3327,6 +3327,7 @@ bool TestLoongArch64Emitter();
 bool TestShaderGenerators();
 bool TestIRPassSimplify();
 bool TestThreadManager();
+bool TestDebuggerEventQueue();
 bool TestVFS();
 bool TestZipSlip();
 bool TestLzrc();
@@ -3697,6 +3698,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(Path),
 	TEST_ITEM(AndroidContentURI),
 	TEST_ITEM(ThreadManager),
+	TEST_ITEM(DebuggerEventQueue),
 	TEST_ITEM(WrapText),
 	TEST_ITEM(TinySet),
 	TEST_ITEM(FastVec),
