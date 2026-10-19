@@ -1953,7 +1953,7 @@ struct DisplayList_v2 {
 };
 
 void GPUCommon::DoState(PointerWrap &p) {
-	auto s = p.Section("GPUCommon", 1, 7);
+	auto s = p.Section("GPUCommon", 1, 8);
 	if (!s)
 		return;
 
@@ -2056,9 +2056,26 @@ void GPUCommon::DoState(PointerWrap &p) {
 
 	if (s >= 5) {
 		Do(p, matrixVisible.all);
+	} else if (p.mode == PointerWrap::MODE_READ) {
+		ResetMatrices();
 	}
 	if (s >= 6) {
 		Do(p, edramTranslation_);
+	} else if (p.mode == PointerWrap::MODE_READ) {
+		edramTranslation_ = 0x400;
+	}
+	// Which slot (and so which id) the next list gets. Older states start over at 0, rather than
+	// carry on from the session before the load.
+	if (s >= 8) {
+		Do(p, nextListID);
+	} else {
+		nextListID = 0;
+	}
+	if (p.mode == PointerWrap::MODE_READ) {
+		if (nextListID < 0 || nextListID > DisplayListMaxCount) {
+			nextListID = 0;
+		}
+		recorder_.RestartAfterLoad();
 	}
 }
 

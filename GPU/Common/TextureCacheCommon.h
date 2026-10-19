@@ -367,6 +367,9 @@ public:
 
 	virtual void ForgetLastTexture() = 0;
 	virtual void Clear(bool delete_them);
+	// After a savestate load, which may have changed any texture's memory (and destroyed the
+	// framebuffers). Textures are kept, but hashed again before they're used.
+	void RecheckAllAfterLoad();
 	virtual void NotifyConfigChanged();
 
 	// FramebufferManager keeps TextureCache updated about what regions of memory are being rendered to,
@@ -502,6 +505,7 @@ protected:
 	CLUTProperties clutProperties_;
 
 	// Facilities for GPU depal of static textures.
+	void ReleaseDynamicClut();
 	Draw::Framebuffer *dynamicClutTemp_ = nullptr;
 	Draw::Framebuffer *dynamicClutFbo_ = nullptr;
 

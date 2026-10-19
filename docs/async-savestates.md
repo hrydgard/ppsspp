@@ -50,9 +50,11 @@ doesn't (worker).
 
 The thumbnail screenshot is already asynchronous and doesn't change.
 
-**A save to a path that already has a save queued or in flight is a duplicate keypress.** It isn't
-queued again. Its callback is attached to the save in flight and called with that save's status and
-an empty message (so it shows nothing, and the in-flight save's own callback shows the result once).
+**A save to a path that already has a save queued, and not yet snapshotted, is a duplicate
+keypress.** It isn't queued again. Its callback is attached to the queued save and called with that
+save's status and an empty message (so it shows nothing, and the queued save's own callback shows
+the result once). Once the snapshot is taken, another save to the path is a new save: the game may
+have moved on, or a load been applied, since.
 
 A save to a different path is queued, and takes its snapshot right away like any other. **At most two
 save snapshots exist at once**: a third save, while two are still being written, waits for the
@@ -84,8 +86,7 @@ Operations still take effect in the order they were asked for:
   and snapshots the loaded state, as it does today when both run in the same `Process()`. A load
   waiting for its file holds up only the emu phases queued behind it.
 - **Worker jobs run in queue order**, so a save to a slot followed by a load of it writes before it
-  reads. As a shortcut, a load whose path has a write pending takes that save's uncompressed
-  snapshot directly and skips the file round trip.
+  reads.
 - **UI-thread file operations on slots wait for the worker** (`WaitForWorker()`, for all jobs, since
   it's rare and short): `UndoSaveSlot` and `DeleteSlot`. `UndoLoad` is a load, so it's queued behind
   the load undo write like anything else. `LoadSlot`'s existence check counts a slot with a save
@@ -100,9 +101,11 @@ need the emu thread, so it can't deadlock.
   they are. So does the freeze-frame feature (`SaveToRam`/`LoadFromRam` every frame).
 - **Verify** stays synchronous.
 - **Shutdown and game switch** (`SaveState::Shutdown()`, from the kernel's shutdown, which app exit
-  goes through too): wait for the worker, so a save that was asked for is never lost. Then run the
+  goes through too): wait for the worker, so a save whose snapshot was taken is written. Then run the
   completions' bookkeeping (the undo slot in the config) without their callbacks, which can refer to
-  an EmuScreen that's going away, and drop whatever is still queued, as before.
+  an EmuScreen that's going away, and drop whatever is still queued, as before. A save still queued
+  at that point (asked for in the pause menu, which doesn't run `Process()`, then quitting) is lost
+  like it always was: by then most of the kernel has shut down, too late to take a snapshot.
 - Loads at boot (auto-load, `--state`, opening a `.ppst`) and the debugger's `game.state.*` with
   `wait` already work through callbacks, and need no special handling. The game already ran at least
   a frame before a boot-time load applied.

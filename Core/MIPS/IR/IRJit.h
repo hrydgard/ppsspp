@@ -209,6 +209,7 @@ public:
 
 	void ClearCache() override;
 	void InvalidateCacheAt(u32 em_address, int length = 4) override;
+	void InvalidateCacheExcept(const std::vector<std::pair<u32, u32>> &keep) override;
 	void UpdateFCR31() override;
 	void GetStats(JitStats *stats) const override;
 
@@ -238,6 +239,7 @@ protected:
 	virtual bool CompileNativeBlock(IRBlockCache *irBlockCache, int block_num) { return true; }
 	virtual void FinalizeNativeBlock(IRBlockCache *irBlockCache, int block_num) {}
 	virtual void InvalidateNativeBlock(IRBlockCache *irBlockCache, int block_num) {}
+	void InvalidateBlock(int block_num);
 
 	bool compileToNative_;
 

@@ -34,6 +34,7 @@
 #include "Core/HLE/__sceAudio.h"
 #include "Core/HW/MemoryStick.h"
 #include "Core/MemMap.h"
+#include "Core/SaveState.h"
 #include "Core/System.h"
 #include "Core/CoreTiming.h"
 #include "Core/HW/Display.h"
@@ -1807,14 +1808,6 @@ void retro_run(void) {
 unsigned retro_get_region(void) { return RETRO_REGION_NTSC; }
 
 bool retro_load_game_special(unsigned type, const struct retro_game_info *info, size_t num) { return false; }
-
-namespace SaveState
-{
-   struct SaveStart
-   {
-      void DoState(PointerWrap &p);
-   };
-} // namespace SaveState
 
 size_t retro_serialize_size(void)
 {

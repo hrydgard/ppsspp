@@ -44,6 +44,8 @@ int CPU_HZ = 222000000;
 namespace CoreTiming {
 
 static std::vector<EventType> event_types;
+// Far more than ever registered. Counts and ids from a savestate are checked against it.
+static constexpr int MAX_EVENT_TYPES = 4096;
 // Only used during restore.
 static std::set<int> usedEventTypes;
 static std::set<int> restoredEventTypes;
@@ -188,6 +190,9 @@ void AntiCrashCallback(u64 userdata, int cyclesLate) {
 void RestoreRegisterEvent(int &event_type, const char *name, TimedCallback callback) {
 	// Some old states have a duplicate restore, do our best to fix...
 	if (restoredEventTypes.count(event_type) != 0)
+		event_type = -1;
+	// Straight from the file, so don't let a bogus id size the table.
+	if (event_type < -1 || event_type >= MAX_EVENT_TYPES)
 		event_type = -1;
 	if (event_type == -1)
 		event_type = nextEventTypeRestoreId++;
@@ -542,6 +547,11 @@ void DoState(PointerWrap &p) {
 	int n = (int)event_types.size();
 	int current = n;
 	Do(p, n);
+	if (n < 0 || n > MAX_EVENT_TYPES) {
+		ERROR_LOG(Log::SaveState, "Savestate failure: implausible event type count %d", n);
+		p.SetError(p.ERROR_FAILURE);
+		return;
+	}
 	if (n > current) {
 		if (p.mode != PointerWrap::MODE_READ) {
 			WARN_LOG(Log::SaveState, "Savestate failure: more events than current");
@@ -579,6 +589,13 @@ void DoState(PointerWrap &p) {
 	}
 
 	Do(p, CPU_HZ);
+	if (CPU_HZ <= 0) {
+		// Everything divides by it.
+		ERROR_LOG(Log::SaveState, "Savestate failure: bad CPU frequency %d", (int)CPU_HZ);
+		p.SetError(p.ERROR_FAILURE);
+		CPU_HZ = 222000000;
+		return;
+	}
 	Do(p, slicelength);
 	Do(p, globalTimer);
 	Do(p, idledCycles);

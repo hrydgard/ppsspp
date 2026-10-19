@@ -50,6 +50,9 @@ public:
 		return nextFrame || active;
 	}
 	bool RecordNextFrame(const std::function<void(const Path &)> callback);
+	// A savestate load replaced everything a recording in progress started from. It starts over
+	// from the loaded state, at the next frame.
+	void RestartAfterLoad();
 	void ClearCallback() {
 		std::lock_guard<std::mutex> guard(callbackLock_);
 		writeCallback = nullptr;

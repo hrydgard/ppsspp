@@ -524,10 +524,9 @@ bool GPUCommonHW::PresentedThisFrame() const {
 void GPUCommonHW::DoState(PointerWrap &p) {
 	GPUCommon::DoState(p);
 
-	// TODO: Some of these things may not be necessary.
 	// None of these are necessary when saving.
 	if (p.mode == p.MODE_READ && !PSP_CoreParameter().frozen) {
-		textureCache_->Clear(true);
+		textureCache_->RecheckAllAfterLoad();
 
 		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 		framebufferManager_->DestroyAllFBOs();

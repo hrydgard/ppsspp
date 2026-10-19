@@ -326,6 +326,18 @@ void MIPSState::Reset() {
 }
 
 void MIPSState::Init() {
+	InitRegisters();
+	if (PSP_CoreParameter().cpuCore == CPUCore::JIT || PSP_CoreParameter().cpuCore == CPUCore::JIT_IR) {
+		MIPSComp::jit = MIPSComp::CreateNativeJit(this);
+	} else if (PSP_CoreParameter().cpuCore == CPUCore::IR_INTERPRETER) {
+		MIPSComp::jit = new MIPSComp::IRJit(this, false);
+	} else {
+		MIPSComp::jit = nullptr;
+	}
+	UpdateBlockShadowHook();
+}
+
+void MIPSState::InitRegisters() {
 	memset(r, 0, sizeof(r));
 	memset(f, 0, sizeof(f));
 	memset(v, 0, sizeof(v));
@@ -359,15 +371,6 @@ void MIPSState::Init() {
 	downcount = 0;
 
 	memset(vcmpResult, 0, sizeof(vcmpResult));
-
-	if (PSP_CoreParameter().cpuCore == CPUCore::JIT || PSP_CoreParameter().cpuCore == CPUCore::JIT_IR) {
-		MIPSComp::jit = MIPSComp::CreateNativeJit(this);
-	} else if (PSP_CoreParameter().cpuCore == CPUCore::IR_INTERPRETER) {
-		MIPSComp::jit = new MIPSComp::IRJit(this, false);
-	} else {
-		MIPSComp::jit = nullptr;
-	}
-	UpdateBlockShadowHook();
 }
 
 const float vfpuPrefixConstants[8] = { 0.f, 1.f, 2.f, 0.5f, 3.f, 1.f / 3.f, 0.25f, 1.f / 6.f };
@@ -427,9 +430,17 @@ void MIPSState::DoState(PointerWrap &p) {
 	if (!s)
 		return;
 
-	// Reset the jit if we're loading.
-	if (p.mode == p.MODE_READ)
-		Reset();
+	if (p.mode == p.MODE_READ) {
+		if (MIPSComp::jit && !keepJitBlocks_.empty()) {
+			// Blocks in code the load didn't change can stay. Queued invalidations stay too.
+			InitRegisters();
+			MIPSComp::jit->InvalidateCacheExcept(keepJitBlocks_);
+		} else {
+			// Start the JIT over.
+			Reset();
+		}
+		keepJitBlocks_.clear();
+	}
 	// Assume we're not saving state during a CPU core reset, so no lock.
 	if (MIPSComp::jit)
 		MIPSComp::jit->DoState(p);

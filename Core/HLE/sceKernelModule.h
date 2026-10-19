@@ -229,6 +229,11 @@ public:
 
 KernelObject *__KernelModuleObject();
 void __KernelModuleDoState(PointerWrap &p);
+// The code of the loaded modules, as (address, size).
+std::vector<std::pair<u32, u32>> __KernelModuleCodeRanges();
+// For the next savestate load: code it leaves as it was, as (address, size). Its functions aren't
+// hashed again.
+void __KernelModuleSetUnchangedCodeOnLoad(std::vector<std::pair<u32, u32>> unchanged);
 void __KernelModuleShutdown();
 
 class MIPSState;

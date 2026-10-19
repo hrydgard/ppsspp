@@ -695,6 +695,22 @@ bool Recorder::RecordNextFrame(const std::function<void(const Path &)> callback)
 	return true;
 }
 
+void Recorder::RestartAfterLoad() {
+	if (!active) {
+		return;
+	}
+	NOTICE_LOG(Log::System, "Savestate loaded, restarting the recording");
+	commands.clear();
+	pushbuf.clear();
+	lastVRAM.clear();
+	lastEdramTrans = 0x400;
+	flipLastAction = gpuStats.totals.numFlips;
+	flipFinishAt = -1;
+	std::lock_guard<std::mutex> guard(callbackLock_);
+	active = false;
+	nextFrame = true;
+}
+
 void Recorder::FinishRecording() {
 	// We're done - this was just to write the result out.
 	if (!active) {

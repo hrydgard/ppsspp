@@ -534,6 +534,26 @@ static void __KernelModuleInit() {
 	eventModuleLoadDone = CoreTiming::RegisterEvent("LoadModuleDone", &__KernelLoadModuleDone);
 }
 
+// Set for the next load by the savestate code: code the load left as it was.
+static std::vector<std::pair<u32, u32>> g_unchangedCodeOnLoad;
+
+void __KernelModuleSetUnchangedCodeOnLoad(std::vector<std::pair<u32, u32>> unchanged) {
+	g_unchangedCodeOnLoad = std::move(unchanged);
+}
+
+std::vector<std::pair<u32, u32>> __KernelModuleCodeRanges() {
+	std::vector<std::pair<u32, u32>> ranges;
+	u32 error;
+	for (SceUID moduleId : loadedModules) {
+		const PSPModule *module = kernelObjects.Get<PSPModule>(moduleId, error);
+		// textEnd is the last instruction.
+		if (module && !module->isFake && module->textStart != 0 && module->textEnd >= module->textStart) {
+			ranges.emplace_back(module->textStart, module->textEnd + 4 - module->textStart);
+		}
+	}
+	return ranges;
+}
+
 void __KernelModuleDoState(PointerWrap &p) {
 	auto s = p.Section("sceKernelModule", 1, 5);
 	if (!s)
@@ -602,7 +622,9 @@ void __KernelModuleDoState(PointerWrap &p) {
 		}
 		// The functions were found in memory from before the load, where other code may have been
 		// (an overlay module, say.) Hash them from what's there now, so a hook only goes where it matches.
-		MIPSAnalyst::RehashFunctions();
+		// Only what the load may have changed: hashing it all again takes milliseconds.
+		MIPSAnalyst::RehashFunctions(g_unchangedCodeOnLoad);
+		g_unchangedCodeOnLoad.clear();
 		if (g_Config.bFuncReplacements) {
 			MIPSAnalyst::ReplaceFunctions();
 		}

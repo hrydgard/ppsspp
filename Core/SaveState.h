@@ -36,6 +36,13 @@ namespace SaveState {
 	};
 	typedef std::function<void(Status status, std::string_view message, std::string_view metadata)> Callback;
 
+	// The whole state, for CChunkFileReader. libretro uses it directly.
+	struct SaveStart {
+		void DoState(PointerWrap &p);
+		// Rewind snapshots and verification don't count towards IsStale().
+		bool countsAsSave = true;
+	};
+
 	static const char * const SCREENSHOT_EXTENSION = "jpg";
 
 	void Init();
@@ -102,11 +109,11 @@ namespace SaveState {
 	CChunkFileReader::Error LoadFromRam(std::vector<u8> &state, std::string *errorString);
 
 	// For testing / automated tests.  Runs a save state verification pass (async.)
-	// Warning: callback will be called on a different thread.
+	// The callback runs from Process().
 	bool Verify(Callback callback = Callback());
 
 	// To go back to a previous snapshot (only if enabled.)
-	// Warning: callback will be called on a different thread.
+	// The callback runs from Process(), once the snapshot has been applied.
 	bool Rewind(Callback callback = Callback());
 
 	// Returns true if there are rewind snapshots available.
@@ -126,7 +133,9 @@ namespace SaveState {
 	bool IsOldVersion();
 
 	// Check if there's any save stating needing to be done.  Normally called once per frame.
-	void Process();
+	// While the game is paused (under the pause menu, say), pass false: there's nothing new to take
+	// rewind snapshots of.
+	void Process(bool takeRewindSnapshots = true);
 
 	// Notify save state code that new save data has been written.
 	void NotifySaveData();

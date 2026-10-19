@@ -909,13 +909,32 @@ namespace MIPSAnalyst {
 		return DetermineRegisterUsage(reg, addr, instrs) == USAGE_CLOBBERED;
 	}
 
-	void HashFunctions() {
+	// Ranges are (address, size), sorted by address and not overlapping.
+	static bool InsideRanges(const std::vector<std::pair<u32, u32>> &ranges, u32 start, u32 end) {
+		start &= 0x3FFFFFFF;
+		end &= 0x3FFFFFFF;
+		auto iter = std::upper_bound(ranges.begin(), ranges.end(), start, [](u32 address, const std::pair<u32, u32> &range) {
+			return address < (range.first & 0x3FFFFFFF);
+		});
+		if (iter == ranges.begin()) {
+			return false;
+		}
+		--iter;
+		const u32 rangeStart = iter->first & 0x3FFFFFFF;
+		return start >= rangeStart && end <= rangeStart + iter->second;
+	}
+
+	static void HashFunctions(const std::vector<std::pair<u32, u32>> &unchanged = {}) {
 		std::lock_guard<std::recursive_mutex> guard(functions_lock);
 		std::vector<u32> buffer;
 
 		for (auto iter = functions.begin(), end = functions.end(); iter != end; iter++) {
 			AnalyzedFunction &f = *iter;
 			if (!Memory::IsValidRange(f.start, f.end - f.start + 4)) {
+				continue;
+			}
+			// end is the last instruction.
+			if (f.hasHash && InsideRanges(unchanged, f.start, f.end + 4)) {
 				continue;
 			}
 
@@ -1311,9 +1330,11 @@ namespace MIPSAnalyst {
 		return false;
 	}
 
-	void RehashFunctions() {
+	void RehashFunctions(const std::vector<std::pair<u32, u32>> &unchanged) {
+		std::vector<std::pair<u32, u32>> sorted = unchanged;
+		std::sort(sorted.begin(), sorted.end());
 		std::lock_guard<std::recursive_mutex> guard(functions_lock);
-		HashFunctions();
+		HashFunctions(sorted);
 		UpdateHashToFunctionMap();
 	}
 

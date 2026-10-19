@@ -497,7 +497,8 @@ void HLEDoState(PointerWrap &p) {
 				delete action;
 			}
 			mipsCallActions.clear();
-			if (actions < 0) {
+			// Each action takes at least its type id.
+			if (actions < 0 || (size_t)actions > p.Remaining() / sizeof(int)) {
 				p.SetError(p.ERROR_FAILURE);
 				return;
 			}

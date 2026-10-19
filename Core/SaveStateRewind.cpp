@@ -161,6 +161,16 @@ CChunkFileReader::Error StateRingbuffer::Restore(std::string *errorString, std::
 	return FinishRestore(errorString, metadata);
 }
 
+void StateRingbuffer::CancelRestore() {
+	if (!restoreActive_) {
+		return;
+	}
+	// The decode may still be running into restoreBuffer_.
+	WaitForWorker();
+	restoreActive_ = false;
+	std::vector<u8>().swap(restoreBuffer_);
+}
+
 // Only moves the ring back: the state's buffer may still be in use by a worker job, and is reused
 // by the next snapshot anyway.
 void StateRingbuffer::DropNewest() {

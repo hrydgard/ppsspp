@@ -449,7 +449,60 @@ bool Reinit() {
 	return success;
 }
 
-static void DoMemoryVoid(PointerWrap &p, uint32_t start, uint32_t size) {
+// Loads size bytes at start, comparing the parts of it in compare->ranges with what's there as it
+// goes. A chunk that already matches doesn't need copying, and the matching parts are reported in
+// compare->unchanged. The rest is a plain copy.
+static void CopyComparing(uint8_t *dest, const uint8_t *src, u32 start, u32 size, RamCompare *compare) {
+	// In the size of the JIT's block lookup pages. One changed byte costs its chunk's blocks.
+	constexpr u32 CHUNK_SIZE = 1024;
+
+	// As offsets into the copy, in order, merged.
+	std::vector<std::pair<u32, u32>> ranges;
+	for (const auto &[address, length] : compare->ranges) {
+		const u32 rangeStart = std::max(address & 0x3FFFFFFF, start);
+		const u32 rangeEnd = std::min((address & 0x3FFFFFFF) + length, start + size);
+		if (rangeStart < rangeEnd) {
+			ranges.emplace_back(rangeStart - start, rangeEnd - start);
+		}
+	}
+	std::sort(ranges.begin(), ranges.end());
+
+	u32 pos = 0;
+	for (const auto &[rangeStart, rangeEnd] : ranges) {
+		const u32 from = std::max(rangeStart, pos);
+		if (from >= rangeEnd) {
+			continue;
+		}
+		if (from > pos) {
+			ParallelMemcpy(&g_threadManager, dest + pos, src + pos, from - pos);
+		}
+		u32 runStart = 0;
+		bool inRun = false;
+		for (u32 chunk = from; chunk < rangeEnd; chunk += CHUNK_SIZE) {
+			const u32 chunkSize = std::min(CHUNK_SIZE, rangeEnd - chunk);
+			const bool same = memcmp(dest + chunk, src + chunk, chunkSize) == 0;
+			if (same && !inRun) {
+				runStart = chunk;
+				inRun = true;
+			} else if (!same) {
+				memcpy(dest + chunk, src + chunk, chunkSize);
+				if (inRun) {
+					compare->unchanged.emplace_back(start + runStart, chunk - runStart);
+					inRun = false;
+				}
+			}
+		}
+		if (inRun) {
+			compare->unchanged.emplace_back(start + runStart, rangeEnd - runStart);
+		}
+		pos = rangeEnd;
+	}
+	if (pos < size) {
+		ParallelMemcpy(&g_threadManager, dest + pos, src + pos, size - pos);
+	}
+}
+
+static void DoMemoryVoid(PointerWrap &p, uint32_t start, uint32_t size, RamCompare *compare = nullptr) {
 	uint8_t *d = GetPointerWriteOrException(start);
 	uint8_t *&storage = *p.ptr;
 
@@ -463,7 +516,11 @@ static void DoMemoryVoid(PointerWrap &p, uint32_t start, uint32_t size) {
 
 	switch (p.mode) {
 	case PointerWrap::MODE_READ:
-		ParallelMemcpy(&g_threadManager, d, storage, size);
+		if (compare && !compare->ranges.empty()) {
+			CopyComparing(d, storage, start, size, compare);
+		} else {
+			ParallelMemcpy(&g_threadManager, d, storage, size);
+		}
 		break;
 	case PointerWrap::MODE_WRITE:
 		ParallelMemcpy(&g_threadManager, storage, d, size);
@@ -483,10 +540,12 @@ static void DoMemoryVoid(PointerWrap &p, uint32_t start, uint32_t size) {
 	storage += size;
 }
 
-void DoState(PointerWrap &p) {
+void DoState(PointerWrap &p, RamCompare *compare) {
 	auto s = p.Section("Memory", 1, 3);
 	if (!s)
 		return;
+
+	const u32 memorySizeBefore = g_MemorySize;
 
 	if (s < 2) {
 		if (!g_RemasterMode)
@@ -529,7 +588,12 @@ void DoState(PointerWrap &p) {
 		}
 	}
 
-	DoMemoryVoid(p, PSP_GetKernelMemoryBase(), g_MemorySize);
+	// A new size means Reinit(): RAM is newly mapped, nothing in it to compare with, and the JIT has
+	// to start over (its dispatcher points at the old mapping.)
+	if (g_MemorySize != memorySizeBefore) {
+		compare = nullptr;
+	}
+	DoMemoryVoid(p, PSP_GetKernelMemoryBase(), g_MemorySize, compare);
 	p.DoMarker("RAM");
 
 	DoMemoryVoid(p, PSP_GetVidMemBase(), VRAM_SIZE);
