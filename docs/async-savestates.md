@@ -1,8 +1,9 @@
 # Async savestates
 
-The design for taking savestate file work off the emulation thread, so saving and loading don't
-stall the game long enough to glitch the audio. Not implemented yet. Written 2026-10-19; file
-references will drift.
+How savestate compression and file I/O were taken off the emulation thread, so saving and loading
+don't stall the game long enough to glitch the audio. The worker and the operation queue are in
+`Core/SaveState.cpp`, rewind in `Core/SaveStateRewind.cpp`, and the file format code in
+`Common/Serialize/Serializer.cpp`. Written 2026-10-19; file references will drift.
 
 **Keep memory use low.** A state is about 38 MB uncompressed, and much of the hardware we run on is
 short of memory. So don't waste it: no full-size buffers beyond what an operation needs, freed when
@@ -40,7 +41,7 @@ doesn't (worker).
 
 1. Emu thread, in `Process()`: `SaveStart::DoState` into a fresh buffer (the snapshot). The waits
    and `FlushPendingDrawing()` stay here, and so does the `saveStateGeneration` bump.
-2. Worker: compress with streaming zstd straight into `<file>.tmp` (see [Memory](#memory)), then for a slot save the rotation that `SaveSlot`'s
+2. Worker: compress (see [Memory](#memory)) and write the file, to `<file>.tmp` for a slot save, then for a slot save the rotation that `SaveSlot`'s
    `renameCallback` does today (old file to `.undo`, `.tmp` to the real name), including the
    `g_Config.Save()` for the undo bookkeeping. Then set `g_filesStale`.
 3. Completion: the callback, with "Saved State" or the failure. **The message appears when the file
@@ -85,44 +86,47 @@ Operations still take effect in the order they were asked for:
 - **Worker jobs run in queue order**, so a save to a slot followed by a load of it writes before it
   reads. As a shortcut, a load whose path has a write pending takes that save's uncompressed
   snapshot directly and skips the file round trip.
-- **UI-thread file operations on slots wait for pending worker jobs on the same slot**: `UndoSaveSlot`,
-  `UndoLoad`, `DeleteSlot`, and `SaveSlot`'s screenshot rotation. `LoadSlot`'s existence check
-  counts a slot with a write pending as existing.
+- **UI-thread file operations on slots wait for the worker** (`WaitForWorker()`, for all jobs, since
+  it's rare and short): `UndoSaveSlot` and `DeleteSlot`. `UndoLoad` is a load, so it's queued behind
+  the load undo write like anything else. `LoadSlot`'s existence check counts a slot with a save
+  pending as existing. The thumbnail screenshot isn't the worker's, so its rotation doesn't wait.
 
 ## What stays synchronous
 
-There's one code path. Synchronous means enqueue and wait for completion. On the emu thread that
-wait runs the worker phase inline instead of blocking on the worker, so it can't deadlock against a
-queue that needs the emu thread.
+There's one code path. Waiting for it is `WaitForWorker()`, which simply blocks: worker jobs never
+need the emu thread, so it can't deadlock.
 
 - **libretro**: `retro_serialize`/`retro_unserialize` are in memory with no file I/O, and stay as
-  they are.
+  they are. So does the freeze-frame feature (`SaveToRam`/`LoadFromRam` every frame).
 - **Verify** stays synchronous.
-- **Shutdown and game switch** (`SaveState::Shutdown()`): flush pending writes (a save that was asked
-  for is never lost), cancel pending reads and call their callbacks with a failure.
-- **App exit**, including Android activity destruction, calls `SaveState::FlushPendingWrites()` with
-  a timeout.
+- **Shutdown and game switch** (`SaveState::Shutdown()`, from the kernel's shutdown, which app exit
+  goes through too): wait for the worker, so a save that was asked for is never lost. Then run the
+  completions' bookkeeping (the undo slot in the config) without their callbacks, which can refer to
+  an EmuScreen that's going away, and drop whatever is still queued, as before.
 - Loads at boot (auto-load, `--state`, opening a `.ppst`) and the debugger's `game.state.*` with
-  `wait` already work through callbacks, and need no special handling. The game already runs at
-  least a frame before a boot-time load applies today.
+  `wait` already work through callbacks, and need no special handling. The game already ran at least
+  a frame before a boot-time load applied.
 
 ## Rewind
 
-Rewind snapshots already compress on a thread. What's still on the emu thread:
+Rewind snapshots used to compress on a `std::thread` per snapshot, which the next snapshot joined
+(stalling if it was still running), and the whole restore ran on the emu thread: wait for the
+compressor, decode (rebuild the full ~38 MB state from the base and the changed blocks), apply. The
+snapshot itself (2-5 ms, mostly copying RAM and VRAM, already a `ParallelMemcpy`) stays on the emu
+thread.
 
-- The snapshot (2-5 ms, mostly copying RAM and VRAM, already a `ParallelMemcpy`).
-- `compressThread_.join()` at the start of each snapshot, which stalls if the previous compress is
-  still running. That gets more likely once the deltas are compressed with zstd.
-- The whole restore: wait for the compressor, decode (rebuild the full ~38 MB state from the base and
-  the changed blocks, essentially a 38 MB copy), apply.
+Now:
 
-Changes:
-
-- Compression moves to the savestate worker, replacing the `std::thread` per snapshot. If the
-  previous snapshot's job is still running, skip the snapshot rather than wait: snapshots are best
-  effort.
-- **Restore becomes an async load from memory**: the worker decodes, the emu thread applies. No
-  prefetching (see [Memory](#memory)).
+- The emu thread owns the ring itself (which slots hold what); compressing and decoding are jobs on
+  the savestate worker, and the emu thread leaves the buffers a job uses alone until it's done.
+- **Compression runs on the worker.** If the previous snapshot's job is still running, the snapshot
+  is skipped and retried next frame rather than waited for: snapshots are best effort.
+- **The deltas get zstd on top** (level 1: higher levels shrink them a little for a lot more time).
+  The changed blocks still compress about 3x, so the ring takes about a third of the memory.
+- **Restore is an async load from memory**: `StartRestore()` picks the state and has the worker
+  decode it (queued behind the newest snapshot's compression, if that's still going), and
+  `FinishRestore()` applies it on the emu thread. No snapshots are taken in between. No prefetching
+  (see [Memory](#memory)).
 
 ## Memory
 
@@ -130,10 +134,11 @@ What each operation holds at its peak, against today:
 
 | | Today | Async |
 |---|---|---|
-| Save | snapshot (38 MB) + `ZSTD_compressBound` output buffer (about 38 MB) | snapshot (38 MB) + streaming output buffer (a few hundred KB) |
-| Load | whole compressed file (about 12 MB) + state (38 MB) | state (38 MB) + streaming input buffer |
+| Save | snapshot (38 MB) + `ZSTD_compressBound` output buffer (about 38 MB) | snapshot (38 MB) + the compressed output as it grows (10-12 MB). The snapshot is freed before writing |
+| Load | whole compressed file (about 12 MB) + state (38 MB) | state (38 MB) + a small streaming input buffer |
 | Load from a slot | the save, then the load | at apply: the loaded state + the load undo snapshot (76 MB), briefly. The loaded state is freed right after the apply, before the undo is compressed |
 | Rewind restore | a `static` 38 MB decode buffer, never freed | the same buffer, freed after the apply |
+| Rewind ring | block diffs | the same, zstd-compressed: about a third |
 
 Rules:
 
@@ -143,10 +148,11 @@ Rules:
   a memory hog in the settings).
 - **At most two save snapshots at a time** (see [Save](#save)), and one load buffer at a time: a
   second load queued behind a first doesn't start reading until the first is applied.
-- **Stream compression in both directions.** `ZSTD_compressStream2` writing to the file in chunks,
-  and `ZSTD_decompressStream` reading from it, so a compressed copy of the state never sits in
-  memory in full. The file format doesn't change: the header's sizes are known before writing
-  (`UncompressedSize`) or patched in afterwards (`ExpectedSize`, by seeking back).
+- **Stream compression in both directions.** Saving, `ZSTD_compressStream2` into a buffer that grows
+  with its output, instead of allocating the worst case up front. It isn't streamed straight to the
+  file, since the header holds the compressed size and seeking back to patch it in isn't safe on
+  every kind of storage (Android's content URIs). Loading, `ZSTD_decompressStream` reads the file in
+  chunks, so the compressed data never sits in memory in full. The file format doesn't change.
 - **Rewind adds nothing.** The worker reuses rewind's existing buffers. There's no prefetching
   (decoding a likely target before the rewind is pressed), which would need a spare full-size buffer.
 
@@ -157,14 +163,23 @@ Rules:
   the write pass.
 - The apply is mostly `DoState` logic rather than copying; leave it unless it shows up.
 
-## Implementation order
+## Results
 
-1. The worker, job and completion queues, ordering, flush and cancel on shutdown, with every job
-   still waited for inline (no behavior change).
-2. Async saves: plain and slot saves, the undo rotation, duplicate detection.
-3. Async loads, with the load undo snapshot moved to apply time.
-4. Rewind compression on the worker, then async restore.
-5. zstd on rewind deltas (the changed blocks only), which slots into step 4's worker job.
+Measured the same way as above (Release headless, desktop x64), on the emu thread:
 
-Each step can be tested with headless, wsdbg and the `game.state.*` debugger commands. A debugger
-query for pending savestate operations would let tests wait for the worker to drain.
+| | Before | After |
+|---|---|---|
+| Save | 49-75 ms | 2.4-2.5 ms (the snapshot) |
+| Load | 28-40 ms | 12-15 ms (the apply, plus the warnings and callback around it) |
+| Rewind restore | decode + apply | 12-13 ms (the apply) |
+| A frame waiting on the worker | | under 0.05 ms |
+
+Rewind deltas went from 4-13 MB to 1.3-3.8 MB each, at 10-24 ms of worker time.
+
+## Testing
+
+Headless, wsdbg and the `game.state.*` debugger commands cover all of it. `game.state.save` and
+`game.state.load` take a `slot` instead of a `path`, which goes through the slot code like the save
+and load keys: undo rotation, load undo, repeats. Use a scratch `--memstick` for that, not the app's,
+or the tests overwrite real slots. wsdbg's `--sync` moves on when a request is acknowledged, not when
+a `wait` result arrives, so put a `:sleep` between steps whose order matters, and one at the end.
