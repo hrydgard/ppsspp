@@ -7,7 +7,7 @@
 //   wsdbg 12345 game.status            # one-shot: send an event, print responses, exit
 //   wsdbg 12345 cpu.setReg thread=0 name=0 value=42
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, HashMap};
 use std::io::{self, BufRead, Write};
 use std::net::TcpStream;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
@@ -127,14 +127,50 @@ fn compact() -> bool {
 // Tickets of requests sent without waiting, whose reply hasn't arrived yet, so :quit can wait for
 // them. Global for the same reason as COMPACT: a reply can turn up inside any of the loops that
 // read the socket (a --sync wait, :sleep, ...), and they all go through print_incoming.
-static PENDING: Mutex<BTreeSet<u64>> = Mutex::new(BTreeSet::new());
+struct PendingRequests {
+    tickets: BTreeMap<u64, bool>, // true means an explicit savestate completion was requested.
+    failed: bool,
+}
 
-fn add_pending(ticket: u64) {
-    PENDING.lock().unwrap().insert(ticket);
+static PENDING: Mutex<PendingRequests> = Mutex::new(PendingRequests {
+    tickets: BTreeMap::new(),
+    failed: false,
+});
+
+fn add_pending(ticket: u64, completion: bool) {
+    PENDING.lock().unwrap().tickets.insert(ticket, completion);
 }
 
 fn pending_count() -> usize {
-    PENDING.lock().unwrap().len()
+    PENDING.lock().unwrap().tickets.len()
+}
+
+fn pending_succeeded() -> bool {
+    let pending = PENDING.lock().unwrap();
+    !pending.failed && !pending.tickets.values().any(|&completion| completion)
+}
+
+fn waits_for_completion(request: &serde_json::Value) -> bool {
+    request.get("wait").and_then(|v| v.as_bool()) == Some(true)
+        && matches!(request.get("event").and_then(|v| v.as_str()),
+            Some("game.state.save" | "game.state.load" | "game.state.rewind" | "game.state.verify"))
+}
+
+// Deferred acknowledgements finish ordinary requests; explicit savestate waits need a result.
+fn response_outcome(response: &serde_json::Value, ticket: Option<u64>, completion: bool) -> Option<bool> {
+    if ticket.is_none() || response.get("ticket").and_then(|v| v.as_u64()) != ticket {
+        return None;
+    }
+    match response.get("event").and_then(|v| v.as_str()) {
+        Some("error") => Some(false),
+        Some("deferred") if completion => None,
+        _ if completion && !response.get("message").is_some_and(|v| v.is_string()) => {
+            // Older servers ignore wait and reply as soon as the operation is queued.
+            eprintln!("! savestate reply does not confirm completion (ticket {})", ticket.unwrap());
+            Some(false)
+        }
+        _ => Some(true),
+    }
 }
 
 // The "> " prompt is noise in a piped script, and interleaves with incoming messages.
@@ -161,7 +197,12 @@ const RESUME_FAMILY: &[&str] = &[
 static TICKET: AtomicU64 = AtomicU64::new(1);
 
 fn next_ticket() -> u64 {
-    TICKET.fetch_add(1, Ordering::Relaxed)
+    loop {
+        let ticket = TICKET.fetch_add(1, Ordering::Relaxed);
+        if !PENDING.lock().unwrap().tickets.contains_key(&ticket) {
+            return ticket;
+        }
+    }
 }
 
 // A minimal shell-like tokenizer: splits on unquoted whitespace, and lets 'single' or "double"
@@ -236,6 +277,9 @@ fn build_event_json(event: &str, params: &[String], ticket: Option<u64>) -> Resu
             .split_once('=')
             .ok_or_else(|| anyhow!("Parameter '{p}' is not in key=value form"))?;
         map.insert(k.to_string(), parse_value(v));
+    }
+    if ticket.is_some() && map.get("ticket").and_then(|v| v.as_u64()).is_none() {
+        return Err(anyhow!("'ticket' must be a non-negative integer to be matchable"));
     }
     Ok(serde_json::Value::Object(map).to_string())
 }
@@ -396,8 +440,14 @@ fn request_deferred_acks(socket: &mut WebSocket<TcpStream>) -> Result<()> {
 
 fn print_incoming(text: &str) {
     let parsed = serde_json::from_str::<serde_json::Value>(text);
-    if let Some(t) = parsed.as_ref().ok().and_then(|v| v.get("ticket")).and_then(|t| t.as_u64()) {
-        PENDING.lock().unwrap().remove(&t);
+    if let Ok(value) = &parsed
+        && let Some(ticket) = value.get("ticket").and_then(|v| v.as_u64()) {
+        let mut pending = PENDING.lock().unwrap();
+        if let Some(&completion) = pending.tickets.get(&ticket)
+            && let Some(ok) = response_outcome(value, Some(ticket), completion) {
+            pending.tickets.remove(&ticket);
+            pending.failed |= completion && !ok;
+        }
     }
     if compact() {
         // One line per message, event name first so a script can grep for it without having to
@@ -507,17 +557,20 @@ fn is_would_block(e: &tungstenite::Error) -> bool {
 // Returns false if the request failed or went unanswered within the timeout, so one-shot mode
 // can report that through its exit status.
 //
-// With deferred acks turned on (see request_deferred_acks) every request is answered, including
-// the ones whose result arrives later, so waiting for this request's ticket beats sleeping for a
-// fixed --wait: a quick question returns immediately instead of padding every invocation, and a
-// slow one isn't cut off early.
+// Explicit savestate waits need the terminal reply, including when --wait-all keeps listening.
 fn run_one_shot(
     mut socket: WebSocket<TcpStream>,
     json_text: String,
-    ticket: Option<u64>,
     wait_secs: f64,
     wait_all: bool,
 ) -> Result<bool> {
+    let request = serde_json::from_str::<serde_json::Value>(&json_text).unwrap_or_default();
+    let ticket = request.get("ticket").and_then(|v| v.as_u64());
+    if request.get("ticket").is_some() && ticket.is_none() {
+        eprintln!("! 'ticket' must be a non-negative integer to be matchable");
+        return Ok(false);
+    }
+    let completion = waits_for_completion(&request);
     println!("-> {json_text}");
     socket.send(Message::Text(json_text.into()))?;
 
@@ -527,19 +580,20 @@ fn run_one_shot(
     // Without a ticket (--raw with none supplied) there's nothing to match. --wait-all still
     // watches for this request's errors, but keeps draining until the deadline either way.
     let wait_for_ticket = ticket.is_some() && !wait_all;
+    let needs_answer = ticket.is_some() && (!wait_all || completion);
     let mut answered = false;
     let mut failed = false;
     pump_until(&mut socket, deadline, |v| {
-        if ticket.is_some() && v.get("ticket").and_then(|t| t.as_u64()) == ticket {
+        if let Some(ok) = response_outcome(v, ticket, completion) {
             answered = true;
-            failed |= v.get("event").and_then(|e| e.as_str()) == Some("error");
+            failed |= !ok;
         }
         answered && wait_for_ticket
     });
-    if wait_for_ticket && !answered {
+    if needs_answer && !answered {
         eprintln!("! timed out after {wait_secs}s waiting for a reply (ticket {})", ticket.unwrap());
     }
-    Ok(!failed && (!wait_for_ticket || answered))
+    Ok(!failed && (!needs_answer || answered))
 }
 
 fn print_help() {
@@ -590,53 +644,41 @@ fn warn_if_stepping_muted(event: &str, obj: &serde_json::Map<String, serde_json:
     }
 }
 
-// Returns the (ticket, event name) sent, when known - used by --sync to know what response to
-// wait for. Both are recoverable for a plain "{...}" JSON paste too, as long as it includes
-// "ticket"/"event" fields itself; if it doesn't (or ticket isn't a plain integer), --sync has
-// nothing to wait on and just proceeds to the next line immediately, same as without --sync.
-fn handle_repl_line(socket: &mut WebSocket<TcpStream>, line: &str) -> Result<Option<(u64, String)>> {
-    if line.starts_with('{') {
-        // A raw JSON line is the only way to send nested parameters, so it can't be a
-        // second-class citizen. Reject it outright if it isn't valid JSON or has no event - but
-        // send it exactly as written otherwise. Omitting the ticket is the documented way to say
-        // "I'm not waiting for an answer", so quietly inserting one would send something the
-        // author didn't write. --sync simply doesn't wait on such a line and moves on to the next
-        // (it must not wait for "the next message that happens to arrive" and attribute that -
-        // that's what desynchronised the rest of a script before tickets were matched properly).
-        let parsed: serde_json::Value =
-            serde_json::from_str(line).map_err(|e| anyhow!("Not valid JSON: {e}"))?;
-        let obj = parsed
-            .as_object()
-            .ok_or_else(|| anyhow!("A raw message must be a JSON object"))?;
-        let event = obj
-            .get("event")
-            .and_then(|e| e.as_str())
-            .ok_or_else(|| anyhow!("A raw message needs a string 'event' field"))?
-            .to_string();
-        let ticket = match obj.get("ticket") {
-            Some(t) => Some(
-                t.as_u64()
-                    .ok_or_else(|| anyhow!("'ticket' must be a non-negative integer to be matchable"))?,
-            ),
-            None => None,
-        };
-        warn_if_stepping_muted(&event, obj);
-        match ticket {
-            Some(t) => println!("-> (ticket {t}) {line}"),
-            None => println!("-> (no ticket, not waiting for a reply) {line}"),
-        }
-        socket.send(Message::Text(line.to_string().into()))?;
-        return Ok(ticket.map(|t| (t, event)));
+// Returns the ticket, event, and whether completion was requested. Unticketed raw messages stay
+// observational; shorthand and ticketed raw messages use the same correlation rules.
+fn handle_repl_line(socket: &mut WebSocket<TcpStream>, line: &str) -> Result<Option<(u64, String, bool)>> {
+    let json_text = if line.starts_with('{') {
+        line.to_string()
+    } else {
+        let mut parts = split_shell_words(line)?.into_iter();
+        let event = parts.next().ok_or_else(|| anyhow!("Empty command"))?;
+        build_event_json(&event, &parts.collect::<Vec<_>>(), Some(next_ticket()))?
+    };
+    // Recover correlation and wait parameters from the message actually sent, including overrides.
+    let parsed: serde_json::Value =
+        serde_json::from_str(&json_text).map_err(|e| anyhow!("Not valid JSON: {e}"))?;
+    let obj = parsed
+        .as_object()
+        .ok_or_else(|| anyhow!("A message must be a JSON object"))?;
+    let event = obj
+        .get("event")
+        .and_then(|e| e.as_str())
+        .ok_or_else(|| anyhow!("A message needs a string 'event' field"))?
+        .to_string();
+    let ticket = match obj.get("ticket") {
+        Some(t) => Some(
+            t.as_u64()
+                .ok_or_else(|| anyhow!("'ticket' must be a non-negative integer to be matchable"))?,
+        ),
+        None => None,
+    };
+    warn_if_stepping_muted(&event, obj);
+    match ticket {
+        Some(t) => println!("-> (ticket {t}) {json_text}"),
+        None => println!("-> (no ticket, not waiting for a reply) {json_text}"),
     }
-
-    let mut parts = split_shell_words(line)?.into_iter();
-    let event = parts.next().ok_or_else(|| anyhow!("Empty command"))?;
-    let rest: Vec<String> = parts.collect();
-    let ticket = next_ticket();
-    let json_text = build_event_json(&event, &rest, Some(ticket))?;
-    println!("-> (ticket {ticket}) {json_text}");
     socket.send(Message::Text(json_text.into()))?;
-    Ok(Some((ticket, event)))
+    Ok(ticket.map(|t| (t, event, waits_for_completion(&parsed))))
 }
 
 // --sync support: after sending a command, read (and print, same as the normal loop) incoming
@@ -644,10 +686,7 @@ fn handle_repl_line(socket: &mut WebSocket<TcpStream>, line: &str) -> Result<Opt
 // out. Returns to the normal loop either way; a timeout just means the next line gets read
 // without having waited further.
 //
-// Every request is answered - either a response or an error, both carrying the request's ticket
-// (PPSSPP acknowledges even the ones whose real result arrives later). So the ticket is always
-// the thing to wait on, and matching on it is exact: no guessing from message order, and no list
-// of events that don't answer.
+// Match this request's ticket. Explicit savestate waits keep waiting past deferred acknowledgements.
 //
 // RESUME_FAMILY events additionally mean "let the CPU run", so after the acknowledgement we also
 // wait for the following cpu.stepping broadcast - the actual "it stopped again" signal a script
@@ -659,6 +698,7 @@ fn wait_for_sync_response(
     socket: &mut WebSocket<TcpStream>,
     ticket: u64,
     event: &str,
+    completion: bool,
     timeout_secs: f64,
 ) -> bool {
     let wants_stepping = RESUME_FAMILY.contains(&event);
@@ -668,10 +708,10 @@ fn wait_for_sync_response(
     let deadline = Instant::now() + Duration::from_secs_f64(timeout_secs.max(0.0));
 
     let done = pump_until(socket, deadline, |v| {
-        if v.get("ticket").and_then(|t| t.as_u64()) == Some(ticket) {
+        if let Some(ok) = response_outcome(v, Some(ticket), completion) {
             got_ticket = true;
             // An error reply is a final answer - there'll be no cpu.stepping to follow.
-            if v.get("event").and_then(|e| e.as_str()) == Some("error") {
+            if !ok {
                 failed = true;
                 got_stepping = true;
             }
@@ -969,7 +1009,7 @@ fn run_repl(mut socket: WebSocket<TcpStream>, sync: bool, sync_timeout: f64) -> 
                 match words.next() {
                     Some(":quit") | Some(":q") | Some(":exit") => {
                         drain_pending(&mut socket, 10.0);
-                        return Ok(!failed);
+                        return Ok(!failed && pending_succeeded());
                     }
                     Some(":help") | Some(":h") => print_help(),
                     Some(":snapshot") => {
@@ -1007,7 +1047,7 @@ fn run_repl(mut socket: WebSocket<TcpStream>, sync: bool, sync_timeout: f64) -> 
                                 eprintln!("! {e}");
                                 failed = true;
                             }
-                            Ok(Some((ticket, _))) => add_pending(ticket),
+                            Ok(Some((ticket, _, completion))) => add_pending(ticket, completion),
                             Ok(_) => {}
                         }
                     }
@@ -1022,12 +1062,12 @@ fn run_repl(mut socket: WebSocket<TcpStream>, sync: bool, sync_timeout: f64) -> 
                             eprintln!("! {e}");
                             failed = true;
                         }
-                        Ok(Some((ticket, event))) if sync => {
-                            if !wait_for_sync_response(&mut socket, ticket, &event, sync_timeout) {
+                        Ok(Some((ticket, event, completion))) if sync => {
+                            if !wait_for_sync_response(&mut socket, ticket, &event, completion, sync_timeout) {
                                 failed = true;
                             }
                         }
-                        Ok(Some((ticket, _))) => add_pending(ticket),
+                        Ok(Some((ticket, _, completion))) => add_pending(ticket, completion),
                         Ok(_) => {}
                     },
                 }
@@ -1036,7 +1076,7 @@ fn run_repl(mut socket: WebSocket<TcpStream>, sync: bool, sync_timeout: f64) -> 
             Err(mpsc::TryRecvError::Disconnected) => {
                 // Piped script hit EOF - same race as :quit.
                 drain_pending(&mut socket, 10.0);
-                return Ok(!failed);
+                return Ok(!failed && pending_succeeded());
             }
             Err(mpsc::TryRecvError::Empty) => {}
         }
@@ -1048,13 +1088,13 @@ fn run_repl(mut socket: WebSocket<TcpStream>, sync: bool, sync_timeout: f64) -> 
             }
             Ok(Message::Close(frame)) => {
                 println!("\n[connection closed by PPSSPP: {frame:?}]");
-                return Ok(!failed);
+                return Ok(!failed && pending_succeeded());
             }
             Ok(_) => {}
             Err(ref e) if is_would_block(e) => {}
             Err(tungstenite::Error::ConnectionClosed | tungstenite::Error::AlreadyClosed) => {
                 println!("\n[connection closed]");
-                return Ok(!failed);
+                return Ok(!failed && pending_succeeded());
             }
             Err(e) => {
                 eprintln!("\n[connection error: {e}]");
@@ -1127,18 +1167,20 @@ fn main() -> Result<()> {
     }
 
     if let Some(raw) = &args.raw {
-        // Recover the ticket if the caller supplied one; there's nothing to wait on otherwise.
-        let ticket = serde_json::from_str::<serde_json::Value>(raw)
-            .ok()
-            .and_then(|v| v.get("ticket").and_then(|t| t.as_u64()));
-        let ok = run_one_shot(socket, raw.clone(), ticket, args.wait, args.wait_all)?;
+        let ok = run_one_shot(socket, raw.clone(), args.wait, args.wait_all)?;
         finish(child, ok);
     }
 
     if let Some(event) = &args.event {
         let ticket = next_ticket();
-        let json_text = build_event_json(event, &args.params, Some(ticket))?;
-        let ok = run_one_shot(socket, json_text, Some(ticket), args.wait, args.wait_all)?;
+        let json_text = match build_event_json(event, &args.params, Some(ticket)) {
+            Ok(json) => json,
+            Err(e) => {
+                eprintln!("! {e}");
+                finish(child, false);
+            }
+        };
+        let ok = run_one_shot(socket, json_text, args.wait, args.wait_all)?;
         finish(child, ok);
     }
 

@@ -94,6 +94,23 @@ trips would otherwise hang the script forever, so it gives up after `--sync-time
 
 An `error` reply to a line doesn't stop the script, but makes the run exit non-zero at the end.
 
+With `wait=true`, `game.state.save`, `load`, `rewind`, and `verify` wait for their terminal
+reply instead of the deferred acknowledgement. This applies to one-shot commands and `--sync`.
+Requests sent with `:nowait` remain pending through other commands and the existing ten-second
+drain at EOF or `:quit`; a failed or unfinished waited operation makes the run exit non-zero.
+`--wait-all` still listens for its full interval, but requires completion for these requests.
+
+Use `:nowait` to issue an operation and then run the CPU without waiting between the two:
+
+```
+:nowait game.state.save path=checkpoint.ppst wait=true
+cpu.runUntilTime relativeUs=100000
+```
+
+Use distinct numeric tickets when supplying them yourself. Unticketed raw requests stay
+observational. Older servers that ignore `wait` return a queue-only reply without the terminal
+`message` field; wsdbg reports that completion is unconfirmed and exits non-zero.
+
 Matching is by ticket, always - `--sync` never waits for "whatever message arrives next", which is
 what used to quietly desynchronise a script. So prefer the `key=value` form for nested parameters
 too: values are parsed as JSON, and single quotes keep the inner double quotes intact, as in
