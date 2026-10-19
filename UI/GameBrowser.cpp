@@ -1120,10 +1120,11 @@ void GameBrowser::Refresh() {
 		}
 	}
 
+	DirButton *upButton = nullptr;
 	if (browseFlags_ & BrowseFlags::NAVIGATE) {
 		if (path_.CanNavigateUp()) {
-			gameList_->Add(new DirButton(Path(".."), lastViewMode_, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)))->
-				OnClick.Handle(this, &GameBrowser::NavigateClick);
+			upButton = gameList_->Add(new DirButton(Path(".."), lastViewMode_, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)));
+			upButton->OnClick.Handle(this, &GameBrowser::NavigateClick);
 		}
 
 		// Add any pinned paths before other directories.
@@ -1158,6 +1159,14 @@ void GameBrowser::Refresh() {
 	}
 	// A listing that's still loading has no buttons to focus yet.
 	if (!listingPending_) {
+		if (focusFirstItem_) {
+			// The folder's own contents rather than "..", which only shows up first if it's empty.
+			UI::View *first = !dirButtons.empty() ? (UI::View *)dirButtons[0] : !gameButtons.empty() ? (UI::View *)gameButtons[0] : upButton;
+			if (first && first->SetFocus(FocusFlags::CAUSE_RESTORE)) {
+				UI::ScrollFocusedViewIntoView();
+			}
+		}
+		focusFirstItem_ = false;
 		focusPath_.clear();
 	}
 
@@ -1257,6 +1266,7 @@ void GameBrowser::NavigateClick(UI::EventParams &e) {
 	} else {
 		path_.Navigate(text.ToString());
 	}
+	focusFirstItem_ = true;
 	PathChanged();
 }
 
