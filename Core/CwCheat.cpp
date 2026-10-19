@@ -68,10 +68,9 @@ bool CheatFileParser::Parse() {
 		if (!tempLine)
 			continue;
 
-		// Detect UTF-8 BOM sequence, and ignore it.
-		if (lineNumber == 1 && memcmp(tempLine, "\xEF\xBB\xBF", 3) == 0)
-			tempLine += 3;
-		std::string line = TrimString(tempLine);
+		// Cheats copied from websites can carry invisible characters (like direction marks) that would
+		// break the hex values. This also drops the UTF-8 BOM.
+		std::string line = TrimString(SanitizeString(tempLine, StringRestriction::NoInvisibleFormatting));
 
 		// Minimum length 5 is shortest possible _ lines name of the game "_G N+"
 		// and a minimum of 1 displayable character in cheat name string "_C0 1"
@@ -351,9 +350,12 @@ void CWCheatEngine::ParseCheats() {
 	cheats_ = parser.GetCheats();
 }
 
-std::vector<CheatFileInfo> CWCheatEngine::FileInfo() const {
+std::vector<CheatFileInfo> CWCheatEngine::FileInfo(std::vector<std::string> *errors) const {
 	CheatFileParser parser(filename_, gameID_);
 	parser.Parse();
+	if (errors) {
+		*errors = parser.GetErrors();
+	}
 	return parser.GetFileInfo();
 }
 

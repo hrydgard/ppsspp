@@ -183,7 +183,7 @@ bool CwCheatScreen::TryLoadCheatInfo() {
 	}
 	fileCheckCounter_ = 0;
 
-	fileInfo_ = engine_->FileInfo();
+	fileInfo_ = engine_->FileInfo(&parseErrors_);
 
 	// Let's also trigger a reload, in case it changed.
 	g_Config.bReloadCheats = true;
@@ -283,6 +283,23 @@ void CwCheatScreen::CreateContentViews(UI::ViewGroup *parent) {
 
 	if (!errorMessage_.empty()) {
 		rightColumn->Add(new NoticeView(errorLevel_, errorMessage_, errorDetails_));
+		rightColumn->Add(new Spacer(8.0f));
+	}
+
+	if (!parseErrors_.empty()) {
+		// Cheats with a bad line are left out of the list, so say why.
+		const size_t maxShown = 5;
+		std::string details;
+		for (size_t i = 0; i < parseErrors_.size() && i < maxShown; i++) {
+			if (i > 0) {
+				details += '\n';
+			}
+			details += parseErrors_[i];
+		}
+		if (parseErrors_.size() > maxShown) {
+			details += "\n...";
+		}
+		rightColumn->Add(new NoticeView(NoticeLevel::WARN, cw->T("Some lines in the cheat file could not be read"), details));
 		rightColumn->Add(new Spacer(8.0f));
 	}
 

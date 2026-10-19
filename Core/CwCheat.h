@@ -57,7 +57,8 @@ struct CheatOperation;
 class CWCheatEngine {
 public:
 	CWCheatEngine(std::string_view gameID);
-	std::vector<CheatFileInfo> FileInfo() const;
+	// errors, if given, gets the lines that didn't parse.
+	std::vector<CheatFileInfo> FileInfo(std::vector<std::string> *errors = nullptr) const;
 	void ParseCheats();
 	void CreateCheatFile();
 	const Path &CheatFilename() const {
