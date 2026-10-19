@@ -3132,6 +3132,9 @@ void FramebufferManagerCommon::NotifyConfigChanged() {
 void FramebufferManagerCommon::DestroyAllFBOs() {
 	DiscardFramebufferCopy();
 	currentRenderVfb_ = nullptr;
+	// Or a new framebuffer at the same address would skip its depth shift.
+	depthShiftedFor_ = 0;
+	lastRenderAddress_ = 0;
 	displayFramebuf_ = nullptr;
 	prevDisplayFramebuf_ = nullptr;
 	prevPrevDisplayFramebuf_ = nullptr;
