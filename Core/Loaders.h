@@ -180,6 +180,10 @@ bool GetRunningArchiveDiscs(std::vector<std::string> *discs, int *currentDisc);
 // Like UmdReplace, but switches to another disc from the same ZArchive.
 bool UmdReplaceArchiveDisc(int discIndex, FileLoader **fileLoader, std::string &error);
 
+// The DISC_ID from the PARAM.SFO of a PBP or a disc image, or empty.
+std::string GetPBPGameID(FileLoader *loader);
+std::string GetISOGameID(FileLoader *loader);
+
 class ZArchive;
 struct ZArchiveContents;
 // The disc IDs of an archive's discs, from their PARAM.SFO, in disc order. Empty where unreadable.

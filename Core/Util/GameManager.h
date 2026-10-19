@@ -49,10 +49,6 @@ struct ZipFileInfo;
 
 class GameManager {
 public:
-	// The DISC_ID from the PARAM.SFO of a PBP or a disc image, or empty.
-	std::string GetPBPGameID(FileLoader *loader) const;
-	std::string GetISOGameID(FileLoader *loader) const;
-
 	GameManager();
 
 	bool IsGameInstalled(const std::string &name);

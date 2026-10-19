@@ -437,11 +437,58 @@ bool GetRunningArchiveDiscs(std::vector<std::string> *discs, int *currentDisc) {
 	return true;
 }
 
+std::string GetPBPGameID(FileLoader *loader) {
+	PBPReader pbp(loader);
+	std::vector<u8> sfoData;
+	if (pbp.GetSubFile(PBP_PARAM_SFO, &sfoData)) {
+		ParamSFOData sfo;
+		sfo.ReadSFO(sfoData);
+		return sfo.GetValueString("DISC_ID");
+	}
+	return "";
+}
+
+std::string GetISOGameID(FileLoader *loader) {
+	static constexpr s64 MAX_PARAM_SFO_SIZE = 1024 * 1024;
+	SequentialHandleAllocator handles;
+	std::string errorString;
+	std::shared_ptr<BlockDevice> bd(ConstructBlockDevice(loader, &errorString));
+	if (!bd) {
+		return "";
+	}
+
+	ISOFileSystem umd(&handles, bd);
+
+	PSPFileInfo info = umd.GetFileInfo("/PSP_GAME/PARAM.SFO");
+	int handle = -1;
+	if (info.exists) {
+		handle = umd.OpenFile("/PSP_GAME/PARAM.SFO", FILEACCESS_READ);
+	}
+	if (handle < 0) {
+		return "";
+	}
+	if (info.size < 0 || info.size > MAX_PARAM_SFO_SIZE) {
+		WARN_LOG(Log::Loader, "Ignoring implausibly large PARAM.SFO (%lld bytes)", (long long)info.size);
+		umd.CloseFile(handle);
+		return "";
+	}
+
+	std::string sfoData;
+	sfoData.resize((size_t)info.size);
+	if (info.size > 0)
+		umd.ReadFile(handle, (u8 *)sfoData.data(), info.size);
+	umd.CloseFile(handle);
+
+	ParamSFOData sfo;
+	sfo.ReadSFO((const u8 *)sfoData.data(), sfoData.size());
+	return sfo.GetValueString("DISC_ID");
+}
+
 std::vector<std::string> GetZArchiveDiscIDs(const std::shared_ptr<ZArchive> &archive, const ZArchiveContents &contents) {
 	std::vector<std::string> ids;
 	for (const std::string &disc : contents.discs) {
 		ZArchiveFileLoader discLoader(archive, disc);
-		ids.push_back(endsWithNoCase(disc, ".pbp") ? g_GameManager.GetPBPGameID(&discLoader) : g_GameManager.GetISOGameID(&discLoader));
+		ids.push_back(endsWithNoCase(disc, ".pbp") ? GetPBPGameID(&discLoader) : GetISOGameID(&discLoader));
 	}
 	return ids;
 }
