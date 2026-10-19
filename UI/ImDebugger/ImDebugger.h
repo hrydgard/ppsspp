@@ -102,6 +102,9 @@ struct ImConfig {
 	int selectedSymbolModule = 0;
 	int selectedUtilityModule = 0;
 	int selectedThread = 0;
+	// Thread ID whose callstack to show, -1 to follow the current thread.
+	int callstackThreadId = -1;
+	int selectedCallstackFrame = -1;
 	int selectedKernelObject = 0;
 	int selectedFramebuffer = -1;
 	int selectedBreakpoint = -1;

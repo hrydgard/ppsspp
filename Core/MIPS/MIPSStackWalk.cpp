@@ -125,6 +125,11 @@ namespace MIPSStackWalk {
 				if (ra == INVALIDTARGET) {
 					return false;
 				}
+				// An ra between here and pc is a stale return from a call this function made, so this
+				// is an early return in the same function, and its prologue is further up.
+				if (ra > pc && ra <= frame.pc) {
+					continue;
+				}
 				frame.entry = pc + 8;
 				frame.stackSize = 0;
 				return true;
@@ -145,7 +150,10 @@ namespace MIPSStackWalk {
 					continue;
 				}
 
-				frame.entry = pc;
+				// The prologue often isn't the first instruction (a lui or move can come first), so
+				// the function's symbol, if it has one, gives the real entry.
+				const u32 symbolEntry = GuessEntry(pc);
+				frame.entry = symbolEntry != INVALIDTARGET ? symbolEntry : pc;
 				frame.stackSize = -_IMM16;
 				if (ra_offset != -1 && Memory::IsValid4AlignedAddress(frame.sp + ra_offset)) {
 					ra = Memory::ReadUnchecked_U32(frame.sp + ra_offset);
