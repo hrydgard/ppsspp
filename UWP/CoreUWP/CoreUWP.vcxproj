@@ -366,6 +366,19 @@
     <ClInclude Include="..\..\ext\udis86\udis86.h" />
     <ClInclude Include="..\..\ext\xbrz\config.h" />
     <ClInclude Include="..\..\ext\xbrz\xbrz.h" />
+    <ClInclude Include="..\..\ext\libdeflate\libdeflate.h" />
+    <ClInclude Include="..\..\ext\libdeflate\common\common_defs.h" />
+    <ClInclude Include="..\..\ext\libdeflate\common\compiler_gcc.h" />
+    <ClInclude Include="..\..\ext\libdeflate\common\compiler_msc.h" />
+    <ClInclude Include="..\..\ext\libdeflate\lib\bt_matchfinder.h" />
+    <ClInclude Include="..\..\ext\libdeflate\lib\deflate_compress.h" />
+    <ClInclude Include="..\..\ext\libdeflate\lib\deflate_constants.h" />
+    <ClInclude Include="..\..\ext\libdeflate\lib\hc_matchfinder.h" />
+    <ClInclude Include="..\..\ext\libdeflate\lib\lib_common.h" />
+    <ClInclude Include="..\..\ext\libdeflate\lib\matchfinder_common.h" />
+    <ClInclude Include="..\..\ext\libdeflate\lib\unaligned.h" />
+    <ClInclude Include="..\..\ext\libdeflate\lib\x86\matchfinder_impl.h" />
+    <ClInclude Include="..\..\ext\libdeflate\lib\arm\matchfinder_impl.h" />
     <ClInclude Include="..\..\ext\xxhash.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="targetver.h" />
@@ -1016,6 +1029,12 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="..\..\ext\xbrz\xbrz.cpp" />
+    <ClCompile Include="..\..\ext\libdeflate\lib\deflate_compress.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\..\ext\libdeflate\lib\utils.c">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="..\..\ext\xxhash.c">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>

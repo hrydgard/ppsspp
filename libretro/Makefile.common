@@ -398,6 +398,8 @@ SOURCES_CXX += \
 
 SOURCES_C += $(EXTDIR)/sfmt19937/SFMT.c
 SOURCES_C   += $(EXTDIR)/xxhash.c
+SOURCES_C   += $(EXTDIR)/libdeflate/lib/deflate_compress.c \
+               $(EXTDIR)/libdeflate/lib/utils.c
 
 SOURCES_CXX += \
 	$(EXTDIR)/snappy/snappy-c.cpp \

@@ -552,6 +552,8 @@ EXEC_AND_LIB_FILES := \
   $(ARCH_FILES) \
   $(GPU_VULKAN_FILES) \
   $(SRC)/ext/xxhash.c \
+  $(SRC)/ext/libdeflate/lib/deflate_compress.c \
+  $(SRC)/ext/libdeflate/lib/utils.c \
   $(SRC)/Core/MIPS/MIPS.cpp.arm \
   $(SRC)/Core/MIPS/MIPSAnalyst.cpp \
   $(SRC)/Core/MIPS/MIPSDis.cpp \
