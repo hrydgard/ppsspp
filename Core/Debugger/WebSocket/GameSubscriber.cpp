@@ -136,24 +136,30 @@ void WebSocketGameStatus(DebuggerRequest &req) {
 // Parameters:
 //  - path: string, path to the .ppst file.
 //
-// Response (same event name) with no extra data, once queued.
+// Response (same event name) with no extra data, once queued, or an error if the network or
+// achievements hardcore mode refuses it.
 void WebSocketGameStateLoad(DebuggerRequest &req) {
 	std::string path;
 	if (!req.ParamString("path", &path))
 		return;
 
 	bool running = false;
+	bool queued = false;
 	Core_RunOnCPUThread([&] {
 		running = PSP_GetBootState() == BootState::Complete;
+		if (running) {
+			queued = SaveState::Load(Path(path), -1, [](SaveState::Status status, std::string_view message, std::string_view) {
+				if (status == SaveState::Status::FAILURE) {
+					ERROR_LOG(Log::System, "game.state.load: %.*s", STR_VIEW(message));
+				}
+			});
+		}
 	});
 	if (!running)
 		return req.Fail("Game not running");
-
-	SaveState::Load(Path(path), -1, [](SaveState::Status status, std::string_view message, std::string_view) {
-		if (status == SaveState::Status::FAILURE) {
-			ERROR_LOG(Log::System, "game.state.load: %.*s", STR_VIEW(message));
-		}
-	});
+	if (!queued) {
+		return req.Fail("Could not queue savestate load");
+	}
 	req.Respond();
 }
 
@@ -164,24 +170,30 @@ void WebSocketGameStateLoad(DebuggerRequest &req) {
 // Parameters:
 //  - path: string, path to write the .ppst file to.
 //
-// Response (same event name) with no extra data, once queued.
+// Response (same event name) with no extra data, once queued, or an error if the network or
+// achievements hardcore mode refuses it.
 void WebSocketGameStateSave(DebuggerRequest &req) {
 	std::string path;
 	if (!req.ParamString("path", &path))
 		return;
 
 	bool running = false;
+	bool queued = false;
 	Core_RunOnCPUThread([&] {
 		running = PSP_GetBootState() == BootState::Complete;
+		if (running) {
+			queued = SaveState::Save(Path(path), -1, [](SaveState::Status status, std::string_view message, std::string_view) {
+				if (status == SaveState::Status::FAILURE) {
+					ERROR_LOG(Log::System, "game.state.save: %.*s", STR_VIEW(message));
+				}
+			});
+		}
 	});
 	if (!running)
 		return req.Fail("Game not running");
-
-	SaveState::Save(Path(path), -1, [](SaveState::Status status, std::string_view message, std::string_view) {
-		if (status == SaveState::Status::FAILURE) {
-			ERROR_LOG(Log::System, "game.state.save: %.*s", STR_VIEW(message));
-		}
-	});
+	if (!queued) {
+		return req.Fail("Could not queue savestate save");
+	}
 	req.Respond();
 }
 
