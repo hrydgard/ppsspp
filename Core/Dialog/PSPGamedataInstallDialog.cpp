@@ -328,6 +328,11 @@ void PSPGamedataInstallDialog::DoState(PointerWrap &p) {
 		Do(p, allFilesSize);
 		Do(p, allReadSize);
 		Do(p, progressValue);
+		if (p.mode == p.MODE_READ && (numFiles < 0 || numFiles > (int)inFileNames.size() || readFiles < 0 || readFiles > numFiles)) {
+			ERROR_LOG(Log::SaveState, "Gamedata install: bad file counts in savestate (%d of %d, %d names)", readFiles, numFiles, (int)inFileNames.size());
+			p.SetError(p.ERROR_FAILURE);
+			return;
+		}
 	} else {
 		param.ptr = 0;
 	}

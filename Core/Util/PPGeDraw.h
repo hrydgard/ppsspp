@@ -134,6 +134,11 @@ public:
 		return width_;
 	}
 
+	// Where the loaded texture is in kernel memory, or 0.
+	u32 TextureAddress() const {
+		return texture_;
+	}
+
 	int Height() const {
 		return height_;
 	}

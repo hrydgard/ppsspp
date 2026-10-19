@@ -164,6 +164,7 @@ void AsyncIOManager::DoState(PointerWrap &p) {
 	} else {
 		std::map<u32, size_t> oldResults;
 		Do(p, oldResults);
+		results_.clear();
 		for (auto it = oldResults.begin(), end = oldResults.end(); it != end; ++it) {
 			results_[it->first] = AsyncIOResult(it->second);
 		}
