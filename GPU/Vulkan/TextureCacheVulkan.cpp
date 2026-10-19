@@ -918,7 +918,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 		VK_PROFILE_END(vulkan, cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT);
 	}
 
-	entry->vkTex->EndCreate(cmdInit, false, prevStage, layout);
+	entry->vkTex->EndCreate(cmdInit, prevStage, layout);
 	VK_PROFILE_END(vulkan, cmdInit, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT);
 
 	// Signal that we support depth textures so use it as one.

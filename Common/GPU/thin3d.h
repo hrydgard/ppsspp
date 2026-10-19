@@ -602,7 +602,6 @@ struct DeviceCaps {
 
 	bool anisoSupported;
 	bool depthRangeMinusOneToOne;  // OpenGL style depth
-	bool tesselationShaderSupported;
 	bool dualSourceBlend;
 	bool logicOpSupported;
 	bool depthClampSupported;

@@ -284,9 +284,9 @@ void VulkanTexture::GenerateMips(VkCommandBuffer cmd, int firstMipToGenerate, bo
 	}
 }
 
-void VulkanTexture::EndCreate(VkCommandBuffer cmd, bool vertexTexture, VkPipelineStageFlags prevStage, VkImageLayout layout) {
+void VulkanTexture::EndCreate(VkCommandBuffer cmd, VkPipelineStageFlags prevStage, VkImageLayout layout) {
 	VulkanBarrierBatch batch;
-	VkImageMemoryBarrier *barrier = batch.Add(image_, prevStage, vertexTexture ? VK_PIPELINE_STAGE_VERTEX_SHADER_BIT : VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0);
+	VkImageMemoryBarrier *barrier = batch.Add(image_, prevStage, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0);
 	barrier->subresourceRange.levelCount = numMips_;
 	barrier->oldLayout = layout;
 	barrier->newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;

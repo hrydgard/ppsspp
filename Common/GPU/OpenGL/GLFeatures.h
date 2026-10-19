@@ -129,8 +129,6 @@ struct GLExtensions {
 	int range[2][6][2];  // [vs,fs][lowf,mediumf,highf,lowi,mediumi,highi][min,max]
 	int precision[2][6];  // [vs,fs][lowf...]
 
-	int maxVertexTextureUnits;
-
 	bool supportsETC2;
 	bool supportsBC123;
 	bool supportsBC45;

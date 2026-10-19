@@ -745,7 +745,7 @@ VulkanTexture *VKContext::GetNullTexture() {
 		TextureCopyBatch batch;
 		nullTexture_->CopyBufferToMipLevel(cmdInit, &batch, 0, w, h, 0, bindBuf, bindOffset, w);
 		nullTexture_->FinishCopyBatch(cmdInit, &batch);
-		nullTexture_->EndCreate(cmdInit, false, VK_PIPELINE_STAGE_TRANSFER_BIT);
+		nullTexture_->EndCreate(cmdInit, VK_PIPELINE_STAGE_TRANSFER_BIT);
 	}
 	return nullTexture_;
 }
@@ -851,7 +851,7 @@ bool VKTexture::Create(VkCommandBuffer cmd, VulkanBarrierBatch *postBarriers, Vu
 			layout = VK_IMAGE_LAYOUT_GENERAL;
 		}
 	}
-	vkTex_->EndCreate(cmd, false, VK_PIPELINE_STAGE_TRANSFER_BIT, layout);
+	vkTex_->EndCreate(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, layout);
 	return true;
 }
 
@@ -957,7 +957,6 @@ VKContext::VKContext(VulkanContext *vulkan, bool useRenderThread)
 	caps_.coordConvention = CoordConvention::Vulkan;
 	caps_.setMaxFrameLatencySupported = true;
 	caps_.anisoSupported = vulkan->GetDeviceFeatures().enabled.standard.samplerAnisotropy != 0;
-	caps_.tesselationShaderSupported = vulkan->GetDeviceFeatures().enabled.standard.tessellationShader != 0;
 	caps_.dualSourceBlend = vulkan->GetDeviceFeatures().enabled.standard.dualSrcBlend != 0;
 	caps_.depthClampSupported = vulkan->GetDeviceFeatures().enabled.standard.depthClamp != 0;
 

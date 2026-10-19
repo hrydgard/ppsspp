@@ -1857,10 +1857,6 @@ VKRPipelineLayout *VulkanRenderManager::CreatePipelineLayout(BindingType *bindin
 			bindings[i].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER_DYNAMIC;
 			bindings[i].stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
 			break;
-		case BindingType::STORAGE_BUFFER_VERTEX:
-			bindings[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
-			bindings[i].stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
-			break;
 		case BindingType::STORAGE_BUFFER_COMPUTE:
 			bindings[i].descriptorType = VK_DESCRIPTOR_TYPE_STORAGE_BUFFER;
 			bindings[i].stageFlags = VK_SHADER_STAGE_COMPUTE_BIT;
@@ -2052,7 +2048,6 @@ void VKRPipelineLayout::FlushDescSets(VulkanContext *vulkan, int frame, QueuePro
 				writes[numWrites].pBufferInfo = nullptr;
 				numImages++;
 				break;
-			case BindingType::STORAGE_BUFFER_VERTEX:
 			case BindingType::STORAGE_BUFFER_COMPUTE:
 				_dbg_assert_(data[i].buffer.buffer != VK_NULL_HANDLE);
 				bufferInfo[numBuffers].buffer = data[i].buffer.buffer;
