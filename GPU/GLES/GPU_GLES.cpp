@@ -93,6 +93,11 @@ GPU_GLES::GPU_GLES(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 			shaderCachePath_ = GetSysDirectory(DIRECTORY_APP_CACHE) / (discID + ".glshadercache");
 			// Actually precompiled by IsReady() since we're single-threaded.
 			File::IOFile f(shaderCachePath_, "rb");
+			if (f.IsOpen() && !VerifyShaderCacheChecksum(shaderCachePath_)) {
+				WARN_LOG(Log::G3D, "Old or damaged GL shader cache (no matching checksum) - rebuilding.");
+				f.Close();
+				File::Delete(shaderCachePath_);
+			}
 			if (f.IsOpen()) {
 				if (shaderManagerGL_->LoadCacheFlags(f, &drawEngine_)) {
 					gstate_c.SetUseFlags(CheckGPUFeatures());

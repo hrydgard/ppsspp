@@ -858,7 +858,7 @@ enum class CacheDetectFlags {
 };
 
 #define CACHE_HEADER_MAGIC 0x83277592
-#define CACHE_VERSION 46
+#define CACHE_VERSION 47
 
 struct CacheHeader {
 	uint32_t magic;
@@ -932,6 +932,7 @@ bool ShaderManagerGLES::LoadCache(File::IOFile &f) {
 	expectedSize += header.numVertexShaders * sizeof(VShaderID);
 	expectedSize += header.numFragmentShaders * sizeof(FShaderID);
 	expectedSize += header.numLinkedPrograms * (sizeof(VShaderID) + sizeof(FShaderID));
+	expectedSize += sizeof(uint64_t);  // The checksum.
 	if (sz != expectedSize) {
 		ERROR_LOG(Log::G3D, "Shader cache file is wrong size: %lld instead of %lld", sz, expectedSize);
 		return false;
@@ -1076,4 +1077,8 @@ void ShaderManagerGLES::SaveCache(const Path &filename, DrawEngineGLES *drawEngi
 		fwrite(&fsid, 1, sizeof(fsid), f);
 	}
 	fclose(f);
+	if (!AppendShaderCacheChecksum(filename)) {
+		ERROR_LOG(Log::G3D, "Failed to write the shader cache");
+		File::Delete(filename);
+	}
 }

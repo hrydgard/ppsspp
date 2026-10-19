@@ -112,6 +112,12 @@ void GPU_Vulkan::LoadCache(const Path &filename, bool waitForPipelines) {
 	FILE *f = File::OpenCFile(filename, "rb");
 	if (!f)
 		return;
+	if (!VerifyShaderCacheChecksum(filename)) {
+		WARN_LOG(Log::G3D, "Old or damaged Vulkan shader cache (no matching checksum) - rebuilding.");
+		fclose(f);
+		File::Delete(filename);
+		return;
+	}
 
 	// First compile shaders to SPIR-V, then load the pipeline cache and recreate the pipelines.
 	// It's when recreating the pipelines that the pipeline cache is useful - in the ideal case,
@@ -171,8 +177,13 @@ void GPU_Vulkan::SaveCache(const Path &filename) {
 	shaderManagerVulkan_->SaveCache(f, &drawEngine_);
 	// WARNING: See comment in LoadCache if you are tempted to flip the second parameter to true.
 	pipelineManager_->SavePipelineCache(f, false, shaderManagerVulkan_, draw_);
-	INFO_LOG(Log::G3D, "Saved Vulkan pipeline cache");
 	fclose(f);
+	if (AppendShaderCacheChecksum(filename)) {
+		INFO_LOG(Log::G3D, "Saved Vulkan pipeline cache");
+	} else {
+		ERROR_LOG(Log::G3D, "Failed to write the Vulkan pipeline cache");
+		File::Delete(filename);
+	}
 
 	// And the fixed shaders the GPU compiled along the way.
 	g_spirvCache.SaveIfDirty();
