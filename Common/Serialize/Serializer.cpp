@@ -601,6 +601,11 @@ CChunkFileReader::Error CChunkFileReader::SaveFile(const Path &filename, const s
 		INFO_LOG(Log::SaveState, "Savestate: Compressed %i bytes into %i", (int)sz, (int)writeLen);
 	}
 	free(buffer);
+	// Buffered writes can still fail here (a full disk.)
+	if (!pFile.Close() && success) {
+		ERROR_LOG(Log::SaveState, "ChunkReader: Failed closing file");
+		success = false;
+	}
 	if (!success) {
 		return ERROR_BAD_FILE;
 	}

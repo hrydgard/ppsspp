@@ -109,11 +109,11 @@ namespace SaveState {
 	CChunkFileReader::Error LoadFromRam(std::vector<u8> &state, std::string *errorString);
 
 	// For testing / automated tests.  Runs a save state verification pass (async.)
-	// Warning: callback will be called on a different thread.
+	// The callback runs from Process().
 	bool Verify(Callback callback = Callback());
 
 	// To go back to a previous snapshot (only if enabled.)
-	// Warning: callback will be called on a different thread.
+	// The callback runs from Process(), once the snapshot has been applied.
 	bool Rewind(Callback callback = Callback());
 
 	// Returns true if there are rewind snapshots available.

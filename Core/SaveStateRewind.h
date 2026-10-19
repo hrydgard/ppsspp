@@ -31,6 +31,8 @@ public:
 	CChunkFileReader::Error FinishRestore(std::string *errorString, std::string *metadata);
 	// Both halves, waiting for the worker in between.
 	CChunkFileReader::Error Restore(std::string *errorString, std::string *metadata);
+	// For a rewind that was started and then dropped.
+	void CancelRestore();
 	void Clear();
 
 	bool Empty() const {

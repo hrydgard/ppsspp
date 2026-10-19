@@ -414,6 +414,7 @@ int g_screenshotFailures;
 
 	static bool QueueLoad(const Operation &op) {
 		if (NetworkWarnUserIfOnlineAndCantSavestate()) {
+			CallbackRefused(op.callback);
 			return false;
 		}
 
@@ -425,6 +426,7 @@ int g_screenshotFailures;
 
 	static bool QueueSave(const Operation &op) {
 		if (NetworkWarnUserIfOnlineAndCantSavestate()) {
+			CallbackRefused(op.callback);
 			return false;
 		}
 		if (AttachToPendingSave(op.path, op.callback)) {
@@ -646,6 +648,7 @@ int g_screenshotFailures;
 
 	bool UndoLoad(std::string_view gamePrefix, Callback callback) {
 		if (NetworkWarnUserIfOnlineAndCantSavestate()) {
+			CallbackRefused(callback);
 			return false;
 		}
 
@@ -1159,7 +1162,10 @@ int g_screenshotFailures;
 				} else {
 					DeleteIfExists(job.path);
 				}
-				File::Rename(job.writePath, job.path);
+				if (!File::Rename(job.writePath, job.path)) {
+					ERROR_LOG(Log::SaveState, "Failed to move '%s' into place", job.writePath.c_str());
+					result = CChunkFileReader::ERROR_BAD_FILE;
+				}
 			}
 			PostCompletion([job, result](bool callCallbacks) {
 				FinishSave(job, result, callCallbacks);
@@ -1193,7 +1199,10 @@ int g_screenshotFailures;
 			g_saveSnapshots--;
 			if (result == CChunkFileReader::ERROR_NONE) {
 				DeleteIfExists(backup);
-				File::Rename(temp, backup);
+				if (!File::Rename(temp, backup)) {
+					// The undo would load whatever was there before, maybe another game's state.
+					result = CChunkFileReader::ERROR_BAD_FILE;
+				}
 			}
 			// Not a callback, so it runs at shutdown too.
 			PostCompletion([result, gamePrefix](bool) {
@@ -1404,6 +1413,9 @@ int g_screenshotFailures;
 			needsProcess = false;
 			lock.unlock();
 			for (const Operation &op : operations) {
+				if (op.type == OperationType::Rewind && op.started) {
+					rewindStates.CancelRestore();
+				}
 				RefuseOperation(op);
 			}
 			return;
