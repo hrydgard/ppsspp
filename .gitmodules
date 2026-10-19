@@ -50,9 +50,6 @@
 [submodule "ext/OpenXR-SDK"]
 	path = ext/OpenXR-SDK
 	url = https://github.com/KhronosGroup/OpenXR-SDK.git
-[submodule "ios/MoltenVK"]
-	path = ios/MoltenVK
-	url = https://github.com/hrydgard/ppsspp-moltenvk.git
 [submodule "ext/lua"]
 	path = ext/lua
 	url = https://github.com/hrydgard/ppsspp-lua.git

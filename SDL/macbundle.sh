@@ -5,7 +5,6 @@ echo "SDL macbundle.sh"
 PPSSPP="${1}"
 PPSSPP_SHORTNAME="${2}"
 PPSSPPSDL="${PPSSPP}/Contents/MacOS/${PPSSPP_SHORTNAME}"
-MOLTENVK="${PPSSPP}/Contents/Frameworks/libMoltenVK.dylib"
 
 ls ${PPSSPPSDL}
 
@@ -52,6 +51,5 @@ fi
 # AdHoc codesign is required for Apple Silicon.
 echo "Signing..."
 
-codesign -fs - --entitlements ../macOS/Entitlements.plist --timestamp "${MOLTENVK}" || echo "Failed signing MoltenVK"
 codesign -fs - --entitlements ../macOS/Entitlements.plist --timestamp "${PPSSPPSDL}" || echo "Failed signing PPSSPPSDL"
 codesign -fs - --entitlements ../macOS/Entitlements.plist --timestamp "${PPSSPP}" || echo "Failed signing PPSSPP"

@@ -12,11 +12,10 @@
 set(MOBILE_DEVICE ON)
 # The compiler checks re-read this file without the cache, so pass IOS_APP_STORE on.
 list(APPEND CMAKE_TRY_COMPILE_PLATFORM_VARIABLES IOS_APP_STORE)
-# The static MoltenVK in ios/MoltenVK needs 15.0.
 set(IPHONEOS_DEPLOYMENT_TARGET 15.0)
 add_definitions(-U__STRICT_ANSI__)
 
-# Only the libretro core uses GL on iOS. The app is Vulkan (MoltenVK) only.
+# Only the libretro core uses GL on iOS. The app is Metal only.
 if(LIBRETRO)
   set(USING_GLES2 ON)
   add_definitions(-DGL_ETC1_RGB8_OES=0)

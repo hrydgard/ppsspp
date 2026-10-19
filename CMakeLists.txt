@@ -104,7 +104,7 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Android")
 	set(ANDROID ON)
 endif()
 
-# We only support Vulkan on Unix, macOS (by MoltenVK), Android and Windows.
+# Vulkan WSI on Unix, Android and Windows. (On macOS, Vulkan needs a separately installed MoltenVK.)
 if(ANDROID OR WIN32 OR (UNIX AND NOT ARM_NO_VULKAN))
 	set(VULKAN ON)
 endif()
@@ -316,7 +316,7 @@ elseif(NOT OPENGL_LIBRARIES AND USING_GLES2)
 	set(OPENGL_LIBRARIES GLESv2 EGL)
 endif()
 
-# The iOS app is Vulkan (MoltenVK) only. Must match PPSSPP_API_ANY_GL in ppsspp_config.h.
+# The iOS app is Metal only. Must match PPSSPP_API_ANY_GL in ppsspp_config.h.
 if(IOS AND NOT LIBRETRO)
 	set(NO_OPENGL ON)
 endif()
@@ -532,7 +532,6 @@ if(NOT MSVC)
 		# Set by cmake/Toolchains/ios.cmake.
 		set(CMAKE_OSX_DEPLOYMENT_TARGET ${IPHONEOS_DEPLOYMENT_TARGET})
 	elseif(APPLE AND NOT CMAKE_CROSSCOMPILING)
-		# The bundled MoltenVK (ext/vulkan/macOS) needs 12.0.
 		set(CMAKE_OSX_DEPLOYMENT_TARGET "12.0")
 		add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:-stdlib=libc++>" -U__STRICT_ANSI__)
 		set(CMAKE_XCODE_ATTRIBUTE_CLANG_CXX_LIBRARY "libc++")
@@ -1553,7 +1552,6 @@ if(TargetBin)
 			add_executable(${TargetBin} MACOSX_BUNDLE ${NativeAssets} ${BigFontAssets} ${UIImages} ${AssetCatalog} ${SHADER_FILES} ${THEME_FILE} ${DEBUGGER_FILES} ${WEB_UPLOAD_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource} "ios/Launch Screen.storyboard")
 		else()
 			add_executable(${TargetBin} MACOSX_BUNDLE ${ICON_PATH_ABS} ${NativeAssets} ${BigFontAssets} ${UIImages} ${SHADER_FILES} ${THEME_FILE} ${DEBUGGER_FILES} ${WEB_UPLOAD_FILES} ${FLASH0_FILES} ${LANG_FILES} ${NativeAppSource})
-			file(INSTALL "${CMAKE_SOURCE_DIR}/ext/vulkan/macOS/Frameworks/libMoltenVK.dylib" DESTINATION "${CMAKE_BINARY_DIR}/${TargetBin}.app/Contents/Frameworks/")
 		endif()
 	elseif(WIN32)
 		add_executable(${TargetBin} WIN32 ${NativeAppSource})
@@ -1608,11 +1606,6 @@ if(IOS AND NOT LIBRETRO)
 	if(IOS_DEBUG)
 		file(INSTALL pspautotests DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/assets)
 	endif()
-	if(TVOS)
-		set(MOLTENVK_SLICE tvos-arm64)
-	else()
-		set(MOLTENVK_SLICE ios-arm64)
-	endif()
 	set(RSRC_XIB_FILES "Launch Screen.storyboard" ${CMAKE_CURRENT_SOURCE_DIR}/ios/assets.xcassets)
 
 	set_source_files_properties(${RSRC_XIB_FILES}
@@ -1625,11 +1618,6 @@ if(IOS AND NOT LIBRETRO)
 	#else()
 	set(APP_DIR_NAME "$<TARGET_FILE_DIR:PPSSPP>")
 	#endif()
-
-	# Can't figure out properly using .xcframework from CMake, so just linking directly to the .a file.
-	target_link_libraries(${TargetBin}
-		"${CMAKE_CURRENT_SOURCE_DIR}/ios/MoltenVK/MoltenVK.xcframework/${MOLTENVK_SLICE}/libMoltenVK.a"
-	)
 
 	set(MACOSX_DEPLOYMENT_TARGET ${DEPLOYMENT_TARGET})
 	set(PRODUCT_NAME "PPSSPP")
@@ -1734,7 +1722,6 @@ if(IOS AND NOT LIBRETRO)
 		# PPSSPPHeadless as an app of its own (org.ppsspp.headless), for running frame dumps on a
 		# device. Signed for development, so devicectl can copy files in and out of its container.
 		target_link_libraries(PPSSPPHeadless
-			"${CMAKE_CURRENT_SOURCE_DIR}/ios/MoltenVK/MoltenVK.xcframework/${MOLTENVK_SLICE}/libMoltenVK.a"
 			"-framework Foundation -framework UIKit -framework CoreGraphics -framework CoreText -framework QuartzCore -framework Metal -framework IOSurface -framework AudioToolbox -framework AVFoundation -framework CoreMedia -framework CoreVideo -framework UniformTypeIdentifiers"
 		)
 		if(NOT ICONV_LIBRARY)

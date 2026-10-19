@@ -177,8 +177,8 @@ game loads the module. Don't change the setup (dropping `--memstick`, turning HL
 away; a run should be as close to a real one as possible, with firmware modules running as LLE.
 
 Keep game runs short and fast, so nobody has to watch them: always pass `--timeout-wall=30` (alongside any
-`--timeout-emulated`) unless there's a real reason for longer, use `--graphics=vulkan` rather than
-`--graphics=software` (if Vulkan doesn't work in headless, fix that), prefer a Release build, and leave out
+`--timeout-emulated`) unless there's a real reason for longer, use `--graphics=vulkan` (`--graphics=metal` on
+a Mac) rather than `--graphics=software` (if it doesn't work in headless, fix that), prefer a Release build, and leave out
 debug-level `--log` unless you need it. Each of those can cost an order of magnitude: Outrun loading a state
 took minutes with a Debug build, software rendering and a 300MB log, and about a second without them. To
 check that a game renders, `--screenshot-save=FILE.png` beats grepping the log. (pspautotests through

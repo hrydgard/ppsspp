@@ -516,7 +516,10 @@ static int DefaultGPUBackend() {
 
 #elif PPSSPP_PLATFORM(MAC)
 
-#if PPSSPP_ARCH(ARM64)
+#if PPSSPP_ARCH(ARM64) && PPSSPP_API(METAL)
+	return (int)GPUBackend::METAL;
+#elif PPSSPP_ARCH(ARM64)
+	// The libretro core, through the frontend's MoltenVK.
 	return (int)GPUBackend::VULKAN;
 #else
 	// On Intel (generally older Macs) default to OpenGL.
@@ -524,7 +527,7 @@ static int DefaultGPUBackend() {
 #endif
 
 #elif PPSSPP_PLATFORM(IOS) && !defined(__LIBRETRO__)
-	return (int)GPUBackend::VULKAN;
+	return (int)GPUBackend::METAL;
 #endif
 
 	// TODO: On some additional Linux platforms, we should also default to Vulkan.

@@ -206,7 +206,8 @@ nor `--appendconfig` does this job: the firmware gets found anyway and the setti
   screenshots (taken on a PSP) best. It's slow for games, though: it runs display lists synchronously inside
   `sceGeListEnQueue`, which then dominates any profile of the emulator thread.
 - **`--graphics=vulkan`** renders offscreen, into images of its own with no window or swapchain, so it needs no
-  display. On macOS it goes through MoltenVK.
+  display. On macOS it needs a separately installed MoltenVK (the Vulkan SDK's, or Homebrew's).
+- **`--graphics=metal`** (macOS) renders offscreen, into a texture of its own.
 - **`--graphics=opengl`** renders offscreen on macOS (a CGL context with a framebuffer object of its own), and
   through a hidden SDL window elsewhere.
 - **`--graphics=d3d11`** (Windows) renders through a hidden window.

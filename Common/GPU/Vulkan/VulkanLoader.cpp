@@ -41,7 +41,6 @@
 #endif
 
 namespace PPSSPP_VK {
-#if !PPSSPP_VK_STATIC
 PFN_vkCreateInstance vkCreateInstance;
 PFN_vkDestroyInstance vkDestroyInstance;
 PFN_vkEnumeratePhysicalDevices vkEnumeratePhysicalDevices;
@@ -243,14 +242,11 @@ PFN_vkCreateRenderPass2 vkCreateRenderPass2;
 PFN_vkWaitForPresentKHR vkWaitForPresentKHR;
 PFN_vkGetPastPresentationTimingGOOGLE vkGetPastPresentationTimingGOOGLE;
 PFN_vkGetRefreshCycleDurationGOOGLE vkGetRefreshCycleDurationGOOGLE;
-#endif
 } // namespace PPSSPP_VK
 
 using namespace PPSSPP_VK;
 
-#if PPSSPP_VK_STATIC
-// Statically linked MoltenVK
-#elif PPSSPP_PLATFORM(SWITCH)
+#if PPSSPP_PLATFORM(SWITCH)
 typedef void *VulkanLibraryHandle;
 static VulkanLibraryHandle vulkanLibrary;
 #define dlsym(x, y) nullptr
@@ -336,18 +332,19 @@ static constexpr DriverBlackListEntry g_gpuNameBlacklist[] = {
 #endif
 };
 
-#if !defined(_WIN32) && !PPSSPP_VK_STATIC
+#if !defined(_WIN32)
 static const char * const so_names[] = {
-#if PPSSPP_PLATFORM(IOS)
-	// Only reached by the libretro core, the app links MoltenVK statically.
+#if PPSSPP_PLATFORM(IOS) && !defined(__LIBRETRO__)
+	nullptr,  // Unused, see VulkanLoadLibrary.
+#elif PPSSPP_PLATFORM(IOS)
+	// The libretro core, with the frontend's MoltenVK.
 	"@executable_path/Frameworks/libMoltenVK.dylib",
 	"MoltenVK",
 #elif PPSSPP_PLATFORM(MAC)
+	// The app uses Metal, and doesn't bundle MoltenVK, but can use one installed separately for comparisons:
+	// the Vulkan SDK's (dlopen looks in /usr/local/lib), or Homebrew's. The libretro core gets the frontend's.
 	"@executable_path/../Frameworks/libMoltenVK.dylib",
 	"MoltenVK",
-	// For executables outside a bundle (headless): the app bundle built next to it, the Vulkan SDK's
-	// install (dlopen looks in /usr/local/lib), and Homebrew's.
-	"@executable_path/PPSSPPSDL.app/Contents/Frameworks/libMoltenVK.dylib",
 	"libMoltenVK.dylib",
 	"/opt/homebrew/lib/libMoltenVK.dylib",
 #else
@@ -359,10 +356,12 @@ static const char * const so_names[] = {
 };
 #endif
 
-#if !PPSSPP_VK_STATIC
 static VulkanLibraryHandle VulkanLoadLibrary(std::string *errorString) {
 #if PPSSPP_PLATFORM(SWITCH)
 	// Always unavailable, for now.
+	return nullptr;
+#elif PPSSPP_PLATFORM(IOS) && !defined(__LIBRETRO__)
+	*errorString = "The iOS app uses Metal, not Vulkan";
 	return nullptr;
 #elif PPSSPP_PLATFORM(UWP)
 	return nullptr;
@@ -415,9 +414,7 @@ static VulkanLibraryHandle VulkanLoadLibrary(std::string *errorString) {
 	return lib;
 #endif
 }
-#endif
 
-#if !PPSSPP_VK_STATIC
 static void VulkanFreeLibrary(VulkanLibraryHandle &h) {
 	if (h) {
 #if PPSSPP_PLATFORM(SWITCH)
@@ -430,7 +427,6 @@ static void VulkanFreeLibrary(VulkanLibraryHandle &h) {
 		h = nullptr;
 	}
 }
-#endif
 
 void VulkanSetAvailable(bool available) {
 	INFO_LOG(Log::G3D, "Setting Vulkan availability to true");
@@ -443,11 +439,11 @@ void VulkanSetNativeLibDir(std::string_view nativeLibDir) {
 }
 
 bool VulkanMayBeAvailable() {
-#if PPSSPP_PLATFORM(IOS)
-	// The deployment target (15.0) is above anything MoltenVK doesn't support.
+#if PPSSPP_PLATFORM(IOS) && !defined(__LIBRETRO__)
+	// The app uses Metal. There's no MoltenVK to load.
 	g_vulkanAvailabilityChecked = true;
-	g_vulkanMayBeAvailable = true;
-	return true;
+	g_vulkanMayBeAvailable = false;
+	return false;
 #else
 	// Unsupported in VR at the moment
 	if (IsVREnabled()) {
@@ -665,11 +661,6 @@ bail:
 }
 
 bool VulkanLoad(std::string *errorStr) {
-#if PPSSPP_VK_STATIC
-	INFO_LOG(Log::G3D, "iOS: Vulkan doesn't need loading");
-	return true;
-#else
-
 	if (!vulkanLibrary) {
 		vulkanLibrary = VulkanLoadLibrary(errorStr);
 		if (!vulkanLibrary) {
@@ -695,15 +686,9 @@ bool VulkanLoad(std::string *errorStr) {
 		VulkanFreeLibrary(vulkanLibrary);
 		return false;
 	}
-#endif
 }
 
 bool VulkanLoadFromGetInstanceProcAddr(VkInstance instance, PFN_vkGetInstanceProcAddr getInstanceProcAddr) {
-#if PPSSPP_VK_STATIC
-	// MoltenVK is linked statically, the functions are already there - there are no function pointers to fill in.
-	INFO_LOG(Log::G3D, "iOS: Vulkan doesn't need loading");
-	return true;
-#else
 	vkGetInstanceProcAddr = getInstanceProcAddr;
 	vkCreateInstance = (PFN_vkCreateInstance)getInstanceProcAddr(nullptr, "vkCreateInstance");
 	// Per the Vulkan spec, vkGetDeviceProcAddr is not one of the handful of commands queryable with a
@@ -721,11 +706,9 @@ bool VulkanLoadFromGetInstanceProcAddr(VkInstance instance, PFN_vkGetInstancePro
 		ERROR_LOG(Log::G3D, "VulkanLoadFromGetInstanceProcAddr: Failed to load Vulkan base functions");
 		return false;
 	}
-#endif
 }
 
 void VulkanLoadInstanceFunctions(VkInstance instance, const VulkanExtensions &enabledExtensions, uint32_t vulkanInstanceApiVersion) {
-#if !PPSSPP_VK_STATIC
 	INFO_LOG(Log::G3D, "Loading Vulkan instance functions. Instance API version: %08x (%d.%d.%d)", vulkanInstanceApiVersion, VK_API_VERSION_MAJOR(vulkanInstanceApiVersion), VK_API_VERSION_MINOR(vulkanInstanceApiVersion), VK_API_VERSION_PATCH(vulkanInstanceApiVersion));
 	// OK, let's use the above functions to get the rest.
 	LOAD_INSTANCE_FUNC(instance, vkDestroyInstance);
@@ -794,14 +777,12 @@ void VulkanLoadInstanceFunctions(VkInstance instance, const VulkanExtensions &en
 	}
 
 	INFO_LOG(Log::G3D, "Vulkan instance functions loaded.");
-#endif
 }
 
 // On some implementations, loading functions (that have Device as their first parameter) via vkGetDeviceProcAddr may
 // increase performance - but then these function pointers will only work on that specific device. Thus, this loader is not very
 // good for multi-device - not likely we'll ever try that anyway though.
 void VulkanLoadDeviceFunctions(VkDevice device, const VulkanExtensions &enabledExtensions, uint32_t vulkanDeviceApiVersion) {
-#if !PPSSPP_VK_STATIC
 	INFO_LOG(Log::G3D, "Loading Vulkan device functions. Device API version: %08x (%d.%d.%d)", vulkanDeviceApiVersion, VK_API_VERSION_MAJOR(vulkanDeviceApiVersion), VK_API_VERSION_MINOR(vulkanDeviceApiVersion), VK_API_VERSION_PATCH(vulkanDeviceApiVersion));
 
 	LOAD_DEVICE_FUNC(device, vkQueueSubmit);
@@ -942,13 +923,10 @@ void VulkanLoadDeviceFunctions(VkDevice device, const VulkanExtensions &enabledE
 		LOAD_DEVICE_FUNC_CORE(device, vkGetDeviceBufferMemoryRequirements, vkGetDeviceBufferMemoryRequirementsKHR, VK_API_VERSION_1_3);
 		LOAD_DEVICE_FUNC_CORE(device, vkGetDeviceImageMemoryRequirements, vkGetDeviceImageMemoryRequirementsKHR, VK_API_VERSION_1_3);
 	}
-#endif
 }
 
 void VulkanFree() {
-#if !PPSSPP_VK_STATIC
 	VulkanFreeLibrary(vulkanLibrary);
-#endif
 }
 
 const char *VulkanResultToString(VkResult res) {

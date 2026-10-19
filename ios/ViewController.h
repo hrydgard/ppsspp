@@ -8,7 +8,7 @@
 
 #if PPSSPP_PLATFORM(TVOS)
 
-// The one view controller. Renders with Vulkan (MoltenVK) to a CAMetalLayer.
+// The one view controller. Renders with Metal to a CAMetalLayer.
 // A GCEventViewController, so controller input (the Siri Remote included) reaches us only through
 // GCController, instead of also driving UIKit's focus engine.
 @interface PPSSPPViewController : GCEventViewController
@@ -20,7 +20,7 @@
 #import "CameraHelper.h"
 #import "LocationHelper.h"
 
-// The one view controller. Renders with Vulkan (MoltenVK) to a CAMetalLayer.
+// The one view controller. Renders with Metal to a CAMetalLayer.
 @interface PPSSPPViewController : UIViewController<
 	PHPickerViewControllerDelegate,
 	CameraFrameDelegate, LocationHandlerDelegate,

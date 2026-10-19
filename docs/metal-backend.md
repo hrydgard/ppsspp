@@ -1,12 +1,14 @@
 # The Metal backend
 
-A native Metal backend for Mac and iOS (tvOS too), alongside OpenGL, D3D11 and Vulkan. It's selected as
-`GPUBackend::METAL` (`--graphics=metal`), and Vulkan through MoltenVK stays the default for now. Written
-2026-10-19; file references will drift.
+A native Metal backend for Mac and iOS (tvOS too), alongside OpenGL, D3D11 and Vulkan. It's
+`GPUBackend::METAL` (`--graphics=metal`), and the default on iOS and Apple Silicon Macs. It replaced Vulkan
+through MoltenVK there. iOS has no Vulkan anymore, except in the libretro core (with the frontend's MoltenVK).
+The Mac doesn't bundle MoltenVK, but can still load one installed separately (the Vulkan SDK's, or
+Homebrew's), which is useful for comparisons. Written 2026-10-19; file references will drift.
 
 **Why:** programmable blending. Apple GPUs let a fragment shader read the color it's about to blend with
 (`[[color(0)]]`), so PSP blend modes that need shader blending no longer copy the framebuffer for every
-draw. MoltenVK can't expose that. Removing the MoltenVK dependency is a smaller benefit, and comes later.
+draw. MoltenVK can't expose that. Losing the MoltenVK dependency was a smaller benefit.
 
 ## Where things are
 
@@ -95,8 +97,8 @@ submit.
 - `PPSSPPHeadless --graphics=metal` renders offscreen, for frame dumps, savestates and the WebSocket debugger.
 - With `MTL_DEBUG_LAYER=1`, Metal validates the API use. Lifetime bugs show up more reliably in the app,
   booting and quitting a game with `NSZombieEnabled=YES` too.
-- Comparing against Vulkan on the same Mac is the main check. All 1061 frame dumps in `ppsspp-framedumps`,
-  rendered with both: 1049 are identical. Of the rest, 10 differ because of programmable blending, and are
+- Comparing against Vulkan on the same Mac (with a separately installed MoltenVK) is the main check. All 1061
+  frame dumps in `ppsspp-framedumps`, rendered with both: 1049 are identical. Of the rest, 10 differ because of programmable blending, and are
   closer to the PSP captures (Tenchu went from about 10,000 differing pixels to 900). The Kurohyou dumps are
   unreliable. The benchmark savestates match Vulkan to within a few levels per channel.
 - On iOS, pass launch options through `devicectl`'s process arguments (`--graphics=metal`); the app adds
@@ -115,5 +117,5 @@ MoltenVK: wall time from 11.7% lower (Ridge Racer) to 2.6% higher, CPU time 2 to
 - **tvOS** shares the iOS code, but hasn't been built or run with Metal.
 - **The dev screen's pipeline list** is Vulkan only.
 - **Stereo rendering** (multiview, framebuffer arrays) is deliberately left out.
-- **Making Metal the default and removing MoltenVK** are separate steps, after this has seen some use. The
-  render manager includes Vulkan headers for `GLSLtoSPV`, which has to change then.
+- **The Vulkan backend's code** is still compiled into the iOS app (as everywhere, to avoid build
+  differences), and the Metal render manager uses Vulkan headers for `GLSLtoSPV`. It just can't load there.

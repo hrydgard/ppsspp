@@ -815,11 +815,6 @@ int main(int argc, const char* argv[]) {
 		perror("Unable to ignore SIGPIPE");
 	}
 #endif
-#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
-	// MoltenVK logs its setup and every unsupported feature to the console, which mixes into the
-	// test output. Only its errors, unless asked for more.
-	setenv("MVK_CONFIG_LOG_LEVEL", "1", 0);
-#endif
 
 	SetupCRT(true);
 

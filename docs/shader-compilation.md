@@ -1,7 +1,9 @@
 # Shader compilation stutter
 
 Where the time goes when a game compiles its shaders and pipelines, mainly on the Mac (Vulkan through
-MoltenVK), and how to measure it. Measured in October 2026 on an M1 with MoltenVK 1.4.2.
+MoltenVK), and how to measure it. Measured in October 2026 on an M1 with MoltenVK 1.4.2. The Apple apps have
+since moved to the Metal backend (see [metal-backend.md](metal-backend.md)), which compiles the same way:
+Metal's MSL compile is still the expensive step.
 
 ## The path a shader takes
 

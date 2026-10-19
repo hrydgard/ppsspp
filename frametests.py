@@ -513,9 +513,11 @@ def main():
                         help="With --ios: the app to install (default: build-ios-headless/Release-iphoneos/PPSSPPHeadless.app)")
     parser.add_argument("--no-sync", action="store_true",
                         help="With --ios: don't copy the dumps over, they're already on the device")
-    parser.add_argument("--host-args", default="--graphics=vulkan --dump-compat",
+    # Macs have Metal instead of Vulkan.
+    default_host_graphics = "metal" if sys.platform == "darwin" else "vulkan"
+    parser.add_argument("--host-args", default="--graphics=%s --dump-compat" % default_host_graphics,
                         help="With --adb or --ios: how the host renders the reference each device run is compared with "
-                             "(default: --graphics=vulkan --dump-compat)")
+                             "(default: --graphics=%s --dump-compat)" % default_host_graphics)
     parser.add_argument("--variants", default="",
                         help="Variants to run, as name=args pairs separated by commas, replacing the config's "
                              "(default with --adb: vulkan=--graphics=vulkan --dump-compat,gl=--graphics=gles --dump-compat)")
@@ -541,8 +543,8 @@ def main():
         # With the game's compat settings on both sides, which is what the game would look like.
         args.variants = "vulkan=--graphics=vulkan --dump-compat,gl=--graphics=gles --dump-compat"
     if not args.variants and args.ios is not None:
-        # iOS is Vulkan (MoltenVK) only.
-        args.variants = "vulkan=--graphics=vulkan --dump-compat"
+        # iOS is Metal only.
+        args.variants = "metal=--graphics=metal --dump-compat"
     if args.variants:
         raw_variants = dict(v.split("=", 1) for v in args.variants.split(","))
     if not raw_variants:
