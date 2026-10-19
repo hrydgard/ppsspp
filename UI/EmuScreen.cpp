@@ -455,9 +455,12 @@ EmuScreen::~EmuScreen() {
 	g_Config.TimeTracker().Stop(gameID);
 
 	if (bootPending_) {
-		// We probably quit during boot, got blocked in lostdevice, and then didn't end up in update again to call PSP_InitUpdate.
-		// So we need to finish and join the boot thread before we can exit.
-		_dbg_assert_(PollBootState() != BootState::Booting);
+		// We quit during boot (maybe from the background, without the graphics device coming back),
+		// and didn't end up in update again to call PSP_InitUpdate. So we need to finish and join the
+		// boot thread before we can exit.
+		while (PollBootState() == BootState::Booting) {
+			sleep_ms(10, "exit-during-boot");
+		}
 		// Make sure we join the boot thread, by calling PSP_InitUpdate.
 		std::string error_string = "(unknown error)";
 		PSP_InitUpdate(&error_string);
@@ -1361,13 +1364,7 @@ void EmuScreen::CreateViews() {
 }
 
 void EmuScreen::deviceLost() {
-	// If we are currently in the middle of boot, we have to block here!
-	// Otherwise the boot thread will encounter draw_ == nullptr and weird stuff like that.
-	// We're doing this in a very ugly way for now.
-	while (PollBootState() == BootState::Booting) {
-		sleep_ms(100, "device-lost-during-boot");
-	}
-
+	// A boot in progress doesn't create the GPU while the device is lost, see PSP_NotifyGraphicsDeviceLost.
 	UIScreen::deviceLost();
 }
 

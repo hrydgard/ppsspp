@@ -978,6 +978,9 @@ bool NativeInitGraphics(GraphicsContext *graphicsContext) {
 		ImGui_ImplThin3d_CreateDeviceObjects(g_draw);
 	}
 
+	// Last, so that a GPU the boot thread creates from now on doesn't also get the DeviceRestore above.
+	PSP_NotifyGraphicsDeviceRestored();
+
 #if !PPSSPP_PLATFORM(UWP)
 	// Now, rather than only at shutdown: on mobile the app can be killed without one.
 	SaveFixedSPIRVCache();
@@ -1042,6 +1045,9 @@ bool CreateGlobalPipelines() {
 
 void NativeShutdownGraphics(GraphicsContext *graphicsContext) {
 	INFO_LOG(Log::System, "NativeShutdownGraphics begin");
+
+	// First, so that a boot that's creating its GPU finishes that before the DeviceLost calls below.
+	PSP_NotifyGraphicsDeviceLost();
 
 #if !PPSSPP_PLATFORM(UWP)
 	SaveFixedSPIRVCache();

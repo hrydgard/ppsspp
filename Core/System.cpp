@@ -110,6 +110,10 @@ static bool g_fileLoggingWasEnabled;
 // CPU and loader threads move it along.
 static std::atomic<BootState> g_bootState = BootState::Off;
 
+// See PSP_NotifyGraphicsDeviceLost.
+static std::mutex g_graphicsDeviceMutex;
+static bool g_graphicsDeviceLost = false;
+
 BootState PSP_GetBootState() {
 	return g_bootState;
 }
@@ -749,6 +753,16 @@ static bool InitGPU(std::string *error_string) {
 	return true;
 }
 
+void PSP_NotifyGraphicsDeviceLost() {
+	std::lock_guard<std::mutex> lock(g_graphicsDeviceMutex);
+	g_graphicsDeviceLost = true;
+}
+
+void PSP_NotifyGraphicsDeviceRestored() {
+	std::lock_guard<std::mutex> lock(g_graphicsDeviceMutex);
+	g_graphicsDeviceLost = false;
+}
+
 bool PSP_InitStart(const CoreParameter &coreParam) {
 	if (g_bootState != BootState::Off) {
 		ERROR_LOG(Log::Loader, "Can't start loader thread - already on.");
@@ -825,8 +839,12 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 		// Must not stamp Complete over the Failed that InitGPU sets - it has already run
 		// CPU_Shutdown(), so PSP_InitUpdate would take the success path on a core that no longer
 		// exists, right down to a null Memory::base.
-		if (!InitGPU(errorString)) {
-			return;
+		{
+			// Held while creating the GPU, so the device can't be lost meanwhile.
+			std::lock_guard<std::mutex> lock(g_graphicsDeviceMutex);
+			if (!g_graphicsDeviceLost && !InitGPU(errorString)) {
+				return;
+			}
 		}
 #endif
 		g_bootState = BootState::Complete;
@@ -858,15 +876,26 @@ BootState PSP_InitUpdate(std::string *error_string) {
 		return BootState::Failed;
 	}
 
-#ifdef __LIBRETRO__
-	if (!InitGPU(error_string)) {
-		// Same as the Failed branch above - the core is already gone.
-		Core_NotifyLifecycle(CoreLifecycle::START_COMPLETE);
-		*error_string = g_CoreParameter.errorString;
-		g_bootState = BootState::Off;
-		return BootState::Failed;
+	// On libretro, and if the graphics device was lost when the boot thread got there, the GPU is created here.
+	if (!gpu) {
+		std::lock_guard<std::mutex> lock(g_graphicsDeviceMutex);
+		bool success;
+		if (g_graphicsDeviceLost) {
+			// Exiting during boot, with the device gone.
+			g_CoreParameter.errorString = "Graphics device lost during boot";
+			CPU_Shutdown(false);
+			success = false;
+		} else {
+			success = InitGPU(&g_CoreParameter.errorString);
+		}
+		if (!success) {
+			// Same as the Failed branch above - the core is already gone.
+			Core_NotifyLifecycle(CoreLifecycle::START_COMPLETE);
+			*error_string = g_CoreParameter.errorString;
+			g_bootState = BootState::Off;
+			return BootState::Failed;
+		}
 	}
-#endif
 
 	// Ok, async part of the boot completed, let's finish up things on the main thread.
 	if (gpu) {
