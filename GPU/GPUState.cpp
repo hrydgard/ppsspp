@@ -313,7 +313,12 @@ void GPUStateCache::DoState(PointerWrap &p) {
 		bool framebufChanged = false;  // legacy
 		Do(p, framebufChanged);
 
+		// Minimized is about the host window now, whatever it was when the state was saved.
+		const u32 hostSkipDraw = skipDrawReason & SKIPDRAW_WINDOW_MINIMIZED;
 		Do(p, skipDrawReason);
+		if (p.mode == p.MODE_READ) {
+			skipDrawReason = (skipDrawReason & ~SKIPDRAW_WINDOW_MINIMIZED) | hostSkipDraw;
+		}
 
 		// Legacy, remove in the next bump.
 		UVScale uv{};
