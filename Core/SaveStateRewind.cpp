@@ -4,6 +4,7 @@
 #include "Core/SaveState.h"
 #include "Core/SaveStateRewind.h"
 #include "Core/Core.h"
+#include "Core/CoreTiming.h"
 #include "Core/Config.h"
 
 namespace SaveState {
@@ -36,7 +37,7 @@ CChunkFileReader::Error StateRingbuffer::Save() {
 
 	if (err == CChunkFileReader::ERROR_NONE) {
 		ScheduleCompress(&states_[n].stateBuffer, compressBuffer, &bases_[base_]);
-		states_[n].savedTime = time_now_d();
+		states_[n].emuTime = CoreTiming::GetGlobalTimeUs() / 1000000.0;
 		baseMapping_[n] = baseGeneration_[base_];
 		next_ = (next_ + 1) % size_;
 		if (count_ < size_) {
@@ -45,6 +46,8 @@ CChunkFileReader::Error StateRingbuffer::Save() {
 	} else {
 		states_[n].clear();
 	}
+	// The state a rewind restored isn't the newest any more, so the next rewind comes back to this one.
+	newestRestored_ = false;
 
 	// States compressed against a base that has since been replaced can't be decoded any more.
 	// They're the oldest ones, so drop them from the end.
@@ -74,18 +77,26 @@ CChunkFileReader::Error StateRingbuffer::Restore(std::string *errorString, std::
 	if (Empty())
 		return CChunkFileReader::ERROR_BAD_FILE;
 
+	// Restoring a state doesn't use it up: rewind, play on a bit, rewind again, and you're back at the
+	// same state. Rewinding again quickly steps further back instead (except from the oldest state).
+	const double now = time_now_d();
+	const double emuNow = CoreTiming::GetGlobalTimeUs() / 1000000.0;
+	const bool quick = newestRestored_ && now - lastRestoreTime_ < STEP_BACK_SECONDS;
+	if (quick) {
+		if (count_ > 1) {
+			DropNewest();
+		}
+	} else if (!retryingAfterFailure_) {
+		rewindFromEmuTime_ = emuNow;
+	}
+	retryingAfterFailure_ = false;
+
 	const int n = (next_ - 1 + size_) % size_;
-	next_ = n;
-	count_--;
-	if (states_[n].empty())
-		return CChunkFileReader::ERROR_BAD_FILE;
-
-	auto pa = GetI18NCategory(I18NCat::PAUSE);
-
 	const int generation = baseMapping_[n];
-	if (!BaseAlive(generation)) {
-		// Save() drops these, so this shouldn't happen.
-		WARN_LOG(Log::SaveState, "Rewind: state %d was compressed against a base that's gone", n);
+	if (states_[n].empty() || !BaseAlive(generation)) {
+		// Save() drops states whose base is gone, so this shouldn't happen.
+		WARN_LOG(Log::SaveState, "Rewind: state %d can't be decoded", n);
+		DropNewest();
 		return CChunkFileReader::ERROR_BAD_FILE;
 	}
 	const int baseSlot = generation % (int)ARRAY_SIZE(bases_);
@@ -93,17 +104,37 @@ CChunkFileReader::Error StateRingbuffer::Restore(std::string *errorString, std::
 	static std::vector<u8> buffer;
 	LockedDecompress(buffer, states_[n].stateBuffer, bases_[baseSlot]);
 	CChunkFileReader::Error error = LoadFromRam(buffer, errorString);
-	*metadata = pa->T("Rewind");
+	if (error != CChunkFileReader::ERROR_NONE) {
+		// Don't come back to it. HandleLoadFailure() tries the next one, and after a partial load the
+		// clock is meaningless, so that keeps rewindFromEmuTime_.
+		DropNewest();
+		retryingAfterFailure_ = true;
+		return error;
+	}
+	newestRestored_ = true;
+	lastRestoreTime_ = now;
 
-	if (states_[n].savedTime) {
+	auto pa = GetI18NCategory(I18NCat::PAUSE);
+	*metadata = pa->T("Rewind");
+	// In emulated time, from where the rewinding started: wall-clock time would count pauses,
+	// fast-forward, and the time spent in states rewound to earlier.
+	const double secondsBack = rewindFromEmuTime_ - states_[n].emuTime;
+	if (secondsBack >= 0.0) {
 		auto di = GetI18NCategory(I18NCat::DIALOG);
 		metadata->append(" (");
-		metadata->append(ApplySafeSubstitutions(di->T("%1 seconds ago"), static_cast<int>(time_now_d() - states_[n].savedTime)));
+		metadata->append(ApplySafeSubstitutions(di->T("%1 seconds ago"), (int)(secondsBack + 0.5)));
 		metadata->append(")");
 	}
 
-	rewindLastTime_ = time_now_d();
+	rewindLastTime_ = now;
 	return error;
+}
+
+void StateRingbuffer::DropNewest() {
+	next_ = (next_ - 1 + size_) % size_;
+	states_[next_].clear();
+	count_--;
+	newestRestored_ = false;
 }
 
 void StateRingbuffer::ScheduleCompress(std::vector<u8> *result, const std::vector<u8> *state, const std::vector<u8> *base) {
@@ -193,6 +224,8 @@ void StateRingbuffer::Clear() {
 	buffer_.clear();
 	base_ = -1;
 	baseUsage_ = 0;
+	newestRestored_ = false;
+	retryingAfterFailure_ = false;
 	rewindLastTime_ = time_now_d();
 }
 

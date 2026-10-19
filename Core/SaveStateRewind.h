@@ -45,20 +45,24 @@ public:
 
 private:
 	bool BaseAlive(int generation) const;
+	void DropNewest();
 
 	const int BLOCK_SIZE = 8192;
 	const int REWIND_NUM_STATES = 20;
 	// TODO: Instead, based on size of compressed state?
 	const int BASE_USAGE_INTERVAL = 15;
+	// A rewind this soon after the last one steps back past the state that one restored.
+	const double STEP_BACK_SECONDS = 0.8;
 
 	typedef std::vector<u8> StateBuffer;
 
 	struct RewindState {
 		StateBuffer stateBuffer;
-		double savedTime;
+		// CoreTiming's clock when the state was taken, in seconds.
+		double emuTime = 0.0;
 
 		bool empty() const { return stateBuffer.empty(); }
-		void clear() { stateBuffer.clear(); savedTime = 0.0; }
+		void clear() { stateBuffer.clear(); emuTime = 0.0; }
 	};
 
 	// The slot the next save goes in, and how many slots before it hold states we can restore.
@@ -81,6 +85,13 @@ private:
 	int baseUsage_ = 0;
 
 	double rewindLastTime_ = 0.0f;
+
+	// Whether the newest state is the one the last rewind restored, and when that was.
+	bool newestRestored_ = false;
+	double lastRestoreTime_ = 0.0;
+	// CoreTiming's clock when the current run of rewinds started, for "seconds ago".
+	double rewindFromEmuTime_ = 0.0;
+	bool retryingAfterFailure_ = false;
 };
 
 }  // namespace SaveState

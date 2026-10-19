@@ -89,8 +89,9 @@ private:
 // The operation is queued, and happens at the end of the next frame the CPU runs, so follow this
 // with something that runs it, like cpu.runUntilTime.
 //
-// Rewind snapshots are only taken with the RewindSnapshotInterval setting on. Each rewind uses up
-// the snapshot it restores, so repeating it goes further back.
+// Rewind snapshots are only taken with the RewindSnapshotInterval setting on. A rewind restores the
+// newest snapshot and keeps it, so a later rewind comes back to it, but one within 0.8 seconds of
+// the last steps further back.
 //
 // Parameters:
 //  - path: string, path to the .ppst file (only for load and save).
