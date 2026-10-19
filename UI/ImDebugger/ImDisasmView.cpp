@@ -868,6 +868,12 @@ void ImDisasmView::PopupMenu(MIPSState *mips, ImControl &control) {
 		if (ImGui::MenuItem("Remove function", nullptr, false, funcStart != -1)) {
 			RemoveFunction(funcStart);
 		}
+		// For when MIPSAnalyst split a function in two.
+		const u32 prevFuncStart = funcStart != -1 ? g_symbolMap->GetFunctionStart(funcStart - 1) : (u32)-1;
+		if (ImGui::MenuItem("Merge into previous function", nullptr, false, prevFuncStart != -1)) {
+			g_symbolMap->SetFunctionSize(prevFuncStart, g_symbolMap->GetFunctionSize(prevFuncStart) + g_symbolMap->GetFunctionSize(funcStart));
+			RemoveFunction(funcStart);
+		}
 		u32 prevBegin = g_symbolMap->GetFunctionStart(curAddress_);
 		if (ImGui::MenuItem("Add function")) {
 			char statusBarTextBuff[256];
