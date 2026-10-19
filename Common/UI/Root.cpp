@@ -1,5 +1,6 @@
 #include <algorithm>
 #include <deque>
+#include <mutex>
 
 #include "ppsspp_config.h"
 
@@ -11,6 +12,9 @@
 
 namespace UI {
 
+// Guards focusMoves and heldKeys. NativeKey calls KeyEventToFocusMoves on the input thread,
+// while the UI thread processes them. Never held while dispatching to views.
+static std::mutex focusMovesLock;
 static std::vector<FocusMove> focusMoves;
 extern bool focusForced;
 
@@ -130,8 +134,11 @@ void EnableFocusMovement(bool enable) {
 		if (focusedView) {
 			focusedView->FocusChanged(FocusFlags::LOST_FOCUS | FocusFlags::CAUSE_KB_FOCUS_DISABLED);
 		}
-		focusMoves.clear();
-		heldKeys.clear();
+		{
+			std::lock_guard<std::mutex> guard(focusMovesLock);
+			focusMoves.clear();
+			heldKeys.clear();
+		}
 		focusedView = nullptr;
 	}
 }
@@ -256,6 +263,7 @@ static bool KeyToFocusMove(const KeyInput &key, FocusMove *move) {
 }
 
 KeyEventResult KeyEventToFocusMoves(const KeyInput &key) {
+	std::lock_guard<std::mutex> guard(focusMovesLock);
 	KeyEventResult retval = KeyEventResult::PASS_THROUGH;
 	// The OS's own repeats of a key we're already repeating (see ProcessHeldKeys) would double
 	// up with ours, in a text field for example.
@@ -417,24 +425,34 @@ void AxisEvent(const AxisInput &axis, ViewGroup *root) {
 static void ProcessHeldKeys(ViewGroup *root) {
 	double now = time_now_d();
 
-restart:
-	for (std::set<HeldKey>::iterator iter = heldKeys.begin(); iter != heldKeys.end(); ++iter) {
-		if (iter->triggerTime < now) {
-			KeyInput key;
-			key.keyCode = iter->key;
-			key.deviceId = iter->deviceId;
-			key.flags = KeyInputFlags::DOWN;
-			KeyEvent(key, root);
-
-			focusMoves.push_back(iter->move);
-
-			// Cannot modify the current item when looping over a set, so let's do this instead.
-			HeldKey hk = *iter;
-			heldKeys.erase(hk);
+	// Collect the due repeats under the lock, then dispatch them without it, since a view's
+	// key handler can call back in here (EnableFocusMovement clears heldKeys).
+	std::vector<HeldKey> due;
+	{
+		std::lock_guard<std::mutex> guard(focusMovesLock);
+		for (auto iter = heldKeys.begin(); iter != heldKeys.end(); ) {
+			if (iter->triggerTime < now) {
+				due.push_back(*iter);
+				iter = heldKeys.erase(iter);
+			} else {
+				++iter;
+			}
+		}
+		for (HeldKey hk : due) {
 			hk.triggerTime = now + repeatInterval;
 			heldKeys.insert(hk);
-			goto restart;
 		}
+	}
+
+	for (const HeldKey &hk : due) {
+		KeyInput key;
+		key.keyCode = hk.key;
+		key.deviceId = hk.deviceId;
+		key.flags = KeyInputFlags::DOWN;
+		KeyEvent(key, root);
+
+		std::lock_guard<std::mutex> guard(focusMovesLock);
+		focusMoves.push_back(hk.move);
 	}
 }
 
@@ -447,7 +465,13 @@ DialogResult UpdateViewHierarchy(ViewGroup *root, bool canEnableFocusMovement) {
 		return DR_NONE;
 	}
 
-	if (focusMoves.size() && canEnableFocusMovement) {
+	std::vector<FocusMove> moves;
+	{
+		std::lock_guard<std::mutex> guard(focusMovesLock);
+		moves.swap(focusMoves);
+	}
+
+	if (moves.size() && canEnableFocusMovement) {
 		EnableFocusMovement(true);
 		if (!GetFocusedView()) {
 			// Find a view to focus.
@@ -460,12 +484,11 @@ DialogResult UpdateViewHierarchy(ViewGroup *root, bool canEnableFocusMovement) {
 			}
 			root->SubviewFocused(GetFocusedView());
 		} else {
-			for (FocusMove move : focusMoves) {
+			for (FocusMove move : moves) {
 				MoveFocus(root, move);
 			}
 		}
 	}
-	focusMoves.clear();
 
 	if (scrollFocusedIntoView) {
 		scrollFocusedIntoView = false;
