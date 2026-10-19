@@ -17,6 +17,7 @@ extern bool focusForced;
 static View *focusedView;
 static bool focusMovementEnabled;
 bool focusForced;
+static bool scrollFocusedIntoView;
 
 static std::function<void(UISound)> soundCallback;
 
@@ -103,6 +104,10 @@ void RemoveQueuedEventsByEvent(Event *event) {
 
 View *GetFocusedView() {
 	return focusedView;
+}
+
+void ScrollFocusedViewIntoView() {
+	scrollFocusedIntoView = true;
 }
 
 void SetFocusedView(View *view, FocusFlags cause, bool force) {
@@ -252,6 +257,18 @@ static bool KeyToFocusMove(const KeyInput &key, FocusMove *move) {
 
 KeyEventResult KeyEventToFocusMoves(const KeyInput &key) {
 	KeyEventResult retval = KeyEventResult::PASS_THROUGH;
+	// The OS's own repeats of a key we're already repeating (see ProcessHeldKeys) would double
+	// up with ours, in a text field for example.
+	if ((key.flags & KeyInputFlags::DOWN) && (key.flags & KeyInputFlags::IS_REPEAT) && !heldKeys.empty()) {
+		HeldKey hk;
+		hk.key = key.keyCode;
+		hk.deviceId = key.deviceId;
+		hk.triggerTime = 0.0;  // irrelevant
+		hk.move = FocusMove::NEXT;  // irrelevant, not part of the comparison
+		if (heldKeys.find(hk) != heldKeys.end()) {
+			return KeyEventResult::IGNORE_KEY;
+		}
+	}
 	// Ignore repeats for focus moves.
 	if ((key.flags & KeyInputFlags::DOWN) && !(key.flags & KeyInputFlags::IS_REPEAT)) {
 		FocusMove move;
@@ -449,6 +466,13 @@ DialogResult UpdateViewHierarchy(ViewGroup *root, bool canEnableFocusMovement) {
 		}
 	}
 	focusMoves.clear();
+
+	if (scrollFocusedIntoView) {
+		scrollFocusedIntoView = false;
+		if (focusedView) {
+			root->SubviewFocused(focusedView);
+		}
+	}
 
 	root->Update();
 	return DispatchEvents();

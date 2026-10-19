@@ -762,7 +762,7 @@ void GameBrowser::FocusGame(const Path &gamePath) {
 		}
 	}
 	// Otherwise, Refresh focuses it when it recreates the buttons.
-	focusGamePath_ = gamePath;
+	focusPath_ = gamePath;
 	refreshPending_ = true;
 }
 
@@ -776,10 +776,24 @@ bool GameBrowser::Key(const KeyInput &input) {
 	// Alt+Up goes to the parent directory, as in file managers.
 	if ((input.flags & KeyInputFlags::DOWN) && (input.flags & KeyInputFlags::ModAlt) && input.keyCode == NKCODE_DPAD_UP && input.deviceId == DEVICE_ID_KEYBOARD) {
 		if ((browseFlags_ & BrowseFlags::NAVIGATE) && path_.CanNavigateUp()) {
-			// Like the ".." button.
-			path_.Navigate("..");
-			PathChanged();
+			NavigateUp();
 			return true;
+		}
+	}
+
+	// Backspace with no search going also goes to the parent directory, as in file managers. Never on
+	// a repeat, or holding it would climb to the root (or carry on up after clearing a search). Not
+	// every platform flags repeats, so this also tracks whether it's held.
+	if (input.keyCode == NKCODE_DEL && input.deviceId == DEVICE_ID_KEYBOARD) {
+		if (input.flags & KeyInputFlags::UP) {
+			backspaceHeld_ = false;
+		} else if (input.flags & KeyInputFlags::DOWN) {
+			const bool repeat = backspaceHeld_ || (input.flags & KeyInputFlags::IS_REPEAT);
+			backspaceHeld_ = true;
+			if (!repeat && search_.searchFilter.empty() && (browseFlags_ & BrowseFlags::NAVIGATE) && path_.CanNavigateUp()) {
+				NavigateUp();
+				return true;
+			}
 		}
 	}
 
@@ -1122,10 +1136,11 @@ void GameBrowser::Refresh() {
 		}
 	}
 
+	DirButton *upButton = nullptr;
 	if (browseFlags_ & BrowseFlags::NAVIGATE) {
 		if (path_.CanNavigateUp()) {
-			gameList_->Add(new DirButton(Path(".."), lastViewMode_, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)))->
-				OnClick.Handle(this, &GameBrowser::NavigateClick);
+			upButton = gameList_->Add(new DirButton(Path(".."), lastViewMode_, new UI::LinearLayoutParams(UI::FILL_PARENT, UI::FILL_PARENT)));
+			upButton->OnClick.Handle(this, &GameBrowser::NavigateClick);
 		}
 
 		// Add any pinned paths before other directories.
@@ -1143,6 +1158,9 @@ void GameBrowser::Refresh() {
 
 	for (size_t i = 0; i < dirButtons.size(); i++) {
 		gameList_->Add(dirButtons[i])->OnClick.Handle(this, &GameBrowser::NavigateClick);
+		if (!focusPath_.empty() && dirButtons[i]->GetPath() == focusPath_ && dirButtons[i]->SetFocus(FocusFlags::CAUSE_RESTORE)) {
+			UI::ScrollFocusedViewIntoView();
+		}
 	}
 
 	for (size_t i = 0; i < gameButtons.size(); i++) {
@@ -1151,11 +1169,22 @@ void GameBrowser::Refresh() {
 		b->OnHoldClick.Handle(this, &GameBrowser::GameButtonHoldClick);
 		b->OnHighlight.Handle(this, &GameBrowser::GameButtonHighlight);
 
-		if (!focusGamePath_.empty() && b->GamePath() == focusGamePath_) {
-			b->SetFocus(FocusFlags::CAUSE_RESTORE);
+		if (!focusPath_.empty() && b->GamePath() == focusPath_ && b->SetFocus(FocusFlags::CAUSE_RESTORE)) {
+			UI::ScrollFocusedViewIntoView();
 		}
 	}
-	focusGamePath_.clear();
+	// A listing that's still loading has no buttons to focus yet.
+	if (!listingPending_) {
+		if (focusFirstItem_) {
+			// The folder's own contents rather than "..", which only shows up first if it's empty.
+			UI::View *first = !dirButtons.empty() ? (UI::View *)dirButtons[0] : !gameButtons.empty() ? (UI::View *)gameButtons[0] : upButton;
+			if (first && first->SetFocus(FocusFlags::CAUSE_RESTORE)) {
+				UI::ScrollFocusedViewIntoView();
+			}
+		}
+		focusFirstItem_ = false;
+		focusPath_.clear();
+	}
 
 	// Show a button to toggle pinning at the very end.
 	if ((browseFlags_ & BrowseFlags::PIN) && !path_.GetPath().empty()) {
@@ -1247,9 +1276,20 @@ void GameBrowser::NavigateClick(UI::EventParams &e) {
 	Path text = button->GetPath();
 	if (button->PathAbsolute()) {
 		path_.SetPath(text);
+	} else if (text.ToString() == "..") {
+		NavigateUp();
+		return;
 	} else {
 		path_.Navigate(text.ToString());
 	}
+	focusFirstItem_ = true;
+	PathChanged();
+}
+
+void GameBrowser::NavigateUp() {
+	// Focus the directory we came out of, in the parent's listing.
+	focusPath_ = path_.GetPath();
+	path_.Navigate("..");
 	PathChanged();
 }
 
