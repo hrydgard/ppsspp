@@ -525,6 +525,19 @@ void DrawThreadView(ImConfig &cfg, ImControl &control) {
 			if (ImGui::BeginPopup("threadPopup")) {
 				DebugThreadInfo &thread = info[i];
 				ImGui::Text("Thread: %s", thread.name);
+				if (ImGui::MenuItem("Show callstack")) {
+					cfg.callstackThreadId = thread.id;
+					cfg.selectedCallstackFrame = -1;
+					cfg.callstackOpen = true;
+					ImGui::SetWindowFocus("Callstacks");
+				}
+				if (ImGui::MenuItem("Go to PC")) {
+					control.command = { ImCmd::SHOW_IN_CPU_DISASM, thread.curPC };
+				}
+				if (ImGui::MenuItem("Go to entry")) {
+					control.command = { ImCmd::SHOW_IN_CPU_DISASM, thread.entrypoint };
+				}
+				ImGui::Separator();
 				if (ImGui::MenuItem("Copy entry to clipboard")) {
 					char temp[64];
 					snprintf(temp, sizeof(temp), "%08x", thread.entrypoint);
@@ -2020,18 +2033,80 @@ static void DrawCallStacks(const MIPSDebugInterface *debug, ImConfig &config, Im
 	}
 
 	std::vector<DebugThreadInfo> info = GetThreadsInfo();
-	// TODO: Add dropdown for thread choice, so you can check the callstacks of other threads.
-	u32 entry = 0;
-	u32 stackTop = 0;
+	const DebugThreadInfo *shown = nullptr;
+	const DebugThreadInfo *current = nullptr;
 	for (auto &thread : info) {
 		if (thread.isCurrent) {
-			entry = thread.entrypoint;
-			stackTop = thread.initialStack;
-			break;
+			current = &thread;
+		}
+		if (thread.id == config.callstackThreadId) {
+			shown = &thread;
 		}
 	}
+	const bool following = config.callstackThreadId == -1;
+	if (following) {
+		shown = current;
+	}
 
-	if (entry != 0 && ImGui::BeginTable("frames", 7, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
+	// Following the current thread is the default, "Current" goes back to that.
+	char preview[96];
+	if (following) {
+		snprintf(preview, sizeof(preview), "Current (%s)", current ? current->name : "none");
+	} else if (shown) {
+		snprintf(preview, sizeof(preview), "%s (%d)", shown->name, shown->id);
+	} else {
+		snprintf(preview, sizeof(preview), "Thread %d (gone)", config.callstackThreadId);
+	}
+	ImGui::SetNextItemWidth(250.0f);
+	if (ImGui::BeginCombo("Thread", preview)) {
+		if (ImGui::Selectable("Current", following)) {
+			config.callstackThreadId = -1;
+			config.selectedCallstackFrame = -1;
+		}
+		for (auto &thread : info) {
+			ImGui::PushID(thread.id);
+			char label[96];
+			snprintf(label, sizeof(label), "%s (%d)%s", thread.name, thread.id, thread.isCurrent ? " - current" : "");
+			if (ImGui::Selectable(label, !following && thread.id == config.callstackThreadId)) {
+				config.callstackThreadId = thread.id;
+				config.selectedCallstackFrame = -1;
+			}
+			ImGui::PopID();
+		}
+		ImGui::EndCombo();
+	}
+	ImGui::SameLine();
+	if (ImGui::Button("Current")) {
+		config.callstackThreadId = -1;
+		config.selectedCallstackFrame = -1;
+	}
+
+	// Other threads' registers are in their saved contexts.
+	const DebugInterface *threadDebug = nullptr;
+	if (shown) {
+		threadDebug = shown->isCurrent ? debug : KernelDebugThread(shown->id);
+	}
+	if (!threadDebug) {
+		ImGui::TextUnformatted(following ? "No current thread" : "Thread not found");
+		ImGui::End();
+		return;
+	}
+
+	const u32 entry = shown->entrypoint;
+	const u32 stackTop = shown->initialStack;
+	std::vector<MIPSStackWalk::StackFrame> frames = MIPSStackWalk::Walk(threadDebug->GetPC(), threadDebug->GetRegValue(0, MIPS_REG_RA), threadDebug->GetRegValue(0, MIPS_REG_SP), entry, stackTop);
+
+	auto describeFrame = [](const MIPSStackWalk::StackFrame &frame) {
+		const std::string entrySym = g_symbolMap->GetLabelString(frame.entry);
+		std::string desc = StringFromFormat("%s entry=%08x pc=%08x sp=%08x size=%d", entrySym.empty() ? "(no symbol)" : entrySym.c_str(), frame.entry, frame.pc, frame.sp, frame.stackSize);
+		const std::string source = g_lineInfo.LookupString(frame.pc);
+		if (!source.empty()) {
+			desc += " " + source;
+		}
+		return desc;
+	};
+
+	if (ImGui::BeginTable("frames", 7, ImGuiTableFlags_RowBg | ImGuiTableFlags_BordersH)) {
 		ImGui::TableSetupColumn("Entry", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("EntryAddr", ImGuiTableColumnFlags_WidthFixed);
 		ImGui::TableSetupColumn("CurPC", ImGuiTableColumnFlags_WidthFixed);
@@ -2042,16 +2117,49 @@ static void DrawCallStacks(const MIPSDebugInterface *debug, ImConfig &config, Im
 
 		ImGui::TableHeadersRow();
 
-		std::vector<MIPSStackWalk::StackFrame> frames = MIPSStackWalk::Walk(debug->GetPC(), debug->GetRegValue(0, 31), debug->GetRegValue(0, 29), entry, stackTop);
-
-		// TODO: Add context menu and clickability
 		int i = 0;
 		for (auto &frame : frames) {
 			const std::string entrySym = g_symbolMap->GetLabelString(frame.entry);
 			ImGui::PushID(i);
 			ImGui::TableNextRow();
 			ImGui::TableSetColumnIndex(0);
-			ImGui::TextUnformatted(entrySym.c_str());
+			// AllowOverlap keeps the clickable values in the other columns working.
+			const ImGuiSelectableFlags flags = ImGuiSelectableFlags_SpanAllColumns | ImGuiSelectableFlags_AllowDoubleClick | ImGuiSelectableFlags_AllowOverlap;
+			if (ImGui::Selectable(entrySym.empty() ? "(no symbol)" : entrySym.c_str(), config.selectedCallstackFrame == i, flags)) {
+				config.selectedCallstackFrame = i;
+				if (ImGui::IsMouseDoubleClicked(ImGuiMouseButton_Left)) {
+					control.command = { ImCmd::SHOW_IN_CPU_DISASM, frame.pc };
+				}
+			}
+			if (ImGui::BeginPopupContextItem("framePopup")) {
+				config.selectedCallstackFrame = i;
+				if (ImGui::MenuItem("Show in disassembly")) {
+					control.command = { ImCmd::SHOW_IN_CPU_DISASM, frame.pc };
+				}
+				if (ImGui::MenuItem("Show function entry in disassembly")) {
+					control.command = { ImCmd::SHOW_IN_CPU_DISASM, frame.entry };
+				}
+				ShowInMemoryViewerMenuItem(frame.sp, control);
+				ImGui::Separator();
+				if (ImGui::MenuItem("Copy")) {
+					System_CopyStringToClipboard(describeFrame(frame));
+				}
+				if (ImGui::MenuItem("Copy PC")) {
+					System_CopyStringToClipboard(StringFromFormat("%08x", frame.pc));
+				}
+				if (!entrySym.empty() && ImGui::MenuItem("Copy function name")) {
+					System_CopyStringToClipboard(entrySym);
+				}
+				if (ImGui::MenuItem("Copy whole callstack")) {
+					std::string text;
+					for (const auto &f : frames) {
+						text += describeFrame(f);
+						text += "\n";
+					}
+					System_CopyStringToClipboard(text);
+				}
+				ImGui::EndPopup();
+			}
 			ImGui::TableSetColumnIndex(1);
 			ImClickableValue("frameentry", frame.entry, control, ImCmd::SHOW_IN_CPU_DISASM);
 			ImGui::TableSetColumnIndex(2);
