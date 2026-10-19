@@ -3328,6 +3328,7 @@ bool TestShaderGenerators();
 bool TestIRPassSimplify();
 bool TestThreadManager();
 bool TestSaveStateAdmission();
+bool TestSaveStateCompletion();
 bool TestVFS();
 bool TestZipSlip();
 bool TestLzrc();
@@ -3736,6 +3737,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(RequestManager),
 	TEST_ITEM(StackWalk),
 	TEST_ITEM(SaveStateAdmission),
+	TEST_ITEM(SaveStateCompletion),
 };
 
 int main(int argc, const char *argv[]) {

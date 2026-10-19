@@ -42,7 +42,7 @@
 namespace {
 
 // Exercise the production response writer and WebSocket framing over a local socket.
-// The handler is called directly, so this does not test the HTTP upgrade or event dispatch.
+// The registered handler is called directly, so this does not test the HTTP upgrade or dispatcher.
 class TestWebSocket : public net::WebSocketServer {
 public:
 	TestWebSocket(SOCKET fd, net::OutputSink *output) : WebSocketServer(fd, nullptr, output) {}
@@ -58,6 +58,7 @@ public:
 	}
 
 	~ResponseConnection() {
+		subscriber_.reset();
 		if (server_ != INVALID_SOCKET) closesocket(server_);
 		if (client_ != INVALID_SOCKET) closesocket(client_);
 		if (listener_ != INVALID_SOCKET) closesocket(listener_);
@@ -95,40 +96,90 @@ public:
 		output_ = std::make_unique<net::OutputSink>(server_);
 		input_ = std::make_unique<net::InputSink>(client_);
 		websocket_ = std::make_unique<TestWebSocket>(server_, output_.get());
+		subscriber_.reset(WebSocketGameInit(handlers_));
 		return true;
 	}
 
 	bool Request(bool save, const char *expectedEvent, const char *expectedMessage = nullptr) {
-		const char *event = save ? "game.state.save" : "game.state.load";
-		const char data[] = R"({"path":"unused-admission-test.ppst","ticket":{"request":17}})";
-		json::JsonReader reader(data, sizeof(data) - 1);
-		EXPECT_TRUE(reader.ok());
-		WebSocketClientInfo client;
-		DebuggerRequest req(event, websocket_.get(), reader.root(), &client);
-		if (save) WebSocketGameStateSave(req);
-		else WebSocketGameStateLoad(req);
-		EXPECT_TRUE(req.Finish());
-		EXPECT_TRUE(output_->Flush(false));
+		RET(Send(save, Path("unused-admission-test.ppst"), nullptr, R"({"request":17})", true));
+		return Expect(expectedEvent, R"({"request":17})", nullptr, nullptr, expectedMessage);
+	}
 
-		// Each response here fits in one unmasked, non-fragmented text frame.
+	bool Send(bool save, const Path &path, const char *wait, const char *ticket, bool expectedFinished) {
+		JsonWriter json;
+		json.begin();
+		json.writeString("event", save ? "game.state.save" : "game.state.load");
+		json.writeString("path", path.ToString());
+		if (wait) json.writeRaw("wait", wait);
+		if (ticket) json.writeRaw("ticket", ticket);
+		json.end();
+		{
+			std::string data = json.str();
+			json::JsonReader reader(data.data(), data.size());
+			EXPECT_TRUE(reader.ok());
+			const char *event = reader.root().getStringOr("event", "");
+			DebuggerRequest req(event, websocket_.get(), reader.root(), &clientInfo_);
+			handlers_.at(event)(req);
+			EXPECT_EQ_INT(req.Finish(), expectedFinished);
+		}
+		// The request reader and its event/ticket storage are gone before Broadcast or Process.
+		return output_->Flush(false);
+	}
+
+	bool Expect(const char *event, const char *ticket, const char *status = nullptr, const char *forEvent = nullptr, const char *message = nullptr) {
+		// Read one bounded, unmasked, non-fragmented text frame from the production writer.
 		unsigned char header[2];
 		EXPECT_TRUE(input_->TakeExact((char *)header, sizeof(header)));
 		EXPECT_EQ_INT(header[0], 0x81);
-		EXPECT_TRUE(header[1] < 126);
-		std::string payload(header[1], '\0');
+		EXPECT_TRUE(header[1] <= 126);
+		size_t size = header[1];
+		if (size == 126) {
+			EXPECT_TRUE(input_->TakeExact((char *)header, sizeof(header)));
+			size = (header[0] << 8) | header[1];
+		}
+		EXPECT_TRUE(size <= 4096);
+		std::string payload(size, '\0');
 		EXPECT_TRUE(input_->TakeExact(payload.data(), payload.size()));
 		json::JsonReader response(payload.data(), payload.size());
 		EXPECT_TRUE(response.ok());
-		printf("  %s -> %s\n", event, payload.c_str());
-		EXPECT_EQ_STR(std::string(response.root().getStringOr("event", "")), std::string(expectedEvent));
-		EXPECT_EQ_INT(response.root().getDict("ticket").getInt("request"), 17);
-		if (expectedMessage) {
-			EXPECT_EQ_STR(std::string(response.root().getStringOr("message", "")), std::string(expectedMessage));
+		printf("  %s\n", payload.c_str());
+		const JsonGet &root = response.root();
+		EXPECT_EQ_STR(std::string(root.getStringOr("event", "")), std::string(event));
+		if (ticket) {
+			EXPECT_TRUE(root.get("ticket") != nullptr);
+			EXPECT_EQ_STR(json_stringify(root.get("ticket")), std::string(ticket));
 		} else {
+			EXPECT_TRUE(root.get("ticket") == nullptr);
+		}
+		if (status) {
+			EXPECT_EQ_STR(std::string(root.getStringOr("status", "")), std::string(status));
+			EXPECT_TRUE(strlen(root.getStringOr("message", "")) > 0);
+		} else {
+			EXPECT_TRUE(root.get("status") == nullptr);
+		}
+		if (forEvent) {
+			EXPECT_EQ_STR(std::string(root.getStringOr("for", "")), std::string(forEvent));
+			EXPECT_EQ_INT(root.getInt("level"), (int)LogLevel::LERROR);
+		}
+		if (message) {
+			EXPECT_EQ_STR(std::string(root.getStringOr("message", "")), std::string(message));
+		} else if (!status) {
 			// Legacy acceptance has only event and ticket, and says nothing about completion.
-			EXPECT_EQ_INT(response.root().numChildren(), 2);
+			EXPECT_EQ_INT(root.numChildren(), ticket ? 2 : 1);
 		}
 		EXPECT_EQ_INT(input_->ValidAmount(), 0);
+		return true;
+	}
+
+	bool Broadcast() {
+		if (subscriber_) subscriber_->Broadcast(websocket_.get());
+		return output_->Flush(false);
+	}
+
+	bool ExpectQuiet() {
+		RET(Broadcast());
+		EXPECT_EQ_INT(input_->ValidAmount(), 0);
+		EXPECT_FALSE(fd_util::WaitUntilReady((int)client_, 0.01));
 		return true;
 	}
 
@@ -142,11 +193,14 @@ private:
 	std::unique_ptr<net::OutputSink> output_;
 	std::unique_ptr<net::InputSink> input_;
 	std::unique_ptr<TestWebSocket> websocket_;
+	WebSocketClientInfo clientInfo_;
+	DebuggerEventHandlerMap handlers_;
+	std::unique_ptr<DebuggerSubscriber> subscriber_;
 };
 
 class AdmissionEnvironment {
 public:
-	AdmissionEnvironment()
+	explicit AdmissionEnvironment(const char *directory = "ppsspp-savestate-admission")
 		: config_(g_Config), parameter_(PSP_CoreParameter()), state_(coreState), pending_(coreStatePending), apctlState_(netApctlState) {
 		g_Config.RestoreDefaults(RestoreSettingsBits::SETTINGS, false);
 		g_Config.bAchievementsEnable = false;
@@ -155,7 +209,7 @@ public:
 		g_Config.bFuncHashMap = false;
 		g_Config.iDumpFileTypes = 0;
 		g_Config.sReportHost.clear();
-		g_Config.memStickDirectory = UnitTestTempPath("ppsspp-savestate-admission");
+		g_Config.memStickDirectory = UnitTestTempPath(directory);
 		g_Config.nandRootDirectory = g_Config.memStickDirectory / "nand";
 		File::CreateDir(g_Config.memStickDirectory, true);
 		g_threadManager.Init(1, 1);
@@ -320,4 +374,131 @@ bool TestSaveStateAdmission() {
 	passed &= CheckAdmission(connection, "hardcore load still refused with save setting", false, false);
 	passed &= CheckAdmission(connection, "hardcore save allowed by setting", true, true);
 	return passed;
+}
+
+bool TestSaveStateCompletion() {
+	AdmissionEnvironment environment("ppsspp-savestate-completion");
+	ResponseConnection connection;
+	RET(connection.Open());
+	RET(environment.Boot());
+	g_Config.bHideStateWarnings = false;
+	const Path saved = g_Config.memStickDirectory / "completion.ppst";
+	const Path busy = g_Config.memStickDirectory / "busy.ppst";
+	const Path legacy = g_Config.memStickDirectory / "legacy.ppst";
+	const Path missing = g_Config.memStickDirectory / "missing.ppst";
+	const Path disconnected = g_Config.memStickDirectory / "disconnected.ppst";
+	const Path abandoned = g_Config.memStickDirectory / "abandoned.ppst";
+	const Path paths[] = {saved, busy, legacy, missing, disconnected, abandoned};
+	for (const Path &path : paths) {
+		if (File::Exists(path)) EXPECT_TRUE(File::Delete(path));
+	}
+
+	printf("Completion case: invalid wait does not queue or occupy the result slot\n");
+	RET(connection.Send(true, busy, "[]", R"("invalid-wait")", true));
+	RET(connection.Expect("error", R"("invalid-wait")", nullptr, nullptr, "Invalid 'wait' parameter type"));
+	SaveState::Process();
+	RET(connection.ExpectQuiet());
+	EXPECT_FALSE(File::Exists(busy));
+
+	printf("Completion case: real save, bounded wait slot, independent legacy request\n");
+	SaveState::NotifySaveData();
+	RET(connection.Send(true, saved, "true", R"({"request":[17,null,"save"]})", false));
+	RET(connection.ExpectQuiet());
+	EXPECT_FALSE(File::Exists(saved));
+	RET(connection.Send(true, busy, "true", "18", true));
+	RET(connection.Expect("error", "18", nullptr, nullptr, "A savestate completion is already pending on this connection"));
+	RET(connection.Send(true, legacy, "false", "19", true));
+	RET(connection.Expect("game.state.save", "19"));
+	SaveState::Process();
+	EXPECT_TRUE(File::GetFileSize(saved) > 0);
+	EXPECT_TRUE(File::GetFileSize(legacy) > 0);
+	EXPECT_FALSE(File::Exists(busy));
+	// Process has released its callback copies. Recorded completion must win over token expiry.
+	RET(connection.Broadcast());
+	RET(connection.Expect("game.state.save", R"({"request":[17,null,"save"]})", "success"));
+	RET(connection.ExpectQuiet());
+
+	printf("Completion case: successful load and real savedata-generation warning\n");
+	RET(connection.Send(false, saved, "true", R"("load")", false));
+	RET(connection.ExpectQuiet());
+	SaveState::Process();
+	RET(connection.Broadcast());
+	RET(connection.Expect("game.state.load", R"("load")", "success"));
+	RET(connection.ExpectQuiet());
+	SaveState::NotifySaveData();
+	RET(connection.Send(false, saved, "true", R"(["warning",20])", false));
+	SaveState::Process();
+	RET(connection.Broadcast());
+	RET(connection.Expect("game.state.load", R"(["warning",20])", "warning"));
+	RET(connection.ExpectQuiet());
+
+	printf("Completion case: failed file operations and all JSON ticket types\n");
+	const char *tickets[] = {nullptr, "null", "true", "23", R"("quoted\"ticket")", R"([1,"two"])", R"({"nested":{"value":3}})"};
+	for (const char *ticket : tickets) {
+		RET(connection.Send(false, missing, "true", ticket, false));
+		RET(connection.ExpectQuiet());
+		SaveState::Process();
+		RET(connection.Broadcast());
+		RET(connection.Expect("error", ticket, "failed", "game.state.load"));
+		RET(connection.ExpectQuiet());
+	}
+	// Saving to an existing directory fails in the real file writer.
+	RET(connection.Send(true, g_Config.memStickDirectory, "true", "24", false));
+	SaveState::Process();
+	RET(connection.Broadcast());
+	RET(connection.Expect("error", "24", "failed", "game.state.save"));
+	RET(connection.ExpectQuiet());
+
+	printf("Completion case: shutdown abandonment and pending-slot recovery\n");
+	RET(connection.Send(true, abandoned, "true", "25", false));
+	RET(connection.ExpectQuiet());
+	SaveState::Shutdown();
+	RET(connection.Broadcast());
+	RET(connection.Expect("error", "25", "abandoned", "game.state.save", "Savestate callback was discarded without a completion result"));
+	RET(connection.ExpectQuiet());
+	EXPECT_FALSE(File::Exists(abandoned));
+	RET(connection.Send(false, missing, "true", "26", false));
+	SaveState::Process();
+	RET(connection.Broadcast());
+	RET(connection.Expect("error", "26", "failed", "game.state.load"));
+	RET(connection.ExpectQuiet());
+
+	printf("Completion case: connection lifetime and independent per-connection slots\n");
+	RET(connection.Send(false, missing, "true", "27", false));
+	{
+		ResponseConnection other;
+		RET(other.Open());
+		RET(other.Send(true, disconnected, "true", "28", false));
+		RET(other.ExpectQuiet());
+		// Destroy the subscriber, request map, writer and socket before its callback runs.
+	}
+	SaveState::Process();
+	EXPECT_TRUE(File::GetFileSize(disconnected) > 0);
+	RET(connection.Broadcast());
+	RET(connection.Expect("error", "27", "failed", "game.state.load"));
+	RET(connection.ExpectQuiet());
+
+	printf("Completion case: late hardcore refusal abandons the queued callback\n");
+	RET(connection.Send(true, abandoned, "true", "29", false));
+	RET(EnableHardcoreFixture());
+	SaveState::Process();
+	RET(connection.Broadcast());
+	RET(connection.Expect("error", "29", "abandoned", "game.state.save"));
+	RET(connection.ExpectQuiet());
+	EXPECT_FALSE(File::Exists(abandoned));
+	// An immediate refusal must not leave a pending result or produce an abandoned terminal.
+	RET(connection.Send(false, saved, "true", "30", true));
+	RET(connection.Expect("error", "30", nullptr, nullptr, "Could not queue savestate load"));
+	RET(connection.ExpectQuiet());
+	// Default requests retain their old response shape even when their callback is discarded.
+	g_Config.bAchievementsSaveStateInHardcoreMode = true;
+	RET(connection.Send(true, abandoned, nullptr, "31", true));
+	RET(connection.Expect("game.state.save", "31"));
+	SaveState::Shutdown();
+	RET(connection.ExpectQuiet());
+
+	for (const Path &path : paths) {
+		if (File::Exists(path)) EXPECT_TRUE(File::Delete(path));
+	}
+	return true;
 }

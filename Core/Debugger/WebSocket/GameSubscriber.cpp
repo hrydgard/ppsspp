@@ -17,6 +17,9 @@
 
 #include "ppsspp_config.h"
 
+#include <memory>
+#include <mutex>
+
 // For the process id in the version response. On desktop Windows this is deliberately the CRT's
 // _getpid() rather than Win32 GetCurrentProcessId(), to avoid pulling windows.h into this file - it
 // defines an OPTIONAL macro that collides with DebuggerParamType::OPTIONAL. UWP has no _getpid, and
@@ -46,6 +49,52 @@
 // DebuggerParamType::OPTIONAL, exactly the problem the note above is avoiding.
 bool NetworkAllowSpeedControl();
 
+namespace {
+
+struct SaveStateResult {
+	SaveStateResult(const char *name, const JsonGet &data) : event(name) {
+		const JsonNode *ticket = data.get("ticket");
+		if (ticket)
+			ticketRaw = json_stringify(ticket);
+	}
+
+	std::mutex mutex;
+	bool completed = false;
+	SaveState::Status status = SaveState::Status::FAILURE;
+	std::string message;
+	const char *event;
+	std::string ticketRaw;
+};
+
+// The queued callback owns this token, but only the connection owns the result. A disconnected
+// client does not keep a result alive, and discarding a callback does not invoke client code.
+struct SaveStateCallback {
+	explicit SaveStateCallback(const std::shared_ptr<SaveStateResult> &result) : result(result) {}
+
+	void Complete(SaveState::Status status, std::string_view message) {
+		if (auto value = result.lock()) {
+			std::lock_guard<std::mutex> guard(value->mutex);
+			value->status = status;
+			value->message = message;
+			value->completed = true;
+		}
+	}
+
+	std::weak_ptr<SaveStateResult> result;
+};
+
+class WebSocketGameState : public DebuggerSubscriber {
+public:
+	void StateRequest(DebuggerRequest &req, bool save);
+	void Broadcast(net::WebSocketServer *ws) override;
+
+private:
+	std::shared_ptr<SaveStateResult> pending_;
+	std::weak_ptr<SaveStateCallback> callback_;
+};
+
+}  // namespace
+
 static uint32_t GetOwnProcessID() {
 #if PPSSPP_PLATFORM(UWP)
 	return (uint32_t)GetCurrentProcessId();
@@ -57,15 +106,16 @@ static uint32_t GetOwnProcessID() {
 }
 
 DebuggerSubscriber *WebSocketGameInit(DebuggerEventHandlerMap &map) {
+	auto p = new WebSocketGameState();
 	map["game.reset"] = &WebSocketGameReset;
 	map["game.status"] = &WebSocketGameStatus;
-	map["game.state.load"] = &WebSocketGameStateLoad;
-	map["game.state.save"] = &WebSocketGameStateSave;
+	map["game.state.load"] = [p](DebuggerRequest &req) { p->StateRequest(req, false); };
+	map["game.state.save"] = [p](DebuggerRequest &req) { p->StateRequest(req, true); };
 	map["game.speed.get"] = &WebSocketGameSpeedGet;
 	map["game.speed.set"] = &WebSocketGameSpeedSet;
 	map["version"] = &WebSocketVersion;
 
-	return nullptr;
+	return p;
 }
 
 // Reset emulation (game.reset)
@@ -128,71 +178,95 @@ void WebSocketGameStatus(DebuggerRequest &req) {
 	});
 }
 
-// Load a savestate file (game.state.load)
-//
-// The load is queued, and happens at the end of the next frame the CPU runs, so follow this with
-// something that runs it, like cpu.runUntilTime.
-//
-// Parameters:
-//  - path: string, path to the .ppst file.
-//
-// Response (same event name) with no extra data, once queued.
-void WebSocketGameStateLoad(DebuggerRequest &req) {
+// Load or save a savestate file (game.state.load / game.state.save).
+// Without wait, acknowledge queue admission immediately. With wait, reply from Broadcast once
+// the callback completes or is abandoned, keeping at most one awaited result per connection.
+void WebSocketGameState::StateRequest(DebuggerRequest &req, bool save) {
 	std::string path;
-	if (!req.ParamString("path", &path))
+	bool wait = false;
+	if (!req.ParamString("path", &path) || !req.ParamBool("wait", &wait, DebuggerParamType::OPTIONAL))
 		return;
+	if (wait && pending_)
+		return req.Fail("A savestate completion is already pending on this connection");
+
+	// req.name and req.data belong to the request's JSON reader. Keep a static event name and
+	// an owned ticket before returning to the dispatcher.
+	const char *event = save ? "game.state.save" : "game.state.load";
+	std::shared_ptr<SaveStateResult> result;
+	std::shared_ptr<SaveStateCallback> token;
+	if (wait) {
+		result = std::make_shared<SaveStateResult>(event, req.data);
+		token = std::make_shared<SaveStateCallback>(result);
+	}
+	SaveState::Callback callback = [token, event](SaveState::Status status, std::string_view message, std::string_view) {
+		if (status == SaveState::Status::FAILURE)
+			ERROR_LOG(Log::System, "%s: %.*s", event, STR_VIEW(message));
+		if (token)
+			token->Complete(status, message);
+	};
 
 	bool running = false;
 	bool queued = false;
 	Core_RunOnCPUThread([&] {
 		running = PSP_GetBootState() == BootState::Complete;
 		if (running) {
-			queued = SaveState::Load(Path(path), -1, [](SaveState::Status status, std::string_view message, std::string_view) {
-				if (status == SaveState::Status::FAILURE) {
-					ERROR_LOG(Log::System, "game.state.load: %.*s", STR_VIEW(message));
-				}
-			});
+			queued = save ? SaveState::Save(Path(path), -1, callback) : SaveState::Load(Path(path), -1, callback);
 		}
 	});
 	if (!running)
 		return req.Fail("Game not running");
 	if (!queued) {
-		return req.Fail("Could not queue savestate load");
+		return req.Fail(save ? "Could not queue savestate save" : "Could not queue savestate load");
 	}
-	req.Respond();
+
+	if (wait) {
+		pending_ = std::move(result);
+		callback_ = token;
+	} else {
+		req.Respond();
+	}
 }
 
-// Save a savestate file (game.state.save)
-//
-// Like game.state.load, the save is queued and happens at the end of the next frame the CPU runs.
-//
-// Parameters:
-//  - path: string, path to write the .ppst file to.
-//
-// Response (same event name) with no extra data, once queued.
-void WebSocketGameStateSave(DebuggerRequest &req) {
-	std::string path;
-	if (!req.ParamString("path", &path))
+void WebSocketGameState::Broadcast(net::WebSocketServer *ws) {
+	if (!pending_)
 		return;
 
-	bool running = false;
-	bool queued = false;
-	Core_RunOnCPUThread([&] {
-		running = PSP_GetBootState() == BootState::Complete;
-		if (running) {
-			queued = SaveState::Save(Path(path), -1, [](SaveState::Status status, std::string_view message, std::string_view) {
-				if (status == SaveState::Status::FAILURE) {
-					ERROR_LOG(Log::System, "game.state.save: %.*s", STR_VIEW(message));
-				}
-			});
+	const char *status;
+	std::string message;
+	bool error;
+	{
+		// Test completion and token lifetime under the same lock: a completing callback must
+		// not be mistaken for one that was discarded by shutdown or a late policy check.
+		std::lock_guard<std::mutex> guard(pending_->mutex);
+		if (pending_->completed) {
+			error = pending_->status == SaveState::Status::FAILURE;
+			status = error ? "failed" : pending_->status == SaveState::Status::WARNING ? "warning" : "success";
+			message = pending_->message;
+		} else if (callback_.expired()) {
+			error = true;
+			status = "abandoned";
+			message = "Savestate callback was discarded without a completion result";
+		} else {
+			return;
 		}
-	});
-	if (!running)
-		return req.Fail("Game not running");
-	if (!queued) {
-		return req.Fail("Could not queue savestate save");
 	}
-	req.Respond();
+
+	JsonWriter json;
+	json.begin();
+	json.writeString("event", error ? "error" : pending_->event);
+	if (error) {
+		json.writeString("for", pending_->event);
+		json.writeInt("level", (int)LogLevel::LERROR);
+	}
+	json.writeString("status", status);
+	if (!message.empty())
+		json.writeString("message", message);
+	if (!pending_->ticketRaw.empty())
+		json.writeRaw("ticket", pending_->ticketRaw);
+	json.end();
+	ws->Send(json.str());
+	pending_.reset();
+	callback_.reset();
 }
 
 // Percentages are relative to 60 FPS, matching how the in-app settings present the alternative

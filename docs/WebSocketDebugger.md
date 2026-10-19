@@ -59,18 +59,17 @@ Responses use the *same* event name as the request:
 **The ticket convention**: send one whenever you care about the answer. Since
 a response reuses the request's event name, a ticket is the only thing that
 distinguishes *your* answer from an unsolicited broadcast of the same name, or
-from the answer to an identical request you sent a moment earlier. Conversely,
-for a request that doesn't answer immediately (below), leaving the ticket off
-says you aren't waiting for anything.
+from the answer to an identical request you sent a moment earlier.
 
 Responses are not always immediate. `cpu.resume`, `cpu.stepInto`,
 `cpu.stepOver`, `cpu.stepOut`, `cpu.runUntil`, `cpu.runUntilTime`,
 `cpu.nextHLE`, `cpu.stepping` and `gpu.stats.feed` send nothing back at the
 time of the request; what follows later is the broadcast that reports the
 actual outcome (`cpu.stepping` / `cpu.resume`), which carries no ticket.
-`input.buttons.press` is the odd one out - it answers with the request's own
-event name *and* ticket, but only once the button has been held for the
-requested number of frames.
+`input.buttons.press` answers with the request's own event name *and* ticket,
+but only once the button has been held for the requested number of frames.
+`game.state.load` and `game.state.save` also return a ticketed terminal result
+when `wait: true` is requested; see [Save-state requests](#save-state-requests).
 
 If you would rather not track which those are, ask to be told explicitly:
 
@@ -270,7 +269,7 @@ file - this is just an index.
 
 | Category | Events | File |
 |---|---|---|
-| Game/version | `game.reset`, `game.status`, `game.state.load` (queue loading a `.ppst` file, applied at the end of the next frame the CPU runs), `game.state.save` (the same for saving one), `game.speed.get/set` (emulation speed - unlimited fast-forward, or a percentage of 60 FPS; see below), `version` | `GameSubscriber.cpp` |
+| Game/version | `game.reset`, `game.status`, `game.state.load` / `game.state.save` (queue a `.ppst` load/save, optionally wait for its result; see below), `game.speed.get/set` (emulation speed - unlimited fast-forward, or a percentage of 60 FPS; see below), `version` | `GameSubscriber.cpp` |
 | CPU core | `cpu.stepping`, `cpu.resume`, `cpu.status` (reports `ticks` plus `us`, emulated microseconds, and `clockHz` - use `us` to line up with wall-clock timings, since games change the clock frequency and the ticks-per-second ratio isn't fixed), `cpu.getAllRegs`, `cpu.getReg`, `cpu.setReg`, `cpu.evaluate` | `CPUCoreSubscriber.cpp` |
 | Stepping | `cpu.stepInto`, `cpu.stepOver`, `cpu.stepOut`, `cpu.runUntil`, `cpu.runUntilTime` (run until a point in emulated time - `us` absolute or `relativeUs` from now - and break there; this is how to get a scripted repro reproducibly "N seconds into the game" instead of polling `cpu.status` in a loop), `cpu.nextHLE` | `SteppingSubscriber.cpp` |
 | Breakpoints | `cpu.breakpoint.add/update/remove/list`, `memory.breakpoint.add/update/remove/list`, `cpu.regBreakpoint.add/update/remove/list` (break when a register is written to, by any instruction anywhere - currently GPRs only; interpreter-only, no effect under a JIT backend) | `BreakpointSubscriber.cpp` |
@@ -292,16 +291,67 @@ file - this is just an index.
 
 ### Save-state requests
 
-`game.state.save` and `game.state.load` acknowledge a request once the operation
-has entered the save-state queue. If network or RetroAchievements hardcore
-restrictions refuse it, the response is an `error` with the request's ticket.
-The existing restrictions and the save-only hardcore override also apply to
-debugger requests.
+`game.state.save` and `game.state.load` take a `path` string and an optional
+`wait` boolean (default `false`). If network or RetroAchievements hardcore
+restrictions refuse admission, the response is an immediate `error` with the
+request's ticket. The existing restrictions and the save-only hardcore override
+also apply to debugger requests.
 
-A queued acknowledgement does not confirm that the file was saved or restored.
-The operation runs when the save-state queue is processed; file errors at that
-point are logged. Clients may need to advance emulation with a command such as
-`cpu.runUntilTime` after queueing a load.
+With `wait` omitted or `false`, the response has the request's event and ticket
+and no extra fields, once the operation has entered the save-state queue. It
+does not confirm that the file was saved or restored. Later file errors are
+logged, without another reply to that request.
+
+With `wait: true`, an accepted request instead waits for the save-state callback.
+There is no immediate response unless `client.config.set` has enabled
+`acknowledgeDeferred`; then the usual `deferred` reply precedes the terminal
+result. Use the ticket to correlate the terminal result:
+
+| `status` | `event` | Meaning |
+|---|---|---|
+| `success` | Original `game.state.save` / `game.state.load` | The save-state operation completed successfully. |
+| `warning` | Original `game.state.load` | The state was loaded, with a warning from the loader. |
+| `failed` | `error` | The save-state callback reported failure. |
+| `abandoned` | `error` | The queued callback was discarded without reporting a result, for example during shutdown or a late hardcore check. |
+
+Terminal errors include `for` with the original event name and `level: 2`.
+Every terminal result echoes the original ticket if one was provided, including
+JSON objects, arrays and `null`. A nonempty callback message is included as
+`message`; it is human-facing and may be localized. Branch on `status`, rather
+than parsing that message. Immediate admission and parameter errors retain the
+ordinary error shape and have no terminal `status`.
+
+Each connection can have one awaited save/load result outstanding, until that
+result is sent. Another `wait: true` save/load is rejected before queueing;
+default requests and requests on other connections can still proceed. Terminal
+results are direct replies, unaffected by `broadcast.config.set` or the
+breakpoint-event queue.
+
+The operation runs when the emulator processes the save-state queue safely.
+`wait` does not advance emulation. If a paused integration needs a command such
+as `cpu.runUntilTime` to allow processing, send it with a separate ticket without
+first waiting for the save/load result. For example, with deferred replies enabled:
+
+```json
+-> { "event": "game.state.save", "path": "/tmp/checkpoint.ppst", "wait": true, "ticket": "save-1" }
+-> { "event": "cpu.runUntilTime", "relativeUs": 1000, "ticket": "advance-1" }
+<- { "event": "deferred", "for": "game.state.save", "ticket": "save-1" }
+<- { "event": "game.state.save", "status": "success", "message": "Saved State", "ticket": "save-1" }
+```
+
+Replies for the execution request may interleave with those shown. Completion
+reports the save/load outcome; it does not stop subsequent emulation.
+
+`abandoned` does not prove that the operation was cancelled or had no side
+effects. A client timeout or disconnect also leaves the outcome unknown, and
+disconnecting does not cancel an operation already queued. Results belong to
+the requesting connection and are not retained for reconnection.
+
+The current `wsdbg --sync` stops at a matching ticket for save/load requests,
+including a `deferred` acknowledgement. By itself it does not wait for the
+terminal result when deferred acknowledgements are enabled. Use a client that
+skips `deferred` and waits for the terminal event/status, or disable deferred
+acknowledgements on that same connection before the awaited request.
 
 ## Enabling it
 
