@@ -81,8 +81,8 @@ public:
 	bool GetCurrentDrawAsDebugVertices(GECommand cmd, GEPrimitiveType prim, GEPrimitiveType *outPrim, int count, std::vector<GPUDebugVertex> *vertices, std::vector<u16> *indices, int *lowerIndexBound, TransformStats *stats, DebugVertexFlags flags) const;
 	int GetCurrentPrim(GEPrimitiveType *prim, GECommand *outCmd) const;  // Return value has the count.
 
-	// FinishInitOnMainThread runs on the main thread, of course.
-	virtual void FinishInitOnMainThread() {}
+	// True while pipelines from the shader cache are still being created, in the background.
+	virtual bool IsLoadingShaderCache() const { return false; }
 
 	Draw::DrawContext *GetDrawContext() {
 		return draw_;

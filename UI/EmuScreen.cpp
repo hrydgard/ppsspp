@@ -455,15 +455,8 @@ EmuScreen::~EmuScreen() {
 	g_Config.TimeTracker().Stop(gameID);
 
 	if (bootPending_) {
-		// We quit during boot (maybe from the background), before update called PSP_InitUpdate.
-		// Wait for the boot thread to finish, so PSP_InitUpdate can join it.
-		while (PollBootState() == BootState::Booting) {
-			sleep_ms(10, "exit-during-boot");
-		}
-		// Make sure we join the boot thread, by calling PSP_InitUpdate.
-		std::string error_string = "(unknown error)";
-		PSP_InitUpdate(&error_string);
-		ERROR_LOG(Log::G3D, "Quit during boot, not good. %s", error_string.c_str());
+		// We quit during boot (maybe from the background). PSP_Shutdown below waits for the loader thread.
+		ERROR_LOG(Log::G3D, "Quit during boot");
 		bootPending_ = false;
 	}
 
@@ -1363,7 +1356,7 @@ void EmuScreen::CreateViews() {
 }
 
 void EmuScreen::deviceLost() {
-	// A boot in progress doesn't create the GPU while the device is lost, see PSP_NotifyGraphicsDeviceLost.
+	// A boot in progress only creates the GPU from PSP_InitUpdate, which doesn't run while the device is lost.
 	UIScreen::deviceLost();
 }
 

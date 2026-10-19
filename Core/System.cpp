@@ -110,9 +110,9 @@ static bool g_fileLoggingWasEnabled;
 // CPU and loader threads move it along.
 static std::atomic<BootState> g_bootState = BootState::Off;
 
-// See PSP_NotifyGraphicsDeviceLost.
-static std::mutex g_graphicsDeviceMutex;
-static bool g_graphicsDeviceLost = false;
+// Set by the loader thread when it's done, g_loaderFailed first.
+static std::atomic<bool> g_loaderDone = false;
+static bool g_loaderFailed = false;
 
 BootState PSP_GetBootState() {
 	return g_bootState;
@@ -734,33 +734,19 @@ void PSP_ForceDebugStats(bool enable) {
 	_assert_(g_coreCollectDebugStatsCounter >= 0);
 }
 
-// Returns false if the GPU couldn't be brought up - in which case it has already set
-// BootState::Failed and torn the CPU back down, so the caller must not carry on.
+// Returns false if the GPU couldn't be brought up, in which case it has torn the CPU back down.
 static bool InitGPU(std::string *error_string) {
-	if (!gpu) {  // should be!
-		INFO_LOG(Log::Loader, "Starting graphics...");
-		Draw::DrawContext *draw = g_CoreParameter.graphicsContext ? g_CoreParameter.graphicsContext->GetDrawContext() : nullptr;
-		// This set the `gpu` global.
-		GPUCore gpuCore = PSP_CoreParameter().gpuCore;
-		bool success = GPU_Init(gpuCore, g_CoreParameter.graphicsContext, draw);
-		if (!success) {
-			*error_string = "Unable to initialize rendering engine.";
-			CPU_Shutdown(false);
-			g_bootState = BootState::Failed;
-			return false;
-		}
+	_dbg_assert_(!gpu);
+	INFO_LOG(Log::Loader, "Starting graphics...");
+	Draw::DrawContext *draw = g_CoreParameter.graphicsContext ? g_CoreParameter.graphicsContext->GetDrawContext() : nullptr;
+	// This sets the `gpu` global.
+	GPUCore gpuCore = PSP_CoreParameter().gpuCore;
+	if (!GPU_Init(gpuCore, g_CoreParameter.graphicsContext, draw)) {
+		*error_string = "Unable to initialize rendering engine.";
+		CPU_Shutdown(false);
+		return false;
 	}
 	return true;
-}
-
-void PSP_NotifyGraphicsDeviceLost() {
-	std::lock_guard<std::mutex> lock(g_graphicsDeviceMutex);
-	g_graphicsDeviceLost = true;
-}
-
-void PSP_NotifyGraphicsDeviceRestored() {
-	std::lock_guard<std::mutex> lock(g_graphicsDeviceMutex);
-	g_graphicsDeviceLost = false;
 }
 
 bool PSP_InitStart(const CoreParameter &coreParam) {
@@ -772,6 +758,8 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 	IncrementDebugCounter(DebugCounter::GAME_BOOT);
 
 	g_bootState = BootState::Booting;
+	g_loaderDone = false;
+	g_loaderFailed = false;
 
 	GraphicsContext *temp = g_CoreParameter.graphicsContext;
 	g_CoreParameter = coreParam;
@@ -829,67 +817,32 @@ bool PSP_InitStart(const CoreParameter &coreParam) {
 			if (errorString->empty()) {
 				*errorString = "Failed initializing CPU/Memory";
 			}
-			g_bootState = BootState::Failed;
+			g_loaderFailed = true;
+			g_loaderDone = true;
 			return;
 		}
 
-		// Initialize the GPU as far as we can here (do things like load cache files).
-		_dbg_assert_(!gpu);
-#ifndef __LIBRETRO__
-		// Must not stamp Complete over the Failed that InitGPU sets - it has already run
-		// CPU_Shutdown(), so PSP_InitUpdate would take the success path on a core that no longer
-		// exists, right down to a null Memory::base.
-		{
-			// Keeps the device from being lost while we create the GPU.
-			std::lock_guard<std::mutex> lock(g_graphicsDeviceMutex);
-			if (!g_graphicsDeviceLost && !InitGPU(errorString)) {
-				return;
-			}
-		}
-#endif
-		g_bootState = BootState::Complete;
+		// The GPU is created by PSP_InitUpdate, on the thread that owns the graphics device.
+		g_loaderDone = true;
 	});
 
 	return true;
 }
 
 BootState PSP_InitUpdate(std::string *error_string) {
-	const BootState bootState = g_bootState;
-
-	if (bootState == BootState::Booting || bootState == BootState::Off) {
-		// Nothing to do right now.
-		_dbg_assert_(bootState == BootState::Booting || !g_loadingThread.joinable());
-		return bootState;
+	if (g_bootState != BootState::Booting) {
+		_dbg_assert_(g_bootState == BootState::Off);
+		return g_bootState;
 	}
 
-	_dbg_assert_(bootState == BootState::Complete || bootState == BootState::Failed);
-
-	// Since we load on a background thread, wait for startup to complete.
-	_assert_msg_(g_loadingThread.joinable(), "bootstate: %d", (int)bootState);
-	g_loadingThread.join();
-
-	if (bootState == BootState::Failed) {
-		// Failed! (Note: PSP_Shutdown was already called on the loader thread).
-		Core_NotifyLifecycle(CoreLifecycle::START_COMPLETE);
-		*error_string = g_CoreParameter.errorString;
-		g_bootState = BootState::Off;
-		return BootState::Failed;
-	}
-
-	// Create the GPU here if the boot thread didn't (always on libretro, otherwise when the device was lost).
-	if (!gpu) {
-		std::lock_guard<std::mutex> lock(g_graphicsDeviceMutex);
-		bool success;
-		if (g_graphicsDeviceLost) {
-			// We're exiting during boot, and there's no device to create the GPU on.
-			g_CoreParameter.errorString = "Graphics device lost during boot";
-			CPU_Shutdown(false);
-			success = false;
-		} else {
-			success = InitGPU(&g_CoreParameter.errorString);
+	if (g_loadingThread.joinable()) {
+		if (!g_loaderDone) {
+			return BootState::Booting;
 		}
-		if (!success) {
-			// Same as the Failed branch above - the core is already gone.
+		g_loadingThread.join();
+
+		// The loader thread has already shut the CPU down if it failed, and so has InitGPU.
+		if (g_loaderFailed || !InitGPU(&g_CoreParameter.errorString)) {
 			Core_NotifyLifecycle(CoreLifecycle::START_COMPLETE);
 			*error_string = g_CoreParameter.errorString;
 			g_bootState = BootState::Off;
@@ -897,16 +850,13 @@ BootState PSP_InitUpdate(std::string *error_string) {
 		}
 	}
 
-	// Ok, async part of the boot completed, let's finish up things on the main thread.
-	if (gpu) {
-		gpu->FinishInitOnMainThread();
-	} else {
-		_dbg_assert_(gpu);
+	// Keeps the loading spinner going while the shader cache compiles.
+	if (gpu->IsLoadingShaderCache()) {
+		return BootState::Booting;
 	}
 
+	g_bootState = BootState::Complete;
 	Core_NotifyLifecycle(CoreLifecycle::START_COMPLETE);
-	// The thread should have set it at this point.
-	_dbg_assert_(bootState == BootState::Complete);
 	return BootState::Complete;
 }
 
@@ -940,6 +890,16 @@ void PSP_Shutdown(bool success) {
 	}
 
 	_assert_(g_bootState != BootState::Failed);
+
+	if (g_loadingThread.joinable()) {
+		// Exiting during boot, before PSP_InitUpdate got to create the GPU.
+		g_loadingThread.join();
+		if (g_loaderFailed) {
+			Core_NotifyLifecycle(CoreLifecycle::START_COMPLETE);
+			g_bootState = BootState::Off;
+			return;
+		}
+	}
 
 	Core_Stop();
 

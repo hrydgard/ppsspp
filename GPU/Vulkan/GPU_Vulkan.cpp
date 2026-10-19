@@ -85,23 +85,27 @@ GPU_Vulkan::GPU_Vulkan(GraphicsContext *gfxCtx, Draw::DrawContext *draw)
 
 	drawEngine_.InitDeviceObjects();  // Creates important things like the pipeline layout. Required for loading the disk cache.
 
-	// Load shader cache.
+	// This can stop and restart the render manager's threads, which would wait for the pipelines
+	// from the shader cache, so it goes first.
+	framebufferManagerVulkan_->Init(msaaLevel_);
+
+	// Load shader cache. The pipelines are created in the background, see IsLoadingShaderCache.
 	std::string discID = g_paramSFO.GetDiscID();
 	if (discID.size()) {
 		File::CreateFullPath(GetSysDirectory(DIRECTORY_APP_CACHE));
 		shaderCachePath_ = GetSysDirectory(DIRECTORY_APP_CACHE) / (discID + ".vkshadercache");
-		LoadCache(shaderCachePath_, true);
+		LoadCache(shaderCachePath_);
 	}
 
 	InitDeviceObjects();
 }
 
-void GPU_Vulkan::FinishInitOnMainThread() {
-	// This can end up stopping/starting the vulkan render manager.
-	framebufferManagerVulkan_->Init(msaaLevel_);
+bool GPU_Vulkan::IsLoadingShaderCache() const {
+	VulkanRenderManager *rm = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
+	return rm->PipelinesPending();
 }
 
-void GPU_Vulkan::LoadCache(const Path &filename, bool waitForPipelines) {
+void GPU_Vulkan::LoadCache(const Path &filename) {
 	_dbg_assert_(draw_);
 	if (!g_Config.bShaderCache) {
 		WARN_LOG(Log::G3D, "Shader cache disabled. Not loading.");
@@ -133,16 +137,6 @@ void GPU_Vulkan::LoadCache(const Path &filename, bool waitForPipelines) {
 		result = pipelineManager_->LoadPipelineCache(f, false, shaderManagerVulkan_, draw_, drawEngine_.GetPipelineLayout(), msaaLevel_);
 	}
 	fclose(f);
-
-	if (waitForPipelines) {
-		// Now, since we're on the loader thread, we can just block here until all pipelines are actually created.
-		// This makes it so that the on-screen spinner keeps spinning until we are done.
-		double start = time_now_d();
-		VulkanRenderManager *rm = (VulkanRenderManager *)draw_->GetNativeObject(Draw::NativeObject::RENDER_MANAGER);
-		int maxTasksSeen = rm->WaitForPipelines();
-		double seconds = time_now_d() - start;
-		INFO_LOG(Log::G3D, "Waited %0.1fms for at least %d pipeline tasks to finish compiling.", seconds * 1000.0, maxTasksSeen);
-	}
 
 	if (!result) {
 		WARN_LOG(Log::G3D, "Incompatible Vulkan pipeline cache - rebuilding.");
@@ -410,7 +404,7 @@ void GPU_Vulkan::DeviceRestore(Draw::DrawContext *draw) {
 	// DeviceLost saved the cache and then threw everything away. Load it again, or the next save would
 	// overwrite the file with only what gets drawn from now on.
 	if (shaderCachePath_.Valid()) {
-		LoadCache(shaderCachePath_, false);
+		LoadCache(shaderCachePath_);
 	}
 }
 
