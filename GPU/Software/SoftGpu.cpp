@@ -647,7 +647,9 @@ void SoftGPU::CopyToCurrentFboFromDisplayRam(const DisplayLayoutConfig &config, 
 				outputFlags |= OutputFlags::PILLARBOX;
 			}
 		}
-	} else if (!Memory::IsValidAddress(displayFramebuf_) || srcwidth == 0 || srcheight == 0) {
+	} else if (srcwidth == 0 || srcheight == 0 || displayStride_ < 0 || !Memory::IsValidRange(displayFramebuf_, (displayStride_ == 0 ? srcwidth : displayStride_) * srcheight * (displayFormat_ == GE_FORMAT_8888 ? 4 : 2))) {
+		// Nothing, or not all of it in memory: the PSP takes strides that run past the end of VRAM, or
+		// negative ones (rows going up.)
 		hasImage = false;
 		u1 = 1.0f;
 	} else if (displayFormat_ == GE_FORMAT_8888) {

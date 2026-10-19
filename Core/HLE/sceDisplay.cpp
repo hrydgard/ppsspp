@@ -237,6 +237,17 @@ struct GPUStatistics_v0 {
 	int moreInts[15];
 };
 
+// A savestate's display framebuffer, straight from the file. The stride can be anything (the PSP
+// takes negative ones, and GE dump playback sets others): presenting checks that.
+static void SanitizeLoadedFramebuf(FrameBufferState &fb) {
+	const bool validAddr = fb.topaddr == 0 || Memory::IsRAMAddress(fb.topaddr) || Memory::IsVRAMAddress(fb.topaddr);
+	if (!validAddr || fb.fmt < GE_FORMAT_565 || fb.fmt > GE_FORMAT_8888) {
+		ERROR_LOG(Log::SaveState, "Savestate has an invalid display framebuffer (%08x, format %d), turning the display off", fb.topaddr, (int)fb.fmt);
+		fb.topaddr = 0;
+		fb.fmt = GE_FORMAT_8888;
+	}
+}
+
 void __DisplayDoState(PointerWrap &p) {
 	auto s = p.Section("sceDisplay", 1, 8);
 	if (!s)
@@ -244,6 +255,10 @@ void __DisplayDoState(PointerWrap &p) {
 
 	Do(p, framebuf);
 	Do(p, latchedFramebuf);
+	if (p.mode == p.MODE_READ) {
+		SanitizeLoadedFramebuf(framebuf);
+		SanitizeLoadedFramebuf(latchedFramebuf);
+	}
 	Do(p, framebufIsLatched);
 	DisplayHWDoState(p, s <= 2);
 	Do(p, hasSetMode);

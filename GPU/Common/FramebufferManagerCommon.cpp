@@ -1479,6 +1479,16 @@ void FramebufferManagerCommon::CopyFramebufferForColorTexture(VirtualFramebuffer
 	}
 }
 
+// Whether the 480x272 the display shows from addr is all in memory. The PSP takes strides that
+// aren't: negative ones (rows going up, which this doesn't handle), and larger than VRAM has room for.
+static bool IsValidDisplayRange(u32 addr, int stride, GEBufferFormat format) {
+	if (stride <= 0) {
+		return false;
+	}
+	const u32 bpp = BufferFormatBytesPerPixel(format);
+	return Memory::IsValidRange(addr, ((272 - 1) * (u32)stride + 480) * bpp);
+}
+
 Draw::Texture *FramebufferManagerCommon::MakePixelTexture(const u8 *srcPixels, GEBufferFormat srcPixelFormat, int srcStride, int width, int height) {
 	Draw::DataFormat depthFormat = Draw::DataFormat::UNDEFINED;
 
@@ -1787,7 +1797,7 @@ void FramebufferManagerCommon::PrepareCopyDisplayToOutput(const DisplayLayoutCon
 	VirtualFramebuffer *vfb = FindDisplayVFB(fbaddr, &offsetX, &offsetY);
 
 	if (!vfb) {
-		if (Memory::IsValidAddress(fbaddr)) {
+		if (IsValidDisplayRange(fbaddr, displayStride_, displayFormat_)) {
 			// The game is displaying something directly from RAM. In GTA, it's decoded video.
 			// If successful, this effectively calls presentation_->NotifyPresent();
 			if (!DrawFramebufferToOutput(config, Memory::GetPointerUnchecked(fbaddr), displayStride_, displayFormat_)) {
@@ -3018,7 +3028,7 @@ void FramebufferManagerCommon::NotifyBlockTransferAfter(u32 dstBasePtr, int dstS
 	if (!useBufferedRendering_ && dstStride >= 480 && width >= 480 && height == 272) {
 		bool isPrevDisplayBuffer = PrevDisplayFramebufAddr() == dstBasePtr;
 		bool isDisplayBuffer = CurrentDisplayFramebufAddr() == dstBasePtr;
-		if (isPrevDisplayBuffer || isDisplayBuffer) {
+		if ((isPrevDisplayBuffer || isDisplayBuffer) && IsValidDisplayRange(dstBasePtr, dstStride, displayFormat_)) {
 			FlushBeforeCopy();
 			// HACK
 			DrawFramebufferToOutput(displayLayoutConfigCopy_, Memory::GetPointerUnchecked(dstBasePtr), dstStride, displayFormat_);
