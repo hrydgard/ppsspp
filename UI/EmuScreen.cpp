@@ -61,6 +61,7 @@ using namespace std::placeholders;
 #include "Core/Reporting.h"
 #include "Core/Util/PathUtil.h"
 #include "Core/System.h"
+#include "GPU/Common/FramebufferManagerCommon.h"
 #include "GPU/Common/PresentationCommon.h"
 #include "GPU/GPUState.h"
 #include "GPU/GPUCommon.h"
@@ -1601,6 +1602,14 @@ bool EmuScreen::ShouldRunEmulation(ScreenRenderMode mode) const {
 	return true;
 }
 
+// The GPU only picks up a changed Skip Buffer Effects setting in BeginHostFrame, so while emulation
+// isn't running (like in the pause menu) it can still be in non-buffered mode. There, it draws straight
+// into the backbuffer pass, which isn't bound yet in PreRender.
+static bool GPUIsBuffered() {
+	FramebufferManagerCommon *framebufferManager = gpu->GetFramebufferManagerCommon();
+	return !framebufferManager || framebufferManager->UseBufferedRendering();
+}
+
 ScreenRenderFlags EmuScreen::PreRender(ScreenRenderMode mode) {
 	// If a boot is in progress, update it.
 	ProcessGameBoot(gamePath_);
@@ -1611,7 +1620,7 @@ ScreenRenderFlags EmuScreen::PreRender(ScreenRenderMode mode) {
 		if (ShouldRunEmulation(mode)) {
 			// We need to run emulation here, and perform all the normal render passes.
 			return RunEmulation(false);
-		} else if (gpu) {
+		} else if (gpu && GPUIsBuffered()) {
 			// Need to check for gpu here, we might be in reset.
 			const DeviceOrientation orientation = GetDeviceOrientation();
 			const DisplayLayoutConfig &displayLayoutConfig = g_Config.GetDisplayLayoutConfig(orientation);
