@@ -2773,6 +2773,10 @@ void TextureCacheCommon::Clear(bool delete_them) {
 		secondCache_.clear();
 	}
 
+	ReleaseDynamicClut();
+}
+
+void TextureCacheCommon::ReleaseDynamicClut() {
 	if (dynamicClutFbo_) {
 		dynamicClutFbo_->Release();
 		dynamicClutFbo_ = nullptr;
@@ -2781,8 +2785,17 @@ void TextureCacheCommon::Clear(bool delete_them) {
 		dynamicClutTemp_->Release();
 		dynamicClutTemp_ = nullptr;
 	}
-	// The dynamic CLUT lived in the framebuffers released above. Fall back to the RAM copy until the next LoadClut.
+	// The dynamic CLUT lived in framebuffers that are going away. Fall back to the RAM copy until the next LoadClut.
 	clutRenderAddress_ = 0xFFFFFFFF;
+}
+
+void TextureCacheCommon::RecheckAllAfterLoad() {
+	// Decoding them all again stutters, while hashing finds the ones that are still the same. The
+	// secondary cache is keyed by hash, so it's fine as it is.
+	for (auto &iter : cache_) {
+		iter.second->status |= TexStatus::HASH_RECHECK;
+	}
+	ReleaseDynamicClut();
 }
 
 // One type of texture update can happen without the involvement of the CPU: Block transfers.
