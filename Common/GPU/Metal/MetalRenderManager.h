@@ -22,7 +22,8 @@
 // The emu thread records commands, and they're encoded into Metal command buffers either on a render thread
 // or inline when they're submitted (at present and readbacks). Recording keeps all the decisions: render
 // passes are started lazily on the first draw (Metal resets all encoder state with each pass, and the load
-// actions have to be known up front), and state setters eliminate redundant calls. The replay just encodes.
+// actions have to be known up front), and state setters eliminate redundant calls. The replay merges passes
+// to the same framebuffer where nothing in between depends on them, and encodes.
 
 #import <Metal/Metal.h>
 #import <QuartzCore/CAMetalLayer.h>
@@ -180,8 +181,6 @@ enum class MetalCmd : uint8_t {
 	FRAGMENT_BUFFER_OFFSET,
 	FRAGMENT_TEXTURE,
 	FRAGMENT_SAMPLER,
-	VERTEX_TEXTURE,
-	VERTEX_SAMPLER,
 	DRAW,
 	DRAW_INDEXED,
 	COPY,
@@ -329,16 +328,13 @@ public:
 	id<MTLCommandQueue> Queue() const { return queue_; }
 	bool HasUnifiedMemory() const { return unifiedMemory_; }
 	bool IsAppleGPU() const { return appleGPU_; }
-	bool IsThreaded() const { return renderThread_.joinable(); }
 
 	void SetInflightFrames(int count);
-	int GetInflightFrames() const { return inflightFrames_; }
 
 	// Frame management.
 	void BeginFrame();
 	void EndFrame();
 	void Present(bool vsync);
-	int CurFrame() const { return curFrame_; }
 	uint64_t FrameNumber() const { return frameNumber_; }
 
 	// Waits for all submitted work to complete.
@@ -407,13 +403,9 @@ public:
 	// Clamps to the render target. Returns false if the result is empty, in which case nothing should be drawn.
 	bool SetScissor(int x, int y, int w, int h);
 	void SetVertexBuffer(__unsafe_unretained id<MTLBuffer> buffer, uint32_t offset, int index);
-	void SetVertexBytes(const void *data, size_t size, int index);
 	void SetFragmentBuffer(__unsafe_unretained id<MTLBuffer> buffer, uint32_t offset, int index);
-	void SetFragmentBytes(const void *data, size_t size, int index);
 	void SetFragmentTexture(__unsafe_unretained id<MTLTexture> texture, int index);
 	void SetFragmentSampler(__unsafe_unretained id<MTLSamplerState> sampler, int index);
-	void SetVertexTexture(__unsafe_unretained id<MTLTexture> texture, int index);
-	void SetVertexSampler(__unsafe_unretained id<MTLSamplerState> sampler, int index);
 
 	void Draw(MTLPrimitiveType prim, uint32_t start, uint32_t count);
 	void DrawIndexed(MTLPrimitiveType prim, uint32_t count, __unsafe_unretained id<MTLBuffer> indexBuffer, uint32_t offset);
@@ -517,8 +509,6 @@ private:
 		uint32_t fragmentBufferOffsets[METAL_MAX_BUFFERS];
 		__unsafe_unretained id<MTLTexture> fragmentTextures[METAL_MAX_TEXTURES];
 		__unsafe_unretained id<MTLSamplerState> fragmentSamplers[METAL_MAX_TEXTURES];
-		__unsafe_unretained id<MTLTexture> vertexTextures[METAL_MAX_TEXTURES];
-		__unsafe_unretained id<MTLSamplerState> vertexSamplers[METAL_MAX_TEXTURES];
 		bool viewportValid;
 		bool scissorValid;
 		bool cullValid;
@@ -541,8 +531,6 @@ private:
 	std::vector<MetalCommandChunk *> freeChunks_;
 
 	// Replay state (render thread, or the emu thread when not threaded).
-	id<MTLCommandBuffer> rtCmd_;
-	id<MTLCommandBuffer> rtUploadCmd_;
 	id<MTLBlitCommandEncoder> rtBlit_;
 	id<MTLBlitCommandEncoder> rtUploadBlit_;
 	id<MTLComputeCommandEncoder> rtUploadCompute_;
@@ -550,5 +538,4 @@ private:
 	// Replay scratch, reused between chunks.
 	std::vector<MetalStep> rtSteps_;
 	size_t rtStepCount_ = 0;
-	bool rtVsync_ = true;
 };

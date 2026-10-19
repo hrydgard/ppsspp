@@ -130,7 +130,7 @@ bool TranslateVulkanGLSLToMSL(ShaderStage stage, const char *glsl, MetalTranslat
 #else
 		options.platform = spirv_cross::CompilerMSL::Options::macOS;
 #endif
-		// macOS 11 and iOS 15 are the minimum, and both have MSL 2.3.
+		// macOS 12 and iOS 15 are the minimum, and both have MSL 2.3.
 		options.msl_version = spirv_cross::CompilerMSL::Options::make_msl_version(2, 3);
 		options.pad_fragment_output_components = true;
 		// Point size is only written for point primitives, which we don't draw (they're expanded to quads).
@@ -811,12 +811,6 @@ void MetalRenderManager::SetVertexBuffer(__unsafe_unretained id<MTLBuffer> buffe
 	}
 }
 
-void MetalRenderManager::SetVertexBytes(const void *data, size_t size, int index) {
-	// The bytes have to be copied at record time, and the push buffer is as good a place as any.
-	MetalPushAlloc alloc = Push().Push(data, size, 256);
-	SetVertexBuffer(alloc.buffer, alloc.offset, index);
-}
-
 void MetalRenderManager::SetFragmentBuffer(__unsafe_unretained id<MTLBuffer> buffer, uint32_t offset, int index) {
 	if (state_.fragmentBuffers[index] != buffer) {
 		MetalCommand &c = Record(MetalCmd::FRAGMENT_BUFFER);
@@ -831,11 +825,6 @@ void MetalRenderManager::SetFragmentBuffer(__unsafe_unretained id<MTLBuffer> buf
 		c.bind.offset = offset;
 		state_.fragmentBufferOffsets[index] = offset;
 	}
-}
-
-void MetalRenderManager::SetFragmentBytes(const void *data, size_t size, int index) {
-	MetalPushAlloc alloc = Push().Push(data, size, 256);
-	SetFragmentBuffer(alloc.buffer, alloc.offset, index);
 }
 
 void MetalRenderManager::SetFragmentTexture(__unsafe_unretained id<MTLTexture> texture, int index) {
@@ -853,24 +842,6 @@ void MetalRenderManager::SetFragmentSampler(__unsafe_unretained id<MTLSamplerSta
 		c.index = index;
 		c.bind.obj = (__bridge void *)sampler;
 		state_.fragmentSamplers[index] = sampler;
-	}
-}
-
-void MetalRenderManager::SetVertexTexture(__unsafe_unretained id<MTLTexture> texture, int index) {
-	if (state_.vertexTextures[index] != texture) {
-		MetalCommand &c = Record(MetalCmd::VERTEX_TEXTURE);
-		c.index = index;
-		c.bind.obj = (__bridge void *)texture;
-		state_.vertexTextures[index] = texture;
-	}
-}
-
-void MetalRenderManager::SetVertexSampler(__unsafe_unretained id<MTLSamplerState> sampler, int index) {
-	if (state_.vertexSamplers[index] != sampler) {
-		MetalCommand &c = Record(MetalCmd::VERTEX_SAMPLER);
-		c.index = index;
-		c.bind.obj = (__bridge void *)sampler;
-		state_.vertexSamplers[index] = sampler;
 	}
 }
 
@@ -977,9 +948,12 @@ void MetalRenderManager::Replay(MetalCommandChunk *chunk) {
 	}
 
 	// The upload buffer is enqueued first, so it runs first even though they're committed together.
-	id<MTLCommandBuffer> uploadCmd = [queue_ commandBufferWithUnretainedReferences];
-	uploadCmd.label = @"upload";
-	[uploadCmd enqueue];
+	id<MTLCommandBuffer> uploadCmd;
+	if (!chunk->uploads.empty()) {
+		uploadCmd = [queue_ commandBufferWithUnretainedReferences];
+		uploadCmd.label = @"upload";
+		[uploadCmd enqueue];
+	}
 	id<MTLCommandBuffer> cmd = [queue_ commandBufferWithUnretainedReferences];
 	cmd.label = @"main";
 	[cmd enqueue];
@@ -1037,7 +1011,7 @@ void MetalRenderManager::Replay(MetalCommandChunk *chunk) {
 	if (chunk->end == MetalChunkEnd::PRESENT) {
 		rtDrawable_ = nil;
 	}
-	[uploadCmd commit];
+	[uploadCmd commit];  // A no-op if it's nil.
 	[cmd commit];
 }
 
@@ -1091,7 +1065,8 @@ void MetalRenderManager::BuildSteps(const MetalCommandChunk &chunk) {
 			MetalStep &step = newStep();
 			step.isPass = false;
 			step.index = c.copy;
-			step.target = copy.dst;
+			// Compared with pass targets, which are never views.
+			step.target = copy.type == MetalCopyType::TEXTURE_TO_BUFFER ? copy.dst : BaseTexture(copy.dst);
 			step.targetDepth = nullptr;
 			if (copy.srcIsBackbuffer) {
 				step.reads.push_back(BACKBUFFER_TARGET);
@@ -1101,7 +1076,6 @@ void MetalRenderManager::BuildSteps(const MetalCommandChunk &chunk) {
 			break;
 		}
 		case MetalCmd::FRAGMENT_TEXTURE:
-		case MetalCmd::VERTEX_TEXTURE:
 			if (pass && c.bind.obj) {
 				pass->reads.push_back(BaseTexture(c.bind.obj));
 			}
@@ -1254,8 +1228,6 @@ void MetalRenderManager::ReplayPass(const MetalCommandChunk &chunk, MetalStep &s
 			case MetalCmd::FRAGMENT_BUFFER_OFFSET: [enc setFragmentBufferOffset:c.bind.offset atIndex:c.index]; break;
 			case MetalCmd::FRAGMENT_TEXTURE: [enc setFragmentTexture:(__bridge id<MTLTexture>)c.bind.obj atIndex:c.index]; break;
 			case MetalCmd::FRAGMENT_SAMPLER: [enc setFragmentSamplerState:(__bridge id<MTLSamplerState>)c.bind.obj atIndex:c.index]; break;
-			case MetalCmd::VERTEX_TEXTURE: [enc setVertexTexture:(__bridge id<MTLTexture>)c.bind.obj atIndex:c.index]; break;
-			case MetalCmd::VERTEX_SAMPLER: [enc setVertexSamplerState:(__bridge id<MTLSamplerState>)c.bind.obj atIndex:c.index]; break;
 			case MetalCmd::DRAW: if (pipelineOK) [enc drawPrimitives:(MTLPrimitiveType)c.prim vertexStart:c.draw.start vertexCount:c.draw.count]; break;
 			case MetalCmd::DRAW_INDEXED:
 				if (pipelineOK) [enc drawIndexedPrimitives:(MTLPrimitiveType)c.prim indexCount:c.drawIndexed.count indexType:MTLIndexTypeUInt16

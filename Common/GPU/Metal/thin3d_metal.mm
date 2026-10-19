@@ -392,9 +392,16 @@ private:
 	std::string tag_;
 };
 
-// POD, for memcmp.
+// Bytes only, so there's no padding for memcmp to compare.
 struct MetalDepthStencilKey {
-	DepthStencilStateDesc desc;
+	uint8_t depthTest;
+	uint8_t depthWrite;
+	uint8_t depthCompare;
+	uint8_t stencilEnabled;
+	uint8_t failOp;
+	uint8_t passOp;
+	uint8_t depthFailOp;
+	uint8_t compareOp;
 	uint8_t writeMask;
 	uint8_t compareMask;
 
@@ -1210,9 +1217,18 @@ void MetalDrawContext::Invalidate(InvalidationFlags flags) {
 
 id<MTLDepthStencilState> MetalDrawContext::GetDepthStencilState(const DepthStencilStateDesc &desc) {
 	MetalDepthStencilKey key{};
-	key.desc = desc;
-	key.writeMask = desc.stencilEnabled ? stencilWriteMask_ : 0;
-	key.compareMask = desc.stencilEnabled ? stencilCompareMask_ : 0;
+	key.depthTest = desc.depthTestEnabled;
+	key.depthWrite = desc.depthWriteEnabled;
+	key.depthCompare = (uint8_t)desc.depthCompare;
+	key.stencilEnabled = desc.stencilEnabled;
+	if (desc.stencilEnabled) {
+		key.failOp = (uint8_t)desc.stencil.failOp;
+		key.passOp = (uint8_t)desc.stencil.passOp;
+		key.depthFailOp = (uint8_t)desc.stencil.depthFailOp;
+		key.compareOp = (uint8_t)desc.stencil.compareOp;
+		key.writeMask = stencilWriteMask_;
+		key.compareMask = stencilCompareMask_;
+	}
 	auto iter = depthStencilCache_.find(key);
 	if (iter != depthStencilCache_.end()) {
 		return iter->second;
@@ -1287,8 +1303,9 @@ bool MetalDrawContext::ApplyState() {
 	if (curPipeline_->uboSize) {
 		uint32_t gen = rm_->EncoderGeneration();
 		if (uboDirty_ || uboPipeline_ != curPipeline_.ptr || uboGeneration_ != gen) {
-			rm_->SetVertexBytes(curPipeline_->ubo, curPipeline_->uboSize, 0);
-			rm_->SetFragmentBytes(curPipeline_->ubo, curPipeline_->uboSize, 0);
+			MetalPushAlloc alloc = rm_->Push().Push(curPipeline_->ubo, curPipeline_->uboSize, 256);
+			rm_->SetVertexBuffer(alloc.buffer, alloc.offset, 0);
+			rm_->SetFragmentBuffer(alloc.buffer, alloc.offset, 0);
 			uboDirty_ = false;
 			uboPipeline_ = curPipeline_.ptr;
 			uboGeneration_ = gen;
