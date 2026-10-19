@@ -29,6 +29,8 @@
 #include "Core/HLE/sceHttp.h"
 #include "Core/HLE/sceNet.h"
 #include "Core/Debugger/MemBlockInfo.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Common/StringUtils.h"
 #include "Common/LogReporting.h"
 #include "Common/Net/URL.h"
@@ -306,6 +308,29 @@ void __HttpShutdown() {
 			(static_cast<HTTPRequest*>(it.get()))->abortRequest();
 	}
 	httpObjects.clear();
+}
+
+void __HttpDoState(PointerWrap &p) {
+	// Older states don't have it.
+	auto s = p.Section("sceHttp", 0, 1);
+	if (!s)
+		return;
+
+	// The game remembers whether it initialized the library.
+	Do(p, httpInited);
+	Do(p, httpsInited);
+	Do(p, httpCacheInited);
+	if (p.mode == PointerWrap::MODE_READ) {
+		// Templates, connections and requests hold host connections, which can't be restored. The
+		// game's ids for them now fail as invalid, rather than reach objects from before the load.
+		std::lock_guard<std::mutex> guard(httpLock);
+		for (const auto &it : httpObjects) {
+			if (it->className() == name_HTTPRequest)
+				(static_cast<HTTPRequest *>(it.get()))->abortRequest();
+		}
+		httpObjects.clear();
+		httpObjects.reserve(1);
+	}
 }
 
 // id: ID of the template or connection

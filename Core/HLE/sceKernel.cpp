@@ -322,6 +322,7 @@ void __KernelDoState(PointerWrap &p)
 		__DmacDoState(p);
 		__UsbCamDoState(p);
 		__NpDrmDoState(p);
+		__HttpDoState(p);
 
 		// IMPORTANT! Add new sections last!
 	}

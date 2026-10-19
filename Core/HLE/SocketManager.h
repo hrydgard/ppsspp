@@ -42,6 +42,8 @@ public:
 	SOCKET GetHostSocketFromInetSocket(int sock);
 	bool Close(InetSocket *inetSocket);
 	void CloseAll();
+	// Only the sockets in this state (sceNetInet's, or proAdhoc's).
+	void CloseAll(SocketState state);
 
 	// For debugger
 	const InetSocket *Sockets() {

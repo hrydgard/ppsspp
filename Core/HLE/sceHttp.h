@@ -287,6 +287,7 @@ public:
 
 
 void __HttpInit();
+void __HttpDoState(PointerWrap &p);
 void __HttpShutdown();
 
 void Register_sceHttp();

@@ -1708,22 +1708,31 @@ int sceNetAdhocMatchingInit(u32 memsize) {
 	return 0;
 }
 
+static void DeleteAllMatchingContexts() {
+	SceNetAdhocMatchingContext *next = NULL;
+	SceNetAdhocMatchingContext *context = contexts;
+	while (context != NULL) {
+		next = context->next;
+		NetAdhocMatching_Delete(context->id);
+		context = next;
+	}
+	contexts = NULL;
+}
+
 int NetAdhocMatching_Term() {
 	if (netAdhocMatchingInited) {
-		// Delete all Matching contexts
-		SceNetAdhocMatchingContext* next = NULL;
-		SceNetAdhocMatchingContext* context = contexts;
-		while (context != NULL) {
-			next = context->next;
-			//if (context->running) NetAdhocMatching_Stop(context->id);
-			NetAdhocMatching_Delete(context->id);
-			context = next;
-		}
-		contexts = NULL;
+		DeleteAllMatchingContexts();
 		matchingThreads.clear();
 	}
 
 	return 0;
+}
+
+void NetAdhocMatching_DeleteAllBeforeLoad() {
+	// Their fake PSP threads' ids are from the kernel before the load, and the kernel is the loaded
+	// one now: zeroed, stopping a context leaves the threads alone, and only the host side goes.
+	ZeroNetAdhocMatchingThreads();
+	DeleteAllMatchingContexts();
 }
 
 int sceNetAdhocMatchingTerm() {

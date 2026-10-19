@@ -998,6 +998,10 @@ void DoState(PointerWrap &p) {
 		Do(p, data_size);
 		if (p.mode == PointerWrap::MODE_READ) {
 			WARN_LOG(Log::Achievements, "Save state contained achievement data, but achievements are not active. Ignore.");
+			// The size is straight from the file: skipping it unchecked can wrap the pointer on 32-bit.
+			if (!p.CheckRead(data_size)) {
+				return;
+			}
 		}
 		p.SkipBytes(data_size);
 		return;

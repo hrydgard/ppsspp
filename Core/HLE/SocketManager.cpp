@@ -105,6 +105,16 @@ SOCKET SocketManager::GetHostSocketFromInetSocket(int sock) {
 	return inetSockets_[sock].sock;
 }
 
+void SocketManager::CloseAll(SocketState state) {
+	for (auto &sock : inetSockets_) {
+		if (sock.state == state) {
+			closesocket(sock.sock);
+			sock.state = SocketState::Unused;
+			sock.sock = 0;
+		}
+	}
+}
+
 void SocketManager::CloseAll() {
 	for (auto &sock : inetSockets_) {
 		if (sock.state != SocketState::Unused) {

@@ -333,6 +333,7 @@ void discardMatchingEvents();
 void DoNetAdhocMatchingInited(PointerWrap &p);
 void DoNetAdhocMatchingThreads(PointerWrap &p);
 void ZeroNetAdhocMatchingThreads();
+void NetAdhocMatching_DeleteAllBeforeLoad();
 
 bool __NetAdhocConnected() {
 	return netAdhocInited && netAdhocctlInited && (adhocctlState == ADHOCCTL_STATE_CONNECTED || adhocctlState == ADHOCCTL_STATE_GAMEMODE);
@@ -1867,6 +1868,12 @@ void __NetAdhocDoState(PointerWrap &p) {
 
 	auto cur_netAdhocInited = netAdhocInited;
 	auto cur_netAdhocctlInited = netAdhocctlInited;
+
+	if (p.mode == p.MODE_READ) {
+		// Matching contexts aren't saved, and their host threads use sockets deleted below. Before
+		// the matching thread ids are loaded over.
+		NetAdhocMatching_DeleteAllBeforeLoad();
+	}
 
 	Do(p, netAdhocInited);
 	Do(p, netAdhocctlInited);

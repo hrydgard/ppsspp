@@ -56,6 +56,7 @@
 #include "Core/HLE/sceNp.h"
 #include "Core/HLE/sceNp2.h"
 #include "Core/HLE/sceNetInet.h"
+#include "Core/HLE/SocketManager.h"
 #include "Core/HLE/sceNetResolver.h"
 #include "Core/HLE/NetAdhocCommon.h"
 
@@ -712,10 +713,6 @@ void __NetDoState(PointerWrap &p) {
 	if (!s)
 		return;
 
-	auto cur_netInited = g_netInited;
-	auto cur_netInetInited = netInetInited;
-	auto cur_netApctlInited = g_netApctlInited;
-
 	Do(p, g_netInited);
 	Do(p, netInetInited);
 	Do(p, g_netApctlInited);
@@ -778,10 +775,12 @@ void __NetDoState(PointerWrap &p) {
 	}
 
 	if (p.mode == p.MODE_READ) {
-		// Let's not change "Inited" value when Loading SaveState in the middle of multiplayer to prevent memory & port leaks
-		g_netApctlInited = cur_netApctlInited;
-		netInetInited = cur_netInetInited;
-		g_netInited = cur_netInited;
+		// The game remembers which libraries it initialized, so the "Inited" flags come from the state
+		// (sceNetAdhoc does the same). Keeping the current ones left a state saved after
+		// sceNetApctlInit, loaded into a fresh boot, without apctl, and an earlier state loaded
+		// mid-session with it already inited but no apctl thread. Host sockets can't be restored:
+		// close them, rather than leak ports the loaded game may bind again.
+		g_socketManager.CloseAll(SocketState::UsedNetInet);
 
 		// Discard created resolvers for now (since i'm not sure whether the information in the struct is sufficient or not, and we don't support multi-threading yet anyway)
 		__NetResolverShutdown();

@@ -209,8 +209,10 @@ void MemSlabMap::DoState(PointerWrap &p) {
 		Slab *old = first_;
 		Slab *oldBulk = bulkStorage_;
 		Do(p, count);
-		// Every slab takes up at least one byte.
-		if (count < 1 || !p.CheckRead(count)) {
+		// Every slab takes up at least 30 bytes in the file (even the oldest version: its section
+		// version, fields and tag), so a count from a broken file can't size a huge allocation: each
+		// takes over 150 in memory.
+		if (count < 1 || !p.CheckRead((size_t)count * 30)) {
 			p.SetError(p.ERROR_FAILURE);
 			count = 1;
 		}
