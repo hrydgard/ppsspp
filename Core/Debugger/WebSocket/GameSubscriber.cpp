@@ -29,6 +29,9 @@
 #include <unistd.h>
 #endif
 
+#include <memory>
+#include <mutex>
+
 #include "Common/System/System.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
@@ -46,6 +49,116 @@
 // DebuggerParamType::OPTIONAL, exactly the problem the note above is avoiding.
 bool NetworkAllowSpeedControl();
 
+namespace {
+
+// Filled in by the savestate callback, on the emu thread.
+struct SaveStateResult {
+	std::mutex lock;
+	bool done = false;
+	SaveState::Status status = SaveState::Status::FAILURE;
+	std::string message;
+};
+
+struct WebSocketGameState : public DebuggerSubscriber {
+	void StateLoadSave(DebuggerRequest &req, bool save);
+	void Broadcast(net::WebSocketServer *ws) override;
+
+private:
+	struct Waiting {
+		const char *event;
+		std::string ticket;
+		std::shared_ptr<SaveStateResult> result;
+	};
+	std::vector<Waiting> waiting_;
+};
+
+}  // namespace
+
+// Load a savestate file (game.state.load), or save one (game.state.save)
+//
+// The operation is queued, and happens at the end of the next frame the CPU runs, so follow this
+// with something that runs it, like cpu.runUntilTime.
+//
+// Parameters:
+//  - path: string, path to the .ppst file.
+//  - wait: optional boolean, respond when the operation has finished rather than when queued.
+//
+// Response (same event name) once queued, or an error if the network or achievements hardcore
+// mode refuses it. With wait, it's sent once done instead, with a message string, or an error
+// if the load or save failed.
+void WebSocketGameState::StateLoadSave(DebuggerRequest &req, bool save) {
+	const char *event = save ? "game.state.save" : "game.state.load";
+	std::string path;
+	bool wait = false;
+	if (!req.ParamString("path", &path) || !req.ParamBool("wait", &wait, DebuggerParamType::OPTIONAL))
+		return;
+
+	// The queued operation holds the only other reference, so Broadcast() can also tell when it's
+	// dropped without ever running (at shutdown, for one).
+	std::shared_ptr<SaveStateResult> result;
+	if (wait)
+		result = std::make_shared<SaveStateResult>();
+	auto callback = [event, result](SaveState::Status status, std::string_view message, std::string_view) {
+		if (status == SaveState::Status::FAILURE) {
+			ERROR_LOG(Log::System, "%s: %.*s", event, STR_VIEW(message));
+		}
+		if (result) {
+			std::lock_guard<std::mutex> guard(result->lock);
+			result->status = status;
+			result->message = message;
+			result->done = true;
+		}
+	};
+
+	bool running = false;
+	bool queued = false;
+	Core_RunOnCPUThread([&] {
+		running = PSP_GetBootState() == BootState::Complete;
+		if (running) {
+			queued = save ? SaveState::Save(Path(path), -1, callback) : SaveState::Load(Path(path), -1, callback);
+		}
+	});
+	if (!running)
+		return req.Fail("Game not running");
+	if (!queued) {
+		return req.Fail(save ? "Could not queue savestate save" : "Could not queue savestate load");
+	}
+
+	if (!wait) {
+		req.Respond();
+		return;
+	}
+	const JsonNode *ticket = req.data.get("ticket");
+	waiting_.push_back({ event, ticket ? json_stringify(ticket) : "", result });
+}
+
+void WebSocketGameState::Broadcast(net::WebSocketServer *ws) {
+	for (auto it = waiting_.begin(); it != waiting_.end(); ) {
+		// Check this first: if the callback ran, it was done before letting go.
+		bool dropped = it->result.use_count() == 1;
+		std::lock_guard<std::mutex> guard(it->result->lock);
+		if (!it->result->done && !dropped) {
+			++it;
+			continue;
+		}
+
+		bool failed = !it->result->done || it->result->status == SaveState::Status::FAILURE;
+		JsonWriter j;
+		j.begin();
+		j.writeString("event", failed ? "error" : it->event);
+		j.writeString("message", it->result->done ? it->result->message : "Savestate operation was dropped");
+		if (failed) {
+			j.writeInt("level", (int)LogLevel::LERROR);
+		}
+		if (!it->ticket.empty()) {
+			j.writeRaw("ticket", it->ticket);
+		}
+		j.end();
+		ws->Send(j.str());
+		it = waiting_.erase(it);
+	}
+}
+
 static uint32_t GetOwnProcessID() {
 #if PPSSPP_PLATFORM(UWP)
 	return (uint32_t)GetCurrentProcessId();
@@ -57,15 +170,16 @@ static uint32_t GetOwnProcessID() {
 }
 
 DebuggerSubscriber *WebSocketGameInit(DebuggerEventHandlerMap &map) {
+	auto p = new WebSocketGameState();
 	map["game.reset"] = &WebSocketGameReset;
 	map["game.status"] = &WebSocketGameStatus;
-	map["game.state.load"] = &WebSocketGameStateLoad;
-	map["game.state.save"] = &WebSocketGameStateSave;
+	map["game.state.load"] = [p](DebuggerRequest &req) { p->StateLoadSave(req, false); };
+	map["game.state.save"] = [p](DebuggerRequest &req) { p->StateLoadSave(req, true); };
 	map["game.speed.get"] = &WebSocketGameSpeedGet;
 	map["game.speed.set"] = &WebSocketGameSpeedSet;
 	map["version"] = &WebSocketVersion;
 
-	return nullptr;
+	return p;
 }
 
 // Reset emulation (game.reset)
@@ -126,75 +240,6 @@ void WebSocketGameStatus(DebuggerRequest &req) {
 		}
 		json.writeBool("paused", GetUIState() == UISTATE_PAUSEMENU);
 	});
-}
-
-// Load a savestate file (game.state.load)
-//
-// The load is queued, and happens at the end of the next frame the CPU runs, so follow this with
-// something that runs it, like cpu.runUntilTime.
-//
-// Parameters:
-//  - path: string, path to the .ppst file.
-//
-// Response (same event name) with no extra data, once queued, or an error if the network or
-// achievements hardcore mode refuses it.
-void WebSocketGameStateLoad(DebuggerRequest &req) {
-	std::string path;
-	if (!req.ParamString("path", &path))
-		return;
-
-	bool running = false;
-	bool queued = false;
-	Core_RunOnCPUThread([&] {
-		running = PSP_GetBootState() == BootState::Complete;
-		if (running) {
-			queued = SaveState::Load(Path(path), -1, [](SaveState::Status status, std::string_view message, std::string_view) {
-				if (status == SaveState::Status::FAILURE) {
-					ERROR_LOG(Log::System, "game.state.load: %.*s", STR_VIEW(message));
-				}
-			});
-		}
-	});
-	if (!running)
-		return req.Fail("Game not running");
-	if (!queued) {
-		return req.Fail("Could not queue savestate load");
-	}
-	req.Respond();
-}
-
-// Save a savestate file (game.state.save)
-//
-// Like game.state.load, the save is queued and happens at the end of the next frame the CPU runs.
-//
-// Parameters:
-//  - path: string, path to write the .ppst file to.
-//
-// Response (same event name) with no extra data, once queued, or an error if the network or
-// achievements hardcore mode refuses it.
-void WebSocketGameStateSave(DebuggerRequest &req) {
-	std::string path;
-	if (!req.ParamString("path", &path))
-		return;
-
-	bool running = false;
-	bool queued = false;
-	Core_RunOnCPUThread([&] {
-		running = PSP_GetBootState() == BootState::Complete;
-		if (running) {
-			queued = SaveState::Save(Path(path), -1, [](SaveState::Status status, std::string_view message, std::string_view) {
-				if (status == SaveState::Status::FAILURE) {
-					ERROR_LOG(Log::System, "game.state.save: %.*s", STR_VIEW(message));
-				}
-			});
-		}
-	});
-	if (!running)
-		return req.Fail("Game not running");
-	if (!queued) {
-		return req.Fail("Could not queue savestate save");
-	}
-	req.Respond();
 }
 
 // Percentages are relative to 60 FPS, matching how the in-app settings present the alternative
