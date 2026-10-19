@@ -763,6 +763,17 @@ int g_screenshotFailures;
 		return copy;
 	}
 
+	// Which build last saved the file, from its header. Shown when a load fails, since a state from
+	// another version is the usual suspect.
+	static std::string SavedByVersion(const Path &path) {
+		std::string title;
+		std::string gitVersion;
+		if (CChunkFileReader::GetFileTitle(path, &title, &gitVersion) != CChunkFileReader::ERROR_NONE || gitVersion.empty()) {
+			return "";
+		}
+		return "PPSSPP " + gitVersion;
+	}
+
 	static bool HandleLoadFailure(bool wasRewinding, std::string *metadata) {
 		if (wasRewinding) {
 			WARN_LOG(Log::SaveState, "HandleLoadFailure - trying a rewind state.");
@@ -918,10 +929,12 @@ int g_screenshotFailures;
 				} else if (result == CChunkFileReader::ERROR_BROKEN_STATE) {
 					HandleLoadFailure(false, &callbackMetadata);
 					callbackMessage = std::string(i18nLoadFailure) + ": " + errorString;
-					ERROR_LOG(Log::SaveState, "Load state failure: %s", errorString.c_str());
+					callbackMetadata = SavedByVersion(op.path);
+					ERROR_LOG(Log::SaveState, "Load state failure: %s (saved by %s)", errorString.c_str(), callbackMetadata.c_str());
 					callbackResult = Status::FAILURE;
 				} else {
 					callbackMessage = sc->T(errorString, i18nLoadFailure);
+					callbackMetadata = SavedByVersion(op.path);
 					callbackResult = Status::FAILURE;
 				}
 				break;

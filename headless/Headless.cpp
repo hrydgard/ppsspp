@@ -1388,10 +1388,14 @@ int main(int argc, const char* argv[]) {
 	if (stateToLoad) {
 		g_stateLoadPending = true;
 		// Queued now, actually applied by SaveState::Process() once the game is up and running.
-		SaveState::Load(Path(stateToLoad), -1, [](SaveState::Status status, std::string_view message, std::string_view) {
+		SaveState::Load(Path(stateToLoad), -1, [](SaveState::Status status, std::string_view message, std::string_view metadata) {
 			// The message already reads as a full sentence, e.g. "Failed to load state: <reason>".
-			fprintf(stderr, "%.*s\n", (int)message.size(), message.data());
+			fprintf(stderr, "%.*s\n", STR_VIEW(message));
 			if (status == SaveState::Status::FAILURE) {
+				// Which version saved the state.
+				if (!metadata.empty()) {
+					fprintf(stderr, "%.*s\n", STR_VIEW(metadata));
+				}
 				g_stateLoadFailed = true;
 			}
 			g_stateLoadPending = false;

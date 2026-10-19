@@ -349,7 +349,7 @@ public:
 		return ERROR_NONE;
 	}
 
-	static Error GetFileTitle(const Path &filename, std::string *title);
+	static Error GetFileTitle(const Path &filename, std::string *title, std::string *gitVersion = nullptr);
 
 private:
 	struct SChunkHeader

@@ -383,7 +383,12 @@ CChunkFileReader::Error CChunkFileReader::LoadFileHeader(File::IOFile &pFile, SC
 	return ERROR_NONE;
 }
 
-CChunkFileReader::Error CChunkFileReader::GetFileTitle(const Path &filename, std::string *title) {
+// Not necessarily null-terminated.
+static std::string HeaderGitVersion(const char (&gitVersion)[32]) {
+	return std::string(gitVersion, strnlen(gitVersion, sizeof(gitVersion)));
+}
+
+CChunkFileReader::Error CChunkFileReader::GetFileTitle(const Path &filename, std::string *title, std::string *gitVersion) {
 	if (!File::Exists(filename)) {
 		ERROR_LOG(Log::SaveState, "ChunkReader: File doesn't exist");
 		return ERROR_BAD_FILE;
@@ -391,7 +396,11 @@ CChunkFileReader::Error CChunkFileReader::GetFileTitle(const Path &filename, std
 
 	File::IOFile pFile(filename, "rb");
 	SChunkHeader header;
-	return LoadFileHeader(pFile, header, title);
+	Error err = LoadFileHeader(pFile, header, title);
+	if (err == ERROR_NONE && gitVersion) {
+		*gitVersion = HeaderGitVersion(header.GitVersion);
+	}
+	return err;
 }
 
 CChunkFileReader::Error CChunkFileReader::LoadFile(const Path &filename, std::string *gitVersion, u8 *&_buffer, size_t &sz, std::string *failureReason) {
@@ -460,11 +469,7 @@ CChunkFileReader::Error CChunkFileReader::LoadFile(const Path &filename, std::st
 		_buffer = buffer;
 	}
 
-	if (header.GitVersion[31]) {
-		*gitVersion = std::string(header.GitVersion, 32);
-	} else {
-		*gitVersion = header.GitVersion;
-	}
+	*gitVersion = HeaderGitVersion(header.GitVersion);
 
 	return ERROR_NONE;
 }
