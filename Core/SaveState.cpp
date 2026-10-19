@@ -127,6 +127,15 @@ struct PendingRead {
 	std::string savedBy;
 };
 
+// A save from when it's asked for until its file is written.
+struct SaveRecord {
+	Path path;
+	// How many loads had been applied when its snapshot was taken, or -1 before that.
+	int loadCount = -1;
+	// Callbacks of repeats of it (a save key pressed twice). They hear its result, with no message.
+	std::vector<Callback> repeats;
+};
+
 struct Operation {
 	// The slot number is for visual purposes only. Set to -1 for operations where we don't display a message for example.
 	Operation(OperationType t, const Path &f, int slot_, Callback cb)
@@ -143,15 +152,18 @@ struct Operation {
 	// worker part is done.
 	bool started = false;
 	std::shared_ptr<PendingRead> read;
+	// For a save. Its fields are under mutex.
+	std::shared_ptr<SaveRecord> save;
 };
 
 // Front to back, each operation's emu thread part runs in turn. A load or rewind that's still
 // waiting for the worker holds up the operations behind it.
 static std::deque<Operation> g_pendingOperations;
 
-// Saves asked for and not yet written, by path, with the callbacks of any repeats of them (a save
-// key pressed again before the first save finished). Under mutex.
-static std::map<std::string, std::vector<Callback>> g_pendingSaves;
+// Saves asked for and not yet written, oldest first. Under mutex.
+static std::vector<std::shared_ptr<SaveRecord>> g_pendingSaves;
+// Loads (and rewinds) applied, so a save can tell whether one came after its snapshot.
+static std::atomic<int> g_loadCount;
 // Save snapshots in memory, waiting to be compressed and written. Each is a whole state.
 static std::atomic<int> g_saveSnapshots;
 constexpr int MAX_SAVE_SNAPSHOTS = 2;
@@ -233,6 +245,7 @@ int g_screenshotFailures;
 		// the JIT keeps its blocks, so they don't all have to be compiled again.
 		Memory::RamCompare codeCompare;
 		if (p.mode == p.MODE_READ) {
+			g_loadCount++;
 			hookedOps = Replacement_GetHookedOps();
 			RestoreReplacedInstructions(0, 0xFFFFFFFF);
 			codeCompare.ranges = __KernelModuleCodeRanges();
@@ -348,39 +361,52 @@ int g_screenshotFailures;
 
 	static bool IsSavePending(const Path &path) {
 		std::lock_guard<std::mutex> guard(mutex);
-		return g_pendingSaves.find(path.ToString()) != g_pendingSaves.end();
+		for (const auto &save : g_pendingSaves) {
+			if (save->path == path) {
+				return true;
+			}
+		}
+		return false;
 	}
 
-	// If a save to path is already pending, this is a repeat of it (a key pressed twice): the callback
-	// hears that save's result, with no message so it's only shown once. Returns true if so.
+	// If a save to path hasn't finished yet, this is a repeat of it (a key pressed twice): the
+	// callback hears that save's result, with no message so it's only shown once. Returns true if so.
+	// Unless a load was applied after that save's snapshot: then this saves something else.
 	static bool AttachToPendingSave(const Path &path, const Callback &callback) {
 		std::lock_guard<std::mutex> guard(mutex);
-		auto iter = g_pendingSaves.find(path.ToString());
-		if (iter == g_pendingSaves.end()) {
-			return false;
+		// One queued and not yet applied comes before this save too.
+		for (const Operation &op : g_pendingOperations) {
+			if (op.type == OperationType::Load || op.type == OperationType::Rewind) {
+				return false;
+			}
 		}
-		if (callback) {
-			iter->second.push_back(callback);
+		for (auto iter = g_pendingSaves.rbegin(); iter != g_pendingSaves.rend(); ++iter) {
+			SaveRecord &save = **iter;
+			if (!(save.path == path)) {
+				continue;
+			}
+			if (save.loadCount != -1 && save.loadCount != g_loadCount) {
+				return false;
+			}
+			if (callback) {
+				save.repeats.push_back(callback);
+			}
+			return true;
 		}
-		return true;
+		return false;
 	}
 
-	// Takes a save out of g_pendingSaves, returning the callbacks of its repeats.
-	static std::vector<Callback> TakePendingSave(const Path &path) {
+	// A save is done (written, failed or refused). Returns the callbacks of its repeats.
+	static std::vector<Callback> FinishPendingSave(const std::shared_ptr<SaveRecord> &save) {
 		std::lock_guard<std::mutex> guard(mutex);
-		std::vector<Callback> repeats;
-		auto iter = g_pendingSaves.find(path.ToString());
-		if (iter != g_pendingSaves.end()) {
-			repeats = std::move(iter->second);
-			g_pendingSaves.erase(iter);
-		}
-		return repeats;
+		g_pendingSaves.erase(std::remove(g_pendingSaves.begin(), g_pendingSaves.end(), save), g_pendingSaves.end());
+		return std::move(save->repeats);
 	}
 
 	static void RefuseOperation(const Operation &op) {
 		CallbackRefused(op.callback);
-		if (op.type == OperationType::Save) {
-			for (const Callback &repeat : TakePendingSave(op.path)) {
+		if (op.type == OperationType::Save && op.save) {
+			for (const Callback &repeat : FinishPendingSave(op.save)) {
 				CallbackRefused(repeat);
 			}
 		}
@@ -402,10 +428,13 @@ int g_screenshotFailures;
 		}
 
 		std::lock_guard<std::mutex> guard(mutex);
-		if (op.type == OperationType::Save) {
-			g_pendingSaves.emplace(op.path.ToString(), std::vector<Callback>());
-		}
 		g_pendingOperations.push_back(op);
+		if (op.type == OperationType::Save) {
+			Operation &queued = g_pendingOperations.back();
+			queued.save = std::make_shared<SaveRecord>();
+			queued.save->path = op.path;
+			g_pendingSaves.push_back(queued.save);
+		}
 
 		// Don't actually run it until next frame.
 		needsProcess = true;
@@ -1076,6 +1105,7 @@ int g_screenshotFailures;
 		bool keepUndo = false;
 		Path undoPath;
 		Callback callback;
+		std::shared_ptr<SaveRecord> save;
 	};
 
 	// Emu thread, once the file is written (or failed to be).
@@ -1103,7 +1133,7 @@ int g_screenshotFailures;
 			status = Status::FAILURE;
 		}
 
-		std::vector<Callback> repeats = TakePendingSave(job.path);
+		std::vector<Callback> repeats = FinishPendingSave(job.save);
 		if (!callCallbacks) {
 			return;
 		}
@@ -1128,6 +1158,7 @@ int g_screenshotFailures;
 		job.slotGamePrefix = op.slotGamePrefix;
 		job.slot = op.slot;
 		job.callback = op.callback;
+		job.save = op.save;
 		if (!op.slotGamePrefix.empty()) {
 			job.keepUndo = g_Config.bEnableStateUndo;
 			job.undoPath = GenerateSaveSlotPath(op.slotGamePrefix, op.slot, UNDO_STATE_EXTENSION);
@@ -1426,6 +1457,10 @@ int g_screenshotFailures;
 			// Enqueue() only appends, which leaves this reference alone. Unlocked, since callbacks can
 			// queue more.
 			Operation &op = g_pendingOperations.front();
+			if (op.save) {
+				// Its snapshot is next: nothing can be loaded in between, it's first in the queue.
+				op.save->loadCount = g_loadCount;
+			}
 			lock.unlock();
 			const bool finished = RunOperation(op);
 			lock.lock();
