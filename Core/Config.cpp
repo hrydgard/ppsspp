@@ -609,7 +609,7 @@ bool Config::IsBackendEnabled(GPUBackend backend) {
 		return false;
 #endif
 
-#if !PPSSPP_PLATFORM(MAC) && !PPSSPP_PLATFORM(IOS)
+#if !PPSSPP_API(METAL)
 	if (backend == GPUBackend::METAL)
 		return false;
 #endif

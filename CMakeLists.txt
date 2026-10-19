@@ -1135,7 +1135,8 @@ if(WIN32)
 	list(APPEND GlslangLibs spirv-cross-hlsl)
 endif()
 
-if(APPLE)
+# The Metal backend. Not in the libretro cores, which get their graphics context from the frontend.
+if(APPLE AND NOT LIBRETRO)
 	list(APPEND GlslangLibs spirv-cross-msl)
 endif()
 

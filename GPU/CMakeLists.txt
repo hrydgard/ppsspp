@@ -71,7 +71,7 @@ endif()
 if(WIN32)
 	list(APPEND GPU_IMPLS ${GPU_D3D11})
 endif()
-if(APPLE)
+if(APPLE AND NOT LIBRETRO)
 	set(GPU_METAL
 		Metal/DrawEngineMetal.h
 		Metal/DrawEngineMetal.mm

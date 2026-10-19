@@ -37,7 +37,7 @@
 #include "GPU/D3D11/GPU_D3D11.h"
 #endif
 
-#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+#if PPSSPP_API(METAL)
 #include "GPU/Metal/GPU_Metal.h"
 #endif
 
@@ -75,7 +75,7 @@ static GPUCommon *CreateGPUCore(GPUCore gpuCore, GraphicsContext *ctx, Draw::Dra
 		return new GPU_Vulkan(ctx, draw);
 #endif
 	case GPUCORE_METAL:
-#if PPSSPP_PLATFORM(MAC) || PPSSPP_PLATFORM(IOS)
+#if PPSSPP_API(METAL)
 		return new GPU_Metal(ctx, draw);
 #else
 		return nullptr;

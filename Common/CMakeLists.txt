@@ -34,7 +34,7 @@ if(NOT NO_OPENGL)
 	)
 endif()
 
-if(APPLE)
+if(APPLE AND NOT LIBRETRO)
 	set(CommonMetal
 		GPU/Metal/MetalGraphicsContext.h
 		GPU/Metal/MetalGraphicsContext.mm
@@ -420,7 +420,7 @@ if(TARGET Ext::GLEW)
 	target_link_libraries(Common Ext::GLEW)
 endif()
 
-if(APPLE)
+if(APPLE AND NOT LIBRETRO)
 	target_link_libraries(Common "-framework Metal" "-framework QuartzCore")
 endif()
 
