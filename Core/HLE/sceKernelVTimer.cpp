@@ -139,12 +139,18 @@ public:
 
 	bool run(PendingInterrupt &pend) override {
 		u32 error;
+		if (vtimers.empty()) {
+			return false;
+		}
 		SceUID vtimerID = vtimers.front();
 
 		VTimer *vtimer = kernelObjects.Get<VTimer>(vtimerID, error);
-
-		if (error)
+		if (error) {
+			// Deleted while its interrupt was pending. handleResult won't run, so it's popped here.
+			WARN_LOG(Log::sceKernel, "Ignoring deleted vtimer %08x", vtimerID);
+			vtimers.pop_front();
 			return false;
+		}
 
 		// Reserve some stack space for arguments.
 		u32 argArea = currentMIPS->r[MIPS_REG_SP];
@@ -246,12 +252,9 @@ u32 sceKernelDeleteVTimer(SceUID uid) {
 		return hleLogError(Log::sceKernel, error, "bad timer ID");
 	}
 
-	for (std::list<SceUID>::iterator it = vtimers.begin(); it != vtimers.end(); ++it) {
-		if (*it == vt->GetUID()) {
-			vtimers.erase(it);
-			break;
-		}
-	}
+	// Its entry in vtimers stays: each one belongs to a pending interrupt, which pops it when it runs
+	// (or right away, finding the timer gone), so erasing it here would hand that interrupt to the
+	// next timer's entry, or to an empty list if the handler is deleting its own timer.
 
 	return hleLogDebugOrError(Log::sceKernel, kernelObjects.Destroy<VTimer>(uid));
 }
