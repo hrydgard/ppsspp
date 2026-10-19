@@ -158,8 +158,17 @@ public:
 	}
 
 	void handleResult(PendingInterrupt& pend) override {
+		// Only from a broken savestate: the interrupt was running, but nothing is pending.
+		if (ge_pending_cb.empty()) {
+			ERROR_LOG(Log::sceGe, "GE interrupt finished with nothing pending");
+			return;
+		}
 		GeInterruptData intrdata = ge_pending_cb.front();
 		ge_pending_cb.pop_front();
+		if (!gpu->IsValidListId(intrdata.listid)) {
+			ERROR_LOG(Log::sceGe, "GE interrupt finished for invalid list %d", intrdata.listid);
+			return;
+		}
 
 		DisplayList* dl = gpu->getList(intrdata.listid);
 		if (!dl->interruptsEnabled) {
