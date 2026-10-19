@@ -34,6 +34,7 @@
 #include "Core/HLE/__sceAudio.h"
 #include "Core/HW/MemoryStick.h"
 #include "Core/MemMap.h"
+#include "Core/SaveState.h"
 #include "Core/System.h"
 #include "Core/CoreTiming.h"
 #include "Core/HW/Display.h"
