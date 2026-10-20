@@ -24,6 +24,7 @@
 #include <string>
 
 #include "zlib.h"
+#include "ext/libkirk/amctrl.h"
 
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
@@ -35,10 +36,12 @@
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/HLEHelperThread.h"
 #include "Core/HLE/PopsBoot.h"
+#include "Core/HLE/sceChnnlsv.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceKernelModule.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HW/PopsMMIO.h"
+#include "Core/Loaders.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MemMap.h"
@@ -50,6 +53,8 @@
 
 static bool g_popsBoot = false;
 static bool g_popsConvertedPBP = false;
+// The game's PBP on the host.
+static Path g_popsPBPPath;
 static std::unique_ptr<HLEHelperThread> g_popsInitThread;
 static u32 g_popsInitPath = 0;
 static std::unique_ptr<HLEHelperThread> g_popsMeThread;
@@ -78,6 +83,12 @@ enum : u32 {
 	POPSMAN_ME_HALT1 = 0x3100,         // one HALT per sample while playing
 	POPSMAN_ME_DRAIN_POLL = 0x3164,    // lw t4, 0x28(k0)
 	POPSMAN_ME_HALT2 = 0x31C8,         // stopped
+	// The license check (path, keyOut, fingerprintOut). Its first success latches the version key and
+	// the content ID fingerprint (+0124).
+	POPSMAN_KEY_PROBE = 0x266C,
+	POPSMAN_VERSION_KEY = 0x49E0,
+	POPSMAN_KEY_LATCHED = 0x4A18,
+	POPSMAN_KEY_FINGERPRINT = 0x4A1C,
 	// Whether data matches its MAC: its own, and the one it exports as sceMeAudio_F6637A72.
 	POPSMAN_CHECK_MAC = 0x0A28,
 	POPSMAN_CHECK_MAC_EXPORT = 0x0AB8,
@@ -104,6 +115,8 @@ static const struct {
 	{ POPSMAN_ME_HALT2, 0x70000000 },
 	{ POPSMAN_CHECK_MAC, 0x27BDFFC0 },  // addiu sp, sp, -0x40
 	{ POPSMAN_CHECK_MAC_EXPORT, 0x27BDFFB0 },
+	{ POPSMAN_KEY_PROBE, 0x27BDFEF0 },
+	{ POPSMAN_KEY_PROBE + 4, 0x2CA70001 },
 };
 
 // The emulator's PS1 clock, in PS1 CPU cycles, in its scratchpad state.
@@ -122,6 +135,7 @@ void __PopsBootInit() {
 void __PopsBootShutdown() {
 	g_popsBoot = false;
 	g_popsConvertedPBP = false;
+	g_popsPBPPath.clear();
 	SetSnapHalfPixelSprites(false);
 	g_meRunning = false;
 	g_meClockValid = false;
@@ -381,6 +395,48 @@ static bool ReadDiscImage(const PBPReader &pbp, size_t size, u8 *out) {
 	return pbp.ReadSubFile(PBP_UNKNOWN_PSAR, memcmp(psar, "PSTITLE", 7) == 0 ? 0x200 : 0x400, size, out);
 }
 
+// The content ID (DATA.PSP + 0x560, as in the license) and the disc image's PGD header.
+static bool ReadPBPDrmHeaders(u8 *pgdHeader, u8 *contentId) {
+	std::unique_ptr<FileLoader> loader(ConstructFileLoader(g_popsPBPPath));
+	PBPReader pbp(loader.get());
+	return pbp.IsValid() && pbp.ReadSubFile(PBP_EXECUTABLE_PSP, 0x560, 0x30, contentId) &&
+		ReadDiscImage(pbp, 0x90, pgdHeader) && memcmp(pgdHeader, "\0PGD", 4) == 0;
+}
+
+// Replaces the manager's license check, which needs the game's license and activation. The
+// version key comes from the disc image's PGD header instead (its MAC_70 is the key's MAC), as
+// CFW's popcorn does. Returns what the check does on failure.
+static int __PopsGetVersionKey(u32 pathAddr, u32 keyOut, u32 fingerprintOut) {
+	const char *path = Memory::GetCharPointer(pathAddr);
+	if (!path || !Memory::IsValidRange(keyOut, 16)) {
+		return hleLogError(Log::sceKernel, 0x80020148, "bad arguments");
+	}
+	u8 pgdHeader[0x90];
+	u8 contentId[0x30]{};
+	if (!ReadPBPDrmHeaders(pgdHeader, contentId)) {
+		return hleLogWarning(Log::sceKernel, 0x80020148, "%s has no PGD disc image", path);
+	}
+	PGD_DESC *pgd = pgd_open(__ChnnlsvKirkState(), pgdHeader, 2, nullptr);
+	if (!pgd) {
+		return hleLogError(Log::sceKernel, 0x80020148, "%s: bad PGD header", path);
+	}
+	u8 versionKey[16];
+	memcpy(versionKey, pgd->vkey, 16);
+	pgd_close(pgd);
+
+	Memory::Memcpy(keyOut, versionKey, 16, "PopsVersionKey");
+	if (Memory::IsValidRange(fingerprintOut, sizeof(contentId))) {
+		Memory::Memcpy(fingerprintOut, contentId, sizeof(contentId), "PopsVersionKey");
+	}
+	const u32 base = PopsManBase();
+	if (Memory::ReadUnchecked_U32(base + POPSMAN_KEY_LATCHED) == 0) {
+		Memory::WriteUnchecked_U32(1, base + POPSMAN_KEY_LATCHED);
+		Memory::Memcpy(base + POPSMAN_VERSION_KEY, versionKey, 16, "PopsVersionKey");
+		Memory::Memcpy(base + POPSMAN_KEY_FINGERPRINT, contentId, sizeof(contentId), "PopsVersionKey");
+	}
+	return hleLogInfo(Log::sceKernel, 0, "%.36s", (const char *)contentId);
+}
+
 const HLEFunction PopsBootCalls[] = {
 	{ 0x13370001, &WrapU_V<__PopsMeHalt>,               "__PopsMeHalt",            'x', ""    },
 	{ 0x13370002, &WrapU_V<__PopsMePrefillPoll>,        "__PopsMePrefillPoll",     'x', ""    },
@@ -388,6 +444,7 @@ const HLEFunction PopsBootCalls[] = {
 	{ 0x13370004, &WrapU_V<__PopsMeLockWait>,           "__PopsMeLockWait",        'x', ""    },
 	{ 0x13370005, &WrapU_V<__PopsMeSync>,               "__PopsMeSync",            'x', ""    },
 	{ 0x13370006, &WrapI_UUU<__PopsDeflateDecompress>,  "__PopsDeflateDecompress", 'i', "xxx" },
+	{ 0x13370007, &WrapI_UUU<__PopsGetVersionKey>,      "__PopsGetVersionKey",     'i', "xxx" },
 };
 
 void Register_PopsBootCalls() {
@@ -521,6 +578,17 @@ void __PopsBootPatchEmulator(u32 textAddr, u32 textSize, u32 decodeStub) {
 	INFO_LOG(Log::sceKernel, "POPS: converted PBP, %d disc decoder calls now inflate", sites);
 }
 
+// After the game path, a word for the version key function the manager registers.
+static u32 KeyFuncSlot(const std::string &gamePath) {
+	return g_popsInitPath + (((u32)gamePath.size() + 1 + 3) & ~3);
+}
+
+void __PopsBootSetVersionKeyFunc(u32 func) {
+	if (g_popsInitPath) {
+		Memory::WriteUnchecked_U32(func, KeyFuncSlot(Memory::GetCharPointer(g_popsInitPath)));
+	}
+}
+
 static void PatchReturn(u32 addr, u32 delaySlotOp) {
 	Memory::WriteUnchecked_U32(MIPS_MAKE_JR_RA(), addr);
 	Memory::WriteUnchecked_U32(delaySlotOp, addr + 4);
@@ -537,8 +605,10 @@ bool __PopsBootStartInit(FileLoader *pbp, const std::string &gamePath, std::stri
 		*error = "PS1 EBOOTs need the POPS manager of firmware 6.60 or 6.61, and this firmware has a different one.";
 		return false;
 	}
+	g_popsPBPPath = pbp->GetPath();
 	g_popsConvertedPBP = IsConvertedPBP(pbp);
 	const u32 loadModule = base + POPSMAN_LOAD_MODULE;
+	PatchReturn(base + POPSMAN_KEY_PROBE, MIPS_MAKE_SYSCALL("PopsBootCalls", "__PopsGetVersionKey"));
 	if (g_popsConvertedPBP) {
 		// A converted PBP has no MACs. As popcorn does, take its data as authentic.
 		PatchReturn(base + POPSMAN_CHECK_MAC, 0x24020001);  // li v0, 1
@@ -546,16 +616,30 @@ bool __PopsBootStartInit(FileLoader *pbp, const std::string &gamePath, std::stri
 	}
 
 	const u32 pathSize = (u32)gamePath.size() + 1;
-	u32 allocSize = pathSize;
+	u32 allocSize = ((pathSize + 3) & ~3) + 4;
 	g_popsInitPath = kernelMemory.Alloc(allocSize, false, "PopsInitPath");
 	Memory::Memcpy(g_popsInitPath, gamePath.c_str(), pathSize, "PopsInitPath");
+	const u32 keyFuncSlot = KeyFuncSlot(gamePath);
+	Memory::WriteUnchecked_U32(0, keyFuncSlot);
 
-	// The kernel's init: scePopsManLoadModule(path, 0). Starts with a1 = its copy of the path, below
-	// the manager's priority so it runs once module_start is done.
+	// The kernel's init: get the version key through the registered function, if any, then
+	// scePopsManLoadModule(path, 0). Starts with a1 = its copy of the path, below the manager's
+	// priority so it runs once module_start is done.
 	const u32 code[] = {
-		0x00A02021,                // move a0, a1
-		MIPS_MAKE_J(loadModule),   // returns to the thread's end
+		0x00A08021,                // move s0, a1
+		0x03E08821,                // move s1, ra
+		0x3C190000 | (((keyFuncSlot + 0x8000) >> 16) & 0xFFFF),  // lui t9, slot
+		0x8F390000 | (keyFuncSlot & 0xFFFF),                     // lw t9, slot(t9)
+		0x27BDFFF0,                // addiu sp, sp, -16
+		0x13200003,                // beqz t9, +3
+		0x02002021,                // move a0, s0
+		0x0320F809,                // jalr t9: func(path, key)
+		0x03A02821,                // move a1, sp
+		0x02002021,                // move a0, s0
 		0x24050000,                // li a1, 0
+		0x0220F821,                // move ra, s1
+		MIPS_MAKE_J(loadModule),   // returns to the thread's end
+		0x27BD0010,                // addiu sp, sp, 16
 	};
 	g_popsInitThread.reset(new HLEHelperThread("ScePopsInit", code, (u32)ARRAY_SIZE(code), 0x40, 0x4000));
 	g_popsInitThread->Start(pathSize, g_popsInitPath);
