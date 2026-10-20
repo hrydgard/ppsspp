@@ -758,6 +758,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/HLE/NetInetConstants.cpp \
 	       $(COREDIR)/HLE/SocketManager.cpp \
 	       $(COREDIR)/HLE/Plugins.cpp \
+	       $(COREDIR)/HLE/PopsBoot.cpp \
 	       $(COREDIR)/HLE/sceSha256.cpp \
 	       $(COREDIR)/HLE/sceSircs.cpp \
 	       $(COREDIR)/HLE/sceG729.cpp \
@@ -850,6 +851,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/HW/Display.cpp \
 	       $(COREDIR)/HW/GpioMMIO.cpp \
 	       $(COREDIR)/HW/MMIO.cpp \
+	       $(COREDIR)/HW/PopsMMIO.cpp \
 	       $(COREDIR)/HW/SimpleAudioDec.cpp \
 	       $(COREDIR)/HW/Atrac3Standalone.cpp \
 	       $(COREDIR)/HW/AsyncIOManager.cpp \

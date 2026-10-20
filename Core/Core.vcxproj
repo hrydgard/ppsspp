@@ -476,6 +476,7 @@
     <ClCompile Include="HLE\KUBridge.cpp" />
     <ClCompile Include="HLE\NetInetConstants.cpp" />
     <ClCompile Include="HLE\Plugins.cpp" />
+    <ClCompile Include="HLE\PopsBoot.cpp" />
     <ClCompile Include="HLE\sceAac.cpp" />
     <ClCompile Include="HLE\sceChkreg.cpp" />
     <ClCompile Include="HLE\sceKernelHeap.cpp" />
@@ -494,6 +495,7 @@
     <ClCompile Include="HW\Display.cpp" />
     <ClCompile Include="HW\GpioMMIO.cpp" />
     <ClCompile Include="HW\MMIO.cpp" />
+    <ClCompile Include="HW\PopsMMIO.cpp" />
     <ClCompile Include="HW\GranularMixer.cpp" />
     <ClCompile Include="Instance.cpp" />
     <ClCompile Include="KeyMap.cpp" />
@@ -849,6 +851,7 @@
     <ClInclude Include="HLE\KUBridge.h" />
     <ClInclude Include="HLE\NetInetConstants.h" />
     <ClInclude Include="HLE\Plugins.h" />
+    <ClInclude Include="HLE\PopsBoot.h" />
     <ClInclude Include="HLE\PSPThreadContext.h" />
     <ClInclude Include="HLE\sceAac.h" />
     <ClInclude Include="HLE\sceChkreg.h" />
@@ -867,6 +870,7 @@
     <ClInclude Include="HW\Display.h" />
     <ClInclude Include="HW\GpioMMIO.h" />
     <ClInclude Include="HW\MMIO.h" />
+    <ClInclude Include="HW\PopsMMIO.h" />
     <ClInclude Include="HW\GranularMixer.h" />
     <ClInclude Include="Instance.h" />
     <ClInclude Include="KeyMap.h" />

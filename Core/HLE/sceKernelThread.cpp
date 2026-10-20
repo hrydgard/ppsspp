@@ -47,6 +47,7 @@
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelModule.h"
+#include "Core/HLE/PopsBoot.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/KernelThreadDebugInterface.h"
 #include "Core/HLE/KernelWaitHelpers.h"
@@ -3294,6 +3295,10 @@ void __KernelSwitchContext(PSPThread *target, const char *reason) {
 	u32 oldPC = 0;
 	SceUID oldUID = 0;
 	const char *oldName = hleCurrentThreadName != NULL ? hleCurrentThreadName : "(none)";
+
+	if (PopsBootActive()) {
+		__PopsBootSwitchContext(currentThread, target ? target->GetUID() : 0);
+	}
 
 	// Everything since the previous switch was spent running the outgoing thread, so bill it to
 	// that thread's runForClocks before we change over. This is the only field that tells a game

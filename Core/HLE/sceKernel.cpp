@@ -59,6 +59,7 @@
 #include "sceKernelHeap.h"
 #include "sceKernelInterrupt.h"
 #include "sceKernelThread.h"
+#include "PopsBoot.h"
 #include "sceKernelMemory.h"
 #include "sceKernelModule.h"
 #include "sceKernelMutex.h"
@@ -195,6 +196,7 @@ void __KernelShutdown()
 	kernelObjects.Clear();
 
 	__RegShutdown();
+	__PopsBootShutdown();
 	__HttpShutdown();
 	__OpenPSIDShutdown();
 	__UsbCamShutdown();
@@ -322,6 +324,7 @@ void __KernelDoState(PointerWrap &p)
 		__DmacDoState(p);
 		__UsbCamDoState(p);
 		__NpDrmDoState(p);
+		__PopsBootDoState(p);
 
 		// IMPORTANT! Add new sections last!
 	}
@@ -1778,4 +1781,40 @@ const char *KernelErrorToString(u32 err) {
 	default:
 		return nullptr;
 	}
+}
+
+enum : u32 {
+	PSP_BOOT_DISC = 0x20,
+	PSP_BOOT_MS = 0x40,
+	PSP_INIT_KEYCONFIG_GAME = 0x200,
+	PSP_INIT_KEYCONFIG_POPS = 0x300,
+};
+
+// The POPS manager stays resident only when booted from the memory stick.
+static u32 sceKernelBootFrom() {
+	return hleLogInfo(Log::sceKernel, PopsBootActive() ? PSP_BOOT_MS : PSP_BOOT_DISC);
+}
+
+// The key configuration the kernel was booted with. Also known as sceKernelInitKeyConfig.
+static u32 sceKernelApplicationType() {
+	return hleLogInfo(Log::sceKernel, PopsBootActive() ? PSP_INIT_KEYCONFIG_POPS : PSP_INIT_KEYCONFIG_GAME);
+}
+
+static int sceKernelGetChunk(int chunkId) {
+	return hleLogWarning(Log::sceKernel, -1, "UNIMPL chunk %d", chunkId);
+}
+
+static int InitForKernel_9D33A110() {
+	return hleLogWarning(Log::sceKernel, 0, "UNIMPL");
+}
+
+const HLEFunction InitForKernel[] = {
+	{0x27932388, &WrapU_V<sceKernelBootFrom>,                        "sceKernelBootFrom",                         'x', "",       HLE_KERNEL_SYSCALL },
+	{0x7233B5BC, &WrapU_V<sceKernelApplicationType>,                 "sceKernelApplicationType",                  'x', "",       HLE_KERNEL_SYSCALL },
+	{0x2C6E9FE9, &WrapI_I<sceKernelGetChunk>,                        "sceKernelGetChunk",                         'i', "i",      HLE_KERNEL_SYSCALL },
+	{0x9D33A110, &WrapI_V<InitForKernel_9D33A110>,                   "InitForKernel_9D33A110",                    'i', "",       HLE_KERNEL_SYSCALL },
+};
+
+void Register_InitForKernel() {
+	RegisterHLEModule("InitForKernel", ARRAY_SIZE(InitForKernel), InitForKernel);
 }

@@ -389,6 +389,8 @@ add_library(Core STATIC
 	HLE/KUBridge.cpp
 	HLE/Plugins.h
 	HLE/Plugins.cpp
+	HLE/PopsBoot.cpp
+	HLE/PopsBoot.h
 	HLE/ThreadQueueList.h
 	HLE/__sceAudio.cpp
 	HLE/__sceAudio.h
@@ -582,6 +584,8 @@ add_library(Core STATIC
 	HW/GpioMMIO.h
 	HW/MMIO.cpp
 	HW/MMIO.h
+	HW/PopsMMIO.cpp
+	HW/PopsMMIO.h
 	HW/AvcDecoder.cpp
 	HW/AvcDecoder.h
 	HW/MediaEngine.cpp

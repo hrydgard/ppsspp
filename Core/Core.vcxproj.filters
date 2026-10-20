@@ -766,6 +766,9 @@
     <ClCompile Include="HLE\Plugins.cpp">
       <Filter>HLE</Filter>
     </ClCompile>
+    <ClCompile Include="HLE\PopsBoot.cpp">
+      <Filter>HLE</Filter>
+    </ClCompile>
     <ClCompile Include="..\ext\snappy\snappy-stubs-internal.cpp">
       <Filter>Ext\Snappy</Filter>
     </ClCompile>
@@ -1175,6 +1178,9 @@
       <Filter>HW</Filter>
     </ClCompile>
     <ClCompile Include="HW\MMIO.cpp">
+      <Filter>HW</Filter>
+    </ClCompile>
+    <ClCompile Include="HW\PopsMMIO.cpp">
       <Filter>HW</Filter>
     </ClCompile>
     <ClCompile Include="HLE\sceNp2.cpp">
@@ -2103,6 +2109,9 @@
     <ClInclude Include="HLE\Plugins.h">
       <Filter>HLE</Filter>
     </ClInclude>
+    <ClInclude Include="HLE\PopsBoot.h">
+      <Filter>HLE</Filter>
+    </ClInclude>
     <ClInclude Include="..\ext\gason\gason.h">
       <Filter>Ext\gason</Filter>
     </ClInclude>
@@ -2182,6 +2191,9 @@
       <Filter>HW</Filter>
     </ClInclude>
     <ClInclude Include="HW\MMIO.h">
+      <Filter>HW</Filter>
+    </ClInclude>
+    <ClInclude Include="HW\PopsMMIO.h">
       <Filter>HW</Filter>
     </ClInclude>
     <ClInclude Include="HLE\sceNp2.h">

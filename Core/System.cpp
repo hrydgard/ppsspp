@@ -459,6 +459,10 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 			gameTitle = g_CoreParameter.fileToStart.GetFilename();
 		}
 		break;
+	case IdentifiedFileType::PSP_PS1_PBP:
+		// Title and disc ID; the PS1 image itself is read by the firmware's POPS manager.
+		LoadParamSFOFromPBP(fileLoader);
+		break;
 	case IdentifiedFileType::PSP_UMD_VIDEO_ISO:
 	{
 		ERROR_LOG(Log::Loader, "PPSSPP doesn't support UMD Video.");
@@ -626,6 +630,12 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 
 	case IdentifiedFileType::PPSSPP_GE_DUMP:
 		if (!Load_PSP_GE_Dump(fileLoader, errorString)) {
+			return false;
+		}
+		break;
+
+	case IdentifiedFileType::PSP_PS1_PBP:
+		if (!Load_PSP_POPS(fileLoader, errorString)) {
 			return false;
 		}
 		break;

@@ -21,6 +21,7 @@
 #include "Common/Serialize/Serializer.h"
 #include "Core/HW/GpioMMIO.h"
 #include "Core/HW/MMIO.h"
+#include "Core/HW/PopsMMIO.h"
 #include "Core/MIPS/MIPS.h"
 
 namespace MMIO {
@@ -32,6 +33,9 @@ void Init() {
 		GpioMMIO::Device(),
 		SysconSerialMMIO::Device(),
 	};
+	for (MMIODevice *device : PopsMMIO::Devices()) {
+		g_devices.push_back(device);
+	}
 	for (MMIODevice *device : g_devices) {
 		device->Reset();
 	}
@@ -42,12 +46,19 @@ void Shutdown() {
 }
 
 void DoState(PointerWrap &p) {
-	auto s = p.Section("MMIO", 1, 1);
+	auto s = p.Section("MMIO", 1, 2);
 	if (!s)
 		return;
 	// Every device, whether or not this boot registered it, so the layout doesn't depend on that.
 	GpioMMIO::Device()->DoState(p);
 	SysconSerialMMIO::Device()->DoState(p);
+	for (MMIODevice *device : PopsMMIO::Devices()) {
+		if (s >= 2) {
+			device->DoState(p);
+		} else if (p.mode == PointerWrap::MODE_READ) {
+			device->Reset();
+		}
+	}
 }
 
 static MMIODevice *FindDevice(u32 address) {

@@ -43,6 +43,8 @@
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelInterrupt.h"
+#include "Core/HLE/PopsBoot.h"
+#include "Core/HW/PopsMMIO.h"
 #include "Core/Util/AudioFormat.h"
 
 // Should be used to lock anything related to the outAudioQueue.
@@ -641,6 +643,10 @@ void __AudioUpdate(bool resetRecording) {
 		woke |= __AudioMixChannel(chan);
 	}
 	woke |= __AudioMixSRC(g_audioSRC);
+	// The PS1 emulator plays through the ME.
+	if (PopsBootActive()) {
+		PopsMMIO::MixSamples(mixBuffer, hwBlockSize);
+	}
 	audioMixing = false;
 
 	if (g_Config.bEnableSound) {

@@ -656,6 +656,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HW/Display.cpp \
   $(SRC)/Core/HW/GpioMMIO.cpp \
   $(SRC)/Core/HW/MMIO.cpp \
+  $(SRC)/Core/HW/PopsMMIO.cpp \
   $(SRC)/Core/HW/MemoryStick.cpp \
   $(SRC)/Core/HW/MpegDemux.cpp.arm \
   $(SRC)/Core/HW/AvcDecoder.cpp.arm \
@@ -749,6 +750,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HLE/NetInetConstants.cpp \
   $(SRC)/Core/HLE/SocketManager.cpp \
   $(SRC)/Core/HLE/Plugins.cpp \
+  $(SRC)/Core/HLE/PopsBoot.cpp \
   $(SRC)/Core/HLE/sceAdler.cpp \
   $(SRC)/Core/HLE/sceAmctrl.cpp \
   $(SRC)/Core/HLE/sceAtrac.cpp \

@@ -338,6 +338,7 @@ void Register_ThreadManForKernel();
 void Register_LoadExecForUser();
 void Register_LoadExecForKernel();
 void Register_UtilsForKernel();
+void Register_InitForKernel();
 
 // returns nullptr if not found.
 const char *KernelErrorToString(u32 err);

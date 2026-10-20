@@ -42,6 +42,9 @@ public:
 	u32 Entry() {
 		return entry_;
 	}
+	SceUID Id() const {
+		return id_;
+	}
 
 private:
 	void AllocEntry(u32 size);
