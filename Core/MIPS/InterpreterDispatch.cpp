@@ -391,6 +391,10 @@ int ExecInstruction(MIPSState *mips, MIPSOpcode op) {
     case 28:
     {
         switch ((op.encoding >> 0) & 0x3f) {
+        // halt
+        case 0:
+            MIPSInt::Int_Halt(mips, op);
+            return 1;
         // mfic, mtic
         case 36:
         case 38:

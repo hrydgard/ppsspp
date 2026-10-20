@@ -23,6 +23,7 @@
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Core/HW/GpioMMIO.h"
 #include "Core/HW/MMIO.h"
+#include "Core/HW/MeMMIO.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 
@@ -93,6 +94,9 @@ void Init() {
 		GpioMMIO::Device(),
 		SysconSerialMMIO::Device(),
 		&g_bootPage,
+		MeMMIO::SysregDevice(),
+		MeMMIO::InterruptDevice(),
+		MeMMIO::MemProtectDevice(),
 	};
 	for (MMIODevice *device : g_devices) {
 		device->Reset();

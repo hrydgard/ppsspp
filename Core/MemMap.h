@@ -586,6 +586,17 @@ inline bool IsKernelCodeAddress(u32 address) {
 	return ((address & 0x0F800003) == 0x08000000) && address >= 0x08000100;
 }
 
+// Homebrew that runs the Media Engine calls its own code in kernel mode, through a kernel module of
+// its own ("kcall"), so while the ME is emulated any code may access hardware registers.
+// HACK: This makes every block check its computed-address loads and stores for hardware registers.
+// Kernel mode should be part of the CPU's state instead, switched on while a kernel module's export
+// runs, with blocks checking that they were compiled for the mode they run in.
+extern bool g_kernelModeAnywhere;
+
+inline bool MayRunInKernelMode(u32 pc) {
+	return g_kernelModeAnywhere || IsKernelCodeAddress(pc);
+}
+
 // I believe this is the same, but let's keep a separate function.
 inline bool IsValidCLUTAddress(const u32 address) {
 	return IsValidTextureAddress(address);

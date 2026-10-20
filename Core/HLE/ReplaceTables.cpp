@@ -38,6 +38,7 @@
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/sceDisplay.h"
+#include "Core/HW/MMIO.h"
 
 #include "GPU/Math3D.h"
 #include "GPU/GPU.h"
@@ -119,6 +120,33 @@ static int Replace_ceilf(MIPSState *mips) {
 
 // Should probably do JIT versions of this, possibly ones that only delegate
 // large copies to a C function.
+// Kernel code copies Media Engine code to the boot page at 0xBFC00000, which the main CPU reaches
+// through MMIO. Byte by byte, forward like memmove when the destination is lower. Returns false if
+// neither side is MMIO.
+static bool CopyThroughMMIO(MIPSState *mips, u32 destPtr, u32 srcPtr, u32 bytes) {
+	if (!Memory::IsMMIOAccess(destPtr) && !Memory::IsMMIOAccess(srcPtr)) {
+		return false;
+	}
+	const bool backward = destPtr > srcPtr && destPtr < srcPtr + bytes;
+	for (u32 i = 0; i < bytes; ++i) {
+		const u32 offset = backward ? bytes - 1 - i : i;
+		const u32 src = srcPtr + offset;
+		const u32 dest = destPtr + offset;
+		u8 value = 0;
+		if (Memory::IsMMIOAccess(src)) {
+			value = (u8)MMIO::Read(mips, src, 1);
+		} else if (Memory::IsValidAddress(src)) {
+			value = Memory::ReadUnchecked_U8(src);
+		}
+		if (Memory::IsMMIOAccess(dest)) {
+			MMIO::Write(mips, dest, 1, value);
+		} else if (Memory::IsValidAddress(dest)) {
+			Memory::WriteUnchecked_U8(value, dest);
+		}
+	}
+	return true;
+}
+
 static int Replace_memcpy(MIPSState *mips) {
 	u32 destPtr = PARAM(0);
 	u32 srcPtr = PARAM(1);
@@ -135,7 +163,7 @@ static int Replace_memcpy(MIPSState *mips) {
 		}
 	}
 	gpu->NotifyVideoCopy(destPtr, srcPtr, bytes);
-	if (!skip && bytes != 0) {
+	if (!skip && bytes != 0 && !CopyThroughMMIO(mips, destPtr, srcPtr, bytes)) {
 		u8 *dst = Memory::GetPointerWriteRangeOrException(destPtr, bytes);
 		const u8 *src = Memory::GetPointerRangeOrException(srcPtr, bytes);
 
@@ -265,7 +293,7 @@ static int Replace_memcpy16(MIPSState *mips) {
 		}
 	}
 	gpu->NotifyVideoCopy(destPtr, srcPtr, bytes);
-	if (!skip && bytes != 0) {
+	if (!skip && bytes != 0 && !CopyThroughMMIO(mips, destPtr, srcPtr, bytes)) {
 		u8 *dst = Memory::GetPointerWriteRangeOrException(destPtr, bytes);
 		const u8 *src = Memory::GetPointerRangeOrException(srcPtr, bytes);
 		if (dst && src) {
@@ -332,7 +360,7 @@ static int Replace_memmove(MIPSState *mips) {
 		}
 	}
 	gpu->NotifyVideoCopy(destPtr, srcPtr, bytes);
-	if (!skip && bytes != 0) {
+	if (!skip && bytes != 0 && !CopyThroughMMIO(mips, destPtr, srcPtr, bytes)) {
 		u8 *dst = Memory::GetPointerWriteRangeOrException(destPtr, bytes);
 		const u8 *src = Memory::GetPointerRangeOrException(srcPtr, bytes);
 		if (dst && src) {

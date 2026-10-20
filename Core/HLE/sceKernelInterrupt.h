@@ -130,8 +130,8 @@ public:
 	SubIntrHandler *get(int subIntrNum);
 	void clear();
 
-	// The handler a kernel driver registered for the whole interrupt (sceKernelRegisterIntrHandler).
-	// Nothing raises those interrupts yet, so it's only kept.
+	// The handler a kernel driver registered for the whole interrupt (sceKernelRegisterIntrHandler),
+	// raised with PSP_INTR_SUB_NONE. Only the Media Engine raises one so far.
 	bool hasBaseHandler() const { return baseHandler_ != 0; }
 	void setBaseHandler(u32 handler, u32 arg) {
 		baseHandler_ = handler;
@@ -139,6 +139,8 @@ public:
 		baseEnabled_ = false;
 	}
 	void enableBase(bool enable) { baseEnabled_ = enable; }
+	// Stands in for a firmware driver's handler, which homebrew releases to register its own.
+	static constexpr u32 FIRMWARE_HANDLER = 1;
 
 	void DoState(PointerWrap &p);
 

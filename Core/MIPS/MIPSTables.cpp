@@ -257,7 +257,7 @@ static const MIPSInstruction tableSpecial[64] = // 000000 ..... ..... ..... ....
 // Theoretically should not hit these.
 static const MIPSInstruction tableSpecial2[64] = // 011100 ..... ..... ..... ..... xxxxxx
 {
-	INSTR("halt", JITFUNC(Comp_Generic), Dis_Generic, 0, ENDS_BLOCK),
+	INSTR("halt", JITFUNC(Comp_Generic), Dis_Generic, Int_Halt, ENDS_BLOCK),
 	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
 	//8
 	INVALID_X_8,

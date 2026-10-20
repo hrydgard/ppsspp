@@ -849,6 +849,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/HW/Display.cpp \
 	       $(COREDIR)/HW/GpioMMIO.cpp \
 	       $(COREDIR)/HW/MMIO.cpp \
+	       $(COREDIR)/HW/MeMMIO.cpp \
 	       $(COREDIR)/HW/SimpleAudioDec.cpp \
 	       $(COREDIR)/HW/Atrac3Standalone.cpp \
 	       $(COREDIR)/HW/AsyncIOManager.cpp \

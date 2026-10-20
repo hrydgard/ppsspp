@@ -49,6 +49,7 @@ u8* base = nullptr;
 
 u8 *blockShadow = nullptr;
 AddressSpace g_mainSpace;
+bool g_kernelModeAnywhere = false;
 static const size_t BLOCK_SHADOW_SIZE = (size_t)BLOCK_SHADOW_MASK + 1;
 
 // The MemArena class

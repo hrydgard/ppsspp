@@ -48,6 +48,7 @@ namespace MIPSInt
 	void Int_FPUBranch(MIPSState *mips, MIPSOpcode op);
 	void Int_CallReplacement(MIPSState *mips, MIPSOpcode op);
 	void Int_Special2(MIPSState *mips, MIPSOpcode op);
+	void Int_Halt(MIPSState *mips, MIPSOpcode op);
 	void Int_Special3(MIPSState *mips, MIPSOpcode op);
 	void Int_Interrupt(MIPSState *mips, MIPSOpcode op);
 	void Int_Cache(MIPSState *mips, MIPSOpcode op);
