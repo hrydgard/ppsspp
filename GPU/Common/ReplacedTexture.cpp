@@ -32,7 +32,6 @@
 #include "Common/Data/Format/DDSLoad.h"
 #include "Common/Data/Format/ZIMLoad.h"
 #include "Common/Data/Format/PNGLoad.h"
-#include "Common/Thread/ParallelLoop.h"
 #include "Common/Thread/Waitable.h"
 #include "Common/Thread/ThreadManager.h"
 #include "Common/Log.h"
@@ -220,7 +219,6 @@ bool ReplacedTexture::Poll(double budget) {
 			// Successfully waited! Can get rid of it.
 			threadWaitable_->WaitAndRelease();
 			threadWaitable_ = nullptr;
-			lastUsed = now;
 		}
 		lastUsed_ = now;
 		return true;
@@ -289,10 +287,12 @@ void ReplacedTexture::Prepare(VFSBackend *vfs) {
 		}
 
 		std::string path(desc_.filenames[i]);
-		// Defense in depth: skip filenames that could escape the pack dir.
+		// Defense in depth: skip filenames that could escape the pack dir. Like a missing file, this ends
+		// the levels (without any, the texture is NOT_FOUND).
 		if (HasParentDirComponent(path)) {
-			SetState(ReplacementState::CANCEL_INIT);
-			return;
+			ERROR_LOG(Log::TexReplacement, "Ignoring texture filename with parent dir component: %s", path.c_str());
+			result = LoadLevelResult::DONE;
+			break;
 		}
 		VFSFileReference *fileRef = vfs_->GetFile(path.c_str());
 		if (!fileRef) {
@@ -1007,9 +1007,6 @@ bool ReplacedTexture::CopyLevelTo(int level, uint8_t *out, size_t outDataSize, i
 		return false;
 	}
 
-	// Dubious if this is worth it, sometimes seems to help, sometimes not.
-#define PARALLEL_COPY
-
 	int blockSize;
 	if (!Draw::DataFormatIsBlockCompressed(fmt, &blockSize)) {
 		if (fmt != Draw::DataFormat::R8G8B8A8_UNORM) {
@@ -1024,46 +1021,28 @@ bool ReplacedTexture::CopyLevelTo(int level, uint8_t *out, size_t outDataSize, i
 
 		_assert_msg_(data.size() == info.w * info.h * 4, "Data has wrong size");
 
+		// Plain copies: one core already saturates memory bandwidth, and pool tasks can wait behind other
+		// work queued there (like pipeline compiles).
 		if (rowPitch == info.w * 4) {
-#ifdef PARALLEL_COPY
-			ParallelMemcpy(&g_threadManager, out, data.data(), info.w * 4 * info.h);
-#else
 			memcpy(out, data.data(), info.w * 4 * info.h);
-#endif
 		} else {
-#ifdef PARALLEL_COPY
-			const int MIN_LINES_PER_THREAD = 4;
-			const int MAX_THREADS = 6;
-			ParallelRangeLoop(&g_threadManager, [&](int l, int h) {
-				int extraPixels = outW - info.w;
-				for (int y = l; y < h; ++y) {
-					memcpy((uint8_t *)out + rowPitch * y, data.data() + info.w * 4 * y, info.w * 4);
-					// Fill the rest of the line with black.
-					memset((uint8_t *)out + rowPitch * y + info.w * 4, 0, extraPixels * 4);
-				}
-				}, 0, info.h, MIN_LINES_PER_THREAD, MAX_THREADS);
-#else
 			int extraPixels = outW - info.w;
 			for (int y = 0; y < info.h; ++y) {
 				memcpy((uint8_t *)out + rowPitch * y, data.data() + info.w * 4 * y, info.w * 4);
+				// Fill the rest of the line with black.
 				memset((uint8_t *)out + rowPitch * y + info.w * 4, 0, extraPixels * 4);
 			}
-#endif
-			// Memset the rest of the padding to avoid leaky edge pixels. Guess we could parallelize this too, but meh.
+			// Memset the rest of the padding to avoid leaky edge pixels.
 			for (int y = info.h; y < outH; y++) {
 				uint8_t *dest = (uint8_t *)out + rowPitch * y;
 				memset(dest, 0, outW * 4);
 			}
 		}
 	} else {
-#ifdef PARALLEL_COPY
-		// Only parallel copy in the simple case for now.
 		if (info.w == outW && info.h == outH) {
-			// TODO: Add sanity checks here for other formats?
-			ParallelMemcpy(&g_threadManager, out, data.data(), data.size());
+			memcpy(out, data.data(), data.size());
 			return true;
 		}
-#endif
 		// Alright, so careful copying of blocks it is, padding with zero-blocks as needed.
 		int inBlocksW = (info.w + 3) / 4;
 		int inBlocksH = (info.h + 3) / 4;

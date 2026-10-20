@@ -259,7 +259,6 @@ private:
 	std::mutex lock_;
 	Draw::DataFormat fmt = Draw::DataFormat::UNDEFINED;
 	TextureAlpha alphaStatus_ = TextureAlpha::Any;
-	double lastUsed = 0.0;
 
 	std::atomic<ReplacementState> state_ = ReplacementState::UNLOADED;
 
