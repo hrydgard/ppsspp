@@ -9,6 +9,7 @@
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelHeap.h"
 #include "Core/HLE/sceKernelMemory.h"
+#include "Core/MemMapHelpers.h"
 #include "Core/Reporting.h"
 #include "Core/Util/BlockAllocator.h"
 
@@ -215,6 +216,19 @@ static int sceKernelSetUmdCacheOn(int on) {
 	return hleLogWarning(Log::sceKernel, 0, "UNIMPL");
 }
 
+static u32 sceKernelMemset(u32 addr, int value, u32 size) {
+	if (Memory::IsValidRange(addr, size)) {
+		Memory::Memset(addr, (u8)value, size, "KernelMemset");
+	}
+	return hleLogDebug(Log::sceKernel, addr);
+}
+
+// The POPS manager uses it to make a file descriptor it opened usable from user mode. Ours
+// aren't access-checked, so report no such UID and it skips that.
+static int sceKernelGetUIDcontrolBlock(SceUID uid, u32 controlBlockPtr) {
+	return hleLogDebug(Log::sceKernel, SCE_KERNEL_ERROR_UNKNOWN_UID, "no control blocks");
+}
+
 const HLEFunction SysMemForKernel[] = {
 	{ 0X96A3CE2C, &WrapI_U<sceKernelSetRebootKernel>,              "sceKernelSetRebootKernel",           'i', "x",     HLE_KERNEL_SYSCALL },
 	{ 0X1404C1AA, &WrapI_I<sceKernelSetUmdCacheOn>,                "sceKernelSetUmdCacheOn",             'i', "i",     HLE_KERNEL_SYSCALL },
@@ -243,6 +257,8 @@ const HLEFunction SysMemForKernel[] = {
 	{ 0xF91FE6AA, &WrapI_V<sceKernelSetParamSfo>,                  "sceKernelSetParamSfo",               'i', "",      HLE_KERNEL_SYSCALL },
 	{ 0xC2460DD5, &WrapI_V<sceKernelSetParamSfo>,                  "sceKernelSetParamSfo",               'i', "",      HLE_KERNEL_SYSCALL },
 	{ 0x807179E7, &WrapI_V<sceKernelSetParamSfo>,                  "sceKernelSetParamSfo",               'i', "",      HLE_KERNEL_SYSCALL },
+	{ 0x8AE776AF, &WrapU_UIU<sceKernelMemset>,                     "sceKernelMemset",                    'x', "xix",   HLE_KERNEL_SYSCALL },
+	{ 0xC90B0992, &WrapI_IU<sceKernelGetUIDcontrolBlock>,          "sceKernelGetUIDcontrolBlock",        'i', "ix",    HLE_KERNEL_SYSCALL },
 };
 
 void Register_SysMemForKernel() {

@@ -916,6 +916,11 @@ const HLEFunction ThreadManForUser[] =
 	{0x65F54FFB, &WrapI_IUU<_sceKernelAllocateTlspl>,                "_sceKernelAllocateTlspl",                   'i', "ixp"     },
 };
 
+// The type picks one of the kernel's preset stack sizes. This is enough for any of them.
+static u32 sceKernelExtendKernelStack(int type, u32 cb, u32 arg) {
+	return sceKernelExtendThreadStack(0x4000, cb, arg);
+}
+
 const HLEFunction ThreadManForKernel[] =
 {
 	{0xCEADEB47, &WrapI_U<sceKernelDelayThread>,                     "sceKernelDelayThread",                      'i', "x",      HLE_NOT_IN_INTERRUPT | HLE_NOT_DISPATCH_SUSPENDED | HLE_KERNEL_SYSCALL },
@@ -970,7 +975,7 @@ const HLEFunction ThreadManForKernel[] =
 	{0xB736E9FF, &WrapI_IU<sceKernelFreeVpl>,                        "sceKernelFreeVpl",                          'i', "ix",     HLE_KERNEL_SYSCALL },
 	{0x1D371B8A, &WrapI_IU<sceKernelCancelVpl>,                      "sceKernelCancelVpl",                        'i', "ix",     HLE_KERNEL_SYSCALL },
 	{0x39810265, &WrapI_IU<sceKernelReferVplStatus>,                 "sceKernelReferVplStatus",                   'i', "ip",     HLE_KERNEL_SYSCALL },
-	{0xBC31C1B9, nullptr, "sceKernelExtendKernelStack"},
+	{0xBC31C1B9, &WrapU_IUU<sceKernelExtendKernelStack>,              "sceKernelExtendKernelStack",                'x', "ixx",    HLE_KERNEL_SYSCALL },
 	// New entries must go here at the end, not inserted earlier in this table - the funcindex
 	// (this array position) gets baked directly into resolved-import syscall opcodes written
 	// into guest RAM (see GetSyscallOp() in HLE.cpp), which savestates capture verbatim. Inserting

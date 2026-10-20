@@ -844,6 +844,14 @@ static u32 sysclib_strlen(u32 src) {
 	}
 }
 
+static u32 sysclib_strnlen(u32 src, u32 maxLen) {
+	u32 len = 0;
+	while (len < maxLen && Memory::IsValidAddress(src + len) && Memory::ReadUnchecked_U8(src + len) != 0) {
+		len++;
+	}
+	return hleLogVerbose(Log::sceKernel, len);
+}
+
 static int sysclib_memcmp(u32 dst, u32 src, u32 size) {
 	if (Memory::IsValidRange(dst, size) && Memory::IsValidRange(src, size)) {
 		const int retval = memcmp(Memory::GetCharPointerUnchecked(dst), Memory::GetCharPointerUnchecked(src), size);
@@ -1015,6 +1023,7 @@ const HLEFunction SysclibForKernel[] =
 	{0x4C0E0274, &WrapU_UI<sysclib_strrchr>,                   "strrchr",                             'x', "xx",    HLE_KERNEL_SYSCALL },
 	{0xCE2F7487, &WrapU_U<sysclib_toupper>,                    "toupper",                             'x', "x",     HLE_KERNEL_SYSCALL },
 	{0XC2145E80, &WrapI_UIU<sysclib_snprintf>,                 "snprintf",                            'i', "xx",     HLE_KERNEL_SYSCALL },
+	{0x90C5573D, &WrapU_UU<sysclib_strnlen>,                   "strnlen",                             'x', "xx",     HLE_KERNEL_SYSCALL },
 };
 
 void Register_Kernel_Library()
