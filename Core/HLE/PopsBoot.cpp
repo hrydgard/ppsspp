@@ -76,6 +76,9 @@ struct PopsManLayout {
 	// 5.x: the license lookup in the export the emulator opens the game with (5.55's
 	// sceMeAudio_A1457825 calls scePspNpDrm_driver_4478C033 on the content ID).
 	u32 licenseCall;
+	// What scePopsManLoadModule's second argument has to be for it to load the emulator: 5.50 and later
+	// skip it on 2, 5.0x on 0.
+	u32 loadArg = 0;
 };
 
 // The managers have the same code at these places, and older ones import kernel functions by older
@@ -86,6 +89,8 @@ static const PopsManLayout POPSMAN_LAYOUTS[] = {
 	{ 0x1E48, 0x130, 0x26F8, 0x4B30, 0x4B68, 0x4B6C, 0x0A28, 0x0AB8, 0 },  // 6.20
 	{ 0x19E8, 0x130, 0x2270, 0x46D0, 0x4704, 0x4708, 0x07B8, 0x0848, 0 },  // 6.00-6.10
 	{ 0x155C, 0x130, 0,      0x3550, 0x3570, 0x3578, 0x0500, 0x058C, 0x0144 },  // 5.55
+	{ 0x1538, 0x130, 0,      0x34D0, 0x34F0, 0x34F8, 0x0500, 0x058C, 0x0144 },  // 5.50
+	{ 0x1538, 0x020, 0,      0x33D0, 0x33F0, 0x33F8, 0x0500, 0x058C, 0x0144, 1 },  // 5.00-5.05
 };
 static int g_popsManLayout = 0;
 
@@ -436,7 +441,7 @@ static bool IsUsableIcon0(FileLoader *loader) {
 bool __PopsBootStartInit(FileLoader *pbp, const std::string &gamePath, std::string *error) {
 	if (!FindPopsManLayout(IsConvertedPBP(pbp))) {
 		auto er = GetI18NCategory(I18NCat::ERRORS);
-		*error = er->T("PS1FirmwareVersion", "So far, PS1 games only run with firmware 6.00 to 6.61 (converted ones also with 5.55), and a different version is installed. Install one of those from an official PSP update file in Settings > Tools > PSP Firmware.");
+		*error = er->T("PS1FirmwareVersion", "So far, PS1 games only run with firmware 6.00 to 6.61 (converted ones also with 5.01 to 5.55), and a different version is installed. Install one of those from an official PSP update file in Settings > Tools > PSP Firmware.");
 		return false;
 	}
 	const u32 base = PopsManBase();
@@ -466,7 +471,7 @@ bool __PopsBootStartInit(FileLoader *pbp, const std::string &gamePath, std::stri
 	Memory::WriteUnchecked_U32(0, keyFuncSlot);
 
 	// The kernel's init: get the version key through the registered function, if any, then
-	// scePopsManLoadModule(path, 0). Starts with a1 = its copy of the path, below the manager's
+	// scePopsManLoadModule(path, loadArg). Starts with a1 = its copy of the path, below the manager's
 	// priority so it runs once module_start is done.
 	const u32 code[] = {
 		0x00A08021,                // move s0, a1
@@ -479,13 +484,13 @@ bool __PopsBootStartInit(FileLoader *pbp, const std::string &gamePath, std::stri
 		0x0320F809,                // jalr t9: func(path, key)
 		0x03A02821,                // move a1, sp
 		0x02002021,                // move a0, s0
-		0x24050000,                // li a1, 0
+		0x24050000 | (PopsMan().loadArg & 0xFFFF),  // li a1, loadArg
 		0x0220F821,                // move ra, s1
 		MIPS_MAKE_J(loadModule),   // returns to the thread's end
 		0x27BD0010,                // addiu sp, sp, 16
 	};
 	g_popsInitThread.reset(new HLEHelperThread("ScePopsInit", code, (u32)ARRAY_SIZE(code), 0x40, 0x4000));
 	g_popsInitThread->Start(pathSize, g_popsInitPath);
-	INFO_LOG(Log::sceKernel, "POPS: init will call scePopsManLoadModule(%s, 0)", gamePath.c_str());
+	INFO_LOG(Log::sceKernel, "POPS: init will call scePopsManLoadModule(%s, %d)", gamePath.c_str(), PopsMan().loadArg);
 	return true;
 }
