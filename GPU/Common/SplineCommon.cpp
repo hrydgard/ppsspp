@@ -1375,8 +1375,12 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 	// Where we can, tessellate straight into decoded form, where DecodeVerts would put it, so there's no second
 	// decode. Through mode is left to the decoder, which also tracks the UV bounds there. Anything already
 	// queued would decode on top of the output, but with flushOnParams_ nothing is. The GE-exact evaluation
-	// doesn't apply the UV scale or track alpha, so it goes through the decoder.
-	const bool predecoded = curvesPredecoded_ && !surface.geExact && !(vertType & GE_VTYPE_THROUGH) && numDrawVerts_ == 0;
+	// doesn't apply the UV scale or track alpha, so it goes through the decoder. Nor can a curve of lines or
+	// points too large to expand in one draw: SubmitPrim splits those, flushing between the parts, and the flushes
+	// decode over the output.
+	surface.Init(DECODED_VERTEX_BUFFER_SIZE / 2 / sizeof(SimpleVertex));
+	const int indexCount = 6 * surface.num_patches_u * surface.tess_u * surface.num_patches_v * surface.tess_v;
+	const bool predecoded = ExpandedVertexCount(PatchPrimToPrim(surface.primType), indexCount) <= VERTEX_BUFFER_MAX && curvesPredecoded_ && !surface.geExact && !(vertType & GE_VTYPE_THROUGH) && numDrawVerts_ == 0;
 	// The output goes in one half of decoded_, the control points and other temporaries in the other.
 	u8 *const outputBuf = predecoded ? decoded_ : decoded_ + DECODED_VERTEX_BUFFER_SIZE / 2;
 	SimpleBufferManager managedBuf(predecoded ? decoded_ + DECODED_VERTEX_BUFFER_SIZE / 2 : decoded_, DECODED_VERTEX_BUFFER_SIZE / 2);
@@ -1442,12 +1446,11 @@ void DrawEngineCommon::SubmitCurve(const void *control_points, const void *indic
 
 	OutputBuffers output;
 	output.vertices = (SimpleVertex *)outputBuf;
-	output.indices = decIndex_;
+	// In the upper half of decIndex_: when SubmitPrim splits the curve, the flushes between the parts generate
+	// indices in the lower half, over the parts still to come (NFS Most Wanted's music visualizer, #22104).
+	output.indices = decIndex_ + DECODED_INDEX_BUFFER_SIZE / sizeof(u16) / 2;
 	output.count = 0;
 
-	const int maxVerts = DECODED_VERTEX_BUFFER_SIZE / 2 / vertexSize;
-
-	surface.Init(maxVerts);
 	if (predecoded) {
 		const GETexMapMode uvGenMode = gstate.getUVGenMode();
 		if (uvGenMode == GE_TEXMAP_TEXTURE_COORDS || uvGenMode == GE_TEXMAP_UNKNOWN) {
