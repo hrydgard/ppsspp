@@ -76,6 +76,21 @@ struct MEState {
 		u32 channels[4][5]{};      // 0x180-0x1FF: source, destination, next LLI, control, configuration
 	} dmacplus;
 
+	// The audio block (0xBE000000), which the ME feeds directly in a POPS boot: a FIFO of stereo
+	// samples (0x70) that plays at 44.1kHz. Only what POPS's ME loop uses.
+	struct Audio {
+		u32 regs[0x20]{};
+		u32 fifo[24]{};
+		u32 fifoCount = 0;
+		// It played out its last sample. Status 0x28 bit 1, until the next one is written.
+		bool underrun = false;
+		// When the last sample to leave the FIFO has played, if it's empty. INT64_MAX until one has
+		// left it since the last write.
+		s64 lastPlayed = INT64_MAX;
+		// When the oldest sample in the FIFO has played, in ME ticks.
+		s64 nextPlayed = 0;
+	} audio;
+
 	// The sysevent handler list sceKernelReferSysEventHandler returns, in kernel memory.
 	u32 sysEventHandlers = 0;
 

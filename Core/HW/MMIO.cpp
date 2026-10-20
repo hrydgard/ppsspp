@@ -101,6 +101,7 @@ void Init() {
 		MeMMIO::VmeControlDevice(),
 		MeMMIO::ClockDevice(),
 		MeMMIO::DdrDevice(),
+		MeMMIO::AudioDevice(),
 	};
 	for (MMIODevice *device : g_devices) {
 		device->Reset();

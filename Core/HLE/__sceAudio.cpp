@@ -43,6 +43,8 @@
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/sceKernelInterrupt.h"
+#include "Core/HW/MeMMIO.h"
+#include "Core/MIPS/MeCore.h"
 #include "Core/Util/AudioFormat.h"
 
 // Should be used to lock anything related to the outAudioQueue.
@@ -641,6 +643,10 @@ void __AudioUpdate(bool resetRecording) {
 		woke |= __AudioMixChannel(chan);
 	}
 	woke |= __AudioMixSRC(g_audioSRC);
+	// What the ME played through the audio block (the PS1 emulator's sound).
+	if (MeCore::g_meState) {
+		MeMMIO::AudioMix(mixBuffer, hwBlockSize);
+	}
 	audioMixing = false;
 
 	if (g_Config.bEnableSound) {

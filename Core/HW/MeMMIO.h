@@ -38,5 +38,13 @@ MMIODevice *VmeControlDevice();
 MMIODevice *MemProtectDevice();
 // The DDR controller's flush register (0xBD000004), always done.
 MMIODevice *DdrDevice();
+// The audio block (0xBE000000), which the ME feeds in a POPS boot.
+MMIODevice *AudioDevice();
+// Plays what's due by the ME's clock, and sets the ME's audio interrupt level.
+void AudioUpdate(s64 now);
+// When a full FIFO next has room, in ME ticks, or INT64_MAX.
+s64 AudioNextEvent();
+// Adds up to count of the samples it played to a stereo mix.
+void AudioMix(s32 *mix, int count);
 
 }  // namespace MeMMIO

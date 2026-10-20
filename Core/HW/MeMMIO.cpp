@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "Common/Log.h"
+#include "Core/CoreTiming.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/HLE/sceDisplay.h"
 #include "Core/HLE/sceMpegbase.h"
@@ -514,6 +515,94 @@ public:
 	void DoState(PointerWrap &p) override {}
 };
 
+// The audio block (0xBE000000), as POPS's ME loop (popsman.prx +2F88) drives it: it sets the block
+// up, then writes one stereo sample (left in the low half) to 0x70 whenever status 0x28 bit 5 says
+// the FIFO has room, sleeping in halt in between on interrupt source 12. As measured from the ME on
+// a PSP-1000 (pspautotest me/audiofifo): the FIFO holds 24 samples and plays them at 44.1kHz while
+// 0x04 bit 1 is set; status 0x28 has bit 4 while playing, bit 5 while there's room, and bit 1 once
+// it has played out its last sample, which comes a sample after the FIFO is empty; and source 12 is a level, up while there's room, which halt
+// wakes on with interrupts disabled.
+class MeAudioDevice : public MMIODevice {
+public:
+	MeAudioDevice() : MMIODevice("audio", 0xBE000000, 0x80) {}
+
+	bool Read(MIPSState *mips, u32 offset, int size, u32 *value) override {
+		if (!g_meState || (offset & 3))
+			return false;
+		MeMMIO::AudioUpdate(MeCore::GetTicks());
+		const MeCore::MEState::Audio &a = g_meState->audio;
+		switch (offset) {
+		case REG_STATUS: *value = 0; break;
+		case REG_FIFO_STATUS: *value = FifoStatus(a); break;
+		default: *value = a.regs[offset / 4]; break;
+		}
+		return true;
+	}
+
+	bool Write(MIPSState *mips, u32 offset, int size, u32 value) override {
+		if (!g_meState || (offset & 3))
+			return false;
+		const s64 now = MeCore::GetTicks();
+		MeMMIO::AudioUpdate(now);
+		MeCore::MEState::Audio &a = g_meState->audio;
+		if (offset != REG_DATA) {
+			a.regs[offset / 4] = value;
+			return true;
+		}
+		if (a.fifoCount == FIFO_DEPTH) {
+			WARN_LOG(Log::ME, "Audio FIFO overflow");
+			return true;
+		}
+		if (a.fifoCount == 0)
+			a.nextPlayed = now + SamplePeriod();
+		a.fifo[a.fifoCount++] = value;
+		a.underrun = false;
+		a.lastPlayed = INT64_MAX;
+		MeMMIO::AudioUpdate(now);
+		return true;
+	}
+
+	void Reset() override {}
+	void DoState(PointerWrap &p) override {}
+
+	static constexpr u32 FIFO_DEPTH = ARRAY_SIZE(MeCore::MEState::Audio::fifo);
+	static constexpr u32 REG_CONTROL = 0x04;
+	static constexpr u32 REG_STATUS = 0x0C;
+	static constexpr u32 REG_FIFO_STATUS = 0x28;
+	static constexpr u32 REG_DATA = 0x70;
+	static constexpr u32 CONTROL_PLAY = 2;
+	static constexpr u32 FIFO_ROOM = 0x20;
+	static constexpr u32 FIFO_PLAYING = 0x10;
+	static constexpr u32 FIFO_UNDERRUN = 0x02;
+	static constexpr u32 INTR_AUDIO = 1 << 12;
+
+	static s64 SamplePeriod() {
+		return CoreTiming::GetClockFrequencyHz() / 44100;
+	}
+
+	static bool Playing(const MeCore::MEState::Audio &a) {
+		return (a.regs[REG_CONTROL / 4] & CONTROL_PLAY) != 0;
+	}
+
+	static u32 FifoStatus(const MeCore::MEState::Audio &a) {
+		u32 status = a.fifoCount < FIFO_DEPTH ? FIFO_ROOM : 0;
+		if (Playing(a))
+			status |= FIFO_PLAYING;
+		if (a.underrun)
+			status |= FIFO_UNDERRUN;
+		return status;
+	}
+};
+
+// Played samples on their way to the host's mix. Not saved: a load starts with silence.
+static std::vector<u32> g_audioPlayed;
+static size_t g_audioPlayedRead = 0;
+// The ME plays in bursts, a PS1 frame at a time: keep a little more than a frame queued.
+static const size_t AUDIO_MIX_PRIME = 1536;
+static const size_t AUDIO_MIX_MAX = 8192;
+static bool g_audioMixPrimed = false;
+
+static MeAudioDevice g_audio;
 static MeDdrDevice g_ddr;
 static MeClockDevice g_clocks;
 static MeVmeControlDevice g_vmeControl;
@@ -548,6 +637,59 @@ MMIODevice *MemProtectDevice() {
 
 MMIODevice *DdrDevice() {
 	return &g_ddr;
+}
+
+MMIODevice *AudioDevice() {
+	return &g_audio;
+}
+
+void AudioUpdate(s64 now) {
+	MeCore::MEState::Audio &a = g_meState->audio;
+	const bool playing = MeAudioDevice::Playing(a);
+	while (playing && a.fifoCount > 0 && a.nextPlayed <= now) {
+		if (g_audioPlayed.size() - g_audioPlayedRead < AUDIO_MIX_MAX * 2)
+			g_audioPlayed.push_back(a.fifo[0]);
+		memmove(a.fifo, a.fifo + 1, (a.fifoCount - 1) * sizeof(u32));
+		a.fifoCount--;
+		a.nextPlayed += MeAudioDevice::SamplePeriod();
+		// The sample leaving the FIFO still has to play: it ran dry a sample later.
+		a.lastPlayed = a.nextPlayed;
+	}
+	if (playing && a.fifoCount == 0 && a.lastPlayed <= now)
+		a.underrun = true;
+	if (playing && a.fifoCount < MeAudioDevice::FIFO_DEPTH)
+		g_meState->intcRaised |= MeAudioDevice::INTR_AUDIO;
+	else
+		g_meState->intcRaised &= ~MeAudioDevice::INTR_AUDIO;
+}
+
+s64 AudioNextEvent() {
+	const MeCore::MEState::Audio &a = g_meState->audio;
+	return MeAudioDevice::Playing(a) && a.fifoCount == MeAudioDevice::FIFO_DEPTH ? a.nextPlayed : INT64_MAX;
+}
+
+void AudioMix(s32 *mix, int count) {
+	size_t queued = g_audioPlayed.size() - g_audioPlayedRead;
+	if (!g_audioMixPrimed) {
+		if (queued < AUDIO_MIX_PRIME)
+			return;
+		g_audioMixPrimed = true;
+	}
+	if (queued > AUDIO_MIX_MAX) {
+		g_audioPlayedRead = g_audioPlayed.size() - AUDIO_MIX_PRIME;
+		queued = AUDIO_MIX_PRIME;
+	}
+	if (queued < (size_t)count)
+		g_audioMixPrimed = false;
+	for (int i = 0; i < count && g_audioPlayedRead < g_audioPlayed.size(); i++) {
+		const u32 sample = g_audioPlayed[g_audioPlayedRead++];
+		mix[i * 2] += (s16)(sample & 0xFFFF);
+		mix[i * 2 + 1] += (s16)(sample >> 16);
+	}
+	if (g_audioPlayedRead > AUDIO_MIX_MAX * 4) {
+		g_audioPlayed.erase(g_audioPlayed.begin(), g_audioPlayed.begin() + g_audioPlayedRead);
+		g_audioPlayedRead = 0;
+	}
 }
 
 }  // namespace MeMMIO
