@@ -167,7 +167,7 @@ enum SystemProperty {
 	SYSPROP_HAS_LOGIN_DIALOG,
 	SYSPROP_HAS_TEXT_CLIPBOARD,
 	SYSPROP_HAS_TEXT_INPUT_DIALOG,  // Indicates that System_InputBoxGetString is available.
-	SYSPROP_HAS_DEEP_LINKS,  // ios-style deep links
+	SYSPROP_HAS_DEEP_LINKS,  // iOS deep links, Android content URIs
 
 	SYSPROP_CAN_CREATE_SHORTCUT,
 	SYSPROP_CAN_SHOW_FILE,

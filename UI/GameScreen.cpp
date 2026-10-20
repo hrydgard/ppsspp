@@ -63,6 +63,11 @@
 // This is in an objective-C file.
 #if PPSSPP_PLATFORM(IOS)
 void copyDeepLinkForPath(std::string_view filePath);
+#elif PPSSPP_PLATFORM(ANDROID)
+// The path is a content URI that PPSSPP has access to, so frontends and adb can launch it.
+void copyDeepLinkForPath(std::string_view filePath) {
+	System_CopyStringToClipboard(std::string(filePath));
+}
 #else
 // dummy
 void copyDeepLinkForPath(std::string_view) {}
