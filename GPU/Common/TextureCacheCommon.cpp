@@ -1726,9 +1726,12 @@ bool TextureCacheCommon::GetCurrentClutBuffer(GPUDebugBuffer &buffer) {
 	return true;
 }
 
-// Host memory usage, not PSP memory usage.
+// Host memory usage, not PSP memory usage. Level 0 only.
 u32 TexCacheEntry::EstimateTexMemoryUsage() const {
-	// TODO: This does not take into account the HD remaster's larger textures.
+	return hostMemorySize != 0 ? hostMemorySize : EstimatePSPSizeMemoryUsage();
+}
+
+u32 TexCacheEntry::EstimatePSPSizeMemoryUsage() const {
 	const u8 dimW = ((dim >> 0) & 0xf);
 	const u8 dimH = ((dim >> 8) & 0xf);
 
@@ -3105,6 +3108,14 @@ bool TextureCacheCommon::PrepareBuildTexture(BuildTexturePlan &plan, TexCacheEnt
 
 	if (plan.saveIndexed) {
 		SaveIndexedTexture(entry, plan);
+	}
+
+	// A replacement or upscaled texture takes many times the PSP size, and the decimation in
+	// Decimate() goes by this.
+	if (plan.doReplace) {
+		entry->hostMemorySize = plan.replaced->GetLevelDataSizeAfterCopy(0);
+	} else {
+		entry->hostMemorySize = entry->EstimatePSPSizeMemoryUsage() * plan.scaleFactor * plan.scaleFactor * plan.depth;
 	}
 
 	// Will be filled in again during decode.

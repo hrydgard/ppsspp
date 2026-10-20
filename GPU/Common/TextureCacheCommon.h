@@ -194,6 +194,8 @@ struct TexCacheEntry {
 #endif
 	int lastFrame;
 	int lastSyncDomain;
+	// Bytes of host memory the texture takes, set when it's built. See EstimateTexMemoryUsage.
+	u32 hostMemorySize = 0;
 
 	TextureAlpha GetAlphaStatus() const {
 		return (status & TexStatus::ALPHA_SOLID) ? TextureAlpha::Solid : TextureAlpha::Any;
@@ -222,6 +224,8 @@ struct TexCacheEntry {
 	u64 CacheKey() const;
 	static u64 CacheKey(u32 addr, u8 format, u16 dim, u32 cluthash);
 	u32 EstimateTexMemoryUsage() const;
+	// The size of the texture's level 0 at the PSP's size, in 32 bits for the CLUT formats.
+	u32 EstimatePSPSizeMemoryUsage() const;
 };
 
 // TODO: Work on shrinking it further.
