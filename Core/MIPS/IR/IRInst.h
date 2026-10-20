@@ -110,6 +110,17 @@ enum class IROp : uint8_t {
 	StoreFloat,
 	StoreVec4,
 
+	// Kernel code's loads and stores, which may reach hardware registers (MMIO). See
+	// ResolveKernelMemory.
+	LoadKernel8,
+	LoadKernel8Ext,
+	LoadKernel16,
+	LoadKernel16Ext,
+	LoadKernel32,
+	StoreKernel8,
+	StoreKernel16,
+	StoreKernel32,
+
 	Ext8to32,
 	Ext16to32,
 	ReverseBits,

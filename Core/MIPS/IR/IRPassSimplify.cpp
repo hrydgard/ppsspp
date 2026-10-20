@@ -691,6 +691,27 @@ bool PropagateConstants(const IRWriter &in, IRWriter &out, const IROptions &opts
 			}
 			break;
 
+		case IROp::LoadKernel8:
+		case IROp::LoadKernel8Ext:
+		case IROp::LoadKernel16:
+		case IROp::LoadKernel16Ext:
+		case IROp::LoadKernel32:
+		case IROp::StoreKernel8:
+		case IROp::StoreKernel16:
+		case IROp::StoreKernel32:
+			// Barriers, so everything is written out, but they can't change the GPRs, so the values
+			// stay known. A constant address goes in the op, for ResolveKernelMemory.
+			if (gpr.IsImm(inst.src1)) {
+				const u32 addr = gpr.GetImm(inst.src1) + inst.constant;
+				gpr.FlushAll(true);
+				if ((GetIRMeta(inst.op)->flags & IRFLAG_SRC3) == 0)
+					gpr.MapDirty(inst.dest);
+				out.Write(inst.op, inst.dest, 0, 0, addr);
+				break;
+			}
+			gpr.FlushAll(true);
+			goto doDefault;
+
 		case IROp::Load8:
 		case IROp::Load8Ext:
 		case IROp::Load16:
@@ -2369,6 +2390,42 @@ bool OptimizeLoadsAfterStores(const IRWriter &in, IRWriter &out, const IROptions
 		} else if (plainLoad && info.size >= 4 && !(kindOf(inst.op) == 'G' && inst.dest == inst.src1)) {
 			known.push_back({ inst.src1, inst.constant, info.size, kindOf(inst.op), inst.dest });
 		}
+	}
+	return false;
+}
+
+// The plain op for a kernel load or store, and its size, or Nop.
+static IROp PlainMemoryOp(IROp op, int *size) {
+	switch (op) {
+	case IROp::LoadKernel8: *size = 1; return IROp::Load8;
+	case IROp::LoadKernel8Ext: *size = 1; return IROp::Load8Ext;
+	case IROp::LoadKernel16: *size = 2; return IROp::Load16;
+	case IROp::LoadKernel16Ext: *size = 2; return IROp::Load16Ext;
+	case IROp::LoadKernel32: *size = 4; return IROp::Load32;
+	case IROp::StoreKernel8: *size = 1; return IROp::Store8;
+	case IROp::StoreKernel16: *size = 2; return IROp::Store16;
+	case IROp::StoreKernel32: *size = 4; return IROp::Store32;
+	default: return IROp::Nop;
+	}
+}
+
+bool ResolveKernelMemory(const IRWriter &in, IRWriter &out, const IROptions &opts) {
+	CONDITIONAL_DISABLE;
+	for (IRInst inst : in.GetInstructions()) {
+		int size = 0;
+		const IROp plain = PlainMemoryOp(inst.op, &size);
+		if (plain != IROp::Nop && inst.src1 == MIPS_REG_ZERO) {
+			const u32 addr = inst.constant;
+			bool valid;
+			switch (size) {
+			case 1: valid = Memory::IsValidAddress(addr); break;
+			case 2: valid = Memory::IsValid2AlignedAddress(addr); break;
+			default: valid = Memory::IsValid4AlignedAddress(addr); break;
+			}
+			if (valid)
+				inst.op = plain;
+		}
+		out.Write(inst);
 	}
 	return false;
 }

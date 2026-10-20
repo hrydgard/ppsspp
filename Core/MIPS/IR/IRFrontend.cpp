@@ -347,6 +347,7 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &m
 			&RemoveLoadStoreLeftRight,
 			&OptimizeFPMoves,
 			&PropagateConstants,
+			&ResolveKernelMemory,
 			&PurgeTemps,
 			&ReduceVec4Flush,
 			&OptimizeLoadsAfterStores,

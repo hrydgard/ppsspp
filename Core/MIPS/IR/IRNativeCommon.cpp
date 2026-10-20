@@ -463,6 +463,18 @@ void IRNativeBackend::CompileIRInst(IRInst inst) {
 		CompIR_Interpret(inst);
 		break;
 
+	case IROp::LoadKernel8:
+	case IROp::LoadKernel8Ext:
+	case IROp::LoadKernel16:
+	case IROp::LoadKernel16Ext:
+	case IROp::LoadKernel32:
+	case IROp::StoreKernel8:
+	case IROp::StoreKernel16:
+	case IROp::StoreKernel32:
+		// Kernel code only, and mostly hardware registers once ResolveKernelMemory has run.
+		CompIR_Generic(inst);
+		break;
+
 	case IROp::Syscall:
 	case IROp::SyscallUnresolved:
 	case IROp::CallReplacement:

@@ -513,8 +513,9 @@ bool TestCPUEret() {
 }
 
 // Kernel code reaching the GPIO block's registers on every core: a write, an acknowledge clearing a
-// status bit, reads back through lw and lwc1, and poison from a register nothing handles. Then the
-// registers through a savestate.
+// status bit, reads back through lw and lwc1, and poison from a register nothing handles. Kernel
+// RAM too, at a constant address (which the IR makes a plain access) and through a register. Then
+// the registers through a savestate.
 bool TestMMIO() {
 	SetupJitHarness();
 	MMIO::Init();
@@ -523,6 +524,9 @@ bool TestMMIO() {
 	const u32 base = 0x88000100;
 	auto sw = [](int rt, int rs, int imm) { return (0x2Bu << 26) | (rs << 21) | (rt << 16) | (imm & 0xFFFF); };
 	auto lwc1 = [](int ft, int rs, int imm) { return (0x31u << 26) | (rs << 21) | (ft << 16) | (imm & 0xFFFF); };
+	auto sb = [](int rt, int rs, int imm) { return (0x28u << 26) | (rs << 21) | (rt << 16) | (imm & 0xFFFF); };
+	auto lb = [](int rt, int rs, int imm) { return (0x20u << 26) | (rs << 21) | (rt << 16) | (imm & 0xFFFF); };
+	const u32 ram = 0x88001000;
 	const u32 code[] = {
 		MIPS_MAKE_LUI(MIPS_REG_T0, 0xBE24),  // GPIO
 		MIPS_MAKE_ORI(MIPS_REG_T1, MIPS_REG_ZERO, 0x30),
@@ -533,6 +537,12 @@ bool TestMMIO() {
 		lwc1(0, MIPS_REG_T0, 0x20),
 		MIPS_MAKE_LUI(MIPS_REG_T2, 0xBC10),
 		MIPS_MAKE_LW(MIPS_REG_V1, MIPS_REG_T2, 0),
+		MIPS_MAKE_LUI(MIPS_REG_T3, ram >> 16),
+		sw(MIPS_REG_T1, MIPS_REG_T3, ram & 0xFFFF),
+		MIPS_MAKE_LW(MIPS_REG_A0, MIPS_REG_T3, ram & 0xFFFF),
+		MIPS_MAKE_ORI(MIPS_REG_T4, MIPS_REG_ZERO, 0x80),
+		sb(MIPS_REG_T4, MIPS_REG_A1, 4),  // a1 is ram, unknown to the IR.
+		lb(MIPS_REG_A2, MIPS_REG_A1, 4),
 		MIPS_MAKE_SYSCALL("UnitTestFakeSyscalls", "UnitTestTerminator"),
 		MIPS_MAKE_BREAK(1),
 	};
@@ -550,16 +560,41 @@ bool TestMMIO() {
 		MMIO::Init();
 		currentMIPS->r[MIPS_REG_V0] = 0;
 		currentMIPS->r[MIPS_REG_V1] = 0;
+		currentMIPS->r[MIPS_REG_A0] = 0;
+		currentMIPS->r[MIPS_REG_A1] = ram;
+		currentMIPS->r[MIPS_REG_A2] = 0;
 		currentMIPS->fi[0] = 0;
 		currentMIPS->pc = base;
 		coreState = CORE_RUNNING_CPU;
 		while (coreState == CORE_RUNNING_CPU)
 			mipsr4k.RunLoopUntil(CoreTiming::GetTicks(currentMIPS) + 1000000);
 
-		if (currentMIPS->r[MIPS_REG_V0] != 0x20 || currentMIPS->fi[0] != 0x20 || currentMIPS->r[MIPS_REG_V1] != 0x1337BEEF) {
-			printf("MMIO on core %d: v0=%08x f0=%08x v1=%08x, expected 00000020, 00000020, 1337beef\n", (int)core,
-				currentMIPS->r[MIPS_REG_V0], currentMIPS->fi[0], currentMIPS->r[MIPS_REG_V1]);
+		if (currentMIPS->r[MIPS_REG_V0] != 0x20 || currentMIPS->fi[0] != 0x20 || currentMIPS->r[MIPS_REG_V1] != MMIO::UNHANDLED_READ ||
+			currentMIPS->r[MIPS_REG_A0] != 0x10 || currentMIPS->r[MIPS_REG_A2] != 0xFFFFFF80) {
+			printf("MMIO on core %d: v0=%08x f0=%08x v1=%08x a0=%08x a2=%08x, expected 00000020, 00000020, %08x, 00000010, ffffff80\n", (int)core,
+				currentMIPS->r[MIPS_REG_V0], currentMIPS->fi[0], currentMIPS->r[MIPS_REG_V1], currentMIPS->r[MIPS_REG_A0], currentMIPS->r[MIPS_REG_A2], MMIO::UNHANDLED_READ);
 			success = false;
+		}
+
+		if (mipsr4k.jit) {
+			// The registers stay checked accesses, the constant RAM ones become plain.
+			JitBlockCacheDebugInterface *blocks = mipsr4k.jit->GetBlockCacheDebugInterface();
+			const JitBlockDebugInfo info = blocks->GetBlockDebugInfo(blocks->GetBlockNumberFromStartAddress(base));
+			int kernelOps = 0, plainOps = 0;
+			for (const std::string &line : info.irDisasm) {
+				if (line.find("LoadKernel") != std::string::npos || line.find("StoreKernel") != std::string::npos)
+					kernelOps++;
+				else if (line.find("Load32 ") != std::string::npos || line.find("Store32 ") != std::string::npos)
+					plainOps++;
+			}
+			// sw/sw/lw/lw to registers, sb/lb through a1. lwc1 is left to the interpreter. The RAM store
+			// is plain, and the load after it plain too, or gone (the value forwarded).
+			if (kernelOps != 6 || plainOps < 1) {
+				printf("MMIO on core %d: %d kernel and %d plain loads/stores, expected 6 and at least 1\n", (int)core, kernelOps, plainOps);
+				for (const std::string &line : info.irDisasm)
+					printf("  %s\n", line.c_str());
+				success = false;
+			}
 		}
 	}
 	mipsr4k.UpdateCore(CPUCore::INTERPRETER);

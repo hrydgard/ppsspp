@@ -15,6 +15,7 @@
 #include "Core/Debugger/Breakpoints.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/ReplaceTables.h"
+#include "Core/HW/MMIO.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSTables.h"
@@ -68,6 +69,51 @@ u32 IRRunMemCheck(u32 pc, u32 addr) {
 
 	g_breakpoints.ExecOpMemCheck(addr, pc);
 	return coreState != CORE_RUNNING_CPU ? 1 : 0;
+}
+
+// LoadKernel* and StoreKernel*: memory, or a hardware register, like the interpreter's loads and stores.
+template <int size>
+static bool IsValidAlignedAddress(u32 addr) {
+	switch (size) {
+	case 1: return Memory::IsValidAddress(addr);
+	case 2: return Memory::IsValid2AlignedAddress(addr);
+	default: return Memory::IsValid4AlignedAddress(addr);
+	}
+}
+
+template <int size, bool sign>
+static u32 RunKernelLoad(MIPSState *mips, u32 addr) {
+	u32 value;
+	if (IsValidAlignedAddress<size>(addr)) {
+		switch (size) {
+		case 1: value = Memory::ReadUnchecked_U8(addr); break;
+		case 2: value = Memory::ReadUnchecked_U16(addr); break;
+		default: value = Memory::ReadUnchecked_U32(addr); break;
+		}
+	} else if (Memory::IsMMIOAccess(addr)) {
+		value = MMIO::Read(mips, addr, size);
+	} else {
+		Core_MemoryException(addr, size, mips->pc, MemoryExceptionType::READ_WORD, "kernel load");
+		return 0;
+	}
+	if (sign)
+		value = size == 1 ? SignExtend8ToU32(value) : SignExtend16ToU32(value);
+	return value;
+}
+
+template <int size>
+static void RunKernelStore(MIPSState *mips, u32 addr, u32 value) {
+	if (IsValidAlignedAddress<size>(addr)) {
+		switch (size) {
+		case 1: Memory::WriteUnchecked_U8((u8)value, addr); break;
+		case 2: Memory::WriteUnchecked_U16((u16)value, addr); break;
+		default: Memory::WriteUnchecked_U32(value, addr); break;
+		}
+	} else if (Memory::IsMMIOAccess(addr)) {
+		MMIO::Write(mips, addr, size, value);
+	} else {
+		Core_MemoryException(addr, size, mips->pc, MemoryExceptionType::WRITE_WORD, "kernel store");
+	}
 }
 
 // With GCC and Clang, each op jumps straight to the next op's handler through a table ("threaded"
@@ -158,6 +204,14 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const IRInst *chainArena) {
 		dispatch[(int)IROp::StoreFloat] = &&L_StoreFloat;
 		dispatch[(int)IROp::LoadVec4] = &&L_LoadVec4;
 		dispatch[(int)IROp::StoreVec4] = &&L_StoreVec4;
+		dispatch[(int)IROp::LoadKernel8] = &&L_LoadKernel8;
+		dispatch[(int)IROp::LoadKernel8Ext] = &&L_LoadKernel8Ext;
+		dispatch[(int)IROp::LoadKernel16] = &&L_LoadKernel16;
+		dispatch[(int)IROp::LoadKernel16Ext] = &&L_LoadKernel16Ext;
+		dispatch[(int)IROp::LoadKernel32] = &&L_LoadKernel32;
+		dispatch[(int)IROp::StoreKernel8] = &&L_StoreKernel8;
+		dispatch[(int)IROp::StoreKernel16] = &&L_StoreKernel16;
+		dispatch[(int)IROp::StoreKernel32] = &&L_StoreKernel32;
 		dispatch[(int)IROp::Vec4Init] = &&L_Vec4Init;
 		dispatch[(int)IROp::Vec4Shuffle] = &&L_Vec4Shuffle;
 		dispatch[(int)IROp::Vec4Blend] = &&L_Vec4Blend;
@@ -466,6 +520,31 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const IRInst *chainArena) {
 			memcpy((float *)Memory::GetPointerUnchecked(base), &mips->f[inst->dest], 4 * 4);
 			IR_NEXT;
 		}
+
+		IR_CASE(LoadKernel8)
+			mips->r[inst->dest] = RunKernelLoad<1, false>(mips, mips->r[inst->src1] + inst->constant);
+			IR_NEXT;
+		IR_CASE(LoadKernel8Ext)
+			mips->r[inst->dest] = RunKernelLoad<1, true>(mips, mips->r[inst->src1] + inst->constant);
+			IR_NEXT;
+		IR_CASE(LoadKernel16)
+			mips->r[inst->dest] = RunKernelLoad<2, false>(mips, mips->r[inst->src1] + inst->constant);
+			IR_NEXT;
+		IR_CASE(LoadKernel16Ext)
+			mips->r[inst->dest] = RunKernelLoad<2, true>(mips, mips->r[inst->src1] + inst->constant);
+			IR_NEXT;
+		IR_CASE(LoadKernel32)
+			mips->r[inst->dest] = RunKernelLoad<4, false>(mips, mips->r[inst->src1] + inst->constant);
+			IR_NEXT;
+		IR_CASE(StoreKernel8)
+			RunKernelStore<1>(mips, mips->r[inst->src1] + inst->constant, mips->r[inst->src3]);
+			IR_NEXT;
+		IR_CASE(StoreKernel16)
+			RunKernelStore<2>(mips, mips->r[inst->src1] + inst->constant, mips->r[inst->src3]);
+			IR_NEXT;
+		IR_CASE(StoreKernel32)
+			RunKernelStore<4>(mips, mips->r[inst->src1] + inst->constant, mips->r[inst->src3]);
+			IR_NEXT;
 
 		IR_CASE(Vec4Init)
 		{
