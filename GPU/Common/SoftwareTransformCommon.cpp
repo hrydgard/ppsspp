@@ -511,6 +511,9 @@ static void ClipTrianglesAgainstNearPlane(
 		}
 		// Case 2: Entirely visible
 		else if (insideCount == 3) {
+			if (numIndicesOut + 3 > maxIndicesOut) {
+				continue;
+			}
 			indicesOut[numIndicesOut++] = idx0;
 			indicesOut[numIndicesOut++] = idx1;
 			indicesOut[numIndicesOut++] = idx2;
@@ -523,6 +526,10 @@ static void ClipTrianglesAgainstNearPlane(
 		}
 		// Case 4: Partially clipped
 		else {
+			// Clipping adds two vertices and up to two triangles. Drop the triangle if they don't fit.
+			if (transformedCount + 2 > maxTransformed || numIndicesOut + 6 > maxIndicesOut) {
+				continue;
+			}
 			stats->clippedTriangles++;
 
 			// We need to organize vertices cleanly to calculate intersections.
@@ -894,7 +901,7 @@ static SoftwareTransformAction ProjectClipAndExpand(SoftwareTransformParams &par
 			if (gstate.isDepthClipEnabled()) {
 				const u16 *indsIn = (const u16 *)inds;
 				int newIndexCount = 0;
-				ClipTrianglesAgainstNearPlane(transformed, numDecodedVerts, 65536, inds, vertexCount, indsOut, newIndexCount, 65336, params.trianglesReversed, &result->stats);
+				ClipTrianglesAgainstNearPlane(transformed, numDecodedVerts, std::min(vertsSize, 65536), inds, vertexCount, indsOut, newIndexCount, indsSize - vertexCount, params.trianglesReversed, &result->stats);
 				drawIndexCount = newIndexCount;
 			} else {
 				std::vector<int> outsideZ;
