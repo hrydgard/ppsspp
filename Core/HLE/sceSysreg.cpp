@@ -98,8 +98,24 @@ static u32 sceKernelReferSysEventHandler() {
 	return hleLogDebug(Log::ME, MeCore::g_meState ? MeCore::g_meState->sysEventHandlers : 0);
 }
 
+// Takes a handler out of that list (snes9xTYL does it to the "SceMeRpc" one). Next is at 0x18.
+static int sceKernelUnregisterSysEventHandler(u32 handler) {
+	if (!MeCore::g_meState)
+		return hleLogWarning(Log::ME, 0, "no handlers");
+	u32 *link = &MeCore::g_meState->sysEventHandlers;
+	while (*link && Memory::IsValidRange(*link, 0x40)) {
+		if (*link == handler) {
+			*link = Memory::ReadUnchecked_U32(handler + 0x18);
+			return hleLogDebug(Log::ME, 0);
+		}
+		link = (u32 *)Memory::GetPointerWriteUnchecked(*link + 0x18);
+	}
+	return hleLogWarning(Log::ME, -1, "not registered");
+}
+
 const HLEFunction sceSysEventForKernel[] = {
-	{0x68D55505, &WrapU_V<sceKernelReferSysEventHandler>, "sceKernelReferSysEventHandler", 'x', "", HLE_KERNEL_SYSCALL },
+	{0x68D55505, &WrapU_V<sceKernelReferSysEventHandler>,      "sceKernelReferSysEventHandler",      'x', "",  HLE_KERNEL_SYSCALL },
+	{0xD7D3FDCD, &WrapI_U<sceKernelUnregisterSysEventHandler>, "sceKernelUnregisterSysEventHandler", 'i', "x", HLE_KERNEL_SYSCALL },
 };
 
 void Register_sceSysEventForKernel() {
