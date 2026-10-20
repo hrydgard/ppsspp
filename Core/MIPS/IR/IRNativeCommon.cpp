@@ -1057,10 +1057,18 @@ void IRNativeBackend::EraseAllLinks(int block_num) {
 	if (block_num == -1) {
 		linksTo_.clear();
 		nativeBlocks_.clear();
-	} else {
-		linksTo_.erase(block_num);
-		if (block_num < (int)nativeBlocks_.size())
-			nativeBlocks_[block_num].exits.clear();
+	} else if (block_num < (int)nativeBlocks_.size()) {
+		// linksTo_ is keyed by the exits' targets.
+		for (const IRNativeBlockExit &blockExit : nativeBlocks_[block_num].exits) {
+			auto range = linksTo_.equal_range(blockExit.dest);
+			for (auto it = range.first; it != range.second;) {
+				if (it->second == block_num)
+					it = linksTo_.erase(it);
+				else
+					++it;
+			}
+		}
+		nativeBlocks_[block_num].exits.clear();
 	}
 }
 
