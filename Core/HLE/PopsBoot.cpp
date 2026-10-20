@@ -58,32 +58,29 @@ static Path g_popsPBPPath;
 static std::unique_ptr<HLEHelperThread> g_popsInitThread;
 static u32 g_popsInitPath = 0;
 
-// The 6.60 POPS manager (6.61's has the same code), from its base: scePopsManLoadModule, and the
-// checks replaced for store and converted games. Its ME loop (+2F88) runs on the emulated ME.
-enum : u32 {
-	POPSMAN_LOAD_MODULE = 0x1E20,
+// The places in the POPS manager used here, from its base: scePopsManLoadModule, and the checks
+// replaced for store and converted games. Its ME loop (6.60's +2F88) runs on the emulated ME.
+struct PopsManLayout {
+	u32 loadModule;
 	// The license check (path, keyOut, fingerprintOut). Its first success latches the version key and
-	// the content ID fingerprint (+0124).
-	POPSMAN_KEY_PROBE = 0x266C,
-	POPSMAN_VERSION_KEY = 0x49E0,
-	POPSMAN_KEY_LATCHED = 0x4A18,
-	POPSMAN_KEY_FINGERPRINT = 0x4A1C,
-	// Whether data matches its MAC: its own, and the one it exports as sceMeAudio_F6637A72.
-	POPSMAN_CHECK_MAC = 0x0A28,
-	POPSMAN_CHECK_MAC_EXPORT = 0x0AB8,
+	// the content ID fingerprint (6.60's +0124).
+	u32 keyProbe;
+	u32 versionKey;
+	u32 keyLatched;
+	u32 keyFingerprint;
+	// Whether data matches its MAC: its own, and the one it exports to the emulator (6.60's
+	// sceMeAudio_F6637A72).
+	u32 checkMac;
+	u32 checkMacExport;
 };
 
-// What the places used here hold in the 6.60/6.61 manager. Checked when it's loaded.
-static const struct {
-	u32 offset;
-	u32 original;
-} POPSMAN_CODE[] = {
-	{ POPSMAN_LOAD_MODULE, 0x27BDFEE0 },  // addiu sp, sp, -0x120
-	{ POPSMAN_CHECK_MAC, 0x27BDFFC0 },  // addiu sp, sp, -0x40
-	{ POPSMAN_CHECK_MAC_EXPORT, 0x27BDFFB0 },
-	{ POPSMAN_KEY_PROBE, 0x27BDFEF0 },
-	{ POPSMAN_KEY_PROBE + 4, 0x2CA70001 },
+// The managers have the same code at these places, and older ones import kernel functions by older
+// NIDs (see GetHLENidAlias()).
+static const PopsManLayout POPSMAN_LAYOUTS[] = {
+	{ 0x1E20, 0x266C, 0x49E0, 0x4A18, 0x4A1C, 0x0A28, 0x0AB8 },  // 6.35-6.61
+	{ 0x1E48, 0x2694, 0x4AE0, 0x4B18, 0x4B1C, 0x0A28, 0x0AB8 },  // 6.30-6.31
 };
+static int g_popsManLayout = 0;
 
 static const u32 SCE_POPSMAN_LOAD_MODULE_NID = 0x29B3FB24;
 
@@ -95,6 +92,7 @@ void __PopsBootShutdown() {
 	g_popsBoot = false;
 	g_popsConvertedPBP = false;
 	g_popsIcon0Usable = true;
+	g_popsManLayout = 0;
 	g_popsPBPPath.clear();
 	// The kernel objects and memory are already gone with the kernel.
 	if (g_popsInitThread) {
@@ -124,7 +122,7 @@ static void DoHelperThread(PointerWrap &p, std::unique_ptr<HLEHelperThread> &thr
 }
 
 void __PopsBootDoState(PointerWrap &p) {
-	auto s = p.Section("PopsBoot", 0, 1);
+	auto s = p.Section("PopsBoot", 0, 2);
 	if (!s) {
 		if (p.mode == PointerWrap::MODE_READ) {
 			__PopsBootShutdown();
@@ -135,11 +133,51 @@ void __PopsBootDoState(PointerWrap &p) {
 	Do(p, g_popsConvertedPBP);
 	Do(p, g_popsInitPath);
 	DoHelperThread(p, g_popsInitThread);
+	if (s >= 2) {
+		Do(p, g_popsManLayout);
+	} else {
+		g_popsManLayout = 0;
+	}
+}
+
+static const PopsManLayout &PopsMan() {
+	return POPSMAN_LAYOUTS[g_popsManLayout];
 }
 
 static u32 PopsManBase() {
 	const u32 loadModule = KernelFindModuleExport("scePopsMan", SCE_POPSMAN_LOAD_MODULE_NID);
-	return loadModule ? loadModule - POPSMAN_LOAD_MODULE : 0;
+	return loadModule ? loadModule - PopsMan().loadModule : 0;
+}
+
+// Picks the layout of the loaded manager, by the code at its places. False if none matches.
+static bool FindPopsManLayout() {
+	const u32 loadModule = KernelFindModuleExport("scePopsMan", SCE_POPSMAN_LOAD_MODULE_NID);
+	if (!loadModule) {
+		return false;
+	}
+	for (int i = 0; i < (int)ARRAY_SIZE(POPSMAN_LAYOUTS); i++) {
+		const PopsManLayout &layout = POPSMAN_LAYOUTS[i];
+		const u32 base = loadModule - layout.loadModule;
+		const struct {
+			u32 offset;
+			u32 original;
+		} code[] = {
+			{ layout.loadModule, 0x27BDFEE0 },  // addiu sp, sp, -0x120
+			{ layout.checkMac, 0x27BDFFC0 },  // addiu sp, sp, -0x40
+			{ layout.checkMacExport, 0x27BDFFB0 },
+			{ layout.keyProbe, 0x27BDFEF0 },
+			{ layout.keyProbe + 4, 0x2CA70001 },
+		};
+		bool match = true;
+		for (const auto &c : code) {
+			match = match && Memory::ReadUnchecked_U32(base + c.offset) == c.original;
+		}
+		if (match) {
+			g_popsManLayout = i;
+			return true;
+		}
+	}
+	return false;
 }
 
 // A converted PBP's disc block, raw DEFLATE. Returns the output capacity - 1, as the emulator's
@@ -208,10 +246,10 @@ static int __PopsGetVersionKey(u32 pathAddr, u32 keyOut, u32 fingerprintOut) {
 		Memory::Memcpy(fingerprintOut, contentId, sizeof(contentId), "PopsVersionKey");
 	}
 	const u32 base = PopsManBase();
-	if (Memory::ReadUnchecked_U32(base + POPSMAN_KEY_LATCHED) == 0) {
-		Memory::WriteUnchecked_U32(1, base + POPSMAN_KEY_LATCHED);
-		Memory::Memcpy(base + POPSMAN_VERSION_KEY, versionKey, 16, "PopsVersionKey");
-		Memory::Memcpy(base + POPSMAN_KEY_FINGERPRINT, contentId, sizeof(contentId), "PopsVersionKey");
+	if (Memory::ReadUnchecked_U32(base + PopsMan().keyLatched) == 0) {
+		Memory::WriteUnchecked_U32(1, base + PopsMan().keyLatched);
+		Memory::Memcpy(base + PopsMan().versionKey, versionKey, 16, "PopsVersionKey");
+		Memory::Memcpy(base + PopsMan().keyFingerprint, contentId, sizeof(contentId), "PopsVersionKey");
 	}
 	return hleLogInfo(Log::sceKernel, 0, "%.36s", (const char *)contentId);
 }
@@ -380,46 +418,22 @@ static bool IsUsableIcon0(FileLoader *loader) {
 	return memcmp(header, pngStart, 16) == 0 && memcmp(header + 16, size80x80, 8) == 0;
 }
 
-// The installed firmware's version, from flash0:/vsh/etc/version.txt ("release:6.61:"). Empty if there's
-// none, as in a partial install.
-static std::string FirmwareVersion() {
-	std::vector<u8> data;
-	if (pspFileSystem.ReadEntireFile("flash0:/vsh/etc/version.txt", data, true) < 0)
-		return "";
-	const std::string text(data.begin(), data.end());
-	const size_t start = text.find("release:");
-	if (start == std::string::npos)
-		return "";
-	const size_t end = text.find(':', start + 8);
-	return end == std::string::npos ? "" : text.substr(start + 8, end - start - 8);
-}
-
 bool __PopsBootStartInit(FileLoader *pbp, const std::string &gamePath, std::string *error) {
-	const u32 base = PopsManBase();
-	bool known = base != 0;
-	for (const auto &code : POPSMAN_CODE) {
-		known = known && Memory::ReadUnchecked_U32(base + code.offset) == code.original;
-	}
-	// 6.35-6.39's manager has the same code at those places, but imports kernel functions by other
-	// NIDs.
-	const std::string version = FirmwareVersion();
-	if (!version.empty() && version != "6.60" && version != "6.61") {
-		known = false;
-	}
-	if (!known) {
+	if (!FindPopsManLayout()) {
 		auto er = GetI18NCategory(I18NCat::ERRORS);
-		*error = er->T("PS1FirmwareVersion", "So far, PS1 games only run with firmware 6.60 or 6.61, and a different version is installed. Install one of those from an official PSP update file in Settings > Tools > PSP Firmware.");
+		*error = er->T("PS1FirmwareVersion", "So far, PS1 games only run with firmware 6.30 to 6.61, and a different version is installed. Install one of those from an official PSP update file in Settings > Tools > PSP Firmware.");
 		return false;
 	}
+	const u32 base = PopsManBase();
 	g_popsPBPPath = pbp->GetPath();
 	g_popsConvertedPBP = IsConvertedPBP(pbp);
 	g_popsIcon0Usable = IsUsableIcon0(pbp);
-	const u32 loadModule = base + POPSMAN_LOAD_MODULE;
-	PatchReturn(base + POPSMAN_KEY_PROBE, MIPS_MAKE_SYSCALL("PopsBootCalls", "__PopsGetVersionKey"));
+	const u32 loadModule = base + PopsMan().loadModule;
+	PatchReturn(base + PopsMan().keyProbe, MIPS_MAKE_SYSCALL("PopsBootCalls", "__PopsGetVersionKey"));
 	if (g_popsConvertedPBP) {
 		// A converted PBP has no MACs. As popcorn does, take its data as authentic.
-		PatchReturn(base + POPSMAN_CHECK_MAC, 0x24020001);  // li v0, 1
-		PatchReturn(base + POPSMAN_CHECK_MAC_EXPORT, 0x24020001);
+		PatchReturn(base + PopsMan().checkMac, 0x24020001);  // li v0, 1
+		PatchReturn(base + PopsMan().checkMacExport, 0x24020001);
 	}
 
 	const u32 pathSize = (u32)gamePath.size() + 1;
