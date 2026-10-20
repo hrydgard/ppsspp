@@ -46,11 +46,12 @@ void ArmJitBackend::PrepareSrc1Address(IRInst inst) {
 	}
 
 	ARMReg src1 = regs_.MapGPR(inst.src1);
+	// Clears bits 28-31 (see MEMVIEW32_MASK).
 	if (inst.constant == 0) {
-		BIC(SCRATCH1, src1, Operand2(0xC0, 4));
+		BIC(SCRATCH1, src1, Operand2(0xF0, 4));
 	} else {
 		ADDI2R(SCRATCH1, src1, inst.constant, SCRATCH2);
-		BIC(SCRATCH1, SCRATCH1, Operand2(0xC0, 4));
+		BIC(SCRATCH1, SCRATCH1, Operand2(0xF0, 4));
 	}
 }
 

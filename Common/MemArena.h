@@ -63,5 +63,9 @@ private:
 	size_t reserved_size = 0;
 #else
 	int fd = -1;
+	// Where Find4GBBase keeps the view range reserved (inaccessible) until ReleaseSpace, so nothing else
+	// can be mapped between the views.
+	void *reserved_mem = nullptr;
+	size_t reserved_size = 0;
 #endif
 };
