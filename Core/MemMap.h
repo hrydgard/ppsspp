@@ -372,10 +372,10 @@ struct AddressSpace {
 
 extern AddressSpace g_mainSpace;
 
-// The Media Engine's view of memory: its own eDRAM at 0 (mirrored at 0x80000000 and 0xA0000000), the
-// boot page, and the main CPU's RAM and VRAM, the same host pages as in g_mainSpace. Returns null if
-// this platform can't map memory twice. Only for a boot that runs the ME; Shutdown() (and so Reinit())
-// destroys it.
+// The Media Engine's view of memory: its own eDRAM at 0 (mirrored at 0x80000000 and 0xA0000000), its
+// own memory where the main CPU has VRAM, the boot page, and the main CPU's RAM, the same host pages
+// as in g_mainSpace. Returns null if this platform can't map memory twice. Only for a boot that runs
+// the ME; Shutdown() (and so Reinit()) destroys it.
 AddressSpace *CreateMESpace();
 void DestroyMESpace();
 
