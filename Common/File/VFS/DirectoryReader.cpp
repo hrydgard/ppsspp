@@ -1,16 +1,73 @@
+#include "ppsspp_config.h"
+
+#include <cctype>
 #include <cstdio>
 
 #include "Common/Common.h"
 #include "Common/Log.h"
+#include "Common/File/DirListing.h"
 #include "Common/File/VFS/DirectoryReader.h"
 
-DirectoryReader::DirectoryReader(const Path &path) {
+DirectoryReader::DirectoryReader(const Path &path, bool ignoreCase) {
 	path_ = path;
+#if !PPSSPP_PLATFORM(WINDOWS)
+	// Windows file systems already ignore case.
+	ignoreCase_ = ignoreCase;
+#endif
+}
+
+static std::string ToLowerASCII(std::string_view str) {
+	std::string lower(str);
+	for (char &c : lower) {
+		c = (char)tolower((unsigned char)c);
+	}
+	return lower;
+}
+
+void DirectoryReader::IndexDirectory(const Path &dir, const std::string &prefix) {
+	std::vector<File::FileInfo> files;
+	File::GetFilesInDir(dir, &files);
+	for (const File::FileInfo &file : files) {
+		const std::string relative = prefix + file.name;
+		if (file.isDirectory) {
+			IndexDirectory(file.fullName, relative + "/");
+		} else {
+			lowerIndex_[ToLowerASCII(relative)] = relative;
+		}
+	}
+}
+
+bool DirectoryReader::FindIgnoringCase(std::string_view path, std::string *actualPath) {
+	if (!ignoreCase_) {
+		return false;
+	}
+	std::lock_guard<std::mutex> guard(indexLock_);
+	if (!indexBuilt_) {
+		// Only done on the first miss, so a directory where every name matches never pays for it.
+		IndexDirectory(path_, "");
+		indexBuilt_ = true;
+		INFO_LOG(Log::IO, "Indexed %d files in %s to find names that differ in case", (int)lowerIndex_.size(), path_.c_str());
+	}
+	auto it = lowerIndex_.find(ToLowerASCII(path));
+	if (it == lowerIndex_.end()) {
+		return false;
+	}
+	*actualPath = it->second;
+	if (caseFixCount_++ < 5) {
+		WARN_LOG(Log::IO, "'%.*s' differs in case from the file '%s' in %s, which only works on some file systems", STR_VIEW(path), actualPath->c_str(), path_.c_str());
+	}
+	return true;
 }
 
 uint8_t *DirectoryReader::ReadFile(std::string_view path, size_t *size) {
-	Path new_path = Path(path).StartsWith(path_) ? Path(path) : path_ / path;
-	return File::ReadLocalFile(new_path, size);
+	const bool absolute = Path(path).StartsWith(path_);
+	Path new_path = absolute ? Path(path) : path_ / path;
+	uint8_t *data = File::ReadLocalFile(new_path, size);
+	std::string actualPath;
+	if (!data && !absolute && FindIgnoringCase(path, &actualPath)) {
+		data = File::ReadLocalFile(path_ / actualPath, size);
+	}
+	return data;
 }
 
 bool DirectoryReader::GetFileListing(std::string_view path, std::vector<File::FileInfo> *listing, const char *filter = nullptr) {
@@ -53,7 +110,11 @@ public:
 VFSFileReference *DirectoryReader::GetFile(std::string_view path) {
 	Path filePath = path_ / path;
 	if (!File::Exists(filePath)) {
-		return nullptr;
+		std::string actualPath;
+		if (!FindIgnoringCase(path, &actualPath)) {
+			return nullptr;
+		}
+		filePath = path_ / actualPath;
 	}
 
 	DirectoryReaderFileReference *reference = new DirectoryReaderFileReference();

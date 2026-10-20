@@ -754,15 +754,15 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 			int rowLength = pixelStride;
 			if (bcFormat) {
 				// For block compressed formats, we just set the upload size to the data size..
-				uploadSize = plan.replaced->GetLevelDataSizeAfterCopy(plan.baseLevelSrc + i);
+				uploadSize = plan.replaced->GetLevelDataSizeAfterCopy(i);
 				rowLength = (mipWidth + 3) & ~3;
 			}
 			// Directly load the replaced image.
 			data = pushBuffer->Allocate(uploadSize, pushAlignment, &texBuf, &bufferOffset);
 			double replaceStart = time_now_d();
 			const bool copied = plan.decodeToClut8 ?
-				plan.replaced->CopyIndexLevelToPitched(plan.baseLevelSrc + i, (uint8_t *)data, uploadSize, byteStride) :
-				plan.replaced->CopyLevelTo(plan.baseLevelSrc + i, (uint8_t *)data, uploadSize, byteStride);
+				plan.replaced->CopyIndexLevelToPitched(i, (uint8_t *)data, uploadSize, byteStride) :
+				plan.replaced->CopyLevelTo(i, (uint8_t *)data, uploadSize, byteStride);
 			if (!copied) {  // If plan.doReplace, this shouldn't fail.
 				WARN_LOG(Log::G3D, "Failed to copy replaced texture level");
 				// TODO: Fill with some pattern?
@@ -815,7 +815,7 @@ void TextureCacheVulkan::BuildTexture(TexCacheEntry *const entry) {
 				replacedInfo.isVideo = IsVideo(entry->addr);
 				replacedInfo.isFinal = (entry->status & TexStatus::TO_SCALE) == 0;
 				replacedInfo.fmt = FromVulkanFormat(actualFmt);
-				replacer_.NotifyTextureDecoded(plan.replaced, replacedInfo, data, stride, plan.baseLevelSrc + i, mipUnscaledWidth, mipUnscaledHeight, w, h);
+				replacer_.NotifyTextureDecoded(plan.replaced, replacedInfo, data, stride, i, mipUnscaledWidth, mipUnscaledHeight, w, h);
 			}
 		}
 	}
