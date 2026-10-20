@@ -92,7 +92,8 @@ static const PopsManLayout POPSMAN_LAYOUTS[] = {
 	{ 0x155C, 0x130, 0,      0x3550, 0x3570, 0x3578, 0x0500, 0x058C, 0x0144 },  // 5.55
 	{ 0x1538, 0x130, 0,      0x34D0, 0x34F0, 0x34F8, 0x0500, 0x058C, 0x0144 },  // 5.50
 	{ 0x1538, 0x020, 0,      0x33D0, 0x33F0, 0x33F8, 0x0500, 0x058C, 0x0144, 1 },  // 5.00-5.05
-	{ 0x150C, 0x030, 0,      0x3510, 0x3530, 0x3538, 0x0538, 0x05C4, 0x0138, 1 },  // 4.05
+	{ 0x150C, 0x030, 0,      0x3510, 0x3530, 0x3538, 0x0538, 0x05C4, 0x0138, 1 },  // 4.01-4.05
+	{ 0x1404, 0x030, 0,      0x3390, 0x33B0, 0x33B8, 0x0538, 0x05C4, 0x0138, 1 },  // 3.95-3.96
 };
 static int g_popsManLayout = 0;
 
@@ -482,7 +483,7 @@ static bool IsUsableIcon0(FileLoader *loader) {
 bool __PopsBootStartInit(FileLoader *pbp, const std::string &gamePath, std::string *error) {
 	if (!FindPopsManLayout(IsConvertedPBP(pbp))) {
 		auto er = GetI18NCategory(I18NCat::ERRORS);
-		*error = er->T("PS1FirmwareVersion", "So far, PS1 games only run with firmware 6.00 to 6.61 (converted ones also with 4.05 to 5.55), and a different version is installed. Install one of those from an official PSP update file in Settings > Tools > PSP Firmware.");
+		*error = er->T("PS1FirmwareVersion", "So far, PS1 games only run with firmware 6.00 to 6.61 (converted ones also with 3.95 to 5.55), and a different version is installed. Install one of those from an official PSP update file in Settings > Tools > PSP Firmware.");
 		return false;
 	}
 	const u32 base = PopsManBase();
