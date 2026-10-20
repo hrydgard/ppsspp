@@ -32,6 +32,7 @@
 #include "Core/CoreTiming.h"
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/ELF/PBPReader.h"
+#include "Core/ELF/PrxDecrypter.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/HLE.h"
@@ -91,6 +92,7 @@ static const PopsManLayout POPSMAN_LAYOUTS[] = {
 	{ 0x155C, 0x130, 0,      0x3550, 0x3570, 0x3578, 0x0500, 0x058C, 0x0144 },  // 5.55
 	{ 0x1538, 0x130, 0,      0x34D0, 0x34F0, 0x34F8, 0x0500, 0x058C, 0x0144 },  // 5.50
 	{ 0x1538, 0x020, 0,      0x33D0, 0x33F0, 0x33F8, 0x0500, 0x058C, 0x0144, 1 },  // 5.00-5.05
+	{ 0x150C, 0x030, 0,      0x3510, 0x3530, 0x3538, 0x0538, 0x05C4, 0x0138, 1 },  // 4.05
 };
 static int g_popsManLayout = 0;
 
@@ -305,22 +307,61 @@ static void PatchCall(u32 addr, const char *func) {
 	Memory::WriteUnchecked_U32(MIPS_MAKE_SYSCALL("PopsBootCalls", func), addr);
 }
 
-// The user modules the 6.60 POPS boot configuration (pspbtcnf) starts after the manager.
-void __PopsBootLoadModules() {
-	static const char *const paths[] = {
-		"flash0:/vsh/module/libfont_hv.prx",
-		"flash0:/vsh/module/pafmini.prx",
-		"flash0:/vsh/module/libpspvmc.prx",
+// The user modules the firmware's POPS boot configuration (flash0:/kd/pspbtcnf.bin) starts after the
+// manager: those in its POPS mode under /vsh/module/. They differ by version (4.05 adds heaparea2.prx).
+static std::vector<std::string> PopsUserModules() {
+	std::vector<u8> file;
+	if (pspFileSystem.ReadEntireFile("flash0:/kd/pspbtcnf.bin", file, true) < 0 || file.size() < 0x150) {
+		return {};
+	}
+	std::vector<u8> plain(file.size());
+	const int size = pspDecryptPRX(file.data(), plain.data(), (u32)file.size());
+	auto word = [&](u32 offset) -> u32 {
+		return offset + 4 <= (u32)size ? plain[offset] | (plain[offset + 1] << 8) | (plain[offset + 2] << 16) | ((u32)plain[offset + 3] << 24) : 0;
 	};
-	for (const char *path : paths) {
+	if (size <= 0 || word(0) != 0x0F803001) {
+		return {};
+	}
+	// Header: modules at 0x20 (offset, count), names at 0x30. A module is 32 bytes: name offset, then
+	// at +8 its mode flags (POPS is 8).
+	const u32 modules = word(0x20), count = word(0x24), names = word(0x30);
+	std::vector<std::string> paths;
+	bool afterManager = false;
+	for (u32 i = 0; i < count && modules + i * 32 + 12 <= (u32)size; i++) {
+		const u32 nameOffset = names + word(modules + i * 32);
+		if (nameOffset >= (u32)size || !(word(modules + i * 32 + 8) & 8)) {
+			continue;
+		}
+		const std::string name((const char *)&plain[nameOffset], strnlen((const char *)&plain[nameOffset], size - nameOffset));
+		if (name == "/kd/popsman.prx") {
+			afterManager = true;
+		} else if (afterManager && startsWith(name, "/vsh/module/")) {
+			paths.push_back("flash0:" + name);
+		}
+	}
+	return paths;
+}
+
+void __PopsBootLoadModules() {
+	std::vector<std::string> paths = PopsUserModules();
+	if (paths.empty()) {
+		WARN_LOG(Log::sceKernel, "POPS: couldn't read the boot configuration, starting 6.60's modules");
+		paths = {
+			"flash0:/vsh/module/libfont_hv.prx",
+			"flash0:/vsh/module/pafmini.prx",
+			"flash0:/vsh/module/common_util.prx",
+			"flash0:/vsh/module/libpspvmc.prx",
+		};
+	}
+	for (const std::string &path : paths) {
 		std::string error;
 		const SceUID moduleId = KernelLoadModule(path, &error);
 		if (moduleId < 0) {
-			WARN_LOG(Log::sceKernel, "POPS: failed to load %s: %s", path, error.c_str());
+			WARN_LOG(Log::sceKernel, "POPS: failed to load %s: %s", path.c_str(), error.c_str());
 			continue;
 		}
 		if (__KernelStartModule(moduleId, 0, 0, 0, nullptr, nullptr) < 0) {
-			WARN_LOG(Log::sceKernel, "POPS: failed to start %s", path);
+			WARN_LOG(Log::sceKernel, "POPS: failed to start %s", path.c_str());
 		}
 	}
 }
@@ -441,13 +482,19 @@ static bool IsUsableIcon0(FileLoader *loader) {
 bool __PopsBootStartInit(FileLoader *pbp, const std::string &gamePath, std::string *error) {
 	if (!FindPopsManLayout(IsConvertedPBP(pbp))) {
 		auto er = GetI18NCategory(I18NCat::ERRORS);
-		*error = er->T("PS1FirmwareVersion", "So far, PS1 games only run with firmware 6.00 to 6.61 (converted ones also with 5.01 to 5.55), and a different version is installed. Install one of those from an official PSP update file in Settings > Tools > PSP Firmware.");
+		*error = er->T("PS1FirmwareVersion", "So far, PS1 games only run with firmware 6.00 to 6.61 (converted ones also with 4.05 to 5.55), and a different version is installed. Install one of those from an official PSP update file in Settings > Tools > PSP Firmware.");
 		return false;
 	}
 	const u32 base = PopsManBase();
 	g_popsPBPPath = pbp->GetPath();
 	g_popsConvertedPBP = IsConvertedPBP(pbp);
 	g_popsIcon0Usable = IsUsableIcon0(pbp);
+	// 4.05's manager allocates from a pool with the kernel's sceKernelAllocateFpl, which isn't resolved for
+	// kernel modules (see ThreadManForKernel): only its import gets the user one.
+	if (u32 stub = KernelFindModuleImport("scePops_Manager", "ThreadManForKernel", 0xD979E9BF)) {
+		WriteHLESyscall("ThreadManForUser", 0xD979E9BF, stub);
+		currentMIPS->InvalidateICacheRangeDeferred(stub, 8);
+	}
 	const u32 loadModule = base + PopsMan().loadModule;
 	if (PopsMan().keyProbe != 0) {
 		PatchReturn(base + PopsMan().keyProbe, MIPS_MAKE_SYSCALL("PopsBootCalls", "__PopsGetVersionKey"));

@@ -521,6 +521,22 @@ u32 KernelFindModuleExport(const char *libraryName, u32 nid) {
 	return 0;
 }
 
+u32 KernelFindModuleImport(const char *moduleName, const char *libraryName, u32 nid) {
+	u32 error;
+	for (SceUID moduleId : loadedModules) {
+		PSPModule *module = kernelObjects.Get<PSPModule>(moduleId, error);
+		if (!module || strcmp(module->GetName(), moduleName) != 0) {
+			continue;
+		}
+		for (const FuncSymbolImport &func : module->importedFuncs) {
+			if (func.nid == nid && !strncmp(func.moduleName, libraryName, KERNELOBJECT_MAX_NAME_LENGTH)) {
+				return func.stubAddr;
+			}
+		}
+	}
+	return 0;
+}
+
 // Set once we've seen a PSP_MODULE_VSH_MODE module load (i.e. we're booting the VSH rather
 // than a game), and reset on the next __KernelLoadExec. See ShouldHLEModuleForLoad below.
 static bool g_runningVSH = false;

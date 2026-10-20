@@ -283,3 +283,5 @@ u32 sceKernelStartModule(u32 moduleId, u32 argsize, u32 argAddr, u32 returnValue
 
 // Address of a function a loaded module exports, or 0.
 u32 KernelFindModuleExport(const char *libraryName, u32 nid);
+// The stub through which a loaded module imports a function. 0 if it doesn't.
+u32 KernelFindModuleImport(const char *moduleName, const char *libraryName, u32 nid);

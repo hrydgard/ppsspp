@@ -719,6 +719,7 @@ static int scePowerSetWakeupCondition(u32 condition) {
 const HLEFunction scePower_driver[] = {
 	{0X5F5006D2, &WrapI_V<scePower_driver_5F5006D2>,          "scePower_driver_5F5006D2",          'i', ""   },
 	{0XBA566CD0, &WrapI_U<scePowerSetWakeupCondition>,        "scePowerSetWakeupCondition",        'i', "x"  },
+	{0X469989AD, &WrapU_UUU<scePowerSetClockFrequency>,       "scePowerSetClockFrequency630",      'x', "xxx"},
 };
 
 void Register_scePower_driver() {

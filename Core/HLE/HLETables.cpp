@@ -301,11 +301,16 @@ static const HLENidAlias hleNidAliases[] = {
 	{ "sceSysreg_driver", 0xD1999F94, 0x4634C9DC },  // sceSysreg_driver_4634C9DC
 	{ "sceSysreg_driver", 0xD74D9041, 0x38527743 },  // sceSysregMeBusClockEnable660
 	{ "sceSysreg_driver", 0xE2606FCB, 0x48F1C4AD },  // sceSysregMeResetDisable660
-	// 6.20, from popsman.prx.
+	// 6.20, from popsman.prx (the clock one is 4.05's too).
 	{ "InitForKernel", 0x977A0F90, 0x9D33A110 },  // InitForKernel_9D33A110
 	{ "LoadExecForKernel", 0x29413885, 0xC3474C2A },  // sceKernelExitVSHKernel
 	{ "ModuleMgrForKernel", 0xDF8FFFAB, 0x3FF74DF1 },  // sceKernelStartModule
 	{ "ModuleMgrForKernel", 0xE3CCC6EA, 0x939E4270 },  // sceKernelLoadModuleForKernel
+	{ "SysMemForKernel", 0x02AEA33F, 0x310802A9 },  // SysMemForKernel_310802A9
+	{ "SysMemForKernel", 0xA4AC3934, 0xFDC97D28 },
+	{ "SysMemForKernel", 0xB9796F69, 0xB4F00CB5 },  // sceKernelGetCompiledSdkVersion
+	{ "SysMemForKernel", 0xF5780DAA, 0xC90B0992 },  // sceKernelGetUIDcontrolBlock
+	{ "SysMemForKernel", 0xFEB5C72B, 0xF12A62F7 },
 	{ "sceClockgen_driver", 0xACC30ECE, 0xDAB6E612 },
 	{ "sceCodec_driver", 0x794EE731, 0x376399B6 },
 	{ "sceCtrl_driver", 0x7A6436DE, 0x6C86AF22 },
@@ -327,6 +332,7 @@ static const HLENidAlias hleNidAliases[] = {
 	{ "scePadSvc_driver", 0x1971BAE0, 0x7CAB5A3D },
 	{ "scePadSvc_driver", 0x3B0567D6, 0x0B3E6FD3 },
 	{ "scePadSvc_driver", 0x79B60777, 0x05C9C803 },
+	{ "scePower_driver", 0xEBD177D6, 0x469989AD },  // scePowerSetClockFrequency630
 	{ "sceRtc_driver", 0x2F20DAF0, 0x4E267E02 },
 	{ "sceRtc_driver", 0x43F38ED8, 0xE7B3ABF4 },
 	{ "sceSyscon_driver", 0xB757C11D, 0x48448373 },
@@ -343,11 +349,6 @@ static const HLENidAlias hleNidAliases[] = {
 	{ "sceSysreg_driver", 0x9EBB3C43, 0xC36775AD },  // sceSysreg_driver_C36775AD
 	{ "sceSysreg_driver", 0xB733A263, 0xB1751B06 },  // sceSysreg_driver_B1751B06
 	{ "sceSysreg_driver", 0xE7849809, 0x8B1DD83A },  // sceSysreg_driver_8B1DD83A
-	{ "SysMemForKernel", 0x02AEA33F, 0x310802A9 },  // SysMemForKernel_310802A9
-	{ "SysMemForKernel", 0xA4AC3934, 0xFDC97D28 },
-	{ "SysMemForKernel", 0xB9796F69, 0xB4F00CB5 },  // sceKernelGetCompiledSdkVersion
-	{ "SysMemForKernel", 0xF5780DAA, 0xC90B0992 },  // sceKernelGetUIDcontrolBlock
-	{ "SysMemForKernel", 0xFEB5C72B, 0xF12A62F7 },
 	// 5.55, from popsman.prx, whose code changed too much to match every import: only the ones used here,
 	// each checked by its call site.
 	{ "LoadExecForKernel", 0x9C9BB2D8, 0xC3474C2A },  // sceKernelExitVSHKernel
@@ -370,6 +371,29 @@ static const HLENidAlias hleNidAliases[] = {
 	{ "sceSysreg_driver", 0x923509A1, 0xC36775AD },  // sceSysreg_driver_C36775AD
 	{ "sceSysreg_driver", 0xC7FC7669, 0x8B1DD83A },  // sceSysreg_driver_8B1DD83A
 	{ "sceSysreg_driver", 0xE46A0890, 0x4B4CCE80 },  // sceSysreg_driver_4B4CCE80
+	// 4.05, from popsman.prx, the same way as 5.55 (the sysreg ones by what they do to the registers).
+	{ "LoadExecForKernel", 0x63D88393, 0xC3474C2A },  // sceKernelExitVSHKernel
+	{ "ModuleMgrForKernel", 0x24C5ABC2, 0x939E4270 },  // sceKernelLoadModuleForKernel
+	{ "ModuleMgrForKernel", 0x63A3CAFB, 0x3FF74DF1 },  // sceKernelStartModule
+	{ "SysMemForKernel", 0x12720EDA, 0xB4F00CB5 },  // sceKernelGetCompiledSdkVersion
+	{ "SysMemForKernel", 0x5136926D, 0xF12A62F7 },
+	{ "SysMemForKernel", 0x523E300A, 0xC90B0992 },  // sceKernelGetUIDcontrolBlock
+	{ "sceGe_driver", 0x1DDA69CE, 0xD8633888 },  // sceGeEdramSetSize
+	{ "sceImpose_driver", 0x6F502C0A, 0x4B02F047 },  // sceImposeGetParam
+	{ "sceImpose_driver", 0x869EB4A8, 0x5557F4E2 },  // sceImposeGetBatteryIconStatus
+	{ "sceImpose_driver", 0xCD1291FD, 0x0BBCA0BF },  // sceImposeChanges
+	{ "sceSysreg_driver", 0x15574362, 0xC36775AD },  // sceSysreg_driver_C36775AD
+	{ "sceSysreg_driver", 0x21797DCF, 0x4B4CCE80 },  // sceSysreg_driver_4B4CCE80
+	{ "sceSysreg_driver", 0x643169E5, 0x8B1DD83A },  // sceSysreg_driver_8B1DD83A
+	{ "sceSysreg_driver", 0x67583EF1, 0xB1751B06 },  // sceSysreg_driver_B1751B06
+	{ "sceSysreg_driver", 0x8E6586AD, 0x48F1C4AD },  // sceSysregMeResetDisable660
+	{ "sceSysreg_driver", 0xA36C4E9E, 0x457FEBA9 },  // sceSysregMeResetEnable660
+	{ "sceSysreg_driver", 0xB60FBA15, 0x38527743 },  // sceSysregMeBusClockEnable660
+	{ "sceSysreg_driver", 0xC4B60AB3, 0x41B0337B },  // sceSysreg_driver_41B0337B
+	{ "sceSysreg_driver", 0xD80E8AAF, 0x0AE8E549 },  // sceSysregAvcResetEnable660
+	{ "sceSysreg_driver", 0xD83733C9, 0x0143E8A8 },  // sceSysregSemaTryLock660
+	{ "sceSysreg_driver", 0xE08034E0, 0x4634C9DC },  // sceSysreg_driver_4634C9DC
+	{ "sceSysreg_driver", 0xE65B0490, 0xDB97C70E },  // sceSysregSemaUnlock660
 };
 
 u32 GetHLENidAlias(std::string_view moduleName, u32 nid) {
