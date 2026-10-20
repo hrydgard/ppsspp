@@ -169,7 +169,7 @@ bool TextureReplacer::LoadIni(std::string *error, bool notify) {
 	if (!dir) {
 		INFO_LOG(Log::TexReplacement, "%s wasn't a zip file - opening the directory %s instead.", zipPath.c_str(), basePath_.c_str());
 		vfsIsZip_ = false;
-		dir = new DirectoryReader(basePath_);
+		dir = new DirectoryReader(basePath_, true);
 	} else {
 		if (!replaceEnabled_ && saveEnabled_) {
 			WARN_LOG(Log::TexReplacement, "Found zip file even though only saving is enabled! This is weird.");

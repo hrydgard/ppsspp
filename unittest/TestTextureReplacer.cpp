@@ -6,6 +6,7 @@
 #include "Common/Data/Format/PNGLoad.h"
 #include "Common/File/FileUtil.h"
 #include "Common/File/Path.h"
+#include "Common/File/VFS/DirectoryReader.h"
 #include "Common/Thread/ThreadManager.h"
 #include "GPU/Common/TextureReplacer.h"
 
@@ -711,6 +712,30 @@ static bool TestSaveIndexedOption(const Path &packDir) {
 	return true;
 }
 
+// Packs made on Windows often name their folders differently in textures.ini (#18746). On a case
+// insensitive file system this passes without the index, Linux CI is where it counts.
+static bool TestDirectoryIgnoreCase(const Path &packDir) {
+	if (!File::CreateDir(packDir / "Portraits")) {
+		return false;
+	}
+	if (!CreateTestPNG(packDir / "Portraits" / "Face.png", 4, 4, 0xFF0000FF)) {
+		return false;
+	}
+
+	DirectoryReader reader(packDir, true);
+	VFSFileReference *ref = reader.GetFile("portraits/face.png");
+	EXPECT_TRUE(ref != nullptr);
+	if (ref) {
+		reader.ReleaseFile(ref);
+	}
+	size_t size = 0;
+	uint8_t *data = reader.ReadFile("PORTRAITS/FACE.PNG", &size);
+	EXPECT_TRUE(data != nullptr && size != 0);
+	delete[] data;
+	EXPECT_TRUE(reader.GetFile("portraits/missing.png") == nullptr);
+	return true;
+}
+
 bool TestTextureReplacer() {
 	Path packDir = UnitTestTempPath("unittest_texture_pack");
 	if (!CreateTestPack(packDir)) {
@@ -741,7 +766,7 @@ bool TestTextureReplacer() {
 	}
 
 	if (!TestIndexedPNG(packDir) || !TestIndexedReplacement(packDir) || !TestIndexedKTX2(packDir) ||
-		!TestSaveIndexedPNG(packDir) || !TestSaveIndexedOption(packDir)) {
+		!TestSaveIndexedPNG(packDir) || !TestSaveIndexedOption(packDir) || !TestDirectoryIgnoreCase(packDir)) {
 		File::DeleteDirRecursively(packDir);
 		return false;
 	}
