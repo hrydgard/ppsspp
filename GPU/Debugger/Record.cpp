@@ -527,10 +527,19 @@ void Recorder::FlushPrimState(int vcount) {
 		}
 	}
 
-	const void *verts = Memory::GetPointerOrException(gstate_c.vertexAddr);
+	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
+		ERROR_LOG(Log::G3D, "Recorder: Invalid vertex address: 0x%08X", gstate_c.vertexAddr);
+		return;
+	}
+
+	const void *verts = Memory::GetPointerUnchecked(gstate_c.vertexAddr);
 	const void *indices = nullptr;
 	if ((gstate.vertType & GE_VTYPE_IDX_MASK) != GE_VTYPE_IDX_NONE) {
-		indices = Memory::GetPointerOrException(gstate_c.indexAddr);
+		if (Memory::IsValidAddress(gstate_c.indexAddr)) {
+			ERROR_LOG(Log::G3D, "Recorder: Invalid index address: 0x%08X", gstate_c.indexAddr);
+			return;
+		}
+		indices = Memory::GetPointerUnchecked(gstate_c.indexAddr);
 	}
 
 	u32 ibytes = 0;
