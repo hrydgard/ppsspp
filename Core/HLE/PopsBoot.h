@@ -38,5 +38,7 @@ bool __PopsBootStartInit(FileLoader *pbp, const std::string &gamePath, std::stri
 // The emulator module is loaded, not yet started.
 void __PopsBootPatchEmulator(u32 textAddr, u32 textSize, u32 decodeStub);
 
+// The manager registered its version key function with SysMem.
+void __PopsBootSetVersionKeyFunc(u32 func);
 
 void Register_PopsBootCalls();
