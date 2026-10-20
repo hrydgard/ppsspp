@@ -82,6 +82,12 @@ TextureReplacer::~TextureReplacer() {
 	for (const auto &iter : levelCache_) {
 		delete iter.second;
 	}
+	for (auto &[key, slot] : layered_) {
+		delete slot.texture;
+	}
+	for (ReplacedTexture *texture : retiredLayered_) {
+		delete texture;
+	}
 	delete vfs_;
 }
 
@@ -174,11 +180,20 @@ bool TextureReplacer::LoadIni(std::string *error, bool notify) {
 
 	shadowEnabled_ = false;
 	shadowSettleSeconds_ = 4.0;
+	shadowMinVisibleSeconds_ = 0.0;
 	shadowMaxRegions_ = 8;
 	shadowRegionAlign_ = 1;
 	shadowMemoryBudget_ = (size_t)1024 * 1024 * 1024;
 	shadowSlots_.clear();
+	shadowKeys_.clear();
 	shadowRangesDirty_ = false;
+	// Cache entries may still point to these.
+	for (auto &[key, slot] : layered_) {
+		if (slot.texture) {
+			retiredLayered_.push_back(slot.texture);
+		}
+	}
+	layered_.clear();
 
 	DeleteVFS();
 
@@ -275,6 +290,9 @@ bool TextureReplacer::LoadIni(std::string *error, bool notify) {
 	// crash on exit. The actual problem is that we tend to call LoadIni a little too much...
 	for (auto &repl : levelCache_) {
 		repl.second->vfs_ = vfs_;
+	}
+	for (ReplacedTexture *texture : retiredLayered_) {
+		texture->vfs_ = vfs_;
 	}
 
 	if (replaceEnabled_) {
@@ -411,6 +429,7 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 
 	options->Get("shadowTextures", &shadowEnabled_);
 	options->Get("shadowSettleSeconds", &shadowSettleSeconds_);
+	options->Get("shadowMinVisibleSeconds", &shadowMinVisibleSeconds_);
 	options->Get("shadowMaxRegions", &shadowMaxRegions_);
 	options->Get("shadowRegionAlign", &shadowRegionAlign_);
 	int shadowMemoryMB = 0;
@@ -418,6 +437,7 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 		shadowMemoryBudget_ = (size_t)shadowMemoryMB * 1024 * 1024;
 	}
 	shadowSettleSeconds_ = std::clamp(shadowSettleSeconds_, 0.0, 600.0);
+	shadowMinVisibleSeconds_ = std::clamp(shadowMinVisibleSeconds_, 0.0, 60.0);
 	shadowMaxRegions_ = std::clamp(shadowMaxRegions_, 1, 64);
 	shadowRegionAlign_ = std::clamp(shadowRegionAlign_, 1, 64);
 
@@ -528,6 +548,14 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 		}
 	}
 
+	if (ini.HasSection("layered")) {
+		auto layered = ini.GetOrCreateSection("layered")->ToMap();
+		// Format: addr,w,h = original.png|hd.png
+		for (const auto &[k, v] : layered) {
+			ParseLayered(k, v);
+		}
+	}
+
 	if (ini.HasSection("shadowranges")) {
 		auto shadowranges = ini.GetOrCreateSection("shadowranges")->ToMap();
 		// Format: addr,w,h = w,h|w,h|...
@@ -558,7 +586,7 @@ void TextureReplacer::ParseShadowRange(const std::string &key, const std::string
 	SplitString(value, '|', regionParts, true);
 
 	if (keyParts.size() != 3 || regionParts.empty()) {
-		ERROR_LOG(Log::TexReplacement, "Ignoring invalid shadowrange %s = %s, expecting addr,w,h = w,h|w,h", key.c_str(), value.c_str());
+		ERROR_LOG(Log::TexReplacement, "Ignoring invalid shadowrange %s = %s, expecting addr,w,h = w,h|x,y,w,h|...", key.c_str(), value.c_str());
 		return;
 	}
 	if (!startsWith(keyParts[0], "0x") && !startsWith(keyParts[0], "0X")) {
@@ -577,13 +605,24 @@ void TextureReplacer::ParseShadowRange(const std::string &key, const std::string
 	for (const std::string &part : regionParts) {
 		std::vector<std::string> valueParts;
 		SplitString(part, ',', valueParts, true);
-		u32 toW;
-		u32 toH;
-		if (valueParts.size() != 2 || !TryParse(valueParts[0], &toW) || !TryParse(valueParts[1], &toH) || toW == 0 || toH == 0 || toW > fromW || toH > fromH) {
+		// w,h from (0,0), or x,y,w,h.
+		u32 values[4]{};
+		const size_t count = valueParts.size();
+		bool valid = count == 2 || count == 4;
+		for (size_t i = 0; valid && i < count; i++) {
+			valid = TryParse(valueParts[i], &values[count == 2 ? i + 2 : i]);
+		}
+		const u32 x = values[0];
+		const u32 y = values[1];
+		const u32 toW = values[2];
+		const u32 toH = values[3];
+		if (!valid || toW == 0 || toH == 0 || x + toW > fromW || y + toH > fromH) {
 			ERROR_LOG(Log::TexReplacement, "Ignoring invalid region '%s' in shadowrange %s", part.c_str(), key.c_str());
 			continue;
 		}
 		ShadowRegion region;
+		region.x = (u16)x;
+		region.y = (u16)y;
 		region.w = (u16)toW;
 		region.h = (u16)toH;
 		AddShadowRegion(slot, region);
@@ -996,6 +1035,11 @@ void TextureReplacer::NotifyTextureDecoded(ReplacedTexture *texture, const Repla
 		return;
 	}
 
+	if (IsLayered(replacedInfo.addr, replacedInfo.texW, replacedInfo.texH)) {
+		// Its contents are composed from the [layered] images.
+		return;
+	}
+
 	if (shadowEnabled_ && replacedInfo.texW != 0) {
 		// Held back until the region of the texture that's used has settled, see ShadowTick.
 		CaptureShadowLevel(replacedInfo, data, srcPitch, level, scaledW, scaledH);
@@ -1125,6 +1169,10 @@ void TextureReplacer::NotifyIndexedTextureDecoded(const ReplacedTextureDecodeInf
 	_assert_(numColors >= 1 && numColors <= 256);
 
 	if (!WillSaveIndexed(replacedInfo) || w <= 0 || h <= 0) {
+		return;
+	}
+
+	if (IsLayered(replacedInfo.addr, replacedInfo.texW, replacedInfo.texH)) {
 		return;
 	}
 
@@ -1360,42 +1408,98 @@ float TextureReplacer::LookupReduceHashRange(int w, int h) {
 
 // Shadow textures.
 //
-// A texture declared as 512x512 often only has an image in its top part, with whatever the game's allocator put
-// after it below. Hashing all of it gives a new key, and a new dump, each time that other data changes. Here the
+// A texture declared as 512x512 often only has an image in part of it, with whatever the game's allocator put
+// around it. Hashing all of it gives a new key, and a new dump, each time that other data changes. Here the
 // key only covers what draws sample (known in through mode, from the vertex UVs), and dumps wait in RAM until
 // that part stops growing. Each waiting dump keeps a copy of the texture's memory, so it can be hashed again
 // with its final region, and contents that turn out to be the same there are only written once.
 
-TextureReplacer::ShadowRegion TextureReplacer::NormalizeShadowRegion(const ShadowBounds &bounds, int w, int h) const {
+// A texel or two of slack, for draws that reach just past the edge of the image with bilinear filtering.
+static constexpr int SHADOW_COVER_SLACK = 2;
+
+void TextureReplacer::ShadowRegion::Merge(const ShadowRegion &o) {
+	if (o.Empty()) {
+		return;
+	}
+	if (Empty()) {
+		*this = o;
+		return;
+	}
+	const int right = std::max(Right(), o.Right());
+	const int bottom = std::max(Bottom(), o.Bottom());
+	x = std::min(x, o.x);
+	y = std::min(y, o.y);
+	w = (u16)(right - x);
+	h = (u16)(bottom - y);
+}
+
+TextureReplacer::ShadowRegion TextureReplacer::FullRegion(int w, int h) {
 	ShadowRegion region;
 	region.w = (u16)w;
 	region.h = (u16)h;
-	if (!bounds.known || bounds.maxU == 0 || bounds.maxV == 0) {
-		return region;
-	}
-
-	// Beyond the edge the texture wraps or clamps, which can show any part of it.
-	int rw = bounds.maxU > w ? w : bounds.maxU;
-	int rh = bounds.maxV > h ? h : bounds.maxV;
-	if (shadowRegionAlign_ > 1) {
-		rw = std::min(w, (rw + shadowRegionAlign_ - 1) / shadowRegionAlign_ * shadowRegionAlign_);
-		rh = std::min(h, (rh + shadowRegionAlign_ - 1) / shadowRegionAlign_ * shadowRegionAlign_);
-	}
-	region.w = (u16)std::max(rw, 1);
-	region.h = (u16)std::max(rh, 1);
 	return region;
 }
 
-// Swizzled and DXT textures are stored in blocks, so only whole rows of blocks can be left out.
-static void AdjustShadowRegionForLayout(u16 *rw, u16 *rh, int w, int h, bool swizzled, GETextureFormat fmt) {
+TextureReplacer::ShadowRegion TextureReplacer::NormalizeShadowRegion(const ShadowBounds &bounds, int w, int h, bool swizzled, GETextureFormat fmt) const {
+	if (!bounds.known || bounds.maxU < bounds.minU || bounds.maxV < bounds.minV) {
+		return FullRegion(w, h);
+	}
+
+	int x0 = bounds.minU;
+	int y0 = bounds.minV;
+	int x1 = std::max((int)bounds.maxU, x0 + 1);
+	int y1 = std::max((int)bounds.maxV, y0 + 1);
+	// Beyond the edge the texture wraps or clamps, which can show any part of it.
+	if (x1 > w || x0 >= w) {
+		x0 = 0;
+		x1 = w;
+	}
+	if (y1 > h || y0 >= h) {
+		y0 = 0;
+		y1 = h;
+	}
+
+	const int align = shadowRegionAlign_;
+	if (align > 1) {
+		x0 = x0 / align * align;
+		y0 = y0 / align * align;
+		x1 = std::min(w, (x1 + align - 1) / align * align);
+		y1 = std::min(h, (y1 + align - 1) / align * align);
+	}
+
+	// Swizzled and DXT textures are stored in blocks, so only whole rows of blocks can be left out.
 	if (fmt == GE_TFMT_DXT1 || fmt == GE_TFMT_DXT3 || fmt == GE_TFMT_DXT5) {
-		*rw = (u16)w;
-		*rh = (u16)std::min(h, (*rh + 3) & ~3);
+		x0 = 0;
+		x1 = w;
+		y0 &= ~3;
+		y1 = std::min(h, (y1 + 3) & ~3);
 	} else if (swizzled) {
 		// Blocks are 16 bytes wide and 8 rows tall.
-		*rw = (u16)w;
-		*rh = (u16)std::min(h, (*rh + 7) & ~7);
+		x0 = 0;
+		x1 = w;
+		y0 &= ~7;
+		y1 = std::min(h, (y1 + 7) & ~7);
+	} else if (textureBitsPerPixel[fmt] < 8) {
+		// Two texels per byte.
+		x0 &= ~1;
+		x1 = std::min(w, (x1 + 1) & ~1);
 	}
+
+	ShadowRegion region;
+	region.x = (u16)x0;
+	region.y = (u16)y0;
+	region.w = (u16)(x1 - x0);
+	region.h = (u16)(y1 - y0);
+	return region;
+}
+
+u32 TextureReplacer::HashShadowRegion(const u8 *base, u32 availableBytes, int bufw, const ShadowRegion &region, GETextureFormat fmt) {
+	// A region from (0,0) hashes the same as a hash range of its size.
+	const u64 offset = ((u64)textureBitsPerPixel[fmt] * ((u64)region.y * bufw + region.x)) / 8;
+	if (offset >= availableBytes) {
+		return 0;
+	}
+	return HashTextureData(base + offset, availableBytes - (u32)offset, bufw, region.w, region.h, fmt);
 }
 
 void TextureReplacer::AddShadowRegion(ShadowSlot &slot, ShadowRegion region) {
@@ -1410,7 +1514,10 @@ void TextureReplacer::AddShadowRegion(ShadowSlot &slot, ShadowRegion region) {
 		if (a.Area() != b.Area()) {
 			return a.Area() > b.Area();
 		}
-		return a.h > b.h;
+		if (a.y != b.y) {
+			return a.y < b.y;
+		}
+		return a.x < b.x;
 	});
 }
 
@@ -1450,26 +1557,38 @@ std::unordered_map<ReplacementCacheKey, TextureReplacer::ShadowVariant>::iterato
 	return shadowVariants_.find(key);
 }
 
-u32 TextureReplacer::ComputeShadowHash(const ShadowHashParams &p, u16 *regionW, u16 *regionH) {
+u32 TextureReplacer::ComputeShadowHash(const ShadowHashParams &p, u16 *extentW, u16 *extentH) {
 	_dbg_assert_(ShadowEnabled());
 
 	const u8 *checkp = Memory::GetPointerUnchecked(p.addr);
 	const u32 available = Memory::MaxSizeAtAddress(p.addr);
+	const ShadowRegion full = FullRegion(p.w, p.h);
 
-	ShadowRegion seen = NormalizeShadowRegion(p.seen, p.w, p.h);
-	AdjustShadowRegionForLayout(&seen.w, &seen.h, p.w, p.h, p.swizzled, p.fmt);
-
-	ShadowSlot &slot = shadowSlots_[ShadowSlotKey(p.addr, p.w, p.h)];
-	if (!p.seen.known) {
-		slot.unbounded = true;
-	} else {
-		slot.learned.w = std::max(slot.learned.w, seen.w);
-		slot.learned.h = std::max(slot.learned.h, seen.h);
+	// What draws of this texture sampled, under its previous key and now.
+	bool unbounded = false;
+	ShadowRegion seen;
+	if (p.oldHash != 0) {
+		auto old = shadowKeys_.find(ReplacementCacheKey(p.cachekey, p.oldHash));
+		if (old != shadowKeys_.end()) {
+			unbounded = old->second.unbounded;
+			seen = old->second.seen;
+		}
+	}
+	if (p.current) {
+		if (!p.current->known) {
+			unbounded = true;
+		} else {
+			seen.Merge(NormalizeShadowRegion(*p.current, p.w, p.h, p.swizzled, p.fmt));
+		}
 	}
 
-	ShadowRegion full;
-	full.w = (u16)p.w;
-	full.h = (u16)p.h;
+	ShadowSlot &slot = shadowSlots_[ShadowSlotKey(p.addr, p.w, p.h)];
+	if (unbounded) {
+		slot.unbounded = true;
+	} else {
+		slot.learned.Merge(seen);
+	}
+	const bool seenKnown = !unbounded && !seen.Empty();
 
 	// Try the regions that dumps of this texture were made with, largest first. The whole texture is always
 	// one of them, since that's what dumps of contents drawn without known UVs use. A region has to cover what
@@ -1479,66 +1598,100 @@ u32 TextureReplacer::ComputeShadowHash(const ShadowHashParams &p, u16 *regionW, 
 		// Nothing is bigger than the whole texture.
 		candidates.insert(candidates.begin(), full);
 	}
+	ShadowRegion chosen;
+	u32 hash = 0;
+	bool found = false;
 	for (const ShadowRegion &region : candidates) {
-		// A texel or two of slack, for draws that reach just past the edge of the image with bilinear filtering.
-		constexpr int slack = 2;
-		if (p.seen.known && (region.w + slack < seen.w || region.h + slack < seen.h)) {
+		if (seenKnown && !region.Covers(seen, SHADOW_COVER_SLACK)) {
 			continue;
 		}
-		const u32 hash = HashTextureData(checkp, available, p.bufw, region.w, region.h, p.fmt);
+		hash = HashShadowRegion(checkp, available, p.bufw, region, p.fmt);
 		if (ShadowKeyKnown(NamingKey(p.cachekey, hash))) {
-			*regionW = region.w;
-			*regionH = region.h;
-			return hash;
+			chosen = region;
+			found = true;
+			break;
 		}
 	}
 
-	// Nothing was made for this content yet. Key it by everything drawn from this texture so far, so data
-	// outside that doesn't change the key. The dump picks its final region when it's written.
-	ShadowRegion provisional = full;
-	if (!slot.unbounded && slot.learned.w != 0 && slot.learned.h != 0) {
-		provisional = slot.learned;
+	if (!found) {
+		// Nothing was made for this content yet. Key it by everything drawn from this texture so far, so data
+		// outside that doesn't change the key. The dump picks its final region when it's written.
+		chosen = full;
+		if (!slot.unbounded && !slot.learned.Empty()) {
+			chosen = slot.learned;
+		}
+		hash = HashShadowRegion(checkp, available, p.bufw, chosen, p.fmt);
 	}
-	*regionW = provisional.w;
-	*regionH = provisional.h;
-	return HashTextureData(checkp, available, p.bufw, provisional.w, provisional.h, p.fmt);
+
+	ShadowKeyInfo &info = shadowKeys_[ReplacementCacheKey(p.cachekey, hash)];
+	info.unbounded = info.unbounded || unbounded;
+	info.seen.Merge(seen);
+	info.region = chosen;
+	info.lastUsed = shadowNow_;
+
+	// The replacement is placed from (0,0), so it reaches to the bottom right of the region.
+	*extentW = (u16)chosen.Right();
+	*extentH = (u16)chosen.Bottom();
+	return hash;
 }
 
-void TextureReplacer::NotifyShadowDraw(u64 cachekey, u32 hash, u32 addr, int w, int h, bool swizzled, GETextureFormat fmt, const ShadowBounds &bounds) {
-	ShadowRegion region = NormalizeShadowRegion(bounds, w, h);
-	AdjustShadowRegionForLayout(&region.w, &region.h, w, h, swizzled, fmt);
+bool TextureReplacer::NotifyShadowDraw(u64 cachekey, u32 hash, u32 addr, int w, int h, bool swizzled, GETextureFormat fmt, const ShadowBounds *bounds) {
+	const bool unknown = bounds && !bounds->known;
+	ShadowRegion region;
+	if (bounds && bounds->known) {
+		region = NormalizeShadowRegion(*bounds, w, h, swizzled, fmt);
+	}
 
 	ShadowSlot &slot = shadowSlots_[ShadowSlotKey(addr, w, h)];
-	if (!bounds.known) {
+	if (unknown) {
 		slot.unbounded = true;
 	} else {
-		slot.learned.w = std::max(slot.learned.w, region.w);
-		slot.learned.h = std::max(slot.learned.h, region.h);
+		slot.learned.Merge(region);
+	}
+
+	bool beyondRegion = false;
+	auto keyInfo = shadowKeys_.find(ReplacementCacheKey(cachekey, hash));
+	if (keyInfo != shadowKeys_.end()) {
+		ShadowKeyInfo &info = keyInfo->second;
+		info.lastUsed = shadowNow_;
+		if (unknown) {
+			if (!info.unbounded) {
+				info.unbounded = true;
+				beyondRegion = !(info.region == FullRegion(w, h));
+			}
+		} else if (!region.Empty() && !info.seen.Covers(region)) {
+			info.seen.Merge(region);
+			beyondRegion = !info.region.Covers(info.seen, SHADOW_COVER_SLACK);
+		}
 	}
 
 	if (!saveEnabled_) {
-		return;
+		return beyondRegion;
 	}
 	auto it = FindShadowVariant(cachekey, hash);
 	if (it == shadowVariants_.end()) {
-		return;
+		return beyondRegion;
 	}
 
 	ShadowVariant &variant = it->second;
-	variant.drawn = true;
-	if (!bounds.known) {
+	if (!variant.drawn) {
+		variant.drawn = true;
+		variant.firstDrawn = shadowNow_;
+	}
+	variant.lastDrawn = shadowNow_;
+	if (unknown) {
 		if (!variant.unbounded) {
 			variant.unbounded = true;
-			variant.lastChange = time_now_d();
+			variant.lastChange = shadowNow_;
 		}
-	} else if (!variant.seen.Covers(region)) {
-		variant.seen.w = std::max(variant.seen.w, region.w);
-		variant.seen.h = std::max(variant.seen.h, region.h);
-		variant.lastChange = time_now_d();
+	} else if (!region.Empty() && !variant.seen.Covers(region)) {
+		variant.seen.Merge(region);
+		variant.lastChange = shadowNow_;
 	}
+	return beyondRegion;
 }
 
-void TextureReplacer::NotifyShadowRekeyed(u64 cachekey, u32 oldHash, int w, int h, bool swizzled, GETextureFormat fmt, const ShadowBounds &seen) {
+void TextureReplacer::NotifyShadowRekeyed(u64 cachekey, u32 oldHash) {
 	if (!saveEnabled_) {
 		return;
 	}
@@ -1546,22 +1699,65 @@ void TextureReplacer::NotifyShadowRekeyed(u64 cachekey, u32 oldHash, int w, int 
 	ShadowRekey rekey;
 	rekey.valid = true;
 	rekey.cachekey = cachekey;
-	rekey.unbounded = !seen.known;
-	if (seen.known) {
-		rekey.seen = NormalizeShadowRegion(seen, w, h);
-		AdjustShadowRegionForLayout(&rekey.seen.w, &rekey.seen.h, w, h, swizzled, fmt);
+	auto keyInfo = shadowKeys_.find(ReplacementCacheKey(cachekey, oldHash));
+	if (keyInfo != shadowKeys_.end()) {
+		rekey.unbounded = keyInfo->second.unbounded;
+		rekey.seen = keyInfo->second.seen;
 	}
 
 	auto it = FindShadowVariant(cachekey, oldHash);
 	if (it != shadowVariants_.end()) {
 		const ShadowVariant &old = it->second;
 		rekey.unbounded = rekey.unbounded || old.unbounded;
-		rekey.seen.w = std::max(rekey.seen.w, old.seen.w);
-		rekey.seen.h = std::max(rekey.seen.h, old.seen.h);
+		rekey.seen.Merge(old.seen);
+		rekey.drawn = old.drawn;
+		rekey.firstDrawn = old.firstDrawn;
 		shadowMemoryUsed_ -= std::min(shadowMemoryUsed_, old.memoryUsed);
 		shadowVariants_.erase(it);
 	}
 	shadowRekey_ = rekey;
+}
+
+TextureReplacer::ShadowVariant *TextureReplacer::CreateShadowVariant(const ReplacedTextureDecodeInfo &replacedInfo, ReplacementCacheKey variantKey) {
+	if (!Memory::IsValidAddress(replacedInfo.addr)) {
+		return nullptr;
+	}
+
+	// Enough to hash the whole texture again, with any region.
+	const int texW = replacedInfo.texW;
+	const int texH = replacedInfo.texH;
+	const int rows = replacedInfo.swizzled ? ((texH + 7) & ~7) : texH;
+	u64 rawSize = ((u64)textureBitsPerPixel[replacedInfo.texFormat] * std::max((int)replacedInfo.bufw, texW) * rows) / 8;
+	rawSize = std::min(rawSize, (u64)Memory::MaxSizeAtAddress(replacedInfo.addr));
+	if (rawSize == 0) {
+		return nullptr;
+	}
+
+	ShadowVariant variant;
+	variant.cachekey = replacedInfo.cachekey;
+	variant.addr = replacedInfo.addr;
+	variant.bufw = replacedInfo.bufw;
+	variant.texW = texW;
+	variant.texH = texH;
+	variant.swizzled = replacedInfo.swizzled;
+	variant.fmt = replacedInfo.texFormat;
+	const u8 *src = Memory::GetPointerUnchecked(replacedInfo.addr);
+	variant.raw.assign(src, src + rawSize);
+	variant.created = time_now_d();
+	variant.lastChange = shadowNow_;
+	variant.memoryUsed = variant.raw.size();
+	// The rekey carry is matched on the texture's address, whatever its palette.
+	if (shadowRekey_.valid && (shadowRekey_.cachekey & ~0xFFFFFFFFULL) == (variant.cachekey & ~0xFFFFFFFFULL)) {
+		// The same content under its new key, see NotifyShadowRekeyed.
+		variant.unbounded = shadowRekey_.unbounded;
+		variant.seen = shadowRekey_.seen;
+		variant.drawn = shadowRekey_.drawn;
+		variant.firstDrawn = shadowRekey_.firstDrawn;
+		variant.lastDrawn = shadowNow_;
+	}
+	shadowRekey_.valid = false;
+	shadowMemoryUsed_ += variant.memoryUsed;
+	return &shadowVariants_.emplace(variantKey, std::move(variant)).first->second;
 }
 
 void TextureReplacer::CaptureShadowLevel(const ReplacedTextureDecodeInfo &replacedInfo, const void *data, int srcPitch, int level, int scaledW, int scaledH) {
@@ -1621,7 +1817,7 @@ void TextureReplacer::CaptureShadowIndexed(const ReplacedTextureDecodeInfo &repl
 	// One capture for all palettes: the indices and the hash don't depend on the CLUT.
 	ReplacementCacheKey variantKey(replacedInfo.cachekey, replacedInfo.hash);
 	variantKey.ZeroClutHash();
-	ReplacementCacheKey namingKey = NamingKey(variantKey.cachekey, variantKey.hash);
+	const ReplacementCacheKey namingKey = NamingKey(variantKey.cachekey, variantKey.hash);
 	auto saved = savedCache_.find(namingKey);
 	if (saved != savedCache_.end() && saved->second.levelSaved[0]) {
 		return;
@@ -1655,46 +1851,6 @@ void TextureReplacer::CaptureShadowIndexed(const ReplacedTextureDecodeInfo &repl
 	EnforceShadowBudget(variantKey);
 }
 
-TextureReplacer::ShadowVariant *TextureReplacer::CreateShadowVariant(const ReplacedTextureDecodeInfo &replacedInfo, ReplacementCacheKey variantKey) {
-	if (!Memory::IsValidAddress(replacedInfo.addr)) {
-		return nullptr;
-	}
-
-	// Enough to hash the whole texture again, with any region.
-	const int texW = replacedInfo.texW;
-	const int texH = replacedInfo.texH;
-	const int rows = replacedInfo.swizzled ? ((texH + 7) & ~7) : texH;
-	u64 rawSize = ((u64)textureBitsPerPixel[replacedInfo.texFormat] * std::max((int)replacedInfo.bufw, texW) * rows) / 8;
-	rawSize = std::min(rawSize, (u64)Memory::MaxSizeAtAddress(replacedInfo.addr));
-	if (rawSize == 0) {
-		return nullptr;
-	}
-
-	ShadowVariant variant;
-	variant.cachekey = replacedInfo.cachekey;
-	variant.addr = replacedInfo.addr;
-	variant.bufw = replacedInfo.bufw;
-	variant.texW = texW;
-	variant.texH = texH;
-	variant.swizzled = replacedInfo.swizzled;
-	variant.fmt = replacedInfo.texFormat;
-	const u8 *src = Memory::GetPointerUnchecked(replacedInfo.addr);
-	variant.raw.assign(src, src + rawSize);
-	variant.created = time_now_d();
-	variant.lastChange = variant.created;
-	variant.memoryUsed = variant.raw.size();
-	// The rekey carry is matched on the texture, whatever its palette.
-	if (shadowRekey_.valid && (shadowRekey_.cachekey & ~0xFFFFFFFFULL) == (variant.cachekey & ~0xFFFFFFFFULL)) {
-		// The same content under its new key, see NotifyShadowRekeyed.
-		variant.drawn = true;
-		variant.unbounded = shadowRekey_.unbounded;
-		variant.seen = shadowRekey_.seen;
-	}
-	shadowRekey_.valid = false;
-	shadowMemoryUsed_ += variant.memoryUsed;
-	return &shadowVariants_.emplace(variantKey, std::move(variant)).first->second;
-}
-
 void TextureReplacer::EnforceShadowBudget(ReplacementCacheKey keep) {
 	// Over the budget, the oldest ones are written now, with the region they have so far.
 	while (shadowMemoryUsed_ > shadowMemoryBudget_ && shadowVariants_.size() > 1) {
@@ -1722,13 +1878,17 @@ void TextureReplacer::CommitShadow(ShadowVariant &variant) {
 		return;
 	}
 
+	if (shadowMinVisibleSeconds_ > 0.0 && (!variant.drawn || variant.lastDrawn - variant.firstDrawn < shadowMinVisibleSeconds_)) {
+		// Replaced before it was shown for long, like each letter of text that's typed out.
+		DEBUG_LOG(Log::TexReplacement, "Shadow texture %08x %dx%d not dumped, it was only shown for %0.2fs", variant.addr, variant.texW, variant.texH, variant.lastDrawn - variant.firstDrawn);
+		return;
+	}
+
 	ShadowSlot &slot = shadowSlots_[ShadowSlotKey(variant.addr, variant.texW, variant.texH)];
 
-	ShadowRegion full;
-	full.w = (u16)variant.texW;
-	full.h = (u16)variant.texH;
+	const ShadowRegion full = FullRegion(variant.texW, variant.texH);
 	ShadowRegion region = full;
-	if (variant.drawn && !variant.unbounded && variant.seen.w != 0 && variant.seen.h != 0) {
+	if (variant.drawn && !variant.unbounded && !variant.seen.Empty()) {
 		region = variant.seen;
 	}
 
@@ -1744,7 +1904,7 @@ void TextureReplacer::CommitShadow(ShadowVariant &variant) {
 		region = best ? *best : full;
 	}
 
-	const u32 hash = HashTextureData(variant.raw.data(), (u32)variant.raw.size(), variant.bufw, region.w, region.h, variant.fmt);
+	const u32 hash = HashShadowRegion(variant.raw.data(), (u32)variant.raw.size(), variant.bufw, region, variant.fmt);
 	if (variant.indexed) {
 		CommitShadowIndexed(variant, region, hash);
 		return;
@@ -1776,9 +1936,9 @@ void TextureReplacer::CommitShadow(ShadowVariant &variant) {
 			break;
 		}
 
-		// The level is saved scaled, so the region is scaled by the same amount. ReplacedTexture undoes this.
-		const int saveW = std::clamp((int)((u64)region.w * src.w / variant.texW), 1, src.w);
-		const int saveH = std::clamp((int)((u64)region.h * src.h / variant.texH), 1, src.h);
+		// The image goes from (0,0) to the bottom right of the region, scaled like the level. ReplacedTexture undoes this.
+		const int saveW = std::clamp((int)((u64)region.Right() * src.w / variant.texW), 1, src.w);
+		const int saveH = std::clamp((int)((u64)region.Bottom() * src.h / variant.texH), 1, src.h);
 
 		constexpr int bpp = 4;
 		u8 *saveBuf = (u8 *)malloc((size_t)saveW * saveH * bpp);
@@ -1816,7 +1976,7 @@ void TextureReplacer::CommitShadow(ShadowVariant &variant) {
 	if (slot.regions.size() != numRegions) {
 		shadowRangesDirty_ = true;
 	}
-	INFO_LOG(Log::TexReplacement, "Shadow texture %08x %dx%d dumped with region %dx%d", variant.addr, variant.texW, variant.texH, region.w, region.h);
+	INFO_LOG(Log::TexReplacement, "Shadow texture %08x %dx%d dumped with region %d,%d %dx%d", variant.addr, variant.texW, variant.texH, region.x, region.y, region.w, region.h);
 }
 
 void TextureReplacer::CommitShadowIndexed(ShadowVariant &variant, ShadowRegion region, u32 hash) {
@@ -1843,9 +2003,9 @@ void TextureReplacer::CommitShadowIndexed(ShadowVariant &variant, ShadowRegion r
 		hashfile = HashName(namingKey, 0) + "_indexed.png";
 	}
 
-	// Indices aren't scaled, so the region is in texels.
-	const int saveW = std::clamp((int)region.w, 1, variant.texW);
-	const int saveH = std::clamp((int)region.h, 1, variant.texH);
+	// Indices aren't scaled, so this is in texels.
+	const int saveW = std::clamp(region.Right(), 1, variant.texW);
+	const int saveH = std::clamp(region.Bottom(), 1, variant.texH);
 	u8 *saveBuf = (u8 *)malloc((size_t)saveW * saveH);
 	if (!saveBuf) {
 		ERROR_LOG(Log::TexReplacement, "Failed to allocate %d bytes of memory for saving a texture", saveW * saveH);
@@ -1877,7 +2037,7 @@ void TextureReplacer::CommitShadowIndexed(ShadowVariant &variant, ShadowRegion r
 	if (slot.regions.size() != numRegions) {
 		shadowRangesDirty_ = true;
 	}
-	INFO_LOG(Log::TexReplacement, "Shadow texture %08x %dx%d dumped as indices with region %dx%d", variant.addr, variant.texW, variant.texH, region.w, region.h);
+	INFO_LOG(Log::TexReplacement, "Shadow texture %08x %dx%d dumped as indices with region %d,%d %dx%d", variant.addr, variant.texW, variant.texH, region.x, region.y, region.w, region.h);
 }
 
 void TextureReplacer::CommitAllShadows() {
@@ -1885,6 +2045,7 @@ void TextureReplacer::CommitAllShadows() {
 		CommitShadow(variant);
 	}
 	shadowVariants_.clear();
+	shadowKeys_.clear();
 	shadowMemoryUsed_ = 0;
 	if (shadowRangesDirty_) {
 		SaveShadowRanges();
@@ -1892,14 +2053,28 @@ void TextureReplacer::CommitAllShadows() {
 }
 
 void TextureReplacer::ShadowTick() {
-	if (!shadowEnabled_ || !saveEnabled_) {
+	if (!ShadowEnabled()) {
 		return;
 	}
 	const double now = time_now_d();
+	shadowNow_ = now;
 	if (now - shadowLastTick_ < 0.5) {
 		return;
 	}
 	shadowLastTick_ = now;
+
+	// What keys of contents that are long gone sampled isn't needed anymore.
+	for (auto it = shadowKeys_.begin(); it != shadowKeys_.end(); ) {
+		if (now - it->second.lastUsed > 60.0) {
+			it = shadowKeys_.erase(it);
+		} else {
+			++it;
+		}
+	}
+
+	if (!saveEnabled_) {
+		return;
+	}
 
 	for (auto it = shadowVariants_.begin(); it != shadowVariants_.end(); ) {
 		if (now - it->second.lastChange >= shadowSettleSeconds_) {
@@ -1930,16 +2105,24 @@ void TextureReplacer::SaveShadowRanges() {
 		}
 	}
 
+	auto regionString = [](const ShadowRegion &r) {
+		if (r.x == 0 && r.y == 0) {
+			return StringFromFormat("%d,%d", r.w, r.h);
+		}
+		return StringFromFormat("%d,%d,%d,%d", r.x, r.y, r.w, r.h);
+	};
+
 	std::string hashranges;
 	std::string shadowranges;
 	for (const auto &[key, slot] : sorted) {
 		const u32 addr = (u32)(key >> 32);
 		const int w = (int)((key >> 16) & 0xFFFF);
 		const int h = (int)(key & 0xFFFF);
+		const ShadowRegion full = FullRegion(w, h);
 		std::vector<ShadowRegion> regions;
 		bool hasFull = false;
 		for (const ShadowRegion &r : slot->regions) {
-			if (r.w == w && r.h == h) {
+			if (r == full) {
 				hasFull = true;
 			} else {
 				regions.push_back(r);
@@ -1950,15 +2133,15 @@ void TextureReplacer::SaveShadowRanges() {
 			continue;
 		}
 		const std::string slotName = StringFromFormat("0x%08x,%d,%d = ", addr, w, h);
-		if (regions.size() == 1 && !hasFull) {
-			hashranges += slotName + StringFromFormat("%d,%d\n", regions[0].w, regions[0].h);
+		if (regions.size() == 1 && !hasFull && regions[0].x == 0 && regions[0].y == 0) {
+			hashranges += slotName + regionString(regions[0]) + "\n";
 		} else {
 			std::string line = slotName;
 			for (size_t i = 0; i < regions.size(); i++) {
 				if (i != 0) {
 					line += "|";
 				}
-				line += StringFromFormat("%d,%d", regions[i].w, regions[i].h);
+				line += regionString(regions[i]);
 			}
 			shadowranges += line + "\n";
 		}
@@ -1974,6 +2157,165 @@ void TextureReplacer::SaveShadowRanges() {
 	fprintf(f, "# sections of textures.ini with these. Entries already in textures.ini are included.\n\n");
 	fprintf(f, "[hashranges]\n%s\n[shadowranges]\n%s", hashranges.c_str(), shadowranges.c_str());
 	fclose(f);
+}
+
+// Layered replacement.
+//
+// Some games draw text into a texture on the CPU, one letter at a time, over a background like a dialog box.
+// Every letter makes a new texture. Instead of replacing each, the background is replaced once: the texture
+// without text (as dumped) and an HD version of it are listed in [layered]. The texels where the current
+// contents differ from the original are the text (and its shadow), and are drawn over the HD image, scaled up.
+
+void TextureReplacer::ParseLayered(const std::string &key, const std::string &value) {
+	std::vector<std::string> keyParts;
+	SplitString(key, ',', keyParts, true);
+	std::vector<std::string> files;
+	SplitString(value, '|', files, true);
+	if (keyParts.size() != 3 || files.size() != 2 || files[0].empty() || files[1].empty()) {
+		ERROR_LOG(Log::TexReplacement, "Ignoring invalid layered %s = %s, expecting addr,w,h = original.png|hd.png", key.c_str(), value.c_str());
+		return;
+	}
+	if (!startsWith(keyParts[0], "0x") && !startsWith(keyParts[0], "0X")) {
+		keyParts[0] = "0x" + keyParts[0];
+	}
+	u32 addr;
+	u32 w;
+	u32 h;
+	if (!TryParse(keyParts[0], &addr) || !TryParse(keyParts[1], &w) || !TryParse(keyParts[2], &h) || w == 0 || h == 0 || w > 1024 || h > 1024) {
+		ERROR_LOG(Log::TexReplacement, "Ignoring invalid layered %s = %s, key format is 0x12345678,512,512", key.c_str(), value.c_str());
+		return;
+	}
+	if (HasParentDirComponent(files[0]) || HasParentDirComponent(files[1])) {
+		ERROR_LOG(Log::TexReplacement, "Ignoring layered %s with a parent dir component", key.c_str());
+		return;
+	}
+
+	LayeredSlot &slot = layered_[ShadowSlotKey(addr & 0x3FFFFFFF, w, h)];
+	slot.originalFile = files[0];
+	slot.hdFile = files[1];
+}
+
+bool TextureReplacer::IsLayered(u32 addr, int w, int h) const {
+	if (!replaceEnabled_ || layered_.empty()) {
+		return false;
+	}
+	auto it = layered_.find(ShadowSlotKey(addr & 0x3FFFFFFF, w, h));
+	return it != layered_.end() && !it->second.failed;
+}
+
+static bool LoadPNGFromVFS(VFSBackend *vfs, const std::string &filename, std::vector<u32> *pixels, int *w, int *h) {
+	if (!vfs) {
+		return false;
+	}
+	size_t size = 0;
+	uint8_t *data = vfs->ReadFile(filename, &size);
+	if (!data) {
+		return false;
+	}
+	unsigned char *image = nullptr;
+	const int result = pngLoadPtr(data, size, w, h, &image);
+	delete[] data;
+	if (result != 1 || !image) {
+		return false;
+	}
+	pixels->resize((size_t)*w * *h);
+	memcpy(pixels->data(), image, pixels->size() * sizeof(u32));
+	free(image);
+	return true;
+}
+
+bool TextureReplacer::LoadLayered(LayeredSlot &slot) {
+	slot.loaded = true;
+	int ow = 0;
+	int oh = 0;
+	int hw = 0;
+	int hh = 0;
+	if (!LoadPNGFromVFS(vfs_, slot.originalFile, &slot.original, &ow, &oh) || !LoadPNGFromVFS(vfs_, slot.hdFile, &slot.hd, &hw, &hh)) {
+		ERROR_LOG(Log::TexReplacement, "Layered: failed to load %s or %s", slot.originalFile.c_str(), slot.hdFile.c_str());
+		slot.failed = true;
+		return false;
+	}
+	const int scale = ow > 0 ? hw / ow : 0;
+	if (scale < 1 || scale > 16 || hw != ow * scale || hh != oh * scale) {
+		ERROR_LOG(Log::TexReplacement, "Layered: %s (%dx%d) must be %s (%dx%d) scaled by a whole number", slot.hdFile.c_str(), hw, hh, slot.originalFile.c_str(), ow, oh);
+		slot.failed = true;
+		return false;
+	}
+	slot.w = ow;
+	slot.h = oh;
+	slot.scale = scale;
+	return true;
+}
+
+ReplacedTexture *TextureReplacer::ComposeLayered(u32 addr, int w, int h, const u32 *pixels) {
+	auto it = layered_.find(ShadowSlotKey(addr & 0x3FFFFFFF, w, h));
+	if (it == layered_.end() || it->second.failed) {
+		return nullptr;
+	}
+	LayeredSlot &slot = it->second;
+	if (!slot.loaded && !LoadLayered(slot)) {
+		return nullptr;
+	}
+	if (slot.w > w || slot.h > h) {
+		ERROR_LOG(Log::TexReplacement, "Layered: %s (%dx%d) is bigger than the texture (%dx%d)", slot.originalFile.c_str(), slot.w, slot.h, w, h);
+		slot.failed = true;
+		return nullptr;
+	}
+
+	const int scale = slot.scale;
+	const int outW = slot.w * scale;
+	const int outH = slot.h * scale;
+
+	if (!slot.texture) {
+		// Made here rather than loaded, so it's ACTIVE from the start and never purged (it has no files to reload from).
+		ReplacementDesc desc{};
+		desc.w = w;
+		desc.h = h;
+		desc.newW = slot.w;
+		desc.newH = slot.h;
+		desc.cacheKey = ReplacementCacheKey((u64)(addr & 0x3FFFFFFF) << 32, 0);
+		desc.forceFiltering = (TextureFiltering)0;
+		desc.logId = slot.hdFile;
+		desc.basePath = basePath_;
+		desc.formatSupport = formatSupport_;
+		ReplacedTexture *texture = new ReplacedTexture(vfs_, desc);
+		texture->fmt = Draw::DataFormat::R8G8B8A8_UNORM;
+		ReplacedTextureLevel level;
+		level.w = outW;
+		level.h = outH;
+		level.fullW = (outW * w) / slot.w;
+		level.fullH = (outH * h) / slot.h;
+		level.fullDataSize = level.fullW * level.fullH * 4;
+		texture->levels_.push_back(level);
+		texture->data_.resize(1);
+		texture->data_[0].resize((size_t)outW * outH * 4);
+		texture->alphaStatus_ = TextureAlpha::Any;
+		texture->SetState(ReplacementState::ACTIVE);
+		slot.texture = texture;
+	}
+
+	ReplacedTexture *texture = slot.texture;
+	std::lock_guard<std::mutex> guard(texture->lock_);
+	u32 *out = (u32 *)texture->data_[0].data();
+	memcpy(out, slot.hd.data(), (size_t)outW * outH * sizeof(u32));
+	for (int y = 0; y < slot.h; y++) {
+		const u32 *src = pixels + (size_t)y * w;
+		const u32 *orig = slot.original.data() + (size_t)y * slot.w;
+		for (int x = 0; x < slot.w; x++) {
+			if (src[x] == orig[x]) {
+				continue;
+			}
+			// Text: the game's texel, scaled up.
+			const u32 color = src[x];
+			for (int sy = 0; sy < scale; sy++) {
+				u32 *row = out + (size_t)(y * scale + sy) * outW + x * scale;
+				for (int sx = 0; sx < scale; sx++) {
+					row[sx] = color;
+				}
+			}
+		}
+	}
+	return texture;
 }
 
 bool TextureReplacer::IniExists(const std::string &gameID) {
@@ -2069,7 +2411,14 @@ saveIndexed = false      # When dumping, textures with a palette (CLUT4/CLUT8) c
 # copy its sections here. A texture whose contents were drawn with several regions gets a shadowrange,
 # and the largest region that has a replacement wins:
 #[shadowranges]
-#0x08b31020,512,512 = 480,272|480,136
+#0x08b31020,512,512 = 480,272|0,16,480,120
+# A region is w,h from the top left, or x,y,w,h.
+
+# Experimental: for a texture the game draws text into (one letter at a time, over a background like a
+# dialog box), list the texture without text as dumped, and an HD version of it scaled by a whole number.
+# The text is then drawn over the HD image, for any text. See docs/shadow-textures.md.
+#[layered]
+#0x08b31020,256,128 = box_original.png|box_hd.png
 
 )", gameID.c_str(), INI_FILENAME.c_str());
 		fclose(f);

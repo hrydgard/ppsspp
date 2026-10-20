@@ -494,25 +494,36 @@ void TextureCacheCommon::UpdateCurrentClut(GEPaletteFormat clutFormat, u32 clutB
 	clutLastFormat_ = gstate.clutformat;
 }
 
+// What the current draw samples, from the vertices decoded before ApplyTexture. False if it tells nothing.
+static bool GetShadowDrawBounds(ShadowBounds *bounds) {
+	if (!gstate.isModeThrough()) {
+		// Texture matrix, UV scale and UV generation: no telling what's sampled.
+		bounds->known = false;
+		return true;
+	}
+	const KnownVertexBounds &vb = gstate_c.vertBounds;
+	if (vb.maxU < vb.minU || vb.maxV < vb.minV || vb.maxU == 0) {
+		// The UVs came in a format that doesn't record bounds.
+		return false;
+	}
+	bounds->known = true;
+	bounds->minU = vb.minU;
+	bounds->minV = vb.minV;
+	bounds->maxU = vb.maxU;
+	bounds->maxV = vb.maxV;
+	return true;
+}
+
 // The hash in the replacement key. With shadow textures, the replacer picks which part of the texture it
 // covers, from what draws sampled so far.
-u32 TextureCacheCommon::ComputeReplaceHash(TexCacheEntry *entry, int w, int h, bool swizzled, u16 *regionW, u16 *regionH) {
+u32 TextureCacheCommon::ComputeReplaceHash(TexCacheEntry *entry, int w, int h, bool swizzled, u32 oldHash, u16 *regionW, u16 *regionH) {
 	*regionW = 0;
 	*regionH = 0;
 	if (!replacer_.ShadowEnabled() || (entry->status & (TexStatus::VIDEO | TexStatus::IS_PPGE_ATLAS))) {
 		return entry->fullhash;
 	}
 
-	// The vertices of the current draw are decoded before ApplyTexture, so their bounds count too.
-	const KnownVertexBounds &bounds = gstate_c.vertBounds;
-	if (!gstate.isModeThrough()) {
-		// Texture matrix, UV scale and UV generation: no telling what's sampled.
-		entry->shadowSeenUnbounded = true;
-	} else if (bounds.maxU >= bounds.minU && bounds.maxV >= bounds.minV && bounds.maxU != 0) {
-		entry->shadowSeenU = std::max(entry->shadowSeenU, bounds.maxU);
-		entry->shadowSeenV = std::max(entry->shadowSeenV, bounds.maxV);
-	}
-
+	ShadowBounds current;
 	ShadowHashParams params;
 	params.addr = entry->addr;
 	params.bufw = entry->bufw;
@@ -521,9 +532,8 @@ u32 TextureCacheCommon::ComputeReplaceHash(TexCacheEntry *entry, int w, int h, b
 	params.swizzled = swizzled;
 	params.fmt = entry->format;
 	params.cachekey = entry->CacheKey();
-	params.seen.known = !entry->shadowSeenUnbounded && entry->shadowSeenU != 0 && entry->shadowSeenV != 0;
-	params.seen.maxU = entry->shadowSeenU;
-	params.seen.maxV = entry->shadowSeenV;
+	params.oldHash = oldHash;
+	params.current = GetShadowDrawBounds(&current) ? &current : nullptr;
 	return replacer_.ComputeShadowHash(params, regionW, regionH);
 }
 
@@ -533,49 +543,29 @@ void TextureCacheCommon::NoteShadowDrawSlow() {
 		return;
 	}
 
-	const bool through = gstate.isModeThrough();
-	const KnownVertexBounds &vb = gstate_c.vertBounds;
 	ShadowBounds bounds;
-	if (through) {
-		if (vb.maxU < vb.minU || vb.maxV < vb.minV || vb.maxU == 0) {
-			// The UVs came in a format that doesn't record bounds. Nothing to learn from this draw.
-			return;
-		}
-		bounds.known = true;
-		bounds.maxU = vb.maxU;
-		bounds.maxV = vb.maxV;
-	}
-
+	const bool hasBounds = GetShadowDrawBounds(&bounds);
 	const ShadowBinding &b = shadowBinding_;
-	replacer_.NotifyShadowDraw(b.cachekey, b.hash, b.addr, b.w, b.h, b.swizzled, b.fmt, bounds);
-
-	// The entry keeps its own record, which picks the region at its next rehash.
-	auto it = cache_.find(b.cachekey);
-	if (it == cache_.end() || !it->second || it->second->replaceHash != b.hash) {
+	if (!replacer_.NotifyShadowDraw(b.cachekey, b.hash, b.addr, b.w, b.h, b.swizzled, b.fmt, hasBounds ? &bounds : nullptr)) {
 		return;
 	}
-	TexCacheEntry *entry = it->second.get();
-	bool beyondRegion = false;
-	if (!through) {
-		if (!entry->shadowSeenUnbounded) {
-			entry->shadowSeenUnbounded = true;
-			beyondRegion = entry->shadowRegionW < b.w || entry->shadowRegionH < b.h;
-		}
-	} else {
-		if (bounds.maxU > entry->shadowSeenU || bounds.maxV > entry->shadowSeenV) {
-			entry->shadowSeenU = std::max(entry->shadowSeenU, bounds.maxU);
-			entry->shadowSeenV = std::max(entry->shadowSeenV, bounds.maxV);
-			// Past the edge it wraps, which doesn't need more than the whole texture.
-			const int seenU = std::min((int)entry->shadowSeenU, (int)b.w);
-			const int seenV = std::min((int)entry->shadowSeenV, (int)b.h);
-			beyondRegion = seenU > entry->shadowRegionW || seenV > entry->shadowRegionH;
-		}
-	}
-	if (beyondRegion && entry->shadowRegionW != 0) {
-		// The replacement (or dump) for this key doesn't cover what's drawn now. Look again at the next draw.
-		entry->status |= TexStatus::HASH_RECHECK;
+
+	// The replacement (or dump) for this key doesn't cover what's drawn now. Look again at the next draw.
+	auto it = cache_.find(b.cachekey);
+	if (it != cache_.end() && it->second && it->second->replaceHash == b.hash) {
+		it->second->status |= TexStatus::HASH_RECHECK;
 		gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 	}
+}
+
+ReplacedTexture *TextureCacheCommon::ComposeLayeredReplacement(TexCacheEntry *entry, int w, int h) {
+	if (!Memory::IsValidTextureAddress(entry->addr)) {
+		return nullptr;
+	}
+	// The same colors as a dump of it, to compare with the original image.
+	std::vector<u32> pixels((size_t)w * h);
+	DecodeTextureLevel((u8 *)pixels.data(), w * (int)sizeof(u32), entry->format, gstate.getClutPaletteFormat(), entry->addr, 0, entry->bufw, TexDecodeFlags::EXPAND32);
+	return replacer_.ComposeLayered(entry->addr, w, h, pixels.data());
 }
 
 // TODO: This should use information from the through mode bbox check.
@@ -845,7 +835,7 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 				u16 newRegionW = entry->shadowRegionW;
 				u16 newRegionH = entry->shadowRegionH;
 				if (!skipHash && newFullHash == entry->fullhash && replacer_.ShadowEnabled()) {
-					newReplaceHash = ComputeReplaceHash(entry, w, h, swizzled, &newRegionW, &newRegionH);
+					newReplaceHash = ComputeReplaceHash(entry, w, h, swizzled, entry->replaceHash, &newRegionW, &newRegionH);
 				}
 				if (!skipHash && newFullHash == entry->fullhash && (newReplaceHash != entry->replaceHash || newRegionW != entry->shadowRegionW || newRegionH != entry->shadowRegionH)) {
 					// Only the replacement key moved: draws sample more than its region now, or a dump of this
@@ -854,14 +844,8 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 					DEBUG_LOG(Log::TexReplacement, "%08x: Shadow key changed from %08x (%dx%d) to %08x (%dx%d), rebuilding", texaddr, entry->replaceHash, entry->shadowRegionW, entry->shadowRegionH, newReplaceHash, newRegionW, newRegionH);
 					shadowCarry_.valid = true;
 					shadowCarry_.cachekey = cachekey;
-					shadowCarry_.seenU = entry->shadowSeenU;
-					shadowCarry_.seenV = entry->shadowSeenV;
-					shadowCarry_.unbounded = entry->shadowSeenUnbounded;
-					ShadowBounds seen;
-					seen.known = !entry->shadowSeenUnbounded && entry->shadowSeenU != 0 && entry->shadowSeenV != 0;
-					seen.maxU = entry->shadowSeenU;
-					seen.maxV = entry->shadowSeenV;
-					replacer_.NotifyShadowRekeyed(cachekey, entry->replaceHash, w, h, swizzled, entry->format, seen);
+					shadowCarry_.oldHash = entry->replaceHash;
+					replacer_.NotifyShadowRekeyed(cachekey, entry->replaceHash);
 					ReleaseTexture(entry, true);
 					cache_.erase(entryIter);
 					entryIter = cache_.end();
@@ -1077,15 +1061,14 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 		WaitForDepthWrites(entry->addr, (textureBitsPerPixel[entry->format] * entry->bufw * h) / 8);
 		entry->fullhash = ComputeTextureHash(replacer_, entry->addr, entry->bufw, w, h, swizzled, entry);
 	}
+	u32 oldReplaceHash = 0;
 	if (shadowCarry_.valid) {
 		if (shadowCarry_.cachekey == cachekey) {
-			entry->shadowSeenU = shadowCarry_.seenU;
-			entry->shadowSeenV = shadowCarry_.seenV;
-			entry->shadowSeenUnbounded = shadowCarry_.unbounded;
+			oldReplaceHash = shadowCarry_.oldHash;
 		}
 		shadowCarry_.valid = false;
 	}
-	entry->replaceHash = ComputeReplaceHash(entry, w, h, swizzled, &entry->shadowRegionW, &entry->shadowRegionH);
+	entry->replaceHash = ComputeReplaceHash(entry, w, h, swizzled, oldReplaceHash, &entry->shadowRegionW, &entry->shadowRegionH);
 
 	VERBOSE_LOG(Log::TexCache, "%08x: Creating new texture, hash %08x (maxSeenV=%d), w: %d h: %d, creating", texaddr, entry->fullhash, entry->maxSeenV, w, h);
 
@@ -1942,6 +1925,10 @@ ReplacedTexture *TextureCacheCommon::FindReplacement(TexCacheEntry *entry, int *
 	double replaceStart = time_now_d();
 	ReplacementCacheKey cacheKey(entry->CacheKey(), entry->replaceHash);
 	ReplacedTexture *replaced = replacer_.FindReplacement(cacheKey, *w, *h, entry->shadowRegionW, entry->shadowRegionH);
+	if (!replaced && replacer_.IsLayered(entry->addr, *w, *h)) {
+		// No replacement for these contents of their own, so they go over the layered HD image.
+		replaced = ComposeLayeredReplacement(entry, *w, *h);
+	}
 	replacementTimeThisFrame_ += time_now_d() - replaceStart;
 	if (!replaced) {
 		// TODO: Remove the flag here?

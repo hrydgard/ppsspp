@@ -181,8 +181,7 @@ struct TexCacheEntry {
 	u16 dim;
 	u16 bufw;
 	u16 maxSeenV;
-	// The shadow fields are spread out to fill padding, see the static_assert below.
-	// The region of the texture replaceHash covers (shadow textures only).
+	// The part of the texture from (0,0) the replacement covers (shadow textures only). Placed to fill padding.
 	u16 shadowRegionW;
 	u32 fullhash;
 	u32 cluthash;
@@ -190,8 +189,6 @@ struct TexCacheEntry {
 	// shadowRegionW x shadowRegionH, and fullhash is just for noticing changes.
 	u32 replaceHash;
 	u16 shadowRegionH;
-	// What draws sampled from this texture (shadow textures only, in through mode), with shadowSeenV below.
-	u16 shadowSeenU;
 	union {
 		GLRTexture *textureName;
 		void *texturePtr;
@@ -205,8 +202,6 @@ struct TexCacheEntry {
 	int lastSyncDomain;
 	// Bytes of host memory the texture takes, set when it's built. See EstimateTexMemoryUsage.
 	u32 hostMemorySize = 0;
-	u16 shadowSeenV;
-	bool shadowSeenUnbounded;
 
 	TextureAlpha GetAlphaStatus() const {
 		return (status & TexStatus::ALPHA_SOLID) ? TextureAlpha::Solid : TextureAlpha::Any;
@@ -471,8 +466,10 @@ protected:
 	SamplerCacheKey GetSamplingParams(int maxLevel, const TexCacheEntry *entry, bool flatZ, bool pixelMapped);
 
 	void UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode);
-	u32 ComputeReplaceHash(TexCacheEntry *entry, int w, int h, bool swizzled, u16 *regionW, u16 *regionH);
+	u32 ComputeReplaceHash(TexCacheEntry *entry, int w, int h, bool swizzled, u32 oldHash, u16 *regionW, u16 *regionH);
 	void NoteShadowDrawSlow();
+	// The contents of a [layered] texture, composed over its HD image.
+	ReplacedTexture *ComposeLayeredReplacement(TexCacheEntry *entry, int w, int h);
 
 	bool GetFramebufferTextureDebug(const VirtualFramebuffer *vfb, RasterChannel channel, GPUDebugBuffer &buffer);
 
@@ -500,13 +497,12 @@ protected:
 		GETextureFormat fmt = GE_TFMT_5650;
 	};
 	ShadowBinding shadowBinding_;
-	// What draws sampled from an entry that's rebuilt because only its replacement key moved.
+	// The old key of an entry that's rebuilt because only its replacement key moved, so what its draws
+	// sampled carries over.
 	struct ShadowCarry {
 		bool valid = false;
-		bool unbounded = false;
 		u64 cachekey = 0;
-		u16 seenU = 0;
-		u16 seenV = 0;
+		u32 oldHash = 0;
 	};
 	ShadowCarry shadowCarry_;
 	FramebufferManagerCommon *framebufferManager_;
