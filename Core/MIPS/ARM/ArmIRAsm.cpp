@@ -111,7 +111,7 @@ void ArmJitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	VPUSH(D8, 8);
 
 	// Fixed registers, these are always kept when in Jit context.
-	MOVP2R(MEMBASEREG, Memory::base);
+	MOVP2R(MEMBASEREG, mipsState->space->base);
 	MOVP2R(CTXREG, mipsState);
 
 	LoadStaticRegisters();
@@ -157,7 +157,7 @@ void ArmJitBackend::GenerateFixedCode(MIPSState *mipsState) {
 			static_assert(Memory::BLOCK_SHADOW_ENTRY_MASK == 0x0FFFFFFC, "BICs below assume the 32-bit shadow mask");
 			BIC(SCRATCH1, SCRATCH1, Operand2(0xF0, 4));   // &= 0x0FFFFFFF. Rotation is to the right, in 2-bit increments.
 			BIC(SCRATCH1, SCRATCH1, Operand2(3));
-			MOVP2R(SCRATCH2, Memory::blockShadow);
+			MOVP2R(SCRATCH2, mipsState->space->blockShadow);
 			hooks_.dispatchFetch = GetCodePtr();
 			LDR(SCRATCH1, SCRATCH2, SCRATCH1);
 			// The entry is the block's offset into the code space, or 0 for none.

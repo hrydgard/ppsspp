@@ -123,7 +123,7 @@ void Arm64IRRegCache::EmitLoadStaticRegisters() {
 			emit_->LDR(INDEX_UNSIGNED, FromNativeReg(allocs[i].nr), CTXREG, offset);
 			if (allocs[i].pointerified && jo_->enablePointerify) {
 				ARM64Reg r64 = FromNativeReg64(allocs[i].nr);
-				uint32_t membaseHigh = (uint32_t)((uint64_t)Memory::base >> 32);
+				uint32_t membaseHigh = (uint32_t)((uint64_t)membase_ >> 32);
 				emit_->MOVK(r64, membaseHigh & 0xFFFF, SHIFT_32);
 				if (membaseHigh & 0xFFFF0000)
 					emit_->MOVK(r64, membaseHigh >> 16, SHIFT_48);
@@ -347,7 +347,7 @@ void Arm64IRRegCache::AdjustNativeRegAsPtr(IRNativeReg nreg, bool state) {
 #endif
 			emit_->ADD(r, r, MEMBASEREG);
 		} else {
-			uint32_t membaseHigh = (uint32_t)((uint64_t)Memory::base >> 32);
+			uint32_t membaseHigh = (uint32_t)((uint64_t)membase_ >> 32);
 			emit_->MOVK(r, membaseHigh & 0xFFFF, SHIFT_32);
 			if (membaseHigh & 0xFFFF0000)
 				emit_->MOVK(r, membaseHigh >> 16, SHIFT_48);

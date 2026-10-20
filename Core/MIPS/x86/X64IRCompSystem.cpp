@@ -400,7 +400,7 @@ void X64JitBackend::CompIR_ValidateAddress(IRInst inst) {
 	if (regs_.IsGPRMappedAsPointer(inst.src1)) {
 		LEA(PTRBITS, SCRATCH1, MDisp(regs_.RXPtr(inst.src1), inst.constant));
 #if defined(MASKED_PSP_MEMORY)
-		SUB(PTRBITS, R(SCRATCH1), ImmPtr(Memory::base));
+		SUB(PTRBITS, R(SCRATCH1), ImmPtr(mips_->space->base));
 #else
 		SUB(PTRBITS, R(SCRATCH1), R(MEMBASEREG));
 #endif

@@ -392,14 +392,14 @@ void X64IRRegCache::AdjustNativeRegAsPtr(IRNativeReg nreg, bool state) {
 		// This destroys the value...
 		_dbg_assert_(!nr[nreg].isDirty);
 		emit_->AND(PTRBITS, ::R(r), Imm32(Memory::MEMVIEW32_MASK));
-		emit_->ADD(PTRBITS, ::R(r), ImmPtr(Memory::base));
+		emit_->ADD(PTRBITS, ::R(r), ImmPtr(membase_));
 #else
 		emit_->ADD(PTRBITS, ::R(r), ::R(MEMBASEREG));
 #endif
 	} else {
 #if defined(MASKED_PSP_MEMORY)
 		_dbg_assert_(!nr[nreg].isDirty);
-		emit_->SUB(PTRBITS, ::R(r), ImmPtr(Memory::base));
+		emit_->SUB(PTRBITS, ::R(r), ImmPtr(membase_));
 #else
 		emit_->SUB(PTRBITS, ::R(r), ::R(MEMBASEREG));
 #endif

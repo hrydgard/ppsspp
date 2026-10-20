@@ -64,7 +64,7 @@ Gen::OpArg X64JitBackend::PrepareSrc1Address(IRInst inst) {
 #if PPSSPP_ARCH(AMD64)
 		addrArg = MDisp(MEMBASEREG, disp & 0x7FFFFFFF);
 #else
-		addrArg = M(Memory::base + disp);
+		addrArg = M(mips_->space->base + disp);
 #endif
 	} else if ((jo.cachePointers || src1IsPointer) && !readsFromSrc1 && (!clobbersSrc1 || src1IsPointer)) {
 		X64Reg src1 = regs_.MapGPRAsPointer(inst.src1);
@@ -74,12 +74,12 @@ Gen::OpArg X64JitBackend::PrepareSrc1Address(IRInst inst) {
 #ifdef MASKED_PSP_MEMORY
 		LEA(PTRBITS, SCRATCH1, MDisp(regs_.RX(inst.src1), disp));
 		AND(PTRBITS, R(SCRATCH1), Imm32(Memory::MEMVIEW32_MASK));
-		addrArg = MDisp(SCRATCH1, (intptr_t)Memory::base);
+		addrArg = MDisp(SCRATCH1, (intptr_t)mips_->space->base);
 #else
 #if PPSSPP_ARCH(AMD64)
 		addrArg = MComplex(MEMBASEREG, regs_.RX(inst.src1), SCALE_1, disp);
 #else
-		addrArg = MDisp(regs_.RX(inst.src1), Memory::base + disp);
+		addrArg = MDisp(regs_.RX(inst.src1), mips_->space->base + disp);
 #endif
 #endif
 	}

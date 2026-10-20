@@ -132,7 +132,7 @@ void RiscVJitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	_assert_(saveOffset <= saveSize);
 
 	// Fixed registers, these are always kept when in Jit context.
-	LI(MEMBASEREG, Memory::base, SCRATCH1);
+	LI(MEMBASEREG, mipsState->space->base, SCRATCH1);
 	LI(CTXREG, mipsState, SCRATCH1);
 	LI(JITBASEREG, GetBasePtr(), SCRATCH1);
 
@@ -182,7 +182,7 @@ void RiscVJitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	WriteDebugPC(SCRATCH1);
 	LI(SCRATCH2, (u32)Memory::BLOCK_SHADOW_ENTRY_MASK);
 	AND(SCRATCH1, SCRATCH1, SCRATCH2);
-	LI(SCRATCH2, Memory::blockShadow, X7);
+	LI(SCRATCH2, mipsState->space->blockShadow, X7);
 	ADD(SCRATCH1, SCRATCH1, SCRATCH2);
 	hooks_.dispatchFetch = GetCodePtr();
 	LWU(SCRATCH1, SCRATCH1, 0);
