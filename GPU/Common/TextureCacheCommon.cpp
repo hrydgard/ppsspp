@@ -3289,6 +3289,12 @@ static ReplacedTextureDecodeInfo MakeDecodeInfo(const TexCacheEntry *entry, bool
 	replacedInfo.isFinal = (entry->status & TexStatus::TO_SCALE) == 0;
 	replacedInfo.isVideo = isVideo;
 	replacedInfo.fmt = fmt;
+	// For shadow textures, which keep a copy of the texture's memory.
+	replacedInfo.bufw = entry->bufw;
+	replacedInfo.texW = 1 << (entry->dim & 0xF);
+	replacedInfo.texH = 1 << ((entry->dim >> 8) & 0xF);
+	replacedInfo.swizzled = gstate.isTextureSwizzled();
+	replacedInfo.texFormat = entry->format;
 	return replacedInfo;
 }
 

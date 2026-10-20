@@ -222,6 +222,11 @@ protected:
 		std::vector<u8> raw;
 		ShadowLevel levels[8];
 		int numLevels = 0;
+		// Saved as palette indices instead (saveIndexed), one for every palette, so the key has no CLUT hash.
+		bool indexed = false;
+		std::vector<u8> indices;  // Tightly packed, texW x texH.
+		u32 palette[256]{};
+		int numColors = 0;
 		// What draws sampled while this content was bound.
 		bool drawn = false;
 		bool unbounded = false;
@@ -246,6 +251,12 @@ protected:
 	bool ShadowKeyKnown(ReplacementCacheKey key);
 	ReplacementCacheKey NamingKey(u64 cachekey, u32 hash) const;
 	void CaptureShadowLevel(const ReplacedTextureDecodeInfo &replacedInfo, const void *data, int srcPitch, int level, int scaledW, int scaledH);
+	void CaptureShadowIndexed(const ReplacedTextureDecodeInfo &replacedInfo, const u8 *indices, int srcPitch, const u32 *palette, int numColors, int w, int h);
+	// Starts a capture, with the copy of the texture's memory. Returns nullptr if there's nothing to copy.
+	ShadowVariant *CreateShadowVariant(const ReplacedTextureDecodeInfo &replacedInfo, ReplacementCacheKey variantKey);
+	std::unordered_map<ReplacementCacheKey, ShadowVariant>::iterator FindShadowVariant(u64 cachekey, u32 hash);
+	void EnforceShadowBudget(ReplacementCacheKey keep);
+	void CommitShadowIndexed(ShadowVariant &variant, ShadowRegion region, u32 hash);
 	void CommitShadow(ShadowVariant &variant);
 	void CommitAllShadows();
 	void SaveShadowRanges();

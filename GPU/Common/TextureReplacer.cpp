@@ -420,11 +420,6 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 	shadowSettleSeconds_ = std::clamp(shadowSettleSeconds_, 0.0, 600.0);
 	shadowMaxRegions_ = std::clamp(shadowMaxRegions_, 1, 64);
 	shadowRegionAlign_ = std::clamp(shadowRegionAlign_, 1, 64);
-	if (shadowEnabled_ && saveIndexed_ != SaveIndexedMode::OFF) {
-		// Palette dumps are written right away, keyed by a region that may still grow.
-		WARN_LOG(Log::TexReplacement, "Texture Replacement: saveIndexed is not supported with shadowTextures, turning it off.");
-		saveIndexed_ = SaveIndexedMode::OFF;
-	}
 
 	int version = 0;
 	if (options->Get("version", &version) && version > VERSION) {
@@ -1133,6 +1128,12 @@ void TextureReplacer::NotifyIndexedTextureDecoded(const ReplacedTextureDecodeInf
 		return;
 	}
 
+	if (shadowEnabled_ && replacedInfo.texW != 0) {
+		// Held back like the others, see ShadowTick.
+		CaptureShadowIndexed(replacedInfo, indices, srcPitch, palette, numColors, w, h);
+		return;
+	}
+
 	const ReplacementCacheKey saveKey = IndexedSaveKey(replacedInfo);
 	if (savedCache_.find(saveKey) != savedCache_.end()) {
 		return;
@@ -1429,7 +1430,24 @@ bool TextureReplacer::ShadowKeyKnown(ReplacementCacheKey key) {
 		return true;
 	}
 	auto it = savedCache_.find(key);
+	if (it != savedCache_.end() && it->second.levelSaved[0]) {
+		return true;
+	}
+	// Palette dumps serve every palette, so they're saved without the CLUT hash.
+	key.ZeroClutHash();
+	it = savedCache_.find(key);
 	return it != savedCache_.end() && it->second.levelSaved[0];
+}
+
+std::unordered_map<ReplacementCacheKey, TextureReplacer::ShadowVariant>::iterator TextureReplacer::FindShadowVariant(u64 cachekey, u32 hash) {
+	ReplacementCacheKey key(cachekey, hash);
+	auto it = shadowVariants_.find(key);
+	if (it != shadowVariants_.end()) {
+		return it;
+	}
+	// A palette capture, shared by all palettes.
+	key.ZeroClutHash();
+	return shadowVariants_.find(key);
 }
 
 u32 TextureReplacer::ComputeShadowHash(const ShadowHashParams &p, u16 *regionW, u16 *regionH) {
@@ -1501,7 +1519,7 @@ void TextureReplacer::NotifyShadowDraw(u64 cachekey, u32 hash, u32 addr, int w, 
 	if (!saveEnabled_) {
 		return;
 	}
-	auto it = shadowVariants_.find(ReplacementCacheKey(cachekey, hash));
+	auto it = FindShadowVariant(cachekey, hash);
 	if (it == shadowVariants_.end()) {
 		return;
 	}
@@ -1534,7 +1552,7 @@ void TextureReplacer::NotifyShadowRekeyed(u64 cachekey, u32 oldHash, int w, int 
 		AdjustShadowRegionForLayout(&rekey.seen.w, &rekey.seen.h, w, h, swizzled, fmt);
 	}
 
-	auto it = shadowVariants_.find(ReplacementCacheKey(cachekey, oldHash));
+	auto it = FindShadowVariant(cachekey, oldHash);
 	if (it != shadowVariants_.end()) {
 		const ShadowVariant &old = it->second;
 		rekey.unbounded = rekey.unbounded || old.unbounded;
@@ -1568,45 +1586,10 @@ void TextureReplacer::CaptureShadowLevel(const ReplacedTextureDecodeInfo &replac
 	const ReplacementCacheKey variantKey(replacedInfo.cachekey, replacedInfo.hash);
 	auto it = shadowVariants_.find(variantKey);
 	if (it == shadowVariants_.end()) {
-		if (level != 0) {
+		if (level != 0 || !CreateShadowVariant(replacedInfo, variantKey)) {
 			return;
 		}
-		if (!Memory::IsValidAddress(replacedInfo.addr)) {
-			return;
-		}
-
-		// Enough to hash the whole texture again, with any region.
-		const int texW = replacedInfo.texW;
-		const int texH = replacedInfo.texH;
-		const int rows = replacedInfo.swizzled ? ((texH + 7) & ~7) : texH;
-		u64 rawSize = ((u64)textureBitsPerPixel[replacedInfo.texFormat] * std::max((int)replacedInfo.bufw, texW) * rows) / 8;
-		rawSize = std::min(rawSize, (u64)Memory::MaxSizeAtAddress(replacedInfo.addr));
-		if (rawSize == 0) {
-			return;
-		}
-
-		ShadowVariant variant;
-		variant.cachekey = replacedInfo.cachekey;
-		variant.addr = replacedInfo.addr;
-		variant.bufw = replacedInfo.bufw;
-		variant.texW = texW;
-		variant.texH = texH;
-		variant.swizzled = replacedInfo.swizzled;
-		variant.fmt = replacedInfo.texFormat;
-		const u8 *src = Memory::GetPointerUnchecked(replacedInfo.addr);
-		variant.raw.assign(src, src + rawSize);
-		variant.created = time_now_d();
-		variant.lastChange = variant.created;
-		variant.memoryUsed = variant.raw.size();
-		if (shadowRekey_.valid && shadowRekey_.cachekey == variant.cachekey) {
-			// The same content under its new key, see NotifyShadowRekeyed.
-			variant.drawn = true;
-			variant.unbounded = shadowRekey_.unbounded;
-			variant.seen = shadowRekey_.seen;
-		}
-		shadowRekey_.valid = false;
-		shadowMemoryUsed_ += variant.memoryUsed;
-		it = shadowVariants_.emplace(variantKey, std::move(variant)).first;
+		it = shadowVariants_.find(variantKey);
 	}
 
 	ShadowVariant &variant = it->second;
@@ -1626,11 +1609,98 @@ void TextureReplacer::CaptureShadowLevel(const ReplacedTextureDecodeInfo &replac
 	variant.memoryUsed += dst.rgba.size();
 	shadowMemoryUsed_ += dst.rgba.size();
 
+	EnforceShadowBudget(variantKey);
+}
+
+void TextureReplacer::CaptureShadowIndexed(const ReplacedTextureDecodeInfo &replacedInfo, const u8 *indices, int srcPitch, const u32 *palette, int numColors, int w, int h) {
+	if (w != replacedInfo.texW || h != replacedInfo.texH) {
+		// Not level 0 of the texture that was hashed (fake mipmaps), the copy wouldn't match.
+		return;
+	}
+
+	// One capture for all palettes: the indices and the hash don't depend on the CLUT.
+	ReplacementCacheKey variantKey(replacedInfo.cachekey, replacedInfo.hash);
+	variantKey.ZeroClutHash();
+	ReplacementCacheKey namingKey = NamingKey(variantKey.cachekey, variantKey.hash);
+	auto saved = savedCache_.find(namingKey);
+	if (saved != savedCache_.end() && saved->second.levelSaved[0]) {
+		return;
+	}
+	bool foundAlias = false;
+	bool ignored = false;
+	LookupHashFile(NamingKey(replacedInfo.cachekey, replacedInfo.hash), &foundAlias, &ignored);
+	if (ignored || foundAlias) {
+		return;
+	}
+	if (shadowVariants_.find(variantKey) != shadowVariants_.end()) {
+		// Already have the indices, a different palette changes nothing.
+		return;
+	}
+
+	ShadowVariant *variant = CreateShadowVariant(replacedInfo, variantKey);
+	if (!variant) {
+		return;
+	}
+	variant->indexed = true;
+	variant->cachekey = variantKey.cachekey;
+	variant->indices.resize((size_t)w * h);
+	for (int y = 0; y < h; y++) {
+		memcpy(variant->indices.data() + (size_t)y * w, indices + (size_t)y * srcPitch, w);
+	}
+	variant->numColors = numColors;
+	memcpy(variant->palette, palette, numColors * sizeof(u32));
+	variant->memoryUsed += variant->indices.size();
+	shadowMemoryUsed_ += variant->indices.size();
+
+	EnforceShadowBudget(variantKey);
+}
+
+TextureReplacer::ShadowVariant *TextureReplacer::CreateShadowVariant(const ReplacedTextureDecodeInfo &replacedInfo, ReplacementCacheKey variantKey) {
+	if (!Memory::IsValidAddress(replacedInfo.addr)) {
+		return nullptr;
+	}
+
+	// Enough to hash the whole texture again, with any region.
+	const int texW = replacedInfo.texW;
+	const int texH = replacedInfo.texH;
+	const int rows = replacedInfo.swizzled ? ((texH + 7) & ~7) : texH;
+	u64 rawSize = ((u64)textureBitsPerPixel[replacedInfo.texFormat] * std::max((int)replacedInfo.bufw, texW) * rows) / 8;
+	rawSize = std::min(rawSize, (u64)Memory::MaxSizeAtAddress(replacedInfo.addr));
+	if (rawSize == 0) {
+		return nullptr;
+	}
+
+	ShadowVariant variant;
+	variant.cachekey = replacedInfo.cachekey;
+	variant.addr = replacedInfo.addr;
+	variant.bufw = replacedInfo.bufw;
+	variant.texW = texW;
+	variant.texH = texH;
+	variant.swizzled = replacedInfo.swizzled;
+	variant.fmt = replacedInfo.texFormat;
+	const u8 *src = Memory::GetPointerUnchecked(replacedInfo.addr);
+	variant.raw.assign(src, src + rawSize);
+	variant.created = time_now_d();
+	variant.lastChange = variant.created;
+	variant.memoryUsed = variant.raw.size();
+	// The rekey carry is matched on the texture, whatever its palette.
+	if (shadowRekey_.valid && (shadowRekey_.cachekey & ~0xFFFFFFFFULL) == (variant.cachekey & ~0xFFFFFFFFULL)) {
+		// The same content under its new key, see NotifyShadowRekeyed.
+		variant.drawn = true;
+		variant.unbounded = shadowRekey_.unbounded;
+		variant.seen = shadowRekey_.seen;
+	}
+	shadowRekey_.valid = false;
+	shadowMemoryUsed_ += variant.memoryUsed;
+	return &shadowVariants_.emplace(variantKey, std::move(variant)).first->second;
+}
+
+void TextureReplacer::EnforceShadowBudget(ReplacementCacheKey keep) {
 	// Over the budget, the oldest ones are written now, with the region they have so far.
 	while (shadowMemoryUsed_ > shadowMemoryBudget_ && shadowVariants_.size() > 1) {
 		auto oldest = shadowVariants_.end();
 		for (auto iter = shadowVariants_.begin(); iter != shadowVariants_.end(); ++iter) {
-			if (iter->first == variantKey) {
+			if (iter->first == keep) {
 				continue;
 			}
 			if (oldest == shadowVariants_.end() || iter->second.created < oldest->second.created) {
@@ -1648,7 +1718,7 @@ void TextureReplacer::CaptureShadowLevel(const ReplacedTextureDecodeInfo &replac
 
 void TextureReplacer::CommitShadow(ShadowVariant &variant) {
 	shadowMemoryUsed_ -= std::min(shadowMemoryUsed_, variant.memoryUsed);
-	if (variant.numLevels == 0 || variant.levels[0].rgba.empty()) {
+	if (variant.indexed ? variant.indices.empty() : (variant.numLevels == 0 || variant.levels[0].rgba.empty())) {
 		return;
 	}
 
@@ -1675,6 +1745,10 @@ void TextureReplacer::CommitShadow(ShadowVariant &variant) {
 	}
 
 	const u32 hash = HashTextureData(variant.raw.data(), (u32)variant.raw.size(), variant.bufw, region.w, region.h, variant.fmt);
+	if (variant.indexed) {
+		CommitShadowIndexed(variant, region, hash);
+		return;
+	}
 	const ReplacementCacheKey namingKey = NamingKey(variant.cachekey, hash);
 
 	bool foundAlias = false;
@@ -1743,6 +1817,67 @@ void TextureReplacer::CommitShadow(ShadowVariant &variant) {
 		shadowRangesDirty_ = true;
 	}
 	INFO_LOG(Log::TexReplacement, "Shadow texture %08x %dx%d dumped with region %dx%d", variant.addr, variant.texW, variant.texH, region.w, region.h);
+}
+
+void TextureReplacer::CommitShadowIndexed(ShadowVariant &variant, ShadowRegion region, u32 hash) {
+	// variant.cachekey has no CLUT hash, the same as IndexedSaveKey.
+	const ReplacementCacheKey namingKey = NamingKey(variant.cachekey, hash);
+
+	bool foundAlias = false;
+	bool ignored = false;
+	std::string replacedLevelNames = LookupHashFile(namingKey, &foundAlias, &ignored);
+	if (ignored) {
+		return;
+	}
+	SavedTextureCacheData &saveData = savedCache_[namingKey];
+	if (saveData.levelSaved[0]) {
+		return;
+	}
+
+	std::string hashfile;
+	if (!replacedLevelNames.empty()) {
+		std::vector<std::string> names;
+		SplitString(replacedLevelNames, '|', names);
+		hashfile = names[0];
+	} else {
+		hashfile = HashName(namingKey, 0) + "_indexed.png";
+	}
+
+	// Indices aren't scaled, so the region is in texels.
+	const int saveW = std::clamp((int)region.w, 1, variant.texW);
+	const int saveH = std::clamp((int)region.h, 1, variant.texH);
+	u8 *saveBuf = (u8 *)malloc((size_t)saveW * saveH);
+	if (!saveBuf) {
+		ERROR_LOG(Log::TexReplacement, "Failed to allocate %d bytes of memory for saving a texture", saveW * saveH);
+		return;
+	}
+	for (int y = 0; y < saveH; y++) {
+		memcpy(saveBuf + (size_t)y * saveW, variant.indices.data() + (size_t)y * variant.texW, saveW);
+	}
+
+	SaveTextureTask *task = new SaveTextureTask(saveBuf);
+	task->filename = basePath_ / hashfile;
+	task->saveFilename = newTextureDir_ / hashfile;
+	task->w = saveW;
+	task->h = saveH;
+	task->replacedInfoHash = hash;
+	task->indexed = true;
+	task->numColors = variant.numColors;
+	memcpy(task->palette, variant.palette, variant.numColors * sizeof(u32));
+	g_threadManager.EnqueueTask(task);
+
+	saveData.levelW[0] = saveW;
+	saveData.levelH[0] = saveH;
+	saveData.levelSaved[0] = true;
+	saveData.lastTimeSaved = time_now_d();
+
+	ShadowSlot &slot = shadowSlots_[ShadowSlotKey(variant.addr, variant.texW, variant.texH)];
+	const size_t numRegions = slot.regions.size();
+	AddShadowRegion(slot, region);
+	if (slot.regions.size() != numRegions) {
+		shadowRangesDirty_ = true;
+	}
+	INFO_LOG(Log::TexReplacement, "Shadow texture %08x %dx%d dumped as indices with region %dx%d", variant.addr, variant.texW, variant.texH, region.w, region.h);
 }
 
 void TextureReplacer::CommitAllShadows() {

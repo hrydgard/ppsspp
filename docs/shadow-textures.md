@@ -49,7 +49,10 @@ All in `[options]`:
 | `shadowRegionAlign` | `1` | Rounds regions up to a multiple of this, so near-equal ones merge. Rounding can take in rows of other data, so leave it at 1 unless a texture gets many regions. |
 | `shadowMemoryMB` | `1024` | RAM for waiting dumps. Over it, the oldest are written early with the region they have. |
 
-`saveIndexed` is turned off with shadowTextures, since palette dumps are written right away.
+With `saveIndexed`, textures with a palette are held back the same way, as their indices. One capture serves
+every palette (the indices and the hash don't depend on it), so a sprite sheet drawn with many palettes, or
+with an animated one, is written once as `<hash>_indexed.png` with the CLUT hash zeroed. List it in
+`[indexed]` to replace it for all palettes.
 
 ## Limits
 
