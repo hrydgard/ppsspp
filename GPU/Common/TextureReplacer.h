@@ -66,6 +66,32 @@ struct ReplacedTextureDecodeInfo {
 	bool isVideo;
 	bool isFinal;
 	Draw::DataFormat fmt;
+	// Describes the level 0 texture in PSP memory, so shadow textures can snapshot it.
+	u16 bufw = 0;
+	u16 texW = 0;
+	u16 texH = 0;
+	bool swizzled = false;
+	GETextureFormat texFormat = GE_TFMT_5650;
+};
+
+// Area of a texture that draws sample, from (0,0). known = false means the whole texture.
+struct ShadowBounds {
+	bool known = false;
+	u16 maxU = 0;
+	u16 maxV = 0;
+};
+
+// Inputs for picking the replacement hash of a texture in shadow mode.
+struct ShadowHashParams {
+	u32 addr;
+	int bufw;
+	int w;
+	int h;
+	bool swizzled;
+	GETextureFormat fmt;
+	u64 cachekey;
+	// What draws of this texture sampled so far, including the current one.
+	ShadowBounds seen;
 };
 
 enum class ReplacerDecimateMode {
@@ -90,8 +116,25 @@ public:
 
 	u32 ComputeHash(u32 addr, int bufw, int w, int h, bool swizzled, GETextureFormat fmt, u16 maxSeenV);
 
+	// Shadow textures (shadowTextures = true in [options]): the replacement key only covers the part of the
+	// texture that draws sample, and dumps are held back in RAM until that part stops growing, so data the
+	// game keeps below the image doesn't produce a new dump each time it changes.
+	bool ShadowEnabled() const { return shadowEnabled_ && (replaceEnabled_ || saveEnabled_); }
+	// Returns the hash the replacement key uses, and the region of the texture it covers.
+	u32 ComputeShadowHash(const ShadowHashParams &params, u16 *regionW, u16 *regionH);
+	// Called for every draw that samples a texture, with the key the texture cache gave it.
+	void NotifyShadowDraw(u64 cachekey, u32 hash, u32 addr, int w, int h, bool swizzled, GETextureFormat fmt, const ShadowBounds &bounds);
+	// The texture cache gave the same content a new key (its region grew). The capture under the old key is
+	// dropped, and what it saw goes to the next capture of this texture, so only one dump is made.
+	void NotifyShadowRekeyed(u64 cachekey, u32 oldHash, int w, int h, bool swizzled, GETextureFormat fmt, const ShadowBounds &seen);
+	// Once per frame: writes out dumps whose region has settled.
+	void ShadowTick();
+	int GetNumPendingShadows() const { return (int)shadowVariants_.size(); }
+
 	// Returns nullptr if not found.
 	ReplacedTexture *FindReplacement(ReplacementCacheKey key, int w, int h);
+	// The same, but the replacement covers regionW x regionH of the texture (from shadow textures).
+	ReplacedTexture *FindReplacement(ReplacementCacheKey key, int w, int h, int regionW, int regionH);
 
 	// For testing: point the replacer at a texture pack directory and load its
 	// ini, without touching the global config. Returns true on success.
@@ -150,6 +193,81 @@ protected:
 	bool LookupHashRange(u32 addr, int w, int h, int *newW, int *newH);
 	float LookupReduceHashRange(int w, int h);
 	std::string LookupHashFile(ReplacementCacheKey key, bool *foundAlias, bool *ignored);
+	// The hashing done by ComputeHash once the hashed size is known, over memory or a snapshot of it.
+	u32 HashTextureData(const u8 *checkp, u32 availableBytes, int bufw, int w, int h, GETextureFormat fmt);
+
+	// Shadow textures.
+	struct ShadowRegion {
+		u16 w = 0;
+		u16 h = 0;
+		bool operator ==(const ShadowRegion &o) const { return w == o.w && h == o.h; }
+		bool Covers(const ShadowRegion &o) const { return w >= o.w && h >= o.h; }
+		u32 Area() const { return (u32)w * h; }
+	};
+	struct ShadowLevel {
+		std::vector<u8> rgba;  // Tightly packed.
+		int w = 0;  // As saved (scaled).
+		int h = 0;
+	};
+	// One content of a texture, waiting to be dumped.
+	struct ShadowVariant {
+		u64 cachekey = 0;
+		u32 addr = 0;
+		int bufw = 0;
+		int texW = 0;
+		int texH = 0;
+		bool swizzled = false;
+		GETextureFormat fmt = GE_TFMT_5650;
+		// The texture's bytes in PSP memory when it was decoded, so it can be hashed again with its final region.
+		std::vector<u8> raw;
+		ShadowLevel levels[8];
+		int numLevels = 0;
+		// What draws sampled while this content was bound.
+		bool drawn = false;
+		bool unbounded = false;
+		ShadowRegion seen;
+		double created = 0.0;
+		double lastChange = 0.0;
+		size_t memoryUsed = 0;
+	};
+	// Keyed like hashranges_ (address, w, h).
+	struct ShadowSlot {
+		// Union of everything drawn from this texture, for the provisional key of contents not dumped yet.
+		bool unbounded = false;
+		ShadowRegion learned;
+		// Regions dumps of this texture were made with, from the ini and this session. Largest first.
+		std::vector<ShadowRegion> regions;
+	};
+
+	static u64 ShadowSlotKey(u32 addr, int w, int h) { return ((u64)addr << 32) | ((u64)w << 16) | h; }
+	ShadowRegion NormalizeShadowRegion(const ShadowBounds &bounds, int w, int h) const;
+	static void AddShadowRegion(ShadowSlot &slot, ShadowRegion region);
+	void ParseShadowRange(const std::string &key, const std::string &value);
+	bool ShadowKeyKnown(ReplacementCacheKey key);
+	ReplacementCacheKey NamingKey(u64 cachekey, u32 hash) const;
+	void CaptureShadowLevel(const ReplacedTextureDecodeInfo &replacedInfo, const void *data, int srcPitch, int level, int scaledW, int scaledH);
+	void CommitShadow(ShadowVariant &variant);
+	void CommitAllShadows();
+	void SaveShadowRanges();
+
+	bool shadowEnabled_ = false;
+	double shadowSettleSeconds_ = 4.0;
+	int shadowMaxRegions_ = 8;
+	int shadowRegionAlign_ = 1;
+	size_t shadowMemoryBudget_ = (size_t)1024 * 1024 * 1024;
+	size_t shadowMemoryUsed_ = 0;
+	double shadowLastTick_ = 0.0;
+	bool shadowRangesDirty_ = false;
+	double shadowRangesLastSaved_ = 0.0;
+	std::unordered_map<u64, ShadowSlot> shadowSlots_;
+	std::unordered_map<ReplacementCacheKey, ShadowVariant> shadowVariants_;
+	struct ShadowRekey {
+		bool valid = false;
+		bool unbounded = false;
+		u64 cachekey = 0;
+		ShadowRegion seen;
+	};
+	ShadowRekey shadowRekey_;
 
 	bool replaceEnabled_ = false;
 	bool saveEnabled_ = false;

@@ -183,6 +183,15 @@ struct TexCacheEntry {
 	u16 maxSeenV;
 	u32 fullhash;
 	u32 cluthash;
+	// The hash in the replacement key. Equals fullhash, except with shadow textures, where it only covers
+	// shadowRegionW x shadowRegionH, and fullhash is just for noticing changes.
+	u32 replaceHash;
+	u16 shadowRegionW;
+	u16 shadowRegionH;
+	// What draws sampled from this texture (shadow textures only, in through mode).
+	u16 shadowSeenU;
+	u16 shadowSeenV;
+	bool shadowSeenUnbounded;
 	union {
 		GLRTexture *textureName;
 		void *texturePtr;
@@ -393,6 +402,13 @@ public:
 
 	virtual void StartFrame();
 
+	// Draw engines call this for each draw with a texture, after ApplyTexture, while the vertex bounds are still set.
+	void NoteShadowDraw() {
+		if (shadowBinding_.valid) {
+			NoteShadowDrawSlow();
+		}
+	}
+
 	virtual void DeviceLost();
 	virtual void DeviceRestore(Draw::DrawContext *draw);
 
@@ -453,6 +469,8 @@ protected:
 	SamplerCacheKey GetSamplingParams(int maxLevel, const TexCacheEntry *entry, bool flatZ, bool pixelMapped);
 
 	void UpdateMaxSeenV(TexCacheEntry *entry, bool throughMode);
+	u32 ComputeReplaceHash(TexCacheEntry *entry, int w, int h, bool swizzled, u16 *regionW, u16 *regionH);
+	void NoteShadowDrawSlow();
 
 	bool GetFramebufferTextureDebug(const VirtualFramebuffer *vfb, RasterChannel channel, GPUDebugBuffer &buffer);
 
@@ -467,6 +485,28 @@ protected:
 
 	TextureReplacer replacer_;
 	TextureScalerCommon scaler_;
+
+	// The texture the last ApplyTexture bound, for shadow textures.
+	struct ShadowBinding {
+		bool valid = false;
+		bool swizzled = false;
+		u64 cachekey = 0;
+		u32 hash = 0;
+		u32 addr = 0;
+		u16 w = 0;
+		u16 h = 0;
+		GETextureFormat fmt = GE_TFMT_5650;
+	};
+	ShadowBinding shadowBinding_;
+	// What draws sampled from an entry that's rebuilt because only its replacement key moved.
+	struct ShadowCarry {
+		bool valid = false;
+		bool unbounded = false;
+		u64 cachekey = 0;
+		u16 seenU = 0;
+		u16 seenV = 0;
+	};
+	ShadowCarry shadowCarry_;
 	FramebufferManagerCommon *framebufferManager_;
 	TextureShaderCache textureShaderCache_;
 	ClutTextureCache clutTextureCache_;

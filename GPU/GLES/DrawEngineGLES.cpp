@@ -322,6 +322,10 @@ void DrawEngineGLES::Flush() {
 			// This catches the case of clearing a texture. (#10957)
 			gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
 		}
+		if (!gstate.isModeClear() && gstate.isTextureMapEnabled()) {
+			// Shadow textures learn what part of the texture is drawn.
+			textureCache_->NoteShadowDraw();
+		}
 
 		// Need to ApplyDrawState after ApplyTexture because depal can launch a render pass and that wrecks the state.
 		ApplyDrawState(prim);
@@ -389,6 +393,10 @@ void DrawEngineGLES::Flush() {
 		} else if (gstate.getTextureAddress(0) == (gstate.getFrameBufRawAddress() | 0x04000000)) {
 			// This catches the case of clearing a texture. (#10957)
 			gstate_c.Dirty(DIRTY_TEXTURE_IMAGE);
+		}
+		if (!gstate.isModeClear() && gstate.isTextureMapEnabled()) {
+			// Shadow textures learn what part of the texture is drawn.
+			textureCache_->NoteShadowDraw();
 		}
 
 		u16 *inds = decIndex_;
