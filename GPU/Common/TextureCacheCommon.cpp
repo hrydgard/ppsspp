@@ -647,11 +647,15 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 			reason = "scaling";
 		}
 
-		if (match && (entry->status & TexStatus::TO_REPLACE) && replacementTimeThisFrame_ < replacementFrameBudgetSeconds_) {
+		if (match && (entry->status & TexStatus::TO_REPLACE)) {
 			int w0 = gstate.getTextureWidth(0);
 			int h0 = gstate.getTextureHeight(0);
 			int d0 = 1;
 			if (entry->replacedTexture) {
+				// Polling is cheap, so it's done every time. Only rebuilding the texture waits for the frame's
+				// budget, otherwise whatever used up the budget early in each frame could keep the textures
+				// drawn after it from ever getting their replacements.
+				const bool canRebuild = replacementTimeThisFrame_ < replacementFrameBudgetSeconds_;
 				PollReplacement(entry, &w0, &h0, &d0);
 				// This texture is pending a replacement load.
 				// So check the replacer if it's reached a conclusion.
@@ -661,16 +665,24 @@ TextureApplyResult TextureCacheCommon::ApplyTexture(bool doBind) {
 					DEBUG_LOG(Log::TexReplacement, "No replacement for texture %dx%d", w0, h0);
 					entry->status &= ~TexStatus::TO_REPLACE;
 					if (g_Config.bSaveNewTextures) {
-						// Load it once more to actually save it. Since we don't set STATUS_TO_REPLACE, we won't end up looping.
-						match = false;
-						reason = "replacing";
+						if (canRebuild) {
+							// Load it once more to actually save it. Since we don't set STATUS_TO_REPLACE, we won't end up looping.
+							match = false;
+							reason = "replacing";
+						} else {
+							entry->status |= TexStatus::TO_REPLACE;
+						}
 					}
 					break;
 				case ReplacementState::ACTIVE:
 					// There is now replacement data available!
-					// Just reload the texture to process the replacement.
-					match = false;
-					reason = "replacing";
+					// Just reload the texture to process the replacement, or try again next time.
+					if (canRebuild) {
+						match = false;
+						reason = "replacing";
+					} else {
+						entry->status |= TexStatus::TO_REPLACE;
+					}
 					break;
 				default:
 					// We'll just wait for a result.
