@@ -245,7 +245,7 @@ void X64JitBackend::CompIR_System(IRInst inst) {
 		FlushAll();
 		SaveStaticRegisters();
 		WriteDebugProfilerStatus(IRProfilerStatus::REPLACEMENT);
-		ABI_CallFunctionP(GetReplacementFunc(inst.constant)->replaceFunc, mips_);
+		ABI_CallFunctionP((const void *)GetReplacementFunc(inst.constant)->replaceFunc, mips_);
 		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 		LoadStaticRegisters();
 
