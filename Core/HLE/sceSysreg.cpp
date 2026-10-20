@@ -27,6 +27,7 @@
 #include "Core/HLE/sceSysreg.h"
 #include "Core/HW/MMIO.h"
 #include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MeCore.h"
 
 enum : u32 {
 	SYSREG_RESET = 0xBC10004C,
@@ -90,6 +91,20 @@ const HLEFunction sceSysreg_driver[] = {
 	{0x76220E94, &WrapI_V<sceSysregMeResetDisable>,    "sceSysregMeResetDisable371",   'i', "", HLE_KERNEL_SYSCALL },
 	{0x3199CF1C, &WrapI_V<sceSysregMeBusClockEnable>,  "sceSysregMeBusClockEnable371", 'i', "", HLE_KERNEL_SYSCALL },
 };
+
+// Custom-core homebrew (mcidclan's libraries) walks this to find me_wrapper's "SceMeRpc" handler,
+// and puts its own in it. MeCore::KernelInit() makes that one record.
+static u32 sceKernelReferSysEventHandler() {
+	return hleLogDebug(Log::ME, MeCore::g_meState ? MeCore::g_meState->sysEventHandlers : 0);
+}
+
+const HLEFunction sceSysEventForKernel[] = {
+	{0x68D55505, &WrapU_V<sceKernelReferSysEventHandler>, "sceKernelReferSysEventHandler", 'x', "", HLE_KERNEL_SYSCALL },
+};
+
+void Register_sceSysEventForKernel() {
+	RegisterHLEModule("sceSysEventForKernel", ARRAY_SIZE(sceSysEventForKernel), sceSysEventForKernel);
+}
 
 void Register_sceSysreg_driver() {
 	RegisterHLEModule("sceSysreg_driver", ARRAY_SIZE(sceSysreg_driver), sceSysreg_driver);

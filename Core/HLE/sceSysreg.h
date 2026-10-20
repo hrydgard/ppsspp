@@ -18,3 +18,4 @@
 #pragma once
 
 void Register_sceSysreg_driver();
+void Register_sceSysEventForKernel();

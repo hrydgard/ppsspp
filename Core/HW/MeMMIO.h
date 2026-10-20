@@ -30,6 +30,8 @@ MMIODevice *SysregDevice();
 MMIODevice *InterruptDevice();
 // DMACplus (0xBC800000): DMA between the CPUs' memories, and the LCD.
 MMIODevice *DmacplusDevice();
+// The VME's control registers (0xBCC00000), its status always done.
+MMIODevice *VmeControlDevice();
 // Memory protection (0xBC000000), which the ME's startup code unlocks.
 MMIODevice *MemProtectDevice();
 

@@ -58,6 +58,7 @@ struct MEState {
 	u32 ramConfig = 0;       // 0x40. Bits 0-1: RAM size, 16 << n MB.
 	u32 mutex = 0;           // 0x48. Bit 0 is the main CPU's, bit 1 the ME's.
 	u32 memProtect[20]{};    // 0xBC000000-0xBC00004C
+	u32 vmeControl[0x20]{};  // 0xBCC00000-0xBCC0007F, the VME's control registers
 
 	// DMACplus (0xBC800000), which moves data between the CPUs' memories, and drives the LCD and the
 	// colour space conversion. Only what homebrew's ME code uses.
@@ -67,6 +68,9 @@ struct MEState {
 		u32 csc[0x11]{};           // 0x120-0x160: colour space conversion
 		u32 channels[4][5]{};      // 0x180-0x1FF: source, destination, next LLI, control, configuration
 	} dmacplus;
+
+	// The sysevent handler list sceKernelReferSysEventHandler returns, in kernel memory.
+	u32 sysEventHandlers = 0;
 
 	// Not saved: whether the code at an address is a wait loop (see IsWaitLoop), and where it ends.
 	// 0 for not one. Cleared when the ME's code changes.
@@ -85,6 +89,10 @@ bool Init();
 void Shutdown();
 // Creates or removes the ME to match the state.
 void DoState(PointerWrap &p);
+
+// At kernel init, what the firmware sets up for the ME at boot: Sony's ME image at 0x88300000, and
+// me_wrapper's "SceMeRpc" sysevent handler.
+void KernelInit();
 
 // Runs the ME for the cycles the main CPU has just run.
 void RunFor(int cycles);

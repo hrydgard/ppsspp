@@ -98,6 +98,7 @@ void Init() {
 		MeMMIO::InterruptDevice(),
 		MeMMIO::MemProtectDevice(),
 		MeMMIO::DmacplusDevice(),
+		MeMMIO::VmeControlDevice(),
 	};
 	for (MMIODevice *device : g_devices) {
 		device->Reset();

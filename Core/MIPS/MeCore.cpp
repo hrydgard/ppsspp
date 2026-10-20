@@ -16,6 +16,8 @@
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
 #include <algorithm>
+#include <cstring>
+#include <vector>
 
 #include "Common/Log.h"
 #include "Common/Serialize/Serializer.h"
@@ -23,13 +25,18 @@
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/CoreTiming.h"
+#include "Core/ELF/PrxDecrypter.h"
+#include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/HLE/sceKernelInterrupt.h"
+#include "Core/HLE/sceKernelMemory.h"
 #include "Core/MemMap.h"
+#include "Core/System.h"
 #include "Core/MIPS/MeCore.h"
 #include "Core/MIPS/Interpreter.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPSTables.h"
+#include "Core/Util/KL4E.h"
 
 namespace MeCore {
 
@@ -120,6 +127,63 @@ bool Init() {
 	return true;
 }
 
+// Where the firmware's me_wrapper loads Sony's ME image at boot. mcidclan's libraries call functions
+// in it, picking per-model address tables by the word at 0x18 (0x279c1d44 the PSP-1000's meimg,
+// 0x279c637c the slim's t2img, read on a PSP-1000 and from the 6.61 images).
+static const u32 FIRMWARE_IMAGE_ADDRESS = 0x08300000;
+
+// Decrypted, it's two KL4E streams: the code, then a blob the code finds after itself. Only the code
+// is loaded for now.
+static void LoadFirmwareImage() {
+	const char *path = Memory::g_PSPModel == PSP_MODEL_FAT ? "flash0:/kd/resource/meimg.img" : "flash0:/kd/resource/me_t2img.img";
+	std::vector<u8> file;
+	if (pspFileSystem.ReadEntireFile(path, file, true) < 0 || file.size() < 0x150) {
+		WARN_LOG(Log::ME, "No %s in the firmware, so no ME firmware at %08x", path, FIRMWARE_IMAGE_ADDRESS);
+		return;
+	}
+	std::vector<u8> plain(file.size());
+	const int plainSize = pspDecryptPRX(file.data(), plain.data(), (u32)file.size());
+	bool isKL3E = false;
+	if (plainSize <= 4 || !IsKL4EMagic(plain.data(), plainSize, &isKL3E)) {
+		ERROR_LOG(Log::ME, "%s didn't decrypt", path);
+		return;
+	}
+	const u32 space = 0x00100000;
+	u8 *dest = Memory::GetTypedPointerWriteRange<u8>(FIRMWARE_IMAGE_ADDRESS, space);
+	const u8 *end = nullptr;
+	const int size = dest ? DecompressKL4E(dest, space, plain.data() + 4, (size_t)plainSize - 4, &end, isKL3E) : -1;
+	if (size <= 0) {
+		ERROR_LOG(Log::ME, "%s didn't decompress", path);
+		return;
+	}
+	if (kernelMemory.AllocAt(FIRMWARE_IMAGE_ADDRESS, size, "ME firmware") != FIRMWARE_IMAGE_ADDRESS) {
+		WARN_LOG(Log::ME, "Kernel memory at %08x is taken, the ME firmware may get overwritten", FIRMWARE_IMAGE_ADDRESS);
+	}
+	INFO_LOG(Log::ME, "Loaded %s at %08x, %d bytes", path, FIRMWARE_IMAGE_ADDRESS, size);
+}
+
+// A sysevent handler record (PspSysEventHandler in pspsdk), with its name after it.
+static u32 CreateSysEventHandler(const char *name) {
+	u32 size = 0x40 + 16;
+	const u32 addr = kernelMemory.Alloc(size, false, "SysEventHandler");
+	if (addr == (u32)-1)
+		return 0;
+	memset(Memory::GetPointerWriteUnchecked(addr), 0, size);
+	Memory::WriteUnchecked_U32(0x40, addr);              // size
+	Memory::WriteUnchecked_U32(addr + 0x40, addr + 4);   // name
+	Memory::WriteUnchecked_U32(0x00FFFF00, addr + 8);    // type mask: suspend and resume
+	Memory::MemcpyUnchecked(addr + 0x40, name, (u32)strlen(name) + 1);
+	return addr;
+}
+
+void KernelInit() {
+	if (!g_meState)
+		return;
+	LoadFirmwareImage();
+	// Its handler is never called: nothing here suspends.
+	g_meState->sysEventHandlers = CreateSysEventHandler("SceMeRpc");
+}
+
 void Shutdown() {
 	if (!g_meState) {
 		return;
@@ -169,6 +233,8 @@ void DoState(PointerWrap &p) {
 	Do(p, me->ramConfig);
 	Do(p, me->mutex);
 	DoArray(p, me->memProtect, ARRAY_SIZE(me->memProtect));
+	DoArray(p, me->vmeControl, ARRAY_SIZE(me->vmeControl));
+	Do(p, me->sysEventHandlers);
 	Do(p, me->dmacplus.intTCStatus);
 	DoArray(p, me->dmacplus.lcd, ARRAY_SIZE(me->dmacplus.lcd));
 	DoArray(p, me->dmacplus.csc, ARRAY_SIZE(me->dmacplus.csc));

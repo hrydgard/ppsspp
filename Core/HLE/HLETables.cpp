@@ -358,6 +358,7 @@ void RegisterAllModules() {
 	Register_SystemCtrlForUser();
 	Register_ExceptionManagerForKernel();
 	Register_sceSysreg_driver();
+	Register_sceSysEventForKernel();
 
 	// Not ready to enable this due to apparent softlocks in Patapon 3.
 	// Register_sceNpMatching2();

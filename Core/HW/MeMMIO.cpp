@@ -429,6 +429,32 @@ private:
 	}
 };
 
+// The VME's control registers. The VME itself (the ME's reconfigurable coprocessor) isn't emulated:
+// writes are kept, and its status (0x10) reads as done, which homebrew's ME startup waits for
+// (custom-core's meLibAVCSetTransferConfig, Yabause).
+class MeVmeControlDevice : public MMIODevice {
+public:
+	MeVmeControlDevice() : MMIODevice("VME control", 0xBCC00000, 0x80) {}
+
+	bool Read(MIPSState *mips, u32 offset, int size, u32 *value) override {
+		if (!g_meState || (offset & 3))
+			return false;
+		*value = offset == 0x10 ? 0 : g_meState->vmeControl[offset / 4];
+		return true;
+	}
+
+	bool Write(MIPSState *mips, u32 offset, int size, u32 value) override {
+		if (!g_meState || (offset & 3))
+			return false;
+		g_meState->vmeControl[offset / 4] = value;
+		return true;
+	}
+
+	void Reset() override {}
+	void DoState(PointerWrap &p) override {}
+};
+
+static MeVmeControlDevice g_vmeControl;
 static MeDmacplusDevice g_dmacplus;
 static MeSysregDevice g_sysreg;
 static MeInterruptDevice g_interrupts;
@@ -440,6 +466,10 @@ MMIODevice *SysregDevice() {
 
 MMIODevice *InterruptDevice() {
 	return &g_interrupts;
+}
+
+MMIODevice *VmeControlDevice() {
+	return &g_vmeControl;
 }
 
 MMIODevice *DmacplusDevice() {
