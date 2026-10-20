@@ -169,7 +169,14 @@ int ExecInstruction(MIPSState *mips, MIPSOpcode op) {
         case 30:
         case 31:
         {
-            return -1;
+            switch ((op.encoding >> 0) & 0x3f) {
+            // eret
+            case 24:
+                MIPSInt::Int_Eret(mips, op);
+                return 1;
+            default:
+                return -1;
+            }
         }
         default:
             return -1;

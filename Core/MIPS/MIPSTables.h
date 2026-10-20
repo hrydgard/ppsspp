@@ -94,6 +94,8 @@
 #define OUT_VD          0x100000000000ULL
 
 #define IS_SYSCALL      0x200000000000ULL
+// Moves the PC somewhere the compiler can't see (eret), so the block ends after it.
+#define ENDS_BLOCK      0x400000000000ULL
 
 #ifndef CDECL
 #define CDECL

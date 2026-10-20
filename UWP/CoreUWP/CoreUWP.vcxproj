@@ -261,6 +261,7 @@
     <ClInclude Include="..\..\Core\HW\Camera.h" />
     <ClInclude Include="..\..\Core\HW\Display.h" />
     <ClInclude Include="..\..\Core\HW\GpioMMIO.h" />
+    <ClInclude Include="..\..\Core\HW\MMIO.h" />
     <ClInclude Include="..\..\Core\HW\AvcDecoder.h" />
     <ClInclude Include="..\..\Core\HW\MediaEngine.h" />
     <ClInclude Include="..\..\Core\HW\MemoryStick.h" />
@@ -556,6 +557,7 @@
     <ClCompile Include="..\..\Core\HW\Camera.cpp" />
     <ClCompile Include="..\..\Core\HW\Display.cpp" />
     <ClCompile Include="..\..\Core\HW\GpioMMIO.cpp" />
+    <ClCompile Include="..\..\Core\HW\MMIO.cpp" />
     <ClCompile Include="..\..\Core\HW\AvcDecoder.cpp" />
     <ClCompile Include="..\..\Core\HW\MediaEngine.cpp" />
     <ClCompile Include="..\..\Core\HW\MemoryStick.cpp" />

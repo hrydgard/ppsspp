@@ -80,6 +80,12 @@ void IRFrontend::Comp_FPULS(MIPSOpcode op) {
 
 	CheckMemoryBreakpoint(rs, offset);
 
+	if (js.kernelMode) {
+		// Kernel code may reach hardware registers (MMIO), which only the interpreter handles.
+		DISABLE;
+		return;
+	}
+
 	switch (op >> 26) {
 	case 49: // lwc1
 		ir.Write(IROp::LoadFloat, ft, rs, 0, offset);

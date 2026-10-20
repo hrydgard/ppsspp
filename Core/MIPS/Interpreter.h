@@ -28,6 +28,7 @@ namespace MIPSInt
 
 	void Int_mxc1(MIPSState *mips, MIPSOpcode op);
 	void Int_Cop0(MIPSState *mips, MIPSOpcode op);
+	void Int_Eret(MIPSState *mips, MIPSOpcode op);
 	void Int_RelBranch(MIPSState *mips, MIPSOpcode op);
 	void Int_RelBranchRI(MIPSState *mips, MIPSOpcode op);
 	void Int_IType(MIPSState *mips, MIPSOpcode op);

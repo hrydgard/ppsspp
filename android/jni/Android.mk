@@ -655,6 +655,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HW/Camera.cpp \
   $(SRC)/Core/HW/Display.cpp \
   $(SRC)/Core/HW/GpioMMIO.cpp \
+  $(SRC)/Core/HW/MMIO.cpp \
   $(SRC)/Core/HW/MemoryStick.cpp \
   $(SRC)/Core/HW/MpegDemux.cpp.arm \
   $(SRC)/Core/HW/AvcDecoder.cpp.arm \

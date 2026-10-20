@@ -64,6 +64,7 @@
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/RetroAchievements.h"
 #include "HW/MemoryStick.h"
+#include "Core/HW/MMIO.h"
 
 #ifndef MOBILE_DEVICE
 #include "Core/AVIDump.h"
@@ -210,7 +211,7 @@ int g_screenshotFailures;
 		if (gpu)
 			gpu->FlushPendingDrawing();
 
-		auto s = p.Section("SaveStart", 1, 3);
+		auto s = p.Section("SaveStart", 1, 4);
 		if (!s)
 			return;
 
@@ -268,6 +269,11 @@ int g_screenshotFailures;
 		Achievements::DoState(p);
 		// Kernel object destructors might close open files, so do the filesystem last.
 		pspFileSystem.DoState(p);
+		if (s >= 4) {
+			MMIO::DoState(p);
+		} else if (p.mode == p.MODE_READ) {
+			MMIO::Init();
+		}
 
 		if (p.mode == p.MODE_READ && p.error == PointerWrap::ERROR_FAILURE) {
 			// RAM may be loaded and the JIT not told, or the other way round. Keep nothing.

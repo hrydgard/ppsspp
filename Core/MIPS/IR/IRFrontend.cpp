@@ -238,7 +238,17 @@ void IRFrontend::Comp_Generic(MIPSOpcode op) {
 	const bool setsMode = MIPS_IS_CTC1_FCR31(op.encoding);
 	if (isSyscall || setsMode)
 		RestoreRoundingMode(setsMode);
+	const bool endsBlock = (info & ENDS_BLOCK) != 0;
+	if (endsBlock) {
+		ir.Write(IROp::Downcount, 0, 0, 0, js.downcountAmount);
+		js.downcountAmount = 0;
+	}
 	ir.Write(IROp::Interpret, 0, 0, 0, op.encoding);
+	if (endsBlock) {
+		ir.Write(IROp::ExitToPC);
+		js.compiling = false;
+		return;
+	}
 	if (setsMode)
 		UpdateRoundingMode();
 	if (isSyscall || setsMode)

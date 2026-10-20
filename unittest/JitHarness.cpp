@@ -44,8 +44,10 @@
 #include "Core/Config.h"
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/ReplaceTables.h"
+#include "Core/HW/MMIO.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/JitCommon/JitState.h"
+#include "Common/Serialize/Serializer.h"
 #if PPSSPP_ARCH(RISCV64)
 #include "Core/MIPS/RiscV/RiscVVfpuDot.h"
 #elif PPSSPP_ARCH(LOONGARCH64)
@@ -455,6 +457,125 @@ bool TestJitReplacementHooks() {
 	RestoreReplacedInstructions(func, func + size);
 	Replacement_Shutdown();
 	MIPSAnalyst::Reset();
+	DestroyJitHarness();
+	return success;
+}
+
+// eret goes to EPC, or ErrorEPC with Status.ERL set, on every core, and ends the block: what follows
+// it doesn't run.
+bool TestCPUEret() {
+	SetupJitHarness();
+
+	const u32 base = PSP_GetUserMemoryBase();
+	const u32 target = base + 0x100;
+	const u32 terminator = MIPS_MAKE_SYSCALL("UnitTestFakeSyscalls", "UnitTestTerminator");
+	Memory::WriteUnchecked_U32(MIPS_MAKE_ADDIU(MIPS_REG_V0, MIPS_REG_ZERO, 1), base);
+	Memory::WriteUnchecked_U32(0x42000018, base + 4);  // eret
+	Memory::WriteUnchecked_U32(MIPS_MAKE_ADDIU(MIPS_REG_V0, MIPS_REG_ZERO, 2), base + 8);
+	Memory::WriteUnchecked_U32(terminator, base + 12);
+	Memory::WriteUnchecked_U32(MIPS_MAKE_ADDIU(MIPS_REG_V1, MIPS_REG_ZERO, 3), target);
+	Memory::WriteUnchecked_U32(terminator, target + 4);
+	Memory::WriteUnchecked_U32(MIPS_MAKE_BREAK(1), target + 8);
+
+	static const CPUCore cores[] = {
+		CPUCore::INTERPRETER,
+		CPUCore::IR_INTERPRETER,
+		CPUCore::JIT,
+	};
+	bool success = true;
+	for (CPUCore core : cores) {
+		mipsr4k.UpdateCore(core);
+		for (bool erl : { false, true }) {
+			if (mipsr4k.jit)
+				mipsr4k.jit->ClearCache();
+			currentMIPS->r[MIPS_REG_V0] = 0;
+			currentMIPS->r[MIPS_REG_V1] = 0;
+			currentMIPS->cop0[12] = erl ? 0x6 : 0x2;
+			currentMIPS->cop0[14] = erl ? base + 8 : target;
+			currentMIPS->cop0[30] = erl ? target : base + 8;
+			currentMIPS->pc = base;
+			coreState = CORE_RUNNING_CPU;
+			while (coreState == CORE_RUNNING_CPU)
+				mipsr4k.RunLoopUntil(CoreTiming::GetTicks(currentMIPS) + 1000000);
+
+			const u32 status = erl ? 0x2 : 0x0;
+			if (currentMIPS->r[MIPS_REG_V0] != 1 || currentMIPS->r[MIPS_REG_V1] != 3 || currentMIPS->cop0[12] != status) {
+				printf("eret on core %d (ERL %d): v0=%d v1=%d status=%08x, expected 1, 3, %08x\n", (int)core, (int)erl,
+					currentMIPS->r[MIPS_REG_V0], currentMIPS->r[MIPS_REG_V1], currentMIPS->cop0[12], status);
+				success = false;
+			}
+		}
+	}
+	mipsr4k.UpdateCore(CPUCore::INTERPRETER);
+
+	DestroyJitHarness();
+	return success;
+}
+
+// Kernel code reaching the GPIO block's registers on every core: a write, an acknowledge clearing a
+// status bit, reads back through lw and lwc1, and poison from a register nothing handles. Then the
+// registers through a savestate.
+bool TestMMIO() {
+	SetupJitHarness();
+	MMIO::Init();
+
+	// Kernel code, which may touch hardware registers.
+	const u32 base = 0x88000100;
+	auto sw = [](int rt, int rs, int imm) { return (0x2Bu << 26) | (rs << 21) | (rt << 16) | (imm & 0xFFFF); };
+	auto lwc1 = [](int ft, int rs, int imm) { return (0x31u << 26) | (rs << 21) | (ft << 16) | (imm & 0xFFFF); };
+	const u32 code[] = {
+		MIPS_MAKE_LUI(MIPS_REG_T0, 0xBE24),  // GPIO
+		MIPS_MAKE_ORI(MIPS_REG_T1, MIPS_REG_ZERO, 0x30),
+		sw(MIPS_REG_T1, MIPS_REG_T0, 0x20),  // Interrupt status.
+		MIPS_MAKE_ORI(MIPS_REG_T1, MIPS_REG_ZERO, 0x10),
+		sw(MIPS_REG_T1, MIPS_REG_T0, 0x24),  // Acknowledge, clears the bit.
+		MIPS_MAKE_LW(MIPS_REG_V0, MIPS_REG_T0, 0x20),
+		lwc1(0, MIPS_REG_T0, 0x20),
+		MIPS_MAKE_LUI(MIPS_REG_T2, 0xBC10),
+		MIPS_MAKE_LW(MIPS_REG_V1, MIPS_REG_T2, 0),
+		MIPS_MAKE_SYSCALL("UnitTestFakeSyscalls", "UnitTestTerminator"),
+		MIPS_MAKE_BREAK(1),
+	};
+	for (size_t i = 0; i < ARRAY_SIZE(code); ++i)
+		Memory::WriteUnchecked_U32(code[i], base + (u32)i * 4);
+
+	static const CPUCore cores[] = {
+		CPUCore::INTERPRETER,
+		CPUCore::IR_INTERPRETER,
+		CPUCore::JIT,
+	};
+	bool success = true;
+	for (CPUCore core : cores) {
+		mipsr4k.UpdateCore(core);
+		MMIO::Init();
+		currentMIPS->r[MIPS_REG_V0] = 0;
+		currentMIPS->r[MIPS_REG_V1] = 0;
+		currentMIPS->fi[0] = 0;
+		currentMIPS->pc = base;
+		coreState = CORE_RUNNING_CPU;
+		while (coreState == CORE_RUNNING_CPU)
+			mipsr4k.RunLoopUntil(CoreTiming::GetTicks(currentMIPS) + 1000000);
+
+		if (currentMIPS->r[MIPS_REG_V0] != 0x20 || currentMIPS->fi[0] != 0x20 || currentMIPS->r[MIPS_REG_V1] != 0x1337BEEF) {
+			printf("MMIO on core %d: v0=%08x f0=%08x v1=%08x, expected 00000020, 00000020, 1337beef\n", (int)core,
+				currentMIPS->r[MIPS_REG_V0], currentMIPS->fi[0], currentMIPS->r[MIPS_REG_V1]);
+			success = false;
+		}
+	}
+	mipsr4k.UpdateCore(CPUCore::INTERPRETER);
+
+	struct MMIOState {
+		void DoState(PointerWrap &p) { MMIO::DoState(p); }
+	} state;
+	std::vector<u8> saved;
+	EXPECT_EQ_INT(CChunkFileReader::MeasureAndSavePtr(state, &saved), CChunkFileReader::ERROR_NONE);
+	MMIO::Init();
+	std::string error;
+	EXPECT_EQ_INT(CChunkFileReader::LoadPtr(saved.data(), saved.size(), state, &error), CChunkFileReader::ERROR_NONE);
+	currentMIPS->pc = base;
+	EXPECT_EQ_HEX(MMIO::Read(currentMIPS, 0xBE240020, 4), 0x20);
+
+	MMIO::Shutdown();
 	DestroyJitHarness();
 	return success;
 }
