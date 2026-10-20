@@ -755,6 +755,15 @@ namespace MIPSInt {
 			}
 			break;
 
+		case 2: //cfc0
+			if (rt != 0)
+				R(rt) = mips->cop0Control[rd];
+			break;
+
+		case 6: //ctc0
+			mips->cop0Control[rd] = R(rt);
+			break;
+
 		case 4: //mtc0
 			mips->cop0[rd] = R(rt);
 			break;

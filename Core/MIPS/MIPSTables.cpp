@@ -378,11 +378,11 @@ static const MIPSInstruction tableCop0[32] = // 010000 xxxxx ..... .............
 	// docs/VSHBootInvestigation.md.
 	INSTR("mfc0", JITFUNC(Comp_Generic), Dis_Generic, Int_Cop0, OUT_RT),
 	INVALID,
-	INVALID,
+	INSTR("cfc0", JITFUNC(Comp_Generic), Dis_Generic, Int_Cop0, OUT_RT),
 	INVALID,
 	INSTR("mtc0", JITFUNC(Comp_Generic), Dis_Generic, Int_Cop0, IN_RT),
 	INVALID,
-	INVALID,
+	INSTR("ctc0", JITFUNC(Comp_Generic), Dis_Generic, Int_Cop0, IN_RT),
 	INVALID,
 	//8
 	INVALID,

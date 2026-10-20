@@ -144,9 +144,11 @@ int ExecInstruction(MIPSState *mips, MIPSOpcode op) {
     case 16:
     {
         switch ((op.encoding >> 21) & 0x1f) {
-        // mfc0, mtc0, rdpgpr, mfmc0, wrpgpr
+        // mfc0, cfc0, mtc0, ctc0, rdpgpr, mfmc0, wrpgpr
         case 0:
+        case 2:
         case 4:
+        case 6:
         case 10:
         case 11:
         case 14:

@@ -259,6 +259,8 @@ public:
 
 	// COP0, for kernel code. Reads of Count (9) come from CoreTiming instead.
 	u32 cop0[32];
+	// COP0's control registers (cfc0/ctc0), which the firmware's exception code keeps state in.
+	u32 cop0Control[32];
 
 	// Temps needed for JitBranch.cpp experiments
 	u32 intBranchExit;
