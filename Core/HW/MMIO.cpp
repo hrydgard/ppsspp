@@ -61,8 +61,22 @@ public:
 		return true;
 	}
 
+	// Both CPUs reset to the start of the page. The firmware leaves code there that sends the ME
+	// (whose COP0 register 22 is nonzero) on to 0x40, where homebrew puts its ME code (read on a
+	// PSP-1000 under PSPLink). The main CPU's half isn't needed, it never resets under HLE.
 	void Reset() override {
-		memset(Memory::GetBootPage(), 0, Memory::BOOT_PAGE_SIZE);
+		u8 *page = Memory::GetBootPage();
+		memset(page, 0, Memory::BOOT_PAGE_SIZE);
+		const u32 code[] = {
+			0x4002B000,  // mfc0 v0, $22
+			0x1440000E,  // bnez v0, 0xBFC00040
+			0x00000000,  // nop
+			0x1000FFFF,  // b .
+			0x00000000,  // nop
+		};
+		for (size_t i = 0; i < ARRAY_SIZE(code); ++i) {
+			((u32_le *)page)[i] = code[i];
+		}
 	}
 
 	void DoState(PointerWrap &p) override {

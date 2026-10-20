@@ -33,6 +33,7 @@
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
 #include "Core/MIPS/Interpreter.h"
+#include "Core/MIPS/MeCore.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/MIPS/MIPSAsm.h"
@@ -709,6 +710,75 @@ bool TestMESpace() {
 	}
 
 	Memory::DestroyMESpace();
+	MMIO::Shutdown();
+	DestroyJitHarness();
+	return success;
+}
+
+bool TestMeCore() {
+	Memory::g_PSPModel = PSP_MODEL_FAT;
+	SetupJitHarness();
+	MMIO::Init();
+	bool success = true;
+
+	if (!MeCore::Init()) {
+		printf("No Media Engine on this platform, skipping\n");
+		MMIO::Shutdown();
+		DestroyJitHarness();
+		return true;
+	}
+	MeCore::MEState *me = MeCore::g_meState;
+
+	// The classic homebrew ME code at 0xBFC00040 (pspsdk me/basic): count at 0xBFC00060, forever.
+	const u32 code[] = {
+		MIPS_MAKE_LUI(MIPS_REG_T1, 0xBFC0),
+		MIPS_MAKE_LW(MIPS_REG_T0, MIPS_REG_T1, 0x60),
+		MIPS_MAKE_ADDIU(MIPS_REG_T0, MIPS_REG_T0, 1),
+		(0x2Bu << 26) | (MIPS_REG_T1 << 21) | (MIPS_REG_T0 << 16) | 0x60,  // sw t0, 0x60(t1)
+		MIPS_MAKE_B(-4),
+		MIPS_MAKE_NOP(),
+	};
+	u8 *page = Memory::GetBootPage();
+	memcpy(page + 0x40, code, sizeof(code));
+	auto counter = [&]() { return *(u32_le *)(page + 0x60); };
+
+	// Held in reset, its clock still runs.
+	MeCore::RunFor(1000);
+	EXPECT_EQ_INT(counter(), 0);
+	EXPECT_EQ_INT((int)MeCore::GetTicks(), 1000);
+
+	// Released, through the reset stub to 0x40.
+	MeCore::SetReset(false);
+	EXPECT_EQ_HEX(me->cpu.pc, 0xBFC00000);
+	MeCore::RunFor(1000);
+	const u32 count = counter();
+	EXPECT_TRUE(count > 100);
+	EXPECT_TRUE(me->cpu.pc >= 0xBFC00040 && me->cpu.pc < 0xBFC00058);
+	EXPECT_TRUE(MeCore::GetTicks() >= 2000 && MeCore::GetTicks() < 2010);
+
+	// Saved and loaded.
+	struct State {
+		void DoState(PointerWrap &p) { MeCore::DoState(p); }
+	} state;
+	std::vector<u8> saved;
+	me->cpu.space->WriteUnchecked_U32(0xCAFE0001, 0x80001000);
+	const u32 pc = me->cpu.pc;
+	EXPECT_EQ_INT(CChunkFileReader::MeasureAndSavePtr(state, &saved), CChunkFileReader::ERROR_NONE);
+	me->cpu.space->WriteUnchecked_U32(0, 0x80001000);
+	MeCore::RunFor(100);
+	std::string error;
+	EXPECT_EQ_INT(CChunkFileReader::LoadPtr(saved.data(), saved.size(), state, &error), CChunkFileReader::ERROR_NONE);
+	me = MeCore::g_meState;
+	EXPECT_EQ_HEX(me->cpu.pc, pc);
+	EXPECT_EQ_HEX(me->cpu.space->ReadUnchecked_U32(0x80001000), 0xCAFE0001);
+
+	// Back in reset, it stops.
+	MeCore::SetReset(true);
+	const u32 stopped = counter();
+	MeCore::RunFor(1000);
+	EXPECT_EQ_INT(counter(), stopped);
+
+	MeCore::Shutdown();
 	MMIO::Shutdown();
 	DestroyJitHarness();
 	return success;

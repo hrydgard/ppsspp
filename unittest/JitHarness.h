@@ -23,6 +23,7 @@ bool TestJitReplacementHooks();
 bool TestCPUEret();
 bool TestMMIO();
 bool TestMESpace();
+bool TestMeCore();
 bool TestCPUEquivalence();
 bool TestCPURoundingMode();
 bool TestVFPUDotJit();

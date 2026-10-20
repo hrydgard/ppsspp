@@ -65,6 +65,7 @@
 #include "Core/RetroAchievements.h"
 #include "HW/MemoryStick.h"
 #include "Core/HW/MMIO.h"
+#include "Core/MIPS/MeCore.h"
 
 #ifndef MOBILE_DEVICE
 #include "Core/AVIDump.h"
@@ -211,7 +212,7 @@ int g_screenshotFailures;
 		if (gpu)
 			gpu->FlushPendingDrawing();
 
-		auto s = p.Section("SaveStart", 1, 4);
+		auto s = p.Section("SaveStart", 1, 5);
 		if (!s)
 			return;
 
@@ -273,6 +274,11 @@ int g_screenshotFailures;
 			MMIO::DoState(p);
 		} else if (p.mode == p.MODE_READ) {
 			MMIO::Init();
+		}
+		if (s >= 5) {
+			MeCore::DoState(p);
+		} else if (p.mode == p.MODE_READ) {
+			MeCore::Shutdown();
 		}
 
 		if (p.mode == p.MODE_READ && p.error == PointerWrap::ERROR_FAILURE) {

@@ -890,6 +890,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/MIPS/MIPSStackWalk.cpp \
 	       $(COREDIR)/MIPS/MIPSVFPUUtils.cpp \
 	       $(COREDIR)/MIPS/MIPSTracer.cpp \
+	       $(COREDIR)/MIPS/MeCore.cpp \
 	       $(COREDIR)/MemFault.cpp \
 	       $(COREDIR)/MemMap.cpp \
 	       $(COREDIR)/MemMapFunctions.cpp \
