@@ -454,6 +454,31 @@ public:
 	void DoState(PointerWrap &p) override {}
 };
 
+// Clock dividers (0xBC200000), which the ME's startup code sets and Sony's ME firmware lowers around
+// its halt. Only kept.
+class MeClockDevice : public MMIODevice {
+public:
+	MeClockDevice() : MMIODevice("ME clocks", 0xBC200000, 0x10) {}
+
+	bool Read(MIPSState *mips, u32 offset, int size, u32 *value) override {
+		if (!g_meState || (offset & 3))
+			return false;
+		*value = g_meState->clocks[offset / 4];
+		return true;
+	}
+
+	bool Write(MIPSState *mips, u32 offset, int size, u32 value) override {
+		if (!g_meState || (offset & 3))
+			return false;
+		g_meState->clocks[offset / 4] = value;
+		return true;
+	}
+
+	void Reset() override {}
+	void DoState(PointerWrap &p) override {}
+};
+
+static MeClockDevice g_clocks;
 static MeVmeControlDevice g_vmeControl;
 static MeDmacplusDevice g_dmacplus;
 static MeSysregDevice g_sysreg;
@@ -466,6 +491,10 @@ MMIODevice *SysregDevice() {
 
 MMIODevice *InterruptDevice() {
 	return &g_interrupts;
+}
+
+MMIODevice *ClockDevice() {
+	return &g_clocks;
 }
 
 MMIODevice *VmeControlDevice() {

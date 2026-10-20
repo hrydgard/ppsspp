@@ -59,6 +59,7 @@ struct MEState {
 	u32 mutex = 0;           // 0x48. Bit 0 is the main CPU's, bit 1 the ME's.
 	u32 memProtect[20]{};    // 0xBC000000-0xBC00004C
 	u32 vmeControl[0x20]{};  // 0xBCC00000-0xBCC0007F, the VME's control registers
+	u32 clocks[4]{};         // 0xBC200000-0xBC20000C, clock dividers
 
 	// DMACplus (0xBC800000), which moves data between the CPUs' memories, and drives the LCD and the
 	// colour space conversion. Only what homebrew's ME code uses.

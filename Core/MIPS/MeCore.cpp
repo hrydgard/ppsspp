@@ -234,6 +234,7 @@ void DoState(PointerWrap &p) {
 	Do(p, me->mutex);
 	DoArray(p, me->memProtect, ARRAY_SIZE(me->memProtect));
 	DoArray(p, me->vmeControl, ARRAY_SIZE(me->vmeControl));
+	DoArray(p, me->clocks, ARRAY_SIZE(me->clocks));
 	Do(p, me->sysEventHandlers);
 	Do(p, me->dmacplus.intTCStatus);
 	DoArray(p, me->dmacplus.lcd, ARRAY_SIZE(me->dmacplus.lcd));

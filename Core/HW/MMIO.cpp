@@ -99,6 +99,7 @@ void Init() {
 		MeMMIO::MemProtectDevice(),
 		MeMMIO::DmacplusDevice(),
 		MeMMIO::VmeControlDevice(),
+		MeMMIO::ClockDevice(),
 	};
 	for (MMIODevice *device : g_devices) {
 		device->Reset();
