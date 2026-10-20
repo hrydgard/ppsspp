@@ -42,8 +42,18 @@ public:
 			fontStyle = DWRITE_FONT_STYLE_ITALIC;
 		}
 
+		std::wstring wFontName = ConvertUTF8ToWString(fontName);
+
+		// A font override from the language ini (like "Microsoft YaHei") is a system font, not one of ours.
+		// A null collection makes DirectWrite use the system font collection.
+		UINT32 familyIndex = 0;
+		BOOL exists = FALSE;
+		if (FAILED(fontCollection->FindFamilyName(wFontName.c_str(), &familyIndex, &exists)) || !exists) {
+			fontCollection = nullptr;
+		}
+
 		HRESULT hr = factory->CreateTextFormat(
-			ConvertUTF8ToWString(fontName).c_str(),
+			wFontName.c_str(),
 			fontCollection,
 			weight,
 			fontStyle,
