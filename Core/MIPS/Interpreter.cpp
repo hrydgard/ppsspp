@@ -36,7 +36,7 @@
 #include "Core/HLE/HLETables.h"
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/HLE/sceKernelInterrupt.h"
-#include "Core/HW/GpioMMIO.h"
+#include "Core/HW/MMIO.h"
 
 #define R(i) (mips->r[i])
 #define F(i) (mips->f[i])
@@ -97,78 +97,6 @@ int MIPS_InterpretSingleStep(MIPSState *mips) {
 	}
 	RestoreHostRoundingMode();
 	return 1;
-}
-
-// MMIO handling, for limited LLE, just enough for VSH.
-//
-// Unregistered reads return a distinctive poison value (not 0) so it's obvious in a live trace
-// when some later computation's input traces back to an unimplemented MMIO register, rather
-// than looking like an ordinary, legitimate zero.
-constexpr u32 UNKNOWN_MMIO_POISON = 0x1337BEEF;
-
-static u8 ReadMMIO_U8(MIPSState *mips, u32 addr) {
-	if (!Memory::IsKernelCodeAddress(mips->pc)) {
-		Core_MemoryException(addr, 1, mips->pc, MemoryExceptionType::READ_WORD, "Kernel mode only");
-		return (u8)UNKNOWN_MMIO_POISON;
-	}
-	WARN_LOG(Log::CPU, "Unhandled MMIO Read8 at %08x", addr);
-	return (u8)UNKNOWN_MMIO_POISON;
-}
-
-static u16 ReadMMIO_U16(MIPSState *mips, u32 addr) {
-	if (!Memory::IsKernelCodeAddress(mips->pc)) {
-		Core_MemoryException(addr, 2, mips->pc, MemoryExceptionType::READ_WORD, "Kernel mode only");
-		return (u16)UNKNOWN_MMIO_POISON;
-	}
-	WARN_LOG(Log::CPU, "Unhandled MMIO Read16 at %08x", addr);
-	return (u16)UNKNOWN_MMIO_POISON;
-}
-
-static u32 ReadMMIO_U32(MIPSState *mips, u32 addr) {
-	if (!Memory::IsKernelCodeAddress(mips->pc)) {
-		Core_MemoryException(addr, 4, mips->pc, MemoryExceptionType::READ_WORD, "Kernel mode only");
-		return UNKNOWN_MMIO_POISON;
-	}
-	if (GpioMMIO::IsGpioAddress(addr)) {
-		return GpioMMIO::Read32(addr);
-	}
-	if (SysconSerialMMIO::IsSysconSerialAddress(addr)) {
-		return SysconSerialMMIO::Read32(addr);
-	}
-	WARN_LOG(Log::CPU, "Unhandled MMIO Read32 at %08x", addr);
-	return UNKNOWN_MMIO_POISON;
-}
-
-void WriteMMIO_U8(MIPSState *mips, u32 addr, u8 value) {
-	if (!Memory::IsKernelCodeAddress(mips->pc)) {
-		Core_MemoryException(addr, 1, mips->pc, MemoryExceptionType::WRITE_WORD, "Kernel mode only");
-		return;
-	}
-	WARN_LOG(Log::CPU, "Unhandled MMIO Write8 at %08x = %02x", addr, value);
-}
-
-void WriteMMIO_U16(MIPSState *mips, u32 addr, u16 value) {
-	if (!Memory::IsKernelCodeAddress(mips->pc)) {
-		Core_MemoryException(addr, 2, mips->pc, MemoryExceptionType::WRITE_WORD, "Kernel mode only");
-		return;
-	}
-	WARN_LOG(Log::CPU, "Unhandled MMIO Write16 at %08x = %04x", addr, value);
-}
-
-void WriteMMIO_U32(MIPSState *mips, u32 addr, u32 value) {
-	if (!Memory::IsKernelCodeAddress(mips->pc)) {
-		Core_MemoryException(addr, 4, mips->pc, MemoryExceptionType::WRITE_WORD, "Kernel mode only");
-		return;
-	}
-	if (GpioMMIO::IsGpioAddress(addr)) {
-		GpioMMIO::Write32(addr, value);
-		return;
-	}
-	if (SysconSerialMMIO::IsSysconSerialAddress(addr)) {
-		SysconSerialMMIO::Write32(addr, value);
-		return;
-	}
-	WARN_LOG(Log::CPU, "Unhandled MMIO Write32 at %08x = %08x", addr, value);
 }
 
 namespace MIPSInt {
@@ -427,8 +355,12 @@ namespace MIPSInt {
 		case 48: // ll
 			if (rt != 0) {
 				if (!Memory::IsValid4AlignedAddress(addr)) {
-					Core_MemoryException(addr, 4, PC, MemoryExceptionType::READ_WORD, "ll");
-					R(rt) = 0;
+					if (Memory::IsMMIOAccess(addr)) {
+						R(rt) = MMIO::Read(mips, addr, 4);
+					} else {
+						Core_MemoryException(addr, 4, PC, MemoryExceptionType::READ_WORD, "ll");
+						R(rt) = 0;
+					}
 				} else {
 					R(rt) = Memory::ReadUnchecked_U32(addr);
 				}
@@ -438,7 +370,10 @@ namespace MIPSInt {
 		case 56: // sc
 			if (mips->llBit) {
 				if (!Memory::IsValid4AlignedAddress(addr)) {
-					Core_MemoryException(addr, 4, PC, MemoryExceptionType::WRITE_WORD, "sc");
+					if (Memory::IsMMIOAccess(addr))
+						MMIO::Write(mips, addr, 4, R(rt));
+					else
+						Core_MemoryException(addr, 4, PC, MemoryExceptionType::WRITE_WORD, "sc");
 				} else {
 					Memory::WriteUnchecked_U32(R(rt), addr);
 				}
@@ -513,7 +448,7 @@ namespace MIPSInt {
 			if (!Memory::IsValidAddress(addr)) {
 				if (Memory::IsMMIOAccess(addr)) {
 					// This is a read from MMIO, so we can handle it.
-					R(rt) = SignExtend8ToU32(ReadMMIO_U8(mips, addr));
+					R(rt) = SignExtend8ToU32(MMIO::Read(mips, addr, 1));
 					break;
 				}
 				Core_MemoryException(addr, 1, PC, MemoryExceptionType::READ_WORD, "lb");
@@ -526,7 +461,7 @@ namespace MIPSInt {
 			if (!Memory::IsValid2AlignedAddress(addr)) {
 				if (Memory::IsMMIOAccess(addr)) {
 					// This is a read from MMIO, so we can handle it.
-					R(rt) = SignExtend16ToU32(ReadMMIO_U16(mips, addr));
+					R(rt) = SignExtend16ToU32(MMIO::Read(mips, addr, 2));
 					break;
 				}
 				Core_MemoryException(addr, 2, PC, MemoryExceptionType::READ_WORD, "lh");
@@ -539,7 +474,7 @@ namespace MIPSInt {
 			if (!Memory::IsValid4AlignedAddress(addr)) {
 				if (Memory::IsMMIOAccess(addr)) {
 					// This is a read from MMIO, so we can handle it.
-					R(rt) = ReadMMIO_U32(mips, addr);
+					R(rt) = MMIO::Read(mips, addr, 4);
 					break;
 				}
 				Core_MemoryException(addr, 4, PC, MemoryExceptionType::READ_WORD, "lw");
@@ -552,7 +487,7 @@ namespace MIPSInt {
 			if (!Memory::IsValidAddress(addr)) {
 				if (Memory::IsMMIOAccess(addr)) {
 					// This is a read from MMIO, so we can handle it.
-					R(rt) = ReadMMIO_U8(mips, addr);
+					R(rt) = MMIO::Read(mips, addr, 1);
 					break;
 				}
 				Core_MemoryException(addr, 1, PC, MemoryExceptionType::READ_WORD, "lbu");
@@ -565,7 +500,7 @@ namespace MIPSInt {
 			if (!Memory::IsValid2AlignedAddress(addr)) {
 				if (Memory::IsMMIOAccess(addr)) {
 					// This is a read from MMIO, so we can handle it.
-					R(rt) = ReadMMIO_U16(mips, addr);
+					R(rt) = MMIO::Read(mips, addr, 2);
 					break;
 				}
 				Core_MemoryException(addr, 2, PC, MemoryExceptionType::READ_WORD, "lhu");
@@ -578,7 +513,7 @@ namespace MIPSInt {
 			if (!Memory::IsValidAddress(addr)) {
 				if (Memory::IsMMIOAccess(addr)) {
 					// This is a write to MMIO, so we can handle it.
-					WriteMMIO_U8(mips, addr, (u8)(R(rt)));
+					MMIO::Write(mips, addr, 1, (u8)R(rt));
 					break;
 				}
 				Core_MemoryException(addr, 1, PC, MemoryExceptionType::WRITE_WORD, "sb");
@@ -590,7 +525,7 @@ namespace MIPSInt {
 			if (!Memory::IsValid2AlignedAddress(addr)) {
 				if (Memory::IsMMIOAccess(addr)) {
 					// This is a write to MMIO, so we can handle it.
-					WriteMMIO_U16(mips, addr, (u16)(R(rt)));
+					MMIO::Write(mips, addr, 2, (u16)R(rt));
 					break;
 				}
 				Core_MemoryException(addr, 2, PC, MemoryExceptionType::WRITE_WORD, "sh");
@@ -602,7 +537,7 @@ namespace MIPSInt {
 			if (!Memory::IsValid4AlignedAddress(addr)) {
 				if (Memory::IsMMIOAccess(addr)) {
 					// This is a write to MMIO, so we can handle it.
-					WriteMMIO_U32(mips, addr, R(rt));
+					MMIO::Write(mips, addr, 4, R(rt));
 					break;
 				}
 				Core_MemoryException(addr, 4, PC, MemoryExceptionType::WRITE_WORD, "sw");
@@ -619,6 +554,8 @@ namespace MIPSInt {
 				u32 mem = 0;
 				if (Memory::IsValidAddress(addr)) {
 					mem = Memory::ReadUnchecked_U32(addr & 0xfffffffc);
+				} else if (Memory::IsMMIOAccess(addr)) {
+					mem = MMIO::Read(mips, addr & 0xfffffffc, 4);
 				} else {
 					Core_MemoryException(addr, 4, PC, MemoryExceptionType::READ_WORD, "lwl");
 				}
@@ -634,6 +571,8 @@ namespace MIPSInt {
 				u32 mem = 0;
 				if (Memory::IsValidAddress(addr)) {
 					mem = Memory::ReadUnchecked_U32(addr & 0xfffffffc);
+				} else if (Memory::IsMMIOAccess(addr)) {
+					mem = MMIO::Read(mips, addr & 0xfffffffc, 4);
 				} else {
 					Core_MemoryException(addr, 4, PC, MemoryExceptionType::READ_WORD, "lwr");
 				}
@@ -688,6 +627,10 @@ namespace MIPSInt {
 		switch (op >> 26) {
 		case 49:
 			if (!Memory::IsValid4AlignedAddress(addr)) {
+				if (Memory::IsMMIOAccess(addr)) {
+					FI(ft) = MMIO::Read(mips, addr, 4);
+					break;
+				}
 				Core_MemoryException(addr, 4, PC, MemoryExceptionType::READ_WORD, "lwc1");
 				FI(ft) = 0;
 				break;
@@ -696,6 +639,10 @@ namespace MIPSInt {
 			break; //lwc1
 		case 57:
 			if (!Memory::IsValid4AlignedAddress(addr)) {
+				if (Memory::IsMMIOAccess(addr)) {
+					MMIO::Write(mips, addr, 4, FI(ft));
+					break;
+				}
 				Core_MemoryException(addr, 4, PC, MemoryExceptionType::WRITE_WORD, "swc1");
 				break;
 			}

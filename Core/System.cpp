@@ -60,6 +60,7 @@
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceUtility.h"
 #include "Core/HW/Display.h"
+#include "Core/HW/MMIO.h"
 #include "Core/Config.h"
 #include "Core/Core.h"
 #include "Core/Util/PathUtil.h"
@@ -552,6 +553,7 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 	mipsr4k.Reset();
 
 	CoreTiming::Init(&mipsr4k);
+	MMIO::Init();
 
 	DisplayHWInit();
 
@@ -676,6 +678,7 @@ void CPU_Shutdown(bool success) {
 	Replacement_Shutdown();
 
 	CoreTiming::Shutdown();
+	MMIO::Shutdown();
 	__KernelShutdown();
 	HLEShutdown();
 

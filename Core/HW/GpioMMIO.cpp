@@ -17,38 +17,73 @@
 
 #include <cstring>
 
+#include "Common/Common.h"
+#include "Common/Serialize/Serializer.h"
+#include "Common/Serialize/SerializeFuncs.h"
 #include "Core/HW/GpioMMIO.h"
+#include "Core/HW/MMIO.h"
 
 namespace GpioMMIO {
 
 namespace {
 
-u32 g_regs[SIZE / 4];
-
 constexpr u32 REG_INTR_ACK = 0x024;
+
+class GpioDevice : public MMIODevice {
+public:
+	GpioDevice() : MMIODevice("GPIO", BASE_ADDRESS, SIZE) {}
+
+	bool Read(MIPSState *mips, u32 offset, int size, u32 *value) override {
+		if (size != 4)
+			return false;
+		*value = regs_[offset / 4];
+		return true;
+	}
+
+	bool Write(MIPSState *mips, u32 offset, int size, u32 value) override {
+		if (size != 4)
+			return false;
+		if (offset == REG_INTR_ACK) {
+			// Acknowledging an interrupt clears the corresponding bit(s) in the triggered-status
+			// register, rather than storing the acknowledge value itself - matches uofw's usage
+			// (GpioAcquireIntr writes the same bit it's acknowledging) and JPCSP's
+			// acknowledgeInterrupt().
+			regs_[REG_INTR_STATUS / 4] &= ~value;
+			return true;
+		}
+		regs_[offset / 4] = value;
+		return true;
+	}
+
+	void Reset() override {
+		memset(regs_, 0, sizeof(regs_));
+	}
+
+	void DoState(PointerWrap &p) override {
+		auto s = p.Section("GpioMMIO", 1, 1);
+		if (!s)
+			return;
+		DoArray(p, regs_, ARRAY_SIZE(regs_));
+	}
+
+	void SetInterruptStatusBits(u32 bits) {
+		regs_[REG_INTR_STATUS / 4] |= bits;
+	}
+
+private:
+	u32 regs_[SIZE / 4]{};
+};
+
+GpioDevice g_device;
 
 }  // namespace
 
-u32 Read32(u32 address) {
-	u32 offset = address - BASE_ADDRESS;
-	return g_regs[offset / 4];
-}
-
-void Write32(u32 address, u32 value) {
-	u32 offset = address - BASE_ADDRESS;
-	if (offset == REG_INTR_ACK) {
-		// Acknowledging an interrupt clears the corresponding bit(s) in the triggered-status
-		// register, rather than storing the acknowledge value itself - matches uofw's usage
-		// (GpioAcquireIntr writes the same bit it's acknowledging) and JPCSP's
-		// acknowledgeInterrupt().
-		g_regs[REG_INTR_STATUS / 4] &= ~value;
-		return;
-	}
-	g_regs[offset / 4] = value;
+MMIODevice *Device() {
+	return &g_device;
 }
 
 void SetInterruptStatusBits(u32 bits) {
-	g_regs[REG_INTR_STATUS / 4] |= bits;
+	g_device.SetInterruptStatusBits(bits);
 }
 
 }  // namespace GpioMMIO
@@ -72,23 +107,103 @@ enum SysconCmd : u8 {
 // (including these first two), bytes 2.. = payload, byte [length] = checksum
 // (~sum(bytes[0..length-1]) & 0xFF).
 constexpr int DATA_SIZE = 16;
-u8 g_data[DATA_SIZE];
-int g_dataIndex = 0;
-int g_responseLen = 0;
-bool g_dataExhausted = true;
 
 // AC_SUPPLY | WLAN_POWER | POWER_SWITCH - matches JPCSP's MMIOHandlerSyscon.getBaryonStatus(),
 // used as the RX status byte for every response (real hardware would report genuine baryon
 // status bits here; this is just a plausible constant since PPSSPP doesn't model those).
 constexpr u8 kBaryonStatus = 0x13;
 
-// Persistent alarm value across sceSysconReadAlarm/WriteAlarm calls - mirrors JPCSP's
-// sceSyscon.java readAlarm()/writeAlarm(), which are just as simple (a stored int, no real
-// hardware backing).
-u32 g_alarm = 0;
+class SysconSerialDevice : public MMIODevice {
+public:
+	SysconSerialDevice() : MMIODevice("syscon serial", BASE_ADDRESS, SIZE) {}
 
-void ProcessCommand() {
-	u8 cmd = g_data[0];
+	bool Read(MIPSState *mips, u32 offset, int size, u32 *value) override {
+		if (size != 4)
+			return false;
+		switch (offset) {
+		case 0x008:
+		{
+			*value = (data_[dataIndex_] << 8) | data_[dataIndex_ + 1];
+			dataIndex_ += 2;
+			if (dataIndex_ > responseLen_) {
+				dataIndex_ = 0;
+				dataExhausted_ = true;
+			}
+			return true;
+		}
+		case 0x00C:
+		{
+			u32 flags = 1;  // bit 0: no error.
+			if (!dataExhausted_)
+				flags |= 4;  // bit 2: more response data available.
+			*value = flags;
+			return true;
+		}
+		default:
+			*value = 0;
+			return true;
+		}
+	}
+
+	bool Write(MIPSState *mips, u32 offset, int size, u32 value) override {
+		if (size != 4)
+			return false;
+		switch (offset) {
+		case 0x004:
+			if (value & 4) {
+				dataIndex_ = 0;
+			}
+			if (value & 2) {
+				ProcessCommand();
+			}
+			break;
+		case 0x008:
+			if (dataIndex_ + 1 < DATA_SIZE) {
+				data_[dataIndex_] = (value >> 8) & 0xFF;
+				data_[dataIndex_ + 1] = value & 0xFF;
+			}
+			dataIndex_ += 2;
+			break;
+		default:
+			break;
+		}
+		return true;
+	}
+
+	void Reset() override {
+		memset(data_, 0, sizeof(data_));
+		dataIndex_ = 0;
+		responseLen_ = 0;
+		dataExhausted_ = true;
+		alarm_ = 0;
+	}
+
+	void DoState(PointerWrap &p) override {
+		auto s = p.Section("SysconSerialMMIO", 1, 1);
+		if (!s)
+			return;
+		DoArray(p, data_, DATA_SIZE);
+		Do(p, dataIndex_);
+		Do(p, responseLen_);
+		Do(p, dataExhausted_);
+		Do(p, alarm_);
+	}
+
+private:
+	void ProcessCommand();
+
+	u8 data_[DATA_SIZE]{};
+	int dataIndex_ = 0;
+	int responseLen_ = 0;
+	bool dataExhausted_ = true;
+	// Persistent alarm value across sceSysconReadAlarm/WriteAlarm calls - mirrors JPCSP's
+	// sceSyscon.java readAlarm()/writeAlarm(), which are just as simple (a stored int, no real
+	// hardware backing).
+	u32 alarm_ = 0;
+};
+
+void SysconSerialDevice::ProcessCommand() {
+	u8 cmd = data_[0];
 
 	// Sub-status byte: must not be 0x80 or 0x81 (uofw's Syscon_cmd() treats those as
 	// SYSCON_RES_80/81 and retries the whole command) - 0x82 is what JPCSP's own fallback
@@ -103,89 +218,43 @@ void ProcessCommand() {
 		payloadLen += 4;
 		break;
 	case CMD_READ_ALARM:
-		memcpy(&payload[payloadLen], &g_alarm, 4);
+		memcpy(&payload[payloadLen], &alarm_, 4);
 		payloadLen += 4;
 		break;
 	case CMD_WRITE_CLOCK:
 		// Not modeled - accept and ignore, same as JPCSP's writeClock().
 		break;
 	case CMD_WRITE_ALARM:
-		memcpy(&g_alarm, &g_data[2], 4);
+		memcpy(&alarm_, &data_[2], 4);
 		break;
 	case CMD_NOP:
 	default:
 		break;
 	}
 
-	g_data[0] = kBaryonStatus;
-	g_data[1] = (u8)(payloadLen + 2);
-	memcpy(&g_data[2], payload, payloadLen);
+	data_[0] = kBaryonStatus;
+	data_[1] = (u8)(payloadLen + 2);
+	memcpy(&data_[2], payload, payloadLen);
 	u8 sum = 0;
-	for (int i = 0; i < g_data[1]; i++)
-		sum += g_data[i];
-	g_data[g_data[1]] = (u8)~sum;
+	for (int i = 0; i < data_[1]; i++)
+		sum += data_[i];
+	data_[data_[1]] = (u8)~sum;
 
-	g_dataIndex = 0;
-	g_responseLen = g_data[1];
-	g_dataExhausted = false;
+	dataIndex_ = 0;
+	responseLen_ = data_[1];
+	dataExhausted_ = false;
 
 	// Signals "response ready" the way real hardware raising GPIO4 would - see
 	// uofw's Syscon_cmd(), which polls exactly this bit after triggering a command.
 	GpioMMIO::SetInterruptStatusBits(0x10);
 }
 
+SysconSerialDevice g_device;
+
 }  // namespace
 
-u32 Read32(u32 address) {
-	u32 offset = address - BASE_ADDRESS;
-	switch (offset) {
-	case 0x004:
-		return 0;
-	case 0x008:
-	{
-		u32 value = (g_data[g_dataIndex] << 8) | g_data[g_dataIndex + 1];
-		g_dataIndex += 2;
-		if (g_dataIndex > g_responseLen) {
-			g_dataIndex = 0;
-			g_dataExhausted = true;
-		}
-		return value;
-	}
-	case 0x00C:
-	{
-		u32 flags = 1;  // bit 0: no error.
-		if (!g_dataExhausted)
-			flags |= 4;  // bit 2: more response data available.
-		return flags;
-	}
-	case 0x018:
-		return 0;
-	default:
-		return 0;
-	}
-}
-
-void Write32(u32 address, u32 value) {
-	u32 offset = address - BASE_ADDRESS;
-	switch (offset) {
-	case 0x004:
-		if (value & 4) {
-			g_dataIndex = 0;
-		}
-		if (value & 2) {
-			ProcessCommand();
-		}
-		break;
-	case 0x008:
-		if (g_dataIndex + 1 < DATA_SIZE) {
-			g_data[g_dataIndex] = (value >> 8) & 0xFF;
-			g_data[g_dataIndex + 1] = value & 0xFF;
-		}
-		g_dataIndex += 2;
-		break;
-	default:
-		break;
-	}
+MMIODevice *Device() {
+	return &g_device;
 }
 
 }  // namespace SysconSerialMMIO

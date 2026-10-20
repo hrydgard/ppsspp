@@ -48,6 +48,8 @@
 
 #include "Common/CommonTypes.h"
 
+class MMIODevice;
+
 namespace GpioMMIO {
 
 constexpr u32 BASE_ADDRESS = 0xBE240000;
@@ -58,12 +60,7 @@ constexpr u32 SIZE = 0x100;
 // line, is ever actually driven here since that's the only one this MMIO model needs).
 constexpr u32 REG_INTR_STATUS = 0x020;
 
-inline bool IsGpioAddress(u32 address) {
-	return address >= BASE_ADDRESS && address < BASE_ADDRESS + SIZE;
-}
-
-u32 Read32(u32 address);
-void Write32(u32 address, u32 value);
+MMIODevice *Device();
 
 // Sets bits in the interrupt-triggered status register (offset 0x020) - used by
 // SysconSerialMMIO to signal "response ready" on GPIO pin 4 the same way real Syscon
@@ -77,11 +74,6 @@ namespace SysconSerialMMIO {
 constexpr u32 BASE_ADDRESS = 0xBE580000;
 constexpr u32 SIZE = 0x100;
 
-inline bool IsSysconSerialAddress(u32 address) {
-	return address >= BASE_ADDRESS && address < BASE_ADDRESS + SIZE;
-}
-
-u32 Read32(u32 address);
-void Write32(u32 address, u32 value);
+MMIODevice *Device();
 
 }  // namespace SysconSerialMMIO
