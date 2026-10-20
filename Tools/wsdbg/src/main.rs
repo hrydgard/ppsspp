@@ -151,7 +151,9 @@ fn pending_succeeded() -> bool {
 }
 
 fn waits_for_completion(request: &serde_json::Value) -> bool {
-    request.get("wait").and_then(|v| v.as_bool()) == Some(true)
+    request.get("wait").is_some_and(|v| {
+        v.as_bool() == Some(true) || v.as_f64() == Some(1.0) || matches!(v.as_str(), Some("1" | "true"))
+    })
         && matches!(request.get("event").and_then(|v| v.as_str()),
             Some("game.state.save" | "game.state.load" | "game.state.rewind" | "game.state.verify"))
 }
