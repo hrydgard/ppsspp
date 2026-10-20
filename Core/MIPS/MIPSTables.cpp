@@ -1254,11 +1254,11 @@ static void RunUntilDowncountZeroFast(MIPSState *mips) {
 		IRBlockState block;
 		while (true) {
 			const u32 pc = mips->pc;
-			if (!Memory::IsValid4AlignedAddress(pc)) {
+			if (!mips->space->IsValid4AlignedAddress(pc)) {
 				Core_ExecException(pc, pc, ExecExceptionType::JUMP);
 				return;
 			}
-			const MIPSOpcode op = ReadExecutedOp(pc);
+			const MIPSOpcode op = ReadExecutedOp(*mips->space, pc);
 
 			const bool wasInDelaySlot = mips->inDelaySlot;
 			const int cycles = ExecInstruction(mips, op);
@@ -1394,11 +1394,11 @@ static void RunUntilDowncountZeroWithChecks(MIPSState *mips, u64 globalTicks) {
 		IRBlockState block;
 		while (true) {
 			const u32 pc = mips->pc;
-			if (!Memory::IsValid4AlignedAddress(mips->pc)) {
+			if (!mips->space->IsValid4AlignedAddress(mips->pc)) {
 				Core_ExecException(mips->pc, mips->pc, ExecExceptionType::JUMP);
 				return;
 			}
-			const MIPSOpcode op = ReadExecutedOp(mips->pc);
+			const MIPSOpcode op = ReadExecutedOp(*mips->space, mips->pc);
 			// Replacements are processed here, intentionally.
 			const MIPSInstruction *instr = MIPSGetInstruction(op);
 

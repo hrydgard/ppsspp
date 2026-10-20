@@ -32,6 +32,7 @@
 #include "Core/Debugger/SymbolMap.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/JitCommon/JitBlockCache.h"
+#include "Core/MIPS/Interpreter.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
 #include "Core/MIPS/MIPSAsm.h"
@@ -610,6 +611,104 @@ bool TestMMIO() {
 	currentMIPS->pc = base;
 	EXPECT_EQ_HEX(MMIO::Read(currentMIPS, 0xBE240020, 4), 0x20);
 
+	MMIO::Shutdown();
+	DestroyJitHarness();
+	return success;
+}
+
+// The Media Engine's address space: the main CPU's RAM and boot page, its own eDRAM (with its mirrors)
+// where the main CPU has its scratchpad, its own memory where the main CPU has VRAM, its own block
+// shadow. Then the interpreter running a
+// second CPU in it.
+bool TestMESpace() {
+	Memory::g_PSPModel = PSP_MODEL_FAT;
+	SetupJitHarness();
+	MMIO::Init();
+	bool success = true;
+
+	Memory::AddressSpace *space = Memory::CreateMESpace();
+	if (!space) {
+		printf("No Media Engine address space on this platform, skipping\n");
+		MMIO::Shutdown();
+		DestroyJitHarness();
+		return true;
+	}
+	EXPECT_EQ_HEX(space->edramSize, 0x00200000);
+
+	Memory::WriteUnchecked_U32(0x12345678, 0x08800000);
+	EXPECT_EQ_HEX(space->ReadUnchecked_U32(0x88800000), 0x12345678);
+	// Physical memory, uncached, through 0xA0000000.
+	EXPECT_EQ_HEX(space->ReadUnchecked_U32(0xA8800000), 0x12345678);
+	// Not VRAM: memory of its own, the same through 0x44000000 and 0xA4000000.
+	Memory::WriteUnchecked_U32(0x0BADF00D, 0x04000100);
+	space->WriteUnchecked_U32(0xFEEDF00D, 0xA4000100);
+	EXPECT_EQ_HEX(space->ReadUnchecked_U32(0x44000100), 0xFEEDF00D);
+	EXPECT_EQ_HEX(Memory::ReadUnchecked_U32(0x44000100), 0x0BADF00D);
+	// Without the depth layout the software renderer gives VRAM's mirrors.
+	const GPUCore gpuCore = PSP_CoreParameter().gpuCore;
+	PSP_CoreParameter().gpuCore = GPUCORE_SOFTWARE;
+	space->WriteUnchecked_U32(0, 0x04200100);
+	space->WriteUnchecked_U16(0x1234, 0x04200102);
+	EXPECT_EQ_HEX(space->ReadUnchecked_U32(0x04200100), 0x12340000);
+	EXPECT_EQ_HEX(space->ReadUnchecked_U16(0x04200102), 0x1234);
+	PSP_CoreParameter().gpuCore = gpuCore;
+	EXPECT_TRUE(space->IsValid4AlignedAddress(0xA8800000));
+	EXPECT_FALSE(Memory::g_mainSpace.IsValid4AlignedAddress(0xA8800000));
+
+	space->WriteUnchecked_U32(0xCAFE0001, 0x00010000);
+	EXPECT_EQ_HEX(space->ReadUnchecked_U32(0x80010000), 0xCAFE0001);
+	EXPECT_EQ_HEX(space->ReadUnchecked_U32(0xA0010000), 0xCAFE0001);
+	EXPECT_EQ_HEX(Memory::ReadUnchecked_U32(0x00010000), 0);
+
+	// The main CPU reaches the boot page through MMIO.
+	MMIO::Write(currentMIPS, 0xBFC00600, 4, 0x187);
+	EXPECT_EQ_HEX(space->ReadUnchecked_U32(0xBFC00600), 0x187);
+	space->WriteUnchecked_U32(0xFFFFFFFE, 0xBFC00700);
+	EXPECT_EQ_HEX(MMIO::Read(currentMIPS, 0xBFC00700, 4), 0xFFFFFFFE);
+
+	EXPECT_TRUE(space->IsValid4AlignedAddress(0x00000000));
+	EXPECT_TRUE(space->IsValid4AlignedAddress(0xA01FFFFC));
+	EXPECT_FALSE(space->IsValid4AlignedAddress(0x00200000));
+	EXPECT_FALSE(space->IsValid4AlignedAddress(0x40010000));
+	EXPECT_FALSE(space->IsValid4AlignedAddress(0x00000002));
+	EXPECT_TRUE(space->IsValid4AlignedAddress(0xBFC00FFC));
+	EXPECT_FALSE(space->IsValid4AlignedAddress(0xBFC01000));
+	EXPECT_TRUE(space->IsValid4AlignedAddress(0x88300000));
+	EXPECT_FALSE(Memory::g_mainSpace.IsValid4AlignedAddress(0x00000000));
+	EXPECT_FALSE(Memory::g_mainSpace.IsValid4AlignedAddress(0xBFC00000));
+
+	space->WriteBlockShadow(0x08800000, 5);
+	EXPECT_EQ_HEX(space->ReadBlockShadow(0x88800000), 5);
+	EXPECT_EQ_HEX(Memory::ReadBlockShadow(0x08800000), 0);
+	space->WriteBlockShadow(0x00000100, 6);
+	EXPECT_EQ_HEX(space->ReadBlockShadow(0x80000100), 6);
+	space->WriteBlockShadow(0x08800000, 0);
+	space->WriteBlockShadow(0x00000100, 0);
+
+	// From eDRAM: copy a word from shared RAM into eDRAM, and read it back through the uncached mirror.
+	auto sw = [](int rt, int rs, int imm) { return (0x2Bu << 26) | (rs << 21) | (rt << 16) | (imm & 0xFFFF); };
+	const u32 code[] = {
+		MIPS_MAKE_LUI(MIPS_REG_T0, 0x0880),
+		MIPS_MAKE_LW(MIPS_REG_V0, MIPS_REG_T0, 0),
+		sw(MIPS_REG_V0, MIPS_REG_ZERO, 0x200),
+		MIPS_MAKE_LUI(MIPS_REG_T1, 0xA000),
+		MIPS_MAKE_LW(MIPS_REG_V1, MIPS_REG_T1, 0x200),
+	};
+	for (size_t i = 0; i < ARRAY_SIZE(code); ++i)
+		space->WriteUnchecked_U32(code[i], 0x80000100 + (u32)i * 4);
+	{
+		MIPSState me;
+		me.space = space;
+		me.InitRegisters();
+		me.pc = 0x80000100;
+		for (size_t i = 0; i < ARRAY_SIZE(code); ++i)
+			MIPS_InterpretSingleStep(&me);
+		EXPECT_EQ_HEX(me.pc, 0x80000114);
+		EXPECT_EQ_HEX(me.r[MIPS_REG_V1], 0x12345678);
+		EXPECT_EQ_HEX(Memory::ReadUnchecked_U32(0x00010000), 0);
+	}
+
+	Memory::DestroyMESpace();
 	MMIO::Shutdown();
 	DestroyJitHarness();
 	return success;

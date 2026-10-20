@@ -156,6 +156,11 @@ enum {
 	MV_IS_EXTRA2_RAM = 0x400,
 	MV_KERNEL = 0x800,  // Can be skipped on platforms where memory is tight.
 	MV_NULL_PAGE = 0x1000,
+	MV_MAIN_CPU_ONLY = 0x2000,  // Not in the Media Engine's map.
+	MV_BOOT_PAGE = 0x4000,
+	MV_ME_ONLY = 0x8000,  // In the arena, but only in the Media Engine's map.
+	MV_EDRAM = 0x10000,  // The Media Engine's eDRAM, sized by model.
+	MV_ME_LOCAL = 0x20000,  // The Media Engine's own memory at VRAM's addresses.
 };
 
 struct MemoryView {
@@ -317,6 +322,16 @@ inline void WriteUnchecked_U8(u8 data, u32 address) {
 struct AddressSpace {
 	u8 *base = nullptr;
 	u8 *blockShadow = nullptr;
+	// The Media Engine's eDRAM size, which also selects its rules for what's valid. 0 for the main CPU.
+	u32 edramSize = 0;
+	// The Media Engine's own memory at 0x04000000 (MV_ME_LOCAL).
+	u32 localSize = 0;
+
+	// As the global functions of the same names, for what this CPU can access.
+	bool IsValidAddress(u32 address) const;
+	bool IsValid2AlignedAddress(u32 address) const;
+	bool IsValid4AlignedAddress(u32 address) const;
+	bool IsMediaEngine() const { return edramSize != 0; }
 
 	u8 *GetPointerUnchecked(u32 address) const {
 #ifdef MASKED_PSP_MEMORY
@@ -327,15 +342,18 @@ struct AddressSpace {
 	}
 
 	u8 ReadUnchecked_U8(u32 address) const { return *GetPointerUnchecked(address); }
-	u16 ReadUnchecked_U16(u32 address) const { return *(u16_le *)GetPointerUnchecked(DepthMirrored16(address)); }
+	u16 ReadUnchecked_U16(u32 address) const { return *(u16_le *)GetPointerUnchecked(Mirrored16(address)); }
 	u32 ReadUnchecked_U32(u32 address) const { return *(u32_le *)GetPointerUnchecked(address); }
 	u64 ReadUnchecked_U64(u32 address) const { return *(u64_le *)GetPointerUnchecked(address); }
 	float ReadUnchecked_Float(u32 address) const { return *(float_le *)GetPointerUnchecked(address); }
 	void WriteUnchecked_U8(u8 data, u32 address) const { *GetPointerUnchecked(address) = data; }
-	void WriteUnchecked_U16(u16 data, u32 address) const { *(u16_le *)GetPointerUnchecked(DepthMirrored16(address)) = data; }
+	void WriteUnchecked_U16(u16 data, u32 address) const { *(u16_le *)GetPointerUnchecked(Mirrored16(address)) = data; }
 	void WriteUnchecked_U32(u32 data, u32 address) const { *(u32_le *)GetPointerUnchecked(address) = data; }
 	void WriteUnchecked_U64(u64 data, u32 address) const { *(u64_le *)GetPointerUnchecked(address) = data; }
 	void WriteUnchecked_Float(float data, u32 address) const { *(float_le *)GetPointerUnchecked(address) = data; }
+
+	// VRAM's depth mirrors. The Media Engine has its own memory at those addresses, plain.
+	u32 Mirrored16(u32 address) const { return IsMediaEngine() ? address : DepthMirrored16(address); }
 
 	u32 *GetBlockShadowEntry(u32 address) const {
 		return (u32 *)(blockShadow + (address & BLOCK_SHADOW_ENTRY_MASK));
@@ -347,6 +365,13 @@ struct AddressSpace {
 };
 
 extern AddressSpace g_mainSpace;
+
+// The Media Engine's view of memory: its own eDRAM at 0 (mirrored at 0x80000000 and 0xA0000000), the
+// boot page, and the main CPU's RAM and VRAM, the same host pages as in g_mainSpace. Returns null if
+// this platform can't map memory twice. Only for a boot that runs the ME; Shutdown() (and so Reinit())
+// destroys it.
+AddressSpace *CreateMESpace();
+void DestroyMESpace();
 
 void WriteOrException_U8(const u8 data, const u32 address);
 void WriteOrException_U16(const u16 data, const u32 address);
@@ -484,6 +509,46 @@ inline u32 MaxSizeAtAddress(const u32 address) {
 	} else {
 		return 0;
 	}
+}
+
+// The page at 0xBFC00000 that both CPUs boot from, and where the main CPU leaves the Media Engine its
+// commands. It's RAM, which the main CPU reaches through MMIO and the ME as memory. 4KB is a guess, the
+// firmware uses up to 0x700.
+enum : u32 {
+	BOOT_PAGE_ADDRESS = 0xBFC00000,
+	BOOT_PAGE_SIZE = 0x00001000,
+};
+
+// Its storage, which both address spaces map.
+u8 *GetBootPage();
+
+// What the Media Engine accesses as memory. Its eDRAM covers the scratchpad's addresses, and it has no
+// scratchpad.
+template<int A>
+inline bool IsValidMENAlignedAddress(u32 address, const u32 edramSize) {
+	if (address & (A - 1))
+		return false;
+	const u32 segment = address >> 29;
+	if ((segment == 0 || segment == 4 || segment == 5) && (address & 0x1FFFFFFF) < edramSize)
+		return true;
+	if ((address & ~(BOOT_PAGE_SIZE - 1)) == BOOT_PAGE_ADDRESS)
+		return true;
+	// 0xA0000000 reaches physical memory uncached, besides the main CPU's mirrors.
+	if (segment == 5)
+		address &= 0x1FFFFFFF;
+	return IsValidNAlignedAddress<A>(address) && !IsScratchpadAddress(address);
+}
+
+inline bool AddressSpace::IsValidAddress(u32 address) const {
+	return edramSize ? IsValidMENAlignedAddress<1>(address, edramSize) : Memory::IsValidAddress(address);
+}
+
+inline bool AddressSpace::IsValid2AlignedAddress(u32 address) const {
+	return edramSize ? IsValidMENAlignedAddress<2>(address, edramSize) : Memory::IsValid2AlignedAddress(address);
+}
+
+inline bool AddressSpace::IsValid4AlignedAddress(u32 address) const {
+	return edramSize ? IsValidMENAlignedAddress<4>(address, edramSize) : Memory::IsValid4AlignedAddress(address);
 }
 
 inline const char *GetCharPointerUnchecked(const u32 address) {

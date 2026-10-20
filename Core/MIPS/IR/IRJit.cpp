@@ -380,7 +380,7 @@ void IRInterpreterJit::RunBlocks() {
 					mips->pc = IRInterpret(mips, instPtr, arena_.data());
 				}
 				// Note: this will "jump to zero" on a badly constructed block missing exits.
-				if (!Memory::IsValid4AlignedAddress(mips->pc)) {
+				if (!mips->space->IsValid4AlignedAddress(mips->pc)) {
 					int blockNum = blocks_.FindByEntry(offset);
 					JitBlock *block = blocks_.GetBlockUnchecked(blockNum);
 					Core_ExecException(mips->pc, block->GetOriginalStart(), ExecExceptionType::JUMP);

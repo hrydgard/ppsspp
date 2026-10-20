@@ -109,6 +109,14 @@ inline MIPSOpcode ReadExecutedOp(u32 address) {
 	return Memory::ReadUnchecked_Instruction(address);
 }
 
+// The same in a CPU's address space. Only the main CPU's has hooks.
+inline MIPSOpcode ReadExecutedOp(const Memory::AddressSpace &space, u32 address) {
+	if (&space != &Memory::g_mainSpace) {
+		return MIPSOpcode(space.ReadUnchecked_U32(address));
+	}
+	return ReadExecutedOp(address);
+}
+
 // ReadExecutedOp for the debugger: safe from any thread, and never drops a hook. Address must be valid.
 MIPSOpcode Replacement_GetDisplayOp(u32 address);
 

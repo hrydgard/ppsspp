@@ -3735,6 +3735,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(JitReplacementHooks),
 	TEST_ITEM(CPUEret),
 	TEST_ITEM(MMIO),
+	TEST_ITEM(MESpace),
 	TEST_ITEM(CPUEquivalence),
 	TEST_ITEM(CPURoundingMode),
 	TEST_ITEM(VFPUDotJit),

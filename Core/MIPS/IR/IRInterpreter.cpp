@@ -73,18 +73,18 @@ u32 IRRunMemCheck(u32 pc, u32 addr) {
 
 // LoadKernel* and StoreKernel*: memory, or a hardware register, like the interpreter's loads and stores.
 template <int size>
-static bool IsValidAlignedAddress(u32 addr) {
+static bool IsValidAlignedAddress(const Memory::AddressSpace &space, u32 addr) {
 	switch (size) {
-	case 1: return Memory::IsValidAddress(addr);
-	case 2: return Memory::IsValid2AlignedAddress(addr);
-	default: return Memory::IsValid4AlignedAddress(addr);
+	case 1: return space.IsValidAddress(addr);
+	case 2: return space.IsValid2AlignedAddress(addr);
+	default: return space.IsValid4AlignedAddress(addr);
 	}
 }
 
 template <int size, bool sign>
 static u32 RunKernelLoad(MIPSState *mips, u32 addr) {
 	u32 value;
-	if (IsValidAlignedAddress<size>(addr)) {
+	if (IsValidAlignedAddress<size>(*mips->space, addr)) {
 		switch (size) {
 		case 1: value = mips->space->ReadUnchecked_U8(addr); break;
 		case 2: value = mips->space->ReadUnchecked_U16(addr); break;
@@ -103,7 +103,7 @@ static u32 RunKernelLoad(MIPSState *mips, u32 addr) {
 
 template <int size>
 static void RunKernelStore(MIPSState *mips, u32 addr, u32 value) {
-	if (IsValidAlignedAddress<size>(addr)) {
+	if (IsValidAlignedAddress<size>(*mips->space, addr)) {
 		switch (size) {
 		case 1: mips->space->WriteUnchecked_U8((u8)value, addr); break;
 		case 2: mips->space->WriteUnchecked_U16((u16)value, addr); break;
@@ -147,9 +147,9 @@ static void RunKernelStore(MIPSState *mips, u32 addr, u32 value) {
 // compiled, the way IRJit::RunBlocks would after we returned (minus the call and the lookup there).
 #define IR_EXIT(pcExpr) do { \
 	const u32 exitPC = (pcExpr); \
-	if (!chainArena || mips->downcount < 0 || !Memory::IsValid4AlignedAddress(exitPC)) \
+	if (!chainArena || mips->downcount < 0 || !space.IsValid4AlignedAddress(exitPC)) \
 		return exitPC; \
-	const u32 offset = *Memory::GetBlockShadowEntry(exitPC); \
+	const u32 offset = *space.GetBlockShadowEntry(exitPC); \
 	if (offset <= Memory::BLOCK_SHADOW_HOOK_NO_JIT) \
 		return exitPC; \
 	mips->pc = exitPC; \
