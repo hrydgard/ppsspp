@@ -327,6 +327,11 @@ template<auto func> void WrapI_UCI(MIPSState *mips) {
 	RETURN(retval);
 }
 
+template<auto func> void WrapI_UIIUUU(MIPSState *mips) {
+	int retval = HLECall<int(u32, int, int, u32, u32, u32), func>(mips, PARAM(0), PARAM(1), PARAM(2), PARAM(3), PARAM(4), PARAM(5));
+	RETURN(retval);
+}
+
 template<auto func> void WrapU_UIIIII(MIPSState *mips) {
 	u32 retval = HLECall<u32(u32, int , int , int, int, int), func>(mips, PARAM(0), PARAM(1), PARAM(2), PARAM(3), PARAM(4), PARAM(5));
 	RETURN(retval);
