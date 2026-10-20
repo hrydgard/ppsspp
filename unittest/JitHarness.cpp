@@ -1041,6 +1041,26 @@ bool TestMeDmacplus() {
 	MMIO::Write(&mipsr4k, 0xBC800190, 4, 1);
 	EXPECT_EQ_HEX(space->ReadUnchecked_U32(0x80011FFC), 0xA0001FFC);
 
+	// Colour space conversion: a planar (VME) 32x32 grey frame to 8888, with the default matrix.
+	for (u32 i = 0; i < 32 * 32; ++i)
+		space->WriteUnchecked_U8(128, 0x80020000 + i);
+	for (u32 i = 0; i < 16 * 16 * 2; ++i)
+		space->WriteUnchecked_U8(128, 0x80030000 + i);
+	const u32 csc[] = {
+		0x120, 0x20000, 0x128, 0x20000 + 32 * 16, 0x130, 0x30000, 0x134, 0x30000 + 16 * 8,
+		0x138, 0x30000 + 16 * 16, 0x13C, 0x30000 + 16 * 24,
+		0x140, (2 << 16) | (2 << 8) | (1 << 1) | 1,
+		0x144, 0x48B00000, 0x148, 0x48B00000 + 64 * 16 * 4,
+		0x14C, (64 << 8) | 1,
+		0x150, (0x0CC << 20) | 0x095, 0x154, (0x398 << 20) | (0x3CE << 10) | 0x095, 0x158, (0x102 << 10) | 0x095,
+	};
+	for (size_t i = 0; i < ARRAY_SIZE(csc); i += 2)
+		MMIO::Write(&mipsr4k, 0xBC800000 + csc[i], 4, csc[i + 1]);
+	MMIO::Write(&mipsr4k, 0xBC800160, 4, 1);
+	EXPECT_EQ_HEX(MMIO::Read(&mipsr4k, 0xBC800160, 4) & 1, 0);
+	EXPECT_EQ_HEX(Memory::ReadUnchecked_U32(0x08B00000), 0x828282);
+	EXPECT_EQ_HEX(Memory::ReadUnchecked_U32(0x08B00000 + 64 * 31 * 4 + 31 * 4), 0x828282);
+
 	MeCore::Shutdown();
 	MMIO::Shutdown();
 	DestroyJitHarness();

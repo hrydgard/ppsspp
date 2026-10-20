@@ -94,6 +94,8 @@ static void PowerOn(MEState *me) {
 	cpu.cop0[22] = ME_CPU_ID;
 	cpu.r[MIPS_REG_SP] = 0x80000000 + cpu.space->edramSize - 0x20;
 	me->ramConfig = 0x20000002;
+	// The luma offset (16) and chroma offset of the firmware's default conversion (avcodec.prx).
+	me->dmacplus.csc[(0x15C - 0x120) / 4] = 0x110;
 	me->busClock = 0xD61D;
 	// Held in reset, as the register says: a read-modify-write of it mustn't release the ME.
 	me->resetFlags = 4;
