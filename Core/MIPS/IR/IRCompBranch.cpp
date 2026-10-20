@@ -24,6 +24,7 @@
 #include "Core/HLE/HLETables.h"
 
 #include "Core/MIPS/MIPS.h"
+#include "Core/MIPS/MeCore.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPSTables.h"
@@ -464,8 +465,21 @@ void IRFrontend::Comp_JumpReg(MIPSOpcode op) {
 
 void IRFrontend::Comp_Syscall(MIPSOpcode op) {
 	if (IsMediaEngine()) {
-		// There's no HLE on the ME, the interpreter traps it.
-		Comp_Generic(op);
+		// There's no HLE on the ME. A call to a stub that does nothing there returns 0, ending the
+		// block as a syscall does on the main CPU (a jr with it in its delay slot leaves the exit to
+		// it); the interpreter traps the rest.
+		if (!MeCore::SyscallDoesNothing(op, GetCompilerPC())) {
+			Comp_Generic(op);
+			return;
+		}
+		ir.Write(IROp::Downcount, 0, 0, 0, js.downcountAmount);
+		js.downcountAmount = 0;
+		if (!js.inDelaySlot)
+			ir.Write(IROp::SetPCConst, 0, 0, 0, GetCompilerPC() + 4);
+		ir.WriteSetConstant(MIPS_REG_V0, 0);
+		FlushAll();
+		ir.Write(IROp::ExitToPC);
+		js.compiling = false;
 		return;
 	}
 	// Like the interpreter, the syscall sees every earlier instruction charged (including a branch it's

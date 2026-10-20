@@ -27,6 +27,7 @@
 #include "Core/CoreTiming.h"
 #include "Core/ELF/PrxDecrypter.h"
 #include "Core/FileSystems/MetaFileSystem.h"
+#include "Core/HLE/HLE.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/MemMap.h"
@@ -550,6 +551,25 @@ static void RunUntilIdle(MEState *me) {
 	} else {
 		WARN_LOG(Log::ME, "ME firmware didn't reach its idle halt, at %08x", cpu.pc);
 	}
+}
+
+bool SyscallDoesNothing(MIPSOpcode op, u32 pc) {
+	static const char *const cacheFunctions[] = {
+		"sceKernelDcacheWritebackAll",
+		"sceKernelDcacheWritebackInvalidateAll",
+		"sceKernelDcacheWritebackRange",
+		"sceKernelDcacheWritebackInvalidateRange",
+		"sceKernelDcacheInvalidateRange",
+	};
+	const HLEFunction *func = GetSyscallFunctionData(op, pc);
+	if (!func)
+		return true;
+	for (const char *name : cacheFunctions) {
+		if (!strcmp(func->name, name))
+			return true;
+	}
+	ERROR_LOG(Log::ME, "syscall to %s on the Media Engine at %08x", func->name, pc);
+	return false;
 }
 
 void SetReset(bool asserted) {

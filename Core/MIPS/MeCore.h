@@ -112,6 +112,11 @@ u64 GetTicks();
 u32 ReadCop0(int reg);
 void WriteCop0(int reg, u32 value);
 void Halt();
+// Whether a syscall the ME makes is to a firmware function it may call, all of which do nothing on
+// it: kernel code it runs (POPS's ME loop) calls the cache functions, which only work on the calling
+// CPU's caches, and those aren't emulated. An unresolved import does nothing, as on the main CPU.
+// Logs the others.
+bool SyscallDoesNothing(MIPSOpcode op, u32 pc);
 // mtic.
 void SetInterruptEnable(u32 value);
 
