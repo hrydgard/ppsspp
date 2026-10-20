@@ -55,7 +55,9 @@ A working invocation, and the traps around it:
 
 - **The timeouts apply to the whole session**, not per test. `--timeout-wall=N` is real seconds and
   `--timeout-emulated=N` is emulated ones; both default to infinity, both can be set at once, and whichever
-  is reached first ends the run (`TIMEOUT` or `TIMEOUT (emulated)`). `--timeout` is the old name for
+  is reached first ends the run (`TIMEOUT` or `TIMEOUT (emulated)`). With `--state=`, emulated time counts
+  from when the state has loaded: until then the game boots for however long the load takes on the host, so
+  counting from boot made runs end on different frames. `--timeout` is the old name for
   `--timeout-wall`. As soon as you pass one it applies to your whole interactive debugging session too, so
   pass something huge (`--timeout-wall=100000`) or the process exits out from under you mid-session. The
   wall-clock check is skipped while `IsDebuggerPresent()`; the emulated one doesn't need that escape hatch,
