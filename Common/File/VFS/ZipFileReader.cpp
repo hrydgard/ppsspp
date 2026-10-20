@@ -351,6 +351,9 @@ public:
 
 VFSFileReference *ZipFileReader::GetFile(std::string_view path) {
 	std::string p(path);
+	// Texture replacement looks up files from several threads. libzip isn't thread safe, and the lookup
+	// writes to the archive (it caches each name's encoding, and a converted copy for CP437 names).
+	std::lock_guard<std::mutex> guard(lock_);
 	// An exact match uses libzip's hash table, the case insensitive one compares every name in the zip.
 	int zi = zip_name_locate(zip_file_, p.c_str(), 0);
 	if (zi < 0) {
