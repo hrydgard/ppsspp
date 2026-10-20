@@ -606,6 +606,15 @@ static int scePowerTick() {
 	return hleLogDebug(Log::sceMisc, 0);
 }
 
+// These keep the PSP from suspending while held, which we never do anyway.
+static int scePowerLock(int unknown) {
+	return hleLogDebug(Log::sceMisc, 0);
+}
+
+static int scePowerUnlock(int unknown) {
+	return hleLogDebug(Log::sceMisc, 0);
+}
+
 static u32 scePowerCheckWlanCoexistenceClock() {
 	// PSP-1000 vs PSP-2000/3000
 	return hleLogDebug(Log::sceMisc, g_Config.iPSPModel);
@@ -639,8 +648,8 @@ static const HLEFunction scePower[] = {
 	{0X23436A4A, nullptr,                                     "scePowerGetInnerTemp",              '?', ""   },
 	{0X0CD21B1F, nullptr,                                     "scePowerSetPowerSwMode",            '?', ""   },
 	{0X165CE085, nullptr,                                     "scePowerGetPowerSwMode",            '?', ""   },
-	{0XD6D016EF, nullptr,                                     "scePowerLock",                      '?', ""   },
-	{0XCA3D34C1, nullptr,                                     "scePowerUnlock",                    '?', ""   },
+	{0XD6D016EF, &WrapI_I<scePowerLock>,                      "scePowerLock",                      'i', "i"  },
+	{0XCA3D34C1, &WrapI_I<scePowerUnlock>,                    "scePowerUnlock",                    'i', "i"  },
 	{0XDB62C9CF, &WrapI_U<scePowerCancelRequest>,             "scePowerCancelRequest",             'i', ""   },
 	{0X7FA406DD, nullptr,                                     "scePowerIsRequest",                 '?', ""   },
 	{0X2B7C7CF4, &WrapI_V<scePowerRequestStandby>,            "scePowerRequestStandby",            'I', ""   },
