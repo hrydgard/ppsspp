@@ -1831,7 +1831,11 @@ int getLocalIp(sockaddr_in* SocketAddress) {
 	}
 #endif // !PPSSPP_PLATFORM(SWITCH)
 
-// Fallback if not connected to AdhocServer
+	// Fallback if not connected to AdhocServer
+	return getHostLocalIp(SocketAddress);
+}
+
+int getHostLocalIp(sockaddr_in *SocketAddress) {
 // getifaddrs first appeared in glibc 2.3, On Android officially supported since __ANDROID_API__ >= 24
 #if (defined(_IFADDRS_H_) || (__GLIBC__ > 2) || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 3) || (__ANDROID_API__ >= 24))
 	struct ifaddrs* ifAddrStruct = NULL;

@@ -840,11 +840,9 @@ int main(int argc, const char* argv[]) {
 		return 0;
 	}
 
-	// Needed before any sockets can be used (WSAStartup on Windows) - without this, the
-	// WebSocket debugger silently fails to listen. Only done when requested since headless
-	// otherwise has no use for networking.
-	if (cmdLineOptions.DebuggerPort().has_value())
-		net::Init();
+	// Needed before any sockets can be used (WSAStartup on Windows), by the WebSocket debugger
+	// and by tests and games that use sceNetInet.
+	net::Init();
 
 	AutoTestOptions testOptions{};
 	testOptions.compare = cmdLineOptions.compare.value_or(false);
@@ -1447,9 +1445,7 @@ int main(int argc, const char* argv[]) {
 
 	g_VFS.Clear();
 	g_logManager.Shutdown();
-	if (cmdLineOptions.DebuggerPort().has_value()) {
-		net::Shutdown();
-	}
+	net::Shutdown();
 	TimeShutdown();
 
 	g_threadManager.Teardown();
