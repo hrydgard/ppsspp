@@ -59,6 +59,81 @@ every palette (the indices and the hash don't depend on it), so a sprite sheet d
 with an animated one, is written once as `<hash>_indexed.png` with the CLUT hash zeroed. List it in
 `[indexed]` to replace it for all palettes.
 
+## Getting fewer dumps
+
+Start with this, then change one option at a time:
+
+```ini
+[options]
+hash = xxh64
+shadowTextures = true
+saveIndexed = all
+```
+
+Empty the `new` folder before each test run (both the PNGs and `shadowranges.ini`, never just one of them), play
+the same part of the game, and compare how many files you get.
+
+### Finding out why a texture has duplicates
+
+Turn on the TexReplacement log at Info level. Each dump logs a line like
+`Shadow texture 08b31020 512x512 dumped with region 0,16 480x120`. Compare the lines of the duplicates of one
+image (same address, different hash), and look up what you see:
+
+| What you see | Why | What to change |
+|---|---|---|
+| The region is the whole texture | It's drawn in 3D, or was once. Shadow textures can't tell which part 3D draws sample. | Add a `[hashranges]` or `[shadowranges]` entry for it by hand, or try `reduceHash` |
+| One image dumped with different regions (480x136, 480x200, 480x272) | It was dumped before its draws reached their full size, or each time it's drawn a bit differently | Raise `shadowSettleSeconds` first. If that doesn't do it, raise `shadowRegionAlign`, then lower `shadowMaxRegions` |
+| The same image in many colors | Each palette is its own texture | `saveIndexed = all` (or `true` with the texture in `[indexed]`) |
+| Text that grows one letter at a time | Every letter is a new image | `shadowMinVisibleSeconds = 0.5`, and replace the box with `[layered]` (see below) |
+| `over the memory budget, dumping early` in the log | Dumps were written before they settled | Raise `shadowMemoryMB` |
+| The same image at different addresses | The game loads it to different places | `ignoreAddress = true` (needs xxh32 or xxh64) |
+| The images really differ where they're drawn (animation, a counter, a font atlas filling up) | These aren't duplicates | Leave them, or stop dumping that address with an empty entry in `[hashes]`: `08b310200000000000000000 =` |
+
+### Each option, and which way to turn it
+
+**`shadowSettleSeconds`** (default 4): how long a content's region has to stop growing before it's written.
+- Raise it (8-15) when one image is dumped with several regions, or when a texture's later draws use more of
+  it than its first ones (menus that open up, screens that fade in from a small part). More waiting means
+  the region is complete when it's hashed, so one dump instead of one per size.
+- Lower it only to see dumps sooner while testing. It never makes fewer files.
+- Cost: dumps appear later, and more of them wait in RAM.
+
+**`shadowMinVisibleSeconds`** (default 0, off): contents shown for less than this aren't dumped.
+- Raise it (0.3-1) for text typed out letter by letter, and other contents that only last a few frames
+  (fades, flashes, transitions). Only what stays on screen gets dumped.
+- Lower it, or set it to 0, if a texture you need is missing from the dumps, for example the empty dialog
+  box for `[layered]`, which is often only shown for a frame. Anything shown for less than this is never
+  written, so too high a value loses textures.
+
+**`shadowRegionAlign`** (default 1): rounds regions out to a multiple of this.
+- Raise it (4, 8, 16) when one texture gets many regions that only differ by a few texels (270 and 272,
+  or x 0 and x 2). They become the same region, so their contents get the same key.
+- Lower it back to 1 if raising it brought duplicates back: rounding out can reach into the data next to an
+  image, which is the trash shadow textures keep out of the key.
+- Change it before a dumping session, not in the middle of one: regions found with another value don't match.
+
+**`shadowMaxRegions`** (default 8): how many different regions a texture can have. Past this, a dump uses the
+smallest known region that covers it.
+- Lower it (2-4) for sprite sheets and atlases that are drawn in many slightly different ways, so they don't
+  end up with one dump per way.
+- Raise it if a texture that's really used in several separate parts (an atlas of unrelated images) gets
+  duplicates after lowering it: the shared region it snaps to can include data that changes.
+- Each region costs one more hash for every new content of that texture while replacing, so keep it low
+  for textures that change often.
+
+**`shadowMemoryMB`** (default 1024): RAM for dumps that are waiting.
+- Raise it when the log says `over the memory budget, dumping early`, or when you raise
+  `shadowSettleSeconds` a lot. Dumps written early still have their region growing, so they can be duplicates.
+- Lower it only if PPSSPP runs out of memory.
+
+**`saveIndexed`** (off by default, not a shadow option): `all` dumps every texture with a palette once, as
+its indices, for all palettes. Use it when the same image comes in several colors. Turn it off if you want
+color dumps of those textures instead.
+
+**`ignoreAddress`** (not a shadow option): leaves the address out of the key. Use it when the same image is
+loaded to different addresses. Don't use it if different images share a hash at different addresses, which is
+rare with xxh64.
+
 ## Layered textures
 
 Some games draw text into a texture on the CPU, one letter at a time, over a background like a dialog box.
