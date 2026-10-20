@@ -46,6 +46,7 @@
 #include "Core/Loaders.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
+#include "Core/MIPS/MIPSTables.h"
 #include "Core/MemMap.h"
 #include "Core/MemMapHelpers.h"
 #include "Core/Screenshot.h"
@@ -398,6 +399,21 @@ static u32 MakeCallStub(const char *func) {
 	return stub;
 }
 
+// Whether "li a0, 0x9300" comes up to five instructions before addr, with no jump or branch in between.
+static bool SetsBlockSizeBefore(u32 addr, u32 textAddr) {
+	for (int i = 1; i <= 5 && addr - 4 * i >= textAddr; i++) {
+		const u32 op = Memory::ReadUnchecked_U32(addr - 4 * i);
+		if (op == 0x34049300) {
+			return true;
+		}
+		const MIPSInfo info = MIPSGetInfo(MIPSOpcode(op));
+		if (info & (IS_JUMP | IS_CONDBRANCH)) {
+			return false;
+		}
+	}
+	return false;
+}
+
 void __PopsBootPatchEmulator(u32 textAddr, u32 textSize, u32 decodeStub) {
 	// As CFW's popcorn does: the manual's name check always passes, and an ICON0 the emulator can't
 	// use reads as a blank one.
@@ -424,15 +440,15 @@ void __PopsBootPatchEmulator(u32 textAddr, u32 textSize, u32 decodeStub) {
 		return;
 	}
 	// A converted PBP's disc blocks are raw DEFLATE. As CFW's popcorn does, send the disc read's
-	// decoder call to the scePopsMan_0090B2C8 import, which inflates. That's the jal next to
-	// "li a0, 0x9300" (a block of 16 raw sectors), whichever side 5.x and 6.x put it on.
+	// decoder call to the scePopsMan_0090B2C8 import, which inflates. That's the jal that gets
+	// "li a0, 0x9300" (a block of 16 raw sectors): in its delay slot (6.x), or shortly before it with
+	// no other jump or branch in between (5.x, 3.x).
 	int sites = 0;
 	int trackBranches = 0;
 	for (u32 addr = textAddr + 4; addr + 8 < textAddr + textSize; addr += 4) {
 		const u32 op = Memory::ReadUnchecked_U32(addr);
 		const u32 next = Memory::ReadUnchecked_U32(addr + 4);
-		const u32 prev = Memory::ReadUnchecked_U32(addr - 4);
-		if ((op >> 26) == 3 && (next == 0x34049300 || prev == 0x34049300)) {
+		if ((op >> 26) == 3 && (next == 0x34049300 || SetsBlockSizeBefore(addr, textAddr))) {
 			Memory::WriteUnchecked_U32(MIPS_MAKE_JAL(decodeStub), addr);
 			sites++;
 		} else if ((op == 0x14C00014 && next == 0x24E2FFFF) || (op == 0x14A00014 && next == 0x24C2FFFF)) {
