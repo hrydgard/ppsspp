@@ -534,6 +534,12 @@ static int sceCtrlGetSamplingMode(u32 modePtr)
 	return hleLogDebug(Log::sceCtrl, 0);
 }
 
+// Hides buttons from user mode readers, for kernel code that takes them over (Daedalus, for the
+// system buttons, which games don't get here anyway).
+static int sceCtrlSetButtonIntercept(u32 buttons, int intercept) {
+	return hleLogDebug(Log::sceCtrl, 0);
+}
+
 static int sceCtrlSetIdleCancelThreshold(int idleReset, int idleBack)
 {
 	if (idleReset < -1 || idleBack < -1 || idleReset > 128 || idleBack > 128)
@@ -659,6 +665,8 @@ static const HLEFunction sceCtrl[] =
 	// sceCtrl_driver NID for sceCtrlReadBufferPositive (firmware 3.71+, per JPCSP).
 	// Imported by translation-patch loaders like CLANNAD's chfont.prx.
 	{0X454455AC, &WrapI_UU<sceCtrlReadBufferPositive>,     "sceCtrlReadBufferPositive",        'i', "xx"},
+	// Driver only.
+	{0X7CA723DC, &WrapI_UI<sceCtrlSetButtonIntercept>,     "sceCtrlSetButtonIntercept",        'i', "xi"},
 };
 
 void Register_sceCtrl()

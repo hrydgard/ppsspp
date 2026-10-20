@@ -1117,16 +1117,10 @@ void Register_LoadExecForKernel()
 	RegisterHLEModule("LoadExecForKernel", ARRAY_SIZE(LoadExecForKernel), LoadExecForKernel);
 }
 
+// Only what's implemented: the rest is left to the firmware's exceptionman.prx when one is loaded.
 const HLEFunction ExceptionManagerForKernel[] =
 {
-	{0X3FB264FC, nullptr,                                            "sceKernelRegisterExceptionHandler",         '?', ""        },
-	{0X5A837AD4, nullptr,                                            "sceKernelRegisterPriorityExceptionHandler", '?', ""        },
 	{0x565C0B0E, &WrapI_V<sceKernelRegisterDefaultExceptionHandler>, "sceKernelRegisterDefaultExceptionHandler",  'i', "",       HLE_KERNEL_SYSCALL },
-	{0X1AA6CFFA, nullptr,                                            "sceKernelReleaseExceptionHandler",          '?', ""        },
-	{0XDF83875E, nullptr,                                            "sceKernelGetActiveDefaultExceptionHandler", '?', ""        },
-	{0X291FF031, nullptr,                                            "sceKernelReleaseDefaultExceptionHandler",   '?', ""        },
-	{0X15ADC862, nullptr,                                            "sceKernelRegisterNmiHandler",               '?', ""        },
-	{0XB15357C9, nullptr,                                            "sceKernelReleaseNmiHandler",                '?', ""        },
 };
 
 void Register_ExceptionManagerForKernel()
