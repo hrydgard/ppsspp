@@ -81,6 +81,7 @@ static const PopsManLayout POPSMAN_LAYOUTS[] = {
 	{ 0x1E20, 0x120, 0x266C, 0x49E0, 0x4A18, 0x4A1C, 0x0A28, 0x0AB8 },  // 6.35-6.61
 	{ 0x1E48, 0x120, 0x2694, 0x4AE0, 0x4B18, 0x4B1C, 0x0A28, 0x0AB8 },  // 6.30-6.31
 	{ 0x1E48, 0x130, 0x26F8, 0x4B30, 0x4B68, 0x4B6C, 0x0A28, 0x0AB8 },  // 6.20
+	{ 0x19E8, 0x130, 0x2270, 0x46D0, 0x4704, 0x4708, 0x07B8, 0x0848 },  // 6.10
 };
 static int g_popsManLayout = 0;
 
@@ -423,7 +424,7 @@ static bool IsUsableIcon0(FileLoader *loader) {
 bool __PopsBootStartInit(FileLoader *pbp, const std::string &gamePath, std::string *error) {
 	if (!FindPopsManLayout()) {
 		auto er = GetI18NCategory(I18NCat::ERRORS);
-		*error = er->T("PS1FirmwareVersion", "So far, PS1 games only run with firmware 6.20 to 6.61, and a different version is installed. Install one of those from an official PSP update file in Settings > Tools > PSP Firmware.");
+		*error = er->T("PS1FirmwareVersion", "So far, PS1 games only run with firmware 6.10 to 6.61, and a different version is installed. Install one of those from an official PSP update file in Settings > Tools > PSP Firmware.");
 		return false;
 	}
 	const u32 base = PopsManBase();
