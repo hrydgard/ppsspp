@@ -60,6 +60,7 @@ struct MEState {
 	u32 sysreg54 = 0;        // 0x54. Sony's ME firmware clears bit 0. Unknown.
 	u32 sysreg5C = 0;        // 0x5C. Sony's ME firmware sets bit 1. Unknown.
 	u32 sysreg70 = 0;        // 0x70. MIST's meEasyShot sets bits 0 and 2. Unknown.
+	u32 sysregOther[0x40]{}; // The rest, kept: clock and IO enables (0x58, 0x60, 0x6C, 0x78...).
 	// Sony's ME firmware still has to boot to its idle halt (RunUntilIdle).
 	bool booting = false;
 	u32 memProtect[20]{};    // 0xBC000000-0xBC00004C

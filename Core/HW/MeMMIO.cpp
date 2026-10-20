@@ -117,7 +117,7 @@ private:
 		case 0x54: return &g_meState->sysreg54;
 		case 0x5C: return &g_meState->sysreg5C;
 		case 0x70: return &g_meState->sysreg70;
-		default: return nullptr;
+		default: return (offset & 3) ? nullptr : &g_meState->sysregOther[offset / 4];
 		}
 	}
 };

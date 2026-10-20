@@ -15,11 +15,10 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
-// The parts of the firmware's system register driver homebrew uses to start the Media Engine. Each
-// sets or clears a bit of a register the way the driver does (lowio.prx 6.61 at 080001b8 and
-// 080004b8, sysreg.prx 1.50 the same), returning whether it was set. Only the NIDs of the firmware
-// versions homebrew was built for (1.50, and 3.71 and later's for the ME calls), so the VSH's own
-// later lowio.prx keeps its exports.
+// The parts of the firmware's system register driver homebrew and the POPS manager use to start the
+// Media Engine. Each sets or clears a bit of a register the way the driver does (lowio.prx 6.61 at
+// 080001b8, 080004b8, 08000880 and 08000cd8, sysreg.prx 1.50 the same), returning whether it was
+// set. Under --vsh these stand in for lowio.prx's own, which write the same registers.
 
 #include "Common/CommonTypes.h"
 #include "Core/HLE/HLE.h"
@@ -32,6 +31,9 @@
 enum : u32 {
 	SYSREG_RESET = 0xBC10004C,
 	SYSREG_BUS_CLOCK = 0xBC100050,
+	SYSREG_CLOCK_58 = 0xBC100058,
+	SYSREG_60 = 0xBC100060,
+	SYSREG_IO_78 = 0xBC100078,
 
 	RESET_ME = 0x04,
 	RESET_VME = 0x10,
@@ -77,6 +79,42 @@ static int sceSysregAvcResetDisable(MIPSState *mips) {
 	return hleLogDebug(Log::ME, SetSysregBit(mips, SYSREG_RESET, RESET_AVC, false));
 }
 
+// The 6.60/6.61 calls popsman.prx makes whose names aren't known, after what lowio.prx does.
+// Those taking an index only take 0 or 1.
+static int SetSysregIndexedBit(MIPSState *mips, u32 reg, u32 bit0, int index) {
+	if (index < 0 || index >= 2)
+		return hleLogError(Log::ME, 0x80000102, "bad index");
+	return hleLogDebug(Log::ME, SetSysregBit(mips, reg, bit0 << index, true));
+}
+
+static int sceSysreg_driver_8B1DD83A(MIPSState *mips, int index) {
+	return SetSysregIndexedBit(mips, SYSREG_BUS_CLOCK, 0x8000, index);
+}
+
+static int sceSysreg_driver_B1751B06(MIPSState *mips, int index) {
+	return SetSysregIndexedBit(mips, SYSREG_CLOCK_58, 0x10000, index);
+}
+
+static int sceSysreg_driver_4634C9DC(MIPSState *mips, int index) {
+	return SetSysregIndexedBit(mips, SYSREG_IO_78, 0x80, index);
+}
+
+static int sceSysreg_driver_4B4CCE80(MIPSState *mips) {
+	return hleLogDebug(Log::ME, SetSysregBit(mips, SYSREG_IO_78, 0x800, true));
+}
+
+// Sets 0x60 bit 18 to value, returning what it was.
+static int sceSysreg_driver_41B0337B(MIPSState *mips, int value) {
+	if (value < 0 || value >= 2)
+		return hleLogError(Log::ME, 0x800001FE, "bad value");
+	return hleLogDebug(Log::ME, SetSysregBit(mips, SYSREG_60, 1 << 18, value != 0));
+}
+
+// popsman calls it with (0, 1) before setting up audio. Not read yet.
+static int sceSysreg_driver_C36775AD(int a, int b) {
+	return hleLogWarning(Log::ME, 0, "unimplemented");
+}
+
 const HLEFunction sceSysreg_driver[] = {
 	{0xDE59DACB, &WrapI_V<sceSysregMeResetEnable>,     "sceSysregMeResetEnable",     'i', "", HLE_KERNEL_SYSCALL },
 	{0x2DB0EB28, &WrapI_V<sceSysregMeResetDisable>,    "sceSysregMeResetDisable",    'i', "", HLE_KERNEL_SYSCALL },
@@ -90,6 +128,17 @@ const HLEFunction sceSysreg_driver[] = {
 	{0xA9997109, &WrapI_V<sceSysregMeResetEnable>,     "sceSysregMeResetEnable371",    'i', "", HLE_KERNEL_SYSCALL },
 	{0x76220E94, &WrapI_V<sceSysregMeResetDisable>,    "sceSysregMeResetDisable371",   'i', "", HLE_KERNEL_SYSCALL },
 	{0x3199CF1C, &WrapI_V<sceSysregMeBusClockEnable>,  "sceSysregMeBusClockEnable371", 'i', "", HLE_KERNEL_SYSCALL },
+	// 6.60 and 6.61, which popsman.prx uses.
+	{0x457FEBA9, &WrapI_V<sceSysregMeResetEnable>,     "sceSysregMeResetEnable660",    'i', "",   HLE_KERNEL_SYSCALL },
+	{0x48F1C4AD, &WrapI_V<sceSysregMeResetDisable>,    "sceSysregMeResetDisable660",   'i', "",   HLE_KERNEL_SYSCALL },
+	{0x38527743, &WrapI_V<sceSysregMeBusClockEnable>,  "sceSysregMeBusClockEnable660", 'i', "",   HLE_KERNEL_SYSCALL },
+	{0x0AE8E549, &WrapI_V<sceSysregAvcResetEnable>,    "sceSysregAvcResetEnable660",   'i', "",   HLE_KERNEL_SYSCALL },
+	{0x8B1DD83A, &WrapI_I<sceSysreg_driver_8B1DD83A>,  "sceSysreg_driver_8B1DD83A",    'i', "i",  HLE_KERNEL_SYSCALL },
+	{0xB1751B06, &WrapI_I<sceSysreg_driver_B1751B06>,  "sceSysreg_driver_B1751B06",    'i', "i",  HLE_KERNEL_SYSCALL },
+	{0x4634C9DC, &WrapI_I<sceSysreg_driver_4634C9DC>,  "sceSysreg_driver_4634C9DC",    'i', "i",  HLE_KERNEL_SYSCALL },
+	{0x4B4CCE80, &WrapI_V<sceSysreg_driver_4B4CCE80>,  "sceSysreg_driver_4B4CCE80",    'i', "",   HLE_KERNEL_SYSCALL },
+	{0x41B0337B, &WrapI_I<sceSysreg_driver_41B0337B>,  "sceSysreg_driver_41B0337B",    'i', "i",  HLE_KERNEL_SYSCALL },
+	{0xC36775AD, &WrapI_II<sceSysreg_driver_C36775AD>, "sceSysreg_driver_C36775AD",    'i', "ii", HLE_KERNEL_SYSCALL },
 };
 
 // Custom-core homebrew (mcidclan's libraries) walks this to find me_wrapper's "SceMeRpc" handler,

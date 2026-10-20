@@ -318,6 +318,7 @@ void DoState(PointerWrap &p) {
 	Do(p, me->sysreg5C);
 	Do(p, me->sysreg70);
 	Do(p, me->booting);
+	DoArray(p, me->sysregOther, ARRAY_SIZE(me->sysregOther));
 	DoArray(p, me->memProtect, ARRAY_SIZE(me->memProtect));
 	DoArray(p, me->vmeControl, ARRAY_SIZE(me->vmeControl));
 	DoArray(p, me->clocks, ARRAY_SIZE(me->clocks));
