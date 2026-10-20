@@ -46,6 +46,7 @@
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MemMap.h"
 #include "Core/MemMapHelpers.h"
+#include "Core/Screenshot.h"
 #include "Core/System.h"
 #include "GPU/Common/SoftwareTransformCommon.h"
 #include "GPU/GPU.h"
@@ -53,6 +54,7 @@
 
 static bool g_popsBoot = false;
 static bool g_popsConvertedPBP = false;
+static bool g_popsIcon0Usable = true;
 // The game's PBP on the host.
 static Path g_popsPBPPath;
 static std::unique_ptr<HLEHelperThread> g_popsInitThread;
@@ -135,6 +137,7 @@ void __PopsBootInit() {
 void __PopsBootShutdown() {
 	g_popsBoot = false;
 	g_popsConvertedPBP = false;
+	g_popsIcon0Usable = true;
 	g_popsPBPPath.clear();
 	SetSnapHalfPixelSprites(false);
 	g_meRunning = false;
@@ -437,6 +440,26 @@ static int __PopsGetVersionKey(u32 pathAddr, u32 keyOut, u32 fingerprintOut) {
 	return hleLogInfo(Log::sceKernel, 0, "%.36s", (const char *)contentId);
 }
 
+// An 80x80 PNG with nothing in it.
+static const std::vector<u8> &BlankIcon0() {
+	static std::vector<u8> png;
+	if (png.empty()) {
+		const std::vector<u8> pixels(80 * 80 * 4, 0);
+		Save8888RGBAScreenshot(png, pixels.data(), 80, 80);
+	}
+	return png;
+}
+
+// The emulator's read of an ICON0 it can't use (see __PopsBootPatchEmulator): a blank one instead.
+static int __PopsReadIcon0(u32 file, u32 buf, u32 offset, u32 size) {
+	const std::vector<u8> &png = BlankIcon0();
+	if (size != png.size() || !Memory::IsValidRange(buf, size)) {
+		return hleLogError(Log::sceKernel, -1, "unexpected read");
+	}
+	Memory::Memcpy(buf, png.data(), size, "PopsIcon0");
+	return hleLogDebug(Log::sceKernel, (int)size);
+}
+
 const HLEFunction PopsBootCalls[] = {
 	{ 0x13370001, &WrapU_V<__PopsMeHalt>,               "__PopsMeHalt",            'x', ""    },
 	{ 0x13370002, &WrapU_V<__PopsMePrefillPoll>,        "__PopsMePrefillPoll",     'x', ""    },
@@ -445,6 +468,7 @@ const HLEFunction PopsBootCalls[] = {
 	{ 0x13370005, &WrapU_V<__PopsMeSync>,               "__PopsMeSync",            'x', ""    },
 	{ 0x13370006, &WrapI_UUU<__PopsDeflateDecompress>,  "__PopsDeflateDecompress", 'i', "xxx" },
 	{ 0x13370007, &WrapI_UUU<__PopsGetVersionKey>,      "__PopsGetVersionKey",     'i', "xxx" },
+	{ 0x13370008, &WrapI_UUUU<__PopsReadIcon0>,         "__PopsReadIcon0",         'i', "xxxx" },
 };
 
 void Register_PopsBootCalls() {
@@ -525,6 +549,16 @@ static void PatchTrampoline(u32 addr, const char *func, u32 delaySlotOp, u32 res
 	currentMIPS->InvalidateICacheRangeDeferred(trampoline, size);
 }
 
+// A function that makes a syscall (jr ra; syscall), for the emulator to call in place of one of its own.
+static u32 MakeCallStub(const char *func) {
+	u32 size = 8;
+	const u32 stub = kernelMemory.Alloc(size, false, func);
+	Memory::WriteUnchecked_U32(MIPS_MAKE_JR_RA(), stub);
+	PatchCall(stub + 4, func);
+	currentMIPS->InvalidateICacheRangeDeferred(stub, size);
+	return stub;
+}
+
 void __PopsBootPatchEmulator(u32 textAddr, u32 textSize, u32 decodeStub) {
 	PopsBootSetupGPU();
 
@@ -546,6 +580,23 @@ void __PopsBootPatchEmulator(u32 textAddr, u32 textSize, u32 decodeStub) {
 	} else {
 		ERROR_LOG(Log::sceKernel, "POPS: not the 6.60/6.61 emulator, its SPU interrupts may bunch up");
 	}
+
+	// As CFW's popcorn does: the manual's name check always passes, and an ICON0 the emulator can't
+	// use reads as a blank one.
+	for (u32 addr = textAddr + 0x30; addr + 0x30 < textAddr + textSize; addr += 4) {
+		const u32 op = Memory::ReadUnchecked_U32(addr);
+		if (op == 0x24050080 && Memory::ReadUnchecked_U32(addr + 24) == 0x24030001) {
+			// li a1, 0x80 (the size of the name it gets), then the check's call becomes li v0, 1.
+			Memory::WriteUnchecked_U32(0x24020001, addr + 8);
+		} else if (!g_popsIcon0Usable && op == 0x00432823 && Memory::ReadUnchecked_U32(addr - 8) == 0x8FA20010 &&
+			Memory::ReadUnchecked_U32(addr - 4) == 0x8FA3000C && Memory::ReadUnchecked_U32(addr + 0x2C) == Memory::ReadUnchecked_U32(addr - 0x30)) {
+			// subu a1, v0, v1: the ICON0's size, from the offsets in the PBP header it read 0x30 earlier
+			// with the same call it then reads the ICON0 with.
+			Memory::WriteUnchecked_U32(0x24050000 | (u32)BlankIcon0().size(), addr);
+			Memory::WriteUnchecked_U32(MIPS_MAKE_JAL(MakeCallStub("__PopsReadIcon0")), addr + 0x2C);
+		}
+	}
+	currentMIPS->InvalidateICacheRangeDeferred(textAddr, textSize);
 
 	if (!g_popsConvertedPBP) {
 		return;
@@ -595,6 +646,19 @@ static void PatchReturn(u32 addr, u32 delaySlotOp) {
 	currentMIPS->InvalidateICacheRangeDeferred(addr, 8);
 }
 
+// The emulator only takes an 80x80 PNG as ICON0, and goes wrong on others. A 144x80 one (the size of
+// a PSP game's) crashes it.
+static bool IsUsableIcon0(FileLoader *loader) {
+	PBPReader pbp(loader);
+	u8 header[24];
+	if (!pbp.IsValid() || !pbp.ReadSubFile(PBP_ICON0_PNG, 0, sizeof(header), header)) {
+		return false;
+	}
+	static const u8 pngStart[16] = { 0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n', 0, 0, 0, 13, 'I', 'H', 'D', 'R' };
+	static const u8 size80x80[8] = { 0, 0, 0, 80, 0, 0, 0, 80 };
+	return memcmp(header, pngStart, 16) == 0 && memcmp(header + 16, size80x80, 8) == 0;
+}
+
 bool __PopsBootStartInit(FileLoader *pbp, const std::string &gamePath, std::string *error) {
 	const u32 base = PopsManBase();
 	bool known = base != 0;
@@ -607,6 +671,7 @@ bool __PopsBootStartInit(FileLoader *pbp, const std::string &gamePath, std::stri
 	}
 	g_popsPBPPath = pbp->GetPath();
 	g_popsConvertedPBP = IsConvertedPBP(pbp);
+	g_popsIcon0Usable = IsUsableIcon0(pbp);
 	const u32 loadModule = base + POPSMAN_LOAD_MODULE;
 	PatchReturn(base + POPSMAN_KEY_PROBE, MIPS_MAKE_SYSCALL("PopsBootCalls", "__PopsGetVersionKey"));
 	if (g_popsConvertedPBP) {
