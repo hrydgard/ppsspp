@@ -76,6 +76,11 @@ void GPUCommon::BeginHostFrame(const DisplayLayoutConfig &config) {
 	UpdateMSAALevel(draw_);
 	CheckConfigChanged(config);
 	CheckDisplayResized();
+	// Skip Buffer Effects only takes effect on a render resize, and not everything that changes it posts one
+	// (turning on Auto FrameSkip clears it).
+	if (framebufferManager_ && framebufferManager_->UseBufferedRendering() == g_Config.bSkipBufferEffects) {
+		renderResized_ = true;
+	}
 	CheckRenderResized(config);
 
 	// After the resizes, which ask for the post shaders to be rebuilt at the new size.
