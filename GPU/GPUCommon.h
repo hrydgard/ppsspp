@@ -245,8 +245,9 @@ public:
 #endif
 
 	virtual FramebufferManagerCommon *GetFramebufferManagerCommon() { return nullptr; }
-	// See FramebufferManagerCommon. Only the hardware backends use it.
+	// See FramebufferManagerCommon. Only the hardware backends use these.
 	void SetFixedFramebuffer(u32 addr, int stride, int width, int height);
+	void SetNativeResolutionFramebuffer(u32 addr);
 	virtual TextureCacheCommon *GetTextureCacheCommon() { return nullptr; }
 	const DrawEngineCommon *GetDrawEngineCommon() const { return drawEngineCommon_; }
 

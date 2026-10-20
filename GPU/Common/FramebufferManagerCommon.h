@@ -438,6 +438,11 @@ public:
 		fixedFbWidth_ = width;
 		fixedFbHeight_ = height;
 	}
+	// Always rendered at 1x, since it holds data read texel by texel (the PS1 emulator's 24-bit
+	// video buffer).
+	void SetNativeResolutionFramebuffer(u32 addr) {
+		nativeResFbAddress_ = addr & 0x041FFFFF;
+	}
 
 	// This only checks for the color channel, and if there are multiple overlapping ones
 	// with different color depth, this might get things wrong.
@@ -652,6 +657,7 @@ protected:
 	int fixedFbStride_ = 0;
 	int fixedFbWidth_ = 0;
 	int fixedFbHeight_ = 0;
+	u32 nativeResFbAddress_ = 0;
 
 	bool useBufferedRendering_ = false;
 	bool postShaderIsUpscalingFilter_ = false;

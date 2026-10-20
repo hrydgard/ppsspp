@@ -1429,6 +1429,12 @@ void GPUCommon::SetFixedFramebuffer(u32 addr, int stride, int width, int height)
 	}
 }
 
+void GPUCommon::SetNativeResolutionFramebuffer(u32 addr) {
+	if (FramebufferManagerCommon *fbm = GetFramebufferManagerCommon()) {
+		fbm->SetNativeResolutionFramebuffer(addr);
+	}
+}
+
 // A list dropped on an error still has to complete like a finished one, or its ID is never freed and
 // sceGeListSync on it never returns.
 void GPUCommon::CompleteFailedList(DisplayList &list) {
