@@ -233,9 +233,9 @@ void X64JitBackend::CompIR_Generic(IRInst inst) {
 	SaveStaticRegisters();
 	WriteDebugProfilerStatus(IRProfilerStatus::IR_INTERPRET);
 #if PPSSPP_ARCH(AMD64)
-	ABI_CallFunctionP((const void *)&DoIRInst, (void *)value);
+	ABI_CallFunctionPP((const void *)&DoIRInst, (void *)value, mips_);
 #else
-	ABI_CallFunctionCC((const void *)&DoIRInst, (u32)(value & 0xFFFFFFFF), (u32)(value >> 32));
+	ABI_CallFunctionCCP((const void *)&DoIRInst, (u32)(value & 0xFFFFFFFF), (u32)(value >> 32), mips_);
 #endif
 	WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 	LoadStaticRegisters();
@@ -259,7 +259,7 @@ void X64JitBackend::CompIR_Interpret(IRInst inst) {
 	if (DebugStatsEnabled()) {
 		ABI_CallFunctionP((const void *)&NotifyMIPSInterpret, (void *)MIPSGetName(op));
 	}
-	ABI_CallFunctionC((const void *)&MIPSInterpretTrampoline, inst.constant);
+	ABI_CallFunctionCP((const void *)&MIPSInterpretTrampoline, inst.constant, mips_);
 	WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 	LoadStaticRegisters();
 }

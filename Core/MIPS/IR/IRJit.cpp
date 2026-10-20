@@ -312,7 +312,7 @@ void IRJit::RunBlocks() {
 	MIPSState *mips = mips_;
 	while (true) {
 		RestoreHostRoundingMode();
-		CoreTiming::Advance(currentMIPS);
+		CoreTiming::Advance(mips);
 		if (coreState != 0) {
 			break;
 		}

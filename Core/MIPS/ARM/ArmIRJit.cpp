@@ -237,6 +237,7 @@ void ArmJitBackend::CompIR_Generic(IRInst inst) {
 	// The 64-bit argument goes in R0:R1.
 	MOVI2R(R0, (u32)value);
 	MOVI2R(R1, (u32)(value >> 32));
+	MOVP2R(R2, mips_);
 	QuickCallFunction(R12, &DoIRInst);
 	WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 	LoadStaticRegisters();
@@ -261,6 +262,7 @@ void ArmJitBackend::CompIR_Interpret(IRInst inst) {
 		QuickCallFunction(R12, &NotifyMIPSInterpret);
 	}
 	MOVI2R(R0, inst.constant);
+	MOVP2R(R1, mips_);
 	QuickCallFunction(R12, &MIPSInterpretTrampoline);
 	WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 	LoadStaticRegisters();

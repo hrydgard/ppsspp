@@ -364,7 +364,6 @@ void MIPSState::InitRegisters() {
 	fpcond = 0;
 	fcr31 = 0;
 	debugCount = 0;
-	currentMIPS = this;
 	inDelaySlot = false;
 	llBit = 0;
 	nextPC = 0;

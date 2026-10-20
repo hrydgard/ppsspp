@@ -447,6 +447,7 @@ void Arm64JitBackend::CompIR_ValidateAddress(IRInst inst) {
 	MOV(W0, SCRATCH2);
 	MOVI2R(W1, alignment);
 	MOVI2R(W2, isWrite ? 1 : 0);
+	MOVP2R(X3, mips_);
 	QuickCallFunction(SCRATCH2, &ReportBadAddress);
 	B(dispatcherCheckCoreState_);
 
