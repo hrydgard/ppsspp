@@ -664,7 +664,7 @@ bool Load_PSP_POPS(FileLoader *fileLoader, std::string *error_string) {
 	static const char *const popsmanPath = "flash0:/kd/popsman.prx";
 	if (!pspFileSystem.GetFileInfo(popsmanPath).exists) {
 		auto er = GetI18NCategory(I18NCat::ERRORS);
-		*error_string = er->T("PS1NoFirmware", "PS1 games need the PS1 emulator in the PSP's firmware, and no firmware is installed. Install firmware 6.30 to 6.61 from an official PSP update file in Settings > Tools > PSP Firmware. Starting a PSP game whose disc has an updater on it also installs its firmware.");
+		*error_string = er->T("PS1NoFirmware", "PS1 games need the PS1 emulator in the PSP's firmware, and no firmware is installed. Install firmware 6.20 to 6.61 from an official PSP update file in Settings > Tools > PSP Firmware. Starting a PSP game whose disc has an updater on it also installs its firmware.");
 		return false;
 	}
 

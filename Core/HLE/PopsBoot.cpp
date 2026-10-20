@@ -62,6 +62,7 @@ static u32 g_popsInitPath = 0;
 // replaced for store and converted games. Its ME loop (6.60's +2F88) runs on the emulated ME.
 struct PopsManLayout {
 	u32 loadModule;
+	u32 loadModuleFrame;  // Its first instruction, addiu sp, sp, -frame.
 	// The license check (path, keyOut, fingerprintOut). Its first success latches the version key and
 	// the content ID fingerprint (6.60's +0124).
 	u32 keyProbe;
@@ -77,8 +78,9 @@ struct PopsManLayout {
 // The managers have the same code at these places, and older ones import kernel functions by older
 // NIDs (see GetHLENidAlias()).
 static const PopsManLayout POPSMAN_LAYOUTS[] = {
-	{ 0x1E20, 0x266C, 0x49E0, 0x4A18, 0x4A1C, 0x0A28, 0x0AB8 },  // 6.35-6.61
-	{ 0x1E48, 0x2694, 0x4AE0, 0x4B18, 0x4B1C, 0x0A28, 0x0AB8 },  // 6.30-6.31
+	{ 0x1E20, 0x120, 0x266C, 0x49E0, 0x4A18, 0x4A1C, 0x0A28, 0x0AB8 },  // 6.35-6.61
+	{ 0x1E48, 0x120, 0x2694, 0x4AE0, 0x4B18, 0x4B1C, 0x0A28, 0x0AB8 },  // 6.30-6.31
+	{ 0x1E48, 0x130, 0x26F8, 0x4B30, 0x4B68, 0x4B6C, 0x0A28, 0x0AB8 },  // 6.20
 };
 static int g_popsManLayout = 0;
 
@@ -162,7 +164,7 @@ static bool FindPopsManLayout() {
 			u32 offset;
 			u32 original;
 		} code[] = {
-			{ layout.loadModule, 0x27BDFEE0 },  // addiu sp, sp, -0x120
+			{ layout.loadModule, 0x27BD0000 | ((0x10000 - layout.loadModuleFrame) & 0xFFFF) },
 			{ layout.checkMac, 0x27BDFFC0 },  // addiu sp, sp, -0x40
 			{ layout.checkMacExport, 0x27BDFFB0 },
 			{ layout.keyProbe, 0x27BDFEF0 },
@@ -421,7 +423,7 @@ static bool IsUsableIcon0(FileLoader *loader) {
 bool __PopsBootStartInit(FileLoader *pbp, const std::string &gamePath, std::string *error) {
 	if (!FindPopsManLayout()) {
 		auto er = GetI18NCategory(I18NCat::ERRORS);
-		*error = er->T("PS1FirmwareVersion", "So far, PS1 games only run with firmware 6.30 to 6.61, and a different version is installed. Install one of those from an official PSP update file in Settings > Tools > PSP Firmware.");
+		*error = er->T("PS1FirmwareVersion", "So far, PS1 games only run with firmware 6.20 to 6.61, and a different version is installed. Install one of those from an official PSP update file in Settings > Tools > PSP Firmware.");
 		return false;
 	}
 	const u32 base = PopsManBase();
