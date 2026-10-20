@@ -59,6 +59,15 @@ struct MEState {
 	u32 mutex = 0;           // 0x48. Bit 0 is the main CPU's, bit 1 the ME's.
 	u32 memProtect[20]{};    // 0xBC000000-0xBC00004C
 
+	// DMACplus (0xBC800000), which moves data between the CPUs' memories, and drives the LCD and the
+	// colour space conversion. Only what homebrew's ME code uses.
+	struct Dmacplus {
+		u32 intTCStatus = 0;       // 0x04, channels that finished with their interrupt bit set
+		u32 lcd[4]{};              // 0x100: framebuffer, pixel format, width, stride
+		u32 csc[0x11]{};           // 0x120-0x160: colour space conversion
+		u32 channels[4][5]{};      // 0x180-0x1FF: source, destination, next LLI, control, configuration
+	} dmacplus;
+
 	// Not saved: whether the code at an address is a wait loop (see IsWaitLoop), and where it ends.
 	// 0 for not one. Cleared when the ME's code changes.
 	std::unordered_map<u32, u32> waitLoopEnds;

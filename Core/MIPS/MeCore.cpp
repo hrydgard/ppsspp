@@ -167,6 +167,10 @@ void DoState(PointerWrap &p) {
 	Do(p, me->ramConfig);
 	Do(p, me->mutex);
 	DoArray(p, me->memProtect, ARRAY_SIZE(me->memProtect));
+	Do(p, me->dmacplus.intTCStatus);
+	DoArray(p, me->dmacplus.lcd, ARRAY_SIZE(me->dmacplus.lcd));
+	DoArray(p, me->dmacplus.csc, ARRAY_SIZE(me->dmacplus.csc));
+	DoArray(p, &me->dmacplus.channels[0][0], 4 * 5);
 	DoArray(p, me->cpu.space->GetPointerUnchecked(0), me->cpu.space->edramSize);
 	DoArray(p, me->cpu.space->GetPointerUnchecked(0x04000000), me->cpu.space->localSize);
 	Do(p, meIntrEvent);

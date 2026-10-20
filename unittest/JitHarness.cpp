@@ -995,6 +995,58 @@ bool TestMeWait() {
 	return TestMeWaitOn(CPUCore::INTERPRETER) && TestMeWaitOn(CPUCore::IR_INTERPRETER) && TestMeWaitOn(CPUCore::JIT);
 }
 
+// DMACplus moves data between the ME's eDRAM and main memory, following linked list items.
+bool TestMeDmacplus() {
+	Memory::g_PSPModel = PSP_MODEL_FAT;
+	SetupJitHarness();
+	MMIO::Init();
+	bool success = true;
+
+	if (!MeCore::Init()) {
+		printf("No Media Engine on this platform, skipping\n");
+		MMIO::Shutdown();
+		DestroyJitHarness();
+		return true;
+	}
+	const Memory::AddressSpace *space = MeCore::g_meState->cpu.space;
+	for (u32 i = 0; i < 0x2000; i += 4)
+		space->WriteUnchecked_U32(0xA0000000 | i, 0x80000000 + i);
+
+	// ME to main CPU (channel 5): 0x1000 bytes in 16-byte units, then 0x1000 more from the list.
+	auto control = [](bool srcME, bool dstME, u32 widthBit, u32 count) {
+		return (dstME ? 1U << 25 : 0) | (srcME ? 1U << 24 : 0) | (widthBit << 21) | (widthBit << 18) | (1U << 15) | (1U << 12) | count;
+	};
+	const u32 lli = 0x08900000;
+	const u32 item[5] = { 0x1000, 0x08A01000, 0, control(true, false, 2, 0x400), 1 };
+	for (int i = 0; i < 5; ++i)
+		Memory::WriteUnchecked_U32(item[i], lli + i * 4);
+	MMIO::Write(&mipsr4k, 0xBC8001B0, 4, 0);
+	MMIO::Write(&mipsr4k, 0xBC8001A0, 4, 0);
+	MMIO::Write(&mipsr4k, 0xBC8001A4, 4, 0x48A00000);
+	MMIO::Write(&mipsr4k, 0xBC8001A8, 4, lli);
+	MMIO::Write(&mipsr4k, 0xBC8001AC, 4, control(true, false, 4, 0x100) | 0x80000000);
+	MMIO::Write(&mipsr4k, 0xBC8001B0, 4, 1);
+	EXPECT_EQ_HEX(MMIO::Read(&mipsr4k, 0xBC8001B0, 4), 0);
+	EXPECT_EQ_HEX(Memory::ReadUnchecked_U32(0x08A00000), 0xA0000000);
+	EXPECT_EQ_HEX(Memory::ReadUnchecked_U32(0x08A01FFC), 0xA0001FFC);
+	EXPECT_EQ_HEX(MMIO::Read(&mipsr4k, 0xBC800004, 4), 1 << 5);
+	MMIO::Write(&mipsr4k, 0xBC800008, 4, 1 << 5);
+	EXPECT_EQ_HEX(MMIO::Read(&mipsr4k, 0xBC800004, 4), 0);
+
+	// And back (channel 4), to further into the eDRAM.
+	MMIO::Write(&mipsr4k, 0xBC800180, 4, 0x08A00000);
+	MMIO::Write(&mipsr4k, 0xBC800184, 4, 0x10000);
+	MMIO::Write(&mipsr4k, 0xBC800188, 4, 0);
+	MMIO::Write(&mipsr4k, 0xBC80018C, 4, control(false, true, 2, 0x800));
+	MMIO::Write(&mipsr4k, 0xBC800190, 4, 1);
+	EXPECT_EQ_HEX(space->ReadUnchecked_U32(0x80011FFC), 0xA0001FFC);
+
+	MeCore::Shutdown();
+	MMIO::Shutdown();
+	DestroyJitHarness();
+	return success;
+}
+
 // Differential fuzzing of the CPU cores. Random straight-line code (ALU, FPU, VFPU, loads and
 // stores) runs from a random register state on each core, and every core has to end up with the
 // interpreter's state, NaN payloads aside.
