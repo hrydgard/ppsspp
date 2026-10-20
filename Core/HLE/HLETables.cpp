@@ -363,6 +363,7 @@ void RegisterAllModules() {
 	Register_sceSysEventForKernel();
 	Register_sceAmctrl_driver();
 	Register_InitForKernel();
+	Register_PopsBootCalls();
 
 	// Not ready to enable this due to apparent softlocks in Patapon 3.
 	// Register_sceNpMatching2();
