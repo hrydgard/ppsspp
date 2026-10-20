@@ -286,7 +286,7 @@ struct BuildTexturePlan {
 	int maxPossibleLevels;
 
 	// Load the 0-mip from this PSP texture level instead of 0.
-	// If non-zero, we are only loading one level.
+	// If non-zero, we are only loading one level. Replacements and dumps still treat it as level 0.
 	int baseLevelSrc;
 
 	// The scale factor of the final texture.

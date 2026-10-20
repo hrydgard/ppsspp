@@ -434,7 +434,7 @@ void TextureCacheMetal::BuildTexture(TexCacheEntry *const entry) {
 		}
 		size_t size = (size_t)stride * rows;
 		if (plan.doReplace && compressed) {
-			size = std::max(size, (size_t)plan.replaced->GetLevelDataSizeAfterCopy(plan.baseLevelSrc + i));
+			size = std::max(size, (size_t)plan.replaced->GetLevelDataSizeAfterCopy(i));
 		}
 		if (computeUpload) {
 			const int srcWidth = gstate.getTextureWidth(i);

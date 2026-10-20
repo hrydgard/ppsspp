@@ -265,8 +265,9 @@ SamplerCacheKey TextureCacheCommon::GetSamplingParams(int maxLevel, const TexCac
 	bool useReplacerFiltering = false;
 	// (Not for indices that the shader colors, filtering them would mix up the palette entries.)
 	if (entry && replacer_.Enabled() && entry->replacedTexture && !(entry->status & TexStatus::CLUT8_INDEXED)) {
-		// If replacement textures have multiple mip levels, enforce mip filtering.
-		if (entry->replacedTexture->State() == ReplacementState::ACTIVE && entry->replacedTexture->NumLevels() > 1) {
+		// If replacement textures have multiple mip levels, enforce mip filtering. Not if only one got
+		// uploaded, as with a fake mipmap change.
+		if (entry->replacedTexture->State() == ReplacementState::ACTIVE && entry->replacedTexture->NumLevels() > 1 && !(entry->status & TexStatus::NO_MIPS)) {
 			key.mipEnable = true;
 			key.mipFilt = 1;
 			key.maxLevel = 9 * 256;
@@ -3212,16 +3213,20 @@ void TextureCacheCommon::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, s
 
 	PROFILE_THIS_SCOPE("decodetex");
 
+	// Replacements and dumps go by the level of the texture we create. With a fake mipmap change,
+	// its level 0 comes from PSP level baseLevelSrc.
+	const int dstLevel = srcLevel - plan.baseLevelSrc;
+
 	if (plan.doReplace) {
-		plan.replaced->GetSize(srcLevel, &w, &h);
+		plan.replaced->GetSize(dstLevel, &w, &h);
 		double replaceStart = time_now_d();
 		if (plan.decodeToClut8) {
 			// Only an indexed replacement for the GPU gets here. The indices go up as they are, as an R8 image.
-			plan.replaced->CopyIndexLevelToPitched(srcLevel, data, dataSize, stride);
+			plan.replaced->CopyIndexLevelToPitched(dstLevel, data, dataSize, stride);
 		} else if (plan.replaced->IsIndexed()) {
-			CopyIndexedReplacementLevel(plan.replaced, srcLevel, data, dataSize, stride);
+			CopyIndexedReplacementLevel(plan.replaced, dstLevel, data, dataSize, stride);
 		} else {
-			plan.replaced->CopyLevelTo(srcLevel, data, dataSize, stride);
+			plan.replaced->CopyLevelTo(dstLevel, data, dataSize, stride);
 		}
 		replacementTimeThisFrame_ += time_now_d() - replaceStart;
 	} else {
@@ -3281,7 +3286,7 @@ void TextureCacheCommon::LoadTextureLevel(TexCacheEntry &entry, uint8_t *data, s
 			replacedInfo.fmt = dstFmt;
 
 			// NOTE: Reading the decoded texture here may be very slow, if we just wrote it to write-combined memory.
-			replacer_.NotifyTextureDecoded(plan.replaced, replacedInfo, pixelData, decPitch, srcLevel, w, h, scaledW, scaledH);
+			replacer_.NotifyTextureDecoded(plan.replaced, replacedInfo, pixelData, decPitch, dstLevel, w, h, scaledW, scaledH);
 		}
 	}
 }

@@ -220,7 +220,7 @@ void TextureCacheGLES::BuildTexture(TexCacheEntry *const entry) {
 
 	Draw::DataFormat dstFmt = GetDestFormat(GETextureFormat(entry->format), gstate.getClutPaletteFormat());
 	if (plan.doReplace) {
-		plan.replaced->GetSize(plan.baseLevelSrc, &tw, &th);
+		plan.replaced->GetSize(0, &tw, &th);
 		// Indices for the GPU are uploaded as the R8 format of the CLUT8 textures.
 		dstFmt = plan.decodeToClut8 ? Draw::DataFormat::R8_UNORM : plan.replaced->Format();
 	} else if (plan.scaleFactor > 1 || plan.saveTexture) {
