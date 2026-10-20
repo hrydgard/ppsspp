@@ -46,6 +46,12 @@ public:
 	MeSysregDevice() : MMIODevice("ME sysreg", 0xBC100000, 0x100) {}
 
 	bool Read(MIPSState *mips, u32 offset, int size, u32 *value) override {
+		if (offset == 0 && g_meState) {
+			// me_wrapper's bootstrap goes to the ME firmware's debug handler if this is set. Nothing
+			// seems to set it.
+			*value = 0;
+			return true;
+		}
 		u32 *reg = Register(offset);
 		if (!reg) {
 			return false;
@@ -110,6 +116,7 @@ private:
 		case 0x50: return &g_meState->busClock;
 		case 0x54: return &g_meState->sysreg54;
 		case 0x5C: return &g_meState->sysreg5C;
+		case 0x70: return &g_meState->sysreg70;
 		default: return nullptr;
 		}
 	}
@@ -486,6 +493,28 @@ public:
 	void DoState(PointerWrap &p) override {}
 };
 
+// The DDR controller. Writing 5 to 0x04 flushes writes to RAM, done when it reads 0 again, which
+// MIST does before handing the ME a task. Writes reach RAM at once here.
+class MeDdrDevice : public MMIODevice {
+public:
+	MeDdrDevice() : MMIODevice("DDR", 0xBD000000, 0x10) {}
+
+	bool Read(MIPSState *mips, u32 offset, int size, u32 *value) override {
+		if (!g_meState || offset != 4)
+			return false;
+		*value = 0;
+		return true;
+	}
+
+	bool Write(MIPSState *mips, u32 offset, int size, u32 value) override {
+		return g_meState && offset == 4;
+	}
+
+	void Reset() override {}
+	void DoState(PointerWrap &p) override {}
+};
+
+static MeDdrDevice g_ddr;
 static MeClockDevice g_clocks;
 static MeVmeControlDevice g_vmeControl;
 static MeDmacplusDevice g_dmacplus;
@@ -515,6 +544,10 @@ MMIODevice *DmacplusDevice() {
 
 MMIODevice *MemProtectDevice() {
 	return &g_memProtect;
+}
+
+MMIODevice *DdrDevice() {
+	return &g_ddr;
 }
 
 }  // namespace MeMMIO

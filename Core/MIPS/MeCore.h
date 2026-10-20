@@ -59,6 +59,7 @@ struct MEState {
 	u32 mutex = 0;           // 0x48. Bit 0 is the main CPU's, bit 1 the ME's.
 	u32 sysreg54 = 0;        // 0x54. Sony's ME firmware clears bit 0. Unknown.
 	u32 sysreg5C = 0;        // 0x5C. Sony's ME firmware sets bit 1. Unknown.
+	u32 sysreg70 = 0;        // 0x70. MIST's meEasyShot sets bits 0 and 2. Unknown.
 	// Sony's ME firmware still has to boot to its idle halt (RunUntilIdle).
 	bool booting = false;
 	u32 memProtect[20]{};    // 0xBC000000-0xBC00004C
@@ -110,6 +111,8 @@ u64 GetTicks();
 u32 ReadCop0(int reg);
 void WriteCop0(int reg, u32 value);
 void Halt();
+// mtic.
+void SetInterruptEnable(u32 value);
 
 // Raises sources in the ME's interrupt controller.
 void RaiseInterrupt(u32 sources);

@@ -36,5 +36,7 @@ MMIODevice *ClockDevice();
 MMIODevice *VmeControlDevice();
 // Memory protection (0xBC000000), which the ME's startup code unlocks.
 MMIODevice *MemProtectDevice();
+// The DDR controller's flush register (0xBD000004), always done.
+MMIODevice *DdrDevice();
 
 }  // namespace MeMMIO

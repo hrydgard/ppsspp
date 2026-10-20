@@ -100,6 +100,7 @@ void Init() {
 		MeMMIO::DmacplusDevice(),
 		MeMMIO::VmeControlDevice(),
 		MeMMIO::ClockDevice(),
+		MeMMIO::DdrDevice(),
 	};
 	for (MMIODevice *device : g_devices) {
 		device->Reset();

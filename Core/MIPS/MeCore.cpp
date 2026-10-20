@@ -143,6 +143,8 @@ static const u32 FIRMWARE_AREA_END = 0x083FE000;
 static const u32 FIRMWARE_STACK = 0x80000000 | FIRMWARE_AREA_END;
 // Where it returns to if something fails: halt, b ., in the boot page.
 static const u32 FIRMWARE_FAILED = 0xBFC00020;
+// What me_wrapper's bootstrap jumps to after a reset, standing in for its ME stub (below).
+static const u32 FIRMWARE_RESTART = 0xBFC00030;
 
 // Loads the image, and returns where its second stream is (0 if there's no image).
 static u32 LoadFirmwareImage() {
@@ -185,6 +187,38 @@ static void BootFirmware(MEState *me, u32 data) {
 	poke(FIRMWARE_FAILED & 0xFFF, 0x70000000);         // halt
 	poke((FIRMWARE_FAILED & 0xFFF) + 4, 0x1000FFFE);   // b FIRMWARE_FAILED
 	poke((FIRMWARE_FAILED & 0xFFF) + 8, 0);
+	// me_wrapper's bootstrap, which the ME runs from 0x40 whenever it comes out of reset, with the
+	// layout of 6.61's (me_wrapper+0): mcidclan's MIST restarts the ME through it, after patching
+	// +0x20..+0x28 to point a0 at 0x88400000. If 0xBC100000 is set, which nothing seems to do, it
+	// goes to the firmware's debug handler. The cache invalidation is left out.
+	static const u32 bootstrap[0xD4 / 4] = {
+		0x3C02BC10, 0x8C420000, 0x10400005, 0x00000000,  // lui v0,0xBC10; lw v0,0(v0); beqz v0,+0x20; nop
+		0x40424800, 0x00400008, 0x00000000, 0x00000000,  // cfc0 v0,$9; jr v0; nop; nop
+		0x24090000, 0x3C040000, 0x34840000,              // li t1,ramcfg; lui a0,hi(image); ori a0,a0,lo(image)
+		0x3C02BC10, 0xAC490040, 0x24030007, 0xAC430050,  // 0xBC100040 = t1, 0xBC100050 = 7
+		0x2403FFFF, 0xAC430004, 0x0000000F,              // 0xBC100004 = -1; sync
+		0x40806800, 0x3C032000, 0x40836000,              // Cause = 0, Status = 0x20000000
+		0x3C02BCC0, 0x24030001, 0xAC430010,              // VME 0x10 = 1, and wait for it
+		0x8C430010, 0x30630001, 0x1460FFFD, 0x00000000,
+		0x24030001, 0xAC430070, 0x24030008, 0xAC430030,  // VME 0x70 = 1, 0x30 = 8, 0x40 = 2
+		0x24030002, 0xAC430040,
+	};
+	for (size_t i = 0; i < ARRAY_SIZE(bootstrap); i++) {
+		poke(0x40 + (u32)i * 4, bootstrap[i]);
+	}
+	poke(0x40 + 0x20, 0x24090000 | (me->ramConfig & 3));
+	poke(0x40 + 0x24, 0x3C040000 | ((0x80000000 | data) >> 16));
+	poke(0x40 + 0x28, 0x34840000 | (data & 0xFFFF));
+	poke(0x40 + 0xC0, 0x3C1F0000 | (FIRMWARE_RESTART >> 16));     // lui ra
+	poke(0x40 + 0xC4, 0x27FF0000 | (FIRMWARE_RESTART & 0xFFFF));  // addiu ra
+	poke(0x40 + 0xC8, 0x3C1D0000 | (FIRMWARE_STACK >> 16));       // lui sp
+	poke(0x40 + 0xCC, 0x03E00008);                                 // jr ra
+	// me_wrapper's ME stub decompresses the image again when a0 is in 0x88000000..0x883FFFFF. Only
+	// its own reboots do that, which don't happen without it, so here it always does what it does
+	// otherwise: run the image, which then restores eDRAM from a0, as when resuming from sleep.
+	poke(FIRMWARE_RESTART & 0xFFF, 0x3C010000 | (0x80000000 | FIRMWARE_IMAGE_ADDRESS) >> 16);  // lui at
+	poke((FIRMWARE_RESTART & 0xFFF) + 4, 0x00200008);  // jr at
+	poke((FIRMWARE_RESTART & 0xFFF) + 8, 0);
 	poke(0x70C, 0x01FF01FF);
 	poke(0x710, CoreTiming::GetClockFrequencyHz() / 1000000);
 	poke(0x714, 2);
@@ -282,6 +316,7 @@ void DoState(PointerWrap &p) {
 	Do(p, me->mutex);
 	Do(p, me->sysreg54);
 	Do(p, me->sysreg5C);
+	Do(p, me->sysreg70);
 	Do(p, me->booting);
 	DoArray(p, me->memProtect, ARRAY_SIZE(me->memProtect));
 	DoArray(p, me->vmeControl, ARRAY_SIZE(me->vmeControl));
@@ -314,8 +349,12 @@ static void CheckInterrupts(MEState *me) {
 		return;
 	}
 	me->halted = false;
-	// mfic reads 0 after reset, and homebrew takes interrupts without mtic, so it doesn't gate them.
-	if ((status & (STATUS_IE | STATUS_EXL | STATUS_ERL)) != STATUS_IE) {
+	// Either Status.IE or mtic enables them: homebrew takes interrupts with IE set and $ic at its reset
+	// value of 0 (a PSP-1000 probe), while Sony's firmware never sets IE and gates them with mtic alone
+	// (t2img's main loop at 0x883003a4, whose handler at 0x8838c880 sets the command flag it waits for).
+	// That loop relies on mtic 0 keeping them out, so with both clear they aren't taken.
+	const bool enabled = (status & STATUS_IE) || me->interruptEnable;
+	if (!enabled || (status & (STATUS_EXL | STATUS_ERL))) {
 		return;
 	}
 	me->waiting = false;
@@ -556,6 +595,15 @@ void Halt() {
 	g_meState->halted = true;
 	// Ends the run, the rest of it spent halted.
 	g_meState->cpu.downcount = std::min(g_meState->cpu.downcount, -1);
+}
+
+void SetInterruptEnable(u32 value) {
+	MEState *me = g_meState;
+	me->interruptEnable = value & 1;
+	// Sony's firmware enables them for only a few instructions at a time, so a pending one has to be
+	// taken now: ends the run, which checks for them next.
+	if (me->interruptEnable && (PendingInterrupts(me) & me->cpu.cop0[12] & CAUSE_IP_MASK))
+		me->cpu.downcount = std::min(me->cpu.downcount, -1);
 }
 
 void RaiseInterrupt(u32 sources) {
