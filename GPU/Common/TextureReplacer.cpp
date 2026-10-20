@@ -33,6 +33,7 @@
 #include "Common/File/VFS/DirectoryReader.h"
 #include "Common/File/VFS/ZipFileReader.h"
 #include "Common/File/FileUtil.h"
+#include "Common/LogReporting.h"
 #include "Common/File/VFS/VFS.h"
 #include "Core/Util/PathUtil.h"
 #include "Common/StringUtils.h"

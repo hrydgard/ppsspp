@@ -181,17 +181,17 @@ struct TexCacheEntry {
 	u16 dim;
 	u16 bufw;
 	u16 maxSeenV;
+	// The shadow fields are spread out to fill padding, see the static_assert below.
+	// The region of the texture replaceHash covers (shadow textures only).
+	u16 shadowRegionW;
 	u32 fullhash;
 	u32 cluthash;
 	// The hash in the replacement key. Equals fullhash, except with shadow textures, where it only covers
 	// shadowRegionW x shadowRegionH, and fullhash is just for noticing changes.
 	u32 replaceHash;
-	u16 shadowRegionW;
 	u16 shadowRegionH;
-	// What draws sampled from this texture (shadow textures only, in through mode).
+	// What draws sampled from this texture (shadow textures only, in through mode), with shadowSeenV below.
 	u16 shadowSeenU;
-	u16 shadowSeenV;
-	bool shadowSeenUnbounded;
 	union {
 		GLRTexture *textureName;
 		void *texturePtr;
@@ -205,6 +205,8 @@ struct TexCacheEntry {
 	int lastSyncDomain;
 	// Bytes of host memory the texture takes, set when it's built. See EstimateTexMemoryUsage.
 	u32 hostMemorySize = 0;
+	u16 shadowSeenV;
+	bool shadowSeenUnbounded;
 
 	TextureAlpha GetAlphaStatus() const {
 		return (status & TexStatus::ALPHA_SOLID) ? TextureAlpha::Solid : TextureAlpha::Any;
