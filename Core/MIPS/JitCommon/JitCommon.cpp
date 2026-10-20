@@ -112,7 +112,7 @@ namespace MIPSComp {
 		return new MIPSComp::LoongArch64Jit(mipsState);
 #else
 		// No native JIT for this architecture.
-		return new MIPSComp::IRJit(mipsState, false);
+		return new MIPSComp::IRInterpreterJit(mipsState);
 #endif
 	}
 

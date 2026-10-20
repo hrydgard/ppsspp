@@ -34,15 +34,15 @@ namespace MIPSComp {
 
 class Arm64JitBackend : public Arm64Gen::ARM64CodeBlock, public IRNativeBackend {
 public:
-	Arm64JitBackend(JitOptions &jo, IRBlockCache &blocks);
+	Arm64JitBackend(JitOptions &jo);
 	~Arm64JitBackend();
 
 	bool DescribeCodePtr(const u8 *ptr, std::string &name) const override;
 
 	void GenerateFixedCode(MIPSState *mipsState) override;
-	bool CompileBlock(IRBlockCache *irBlockCache, int block_num) override;
+	bool CompileBlock(int block_num, u32 startPC, const IRInst *instructions, int count) override;
 	void ClearAllBlocks() override;
-	void InvalidateBlock(IRBlockCache *irBlockCache, int block_num) override;
+	void InvalidateBlock(int block_num) override;
 
 	void UpdateFCR31(MIPSState *mipsState) override;
 
@@ -172,7 +172,7 @@ private:
 class Arm64IRJit : public IRNativeJit {
 public:
 	Arm64IRJit(MIPSState *mipsState)
-		: IRNativeJit(mipsState), arm64Backend_(jo, blocks_) {
+		: IRNativeJit(mipsState), arm64Backend_(jo) {
 		Init(arm64Backend_);
 	}
 

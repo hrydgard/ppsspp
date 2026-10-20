@@ -229,10 +229,22 @@ bool TestJit() {
 		jit_speed = ExecCPUTest(false);  // not clearing, so the below can do things.
 		checkMemoryClean("JIT");
 
+		// The native JIT keeps no IR, and compiles it again for the debugger.
+		MIPSComp::JitStats stats{};
+		mipsr4k.jit->GetStats(&stats);
+		if (stats.irArenaUsed != 0) {
+			printf("JIT kept %d IR instructions\n", (int)stats.irArenaUsed);
+			memoryClean = false;
+		}
+
 		// Disassemble
 		JitBlockCacheDebugInterface *cache = mipsr4k.jit->GetBlockCacheDebugInterface();
 		if (cache) {
 			JitBlockDebugInfo block = cache->GetBlockDebugInfo(0);  // Should only be one block.
+			if (block.irDisasm.empty()) {
+				printf("JIT block has no IR to show\n");
+				memoryClean = false;
+			}
 			std::vector<std::string> &lines = block.targetDisasm;
 			// Cut off at 25 due to the repetition above. Might need tweaking for large instructions.
 			const int cutoff = 50;

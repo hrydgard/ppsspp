@@ -37,34 +37,30 @@ struct IRInst;
 namespace MIPSComp {
 
 // TODO : Use arena allocators. For now let's just malloc.
-class IRBlock {
+class JitBlock {
 public:
-	IRBlock() {}
-	IRBlock(u32 emAddr, u32 origSize, int instOffset, u32 numInstructions)
-		: origAddr_(emAddr), origSize_(origSize), arenaOffset_(instOffset), numIRInstructions_(numInstructions) {}
-	IRBlock(IRBlock &&b) noexcept {
-		arenaOffset_ = b.arenaOffset_;
+	JitBlock() {}
+	JitBlock(u32 emAddr, u32 origSize, u32 numInstructions)
+		: origAddr_(emAddr), origSize_(origSize), numIRInstructions_(numInstructions) {}
+	JitBlock(JitBlock &&b) noexcept {
+		entry_ = b.entry_;
 		hash_ = b.hash_;
 		origAddr_ = b.origAddr_;
 		origSize_ = b.origSize_;
 		origFirstOpcode_ = b.origFirstOpcode_;
-		nativeOffset_ = b.nativeOffset_;
 		numIRInstructions_ = b.numIRInstructions_;
-		b.arenaOffset_ = 0xFFFFFFFF;
+		b.entry_ = 0;
 	}
 
-	~IRBlock() {}
+	~JitBlock() {}
 
-	u32 GetIRArenaOffset() const { return arenaOffset_; }
+	// What the block shadow holds for the block: its offset into the IR interpreter's arena, or into
+	// the native code space. Rises with the block number, until the cache is cleared.
+	int GetEntry() const { return entry_; }
+	void SetEntry(int entry) { entry_ = entry; }
 	int GetNumIRInstructions() const { return numIRInstructions_; }
 	MIPSOpcode GetOriginalFirstOp() const { return origFirstOpcode_; }
 	bool IsValid() const { return origAddr_ != 0 && origFirstOpcode_.encoding != 0x68FFFFFF; }
-	void SetNativeOffset(int offset) {
-		nativeOffset_ = offset;
-	}
-	int GetNativeOffset() const {
-		return nativeOffset_;
-	}
 	void UpdateHash() {
 		hash_ = CalculateHash();
 	}
@@ -84,8 +80,8 @@ public:
 		return hash_;
 	}
 
-	void Finalize(int number);
-	void Destroy(int number);
+	void Finalize();
+	void Destroy();
 
 	// Only filled in by the IR interpreter, when profiling.
 	JitBlockProfileStats profileStats_{};
@@ -93,10 +89,7 @@ public:
 private:
 	u64 CalculateHash() const;
 
-	// Offset into the block cache's Arena
-	u32 arenaOffset_ = 0;
-	// Offset into the native code buffer.
-	int nativeOffset_ = -1;
+	int entry_ = 0;
 	u64 hash_ = 0;
 	u32 origAddr_ = 0;
 	u32 origSize_ = 0;
@@ -104,25 +97,21 @@ private:
 	u32 numIRInstructions_ = 0;
 };
 
-class IRBlockCache : public JitBlockCacheDebugInterface {
+// The guest blocks a JIT has compiled: where they came from, and how to find and invalidate them.
+// Holds no IR or code, those are the JIT's.
+class JitBlockTable {
 public:
-	IRBlockCache(bool compileToNative);
-	~IRBlockCache() {
+	~JitBlockTable() {
 		Clear();
 	}
-
-	// In IR instructions (8 bytes each). The native code space fills long before this: Tekken 6 has
-	// it 30% full with the arena at 0.5M instructions.
-	static constexpr u32 MAX_ARENA_SIZE = 4 * 1024 * 1024;
 
 	void Clear();
 	std::vector<int> FindInvalidatedBlockNumbers(u32 address, u32 length);
 	void FinalizeBlock(int blockNum);
-	int GetNumBlocks() const override { return (int)blocks_.size(); }
+	int GetNumBlocks() const { return (int)blocks_.size(); }
 	int CountValidBlocks() const;
-	size_t GetArenaSize() const { return arena_.size(); }
-	int AllocateBlock(int emAddr, u32 origSize, const std::vector<IRInst> &inst);
-	IRBlock *GetBlock(int blockNum) {
+	int AllocateBlock(int emAddr, u32 origSize, u32 numIRInstructions);
+	JitBlock *GetBlock(int blockNum) {
 		if (blockNum >= 0 && blockNum < (int)blocks_.size()) {
 			return &blocks_[blockNum];
 		} else {
@@ -130,23 +119,14 @@ public:
 		}
 	}
 	void RemoveBlockFromPageLookup(int blockNum);
-	int GetBlockNumFromIRArenaOffset(int offset) const;
-	const IRInst *GetBlockInstructionPtr(const IRBlock &block) const {
-		return arena_.data() + block.GetIRArenaOffset();
-	}
-	const IRInst *GetBlockInstructionPtr(int blockNum) const {
-		return arena_.data() + blocks_[blockNum].GetIRArenaOffset();
-	}
-	const IRInst *GetArenaPtr() const {
-		return arena_.data();
-	}
-	bool IsValidBlock(int blockNum) const override {
+	int FindByEntry(int entry) const;
+	bool IsValidBlock(int blockNum) const {
 		return blockNum >= 0 && blockNum < (int)blocks_.size() && blocks_[blockNum].IsValid();
 	}
-	IRBlock *GetBlockUnchecked(int blockNum) {
+	JitBlock *GetBlockUnchecked(int blockNum) {
 		return &blocks_[blockNum];
 	}
-	const IRBlock *GetBlock(int blockNum) const {
+	const JitBlock *GetBlock(int blockNum) const {
 		if (blockNum >= 0 && blockNum < (int)blocks_.size()) {
 			return &blocks_[blockNum];
 		} else {
@@ -156,56 +136,48 @@ public:
 
 	int FindPreloadBlock(u32 em_address);
 
-	// "Cookie" means the value the block shadow holds for a block: its offset into the
-	// IR arena, or into the native code space when compiling to native.
-	int FindByCookie(int cookie);
-
-	JitBlockDebugInfo GetBlockDebugInfo(int blockNum) const override;
-	JitBlockMeta GetBlockMeta(int blockNum) const override {
-		JitBlockMeta meta{};
-		if (IsValidBlock(blockNum)) {
-			meta.valid = true;
-			blocks_[blockNum].GetRange(&meta.addr, &meta.sizeInBytes);
-		}
-		return meta;
-	}
-	JitBlockProfileStats GetBlockProfileStats(int blockNum) const override {
-		return blocks_[blockNum].profileStats_;
-	}
-	void ComputeStats(BlockCacheStats &bcStats) const override;
-	int GetBlockNumberFromStartAddress(u32 em_address) const override;
-
-	bool SupportsProfiling() const override {
-		return profiling_;
-	}
-	void SetProfiling(bool profiling) {
-		profiling_ = profiling;
-	}
+	int GetBlockNumberFromStartAddress(u32 em_address) const;
 
 private:
 	u32 AddressToPage(u32 addr) const;
-	bool compileToNative_;
-	bool profiling_ = false;
-	std::vector<IRBlock> blocks_;
-	std::vector<IRInst> arena_;
+	std::vector<JitBlock> blocks_;
 	std::unordered_map<u32, std::vector<int>> byPage_;
 };
 
+class IRJit;
+
+// The debugger's view of an IR JIT's blocks: the MIPS code from the block table, the IR and any host
+// code from the JIT.
+class IRJitDebugInterface : public JitBlockCacheDebugInterface {
+public:
+	explicit IRJitDebugInterface(const IRJit &jit) : jit_(jit) {}
+
+	int GetNumBlocks() const override;
+	int GetBlockNumberFromStartAddress(u32 em_address) const override;
+	JitBlockDebugInfo GetBlockDebugInfo(int blockNum) const override;
+	JitBlockMeta GetBlockMeta(int blockNum) const override;
+	JitBlockProfileStats GetBlockProfileStats(int blockNum) const override;
+	void ComputeStats(BlockCacheStats &bcStats) const override;
+	bool IsValidBlock(int blockNum) const override;
+	bool SupportsProfiling() const override;
+
+private:
+	const IRJit &jit_;
+};
+
+// What the IR JITs share: the frontend, the table of compiled blocks, and compiling and invalidating
+// them. What a block compiles to, and how it runs, is up to the subclass.
 class IRJit : public JitInterface {
 public:
-	IRJit(MIPSState *mipsState, bool actualJit);
 	~IRJit();
 
 	void DoState(PointerWrap &p) override;
 
 	const JitOptions &GetJitOptions() { return jo; }
 
-	void RunLoopUntil(u64 globalticks) override;
-
 	void Compile(u32 em_address) override;	// Compiles a block at current MIPS PC
 
-	bool DescribeCodePtr(const u8 *ptr, std::string &name) override;
-	JitBlockCacheDebugInterface *GetBlockCacheDebugInterface() override { return &blocks_; }
+	JitBlockCacheDebugInterface *GetBlockCacheDebugInterface() override { return &debugInterface_; }
 
 	void ClearCache() override;
 	void InvalidateCacheAt(u32 em_address, int length = 4) override;
@@ -213,22 +185,12 @@ public:
 	void UpdateFCR31() override;
 	void GetStats(JitStats *stats) const override;
 
-	bool CodeInRange(const u8 *ptr) const override {
-		return false;
-	}
-
-	const u8 *GetDispatcher() const override { return nullptr; }
-	const u8 *GetCrashHandler() const override { return nullptr; }
-
-	// This gets overridden by the native-backed IR jits.
-	const u8 *GetCodeBase() const override { return nullptr; }
-
 	void FlushProfile() override;
 
 protected:
-	template <bool profile>
-	void RunBlocks();
-	virtual void WriteProfileReport();
+	IRJit(MIPSState *mipsState, bool compileToNative);
+
+	virtual void WriteProfileReport() = 0;
 
 	enum class CompileResult {
 		OK,
@@ -236,17 +198,24 @@ protected:
 		CODE_FULL,
 	};
 	CompileResult CompileBlock(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes);
-	virtual bool CompileNativeBlock(IRBlockCache *irBlockCache, int block_num) { return true; }
-	virtual void FinalizeNativeBlock(IRBlockCache *irBlockCache, int block_num) {}
-	virtual void InvalidateNativeBlock(IRBlockCache *irBlockCache, int block_num) {}
+	// Makes the allocated block runnable, and sets its entry.
+	virtual CompileResult CompileTargetBlock(int block_num, const std::vector<IRInst> &instructions) = 0;
+	// For the debugger: the IR the block was compiled from, the size of what it compiled to (for the
+	// bloat stats), and its host code if any.
+	virtual void GetBlockInstructions(const JitBlock &block, std::vector<IRInst> &instructions) const = 0;
+	virtual int GetBlockCodeSize(int block_num) const = 0;
+	virtual void GetBlockTargetDisasm(int block_num, std::vector<std::string> &lines) const {}
+	// Whether blocks_ has per-block profile stats.
+	virtual bool HasBlockProfile() const { return false; }
+	virtual void FinalizeTargetBlock(int block_num) {}
+	virtual void InvalidateTargetBlock(int block_num) {}
 	void InvalidateBlock(int block_num);
-
-	bool compileToNative_;
 
 	JitOptions jo;
 
 	IRFrontend frontend_;
-	IRBlockCache blocks_;
+	JitBlockTable blocks_;
+	IRJitDebugInterface debugInterface_{ *this };
 
 	MIPSState *mips_;
 
@@ -259,9 +228,46 @@ protected:
 	int invalidations_ = 0;
 	int invalidatedBlocks_ = 0;
 
-	// where to write branch-likely trampolines. not used atm
-	// u32 blTrampolines_;
-	// int blTrampolineCount_;
+	friend class IRJitDebugInterface;
+};
+
+// Runs the IR itself.
+class IRInterpreterJit : public IRJit {
+public:
+	IRInterpreterJit(MIPSState *mipsState);
+
+	void RunLoopUntil(u64 globalticks) override;
+
+	bool DescribeCodePtr(const u8 *ptr, std::string &name) override {
+		return false;
+	}
+	bool CodeInRange(const u8 *ptr) const override {
+		return false;
+	}
+	const u8 *GetDispatcher() const override { return nullptr; }
+	const u8 *GetCrashHandler() const override { return nullptr; }
+	const u8 *GetCodeBase() const override { return nullptr; }
+
+	void ClearCache() override;
+	void GetStats(JitStats *stats) const override;
+
+protected:
+	template <bool profile>
+	void RunBlocks();
+	void WriteProfileReport() override;
+	CompileResult CompileTargetBlock(int block_num, const std::vector<IRInst> &instructions) override;
+	void GetBlockInstructions(const JitBlock &block, std::vector<IRInst> &instructions) const override;
+	int GetBlockCodeSize(int block_num) const override;
+	bool HasBlockProfile() const override {
+		return profiling_;
+	}
+
+private:
+	// In IR instructions (8 bytes each).
+	static constexpr u32 MAX_ARENA_SIZE = 4 * 1024 * 1024;
+
+	// The blocks' IR. Offsets 0 and 1 are reserved, see RunBlocks.
+	std::vector<IRInst> arena_;
 };
 
 }	// namespace MIPSComp

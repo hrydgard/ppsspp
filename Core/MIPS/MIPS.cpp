@@ -328,7 +328,7 @@ void MIPSState::Init() {
 	if (PSP_CoreParameter().cpuCore == CPUCore::JIT || PSP_CoreParameter().cpuCore == CPUCore::JIT_IR) {
 		jit = MIPSComp::CreateNativeJit(this);
 	} else if (PSP_CoreParameter().cpuCore == CPUCore::IR_INTERPRETER) {
-		jit = new MIPSComp::IRJit(this, false);
+		jit = new MIPSComp::IRInterpreterJit(this);
 	} else {
 		jit = nullptr;
 	}
@@ -401,7 +401,7 @@ void MIPSState::UpdateCore(CPUCore desired) {
 
 	case CPUCore::IR_INTERPRETER:
 		INFO_LOG(Log::CPU, "Switching to IR interpreter");
-		newjit = new MIPSComp::IRJit(this, false);
+		newjit = new MIPSComp::IRInterpreterJit(this);
 		break;
 
 	case CPUCore::INTERPRETER:
