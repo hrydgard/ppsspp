@@ -3733,6 +3733,7 @@ TestItem availableTests[] = {
 	TEST_ITEM(Jit),
 	TEST_ITEM(JitDotBench),
 	TEST_ITEM(JitReplacementHooks),
+	TEST_ITEM(CPUEret),
 	TEST_ITEM(CPUEquivalence),
 	TEST_ITEM(CPURoundingMode),
 	TEST_ITEM(VFPUDotJit),

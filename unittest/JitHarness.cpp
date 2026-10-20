@@ -459,6 +459,57 @@ bool TestJitReplacementHooks() {
 	return success;
 }
 
+// eret goes to EPC, or ErrorEPC with Status.ERL set, on every core, and ends the block: what follows
+// it doesn't run.
+bool TestCPUEret() {
+	SetupJitHarness();
+
+	const u32 base = PSP_GetUserMemoryBase();
+	const u32 target = base + 0x100;
+	const u32 terminator = MIPS_MAKE_SYSCALL("UnitTestFakeSyscalls", "UnitTestTerminator");
+	Memory::WriteUnchecked_U32(MIPS_MAKE_ADDIU(MIPS_REG_V0, MIPS_REG_ZERO, 1), base);
+	Memory::WriteUnchecked_U32(0x42000018, base + 4);  // eret
+	Memory::WriteUnchecked_U32(MIPS_MAKE_ADDIU(MIPS_REG_V0, MIPS_REG_ZERO, 2), base + 8);
+	Memory::WriteUnchecked_U32(terminator, base + 12);
+	Memory::WriteUnchecked_U32(MIPS_MAKE_ADDIU(MIPS_REG_V1, MIPS_REG_ZERO, 3), target);
+	Memory::WriteUnchecked_U32(terminator, target + 4);
+	Memory::WriteUnchecked_U32(MIPS_MAKE_BREAK(1), target + 8);
+
+	static const CPUCore cores[] = {
+		CPUCore::INTERPRETER,
+		CPUCore::IR_INTERPRETER,
+		CPUCore::JIT,
+	};
+	bool success = true;
+	for (CPUCore core : cores) {
+		mipsr4k.UpdateCore(core);
+		for (bool erl : { false, true }) {
+			if (mipsr4k.jit)
+				mipsr4k.jit->ClearCache();
+			currentMIPS->r[MIPS_REG_V0] = 0;
+			currentMIPS->r[MIPS_REG_V1] = 0;
+			currentMIPS->cop0[12] = erl ? 0x6 : 0x2;
+			currentMIPS->cop0[14] = erl ? base + 8 : target;
+			currentMIPS->cop0[30] = erl ? target : base + 8;
+			currentMIPS->pc = base;
+			coreState = CORE_RUNNING_CPU;
+			while (coreState == CORE_RUNNING_CPU)
+				mipsr4k.RunLoopUntil(CoreTiming::GetTicks(currentMIPS) + 1000000);
+
+			const u32 status = erl ? 0x2 : 0x0;
+			if (currentMIPS->r[MIPS_REG_V0] != 1 || currentMIPS->r[MIPS_REG_V1] != 3 || currentMIPS->cop0[12] != status) {
+				printf("eret on core %d (ERL %d): v0=%d v1=%d status=%08x, expected 1, 3, %08x\n", (int)core, (int)erl,
+					currentMIPS->r[MIPS_REG_V0], currentMIPS->r[MIPS_REG_V1], currentMIPS->cop0[12], status);
+				success = false;
+			}
+		}
+	}
+	mipsr4k.UpdateCore(CPUCore::INTERPRETER);
+
+	DestroyJitHarness();
+	return success;
+}
+
 // Differential fuzzing of the CPU cores. Random straight-line code (ALU, FPU, VFPU, loads and
 // stores) runs from a random register state on each core, and every core has to end up with the
 // interpreter's state, NaN payloads aside.

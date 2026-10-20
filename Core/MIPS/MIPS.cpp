@@ -340,6 +340,7 @@ void MIPSState::InitRegisters() {
 	memset(f, 0, sizeof(f));
 	memset(v, 0, sizeof(v));
 	memset(vfpuCtrl, 0, sizeof(vfpuCtrl));
+	memset(cop0, 0, sizeof(cop0));
 
 	vfpuCtrl[VFPU_CTRL_SPREFIX] = 0xe4; //passthru
 	vfpuCtrl[VFPU_CTRL_TPREFIX] = 0xe4; //passthru
@@ -423,7 +424,7 @@ void MIPSState::UpdateCore(CPUCore desired) {
 }
 
 void MIPSState::DoState(PointerWrap &p) {
-	auto s = p.Section("MIPSState", 1, 4);
+	auto s = p.Section("MIPSState", 1, 5);
 	if (!s)
 		return;
 
@@ -477,6 +478,11 @@ void MIPSState::DoState(PointerWrap &p) {
 	Do(p, inDelaySlot);
 	Do(p, llBit);
 	Do(p, debugCount);
+	if (s >= 5) {
+		DoArray(p, cop0, sizeof(cop0) / sizeof(cop0[0]));
+	} else {
+		memset(cop0, 0, sizeof(cop0));
+	}
 
 	if (p.mode == p.MODE_READ && jit) {
 		// Now that we've loaded fcr31, update any jit state associated.

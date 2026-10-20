@@ -257,7 +257,7 @@ static const MIPSInstruction tableSpecial[64] = // 000000 ..... ..... ..... ....
 // Theoretically should not hit these.
 static const MIPSInstruction tableSpecial2[64] = // 011100 ..... ..... ..... ..... xxxxxx
 {
-	INSTR("halt", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
+	INSTR("halt", JITFUNC(Comp_Generic), Dis_Generic, 0, ENDS_BLOCK),
 	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
 	//8
 	INVALID_X_8,
@@ -415,7 +415,7 @@ static const MIPSInstruction tableCop0CO[64] = // 010000 1.... ..... ..... .....
 	INVALID, INVALID, INVALID, INVALID, INVALID, INVALID, INVALID,
 	INVALID_X_8,
 	//24
-	INSTR("eret", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
+	INSTR("eret", JITFUNC(Comp_Generic), Dis_Generic, Int_Eret, ENDS_BLOCK),
 	INSTR("iack", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
 	INVALID, INVALID, INVALID, INVALID, INVALID,
 	INSTR("deret", JITFUNC(Comp_Generic), Dis_Generic, 0, 0),
@@ -1137,6 +1137,10 @@ static inline IRBlockEnd GetIRBlockEnd(MIPSOpcode op) {
 	case 0x11:  // bc1f, bc1t
 	case 0x12:  // bvf, bvt
 		return ((enc >> 21) & 0x1F) == 8 ? IRBlockEnd::AFTER_DELAY_SLOT : IRBlockEnd::NONE;
+	case 0x10:  // eret (ENDS_BLOCK)
+		return enc == 0x42000018 ? IRBlockEnd::NOW : IRBlockEnd::NONE;
+	case 0x1C:  // halt (ENDS_BLOCK)
+		return (enc & 0x3F) == 0 ? IRBlockEnd::NOW : IRBlockEnd::NONE;
 	default:
 		if ((enc & 0xFF000000) == MIPS_CALL_REPLACEMENT_OP) {
 			// A hook runs the original instruction and goes on, like a disabled replacement.

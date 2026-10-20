@@ -253,6 +253,9 @@ public:
 	// Debug stuff
 	u32 debugCount;	// can be used to count basic blocks before crashes, etc.
 
+	// COP0, for kernel code. Reads of Count (9) come from CoreTiming instead.
+	u32 cop0[32];
+
 	// Temps needed for JitBranch.cpp experiments
 	u32 intBranchExit;
 	u32 jitBranchExit;

@@ -767,15 +767,9 @@ namespace MIPSInt {
 		PC += 4;
 	}
 
-	// Dummy COP0 register file, for kernel-mode code (e.g. flash0:/reboot.bin) that reads/
-	// writes COP0 state directly - ordinary PSP user-mode code never executes these
-	// instructions (kernel state is reached via HLE syscalls instead), so this doesn't need
-	// to model real COP0 semantics (interrupts, exceptions, TLB, ...), just be non-fatal and
-	// give writes-then-reads-back-same-value behavior. Not part of MIPSState (which is
-	// layout-sensitive for JIT register allocation) and not save-stated, in keeping with
-	// "dummy" - revisit if this ever needs to be more than a bail-out.
-	static u32 g_cop0Regs[32];
-
+	// COP0, for kernel-mode code (e.g. flash0:/reboot.bin) that reads/writes it directly - ordinary
+	// PSP user-mode code never executes these instructions (kernel state is reached via HLE
+	// syscalls instead). Writes read back; nothing models interrupts, exceptions or the TLB.
 	void Int_Cop0(MIPSState *mips, MIPSOpcode op) {
 		int rt = _RT;
 		int rd = _RD;
@@ -793,12 +787,12 @@ namespace MIPSInt {
 				if (rd == 9)
 					R(rt) = (u32)CoreTiming::GetTicks(mips);
 				else
-					R(rt) = g_cop0Regs[rd];
+					R(rt) = mips->cop0[rd];
 			}
 			break;
 
 		case 4: //mtc0
-			g_cop0Regs[rd] = R(rt);
+			mips->cop0[rd] = R(rt);
 			break;
 
 		case 10: //rdpgpr
@@ -808,7 +802,7 @@ namespace MIPSInt {
 
 		case 11: //mfmc0 (di/ei)
 			if (rt != 0)
-				R(rt) = g_cop0Regs[12];  // Status
+				R(rt) = mips->cop0[12];  // Status
 			break;
 
 		case 14: //wrpgpr
@@ -820,6 +814,20 @@ namespace MIPSInt {
 			break;
 		}
 		PC += 4;
+	}
+
+	// Return from an exception, as MIPS32 defines it (not checked on a PSP): to ErrorEPC (30) if
+	// Status.ERL is set, clearing it, otherwise to EPC (14), clearing Status.EXL. No delay slot.
+	void Int_Eret(MIPSState *mips, MIPSOpcode op) {
+		u32 &status = mips->cop0[12];
+		if (status & 4) {
+			mips->pc = mips->cop0[30];
+			status &= ~4;
+		} else {
+			mips->pc = mips->cop0[14];
+			status &= ~2;
+		}
+		mips->llBit = 0;
 	}
 
 	void Int_RType2(MIPSState *mips, MIPSOpcode op) {
