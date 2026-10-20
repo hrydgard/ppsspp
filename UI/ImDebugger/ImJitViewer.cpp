@@ -63,7 +63,7 @@ void ImJitViewerWindow::Draw(ImConfig &cfg, ImControl &control) {
 		numColumns = 4;
 	}
 
-	JitBlockCacheDebugInterface *blockCacheDebug = MIPSComp::jit->GetBlockCacheDebugInterface();
+	JitBlockCacheDebugInterface *blockCacheDebug = mipsr4k.jit->GetBlockCacheDebugInterface();
 
 	if (core_ != (int)core) {
 		// Core changed, need to refresh.

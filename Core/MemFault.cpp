@@ -125,7 +125,7 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 	g_lastCrashAddress = nullptr;
 
 	// TODO: Check that codePtr is within the current JIT space.
-	bool inJitSpace = MIPSComp::jit && MIPSComp::jit->CodeInRange(codePtr);
+	bool inJitSpace = mipsr4k.jit && mipsr4k.jit->CodeInRange(codePtr);
 	if (!inJitSpace) {
 		// This is a crash in non-jitted code. Not something we want to handle here, ignore.
 		// Actually, we could handle crashes from the IR interpreter here, although recovering the call stack
@@ -210,7 +210,7 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 	success = false;
 #endif
 
-	if (MIPSComp::jit && (shadowFault || MIPSComp::jit->IsAtDispatchFetch(codePtr))) {
+	if (mipsr4k.jit && (shadowFault || mipsr4k.jit->IsAtDispatchFetch(codePtr))) {
 		// The shadow entry's offset is the target, masked.
 		u32 targetAddr = shadowFault ? guestAddress : currentMIPS->pc;
 		// TODO: Do the other archs and platforms.
@@ -220,7 +220,7 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 #endif
 		Core_ExecException(targetAddr, currentMIPS->pc, ExecExceptionType::JUMP);
 		// Redirect execution to a crash handler that will switch to CoreState::CORE_RUNTIME_ERROR immediately.
-		uintptr_t crashHandler = (uintptr_t)MIPSComp::jit->GetCrashHandler();
+		uintptr_t crashHandler = (uintptr_t)mipsr4k.jit->GetCrashHandler();
 		if (crashHandler != 0) {
 			context->CTX_PC = crashHandler;
 			ERROR_LOG(Log::MemMap, "Bad execution access detected, halting: %08x (last known pc %08x, host: %p)", targetAddr, currentMIPS->pc, (void *)hostAddress);
@@ -252,7 +252,7 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 		g_numReportedBadAccesses++;
 		if (g_numReportedBadAccesses < 100) {
 			std::string temp;
-			if (MIPSComp::jit && MIPSComp::jit->DescribeCodePtr(codePtr, temp)) {
+			if (mipsr4k.jit && mipsr4k.jit->DescribeCodePtr(codePtr, temp)) {
 				ERROR_LOG(Log::MemMap, "Bad memory access detected and ignored: %08x (%p) at %s", guestAddress, (void *)hostAddress, temp.c_str());
 			} else {
 				ERROR_LOG(Log::MemMap, "Bad memory access detected and ignored: %08x (%p)", guestAddress, (void *)hostAddress);
@@ -261,7 +261,7 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 	} else {
 		std::string infoString = "";
 		std::string temp;
-		if (MIPSComp::jit && MIPSComp::jit->DescribeCodePtr(codePtr, temp)) {
+		if (mipsr4k.jit && mipsr4k.jit->DescribeCodePtr(codePtr, temp)) {
 			infoString += temp + " ";
 		}
 		temp.clear();
@@ -281,8 +281,8 @@ bool HandleFault(uintptr_t hostAddress, void *ctx) {
 
 		// Redirect execution to a crash handler that will switch to CoreState::CORE_RUNTIME_ERROR immediately.
 		uintptr_t crashHandler = 0;
-		if (MIPSComp::jit)
-			crashHandler = (uintptr_t)MIPSComp::jit->GetCrashHandler();
+		if (mipsr4k.jit)
+			crashHandler = (uintptr_t)mipsr4k.jit->GetCrashHandler();
 		if (crashHandler != 0)
 			context->CTX_PC = crashHandler;
 		else

@@ -376,8 +376,8 @@ void CwCheatScreen::onFinish(DialogResult result) {
 	if (result != DR_BACK) // This only works for BACK here.
 		return;
 
-	if (MIPSComp::jit) {
-		MIPSComp::jit->ClearCache();
+	if (mipsr4k.jit) {
+		mipsr4k.jit->ClearCache();
 	}
 }
 
@@ -401,8 +401,8 @@ void CwCheatScreen::OnAddCheat(UI::EventParams &params) {
 
 void CwCheatScreen::OnEditCheatFile(UI::EventParams &params) {
 	g_Config.bReloadCheats = true;
-	if (MIPSComp::jit) {
-		MIPSComp::jit->ClearCache();
+	if (mipsr4k.jit) {
+		mipsr4k.jit->ClearCache();
 	}
 	if (engine_) {
 		File::OpenFileInEditor(engine_->CheatFilename());

@@ -182,9 +182,7 @@ namespace MIPSComp {
 	// This seems to be the same for all branch types.
 	u32 ResolveNotTakenTarget(const BranchInfo &branchInfo);
 
-	extern JitInterface *jit;
-
-	void DoDummyJitState(PointerWrap &p);
+	void DoDummyJitState(PointerWrap &p, const MIPSState *mips);
 
 	JitInterface *CreateNativeJit(MIPSState *mipsState);
 }

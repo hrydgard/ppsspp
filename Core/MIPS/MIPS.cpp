@@ -232,8 +232,6 @@ const float cst_constants[32] = {
 };
 
 MIPSState::MIPSState() {
-	MIPSComp::jit = nullptr;
-
 	// Initialize vorder
 
 	// This reordering of the VFPU registers in RAM means that instead of being like this:
@@ -304,18 +302,18 @@ MIPSState::~MIPSState() {
 }
 
 // The block shadow's replacement hook entries have to match the JIT's dispatcher.
-static void UpdateBlockShadowHook() {
-	Replacement_SetBlockShadowHook(MIPSComp::jit ? MIPSComp::jit->GetBlockShadowHookValue() : Memory::BLOCK_SHADOW_HOOK_NO_JIT);
+static void UpdateBlockShadowHook(const MIPSComp::JitInterface *jit) {
+	Replacement_SetBlockShadowHook(jit ? jit->GetBlockShadowHookValue() : Memory::BLOCK_SHADOW_HOOK_NO_JIT);
 }
 
 void MIPSState::Shutdown() {
-	MIPSComp::JitInterface *oldjit = MIPSComp::jit;
+	MIPSComp::JitInterface *oldjit = jit;
 	if (oldjit) {
 		oldjit->FlushProfile();
-		MIPSComp::jit = nullptr;
+		jit = nullptr;
 		delete oldjit;
 	}
-	UpdateBlockShadowHook();
+	UpdateBlockShadowHook(jit);
 	pendingInvalidates_.clear();
 	invalidateAll_ = false;
 }
@@ -328,13 +326,13 @@ void MIPSState::Reset() {
 void MIPSState::Init() {
 	InitRegisters();
 	if (PSP_CoreParameter().cpuCore == CPUCore::JIT || PSP_CoreParameter().cpuCore == CPUCore::JIT_IR) {
-		MIPSComp::jit = MIPSComp::CreateNativeJit(this);
+		jit = MIPSComp::CreateNativeJit(this);
 	} else if (PSP_CoreParameter().cpuCore == CPUCore::IR_INTERPRETER) {
-		MIPSComp::jit = new MIPSComp::IRJit(this, false);
+		jit = new MIPSComp::IRJit(this, false);
 	} else {
-		MIPSComp::jit = nullptr;
+		jit = nullptr;
 	}
-	UpdateBlockShadowHook();
+	UpdateBlockShadowHook(jit);
 }
 
 void MIPSState::InitRegisters() {
@@ -386,9 +384,9 @@ void MIPSState::UpdateCore(CPUCore desired) {
 	IncrementDebugCounter(DebugCounter::CPUCORE_SWITCHES);
 
 	// Get rid of the old JIT first, before switching.
-	if (MIPSComp::jit) {
-		delete MIPSComp::jit;
-		MIPSComp::jit = nullptr;
+	if (jit) {
+		delete jit;
+		jit = nullptr;
 	}
 
 	PSP_CoreParameter().cpuCore = desired;
@@ -416,12 +414,12 @@ void MIPSState::UpdateCore(CPUCore desired) {
 		break;
 	}
 
-	MIPSComp::jit = newjit;
+	jit = newjit;
 	if (newjit) {
 		// The game may already have set a rounding mode on the previous core.
 		newjit->UpdateFCR31();
 	}
-	UpdateBlockShadowHook();
+	UpdateBlockShadowHook(jit);
 }
 
 void MIPSState::DoState(PointerWrap &p) {
@@ -430,10 +428,10 @@ void MIPSState::DoState(PointerWrap &p) {
 		return;
 
 	if (p.mode == p.MODE_READ) {
-		if (MIPSComp::jit && !keepJitBlocks_.empty()) {
+		if (jit && !keepJitBlocks_.empty()) {
 			// Blocks in code the load didn't change can stay. Queued invalidations stay too.
 			InitRegisters();
-			MIPSComp::jit->InvalidateCacheExcept(keepJitBlocks_);
+			jit->InvalidateCacheExcept(keepJitBlocks_);
 		} else {
 			// Start the JIT over.
 			Reset();
@@ -441,10 +439,10 @@ void MIPSState::DoState(PointerWrap &p) {
 		keepJitBlocks_.clear();
 	}
 	// Assume we're not saving state during a CPU core reset, so no lock.
-	if (MIPSComp::jit)
-		MIPSComp::jit->DoState(p);
+	if (jit)
+		jit->DoState(p);
 	else
-		MIPSComp::DoDummyJitState(p);
+		MIPSComp::DoDummyJitState(p, this);
 
 	DoArray(p, r, sizeof(r) / sizeof(r[0]));
 	DoArray(p, f, sizeof(f) / sizeof(f[0]));
@@ -480,9 +478,9 @@ void MIPSState::DoState(PointerWrap &p) {
 	Do(p, llBit);
 	Do(p, debugCount);
 
-	if (p.mode == p.MODE_READ && MIPSComp::jit) {
+	if (p.mode == p.MODE_READ && jit) {
 		// Now that we've loaded fcr31, update any jit state associated.
-		MIPSComp::jit->UpdateFCR31();
+		jit->UpdateFCR31();
 	}
 }
 
@@ -505,7 +503,7 @@ int MIPSState::RunLoopUntil(u64 globalTicks) {
 			downcount -= cycles;
 		}
 		ProcessPendingInvalidates();
-		MIPSComp::jit->RunLoopUntil(globalTicks);
+		jit->RunLoopUntil(globalTicks);
 		break;
 
 	case CPUCore::INTERPRETER:
@@ -517,12 +515,12 @@ int MIPSState::RunLoopUntil(u64 globalTicks) {
 
 void MIPSState::InvalidateICacheRangeImmediate(u32 address, u32 length) {
 	Replacement_CheckRange(address, length);
-	if (!MIPSComp::jit) {
+	if (!jit) {
 		// Nothing to do.
 		return;
 	}
 	if (length != 0) {
-		MIPSComp::jit->InvalidateCacheAt(address, length);
+		jit->InvalidateCacheAt(address, length);
 	}
 }
 
@@ -536,12 +534,12 @@ void MIPSState::ProcessPendingInvalidates() {
 		pending.swap(pendingInvalidates_);
 		for (const auto &p : pending) {
 			Replacement_CheckRange(p.addr, p.size);
-			if (MIPSComp::jit && !all) {
-				MIPSComp::jit->InvalidateCacheAt(p.addr, p.size);
+			if (jit && !all) {
+				jit->InvalidateCacheAt(p.addr, p.size);
 			}
 		}
-		if (MIPSComp::jit && all) {
-			MIPSComp::jit->ClearCache();
+		if (jit && all) {
+			jit->ClearCache();
 		}
 	}
 }
@@ -549,14 +547,14 @@ void MIPSState::ProcessPendingInvalidates() {
 void MIPSState::InvalidateICacheRangeDeferred(u32 address, u32 length) {
 	// TODO: We can try to merge the invalidate with the previous one.
 	pendingInvalidates_.push_back(PendingCacheOperation{address, length});
-	if (MIPSComp::jit) {
+	if (jit) {
 		Core_ReenterDispatcher();
 	}
 }
 
 // Queued ranges still get their replacement hook checks.
 void MIPSState::ClearJitCacheDeferred() {
-	if (!MIPSComp::jit) {
+	if (!jit) {
 		return;
 	}
 

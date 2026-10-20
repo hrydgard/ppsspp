@@ -30,6 +30,10 @@
 
 class PointerWrap;
 
+namespace MIPSComp {
+class JitInterface;
+}
+
 typedef Memory::Opcode MIPSOpcode;
 
 // A fake opcode the CPU cores fetch in place of an instruction with a replacement function (see
@@ -304,6 +308,9 @@ public:
 	std::vector<PendingCacheOperation> pendingInvalidates_;
 	bool invalidateAll_ = false;
 	std::vector<std::pair<u32, u32>> keepJitBlocks_;
+
+	// Owned. Null on the interpreter.
+	MIPSComp::JitInterface *jit = nullptr;
 };
 
 // Access control ('private') break standard layout. Let's not allow it, to avoid excessive

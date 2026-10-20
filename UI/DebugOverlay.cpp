@@ -72,9 +72,9 @@ static void DrawJitStats(UIContext *ctx, const Bounds &bounds) {
 
 	char statbuf[1024];
 	StringWriter w(statbuf, sizeof(statbuf));
-	if (MIPSComp::jit) {
+	if (mipsr4k.jit) {
 		MIPSComp::JitStats stats;
-		MIPSComp::jit->GetStats(&stats);
+		mipsr4k.jit->GetStats(&stats);
 		const double irPercent = stats.irArenaSize ? 100.0 * stats.irArenaUsed / stats.irArenaSize : 0.0;
 		w.F("Blocks: %d (%d valid)\n", stats.numBlocks, stats.numValidBlocks);
 		if (stats.codeSize) {

@@ -198,7 +198,7 @@ namespace MIPSInt {
 			int size = 0x40 + (addr & 0x3F);
 			// Through MIPSState, which also drops replacement hooks in functions the game changed.
 			mips->InvalidateICacheRangeImmediate(alignedAddr, size);
-			if (MIPSComp::jit) {
+			if (mips->jit) {
 				// Using a bool to avoid locking/etc. in case it's slow.
 				if (!loggedAlignment && (addr & 0x3F) != 0) {
 					// These are seen exclusively in Lego games, and are really no big deal. Reporting removed.
@@ -745,9 +745,9 @@ namespace MIPSInt {
 					mips->fcr31 = value & 0x0181FFFF;
 					mips->fpcond = (value >> 23) & 1;
 					// Don't bother locking, assuming the CPU can't be reset now anyway.
-					if (MIPSComp::jit) {
+					if (mips->jit) {
 						// In case of DISABLE, we need to tell jit we updated FCR31.
-						MIPSComp::jit->UpdateFCR31();
+						mips->jit->UpdateFCR31();
 					} else {
 						// The interpreter emulates the rounding mode by putting the host FPU in it,
 						// so it has to switch right here rather than at the next block boundary.
