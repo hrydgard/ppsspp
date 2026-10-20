@@ -348,6 +348,28 @@ static const HLENidAlias hleNidAliases[] = {
 	{ "SysMemForKernel", 0xB9796F69, 0xB4F00CB5 },  // sceKernelGetCompiledSdkVersion
 	{ "SysMemForKernel", 0xF5780DAA, 0xC90B0992 },  // sceKernelGetUIDcontrolBlock
 	{ "SysMemForKernel", 0xFEB5C72B, 0xF12A62F7 },
+	// 5.55, from popsman.prx, whose code changed too much to match every import: only the ones used here,
+	// each checked by its call site.
+	{ "LoadExecForKernel", 0x9C9BB2D8, 0xC3474C2A },  // sceKernelExitVSHKernel
+	{ "ModuleMgrForKernel", 0xBB8C8FDF, 0x3FF74DF1 },  // sceKernelStartModule
+	{ "ModuleMgrForKernel", 0xC5A281C5, 0x939E4270 },  // sceKernelLoadModuleForKernel
+	{ "SysMemForKernel", 0x2CFF6F90, 0xB4F00CB5 },  // sceKernelGetCompiledSdkVersion
+	{ "SysMemForKernel", 0x950BCB31, 0xF12A62F7 },
+	{ "SysMemForKernel", 0xD7E24299, 0xC90B0992 },  // sceKernelGetUIDcontrolBlock
+	{ "sceGe_driver", 0x1F226BA9, 0xD8633888 },  // sceGeEdramSetSize
+	{ "sceImpose_driver", 0xA516434B, 0x5557F4E2 },  // sceImposeGetBatteryIconStatus
+	{ "sceSysreg_driver", 0x08E0EE7E, 0x38527743 },  // sceSysregMeBusClockEnable660
+	{ "sceSysreg_driver", 0x0E6301D0, 0xDB97C70E },  // sceSysregSemaUnlock660
+	{ "sceSysreg_driver", 0x20C9E2C4, 0x457FEBA9 },  // sceSysregMeResetEnable660
+	{ "sceSysreg_driver", 0x410C74F7, 0x4634C9DC },  // sceSysreg_driver_4634C9DC
+	{ "sceSysreg_driver", 0x461B8077, 0x0143E8A8 },  // sceSysregSemaTryLock660
+	{ "sceSysreg_driver", 0x48869494, 0x41B0337B },  // sceSysreg_driver_41B0337B
+	{ "sceSysreg_driver", 0x5F190A4E, 0x48F1C4AD },  // sceSysregMeResetDisable660
+	{ "sceSysreg_driver", 0x663D5471, 0x0AE8E549 },  // sceSysregAvcResetEnable660
+	{ "sceSysreg_driver", 0x823FFD7A, 0xB1751B06 },  // sceSysreg_driver_B1751B06
+	{ "sceSysreg_driver", 0x923509A1, 0xC36775AD },  // sceSysreg_driver_C36775AD
+	{ "sceSysreg_driver", 0xC7FC7669, 0x8B1DD83A },  // sceSysreg_driver_8B1DD83A
+	{ "sceSysreg_driver", 0xE46A0890, 0x4B4CCE80 },  // sceSysreg_driver_4B4CCE80
 };
 
 u32 GetHLENidAlias(std::string_view moduleName, u32 nid) {

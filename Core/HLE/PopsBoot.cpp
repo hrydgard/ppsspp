@@ -64,7 +64,7 @@ struct PopsManLayout {
 	u32 loadModule;
 	u32 loadModuleFrame;  // Its first instruction, addiu sp, sp, -frame.
 	// The license check (path, keyOut, fingerprintOut). Its first success latches the version key and
-	// the content ID fingerprint (6.60's +0124).
+	// the content ID fingerprint (6.60's +0124). 5.x has none: the kernel hands the key to the manager.
 	u32 keyProbe;
 	u32 versionKey;
 	u32 keyLatched;
@@ -73,15 +73,19 @@ struct PopsManLayout {
 	// sceMeAudio_F6637A72).
 	u32 checkMac;
 	u32 checkMacExport;
+	// 5.x: the license lookup in the export the emulator opens the game with (5.55's
+	// sceMeAudio_A1457825 calls scePspNpDrm_driver_4478C033 on the content ID).
+	u32 licenseCall;
 };
 
 // The managers have the same code at these places, and older ones import kernel functions by older
 // NIDs (see GetHLENidAlias()).
 static const PopsManLayout POPSMAN_LAYOUTS[] = {
-	{ 0x1E20, 0x120, 0x266C, 0x49E0, 0x4A18, 0x4A1C, 0x0A28, 0x0AB8 },  // 6.35-6.61
-	{ 0x1E48, 0x120, 0x2694, 0x4AE0, 0x4B18, 0x4B1C, 0x0A28, 0x0AB8 },  // 6.30-6.31
-	{ 0x1E48, 0x130, 0x26F8, 0x4B30, 0x4B68, 0x4B6C, 0x0A28, 0x0AB8 },  // 6.20
-	{ 0x19E8, 0x130, 0x2270, 0x46D0, 0x4704, 0x4708, 0x07B8, 0x0848 },  // 6.00-6.10
+	{ 0x1E20, 0x120, 0x266C, 0x49E0, 0x4A18, 0x4A1C, 0x0A28, 0x0AB8, 0 },  // 6.35-6.61
+	{ 0x1E48, 0x120, 0x2694, 0x4AE0, 0x4B18, 0x4B1C, 0x0A28, 0x0AB8, 0 },  // 6.30-6.31
+	{ 0x1E48, 0x130, 0x26F8, 0x4B30, 0x4B68, 0x4B6C, 0x0A28, 0x0AB8, 0 },  // 6.20
+	{ 0x19E8, 0x130, 0x2270, 0x46D0, 0x4704, 0x4708, 0x07B8, 0x0848, 0 },  // 6.00-6.10
+	{ 0x155C, 0x130, 0,      0x3550, 0x3570, 0x3578, 0x0500, 0x058C, 0x0144 },  // 5.55
 };
 static int g_popsManLayout = 0;
 
@@ -153,7 +157,7 @@ static u32 PopsManBase() {
 }
 
 // Picks the layout of the loaded manager, by the code at its places. False if none matches.
-static bool FindPopsManLayout() {
+static bool FindPopsManLayout(bool converted) {
 	const u32 loadModule = KernelFindModuleExport("scePopsMan", SCE_POPSMAN_LOAD_MODULE_NID);
 	if (!loadModule) {
 		return false;
@@ -168,12 +172,17 @@ static bool FindPopsManLayout() {
 			{ layout.loadModule, 0x27BD0000 | ((0x10000 - layout.loadModuleFrame) & 0xFFFF) },
 			{ layout.checkMac, 0x27BDFFC0 },  // addiu sp, sp, -0x40
 			{ layout.checkMacExport, 0x27BDFFB0 },
-			{ layout.keyProbe, 0x27BDFEF0 },
-			{ layout.keyProbe + 4, 0x2CA70001 },
 		};
 		bool match = true;
 		for (const auto &c : code) {
 			match = match && Memory::ReadUnchecked_U32(base + c.offset) == c.original;
+		}
+		if (layout.keyProbe != 0) {
+			match = match && Memory::ReadUnchecked_U32(base + layout.keyProbe) == 0x27BDFEF0;
+			match = match && Memory::ReadUnchecked_U32(base + layout.keyProbe + 4) == 0x2CA70001;
+		} else {
+			// Without the probe, only converted PBPs: a store game's key would come from the kernel.
+			match = match && converted && (Memory::ReadUnchecked_U32(base + layout.licenseCall) >> 26) == 3;
 		}
 		if (match) {
 			g_popsManLayout = i;
@@ -367,28 +376,31 @@ void __PopsBootPatchEmulator(u32 textAddr, u32 textSize, u32 decodeStub) {
 		ERROR_LOG(Log::sceKernel, "POPS: the emulator doesn't import scePopsMan_0090B2C8, the disc won't read");
 		return;
 	}
-	// A converted PBP's disc blocks are raw DEFLATE. As CFW's popcorn does, send the decoder calls
-	// (the jal two words after each "lw a2, 0xC(s3)") to the scePopsMan_0090B2C8 import, which
-	// inflates.
+	// A converted PBP's disc blocks are raw DEFLATE. As CFW's popcorn does, send the disc read's
+	// decoder call to the scePopsMan_0090B2C8 import, which inflates. That's the jal next to
+	// "li a0, 0x9300" (a block of 16 raw sectors), whichever side 5.x and 6.x put it on.
 	int sites = 0;
-	for (u32 addr = textAddr; addr + 8 < textAddr + textSize; addr += 4) {
+	int trackBranches = 0;
+	for (u32 addr = textAddr + 4; addr + 8 < textAddr + textSize; addr += 4) {
 		const u32 op = Memory::ReadUnchecked_U32(addr);
 		const u32 next = Memory::ReadUnchecked_U32(addr + 4);
-		if (op == 0x8E66000C) {
-			Memory::WriteUnchecked_U32(MIPS_MAKE_JAL(decodeStub), addr + 8);
+		const u32 prev = Memory::ReadUnchecked_U32(addr - 4);
+		if ((op >> 26) == 3 && (next == 0x34049300 || prev == 0x34049300)) {
+			Memory::WriteUnchecked_U32(MIPS_MAKE_JAL(decodeStub), addr);
 			sites++;
 		} else if ((op == 0x14C00014 && next == 0x24E2FFFF) || (op == 0x14A00014 && next == 0x24C2FFFF)) {
 			// Also popcorn's: the track index's length doesn't count the CD audio tracks a converted
 			// image adds, so always take the full-length branch (b +0x14; addiu v0, aN, 0).
 			Memory::WriteUnchecked_U32(0x10000014, addr);
 			Memory::WriteUnchecked_U32(next & 0xFFFF0000, addr + 4);
+			trackBranches++;
 		}
 	}
 	Memory::WriteUnchecked_U32(MIPS_MAKE_JR_RA(), decodeStub);
 	PatchCall(decodeStub + 4, "__PopsDeflateDecompress");
 	currentMIPS->InvalidateICacheRangeDeferred(textAddr, textSize);
 	currentMIPS->InvalidateICacheRangeDeferred(decodeStub, 8);
-	INFO_LOG(Log::sceKernel, "POPS: converted PBP, %d disc decoder calls now inflate", sites);
+	INFO_LOG(Log::sceKernel, "POPS: converted PBP, %d disc decoder calls now inflate, %d track index branches taken", sites, trackBranches);
 }
 
 // After the game path, a word for the version key function the manager registers.
@@ -422,9 +434,9 @@ static bool IsUsableIcon0(FileLoader *loader) {
 }
 
 bool __PopsBootStartInit(FileLoader *pbp, const std::string &gamePath, std::string *error) {
-	if (!FindPopsManLayout()) {
+	if (!FindPopsManLayout(IsConvertedPBP(pbp))) {
 		auto er = GetI18NCategory(I18NCat::ERRORS);
-		*error = er->T("PS1FirmwareVersion", "So far, PS1 games only run with firmware 6.00 to 6.61, and a different version is installed. Install one of those from an official PSP update file in Settings > Tools > PSP Firmware.");
+		*error = er->T("PS1FirmwareVersion", "So far, PS1 games only run with firmware 6.00 to 6.61 (converted ones also with 5.55), and a different version is installed. Install one of those from an official PSP update file in Settings > Tools > PSP Firmware.");
 		return false;
 	}
 	const u32 base = PopsManBase();
@@ -432,11 +444,18 @@ bool __PopsBootStartInit(FileLoader *pbp, const std::string &gamePath, std::stri
 	g_popsConvertedPBP = IsConvertedPBP(pbp);
 	g_popsIcon0Usable = IsUsableIcon0(pbp);
 	const u32 loadModule = base + PopsMan().loadModule;
-	PatchReturn(base + PopsMan().keyProbe, MIPS_MAKE_SYSCALL("PopsBootCalls", "__PopsGetVersionKey"));
+	if (PopsMan().keyProbe != 0) {
+		PatchReturn(base + PopsMan().keyProbe, MIPS_MAKE_SYSCALL("PopsBootCalls", "__PopsGetVersionKey"));
+	}
 	if (g_popsConvertedPBP) {
 		// A converted PBP has no MACs. As popcorn does, take its data as authentic.
 		PatchReturn(base + PopsMan().checkMac, 0x24020001);  // li v0, 1
 		PatchReturn(base + PopsMan().checkMacExport, 0x24020001);
+		if (PopsMan().licenseCall != 0) {
+			// It has no license, so the lookup can only fail.
+			Memory::WriteUnchecked_U32(0x24020000, base + PopsMan().licenseCall);  // li v0, 0
+			currentMIPS->InvalidateICacheRangeDeferred(base + PopsMan().licenseCall, 4);
+		}
 	}
 
 	const u32 pathSize = (u32)gamePath.size() + 1;
