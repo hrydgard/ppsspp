@@ -85,6 +85,7 @@ class Command(object):
 # These have worked and should keep working always - regression tests.
 # -g flag runs these.
 tests_good = [
+  "cpu/cop0/eret",
   "cpu/cpu_alu/cpu_alu",
   "cpu/cpu_alu/cpu_branch",
   "cpu/cpu_alu/branch_link_ra",

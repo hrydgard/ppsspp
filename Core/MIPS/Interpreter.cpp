@@ -780,8 +780,8 @@ namespace MIPSInt {
 		PC += 4;
 	}
 
-	// Return from an exception, as MIPS32 defines it (not checked on a PSP): to ErrorEPC (30) if
-	// Status.ERL is set, clearing it, otherwise to EPC (14), clearing Status.EXL. No delay slot.
+	// Return from an exception, as MIPS32 defines it (cpu/cop0/eret): to ErrorEPC (30) if Status.ERL
+	// is set, clearing only that, otherwise to EPC (14), clearing Status.EXL. No delay slot.
 	void Int_Eret(MIPSState *mips, MIPSOpcode op) {
 		u32 &status = mips->cop0[12];
 		if (status & 4) {
