@@ -248,6 +248,10 @@ public:
 	// See FramebufferManagerCommon. Only the hardware backends use these.
 	void SetFixedFramebuffer(u32 addr, int stride, int width, int height);
 	void SetNativeResolutionFramebuffer(u32 addr);
+	// Logic ops done on a copy of the framebuffer are drawn one at a time, so each sees the ones before.
+	void SetSeparateLogicOpDraws(bool separate) {
+		separateLogicOpDraws_ = separate;
+	}
 	virtual TextureCacheCommon *GetTextureCacheCommon() { return nullptr; }
 	const DrawEngineCommon *GetDrawEngineCommon() const { return drawEngineCommon_; }
 
@@ -424,6 +428,7 @@ protected:
 	bool dumpNextFrame_ = false;
 	bool dumpThisFrame_ = false;
 	bool useFastRunLoop_ = false;
+	bool separateLogicOpDraws_ = false;
 	bool interruptsEnabled_ = false;
 	bool displayResized_ = false;
 	bool renderResized_ = false;
