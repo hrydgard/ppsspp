@@ -226,6 +226,10 @@ To check that a game keeps running after `--state=` loads, pass `--frame-stats`:
 the flips in each emulated second since the load. A stuck or crashed game shows as zeros or a short list, and a
 steady game as a flat 30 or 60. The state's load result is printed too, and a failed load exits 1.
 
+To get past menus, `--press=SECONDS:MASK[:DURATION],...` holds buttons at emulated times (`MASK` is a sceCtrl
+mask, `0x8` START and `0x4000` CROSS, held 0.15 seconds by default), and `--screenshot-at=SECONDS:FILE,...` saves
+screenshots along the way.
+
 For audio, `--dump-audio=FILE.wav` records the mixed output (before the game volume setting) for the whole run.
 An audio glitch you can hear usually shows in the waveform: a click is a jump between neighbouring samples, and
 a repeated or dropped mixer block is two identical 64-sample runs in a row.
