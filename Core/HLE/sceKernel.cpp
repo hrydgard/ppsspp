@@ -424,9 +424,9 @@ int sceKernelDcacheInvalidateRange(u32 addr, int size)
 	return hleNoLog(0);
 }
 
-int sceKernelIcacheInvalidateRange(u32 addr, int size) {
+int sceKernelIcacheInvalidateRange(MIPSState *mips, u32 addr, int size) {
 	if (size != 0) {
-		currentMIPS->InvalidateICacheRangeDeferred(addr, size);
+		mips->InvalidateICacheRangeDeferred(addr, size);
 		Core_ReenterDispatcher();
 	}
 	return hleLogDebug(Log::CPU, 0);
@@ -485,22 +485,22 @@ int sceKernelDcacheWritebackInvalidateAll() {
 	return hleLogDebug(Log::CPU, 0, "Dcache invalidated");
 }
 
-u32 sceKernelIcacheInvalidateAll() {
+u32 sceKernelIcacheInvalidateAll(MIPSState *mips) {
 #ifdef LOG_CACHE
 	NOTICE_LOG(Log::CPU, "Icache invalidated - should clear JIT someday");
 #endif
 	// Note that this doesn't actually fully invalidate all with such a large range.
-	currentMIPS->InvalidateICacheRangeDeferred(0, 0x3FFFFFFF);
+	mips->InvalidateICacheRangeDeferred(0, 0x3FFFFFFF);
 	Core_ReenterDispatcher();
 	return hleLogDebug(Log::CPU, 0, "Icache invalidated");
 }
 
-u32 sceKernelIcacheClearAll() {
+u32 sceKernelIcacheClearAll(MIPSState *mips) {
 #ifdef LOG_CACHE
 	NOTICE_LOG(Log::CPU, "Icache cleared - should clear JIT someday");
 #endif
 	// Note that this doesn't actually fully invalidate all with such a large range.
-	currentMIPS->InvalidateICacheRangeDeferred(0, 0x3FFFFFFF);
+	mips->InvalidateICacheRangeDeferred(0, 0x3FFFFFFF);
 	Core_ReenterDispatcher();
 	return hleLogDebug(Log::CPU, 0, "Icache cleared");
 }
@@ -1043,14 +1043,14 @@ static int sceKernelExitVSH(u32 paramPtr) {
 
 // The VSH's own version of sceKernelLoadExec, used for pushing a game to run over USB/WLAN
 // (e.g. from a PC) rather than loading it from a file already on the memory stick/UMD.
-static int sceKernelLoadExecBufferVSHUsbWlan(int bufferSize, u32 bufferAddr, u32 paramPtr) {
+static int sceKernelLoadExecBufferVSHUsbWlan(MIPSState *mips, int bufferSize, u32 bufferAddr, u32 paramPtr) {
 	if (!Memory::IsValidRange(bufferAddr, bufferSize)) {
 		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid buffer");
 	}
 
 	const u8 *data = Memory::GetPointerUnchecked(bufferAddr);
 	std::string error_string;
-	if (!__KernelLoadExecFromBuffer(currentMIPS, data, (size_t)bufferSize, paramPtr, &error_string)) {
+	if (!__KernelLoadExecFromBuffer(mips, data, (size_t)bufferSize, paramPtr, &error_string)) {
 		Core_HLEError("sceKernelLoadExecBufferVSHUsbWlan failed: " + error_string);
 		return hleLogError(Log::sceKernel, -1, "failed: %s", error_string.c_str());
 	}

@@ -451,9 +451,9 @@ int __CancelRaisedInterrupts(PSPInterrupt intno) {
 	return count;
 }
 
-void __KernelReturnFromInterrupt()
+void __KernelReturnFromInterrupt(MIPSState *mips)
 {
-	VERBOSE_LOG(Log::sceIntc, "Left interrupt handler at %08x", currentMIPS->pc);
+	VERBOSE_LOG(Log::sceIntc, "Left interrupt handler at %08x", mips->pc);
 
 	hleSkipDeadbeef();
 
@@ -469,7 +469,7 @@ void __KernelReturnFromInterrupt()
 			moreOfThis = moreOfThis || other.intr == pend.intr;
 		}
 		if (!moreOfThis) {
-			currentMIPS->downcount -= intrHandlers[pend.intr]->exitCycles();
+			mips->downcount -= intrHandlers[pend.intr]->exitCycles();
 		}
 	} else {
 		_assert_msg_(false, "Bad pend.intr: %d", pend.intr);
@@ -854,9 +854,9 @@ static int sysclib_memcmp(u32 dst, u32 src, u32 size) {
 	}
 }
 
-static int sysclib_sprintf_impl(u32 dst, int limit, u32 fmt, int firstVarArg) {
+static int sysclib_sprintf_impl(MIPSState *mips, u32 dst, int limit, u32 fmt, int firstVarArg) {
 	std::string result;
-	if (!HLEFormatPrintf(fmt, firstVarArg, &result)) {
+	if (!HLEFormatPrintf(mips, fmt, firstVarArg, &result)) {
 		return 0;
 	}
 
@@ -879,15 +879,15 @@ static int sysclib_sprintf_impl(u32 dst, int limit, u32 fmt, int firstVarArg) {
 	return (int)retval;
 }
 
-static int sysclib_sprintf(u32 dst, u32 fmt) {
+static int sysclib_sprintf(MIPSState *mips, u32 dst, u32 fmt) {
 	DEBUG_LOG(Log::sceKernel, "Not fully implemented: sysclib_sprintf(dst=%08x, fmt=%08x)", dst, fmt);
 	// dst is a0 and fmt a1, so the varargs start at a2.
-	return hleLogDebug(Log::sceKernel, sysclib_sprintf_impl(dst, 0, fmt, 2));
+	return hleLogDebug(Log::sceKernel, sysclib_sprintf_impl(mips, dst, 0, fmt, 2));
 }
 
-static int sysclib_snprintf(u32 dst, int size, u32 fmt) {
+static int sysclib_snprintf(MIPSState *mips, u32 dst, int size, u32 fmt) {
 	DEBUG_LOG(Log::sceKernel, "Not fully implemented: sysclib_snprintf(dst=%08x, fmt=%08x)", dst, fmt);
-	return hleLogDebug(Log::sceKernel, sysclib_sprintf_impl(dst, size, fmt, 3));
+	return hleLogDebug(Log::sceKernel, sysclib_sprintf_impl(mips, dst, size, fmt, 3));
 }
 
 static u32 sysclib_memset(u32 destAddr, int data, int size) {

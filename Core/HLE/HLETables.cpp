@@ -181,9 +181,9 @@ static u32 sceKernelSm1ReferOperations() {
 // We format it and put it in the log, which is the useful thing to do with it.
 // Declared void in the SDK headers, so the return value doesn't matter, but 0 is what the
 // firmware leaves in v0.
-static u32 Kprintf(u32 fmtAddr) {
+static u32 Kprintf(MIPSState *mips, u32 fmtAddr) {
 	std::string formatted;
-	if (!HLEFormatPrintf(fmtAddr, 1, &formatted)) {
+	if (!HLEFormatPrintf(mips, fmtAddr, 1, &formatted)) {
 		return hleLogError(Log::Printf, 0, "bad format string or args");
 	}
 	// Each log line is already a line, so don't double space.

@@ -73,7 +73,7 @@ static int __DmacMemcpy(MIPSState *mips, u32 dst, u32 src, u32 size) {
 	}
 }
 
-static u32 sceDmacMemcpy(u32 dst, u32 src, u32 size) {
+static u32 sceDmacMemcpy(MIPSState *mips, u32 dst, u32 src, u32 size) {
 	if (size == 0) {
 		// Some games seem to do this frequently.
 		return hleLogDebug(Log::HLE, SCE_KERNEL_ERROR_INVALID_SIZE, "invalid size");
@@ -85,18 +85,18 @@ static u32 sceDmacMemcpy(u32 dst, u32 src, u32 size) {
 		return hleLogError(Log::HLE, SCE_KERNEL_ERROR_PRIV_REQUIRED, "illegal size");
 	}
 
-	if (dmacMemcpyDeadline > CoreTiming::GetTicks(currentMIPS)) {
+	if (dmacMemcpyDeadline > CoreTiming::GetTicks(mips)) {
 		WARN_LOG(Log::HLE, "sceDmacMemcpy(dest=%08x, src=%08x, size=%d): overlapping read", dst, src, size);
 		// TODO: Should block, seems like copy doesn't start until previous finishes.
 		// Might matter for overlapping copies.
 	}
 
-	int delay = __DmacMemcpy(currentMIPS, dst, src, size);
+	int delay = __DmacMemcpy(mips, dst, src, size);
 	int result = hleLogDebug(Log::HLE, 0);
 	return delay ? hleDelayResult(result, "dmac-memcpy", delay) : delay;
 }
 
-static u32 sceDmacTryMemcpy(u32 dst, u32 src, u32 size) {
+static u32 sceDmacTryMemcpy(MIPSState *mips, u32 dst, u32 src, u32 size) {
 	if (size == 0) {
 		return hleLogError(Log::HLE, SCE_KERNEL_ERROR_INVALID_SIZE, "invalid size");
 	}
@@ -107,11 +107,11 @@ static u32 sceDmacTryMemcpy(u32 dst, u32 src, u32 size) {
 		return hleLogError(Log::HLE, SCE_KERNEL_ERROR_PRIV_REQUIRED, "illegal size");
 	}
 
-	if (dmacMemcpyDeadline > CoreTiming::GetTicks(currentMIPS)) {
+	if (dmacMemcpyDeadline > CoreTiming::GetTicks(mips)) {
 		return hleLogDebug(Log::HLE, SCE_KERNEL_ERROR_BUSY, "busy");
 	}
 
-	int delay = __DmacMemcpy(currentMIPS, dst, src, size);
+	int delay = __DmacMemcpy(mips, dst, src, size);
 	int result = hleLogDebug(Log::HLE, 0);
 	return delay ? hleDelayResult(result, "dmac-memcpy", delay) : delay;
 }

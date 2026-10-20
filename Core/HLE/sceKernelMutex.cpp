@@ -241,7 +241,7 @@ void __KernelMutexEndCallback(SceUID threadID, SceUID prevCallbackId)
 		DEBUG_LOG(Log::sceKernel, "sceKernelLockMutexCB: Resuming lock wait for callback");
 }
 
-int sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optionsPtr) {
+int sceKernelCreateMutex(MIPSState *mips, const char *name, u32 attr, int initialCount, u32 optionsPtr) {
 	if (!name)
 		return hleLogWarning(Log::sceKernel, SCE_KERNEL_ERROR_ERROR, "invalid name");
 	if (attr & ~0xBFF)
@@ -273,7 +273,7 @@ int sceKernelCreateMutex(const char *name, u32 attr, int initialCount, u32 optio
 			if (size > 4)
 				WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateMutex(%s) unsupported options parameter, size = %d", name, size);
 		} else {
-			Core_MemoryExceptionHLE(currentMIPS, optionsPtr, 4, MemoryExceptionType::HLE_READ);
+			Core_MemoryExceptionHLE(mips, optionsPtr, 4, MemoryExceptionType::HLE_READ);
 		}
 	}
 	if ((attr & ~PSP_MUTEX_ATTR_KNOWN) != 0)
@@ -595,7 +595,7 @@ int sceKernelReferMutexStatus(SceUID id, u32 infoAddr) {
 	return hleLogDebug(Log::sceKernel, 0);
 }
 
-int sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int initialCount, u32 optionsPtr) {
+int sceKernelCreateLwMutex(MIPSState *mips, u32 workareaPtr, const char *name, u32 attr, int initialCount, u32 optionsPtr) {
 	if (!name) {
 		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ERROR, "invalid name");
 	}
@@ -634,7 +634,7 @@ int sceKernelCreateLwMutex(u32 workareaPtr, const char *name, u32 attr, int init
 			if (size > 4)
 				WARN_LOG_REPORT(Log::sceKernel, "sceKernelCreateLwMutex(%s) unsupported options parameter, size = %d", name, size);
 		} else {
-			Core_MemoryExceptionHLE(currentMIPS, optionsPtr, 4, MemoryExceptionType::HLE_READ);
+			Core_MemoryExceptionHLE(mips, optionsPtr, 4, MemoryExceptionType::HLE_READ);
 		}
 	}
 	if ((attr & ~PSP_MUTEX_ATTR_KNOWN) != 0)

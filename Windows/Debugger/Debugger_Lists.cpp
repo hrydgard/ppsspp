@@ -163,7 +163,7 @@ void CtrlThreadList::showMenu(int itemIndex, const POINT &pt)
 	case ID_DISASM_THREAD_KILL:
 		{
 			SceUID threadID = threadInfo.id;
-			Core_RunOnCPUThread([&] { sceKernelTerminateThread(threadID); });
+			Core_RunOnCPUThread([&] { sceKernelTerminateThread(&mipsr4k, threadID); });
 		}
 		reloadThreads();
 		break;

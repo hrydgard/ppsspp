@@ -179,7 +179,8 @@ void LoongArch64JitBackend::CompIR_System(IRInst inst) {
 		WriteDebugProfilerStatus(IRProfilerStatus::SYSCALL);
 #ifdef USE_PROFILER
 		// When profiling, we can't skip CallSyscall, since it times syscalls.
-		LI(R4, (int32_t)inst.constant);
+		LI(R4, (uintptr_t)mips_);
+		LI(R5, (int32_t)inst.constant);
 		QuickCallFunction(&CallSyscall, SCRATCH2);
 #else
 		// Skip the CallSyscall where possible.
@@ -189,15 +190,18 @@ void LoongArch64JitBackend::CompIR_System(IRInst inst) {
 			if (func) {
 				void *quickFunc = GetQuickSyscallFunc(func, op);
 				if (quickFunc) {
-					LI(R4, func);
+					LI(R4, (uintptr_t)mips_);
+					LI(R5, func);
 					QuickCallFunction((const u8 *)quickFunc, SCRATCH2);
 				} else {
-					LI(R4, (int32_t)inst.constant);
+					LI(R4, (uintptr_t)mips_);
+					LI(R5, (int32_t)inst.constant);
 					QuickCallFunction(&CallSyscall, SCRATCH2);
 				}
 			} else {
 				// Shouldn't get here.
-				LI(R4, 0);
+				LI(R4, (uintptr_t)mips_);
+				LI(R5, 0);
 				QuickCallFunction(&CallSyscallUnresolvedAtPC, SCRATCH2);
 			}
 		}
@@ -211,7 +215,8 @@ void LoongArch64JitBackend::CompIR_System(IRInst inst) {
 		FlushAll();
 		SaveStaticRegisters();
 		WriteDebugProfilerStatus(IRProfilerStatus::SYSCALL);
-		LI(R4, inst.constant);
+		LI(R4, (uintptr_t)mips_);
+		LI(R5, inst.constant);
 		QuickCallFunction(&CallSyscallUnresolvedAtPC, SCRATCH2);
 		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 		LoadStaticRegisters();
@@ -221,6 +226,7 @@ void LoongArch64JitBackend::CompIR_System(IRInst inst) {
 		FlushAll();
 		SaveStaticRegisters();
 		WriteDebugProfilerStatus(IRProfilerStatus::REPLACEMENT);
+		LI(R4, (uintptr_t)mips_);
 		QuickCallFunction(GetReplacementFunc(inst.constant)->replaceFunc, SCRATCH2);
 		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 		LoadStaticRegisters();

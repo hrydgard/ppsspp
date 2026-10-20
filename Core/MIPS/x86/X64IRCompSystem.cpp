@@ -206,7 +206,7 @@ void X64JitBackend::CompIR_System(IRInst inst) {
 		WriteDebugProfilerStatus(IRProfilerStatus::SYSCALL);
 #ifdef USE_PROFILER
 		// When profiling, we can't skip CallSyscall, since it times syscalls.
-		ABI_CallFunctionC((const u8 *)&CallSyscall, inst.constant);
+		ABI_CallFunctionPA((const u8 *)&CallSyscall, mips_, Imm32(inst.constant));
 #else
 		// Skip the CallSyscall where possible.
 		{
@@ -215,14 +215,14 @@ void X64JitBackend::CompIR_System(IRInst inst) {
 			if (func) {
 				void *quickFunc = GetQuickSyscallFunc(func, op);
 				if (quickFunc) {
-					ABI_CallFunctionP((const u8 *)quickFunc, (void *)func);
+					ABI_CallFunctionPP((const u8 *)quickFunc, mips_, (void *)func);
 				} else {
-					ABI_CallFunctionC((const u8 *)&CallSyscall, inst.constant);
+					ABI_CallFunctionPA((const u8 *)&CallSyscall, mips_, Imm32(inst.constant));
 				}
 			} else {
 				_dbg_assert_(false);
 				// Shouldn't get here, this should be resolved during ->IR compilation.
-				ABI_CallFunctionC((const u8 *)&CallSyscallUnresolvedAtPC, 0);
+				ABI_CallFunctionPA((const u8 *)&CallSyscallUnresolvedAtPC, mips_, Imm32(0));
 			}
 		}
 #endif
@@ -236,7 +236,7 @@ void X64JitBackend::CompIR_System(IRInst inst) {
 		FlushAll();
 		SaveStaticRegisters();
 		WriteDebugProfilerStatus(IRProfilerStatus::SYSCALL);
-		ABI_CallFunctionC((const u8 *)&CallSyscallUnresolvedAtPC, inst.constant);
+		ABI_CallFunctionPA((const u8 *)&CallSyscallUnresolvedAtPC, mips_, Imm32(inst.constant));
 		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 		LoadStaticRegisters();
 		break;
@@ -245,7 +245,7 @@ void X64JitBackend::CompIR_System(IRInst inst) {
 		FlushAll();
 		SaveStaticRegisters();
 		WriteDebugProfilerStatus(IRProfilerStatus::REPLACEMENT);
-		ABI_CallFunction(GetReplacementFunc(inst.constant)->replaceFunc);
+		ABI_CallFunctionP(GetReplacementFunc(inst.constant)->replaceFunc, mips_);
 		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 		LoadStaticRegisters();
 

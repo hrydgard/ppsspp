@@ -39,8 +39,8 @@ int workAreaAddString(u32 workAreaAddr, int workAreaSize, int offset, const char
 }
 
 // FIXME: parsedUriArea, workArea can be 0/null? LittelBigPlanet seems to set workAreaSizeAddr to 0
-static int sceUriParse(u32 parsedUriAreaAddr, const char* url, u32 workAreaAddr, u32 workAreaSizeAddr, int workAreaSize) {
-	WARN_LOG(Log::sceNet, "UNTESTED sceUriParse(%x, %s, %x, %x, %d) at %08x", parsedUriAreaAddr, safe_string(url), workAreaAddr, workAreaSizeAddr, workAreaSize, currentMIPS->pc);
+static int sceUriParse(MIPSState *mips, u32 parsedUriAreaAddr, const char* url, u32 workAreaAddr, u32 workAreaSizeAddr, int workAreaSize) {
+	WARN_LOG(Log::sceNet, "UNTESTED sceUriParse(%x, %s, %x, %x, %d) at %08x", parsedUriAreaAddr, safe_string(url), workAreaAddr, workAreaSizeAddr, workAreaSize, mips->pc);
 	if (url == nullptr)
 		return hleLogError(Log::sceNet, -1, "invalid arg");
 
@@ -156,8 +156,8 @@ static int sceUriParse(u32 parsedUriAreaAddr, const char* url, u32 workAreaAddr,
 	return 0;
 }
 
-static int sceUriBuild(u32 workAreaAddr, u32 workAreaSizeAddr, int workAreaSize, u32 parsedUriAddr, int flags) {
-	WARN_LOG(Log::sceNet, "UNTESTED sceUriBuild(%x, %x, %d, %x, %d) at %08x", workAreaAddr, workAreaSizeAddr, workAreaSize, parsedUriAddr, flags, currentMIPS->pc);
+static int sceUriBuild(MIPSState *mips, u32 workAreaAddr, u32 workAreaSizeAddr, int workAreaSize, u32 parsedUriAddr, int flags) {
+	WARN_LOG(Log::sceNet, "UNTESTED sceUriBuild(%x, %x, %d, %x, %d) at %08x", workAreaAddr, workAreaSizeAddr, workAreaSize, parsedUriAddr, flags, mips->pc);
 
 	auto workAreaSz = PSPPointer<u32>::Create(workAreaSizeAddr);
 	
@@ -261,8 +261,8 @@ static int sceUriBuild(u32 workAreaAddr, u32 workAreaSizeAddr, int workAreaSize,
 	return hleLogDebug(Log::sceNet, 0, "built URI: %s", uri.c_str());
 }
 
-static int sceUriEscape(u32 escapedAddr, u32 escapedLengthAddr, int escapedBufferLength, const char* source) {
-	WARN_LOG(Log::sceNet, "UNTESTED sceUriEscape(%x, %x, %d, %s) at %08x", escapedAddr, escapedLengthAddr, escapedBufferLength, safe_string(source), currentMIPS->pc);
+static int sceUriEscape(MIPSState *mips, u32 escapedAddr, u32 escapedLengthAddr, int escapedBufferLength, const char* source) {
+	WARN_LOG(Log::sceNet, "UNTESTED sceUriEscape(%x, %x, %d, %s) at %08x", escapedAddr, escapedLengthAddr, escapedBufferLength, safe_string(source), mips->pc);
 
 	if (source == nullptr) {
 		return hleLogError(Log::sceNet, -1, "invalid source");

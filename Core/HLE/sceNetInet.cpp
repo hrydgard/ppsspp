@@ -82,23 +82,23 @@ static int sceNetInetTerm() {
 	return hleLogDebug(Log::sceNet, 0);
 }
 
-static int sceNetInetGetErrno() {
+static int sceNetInetGetErrno(MIPSState *mips) {
 	int threadID = __KernelGetCurThread();
 	const int lastErrno = g_inetLastErrno[threadID];
 
 	if (lastErrno == ERROR_INET_EAGAIN) {
-		return hleLogVerbose(Log::sceNet, lastErrno, "returning %s at %08x", convertInetErrno2str(lastErrno), currentMIPS->pc);
+		return hleLogVerbose(Log::sceNet, lastErrno, "returning %s at %08x", convertInetErrno2str(lastErrno), mips->pc);
 	} else {
-		return hleLogDebug(Log::sceNet, lastErrno, "returning %s at %08x", convertInetErrno2str(lastErrno), currentMIPS->pc);
+		return hleLogDebug(Log::sceNet, lastErrno, "returning %s at %08x", convertInetErrno2str(lastErrno), mips->pc);
 	}
 }
 
-static int sceNetInetGetPspError() {
+static int sceNetInetGetPspError(MIPSState *mips) {
 	int threadID = __KernelGetCurThread();
 	const int lastErrno = g_inetLastErrno[threadID];
 
 	uint32_t error = convertInetErrno2PSPError(lastErrno);
-	return hleLogInfo(Log::sceNet, error, "returning %s converted to %08x at %08x", convertInetErrno2str(lastErrno), error, currentMIPS->pc);
+	return hleLogInfo(Log::sceNet, error, "returning %s converted to %08x at %08x", convertInetErrno2str(lastErrno), error, mips->pc);
 }
 
 static int sceNetInetInetPton(int af, const char* hostname, u32 inAddrPtr) {
@@ -353,8 +353,8 @@ int sceNetInetSelect(int nfds, u32 readfdsPtr, u32 writefdsPtr, u32 exceptfdsPtr
 	return hleDelayResult(hleLogDebug(Log::sceNet, retval), "workaround until blocking-socket", 500); // Using hleDelayResult as a workaround for games that need blocking-socket to be implemented (ie. Coded Arms Contagion)
 }
 
-int sceNetInetPoll(u32 fdsPtr, u32 nfds, int timeout) { // timeout in miliseconds just like posix poll? or in microseconds as other PSP timeout?
-	DEBUG_LOG(Log::sceNet, "UNTESTED sceNetInetPoll(%08x, %d, %i) at %08x", fdsPtr, nfds, timeout, currentMIPS->pc);
+int sceNetInetPoll(MIPSState *mips, u32 fdsPtr, u32 nfds, int timeout) { // timeout in miliseconds just like posix poll? or in microseconds as other PSP timeout?
+	DEBUG_LOG(Log::sceNet, "UNTESTED sceNetInetPoll(%08x, %d, %i) at %08x", fdsPtr, nfds, timeout, mips->pc);
 	int retval = -1;
 	int maxHostFd = 0;
 	SceNetInetPollfd *fdarray = (SceNetInetPollfd*)Memory::GetPointerOrException(fdsPtr); // SceNetInetPollfd/pollfd, sceNetInetPoll() have similarity to BSD poll() but pollfd have different size on 64bit
@@ -456,9 +456,9 @@ static int sceNetInetSend(int socket, u32 bufPtr, u32 bufLen, u32 flags) {
 	return hleLogInfo(Log::sceNet, retval);
 }
 
-static int sceNetInetSocket(int domain, int type, int protocol) {
+static int sceNetInetSocket(MIPSState *mips, int domain, int type, int protocol) {
 	INFO_LOG(Log::sceNet, "sceNetInetSocket(%d, %d, %d) at %08x - Socket: Domain = %s, Type = %s, Protocol = %s",
-		domain, type, protocol, currentMIPS->pc, inetSocketDomain2str(domain).c_str(), inetSocketType2str(type).c_str(), inetSocketProto2str(protocol).c_str());
+		domain, type, protocol, mips->pc, inetSocketDomain2str(domain).c_str(), inetSocketType2str(type).c_str(), inetSocketProto2str(protocol).c_str());
 
 	int socket;
 	int hostErrno = 0;
@@ -479,7 +479,7 @@ static int sceNetInetSocket(int domain, int type, int protocol) {
 	return hleLogDebug(Log::sceNet, socket);
 }
 
-static int sceNetInetSetsockopt(int socket, int level, int optname, u32 optvalPtr, int optlen) {
+static int sceNetInetSetsockopt(MIPSState *mips, int socket, int level, int optname, u32 optvalPtr, int optlen) {
 	InetSocket *inetSock;
 	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
 		return hleLogError(Log::sceNet, ERROR_INET_EBADF, "Bad socket #%d", socket);
@@ -487,7 +487,7 @@ static int sceNetInetSetsockopt(int socket, int level, int optname, u32 optvalPt
 
 	const u32 optval = Memory::IsValid4AlignedAddress(optvalPtr) ? Memory::ReadUnchecked_U32(optvalPtr) : 0;
 	INFO_LOG(Log::sceNet, "sceNetInetSetsockopt(%i, %i, %i, %08x, %i) at %08x: Level = %s, OptName = %s, OptValue = %d",
-		socket, level, optname, optvalPtr, optlen, currentMIPS->pc,
+		socket, level, optname, optvalPtr, optlen, mips->pc,
 		inetSockoptLevel2str(level).c_str(), inetSockoptName2str(optname, level).c_str(), optval);
 
 	timeval tval{};
@@ -553,8 +553,8 @@ static int sceNetInetSetsockopt(int socket, int level, int optname, u32 optvalPt
 	return hleLogDebug(Log::sceNet, retval);
 }
 
-static int sceNetInetGetsockopt(int socket, int level, int optname, u32 optvalPtr, u32 optlenPtr) {
-	WARN_LOG(Log::sceNet, "sceNetInetGetsockopt(%i, %i, %i, %08x, %08x) at %08x", socket, level, optname, optvalPtr, optlenPtr, currentMIPS->pc);
+static int sceNetInetGetsockopt(MIPSState *mips, int socket, int level, int optname, u32 optvalPtr, u32 optlenPtr) {
+	WARN_LOG(Log::sceNet, "sceNetInetGetsockopt(%i, %i, %i, %08x, %08x) at %08x", socket, level, optname, optvalPtr, optlenPtr, mips->pc);
 
 	InetSocket *inetSock;
 	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
@@ -618,8 +618,8 @@ static int sceNetInetGetsockopt(int socket, int level, int optname, u32 optvalPt
 	return hleLogDebug(Log::sceNet, retval);
 }
 
-static int sceNetInetBind(int socket, u32 namePtr, int namelen) {
-	INFO_LOG(Log::sceNet, "sceNetInetBind(%i, %08x, %i) at %08x", socket, namePtr, namelen, currentMIPS->pc);
+static int sceNetInetBind(MIPSState *mips, int socket, u32 namePtr, int namelen) {
+	INFO_LOG(Log::sceNet, "sceNetInetBind(%i, %08x, %i) at %08x", socket, namePtr, namelen, mips->pc);
 
 	InetSocket *inetSock;
 	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {
@@ -1162,8 +1162,8 @@ static int sceNetInetSendmsg(int socket, u32 msghdrPtr, int flags) {
 
 // Similar to POSIX's recvmsg or Mswsock's WSARecvMsg? Are their packets compatible one another?
 // Games using this: World of Poker
-static int sceNetInetRecvmsg(int socket, u32 msghdrPtr, int flags) {
-	ERROR_LOG(Log::sceNet, "UNIMPL %s(%i, %08x, %08x) at %08x", __FUNCTION__, socket, msghdrPtr, flags, currentMIPS->pc);
+static int sceNetInetRecvmsg(MIPSState *mips, int socket, u32 msghdrPtr, int flags) {
+	ERROR_LOG(Log::sceNet, "UNIMPL %s(%i, %08x, %08x) at %08x", __FUNCTION__, socket, msghdrPtr, flags, mips->pc);
 
 	InetSocket *inetSock;
 	if (!g_socketManager.GetInetSocket(socket, &inetSock)) {

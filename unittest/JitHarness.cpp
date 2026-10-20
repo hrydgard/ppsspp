@@ -58,8 +58,8 @@
 // The clock as the terminating syscall sees it, so the cores can be compared on cycles too.
 static u64 g_terminatorTicks;
 
-void UnitTestTerminator() {
-	g_terminatorTicks = CoreTiming::GetTicks(currentMIPS);
+void UnitTestTerminator(MIPSState *mips) {
+	g_terminatorTicks = CoreTiming::GetTicks(mips);
 	// Bails out of jit so we can time things.
 	coreState = CORE_POWERDOWN;
 	hleSkipDeadbeef();
@@ -69,7 +69,7 @@ void UnitTestTerminator() {
 // (0x00400000 unless flushed to zero). HLE must always see the host's own mode.
 static std::vector<u32> g_roundingProbes;
 
-void UnitTestRoundingProbe() {
+void UnitTestRoundingProbe(MIPSState *mips) {
 	volatile float one = 1.0f, three = 3.0f, fltMin = FLT_MIN, half = 0.5f;
 	float third = one / three;
 	float denormal = fltMin * half;

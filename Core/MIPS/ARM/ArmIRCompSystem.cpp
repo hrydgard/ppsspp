@@ -190,7 +190,8 @@ void ArmJitBackend::CompIR_System(IRInst inst) {
 		WriteDebugProfilerStatus(IRProfilerStatus::SYSCALL);
 #ifdef USE_PROFILER
 		// When profiling, we can't skip CallSyscall, since it times syscalls.
-		MOVI2R(R0, inst.constant);
+		MOVP2R(R0, mips_);
+		MOVI2R(R1, inst.constant);
 		QuickCallFunction(R12, &CallSyscall);
 #else
 		// Skip the CallSyscall where possible.
@@ -200,15 +201,18 @@ void ArmJitBackend::CompIR_System(IRInst inst) {
 			if (func) {
 				void *quickFunc = GetQuickSyscallFunc(func, op);
 				if (quickFunc) {
-					MOVP2R(R0, func);
+					MOVP2R(R0, mips_);
+					MOVP2R(R1, func);
 					QuickCallFunction(R12, (const u8 *)quickFunc);
 				} else {
-					MOVI2R(R0, inst.constant);
+					MOVP2R(R0, mips_);
+					MOVI2R(R1, inst.constant);
 					QuickCallFunction(R12, &CallSyscall);
 				}
 			} else {
 				// Shouldn't get here.
-				MOVI2R(R0, 0);
+				MOVP2R(R0, mips_);
+				MOVI2R(R1, 0);
 				QuickCallFunction(R12, &CallSyscallUnresolvedAtPC);
 			}
 		}
@@ -223,7 +227,8 @@ void ArmJitBackend::CompIR_System(IRInst inst) {
 		FlushAll();
 		SaveStaticRegisters();
 		WriteDebugProfilerStatus(IRProfilerStatus::SYSCALL);
-		MOVI2R(R0, inst.constant);
+		MOVP2R(R0, mips_);
+		MOVI2R(R1, inst.constant);
 		QuickCallFunction(R12, &CallSyscallUnresolvedAtPC);
 		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 		LoadStaticRegisters();
@@ -233,6 +238,7 @@ void ArmJitBackend::CompIR_System(IRInst inst) {
 		FlushAll();
 		SaveStaticRegisters();
 		WriteDebugProfilerStatus(IRProfilerStatus::REPLACEMENT);
+		MOVP2R(R0, mips_);
 		QuickCallFunction(R12, GetReplacementFunc(inst.constant)->replaceFunc);
 		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 		LoadStaticRegisters();

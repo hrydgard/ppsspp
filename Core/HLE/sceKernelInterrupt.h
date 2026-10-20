@@ -20,6 +20,7 @@
 #include <map>
 
 class PointerWrap;
+class MIPSState;
 
 enum PSPInterrupt {
 	PSP_GPIO_INTR      =  4,
@@ -164,7 +165,7 @@ int __TriggerInterrupt(int type, PSPInterrupt intno, int subInterrupts = -1);
 // Forgets interrupts that have been raised but not taken, except for one that's being handled. Returns how many.
 int __CancelRaisedInterrupts(PSPInterrupt intno);
 bool __RunOnePendingInterrupt();
-void __KernelReturnFromInterrupt();
+void __KernelReturnFromInterrupt(MIPSState *mips);
 
 void __RegisterIntrHandler(u32 intrNumber, IntrHandler* handler);
 void __SetIntrHandlerCosts(PSPInterrupt intno, int entryCycles, int exitCycles);

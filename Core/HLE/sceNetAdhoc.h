@@ -149,13 +149,13 @@ bool __NetAdhocConnected();
 // Called from netdialog (and from sceNetApctl)
 // NOTE: use hleCall for sceNet* ones!
 int sceNetAdhocctlGetState(u32 ptrToStatus);
-int sceNetAdhocctlCreate(const char * groupName);
-int sceNetAdhocctlConnect(const char* groupName);
-int sceNetAdhocctlJoin(u32 scanInfoAddr);
-int sceNetAdhocctlScan();
-int sceNetAdhocctlGetScanInfo(u32 sizeAddr, u32 bufAddr);
+int sceNetAdhocctlCreate(MIPSState *mips, const char * groupName);
+int sceNetAdhocctlConnect(MIPSState *mips, const char* groupName);
+int sceNetAdhocctlJoin(MIPSState *mips, u32 scanInfoAddr);
+int sceNetAdhocctlScan(MIPSState *mips);
+int sceNetAdhocctlGetScanInfo(MIPSState *mips, u32 sizeAddr, u32 bufAddr);
 int sceNetAdhocctlDisconnect();
-int sceNetAdhocctlInit(int stackSize, int prio, u32 productAddr);
+int sceNetAdhocctlInit(MIPSState *mips, int stackSize, int prio, u32 productAddr);
 int sceNetAdhocctlTerm();
 
 int NetAdhocctl_Term();
@@ -173,9 +173,9 @@ extern s32 netAdhocDiscoverStatus; // TODO: maybe move to sceNetAdhocDiscover?
 
 // Exposing those for the matching routines
 // NOTE: use hleCall for sceNet* ones!
-int sceNetAdhocPdpSend(int id, const char* mac, u32 port, void* data, int len, int timeout, int flag);
-int sceNetAdhocPdpRecv(int id, void* addr, void* port, void* buf, void* dataLength, u32 timeout, int flag);
-int sceNetAdhocPdpCreate(const char* mac, int port, int bufferSize, u32 flag);
+int sceNetAdhocPdpSend(MIPSState *mips, int id, const char* mac, u32 port, void* data, int len, int timeout, int flag);
+int sceNetAdhocPdpRecv(MIPSState *mips, int id, void* addr, void* port, void* buf, void* dataLength, u32 timeout, int flag);
+int sceNetAdhocPdpCreate(MIPSState *mips, const char* mac, int port, int bufferSize, u32 flag);
 
 int NetAdhoc_SetSocketAlert(int id, s32_le flag);
 int NetAdhocPdp_Delete(int id, int unknown);

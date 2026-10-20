@@ -10,6 +10,9 @@ small examples to copy from). A module is a `const HLEFunction <name>[]` table o
 
 - `FunctionWrappers.h` has generic `WrapX_YYY<func>` templates for common signatures (return type X, args YYY) - add new
   wrappers there if you need a new signature.
+- A function that needs the CPU (registers beyond its arguments, the PC for a log line, `PARAM()`/`RETURN()`) takes
+  `MIPSState *mips` as an extra first parameter, and the wrapper passes in the state the syscall runs on. Use that
+  rather than `currentMIPS`. Calling such a function directly, or through `hleCall`, means passing a state yourself.
 - Format string legend for the `retmask`/argmask chars: `x` = u32 (shown as hex), `i` = int/s32, `f` = float, `X` = u64,
   `I` = s64, `v` = void.
 - For functions of genuinely unknown purpose (only known by NID), name them `<moduleName>_<NID>` and stub them with

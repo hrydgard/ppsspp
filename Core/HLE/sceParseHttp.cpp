@@ -103,8 +103,8 @@ static int sceParseHttpResponseHeader(u32 headerAddr, int headerLength, const ch
 	return hleLogDebug(Log::sceNet, len);
 }
 
-static int sceParseHttpStatusLine(u32 headerAddr, u32 headerLength, u32 httpVersionMajorAddr, u32 httpVersionMinorAddr, u32 httpStatusCodeAddr, u32 httpStatusCommentAddr, u32 httpStatusCommentLengthAddr) {
-	WARN_LOG(Log::sceNet, "UNTESTED sceParseHttpStatusLine(%x, %d, %x, %x, %x, %x, %x) at %08x", headerAddr, headerLength, httpVersionMajorAddr, httpVersionMinorAddr, httpStatusCodeAddr, httpStatusCommentAddr, httpStatusCommentLengthAddr, currentMIPS->pc);
+static int sceParseHttpStatusLine(MIPSState *mips, u32 headerAddr, u32 headerLength, u32 httpVersionMajorAddr, u32 httpVersionMinorAddr, u32 httpStatusCodeAddr, u32 httpStatusCommentAddr, u32 httpStatusCommentLengthAddr) {
+	WARN_LOG(Log::sceNet, "UNTESTED sceParseHttpStatusLine(%x, %d, %x, %x, %x, %x, %x) at %08x", headerAddr, headerLength, httpVersionMajorAddr, httpVersionMinorAddr, httpStatusCodeAddr, httpStatusCommentAddr, httpStatusCommentLengthAddr, mips->pc);
 	if (!Memory::IsValidRange(headerAddr, headerLength))
 		return hleLogError(Log::sceNet, -1, "invalid arg");
 
