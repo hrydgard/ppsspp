@@ -886,6 +886,12 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 	// We store it in the cache so it can be modified for blue-to-alpha, next.
 	gstate_c.framebufFormat = gstate.FrameBufFormat();
 
+	const u32 count = op & 0xFFFF;
+	// Draws nothing, and the vertex address doesn't have to be valid (NFS Most Wanted sends one with it 0 every frame).
+	if (count == 0) {
+		return;
+	}
+
 	if (!Memory::IsValidAddress(gstate_c.vertexAddr)) {
 		ERROR_LOG(Log::G3D, "Bad vertex address %08x!", gstate_c.vertexAddr);
 		return;
@@ -931,7 +937,6 @@ void GPUCommonHW::Execute_Prim(u32 op, u32 diff) {
 		vertexCost_ = EstimatePerVertexCost();
 	}
 
-	const u32 count = op & 0xFFFF;
 	// Must check this after SetRenderFrameBuffer so we know SKIPDRAW_NON_DISPLAYED_FB.
 	if (gstate_c.skipDrawReason & (SKIPDRAW_SKIPFRAME | SKIPDRAW_NON_DISPLAYED_FB)) {
 		// Rough estimate, not sure what's correct.

@@ -175,6 +175,17 @@ protected:
 	void DecodeVerts(const VertexDecoder *dec, u8 *dest);
 	int DecodeInds();
 
+	// How many vertices software transform turns a prim into, for the prims it expands to quads.
+	static int ExpandedVertexCount(GEPrimitiveType prim, int vertexCount) {
+		switch (prim) {
+		case GE_PRIM_POINTS: return vertexCount * 4;
+		case GE_PRIM_LINES: return (vertexCount / 2) * 4;
+		case GE_PRIM_LINE_STRIP: return vertexCount > 1 ? (vertexCount - 1) * 4 : 0;
+		case GE_PRIM_RECTANGLES: return (vertexCount / 2) * 4;
+		default: return 0;
+		}
+	}
+
 	// Whether an indexed draw can share the previous draw's vertex decode, by widening its index range.
 	bool CanExtendDecode(const void *verts, const void *inds, const VertexDecoder *dec) const {
 		return inds && numDrawVerts_ > decodeVertsCounter_ && drawVerts_[numDrawVerts_ - 1].verts == verts && !dec->skinInDecode;

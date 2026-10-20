@@ -785,17 +785,6 @@ int DrawEngineCommon::ComputeNumVertsToDecode() const {
 
 
 
-// How many vertices software transform turns a prim into, for the prims it expands to quads.
-static int ExpandedVertexCount(GEPrimitiveType prim, int vertexCount) {
-	switch (prim) {
-	case GE_PRIM_POINTS: return vertexCount * 4;
-	case GE_PRIM_LINES: return (vertexCount / 2) * 4;
-	case GE_PRIM_LINE_STRIP: return vertexCount > 1 ? (vertexCount - 1) * 4 : 0;
-	case GE_PRIM_RECTANGLES: return (vertexCount / 2) * 4;
-	default: return 0;
-	}
-}
-
 // Takes a list of consecutive PRIM opcodes, and extends the current draw call to include them.
 // This is just a performance optimization. NOTE: This isn't compatible with really accurate culling,
 // unless we refactor things a bit.
