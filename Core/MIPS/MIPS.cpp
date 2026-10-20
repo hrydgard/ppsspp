@@ -45,6 +45,7 @@
 #include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/CoreTiming.h"
 #include "Core/HLE/ReplaceTables.h"
+#include "Core/MIPS/MeCore.h"
 
 MIPSState mipsr4k;
 MIPSState *currentMIPS = &mipsr4k;
@@ -316,22 +317,26 @@ void MIPSState::Shutdown() {
 		jit = nullptr;
 		delete oldjit;
 	}
+	if (IsMediaEngine()) {
+		return;
+	}
 	UpdateBlockShadowHook(jit);
 	pendingInvalidates_.clear();
 	invalidateAll_ = false;
 }
 
 void MIPSState::Reset() {
-	if (noJit) {
-		InitRegisters();
-		return;
-	}
 	Shutdown();
 	Init();
 }
 
 void MIPSState::Init() {
 	InitRegisters();
+	if (IsMediaEngine()) {
+		// No native JIT for it yet. Replacement hooks are only the main CPU's.
+		jit = PSP_CoreParameter().cpuCore == CPUCore::INTERPRETER ? nullptr : new MIPSComp::IRInterpreterJit(this);
+		return;
+	}
 	if (PSP_CoreParameter().cpuCore == CPUCore::JIT || PSP_CoreParameter().cpuCore == CPUCore::JIT_IR) {
 		jit = MIPSComp::CreateNativeJit(this);
 	} else if (PSP_CoreParameter().cpuCore == CPUCore::IR_INTERPRETER) {
@@ -536,8 +541,19 @@ int MIPSState::RunLoopUntil(u64 globalTicks) {
 	return 1;
 }
 
+// The Media Engine runs code from the same RAM, so it hears about the main CPU's code changes.
+// It isn't running while the main CPU is, so it can always wait.
+static MIPSState *MediaEngineToNotify(const MIPSState *mips) {
+	return mips == &mipsr4k && MeCore::g_meState ? &MeCore::g_meState->cpu : nullptr;
+}
+
 void MIPSState::InvalidateICacheRangeImmediate(u32 address, u32 length) {
-	Replacement_CheckRange(address, length);
+	if (MIPSState *me = MediaEngineToNotify(this)) {
+		me->InvalidateICacheRangeDeferred(address, length);
+	}
+	if (!IsMediaEngine()) {
+		Replacement_CheckRange(address, length);
+	}
 	if (!jit) {
 		// Nothing to do.
 		return;
@@ -556,7 +572,8 @@ void MIPSState::ProcessPendingInvalidates() {
 		std::vector<PendingCacheOperation> pending;
 		pending.swap(pendingInvalidates_);
 		for (const auto &p : pending) {
-			Replacement_CheckRange(p.addr, p.size);
+			if (!IsMediaEngine())
+				Replacement_CheckRange(p.addr, p.size);
 			if (jit && !all) {
 				jit->InvalidateCacheAt(p.addr, p.size);
 			}
@@ -570,17 +587,25 @@ void MIPSState::ProcessPendingInvalidates() {
 void MIPSState::InvalidateICacheRangeDeferred(u32 address, u32 length) {
 	// TODO: We can try to merge the invalidate with the previous one.
 	pendingInvalidates_.push_back(PendingCacheOperation{address, length});
-	if (jit) {
+	if (MIPSState *me = MediaEngineToNotify(this)) {
+		me->InvalidateICacheRangeDeferred(address, length);
+	}
+	if (jit && !IsMediaEngine()) {
 		Core_ReenterDispatcher();
 	}
 }
 
 // Queued ranges still get their replacement hook checks.
 void MIPSState::ClearJitCacheDeferred() {
+	if (MIPSState *me = MediaEngineToNotify(this)) {
+		me->ClearJitCacheDeferred();
+	}
 	if (!jit) {
 		return;
 	}
 
 	invalidateAll_ = true;
-	Core_ReenterDispatcher();
+	if (!IsMediaEngine()) {
+		Core_ReenterDispatcher();
+	}
 }

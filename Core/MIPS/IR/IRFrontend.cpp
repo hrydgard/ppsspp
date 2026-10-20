@@ -242,6 +242,8 @@ void IRFrontend::Comp_Generic(MIPSOpcode op) {
 	if (endsBlock) {
 		ir.Write(IROp::Downcount, 0, 0, 0, js.downcountAmount);
 		js.downcountAmount = 0;
+		// It goes on from its own pc (halt).
+		ir.Write(IROp::SetPCConst, 0, 0, 0, GetCompilerPC());
 	}
 	ir.Write(IROp::Interpret, 0, 0, 0, op.encoding);
 	if (endsBlock) {
@@ -299,9 +301,20 @@ u32 IRFrontend::GetCompilerPC() {
 	return js.compilerPC;
 }
 
-MIPSOpcode IRFrontend::GetOffsetInstruction(int offset) {
-	const u32 addr = GetCompilerPC() + 4 * offset;
+bool IRFrontend::IsMediaEngine() const {
+	return space_ && space_->IsMediaEngine();
+}
+
+// The Media Engine's code runs as it is in memory: replacements and hooks are the main CPU's.
+MIPSOpcode IRFrontend::ReadOp(u32 addr) const {
+	if (IsMediaEngine()) {
+		return space_->IsValid4AlignedAddress(addr) ? MIPSOpcode(space_->ReadUnchecked_U32(addr)) : MIPSOpcode(0);
+	}
 	return Memory::IsValid4AlignedAddress(addr) ? ReadExecutedOp(addr) : Memory::Read_Instruction(addr);
+}
+
+MIPSOpcode IRFrontend::GetOffsetInstruction(int offset) {
+	return ReadOp(GetCompilerPC() + 4 * offset);
 }
 
 void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &mipsBytes) {
@@ -313,7 +326,7 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &m
 	js.hadBreakpoints = false;
 	js.blockWrotePrefixes = false;
 	js.inDelaySlot = false;
-	js.kernelMode = Memory::MayRunInKernelMode(em_address);
+	js.kernelMode = IsMediaEngine() || Memory::MayRunInKernelMode(em_address);
 
 	js.PrefixStart();
 	ir.Clear();
@@ -325,7 +338,7 @@ void IRFrontend::DoJit(u32 em_address, std::vector<IRInst> &instructions, u32 &m
 		// Jit breakpoints are quite fast, so let's do them in release too.
 		CheckBreakpoint(GetCompilerPC());
 
-		MIPSOpcode inst = ReadExecutedOp(GetCompilerPC());
+		MIPSOpcode inst = IsMediaEngine() ? ReadOp(GetCompilerPC()) : ReadExecutedOp(GetCompilerPC());
 		js.downcountAmount += MIPSGetInstructionCycleEstimate(inst);
 		MIPSCompileOp(inst, this);
 		js.compilerPC += 4;

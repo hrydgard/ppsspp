@@ -6,14 +6,21 @@
 #include "Core/MIPS/MIPSVFPUUtils.h"
 #include "Core/MIPS/IR/IRInst.h"
 
+namespace Memory {
+struct AddressSpace;
+}
+
 namespace MIPSComp {
 
 class IRFrontend : public MIPSFrontendInterface {
 public:
 	IRFrontend(bool startDefaultPrefix);
 	// Copies the state compiling depends on, to compile a block on the side.
-	IRFrontend(const IRFrontend &other) : js(other.js), opts(other.opts) {}
+	IRFrontend(const IRFrontend &other) : js(other.js), opts(other.opts), space_(other.space_) {}
 	void Comp_Generic(MIPSOpcode op) override;
+
+	// What the CPU compiled for sees of memory, which is the main CPU's unless set.
+	void SetAddressSpace(const Memory::AddressSpace *space) { space_ = space; }
 
 	void Comp_ReplacementFunc(MIPSOpcode op) override;
 
@@ -170,6 +177,12 @@ private:
 
 	int dontLogBlocks = 0;
 	int logBlocks = 0;
+
+private:
+	bool IsMediaEngine() const;
+	MIPSOpcode ReadOp(u32 addr) const;
+
+	const Memory::AddressSpace *space_ = nullptr;
 };
 
 }  // namespace

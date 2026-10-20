@@ -26,6 +26,8 @@
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MeCore.h"
+#include "Core/MIPS/Interpreter.h"
+#include "Core/MIPS/JitCommon/JitCommon.h"
 #include "Core/MIPS/MIPSTables.h"
 
 namespace MeCore {
@@ -106,7 +108,7 @@ bool Init() {
 	}
 	g_meState = new MEState();
 	g_meState->cpu.space = space;
-	g_meState->cpu.noJit = true;
+	g_meState->cpu.Init();
 	g_meState->tickBase = CoreTiming::GetTicks(&mipsr4k);
 	PowerOn(g_meState);
 	meIntrEvent = CoreTiming::RegisterEvent("MeIntr", &MeIntrCallback);
@@ -119,6 +121,7 @@ void Shutdown() {
 	if (!g_meState) {
 		return;
 	}
+	g_meState->cpu.Shutdown();
 	delete g_meState;
 	g_meState = nullptr;
 	Memory::DestroyMESpace();
@@ -198,6 +201,19 @@ static void CheckInterrupts(MEState *me) {
 	cpu.llBit = 0;
 }
 
+static void RunCPU(MIPSState &cpu) {
+	if (!cpu.jit) {
+		MIPSInterpret_RunDowncount(&cpu);
+		return;
+	}
+	// Blocks can't start in a delay slot.
+	while (cpu.inDelaySlot && cpu.downcount >= 0) {
+		cpu.downcount -= MIPS_InterpretSingleStep(&cpu);
+	}
+	cpu.ProcessPendingInvalidates();
+	cpu.jit->RunDowncount();
+}
+
 void RunFor(int cycles) {
 	MEState *me = g_meState;
 	if (cycles <= 0) {
@@ -219,7 +235,7 @@ void RunFor(int cycles) {
 			const int rest = cpu.downcount - part;
 			cpu.downcount = part;
 			me->tickBase -= rest;
-			MIPSInterpret_RunDowncount(&cpu);
+			RunCPU(cpu);
 			cpu.downcount += rest;
 			me->tickBase += rest;
 		}
