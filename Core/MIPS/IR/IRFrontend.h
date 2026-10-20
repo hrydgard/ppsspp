@@ -11,6 +11,8 @@ namespace MIPSComp {
 class IRFrontend : public MIPSFrontendInterface {
 public:
 	IRFrontend(bool startDefaultPrefix);
+	// Copies the state compiling depends on, to compile a block on the side.
+	IRFrontend(const IRFrontend &other) : js(other.js), opts(other.opts) {}
 	void Comp_Generic(MIPSOpcode op) override;
 
 	void Comp_ReplacementFunc(MIPSOpcode op) override;

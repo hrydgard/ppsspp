@@ -20,6 +20,7 @@
 #include <cstring> // for std::memcpy
 #include "Core/MIPS/MIPSTables.h" // for MIPSDisAsm
 #include "Core/MemMap.h" // for Memory::GetPointerUnchecked
+#include "ext/xxhash.h"
 #include "Common/File/FileUtil.h" // for the File::OpenCFile
 
 
@@ -57,11 +58,8 @@ void TraceBlockStorage::clear() {
 	INFO_LOG(Log::JIT, "TraceBlockStorage cleared");
 }
 
-void MIPSTracer::prepare_block(const MIPSComp::IRBlock* block, MIPSComp::IRBlockCache& blocks) {
-	u32 virt_addr, size;
-	block->GetRange(&virt_addr, &size);
-
-	u64 hash = block->GetHash();
+u32 MIPSTracer::prepare_block(u32 virt_addr, u32 size) {
+	u64 hash = XXH3_64bits(Memory::GetPointerUnchecked(virt_addr), size);
 	auto it = hash_to_storage_index.find(hash);
 
 	u32 storage_index;
@@ -78,7 +76,7 @@ void MIPSTracer::prepare_block(const MIPSComp::IRBlock* block, MIPSComp::IRBlock
 			// We ran out of storage!
 			WARN_LOG(Log::JIT, "The MIPSTracer ran out of storage for the blocks, cannot proceed!");
 			stop_tracing();
-			return;
+			return INVALID_TRACE_INDEX;
 		}
 		// Successfully inserted the block at index 'storage_index'!
 
@@ -94,9 +92,7 @@ void MIPSTracer::prepare_block(const MIPSComp::IRBlock* block, MIPSComp::IRBlock
 	trace_info.push_back({ virt_addr, storage_index });
 
 
-	u32 index = (u32)(trace_info.size() - 1);
-	auto ir_ptr = (IRInst*)blocks.GetBlockInstructionPtr(*block);
-	ir_ptr[1].constant = index;
+	return (u32)(trace_info.size() - 1);
 }
 
 bool MIPSTracer::flush_to_file() {

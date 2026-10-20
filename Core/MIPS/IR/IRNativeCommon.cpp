@@ -186,7 +186,6 @@ int IRNativeBackend::ReportBadAddress(uint32_t addr, uint32_t alignment, uint32_
 	return 0;
 }
 
-IRNativeBackend::IRNativeBackend(IRBlockCache &blocks) : blocks_(blocks) {}
 
 IRNativeBackend::~IRNativeBackend() {
 	if (debugProfilerThreadStatus) {
@@ -508,12 +507,11 @@ void IRNativeBackend::CompileIRInst(IRInst inst) {
 }
 
 IRNativeJit::IRNativeJit(MIPSState *mipsState)
-	: IRJit(mipsState, true), debugInterface_(blocks_) {}
+	: IRJit(mipsState, true) {}
 
 void IRNativeJit::Init(IRNativeBackend &backend) {
 	backend_ = &backend;
 	backend_->SetProfiling(profiling_);
-	debugInterface_.Init(backend_);
 	backend_->SetMIPSState(mips_);
 	backend_->GenerateFixedCode(mips_);
 
@@ -535,16 +533,35 @@ void IRNativeJit::Init(IRNativeBackend &backend) {
 	}
 }
 
-bool IRNativeJit::CompileNativeBlock(IRBlockCache *irblockCache, int block_num) {
-	return backend_->CompileBlock(irblockCache, block_num);
+IRJit::CompileResult IRNativeJit::CompileTargetBlock(int block_num, const std::vector<IRInst> &instructions) {
+	JitBlock *block = blocks_.GetBlock(block_num);
+	if (!backend_->CompileBlock(block_num, block->GetOriginalStart(), instructions.data(), (int)instructions.size()))
+		return CompileResult::CODE_FULL;
+	block->SetEntry(backend_->GetBlockEntry(block_num));
+	return CompileResult::OK;
 }
 
-void IRNativeJit::FinalizeNativeBlock(IRBlockCache *irblockCache, int block_num) {
-	backend_->FinalizeBlock(irblockCache, block_num, jo);
+void IRNativeJit::GetBlockInstructions(const JitBlock &block, std::vector<IRInst> &instructions) const {
+	instructions.clear();
+	const u32 start = block.GetOriginalStart();
+	if (!block.IsValid() || !Memory::IsValid4AlignedAddress(start))
+		return;
+	// On a copy, since compiling changes the frontend's state. This gives what ran unless the code or
+	// the frontend's state has changed since.
+	IRFrontend frontend = frontend_;
+	u32 mipsBytes;
+	frontend.DoJit(start, instructions, mipsBytes);
 }
 
-void IRNativeJit::InvalidateNativeBlock(IRBlockCache *irblockCache, int block_num) {
-	backend_->InvalidateBlock(irblockCache, block_num);
+void IRNativeJit::FinalizeTargetBlock(int block_num) {
+	backend_->FinalizeBlock(block_num, jo);
+}
+
+void IRNativeJit::InvalidateTargetBlock(int block_num) {
+	// Already invalidated, or never compiled (the code space filled first).
+	if (blocks_.GetBlock(block_num)->GetOriginalStart() == 0 || !backend_->GetNativeBlock(block_num))
+		return;
+	backend_->InvalidateBlock(block_num);
 }
 
 void IRNativeJit::RunLoopUntil(u64 globalticks) {
@@ -571,29 +588,20 @@ void IRNativeJit::FlushProfile() {
 	WriteProfileReport();
 }
 
-// The code ranges of blocks are in block order, each starting with its checked entry when that comes first.
-static int BlockCodeStart(const IRBlockCache &blocks, const IRNativeBackend &backend, int blockNum) {
-	int start = blocks.GetBlock(blockNum)->GetNativeOffset();
-	const IRNativeBlock *nativeBlock = backend.GetNativeBlock(blockNum);
-	if (nativeBlock && nativeBlock->checkedOffset < start)
-		start = nativeBlock->checkedOffset;
-	return start;
-}
-
 // Where the fixed code ends: the first block, or the code so far.
 int IRNativeJit::FindBlockOffsetEnd() const {
-	if (blocks_.GetNumBlocks() > 0)
-		return BlockCodeStart(blocks_, *backend_, 0);
+	if (backend_->GetNumNativeBlocks() > 0)
+		return backend_->GetBlockCodeStart(0);
 	return (int)backend_->CodeBlock().GetOffset(backend_->CodeBlock().GetCodePtr());
 }
 
 int IRNativeJit::FindBlockByCodeOffset(int offset) const {
 	int low = 0;
-	int high = blocks_.GetNumBlocks() - 1;
+	int high = backend_->GetNumNativeBlocks() - 1;
 	int found = -1;
 	while (low <= high) {
 		int mid = low + (high - low) / 2;
-		if (BlockCodeStart(blocks_, *backend_, mid) <= offset) {
+		if (backend_->GetBlockCodeStart(mid) <= offset) {
 			found = mid;
 			low = mid + 1;
 		} else {
@@ -744,7 +752,7 @@ void IRNativeJit::WriteProfileReport() {
 	fprintf(f, "\nBlocks:\n");
 	for (int rank = 0; rank < (int)hot.size() && rank < 30; ++rank) {
 		const int blockNum = hot[rank];
-		const IRBlock *b = blocks_.GetBlock(blockNum);
+		const JitBlock *b = blocks_.GetBlock(blockNum);
 		const std::string label = g_symbolMap ? g_symbolMap->GetDescription(b->GetOriginalStart()) : "";
 		fprintf(f, "  %5.1f%% block %d at %08x %s\n", 100.0 * cost(blockNum) / total, blockNum, b->GetOriginalStart(), label.c_str());
 	}
@@ -754,10 +762,10 @@ void IRNativeJit::WriteProfileReport() {
 	for (int rank = 0; rank < (int)hot.size() && rank < 30; ++rank) {
 		const int blockNum = hot[rank];
 		const BlockProfile &profile = blockProfiles_[blockNum];
-		const IRBlock *b = blocks_.GetBlock(blockNum);
+		const JitBlock *b = blocks_.GetBlock(blockNum);
 		const IRNativeBlock *nativeBlock = backend_->GetNativeBlock(blockNum);
-		const int start = BlockCodeStart(blocks_, *backend_, blockNum);
-		const int end = blockNum + 1 < blocks_.GetNumBlocks() ? BlockCodeStart(blocks_, *backend_, blockNum + 1) : (int)backend_->CodeBlock().GetOffset(backend_->CodeBlock().GetCodePtr());
+		const int start = backend_->GetBlockCodeStart(blockNum);
+		const int end = blockNum + 1 < backend_->GetNumNativeBlocks() ? backend_->GetBlockCodeStart(blockNum + 1) : (int)backend_->CodeBlock().GetOffset(backend_->CodeBlock().GetCodePtr());
 		u32 mipsStart, mipsSize;
 		b->GetRange(&mipsStart, &mipsSize);
 		const std::string label = g_symbolMap ? g_symbolMap->GetDescription(mipsStart) : "";
@@ -765,7 +773,7 @@ void IRNativeJit::WriteProfileReport() {
 		fprintf(f, "======== #%d: %.2f%% (%.2f%% in routines), block %d at %08x %s, %d MIPS instructions, %d IR, %d host bytes\n",
 			rank + 1, 100.0 * cost(blockNum) / total, 100.0 * profile.routineSamples / total, blockNum, mipsStart, label.c_str(),
 			(int)(mipsSize / 4), b->GetNumIRInstructions(), end - start);
-		JitBlockDebugInfo info = blocks_.GetBlockDebugInfo(blockNum);
+		JitBlockDebugInfo info = debugInterface_.GetBlockDebugInfo(blockNum);
 		for (const std::string &line : info.origDisasm)
 			fprintf(f, "    %s\n", line.c_str());
 		fprintf(f, "\n");
@@ -775,16 +783,13 @@ void IRNativeJit::WriteProfileReport() {
 			for (int i = 0; i < (int)nativeBlock->irOffsets.size(); ++i)
 				irAt.emplace(nativeBlock->irOffsets[i], i);
 		}
-		const IRInst *insts = blocks_.GetBlockInstructionPtr(*b);
 		std::vector<int> offsets;
 		std::vector<std::string> lines = DisassembleHost(base + start, end - start, offsets);
 		for (size_t i = 0; i < lines.size(); ++i) {
 			const int from = start + offsets[i];
 			const int to = i + 1 < lines.size() ? start + offsets[i + 1] : end;
-			for (auto it = irAt.lower_bound(from); it != irAt.end() && it->first < to; ++it) {
-				char temp[256];
-				DisassembleIR(temp, sizeof(temp), insts[it->second]);
-				fprintf(f, "              IR #%d: %s\n", it->second, temp);
+			for (auto it = irAt.lower_bound(from); it != irAt.end() && it->first < to && it->second < (int)info.irDisasm.size(); ++it) {
+				fprintf(f, "              IR #%d: %s\n", it->second, info.irDisasm[it->second].c_str());
 			}
 			int64_t count = 0, routine = 0;
 			for (auto it = profile.byOffset.lower_bound(from); it != profile.byOffset.end() && it->first < to; ++it)
@@ -854,13 +859,13 @@ bool IRNativeJit::DescribeCodePtr(const u8 *ptr, std::string &name) {
 
 	int block_num = -1;
 	int block_offset = INT_MAX;
-	for (int i = 0; i < blocks_.GetNumBlocks(); ++i) {
-		const auto &b = blocks_.GetBlock(i);
-		int b_start = b->GetNativeOffset();
+	for (int i = 0; i < backend_->GetNumNativeBlocks(); ++i) {
+		const IRNativeBlock *nativeBlock = backend_->GetNativeBlock(i);
+		int b_start = nativeBlock->entryOffset;
 		if (b_start > offset)
 			continue;
 
-		int b_end = backend_->GetNativeBlock(i)->checkedOffset;
+		int b_end = nativeBlock->checkedOffset;
 		int b_offset = offset - b_start;
 		if (b_end > b_start && b_end >= offset) {
 			// For sure within the block.
@@ -882,7 +887,7 @@ bool IRNativeJit::DescribeCodePtr(const u8 *ptr, std::string &name) {
 		return true;
 	}
 
-	const IRBlock *block = blocks_.GetBlock(block_num);
+	const JitBlock *block = blocks_.GetBlock(block_num);
 	if (block) {
 		u32 start = 0, size = 0;
 		block->GetRange(&start, &size);
@@ -932,10 +937,6 @@ const u8 *IRNativeJit::GetCrashHandler() const {
 void IRNativeJit::UpdateFCR31() {
 	IRJit::UpdateFCR31();
 	backend_->UpdateFCR31(mips_);
-}
-
-JitBlockCacheDebugInterface *IRNativeJit::GetBlockCacheDebugInterface() {
-	return &debugInterface_;
 }
 
 bool IRNativeBackend::CodeInRange(const u8 *ptr) const {
@@ -991,10 +992,9 @@ int IRNativeBackend::OffsetFromCodePtr(const u8 *ptr) {
 	return (int)codeBlock.GetOffset(ptr);
 }
 
-void IRNativeBackend::FinalizeBlock(IRBlockCache *irBlockCache, int block_num, const JitOptions &jo) {
-	IRBlock *block = irBlockCache->GetBlock(block_num);
+void IRNativeBackend::FinalizeBlock(int block_num, const JitOptions &jo) {
 	if (jo.enableBlocklink) {
-		uint32_t pc = block->GetOriginalStart();
+		uint32_t pc = nativeBlocks_[block_num].startPC;
 
 		// First, link other blocks to this one now that it's finalized.
 		auto incoming = linksTo_.equal_range(pc);
@@ -1009,12 +1009,17 @@ void IRNativeBackend::FinalizeBlock(IRBlockCache *irBlockCache, int block_num, c
 		// And also any blocks from this one, in case we're finalizing it later.
 		auto &outgoing = nativeBlocks_[block_num].exits;
 		for (auto &blockExit : outgoing) {
-			int dstBlockNum = blocks_.GetBlockNumberFromStartAddress(blockExit.dest);
+			int dstBlockNum = FindBlockByStart(blockExit.dest);
 			const IRNativeBlock *nativeBlock = GetNativeBlock(dstBlockNum);
 			if (nativeBlock)
 				OverwriteExit(blockExit.offset, blockExit.len, dstBlockNum);
 		}
 	}
+}
+
+int IRNativeBackend::GetBlockCodeStart(int block_num) const {
+	const IRNativeBlock &nativeBlock = nativeBlocks_[block_num];
+	return std::min(nativeBlock.entryOffset, nativeBlock.checkedOffset);
 }
 
 const IRNativeBlock *IRNativeBackend::GetNativeBlock(int block_num) const {
@@ -1028,6 +1033,19 @@ void IRNativeBackend::SetBlockCheckedOffset(int block_num, int offset) {
 		nativeBlocks_.resize(block_num + 1);
 
 	nativeBlocks_[block_num].checkedOffset = offset;
+}
+
+void IRNativeBackend::SetBlockEntry(int block_num, u32 startPC, int offset) {
+	if (block_num >= (int)nativeBlocks_.size())
+		nativeBlocks_.resize(block_num + 1);
+	nativeBlocks_[block_num].startPC = startPC;
+	nativeBlocks_[block_num].entryOffset = offset;
+	blockByStart_[startPC] = block_num;
+}
+
+int IRNativeBackend::FindBlockByStart(u32 pc) const {
+	auto it = blockByStart_.find(pc);
+	return it != blockByStart_.end() ? it->second : -1;
 }
 
 void IRNativeBackend::AddLinkableExit(int block_num, uint32_t pc, int exitStartOffset, int exitLen) {
@@ -1056,6 +1074,7 @@ void IRNativeBackend::RecordIRAddresses(int block_num, const std::vector<const u
 void IRNativeBackend::EraseAllLinks(int block_num) {
 	if (block_num == -1) {
 		linksTo_.clear();
+		blockByStart_.clear();
 		nativeBlocks_.clear();
 	} else if (block_num < (int)nativeBlocks_.size()) {
 		// linksTo_ is keyed by the exits' targets.
@@ -1069,49 +1088,25 @@ void IRNativeBackend::EraseAllLinks(int block_num) {
 			}
 		}
 		nativeBlocks_[block_num].exits.clear();
+		auto start = blockByStart_.find(nativeBlocks_[block_num].startPC);
+		if (start != blockByStart_.end() && start->second == block_num)
+			blockByStart_.erase(start);
 	}
 }
 
-IRNativeBlockCacheDebugInterface::IRNativeBlockCacheDebugInterface(const IRBlockCache &irBlocks)
-	: irBlocks_(irBlocks) {}
-
-void IRNativeBlockCacheDebugInterface::Init(const IRNativeBackend *backend) {
-	codeBlock_ = &backend->CodeBlock();
-	backend_ = backend;
-}
-
-bool IRNativeBlockCacheDebugInterface::IsValidBlock(int blockNum) const {
-	return irBlocks_.IsValidBlock(blockNum);
-}
-
-JitBlockMeta IRNativeBlockCacheDebugInterface::GetBlockMeta(int blockNum) const {
-	return irBlocks_.GetBlockMeta(blockNum);
-}
-
-int IRNativeBlockCacheDebugInterface::GetNumBlocks() const {
-	return irBlocks_.GetNumBlocks();
-}
-
-int IRNativeBlockCacheDebugInterface::GetBlockNumberFromStartAddress(u32 em_address) const {
-	return irBlocks_.GetBlockNumberFromStartAddress(em_address);
-}
-
-JitBlockProfileStats IRNativeBlockCacheDebugInterface::GetBlockProfileStats(int blockNum) const {
-	return irBlocks_.GetBlockProfileStats(blockNum);
-}
-
-void IRNativeBlockCacheDebugInterface::GetBlockCodeRange(int blockNum, int *startOffset, int *size) const {
-	int blockOffset = irBlocks_.GetBlock(blockNum)->GetNativeOffset();
+void IRNativeJit::GetBlockCodeRange(int blockNum, int *startOffset, int *size) const {
+	const CodeBlockCommon *codeBlock = &backend_->CodeBlock();
+	int blockOffset = backend_->GetBlockEntry(blockNum);
 	int endOffset = backend_->GetNativeBlock(blockNum)->checkedOffset;
 
 	// If endOffset is before, the checked entry is before the block start.
 	if (endOffset < blockOffset) {
 		// We assume linear allocation.  Maybe a bit dangerous, should always be right.
-		if (blockNum + 1 >= GetNumBlocks()) {
+		if (blockNum + 1 >= backend_->GetNumNativeBlocks()) {
 			// Last block, get from current code pointer.
-			endOffset = (int)codeBlock_->GetOffset(codeBlock_->GetCodePtr());
+			endOffset = (int)codeBlock->GetOffset(codeBlock->GetCodePtr());
 		} else {
-			endOffset = irBlocks_.GetBlock(blockNum + 1)->GetNativeOffset();
+			endOffset = backend_->GetBlockEntry(blockNum + 1);
 			_assert_msg_(endOffset >= blockOffset, "Next block not sequential, block=%d/%08x, next=%d/%08x", blockNum, blockOffset, blockNum + 1, endOffset);
 		}
 	}
@@ -1120,60 +1115,28 @@ void IRNativeBlockCacheDebugInterface::GetBlockCodeRange(int blockNum, int *star
 	*size = endOffset - blockOffset;
 }
 
-JitBlockDebugInfo IRNativeBlockCacheDebugInterface::GetBlockDebugInfo(int blockNum) const {
-	JitBlockDebugInfo debugInfo = irBlocks_.GetBlockDebugInfo(blockNum);
+int IRNativeJit::GetBlockCodeSize(int blockNum) const {
+	int blockOffset, codeSize;
+	GetBlockCodeRange(blockNum, &blockOffset, &codeSize);
+	return codeSize;
+}
 
+void IRNativeJit::GetBlockTargetDisasm(int blockNum, std::vector<std::string> &lines) const {
 	int blockOffset, codeSize;
 	GetBlockCodeRange(blockNum, &blockOffset, &codeSize);
 
-	const u8 *blockStart = codeBlock_->GetBasePtr() + blockOffset;
+	const u8 *blockStart = backend_->CodeBlock().GetBasePtr() + blockOffset;
 #if PPSSPP_ARCH(ARM)
-	debugInfo.targetDisasm = DisassembleArm2(blockStart, codeSize);
+	lines = DisassembleArm2(blockStart, codeSize);
 #elif PPSSPP_ARCH(ARM64)
-	debugInfo.targetDisasm = DisassembleArm64(blockStart, codeSize);
+	lines = DisassembleArm64(blockStart, codeSize);
 #elif PPSSPP_ARCH(X86) || PPSSPP_ARCH(AMD64)
-	debugInfo.targetDisasm = DisassembleX86(blockStart, codeSize);
+	lines = DisassembleX86(blockStart, codeSize);
 #elif PPSSPP_ARCH(RISCV64)
-	debugInfo.targetDisasm = DisassembleRV64(blockStart, codeSize);
+	lines = DisassembleRV64(blockStart, codeSize);
 #elif PPSSPP_ARCH(LOONGARCH64)
-	debugInfo.targetDisasm = DisassembleLA64(blockStart, codeSize);
+	lines = DisassembleLA64(blockStart, codeSize);
 #endif
-	return debugInfo;
-}
-
-void IRNativeBlockCacheDebugInterface::ComputeStats(BlockCacheStats &bcStats) const {
-	double totalBloat = 0.0;
-	double maxBloat = 0.0;
-	double minBloat = 1000000000.0;
-	int numBlocks = GetNumBlocks();
-	for (int i = 0; i < numBlocks; ++i) {
-		const IRBlock &b = *irBlocks_.GetBlock(i);
-
-		// Native size, not IR size.
-		int blockOffset, codeSize;
-		GetBlockCodeRange(i, &blockOffset, &codeSize);
-		if (codeSize == 0)
-			continue;
-
-		// MIPS (PSP) size.
-		u32 origAddr, origSize;
-		b.GetRange(&origAddr, &origSize);
-
-		double bloat = (double)codeSize / (double)origSize;
-		if (bloat < minBloat) {
-			minBloat = bloat;
-			bcStats.minBloatBlock = origAddr;
-		}
-		if (bloat > maxBloat) {
-			maxBloat = bloat;
-			bcStats.maxBloatBlock = origAddr;
-		}
-		totalBloat += bloat;
-	}
-	bcStats.numBlocks = numBlocks;
-	bcStats.minBloat = (float)minBloat;
-	bcStats.maxBloat = (float)maxBloat;
-	bcStats.avgBloat = (float)(totalBloat / (double)numBlocks);
 }
 
 } // namespace MIPSComp

@@ -183,6 +183,9 @@ class MIPSState {
 public:
 	MIPSState();
 	~MIPSState();
+	// It owns its JIT.
+	MIPSState(const MIPSState &) = delete;
+	MIPSState &operator=(const MIPSState &) = delete;
 
 	void Init();
 	// Init without the JIT.

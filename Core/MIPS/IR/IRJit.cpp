@@ -50,14 +50,12 @@
 
 namespace MIPSComp {
 
-IRJit::IRJit(MIPSState *mipsState, bool actualJit) : frontend_(mipsState->HasDefaultPrefix()), mips_(mipsState), blocks_(actualJit) {
+IRJit::IRJit(MIPSState *mipsState, bool compileToNative) : frontend_(mipsState->HasDefaultPrefix()), mips_(mipsState) {
 	// u32 size = 128 * 1024;
 	InitIR();
 
-	compileToNative_ = actualJit;
-
 	// If this IRJit instance will be used to drive a "JIT using IR", don't optimize for interpretation.
-	jo.optimizeForInterpreter = !actualJit;
+	jo.optimizeForInterpreter = !compileToNative;
 
 	IROptions opts{};
 	opts.disableFlags = g_Config.uJitDisableFlags;
@@ -82,21 +80,22 @@ IRJit::IRJit(MIPSState *mipsState, bool actualJit) : frontend_(mipsState->HasDef
 	opts.vfpuMultiDot = true;
 	opts.moreVec4Ops = true;
 #elif PPSSPP_ARCH(RISCV64) || PPSSPP_ARCH(LOONGARCH64)
-	opts.vfpuMultiDot = !actualJit;
+	opts.vfpuMultiDot = !compileToNative;
 	opts.moreVec4Ops = true;
 #else
-	opts.vfpuMultiDot = !actualJit;
-	opts.moreVec4Ops = !actualJit;
+	opts.vfpuMultiDot = !compileToNative;
+	opts.moreVec4Ops = !compileToNative;
 #endif
 	opts.continueBranches = IR_CONTINUE_BRANCHES;
 	frontend_.SetOptions(opts);
 
 	profiling_ = !g_Config.sJitProfileFile.empty();
-	blocks_.SetProfiling(profiling_ && !actualJit);
 }
 
 IRJit::~IRJit() {
 }
+
+IRInterpreterJit::IRInterpreterJit(MIPSState *mipsState) : IRJit(mipsState, false) {}
 
 void IRJit::DoState(PointerWrap &p) {
 	if (frontend_.DoState(p)) {
@@ -117,16 +116,22 @@ void IRJit::ClearCache() {
 	blocks_.Clear();
 }
 
+void IRInterpreterJit::ClearCache() {
+	IRJit::ClearCache();
+	arena_.clear();
+	arena_.shrink_to_fit();
+}
+
 void IRJit::FlushProfile() {
 	if (profiling_)
 		WriteProfileReport();
 }
 
-void IRJit::WriteProfileReport() {
+void IRInterpreterJit::WriteProfileReport() {
 	int64_t totalNanos = 0;
 	std::vector<int> hot;
 	for (int i = 0; i < blocks_.GetNumBlocks(); ++i) {
-		const IRBlock *b = blocks_.GetBlock(i);
+		const JitBlock *b = blocks_.GetBlock(i);
 		if (b->profileStats_.executions == 0)
 			continue;
 		totalNanos += b->profileStats_.totalNanos;
@@ -145,12 +150,12 @@ void IRJit::WriteProfileReport() {
 	fprintf(f, "IR interpreter profile: %.3f s in %d blocks\n\n", totalNanos * 1e-9, (int)hot.size());
 	for (int rank = 0; rank < (int)hot.size() && rank < 40; ++rank) {
 		const int blockNum = hot[rank];
-		const IRBlock *b = blocks_.GetBlock(blockNum);
+		const JitBlock *b = blocks_.GetBlock(blockNum);
 		const JitBlockProfileStats &stats = b->profileStats_;
 		const std::string label = g_symbolMap ? g_symbolMap->GetDescription(b->GetOriginalStart()) : "";
 		fprintf(f, "#%d %.2f%% block %d at %08x %s: %lld runs, %.1f ns/run\n", rank + 1, 100.0 * stats.totalNanos / totalNanos, blockNum,
 			b->GetOriginalStart(), label.c_str(), (long long)stats.executions, (double)stats.totalNanos / stats.executions);
-		const IRInst *inst = blocks_.GetBlockInstructionPtr(*b);
+		const IRInst *inst = arena_.data() + b->GetEntry();
 		for (int i = 0; i < b->GetNumIRInstructions(); ++i) {
 			char temp[256];
 			DisassembleIR(temp, sizeof(temp), inst[i]);
@@ -181,13 +186,11 @@ void IRJit::InvalidateCacheAt(u32 em_address, int length) {
 }
 
 void IRJit::InvalidateBlock(int block_num) {
-	IRBlock *block = blocks_.GetBlock(block_num);
-	// If we're a native JIT (IR->JIT, not just IR interpreter), we write native offsets into the blocks.
-	int cookie = compileToNative_ ? block->GetNativeOffset() : block->GetIRArenaOffset();
+	JitBlock *block = blocks_.GetBlock(block_num);
 	// Before Destroy, which forgets the block's address. Blocks linked to it jump straight in.
-	InvalidateNativeBlock(&blocks_, block_num);
+	InvalidateTargetBlock(block_num);
 	blocks_.RemoveBlockFromPageLookup(block_num);
-	block->Destroy(cookie);
+	block->Destroy();
 }
 
 void IRJit::InvalidateCacheExcept(const std::vector<std::pair<u32, u32>> &keep) {
@@ -199,7 +202,7 @@ void IRJit::InvalidateCacheExcept(const std::vector<std::pair<u32, u32>> &keep) 
 	int kept = 0;
 	int invalidated = 0;
 	for (int block_num = 0; block_num < blocks_.GetNumBlocks(); ++block_num) {
-		const IRBlock *block = blocks_.GetBlock(block_num);
+		const JitBlock *block = blocks_.GetBlock(block_num);
 		if (!block->IsValid()) {
 			continue;
 		}
@@ -258,45 +261,76 @@ IRJit::CompileResult IRJit::CompileBlock(u32 em_address, std::vector<IRInst> &in
 	frontend_.DoJit(em_address, instructions, mipsBytes);
 	_dbg_assert_(!instructions.empty());
 
-	int block_num = blocks_.AllocateBlock(em_address, mipsBytes, instructions);
-	if (block_num < 0) {
-		WARN_LOG(Log::JIT, "Failed to allocate block for %08x (%d instructions)", em_address, (int)instructions.size());
-		// Caller will handle.
-		return CompileResult::ARENA_FULL;
+	if (mipsTracer.tracing_enabled && instructions.size() > 1 && instructions[1].op == IROp::LogIRBlock) {
+		// Before the IR interpreter's block cache takes its copy.
+		instructions[1].constant = mipsTracer.prepare_block(em_address, mipsBytes);
 	}
 
-	IRBlock *b = blocks_.GetBlock(block_num);
+	int block_num = blocks_.AllocateBlock(em_address, mipsBytes, (u32)instructions.size());
+	JitBlock *b = blocks_.GetBlock(block_num);
 	if (mipsTracer.tracing_enabled) {
 		// Hash, then only update page stats, don't link yet.
 		// TODO: Should we always hash?  Then we can reuse blocks.
 		b->UpdateHash();
 	}
 
-	if (!CompileNativeBlock(&blocks_, block_num))
-		return CompileResult::CODE_FULL;
-
-	if (mipsTracer.tracing_enabled) {
-		mipsTracer.prepare_block(b, blocks_);
-	}
+	// Caller handles a full arena or code space.
+	const CompileResult result = CompileTargetBlock(block_num, instructions);
+	if (result != CompileResult::OK)
+		return result;
 
 	// Updates stats, also enters the block in the block shadow.
 	blocks_.FinalizeBlock(block_num);
-	FinalizeNativeBlock(&blocks_, block_num);
+	FinalizeTargetBlock(block_num);
 	return CompileResult::OK;
+}
+
+IRJit::CompileResult IRInterpreterJit::CompileTargetBlock(int block_num, const std::vector<IRInst> &instructions) {
+	if (arena_.empty()) {
+		// Offset 0 would mean "no block" in the block shadow, and 1 a replacement hook.
+		arena_.push_back(IRInst{ IROp::Bad });
+		arena_.push_back(IRInst{ IROp::Bad });
+	}
+	const int offset = (int)arena_.size();
+	if (offset >= MAX_ARENA_SIZE) {
+		WARN_LOG(Log::JIT, "Filled IR arena, restarting");
+		return CompileResult::ARENA_FULL;
+	}
+	arena_.insert(arena_.end(), instructions.begin(), instructions.end());
+	blocks_.GetBlock(block_num)->SetEntry(offset);
+	return CompileResult::OK;
+}
+
+void IRInterpreterJit::GetBlockInstructions(const JitBlock &block, std::vector<IRInst> &instructions) const {
+	if (block.GetEntry() == 0) {
+		instructions.clear();
+		return;
+	}
+	const IRInst *start = arena_.data() + block.GetEntry();
+	instructions.assign(start, start + block.GetNumIRInstructions());
 }
 
 void IRJit::GetStats(JitStats *stats) const {
 	stats->numBlocks = blocks_.GetNumBlocks();
 	stats->numValidBlocks = blocks_.CountValidBlocks();
-	stats->irArenaUsed = blocks_.GetArenaSize();
-	stats->irArenaSize = IRBlockCache::MAX_ARENA_SIZE;
 	stats->irArenaFullClears = irArenaFullClears_;
 	stats->codeFullClears = codeFullClears_;
 	stats->invalidations = invalidations_;
 	stats->invalidatedBlocks = invalidatedBlocks_;
 }
 
-void IRJit::RunLoopUntil(u64 globalticks) {
+int IRInterpreterJit::GetBlockCodeSize(int block_num) const {
+	// Bloat is counted in instructions, as if IR were 4 bytes like MIPS.
+	return blocks_.GetBlock(block_num)->GetNumIRInstructions() * 4;
+}
+
+void IRInterpreterJit::GetStats(JitStats *stats) const {
+	IRJit::GetStats(stats);
+	stats->irArenaUsed = arena_.size();
+	stats->irArenaSize = MAX_ARENA_SIZE;
+}
+
+void IRInterpreterJit::RunLoopUntil(u64 globalticks) {
 	PROFILE_THIS_SCOPE("jit");
 	if (profiling_)
 		RunBlocks<true>();
@@ -305,7 +339,7 @@ void IRJit::RunLoopUntil(u64 globalticks) {
 }
 
 template <bool profile>
-void IRJit::RunBlocks() {
+void IRInterpreterJit::RunBlocks() {
 	// IR Dispatcher
 	// The guest's rounding mode applies while running blocks, like in the native JITs' dispatchers
 	// (see ApplyHostRoundingMode).
@@ -327,7 +361,7 @@ void IRJit::RunBlocks() {
 			const u32 offset = *Memory::GetBlockShadowEntry(mips->pc);
 			static_assert(Memory::BLOCK_SHADOW_HOOK_NO_JIT == 1, "IR arena reserves offsets 0 and 1");
 			if (offset > Memory::BLOCK_SHADOW_HOOK_NO_JIT) {
-				const IRInst *instPtr = blocks_.GetArenaPtr() + offset;
+				const IRInst *instPtr = arena_.data() + offset;
 				// First op is always, except when using breakpoints, downcount, to save one dispatch inside IRInterpret.
 				// This branch is very cpu-branch-predictor-friendly so this still beats the dispatch.
 				if (instPtr->op == IROp::Downcount) {
@@ -335,19 +369,19 @@ void IRJit::RunBlocks() {
 					instPtr++;
 				}
 				if constexpr (profile) {
-					IRBlock *block = blocks_.GetBlock(blocks_.GetBlockNumFromIRArenaOffset(offset));
+					JitBlock *block = blocks_.GetBlock(blocks_.FindByEntry(offset));
 					Instant start = Instant::Now();
 					mips->pc = IRInterpret(mips, instPtr);
 					block->profileStats_.executions += 1;
 					block->profileStats_.totalNanos += start.ElapsedNanos();
 				} else {
 					// Runs on through the blocks it can, as long as downcount lasts.
-					mips->pc = IRInterpret(mips, instPtr, blocks_.GetArenaPtr());
+					mips->pc = IRInterpret(mips, instPtr, arena_.data());
 				}
 				// Note: this will "jump to zero" on a badly constructed block missing exits.
 				if (!Memory::IsValid4AlignedAddress(mips->pc)) {
-					int blockNum = blocks_.GetBlockNumFromIRArenaOffset(offset);
-					IRBlock *block = blocks_.GetBlockUnchecked(blockNum);
+					int blockNum = blocks_.FindByEntry(offset);
+					JitBlock *block = blocks_.GetBlockUnchecked(blockNum);
 					Core_ExecException(mips->pc, block->GetOriginalStart(), ExecExceptionType::JUMP);
 					break;
 				}
@@ -371,27 +405,17 @@ void IRJit::RunBlocks() {
 	RestoreHostRoundingMode();
 }
 
-bool IRJit::DescribeCodePtr(const u8 *ptr, std::string &name) {
-	// Used in native disassembly viewer.
-	return false;
-}
-
-void IRBlockCache::Clear() {
-	for (int i = 0; i < (int)blocks_.size(); ++i) {
-		int cookie = compileToNative_ ? blocks_[i].GetNativeOffset() : blocks_[i].GetIRArenaOffset();
-		blocks_[i].Destroy(cookie);
+void JitBlockTable::Clear() {
+	for (JitBlock &block : blocks_) {
+		block.Destroy();
 	}
 	blocks_.clear();
 	byPage_.clear();
-	arena_.clear();
-	arena_.shrink_to_fit();
 }
 
-IRBlockCache::IRBlockCache(bool compileToNative) : compileToNative_(compileToNative) {}
-
-int IRBlockCache::CountValidBlocks() const {
+int JitBlockTable::CountValidBlocks() const {
 	int count = 0;
-	for (const IRBlock &block : blocks_) {
+	for (const JitBlock &block : blocks_) {
 		if (block.IsValid()) {
 			count++;
 		}
@@ -399,61 +423,32 @@ int IRBlockCache::CountValidBlocks() const {
 	return count;
 }
 
-int IRBlockCache::AllocateBlock(int emAddr, u32 origSize, const std::vector<IRInst> &insts) {
-	if (arena_.empty()) {
-		// Offset 0 would mean "no block" in the block shadow, and 1 a replacement hook.
-		arena_.push_back(IRInst{ IROp::Bad });
-		arena_.push_back(IRInst{ IROp::Bad });
-	}
-	int offset = (int)arena_.size();
-	if (offset >= MAX_ARENA_SIZE) {
-		WARN_LOG(Log::JIT, "Filled JIT arena, restarting");
-		return -1;
-	}
-	// TODO: Use memcpy.
-	for (size_t i = 0; i < insts.size(); i++) {
-		arena_.push_back(insts[i]);
-	}
+int JitBlockTable::AllocateBlock(int emAddr, u32 origSize, u32 numIRInstructions) {
 	int newBlockIndex = (int)blocks_.size();
-	blocks_.push_back(IRBlock(emAddr, origSize, offset, (u32)insts.size()));
+	blocks_.push_back(JitBlock(emAddr, origSize, numIRInstructions));
 	return newBlockIndex;
 }
 
-int IRBlockCache::GetBlockNumFromIRArenaOffset(int offset) const {
-	// Block offsets are always in rising order (we don't go back and replace them when invalidated). So we can binary search.
+int JitBlockTable::FindByEntry(int entry) const {
+	// Entries rise with the block number (we don't go back and replace them when invalidated). So we can binary search.
 	int low = 0;
 	int high = (int)blocks_.size() - 1;
-	int found = -1;
 	while (low <= high) {
 		int mid = low + (high - low) / 2;
-		const int blockOffset = blocks_[mid].GetIRArenaOffset();
-		if (blockOffset == offset) {
-			found = mid;
-			break;
+		const int blockEntry = blocks_[mid].GetEntry();
+		if (blockEntry == entry) {
+			return mid;
 		}
-		if (blockOffset < offset) {
+		if (blockEntry < entry) {
 			low = mid + 1;
 		} else {
 			high = mid - 1;
 		}
 	}
-	return found;
-#if 1
-	return found;
-#else
-	// Cross check the result. This is not fast so normally not enabled. Called a lot when profiling.
-	for (int i = 0; i < (int)blocks_.size(); i++) {
-		if (blocks_[i].GetIRArenaOffset() == offset) {
-			_dbg_assert_(i == found);
-			return i;
-		}
-	}
-	_dbg_assert_(found == -1);
 	return -1;
-#endif
 }
 
-std::vector<int> IRBlockCache::FindInvalidatedBlockNumbers(u32 address, u32 lengthInBytes) {
+std::vector<int> JitBlockTable::FindInvalidatedBlockNumbers(u32 address, u32 lengthInBytes) {
 	u32 startPage = AddressToPage(address);
 	u32 endPage = AddressToPage(address + lengthInBytes);
 
@@ -475,11 +470,10 @@ std::vector<int> IRBlockCache::FindInvalidatedBlockNumbers(u32 address, u32 leng
 	return found;
 }
 
-void IRBlockCache::FinalizeBlock(int blockIndex) {
+void JitBlockTable::FinalizeBlock(int blockIndex) {
 	// TODO: What's different about preload blocks?
-	IRBlock &block = blocks_[blockIndex];
-	int cookie = compileToNative_ ? block.GetNativeOffset() : block.GetIRArenaOffset();
-	block.Finalize(cookie);
+	JitBlock &block = blocks_[blockIndex];
+	block.Finalize();
 
 	u32 startAddr, size;
 	block.GetRange(&startAddr, &size);
@@ -493,9 +487,9 @@ void IRBlockCache::FinalizeBlock(int blockIndex) {
 }
 
 // Call after Destroy-ing it.
-void IRBlockCache::RemoveBlockFromPageLookup(int blockIndex) {
+void JitBlockTable::RemoveBlockFromPageLookup(int blockIndex) {
 	// We need to remove the block from the byPage lookup.
-	IRBlock &block = blocks_[blockIndex];
+	JitBlock &block = blocks_[blockIndex];
 
 	u32 startAddr, size;
 	block.GetRange(&startAddr, &size);
@@ -512,23 +506,14 @@ void IRBlockCache::RemoveBlockFromPageLookup(int blockIndex) {
 			WARN_LOG(Log::JIT, "RemoveBlock: Block at %08x was not found where expected in byPage table.", startAddr);
 		}
 	}
-
-	// Additionally, we'd like to zap the block in the IR arena.
-	// However, this breaks if calling sceKernelIcacheClearAll(), since as soon as we return, we'll be executing garbage.
-	/*
-	IRInst bad{ IROp::Bad };
-	for (int off = block.GetIRArenaOffset(); off < (int)(block.GetIRArenaOffset() + block.GetNumIRInstructions()); off++) {
-		arena_[off] = bad;
-	}
-	*/
 }
 
-u32 IRBlockCache::AddressToPage(u32 addr) const {
+u32 JitBlockTable::AddressToPage(u32 addr) const {
 	// Use relatively small pages since basic blocks are typically small.
 	return (addr & 0x3FFFFFFF) >> 10;
 }
 
-int IRBlockCache::FindPreloadBlock(u32 em_address) {
+int JitBlockTable::FindPreloadBlock(u32 em_address) {
 	u32 page = AddressToPage(em_address);
 	auto iter = byPage_.find(page);
 	if (iter == byPage_.end())
@@ -546,82 +531,7 @@ int IRBlockCache::FindPreloadBlock(u32 em_address) {
 	return -1;
 }
 
-int IRBlockCache::FindByCookie(int cookie) {
-	if (blocks_.empty())
-		return -1;
-
-	// TODO: Maybe a flag to determine native offset mode?
-	if (!compileToNative_) {
-		return GetBlockNumFromIRArenaOffset(cookie);
-	}
-
-	// TODO: This could also use a binary search.
-	for (int i = 0; i < GetNumBlocks(); ++i) {
-		int offset = blocks_[i].GetNativeOffset();
-		if (offset == cookie)
-			return i;
-	}
-	return -1;
-}
-
-JitBlockDebugInfo IRBlockCache::GetBlockDebugInfo(int blockNum) const {
-	const IRBlock &ir = blocks_[blockNum];
-	JitBlockDebugInfo debugInfo{};
-	uint32_t start, size;
-	ir.GetRange(&start, &size);
-	debugInfo.originalAddress = start;  // TODO
-	if (!Memory::IsValid4AlignedAddress(start)) {
-		return debugInfo;
-	}
-
-	debugInfo.origDisasm.reserve(((start + size) - start) / 4);
-	for (u32 addr = start; addr < start + size; addr += 4) {
-		char temp[256];
-		MIPSDisAsm(Replacement_GetDisplayOp(addr), addr, temp, sizeof(temp), true);
-		std::string mipsDis = temp;
-		debugInfo.origDisasm.push_back(mipsDis);
-	}
-
-	debugInfo.irDisasm.reserve(ir.GetNumIRInstructions());
-	const IRInst *instructions = GetBlockInstructionPtr(ir);
-	for (int i = 0; i < ir.GetNumIRInstructions(); i++) {
-		IRInst inst = instructions[i];
-		char buffer[256];
-		DisassembleIR(buffer, sizeof(buffer), inst);
-		debugInfo.irDisasm.push_back(buffer);
-	}
-	return debugInfo;
-}
-
-void IRBlockCache::ComputeStats(BlockCacheStats &bcStats) const {
-	double totalBloat = 0.0;
-	double maxBloat = 0.0;
-	double minBloat = 1000000000.0;
-	for (const auto &b : blocks_) {
-		double codeSize = (double)b.GetNumIRInstructions() * 4;  // We count bloat in instructions, not bytes. sizeof(IRInst);
-		if (codeSize == 0)
-			continue;
-		u32 origAddr, mipsBytes;
-		b.GetRange(&origAddr, &mipsBytes);
-		double origSize = (double)mipsBytes;
-		double bloat = codeSize / origSize;
-		if (bloat < minBloat) {
-			minBloat = bloat;
-			bcStats.minBloatBlock = origAddr;
-		}
-		if (bloat > maxBloat) {
-			maxBloat = bloat;
-			bcStats.maxBloatBlock = origAddr;
-		}
-		totalBloat += bloat;
-	}
-	bcStats.numBlocks = (int)blocks_.size();
-	bcStats.minBloat = minBloat;
-	bcStats.maxBloat = maxBloat;
-	bcStats.avgBloat = totalBloat / (double)blocks_.size();
-}
-
-int IRBlockCache::GetBlockNumberFromStartAddress(u32 em_address) const {
+int JitBlockTable::GetBlockNumberFromStartAddress(u32 em_address) const {
 	u32 page = AddressToPage(em_address);
 
 	const auto iter = byPage_.find(page);
@@ -641,39 +551,127 @@ int IRBlockCache::GetBlockNumberFromStartAddress(u32 em_address) const {
 	return best;
 }
 
-void IRBlock::Finalize(int cookie) {
+void JitBlock::Finalize() {
 	// Check it wasn't invalidated, in case this is after preload.
 	// TODO: Allow reusing blocks when the code matches hash_ again, instead.
 	if (origAddr_ && Memory::IsValid4AlignedAddress(origAddr_)) {
 		origFirstOpcode_ = Memory::ReadUnchecked_Instruction(origAddr_);
-		_dbg_assert_(cookie != 0);
-		Memory::WriteBlockShadow(origAddr_, cookie);
+		_dbg_assert_(entry_ != 0);
+		Memory::WriteBlockShadow(origAddr_, entry_);
 	} else {
-		WARN_LOG(Log::JIT, "Finalizing invalid block (cookie: %d)", cookie);
+		WARN_LOG(Log::JIT, "Finalizing invalid block (entry: %d)", entry_);
 	}
 }
 
-void IRBlock::Destroy(int cookie) {
+void JitBlock::Destroy() {
 	if (origAddr_ && Memory::IsValid4AlignedAddress(origAddr_)) {
-		// A block at a mirror may have taken over the entry, leave that alone.
-		Memory::ClearBlockShadow(origAddr_, cookie);
-		// TODO: Also wipe the block in the IR opcode arena.
+		// A block at a mirror may have taken over the entry, leave that alone. One that never got an
+		// entry (the arena or code space filled while compiling it) has nothing in the shadow.
+		if (entry_ != 0)
+			Memory::ClearBlockShadow(origAddr_, entry_);
 		// Let's mark this invalid so we don't try to clear it again.
 		origAddr_ = 0;
 	}
 }
 
-u64 IRBlock::CalculateHash() const {
+u64 JitBlock::CalculateHash() const {
 	if (origAddr_ && Memory::IsValidRange(origAddr_, origSize_)) {
 		return XXH3_64bits(Memory::GetPointerUnchecked(origAddr_), origSize_);
 	}
 	return 0;
 }
 
-bool IRBlock::OverlapsRange(u32 addr, u32 size) const {
+bool JitBlock::OverlapsRange(u32 addr, u32 size) const {
 	addr &= 0x3FFFFFFF;
 	u32 origAddr = origAddr_ & 0x3FFFFFFF;
 	return addr + size > origAddr && addr < origAddr + origSize_;
+}
+
+int IRJitDebugInterface::GetNumBlocks() const {
+	return jit_.blocks_.GetNumBlocks();
+}
+
+int IRJitDebugInterface::GetBlockNumberFromStartAddress(u32 em_address) const {
+	return jit_.blocks_.GetBlockNumberFromStartAddress(em_address);
+}
+
+bool IRJitDebugInterface::IsValidBlock(int blockNum) const {
+	return jit_.blocks_.IsValidBlock(blockNum);
+}
+
+JitBlockMeta IRJitDebugInterface::GetBlockMeta(int blockNum) const {
+	JitBlockMeta meta{};
+	if (IsValidBlock(blockNum)) {
+		meta.valid = true;
+		jit_.blocks_.GetBlock(blockNum)->GetRange(&meta.addr, &meta.sizeInBytes);
+	}
+	return meta;
+}
+
+JitBlockProfileStats IRJitDebugInterface::GetBlockProfileStats(int blockNum) const {
+	return jit_.blocks_.GetBlock(blockNum)->profileStats_;
+}
+
+bool IRJitDebugInterface::SupportsProfiling() const {
+	return jit_.HasBlockProfile();
+}
+
+JitBlockDebugInfo IRJitDebugInterface::GetBlockDebugInfo(int blockNum) const {
+	const JitBlock &block = *jit_.blocks_.GetBlock(blockNum);
+	JitBlockDebugInfo debugInfo{};
+	uint32_t start, size;
+	block.GetRange(&start, &size);
+	debugInfo.originalAddress = start;  // TODO
+	if (!Memory::IsValid4AlignedAddress(start)) {
+		return debugInfo;
+	}
+
+	debugInfo.origDisasm.reserve(size / 4);
+	for (u32 addr = start; addr < start + size; addr += 4) {
+		char temp[256];
+		MIPSDisAsm(Replacement_GetDisplayOp(addr), addr, temp, sizeof(temp), true);
+		debugInfo.origDisasm.push_back(temp);
+	}
+
+	std::vector<IRInst> instructions;
+	jit_.GetBlockInstructions(block, instructions);
+	debugInfo.irDisasm.reserve(instructions.size());
+	for (const IRInst &inst : instructions) {
+		char buffer[256];
+		DisassembleIR(buffer, sizeof(buffer), inst);
+		debugInfo.irDisasm.push_back(buffer);
+	}
+
+	jit_.GetBlockTargetDisasm(blockNum, debugInfo.targetDisasm);
+	return debugInfo;
+}
+
+void IRJitDebugInterface::ComputeStats(BlockCacheStats &bcStats) const {
+	double totalBloat = 0.0;
+	double maxBloat = 0.0;
+	double minBloat = 1000000000.0;
+	const int numBlocks = GetNumBlocks();
+	for (int i = 0; i < numBlocks; ++i) {
+		const int codeSize = jit_.GetBlockCodeSize(i);
+		if (codeSize == 0)
+			continue;
+		u32 origAddr, mipsBytes;
+		jit_.blocks_.GetBlock(i)->GetRange(&origAddr, &mipsBytes);
+		double bloat = (double)codeSize / (double)mipsBytes;
+		if (bloat < minBloat) {
+			minBloat = bloat;
+			bcStats.minBloatBlock = origAddr;
+		}
+		if (bloat > maxBloat) {
+			maxBloat = bloat;
+			bcStats.maxBloatBlock = origAddr;
+		}
+		totalBloat += bloat;
+	}
+	bcStats.numBlocks = numBlocks;
+	bcStats.minBloat = (float)minBloat;
+	bcStats.maxBloat = (float)maxBloat;
+	bcStats.avgBloat = (float)(totalBloat / (double)numBlocks);
 }
 
 }  // namespace MIPSComp

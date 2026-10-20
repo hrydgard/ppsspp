@@ -46,15 +46,15 @@ namespace MIPSComp {
 
 class X64JitBackend : public Gen::XCodeBlock, public IRNativeBackend {
 public:
-	X64JitBackend(JitOptions &jo, IRBlockCache &blocks);
+	X64JitBackend(JitOptions &jo);
 	~X64JitBackend();
 
 	bool DescribeCodePtr(const u8 *ptr, std::string &name) const override;
 
 	void GenerateFixedCode(MIPSState *mipsState) override;
-	bool CompileBlock(IRBlockCache *irBlockCache, int block_num) override;
+	bool CompileBlock(int block_num, u32 startPC, const IRInst *instructions, int count) override;
 	void ClearAllBlocks() override;
-	void InvalidateBlock(IRBlockCache *irBlockCache, int block_num) override;
+	void InvalidateBlock(int block_num) override;
 
 protected:
 	void GetFixedCodeLabels(std::vector<IRNativeFixedCodeLabel> &labels) const override;
@@ -172,7 +172,7 @@ private:
 class X64IRJit : public IRNativeJit {
 public:
 	X64IRJit(MIPSState *mipsState)
-		: IRNativeJit(mipsState), x64Backend_(jo, blocks_) {
+		: IRNativeJit(mipsState), x64Backend_(jo) {
 		Init(x64Backend_);
 	}
 

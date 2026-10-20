@@ -30,15 +30,15 @@ namespace MIPSComp {
 
 class RiscVJitBackend : public RiscVGen::RiscVCodeBlock, public IRNativeBackend {
 public:
-	RiscVJitBackend(JitOptions &jo, IRBlockCache &blocks);
+	RiscVJitBackend(JitOptions &jo);
 	~RiscVJitBackend();
 
 	bool DescribeCodePtr(const u8 *ptr, std::string &name) const override;
 
 	void GenerateFixedCode(MIPSState *mipsState) override;
-	bool CompileBlock(IRBlockCache *irBlockCache, int block_num) override;
+	bool CompileBlock(int block_num, u32 startPC, const IRInst *instructions, int count) override;
 	void ClearAllBlocks() override;
-	void InvalidateBlock(IRBlockCache *irBlockCache, int block_num) override;
+	void InvalidateBlock(int block_num) override;
 
 protected:
 	void GetFixedCodeLabels(std::vector<IRNativeFixedCodeLabel> &labels) const override;
@@ -140,7 +140,7 @@ private:
 class RiscVJit : public IRNativeJit {
 public:
 	RiscVJit(MIPSState *mipsState)
-		: IRNativeJit(mipsState), rvBackend_(jo, blocks_) {
+		: IRNativeJit(mipsState), rvBackend_(jo) {
 		Init(rvBackend_);
 	}
 

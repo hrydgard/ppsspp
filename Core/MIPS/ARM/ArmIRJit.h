@@ -33,15 +33,15 @@ namespace MIPSComp {
 
 class ArmJitBackend : public ArmGen::ARMXCodeBlock, public IRNativeBackend {
 public:
-	ArmJitBackend(JitOptions &jo, IRBlockCache &blocks);
+	ArmJitBackend(JitOptions &jo);
 	~ArmJitBackend();
 
 	bool DescribeCodePtr(const u8 *ptr, std::string &name) const override;
 
 	void GenerateFixedCode(MIPSState *mipsState) override;
-	bool CompileBlock(IRBlockCache *irBlockCache, int block_num) override;
+	bool CompileBlock(int block_num, u32 startPC, const IRInst *instructions, int count) override;
 	void ClearAllBlocks() override;
-	void InvalidateBlock(IRBlockCache *irBlockCache, int block_num) override;
+	void InvalidateBlock(int block_num) override;
 
 protected:
 	void GetFixedCodeLabels(std::vector<IRNativeFixedCodeLabel> &labels) const override;
@@ -144,7 +144,7 @@ private:
 class ArmIRJit : public IRNativeJit {
 public:
 	ArmIRJit(MIPSState *mipsState)
-		: IRNativeJit(mipsState), armBackend_(jo, blocks_) {
+		: IRNativeJit(mipsState), armBackend_(jo) {
 		Init(armBackend_);
 	}
 
