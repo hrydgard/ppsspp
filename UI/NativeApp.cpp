@@ -209,6 +209,8 @@ static std::string g_savedAchievementsHost;
 static bool g_savedAchievementsHardcoreMode = false;
 static bool g_hasSavedAchievementsSettings = false;
 static bool g_nativeMainThreadReady = false;
+// Kept to apply again after a config reload.
+static CommandLineOptions g_cmdLineOptions;
 
 static std::mutex g_inputEventQueueLock;
 static std::vector<QueuedEvent> g_inputEventQueue;
@@ -693,6 +695,7 @@ void NativeInit(int argc, const char *argv[], const CommandLineOptions &cmdLineO
 
 	// Apply parsed command line options to config.
 	cmdLineOptions.ApplyToConfig();
+	g_cmdLineOptions = cmdLineOptions;
 
 	boot_filename.clear();
 	if (boot_filename.empty() && cmdLineOptions.bootVSH.value_or(false)) {
@@ -1435,6 +1438,8 @@ bool HandleGlobalMessage(UIMessage message, const std::string &value) {
 		INFO_LOG(Log::IO, "Reloading config after storage permission grant.");
 		g_Config.Reload();
 		PostLoadConfig();
+		// The reload reset what the command line set.
+		g_cmdLineOptions.ApplyToConfig();
 		g_Config.iGPUBackend = gpuBackend;
 		return true;
 	} else if (message == UIMessage::APP_RESUMED || message == UIMessage::GOT_FOCUS) {

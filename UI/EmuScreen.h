@@ -90,6 +90,7 @@ private:
 
 	void AutoLoadSaveState();
 	bool checkPowerDown();
+	void leaveGame();
 
 	void ProcessQueuedVKeys();
 	void ProcessVKey(VirtKey vkey, bool down);

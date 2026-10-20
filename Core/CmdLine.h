@@ -47,6 +47,7 @@ struct CommandLineOptions {
 	std::optional<bool> escapeExit;
 	// Run as if no memory stick were inserted.
 	std::optional<bool> memStickInserted;
+	// Quit the app instead of going to the main menu when the game ends, for external launchers.
 	std::optional<bool> pauseMenuExit;
 
 	// Enables the WebSocket debugger on startup, on this port (0 = pick automatically).

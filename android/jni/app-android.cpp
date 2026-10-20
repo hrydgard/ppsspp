@@ -404,6 +404,8 @@ bool System_GetPropertyBool(SystemProperty prop) {
 		return androidVersion >= 11;  // honeycomb
 	case SYSPROP_HAS_TEXT_CLIPBOARD:
 		return true;
+	case SYSPROP_HAS_DEEP_LINKS:
+		return true;  // The game's content URI, launchable through an intent.
 	case SYSPROP_CAN_LAUNCH_URL:
 		return true;
 	case SYSPROP_HAS_OPEN_DIRECTORY:

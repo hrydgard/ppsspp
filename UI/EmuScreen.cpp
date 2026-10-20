@@ -516,7 +516,7 @@ void EmuScreen::dialogFinished(const Screen *dialog, DialogResult result) {
 	// DR_CANCEL/DR_BACK means clicked on "continue", DR_OK means clicked on "back to menu",
 	// DR_YES means a message sent to PauseMenu by System_PostUIMessage.
 	if ((result == DR_OK || quit_) && !bootPending_) {
-		screenManager()->switchScreen(new MainScreen());
+		leaveGame();
 		quit_ = false;
 	} else {
 		RecreateViews();
@@ -563,7 +563,7 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 			INFO_LOG(Log::Loader, "REQUEST_GAME_STOP: running exit callback before shutdown.");
 		} else {
 			// No callback (or already in flight, or core not running) - the destructor will take care of shutting down.
-			screenManager()->switchScreen(new MainScreen());
+			leaveGame();
 		}
 	} else if (message == UIMessage::REQUEST_GAME_RESET) {
 		if (bootPending_) {
@@ -1532,10 +1532,19 @@ bool EmuScreen::checkPowerDown() {
 	// Also for REQUEST_STOP.
 	if (coreState == CORE_POWERDOWN && PSP_GetBootState() == BootState::Complete && !bootPending_) {
 		INFO_LOG(Log::System, "SELF-POWERDOWN!");
-		screenManager()->switchScreen(new MainScreen());
+		leaveGame();
 		return true;
 	}
 	return false;
+}
+
+void EmuScreen::leaveGame() {
+	// Switch screens even when exiting, so the game gets shut down the usual way.
+	screenManager()->switchScreen(new MainScreen());
+	if (g_Config.bPauseMenuExitsEmulator) {
+		INFO_LOG(Log::System, "Game ended, exiting (--pause-menu-exit)");
+		System_ExitApp();
+	}
 }
 
 ScreenRenderRole EmuScreen::renderRole(bool isTop) const {

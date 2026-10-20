@@ -1979,13 +1979,19 @@ public class PpssppActivity extends AppCompatActivity implements SensorEventList
 
 	private static String parseIntent(Intent intent) {
 		Uri data = intent.getData();
+		String args = intent.getStringExtra(ARGS_EXTRA_KEY);
 		if (data != null) {
 			String path = data.toString();
 			// Do some unescaping. Not really sure why needed.
-			return "\"" + path.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
+			String quotedPath = "\"" + path.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
+			if (args != null) {
+				// Launchers that open the game by URI can still pass options. The path goes first, so it's the one booted.
+				Log.i(TAG, "Found args parameter in extra-data alongside the data URI: " + args);
+				return quotedPath + " " + args;
+			}
+			return quotedPath;
 		} else {
 			String param = intent.getStringExtra(SHORTCUT_EXTRA_KEY);
-			String args = intent.getStringExtra(ARGS_EXTRA_KEY);
 			if (param != null) {
 				Log.i(TAG, "Found Shortcut Parameter in extra-data: " + param);
 				return "\"" + param.replace("\\", "\\\\").replace("\"", "\\\"") + "\"";
