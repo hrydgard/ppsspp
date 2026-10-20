@@ -324,7 +324,7 @@ void WriteMatrix(MIPSState *mips, const float *rd, MatrixSize size, int reg) {
 	default: side = 0;
 	}
 
-	if (currentMIPS->VfpuWriteMask() != 0) {
+	if (mips->VfpuWriteMask() != 0) {
 		ERROR_LOG_REPORT(Log::CPU, "Write mask used with vfpu matrix instruction.");
 	}
 

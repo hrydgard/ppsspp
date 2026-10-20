@@ -89,6 +89,9 @@ public:
 	bool CodeInRange(const u8 *ptr) const;
 	int OffsetFromCodePtr(const u8 *ptr);
 
+	void SetMIPSState(MIPSState *mips) {
+		mips_ = mips;
+	}
 	virtual void GenerateFixedCode(MIPSState *mipsState) = 0;
 	virtual bool CompileBlock(IRBlockCache *irBlockCache, int block_num) = 0;
 	virtual void ClearAllBlocks() = 0;
@@ -171,12 +174,12 @@ protected:
 	static void NotifyMIPSInterpret(const char *name);
 
 	// Callback to log AND perform a base interpreter op.  Alternative to NotifyMIPSInterpret().
-	static void DoMIPSInst(uint32_t op);
+	static void DoMIPSInst(uint32_t op, MIPSState *mips);
 
 	// Callback to log AND perform an IR interpreter inst.  Returns 0 or a PC to jump to.
-	static uint32_t DoIRInst(uint64_t inst);
+	static uint32_t DoIRInst(uint64_t inst, MIPSState *mips);
 
-	static int ReportBadAddress(uint32_t addr, uint32_t alignment, uint32_t isWrite);
+	static int ReportBadAddress(uint32_t addr, uint32_t alignment, uint32_t isWrite, MIPSState *mips);
 
 	void AddLinkableExit(int block_num, uint32_t pc, int exitStartOffset, int exitLen);
 	void EraseAllLinks(int block_num);
@@ -185,6 +188,8 @@ protected:
 
 	IRNativeHooks hooks_;
 	IRBlockCache &blocks_;
+	// The CPU the generated code runs, for the calls out of it.
+	MIPSState *mips_ = nullptr;
 	std::vector<IRNativeBlock> nativeBlocks_;
 	std::unordered_multimap<uint32_t, int> linksTo_;
 	bool profiling_ = false;

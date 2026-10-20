@@ -272,6 +272,7 @@ void Arm64JitBackend::CompIR_Generic(IRInst inst) {
 	SaveStaticRegisters();
 	WriteDebugProfilerStatus(IRProfilerStatus::IR_INTERPRET);
 	MOVI2R(X0, value);
+	MOVP2R(X1, mips_);
 	QuickCallFunction(SCRATCH2_64, &DoIRInst);
 	WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 	LoadStaticRegisters();
@@ -304,7 +305,8 @@ void Arm64JitBackend::CompIR_Interpret(IRInst inst) {
 		MOVP2R(X0, MIPSGetName(op));
 		QuickCallFunction(SCRATCH2_64, &NotifyMIPSInterpret);
 	}
-	MOVI2R(X0, inst.constant);
+	MOVI2R(W0, inst.constant);
+	MOVP2R(X1, mips_);
 	QuickCallFunction(SCRATCH2_64, &MIPSInterpretTrampoline);
 	WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 	LoadStaticRegisters();

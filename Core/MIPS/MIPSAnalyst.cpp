@@ -1569,7 +1569,7 @@ namespace MIPSAnalyst {
 			switch (opInfo & CONDTYPE_MASK) {
 			case CONDTYPE_EQ:
 				if (opInfo & IN_FPUFLAG) {	// fpu branch
-					info.conditionMet = currentMIPS->fpcond == 0;
+					info.conditionMet = cpu->GetFPCond() == 0;
 				} else {
 					info.conditionMet = (rt == rs);
 					if (MIPS_GET_RT(op) == MIPS_GET_RS(op))	{	// always true
@@ -1579,7 +1579,7 @@ namespace MIPSAnalyst {
 				break;
 			case CONDTYPE_NE:
 				if (opInfo & IN_FPUFLAG) {	// fpu branch
-					info.conditionMet = currentMIPS->fpcond != 0;
+					info.conditionMet = cpu->GetFPCond() != 0;
 				} else {
 					info.conditionMet = (rt != rs);
 					if (MIPS_GET_RT(op) == MIPS_GET_RS(op))	{	// always true

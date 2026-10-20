@@ -147,31 +147,31 @@ void IRNativeBackend::NotifyMIPSInterpret(const char *name) {
 	debugSeenNotCompiled[name]++;
 }
 
-void IRNativeBackend::DoMIPSInst(uint32_t value) {
+void IRNativeBackend::DoMIPSInst(uint32_t value, MIPSState *mips) {
 	MIPSOpcode op;
 	memcpy(&op, &value, sizeof(op));
 
 	if constexpr (enableDebugStats)
 		debugSeenNotCompiled[MIPSGetName(op)]++;
 
-	MIPSInterpret(currentMIPS, op);
+	MIPSInterpret(mips, op);
 }
 
 // This is called from IR->JIT implementation to fall back to the IR interpreter for missing ops.
 // Not fast.
-uint32_t IRNativeBackend::DoIRInst(uint64_t value) {
+uint32_t IRNativeBackend::DoIRInst(uint64_t value, MIPSState *mips) {
 	IRInst inst[2]{};
 	memcpy(&inst[0], &value, sizeof(value));
 	if constexpr (enableDebugStats)
 		debugSeenNotCompiledIR[(uint8_t)inst[0].op]++;
 	// Doesn't really matter what value it returns as PC.
 	inst[1].op = IROp::ExitToPC;
-	return IRInterpret(currentMIPS, &inst[0]);
+	return IRInterpret(mips, &inst[0]);
 }
 
-int IRNativeBackend::ReportBadAddress(uint32_t addr, uint32_t alignment, uint32_t isWrite) {
+int IRNativeBackend::ReportBadAddress(uint32_t addr, uint32_t alignment, uint32_t isWrite, MIPSState *mips) {
 	const auto toss = [&](MemoryExceptionType t) {
-		Core_MemoryException(addr, alignment, currentMIPS->pc, t);
+		Core_MemoryException(addr, alignment, mips->pc, t);
 		return coreState != CORE_RUNNING_CPU ? 1 : 0;
 	};
 
@@ -514,6 +514,7 @@ void IRNativeJit::Init(IRNativeBackend &backend) {
 	backend_ = &backend;
 	backend_->SetProfiling(profiling_);
 	debugInterface_.Init(backend_);
+	backend_->SetMIPSState(mips_);
 	backend_->GenerateFixedCode(mips_);
 
 	// Wanted this to be a reference, but vtbls get in the way.  Shouldn't change.
@@ -1056,10 +1057,18 @@ void IRNativeBackend::EraseAllLinks(int block_num) {
 	if (block_num == -1) {
 		linksTo_.clear();
 		nativeBlocks_.clear();
-	} else {
-		linksTo_.erase(block_num);
-		if (block_num < (int)nativeBlocks_.size())
-			nativeBlocks_[block_num].exits.clear();
+	} else if (block_num < (int)nativeBlocks_.size()) {
+		// linksTo_ is keyed by the exits' targets.
+		for (const IRNativeBlockExit &blockExit : nativeBlocks_[block_num].exits) {
+			auto range = linksTo_.equal_range(blockExit.dest);
+			for (auto it = range.first; it != range.second;) {
+				if (it->second == block_num)
+					it = linksTo_.erase(it);
+				else
+					++it;
+			}
+		}
+		nativeBlocks_[block_num].exits.clear();
 	}
 }
 

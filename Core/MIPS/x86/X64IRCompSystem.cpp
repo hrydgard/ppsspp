@@ -446,7 +446,7 @@ void X64JitBackend::CompIR_ValidateAddress(IRInst inst) {
 
 	// Ignores the return value, always returns to the dispatcher.
 	// Otherwise would need a thunk to restore regs.
-	ABI_CallFunctionACC((const void *)&ReportBadAddress, R(SCRATCH1), alignment, isWrite);
+	ABI_CallFunctionACCP((const void *)&ReportBadAddress, R(SCRATCH1), alignment, isWrite, mips_);
 	JMP(dispatcherCheckCoreState_, true);
 
 	for (FixupBranch &b : validJumps)

@@ -1027,7 +1027,7 @@ namespace MainWindow {
 					const u8 *ptr = (const u8 *)info->addr;
 					std::string name;
 
-					if (MIPSComp::jit && MIPSComp::jit->DescribeCodePtr(ptr, name)) {
+					if (mipsr4k.jit && mipsr4k.jit->DescribeCodePtr(ptr, name)) {
 						swprintf_s(info->name, L"Jit::%S", name.c_str());
 						return;
 					}

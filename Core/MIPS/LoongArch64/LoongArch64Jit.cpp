@@ -249,6 +249,7 @@ void LoongArch64JitBackend::CompIR_Generic(IRInst inst) {
 	LI(R4, value);
 	SaveStaticRegisters();
 	WriteDebugProfilerStatus(IRProfilerStatus::IR_INTERPRET);
+	LI(R5, (uintptr_t)mips_);
 	QuickCallFunction(&DoIRInst, SCRATCH2);
 	WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 	LoadStaticRegisters();
@@ -279,6 +280,7 @@ void LoongArch64JitBackend::CompIR_Interpret(IRInst inst) {
 		QuickCallFunction(&NotifyMIPSInterpret, SCRATCH2);
 	}
 	LI(R4, (int32_t)inst.constant);
+	LI(R5, (uintptr_t)mips_);
 	QuickCallFunction((const u8 *)&MIPSInterpretTrampoline, SCRATCH2);
 	WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 	LoadStaticRegisters();

@@ -135,13 +135,9 @@ void MIPSInterpret(MIPSState *mips, MIPSOpcode op); //only for those rare ones
 int MIPSInterpret_RunUntil(MIPSState *mips, u64 globalTicks);
 MIPSInterpretFunc MIPSGetInterpretFunc(MIPSOpcode op);
 
-// 1-arg (MIPSOpcode only) trampoline around MIPSInterpret(currentMIPS, op), for JIT backends
-// (x86/ARM/ARM64/RiscV/LoongArch64 Comp_Generic / CompIR_Interpret) that bake a raw function
-// pointer directly into generated machine code as their interpreter fallback - that codegen
-// only arranges a single MIPSOpcode argument before the call, so it can't target a real
-// MIPSInterpretFunc (now 2-arg) without also being taught to pass an explicit MIPSState*.
-// TODO: teach each JIT's codegen to pass mips explicitly, then delete this.
-void CDECL MIPSInterpretTrampoline(MIPSOpcode op);
+// MIPSInterpret for the JIT backends' interpreter fallback (CompIR_Interpret), which calls it from
+// generated code, with the opcode as a plain u32.
+void CDECL MIPSInterpretTrampoline(u32 op, MIPSState *mips);
 
 int MIPSGetInstructionCycleEstimate(MIPSOpcode op);
 int MIPSGetMemoryAccessSize(MIPSOpcode op);

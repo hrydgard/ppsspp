@@ -548,6 +548,7 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 	LoadSymbolsIfSupported();
 	LoadGameSymbolsIfEnabled();
 
+	currentMIPS = &mipsr4k;
 	mipsr4k.Reset();
 
 	CoreTiming::Init(&mipsr4k);

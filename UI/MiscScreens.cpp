@@ -66,9 +66,9 @@ void HandleCommonMessages(UIMessage message, const char *value, ScreenManager *m
 
 	if (message == UIMessage::REQUEST_CLEAR_JIT && PSP_IsInited()) {
 		// TODO: This seems to clearly be the wrong place to handle this.
-		if (MIPSComp::jit) {
-			if (MIPSComp::jit)
-				MIPSComp::jit->ClearCache();
+		if (mipsr4k.jit) {
+			if (mipsr4k.jit)
+				mipsr4k.jit->ClearCache();
 		}
 		currentMIPS->UpdateCore((CPUCore)g_Config.iCpuCore);
 	} else if (message == UIMessage::SHOW_CONTROL_MAPPING && isActiveScreen && std::string(activeScreen->tag()) != "ControlMapping") {

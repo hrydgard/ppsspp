@@ -51,15 +51,13 @@
 #endif
 
 namespace MIPSComp {
-	JitInterface *jit;
-
 	void JitAt(MIPSState *mips) {
 		// TODO: We could probably check for a bad pc here, and fire an exception. Could spare us from some crashes.
 		// Although, we just tried to load from this address to check for a JIT block, and if we're here, that succeeded..
-		jit->Compile(mips->pc);
+		mips->jit->Compile(mips->pc);
 	}
 
-	void DoDummyJitState(PointerWrap &p) {
+	void DoDummyJitState(PointerWrap &p, const MIPSState *mips) {
 		// This is here so the savestate matches between jit and non-jit.
 		auto s = p.Section("Jit", 1, 2);
 		if (!s)
@@ -67,7 +65,7 @@ namespace MIPSComp {
 
 		// This is startDefaultPrefix. Writing false made a JIT loading the state assume an uneaten
 		// prefix for the rest of the session.
-		bool dummy = currentMIPS->HasDefaultPrefix();
+		bool dummy = mips->HasDefaultPrefix();
 		Do(p, dummy);
 		if (s >= 2) {
 			dummy = true;
@@ -176,9 +174,9 @@ std::string AddAddress(const std::string &buf, uint64_t addr) {
 #if PPSSPP_ARCH(ARM64) || defined(DISASM_ALL)
 
 static bool Arm64SymbolCallback(char *buffer, int bufsize, uint8_t *address) {
-	if (MIPSComp::jit) {
+	if (mipsr4k.jit) {
 		std::string name;
-		if (MIPSComp::jit->DescribeCodePtr(address, name)) {
+		if (mipsr4k.jit->DescribeCodePtr(address, name)) {
 			truncate_cpy(buffer, bufsize, name);
 			return true;
 		}
@@ -269,7 +267,7 @@ const char *ppsspp_resolver(struct ud*,
 	static char buf[128];
 	std::string str;
 
-	if (MIPSComp::jit && MIPSComp::jit->DescribeCodePtr((u8 *)(uintptr_t)addr, str)) {
+	if (mipsr4k.jit && mipsr4k.jit->DescribeCodePtr((u8 *)(uintptr_t)addr, str)) {
 		*offset = 0;
 		truncate_cpy(buf, sizeof(buf), str);
 		return buf;

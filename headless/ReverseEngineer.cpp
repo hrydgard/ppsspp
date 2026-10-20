@@ -240,6 +240,7 @@ bool InitMinimalPSP() {
 		return false;
 	}
 
+	currentMIPS = &mipsr4k;
 	mipsr4k.Reset();
 	CoreTiming::Init(&mipsr4k);
 	HLEInit();

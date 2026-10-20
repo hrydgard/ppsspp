@@ -415,6 +415,7 @@ void ArmJitBackend::CompIR_ValidateAddress(IRInst inst) {
 	// Otherwise would need a thunk to restore regs.
 	MOVI2R(R1, alignment);
 	MOVI2R(R2, isWrite ? 1 : 0);
+	MOVP2R(R3, mips_);
 	QuickCallFunction(R12, &ReportBadAddress);
 	B(dispatcherCheckCoreState_);
 

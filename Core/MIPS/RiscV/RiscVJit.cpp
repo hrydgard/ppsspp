@@ -252,7 +252,9 @@ void RiscVJitBackend::CompIR_Generic(IRInst inst) {
 	LI(X10, value, SCRATCH2);
 	SaveStaticRegisters();
 	WriteDebugProfilerStatus(IRProfilerStatus::IR_INTERPRET);
-	QuickCallFunction(&DoIRInst, SCRATCH2);
+	// X11 is SCRATCH2, so the call takes RA as its temp.
+	LI(X11, (uintptr_t)mips_);
+	QuickCallFunction(&DoIRInst);
 	WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 	LoadStaticRegisters();
 
@@ -282,7 +284,8 @@ void RiscVJitBackend::CompIR_Interpret(IRInst inst) {
 		QuickCallFunction(&NotifyMIPSInterpret, SCRATCH2);
 	}
 	LI(X10, (int32_t)inst.constant);
-	QuickCallFunction((const u8 *)&MIPSInterpretTrampoline, SCRATCH2);
+	LI(X11, (uintptr_t)mips_);
+	QuickCallFunction((const u8 *)&MIPSInterpretTrampoline);
 	WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 	LoadStaticRegisters();
 }

@@ -1372,8 +1372,8 @@ void MIPSInterpret(MIPSState *mips, MIPSOpcode op) {
 }
 
 // See the declaration comment in MIPSTables.h.
-void CDECL MIPSInterpretTrampoline(MIPSOpcode op) {
-	MIPSInterpret(currentMIPS, op);
+void CDECL MIPSInterpretTrampoline(u32 op, MIPSState *mips) {
+	MIPSInterpret(mips, MIPSOpcode(op));
 }
 
 // This is the slow, feature-rich runloop for the interpreter.
@@ -1434,7 +1434,7 @@ static void RunUntilDowncountZeroWithChecks(MIPSState *mips, u64 globalTicks) {
 			}
 		}
 
-		if (CoreTiming::GetTicks(currentMIPS) > globalTicks)
+		if (CoreTiming::GetTicks(mips) > globalTicks)
 			return;
 	}
 }

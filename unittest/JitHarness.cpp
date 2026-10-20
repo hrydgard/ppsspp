@@ -87,7 +87,7 @@ HLEFunction UnitTestFakeSyscalls[] = {
 double ExecCPUTest(bool clearCache = true) {
 	int blockTicks = 1000000;
 
-	if (MIPSComp::jit) {
+	if (mipsr4k.jit) {
 		currentMIPS->pc = PSP_GetUserMemoryBase();
 		MIPSComp::JitAt(currentMIPS);
 	}
@@ -101,15 +101,15 @@ double ExecCPUTest(bool clearCache = true) {
 		}
 	}, 0.5, 1000);
 
-	if (MIPSComp::jit) {
-		JitBlockCacheDebugInterface *cache = MIPSComp::jit->GetBlockCacheDebugInterface();
+	if (mipsr4k.jit) {
+		JitBlockCacheDebugInterface *cache = mipsr4k.jit->GetBlockCacheDebugInterface();
 		if (cache) {
 			JitBlockDebugInfo block = cache->GetBlockDebugInfo(0);
 			WARN_LOG(Log::JIT, "Executed %d target instrs, %d IR, for %d orig", (int)block.targetDisasm.size(), (int)block.irDisasm.size(), (int)block.origDisasm.size());
 		}
 
 		if (clearCache)
-			MIPSComp::jit->ClearCache();
+			mipsr4k.jit->ClearCache();
 	}
 
 	return callsPerSecond;
@@ -200,7 +200,7 @@ bool TestJit() {
 			printf("%s modified the code in PSP memory\n", core);
 			memoryClean = false;
 		}
-		if (MIPSComp::jit && Memory::ReadBlockShadow(PSP_GetUserMemoryBase()) == 0) {
+		if (mipsr4k.jit && Memory::ReadBlockShadow(PSP_GetUserMemoryBase()) == 0) {
 			printf("%s didn't enter its block in the block shadow\n", core);
 			memoryClean = false;
 		}
@@ -224,13 +224,13 @@ bool TestJit() {
 		mipsr4k.UpdateCore(CPUCore::IR_INTERPRETER);
 		ir_speed = ExecCPUTest(false);
 		checkMemoryClean("IR interpreter");
-		MIPSComp::jit->ClearCache();
+		mipsr4k.jit->ClearCache();
 		mipsr4k.UpdateCore(CPUCore::JIT);
 		jit_speed = ExecCPUTest(false);  // not clearing, so the below can do things.
 		checkMemoryClean("JIT");
 
 		// Disassemble
-		JitBlockCacheDebugInterface *cache = MIPSComp::jit->GetBlockCacheDebugInterface();
+		JitBlockCacheDebugInterface *cache = mipsr4k.jit->GetBlockCacheDebugInterface();
 		if (cache) {
 			JitBlockDebugInfo block = cache->GetBlockDebugInfo(0);  // Should only be one block.
 			std::vector<std::string> &lines = block.targetDisasm;
@@ -297,11 +297,11 @@ bool TestJitDotBench() {
 		mipsr4k.UpdateCore(CPUCore::JIT);
 		const double callsPerSecond = ExecCPUTest(false);
 		if (getenv("PPSSPP_JITBENCH_DISASM")) {
-			JitBlockDebugInfo block = MIPSComp::jit->GetBlockCacheDebugInterface()->GetBlockDebugInfo(0);
+			JitBlockDebugInfo block = mipsr4k.jit->GetBlockCacheDebugInterface()->GetBlockDebugInfo(0);
 			for (size_t i = 0; i < block.targetDisasm.size() && i < 80; i++)
 				printf("  %s\n", block.targetDisasm[i].c_str());
 		}
-		MIPSComp::jit->ClearCache();
+		mipsr4k.jit->ClearCache();
 		printf("%-14s %6.2f ns per dot\n", seq.name, 1e9 / (callsPerSecond * groups * seq.dots));
 	}
 
@@ -337,7 +337,7 @@ static bool CheckReplacementHooks(u32 func, u32 size, const std::vector<u8> &cod
 	};
 	for (CPUCore core : cores) {
 		mipsr4k.UpdateCore(core);
-		const u32 hook = MIPSComp::jit->GetBlockShadowHookValue();
+		const u32 hook = mipsr4k.jit->GetBlockShadowHookValue();
 		EXPECT_EQ_HEX(Memory::ReadBlockShadow(func), hook);
 
 		// Compiling replaces the hook value with the block's entry.
@@ -346,11 +346,11 @@ static bool CheckReplacementHooks(u32 func, u32 size, const std::vector<u8> &cod
 		EXPECT_TRUE(block != 0 && block != hook);
 
 		// Destroying the block puts it back, whichever way it goes.
-		MIPSComp::jit->InvalidateCacheAt(func, 4);
+		mipsr4k.jit->InvalidateCacheAt(func, 4);
 		EXPECT_EQ_HEX(Memory::ReadBlockShadow(func), hook);
 		compile();
-		MIPSComp::jit->ClearCache();
-		EXPECT_EQ_HEX(Memory::ReadBlockShadow(func), MIPSComp::jit->GetBlockShadowHookValue());
+		mipsr4k.jit->ClearCache();
+		EXPECT_EQ_HEX(Memory::ReadBlockShadow(func), mipsr4k.jit->GetBlockShadowHookValue());
 
 		// Leave a block for the core switch to destroy.
 		compile();
@@ -398,7 +398,7 @@ static bool CheckReplacementHooks(u32 func, u32 size, const std::vector<u8> &cod
 
 	// The game overwriting the hooked instruction drops the hook.
 	MIPSAnalyst::ReplaceFunctions();
-	EXPECT_EQ_HEX(Memory::ReadBlockShadow(func), MIPSComp::jit->GetBlockShadowHookValue());
+	EXPECT_EQ_HEX(Memory::ReadBlockShadow(func), mipsr4k.jit->GetBlockShadowHookValue());
 	Memory::WriteUnchecked_U32(MIPS_MAKE_NOP(), func);
 	EXPECT_EQ_HEX(ReadExecutedOp(func).encoding, MIPS_MAKE_NOP());
 	EXPECT_FALSE(Replacement_IsHooked(func));
@@ -836,8 +836,8 @@ static void RunFuzzCase(const std::vector<u32> &code, const FuzzState &init, Fuz
 	for (int i = 0; i < FUZZ_MAX_INSTRS; ++i) {
 		Memory::WriteUnchecked_U32(MIPS_MAKE_NOP(), addr + 12 + i * 4);
 	}
-	if (MIPSComp::jit && !keepCache) {
-		MIPSComp::jit->ClearCache();
+	if (mipsr4k.jit && !keepCache) {
+		mipsr4k.jit->ClearCache();
 	}
 
 	MIPSState *mips = currentMIPS;
@@ -850,8 +850,8 @@ static void RunFuzzCase(const std::vector<u32> &code, const FuzzState &init, Fuz
 	mips->lo = init.lo;
 	mips->fcr31 = init.fcr31;
 	// As a thread switch does, or a JIT keeps converting in the previous case's rounding mode.
-	if (MIPSComp::jit) {
-		MIPSComp::jit->UpdateFCR31();
+	if (mipsr4k.jit) {
+		mipsr4k.jit->UpdateFCR31();
 	}
 	mips->fpcond = init.fpcond;
 	mips->llBit = 0;
@@ -866,8 +866,8 @@ static void RunFuzzCase(const std::vector<u32> &code, const FuzzState &init, Fuz
 	}
 	out->cycles = (u32)(g_terminatorTicks - startTicks);
 
-	if (g_fuzzPrintBlocks && MIPSComp::jit) {
-		JitBlockCacheDebugInterface *blocks = MIPSComp::jit->GetBlockCacheDebugInterface();
+	if (g_fuzzPrintBlocks && mipsr4k.jit) {
+		JitBlockCacheDebugInterface *blocks = mipsr4k.jit->GetBlockCacheDebugInterface();
 		for (int i = 0; i < blocks->GetNumBlocks(); i++) {
 			if (!blocks->IsValidBlock(i))
 				continue;

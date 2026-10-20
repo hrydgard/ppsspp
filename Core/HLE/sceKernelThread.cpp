@@ -1453,9 +1453,9 @@ void __KernelLoadContext(const PSPThreadContext *ctx, bool vfpuEnabled) {
 
 	memcpy(currentMIPS->other, ctx->other, sizeof(ctx->other));
 	// Not locking here, we assume the jit isn't switched during execution.
-	if (MIPSComp::jit) {
+	if (currentMIPS->jit) {
 		// When thread switching, we must update the rounding mode if cached in the jit.
-		MIPSComp::jit->UpdateFCR31();
+		currentMIPS->jit->UpdateFCR31();
 	}
 
 	// Reset the llBit, the other thread may have touched memory.
