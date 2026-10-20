@@ -750,6 +750,7 @@ EXEC_AND_LIB_FILES := \
   $(SRC)/Core/HLE/SocketManager.cpp \
   $(SRC)/Core/HLE/Plugins.cpp \
   $(SRC)/Core/HLE/sceAdler.cpp \
+  $(SRC)/Core/HLE/sceAmctrl.cpp \
   $(SRC)/Core/HLE/sceAtrac.cpp \
   $(SRC)/Core/HLE/AtracCtx.cpp \
   $(SRC)/Core/HLE/AtracCtx2.cpp \

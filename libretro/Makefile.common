@@ -768,6 +768,7 @@ SOURCES_CXX += \
 	       $(COREDIR)/HLE/AtracCtx.cpp \
 	       $(COREDIR)/HLE/AtracCtx2.cpp \
 	       $(COREDIR)/HLE/sceAdler.cpp \
+	       $(COREDIR)/HLE/sceAmctrl.cpp \
 	       $(COREDIR)/HLE/sceAtrac.cpp \
 	       $(COREDIR)/HLE/sceAudio.cpp \
 	       $(COREDIR)/HLE/sceAudiocodec.cpp \

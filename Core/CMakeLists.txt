@@ -394,6 +394,8 @@ add_library(Core STATIC
 	HLE/__sceAudio.h
 	HLE/sceAdler.cpp
 	HLE/sceAdler.h
+	HLE/sceAmctrl.cpp
+	HLE/sceAmctrl.h
 	HLE/AtracBase.h
 	HLE/AtracCtx.cpp
 	HLE/AtracCtx.h
