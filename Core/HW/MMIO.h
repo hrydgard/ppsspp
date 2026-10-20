@@ -51,13 +51,18 @@ private:
 
 namespace MMIO {
 
+// What an unhandled read returns. Distinctive (not 0) so it's obvious in a live trace when some later
+// computation's input traces back to an unimplemented register, rather than looking like an
+// ordinary, legitimate zero.
+constexpr u32 UNHANDLED_READ = 0x1337BEEF;
+
 // Registers the devices, in their power-on state.
 void Init();
 void Shutdown();
 void DoState(PointerWrap &p);
 
-// For an address Memory::IsMMIOAccess() accepts. size is 1, 2 or 4. An access no device handles is
-// logged, and reads as poison.
+// For an address Memory::IsMMIOAccess() accepts, from kernel code (the caller checks). size is 1, 2
+// or 4. An access no device handles is logged, and reads as UNHANDLED_READ.
 u32 Read(MIPSState *mips, u32 address, int size);
 void Write(MIPSState *mips, u32 address, int size, u32 value);
 

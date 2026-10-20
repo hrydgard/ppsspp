@@ -19,18 +19,11 @@
 
 #include "Common/Log.h"
 #include "Common/Serialize/Serializer.h"
-#include "Core/Core.h"
 #include "Core/HW/GpioMMIO.h"
 #include "Core/HW/MMIO.h"
-#include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 
 namespace MMIO {
-
-// Unhandled reads return a distinctive poison value (not 0) so it's obvious in a live trace when
-// some later computation's input traces back to an unimplemented register, rather than looking
-// like an ordinary, legitimate zero.
-constexpr u32 UNKNOWN_MMIO_POISON = 0x1337BEEF;
 
 static std::vector<MMIODevice *> g_devices;
 
@@ -65,27 +58,16 @@ static MMIODevice *FindDevice(u32 address) {
 	return nullptr;
 }
 
-static bool CheckKernelMode(MIPSState *mips, u32 address, int size, MemoryExceptionType type) {
-	if (Memory::IsKernelCodeAddress(mips->pc))
-		return true;
-	Core_MemoryException(address, size, mips->pc, type, "Kernel mode only");
-	return false;
-}
-
 u32 Read(MIPSState *mips, u32 address, int size) {
-	if (!CheckKernelMode(mips, address, size, MemoryExceptionType::READ_WORD))
-		return UNKNOWN_MMIO_POISON;
 	MMIODevice *device = FindDevice(address);
 	u32 value;
 	if (device && device->Read(mips, address - device->Base(), size, &value))
 		return value;
 	WARN_LOG(Log::CPU, "Unhandled MMIO Read%d at %08x%s%s", size * 8, address, device ? " in " : "", device ? device->Name() : "");
-	return UNKNOWN_MMIO_POISON;
+	return UNHANDLED_READ;
 }
 
 void Write(MIPSState *mips, u32 address, int size, u32 value) {
-	if (!CheckKernelMode(mips, address, size, MemoryExceptionType::WRITE_WORD))
-		return;
 	MMIODevice *device = FindDevice(address);
 	if (device && device->Write(mips, address - device->Base(), size, value))
 		return;

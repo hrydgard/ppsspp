@@ -53,16 +53,26 @@ namespace MIPSComp {
 
 		CheckMemoryBreakpoint(rs, offset);
 
-		if (js.kernelMode) {
-			// Send all memory accesses to the interpreter in kernel mode.
-			// TODO: Do something faster - but it hardly matters, currently this is VSH-only.
-			DISABLE;
-			return;
-		}
-
 		if (((op >> 29) & 1) == 0 && rt == MIPS_REG_ZERO) {
 			// Don't load anything into $zr
 			return;
+		}
+
+		if (js.kernelMode) {
+			// Kernel code may reach hardware registers. ResolveKernelMemory turns the plain memory
+			// accesses back into ordinary ones where it can tell. The rest go to the interpreter.
+			switch (o) {
+			case 32: ir.Write(IROp::LoadKernel8Ext, rt, rs, 0, offset); return;
+			case 33: ir.Write(IROp::LoadKernel16Ext, rt, rs, 0, offset); return;
+			case 35: ir.Write(IROp::LoadKernel32, rt, rs, 0, offset); return;
+			case 36: ir.Write(IROp::LoadKernel8, rt, rs, 0, offset); return;
+			case 37: ir.Write(IROp::LoadKernel16, rt, rs, 0, offset); return;
+			case 40: ir.Write(IROp::StoreKernel8, rt, rs, 0, offset); return;
+			case 41: ir.Write(IROp::StoreKernel16, rt, rs, 0, offset); return;
+			case 43: ir.Write(IROp::StoreKernel32, rt, rs, 0, offset); return;
+			default:
+				DISABLE;
+			}
 		}
 
 		switch (o) {

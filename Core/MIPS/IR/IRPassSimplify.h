@@ -18,4 +18,7 @@ bool ApplyMemoryValidation(const IRWriter &in, IRWriter &out, const IROptions &o
 bool ReduceVec4Flush(const IRWriter &in, IRWriter &out, const IROptions &opts);
 
 bool OptimizeLoadsAfterStores(const IRWriter &in, IRWriter &out, const IROptions &opts);
+// Kernel code's loads and stores at a constant address become plain ones where that's memory, so only
+// hardware registers (and addresses only known when it runs) stay LoadKernel*/StoreKernel*.
+bool ResolveKernelMemory(const IRWriter &in, IRWriter &out, const IROptions &opts);
 bool OptimizeForInterpreter(const IRWriter &in, IRWriter &out, const IROptions &opts);

@@ -99,6 +99,23 @@ int MIPS_InterpretSingleStep(MIPSState *mips) {
 	return 1;
 }
 
+// Hardware registers, for kernel code only.
+static u32 ReadMMIO(MIPSState *mips, u32 addr, int size) {
+	if (!Memory::IsKernelCodeAddress(mips->pc)) {
+		Core_MemoryException(addr, size, mips->pc, MemoryExceptionType::READ_WORD, "Kernel mode only");
+		return MMIO::UNHANDLED_READ;
+	}
+	return MMIO::Read(mips, addr, size);
+}
+
+static void WriteMMIO(MIPSState *mips, u32 addr, int size, u32 value) {
+	if (!Memory::IsKernelCodeAddress(mips->pc)) {
+		Core_MemoryException(addr, size, mips->pc, MemoryExceptionType::WRITE_WORD, "Kernel mode only");
+		return;
+	}
+	MMIO::Write(mips, addr, size, value);
+}
+
 namespace MIPSInt {
 	void Int_Cache(MIPSState *mips, MIPSOpcode op) {
 		int imm = SignExtend16ToS32(op);
@@ -356,7 +373,7 @@ namespace MIPSInt {
 			if (rt != 0) {
 				if (!Memory::IsValid4AlignedAddress(addr)) {
 					if (Memory::IsMMIOAccess(addr)) {
-						R(rt) = MMIO::Read(mips, addr, 4);
+						R(rt) = ReadMMIO(mips, addr, 4);
 					} else {
 						Core_MemoryException(addr, 4, PC, MemoryExceptionType::READ_WORD, "ll");
 						R(rt) = 0;
@@ -371,7 +388,7 @@ namespace MIPSInt {
 			if (mips->llBit) {
 				if (!Memory::IsValid4AlignedAddress(addr)) {
 					if (Memory::IsMMIOAccess(addr))
-						MMIO::Write(mips, addr, 4, R(rt));
+						WriteMMIO(mips, addr, 4, R(rt));
 					else
 						Core_MemoryException(addr, 4, PC, MemoryExceptionType::WRITE_WORD, "sc");
 				} else {
@@ -448,7 +465,7 @@ namespace MIPSInt {
 			if (!Memory::IsValidAddress(addr)) {
 				if (Memory::IsMMIOAccess(addr)) {
 					// This is a read from MMIO, so we can handle it.
-					R(rt) = SignExtend8ToU32(MMIO::Read(mips, addr, 1));
+					R(rt) = SignExtend8ToU32(ReadMMIO(mips, addr, 1));
 					break;
 				}
 				Core_MemoryException(addr, 1, PC, MemoryExceptionType::READ_WORD, "lb");
@@ -461,7 +478,7 @@ namespace MIPSInt {
 			if (!Memory::IsValid2AlignedAddress(addr)) {
 				if (Memory::IsMMIOAccess(addr)) {
 					// This is a read from MMIO, so we can handle it.
-					R(rt) = SignExtend16ToU32(MMIO::Read(mips, addr, 2));
+					R(rt) = SignExtend16ToU32(ReadMMIO(mips, addr, 2));
 					break;
 				}
 				Core_MemoryException(addr, 2, PC, MemoryExceptionType::READ_WORD, "lh");
@@ -474,7 +491,7 @@ namespace MIPSInt {
 			if (!Memory::IsValid4AlignedAddress(addr)) {
 				if (Memory::IsMMIOAccess(addr)) {
 					// This is a read from MMIO, so we can handle it.
-					R(rt) = MMIO::Read(mips, addr, 4);
+					R(rt) = ReadMMIO(mips, addr, 4);
 					break;
 				}
 				Core_MemoryException(addr, 4, PC, MemoryExceptionType::READ_WORD, "lw");
@@ -487,7 +504,7 @@ namespace MIPSInt {
 			if (!Memory::IsValidAddress(addr)) {
 				if (Memory::IsMMIOAccess(addr)) {
 					// This is a read from MMIO, so we can handle it.
-					R(rt) = MMIO::Read(mips, addr, 1);
+					R(rt) = ReadMMIO(mips, addr, 1);
 					break;
 				}
 				Core_MemoryException(addr, 1, PC, MemoryExceptionType::READ_WORD, "lbu");
@@ -500,7 +517,7 @@ namespace MIPSInt {
 			if (!Memory::IsValid2AlignedAddress(addr)) {
 				if (Memory::IsMMIOAccess(addr)) {
 					// This is a read from MMIO, so we can handle it.
-					R(rt) = MMIO::Read(mips, addr, 2);
+					R(rt) = ReadMMIO(mips, addr, 2);
 					break;
 				}
 				Core_MemoryException(addr, 2, PC, MemoryExceptionType::READ_WORD, "lhu");
@@ -513,7 +530,7 @@ namespace MIPSInt {
 			if (!Memory::IsValidAddress(addr)) {
 				if (Memory::IsMMIOAccess(addr)) {
 					// This is a write to MMIO, so we can handle it.
-					MMIO::Write(mips, addr, 1, (u8)R(rt));
+					WriteMMIO(mips, addr, 1, (u8)R(rt));
 					break;
 				}
 				Core_MemoryException(addr, 1, PC, MemoryExceptionType::WRITE_WORD, "sb");
@@ -525,7 +542,7 @@ namespace MIPSInt {
 			if (!Memory::IsValid2AlignedAddress(addr)) {
 				if (Memory::IsMMIOAccess(addr)) {
 					// This is a write to MMIO, so we can handle it.
-					MMIO::Write(mips, addr, 2, (u16)R(rt));
+					WriteMMIO(mips, addr, 2, (u16)R(rt));
 					break;
 				}
 				Core_MemoryException(addr, 2, PC, MemoryExceptionType::WRITE_WORD, "sh");
@@ -537,7 +554,7 @@ namespace MIPSInt {
 			if (!Memory::IsValid4AlignedAddress(addr)) {
 				if (Memory::IsMMIOAccess(addr)) {
 					// This is a write to MMIO, so we can handle it.
-					MMIO::Write(mips, addr, 4, R(rt));
+					WriteMMIO(mips, addr, 4, R(rt));
 					break;
 				}
 				Core_MemoryException(addr, 4, PC, MemoryExceptionType::WRITE_WORD, "sw");
@@ -555,7 +572,7 @@ namespace MIPSInt {
 				if (Memory::IsValidAddress(addr)) {
 					mem = Memory::ReadUnchecked_U32(addr & 0xfffffffc);
 				} else if (Memory::IsMMIOAccess(addr)) {
-					mem = MMIO::Read(mips, addr & 0xfffffffc, 4);
+					mem = ReadMMIO(mips, addr & 0xfffffffc, 4);
 				} else {
 					Core_MemoryException(addr, 4, PC, MemoryExceptionType::READ_WORD, "lwl");
 				}
@@ -572,7 +589,7 @@ namespace MIPSInt {
 				if (Memory::IsValidAddress(addr)) {
 					mem = Memory::ReadUnchecked_U32(addr & 0xfffffffc);
 				} else if (Memory::IsMMIOAccess(addr)) {
-					mem = MMIO::Read(mips, addr & 0xfffffffc, 4);
+					mem = ReadMMIO(mips, addr & 0xfffffffc, 4);
 				} else {
 					Core_MemoryException(addr, 4, PC, MemoryExceptionType::READ_WORD, "lwr");
 				}
@@ -628,7 +645,7 @@ namespace MIPSInt {
 		case 49:
 			if (!Memory::IsValid4AlignedAddress(addr)) {
 				if (Memory::IsMMIOAccess(addr)) {
-					FI(ft) = MMIO::Read(mips, addr, 4);
+					FI(ft) = ReadMMIO(mips, addr, 4);
 					break;
 				}
 				Core_MemoryException(addr, 4, PC, MemoryExceptionType::READ_WORD, "lwc1");
@@ -640,7 +657,7 @@ namespace MIPSInt {
 		case 57:
 			if (!Memory::IsValid4AlignedAddress(addr)) {
 				if (Memory::IsMMIOAccess(addr)) {
-					MMIO::Write(mips, addr, 4, FI(ft));
+					WriteMMIO(mips, addr, 4, FI(ft));
 					break;
 				}
 				Core_MemoryException(addr, 4, PC, MemoryExceptionType::WRITE_WORD, "swc1");
@@ -763,8 +780,8 @@ namespace MIPSInt {
 		PC += 4;
 	}
 
-	// Return from an exception, as MIPS32 defines it (not checked on a PSP): to ErrorEPC (30) if
-	// Status.ERL is set, clearing it, otherwise to EPC (14), clearing Status.EXL. No delay slot.
+	// Return from an exception, as MIPS32 defines it (cpu/cop0/eret): to ErrorEPC (30) if Status.ERL
+	// is set, clearing only that, otherwise to EPC (14), clearing Status.EXL. No delay slot.
 	void Int_Eret(MIPSState *mips, MIPSOpcode op) {
 		u32 &status = mips->cop0[12];
 		if (status & 4) {
