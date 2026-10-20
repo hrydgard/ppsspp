@@ -25,6 +25,7 @@ bool TestMMIO();
 bool TestMESpace();
 bool TestMeCore();
 bool TestMeInterrupts();
+bool TestMeWait();
 bool TestCPUEquivalence();
 bool TestCPURoundingMode();
 bool TestVFPUDotJit();

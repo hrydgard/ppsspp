@@ -22,6 +22,8 @@
 
 #pragma once
 
+#include <unordered_map>
+
 #include "Common/CommonTypes.h"
 #include "Core/MIPS/MIPS.h"
 
@@ -56,6 +58,12 @@ struct MEState {
 	u32 ramConfig = 0;       // 0x40. Bits 0-1: RAM size, 16 << n MB.
 	u32 mutex = 0;           // 0x48. Bit 0 is the main CPU's, bit 1 the ME's.
 	u32 memProtect[20]{};    // 0xBC000000-0xBC00004C
+
+	// Not saved: whether the code at an address is a wait loop (see IsWaitLoop), and where it ends.
+	// 0 for not one. Cleared when the ME's code changes.
+	std::unordered_map<u32, u32> waitLoopEnds;
+	// Waiting for the main CPU, for the rest of this RunFor.
+	bool waiting = false;
 };
 
 // Null when the ME isn't emulated.

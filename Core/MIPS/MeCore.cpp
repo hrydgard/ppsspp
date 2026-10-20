@@ -28,6 +28,7 @@
 #include "Core/MIPS/MeCore.h"
 #include "Core/MIPS/Interpreter.h"
 #include "Core/MIPS/JitCommon/JitCommon.h"
+#include "Core/MIPS/MIPSAnalyst.h"
 #include "Core/MIPS/MIPSTables.h"
 
 namespace MeCore {
@@ -193,12 +194,124 @@ static void CheckInterrupts(MEState *me) {
 	if ((status & (STATUS_IE | STATUS_EXL | STATUS_ERL)) != STATUS_IE) {
 		return;
 	}
+	me->waiting = false;
 	// Interrupts go straight to EBase (COP0 25), with ExcCode 0.
 	cpu.cop0[14] = cpu.pc;
 	cpu.cop0[13] &= ~CAUSE_EXCCODE_BD;
 	status |= STATUS_EXL;
 	cpu.pc = cpu.cop0[25];
 	cpu.llBit = 0;
+}
+
+// Most ME code that waits for the main CPU polls in a loop like lw t0, flag; beq t0, zero, loop; nop.
+// Such a loop stores nothing and reads only what it wrote itself earlier in the same pass (or what
+// it doesn't write), so every pass goes the same way while memory stays the same - and it does
+// while the ME runs, since the main CPU doesn't. One that loops back once will loop until the end
+// of the slice. Sony's firmware waits with halt instead, and homebrew loops that also store (a
+// heartbeat) or span several blocks aren't recognized.
+static const int MAX_WAIT_LOOP_INSTRUCTIONS = 16;
+
+static bool IsPlainOp(MIPSOpcode op, MIPSInfo info) {
+	const u64 notPlain = BAD_INSTRUCTION | OUT_MEM | OUT_OTHER | IN_OTHER | IS_SYSCALL | IS_FPU | IS_VFPU |
+		IN_FPUFLAG | OUT_FPUFLAG | IN_VFPU_CC | OUT_VFPU_CC | IN_LO | IN_HI | OUT_LO | OUT_HI | OUT_RA |
+		IN_FS | IN_FT | OUT_FD | OUT_FS | OUT_FT | IN_VS | IN_VT | OUT_VD;
+	if (info & notPlain)
+		return false;
+	switch (op >> 26) {
+	case 0x10:  // cop0, eret
+	case 0x1C:  // halt, mfic, mtic
+	case 0x22:  // lwl
+	case 0x26:  // lwr
+	case 0x2F:  // cache
+	case 0x30:  // ll
+		return false;
+	default:
+		return true;
+	}
+}
+
+// Where a conditional branch or j goes, or 0 if it isn't one (or is a jr, jal or similar).
+static u32 BranchTarget(u32 pc, MIPSOpcode op) {
+	const u32 code = op >> 26;
+	const bool regimm = code == 1 && ((op >> 16) & 0x1C) == 0;  // bltz, bgez and their likely forms
+	if ((code >= 4 && code <= 7) || (code >= 0x14 && code <= 0x17) || regimm)
+		return pc + 4 + ((s32)(s16)(op & 0xFFFF) << 2);
+	if (code == 2)
+		return ((pc + 4) & 0xF0000000) | ((op & 0x03FFFFFF) << 2);
+	return 0;
+}
+
+// The end (after the delay slot) of a wait loop starting at start, or 0 if it isn't one.
+static u32 FindWaitLoop(const Memory::AddressSpace &space, u32 start) {
+	MIPSOpcode ops[MAX_WAIT_LOOP_INSTRUCTIONS + 1];
+	int count = 0;
+	bool loops = false;
+	for (u32 pc = start; count < MAX_WAIT_LOOP_INSTRUCTIONS; pc += 4) {
+		if (!space.IsValid4AlignedAddress(pc))
+			return 0;
+		const MIPSOpcode op(space.ReadUnchecked_U32(pc));
+		const MIPSInfo info = MIPSGetInfo(op);
+		ops[count++] = op;
+		if (loops) {
+			// The back edge's delay slot.
+			if ((info & (IS_CONDBRANCH | IS_JUMP)) || !IsPlainOp(op, info))
+				return 0;
+			break;
+		}
+		if (info & (IS_CONDBRANCH | IS_JUMP)) {
+			const u32 target = BranchTarget(pc, op);
+			// An exit is fine, but likely branches skip their delay slot when not taken.
+			if (target == 0 || ((info & LIKELY) && target != start))
+				return 0;
+			loops = target == start;
+		} else if (!IsPlainOp(op, info)) {
+			return 0;
+		}
+	}
+	if (!loops)
+		return 0;
+
+	// Every register the loop writes has to be written before it's read in a pass.
+	u32 written = 0;
+	for (int i = 0; i < count; ++i) {
+		const MIPSGPReg out = MIPSAnalyst::GetOutGPReg(ops[i]);
+		if (out != MIPS_REG_INVALID && out != MIPS_REG_ZERO)
+			written |= 1U << out;
+	}
+	u32 writtenSoFar = 0;
+	for (int i = 0; i < count; ++i) {
+		for (int r = 1; r < 32; ++r) {
+			if ((written & (1U << r)) && !(writtenSoFar & (1U << r)) && MIPSAnalyst::ReadsFromGPReg(ops[i], (MIPSGPReg)r))
+				return 0;
+		}
+		const MIPSGPReg out = MIPSAnalyst::GetOutGPReg(ops[i]);
+		if (out != MIPS_REG_INVALID && out != MIPS_REG_ZERO)
+			writtenSoFar |= 1U << out;
+	}
+	return start + count * 4;
+}
+
+// At the top of a wait loop, runs a pass of it. If that comes back to the top, it would only go on
+// doing so: true, and the ME waits out the rest of the slice.
+static bool WaitsForMainCPU(MEState *me) {
+	MIPSState &cpu = me->cpu;
+	const u32 start = cpu.pc;
+	auto it = me->waitLoopEnds.find(start);
+	if (it == me->waitLoopEnds.end())
+		it = me->waitLoopEnds.emplace(start, FindWaitLoop(*cpu.space, start)).first;
+	const u32 end = it->second;
+	if (end == 0 || cpu.inDelaySlot)
+		return false;
+	for (int i = 0; i <= MAX_WAIT_LOOP_INSTRUCTIONS; ++i) {
+		cpu.downcount -= MIPS_InterpretSingleStep(&cpu);
+		if (cpu.inDelaySlot)
+			continue;
+		if (cpu.pc == start)
+			return true;
+		if (cpu.pc < start || cpu.pc >= end)
+			return false;
+	}
+	return false;
 }
 
 static void RunCPU(MIPSState &cpu) {
@@ -225,9 +338,16 @@ void RunFor(int cycles) {
 	}
 	MIPSState &cpu = me->cpu;
 	cpu.downcount += cycles;
+	if (!cpu.pendingInvalidates_.empty() || cpu.invalidateAll_) {
+		me->waitLoopEnds.clear();
+	}
+	// The main CPU may have given a waiting loop what it waits for.
+	me->waiting = false;
 	while (cpu.downcount >= 0 && coreState == CORE_RUNNING_CPU) {
 		CheckInterrupts(me);
-		if (me->halted) {
+		if (!me->halted && !me->waiting)
+			me->waiting = WaitsForMainCPU(me);
+		if (me->halted || me->waiting) {
 			cpu.downcount = -1;
 		} else {
 			// Run a part, with the rest set aside so the clock stays right.

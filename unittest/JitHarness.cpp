@@ -918,6 +918,83 @@ bool TestMeInterrupts() {
 	return TestMeInterruptsOn(CPUCore::INTERPRETER) && TestMeInterruptsOn(CPUCore::IR_INTERPRETER) && TestMeInterruptsOn(CPUCore::JIT);
 }
 
+// The ME skips the rest of a slice spent polling for the main CPU, and only then.
+static bool TestMeWaitOn(CPUCore core) {
+	Memory::g_PSPModel = PSP_MODEL_FAT;
+	SetupJitHarness();
+	PSP_CoreParameter().cpuCore = core;
+	MMIO::Init();
+	bool success = true;
+
+	if (!MeCore::Init()) {
+		printf("No Media Engine on this platform, skipping\n");
+		MMIO::Shutdown();
+		DestroyJitHarness();
+		return true;
+	}
+	MeCore::MEState *me = MeCore::g_meState;
+
+	const u32 code = 0x08900000;
+	const u32 flag = code + 0x200;
+	const u32 marker = code + 0x204;
+	const u32 heartbeat = code + 0x208;
+	const char *lines[] = {
+		"lui t0, 0x0890",
+		"lw t1, 0x200(t0)",      // 0x08900004: waits for the flag
+		"beq t1, zero, 0x08900004",
+		"nop",
+		"ori t2, zero, 0x1234",
+		"sw t2, 0x204(t0)",
+		"lui t3, 0x0010",        // then counts down, which isn't waiting
+		"addiu t3, t3, -1",      // 0x0890001C
+		"bne t3, zero, 0x0890001C",
+		"nop",
+		"lw t4, 0x208(t0)",      // 0x08900028: and beats, which isn't either
+		"addiu t4, t4, 1",
+		"sw t4, 0x208(t0)",
+		"j 0x08900028",
+		"nop",
+	};
+	u32 addr = code;
+	for (const char *line : lines) {
+		std::string error;
+		if (!MipsAssembleOpcode(line, currentDebugMIPS, addr, &error)) {
+			printf("ERROR: %s: %s\n", line, error.c_str());
+			success = false;
+		}
+		addr += 4;
+	}
+	const u32 jump[] = { MIPS_MAKE_LUI(MIPS_REG_T0, 0x0890), 0x01000008 /* jr t0 */, MIPS_MAKE_NOP() };
+	memcpy(Memory::GetBootPage() + 0x40, jump, sizeof(jump));
+
+	MeCore::SetReset(false);
+	MeCore::RunFor(100000);
+	EXPECT_TRUE(me->waiting);
+	EXPECT_EQ_HEX(me->cpu.pc, code + 4);
+	EXPECT_TRUE(MeCore::GetTicks() >= 100000 && MeCore::GetTicks() < 100010);
+
+	Memory::WriteUnchecked_U32(1, flag);
+	MeCore::RunFor(100000);
+	EXPECT_FALSE(me->waiting);
+	EXPECT_EQ_HEX(Memory::ReadUnchecked_U32(marker), 0x1234);
+	const u32 left = me->cpu.r[MIPS_REG_T3];
+	EXPECT_TRUE(left > 0 && left < 0x100000 - 1000);
+
+	MeCore::RunFor(10000000);
+	EXPECT_EQ_INT(me->cpu.r[MIPS_REG_T3], 0);
+	EXPECT_FALSE(me->waiting);
+	EXPECT_TRUE(Memory::ReadUnchecked_U32(heartbeat) > 1000);
+
+	MeCore::Shutdown();
+	MMIO::Shutdown();
+	DestroyJitHarness();
+	return success;
+}
+
+bool TestMeWait() {
+	return TestMeWaitOn(CPUCore::INTERPRETER) && TestMeWaitOn(CPUCore::IR_INTERPRETER) && TestMeWaitOn(CPUCore::JIT);
+}
+
 // Differential fuzzing of the CPU cores. Random straight-line code (ALU, FPU, VFPU, loads and
 // stores) runs from a random register state on each core, and every core has to end up with the
 // interpreter's state, NaN payloads aside.
