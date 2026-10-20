@@ -321,6 +321,7 @@ tests_good = [
   "hash/sha1ctx",
   "hle/check_not_used_uids",
   "intr/intr",
+  "intr/kernel/intrhandler",
   "intr/mfic",
   "intr/enablesub",
   "intr/registersub",

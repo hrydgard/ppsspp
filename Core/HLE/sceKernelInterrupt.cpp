@@ -191,6 +191,7 @@ SubIntrHandler* IntrHandler::get(int subIntrNum)
 void IntrHandler::clear()
 {
 	subIntrHandlers.clear();
+	setBaseHandler(0, 0);
 }
 
 int IntrHandler::queueUp(int subintr) {
@@ -212,12 +213,19 @@ int IntrHandler::queueUp(int subintr) {
 
 void IntrHandler::DoState(PointerWrap &p)
 {
-	auto s = p.Section("IntrHandler", 1);
+	auto s = p.Section("IntrHandler", 1, 2);
 	if (!s)
 		return;
 
 	Do(p, intrNumber);
 	Do<int, SubIntrHandler>(p, subIntrHandlers);
+	if (s >= 2) {
+		Do(p, baseHandler_);
+		Do(p, baseArg_);
+		Do(p, baseEnabled_);
+	} else {
+		setBaseHandler(0, 0);
+	}
 	if (p.mode == p.MODE_READ && (intrNumber < 0 || intrNumber >= PSP_NUMBER_INTERRUPTS)) {
 		ERROR_LOG(Log::sceIntc, "Savestate failure: invalid interrupt handler %d", intrNumber);
 		p.SetError(p.ERROR_FAILURE);
@@ -1039,6 +1047,46 @@ void Register_InterruptManager()
 }
 
 
+// What these return is from tests/intr/kernel/intrhandler, recorded on a PSP. Interrupts there go up to
+// 67, one more than PSP_NUMBER_INTERRUPTS, which the firmware's drivers use anyway.
+static int sceKernelRegisterIntrHandler(int intrNumber, u32 unknown, u32 handler, u32 handlerArg, u32 opt) {
+	if (intrNumber < 0 || intrNumber >= PSP_NUMBER_INTERRUPTS || handler == 0)
+		return hleLogError(Log::sceIntc, SCE_KERNEL_ERROR_ILLEGAL_INTRCODE);
+	IntrHandler *intr = intrHandlers[intrNumber];
+	if (intr->hasBaseHandler())
+		return hleLogError(Log::sceIntc, SCE_KERNEL_ERROR_FOUND_HANDLER);
+	intr->setBaseHandler(handler, handlerArg);
+	return hleLogDebug(Log::sceIntc, 0);
+}
+
+static int sceKernelReleaseIntrHandler(int intrNumber) {
+	if (intrNumber < 0 || intrNumber >= PSP_NUMBER_INTERRUPTS)
+		return hleLogError(Log::sceIntc, SCE_KERNEL_ERROR_ILLEGAL_INTRCODE);
+	IntrHandler *intr = intrHandlers[intrNumber];
+	if (!intr->hasBaseHandler())
+		return hleLogError(Log::sceIntc, SCE_KERNEL_ERROR_NOTFOUND_HANDLER);
+	intr->setBaseHandler(0, 0);
+	return hleLogDebug(Log::sceIntc, 0);
+}
+
+static int SetIntrEnabled(int intrNumber, bool enable) {
+	if (intrNumber < 0 || intrNumber >= PSP_NUMBER_INTERRUPTS)
+		return SCE_KERNEL_ERROR_ILLEGAL_INTRCODE;
+	IntrHandler *intr = intrHandlers[intrNumber];
+	if (!intr->hasBaseHandler())
+		return SCE_KERNEL_ERROR_NOTFOUND_HANDLER;
+	intr->enableBase(enable);
+	return 0;
+}
+
+static int sceKernelEnableIntr(int intrNumber) {
+	return hleLogDebugOrError(Log::sceIntc, SetIntrEnabled(intrNumber, true));
+}
+
+static int sceKernelDisableIntr(int intrNumber) {
+	return hleLogDebugOrError(Log::sceIntc, SetIntrEnabled(intrNumber, false));
+}
+
 static int sceKernelIsIntrContext() {
 	return hleLogDebug(Log::sceKernel, __IsInInterrupt() ? 1 : 0);
 }
@@ -1065,15 +1113,10 @@ const HLEFunction InterruptManagerForKernel[] =
 	{0X05572A5F, &WrapV_V<sceKernelExitGame>,                  "sceKernelExitGame",                   'v', ""    ,HLE_KERNEL_SYSCALL },
 	{0X4AC57943, &WrapI_I<sceKernelRegisterExitCallback>,      "sceKernelRegisterExitCallback",       'i', "i"   ,HLE_KERNEL_SYSCALL },
 	{0XFE28C6D9, &WrapI_V<sceKernelIsIntrContext>,             "sceKernelIsIntrContext",              'i', ""    ,HLE_KERNEL_SYSCALL },
-	// NOT added on purpose, even though JPCSP implements all four: sceKernelRegisterIntrHandler
-	// (0x58DD8978), sceKernelReleaseIntrHandler (0xF987B1F0), sceKernelEnableIntr (0x4D6E7305)
-	// and sceKernelDisableIntr (0xD774BA45). JPCSP can honour them because it emulates the
-	// interrupt controller as MMIO; we dispatch the few interrupts we emulate ourselves (see
-	// __RegisterIntrHandler and its callers in sceGe/sceKernelAlarm/sceKernelVTimer) and have no
-	// way to run a guest handler for one. Stubbing them to return success is therefore a lie the
-	// real flash0 drivers act on - measured while booting the VSH, they make 31 such calls
-	// (interrupts 4, 12, 15-18, 20-24, 31), and the boot then stalls in GE list execution without
-	// ever starting a plugin module, where leaving them unresolved reaches the shell.
+	{0X58DD8978, &WrapI_IUUUU<sceKernelRegisterIntrHandler>,   "sceKernelRegisterIntrHandler",        'i', "ixxxx", HLE_KERNEL_SYSCALL },
+	{0XF987B1F0, &WrapI_I<sceKernelReleaseIntrHandler>,        "sceKernelReleaseIntrHandler",         'i', "i"   ,HLE_KERNEL_SYSCALL },
+	{0X4D6E7305, &WrapI_I<sceKernelEnableIntr>,                "sceKernelEnableIntr",                 'i', "i"   ,HLE_KERNEL_SYSCALL },
+	{0XD774BA45, &WrapI_I<sceKernelDisableIntr>,               "sceKernelDisableIntr",                'i', "i"   ,HLE_KERNEL_SYSCALL },
 };
 
 void Register_InterruptManagerForKernel()

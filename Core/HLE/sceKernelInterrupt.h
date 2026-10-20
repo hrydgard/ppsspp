@@ -129,12 +129,24 @@ public:
 	SubIntrHandler *get(int subIntrNum);
 	void clear();
 
+	// The handler a kernel driver registered for the whole interrupt (sceKernelRegisterIntrHandler).
+	// Nothing raises those interrupts yet, so it's only kept.
+	bool hasBaseHandler() const { return baseHandler_ != 0; }
+	void setBaseHandler(u32 handler, u32 arg) {
+		baseHandler_ = handler;
+		baseArg_ = arg;
+		baseEnabled_ = false;
+	}
+	void enableBase(bool enable) { baseEnabled_ = enable; }
 
 	void DoState(PointerWrap &p);
 
 private:
 	int intrNumber;
 	std::map<int, SubIntrHandler> subIntrHandlers;
+	u32 baseHandler_ = 0;
+	u32 baseArg_ = 0;
+	bool baseEnabled_ = false;
 	int entryCycles_ = 0;
 	int exitCycles_ = 0;
 };
