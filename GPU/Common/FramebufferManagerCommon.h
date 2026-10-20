@@ -430,6 +430,15 @@ public:
 		return currentRenderVfb_;
 	}
 
+	// A framebuffer that's always this size, and also read and written outside where it's drawn
+	// (the PS1 emulator's VRAM). Created whole, from what's in memory.
+	void SetFixedFramebuffer(u32 addr, int stride, int width, int height) {
+		fixedFbAddress_ = addr & 0x041FFFFF;
+		fixedFbStride_ = stride;
+		fixedFbWidth_ = width;
+		fixedFbHeight_ = height;
+	}
+
 	// This only checks for the color channel, and if there are multiple overlapping ones
 	// with different color depth, this might get things wrong.
 	// DEPRECATED FOR NEW USES - avoid whenever possible.
@@ -639,6 +648,10 @@ protected:
 
 	// The range of PSP memory that may contain FBOs.  So we can skip iterating.
 	u32 framebufColorRangeEnd_ = 0;
+	u32 fixedFbAddress_ = 0;
+	int fixedFbStride_ = 0;
+	int fixedFbWidth_ = 0;
+	int fixedFbHeight_ = 0;
 
 	bool useBufferedRendering_ = false;
 	bool postShaderIsUpscalingFilter_ = false;

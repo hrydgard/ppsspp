@@ -381,6 +381,11 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 	// we need to infer the size of the current framebuffer somehow.
 	int drawing_width, drawing_height;
 	EstimateDrawingSize(params.fb_address, std::max(params.fb_stride, (u16)4), params.fb_format, params.viewportWidth, params.viewportHeight, params.regionWidth, params.regionHeight, params.scissorRight, params.scissorBottom, drawing_width, drawing_height);
+	const bool fixedFb = fixedFbAddress_ != 0 && params.fb_address == fixedFbAddress_ && params.fb_stride == fixedFbStride_;
+	if (fixedFb) {
+		drawing_width = fixedFbWidth_;
+		drawing_height = fixedFbHeight_;
+	}
 
 	if (params.fb_address == params.z_address) {
 		// Most likely Z will not be used in this pass, as that would wreak havoc (undefined behavior for sure)
@@ -571,7 +576,8 @@ VirtualFramebuffer *FramebufferManagerCommon::DoSetRenderFrameBuffer(Framebuffer
 		currentRenderVfb_ = vfb;
 
 		// Assume that if we're clearing right when switching to a new framebuffer, we don't need to upload.
-		if (useBufferedRendering_ && params.isDrawing && vfb->fb_stride > 0) {
+		// A fixed framebuffer has data outside where this draw goes.
+		if (useBufferedRendering_ && (params.isDrawing || fixedFb) && vfb->fb_stride > 0) {
 			gpu->PerformWriteColorFromMemory(params.fb_address, colorByteSize);
 			// Alpha was already done by PerformWriteColorFromMemory.
 			PerformWriteStencilFromMemory(params.fb_address, colorByteSize, WriteStencil::STENCIL_IS_ZERO | WriteStencil::IGNORE_ALPHA);
@@ -1314,7 +1320,9 @@ void FramebufferManagerCommon::DrawPixels(VirtualFramebuffer *vfb, int dstX, int
 	if (useBufferedRendering_ && vfb) {
 		_dbg_assert_(vfb->fbo);
 		if (vfb->fbo) {
-			if (channel == RASTER_DEPTH || PSP_CoreParameter().compat.flags().NearestFilteringOnFramebufferCreate) {
+			// A fixed framebuffer holds data that's read back.
+			const bool fixedFb = fixedFbAddress_ != 0 && vfb->fb_address == fixedFbAddress_;
+			if (channel == RASTER_DEPTH || PSP_CoreParameter().compat.flags().NearestFilteringOnFramebufferCreate || fixedFb) {
 				flags = DRAWTEX_NEAREST;
 			} else {
 				flags = DRAWTEX_LINEAR;
