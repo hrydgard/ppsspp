@@ -387,6 +387,8 @@ add_library(Core STATIC
 	HLE/PSPThreadContext.h
 	HLE/KUBridge.h
 	HLE/KUBridge.cpp
+	HLE/sceSysreg.h
+	HLE/sceSysreg.cpp
 	HLE/Plugins.h
 	HLE/Plugins.cpp
 	HLE/ThreadQueueList.h

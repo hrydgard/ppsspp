@@ -31,6 +31,7 @@
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MeCore.h"
+#include "Core/HW/MMIO.h"
 
 #include "Core/Debugger/MemBlockInfo.h"
 #include "Core/HLE/sceKernel.h"
@@ -812,8 +813,10 @@ const HLEFunction Kernel_Library[] =
 	{0X4AC57943, &WrapI_I<sceKernelRegisterExitCallback>,      "sceKernelRegisterExitCallback",       'i', "i"    },
 };
 
-static u32 sysclib_memcpy(u32 dst, u32 src, u32 size) {	
-	if (Memory::IsValidRange(dst, size) && Memory::IsValidRange(src, size)) {
+static u32 sysclib_memcpy(MIPSState *mips, u32 dst, u32 src, u32 size) {
+	if (MMIO::Copy(mips, dst, src, size)) {
+		// To or from hardware registers.
+	} else if (Memory::IsValidRange(dst, size) && Memory::IsValidRange(src, size)) {
 		memcpy(Memory::GetPointerWriteUnchecked(dst), Memory::GetPointerUnchecked(src), size);
 	}
 	if (MemBlockInfoDetailed(size)) {
@@ -957,8 +960,10 @@ static int sysclib_strncmp(u32 s1, u32 s2, u32 size) {
 	return hleLogError(Log::sceKernel, 0, "Bad addresses");
 }
 
-static u32 sysclib_memmove(u32 dst, u32 src, u32 size) {
-	if (Memory::IsValidRange(dst, size) && Memory::IsValidRange(src, size)) {
+static u32 sysclib_memmove(MIPSState *mips, u32 dst, u32 src, u32 size) {
+	if (MMIO::Copy(mips, dst, src, size)) {
+		// To or from hardware registers.
+	} else if (Memory::IsValidRange(dst, size) && Memory::IsValidRange(src, size)) {
 		memmove(Memory::GetPointerWriteUnchecked(dst), Memory::GetPointerUnchecked(src), size);
 	}
 	if (MemBlockInfoDetailed(size)) {

@@ -87,6 +87,7 @@
     <ClCompile Include="..\..\Core\HLE\HLEHelperThread.cpp" />
     <ClCompile Include="..\..\Core\HLE\HLETables.cpp" />
     <ClCompile Include="..\..\Core\HLE\KUBridge.cpp" />
+    <ClCompile Include="..\..\Core\HLE\sceSysreg.cpp" />
     <ClCompile Include="..\..\Core\HLE\proAdhoc.cpp" />
     <ClCompile Include="..\..\Core\HLE\proAdhocServer.cpp" />
     <ClCompile Include="..\..\Core\HLE\ReplaceTables.cpp" />
@@ -504,6 +505,7 @@
     <ClInclude Include="..\..\Core\HLE\HLETables.h" />
     <ClInclude Include="..\..\Core\HLE\KernelWaitHelpers.h" />
     <ClInclude Include="..\..\Core\HLE\KUBridge.h" />
+    <ClInclude Include="..\..\Core\HLE\sceSysreg.h" />
     <ClInclude Include="..\..\Core\HLE\proAdhoc.h" />
     <ClInclude Include="..\..\Core\HLE\proAdhocServer.h" />
     <ClInclude Include="..\..\Core\HLE\ReplaceTables.h" />
