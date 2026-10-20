@@ -474,7 +474,7 @@ void PPGeEnd()
 		// We actually drew something
 		gpu->EnableInterrupts(false);
 		NotifyMemInfo(MemBlockFlags::WRITE, dlPtr, dlWritePtr - dlPtr, "PPGe ListCmds");
-		u32 list = hleCall(sceGe_user, u32, sceGeListEnQueue, dlPtr, dlWritePtr, -1, listArgs.ptr);
+		u32 list = hleCall(sceGe_user, u32, sceGeListEnQueue, currentMIPS, dlPtr, dlWritePtr, -1, listArgs.ptr);
 		DEBUG_LOG(Log::sceGe, "PPGe enqueued display list %i", list);
 		gpu->EnableInterrupts(true);
 	}

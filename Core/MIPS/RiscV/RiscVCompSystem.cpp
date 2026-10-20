@@ -187,8 +187,9 @@ void RiscVJitBackend::CompIR_System(IRInst inst) {
 		WriteDebugProfilerStatus(IRProfilerStatus::SYSCALL);
 #ifdef USE_PROFILER
 		// When profiling, we can't skip CallSyscall, since it times syscalls.
-		LI(X10, (int32_t)inst.constant);
-		QuickCallFunction(&CallSyscall, SCRATCH2);
+		LI(X10, (uintptr_t)mips_);
+		LI(X11, (int32_t)inst.constant);
+		QuickCallFunction(&CallSyscall);
 #else
 		// Skip the CallSyscall where possible.
 		{
@@ -197,16 +198,19 @@ void RiscVJitBackend::CompIR_System(IRInst inst) {
 			if (func) {
 				void *quickFunc = GetQuickSyscallFunc(func, op);
 				if (quickFunc) {
-					LI(X10, (uintptr_t)func);
-					QuickCallFunction((const u8 *)quickFunc, SCRATCH2);
+					LI(X10, (uintptr_t)mips_);
+					LI(X11, (uintptr_t)func);
+					QuickCallFunction((const u8 *)quickFunc);
 				} else {
-					LI(X10, (int32_t)inst.constant);
-					QuickCallFunction(&CallSyscall, SCRATCH2);
+					LI(X10, (uintptr_t)mips_);
+					LI(X11, (int32_t)inst.constant);
+					QuickCallFunction(&CallSyscall);
 				}
 			} else {
 				// Shouldn't get here.
-				LI(X10, 0);
-				QuickCallFunction(&CallSyscallUnresolvedAtPC, SCRATCH2);
+				LI(X10, (uintptr_t)mips_);
+				LI(X11, 0);
+				QuickCallFunction(&CallSyscallUnresolvedAtPC);
 			}
 		}
 #endif
@@ -220,8 +224,9 @@ void RiscVJitBackend::CompIR_System(IRInst inst) {
 		FlushAll();
 		SaveStaticRegisters();
 		WriteDebugProfilerStatus(IRProfilerStatus::SYSCALL);
-		LI(X10, (int32_t)inst.constant);
-		QuickCallFunction(&CallSyscallUnresolvedAtPC, SCRATCH2);
+		LI(X10, (uintptr_t)mips_);
+		LI(X11, (int32_t)inst.constant);
+		QuickCallFunction(&CallSyscallUnresolvedAtPC);
 		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 		LoadStaticRegisters();
 		break;
@@ -230,6 +235,7 @@ void RiscVJitBackend::CompIR_System(IRInst inst) {
 		FlushAll();
 		SaveStaticRegisters();
 		WriteDebugProfilerStatus(IRProfilerStatus::REPLACEMENT);
+		LI(X10, (uintptr_t)mips_);
 		QuickCallFunction(GetReplacementFunc(inst.constant)->replaceFunc, SCRATCH2);
 		WriteDebugProfilerStatus(IRProfilerStatus::IN_JIT);
 		LoadStaticRegisters();

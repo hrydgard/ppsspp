@@ -20,6 +20,8 @@
 #include "GPU/GPUDefinitions.h"
 #include "Core/MemMap.h"
 
+class MIPSState;
+
 #define SCE_GE_LIST_COMPLETED  0
 #define SCE_GE_LIST_QUEUED     1
 #define SCE_GE_LIST_DRAWING    2
@@ -59,5 +61,5 @@ void __GeWaitCurrentThread(GPUSyncType type, SceUID waitId, const char *reason);
 bool __GeTriggerWait(GPUSyncType type, SceUID waitId);
 
 // Export functions for use by Util/PPGe
-u32 sceGeListEnQueue(u32 listAddress, u32 stallAddress, int callbackId, u32 optParamAddr);
-u32 sceGeListEnQueueHead(u32 listAddress, u32 stallAddress, int callbackId, u32 optParamAddr);
+u32 sceGeListEnQueue(MIPSState *mips, u32 listAddress, u32 stallAddress, int callbackId, u32 optParamAddr);
+u32 sceGeListEnQueueHead(MIPSState *mips, u32 listAddress, u32 stallAddress, int callbackId, u32 optParamAddr);

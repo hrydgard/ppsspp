@@ -555,7 +555,7 @@ void DrawThreadView(ImConfig &cfg, ImControl &control) {
 				}
 				if (ImGui::MenuItem("Kill thread")) {
 					// Dangerous!
-					sceKernelTerminateThread(thread.id);
+					sceKernelTerminateThread(&mipsr4k, thread.id);
 				}
 				if (thread.status == THREADSTATUS_WAIT) {
 					if (ImGui::MenuItem("Force run now")) {

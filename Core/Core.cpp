@@ -456,7 +456,7 @@ void Core_RunLoopUntil(u64 globalticks) {
 
 			case DLResult::Error: // We should elegantly report the error somehow, or I guess ignore it.
 			case DLResult::Done: // Done executing for now
-				hleFinishSyscallAfterGe();
+				hleFinishSyscallAfterGe(&mipsr4k);
 				coreState = preGeCoreState;
 				break;
 

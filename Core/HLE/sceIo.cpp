@@ -2308,7 +2308,7 @@ static u32 sceIoSetAsyncCallback(int id, u32 clbckId, u32 clbckArg) {
 	}
 }
 
-static u32 sceIoOpenAsync(const char *filename, int flags, int mode) {
+static u32 sceIoOpenAsync(MIPSState *mips, const char *filename, int flags, int mode) {
 	hleEatCycles(18000);
 	if (!filename) {
 		// Not tested on the PSP.
@@ -2648,12 +2648,12 @@ static void strcpy_limit(char *dest, const char *src, int limit) {
 	dest[i] = 0;
 }
 
-static u32 sceIoDread(int id, u32 dirent_addr) {
+static u32 sceIoDread(MIPSState *mips, int id, u32 dirent_addr) {
 	u32 error;
 	DirListing *dir = kernelObjects.Get<DirListing>(id, error);
 	if (dir) {
 		if (!Memory::IsValidRange(dirent_addr, sizeof(SceIoDirEnt))) {
-			Core_MemoryException(dirent_addr, sizeof(SceIoDirEnt), currentMIPS->pc, MemoryExceptionType::WRITE_BLOCK, "sceIoDread");
+			Core_MemoryException(dirent_addr, sizeof(SceIoDirEnt), mips->pc, MemoryExceptionType::WRITE_BLOCK, "sceIoDread");
 			return hleLogError(Log::sceIo, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "invalid address");
 		}
 		SceIoDirEnt *entry = (SceIoDirEnt*) Memory::GetPointerOrException(dirent_addr);
@@ -3039,14 +3039,14 @@ static u32 sceKernelRegisterStdoutPipe(u32 msgPipeUID) {
 	return 0;
 }
 
-static int IoAsyncFinish(int id) {
+static int IoAsyncFinish(MIPSState *mips, int id) {
 	u32 error;
 	FileNode *f = __IoGetFd(id, error);
 	if (f) {
 		// Reset this so the Io funcs don't reject the request.
 		f->pendingAsyncResult = false;
 		// Reset the PC back so we will run again on resume.
-		currentMIPS->pc = asyncThreads[id]->Entry();
+		mips->pc = asyncThreads[id]->Entry();
 
 		auto &params = asyncParams[id];
 

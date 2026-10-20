@@ -921,7 +921,7 @@ u32 sceKernelGetBlockHeadAddr(SceUID id) {
 	}
 }
 
-static int sceKernelPrintf(const char *formatString) {
+static int sceKernelPrintf(MIPSState *mips, const char *formatString) {
 	if (!formatString)
 		return -1;
 

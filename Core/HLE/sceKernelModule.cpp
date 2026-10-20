@@ -2540,16 +2540,16 @@ bool __KernelLoadGEDump(MIPSState *mips, std::string_view base_filename, std::st
 	return true;
 }
 
-int __KernelGPUReplay() {
+int __KernelGPUReplay(MIPSState *mips) {
 	// Special ABI: s0 and s1 are the "args".  Not null terminated.
-	const char *filenamep = Memory::GetCharPointer(currentMIPS->r[MIPS_REG_S1]);
+	const char *filenamep = Memory::GetCharPointer(mips->r[MIPS_REG_S1]);
 	if (!filenamep) {
 		ERROR_LOG(Log::G3D, "__KernelGPUReplay: Failed to load dump filename");
 		Core_Stop();
 		return 0;
 	}
 
-	std::string filename(filenamep, currentMIPS->r[MIPS_REG_S0]);
+	std::string filename(filenamep, mips->r[MIPS_REG_S0]);
 	GPURecord::ReplayResult result = GPURecord::RunMountedReplay(filename);
 
 	if (result == GPURecord::ReplayResult::Error) {
@@ -2571,7 +2571,7 @@ int __KernelGPUReplay() {
 	return hleNoLog(result == GPURecord::ReplayResult::Break ? 1 : 0);
 }
 
-int sceKernelLoadExec(const char *filename, u32 paramPtr) {
+int sceKernelLoadExec(MIPSState *mips, const char *filename, u32 paramPtr) {
 	std::string exec_filename = filename;
 	PSPFileInfo info = pspFileSystem.GetFileInfo(exec_filename);
 
@@ -2597,7 +2597,7 @@ int sceKernelLoadExec(const char *filename, u32 paramPtr) {
 
 	DEBUG_LOG(Log::sceModule, "sceKernelLoadExec(name=%s,...): loading %s", filename, exec_filename.c_str());
 	std::string error_string;
-	if (!__KernelLoadExec(currentMIPS, exec_filename.c_str(), paramPtr, &error_string)) {
+	if (!__KernelLoadExec(mips, exec_filename.c_str(), paramPtr, &error_string)) {
 		Core_HLEError("sceKernelLoadExec failed: " + error_string);
 		return hleLogError(Log::sceModule, -1, "failed: %s", error_string.c_str());;
 	}
@@ -2694,7 +2694,7 @@ static u32 KernelLoadModuleFromData(const char *name, std::vector<uint8_t> &file
 	return module->GetUID();
 }
 
-u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr) {
+u32 sceKernelLoadModule(MIPSState *mips, const char *name, u32 flags, u32 optionAddr) {
 	if (!name) {
 		return hleLogError(Log::Loader, SCE_KERNEL_ERROR_ILLEGAL_ADDR, "bad filename");
 	}
@@ -2799,7 +2799,7 @@ u32 sceKernelLoadModule(const char *name, u32 flags, u32 optionAddr) {
 		if (gpu) {
 			gpu->Reinitialize();
 		}
-		return __KernelLoadExec(currentMIPS, safeName.c_str(), 0, &error_string);
+		return __KernelLoadExec(mips, safeName.c_str(), 0, &error_string);
 	}
 	return hleDelayResult(hleNoLog(result), "module loaded", loadUs);
 }
@@ -2827,10 +2827,10 @@ static void __KernelLoadModuleDone(u64 userdata, int cyclesLate) {
 	__KernelReSchedule("module loaded");
 }
 
-static u32 sceKernelLoadModuleNpDrm(const char *name, u32 flags, u32 optionAddr) {
+static u32 sceKernelLoadModuleNpDrm(MIPSState *mips, const char *name, u32 flags, u32 optionAddr) {
 	// Just forward it, same parameters so the logging will make sense. The NPDRM EDAT wrapper these
 	// modules carry is stepped over in there, since that's keyed off the file's own magic.
-	return sceKernelLoadModule(name, flags, optionAddr);
+	return sceKernelLoadModule(mips, name, flags, optionAddr);
 }
 
 // The only thread attributes a SceKernelSMOption may carry (VFPU, SCRATCH_SRAM and 0x00F00000).
@@ -3189,10 +3189,10 @@ static u32 sceKernelStopUnloadSelfModuleWithStatus(u32 exitCode, u32 argSize, u3
 	return __KernelStopUnloadSelfModuleWithOrWithoutStatus(exitCode, argSize, argp, statusAddr, optionAddr, true);
 }
 
-void __KernelReturnFromModuleFunc() {
+void __KernelReturnFromModuleFunc(MIPSState *mips) {
 	// Return from the thread as normal.
 	hleSkipDeadbeef();
-	__KernelReturnFromThread();
+	__KernelReturnFromThread(mips);
 
 	SceUID leftModuleID = __KernelGetCurThreadModuleId();
 	SceUID leftThreadID = __KernelGetCurThread();
@@ -3225,7 +3225,7 @@ void __KernelReturnFromModuleFunc() {
 		{
 			if (module->nm.status == MODULE_STATUS_UNLOADING) {
 				// TODO: Maybe should maintain the exitCode?
-				hleCall(ThreadManForKernel, int, sceKernelTerminateDeleteThread, it->threadID);
+				hleCall(ThreadManForKernel, int, sceKernelTerminateDeleteThread, mips, it->threadID);
 			} else {
 				if (it->statusPtr != 0)
 					Memory::WriteOrException_U32(exitStatus, it->statusPtr);
@@ -3630,8 +3630,8 @@ bool DescribeModuleAddress(u32 address, char *buffer, size_t bufferSize) {
 }
 
 //fix for tiger x dragon
-static u32 sceKernelLoadModuleForLoadExecVSHDisc(const char *name, u32 flags, u32 optionAddr) {
-	return sceKernelLoadModule(name, flags, optionAddr);
+static u32 sceKernelLoadModuleForLoadExecVSHDisc(MIPSState *mips, const char *name, u32 flags, u32 optionAddr) {
+	return sceKernelLoadModule(mips, name, flags, optionAddr);
 }
 
 // How the VSH loads its own plugins - the XMB's UI lives in flash0:/vsh/module/*_plugin.prx and
@@ -3642,8 +3642,8 @@ static u32 sceKernelLoadModuleForLoadExecVSHDisc(const char *name, u32 flags, u3
 //
 // The apitype the name refers to only affects what the loaded module may itself do; loading is
 // otherwise the ordinary path, same as sceKernelLoadModuleForLoadExecVSHDisc above.
-static u32 sceKernelLoadModuleVSH(const char *name, u32 flags, u32 optionAddr) {
-	return sceKernelLoadModule(name, flags, optionAddr);
+static u32 sceKernelLoadModuleVSH(MIPSState *mips, const char *name, u32 flags, u32 optionAddr) {
+	return sceKernelLoadModule(mips, name, flags, optionAddr);
 }
 
 // Looks up an already-loaded module by the name in its module info, returning its uid.

@@ -1604,7 +1604,7 @@ static u32 sceUtilityGetSystemParamInt(u32 id, u32 destaddr) {
 	return hleLogInfo(Log::sceUtility, 0, "(%s): %08x", SystemParamToString(id), param);
 }
 
-static u32 sceUtilityLoadNetModule(u32 module) {
+static u32 sceUtilityLoadNetModule(MIPSState *mips, u32 module) {
 	// Driver 76 actually checks using sceKernelGetModuleIdList, so we load the HLE module here for checking
 	std::vector<const char *> mod_list;
 
@@ -1622,7 +1622,7 @@ static u32 sceUtilityLoadNetModule(u32 module) {
 	}
 
 	for (const char *mod_path : mod_list) {
-		int modid = (int)hleCall(ModuleMgrForUser, u32, sceKernelLoadModule, mod_path, 0, 0);
+		int modid = (int)hleCall(ModuleMgrForUser, u32, sceKernelLoadModule, mips, mod_path, 0, 0);
 		if (modid >= 0) {
 			hleCall(ModuleMgrForUser, u32, sceKernelStartModule, modid, 0, 0, 0, 0);
 		}

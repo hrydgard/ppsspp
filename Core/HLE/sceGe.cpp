@@ -392,7 +392,7 @@ static int __GeSubIntrBase(int callbackId) {
 	return callbackId * 2;
 }
 
-u32 sceGeListEnQueue(u32 listAddress, u32 stallAddress, int callbackId, u32 optParamAddr) {
+u32 sceGeListEnQueue(MIPSState *mips, u32 listAddress, u32 stallAddress, int callbackId, u32 optParamAddr) {
 	auto optParam = PSPPointer<PspGeListArgs>::Create(optParamAddr);
 
 	bool runList;
@@ -410,14 +410,14 @@ u32 sceGeListEnQueue(u32 listAddress, u32 stallAddress, int callbackId, u32 optP
 	hleCoreTimingForceCheck();
 	DEBUG_LOG(Log::sceGe,
 		"%08x=sceGeListEnQueue(addr=%08x, stall=%08x, cbid=%08x, param=%08x) ticks=%lld", listID,
-		listAddress, stallAddress, callbackId, optParamAddr, (long long)CoreTiming::GetTicks(currentMIPS));
+		listAddress, stallAddress, callbackId, optParamAddr, (long long)CoreTiming::GetTicks(mips));
 	return hleNoLog(listID); // We already logged above, logs get confusing if we use hleLogSuccess.
 }
 
-u32 sceGeListEnQueueHead(u32 listAddress, u32 stallAddress, int callbackId, u32 optParamAddr) {
+u32 sceGeListEnQueueHead(MIPSState *mips, u32 listAddress, u32 stallAddress, int callbackId, u32 optParamAddr) {
 	DEBUG_LOG(Log::sceGe,
 		"sceGeListEnQueueHead(addr=%08x, stall=%08x, cbid=%08x, param=%08x) ticks=%lld",
-		listAddress, stallAddress, callbackId, optParamAddr, (long long)CoreTiming::GetTicks(currentMIPS));
+		listAddress, stallAddress, callbackId, optParamAddr, (long long)CoreTiming::GetTicks(mips));
 	auto optParam = PSPPointer<PspGeListArgs>::Create(optParamAddr);
 
 	bool runList;

@@ -1126,12 +1126,12 @@ bool __KernelSwitchToThread(SceUID threadID, const char *reason)
 	return false;
 }
 
-void __KernelIdle()
+void __KernelIdle(MIPSState *mips)
 {
 	// Don't skip 0xDEADBEEF here, this is called directly bypassing CallSyscall().
 	// That means the hle flag would stick around until the next call.
 
-	CoreTiming::Idle(currentMIPS);
+	CoreTiming::Idle(mips);
 	// We Advance within __KernelReSchedule(), so anything that has now happened after idle
 	// will be triggered properly upon reschedule.
 	__KernelReSchedule("idle");
@@ -1226,7 +1226,7 @@ SceUID __KernelGetCurrentCallbackID(SceUID threadID, u32 &error) {
 	}
 }
 
-u32 sceKernelReferThreadStatus(u32 threadID, u32 statusPtr) {
+u32 sceKernelReferThreadStatus(MIPSState *mips, u32 threadID, u32 statusPtr) {
 	static const u32 THREADINFO_SIZE = 104;
 	static const u32 THREADINFO_SIZE_AFTER_260 = 108;
 
@@ -1242,7 +1242,7 @@ u32 sceKernelReferThreadStatus(u32 threadID, u32 statusPtr) {
 	}
 
 	if (!Memory::IsValid4AlignedAddress(statusPtr)) {
-		Core_MemoryExceptionHLE(currentMIPS, statusPtr, 0, MemoryExceptionType::HLE_READ);
+		Core_MemoryExceptionHLE(mips, statusPtr, 0, MemoryExceptionType::HLE_READ);
 		return hleNoLog(0);
 	}
 
@@ -1714,7 +1714,7 @@ u32 __KernelDeleteThread(SceUID threadID, int exitStatus, const char *reason)
 		t->Cleanup();
 
 		// Before triggering, set v0.  It'll be restored if one is called.
-		RETURN(error);
+		currentMIPS->r[MIPS_REG_V0] = error;
 		t->nt.status = THREADSTATUS_DEAD;
 
 		if (__KernelThreadTriggerEvent((t->nt.attr & PSP_THREAD_ATTR_KERNEL) != 0, threadID, THREADEVENT_DELETE)) {
@@ -1725,7 +1725,7 @@ u32 __KernelDeleteThread(SceUID threadID, int exitStatus, const char *reason)
 			return kernelObjects.Destroy<PSPThread>(threadID);
 		}
 	} else {
-		RETURN(error);
+		currentMIPS->r[MIPS_REG_V0] = error;
 		return error;
 	}
 }
@@ -1955,12 +1955,12 @@ void __KernelReSchedule(bool doCallbacks, const char *reason)
 	}
 }
 
-int sceKernelCheckThreadStack()
+int sceKernelCheckThreadStack(MIPSState *mips)
 {
 	u32 error;
 	PSPThread *t = kernelObjects.Get<PSPThread>(__KernelGetCurThread(), error);
 	if (t) {
-		u32 diff = labs((long)((s64)currentMIPS->r[MIPS_REG_SP] - (s64)t->currentStack.start));
+		u32 diff = labs((long)((s64)mips->r[MIPS_REG_SP] - (s64)t->currentStack.start));
 		DEBUG_LOG(Log::sceKernel, "%i=sceKernelCheckThreadStack()", diff);
 		return diff;
 	} else {
@@ -2201,7 +2201,7 @@ int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32
 	hleReSchedule("thread created");
 
 	// Before triggering, set v0, since we restore on return.
-	RETURN(id);
+	currentMIPS->r[MIPS_REG_V0] = id;
 	const bool handled = __KernelThreadTriggerEvent((attr & PSP_THREAD_ATTR_KERNEL) != 0, id, THREADEVENT_CREATE);
 	if (busyCyclesOut && !handled) {
 		*busyCyclesOut = fillCycles;
@@ -2294,7 +2294,7 @@ int __KernelStartThread(SceUID threadToStartID, int argSize, u32 argBlockPtr, bo
 
 	// Need to write out v0 before triggering event.
 	// TODO: Technically the wrong place.  This should trigger when the thread actually starts (e.g. if suspended.)
-	RETURN(0);
+	currentMIPS->r[MIPS_REG_V0] = 0;
 	__KernelThreadTriggerEvent((startThread->nt.attr & PSP_THREAD_ATTR_KERNEL) != 0, threadToStartID, THREADEVENT_START);
 	return 0;
 }
@@ -2361,11 +2361,11 @@ int sceKernelGetThreadStackFreeSize(SceUID threadID) {
 // What a thread ending costs, besides the switch away from it.
 static const int THREAD_EXIT_CYCLES = 3300;
 
-void __KernelReturnFromThread()
+void __KernelReturnFromThread(MIPSState *mips)
 {
 	hleSkipDeadbeef();
 
-	int exitStatus = currentMIPS->r[MIPS_REG_V0];
+	int exitStatus = mips->r[MIPS_REG_V0];
 	PSPThread *thread = __GetCurrentThread();
 	_dbg_assert_msg_(thread != NULL, "Returned from a NULL thread.");
 
@@ -2541,7 +2541,7 @@ int sceKernelDeleteThread(int threadID) {
 	}
 }
 
-int sceKernelTerminateDeleteThread(int threadID) {
+int sceKernelTerminateDeleteThread(MIPSState *mips, int threadID) {
 	if (threadID == 0 || threadID == currentThread) {
 		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_THID, "cannot terminate current thread");
 	}
@@ -2571,7 +2571,7 @@ int sceKernelTerminateDeleteThread(int threadID) {
 	}
 }
 
-int sceKernelTerminateThread(SceUID threadID) {
+int sceKernelTerminateThread(MIPSState *mips, SceUID threadID) {
 	if (__IsInInterrupt() && sceKernelGetCompiledSdkVersion() >= 0x03080000) {
 		return hleLogError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_CONTEXT, "in interrupt");
 	}
@@ -3156,7 +3156,7 @@ int sceKernelReferCallbackStatus(SceUID cbId, u32 statusAddr) {
 	}
 }
 
-u32 sceKernelExtendThreadStack(u32 size, u32 entryAddr, u32 entryParameter) {
+u32 sceKernelExtendThreadStack(MIPSState *mips, u32 size, u32 entryAddr, u32 entryParameter) {
 	if (size < 512) {
 		return hleReportError(Log::sceKernel, SCE_KERNEL_ERROR_ILLEGAL_STACK_SIZE, "stack size too small");
 	}
@@ -3171,23 +3171,23 @@ u32 sceKernelExtendThreadStack(u32 size, u32 entryAddr, u32 entryParameter) {
 	// The stack has been changed now, so it's do or die time.
 
 	// Push the old SP, RA, and PC onto the stack (so we can restore them later.)
-	Memory::WriteOrException_U32(currentMIPS->r[MIPS_REG_RA], thread->currentStack.end - 4);
-	Memory::WriteOrException_U32(currentMIPS->r[MIPS_REG_SP], thread->currentStack.end - 8);
-	Memory::WriteOrException_U32(currentMIPS->pc, thread->currentStack.end - 12);
+	Memory::WriteOrException_U32(mips->r[MIPS_REG_RA], thread->currentStack.end - 4);
+	Memory::WriteOrException_U32(mips->r[MIPS_REG_SP], thread->currentStack.end - 8);
+	Memory::WriteOrException_U32(mips->pc, thread->currentStack.end - 12);
 
 	KernelValidateThreadTarget(entryAddr);
 
-	currentMIPS->pc = entryAddr;
-	currentMIPS->r[MIPS_REG_A0] = entryParameter;
-	currentMIPS->r[MIPS_REG_RA] = extendReturnHackAddr;
+	mips->pc = entryAddr;
+	mips->r[MIPS_REG_A0] = entryParameter;
+	mips->r[MIPS_REG_RA] = extendReturnHackAddr;
 	// Stack should stay aligned even though we saved only 3 regs.
-	currentMIPS->r[MIPS_REG_SP] = thread->currentStack.end - 0x10;
+	mips->r[MIPS_REG_SP] = thread->currentStack.end - 0x10;
 
 	hleSkipDeadbeef();
 	return hleLogDebug(Log::sceKernel, 0);
 }
 
-void __KernelReturnFromExtendStack() {
+void __KernelReturnFromExtendStack(MIPSState *mips) {
 	hleSkipDeadbeef();
 
 	PSPThread *thread = __GetCurrentThread();
@@ -3198,7 +3198,7 @@ void __KernelReturnFromExtendStack() {
 	}
 
 	if (!Memory::IsValid4AlignedRange(thread->currentStack.end - 12, 12)) {
-		Core_MemoryExceptionHLE(currentMIPS, thread->currentStack.end, 12, MemoryExceptionType::HLE_READ);
+		Core_MemoryExceptionHLE(mips, thread->currentStack.end, 12, MemoryExceptionType::HLE_READ);
 		hleNoLogVoid();
 		return;
 	}
@@ -3216,9 +3216,9 @@ void __KernelReturnFromExtendStack() {
 	KernelValidateThreadTarget(restorePC);
 
 	DEBUG_LOG(Log::sceKernel, "__KernelReturnFromExtendStack()");
-	currentMIPS->r[MIPS_REG_RA] = restoreRA;
-	currentMIPS->r[MIPS_REG_SP] = restoreSP;
-	currentMIPS->pc = restorePC;
+	mips->r[MIPS_REG_RA] = restoreRA;
+	mips->r[MIPS_REG_SP] = restoreSP;
+	mips->pc = restorePC;
 
 	// We retain whatever is in v0/v1, it gets passed on to the caller of sceKernelExtendThreadStack().
 	hleNoLogVoid();
@@ -3586,7 +3586,7 @@ bool __KernelExecuteMipsCallOnCurrentThread(u32 callId, bool reschedAfter)
 	return true;
 }
 
-void __KernelReturnFromMipsCall() {
+void __KernelReturnFromMipsCall(MIPSState *mips) {
 	hleSkipDeadbeef();
 
 	PSPThread *cur = __GetCurrentThread();
@@ -3603,7 +3603,7 @@ void __KernelReturnFromMipsCall() {
 	}
 
 	// Value returned by the callback function
-	u32 retVal = currentMIPS->r[MIPS_REG_V0];
+	u32 retVal = mips->r[MIPS_REG_V0];
 	DEBUG_LOG(Log::sceKernel, "__KernelReturnFromMipsCall(), returned %08x", retVal);
 
 	// TODO: Should also save/restore wait state here?
@@ -3615,28 +3615,28 @@ void __KernelReturnFromMipsCall() {
 		call->doAfter = nullptr;
 	}
 
-	u32 sp = currentMIPS->r[MIPS_REG_SP];
+	u32 sp = mips->r[MIPS_REG_SP];
 	if (!Memory::IsValid4AlignedRange(sp, 32 * 4)) {
 		// We're really screwed.
-		Core_MemoryExceptionHLE(currentMIPS, sp, 4, MemoryExceptionType::HLE_READ);
+		Core_MemoryExceptionHLE(mips, sp, 4, MemoryExceptionType::HLE_READ);
 		return hleNoLogVoid();
 	}
 
 	for (int i = MIPS_REG_A0; i <= MIPS_REG_T7; ++i) {
-		currentMIPS->r[i] = Memory::ReadUnchecked_U32(sp + i * 4);
+		mips->r[i] = Memory::ReadUnchecked_U32(sp + i * 4);
 	}
-	currentMIPS->r[MIPS_REG_T8] = Memory::ReadUnchecked_U32(sp + MIPS_REG_T8 * 4);
-	currentMIPS->r[MIPS_REG_T9] = Memory::ReadUnchecked_U32(sp + MIPS_REG_T9 * 4);
-	currentMIPS->r[MIPS_REG_RA] = Memory::ReadUnchecked_U32(sp + MIPS_REG_RA * 4);
+	mips->r[MIPS_REG_T8] = Memory::ReadUnchecked_U32(sp + MIPS_REG_T8 * 4);
+	mips->r[MIPS_REG_T9] = Memory::ReadUnchecked_U32(sp + MIPS_REG_T9 * 4);
+	mips->r[MIPS_REG_RA] = Memory::ReadUnchecked_U32(sp + MIPS_REG_RA * 4);
 	// Increment SP.
-	currentMIPS->r[MIPS_REG_SP] += 32 * 4;
+	mips->r[MIPS_REG_SP] += 32 * 4;
 
 	KernelValidateThreadTarget(call->savedPc);
 
-	currentMIPS->pc = call->savedPc;
+	mips->pc = call->savedPc;
 	// This is how we set the return value.
-	currentMIPS->r[MIPS_REG_V0] = call->savedV0;
-	currentMIPS->r[MIPS_REG_V1] = call->savedV1;
+	mips->r[MIPS_REG_V0] = call->savedV0;
+	mips->r[MIPS_REG_V1] = call->savedV1;
 	cur->currentMipscallId = call->savedId;
 
 	if (cur->nt.waitType != WAITTYPE_NONE && (cur->nt.status & THREADSTATUS_WAIT) != 0 && call->cbId > 0) {
@@ -3863,7 +3863,7 @@ bool __KernelForceCallbacks() {
 }
 
 // Not wrapped because it has special return logic.
-void sceKernelCheckCallback() {
+void sceKernelCheckCallback(MIPSState *mips) {
 	// Unlike CB waits, this refuses to run callbacks from inside one.
 	if (__KernelIsInCallbackOnThread(__GetCurrentThread())) {
 		DEBUG_LOG(Log::sceKernel, "sceKernelCheckCallback() - in a callback, refused.");

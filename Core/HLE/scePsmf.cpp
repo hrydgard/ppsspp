@@ -975,7 +975,7 @@ static u32 scePsmfGetPsmfVersion(u32 psmfStruct)
 	return hleLogDebug(Log::ME, psmf->version);
 }
 
-static u32 scePsmfVerifyPsmf(u32 psmfAddr)
+static u32 scePsmfVerifyPsmf(MIPSState *mips, u32 psmfAddr)
 {
 	if (!Memory::IsValid4AlignedRange(psmfAddr, 12)) {
 		return hleLogError(Log::ME, SCE_PSMF_ERROR_NOT_FOUND, "bad address");
@@ -990,7 +990,7 @@ static u32 scePsmfVerifyPsmf(u32 psmfAddr)
 	}
 	// Kurohyou 2 (at least the demo) uses an uninitialized value that happens to be zero on the PSP.
 	// It appears to be written by scePsmfVerifyPsmf(), so we write some bytes into the stack here.
-	Memory::Memset(currentMIPS->r[MIPS_REG_SP] - 0x20, 0, 0x20, "PsmfStack");
+	Memory::Memset(mips->r[MIPS_REG_SP] - 0x20, 0, 0x20, "PsmfStack");
 	return hleLogDebug(Log::ME, 0);
 }
 

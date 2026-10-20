@@ -487,7 +487,7 @@ u32 sceKernelReferVTimerStatus(SceUID uid, u32 statusAddr) {
 }
 
 // Not sure why this is exposed...
-void _sceKernelReturnFromTimerHandler() {
+void _sceKernelReturnFromTimerHandler(MIPSState *mips) {
 	ERROR_LOG_REPORT(Log::sceKernel,"_sceKernelReturnFromTimerHandler - should not be called!");
 	return hleNoLogVoid();
 }

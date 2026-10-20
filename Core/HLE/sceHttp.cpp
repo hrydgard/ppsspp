@@ -321,8 +321,8 @@ int sceHttpSetResolveRetry(int id, int retryCount) {
 	return hleLogDebug(Log::sceNet, 0);
 }
 
-static int sceHttpInit(int poolSize) {
-	WARN_LOG(Log::sceNet, "UNTESTED sceHttpInit(%i) at %08x", poolSize, currentMIPS->pc);
+static int sceHttpInit(MIPSState *mips, int poolSize) {
+	WARN_LOG(Log::sceNet, "UNTESTED sceHttpInit(%i) at %08x", poolSize, mips->pc);
 	if (httpInited)
 		return hleLogError(Log::sceNet, SCE_HTTP_ERROR_ALREADY_INITED, "http already inited");
 
@@ -675,8 +675,8 @@ static int sceHttpLoadSystemCookie() {
 }
 
 // PSP Browser seems to set userAgent to 0 and later set the User-Agent header using sceHttpAddExtraHeader
-static int sceHttpCreateTemplate(const char *userAgent, int httpVer, int autoProxyConf) {
-	WARN_LOG(Log::sceNet, "UNTESTED sceHttpCreateTemplate(%s, %d, %d) at %08x", safe_string(userAgent), httpVer, autoProxyConf, currentMIPS->pc);
+static int sceHttpCreateTemplate(MIPSState *mips, const char *userAgent, int httpVer, int autoProxyConf) {
+	WARN_LOG(Log::sceNet, "UNTESTED sceHttpCreateTemplate(%s, %d, %d) at %08x", safe_string(userAgent), httpVer, autoProxyConf, mips->pc);
 	// Reporting to find more games to be tested
 	WARN_LOG_REPORT_ONCE(sceHttpCreateTemplate, Log::sceNet, "UNTESTED sceHttpCreateTemplate(%s, %d, %d)", safe_string(userAgent), httpVer, autoProxyConf);
 	std::lock_guard<std::mutex> guard(httpLock);

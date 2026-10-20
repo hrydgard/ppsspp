@@ -25,10 +25,10 @@
 #include "Core/HLE/sceKernelModule.h"
 #include "Core/Config.h"
 
-static int kuKernelLoadModule(const char *path, uint32_t flags, uint32_t lmOptionAddr) {
+static int kuKernelLoadModule(MIPSState *mips, const char *path, uint32_t flags, uint32_t lmOptionAddr) {
 	INFO_LOG(Log::sceKernel, "kuKernelLoadModule - forwarding to sceKernelLoadModule");
 	// Simply forward the call, like JPSCP does.
-	return sceKernelLoadModule(path, flags, lmOptionAddr);
+	return sceKernelLoadModule(mips, path, flags, lmOptionAddr);
 }
 
 static int kuKernelGetModel() {

@@ -32,7 +32,7 @@ u64 sceKernelGetVTimerTimeWide(SceUID uid);
 u32 sceKernelSetVTimerTime(SceUID uid, u32 timeClockAddr);
 u64 sceKernelSetVTimerTimeWide(SceUID uid, u64 timeClock);
 
-void _sceKernelReturnFromTimerHandler();
+void _sceKernelReturnFromTimerHandler(MIPSState *mips);
 
 void __KernelVTimerInit();
 void __KernelVTimerDoState(PointerWrap &p);

@@ -191,7 +191,7 @@ namespace MIPSInt {
 		mips->inDelaySlot = false;
 		// HLE code is host code - it must not run under the guest's rounding mode.
 		RestoreHostRoundingMode();
-		CallSyscallWithPC(op, syscallPC);
+		CallSyscallWithPC(mips, op, syscallPC);
 		ApplyHostRoundingMode(mips);
 	}
 
@@ -1269,7 +1269,7 @@ namespace MIPSInt {
 		if (entry && entry->replaceFunc && (entry->flags & REPFLAG_DISABLED) == 0) {
 			// Like a syscall, a replacement function is host code - see Int_Syscall.
 			RestoreHostRoundingMode();
-			int cycles = entry->replaceFunc();
+			int cycles = entry->replaceFunc(mips);
 			ApplyHostRoundingMode(mips);
 
 			if (entry->flags & (REPFLAG_HOOKENTER | REPFLAG_HOOKEXIT)) {
