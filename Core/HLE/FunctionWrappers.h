@@ -629,6 +629,12 @@ template<auto func> void WrapI_CUUUUU(MIPSState *mips) {
 	RETURN(retval);
 }
 
+template<auto func> void WrapU_CCU(MIPSState *mips) {
+	u32 retval = HLECall<u32(const char *, const char *, u32), func>(mips, Memory::GetCharPointer(PARAM(0)),
+			Memory::GetCharPointer(PARAM(1)), PARAM(2));
+	RETURN(retval);
+}
+
 template<auto func> void WrapU_CU(MIPSState *mips) {
 	u32 retval = HLECall<u32(const char *, u32), func>(mips, Memory::GetCharPointer(PARAM(0)), PARAM(1));
 	RETURN((u32) retval);

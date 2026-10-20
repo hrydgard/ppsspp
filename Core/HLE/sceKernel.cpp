@@ -26,6 +26,7 @@
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/ErrorCodes.h"
+#include "Core/HLE/KUBridge.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSCodeUtils.h"
 #include "Core/MIPS/Interpreter.h"
@@ -158,6 +159,7 @@ void __KernelInit()
 	__NetAdhocMatchingInit();
 	__VaudioInit();
 	__CheatInit();
+	__KUBridgeInit();
 	__HeapInit();
 	__DmacInit();
 	__AudioCodecInit();
@@ -296,6 +298,7 @@ void __KernelDoState(PointerWrap &p)
 		__MpegDoState(p);
 		__MpegBaseDoState(p);
 		__VideocodecDoState(p);
+		__KUBridgeDoState(p);
 		__NetDoState(p);
 		__NetAdhocDoState(p);
 		__PowerDoState(p);

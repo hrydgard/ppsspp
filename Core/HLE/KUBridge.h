@@ -17,4 +17,8 @@
 
 #pragma once
 
+class PointerWrap;
+
 void Register_KUBridge();
+void __KUBridgeInit();
+void __KUBridgeDoState(PointerWrap &p);
