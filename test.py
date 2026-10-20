@@ -487,6 +487,7 @@ tests_good = [
   "threads/tls/create",
   "threads/tls/partition",
   "threads/tls/kernel/partition",
+  "threads/threads/kernel/priority",
   "threads/tls/delete",
   "threads/tls/get",
   "threads/tls/free",

@@ -2139,7 +2139,10 @@ int __KernelCreateThread(const char *threadName, SceUID moduleID, u32 entry, u32
 		WARN_LOG_REPORT(Log::sceKernel, "bogus thread stack size %08x", stacksize);
 		return SCE_KERNEL_ERROR_ILLEGAL_STACK_SIZE;
 	}
-	if (prio < 0x08 || prio > 0x77) {
+	// A kernel caller may also use 0x01-0x07 and 0x78-0x7E (threads/threads/kernel/priority).
+	const u32 minPrio = allowKernel ? 0x01 : 0x08;
+	const u32 maxPrio = allowKernel ? 0x7E : 0x77;
+	if (prio < minPrio || prio > maxPrio) {
 		WARN_LOG(Log::sceKernel, "bogus thread priority %08x", prio);
 		return SCE_KERNEL_ERROR_ILLEGAL_PRIORITY;
 	}
