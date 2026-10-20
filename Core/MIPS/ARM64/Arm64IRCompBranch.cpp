@@ -60,7 +60,7 @@ void Arm64JitBackend::CompIR_Exit(IRInst inst) {
 			B(hooks_.dispatcher);
 			SetJumpTarget(inTime);
 			ANDI2R(SCRATCH1, SCRATCH1, Memory::BLOCK_SHADOW_ENTRY_MASK);
-			MOVP2R(SCRATCH2_64, Memory::blockShadow);
+			MOVP2R(SCRATCH2_64, mips_->space->blockShadow);
 			LDR(SCRATCH1, SCRATCH2_64, SCRATCH1_64);
 			FixupBranch found = CBNZ(SCRATCH1);
 			B(dispatcherNoCheck_);

@@ -90,6 +90,7 @@ IRJit::IRJit(MIPSState *mipsState, bool compileToNative) : frontend_(mipsState->
 	frontend_.SetOptions(opts);
 
 	profiling_ = !g_Config.sJitProfileFile.empty();
+	blocks_.SetAddressSpace(mipsState->space);
 }
 
 IRJit::~IRJit() {
@@ -190,7 +191,7 @@ void IRJit::InvalidateBlock(int block_num) {
 	// Before Destroy, which forgets the block's address. Blocks linked to it jump straight in.
 	InvalidateTargetBlock(block_num);
 	blocks_.RemoveBlockFromPageLookup(block_num);
-	block->Destroy();
+	block->Destroy(blocks_.Space());
 }
 
 void IRJit::InvalidateCacheExcept(const std::vector<std::pair<u32, u32>> &keep) {
@@ -358,7 +359,7 @@ void IRInterpreterJit::RunBlocks() {
 		while (mips->downcount >= 0) {
 			// The block's offset into the IR arena, or 0 for none, or a replacement hook (handled by
 			// compiling a block).
-			const u32 offset = *Memory::GetBlockShadowEntry(mips->pc);
+			const u32 offset = *mips->space->GetBlockShadowEntry(mips->pc);
 			static_assert(Memory::BLOCK_SHADOW_HOOK_NO_JIT == 1, "IR arena reserves offsets 0 and 1");
 			if (offset > Memory::BLOCK_SHADOW_HOOK_NO_JIT) {
 				const IRInst *instPtr = arena_.data() + offset;
@@ -407,7 +408,7 @@ void IRInterpreterJit::RunBlocks() {
 
 void JitBlockTable::Clear() {
 	for (JitBlock &block : blocks_) {
-		block.Destroy();
+		block.Destroy(*space_);
 	}
 	blocks_.clear();
 	byPage_.clear();
@@ -473,7 +474,7 @@ std::vector<int> JitBlockTable::FindInvalidatedBlockNumbers(u32 address, u32 len
 void JitBlockTable::FinalizeBlock(int blockIndex) {
 	// TODO: What's different about preload blocks?
 	JitBlock &block = blocks_[blockIndex];
-	block.Finalize();
+	block.Finalize(*space_);
 
 	u32 startAddr, size;
 	block.GetRange(&startAddr, &size);
@@ -551,24 +552,24 @@ int JitBlockTable::GetBlockNumberFromStartAddress(u32 em_address) const {
 	return best;
 }
 
-void JitBlock::Finalize() {
+void JitBlock::Finalize(const Memory::AddressSpace &space) {
 	// Check it wasn't invalidated, in case this is after preload.
 	// TODO: Allow reusing blocks when the code matches hash_ again, instead.
 	if (origAddr_ && Memory::IsValid4AlignedAddress(origAddr_)) {
 		origFirstOpcode_ = Memory::ReadUnchecked_Instruction(origAddr_);
 		_dbg_assert_(entry_ != 0);
-		Memory::WriteBlockShadow(origAddr_, entry_);
+		space.WriteBlockShadow(origAddr_, entry_);
 	} else {
 		WARN_LOG(Log::JIT, "Finalizing invalid block (entry: %d)", entry_);
 	}
 }
 
-void JitBlock::Destroy() {
+void JitBlock::Destroy(const Memory::AddressSpace &space) {
 	if (origAddr_ && Memory::IsValid4AlignedAddress(origAddr_)) {
 		// A block at a mirror may have taken over the entry, leave that alone. One that never got an
 		// entry (the arena or code space filled while compiling it) has nothing in the shadow.
 		if (entry_ != 0)
-			Memory::ClearBlockShadow(origAddr_, entry_);
+			space.ClearBlockShadow(origAddr_, entry_);
 		// Let's mark this invalid so we don't try to clear it again.
 		origAddr_ = 0;
 	}

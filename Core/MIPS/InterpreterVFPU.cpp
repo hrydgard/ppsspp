@@ -262,7 +262,7 @@ namespace MIPSInt
 					}
 					// It's an LVL
 					for (int i = 0; i < offset + 1; i++) {
-						d[3 - i] = valid ? Memory::ReadUnchecked_Float(addr - 4 * i) : 0.0f;
+						d[3 - i] = valid ? mips->space->ReadUnchecked_Float(addr - 4 * i) : 0.0f;
 					}
 				} else {
 					if (!valid) {
@@ -270,7 +270,7 @@ namespace MIPSInt
 					}
 					// It's an LVR
 					for (int i = 0; i < (3 - offset) + 1; i++) {
-						d[i] = valid ? Memory::ReadUnchecked_Float(addr + 4 * i) : 0.0f;
+						d[i] = valid ? mips->space->ReadUnchecked_Float(addr + 4 * i) : 0.0f;
 					}
 				}
 				WriteLoadedVector(mips, d, vt);
@@ -288,15 +288,15 @@ namespace MIPSInt
 			}
 
 #ifndef COMMON_BIG_ENDIAN
-			cf = reinterpret_cast<const float *>(Memory::GetPointerUnchecked(addr));
+			cf = reinterpret_cast<const float *>(mips->space->GetPointerUnchecked(addr));
 			WriteLoadedVector(mips, cf, vt);
 #else
 			float lvqd[4];
 
-			lvqd[0] = Memory::ReadUnchecked_Float(addr);
-			lvqd[1] = Memory::ReadUnchecked_Float(addr + 4);
-			lvqd[2] = Memory::ReadUnchecked_Float(addr + 8);
-			lvqd[3] = Memory::ReadUnchecked_Float(addr + 12);
+			lvqd[0] = mips->space->ReadUnchecked_Float(addr);
+			lvqd[1] = mips->space->ReadUnchecked_Float(addr + 4);
+			lvqd[2] = mips->space->ReadUnchecked_Float(addr + 8);
+			lvqd[3] = mips->space->ReadUnchecked_Float(addr + 12);
 
 			WriteLoadedVector(mips, lvqd, vt);
 #endif
@@ -315,7 +315,7 @@ namespace MIPSInt
 					// It's an SVL
 					for (int i = 0; i < offset + 1; i++)
 					{
-						Memory::WriteUnchecked_Float(d[3 - i], addr - i * 4);
+						mips->space->WriteUnchecked_Float(d[3 - i], addr - i * 4);
 					}
 				} else {
 					if (!Memory::IsValid4AlignedAddress(addr)) {
@@ -324,7 +324,7 @@ namespace MIPSInt
 					}
 					// It's an SVR
 					for (int i = 0; i < (3 - offset) + 1; i++) {
-						Memory::WriteUnchecked_Float(d[i], addr + 4 * i);
+						mips->space->WriteUnchecked_Float(d[i], addr + 4 * i);
 					}
 				}
 				break;
@@ -337,7 +337,7 @@ namespace MIPSInt
 				break;
 			}
 #ifndef COMMON_BIG_ENDIAN
-			f = reinterpret_cast<float *>(Memory::GetPointerWriteUnchecked(addr));
+			f = reinterpret_cast<float *>(mips->space->GetPointerUnchecked(addr));
 			if (f) {
 				ReadVector(mips, f, V_Quad, vt);
 			}
@@ -345,10 +345,10 @@ namespace MIPSInt
 			float svqd[4];
 			ReadVector(mips, svqd, V_Quad, vt);
 
-			Memory::WriteUnchecked_Float(svqd[0], addr);
-			Memory::WriteUnchecked_Float(svqd[1], addr + 4);
-			Memory::WriteUnchecked_Float(svqd[2], addr + 8);
-			Memory::WriteUnchecked_Float(svqd[3], addr + 12);
+			mips->space->WriteUnchecked_Float(svqd[0], addr);
+			mips->space->WriteUnchecked_Float(svqd[1], addr + 4);
+			mips->space->WriteUnchecked_Float(svqd[2], addr + 8);
+			mips->space->WriteUnchecked_Float(svqd[3], addr + 12);
 #endif
 			break;
 
@@ -1750,14 +1750,14 @@ namespace MIPSInt
 				VI(vt) = 0;
 				break;
 			}
-			VI(vt) = Memory::ReadUnchecked_U32(addr);
+			VI(vt) = mips->space->ReadUnchecked_U32(addr);
 			break;
 		case 58: //sv.s
 			if (!Memory::IsValid4AlignedAddress(addr)) {
 				Core_MemoryException(addr, 4, PC, MemoryExceptionType::WRITE_WORD, "sv.s");
 				break;
 			}
-			Memory::WriteUnchecked_U32(VI(vt), addr);
+			mips->space->WriteUnchecked_U32(VI(vt), addr);
 			break;
 		default:
 			_dbg_assert_msg_(false,"Trying to interpret instruction that can't be interpreted");

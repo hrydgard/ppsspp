@@ -33,6 +33,7 @@
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Core/ConfigValues.h"
 #include "Core/MIPS/MIPS.h"
+#include "Core/MemMap.h"
 #include "Core/MIPS/Interpreter.h"
 #include "Core/MIPS/MIPSTables.h"
 #include "Core/MIPS/MIPSDebugInterface.h"
@@ -232,6 +233,8 @@ const float cst_constants[32] = {
 };
 
 MIPSState::MIPSState() {
+	space = &Memory::g_mainSpace;
+
 	// Initialize vorder
 
 	// This reordering of the VFPU registers in RAM means that instead of being like this:

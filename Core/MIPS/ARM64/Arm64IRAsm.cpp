@@ -51,6 +51,7 @@ static void ShowPC(void *membase, void *jitbase) {
 }
 
 void Arm64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
+	regs_.SetMemoryBase(mipsState->space->base);
 	// This will be used as a writable scratch area, always 32-bit accessible.
 	const u8 *start = AlignCodePage();
 	if (DebugProfilerEnabled()) {
@@ -155,7 +156,7 @@ void Arm64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	fp_.ABI_PushRegisters(regs_to_save, regs_to_save_fp);
 
 	// Fixed registers, these are always kept when in Jit context.
-	MOVP2R(MEMBASEREG, Memory::base);
+	MOVP2R(MEMBASEREG, mipsState->space->base);
 	MOVP2R(CTXREG, mipsState);
 	MOVP2R(JITBASEREG, GetBasePtr());
 
@@ -205,7 +206,7 @@ void Arm64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 			MovFromPC(SCRATCH1);
 			WriteDebugPC(SCRATCH1);
 			ANDI2R(SCRATCH1, SCRATCH1, Memory::BLOCK_SHADOW_ENTRY_MASK);
-			MOVP2R(SCRATCH2_64, Memory::blockShadow);
+			MOVP2R(SCRATCH2_64, mipsState->space->blockShadow);
 			hooks_.dispatchFetch = GetCodePtr();
 			LDR(SCRATCH1, SCRATCH2_64, SCRATCH1_64);
 			// The entry is the block's offset into the code space, or 0 for none.

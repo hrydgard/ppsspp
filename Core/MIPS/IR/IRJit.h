@@ -80,8 +80,9 @@ public:
 		return hash_;
 	}
 
-	void Finalize();
-	void Destroy();
+	// Enter the block in the space's block shadow, and take it out.
+	void Finalize(const Memory::AddressSpace &space);
+	void Destroy(const Memory::AddressSpace &space);
 
 	// Only filled in by the IR interpreter, when profiling.
 	JitBlockProfileStats profileStats_{};
@@ -103,6 +104,14 @@ class JitBlockTable {
 public:
 	~JitBlockTable() {
 		Clear();
+	}
+
+	// Whose block shadow the blocks go in.
+	void SetAddressSpace(const Memory::AddressSpace *space) {
+		space_ = space;
+	}
+	const Memory::AddressSpace &Space() const {
+		return *space_;
 	}
 
 	void Clear();
@@ -142,6 +151,7 @@ private:
 	u32 AddressToPage(u32 addr) const;
 	std::vector<JitBlock> blocks_;
 	std::unordered_map<u32, std::vector<int>> byPage_;
+	const Memory::AddressSpace *space_ = nullptr;
 };
 
 class IRJit;

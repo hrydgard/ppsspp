@@ -311,6 +311,43 @@ inline void WriteUnchecked_U8(u8 data, u32 address) {
 #endif
 }
 
+// What one CPU sees of memory: where its addresses point (base) and its block shadow. The main CPU's
+// is g_mainSpace, which follows base and blockShadow above. The CPU cores go through their
+// MIPSState's, so another CPU (the Media Engine) can have its own.
+struct AddressSpace {
+	u8 *base = nullptr;
+	u8 *blockShadow = nullptr;
+
+	u8 *GetPointerUnchecked(u32 address) const {
+#ifdef MASKED_PSP_MEMORY
+		return base + (address & MEMVIEW32_MASK);
+#else
+		return base + address;
+#endif
+	}
+
+	u8 ReadUnchecked_U8(u32 address) const { return *GetPointerUnchecked(address); }
+	u16 ReadUnchecked_U16(u32 address) const { return *(u16_le *)GetPointerUnchecked(DepthMirrored16(address)); }
+	u32 ReadUnchecked_U32(u32 address) const { return *(u32_le *)GetPointerUnchecked(address); }
+	u64 ReadUnchecked_U64(u32 address) const { return *(u64_le *)GetPointerUnchecked(address); }
+	float ReadUnchecked_Float(u32 address) const { return *(float_le *)GetPointerUnchecked(address); }
+	void WriteUnchecked_U8(u8 data, u32 address) const { *GetPointerUnchecked(address) = data; }
+	void WriteUnchecked_U16(u16 data, u32 address) const { *(u16_le *)GetPointerUnchecked(DepthMirrored16(address)) = data; }
+	void WriteUnchecked_U32(u32 data, u32 address) const { *(u32_le *)GetPointerUnchecked(address) = data; }
+	void WriteUnchecked_U64(u64 data, u32 address) const { *(u64_le *)GetPointerUnchecked(address) = data; }
+	void WriteUnchecked_Float(float data, u32 address) const { *(float_le *)GetPointerUnchecked(address) = data; }
+
+	u32 *GetBlockShadowEntry(u32 address) const {
+		return (u32 *)(blockShadow + (address & BLOCK_SHADOW_ENTRY_MASK));
+	}
+	// As the functions of the same name above, for this space's shadow.
+	u32 ReadBlockShadow(u32 address) const;
+	void WriteBlockShadow(u32 address, u32 value) const;
+	bool ClearBlockShadow(u32 address, u32 value) const;
+};
+
+extern AddressSpace g_mainSpace;
+
 void WriteOrException_U8(const u8 data, const u32 address);
 void WriteOrException_U16(const u16 data, const u32 address);
 void WriteOrException_U32(const u32 data, const u32 address);

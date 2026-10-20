@@ -57,7 +57,7 @@ void LoongArch64JitBackend::CompIR_Exit(IRInst inst) {
 			SetJumpTarget(inTime);
 			LI(SCRATCH2, (u32)Memory::BLOCK_SHADOW_ENTRY_MASK);
 			AND(SCRATCH1, SCRATCH1, SCRATCH2);
-			LI(SCRATCH2, Memory::blockShadow);
+			LI(SCRATCH2, mips_->space->blockShadow);
 			LDX_WU(SCRATCH1, SCRATCH2, SCRATCH1);
 			FixupBranch found = BNEZ(SCRATCH1);
 			QuickJ(R_RA, dispatcherNoCheck_);

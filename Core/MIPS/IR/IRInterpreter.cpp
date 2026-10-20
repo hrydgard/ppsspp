@@ -86,9 +86,9 @@ static u32 RunKernelLoad(MIPSState *mips, u32 addr) {
 	u32 value;
 	if (IsValidAlignedAddress<size>(addr)) {
 		switch (size) {
-		case 1: value = Memory::ReadUnchecked_U8(addr); break;
-		case 2: value = Memory::ReadUnchecked_U16(addr); break;
-		default: value = Memory::ReadUnchecked_U32(addr); break;
+		case 1: value = mips->space->ReadUnchecked_U8(addr); break;
+		case 2: value = mips->space->ReadUnchecked_U16(addr); break;
+		default: value = mips->space->ReadUnchecked_U32(addr); break;
 		}
 	} else if (Memory::IsMMIOAccess(addr)) {
 		value = MMIO::Read(mips, addr, size);
@@ -105,9 +105,9 @@ template <int size>
 static void RunKernelStore(MIPSState *mips, u32 addr, u32 value) {
 	if (IsValidAlignedAddress<size>(addr)) {
 		switch (size) {
-		case 1: Memory::WriteUnchecked_U8((u8)value, addr); break;
-		case 2: Memory::WriteUnchecked_U16((u16)value, addr); break;
-		default: Memory::WriteUnchecked_U32(value, addr); break;
+		case 1: mips->space->WriteUnchecked_U8((u8)value, addr); break;
+		case 2: mips->space->WriteUnchecked_U16((u16)value, addr); break;
+		default: mips->space->WriteUnchecked_U32(value, addr); break;
 		}
 	} else if (Memory::IsMMIOAccess(addr)) {
 		MMIO::Write(mips, addr, size, value);
@@ -159,6 +159,7 @@ static void RunKernelStore(MIPSState *mips, u32 addr, u32 value) {
 } while (false)
 
 u32 IRInterpret(MIPSState *mips, const IRInst *inst, const IRInst *chainArena) {
+	const Memory::AddressSpace &space = *mips->space;
 #if IR_THREADED_DISPATCH
 	static const void *dispatch[256];
 	static bool dispatchReady = false;
@@ -423,25 +424,25 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const IRInst *chainArena) {
 			IR_NEXT;
 
 		IR_CASE(Load8)
-			mips->r[inst->dest] = Memory::ReadUnchecked_U8(mips->r[inst->src1] + inst->constant);
+			mips->r[inst->dest] = space.ReadUnchecked_U8(mips->r[inst->src1] + inst->constant);
 			IR_NEXT;
 		IR_CASE(Load8Ext)
-			mips->r[inst->dest] = SignExtend8ToU32(Memory::ReadUnchecked_U8(mips->r[inst->src1] + inst->constant));
+			mips->r[inst->dest] = SignExtend8ToU32(space.ReadUnchecked_U8(mips->r[inst->src1] + inst->constant));
 			IR_NEXT;
 		IR_CASE(Load16)
-			mips->r[inst->dest] = Memory::ReadUnchecked_U16(mips->r[inst->src1] + inst->constant);
+			mips->r[inst->dest] = space.ReadUnchecked_U16(mips->r[inst->src1] + inst->constant);
 			IR_NEXT;
 		IR_CASE(Load16Ext)
-			mips->r[inst->dest] = SignExtend16ToU32(Memory::ReadUnchecked_U16(mips->r[inst->src1] + inst->constant));
+			mips->r[inst->dest] = SignExtend16ToU32(space.ReadUnchecked_U16(mips->r[inst->src1] + inst->constant));
 			IR_NEXT;
 		IR_CASE(Load32)
-			mips->r[inst->dest] = Memory::ReadUnchecked_U32(mips->r[inst->src1] + inst->constant);
+			mips->r[inst->dest] = space.ReadUnchecked_U32(mips->r[inst->src1] + inst->constant);
 			IR_NEXT;
 		IR_CASE(Load32Left)
 		{
 			u32 addr = mips->r[inst->src1] + inst->constant;
 			u32 shift = (addr & 3) * 8;
-			u32 mem = Memory::ReadUnchecked_U32(addr & 0xfffffffc);
+			u32 mem = space.ReadUnchecked_U32(addr & 0xfffffffc);
 			u32 destMask = 0x00ffffff >> shift;
 			mips->r[inst->dest] = (mips->r[inst->dest] & destMask) | (mem << (24 - shift));
 			IR_NEXT;
@@ -450,52 +451,52 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const IRInst *chainArena) {
 		{
 			u32 addr = mips->r[inst->src1] + inst->constant;
 			u32 shift = (addr & 3) * 8;
-			u32 mem = Memory::ReadUnchecked_U32(addr & 0xfffffffc);
+			u32 mem = space.ReadUnchecked_U32(addr & 0xfffffffc);
 			u32 destMask = 0xffffff00 << (24 - shift);
 			mips->r[inst->dest] = (mips->r[inst->dest] & destMask) | (mem >> shift);
 			IR_NEXT;
 		}
 		IR_CASE(Load32Linked)
 			if (inst->dest != MIPS_REG_ZERO)
-				mips->r[inst->dest] = Memory::ReadUnchecked_U32(mips->r[inst->src1] + inst->constant);
+				mips->r[inst->dest] = space.ReadUnchecked_U32(mips->r[inst->src1] + inst->constant);
 			mips->llBit = 1;
 			IR_NEXT;
 		IR_CASE(LoadFloat)
-			mips->f[inst->dest] = Memory::ReadUnchecked_Float(mips->r[inst->src1] + inst->constant);
+			mips->f[inst->dest] = space.ReadUnchecked_Float(mips->r[inst->src1] + inst->constant);
 			IR_NEXT;
 
 		IR_CASE(Store8)
-			Memory::WriteUnchecked_U8(mips->r[inst->src3], mips->r[inst->src1] + inst->constant);
+			space.WriteUnchecked_U8(mips->r[inst->src3], mips->r[inst->src1] + inst->constant);
 			IR_NEXT;
 		IR_CASE(Store16)
-			Memory::WriteUnchecked_U16(mips->r[inst->src3], mips->r[inst->src1] + inst->constant);
+			space.WriteUnchecked_U16(mips->r[inst->src3], mips->r[inst->src1] + inst->constant);
 			IR_NEXT;
 		IR_CASE(Store32)
-			Memory::WriteUnchecked_U32(mips->r[inst->src3], mips->r[inst->src1] + inst->constant);
+			space.WriteUnchecked_U32(mips->r[inst->src3], mips->r[inst->src1] + inst->constant);
 			IR_NEXT;
 		IR_CASE(Store32Left)
 		{
 			u32 addr = mips->r[inst->src1] + inst->constant;
 			u32 shift = (addr & 3) * 8;
-			u32 mem = Memory::ReadUnchecked_U32(addr & 0xfffffffc);
+			u32 mem = space.ReadUnchecked_U32(addr & 0xfffffffc);
 			u32 memMask = 0xffffff00 << shift;
 			u32 result = (mips->r[inst->src3] >> (24 - shift)) | (mem & memMask);
-			Memory::WriteUnchecked_U32(result, addr & 0xfffffffc);
+			space.WriteUnchecked_U32(result, addr & 0xfffffffc);
 			IR_NEXT;
 		}
 		IR_CASE(Store32Right)
 		{
 			u32 addr = mips->r[inst->src1] + inst->constant;
 			u32 shift = (addr & 3) * 8;
-			u32 mem = Memory::ReadUnchecked_U32(addr & 0xfffffffc);
+			u32 mem = space.ReadUnchecked_U32(addr & 0xfffffffc);
 			u32 memMask = 0x00ffffff >> (24 - shift);
 			u32 result = (mips->r[inst->src3] << shift) | (mem & memMask);
-			Memory::WriteUnchecked_U32(result, addr & 0xfffffffc);
+			space.WriteUnchecked_U32(result, addr & 0xfffffffc);
 			IR_NEXT;
 		}
 		IR_CASE(Store32Conditional)
 			if (mips->llBit) {
-				Memory::WriteUnchecked_U32(mips->r[inst->src3], mips->r[inst->src1] + inst->constant);
+				space.WriteUnchecked_U32(mips->r[inst->src3], mips->r[inst->src1] + inst->constant);
 				if (inst->dest != MIPS_REG_ZERO) {
 					mips->r[inst->dest] = 1;
 				}
@@ -504,20 +505,20 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const IRInst *chainArena) {
 			}
 			IR_NEXT;
 		IR_CASE(StoreFloat)
-			Memory::WriteUnchecked_Float(mips->f[inst->src3], mips->r[inst->src1] + inst->constant);
+			space.WriteUnchecked_Float(mips->f[inst->src3], mips->r[inst->src1] + inst->constant);
 			IR_NEXT;
 
 		IR_CASE(LoadVec4)
 		{
 			u32 base = mips->r[inst->src1] + inst->constant;
 			// This compiles to a nice SSE load/store on x86, and hopefully similar on ARM.
-			memcpy(&mips->f[inst->dest], Memory::GetPointerUnchecked(base), 4 * 4);
+			memcpy(&mips->f[inst->dest], space.GetPointerUnchecked(base), 4 * 4);
 			IR_NEXT;
 		}
 		IR_CASE(StoreVec4)
 		{
 			u32 base = mips->r[inst->src1] + inst->constant;
-			memcpy((float *)Memory::GetPointerUnchecked(base), &mips->f[inst->dest], 4 * 4);
+			memcpy((float *)space.GetPointerUnchecked(base), &mips->f[inst->dest], 4 * 4);
 			IR_NEXT;
 		}
 

@@ -48,6 +48,7 @@ namespace Memory {
 u8* base = nullptr;
 
 u8 *blockShadow = nullptr;
+AddressSpace g_mainSpace;
 static const size_t BLOCK_SHADOW_SIZE = (size_t)BLOCK_SHADOW_MASK + 1;
 
 // The MemArena class
@@ -430,6 +431,8 @@ bool Init(MemMapSetupFlags flags) {
 	INFO_LOG(Log::MemMap, "Memory system initialized. Base at %p (RAM at @ %p, uncached @ %p)",
 		base, m_pPhysicalRAM, m_pUncachedRAM);
 
+	g_mainSpace.base = base;
+	g_mainSpace.blockShadow = blockShadow;
 	MemFault_Init();
 	return true;
 }
@@ -609,6 +612,7 @@ void Shutdown() {
 	base = nullptr;
 	FreeMemoryPages(blockShadow, BLOCK_SHADOW_SIZE);
 	blockShadow = nullptr;
+	g_mainSpace = AddressSpace();
 	DEBUG_LOG(Log::MemMap, "Memory system shut down.");
 }
 
@@ -631,18 +635,30 @@ Opcode ReadUnchecked_Instruction(u32 address) {
 }
 
 u32 ReadBlockShadow(u32 address) {
+	return g_mainSpace.ReadBlockShadow(address);
+}
+
+void WriteBlockShadow(u32 address, u32 value) {
+	g_mainSpace.WriteBlockShadow(address, value);
+}
+
+bool ClearBlockShadow(u32 address, u32 value) {
+	return g_mainSpace.ClearBlockShadow(address, value);
+}
+
+u32 AddressSpace::ReadBlockShadow(u32 address) const {
 	if (!blockShadow || !IsValid4AlignedAddress(address))
 		return 0;
 	return *GetBlockShadowEntry(address);
 }
 
-void WriteBlockShadow(u32 address, u32 value) {
+void AddressSpace::WriteBlockShadow(u32 address, u32 value) const {
 	if (!blockShadow || !IsValid4AlignedAddress(address))
 		return;
 	*GetBlockShadowEntry(address) = value;
 }
 
-bool ClearBlockShadow(u32 address, u32 value) {
+bool AddressSpace::ClearBlockShadow(u32 address, u32 value) const {
 	if (!blockShadow || !IsValid4AlignedAddress(address))
 		return false;
 	u32 *entry = GetBlockShadowEntry(address);

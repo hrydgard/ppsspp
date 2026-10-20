@@ -120,7 +120,7 @@ void LoongArch64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	_assert_(saveOffset <= saveSize);
 
 	// Fixed registers, these are always kept when in Jit context.
-	LI(MEMBASEREG, Memory::base);
+	LI(MEMBASEREG, mipsState->space->base);
 	LI(CTXREG, mipsState);
 	LI(JITBASEREG, GetBasePtr());
 
@@ -170,7 +170,7 @@ void LoongArch64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	WriteDebugPC(SCRATCH1);
 	LI(SCRATCH2, (u32)Memory::BLOCK_SHADOW_ENTRY_MASK);
 	AND(SCRATCH1, SCRATCH1, SCRATCH2);
-	LI(SCRATCH2, Memory::blockShadow);
+	LI(SCRATCH2, mipsState->space->blockShadow);
 	ADD_D(SCRATCH1, SCRATCH1, SCRATCH2);
 	hooks_.dispatchFetch = GetCodePtr();
 	LD_WU(SCRATCH1, SCRATCH1, 0);

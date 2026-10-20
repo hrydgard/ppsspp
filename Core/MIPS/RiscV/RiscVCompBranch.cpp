@@ -57,7 +57,7 @@ void RiscVJitBackend::CompIR_Exit(IRInst inst) {
 			SetJumpTarget(inTime);
 			LI(SCRATCH2, (u32)Memory::BLOCK_SHADOW_ENTRY_MASK);
 			AND(SCRATCH1, SCRATCH1, SCRATCH2);
-			LI(SCRATCH2, Memory::blockShadow, X7);
+			LI(SCRATCH2, mips_->space->blockShadow, X7);
 			ADD(SCRATCH1, SCRATCH1, SCRATCH2);
 			LWU(SCRATCH1, SCRATCH1, 0);
 			FixupBranch found = BNE(SCRATCH1, R_ZERO);

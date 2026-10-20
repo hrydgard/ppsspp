@@ -50,6 +50,7 @@ static void ShowPC(void *membase, void *jitbase) {
 }
 
 void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
+	regs_.SetMemoryBase(mipsState->space->base);
 	// This will be used as a writable scratch area, always 32-bit accessible.
 	const u8 *start = AlignCodePage();
 	if (DebugProfilerEnabled()) {
@@ -150,7 +151,7 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 	ABI_PushAllCalleeSavedRegsAndAdjustStack();
 #if PPSSPP_ARCH(AMD64)
 	// Two x64-specific statically allocated registers.
-	MOV(64, R(MEMBASEREG), ImmPtr(Memory::base));
+	MOV(64, R(MEMBASEREG), ImmPtr(mipsState->space->base));
 	if (jitbaseInR15)
 		MOV(64, R(JITBASEREG), ImmPtr((const void *)jitbase));
 #endif
@@ -221,7 +222,7 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 					ABI_CallFunctionAC(reinterpret_cast<void *>(&ShowPC), R(MEMBASEREG), (u32)jitbase);
 				}
 #else
-				ABI_CallFunctionCC(reinterpret_cast<void *>(&ShowPC), (u32)Memory::base, (u32)GetBasePtr());
+				ABI_CallFunctionCC(reinterpret_cast<void *>(&ShowPC), (u32)mipsState->space->base, (u32)GetBasePtr());
 #endif
 			}
 
@@ -230,11 +231,11 @@ void X64JitBackend::GenerateFixedCode(MIPSState *mipsState) {
 			// Look the block up in the shadow. Its entry is the offset into the code space, or 0 for none.
 			AND(32, R(SCRATCH1), Imm32(Memory::BLOCK_SHADOW_ENTRY_MASK));
 #if PPSSPP_ARCH(X86)
-			_assert_msg_(Memory::blockShadow != 0, "Block shadow bogus");
+			_assert_msg_(mipsState->space->blockShadow != 0, "Block shadow bogus");
 			hooks_.dispatchFetch = GetCodePtr();
-			MOV(32, R(SCRATCH1), MDisp(SCRATCH1, (u32)Memory::blockShadow));
+			MOV(32, R(SCRATCH1), MDisp(SCRATCH1, (u32)mipsState->space->blockShadow));
 #elif PPSSPP_ARCH(AMD64)
-			MOV(64, R(RDX), ImmPtr(Memory::blockShadow));
+			MOV(64, R(RDX), ImmPtr(mipsState->space->blockShadow));
 			hooks_.dispatchFetch = GetCodePtr();
 			MOV(32, R(SCRATCH1), MComplex(RDX, SCRATCH1, SCALE_1, 0));
 #endif
