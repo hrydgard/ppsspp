@@ -61,6 +61,21 @@ struct ThreadQueueList {
 		clear();
 	}
 
+	// Whether func is true for every queued thread.
+	template <typename F>
+	bool all_of(F func) const {
+		for (int i = 0; i < NUM_QUEUES; ++i) {
+			const Queue *cur = &queues[i];
+			if (cur->data == nullptr)
+				continue;
+			for (int j = cur->first; j < cur->end; ++j) {
+				if (!func(cur->data[j]))
+					return false;
+			}
+		}
+		return true;
+	}
+
 	// Only for debugging, returns priority level.
 	int contains(const SceUID uid) {
 		for (int i = 0; i < NUM_QUEUES; ++i) {

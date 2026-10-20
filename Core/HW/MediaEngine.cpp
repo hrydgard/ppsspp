@@ -177,6 +177,15 @@ void MediaEngine::DoState(PointerWrap &p) {
 
 	Do(p, m_ringbuffersize);
 
+	// All straight from the file. The header ones index m_mpegheader, the ringbuffer size sizes
+	// buffers (the PSP's whole RAM is a generous limit.)
+	if (p.mode == p.MODE_READ && (m_mpegheaderSize < 0 || m_mpegheaderSize > (int)sizeof(m_mpegheader) ||
+		m_mpegheaderReadPos < 0 || m_mpegheaderReadPos > m_mpegheaderSize || m_ringbuffersize < 0 || m_ringbuffersize > 64 * 1024 * 1024)) {
+		ERROR_LOG(Log::SaveState, "MediaEngine: bad header size %d, position %d or ringbuffer size %d in savestate", m_mpegheaderSize, m_mpegheaderReadPos, m_ringbuffersize);
+		p.SetError(p.ERROR_FAILURE);
+		return;
+	}
+
 	u32 hasloadStream = m_pdata != nullptr;
 	Do(p, hasloadStream);
 	if (hasloadStream && p.mode == p.MODE_READ)

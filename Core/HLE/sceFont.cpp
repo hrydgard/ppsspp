@@ -359,6 +359,12 @@ public:
 		}
 		if (s >= 3) {
 			Do(p, mode_);
+			// Only the destructor looks at this: it deletes the font in the user modes, so an internal
+			// font mustn't be in one, nor a font loaded above out of them.
+			const bool userMode = mode_ == FONT_OPEN_USERBUFFER || mode_ == FONT_OPEN_USERFILE_FULL || mode_ == FONT_OPEN_USERFILE_HANDLERS;
+			if (p.mode == p.MODE_READ && userMode != (internalFont == -1)) {
+				mode_ = internalFont == -1 ? FONT_OPEN_USERBUFFER : FONT_OPEN_INTERNAL_FULL;
+			}
 		} else {
 			// Only the destructor looks at this: a font loaded above is ours to delete.
 			mode_ = internalFont == -1 ? FONT_OPEN_USERBUFFER : FONT_OPEN_INTERNAL_FULL;
@@ -732,6 +738,12 @@ public:
 		} else {
 			openAllocatedAddresses_.resize(params_.numFonts);
 			charInfoBitmapAddress_ = 0;
+		}
+		// They're all indexed by font number.
+		const size_t numFonts = (size_t)params_.numFonts;
+		if (p.mode == p.MODE_READ && (fonts_.size() != numFonts || fontRefCount_.size() != numFonts || openAllocatedAddresses_.size() != numFonts)) {
+			ERROR_LOG(Log::SaveState, "FontLib: font counts in savestate don't match (%d)", (int)params_.numFonts);
+			p.SetError(p.ERROR_FAILURE);
 		}
 	}
 

@@ -352,6 +352,8 @@ KernelObject *__KernelThreadObject();
 KernelObject *__KernelCallbackObject();
 
 SceUID __KernelGetCurThread();
+// Before a load deletes the kernel objects.
+void __KernelForgetCurrentThread();
 int KernelCurThreadPriority();
 bool KernelChangeThreadPriority(SceUID threadID, int priority);
 // Whether the running thread belongs to a kernel module. Privilege on the PSP is a property of

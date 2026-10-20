@@ -77,6 +77,12 @@ void Atrac::DoState(PointerWrap &p) {
 	Do(p, hasDataBuf);
 	if (hasDataBuf) {
 		if (p.mode == p.MODE_READ) {
+			// Straight from the file, and it sizes the buffer.
+			if (!p.CheckRead(track_.fileSize) || first_.size > track_.fileSize) {
+				ERROR_LOG(Log::SaveState, "Atrac: bad file size %d (first buffer %d) in savestate", track_.fileSize, first_.size);
+				p.SetError(p.ERROR_FAILURE);
+				return;
+			}
 			if (dataBuf_)
 				delete[] dataBuf_;
 			dataBuf_ = new u8[DataBufSize(track_)];

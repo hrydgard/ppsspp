@@ -363,6 +363,7 @@ public:
 
 private:
 	void Clear();
+	void ShareLoadedIcons();
 	void SetFileInfo(int idx, PSPFileInfo &info, const std::string &saveName, const std::string &saveDir = "");
 	void SetFileInfo(SaveFileInfo &saveInfo, PSPFileInfo &info, const std::string &saveName, const std::string &saveDir = "");
 	void ClearFileInfo(SaveFileInfo &saveInfo, const std::string &saveName);

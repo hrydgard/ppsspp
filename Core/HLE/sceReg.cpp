@@ -70,6 +70,16 @@ struct OverlayValue {
 	std::string str;  // STR/BIN payload
 	int intValue = 0;
 	bool isDir = false;
+
+	void DoState(PointerWrap &p) {
+		auto s = p.Section("RegOverlayValue", 1);
+		if (!s)
+			return;
+		Do(p, type);
+		Do(p, str);
+		Do(p, intValue);
+		Do(p, isDir);
+	}
 };
 static std::map<std::string, std::map<std::string, OverlayValue>> g_overlay;
 
@@ -1118,10 +1128,13 @@ static const KeyValue *LookupCategory(std::string_view path, int *count) {
 }
 
 void __RegDoState(PointerWrap &p) {
-	auto s = p.Section("sceReg", 0, 3);
+	auto s = p.Section("sceReg", 0, 4);
 	if (!s) {
 		if (p.mode == PointerWrap::MODE_READ) {
+			// Like below, older states keep the values written this session.
+			std::map<std::string, std::map<std::string, OverlayValue>> overlay = std::move(g_overlay);
 			__RegInit();
+			g_overlay = std::move(overlay);
 		}
 		return;
 	}
@@ -1141,6 +1154,14 @@ void __RegDoState(PointerWrap &p) {
 		if (!g_openCategories.empty()) {
 			g_handleGen = std::max(g_handleGen, g_openCategories.rbegin()->first + 1);
 		}
+	}
+	// Values the game (or a plugin, like CLANNAD's chfont.prx) wrote. Older states keep the current
+	// session's, most likely written by the same plugin at boot.
+	if (s >= 4) {
+		Do(p, g_overlay);
+	}
+	if (p.mode == PointerWrap::MODE_READ) {
+		InvalidateMergedCache();
 	}
 }
 

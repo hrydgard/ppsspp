@@ -1136,6 +1136,9 @@ void DirectoryFileSystem::DoState(PointerWrap &p) {
 			}
 			if (s >= 2) {
 				Do(p, entry.hFile.needsTrunc_);
+			} else {
+				// Open() set it up for a file opened with TRUNCATE, which was truncated long before the save.
+				entry.hFile.needsTrunc_ = -1;
 			}
 			// Let's hope that things don't go that badly with the file mysteriously auto-closed.
 			// Better than not loading the save state at all, hopefully.

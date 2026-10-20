@@ -1211,6 +1211,9 @@ void AtracSasDecodeData(int atracID, u8* outbuf, int *SamplesNum, int *finish) {
 	AtracBase *atrac = getAtrac(atracID);
 	if (!atrac) {
 		WARN_LOG(Log::Atrac, "bad atrac ID");
+		*SamplesNum = 0;
+		*finish = 1;
+		return;
 	}
 	// NOTE: If streaming, this will write 0xFFFFFFFF to secondBuffer in the context when close to running
 	// out of data. It'll then expect __sceSasConcatenateATRAC3 to concatenate a new buffer, which cannot

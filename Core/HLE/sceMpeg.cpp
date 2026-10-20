@@ -248,7 +248,9 @@ static MpegContext *getMpegCtx(u32 mpegAddr) {
 	// Take this opportunity to upgrade savestates if necessary.
 	if (res->ringbufferNeedsReverse) {
 		auto ringbuffer = PSPPointer<SceMpegRingBuffer>::Create(res->mpegRingbufferAddr);
-		ringbuffer->packetsAvail = ringbuffer->packets - ringbuffer->packetsAvail;
+		if (ringbuffer.IsValid()) {
+			ringbuffer->packetsAvail = ringbuffer->packets - ringbuffer->packetsAvail;
+		}
 		res->ringbufferNeedsReverse = false;
 	}
 	return res;

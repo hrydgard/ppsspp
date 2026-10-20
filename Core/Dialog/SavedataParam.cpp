@@ -166,7 +166,7 @@ namespace
 
 void SaveFileInfo::DoState(PointerWrap &p)
 {
-	auto s = p.Section("SaveFileInfo", 1, 2);
+	auto s = p.Section("SaveFileInfo", 1, 3);
 	if (!s)
 		return;
 
@@ -179,6 +179,11 @@ void SaveFileInfo::DoState(PointerWrap &p)
 	DoCString(p, saveDetail);
 
 	Do(p, modif_time);
+	if (s >= 3) {
+		// The delete dialogs delete by it, and for LISTALLDELETE it isn't the game name and save name.
+		Do(p, saveDir);
+		Do(p, broken);
+	}
 
 	if (s <= 1) {
 		u32 textureData;
@@ -1953,6 +1958,30 @@ bool SavedataParam::WouldHaveMultiSaveName(const SceUtilitySavedataParam *param)
 	}
 }
 
+// Slots without an icon of their own shared noSaveIcon's image before the save, but come back as
+// separate images of the same texture. Share it again, or Clear() frees it once per slot.
+void SavedataParam::ShareLoadedIcons() {
+	for (int i = 0; i < saveDataListCount; i++) {
+		PPGeImage *texture = saveDataList[i].texture;
+		if (!texture || texture->TextureAddress() == 0) {
+			continue;
+		}
+		for (int j = 0; j < i; j++) {
+			PPGeImage *other = saveDataList[j].texture;
+			if (other && other->TextureAddress() == texture->TextureAddress()) {
+				if (!noSaveIcon) {
+					noSaveIcon = new SaveFileInfo();
+					noSaveIcon->texture = other;
+				}
+				texture->Forget();
+				delete texture;
+				saveDataList[i].texture = other;
+				break;
+			}
+		}
+	}
+}
+
 void SavedataParam::DoState(PointerWrap &p) {
 	auto s = p.Section("SavedataParam", 1, 2);
 	if (!s)
@@ -2002,6 +2031,7 @@ void SavedataParam::DoState(PointerWrap &p) {
 		if (saveDataListCount != 0) {
 			saveDataList = new SaveFileInfo[saveDataListCount];
 			DoArray(p, saveDataList, saveDataListCount);
+			ShareLoadedIcons();
 		} else {
 			saveDataList = nullptr;
 		}

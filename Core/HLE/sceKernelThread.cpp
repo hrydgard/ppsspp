@@ -647,6 +647,10 @@ inline void __SetCurrentThread(PSPThread *thread, SceUID threadID, const char *n
 	hleCurrentThreadName = name;
 }
 
+void __KernelForgetCurrentThread() {
+	__SetCurrentThread(nullptr, 0, nullptr);
+}
+
 u32 __KernelCallbackReturnAddress() {
 	return cbReturnHackAddr;
 }
@@ -943,6 +947,25 @@ void __KernelThreadingDoState(PointerWrap &p)
 		Do(p, g_chanceAccumulator);
 	} else {
 		g_chanceAccumulator = 50;
+	}
+
+	if (p.mode == p.MODE_READ) {
+		// GetFast trusts all of these to be threads.
+		u32 error;
+		auto isThread = [&](SceUID id) {
+			return id == 0 || kernelObjects.Get<PSPThread>(id, error) != nullptr;
+		};
+		bool valid = isThread(currentThread) && threadReadyQueue.all_of(isThread);
+		for (SceUID id : threadIdleID) {
+			valid = valid && isThread(id);
+		}
+		if (!valid) {
+			ERROR_LOG(Log::SaveState, "Unable to load state: current, idle or ready thread isn't a thread");
+			threadReadyQueue.clear();
+			currentThread = 0;
+			p.SetError(p.ERROR_FAILURE);
+			return;
+		}
 	}
 
 	__SetCurrentThread(kernelObjects.GetFast<PSPThread>(currentThread), currentThread, __KernelGetThreadName(currentThread));
@@ -3574,6 +3597,10 @@ void __KernelReturnFromMipsCall() {
 
 	u32 callId = cur->currentMipscallId;
 	MipsCall *call = mipsCalls.pop(callId);
+	if (!call) {
+		ERROR_LOG(Log::sceKernel, "__KernelReturnFromMipsCall(): No call %d", callId);
+		return hleNoLogVoid();
+	}
 
 	// Value returned by the callback function
 	u32 retVal = currentMIPS->r[MIPS_REG_V0];

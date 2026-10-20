@@ -54,6 +54,10 @@ void BufferQueue::DoState(PointerWrap &p) {
 	}
 	if (s >= 2) {
 		Do(p, filled);
+		if (p.mode == PointerWrap::MODE_READ && (filled < 0 || filled > bufQueueSize)) {
+			p.SetError(PointerWrap::ERROR_FAILURE);
+			filled = calcQueueSize();
+		}
 	} else {
 		filled = calcQueueSize();
 	}

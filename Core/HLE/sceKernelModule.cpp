@@ -239,7 +239,7 @@ u32 PSPModule::GetMissingErrorCode() {
 }
 
 void PSPModule::DoState(PointerWrap &p) {
-	auto s = p.Section("Module", 1, 6);
+	auto s = p.Section("Module", 1, 7);
 	if (!s)
 		return;
 
@@ -284,6 +284,14 @@ void PSPModule::DoState(PointerWrap &p) {
 
 	if (s >= 5) {
 		Do(p, modulePtr.ptr);
+	}
+	if (s >= 7) {
+		// LoadExec's thread waits for plugins (and VSH modules) to start, with no timeout.
+		Do(p, pluginWaitingThread);
+		Do(p, startingPlugins);
+	} else if (p.mode == p.MODE_READ) {
+		pluginWaitingThread = 0;
+		startingPlugins.clear();
 	}
 
 	ModuleWaitingThread mwt = { 0 };
@@ -555,7 +563,7 @@ std::vector<std::pair<u32, u32>> __KernelModuleCodeRanges() {
 }
 
 void __KernelModuleDoState(PointerWrap &p) {
-	auto s = p.Section("sceKernelModule", 1, 5);
+	auto s = p.Section("sceKernelModule", 1, 6);
 	if (!s)
 		return;
 
@@ -595,6 +603,14 @@ void __KernelModuleDoState(PointerWrap &p) {
 		eventModuleLoadDone = -1;
 	}
 	CoreTiming::RestoreRegisterEvent(eventModuleLoadDone, "LoadModuleDone", &__KernelLoadModuleDone);
+
+	if (s >= 6) {
+		Do(p, g_vshModulesToStart);
+		Do(p, g_vshModuleStarting);
+	} else if (p.mode == p.MODE_READ) {
+		g_vshModulesToStart.clear();
+		g_vshModuleStarting = 0;
+	}
 
 	if (p.mode == p.MODE_READ) {
 		u32 error;
