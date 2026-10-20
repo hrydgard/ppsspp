@@ -388,6 +388,18 @@ static u32 sceGeEdramGetSize() {
 	return hleLogVerbose(Log::sceGe, retVal);
 }
 
+// The calls a PSP-2000 and later switch to their 4MB of VRAM with. We have the PSP-1000's 2MB, and
+// answer as it does (gpu/ge/kernel/edramsize).
+static u32 sceGeEdramGetHwSize() {
+	return hleLogDebug(Log::sceGe, 0x00200000);
+}
+
+static int sceGeEdramSetSize(u32 size) {
+	if (size != 0x00200000)
+		return hleLogWarning(Log::sceGe, SCE_KERNEL_ERROR_INVALID_SIZE);
+	return hleLogDebug(Log::sceGe, 0);
+}
+
 static int __GeSubIntrBase(int callbackId) {
 	return callbackId * 2;
 }
@@ -693,6 +705,9 @@ const HLEFunction sceGe_user[] = {
 	{0X0BF608FB, &WrapU_U<sceGeRestoreContext>,          "sceGeRestoreContext",          'x', "x"   },
 	{0X5FB86AB0, &WrapI_U<sceGeListDeQueue>,             "sceGeListDeQueue",             'i', "x"   },
 	{0XE66CB92E, &WrapI_IU<sceGeGetStack>,               "sceGeGetStack",                'i', "ix"  },
+	// Driver only.
+	{0X547EC5F0, &WrapU_V<sceGeEdramGetHwSize>,          "sceGeEdramGetHwSize",          'x', ""    },
+	{0XD8633888, &WrapI_U<sceGeEdramSetSize>,            "sceGeEdramSetSize",            'i', "x"   },
 };
 
 void Register_sceGe_user() {

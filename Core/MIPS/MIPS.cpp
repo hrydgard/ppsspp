@@ -344,6 +344,7 @@ void MIPSState::InitRegisters() {
 	memset(v, 0, sizeof(v));
 	memset(vfpuCtrl, 0, sizeof(vfpuCtrl));
 	memset(cop0, 0, sizeof(cop0));
+	memset(cop0Control, 0, sizeof(cop0Control));
 
 	vfpuCtrl[VFPU_CTRL_SPREFIX] = 0xe4; //passthru
 	vfpuCtrl[VFPU_CTRL_TPREFIX] = 0xe4; //passthru
@@ -427,7 +428,7 @@ void MIPSState::UpdateCore(CPUCore desired) {
 }
 
 void MIPSState::DoState(PointerWrap &p) {
-	auto s = p.Section("MIPSState", 1, 5);
+	auto s = p.Section("MIPSState", 1, 6);
 	if (!s)
 		return;
 
@@ -485,6 +486,11 @@ void MIPSState::DoState(PointerWrap &p) {
 		DoArray(p, cop0, sizeof(cop0) / sizeof(cop0[0]));
 	} else {
 		memset(cop0, 0, sizeof(cop0));
+	}
+	if (s >= 6) {
+		DoArray(p, cop0Control, sizeof(cop0Control) / sizeof(cop0Control[0]));
+	} else {
+		memset(cop0Control, 0, sizeof(cop0Control));
 	}
 
 	if (p.mode == p.MODE_READ && jit) {

@@ -338,6 +338,7 @@ void Register_ThreadManForUser();
 void Register_ThreadManForKernel();
 void Register_LoadExecForUser();
 void Register_LoadExecForKernel();
+void Register_ExceptionManagerForKernel();
 void Register_UtilsForKernel();
 
 // returns nullptr if not found.

@@ -2922,6 +2922,24 @@ static u32 sctrlHENFindDriver(const char *drvname) {
 	return hleLogInfo(Log::sceModule, 0, "driver %s", drvname ? drvname : "(null)");
 }
 
+// The custom firmware's lookup of a loaded module's export, by module and library name (either may
+// be left out) and NID. Only modules loaded as code have exports to find.
+static u32 sctrlHENFindFunction(const char *moduleName, const char *libraryName, u32 nid) {
+	u32 error;
+	for (SceUID moduleId : loadedModules) {
+		PSPModule *module = kernelObjects.Get<PSPModule>(moduleId, error);
+		if (!module || (moduleName && strcmp(module->GetName(), moduleName) != 0)) {
+			continue;
+		}
+		for (const FuncSymbolExport &func : module->exportedFuncs) {
+			if (func.nid == nid && (!libraryName || strcmp(func.moduleName, libraryName) == 0)) {
+				return hleLogDebug(Log::sceModule, func.symAddr);
+			}
+		}
+	}
+	return hleLogWarning(Log::sceModule, 0, "not found");
+}
+
 int __KernelStartModule(SceUID moduleId, u32 argsize, u32 argAddr, u32 returnValueAddr, SceKernelSMOption *smoption, bool *needsWait) {
 	if (needsWait) {
 		*needsWait = false;
@@ -3716,8 +3734,17 @@ void Register_ModuleMgrForKernel() {
 static const HLEFunction SystemCtrlForKernel[] = {
 	{0x1C90BECB, &WrapU_U<sctrlHENSetStartModuleHandler>, "sctrlHENSetStartModuleHandler", 'x', "x", HLE_KERNEL_SYSCALL},
 	{0x78E46415, &WrapU_C<sctrlHENFindDriver>,            "sctrlHENFindDriver",              'x', "s", HLE_KERNEL_SYSCALL},
+	{0x159AF5CC, &WrapU_CCU<sctrlHENFindFunction>,        "sctrlHENFindFunction",            'x', "ssx", HLE_KERNEL_SYSCALL},
+};
+
+static const HLEFunction SystemCtrlForUser[] = {
+	{0x159AF5CC, &WrapU_CCU<sctrlHENFindFunction>,        "sctrlHENFindFunction",            'x', "ssx"},
 };
 
 void Register_SystemCtrlForKernel() {
 	RegisterHLEModule("SystemCtrlForKernel", ARRAY_SIZE(SystemCtrlForKernel), SystemCtrlForKernel);
+}
+
+void Register_SystemCtrlForUser() {
+	RegisterHLEModule("SystemCtrlForUser", ARRAY_SIZE(SystemCtrlForUser), SystemCtrlForUser);
 }

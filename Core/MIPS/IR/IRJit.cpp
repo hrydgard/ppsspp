@@ -454,6 +454,18 @@ std::vector<int> JitBlockTable::FindInvalidatedBlockNumbers(u32 address, u32 len
 	u32 endPage = AddressToPage(address + lengthInBytes);
 
 	std::vector<int> found;
+	// sceKernelIcacheInvalidateAll covers all of memory, a million pages.
+	if (endPage - startPage >= byPage_.size()) {
+		for (const auto &[page, blocksInPage] : byPage_) {
+			if (page < startPage || page > endPage)
+				continue;
+			for (int i : blocksInPage) {
+				if (blocks_[i].OverlapsRange(address, lengthInBytes))
+					found.push_back(i);
+			}
+		}
+		return found;
+	}
 	for (u32 page = startPage; page <= endPage; ++page) {
 		const auto iter = byPage_.find(page);
 		if (iter == byPage_.end())

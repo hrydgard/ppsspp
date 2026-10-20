@@ -158,13 +158,9 @@ namespace MIPSComp {
 
 		int func = (op >> 16) & 0x1F;
 
-		// See Int_Cache for the definitions.
-		switch (func) {
-		case 24: break;
-		case 25: break;
-		case 27: break;
-		case 30: break;
-		default:
+		// See Int_Cache: only icache invalidation does anything, so the data cache ops (which ME
+		// code loops over to flush its cache) compile to nothing.
+		if (func == 8) {
 			// Fall back to the interpreter.
 			DISABLE;
 		}

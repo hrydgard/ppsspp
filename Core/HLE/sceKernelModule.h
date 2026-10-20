@@ -274,6 +274,7 @@ u32 sceKernelFindModuleByUID(u32 uid);
 void Register_ModuleMgrForUser();
 void Register_ModuleMgrForKernel();
 void Register_SystemCtrlForKernel();
+void Register_SystemCtrlForUser();
 
 // Expose for use by KUBridge.
 u32 sceKernelLoadModule(MIPSState *mips, const char *name, u32 flags, u32 optionAddr);
