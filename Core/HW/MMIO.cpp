@@ -21,6 +21,7 @@
 #include "Common/Log.h"
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
+#include "Core/CoreTiming.h"
 #include "Core/HW/GpioMMIO.h"
 #include "Core/HW/MMIO.h"
 #include "Core/HW/MeMMIO.h"
@@ -37,6 +38,9 @@ public:
 	bool Read(MIPSState *mips, u32 offset, int size, u32 *value) override {
 		if (offset + size > Memory::BOOT_PAGE_SIZE)
 			return false;
+		// What the ME has written by now: a main CPU polling a mailbox here sees it as on a PSP.
+		if (mips == currentMIPS)
+			CoreTiming::CatchUpOtherCPUs(mips);
 		const u8 *ptr = Memory::GetBootPage() + offset;
 		switch (size) {
 		case 1: *value = *ptr; break;
