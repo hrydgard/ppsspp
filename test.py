@@ -630,6 +630,7 @@ tests_next = [
   "gpu/signals/simple",
   "gpu/simple/simple",
   "intr/waits",
+  "me/vram",  # needs the Media Engine on, and Sony's ME firmware installed
   "sysmem/kernel/heapgrow",
   "io/file/file",
   "io/io/io",
