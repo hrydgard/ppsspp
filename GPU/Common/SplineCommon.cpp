@@ -57,14 +57,20 @@ public:
 
 namespace Spline {
 
-static void CopyQuadIndex(u16 *&indices, GEPatchPrimType type, const int idx0, const int idx1, const int idx2, const int idx3) {
+// Returns the number of indices written.
+static int CopyQuadIndex(u16 *&indices, GEPatchPrimType type, const int idx0, const int idx1, const int idx2, const int idx3, bool rightEdge) {
 	if (type == GE_PATCHPRIM_LINES) {
 		// A zigzag per quad: left edge down, the diagonal up to the top right, right edge down (gpu/probe exp175,
-		// exact: line colors and lit start pixels show the directions, and overlapping pixels the order).
+		// exact: line colors and lit start pixels show the directions, and overlapping pixels the order). The right
+		// edge only on a patch's last column, as the next quad's left edge is the same line (exp257, counted with
+		// additive blending).
 		*(indices++) = idx0;
 		*(indices++) = idx2;
 		*(indices++) = idx2;
 		*(indices++) = idx1;
+		if (!rightEdge) {
+			return 4;
+		}
 		*(indices++) = idx1;
 		*(indices++) = idx3;
 	} else {
@@ -75,16 +81,16 @@ static void CopyQuadIndex(u16 *&indices, GEPatchPrimType type, const int idx0, c
 		*(indices++) = idx2;
 		*(indices++) = idx3;
 	}
+	return 6;
 }
 
-void BuildIndex(u16 *indices, int &count, int num_u, int num_v, GEPatchPrimType prim_type, int total) {
+void BuildIndex(u16 *indices, int &count, int num_u, int num_v, int patch_u, GEPatchPrimType prim_type, int total) {
 	for (int v = 0; v < num_v; ++v) {
 		for (int u = 0; u < num_u; ++u) {
 			int idx0 = v * (num_u + 1) + u + total; // Top left
 			int idx2 = (v + 1) * (num_u + 1) + u + total; // Bottom left
 
-			CopyQuadIndex(indices, prim_type, idx0, idx0 + 1, idx2, idx2 + 1);
-			count += 6;
+			count += CopyQuadIndex(indices, prim_type, idx0, idx0 + 1, idx2, idx2 + 1, (u + 1) % patch_u == 0);
 		}
 	}
 }
