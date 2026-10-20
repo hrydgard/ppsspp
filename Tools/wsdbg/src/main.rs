@@ -278,9 +278,6 @@ fn build_event_json(event: &str, params: &[String], ticket: Option<u64>) -> Resu
             .ok_or_else(|| anyhow!("Parameter '{p}' is not in key=value form"))?;
         map.insert(k.to_string(), parse_value(v));
     }
-    if ticket.is_some() && map.get("ticket").and_then(|v| v.as_u64()).is_none() {
-        return Err(anyhow!("'ticket' must be a non-negative integer to be matchable"));
-    }
     Ok(serde_json::Value::Object(map).to_string())
 }
 
