@@ -333,8 +333,15 @@ void MIPSState::Reset() {
 void MIPSState::Init() {
 	InitRegisters();
 	if (IsMediaEngine()) {
-		// No native JIT for it yet. Replacement hooks are only the main CPU's.
-		jit = PSP_CoreParameter().cpuCore == CPUCore::INTERPRETER ? nullptr : new MIPSComp::IRInterpreterJit(this);
+		// Replacement hooks are only the main CPU's.
+		const CPUCore core = PSP_CoreParameter().cpuCore;
+		if ((core == CPUCore::JIT || core == CPUCore::JIT_IR) && MIPSComp::NativeJitRunsMediaEngine()) {
+			jit = MIPSComp::CreateNativeJit(this);
+		} else if (core != CPUCore::INTERPRETER) {
+			jit = new MIPSComp::IRInterpreterJit(this);
+		} else {
+			jit = nullptr;
+		}
 		return;
 	}
 	if (PSP_CoreParameter().cpuCore == CPUCore::JIT || PSP_CoreParameter().cpuCore == CPUCore::JIT_IR) {

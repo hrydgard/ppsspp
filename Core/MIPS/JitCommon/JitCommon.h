@@ -152,8 +152,8 @@ namespace MIPSComp {
 		virtual void InvalidateCacheExcept(const std::vector<std::pair<u32, u32>> &keep) = 0;
 		virtual void DoState(PointerWrap &p) = 0;
 		virtual void RunLoopUntil(u64 globalticks) = 0;
-		// Runs until the downcount runs out, without CoreTiming. For the Media Engine, which only
-		// the IR interpreter runs so far.
+		// Runs until the downcount runs out, without CoreTiming. For the Media Engine, which the IR
+		// interpreter runs, and the native JITs that NativeJitRunsMediaEngine().
 		virtual void RunDowncount() {}
 		virtual void Compile(u32 em_address) = 0;
 		virtual void ClearCache() = 0;
@@ -188,4 +188,6 @@ namespace MIPSComp {
 	void DoDummyJitState(PointerWrap &p, const MIPSState *mips);
 
 	JitInterface *CreateNativeJit(MIPSState *mipsState);
+	// Whether the native JIT's dispatcher can run the Media Engine.
+	bool NativeJitRunsMediaEngine();
 }

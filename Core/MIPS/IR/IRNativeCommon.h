@@ -175,6 +175,8 @@ protected:
 	virtual void CompIR_VecPack(IRInst inst) = 0;
 	virtual void CompIR_VecStore(IRInst inst) = 0;
 	virtual void CompIR_ValidateAddress(IRInst inst) = 0;
+	// Kernel code's loads and stores, which may be hardware registers.
+	virtual void CompIR_KernelLoadStore(IRInst inst) { CompIR_Generic(inst); }
 
 	virtual void OverwriteExit(int srcOffset, int len, int block_num) = 0;
 
@@ -217,6 +219,7 @@ public:
 	IRNativeJit(MIPSState *mipsState);
 
 	void RunLoopUntil(u64 globalticks) override;
+	void RunDowncount() override;
 
 	void ClearCache() override;
 

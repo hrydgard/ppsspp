@@ -799,8 +799,8 @@ static bool TestMeCoreOn(CPUCore core) {
 }
 
 bool TestMeCore() {
-	// The ME runs on the interpreter, or on the IR interpreter for the other cores.
-	return TestMeCoreOn(CPUCore::INTERPRETER) && TestMeCoreOn(CPUCore::IR_INTERPRETER);
+	// The ME runs on the interpreter, the IR interpreter, or the native JIT where it can.
+	return TestMeCoreOn(CPUCore::INTERPRETER) && TestMeCoreOn(CPUCore::IR_INTERPRETER) && TestMeCoreOn(CPUCore::JIT);
 }
 
 // The main CPU releases the ME, which waits in halt for the main CPU's soft interrupt, and answers
@@ -914,8 +914,8 @@ static bool TestMeInterruptsOn(CPUCore core) {
 }
 
 bool TestMeInterrupts() {
-	// The ME runs on the interpreter, or on the IR interpreter for the other cores.
-	return TestMeInterruptsOn(CPUCore::INTERPRETER) && TestMeInterruptsOn(CPUCore::IR_INTERPRETER);
+	// The ME runs on the interpreter, the IR interpreter, or the native JIT where it can.
+	return TestMeInterruptsOn(CPUCore::INTERPRETER) && TestMeInterruptsOn(CPUCore::IR_INTERPRETER) && TestMeInterruptsOn(CPUCore::JIT);
 }
 
 // Differential fuzzing of the CPU cores. Random straight-line code (ALU, FPU, VFPU, loads and

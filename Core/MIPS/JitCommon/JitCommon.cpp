@@ -99,6 +99,14 @@ namespace MIPSComp {
 		return notTakenTarget;
 }
 
+	bool NativeJitRunsMediaEngine() {
+#if PPSSPP_ARCH(ARM64) || PPSSPP_ARCH(AMD64)
+		return true;
+#else
+		return false;
+#endif
+	}
+
 	JitInterface *CreateNativeJit(MIPSState *mipsState) {
 #if PPSSPP_ARCH(ARM)
 		return new MIPSComp::ArmIRJit(mipsState);

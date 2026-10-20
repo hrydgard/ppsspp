@@ -463,16 +463,23 @@ void IRNativeBackend::CompileIRInst(IRInst inst) {
 		CompIR_Interpret(inst);
 		break;
 
-	case IROp::LoadKernel8:
-	case IROp::LoadKernel8Ext:
 	case IROp::LoadKernel16:
 	case IROp::LoadKernel16Ext:
+	case IROp::StoreKernel16:
+		// As Load16/Store16, for the depth layout.
+		if (Memory::DepthMirrorsActive())
+			CompIR_Generic(inst);
+		else
+			CompIR_KernelLoadStore(inst);
+		break;
+
+	case IROp::LoadKernel8:
+	case IROp::LoadKernel8Ext:
 	case IROp::LoadKernel32:
 	case IROp::StoreKernel8:
-	case IROp::StoreKernel16:
 	case IROp::StoreKernel32:
-		// Kernel code only, and mostly hardware registers once ResolveKernelMemory has run.
-		CompIR_Generic(inst);
+		// Kernel code only. Constant addresses ResolveKernelMemory left are hardware registers.
+		CompIR_KernelLoadStore(inst);
 		break;
 
 	case IROp::Syscall:
@@ -589,6 +596,12 @@ void IRNativeJit::RunLoopUntil(u64 globalticks) {
 		CollectProfileSamples();
 	}
 
+	PROFILE_THIS_SCOPE("jit");
+	hooks_.enterDispatcher();
+}
+
+// For the Media Engine, whose dispatcher leaves when the downcount runs out.
+void IRNativeJit::RunDowncount() {
 	PROFILE_THIS_SCOPE("jit");
 	hooks_.enterDispatcher();
 }

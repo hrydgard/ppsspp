@@ -41,10 +41,8 @@ static constexpr int MIN_BLOCK_EXIT_LEN = 4;
 
 Arm64JitBackend::Arm64JitBackend(JitOptions &jitopt)
 	: jo(jitopt), regs_(&jo), fp_(this) {
-	// Automatically disable incompatible options.
-	if (((intptr_t)Memory::base & 0x00000000FFFFFFFFUL) != 0) {
-		jo.enablePointerify = false;
-	}
+	// Automatically disable incompatible options. Pointerify also depends on the CPU's memory base,
+	// checked in GenerateFixedCode().
 	jo.optimizeForInterpreter = false;
 #ifdef MASKED_PSP_MEMORY
 	jo.enablePointerify = false;
@@ -80,6 +78,17 @@ bool Arm64JitBackend::CompileBlock(int block_num, u32 startPC, const IRInst *ins
 		// The jump to a register looks up the block itself.
 		case IROp::ExitToReg:
 			sizeEstimate += 96;
+			break;
+		// The range check and the call-out for hardware registers.
+		case IROp::LoadKernel8:
+		case IROp::LoadKernel8Ext:
+		case IROp::LoadKernel16:
+		case IROp::LoadKernel16Ext:
+		case IROp::LoadKernel32:
+		case IROp::StoreKernel8:
+		case IROp::StoreKernel16:
+		case IROp::StoreKernel32:
+			sizeEstimate += 64;
 			break;
 		default:
 			sizeEstimate += 32;

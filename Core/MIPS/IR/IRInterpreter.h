@@ -9,6 +9,10 @@ struct IRInst;
 
 u32 IRRunBreakpoint(u32 pc);
 u32 IRRunMemCheck(u32 pc, u32 addr);
+// A LoadKernel*/StoreKernel* (op) to an address the native JITs don't access directly: a hardware
+// register, or not memory at all.
+u32 IRRunKernelLoad(MIPSState *mips, u32 addr, u32 op);
+void IRRunKernelStore(MIPSState *mips, u32 addr, u32 value, u32 op);
 
 template <uint32_t alignment>
 u32 RunValidateAddress(u32 pc, u32 addr, u32 isWrite) {

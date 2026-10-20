@@ -122,6 +122,9 @@ private:
 	void CompIR_VecPack(IRInst inst) override;
 	void CompIR_VecStore(IRInst inst) override;
 	void CompIR_ValidateAddress(IRInst inst) override;
+#if PPSSPP_ARCH(AMD64)
+	void CompIR_KernelLoadStore(IRInst inst) override;
+#endif
 
 	void EmitConst4x32(const void **c, uint32_t v);
 	void EmitFPUConstants();
@@ -145,6 +148,9 @@ private:
 	const u8 *loadStaticRegisters_ = nullptr;
 	// See GenerateX64VfpuDot().
 	const u8 *vfpuDot_ = nullptr;
+	// LoadKernel8 to StoreKernel32 on a hardware register: address in SCRATCH1, a store's value in
+	// MIPSState::temp, a load's result back in SCRATCH1. Every other register is kept.
+	const u8 *kernelLoadStore_[8]{};
 
 	typedef struct { float f[4]; } Float4Constant;
 	struct Constants {
