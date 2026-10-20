@@ -35,6 +35,8 @@ namespace MeMMIO {
 
 using MeCore::g_meState;
 
+static const u32 ME_INTR_CODEC_DONE = 0x20;
+
 static bool IsME(const MIPSState *mips) {
 	return mips && mips->IsMediaEngine();
 }
@@ -106,6 +108,8 @@ private:
 		case 0x48: return &g_meState->mutex;
 		case 0x4C: return &g_meState->resetFlags;
 		case 0x50: return &g_meState->busClock;
+		case 0x54: return &g_meState->sysreg54;
+		case 0x5C: return &g_meState->sysreg5C;
 		default: return nullptr;
 		}
 	}
@@ -136,6 +140,10 @@ public:
 			g_meState->intcRaised &= ~value;
 			return true;
 		case 0x8:
+			// Source 5 is the codec hardware finishing, which Sony's ME firmware waits for in halt
+			// after starting it (t2img 0x883211b4). That isn't emulated, so it's always done.
+			if ((value & ~g_meState->intcEnabled) & ME_INTR_CODEC_DONE)
+				g_meState->intcRaised |= ME_INTR_CODEC_DONE;
 			g_meState->intcEnabled = value;
 			return true;
 		default:

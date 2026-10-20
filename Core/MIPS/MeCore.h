@@ -57,6 +57,10 @@ struct MEState {
 	u32 nmiFlags = 0;        // 0x04
 	u32 ramConfig = 0;       // 0x40. Bits 0-1: RAM size, 16 << n MB.
 	u32 mutex = 0;           // 0x48. Bit 0 is the main CPU's, bit 1 the ME's.
+	u32 sysreg54 = 0;        // 0x54. Sony's ME firmware clears bit 0. Unknown.
+	u32 sysreg5C = 0;        // 0x5C. Sony's ME firmware sets bit 1. Unknown.
+	// Sony's ME firmware still has to boot to its idle halt (RunUntilIdle).
+	bool booting = false;
 	u32 memProtect[20]{};    // 0xBC000000-0xBC00004C
 	u32 vmeControl[0x20]{};  // 0xBCC00000-0xBCC0007F, the VME's control registers
 	u32 clocks[4]{};         // 0xBC200000-0xBC20000C, clock dividers
