@@ -26,4 +26,11 @@
 #define NID_IDLE 0x1d7e1d7e
 #define NID_GPUREPLAY 0x9e45bd95
 
+#include <cstdint>
+#include <string_view>
+
 void RegisterAllModules();
+
+// The NID we implement a function under, for one an older firmware exported under another NID. 0 if
+// there's no such alias.
+uint32_t GetHLENidAlias(std::string_view moduleName, uint32_t nid);

@@ -578,6 +578,13 @@ int GetHLEFuncIndexByNib(int moduleIndex, u32 nib) {
 		if (module.funcTable[i].ID == nib)
 			return i;
 	}
+	const u32 alias = GetHLENidAlias(module.name, nib);
+	if (alias != 0) {
+		for (int i = 0; i < module.numFunctions; i++) {
+			if (module.funcTable[i].ID == alias)
+				return i;
+		}
+	}
 	return -1;
 }
 

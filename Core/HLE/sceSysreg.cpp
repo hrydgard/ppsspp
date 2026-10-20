@@ -32,6 +32,7 @@ enum : u32 {
 	SYSREG_RESET = 0xBC10004C,
 	SYSREG_BUS_CLOCK = 0xBC100050,
 	SYSREG_CLOCK_58 = 0xBC100058,
+	SYSREG_SEMA = 0xBC100048,
 	SYSREG_60 = 0xBC100060,
 	SYSREG_IO_78 = 0xBC100078,
 
@@ -77,6 +78,19 @@ static int sceSysregAvcResetEnable(MIPSState *mips) {
 
 static int sceSysregAvcResetDisable(MIPSState *mips) {
 	return hleLogDebug(Log::ME, SetSysregBit(mips, SYSREG_RESET, RESET_AVC, false));
+}
+
+// Tries to take the semaphore the main CPU and the ME share: 0 if it got it, -1 if the other CPU
+// holds it. As lowio.prx does: set this CPU's bit (CPU ID + 1) and read it back.
+static int sceSysregSemaTryLock(MIPSState *mips) {
+	const u32 own = mips->IsMediaEngine() ? 2 : 1;
+	MMIO::Write(mips, SYSREG_SEMA, 4, own);
+	return hleLogDebug(Log::ME, (MMIO::Read(mips, SYSREG_SEMA, 4) & 3) == own ? 0 : -1);
+}
+
+static int sceSysregSemaUnlock(MIPSState *mips) {
+	MMIO::Write(mips, SYSREG_SEMA, 4, 0);
+	return hleLogDebug(Log::ME, 0);
 }
 
 // The 6.60/6.61 calls popsman.prx makes whose names aren't known, after what lowio.prx does.
@@ -139,6 +153,8 @@ const HLEFunction sceSysreg_driver[] = {
 	{0x4B4CCE80, &WrapI_V<sceSysreg_driver_4B4CCE80>,  "sceSysreg_driver_4B4CCE80",    'i', "",   HLE_KERNEL_SYSCALL },
 	{0x41B0337B, &WrapI_I<sceSysreg_driver_41B0337B>,  "sceSysreg_driver_41B0337B",    'i', "i",  HLE_KERNEL_SYSCALL },
 	{0xC36775AD, &WrapI_II<sceSysreg_driver_C36775AD>, "sceSysreg_driver_C36775AD",    'i', "ii", HLE_KERNEL_SYSCALL },
+	{0x0143E8A8, &WrapI_V<sceSysregSemaTryLock>,       "sceSysregSemaTryLock660",      'i', "",   HLE_KERNEL_SYSCALL },
+	{0xDB97C70E, &WrapI_V<sceSysregSemaUnlock>,        "sceSysregSemaUnlock660",       'i', "",   HLE_KERNEL_SYSCALL },
 };
 
 // Custom-core homebrew (mcidclan's libraries) walks this to find me_wrapper's "SceMeRpc" handler,

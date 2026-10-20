@@ -241,6 +241,77 @@ static const HLEModule moduleList[] = {
 
 static const int numModules = ARRAY_SIZE(moduleList);
 
+struct HLENidAlias {
+	const char *module;
+	u32 nid;
+	u32 sameAs;
+};
+
+// Kernel NIDs were renumbered between firmware versions. These map an older firmware's NID to the one
+// the function is implemented under here (6.60's), so firmware modules from that version resolve
+// against the same tables. Found by matching the call sites in each version's own modules, with
+// matching code in the exporting module where it's unchanged.
+static const HLENidAlias hleNidAliases[] = {
+	// 6.30-6.39, from popsman.prx (whose 6.30/6.31 version calls the semaphore functions).
+	{ "InitForKernel", 0xEE67E450, 0x9D33A110 },  // InitForKernel_9D33A110
+	{ "LoadExecForKernel", 0xFCD765C9, 0xC3474C2A },  // sceKernelExitVSHKernel
+	{ "ModuleMgrForKernel", 0xE6BF3960, 0x3FF74DF1 },  // sceKernelStartModule
+	{ "ModuleMgrForKernel", 0xFFB9B760, 0x939E4270 },  // sceKernelLoadModuleForKernel
+	{ "SysMemForKernel", 0x25A760F0, 0x310802A9 },  // SysMemForKernel_310802A9
+	{ "SysMemForKernel", 0x2CFE3B22, 0x8AE776AF },  // sceKernelMemset
+	{ "SysMemForKernel", 0x3DE3C6DF, 0xC90B0992 },  // sceKernelGetUIDcontrolBlock
+	{ "SysMemForKernel", 0x458A70B5, 0x07C586A1 },  // sceKernelGetModel
+	{ "SysMemForKernel", 0x52B54B93, 0xF12A62F7 },
+	{ "SysMemForKernel", 0xF0E0AB7A, 0xB4F00CB5 },  // sceKernelGetCompiledSdkVersion
+	{ "SysMemForKernel", 0xF2FEAFD5, 0xFDC97D28 },
+	{ "sceClockgen_driver", 0xA02BB1D3, 0xDAB6E612 },
+	{ "sceCodec_driver", 0xB2EF6B19, 0x376399B6 },
+	{ "sceCtrl_driver", 0xDEFAD580, 0x6C86AF22 },
+	{ "sceDisplay_driver", 0x3DABE438, 0x03F16FD4 },
+	{ "sceDisplay_driver", 0x3E4B1B28, 0xE38CA615 },
+	{ "sceDisplay_driver", 0x8930B3A9, 0xE97E9718 },
+	{ "sceDve_driver", 0xAA085C2A, 0x48005974 },
+	{ "sceGe_driver", 0x2444EC4D, 0xD8633888 },  // sceGeEdramSetSize
+	{ "sceGe_driver", 0x670F15ED, 0x5D28A52B },
+	{ "sceGe_driver", 0xD8A53104, 0xAFE6C9EF },
+	{ "sceGe_driver", 0xFEEC36F7, 0x4B9554EB },
+	{ "sceHprm_driver", 0xADE4B1F4, 0xB2BEADB8 },
+	{ "sceImpose_driver", 0x027F21C6, 0x28B97035 },
+	{ "sceImpose_driver", 0x3BD9E51B, 0x133DB99A },
+	{ "sceImpose_driver", 0x3FE74F52, 0xB497314D },  // sceImpose_driver_B497314D
+	{ "sceImpose_driver", 0x44F17A7A, 0x0F067E16 },  // sceImposeChanges
+	{ "sceImpose_driver", 0x4C4DF719, 0xDC3BECFF },  // sceImposeGetParam
+	{ "sceImpose_driver", 0xEBC850AC, 0x5557F4E2 },  // sceImposeGetBatteryIconStatus
+	{ "scePadSvc_driver", 0x2F9A534A, 0x0B3E6FD3 },
+	{ "scePadSvc_driver", 0x773BA62B, 0x05C9C803 },
+	{ "scePadSvc_driver", 0x830FC570, 0x7CAB5A3D },
+	{ "sceRtc_driver", 0x99037763, 0xE7B3ABF4 },
+	{ "sceRtc_driver", 0xFF530D9F, 0x4E267E02 },
+	{ "sceSyscon_driver", 0x741110C5, 0x48448373 },
+	{ "sceSyscon_driver", 0xC4931159, 0x9BC5E33B },
+	{ "sceSysreg_driver", 0x3A98CABB, 0xC36775AD },  // sceSysreg_driver_C36775AD
+	{ "sceSysreg_driver", 0x45596E3F, 0x0143E8A8 },  // sceSysregSemaTryLock660
+	{ "sceSysreg_driver", 0x0CFD5A8A, 0xDB97C70E },  // sceSysregSemaUnlock660
+	{ "sceSysreg_driver", 0x789597AB, 0x8B1DD83A },  // sceSysreg_driver_8B1DD83A
+	{ "sceSysreg_driver", 0x86FFE348, 0x0AE8E549 },  // sceSysregAvcResetEnable660
+	{ "sceSysreg_driver", 0x8E9E76AE, 0xB1751B06 },  // sceSysreg_driver_B1751B06
+	{ "sceSysreg_driver", 0x9984A972, 0x4B4CCE80 },  // sceSysreg_driver_4B4CCE80
+	{ "sceSysreg_driver", 0x9E80B4E2, 0x41B0337B },  // sceSysreg_driver_41B0337B
+	{ "sceSysreg_driver", 0xB70793D7, 0x457FEBA9 },  // sceSysregMeResetEnable660
+	{ "sceSysreg_driver", 0xD1999F94, 0x4634C9DC },  // sceSysreg_driver_4634C9DC
+	{ "sceSysreg_driver", 0xD74D9041, 0x38527743 },  // sceSysregMeBusClockEnable660
+	{ "sceSysreg_driver", 0xE2606FCB, 0x48F1C4AD },  // sceSysregMeResetDisable660
+};
+
+u32 GetHLENidAlias(std::string_view moduleName, u32 nid) {
+	for (const auto &alias : hleNidAliases) {
+		if (alias.nid == nid && moduleName == alias.module) {
+			return alias.sameAs;
+		}
+	}
+	return 0;
+}
+
 void RegisterAllModules() {
 	Register_Kernel_Library();
 	Register_ThreadManForUser();
