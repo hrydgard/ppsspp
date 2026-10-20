@@ -377,6 +377,14 @@ extern AddressSpace g_mainSpace;
 // as in g_mainSpace. Returns null if this platform can't map memory twice. Only for a boot that runs
 // the ME; Shutdown() (and so Reinit()) destroys it.
 AddressSpace *CreateMESpace();
+// Whether this platform can have one (not with masked memory, or without mmap).
+constexpr bool CanCreateMESpace() {
+#if defined(MASKED_PSP_MEMORY) || defined(NO_MMAP)
+	return false;
+#else
+	return true;
+#endif
+}
 void DestroyMESpace();
 
 void WriteOrException_U8(const u8 data, const u32 address);
