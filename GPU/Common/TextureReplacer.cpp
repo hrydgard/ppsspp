@@ -904,9 +904,12 @@ void TextureReplacer::NotifyTextureDecoded(ReplacedTexture *texture, const Repla
 		hashfile = HashName(replacementKey, level) + ".png";
 	}
 
+	if (level >= (int)ARRAY_SIZE(SavedTextureCacheData::levelSaved)) {
+		return;
+	}
 	auto it = savedCache_.find(replacementKey);
-	if (it != savedCache_.end()) {
-		// We've already saved this texture. Ignore it.
+	if (it != savedCache_.end() && it->second.levelSaved[level]) {
+		// We've already saved this level. Ignore it.
 		// We don't really care about changing the scale factor during runtime, only confusing.
 		return;
 	}
