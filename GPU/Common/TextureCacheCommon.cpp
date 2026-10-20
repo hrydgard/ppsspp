@@ -565,7 +565,7 @@ ReplacedTexture *TextureCacheCommon::ComposeLayeredReplacement(TexCacheEntry *en
 	// The same colors as a dump of it, to compare with the original image.
 	std::vector<u32> pixels((size_t)w * h);
 	DecodeTextureLevel((u8 *)pixels.data(), w * (int)sizeof(u32), entry->format, gstate.getClutPaletteFormat(), entry->addr, 0, entry->bufw, TexDecodeFlags::EXPAND32);
-	return replacer_.ComposeLayered(entry->addr, w, h, pixels.data());
+	return replacer_.ComposeLayered(entry->addr, w, h, pixels.data(), &scaler_);
 }
 
 // TODO: This should use information from the through mode bbox check.

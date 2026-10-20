@@ -84,7 +84,7 @@ image (same address, different hash), and look up what you see:
 | The region is the whole texture | It's drawn in 3D, or was once. Shadow textures can't tell which part 3D draws sample. | Add a `[hashranges]` or `[shadowranges]` entry for it by hand, or try `reduceHash` |
 | One image dumped with different regions (480x136, 480x200, 480x272) | It was dumped before its draws reached their full size, or each time it's drawn a bit differently | Raise `shadowSettleSeconds` first. If that doesn't do it, raise `shadowRegionAlign`, then lower `shadowMaxRegions` |
 | The same image in many colors | Each palette is its own texture | `saveIndexed = all` (or `true` with the texture in `[indexed]`) |
-| Text that grows one letter at a time | Every letter is a new image | `shadowMinVisibleSeconds = 0.5`, and replace the box with `[layered]` (see below) |
+| Text that grows one letter at a time | Every letter is a new image | `shadowMinVisibleSeconds = 0.5`, and replace the box with `[layered]` and HD glyphs (see below) |
 | `over the memory budget, dumping early` in the log | Dumps were written before they settled | Raise `shadowMemoryMB` |
 | The same image at different addresses | The game loads it to different places | `ignoreAddress = true` (needs xxh32 or xxh64) |
 | The images really differ where they're drawn (animation, a counter, a font atlas filling up) | These aren't duplicates | Leave them, or stop dumping that address with an empty entry in `[hashes]`: `08b310200000000000000000 =` |
@@ -150,12 +150,54 @@ Every letter is a new texture, and every page of text a new image, so they can't
 - `box_hd.png` is your HD version of it, scaled by a whole number (2x, 4x...).
 
 For every content of that texture without a replacement of its own, the texels that differ from
-`box_original.png` (the text and its shadow) are drawn over `box_hd.png`, each as a block of the scale's
-size. A noisy or textured background is fine, since it's the same in every content and cancels out. Contents
-of a layered texture aren't dumped.
+`box_original.png` are the text (and its shadow). A noisy or textured background is fine, since it's the same
+in every content and cancels out. Contents of a layered texture aren't dumped.
 
 To get `box_original.png`, dump with `shadowMinVisibleSeconds = 0` and look for the box before its first
 letter appears (it's usually there for a frame or more).
+
+### HD text
+
+The text is split into pieces: texels that touch each other (diagonally too), which is usually one letter
+with its shadow. Each piece is drawn in one of two ways:
+
+- **With an HD glyph from the pack.** While dumping, each new piece is written once to `new/glyphs/`, as
+  `<key>.png` at the game's resolution, with the rest transparent. Make an HD version of it, at exactly the
+  box's scale (a 6x11 glyph is 24x44 at 4x), with a transparent background, and put it in `glyphs/` in the
+  pack with the same name. It's drawn over the HD box with its transparency, so draw the shadow into it as
+  well, as partly transparent texels.
+- **Upscaled**, for pieces without an HD glyph yet: the game's texels are smoothed with
+  `layeredTextScaler`, and drawn over the HD box. So the text never disappears while the glyph set isn't
+  finished.
+
+A piece's key comes from its shape and its main color, not its exact texels: a shadow blended with a
+textured background differs with where the letter is, its shape doesn't. Glyphs work with any font width,
+and the same glyph files serve every layered texture in the pack.
+
+Options, in `[options]`:
+
+| Option | Default | |
+|---|---|---|
+| `layeredGlyphs` | `true` | Looks up and dumps HD glyphs. `false` upscales all text. |
+| `layeredTextScaler` | `xbrz` | How text without an HD glyph is upscaled: `xbrz`, `hybrid`, `bicubic`, `hybrid_bicubic`, or `none` for plain blocks. Works for a box scale of 2 to 5, above that it's blocks. |
+
+Which way to turn them:
+
+- **The same letter is dumped many times in `new/glyphs/`.**
+  - Usually letters whose shadows touch the next letter: each pair (like `rn`) is its own piece. That's a
+    fixed set of pairs, so the count stops growing. Make HD glyphs for the pairs too.
+  - If one letter keeps coming back in slightly different shapes, the game probably draws it blended
+    with the background at its edges (anti-aliased text). Glyphs don't suit that font. Set
+    `layeredGlyphs = false` and rely on `layeredTextScaler`.
+  - Colored words (names, keywords) are separate glyphs per color. That's expected, since the HD glyph has
+    to be in that color too.
+- **Glyphs aren't dumped at all.** They're only dumped while a texture is in `[layered]`, with both
+  replacing and saving on. Pieces bigger than 64x64 texels (like the whole box during a fade) aren't glyphs.
+- **Upscaled text looks too soft or smeared.** Try `hybrid`, which keeps edges sharper, or `none` for clean
+  blocks.
+- **Upscaled text has jagged or stair-step edges.** Use `xbrz` (the default), or `bicubic` for smooth text.
+- **A glyph shows up blocky or smoothed although you made an HD one.** Its size doesn't match the box's
+  scale, which the log says (`Layered: glyphs/... is AxB, should be CxD`).
 
 ## Limits
 - Swizzled textures can only lose whole rows of 8, DXT ones whole rows of 4, and both keep their full width.

@@ -45,6 +45,7 @@
 #include "Core/ELF/ParamSFO.h"
 #include "GPU/Common/TextureReplacer.h"
 #include "GPU/Common/TextureDecoder.h"
+#include "GPU/Common/TextureScalerCommon.h"
 
 static const std::string INI_FILENAME = "textures.ini";
 static const std::string ZIP_FILENAME = "textures.zip";
@@ -194,6 +195,10 @@ bool TextureReplacer::LoadIni(std::string *error, bool notify) {
 		}
 	}
 	layered_.clear();
+	layeredTextScaler_ = TextureScalerCommon::XBRZ;
+	layeredGlyphs_ = true;
+	layeredGlyphCache_.clear();
+	savedLayeredGlyphs_.clear();
 
 	DeleteVFS();
 
@@ -430,6 +435,23 @@ bool TextureReplacer::LoadIniValues(IniFile &ini, VFSBackend *dir, bool isOverri
 	options->Get("shadowTextures", &shadowEnabled_);
 	options->Get("shadowSettleSeconds", &shadowSettleSeconds_);
 	options->Get("shadowMinVisibleSeconds", &shadowMinVisibleSeconds_);
+	options->Get("layeredGlyphs", &layeredGlyphs_);
+	std::string layeredTextScaler;
+	if (options->Get("layeredTextScaler", &layeredTextScaler) && !layeredTextScaler.empty()) {
+		if (!strcasecmp(layeredTextScaler.c_str(), "none")) {
+			layeredTextScaler_ = -1;
+		} else if (!strcasecmp(layeredTextScaler.c_str(), "xbrz")) {
+			layeredTextScaler_ = TextureScalerCommon::XBRZ;
+		} else if (!strcasecmp(layeredTextScaler.c_str(), "hybrid")) {
+			layeredTextScaler_ = TextureScalerCommon::HYBRID;
+		} else if (!strcasecmp(layeredTextScaler.c_str(), "bicubic")) {
+			layeredTextScaler_ = TextureScalerCommon::BICUBIC;
+		} else if (!strcasecmp(layeredTextScaler.c_str(), "hybrid_bicubic")) {
+			layeredTextScaler_ = TextureScalerCommon::HYBRID_BICUBIC;
+		} else {
+			ERROR_LOG(Log::TexReplacement, "Unsupported layeredTextScaler value: %s (use none, xbrz, hybrid, bicubic or hybrid_bicubic)", layeredTextScaler.c_str());
+		}
+	}
 	options->Get("shadowMaxRegions", &shadowMaxRegions_);
 	options->Get("shadowRegionAlign", &shadowRegionAlign_);
 	int shadowMemoryMB = 0;
@@ -2247,7 +2269,62 @@ bool TextureReplacer::LoadLayered(LayeredSlot &slot) {
 	return true;
 }
 
-ReplacedTexture *TextureReplacer::ComposeLayered(u32 addr, int w, int h, const u32 *pixels) {
+// Letters bigger than this (in texels) aren't treated as glyphs, which also keeps a fade of the whole box out.
+static constexpr int LAYERED_MAX_GLYPH_SIZE = 64;
+
+const TextureReplacer::LayeredGlyph &TextureReplacer::LookupLayeredGlyph(u64 key) {
+	auto it = layeredGlyphCache_.find(key);
+	if (it != layeredGlyphCache_.end()) {
+		return it->second;
+	}
+	// Looked for once, found or not.
+	LayeredGlyph &glyph = layeredGlyphCache_[key];
+	const std::string filename = StringFromFormat("glyphs/%016llx.png", (unsigned long long)key);
+	glyph.found = LoadPNGFromVFS(vfs_, filename, &glyph.pixels, &glyph.w, &glyph.h);
+	return glyph;
+}
+
+void TextureReplacer::SaveLayeredGlyph(u64 key, const u32 *pixels, int w, int h) {
+	if (!saveEnabled_ || newTextureDir_.empty() || !savedLayeredGlyphs_.insert(key).second) {
+		return;
+	}
+	u8 *saveBuf = (u8 *)malloc((size_t)w * h * sizeof(u32));
+	if (!saveBuf) {
+		return;
+	}
+	memcpy(saveBuf, pixels, (size_t)w * h * sizeof(u32));
+	const std::string filename = StringFromFormat("glyphs/%016llx.png", (unsigned long long)key);
+	SaveTextureTask *task = new SaveTextureTask(saveBuf);
+	// Not written if the pack has it.
+	task->filename = basePath_ / filename;
+	task->saveFilename = newTextureDir_ / filename;
+	task->w = w;
+	task->h = h;
+	task->replacedInfoHash = (u32)key;
+	g_threadManager.EnqueueTask(task);
+}
+
+// Source over, for drawing an HD glyph with its transparency on the HD background.
+static inline u32 BlendOver(u32 src, u32 dst) {
+	const u32 a = src >> 24;
+	if (a == 255) {
+		return src;
+	}
+	if (a == 0) {
+		return dst;
+	}
+	u32 result = 0;
+	for (int shift = 0; shift < 24; shift += 8) {
+		const u32 s = (src >> shift) & 0xFF;
+		const u32 d = (dst >> shift) & 0xFF;
+		result |= ((s * a + d * (255 - a) + 127) / 255) << shift;
+	}
+	const u32 da = dst >> 24;
+	result |= (a + da * (255 - a) / 255) << 24;
+	return result;
+}
+
+ReplacedTexture *TextureReplacer::ComposeLayered(u32 addr, int w, int h, const u32 *pixels, TextureScalerCommon *scaler) {
 	auto it = layered_.find(ShadowSlotKey(addr & 0x3FFFFFFF, w, h));
 	if (it == layered_.end() || it->second.failed) {
 		return nullptr;
@@ -2263,16 +2340,18 @@ ReplacedTexture *TextureReplacer::ComposeLayered(u32 addr, int w, int h, const u
 	}
 
 	const int scale = slot.scale;
-	const int outW = slot.w * scale;
-	const int outH = slot.h * scale;
+	const int sw = slot.w;
+	const int sh = slot.h;
+	const int outW = sw * scale;
+	const int outH = sh * scale;
 
 	if (!slot.texture) {
 		// Made here rather than loaded, so it's ACTIVE from the start and never purged (it has no files to reload from).
 		ReplacementDesc desc{};
 		desc.w = w;
 		desc.h = h;
-		desc.newW = slot.w;
-		desc.newH = slot.h;
+		desc.newW = sw;
+		desc.newH = sh;
 		desc.cacheKey = ReplacementCacheKey((u64)(addr & 0x3FFFFFFF) << 32, 0);
 		desc.forceFiltering = (TextureFiltering)0;
 		desc.logId = slot.hdFile;
@@ -2283,8 +2362,8 @@ ReplacedTexture *TextureReplacer::ComposeLayered(u32 addr, int w, int h, const u
 		ReplacedTextureLevel level;
 		level.w = outW;
 		level.h = outH;
-		level.fullW = (outW * w) / slot.w;
-		level.fullH = (outH * h) / slot.h;
+		level.fullW = (outW * w) / sw;
+		level.fullH = (outH * h) / sh;
 		level.fullDataSize = level.fullW * level.fullH * 4;
 		texture->levels_.push_back(level);
 		texture->data_.resize(1);
@@ -2294,24 +2373,179 @@ ReplacedTexture *TextureReplacer::ComposeLayered(u32 addr, int w, int h, const u
 		slot.texture = texture;
 	}
 
+	// The text: texels that differ from the original. Each connected piece of them (8 neighbors, so a letter
+	// and its shadow stay together) is drawn as one glyph.
+	const size_t count = (size_t)sw * sh;
+	std::vector<u8> isText(count);
+	for (int y = 0; y < sh; y++) {
+		const u32 *src = pixels + (size_t)y * w;
+		const u32 *orig = slot.original.data() + (size_t)y * sw;
+		for (int x = 0; x < sw; x++) {
+			isText[(size_t)y * sw + x] = src[x] != orig[x];
+		}
+	}
+
+	struct Piece {
+		int x0, y0, x1, y1;  // Inclusive.
+		std::vector<int> texels;
+		const LayeredGlyph *glyph = nullptr;
+	};
+	std::vector<Piece> pieces;
+	std::vector<int> label(count, -1);
+	std::vector<int> stack;
+	for (size_t start = 0; start < count; start++) {
+		if (!isText[start] || label[start] >= 0) {
+			continue;
+		}
+		Piece piece;
+		piece.x0 = piece.x1 = (int)(start % sw);
+		piece.y0 = piece.y1 = (int)(start / sw);
+		label[start] = (int)pieces.size();
+		stack.push_back((int)start);
+		while (!stack.empty()) {
+			const int i = stack.back();
+			stack.pop_back();
+			piece.texels.push_back(i);
+			const int px = i % sw;
+			const int py = i / sw;
+			piece.x0 = std::min(piece.x0, px);
+			piece.x1 = std::max(piece.x1, px);
+			piece.y0 = std::min(piece.y0, py);
+			piece.y1 = std::max(piece.y1, py);
+			for (int dy = -1; dy <= 1; dy++) {
+				for (int dx = -1; dx <= 1; dx++) {
+					const int nx = px + dx;
+					const int ny = py + dy;
+					if (nx < 0 || ny < 0 || nx >= sw || ny >= sh) {
+						continue;
+					}
+					const int n = ny * sw + nx;
+					if (isText[n] && label[n] < 0) {
+						label[n] = (int)pieces.size();
+						stack.push_back(n);
+					}
+				}
+			}
+		}
+		pieces.push_back(std::move(piece));
+	}
+
+	// Find an HD glyph for each piece, and dump the ones the pack doesn't have.
+	bool anyUnknown = false;
+	for (size_t n = 0; n < pieces.size(); n++) {
+		Piece &piece = pieces[n];
+		const int bw = piece.x1 - piece.x0 + 1;
+		const int bh = piece.y1 - piece.y0 + 1;
+		if (layeredGlyphs_ && bw <= LAYERED_MAX_GLYPH_SIZE && bh <= LAYERED_MAX_GLYPH_SIZE) {
+			// Keyed by its shape and main color. Blended texels (like a shadow over a textured background) change
+			// with where the letter is drawn, its shape doesn't.
+			std::vector<u8> shape((size_t)bw * bh);
+			std::vector<u32> image((size_t)bw * bh);
+			std::unordered_map<u32, int> colors;
+			for (int i : piece.texels) {
+				const int lx = i % sw - piece.x0;
+				const int ly = i / sw - piece.y0;
+				const u32 color = pixels[(size_t)(i / sw) * w + i % sw];
+				shape[(size_t)ly * bw + lx] = 1;
+				image[(size_t)ly * bw + lx] = color;
+				colors[color]++;
+			}
+			u32 mainColor = 0;
+			int mainCount = 0;
+			for (const auto &[color, num] : colors) {
+				if (num > mainCount || (num == mainCount && color < mainColor)) {
+					mainColor = color;
+					mainCount = num;
+				}
+			}
+			const u64 seed = ((u64)bw << 48) ^ ((u64)bh << 32) ^ mainColor;
+			const u64 key = XXH64(shape.data(), shape.size(), seed);
+
+			const LayeredGlyph &glyph = LookupLayeredGlyph(key);
+			if (glyph.found && glyph.w == bw * scale && glyph.h == bh * scale) {
+				piece.glyph = &glyph;
+			} else {
+				if (glyph.found) {
+					WARN_LOG_N_TIMES(layeredglyphsize, 5, Log::TexReplacement, "Layered: glyphs/%016llx.png is %dx%d, should be %dx%d", (unsigned long long)key, glyph.w, glyph.h, bw * scale, bh * scale);
+				}
+				SaveLayeredGlyph(key, image.data(), bw, bh);
+			}
+		}
+		if (!piece.glyph) {
+			anyUnknown = true;
+		}
+	}
+
 	ReplacedTexture *texture = slot.texture;
 	std::lock_guard<std::mutex> guard(texture->lock_);
 	u32 *out = (u32 *)texture->data_[0].data();
 	memcpy(out, slot.hd.data(), (size_t)outW * outH * sizeof(u32));
-	for (int y = 0; y < slot.h; y++) {
-		const u32 *src = pixels + (size_t)y * w;
-		const u32 *orig = slot.original.data() + (size_t)y * slot.w;
-		for (int x = 0; x < slot.w; x++) {
-			if (src[x] == orig[x]) {
-				continue;
-			}
-			// Text: the game's texel, scaled up.
-			const u32 color = src[x];
-			for (int sy = 0; sy < scale; sy++) {
-				u32 *row = out + (size_t)(y * scale + sy) * outW + x * scale;
-				for (int sx = 0; sx < scale; sx++) {
-					row[sx] = color;
+
+	// Letters without an HD glyph: the game's texels, upscaled. Upscaling the whole texture and taking the
+	// upscaled texels that differ from the upscaled original keeps the smoothed edges, without the background.
+	const int scalerType = layeredTextScaler_;
+	const bool upscale = anyUnknown && scaler && scalerType >= 0 && scale >= 2 && scale <= 5;
+	std::vector<u32> scaledCurrent;
+	if (upscale) {
+		if (slot.scaledOriginalType != scalerType) {
+			slot.scaledOriginal.resize((size_t)outW * outH);
+			scaler->ScaleWithType(scalerType, slot.scaledOriginal.data(), slot.original.data(), sw, sh, scale);
+			slot.scaledOriginalType = scalerType;
+		}
+		std::vector<u32> current(count);
+		for (int y = 0; y < sh; y++) {
+			memcpy(current.data() + (size_t)y * sw, pixels + (size_t)y * w, sw * sizeof(u32));
+		}
+		scaledCurrent.resize((size_t)outW * outH);
+		scaler->ScaleWithType(scalerType, scaledCurrent.data(), current.data(), sw, sh, scale);
+	}
+
+	for (const Piece &piece : pieces) {
+		if (piece.glyph) {
+			continue;
+		}
+		if (upscale) {
+			// A texel around the piece too, where the smoothing reaches.
+			const int x0 = std::max(piece.x0 - 1, 0) * scale;
+			const int y0 = std::max(piece.y0 - 1, 0) * scale;
+			const int x1 = std::min(piece.x1 + 2, sw) * scale;
+			const int y1 = std::min(piece.y1 + 2, sh) * scale;
+			for (int y = y0; y < y1; y++) {
+				const size_t row = (size_t)y * outW;
+				for (int x = x0; x < x1; x++) {
+					if (scaledCurrent[row + x] != slot.scaledOriginal[row + x]) {
+						out[row + x] = scaledCurrent[row + x];
+					}
 				}
+			}
+		} else {
+			for (int i : piece.texels) {
+				const u32 color = pixels[(size_t)(i / sw) * w + i % sw];
+				const int bx = (i % sw) * scale;
+				const int by = (i / sw) * scale;
+				for (int sy = 0; sy < scale; sy++) {
+					u32 *row = out + (size_t)(by + sy) * outW + bx;
+					for (int sx = 0; sx < scale; sx++) {
+						row[sx] = color;
+					}
+				}
+			}
+		}
+	}
+
+	// Letters with an HD glyph, over the background (and any upscaled neighbors).
+	for (const Piece &piece : pieces) {
+		if (!piece.glyph) {
+			continue;
+		}
+		const LayeredGlyph &glyph = *piece.glyph;
+		const int bx = piece.x0 * scale;
+		const int by = piece.y0 * scale;
+		for (int y = 0; y < glyph.h; y++) {
+			u32 *row = out + (size_t)(by + y) * outW + bx;
+			const u32 *src = glyph.pixels.data() + (size_t)y * glyph.w;
+			for (int x = 0; x < glyph.w; x++) {
+				row[x] = BlendOver(src[x], row[x]);
 			}
 		}
 	}
@@ -2416,7 +2650,8 @@ saveIndexed = false      # When dumping, textures with a palette (CLUT4/CLUT8) c
 
 # Experimental: for a texture the game draws text into (one letter at a time, over a background like a
 # dialog box), list the texture without text as dumped, and an HD version of it scaled by a whole number.
-# The text is then drawn over the HD image, for any text. See docs/shadow-textures.md.
+# The text is then drawn over the HD image, for any text. Each letter is dumped once to new/glyphs/, and an
+# HD version of it in glyphs/ is drawn instead of the game's. See docs/shadow-textures.md.
 #[layered]
 #0x08b31020,256,128 = box_original.png|box_hd.png
 

@@ -36,6 +36,10 @@ public:
 
 	enum { XBRZ = 0, HYBRID = 1, BICUBIC = 2, HYBRID_BICUBIC = 3 };
 
+	// Scales with the given type (one of the above) instead of the configured one, and without deposterizing.
+	// out must hold width * height * factor * factor pixels. factor is 2 to 5.
+	void ScaleWithType(int type, u32 *out, u32 *src, int width, int height, int factor);
+
 protected:
 	static void ScaleXBRZ(int factor, u32* source, u32* dest, int width, int height);
 	void ScaleBilinear(int factor, u32* source, u32* dest, int width, int height);

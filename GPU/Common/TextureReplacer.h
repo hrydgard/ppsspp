@@ -22,6 +22,7 @@
 #include <mutex>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <map>
 #include <vector>
 
@@ -39,6 +40,7 @@
 class IniFile;
 class TextureCacheCommon;
 class TextureReplacer;
+class TextureScalerCommon;
 class ReplacedTextureTask;
 class LimitedWaitable;
 class VFSBackend;
@@ -139,11 +141,12 @@ public:
 	int GetNumPendingShadows() const { return (int)shadowVariants_.size(); }
 
 	// Layered replacement ([layered] in textures.ini): a texture the game draws text into is replaced by an HD
-	// image of it without the text, with the texels that differ from the original drawn on top.
+	// image of it without the text. The texels that differ from the original are the text: each letter (a
+	// connected piece of them) is drawn from an HD glyph image if the pack has one, otherwise upscaled.
 	bool IsLayered(u32 addr, int w, int h) const;
 	// The composed replacement for the current contents of a layered texture, decoded to RGBA8888 (w x h, tightly
 	// packed). Valid until the next call for the same texture. Returns nullptr if it can't be made.
-	ReplacedTexture *ComposeLayered(u32 addr, int w, int h, const u32 *pixels);
+	ReplacedTexture *ComposeLayered(u32 addr, int w, int h, const u32 *pixels, TextureScalerCommon *scaler);
 
 	// Returns nullptr if not found.
 	ReplacedTexture *FindReplacement(ReplacementCacheKey key, int w, int h);
@@ -330,11 +333,28 @@ protected:
 		int scale = 1;
 		std::vector<u32> original;
 		std::vector<u32> hd;
+		// original, upscaled like the text, to tell which upscaled texels the text changed.
+		std::vector<u32> scaledOriginal;
+		int scaledOriginalType = -1;
 		// Holds the last composed image. Never deleted while the replacer lives, since cache entries point to it.
 		ReplacedTexture *texture = nullptr;
 	};
+	// One letter of layered text: an HD image for it from the pack, or that there's none.
+	struct LayeredGlyph {
+		bool found = false;
+		int w = 0;
+		int h = 0;
+		std::vector<u32> pixels;
+	};
 	void ParseLayered(const std::string &key, const std::string &value);
 	bool LoadLayered(LayeredSlot &slot);
+	const LayeredGlyph &LookupLayeredGlyph(u64 key);
+	void SaveLayeredGlyph(u64 key, const u32 *pixels, int w, int h);
+	// -1 for no upscaling (blocks), otherwise a TextureScalerCommon type.
+	int layeredTextScaler_ = 0;
+	bool layeredGlyphs_ = true;
+	std::unordered_map<u64, LayeredGlyph> layeredGlyphCache_;
+	std::unordered_set<u64> savedLayeredGlyphs_;
 	std::unordered_map<u64, LayeredSlot> layered_;
 	// Layered textures from before an ini reload, kept alive for the same reason.
 	std::vector<ReplacedTexture *> retiredLayered_;
