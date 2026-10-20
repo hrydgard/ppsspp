@@ -36,7 +36,7 @@ void __PopsBootLoadModules();
 // Fails for a manager other than 6.60's.
 bool __PopsBootStartInit(FileLoader *pbp, const std::string &gamePath, std::string *error);
 // The emulator module is loaded, not yet started.
-void __PopsBootPatchEmulator(u32 textAddr, u32 textSize);
+void __PopsBootPatchEmulator(u32 textAddr, u32 textSize, u32 decodeStub);
 
 // The manager released the ME's reset.
 void __PopsBootStartMe();

@@ -2234,7 +2234,13 @@ static PSPModule *__KernelLoadELFFromPtr(const u8 *ptr, size_t elfSize, u32 load
 	}
 
 	if (PopsBootActive() && !strcmp(modinfo->name, "pops")) {
-		__PopsBootPatchEmulator(module->nm.text_addr, module->nm.text_size);
+		u32 decodeStub = 0;
+		for (const FuncSymbolImport &func : module->importedFuncs) {
+			if (func.nid == 0x0090B2C8 && !strncmp(func.moduleName, "scePopsMan", KERNELOBJECT_MAX_NAME_LENGTH)) {
+				decodeStub = func.stubAddr;
+			}
+		}
+		__PopsBootPatchEmulator(module->nm.text_addr, module->nm.text_size, decodeStub);
 	}
 
 	System_Notify(SystemNotification::SYMBOL_MAP_UPDATED);

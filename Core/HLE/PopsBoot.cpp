@@ -23,10 +23,13 @@
 #include <memory>
 #include <string>
 
+#include "zlib.h"
 
 #include "Common/Serialize/Serializer.h"
 #include "Common/Serialize/SerializeFuncs.h"
 #include "Core/CoreTiming.h"
+#include "Core/Debugger/MemBlockInfo.h"
+#include "Core/ELF/PBPReader.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/HLE/FunctionWrappers.h"
 #include "Core/HLE/HLE.h"
@@ -46,6 +49,7 @@
 #include "GPU/GPUCommon.h"
 
 static bool g_popsBoot = false;
+static bool g_popsConvertedPBP = false;
 static std::unique_ptr<HLEHelperThread> g_popsInitThread;
 static u32 g_popsInitPath = 0;
 static std::unique_ptr<HLEHelperThread> g_popsMeThread;
@@ -74,6 +78,9 @@ enum : u32 {
 	POPSMAN_ME_HALT1 = 0x3100,         // one HALT per sample while playing
 	POPSMAN_ME_DRAIN_POLL = 0x3164,    // lw t4, 0x28(k0)
 	POPSMAN_ME_HALT2 = 0x31C8,         // stopped
+	// Whether data matches its MAC: its own, and the one it exports as sceMeAudio_F6637A72.
+	POPSMAN_CHECK_MAC = 0x0A28,
+	POPSMAN_CHECK_MAC_EXPORT = 0x0AB8,
 };
 
 // The 6.60 emulator (pops_01g.prx and pops_02g.prx), from its text.
@@ -95,6 +102,8 @@ static const struct {
 	{ POPSMAN_ME_HALT1, 0x70000000 },  // halt
 	{ POPSMAN_ME_DRAIN_POLL, 0x8F4C0028 },
 	{ POPSMAN_ME_HALT2, 0x70000000 },
+	{ POPSMAN_CHECK_MAC, 0x27BDFFC0 },  // addiu sp, sp, -0x40
+	{ POPSMAN_CHECK_MAC_EXPORT, 0x27BDFFB0 },
 };
 
 // The emulator's PS1 clock, in PS1 CPU cycles, in its scratchpad state.
@@ -112,6 +121,7 @@ void __PopsBootInit() {
 
 void __PopsBootShutdown() {
 	g_popsBoot = false;
+	g_popsConvertedPBP = false;
 	SetSnapHalfPixelSprites(false);
 	g_meRunning = false;
 	g_meClockValid = false;
@@ -166,6 +176,7 @@ void __PopsBootDoState(PointerWrap &p) {
 		return;
 	}
 	Do(p, g_popsBoot);
+	Do(p, g_popsConvertedPBP);
 	Do(p, g_popsInitPath);
 	DoHelperThread(p, g_popsInitThread);
 	DoHelperThread(p, g_popsMeThread);
@@ -338,12 +349,45 @@ static u32 __PopsMeLockWait() {
 	return hleDelayResult(currentMIPS->r[MIPS_REG_V0], "ME lock", 10);
 }
 
+// A converted PBP's disc block, raw DEFLATE. Returns the output capacity - 1, as the emulator's
+// own decoder does.
+static int __PopsDeflateDecompress(u32 destSize, u32 src, u32 dest) {
+	if (!Memory::IsValidRange(dest, destSize) || !Memory::IsValidAddress(src)) {
+		return hleLogError(Log::sceKernel, -1, "bad buffers");
+	}
+	z_stream stream{};
+	stream.next_in = (Bytef *)Memory::GetPointerUnchecked(src);
+	stream.avail_in = (uInt)Memory::ClampValidSizeAt(src, destSize * 2);
+	stream.next_out = (Bytef *)Memory::GetPointerWriteUnchecked(dest);
+	stream.avail_out = (uInt)destSize;
+	if (inflateInit2(&stream, -MAX_WBITS) != Z_OK) {
+		return hleLogError(Log::sceKernel, -1, "inflateInit2 failed");
+	}
+	const int err = inflate(&stream, Z_FINISH);
+	inflateEnd(&stream);
+	if (err != Z_STREAM_END) {
+		return hleLogError(Log::sceKernel, -1, "inflate failed %d", err);
+	}
+	NotifyMemInfo(MemBlockFlags::WRITE, dest, (u32)stream.total_out, "PopsDeflate");
+	return hleLogDebug(Log::sceKernel, (int)(destSize - 1));
+}
+
+// A PS1 PBP's disc image starts after the PSAR's header: 0x400 in, or 0x200 for a multi-disc one.
+static bool ReadDiscImage(const PBPReader &pbp, size_t size, u8 *out) {
+	char psar[8];
+	if (!pbp.ReadSubFile(PBP_UNKNOWN_PSAR, 0, sizeof(psar), psar)) {
+		return false;
+	}
+	return pbp.ReadSubFile(PBP_UNKNOWN_PSAR, memcmp(psar, "PSTITLE", 7) == 0 ? 0x200 : 0x400, size, out);
+}
+
 const HLEFunction PopsBootCalls[] = {
 	{ 0x13370001, &WrapU_V<__PopsMeHalt>,               "__PopsMeHalt",            'x', ""    },
 	{ 0x13370002, &WrapU_V<__PopsMePrefillPoll>,        "__PopsMePrefillPoll",     'x', ""    },
 	{ 0x13370003, &WrapU_V<__PopsMeDrainPoll>,          "__PopsMeDrainPoll",       'x', ""    },
 	{ 0x13370004, &WrapU_V<__PopsMeLockWait>,           "__PopsMeLockWait",        'x', ""    },
 	{ 0x13370005, &WrapU_V<__PopsMeSync>,               "__PopsMeSync",            'x', ""    },
+	{ 0x13370006, &WrapI_UUU<__PopsDeflateDecompress>,  "__PopsDeflateDecompress", 'i', "xxx" },
 };
 
 void Register_PopsBootCalls() {
@@ -403,6 +447,13 @@ void __PopsBootLoadModules() {
 	}
 }
 
+// A store PBP's disc image is a PGD, a converted one's isn't.
+static bool IsConvertedPBP(FileLoader *loader) {
+	PBPReader pbp(loader);
+	u8 magic[4];
+	return pbp.IsValid() && ReadDiscImage(pbp, sizeof(magic), magic) && memcmp(magic, "\0PGD", 4) != 0;
+}
+
 // Sends code at addr to a syscall through a trampoline, then on to resume. The emulator takes
 // syscalls in its own text for import stubs, so they can't go in place.
 static void PatchTrampoline(u32 addr, const char *func, u32 delaySlotOp, u32 resume) {
@@ -417,7 +468,7 @@ static void PatchTrampoline(u32 addr, const char *func, u32 delaySlotOp, u32 res
 	currentMIPS->InvalidateICacheRangeDeferred(trampoline, size);
 }
 
-void __PopsBootPatchEmulator(u32 textAddr, u32 textSize) {
+void __PopsBootPatchEmulator(u32 textAddr, u32 textSize, u32 decodeStub) {
 	PopsBootSetupGPU();
 
 	// lw at, 0x29C(a0); ins at, zero, 16, 8; beq at, v1, back
@@ -438,6 +489,42 @@ void __PopsBootPatchEmulator(u32 textAddr, u32 textSize) {
 	} else {
 		ERROR_LOG(Log::sceKernel, "POPS: not the 6.60/6.61 emulator, its SPU interrupts may bunch up");
 	}
+
+	if (!g_popsConvertedPBP) {
+		return;
+	}
+	if (!decodeStub) {
+		ERROR_LOG(Log::sceKernel, "POPS: the emulator doesn't import scePopsMan_0090B2C8, the disc won't read");
+		return;
+	}
+	// A converted PBP's disc blocks are raw DEFLATE. As CFW's popcorn does, send the decoder calls
+	// (the jal two words after each "lw a2, 0xC(s3)") to the scePopsMan_0090B2C8 import, which
+	// inflates.
+	int sites = 0;
+	for (u32 addr = textAddr; addr + 8 < textAddr + textSize; addr += 4) {
+		const u32 op = Memory::ReadUnchecked_U32(addr);
+		const u32 next = Memory::ReadUnchecked_U32(addr + 4);
+		if (op == 0x8E66000C) {
+			Memory::WriteUnchecked_U32(MIPS_MAKE_JAL(decodeStub), addr + 8);
+			sites++;
+		} else if ((op == 0x14C00014 && next == 0x24E2FFFF) || (op == 0x14A00014 && next == 0x24C2FFFF)) {
+			// Also popcorn's: the track index's length doesn't count the CD audio tracks a converted
+			// image adds, so always take the full-length branch (b +0x14; addiu v0, aN, 0).
+			Memory::WriteUnchecked_U32(0x10000014, addr);
+			Memory::WriteUnchecked_U32(next & 0xFFFF0000, addr + 4);
+		}
+	}
+	Memory::WriteUnchecked_U32(MIPS_MAKE_JR_RA(), decodeStub);
+	PatchCall(decodeStub + 4, "__PopsDeflateDecompress");
+	currentMIPS->InvalidateICacheRangeDeferred(textAddr, textSize);
+	currentMIPS->InvalidateICacheRangeDeferred(decodeStub, 8);
+	INFO_LOG(Log::sceKernel, "POPS: converted PBP, %d disc decoder calls now inflate", sites);
+}
+
+static void PatchReturn(u32 addr, u32 delaySlotOp) {
+	Memory::WriteUnchecked_U32(MIPS_MAKE_JR_RA(), addr);
+	Memory::WriteUnchecked_U32(delaySlotOp, addr + 4);
+	currentMIPS->InvalidateICacheRangeDeferred(addr, 8);
 }
 
 bool __PopsBootStartInit(FileLoader *pbp, const std::string &gamePath, std::string *error) {
@@ -450,7 +537,13 @@ bool __PopsBootStartInit(FileLoader *pbp, const std::string &gamePath, std::stri
 		*error = "PS1 EBOOTs need the POPS manager of firmware 6.60 or 6.61, and this firmware has a different one.";
 		return false;
 	}
+	g_popsConvertedPBP = IsConvertedPBP(pbp);
 	const u32 loadModule = base + POPSMAN_LOAD_MODULE;
+	if (g_popsConvertedPBP) {
+		// A converted PBP has no MACs. As popcorn does, take its data as authentic.
+		PatchReturn(base + POPSMAN_CHECK_MAC, 0x24020001);  // li v0, 1
+		PatchReturn(base + POPSMAN_CHECK_MAC_EXPORT, 0x24020001);
+	}
 
 	const u32 pathSize = (u32)gamePath.size() + 1;
 	u32 allocSize = pathSize;
