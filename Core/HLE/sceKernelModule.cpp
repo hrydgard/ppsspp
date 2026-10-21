@@ -542,6 +542,10 @@ u32 KernelFindModuleImport(const char *moduleName, const char *libraryName, u32 
 // than a game), and reset on the next __KernelLoadExec. See ShouldHLEModuleForLoad below.
 static bool g_runningVSH = false;
 
+bool __KernelIsRunningVSH() {
+	return g_runningVSH;
+}
+
 // A sceKernelLoadModule whose caller is waiting for the file to be read. The module is only put
 // in memory when the wait ends - see sceKernelLoadModule.
 struct PendingModuleLoad {

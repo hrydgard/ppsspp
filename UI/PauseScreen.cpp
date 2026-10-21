@@ -46,6 +46,7 @@
 #include "Core/RetroAchievements.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/HLE/sceDisplay.h"
+#include "Core/HLE/sceKernelModule.h"
 #include "Core/HLE/sceUmd.h"
 #include "Core/HLE/sceNet.h"
 #include "Core/HLE/sceNetInet.h"
@@ -712,7 +713,19 @@ void GamePauseScreen::CreateViews() {
 	buttonColumn->Add(rightColumnItems);
 
 	rightColumnItems->SetSpacing(0.0f);
-	if (getUMDReplacePermit()) {
+	if (__KernelIsRunningVSH()) {
+		// The XMB notices discs coming and going by itself, like a PSP's.
+		if (__UmdIsInserted()) {
+			rightColumnItems->Add(new Choice(pa->T("Eject UMD"), ImageID("I_UMD")))->OnClick.Add([this](UI::EventParams &) {
+				__UmdEject();
+				RecreateViews();
+			});
+		} else {
+			rightColumnItems->Add(new Choice(pa->T("Insert UMD"), ImageID("I_UMD")))->OnClick.Add([this](UI::EventParams &) {
+				screenManager()->push(new UmdReplaceScreen(true));
+			});
+		}
+	} else if (getUMDReplacePermit()) {
 		rightColumnItems->Add(new Choice(pa->T("Switch UMD"), ImageID("I_UMD")))->OnClick.Add([this](UI::EventParams &) {
 			screenManager()->push(new UmdReplaceScreen());
 		});

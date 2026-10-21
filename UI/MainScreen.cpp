@@ -906,7 +906,7 @@ void UmdReplaceScreen::CreateViews() {
 		rightColumnItems->Add(new Choice(mm->T("Load", "Load...")))->OnClick.Add([&](UI::EventParams &e) {
 			auto mm = GetI18NCategory(I18NCat::MAINMENU);
 			System_BrowseForFile(GetRequesterToken(), mm->T("Load"), BrowseFileType::BOOTABLE, [this](std::string_view value, int) {
-				__UmdReplace(Path(value));
+				UseDisc(Path(value));
 				TriggerFinish(DR_OK);
 			});
 		});
@@ -933,8 +933,19 @@ void UmdReplaceScreen::update() {
 }
 
 void UmdReplaceScreen::OnGameSelected(UI::EventParams &e) {
-	__UmdReplace(Path(e.s));
+	UseDisc(Path(e.s));
 	TriggerFinish(DR_OK);
+}
+
+void UmdReplaceScreen::UseDisc(const Path &path) {
+	if (!insert_) {
+		__UmdReplace(path);
+		return;
+	}
+	std::string error;
+	if (!__UmdInsert(path, &error)) {
+		g_OSD.Show(OSDType::MESSAGE_ERROR, error);
+	}
 }
 
 void UmdReplaceScreen::OnGameSettings(UI::EventParams &e) {
