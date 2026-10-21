@@ -106,7 +106,7 @@ bool g_serverListLoaded = false;
 int gameModeNotifyEvent = -1;
 
 std::thread aemuPostofficeEnetThread;
-bool aemuPostofficeEnetPumping = false;
+std::atomic<bool> aemuPostofficeEnetPumping = false;
 
 #define AEMU_POSTOFFICE_PORT 27313
 #define AEMU_POSTOFFICE_ID_BASE 2048
@@ -2001,6 +2001,10 @@ void __NetAdhocDoState(PointerWrap &p) {
 		// fresh boot, failing every call with NOT_INITIALIZED; MGS Peace Walker retried
 		// sceNetAdhocctlDisconnect forever when starting a cutscene.
 		if (netAdhocInited && !cur_netAdhocInited) {
+			if (aemuPostofficeEnetThread.joinable()) {
+				aemuPostofficeEnetPumping = false;
+				aemuPostofficeEnetThread.join();
+			}
 			SetupAdhocRelayMode();
 		}
 		if (netAdhocctlInited && !cur_netAdhocctlInited) {
