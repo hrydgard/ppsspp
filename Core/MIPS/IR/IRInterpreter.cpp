@@ -16,6 +16,7 @@
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/ReplaceTables.h"
 #include "Core/HW/MMIO.h"
+#include "Core/MemFault.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 #include "Core/MIPS/MIPSTables.h"
@@ -178,6 +179,8 @@ void IRRunKernelStore(MIPSState *mips, u32 addr, u32 value, u32 op) {
 
 u32 IRInterpret(MIPSState *mips, const IRInst *inst, const IRInst *chainArena) {
 	const Memory::AddressSpace &space = *mips->space;
+	// Lets a bad guest access halt the core. Calls out to HLE and the like leave this scope.
+	Memory::IRInterpreterFaultScope faultScope(true);
 #if IR_THREADED_DISPATCH
 	static const void *dispatch[256];
 	static bool dispatchReady = false;
@@ -1448,7 +1451,10 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const IRInst *chainArena) {
 			MIPSOpcode op(inst->constant);
 			// HLE runs in the host's normal mode, see ApplyHostRoundingMode.
 			RestoreHostRoundingMode();
-			CallSyscall(mips, op);
+			{
+				Memory::IRInterpreterFaultScope outside(false);
+				CallSyscall(mips, op);
+			}
 			ApplyHostRoundingMode(mips);
 			if (coreState != CORE_RUNNING_CPU) {
 				CoreTiming::ForceCheck(mips);
@@ -1461,7 +1467,10 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const IRInst *chainArena) {
 			// If we get here, the syscall is invalid.
 			u32 pc = inst->constant;
 			RestoreHostRoundingMode();
-			CallSyscallUnresolvedAtPC(mips, pc);
+			{
+				Memory::IRInterpreterFaultScope outside(false);
+				CallSyscallUnresolvedAtPC(mips, pc);
+			}
 			ApplyHostRoundingMode(mips);
 			if (coreState != CORE_RUNNING_CPU) {
 				// hm, what's this for?
@@ -1476,7 +1485,10 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const IRInst *chainArena) {
 		IR_CASE(Interpret)  // SLOW fallback. Can be made faster. Ideally should be removed but may be useful for debugging.
 		{
 			MIPSOpcode op(inst->constant);
-			MIPSInterpret(mips, op);
+			{
+				Memory::IRInterpreterFaultScope outside(false);
+				MIPSInterpret(mips, op);
+			}
 			IR_NEXT;
 		}
 
@@ -1485,7 +1497,11 @@ u32 IRInterpret(MIPSState *mips, const IRInst *inst, const IRInst *chainArena) {
 			int funcIndex = inst->constant;
 			const ReplacementTableEntry *f = GetReplacementFunc(funcIndex);
 			RestoreHostRoundingMode();
-			int cycles = f->replaceFunc(mips);
+			int cycles;
+			{
+				Memory::IRInterpreterFaultScope outside(false);
+				cycles = f->replaceFunc(mips);
+			}
 			ApplyHostRoundingMode(mips);
 			mips->r[inst->dest] = cycles < 0 ? -1 : 0;
 			mips->downcount -= cycles < 0 ? -cycles : cycles;
