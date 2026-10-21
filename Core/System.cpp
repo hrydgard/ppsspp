@@ -514,6 +514,10 @@ static bool CPU_Init(FileLoader *fileLoader, IdentifiedFileType type, std::strin
 		// Headless replays frame dumps to compare them with references and with the PSP, which a game's
 		// workarounds would skew: DarkStalkers' present hack replaces the game's final upscale.
 		g_CoreParameter.compat.Clear();
+	} else if (type == IdentifiedFileType::PSP_PS1_PBP) {
+		// The PS1 emulator's workarounds don't depend on the PS1 game it runs. Only compat.ini sees this ID:
+		// savestates, save data and everything else use the game's own ID.
+		g_CoreParameter.compat.Load(POPS_COMPAT_ID);
 	} else {
 		g_CoreParameter.compat.Load(discId);
 	}

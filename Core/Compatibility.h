@@ -22,6 +22,10 @@
 #include <cstdint>
 #include <set>
 
+// compat.ini's ID for every PS1 game: they're all run by the firmware's same PS1 emulator. In the
+// usual letters-and-digits form, so it parses like any other ID.
+constexpr const char *POPS_COMPAT_ID = "POPS00000";
+
 // Compatibility flags are controlled by assets/compat.ini.
 // Alternatively, if PSP/System/compat.ini exists, it is merged on top, to enable editing
 // the file on Android for tests.
