@@ -104,14 +104,14 @@ static std::map<u32, VideocodecCtx> g_videocodecCtxs;
 
 // The Media Engine's own memory, modelled as an address space rather than a pool of blocks.
 //
-// mpeg.prx bounds-checks the ones it uses against 0x3FFFFF (4MB). However only 2MB are available
-// for the ME: the rest of the EDRAM is actually allocated to the GPU on a real PSP in the default
-// configuration, which is what we emulate. DMA:s can arrive in multiple pieces so this has to be
+// mpeg.prx bounds-checks the ones it uses against 0x3FFFFF (4MB), and we use all of that. A real
+// PSP's ME has less, but the frame buffers we hand out here are bigger than the decoder's own: four
+// 720x480 pictures (UMD Video) take 2MB. DMA:s can arrive in multiple pieces so this has to be
 // a "real" separate address space, so a subsequent larger read will work.
-static const u32 ME_MEM_SIZE = 2 * 1024 * 1024;
-// What we hand out ourselves lives in the top half, out of the way of the addresses mpeg.prx
-// picks for itself, which have all been well down in the first megabyte.
-static const u32 ME_ALLOC_BASE = ME_MEM_SIZE / 2;
+static const u32 ME_MEM_SIZE = 4 * 1024 * 1024;
+// What we hand out ourselves lives above the first megabyte, out of the way of the addresses mpeg.prx
+// picks for itself, which have all been well down in it.
+static const u32 ME_ALLOC_BASE = 1024 * 1024;
 static std::vector<u8> g_meRam;
 static BlockAllocator g_meAlloc(64);
 
@@ -246,6 +246,11 @@ void __VideocodecDoState(PointerWrap &p) {
 	// is the one copy - the contexts above only carry addresses into it.
 	Do(p, g_meRam);
 	g_meAlloc.DoState(p);
+	if (p.mode == p.MODE_READ && !g_meRam.empty() && g_meRam.size() < ME_MEM_SIZE) {
+		// From when the ME had 2MB. Its allocations stay where they are, and its allocator keeps
+		// the old upper bound.
+		g_meRam.resize(ME_MEM_SIZE, 0);
+	}
 }
 
 u32 VideocodecFrameBufferLayout(int width, int height, int sizes[8], u32 offsets[8]) {
