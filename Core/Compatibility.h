@@ -136,6 +136,7 @@ struct CompatFlags {
 	bool ReadbackShadow;
 	bool ColorPickingDrawSyncReadback;
 	CompatFramebuffer FixedFramebuffer;
+	uint32_t NativeResolutionFramebuffer;
 };
 
 struct VRCompat {
@@ -178,6 +179,8 @@ private:
 	void CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, float *value);
 	void CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, int *value);
 	void CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, CompatFramebuffer *value);
+	// A VRAM address, in hex.
+	void CheckSetting(IniFile &iniFile, const std::string &gameID, const char *option, uint32_t *address);
 
 	CompatFlags flags_{};
 	VRCompat vrCompat_{};

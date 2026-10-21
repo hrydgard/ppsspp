@@ -1995,6 +1995,11 @@ void FramebufferManagerCommon::ResizeFramebufFBO(VirtualFramebuffer *vfb, int w,
 	if (PSP_CoreParameter().compat.flags().Force04154000Download && vfb->fb_address == 0x04154000) {
 		force1x = true;
 	}
+	// compat.ini's NativeResolutionFramebuffer, which holds data read back texel by texel.
+	const u32 nativeResAddress = PSP_CoreParameter().compat.flags().NativeResolutionFramebuffer;
+	if (nativeResAddress != 0 && vfb->fb_address == nativeResAddress) {
+		force1x = true;
+	}
 
 	if (force1x && g_Config.iInternalResolution != 1) {
 		vfb->renderScaleFactor = 1;
