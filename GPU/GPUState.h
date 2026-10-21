@@ -620,6 +620,10 @@ public:
 	bool textureIsArray;
 	bool textureIsFramebuffer;
 	bool textureIsVideo;
+	// For a video texture, how many of its rows hold the frame (see CalcTexClamp).
+	int videoRows;
+	// And how many of its columns, 0 if not known.
+	int videoColumns;
 	bool useFlagsChanged;
 
 	float morphWeights[8];

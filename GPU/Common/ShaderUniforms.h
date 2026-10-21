@@ -115,6 +115,11 @@ void UpdateFogCoef(const GEState &state, float fogCoef[2]);
 
 // Computes u_texclamp and u_texclampoff. Only meaningful when gstate_c.needShaderTexClamp is set.
 void CalcTexClamp(float texClamp[4], float texClampOffset[2]);
+// The part of a video texture the frame fills, and whether it's smaller than the texture.
+int VideoFrameWidth();
+int VideoFrameHeight();
+bool VideoClampsS();
+bool VideoClampsT();
 
 // This happens so much that I want it inline.
 inline void UpdateUVScaleOff(const GEState &state, float uvScaleOff[4]) {

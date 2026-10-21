@@ -220,8 +220,15 @@ public:
 		u32 addr;
 		u32 size;
 		int flips;
+		// How much of each row the frame covers from addr on, 0 if not known.
+		u32 rowBytes;
 	};
 	bool IsVideo(u32 addr) const;
+	// How many bytes of video frame there are from addr on, 0 if addr isn't in one.
+	u32 VideoBytesFrom(u32 addr) const;
+	// How much of the first row of a texture at addr the video frames written there cover, in bytes,
+	// counting from addr. 0 if not known.
+	u32 VideoRowBytesFrom(u32 addr, u32 rowBytes) const;
 	bool VideoIsPlaying() const {
 		return !videos_.empty();
 	}
@@ -408,7 +415,7 @@ protected:
 	u64 drawCompleteTicks;
 	u64 busyTicks;
 
-	void NoteVideoRange(u32 addr, u32 size);
+	void NoteVideoRange(u32 addr, u32 size, u32 rowBytes = 0);
 	void DecimateVideos();
 	std::vector<VideoInfo> videos_;
 
