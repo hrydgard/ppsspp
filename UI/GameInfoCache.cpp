@@ -634,8 +634,10 @@ public:
 						info_->paramSFO.ReadSFO(sfoData);
 						info_->ParseParamSFO(fileType);
 
-						// Assuming PSP_PBP_DIRECTORY without ID or with disc_total < 1 in GAME dir must be homebrew
+						// Assuming PSP_PBP_DIRECTORY without ID or with disc_total < 1 in GAME dir must be homebrew.
+						// Not a PS1 game, whose PARAM.SFO has no DISC_TOTAL.
 						if ((info_->id.empty() || !info_->disc_total)
+							&& info_->paramSFO.GetValueString("CATEGORY") != "ME"
 							&& gamePath_.FilePathContainsNoCase("PSP/GAME/")
 							&& fileType == IdentifiedFileType::PSP_PBP_DIRECTORY) {
 							info_->id = g_paramSFO.GenerateFakeID(gamePath_);

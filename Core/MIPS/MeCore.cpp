@@ -28,6 +28,7 @@
 #include "Core/ELF/PrxDecrypter.h"
 #include "Core/FileSystems/MetaFileSystem.h"
 #include "Core/HLE/HLE.h"
+#include "Core/HLE/PopsBoot.h"
 #include "Core/HLE/sceKernelInterrupt.h"
 #include "Core/HLE/sceKernelMemory.h"
 #include "Core/HW/MeMMIO.h"
@@ -69,9 +70,10 @@ enum : u32 {
 MEState *g_meState = nullptr;
 static int meIntrEvent = -1;
 
-// Booting the VSH counts as homebrew: vshmain.prx loads as an ELF.
-bool Wanted(bool homebrew) {
-	return homebrew && g_Config.bEmulateMediaEngine;
+// Booting the VSH counts as homebrew: vshmain.prx loads as an ELF. A PS1 game always gets the ME:
+// the firmware's PS1 emulator plays its sound on it.
+bool Wanted(bool homebrew, bool pops) {
+	return pops || (homebrew && g_Config.bEmulateMediaEngine);
 }
 
 static void MeIntrCallback(u64 userdata, int cyclesLate) {
@@ -124,7 +126,9 @@ bool Init() {
 	g_meState->tickBase = CoreTiming::GetTicks(&mipsr4k);
 	PowerOn(g_meState);
 	meIntrEvent = CoreTiming::RegisterEvent("MeIntr", &MeIntrCallback);
-	Memory::g_kernelModeAnywhere = true;
+	// Not for POPS, whose code that reaches hardware is all kernel code anyway. A savestate's POPS boot
+	// is known by now; a new one turns it off in KernelInit().
+	Memory::g_kernelModeAnywhere = !PopsBootActive();
 	INFO_LOG(Log::ME, "Media Engine created, %d KB eDRAM", space->edramSize / 1024);
 	return true;
 }
@@ -260,6 +264,11 @@ static u32 CreateSysEventHandler(const char *name) {
 void KernelInit() {
 	if (!g_meState)
 		return;
+	// The POPS manager boots the ME with its own code (POPS's reboot has no me_wrapper).
+	if (PopsBootActive()) {
+		Memory::g_kernelModeAnywhere = false;
+		return;
+	}
 	if (const u32 data = LoadFirmwareImage()) {
 		BootFirmware(g_meState, data);
 		g_meState->booting = true;

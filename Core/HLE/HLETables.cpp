@@ -87,6 +87,7 @@
 #include "sceSfmt19937.h"
 #include "sceG729.h"
 #include "KUBridge.h"
+#include "PopsBoot.h"
 #include "sceAmctrl.h"
 #include "sceNetInet.h"
 #include "sceNetResolver.h"
@@ -240,6 +241,79 @@ static const HLEModule moduleList[] = {
 
 static const int numModules = ARRAY_SIZE(moduleList);
 
+// Sony renumbered the kernel NIDs at these releases. We implement 6.60's; a module from an older
+// firmware imports by its generation's NID, which GetHLENidAlias() maps to the first column. 0 where none
+// is needed (unchanged, or not known).
+//
+// Each generation's NIDs come from the call sites in popsman.prx compared with the next newer version's,
+// checked against the code of the module exporting them, and for sysreg against the registers each
+// function touches (where popsman.prx was rewritten, 5.55 and 4.05, the call sites alone get some wrong).
+static const struct {
+	const char *module;
+	u32 nids[5];  // 6.60-6.61, 6.30-6.39, 6.00-6.20, 5.01-5.55, 3.95-4.05
+} hleKernelNids[] = {
+	{ "InitForKernel",      { 0x9D33A110, 0xEE67E450, 0x977A0F90, 0,          0          } },  // InitForKernel_9D33A110
+	{ "LoadExecForKernel",  { 0xC3474C2A, 0xFCD765C9, 0x29413885, 0x9C9BB2D8, 0x63D88393 } },  // sceKernelExitVSHKernel
+	{ "ModuleMgrForKernel", { 0x939E4270, 0xFFB9B760, 0xE3CCC6EA, 0xC5A281C5, 0x24C5ABC2 } },  // sceKernelLoadModuleForKernel
+	{ "ModuleMgrForKernel", { 0x3FF74DF1, 0xE6BF3960, 0xDF8FFFAB, 0xBB8C8FDF, 0x63A3CAFB } },  // sceKernelStartModule
+	{ "sceClockgen_driver", { 0xDAB6E612, 0xA02BB1D3, 0xACC30ECE, 0,          0          } },
+	{ "sceCodec_driver",    { 0x376399B6, 0xB2EF6B19, 0x794EE731, 0,          0          } },
+	{ "sceCtrl_driver",     { 0x6C86AF22, 0xDEFAD580, 0x7A6436DE, 0,          0          } },
+	{ "sceDisplay_driver",  { 0x03F16FD4, 0x3DABE438, 0xAAC50D73, 0,          0          } },
+	{ "sceDisplay_driver",  { 0xE38CA615, 0x3E4B1B28, 0x0F82D90A, 0,          0          } },
+	{ "sceDisplay_driver",  { 0xE97E9718, 0x8930B3A9, 0xF4B7B531, 0,          0          } },
+	{ "sceDve_driver",      { 0x48005974, 0xAA085C2A, 0xA1401BA2, 0,          0          } },
+	{ "sceGe_driver",       { 0xD8633888, 0x2444EC4D, 0xD4D665C9, 0x1F226BA9, 0x1DDA69CE } },  // sceGeEdramSetSize
+	{ "sceGe_driver",       { 0x4B9554EB, 0xFEEC36F7, 0x23E9F5FA, 0,          0          } },
+	{ "sceGe_driver",       { 0x5D28A52B, 0x670F15ED, 0xF489E74B, 0,          0          } },
+	{ "sceGe_driver",       { 0xAFE6C9EF, 0xD8A53104, 0x7E2381D2, 0,          0          } },
+	{ "sceHprm_driver",     { 0xB2BEADB8, 0xADE4B1F4, 0x62CDFB12, 0,          0          } },
+	{ "sceImpose_driver",   { 0xB497314D, 0x3FE74F52, 0x8F1AC24D, 0,          0          } },  // sceImpose_driver_B497314D
+	{ "sceImpose_driver",   { 0x0F067E16, 0x44F17A7A, 0x55864BD7, 0x0BBCA0BF, 0xCD1291FD } },  // sceImposeChanges
+	{ "sceImpose_driver",   { 0x5557F4E2, 0xEBC850AC, 0x4D849B71, 0xA516434B, 0x869EB4A8 } },  // sceImposeGetBatteryIconStatus
+	{ "sceImpose_driver",   { 0xDC3BECFF, 0x4C4DF719, 0xC94AC8E2, 0x4B02F047, 0x6F502C0A } },  // sceImposeGetParam
+	{ "sceImpose_driver",   { 0x133DB99A, 0x3BD9E51B, 0x5314204F, 0,          0          } },
+	{ "sceImpose_driver",   { 0x28B97035, 0x027F21C6, 0x25011AAB, 0,          0          } },
+	{ "scePadSvc_driver",   { 0x05C9C803, 0x773BA62B, 0x79B60777, 0,          0          } },
+	{ "scePadSvc_driver",   { 0x0B3E6FD3, 0x2F9A534A, 0x3B0567D6, 0,          0          } },
+	{ "scePadSvc_driver",   { 0x7CAB5A3D, 0x830FC570, 0x1971BAE0, 0,          0          } },
+	{ "scePower_driver",    { 0x469989AD, 0,          0xEBD177D6, 0,          0xEBD177D6 } },  // scePowerSetClockFrequency630
+	{ "sceRtc_driver",      { 0x4E267E02, 0xFF530D9F, 0x2F20DAF0, 0,          0          } },
+	{ "sceRtc_driver",      { 0xE7B3ABF4, 0x99037763, 0x43F38ED8, 0,          0          } },
+	{ "sceSyscon_driver",   { 0x48448373, 0x741110C5, 0xB757C11D, 0,          0          } },
+	{ "sceSyscon_driver",   { 0x9BC5E33B, 0xC4931159, 0xF7E9487A, 0,          0          } },
+	{ "sceSysreg_driver",   { 0x41B0337B, 0x9E80B4E2, 0x47966D28, 0x48869494, 0xC4B60AB3 } },  // sceSysreg_driver_41B0337B
+	{ "sceSysreg_driver",   { 0x4634C9DC, 0xD1999F94, 0x5D3DD0B3, 0x410C74F7, 0xE08034E0 } },  // sceSysreg_driver_4634C9DC
+	{ "sceSysreg_driver",   { 0x4B4CCE80, 0x9984A972, 0x94914740, 0xE46A0890, 0x21797DCF } },  // sceSysreg_driver_4B4CCE80
+	{ "sceSysreg_driver",   { 0x8B1DD83A, 0x789597AB, 0xE7849809, 0xC7FC7669, 0x643169E5 } },  // sceSysreg_driver_8B1DD83A
+	{ "sceSysreg_driver",   { 0xB1751B06, 0x8E9E76AE, 0xB733A263, 0x823FFD7A, 0x67583EF1 } },  // sceSysreg_driver_B1751B06
+	{ "sceSysreg_driver",   { 0xC36775AD, 0x3A98CABB, 0x9EBB3C43, 0x923509A1, 0x15574362 } },  // sceSysreg_driver_C36775AD
+	{ "sceSysreg_driver",   { 0x0AE8E549, 0x86FFE348, 0x119647A7, 0x663D5471, 0xD80E8AAF } },  // sceSysregAvcResetEnable660
+	{ "sceSysreg_driver",   { 0x38527743, 0xD74D9041, 0x2B3BE2C8, 0x08E0EE7E, 0xB60FBA15 } },  // sceSysregMeBusClockEnable660
+	{ "sceSysreg_driver",   { 0x48F1C4AD, 0xE2606FCB, 0x2D858336, 0x5F190A4E, 0x8E6586AD } },  // sceSysregMeResetDisable660
+	{ "sceSysreg_driver",   { 0x457FEBA9, 0xB70793D7, 0x97EA6913, 0x20C9E2C4, 0xA36C4E9E } },  // sceSysregMeResetEnable660
+	{ "sceSysreg_driver",   { 0x0143E8A8, 0x45596E3F, 0x4643F826, 0x461B8077, 0xD83733C9 } },  // sceSysregSemaTryLock660
+	{ "sceSysreg_driver",   { 0xDB97C70E, 0x0CFD5A8A, 0x314A489C, 0x0E6301D0, 0xE65B0490 } },  // sceSysregSemaUnlock660
+	{ "SysMemForKernel",    { 0xB4F00CB5, 0xF0E0AB7A, 0xB9796F69, 0x2CFF6F90, 0x12720EDA } },  // sceKernelGetCompiledSdkVersion
+	{ "SysMemForKernel",    { 0x07C586A1, 0x458A70B5, 0x864EBFD7, 0,          0          } },  // sceKernelGetModel
+	{ "SysMemForKernel",    { 0xC90B0992, 0x3DE3C6DF, 0xF5780DAA, 0xD7E24299, 0x523E300A } },  // sceKernelGetUIDcontrolBlock
+	{ "SysMemForKernel",    { 0x8AE776AF, 0x2CFE3B22, 0,          0,          0          } },  // sceKernelMemset
+	{ "SysMemForKernel",    { 0x310802A9, 0x25A760F0, 0x02AEA33F, 0,          0          } },  // SysMemForKernel_310802A9
+	{ "SysMemForKernel",    { 0xF12A62F7, 0x52B54B93, 0xFEB5C72B, 0x950BCB31, 0x5136926D } },
+	{ "SysMemForKernel",    { 0xFDC97D28, 0xF2FEAFD5, 0xA4AC3934, 0,          0          } },
+};
+
+u32 GetHLENidAlias(std::string_view moduleName, u32 nid) {
+	for (const auto &row : hleKernelNids) {
+		for (int i = 1; i < (int)ARRAY_SIZE(row.nids); i++) {
+			if (row.nids[i] == nid && moduleName == row.module) {
+				return row.nids[0];
+			}
+		}
+	}
+	return 0;
+}
+
 void RegisterAllModules() {
 	Register_Kernel_Library();
 	Register_ThreadManForUser();
@@ -361,6 +435,8 @@ void RegisterAllModules() {
 	Register_sceSysreg_driver();
 	Register_sceSysEventForKernel();
 	Register_sceAmctrl_driver();
+	Register_InitForKernel();
+	Register_PopsBootCalls();
 
 	// Not ready to enable this due to apparent softlocks in Patapon 3.
 	// Register_sceNpMatching2();

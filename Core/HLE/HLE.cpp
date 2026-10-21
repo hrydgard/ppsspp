@@ -578,6 +578,13 @@ int GetHLEFuncIndexByNib(int moduleIndex, u32 nib) {
 		if (module.funcTable[i].ID == nib)
 			return i;
 	}
+	const u32 alias = GetHLENidAlias(module.name, nib);
+	if (alias != 0) {
+		for (int i = 0; i < module.numFunctions; i++) {
+			if (module.funcTable[i].ID == alias)
+				return i;
+		}
+	}
 	return -1;
 }
 
@@ -790,6 +797,17 @@ u64 hleDelayResult(u64 result, const char *reason, int usec) {
 		__KernelWaitCurThread(WAITTYPE_HLEDELAY, 1, (u32)result, 0, false, reason);
 	}
 	return result;
+}
+
+// Ends a thread's 32-bit hleDelayResult() early. Returns whether it was in one.
+bool hleWakeDelayedThread(int threadID) {
+	u32 error;
+	if (__KernelGetWaitID(threadID, WAITTYPE_HLEDELAY, error) != 1 || error != 0) {
+		return false;
+	}
+	CoreTiming::UnscheduleEvent(delayedResultEvent, (u64)(u32)threadID);
+	__KernelResumeThreadFromWait(threadID, __KernelGetWaitValue(threadID, error));
+	return true;
 }
 
 void hleEatCycles(int cycles) {

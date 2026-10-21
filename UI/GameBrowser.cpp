@@ -38,6 +38,7 @@
 #include "Core/Util/RecentFiles.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/ELF/PBPReader.h"
+#include "Core/MemMap.h"
 #include "Core/Util/VideoPlayer.h"
 
 #include "UI/GameBrowser.h"
@@ -986,7 +987,8 @@ static bool IsValidPBP(const Path &path, bool allowHomebrew) {
 	if (!allowHomebrew && sfo.GetValueString("DISC_ID").empty())
 		return false;
 
-	if (sfo.GetValueString("CATEGORY") == "ME")
+	// PS1 games, which need the Media Engine.
+	if (sfo.GetValueString("CATEGORY") == "ME" && !Memory::CanCreateMESpace())
 		return false;
 
 	return true;

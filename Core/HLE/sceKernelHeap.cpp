@@ -6,6 +6,7 @@
 #include "Core/HLE/HLE.h"
 #include "Core/HLE/ErrorCodes.h"
 #include "Core/HLE/FunctionWrappers.h"
+#include "Core/HLE/PopsBoot.h"
 #include "Core/HLE/sceKernel.h"
 #include "Core/HLE/sceKernelHeap.h"
 #include "Core/HLE/sceKernelMemory.h"
@@ -216,6 +217,15 @@ static int sceKernelSetUmdCacheOn(int on) {
 	return hleLogWarning(Log::sceKernel, 0, "UNIMPL");
 }
 
+// A PS1 EBOOT declares none, and the POPS manager breaks unless it reads at least 3.00.
+static int sceKernelGetCompiledSdkVersionForKernel() {
+	int version = sceKernelGetCompiledSdkVersion();
+	if (version == 0 && PopsBootActive()) {
+		version = 0x06060010;
+	}
+	return hleLogDebug(Log::sceKernel, version);
+}
+
 static u32 sceKernelMemset(u32 addr, int value, u32 size) {
 	if (Memory::IsValidRange(addr, size)) {
 		Memory::Memset(addr, (u8)value, size, "KernelMemset");
@@ -227,6 +237,12 @@ static u32 sceKernelMemset(u32 addr, int value, u32 size) {
 // aren't access-checked, so report no such UID and it skips that.
 static int sceKernelGetUIDcontrolBlock(SceUID uid, u32 controlBlockPtr) {
 	return hleLogDebug(Log::sceKernel, SCE_KERNEL_ERROR_UNKNOWN_UID, "no control blocks");
+}
+
+// The POPS manager's module_start registers its version key function here.
+static int SysMemForKernel_310802A9(u32 func) {
+	__PopsBootSetVersionKeyFunc(func);
+	return hleLogInfo(Log::sceKernel, 0);
 }
 
 const HLEFunction SysMemForKernel[] = {
@@ -257,8 +273,11 @@ const HLEFunction SysMemForKernel[] = {
 	{ 0xF91FE6AA, &WrapI_V<sceKernelSetParamSfo>,                  "sceKernelSetParamSfo",               'i', "",      HLE_KERNEL_SYSCALL },
 	{ 0xC2460DD5, &WrapI_V<sceKernelSetParamSfo>,                  "sceKernelSetParamSfo",               'i', "",      HLE_KERNEL_SYSCALL },
 	{ 0x807179E7, &WrapI_V<sceKernelSetParamSfo>,                  "sceKernelSetParamSfo",               'i', "",      HLE_KERNEL_SYSCALL },
+	// 6.60's NID.
+	{ 0xB4F00CB5, &WrapI_V<sceKernelGetCompiledSdkVersionForKernel>, "sceKernelGetCompiledSdkVersion",   'x', "",      HLE_KERNEL_SYSCALL },
 	{ 0x8AE776AF, &WrapU_UIU<sceKernelMemset>,                     "sceKernelMemset",                    'x', "xix",   HLE_KERNEL_SYSCALL },
 	{ 0xC90B0992, &WrapI_IU<sceKernelGetUIDcontrolBlock>,          "sceKernelGetUIDcontrolBlock",        'i', "ix",    HLE_KERNEL_SYSCALL },
+	{ 0x310802A9, &WrapI_U<SysMemForKernel_310802A9>,              "SysMemForKernel_310802A9",           'i', "x",     HLE_KERNEL_SYSCALL },
 };
 
 void Register_SysMemForKernel() {

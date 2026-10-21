@@ -26,6 +26,7 @@
 #include "Core/System.h"
 #include "Core/CoreTiming.h"
 #include "Core/Dialog/PSPDialog.h"
+#include "Core/HLE/PopsBoot.h"
 #include "Core/HLE/sceCtrl.h"
 #include "Core/HLE/sceKernelThread.h"
 #include "Core/HLE/scePower.h"
@@ -170,8 +171,10 @@ void PSPDialog::FinishVolatile() {
 
 	if (KernelVolatileMemUnlock(0) == 0) {
 		volatileLocked_ = false;
-		// Simulate modifications to volatile memory.
-		Memory::Memset(PSP_GetVolatileMemoryStart(), 0, PSP_GetVolatileMemoryEnd() - PSP_GetVolatileMemoryStart());
+		// Simulate modifications to volatile memory. Not under the PS1 emulator, which keeps its heap there.
+		if (!PopsBootActive()) {
+			Memory::Memset(PSP_GetVolatileMemoryStart(), 0, PSP_GetVolatileMemoryEnd() - PSP_GetVolatileMemoryStart());
+		}
 	}
 }
 

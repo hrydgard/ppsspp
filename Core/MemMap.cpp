@@ -689,6 +689,7 @@ AddressSpace *CreateMESpace() {
 	_dbg_assert_(base != nullptr && g_meSpace.base == nullptr);
 #if defined(MASKED_PSP_MEMORY) || defined(NO_MMAP)
 	// TODO: Masking would fold the eDRAM mirrors onto the scratchpad and boot page addresses.
+	static_assert(!CanCreateMESpace());
 	return nullptr;
 #else
 	size_t span = 0;

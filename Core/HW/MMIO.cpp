@@ -25,6 +25,7 @@
 #include "Core/HW/GpioMMIO.h"
 #include "Core/HW/MMIO.h"
 #include "Core/HW/MeMMIO.h"
+#include "Core/HW/PopsMMIO.h"
 #include "Core/MemMap.h"
 #include "Core/MIPS/MIPS.h"
 
@@ -145,6 +146,9 @@ void Init() {
 		MeMMIO::AudioDevice(),
 		&g_kernelUncached,
 	};
+	for (MMIODevice *device : PopsMMIO::Devices()) {
+		g_devices.push_back(device);
+	}
 	for (MMIODevice *device : g_devices) {
 		device->Reset();
 	}

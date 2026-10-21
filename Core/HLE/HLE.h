@@ -159,6 +159,7 @@ void hleEnqueueCall(u32 func, int argc, const u32 *argv, PSPAction *afterAction 
 // Delays the result for usec microseconds, allowing other threads to run during this time.
 u32 hleDelayResult(u32 result, const char *reason, int usec);
 u64 hleDelayResult(u64 result, const char *reason, int usec);
+bool hleWakeDelayedThread(int threadID);
 void hleEatCycles(int cycles);
 void hleEatMicro(int usec);
 

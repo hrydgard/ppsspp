@@ -54,6 +54,7 @@
 #include "Core/System.h"
 #include "Core/PSPLoaders.h"
 #include "Core/HLE/sceKernelModule.h"
+#include "Core/HLE/PopsBoot.h"
 
 static void UseLargeMem(int memsize) {
 	if (memsize != 1) {
@@ -656,6 +657,34 @@ bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string_view discId, bool load
 	}
 
 	return __KernelLoadExec(currentMIPS, finalName.c_str(), 0, error_string);
+}
+
+// A PS1 EBOOT, run by the firmware's POPS manager, which loads its PS1 emulator for the game.
+bool Load_PSP_POPS(FileLoader *fileLoader, std::string *error_string) {
+	static const char *const popsmanPath = "flash0:/kd/popsman.prx";
+	if (!pspFileSystem.GetFileInfo(popsmanPath).exists) {
+		auto er = GetI18NCategory(I18NCat::ERRORS);
+		*error_string = er->T("PS1NoFirmware", "PS1 games need the PS1 emulator in the PSP's firmware, and no firmware is installed. Install firmware 6.00 to 6.61 from an official PSP update file in Settings > Tools > PSP Firmware. Starting a PSP game whose disc has an updater on it also installs its firmware.");
+		return false;
+	}
+
+	// Its directory as host0:, as for a homebrew EBOOT.
+	const Path fullPath = fileLoader->GetPath();
+	auto fs = std::make_shared<DirectoryFileSystem>(&pspFileSystem, fullPath.NavigateUp(), FileSystemFlags::SIMULATE_FAT32 | FileSystemFlags::CARD);
+	pspFileSystem.Mount("host0:", fs);
+	pspFileSystem.SetStartingDirectory("host0:/");
+
+	__PopsBootInit();
+	const std::string gamePath = "host0:/" + fullPath.GetFilename();
+	INFO_LOG(Log::Loader, "POPS: booting %s through %s", gamePath.c_str(), popsmanPath);
+	if (!__KernelLoadExec(currentMIPS, popsmanPath, 0, error_string)) {
+		return false;
+	}
+	__PopsBootLoadModules();
+	if (!__PopsBootStartInit(fileLoader, gamePath, error_string)) {
+		return false;
+	}
+	return true;
 }
 
 bool Load_PSP_GE_Dump(FileLoader *fileLoader, std::string *error_string) {
