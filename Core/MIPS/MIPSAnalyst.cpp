@@ -403,6 +403,7 @@ static const HardHashTableEntry hardcodedHashes[] = {
 	{ 0xb3fef47fb27d57c9, 44, "vector_scale_t", },
 	{ 0xb43fd5078ae78029, 84, "send_commandi_stall", },
 	{ 0xb43ffbd4dc446dd2, 324, "atan2f", },
+	{ 0xb4686bcdfb76e454, 156, "activisionhits_frame_limit", }, // Activision Hits Remixed (issue #20287)
 	{ 0xb5fdb3083e6f4b3f, 36, "vhtfm_t", },
 	{ 0xb6a04277fb1e1a1a, 104, "vmmul_q_transp", },
 	{ 0xb726917d688ac95b, 268, "kagaku_no_ensemble_download_frame", }, // Toaru Majutsu to Kagaku no Ensemble
