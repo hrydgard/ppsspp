@@ -367,7 +367,7 @@ void LogoScreen::Next() {
 		switch (afterLogoScreen_) {
 		case AfterLogoScreen::TO_GAME_SETTINGS:
 			if (!gamePath.empty()) {
-				screenManager()->switchScreen(new EmuScreen(gamePath));
+				screenManager()->switchScreen(new EmuScreen(gamePath, boot_mountIso));
 			} else {
 				screenManager()->switchScreen(new MainScreen());
 			}
@@ -379,7 +379,7 @@ void LogoScreen::Next() {
 		case AfterLogoScreen::DEFAULT:
 		default:
 			if (boot_filename.size()) {
-				screenManager()->switchScreen(new EmuScreen(gamePath));
+				screenManager()->switchScreen(new EmuScreen(gamePath, boot_mountIso));
 			} else {
 				screenManager()->switchScreen(new MainScreen());
 			}

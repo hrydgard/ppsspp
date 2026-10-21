@@ -161,8 +161,8 @@ void EmuScreen::SetPSPAnalog(int iInternalScreenRotation, int stick, float x, fl
 	__CtrlSetAnalogXY(stick, x, y);
 }
 
-EmuScreen::EmuScreen(const Path &filename)
-	: gamePath_(filename) {
+EmuScreen::EmuScreen(const Path &filename, const Path &mountIso)
+	: gamePath_(filename), mountIso_(mountIso) {
 	saveStateSlot_ = SaveState::GetCurrentSlot();
 	g_controlMapper.AddListener(this);
 
@@ -321,7 +321,7 @@ void EmuScreen::ProcessGameBoot(const Path &filename) {
 	coreParam.graphicsContext = PSP_CoreParameter().graphicsContext;
 	coreParam.enableSound = g_Config.bEnableSound;
 	coreParam.fileToStart = filename;
-	coreParam.mountIso.clear();
+	coreParam.mountIso = mountIso_;
 	coreParam.mountRoot = g_Config.mountRoot;
 	coreParam.startBreak = !g_Config.bAutoRun;
 	coreParam.headLess = false;
@@ -619,6 +619,7 @@ void EmuScreen::sendMessage(UIMessage message, const char *value) {
 			bootPending_ = true;
 			bootIsReset_ = false;
 			gamePath_ = newGamePath;
+			mountIso_.clear();
 		}
 	} else if (message == UIMessage::CONFIG_LOADED) {
 		// In case we need to position touch controls differently.

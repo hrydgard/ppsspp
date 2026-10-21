@@ -6,6 +6,7 @@
 class UIContext;
 
 extern Path boot_filename;
+extern Path boot_mountIso;
 
 void UIBackgroundInit(UIContext &dc);
 void UIBackgroundShutdown();

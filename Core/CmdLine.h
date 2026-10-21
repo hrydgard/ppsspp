@@ -215,7 +215,7 @@ struct CommandLineOptions {
 	// Headless: preserve the alpha channel when saving PNG screenshots.
 	std::optional<bool> screenshotSaveKeepAlpha;
 
-	// Headless: mount an ISO/CSO on umd1:.
+	// Mount an ISO/CSO on umd1: when booting an ELF/PBP (or the VSH).
 	std::optional<std::string> mountIso;
 	// Headless: also log through OutputDebugString (Windows).
 	std::optional<bool> odsLog;

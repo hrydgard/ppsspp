@@ -529,7 +529,7 @@ static Path NormalizePath(const Path &path) {
 }
 
 bool Load_PSP_ELF_PBP(FileLoader *fileLoader, std::string_view discId, bool loadGameConfigs, std::string *error_string) {
-	// This is really just for headless, might need tweaking later.
+	// Set by --mount, which also lets the VSH boot with a disc in the drive.
 	if (PSP_CoreParameter().mountIsoLoader != nullptr) {
 		std::shared_ptr<BlockDevice> bd(ConstructBlockDevice(PSP_CoreParameter().mountIsoLoader, error_string));
 		if (bd) {
