@@ -2072,11 +2072,11 @@ u32 sceNetAdhocInit(MIPSState *mips) {
 		SetupAdhocRelayMode();
 
 		auto n = GetI18NCategory(I18NCat::NETWORKING);
-		if (g_Config.bAdhocUseUdp && g_Config.bEnableAdhocServer) {
+		if (g_Config.bAdhocUseUdp && g_Config.bEnableAdhocServer && isLocalServer) {
 			g_OSD.Show(OSDType::MESSAGE_WARNING, n->T("Built-in adhoc server does not currently support UDP"), 20.0f, "udp built-in server warning");
 		}
 
-		if (serverHasRelay && g_Config.bEnableAdhocServer) {
+		if (serverHasRelay && g_Config.bEnableAdhocServer && isLocalServer) {
 			g_OSD.Show(OSDType::MESSAGE_WARNING, n->T("Built-in adhoc server does not currently support relay"), 20.0f, "relay built-in server warning");
 		}
 
