@@ -15,7 +15,16 @@
 // Official git repository and contact information can be found at
 // https://github.com/hrydgard/ppsspp and http://www.ppsspp.org/.
 
+#include <algorithm>
+#include <cstring>
+#include <vector>
+
 #include "Common/Log.h"
+#include "Core/Debugger/MemBlockInfo.h"
+#include "Core/HLE/sceDisplay.h"
+#include "Core/HLE/sceMpegbase.h"
+#include "GPU/GPUCommon.h"
+#include "GPU/ge_constants.h"
 #include "Core/HW/MMIO.h"
 #include "Core/HW/MeMMIO.h"
 #include "Core/MemMap.h"
@@ -162,6 +171,265 @@ public:
 	void DoState(PointerWrap &p) override {}
 };
 
+// A PL080-like DMA controller with the LCD and colour space conversion registers below its
+// channels (4-7, at 0x180). Transfers run at once, when a channel is enabled. Addresses are physical;
+// on the ME's bus (a master bit in the control word), the low ones are its eDRAM. Each linked list
+// item is five words (source, destination, next, control, configuration).
+class MeDmacplusDevice : public MMIODevice {
+public:
+	MeDmacplusDevice() : MMIODevice("DMACplus", 0xBC800000, 0x200) {}
+
+	bool Read(MIPSState *mips, u32 offset, int size, u32 *value) override {
+		u32 *reg = Register(offset);
+		if (!reg)
+			return false;
+		*value = *reg;
+		return true;
+	}
+
+	bool Write(MIPSState *mips, u32 offset, int size, u32 value) override {
+		if (!g_meState || (offset & 3))
+			return false;
+		MeCore::MEState::Dmacplus &d = g_meState->dmacplus;
+		if (offset == 0x08) {
+			d.intTCStatus &= ~value;
+			return true;
+		}
+		if (offset == 0x10) {
+			// No errors to clear.
+			return true;
+		}
+		u32 *reg = Register(offset);
+		if (!reg)
+			return false;
+		*reg = value;
+		if (offset == 0x100) {
+			SetLCD(d);
+		} else if (offset == 0x160 && (value & 1)) {
+			RunCSC(d);
+		} else if (offset >= 0x180 && (offset & 0x1F) == 0x10 && (value & 1)) {
+			RunChannel(d, (offset - 0x180) / 0x20);
+		}
+		return true;
+	}
+
+	void Reset() override {}
+	void DoState(PointerWrap &p) override {}
+
+private:
+	static u32 *Register(u32 offset) {
+		if (!g_meState || (offset & 3))
+			return nullptr;
+		MeCore::MEState::Dmacplus &d = g_meState->dmacplus;
+		if (offset == 0x00 || offset == 0x04 || offset == 0x14)
+			return &d.intTCStatus;
+		if (offset >= 0x100 && offset < 0x110)
+			return &d.lcd[(offset - 0x100) / 4];
+		if (offset >= 0x120 && offset <= 0x160)
+			return &d.csc[(offset - 0x120) / 4];
+		if (offset >= 0x180 && (offset & 0x1F) < 0x14)
+			return &d.channels[(offset - 0x180) / 0x20][(offset & 0x1F) / 4];
+		return nullptr;
+	}
+
+	// Pixel format 0 is 8888 (mcidclan's samples). The others aren't known.
+	static void SetLCD(const MeCore::MEState::Dmacplus &d) {
+		if (d.lcd[1] != 0) {
+			WARN_LOG(Log::ME, "DMACplus: LCD pixel format %d", d.lcd[1]);
+		}
+		__DisplaySetFramebuf(d.lcd[0], d.lcd[3], GE_FORMAT_8888, 1);
+	}
+
+	static u8 *PhysicalPointer(u32 addr, u32 size, bool meBus) {
+		addr &= 0x1FFFFFFF;
+		const Memory::AddressSpace *space = g_meState->cpu.space;
+		if (meBus && addr + size <= space->edramSize)
+			return space->GetPointerUnchecked(addr);
+		if (Memory::IsValidRange(addr, size))
+			return Memory::GetPointerWriteUnchecked(addr);
+		return nullptr;
+	}
+
+	// The colour space conversion, as the firmware's DMACplus driver programs it (lowio.prx 6.61,
+	// sceDmacplus_driver_d126494b and 9c492b9b; dmacplus.prx 1.50 the same). The frame is two sets of
+	// half its height: buffers 0, 1, 4 and 5, and 2, 3, 6 and 7. In AVC mode they're the even and odd
+	// rows of a frame in the decoder's tiled layout (see UntileYCbCr); in VME mode, planar Y at 0x120
+	// (0x128), Cb at 0x130 (0x138) and Cr at 0x134 (0x13C). Each set goes to its own destination, or
+	// both interleave by rows into the first. Not checked on hardware: what 0x140 bits 1 and 2 do
+	// (taken as chroma line replication and leaving out the second set, from mcidclan's samples),
+	// and 0x15C bit 8 (taken as chroma being offset by 128).
+	static void RunCSC(MeCore::MEState::Dmacplus &d) {
+		const u32 *r = d.csc;
+		auto reg = [&](u32 offset) { return r[(offset - 0x120) / 4]; };
+		const u32 config = reg(0x140);
+		const bool vme = (config & 1) != 0;
+		const bool replicateChroma = (config & 2) != 0;
+		const bool onlyFirst = (config & 4) != 0;
+		const int width = ((config >> 8) & 0x3F) * 16;
+		const int height = ((config >> 16) & 0x3F) * 16;
+		const u32 output = reg(0x14C);
+		const int stride = output >> 8;
+		const int format = (output >> 1) & 3;
+		const bool separate = (output & 1) != 0;
+		d.csc[(0x160 - 0x120) / 4] &= ~1;
+		d.intTCStatus |= 2;
+		if (width == 0 || height == 0 || stride < width) {
+			ERROR_LOG(Log::ME, "DMACplus: bad colour space conversion %dx%d, stride %d", width, height, stride);
+			return;
+		}
+
+		const int setHeight = height / 2;
+		const int width2 = width / 2;
+		// Each set's planes, as rows: luma, and chroma at half width.
+		const u8 *luma[2]{}, *cb[2]{}, *cr[2]{};
+		int lumaStride = width, chromaStride = width2, chromaRowShift = 0;
+		std::vector<u8> planes;
+		if (vme) {
+			const int chromaRows = replicateChroma ? setHeight / 2 : setHeight;
+			chromaRowShift = replicateChroma ? 1 : 0;
+			for (int s = 0; s < 2; ++s) {
+				luma[s] = PhysicalPointer(reg(0x120 + s * 8), width * setHeight, true);
+				cb[s] = PhysicalPointer(reg(0x130 + s * 8), width2 * chromaRows, true);
+				cr[s] = PhysicalPointer(reg(0x134 + s * 8), width2 * chromaRows, true);
+			}
+		} else {
+			const int blocks = (width / 16) * (height / 16);
+			const int sizes[8] = { 64 * blocks, 64 * blocks, 64 * blocks, 64 * blocks, 32 * blocks, 32 * blocks, 32 * blocks, 32 * blocks };
+			const u8 *src[8];
+			for (int i = 0; i < 8; ++i)
+				src[i] = PhysicalPointer(reg(0x120 + i * 4), sizes[i], true);
+			planes.resize(width * height + 2 * width2 * (height / 2));
+			u8 *frameY = planes.data();
+			u8 *frameCb = frameY + width * height;
+			u8 *frameCr = frameCb + width2 * (height / 2);
+			if (!separate) {
+				// The sets are the frame's even and odd rows, both with the frame's chroma rows.
+				UntileYCbCr(frameY, frameCb, frameCr, src, sizes, width, height);
+				lumaStride = width * 2;
+				for (int s = 0; s < 2; ++s) {
+					luma[s] = frameY + s * width;
+					cb[s] = frameCb;
+					cr[s] = frameCr;
+				}
+			} else {
+				// Each set is a picture of its own, with its own chroma at half its height (as
+				// mcidclan's me-avc-csc-hd lays out its data, n12ToHw.py).
+				std::vector<u8> tall(width * height + 2 * width2 * (height / 2));
+				for (int s = 0; s < 2; ++s) {
+					const u8 *setSrc[8] = { src[s * 2], src[s * 2 + 1], nullptr, nullptr, src[4 + s * 2], src[5 + s * 2], nullptr, nullptr };
+					// Untiled as the even rows of a picture twice as tall.
+					UntileYCbCr(tall.data(), tall.data() + width * height, tall.data() + width * height + width2 * (height / 2), setSrc, sizes, width, height);
+					u8 *setY = frameY + s * width * setHeight;
+					for (int y = 0; y < setHeight; ++y)
+						memcpy(setY + y * width, tall.data() + 2 * y * width, width);
+					u8 *cbOut = frameCb + s * width2 * (setHeight / 2);
+					u8 *crOut = frameCr + s * width2 * (setHeight / 2);
+					const u8 *tallCb = tall.data() + width * height;
+					const u8 *tallCr = tallCb + width2 * (height / 2);
+					for (int y = 0; y < setHeight / 2; ++y) {
+						memcpy(cbOut + y * width2, tallCb + 2 * y * width2, width2);
+						memcpy(crOut + y * width2, tallCr + 2 * y * width2, width2);
+					}
+					luma[s] = setY;
+					cb[s] = cbOut;
+					cr[s] = crOut;
+				}
+				chromaRowShift = 1;
+			}
+		}
+
+		auto coefficient = [](u32 value, int shift) {
+			int c = (value >> shift) & 0x3FF;
+			return c >= 0x200 ? c - 0x400 : c;
+		};
+		int coef[3][3];
+		for (int c = 0; c < 3; ++c) {
+			const u32 value = reg(0x150 + c * 4);
+			coef[c][0] = coefficient(value, 0);
+			coef[c][1] = coefficient(value, 10);
+			coef[c][2] = coefficient(value, 20);
+		}
+		const int lumaOffset = reg(0x15C) & 0xFF;
+		const int chromaOffset = (reg(0x15C) & 0x100) ? 128 : 0;
+
+		static const GEBufferFormat formats[4] = { GE_FORMAT_8888, GE_FORMAT_565, GE_FORMAT_5551, GE_FORMAT_4444 };
+		const int bpp = format == 0 ? 4 : 2;
+		const u32 rows = separate ? setHeight : height;
+		const u32 dstAddr[2] = { reg(0x144), reg(0x148) };
+		for (int s = 0; s < 2; ++s) {
+			if (separate && s == 1 && onlyFirst)
+				break;
+			if (!luma[s] || !cb[s] || !cr[s]) {
+				ERROR_LOG(Log::ME, "DMACplus: colour space conversion source %d not readable", s);
+				continue;
+			}
+			const u32 dst = separate ? dstAddr[s] : dstAddr[0];
+			u8 *out = PhysicalPointer(dst, stride * rows * bpp, false);
+			if (!out) {
+				ERROR_LOG(Log::ME, "DMACplus: colour space conversion destination %08x not writable", dst);
+				continue;
+			}
+			for (int y = 0; y < setHeight; ++y) {
+				const u8 *rowY = luma[s] + y * lumaStride;
+				const u8 *rowCb = cb[s] + (y >> chromaRowShift) * chromaStride;
+				const u8 *rowCr = cr[s] + (y >> chromaRowShift) * chromaStride;
+				const int outRow = separate ? y : y * 2 + s;
+				u8 *outPixels = out + outRow * stride * bpp;
+				for (int x = 0; x < width; ++x) {
+					const int Y = rowY[x] - lumaOffset;
+					const int Cb = rowCb[x >> 1] - chromaOffset;
+					const int Cr = rowCr[x >> 1] - chromaOffset;
+					int rgb[3];
+					for (int c = 0; c < 3; ++c)
+						rgb[c] = std::clamp((coef[c][0] * Y + coef[c][1] * Cb + coef[c][2] * Cr + 64) >> 7, 0, 255);
+					switch (format) {
+					case 0: ((u32_le *)outPixels)[x] = rgb[0] | (rgb[1] << 8) | (rgb[2] << 16); break;
+					case 1: ((u16_le *)outPixels)[x] = (rgb[0] >> 3) | ((rgb[1] >> 2) << 5) | ((rgb[2] >> 3) << 11); break;
+					case 2: ((u16_le *)outPixels)[x] = (rgb[0] >> 3) | ((rgb[1] >> 3) << 5) | ((rgb[2] >> 3) << 10); break;
+					default: ((u16_le *)outPixels)[x] = (rgb[0] >> 4) | ((rgb[1] >> 4) << 4) | ((rgb[2] >> 4) << 8); break;
+					}
+				}
+			}
+			const u32 size = stride * rows * bpp;
+			NotifyMemInfo(MemBlockFlags::WRITE, dst & 0x1FFFFFFF, size, "DMACplusCsc");
+			if (gpu)
+				gpu->PerformWriteFormattedFromMemory(dst & 0x1FFFFFFF, size, stride, formats[format], width);
+		}
+	}
+
+	static void RunChannel(MeCore::MEState::Dmacplus &d, int channel) {
+		u32 *regs = d.channels[channel];
+		// Bounded, in case of a list that loops.
+		for (int item = 0; item < 0x10000; ++item) {
+			const u32 control = regs[3];
+			const u32 width = 1 << std::min((control >> 18) & 7, 4U);
+			const u32 bytes = (control & 0xFFF) * width;
+			u8 *src = PhysicalPointer(regs[0], bytes, (control >> 24) & 1);
+			u8 *dst = PhysicalPointer(regs[1], bytes, (control >> 25) & 1);
+			if (src && dst) {
+				memmove(dst, src, bytes);
+				NotifyMemInfo(MemBlockFlags::WRITE, regs[1] & 0x1FFFFFFF, bytes, "DMACplus");
+			} else {
+				ERROR_LOG(Log::ME, "DMACplus: bad transfer of %d bytes from %08x to %08x", bytes, regs[0], regs[1]);
+			}
+			if (control & 0x80000000)
+				d.intTCStatus |= 1 << (channel + 4);
+			const u32 next = regs[2];
+			if (next == 0)
+				break;
+			const u8 *lli = PhysicalPointer(next & ~3, 20, false);
+			if (!lli) {
+				ERROR_LOG(Log::ME, "DMACplus: bad linked list item at %08x", next);
+				break;
+			}
+			for (int i = 0; i < 5; ++i)
+				regs[i] = ((const u32_le *)lli)[i];
+		}
+		regs[4] &= ~1;
+	}
+};
+
+static MeDmacplusDevice g_dmacplus;
 static MeSysregDevice g_sysreg;
 static MeInterruptDevice g_interrupts;
 static MeMemProtectDevice g_memProtect;
@@ -172,6 +440,10 @@ MMIODevice *SysregDevice() {
 
 MMIODevice *InterruptDevice() {
 	return &g_interrupts;
+}
+
+MMIODevice *DmacplusDevice() {
+	return &g_dmacplus;
 }
 
 MMIODevice *MemProtectDevice() {

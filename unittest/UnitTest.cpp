@@ -3738,6 +3738,8 @@ TestItem availableTests[] = {
 	TEST_ITEM(MESpace),
 	TEST_ITEM(MeCore),
 	TEST_ITEM(MeInterrupts),
+	TEST_ITEM(MeWait),
+	TEST_ITEM(MeDmacplus),
 	TEST_ITEM(CPUEquivalence),
 	TEST_ITEM(CPURoundingMode),
 	TEST_ITEM(VFPUDotJit),

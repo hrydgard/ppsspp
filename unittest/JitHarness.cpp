@@ -918,6 +918,155 @@ bool TestMeInterrupts() {
 	return TestMeInterruptsOn(CPUCore::INTERPRETER) && TestMeInterruptsOn(CPUCore::IR_INTERPRETER) && TestMeInterruptsOn(CPUCore::JIT);
 }
 
+// The ME skips the rest of a slice spent polling for the main CPU, and only then.
+static bool TestMeWaitOn(CPUCore core) {
+	Memory::g_PSPModel = PSP_MODEL_FAT;
+	SetupJitHarness();
+	PSP_CoreParameter().cpuCore = core;
+	MMIO::Init();
+	bool success = true;
+
+	if (!MeCore::Init()) {
+		printf("No Media Engine on this platform, skipping\n");
+		MMIO::Shutdown();
+		DestroyJitHarness();
+		return true;
+	}
+	MeCore::MEState *me = MeCore::g_meState;
+
+	const u32 code = 0x08900000;
+	const u32 flag = code + 0x200;
+	const u32 marker = code + 0x204;
+	const u32 heartbeat = code + 0x208;
+	const char *lines[] = {
+		"lui t0, 0x0890",
+		"lw t1, 0x200(t0)",      // 0x08900004: waits for the flag
+		"beq t1, zero, 0x08900004",
+		"nop",
+		"ori t2, zero, 0x1234",
+		"sw t2, 0x204(t0)",
+		"lui t3, 0x0010",        // then counts down, which isn't waiting
+		"addiu t3, t3, -1",      // 0x0890001C
+		"bne t3, zero, 0x0890001C",
+		"nop",
+		"lw t4, 0x208(t0)",      // 0x08900028: and beats, which isn't either
+		"addiu t4, t4, 1",
+		"sw t4, 0x208(t0)",
+		"j 0x08900028",
+		"nop",
+	};
+	u32 addr = code;
+	for (const char *line : lines) {
+		std::string error;
+		if (!MipsAssembleOpcode(line, currentDebugMIPS, addr, &error)) {
+			printf("ERROR: %s: %s\n", line, error.c_str());
+			success = false;
+		}
+		addr += 4;
+	}
+	const u32 jump[] = { MIPS_MAKE_LUI(MIPS_REG_T0, 0x0890), 0x01000008 /* jr t0 */, MIPS_MAKE_NOP() };
+	memcpy(Memory::GetBootPage() + 0x40, jump, sizeof(jump));
+
+	MeCore::SetReset(false);
+	MeCore::RunFor(100000);
+	EXPECT_TRUE(me->waiting);
+	EXPECT_EQ_HEX(me->cpu.pc, code + 4);
+	EXPECT_TRUE(MeCore::GetTicks() >= 100000 && MeCore::GetTicks() < 100010);
+
+	Memory::WriteUnchecked_U32(1, flag);
+	MeCore::RunFor(100000);
+	EXPECT_FALSE(me->waiting);
+	EXPECT_EQ_HEX(Memory::ReadUnchecked_U32(marker), 0x1234);
+	const u32 left = me->cpu.r[MIPS_REG_T3];
+	EXPECT_TRUE(left > 0 && left < 0x100000 - 1000);
+
+	MeCore::RunFor(10000000);
+	EXPECT_EQ_INT(me->cpu.r[MIPS_REG_T3], 0);
+	EXPECT_FALSE(me->waiting);
+	EXPECT_TRUE(Memory::ReadUnchecked_U32(heartbeat) > 1000);
+
+	MeCore::Shutdown();
+	MMIO::Shutdown();
+	DestroyJitHarness();
+	return success;
+}
+
+bool TestMeWait() {
+	return TestMeWaitOn(CPUCore::INTERPRETER) && TestMeWaitOn(CPUCore::IR_INTERPRETER) && TestMeWaitOn(CPUCore::JIT);
+}
+
+// DMACplus moves data between the ME's eDRAM and main memory, following linked list items.
+bool TestMeDmacplus() {
+	Memory::g_PSPModel = PSP_MODEL_FAT;
+	SetupJitHarness();
+	MMIO::Init();
+	bool success = true;
+
+	if (!MeCore::Init()) {
+		printf("No Media Engine on this platform, skipping\n");
+		MMIO::Shutdown();
+		DestroyJitHarness();
+		return true;
+	}
+	const Memory::AddressSpace *space = MeCore::g_meState->cpu.space;
+	for (u32 i = 0; i < 0x2000; i += 4)
+		space->WriteUnchecked_U32(0xA0000000 | i, 0x80000000 + i);
+
+	// ME to main CPU (channel 5): 0x1000 bytes in 16-byte units, then 0x1000 more from the list.
+	auto control = [](bool srcME, bool dstME, u32 widthBit, u32 count) {
+		return (dstME ? 1U << 25 : 0) | (srcME ? 1U << 24 : 0) | (widthBit << 21) | (widthBit << 18) | (1U << 15) | (1U << 12) | count;
+	};
+	const u32 lli = 0x08900000;
+	const u32 item[5] = { 0x1000, 0x08A01000, 0, control(true, false, 2, 0x400), 1 };
+	for (int i = 0; i < 5; ++i)
+		Memory::WriteUnchecked_U32(item[i], lli + i * 4);
+	MMIO::Write(&mipsr4k, 0xBC8001B0, 4, 0);
+	MMIO::Write(&mipsr4k, 0xBC8001A0, 4, 0);
+	MMIO::Write(&mipsr4k, 0xBC8001A4, 4, 0x48A00000);
+	MMIO::Write(&mipsr4k, 0xBC8001A8, 4, lli);
+	MMIO::Write(&mipsr4k, 0xBC8001AC, 4, control(true, false, 4, 0x100) | 0x80000000);
+	MMIO::Write(&mipsr4k, 0xBC8001B0, 4, 1);
+	EXPECT_EQ_HEX(MMIO::Read(&mipsr4k, 0xBC8001B0, 4), 0);
+	EXPECT_EQ_HEX(Memory::ReadUnchecked_U32(0x08A00000), 0xA0000000);
+	EXPECT_EQ_HEX(Memory::ReadUnchecked_U32(0x08A01FFC), 0xA0001FFC);
+	EXPECT_EQ_HEX(MMIO::Read(&mipsr4k, 0xBC800004, 4), 1 << 5);
+	MMIO::Write(&mipsr4k, 0xBC800008, 4, 1 << 5);
+	EXPECT_EQ_HEX(MMIO::Read(&mipsr4k, 0xBC800004, 4), 0);
+
+	// And back (channel 4), to further into the eDRAM.
+	MMIO::Write(&mipsr4k, 0xBC800180, 4, 0x08A00000);
+	MMIO::Write(&mipsr4k, 0xBC800184, 4, 0x10000);
+	MMIO::Write(&mipsr4k, 0xBC800188, 4, 0);
+	MMIO::Write(&mipsr4k, 0xBC80018C, 4, control(false, true, 2, 0x800));
+	MMIO::Write(&mipsr4k, 0xBC800190, 4, 1);
+	EXPECT_EQ_HEX(space->ReadUnchecked_U32(0x80011FFC), 0xA0001FFC);
+
+	// Colour space conversion: a planar (VME) 32x32 grey frame to 8888, with the default matrix.
+	for (u32 i = 0; i < 32 * 32; ++i)
+		space->WriteUnchecked_U8(128, 0x80020000 + i);
+	for (u32 i = 0; i < 16 * 16 * 2; ++i)
+		space->WriteUnchecked_U8(128, 0x80030000 + i);
+	const u32 csc[] = {
+		0x120, 0x20000, 0x128, 0x20000 + 32 * 16, 0x130, 0x30000, 0x134, 0x30000 + 16 * 8,
+		0x138, 0x30000 + 16 * 16, 0x13C, 0x30000 + 16 * 24,
+		0x140, (2 << 16) | (2 << 8) | (1 << 1) | 1,
+		0x144, 0x48B00000, 0x148, 0x48B00000 + 64 * 16 * 4,
+		0x14C, (64 << 8) | 1,
+		0x150, (0x0CC << 20) | 0x095, 0x154, (0x398 << 20) | (0x3CE << 10) | 0x095, 0x158, (0x102 << 10) | 0x095,
+	};
+	for (size_t i = 0; i < ARRAY_SIZE(csc); i += 2)
+		MMIO::Write(&mipsr4k, 0xBC800000 + csc[i], 4, csc[i + 1]);
+	MMIO::Write(&mipsr4k, 0xBC800160, 4, 1);
+	EXPECT_EQ_HEX(MMIO::Read(&mipsr4k, 0xBC800160, 4) & 1, 0);
+	EXPECT_EQ_HEX(Memory::ReadUnchecked_U32(0x08B00000), 0x828282);
+	EXPECT_EQ_HEX(Memory::ReadUnchecked_U32(0x08B00000 + 64 * 31 * 4 + 31 * 4), 0x828282);
+
+	MeCore::Shutdown();
+	MMIO::Shutdown();
+	DestroyJitHarness();
+	return success;
+}
+
 // Differential fuzzing of the CPU cores. Random straight-line code (ALU, FPU, VFPU, loads and
 // stores) runs from a random register state on each core, and every core has to end up with the
 // interpreter's state, NaN payloads aside.

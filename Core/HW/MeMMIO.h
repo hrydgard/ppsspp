@@ -28,6 +28,8 @@ namespace MeMMIO {
 MMIODevice *SysregDevice();
 // The ME's interrupt controller (0xBC300000). The main CPU has its own there.
 MMIODevice *InterruptDevice();
+// DMACplus (0xBC800000): DMA between the CPUs' memories, and the LCD.
+MMIODevice *DmacplusDevice();
 // Memory protection (0xBC000000), which the ME's startup code unlocks.
 MMIODevice *MemProtectDevice();
 
