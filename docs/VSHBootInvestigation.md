@@ -45,7 +45,15 @@ Two separate things:
   and calls the drive callback the way a PSP does when a disc is inserted, and comes out with
   `game.umd.eject`. The shell then lists the disc in the Game column with its icon, background and
   animated preview, and launching it boots the game through `sceKernelLoadExecVSHDisc` (Daxter on
-  6.61, to its title menu).
+  6.61, to its title menu). In the app, the pause screen offers "Insert UMD" and "Eject UMD" while
+  the XMB is running.
+
+  UMD Video discs work too: the disc type comes from what's on the disc (`PSP_GAME`, `UMD_VIDEO`,
+  `UMD_AUDIO`), the shell lists a video disc in the Video column, and selecting it hands it to the
+  firmware's own player (`video_plugin`, `video_main_plugin`, with `mpeg_vsh.prx`). Bourne Supremacy
+  and the Spider-Man 2 trailer on the EUR Video Demo Disc play with sound. What that player needed
+  from our Media Engine HLE (per-picture SEI records, keyframe flags, field conversion in
+  `sceMpegBaseCscAvc`) is in pspautotests `video/mpeg/avcdetail` and `video/mpeg/cscavc`.
 - **It then asked whether the region matched and we didn't answer.** `sceIoDevctl` `0x01E18030` is
   the region check, and unusually it answers through the *return value* (1 matches, 0 doesn't)
   rather than an output buffer. It was unimplemented, so the VSH read the failure as a mismatch and
