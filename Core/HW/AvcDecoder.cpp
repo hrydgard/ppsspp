@@ -166,6 +166,8 @@ void AvcDecoder::Flush() {
 #endif
 	decoded_.clear();
 	outputTicks_.clear();
+	timings_.clear();
+	lastTiming_ = AvcTiming();
 	bufferingTick_ = 0;
 	firstTiming_ = true;
 	nextIndex_ = 0;
@@ -360,6 +362,7 @@ void AvcDecoder::Release() {
 	decoded_.pop_front();
 	outputTicks_.erase(d.index);
 	released_++;
+	auto timing = timings_.find(d.index);
 	outFrames_.push_back(d.frame);
 	AvcPicture pic;
 	for (int i = 0; i < 3; i++) {
@@ -368,8 +371,42 @@ void AvcDecoder::Release() {
 	}
 	pic.width = d.frame->width;
 	pic.height = d.frame->height;
+	if (timing != timings_.end()) {
+		pic.timing = timing->second;
+		timings_.erase(timing);
+	}
 	pictures_.push_back(pic);
 #endif
+}
+
+#ifdef USE_FFMPEG
+// The parser doesn't report pic_struct itself, only what it decides from it (h264_parser.c).
+static int PicStructFromParser(const AVCodecParserContext *parser) {
+	if (parser->picture_structure == AV_PICTURE_STRUCTURE_TOP_FIELD) {
+		return 1;
+	}
+	if (parser->picture_structure == AV_PICTURE_STRUCTURE_BOTTOM_FIELD) {
+		return 2;
+	}
+	switch (parser->repeat_pict) {
+	case 1: return parser->field_order == AV_FIELD_TT ? 3 : (parser->field_order == AV_FIELD_BB ? 4 : 0);
+	case 2: return parser->field_order == AV_FIELD_BB ? 6 : 5;
+	case 3: return 7;
+	case 5: return 8;
+	default: return 0;
+	}
+}
+#endif
+
+bool AvcDecoder::FrameRate(int *num, int *den) const {
+#ifdef USE_FFMPEG
+	if (codecCtx_ && codecCtx_->framerate.num > 0 && codecCtx_->framerate.den > 0) {
+		*num = codecCtx_->framerate.num;
+		*den = codecCtx_->framerate.den;
+		return true;
+	}
+#endif
+	return false;
 }
 
 int AvcDecoder::DecodePictures(const u8 *data, int size) {
@@ -384,6 +421,7 @@ int AvcDecoder::DecodePictures(const u8 *data, int size) {
 	// cpb_removal_delay and dpb_output_delay here, and whether this unit starts a buffering period.
 	bool timed = false;
 	s64 removalTick = 0;
+	lastTiming_ = AvcTiming();
 	if (parser_) {
 		u8 *out = nullptr;
 		int outSize = 0;
@@ -398,7 +436,14 @@ int AvcDecoder::DecodePictures(const u8 *data, int size) {
 			}
 			firstTiming_ = false;
 			outputTicks_[index] = removalTick + parser_->pts_dts_delta;
+			lastTiming_.picTiming = true;
+			lastTiming_.bufferingPeriod = parser_->dts_sync_point > 0;
+			lastTiming_.cpbRemovalDelay = parser_->dts_ref_dts_delta;
+			lastTiming_.dpbOutputDelay = parser_->pts_dts_delta;
 		}
+		lastTiming_.picStruct = PicStructFromParser(parser_);
+		lastTiming_.keyFrame = parser_->key_frame == 1;
+		timings_[index] = lastTiming_;
 	}
 
 	FeedFfmpeg(data, size, index);
