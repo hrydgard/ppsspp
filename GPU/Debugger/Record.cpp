@@ -32,6 +32,7 @@
 #include "Common/StringUtils.h"
 #include "Common/System/System.h"
 
+#include "Core/Compatibility.h"
 #include "Core/Core.h"
 #include "Core/ELF/ParamSFO.h"
 #include "Core/HLE/sceDisplay.h"
@@ -216,7 +217,10 @@ Path Recorder::WriteRecording() {
 	Header header{};
 	memcpy(header.magic, HEADER_MAGIC, sizeof(header.magic));
 	header.version = VERSION;
-	strncpy(header.gameID, g_paramSFO.GetDiscID().c_str(), sizeof(header.gameID));
+	// A replay looks compat.ini up by this ID, so a PS1 game's dump gets the PS1 emulator's settings. The file
+	// name keeps the game's own.
+	const std::string gameID = PSP_CoreParameter().fileType == IdentifiedFileType::PSP_PS1_PBP ? POPS_COMPAT_ID : g_paramSFO.GetDiscID();
+	strncpy(header.gameID, gameID.c_str(), sizeof(header.gameID));
 	fwrite(&header, sizeof(header), 1, fp);
 
 	u32 sz = (u32)commands.size();
